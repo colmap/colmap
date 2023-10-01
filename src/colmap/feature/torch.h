@@ -32,21 +32,17 @@
 #ifndef COLMAP_SRC_FEATURE_TORCH_H_
 #define COLMAP_SRC_FEATURE_TORCH_H_
 
-#include "colmap/feature/sift.h"
-#include "colmap/feature/types.h"
-#include "colmap/util/bitmap.h"
+#include "colmap/feature/extractor.h"
 
 namespace colmap {
 
 struct TorchFeatureOptions {
-  std::string torch_model_path;
-  SiftExtractionOptions sift_options;
+  std::string model_script_path;
+  int max_image_size = 1000;
 };
 
-bool ExtractCovariantFeatures(const TorchFeatureOptions& options,
-                              const Bitmap& bitmap,
-                              FeatureKeypoints* keypoints,
-                              FeatureDescriptors* descriptors);
+std::unique_ptr<FeatureExtractor> CreateTorchFeatureExtractor(
+    const TorchFeatureOptions& options);
 
 }  // namespace colmap
 

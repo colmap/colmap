@@ -414,7 +414,7 @@ void SiftFeatureExtractorThread::Run() {
           //                                  &image_data.keypoints,
           //                                  &image_data.descriptors);
           TorchFeatureOptions options;
-          options.torch_model_path =
+          options.model_script_path =
               "/home/joschonb/dev/colmap/build/hardnet8.pt";
           options.sift_options = sift_options_;
           success = ExtractCovariantFeatures(options,
@@ -427,7 +427,7 @@ void SiftFeatureExtractorThread::Run() {
           //                                  &image_data.keypoints,
           //                                  &image_data.descriptors);
           TorchFeatureOptions options;
-          options.torch_model_path =
+          options.model_script_path =
               "/home/joschonb/dev/colmap/build/hardnet8.pt";
           options.sift_options = sift_options_;
           success = ExtractCovariantFeatures(options,

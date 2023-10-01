@@ -40,11 +40,11 @@ COLMAP_ADD_LIBRARY(
         types.h types.cc
         utils.h utils.cc
     PUBLIC_LINK_LIBS
+        colmap_sensor
         Eigen3::Eigen
     PRIVATE_LINK_LIBS
         colmap_util
         colmap_math
-        colmap_sensor
         colmap_vlfeat
         flann
         lz4
@@ -79,10 +79,21 @@ COLMAP_ADD_TEST(
 set(MKL_INCLUDE_DIR "/usr/include")
 set(MKL_LIBRARIES "/usr/lib/x86_64-linux-gnu/libmkl_core.so")
 find_package(Torch REQUIRED)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
 
-add_library(torch_feature torch.cc)
-target_link_libraries(torch_feature "${TORCH_LIBRARIES}" colmap)
+COLMAP_ADD_LIBRARY(
+    NAME colmap_feature_torch
+    SRCS
+        torch.h torch.cc
+    PUBLIC_LINK_LIBS
+        colmap_feature
+    PRIVATE_LINK_LIBS
+        ${TORCH_LIBRARIES}
+)
+set_property(TARGET colmap_feature_torch PROPERTY CXX_STANDARD 17)
+target_compile_options(colmap_feature_torch PRIVATE ${TORCH_CXX_FLAGS})
 
-add_executable(torch_test torch_test.cc)
-target_link_libraries(torch_test torch_feature)
+COLMAP_ADD_TEST(
+    NAME torch_test
+    SRCS torch_test.cc
+    LINK_LIBS colmap_feature_torch
+)
