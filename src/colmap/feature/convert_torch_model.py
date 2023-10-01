@@ -4,7 +4,20 @@ import kornia
 from kornia.feature.laf import (
     laf_from_center_scale_ori, extract_patches_from_pyramid)
 
-model = kornia.feature.HardNet8(pretrained=True)
-inputs = [torch.rand([1, 1, 32, 32])]
-traced_script_module = torch.jit.trace(model, inputs)
-traced_script_module.save("hardnet8.pt")
+def disk(image):
+    model = kornia.feature.DISK()
+    features = model.forward(image[None, ...])
+    return (features[0].keypoints, features[0].descriptors)
+
+def sift(image):
+    model = kornia.feature.SIFTFeature()
+    features = model.forward(image[None, ...])
+    return (features[0], features[2])
+
+inputs = torch.rand([3, 256, 256])
+a = disk(inputs)
+b = disk(inputs)
+assert torch.all(a[0] == b[0])
+
+# traced_script_module = torch.jit.trace(disk, inputs)
+# traced_script_module.save("disk.pt")
