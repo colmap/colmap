@@ -229,9 +229,6 @@ vcpkg, first run `./vcpkg integrate install` and then configure COLMAP as::
     cmake .. -DCMAKE_TOOLCHAIN_FILE=path/to/vcpkg/scripts/buildsystems/vcpkg.cmake
     cmake --build . --config release --target colmap_main --parallel 24
 
-Alternatively, you can also use the Python build script. Please follow the
-instructions in the next section, but VCPKG is now the recommended approach.
-
 
 .. _installation-library:
 
