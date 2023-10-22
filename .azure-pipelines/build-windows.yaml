@@ -10,9 +10,10 @@ jobs:
   variables:
     vcpkgGitCommitId: 4c1734ba2a969b1e6daa0ac79bc46ead7324df90
     VCPKG_BINARY_SOURCES: 'clear;nuget,https://pkgs.dev.azure.com/colmap/colmap/_packaging/vcpkg/nuget/v3/index.json,readwrite'
-    CCACHE_DIR: $(Pipeline.Workspace)/ccache
+    COMPILER_CACHE_DIR: $(Pipeline.Workspace)/compiler-cache
+    COMPILER_CACHE_VERSION: 2
+    CCACHE_DIR: $(COMPILER_CACHE_DIR)/ccache
     CCACHE_BASEDIR: $(Build.SourcesDirectory)
-    CCACHE_VERSION: 2
   steps:
   - task: NuGetAuthenticate@0
     displayName: NuGet Authenticate
@@ -36,20 +37,21 @@ jobs:
 
   - task: Cache@2
     inputs:
-      key: ccache | "$(CCACHE_VERSION)" | "$(Agent.OS)" | "${{ parameters.visualStudioVersion }}" | "$(Build.BuildNumber)"
-      restoreKeys: ccache | "$(CCACHE_VERSION)" | "$(Agent.OS)" | "${{ parameters.visualStudioVersion }}"
-      path: $(CCACHE_DIR)
+      key: ccache | "$(COMPILER_CACHE_VERSION)" | "$(Agent.OS)" | "${{ parameters.visualStudioVersion }}" | "$(Build.BuildNumber)"
+      restoreKeys: ccache | "$(COMPILER_CACHE_VERSION)" | "$(Agent.OS)" | "${{ parameters.visualStudioVersion }}"
+      path: $(COMPILER_CACHE_DIR)
       cacheHitVar: CCACHE_RESTORED
-    displayName: Restore CCache
+    displayName: Restore compiler cache
 
   - pwsh: |
-      $(Build.SourcesDirectory)/.azure-pipelines/install-ccache.ps1 -Destination "$(CCACHE_DIR)/bin"
-    displayName: Install CCache
+      $(Build.SourcesDirectory)/.azure-pipelines/install-ccache.ps1 -Destination "$(COMPILER_CACHE_DIR)/bin"
+    displayName: Install compiler cache
     condition: ne(variables.CCACHE_RESTORED, 'true')
 
   - pwsh: |
-      echo "##vso[task.prependpath]$(CCACHE_DIR)/bin"
-    displayName: Setup CCache
+      echo "##vso[task.prependpath]$(COMPILER_CACHE_DIR)/bin"
+      New-Item -ItemType Directory -Force -Path "$(CCACHE_DIR)"
+    displayName: Setup compiler cache
 
   - pwsh: |
       $(Build.SourcesDirectory)/scripts/shell/enter_vs_dev_shell.ps1
@@ -80,7 +82,7 @@ jobs:
     displayName: Run tests
 
   - pwsh: |
-      ccache --show-stats
+      ccache --show-stats --verbose
       ccache --evict-older-than 1d
-      ccache --show-stats
-    displayName: Cleanup ccache
+      ccache --show-stats --verbose
+    displayName: Cleanup compiler cache

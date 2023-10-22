@@ -26,8 +26,7 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
-#
-# Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
+
 
 # This script converts a VisualSfM reconstruction file to a PLY point cloud.
 
@@ -87,10 +86,12 @@ def main():
         max_coord = int(args.normalize_p1 * num_coords)
         mean_coords = xyz.mean(0)
 
-        bbox_min = np.array([sorted_x[min_coord], sorted_y[min_coord],
-                             sorted_z[min_coord]])
-        bbox_max = np.array([sorted_x[max_coord], sorted_y[max_coord],
-                             sorted_z[max_coord]])
+        bbox_min = np.array(
+            [sorted_x[min_coord], sorted_y[min_coord], sorted_z[min_coord]]
+        )
+        bbox_max = np.array(
+            [sorted_x[max_coord], sorted_y[max_coord], sorted_z[max_coord]]
+        )
 
         extent = np.linalg.norm(bbox_max - bbox_min)
         scale = 10.0 / extent
@@ -115,9 +116,17 @@ def main():
         for i in range(xyz.shape[0]):
             if i % 1000 == 0:
                 print("Writing point", i, "/", xyz.shape[0])
-            fid.write("%f %f %f 0 0 0 %d %d %d\n" % (xyz[i, 0], xyz[i, 1],
-                                                     xyz[i, 2], rgb[i, 0],
-                                                     rgb[i, 1], rgb[i, 2]))
+            fid.write(
+                "%f %f %f 0 0 0 %d %d %d\n"
+                % (
+                    xyz[i, 0],
+                    xyz[i, 1],
+                    xyz[i, 2],
+                    rgb[i, 0],
+                    rgb[i, 1],
+                    rgb[i, 2],
+                )
+            )
 
 
 if __name__ == "__main__":

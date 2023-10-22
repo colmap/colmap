@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_MODULE "retrieval/geometry"
@@ -40,6 +38,7 @@
 
 namespace colmap {
 namespace retrieval {
+namespace {
 
 TEST(FeatureGeometry, Identity) {
   for (int x = 0; x < 3; ++x) {
@@ -137,5 +136,6 @@ TEST(FeatureGeometry, Orientation) {
   }
 }
 
+}  // namespace
 }  // namespace retrieval
 }  // namespace colmap

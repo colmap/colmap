@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/estimators/similarity_transform.h"
 
@@ -38,6 +36,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 void TestEstimateSim3dWithNumCoords(const size_t num_coords) {
   const Sim3d gt_tgt_from_src(RandomUniformReal<double>(0.1, 10),
@@ -70,4 +69,5 @@ TEST(Sim3d, EstimateDegenerate) {
   EXPECT_FALSE(EstimateSim3d(invalid_src_dst, invalid_src_dst, tgt_from_src));
 }
 
+}  // namespace
 }  // namespace colmap

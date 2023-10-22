@@ -26,8 +26,7 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
-#
-# Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
+
 
 # This script exports a COLMAP database to the file structure to run VisualSfM.
 
@@ -84,8 +83,10 @@ def main():
         print("Copying image", image_name)
         images[image_id] = (len(images), image_name)
         if not os.path.exists(os.path.join(args.output_path, image_name)):
-            shutil.copyfile(os.path.join(args.image_path, image_name),
-                            os.path.join(args.output_path, image_name))
+            shutil.copyfile(
+                os.path.join(args.image_path, image_name),
+                os.path.join(args.output_path, image_name),
+            )
 
     # The magic numbers used in VisualSfM's binary file format for storing the
     # feature descriptors.
@@ -100,16 +101,18 @@ def main():
         if os.path.exists(key_file_name):
             continue
 
-        cursor.execute("SELECT data FROM keypoints WHERE image_id=?;",
-                       (image_id,))
+        cursor.execute(
+            "SELECT data FROM keypoints WHERE image_id=?;", (image_id,)
+        )
         row = next(cursor)
         if row[0] is None:
             keypoints = np.zeros((0, 6), dtype=np.float32)
             descriptors = np.zeros((0, 128), dtype=np.uint8)
         else:
             keypoints = np.fromstring(row[0], dtype=np.float32).reshape(-1, 6)
-            cursor.execute("SELECT data FROM descriptors WHERE image_id=?;",
-                           (image_id,))
+            cursor.execute(
+                "SELECT data FROM descriptors WHERE image_id=?;", (image_id,)
+            )
             row = next(cursor)
             descriptors = np.fromstring(row[0], dtype=np.uint8).reshape(-1, 128)
 
@@ -125,27 +128,33 @@ def main():
                 fid.write(struct.pack("i", sift_eof_marker))
         else:
             with open(key_file_name, "w") as fid:
-                fid.write("%d %d\n" % (keypoints.shape[0],
-                                       descriptors.shape[1]))
+                fid.write(
+                    "%d %d\n" % (keypoints.shape[0], descriptors.shape[1])
+                )
                 for r in range(keypoints.shape[0]):
-                    fid.write("%f %f 0 0 " % (keypoints[r, 0],
-                                              keypoints[r, 1]))
-                    fid.write(" ".join(map(str,
-                                           descriptors[r].ravel().tolist())))
+                    fid.write("%f %f 0 0 " % (keypoints[r, 0], keypoints[r, 1]))
+                    fid.write(
+                        " ".join(map(str, descriptors[r].ravel().tolist()))
+                    )
                     fid.write("\n")
 
     with open(os.path.join(args.output_path, "matches.txt"), "w") as fid:
-        cursor.execute("SELECT pair_id, data FROM two_view_geometries "
-                       "WHERE rows>=?;", (args.min_num_matches,))
+        cursor.execute(
+            "SELECT pair_id, data FROM two_view_geometries " "WHERE rows>=?;",
+            (args.min_num_matches,),
+        )
         for row in cursor:
             pair_id = row[0]
-            inlier_matches = np.fromstring(row[1],
-                                           dtype=np.uint32).reshape(-1, 2)
+            inlier_matches = np.fromstring(row[1], dtype=np.uint32).reshape(
+                -1, 2
+            )
             image_id1, image_id2 = pair_id_to_image_ids(pair_id)
             image_name1 = images[image_id1][1]
             image_name2 = images[image_id2][1]
-            fid.write("%s %s %d\n" % (image_name1, image_name2,
-                                      inlier_matches.shape[0]))
+            fid.write(
+                "%s %s %d\n"
+                % (image_name1, image_name2, inlier_matches.shape[0])
+            )
             line1 = ""
             line2 = ""
             for i in range(inlier_matches.shape[0]):

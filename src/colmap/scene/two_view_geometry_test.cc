@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/scene/two_view_geometry.h"
 
@@ -36,6 +34,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(TwoViewGeometry, Default) {
   TwoViewGeometry two_view_geometry;
@@ -90,4 +89,5 @@ TEST(TwoViewGeometry, Invert) {
   EXPECT_EQ(two_view_geometry.inlier_matches[1].point2D_idx2, 3);
 }
 
+}  // namespace
 }  // namespace colmap

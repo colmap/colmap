@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/geometry/essential_matrix.h"
 
@@ -37,6 +35,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(DecomposeEssentialMatrix, Nominal) {
   const Rigid3d cam2_from_cam1(Eigen::Quaterniond::UnitRandom(),
@@ -148,4 +147,5 @@ TEST(InvertEssentialMatrix, Nominal) {
   }
 }
 
+}  // namespace
 }  // namespace colmap

@@ -26,14 +26,13 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/math/matrix.h"
 
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(DecomposeMatrixRQ, Nominal) {
   for (int i = 0; i < 10; ++i) {
@@ -49,4 +48,5 @@ TEST(DecomposeMatrixRQ, Nominal) {
   }
 }
 
+}  // namespace
 }  // namespace colmap

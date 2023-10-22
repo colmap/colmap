@@ -17,6 +17,9 @@ jobs:
       displayName: 'Ubuntu 20.04 (CUDA)'
       ubuntuVersion: 20.04
       cudaEnabled: true
+      # Disable the GUI in one of the two CUDA builds to test this build path.
+      # It is easy to break this configuration otherwise.
+      guiEnabled: false
   - template: build-ubuntu.yaml
     parameters:
       displayName: 'Ubuntu 22.04'

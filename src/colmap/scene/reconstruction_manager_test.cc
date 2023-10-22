@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/scene/reconstruction_manager.h"
 
@@ -35,6 +33,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(ReconstructionManager, Empty) {
   ReconstructionManager reconstruction_manager;
@@ -80,4 +79,5 @@ TEST(ReconstructionManager, Clear) {
   EXPECT_EQ(reconstruction_manager.Size(), 0);
 }
 
+}  // namespace
 }  // namespace colmap

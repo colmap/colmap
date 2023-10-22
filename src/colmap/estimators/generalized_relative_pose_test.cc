@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/estimators/generalized_relative_pose.h"
 
@@ -40,6 +38,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(GeneralizedRelativePose, Estimate) {
   const size_t kNumPoints = 100;
@@ -112,4 +111,5 @@ TEST(GeneralizedRelativePose, Estimate) {
   }
 }
 
+}  // namespace
 }  // namespace colmap

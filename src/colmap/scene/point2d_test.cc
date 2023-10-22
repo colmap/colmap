@@ -26,14 +26,13 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/scene/point2d.h"
 
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(Point2D, Default) {
   Point2D point2D;
@@ -54,4 +53,5 @@ TEST(Point2D, Point3DId) {
   EXPECT_FALSE(point2D.HasPoint3D());
 }
 
+}  // namespace
 }  // namespace colmap

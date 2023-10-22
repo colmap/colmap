@@ -26,14 +26,13 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/math/graph_cut.h"
 
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(GraphCut, ComputeMinGraphCutStoerWagner) {
   const std::vector<std::pair<int, int>> edges = {{3, 4},
@@ -276,4 +275,5 @@ TEST(GraphCut, MinSTGraphCut3) {
   EXPECT_TRUE(graph.IsConnectedToSink(2));
 }
 
+}  // namespace
 }  // namespace colmap

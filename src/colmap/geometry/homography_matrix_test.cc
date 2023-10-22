@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/geometry/homography_matrix.h"
 
@@ -37,6 +35,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 // Note that the test case values are obtained from OpenCV.
 TEST(DecomposeHomographyMatrix, Nominal) {
@@ -173,4 +172,5 @@ TEST(HomographyMatrixFromPose, PlanarScene) {
   EXPECT_EQ(H, H_ref);
 }
 
+}  // namespace
 }  // namespace colmap

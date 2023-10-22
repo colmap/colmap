@@ -26,14 +26,13 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/util/misc.h"
 
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(EnsureTrailingSlash, Nominal) {
   EXPECT_EQ(EnsureTrailingSlash(""), "/");
@@ -221,4 +220,5 @@ TEST(RemoveCommandLineArgument, Nominal) {
   EXPECT_EQ(argc, 0);
 }
 
+}  // namespace
 }  // namespace colmap

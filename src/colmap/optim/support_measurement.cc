@@ -26,10 +26,12 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/optim/support_measurement.h"
+
+#include "colmap/util/logging.h"
+
+#include <unordered_set>
 
 namespace colmap {
 
@@ -56,6 +58,42 @@ bool InlierSupportMeasurer::Compare(const Support& support1,
   } else {
     return support1.num_inliers == support2.num_inliers &&
            support1.residual_sum < support2.residual_sum;
+  }
+}
+
+UniqueInlierSupportMeasurer::Support UniqueInlierSupportMeasurer::Evaluate(
+    const std::vector<double>& residuals, const double max_residual) {
+  CHECK_EQ(residuals.size(), unique_sample_ids_.size());
+  Support support;
+  support.num_inliers = 0;
+  support.num_unique_inliers = 0;
+  support.residual_sum = 0;
+
+  std::unordered_set<size_t> inlier_point_ids;
+  for (size_t idx = 0; idx < residuals.size(); ++idx) {
+    if (residuals[idx] <= max_residual) {
+      support.num_inliers += 1;
+      inlier_point_ids.insert(unique_sample_ids_[idx]);
+      support.residual_sum += residuals[idx];
+    }
+  }
+  support.num_unique_inliers = inlier_point_ids.size();
+  return support;
+}
+
+bool UniqueInlierSupportMeasurer::Compare(const Support& support1,
+                                          const Support& support2) {
+  if (support1.num_unique_inliers > support2.num_unique_inliers) {
+    return true;
+  } else if (support1.num_unique_inliers == support2.num_unique_inliers) {
+    if (support1.num_inliers > support2.num_inliers) {
+      return true;
+    } else {
+      return support1.num_inliers == support2.num_inliers &&
+             support1.residual_sum < support2.residual_sum;
+    }
+  } else {
+    return false;
   }
 }
 

@@ -26,8 +26,7 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
-#
-# Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
+
 
 set(FOLDER_NAME "feature")
 
@@ -50,7 +49,10 @@ COLMAP_ADD_LIBRARY(
         lz4
 )
 if(GPU_ENABLED)
-    target_link_libraries(colmap_feature PRIVATE colmap_sift_gpu GLEW::GLEW)
+    target_link_libraries(colmap_feature PRIVATE colmap_sift_gpu)
+    if(NOT GUI_ENABLED)
+        target_link_libraries(colmap_feature PRIVATE GLEW::GLEW)
+    endif()
 endif()
 
 COLMAP_ADD_TEST(
@@ -63,8 +65,10 @@ COLMAP_ADD_TEST(
     SRCS sift_test.cc
     LINK_LIBS
         colmap_feature
-        Qt5::Widgets
 )
+if(TESTS_ENABLED AND GUI_ENABLED)
+    target_link_libraries(colmap_feature_sift_test Qt5::Widgets)
+endif()
 COLMAP_ADD_TEST(
     NAME types_test
     SRCS types_test.cc

@@ -26,14 +26,13 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/math/math.h"
 
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(SignOfNumber, Nominal) {
   EXPECT_EQ(SignOfNumber(0), 0);
@@ -191,4 +190,5 @@ TEST(TruncateCast, Nominal) {
   EXPECT_EQ((TruncateCast<int, uint16_t>(65536)), 65535);
 }
 
+}  // namespace
 }  // namespace colmap

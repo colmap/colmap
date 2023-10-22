@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/feature/types.h"
 
@@ -36,6 +34,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(FeatureKeypoints, Nominal) {
   FeatureKeypoint keypoint;
@@ -234,4 +233,5 @@ TEST(FeatureMatches, Nominal) {
   EXPECT_EQ(matches[0].point2D_idx2, kInvalidPoint2DIdx);
 }
 
+}  // namespace
 }  // namespace colmap

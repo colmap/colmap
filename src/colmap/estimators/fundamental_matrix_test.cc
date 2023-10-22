@@ -26,14 +26,13 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/estimators/fundamental_matrix.h"
 
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(FundamentalMatrix, SevenPoint) {
   const double points1_raw[] = {0.4964,
@@ -150,4 +149,5 @@ TEST(FundamentalMatrix, EightPoint) {
   EXPECT_TRUE(std::abs(F(2, 2) - 0.0221019) < 1e-5);
 }
 
+}  // namespace
 }  // namespace colmap

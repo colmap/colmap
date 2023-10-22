@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/scene/camera.h"
 
@@ -36,6 +34,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(Camera, Empty) {
   Camera camera;
@@ -374,4 +373,5 @@ TEST(Camera, Rescale) {
   EXPECT_EQ(camera.PrincipalPointY(), 2);
 }
 
+}  // namespace
 }  // namespace colmap

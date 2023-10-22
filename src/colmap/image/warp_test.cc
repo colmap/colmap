@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/image/warp.h"
 
@@ -36,6 +34,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 namespace {
 
 void GenerateRandomBitmap(const int width,
@@ -274,4 +273,5 @@ TEST(Warp, DownsampleImage) {
   EXPECT_NEAR(downsampled[3], 12.2318935, 1e-3);
 }
 
+}  // namespace
 }  // namespace colmap

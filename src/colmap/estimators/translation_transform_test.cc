@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/estimators/translation_transform.h"
 
@@ -38,6 +36,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(TranslationTransform, Estimate) {
   SetPRNGSeed(0);
@@ -71,4 +70,5 @@ TEST(TranslationTransform, Estimate) {
   }
 }
 
+}  // namespace
 }  // namespace colmap

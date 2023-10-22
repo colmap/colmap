@@ -26,14 +26,13 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/scene/track.h"
 
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(TrackElement, Empty) {
   TrackElement track_el;
@@ -133,4 +132,5 @@ TEST(Track, Compress) {
   EXPECT_EQ(track.Elements().capacity(), 2);
 }
 
+}  // namespace
 }  // namespace colmap

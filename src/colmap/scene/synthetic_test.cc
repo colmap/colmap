@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/scene/synthetic.h"
 
@@ -37,6 +35,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(SynthesizeDataset, Nominal) {
   Database database(Database::kInMemoryDatabasePath);
@@ -147,4 +146,12 @@ TEST(SynthesizeDataset, ChainedMatches) {
             (options.num_images - 1) * options.num_points3D);
 }
 
+TEST(SynthesizeDataset, NoDatabase) {
+  Database database(Database::kInMemoryDatabasePath);
+  SyntheticDatasetOptions options;
+  Reconstruction reconstruction;
+  SynthesizeDataset(options, &reconstruction);
+}
+
+}  // namespace
 }  // namespace colmap

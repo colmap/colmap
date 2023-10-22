@@ -74,19 +74,19 @@ Getting Started
 Support
 -------
 
-Please, use the `Google Group <https://groups.google.com/forum/#!forum/colmap>`_
-(colmap@googlegroups.com) for questions and the `GitHub issue tracker
-<https://github.com/colmap/colmap>`_ for bug reports, feature
-requests/additions, etc.
+Please, use `GitHub Discussions <https://github.com/colmap/colmap/discussions>`_
+for questions and the `GitHub issue tracker <https://github.com/colmap/colmap>`_
+for bug reports, feature requests/additions, etc.
 
 
 Acknowledgments
 ---------------
 
-The library was written by `Johannes L. Schönberger <https://demuc.de/>`_.
-Funding was provided by his PhD advisors `Jan-Michael Frahm
-<http://frahm.web.unc.edu/>`_ and `Marc Pollefeys
-<https://people.inf.ethz.ch/pomarc/>`_.
+The library was originally written by `Johannes L. Schönberger
+<https://demuc.de/>`_ with funding provided by his PhD advisors Jan-Michael
+Frahm and Marc Pollefeys. Since then the project has benefitted from countless
+community contributions, including bug fixes, improvements, new features,
+third-party tooling, and community support.
 
 
 .. toctree::

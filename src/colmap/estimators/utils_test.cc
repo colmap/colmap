@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/estimators/utils.h"
 
@@ -36,6 +34,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(CenterAndNormalizeImagePoints, Nominal) {
   std::vector<Eigen::Vector2d> points;
@@ -105,4 +104,5 @@ TEST(ComputeSquaredReprojectionError, Nominal) {
   EXPECT_EQ(residuals[2], 13);
 }
 
+}  // namespace
 }  // namespace colmap

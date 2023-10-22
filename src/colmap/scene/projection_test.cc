@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/scene/projection.h"
 
@@ -39,6 +37,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(CalculateSquaredReprojectionError, Nominal) {
   const Rigid3d cam_from_world(Eigen::Quaterniond::Identity(),
@@ -171,4 +170,5 @@ TEST(HasPointPositiveDepth, Nominal) {
   EXPECT_FALSE(check4);
 }
 
+}  // namespace
 }  // namespace colmap

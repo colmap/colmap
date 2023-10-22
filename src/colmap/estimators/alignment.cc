@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/estimators/alignment.h"
 
@@ -35,6 +33,10 @@
 #include "colmap/geometry/pose.h"
 #include "colmap/optim/loransac.h"
 #include "colmap/scene/projection.h"
+
+#include <unordered_map>
+
+#include <glog/logging.h>
 
 namespace colmap {
 namespace {
@@ -237,11 +239,12 @@ bool AlignReconstructionToLocations(
   return true;
 }
 
-bool AlignReconstructions(const Reconstruction& src_reconstruction,
-                          const Reconstruction& tgt_reconstruction,
-                          const double min_inlier_observations,
-                          const double max_reproj_error,
-                          Sim3d* tgt_from_src) {
+bool AlignReconstructionsViaReprojections(
+    const Reconstruction& src_reconstruction,
+    const Reconstruction& tgt_reconstruction,
+    const double min_inlier_observations,
+    const double max_reproj_error,
+    Sim3d* tgt_from_src) {
   CHECK_GE(min_inlier_observations, 0.0);
   CHECK_LE(min_inlier_observations, 1.0);
 
@@ -280,10 +283,11 @@ bool AlignReconstructions(const Reconstruction& src_reconstruction,
   return report.success;
 }
 
-bool AlignReconstructions(const Reconstruction& src_reconstruction,
-                          const Reconstruction& tgt_reconstruction,
-                          const double max_proj_center_error,
-                          Sim3d* tgt_from_src) {
+bool AlignReconstructionsViaProjCenters(
+    const Reconstruction& src_reconstruction,
+    const Reconstruction& tgt_reconstruction,
+    const double max_proj_center_error,
+    Sim3d* tgt_from_src) {
   CHECK_GT(max_proj_center_error, 0);
 
   std::vector<std::string> ref_image_names;
@@ -335,15 +339,81 @@ std::vector<ImageAlignmentError> ComputeImageAlignmentError(
   return errors;
 }
 
+bool AlignReconstructionsViaPoints(const Reconstruction& src_reconstruction,
+                                   const Reconstruction& tgt_reconstruction,
+                                   const size_t min_common_observations,
+                                   const double max_error,
+                                   const double min_inlier_ratio,
+                                   Sim3d* tgt_from_src) {
+  CHECK_GT(min_common_observations, 0);
+  CHECK_GT(max_error, 0.0);
+  CHECK_GE(min_inlier_ratio, 0.0);
+  CHECK_LE(min_inlier_ratio, 1.0);
+
+  std::vector<Eigen::Vector3d> src_xyz;
+  std::vector<Eigen::Vector3d> tgt_xyz;
+  std::unordered_map<point3D_t, size_t> counts;
+  // Associate 3D points using point2D_idx
+  for (const auto& src_point3D : src_reconstruction.Points3D()) {
+    counts.clear();
+    // Count how often a 3D point in tgt is associated to this 3D point
+    const Track& track = src_point3D.second.Track();
+    for (const auto& track_el : track.Elements()) {
+      if (!tgt_reconstruction.IsImageRegistered(track_el.image_id)) {
+        continue;
+      }
+      const Point2D& tgt_point2D = tgt_reconstruction.Image(track_el.image_id)
+                                       .Point2D(track_el.point2D_idx);
+      if (tgt_point2D.HasPoint3D()) {
+        if (counts.find(tgt_point2D.point3D_id) != counts.end()) {
+          counts[tgt_point2D.point3D_id]++;
+        } else {
+          counts[tgt_point2D.point3D_id] = 0;
+        }
+      }
+    }
+    if (counts.empty()) {
+      continue;
+    }
+    // The 3D point in tgt who is associated the most is selected
+    auto best_p3D =
+        std::max_element(counts.begin(),
+                         counts.end(),
+                         [](const std::pair<point3D_t, size_t>& p1,
+                            const std::pair<point3D_t, size_t>& p2) {
+                           return p1.second < p2.second;
+                         });
+    if (best_p3D->second >= min_common_observations) {
+      src_xyz.push_back(src_point3D.second.XYZ());
+      tgt_xyz.push_back(tgt_reconstruction.Point3D(best_p3D->first).XYZ());
+    }
+  }
+  CHECK_EQ(src_xyz.size(), tgt_xyz.size());
+  LOG(INFO) << "Found " << src_xyz.size() << " / "
+            << src_reconstruction.NumPoints3D() << " valid correspondences.";
+
+  RANSACOptions ransac_options;
+  ransac_options.max_error = max_error;
+  ransac_options.min_inlier_ratio = min_inlier_ratio;
+  LORANSAC<SimilarityTransformEstimator<3, true>,
+           SimilarityTransformEstimator<3, true>>
+      ransac(ransac_options);
+  const auto report = ransac.Estimate(src_xyz, tgt_xyz);
+  if (report.success) {
+    *tgt_from_src = Sim3d::FromMatrix(report.model);
+  }
+  return report.success;
+}
+
 bool MergeReconstructions(const double max_reproj_error,
                           const Reconstruction& src_reconstruction,
                           Reconstruction* tgt_reconstruction) {
   Sim3d tgt_from_src;
-  if (!AlignReconstructions(src_reconstruction,
-                            *tgt_reconstruction,
-                            /*min_inlier_observations=*/0.3,
-                            max_reproj_error,
-                            &tgt_from_src)) {
+  if (!AlignReconstructionsViaReprojections(src_reconstruction,
+                                            *tgt_reconstruction,
+                                            /*min_inlier_observations=*/0.3,
+                                            max_reproj_error,
+                                            &tgt_from_src)) {
     return false;
   }
 

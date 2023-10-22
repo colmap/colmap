@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/optim/least_absolute_deviations.h"
 
@@ -37,6 +35,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(SolveLeastAbsoluteDeviations, OverDetermined) {
   Eigen::SparseMatrix<double> A(4, 3);
@@ -101,4 +100,5 @@ TEST(SolveLeastAbsoluteDeviations, UnderDetermined) {
   EXPECT_FALSE(SolveLeastAbsoluteDeviations(options, A, b, &x));
 }
 
+}  // namespace
 }  // namespace colmap

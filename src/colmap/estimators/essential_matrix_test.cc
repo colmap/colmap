@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/geometry/essential_matrix.h"
 
@@ -41,6 +39,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(EssentialMatrix, FivePoint) {
   const double points1_raw[] = {
@@ -153,4 +152,5 @@ TEST(EssentialMatrix, EightPoint) {
   EXPECT_TRUE(std::abs(s(2)) < 1e-5);
 }
 
+}  // namespace
 }  // namespace colmap

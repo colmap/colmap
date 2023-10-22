@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/util/opengl_utils.h"
 
@@ -37,6 +35,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(OpenGLContextManager, Nominal) {
   char app_name[] = "Test";
@@ -72,4 +71,5 @@ TEST(RunThreadWithOpenGLContext, Nominal) {
   RunThreadWithOpenGLContext(&thread);
 }
 
+}  // namespace
 }  // namespace colmap

@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/image/undistortion.h"
 
@@ -36,6 +34,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(UndistortCamera, Nominal) {
   UndistortCameraOptions options;
@@ -254,4 +253,5 @@ TEST(RectifyStereoCameras, Nominal) {
   EXPECT_TRUE(Q.isApprox(Q_ref, 1e-5));
 }
 
+}  // namespace
 }  // namespace colmap

@@ -26,8 +26,7 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
-#
-# Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
+
 
 set(FOLDER_NAME "exe")
 
@@ -79,6 +78,7 @@ COLMAP_ADD_EXECUTABLE(
         vocab_tree.cc
     LINK_LIBS
         colmap_controllers
+        colmap_retrieval
         colmap_scene
         colmap_sfm
         colmap_util

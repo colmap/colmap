@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/feature/sift.h"
 
@@ -40,6 +38,10 @@
 
 #if defined(COLMAP_GPU_ENABLED)
 #include "thirdparty/SiftGPU/SiftGPU.h"
+#if !defined(COLMAP_GUI_ENABLED)
+// GLEW symbols are already defined by Qt.
+#include <GL/glew.h>
+#endif  // COLMAP_GUI_ENABLED
 #endif  // COLMAP_GPU_ENABLED
 #include "thirdparty/VLFeat/covdet.h"
 #include "thirdparty/VLFeat/sift.h"

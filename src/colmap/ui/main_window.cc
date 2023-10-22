@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/ui/main_window.h"
 
@@ -1355,7 +1353,7 @@ void MainWindow::Documentation() {
 
 void MainWindow::Support() {
   QDesktopServices::openUrl(
-      QUrl("https://groups.google.com/forum/#!forum/colmap"));
+      QUrl("https://github.com/colmap/colmap/discussions"));
 }
 
 void MainWindow::RenderToggle() {

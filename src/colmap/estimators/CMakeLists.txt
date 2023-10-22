@@ -26,8 +26,7 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
-#
-# Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
+
 
 set(FOLDER_NAME "estimators")
 
@@ -48,6 +47,7 @@ COLMAP_ADD_LIBRARY(
         generalized_relative_pose.h generalized_relative_pose.cc
         homography_matrix.h homography_matrix.cc
         pose.h pose.cc
+        generalized_pose.h generalized_pose.cc
         similarity_transform.h
         translation_transform.h
         triangulation.h triangulation.cc
@@ -74,6 +74,11 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME affine_transform_test
     SRCS affine_transform_test.cc
+    LINK_LIBS colmap_estimators
+)
+COLMAP_ADD_TEST(
+    NAME alignment_test
+    SRCS alignment_test.cc
     LINK_LIBS colmap_estimators
 )
 COLMAP_ADD_TEST(
@@ -109,6 +114,11 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME generalized_absolute_pose_test
     SRCS generalized_absolute_pose_test.cc
+    LINK_LIBS colmap_estimators
+)
+COLMAP_ADD_TEST(
+    NAME generalized_pose_test
+    SRCS generalized_pose_test.cc
     LINK_LIBS colmap_estimators
 )
 COLMAP_ADD_TEST(

@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/geometry/rigid3.h"
 
@@ -36,6 +34,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 Rigid3d TestRigid3d() {
   return Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
@@ -116,4 +115,5 @@ TEST(Rigid3d, Compose) {
   EXPECT_LT((d_from_a * x_in_a - x_in_d).norm(), 1e-6);
 }
 
+}  // namespace
 }  // namespace colmap

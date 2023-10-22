@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/mvs/consistency_graph.h"
 
@@ -35,6 +33,7 @@
 
 namespace colmap {
 namespace mvs {
+namespace {
 
 TEST(ConsistencyGraph, Empty) {
   const std::vector<int> data;
@@ -97,5 +96,6 @@ TEST(ConsistencyGraph, Full) {
   EXPECT_EQ(consistency_graph.GetNumBytes(), 48);
 }
 
+}  // namespace
 }  // namespace mvs
 }  // namespace colmap

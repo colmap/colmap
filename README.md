@@ -66,18 +66,19 @@ The documentation is available at https://colmap.github.io/.
 Support
 -------
 
-Please, use the COLMAP Google Group at
-https://groups.google.com/forum/#!forum/colmap (colmap@googlegroups.com) for
-questions and the GitHub issue tracker at https://github.com/colmap/colmap for
-bug reports, feature requests/additions, etc.
+Please, use GitHub Discussions at https://github.com/colmap/colmap/discussions
+for questions and the GitHub issue tracker at https://github.com/colmap/colmap
+for bug reports, feature requests/additions, etc.
 
 
 Acknowledgments
 ---------------
 
-The library was written by Johannes L. Schönberger (https://demuc.de/). Funding
-was provided by his PhD advisors Jan-Michael Frahm (http://frahm.web.unc.edu/)
-and Marc Pollefeys (https://people.inf.ethz.ch/pomarc/).
+The library was originally written by Johannes L. Schönberger
+(https://demuc.de/) with funding provided by his PhD advisors Jan-Michael Frahm
+and Marc Pollefeys. Since then the project has benefitted from countless
+community contributions, including bug fixes, improvements, new features,
+third-party tooling, and community support.
 
 
 Contribution
@@ -124,4 +125,3 @@ dependencies may affect the resulting COLMAP license.
     ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
     POSSIBILITY OF SUCH DAMAGE.
 
-    Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)

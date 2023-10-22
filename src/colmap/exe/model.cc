@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/exe/model.h"
 
@@ -540,18 +538,18 @@ bool CompareModels(const Reconstruction& reconstruction1,
 
   bool success = false;
   if (alignment_error == "reprojection") {
-    success = AlignReconstructions(
+    success = AlignReconstructionsViaReprojections(
         reconstruction1,
         reconstruction2,
         /*min_inlier_observations=*/min_inlier_observations,
         /*max_reproj_error=*/max_reproj_error,
         &rec2_from_rec1);
   } else if (alignment_error == "proj_center") {
-    success =
-        AlignReconstructions(reconstruction1,
-                             reconstruction2,
-                             /*max_proj_center_error=*/max_proj_center_error,
-                             &rec2_from_rec1);
+    success = AlignReconstructionsViaProjCenters(
+        reconstruction1,
+        reconstruction2,
+        /*max_proj_center_error=*/max_proj_center_error,
+        &rec2_from_rec1);
   } else {
     LOG(ERROR) << "Invalid alignment_error specified.";
     return false;

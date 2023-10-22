@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/scene/reconstruction.h"
 
@@ -39,6 +37,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 void GenerateReconstruction(const image_t num_images,
                             Reconstruction* reconstruction) {
@@ -630,4 +629,5 @@ TEST(Reconstruction, UpdatePoint3DErrors) {
   EXPECT_EQ(reconstruction.Point3D(point3D_id).Error(), 1);
 }
 
+}  // namespace
 }  // namespace colmap

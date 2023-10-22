@@ -26,14 +26,13 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/math/polynomial.h"
 
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 #define CHECK_EQUAL_RESULT(find_func1, coeffs1, find_func2, coeffs2) \
   {                                                                  \
@@ -200,4 +199,5 @@ TEST(FindPolynomialRootsCompanionMatrixZeroSolution, Nominal) {
   EXPECT_TRUE(imag.isApprox(ref_imag, 1e-6));
 }
 
+}  // namespace
 }  // namespace colmap

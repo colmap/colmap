@@ -41,7 +41,10 @@ def check_small_errors_or_exit(
                 print("Exceeded rotation error threshold:", rotation_error)
                 error = True
             if proj_center_error > max_proj_center_error:
-                print("Exceeded projection center error threshold:", proj_center_error)
+                print(
+                    "Exceeded projection center error threshold:",
+                    proj_center_error,
+                )
                 error = True
 
     if num_images != expected_num_images:
@@ -55,7 +58,9 @@ def check_small_errors_or_exit(
 def process_dataset(args, dataset_name):
     print("Processing dataset:", dataset_name)
 
-    workspace_path = os.path.join(os.path.realpath(args.workspace_path), dataset_name)
+    workspace_path = os.path.join(
+        os.path.realpath(args.workspace_path), dataset_name
+    )
     os.makedirs(workspace_path, exist_ok=True)
 
     dataset_archive_path = os.path.join(workspace_path, f"{dataset_name}.7z")
@@ -64,7 +69,9 @@ def process_dataset(args, dataset_name):
         dataset_archive_path,
     )
 
-    subprocess.check_call(["7zz", "x", "-y", f"{dataset_name}.7z"], cwd=workspace_path)
+    subprocess.check_call(
+        ["7zz", "x", "-y", f"{dataset_name}.7z"], cwd=workspace_path
+    )
 
     # Find undistorted parameters of first camera and initialize all images with it.
     with open(

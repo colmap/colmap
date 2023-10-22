@@ -8,9 +8,10 @@ jobs:
   pool:
     vmImage: 'macOS-${{ parameters.macVersion }}'
   variables:
-    CCACHE_DIR: $(Pipeline.Workspace)/ccache
+    COMPILER_CACHE_DIR: $(Pipeline.Workspace)/compiler-cache
+    COMPILER_CACHE_VERSION: 2
+    CCACHE_DIR: $(COMPILER_CACHE_DIR)/ccache
     CCACHE_BASEDIR: $(Build.SourcesDirectory)
-    CCACHE_VERSION: 1
   steps:
   - script: |
       brew install \
@@ -33,10 +34,10 @@ jobs:
 
   - task: Cache@2
     inputs:
-      key: ccache | "$(CCACHE_VERSION)" | "$(Agent.OS)" | "${{ parameters.displayName }}" | "$(Build.BuildNumber)"
-      restoreKeys: ccache | "$(CCACHE_VERSION)" | "$(Agent.OS)" | "${{ parameters.displayName }}"
-      path: $(CCACHE_DIR)
-    displayName: Restore CCache
+      key: ccache | "$(COMPILER_CACHE_VERSION)" | "$(Agent.OS)" | "${{ parameters.displayName }}" | "$(Build.BuildNumber)"
+      restoreKeys: ccache | "$(COMPILER_CACHE_VERSION)" | "$(Agent.OS)" | "${{ parameters.displayName }}"
+      path: $(COMPILER_CACHE_DIR)
+    displayName: Restore compiler cache
 
   - script: |
       export PATH="/usr/local/opt/qt@5/bin:$PATH"
@@ -63,7 +64,7 @@ jobs:
 
   - script: |
       set -x
-      ccache --show-stats
+      ccache --show-stats --verbose
       ccache --evict-older-than 1d
-      ccache --show-stats
-    displayName: Cleanup ccache
+      ccache --show-stats --verbose
+    displayName: Cleanup compiler cache

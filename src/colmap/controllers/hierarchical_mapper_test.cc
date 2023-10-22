@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/controllers/hierarchical_mapper.h"
 
@@ -38,6 +36,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 void ExpectEqualReconstructions(const Reconstruction& gt,
                                 const Reconstruction& computed,
@@ -51,10 +50,10 @@ void ExpectEqualReconstructions(const Reconstruction& gt,
             (1 - num_obs_tolerance) * gt.ComputeNumObservations());
 
   Sim3d gtFromComputed;
-  AlignReconstructions(computed,
-                       gt,
-                       /*max_proj_center_error=*/0.1,
-                       &gtFromComputed);
+  AlignReconstructionsViaProjCenters(computed,
+                                     gt,
+                                     /*max_proj_center_error=*/0.1,
+                                     &gtFromComputed);
 
   const std::vector<ImageAlignmentError> errors =
       ComputeImageAlignmentError(computed, gt, gtFromComputed);
@@ -140,4 +139,5 @@ TEST(HierarchicalMapperController, MultiReconstruction) {
                              /*num_obs_tolerance=*/0);
 }
 
+}  // namespace
 }  // namespace colmap
