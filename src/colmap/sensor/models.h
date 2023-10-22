@@ -86,25 +86,25 @@ static const int kInvalidCameraModelId = -1;
                                  num_pp_params_val,                           \
                                  num_extra_params_val)                        \
   static constexpr size_t num_params =                                        \
-      num_focal_params_val + num_pp_params_val + num_extra_params_val;        \
+      (num_focal_params_val) + (num_pp_params_val) + (num_extra_params_val);  \
   static constexpr size_t num_focal_params = num_focal_params_val;            \
   static constexpr size_t num_pp_params = num_pp_params_val;                  \
   static constexpr size_t num_extra_params = num_extra_params_val;            \
   static constexpr int model_id = model_id_val;                               \
   static const std::string model_name;                                        \
   static const std::string params_info;                                       \
-  static const std::array<size_t, num_focal_params_val> focal_length_idxs;    \
-  static const std::array<size_t, num_pp_params_val> principal_point_idxs;    \
-  static const std::array<size_t, num_extra_params_val> extra_params_idxs;    \
+  static const std::array<size_t, (num_focal_params_val)> focal_length_idxs;  \
+  static const std::array<size_t, (num_pp_params_val)> principal_point_idxs;  \
+  static const std::array<size_t, (num_extra_params_val)> extra_params_idxs;  \
                                                                               \
   static inline int InitializeModelId() { return model_id_val; };             \
   static inline std::string InitializeModelName() { return model_name_val; }; \
   static inline std::string InitializeParamsInfo();                           \
-  static inline std::array<size_t, num_focal_params_val>                      \
+  static inline std::array<size_t, (num_focal_params_val)>                    \
   InitializeFocalLengthIdxs();                                                \
-  static inline std::array<size_t, num_pp_params_val>                         \
+  static inline std::array<size_t, (num_pp_params_val)>                       \
   InitializePrincipalPointIdxs();                                             \
-  static inline std::array<size_t, num_extra_params_val>                      \
+  static inline std::array<size_t, (num_extra_params_val)>                    \
   InitializeExtraParamsIdxs();                                                \
                                                                               \
   static inline std::vector<double> InitializeParams(                         \
