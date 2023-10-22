@@ -60,22 +60,22 @@ void Camera::SetModelIdFromName(const std::string& model_name) {
   params_.resize(CameraModelNumParams(model_id_), 0);
 }
 
-const std::vector<size_t>& Camera::FocalLengthIdxs() const {
+span<const size_t> Camera::FocalLengthIdxs() const {
   return CameraModelFocalLengthIdxs(model_id_);
 }
 
-const std::vector<size_t>& Camera::PrincipalPointIdxs() const {
+span<const size_t> Camera::PrincipalPointIdxs() const {
   return CameraModelPrincipalPointIdxs(model_id_);
 }
 
-const std::vector<size_t>& Camera::ExtraParamsIdxs() const {
+span<const size_t> Camera::ExtraParamsIdxs() const {
   return CameraModelExtraParamsIdxs(model_id_);
 }
 
 Eigen::Matrix3d Camera::CalibrationMatrix() const {
   Eigen::Matrix3d K = Eigen::Matrix3d::Identity();
 
-  const std::vector<size_t>& idxs = FocalLengthIdxs();
+  const span<const size_t> idxs = FocalLengthIdxs();
   if (idxs.size() == 1) {
     K(0, 0) = params_[idxs[0]];
     K(1, 1) = params_[idxs[0]];
@@ -98,7 +98,7 @@ std::string Camera::ParamsInfo() const {
 }
 
 double Camera::MeanFocalLength() const {
-  const auto& focal_length_idxs = FocalLengthIdxs();
+  const span<const size_t> focal_length_idxs = FocalLengthIdxs();
   double focal_length = 0;
   for (const auto idx : focal_length_idxs) {
     focal_length += params_[idx];
@@ -107,62 +107,62 @@ double Camera::MeanFocalLength() const {
 }
 
 double Camera::FocalLength() const {
-  const std::vector<size_t>& idxs = FocalLengthIdxs();
+  const span<const size_t> idxs = FocalLengthIdxs();
   CHECK_EQ(idxs.size(), 1);
   return params_[idxs[0]];
 }
 
 double Camera::FocalLengthX() const {
-  const std::vector<size_t>& idxs = FocalLengthIdxs();
+  const span<const size_t> idxs = FocalLengthIdxs();
   CHECK_EQ(idxs.size(), 2);
   return params_[idxs[0]];
 }
 
 double Camera::FocalLengthY() const {
-  const std::vector<size_t>& idxs = FocalLengthIdxs();
+  const span<const size_t> idxs = FocalLengthIdxs();
   CHECK_EQ(idxs.size(), 2);
   return params_[idxs[1]];
 }
 
 void Camera::SetFocalLength(const double focal_length) {
-  const std::vector<size_t>& idxs = FocalLengthIdxs();
-  for (const auto idx : idxs) {
+  const span<const size_t> idxs = FocalLengthIdxs();
+  for (const size_t idx : idxs) {
     params_[idx] = focal_length;
   }
 }
 
 void Camera::SetFocalLengthX(const double focal_length_x) {
-  const std::vector<size_t>& idxs = FocalLengthIdxs();
+  const span<const size_t> idxs = FocalLengthIdxs();
   CHECK_EQ(idxs.size(), 2);
   params_[idxs[0]] = focal_length_x;
 }
 
 void Camera::SetFocalLengthY(const double focal_length_y) {
-  const std::vector<size_t>& idxs = FocalLengthIdxs();
+  const span<const size_t> idxs = FocalLengthIdxs();
   CHECK_EQ(idxs.size(), 2);
   params_[idxs[1]] = focal_length_y;
 }
 
 double Camera::PrincipalPointX() const {
-  const std::vector<size_t>& idxs = PrincipalPointIdxs();
+  const span<const size_t> idxs = PrincipalPointIdxs();
   CHECK_EQ(idxs.size(), 2);
   return params_[idxs[0]];
 }
 
 double Camera::PrincipalPointY() const {
-  const std::vector<size_t>& idxs = PrincipalPointIdxs();
+  const span<const size_t> idxs = PrincipalPointIdxs();
   CHECK_EQ(idxs.size(), 2);
   return params_[idxs[1]];
 }
 
 void Camera::SetPrincipalPointX(const double ppx) {
-  const std::vector<size_t>& idxs = PrincipalPointIdxs();
+  const span<const size_t> idxs = PrincipalPointIdxs();
   CHECK_EQ(idxs.size(), 2);
   params_[idxs[0]] = ppx;
 }
 
 void Camera::SetPrincipalPointY(const double ppy) {
-  const std::vector<size_t>& idxs = PrincipalPointIdxs();
+  const span<const size_t> idxs = PrincipalPointIdxs();
   CHECK_EQ(idxs.size(), 2);
   params_[idxs[1]] = ppy;
 }

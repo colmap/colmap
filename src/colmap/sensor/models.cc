@@ -37,19 +37,22 @@ namespace colmap {
 
 // Initialize params_info, focal_length_idxs, principal_point_idxs,
 // extra_params_idxs
-#define CAMERA_MODEL_CASE(CameraModel)                          \
-  const int CameraModel::model_id = InitializeModelId();        \
-  const std::string CameraModel::model_name =                   \
-      CameraModel::InitializeModelName();                       \
-  const size_t CameraModel::num_params = InitializeNumParams(); \
-  const std::string CameraModel::params_info =                  \
-      CameraModel::InitializeParamsInfo();                      \
-  const std::vector<size_t> CameraModel::focal_length_idxs =    \
-      CameraModel::InitializeFocalLengthIdxs();                 \
-  const std::vector<size_t> CameraModel::principal_point_idxs = \
-      CameraModel::InitializePrincipalPointIdxs();              \
-  const std::vector<size_t> CameraModel::extra_params_idxs =    \
-      CameraModel::InitializeExtraParamsIdxs();
+#define CAMERA_MODEL_CASE(CameraModel)                    \
+  constexpr int CameraModel::model_id;                    \
+  const std::string CameraModel::model_name =             \
+      CameraModel::InitializeModelName();                 \
+  constexpr size_t CameraModel::num_params;               \
+  const std::string CameraModel::params_info =            \
+      CameraModel::InitializeParamsInfo();                \
+  const std::array<size_t, CameraModel::num_focal_params> \
+      CameraModel::focal_length_idxs =                    \
+          CameraModel::InitializeFocalLengthIdxs();       \
+  const std::array<size_t, CameraModel::num_pp_params>    \
+      CameraModel::principal_point_idxs =                 \
+          CameraModel::InitializePrincipalPointIdxs();    \
+  const std::array<size_t, CameraModel::num_extra_params> \
+      CameraModel::extra_params_idxs =                    \
+          CameraModel::InitializeExtraParamsIdxs();
 
 CAMERA_MODEL_CASES
 
@@ -124,7 +127,7 @@ std::vector<double> CameraModelInitializeParams(const int model_id,
   // the upper left pixel). This complies with the default SiftGPU convention.
   switch (model_id) {
 #define CAMERA_MODEL_CASE(CameraModel)                                 \
-  case CameraModel::kModelId:                                          \
+  case CameraModel::model_id:                                          \
     return CameraModel::InitializeParams(focal_length, width, height); \
     break;
 
@@ -137,7 +140,7 @@ std::vector<double> CameraModelInitializeParams(const int model_id,
 std::string CameraModelParamsInfo(const int model_id) {
   switch (model_id) {
 #define CAMERA_MODEL_CASE(CameraModel) \
-  case CameraModel::kModelId:          \
+  case CameraModel::model_id:          \
     return CameraModel::params_info;   \
     break;
 
@@ -149,13 +152,12 @@ std::string CameraModelParamsInfo(const int model_id) {
   return "Camera model does not exist";
 }
 
-static const std::vector<size_t> EMPTY_IDXS;
-
-const std::vector<size_t>& CameraModelFocalLengthIdxs(const int model_id) {
+span<const size_t> CameraModelFocalLengthIdxs(const int model_id) {
   switch (model_id) {
-#define CAMERA_MODEL_CASE(CameraModel)     \
-  case CameraModel::kModelId:              \
-    return CameraModel::focal_length_idxs; \
+#define CAMERA_MODEL_CASE(CameraModel)              \
+  case CameraModel::model_id:                       \
+    return {CameraModel::focal_length_idxs.data(),  \
+            CameraModel::focal_length_idxs.size()}; \
     break;
 
     CAMERA_MODEL_SWITCH_CASES
@@ -163,14 +165,15 @@ const std::vector<size_t>& CameraModelFocalLengthIdxs(const int model_id) {
 #undef CAMERA_MODEL_CASE
   }
 
-  return EMPTY_IDXS;
+  return {nullptr, 0};
 }
 
-const std::vector<size_t>& CameraModelPrincipalPointIdxs(const int model_id) {
+span<const size_t> CameraModelPrincipalPointIdxs(const int model_id) {
   switch (model_id) {
-#define CAMERA_MODEL_CASE(CameraModel)        \
-  case CameraModel::kModelId:                 \
-    return CameraModel::principal_point_idxs; \
+#define CAMERA_MODEL_CASE(CameraModel)                 \
+  case CameraModel::model_id:                          \
+    return {CameraModel::principal_point_idxs.data(),  \
+            CameraModel::principal_point_idxs.size()}; \
     break;
 
     CAMERA_MODEL_SWITCH_CASES
@@ -178,14 +181,15 @@ const std::vector<size_t>& CameraModelPrincipalPointIdxs(const int model_id) {
 #undef CAMERA_MODEL_CASE
   }
 
-  return EMPTY_IDXS;
+  return {nullptr, 0};
 }
 
-const std::vector<size_t>& CameraModelExtraParamsIdxs(const int model_id) {
+span<const size_t> CameraModelExtraParamsIdxs(const int model_id) {
   switch (model_id) {
-#define CAMERA_MODEL_CASE(CameraModel)     \
-  case CameraModel::kModelId:              \
-    return CameraModel::extra_params_idxs; \
+#define CAMERA_MODEL_CASE(CameraModel)              \
+  case CameraModel::model_id:                       \
+    return {CameraModel::extra_params_idxs.data(),  \
+            CameraModel::extra_params_idxs.size()}; \
     break;
 
     CAMERA_MODEL_SWITCH_CASES
@@ -193,13 +197,13 @@ const std::vector<size_t>& CameraModelExtraParamsIdxs(const int model_id) {
 #undef CAMERA_MODEL_CASE
   }
 
-  return EMPTY_IDXS;
+  return {nullptr, 0};
 }
 
 size_t CameraModelNumParams(const int model_id) {
   switch (model_id) {
 #define CAMERA_MODEL_CASE(CameraModel) \
-  case CameraModel::kModelId:          \
+  case CameraModel::model_id:          \
     return CameraModel::num_params;
 
     CAMERA_MODEL_SWITCH_CASES
@@ -214,7 +218,7 @@ bool CameraModelVerifyParams(const int model_id,
                              const std::vector<double>& params) {
   switch (model_id) {
 #define CAMERA_MODEL_CASE(CameraModel)              \
-  case CameraModel::kModelId:                       \
+  case CameraModel::model_id:                       \
     if (params.size() == CameraModel::num_params) { \
       return true;                                  \
     }                                               \
@@ -237,7 +241,7 @@ bool CameraModelHasBogusParams(const int model_id,
                                const double max_extra_param) {
   switch (model_id) {
 #define CAMERA_MODEL_CASE(CameraModel)                         \
-  case CameraModel::kModelId:                                  \
+  case CameraModel::model_id:                                  \
     return CameraModel::HasBogusParams(params,                 \
                                        width,                  \
                                        height,                 \
