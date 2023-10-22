@@ -57,7 +57,7 @@ class ReprojErrorCostFunction {
                                         4,
                                         3,
                                         3,
-                                        CameraModel::kNumParams>(
+                                        CameraModel::num_params>(
             new ReprojErrorCostFunction(point2D)));
   }
 
@@ -104,7 +104,7 @@ class ReprojErrorConstantPoseCostFunction {
             ReprojErrorConstantPoseCostFunction<CameraModel>,
             2,
             3,
-            CameraModel::kNumParams>(
+            CameraModel::num_params>(
         new ReprojErrorConstantPoseCostFunction(cam_from_world, point2D)));
   }
 
@@ -152,7 +152,7 @@ class ReprojErrorConstantPoint3DCostFunction {
             2,
             4,
             3,
-            CameraModel::kNumParams>(
+            CameraModel::num_params>(
         new ReprojErrorConstantPoint3DCostFunction(point2D, point3D)));
   }
 
@@ -209,7 +209,7 @@ class RigReprojErrorCostFunction {
                                         4,
                                         3,
                                         3,
-                                        CameraModel::kNumParams>(
+                                        CameraModel::num_params>(
             new RigReprojErrorCostFunction(point2D)));
   }
 

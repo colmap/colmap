@@ -797,7 +797,7 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
   undistorted_camera.SetHeight(camera.Height());
 
   // Copy focal length parameters.
-  const std::vector<size_t>& focal_length_idxs = camera.FocalLengthIdxs();
+  const span<const size_t> focal_length_idxs = camera.FocalLengthIdxs();
   CHECK_LE(focal_length_idxs.size(), 2)
       << "Not more than two focal length parameters supported.";
   if (focal_length_idxs.size() == 1) {
