@@ -40,13 +40,13 @@ ProjectWidget::ProjectWidget(QWidget* parent, OptionManager* options)
   setWindowTitle("Project");
 
   // Database path.
-  QPushButton* databse_path_new = new QPushButton(tr("New"), this);
-  connect(databse_path_new,
+  QPushButton* database_path_new = new QPushButton(tr("New"), this);
+  connect(database_path_new,
           &QPushButton::released,
           this,
           &ProjectWidget::SelectNewDatabasePath);
-  QPushButton* databse_path_open = new QPushButton(tr("Open"), this);
-  connect(databse_path_open,
+  QPushButton* database_path_open = new QPushButton(tr("Open"), this);
+  connect(database_path_open,
           &QPushButton::released,
           this,
           &ProjectWidget::SelectExistingDatabasePath);
@@ -71,8 +71,8 @@ ProjectWidget::ProjectWidget(QWidget* parent, OptionManager* options)
 
   grid->addWidget(new QLabel(tr("Database"), this), 0, 0);
   grid->addWidget(database_path_text_, 0, 1);
-  grid->addWidget(databse_path_new, 0, 2);
-  grid->addWidget(databse_path_open, 0, 3);
+  grid->addWidget(database_path_new, 0, 2);
+  grid->addWidget(database_path_open, 0, 3);
 
   grid->addWidget(new QLabel(tr("Images"), this), 1, 0);
   grid->addWidget(image_path_text_, 1, 1);
