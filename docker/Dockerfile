@@ -1,4 +1,4 @@
-FROM nvidia/cuda:12.2.0-devel-ubuntu22.04
+FROM nvidia/cuda:12.2.2-devel-ubuntu22.04
 
 ARG COLMAP_GIT_COMMIT=main
 ARG CUDA_ARCHITECTURES=native
