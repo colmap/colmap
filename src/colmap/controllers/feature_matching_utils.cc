@@ -473,7 +473,7 @@ FeatureMatcherController::~FeatureMatcherController() {
 bool FeatureMatcherController::Setup() {
   // Minimize the amount of allocated GPU memory by computing the maximum number
   // of descriptors for any image over the whole database.
-  const int max_num_features = CHECK_NOTNULL(database_)->MaxNumDescriptors();
+  const int max_num_features = CHECK_NOTNULL(database_)->MaxNumKeypoints();
   matching_options_.max_num_matches =
       std::min(matching_options_.max_num_matches, max_num_features);
 
