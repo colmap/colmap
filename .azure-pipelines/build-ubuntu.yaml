@@ -11,6 +11,7 @@ parameters:
 jobs:
 - job: ubuntu_build_${{ replace(parameters.ubuntuVersion, '.', '') }}_cuda_${{ parameters.cudaEnabled }}_asan_${{ parameters.asanEnabled }}_${{ parameters.cmakeBuildType }}_e2e_${{ parameters.e2eTestsEnabled }}
   displayName: ${{ parameters.displayName }}
+  timeoutInMinutes: 120
   pool:
     vmImage: 'ubuntu-${{ parameters.ubuntuVersion }}'
   variables:
