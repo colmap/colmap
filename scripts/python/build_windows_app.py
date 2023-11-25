@@ -26,8 +26,7 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
-#
-# Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
+
 
 import os
 import glob
@@ -37,11 +36,16 @@ import argparse
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--install_path", required=True,
-                        help="The installation prefix, e.g., build/__install__")
-    parser.add_argument("--app_path", required=True,
-                        help="The application path, e.g., "
-                             "build/COLMAP-dev-windows")
+    parser.add_argument(
+        "--install_path",
+        required=True,
+        help="The installation prefix, e.g., build/__install__",
+    )
+    parser.add_argument(
+        "--app_path",
+        required=True,
+        help="The application path, e.g., " "build/COLMAP-dev-windows",
+    )
     args = parser.parse_args()
     return args
 
@@ -63,25 +67,32 @@ def main():
     # Copy batch scripts to app directory.
     shutil.copyfile(
         os.path.join(args.install_path, "COLMAP.bat"),
-        os.path.join(args.app_path, "COLMAP.bat"))
+        os.path.join(args.app_path, "COLMAP.bat"),
+    )
     shutil.copyfile(
         os.path.join(args.install_path, "RUN_TESTS.bat"),
-        os.path.join(args.app_path, "RUN_TESTS.bat"))
+        os.path.join(args.app_path, "RUN_TESTS.bat"),
+    )
 
     # Copy executables to app directory.
     exe_files = glob.glob(os.path.join(args.install_path, "bin/*.exe"))
     for exe_file in exe_files:
-        shutil.copyfile(exe_file, os.path.join(args.app_path, "bin",
-                                               os.path.basename(exe_file)))
+        shutil.copyfile(
+            exe_file,
+            os.path.join(args.app_path, "bin", os.path.basename(exe_file)),
+        )
 
     # Copy shared libraries to app directory.
     dll_files = glob.glob(os.path.join(args.install_path, "lib/*.dll"))
     for dll_file in dll_files:
-        shutil.copyfile(dll_file, os.path.join(args.app_path, "lib",
-                                               os.path.basename(dll_file)))
+        shutil.copyfile(
+            dll_file,
+            os.path.join(args.app_path, "lib", os.path.basename(dll_file)),
+        )
     shutil.copyfile(
         os.path.join(args.install_path, "lib/platforms/qwindows.dll"),
-        os.path.join(args.app_path, "lib/platforms/qwindows.dll"))
+        os.path.join(args.app_path, "lib/platforms/qwindows.dll"),
+    )
 
     # Create zip archive for deployment.
     shutil.make_archive(args.app_path, "zip", root_dir=args.app_path)

@@ -26,8 +26,7 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
-#
-# Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
+
 
 # This script merges multiple homogeneous PLY files into a single PLY file.
 
@@ -61,11 +60,11 @@ def main():
 
     print("Merging files")
     merged_file = np.concatenate(files, -1)
-    merged_el = plyfile.PlyElement.describe(merged_file, 'vertex')
+    merged_el = plyfile.PlyElement.describe(merged_file, "vertex")
 
     print("Writing merged file")
     plyfile.PlyData([merged_el]).write(args.merged_path)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/estimators/bundle_adjustment.h"
 
@@ -385,7 +383,7 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
     if (constant_cam_pose) {
       switch (camera.ModelId()) {
 #define CAMERA_MODEL_CASE(CameraModel)                                        \
-  case CameraModel::kModelId:                                                 \
+  case CameraModel::model_id:                                                 \
     cost_function = ReprojErrorConstantPoseCostFunction<CameraModel>::Create( \
         image.CamFromWorld(), point2D.xy);                                    \
     break;
@@ -400,7 +398,7 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
     } else {
       switch (camera.ModelId()) {
 #define CAMERA_MODEL_CASE(CameraModel)                                        \
-  case CameraModel::kModelId:                                                 \
+  case CameraModel::model_id:                                                 \
     cost_function = ReprojErrorCostFunction<CameraModel>::Create(point2D.xy); \
     break;
 
@@ -475,7 +473,7 @@ void BundleAdjuster::AddPointToProblem(const point3D_t point3D_id,
 
     switch (camera.ModelId()) {
 #define CAMERA_MODEL_CASE(CameraModel)                                        \
-  case CameraModel::kModelId:                                                 \
+  case CameraModel::model_id:                                                 \
     cost_function = ReprojErrorConstantPoseCostFunction<CameraModel>::Create( \
         image.CamFromWorld(), point2D.xy);                                    \
     break;
@@ -505,17 +503,17 @@ void BundleAdjuster::ParameterizeCameras(Reconstruction* reconstruction) {
       std::vector<int> const_camera_params;
 
       if (!options_.refine_focal_length) {
-        const std::vector<size_t>& params_idxs = camera.FocalLengthIdxs();
+        const span<const size_t> params_idxs = camera.FocalLengthIdxs();
         const_camera_params.insert(
             const_camera_params.end(), params_idxs.begin(), params_idxs.end());
       }
       if (!options_.refine_principal_point) {
-        const std::vector<size_t>& params_idxs = camera.PrincipalPointIdxs();
+        const span<const size_t> params_idxs = camera.PrincipalPointIdxs();
         const_camera_params.insert(
             const_camera_params.end(), params_idxs.begin(), params_idxs.end());
       }
       if (!options_.refine_extra_params) {
-        const std::vector<size_t>& params_idxs = camera.ExtraParamsIdxs();
+        const span<const size_t> params_idxs = camera.ExtraParamsIdxs();
         const_camera_params.insert(
             const_camera_params.end(), params_idxs.begin(), params_idxs.end());
       }
@@ -739,7 +737,7 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
       if (constant_cam_pose) {
         switch (camera.ModelId()) {
 #define CAMERA_MODEL_CASE(CameraModel)                                        \
-  case CameraModel::kModelId:                                                 \
+  case CameraModel::model_id:                                                 \
     cost_function = ReprojErrorConstantPoseCostFunction<CameraModel>::Create( \
         image.CamFromWorld(), point2D.xy);                                    \
     break;
@@ -754,7 +752,7 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
       } else {
         switch (camera.ModelId()) {
 #define CAMERA_MODEL_CASE(CameraModel)                                        \
-  case CameraModel::kModelId:                                                 \
+  case CameraModel::model_id:                                                 \
     cost_function = ReprojErrorCostFunction<CameraModel>::Create(point2D.xy); \
     break;
 
@@ -773,7 +771,7 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
     } else {
       switch (camera.ModelId()) {
 #define CAMERA_MODEL_CASE(CameraModel)                               \
-  case CameraModel::kModelId:                                        \
+  case CameraModel::model_id:                                        \
     cost_function =                                                  \
         RigReprojErrorCostFunction<CameraModel>::Create(point2D.xy); \
                                                                      \
@@ -856,7 +854,7 @@ void RigBundleAdjuster::AddPointToProblem(const point3D_t point3D_id,
 
     switch (camera.ModelId()) {
 #define CAMERA_MODEL_CASE(CameraModel)                                        \
-  case CameraModel::kModelId:                                                 \
+  case CameraModel::model_id:                                                 \
     cost_function = ReprojErrorConstantPoseCostFunction<CameraModel>::Create( \
         image.CamFromWorld(), point2D.xy);                                    \
     problem_->AddResidualBlock(cost_function,                                 \

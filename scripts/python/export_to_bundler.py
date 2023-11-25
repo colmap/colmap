@@ -26,8 +26,7 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
-#
-# Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
+
 
 # This script exports a COLMAP database to the file structure to run Bundler.
 
@@ -84,8 +83,10 @@ def main():
             images[image_id] = (len(images), image_name)
             fid.write("./%s 0 %f\n" % (image_name, cameras[camera_id][0]))
             if not os.path.exists(os.path.join(args.output_path, image_name)):
-                shutil.copyfile(os.path.join(args.image_path, image_name),
-                                os.path.join(args.output_path, image_name))
+                shutil.copyfile(
+                    os.path.join(args.image_path, image_name),
+                    os.path.join(args.output_path, image_name),
+                )
 
     for image_id, (image_idx, image_name) in images.iteritems():
         print("Exporting key file for", image_name)
@@ -95,26 +96,35 @@ def main():
         if os.path.exists(key_file_name_gz):
             continue
 
-        cursor.execute("SELECT data FROM keypoints WHERE image_id=?;",
-                       (image_id,))
+        cursor.execute(
+            "SELECT data FROM keypoints WHERE image_id=?;", (image_id,)
+        )
         row = next(cursor)
         if row[0] is None:
             keypoints = np.zeros((0, 6), dtype=np.float32)
             descriptors = np.zeros((0, 128), dtype=np.uint8)
         else:
             keypoints = np.fromstring(row[0], dtype=np.float32).reshape(-1, 6)
-            cursor.execute("SELECT data FROM descriptors WHERE image_id=?;",
-                        (image_id,))
+            cursor.execute(
+                "SELECT data FROM descriptors WHERE image_id=?;", (image_id,)
+            )
             row = next(cursor)
             descriptors = np.fromstring(row[0], dtype=np.uint8).reshape(-1, 128)
 
         with open(key_file_name, "w") as fid:
             fid.write("%d %d\n" % (keypoints.shape[0], descriptors.shape[1]))
             for r in range(keypoints.shape[0]):
-                fid.write("%f %f %f %f\n" % (keypoints[r, 1], keypoints[r, 0],
-                                             keypoints[r, 2], keypoints[r, 3]))
+                fid.write(
+                    "%f %f %f %f\n"
+                    % (
+                        keypoints[r, 1],
+                        keypoints[r, 0],
+                        keypoints[r, 2],
+                        keypoints[r, 3],
+                    )
+                )
                 for i in range(0, 128, 20):
-                    desc_block = descriptors[r, i:i+20]
+                    desc_block = descriptors[r, i : i + 20]
                     fid.write(" ".join(map(str, desc_block.ravel().tolist())))
                     fid.write("\n")
 
@@ -125,20 +135,26 @@ def main():
         os.remove(key_file_name)
 
     with open(os.path.join(args.output_path, "matches.init.txt"), "w") as fid:
-        cursor.execute("SELECT pair_id, data FROM two_view_geometries "
-                       "WHERE rows>=?;", (args.min_num_matches,))
+        cursor.execute(
+            "SELECT pair_id, data FROM two_view_geometries " "WHERE rows>=?;",
+            (args.min_num_matches,),
+        )
         for row in cursor:
             pair_id = row[0]
-            inlier_matches = np.fromstring(row[1],
-                                           dtype=np.uint32).reshape(-1, 2)
+            inlier_matches = np.fromstring(row[1], dtype=np.uint32).reshape(
+                -1, 2
+            )
             image_id1, image_id2 = pair_id_to_image_ids(pair_id)
             image_idx1 = images[image_id1][0]
             image_idx2 = images[image_id2][0]
-            fid.write("%d %d\n%d\n" % (image_idx1, image_idx2,
-                                       inlier_matches.shape[0]))
+            fid.write(
+                "%d %d\n%d\n"
+                % (image_idx1, image_idx2, inlier_matches.shape[0])
+            )
             for i in range(inlier_matches.shape[0]):
-                fid.write("%d %d\n" % (inlier_matches[i, 0],
-                                       inlier_matches[i, 1]))
+                fid.write(
+                    "%d %d\n" % (inlier_matches[i, 0], inlier_matches[i, 1])
+                )
 
     with open(os.path.join(args.output_path, "run_bundler.sh"), "w") as fid:
         fid.write("bin/Bundler list.txt \\\n")

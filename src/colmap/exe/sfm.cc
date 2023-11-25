@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/exe/sfm.h"
 
@@ -374,7 +372,7 @@ int RunPointFiltering(int argc, char** argv) {
 int RunPointTriangulator(int argc, char** argv) {
   std::string input_path;
   std::string output_path;
-  bool clear_points = false;
+  bool clear_points = true;
   bool refine_intrinsics = false;
 
   OptionManager options;
@@ -385,7 +383,9 @@ int RunPointTriangulator(int argc, char** argv) {
   options.AddDefaultOption(
       "clear_points",
       &clear_points,
-      "Whether to clear all existing points and observations");
+      "Whether to clear all existing points and observations and recompute "
+      "the image_ids based on matching filenames between the model and the "
+      "database");
   options.AddDefaultOption("refine_intrinsics",
                            &refine_intrinsics,
                            "Whether to refine the intrinsics of the cameras "

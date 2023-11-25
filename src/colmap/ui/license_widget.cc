@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/ui/license_widget.h"
 
@@ -99,9 +97,7 @@ QString LicenseWidget::GetCOLMAPLicense() const {
       "OTHERWISE)<br>"
       "ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF "
       "THE<br>"
-      "POSSIBILITY OF SUCH DAMAGE.<br>"
-      "<br>"
-      "Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)";
+      "POSSIBILITY OF SUCH DAMAGE.";
   return license;
 }
 

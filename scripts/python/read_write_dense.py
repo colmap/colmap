@@ -28,8 +28,7 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
-#
-# Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
+
 
 import argparse
 import numpy as np
@@ -39,8 +38,9 @@ import struct
 
 def read_array(path):
     with open(path, "rb") as fid:
-        width, height, channels = np.genfromtxt(fid, delimiter="&", max_rows=1,
-                                                usecols=(0, 1, 2), dtype=int)
+        width, height, channels = np.genfromtxt(
+            fid, delimiter="&", max_rows=1, usecols=(0, 1, 2), dtype=int
+        )
         fid.seek(0)
         num_delimiter = 0
         byte = fid.read(1)
@@ -83,22 +83,32 @@ def write_array(array, path):
         data_list = data_1d.tolist()
         endian_character = "<"
         format_char_sequence = "".join(["f"] * len(data_list))
-        byte_data = struct.pack(endian_character + format_char_sequence, *data_list)
+        byte_data = struct.pack(
+            endian_character + format_char_sequence, *data_list
+        )
         fid.write(byte_data)
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-d", "--depth_map",
-                        help="path to depth map", type=str, required=True)
-    parser.add_argument("-n", "--normal_map",
-                        help="path to normal map", type=str, required=True)
-    parser.add_argument("--min_depth_percentile",
-                        help="minimum visualization depth percentile",
-                        type=float, default=5)
-    parser.add_argument("--max_depth_percentile",
-                        help="maximum visualization depth percentile",
-                        type=float, default=95)
+    parser.add_argument(
+        "-d", "--depth_map", help="path to depth map", type=str, required=True
+    )
+    parser.add_argument(
+        "-n", "--normal_map", help="path to normal map", type=str, required=True
+    )
+    parser.add_argument(
+        "--min_depth_percentile",
+        help="minimum visualization depth percentile",
+        type=float,
+        default=5,
+    )
+    parser.add_argument(
+        "--max_depth_percentile",
+        help="maximum visualization depth percentile",
+        type=float,
+        default=95,
+    )
     args = parser.parse_args()
     return args
 
@@ -107,8 +117,10 @@ def main():
     args = parse_args()
 
     if args.min_depth_percentile > args.max_depth_percentile:
-        raise ValueError("min_depth_percentile should be less than or equal "
-                         "to the max_depth_perceintile.")
+        raise ValueError(
+            "min_depth_percentile should be less than or equal "
+            "to the max_depth_perceintile."
+        )
 
     # Read depth and normal maps corresponding to the same image.
     if not os.path.exists(args.depth_map):
@@ -121,7 +133,8 @@ def main():
     normal_map = read_array(args.normal_map)
 
     min_depth, max_depth = np.percentile(
-        depth_map, [args.min_depth_percentile, args.max_depth_percentile])
+        depth_map, [args.min_depth_percentile, args.max_depth_percentile]
+    )
     depth_map[depth_map < min_depth] = min_depth
     depth_map[depth_map > max_depth] = max_depth
 

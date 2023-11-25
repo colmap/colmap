@@ -26,8 +26,7 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
-#
-# Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
+
 
 import numpy as np
 from read_write_dense import read_array, write_array
@@ -35,13 +34,18 @@ from read_write_dense import read_array, write_array
 
 def main():
     import sys
+
     if len(sys.argv) != 3:
-        print("Usage: python test_read_write_dense.py "
-              "path/to/dense/input.bin path/to/dense/output.bin")
+        print(
+            "Usage: python test_read_write_dense.py "
+            "path/to/dense/input.bin path/to/dense/output.bin"
+        )
         return
 
-    print("Checking consistency of reading and writing dense arrays "
-          + "(depth maps / normal maps) ...")
+    print(
+        "Checking consistency of reading and writing dense arrays "
+        + "(depth maps / normal maps) ..."
+    )
 
     path_to_dense_input = sys.argv[1]
     path_to_dense_output = sys.argv[2]

@@ -28,8 +28,7 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
-#
-# Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
+
 
 import os
 import collections
@@ -41,7 +40,9 @@ from read_write_model import read_next_bytes, write_next_bytes
 
 
 MeshPoint = collections.namedtuple(
-    "MeshingPoint", ["position", "color", "normal", "num_visible_images", "visible_image_idxs"])
+    "MeshingPoint",
+    ["position", "color", "normal", "num_visible_images", "visible_image_idxs"],
+)
 
 
 def read_fused(path_to_fused_ply, path_to_fused_ply_vis):
@@ -63,15 +64,18 @@ def read_fused(path_to_fused_ply, path_to_fused_ply_vis):
         for i in range(num_points):
             num_visible_images = read_next_bytes(fid, 4, "I")[0]
             visible_image_idxs = read_next_bytes(
-                fid, num_bytes=4*num_visible_images,
-                format_char_sequence="I"*num_visible_images)
+                fid,
+                num_bytes=4 * num_visible_images,
+                format_char_sequence="I" * num_visible_images,
+            )
             visible_image_idxs = np.array(tuple(map(int, visible_image_idxs)))
             mesh_point = MeshPoint(
                 position=xyz_arr[i],
                 color=color_arr[i],
                 normal=normal_arr[i],
                 num_visible_images=num_visible_images,
-                visible_image_idxs=visible_image_idxs)
+                visible_image_idxs=visible_image_idxs,
+            )
             mesh_points[i] = mesh_point
         return mesh_points
 
@@ -79,8 +83,8 @@ def read_fused(path_to_fused_ply, path_to_fused_ply_vis):
 def write_fused_ply(mesh_points, path_to_fused_ply):
     columns = ["x", "y", "z", "nx", "ny", "nz", "red", "green", "blue"]
     points_data_frame = pd.DataFrame(
-        np.zeros((len(mesh_points), len(columns))),
-        columns=columns)
+        np.zeros((len(mesh_points), len(columns))), columns=columns
+    )
 
     positions = np.asarray([point.position for point in mesh_points])
     normals = np.asarray([point.normal for point in mesh_points])
@@ -90,10 +94,19 @@ def write_fused_ply(mesh_points, path_to_fused_ply):
     points_data_frame.loc[:, ["nx", "ny", "nz"]] = normals
     points_data_frame.loc[:, ["red", "green", "blue"]] = colors
 
-    points_data_frame = points_data_frame.astype({
-        "x": positions.dtype, "y": positions.dtype, "z": positions.dtype,
-        "red": colors.dtype, "green": colors.dtype, "blue": colors.dtype,
-        "nx": normals.dtype, "ny": normals.dtype, "nz": normals.dtype})
+    points_data_frame = points_data_frame.astype(
+        {
+            "x": positions.dtype,
+            "y": positions.dtype,
+            "z": positions.dtype,
+            "red": colors.dtype,
+            "green": colors.dtype,
+            "blue": colors.dtype,
+            "nx": normals.dtype,
+            "ny": normals.dtype,
+            "nz": normals.dtype,
+        }
+    )
 
     point_cloud = PyntCloud(points_data_frame)
     point_cloud.to_file(path_to_fused_ply)
@@ -108,8 +121,10 @@ def write_fused_ply_vis(mesh_points, path_to_fused_ply_vis):
         write_next_bytes(fid, len(mesh_points), "Q")
         for point in mesh_points:
             write_next_bytes(fid, point.num_visible_images, "I")
-            format_char_sequence = "I"*point.num_visible_images
-            write_next_bytes(fid, [*point.visible_image_idxs], format_char_sequence)
+            format_char_sequence = "I" * point.num_visible_images
+            write_next_bytes(
+                fid, [*point.visible_image_idxs], format_char_sequence
+            )
 
 
 def write_fused(points, path_to_fused_ply, path_to_fused_ply_vis):

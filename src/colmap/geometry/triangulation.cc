@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/geometry/triangulation.h"
 
@@ -121,7 +119,7 @@ std::vector<Eigen::Vector3d> TriangulateOptimalPoints(
   std::vector<Eigen::Vector3d> points3D(points1.size());
 
   for (size_t i = 0; i < points3D.size(); ++i) {
-    points3D[i] = TriangulatePoint(
+    points3D[i] = TriangulateOptimalPoint(
         cam1_from_world, cam2_from_world, points1[i], points2[i]);
   }
 

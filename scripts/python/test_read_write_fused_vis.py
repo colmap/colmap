@@ -26,8 +26,7 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
-#
-# Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
+
 
 import filecmp
 from read_write_fused_vis import read_fused, write_fused
@@ -35,28 +34,38 @@ from read_write_fused_vis import read_fused, write_fused
 
 def main():
     import sys
+
     if len(sys.argv) != 5:
-        print("Usage: python test_read_write_fused_vis.py "
-              "path/to/input_fused.ply path/to/input_fused.ply.vis "
-              "path/to/output_fused.ply path/to/output_fused.ply.vis")
+        print(
+            "Usage: python test_read_write_fused_vis.py "
+            "path/to/input_fused.ply path/to/input_fused.ply.vis "
+            "path/to/output_fused.ply path/to/output_fused.ply.vis"
+        )
         return
 
-    print("Checking consistency of reading and writing fused.ply and fused.ply.vis files ...")
+    print(
+        "Checking consistency of reading and writing fused.ply and fused.ply.vis files ..."
+    )
 
     path_to_fused_ply_input = sys.argv[1]
     path_to_fused_ply_vis_input = sys.argv[2]
     path_to_fused_ply_output = sys.argv[3]
     path_to_fused_ply_vis_output = sys.argv[4]
 
-    mesh_points = read_fused(path_to_fused_ply_input, path_to_fused_ply_vis_input)
-    write_fused(mesh_points, path_to_fused_ply_output, path_to_fused_ply_vis_output)
+    mesh_points = read_fused(
+        path_to_fused_ply_input, path_to_fused_ply_vis_input
+    )
+    write_fused(
+        mesh_points, path_to_fused_ply_output, path_to_fused_ply_vis_output
+    )
 
     assert filecmp.cmp(path_to_fused_ply_input, path_to_fused_ply_output)
-    assert filecmp.cmp(path_to_fused_ply_vis_input, path_to_fused_ply_vis_output)
+    assert filecmp.cmp(
+        path_to_fused_ply_vis_input, path_to_fused_ply_vis_output
+    )
 
     print("... Results are equal.")
 
 
 if __name__ == "__main__":
     main()
-

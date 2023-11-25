@@ -229,47 +229,6 @@ vcpkg, first run `./vcpkg integrate install` and then configure COLMAP as::
     cmake .. -DCMAKE_TOOLCHAIN_FILE=path/to/vcpkg/scripts/buildsystems/vcpkg.cmake
     cmake --build . --config release --target colmap_main --parallel 24
 
-Alternatively, you can also use the Python build script. Please follow the
-instructions in the next section, but VCPKG is now the recommended approach.
-
-
-Build Script
-------------
-
-Alternative to the above solutions, COLMAP also ships with an automated Python
-build script. Note that VCPKG is the preferred way to achieve the same now.
-The build script installs COLMAP and its dependencies locally
-under Windows, Mac, and Linux. Note that under Mac and Linux, it is usually
-easier and faster to use the available package managers for the dependencies
-(see above). However, if you are on a (cluster) system without root access,
-this script might be useful. This script downloads the necessary dependencies
-automatically from the Internet. It assumes that CMake, Boost, Qt5, CUDA
-(optional), and CGAL (optional) are already installed on the system.
-E.g., under Windows you must specify the location of
-these libraries similar to this::
-
-    python scripts/python/build.py \
-        --build_path path/to/colmap/build \
-        --colmap_path path/to/colmap \
-        --boost_path "C:/local/boost_1_64_0/lib64-msvc-14.0" \
-        --qt_path "C:/Qt/5.9.3/msvc2015_64" \
-        --cuda_path "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v8.0" \
-        --cgal_path "C:/dev/CGAL-4.11.2/build"
-
-Note that under Windows you must use forward slashes for specifying the paths
-here. If you want to compile COLMAP using a specific Visual Studio version, you
-can for example specify ``--cmake_generator "Visual Studio 14"`` for Visual
-Studio 2015. If you want to open the COLMAP source code in Visual Studio, you
-can open the solution file in ``path/to/colmap/build/colmap/build``.
-If you use Homebrew under Mac, you can use the following command::
-
-    python scripts/python/build.py \
-        --build_path path/to/colmap/build \
-        --colmap_path path/to/colmap \
-        --qt_path /usr/local/opt/qt
-
-To see the full list of command-line options, pass the ``--help`` argument.
-
 
 .. _installation-library:
 

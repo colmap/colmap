@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #pragma once
 
@@ -82,9 +80,9 @@ class Camera {
   void SetPrincipalPointY(double ppy);
 
   // Get the indices of the parameter groups in the parameter vector.
-  const std::vector<size_t>& FocalLengthIdxs() const;
-  const std::vector<size_t>& PrincipalPointIdxs() const;
-  const std::vector<size_t>& ExtraParamsIdxs() const;
+  span<const size_t> FocalLengthIdxs() const;
+  span<const size_t> PrincipalPointIdxs() const;
+  span<const size_t> ExtraParamsIdxs() const;
 
   // Get intrinsic calibration matrix composed from focal length and principal
   // point parameters, excluding distortion parameters.

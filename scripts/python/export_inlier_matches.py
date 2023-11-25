@@ -26,8 +26,7 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
-#
-# Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
+
 
 # This script exports inlier matches from a COLMAP database to a text file.
 
@@ -68,16 +67,20 @@ def main():
     with open(os.path.join(args.output_path), "w") as fid:
         cursor.execute(
             "SELECT pair_id, data FROM two_view_geometries WHERE rows>=?;",
-            (args.min_num_matches,))
+            (args.min_num_matches,),
+        )
         for row in cursor:
             pair_id = row[0]
-            inlier_matches = np.fromstring(row[1],
-                                           dtype=np.uint32).reshape(-1, 2)
+            inlier_matches = np.fromstring(row[1], dtype=np.uint32).reshape(
+                -1, 2
+            )
             image_id1, image_id2 = pair_id_to_image_ids(pair_id)
             image_name1 = images[image_id1]
             image_name2 = images[image_id2]
-            fid.write("%s %s %d\n" % (image_name1, image_name2,
-                                      inlier_matches.shape[0]))
+            fid.write(
+                "%s %s %d\n"
+                % (image_name1, image_name2, inlier_matches.shape[0])
+            )
             for i in range(inlier_matches.shape[0]):
                 fid.write("%d %d\n" % tuple(inlier_matches[i]))
 

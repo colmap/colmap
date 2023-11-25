@@ -26,8 +26,7 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
-#
-# Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
+
 
 import numpy as np
 from read_write_model import read_model, write_model
@@ -73,19 +72,24 @@ def compare_points(points3D1, points3D2):
 
 def main():
     import sys
+
     if len(sys.argv) != 3:
-        print("Usage: python read_model.py "
-              "path/to/model/folder/txt path/to/model/folder/bin")
+        print(
+            "Usage: python read_model.py "
+            "path/to/model/folder/txt path/to/model/folder/bin"
+        )
         return
 
     print("Comparing text and binary models ...")
 
     path_to_model_txt_folder = sys.argv[1]
     path_to_model_bin_folder = sys.argv[2]
-    cameras_txt, images_txt, points3D_txt = \
-        read_model(path_to_model_txt_folder, ext=".txt")
-    cameras_bin, images_bin, points3D_bin = \
-        read_model(path_to_model_bin_folder, ext=".bin")
+    cameras_txt, images_txt, points3D_txt = read_model(
+        path_to_model_txt_folder, ext=".txt"
+    )
+    cameras_bin, images_bin, points3D_bin = read_model(
+        path_to_model_bin_folder, ext=".bin"
+    )
     compare_cameras(cameras_txt, cameras_bin)
     compare_images(images_txt, images_bin)
     compare_points(points3D_txt, points3D_bin)
@@ -94,9 +98,8 @@ def main():
     print("Saving text model and reloading it ...")
 
     tmpdir = mkdtemp()
-    write_model(cameras_bin, images_bin, points3D_bin, tmpdir, ext='.txt')
-    cameras_txt, images_txt, points3D_txt = \
-        read_model(tmpdir, ext=".txt")
+    write_model(cameras_bin, images_bin, points3D_bin, tmpdir, ext=".txt")
+    cameras_txt, images_txt, points3D_txt = read_model(tmpdir, ext=".txt")
     compare_cameras(cameras_txt, cameras_bin)
     compare_images(images_txt, images_bin)
     compare_points(points3D_txt, points3D_bin)
@@ -104,9 +107,8 @@ def main():
     print("... saved text and loaded models are equal.")
     print("Saving binary model and reloading it ...")
 
-    write_model(cameras_bin, images_bin, points3D_bin, tmpdir, ext='.bin')
-    cameras_bin, images_bin, points3D_bin = \
-        read_model(tmpdir, ext=".bin")
+    write_model(cameras_bin, images_bin, points3D_bin, tmpdir, ext=".bin")
+    cameras_bin, images_bin, points3D_bin = read_model(tmpdir, ext=".bin")
     compare_cameras(cameras_txt, cameras_bin)
     compare_images(images_txt, images_bin)
     compare_points(points3D_txt, points3D_bin)
