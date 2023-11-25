@@ -36,13 +36,10 @@ namespace colmap {
 namespace {
 
 const std::string COLMAP_VERSION = "${COLMAP_VERSION}";
-const int COLMAP_VERSION_NUMBER = ${COLMAP_VERSION_NUMBER};
 const std::string COLMAP_COMMIT_ID = "${GIT_COMMIT_ID}";
 const std::string COLMAP_COMMIT_DATE = "${GIT_COMMIT_DATE}";
 
 }  // namespace
-
-int GetVersionNumber() { return COLMAP_VERSION_NUMBER; }
 
 std::string GetVersionInfo() {
   return StringPrintf("COLMAP %s", COLMAP_VERSION.c_str());
