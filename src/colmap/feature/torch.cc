@@ -176,10 +176,9 @@ class TorchFeatureExtractor : public FeatureExtractor {
 
     const int max_size = std::max(bitmap.Width(), bitmap.Height());
     if (max_size > 1000) {
-      const double scale = static_cast<double>(1000) /
-                           static_cast<double>(max_size);
-      std::cout << scale << " " << max_size << " " << 1000
-                << std::endl;
+      const double scale =
+          static_cast<double>(1000) / static_cast<double>(max_size);
+      std::cout << scale << " " << max_size << " " << 1000 << std::endl;
       scaled_rgb_bitmap.Rescale(scale * bitmap.Width(),
                                 scale * bitmap.Height());
     }
@@ -228,11 +227,64 @@ class TorchFeatureExtractor : public FeatureExtractor {
   const TorchFeatureOptions options_;
 };
 
+class TorchFeatureMatcher : public FeatureMatcher {
+ public:
+  explicit TorchFeatureMatcher(const TorchFeatureMatcherOptions& options)
+      : options_(options) {}
+
+  void Match(const std::shared_ptr<const FeatureDescriptors>& descriptors1,
+             const std::shared_ptr<const FeatureDescriptors>& descriptors2,
+             FeatureMatches* matches) override {
+    // std::vector<torch::jit::IValue> inputs = {torch_image};
+    // at::Tensor output = matcher.forward(inputs).toTensor();
+    // std::cout << output << "\n";
+    // auto torch_keypoints_access = output.accessor<float, 0>();
+    // auto torch_descriptors_access = output.accessor<float, 1>();
+
+    // const int num_keypoints = torch_keypoints_access.size(0);
+
+    // descriptors->resize(num_keypoints, 128);
+    // for (int i = 0; i < num_keypoints; ++i) {
+    //   for (int j = 0; j < 128; ++j) {
+    //     (*descriptors)(i, j) = std::min(
+    //         std::max(255.f * torch_descriptors_access[i][j], 0.f), 255.f);
+    //   }
+    // }
+
+    return;
+  }
+
+  void MatchGuided(
+      const TwoViewGeometryOptions& options,
+      const std::shared_ptr<const FeatureKeypoints>& keypoints1,
+      const std::shared_ptr<const FeatureKeypoints>& keypoints2,
+      const std::shared_ptr<const FeatureDescriptors>& descriptors1,
+      const std::shared_ptr<const FeatureDescriptors>& descriptors2,
+      TwoViewGeometry* two_view_geometry) override {
+    torch::jit::script::Module matcher;
+    try {
+      matcher = torch::jit::load(options_.model_script_path);
+    } catch (const c10::Error& e) {
+      std::cerr << "ERROR: Failed to load torch model script: " << e.what()
+                << std::endl;
+      return;
+    }
+  }
+
+ private:
+  const TorchFeatureMatcherOptions options_;
+};
+
 }  // namespace
 
 std::unique_ptr<FeatureExtractor> CreateTorchFeatureExtractor(
     const TorchFeatureOptions& options) {
   return std::make_unique<TorchFeatureExtractor>(options);
+}
+
+std::unique_ptr<FeatureMatcher> CreateTorchFeatureMatcher(
+    const TorchFeatureMatcherOptions& options) {
+  return std::make_unique<TorchFeatureMatcher>(options);
 }
 
 }  // namespace colmap

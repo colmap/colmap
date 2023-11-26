@@ -33,6 +33,7 @@
 #define COLMAP_SRC_FEATURE_TORCH_H_
 
 #include "colmap/feature/extractor.h"
+#include "colmap/feature/matcher.h"
 
 namespace colmap {
 
@@ -43,6 +44,13 @@ struct TorchFeatureOptions {
 
 std::unique_ptr<FeatureExtractor> CreateTorchFeatureExtractor(
     const TorchFeatureOptions& options);
+
+struct TorchFeatureMatcherOptions {
+  std::string model_script_path;
+};
+
+std::unique_ptr<FeatureMatcher> CreateTorchFeatureMatcher(
+    const TorchFeatureMatcherOptions& options);
 
 }  // namespace colmap
 

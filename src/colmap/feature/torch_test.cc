@@ -1,5 +1,6 @@
 #include "colmap/feature/torch.h"
 
+#include "colmap/feature/sift.h"
 #include "colmap/sensor/bitmap.h"
 
 #include <iostream>
@@ -13,7 +14,9 @@ int main(int argc, const char* argv[]) {
   }
 
   colmap::Bitmap image1;
-  CHECK(image1.Read(argv[2], true));
+  CHECK(image1.Read(argv[2], false));
+  colmap::Bitmap image2;
+  CHECK(image2.Read(argv[3], false));
   // colmap::Bitmap image2;
   // CHECK(image2.Read(argv[3], true));
 
@@ -21,13 +24,33 @@ int main(int argc, const char* argv[]) {
   extraction_options.model_script_path = argv[1];
   extraction_options.max_image_size = 500;
 
-  auto extractor = CreateTorchFeatureExtractor(extraction_options);
+  // auto extractor = CreateTorchFeatureExtractor(extraction_options);
+  auto extractor = colmap::CreateSiftFeatureExtractor(
+      {.use_gpu = false, .max_image_size = 500});
 
   colmap::FeatureKeypoints keypoints1;
   colmap::FeatureDescriptors descriptors1;
   if (!extractor->Extract(image1, &keypoints1, &descriptors1)) {
     return -1;
   }
+
+  colmap::FeatureKeypoints keypoints2;
+  colmap::FeatureDescriptors descriptors2;
+  if (!extractor->Extract(image2, &keypoints2, &descriptors2)) {
+    return -1;
+  }
+
+  auto matcher =
+      colmap::CreateTorchFeatureMatcher({.model_script_path = argv[1]});
+
+  colmap::TwoViewGeometry geometry;
+  matcher->MatchGuided(
+      {},
+      std::make_shared<colmap::FeatureKeypoints>(keypoints1),
+      std::make_shared<colmap::FeatureKeypoints>(keypoints2),
+      std::make_shared<colmap::FeatureDescriptors>(descriptors1),
+      std::make_shared<colmap::FeatureDescriptors>(descriptors2),
+      &geometry);
 
   // colmap::FeatureKeypoints keypoints2;
   // colmap::FeatureDescriptors descriptors2;
