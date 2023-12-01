@@ -206,6 +206,7 @@ RANSAC<Estimator, SupportMeasurer, Sampler>::Estimate(
 
   std::vector<typename Estimator::X_t> X_rand(Estimator::kMinNumSamples);
   std::vector<typename Estimator::Y_t> Y_rand(Estimator::kMinNumSamples);
+  std::vector<typename Estimator::M_t> sample_models;
 
   sampler.Initialize(num_samples);
 
@@ -224,8 +225,7 @@ RANSAC<Estimator, SupportMeasurer, Sampler>::Estimate(
     sampler.SampleXY(X, Y, &X_rand, &Y_rand);
 
     // Estimate model for current subset.
-    const std::vector<typename Estimator::M_t> sample_models =
-        estimator.Estimate(X_rand, Y_rand);
+    estimator.Estimate(X_rand, Y_rand, &sample_models);
 
     // Iterate through all estimated models.
     for (const auto& sample_model : sample_models) {

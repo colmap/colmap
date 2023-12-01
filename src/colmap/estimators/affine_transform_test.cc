@@ -51,9 +51,10 @@ TEST(AffineTransform, Nominal) {
     }
 
     AffineTransformEstimator estimator;
-    const auto models = estimator.Estimate(src, dst);
+    std::vector<Eigen::Matrix<double, 2, 3>> models;
+    estimator.Estimate(src, dst, &models);
 
-    EXPECT_EQ(models.size(), 1);
+    ASSERT_EQ(models.size(), 1);
 
     std::vector<double> residuals;
     estimator.Residuals(src, dst, models[0], &residuals);
