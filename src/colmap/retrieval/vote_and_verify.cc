@@ -405,8 +405,11 @@ int VoteAndVerify(const VoteAndVerifyOptions& options,
     }
 
     // Local optimization on matching inlier points.
-    const Eigen::Matrix<double, 2, 3> A = AffineTransformEstimator::Estimate(
-        best_inlier_points1, best_inlier_points2)[0];
+    std::vector<Eigen::Matrix<double, 2, 3>> models;
+    AffineTransformEstimator::Estimate(
+        best_inlier_points1, best_inlier_points2, &models);
+    CHECK_EQ(models.size(), 1);
+    const Eigen::Matrix<double, 2, 3>& A = models[0];
     Eigen::Matrix3d A_homogeneous = Eigen::Matrix3d::Identity();
     A_homogeneous.topRows<2>() = A;
     const Eigen::Matrix<double, 2, 3> inv_A =

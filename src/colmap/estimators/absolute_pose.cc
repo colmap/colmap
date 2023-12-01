@@ -37,10 +37,14 @@
 
 namespace colmap {
 
-std::vector<P3PEstimator::M_t> P3PEstimator::Estimate(
-    const std::vector<X_t>& points2D, const std::vector<Y_t>& points3D) {
+void P3PEstimator::Estimate(const std::vector<X_t>& points2D,
+                            const std::vector<Y_t>& points3D,
+                            std::vector<M_t>* models) {
   CHECK_EQ(points2D.size(), 3);
   CHECK_EQ(points3D.size(), 3);
+  CHECK(models != nullptr);
+
+  models->clear();
 
   Eigen::Matrix3d points3D_world;
   points3D_world.col(0) = points3D[0];
@@ -94,11 +98,10 @@ std::vector<P3PEstimator::M_t> P3PEstimator::Estimate(
   Eigen::VectorXd roots_real;
   Eigen::VectorXd roots_imag;
   if (!FindPolynomialRootsCompanionMatrix(coeffs, &roots_real, &roots_imag)) {
-    return std::vector<P3PEstimator::M_t>({});
+    return;
   }
 
-  std::vector<M_t> models;
-  models.reserve(roots_real.size());
+  models->reserve(roots_real.size());
 
   for (Eigen::VectorXd::Index i = 0; i < roots_real.size(); ++i) {
     const double kMaxRootImag = 1e-10;
@@ -160,10 +163,8 @@ std::vector<P3PEstimator::M_t> P3PEstimator::Estimate(
     // Find transformation from the world to the camera system.
     const Eigen::Matrix4d transform =
         Eigen::umeyama(points3D_world, points3D_camera, false);
-    models.push_back(transform.topLeftCorner<3, 4>());
+    models->push_back(transform.topLeftCorner<3, 4>());
   }
-
-  return models;
 }
 
 void P3PEstimator::Residuals(const std::vector<X_t>& points2D,
@@ -173,18 +174,23 @@ void P3PEstimator::Residuals(const std::vector<X_t>& points2D,
   ComputeSquaredReprojectionError(points2D, points3D, proj_matrix, residuals);
 }
 
-std::vector<EPNPEstimator::M_t> EPNPEstimator::Estimate(
-    const std::vector<X_t>& points2D, const std::vector<Y_t>& points3D) {
+void EPNPEstimator::Estimate(const std::vector<X_t>& points2D,
+                             const std::vector<Y_t>& points3D,
+                             std::vector<M_t>* models) {
   CHECK_GE(points2D.size(), 4);
   CHECK_EQ(points2D.size(), points3D.size());
+  CHECK(models != nullptr);
+
+  models->clear();
 
   EPNPEstimator epnp;
   M_t proj_matrix;
   if (!epnp.ComputePose(points2D, points3D, &proj_matrix)) {
-    return std::vector<EPNPEstimator::M_t>({});
+    return;
   }
 
-  return std::vector<EPNPEstimator::M_t>({proj_matrix});
+  models->resize(1);
+  (*models)[0] = proj_matrix;
 }
 
 void EPNPEstimator::Residuals(const std::vector<X_t>& points2D,

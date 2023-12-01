@@ -64,8 +64,9 @@ class FundamentalMatrixSevenPointEstimator {
   // @param points2  Second set of corresponding points
   //
   // @return         Up to 4 solutions as a vector of 3x3 fundamental matrices.
-  static std::vector<M_t> Estimate(const std::vector<X_t>& points1,
-                                   const std::vector<Y_t>& points2);
+  static void Estimate(const std::vector<X_t>& points1,
+                       const std::vector<Y_t>& points2,
+                       std::vector<M_t>* models);
 
   // Calculate the residuals of a set of corresponding points and a given
   // fundamental matrix.
@@ -104,8 +105,9 @@ class FundamentalMatrixEightPointEstimator {
   // @param points2  Second set of corresponding points
   //
   // @return         Single solution as a vector of 3x3 fundamental matrices.
-  static std::vector<M_t> Estimate(const std::vector<X_t>& points1,
-                                   const std::vector<Y_t>& points2);
+  static void Estimate(const std::vector<X_t>& points1,
+                       const std::vector<Y_t>& points2,
+                       std::vector<M_t>* models);
 
   // Calculate the residuals of a set of corresponding points and a given
   // fundamental matrix.

@@ -75,7 +75,11 @@ TEST(FundamentalMatrix, SevenPoint) {
   }
 
   FundamentalMatrixSevenPointEstimator estimator;
-  const auto F = estimator.Estimate(points1, points2)[0];
+  std::vector<Eigen::Matrix3d> models;
+  estimator.Estimate(points1, points2, &models);
+
+  ASSERT_EQ(models.size(), 1);
+  const auto& F = models[0];
 
   // Reference values obtained from Matlab.
   EXPECT_NEAR(F(0, 0), 4.81441976, 1e-6);
@@ -135,7 +139,11 @@ TEST(FundamentalMatrix, EightPoint) {
   }
 
   FundamentalMatrixEightPointEstimator estimator;
-  const auto F = estimator.Estimate(points1, points2)[0];
+  std::vector<Eigen::Matrix3d> models;
+  estimator.Estimate(points1, points2, &models);
+
+  ASSERT_EQ(models.size(), 1);
+  const auto& F = models[0];
 
   // Reference values obtained from Matlab.
   EXPECT_TRUE(std::abs(F(0, 0) - -0.217859) < 1e-5);

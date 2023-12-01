@@ -56,8 +56,9 @@ class TranslationTransformEstimator {
   // @param points2      Set of corresponding destination 2D points.
   //
   // @return             Translation vector.
-  static std::vector<M_t> Estimate(const std::vector<X_t>& points1,
-                                   const std::vector<Y_t>& points2);
+  static void Estimate(const std::vector<X_t>& points1,
+                       const std::vector<Y_t>& points2,
+                       std::vector<M_t>* models);
 
   // Calculate the squared translation error.
   //
@@ -76,10 +77,14 @@ class TranslationTransformEstimator {
 ////////////////////////////////////////////////////////////////////////////////
 
 template <int kDim>
-std::vector<typename TranslationTransformEstimator<kDim>::M_t>
-TranslationTransformEstimator<kDim>::Estimate(const std::vector<X_t>& points1,
-                                              const std::vector<Y_t>& points2) {
+void TranslationTransformEstimator<kDim>::Estimate(
+    const std::vector<X_t>& points1,
+    const std::vector<Y_t>& points2,
+    std::vector<M_t>* models) {
   CHECK_EQ(points1.size(), points2.size());
+  CHECK(models != nullptr);
+
+  models->clear();
 
   X_t mean_src = X_t::Zero();
   Y_t mean_dst = Y_t::Zero();
@@ -92,10 +97,8 @@ TranslationTransformEstimator<kDim>::Estimate(const std::vector<X_t>& points1,
   mean_src /= points1.size();
   mean_dst /= points2.size();
 
-  std::vector<M_t> models(1);
-  models[0] = mean_dst - mean_src;
-
-  return models;
+  models->resize(1);
+  (*models)[0] = mean_dst - mean_src;
 }
 
 template <int kDim>

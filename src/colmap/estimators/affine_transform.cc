@@ -35,10 +35,14 @@
 
 namespace colmap {
 
-std::vector<AffineTransformEstimator::M_t> AffineTransformEstimator::Estimate(
-    const std::vector<X_t>& points1, const std::vector<Y_t>& points2) {
+void AffineTransformEstimator::Estimate(const std::vector<X_t>& points1,
+                                        const std::vector<Y_t>& points2,
+                                        std::vector<M_t>* models) {
   CHECK_EQ(points1.size(), points2.size());
   CHECK_GE(points1.size(), 3);
+  CHECK(models != nullptr);
+
+  models->clear();
 
   // Sets up the linear system that we solve to obtain a least squared solution
   // for the affine transformation.
@@ -66,7 +70,8 @@ std::vector<AffineTransformEstimator::M_t> AffineTransformEstimator::Estimate(
 
   Eigen::Map<const Eigen::Matrix<double, 3, 2>> A_t(nullspace.data());
 
-  return {A_t.transpose()};
+  models->resize(1);
+  (*models)[0] = A_t.transpose();
 }
 
 void AffineTransformEstimator::Residuals(const std::vector<X_t>& points1,

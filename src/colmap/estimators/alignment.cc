@@ -61,11 +61,15 @@ struct ReconstructionAlignmentEstimator {
   }
 
   // Estimate 3D similarity transform from corresponding projection centers.
-  std::vector<M_t> Estimate(const std::vector<X_t>& src_images,
-                            const std::vector<Y_t>& tgt_images) const {
+  void Estimate(const std::vector<X_t>& src_images,
+                const std::vector<Y_t>& tgt_images,
+                std::vector<M_t>* models) const {
     CHECK_GE(src_images.size(), 3);
     CHECK_GE(tgt_images.size(), 3);
     CHECK_EQ(src_images.size(), tgt_images.size());
+    CHECK(models != nullptr);
+
+    models->clear();
 
     std::vector<Eigen::Vector3d> proj_centers1(src_images.size());
     std::vector<Eigen::Vector3d> proj_centers2(tgt_images.size());
@@ -76,11 +80,12 @@ struct ReconstructionAlignmentEstimator {
     }
 
     Sim3d tgt_from_src;
-    if (EstimateSim3d(proj_centers1, proj_centers2, tgt_from_src)) {
-      return {tgt_from_src};
+    if (!EstimateSim3d(proj_centers1, proj_centers2, tgt_from_src)) {
+      return;
     }
 
-    return {};
+    models->resize(1);
+    (*models)[0] = tgt_from_src;
   }
 
   // For each image, determine the ratio of 3D points that correctly project
