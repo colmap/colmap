@@ -189,7 +189,8 @@ void EPNPEstimator::Estimate(const std::vector<X_t>& points2D,
     return;
   }
 
-  models->push_back(proj_matrix);
+  models->resize(1);
+  (*models)[0] = proj_matrix;
 }
 
 void EPNPEstimator::Residuals(const std::vector<X_t>& points2D,

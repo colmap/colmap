@@ -59,8 +59,8 @@ struct VanishingPointEstimator {
     CHECK_EQ(line_segments.size(), 2);
     CHECK_EQ(lines.size(), 2);
     CHECK(models != nullptr);
-    models->reserve(1);
-    models->push_back(lines[0].cross(lines[1]));
+    models->resize(1);
+    (*models)[0] = lines[0].cross(lines[1]);
   }
 
   // Calculate the squared distance of each line segment's end point to the line

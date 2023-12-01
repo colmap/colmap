@@ -97,8 +97,8 @@ void TranslationTransformEstimator<kDim>::Estimate(
   mean_src /= points1.size();
   mean_dst /= points2.size();
 
-  models->reserve(1);
-  models->push_back(mean_dst - mean_src);
+  models->resize(1);
+  (*models)[0] = mean_dst - mean_src;
 }
 
 template <int kDim>

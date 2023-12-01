@@ -192,7 +192,8 @@ void FundamentalMatrixEightPointEstimator::Estimate(
                             singular_values.asDiagonal() *
                             fmatrix_svd.matrixV().transpose();
 
-  models->push_back(normed_from_orig2.transpose() * F * normed_from_orig1);
+  models->resize(1);
+  (*models)[0] = normed_from_orig2.transpose() * F * normed_from_orig1;
 }
 
 void FundamentalMatrixEightPointEstimator::Residuals(

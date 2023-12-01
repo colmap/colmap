@@ -80,10 +80,12 @@ struct ReconstructionAlignmentEstimator {
     }
 
     Sim3d tgt_from_src;
-    if (EstimateSim3d(proj_centers1, proj_centers2, tgt_from_src)) {
-      models->reserve(1);
-      models->push_back(tgt_from_src);
+    if (!EstimateSim3d(proj_centers1, proj_centers2, tgt_from_src)) {
+      return;
     }
+
+    models->resize(1);
+    (*models)[0] = tgt_from_src;
   }
 
   // For each image, determine the ratio of 3D points that correctly project

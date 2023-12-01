@@ -58,7 +58,6 @@ void TriangulationEstimator::Estimate(const std::vector<X_t>& point_data,
   CHECK(models != nullptr);
 
   models->clear();
-  models->reserve(1);
 
   if (point_data.size() == 2) {
     // Two-view triangulation.
@@ -73,7 +72,8 @@ void TriangulationEstimator::Estimate(const std::vector<X_t>& point_data,
         CalculateTriangulationAngle(pose_data[0].proj_center,
                                     pose_data[1].proj_center,
                                     xyz) >= min_tri_angle_) {
-      models->push_back(xyz);
+      models->resize(1);
+      (*models)[0] = xyz;
       return;
     }
   } else {
@@ -103,7 +103,8 @@ void TriangulationEstimator::Estimate(const std::vector<X_t>& point_data,
         const double tri_angle = CalculateTriangulationAngle(
             pose_data[i].proj_center, pose_data[j].proj_center, xyz);
         if (tri_angle >= min_tri_angle_) {
-          models->push_back(xyz);
+          models->resize(1);
+          (*models)[0] = xyz;
           return;
         }
       }

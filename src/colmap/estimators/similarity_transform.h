@@ -131,8 +131,8 @@ void SimilarityTransformEstimator<kDim, kEstimateScale>::Estimate(
     return;
   }
 
-  models->reserve(1);
-  models->push_back(model);
+  models->resize(1);
+  (*models)[0] = model;
 }
 
 template <int kDim, bool kEstimateScale>

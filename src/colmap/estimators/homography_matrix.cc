@@ -87,9 +87,9 @@ void HomographyMatrixEstimator::Estimate(const std::vector<X_t>& points1,
   const Eigen::VectorXd nullspace = svd.matrixV().col(8);
   Eigen::Map<const Eigen::Matrix3d> H_t(nullspace.data());
 
-  models->reserve(1);
-  models->push_back(normed_from_orig2.inverse() * H_t.transpose() *
-                    normed_from_orig1);
+  models->resize(1);
+  (*models)[0] =
+      normed_from_orig2.inverse() * H_t.transpose() * normed_from_orig1;
 }
 
 void HomographyMatrixEstimator::Residuals(const std::vector<X_t>& points1,
