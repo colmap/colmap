@@ -80,19 +80,19 @@ TEST(CoordinateFrame, AlignToPrincipalPlane) {
   const bool inverted = tform.rotation.y() < 0;
 
   // Verify that points lie on the correct locations of the X-Y plane
-  EXPECT_LE((reconstruction.Point3D(p1).XYZ() -
+  EXPECT_LE((reconstruction.Point3D(p1).xyz -
              Eigen::Vector3d(inverted ? 1 : -1, 0, 0))
                 .norm(),
             1e-6);
-  EXPECT_LE((reconstruction.Point3D(p2).XYZ() -
+  EXPECT_LE((reconstruction.Point3D(p2).xyz -
              Eigen::Vector3d(inverted ? -1 : 1, 0, 0))
                 .norm(),
             1e-6);
-  EXPECT_LE((reconstruction.Point3D(p3).XYZ() -
+  EXPECT_LE((reconstruction.Point3D(p3).xyz -
              Eigen::Vector3d(0, inverted ? 1 : -1, 0))
                 .norm(),
             1e-6);
-  EXPECT_LE((reconstruction.Point3D(p4).XYZ() -
+  EXPECT_LE((reconstruction.Point3D(p4).xyz -
              Eigen::Vector3d(0, inverted ? -1 : 1, 0))
                 .norm(),
             1e-6);
@@ -128,19 +128,19 @@ TEST(CoordinateFrame, AlignToENUPlane) {
   }
   AlignToENUPlane(&reconstruction, &tform, false);
   // Verify final locations of points
-  EXPECT_LE((reconstruction.Point3D(point_ids[0]).XYZ() -
+  EXPECT_LE((reconstruction.Point3D(point_ids[0]).xyz -
              Eigen::Vector3d(3584.8565215, -5561.5336506, 0.0742643))
                 .norm(),
             1e-6);
-  EXPECT_LE((reconstruction.Point3D(point_ids[1]).XYZ() -
+  EXPECT_LE((reconstruction.Point3D(point_ids[1]).xyz -
              Eigen::Vector3d(-3577.3888622, 5561.6397107, 0.0783761))
                 .norm(),
             1e-6);
-  EXPECT_LE((reconstruction.Point3D(point_ids[2]).XYZ() -
+  EXPECT_LE((reconstruction.Point3D(point_ids[2]).xyz -
              Eigen::Vector3d(3577.4152111, 5561.6397283, 0.0783613))
                 .norm(),
             1e-6);
-  EXPECT_LE((reconstruction.Point3D(point_ids[3]).XYZ() -
+  EXPECT_LE((reconstruction.Point3D(point_ids[3]).xyz -
              Eigen::Vector3d(-3584.8301178, -5561.5336683, 0.0742791))
                 .norm(),
             1e-6);
@@ -148,8 +148,8 @@ TEST(CoordinateFrame, AlignToENUPlane) {
   // Verify that straight line distance between points is preserved
   for (size_t i = 1; i < points.size(); ++i) {
     const double dist_orig = (points[i] - points[i - 1]).norm();
-    const double dist_tform = (reconstruction.Point3D(point_ids[i]).XYZ() -
-                               reconstruction.Point3D(point_ids[i - 1]).XYZ())
+    const double dist_tform = (reconstruction.Point3D(point_ids[i]).xyz -
+                               reconstruction.Point3D(point_ids[i - 1]).xyz)
                                   .norm();
     EXPECT_LE(std::abs(dist_orig - dist_tform), 1e-6);
   }

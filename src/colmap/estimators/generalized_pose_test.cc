@@ -72,7 +72,7 @@ GeneralizedCameraProblem BuildGeneralizedCameraProblem() {
       if (point2D.HasPoint3D()) {
         problem.points2D.push_back(point2D.xy);
         problem.points3D.push_back(
-            reconstruction.Point3D(point2D.point3D_id).XYZ());
+            reconstruction.Point3D(point2D.point3D_id).xyz);
         problem.point3D_ids.push_back(point2D.point3D_id);
         problem.camera_idxs.push_back(problem.cameras.size());
       }

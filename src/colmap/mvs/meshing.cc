@@ -238,8 +238,8 @@ class DelaunayMeshingInput {
     for (const auto& point3D : reconstruction.Points3D()) {
       point_id_to_idx.emplace(point3D.first, points.size());
       DelaunayMeshingInput::Point input_point;
-      input_point.position = point3D.second.XYZ().cast<float>();
-      input_point.num_visible_images = point3D.second.Track().Length();
+      input_point.position = point3D.second.xyz.cast<float>();
+      input_point.num_visible_images = point3D.second.track.Length();
       points.push_back(input_point);
     }
 

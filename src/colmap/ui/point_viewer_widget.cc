@@ -149,21 +149,21 @@ void PointViewerWidget::Show(const point3D_t point3D_id) {
 
   const auto& point3D = model_viewer_widget_->points3D[point3D_id];
 
-  xyz_item_->setText(QString::number(point3D.X()) + ", " +
-                     QString::number(point3D.Y()) + ", " +
-                     QString::number(point3D.Z()));
-  rgb_item_->setText(QString::number(point3D.Color(0)) + ", " +
-                     QString::number(point3D.Color(1)) + ", " +
-                     QString::number(point3D.Color(2)));
-  error_item_->setText(QString::number(point3D.Error()));
+  xyz_item_->setText(QString::number(point3D.xyz(0)) + ", " +
+                     QString::number(point3D.xyz(1)) + ", " +
+                     QString::number(point3D.xyz(2)));
+  rgb_item_->setText(QString::number(point3D.color(0)) + ", " +
+                     QString::number(point3D.color(1)) + ", " +
+                     QString::number(point3D.color(2)));
+  error_item_->setText(QString::number(point3D.error));
 
   ResizeInfoTable();
 
   // Sort the track elements by the image names.
 
   std::vector<std::pair<TrackElement, std::string>> track_idx_image_name_pairs;
-  track_idx_image_name_pairs.reserve(point3D.Track().Length());
-  for (const auto& track_el : point3D.Track().Elements()) {
+  track_idx_image_name_pairs.reserve(point3D.track.Length());
+  for (const auto& track_el : point3D.track.Elements()) {
     const Image& image = model_viewer_widget_->images[track_el.image_id];
     track_idx_image_name_pairs.emplace_back(track_el, image.Name());
   }
@@ -182,7 +182,7 @@ void PointViewerWidget::Show(const point3D_t point3D_id) {
     const Camera& camera = model_viewer_widget_->cameras[image.CameraId()];
     const Point2D& point2D = image.Point2D(track_el.first.point2D_idx);
     const Eigen::Vector2d proj_point2D =
-        camera.ImgFromCam((image.CamFromWorld() * point3D.XYZ()).hnormalized());
+        camera.ImgFromCam((image.CamFromWorld() * point3D.xyz).hnormalized());
     const double reproj_error = (point2D.xy - proj_point2D).norm();
 
     Bitmap bitmap;

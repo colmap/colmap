@@ -82,8 +82,7 @@ void SynthesizeChainedMatches(Reconstruction* reconstruction,
                               Database* database) {
   std::unordered_map<image_pair_t, TwoViewGeometry> two_view_geometries;
   for (const auto& point3D : reconstruction->Points3D()) {
-    std::vector<TrackElement> track_elements =
-        point3D.second.Track().Elements();
+    std::vector<TrackElement> track_elements = point3D.second.track.Elements();
     std::shuffle(track_elements.begin(), track_elements.end(), *PRNG);
     for (size_t i = 1; i < track_elements.size(); ++i) {
       const auto& prev_track_el = track_elements[i - 1];
@@ -178,7 +177,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
     for (auto& point3D : reconstruction->Points3D()) {
       Point2D point2D;
       point2D.xy = camera.ImgFromCam(
-          (image.CamFromWorld() * point3D.second.XYZ()).hnormalized());
+          (image.CamFromWorld() * point3D.second.xyz).hnormalized());
       if (options.point2D_stddev > 0) {
         const Eigen::Vector2d noise(
             RandomGaussian<double>(0, options.point2D_stddev),
@@ -221,7 +220,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
       const auto& point2D = points2D[point2D_idx];
       if (point2D.HasPoint3D()) {
         auto& point3D = reconstruction->Point3D(point2D.point3D_id);
-        point3D.Track().AddElement(image_id, point2D_idx);
+        point3D.track.AddElement(image_id, point2D_idx);
       }
     }
 

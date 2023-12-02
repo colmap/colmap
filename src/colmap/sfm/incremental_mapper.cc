@@ -410,7 +410,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
       tri_corrs.emplace_back(point2D_idx, corr_point2D.point3D_id);
       corr_point3D_ids.insert(corr_point2D.point3D_id);
       tri_points2D.push_back(point2D.xy);
-      tri_points3D.push_back(point3D.XYZ());
+      tri_points3D.push_back(point3D.xyz);
     }
   }
 
@@ -630,7 +630,7 @@ IncrementalMapper::AdjustLocalBundle(
     for (const point3D_t point3D_id : point3D_ids) {
       const Point3D& point3D = reconstruction_->Point3D(point3D_id);
       const size_t kMaxTrackLength = 15;
-      if (!point3D.HasError() || point3D.Track().Length() <= kMaxTrackLength) {
+      if (!point3D.HasError() || point3D.track.Length() <= kMaxTrackLength) {
         ba_config.AddVariablePoint(point3D_id);
         variable_point3D_ids.insert(point3D_id);
       }
@@ -938,7 +938,7 @@ std::vector<image_t> IncrementalMapper::FindLocalBundle(
     if (point2D.HasPoint3D()) {
       point3D_ids.insert(point2D.point3D_id);
       const Point3D& point3D = reconstruction_->Point3D(point2D.point3D_id);
-      for (const TrackElement& track_el : point3D.Track().Elements()) {
+      for (const TrackElement& track_el : point3D.track.Elements()) {
         if (track_el.image_id != image_id) {
           shared_observations[track_el.image_id] += 1;
         }
@@ -1036,7 +1036,7 @@ std::vector<image_t> IncrementalMapper::FindLocalBundle(
         for (const Point2D& point2D : overlapping_image.Points2D()) {
           if (point2D.HasPoint3D() && point3D_ids.count(point2D.point3D_id)) {
             shared_points3D.push_back(
-                reconstruction_->Point3D(point2D.point3D_id).XYZ());
+                reconstruction_->Point3D(point2D.point3D_id).xyz);
           }
         }
 

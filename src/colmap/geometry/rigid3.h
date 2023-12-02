@@ -83,11 +83,11 @@ inline Eigen::Vector3d operator*(const Rigid3d& t, const Eigen::Vector3d& x) {
 // Concatenate transforms such one can write expressions like:
 //      d_from_a = d_from_c * c_from_b * b_from_a
 inline Rigid3d operator*(const Rigid3d& c_from_b, const Rigid3d& b_from_a) {
-  Rigid3d cFromA;
-  cFromA.rotation = (c_from_b.rotation * b_from_a.rotation).normalized();
-  cFromA.translation =
+  Rigid3d c_from_a;
+  c_from_a.rotation = (c_from_b.rotation * b_from_a.rotation).normalized();
+  c_from_a.translation =
       c_from_b.translation + (c_from_b.rotation * b_from_a.translation);
-  return cFromA;
+  return c_from_a;
 }
 
 }  // namespace colmap

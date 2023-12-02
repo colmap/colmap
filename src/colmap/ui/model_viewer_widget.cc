@@ -920,13 +920,13 @@ void ModelViewerWidget::UploadPointData(const bool selection_mode) {
   if (selected_image_id_ == kInvalidImageId &&
       images.count(selected_image_id_) == 0) {
     for (const auto& point3D : points3D) {
-      if (point3D.second.Error() <= options_->render->max_error &&
-          point3D.second.Track().Length() >= min_track_len) {
+      if (point3D.second.error <= options_->render->max_error &&
+          point3D.second.track.Length() >= min_track_len) {
         PointPainter::Data painter_point;
 
-        painter_point.x = static_cast<float>(point3D.second.XYZ(0));
-        painter_point.y = static_cast<float>(point3D.second.XYZ(1));
-        painter_point.z = static_cast<float>(point3D.second.XYZ(2));
+        painter_point.x = static_cast<float>(point3D.second.xyz(0));
+        painter_point.y = static_cast<float>(point3D.second.xyz(1));
+        painter_point.z = static_cast<float>(point3D.second.xyz(2));
 
         Eigen::Vector4f color;
         if (selection_mode) {
@@ -952,13 +952,13 @@ void ModelViewerWidget::UploadPointData(const bool selection_mode) {
   } else {  // Image selected
     const auto& selected_image = images[selected_image_id_];
     for (const auto& point3D : points3D) {
-      if (point3D.second.Error() <= options_->render->max_error &&
-          point3D.second.Track().Length() >= min_track_len) {
+      if (point3D.second.error <= options_->render->max_error &&
+          point3D.second.track.Length() >= min_track_len) {
         PointPainter::Data painter_point;
 
-        painter_point.x = static_cast<float>(point3D.second.XYZ(0));
-        painter_point.y = static_cast<float>(point3D.second.XYZ(1));
-        painter_point.z = static_cast<float>(point3D.second.XYZ(2));
+        painter_point.x = static_cast<float>(point3D.second.xyz(0));
+        painter_point.y = static_cast<float>(point3D.second.xyz(1));
+        painter_point.z = static_cast<float>(point3D.second.xyz(2));
 
         Eigen::Vector4f color;
         if (selection_mode) {
@@ -1002,16 +1002,16 @@ void ModelViewerWidget::UploadPointConnectionData() {
 
   // 3D point position.
   LinePainter::Data line;
-  line.point1 = PointPainter::Data(static_cast<float>(point3D.XYZ(0)),
-                                   static_cast<float>(point3D.XYZ(1)),
-                                   static_cast<float>(point3D.XYZ(2)),
+  line.point1 = PointPainter::Data(static_cast<float>(point3D.xyz(0)),
+                                   static_cast<float>(point3D.xyz(1)),
+                                   static_cast<float>(point3D.xyz(2)),
                                    kSelectedPointColor(0),
                                    kSelectedPointColor(1),
                                    kSelectedPointColor(2),
                                    0.8f);
 
   // All images in which 3D point is observed.
-  for (const auto& track_el : point3D.Track().Elements()) {
+  for (const auto& track_el : point3D.track.Elements()) {
     const Image& conn_image = images[track_el.image_id];
     const Eigen::Vector3f conn_proj_center =
         conn_image.ProjectionCenter().cast<float>();
@@ -1100,7 +1100,7 @@ void ModelViewerWidget::UploadImageConnectionData() {
     for (const Point2D& point2D : image.Points2D()) {
       if (point2D.HasPoint3D()) {
         const Point3D& point3D = points3D[point2D.point3D_id];
-        for (const auto& track_elem : point3D.Track().Elements()) {
+        for (const auto& track_elem : point3D.track.Elements()) {
           conn_image_ids.insert(track_elem.image_id);
         }
       }

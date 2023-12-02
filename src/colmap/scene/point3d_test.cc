@@ -36,79 +36,20 @@ namespace {
 
 TEST(Point3D, Default) {
   Point3D point3D;
-  EXPECT_EQ(point3D.X(), 0);
-  EXPECT_EQ(point3D.Y(), 0);
-  EXPECT_EQ(point3D.Z(), 0);
-  EXPECT_EQ(point3D.XYZ()[0], point3D.X());
-  EXPECT_EQ(point3D.XYZ()[1], point3D.Y());
-  EXPECT_EQ(point3D.XYZ()[2], point3D.Z());
-  EXPECT_EQ(point3D.Color()[0], 0);
-  EXPECT_EQ(point3D.Color()[1], 0);
-  EXPECT_EQ(point3D.Color()[2], 0);
-  EXPECT_EQ(point3D.Error(), -1.0);
+  EXPECT_EQ(point3D.xyz, Eigen::Vector3d::Zero());
+  EXPECT_EQ(point3D.color, Eigen::Vector3ub::Zero());
+  EXPECT_EQ(point3D.error, -1.0);
   EXPECT_FALSE(point3D.HasError());
-  EXPECT_EQ(point3D.Track().Length(), 0);
-}
-
-TEST(Point3D, XYZ) {
-  Point3D point3D;
-  EXPECT_EQ(point3D.X(), 0);
-  EXPECT_EQ(point3D.Y(), 0);
-  EXPECT_EQ(point3D.Z(), 0);
-  EXPECT_EQ(point3D.XYZ()[0], point3D.X());
-  EXPECT_EQ(point3D.XYZ()[1], point3D.Y());
-  EXPECT_EQ(point3D.XYZ()[2], point3D.Z());
-  point3D.SetXYZ(Eigen::Vector3d(0.1, 0.2, 0.3));
-  EXPECT_EQ(point3D.X(), 0.1);
-  EXPECT_EQ(point3D.Y(), 0.2);
-  EXPECT_EQ(point3D.Z(), 0.3);
-  EXPECT_EQ(point3D.XYZ()[0], point3D.X());
-  EXPECT_EQ(point3D.XYZ()[1], point3D.Y());
-  EXPECT_EQ(point3D.XYZ()[2], point3D.Z());
-  point3D.XYZ() = Eigen::Vector3d(0.2, 0.3, 0.4);
-  EXPECT_EQ(point3D.X(), 0.2);
-  EXPECT_EQ(point3D.Y(), 0.3);
-  EXPECT_EQ(point3D.Z(), 0.4);
-  EXPECT_EQ(point3D.XYZ()[0], point3D.X());
-  EXPECT_EQ(point3D.XYZ()[1], point3D.Y());
-  EXPECT_EQ(point3D.XYZ()[2], point3D.Z());
-}
-
-TEST(Point3D, RGB) {
-  Point3D point3D;
-  EXPECT_EQ(point3D.Color()[0], 0);
-  EXPECT_EQ(point3D.Color()[1], 0);
-  EXPECT_EQ(point3D.Color()[2], 0);
-  point3D.SetColor(Eigen::Vector3ub(1, 2, 3));
-  EXPECT_EQ(point3D.Color()[0], 1);
-  EXPECT_EQ(point3D.Color()[1], 2);
-  EXPECT_EQ(point3D.Color()[2], 3);
+  EXPECT_EQ(point3D.track.Length(), 0);
 }
 
 TEST(Point3D, Error) {
   Point3D point3D;
-  EXPECT_EQ(point3D.Error(), -1.0);
+  EXPECT_EQ(point3D.error, -1.0);
   EXPECT_FALSE(point3D.HasError());
-  point3D.SetError(1.0);
-  EXPECT_EQ(point3D.Error(), 1.0);
+  point3D.error = 1.0;
+  EXPECT_EQ(point3D.error, 1.0);
   EXPECT_TRUE(point3D.HasError());
-  point3D.SetError(-1.0);
-  EXPECT_EQ(point3D.Error(), -1.0);
-  EXPECT_FALSE(point3D.HasError());
-}
-
-TEST(Point3D, Track) {
-  Point3D point3D;
-  EXPECT_EQ(point3D.Track().Length(), 0);
-  point3D.SetTrack(Track());
-  EXPECT_EQ(point3D.Track().Length(), 0);
-  Track track;
-  track.AddElement(0, 1);
-  track.AddElement(0, 2);
-  point3D.SetTrack(track);
-  EXPECT_EQ(point3D.Track().Length(), 2);
-  track.AddElement(0, 3);
-  EXPECT_EQ(point3D.Track().Length(), 2);
 }
 
 }  // namespace

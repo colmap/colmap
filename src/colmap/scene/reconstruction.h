@@ -77,14 +77,14 @@ class Reconstruction {
   // Get const objects.
   inline const class Camera& Camera(camera_t camera_id) const;
   inline const class Image& Image(image_t image_id) const;
-  inline const class Point3D& Point3D(point3D_t point3D_id) const;
+  inline const struct Point3D& Point3D(point3D_t point3D_id) const;
   inline const ImagePairStat& ImagePair(image_pair_t pair_id) const;
   inline ImagePairStat& ImagePair(image_t image_id1, image_t image_id2);
 
   // Get mutable objects.
   inline class Camera& Camera(camera_t camera_id);
   inline class Image& Image(image_t image_id);
-  inline class Point3D& Point3D(point3D_t point3D_id);
+  inline struct Point3D& Point3D(point3D_t point3D_id);
   inline ImagePairStat& ImagePair(image_pair_t pair_id);
   inline const ImagePairStat& ImagePair(image_t image_id1,
                                         image_t image_id2) const;
@@ -93,7 +93,7 @@ class Reconstruction {
   inline const std::unordered_map<camera_t, class Camera>& Cameras() const;
   inline const std::unordered_map<image_t, class Image>& Images() const;
   inline const std::vector<image_t>& RegImageIds() const;
-  inline const std::unordered_map<point3D_t, class Point3D>& Points3D() const;
+  inline const std::unordered_map<point3D_t, struct Point3D>& Points3D() const;
   inline const std::unordered_map<image_pair_t, ImagePairStat>& ImagePairs()
       const;
 
@@ -395,7 +395,7 @@ class Reconstruction {
 
   std::unordered_map<camera_t, class Camera> cameras_;
   std::unordered_map<image_t, class Image> images_;
-  std::unordered_map<point3D_t, class Point3D> points3D_;
+  std::unordered_map<point3D_t, struct Point3D> points3D_;
 
   std::unordered_map<image_pair_t, ImagePairStat> image_pair_stats_;
 
@@ -430,7 +430,8 @@ const class Image& Reconstruction::Image(const image_t image_id) const {
   return images_.at(image_id);
 }
 
-const class Point3D& Reconstruction::Point3D(const point3D_t point3D_id) const {
+const struct Point3D& Reconstruction::Point3D(
+    const point3D_t point3D_id) const {
   return points3D_.at(point3D_id);
 }
 
@@ -453,7 +454,7 @@ class Image& Reconstruction::Image(const image_t image_id) {
   return images_.at(image_id);
 }
 
-class Point3D& Reconstruction::Point3D(const point3D_t point3D_id) {
+struct Point3D& Reconstruction::Point3D(const point3D_t point3D_id) {
   return points3D_.at(point3D_id);
 }
 
