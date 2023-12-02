@@ -76,7 +76,7 @@ Acknowledgments
 
 The library was originally written by Johannes L. Schönberger
 (https://demuc.de/) with funding provided by his PhD advisors Jan-Michael Frahm
-and Marc Pollefeys. Since then the project has benefitted from countless
+and Marc Pollefeys. Since then the project has benefited from countless
 community contributions, including bug fixes, improvements, new features,
 third-party tooling, and community support.
 

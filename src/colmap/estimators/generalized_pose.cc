@@ -200,7 +200,7 @@ bool RefineGeneralizedAbsolutePose(const AbsolutePoseRefinementOptions& options,
     ceres::CostFunction* cost_function = nullptr;
     switch (cameras->at(camera_idx).ModelId()) {
 #define CAMERA_MODEL_CASE(CameraModel)                                \
-  case CameraModel::kModelId:                                         \
+  case CameraModel::model_id:                                         \
     cost_function =                                                   \
         RigReprojErrorCostFunction<CameraModel>::Create(points2D[i]); \
     break;
@@ -241,23 +241,21 @@ bool RefineGeneralizedAbsolutePose(const AbsolutePoseRefinementOptions& options,
       } else {
         // Always set the principal point as fixed.
         std::vector<int> camera_params_const;
-        const std::vector<size_t>& principal_point_idxs =
+        const span<const size_t> principal_point_idxs =
             camera.PrincipalPointIdxs();
         camera_params_const.insert(camera_params_const.end(),
                                    principal_point_idxs.begin(),
                                    principal_point_idxs.end());
 
         if (!options.refine_focal_length) {
-          const std::vector<size_t>& focal_length_idxs =
-              camera.FocalLengthIdxs();
+          const span<const size_t> focal_length_idxs = camera.FocalLengthIdxs();
           camera_params_const.insert(camera_params_const.end(),
                                      focal_length_idxs.begin(),
                                      focal_length_idxs.end());
         }
 
         if (!options.refine_extra_params) {
-          const std::vector<size_t>& extra_params_idxs =
-              camera.ExtraParamsIdxs();
+          const span<const size_t> extra_params_idxs = camera.ExtraParamsIdxs();
           camera_params_const.insert(camera_params_const.end(),
                                      extra_params_idxs.begin(),
                                      extra_params_idxs.end());

@@ -76,12 +76,21 @@ void TestModel(const std::vector<double>& params) {
 
   EXPECT_EQ(CameraModelParamsInfo(CameraModel::model_id),
             CameraModel::params_info);
-  EXPECT_EQ(&CameraModelFocalLengthIdxs(CameraModel::model_id),
-            &CameraModel::focal_length_idxs);
-  EXPECT_EQ(&CameraModelPrincipalPointIdxs(CameraModel::model_id),
-            &CameraModel::principal_point_idxs);
-  EXPECT_EQ(&CameraModelExtraParamsIdxs(CameraModel::model_id),
-            &CameraModel::extra_params_idxs);
+  EXPECT_EQ(std::vector<size_t>(
+                CameraModelFocalLengthIdxs(CameraModel::model_id).begin(),
+                CameraModelFocalLengthIdxs(CameraModel::model_id).end()),
+            std::vector<size_t>(CameraModel::focal_length_idxs.begin(),
+                                CameraModel::focal_length_idxs.end()));
+  EXPECT_EQ(std::vector<size_t>(
+                CameraModelPrincipalPointIdxs(CameraModel::model_id).begin(),
+                CameraModelPrincipalPointIdxs(CameraModel::model_id).end()),
+            std::vector<size_t>(CameraModel::principal_point_idxs.begin(),
+                                CameraModel::principal_point_idxs.end()));
+  EXPECT_EQ(std::vector<size_t>(
+                CameraModelExtraParamsIdxs(CameraModel::model_id).begin(),
+                CameraModelExtraParamsIdxs(CameraModel::model_id).end()),
+            std::vector<size_t>(CameraModel::extra_params_idxs.begin(),
+                                CameraModel::extra_params_idxs.end()));
   EXPECT_EQ(CameraModelNumParams(CameraModel::model_id),
             CameraModel::num_params);
 

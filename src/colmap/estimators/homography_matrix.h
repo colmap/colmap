@@ -57,8 +57,9 @@ class HomographyMatrixEstimator {
   // @param points2    Second set of corresponding points.
   //
   // @return         3x3 homogeneous transformation matrix.
-  static std::vector<M_t> Estimate(const std::vector<X_t>& points1,
-                                   const std::vector<Y_t>& points2);
+  static void Estimate(const std::vector<X_t>& points1,
+                       const std::vector<Y_t>& points2,
+                       std::vector<M_t>* models);
 
   // Calculate the transformation error for each corresponding point pair.
   //

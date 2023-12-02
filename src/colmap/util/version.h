@@ -33,8 +33,6 @@
 
 namespace colmap {
 
-int GetVersionNumber();
-
 std::string GetVersionInfo();
 
 std::string GetBuildInfo();

@@ -50,11 +50,14 @@ void TriangulationEstimator::SetResidualType(const ResidualType residual_type) {
   residual_type_ = residual_type;
 }
 
-std::vector<TriangulationEstimator::M_t> TriangulationEstimator::Estimate(
-    const std::vector<X_t>& point_data,
-    const std::vector<Y_t>& pose_data) const {
+void TriangulationEstimator::Estimate(const std::vector<X_t>& point_data,
+                                      const std::vector<Y_t>& pose_data,
+                                      std::vector<M_t>* models) const {
   CHECK_GE(point_data.size(), 2);
   CHECK_EQ(point_data.size(), pose_data.size());
+  CHECK(models != nullptr);
+
+  models->clear();
 
   if (point_data.size() == 2) {
     // Two-view triangulation.
@@ -69,7 +72,9 @@ std::vector<TriangulationEstimator::M_t> TriangulationEstimator::Estimate(
         CalculateTriangulationAngle(pose_data[0].proj_center,
                                     pose_data[1].proj_center,
                                     xyz) >= min_tri_angle_) {
-      return std::vector<M_t>{xyz};
+      models->resize(1);
+      (*models)[0] = xyz;
+      return;
     }
   } else {
     // Multi-view triangulation.
@@ -88,7 +93,7 @@ std::vector<TriangulationEstimator::M_t> TriangulationEstimator::Estimate(
     // Check for cheirality constraint.
     for (const auto& pose : pose_data) {
       if (!HasPointPositiveDepth(pose.proj_matrix, xyz)) {
-        return std::vector<M_t>();
+        return;
       }
     }
 
@@ -98,13 +103,13 @@ std::vector<TriangulationEstimator::M_t> TriangulationEstimator::Estimate(
         const double tri_angle = CalculateTriangulationAngle(
             pose_data[i].proj_center, pose_data[j].proj_center, xyz);
         if (tri_angle >= min_tri_angle_) {
-          return std::vector<M_t>{xyz};
+          models->resize(1);
+          (*models)[0] = xyz;
+          return;
         }
       }
     }
   }
-
-  return std::vector<M_t>();
 }
 
 void TriangulationEstimator::Residuals(const std::vector<X_t>& point_data,

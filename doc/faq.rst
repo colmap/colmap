@@ -241,7 +241,7 @@ transformation. Then, the model can be geo-registered using::
     colmap model_aligner \
         --input_path /path/to/model \
         --output_path /path/to/geo-registered-model \
-        --ref_images_path /path/to/text-file (or --database_path /path/to/databse.db) \
+        --ref_images_path /path/to/text-file (or --database_path /path/to/database.db) \
         --ref_is_gps 1 \
         --alignment_type ecef \
         --robust_alignment 1 \

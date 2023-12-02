@@ -205,13 +205,17 @@ std::vector<Eigen::Vector3d> ComputeDepthsSylvester(
 
 }  // namespace
 
-std::vector<GP3PEstimator::M_t> GP3PEstimator::Estimate(
-    const std::vector<X_t>& points2D, const std::vector<Y_t>& points3D) {
+void GP3PEstimator::Estimate(const std::vector<X_t>& points2D,
+                             const std::vector<Y_t>& points3D,
+                             std::vector<M_t>* models) {
   CHECK_EQ(points2D.size(), 3);
   CHECK_EQ(points3D.size(), 3);
+  CHECK(models != nullptr);
+
+  models->clear();
 
   if (CheckCollinearPoints(points3D[0], points3D[1], points3D[2])) {
-    return {};
+    return;
   }
 
   // Transform 2D points into compact Pluecker line representation.
@@ -224,7 +228,7 @@ std::vector<GP3PEstimator::M_t> GP3PEstimator::Estimate(
   if (CheckParallelRays(plueckers[0].head<3>(),
                         plueckers[1].head<3>(),
                         plueckers[2].head<3>())) {
-    return {};
+    return;
   }
 
   // Compute the coefficients k1, k2, k3 using Eq. 4.
@@ -234,7 +238,7 @@ std::vector<GP3PEstimator::M_t> GP3PEstimator::Estimate(
   // Compute the depths along the Pluecker lines of the observations.
   const std::vector<Eigen::Vector3d> depths = ComputeDepthsSylvester(K);
   if (depths.empty()) {
-    return {};
+    return;
   }
 
   // For all valid depth values, compute the transformation between points in
@@ -247,7 +251,7 @@ std::vector<GP3PEstimator::M_t> GP3PEstimator::Estimate(
     points3D_in_world.col(i) = points3D[i];
   }
 
-  std::vector<M_t> models(depths.size());
+  models->resize(depths.size());
   for (size_t i = 0; i < depths.size(); ++i) {
     Eigen::Matrix3d points3D_in_rig;
     for (size_t j = 0; j < 3; ++j) {
@@ -257,12 +261,10 @@ std::vector<GP3PEstimator::M_t> GP3PEstimator::Estimate(
 
     const Eigen::Matrix4d rig_from_world =
         Eigen::umeyama(points3D_in_world, points3D_in_rig, false);
-    models[i] =
+    (*models)[i] =
         Rigid3d(Eigen::Quaterniond(rig_from_world.topLeftCorner<3, 3>()),
                 rig_from_world.topRightCorner<3, 1>());
   }
-
-  return models;
 }
 
 void GP3PEstimator::Residuals(const std::vector<X_t>& points2D,

@@ -69,8 +69,9 @@ class SimilarityTransformEstimator {
   // @param dst      Set of corresponding destination points.
   //
   // @return         4x4 homogeneous transformation matrix.
-  static std::vector<M_t> Estimate(const std::vector<X_t>& src,
-                                   const std::vector<Y_t>& dst);
+  static void Estimate(const std::vector<X_t>& src,
+                       const std::vector<Y_t>& dst,
+                       std::vector<M_t>* models);
 
   // Calculate the transformation error for each corresponding point pair.
   //
@@ -92,13 +93,13 @@ class SimilarityTransformEstimator {
 inline bool EstimateSim3d(const std::vector<Eigen::Vector3d>& src,
                           const std::vector<Eigen::Vector3d>& tgt,
                           Sim3d& tgt_from_src) {
-  const auto results =
-      SimilarityTransformEstimator<3, true>().Estimate(src, tgt);
-  if (results.empty()) {
+  std::vector<Eigen::Matrix3x4d> models;
+  SimilarityTransformEstimator<3, true>().Estimate(src, tgt, &models);
+  if (models.empty()) {
     return false;
   }
-  CHECK_EQ(results.size(), 1);
-  tgt_from_src = Sim3d::FromMatrix(results[0]);
+  CHECK_EQ(models.size(), 1);
+  tgt_from_src = Sim3d::FromMatrix(models[0]);
   return true;
 }
 
@@ -107,10 +108,14 @@ inline bool EstimateSim3d(const std::vector<Eigen::Vector3d>& src,
 ////////////////////////////////////////////////////////////////////////////////
 
 template <int kDim, bool kEstimateScale>
-std::vector<typename SimilarityTransformEstimator<kDim, kEstimateScale>::M_t>
-SimilarityTransformEstimator<kDim, kEstimateScale>::Estimate(
-    const std::vector<X_t>& src, const std::vector<Y_t>& dst) {
+void SimilarityTransformEstimator<kDim, kEstimateScale>::Estimate(
+    const std::vector<X_t>& src,
+    const std::vector<Y_t>& dst,
+    std::vector<M_t>* models) {
   CHECK_EQ(src.size(), dst.size());
+  CHECK(models != nullptr);
+
+  models->clear();
 
   Eigen::Matrix<double, kDim, Eigen::Dynamic> src_mat(kDim, src.size());
   Eigen::Matrix<double, kDim, Eigen::Dynamic> dst_mat(kDim, dst.size());
@@ -123,10 +128,11 @@ SimilarityTransformEstimator<kDim, kEstimateScale>::Estimate(
                         .template topLeftCorner<kDim, kDim + 1>();
 
   if (model.array().isNaN().any()) {
-    return std::vector<M_t>{};
+    return;
   }
 
-  return {model};
+  models->resize(1);
+  (*models)[0] = model;
 }
 
 template <int kDim, bool kEstimateScale>

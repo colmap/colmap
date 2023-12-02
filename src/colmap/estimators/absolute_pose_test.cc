@@ -198,15 +198,15 @@ TEST(AbsolutePose, EPNP_BrokenSolveSignCase) {
   points3D.emplace_back(
       4.4592895306946758e+00, -9.1235241641579902e-03, -1.6555237117970871e+00);
 
-  const std::vector<EPNPEstimator::M_t> output =
-      EPNPEstimator::Estimate(points2D, points3D);
+  std::vector<EPNPEstimator::M_t> models;
+  EPNPEstimator::Estimate(points2D, points3D, &models);
 
-  EXPECT_EQ(output.size(), 1);
+  ASSERT_EQ(models.size(), 1);
 
   double reproj = 0.0;
   for (size_t i = 0; i < points3D.size(); ++i) {
     reproj +=
-        ((output[0] * points3D[i].homogeneous()).hnormalized() - points2D[i])
+        ((models[0] * points3D[i].homogeneous()).hnormalized() - points2D[i])
             .norm();
   }
 

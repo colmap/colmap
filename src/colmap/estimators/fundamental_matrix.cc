@@ -43,11 +43,15 @@
 
 namespace colmap {
 
-std::vector<FundamentalMatrixSevenPointEstimator::M_t>
-FundamentalMatrixSevenPointEstimator::Estimate(
-    const std::vector<X_t>& points1, const std::vector<Y_t>& points2) {
+void FundamentalMatrixSevenPointEstimator::Estimate(
+    const std::vector<X_t>& points1,
+    const std::vector<Y_t>& points2,
+    std::vector<M_t>* models) {
   CHECK_EQ(points1.size(), 7);
   CHECK_EQ(points2.size(), 7);
+  CHECK(models != nullptr);
+
+  models->clear();
 
   // Note that no normalization of the points is necessary here.
 
@@ -108,11 +112,10 @@ FundamentalMatrixSevenPointEstimator::Estimate(
   Eigen::VectorXd roots_real;
   Eigen::VectorXd roots_imag;
   if (!FindPolynomialRootsCompanionMatrix(coeffs, &roots_real, &roots_imag)) {
-    return {};
+    return;
   }
 
-  std::vector<M_t> models;
-  models.reserve(roots_real.size());
+  models->reserve(roots_real.size());
 
   for (Eigen::VectorXd::Index i = 0; i < roots_real.size(); ++i) {
     const double kMaxRootImag = 1e-10;
@@ -134,10 +137,8 @@ FundamentalMatrixSevenPointEstimator::Estimate(
 
     F /= F(2, 2);
 
-    models.push_back(F.transpose());
+    models->push_back(F.transpose());
   }
-
-  return models;
 }
 
 void FundamentalMatrixSevenPointEstimator::Residuals(
@@ -148,10 +149,14 @@ void FundamentalMatrixSevenPointEstimator::Residuals(
   ComputeSquaredSampsonError(points1, points2, F, residuals);
 }
 
-std::vector<FundamentalMatrixEightPointEstimator::M_t>
-FundamentalMatrixEightPointEstimator::Estimate(
-    const std::vector<X_t>& points1, const std::vector<Y_t>& points2) {
+void FundamentalMatrixEightPointEstimator::Estimate(
+    const std::vector<X_t>& points1,
+    const std::vector<Y_t>& points2,
+    std::vector<M_t>* models) {
   CHECK_EQ(points1.size(), points2.size());
+  CHECK(models != nullptr);
+
+  models->clear();
 
   // Center and normalize image points for better numerical stability.
   std::vector<X_t> normed_points1;
@@ -187,7 +192,8 @@ FundamentalMatrixEightPointEstimator::Estimate(
                             singular_values.asDiagonal() *
                             fmatrix_svd.matrixV().transpose();
 
-  return {normed_from_orig2.transpose() * F * normed_from_orig1};
+  models->resize(1);
+  (*models)[0] = normed_from_orig2.transpose() * F * normed_from_orig1;
 }
 
 void FundamentalMatrixEightPointEstimator::Residuals(
