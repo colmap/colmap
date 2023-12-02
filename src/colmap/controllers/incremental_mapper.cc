@@ -37,11 +37,10 @@ namespace {
 size_t TriangulateImage(const IncrementalMapperOptions& options,
                         const Image& image,
                         IncrementalMapper* mapper) {
-  std::cout << "  => Continued observations: " << image.NumPoints3D()
-            << std::endl;
+  LOG(INFO) << "=> Continued observations: " << image.NumPoints3D();
   const size_t num_tris =
       mapper->TriangulateImage(options.Triangulation(), image.ImageId());
-  std::cout << "  => Added observations: " << num_tris << std::endl;
+  LOG(INFO) << "=> Added observations: " << num_tris;
   return num_tris;
 }
 
@@ -76,12 +75,11 @@ void IterativeLocalRefinement(const IncrementalMapperOptions& options,
                                   options.Triangulation(),
                                   image_id,
                                   mapper->GetModifiedPoints3D());
-    std::cout << "  => Merged observations: " << report.num_merged_observations
-              << std::endl;
-    std::cout << "  => Completed observations: "
-              << report.num_completed_observations << std::endl;
-    std::cout << "  => Filtered observations: "
-              << report.num_filtered_observations << std::endl;
+    LOG(INFO) << "=> Merged observations: " << report.num_merged_observations;
+    LOG(INFO) << "=> Completed observations: "
+              << report.num_completed_observations;
+    LOG(INFO) << "=> Filtered observations: "
+              << report.num_filtered_observations;
     const double changed =
         report.num_adjusted_observations == 0
             ? 0
@@ -89,8 +87,7 @@ void IterativeLocalRefinement(const IncrementalMapperOptions& options,
                report.num_completed_observations +
                report.num_filtered_observations) /
                   static_cast<double>(report.num_adjusted_observations);
-    std::cout << StringPrintf("  => Changed observations: %.6f", changed)
-              << std::endl;
+    LOG(INFO) << StringPrintf("=> Changed observations: %.6f", changed);
     if (changed < options.ba_local_max_refinement_change) {
       break;
     }
@@ -105,8 +102,8 @@ void IterativeGlobalRefinement(const IncrementalMapperOptions& options,
                                IncrementalMapper* mapper) {
   PrintHeading1("Retriangulation");
   CompleteAndMergeTracks(options, mapper);
-  std::cout << "  => Retriangulated observations: "
-            << mapper->Retriangulate(options.Triangulation()) << std::endl;
+  LOG(INFO) << "=> Retriangulated observations: "
+            << mapper->Retriangulate(options.Triangulation());
 
   for (int i = 0; i < options.ba_global_max_refinements; ++i) {
     const size_t num_observations =
@@ -119,8 +116,7 @@ void IterativeGlobalRefinement(const IncrementalMapperOptions& options,
         num_observations == 0
             ? 0
             : static_cast<double>(num_changed_observations) / num_observations;
-    std::cout << StringPrintf("  => Changed observations: %.6f", changed)
-              << std::endl;
+    LOG(INFO) << StringPrintf("=> Changed observations: %.6f", changed);
     if (changed < options.ba_global_max_refinement_change) {
       break;
     }
@@ -133,10 +129,9 @@ void ExtractColors(const std::string& image_path,
                    const image_t image_id,
                    Reconstruction* reconstruction) {
   if (!reconstruction->ExtractColorsForImage(image_id, image_path)) {
-    std::cout << StringPrintf("WARNING: Could not read image %s at path %s.",
-                              reconstruction->Image(image_id).Name().c_str(),
-                              image_path.c_str())
-              << std::endl;
+    LOG(WARNING) << StringPrintf("Could not read image %s at path %s.",
+                                 reconstruction->Image(image_id).Name().c_str(),
+                                 image_path.c_str());
   }
 }
 
@@ -152,7 +147,7 @@ void WriteSnapshot(const Reconstruction& reconstruction,
   const std::string path =
       JoinPaths(snapshot_path, StringPrintf("%010d", timestamp));
   CreateDirIfNotExists(path);
-  std::cout << "  => Writing to " << path << std::endl;
+  LOG(INFO) << "=> Writing to " << path;
   reconstruction.Write(path);
 }
 
@@ -162,15 +157,14 @@ size_t FilterPoints(const IncrementalMapperOptions& options,
                     IncrementalMapper* mapper) {
   const size_t num_filtered_observations =
       mapper->FilterPoints(options.Mapper());
-  std::cout << "  => Filtered observations: " << num_filtered_observations
-            << std::endl;
+  LOG(INFO) << "=> Filtered observations: " << num_filtered_observations;
   return num_filtered_observations;
 }
 
 size_t FilterImages(const IncrementalMapperOptions& options,
                     IncrementalMapper* mapper) {
   const size_t num_filtered_images = mapper->FilterImages(options.Mapper());
-  std::cout << "  => Filtered images: " << num_filtered_images << std::endl;
+  LOG(INFO) << "=> Filtered images: " << num_filtered_images;
   return num_filtered_images;
 }
 
@@ -178,12 +172,10 @@ size_t CompleteAndMergeTracks(const IncrementalMapperOptions& options,
                               IncrementalMapper* mapper) {
   const size_t num_completed_observations =
       mapper->CompleteTracks(options.Triangulation());
-  std::cout << "  => Completed observations: " << num_completed_observations
-            << std::endl;
+  LOG(INFO) << "=> Completed observations: " << num_completed_observations;
   const size_t num_merged_observations =
       mapper->MergeTracks(options.Triangulation());
-  std::cout << "  => Merged observations: " << num_merged_observations
-            << std::endl;
+  LOG(INFO) << "=> Merged observations: " << num_merged_observations;
   return num_completed_observations + num_merged_observations;
 }
 
@@ -217,7 +209,7 @@ BundleAdjustmentOptions IncrementalMapperOptions::LocalBundleAdjustment()
   options.solver_options.parameter_tolerance = 0.0;
   options.solver_options.max_num_iterations = ba_local_max_num_iterations;
   options.solver_options.max_linear_solver_iterations = 100;
-  options.solver_options.minimizer_progress_to_stdout = false;
+  options.solver_options.logging_type = ceres::LoggingType::SILENT;
   options.solver_options.num_threads = num_threads;
 #if CERES_VERSION_MAJOR < 2
   options.solver_options.num_linear_solver_threads = num_threads;
@@ -242,6 +234,8 @@ BundleAdjustmentOptions IncrementalMapperOptions::GlobalBundleAdjustment()
   options.solver_options.parameter_tolerance = 0.0;
   options.solver_options.max_num_iterations = ba_global_max_num_iterations;
   options.solver_options.max_linear_solver_iterations = 100;
+  options.solver_options.logging_type =
+      ceres::LoggingType::PER_MINIMIZER_ITERATION;
   options.solver_options.minimizer_progress_to_stdout = true;
   options.solver_options.num_threads = num_threads;
 #if CERES_VERSION_MAJOR < 2
@@ -313,7 +307,7 @@ void IncrementalMapperController::Run() {
       break;
     }
 
-    std::cout << "  => Relaxing the initialization constraints." << std::endl;
+    LOG(INFO) << "=> Relaxing the initialization constraints.";
     init_mapper_options.init_min_num_inliers /= 2;
     Reconstruct(init_mapper_options);
 
@@ -321,12 +315,11 @@ void IncrementalMapperController::Run() {
       break;
     }
 
-    std::cout << "  => Relaxing the initialization constraints." << std::endl;
+    LOG(INFO) << "=> Relaxing the initialization constraints.";
     init_mapper_options.init_min_tri_angle /= 2;
     Reconstruct(init_mapper_options);
   }
 
-  std::cout << std::endl;
   GetTimer().PrintMinutes();
 }
 
@@ -350,15 +343,10 @@ bool IncrementalMapperController::LoadDatabase() {
   const size_t min_num_matches = static_cast<size_t>(options_->min_num_matches);
   database_cache_ = DatabaseCache::Create(
       database, min_num_matches, options_->ignore_watermarks, image_names);
-  std::cout << std::endl;
   timer.PrintMinutes();
 
-  std::cout << std::endl;
-
   if (database_cache_->NumImages() == 0) {
-    std::cout << "WARNING: No images with matches found in the database."
-              << std::endl
-              << std::endl;
+    LOG(WARNING) << "No images with matches found in the database";
     return false;
   }
 
@@ -413,7 +401,7 @@ void IncrementalMapperController::Reconstruct(
         const bool find_init_success = mapper.FindInitialImagePair(
             init_mapper_options, &image_id1, &image_id2);
         if (!find_init_success) {
-          std::cout << "  => No good initial image pair found." << std::endl;
+          LOG(INFO) << "=> No good initial image pair found.";
           mapper.EndReconstruction(/*discard=*/true);
           reconstruction_manager_->Delete(reconstruction_idx);
           break;
@@ -421,11 +409,10 @@ void IncrementalMapperController::Reconstruct(
       } else {
         if (!reconstruction->ExistsImage(image_id1) ||
             !reconstruction->ExistsImage(image_id2)) {
-          std::cout << StringPrintf(
-                           "  => Initial image pair #%d and #%d do not exist.",
-                           image_id1,
-                           image_id2)
-                    << std::endl;
+          LOG(INFO) << StringPrintf(
+              "=> Initial image pair #%d and #%d do not exist.",
+              image_id1,
+              image_id2);
           mapper.EndReconstruction(/*discard=*/true);
           reconstruction_manager_->Delete(reconstruction_idx);
           return;
@@ -437,12 +424,11 @@ void IncrementalMapperController::Reconstruct(
       const bool reg_init_success = mapper.RegisterInitialImagePair(
           init_mapper_options, image_id1, image_id2);
       if (!reg_init_success) {
-        std::cout << "  => Initialization failed - possible solutions:"
+        LOG(INFO) << "=> Initialization failed - possible solutions:"
                   << std::endl
                   << "     - try to relax the initialization constraints"
                   << std::endl
-                  << "     - manually select an initial image pair"
-                  << std::endl;
+                  << "     - manually select an initial image pair";
         mapper.EndReconstruction(/*discard=*/true);
         reconstruction_manager_->Delete(reconstruction_idx);
         break;
@@ -506,10 +492,9 @@ void IncrementalMapperController::Reconstruct(
                                    next_image_id,
                                    reconstruction->NumRegImages() + 1));
 
-        std::cout << StringPrintf("  => Image sees %d / %d points",
+        LOG(INFO) << StringPrintf("=> Image sees %d / %d points",
                                   next_image.NumVisiblePoints3D(),
-                                  next_image.NumObservations())
-                  << std::endl;
+                                  next_image.NumObservations());
 
         reg_next_success =
             mapper.RegisterNextImage(options_->Mapper(), next_image_id);
@@ -547,8 +532,7 @@ void IncrementalMapperController::Reconstruct(
 
           break;
         } else {
-          std::cout << "  => Could not register, trying another image."
-                    << std::endl;
+          LOG(INFO) << "=> Could not register, trying another image.";
 
           // If initial pair fails to continue for some time,
           // abort and try different initial pair.

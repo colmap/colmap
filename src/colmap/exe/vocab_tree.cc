@@ -131,22 +131,21 @@ int RunVocabTreeBuilder(int argc, char** argv) {
   options.AddDefaultOption("max_num_images", &max_num_images);
   options.Parse(argc, argv);
 
-  std::cout << "Loading descriptors..." << std::endl;
+  LOG(INFO) << "Loading descriptors...";
   const auto descriptors =
       LoadRandomDatabaseDescriptors(*options.database_path, max_num_images);
-  std::cout << "  => Loaded a total of " << descriptors.rows() << " descriptors"
-            << std::endl;
+  LOG(INFO) << "=> Loaded a total of " << descriptors.rows() << " descriptors";
   CHECK_GT(descriptors.size(), 0);
 
   retrieval::VisualIndex<> visual_index;
 
-  std::cout << "Building index for visual words..." << std::endl;
+  LOG(INFO) << "Building index for visual words...";
   // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
   visual_index.Build(build_options, descriptors);
-  std::cout << " => Quantized descriptor space using "
-            << visual_index.NumVisualWords() << " visual words" << std::endl;
+  LOG(INFO) << "=> Quantized descriptor space using "
+            << visual_index.NumVisualWords() << " visual words";
 
-  std::cout << "Saving index to file..." << std::endl;
+  LOG(INFO) << "Saving index to file...";
   visual_index.Write(vocab_tree_path);
 
   return EXIT_SUCCESS;
@@ -195,12 +194,11 @@ int RunVocabTreeRetriever(int argc, char** argv) {
     Timer timer;
     timer.Start();
 
-    std::cout << StringPrintf(
+    LOG(INFO) << StringPrintf(
                      "Indexing image [%d/%d]", i + 1, database_images.size())
               << std::flush;
 
     if (visual_index.ImageIndexed(database_images[i].ImageId())) {
-      std::cout << std::endl;
       continue;
     }
 
@@ -215,7 +213,7 @@ int RunVocabTreeRetriever(int argc, char** argv) {
                      keypoints,
                      descriptors);
 
-    std::cout << StringPrintf(" in %.3fs", timer.ElapsedSeconds()) << std::endl;
+    LOG(INFO) << StringPrintf(" in %.3fs", timer.ElapsedSeconds());
   }
 
   // Compute the TF-IDF weights, etc.
@@ -245,7 +243,7 @@ int RunVocabTreeRetriever(int argc, char** argv) {
     Timer timer;
     timer.Start();
 
-    std::cout << StringPrintf("Querying for image %s [%d/%d]",
+    LOG(INFO) << StringPrintf("Querying for image %s [%d/%d]",
                               query_images[i].Name().c_str(),
                               i + 1,
                               query_images.size())
@@ -260,14 +258,13 @@ int RunVocabTreeRetriever(int argc, char** argv) {
     std::vector<retrieval::ImageScore> image_scores;
     visual_index.Query(query_options, keypoints, descriptors, &image_scores);
 
-    std::cout << StringPrintf(" in %.3fs", timer.ElapsedSeconds()) << std::endl;
+    LOG(INFO) << StringPrintf(" in %.3fs", timer.ElapsedSeconds());
     for (const auto& image_score : image_scores) {
       const auto& image = *image_id_to_image.at(image_score.image_id);
-      std::cout << StringPrintf("  image_id=%d, image_name=%s, score=%f",
+      LOG(INFO) << StringPrintf("  image_id=%d, image_name=%s, score=%f",
                                 image_score.image_id,
                                 image.Name().c_str(),
-                                image_score.score)
-                << std::endl;
+                                image_score.score);
     }
   }
 

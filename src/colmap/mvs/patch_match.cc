@@ -38,7 +38,7 @@
 #include <numeric>
 #include <unordered_set>
 
-#define PrintOption(option) std::cout << #option ": " << option << std::endl
+#define PrintOption(option) LOG(INFO) << #option ": " << option << std::endl
 
 namespace colmap {
 namespace mvs {
@@ -80,14 +80,13 @@ void PatchMatch::Problem::Print() const {
 
   PrintOption(ref_image_idx);
 
-  std::cout << "src_image_idxs: ";
+  LOG(INFO) << "src_image_idxs: ";
   if (!src_image_idxs.empty()) {
     for (size_t i = 0; i < src_image_idxs.size() - 1; ++i) {
-      std::cout << src_image_idxs[i] << " ";
+      LOG(INFO) << src_image_idxs[i] << " ";
     }
-    std::cout << src_image_idxs.back() << std::endl;
+    LOG(INFO) << src_image_idxs.back();
   } else {
-    std::cout << std::endl;
   }
 }
 
@@ -229,7 +228,7 @@ void PatchMatchController::Run() {
 }
 
 void PatchMatchController::ReadWorkspace() {
-  std::cout << "Reading workspace..." << std::endl;
+  LOG(INFO) << "Reading workspace...";
 
   Workspace::Options workspace_options;
 
@@ -250,9 +249,8 @@ void PatchMatchController::ReadWorkspace() {
   workspace_ = std::make_unique<CachedWorkspace>(workspace_options);
 
   if (workspace_format_lower_case == "pmvs") {
-    std::cout << StringPrintf("Importing PMVS workspace (option %s)...",
-                              pmvs_option_name_.c_str())
-              << std::endl;
+    LOG(INFO) << StringPrintf("Importing PMVS workspace (option %s)...",
+                              pmvs_option_name_.c_str());
     ImportPMVSWorkspace(*workspace_, pmvs_option_name_);
   }
 
@@ -260,7 +258,7 @@ void PatchMatchController::ReadWorkspace() {
 }
 
 void PatchMatchController::ReadProblems() {
-  std::cout << "Reading configuration..." << std::endl;
+  LOG(INFO) << "Reading configuration...";
 
   problems_.clear();
 
@@ -382,20 +380,17 @@ void PatchMatchController::ReadProblems() {
     }
 
     if (problem.src_image_idxs.empty()) {
-      std::cout
-          << StringPrintf(
-                 "WARNING: Ignoring reference image %s, because it has no "
-                 "source images.",
-                 problem_config.ref_image_name.c_str())
-          << std::endl;
+      LOG(WARNING) << StringPrintf(
+          "Ignoring reference image %s, because it has no "
+          "source images.",
+          problem_config.ref_image_name.c_str());
     } else {
       problems_.push_back(problem);
     }
   }
 
-  std::cout << StringPrintf("Configuration has %d problems...",
-                            problems_.size())
-            << std::endl;
+  LOG(INFO) << StringPrintf("Configuration has %d problems...",
+                            problems_.size());
 }
 
 void PatchMatchController::ReadGpuIndices() {
@@ -489,7 +484,7 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
     // threads from one master thread at a time.
     std::unique_lock<std::mutex> lock(workspace_mutex_);
 
-    std::cout << "Reading inputs..." << std::endl;
+    LOG(INFO) << "Reading inputs...";
     std::vector<int> src_image_idxs;
     for (const auto image_idx : used_image_idxs) {
       std::string image_path = workspace_->GetBitmapPath(image_idx);
@@ -500,20 +495,17 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
           (options.geom_consistency && !ExistsFile(depth_path)) ||
           (options.geom_consistency && !ExistsFile(normal_path))) {
         if (options.allow_missing_files) {
-          std::cout << StringPrintf(
-                           "WARN: Skipping source image %d: %s for missing "
-                           "image or depth/normal map",
-                           image_idx,
-                           model.GetImageName(image_idx).c_str())
-                    << std::endl;
+          LOG(WARNING) << StringPrintf(
+              "Skipping source image %d: %s for missing "
+              "image or depth/normal map",
+              image_idx,
+              model.GetImageName(image_idx).c_str());
           continue;
         } else {
-          std::cout
-              << StringPrintf(
-                     "ERROR: Missing image or map dependency for image %d: %s",
-                     image_idx,
-                     model.GetImageName(image_idx).c_str())
-              << std::endl;
+          LOG(ERROR) << StringPrintf(
+              "Missing image or map dependency for image %d: %s",
+              image_idx,
+              model.GetImageName(image_idx).c_str());
         }
       }
 
@@ -535,11 +527,10 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
   PatchMatch patch_match(patch_match_options, problem);
   patch_match.Run();
 
-  std::cout << std::endl
+  LOG(INFO) << std::endl
             << StringPrintf("Writing %s output for %s",
                             output_type.c_str(),
-                            image_name.c_str())
-            << std::endl;
+                            image_name.c_str());
 
   patch_match.GetDepthMap().Write(depth_map_path);
   patch_match.GetNormalMap().Write(normal_map_path);

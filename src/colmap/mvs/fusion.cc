@@ -81,7 +81,7 @@ int FindNextImage(const std::vector<std::vector<int>>& overlapping_images,
 }  // namespace internal
 
 void StereoFusionOptions::Print() const {
-#define PrintOption(option) std::cout << #option ": " << (option) << std::endl
+#define PrintOption(option) LOG(INFO) << #option ": " << (option) << std::endl
   PrintHeading2("StereoFusion::Options");
   PrintOption(mask_path);
   PrintOption(max_image_size);
@@ -143,9 +143,8 @@ void StereoFusion::Run() {
   fused_points_visibility_.clear();
 
   options_.Print();
-  std::cout << std::endl;
 
-  std::cout << "Reading workspace..." << std::endl;
+  LOG(INFO) << "Reading workspace...";
 
   Workspace::Options workspace_options;
 
@@ -180,7 +179,7 @@ void StereoFusion::Run() {
     return;
   }
 
-  std::cout << "Reading configuration..." << std::endl;
+  LOG(INFO) << "Reading configuration...";
 
   const auto& model = workspace_->GetModel();
 
@@ -210,11 +209,9 @@ void StereoFusion::Run() {
     if (!workspace_->HasBitmap(image_idx) ||
         !workspace_->HasDepthMap(image_idx) ||
         !workspace_->HasNormalMap(image_idx)) {
-      std::cout
-          << StringPrintf(
-                 "WARNING: Ignoring image %s, because input does not exist.",
-                 image_name.c_str())
-          << std::endl;
+      LOG(WARNING) << StringPrintf(
+          "Ignoring image %s, because input does not exist.",
+          image_name.c_str());
       continue;
     }
 
@@ -250,8 +247,7 @@ void StereoFusion::Run() {
             .transpose();
   }
 
-  std::cout << StringPrintf("Starting fusion with %d threads", num_threads)
-            << std::endl;
+  LOG(INFO) << StringPrintf("Starting fusion with %d threads", num_threads);
   ThreadPool thread_pool(num_threads);
 
   // Using a row stride of 10 to avoid starting parallel processing in rows that
@@ -287,7 +283,7 @@ void StereoFusion::Run() {
     Timer timer;
     timer.Start();
 
-    std::cout << StringPrintf("Fusing image [%d/%d] with index %d",
+    LOG(INFO) << StringPrintf("Fusing image [%d/%d] with index %d",
                               num_fused_images + 1,
                               model.images.size(),
                               image_idx)
@@ -314,10 +310,8 @@ void StereoFusion::Run() {
     for (const auto& task_fused_points : task_fused_points_) {
       total_fused_points += task_fused_points.size();
     }
-    std::cout << StringPrintf(" in %.3fs (%d points)",
-                              timer.ElapsedSeconds(),
-                              total_fused_points)
-              << std::endl;
+    LOG(INFO) << StringPrintf(
+        " in %.3fs (%d points)", timer.ElapsedSeconds(), total_fused_points);
   }
 
   fused_points_.reserve(total_fused_points);
@@ -337,13 +331,13 @@ void StereoFusion::Run() {
   }
 
   if (fused_points_.empty()) {
-    std::cout << "WARNING: Could not fuse any points. This is likely caused by "
-                 "incorrect settings - filtering must be enabled for the last "
-                 "call to patch match stereo."
-              << std::endl;
+    LOG(WARNING)
+        << "Could not fuse any points. This is likely caused by "
+           "incorrect settings - filtering must be enabled for the last "
+           "call to patch match stereo.";
   }
 
-  std::cout << "Number of fused points: " << fused_points_.size() << std::endl;
+  LOG(INFO) << "Number of fused points: " << fused_points_.size();
   GetTimer().PrintMinutes();
 }
 

@@ -94,8 +94,8 @@ void SceneClustering::PartitionHierarchicalCluster(
       auto& child_cluster = cluster->child_clusters.at(labels.at(image_id));
       child_cluster.image_ids.push_back(image_id);
     } else {
-      std::cout << "WARN: Graph cut failed to assign cluster label to image "
-                << image_id << "; assigning to cluster 0" << std::endl;
+      LOG(WARNING) << "Graph cut failed to assign cluster label to image "
+                   << image_id << "; assigning to cluster 0";
       cluster->child_clusters.at(0).image_ids.push_back(image_id);
     }
   }
@@ -312,12 +312,12 @@ std::vector<const SceneClustering::Cluster*> SceneClustering::GetLeafClusters()
 
 SceneClustering SceneClustering::Create(const Options& options,
                                         const Database& database) {
-  std::cout << "Reading scene graph..." << std::endl;
+  LOG(INFO) << "Reading scene graph...";
   std::vector<std::pair<image_t, image_t>> image_pairs;
   std::vector<int> num_inliers;
   database.ReadTwoViewGeometryNumInliers(&image_pairs, &num_inliers);
 
-  std::cout << "Partitioning scene graph..." << std::endl;
+  LOG(INFO) << "Partitioning scene graph...";
   SceneClustering scene_clustering(options);
   scene_clustering.Partition(image_pairs, num_inliers);
   return scene_clustering;

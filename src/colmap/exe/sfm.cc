@@ -144,12 +144,12 @@ int RunBundleAdjuster(int argc, char** argv) {
   options.Parse(argc, argv);
 
   if (!ExistsDir(input_path)) {
-    std::cerr << "ERROR: `input_path` is not a directory" << std::endl;
+    LOG(ERROR) << "`input_path` is not a directory";
     return EXIT_FAILURE;
   }
 
   if (!ExistsDir(output_path)) {
-    std::cerr << "ERROR: `output_path` is not a directory" << std::endl;
+    LOG(ERROR) << "`output_path` is not a directory";
     return EXIT_FAILURE;
   }
 
@@ -198,7 +198,7 @@ int RunMapper(int argc, char** argv) {
   options.Parse(argc, argv);
 
   if (!ExistsDir(output_path)) {
-    std::cerr << "ERROR: `output_path` is not a directory." << std::endl;
+    LOG(ERROR) << "`output_path` is not a directory.";
     return EXIT_FAILURE;
   }
 
@@ -211,7 +211,7 @@ int RunMapper(int argc, char** argv) {
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   if (input_path != "") {
     if (!ExistsDir(input_path)) {
-      std::cerr << "ERROR: `input_path` is not a directory." << std::endl;
+      LOG(ERROR) << "`input_path` is not a directory.";
       return EXIT_FAILURE;
     }
     reconstruction_manager->Read(input_path);
@@ -263,7 +263,7 @@ int RunMapper(int argc, char** argv) {
   mapper.Wait();
 
   if (reconstruction_manager->Size() == 0) {
-    std::cerr << "ERROR: failed to create sparse model" << std::endl;
+    LOG(ERROR) << "failed to create sparse model";
     return EXIT_FAILURE;
   }
 
@@ -310,7 +310,7 @@ int RunHierarchicalMapper(int argc, char** argv) {
   options.Parse(argc, argv);
 
   if (!ExistsDir(output_path)) {
-    std::cerr << "ERROR: `output_path` is not a directory." << std::endl;
+    LOG(ERROR) << "`output_path` is not a directory.";
     return EXIT_FAILURE;
   }
 
@@ -322,7 +322,7 @@ int RunHierarchicalMapper(int argc, char** argv) {
   hierarchical_mapper.Wait();
 
   if (reconstruction_manager->Size() == 0) {
-    std::cerr << "ERROR: failed to create sparse model" << std::endl;
+    LOG(ERROR) << "failed to create sparse model";
     return EXIT_FAILURE;
   }
 
@@ -362,7 +362,7 @@ int RunPointFiltering(int argc, char** argv) {
     }
   }
 
-  std::cout << "Filtered observations: " << num_filtered << std::endl;
+  LOG(INFO) << "Filtered observations: " << num_filtered;
 
   reconstruction.Write(output_path);
 
@@ -394,12 +394,12 @@ int RunPointTriangulator(int argc, char** argv) {
   options.Parse(argc, argv);
 
   if (!ExistsDir(input_path)) {
-    std::cerr << "ERROR: `input_path` is not a directory" << std::endl;
+    LOG(ERROR) << "`input_path` is not a directory";
     return EXIT_FAILURE;
   }
 
   if (!ExistsDir(output_path)) {
-    std::cerr << "ERROR: `output_path` is not a directory" << std::endl;
+    LOG(ERROR) << "`output_path` is not a directory";
     return EXIT_FAILURE;
   }
 
@@ -445,11 +445,8 @@ int RunPointTriangulatorImpl(
       reconstruction->TranscribeImageIdsToDatabase(database);
     }
 
-    std::cout << std::endl;
     timer.PrintMinutes();
   }
-
-  std::cout << std::endl;
 
   CHECK_GE(reconstruction->NumRegImages(), 2)
       << "Need at least two images for triangulation";
@@ -473,14 +470,13 @@ int RunPointTriangulatorImpl(
 
     const size_t num_existing_points3D = image.NumPoints3D();
 
-    std::cout << "  => Image sees " << num_existing_points3D << " / "
-              << image.NumObservations() << " points" << std::endl;
+    LOG(INFO) << "=> Image sees " << num_existing_points3D << " / "
+              << image.NumObservations() << " points";
 
     mapper.TriangulateImage(tri_options, image_id);
 
-    std::cout << "  => Triangulated "
-              << (image.NumPoints3D() - num_existing_points3D) << " points"
-              << std::endl;
+    LOG(INFO) << "=> Triangulated "
+              << (image.NumPoints3D() - num_existing_points3D) << " points";
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -522,8 +518,7 @@ int RunPointTriangulatorImpl(
     num_changed_observations += FilterPoints(mapper_options, &mapper);
     const double changed =
         static_cast<double>(num_changed_observations) / num_observations;
-    std::cout << StringPrintf("  => Changed observations: %.6f", changed)
-              << std::endl;
+    LOG(INFO) << StringPrintf("=> Changed observations: %.6f", changed);
     if (changed < mapper_options.ba_global_max_refinement_change) {
       break;
     }
@@ -699,9 +694,8 @@ std::vector<CameraRig> ReadCameraRigConfig(const std::string& rig_config_path,
     if (estimate_rig_relative_poses) {
       PrintHeading2("Estimating relative rig poses");
       if (!camera_rig.ComputeCamsFromRigs(reconstruction)) {
-        std::cout << "WARN: Failed to estimate rig poses from reconstruction; "
-                     "cannot use rig BA"
-                  << std::endl;
+        LOG(WARNING) << "Failed to estimate rig poses from reconstruction; "
+                        "cannot use rig BA";
         return std::vector<CameraRig>();
       }
     }
@@ -745,10 +739,8 @@ int RunRigBundleAdjuster(int argc, char** argv) {
   for (size_t i = 0; i < camera_rigs.size(); ++i) {
     const auto& camera_rig = camera_rigs[i];
     PrintHeading2(StringPrintf("Camera Rig %d", i + 1));
-    std::cout << StringPrintf("Cameras: %d", camera_rig.NumCameras())
-              << std::endl;
-    std::cout << StringPrintf("Snapshots: %d", camera_rig.NumSnapshots())
-              << std::endl;
+    LOG(INFO) << StringPrintf("Cameras: %d", camera_rig.NumCameras());
+    LOG(INFO) << StringPrintf("Snapshots: %d", camera_rig.NumSnapshots());
 
     // Add all registered images to the bundle adjustment configuration.
     for (const auto image_id : reconstruction.RegImageIds()) {
@@ -759,7 +751,6 @@ int RunRigBundleAdjuster(int argc, char** argv) {
   PrintHeading1("Rig bundle adjustment");
 
   BundleAdjustmentOptions ba_options = *options.bundle_adjustment;
-  ba_options.solver_options.minimizer_progress_to_stdout = true;
   RigBundleAdjuster bundle_adjuster(ba_options, rig_ba_options, config);
   CHECK(bundle_adjuster.Solve(&reconstruction, &camera_rigs));
 

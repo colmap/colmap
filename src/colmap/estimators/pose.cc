@@ -297,6 +297,7 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
   solver_options.gradient_tolerance = options.gradient_tolerance;
   solver_options.max_num_iterations = options.max_num_iterations;
   solver_options.linear_solver_type = ceres::DENSE_QR;
+  solver_options.logging_type = ceres::LoggingType::SILENT;
 
   // The overhead of creating threads is too large.
   solver_options.num_threads = 1;
@@ -306,10 +307,6 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
 
   ceres::Solver::Summary summary;
   ceres::Solve(solver_options, &problem, &summary);
-
-  if (solver_options.minimizer_progress_to_stdout) {
-    std::cout << std::endl;
-  }
 
   if (options.print_summary) {
     PrintHeading2("Pose refinement report");

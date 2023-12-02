@@ -124,7 +124,7 @@ TEST(CoordinateFrame, AlignToENUPlane) {
   std::vector<point3D_t> point_ids;
   for (size_t i = 0; i < points.size(); ++i) {
     point_ids.push_back(reconstruction.AddPoint3D(points[i], Track()));
-    std::cout << points[i].transpose() << std::endl;
+    LOG(INFO) << points[i].transpose();
   }
   AlignToENUPlane(&reconstruction, &tform, false);
   // Verify final locations of points

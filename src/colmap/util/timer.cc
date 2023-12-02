@@ -84,18 +84,15 @@ double Timer::ElapsedMinutes() const { return ElapsedSeconds() / 60; }
 double Timer::ElapsedHours() const { return ElapsedMinutes() / 60; }
 
 void Timer::PrintSeconds() const {
-  std::cout << StringPrintf("Elapsed time: %.5f [seconds]", ElapsedSeconds())
-            << std::endl;
+  LOG(INFO) << StringPrintf("Elapsed time: %.5f [seconds]", ElapsedSeconds());
 }
 
 void Timer::PrintMinutes() const {
-  std::cout << StringPrintf("Elapsed time: %.3f [minutes]", ElapsedMinutes())
-            << std::endl;
+  LOG(INFO) << StringPrintf("Elapsed time: %.3f [minutes]", ElapsedMinutes());
 }
 
 void Timer::PrintHours() const {
-  std::cout << StringPrintf("Elapsed time: %.3f [hours]", ElapsedHours())
-            << std::endl;
+  LOG(INFO) << StringPrintf("Elapsed time: %.3f [hours]", ElapsedHours());
 }
 
 }  // namespace colmap

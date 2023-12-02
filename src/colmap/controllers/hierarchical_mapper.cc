@@ -64,13 +64,11 @@ void MergeClusters(const SceneClustering::Cluster& cluster,
         if (MergeReconstructions(kMaxReprojError,
                                  *reconstructions[j],
                                  reconstructions[i].get())) {
-          std::cout
-              << StringPrintf(
-                     " => Merged clusters with %d and %d images into %d images",
-                     num_reg_images_i,
-                     num_reg_images_j,
-                     reconstructions[i]->NumRegImages())
-              << std::endl;
+          LOG(INFO) << StringPrintf(
+              "=> Merged clusters with %d and %d images into %d images",
+              num_reg_images_i,
+              num_reg_images_j,
+              reconstructions[i]->NumRegImages());
           reconstructions.erase(reconstructions.begin() + j);
           merge_success = true;
           break;
@@ -128,7 +126,7 @@ void HierarchicalMapperController::Run() {
 
   const Database database(options_.database_path);
 
-  std::cout << "Reading images..." << std::endl;
+  LOG(INFO) << "Reading images...";
   const auto images = database.ReadAllImages();
   std::unordered_map<image_t, std::string> image_id_to_name;
   image_id_to_name.reserve(images.size());
@@ -144,14 +142,12 @@ void HierarchicalMapperController::Run() {
   size_t total_num_images = 0;
   for (size_t i = 0; i < leaf_clusters.size(); ++i) {
     total_num_images += leaf_clusters[i]->image_ids.size();
-    std::cout << StringPrintf("  Cluster %d with %d images",
+    LOG(INFO) << StringPrintf("  Cluster %d with %d images",
                               i + 1,
-                              leaf_clusters[i]->image_ids.size())
-              << std::endl;
+                              leaf_clusters[i]->image_ids.size());
   }
 
-  std::cout << StringPrintf("Clusters have %d images", total_num_images)
-            << std::endl;
+  LOG(INFO) << StringPrintf("Clusters have %d images", total_num_images);
 
   //////////////////////////////////////////////////////////////////////////////
   // Reconstruct clusters
@@ -236,7 +232,6 @@ void HierarchicalMapperController::Run() {
   CHECK_GT(reconstruction_managers.begin()->second->Get(0)->NumRegImages(), 0);
   *reconstruction_manager_ = *reconstruction_managers.begin()->second;
 
-  std::cout << std::endl;
   GetTimer().PrintMinutes();
 }
 

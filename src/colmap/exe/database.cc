@@ -67,8 +67,7 @@ int RunDatabaseCleaner(int argc, char** argv) {
       database.ClearTwoViewGeometries();
       database.ClearMatches();
     } else {
-      std::cout << "ERROR: Invalid cleanup type; no changes in database"
-                << std::endl;
+      LOG(ERROR) << "Invalid cleanup type; no changes in database";
       return EXIT_FAILURE;
     }
   }
@@ -98,7 +97,7 @@ int RunDatabaseMerger(int argc, char** argv) {
   options.Parse(argc, argv);
 
   if (ExistsFile(merged_database_path)) {
-    std::cout << "ERROR: Merged database file must not exist." << std::endl;
+    LOG(ERROR) << "Merged database file must not exist.";
     return EXIT_FAILURE;
   }
 

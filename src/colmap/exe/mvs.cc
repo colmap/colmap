@@ -40,9 +40,8 @@ namespace colmap {
 
 int RunDelaunayMesher(int argc, char** argv) {
 #if !defined(COLMAP_CGAL_ENABLED)
-  std::cerr << "ERROR: Delaunay meshing requires CGAL, which is not "
-               "available on your system."
-            << std::endl;
+  LOG(ERROR) << "Delaunay meshing requires CGAL, which is not "
+                "available on your system.";
   return EXIT_FAILURE;
 #else   // COLMAP_CGAL_ENABLED
   std::string input_path;
@@ -67,9 +66,8 @@ int RunDelaunayMesher(int argc, char** argv) {
     mvs::DenseDelaunayMeshing(
         *options.delaunay_meshing, input_path, output_path);
   } else {
-    std::cout << "ERROR: Invalid input type - "
-                 "supported values are 'sparse' and 'dense'."
-              << std::endl;
+    LOG(ERROR) << "Invalid input type - "
+                  "supported values are 'sparse' and 'dense'.";
     return EXIT_FAILURE;
   }
 
@@ -79,9 +77,8 @@ int RunDelaunayMesher(int argc, char** argv) {
 
 int RunPatchMatchStereo(int argc, char** argv) {
 #if !defined(COLMAP_CUDA_ENABLED)
-  std::cerr << "ERROR: Dense stereo reconstruction requires CUDA, which is not "
-               "available on your system."
-            << std::endl;
+  LOG(ERROR) << "Dense stereo reconstruction requires CUDA, which is not "
+                "available on your system.";
   return EXIT_FAILURE;
 #else   // COLMAP_CUDA_ENABLED
   std::string workspace_path;
@@ -103,9 +100,8 @@ int RunPatchMatchStereo(int argc, char** argv) {
 
   StringToLower(&workspace_format);
   if (workspace_format != "colmap" && workspace_format != "pmvs") {
-    std::cout << "ERROR: Invalid `workspace_format` - supported values are "
-                 "'COLMAP' or 'PMVS'."
-              << std::endl;
+    LOG(ERROR) << "Invalid `workspace_format` - supported values are "
+                  "'COLMAP' or 'PMVS'.";
     return EXIT_FAILURE;
   }
 
@@ -161,17 +157,15 @@ int RunStereoFuser(int argc, char** argv) {
 
   StringToLower(&workspace_format);
   if (workspace_format != "colmap" && workspace_format != "pmvs") {
-    std::cout << "ERROR: Invalid `workspace_format` - supported values are "
-                 "'COLMAP' or 'PMVS'."
-              << std::endl;
+    LOG(ERROR) << "Invalid `workspace_format` - supported values are "
+                  "'COLMAP' or 'PMVS'.";
     return EXIT_FAILURE;
   }
 
   StringToLower(&input_type);
   if (input_type != "photometric" && input_type != "geometric") {
-    std::cout << "ERROR: Invalid input type - supported values are "
-                 "'photometric' and 'geometric'."
-              << std::endl;
+    LOG(ERROR) << "Invalid input type - supported values are "
+                  "'photometric' and 'geometric'.";
     return EXIT_FAILURE;
   }
 
@@ -183,8 +177,8 @@ int RunStereoFuser(int argc, char** argv) {
       file >> min_bound(0) >> min_bound(1) >> min_bound(2);
       file >> max_bound(0) >> max_bound(1) >> max_bound(2);
     } else {
-      std::cout << "WARN: Invalid bounds path: \"" << bbox_path
-                << "\" - continuing without bounds check" << std::endl;
+      LOG(WARNING) << "Invalid bounds path: \"" << bbox_path
+                   << "\" - continuing without bounds check";
     }
   }
 
@@ -207,7 +201,7 @@ int RunStereoFuser(int argc, char** argv) {
   // overwrite sparse point cloud with dense point cloud from fuser
   reconstruction.ImportPLY(fuser.GetFusedPoints());
 
-  std::cout << "Writing output: " << output_path << std::endl;
+  LOG(INFO) << "Writing output: " << output_path;
 
   // write output
   StringToLower(&output_type);
@@ -220,7 +214,7 @@ int RunStereoFuser(int argc, char** argv) {
     mvs::WritePointsVisibility(output_path + ".vis",
                                fuser.GetFusedPointsVisibility());
   } else {
-    std::cerr << "ERROR: Invalid `output_type`" << std::endl;
+    LOG(ERROR) << "Invalid `output_type`";
     return EXIT_FAILURE;
   }
 
