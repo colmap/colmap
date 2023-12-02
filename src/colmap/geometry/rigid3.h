@@ -89,5 +89,5 @@ inline Rigid3d operator*(const Rigid3d& c_from_b, const Rigid3d& b_from_a) {
       c_from_b.translation + (c_from_b.rotation * b_from_a.translation);
   return c_from_a;
 }
-`
+
 }  // namespace colmap
