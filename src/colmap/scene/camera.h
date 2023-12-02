@@ -107,9 +107,9 @@ struct Camera {
   bool IsUndistorted() const;
 
   // Check whether camera has bogus parameters.
-  bool HasBogusParams(double min_focal_length_ratio,
-                      double max_focal_length_ratio,
-                      double max_extra_param) const;
+  inline bool HasBogusParams(double min_focal_length_ratio,
+                             double max_focal_length_ratio,
+                             double max_extra_param) const;
 
   // Initialize parameters for given camera model and focal length, and set
   // the principal point to be the image center.
@@ -226,6 +226,18 @@ span<const size_t> Camera::ExtraParamsIdxs() const {
 
 bool Camera::VerifyParams() const {
   return CameraModelVerifyParams(model_id, params);
+}
+
+bool Camera::HasBogusParams(const double min_focal_length_ratio,
+                            const double max_focal_length_ratio,
+                            const double max_extra_param) const {
+  return CameraModelHasBogusParams(model_id,
+                                   params,
+                                   width,
+                                   height,
+                                   min_focal_length_ratio,
+                                   max_focal_length_ratio,
+                                   max_extra_param);
 }
 
 Eigen::Vector2d Camera::CamFromImg(const Eigen::Vector2d& image_point) const {

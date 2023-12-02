@@ -212,12 +212,12 @@ ImageReader::Status ImageReader::Next(Camera* camera,
       if (options_.camera_params.empty()) {
         // Extract focal length.
         double focal_length = 0.0;
+        bool has_focal_length = false;
         if (bitmap->ExifFocalLength(&focal_length)) {
-          prev_camera_.has_prior_focal_length = true;
+          has_focal_length = true;
         } else {
           focal_length = options_.default_focal_length_factor *
                          std::max(bitmap->Width(), bitmap->Height());
-          prev_camera_.has_prior_focal_length = false;
         }
 
         prev_camera_ = Camera::CreateFromId(prev_camera_.camera_id,
@@ -225,6 +225,7 @@ ImageReader::Status ImageReader::Next(Camera* camera,
                                             focal_length,
                                             bitmap->Width(),
                                             bitmap->Height());
+        prev_camera_.has_prior_focal_length = has_focal_length;
       }
 
       prev_camera_.width = static_cast<size_t>(bitmap->Width());

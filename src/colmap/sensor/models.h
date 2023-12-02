@@ -77,7 +77,7 @@ namespace colmap {
 // the upper left pixel center has coordinate (0.5, 0.5) and the lower right
 // pixel center has the coordinate (width - 0.5, height - 0.5).
 
-enum struct CameraModelId {
+enum class CameraModelId {
   kInvalid = -1,
   kSimplePinhole = 0,
   kPinhole = 1,

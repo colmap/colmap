@@ -57,8 +57,7 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
     std::vector<struct Camera> cameras = database.ReadAllCameras();
     cache->cameras_.reserve(cameras.size());
     for (auto& camera : cameras) {
-      const camera_t camera_id = camera.camera_id;
-      cache->cameras_.emplace(camera_id, std::move(camera));
+      cache->cameras_.emplace(camera.camera_id, std::move(camera));
     }
   }
 

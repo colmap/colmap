@@ -109,7 +109,7 @@ class OverlappingImagesWidget : public QWidget {
 // Images, Cameras
 ////////////////////////////////////////////////////////////////////////////////
 
-struct CameraTab : public QWidget {
+class CameraTab : public QWidget {
  public:
   CameraTab(QWidget* parent, Database* database);
 

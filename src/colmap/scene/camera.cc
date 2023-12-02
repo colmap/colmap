@@ -85,18 +85,6 @@ bool Camera::SetParamsFromString(const std::string& string) {
   return true;
 }
 
-bool Camera::HasBogusParams(const double min_focal_length_ratio,
-                            const double max_focal_length_ratio,
-                            const double max_extra_param) const {
-  return CameraModelHasBogusParams(model_id,
-                                   params,
-                                   width,
-                                   height,
-                                   min_focal_length_ratio,
-                                   max_focal_length_ratio,
-                                   max_extra_param);
-}
-
 bool Camera::IsUndistorted() const {
   for (const size_t idx : ExtraParamsIdxs()) {
     if (std::abs(params[idx]) > 1e-8) {
