@@ -93,8 +93,8 @@ void WriteBoundingBox(const std::string& reconstruction_path,
 
     // Ensure that we don't loose any precision by storing in text.
     file.precision(17);
-    file << bounds.first.transpose();
-    file << bounds.second.transpose();
+    file << bounds.first.transpose() << "\n";
+    file << bounds.second.transpose() << "\n";
   }
   // write oriented bounding box
   {
@@ -106,9 +106,9 @@ void WriteBoundingBox(const std::string& reconstruction_path,
     // Ensure that we don't loose any precision by storing in text.
     file.precision(17);
     const Eigen::Vector3d center = (bounds.first + bounds.second) * 0.5;
-    file << center.transpose() << std::endl;
-    file << "1 0 0\n0 1 0\n0 0 1" << std::endl;
-    file << extent.transpose();
+    file << center.transpose() << "\n\n";
+    file << "1 0 0\n0 1 0\n0 0 1\n\n";
+    file << extent.transpose() << "\n";
   }
 }
 
@@ -177,17 +177,18 @@ void WriteComparisonErrorsCSV(const std::string& path,
   CHECK(file.is_open()) << path;
 
   file.precision(17);
-  file << "# Model comparison pose errors: one entry per common image";
-  file << "# <rotation error (deg)>, <proj center error>";
+  file << "# Model comparison pose errors: one entry per common image\n";
+  file << "# <rotation error (deg)>, <proj center error>\n";
   for (size_t i = 0; i < errors.size(); ++i) {
-    file << errors[i].rotation_error_deg << ", " << errors[i].proj_center_error;
+    file << errors[i].rotation_error_deg << ", " << errors[i].proj_center_error
+         << "\n";
   }
 }
 
 void PrintErrorStats(std::ostream& out, std::vector<double>& vals) {
   const size_t len = vals.size();
   if (len == 0) {
-    out << "Cannot extract error statistics from empty input";
+    out << "Cannot extract error statistics from empty input\n";
     return;
   }
   std::sort(vals.begin(), vals.end());
