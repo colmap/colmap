@@ -185,7 +185,7 @@ point3D_t Reconstruction::AddPoint3D(const Eigen::Vector3d& xyz,
         track_el.image_id, track_el.point2D_idx, kIsContinuedPoint3D);
   }
 
-  class Point3D& point3D = points3D_[point3D_id];
+  struct Point3D& point3D = points3D_[point3D_id];
   point3D.xyz = xyz;
   point3D.track = std::move(track);
   point3D.color = color;
@@ -201,7 +201,7 @@ void Reconstruction::AddObservation(const point3D_t point3D_id,
   image.SetPoint3DForPoint2D(track_el.point2D_idx, point3D_id);
   CHECK_LE(image.NumPoints3D(), image.NumPoints2D());
 
-  class Point3D& point3D = Point3D(point3D_id);
+  struct Point3D& point3D = Point3D(point3D_id);
   point3D.track.AddElement(track_el);
 
   const bool kIsContinuedPoint3D = true;
@@ -211,8 +211,8 @@ void Reconstruction::AddObservation(const point3D_t point3D_id,
 
 point3D_t Reconstruction::MergePoints3D(const point3D_t point3D_id1,
                                         const point3D_t point3D_id2) {
-  const class Point3D& point3D1 = Point3D(point3D_id1);
-  const class Point3D& point3D2 = Point3D(point3D_id2);
+  const struct Point3D& point3D1 = Point3D(point3D_id1);
+  const struct Point3D& point3D2 = Point3D(point3D_id2);
 
   const Eigen::Vector3d merged_xyz =
       (point3D1.track.Length() * point3D1.xyz +
@@ -265,7 +265,7 @@ void Reconstruction::DeleteObservation(const image_t image_id,
 
   class Image& image = Image(image_id);
   const point3D_t point3D_id = image.Point2D(point2D_idx).point3D_id;
-  class Point3D& point3D = Point3D(point3D_id);
+  struct Point3D& point3D = Point3D(point3D_id);
 
   if (point3D.track.Length() <= 2) {
     DeletePoint3D(point3D_id);
@@ -575,7 +575,7 @@ size_t Reconstruction::FilterObservationsWithNegativeDepth() {
          ++point2D_idx) {
       const Point2D& point2D = image.Point2D(point2D_idx);
       if (point2D.HasPoint3D()) {
-        const class Point3D& point3D = Point3D(point2D.point3D_id);
+        const struct Point3D& point3D = Point3D(point2D.point3D_id);
         if (!HasPointPositiveDepth(cam_from_world, point3D.xyz)) {
           DeleteObservation(image_id, point2D_idx);
           num_filtered += 1;
@@ -1257,7 +1257,7 @@ bool Reconstruction::ExtractColorsForImage(const image_t image_id,
   const Eigen::Vector3ub kBlackColor(0, 0, 0);
   for (const Point2D& point2D : image.Points2D()) {
     if (point2D.HasPoint3D()) {
-      class Point3D& point3D = Point3D(point2D.point3D_id);
+      struct Point3D& point3D = Point3D(point2D.point3D_id);
       if (point3D.color == kBlackColor) {
         BitmapColor<float> color;
         // COLMAP assumes that the upper left pixel center is (0.5, 0.5).
@@ -1362,7 +1362,7 @@ size_t Reconstruction::FilterPoints3DWithSmallTriangulationAngle(
       continue;
     }
 
-    const class Point3D& point3D = Point3D(point3D_id);
+    const struct Point3D& point3D = Point3D(point3D_id);
 
     // Calculate triangulation angle for all pairwise combinations of image
     // poses in the track. Only delete point if none of the combinations
@@ -1420,7 +1420,7 @@ size_t Reconstruction::FilterPoints3DWithLargeReprojectionError(
       continue;
     }
 
-    class Point3D& point3D = Point3D(point3D_id);
+    struct Point3D& point3D = Point3D(point3D_id);
 
     if (point3D.track.Length() < 2) {
       num_filtered += point3D.track.Length();
@@ -1642,7 +1642,7 @@ void Reconstruction::ReadPoints3DText(const std::string& path) {
     // without overwriting existing 3D points.
     num_added_points3D_ = std::max(num_added_points3D_, point3D_id);
 
-    class Point3D point3D;
+    struct Point3D point3D;
 
     // XYZ
     std::getline(line_stream, item, ' ');
@@ -1774,7 +1774,7 @@ void Reconstruction::ReadPoints3DBinary(const std::string& path) {
 
   const size_t num_points3D = ReadBinaryLittleEndian<uint64_t>(&file);
   for (size_t i = 0; i < num_points3D; ++i) {
-    class Point3D point3D;
+    struct Point3D point3D;
 
     const point3D_t point3D_id = ReadBinaryLittleEndian<point3D_t>(&file);
     num_added_points3D_ = std::max(num_added_points3D_, point3D_id);
