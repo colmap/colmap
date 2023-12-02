@@ -47,16 +47,16 @@ FeatureMatcherCache::FeatureMatcherCache(const size_t cache_size,
 }
 
 void FeatureMatcherCache::Setup() {
-  const std::vector<Camera> cameras = database_->ReadAllCameras();
+  std::vector<Camera> cameras = database_->ReadAllCameras();
   cameras_cache_.reserve(cameras.size());
-  for (const auto& camera : cameras) {
-    cameras_cache_.emplace(camera.CameraId(), camera);
+  for (Camera& camera : cameras) {
+    cameras_cache_.emplace(camera.camera_id, std::move(camera));
   }
 
-  const std::vector<Image> images = database_->ReadAllImages();
+  std::vector<Image> images = database_->ReadAllImages();
   images_cache_.reserve(images.size());
-  for (const auto& image : images) {
-    images_cache_.emplace(image.ImageId(), image);
+  for (Image& image : images) {
+    images_cache_.emplace(image.ImageId(), std::move(image));
   }
 
   keypoints_cache_ =
@@ -74,12 +74,12 @@ void FeatureMatcherCache::Setup() {
           });
 
   keypoints_exists_cache_ = std::make_unique<LRUCache<image_t, bool>>(
-      images.size(), [this](const image_t image_id) {
+      images_cache_.size(), [this](const image_t image_id) {
         return database_->ExistsKeypoints(image_id);
       });
 
   descriptors_exists_cache_ = std::make_unique<LRUCache<image_t, bool>>(
-      images.size(), [this](const image_t image_id) {
+      images_cache_.size(), [this](const image_t image_id) {
         return database_->ExistsDescriptors(image_id);
       });
 }

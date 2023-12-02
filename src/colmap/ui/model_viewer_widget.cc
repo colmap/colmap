@@ -75,11 +75,11 @@ void BuildImageModel(const Image& image,
                      std::vector<LinePainter::Data>* line_data) {
   // Generate camera dimensions in OpenGL (world) coordinate space.
   const float kBaseCameraWidth = 1024.0f;
-  const float image_width = image_size * camera.Width() / kBaseCameraWidth;
-  const float image_height = image_width * static_cast<float>(camera.Height()) /
-                             static_cast<float>(camera.Width());
+  const float image_width = image_size * camera.width / kBaseCameraWidth;
+  const float image_height = image_width * static_cast<float>(camera.height) /
+                             static_cast<float>(camera.width);
   const float image_extent = std::max(image_width, image_height);
-  const float camera_extent = std::max(camera.Width(), camera.Height());
+  const float camera_extent = std::max(camera.width, camera.height);
   const float camera_extent_normalized =
       static_cast<float>(camera.CamFromImgThreshold(camera_extent));
   const float focal_length = 2.0f * image_extent / camera_extent_normalized;
@@ -1179,11 +1179,11 @@ void ModelViewerWidget::UploadMovieGrabberData() {
     const float kDefaultImageHeight = 1536.0f;
     const float focal_length =
         -2.0f * std::tan(DegToRad(kFieldOfView) / 2.0f) * kDefaultImageWdith;
-    Camera camera;
-    camera.InitializeWithId(SimplePinholeCameraModel::model_id,
-                            focal_length,
-                            kDefaultImageWdith,
-                            kDefaultImageHeight);
+    Camera camera = Camera::CreateFromId(kInvalidCameraId,
+                                         SimplePinholeCameraModel::model_id,
+                                         focal_length,
+                                         kDefaultImageWdith,
+                                         kDefaultImageHeight);
 
     // Build all camera models
     for (size_t i = 0; i < movie_grabber_widget_->views.size(); ++i) {

@@ -43,10 +43,10 @@ namespace {
 void ScaleKeypoints(const Bitmap& bitmap,
                     const Camera& camera,
                     FeatureKeypoints* keypoints) {
-  if (static_cast<size_t>(bitmap.Width()) != camera.Width() ||
-      static_cast<size_t>(bitmap.Height()) != camera.Height()) {
-    const float scale_x = static_cast<float>(camera.Width()) / bitmap.Width();
-    const float scale_y = static_cast<float>(camera.Height()) / bitmap.Height();
+  if (static_cast<size_t>(bitmap.Width()) != camera.width ||
+      static_cast<size_t>(bitmap.Height()) != camera.height) {
+    const float scale_x = static_cast<float>(camera.width) / bitmap.Width();
+    const float scale_y = static_cast<float>(camera.height) / bitmap.Height();
     for (auto& keypoint : *keypoints) {
       keypoint.Rescale(scale_x, scale_y);
     }
@@ -281,15 +281,15 @@ class FeatureWriterThread : public Thread {
         }
 
         LOG(INFO) << StringPrintf("  Dimensions:      %d x %d",
-                                  image_data.camera.Width(),
-                                  image_data.camera.Height());
+                                  image_data.camera.width,
+                                  image_data.camera.height);
         LOG(INFO) << StringPrintf("  Camera:          #%d - %s",
-                                  image_data.camera.CameraId(),
+                                  image_data.camera.camera_id,
                                   image_data.camera.ModelName().c_str());
         LOG(INFO) << StringPrintf(
             "  Focal Length:    %.2fpx%s",
             image_data.camera.MeanFocalLength(),
-            image_data.camera.HasPriorFocalLength() ? " (Prior)" : "");
+            image_data.camera.has_prior_focal_length ? " (Prior)" : "");
         const Eigen::Vector3d& translation_prior =
             image_data.image.CamFromWorldPrior().translation;
         if (translation_prior.array().isFinite().any()) {

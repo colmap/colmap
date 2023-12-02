@@ -48,7 +48,7 @@ bool VerifyCameraParams(const std::string& camera_model,
   }
 
   const std::vector<double> camera_params = CSVToVector<double>(params);
-  const int camera_model_id = CameraModelNameToId(camera_model);
+  const CameraModelId camera_model_id = CameraModelNameToId(camera_model);
 
   if (camera_params.size() > 0 &&
       !CameraModelVerifyParams(camera_model_id, camera_params)) {

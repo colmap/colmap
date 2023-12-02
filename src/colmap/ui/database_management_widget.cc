@@ -319,13 +319,13 @@ void CameraTab::Reload() {
   std::sort(cameras_.begin(),
             cameras_.end(),
             [](const Camera& camera1, const Camera& camera2) {
-              return camera1.CameraId() < camera2.CameraId();
+              return camera1.camera_id < camera2.camera_id;
             });
 
   for (size_t i = 0; i < cameras_.size(); ++i) {
     const Camera& camera = cameras_[i];
     QTableWidgetItem* id_item =
-        new QTableWidgetItem(QString::number(camera.CameraId()));
+        new QTableWidgetItem(QString::number(camera.camera_id));
     id_item->setFlags(Qt::ItemIsSelectable);
     table_widget_->setItem(i, 0, id_item);
 
@@ -335,18 +335,18 @@ void CameraTab::Reload() {
     table_widget_->setItem(i, 1, model_item);
 
     table_widget_->setItem(
-        i, 2, new QTableWidgetItem(QString::number(camera.Width())));
+        i, 2, new QTableWidgetItem(QString::number(camera.width)));
     table_widget_->setItem(
-        i, 3, new QTableWidgetItem(QString::number(camera.Height())));
+        i, 3, new QTableWidgetItem(QString::number(camera.height)));
 
     table_widget_->setItem(i,
                            4,
                            new QTableWidgetItem(QString::fromStdString(
-                               VectorToCSV(camera.Params()))));
+                               VectorToCSV(camera.params))));
     table_widget_->setItem(
         i,
         5,
-        new QTableWidgetItem(QString::number(camera.HasPriorFocalLength())));
+        new QTableWidgetItem(QString::number(camera.has_prior_focal_length)));
   }
   table_widget_->resizeColumnsToContents();
 
@@ -360,17 +360,16 @@ void CameraTab::Clear() {
 
 void CameraTab::itemChanged(QTableWidgetItem* item) {
   Camera& camera = cameras_.at(item->row());
-  const std::vector<double> prev_params = camera.Params();
+  const std::vector<double> prev_params = camera.params;
 
   switch (item->column()) {
     // case 0: never change the camera ID
     // case 1: never change the camera model
     case 2:
-      camera.SetWidth(static_cast<size_t>(item->data(Qt::DisplayRole).toInt()));
+      camera.width = static_cast<size_t>(item->data(Qt::DisplayRole).toInt());
       break;
     case 3:
-      camera.SetHeight(
-          static_cast<size_t>(item->data(Qt::DisplayRole).toInt()));
+      camera.height = static_cast<size_t>(item->data(Qt::DisplayRole).toInt());
       break;
     case 4:
       if (!camera.SetParamsFromString(item->text().toUtf8().constData())) {
@@ -381,8 +380,8 @@ void CameraTab::itemChanged(QTableWidgetItem* item) {
       }
       break;
     case 5:
-      camera.SetPriorFocalLength(
-          static_cast<bool>(item->data(Qt::DisplayRole).toInt()));
+      camera.has_prior_focal_length =
+          static_cast<bool>(item->data(Qt::DisplayRole).toInt());
       break;
     default:
       break;
@@ -405,15 +404,16 @@ void CameraTab::Add() {
     return;
   }
 
-  // Add new camera to feature database
+  // Add new camera to feature database.
   Camera camera;
   const double kDefaultFocalLength = 1.0;
   const size_t kDefaultWidth = 1;
   const size_t kDefaultHeight = 1;
-  camera.InitializeWithName(camera_model.toUtf8().constData(),
-                            kDefaultFocalLength,
-                            kDefaultWidth,
-                            kDefaultHeight);
+  camera = Camera::CreateFromName(kInvalidCameraId,
+                                  camera_model.toUtf8().constData(),
+                                  kDefaultFocalLength,
+                                  kDefaultWidth,
+                                  kDefaultHeight);
   database_->WriteCamera(camera);
 
   // Reload all cameras
@@ -450,10 +450,11 @@ void CameraTab::SetModel() {
   for (QModelIndex& index : select->selectedRows()) {
     LOG(INFO) << index.row();
     auto& camera = cameras_.at(index.row());
-    camera.InitializeWithName(camera_model.toUtf8().constData(),
-                              camera.MeanFocalLength(),
-                              camera.Width(),
-                              camera.Height());
+    camera = Camera::CreateFromName(camera.camera_id,
+                                    camera_model.toUtf8().constData(),
+                                    camera.MeanFocalLength(),
+                                    camera.width,
+                                    camera.height);
     database_->UpdateCamera(camera);
   }
 

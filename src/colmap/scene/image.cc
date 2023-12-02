@@ -53,10 +53,10 @@ Image::Image()
       cam_from_world_prior_(Eigen::Quaterniond(kNaN, kNaN, kNaN, kNaN),
                             Eigen::Vector3d(kNaN, kNaN, kNaN)) {}
 
-void Image::SetUp(const class Camera& camera) {
-  CHECK_EQ(camera_id_, camera.CameraId());
+void Image::SetUp(const struct Camera& camera) {
+  CHECK_EQ(camera_id_, camera.camera_id);
   point3D_visibility_pyramid_ = VisibilityPyramid(
-      kNumPoint3DVisibilityPyramidLevels, camera.Width(), camera.Height());
+      kNumPoint3DVisibilityPyramidLevels, camera.width, camera.height);
 }
 
 void Image::TearDown() {

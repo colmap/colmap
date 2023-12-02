@@ -451,7 +451,7 @@ int RunImageUndistorterStandalone(int argc, char** argv) {
       std::getline(line_stream, image_name, ' ');
 
       // Loads the camera and its parameters
-      class Camera camera;
+      struct Camera camera;
 
       std::getline(line_stream, item, ' ');
       if (!ExistsCameraModelWithName(item)) {
@@ -461,15 +461,15 @@ int RunImageUndistorterStandalone(int argc, char** argv) {
       camera.SetModelIdFromName(item);
 
       std::getline(line_stream, item, ' ');
-      camera.SetWidth(std::stoll(item));
+      camera.width = std::stoll(item);
 
       std::getline(line_stream, item, ' ');
-      camera.SetHeight(std::stoll(item));
+      camera.height = std::stoll(item);
 
-      camera.Params().clear();
+      camera.params.clear();
       while (!line_stream.eof()) {
         std::getline(line_stream, item, ' ');
-        camera.Params().push_back(std::stold(item));
+        camera.params.push_back(std::stold(item));
       }
 
       CHECK(camera.VerifyParams());

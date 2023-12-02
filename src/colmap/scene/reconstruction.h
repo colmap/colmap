@@ -75,14 +75,14 @@ class Reconstruction {
   inline size_t NumImagePairs() const;
 
   // Get const objects.
-  inline const class Camera& Camera(camera_t camera_id) const;
+  inline const struct Camera& Camera(camera_t camera_id) const;
   inline const class Image& Image(image_t image_id) const;
   inline const struct Point3D& Point3D(point3D_t point3D_id) const;
   inline const ImagePairStat& ImagePair(image_pair_t pair_id) const;
   inline ImagePairStat& ImagePair(image_t image_id1, image_t image_id2);
 
   // Get mutable objects.
-  inline class Camera& Camera(camera_t camera_id);
+  inline struct Camera& Camera(camera_t camera_id);
   inline class Image& Image(image_t image_id);
   inline struct Point3D& Point3D(point3D_t point3D_id);
   inline ImagePairStat& ImagePair(image_pair_t pair_id);
@@ -90,7 +90,7 @@ class Reconstruction {
                                         image_t image_id2) const;
 
   // Get reference to all objects.
-  inline const std::unordered_map<camera_t, class Camera>& Cameras() const;
+  inline const std::unordered_map<camera_t, struct Camera>& Cameras() const;
   inline const std::unordered_map<image_t, class Image>& Images() const;
   inline const std::vector<image_t>& RegImageIds() const;
   inline const std::unordered_map<point3D_t, struct Point3D>& Points3D() const;
@@ -123,7 +123,7 @@ class Reconstruction {
 
   // Add new camera. There is only one camera per image, while multiple images
   // might be taken by the same camera.
-  void AddCamera(class Camera camera);
+  void AddCamera(struct Camera camera);
 
   // Add new image.
   void AddImage(class Image image);
@@ -393,7 +393,7 @@ class Reconstruction {
 
   std::shared_ptr<const CorrespondenceGraph> correspondence_graph_;
 
-  std::unordered_map<camera_t, class Camera> cameras_;
+  std::unordered_map<camera_t, struct Camera> cameras_;
   std::unordered_map<image_t, class Image> images_;
   std::unordered_map<point3D_t, struct Point3D> points3D_;
 
@@ -422,7 +422,7 @@ size_t Reconstruction::NumImagePairs() const {
   return image_pair_stats_.size();
 }
 
-const class Camera& Reconstruction::Camera(const camera_t camera_id) const {
+const struct Camera& Reconstruction::Camera(const camera_t camera_id) const {
   return cameras_.at(camera_id);
 }
 
@@ -446,7 +446,7 @@ const Reconstruction::ImagePairStat& Reconstruction::ImagePair(
   return image_pair_stats_.at(pair_id);
 }
 
-class Camera& Reconstruction::Camera(const camera_t camera_id) {
+struct Camera& Reconstruction::Camera(const camera_t camera_id) {
   return cameras_.at(camera_id);
 }
 

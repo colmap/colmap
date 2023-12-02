@@ -262,10 +262,10 @@ void FeatureExtractionWidget::hideEvent(QHideEvent* event) {
 }
 
 void FeatureExtractionWidget::ReadOptions() {
-  const auto camera_code =
+  const CameraModelId model_id =
       CameraModelNameToId(options_->image_reader->camera_model);
   for (size_t i = 0; i < camera_model_ids_.size(); ++i) {
-    if (camera_model_ids_[i] == camera_code) {
+    if (camera_model_ids_[i] == static_cast<int>(model_id)) {
       SelectCameraModel(i);
       camera_model_cb_->setCurrentIndex(i);
       break;
@@ -280,7 +280,8 @@ void FeatureExtractionWidget::ReadOptions() {
 
 void FeatureExtractionWidget::WriteOptions() {
   options_->image_reader->camera_model =
-      CameraModelIdToName(camera_model_ids_[camera_model_cb_->currentIndex()]);
+      CameraModelIdToName(static_cast<CameraModelId>(
+          camera_model_ids_[camera_model_cb_->currentIndex()]));
   options_->image_reader->single_camera = single_camera_cb_->isChecked();
   options_->image_reader->single_camera_per_folder =
       single_camera_per_folder_cb_->isChecked();
@@ -289,9 +290,11 @@ void FeatureExtractionWidget::WriteOptions() {
 }
 
 void FeatureExtractionWidget::SelectCameraModel(const int idx) {
-  const int code = camera_model_ids_[idx];
-  camera_params_info_->setText(QString::fromStdString(StringPrintf(
-      "<small>Parameters: %s</small>", CameraModelParamsInfo(code).c_str())));
+  const CameraModelId model_id =
+      static_cast<CameraModelId>(camera_model_ids_[idx]);
+  camera_params_info_->setText(QString::fromStdString(
+      StringPrintf("<small>Parameters: %s</small>",
+                   CameraModelParamsInfo(model_id).c_str())));
 }
 
 void FeatureExtractionWidget::Extract() {

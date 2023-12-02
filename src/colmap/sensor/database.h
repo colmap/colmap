@@ -37,7 +37,7 @@ namespace colmap {
 
 // Database that contains sensor widths for many cameras, which is useful
 // to automatically extract the focal length if EXIF information is incomplete.
-class CameraDatabase {
+struct CameraDatabase {
  public:
   CameraDatabase() = default;
 

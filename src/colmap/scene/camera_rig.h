@@ -43,7 +43,7 @@ namespace colmap {
 // Camera rigs are composed of multiple cameras with a rigid relative extrinsic
 // configuration over multiple snapshots. Snapshots are defined as the
 // collection of images captured simultaneously by all cameras in the rig.
-class CameraRig {
+struct CameraRig {
  public:
   CameraRig();
 
