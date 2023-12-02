@@ -102,13 +102,13 @@ inline Eigen::Vector3d operator*(const Sim3d& t, const Eigen::Vector3d& x) {
 // Concatenate transforms such one can write expressions like:
 //      d_from_a = d_from_c * c_from_b * b_from_a
 inline Sim3d operator*(const Sim3d& c_from_b, const Sim3d& b_from_a) {
-  Sim3d cFromA;
-  cFromA.scale = c_from_b.scale * b_from_a.scale;
-  cFromA.rotation = (c_from_b.rotation * b_from_a.rotation).normalized();
-  cFromA.translation =
+  Sim3d c_from_a;
+  c_from_a.scale = c_from_b.scale * b_from_a.scale;
+  c_from_a.rotation = (c_from_b.rotation * b_from_a.rotation).normalized();
+  c_from_a.translation =
       c_from_b.translation +
       (c_from_b.scale * (c_from_b.rotation * b_from_a.translation));
-  return cFromA;
+  return c_from_a;
 }
 
 }  // namespace colmap
