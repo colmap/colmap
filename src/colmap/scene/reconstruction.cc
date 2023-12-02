@@ -985,9 +985,9 @@ bool Reconstruction::ExportRecon3D(const std::string& path,
   for (const auto& point3D : points3D_) {
     auto& p = point3D.second;
     synth_file << p.xyz(0) << " " << p.xyz(1) << " " << p.xyz(2) << std::endl;
-    synth_file << static_cast<int>(p.olor(0)) << " "
-               << static_cast<int>(p.olor(1)) << " "
-               << static_cast<int>(p.olor(2)) << std::endl;
+    synth_file << static_cast<int>(p.color(0)) << " "
+               << static_cast<int>(p.color(1)) << " "
+               << static_cast<int>(p.color(2)) << std::endl;
 
     std::ostringstream line;
 
