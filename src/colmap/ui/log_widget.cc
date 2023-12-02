@@ -30,6 +30,57 @@
 #include "colmap/ui/log_widget.h"
 
 namespace colmap {
+namespace {
+
+class GlogSink : public google::LogSink {
+ public:
+  explicit GlogSink(LogWidget* log_widget)
+      : log_widget_(CHECK_NOTNULL(log_widget)) {
+    google::AddLogSink(this);
+  }
+
+  ~GlogSink() { google::RemoveLogSink(this); }
+
+  void send(google::LogSeverity severity,
+            const char* /*full_filename*/,
+            const char* /*base_filename*/,
+            int /*line*/,
+            const struct ::tm* /*tm_time*/,
+            const char* message,
+            size_t message_len) override {
+    if (severity != google::GLOG_INFO && severity != google::GLOG_WARNING &&
+        severity != google::GLOG_ERROR) {
+      return;
+    }
+    const int severity_len =
+        (severity == google::GLOG_WARNING || severity == google::GLOG_ERROR)
+            ? 3
+            : 0;
+    std::string text(message_len + 1 + severity_len, '\0');
+    std::copy(message + severity_len,
+              message + message_len + severity_len,
+              text.begin());
+    text.back() = '\n';
+    switch (severity) {
+      case google::GLOG_WARNING:
+        text[0] = 'W';
+        text[1] = ':';
+        text[2] = ' ';
+        break;
+      case google::GLOG_ERROR:
+        text[0] = 'E';
+        text[1] = ':';
+        text[2] = ' ';
+        break;
+    }
+    log_widget_->Append(text);
+  }
+
+ private:
+  LogWidget* log_widget_;
+};
+
+}  // namespace
 
 LogWidget::LogWidget(QWidget* parent, const int max_num_blocks) {
   setWindowFlags(Qt::Window);
@@ -46,20 +97,9 @@ LogWidget::LogWidget(QWidget* parent, const int max_num_blocks) {
   connect(timer, &QTimer::timeout, this, &LogWidget::Flush);
   timer->start(100);
 
-  // Comment these lines if debugging, otherwise debug messages won't appear
-  // on the console and the output is lost in the log widget when crashing
-  cout_redirector_ = new StandardOutputRedirector<char, std::char_traits<char>>(
-      std::cout, LogWidget::Update, this);
-  cerr_redirector_ = new StandardOutputRedirector<char, std::char_traits<char>>(
-      std::cerr, LogWidget::Update, this);
-  clog_redirector_ = new StandardOutputRedirector<char, std::char_traits<char>>(
-      std::clog, LogWidget::Update, this);
+  log_sink_ = std::make_unique<GlogSink>(this);
 
   QHBoxLayout* left_button_layout = new QHBoxLayout();
-
-  QPushButton* save_log_button = new QPushButton(tr("Save"), this);
-  connect(save_log_button, &QPushButton::released, this, &LogWidget::SaveLog);
-  left_button_layout->addWidget(save_log_button);
 
   QPushButton* clear_button = new QPushButton(tr("Clear"), this);
   connect(clear_button, &QPushButton::released, this, &LogWidget::Clear);
@@ -79,24 +119,9 @@ LogWidget::LogWidget(QWidget* parent, const int max_num_blocks) {
   grid->addWidget(text_box_, 1, 0, 1, 2);
 }
 
-LogWidget::~LogWidget() {
-  if (log_file_.is_open()) {
-    log_file_.close();
-  }
-
-  delete cout_redirector_;
-  delete cerr_redirector_;
-  delete clog_redirector_;
-}
-
 void LogWidget::Append(const std::string& text) {
   QMutexLocker locker(&mutex_);
   text_queue_ += text;
-
-  // Dump to log file
-  if (log_file_.is_open()) {
-    log_file_ << text;
-  }
 }
 
 void LogWidget::Flush() {
@@ -115,38 +140,6 @@ void LogWidget::Clear() {
   QMutexLocker locker(&mutex_);
   text_queue_.clear();
   text_box_->clear();
-}
-
-void LogWidget::Update(const char* text,
-                       std::streamsize count,
-                       void* log_widget_ptr) {
-  std::string text_str;
-  for (std::streamsize i = 0; i < count; ++i) {
-    if (text[i] == '\n') {
-      text_str += "\n";
-    } else {
-      text_str += text[i];
-    }
-  }
-
-  LogWidget* log_widget = static_cast<LogWidget*>(log_widget_ptr);
-  log_widget->Append(text_str);
-}
-
-void LogWidget::SaveLog() {
-  const std::string log_path =
-      QFileDialog::getSaveFileName(
-          this, tr("Select path to log file"), "", tr("Log (*.log)"))
-          .toUtf8()
-          .constData();
-
-  if (log_path == "") {
-    return;
-  }
-
-  std::ofstream file(log_path, std::ios::app);
-  CHECK(file.is_open()) << log_path;
-  file << text_box_->toPlainText().toUtf8().constData();
 }
 
 }  // namespace colmap

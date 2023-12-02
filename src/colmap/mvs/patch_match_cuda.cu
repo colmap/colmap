@@ -1265,43 +1265,42 @@ void PatchMatchCuda::Run() {
     RunWithWindowSizeAndStep<2 * window_radius + 1, window_step>(); \
     break;
 
-#define CASE_WINDOW_STEP(window_step)                                \
-  case window_step:                                                  \
-    switch (options_.window_radius) {                                \
-      CASE_WINDOW_RADIUS(1, window_step)                             \
-      CASE_WINDOW_RADIUS(2, window_step)                             \
-      CASE_WINDOW_RADIUS(3, window_step)                             \
-      CASE_WINDOW_RADIUS(4, window_step)                             \
-      CASE_WINDOW_RADIUS(5, window_step)                             \
-      CASE_WINDOW_RADIUS(6, window_step)                             \
-      CASE_WINDOW_RADIUS(7, window_step)                             \
-      CASE_WINDOW_RADIUS(8, window_step)                             \
-      CASE_WINDOW_RADIUS(9, window_step)                             \
-      CASE_WINDOW_RADIUS(10, window_step)                            \
-      CASE_WINDOW_RADIUS(11, window_step)                            \
-      CASE_WINDOW_RADIUS(12, window_step)                            \
-      CASE_WINDOW_RADIUS(13, window_step)                            \
-      CASE_WINDOW_RADIUS(14, window_step)                            \
-      CASE_WINDOW_RADIUS(15, window_step)                            \
-      CASE_WINDOW_RADIUS(16, window_step)                            \
-      CASE_WINDOW_RADIUS(17, window_step)                            \
-      CASE_WINDOW_RADIUS(18, window_step)                            \
-      CASE_WINDOW_RADIUS(19, window_step)                            \
-      CASE_WINDOW_RADIUS(20, window_step)                            \
-      default: {                                                     \
-        std::cerr << "Error: Window size " << options_.window_radius \
-                  << " not supported" << std::endl;                  \
-        break;                                                       \
-      }                                                              \
-    }                                                                \
+#define CASE_WINDOW_STEP(window_step)                          \
+  case window_step:                                            \
+    switch (options_.window_radius) {                          \
+      CASE_WINDOW_RADIUS(1, window_step)                       \
+      CASE_WINDOW_RADIUS(2, window_step)                       \
+      CASE_WINDOW_RADIUS(3, window_step)                       \
+      CASE_WINDOW_RADIUS(4, window_step)                       \
+      CASE_WINDOW_RADIUS(5, window_step)                       \
+      CASE_WINDOW_RADIUS(6, window_step)                       \
+      CASE_WINDOW_RADIUS(7, window_step)                       \
+      CASE_WINDOW_RADIUS(8, window_step)                       \
+      CASE_WINDOW_RADIUS(9, window_step)                       \
+      CASE_WINDOW_RADIUS(10, window_step)                      \
+      CASE_WINDOW_RADIUS(11, window_step)                      \
+      CASE_WINDOW_RADIUS(12, window_step)                      \
+      CASE_WINDOW_RADIUS(13, window_step)                      \
+      CASE_WINDOW_RADIUS(14, window_step)                      \
+      CASE_WINDOW_RADIUS(15, window_step)                      \
+      CASE_WINDOW_RADIUS(16, window_step)                      \
+      CASE_WINDOW_RADIUS(17, window_step)                      \
+      CASE_WINDOW_RADIUS(18, window_step)                      \
+      CASE_WINDOW_RADIUS(19, window_step)                      \
+      CASE_WINDOW_RADIUS(20, window_step)                      \
+      default: {                                               \
+        LOG(ERROR) << "Window size " << options_.window_radius \
+                   << " not supported";                        \
+        break;                                                 \
+      }                                                        \
+    }                                                          \
     break;
 
   switch (options_.window_step) {
     CASE_WINDOW_STEP(1)
     CASE_WINDOW_STEP(2)
     default: {
-      std::cerr << "Error: Window step " << options_.window_step
-                << " not supported" << std::endl;
+      LOG(ERROR) << "Window step " << options_.window_step << " not supported";
       break;
     }
   }

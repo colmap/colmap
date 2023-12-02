@@ -779,9 +779,9 @@ bool Reconstruction::ExportNVM(const std::string& path,
     } else if (camera.ModelId() == SimpleRadialCameraModel::model_id) {
       k = -1 * camera.Params(SimpleRadialCameraModel::extra_params_idxs[0]);
     } else {
-      std::cout << "WARNING: NVM only supports `SIMPLE_RADIAL` "
-                   "and pinhole camera models."
-                << std::endl;
+      LOG(WARNING) << "NVM only supports `SIMPLE_RADIAL` "
+                      "and pinhole camera models."
+                   << std::endl;
       return false;
     }
 
@@ -870,9 +870,9 @@ bool Reconstruction::ExportCam(const std::string& path,
       k1 = camera.Params(RadialCameraModel::extra_params_idxs[0]);
       k2 = camera.Params(RadialCameraModel::extra_params_idxs[1]);
     } else {
-      std::cout << "WARNING: CAM only supports `SIMPLE_RADIAL`, `RADIAL`, "
-                   "and pinhole camera models."
-                << std::endl;
+      LOG(WARNING) << "CAM only supports `SIMPLE_RADIAL`, `RADIAL`, "
+                      "and pinhole camera models."
+                   << std::endl;
       return false;
     }
 
@@ -959,9 +959,8 @@ bool Reconstruction::ExportRecon3D(const std::string& path,
       k1 = -1 * camera.Params(RadialCameraModel::extra_params_idxs[0]);
       k2 = -1 * camera.Params(RadialCameraModel::extra_params_idxs[1]);
     } else {
-      std::cout << "WARNING: Recon3D only supports `SIMPLE_RADIAL`, "
-                   "`RADIAL`, and pinhole camera models."
-                << std::endl;
+      LOG(WARNING) << "Recon3D only supports `SIMPLE_RADIAL`, "
+                      "`RADIAL`, and pinhole camera models.";
       return false;
     }
 
@@ -986,8 +985,9 @@ bool Reconstruction::ExportRecon3D(const std::string& path,
   for (const auto& point3D : points3D_) {
     auto& p = point3D.second;
     synth_file << p.xyz(0) << " " << p.xyz(1) << " " << p.xyz(2) << std::endl;
-    synth_file << (int)p.color(0) << " " << (int)p.color(1) << " "
-               << (int)p.color(2) << std::endl;
+    synth_file << static_cast<int>(p.olor(0)) << " "
+               << static_cast<int>(p.olor(1)) << " "
+               << static_cast<int>(p.olor(2)) << std::endl;
 
     std::ostringstream line;
 
@@ -1060,9 +1060,9 @@ bool Reconstruction::ExportBundler(const std::string& path,
       k1 = camera.Params(RadialCameraModel::extra_params_idxs[0]);
       k2 = camera.Params(RadialCameraModel::extra_params_idxs[1]);
     } else {
-      std::cout << "WARNING: Bundler only supports `SIMPLE_RADIAL`, "
-                   "`RADIAL`, and pinhole camera models."
-                << std::endl;
+      LOG(WARNING) << "Bundler only supports `SIMPLE_RADIAL`, "
+                      "`RADIAL`, and pinhole camera models."
+                   << std::endl;
       return false;
     }
 
@@ -1283,10 +1283,10 @@ void Reconstruction::ExtractColorsForAllImages(const std::string& path) {
 
     Bitmap bitmap;
     if (!bitmap.Read(image_path)) {
-      std::cout << StringPrintf("Could not read image %s at path %s.",
-                                image.Name().c_str(),
-                                image_path.c_str())
-                << std::endl;
+      LOG(WARNING) << StringPrintf("Could not read image %s at path %s.",
+                                   image.Name().c_str(),
+                                   image_path.c_str())
+                   << std::endl;
       continue;
     }
 

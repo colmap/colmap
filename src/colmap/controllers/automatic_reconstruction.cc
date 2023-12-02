@@ -39,6 +39,8 @@
 #include "colmap/mvs/patch_match.h"
 #include "colmap/util/misc.h"
 
+#include <glog/logging.h>
+
 namespace colmap {
 
 AutomaticReconstructionController::AutomaticReconstructionController(
@@ -213,10 +215,8 @@ void AutomaticReconstructionController::RunSparseMapper() {
     auto dir_list = GetDirList(sparse_path);
     std::sort(dir_list.begin(), dir_list.end());
     if (dir_list.size() > 0) {
-      std::cout << std::endl
-                << "WARNING: Skipping sparse reconstruction because it is "
-                   "already computed"
-                << std::endl;
+      LOG(WARNING)
+          << "Skipping sparse reconstruction because it is already computed";
       for (const auto& dir : dir_list) {
         reconstruction_manager_->Read(dir);
       }
@@ -295,10 +295,7 @@ void AutomaticReconstructionController::RunDenseMapper() {
       active_thread_ = nullptr;
     }
 #else   // COLMAP_CUDA_ENABLED
-    std::cout
-        << std::endl
-        << "WARNING: Skipping patch match stereo because CUDA is not available."
-        << std::endl;
+    LOG(WARNING) << "Skipping patch match stereo because CUDA is not available";
     return;
 #endif  // COLMAP_CUDA_ENABLED
 
@@ -325,7 +322,7 @@ void AutomaticReconstructionController::RunDenseMapper() {
       fuser.Wait();
       active_thread_ = nullptr;
 
-      std::cout << "Writing output: " << fused_path << std::endl;
+      LOG(INFO) << "Writing output: " << fused_path;
       WriteBinaryPlyPoints(fused_path, fuser.GetFusedPoints());
       mvs::WritePointsVisibility(fused_path + ".vis",
                                  fuser.GetFusedPointsVisibility());
@@ -346,10 +343,8 @@ void AutomaticReconstructionController::RunDenseMapper() {
         mvs::DenseDelaunayMeshing(
             *option_manager_.delaunay_meshing, dense_path, meshing_path);
 #else  // COLMAP_CGAL_ENABLED
-        std::cout << std::endl
-                  << "WARNING: Skipping Delaunay meshing because CGAL is "
-                     "not available."
-                  << std::endl;
+        LOG(WARNING)
+            << "Skipping Delaunay meshing because CGAL is not available";
         return;
 
 #endif  // COLMAP_CGAL_ENABLED

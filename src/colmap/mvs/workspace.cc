@@ -94,19 +94,16 @@ void Workspace::Load(const std::vector<std::string>& image_names) {
   Timer timer;
   timer.Start();
 
-  std::cout << StringPrintf("Loading workspace data with %d threads...",
-                            num_threads)
-            << std::endl;
+  LOG(INFO) << StringPrintf("Loading workspace data with %d threads...",
+                            num_threads);
   for (size_t i = 0; i < image_names.size(); ++i) {
     const int image_idx = model_.GetImageIdx(image_names[i]);
     if (HasBitmap(image_idx) && HasDepthMap(image_idx)) {
       thread_pool.AddTask(LoadWorkspaceData, image_idx);
     } else {
-      std::cout
-          << StringPrintf(
-                 "WARNING: Ignoring image %s, because input does not exist.",
-                 image_names[i].c_str())
-          << std::endl;
+      LOG(WARNING) << StringPrintf(
+          "Ignoring image %s, because input does not exist.",
+          image_names[i].c_str());
     }
   }
   thread_pool.Wait();
@@ -278,17 +275,17 @@ void ImportPMVSWorkspace(const Workspace& workspace,
     CHECK(fusion_file.is_open()) << fusion_path;
     for (size_t i = 0; i < image_names.size(); ++i) {
       const auto& ref_image_name = image_names[i];
-      patch_match_file << ref_image_name << std::endl;
+      patch_match_file << ref_image_name << "\n";
       if (overlapping_images.empty()) {
-        patch_match_file << "__auto__, 20" << std::endl;
+        patch_match_file << "__auto__, 20\n";
       } else {
         for (const int image_idx : overlapping_images[i]) {
           patch_match_file << workspace.GetModel().GetImageName(image_idx)
                            << ", ";
         }
-        patch_match_file << std::endl;
+        patch_match_file << "\n";
       }
-      fusion_file << ref_image_name << std::endl;
+      fusion_file << ref_image_name << "\n";
     }
   }
 }

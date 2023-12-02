@@ -82,11 +82,11 @@ namespace colmap {
 //
 //      MyThread thread;
 //      thread.AddCallback(MyThread::PROCESSED_CALLBACK, []() {
-//        std::cout << "Processed item"; })
+//        LOG(INFO) << "Processed item"; })
 //      thread.AddCallback(MyThread::STARTED_CALLBACK, []() {
-//        std::cout << "Start"; })
+//        LOG(INFO) << "Start"; })
 //      thread.AddCallback(MyThread::FINISHED_CALLBACK, []() {
-//        std::cout << "Finished"; })
+//        LOG(INFO) << "Finished"; })
 //      thread.Start();
 //      // thread.CheckValidSetup();
 //      // Pause, resume, stop, ...

@@ -44,8 +44,7 @@ typedef std::function<int(int, char**)> command_func_t;
 int ShowHelp(
     const std::vector<std::pair<std::string, command_func_t>>& commands) {
   std::cout << colmap::StringPrintf(
-                   "%s -- Structure-from-Motion and Multi-View Stereo\n"
-                   "              (%s)",
+                   "%s -- Structure-from-Motion and Multi-View Stereo\n(%s)",
                    colmap::GetVersionInfo().c_str(),
                    colmap::GetBuildInfo().c_str())
             << std::endl
@@ -156,11 +155,10 @@ int main(int argc, char** argv) {
       }
     }
     if (matched_command_func == nullptr) {
-      std::cerr << colmap::StringPrintf(
-                       "ERROR: Command `%s` not recognized. To list the "
-                       "available commands, run `colmap help`.",
-                       command.c_str())
-                << std::endl;
+      LOG(ERROR) << colmap::StringPrintf(
+          "Command `%s` not recognized. To list the "
+          "available commands, run `colmap help`.",
+          command.c_str());
       return EXIT_FAILURE;
     } else {
       int command_argc = argc - 1;

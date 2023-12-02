@@ -193,14 +193,18 @@ size_t GetFileSize(const std::string& path) {
 }
 
 void PrintHeading1(const std::string& heading) {
-  std::cout << std::endl << std::string(78, '=') << std::endl;
-  std::cout << heading << std::endl;
-  std::cout << std::string(78, '=') << std::endl << std::endl;
+  std::ostringstream log;
+  log << "\n" << std::string(78, '=') << "\n";
+  log << heading << "\n";
+  log << std::string(78, '=');
+  LOG(INFO) << log.str();
 }
 
 void PrintHeading2(const std::string& heading) {
-  std::cout << std::endl << heading << std::endl;
-  std::cout << std::string(std::min<int>(heading.size(), 78), '-') << std::endl;
+  std::ostringstream log;
+  log << "\n" << heading << "\n";
+  log << std::string(std::min<int>(heading.size(), 78), '-');
+  LOG(INFO) << log.str();
 }
 
 template <>

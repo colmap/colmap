@@ -104,8 +104,7 @@ void CorrespondenceGraph::AddCorrespondences(const image_t image_id1,
                                              const FeatureMatches& matches) {
   // Avoid self-matches - should only happen, if user provides custom matches.
   if (image_id1 == image_id2) {
-    std::cout << "WARNING: Cannot use self-matches for image_id=" << image_id1
-              << std::endl;
+    LOG(WARNING) << "Cannot use self-matches for image_id=" << image_id1;
     return;
   }
 
@@ -154,15 +153,14 @@ void CorrespondenceGraph::AddCorrespondences(const image_t image_id1,
         image1.num_correspondences -= 1;
         image2.num_correspondences -= 1;
         image_pair.num_correspondences -= 1;
-        std::cout << StringPrintf(
-                         "WARNING: Duplicate correspondence between "
-                         "point2D_idx=%d in image_id=%d and point2D_idx=%d in "
-                         "image_id=%d",
-                         match.point2D_idx1,
-                         image_id1,
-                         match.point2D_idx2,
-                         image_id2)
-                  << std::endl;
+        LOG(WARNING) << StringPrintf(
+            "Duplicate correspondence between "
+            "point2D_idx=%d in image_id=%d and point2D_idx=%d in "
+            "image_id=%d",
+            match.point2D_idx1,
+            image_id1,
+            match.point2D_idx2,
+            image_id2);
       } else {
         corrs1.emplace_back(image_id2, match.point2D_idx2);
         corrs2.emplace_back(image_id1, match.point2D_idx1);
@@ -172,20 +170,16 @@ void CorrespondenceGraph::AddCorrespondences(const image_t image_id1,
       image2.num_correspondences -= 1;
       image_pair.num_correspondences -= 1;
       if (!valid_idx1) {
-        std::cout
-            << StringPrintf(
-                   "WARNING: point2D_idx=%d in image_id=%d does not exist",
-                   match.point2D_idx1,
-                   image_id1)
-            << std::endl;
+        LOG(WARNING) << StringPrintf(
+            "point2D_idx=%d in image_id=%d does not exist",
+            match.point2D_idx1,
+            image_id1);
       }
       if (!valid_idx2) {
-        std::cout
-            << StringPrintf(
-                   "WARNING: point2D_idx=%d in image_id=%d does not exist",
-                   match.point2D_idx2,
-                   image_id2)
-            << std::endl;
+        LOG(WARNING) << StringPrintf(
+            "point2D_idx=%d in image_id=%d does not exist",
+            match.point2D_idx2,
+            image_id2);
       }
     }
   }

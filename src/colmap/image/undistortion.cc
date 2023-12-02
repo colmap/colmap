@@ -207,9 +207,8 @@ void COLMAPUndistorter::Run() {
       break;
     }
 
-    std::cout << StringPrintf(
-                     "Undistorting image [%d/%d]", i + 1, futures.size())
-              << std::endl;
+    LOG(INFO) << StringPrintf(
+        "Undistorting image [%d/%d]", i + 1, futures.size());
 
     if (futures[i].get()) {
       if (image_ids_.empty()) {
@@ -221,16 +220,16 @@ void COLMAPUndistorter::Run() {
     }
   }
 
-  std::cout << "Writing reconstruction..." << std::endl;
+  LOG(INFO) << "Writing reconstruction...";
   Reconstruction undistorted_reconstruction = reconstruction_;
   UndistortReconstruction(options_, &undistorted_reconstruction);
   undistorted_reconstruction.Write(JoinPaths(output_path_, "sparse"));
 
-  std::cout << "Writing configuration..." << std::endl;
+  LOG(INFO) << "Writing configuration...";
   WritePatchMatchConfig();
   WriteFusionConfig();
 
-  std::cout << "Writing scripts..." << std::endl;
+  LOG(INFO) << "Writing scripts...";
   WriteScript(false);
   WriteScript(true);
 
@@ -253,15 +252,14 @@ bool COLMAPUndistorter::Undistort(const image_t image_id) const {
   // scaling is needed
   if (camera.IsUndistorted() && options_.max_image_size < 0 &&
       ExistsFile(input_image_path)) {
-    std::cout << "Undistorted image found; copying to location: "
-              << output_image_path << std::endl;
+    LOG(INFO) << "Undistorted image found; copying to location: "
+              << output_image_path;
     FileCopy(input_image_path, output_image_path, copy_type_);
     return true;
   }
 
   if (!distorted_bitmap.Read(input_image_path)) {
-    std::cerr << "ERROR: Cannot read image at path " << input_image_path
-              << std::endl;
+    LOG(ERROR) << "Cannot read image at path " << input_image_path;
     return false;
   }
 
@@ -332,34 +330,32 @@ void PMVSUndistorter::Run() {
   for (size_t i = 0; i < futures.size(); ++i) {
     if (IsStopped()) {
       thread_pool.Stop();
-      std::cout << "WARNING: Stopped the undistortion process. Image point "
-                   "locations and camera parameters for not yet processed "
-                   "images in the Bundler output file is probably wrong."
-                << std::endl;
+      LOG(WARNING) << "Stopped the undistortion process. Image point "
+                      "locations and camera parameters for not yet processed "
+                      "images in the Bundler output file is probably wrong.";
       break;
     }
 
-    std::cout << StringPrintf(
-                     "Undistorting image [%d/%d]", i + 1, futures.size())
-              << std::endl;
+    LOG(INFO) << StringPrintf(
+        "Undistorting image [%d/%d]", i + 1, futures.size());
 
     futures[i].get();
   }
 
-  std::cout << "Writing bundle file..." << std::endl;
+  LOG(INFO) << "Writing bundle file...";
   Reconstruction undistorted_reconstruction = reconstruction_;
   UndistortReconstruction(options_, &undistorted_reconstruction);
   const std::string bundle_path = JoinPaths(output_path_, "pmvs/bundle.rd.out");
   undistorted_reconstruction.ExportBundler(bundle_path,
                                            bundle_path + ".list.txt");
 
-  std::cout << "Writing visibility file..." << std::endl;
+  LOG(INFO) << "Writing visibility file...";
   WriteVisibilityData();
 
-  std::cout << "Writing option file..." << std::endl;
+  LOG(INFO) << "Writing option file...";
   WriteOptionFile();
 
-  std::cout << "Writing scripts..." << std::endl;
+  LOG(INFO) << "Writing scripts...";
   WritePMVSScript();
   WriteCMVSPMVSScript();
   WriteCOLMAPScript(false);
@@ -383,9 +379,7 @@ bool PMVSUndistorter::Undistort(const size_t reg_image_idx) const {
   Bitmap distorted_bitmap;
   const std::string input_image_path = JoinPaths(image_path_, image.Name());
   if (!distorted_bitmap.Read(input_image_path)) {
-    std::cerr << StringPrintf("ERROR: Cannot read image at path %s",
-                              input_image_path.c_str())
-              << std::endl;
+    LOG(ERROR) << "Cannot read image at path " << input_image_path;
     return false;
   }
 
@@ -570,9 +564,8 @@ void CMPMVSUndistorter::Run() {
       break;
     }
 
-    std::cout << StringPrintf(
-                     "Undistorting image [%d/%d]", i + 1, futures.size())
-              << std::endl;
+    LOG(INFO) << StringPrintf(
+        "Undistorting image [%d/%d]", i + 1, futures.size());
 
     futures[i].get();
   }
@@ -593,8 +586,7 @@ bool CMPMVSUndistorter::Undistort(const size_t reg_image_idx) const {
   Bitmap distorted_bitmap;
   const std::string input_image_path = JoinPaths(image_path_, image.Name());
   if (!distorted_bitmap.Read(input_image_path)) {
-    std::cerr << "ERROR: Cannot read image at path " << input_image_path
-              << std::endl;
+    LOG(ERROR) << "Cannot read image at path " << input_image_path;
     return false;
   }
 
@@ -639,9 +631,8 @@ void PureImageUndistorter::Run() {
       break;
     }
 
-    std::cout << StringPrintf(
-                     "Undistorting image [%d/%d]", i + 1, futures.size())
-              << std::endl;
+    LOG(INFO) << StringPrintf(
+        "Undistorting image [%d/%d]", i + 1, futures.size());
 
     futures[i].get();
   }
@@ -658,8 +649,7 @@ bool PureImageUndistorter::Undistort(const size_t image_idx) const {
   Bitmap distorted_bitmap;
   const std::string input_image_path = JoinPaths(image_path_, image_name);
   if (!distorted_bitmap.Read(input_image_path)) {
-    std::cerr << "ERROR: Cannot read image at path " << input_image_path
-              << std::endl;
+    LOG(ERROR) << "Cannot read image at path " << input_image_path;
     return false;
   }
 
@@ -704,9 +694,8 @@ void StereoImageRectifier::Run() {
       break;
     }
 
-    std::cout << StringPrintf(
-                     "Rectifying image pair [%d/%d]", i + 1, futures.size())
-              << std::endl;
+    LOG(INFO) << StringPrintf(
+        "Rectifying image pair [%d/%d]", i + 1, futures.size());
 
     futures[i].get();
   }
@@ -737,16 +726,14 @@ void StereoImageRectifier::Rectify(const image_t image_id1,
   Bitmap distorted_bitmap1;
   const std::string input_image1_path = JoinPaths(image_path_, image1.Name());
   if (!distorted_bitmap1.Read(input_image1_path)) {
-    std::cerr << "ERROR: Cannot read image at path " << input_image1_path
-              << std::endl;
+    LOG(ERROR) << "Cannot read image at path " << input_image1_path;
     return;
   }
 
   Bitmap distorted_bitmap2;
   const std::string input_image2_path = JoinPaths(image_path_, image2.Name());
   if (!distorted_bitmap2.Read(input_image2_path)) {
-    std::cerr << "ERROR: Cannot read image at path " << input_image2_path
-              << std::endl;
+    LOG(ERROR) << "Cannot read image at path " << input_image2_path;
     return;
   }
 

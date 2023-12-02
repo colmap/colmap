@@ -73,7 +73,7 @@ void BundleAdjustmentController::Run() {
   const std::vector<image_t>& reg_image_ids = reconstruction_->RegImageIds();
 
   if (reg_image_ids.size() < 2) {
-    std::cout << "ERROR: Need at least two views." << std::endl;
+    LOG(ERROR) << "Need at least two views.";
     return;
   }
 
@@ -81,7 +81,6 @@ void BundleAdjustmentController::Run() {
   reconstruction_->FilterObservationsWithNegativeDepth();
 
   BundleAdjustmentOptions ba_options = *options_.bundle_adjustment;
-  ba_options.solver_options.minimizer_progress_to_stdout = true;
 
   BundleAdjustmentIterationCallback iteration_callback(this);
   ba_options.solver_options.callbacks.push_back(&iteration_callback);

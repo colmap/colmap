@@ -197,11 +197,10 @@ bool CameraRig::ComputeCamsFromRigs(const Reconstruction& reconstruction) {
   for (auto& cam_from_rig : cams_from_rigs_) {
     if (cam_from_rig.first != ref_camera_id_) {
       if (cam_from_ref_cam_rotations.count(cam_from_rig.first) == 0) {
-        std::cout << "Need at least one snapshot with an image of camera "
+        LOG(INFO) << "Need at least one snapshot with an image of camera "
                   << cam_from_rig.first << " and the reference camera "
                   << ref_camera_id_
-                  << " to compute its relative pose in the camera rig"
-                  << std::endl;
+                  << " to compute its relative pose in the camera rig";
         return false;
       }
       const std::vector<Eigen::Quaterniond>& cam_from_rig_rotations =
