@@ -111,11 +111,8 @@ void GLError(const char* file, const int line) {
         error_name = "UNKNOWN_ERROR";
         break;
     }
-    fprintf(stderr,
-            "OpenGL error [%s, line %i]: GL_%s",
-            file,
-            line,
-            error_name.c_str());
+    LOG(ERROR) << "OpenGL error [" << file << ", line " << line << "]: GL_"
+               << error_name;
     error_code = glGetError();
   }
 }

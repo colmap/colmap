@@ -103,10 +103,10 @@ std::vector<std::string> GetRecursiveDirList(const std::string& path);
 // Get the size in bytes of a file.
 size_t GetFileSize(const std::string& path);
 
-// Print first-order heading with over- and underscores to `std::cout`.
+// Log first-order heading with over- and underscores.
 void PrintHeading1(const std::string& heading);
 
-// Print second-order heading with underscores to `std::cout`.
+// Log second-order heading with underscores.
 void PrintHeading2(const std::string& heading);
 
 // Check if vector contains elements.

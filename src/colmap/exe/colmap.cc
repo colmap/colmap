@@ -44,8 +44,7 @@ typedef std::function<int(int, char**)> command_func_t;
 int ShowHelp(
     const std::vector<std::pair<std::string, command_func_t>>& commands) {
   std::cout << colmap::StringPrintf(
-                   "%s -- Structure-from-Motion and Multi-View Stereo\n"
-                   "              (%s)",
+                   "%s -- Structure-from-Motion and Multi-View Stereo\n(%s)",
                    colmap::GetVersionInfo().c_str(),
                    colmap::GetBuildInfo().c_str())
             << std::endl

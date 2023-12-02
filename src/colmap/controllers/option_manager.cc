@@ -850,8 +850,8 @@ void OptionManager::Parse(const int argc, char** argv) {
           "%s (%s)", GetVersionInfo().c_str(), GetBuildInfo().c_str());
       LOG(INFO)
           << "Options can either be specified via command-line or by defining "
-             "them in a .ini project file passed to `--project_path`.";
-      std::cout << *desc_;
+             "them in a .ini project file passed to `--project_path`.\n"
+          << *desc_;
       // NOLINTNEXTLINE(concurrency-mt-unsafe)
       exit(EXIT_SUCCESS);
     }
