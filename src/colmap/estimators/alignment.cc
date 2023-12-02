@@ -144,7 +144,7 @@ struct ReconstructionAlignmentEstimator {
 
         const Eigen::Vector3d src_point_in_tgt =
             tgt_from_src *
-            src_reconstruction_->Point3D(src_point2D.point3D_id).XYZ();
+            src_reconstruction_->Point3D(src_point2D.point3D_id).xyz;
         if (CalculateSquaredReprojectionError(tgt_point2D.xy,
                                               src_point_in_tgt,
                                               tgt_cam_from_world,
@@ -155,7 +155,7 @@ struct ReconstructionAlignmentEstimator {
 
         const Eigen::Vector3d tgt_point_in_src =
             srcFromTgt *
-            tgt_reconstruction_->Point3D(tgt_point2D.point3D_id).XYZ();
+            tgt_reconstruction_->Point3D(tgt_point2D.point3D_id).xyz;
         if (CalculateSquaredReprojectionError(src_point2D.xy,
                                               tgt_point_in_src,
                                               src_cam_from_world,
@@ -361,9 +361,8 @@ bool AlignReconstructionsViaPoints(const Reconstruction& src_reconstruction,
   // Associate 3D points using point2D_idx
   for (const auto& src_point3D : src_reconstruction.Points3D()) {
     counts.clear();
-    // Count how often a 3D point in tgt is associated to this 3D point
-    const Track& track = src_point3D.second.Track();
-    for (const auto& track_el : track.Elements()) {
+    // Count how often a 3D point in tgt is associated to this 3D point.
+    for (const auto& track_el : src_point3D.second.track.Elements()) {
       if (!tgt_reconstruction.IsImageRegistered(track_el.image_id)) {
         continue;
       }
@@ -389,8 +388,8 @@ bool AlignReconstructionsViaPoints(const Reconstruction& src_reconstruction,
                            return p1.second < p2.second;
                          });
     if (best_p3D->second >= min_common_observations) {
-      src_xyz.push_back(src_point3D.second.XYZ());
-      tgt_xyz.push_back(tgt_reconstruction.Point3D(best_p3D->first).XYZ());
+      src_xyz.push_back(src_point3D.second.xyz);
+      tgt_xyz.push_back(tgt_reconstruction.Point3D(best_p3D->first).xyz);
     }
   }
   CHECK_EQ(src_xyz.size(), tgt_xyz.size());
@@ -461,7 +460,7 @@ bool MergeReconstructions(const double max_reproj_error,
     Track new_track;
     Track old_track;
     std::unordered_set<point3D_t> old_point3D_ids;
-    for (const auto& track_el : point3D.second.Track().Elements()) {
+    for (const auto& track_el : point3D.second.track.Elements()) {
       if (common_image_ids.count(track_el.image_id) > 0) {
         const auto& point2D = tgt_reconstruction->Image(track_el.image_id)
                                   .Point2D(track_el.point2D_idx);
@@ -483,9 +482,9 @@ bool MergeReconstructions(const double max_reproj_error,
         (new_track.Length() + old_track.Length()) >= 2 &&
         old_point3D_ids.size() == 1;
     if (create_new_point || merge_new_and_old_point) {
-      const Eigen::Vector3d xyz = tgt_from_src * point3D.second.XYZ();
-      const auto point3D_id = tgt_reconstruction->AddPoint3D(
-          xyz, new_track, point3D.second.Color());
+      const Eigen::Vector3d xyz = tgt_from_src * point3D.second.xyz;
+      const auto point3D_id =
+          tgt_reconstruction->AddPoint3D(xyz, new_track, point3D.second.color);
       if (old_point3D_ids.size() == 1) {
         tgt_reconstruction->MergePoints3D(point3D_id, *old_point3D_ids.begin());
       }

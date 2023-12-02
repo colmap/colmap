@@ -146,7 +146,7 @@ void Reconstruction::TearDown() {
 
   // Compress tracks.
   for (auto& point3D : points3D_) {
-    point3D.second.Track().Compress();
+    point3D.second.track.Compress();
   }
 }
 
@@ -186,9 +186,9 @@ point3D_t Reconstruction::AddPoint3D(const Eigen::Vector3d& xyz,
   }
 
   class Point3D& point3D = points3D_[point3D_id];
-  point3D.SetXYZ(xyz);
-  point3D.SetTrack(std::move(track));
-  point3D.SetColor(color);
+  point3D.xyz = xyz;
+  point3D.track = std::move(track);
+  point3D.color = color;
 
   return point3D_id;
 }
@@ -202,7 +202,7 @@ void Reconstruction::AddObservation(const point3D_t point3D_id,
   CHECK_LE(image.NumPoints3D(), image.NumPoints2D());
 
   class Point3D& point3D = Point3D(point3D_id);
-  point3D.Track().AddElement(track_el);
+  point3D.track.AddElement(track_el);
 
   const bool kIsContinuedPoint3D = true;
   SetObservationAsTriangulated(
@@ -215,18 +215,18 @@ point3D_t Reconstruction::MergePoints3D(const point3D_t point3D_id1,
   const class Point3D& point3D2 = Point3D(point3D_id2);
 
   const Eigen::Vector3d merged_xyz =
-      (point3D1.Track().Length() * point3D1.XYZ() +
-       point3D2.Track().Length() * point3D2.XYZ()) /
-      (point3D1.Track().Length() + point3D2.Track().Length());
+      (point3D1.track.Length() * point3D1.xyz +
+       point3D2.track.Length() * point3D2.xyz) /
+      (point3D1.track.Length() + point3D2.track.Length());
   const Eigen::Vector3d merged_rgb =
-      (point3D1.Track().Length() * point3D1.Color().cast<double>() +
-       point3D2.Track().Length() * point3D2.Color().cast<double>()) /
-      (point3D1.Track().Length() + point3D2.Track().Length());
+      (point3D1.track.Length() * point3D1.color.cast<double>() +
+       point3D2.track.Length() * point3D2.color.cast<double>()) /
+      (point3D1.track.Length() + point3D2.track.Length());
 
   Track merged_track;
-  merged_track.Reserve(point3D1.Track().Length() + point3D2.Track().Length());
-  merged_track.AddElements(point3D1.Track().Elements());
-  merged_track.AddElements(point3D2.Track().Elements());
+  merged_track.Reserve(point3D1.track.Length() + point3D2.track.Length());
+  merged_track.AddElements(point3D1.track.Elements());
+  merged_track.AddElements(point3D2.track.Elements());
 
   DeletePoint3D(point3D_id1);
   DeletePoint3D(point3D_id2);
@@ -241,7 +241,7 @@ void Reconstruction::DeletePoint3D(const point3D_t point3D_id) {
   // Note: Do not change order of these instructions, especially with respect to
   // `Reconstruction::ResetTriObservations`
 
-  const class Track& track = Point3D(point3D_id).Track();
+  const class Track& track = Point3D(point3D_id).track;
 
   const bool kIsDeletedPoint3D = true;
 
@@ -267,12 +267,12 @@ void Reconstruction::DeleteObservation(const image_t image_id,
   const point3D_t point3D_id = image.Point2D(point2D_idx).point3D_id;
   class Point3D& point3D = Point3D(point3D_id);
 
-  if (point3D.Track().Length() <= 2) {
+  if (point3D.track.Length() <= 2) {
     DeletePoint3D(point3D_id);
     return;
   }
 
-  point3D.Track().DeleteElement(image_id, point2D_idx);
+  point3D.track.DeleteElement(image_id, point2D_idx);
 
   const bool kIsDeletedPoint3D = false;
   ResetTriObservations(image_id, point2D_idx, kIsDeletedPoint3D);
@@ -396,9 +396,9 @@ Reconstruction::ComputeBoundsAndCentroid(const double p0,
     coords_y.reserve(points3D_.size());
     coords_z.reserve(points3D_.size());
     for (const auto& point3D : points3D_) {
-      coords_x.push_back(static_cast<float>(point3D.second.X()));
-      coords_y.push_back(static_cast<float>(point3D.second.Y()));
-      coords_z.push_back(static_cast<float>(point3D.second.Z()));
+      coords_x.push_back(static_cast<float>(point3D.second.xyz(0)));
+      coords_y.push_back(static_cast<float>(point3D.second.xyz(1)));
+      coords_z.push_back(static_cast<float>(point3D.second.xyz(2)));
     }
   }
 
@@ -433,7 +433,7 @@ void Reconstruction::Transform(const Sim3d& new_from_old_world) {
         TransformCameraWorld(new_from_old_world, image.second.CamFromWorld());
   }
   for (auto& point3D : points3D_) {
-    point3D.second.XYZ() = new_from_old_world * point3D.second.XYZ();
+    point3D.second.xyz = new_from_old_world * point3D.second.xyz;
   }
 }
 
@@ -453,16 +453,16 @@ Reconstruction Reconstruction::Crop(
   }
   std::unordered_set<image_t> registered_image_ids;
   for (const auto& point3D : points3D_) {
-    if ((point3D.second.XYZ().array() >= bbox.first.array()).all() &&
-        (point3D.second.XYZ().array() <= bbox.second.array()).all()) {
-      for (const auto& track_el : point3D.second.Track().Elements()) {
+    if ((point3D.second.xyz.array() >= bbox.first.array()).all() &&
+        (point3D.second.xyz.array() <= bbox.second.array()).all()) {
+      for (const auto& track_el : point3D.second.track.Elements()) {
         if (registered_image_ids.count(track_el.image_id) == 0) {
           cropped_reconstruction.RegisterImage(track_el.image_id);
           registered_image_ids.insert(track_el.image_id);
         }
       }
       cropped_reconstruction.AddPoint3D(
-          point3D.second.XYZ(), point3D.second.Track(), point3D.second.Color());
+          point3D.second.xyz, point3D.second.track, point3D.second.color);
     }
   }
   return cropped_reconstruction;
@@ -518,7 +518,7 @@ void Reconstruction::TranscribeImageIdsToDatabase(const Database& database) {
   }
 
   for (auto& point3D : points3D_) {
-    for (auto& track_el : point3D.second.Track().Elements()) {
+    for (auto& track_el : point3D.second.track.Elements()) {
       track_el.image_id = old_to_new_image_ids.at(track_el.image_id);
     }
   }
@@ -576,7 +576,7 @@ size_t Reconstruction::FilterObservationsWithNegativeDepth() {
       const Point2D& point2D = image.Point2D(point2D_idx);
       if (point2D.HasPoint3D()) {
         const class Point3D& point3D = Point3D(point2D.point3D_id);
-        if (!HasPointPositiveDepth(cam_from_world, point3D.XYZ())) {
+        if (!HasPointPositiveDepth(cam_from_world, point3D.xyz)) {
           DeleteObservation(image_id, point2D_idx);
           num_filtered += 1;
         }
@@ -640,7 +640,7 @@ double Reconstruction::ComputeMeanReprojectionError() const {
   size_t num_valid_errors = 0;
   for (const auto& point3D : points3D_) {
     if (point3D.second.HasError()) {
-      error_sum += point3D.second.Error();
+      error_sum += point3D.second.error;
       num_valid_errors += 1;
     }
   }
@@ -654,19 +654,19 @@ double Reconstruction::ComputeMeanReprojectionError() const {
 
 void Reconstruction::UpdatePoint3DErrors() {
   for (auto& point3D : points3D_) {
-    if (point3D.second.Track().Length() == 0) {
-      point3D.second.SetError(0);
+    if (point3D.second.track.Length() == 0) {
+      point3D.second.error = 0;
       continue;
     }
-    double error_sum = 0;
-    for (const auto& track_el : point3D.second.Track().Elements()) {
+    point3D.second.error = 0;
+    for (const auto& track_el : point3D.second.track.Elements()) {
       const auto& image = Image(track_el.image_id);
       const auto& point2D = image.Point2D(track_el.point2D_idx);
       const auto& camera = Camera(image.CameraId());
-      error_sum += std::sqrt(CalculateSquaredReprojectionError(
-          point2D.xy, point3D.second.XYZ(), image.CamFromWorld(), camera));
+      point3D.second.error += std::sqrt(CalculateSquaredReprojectionError(
+          point2D.xy, point3D.second.xyz, image.CamFromWorld(), camera));
     }
-    point3D.second.SetError(error_sum / point3D.second.Track().Length());
+    point3D.second.error /= point3D.second.track.Length();
   }
 }
 
@@ -716,12 +716,12 @@ std::vector<PlyPoint> Reconstruction::ConvertToPLY() const {
 
   for (const auto& point3D : points3D_) {
     PlyPoint ply_point;
-    ply_point.x = point3D.second.X();
-    ply_point.y = point3D.second.Y();
-    ply_point.z = point3D.second.Z();
-    ply_point.r = point3D.second.Color(0);
-    ply_point.g = point3D.second.Color(1);
-    ply_point.b = point3D.second.Color(2);
+    ply_point.x = point3D.second.xyz(0);
+    ply_point.y = point3D.second.xyz(1);
+    ply_point.z = point3D.second.xyz(2);
+    ply_point.r = point3D.second.color(0);
+    ply_point.g = point3D.second.color(1);
+    ply_point.b = point3D.second.color(2);
     ply_points.push_back(ply_point);
   }
 
@@ -806,17 +806,17 @@ bool Reconstruction::ExportNVM(const std::string& path,
   file << std::endl << points3D_.size() << std::endl;
 
   for (const auto& point3D : points3D_) {
-    file << point3D.second.XYZ()(0) << " ";
-    file << point3D.second.XYZ()(1) << " ";
-    file << point3D.second.XYZ()(2) << " ";
-    file << static_cast<int>(point3D.second.Color(0)) << " ";
-    file << static_cast<int>(point3D.second.Color(1)) << " ";
-    file << static_cast<int>(point3D.second.Color(2)) << " ";
+    file << point3D.second.xyz(0) << " ";
+    file << point3D.second.xyz(1) << " ";
+    file << point3D.second.xyz(2) << " ";
+    file << static_cast<int>(point3D.second.color(0)) << " ";
+    file << static_cast<int>(point3D.second.color(1)) << " ";
+    file << static_cast<int>(point3D.second.color(2)) << " ";
 
     std::ostringstream line;
 
     std::unordered_set<image_t> image_ids;
-    for (const auto& track_el : point3D.second.Track().Elements()) {
+    for (const auto& track_el : point3D.second.track.Elements()) {
       // Make sure that each point only has a single observation per image,
       // since VisualSfM does not support with multiple observations.
       if (image_ids.count(track_el.image_id) == 0) {
@@ -985,15 +985,14 @@ bool Reconstruction::ExportRecon3D(const std::string& path,
   // Write point info
   for (const auto& point3D : points3D_) {
     auto& p = point3D.second;
-    synth_file << p.XYZ()(0) << " " << p.XYZ()(1) << " " << p.XYZ()(2)
-               << std::endl;
-    synth_file << (int)p.Color(0) << " " << (int)p.Color(1) << " "
-               << (int)p.Color(2) << std::endl;
+    synth_file << p.xyz(0) << " " << p.xyz(1) << " " << p.xyz(2) << std::endl;
+    synth_file << (int)p.color(0) << " " << (int)p.color(1) << " "
+               << (int)p.color(2) << std::endl;
 
     std::ostringstream line;
 
     std::unordered_set<image_t> image_ids;
-    for (const auto& track_el : p.Track().Elements()) {
+    for (const auto& track_el : p.track.Elements()) {
       // Make sure that each point only has a single observation per image,
       // since VisualSfM does not support with multiple observations.
       if (image_ids.count(track_el.image_id) == 0) {
@@ -1085,19 +1084,19 @@ bool Reconstruction::ExportBundler(const std::string& path,
   }
 
   for (const auto& point3D : points3D_) {
-    file << point3D.second.XYZ()(0) << " ";
-    file << point3D.second.XYZ()(1) << " ";
-    file << point3D.second.XYZ()(2) << std::endl;
+    file << point3D.second.xyz(0) << " ";
+    file << point3D.second.xyz(1) << " ";
+    file << point3D.second.xyz(2) << std::endl;
 
-    file << static_cast<int>(point3D.second.Color(0)) << " ";
-    file << static_cast<int>(point3D.second.Color(1)) << " ";
-    file << static_cast<int>(point3D.second.Color(2)) << std::endl;
+    file << static_cast<int>(point3D.second.color(0)) << " ";
+    file << static_cast<int>(point3D.second.color(1)) << " ";
+    file << static_cast<int>(point3D.second.color(2)) << std::endl;
 
     std::ostringstream line;
 
-    line << point3D.second.Track().Length() << " ";
+    line << point3D.second.track.Length() << " ";
 
-    for (const auto& track_el : point3D.second.Track().Elements()) {
+    for (const auto& track_el : point3D.second.track.Elements()) {
       const class Image& image = Image(track_el.image_id);
       const class Camera& camera = Camera(image.CameraId());
 
@@ -1229,18 +1228,18 @@ void Reconstruction::ExportVRML(const std::string& images_path,
   points3D_file << "  point [\n";
 
   for (const auto& point3D : points3D_) {
-    points3D_file << point3D.second.XYZ()(0) << ", ";
-    points3D_file << point3D.second.XYZ()(1) << ", ";
-    points3D_file << point3D.second.XYZ()(2) << std::endl;
+    points3D_file << point3D.second.xyz(0) << ", ";
+    points3D_file << point3D.second.xyz(1) << ", ";
+    points3D_file << point3D.second.xyz(2) << std::endl;
   }
 
   points3D_file << " ] }\n";
   points3D_file << " color Color { color [\n";
 
   for (const auto& point3D : points3D_) {
-    points3D_file << point3D.second.Color(0) / 255.0 << ", ";
-    points3D_file << point3D.second.Color(1) / 255.0 << ", ";
-    points3D_file << point3D.second.Color(2) / 255.0 << std::endl;
+    points3D_file << point3D.second.color(0) / 255.0 << ", ";
+    points3D_file << point3D.second.color(1) / 255.0 << ", ";
+    points3D_file << point3D.second.color(2) / 255.0 << std::endl;
   }
 
   points3D_file << " ] } } }\n";
@@ -1259,14 +1258,13 @@ bool Reconstruction::ExtractColorsForImage(const image_t image_id,
   for (const Point2D& point2D : image.Points2D()) {
     if (point2D.HasPoint3D()) {
       class Point3D& point3D = Point3D(point2D.point3D_id);
-      if (point3D.Color() == kBlackColor) {
+      if (point3D.color == kBlackColor) {
         BitmapColor<float> color;
         // COLMAP assumes that the upper left pixel center is (0.5, 0.5).
         if (bitmap.InterpolateBilinear(
                 point2D.xy(0) - 0.5, point2D.xy(1) - 0.5, &color)) {
           const BitmapColor<uint8_t> color_ub = color.Cast<uint8_t>();
-          point3D.SetColor(
-              Eigen::Vector3ub(color_ub.r, color_ub.g, color_ub.b));
+          point3D.color = Eigen::Vector3ub(color_ub.r, color_ub.g, color_ub.b);
         }
       }
     }
@@ -1322,9 +1320,9 @@ void Reconstruction::ExtractColorsForAllImages(const std::string& path) {
       for (Eigen::Index i = 0; i < color.size(); ++i) {
         color[i] = std::round(color[i]);
       }
-      point3D.second.SetColor(color.cast<uint8_t>());
+      point3D.second.color = color.cast<uint8_t>();
     } else {
-      point3D.second.SetColor(kBlackColor);
+      point3D.second.color = kBlackColor;
     }
   }
 }
@@ -1370,8 +1368,8 @@ size_t Reconstruction::FilterPoints3DWithSmallTriangulationAngle(
     // poses in the track. Only delete point if none of the combinations
     // has a sufficient triangulation angle.
     bool keep_point = false;
-    for (size_t i1 = 0; i1 < point3D.Track().Length(); ++i1) {
-      const image_t image_id1 = point3D.Track().Element(i1).image_id;
+    for (size_t i1 = 0; i1 < point3D.track.Length(); ++i1) {
+      const image_t image_id1 = point3D.track.Element(i1).image_id;
 
       Eigen::Vector3d proj_center1;
       if (proj_centers.count(image_id1) == 0) {
@@ -1383,11 +1381,11 @@ size_t Reconstruction::FilterPoints3DWithSmallTriangulationAngle(
       }
 
       for (size_t i2 = 0; i2 < i1; ++i2) {
-        const image_t image_id2 = point3D.Track().Element(i2).image_id;
+        const image_t image_id2 = point3D.track.Element(i2).image_id;
         const Eigen::Vector3d proj_center2 = proj_centers.at(image_id2);
 
         const double tri_angle = CalculateTriangulationAngle(
-            proj_center1, proj_center2, point3D.XYZ());
+            proj_center1, proj_center2, point3D.xyz);
 
         if (tri_angle >= min_tri_angle_rad) {
           keep_point = true;
@@ -1424,8 +1422,8 @@ size_t Reconstruction::FilterPoints3DWithLargeReprojectionError(
 
     class Point3D& point3D = Point3D(point3D_id);
 
-    if (point3D.Track().Length() < 2) {
-      num_filtered += point3D.Track().Length();
+    if (point3D.track.Length() < 2) {
+      num_filtered += point3D.track.Length();
       DeletePoint3D(point3D_id);
       continue;
     }
@@ -1434,12 +1432,12 @@ size_t Reconstruction::FilterPoints3DWithLargeReprojectionError(
 
     std::vector<TrackElement> track_els_to_delete;
 
-    for (const auto& track_el : point3D.Track().Elements()) {
+    for (const auto& track_el : point3D.track.Elements()) {
       const class Image& image = Image(track_el.image_id);
       const class Camera& camera = Camera(image.CameraId());
       const Point2D& point2D = image.Point2D(track_el.point2D_idx);
       const double squared_reproj_error = CalculateSquaredReprojectionError(
-          point2D.xy, point3D.XYZ(), image.CamFromWorld(), camera);
+          point2D.xy, point3D.xyz, image.CamFromWorld(), camera);
       if (squared_reproj_error > max_squared_reproj_error) {
         track_els_to_delete.push_back(track_el);
       } else {
@@ -1447,15 +1445,15 @@ size_t Reconstruction::FilterPoints3DWithLargeReprojectionError(
       }
     }
 
-    if (track_els_to_delete.size() >= point3D.Track().Length() - 1) {
-      num_filtered += point3D.Track().Length();
+    if (track_els_to_delete.size() >= point3D.track.Length() - 1) {
+      num_filtered += point3D.track.Length();
       DeletePoint3D(point3D_id);
     } else {
       num_filtered += track_els_to_delete.size();
       for (const auto& track_el : track_els_to_delete) {
         DeleteObservation(track_el.image_id, track_el.point2D_idx);
       }
-      point3D.SetError(reproj_error_sum / point3D.Track().Length());
+      point3D.error = reproj_error_sum / point3D.track.Length();
     }
   }
 
@@ -1648,27 +1646,27 @@ void Reconstruction::ReadPoints3DText(const std::string& path) {
 
     // XYZ
     std::getline(line_stream, item, ' ');
-    point3D.XYZ(0) = std::stold(item);
+    point3D.xyz(0) = std::stold(item);
 
     std::getline(line_stream, item, ' ');
-    point3D.XYZ(1) = std::stold(item);
+    point3D.xyz(1) = std::stold(item);
 
     std::getline(line_stream, item, ' ');
-    point3D.XYZ(2) = std::stold(item);
+    point3D.xyz(2) = std::stold(item);
 
     // Color
     std::getline(line_stream, item, ' ');
-    point3D.Color(0) = static_cast<uint8_t>(std::stoi(item));
+    point3D.color(0) = static_cast<uint8_t>(std::stoi(item));
 
     std::getline(line_stream, item, ' ');
-    point3D.Color(1) = static_cast<uint8_t>(std::stoi(item));
+    point3D.color(1) = static_cast<uint8_t>(std::stoi(item));
 
     std::getline(line_stream, item, ' ');
-    point3D.Color(2) = static_cast<uint8_t>(std::stoi(item));
+    point3D.color(2) = static_cast<uint8_t>(std::stoi(item));
 
     // ERROR
     std::getline(line_stream, item, ' ');
-    point3D.SetError(std::stold(item));
+    point3D.error = std::stold(item);
 
     // TRACK
     while (!line_stream.eof()) {
@@ -1684,10 +1682,10 @@ void Reconstruction::ReadPoints3DText(const std::string& path) {
       std::getline(line_stream, item, ' ');
       track_el.point2D_idx = std::stoul(item);
 
-      point3D.Track().AddElement(track_el);
+      point3D.track.AddElement(track_el);
     }
 
-    point3D.Track().Compress();
+    point3D.track.Compress();
 
     points3D_.emplace(point3D_id, point3D);
   }
@@ -1781,21 +1779,21 @@ void Reconstruction::ReadPoints3DBinary(const std::string& path) {
     const point3D_t point3D_id = ReadBinaryLittleEndian<point3D_t>(&file);
     num_added_points3D_ = std::max(num_added_points3D_, point3D_id);
 
-    point3D.XYZ()(0) = ReadBinaryLittleEndian<double>(&file);
-    point3D.XYZ()(1) = ReadBinaryLittleEndian<double>(&file);
-    point3D.XYZ()(2) = ReadBinaryLittleEndian<double>(&file);
-    point3D.Color(0) = ReadBinaryLittleEndian<uint8_t>(&file);
-    point3D.Color(1) = ReadBinaryLittleEndian<uint8_t>(&file);
-    point3D.Color(2) = ReadBinaryLittleEndian<uint8_t>(&file);
-    point3D.SetError(ReadBinaryLittleEndian<double>(&file));
+    point3D.xyz(0) = ReadBinaryLittleEndian<double>(&file);
+    point3D.xyz(1) = ReadBinaryLittleEndian<double>(&file);
+    point3D.xyz(2) = ReadBinaryLittleEndian<double>(&file);
+    point3D.color(0) = ReadBinaryLittleEndian<uint8_t>(&file);
+    point3D.color(1) = ReadBinaryLittleEndian<uint8_t>(&file);
+    point3D.color(2) = ReadBinaryLittleEndian<uint8_t>(&file);
+    point3D.error = ReadBinaryLittleEndian<double>(&file);
 
     const size_t track_length = ReadBinaryLittleEndian<uint64_t>(&file);
     for (size_t j = 0; j < track_length; ++j) {
       const image_t image_id = ReadBinaryLittleEndian<image_t>(&file);
       const point2D_t point2D_idx = ReadBinaryLittleEndian<point2D_t>(&file);
-      point3D.Track().AddElement(image_id, point2D_idx);
+      point3D.track.AddElement(image_id, point2D_idx);
     }
-    point3D.Track().Compress();
+    point3D.track.Compress();
 
     points3D_.emplace(point3D_id, point3D);
   }
@@ -1909,18 +1907,18 @@ void Reconstruction::WritePoints3DText(const std::string& path) const {
 
   for (const auto& point3D : points3D_) {
     file << point3D.first << " ";
-    file << point3D.second.XYZ()(0) << " ";
-    file << point3D.second.XYZ()(1) << " ";
-    file << point3D.second.XYZ()(2) << " ";
-    file << static_cast<int>(point3D.second.Color(0)) << " ";
-    file << static_cast<int>(point3D.second.Color(1)) << " ";
-    file << static_cast<int>(point3D.second.Color(2)) << " ";
-    file << point3D.second.Error() << " ";
+    file << point3D.second.xyz(0) << " ";
+    file << point3D.second.xyz(1) << " ";
+    file << point3D.second.xyz(2) << " ";
+    file << static_cast<int>(point3D.second.color(0)) << " ";
+    file << static_cast<int>(point3D.second.color(1)) << " ";
+    file << static_cast<int>(point3D.second.color(2)) << " ";
+    file << point3D.second.error << " ";
 
     std::ostringstream line;
     line.precision(17);
 
-    for (const auto& track_el : point3D.second.Track().Elements()) {
+    for (const auto& track_el : point3D.second.track.Elements()) {
       line << track_el.image_id << " ";
       line << track_el.point2D_idx << " ";
     }
@@ -1993,16 +1991,16 @@ void Reconstruction::WritePoints3DBinary(const std::string& path) const {
 
   for (const auto& point3D : points3D_) {
     WriteBinaryLittleEndian<point3D_t>(&file, point3D.first);
-    WriteBinaryLittleEndian<double>(&file, point3D.second.XYZ()(0));
-    WriteBinaryLittleEndian<double>(&file, point3D.second.XYZ()(1));
-    WriteBinaryLittleEndian<double>(&file, point3D.second.XYZ()(2));
-    WriteBinaryLittleEndian<uint8_t>(&file, point3D.second.Color(0));
-    WriteBinaryLittleEndian<uint8_t>(&file, point3D.second.Color(1));
-    WriteBinaryLittleEndian<uint8_t>(&file, point3D.second.Color(2));
-    WriteBinaryLittleEndian<double>(&file, point3D.second.Error());
+    WriteBinaryLittleEndian<double>(&file, point3D.second.xyz(0));
+    WriteBinaryLittleEndian<double>(&file, point3D.second.xyz(1));
+    WriteBinaryLittleEndian<double>(&file, point3D.second.xyz(2));
+    WriteBinaryLittleEndian<uint8_t>(&file, point3D.second.color(0));
+    WriteBinaryLittleEndian<uint8_t>(&file, point3D.second.color(1));
+    WriteBinaryLittleEndian<uint8_t>(&file, point3D.second.color(2));
+    WriteBinaryLittleEndian<double>(&file, point3D.second.error);
 
-    WriteBinaryLittleEndian<uint64_t>(&file, point3D.second.Track().Length());
-    for (const auto& track_el : point3D.second.Track().Elements()) {
+    WriteBinaryLittleEndian<uint64_t>(&file, point3D.second.track.Length());
+    for (const auto& track_el : point3D.second.track.Elements()) {
       WriteBinaryLittleEndian<image_t>(&file, track_el.image_id);
       WriteBinaryLittleEndian<point2D_t>(&file, track_el.point2D_idx);
     }

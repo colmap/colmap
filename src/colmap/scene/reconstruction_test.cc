@@ -109,7 +109,7 @@ TEST(Reconstruction, AddPoint3D) {
   const point3D_t point3D_id =
       reconstruction.AddPoint3D(Eigen::Vector3d::Random(), Track());
   EXPECT_TRUE(reconstruction.ExistsPoint3D(point3D_id));
-  EXPECT_EQ(reconstruction.Point3D(point3D_id).Track().Length(), 0);
+  EXPECT_EQ(reconstruction.Point3D(point3D_id).track.Length(), 0);
   EXPECT_EQ(reconstruction.Points3D().count(point3D_id), 1);
   EXPECT_EQ(reconstruction.Points3D().size(), 1);
   EXPECT_EQ(reconstruction.NumCameras(), 0);
@@ -134,11 +134,11 @@ TEST(Reconstruction, AddObservation) {
   EXPECT_EQ(reconstruction.Image(2).NumPoints3D(), 1);
   EXPECT_FALSE(reconstruction.Image(2).Point2D(0).HasPoint3D());
   EXPECT_TRUE(reconstruction.Image(2).Point2D(1).HasPoint3D());
-  EXPECT_EQ(reconstruction.Point3D(point3D_id).Track().Length(), 2);
+  EXPECT_EQ(reconstruction.Point3D(point3D_id).track.Length(), 2);
   reconstruction.AddObservation(point3D_id, TrackElement(3, 2));
   EXPECT_EQ(reconstruction.Image(3).NumPoints3D(), 1);
   EXPECT_TRUE(reconstruction.Image(3).Point2D(2).HasPoint3D());
-  EXPECT_EQ(reconstruction.Point3D(point3D_id).Track().Length(), 3);
+  EXPECT_EQ(reconstruction.Point3D(point3D_id).track.Length(), 3);
 }
 
 TEST(Reconstruction, MergePoints3D) {
@@ -148,13 +148,13 @@ TEST(Reconstruction, MergePoints3D) {
       reconstruction.AddPoint3D(Eigen::Vector3d(0, 0, 0), Track());
   reconstruction.AddObservation(point3D_id1, TrackElement(1, 0));
   reconstruction.AddObservation(point3D_id1, TrackElement(2, 0));
-  reconstruction.Point3D(point3D_id1).Color() =
+  reconstruction.Point3D(point3D_id1).color =
       Eigen::Matrix<uint8_t, 3, 1>(0, 0, 0);
   const point3D_t point3D_id2 =
       reconstruction.AddPoint3D(Eigen::Vector3d(1, 1, 1), Track());
   reconstruction.AddObservation(point3D_id2, TrackElement(1, 1));
   reconstruction.AddObservation(point3D_id2, TrackElement(2, 1));
-  reconstruction.Point3D(point3D_id2).Color() =
+  reconstruction.Point3D(point3D_id2).color =
       Eigen::Matrix<uint8_t, 3, 1>(20, 20, 20);
   const point3D_t merged_point3D_id =
       reconstruction.MergePoints3D(point3D_id1, point3D_id2);
@@ -166,9 +166,8 @@ TEST(Reconstruction, MergePoints3D) {
   EXPECT_EQ(reconstruction.Image(2).Point2D(0).point3D_id, merged_point3D_id);
   EXPECT_EQ(reconstruction.Image(2).Point2D(1).point3D_id, merged_point3D_id);
   EXPECT_TRUE(reconstruction.Point3D(merged_point3D_id)
-                  .XYZ()
-                  .isApprox(Eigen::Vector3d(0.5, 0.5, 0.5)));
-  EXPECT_EQ(reconstruction.Point3D(merged_point3D_id).Color(),
+                  .xyz.isApprox(Eigen::Vector3d(0.5, 0.5, 0.5)));
+  EXPECT_EQ(reconstruction.Point3D(merged_point3D_id).color,
             Eigen::Vector3ub(10, 10, 10));
 }
 
@@ -192,7 +191,7 @@ TEST(Reconstruction, DeleteObservation) {
   reconstruction.AddObservation(point3D_id, TrackElement(1, 1));
   reconstruction.AddObservation(point3D_id, TrackElement(1, 2));
   reconstruction.DeleteObservation(1, 0);
-  EXPECT_EQ(reconstruction.Point3D(point3D_id).Track().Length(), 2);
+  EXPECT_EQ(reconstruction.Point3D(point3D_id).track.Length(), 2);
   EXPECT_FALSE(reconstruction.Image(point3D_id).Point2D(0).HasPoint3D());
   reconstruction.DeleteObservation(1, 1);
   EXPECT_FALSE(reconstruction.ExistsPoint3D(point3D_id));
@@ -369,7 +368,7 @@ TEST(Reconstruction, Transform) {
       Sim3d(2, Eigen::Quaterniond::Identity(), Eigen::Vector3d(0, 1, 2)));
   EXPECT_EQ(reconstruction.Image(1).ProjectionCenter(),
             Eigen::Vector3d(0, 1, 2));
-  EXPECT_EQ(reconstruction.Point3D(point3D_id).XYZ(), Eigen::Vector3d(2, 3, 4));
+  EXPECT_EQ(reconstruction.Point3D(point3D_id).xyz, Eigen::Vector3d(2, 3, 4));
 }
 
 TEST(Reconstruction, FindImageWithName) {
@@ -521,17 +520,17 @@ TEST(Reconstruction, FilterObservationsWithNegativeDepth) {
   EXPECT_EQ(reconstruction.NumPoints3D(), 1);
   reconstruction.FilterObservationsWithNegativeDepth();
   EXPECT_EQ(reconstruction.NumPoints3D(), 1);
-  reconstruction.Point3D(point3D_id1).XYZ(2) = 0.001;
+  reconstruction.Point3D(point3D_id1).xyz(2) = 0.001;
   reconstruction.FilterObservationsWithNegativeDepth();
   EXPECT_EQ(reconstruction.NumPoints3D(), 1);
-  reconstruction.Point3D(point3D_id1).XYZ(2) = 0.0;
+  reconstruction.Point3D(point3D_id1).xyz(2) = 0.0;
   reconstruction.FilterObservationsWithNegativeDepth();
   EXPECT_EQ(reconstruction.NumPoints3D(), 1);
   reconstruction.AddObservation(point3D_id1, TrackElement(1, 0));
-  reconstruction.Point3D(point3D_id1).XYZ(2) = 0.001;
+  reconstruction.Point3D(point3D_id1).xyz(2) = 0.001;
   reconstruction.FilterObservationsWithNegativeDepth();
   EXPECT_EQ(reconstruction.NumPoints3D(), 1);
-  reconstruction.Point3D(point3D_id1).XYZ(2) = 0.0;
+  reconstruction.Point3D(point3D_id1).xyz(2) = 0.0;
   reconstruction.FilterObservationsWithNegativeDepth();
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
 }
@@ -604,11 +603,11 @@ TEST(Reconstruction, ComputeMeanReprojectionError) {
   const point3D_t point3D_id1 =
       reconstruction.AddPoint3D(Eigen::Vector3d::Random(), Track());
   EXPECT_EQ(reconstruction.ComputeMeanReprojectionError(), 0);
-  reconstruction.Point3D(point3D_id1).SetError(0.0);
+  reconstruction.Point3D(point3D_id1).error = 0.0;
   EXPECT_EQ(reconstruction.ComputeMeanReprojectionError(), 0);
-  reconstruction.Point3D(point3D_id1).SetError(1.0);
+  reconstruction.Point3D(point3D_id1).error = 1.0;
   EXPECT_EQ(reconstruction.ComputeMeanReprojectionError(), 1);
-  reconstruction.Point3D(point3D_id1).SetError(2.0);
+  reconstruction.Point3D(point3D_id1).error = 2.0;
   EXPECT_EQ(reconstruction.ComputeMeanReprojectionError(), 2.0);
 }
 
@@ -621,12 +620,12 @@ TEST(Reconstruction, UpdatePoint3DErrors) {
   reconstruction.Image(1).Point2D(0).xy = Eigen::Vector2d(0.5, 0.5);
   const point3D_t point3D_id =
       reconstruction.AddPoint3D(Eigen::Vector3d(0, 0, 1), track);
-  EXPECT_EQ(reconstruction.Point3D(point3D_id).Error(), -1);
+  EXPECT_EQ(reconstruction.Point3D(point3D_id).error, -1);
   reconstruction.UpdatePoint3DErrors();
-  EXPECT_EQ(reconstruction.Point3D(point3D_id).Error(), 0);
-  reconstruction.Point3D(point3D_id).SetXYZ(Eigen::Vector3d(0, 1, 1));
+  EXPECT_EQ(reconstruction.Point3D(point3D_id).error, 0);
+  reconstruction.Point3D(point3D_id).xyz = Eigen::Vector3d(0, 1, 1);
   reconstruction.UpdatePoint3DErrors();
-  EXPECT_EQ(reconstruction.Point3D(point3D_id).Error(), 1);
+  EXPECT_EQ(reconstruction.Point3D(point3D_id).error, 1);
 }
 
 }  // namespace

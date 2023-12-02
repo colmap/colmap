@@ -72,9 +72,9 @@ void PointColormapPhotometric::Prepare(
 
 Eigen::Vector4f PointColormapPhotometric::ComputeColor(
     const point3D_t point3D_id, const Point3D& point3D) {
-  return Eigen::Vector4f(point3D.Color(0) / 255.0f,
-                         point3D.Color(1) / 255.0f,
-                         point3D.Color(2) / 255.0f,
+  return Eigen::Vector4f(point3D.color(0) / 255.0f,
+                         point3D.color(1) / 255.0f,
+                         point3D.color(2) / 255.0f,
                          1.0f);
 }
 
@@ -87,7 +87,7 @@ void PointColormapError::Prepare(
   errors.reserve(points3D.size());
 
   for (const auto& point3D : points3D) {
-    errors.push_back(static_cast<float>(point3D.second.Error()));
+    errors.push_back(static_cast<float>(point3D.second.error));
   }
 
   UpdateScale(&errors);
@@ -95,7 +95,7 @@ void PointColormapError::Prepare(
 
 Eigen::Vector4f PointColormapError::ComputeColor(const point3D_t point3D_id,
                                                  const Point3D& point3D) {
-  const float gray = AdjustScale(static_cast<float>(point3D.Error()));
+  const float gray = AdjustScale(static_cast<float>(point3D.error));
   return Eigen::Vector4f(JetColormap::Red(gray),
                          JetColormap::Green(gray),
                          JetColormap::Blue(gray),
@@ -111,7 +111,7 @@ void PointColormapTrackLen::Prepare(
   track_lengths.reserve(points3D.size());
 
   for (const auto& point3D : points3D) {
-    track_lengths.push_back(point3D.second.Track().Length());
+    track_lengths.push_back(point3D.second.track.Length());
   }
 
   UpdateScale(&track_lengths);
@@ -119,7 +119,7 @@ void PointColormapTrackLen::Prepare(
 
 Eigen::Vector4f PointColormapTrackLen::ComputeColor(const point3D_t point3D_id,
                                                     const Point3D& point3D) {
-  const float gray = AdjustScale(point3D.Track().Length());
+  const float gray = AdjustScale(point3D.track.Length());
   return Eigen::Vector4f(JetColormap::Red(gray),
                          JetColormap::Green(gray),
                          JetColormap::Blue(gray),
@@ -152,9 +152,9 @@ void PointColormapGroundResolution::Prepare(
   for (const auto& point3D : points3D) {
     float min_resolution = std::numeric_limits<float>::max();
 
-    const Eigen::Vector3f xyz = point3D.second.XYZ().cast<float>();
+    const Eigen::Vector3f xyz = point3D.second.xyz.cast<float>();
 
-    for (const auto& track_el : point3D.second.Track().Elements()) {
+    for (const auto& track_el : point3D.second.track.Elements()) {
       const auto& image = images[track_el.image_id];
       const float focal_length = focal_lengths[image.CameraId()];
       const float focal_length2 = focal_length * focal_length;

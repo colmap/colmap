@@ -113,7 +113,7 @@ size_t BundleAdjustmentConfig::NumResiduals(
                                   &reconstruction](const point3D_t point3D_id) {
     size_t num_observations_for_point = 0;
     const auto& point3D = reconstruction.Point3D(point3D_id);
-    for (const auto& track_el : point3D.Track().Elements()) {
+    for (const auto& track_el : point3D.track.Elements()) {
       if (image_ids_.count(track_el.image_id) == 0) {
         num_observations_for_point += 1;
       }
@@ -376,7 +376,7 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
     point3D_num_observations_[point2D.point3D_id] += 1;
 
     Point3D& point3D = reconstruction->Point3D(point2D.point3D_id);
-    assert(point3D.Track().Length() > 1);
+    assert(point3D.track.Length() > 1);
 
     ceres::CostFunction* cost_function = nullptr;
 
@@ -394,7 +394,7 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
       }
 
       problem_->AddResidualBlock(
-          cost_function, loss_function, point3D.XYZ().data(), camera_params);
+          cost_function, loss_function, point3D.xyz.data(), camera_params);
     } else {
       switch (camera.ModelId()) {
 #define CAMERA_MODEL_CASE(CameraModel)                                        \
@@ -411,7 +411,7 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
                                  loss_function,
                                  cam_from_world_rotation,
                                  cam_from_world_translation,
-                                 point3D.XYZ().data(),
+                                 point3D.xyz.data(),
                                  camera_params);
     }
   }
@@ -442,11 +442,11 @@ void BundleAdjuster::AddPointToProblem(const point3D_t point3D_id,
   // Is 3D point already fully contained in the problem? I.e. its entire track
   // is contained in `variable_image_ids`, `constant_image_ids`,
   // `constant_x_image_ids`.
-  if (point3D_num_observations_[point3D_id] == point3D.Track().Length()) {
+  if (point3D_num_observations_[point3D_id] == point3D.track.Length()) {
     return;
   }
 
-  for (const auto& track_el : point3D.Track().Elements()) {
+  for (const auto& track_el : point3D.track.Elements()) {
     // Skip observations that were already added in `FillImages`.
     if (config_.HasImage(track_el.image_id)) {
       continue;
@@ -482,10 +482,8 @@ void BundleAdjuster::AddPointToProblem(const point3D_t point3D_id,
 
 #undef CAMERA_MODEL_CASE
     }
-    problem_->AddResidualBlock(cost_function,
-                               loss_function,
-                               point3D.XYZ().data(),
-                               camera.ParamsData());
+    problem_->AddResidualBlock(
+        cost_function, loss_function, point3D.xyz.data(), camera.ParamsData());
   }
 }
 
@@ -531,14 +529,14 @@ void BundleAdjuster::ParameterizeCameras(Reconstruction* reconstruction) {
 void BundleAdjuster::ParameterizePoints(Reconstruction* reconstruction) {
   for (const auto elem : point3D_num_observations_) {
     Point3D& point3D = reconstruction->Point3D(elem.first);
-    if (point3D.Track().Length() > elem.second) {
-      problem_->SetParameterBlockConstant(point3D.XYZ().data());
+    if (point3D.track.Length() > elem.second) {
+      problem_->SetParameterBlockConstant(point3D.xyz.data());
     }
   }
 
   for (const point3D_t point3D_id : config_.ConstantPoints()) {
     Point3D& point3D = reconstruction->Point3D(point3D_id);
-    problem_->SetParameterBlockConstant(point3D.XYZ().data());
+    problem_->SetParameterBlockConstant(point3D.xyz.data());
   }
 }
 
@@ -719,11 +717,11 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
     }
 
     Point3D& point3D = reconstruction->Point3D(point2D.point3D_id);
-    assert(point3D.Track().Length() > 1);
+    assert(point3D.track.Length() > 1);
 
     if (camera_rig != nullptr &&
         CalculateSquaredReprojectionError(
-            point2D.xy, point3D.XYZ(), cam_from_world_mat, camera) >
+            point2D.xy, point3D.xyz, cam_from_world_mat, camera) >
             max_squared_reproj_error) {
       continue;
     }
@@ -748,7 +746,7 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
         }
 
         problem_->AddResidualBlock(
-            cost_function, loss_function, point3D.XYZ().data(), camera_params);
+            cost_function, loss_function, point3D.xyz.data(), camera_params);
       } else {
         switch (camera.ModelId()) {
 #define CAMERA_MODEL_CASE(CameraModel)                                        \
@@ -765,7 +763,7 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
                                    loss_function,
                                    cam_from_rig_rotation,     // rig == world
                                    cam_from_rig_translation,  // rig == world
-                                   point3D.XYZ().data(),
+                                   point3D.xyz.data(),
                                    camera_params);
       }
     } else {
@@ -787,7 +785,7 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
                                  cam_from_rig_translation,
                                  rig_from_world_rotation,
                                  rig_from_world_translation,
-                                 point3D.XYZ().data(),
+                                 point3D.xyz.data(),
                                  camera_params);
     }
   }
@@ -826,11 +824,11 @@ void RigBundleAdjuster::AddPointToProblem(const point3D_t point3D_id,
   // Is 3D point already fully contained in the problem? I.e. its entire track
   // is contained in `variable_image_ids`, `constant_image_ids`,
   // `constant_x_image_ids`.
-  if (point3D_num_observations_[point3D_id] == point3D.Track().Length()) {
+  if (point3D_num_observations_[point3D_id] == point3D.track.Length()) {
     return;
   }
 
-  for (const auto& track_el : point3D.Track().Elements()) {
+  for (const auto& track_el : point3D.track.Elements()) {
     // Skip observations that were already added in `AddImageToProblem`.
     if (config_.HasImage(track_el.image_id)) {
       continue;
@@ -859,7 +857,7 @@ void RigBundleAdjuster::AddPointToProblem(const point3D_t point3D_id,
         image.CamFromWorld(), point2D.xy);                                    \
     problem_->AddResidualBlock(cost_function,                                 \
                                loss_function,                                 \
-                               point3D.XYZ().data(),                          \
+                               point3D.xyz.data(),                            \
                                camera.ParamsData());                          \
     break;
 

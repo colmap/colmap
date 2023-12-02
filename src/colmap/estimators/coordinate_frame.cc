@@ -316,7 +316,7 @@ void AlignToPrincipalPlane(Reconstruction* reconstruction, Sim3d* tform) {
   Eigen::MatrixXd normalized_points3D(3, reconstruction->NumPoints3D());
   int pidx = 0;
   for (const auto& point : reconstruction->Points3D()) {
-    normalized_points3D.col(pidx++) = point.second.XYZ() - centroid;
+    normalized_points3D.col(pidx++) = point.second.xyz - centroid;
   }
   const Eigen::Matrix3d basis =
       normalized_points3D.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV)

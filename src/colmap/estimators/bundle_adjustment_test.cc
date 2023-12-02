@@ -104,10 +104,10 @@
   }
 
 #define CheckVariablePoint(point, orig_point) \
-  { EXPECT_NE((point).XYZ(), (orig_point).XYZ()); }
+  { EXPECT_NE((point).xyz, (orig_point).xyz); }
 
 #define CheckConstantPoint(point, orig_point) \
-  { EXPECT_EQ((point).XYZ(), (orig_point).XYZ()); }
+  { EXPECT_EQ((point).xyz, (orig_point).xyz); }
 
 namespace colmap {
 namespace {
@@ -167,10 +167,10 @@ void GenerateReconstruction(const size_t num_images,
     std::vector<Eigen::Vector2d> points2D;
     for (const auto& point3D : reconstruction->Points3D()) {
       EXPECT_TRUE(
-          HasPointPositiveDepth(cam_from_world_matrix, point3D.second.XYZ()));
+          HasPointPositiveDepth(cam_from_world_matrix, point3D.second.xyz));
       // Get exact projection of 3D point.
       Eigen::Vector2d point2D = camera.ImgFromCam(
-          (image.CamFromWorld() * point3D.second.XYZ()).hnormalized());
+          (image.CamFromWorld() * point3D.second.xyz).hnormalized());
       // Add some uniform noise.
       point2D += Eigen::Vector2d(RandomUniformReal(-2.0, 2.0),
                                  RandomUniformReal(-2.0, 2.0));
