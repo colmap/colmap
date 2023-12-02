@@ -330,7 +330,7 @@ void PMVSUndistorter::Run() {
   for (size_t i = 0; i < futures.size(); ++i) {
     if (IsStopped()) {
       thread_pool.Stop();
-      LOG(WARNING) << "WARNING: Stopped the undistortion process. Image point "
+      LOG(WARNING) << "Stopped the undistortion process. Image point "
                       "locations and camera parameters for not yet processed "
                       "images in the Bundler output file is probably wrong.";
       break;

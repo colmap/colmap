@@ -351,7 +351,7 @@ int RunImageUndistorter(int argc, char** argv) {
       if (image != nullptr) {
         image_ids.push_back(image->ImageId());
       } else {
-        LOG(INFO) << "WARN: Cannot find image " << image_name;
+        LOG(WARNING) << "Cannot find image " << image_name;
       }
     }
   }

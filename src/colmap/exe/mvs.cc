@@ -177,8 +177,8 @@ int RunStereoFuser(int argc, char** argv) {
       file >> min_bound(0) >> min_bound(1) >> min_bound(2);
       file >> max_bound(0) >> max_bound(1) >> max_bound(2);
     } else {
-      LOG(INFO) << "WARN: Invalid bounds path: \"" << bbox_path
-                << "\" - continuing without bounds check";
+      LOG(WARNING) << "Invalid bounds path: \"" << bbox_path
+                   << "\" - continuing without bounds check";
     }
   }
 

@@ -299,8 +299,7 @@ Eigen::Matrix3d EstimateManhattanWorldFrame(
     frame = orthonormal_frame;
   }
 
-  LOG(INFO) << "Found orthonormal frame: ";
-  LOG(INFO) << frame;
+  LOG(INFO) << "Found orthonormal frame:\n" << frame;
 
   return frame;
 }

@@ -94,8 +94,8 @@ void SceneClustering::PartitionHierarchicalCluster(
       auto& child_cluster = cluster->child_clusters.at(labels.at(image_id));
       child_cluster.image_ids.push_back(image_id);
     } else {
-      LOG(INFO) << "WARN: Graph cut failed to assign cluster label to image "
-                << image_id << "; assigning to cluster 0";
+      LOG(WARNING) << "Graph cut failed to assign cluster label to image "
+                   << image_id << "; assigning to cluster 0";
       cluster->child_clusters.at(0).image_ids.push_back(image_id);
     }
   }

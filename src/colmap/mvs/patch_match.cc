@@ -495,8 +495,8 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
           (options.geom_consistency && !ExistsFile(depth_path)) ||
           (options.geom_consistency && !ExistsFile(normal_path))) {
         if (options.allow_missing_files) {
-          LOG(INFO) << StringPrintf(
-              "WARN: Skipping source image %d: %s for missing "
+          LOG(WARNING) << StringPrintf(
+              "Skipping source image %d: %s for missing "
               "image or depth/normal map",
               image_idx,
               model.GetImageName(image_idx).c_str());

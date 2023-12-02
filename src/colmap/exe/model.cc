@@ -846,7 +846,7 @@ int RunModelSplitter(int argc, char** argv) {
   }
 
   if (overlap_ratio < 0) {
-    LOG(INFO) << "WARN: Invalid `overlap_ratio`; resetting to 0";
+    LOG(WARNING) << "Invalid `overlap_ratio`; resetting to 0";
     overlap_ratio = 0.0;
   }
 
