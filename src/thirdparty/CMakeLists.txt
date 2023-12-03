@@ -50,6 +50,8 @@ FetchContent_Declare(PoseLib
   GIT_REPOSITORY    https://github.com/PoseLib/PoseLib.git
   GIT_TAG           c23af0c51924e3337f7bb193bb72899ec6dd4d3d
 )
+message(STATUS "Configuring PoseLib...")
 FetchContent_MakeAvailable(PoseLib)
+message(STATUS "Configuring PoseLib... done")
 
 set(CLANG_TIDY_EXE ${CLANG_TIDY_EXE_TEMP})
