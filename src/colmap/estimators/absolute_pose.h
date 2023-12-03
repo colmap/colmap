@@ -38,16 +38,11 @@
 
 namespace colmap {
 
-// Analytic solver for the P3P (Perspective-Three-Point) problem.
-//
-// The algorithm is based on the following paper:
-//
-//    X.S. Gao, X.-R. Hou, J. Tang, H.-F. Chang. Complete Solution
-//    Classification for the Perspective-Three-Point Problem.
-//    http://www.mmrc.iss.ac.cn/~xgao/paper/ieee.pdf
 class P3PEstimator {
  public:
   // The 2D image feature observations.
+  // TODO(joschonb): Change to 3D ray directions and express residuals as
+  // angular errors. Needs some evaluation.
   typedef Eigen::Vector2d X_t;
   // The observed 3D features in the world frame.
   typedef Eigen::Vector3d Y_t;
@@ -73,11 +68,11 @@ class P3PEstimator {
   //
   // @param points2D     Normalized 2D image points as Nx2 matrix.
   // @param points3D     3D world points as Nx3 matrix.
-  // @param proj_matrix  3x4 projection matrix.
+  // @param model        3x4 projection matrix.
   // @param residuals    Output vector of residuals.
   static void Residuals(const std::vector<X_t>& points2D,
                         const std::vector<Y_t>& points3D,
-                        const M_t& proj_matrix,
+                        const M_t& model,
                         std::vector<double>* residuals);
 };
 
@@ -146,17 +141,17 @@ class EPNPEstimator {
   //
   // @param points2D     Normalized 2D image points as Nx2 matrix.
   // @param points3D     3D world points as Nx3 matrix.
-  // @param proj_matrix  3x4 projection matrix.
+  // @param model        3x4 projection matrix.
   // @param residuals    Output vector of residuals.
   static void Residuals(const std::vector<X_t>& points2D,
                         const std::vector<Y_t>& points3D,
-                        const M_t& proj_matrix,
+                        const M_t& model,
                         std::vector<double>* residuals);
 
  private:
   bool ComputePose(const std::vector<Eigen::Vector2d>& points2D,
                    const std::vector<Eigen::Vector3d>& points3D,
-                   Eigen::Matrix3x4d* proj_matrix);
+                   Eigen::Matrix3x4d* model);
 
   void ChooseControlPoints();
   bool ComputeBarycentricCoordinates();
