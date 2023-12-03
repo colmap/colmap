@@ -1702,6 +1702,7 @@ void Reconstruction::ReadCamerasBinary(const std::string& path) {
         static_cast<CameraModelId>(ReadBinaryLittleEndian<int>(&file));
     camera.width = ReadBinaryLittleEndian<uint64_t>(&file);
     camera.height = ReadBinaryLittleEndian<uint64_t>(&file);
+    camera.params.resize(CameraModelNumParams(camera.model_id), 0.);
     ReadBinaryLittleEndian<double>(&file, &camera.params);
     CHECK(camera.VerifyParams());
     cameras_.emplace(camera.camera_id, std::move(camera));

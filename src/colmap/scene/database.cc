@@ -219,7 +219,7 @@ Camera ReadCameraRow(sqlite3_stmt* sql_stmt) {
       static_cast<size_t>(sqlite3_column_bytes(sql_stmt, 4));
   const size_t num_params = num_params_bytes / sizeof(double);
   CHECK_EQ(num_params, CameraModelNumParams(camera.model_id));
-  camera.params.resize(num_params);
+  camera.params.resize(num_params, 0.);
   memcpy(
       camera.params.data(), sqlite3_column_blob(sql_stmt, 4), num_params_bytes);
 
