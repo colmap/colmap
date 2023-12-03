@@ -35,6 +35,7 @@
 
 #include <Eigen/Geometry>
 #include <PoseLib/solvers/p3p.h>
+#include <PoseLib/solvers/p4pf.h>
 
 namespace colmap {
 
@@ -64,9 +65,52 @@ void P3PEstimator::Estimate(const std::vector<X_t>& points2D,
 
 void P3PEstimator::Residuals(const std::vector<X_t>& points2D,
                              const std::vector<Y_t>& points3D,
-                             const M_t& proj_matrix,
+                             const M_t& cam_from_world,
                              std::vector<double>* residuals) {
-  ComputeSquaredReprojectionError(points2D, points3D, proj_matrix, residuals);
+  ComputeSquaredReprojectionError(
+      points2D, points3D, cam_from_world, residuals);
+}
+
+void P4PFEstimator::Estimate(const std::vector<X_t>& points2D,
+                             const std::vector<Y_t>& points3D,
+                             std::vector<M_t>* models) {
+  CHECK_EQ(points2D.size(), 4);
+  CHECK_EQ(points3D.size(), 4);
+  CHECK(models != nullptr);
+
+  models->clear();
+
+  std::vector<poselib::CameraPose> poses;
+  std::vector<double> focals;
+  const int num_poses = poselib::p4pf(
+      points2D, points3D, &poses, &focals, /*filter_solutions=*/true);
+
+  models->resize(num_poses);
+  for (int i = 0; i < num_poses; ++i) {
+    (*models)[i].cam_from_world = poses[i].Rt();
+    (*models)[i].focal_length = focals[i];
+  }
+}
+
+void P4PFEstimator::Residuals(const std::vector<X_t>& points2D,
+                              const std::vector<Y_t>& points3D,
+                              const M_t& model,
+                              std::vector<double>* residuals) {
+  const size_t num_points2D = points2D.size();
+  CHECK_EQ(num_points2D, points3D.size());
+  residuals->resize(num_points2D);
+  for (size_t i = 0; i < num_points2D; ++i) {
+    const Eigen::Vector3d point3D_in_cam =
+        model.cam_from_world * points3D[i].homogeneous();
+    // Check if 3D point is in front of camera.
+    if (point3D_in_cam.z() > std::numeric_limits<double>::epsilon()) {
+      (*residuals)[i] =
+          (model.focal_length * point3D_in_cam.hnormalized() - points2D[i])
+              .squaredNorm();
+    } else {
+      (*residuals)[i] = std::numeric_limits<double>::max();
+    }
+  }
 }
 
 void EPNPEstimator::Estimate(const std::vector<X_t>& points2D,
@@ -79,25 +123,26 @@ void EPNPEstimator::Estimate(const std::vector<X_t>& points2D,
   models->clear();
 
   EPNPEstimator epnp;
-  M_t proj_matrix;
-  if (!epnp.ComputePose(points2D, points3D, &proj_matrix)) {
+  M_t cam_from_world;
+  if (!epnp.ComputePose(points2D, points3D, &cam_from_world)) {
     return;
   }
 
   models->resize(1);
-  (*models)[0] = proj_matrix;
+  (*models)[0] = cam_from_world;
 }
 
 void EPNPEstimator::Residuals(const std::vector<X_t>& points2D,
                               const std::vector<Y_t>& points3D,
-                              const M_t& proj_matrix,
+                              const M_t& cam_from_world,
                               std::vector<double>* residuals) {
-  ComputeSquaredReprojectionError(points2D, points3D, proj_matrix, residuals);
+  ComputeSquaredReprojectionError(
+      points2D, points3D, cam_from_world, residuals);
 }
 
 bool EPNPEstimator::ComputePose(const std::vector<Eigen::Vector2d>& points2D,
                                 const std::vector<Eigen::Vector3d>& points3D,
-                                Eigen::Matrix3x4d* proj_matrix) {
+                                Eigen::Matrix3x4d* cam_from_world) {
   points2D_ = &points2D;
   points3D_ = &points3D;
 
@@ -142,8 +187,8 @@ bool EPNPEstimator::ComputePose(const std::vector<Eigen::Vector2d>& points2D,
     best_idx = 3;
   }
 
-  proj_matrix->leftCols<3>() = Rs[best_idx];
-  proj_matrix->rightCols<1>() = ts[best_idx];
+  cam_from_world->leftCols<3>() = Rs[best_idx];
+  cam_from_world->rightCols<1>() = ts[best_idx];
 
   return true;
 }
@@ -484,13 +529,13 @@ void EPNPEstimator::EstimateRT(Eigen::Matrix3d* R, Eigen::Vector3d* t) {
 
 double EPNPEstimator::ComputeTotalReprojectionError(const Eigen::Matrix3d& R,
                                                     const Eigen::Vector3d& t) {
-  Eigen::Matrix3x4d proj_matrix;
-  proj_matrix.leftCols<3>() = R;
-  proj_matrix.rightCols<1>() = t;
+  Eigen::Matrix3x4d cam_from_world;
+  cam_from_world.leftCols<3>() = R;
+  cam_from_world.rightCols<1>() = t;
 
   std::vector<double> residuals;
   ComputeSquaredReprojectionError(
-      *points2D_, *points3D_, proj_matrix, &residuals);
+      *points2D_, *points3D_, cam_from_world, &residuals);
 
   double reproj_error = 0.0;
   for (const double residual : residuals) {

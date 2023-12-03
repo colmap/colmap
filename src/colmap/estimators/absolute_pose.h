@@ -81,6 +81,32 @@ class P3PEstimator {
                         std::vector<double>* residuals);
 };
 
+class P4PFEstimator {
+ public:
+  // The 2D image feature observations.
+  // Expected to be normalized by the principal point.
+  typedef Eigen::Vector2d X_t;
+  // The observed 3D features in the world frame.
+  typedef Eigen::Vector3d Y_t;
+  struct M_t {
+    // The transformation from the world to the camera frame.
+    Eigen::Matrix3x4d cam_from_world;
+    // The focal length of the camera.
+    double focal_length;
+  };
+
+  static const int kMinNumSamples = 4;
+
+  static void Estimate(const std::vector<X_t>& points2D,
+                       const std::vector<Y_t>& points3D,
+                       std::vector<M_t>* models);
+
+  static void Residuals(const std::vector<X_t>& points2D,
+                        const std::vector<Y_t>& points3D,
+                        const M_t& model,
+                        std::vector<double>* residuals);
+};
+
 // EPNP solver for the PNP (Perspective-N-Point) problem. The solver needs a
 // minimum of 4 2D-3D correspondences.
 //

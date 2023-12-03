@@ -99,6 +99,69 @@ TEST(AbsolutePose, P3P) {
   }
 }
 
+TEST(AbsolutePose, P4PF) {
+  const std::vector<Eigen::Vector3d> points3D = {
+      Eigen::Vector3d(1, 1, 1),
+      Eigen::Vector3d(0, 1, 1),
+      Eigen::Vector3d(3, 1.0, 4),
+      Eigen::Vector3d(3, 1.1, 4),
+      Eigen::Vector3d(3, 1.2, 4),
+      Eigen::Vector3d(3, 1.3, 4),
+      Eigen::Vector3d(3, 1.4, 4),
+      Eigen::Vector3d(2, 1, 7),
+  };
+
+  auto points3D_faulty = points3D;
+  for (size_t i = 0; i < points3D.size(); ++i) {
+    points3D_faulty[i](0) = 20;
+  }
+
+  // NOLINTNEXTLINE(clang-analyzer-security.FloatLoopCounter)
+  for (double qx = 0; qx < 1; qx += 0.2) {
+    // NOLINTNEXTLINE(clang-analyzer-security.FloatLoopCounter)
+    for (double tx = 0; tx < 1; tx += 0.1) {
+      for (double f = 1; f < 20; f += 2) {
+        const Rigid3d expected_cam_from_world(
+            Eigen::Quaterniond(1, qx, 0, 0).normalized(),
+            Eigen::Vector3d(tx, 0, 0));
+
+        // Project points to camera coordinate system.
+        std::vector<Eigen::Vector2d> points2D;
+        for (size_t i = 0; i < points3D.size(); ++i) {
+          points2D.push_back(
+              f * (expected_cam_from_world * points3D[i]).hnormalized());
+        }
+
+        RANSACOptions options;
+        options.max_error = 1e-5;
+        RANSAC<P4PFEstimator> ransac(options);
+        const auto report = ransac.Estimate(points2D, points3D);
+
+        EXPECT_TRUE(report.success);
+        EXPECT_NEAR(report.model.focal_length, f, 1e-3);
+        EXPECT_LT(
+            (expected_cam_from_world.ToMatrix() - report.model.cam_from_world)
+                .norm(),
+            1e-3);
+
+        // Test residuals of exact points.
+        std::vector<double> residuals;
+        P4PFEstimator::Residuals(points2D, points3D, report.model, &residuals);
+        for (size_t i = 0; i < residuals.size(); ++i) {
+          EXPECT_LT(residuals[i], 1e-3);
+        }
+
+        // Test residuals of faulty points.
+        P4PFEstimator::Residuals(
+            points2D, points3D_faulty, report.model, &residuals);
+        for (size_t i = 0; i < residuals.size(); ++i) {
+          EXPECT_GT(residuals[i], 0.1);
+        }
+      }
+    }
+  }
+}
+
 TEST(AbsolutePose, EPNP) {
   const std::vector<Eigen::Vector3d> points3D = {
       Eigen::Vector3d(1, 1, 1),
