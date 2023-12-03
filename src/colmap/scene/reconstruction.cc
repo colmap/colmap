@@ -1496,7 +1496,7 @@ void Reconstruction::ReadCamerasText(const std::string& path) {
     camera.height = std::stoll(item);
 
     // PARAMS
-    camera.params.reserve(CameraModelNumParams(camera.model_id), 0);
+    camera.params.reserve(CameraModelNumParams(camera.model_id));
     while (!line_stream.eof()) {
       std::getline(line_stream, item, ' ');
       camera.params.push_back(std::stold(item));

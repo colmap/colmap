@@ -466,7 +466,7 @@ int RunImageUndistorterStandalone(int argc, char** argv) {
       std::getline(line_stream, item, ' ');
       camera.height = std::stoll(item);
 
-      camera.params.reserve(CameraModelNumParams(camera.model_id), 0);
+      camera.params.reserve(CameraModelNumParams(camera.model_id));
       while (!line_stream.eof()) {
         std::getline(line_stream, item, ' ');
         camera.params.push_back(std::stold(item));
