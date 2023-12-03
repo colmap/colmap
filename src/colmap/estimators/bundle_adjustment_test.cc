@@ -143,11 +143,11 @@ void GenerateReconstruction(const size_t num_images,
     const image_t image_id = static_cast<image_t>(i);
 
     const Camera camera =
-        Camera::CreateFromId(camera_id,
-                             SimpleRadialCameraModel::model_id,
-                             kFocalLengthFactor * kImageSize,
-                             kImageSize,
-                             kImageSize);
+        Camera::CreateFromModelId(camera_id,
+                                  SimpleRadialCameraModel::model_id,
+                                  kFocalLengthFactor * kImageSize,
+                                  kImageSize,
+                                  kImageSize);
     reconstruction->AddCamera(camera);
 
     Image image;

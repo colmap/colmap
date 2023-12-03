@@ -75,7 +75,9 @@ ImageReader::ImageReader(const ImageReaderOptions& options, Database* database)
   } else {
     // Set the manually specified camera parameters.
     prev_camera_.camera_id = kInvalidCameraId;
-    prev_camera_.SetModelIdFromName(options_.camera_model);
+    CHECK(ExistsCameraModelWithName(options_.camera_model));
+    prev_camera_.model_id = CameraModelNameToId(options_.camera_model);
+    prev_camera_.params.resize(CameraModelNumParams(prev_camera_.model_id), 0.);
     if (!options_.camera_params.empty()) {
       CHECK(prev_camera_.SetParamsFromString(options_.camera_params));
       prev_camera_.has_prior_focal_length = true;
@@ -220,11 +222,11 @@ ImageReader::Status ImageReader::Next(Camera* camera,
                          std::max(bitmap->Width(), bitmap->Height());
         }
 
-        prev_camera_ = Camera::CreateFromId(prev_camera_.camera_id,
-                                            prev_camera_.model_id,
-                                            focal_length,
-                                            bitmap->Width(),
-                                            bitmap->Height());
+        prev_camera_ = Camera::CreateFromModelId(prev_camera_.camera_id,
+                                                 prev_camera_.model_id,
+                                                 focal_length,
+                                                 bitmap->Width(),
+                                                 bitmap->Height());
         prev_camera_.has_prior_focal_length = has_focal_length;
       }
 

@@ -116,8 +116,8 @@ TEST(Database, SwapImagePair) {
 TEST(Database, Camera) {
   Database database(Database::kInMemoryDatabasePath);
   EXPECT_EQ(database.NumCameras(), 0);
-  Camera camera =
-      Camera::CreateFromName(kInvalidCameraId, "SIMPLE_PINHOLE", 1.0, 1, 1);
+  Camera camera = Camera::CreateFromModelName(
+      kInvalidCameraId, "SIMPLE_PINHOLE", 1.0, 1, 1);
   camera.camera_id = database.WriteCamera(camera);
   EXPECT_EQ(database.NumCameras(), 1);
   EXPECT_TRUE(database.ExistsCamera(camera.camera_id));
@@ -148,8 +148,8 @@ TEST(Database, Camera) {
 
 TEST(Database, Image) {
   Database database(Database::kInMemoryDatabasePath);
-  Camera camera =
-      Camera::CreateFromName(kInvalidCameraId, "SIMPLE_PINHOLE", 1.0, 1, 1);
+  Camera camera = Camera::CreateFromModelName(
+      kInvalidCameraId, "SIMPLE_PINHOLE", 1.0, 1, 1);
   camera.camera_id = database.WriteCamera(camera);
   EXPECT_EQ(database.NumImages(), 0);
   Image image;
@@ -382,8 +382,8 @@ TEST(Database, Merge) {
   Database database1(Database::kInMemoryDatabasePath);
   Database database2(Database::kInMemoryDatabasePath);
 
-  Camera camera =
-      Camera::CreateFromName(kInvalidCameraId, "SIMPLE_PINHOLE", 1.0, 1, 1);
+  Camera camera = Camera::CreateFromModelName(
+      kInvalidCameraId, "SIMPLE_PINHOLE", 1.0, 1, 1);
   camera.camera_id = database1.WriteCamera(camera);
   camera.camera_id = database2.WriteCamera(camera);
 

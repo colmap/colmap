@@ -409,11 +409,11 @@ void CameraTab::Add() {
   const double kDefaultFocalLength = 1.0;
   const size_t kDefaultWidth = 1;
   const size_t kDefaultHeight = 1;
-  camera = Camera::CreateFromName(kInvalidCameraId,
-                                  camera_model.toUtf8().constData(),
-                                  kDefaultFocalLength,
-                                  kDefaultWidth,
-                                  kDefaultHeight);
+  camera = Camera::CreateFromModelName(kInvalidCameraId,
+                                       camera_model.toUtf8().constData(),
+                                       kDefaultFocalLength,
+                                       kDefaultWidth,
+                                       kDefaultHeight);
   database_->WriteCamera(camera);
 
   // Reload all cameras
@@ -450,11 +450,11 @@ void CameraTab::SetModel() {
   for (QModelIndex& index : select->selectedRows()) {
     LOG(INFO) << index.row();
     auto& camera = cameras_.at(index.row());
-    camera = Camera::CreateFromName(camera.camera_id,
-                                    camera_model.toUtf8().constData(),
-                                    camera.MeanFocalLength(),
-                                    camera.width,
-                                    camera.height);
+    camera = Camera::CreateFromModelName(camera.camera_id,
+                                         camera_model.toUtf8().constData(),
+                                         camera.MeanFocalLength(),
+                                         camera.width,
+                                         camera.height);
     database_->UpdateCamera(camera);
   }
 

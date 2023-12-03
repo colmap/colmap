@@ -42,7 +42,7 @@ TEST(DatabaseCache, Empty) {
 
 TEST(DatabaseCache, Nominal) {
   Database database(Database::kInMemoryDatabasePath);
-  const Camera camera = Camera::CreateFromId(
+  const Camera camera = Camera::CreateFromModelId(
       kInvalidCameraId, SimplePinholeCameraModel::model_id, 1, 1, 1);
   const camera_t camera_id = database.WriteCamera(camera);
   Image image1;

@@ -454,11 +454,11 @@ int RunImageUndistorterStandalone(int argc, char** argv) {
       struct Camera camera;
 
       std::getline(line_stream, item, ' ');
-      if (!ExistsCameraModelWithName(item)) {
+      camera.model_id = CameraModelNameToId(item);
+      if (camera.model_id == CameraModelId::kInvalid) {
         LOG(ERROR) << "Camera model " << item << " does not exist";
         return EXIT_FAILURE;
       }
-      camera.SetModelIdFromName(item);
 
       std::getline(line_stream, item, ' ');
       camera.width = std::stoll(item);
@@ -466,7 +466,7 @@ int RunImageUndistorterStandalone(int argc, char** argv) {
       std::getline(line_stream, item, ' ');
       camera.height = std::stoll(item);
 
-      camera.params.clear();
+      camera.params.reserve(CameraModelNumParams(camera.model_id), 0);
       while (!line_stream.eof()) {
         std::getline(line_stream, item, ' ');
         camera.params.push_back(std::stold(item));

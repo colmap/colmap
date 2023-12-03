@@ -1179,11 +1179,12 @@ void ModelViewerWidget::UploadMovieGrabberData() {
     const float kDefaultImageHeight = 1536.0f;
     const float focal_length =
         -2.0f * std::tan(DegToRad(kFieldOfView) / 2.0f) * kDefaultImageWdith;
-    Camera camera = Camera::CreateFromId(kInvalidCameraId,
-                                         SimplePinholeCameraModel::model_id,
-                                         focal_length,
-                                         kDefaultImageWdith,
-                                         kDefaultImageHeight);
+    Camera camera =
+        Camera::CreateFromModelId(kInvalidCameraId,
+                                  SimplePinholeCameraModel::model_id,
+                                  focal_length,
+                                  kDefaultImageWdith,
+                                  kDefaultImageHeight);
 
     // Build all camera models
     for (size_t i = 0; i < movie_grabber_widget_->views.size(); ++i) {

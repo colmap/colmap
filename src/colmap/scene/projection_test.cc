@@ -49,7 +49,7 @@ TEST(CalculateSquaredReprojectionError, Nominal) {
   const Eigen::Vector2d point2D = point2D_h.hnormalized();
 
   Camera camera =
-      Camera::CreateFromId(1, SimplePinholeCameraModel::model_id, 1, 0, 0);
+      Camera::CreateFromModelId(1, SimplePinholeCameraModel::model_id, 1, 0, 0);
 
   EXPECT_NEAR(CalculateSquaredReprojectionError(
                   point2D, point3D, cam_from_world, camera),

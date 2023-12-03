@@ -124,10 +124,10 @@ TEST(CameraRig, Check) {
 
   Reconstruction reconstruction;
 
-  Camera camera1 = Camera::CreateFromName(0, "PINHOLE", 1, 1, 1);
+  Camera camera1 = Camera::CreateFromModelName(0, "PINHOLE", 1, 1, 1);
   reconstruction.AddCamera(camera1);
 
-  Camera camera2 = Camera::CreateFromName(1, "PINHOLE", 1, 1, 1);
+  Camera camera2 = Camera::CreateFromModelName(1, "PINHOLE", 1, 1, 1);
   reconstruction.AddCamera(camera2);
 
   Image image1;
@@ -165,10 +165,10 @@ TEST(CameraRig, ComputeRigFromWorldScale) {
 
   Reconstruction reconstruction;
 
-  Camera camera1 = Camera::CreateFromName(0, "PINHOLE", 1, 1, 1);
+  Camera camera1 = Camera::CreateFromModelName(0, "PINHOLE", 1, 1, 1);
   reconstruction.AddCamera(camera1);
 
-  Camera camera2 = Camera::CreateFromName(1, "PINHOLE", 1, 1, 1);
+  Camera camera2 = Camera::CreateFromModelName(1, "PINHOLE", 1, 1, 1);
   reconstruction.AddCamera(camera2);
 
   Image image1;
@@ -202,10 +202,10 @@ TEST(CameraRig, ComputeCamsFromRigs) {
 
   Reconstruction reconstruction;
 
-  Camera camera1 = Camera::CreateFromName(0, "PINHOLE", 1, 1, 1);
+  Camera camera1 = Camera::CreateFromModelName(0, "PINHOLE", 1, 1, 1);
   reconstruction.AddCamera(camera1);
 
-  Camera camera2 = Camera::CreateFromName(1, "PINHOLE", 1, 1, 1);
+  Camera camera2 = Camera::CreateFromModelName(1, "PINHOLE", 1, 1, 1);
   reconstruction.AddCamera(camera2);
 
   Image image1;
@@ -281,10 +281,10 @@ TEST(CameraRig, ComputeRigFromWorld) {
 
   Reconstruction reconstruction;
 
-  Camera camera1 = Camera::CreateFromName(0, "PINHOLE", 1, 1, 1);
+  Camera camera1 = Camera::CreateFromModelName(0, "PINHOLE", 1, 1, 1);
   reconstruction.AddCamera(camera1);
 
-  Camera camera2 = Camera::CreateFromName(1, "PINHOLE", 1, 1, 1);
+  Camera camera2 = Camera::CreateFromModelName(1, "PINHOLE", 1, 1, 1);
   reconstruction.AddCamera(camera2);
 
   Image image1;

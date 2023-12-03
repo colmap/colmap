@@ -37,10 +37,29 @@
 
 namespace colmap {
 
-void Camera::SetModelIdFromName(const std::string& model_name) {
-  CHECK(ExistsCameraModelWithName(model_name));
-  this->model_id = CameraModelNameToId(model_name);
-  params.resize(CameraModelNumParams(model_id), 0);
+Camera Camera::CreateFromModelId(camera_t camera_id,
+                                 const CameraModelId model_id,
+                                 const double focal_length,
+                                 const size_t width,
+                                 const size_t height) {
+  CHECK(ExistsCameraModelWithId(model_id));
+  Camera camera;
+  camera.camera_id = camera_id;
+  camera.model_id = model_id;
+  camera.width = width;
+  camera.height = height;
+  camera.params =
+      CameraModelInitializeParams(model_id, focal_length, width, height);
+  return camera;
+}
+
+Camera Camera::CreateFromModelName(camera_t camera_id,
+                                   const std::string& model_name,
+                                   const double focal_length,
+                                   const size_t width,
+                                   const size_t height) {
+  return CreateFromModelId(
+      camera_id, CameraModelNameToId(model_name), focal_length, width, height);
 }
 
 Eigen::Matrix3d Camera::CalibrationMatrix() const {
@@ -80,7 +99,6 @@ bool Camera::SetParamsFromString(const std::string& string) {
   if (!CameraModelVerifyParams(model_id, new_camera_params)) {
     return false;
   }
-
   params = std::move(new_camera_params);
   return true;
 }
@@ -92,31 +110,6 @@ bool Camera::IsUndistorted() const {
     }
   }
   return true;
-}
-
-Camera Camera::CreateFromId(camera_t camera_id,
-                            const CameraModelId model_id,
-                            const double focal_length,
-                            const size_t width,
-                            const size_t height) {
-  CHECK(ExistsCameraModelWithId(model_id));
-  Camera camera;
-  camera.camera_id = camera_id;
-  camera.model_id = model_id;
-  camera.width = width;
-  camera.height = height;
-  camera.params =
-      CameraModelInitializeParams(model_id, focal_length, width, height);
-  return camera;
-}
-
-Camera Camera::CreateFromName(camera_t camera_id,
-                              const std::string& model_name,
-                              const double focal_length,
-                              const size_t width,
-                              const size_t height) {
-  return CreateFromId(
-      camera_id, CameraModelNameToId(model_name), focal_length, width, height);
 }
 
 void Camera::Rescale(const double scale) {

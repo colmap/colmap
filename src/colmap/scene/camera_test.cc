@@ -59,24 +59,14 @@ TEST(Camera, CameraId) {
   EXPECT_EQ(camera.camera_id, 1);
 }
 
-TEST(Camera, SetModelIdFromName) {
-  Camera camera;
-  EXPECT_EQ(camera.model_id, CameraModelId::kInvalid);
-  EXPECT_EQ(camera.ModelName(), "");
-  EXPECT_EQ(camera.params.size(), 0);
-  camera.SetModelIdFromName("SIMPLE_RADIAL");
-  EXPECT_EQ(camera.model_id, SimpleRadialCameraModel::model_id);
-  EXPECT_EQ(camera.ModelName(), "SIMPLE_RADIAL");
-  EXPECT_EQ(camera.params.size(), SimpleRadialCameraModel::num_params);
-}
-
 TEST(Camera, FocalLength) {
-  Camera camera =
-      Camera::CreateFromId(1, SimplePinholeCameraModel::model_id, 1.0, 1, 1);
+  Camera camera = Camera::CreateFromModelId(
+      1, SimplePinholeCameraModel::model_id, 1.0, 1, 1);
   EXPECT_EQ(camera.FocalLength(), 1.0);
   camera.SetFocalLength(2.0);
   EXPECT_EQ(camera.FocalLength(), 2.0);
-  camera = Camera::CreateFromId(1, PinholeCameraModel::model_id, 1.0, 1, 1);
+  camera =
+      Camera::CreateFromModelId(1, PinholeCameraModel::model_id, 1.0, 1, 1);
   EXPECT_EQ(camera.FocalLengthX(), 1.0);
   EXPECT_EQ(camera.FocalLengthY(), 1.0);
   camera.SetFocalLengthX(2.0);
@@ -89,7 +79,7 @@ TEST(Camera, FocalLength) {
 
 TEST(Camera, PrincipalPoint) {
   Camera camera =
-      Camera::CreateFromId(1, PinholeCameraModel::model_id, 1.0, 1, 1);
+      Camera::CreateFromModelId(1, PinholeCameraModel::model_id, 1.0, 1, 1);
   EXPECT_EQ(camera.PrincipalPointX(), 0.5);
   EXPECT_EQ(camera.PrincipalPointY(), 0.5);
   camera.SetPrincipalPointX(2.0);
@@ -113,7 +103,7 @@ TEST(Camera, ParamIdxs) {
 
 TEST(Camera, CalibrationMatrix) {
   Camera camera =
-      Camera::CreateFromId(1, PinholeCameraModel::model_id, 1.0, 1, 1);
+      Camera::CreateFromModelId(1, PinholeCameraModel::model_id, 1.0, 1, 1);
   const Eigen::Matrix3d K = camera.CalibrationMatrix();
   Eigen::Matrix3d K_ref;
   K_ref << 1, 0, 0.5, 0, 1, 0.5, 0, 0, 1;
@@ -128,8 +118,8 @@ TEST(Camera, ParamsInfo) {
 }
 
 TEST(Camera, ParamsToString) {
-  Camera camera =
-      Camera::CreateFromId(1, SimplePinholeCameraModel::model_id, 1.0, 1, 1);
+  Camera camera = Camera::CreateFromModelId(
+      1, SimplePinholeCameraModel::model_id, 1.0, 1, 1);
   EXPECT_EQ(camera.ParamsToString(), "1.000000, 0.500000, 0.500000");
 }
 
@@ -146,31 +136,32 @@ TEST(Camera, ParamsFromString) {
 TEST(Camera, VerifyParams) {
   Camera camera;
   EXPECT_THROW(camera.VerifyParams(), std::domain_error);
-  camera =
-      Camera::CreateFromId(1, SimplePinholeCameraModel::model_id, 1.0, 1, 1);
+  camera = Camera::CreateFromModelId(
+      1, SimplePinholeCameraModel::model_id, 1.0, 1, 1);
   EXPECT_TRUE(camera.VerifyParams());
   camera.params.resize(2);
   EXPECT_FALSE(camera.VerifyParams());
 }
 
 TEST(Camera, IsUndistorted) {
-  Camera camera =
-      Camera::CreateFromId(1, SimplePinholeCameraModel::model_id, 1.0, 1, 1);
+  Camera camera = Camera::CreateFromModelId(
+      1, SimplePinholeCameraModel::model_id, 1.0, 1, 1);
   EXPECT_TRUE(camera.IsUndistorted());
-  camera =
-      Camera::CreateFromId(1, SimpleRadialCameraModel::model_id, 1.0, 1, 1);
+  camera = Camera::CreateFromModelId(
+      1, SimpleRadialCameraModel::model_id, 1.0, 1, 1);
   EXPECT_TRUE(camera.IsUndistorted());
   camera.params = {1.0, 0.5, 0.5, 0.005};
   EXPECT_FALSE(camera.IsUndistorted());
-  camera = Camera::CreateFromId(1, RadialCameraModel::model_id, 1.0, 1, 1);
+  camera = Camera::CreateFromModelId(1, RadialCameraModel::model_id, 1.0, 1, 1);
   EXPECT_TRUE(camera.IsUndistorted());
   camera.params = {1.0, 0.5, 0.5, 0.0, 0.005};
   EXPECT_FALSE(camera.IsUndistorted());
-  camera = Camera::CreateFromId(1, OpenCVCameraModel::model_id, 1.0, 1, 1);
+  camera = Camera::CreateFromModelId(1, OpenCVCameraModel::model_id, 1.0, 1, 1);
   EXPECT_TRUE(camera.IsUndistorted());
   camera.params = {1.0, 1.0, 0.5, 0.5, 0.0, 0.0, 0.0, 0.001};
   EXPECT_FALSE(camera.IsUndistorted());
-  camera = Camera::CreateFromId(1, FullOpenCVCameraModel::model_id, 1.0, 1, 1);
+  camera =
+      Camera::CreateFromModelId(1, FullOpenCVCameraModel::model_id, 1.0, 1, 1);
   EXPECT_TRUE(camera.IsUndistorted());
   camera.params = {
       1.0, 1.0, 0.5, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.001};
@@ -180,14 +171,14 @@ TEST(Camera, IsUndistorted) {
 TEST(Camera, HasBogusParams) {
   Camera camera;
   EXPECT_THROW(camera.HasBogusParams(0.0, 0.0, 0.0), std::domain_error);
-  camera =
-      Camera::CreateFromId(1, SimplePinholeCameraModel::model_id, 1.0, 1, 1);
+  camera = Camera::CreateFromModelId(
+      1, SimplePinholeCameraModel::model_id, 1.0, 1, 1);
   EXPECT_FALSE(camera.HasBogusParams(0.1, 1.1, 1.0));
   EXPECT_FALSE(camera.HasBogusParams(0.1, 1.1, 0.0));
   EXPECT_TRUE(camera.HasBogusParams(0.1, 0.99, 1.0));
   EXPECT_TRUE(camera.HasBogusParams(1.01, 1.1, 1.0));
-  camera =
-      Camera::CreateFromId(1, SimpleRadialCameraModel::model_id, 1.0, 1, 1);
+  camera = Camera::CreateFromModelId(
+      1, SimpleRadialCameraModel::model_id, 1.0, 1, 1);
   EXPECT_FALSE(camera.HasBogusParams(0.1, 1.1, 1.0));
   camera.params[3] = 1.01;
   EXPECT_TRUE(camera.HasBogusParams(0.1, 1.1, 1.0));
@@ -197,9 +188,9 @@ TEST(Camera, HasBogusParams) {
   EXPECT_TRUE(camera.HasBogusParams(0.1, 1.1, 1.0));
 }
 
-TEST(Camera, CreateFromId) {
-  Camera camera =
-      Camera::CreateFromId(1, SimplePinholeCameraModel::model_id, 1.0, 1, 1);
+TEST(Camera, CreateFromModelId) {
+  Camera camera = Camera::CreateFromModelId(
+      1, SimplePinholeCameraModel::model_id, 1.0, 1, 1);
   EXPECT_EQ(camera.camera_id, 1);
   EXPECT_EQ(camera.model_id, SimplePinholeCameraModel::model_id);
   EXPECT_EQ(camera.ModelName(), "SIMPLE_PINHOLE");
@@ -223,8 +214,8 @@ TEST(Camera, CreateFromId) {
             static_cast<int>(SimplePinholeCameraModel::num_params));
 }
 
-TEST(Camera, CreateFromName) {
-  Camera camera = Camera::CreateFromName(1, "SIMPLE_PINHOLE", 1.0, 1, 1);
+TEST(Camera, CreateFromModelName) {
+  Camera camera = Camera::CreateFromModelName(1, "SIMPLE_PINHOLE", 1.0, 1, 1);
   EXPECT_EQ(camera.camera_id, 1);
   EXPECT_EQ(camera.model_id, SimplePinholeCameraModel::model_id);
   EXPECT_EQ(camera.ModelName(), "SIMPLE_PINHOLE");
@@ -251,7 +242,7 @@ TEST(Camera, CreateFromName) {
 TEST(Camera, CamFromImg) {
   Camera camera;
   EXPECT_THROW(camera.CamFromImg(Eigen::Vector2d::Zero()), std::domain_error);
-  camera = Camera::CreateFromName(1, "SIMPLE_PINHOLE", 1.0, 1, 1);
+  camera = Camera::CreateFromModelName(1, "SIMPLE_PINHOLE", 1.0, 1, 1);
   EXPECT_EQ(camera.CamFromImg(Eigen::Vector2d(0.0, 0.0))(0), -0.5);
   EXPECT_EQ(camera.CamFromImg(Eigen::Vector2d(0.0, 0.0))(1), -0.5);
   EXPECT_EQ(camera.CamFromImg(Eigen::Vector2d(0.5, 0.5))(0), 0.0);
@@ -261,12 +252,12 @@ TEST(Camera, CamFromImg) {
 TEST(Camera, CamFromImgThreshold) {
   Camera camera;
   EXPECT_THROW(camera.CamFromImgThreshold(0), std::domain_error);
-  camera = Camera::CreateFromName(1, "SIMPLE_PINHOLE", 1.0, 1, 1);
+  camera = Camera::CreateFromModelName(1, "SIMPLE_PINHOLE", 1.0, 1, 1);
   EXPECT_EQ(camera.CamFromImgThreshold(0), 0);
   EXPECT_EQ(camera.CamFromImgThreshold(1), 1);
   camera.SetFocalLength(2.0);
   EXPECT_EQ(camera.CamFromImgThreshold(1), 0.5);
-  camera = Camera::CreateFromName(1, "PINHOLE", 1.0, 1, 1);
+  camera = Camera::CreateFromModelName(1, "PINHOLE", 1.0, 1, 1);
   camera.SetFocalLengthY(3.0);
   EXPECT_EQ(camera.CamFromImgThreshold(1), 0.5);
 }
@@ -274,7 +265,7 @@ TEST(Camera, CamFromImgThreshold) {
 TEST(Camera, ImgFromCam) {
   Camera camera;
   EXPECT_THROW(camera.ImgFromCam(Eigen::Vector2d::Zero()), std::domain_error);
-  camera = Camera::CreateFromName(1, "SIMPLE_PINHOLE", 1.0, 1, 1);
+  camera = Camera::CreateFromModelName(1, "SIMPLE_PINHOLE", 1.0, 1, 1);
   EXPECT_EQ(camera.ImgFromCam(Eigen::Vector2d(0.0, 0.0))(0), 0.5);
   EXPECT_EQ(camera.ImgFromCam(Eigen::Vector2d(0.0, 0.0))(1), 0.5);
   EXPECT_EQ(camera.ImgFromCam(Eigen::Vector2d(-0.5, -0.5))(0), 0.0);
@@ -282,7 +273,7 @@ TEST(Camera, ImgFromCam) {
 }
 
 TEST(Camera, Rescale) {
-  Camera camera = Camera::CreateFromName(1, "SIMPLE_PINHOLE", 1.0, 1, 1);
+  Camera camera = Camera::CreateFromModelName(1, "SIMPLE_PINHOLE", 1.0, 1, 1);
   camera.Rescale(2.0);
   EXPECT_EQ(camera.width, 2);
   EXPECT_EQ(camera.height, 2);
@@ -290,7 +281,7 @@ TEST(Camera, Rescale) {
   EXPECT_EQ(camera.PrincipalPointX(), 1);
   EXPECT_EQ(camera.PrincipalPointY(), 1);
 
-  camera = Camera::CreateFromName(1, "PINHOLE", 1.0, 1, 1);
+  camera = Camera::CreateFromModelName(1, "PINHOLE", 1.0, 1, 1);
   camera.Rescale(2.0);
   EXPECT_EQ(camera.width, 2);
   EXPECT_EQ(camera.height, 2);
@@ -299,7 +290,7 @@ TEST(Camera, Rescale) {
   EXPECT_EQ(camera.PrincipalPointX(), 1);
   EXPECT_EQ(camera.PrincipalPointY(), 1);
 
-  camera = Camera::CreateFromName(1, "PINHOLE", 1.0, 2, 2);
+  camera = Camera::CreateFromModelName(1, "PINHOLE", 1.0, 2, 2);
   camera.Rescale(0.5);
   EXPECT_EQ(camera.width, 1);
   EXPECT_EQ(camera.height, 1);
@@ -308,7 +299,7 @@ TEST(Camera, Rescale) {
   EXPECT_EQ(camera.PrincipalPointX(), 0.5);
   EXPECT_EQ(camera.PrincipalPointY(), 0.5);
 
-  camera = Camera::CreateFromName(1, "PINHOLE", 1.0, 2, 2);
+  camera = Camera::CreateFromModelName(1, "PINHOLE", 1.0, 2, 2);
   camera.Rescale(1, 1);
   EXPECT_EQ(camera.width, 1);
   EXPECT_EQ(camera.height, 1);
@@ -317,7 +308,7 @@ TEST(Camera, Rescale) {
   EXPECT_EQ(camera.PrincipalPointX(), 0.5);
   EXPECT_EQ(camera.PrincipalPointY(), 0.5);
 
-  camera = Camera::CreateFromName(1, "PINHOLE", 1.0, 2, 2);
+  camera = Camera::CreateFromModelName(1, "PINHOLE", 1.0, 2, 2);
   camera.Rescale(4, 4);
   EXPECT_EQ(camera.width, 4);
   EXPECT_EQ(camera.height, 4);

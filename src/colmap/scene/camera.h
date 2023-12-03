@@ -62,8 +62,20 @@ struct Camera {
   // e.g. manually provided or extracted from EXIF
   bool has_prior_focal_length = false;
 
+  // Initialize parameters for given camera model and focal length, and set
+  // the principal point to be the image center.
+  static Camera CreateFromModelId(camera_t camera_id,
+                                  CameraModelId model_id,
+                                  double focal_length,
+                                  size_t width,
+                                  size_t height);
+  static Camera CreateFromModelName(camera_t camera_id,
+                                    const std::string& model_name,
+                                    double focal_length,
+                                    size_t width,
+                                    size_t height);
+
   inline const std::string& ModelName() const;
-  void SetModelIdFromName(const std::string& model_name);
 
   // Access focal length parameters.
   double MeanFocalLength() const;
@@ -103,26 +115,13 @@ struct Camera {
   // the correct dimensions that match the specified camera model.
   inline bool VerifyParams() const;
 
-  // Check whether camera is already undistorted
+  // Check whether camera is already undistorted.
   bool IsUndistorted() const;
 
   // Check whether camera has bogus parameters.
   inline bool HasBogusParams(double min_focal_length_ratio,
                              double max_focal_length_ratio,
                              double max_extra_param) const;
-
-  // Initialize parameters for given camera model and focal length, and set
-  // the principal point to be the image center.
-  static Camera CreateFromId(camera_t camera_id,
-                             CameraModelId model_id,
-                             double focal_length,
-                             size_t width,
-                             size_t height);
-  static Camera CreateFromName(camera_t camera_id,
-                               const std::string& model_name,
-                               double focal_length,
-                               size_t width,
-                               size_t height);
 
   // Project point in image plane to world / infinity.
   inline Eigen::Vector2d CamFromImg(const Eigen::Vector2d& image_point) const;

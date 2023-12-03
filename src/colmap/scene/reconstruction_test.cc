@@ -43,7 +43,7 @@ void GenerateReconstruction(const image_t num_images,
                             Reconstruction* reconstruction) {
   const size_t kNumPoints2D = 10;
 
-  Camera camera = Camera::CreateFromName(1, "PINHOLE", 1, 1, 1);
+  Camera camera = Camera::CreateFromModelName(1, "PINHOLE", 1, 1, 1);
   reconstruction->AddCamera(camera);
 
   for (image_t image_id = 1; image_id <= num_images; ++image_id) {
@@ -70,7 +70,7 @@ TEST(Reconstruction, Empty) {
 TEST(Reconstruction, AddCamera) {
   Reconstruction reconstruction;
   Camera camera =
-      Camera::CreateFromId(1, SimplePinholeCameraModel::model_id, 1, 1, 1);
+      Camera::CreateFromModelId(1, SimplePinholeCameraModel::model_id, 1, 1, 1);
   reconstruction.AddCamera(camera);
   EXPECT_TRUE(reconstruction.ExistsCamera(camera.camera_id));
   EXPECT_EQ(reconstruction.Camera(camera.camera_id).camera_id,
