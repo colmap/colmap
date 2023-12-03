@@ -54,11 +54,10 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
   LOG(INFO) << "Loading cameras...";
 
   {
-    std::vector<class Camera> cameras = database.ReadAllCameras();
+    std::vector<struct Camera> cameras = database.ReadAllCameras();
     cache->cameras_.reserve(cameras.size());
     for (auto& camera : cameras) {
-      const camera_t camera_id = camera.CameraId();
-      cache->cameras_.emplace(camera_id, std::move(camera));
+      cache->cameras_.emplace(camera.camera_id, std::move(camera));
     }
   }
 

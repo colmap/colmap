@@ -453,8 +453,8 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
                               options.max_extra_param)) {
       // Previously refined camera has bogus parameters,
       // so reset parameters and try to re-estimage.
-      camera.SetParams(database_cache_->Camera(image.CameraId()).Params());
-      abs_pose_options.estimate_focal_length = !camera.HasPriorFocalLength();
+      camera.params = database_cache_->Camera(image.CameraId()).params;
+      abs_pose_options.estimate_focal_length = !camera.has_prior_focal_length;
       abs_pose_refinement_options.refine_focal_length = true;
       abs_pose_refinement_options.refine_extra_params = true;
     } else {
@@ -466,8 +466,8 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
     // Camera not refined before. Note that the camera parameters might have
     // been changed before but the image was filtered, so we explicitly reset
     // the camera parameters and try to re-estimate them.
-    camera.SetParams(database_cache_->Camera(image.CameraId()).Params());
-    abs_pose_options.estimate_focal_length = !camera.HasPriorFocalLength();
+    camera.params = database_cache_->Camera(image.CameraId()).params;
+    abs_pose_options.estimate_focal_length = !camera.has_prior_focal_length;
     abs_pose_refinement_options.refine_focal_length = true;
     abs_pose_refinement_options.refine_extra_params = true;
   }
@@ -811,11 +811,11 @@ std::vector<image_t> IncrementalMapper::FindFirstInitialImage(
       continue;
     }
 
-    const class Camera& camera =
+    const struct Camera& camera =
         reconstruction_->Camera(image.second.CameraId());
     ImageInfo image_info;
     image_info.image_id = image.first;
-    image_info.prior_focal_length = camera.HasPriorFocalLength();
+    image_info.prior_focal_length = camera.has_prior_focal_length;
     image_info.num_correspondences = image.second.NumCorrespondences();
     image_infos.push_back(image_info);
   }
@@ -883,10 +883,10 @@ std::vector<image_t> IncrementalMapper::FindSecondInitialImage(
   for (const auto elem : num_correspondences) {
     if (elem.second >= init_min_num_inliers) {
       const class Image& image = reconstruction_->Image(elem.first);
-      const class Camera& camera = reconstruction_->Camera(image.CameraId());
+      const struct Camera& camera = reconstruction_->Camera(image.CameraId());
       ImageInfo image_info;
       image_info.image_id = elem.first;
-      image_info.prior_focal_length = camera.HasPriorFocalLength();
+      image_info.prior_focal_length = camera.has_prior_focal_length;
       image_info.num_correspondences = elem.second;
       image_infos.push_back(image_info);
     }

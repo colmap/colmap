@@ -90,26 +90,23 @@ void CheckBitmapsTransposed(const Bitmap& bitmap1, const Bitmap& bitmap2) {
 }  // namespace
 
 TEST(Warp, IdenticalCameras) {
-  Camera source_camera;
-  source_camera.InitializeWithName("PINHOLE", 1, 100, 100);
-  Camera target_camera = source_camera;
+  const Camera camera = Camera::CreateFromModelName(1, "PINHOLE", 1, 100, 100);
   Bitmap source_image_gray;
   GenerateRandomBitmap(100, 100, false, &source_image_gray);
   Bitmap target_image_gray;
   WarpImageBetweenCameras(
-      source_camera, target_camera, source_image_gray, &target_image_gray);
+      camera, camera, source_image_gray, &target_image_gray);
   CheckBitmapsEqual(source_image_gray, target_image_gray);
   Bitmap source_image_rgb;
   GenerateRandomBitmap(100, 100, true, &source_image_rgb);
   Bitmap target_image_rgb;
-  WarpImageBetweenCameras(
-      source_camera, target_camera, source_image_rgb, &target_image_rgb);
+  WarpImageBetweenCameras(camera, camera, source_image_rgb, &target_image_rgb);
   CheckBitmapsEqual(source_image_rgb, target_image_rgb);
 }
 
 TEST(Warp, ShiftedCameras) {
-  Camera source_camera;
-  source_camera.InitializeWithName("PINHOLE", 1, 100, 100);
+  const Camera source_camera =
+      Camera::CreateFromModelName(1, "PINHOLE", 1, 100, 100);
   Camera target_camera = source_camera;
   target_camera.SetPrincipalPointX(0.0);
   Bitmap source_image_gray;
@@ -172,17 +169,14 @@ TEST(Warp, WarpImageWithHomographyTransposed) {
 }
 
 TEST(Warp, WarpImageWithHomographyBetweenCamerasIdentity) {
-  Camera source_camera;
-  source_camera.InitializeWithName("PINHOLE", 1, 100, 100);
-  Camera target_camera = source_camera;
-
+  const Camera camera = Camera::CreateFromModelName(1, "PINHOLE", 1, 100, 100);
   Bitmap source_image_gray;
   GenerateRandomBitmap(100, 100, false, &source_image_gray);
   Bitmap target_image_gray;
   target_image_gray.Allocate(100, 100, false);
   WarpImageWithHomographyBetweenCameras(Eigen::Matrix3d::Identity(),
-                                        source_camera,
-                                        target_camera,
+                                        camera,
+                                        camera,
                                         source_image_gray,
                                         &target_image_gray);
   CheckBitmapsEqual(source_image_gray, target_image_gray);
@@ -192,17 +186,15 @@ TEST(Warp, WarpImageWithHomographyBetweenCamerasIdentity) {
   Bitmap target_image_rgb;
   target_image_rgb.Allocate(100, 100, true);
   WarpImageWithHomographyBetweenCameras(Eigen::Matrix3d::Identity(),
-                                        source_camera,
-                                        target_camera,
+                                        camera,
+                                        camera,
                                         source_image_rgb,
                                         &target_image_rgb);
   CheckBitmapsEqual(source_image_rgb, target_image_rgb);
 }
 
 TEST(Warp, WarpImageWithHomographyBetweenCamerasTransposed) {
-  Camera source_camera;
-  source_camera.InitializeWithName("PINHOLE", 1, 100, 100);
-  Camera target_camera = source_camera;
+  const Camera camera = Camera::CreateFromModelName(1, "PINHOLE", 1, 100, 100);
 
   Eigen::Matrix3d H;
   H << 0, 1, 0, 1, 0, 0, 0, 0, 1;
@@ -212,7 +204,7 @@ TEST(Warp, WarpImageWithHomographyBetweenCamerasTransposed) {
   Bitmap target_image_gray;
   target_image_gray.Allocate(100, 100, false);
   WarpImageWithHomographyBetweenCameras(
-      H, source_camera, target_camera, source_image_gray, &target_image_gray);
+      H, camera, camera, source_image_gray, &target_image_gray);
   CheckBitmapsTransposed(source_image_gray, target_image_gray);
 
   Bitmap source_image_rgb;
@@ -220,7 +212,7 @@ TEST(Warp, WarpImageWithHomographyBetweenCamerasTransposed) {
   Bitmap target_image_rgb;
   target_image_rgb.Allocate(100, 100, true);
   WarpImageWithHomographyBetweenCameras(
-      H, source_camera, target_camera, source_image_rgb, &target_image_rgb);
+      H, camera, camera, source_image_rgb, &target_image_rgb);
   CheckBitmapsTransposed(source_image_rgb, target_image_rgb);
 }
 

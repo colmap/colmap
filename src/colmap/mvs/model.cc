@@ -71,12 +71,8 @@ void Model::ReadFromCOLMAP(const std::string& path,
         image.CamFromWorld().rotation.toRotationMatrix().cast<float>();
     const Eigen::Vector3f T = image.CamFromWorld().translation.cast<float>();
 
-    images.emplace_back(image_path,
-                        camera.Width(),
-                        camera.Height(),
-                        K.data(),
-                        R.data(),
-                        T.data());
+    images.emplace_back(
+        image_path, camera.width, camera.height, K.data(), R.data(), T.data());
     image_id_to_idx.emplace(image_id, i);
     image_names_.push_back(image.Name());
     image_name_to_idx_.emplace(image.Name(), i);

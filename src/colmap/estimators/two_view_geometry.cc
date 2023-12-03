@@ -314,7 +314,7 @@ TwoViewGeometry EstimateTwoViewGeometry(
   } else if (options.force_H_use) {
     return EstimateCalibratedHomography(
         camera1, points1, camera2, points2, matches, options);
-  } else if (camera1.HasPriorFocalLength() && camera2.HasPriorFocalLength()) {
+  } else if (camera1.has_prior_focal_length && camera2.has_prior_focal_length) {
     return EstimateCalibratedTwoViewGeometry(
         camera1, points1, camera2, points2, matches, options);
   } else {
@@ -573,18 +573,18 @@ bool DetectWatermark(const Camera& camera1,
 
   // Check if inlier points in border region and extract inlier matches.
 
-  const double diagonal1 = std::sqrt(camera1.Width() * camera1.Width() +
-                                     camera1.Height() * camera1.Height());
-  const double diagonal2 = std::sqrt(camera2.Width() * camera2.Width() +
-                                     camera2.Height() * camera2.Height());
+  const double diagonal1 = std::sqrt(camera1.width * camera1.width +
+                                     camera1.height * camera1.height);
+  const double diagonal2 = std::sqrt(camera2.width * camera2.width +
+                                     camera2.height * camera2.height);
   const double minx1 = options.watermark_border_size * diagonal1;
   const double miny1 = minx1;
-  const double maxx1 = camera1.Width() - minx1;
-  const double maxy1 = camera1.Height() - miny1;
+  const double maxx1 = camera1.width - minx1;
+  const double maxy1 = camera1.height - miny1;
   const double minx2 = options.watermark_border_size * diagonal2;
   const double miny2 = minx2;
-  const double maxx2 = camera2.Width() - minx2;
-  const double maxy2 = camera2.Height() - miny2;
+  const double maxx2 = camera2.width - minx2;
+  const double maxy2 = camera2.height - miny2;
 
   std::vector<Eigen::Vector2d> inlier_points1(num_inliers);
   std::vector<Eigen::Vector2d> inlier_points2(num_inliers);

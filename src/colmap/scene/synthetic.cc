@@ -132,15 +132,15 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
   std::vector<camera_t> camera_ids(options.num_cameras);
   for (int camera_idx = 0; camera_idx < options.num_cameras; ++camera_idx) {
     Camera camera;
-    camera.SetWidth(options.camera_width);
-    camera.SetHeight(options.camera_height);
-    camera.SetModelId(options.camera_model_id);
-    camera.SetParams(options.camera_params);
+    camera.width = options.camera_width;
+    camera.height = options.camera_height;
+    camera.model_id = options.camera_model_id;
+    camera.params = options.camera_params;
     CHECK(camera.VerifyParams());
     const camera_t camera_id =
         (database == nullptr) ? camera_idx + 1 : database->WriteCamera(camera);
     camera_ids[camera_idx] = camera_id;
-    camera.SetCameraId(camera_id);
+    camera.camera_id = camera_id;
     reconstruction->AddCamera(std::move(camera));
   }
 
@@ -185,7 +185,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
         point2D.xy += noise;
       }
       if (point2D.xy(0) >= 0 && point2D.xy(1) >= 0 &&
-          point2D.xy(0) <= camera.Width() && point2D.xy(1) <= camera.Height()) {
+          point2D.xy(0) <= camera.width && point2D.xy(1) <= camera.height) {
         point2D.point3D_id = point3D.first;
         points2D.push_back(point2D);
       }
@@ -194,9 +194,8 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
     // Synthesize uniform random 2D points without 3D points.
     for (int i = 0; i < options.num_points2D_without_point3D; ++i) {
       Point2D point2D;
-      point2D.xy =
-          Eigen::Vector2d(RandomUniformReal<double>(0, camera.Width()),
-                          RandomUniformReal<double>(0, camera.Height()));
+      point2D.xy = Eigen::Vector2d(RandomUniformReal<double>(0, camera.width),
+                                   RandomUniformReal<double>(0, camera.height));
       points2D.push_back(point2D);
     }
 

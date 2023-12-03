@@ -150,8 +150,8 @@ void Reconstruction::TearDown() {
   }
 }
 
-void Reconstruction::AddCamera(class Camera camera) {
-  const camera_t camera_id = camera.CameraId();
+void Reconstruction::AddCamera(struct Camera camera) {
+  const camera_t camera_id = camera.camera_id;
   CHECK(camera.VerifyParams());
   CHECK(cameras_.emplace(camera_id, std::move(camera)).second);
 }
@@ -769,15 +769,15 @@ bool Reconstruction::ExportNVM(const std::string& path,
 
   for (const auto image_id : reg_image_ids_) {
     const class Image& image = Image(image_id);
-    const class Camera& camera = Camera(image.CameraId());
+    const struct Camera& camera = Camera(image.CameraId());
 
     double k;
     if (skip_distortion ||
-        camera.ModelId() == SimplePinholeCameraModel::model_id ||
-        camera.ModelId() == PinholeCameraModel::model_id) {
+        camera.model_id == SimplePinholeCameraModel::model_id ||
+        camera.model_id == PinholeCameraModel::model_id) {
       k = 0.0;
-    } else if (camera.ModelId() == SimpleRadialCameraModel::model_id) {
-      k = -1 * camera.Params(SimpleRadialCameraModel::extra_params_idxs[0]);
+    } else if (camera.model_id == SimpleRadialCameraModel::model_id) {
+      k = -1 * camera.params[SimpleRadialCameraModel::extra_params_idxs[0]];
     } else {
       LOG(WARNING) << "NVM only supports `SIMPLE_RADIAL` "
                       "and pinhole camera models."
@@ -846,7 +846,7 @@ bool Reconstruction::ExportCam(const std::string& path,
   for (const auto image_id : reg_image_ids_) {
     std::string name, ext;
     const class Image& image = Image(image_id);
-    const class Camera& camera = Camera(image.CameraId());
+    const struct Camera& camera = Camera(image.CameraId());
 
     SplitFileExtension(image.Name(), &name, &ext);
     name = JoinPaths(path, name.append(".cam"));
@@ -859,16 +859,16 @@ bool Reconstruction::ExportCam(const std::string& path,
 
     double k1, k2;
     if (skip_distortion ||
-        camera.ModelId() == SimplePinholeCameraModel::model_id ||
-        camera.ModelId() == PinholeCameraModel::model_id) {
+        camera.model_id == SimplePinholeCameraModel::model_id ||
+        camera.model_id == PinholeCameraModel::model_id) {
       k1 = 0.0;
       k2 = 0.0;
-    } else if (camera.ModelId() == SimpleRadialCameraModel::model_id) {
-      k1 = camera.Params(SimpleRadialCameraModel::extra_params_idxs[0]);
+    } else if (camera.model_id == SimpleRadialCameraModel::model_id) {
+      k1 = camera.params[SimpleRadialCameraModel::extra_params_idxs[0]];
       k2 = 0.0;
-    } else if (camera.ModelId() == RadialCameraModel::model_id) {
-      k1 = camera.Params(RadialCameraModel::extra_params_idxs[0]);
-      k2 = camera.Params(RadialCameraModel::extra_params_idxs[1]);
+    } else if (camera.model_id == RadialCameraModel::model_id) {
+      k1 = camera.params[RadialCameraModel::extra_params_idxs[0]];
+      k2 = camera.params[RadialCameraModel::extra_params_idxs[1]];
     } else {
       LOG(WARNING) << "CAM only supports `SIMPLE_RADIAL`, `RADIAL`, "
                       "and pinhole camera models."
@@ -893,10 +893,10 @@ bool Reconstruction::ExportCam(const std::string& path,
     }
 
     double focal_length;
-    if (camera.Width() * fy < camera.Height() * fx) {
-      focal_length = fy / camera.Height();
+    if (camera.width * fy < camera.height * fx) {
+      focal_length = fy / camera.height;
     } else {
-      focal_length = fx / camera.Width();
+      focal_length = fx / camera.width;
     }
 
     const Eigen::Matrix3d R = image.CamFromWorld().rotation.toRotationMatrix();
@@ -907,8 +907,8 @@ bool Reconstruction::ExportCam(const std::string& path,
          << R(1, 2) << " " << R(2, 0) << " " << R(2, 1) << " " << R(2, 2)
          << std::endl;
     file << focal_length << " " << k1 << " " << k2 << " " << fy / fx << " "
-         << camera.PrincipalPointX() / camera.Width() << " "
-         << camera.PrincipalPointY() / camera.Height() << std::endl;
+         << camera.PrincipalPointX() / camera.width << " "
+         << camera.PrincipalPointY() / camera.height << std::endl;
   }
 
   return true;
@@ -944,28 +944,27 @@ bool Reconstruction::ExportRecon3D(const std::string& path,
   // Write image/camera info
   for (const auto image_id : reg_image_ids_) {
     const class Image& image = Image(image_id);
-    const class Camera& camera = Camera(image.CameraId());
+    const struct Camera& camera = Camera(image.CameraId());
 
     double k1, k2;
     if (skip_distortion ||
-        camera.ModelId() == SimplePinholeCameraModel::model_id ||
-        camera.ModelId() == PinholeCameraModel::model_id) {
+        camera.model_id == SimplePinholeCameraModel::model_id ||
+        camera.model_id == PinholeCameraModel::model_id) {
       k1 = 0.0;
       k2 = 0.0;
-    } else if (camera.ModelId() == SimpleRadialCameraModel::model_id) {
-      k1 = -1 * camera.Params(SimpleRadialCameraModel::extra_params_idxs[0]);
+    } else if (camera.model_id == SimpleRadialCameraModel::model_id) {
+      k1 = -1 * camera.params[SimpleRadialCameraModel::extra_params_idxs[0]];
       k2 = 0.0;
-    } else if (camera.ModelId() == RadialCameraModel::model_id) {
-      k1 = -1 * camera.Params(RadialCameraModel::extra_params_idxs[0]);
-      k2 = -1 * camera.Params(RadialCameraModel::extra_params_idxs[1]);
+    } else if (camera.model_id == RadialCameraModel::model_id) {
+      k1 = -1 * camera.params[RadialCameraModel::extra_params_idxs[0]];
+      k2 = -1 * camera.params[RadialCameraModel::extra_params_idxs[1]];
     } else {
       LOG(WARNING) << "Recon3D only supports `SIMPLE_RADIAL`, "
                       "`RADIAL`, and pinhole camera models.";
       return false;
     }
 
-    const double scale =
-        1.0 / (double)std::max(camera.Width(), camera.Height());
+    const double scale = 1.0 / (double)std::max(camera.width, camera.height);
     synth_file << scale * camera.MeanFocalLength() << " " << k1 << " " << k2
                << std::endl;
     synth_file << image.CamFromWorld().rotation.toRotationMatrix() << std::endl;
@@ -973,7 +972,7 @@ bool Reconstruction::ExportRecon3D(const std::string& path,
 
     image_id_to_idx_[image_id] = image_idx;
     image_list_file << image.Name() << std::endl
-                    << camera.Width() << " " << camera.Height() << std::endl;
+                    << camera.width << " " << camera.height << std::endl;
     image_map_file << image_idx << std::endl;
 
     image_idx += 1;
@@ -997,11 +996,11 @@ bool Reconstruction::ExportRecon3D(const std::string& path,
       // since VisualSfM does not support with multiple observations.
       if (image_ids.count(track_el.image_id) == 0) {
         const class Image& image = Image(track_el.image_id);
-        const class Camera& camera = Camera(image.CameraId());
+        const struct Camera& camera = Camera(image.CameraId());
         const Point2D& point2D = image.Point2D(track_el.point2D_idx);
 
         const double scale =
-            1.0 / (double)std::max(camera.Width(), camera.Height());
+            1.0 / (double)std::max(camera.width, camera.height);
 
         line << image_id_to_idx_[track_el.image_id] << " ";
         line << track_el.point2D_idx << " ";
@@ -1045,20 +1044,20 @@ bool Reconstruction::ExportBundler(const std::string& path,
 
   for (const image_t image_id : reg_image_ids_) {
     const class Image& image = Image(image_id);
-    const class Camera& camera = Camera(image.CameraId());
+    const struct Camera& camera = Camera(image.CameraId());
 
     double k1, k2;
     if (skip_distortion ||
-        camera.ModelId() == SimplePinholeCameraModel::model_id ||
-        camera.ModelId() == PinholeCameraModel::model_id) {
+        camera.model_id == SimplePinholeCameraModel::model_id ||
+        camera.model_id == PinholeCameraModel::model_id) {
       k1 = 0.0;
       k2 = 0.0;
-    } else if (camera.ModelId() == SimpleRadialCameraModel::model_id) {
-      k1 = camera.Params(SimpleRadialCameraModel::extra_params_idxs[0]);
+    } else if (camera.model_id == SimpleRadialCameraModel::model_id) {
+      k1 = camera.params[SimpleRadialCameraModel::extra_params_idxs[0]];
       k2 = 0.0;
-    } else if (camera.ModelId() == RadialCameraModel::model_id) {
-      k1 = camera.Params(RadialCameraModel::extra_params_idxs[0]);
-      k2 = camera.Params(RadialCameraModel::extra_params_idxs[1]);
+    } else if (camera.model_id == RadialCameraModel::model_id) {
+      k1 = camera.params[RadialCameraModel::extra_params_idxs[0]];
+      k2 = camera.params[RadialCameraModel::extra_params_idxs[1]];
     } else {
       LOG(WARNING) << "Bundler only supports `SIMPLE_RADIAL`, "
                       "`RADIAL`, and pinhole camera models."
@@ -1098,7 +1097,7 @@ bool Reconstruction::ExportBundler(const std::string& path,
 
     for (const auto& track_el : point3D.second.track.Elements()) {
       const class Image& image = Image(track_el.image_id);
-      const class Camera& camera = Camera(image.CameraId());
+      const struct Camera& camera = Camera(image.CameraId());
 
       // Bundler output assumes image coordinate system origin
       // in the lower left corner of the image with the center of
@@ -1434,7 +1433,7 @@ size_t Reconstruction::FilterPoints3DWithLargeReprojectionError(
 
     for (const auto& track_el : point3D.track.Elements()) {
       const class Image& image = Image(track_el.image_id);
-      const class Camera& camera = Camera(image.CameraId());
+      const struct Camera& camera = Camera(image.CameraId());
       const Point2D& point2D = image.Point2D(track_el.point2D_idx);
       const double squared_reproj_error = CalculateSquaredReprojectionError(
           point2D.xy, point3D.xyz, image.CamFromWorld(), camera);
@@ -1478,34 +1477,34 @@ void Reconstruction::ReadCamerasText(const std::string& path) {
 
     std::stringstream line_stream(line);
 
-    class Camera camera;
+    struct Camera camera;
 
     // ID
     std::getline(line_stream, item, ' ');
-    camera.SetCameraId(std::stoul(item));
+    camera.camera_id = std::stoul(item);
 
     // MODEL
     std::getline(line_stream, item, ' ');
-    camera.SetModelIdFromName(item);
+    camera.model_id = CameraModelNameToId(item);
 
     // WIDTH
     std::getline(line_stream, item, ' ');
-    camera.SetWidth(std::stoll(item));
+    camera.width = std::stoll(item);
 
     // HEIGHT
     std::getline(line_stream, item, ' ');
-    camera.SetHeight(std::stoll(item));
+    camera.height = std::stoll(item);
 
     // PARAMS
-    camera.Params().clear();
+    camera.params.reserve(CameraModelNumParams(camera.model_id));
     while (!line_stream.eof()) {
       std::getline(line_stream, item, ' ');
-      camera.Params().push_back(std::stold(item));
+      camera.params.push_back(std::stold(item));
     }
 
     CHECK(camera.VerifyParams());
 
-    cameras_.emplace(camera.CameraId(), camera);
+    cameras_.emplace(camera.camera_id, std::move(camera));
   }
 }
 
@@ -1697,14 +1696,16 @@ void Reconstruction::ReadCamerasBinary(const std::string& path) {
 
   const size_t num_cameras = ReadBinaryLittleEndian<uint64_t>(&file);
   for (size_t i = 0; i < num_cameras; ++i) {
-    class Camera camera;
-    camera.SetCameraId(ReadBinaryLittleEndian<camera_t>(&file));
-    camera.SetModelId(ReadBinaryLittleEndian<int>(&file));
-    camera.SetWidth(ReadBinaryLittleEndian<uint64_t>(&file));
-    camera.SetHeight(ReadBinaryLittleEndian<uint64_t>(&file));
-    ReadBinaryLittleEndian<double>(&file, &camera.Params());
+    struct Camera camera;
+    camera.camera_id = ReadBinaryLittleEndian<camera_t>(&file);
+    camera.model_id =
+        static_cast<CameraModelId>(ReadBinaryLittleEndian<int>(&file));
+    camera.width = ReadBinaryLittleEndian<uint64_t>(&file);
+    camera.height = ReadBinaryLittleEndian<uint64_t>(&file);
+    camera.params.resize(CameraModelNumParams(camera.model_id), 0.);
+    ReadBinaryLittleEndian<double>(&file, &camera.params);
     CHECK(camera.VerifyParams());
-    cameras_.emplace(camera.CameraId(), camera);
+    cameras_.emplace(camera.camera_id, std::move(camera));
   }
 }
 
@@ -1816,10 +1817,10 @@ void Reconstruction::WriteCamerasText(const std::string& path) const {
 
     line << camera.first << " ";
     line << camera.second.ModelName() << " ";
-    line << camera.second.Width() << " ";
-    line << camera.second.Height() << " ";
+    line << camera.second.width << " ";
+    line << camera.second.height << " ";
 
-    for (const double param : camera.second.Params()) {
+    for (const double param : camera.second.params) {
       line << param << " ";
     }
 
@@ -1938,10 +1939,11 @@ void Reconstruction::WriteCamerasBinary(const std::string& path) const {
 
   for (const auto& camera : cameras_) {
     WriteBinaryLittleEndian<camera_t>(&file, camera.first);
-    WriteBinaryLittleEndian<int>(&file, camera.second.ModelId());
-    WriteBinaryLittleEndian<uint64_t>(&file, camera.second.Width());
-    WriteBinaryLittleEndian<uint64_t>(&file, camera.second.Height());
-    for (const double param : camera.second.Params()) {
+    WriteBinaryLittleEndian<int>(&file,
+                                 static_cast<int>(camera.second.model_id));
+    WriteBinaryLittleEndian<uint64_t>(&file, camera.second.width);
+    WriteBinaryLittleEndian<uint64_t>(&file, camera.second.height);
+    for (const double param : camera.second.params) {
       WriteBinaryLittleEndian<double>(&file, param);
     }
   }

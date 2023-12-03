@@ -43,15 +43,13 @@ void GenerateReconstruction(const image_t num_images,
                             Reconstruction* reconstruction) {
   const size_t kNumPoints2D = 10;
 
-  Camera camera;
-  camera.SetCameraId(1);
-  camera.InitializeWithName("PINHOLE", 1, 1, 1);
+  Camera camera = Camera::CreateFromModelName(1, "PINHOLE", 1, 1, 1);
   reconstruction->AddCamera(camera);
 
   for (image_t image_id = 1; image_id <= num_images; ++image_id) {
     Image image;
     image.SetImageId(image_id);
-    image.SetCameraId(camera.CameraId());
+    image.SetCameraId(camera.camera_id);
     image.SetName("image" + std::to_string(image_id));
     image.SetPoints2D(
         std::vector<Eigen::Vector2d>(kNumPoints2D, Eigen::Vector2d::Zero()));
@@ -71,14 +69,13 @@ TEST(Reconstruction, Empty) {
 
 TEST(Reconstruction, AddCamera) {
   Reconstruction reconstruction;
-  Camera camera;
-  camera.SetCameraId(1);
-  camera.InitializeWithId(SimplePinholeCameraModel::model_id, 1, 1, 1);
+  Camera camera =
+      Camera::CreateFromModelId(1, SimplePinholeCameraModel::model_id, 1, 1, 1);
   reconstruction.AddCamera(camera);
-  EXPECT_TRUE(reconstruction.ExistsCamera(camera.CameraId()));
-  EXPECT_EQ(reconstruction.Camera(camera.CameraId()).CameraId(),
-            camera.CameraId());
-  EXPECT_EQ(reconstruction.Cameras().count(camera.CameraId()), 1);
+  EXPECT_TRUE(reconstruction.ExistsCamera(camera.camera_id));
+  EXPECT_EQ(reconstruction.Camera(camera.camera_id).camera_id,
+            camera.camera_id);
+  EXPECT_EQ(reconstruction.Cameras().count(camera.camera_id), 1);
   EXPECT_EQ(reconstruction.Cameras().size(), 1);
   EXPECT_EQ(reconstruction.NumCameras(), 1);
   EXPECT_EQ(reconstruction.NumImages(), 0);

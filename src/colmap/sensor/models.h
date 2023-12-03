@@ -77,7 +77,20 @@ namespace colmap {
 // the upper left pixel center has coordinate (0.5, 0.5) and the lower right
 // pixel center has the coordinate (width - 0.5, height - 0.5).
 
-static const int kInvalidCameraModelId = -1;
+enum class CameraModelId {
+  kInvalid = -1,
+  kSimplePinhole = 0,
+  kPinhole = 1,
+  kSimpleRadial = 2,
+  kRadial = 3,
+  kOpenCV = 4,
+  kOpenCVFisheye = 5,
+  kFullOpenCV = 6,
+  kFOV = 7,
+  kSimpleRadialFisheye = 8,
+  kRadialFisheye = 9,
+  kThinPrismFisheye = 10,
+};
 
 #ifndef CAMERA_MODEL_DEFINITIONS
 #define CAMERA_MODEL_DEFINITIONS(model_id_val,                                \
@@ -90,14 +103,14 @@ static const int kInvalidCameraModelId = -1;
   static constexpr size_t num_focal_params = num_focal_params_val;            \
   static constexpr size_t num_pp_params = num_pp_params_val;                  \
   static constexpr size_t num_extra_params = num_extra_params_val;            \
-  static constexpr int model_id = model_id_val;                               \
+  static constexpr CameraModelId model_id = model_id_val;                     \
   static const std::string model_name;                                        \
   static const std::string params_info;                                       \
   static const std::array<size_t, (num_focal_params_val)> focal_length_idxs;  \
   static const std::array<size_t, (num_pp_params_val)> principal_point_idxs;  \
   static const std::array<size_t, (num_extra_params_val)> extra_params_idxs;  \
                                                                               \
-  static inline int InitializeModelId() { return model_id_val; };             \
+  static inline CameraModelId InitializeModelId() { return model_id_val; };   \
   static inline std::string InitializeModelName() { return model_name_val; }; \
   static inline std::string InitializeParamsInfo();                           \
   static inline std::array<size_t, (num_focal_params_val)>                    \
@@ -190,7 +203,8 @@ struct BaseCameraModel {
 // See https://en.wikipedia.org/wiki/Pinhole_camera_model
 struct SimplePinholeCameraModel
     : public BaseCameraModel<SimplePinholeCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(0, "SIMPLE_PINHOLE", 1, 2, 0)
+  CAMERA_MODEL_DEFINITIONS(
+      CameraModelId::kSimplePinhole, "SIMPLE_PINHOLE", 1, 2, 0)
 };
 
 // Pinhole camera model.
@@ -203,7 +217,7 @@ struct SimplePinholeCameraModel
 //
 // See https://en.wikipedia.org/wiki/Pinhole_camera_model
 struct PinholeCameraModel : public BaseCameraModel<PinholeCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(1, "PINHOLE", 2, 2, 0)
+  CAMERA_MODEL_DEFINITIONS(CameraModelId::kPinhole, "PINHOLE", 2, 2, 0)
 };
 
 // Simple camera model with one focal length and one radial distortion
@@ -219,7 +233,8 @@ struct PinholeCameraModel : public BaseCameraModel<PinholeCameraModel> {
 //
 struct SimpleRadialCameraModel
     : public BaseCameraModel<SimpleRadialCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(2, "SIMPLE_RADIAL", 1, 2, 1)
+  CAMERA_MODEL_DEFINITIONS(
+      CameraModelId::kSimpleRadial, "SIMPLE_RADIAL", 1, 2, 1)
 };
 
 // Simple camera model with one focal length and two radial distortion
@@ -233,7 +248,7 @@ struct SimpleRadialCameraModel
 //    f, cx, cy, k1, k2
 //
 struct RadialCameraModel : public BaseCameraModel<RadialCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(3, "RADIAL", 1, 2, 2)
+  CAMERA_MODEL_DEFINITIONS(CameraModelId::kRadial, "RADIAL", 1, 2, 2)
 };
 
 // OpenCV camera model.
@@ -249,7 +264,7 @@ struct RadialCameraModel : public BaseCameraModel<RadialCameraModel> {
 // See
 // http://docs.opencv.org/modules/calib3d/doc/camera_calibration_and_3d_reconstruction.html
 struct OpenCVCameraModel : public BaseCameraModel<OpenCVCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(4, "OPENCV", 2, 2, 4)
+  CAMERA_MODEL_DEFINITIONS(CameraModelId::kOpenCV, "OPENCV", 2, 2, 4)
 };
 
 // OpenCV fish-eye camera model.
@@ -266,7 +281,8 @@ struct OpenCVCameraModel : public BaseCameraModel<OpenCVCameraModel> {
 // http://docs.opencv.org/modules/calib3d/doc/camera_calibration_and_3d_reconstruction.html
 struct OpenCVFisheyeCameraModel
     : public BaseCameraModel<OpenCVFisheyeCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(5, "OPENCV_FISHEYE", 2, 2, 4)
+  CAMERA_MODEL_DEFINITIONS(
+      CameraModelId::kOpenCVFisheye, "OPENCV_FISHEYE", 2, 2, 4)
 };
 
 // Full OpenCV camera model.
@@ -281,7 +297,7 @@ struct OpenCVFisheyeCameraModel
 // See
 // http://docs.opencv.org/modules/calib3d/doc/camera_calibration_and_3d_reconstruction.html
 struct FullOpenCVCameraModel : public BaseCameraModel<FullOpenCVCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(6, "FULL_OPENCV", 2, 2, 8)
+  CAMERA_MODEL_DEFINITIONS(CameraModelId::kFullOpenCV, "FULL_OPENCV", 2, 2, 8)
 };
 
 // FOV camera model.
@@ -299,7 +315,7 @@ struct FullOpenCVCameraModel : public BaseCameraModel<FullOpenCVCameraModel> {
 // Automatic calibration and removal of distortion from scenes of structured
 // environments. Machine vision and applications, 2001.
 struct FOVCameraModel : public BaseCameraModel<FOVCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(7, "FOV", 2, 2, 1)
+  CAMERA_MODEL_DEFINITIONS(CameraModelId::kFOV, "FOV", 2, 2, 1)
 
   template <typename T>
   static void Undistortion(const T* extra_params, T u, T v, T* du, T* dv);
@@ -317,7 +333,8 @@ struct FOVCameraModel : public BaseCameraModel<FOVCameraModel> {
 //
 struct SimpleRadialFisheyeCameraModel
     : public BaseCameraModel<SimpleRadialFisheyeCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(8, "SIMPLE_RADIAL_FISHEYE", 1, 2, 1)
+  CAMERA_MODEL_DEFINITIONS(
+      CameraModelId::kSimpleRadialFisheye, "SIMPLE_RADIAL_FISHEYE", 1, 2, 1)
 };
 
 // Simple camera model with one focal length and two radial distortion
@@ -332,7 +349,8 @@ struct SimpleRadialFisheyeCameraModel
 //
 struct RadialFisheyeCameraModel
     : public BaseCameraModel<RadialFisheyeCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(9, "RADIAL_FISHEYE", 1, 2, 2)
+  CAMERA_MODEL_DEFINITIONS(
+      CameraModelId::kRadialFisheye, "RADIAL_FISHEYE", 1, 2, 2)
 };
 
 // Camera model with radial and tangential distortion coefficients and
@@ -349,26 +367,27 @@ struct RadialFisheyeCameraModel
 //
 struct ThinPrismFisheyeCameraModel
     : public BaseCameraModel<ThinPrismFisheyeCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(10, "THIN_PRISM_FISHEYE", 2, 2, 8)
+  CAMERA_MODEL_DEFINITIONS(
+      CameraModelId::kThinPrismFisheye, "THIN_PRISM_FISHEYE", 2, 2, 8)
 };
 
 // Check whether camera model with given name or identifier exists.
 bool ExistsCameraModelWithName(const std::string& model_name);
-bool ExistsCameraModelWithId(int model_id);
+bool ExistsCameraModelWithId(CameraModelId model_id);
 
 // Convert camera name to unique camera model identifier.
 //
 // @param name         Unique name of camera model.
 //
 // @return             Unique identifier of camera model.
-int CameraModelNameToId(const std::string& model_name);
+CameraModelId CameraModelNameToId(const std::string& model_name);
 
 // Convert camera model identifier to unique camera model name.
 //
 // @param model_id     Unique identifier of camera model.
 //
 // @return             Unique name of camera model.
-std::string CameraModelIdToName(int model_id);
+const std::string& CameraModelIdToName(CameraModelId model_id);
 
 // Initialize camera parameters using given image properties.
 //
@@ -379,7 +398,7 @@ std::string CameraModelIdToName(int model_id);
 // @param focal_length  Focal length, equal for all focal length parameters.
 // @param width         Sensor width of the camera.
 // @param height        Sensor height of the camera.
-std::vector<double> CameraModelInitializeParams(int model_id,
+std::vector<double> CameraModelInitializeParams(CameraModelId model_id,
                                                 double focal_length,
                                                 size_t width,
                                                 size_t height);
@@ -387,24 +406,25 @@ std::vector<double> CameraModelInitializeParams(int model_id,
 // Get human-readable information about the parameter vector order.
 //
 // @param model_id     Unique identifier of camera model.
-std::string CameraModelParamsInfo(int model_id);
+const std::string& CameraModelParamsInfo(CameraModelId model_id);
 
 // Get the indices of the parameter groups in the parameter vector.
 //
 // @param model_id     Unique identifier of camera model.
-span<const size_t> CameraModelFocalLengthIdxs(int model_id);
-span<const size_t> CameraModelPrincipalPointIdxs(int model_id);
-span<const size_t> CameraModelExtraParamsIdxs(int model_id);
+span<const size_t> CameraModelFocalLengthIdxs(CameraModelId model_id);
+span<const size_t> CameraModelPrincipalPointIdxs(CameraModelId model_id);
+span<const size_t> CameraModelExtraParamsIdxs(CameraModelId model_id);
 
 // Get the total number of parameters of a camera model.
-size_t CameraModelNumParams(int model_id);
+size_t CameraModelNumParams(CameraModelId model_id);
 
 // Check whether parameters are valid, i.e. the parameter vector has
 // the correct dimensions that match the specified camera model.
 //
 // @param model_id      Unique identifier of camera model.
 // @param params        Array of camera parameters.
-bool CameraModelVerifyParams(int model_id, const std::vector<double>& params);
+bool CameraModelVerifyParams(CameraModelId model_id,
+                             const std::vector<double>& params);
 
 // Check whether camera has bogus parameters.
 //
@@ -417,7 +437,7 @@ bool CameraModelVerifyParams(int model_id, const std::vector<double>& params);
 // @param min_focal_length_ratio  Maximum ratio of focal length over
 //                                maximum sensor dimension.
 // @param max_extra_param         Maximum magnitude of each extra parameter.
-bool CameraModelHasBogusParams(int model_id,
+bool CameraModelHasBogusParams(CameraModelId model_id,
                                const std::vector<double>& params,
                                size_t width,
                                size_t height,
@@ -434,7 +454,7 @@ bool CameraModelHasBogusParams(int model_id,
 // @param params       Array of camera parameters.
 // @param u, v         Coordinates in camera system as (u, v, 1).
 // @param x, y         Output image coordinates in pixels.
-inline Eigen::Vector2d CameraModelImgFromCam(int model_id,
+inline Eigen::Vector2d CameraModelImgFromCam(CameraModelId model_id,
                                              const std::vector<double>& params,
                                              const Eigen::Vector3d& uvw);
 
@@ -447,7 +467,7 @@ inline Eigen::Vector2d CameraModelImgFromCam(int model_id,
 // @param xy            Image coordinates in pixels.
 //
 // @return              Output Coordinates in camera system as (u, v, w=1).
-inline Eigen::Vector3d CameraModelCamFromImg(int model_id,
+inline Eigen::Vector3d CameraModelCamFromImg(CameraModelId model_id,
                                              const std::vector<double>& params,
                                              const Eigen::Vector2d& xy);
 
@@ -459,7 +479,7 @@ inline Eigen::Vector3d CameraModelCamFromImg(int model_id,
 // @param threshold     Image space threshold in pixels.
 //
 // @return              Camera space threshold.
-inline double CameraModelCamFromImgThreshold(int model_id,
+inline double CameraModelCamFromImgThreshold(CameraModelId model_id,
                                              const std::vector<double>& params,
                                              double threshold);
 
@@ -1518,7 +1538,7 @@ void ThinPrismFisheyeCameraModel::Distortion(
 
 ////////////////////////////////////////////////////////////////////////////////
 
-Eigen::Vector2d CameraModelImgFromCam(const int model_id,
+Eigen::Vector2d CameraModelImgFromCam(const CameraModelId model_id,
                                       const std::vector<double>& params,
                                       const Eigen::Vector3d& uvw) {
   Eigen::Vector2d xy;
@@ -1536,7 +1556,7 @@ Eigen::Vector2d CameraModelImgFromCam(const int model_id,
   return xy;
 }
 
-Eigen::Vector3d CameraModelCamFromImg(const int model_id,
+Eigen::Vector3d CameraModelCamFromImg(const CameraModelId model_id,
                                       const std::vector<double>& params,
                                       const Eigen::Vector2d& xy) {
   Eigen::Vector3d uvw;
@@ -1554,7 +1574,7 @@ Eigen::Vector3d CameraModelCamFromImg(const int model_id,
   return uvw;
 }
 
-double CameraModelCamFromImgThreshold(const int model_id,
+double CameraModelCamFromImgThreshold(const CameraModelId model_id,
                                       const std::vector<double>& params,
                                       const double threshold) {
   switch (model_id) {

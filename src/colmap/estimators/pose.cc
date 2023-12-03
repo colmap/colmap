@@ -54,7 +54,7 @@ void EstimateAbsolutePoseKernel(const Camera& camera,
   // Scale the focal length by the given factor.
   Camera scaled_camera = camera;
   for (const size_t idx : camera.FocalLengthIdxs()) {
-    scaled_camera.Params(idx) *= focal_length_factor;
+    scaled_camera.params[idx] *= focal_length_factor;
   }
 
   // Normalize image coordinates with current camera hypothesis.
@@ -145,7 +145,7 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
   // Scale output camera with best estimated focal length.
   if (options.estimate_focal_length && *num_inliers > 0) {
     for (const size_t idx : camera->FocalLengthIdxs()) {
-      camera->Params(idx) *= focal_length_factor;
+      camera->params[idx] *= focal_length_factor;
     }
   }
 
@@ -217,7 +217,7 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
   const auto loss_function =
       std::make_unique<ceres::CauchyLoss>(options.loss_function_scale);
 
-  double* camera_params = camera->ParamsData();
+  double* camera_params = camera->params.data();
   double* rig_from_world_rotation = cam_from_world->rotation.coeffs().data();
   double* rig_from_world_translation = cam_from_world->translation.data();
 
@@ -233,7 +233,7 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
 
     ceres::CostFunction* cost_function = nullptr;
 
-    switch (camera->ModelId()) {
+    switch (camera->model_id) {
 #define CAMERA_MODEL_CASE(CameraModel)                               \
   case CameraModel::model_id:                                        \
     cost_function =                                                  \
@@ -258,7 +258,7 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
 
     // Camera parameterization.
     if (!options.refine_focal_length && !options.refine_extra_params) {
-      problem.SetParameterBlockConstant(camera->ParamsData());
+      problem.SetParameterBlockConstant(camera->params.data());
     } else {
       // Always set the principal point as fixed.
       std::vector<int> camera_params_const;
@@ -282,13 +282,13 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
                                    extra_params_idxs.end());
       }
 
-      if (camera_params_const.size() == camera->NumParams()) {
-        problem.SetParameterBlockConstant(camera->ParamsData());
+      if (camera_params_const.size() == camera->params.size()) {
+        problem.SetParameterBlockConstant(camera->params.data());
       } else {
-        SetSubsetManifold(static_cast<int>(camera->NumParams()),
+        SetSubsetManifold(static_cast<int>(camera->params.size()),
                           camera_params_const,
                           &problem,
-                          camera->ParamsData());
+                          camera->params.data());
       }
     }
   }

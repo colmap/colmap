@@ -368,8 +368,8 @@ void DatabaseImageViewerWidget::ShowImageWithId(const image_t image_id) {
       QString::number(image.CamFromWorld().translation.x()) + ", " +
       QString::number(image.CamFromWorld().translation.y()) + ", " +
       QString::number(image.CamFromWorld().translation.z()));
-  dimensions_item_->setText(QString::number(camera.Width()) + "x" +
-                            QString::number(camera.Height()));
+  dimensions_item_->setText(QString::number(camera.width) + "x" +
+                            QString::number(camera.height));
   num_points2D_item_->setText(QString::number(image.NumPoints2D()));
 
   std::vector<char> tri_mask(image.NumPoints2D());

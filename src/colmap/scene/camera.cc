@@ -35,41 +35,31 @@
 
 #include <iomanip>
 
-#include <Eigen/Geometry>
-
 namespace colmap {
 
-Camera::Camera()
-    : camera_id_(kInvalidCameraId),
-      model_id_(kInvalidCameraModelId),
-      width_(0),
-      height_(0),
-      prior_focal_length_(false) {}
-
-std::string Camera::ModelName() const { return CameraModelIdToName(model_id_); }
-
-void Camera::SetModelId(const int model_id) {
+Camera Camera::CreateFromModelId(camera_t camera_id,
+                                 const CameraModelId model_id,
+                                 const double focal_length,
+                                 const size_t width,
+                                 const size_t height) {
   CHECK(ExistsCameraModelWithId(model_id));
-  model_id_ = model_id;
-  params_.resize(CameraModelNumParams(model_id_), 0);
+  Camera camera;
+  camera.camera_id = camera_id;
+  camera.model_id = model_id;
+  camera.width = width;
+  camera.height = height;
+  camera.params =
+      CameraModelInitializeParams(model_id, focal_length, width, height);
+  return camera;
 }
 
-void Camera::SetModelIdFromName(const std::string& model_name) {
-  CHECK(ExistsCameraModelWithName(model_name));
-  model_id_ = CameraModelNameToId(model_name);
-  params_.resize(CameraModelNumParams(model_id_), 0);
-}
-
-span<const size_t> Camera::FocalLengthIdxs() const {
-  return CameraModelFocalLengthIdxs(model_id_);
-}
-
-span<const size_t> Camera::PrincipalPointIdxs() const {
-  return CameraModelPrincipalPointIdxs(model_id_);
-}
-
-span<const size_t> Camera::ExtraParamsIdxs() const {
-  return CameraModelExtraParamsIdxs(model_id_);
+Camera Camera::CreateFromModelName(camera_t camera_id,
+                                   const std::string& model_name,
+                                   const double focal_length,
+                                   const size_t width,
+                                   const size_t height) {
+  return CreateFromModelId(
+      camera_id, CameraModelNameToId(model_name), focal_length, width, height);
 }
 
 Eigen::Matrix3d Camera::CalibrationMatrix() const {
@@ -77,11 +67,11 @@ Eigen::Matrix3d Camera::CalibrationMatrix() const {
 
   const span<const size_t> idxs = FocalLengthIdxs();
   if (idxs.size() == 1) {
-    K(0, 0) = params_[idxs[0]];
-    K(1, 1) = params_[idxs[0]];
+    K(0, 0) = params[idxs[0]];
+    K(1, 1) = params[idxs[0]];
   } else if (idxs.size() == 2) {
-    K(0, 0) = params_[idxs[0]];
-    K(1, 1) = params_[idxs[1]];
+    K(0, 0) = params[idxs[0]];
+    K(1, 1) = params[idxs[1]];
   } else {
     LOG(FATAL)
         << "Camera model must either have 1 or 2 focal length parameters.";
@@ -93,156 +83,42 @@ Eigen::Matrix3d Camera::CalibrationMatrix() const {
   return K;
 }
 
-std::string Camera::ParamsInfo() const {
-  return CameraModelParamsInfo(model_id_);
-}
-
 double Camera::MeanFocalLength() const {
   const span<const size_t> focal_length_idxs = FocalLengthIdxs();
   double focal_length = 0;
   for (const auto idx : focal_length_idxs) {
-    focal_length += params_[idx];
+    focal_length += params[idx];
   }
   return focal_length / focal_length_idxs.size();
 }
 
-double Camera::FocalLength() const {
-  const span<const size_t> idxs = FocalLengthIdxs();
-  CHECK_EQ(idxs.size(), 1);
-  return params_[idxs[0]];
-}
-
-double Camera::FocalLengthX() const {
-  const span<const size_t> idxs = FocalLengthIdxs();
-  CHECK_EQ(idxs.size(), 2);
-  return params_[idxs[0]];
-}
-
-double Camera::FocalLengthY() const {
-  const span<const size_t> idxs = FocalLengthIdxs();
-  CHECK_EQ(idxs.size(), 2);
-  return params_[idxs[1]];
-}
-
-void Camera::SetFocalLength(const double focal_length) {
-  const span<const size_t> idxs = FocalLengthIdxs();
-  for (const size_t idx : idxs) {
-    params_[idx] = focal_length;
-  }
-}
-
-void Camera::SetFocalLengthX(const double focal_length_x) {
-  const span<const size_t> idxs = FocalLengthIdxs();
-  CHECK_EQ(idxs.size(), 2);
-  params_[idxs[0]] = focal_length_x;
-}
-
-void Camera::SetFocalLengthY(const double focal_length_y) {
-  const span<const size_t> idxs = FocalLengthIdxs();
-  CHECK_EQ(idxs.size(), 2);
-  params_[idxs[1]] = focal_length_y;
-}
-
-double Camera::PrincipalPointX() const {
-  const span<const size_t> idxs = PrincipalPointIdxs();
-  CHECK_EQ(idxs.size(), 2);
-  return params_[idxs[0]];
-}
-
-double Camera::PrincipalPointY() const {
-  const span<const size_t> idxs = PrincipalPointIdxs();
-  CHECK_EQ(idxs.size(), 2);
-  return params_[idxs[1]];
-}
-
-void Camera::SetPrincipalPointX(const double ppx) {
-  const span<const size_t> idxs = PrincipalPointIdxs();
-  CHECK_EQ(idxs.size(), 2);
-  params_[idxs[0]] = ppx;
-}
-
-void Camera::SetPrincipalPointY(const double ppy) {
-  const span<const size_t> idxs = PrincipalPointIdxs();
-  CHECK_EQ(idxs.size(), 2);
-  params_[idxs[1]] = ppy;
-}
-
-std::string Camera::ParamsToString() const { return VectorToCSV(params_); }
+std::string Camera::ParamsToString() const { return VectorToCSV(params); }
 
 bool Camera::SetParamsFromString(const std::string& string) {
-  const std::vector<double> new_camera_params = CSVToVector<double>(string);
-  if (!CameraModelVerifyParams(model_id_, new_camera_params)) {
+  std::vector<double> new_camera_params = CSVToVector<double>(string);
+  if (!CameraModelVerifyParams(model_id, new_camera_params)) {
     return false;
   }
-
-  params_ = new_camera_params;
+  params = std::move(new_camera_params);
   return true;
-}
-
-bool Camera::VerifyParams() const {
-  return CameraModelVerifyParams(model_id_, params_);
-}
-
-bool Camera::HasBogusParams(const double min_focal_length_ratio,
-                            const double max_focal_length_ratio,
-                            const double max_extra_param) const {
-  return CameraModelHasBogusParams(model_id_,
-                                   params_,
-                                   width_,
-                                   height_,
-                                   min_focal_length_ratio,
-                                   max_focal_length_ratio,
-                                   max_extra_param);
 }
 
 bool Camera::IsUndistorted() const {
   for (const size_t idx : ExtraParamsIdxs()) {
-    if (std::abs(params_[idx]) > 1e-8) {
+    if (std::abs(params[idx]) > 1e-8) {
       return false;
     }
   }
   return true;
 }
 
-void Camera::InitializeWithId(const int model_id,
-                              const double focal_length,
-                              const size_t width,
-                              const size_t height) {
-  CHECK(ExistsCameraModelWithId(model_id));
-  model_id_ = model_id;
-  width_ = width;
-  height_ = height;
-  params_ = CameraModelInitializeParams(model_id, focal_length, width, height);
-}
-
-void Camera::InitializeWithName(const std::string& model_name,
-                                const double focal_length,
-                                const size_t width,
-                                const size_t height) {
-  InitializeWithId(
-      CameraModelNameToId(model_name), focal_length, width, height);
-}
-
-Eigen::Vector2d Camera::CamFromImg(const Eigen::Vector2d& image_point) const {
-  return CameraModelCamFromImg(model_id_, params_, image_point).hnormalized();
-}
-
-double Camera::CamFromImgThreshold(const double threshold) const {
-  return CameraModelCamFromImgThreshold(model_id_, params_, threshold);
-}
-
-Eigen::Vector2d Camera::ImgFromCam(const Eigen::Vector2d& cam_point) const {
-  return CameraModelImgFromCam(model_id_, params_, cam_point.homogeneous());
-}
-
 void Camera::Rescale(const double scale) {
   CHECK_GT(scale, 0.0);
-  const double scale_x =
-      std::round(scale * width_) / static_cast<double>(width_);
+  const double scale_x = std::round(scale * width) / static_cast<double>(width);
   const double scale_y =
-      std::round(scale * height_) / static_cast<double>(height_);
-  width_ = static_cast<size_t>(std::round(scale * width_));
-  height_ = static_cast<size_t>(std::round(scale * height_));
+      std::round(scale * height) / static_cast<double>(height);
+  width = static_cast<size_t>(std::round(scale * width));
+  height = static_cast<size_t>(std::round(scale * height));
   SetPrincipalPointX(scale_x * PrincipalPointX());
   SetPrincipalPointY(scale_y * PrincipalPointY());
   if (FocalLengthIdxs().size() == 1) {
@@ -256,13 +132,13 @@ void Camera::Rescale(const double scale) {
   }
 }
 
-void Camera::Rescale(const size_t width, const size_t height) {
+void Camera::Rescale(const size_t new_width, const size_t new_height) {
   const double scale_x =
-      static_cast<double>(width) / static_cast<double>(width_);
+      static_cast<double>(new_width) / static_cast<double>(width);
   const double scale_y =
-      static_cast<double>(height) / static_cast<double>(height_);
-  width_ = width;
-  height_ = height;
+      static_cast<double>(new_height) / static_cast<double>(height);
+  width = new_width;
+  height = new_height;
   SetPrincipalPointX(scale_x * PrincipalPointX());
   SetPrincipalPointY(scale_y * PrincipalPointY());
   if (FocalLengthIdxs().size() == 1) {

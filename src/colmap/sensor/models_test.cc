@@ -117,7 +117,7 @@ void TestModel(const std::vector<double>& params) {
   EXPECT_FALSE(ExistsCameraModelWithName(CameraModel::model_name + "FOO"));
 
   EXPECT_TRUE(ExistsCameraModelWithId(CameraModel::model_id));
-  EXPECT_FALSE(ExistsCameraModelWithId(CameraModel::model_id + 123456789));
+  EXPECT_FALSE(ExistsCameraModelWithId(static_cast<CameraModelId>(123456789)));
 
   EXPECT_EQ(CameraModelNameToId(CameraModelIdToName(CameraModel::model_id)),
             CameraModel::model_id);

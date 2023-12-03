@@ -42,8 +42,8 @@ TEST(DatabaseCache, Empty) {
 
 TEST(DatabaseCache, Nominal) {
   Database database(Database::kInMemoryDatabasePath);
-  Camera camera;
-  camera.InitializeWithId(SimplePinholeCameraModel::model_id, 1, 1, 1);
+  const Camera camera = Camera::CreateFromModelId(
+      kInvalidCameraId, SimplePinholeCameraModel::model_id, 1, 1, 1);
   const camera_t camera_id = database.WriteCamera(camera);
   Image image1;
   image1.SetName("image1");
@@ -72,7 +72,7 @@ TEST(DatabaseCache, Nominal) {
   EXPECT_EQ(cache->NumCameras(), 1);
   EXPECT_EQ(cache->NumImages(), 2);
   EXPECT_TRUE(cache->ExistsCamera(camera_id));
-  EXPECT_EQ(cache->Camera(camera_id).ModelId(), camera.ModelId());
+  EXPECT_EQ(cache->Camera(camera_id).model_id, camera.model_id);
   EXPECT_TRUE(cache->ExistsImage(image_id1));
   EXPECT_TRUE(cache->ExistsImage(image_id2));
   EXPECT_EQ(cache->Image(image_id1).NumPoints2D(), 10);

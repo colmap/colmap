@@ -69,13 +69,13 @@ class DatabaseCache {
   inline size_t NumImages() const;
 
   // Get specific objects.
-  inline class Camera& Camera(camera_t camera_id);
-  inline const class Camera& Camera(camera_t camera_id) const;
+  inline struct Camera& Camera(camera_t camera_id);
+  inline const struct Camera& Camera(camera_t camera_id) const;
   inline class Image& Image(image_t image_id);
   inline const class Image& Image(image_t image_id) const;
 
   // Get all objects.
-  inline const std::unordered_map<camera_t, class Camera>& Cameras() const;
+  inline const std::unordered_map<camera_t, struct Camera>& Cameras() const;
   inline const std::unordered_map<image_t, class Image>& Images() const;
 
   // Check whether specific object exists.
@@ -92,7 +92,7 @@ class DatabaseCache {
  private:
   std::shared_ptr<class CorrespondenceGraph> correspondence_graph_;
 
-  std::unordered_map<camera_t, class Camera> cameras_;
+  std::unordered_map<camera_t, struct Camera> cameras_;
   std::unordered_map<image_t, class Image> images_;
 };
 
@@ -103,11 +103,11 @@ class DatabaseCache {
 size_t DatabaseCache::NumCameras() const { return cameras_.size(); }
 size_t DatabaseCache::NumImages() const { return images_.size(); }
 
-class Camera& DatabaseCache::Camera(const camera_t camera_id) {
+struct Camera& DatabaseCache::Camera(const camera_t camera_id) {
   return cameras_.at(camera_id);
 }
 
-const class Camera& DatabaseCache::Camera(const camera_t camera_id) const {
+const struct Camera& DatabaseCache::Camera(const camera_t camera_id) const {
   return cameras_.at(camera_id);
 }
 
@@ -119,7 +119,7 @@ const class Image& DatabaseCache::Image(const image_t image_id) const {
   return images_.at(image_id);
 }
 
-const std::unordered_map<camera_t, class Camera>& DatabaseCache::Cameras()
+const std::unordered_map<camera_t, struct Camera>& DatabaseCache::Cameras()
     const {
   return cameras_;
 }

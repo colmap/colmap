@@ -48,8 +48,8 @@ TEST(CalculateSquaredReprojectionError, Nominal) {
   const Eigen::Vector3d point2D_h = cam_from_world_mat * point3D.homogeneous();
   const Eigen::Vector2d point2D = point2D_h.hnormalized();
 
-  Camera camera;
-  camera.InitializeWithId(SimplePinholeCameraModel::model_id, 1, 0, 0);
+  Camera camera =
+      Camera::CreateFromModelId(1, SimplePinholeCameraModel::model_id, 1, 0, 0);
 
   EXPECT_NEAR(CalculateSquaredReprojectionError(
                   point2D, point3D, cam_from_world, camera),
@@ -76,8 +76,8 @@ TEST(CalculateAngularError, Nominal) {
   const Eigen::Matrix3x4d cam_from_world_mat = cam_from_world.ToMatrix();
 
   Camera camera;
-  camera.SetModelId(SimplePinholeCameraModel::model_id);
-  camera.Params() = {1, 0, 0};
+  camera.model_id = SimplePinholeCameraModel::model_id;
+  camera.params = {1, 0, 0};
 
   const double error1 = CalculateAngularError(Eigen::Vector2d(0, 0),
                                               Eigen::Vector3d(0, 0, 1),

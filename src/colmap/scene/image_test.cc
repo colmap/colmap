@@ -125,8 +125,8 @@ TEST(Image, NumVisiblePoints3D) {
   image.SetPoints2D(std::vector<Eigen::Vector2d>(10));
   image.SetNumObservations(10);
   Camera camera;
-  camera.SetWidth(10);
-  camera.SetHeight(10);
+  camera.width = 10;
+  camera.height = 10;
   image.SetUp(camera);
   EXPECT_EQ(image.NumVisiblePoints3D(), 0);
   image.IncrementCorrespondenceHasPoint3D(0);
@@ -153,8 +153,8 @@ TEST(Image, Point3DVisibilityScore) {
   image.SetPoints2D(points2D);
   image.SetNumObservations(16);
   Camera camera;
-  camera.SetWidth(4);
-  camera.SetHeight(4);
+  camera.width = 4;
+  camera.height = 4;
   image.SetUp(camera);
   Eigen::Matrix<size_t, Eigen::Dynamic, 1> scores(
       image.kNumPoint3DVisibilityPyramidLevels, 1);

@@ -37,7 +37,7 @@ namespace colmap {
 bool ImageReaderOptions::Check() const {
   CHECK_OPTION_GT(default_focal_length_factor, 0.0);
   CHECK_OPTION(ExistsCameraModelWithName(camera_model));
-  const int model_id = CameraModelNameToId(camera_model);
+  const CameraModelId model_id = CameraModelNameToId(camera_model);
   if (!camera_params.empty()) {
     CHECK_OPTION(
         CameraModelVerifyParams(model_id, CSVToVector<double>(camera_params)));
@@ -74,11 +74,13 @@ ImageReader::ImageReader(const ImageReaderOptions& options, Database* database)
     prev_camera_ = database->ReadCamera(options_.existing_camera_id);
   } else {
     // Set the manually specified camera parameters.
-    prev_camera_.SetCameraId(kInvalidCameraId);
-    prev_camera_.SetModelIdFromName(options_.camera_model);
+    prev_camera_.camera_id = kInvalidCameraId;
+    CHECK(ExistsCameraModelWithName(options_.camera_model));
+    prev_camera_.model_id = CameraModelNameToId(options_.camera_model);
+    prev_camera_.params.resize(CameraModelNumParams(prev_camera_.model_id), 0.);
     if (!options_.camera_params.empty()) {
       CHECK(prev_camera_.SetParamsFromString(options_.camera_params));
-      prev_camera_.SetPriorFocalLength(true);
+      prev_camera_.has_prior_focal_length = true;
     }
   }
 }
@@ -153,32 +155,32 @@ ImageReader::Status ImageReader::Next(Camera* camera,
   //////////////////////////////////////////////////////////////////////////////
 
   if (exists_image) {
-    const Camera current_camera = database_->ReadCamera(image->CameraId());
+    Camera current_camera = database_->ReadCamera(image->CameraId());
 
-    if (options_.single_camera && prev_camera_.CameraId() != kInvalidCameraId &&
-        (current_camera.Width() != prev_camera_.Width() ||
-         current_camera.Height() != prev_camera_.Height())) {
+    if (options_.single_camera && prev_camera_.camera_id != kInvalidCameraId &&
+        (current_camera.width != prev_camera_.width ||
+         current_camera.height != prev_camera_.height)) {
       return Status::CAMERA_SINGLE_DIM_ERROR;
     }
 
-    if (static_cast<size_t>(bitmap->Width()) != current_camera.Width() ||
-        static_cast<size_t>(bitmap->Height()) != current_camera.Height()) {
+    if (static_cast<size_t>(bitmap->Width()) != current_camera.width ||
+        static_cast<size_t>(bitmap->Height()) != current_camera.height) {
       return Status::CAMERA_EXIST_DIM_ERROR;
     }
 
-    prev_camera_ = current_camera;
+    prev_camera_ = std::move(current_camera);
 
   } else {
     //////////////////////////////////////////////////////////////////////////////
     // Check image dimensions.
     //////////////////////////////////////////////////////////////////////////////
 
-    if (prev_camera_.CameraId() != kInvalidCameraId &&
+    if (prev_camera_.camera_id != kInvalidCameraId &&
         ((options_.single_camera && !options_.single_camera_per_folder) ||
          (options_.single_camera_per_folder &&
           image_folder == prev_image_folder_)) &&
-        (prev_camera_.Width() != static_cast<size_t>(bitmap->Width()) ||
-         prev_camera_.Height() != static_cast<size_t>(bitmap->Height()))) {
+        (prev_camera_.width != static_cast<size_t>(bitmap->Width()) ||
+         prev_camera_.height != static_cast<size_t>(bitmap->Height()))) {
       return Status::CAMERA_SINGLE_DIM_ERROR;
     }
 
@@ -188,20 +190,20 @@ ImageReader::Status ImageReader::Next(Camera* camera,
     std::string camera_model;
     const bool valid_camera_model = bitmap->ExifCameraModel(&camera_model);
     if (camera_model_to_id_.count(camera_model) > 0) {
-      const Camera& cam =
+      Camera camera =
           database_->ReadCamera(camera_model_to_id_.at(camera_model));
-      if (cam.Width() != static_cast<size_t>(bitmap->Width()) ||
-          cam.Height() != static_cast<size_t>(bitmap->Height())) {
+      if (camera.width != static_cast<size_t>(bitmap->Width()) ||
+          camera.height != static_cast<size_t>(bitmap->Height())) {
         return Status::CAMERA_EXIST_DIM_ERROR;
       }
-      prev_camera_ = cam;
+      prev_camera_ = std::move(camera);
     }
 
     //////////////////////////////////////////////////////////////////////////////
     // Extract camera model and focal length
     //////////////////////////////////////////////////////////////////////////////
 
-    if (prev_camera_.CameraId() == kInvalidCameraId ||
+    if (prev_camera_.camera_id == kInvalidCameraId ||
         options_.single_camera_per_image ||
         (!options_.single_camera && !options_.single_camera_per_folder &&
          static_cast<camera_t>(options_.existing_camera_id) ==
@@ -212,34 +214,36 @@ ImageReader::Status ImageReader::Next(Camera* camera,
       if (options_.camera_params.empty()) {
         // Extract focal length.
         double focal_length = 0.0;
+        bool has_focal_length = false;
         if (bitmap->ExifFocalLength(&focal_length)) {
-          prev_camera_.SetPriorFocalLength(true);
+          has_focal_length = true;
         } else {
           focal_length = options_.default_focal_length_factor *
                          std::max(bitmap->Width(), bitmap->Height());
-          prev_camera_.SetPriorFocalLength(false);
         }
 
-        prev_camera_.InitializeWithId(prev_camera_.ModelId(),
-                                      focal_length,
-                                      bitmap->Width(),
-                                      bitmap->Height());
+        prev_camera_ = Camera::CreateFromModelId(prev_camera_.camera_id,
+                                                 prev_camera_.model_id,
+                                                 focal_length,
+                                                 bitmap->Width(),
+                                                 bitmap->Height());
+        prev_camera_.has_prior_focal_length = has_focal_length;
       }
 
-      prev_camera_.SetWidth(static_cast<size_t>(bitmap->Width()));
-      prev_camera_.SetHeight(static_cast<size_t>(bitmap->Height()));
+      prev_camera_.width = static_cast<size_t>(bitmap->Width());
+      prev_camera_.height = static_cast<size_t>(bitmap->Height());
 
       if (!prev_camera_.VerifyParams()) {
         return Status::CAMERA_PARAM_ERROR;
       }
 
-      prev_camera_.SetCameraId(database_->WriteCamera(prev_camera_));
+      prev_camera_.camera_id = database_->WriteCamera(prev_camera_);
       if (valid_camera_model) {
-        camera_model_to_id_[camera_model] = prev_camera_.CameraId();
+        camera_model_to_id_[camera_model] = prev_camera_.camera_id;
       }
     }
 
-    image->SetCameraId(prev_camera_.CameraId());
+    image->SetCameraId(prev_camera_.camera_id);
 
     //////////////////////////////////////////////////////////////////////////////
     // Extract GPS data.

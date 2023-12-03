@@ -356,7 +356,7 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
   double* cam_from_world_rotation =
       image.CamFromWorld().rotation.coeffs().data();
   double* cam_from_world_translation = image.CamFromWorld().translation.data();
-  double* camera_params = camera.ParamsData();
+  double* camera_params = camera.params.data();
 
   const bool constant_cam_pose =
       !options_.refine_extrinsics || config_.HasConstantCamPose(image_id);
@@ -377,7 +377,7 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
     ceres::CostFunction* cost_function = nullptr;
 
     if (constant_cam_pose) {
-      switch (camera.ModelId()) {
+      switch (camera.model_id) {
 #define CAMERA_MODEL_CASE(CameraModel)                                        \
   case CameraModel::model_id:                                                 \
     cost_function = ReprojErrorConstantPoseCostFunction<CameraModel>::Create( \
@@ -392,7 +392,7 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
       problem_->AddResidualBlock(
           cost_function, loss_function, point3D.xyz.data(), camera_params);
     } else {
-      switch (camera.ModelId()) {
+      switch (camera.model_id) {
 #define CAMERA_MODEL_CASE(CameraModel)                                        \
   case CameraModel::model_id:                                                 \
     cost_function = ReprojErrorCostFunction<CameraModel>::Create(point2D.xy); \
@@ -467,7 +467,7 @@ void BundleAdjuster::AddPointToProblem(const point3D_t point3D_id,
 
     ceres::CostFunction* cost_function = nullptr;
 
-    switch (camera.ModelId()) {
+    switch (camera.model_id) {
 #define CAMERA_MODEL_CASE(CameraModel)                                        \
   case CameraModel::model_id:                                                 \
     cost_function = ReprojErrorConstantPoseCostFunction<CameraModel>::Create( \
@@ -479,7 +479,7 @@ void BundleAdjuster::AddPointToProblem(const point3D_t point3D_id,
 #undef CAMERA_MODEL_CASE
     }
     problem_->AddResidualBlock(
-        cost_function, loss_function, point3D.xyz.data(), camera.ParamsData());
+        cost_function, loss_function, point3D.xyz.data(), camera.params.data());
   }
 }
 
@@ -491,7 +491,7 @@ void BundleAdjuster::ParameterizeCameras(Reconstruction* reconstruction) {
     Camera& camera = reconstruction->Camera(camera_id);
 
     if (constant_camera || config_.HasConstantCamIntrinsics(camera_id)) {
-      problem_->SetParameterBlockConstant(camera.ParamsData());
+      problem_->SetParameterBlockConstant(camera.params.data());
       continue;
     } else {
       std::vector<int> const_camera_params;
@@ -513,10 +513,10 @@ void BundleAdjuster::ParameterizeCameras(Reconstruction* reconstruction) {
       }
 
       if (const_camera_params.size() > 0) {
-        SetSubsetManifold(static_cast<int>(camera.NumParams()),
+        SetSubsetManifold(static_cast<int>(camera.params.size()),
                           const_camera_params,
                           problem_.get(),
-                          camera.ParamsData());
+                          camera.params.data());
       }
     }
   }
@@ -667,7 +667,7 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
   const bool constant_cam_pose = config_.HasConstantCamPose(image_id);
   const bool constant_cam_position = config_.HasConstantCamPositions(image_id);
 
-  double* camera_params = camera.ParamsData();
+  double* camera_params = camera.params.data();
   double* cam_from_rig_rotation = nullptr;
   double* cam_from_rig_translation = nullptr;
   double* rig_from_world_rotation = nullptr;
@@ -725,7 +725,7 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
 
     if (camera_rig == nullptr) {
       if (constant_cam_pose) {
-        switch (camera.ModelId()) {
+        switch (camera.model_id) {
 #define CAMERA_MODEL_CASE(CameraModel)                                        \
   case CameraModel::model_id:                                                 \
     cost_function = ReprojErrorConstantPoseCostFunction<CameraModel>::Create( \
@@ -740,7 +740,7 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
         problem_->AddResidualBlock(
             cost_function, loss_function, point3D.xyz.data(), camera_params);
       } else {
-        switch (camera.ModelId()) {
+        switch (camera.model_id) {
 #define CAMERA_MODEL_CASE(CameraModel)                                        \
   case CameraModel::model_id:                                                 \
     cost_function = ReprojErrorCostFunction<CameraModel>::Create(point2D.xy); \
@@ -759,7 +759,7 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
                                    camera_params);
       }
     } else {
-      switch (camera.ModelId()) {
+      switch (camera.model_id) {
 #define CAMERA_MODEL_CASE(CameraModel)                               \
   case CameraModel::model_id:                                        \
     cost_function =                                                  \
@@ -842,7 +842,7 @@ void RigBundleAdjuster::AddPointToProblem(const point3D_t point3D_id,
 
     ceres::CostFunction* cost_function = nullptr;
 
-    switch (camera.ModelId()) {
+    switch (camera.model_id) {
 #define CAMERA_MODEL_CASE(CameraModel)                                        \
   case CameraModel::model_id:                                                 \
     cost_function = ReprojErrorConstantPoseCostFunction<CameraModel>::Create( \
@@ -850,7 +850,7 @@ void RigBundleAdjuster::AddPointToProblem(const point3D_t point3D_id,
     problem_->AddResidualBlock(cost_function,                                 \
                                loss_function,                                 \
                                point3D.xyz.data(),                            \
-                               camera.ParamsData());                          \
+                               camera.params.data());                         \
     break;
 
       CAMERA_MODEL_SWITCH_CASES

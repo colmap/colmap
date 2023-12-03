@@ -116,46 +116,45 @@ TEST(Database, SwapImagePair) {
 TEST(Database, Camera) {
   Database database(Database::kInMemoryDatabasePath);
   EXPECT_EQ(database.NumCameras(), 0);
-  Camera camera;
-  camera.InitializeWithName("SIMPLE_PINHOLE", 1.0, 1, 1);
-  camera.SetCameraId(database.WriteCamera(camera));
+  Camera camera = Camera::CreateFromModelName(
+      kInvalidCameraId, "SIMPLE_PINHOLE", 1.0, 1, 1);
+  camera.camera_id = database.WriteCamera(camera);
   EXPECT_EQ(database.NumCameras(), 1);
-  EXPECT_TRUE(database.ExistsCamera(camera.CameraId()));
-  EXPECT_EQ(database.ReadCamera(camera.CameraId()).CameraId(),
-            camera.CameraId());
-  EXPECT_EQ(database.ReadCamera(camera.CameraId()).ModelId(), camera.ModelId());
-  EXPECT_EQ(database.ReadCamera(camera.CameraId()).FocalLength(),
+  EXPECT_TRUE(database.ExistsCamera(camera.camera_id));
+  EXPECT_EQ(database.ReadCamera(camera.camera_id).camera_id, camera.camera_id);
+  EXPECT_EQ(database.ReadCamera(camera.camera_id).model_id, camera.model_id);
+  EXPECT_EQ(database.ReadCamera(camera.camera_id).FocalLength(),
             camera.FocalLength());
-  EXPECT_EQ(database.ReadCamera(camera.CameraId()).PrincipalPointX(),
+  EXPECT_EQ(database.ReadCamera(camera.camera_id).PrincipalPointX(),
             camera.PrincipalPointX());
-  EXPECT_EQ(database.ReadCamera(camera.CameraId()).PrincipalPointY(),
+  EXPECT_EQ(database.ReadCamera(camera.camera_id).PrincipalPointY(),
             camera.PrincipalPointY());
   camera.SetFocalLength(2.0);
   database.UpdateCamera(camera);
-  EXPECT_EQ(database.ReadCamera(camera.CameraId()).FocalLength(),
+  EXPECT_EQ(database.ReadCamera(camera.camera_id).FocalLength(),
             camera.FocalLength());
   Camera camera2 = camera;
-  camera2.SetCameraId(camera.CameraId() + 1);
+  camera2.camera_id = camera.camera_id + 1;
   database.WriteCamera(camera2, true);
   EXPECT_EQ(database.NumCameras(), 2);
-  EXPECT_TRUE(database.ExistsCamera(camera.CameraId()));
-  EXPECT_TRUE(database.ExistsCamera(camera2.CameraId()));
+  EXPECT_TRUE(database.ExistsCamera(camera.camera_id));
+  EXPECT_TRUE(database.ExistsCamera(camera2.camera_id));
   EXPECT_EQ(database.ReadAllCameras().size(), 2);
-  EXPECT_EQ(database.ReadAllCameras()[0].CameraId(), camera.CameraId());
-  EXPECT_EQ(database.ReadAllCameras()[1].CameraId(), camera2.CameraId());
+  EXPECT_EQ(database.ReadAllCameras()[0].camera_id, camera.camera_id);
+  EXPECT_EQ(database.ReadAllCameras()[1].camera_id, camera2.camera_id);
   database.ClearCameras();
   EXPECT_EQ(database.NumCameras(), 0);
 }
 
 TEST(Database, Image) {
   Database database(Database::kInMemoryDatabasePath);
-  Camera camera;
-  camera.InitializeWithName("SIMPLE_PINHOLE", 1.0, 1, 1);
-  camera.SetCameraId(database.WriteCamera(camera));
+  Camera camera = Camera::CreateFromModelName(
+      kInvalidCameraId, "SIMPLE_PINHOLE", 1.0, 1, 1);
+  camera.camera_id = database.WriteCamera(camera);
   EXPECT_EQ(database.NumImages(), 0);
   Image image;
   image.SetName("test");
-  image.SetCameraId(camera.CameraId());
+  image.SetCameraId(camera.camera_id);
   image.CamFromWorldPrior() = Rigid3d(Eigen::Quaterniond(0.1, 0.2, 0.3, 0.4),
                                       Eigen::Vector3d(0.1, 0.2, 0.3));
   image.SetImageId(database.WriteImage(image));
@@ -192,10 +191,10 @@ TEST(Database, Image) {
 TEST(Database, Keypoints) {
   Database database(Database::kInMemoryDatabasePath);
   Camera camera;
-  camera.SetCameraId(database.WriteCamera(camera));
+  camera.camera_id = database.WriteCamera(camera);
   Image image;
   image.SetName("test");
-  image.SetCameraId(camera.CameraId());
+  image.SetCameraId(camera.camera_id);
   image.SetImageId(database.WriteImage(image));
   EXPECT_EQ(database.NumKeypoints(), 0);
   EXPECT_EQ(database.NumKeypointsForImage(image.ImageId()), 0);
@@ -231,10 +230,10 @@ TEST(Database, Keypoints) {
 TEST(Database, Descriptors) {
   Database database(Database::kInMemoryDatabasePath);
   Camera camera;
-  camera.SetCameraId(database.WriteCamera(camera));
+  camera.camera_id = database.WriteCamera(camera);
   Image image;
   image.SetName("test");
-  image.SetCameraId(camera.CameraId());
+  image.SetCameraId(camera.camera_id);
   image.SetImageId(database.WriteImage(image));
   EXPECT_EQ(database.NumDescriptors(), 0);
   EXPECT_EQ(database.NumDescriptorsForImage(image.ImageId()), 0);
@@ -383,13 +382,13 @@ TEST(Database, Merge) {
   Database database1(Database::kInMemoryDatabasePath);
   Database database2(Database::kInMemoryDatabasePath);
 
-  Camera camera;
-  camera.InitializeWithName("SIMPLE_PINHOLE", 1.0, 1, 1);
-  camera.SetCameraId(database1.WriteCamera(camera));
-  camera.SetCameraId(database2.WriteCamera(camera));
+  Camera camera = Camera::CreateFromModelName(
+      kInvalidCameraId, "SIMPLE_PINHOLE", 1.0, 1, 1);
+  camera.camera_id = database1.WriteCamera(camera);
+  camera.camera_id = database2.WriteCamera(camera);
 
   Image image;
-  image.SetCameraId(camera.CameraId());
+  image.SetCameraId(camera.camera_id);
   image.CamFromWorldPrior() = Rigid3d(Eigen::Quaterniond(0.1, 0.2, 0.3, 0.4),
                                       Eigen::Vector3d(0.1, 0.2, 0.3));
 
