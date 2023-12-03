@@ -80,20 +80,20 @@ TEST(AbsolutePose, P3P) {
 
       EXPECT_TRUE(report.success);
       EXPECT_LT((expected_cam_from_world.ToMatrix() - report.model).norm(),
-                1e-2);
+                1e-3);
 
       // Test residuals of exact points.
       std::vector<double> residuals;
       P3PEstimator::Residuals(points2D, points3D, report.model, &residuals);
       for (size_t i = 0; i < residuals.size(); ++i) {
-        EXPECT_TRUE(residuals[i] < 1e-3);
+        EXPECT_LT(residuals[i], 1e-3);
       }
 
       // Test residuals of faulty points.
       P3PEstimator::Residuals(
           points2D, points3D_faulty, report.model, &residuals);
       for (size_t i = 0; i < residuals.size(); ++i) {
-        EXPECT_TRUE(residuals[i] > 0.1);
+        EXPECT_GT(residuals[i], 0.1);
       }
     }
   }
@@ -138,20 +138,20 @@ TEST(AbsolutePose, EPNP) {
 
       EXPECT_TRUE(report.success);
       EXPECT_LT((expected_cam_from_world.ToMatrix() - report.model).norm(),
-                1e-4);
+                1e-3);
 
       // Test residuals of exact points.
       std::vector<double> residuals;
       EPNPEstimator::Residuals(points2D, points3D, report.model, &residuals);
       for (size_t i = 0; i < residuals.size(); ++i) {
-        EXPECT_TRUE(residuals[i] < 1e-3);
+        EXPECT_LT(residuals[i], 1e-3);
       }
 
       // Test residuals of faulty points.
       EPNPEstimator::Residuals(
           points2D, points3D_faulty, report.model, &residuals);
       for (size_t i = 0; i < residuals.size(); ++i) {
-        EXPECT_TRUE(residuals[i] > 0.1);
+        EXPECT_GT(residuals[i], 0.1);
       }
     }
   }

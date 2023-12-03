@@ -64,6 +64,7 @@ COLMAP_ADD_LIBRARY(
         colmap_optim
         Eigen3::Eigen
         Ceres::ceres
+        PoseLib::PoseLib
 )
 
 COLMAP_ADD_TEST(

@@ -1,4 +1,4 @@
-set(FOLDER_NAME "lib")
+set(FOLDER_NAME "thirdparty")
 
 # Only show moderate warnings for external library code.
 if(IS_MSVC)
@@ -37,10 +37,19 @@ endif()
 
 set(CLANG_TIDY_EXE_TEMP ${CLANG_TIDY_EXE})
 set(CLANG_TIDY_EXE "")
+
 add_subdirectory(LSD)
 add_subdirectory(PoissonRecon)
 if(GPU_ENABLED)
     add_subdirectory(SiftGPU)
 endif()
 add_subdirectory(VLFeat)
+
+include(FetchContent)
+FetchContent_Declare(PoseLib
+  GIT_REPOSITORY    https://github.com/PoseLib/PoseLib.git
+  GIT_TAG           c23af0c51924e3337f7bb193bb72899ec6dd4d3d
+)
+FetchContent_MakeAvailable(PoseLib)
+
 set(CLANG_TIDY_EXE ${CLANG_TIDY_EXE_TEMP})
