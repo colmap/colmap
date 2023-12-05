@@ -152,6 +152,12 @@ void PatchMatch::Check() const {
     CHECK_EQ(ref_image.GetWidth(), ref_normal_map.GetWidth());
     CHECK_EQ(ref_image.GetHeight(), ref_normal_map.GetHeight());
   }
+
+// #ifdef LIDAR_MVS_ENABLED
+//   if (options_.enable_lidar_cost){
+//     CHECK_NOTNULL(problem_.depth_maps_lidar);
+//   }
+// #endif
 }
 
 void PatchMatch::Run() {
@@ -373,7 +379,53 @@ void PatchMatchController::ReadProblems() {
       for (size_t i = 0; i < eff_max_num_src_images; ++i) {
         problem.src_image_idxs.push_back(src_images[i].first);
       }
-    } else {
+    } else if (problem_config.src_image_names.size() == 2 &&
+               problem_config.src_image_names[0] == "__auto_tri__") {
+      // Use maximum number of overlapping images as source images. Overlapping
+      // will be sorted based on the number of shared points to the reference
+      // image and the top ranked images are selected. Note that images are only
+      // selected if some points have a sufficient triangulation angle.
+
+
+      if (triangulation_angles.empty()) {
+        const float kTriangulationAnglePercentile = 75;
+        triangulation_angles =
+            model.ComputeTriangulationAngles(kTriangulationAnglePercentile);
+      }
+
+      const size_t max_num_src_images =
+          std::stoll(problem_config.src_image_names[1]);
+
+      const auto& overlapping_triangulation_angles =
+          triangulation_angles.at(problem.ref_image_idx);
+
+      std::vector<std::pair<int, float>> src_images;
+      src_images.reserve(model.images.size() - 1);
+
+      for (const auto& angle : overlapping_triangulation_angles) {
+        //std::cout << "idx: " << angle.first << ", angle: " << angle.second << ", min_angle: " <<min_triangulation_angle_rad << std::endl;
+
+        if (angle.second >= min_triangulation_angle_rad) {
+            src_images.emplace_back(angle.first, angle.second);
+        }
+      }
+
+      const size_t eff_max_num_src_images =
+          std::min(src_images.size(), max_num_src_images);
+
+      std::partial_sort(src_images.begin(),
+                        src_images.begin() + eff_max_num_src_images,
+                        src_images.end(),
+                        [](const std::pair<int, float>& image1,
+                           const std::pair<int, float>& image2) {
+                          return image1.second > image2.second;
+                        });
+
+      problem.src_image_idxs.reserve(eff_max_num_src_images);
+      for (size_t i = 0; i < eff_max_num_src_images; ++i) {
+        problem.src_image_idxs.push_back(src_images[i].first);
+      }
+    }else {
       problem.src_image_idxs.reserve(problem_config.src_image_names.size());
       for (const auto& src_image_name : problem_config.src_image_names) {
         problem.src_image_idxs.push_back(model.GetImageIdx(src_image_name));
@@ -492,6 +544,11 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
       std::string image_path = workspace_->GetBitmapPath(image_idx);
       std::string depth_path = workspace_->GetDepthMapPath(image_idx);
       std::string normal_path = workspace_->GetNormalMapPath(image_idx);
+
+      // std::cout << "image_path: " << image_path << std::endl;
+      // std::cout << "depth_path: " << depth_path << std::endl;
+      // std::cout << "normal_path: " << normal_path << std::endl;
+      // std::cout << "geom_consitency" << options.geom_consistency << std::endl;
 
       if (!ExistsFile(image_path) ||
           (options.geom_consistency && !ExistsFile(depth_path)) ||

@@ -387,6 +387,29 @@ struct LocalRefImage {
   const cudaTextureObject_t ref_image_texture_;
 };
 
+// #ifdef LIDAR_MVS_ENABLED
+// __device__ inline float ComputeNearbyDepthCost(
+//     const float* nearby_depth,
+//     const int num_nearby_depth,
+//     const int int row, const int col,
+//     const int width,
+//     const float depth,
+//     const float max_cost) {
+
+//     float cost = FLT_MAX;
+//     for (int i=0; i < num_nearby_depth; i++)
+//     {
+//       const float nearby_depth = nearby_depth[(row * width + col)*num_nearby_depth + i]
+//       diff = abs(depth - nearby_depth);
+//       #diff = diff * diff;
+//       cost = min(cost, diff);
+//     }
+//     return min(max_cost, cost));
+// }
+
+// #endif
+
+
 // The return values is 1 - NCC, so the range is [0, 2], the smaller the
 // value, the better the color consistency.
 template <int kWindowSize, int kWindowStep>
@@ -871,12 +894,18 @@ __global__ void SweepFromTopToBottom(
     GpuMat<float> cost_map, GpuMat<float> depth_map, GpuMat<float> normal_map,
     GpuMat<uint8_t> consistency_mask, GpuMat<float> sel_prob_map,
     const GpuMat<float> prev_sel_prob_map,
+#ifdef _MVS_ENABLED
+    GpuMat<float> depth_cost_map,
+    GpuMat<float> nearby_depth_map,
+    const int num_nearby_depth,
+#endif
     const cudaTextureObject_t ref_image_texture,
     const GpuMat<float> ref_sum_image,
     const GpuMat<float> ref_squared_sum_image,
     const cudaTextureObject_t src_images_texture,
     const cudaTextureObject_t src_depth_maps_texture,
-    const cudaTextureObject_t poses_texture, const SweepOptions options) {
+    const cudaTextureObject_t poses_texture, const SweepOptions options
+    ) {
   const int col = blockDim.x * blockIdx.x + threadIdx.x;
 
   // Probability for boundary pixels.
@@ -1073,6 +1102,12 @@ __global__ void SweepFromTopToBottom(
         }
       }
     }
+// #ifdef LIDAR_MVS_ENABLED
+//     for (int i = 1; i < kNumCosts; ++i) {
+//       lcc_computer.depth = depth[i]
+//       costs += options.lidar_consistency_regularizer * lcc_computer.Compute()
+//     }
+// #endif
 
     // Find the parameters of the minimum cost.
     const int min_cost_idx = FindMinCost<kNumCosts>(costs);
@@ -1542,6 +1577,40 @@ void PatchMatchCuda::InitSourceImages() {
         texture_desc, max_width, max_height, problem_.src_image_idxs.size(),
         src_depth_maps_host_data.data());
   }
+
+#ifdef LIDAR_MVS_ENABLED
+  if (options_.enable_lidar_cost) {
+    const float kDefaultValue = 0.0f;
+    std::vector<float> lidar_depth_maps_host_data(
+        static_cast<size_t>(max_width * max_height *
+                            problem_.src_image_idxs.size()),
+        kDefaultValue);
+    for (size_t i = 0; i < problem_.src_image_idxs.size(); ++i) {
+      const DepthMap& lidar_depth_map =
+          problem_.lidar_depth_maps->at(problem_.src_image_idxs[i]);
+      float* dest =
+          lidar_depth_maps_host_data.data() + max_width * max_height * i;
+      for (size_t r = 0; r < lidar_depth_map.GetHeight(); ++r) {
+        memcpy(dest, lidar_depth_map.GetPtr() + r * lidar_depth_map.GetWidth(),
+               lidar_depth_map.GetWidth() * sizeof(float));
+        dest += max_width;
+      }
+    }
+
+    // Create source depth maps texture.
+    cudaTextureDesc texture_desc;
+    memset(&texture_desc, 0, sizeof(texture_desc));
+    texture_desc.addressMode[0] = cudaAddressModeBorder;
+    texture_desc.addressMode[1] = cudaAddressModeBorder;
+    texture_desc.addressMode[2] = cudaAddressModeBorder;
+    texture_desc.filterMode = cudaFilterModePoint;
+    texture_desc.readMode = cudaReadModeElementType;
+    texture_desc.normalizedCoords = false;
+    lidar_depth_maps_texture_ = CudaArrayLayeredTexture<float>::FromHostArray(
+        texture_desc, max_width, max_height, problem_.src_image_idxs.size(),
+        lidar_depth_maps_host_data.data());
+  }
+#endif
 }
 
 void PatchMatchCuda::InitTransforms() {
@@ -1781,6 +1850,150 @@ void PatchMatchCuda::Rotate() {
   // Recompute Cuda configuration for rotated reference image.
   ComputeCudaConfig();
 }
+
+
+// #ifdef LIDAR_MVS_ENABLED
+// template <int kWindowSize, int kWindowStep>
+// struct LidarConsistencyCostComputer {
+//   const static int kWindowRadius = kWindowSize / 2;
+
+//   __device__ LidarConsistencyCostComputer(
+//       const cudaTextureObject_t ref_depth_map_texture,
+//       const cudaTextureObject_t ref_lidar_depth_map_texture)
+//       : ref_depth_map_texture_(ref_image_texture),
+//         ref_lidar_depth_map_texture_(src_images_texture),
+//         bilateral_weight_computer_(sigma_spatial, sigma_color) {}
+
+//   // Maximum photo consistency cost as 1 - min(NCC).
+//   const float kMaxCost = 2.0f;
+
+//   // Precomputed sum of raw and squared image intensities.
+//   float local_ref_sum = 0.0f;
+//   float local_ref_squared_sum = 0.0f;
+
+//   // Index of source image.
+//   int src_image_idx = -1;
+
+//   // Center position of patch in reference image.
+//   int row = -1;
+//   int col = -1;
+
+//   // Depth and normal for which to warp patch.
+//   float depth = 0.0f;
+//   const float* normal = nullptr;
+
+//   __device__ inline void Read(const int row) {
+//     local_ref_image.Read(row);
+//     __syncthreads();
+//   }
+
+//   __device__ inline float Compute() const {
+//     float tform[9];
+//     ComposeHomography(poses_texture_, src_image_idx, row, col, depth, normal,
+//                       tform);
+
+//     float tform_step[8];
+//     for (int i = 0; i < 8; ++i) {
+//       tform_step[i] = kWindowStep * tform[i];
+//     }
+
+//     const int thread_id = threadIdx.x;
+//     const int row_start = row - kWindowRadius;
+//     const int col_start = col - kWindowRadius;
+
+//     float col_src = tform[0] * col_start + tform[1] * row_start + tform[2];
+//     float row_src = tform[3] * col_start + tform[4] * row_start + tform[5];
+//     float z = tform[6] * col_start + tform[7] * row_start + tform[8];
+//     float base_col_src = col_src;
+//     float base_row_src = row_src;
+//     float base_z = z;
+
+//     int ref_image_idx = THREADS_PER_BLOCK - kWindowRadius + thread_id;
+//     int ref_image_base_idx = ref_image_idx;
+
+//     const float ref_center_color =
+//         local_ref_image
+//             .data[ref_image_idx + kWindowRadius * 3 * THREADS_PER_BLOCK +
+//                   kWindowRadius];
+//     const float ref_color_sum = local_ref_sum;
+//     const float ref_color_squared_sum = local_ref_squared_sum;
+//     float src_color_sum = 0.0f;
+//     float src_color_squared_sum = 0.0f;
+//     float src_ref_color_sum = 0.0f;
+//     float bilateral_weight_sum = 0.0f;
+
+//     for (int row = -kWindowRadius; row <= kWindowRadius; row += kWindowStep) {
+//       for (int col = -kWindowRadius; col <= kWindowRadius; col += kWindowStep) {
+//         const float inv_z = 1.0f / z;
+//         const float norm_col_src = inv_z * col_src + 0.5f;
+//         const float norm_row_src = inv_z * row_src + 0.5f;
+//         const float ref_color = local_ref_image.data[ref_image_idx];
+//         const float src_color = tex2DLayered<float>(
+//             src_images_texture_, norm_col_src, norm_row_src, src_image_idx);
+
+//         const float bilateral_weight = bilateral_weight_computer_.Compute(
+//             row, col, ref_center_color, ref_color);
+
+//         const float bilateral_weight_src = bilateral_weight * src_color;
+
+//         src_color_sum += bilateral_weight_src;
+//         src_color_squared_sum += bilateral_weight_src * src_color;
+//         src_ref_color_sum += bilateral_weight_src * ref_color;
+//         bilateral_weight_sum += bilateral_weight;
+
+//         ref_image_idx += kWindowStep;
+
+//         // Accumulate warped source coordinates per row to reduce numerical
+//         // errors. Note that this is necessary since coordinates usually are in
+//         // the order of 1000s as opposed to the color values which are
+//         // normalized to the range [0, 1].
+//         col_src += tform_step[0];
+//         row_src += tform_step[3];
+//         z += tform_step[6];
+//       }
+
+//       ref_image_base_idx += kWindowStep * 3 * THREADS_PER_BLOCK;
+//       ref_image_idx = ref_image_base_idx;
+
+//       base_col_src += tform_step[1];
+//       base_row_src += tform_step[4];
+//       base_z += tform_step[7];
+
+//       col_src = base_col_src;
+//       row_src = base_row_src;
+//       z = base_z;
+//     }
+
+//     const float inv_bilateral_weight_sum = 1.0f / bilateral_weight_sum;
+//     src_color_sum *= inv_bilateral_weight_sum;
+//     src_color_squared_sum *= inv_bilateral_weight_sum;
+//     src_ref_color_sum *= inv_bilateral_weight_sum;
+
+//     const float ref_color_var =
+//         ref_color_squared_sum - ref_color_sum * ref_color_sum;
+//     const float src_color_var =
+//         src_color_squared_sum - src_color_sum * src_color_sum;
+
+//     // Based on Jensen's Inequality for convex functions, the variance
+//     // should always be larger than 0. Do not make this threshold smaller.
+//     constexpr float kMinVar = 1e-5f;
+//     if (ref_color_var < kMinVar || src_color_var < kMinVar) {
+//       return kMaxCost;
+//     } else {
+//       const float src_ref_color_covar =
+//           src_ref_color_sum - ref_color_sum * src_color_sum;
+//       const float src_ref_color_var = sqrt(ref_color_var * src_color_var);
+//       return max(0.0f,
+//                  min(kMaxCost, 1.0f - src_ref_color_covar / src_ref_color_var));
+//     }
+//   }
+
+//  private:
+//   const cudaTextureObject_t ref_depth_map_texture_;
+//   const cudaTextureObject_t ref_lidar_depth_map_texture_;
+//   const BilateralWeightComputer bilateral_weight_computer_;
+// };
+// #endif
 
 }  // namespace mvs
 }  // namespace colmap

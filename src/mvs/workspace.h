@@ -73,7 +73,8 @@ class Workspace {
 
   inline const Options& GetOptions() const { return options_; }
 
-  inline const Model& GetModel() const { return model_; }
+  inline const Model& GetModel() const
+  { return model_; }
 
   virtual const Bitmap& GetBitmap(const int image_idx);
   virtual const DepthMap& GetDepthMap(const int image_idx);

@@ -131,6 +131,9 @@ def main():
     plt.figure()
     plt.imshow(depth_map)
     plt.title("depth map")
+    plt.show()
+    plt.savefig('depth.png')
+
 
     # Visualize the normal map.
     plt.figure()
@@ -138,6 +141,7 @@ def main():
     plt.title("normal map")
 
     plt.show()
+    plt.savefig('test.png')
 
 
 if __name__ == "__main__":

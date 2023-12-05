@@ -92,6 +92,12 @@ void Model::ReadFromCOLMAP(const std::string& path,
     }
     points.push_back(point);
   }
+
+  std::cout << "Number of points: " << points.size() << std::endl;
+
+#ifdef LIDAR_MVS_ENABLED
+  ComputeLiDARDepthMaps();
+#endif
 }
 
 void Model::ReadFromPMVS(const std::string& path) {
@@ -173,15 +179,81 @@ const std::vector<std::vector<int>>& Model::GetMaxOverlappingImagesFromPMVS()
   return pmvs_vis_dat_;
 }
 
-std::vector<std::pair<float, float>> Model::ComputeDepthRanges() const {
+#ifdef LIDAR_MVS_ENABLED
+void Model::ComputeLiDARDepthMaps()
+{
+  std::vector<std::vector<float>> depths(images.size());
+  std::vector<std::vector<Eigen::Vector3f>> depth_points(images.size());
+  for (const auto& point : points) {
+    const Eigen::Vector3f X(point.x, point.y, point.z);
+    for (const auto& image_idx : point.track) {
+      const auto& image = images.at(image_idx);
+      Eigen::Vector3f vec = Eigen::Map<const Eigen::Matrix3f>(&image.GetK()[0]).transpose() * (Eigen::Map<const Eigen::Matrix3f>(&image.GetR()[0]).transpose()*X + Eigen::Map<const Eigen::Vector3f>(&image.GetT()[0]));
+      const float depth=vec[2];
+      const float width = (float)image.GetWidth();
+      const float height = (float)image.GetHeight();
+      vec[0] = vec[0] / vec[2];
+      vec[1] = vec[1] / vec[2];
+
+      // if (depth > 0) std::cout << width << ", " << height <<  ", " << vec << std::endl;
+      if (depth > 0 && vec[0]>=0 && vec[0] < width && vec[1]>=0 && vec[1]<height) {
+        depths[image_idx].push_back(depth);
+        depth_points[image_idx].push_back(vec);
+      }
+    }
+  }
+
+  std::vector<std::pair<float, float>> depth_ranges(images.size());
+  for (size_t image_idx = 0; image_idx < depth_ranges.size(); ++image_idx) {
+    auto& depth_range = depth_ranges[image_idx];
+    auto& image_depths = depths[image_idx];
+
+    if (image_depths.empty()) {
+      depth_range.first = -1.0f;
+      depth_range.second = -1.0f;
+      continue;
+    }
+
+    std::sort(image_depths.begin(), image_depths.end());
+
+    const float kMinPercentile = 0.01f;
+    const float kMaxPercentile = 0.99f;
+    depth_range.first = image_depths[image_depths.size() * kMinPercentile];
+    depth_range.second = image_depths[image_depths.size() * kMaxPercentile];
+
+    const float kStretchRatio = 0.25f;
+    depth_range.first *= (1.0f - kStretchRatio);
+    depth_range.second *= (1.0f + kStretchRatio);
+  }
+
+  for (size_t image_idx=0; image_idx < images.size(); ++image_idx){
+    size_t w = images[image_idx].GetWidth();
+    size_t h = images[image_idx].GetHeight();
+    float depth_min = depth_ranges[image_idx].first;
+    float depth_max = depth_ranges[image_idx].second;
+    lidar_depth_maps.emplace_back(w, h, depth_min, depth_max);
+    const auto& vecs = depth_points.at(image_idx);
+    auto& lidar_depth_map = lidar_depth_maps[image_idx];
+    std::cout << image_idx << ", " << lidar_depth_map.GetWidth() << ", " << lidar_depth_map.GetHeight() << ", " << depth_min << ", " << depth_max << ", " << vecs.size() << std::endl;
+    for (const auto& vec : vecs)
+    {
+      lidar_depth_map.Set((size_t)vec[1], (size_t)vec[0], vec[2]);
+    }
+  }
+}
+#endif
+
+
+std::vector<std::pair<float, float>> Model::ComputeDepthRanges() const
+{
   std::vector<std::vector<float>> depths(images.size());
   for (const auto& point : points) {
     const Eigen::Vector3f X(point.x, point.y, point.z);
     for (const auto& image_idx : point.track) {
       const auto& image = images.at(image_idx);
       const float depth =
-          Eigen::Map<const Eigen::Vector3f>(&image.GetR()[6]).dot(X) +
-          image.GetT()[2];
+           Eigen::Map<const Eigen::Vector3f>(&image.GetR()[6]).dot(X) +
+           image.GetT()[2];
       if (depth > 0) {
         depths[image_idx].push_back(depth);
       }
@@ -210,6 +282,7 @@ std::vector<std::pair<float, float>> Model::ComputeDepthRanges() const {
     const float kStretchRatio = 0.25f;
     depth_range.first *= (1.0f - kStretchRatio);
     depth_range.second *= (1.0f + kStretchRatio);
+
   }
 
   return depth_ranges;
@@ -231,6 +304,40 @@ std::vector<std::map<int, int>> Model::ComputeSharedPoints() const {
   }
   return shared_points;
 }
+
+// std::vector<std::map<int, float>> Model::ComputeTriangulationAnglesAll(
+//     const float percentile) const {
+//   std::vector<Eigen::Vector3d> proj_centers(images.size());
+//   for (size_t image_idx = 0; image_idx < images.size(); ++image_idx) {
+//     const auto& image = images[image_idx];
+//     Eigen::Vector3f C;
+//     ComputeProjectionCenter(image.GetR(), image.GetT(), C.data());
+//     proj_centers[image_idx] = C.cast<double>();
+//   }
+
+//   std::vector<std::map<int, std::vector<float>>> all_triangulation_angles(
+//       images.size());
+//   for (size_t image_idx1 = 0; image_idx1 < images.size(); ++image_idx1) {
+//     for (size_t image_idx2 = image_idx1+1; image_idx2<images.size(); ++image_idx2){
+//       const float angle = CalculateTriangulationAngle(
+//           proj_centers.at(image_idx1), proj_centers.at(image_idx2),
+//           Eigen::Vector3d(point.x, point.y, point.z));
+//       all_triangulation_angles.at(image_idx1)[image_idx2].push_back(angle);
+//       all_triangulation_angles.at(image_idx2)[image_idx1].push_back(angle);
+//     }
+//   }
+//   std::vector<std::map<int, float>> triangulation_angles(images.size());
+//   for (size_t image_idx = 0; image_idx < all_triangulation_angles.size();
+//        ++image_idx) {
+//     const auto& overlapping_images = all_triangulation_angles[image_idx];
+//     for (const auto& image : overlapping_images) {
+//       triangulation_angles[image_idx].emplace(
+//           image.first, Percentile(image.second, percentile));
+//     }
+//   }
+
+//   return triangulation_angles;
+// }
 
 std::vector<std::map<int, float>> Model::ComputeTriangulationAngles(
     const float percentile) const {

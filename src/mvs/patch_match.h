@@ -139,6 +139,10 @@ struct PatchMatchOptions {
 
   // Whether to write the consistency graph.
   bool write_consistency_graph = false;
+  
+#ifdef LIDAR_MVS_ENABLED
+  bool enable_lidar_cost = false;
+#endif
 
   void Print() const;
   bool Check() const {
@@ -194,6 +198,10 @@ class PatchMatch {
 
     // Print the configuration to stdout.
     void Print() const;
+
+#ifdef LIDAR_MVS_ENABLED
+    std::vector<DepthMap>* lidar_depth_maps = nullptr;
+#endif
   };
 
   PatchMatch(const PatchMatchOptions& options, const Problem& problem);
@@ -215,6 +223,10 @@ class PatchMatch {
   const PatchMatchOptions options_;
   const Problem problem_;
   std::unique_ptr<PatchMatchCuda> patch_match_cuda_;
+
+#ifdef LIDAR_MVS_ENABLED
+  void CreateLidarDepthMaps();
+#endif
 };
 
 // This thread processes all problems in a workspace. A workspace has the

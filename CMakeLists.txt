@@ -65,6 +65,11 @@ option(PROFILING_ENABLED "Whether to enable google-perftools linker flags" OFF)
 option(CCACHE_ENABLED "Whether to enable compiler caching, if available" ON)
 option(CGAL_ENABLED "Whether to enable the CGAL library" ON)
 option(BOOST_STATIC "Whether to enable static boost library linker flags" ON)
+option(LIDAR_MVS_ENABLED "Whether to enable LIDAR aided MVS (yao)" OFF)
+
+if (LIDAR_MVS_ENABLED)
+    add_definitions("-DLIDAR_MVS_ENABLED")
+endif()
 
 if(TESTS_ENABLED)
     enable_testing()

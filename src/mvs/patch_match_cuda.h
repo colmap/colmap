@@ -100,6 +100,9 @@ class PatchMatchCuda {
   std::unique_ptr<CudaArrayLayeredTexture<uint8_t>> ref_image_texture_;
   std::unique_ptr<CudaArrayLayeredTexture<uint8_t>> src_images_texture_;
   std::unique_ptr<CudaArrayLayeredTexture<float>> src_depth_maps_texture_;
+#ifdef LIDAR_MVS_ENABLED
+  std::unique_ptr<CudaArrayLayeredTexture<float>> lidar_depth_maps_texture_;
+#endif
 
   // Relative poses from rotated versions of reference image to source images
   // corresponding to _rotationInHalfPi:
@@ -135,6 +138,12 @@ class PatchMatchCuda {
   // Shared memory is too small to hold local state for each thread,
   // so this is workspace memory in global memory.
   std::unique_ptr<GpuMat<float>> global_workspace_;
+
+  #ifdef LIDAR_MVS_ENABLED
+  float* nearby_depth;
+  int num_nearby_depth;
+  void InitNearbyDepth();
+  #endif
 };
 
 }  // namespace mvs
