@@ -31,6 +31,7 @@
 
 #include "colmap/geometry/sim3.h"
 #include "colmap/math/random.h"
+#include "colmap/util/eigen_alignment.h"
 
 #include <Eigen/Core>
 #include <gtest/gtest.h>

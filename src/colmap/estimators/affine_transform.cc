@@ -29,6 +29,7 @@
 
 #include "colmap/estimators/affine_transform.h"
 
+#include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 
 #include <Eigen/SVD>

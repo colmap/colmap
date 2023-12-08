@@ -34,6 +34,7 @@
 #include "colmap/scene/database.h"
 #include "colmap/scene/image.h"
 #include "colmap/sensor/models.h"
+#include "colmap/util/eigen_alignment.h"
 #include "colmap/util/types.h"
 
 #include <memory>

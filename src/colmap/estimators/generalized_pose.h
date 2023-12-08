@@ -33,6 +33,7 @@
 #include "colmap/geometry/rigid3.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/scene/camera.h"
+#include "colmap/util/eigen_alignment.h"
 
 #include <vector>
 

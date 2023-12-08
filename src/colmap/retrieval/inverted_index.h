@@ -31,6 +31,7 @@
 
 #include "colmap/math/random.h"
 #include "colmap/retrieval/inverted_file.h"
+#include "colmap/util/eigen_alignment.h"
 
 #include <algorithm>
 #include <bitset>

@@ -37,6 +37,7 @@
 #include "colmap/mvs/normal_map.h"
 #include "colmap/mvs/workspace.h"
 #include "colmap/util/cache.h"
+#include "colmap/util/eigen_alignment.h"
 #include "colmap/util/ply.h"
 #include "colmap/util/threading.h"
 

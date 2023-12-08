@@ -31,6 +31,7 @@
 
 #include "colmap/geometry/rigid3.h"
 #include "colmap/scene/camera.h"
+#include "colmap/util/eigen_alignment.h"
 
 #include <limits>
 #include <vector>
