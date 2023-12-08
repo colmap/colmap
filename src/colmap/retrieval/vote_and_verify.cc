@@ -32,6 +32,7 @@
 #include "colmap/estimators/affine_transform.h"
 #include "colmap/math/math.h"
 #include "colmap/optim/ransac.h"
+#include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 
 #include <array>

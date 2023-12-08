@@ -29,6 +29,7 @@
 
 #include "colmap/mvs/fusion.h"
 
+#include "colmap/util/eigen_alignment.h"
 #include "colmap/util/misc.h"
 
 #include <Eigen/Geometry>

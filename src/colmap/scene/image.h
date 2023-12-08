@@ -34,6 +34,7 @@
 #include "colmap/scene/camera.h"
 #include "colmap/scene/point2d.h"
 #include "colmap/scene/visibility_pyramid.h"
+#include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/types.h"
 

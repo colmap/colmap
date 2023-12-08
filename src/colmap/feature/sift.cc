@@ -43,6 +43,8 @@
 #include <GL/glew.h>
 #endif  // COLMAP_GUI_ENABLED
 #endif  // COLMAP_GPU_ENABLED
+#include "colmap/util/eigen_alignment.h"
+
 #include "thirdparty/VLFeat/covdet.h"
 #include "thirdparty/VLFeat/sift.h"
 

@@ -31,6 +31,7 @@
 
 #include "colmap/scene/camera_rig.h"
 #include "colmap/scene/reconstruction.h"
+#include "colmap/util/eigen_alignment.h"
 
 #include <memory>
 #include <unordered_set>

@@ -30,6 +30,7 @@
 #include "colmap/geometry/triangulation.h"
 
 #include "colmap/geometry/rigid3.h"
+#include "colmap/util/eigen_alignment.h"
 
 #include <Eigen/Core>
 #include <gtest/gtest.h>

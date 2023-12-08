@@ -29,6 +29,7 @@
 
 #include "colmap/image/warp.h"
 
+#include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 
 #include "thirdparty/VLFeat/imopv.h"

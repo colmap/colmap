@@ -36,6 +36,7 @@
 #include "colmap/scene/point2d.h"
 #include "colmap/scene/point3d.h"
 #include "colmap/scene/track.h"
+#include "colmap/util/eigen_alignment.h"
 #include "colmap/util/types.h"
 
 #include <memory>

@@ -39,6 +39,7 @@
 #include "colmap/optim/support_measurement.h"
 #include "colmap/scene/camera.h"
 #include "colmap/sensor/models.h"
+#include "colmap/util/eigen_alignment.h"
 #include "colmap/util/misc.h"
 
 #include <Eigen/Core>

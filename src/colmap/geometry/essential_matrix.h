@@ -30,6 +30,7 @@
 #pragma once
 
 #include "colmap/geometry/rigid3.h"
+#include "colmap/util/eigen_alignment.h"
 #include "colmap/util/types.h"
 
 #include <vector>

@@ -31,6 +31,7 @@
 
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/pose.h"
+#include "colmap/util/eigen_alignment.h"
 
 #include <Eigen/Dense>
 

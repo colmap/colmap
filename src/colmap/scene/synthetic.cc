@@ -33,6 +33,7 @@
 #include "colmap/geometry/pose.h"
 #include "colmap/math/random.h"
 #include "colmap/scene/projection.h"
+#include "colmap/util/eigen_alignment.h"
 
 #include <Eigen/Geometry>
 

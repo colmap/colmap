@@ -33,6 +33,7 @@
 #include "colmap/optim/loransac.h"
 #include "colmap/scene/camera.h"
 #include "colmap/sensor/models.h"
+#include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/threading.h"
 #include "colmap/util/types.h"

@@ -31,6 +31,8 @@
 #define BOOST_TEST_MODULE "retrieval/geometry"
 #include "colmap/retrieval/geometry.h"
 
+#include "colmap/util/eigen_alignment.h"
+
 #include <iostream>
 
 #include <Eigen/Dense>

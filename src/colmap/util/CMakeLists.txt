@@ -34,6 +34,7 @@ COLMAP_ADD_LIBRARY(
     NAME colmap_util
     SRCS
         cache.h
+        eigen_alignment.h
         logging.h logging.cc
         misc.h misc.cc
         opengl_utils.h opengl_utils.cc

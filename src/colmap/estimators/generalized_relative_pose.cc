@@ -33,6 +33,7 @@
 #include "colmap/geometry/pose.h"
 #include "colmap/geometry/triangulation.h"
 #include "colmap/math/random.h"
+#include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 
 #include <Eigen/Dense>
