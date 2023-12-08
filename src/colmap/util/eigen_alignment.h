@@ -30,6 +30,7 @@
 #pragma once
 
 #include "colmap/util/eigen_alignment.h"
+
 #include <Eigen/src/Core/util/Macros.h>
 
 #ifdef _MSVC_LANG
@@ -40,15 +41,14 @@
 
 #if !EIGEN_VERSION_AT_LEAST(3, 4, 0) || CPP_VERSION < 201703L
 
+#include "colmap/util/eigen_alignment.h"
+
 #include <initializer_list>
 #include <memory>
 #include <vector>
 
-#include "colmap/util/eigen_alignment.h"
 #include <Eigen/Core>
-#include "colmap/util/eigen_alignment.h"
 #include <Eigen/Geometry>
-#include "colmap/util/eigen_alignment.h"
 #include <Eigen/StdVector>
 
 #ifndef EIGEN_ALIGNED_ALLOCATOR
