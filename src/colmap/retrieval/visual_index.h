@@ -34,6 +34,7 @@
 #include "colmap/retrieval/inverted_file.h"
 #include "colmap/retrieval/inverted_index.h"
 #include "colmap/retrieval/vote_and_verify.h"
+#include "colmap/util/eigen_alignment.h"
 #include "colmap/util/endian.h"
 #include "colmap/util/logging.h"
 

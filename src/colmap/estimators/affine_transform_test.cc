@@ -29,6 +29,8 @@
 
 #include "colmap/estimators/affine_transform.h"
 
+#include "colmap/util/eigen_alignment.h"
+
 #include <Eigen/Geometry>
 #include <gtest/gtest.h>
 

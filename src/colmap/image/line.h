@@ -30,6 +30,7 @@
 #pragma once
 
 #include "colmap/sensor/bitmap.h"
+#include "colmap/util/eigen_alignment.h"
 
 #include <Eigen/Core>
 

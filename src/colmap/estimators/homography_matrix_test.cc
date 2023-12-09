@@ -29,6 +29,8 @@
 
 #include "colmap/estimators/homography_matrix.h"
 
+#include "colmap/util/eigen_alignment.h"
+
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 #include <gtest/gtest.h>

@@ -33,6 +33,7 @@
 #include "colmap/scene/camera.h"
 #include "colmap/scene/image.h"
 #include "colmap/scene/two_view_geometry.h"
+#include "colmap/util/eigen_alignment.h"
 #include "colmap/util/types.h"
 
 #include <mutex>

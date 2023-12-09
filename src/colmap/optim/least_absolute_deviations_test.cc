@@ -30,6 +30,7 @@
 #include "colmap/optim/least_absolute_deviations.h"
 
 #include "colmap/math/random.h"
+#include "colmap/util/eigen_alignment.h"
 
 #include <Eigen/Dense>
 #include <gtest/gtest.h>
