@@ -47,16 +47,14 @@ void P3PEstimator::Estimate(const std::vector<X_t>& points2D,
   CHECK_EQ(points3D.size(), 3);
   CHECK(models != nullptr);
 
-  models->clear();
-
-  std::vector<Eigen::Vector3d> x(3);
+  thread_local static std::vector<Eigen::Vector3d> rays(3);
   for (int i = 0; i < 3; ++i) {
-    x[i] = points2D[i].homogeneous().normalized();
+    rays[i] = points2D[i].homogeneous().normalized();
   }
   const std::vector<Eigen::Vector3d>& X = points3D;
 
   std::vector<poselib::CameraPose> poses;
-  const int num_poses = poselib::p3p(x, X, &poses);
+  const int num_poses = poselib::p3p(rays, points3D, &poses);
 
   models->resize(num_poses);
   for (int i = 0; i < num_poses; ++i) {
@@ -78,8 +76,6 @@ void P4PFEstimator::Estimate(const std::vector<X_t>& points2D,
   CHECK_EQ(points2D.size(), 4);
   CHECK_EQ(points3D.size(), 4);
   CHECK(models != nullptr);
-
-  models->clear();
 
   std::vector<poselib::CameraPose> poses;
   std::vector<double> focals;

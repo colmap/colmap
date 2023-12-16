@@ -60,6 +60,7 @@ void FundamentalMatrixSevenPointEstimator::Estimate(
     points1_h[i] = points1[i].homogeneous();
     points2_h[i] = points2[i].homogeneous();
   }
+
   poselib::relpose_7pt(points1_h, points2_h, models);
 }
 

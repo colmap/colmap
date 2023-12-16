@@ -79,7 +79,7 @@ TEST(FundamentalMatrix, SevenPoint) {
   estimator.Estimate(points1, points2, &models);
 
   ASSERT_EQ(models.size(), 1);
-  const auto& F = models[0];
+  const Eigen::Matrix3d F = models[0] / models[0](2, 2);
 
   // Reference values obtained from Matlab.
   EXPECT_NEAR(F(0, 0), 4.81441976, 1e-6);
