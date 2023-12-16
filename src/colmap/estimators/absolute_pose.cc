@@ -51,7 +51,6 @@ void P3PEstimator::Estimate(const std::vector<X_t>& points2D,
   for (int i = 0; i < 3; ++i) {
     rays[i] = points2D[i].homogeneous().normalized();
   }
-  const std::vector<Eigen::Vector3d>& X = points3D;
 
   std::vector<poselib::CameraPose> poses;
   const int num_poses = poselib::p3p(rays, points3D, &poses);

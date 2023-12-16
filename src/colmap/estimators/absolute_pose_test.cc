@@ -29,10 +29,8 @@
 
 #include "colmap/estimators/absolute_pose.h"
 
-#include "colmap/estimators/essential_matrix.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/geometry/rigid3.h"
-#include "colmap/math/random.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/util/eigen_alignment.h"
 
