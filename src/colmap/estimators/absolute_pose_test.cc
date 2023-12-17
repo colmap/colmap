@@ -119,7 +119,8 @@ TEST(AbsolutePose, P4PF) {
   for (double qx = 0; qx < 1; qx += 0.2) {
     // NOLINTNEXTLINE(clang-analyzer-security.FloatLoopCounter)
     for (double tx = 0; tx < 1; tx += 0.1) {
-      for (double f = 1; f < 20; f += 2) {
+      // NOLINTNEXTLINE(clang-analyzer-security.FloatLoopCounter)
+      for (double f = 0.5; f < 20; f += 2) {
         const Rigid3d expected_cam_from_world(
             Eigen::Quaterniond(1, qx, 0, 0).normalized(),
             Eigen::Vector3d(tx, 0, 0));
