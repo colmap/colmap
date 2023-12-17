@@ -47,8 +47,8 @@ add_subdirectory(VLFeat)
 
 include(FetchContent)
 FetchContent_Declare(PoseLib
-  GIT_REPOSITORY    https://github.com/PoseLib/PoseLib.git
-  GIT_TAG           03d2e7fe5ddfeff07e01aa11f05d9386231d9766
+  GIT_REPOSITORY    https://github.com/ahojnnes/PoseLib.git
+  GIT_TAG           33f7e865dae05124c0c34f1255fb33b0007f8176
 )
 message(STATUS "Configuring PoseLib...")
 FetchContent_MakeAvailable(PoseLib)
