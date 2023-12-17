@@ -59,9 +59,13 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
     points2D_normalized[i] = camera->CamFromImg(points2D[i]);
   }
 
+  auto custom_ransac_options = options.ransac_options;
+  custom_ransac_options.max_error =
+      camera->CamFromImgThreshold(options.ransac_options.max_error);
+
   if (options.estimate_focal_length) {
     // TODO(joschonb): Implement non-minimal solver for LORANSAC refinement.
-    RANSAC<P4PFEstimator> ransac(options.ransac_options);
+    RANSAC<P4PFEstimator> ransac(custom_ransac_options);
     auto report = ransac.Estimate(points2D_normalized, points3D);
     if (report.success) {
       *cam_from_world =
@@ -75,9 +79,6 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
       return true;
     }
   } else {
-    auto custom_ransac_options = options.ransac_options;
-    custom_ransac_options.max_error =
-        camera->CamFromImgThreshold(options.ransac_options.max_error);
     LORANSAC<P3PEstimator, EPNPEstimator> ransac(custom_ransac_options);
     auto report = ransac.Estimate(points2D_normalized, points3D);
     if (report.success) {
