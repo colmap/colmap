@@ -43,13 +43,6 @@
 
 namespace colmap {
 
-template <class func_t, class... args_t>
-#ifdef __cpp_lib_is_invocable
-using result_of_t = std::invoke_result_t<func_t, args_t...>;
-#else
-using result_of_t = typename std::result_of<func_t(args_t...)>::type;
-#endif
-
 #ifdef __clang__
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wkeyword-macro"
@@ -200,6 +193,13 @@ class Thread {
 class ThreadPool {
  public:
   static const int kMaxNumThreads = -1;
+
+  template <class func_t, class... args_t>
+#ifdef __cpp_lib_is_invocable
+  using result_of_t = std::invoke_result_t<func_t, args_t...>;
+#else
+  using result_of_t = typename std::result_of<func_t(args_t...)>::type;
+#endif
 
   explicit ThreadPool(int num_threads = kMaxNumThreads);
   ~ThreadPool();
