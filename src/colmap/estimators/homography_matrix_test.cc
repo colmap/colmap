@@ -38,15 +38,15 @@
 namespace colmap {
 namespace {
 
-TEST(HomographyMatrix, Estimate) {
+TEST(HomographyMatrix, Minimal) {
   for (int x = 0; x < 10; ++x) {
     Eigen::Matrix3d H0;
     H0 << x, 0.2, 0.3, 30, 0.2, 0.1, 0.3, 20, 1;
 
     std::vector<Eigen::Vector2d> src;
     src.emplace_back(x, 0);
-    src.emplace_back(1, 0);
     src.emplace_back(2, 1);
+    src.emplace_back(3, 1);
     src.emplace_back(10, 30);
 
     std::vector<Eigen::Vector2d> dst;
@@ -66,9 +66,67 @@ TEST(HomographyMatrix, Estimate) {
     est_tform.Residuals(src, dst, models[0], &residuals);
 
     for (size_t i = 0; i < 4; ++i) {
-      EXPECT_TRUE(residuals[i] < 1e-6);
+      EXPECT_LT(residuals[i], 1e-6);
     }
   }
+}
+
+TEST(HomographyMatrix, NonMinimal) {
+  for (int x = 0; x < 10; ++x) {
+    Eigen::Matrix3d H0;
+    H0 << x, 0.2, 0.3, 30, 0.2, 0.1, 0.3, 20, 1;
+
+    std::vector<Eigen::Vector2d> src;
+    src.emplace_back(x, 0);
+    src.emplace_back(2, 1);
+    src.emplace_back(3, 1);
+    src.emplace_back(5, -10);
+    src.emplace_back(10, 30);
+
+    std::vector<Eigen::Vector2d> dst;
+
+    for (size_t i = 0; i < src.size(); ++i) {
+      const Eigen::Vector3d dsth = H0 * src[i].homogeneous();
+      dst.push_back(dsth.hnormalized());
+    }
+
+    HomographyMatrixEstimator est_tform;
+    std::vector<Eigen::Matrix3d> models;
+    est_tform.Estimate(src, dst, &models);
+
+    ASSERT_EQ(models.size(), 1);
+
+    std::vector<double> residuals;
+    est_tform.Residuals(src, dst, models[0], &residuals);
+
+    for (size_t i = 0; i < 4; ++i) {
+      EXPECT_LT(residuals[i], 1e-6);
+    }
+  }
+}
+
+TEST(HomographyMatrix, Degenerate) {
+  Eigen::Matrix3d H0;
+  H0 << 0.1, 0.2, 0.3, 30, 0.2, 0.1, 0.3, 20, 1;
+
+  std::vector<Eigen::Vector2d> src;
+  src.emplace_back(2, 1);
+  src.emplace_back(2, 1);
+  src.emplace_back(3, 1);
+  src.emplace_back(10, 30);
+
+  std::vector<Eigen::Vector2d> dst;
+
+  for (size_t i = 0; i < 4; ++i) {
+    const Eigen::Vector3d dsth = H0 * src[i].homogeneous();
+    dst.push_back(dsth.hnormalized());
+  }
+
+  HomographyMatrixEstimator est_tform;
+  std::vector<Eigen::Matrix3d> models;
+  est_tform.Estimate(src, dst, &models);
+
+  ASSERT_EQ(models.size(), 0);
 }
 
 }  // namespace

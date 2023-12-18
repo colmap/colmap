@@ -47,7 +47,7 @@ void HomographyMatrixEstimator::Estimate(const std::vector<X_t>& points1,
 
   models->clear();
 
-  const size_t N = points1.size();
+  const size_t num_points = points1.size();
 
   // Center and normalize image points for better numerical stability.
   std::vector<X_t> normed_points1;
@@ -58,39 +58,43 @@ void HomographyMatrixEstimator::Estimate(const std::vector<X_t>& points1,
   CenterAndNormalizeImagePoints(points2, &normed_points2, &normed_from_orig2);
 
   // Setup constraint matrix.
-  Eigen::Matrix<double, Eigen::Dynamic, 9> A = Eigen::MatrixXd::Zero(2 * N, 9);
-
-  for (size_t i = 0, j = N; i < points1.size(); ++i, ++j) {
-    const double s_0 = normed_points1[i](0);
-    const double s_1 = normed_points1[i](1);
-    const double d_0 = normed_points2[i](0);
-    const double d_1 = normed_points2[i](1);
-
-    A(i, 0) = -s_0;
-    A(i, 1) = -s_1;
-    A(i, 2) = -1;
-    A(i, 6) = s_0 * d_0;
-    A(i, 7) = s_1 * d_0;
-    A(i, 8) = d_0;
-
-    A(j, 3) = -s_0;
-    A(j, 4) = -s_1;
-    A(j, 5) = -1;
-    A(j, 6) = s_0 * d_1;
-    A(j, 7) = s_1 * d_1;
-    A(j, 8) = d_1;
+  Eigen::Matrix<double, Eigen::Dynamic, 9> A =
+      Eigen::MatrixXd::Zero(2 * num_points, 9);
+  for (size_t i = 0; i < num_points; ++i) {
+    A.block<1, 3>(2 * i, 0) = normed_points1[i].transpose().homogeneous();
+    A.block<1, 3>(2 * i, 3).setZero();
+    A.block<1, 3>(2 * i, 6) =
+        -normed_points2[i].x() * normed_points1[i].transpose().homogeneous();
+    A.block<1, 3>(2 * i + 1, 0).setZero();
+    A.block<1, 3>(2 * i + 1, 3) = normed_points1[i].transpose().homogeneous();
+    A.block<1, 3>(2 * i + 1, 6) =
+        -normed_points2[i].y() * normed_points1[i].transpose().homogeneous();
   }
 
-  // Solve for the nullspace of the constraint matrix.
-  Eigen::JacobiSVD<Eigen::Matrix<double, Eigen::Dynamic, 9>> svd(
-      A, Eigen::ComputeFullV);
+  Eigen::Matrix3d H;
+  if (num_points == 4) {
+    const Eigen::Matrix<double, 9, 1> h = A.block<8, 8>(0, 0)
+                                              .partialPivLu()
+                                              .solve(-A.block<8, 1>(0, 8))
+                                              .homogeneous();
+    if (h.hasNaN()) {
+      return;
+    }
+    H = Eigen::Map<const Eigen::Matrix3d>(h.data()).transpose();
+  } else {
+    // Solve for the nullspace of the constraint matrix.
+    Eigen::JacobiSVD<Eigen::Matrix<double, Eigen::Dynamic, 9>> svd(
+        A, Eigen::ComputeFullV);
+    const Eigen::VectorXd nullspace = svd.matrixV().col(8);
+    H = Eigen::Map<const Eigen::Matrix3d>(nullspace.data()).transpose();
+  }
 
-  const Eigen::VectorXd nullspace = svd.matrixV().col(8);
-  Eigen::Map<const Eigen::Matrix3d> H_t(nullspace.data());
+  if (std::abs(H.determinant()) < 1e-8) {
+    return;
+  }
 
   models->resize(1);
-  (*models)[0] =
-      normed_from_orig2.inverse() * H_t.transpose() * normed_from_orig1;
+  (*models)[0] = normed_from_orig2.inverse() * H * normed_from_orig1;
 }
 
 void HomographyMatrixEstimator::Residuals(const std::vector<X_t>& points1,
