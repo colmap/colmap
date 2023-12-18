@@ -29,7 +29,6 @@
 
 #include "colmap/estimators/homography_matrix.h"
 
-#include "colmap/estimators/utils.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 
@@ -43,32 +42,25 @@ void HomographyMatrixEstimator::Estimate(const std::vector<X_t>& points1,
                                          const std::vector<Y_t>& points2,
                                          std::vector<M_t>* models) {
   CHECK_EQ(points1.size(), points2.size());
+  CHECK_GE(points1.size(), 4);
   CHECK(models != nullptr);
 
   models->clear();
 
   const size_t num_points = points1.size();
 
-  // Center and normalize image points for better numerical stability.
-  std::vector<X_t> normed_points1;
-  std::vector<Y_t> normed_points2;
-  Eigen::Matrix3d normed_from_orig1;
-  Eigen::Matrix3d normed_from_orig2;
-  CenterAndNormalizeImagePoints(points1, &normed_points1, &normed_from_orig1);
-  CenterAndNormalizeImagePoints(points2, &normed_points2, &normed_from_orig2);
-
   // Setup constraint matrix.
   Eigen::Matrix<double, Eigen::Dynamic, 9> A =
       Eigen::MatrixXd::Zero(2 * num_points, 9);
   for (size_t i = 0; i < num_points; ++i) {
-    A.block<1, 3>(2 * i, 0) = normed_points1[i].transpose().homogeneous();
+    A.block<1, 3>(2 * i, 0) = points1[i].transpose().homogeneous();
     A.block<1, 3>(2 * i, 3).setZero();
     A.block<1, 3>(2 * i, 6) =
-        -normed_points2[i].x() * normed_points1[i].transpose().homogeneous();
+        -points2[i].x() * points1[i].transpose().homogeneous();
     A.block<1, 3>(2 * i + 1, 0).setZero();
-    A.block<1, 3>(2 * i + 1, 3) = normed_points1[i].transpose().homogeneous();
+    A.block<1, 3>(2 * i + 1, 3) = points1[i].transpose().homogeneous();
     A.block<1, 3>(2 * i + 1, 6) =
-        -normed_points2[i].y() * normed_points1[i].transpose().homogeneous();
+        -points2[i].y() * points1[i].transpose().homogeneous();
   }
 
   Eigen::Matrix3d H;
@@ -94,7 +86,7 @@ void HomographyMatrixEstimator::Estimate(const std::vector<X_t>& points1,
   }
 
   models->resize(1);
-  (*models)[0] = normed_from_orig2.inverse() * H * normed_from_orig1;
+  (*models)[0] = H;
 }
 
 void HomographyMatrixEstimator::Residuals(const std::vector<X_t>& points1,

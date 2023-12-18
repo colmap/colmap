@@ -50,8 +50,7 @@ TEST(HomographyMatrix, Minimal) {
     src.emplace_back(10, 30);
 
     std::vector<Eigen::Vector2d> dst;
-
-    for (size_t i = 0; i < 4; ++i) {
+    for (size_t i = 0; i < src.size(); ++i) {
       const Eigen::Vector3d dsth = H0 * src[i].homogeneous();
       dst.push_back(dsth.hnormalized());
     }
@@ -84,7 +83,6 @@ TEST(HomographyMatrix, NonMinimal) {
     src.emplace_back(10, 30);
 
     std::vector<Eigen::Vector2d> dst;
-
     for (size_t i = 0; i < src.size(); ++i) {
       const Eigen::Vector3d dsth = H0 * src[i].homogeneous();
       dst.push_back(dsth.hnormalized());
@@ -116,8 +114,7 @@ TEST(HomographyMatrix, Degenerate) {
   src.emplace_back(10, 30);
 
   std::vector<Eigen::Vector2d> dst;
-
-  for (size_t i = 0; i < 4; ++i) {
+  for (size_t i = 0; i < src.size(); ++i) {
     const Eigen::Vector3d dsth = H0 * src[i].homogeneous();
     dst.push_back(dsth.hnormalized());
   }
