@@ -884,14 +884,8 @@ bool Reconstruction::ExportCam(const std::string& path,
       k2 = 1e-10;
     }
 
-    double fx, fy;
-    if (camera.FocalLengthIdxs().size() == 2) {
-      fx = camera.FocalLengthX();
-      fy = camera.FocalLengthY();
-    } else {
-      fx = fy = camera.MeanFocalLength();
-    }
-
+    const double fx = camera.FocalLengthX();
+    const double fy = camera.FocalLengthY();
     double focal_length;
     if (camera.width * fy < camera.height * fx) {
       focal_length = fy / camera.height;

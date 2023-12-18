@@ -155,14 +155,16 @@ double Camera::FocalLength() const {
 
 double Camera::FocalLengthX() const {
   const span<const size_t> idxs = FocalLengthIdxs();
-  DCHECK_EQ(idxs.size(), 2);
   return params[idxs[0]];
 }
 
 double Camera::FocalLengthY() const {
   const span<const size_t> idxs = FocalLengthIdxs();
-  DCHECK_EQ(idxs.size(), 2);
-  return params[idxs[1]];
+  size_t idx = 1;
+  if (idxs.size() == 1) {
+    idx = 0;
+  }
+  return params[idxs[idx]];
 }
 
 void Camera::SetFocalLength(const double f) {

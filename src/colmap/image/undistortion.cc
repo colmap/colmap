@@ -788,13 +788,8 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
   const span<const size_t> focal_length_idxs = camera.FocalLengthIdxs();
   CHECK_LE(focal_length_idxs.size(), 2)
       << "Not more than two focal length parameters supported.";
-  if (focal_length_idxs.size() == 1) {
-    undistorted_camera.SetFocalLengthX(camera.FocalLength());
-    undistorted_camera.SetFocalLengthY(camera.FocalLength());
-  } else if (focal_length_idxs.size() == 2) {
-    undistorted_camera.SetFocalLengthX(camera.FocalLengthX());
-    undistorted_camera.SetFocalLengthY(camera.FocalLengthY());
-  }
+  undistorted_camera.SetFocalLengthX(camera.FocalLengthX());
+  undistorted_camera.SetFocalLengthY(camera.FocalLengthY());
 
   // Copy principal point parameters.
   undistorted_camera.SetPrincipalPointX(camera.PrincipalPointX());
