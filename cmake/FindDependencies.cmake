@@ -5,9 +5,10 @@ else()
 endif()
 
 find_package(Boost ${COLMAP_FIND_TYPE} COMPONENTS
-             program_options
              filesystem
              graph
+             headers
+             program_options
              system)
 
 find_package(Eigen3 ${COLMAP_FIND_TYPE})
