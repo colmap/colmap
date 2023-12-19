@@ -38,6 +38,7 @@
 #include <list>
 #include <queue>
 #include <thread>
+#include <type_traits>
 #include <unordered_map>
 
 namespace colmap {
@@ -193,6 +194,13 @@ class ThreadPool {
  public:
   static const int kMaxNumThreads = -1;
 
+  template <class func_t, class... args_t>
+#ifdef __cpp_lib_is_invocable
+  using result_of_t = std::invoke_result_t<func_t, args_t...>;
+#else
+  using result_of_t = typename std::result_of<func_t(args_t...)>::type;
+#endif
+
   explicit ThreadPool(int num_threads = kMaxNumThreads);
   ~ThreadPool();
 
@@ -201,7 +209,7 @@ class ThreadPool {
   // Add new task to the thread pool.
   template <class func_t, class... args_t>
   auto AddTask(func_t&& f, args_t&&... args)
-      -> std::future<typename std::result_of<func_t(args_t...)>::type>;
+      -> std::future<result_of_t<func_t, args_t...>>;
 
   // Stop the execution of all workers.
   void Stop();
@@ -318,8 +326,8 @@ size_t ThreadPool::NumThreads() const { return workers_.size(); }
 
 template <class func_t, class... args_t>
 auto ThreadPool::AddTask(func_t&& f, args_t&&... args)
-    -> std::future<typename std::result_of<func_t(args_t...)>::type> {
-  typedef typename std::result_of<func_t(args_t...)>::type return_t;
+    -> std::future<result_of_t<func_t, args_t...>> {
+  typedef result_of_t<func_t, args_t...> return_t;
 
   auto task = std::make_shared<std::packaged_task<return_t()>>(
       std::bind(std::forward<func_t>(f), std::forward<args_t>(args)...));
