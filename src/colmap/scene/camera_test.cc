@@ -63,8 +63,12 @@ TEST(Camera, FocalLength) {
   Camera camera = Camera::CreateFromModelId(
       1, SimplePinholeCameraModel::model_id, 1.0, 1, 1);
   EXPECT_EQ(camera.FocalLength(), 1.0);
+  EXPECT_EQ(camera.FocalLengthX(), 1.0);
+  EXPECT_EQ(camera.FocalLengthY(), 1.0);
   camera.SetFocalLength(2.0);
   EXPECT_EQ(camera.FocalLength(), 2.0);
+  EXPECT_EQ(camera.FocalLengthX(), 2.0);
+  EXPECT_EQ(camera.FocalLengthY(), 2.0);
   camera =
       Camera::CreateFromModelId(1, PinholeCameraModel::model_id, 1.0, 1, 1);
   EXPECT_EQ(camera.FocalLengthX(), 1.0);
