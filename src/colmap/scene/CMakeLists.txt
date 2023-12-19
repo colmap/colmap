@@ -53,6 +53,7 @@ COLMAP_ADD_LIBRARY(
         colmap_sensor
         colmap_feature
         colmap_geometry
+        colmap_util
         Eigen3::Eigen
         SQLite::SQLite3
 )

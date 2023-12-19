@@ -29,9 +29,9 @@
 
 #include "colmap/scene/synthetic.h"
 
+#include "colmap/util/misc.h"
 #include "colmap/util/testing.h"
 
-#include <boost/filesystem.hpp>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -45,7 +45,7 @@ TEST(SynthesizeDataset, Nominal) {
 
   const std::string test_dir = CreateTestDir();
   const std::string sparse_path = test_dir + "/sparse";
-  boost::filesystem::create_directories(sparse_path);
+  CreateDirIfNotExists(sparse_path);
   reconstruction.Write(sparse_path);
 
   EXPECT_EQ(database.NumCameras(), options.num_cameras);
