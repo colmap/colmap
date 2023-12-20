@@ -7,7 +7,6 @@ endif()
 find_package(Boost ${COLMAP_FIND_TYPE} COMPONENTS
              filesystem
              graph
-             headers
              program_options
              system)
 

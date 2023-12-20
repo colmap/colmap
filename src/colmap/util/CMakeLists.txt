@@ -51,7 +51,7 @@ COLMAP_ADD_LIBRARY(
         glog::glog
         SQLite::SQLite3
     PRIVATE_LINK_LIBS
-        Boost::headers
+        Boost::boost
 )
 if(TESTS_ENABLED)
     target_sources(

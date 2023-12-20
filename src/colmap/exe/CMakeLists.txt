@@ -61,7 +61,7 @@ COLMAP_ADD_LIBRARY(
         colmap_scene
         colmap_util
     PRIVATE_LINK_LIBS
-        Boost::headers
+        Boost::boost
 )
 
 COLMAP_ADD_EXECUTABLE(
