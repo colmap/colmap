@@ -33,7 +33,6 @@
 
 #include <boost/graph/stoer_wagner_min_cut.hpp>
 #include <boost/property_map/property_map.hpp>
-#include <boost/typeof/typeof.hpp>
 
 extern "C" {
 #include "metis.h"

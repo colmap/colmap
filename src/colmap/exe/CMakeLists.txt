@@ -60,6 +60,8 @@ COLMAP_ADD_LIBRARY(
         colmap_optim
         colmap_scene
         colmap_util
+    PRIVATE_LINK_LIBS
+        Boost::boost
 )
 
 COLMAP_ADD_EXECUTABLE(
@@ -83,5 +85,6 @@ COLMAP_ADD_EXECUTABLE(
         colmap_sfm
         colmap_util
         ${OPTIONAL_LIBS}
+        Boost::boost
 )
 set_target_properties(colmap_main PROPERTIES OUTPUT_NAME colmap)
