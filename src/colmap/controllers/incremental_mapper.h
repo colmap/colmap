@@ -36,7 +36,6 @@
 namespace colmap {
 
 struct IncrementalMapperOptions {
- public:
   // The minimum number of matches for inlier matches to be considered.
   int min_num_matches = 15;
 
@@ -128,24 +127,15 @@ struct IncrementalMapperOptions {
   // If reconstruction is provided as input, fix the existing image poses.
   bool fix_existing_images = false;
 
+  IncrementalMapper::Options mapper;
+  IncrementalTriangulator::Options triangulation;
+
   IncrementalMapper::Options Mapper() const;
   IncrementalTriangulator::Options Triangulation() const;
   BundleAdjustmentOptions LocalBundleAdjustment() const;
   BundleAdjustmentOptions GlobalBundleAdjustment() const;
 
   bool Check() const;
-
- private:
-  friend class OptionManager;
-  friend class MapperGeneralOptionsWidget;
-  friend class MapperTriangulationOptionsWidget;
-  friend class MapperRegistrationOptionsWidget;
-  friend class MapperInitializationOptionsWidget;
-  friend class MapperBundleAdjustmentOptionsWidget;
-  friend class MapperFilteringOptionsWidget;
-  friend class ReconstructionOptionsWidget;
-  IncrementalMapper::Options mapper;
-  IncrementalTriangulator::Options triangulation;
 };
 
 // Class that controls the incremental mapping procedure by iteratively
