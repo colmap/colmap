@@ -85,5 +85,6 @@ COLMAP_ADD_EXECUTABLE(
         colmap_sfm
         colmap_util
         ${OPTIONAL_LIBS}
+        Boost::boost
 )
 set_target_properties(colmap_main PROPERTIES OUTPUT_NAME colmap)
