@@ -134,16 +134,15 @@ Mac
 Dependencies from `Homebrew <http://brew.sh/>`_::
 
     brew install \
-        git \
         cmake \
+        ninja \
         boost \
         eigen \
-        freeimage \
         flann \
+        freeimage \
+        metis \
         glog \
         googletest \
-        metis \
-        suite-sparse \
         ceres-solver \
         qt5 \
         glew \
@@ -154,12 +153,12 @@ Configure and compile COLMAP::
 
     git clone https://github.com/colmap/colmap.git
     cd colmap
-    git checkout dev
+    export PATH="/usr/local/opt/qt@5/bin:$PATH"
     mkdir build
     cd build
-    cmake .. -DQt5_DIR=/opt/homebrew/opt/qt@5/lib/cmake/Qt5
-    make
-    sudo make install
+    cmake ..  -GNinja -DQt5_DIR=/usr/local/opt/qt/lib/cmake/Qt5
+    ninja
+    sudo ninja install
 
 If you have Qt 6 installed on your system as well, you might have to temporarily
 link your Qt 5 installation while configuring CMake::
