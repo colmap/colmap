@@ -41,7 +41,7 @@ COLMAP_ADD_LIBRARY(
         visual_index.h
         vote_and_verify.h vote_and_verify.cc
     PUBLIC_LINK_LIBS
-        Boost::graph
+        Boost::boost
         Eigen3::Eigen
         flann
         lz4

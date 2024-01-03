@@ -31,8 +31,6 @@
 
 #include <cstdarg>
 
-#include <boost/algorithm/string.hpp>
-
 namespace colmap {
 
 std::string EnsureTrailingSlash(const std::string& str) {

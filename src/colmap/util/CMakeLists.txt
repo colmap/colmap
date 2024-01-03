@@ -50,6 +50,8 @@ COLMAP_ADD_LIBRARY(
         Eigen3::Eigen
         glog::glog
         SQLite::SQLite3
+    PRIVATE_LINK_LIBS
+        Boost::boost
 )
 if(TESTS_ENABLED)
     target_sources(

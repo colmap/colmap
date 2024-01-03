@@ -1,8 +1,12 @@
 --triplet
 x64-windows
+boost-algorithm
 boost-filesystem
 boost-graph
+boost-heap
 boost-program-options
+boost-property-map
+boost-property-tree
 boost-regex
 boost-system
 ceres[lapack,suitesparse]
