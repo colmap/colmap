@@ -76,8 +76,10 @@ void P4PFEstimator::Estimate(const std::vector<X_t>& points2D,
   CHECK_EQ(points3D.size(), 4);
   CHECK(models != nullptr);
 
-  std::vector<poselib::CameraPose> poses;
-  std::vector<double> focals;
+  thread_local std::vector<poselib::CameraPose> poses;
+  thread_local std::vector<double> focals;
+  poses.clear();
+  focals.clear();
   const int num_poses = poselib::p4pf(
       points2D, points3D, &poses, &focals, /*filter_solutions=*/true);
 
