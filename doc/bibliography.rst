@@ -4,9 +4,6 @@ Bibliography
 .. [schoenberger_thesis] Johannes L. Schönberger. "Robust Methods for Accurate
    and Efficient 3D Modeling from Unstructured Imagery." ETH Zürich, 2018.
 
-.. [ceres] Agarwal, Sameer and Mierle, Keir and Others. "Ceres Solver".
-    http://ceres-solver.org
-
 .. [furukawa10] Furukawa, Yasutaka, and Jean Ponce.
     "Accurate, dense, and robust multiview stereopsis."
     Transactions on Pattern Analysis and Machine Intelligence, 2010.
