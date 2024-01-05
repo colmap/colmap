@@ -86,7 +86,7 @@ size_t BundleAdjustmentConfig::NumConstantCamPoses() const {
   return constant_cam_poses_.size();
 }
 
-size_t BundleAdjustmentConfig::NumConstantCamPositionss() const {
+size_t BundleAdjustmentConfig::NumConstantCamPositions() const {
   return constant_cam_positions_.size();
 }
 
