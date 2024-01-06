@@ -153,7 +153,7 @@ class SiftCPUFeatureExtractor : public FeatureExtractor {
     vl_sift_set_edge_thresh(sift_.get(), options_.edge_threshold);
 
     // Iterate through octaves.
-    std::vector<size_t> level_num_features;
+    std::vector<int> level_num_features;
     std::vector<FeatureKeypoints> level_keypoints;
     std::vector<FeatureDescriptors> level_descriptors;
     bool first_octave = true;
@@ -267,9 +267,11 @@ class SiftCPUFeatureExtractor : public FeatureExtractor {
     int first_level_to_keep = 0;
     int num_features = 0;
     int num_features_with_orientations = 0;
-    for (int i = level_keypoints.size() - 1; i >= 0; --i) {
+
+    for (int i = static_cast<int>(level_keypoints.size()) - 1; i >= 0; --i) {
       num_features += level_num_features[i];
-      num_features_with_orientations += level_keypoints[i].size();
+      num_features_with_orientations +=
+          static_cast<int>(level_keypoints[i].size());
       if (num_features > options_.max_num_features) {
         first_level_to_keep = i;
         break;
@@ -618,7 +620,7 @@ class SiftGPUFeatureExtractor : public FeatureExtractor {
     // If we instead create the object here and move it to the constructor, the
     // program segfaults inside SiftGPU.
 
-    extractor->sift_gpu_.ParseParam(sift_gpu_args_cstr.size(),
+    extractor->sift_gpu_.ParseParam(static_cast<int>(sift_gpu_args_cstr.size()),
                                     sift_gpu_args_cstr.data());
 
     extractor->sift_gpu_.gpu_index = gpu_indices[0];
@@ -797,7 +799,7 @@ void FindBestMatchesBruteForce(const Eigen::MatrixXi& dists,
       if (matches12[i1] != -1 && matches21[matches12[i1]] != -1 &&
           matches21[matches12[i1]] == static_cast<int>(i1)) {
         FeatureMatch match;
-        match.point2D_idx1 = i1;
+        match.point2D_idx1 = static_cast<point2D_t>(i1);
         match.point2D_idx2 = matches12[i1];
         matches->push_back(match);
       }
@@ -807,7 +809,7 @@ void FindBestMatchesBruteForce(const Eigen::MatrixXi& dists,
     for (size_t i1 = 0; i1 < matches12.size(); ++i1) {
       if (matches12[i1] != -1) {
         FeatureMatch match;
-        match.point2D_idx1 = i1;
+        match.point2D_idx1 = static_cast<point2D_t>(i1);
         match.point2D_idx2 = matches12[i1];
         matches->push_back(match);
       }
@@ -982,7 +984,7 @@ void FindBestMatchesFlann(
       if (matches12[i1] != -1 && matches21[matches12[i1]] != -1 &&
           matches21[matches12[i1]] == static_cast<int>(i1)) {
         FeatureMatch match;
-        match.point2D_idx1 = i1;
+        match.point2D_idx1 = static_cast<point2D_t>(i1);
         match.point2D_idx2 = matches12[i1];
         matches->push_back(match);
       }
@@ -992,7 +994,7 @@ void FindBestMatchesFlann(
     for (size_t i1 = 0; i1 < matches12.size(); ++i1) {
       if (matches12[i1] != -1) {
         FeatureMatch match;
-        match.point2D_idx1 = i1;
+        match.point2D_idx1 = static_cast<point2D_t>(i1);
         match.point2D_idx2 = matches12[i1];
         matches->push_back(match);
       }
