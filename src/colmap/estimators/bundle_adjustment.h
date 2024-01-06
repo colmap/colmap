@@ -103,7 +103,7 @@ class BundleAdjustmentConfig {
   size_t NumPoints() const;
   size_t NumConstantCamIntrinsics() const;
   size_t NumConstantCamPoses() const;
-  size_t NumConstantCamPositionss() const;
+  size_t NumConstantCamPositions() const;
   size_t NumVariablePoints() const;
   size_t NumConstantPoints() const;
 
