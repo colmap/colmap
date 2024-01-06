@@ -35,26 +35,24 @@
 namespace colmap {
 namespace {
 
-const std::string COLMAP_VERSION = "${COLMAP_VERSION}";
-const std::string COLMAP_COMMIT_ID = "${GIT_COMMIT_ID}";
-const std::string COLMAP_COMMIT_DATE = "${GIT_COMMIT_DATE}";
+const char* COLMAP_VERSION = "${COLMAP_VERSION}";
+const char* COLMAP_COMMIT_ID = "${GIT_COMMIT_ID}";
+const char* COLMAP_COMMIT_DATE = "${GIT_COMMIT_DATE}";
 
 }  // namespace
 
 std::string GetVersionInfo() {
-  return StringPrintf("COLMAP %s", COLMAP_VERSION.c_str());
+  return StringPrintf("COLMAP %s", COLMAP_VERSION);
 }
 
 std::string GetBuildInfo() {
 #if defined(COLMAP_CUDA_ENABLED)
-  const std::string cuda_info = "with CUDA";
+  const char* cuda_info = "with CUDA";
 #else
-  const std::string cuda_info = "without CUDA";
+  const char* cuda_info = "without CUDA";
 #endif
-  return StringPrintf("Commit %s on %s %s",
-                      COLMAP_COMMIT_ID.c_str(),
-                      COLMAP_COMMIT_DATE.c_str(),
-                      cuda_info.c_str());
+  return StringPrintf(
+      "Commit %s on %s %s", COLMAP_COMMIT_ID, COLMAP_COMMIT_DATE, cuda_info);
 }
 
 }  // namespace colmap
