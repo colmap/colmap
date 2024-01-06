@@ -257,20 +257,20 @@ bool Bitmap::InterpolateBilinear(const double x,
     return false;
   }
 
-  const double dx = x - x0;
-  const double dy = inv_y - y0;
-  const double dx_1 = 1 - dx;
-  const double dy_1 = 1 - dy;
+  const float dx = static_cast<float>(x - x0);
+  const float dy = static_cast<float>(inv_y - y0);
+  const float dx_1 = 1.0f - dx;
+  const float dy_1 = 1.0f - dy;
 
   const uint8_t* line0 = FreeImage_GetScanLine(data_.get(), y0);
   const uint8_t* line1 = FreeImage_GetScanLine(data_.get(), y1);
 
   if (IsGrey()) {
     // Top row, column-wise linear interpolation.
-    const double v0 = dx_1 * line0[x0] + dx * line0[x1];
+    const float v0 = static_cast<float>(dx_1 * line0[x0] + dx * line0[x1]);
 
     // Bottom row, column-wise linear interpolation.
-    const double v1 = dx_1 * line1[x0] + dx * line1[x1];
+    const float v1 = static_cast<float>(dx_1 * line1[x0] + dx * line1[x1]);
 
     // Row-wise linear interpolation.
     color->r = dy_1 * v0 + dy * v1;
@@ -282,14 +282,20 @@ bool Bitmap::InterpolateBilinear(const double x,
     const uint8_t* p11 = &line1[3 * x1];
 
     // Top row, column-wise linear interpolation.
-    const double v0_r = dx_1 * p00[FI_RGBA_RED] + dx * p01[FI_RGBA_RED];
-    const double v0_g = dx_1 * p00[FI_RGBA_GREEN] + dx * p01[FI_RGBA_GREEN];
-    const double v0_b = dx_1 * p00[FI_RGBA_BLUE] + dx * p01[FI_RGBA_BLUE];
+    const float v0_r =
+        static_cast<float>(dx_1 * p00[FI_RGBA_RED] + dx * p01[FI_RGBA_RED]);
+    const float v0_g =
+        static_cast<float>(dx_1 * p00[FI_RGBA_GREEN] + dx * p01[FI_RGBA_GREEN]);
+    const float v0_b =
+        static_cast<float>(dx_1 * p00[FI_RGBA_BLUE] + dx * p01[FI_RGBA_BLUE]);
 
     // Bottom row, column-wise linear interpolation.
-    const double v1_r = dx_1 * p10[FI_RGBA_RED] + dx * p11[FI_RGBA_RED];
-    const double v1_g = dx_1 * p10[FI_RGBA_GREEN] + dx * p11[FI_RGBA_GREEN];
-    const double v1_b = dx_1 * p10[FI_RGBA_BLUE] + dx * p11[FI_RGBA_BLUE];
+    const float v1_r =
+        static_cast<float>(dx_1 * p10[FI_RGBA_RED] + dx * p11[FI_RGBA_RED]);
+    const float v1_g =
+        static_cast<float>(dx_1 * p10[FI_RGBA_GREEN] + dx * p11[FI_RGBA_GREEN]);
+    const float v1_b =
+        static_cast<float>(dx_1 * p10[FI_RGBA_BLUE] + dx * p11[FI_RGBA_BLUE]);
 
     // Row-wise linear interpolation.
     color->r = dy_1 * v0_r + dy * v1_r;
