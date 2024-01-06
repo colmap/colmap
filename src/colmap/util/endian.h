@@ -131,6 +131,26 @@ T NativeToBigEndian(const T x) {
   }
 }
 
+template <typename T1, typename T2>
+T2 LittleEndianToNativeCast(const T1 x) {
+  return static_cast<T2>(LittleEndianToNative(x));
+}
+
+template <typename T1, typename T2>
+T2 BigEndianToNativeCast(const T1 x) {
+  return static_cast<T2>(BigEndianToNative(x));
+}
+
+template <typename T1, typename T2>
+T2 NativeToLittleEndianCast(const T1 x) {
+  return static_cast<T2>(NativeToLittleEndian(x));
+}
+
+template <typename T1, typename T2>
+T2 NativeToBigEndianCast(const T1 x) {
+  return static_cast<T2>(NativeToBigEndian(x));
+}
+
 template <typename T>
 T ReadBinaryLittleEndian(std::istream* stream) {
   T data_little_endian;

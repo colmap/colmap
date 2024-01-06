@@ -135,54 +135,54 @@ std::vector<PlyPoint> ReadPly(const std::string& path) {
       if (line == "property float x" || line == "property float32 x" ||
           line == "property double x" || line == "property float64 x") {
         X_index = index;
-        X_byte_pos = num_bytes_per_line;
+        X_byte_pos = static_cast<int>(num_bytes_per_line);
         X_double = (line_elems[1] == "double" || line_elems[1] == "float64");
       } else if (line == "property float y" || line == "property float32 y" ||
                  line == "property double y" || line == "property float64 y") {
         Y_index = index;
-        Y_byte_pos = num_bytes_per_line;
+        Y_byte_pos = static_cast<int>(num_bytes_per_line);
         Y_double = (line_elems[1] == "double" || line_elems[1] == "float64");
       } else if (line == "property float z" || line == "property float32 z" ||
                  line == "property double z" || line == "property float64 z") {
         Z_index = index;
-        Z_byte_pos = num_bytes_per_line;
+        Z_byte_pos = static_cast<int>(num_bytes_per_line);
         Z_double = (line_elems[1] == "double" || line_elems[1] == "float64");
       } else if (line == "property float nx" || line == "property float32 nx" ||
                  line == "property double nx" ||
                  line == "property float64 nx") {
         NX_index = index;
-        NX_byte_pos = num_bytes_per_line;
+        NX_byte_pos = static_cast<int>(num_bytes_per_line);
         NX_double = (line_elems[1] == "double" || line_elems[1] == "float64");
       } else if (line == "property float ny" || line == "property float32 ny" ||
                  line == "property double ny" ||
                  line == "property float64 ny") {
         NY_index = index;
-        NY_byte_pos = num_bytes_per_line;
+        NY_byte_pos = static_cast<int>(num_bytes_per_line);
         NY_double = (line_elems[1] == "double" || line_elems[1] == "float64");
       } else if (line == "property float nz" || line == "property float32 nz" ||
                  line == "property double nz" ||
                  line == "property float64 nz") {
         NZ_index = index;
-        NZ_byte_pos = num_bytes_per_line;
+        NZ_byte_pos = static_cast<int>(num_bytes_per_line);
         NZ_double = (line_elems[1] == "double" || line_elems[1] == "float64");
       } else if (line == "property uchar r" || line == "property uchar red" ||
                  line == "property uchar diffuse_red" ||
                  line == "property uchar ambient_red" ||
                  line == "property uchar specular_red") {
         R_index = index;
-        R_byte_pos = num_bytes_per_line;
+        R_byte_pos = static_cast<int>(num_bytes_per_line);
       } else if (line == "property uchar g" || line == "property uchar green" ||
                  line == "property uchar diffuse_green" ||
                  line == "property uchar ambient_green" ||
                  line == "property uchar specular_green") {
         G_index = index;
-        G_byte_pos = num_bytes_per_line;
+        G_byte_pos = static_cast<int>(num_bytes_per_line);
       } else if (line == "property uchar b" || line == "property uchar blue" ||
                  line == "property uchar diffuse_blue" ||
                  line == "property uchar ambient_blue" ||
                  line == "property uchar specular_blue") {
         B_index = index;
-        B_byte_pos = num_bytes_per_line;
+        B_byte_pos = static_cast<int>(num_bytes_per_line);
       }
 
       index += 1;
@@ -216,24 +216,24 @@ std::vector<PlyPoint> ReadPly(const std::string& path) {
       PlyPoint point;
 
       if (is_little_endian) {
-        point.x = LittleEndianToNative(
+        point.x = LittleEndianToNativeCast<double, float>(
             X_double ? *reinterpret_cast<double*>(&buffer[X_byte_pos])
                      : *reinterpret_cast<float*>(&buffer[X_byte_pos]));
-        point.y = LittleEndianToNative(
+        point.y = LittleEndianToNativeCast<double, float>(
             Y_double ? *reinterpret_cast<double*>(&buffer[Y_byte_pos])
                      : *reinterpret_cast<float*>(&buffer[Y_byte_pos]));
-        point.z = LittleEndianToNative(
+        point.z = LittleEndianToNativeCast<double, float>(
             Z_double ? *reinterpret_cast<double*>(&buffer[Z_byte_pos])
                      : *reinterpret_cast<float*>(&buffer[Z_byte_pos]));
 
         if (!is_normal_missing) {
-          point.nx = LittleEndianToNative(
+          point.nx = LittleEndianToNativeCast<double, float>(
               NX_double ? *reinterpret_cast<double*>(&buffer[NX_byte_pos])
                         : *reinterpret_cast<float*>(&buffer[NX_byte_pos]));
-          point.ny = LittleEndianToNative(
+          point.ny = LittleEndianToNativeCast<double, float>(
               NY_double ? *reinterpret_cast<double*>(&buffer[NY_byte_pos])
                         : *reinterpret_cast<float*>(&buffer[NY_byte_pos]));
-          point.nz = LittleEndianToNative(
+          point.nz = LittleEndianToNativeCast<double, float>(
               NZ_double ? *reinterpret_cast<double*>(&buffer[NZ_byte_pos])
                         : *reinterpret_cast<float*>(&buffer[NZ_byte_pos]));
         }
@@ -247,24 +247,24 @@ std::vector<PlyPoint> ReadPly(const std::string& path) {
               *reinterpret_cast<uint8_t*>(&buffer[B_byte_pos]));
         }
       } else {
-        point.x = BigEndianToNative(
+        point.x = BigEndianToNativeCast<double, float>(
             X_double ? *reinterpret_cast<double*>(&buffer[X_byte_pos])
                      : *reinterpret_cast<float*>(&buffer[X_byte_pos]));
-        point.y = BigEndianToNative(
+        point.y = BigEndianToNativeCast<double, float>(
             Y_double ? *reinterpret_cast<double*>(&buffer[Y_byte_pos])
                      : *reinterpret_cast<float*>(&buffer[Y_byte_pos]));
-        point.z = BigEndianToNative(
+        point.z = BigEndianToNativeCast<double, float>(
             Z_double ? *reinterpret_cast<double*>(&buffer[Z_byte_pos])
                      : *reinterpret_cast<float*>(&buffer[Z_byte_pos]));
 
         if (!is_normal_missing) {
-          point.nx = BigEndianToNative(
+          point.nx = BigEndianToNativeCast<double, float>(
               NX_double ? *reinterpret_cast<double*>(&buffer[NX_byte_pos])
                         : *reinterpret_cast<float*>(&buffer[NX_byte_pos]));
-          point.ny = BigEndianToNative(
+          point.ny = BigEndianToNativeCast<double, float>(
               NY_double ? *reinterpret_cast<double*>(&buffer[NY_byte_pos])
                         : *reinterpret_cast<float*>(&buffer[NY_byte_pos]));
-          point.nz = BigEndianToNative(
+          point.nz = BigEndianToNativeCast<double, float>(
               NZ_double ? *reinterpret_cast<double*>(&buffer[NZ_byte_pos])
                         : *reinterpret_cast<float*>(&buffer[NZ_byte_pos]));
         }
@@ -296,14 +296,14 @@ std::vector<PlyPoint> ReadPly(const std::string& path) {
 
       PlyPoint point;
 
-      point.x = std::stold(items.at(X_index));
-      point.y = std::stold(items.at(Y_index));
-      point.z = std::stold(items.at(Z_index));
+      point.x = std::stof(items.at(X_index));
+      point.y = std::stof(items.at(Y_index));
+      point.z = std::stof(items.at(Z_index));
 
       if (!is_normal_missing) {
-        point.nx = std::stold(items.at(NX_index));
-        point.ny = std::stold(items.at(NY_index));
-        point.nz = std::stold(items.at(NZ_index));
+        point.nx = std::stof(items.at(NX_index));
+        point.ny = std::stof(items.at(NY_index));
+        point.nz = std::stof(items.at(NZ_index));
       }
 
       if (!is_rgb_missing) {
@@ -479,9 +479,12 @@ void WriteBinaryPlyMesh(const std::string& path, const PlyMesh& mesh) {
     CHECK_LT(face.vertex_idx3, mesh.vertices.size());
     const uint8_t kNumVertices = 3;
     WriteBinaryLittleEndian<uint8_t>(&binary_file, kNumVertices);
-    WriteBinaryLittleEndian<int>(&binary_file, face.vertex_idx1);
-    WriteBinaryLittleEndian<int>(&binary_file, face.vertex_idx2);
-    WriteBinaryLittleEndian<int>(&binary_file, face.vertex_idx3);
+    WriteBinaryLittleEndian<int>(&binary_file,
+                                 static_cast<int>(face.vertex_idx1));
+    WriteBinaryLittleEndian<int>(&binary_file,
+                                 static_cast<int>(face.vertex_idx2));
+    WriteBinaryLittleEndian<int>(&binary_file,
+                                 static_cast<int>(face.vertex_idx3));
   }
 
   binary_file.close();
