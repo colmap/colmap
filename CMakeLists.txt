@@ -32,7 +32,7 @@ cmake_minimum_required(VERSION 3.10)
 
 project(COLMAP LANGUAGES C CXX)
 
-set(COLMAP_VERSION "3.9-dev")
+set(COLMAP_VERSION "3.10-dev")
 
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
