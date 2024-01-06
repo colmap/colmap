@@ -67,13 +67,15 @@ double Timer::ElapsedMicroSeconds() const {
     return 0.0;
   }
   if (paused_) {
-    return std::chrono::duration_cast<std::chrono::microseconds>(pause_time_ -
-                                                                 start_time_)
-        .count();
+    return static_cast<double>(
+        std::chrono::duration_cast<std::chrono::microseconds>(pause_time_ -
+                                                              start_time_)
+            .count());
   } else {
-    return std::chrono::duration_cast<std::chrono::microseconds>(
-               std::chrono::high_resolution_clock::now() - start_time_)
-        .count();
+    return static_cast<double>(
+        std::chrono::duration_cast<std::chrono::microseconds>(
+            std::chrono::high_resolution_clock::now() - start_time_)
+            .count());
   }
 }
 
