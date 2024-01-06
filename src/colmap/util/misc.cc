@@ -201,7 +201,7 @@ void PrintHeading1(const std::string& heading) {
 void PrintHeading2(const std::string& heading) {
   std::ostringstream log;
   log << "\n" << heading << "\n";
-  log << std::string(std::min<int>(heading.size(), 78), '-');
+  log << std::string(std::min<int>(static_cast<int>(heading.size()), 78), '-');
   LOG(INFO) << log.str();
 }
 
@@ -250,7 +250,7 @@ std::vector<float> CSVToVector(const std::string& csv) {
       continue;
     }
     try {
-      values.push_back(std::stod(elem));
+      values.push_back(std::stof(elem));
     } catch (const std::invalid_argument&) {
       return std::vector<float>(0);
     }
