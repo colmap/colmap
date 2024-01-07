@@ -144,7 +144,7 @@ bool Bitmap::Allocate(const int width, const int height, const bool as_rgb) {
 }
 
 void Bitmap::Deallocate() {
-  handle_ = std::move(FreeImageHandle());
+  handle_ = FreeImageHandle();
   width_ = 0;
   height_ = 0;
   channels_ = 0;

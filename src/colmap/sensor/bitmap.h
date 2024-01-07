@@ -174,7 +174,7 @@ class Bitmap {
  private:
   struct FreeImageHandle {
     FreeImageHandle();
-    FreeImageHandle(FIBITMAP* ptr);
+    explicit FreeImageHandle(FIBITMAP* ptr);
     ~FreeImageHandle();
     FreeImageHandle(FreeImageHandle&&) noexcept;
     FreeImageHandle& operator=(FreeImageHandle&&) noexcept;
