@@ -33,6 +33,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <ios>
 #include <limits>
 #include <string>
