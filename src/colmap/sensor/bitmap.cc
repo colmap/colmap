@@ -61,6 +61,37 @@ const static auto initializer = FreeImageInitializer();
 
 #endif  // FREEIMAGE_LIB
 
+bool ReadExifTag(FIBITMAP* ptr,
+                 const FREE_IMAGE_MDMODEL model,
+                 const std::string& tag_name,
+                 std::string* result) {
+  FITAG* tag = nullptr;
+  FreeImage_GetMetadata(model, ptr, tag_name.c_str(), &tag);
+  if (tag == nullptr) {
+    *result = "";
+    return false;
+  } else {
+    if (tag_name == "FocalPlaneXResolution") {
+      // This tag seems to be in the wrong category.
+      *result = std::string(FreeImage_TagToString(FIMD_EXIF_INTEROP, tag));
+    } else {
+      *result = FreeImage_TagToString(model, tag);
+    }
+    return true;
+  }
+}
+
+bool IsPtrGrey(FIBITMAP* ptr) {
+  return FreeImage_GetColorType(ptr) == FIC_MINISBLACK &&
+         FreeImage_GetBPP(ptr) == 8;
+}
+
+bool IsPtrRGB(FIBITMAP* ptr) {
+  return FreeImage_GetColorType(ptr) == FIC_RGB && FreeImage_GetBPP(ptr) == 24;
+}
+
+bool IsPtrSupported(FIBITMAP* ptr) { return IsPtrGrey(ptr) || IsPtrRGB(ptr); }
+
 }  // namespace
 
 Bitmap::Bitmap() : width_(0), height_(0), channels_(0) {}
@@ -72,8 +103,7 @@ Bitmap::Bitmap(const Bitmap& other) : Bitmap() {
 }
 
 Bitmap::Bitmap(Bitmap&& other) noexcept : Bitmap() {
-  handle_ = other.handle_;
-  other.handle_.ptr = nullptr;
+  handle_ = std::move(other.handle_);
   width_ = other.width_;
   height_ = other.height_;
   channels_ = other.channels_;
@@ -90,8 +120,7 @@ Bitmap& Bitmap::operator=(const Bitmap& other) {
 
 Bitmap& Bitmap::operator=(Bitmap&& other) noexcept {
   if (this != &other) {
-    handle_ = other.handle_;
-    other.handle_.ptr = nullptr;
+    handle_ = std::move(other.handle_);
     width_ = other.width_;
     height_ = other.height_;
     channels_ = other.channels_;
@@ -100,7 +129,6 @@ Bitmap& Bitmap::operator=(Bitmap&& other) noexcept {
 }
 
 bool Bitmap::Allocate(const int width, const int height, const bool as_rgb) {
-  FIBITMAP* data = nullptr;
   width_ = width;
   height_ = height;
   if (as_rgb) {
@@ -116,7 +144,7 @@ bool Bitmap::Allocate(const int width, const int height, const bool as_rgb) {
 }
 
 void Bitmap::Deallocate() {
-  handle_ = FreeImageHandle();
+  handle_ = std::move(FreeImageHandle());
   width_ = 0;
   height_ = 0;
   channels_ = 0;
@@ -323,20 +351,23 @@ bool Bitmap::ExifCameraModel(std::string* camera_model) const {
   std::string model_str;
   std::string focal_length;
   *camera_model = "";
-  if (ReadExifTag(FIMD_EXIF_MAIN, "Make", &make_str)) {
+  if (ReadExifTag(handle_.ptr, FIMD_EXIF_MAIN, "Make", &make_str)) {
     *camera_model += (make_str + "-");
   } else {
     *camera_model = "";
     return false;
   }
-  if (ReadExifTag(FIMD_EXIF_MAIN, "Model", &model_str)) {
+  if (ReadExifTag(handle_.ptr, FIMD_EXIF_MAIN, "Model", &model_str)) {
     *camera_model += (model_str + "-");
   } else {
     *camera_model = "";
     return false;
   }
-  if (ReadExifTag(FIMD_EXIF_EXIF, "FocalLengthIn35mmFilm", &focal_length) ||
-      ReadExifTag(FIMD_EXIF_EXIF, "FocalLength", &focal_length)) {
+  if (ReadExifTag(handle_.ptr,
+                  FIMD_EXIF_EXIF,
+                  "FocalLengthIn35mmFilm",
+                  &focal_length) ||
+      ReadExifTag(handle_.ptr, FIMD_EXIF_EXIF, "FocalLength", &focal_length)) {
     *camera_model += (focal_length + "-");
   } else {
     *camera_model = "";
@@ -354,8 +385,10 @@ bool Bitmap::ExifFocalLength(double* focal_length) const {
   //////////////////////////////////////////////////////////////////////////////
 
   std::string focal_length_35mm_str;
-  if (ReadExifTag(
-          FIMD_EXIF_EXIF, "FocalLengthIn35mmFilm", &focal_length_35mm_str)) {
+  if (ReadExifTag(handle_.ptr,
+                  FIMD_EXIF_EXIF,
+                  "FocalLengthIn35mmFilm",
+                  &focal_length_35mm_str)) {
     const std::regex regex(".*?([0-9.]+).*?mm.*?");
     std::cmatch result;
     if (std::regex_search(focal_length_35mm_str.c_str(), result, regex)) {
@@ -372,7 +405,8 @@ bool Bitmap::ExifFocalLength(double* focal_length) const {
   //////////////////////////////////////////////////////////////////////////////
 
   std::string focal_length_str;
-  if (ReadExifTag(FIMD_EXIF_EXIF, "FocalLength", &focal_length_str)) {
+  if (ReadExifTag(
+          handle_.ptr, FIMD_EXIF_EXIF, "FocalLength", &focal_length_str)) {
     std::regex regex(".*?([0-9.]+).*?mm");
     std::cmatch result;
     if (std::regex_search(focal_length_str.c_str(), result, regex)) {
@@ -381,8 +415,8 @@ bool Bitmap::ExifFocalLength(double* focal_length) const {
       // Lookup sensor width in database.
       std::string make_str;
       std::string model_str;
-      if (ReadExifTag(FIMD_EXIF_MAIN, "Make", &make_str) &&
-          ReadExifTag(FIMD_EXIF_MAIN, "Model", &model_str)) {
+      if (ReadExifTag(handle_.ptr, FIMD_EXIF_MAIN, "Make", &make_str) &&
+          ReadExifTag(handle_.ptr, FIMD_EXIF_MAIN, "Model", &model_str)) {
         CameraDatabase database;
         double sensor_width;
         if (database.QuerySensorWidth(make_str, model_str, &sensor_width)) {
@@ -395,10 +429,18 @@ bool Bitmap::ExifFocalLength(double* focal_length) const {
       std::string pixel_x_dim_str;
       std::string x_res_str;
       std::string res_unit_str;
-      if (ReadExifTag(FIMD_EXIF_EXIF, "PixelXDimension", &pixel_x_dim_str) &&
-          ReadExifTag(FIMD_EXIF_EXIF, "FocalPlaneXResolution", &x_res_str) &&
-          ReadExifTag(
-              FIMD_EXIF_EXIF, "FocalPlaneResolutionUnit", &res_unit_str)) {
+      if (ReadExifTag(handle_.ptr,
+                      FIMD_EXIF_EXIF,
+                      "PixelXDimension",
+                      &pixel_x_dim_str) &&
+          ReadExifTag(handle_.ptr,
+                      FIMD_EXIF_EXIF,
+                      "FocalPlaneXResolution",
+                      &x_res_str) &&
+          ReadExifTag(handle_.ptr,
+                      FIMD_EXIF_EXIF,
+                      "FocalPlaneResolutionUnit",
+                      &res_unit_str)) {
         regex = std::regex(".*?([0-9.]+).*?");
         if (std::regex_search(pixel_x_dim_str.c_str(), result, regex)) {
           const double pixel_x_dim = std::stold(result[1]);
@@ -429,14 +471,14 @@ bool Bitmap::ExifFocalLength(double* focal_length) const {
 bool Bitmap::ExifLatitude(double* latitude) const {
   std::string str;
   double sign = 1.0;
-  if (ReadExifTag(FIMD_EXIF_GPS, "GPSLatitudeRef", &str)) {
+  if (ReadExifTag(handle_.ptr, FIMD_EXIF_GPS, "GPSLatitudeRef", &str)) {
     StringTrim(&str);
     StringToLower(&str);
     if (!str.empty() && str[0] == 's') {
       sign = -1.0;
     }
   }
-  if (ReadExifTag(FIMD_EXIF_GPS, "GPSLatitude", &str)) {
+  if (ReadExifTag(handle_.ptr, FIMD_EXIF_GPS, "GPSLatitude", &str)) {
     const std::regex regex(".*?([0-9.]+):([0-9.]+):([0-9.]+).*?");
     std::cmatch result;
     if (std::regex_search(str.c_str(), result, regex)) {
@@ -457,14 +499,14 @@ bool Bitmap::ExifLatitude(double* latitude) const {
 bool Bitmap::ExifLongitude(double* longitude) const {
   std::string str;
   double sign = 1.0;
-  if (ReadExifTag(FIMD_EXIF_GPS, "GPSLongitudeRef", &str)) {
+  if (ReadExifTag(handle_.ptr, FIMD_EXIF_GPS, "GPSLongitudeRef", &str)) {
     StringTrim(&str);
     StringToLower(&str);
     if (!str.empty() && str[0] == 'w') {
       sign = -1.0;
     }
   }
-  if (ReadExifTag(FIMD_EXIF_GPS, "GPSLongitude", &str)) {
+  if (ReadExifTag(handle_.ptr, FIMD_EXIF_GPS, "GPSLongitude", &str)) {
     const std::regex regex(".*?([0-9.]+):([0-9.]+):([0-9.]+).*?");
     std::cmatch result;
     if (std::regex_search(str.c_str(), result, regex)) {
@@ -484,7 +526,7 @@ bool Bitmap::ExifLongitude(double* longitude) const {
 
 bool Bitmap::ExifAltitude(double* altitude) const {
   std::string str;
-  if (ReadExifTag(FIMD_EXIF_GPS, "GPSAltitude", &str)) {
+  if (ReadExifTag(handle_.ptr, FIMD_EXIF_GPS, "GPSAltitude", &str)) {
     const std::regex regex(".*?([0-9.]+).*?/.*?([0-9.]+).*?");
     std::cmatch result;
     if (std::regex_search(str.c_str(), result, regex)) {
@@ -606,7 +648,10 @@ void Bitmap::Rescale(const int new_width,
   SetPtr(FreeImage_Rescale(handle_.ptr, new_width, new_height, fi_filter));
 }
 
-Bitmap Bitmap::Clone() const { return Bitmap(FreeImage_Clone(handle_.ptr)); }
+Bitmap Bitmap::Clone() const {
+  FIBITMAP* cloned = FreeImage_Clone(handle_.ptr);
+  return Bitmap(cloned);
+}
 
 Bitmap Bitmap::CloneAsGrey() const {
   if (IsGrey()) {
@@ -630,48 +675,19 @@ void Bitmap::CloneMetadata(Bitmap* target) const {
   FreeImage_CloneMetadata(handle_.ptr, target->Data());
 }
 
-bool Bitmap::ReadExifTag(const FREE_IMAGE_MDMODEL model,
-                         const std::string& tag_name,
-                         std::string* result) const {
-  FITAG* tag = nullptr;
-  FreeImage_GetMetadata(model, handle_.ptr, tag_name.c_str(), &tag);
-  if (tag == nullptr) {
-    *result = "";
-    return false;
-  } else {
-    if (tag_name == "FocalPlaneXResolution") {
-      // This tag seems to be in the wrong category.
-      *result = std::string(FreeImage_TagToString(FIMD_EXIF_INTEROP, tag));
-    } else {
-      *result = FreeImage_TagToString(model, tag);
-    }
-    return true;
-  }
-}
-
 void Bitmap::SetPtr(FIBITMAP* ptr) {
+  CHECK_NOTNULL(ptr);
+
   if (!IsPtrSupported(ptr)) {
     FreeImageHandle temp_handle(ptr);
     ptr = FreeImage_ConvertTo24Bits(temp_handle.ptr);
+    CHECK(IsPtrSupported(ptr));
   }
 
   handle_ = FreeImageHandle(ptr);
-  width_ = FreeImage_GetWidth(ptr);
-  height_ = FreeImage_GetHeight(ptr);
-  channels_ = IsPtrRGB(ptr) ? 3 : 1;
-}
-
-bool Bitmap::IsPtrGrey(FIBITMAP* ptr) {
-  return FreeImage_GetColorType(ptr) == FIC_MINISBLACK &&
-         FreeImage_GetBPP(ptr) == 8;
-}
-
-bool Bitmap::IsPtrRGB(FIBITMAP* ptr) {
-  return FreeImage_GetColorType(ptr) == FIC_RGB && FreeImage_GetBPP(ptr) == 24;
-}
-
-bool Bitmap::IsPtrSupported(FIBITMAP* ptr) {
-  return IsPtrGrey(ptr) || IsPtrRGB(ptr);
+  width_ = FreeImage_GetWidth(handle_.ptr);
+  height_ = FreeImage_GetHeight(handle_.ptr);
+  channels_ = IsPtrRGB(handle_.ptr) ? 3 : 1;
 }
 
 Bitmap::FreeImageHandle::FreeImageHandle() : ptr(nullptr) {}
@@ -683,6 +699,21 @@ Bitmap::FreeImageHandle::~FreeImageHandle() {
     FreeImage_Unload(ptr);
     ptr = nullptr;
   }
+}
+
+Bitmap::FreeImageHandle::FreeImageHandle(
+    Bitmap::FreeImageHandle&& other) noexcept {
+  ptr = other.ptr;
+  other.ptr = nullptr;
+}
+
+Bitmap::FreeImageHandle& Bitmap::FreeImageHandle::operator=(
+    Bitmap::FreeImageHandle&& other) noexcept {
+  if (this != &other) {
+    ptr = other.ptr;
+    other.ptr = nullptr;
+  }
+  return *this;
 }
 
 float JetColormap::Red(const float gray) { return Base(gray - 0.25f); }

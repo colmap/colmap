@@ -29,6 +29,7 @@
 
 #include "colmap/sensor/bitmap.h"
 
+#include <FreeImage.h>
 #include <gtest/gtest.h>
 
 namespace colmap {

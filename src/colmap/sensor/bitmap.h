@@ -38,10 +38,7 @@
 #include <string>
 #include <vector>
 
-extern "C" {
 struct FIBITMAP;
-enum FREE_IMAGE_MDMODEL;
-}
 
 namespace colmap {
 
@@ -173,24 +170,19 @@ class Bitmap {
   // Clone metadata from this bitmap object to another target bitmap object.
   void CloneMetadata(Bitmap* target) const;
 
-  // Read specific EXIF tag.
-  bool ReadExifTag(FREE_IMAGE_MDMODEL model,
-                   const std::string& tag_name,
-                   std::string* result) const;
-
  private:
   struct FreeImageHandle {
     FreeImageHandle();
     FreeImageHandle(FIBITMAP* ptr);
     ~FreeImageHandle();
+    FreeImageHandle(FreeImageHandle&&) noexcept;
+    FreeImageHandle& operator=(FreeImageHandle&&) noexcept;
+    FreeImageHandle(const FreeImageHandle&) = delete;
+    FreeImageHandle& operator=(const FreeImageHandle&) = delete;
     FIBITMAP* ptr;
   };
 
   void SetPtr(FIBITMAP* ptr);
-
-  static bool IsPtrGrey(FIBITMAP* ptr);
-  static bool IsPtrRGB(FIBITMAP* ptr);
-  static bool IsPtrSupported(FIBITMAP* ptr);
 
   FreeImageHandle handle_;
   int width_;
