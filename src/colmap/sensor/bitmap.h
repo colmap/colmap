@@ -29,23 +29,19 @@
 
 #pragma once
 
+#include "colmap/util/string.h"
+
 #include <algorithm>
 #include <cmath>
 #include <ios>
 #include <limits>
-#include <memory>
 #include <string>
 #include <vector>
 
-#ifdef _WIN32
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <Windows.h>
-#endif
-#include "colmap/util/string.h"
-
-#include <FreeImage.h>
+extern "C" {
+struct FIBITMAP;
+enum FREE_IMAGE_MDMODEL;
+}
 
 namespace colmap {
 
@@ -106,11 +102,11 @@ class Bitmap {
   inline int Channels() const;
 
   // Number of bits per pixel. This is 8 for grey and 24 for RGB image.
-  inline unsigned int BitsPerPixel() const;
+  unsigned int BitsPerPixel() const;
 
   // Scan width of bitmap which differs from the actual image width to achieve
   // 32 bit aligned memory. Also known as pitch or stride.
-  inline unsigned int ScanWidth() const;
+  unsigned int ScanWidth() const;
 
   // Check whether image is grey- or colorscale.
   inline bool IsRGB() const;
@@ -155,17 +151,19 @@ class Bitmap {
 
   // Write image to file. Flags can be used to set e.g. the JPEG quality.
   // Consult the FreeImage documentation for all available flags.
-  bool Write(const std::string& path,
-             FREE_IMAGE_FORMAT format = FIF_UNKNOWN,
-             int flags = 0) const;
+  bool Write(const std::string& path, int flags = 0) const;
 
   // Smooth the image using a Gaussian kernel.
   void Smooth(float sigma_x, float sigma_y);
 
   // Rescale image to the new dimensions.
+  enum class RescaleFilter {
+    kBilinear,
+    kBox,
+  };
   void Rescale(int new_width,
                int new_height,
-               FREE_IMAGE_FILTER filter = FILTER_BILINEAR);
+               RescaleFilter filter = RescaleFilter::kBilinear);
 
   // Clone the image to a new bitmap object.
   Bitmap Clone() const;
@@ -181,15 +179,20 @@ class Bitmap {
                    std::string* result) const;
 
  private:
-  typedef std::unique_ptr<FIBITMAP, decltype(&FreeImage_Unload)> FIBitmapPtr;
+  struct FreeImageHandle {
+    FreeImageHandle();
+    FreeImageHandle(FIBITMAP* ptr);
+    ~FreeImageHandle();
+    FIBITMAP* ptr;
+  };
 
-  void SetPtr(FIBITMAP* data);
+  void SetPtr(FIBITMAP* ptr);
 
-  static bool IsPtrGrey(FIBITMAP* data);
-  static bool IsPtrRGB(FIBITMAP* data);
-  static bool IsPtrSupported(FIBITMAP* data);
+  static bool IsPtrGrey(FIBITMAP* ptr);
+  static bool IsPtrRGB(FIBITMAP* ptr);
+  static bool IsPtrSupported(FIBITMAP* ptr);
 
-  FIBitmapPtr data_;
+  FreeImageHandle handle_;
   int width_;
   int height_;
   int channels_;
@@ -262,20 +265,12 @@ std::ostream& operator<<(std::ostream& output, const BitmapColor<T>& color) {
   return output;
 }
 
-FIBITMAP* Bitmap::Data() { return data_.get(); }
-const FIBITMAP* Bitmap::Data() const { return data_.get(); }
+FIBITMAP* Bitmap::Data() { return handle_.ptr; }
+const FIBITMAP* Bitmap::Data() const { return handle_.ptr; }
 
 int Bitmap::Width() const { return width_; }
 int Bitmap::Height() const { return height_; }
 int Bitmap::Channels() const { return channels_; }
-
-unsigned int Bitmap::BitsPerPixel() const {
-  return FreeImage_GetBPP(data_.get());
-}
-
-unsigned int Bitmap::ScanWidth() const {
-  return FreeImage_GetPitch(data_.get());
-}
 
 bool Bitmap::IsRGB() const { return channels_ == 3; }
 
