@@ -133,11 +133,13 @@ bool Bitmap::Allocate(const int width, const int height, const bool as_rgb) {
   height_ = height;
   if (as_rgb) {
     const int kNumBitsPerPixel = 24;
-    handle_.ptr = FreeImage_Allocate(width, height, kNumBitsPerPixel);
+    handle_ =
+        FreeImageHandle(FreeImage_Allocate(width, height, kNumBitsPerPixel));
     channels_ = 3;
   } else {
     const int kNumBitsPerPixel = 8;
-    handle_.ptr = FreeImage_Allocate(width, height, kNumBitsPerPixel);
+    handle_ =
+        FreeImageHandle(FreeImage_Allocate(width, height, kNumBitsPerPixel));
     channels_ = 1;
   }
   return handle_.ptr != nullptr;
@@ -548,7 +550,7 @@ bool Bitmap::Read(const std::string& path, const bool as_rgb) {
     return false;
   }
 
-  handle_.ptr = FreeImage_Load(format, path.c_str());
+  handle_ = FreeImageHandle(FreeImage_Load(format, path.c_str()));
   if (handle_.ptr == nullptr) {
     return false;
   }
@@ -710,6 +712,9 @@ Bitmap::FreeImageHandle::FreeImageHandle(
 Bitmap::FreeImageHandle& Bitmap::FreeImageHandle::operator=(
     Bitmap::FreeImageHandle&& other) noexcept {
   if (this != &other) {
+    if (ptr != nullptr) {
+      FreeImage_Unload(ptr);
+    }
     ptr = other.ptr;
     other.ptr = nullptr;
   }

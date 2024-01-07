@@ -29,6 +29,8 @@
 
 #include "colmap/sensor/bitmap.h"
 
+#include "colmap/util/testing.h"
+
 #include <FreeImage.h>
 #include <gtest/gtest.h>
 
@@ -383,6 +385,74 @@ TEST(Bitmap, CloneAsGrey) {
   EXPECT_EQ(cloned_bitmap.Height(), 100);
   EXPECT_EQ(cloned_bitmap.Channels(), 1);
   EXPECT_NE(bitmap.Data(), cloned_bitmap.Data());
+}
+
+TEST(Bitmap, ReadWriteAsRGB) {
+  Bitmap bitmap;
+  bitmap.Allocate(2, 3, true);
+  bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(0, 0, 0));
+  bitmap.SetPixel(0, 1, BitmapColor<uint8_t>(1, 0, 0));
+  bitmap.SetPixel(1, 0, BitmapColor<uint8_t>(2, 0, 0));
+  bitmap.SetPixel(1, 1, BitmapColor<uint8_t>(3, 0, 0));
+  bitmap.SetPixel(0, 2, BitmapColor<uint8_t>(4, 2, 0));
+  bitmap.SetPixel(1, 2, BitmapColor<uint8_t>(5, 2, 1));
+
+  const std::string test_dir = CreateTestDir();
+  const std::string filename = test_dir + "/bitmap.png";
+
+  EXPECT_TRUE(bitmap.Write(filename));
+
+  Bitmap read_bitmap;
+  read_bitmap.Allocate(bitmap.Width(), bitmap.Height(), false);
+  EXPECT_TRUE(read_bitmap.Read(filename));
+  EXPECT_EQ(read_bitmap.Width(), bitmap.Width());
+  EXPECT_EQ(read_bitmap.Height(), bitmap.Height());
+  EXPECT_EQ(read_bitmap.Channels(), 3);
+  EXPECT_EQ(read_bitmap.BitsPerPixel(), 24);
+  EXPECT_EQ(read_bitmap.ConvertToRowMajorArray(),
+            bitmap.ConvertToRowMajorArray());
+
+  EXPECT_TRUE(read_bitmap.Read(filename, /*as_rgb=*/false));
+  EXPECT_EQ(read_bitmap.Width(), bitmap.Width());
+  EXPECT_EQ(read_bitmap.Height(), bitmap.Height());
+  EXPECT_EQ(read_bitmap.Channels(), 1);
+  EXPECT_EQ(read_bitmap.BitsPerPixel(), 8);
+  EXPECT_EQ(read_bitmap.ConvertToRowMajorArray(),
+            bitmap.CloneAsGrey().ConvertToRowMajorArray());
+}
+
+TEST(Bitmap, ReadWriteAsGrey) {
+  Bitmap bitmap;
+  bitmap.Allocate(2, 3, false);
+  bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(0));
+  bitmap.SetPixel(0, 1, BitmapColor<uint8_t>(1));
+  bitmap.SetPixel(1, 0, BitmapColor<uint8_t>(2));
+  bitmap.SetPixel(1, 1, BitmapColor<uint8_t>(3));
+  bitmap.SetPixel(0, 2, BitmapColor<uint8_t>(4));
+  bitmap.SetPixel(1, 2, BitmapColor<uint8_t>(5));
+
+  const std::string test_dir = CreateTestDir();
+  const std::string filename = test_dir + "/bitmap.png";
+
+  EXPECT_TRUE(bitmap.Write(filename));
+
+  Bitmap read_bitmap;
+  read_bitmap.Allocate(bitmap.Width(), bitmap.Height(), true);
+  EXPECT_TRUE(read_bitmap.Read(filename));
+  EXPECT_EQ(read_bitmap.Width(), bitmap.Width());
+  EXPECT_EQ(read_bitmap.Height(), bitmap.Height());
+  EXPECT_EQ(read_bitmap.Channels(), 3);
+  EXPECT_EQ(read_bitmap.BitsPerPixel(), 24);
+  EXPECT_EQ(read_bitmap.ConvertToRowMajorArray(),
+            bitmap.CloneAsRGB().ConvertToRowMajorArray());
+
+  EXPECT_TRUE(read_bitmap.Read(filename, /*as_rgb=*/false));
+  EXPECT_EQ(read_bitmap.Width(), bitmap.Width());
+  EXPECT_EQ(read_bitmap.Height(), bitmap.Height());
+  EXPECT_EQ(read_bitmap.Channels(), 1);
+  EXPECT_EQ(read_bitmap.BitsPerPixel(), 8);
+  EXPECT_EQ(read_bitmap.ConvertToRowMajorArray(),
+            bitmap.ConvertToRowMajorArray());
 }
 
 }  // namespace
