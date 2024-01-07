@@ -51,7 +51,7 @@ TEST(Bitmap, BitmapGrayColor) {
 }
 
 TEST(Bitmap, BitmapColorCast) {
-  BitmapColor<float> color1(1.1, 2.9, -3.0);
+  BitmapColor<float> color1(1.1f, 2.9f, -3.0f);
   BitmapColor<uint8_t> color2 = color1.Cast<uint8_t>();
   EXPECT_EQ(color2.r, 1);
   EXPECT_EQ(color2.g, 3);

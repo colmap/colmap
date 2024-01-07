@@ -583,7 +583,12 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Read(
       flann::AutotunedIndex<flann::L2<kDescType>>(visual_words_);
 
   {
-    FILE* fin = fopen(path.c_str(), "rb");
+    FILE* fin = nullptr;
+#ifdef _MSC_VER
+    CHECK_EQ(fopen_s(&fin, path.c_str(), "rb"), 0);
+#else
+    fin = fopen(path.c_str(), "rb");
+#endif
     CHECK_NOTNULL(fin);
     fseek(fin, file_offset, SEEK_SET);
     visual_word_index_.loadIndex(fin);
@@ -623,7 +628,12 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Write(
   // Write the visual words search index.
 
   {
-    FILE* fout = fopen(path.c_str(), "ab");
+    FILE* fout = nullptr;
+#ifdef _MSC_VER
+    CHECK_EQ(fopen_s(&fout, path.c_str(), "ab"), 0);
+#else
+    fout = fopen(path.c_str(), "ab");
+#endif
     CHECK_NOTNULL(fout);
     visual_word_index_.saveIndex(fout);
     fclose(fout);

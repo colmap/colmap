@@ -370,7 +370,7 @@ class SequentialFeatureMatcher : public Thread {
         if (image_idx2 < image_ids.size()) {
           image_pairs.emplace_back(image_id1, image_ids.at(image_idx2));
           if (options_.quadratic_overlap) {
-            const size_t image_idx2_quadratic = image_idx1 + (1 << i);
+            const size_t image_idx2_quadratic = image_idx1 + (1ull << i);
             if (image_idx2_quadratic < image_ids.size()) {
               image_pairs.emplace_back(image_id1,
                                        image_ids.at(image_idx2_quadratic));
