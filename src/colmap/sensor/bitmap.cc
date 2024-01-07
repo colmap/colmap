@@ -107,6 +107,9 @@ Bitmap::Bitmap(Bitmap&& other) noexcept : Bitmap() {
   width_ = other.width_;
   height_ = other.height_;
   channels_ = other.channels_;
+  other.width_ = 0;
+  other.height_ = 0;
+  other.channels_ = 0;
 }
 
 Bitmap::Bitmap(FIBITMAP* data) : Bitmap() { SetPtr(data); }
@@ -124,6 +127,9 @@ Bitmap& Bitmap::operator=(Bitmap&& other) noexcept {
     width_ = other.width_;
     height_ = other.height_;
     channels_ = other.channels_;
+    other.width_ = 0;
+    other.height_ = 0;
+    other.channels_ = 0;
   }
   return *this;
 }

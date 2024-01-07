@@ -102,6 +102,38 @@ TEST(Bitmap, Deallocate) {
   EXPECT_FALSE(bitmap.IsGrey());
 }
 
+TEST(Bitmap, MoveConstruct) {
+  Bitmap bitmap;
+  bitmap.Allocate(2, 1, true);
+  const auto* data = bitmap.Data();
+  Bitmap moved_bitmap(std::move(bitmap));
+  EXPECT_EQ(moved_bitmap.Width(), 2);
+  EXPECT_EQ(moved_bitmap.Height(), 1);
+  EXPECT_EQ(moved_bitmap.Channels(), 3);
+  EXPECT_EQ(moved_bitmap.Data(), data);
+  EXPECT_EQ(bitmap.Width(), 0);
+  EXPECT_EQ(bitmap.Height(), 0);
+  EXPECT_EQ(bitmap.Channels(), 0);
+  EXPECT_EQ(bitmap.NumBytes(), 0);
+  EXPECT_EQ(bitmap.Data(), nullptr);
+}
+
+TEST(Bitmap, MoveAssign) {
+  Bitmap bitmap;
+  bitmap.Allocate(2, 1, true);
+  const auto* data = bitmap.Data();
+  Bitmap moved_bitmap = std::move(bitmap);
+  EXPECT_EQ(moved_bitmap.Width(), 2);
+  EXPECT_EQ(moved_bitmap.Height(), 1);
+  EXPECT_EQ(moved_bitmap.Channels(), 3);
+  EXPECT_EQ(moved_bitmap.Data(), data);
+  EXPECT_EQ(bitmap.Width(), 0);
+  EXPECT_EQ(bitmap.Height(), 0);
+  EXPECT_EQ(bitmap.Channels(), 0);
+  EXPECT_EQ(bitmap.NumBytes(), 0);
+  EXPECT_EQ(bitmap.Data(), nullptr);
+}
+
 TEST(Bitmap, BitsPerPixel) {
   Bitmap bitmap;
   bitmap.Allocate(100, 100, true);
