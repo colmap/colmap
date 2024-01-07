@@ -403,7 +403,10 @@ TEST(Bitmap, ReadWriteAsRGB) {
   EXPECT_TRUE(bitmap.Write(filename));
 
   Bitmap read_bitmap;
-  read_bitmap.Allocate(bitmap.Width(), bitmap.Height(), false);
+
+  // Allocate bitmap with different size to test read overwrites existing data.
+  read_bitmap.Allocate(bitmap.Width() + 1, bitmap.Height() + 2, true);
+
   EXPECT_TRUE(read_bitmap.Read(filename));
   EXPECT_EQ(read_bitmap.Width(), bitmap.Width());
   EXPECT_EQ(read_bitmap.Height(), bitmap.Height());
@@ -437,7 +440,10 @@ TEST(Bitmap, ReadWriteAsGrey) {
   EXPECT_TRUE(bitmap.Write(filename));
 
   Bitmap read_bitmap;
-  read_bitmap.Allocate(bitmap.Width(), bitmap.Height(), true);
+
+  // Allocate bitmap with different size to test read overwrites existing data.
+  read_bitmap.Allocate(bitmap.Width() + 1, bitmap.Height() + 2, true);
+
   EXPECT_TRUE(read_bitmap.Read(filename));
   EXPECT_EQ(read_bitmap.Width(), bitmap.Width());
   EXPECT_EQ(read_bitmap.Height(), bitmap.Height());
