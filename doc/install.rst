@@ -114,7 +114,7 @@ specify `CMAKE_CUDA_ARCHITECTURES` as "native", if you want to run COLMAP on you
 current machine only, "all"/"all-major" to be able to distribute to other machines,
 or a specific CUDA architecture like "75", etc.
 
-Under **Ubuntu 16.04/18.04**, the CMake configuration scripts of CGAL are broken and
+Under **Ubuntu 18.04**, the CMake configuration scripts of CGAL are broken and
 you must also install the CGAL Qt5 package::
 
     sudo apt-get install libcgal-qt5-dev
