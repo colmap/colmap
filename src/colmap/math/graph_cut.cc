@@ -34,9 +34,17 @@
 #include <boost/graph/stoer_wagner_min_cut.hpp>
 #include <boost/property_map/property_map.hpp>
 
+#ifdef _MSC_VER
+#pragma warning(push)
+// Disable warning C4005: 'PRId32': macro redefinition
+#pragma warning(disable : 4005)
+#endif
 extern "C" {
-#include "metis.h"
+#include <metis.h>
 }
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 #include "colmap/util/logging.h"
 
