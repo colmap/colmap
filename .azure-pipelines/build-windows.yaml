@@ -15,7 +15,7 @@ jobs:
     CCACHE_DIR: $(COMPILER_CACHE_DIR)/ccache
     CCACHE_BASEDIR: $(Build.SourcesDirectory)
   steps:
-  - task: NuGetAuthenticate@0
+  - task: NuGetAuthenticate@1
     displayName: NuGet Authenticate
 
   - pwsh: |
