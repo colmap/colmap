@@ -111,6 +111,8 @@ if(IS_MSVC)
     add_definitions("-DGL_GLEXT_PROTOTYPES")
     add_definitions("-DNOMINMAX")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc")
+    # Disable warning: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4267 /wd4244")
     # Enable object level parallel builds in Visual Studio.
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /MP")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
