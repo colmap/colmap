@@ -226,7 +226,7 @@ vcpkg, first run `./vcpkg integrate install` (under Windows use pwsh and
     cd path/to/colmap
     mkdir build
     cd build
-    cmake .. -DCMAKE_TOOLCHAIN_FILE=path/to/vcpkg/scripts/buildsystems/vcpkg.cmake
+    cmake .. -DCMAKE_TOOLCHAIN_FILE=path/to/vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_BUILD_TYPE=Release
     cmake --build . --config release --target colmap --parallel 24
 
 
