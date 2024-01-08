@@ -111,13 +111,13 @@ TEST(Bitmap, MoveConstruct) {
   EXPECT_EQ(moved_bitmap.Height(), 1);
   EXPECT_EQ(moved_bitmap.Channels(), 3);
   EXPECT_EQ(moved_bitmap.Data(), data);
-  // NOLINTBEGIN(bugprone-use-after-move)
+  // NOLINTBEGIN(bugprone-use-after-move,clang-analyzer-cplusplus.Move)
   EXPECT_EQ(bitmap.Width(), 0);
   EXPECT_EQ(bitmap.Height(), 0);
   EXPECT_EQ(bitmap.Channels(), 0);
   EXPECT_EQ(bitmap.NumBytes(), 0);
   EXPECT_EQ(bitmap.Data(), nullptr);
-  // NOLINTEND(bugprone-use-after-move)
+  // NOLINTEND(bugprone-use-after-move,clang-analyzer-cplusplus.Move)
 }
 
 TEST(Bitmap, MoveAssign) {
@@ -129,13 +129,13 @@ TEST(Bitmap, MoveAssign) {
   EXPECT_EQ(moved_bitmap.Height(), 1);
   EXPECT_EQ(moved_bitmap.Channels(), 3);
   EXPECT_EQ(moved_bitmap.Data(), data);
-  // NOLINTBEGIN(bugprone-use-after-move)
+  // NOLINTBEGIN(bugprone-use-after-move,clang-analyzer-cplusplus.Move)
   EXPECT_EQ(bitmap.Width(), 0);
   EXPECT_EQ(bitmap.Height(), 0);
   EXPECT_EQ(bitmap.Channels(), 0);
   EXPECT_EQ(bitmap.NumBytes(), 0);
   EXPECT_EQ(bitmap.Data(), nullptr);
-  // NOLINTEND(bugprone-use-after-move)
+  // NOLINTEND(bugprone-use-after-move,clang-analyzer-cplusplus.Move)
 }
 
 TEST(Bitmap, BitsPerPixel) {
