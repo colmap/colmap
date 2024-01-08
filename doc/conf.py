@@ -53,7 +53,7 @@ copyright = u"2023, Johannes L. Schoenberger"
 # built documents.
 #
 # The short X.Y version.
-version = "3.9"
+version = "3.9.1"
 # The full version, including alpha/beta/rc tags.
 release = version
 
