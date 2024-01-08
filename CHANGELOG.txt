@@ -1,3 +1,179 @@
+COLMAP 3.9.1 (01/08/2024)
+-------------------------
+* Version 3.9 changelog by @ahojnnes in https://github.com/colmap/colmap/pull/2325
+* Fully encapsulate freeimage in bitmap library (#2332) by @ahojnnes in https://github.com/colmap/colmap/pull/2334
+
+COLMAP 3.9 (01/06/2024)
+-----------------------
+* clang format all code and require clang-format-14 by @ahojnnes in https://github.com/colmap/colmap/pull/1785
+* Fix compilation for vcpkg windows build by @ahojnnes in https://github.com/colmap/colmap/pull/1791
+* Increment version number to 3.9 by @ahojnnes in https://github.com/colmap/colmap/pull/1794
+* Remove unnecessary /arch:sse2 flag for MSVC by @ahojnnes in https://github.com/colmap/colmap/pull/1798
+* Updated faq.rst by @CGCooke in https://github.com/colmap/colmap/pull/1801
+* Fixed mistake in code comment for OpenCV Fisheye camera by @CGCooke in https://github.com/colmap/colmap/pull/1802
+* Replace deprecated cudaThreadSynchronize with cudaDeviceSynchronize by @ahojnnes in https://github.com/colmap/colmap/pull/1806
+* Replace deprecated Cuda texture references with texture objects by @ahojnnes in https://github.com/colmap/colmap/pull/1809
+* Remove unused SIFT GPU cuda texture reference by @ahojnnes in https://github.com/colmap/colmap/pull/1823
+* Upgrade SiftGPU to use CUDA texture objects by @ahojnnes in https://github.com/colmap/colmap/pull/1838
+* Remove PBA as bundle adjustment backend to support CUDA 12+ by @ahojnnes in https://github.com/colmap/colmap/pull/1840
+* Replace deprecated CUDA sature function call by @ahojnnes in https://github.com/colmap/colmap/pull/1841
+* Avoid unnecessary mallocs during sampling by @ahojnnes in https://github.com/colmap/colmap/pull/1842
+* Cleaned up docker readme and scripts by @ahojnnes in https://github.com/colmap/colmap/pull/1852
+* add "Shared intrinsics per sub-folder" checkbox to automatic reconstruction window by @kenshi84 in https://github.com/colmap/colmap/pull/1853
+* Update vcpkg by @ahojnnes in https://github.com/colmap/colmap/pull/1925
+* Log the name of the file that causes Mat::Read() to checkfail by @SomeAlphabetGuy in https://github.com/colmap/colmap/pull/1923
+* check Z_index correctly in ReadPly by @countywest in https://github.com/colmap/colmap/pull/1896
+* Don't re-open files when reading and writing matrices by @SomeAlphabetGuy in https://github.com/colmap/colmap/pull/1926
+* Update vcpkg to latest commit by @ahojnnes in https://github.com/colmap/colmap/pull/1948
+* Remove unnecessary custom Eigen aligned allocator macros by @ahojnnes in https://github.com/colmap/colmap/pull/1947
+* Prefix internal sources/includes with colmap by @ahojnnes in https://github.com/colmap/colmap/pull/1949
+* Simplify clang-format config and sort includes by @ahojnnes in https://github.com/colmap/colmap/pull/1950
+* Handle possible overflow in median function by @ahojnnes in https://github.com/colmap/colmap/pull/1951
+* Run ASan pipeline under Ubuntu 22.04 by @ahojnnes in https://github.com/colmap/colmap/pull/1952
+* Fix Ceres version test by @drkoller in https://github.com/colmap/colmap/pull/1954
+* Fix deprecation warning for Qt font metrics width by @ahojnnes in https://github.com/colmap/colmap/pull/1958
+* Setup clang-tidy and enable perf warnings by @ahojnnes in https://github.com/colmap/colmap/pull/1959
+* VCPKG binary caching for windows CI by @ahojnnes in https://github.com/colmap/colmap/pull/1957
+* Cosmetics for VS dev shell script by @ahojnnes in https://github.com/colmap/colmap/pull/1965
+* Enable clang-tidy concurrency checks by @ahojnnes in https://github.com/colmap/colmap/pull/1967
+* [Bug] fix finding shared points3D in FindLocalBundle by @wesleyliwei in https://github.com/colmap/colmap/pull/1963
+* Enable compiler caching in CI by @ahojnnes in https://github.com/colmap/colmap/pull/1972
+* Set number of features for different quality levels by @ahojnnes in https://github.com/colmap/colmap/pull/1975
+* Specify parameter name using inline comment by @ahojnnes in https://github.com/colmap/colmap/pull/1976
+* Fix Windows CCache by @ahojnnes in https://github.com/colmap/colmap/pull/1977
+* Add e2e tests in CI pipeline using ETH3D datasets by @ahojnnes in https://github.com/colmap/colmap/pull/1397
+* [feature] print verbose information for model analyzer by @wesleyliwei in https://github.com/colmap/colmap/pull/1978
+* Add a missing include to compile with gcc13 by @EstebanDugueperoux2 in https://github.com/colmap/colmap/pull/1984
+* Speed up snapshot construct in RigBundleAdjuster by @wesleyliwei in https://github.com/colmap/colmap/pull/1988
+* Update outdated docker cuda image tag by @ahojnnes in https://github.com/colmap/colmap/pull/1992
+* Add boulders ETH3D dataset to CI E2E tests by @ahojnnes in https://github.com/colmap/colmap/pull/1991
+* Update executable paths in documentation by @ahojnnes in https://github.com/colmap/colmap/pull/1993
+* Avoid unnecessary copy in ExtractTopScaleFeatures by @ahojnnes in https://github.com/colmap/colmap/pull/1994
+* Move related code under new image library folder by @ahojnnes in https://github.com/colmap/colmap/pull/1995
+* Move related code under new camera folder by @ahojnnes in https://github.com/colmap/colmap/pull/1996
+* Added a virtual destructor to Sampler by @SomeAlphabetGuy in https://github.com/colmap/colmap/pull/2000
+* Add a few more clang-tidy checks by @ahojnnes in https://github.com/colmap/colmap/pull/2001
+* Move related code to new geometry module by @ahojnnes in https://github.com/colmap/colmap/pull/2006
+* Use #pragma once as include guard by @ahojnnes in https://github.com/colmap/colmap/pull/2007
+* Add bugprone-* clang-tidy checks by @ahojnnes in https://github.com/colmap/colmap/pull/2010
+* Avoid const params in declarations by @ahojnnes in https://github.com/colmap/colmap/pull/2011
+* Set and require C++14 by @ahojnnes in https://github.com/colmap/colmap/pull/2012
+* Cleanup math functions that are now part of eigen/stdlib by @ahojnnes in https://github.com/colmap/colmap/pull/2013
+* Add clang-analyzer checks by @ahojnnes in https://github.com/colmap/colmap/pull/2014
+* Replace CMake provided find_package scripts and modern CMake targets by @ahojnnes in https://github.com/colmap/colmap/pull/2016
+* Switch from Boost unit tests to Gtest by @ahojnnes in https://github.com/colmap/colmap/pull/2017
+* Fix ccache restore keys in pipeline caching by @ahojnnes in https://github.com/colmap/colmap/pull/2018
+* Add missing cacheHitVar to fix ccache by @ahojnnes in https://github.com/colmap/colmap/pull/2020
+* Add missing Boost::graph import by @sarlinpe in https://github.com/colmap/colmap/pull/2021
+* Compressed/flattened correspondence graph for faster triangulation / less memory by @ahojnnes in https://github.com/colmap/colmap/pull/2019
+* Fix window ccache key by @ahojnnes in https://github.com/colmap/colmap/pull/2024
+* Consistently use shared_ptr for shared pointers for SFM objects by @ahojnnes in https://github.com/colmap/colmap/pull/2023
+* Remove check on Qt version by @sarlinpe in https://github.com/colmap/colmap/pull/2022
+* Synthetics for E2E incremental mapper tests by @ahojnnes in https://github.com/colmap/colmap/pull/2025
+* New math module by @ahojnnes in https://github.com/colmap/colmap/pull/2028
+* Simplify similarity transform and more tests by @ahojnnes in https://github.com/colmap/colmap/pull/2030
+* Extract reconstruction alignment functions into new file by @ahojnnes in https://github.com/colmap/colmap/pull/2032
+* Add E2E hierarchical mapper tests by @ahojnnes in https://github.com/colmap/colmap/pull/2033
+* Rename SimilarityTransform3 to Sim3d by @ahojnnes in https://github.com/colmap/colmap/pull/2034
+* Add Rigid3d transform class by @ahojnnes in https://github.com/colmap/colmap/pull/2035
+* Consolidate and simplify Rigid3d and Sim3d by @ahojnnes in https://github.com/colmap/colmap/pull/2037
+* Some small improvements/cleanup for rigid3d/sim3d usage by @ahojnnes in https://github.com/colmap/colmap/pull/2041
+* CamFromWorld replaces qvec/tvec by @ahojnnes in https://github.com/colmap/colmap/pull/2039
+* Retry download of ETH3D datasets by @ahojnnes in https://github.com/colmap/colmap/pull/2043
+* WorldToImage becomes CamToImg by @ahojnnes in https://github.com/colmap/colmap/pull/2044
+* Camera models operate on camera rays by @ahojnnes in https://github.com/colmap/colmap/pull/2045
+* Ignore directory .vs by @whuaegeanse in https://github.com/colmap/colmap/pull/2046
+* Use the reference of Rigid3d to reduce memory consumption by @whuaegeanse in https://github.com/colmap/colmap/pull/2047
+* Inline point to image projection by @ahojnnes in https://github.com/colmap/colmap/pull/2050
+* Point2D becomes simpler pure data struct by @ahojnnes in https://github.com/colmap/colmap/pull/2051
+* Use Eigen math for estimator utils by @ahojnnes in https://github.com/colmap/colmap/pull/2052
+* Move cost functions under geometry module and rename by @ahojnnes in https://github.com/colmap/colmap/pull/2053
+* Bundle adjuster is an estimator by @ahojnnes in https://github.com/colmap/colmap/pull/2054
+* Remaining base targets move to new scene module by @ahojnnes in https://github.com/colmap/colmap/pull/2055
+* Vote and verify improvements/speedup by @ahojnnes in https://github.com/colmap/colmap/pull/2056
+* Generate version info in .cc file to reduce number of recompilations by @ahojnnes in https://github.com/colmap/colmap/pull/2057
+* Option manager moves to controllers to disentangle circular deps by @ahojnnes in https://github.com/colmap/colmap/pull/2058
+* Granular CMake modules and build targets by @ahojnnes in https://github.com/colmap/colmap/pull/2059
+* Fix docker build by @ahojnnes in https://github.com/colmap/colmap/pull/2069
+* Remove warnings about duplicated marco NOMINMAX by @whuaegeanse in https://github.com/colmap/colmap/pull/2067
+* lib folder becomes thirdparty folder by @ahojnnes in https://github.com/colmap/colmap/pull/2068
+* Remove unnecessary checks in image pair conversion by @ahojnnes in https://github.com/colmap/colmap/pull/2074
+* Replace flaky ETH3D terrace with courtyard dataset by @ahojnnes in https://github.com/colmap/colmap/pull/2075
+* Synthesize chained match graph for more mapper tests by @ahojnnes in https://github.com/colmap/colmap/pull/2076
+* Introduce abstract feature extractor by @ahojnnes in https://github.com/colmap/colmap/pull/2077
+* Avoid unnecessary data copies in feature conversion utils by @ahojnnes in https://github.com/colmap/colmap/pull/2078
+* Abstract feature matcher by @ahojnnes in https://github.com/colmap/colmap/pull/2082
+* Encapsulate feature matching controller/worker implementations by @ahojnnes in https://github.com/colmap/colmap/pull/2085
+* Some cosmetics for util/feature types by @ahojnnes in https://github.com/colmap/colmap/pull/2084
+* Use std:: when cmath included by @whuaegeanse in https://github.com/colmap/colmap/pull/2081
+* Encapsulate feature extraction controller/worker implementations by @ahojnnes in https://github.com/colmap/colmap/pull/2086
+* Reenable VS2022 CI pipeline by @ahojnnes in https://github.com/colmap/colmap/pull/1689
+* Consistent transform convention for CenterAndNormalizeImagePoints by @ahojnnes in https://github.com/colmap/colmap/pull/2092
+* Retire Mac 11 CI build by @ahojnnes in https://github.com/colmap/colmap/pull/2094
+* Add ReprojErrorConstantPoint3DCostFunction to speed up the RefineAbsolutePose function by @whuaegeanse in https://github.com/colmap/colmap/pull/2089
+* Numeric differentiation of camera model using partial piv LU by @ahojnnes in https://github.com/colmap/colmap/pull/2100
+* cmake: add testing.cc to colmap_util only if TESTS_ENABLED=ON by @NeroBurner in https://github.com/colmap/colmap/pull/2102
+* Set CUDA_STANDARD to 14 by @ahojnnes in https://github.com/colmap/colmap/pull/2108
+* Transform back to existing images positions after mapper processing if set fixed by @ferreram in https://github.com/colmap/colmap/pull/2095
+* Update documentation with new branch policy by @ahojnnes in https://github.com/colmap/colmap/pull/2110
+* Update CMake find dependencies for vcpkg by @ahojnnes in https://github.com/colmap/colmap/pull/2116
+* Decouple SIFT match from two view geometry options by @ahojnnes in https://github.com/colmap/colmap/pull/2118
+* Fix docker build by @vnmsklnk in https://github.com/colmap/colmap/pull/2122
+* Trigger build pipeline on main branch by @ahojnnes in https://github.com/colmap/colmap/pull/2123
+* Update Linux install documentation with new branch policy by @joshuaoreilly in https://github.com/colmap/colmap/pull/2126
+* Fix link in camera model documentation by @CFretter in https://github.com/colmap/colmap/pull/2152
+* [Bugfix] Fix GUI_ENABLED=OFF and skip SiftGPU if no GUI and no CUDA by @sarlinpe in https://github.com/colmap/colmap/pull/2151
+* [Bugfix] Properly handle CGAL_ENABLED by @sarlinpe in https://github.com/colmap/colmap/pull/2149
+* Refinement of intrinsics in the point_triangulator by @tsattler in https://github.com/colmap/colmap/pull/2144
+* Bugfix in handling COLMAP_GPU_ENABLED by @sarlinpe in https://github.com/colmap/colmap/pull/2163
+* Expose exe as libs by @sarlinpe in https://github.com/colmap/colmap/pull/2165
+* Add Sim3d::FromMatrix by @sarlinpe in https://github.com/colmap/colmap/pull/2147
+* Check code format in CI by @ahojnnes in https://github.com/colmap/colmap/pull/2171
+* Clean up dependencies by @sarlinpe in https://github.com/colmap/colmap/pull/2173
+* Move tests into anonymous namespaces by @ahojnnes in https://github.com/colmap/colmap/pull/2175
+* Fix glew/qopengl conflict warning by @ahojnnes in https://github.com/colmap/colmap/pull/2176
+* Update documentation with new link to GitHub discussions by @ahojnnes in https://github.com/colmap/colmap/pull/2177
+* Restore GLEW include by @sarlinpe in https://github.com/colmap/colmap/pull/2178
+* Align reconstructions via shared 3D points by @sarlinpe in https://github.com/colmap/colmap/pull/2169
+* Add clang-tidy-cachein CI by @ahojnnes in https://github.com/colmap/colmap/pull/2182
+* Disable GUI build in one CI config by @ahojnnes in https://github.com/colmap/colmap/pull/2181
+* Show verbose ccache stats by @ahojnnes in https://github.com/colmap/colmap/pull/2183
+* Add EstimateGeneralizedAbsolutePose by @sarlinpe in https://github.com/colmap/colmap/pull/2174
+* Fix bug in ReconstructionManagerWidget::Update by @whuaegeanse in https://github.com/colmap/colmap/pull/2186
+* Fix missing retrieval dependency by @ahojnnes in https://github.com/colmap/colmap/pull/2189
+* Removing clustering_options_ and mapper_options_ in Hierarchical Mapper Controller by @Serenitysmk in https://github.com/colmap/colmap/pull/2193
+* Publish docker image to docker hub by @ahojnnes in https://github.com/colmap/colmap/pull/2195
+* Fix Cuda architecture in docker build by @ahojnnes in https://github.com/colmap/colmap/pull/2196
+* Fix all-major cuda arch missing in CMake < 3.23 by @ahojnnes in https://github.com/colmap/colmap/pull/2197
+* Update triangulation.cc by @RayShark0605 in https://github.com/colmap/colmap/pull/2205
+* Update author and acknowledgements by @ahojnnes in https://github.com/colmap/colmap/pull/2207
+* Code formatting for Python by @ahojnnes in https://github.com/colmap/colmap/pull/2208
+* Retire outdated build script by @ahojnnes in https://github.com/colmap/colmap/pull/2217
+* Remove mention of deprecated build script by @sarlinpe in https://github.com/colmap/colmap/pull/2220
+* Improve word spelling by @zchrissirhcz in https://github.com/colmap/colmap/pull/2235
+* Stack allocate camera param idx arrays by @ahojnnes in https://github.com/colmap/colmap/pull/2234
+* fix: typo in colmap/src/colmap/ui/project_widget.cc by @varundhand in https://github.com/colmap/colmap/pull/2241
+* Update reconstruction.cc by @RayShark0605 in https://github.com/colmap/colmap/pull/2238
+* Update to Docker CUDA 12.2.2 by @ahojnnes in https://github.com/colmap/colmap/pull/2244
+* Stop setting C++ standard flags manually by @AdrianBunk in https://github.com/colmap/colmap/pull/2251
+* Setting clear_points to true per default in point_triangulator by @tsattler in https://github.com/colmap/colmap/pull/2252
+* Update cameras.rst to fix link to code by @tsattler in https://github.com/colmap/colmap/pull/2246
+* Fix matching of imported features without descriptors by @ahojnnes in https://github.com/colmap/colmap/pull/2269
+* Consistent versioning between documentation and code by @ahojnnes in https://github.com/colmap/colmap/pull/2275
+* Reduce mallocs for RANSAC estimator models by @ahojnnes in https://github.com/colmap/colmap/pull/2283
+* Migrate to glog logging by @ahojnnes in https://github.com/colmap/colmap/pull/2172
+* Turn Point3D into simple data struct by @ahojnnes in https://github.com/colmap/colmap/pull/2285
+* Camera becomes simple data struct by @ahojnnes in https://github.com/colmap/colmap/pull/2286
+* Recover custom Eigen std::vector allocator for Eigen <3.4 support by @ahojnnes in https://github.com/colmap/colmap/pull/2293
+* Replace result_of with invoke_result_t by @sarlinpe in https://github.com/colmap/colmap/pull/2300
+* Allow getters FocalLength{X,Y} for isotropic models by @sarlinpe in https://github.com/colmap/colmap/pull/2301
+* Add missing Boost targets and cleanup includes by @sarlinpe in https://github.com/colmap/colmap/pull/2304
+* Expose IncrementalMapperOptions::{mapper,triangulation} by @sarlinpe in https://github.com/colmap/colmap/pull/2308
+* Update install instructions for Mac by @Dawars in https://github.com/colmap/colmap/pull/2310
+* Remove unused ceres reference in doc by @ahojnnes in https://github.com/colmap/colmap/pull/2315
+* Fix typo by @whuaegeanse in https://github.com/colmap/colmap/pull/2317
+* Stable version 3.9 release by @ahojnnes in https://github.com/colmap/colmap/pull/2319
+
 COLMAP 3.8 (01/31/2023)
 -----------------------
 * Updating geo-registration doc. by @ferreram in https://github.com/colmap/colmap/pull/1410

@@ -48,9 +48,6 @@ if(CUDA_ENABLED)
     # Suppress warnings:
     # ptxas warning : Stack size for entry function X cannot be statically determined.
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xptxas=-suppress-stack-size-warning")
-
-    # Fix for Ubuntu 16.04.
-    add_definitions("-D_MWAITXINTRIN_H_INCLUDED")
 endif()
 
 add_subdirectory(controllers)
