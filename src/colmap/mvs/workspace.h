@@ -29,6 +29,8 @@
 
 #pragma once
 
+#include <memory>
+
 #include "colmap/mvs/consistency_graph.h"
 #include "colmap/mvs/depth_map.h"
 #include "colmap/mvs/model.h"
