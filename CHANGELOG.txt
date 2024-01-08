@@ -1,3 +1,8 @@
+COLMAP 3.9.1 (01/08/2024)
+-------------------------
+* Version 3.9 changelog by @ahojnnes in https://github.com/colmap/colmap/pull/2325
+* Fully encapsulate freeimage in bitmap library (#2332) by @ahojnnes in https://github.com/colmap/colmap/pull/2334
+
 COLMAP 3.9 (01/06/2024)
 -----------------------
 * clang format all code and require clang-format-14 by @ahojnnes in https://github.com/colmap/colmap/pull/1785
