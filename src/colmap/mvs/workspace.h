@@ -29,8 +29,6 @@
 
 #pragma once
 
-#include <memory>
-
 #include "colmap/mvs/consistency_graph.h"
 #include "colmap/mvs/depth_map.h"
 #include "colmap/mvs/model.h"
@@ -38,6 +36,8 @@
 #include "colmap/sensor/bitmap.h"
 #include "colmap/util/cache.h"
 #include "colmap/util/misc.h"
+
+#include <memory>
 
 namespace colmap {
 namespace mvs {
