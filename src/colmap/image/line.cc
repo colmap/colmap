@@ -35,6 +35,8 @@ extern "C" {
 #include "thirdparty/LSD/lsd.h"
 }
 
+#include <memory>
+
 namespace colmap {
 namespace {
 
