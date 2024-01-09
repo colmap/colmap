@@ -27,8 +27,6 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include <memory>
-
 #include "colmap/image/line.h"
 
 #include "colmap/util/logging.h"
@@ -36,6 +34,8 @@
 extern "C" {
 #include "thirdparty/LSD/lsd.h"
 }
+
+#include <memory>
 
 namespace colmap {
 namespace {
