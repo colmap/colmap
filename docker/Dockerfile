@@ -7,7 +7,7 @@ ARG NVIDIA_CUDA_VERSION=12.3.1
 FROM nvidia/cuda:${NVIDIA_CUDA_VERSION}-devel-ubuntu${UBUNTU_VERSION} as builder
 
 ARG COLMAP_GIT_COMMIT=main
-ARG CUDA_ARCHITECTURES=50
+ARG CUDA_ARCHITECTURES=native
 ENV QT_XCB_GL_INTEGRATION=xcb_egl
 
 # Prevent stop building ubuntu at time zone selection.
@@ -38,27 +38,20 @@ RUN apt-get update && \
         libceres-dev
 
 # Build and install COLMAP.
-RUN git clone https://github.com/colmap/colmap.git colmap_${COLMAP_GIT_COMMIT}
-RUN cd colmap_${COLMAP_GIT_COMMIT} && \
-    git fetch https://github.com/colmap/colmap.git ${COLMAP_GIT_COMMIT} && \
-    git checkout FETCH_HEAD && \
+RUN git clone --depth 1 -b ${COLMAP_GIT_COMMIT} https://github.com/colmap/colmap.git
+RUN cd colmap && \
     mkdir build && \
     cd build && \
     cmake .. -GNinja -DCMAKE_CUDA_ARCHITECTURES=${CUDA_ARCHITECTURES} \
-        -DCMAKE_INSTALL_PREFIX=/colmap && \
-    ninja install && \
-    cd .. && rm -rf colmap_${COLMAP_GIT_COMMIT}
-
-# Add the installation directory to the PATH.
-ENV PATH="/colmap/bin:$PATH"
-
+        -DCMAKE_INSTALL_PREFIX=/colmap_installed && \
+    ninja install
 
 #
 # Docker runtime stage.
 #
 FROM nvidia/cuda:${NVIDIA_CUDA_VERSION}-runtime-ubuntu${UBUNTU_VERSION} as runtime
 
-# Minimal dependencies to run colmap binary compiled in the builder stage.
+# Minimal dependencies to run COLMAP binary compiled in the builder stage.
 # Note: this reduces the size of the final image considerably, since all the
 # build dependencies are not needed.
 RUN apt-get update && \
@@ -76,5 +69,10 @@ RUN apt-get update && \
         libqt5gui5 \
         libqt5widgets5
 
-COPY --from=builder /colmap/bin/colmap /colmap/bin/colmap
-ENV PATH="/colmap/bin:$PATH"
+# Copy all files from /colmap_installed/ in the builder stage to /usr/local/ in
+# the runtime stage. This simulates installing COLMAP in the default location
+# (/usr/local/), which simplifies environment variables. It also allows the user
+# of this Docker image to use it as a base image for compiling against COLMAP as
+# a library. For instance, CMake will be able to find COLMAP easily with the
+# command: find_package(COLMAP REQUIRED).
+COPY --from=builder /colmap_installed/ /usr/local/
