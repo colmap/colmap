@@ -199,7 +199,7 @@ bool RefineGeneralizedAbsolutePose(const AbsolutePoseRefinementOptions& options,
     camera_counts[camera_idx] += 1;
 
     problem.AddResidualBlock(
-        CreateCostFunction<RigReprojErrorCostFunction>(
+        CameraCostFunction<RigReprojErrorCostFunction>(
             cameras->at(camera_idx).model_id, points2D[i]),
         loss_function.get(),
         cams_from_rig_copy[camera_idx].rotation.coeffs().data(),

@@ -302,7 +302,7 @@ class SampsonErrorCostFunction {
 };
 
 template <template <typename> class CostFunction, typename... Args>
-ceres::CostFunction* CreateCostFunction(const CameraModelId camera_model_id,
+ceres::CostFunction* CameraCostFunction(const CameraModelId camera_model_id,
                                         Args&&... args) {
   switch (camera_model_id) {
 #define CAMERA_MODEL_CASE(CameraModel)                                     \
