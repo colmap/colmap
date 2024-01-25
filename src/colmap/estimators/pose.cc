@@ -209,6 +209,7 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
                         const std::vector<Eigen::Vector3d>& points3D,
                         Rigid3d* cam_from_world,
                         Camera* camera,
+                        bool freeze_tvec,
                         Eigen::Matrix6d* cam_from_world_cov) {
   CHECK_EQ(inlier_mask.size(), points2D.size());
   CHECK_EQ(points2D.size(), points3D.size());
@@ -251,6 +252,9 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
                              rig_from_world_rotation,
                              rig_from_world_translation,
                              camera_params);
+    if (freeze_tvec) {
+      problem.SetParameterBlockConstant(rig_from_world_translation);
+    }
   }
 
   if (problem.NumResiduals() > 0) {

@@ -162,6 +162,7 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
                         const std::vector<Eigen::Vector3d>& points3D,
                         Rigid3d* cam_from_world,
                         Camera* camera,
+                        bool freeze_tvec,
                         Eigen::Matrix6d* cam_from_world_cov = nullptr);
 
 // Refine relative pose of two cameras.

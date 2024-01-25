@@ -507,7 +507,8 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
                           tri_points2D,
                           tri_points3D,
                           &image.CamFromWorld(),
-                          &camera)) {
+                          &camera,
+                          false)) {
     return false;
   }
 
