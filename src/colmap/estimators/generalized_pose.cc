@@ -198,21 +198,9 @@ bool RefineGeneralizedAbsolutePose(const AbsolutePoseRefinementOptions& options,
     const size_t camera_idx = camera_idxs[i];
     camera_counts[camera_idx] += 1;
 
-    ceres::CostFunction* cost_function = nullptr;
-    switch (cameras->at(camera_idx).model_id) {
-#define CAMERA_MODEL_CASE(CameraModel)                                \
-  case CameraModel::model_id:                                         \
-    cost_function =                                                   \
-        RigReprojErrorCostFunction<CameraModel>::Create(points2D[i]); \
-    break;
-
-      CAMERA_MODEL_SWITCH_CASES
-
-#undef CAMERA_MODEL_CASE
-    }
-
     problem.AddResidualBlock(
-        cost_function,
+        CameraCostFunction<RigReprojErrorCostFunction>(
+            cameras->at(camera_idx).model_id, points2D[i]),
         loss_function.get(),
         cams_from_rig_copy[camera_idx].rotation.coeffs().data(),
         cams_from_rig_copy[camera_idx].translation.data(),
