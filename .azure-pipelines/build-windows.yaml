@@ -8,7 +8,7 @@ jobs:
   pool:
     vmImage: 'windows-${{ parameters.visualStudioVersion }}'
   variables:
-    vcpkgGitCommitId: 4c1734ba2a969b1e6daa0ac79bc46ead7324df90
+    vcpkgGitCommitId: fa6e6a6ec3224f1d3697d544edef6272a59cd834
     VCPKG_BINARY_SOURCES: 'clear;nuget,https://pkgs.dev.azure.com/colmap/colmap/_packaging/vcpkg/nuget/v3/index.json,readwrite'
     COMPILER_CACHE_DIR: $(Pipeline.Workspace)/compiler-cache
     COMPILER_CACHE_VERSION: 2
