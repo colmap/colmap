@@ -13,7 +13,7 @@ authors = [
   { name = "Paul-Edouard Sarlin", email = "psarlin@ethz.ch" },
   { name = "Philipp Lindenberger", email = "plindenbe@ethz.ch" },
 ]
-license = {file = "../doc/license.rst"}
+license = "BSD-3-Clause"
 urls = {Repository = "https://github.com/colmap/pycolmap"}
 requires-python = ">=3.7"
 dependencies = ["numpy"]
