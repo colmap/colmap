@@ -30,6 +30,7 @@
 #pragma once
 
 #include "colmap/geometry/rigid3.h"
+#include "colmap/sensor/models.h"
 #include "colmap/util/eigen_alignment.h"
 
 #include <Eigen/Core>
@@ -299,6 +300,21 @@ class SampsonErrorCostFunction {
   const double x2_;
   const double y2_;
 };
+
+template <template <typename> class CostFunction, typename... Args>
+ceres::CostFunction* CameraCostFunction(const CameraModelId camera_model_id,
+                                        Args&&... args) {
+  switch (camera_model_id) {
+#define CAMERA_MODEL_CASE(CameraModel)                                     \
+  case CameraModel::model_id:                                              \
+    return CostFunction<CameraModel>::Create(std::forward<Args>(args)...); \
+    break;
+
+    CAMERA_MODEL_SWITCH_CASES
+
+#undef CAMERA_MODEL_CASE
+  }
+}
 
 inline void SetQuaternionManifold(ceres::Problem* problem, double* quat_xyzw) {
 #if CERES_VERSION_MAJOR >= 3 || \

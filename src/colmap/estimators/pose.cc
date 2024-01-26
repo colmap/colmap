@@ -230,27 +230,13 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
     if (!inlier_mask[i]) {
       continue;
     }
-
-    ceres::CostFunction* cost_function = nullptr;
-
-    switch (camera->model_id) {
-#define CAMERA_MODEL_CASE(CameraModel)                               \
-  case CameraModel::model_id:                                        \
-    cost_function =                                                  \
-        ReprojErrorConstantPoint3DCostFunction<CameraModel>::Create( \
-            points2D[i], points3D[i]);                               \
-    break;
-
-      CAMERA_MODEL_SWITCH_CASES
-
-#undef CAMERA_MODEL_CASE
-    }
-
-    problem.AddResidualBlock(cost_function,
-                             loss_function.get(),
-                             rig_from_world_rotation,
-                             rig_from_world_translation,
-                             camera_params);
+    problem.AddResidualBlock(
+        CameraCostFunction<ReprojErrorConstantPoint3DCostFunction>(
+            camera->model_id, points2D[i], points3D[i]),
+        loss_function.get(),
+        rig_from_world_rotation,
+        rig_from_world_translation,
+        camera_params);
   }
 
   if (problem.NumResiduals() > 0) {
