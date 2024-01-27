@@ -109,10 +109,10 @@ To compile with **CUDA support**, also install Ubuntu's default CUDA package::
         nvidia-cuda-toolkit \
         nvidia-cuda-toolkit-gcc
 
-Or, manually install latest CUDA from NVIDIA's homepage. During CMake configuration
+Or, manually install the latest CUDA from NVIDIA's homepage. During CMake configuration
 specify `CMAKE_CUDA_ARCHITECTURES` as "native", if you want to run COLMAP on your
-current machine only, "all"/"all-major" to be able to distribute to other machines,
-or a specific CUDA architecture like "75", etc.
+current machine only (default), "all"/"all-major" to be able to distribute to other
+machines, or a specific CUDA architecture like "75", etc.
 
 Under **Ubuntu 18.04**, the CMake configuration scripts of CGAL are broken and
 you must also install the CGAL Qt5 package::
