@@ -19,31 +19,14 @@ ccache --version
 ccache --help
 
 # Build the dependencies
+DEPENDENCIES=$(cat ${CURRDIR}/pycolmap/ci/vcpkg-dependencies.txt)
 git clone https://github.com/microsoft/vcpkg ${VCPKG_INSTALLATION_ROOT}
 cd ${VCPKG_INSTALLATION_ROOT}
 git checkout ${VCPKG_COMMIT_ID}
 ./bootstrap-vcpkg.sh
-./vcpkg install --recurse --clean-after-build --triplet=${VCPKG_TARGET_TRIPLET} \
-    boost-algorithm \
-    boost-filesystem \
-    boost-graph \
-    boost-heap \
-    boost-program-options \
-    boost-property-map \
-    boost-property-tree \
-    boost-regex \
-    boost-system \
-    ceres[lapack,suitesparse] \
-    eigen3 \
-    flann \
-    jasper[core] \
-    freeimage \
-    metis \
-    gflags \
-    glog \
-    gtest \
-    sqlite3
-# We force the core option of jasper to disable the unwanted opengl option.
+./vcpkg install --recurse --clean-after-build \
+    --triplet=${VCPKG_TARGET_TRIPLET} \
+    ${DEPENDENCIES}
 ./vcpkg integrate install
 
 # Build COLMAP
