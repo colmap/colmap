@@ -36,11 +36,11 @@ test-command = "python -c \"import pycolmap; print(pycolmap.__version__)\""
 VCPKG_COMMIT_ID = "fa6e6a6ec3224f1d3697d544edef6272a59cd834"
 
 [tool.cibuildwheel.linux]
-before-all = "{package}/ci/install-centos.sh"
+before-all = "{package}/ci/install-colmap-centos.sh"
 
 [tool.cibuildwheel.macos]
-before-all = "{package}/ci/install-macos.sh"
+before-all = "{package}/ci/install-colmap-macos.sh"
 
 [tool.cibuildwheel.windows]
-before-all = "powershell -File {package}/ci/install-windows.ps1"
+before-all = "powershell -File {package}/ci/install-colmap-windows.ps1"
 before-build = "pip install delvewheel"
