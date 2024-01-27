@@ -19,8 +19,8 @@ find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
 
 find_package(pybind11 2.11.1 REQUIRED)
 
-pybind11_add_module(pycolmap pycolmap/main.cc)
-target_include_directories(pycolmap PRIVATE ${PROJECT_SOURCE_DIR})
+pybind11_add_module(pycolmap  ${PROJECT_SOURCE_DIR}/../src/pycolmap/main.cc)
+target_include_directories(pycolmap PRIVATE ${PROJECT_SOURCE_DIR}/../src/)
 target_link_libraries(pycolmap PRIVATE colmap::colmap freeimage::FreeImage glog::glog Ceres::ceres)
 target_compile_definitions(pycolmap PRIVATE VERSION_INFO="${PROJECT_VERSION}")
 install(TARGETS pycolmap LIBRARY DESTINATION .)
