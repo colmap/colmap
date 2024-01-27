@@ -1,0 +1,153 @@
+name: Build and publish wheels
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    types: [ assigned, opened, synchronize, reopened ]
+  release:
+    types: [ published, edited ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build on ${{ matrix.config.os }} ${{ matrix.config.arch }}
+    runs-on: ${{ matrix.config.os }}
+    strategy:
+      matrix:
+        config: [
+              {os: ubuntu-latest},
+              {os: macos-13, arch: x86_64},
+              {os: macos-13, arch: arm64},
+              {os: windows-latest},
+        ]
+    env:
+      COMPILER_CACHE_VERSION: 1
+      COMPILER_CACHE_DIR: ${{ github.workspace }}/compiler-cache
+      CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
+      CCACHE_BASEDIR: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        id: cache-builds
+        with:
+          key: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ github.run_id }}-${{ github.run_number }}
+          restore-keys: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}
+          path: ${{ env.COMPILER_CACHE_DIR }}
+      - name: Set env (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          if [[ ${{ matrix.config.arch }} == "x86_64" ]]; then
+            VCPKG_TARGET_TRIPLET="x64-osx"
+          elif [[ ${{ matrix.config.arch }} == "arm64" ]]; then
+            VCPKG_TARGET_TRIPLET="arm64-osx-release"
+          else
+            exit 1
+          fi
+          echo "VCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET}" >> "$GITHUB_ENV"
+
+          VCPKG_INSTALLATION_ROOT="/Users/runner/work/vcpkg"
+          CMAKE_TOOLCHAIN_FILE="${VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake"
+          CMAKE_OSX_ARCHITECTURES=${{ matrix.config.arch }}
+          echo "VCPKG_INSTALLATION_ROOT=${VCPKG_INSTALLATION_ROOT}" >> "$GITHUB_ENV"
+          echo "CMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}" >> "$GITHUB_ENV"
+          echo "CMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES}" >> "$GITHUB_ENV"
+
+          # Fix: cibuildhweel cannot interpolate env variables.
+          CONFIG_SETTINGS="cmake.define.CMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}"
+          CONFIG_SETTINGS="${CONFIG_SETTINGS} cmake.define.VCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET}"
+          CONFIG_SETTINGS="${CONFIG_SETTINGS} cmake.define.CMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES}"
+          echo "CIBW_CONFIG_SETTINGS_MACOS=${CONFIG_SETTINGS}" >> "$GITHUB_ENV"
+
+          # vcpkg binary caching
+          VCPKG_CACHE_DIR="${COMPILER_CACHE_DIR}/vcpkg"
+          VCPKG_BINARY_SOURCES="clear;files,${VCPKG_CACHE_DIR},readwrite"
+          echo "VCPKG_BINARY_SOURCES=${VCPKG_BINARY_SOURCES}" >> "$GITHUB_ENV"
+      - name: Set env (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $VCPKG_INSTALLATION_ROOT="${{ github.workspace }}/vcpkg"
+          echo "VCPKG_INSTALLATION_ROOT=${VCPKG_INSTALLATION_ROOT}" >> "${env:GITHUB_ENV}"
+          $CMAKE_TOOLCHAIN_FILE = "${VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake"
+          echo "CMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}" >> "${env:GITHUB_ENV}"
+          $VCPKG_TARGET_TRIPLET = "x64-windows"
+          echo "VCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET}" >> "${env:GITHUB_ENV}"
+
+          # Fix: cibuildhweel cannot interpolate env variables.
+          $CMAKE_TOOLCHAIN_FILE = $CMAKE_TOOLCHAIN_FILE.replace('\', '/')
+          $CONFIG_SETTINGS = "cmake.define.CMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}"
+          $CONFIG_SETTINGS = "${CONFIG_SETTINGS} cmake.define.VCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET}"
+          echo "CIBW_CONFIG_SETTINGS_WINDOWS=${CONFIG_SETTINGS}" >> "${env:GITHUB_ENV}"
+          $CIBW_REPAIR_WHEEL_COMMAND = "delvewheel repair -v --add-path ${VCPKG_INSTALLATION_ROOT}/installed/${VCPKG_TARGET_TRIPLET}/bin -w {dest_dir} {wheel}"
+          echo "CIBW_REPAIR_WHEEL_COMMAND_WINDOWS=${CIBW_REPAIR_WHEEL_COMMAND}" >> "${env:GITHUB_ENV}"
+
+          # vcpkg binary caching
+          $VCPKG_CACHE_DIR = "${env:COMPILER_CACHE_DIR}/vcpkg"
+          $VCPKG_BINARY_SOURCES = "clear;files,${VCPKG_CACHE_DIR},readwrite"
+          echo "VCPKG_BINARY_SOURCES=${VCPKG_BINARY_SOURCES}" >> "${env:GITHUB_ENV}"
+      - name: Set env (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          VCPKG_TARGET_TRIPLET="x64-linux-release"
+          echo "VCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET}" >> "$GITHUB_ENV"
+
+          VCPKG_INSTALLATION_ROOT="${{ github.workspace }}/vcpkg"
+          CMAKE_TOOLCHAIN_FILE="${VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake"
+          echo "VCPKG_INSTALLATION_ROOT=${VCPKG_INSTALLATION_ROOT}" >> "$GITHUB_ENV"
+          echo "CMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}" >> "$GITHUB_ENV"
+
+          # Fix: cibuildhweel cannot interpolate env variables.
+          CONFIG_SETTINGS="cmake.define.CMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}"
+          CONFIG_SETTINGS="${CONFIG_SETTINGS} cmake.define.VCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET}"
+          echo "CIBW_CONFIG_SETTINGS_LINUX=${CONFIG_SETTINGS}" >> "$GITHUB_ENV"
+
+          # Remap caching paths to the container
+          CONTAINER_COMPILER_CACHE_DIR="/compiler-cache"
+          CIBW_CONTAINER_ENGINE="docker; create_args: -v ${COMPILER_CACHE_DIR}:${CONTAINER_COMPILER_CACHE_DIR}"
+          echo "CIBW_CONTAINER_ENGINE=${CIBW_CONTAINER_ENGINE}" >> "$GITHUB_ENV"
+          echo "CONTAINER_COMPILER_CACHE_DIR=${CONTAINER_COMPILER_CACHE_DIR}" >> "$GITHUB_ENV"
+          echo "CCACHE_DIR=${CONTAINER_COMPILER_CACHE_DIR}/ccache" >> "$GITHUB_ENV"
+          echo "CCACHE_BASEDIR=/project" >> "$GITHUB_ENV"
+
+          # vcpkg binary caching
+          VCPKG_CACHE_DIR="${CONTAINER_COMPILER_CACHE_DIR}/vcpkg"
+          VCPKG_BINARY_SOURCES="clear;files,${VCPKG_CACHE_DIR},readwrite"
+          echo "VCPKG_BINARY_SOURCES=${VCPKG_BINARY_SOURCES}" >> "$GITHUB_ENV"
+
+          CIBW_ENVIRONMENT_PASS_LINUX="VCPKG_TARGET_TRIPLET VCPKG_INSTALLATION_ROOT CMAKE_TOOLCHAIN_FILE VCPKG_BINARY_SOURCES CONTAINER_COMPILER_CACHE_DIR CCACHE_DIR CCACHE_BASEDIR"
+          echo "CIBW_ENVIRONMENT_PASS_LINUX=${CIBW_ENVIRONMENT_PASS_LINUX}" >> "$GITHUB_ENV"
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.16.2
+        with:
+          package-dir: ./pycolmap/
+        env:
+          CIBW_ARCHS_MACOS: ${{ matrix.config.arch }}
+      - name: Archive wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: pycolmap-${{ matrix.config.os }}-${{ matrix.config.arch }}
+          path: wheelhouse/pycolmap-*.whl
+
+  pypi-publish:
+    name: Publish wheels to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    # We publish the wheel to pypi when a new tag is pushed,
+    # either by creating a new GitHub release or explictly with `git tag`
+    if: ${{ github.event_name == 'release' || startsWith(github.ref, 'refs/tags') }}
+    steps:
+      - name: Download wheels
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts/
+      - name: Move wheels
+        run: mkdir ./wheelhouse && mv ./artifacts/**/*.whl ./wheelhouse/
+      - name: Publish package
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip_existing: true
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          packages_dir: ./wheelhouse/
