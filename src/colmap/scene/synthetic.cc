@@ -34,6 +34,7 @@
 #include "colmap/math/random.h"
 #include "colmap/scene/projection.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/logging.h"
 
 #include <Eigen/Geometry>
 
@@ -122,12 +123,12 @@ void SynthesizeChainedMatches(Reconstruction* reconstruction,
 void SynthesizeDataset(const SyntheticDatasetOptions& options,
                        Reconstruction* reconstruction,
                        Database* database) {
-  CHECK_GT(options.num_cameras, 0);
-  CHECK_GT(options.num_images, 0);
-  CHECK_LE(options.num_cameras, options.num_images);
-  CHECK_GE(options.num_points3D, 0);
-  CHECK_GE(options.num_points2D_without_point3D, 0);
-  CHECK_GE(options.point2D_stddev, 0);
+  THROW_CHECK_GT(options.num_cameras, 0);
+  THROW_CHECK_GT(options.num_images, 0);
+  THROW_CHECK_LE(options.num_cameras, options.num_images);
+  THROW_CHECK_GE(options.num_points3D, 0);
+  THROW_CHECK_GE(options.num_points2D_without_point3D, 0);
+  THROW_CHECK_GE(options.point2D_stddev, 0);
 
   // Synthesize cameras.
   std::vector<camera_t> camera_ids(options.num_cameras);
@@ -137,7 +138,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
     camera.height = options.camera_height;
     camera.model_id = options.camera_model_id;
     camera.params = options.camera_params;
-    CHECK(camera.VerifyParams());
+    THROW_CHECK(camera.VerifyParams());
     const camera_t camera_id =
         (database == nullptr) ? camera_idx + 1 : database->WriteCamera(camera);
     camera_ids[camera_idx] = camera_id;

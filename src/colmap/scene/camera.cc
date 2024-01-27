@@ -42,7 +42,7 @@ Camera Camera::CreateFromModelId(camera_t camera_id,
                                  const double focal_length,
                                  const size_t width,
                                  const size_t height) {
-  CHECK(ExistsCameraModelWithId(model_id));
+  THROW_CHECK(ExistsCameraModelWithId(model_id));
   Camera camera;
   camera.camera_id = camera_id;
   camera.model_id = model_id;
@@ -113,7 +113,7 @@ bool Camera::IsUndistorted() const {
 }
 
 void Camera::Rescale(const double scale) {
-  CHECK_GT(scale, 0.0);
+  THROW_CHECK_GT(scale, 0.0);
   const double scale_x = std::round(scale * width) / static_cast<double>(width);
   const double scale_y =
       std::round(scale * height) / static_cast<double>(height);

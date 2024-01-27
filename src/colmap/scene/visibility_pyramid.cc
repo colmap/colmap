@@ -50,7 +50,7 @@ VisibilityPyramid::VisibilityPyramid(const size_t num_levels,
 }
 
 void VisibilityPyramid::SetPoint(const double x, const double y) {
-  CHECK_GT(pyramid_.size(), 0);
+  THROW_CHECK_GT(pyramid_.size(), 0);
 
   size_t cx = 0;
   size_t cy = 0;
@@ -68,11 +68,11 @@ void VisibilityPyramid::SetPoint(const double x, const double y) {
     cy = cy >> 1;
   }
 
-  CHECK_LE(score_, max_score_);
+  THROW_CHECK_LE(score_, max_score_);
 }
 
 void VisibilityPyramid::ResetPoint(const double x, const double y) {
-  CHECK_GT(pyramid_.size(), 0);
+  THROW_CHECK_GT(pyramid_.size(), 0);
 
   size_t cx = 0;
   size_t cy = 0;
@@ -90,15 +90,15 @@ void VisibilityPyramid::ResetPoint(const double x, const double y) {
     cy = cy >> 1;
   }
 
-  CHECK_LE(score_, max_score_);
+  THROW_CHECK_LE(score_, max_score_);
 }
 
 void VisibilityPyramid::CellForPoint(const double x,
                                      const double y,
                                      size_t* cx,
                                      size_t* cy) const {
-  CHECK_GT(width_, 0);
-  CHECK_GT(height_, 0);
+  THROW_CHECK_GT(width_, 0);
+  THROW_CHECK_GT(height_, 0);
   const int max_dim = 1 << pyramid_.size();
   *cx = Clamp<size_t>(max_dim * x / width_, 0, max_dim - 1);
   *cy = Clamp<size_t>(max_dim * y / height_, 0, max_dim - 1);

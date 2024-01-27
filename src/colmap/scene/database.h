@@ -34,6 +34,7 @@
 #include "colmap/scene/image.h"
 #include "colmap/scene/two_view_geometry.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/logging.h"
 #include "colmap/util/types.h"
 
 #include <mutex>
@@ -360,8 +361,8 @@ class DatabaseTransaction {
 
 image_pair_t Database::ImagePairToPairId(const image_t image_id1,
                                          const image_t image_id2) {
-  CHECK_LT(image_id1, kMaxNumImages);
-  CHECK_LT(image_id2, kMaxNumImages);
+  THROW_CHECK_LT(image_id1, kMaxNumImages);
+  THROW_CHECK_LT(image_id2, kMaxNumImages);
   if (SwapImagePair(image_id1, image_id2)) {
     return static_cast<image_pair_t>(kMaxNumImages) * image_id2 + image_id1;
   } else {
@@ -374,8 +375,8 @@ void Database::PairIdToImagePair(const image_pair_t pair_id,
                                  image_t* image_id2) {
   *image_id2 = static_cast<image_t>(pair_id % kMaxNumImages);
   *image_id1 = static_cast<image_t>((pair_id - *image_id2) / kMaxNumImages);
-  CHECK_LT(*image_id1, kMaxNumImages);
-  CHECK_LT(*image_id2, kMaxNumImages);
+  THROW_CHECK_LT(*image_id1, kMaxNumImages);
+  THROW_CHECK_LT(*image_id2, kMaxNumImages);
 }
 
 // Return true if image pairs should be swapped. Used to enforce a specific
