@@ -3,7 +3,7 @@ name: Build and publish wheels
 on:
   push:
     branches:
-      - master
+      - main
   pull_request:
     types: [ assigned, opened, synchronize, reopened ]
   release:
