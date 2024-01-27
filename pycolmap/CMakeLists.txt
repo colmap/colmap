@@ -17,7 +17,7 @@ find_package(colmap REQUIRED)
 
 find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
 
-find_package(pybind11 REQUIRED)
+find_package(pybind11 2.11.1 REQUIRED)
 
 pybind11_add_module(pycolmap pycolmap/main.cc)
 target_include_directories(pycolmap PRIVATE ${PROJECT_SOURCE_DIR})
