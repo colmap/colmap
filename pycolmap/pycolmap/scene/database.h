@@ -32,13 +32,7 @@ void BindDatabase(py::module& m) {
       .def("read_image", &Database::ReadImage)
       .def("read_image_with_name", &Database::ReadImageWithName)
       .def("read_all_images", &Database::ReadAllImages)
-      // ReadKeypoints
-      // ReadDescriptors
-      // ReadMatches
-      // ReadAllMatches
       .def("read_two_view_geometry", &Database::ReadTwoViewGeometry)
-      // ReadTwoViewGeometries
-      // ReadTwoViewGeometryNumInliers
       .def("write_camera", &Database::WriteCamera)
       .def("write_image", &Database::WriteImage);
 
