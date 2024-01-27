@@ -6,10 +6,10 @@
 #include "colmap/image/undistortion.h"
 #include "colmap/scene/camera.h"
 #include "colmap/scene/reconstruction.h"
+#include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 
 #include "pycolmap/helpers.h"
-#include "pycolmap/log_exceptions.h"
 
 #include <memory>
 

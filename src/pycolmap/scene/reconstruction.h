@@ -2,11 +2,10 @@
 
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sensor/models.h"
+#include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/ply.h"
 #include "colmap/util/types.h"
-
-#include "pycolmap/log_exceptions.h"
 
 #include <memory>
 #include <sstream>
@@ -265,7 +264,7 @@ void BindReconstruction(py::module& m) {
              const std::string& path,
              const bool skip_distortion) {
             THROW_CHECK_HAS_FILE_EXTENSION(path, ".nvm");
-            THROW_CHECK_FILE_OPEN(path);
+            THROW_CHECK_PATH_OPEN(path);
             self.ExportNVM(path, skip_distortion);
           },
           "output_path"_a,
@@ -316,8 +315,8 @@ void BindReconstruction(py::module& m) {
              const bool skip_distortion) {
             THROW_CHECK_HAS_FILE_EXTENSION(path, ".out");
             THROW_CHECK_HAS_FILE_EXTENSION(list_path, ".txt");
-            THROW_CHECK_FILE_OPEN(path);
-            THROW_CHECK_FILE_OPEN(list_path);
+            THROW_CHECK_PATH_OPEN(path);
+            THROW_CHECK_PATH_OPEN(list_path);
             self.ExportBundler(path, list_path, skip_distortion);
           },
           "output_path"_a,
@@ -337,7 +336,7 @@ void BindReconstruction(py::module& m) {
           "export_PLY",
           [](const Reconstruction& self, const std::string& path) {
             THROW_CHECK_HAS_FILE_EXTENSION(path, ".ply");
-            THROW_CHECK_FILE_OPEN(path);
+            THROW_CHECK_PATH_OPEN(path);
             self.ExportPLY(path);
           },
           "output_path"_a,
@@ -349,8 +348,8 @@ void BindReconstruction(py::module& m) {
              const std::string& points3D_path,
              const double image_scale,
              const Eigen::Vector3d& image_rgb) {
-            THROW_CHECK_FILE_OPEN(images_path);
-            THROW_CHECK_FILE_OPEN(points3D_path);
+            THROW_CHECK_PATH_OPEN(images_path);
+            THROW_CHECK_PATH_OPEN(points3D_path);
             THROW_CHECK_HAS_FILE_EXTENSION(images_path, ".wrl");
             THROW_CHECK_HAS_FILE_EXTENSION(points3D_path, ".wrl");
             self.ExportVRML(images_path, points3D_path, image_scale, image_rgb);

@@ -8,8 +8,9 @@
 #include "colmap/mvs/patch_match.h"
 #endif  // COLMAP_CUDA_ENABLED
 
+#include "colmap/util/logging.h"
+
 #include "pycolmap/helpers.h"
-#include "pycolmap/log_exceptions.h"
 
 #include <pybind11/iostream.h>
 #include <pybind11/pybind11.h>
@@ -82,7 +83,7 @@ Reconstruction StereoFusion(const std::string& output_path,
     reconstruction.WriteBinary(output_path);
   } else {
     THROW_CHECK_HAS_FILE_EXTENSION(output_path, ".ply")
-    THROW_CHECK_FILE_OPEN(output_path);
+    THROW_CHECK_PATH_OPEN(output_path);
     WriteBinaryPlyPoints(output_path, fuser.GetFusedPoints());
     mvs::WritePointsVisibility(output_path + ".vis",
                                fuser.GetFusedPointsVisibility());

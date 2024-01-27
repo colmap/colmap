@@ -1,6 +1,6 @@
 #pragma once
 
-#include "pycolmap/log_exceptions.h"
+#include "colmap/util/logging.h"
 
 #include <iostream>
 #include <regex>

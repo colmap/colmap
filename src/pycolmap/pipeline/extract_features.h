@@ -5,10 +5,10 @@
 #include "colmap/exe/feature.h"
 #include "colmap/exe/sfm.h"
 #include "colmap/feature/sift.h"
+#include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 
 #include "pycolmap/helpers.h"
-#include "pycolmap/log_exceptions.h"
 #include "pycolmap/utils.h"
 
 #include <memory>
@@ -33,7 +33,7 @@ void ExtractFeatures(const std::string& database_path,
   THROW_CHECK_MSG(!ExistsFile(database_path),
                   database_path + " already exists.");
   THROW_CHECK_HAS_FILE_EXTENSION(database_path, ".db");
-  THROW_CHECK_FILE_OPEN(database_path);
+  THROW_CHECK_PATH_OPEN(database_path);
   THROW_CHECK_DIR_EXISTS(image_path);
   sift_options.use_gpu = IsGPU(device);
   VerifyGPUParams(sift_options.use_gpu);

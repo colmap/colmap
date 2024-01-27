@@ -1,9 +1,8 @@
 #pragma once
 
+#include "colmap/util/logging.h"
 #include "colmap/util/string.h"
 #include "colmap/util/threading.h"
-
-#include "pycolmap/log_exceptions.h"
 
 #include <exception>
 #include <regex>

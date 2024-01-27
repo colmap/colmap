@@ -40,6 +40,31 @@
 
 #include <boost/filesystem.hpp>
 
+#define THROW_CHECK_FILE_EXISTS(path) \
+  THROW_CHECK_MSG(ExistsFile(path),   \
+                  std::string("File ") + (path) + " does not exist.");
+
+#define THROW_CHECK_DIR_EXISTS(path) \
+  THROW_CHECK_MSG(ExistsDir(path),   \
+                  std::string("Directory ") + (path) + " does not exist.");
+
+#define THROW_CHECK_PATH_OPEN(path)                   \
+  THROW_CHECK_MSG(                                    \
+      std::ofstream(path, std::ios::trunc).is_open(), \
+      std::string(": Could not open ") + (path) +     \
+          ". Is the path a directory or does the parent dir not exist?");
+
+#define THROW_CHECK_FILE_OPEN(file, path)         \
+  THROW_CHECK_MSG(                                \
+      (file).is_open(),                           \
+      std::string(": Could not open ") + (path) + \
+          ". Is the path a directory or does the parent dir not exist?");
+
+#define THROW_CHECK_HAS_FILE_EXTENSION(path, ext) \
+  THROW_CHECK_MSG(HasFileExtension(path, ext),    \
+                  std::string("Path ") + (path) + \
+                      " does not match file extension " + (ext) + ".");
+
 namespace colmap {
 
 #ifndef STRINGIFY

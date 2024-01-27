@@ -3,8 +3,8 @@
 #include "colmap/estimators/homography_matrix.h"
 #include "colmap/math/random.h"
 #include "colmap/optim/loransac.h"
+#include "colmap/util/logging.h"
 
-#include "pycolmap/log_exceptions.h"
 #include "pycolmap/utils.h"
 
 #include <pybind11/eigen.h>

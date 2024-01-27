@@ -1,9 +1,9 @@
 #pragma once
 
 #include "colmap/mvs/meshing.h"
+#include "colmap/util/misc.h"
 
 #include "pycolmap/helpers.h"
-#include "pycolmap/log_exceptions.h"
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -126,7 +126,7 @@ void BindMeshing(py::module& m) {
         THROW_CHECK_HAS_FILE_EXTENSION(input_path, ".ply")
         THROW_CHECK_FILE_EXISTS(input_path);
         THROW_CHECK_HAS_FILE_EXTENSION(output_path, ".ply")
-        THROW_CHECK_FILE_OPEN(output_path);
+        THROW_CHECK_PATH_OPEN(output_path);
         PoissonMeshing(options, input_path, output_path);
       },
       "input_path"_a,
@@ -142,7 +142,7 @@ void BindMeshing(py::module& m) {
          const DMOpts& options) -> void {
         THROW_CHECK_DIR_EXISTS(input_path);
         THROW_CHECK_HAS_FILE_EXTENSION(output_path, ".ply")
-        THROW_CHECK_FILE_OPEN(output_path);
+        THROW_CHECK_PATH_OPEN(output_path);
         mvs::SparseDelaunayMeshing(options, input_path, output_path);
       },
       "input_path"_a,
@@ -157,7 +157,7 @@ void BindMeshing(py::module& m) {
          const DMOpts& options) -> void {
         THROW_CHECK_DIR_EXISTS(input_path);
         THROW_CHECK_HAS_FILE_EXTENSION(output_path, ".bin")
-        THROW_CHECK_FILE_OPEN(output_path);
+        THROW_CHECK_PATH_OPEN(output_path);
         mvs::DenseDelaunayMeshing(options, input_path, output_path);
       },
       "input_path"_a,

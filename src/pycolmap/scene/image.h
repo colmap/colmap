@@ -2,11 +2,11 @@
 
 #include "colmap/geometry/rigid3.h"
 #include "colmap/scene/image.h"
+#include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/types.h"
 
 #include "pycolmap/helpers.h"
-#include "pycolmap/log_exceptions.h"
 
 #include <memory>
 #include <sstream>
