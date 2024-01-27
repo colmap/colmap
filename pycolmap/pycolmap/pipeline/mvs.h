@@ -1,3 +1,5 @@
+#pragma once
+
 #include "colmap/mvs/fusion.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/misc.h"

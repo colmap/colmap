@@ -1,3 +1,5 @@
+#pragma once
+
 #include "colmap/estimators/pose.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/math/random.h"

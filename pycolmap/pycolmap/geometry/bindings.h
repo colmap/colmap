@@ -1,3 +1,5 @@
+#pragma once
+
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/geometry/rigid3.h"

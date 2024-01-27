@@ -1,3 +1,5 @@
+#pragma once
+
 #include "colmap/scene/track.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/types.h"

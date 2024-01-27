@@ -1,3 +1,5 @@
+#pragma once
+
 #include "pycolmap/estimators/absolute_pose.h"
 #include "pycolmap/estimators/alignment.h"
 #include "pycolmap/estimators/essential_matrix.h"

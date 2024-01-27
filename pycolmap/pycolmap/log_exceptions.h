@@ -1,4 +1,5 @@
 #pragma once
+
 #include "colmap/util/misc.h"
 
 #include <exception>

@@ -1,3 +1,5 @@
+#pragma once
+
 #include "colmap/sfm/incremental_mapper.h"
 
 #include "pycolmap/helpers.h"

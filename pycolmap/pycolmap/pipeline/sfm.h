@@ -1,3 +1,5 @@
+#pragma once
+
 #include "colmap/controllers/bundle_adjustment.h"
 #include "colmap/controllers/incremental_mapper.h"
 #include "colmap/exe/sfm.h"

@@ -1,3 +1,5 @@
+#pragma once
+
 #include "colmap/optim/ransac.h"
 
 #include <pybind11/pybind11.h>

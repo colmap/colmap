@@ -1,3 +1,5 @@
+#pragma once
+
 #include "colmap/estimators/fundamental_matrix.h"
 #include "colmap/math/random.h"
 #include "colmap/optim/loransac.h"

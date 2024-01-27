@@ -1,3 +1,5 @@
+#pragma once
+
 #include "colmap/estimators/alignment.h"
 #include "colmap/exe/model.h"
 #include "colmap/geometry/sim3.h"

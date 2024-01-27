@@ -1,3 +1,5 @@
+#pragma once
+
 #include "colmap/scene/database.h"
 
 #include <pybind11/pybind11.h>

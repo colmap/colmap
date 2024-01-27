@@ -1,3 +1,5 @@
+#pragma once
+
 #include "colmap/geometry/rigid3.h"
 #include "colmap/scene/image.h"
 #include "colmap/util/misc.h"

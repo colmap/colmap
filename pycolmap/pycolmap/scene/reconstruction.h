@@ -1,3 +1,5 @@
+#pragma once
+
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/misc.h"
