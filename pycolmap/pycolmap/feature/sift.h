@@ -76,7 +76,7 @@ class Sift {
     descriptors_t descriptors = descriptors_.cast<float>();
     descriptors /= 512.0f;
 
-    return std::make_tuple(keypoints, descriptors);
+    return std::make_tuple(std::move(keypoints), std::move(descriptors));
   }
 
   sift_output_t Extract(const Eigen::Ref<const pyimage_t<float>>& image) {
