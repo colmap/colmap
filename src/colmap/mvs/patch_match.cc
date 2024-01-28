@@ -136,10 +136,10 @@ void PatchMatch::Check() const {
     THROW_CHECK_LT_MSG(std::abs(image.GetK()[8] - 1.0f), 1e-6f, image_idx);
 
     if (options_.geom_consistency) {
-      THROW_CHECK_LT(image_idx, problem_.depth_maps->size(), image_idx);
+      THROW_CHECK_LT_MSG(image_idx, problem_.depth_maps->size(), image_idx);
       const DepthMap& depth_map = problem_.depth_maps->at(image_idx);
-      THROW_CHECK_EQ(image.GetWidth(), depth_map.GetWidth(), image_idx);
-      THROW_CHECK_EQ(image.GetHeight(), depth_map.GetHeight(), image_idx);
+      THROW_CHECK_EQ_MSG(image.GetWidth(), depth_map.GetWidth(), image_idx);
+      THROW_CHECK_EQ_MSG(image.GetHeight(), depth_map.GetHeight(), image_idx);
     }
   }
 
@@ -447,10 +447,10 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
         depth_ranges_.at(problem.ref_image_idx).first;
     patch_match_options.depth_max =
         depth_ranges_.at(problem.ref_image_idx).second;
-    THROW_CHECK(patch_match_options.depth_min > 0 &&
-                patch_match_options.depth_max > 0)
-        << " - You must manually set the minimum and maximum depth, since no "
-           "sparse model is provided in the workspace.";
+    THROW_CHECK_MSG(
+        patch_match_options.depth_min > 0 && patch_match_options.depth_max > 0,
+        " - You must manually set the minimum and maximum depth, since no "
+        "sparse model is provided in the workspace.");
   }
 
   patch_match_options.gpu_index = std::to_string(gpu_index);
