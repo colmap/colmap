@@ -238,15 +238,15 @@ void ImportPMVSWorkspace(const Workspace& workspace,
 
     std::vector<int> image_idxs;
     if (num_images == -1) {
-      CHECK_EQ(elems.size(), 4);
+      THROW_CHECK_EQ(elems.size(), 4);
       const int range_lower = std::stoull(elems[2]);
       const int range_upper = std::stoull(elems[3]);
-      CHECK_LT(range_lower, range_upper);
+      THROW_CHECK_LT(range_lower, range_upper);
       num_images = range_upper - range_lower;
       image_idxs.resize(num_images);
       std::iota(image_idxs.begin(), image_idxs.end(), range_lower);
     } else {
-      CHECK_EQ(num_images + 2, elems.size());
+      THROW_CHECK_EQ(num_images + 2, elems.size());
       image_idxs.reserve(num_images);
       for (size_t i = 2; i < elems.size(); ++i) {
         const int image_idx = std::stoull(elems[i]);
@@ -271,8 +271,8 @@ void ImportPMVSWorkspace(const Workspace& workspace,
         JoinPaths(workspace_path, stereo_folder, "fusion.cfg");
     std::ofstream patch_match_file(patch_match_path, std::ios::trunc);
     std::ofstream fusion_file(fusion_path, std::ios::trunc);
-    CHECK(patch_match_file.is_open()) << patch_match_path;
-    CHECK(fusion_file.is_open()) << fusion_path;
+    THROW_CHECK_FILE_OPEN(patch_match_file, patch_match_path);
+    THROW_CHECK_FILE_OPEN(fusion_file, fusion_path);
     for (size_t i = 0; i < image_names.size(); ++i) {
       const auto& ref_image_name = image_names[i];
       patch_match_file << ref_image_name << "\n";

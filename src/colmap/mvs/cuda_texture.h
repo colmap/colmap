@@ -136,9 +136,9 @@ CudaArrayLayeredTexture<T>::CudaArrayLayeredTexture(
       width_(width),
       height_(height),
       depth_(depth) {
-  CHECK_GT(width_, 0);
-  CHECK_GT(height_, 0);
-  CHECK_GT(depth_, 0);
+  THROW_CHECK_GT(width_, 0);
+  THROW_CHECK_GT(height_, 0);
+  THROW_CHECK_GT(depth_, 0);
 
   cudaExtent extent = make_cudaExtent(width_, height_, depth_);
   cudaChannelFormatDesc fmt = cudaCreateChannelDesc<T>();

@@ -126,8 +126,8 @@ LRUCache<key_t, value_t>::LRUCache(
     const size_t max_num_elems,
     const std::function<value_t(const key_t&)>& getter_func)
     : max_num_elems_(max_num_elems), getter_func_(getter_func) {
-  CHECK(getter_func);
-  CHECK_GT(max_num_elems, 0);
+  THROW_CHECK(getter_func);
+  THROW_CHECK_GT(max_num_elems, 0);
 }
 
 template <typename key_t, typename value_t>
@@ -199,7 +199,7 @@ MemoryConstrainedLRUCache<key_t, value_t>::MemoryConstrainedLRUCache(
     : LRUCache<key_t, value_t>(std::numeric_limits<size_t>::max(), getter_func),
       max_num_bytes_(max_num_bytes),
       num_bytes_(0) {
-  CHECK_GT(max_num_bytes, 0);
+  THROW_CHECK_GT(max_num_bytes, 0);
 }
 
 template <typename key_t, typename value_t>
@@ -238,7 +238,7 @@ void MemoryConstrainedLRUCache<key_t, value_t>::Pop() {
     auto last = elems_list_.end();
     --last;
     num_bytes_ -= elems_num_bytes_.at(last->first);
-    CHECK_GE(num_bytes_, 0);
+    THROW_CHECK_GE(num_bytes_, 0);
     elems_num_bytes_.erase(last->first);
     elems_map_.erase(last->first);
     elems_list_.pop_back();
@@ -250,7 +250,7 @@ void MemoryConstrainedLRUCache<key_t, value_t>::UpdateNumBytes(
     const key_t& key) {
   auto& num_bytes = elems_num_bytes_.at(key);
   num_bytes_ -= num_bytes;
-  CHECK_GE(num_bytes_, 0);
+  THROW_CHECK_GE(num_bytes_, 0);
   num_bytes = LRUCache<key_t, value_t>::Get(key).NumBytes();
   num_bytes_ += num_bytes;
 

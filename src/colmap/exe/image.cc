@@ -56,13 +56,13 @@ std::vector<std::pair<image_t, image_t>> ReadStereoImagePairs(
 
   for (const auto& line : stereo_pair_lines) {
     const std::vector<std::string> names = StringSplit(line, " ");
-    CHECK_EQ(names.size(), 2);
+    THROW_CHECK_EQ(names.size(), 2);
 
     const Image* image1 = reconstruction.FindImageWithName(names[0]);
     const Image* image2 = reconstruction.FindImageWithName(names[1]);
 
-    CHECK_NOTNULL(image1);
-    CHECK_NOTNULL(image2);
+    THROW_CHECK_NOTNULL(image1);
+    THROW_CHECK_NOTNULL(image2);
 
     stereo_pairs.emplace_back(image1->ImageId(), image2->ImageId());
   }
@@ -432,7 +432,7 @@ int RunImageUndistorterStandalone(int argc, char** argv) {
 
   {
     std::ifstream file(input_file);
-    CHECK(file.is_open()) << input_file;
+    THROW_CHECK_FILE_OPEN(file, input_file);
 
     std::string line;
     std::vector<std::string> lines;
@@ -472,7 +472,7 @@ int RunImageUndistorterStandalone(int argc, char** argv) {
         camera.params.push_back(std::stold(item));
       }
 
-      CHECK(camera.VerifyParams());
+      THROW_CHECK(camera.VerifyParams());
 
       image_names_and_cameras.emplace_back(image_name, camera);
     }

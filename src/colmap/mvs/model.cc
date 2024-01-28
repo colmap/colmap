@@ -101,14 +101,15 @@ void Model::ReadFromPMVS(const std::string& path) {
 }
 
 int Model::GetImageIdx(const std::string& name) const {
-  CHECK_GT(image_name_to_idx_.count(name), 0)
-      << "Image with name `" << name << "` does not exist";
+  THROW_CHECK_GT_MSG(image_name_to_idx_.count(name),
+                     0,
+                     "Image with name `" + name + "` does not exist");
   return image_name_to_idx_.at(name);
 }
 
 std::string Model::GetImageName(const int image_idx) const {
-  CHECK_GE(image_idx, 0);
-  CHECK_LT(image_idx, image_names_.size());
+  THROW_CHECK_GE(image_idx, 0);
+  THROW_CHECK_LT(static_cast<size_t>(image_idx), image_names_.size());
   return image_names_.at(image_idx);
 }
 
@@ -279,7 +280,7 @@ bool Model::ReadFromBundlerPMVS(const std::string& path) {
   }
 
   std::ifstream file(bundle_file_path);
-  CHECK(file.is_open()) << bundle_file_path;
+  THROW_CHECK_FILE_OPEN(file, bundle_file_path);
 
   // Header line.
   std::string header;
@@ -298,14 +299,14 @@ bool Model::ReadFromBundlerPMVS(const std::string& path) {
     K[4] = K[0];
 
     Bitmap bitmap;
-    CHECK(bitmap.Read(image_path));
+    THROW_CHECK(bitmap.Read(image_path));
     K[2] = bitmap.Width() / 2.0f;
     K[5] = bitmap.Height() / 2.0f;
 
     float k1, k2;
     file >> k1 >> k2;
-    CHECK_EQ(k1, 0.0f);
-    CHECK_EQ(k2, 0.0f);
+    THROW_CHECK_EQ(k1, 0.0f);
+    THROW_CHECK_EQ(k2, 0.0f);
 
     float R[9];
     for (size_t i = 0; i < 9; ++i) {
@@ -342,7 +343,7 @@ bool Model::ReadFromBundlerPMVS(const std::string& path) {
       int feature_idx;
       float imx, imy;
       file >> point.track[i] >> feature_idx >> imx >> imy;
-      CHECK_LT(point.track[i], images.size());
+      THROW_CHECK_LT(static_cast<size_t>(point.track[i]), images.size());
     }
   }
 
@@ -364,17 +365,17 @@ bool Model::ReadFromRawPMVS(const std::string& path) {
     }
 
     Bitmap bitmap;
-    CHECK(bitmap.Read(image_path));
+    THROW_CHECK(bitmap.Read(image_path));
 
     const std::string proj_matrix_path =
         JoinPaths(path, "txt", StringPrintf("%08d.txt", image_idx));
 
     std::ifstream proj_matrix_file(proj_matrix_path);
-    CHECK(proj_matrix_file.is_open()) << proj_matrix_path;
+    THROW_CHECK_FILE_OPEN(proj_matrix_file, proj_matrix_path);
 
     std::string contour;
     proj_matrix_file >> contour;
-    CHECK_EQ(contour, "CONTOUR");
+    THROW_CHECK_EQ(contour, "CONTOUR");
 
     Eigen::Matrix3x4d P;
     for (int i = 0; i < 3; ++i) {
@@ -408,23 +409,23 @@ bool Model::ReadFromRawPMVS(const std::string& path) {
   }
 
   std::ifstream vis_dat_file(vis_dat_path);
-  CHECK(vis_dat_file.is_open()) << vis_dat_path;
+  THROW_CHECK_FILE_OPEN(vis_dat_file, vis_dat_path);
 
   std::string visdata;
   vis_dat_file >> visdata;
-  CHECK_EQ(visdata, "VISDATA");
+  THROW_CHECK_EQ(visdata, "VISDATA");
 
   int num_images;
   vis_dat_file >> num_images;
-  CHECK_GE(num_images, 0);
-  CHECK_EQ(num_images, images.size());
+  THROW_CHECK_GE(num_images, 0);
+  THROW_CHECK_EQ(static_cast<size_t>(num_images), images.size());
 
   pmvs_vis_dat_.resize(num_images);
   for (int i = 0; i < num_images; ++i) {
     int image_idx;
     vis_dat_file >> image_idx;
-    CHECK_GE(image_idx, 0);
-    CHECK_LT(image_idx, num_images);
+    THROW_CHECK_GE(image_idx, 0);
+    THROW_CHECK_LT(image_idx, num_images);
 
     int num_visible_images;
     vis_dat_file >> num_visible_images;
@@ -435,8 +436,8 @@ bool Model::ReadFromRawPMVS(const std::string& path) {
     for (int j = 0; j < num_visible_images; ++j) {
       int visible_image_idx;
       vis_dat_file >> visible_image_idx;
-      CHECK_GE(visible_image_idx, 0);
-      CHECK_LT(visible_image_idx, num_images);
+      THROW_CHECK_GE(visible_image_idx, 0);
+      THROW_CHECK_LT(visible_image_idx, num_images);
       if (visible_image_idx != image_idx) {
         visible_image_idxs.push_back(visible_image_idx);
       }

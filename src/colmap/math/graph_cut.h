@@ -129,10 +129,10 @@ template <typename node_t, typename value_t>
 void MinSTGraphCut<node_t, value_t>::AddNode(const node_t node_idx,
                                              const value_t source_capacity,
                                              const value_t sink_capacity) {
-  CHECK_GE(node_idx, 0);
-  CHECK_LE(node_idx, boost::num_vertices(graph_));
-  CHECK_GE(source_capacity, 0);
-  CHECK_GE(sink_capacity, 0);
+  THROW_CHECK_GE(node_idx, 0);
+  THROW_CHECK_LE(node_idx, boost::num_vertices(graph_));
+  THROW_CHECK_GE(source_capacity, 0);
+  THROW_CHECK_GE(sink_capacity, 0);
 
   if (source_capacity > 0) {
     const edge_descriptor_t edge =
@@ -160,12 +160,12 @@ void MinSTGraphCut<node_t, value_t>::AddEdge(const node_t node_idx1,
                                              const node_t node_idx2,
                                              const value_t capacity,
                                              const value_t reverse_capacity) {
-  CHECK_GE(node_idx1, 0);
-  CHECK_LE(node_idx1, boost::num_vertices(graph_));
-  CHECK_GE(node_idx2, 0);
-  CHECK_LE(node_idx2, boost::num_vertices(graph_));
-  CHECK_GE(capacity, 0);
-  CHECK_GE(reverse_capacity, 0);
+  THROW_CHECK_GE(node_idx1, 0);
+  THROW_CHECK_LE(node_idx1, boost::num_vertices(graph_));
+  THROW_CHECK_GE(node_idx2, 0);
+  THROW_CHECK_LE(node_idx2, boost::num_vertices(graph_));
+  THROW_CHECK_GE(capacity, 0);
+  THROW_CHECK_GE(reverse_capacity, 0);
 
   const edge_descriptor_t edge =
       boost::add_edge(node_idx1, node_idx2, graph_).first;

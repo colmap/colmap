@@ -63,7 +63,7 @@ bool InlierSupportMeasurer::Compare(const Support& support1,
 
 UniqueInlierSupportMeasurer::Support UniqueInlierSupportMeasurer::Evaluate(
     const std::vector<double>& residuals, const double max_residual) {
-  CHECK_EQ(residuals.size(), unique_sample_ids_.size());
+  THROW_CHECK_EQ(residuals.size(), unique_sample_ids_.size());
   Support support;
   support.num_inliers = 0;
   support.num_unique_inliers = 0;

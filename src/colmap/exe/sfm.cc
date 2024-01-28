@@ -448,8 +448,9 @@ int RunPointTriangulatorImpl(
     timer.PrintMinutes();
   }
 
-  CHECK_GE(reconstruction->NumRegImages(), 2)
-      << "Need at least two images for triangulation";
+  THROW_CHECK_GE_MSG(reconstruction->NumRegImages(),
+                     2,
+                     "Need at least two images for triangulation");
 
   IncrementalMapper mapper(database_cache);
   mapper.BeginReconstruction(reconstruction);
@@ -511,7 +512,7 @@ int RunPointTriangulatorImpl(
 
     PrintHeading1("Bundle adjustment");
     BundleAdjuster bundle_adjuster(ba_options, ba_config);
-    CHECK(bundle_adjuster.Solve(reconstruction.get()));
+    THROW_CHECK(bundle_adjuster.Solve(reconstruction.get()));
 
     size_t num_changed_observations = 0;
     num_changed_observations += CompleteAndMergeTracks(mapper_options, &mapper);
@@ -752,7 +753,7 @@ int RunRigBundleAdjuster(int argc, char** argv) {
 
   BundleAdjustmentOptions ba_options = *options.bundle_adjustment;
   RigBundleAdjuster bundle_adjuster(ba_options, rig_ba_options, config);
-  CHECK(bundle_adjuster.Solve(&reconstruction, &camera_rigs));
+  THROW_CHECK(bundle_adjuster.Solve(&reconstruction, &camera_rigs));
 
   reconstruction.Write(output_path);
 

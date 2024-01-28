@@ -30,10 +30,9 @@
 #include "colmap/geometry/essential_matrix.h"
 
 #include "colmap/geometry/pose.h"
+#include "colmap/util/logging.h"
 
 #include <array>
-
-#include <glog/logging.h>
 
 namespace colmap {
 
@@ -67,7 +66,7 @@ void PoseFromEssentialMatrix(const Eigen::Matrix3d& E,
                              Eigen::Matrix3d* R,
                              Eigen::Vector3d* t,
                              std::vector<Eigen::Vector3d>* points3D) {
-  CHECK_EQ(points1.size(), points2.size());
+  THROW_CHECK_EQ(points1.size(), points2.size());
 
   Eigen::Matrix3d R1;
   Eigen::Matrix3d R2;
