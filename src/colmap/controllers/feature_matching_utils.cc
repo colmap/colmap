@@ -201,7 +201,7 @@ void FeatureMatcherWorker::SetMaxNumMatches(int max_num_matches) {
 void FeatureMatcherWorker::Run() {
   if (matching_options_.use_gpu) {
 #if !defined(COLMAP_CUDA_ENABLED)
-    THROW_CHECK(opengl_context_);
+    THROW_CHECK_NOTNULL(opengl_context_);
     THROW_CHECK(opengl_context_->MakeCurrent());
 #endif
   }

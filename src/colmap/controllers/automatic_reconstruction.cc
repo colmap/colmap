@@ -52,7 +52,7 @@ AutomaticReconstructionController::AutomaticReconstructionController(
       active_thread_(nullptr) {
   THROW_CHECK(ExistsDir(options_.workspace_path));
   THROW_CHECK(ExistsDir(options_.image_path));
-  THROW_CHECK(reconstruction_manager_);
+  THROW_CHECK_NOTNULL(reconstruction_manager_);
 
   option_manager_.AddAllOptions();
 
@@ -177,7 +177,7 @@ void AutomaticReconstructionController::Run() {
 }
 
 void AutomaticReconstructionController::RunFeatureExtraction() {
-  THROW_CHECK(feature_extractor_);
+  THROW_CHECK_NOTNULL(feature_extractor_);
   active_thread_ = feature_extractor_.get();
   feature_extractor_->Start();
   feature_extractor_->Wait();
@@ -200,7 +200,7 @@ void AutomaticReconstructionController::RunFeatureMatching() {
     }
   }
 
-  THROW_CHECK(matcher);
+  THROW_CHECK_NOTNULL(matcher);
   active_thread_ = matcher;
   matcher->Start();
   matcher->Wait();

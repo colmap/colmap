@@ -281,7 +281,7 @@ const SceneClustering::Cluster* SceneClustering::GetRootCluster() const {
 
 std::vector<const SceneClustering::Cluster*> SceneClustering::GetLeafClusters()
     const {
-  THROW_CHECK(root_cluster_);
+  THROW_CHECK_NOTNULL(root_cluster_);
 
   std::vector<const Cluster*> leaf_clusters;
 
