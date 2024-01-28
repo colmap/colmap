@@ -152,17 +152,11 @@ template <typename T>
 inline T TemplateException(const char* file,
                            const int line,
                            const std::string& txt) {
-  std::stringstream ss;
-  ss << "[" << __GetConstFileBaseName(file) << ":" << line << "] " << txt;
-  // TODO: cleanup
-  return T(ss.str());
+  return T(StringPrintf("[%s:%d] %s", __GetConstFileBaseName(file), line, txt));
 }
 
 inline std::string __GetCheckString(const char* cond_str) {
-  // TODO: cleanup
-  std::stringstream ss;
-  ss << "Check Failed: " << cond_str;
-  return ss.str();
+  return "Check Failed: " + std::string(cond_str);
 }
 
 inline void __ThrowCheckImpl(const char* file,
@@ -211,7 +205,6 @@ void __ThrowCheckOpImpl(const char* file,
                         const char* val2_str,
                         const char* op_str) {
   if (!result) {
-    // TODO: cleanup
     std::stringstream ss;
     ss << val1_str << " " << op_str << " " << val2_str << " (" << val1
        << " vs. " << val2 << ")";
