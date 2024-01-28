@@ -83,7 +83,7 @@
 #define THROW_CHECK(expr) __ThrowCheckImpl(__FILE__, __LINE__, !!(expr), #expr);
 
 #define THROW_CHECK_MSG(expr, msg) \
-  __ThrowCheckImplMsg(__FILE__, __LINE__, !!(expr), #expr, ToString(msg))
+  __ThrowCheckImplMsg(__FILE__, __LINE__, !!(expr), #expr, ToString(msg));
 
 #define THROW_CHECK_NOTNULL(val) \
   __ThrowCheckNotNull(__FILE__, __LINE__, (val), #val)
@@ -98,6 +98,30 @@
 #define THROW_CHECK_LT(val1, val2) THROW_CHECK_OP(_LT, <, val1, val2)
 #define THROW_CHECK_GE(val1, val2) THROW_CHECK_OP(_GE, >=, val1, val2)
 #define THROW_CHECK_GT(val1, val2) THROW_CHECK_OP(_GT, >, val1, val2)
+
+#define THROW_CHECK_OP_MSG(op, val1, val2, msg) \
+  __ThrowCheckOpImpl(__FILE__,                  \
+                     __LINE__,                  \
+                     (val1 op val2),            \
+                     val1,                      \
+                     val2,                      \
+                     #val1,                     \
+                     #val2,                     \
+                     #op,                       \
+                     ToString(msg));
+
+#define THROW_CHECK_EQ_MSG(val1, val2, msg) \
+  THROW_CHECK_OP_MSG(==, val1, val2, msg)
+#define THROW_CHECK_NE_MSG(val1, val2, msg) \
+  THROW_CHECK_OP_MSG(!=, val1, val2, msg)
+#define THROW_CHECK_LE_MSG(val1, val2, msg) \
+  THROW_CHECK_OP_MSG(<=, val1, val2, msg)
+#define THROW_CHECK_LT_MSG(val1, val2, msg) \
+  THROW_CHECK_OP_MSG(<, val1, val2, msg)
+#define THROW_CHECK_GE_MSG(val1, val2, msg) \
+  THROW_CHECK_OP_MSG(>=, val1, val2, msg)
+#define THROW_CHECK_GT_MSG(val1, val2, msg) \
+  THROW_CHECK_OP_MSG(>, val1, val2, msg)
 
 namespace colmap {
 
@@ -204,14 +228,18 @@ void __ThrowCheckOpImpl(const char* file,
                         const T2& val2,
                         const char* val1_str,
                         const char* val2_str,
-                        const char* op_str) {
+                        const char* op_str,
+                        const std::string& msg = "") {
   if (!result) {
     std::stringstream ss;
     ss << val1_str << " " << op_str << " " << val2_str << " (" << val1
        << " vs. " << val2 << ")";
-    std::string msg = ss.str();
+    if (!msg.empty()) {
+      ss << msg;
+    }
+    std::string m = ss.str();
     throw TemplateException<std::invalid_argument>(
-        file, line, __GetCheckString(msg.c_str()));
+        file, line, __GetCheckString(m.c_str()));
   }
 }
 

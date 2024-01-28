@@ -2032,8 +2032,10 @@ void Reconstruction::SetObservationAsTriangulated(
           Database::ImagePairToPairId(image_id, corr->image_id);
       auto& stats = image_pair_stats_[pair_id];
       stats.num_tri_corrs += 1;
-      // The correspondence graph must not contain duplicate matches.
-      THROW_CHECK_LE(stats.num_tri_corrs, stats.num_total_corrs);
+      THROW_CHECK_LE_MSG(
+          stats.num_tri_corrs,
+          stats.num_total_corrs,
+          "The correspondence graph must not contain duplicate matches.");
     }
   }
 }
@@ -2062,8 +2064,10 @@ void Reconstruction::ResetTriObservations(const image_t image_id,
         (!is_deleted_point3D || image_id < corr->image_id)) {
       const image_pair_t pair_id =
           Database::ImagePairToPairId(image_id, corr->image_id);
-      // "The scene graph graph must not contain duplicate matches.
-      THROW_CHECK_GT(image_pair_stats_[pair_id].num_tri_corrs, 0);
+      THROW_CHECK_GT_MSG(
+          image_pair_stats_[pair_id].num_tri_corrs,
+          0,
+          "The scene graph graph must not contain duplicate matches.");
       image_pair_stats_[pair_id].num_tri_corrs -= 1;
     }
   }
