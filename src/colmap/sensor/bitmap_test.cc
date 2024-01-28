@@ -231,35 +231,7 @@ TEST(Bitmap, ConvertToColMajorArrayGrey) {
   EXPECT_EQ(array[3], 3);
 }
 
-TEST(Bitmap, ConvertToFromRawBitsGreyWithoutCopy) {
-  Bitmap bitmap;
-  bitmap.Allocate(3, 2, false);
-  bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(0));
-  bitmap.SetPixel(0, 1, BitmapColor<uint8_t>(1));
-  bitmap.SetPixel(1, 0, BitmapColor<uint8_t>(2));
-  bitmap.SetPixel(1, 1, BitmapColor<uint8_t>(3));
-
-  std::vector<uint8_t> raw_bits = bitmap.ConvertToRawBits();
-  ASSERT_EQ(raw_bits.size(), bitmap.Pitch() * bitmap.Height());
-
-  Bitmap bitmap_view = Bitmap::ConvertFromRawBits(raw_bits.data(),
-                                                  bitmap.Pitch(),
-                                                  bitmap.Width(),
-                                                  bitmap.Height(),
-                                                  /*rgb=*/false,
-                                                  /*copy_source=*/false);
-  EXPECT_EQ(bitmap.Width(), bitmap_view.Width());
-  EXPECT_EQ(bitmap.Height(), bitmap_view.Height());
-  EXPECT_EQ(bitmap.Channels(), bitmap_view.Channels());
-  bitmap.SetPixel(0, 1, BitmapColor<uint8_t>(5));
-  const std::vector<uint8_t> raw_bits_copy = raw_bits;
-  bitmap_view.SetPixel(0, 1, BitmapColor<uint8_t>(5));
-  EXPECT_NE(raw_bits_copy, raw_bits);
-  EXPECT_EQ(bitmap.ConvertToRowMajorArray(),
-            bitmap_view.ConvertToRowMajorArray());
-}
-
-TEST(Bitmap, ConvertToFromRawBitsGreyWithCopy) {
+TEST(Bitmap, ConvertToFromRawBitsGrey) {
   Bitmap bitmap;
   bitmap.Allocate(3, 2, false);
   bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(0));
@@ -275,8 +247,7 @@ TEST(Bitmap, ConvertToFromRawBitsGreyWithCopy) {
                                                   bitmap.Pitch(),
                                                   bitmap.Width(),
                                                   bitmap.Height(),
-                                                  /*rgb=*/false,
-                                                  /*copy_source=*/true);
+                                                  /*rgb=*/false);
   EXPECT_EQ(bitmap.Width(), bitmap_copy.Width());
   EXPECT_EQ(bitmap.Height(), bitmap_copy.Height());
   EXPECT_EQ(bitmap.Channels(), bitmap_copy.Channels());
@@ -287,35 +258,7 @@ TEST(Bitmap, ConvertToFromRawBitsGreyWithCopy) {
             bitmap_copy.ConvertToRowMajorArray());
 }
 
-TEST(Bitmap, ConvertToFromRawBitsRGBWithoutCopy) {
-  Bitmap bitmap;
-  bitmap.Allocate(3, 2, true);
-  bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(0, 0, 0));
-  bitmap.SetPixel(0, 1, BitmapColor<uint8_t>(1, 0, 0));
-  bitmap.SetPixel(1, 0, BitmapColor<uint8_t>(2, 0, 0));
-  bitmap.SetPixel(1, 1, BitmapColor<uint8_t>(3, 0, 0));
-
-  std::vector<uint8_t> raw_bits = bitmap.ConvertToRawBits();
-  ASSERT_EQ(raw_bits.size(), bitmap.Pitch() * bitmap.Height() * 3);
-
-  Bitmap bitmap_view = Bitmap::ConvertFromRawBits(raw_bits.data(),
-                                                  bitmap.Pitch(),
-                                                  bitmap.Width(),
-                                                  bitmap.Height(),
-                                                  /*rgb=*/true,
-                                                  /*copy_source=*/false);
-  EXPECT_EQ(bitmap.Width(), bitmap_view.Width());
-  EXPECT_EQ(bitmap.Height(), bitmap_view.Height());
-  EXPECT_EQ(bitmap.Channels(), bitmap_view.Channels());
-  bitmap.SetPixel(0, 1, BitmapColor<uint8_t>(5, 0, 0));
-  const std::vector<uint8_t> raw_bits_copy = raw_bits;
-  bitmap_view.SetPixel(0, 1, BitmapColor<uint8_t>(5, 0, 0));
-  EXPECT_NE(raw_bits_copy, raw_bits);
-  EXPECT_EQ(bitmap.ConvertToRowMajorArray(),
-            bitmap_view.ConvertToRowMajorArray());
-}
-
-TEST(Bitmap, ConvertToFromRawBitsRGBWithCopy) {
+TEST(Bitmap, ConvertToFromRawBitsRGB) {
   Bitmap bitmap;
   bitmap.Allocate(3, 2, true);
   bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(0, 0, 0));
@@ -331,8 +274,7 @@ TEST(Bitmap, ConvertToFromRawBitsRGBWithCopy) {
                                                   bitmap.Pitch(),
                                                   bitmap.Width(),
                                                   bitmap.Height(),
-                                                  /*rgb=*/true,
-                                                  /*copy_source=*/true);
+                                                  /*rgb=*/true);
   EXPECT_EQ(bitmap.Width(), bitmap_copy.Width());
   EXPECT_EQ(bitmap.Height(), bitmap_copy.Height());
   EXPECT_EQ(bitmap.Channels(), bitmap_copy.Channels());

@@ -170,9 +170,7 @@ unsigned int Bitmap::BitsPerPixel() const {
   return FreeImage_GetBPP(handle_.ptr);
 }
 
-unsigned int Bitmap::Pitch() const {
-  return FreeImage_GetPitch(handle_.ptr);
-}
+unsigned int Bitmap::Pitch() const { return FreeImage_GetPitch(handle_.ptr); }
 
 std::vector<uint8_t> Bitmap::ConvertToRowMajorArray() const {
   std::vector<uint8_t> array(width_ * height_ * channels_);
@@ -220,15 +218,11 @@ std::vector<uint8_t> Bitmap::ConvertToRawBits() const {
   return raw_bits;
 }
 
-Bitmap Bitmap::ConvertFromRawBits(uint8_t* data,
-                                  int pitch,
-                                  int width,
-                                  int height,
-                                  bool rgb,
-                                  bool copy_source) {
+Bitmap Bitmap::ConvertFromRawBits(
+    const uint8_t* data, int pitch, int width, int height, bool rgb) {
   const unsigned bpp = rgb ? 24 : 8;
-  return Bitmap(FreeImage_ConvertFromRawBitsEx(copy_source,
-                                               data,
+  return Bitmap(FreeImage_ConvertFromRawBitsEx(/*copy_source=*/true,
+                                               const_cast<uint8_t*>(data),
                                                FIT_BITMAP,
                                                width,
                                                height,

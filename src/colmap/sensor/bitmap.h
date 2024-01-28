@@ -123,12 +123,8 @@ class Bitmap {
   // object does not allocate memory for the image data and only stores a
   // pointer to the source data. In this case, the source data must not be
   // deallocated before the bitmap object is destroyed.
-  static Bitmap ConvertFromRawBits(uint8_t* data,
-                                   int pitch,
-                                   int width,
-                                   int height,
-                                   bool rgb = true,
-                                   bool copy_source = false);
+  static Bitmap ConvertFromRawBits(
+      const uint8_t* data, int pitch, int width, int height, bool rgb = true);
 
   // Manipulate individual pixels. For grayscale images, only the red element
   // of the RGB color is used.

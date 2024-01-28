@@ -43,12 +43,12 @@ class Sift {
     THROW_CHECK_LE(image.rows(), options_.max_image_size);
     THROW_CHECK_LE(image.cols(), options_.max_image_size);
 
-    const Bitmap bitmap = Bitmap::ConvertFromRawBits(image.data(),
-                                                     /*pitch=*/image.cols() * 8,
-                                                     /*width=*/image.cols(),
-                                                     /*height=*/image.rows(),
-                                                     /*rgb=*/false,
-                                                     /*copy_source=*/false);
+    const Bitmap bitmap =
+        Bitmap::ConvertFromRawBits(const_cast<uint8_t*>(image.data()),
+                                   /*pitch=*/image.cols() * 8,
+                                   /*width=*/image.cols(),
+                                   /*height=*/image.rows(),
+                                   /*rgb=*/false);
 
     FeatureKeypoints keypoints_;
     FeatureDescriptors descriptors_;
