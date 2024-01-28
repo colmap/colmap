@@ -24,7 +24,6 @@ py::object PyEstimateAndRefineAbsolutePose(
     const AbsolutePoseEstimationOptions& estimation_options,
     const AbsolutePoseRefinementOptions& refinement_options,
     const bool return_covariance) {
-  SetPRNGSeed(0);
   THROW_CHECK_EQ(points2D.size(), points3D.size());
   py::object failure = py::none();
   py::gil_scoped_release release;
@@ -71,7 +70,6 @@ py::object PyRefineAbsolutePose(
     const PyInlierMask& inlier_mask,
     Camera& camera,
     const AbsolutePoseRefinementOptions& refinement_options) {
-  SetPRNGSeed(0);
   THROW_CHECK_EQ(points2D.size(), points3D.size());
   THROW_CHECK_EQ(inlier_mask.size(), points2D.size());
   py::object failure = py::none();
