@@ -1,3 +1,4 @@
+#include "colmap/math/random.h"
 #include "colmap/util/version.h"
 
 #include "pycolmap/estimators/bindings.h"
@@ -113,6 +114,10 @@ PYBIND11_MODULE(pycolmap, m) {
   BindSfMObjects(m);
   BindSift(m);
   BindPipeline(m);
+
+  m.def("set_random_seed",
+        &SetPRNGSeed,
+        "Initialize the PRNG with the given seed.");
 
   py::add_ostream_redirect(m, "ostream");
 }

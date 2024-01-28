@@ -27,7 +27,6 @@ py::object PyEstimateAndRefineGeneralizedAbsolutePose(
     const RANSACOptions& ransac_options,
     const AbsolutePoseRefinementOptions& refinement_options,
     const bool return_covariance) {
-  SetPRNGSeed(0);
   THROW_CHECK_EQ(points2D.size(), points3D.size());
   THROW_CHECK_EQ(points2D.size(), camera_idxs.size());
   THROW_CHECK_EQ(cams_from_rig.size(), cameras.size());
