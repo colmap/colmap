@@ -103,8 +103,8 @@ class Bitmap {
   unsigned int BitsPerPixel() const;
 
   // Scan width of bitmap which differs from the actual image width to achieve
-  // 32 bit aligned memory. Also known as pitch or stride.
-  unsigned int ScanWidth() const;
+  // 32 bit aligned memory. Also known as stride.
+  unsigned int Pitch() const;
 
   // Check whether image is grey- or colorscale.
   inline bool IsRGB() const;
@@ -114,9 +114,21 @@ class Bitmap {
   size_t NumBytes() const;
 
   // Copy raw image data to array.
-  std::vector<uint8_t> ConvertToRawBits() const;
   std::vector<uint8_t> ConvertToRowMajorArray() const;
   std::vector<uint8_t> ConvertToColMajorArray() const;
+
+  std::vector<uint8_t> ConvertToRawBits() const;
+
+  // Creates bitmap from row major array. If copy_source is false, then the
+  // bitmap object does not allocate memory for the image data and only stores a
+  // pointer to the source data. In this case, the source data must not be
+  // deallocated before the bitmap object is destroyed.
+  static Bitmap ConvertFromRawBits(uint8_t* data,
+                                   int pitch,
+                                   int width,
+                                   int height,
+                                   bool rgb = true,
+                                   bool copy_source = false);
 
   // Manipulate individual pixels. For grayscale images, only the red element
   // of the RGB color is used.

@@ -160,7 +160,7 @@ void Bitmap::Deallocate() {
 
 size_t Bitmap::NumBytes() const {
   if (handle_.ptr != nullptr) {
-    return ScanWidth() * height_;
+    return Pitch() * height_;
   } else {
     return 0;
   }
@@ -170,24 +170,8 @@ unsigned int Bitmap::BitsPerPixel() const {
   return FreeImage_GetBPP(handle_.ptr);
 }
 
-unsigned int Bitmap::ScanWidth() const {
+unsigned int Bitmap::Pitch() const {
   return FreeImage_GetPitch(handle_.ptr);
-}
-
-std::vector<uint8_t> Bitmap::ConvertToRawBits() const {
-  const unsigned int scan_width = ScanWidth();
-  const unsigned int bpp = BitsPerPixel();
-  const bool kTopDown = true;
-  std::vector<uint8_t> raw_bits(scan_width * height_, 0);
-  FreeImage_ConvertToRawBits(raw_bits.data(),
-                             handle_.ptr,
-                             scan_width,
-                             bpp,
-                             FI_RGBA_RED_MASK,
-                             FI_RGBA_GREEN_MASK,
-                             FI_RGBA_BLUE_MASK,
-                             kTopDown);
-  return raw_bits;
 }
 
 std::vector<uint8_t> Bitmap::ConvertToRowMajorArray() const {
@@ -219,6 +203,41 @@ std::vector<uint8_t> Bitmap::ConvertToColMajorArray() const {
     }
   }
   return array;
+}
+
+std::vector<uint8_t> Bitmap::ConvertToRawBits() const {
+  const unsigned int pitch = Pitch();
+  const unsigned int bpp = BitsPerPixel();
+  std::vector<uint8_t> raw_bits(pitch * height_ * bpp / 8, 0);
+  FreeImage_ConvertToRawBits(raw_bits.data(),
+                             handle_.ptr,
+                             pitch,
+                             bpp,
+                             FI_RGBA_RED_MASK,
+                             FI_RGBA_GREEN_MASK,
+                             FI_RGBA_BLUE_MASK,
+                             /*topdown=*/true);
+  return raw_bits;
+}
+
+Bitmap Bitmap::ConvertFromRawBits(uint8_t* data,
+                                  int pitch,
+                                  int width,
+                                  int height,
+                                  bool rgb,
+                                  bool copy_source) {
+  const unsigned bpp = rgb ? 24 : 8;
+  return Bitmap(FreeImage_ConvertFromRawBitsEx(copy_source,
+                                               data,
+                                               FIT_BITMAP,
+                                               width,
+                                               height,
+                                               pitch,
+                                               bpp,
+                                               FI_RGBA_RED_MASK,
+                                               FI_RGBA_GREEN_MASK,
+                                               FI_RGBA_BLUE_MASK,
+                                               /*topdown=*/true));
 }
 
 bool Bitmap::GetPixel(const int x,

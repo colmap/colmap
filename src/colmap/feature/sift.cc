@@ -652,7 +652,7 @@ class SiftGPUFeatureExtractor : public FeatureExtractor {
     // Note, that this produces slightly different results than using SiftGPU
     // directly for RGB->GRAY conversion, since it uses different weights.
     const std::vector<uint8_t> bitmap_raw_bits = bitmap.ConvertToRawBits();
-    const int code = sift_gpu_.RunSIFT(bitmap.ScanWidth(),
+    const int code = sift_gpu_.RunSIFT(bitmap.Pitch(),
                                        bitmap.Height(),
                                        bitmap_raw_bits.data(),
                                        GL_LUMINANCE,
