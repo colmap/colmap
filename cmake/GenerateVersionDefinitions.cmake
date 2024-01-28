@@ -43,6 +43,13 @@ elseif(Git_FOUND AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.git")
         WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
         OUTPUT_VARIABLE GIT_COMMIT_DATE
         ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE)
+
+    # Re-generate version.cc if the git index changes.
+    set_property(
+        DIRECTORY APPEND 
+        PROPERTY CMAKE_CONFIGURE_DEPENDS
+        "${CMAKE_CURRENT_SOURCE_DIR}/.git/index"
+    )
 else()
     set(GIT_COMMIT_ID "Unknown")
     set(GIT_COMMIT_DATE "Unknown")
