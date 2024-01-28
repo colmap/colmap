@@ -9,7 +9,6 @@
 #include <memory>
 
 #include <Eigen/Core>
-#include <FreeImage.h>
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 
@@ -44,23 +43,12 @@ class Sift {
     THROW_CHECK_LE(image.rows(), options_.max_image_size);
     THROW_CHECK_LE(image.cols(), options_.max_image_size);
 
-    const unsigned int bpp = 8;  // Grey.
-    const unsigned int width = image.cols();
-    const unsigned int scan_width = (bpp / 8) * width;
-    pyimage_t<uint8_t> image_copy = image;
-    FIBITMAP* bitmap_raw = FreeImage_ConvertFromRawBitsEx(
-        /*copySource=*/false,
-        static_cast<unsigned char*>(image_copy.data()),
-        FIT_BITMAP,
-        width,
-        image.rows(),
-        scan_width,
-        bpp,
-        FI_RGBA_RED_MASK,
-        FI_RGBA_GREEN_MASK,
-        FI_RGBA_BLUE_MASK,
-        /*topdown=*/true);
-    const Bitmap bitmap(bitmap_raw);
+    const Bitmap bitmap =
+        Bitmap::ConvertFromRawBits(const_cast<uint8_t*>(image.data()),
+                                   /*pitch=*/image.cols(),
+                                   /*width=*/image.cols(),
+                                   /*height=*/image.rows(),
+                                   /*rgb=*/false);
 
     FeatureKeypoints keypoints_;
     FeatureDescriptors descriptors_;
