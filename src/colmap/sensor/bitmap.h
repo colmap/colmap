@@ -119,8 +119,8 @@ class Bitmap {
 
   std::vector<uint8_t> ConvertToRawBits() const;
 
-  // Creates bitmap from row major array. If copy_source is false, then the
-  // bitmap object does not allocate memory for the image data and only stores a
+  // Creates bitmap from raw bits. If copy_source is false, then the bitmap
+  // object does not allocate memory for the image data and only stores a
   // pointer to the source data. In this case, the source data must not be
   // deallocated before the bitmap object is destroyed.
   static Bitmap ConvertFromRawBits(uint8_t* data,
