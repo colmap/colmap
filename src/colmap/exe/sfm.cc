@@ -85,7 +85,7 @@ int RunAutomaticReconstructor(int argc, char** argv) {
     reconstruction_options.data_type =
         AutomaticReconstructionController::DataType::INTERNET;
   } else {
-    LOG(FATAL) << "Invalid data type provided";
+    THROW_EXCEPTION(std::invalid_argument, "Invalid data type provided");
   }
 
   StringToLower(&quality);
@@ -102,7 +102,7 @@ int RunAutomaticReconstructor(int argc, char** argv) {
     reconstruction_options.quality =
         AutomaticReconstructionController::Quality::EXTREME;
   } else {
-    LOG(FATAL) << "Invalid quality provided";
+    THROW_EXCEPTION(std::invalid_argument, "Invalid quality provided");
   }
 
   StringToLower(&mesher);
@@ -113,7 +113,7 @@ int RunAutomaticReconstructor(int argc, char** argv) {
     reconstruction_options.mesher =
         AutomaticReconstructionController::Mesher::DELAUNAY;
   } else {
-    LOG(FATAL) << "Invalid mesher provided";
+    THROW_EXCEPTION(std::invalid_argument, "Invalid mesher provided");
   }
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();

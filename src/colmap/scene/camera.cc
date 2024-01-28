@@ -73,8 +73,9 @@ Eigen::Matrix3d Camera::CalibrationMatrix() const {
     K(0, 0) = params[idxs[0]];
     K(1, 1) = params[idxs[1]];
   } else {
-    LOG(FATAL)
-        << "Camera model must either have 1 or 2 focal length parameters.";
+    THROW_EXCEPTION(
+        std::invalid_argument,
+        "Camera model must either have 1 or 2 focal length parameters.");
   }
 
   K(0, 2) = PrincipalPointX();
@@ -127,8 +128,9 @@ void Camera::Rescale(const double scale) {
     SetFocalLengthX(scale_x * FocalLengthX());
     SetFocalLengthY(scale_y * FocalLengthY());
   } else {
-    LOG(FATAL)
-        << "Camera model must either have 1 or 2 focal length parameters.";
+    THROW_EXCEPTION(
+        std::invalid_argument,
+        "Camera model must either have 1 or 2 focal length parameters.");
   }
 }
 
@@ -147,8 +149,9 @@ void Camera::Rescale(const size_t new_width, const size_t new_height) {
     SetFocalLengthX(scale_x * FocalLengthX());
     SetFocalLengthY(scale_y * FocalLengthY());
   } else {
-    LOG(FATAL)
-        << "Camera model must either have 1 or 2 focal length parameters.";
+    THROW_EXCEPTION(
+        std::invalid_argument,
+        "Camera model must either have 1 or 2 focal length parameters.");
   }
 }
 

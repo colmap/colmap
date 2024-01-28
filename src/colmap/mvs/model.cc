@@ -47,7 +47,7 @@ void Model::Read(const std::string& path, const std::string& format) {
   } else if (format_lower_case == "pmvs") {
     ReadFromPMVS(path);
   } else {
-    LOG(FATAL) << "Invalid input format";
+    THROW_EXCEPTION(std::invalid_argument, "Invalid input format");
   }
 }
 
@@ -96,7 +96,7 @@ void Model::ReadFromPMVS(const std::string& path) {
   if (ReadFromBundlerPMVS(path) || ReadFromRawPMVS(path)) {
     return;
   } else {
-    LOG(FATAL) << "Invalid PMVS format";
+    THROW_EXCEPTION(std::invalid_argument, "Invalid PMVS format");
   }
 }
 

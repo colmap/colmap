@@ -240,7 +240,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
         SynthesizeChainedMatches(reconstruction, database);
         break;
       default:
-        LOG(FATAL) << "Invalid MatchConfig specified";
+        THROW_EXCEPTION(std::invalid_argument, "Invalid MatchConfig specified");
     }
   }
 

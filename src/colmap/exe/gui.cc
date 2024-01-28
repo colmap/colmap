@@ -90,7 +90,7 @@ int RunProjectGenerator(int argc, char** argv) {
   } else if (quality == "extreme") {
     output_options.ModifyForExtremeQuality();
   } else {
-    LOG(FATAL) << "Invalid quality provided";
+    THROW_EXCEPTION(std::invalid_argument, "Invalid quality provided");
   }
 
   output_options.Write(output_path);

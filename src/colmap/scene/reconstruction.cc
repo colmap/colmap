@@ -502,8 +502,9 @@ void Reconstruction::TranscribeImageIdsToDatabase(const Database& database) {
 
   for (auto& image : images_) {
     if (!database.ExistsImageWithName(image.second.Name())) {
-      LOG(FATAL) << "Image with name " << image.second.Name()
-                 << " does not exist in database";
+      THROW_EXCEPTION(std::invalid_argument,
+                      "Image with name " + image.second.Name() +
+                          " does not exist in database");
     }
 
     const auto database_image = database.ReadImageWithName(image.second.Name());
@@ -682,7 +683,8 @@ void Reconstruction::Read(const std::string& path) {
              ExistsFile(JoinPaths(path, "points3D.txt"))) {
     ReadText(path);
   } else {
-    LOG(FATAL) << "cameras, images, points3D files do not exist at " << path;
+    THROW_EXCEPTION(std::invalid_argument,
+                    "cameras, images, points3D files do not exist at " + path);
   }
 }
 

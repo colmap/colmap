@@ -1314,7 +1314,7 @@ void MainWindow::SetOptions() {
   } else if (data_item == "Internet images") {
     options_.ModifyForInternetData();
   } else {
-    LOG(FATAL) << "Data type does not exist";
+    THROW_EXCEPTION(std::invalid_argument, "Data type does not exist");
   }
 
   if (quality_item == "Low") {
@@ -1326,7 +1326,7 @@ void MainWindow::SetOptions() {
   } else if (quality_item == "Extreme") {
     options_.ModifyForExtremeQuality();
   } else {
-    LOG(FATAL) << "Quality level does not exist";
+    THROW_EXCEPTION(std::invalid_argument, "Quality level does not exist");
   }
 }
 

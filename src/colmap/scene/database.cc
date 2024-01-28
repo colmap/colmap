@@ -86,7 +86,7 @@ FeatureKeypoints FeatureKeypointsFromBlob(const FeatureKeypointsBlob& blob) {
                                      blob(i, 5));
     }
   } else {
-    LOG(FATAL) << "Keypoint format not supported";
+    THROW_EXCEPTION(std::invalid_argument, "Keypoint format not supported");
   }
   return keypoints;
 }

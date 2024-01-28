@@ -40,8 +40,6 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 
-#include <glog/logging.h>
-
 namespace colmap {
 
 AutomaticReconstructionController::AutomaticReconstructionController(
@@ -67,7 +65,7 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   } else if (options_.data_type == DataType::INTERNET) {
     option_manager_.ModifyForInternetData();
   } else {
-    LOG(FATAL) << "Data type not supported";
+    THROW_EXCEPTION(std::invalid_argument, "Data type not supported");
   }
 
   THROW_CHECK(ExistsCameraModelWithName(options_.camera_model));

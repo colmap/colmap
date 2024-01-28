@@ -287,7 +287,7 @@ void GP3PEstimator::Residuals(const std::vector<X_t>& points2D,
                            points2D[i].ray_in_cam.hnormalized())
                               .squaredNorm();
       } else {
-        LOG(FATAL) << "Invalid residual type";
+        THROW_EXCEPTION(std::invalid_argument, "Invalid residual type");
       }
     } else {
       (*residuals)[i] = std::numeric_limits<double>::max();

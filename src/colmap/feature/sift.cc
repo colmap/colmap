@@ -245,7 +245,8 @@ class SiftCPUFeatureExtractor : public FeatureExtractor {
                        SiftExtractionOptions::Normalization::L1_ROOT) {
               L1RootNormalizeFeatureDescriptors(&desc);
             } else {
-              LOG(FATAL) << "Normalization type not supported";
+              THROW_EXCEPTION(std::invalid_argument,
+                              "Normalization type not supported");
             }
 
             level_descriptors.back().row(level_idx) =
@@ -497,7 +498,8 @@ class CovariantSiftCPUFeatureExtractor : public FeatureExtractor {
                    SiftExtractionOptions::Normalization::L1_ROOT) {
           L1RootNormalizeFeatureDescriptors(&descriptor);
         } else {
-          LOG(FATAL) << "Normalization type not supported";
+          THROW_EXCEPTION(std::invalid_argument,
+                          "Normalization type not supported");
         }
 
         descriptors->row(i) = FeatureDescriptorsToUnsignedByte(descriptor);
@@ -689,7 +691,8 @@ class SiftGPUFeatureExtractor : public FeatureExtractor {
                SiftExtractionOptions::Normalization::L1_ROOT) {
       L1RootNormalizeFeatureDescriptors(&descriptors_float);
     } else {
-      LOG(FATAL) << "Normalization type not supported";
+      THROW_EXCEPTION(std::invalid_argument,
+                      "Normalization type not supported");
     }
 
     *descriptors = FeatureDescriptorsToUnsignedByte(descriptors_float);

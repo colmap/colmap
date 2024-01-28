@@ -208,11 +208,12 @@ std::unordered_map<int, int> ComputeNormalizedMinGraphCut(
                                               cut_labels.data());
 
   if (metisResult == METIS_ERROR_INPUT) {
-    LOG(FATAL) << "INTERNAL: Metis input error";
+    THROW_EXCEPTION(std::invalid_argument, "INTERNAL: Metis input error");
   } else if (metisResult == METIS_ERROR_MEMORY) {
-    LOG(FATAL) << "INTERNAL: Metis memory error";
+    THROW_EXCEPTION(std::invalid_argument, "INTERNAL: Metis memory error");
   } else if (metisResult == METIS_ERROR) {
-    LOG(FATAL) << "INTERNAL: Metis 'some other type of error'";
+    THROW_EXCEPTION(std::invalid_argument,
+                    "INTERNAL: Metis 'some other type of error'");
   }
 
   std::unordered_map<int, int> labels;

@@ -664,7 +664,7 @@ void Bitmap::Rescale(const int new_width,
       fi_filter = FILTER_BOX;
       break;
     default:
-      LOG(FATAL) << "Filter not implemented";
+      THROW_EXCEPTION(std::invalid_argument, "Filter not implemented");
   }
   SetPtr(FreeImage_Rescale(handle_.ptr, new_width, new_height, fi_filter));
 }

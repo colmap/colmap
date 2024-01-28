@@ -194,7 +194,8 @@ std::vector<PlyPoint> ReadPly(const std::string& path) {
       } else if (line_elems[1] == "uchar") {
         num_bytes_per_line += 1;
       } else {
-        LOG(FATAL) << "Invalid data type: " << line_elems[1];
+        THROW_EXCEPTION(std::invalid_argument,
+                        "Invalid data type: " + line_elems[1]);
       }
     }
   }

@@ -33,10 +33,9 @@
 #include "colmap/geometry/pose.h"
 #include "colmap/optim/loransac.h"
 #include "colmap/scene/projection.h"
+#include "colmap/util/logging.h"
 
 #include <unordered_map>
-
-#include <glog/logging.h>
 
 namespace colmap {
 namespace {

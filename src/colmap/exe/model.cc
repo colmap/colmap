@@ -792,7 +792,7 @@ int RunModelOrientationAligner(int argc, char** argv) {
     new_from_old_world.rotation = Eigen::Quaterniond::FromTwoVectors(
         gravity_axis, Eigen::Vector3d(0, 1, 0));
   } else {
-    LOG(FATAL) << "Alignment method not supported";
+    THROW_EXCEPTION(std::invalid_argument, "Alignment method not supported");
   }
 
   LOG(INFO) << "Using the rotation matrix:";
