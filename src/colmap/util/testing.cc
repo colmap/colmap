@@ -29,11 +29,12 @@
 
 #include "colmap/util/testing.h"
 
+#include "colmap/util/logging.h"
+
 #include <mutex>
 #include <set>
 
 #include <boost/filesystem.hpp>
-#include <glog/logging.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
