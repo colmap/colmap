@@ -1,15 +1,21 @@
 # Python bindings for COLMAP
 
-This repository exposes to Python most capabilities of [COLMAP](https://colmap.github.io/) for Structure-from-Motion and Multiview-stereo, such as reconstruction pipelines & objects and geometric estimators.
+PyCOLMAP exposes to Python most capabilities of
+[COLMAP](https://colmap.github.io/) for Structure-from-Motion and
+Multiview-stereo, such as reconstruction pipelines & objects and geometric
+estimators.
 
 ## Installation
 
-Wheels for Python 8/9/10 on Linux, macOS 10/11/12 (both Intel and Apple Silicon), and Windows can be installed using pip:
+Pre-built wheels for Python 3.8/3.9/3.10 on Linux, macOS 10/11/12 (both Intel
+and Apple Silicon), and Windows can be installed using pip:
 ```bash
 pip install pycolmap
 ```
 
-The wheels are automatically built and pushed to [PyPI](https://pypi.org/project/pycolmap/) at each release. They are currently not built with CUDA support, which requires building from source.
+The wheels are automatically built and pushed to
+[PyPI](https://pypi.org/project/pycolmap/) at each release. They are currently
+not built with CUDA support, which requires building from source.
 
 <details>
 <summary>[Building PyCOLMAP from source - click to expand]</summary>
@@ -23,7 +29,7 @@ python -m pip install .
 ```
   - On Windows, after installing COLMAP [via VCPKG](https://colmap.github.io/install.html#id3), run in powershell:
 ```powershell
-py -m pip install . `
+python -m pip install . `
     --cmake.define.CMAKE_TOOLCHAIN_FILE="$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
     --cmake.define.VCPKG_TARGET_TRIPLET="x64-windows"
 ```
@@ -61,12 +67,13 @@ pycolmap.patch_match_stereo(mvs_path)  # requires compilation with CUDA
 pycolmap.stereo_fusion(mvs_path / "dense.ply", mvs_path)
 ```
 
-PyCOLMAP can leverage the GPU for feature extraction, matching, and multi-view stereo if COLMAP was compiled with CUDA support.
-Similarly, PyCOLMAP can run Delauney Triangulation if COLMAP was compiled with CGAL support.
-This requires to build the package from source and is not available with the PyPI wheels.
+PyCOLMAP can leverage the GPU for feature extraction, matching, and multi-view
+stereo if COLMAP was compiled with CUDA support. Similarly, PyCOLMAP can run
+Delaunay Triangulation if COLMAP was compiled with CGAL support. This requires
+to build the package from source and is not available with the PyPI wheels.
 
-All of the above steps are easily configurable with python dicts which are recursively merged into
-their respective defaults, for example:
+All of the above steps are easily configurable with python dicts which are
+recursively merged into their respective defaults, for example:
 ```python
 pycolmap.extract_features(database_path, image_dir, sift_options={"max_num_features": 512})
 # equivalent to
@@ -81,7 +88,8 @@ To list available options and their default parameters:
 help(pycolmap.SiftExtractionOptions)
 ```
 
-For another example of usage, see [`example.py`](./example.py) or [`hloc/reconstruction.py`](https://github.com/cvg/Hierarchical-Localization/blob/master/hloc/reconstruction.py).
+For another example of usage, see [`example.py`](./example.py) or
+[`hloc/reconstruction.py`](https://github.com/cvg/Hierarchical-Localization/blob/master/hloc/reconstruction.py).
 
 ## Reconstruction object
 
@@ -126,9 +134,14 @@ reconstruction.export_PLY("rec.ply")  # PLY format
 
 ## Estimators
 
-We provide robust RANSAC-based estimators for absolute camera pose (single-camera and multi-camera-rig), essential matrix, fundamental matrix, homography, and two-view relative pose for calibrated cameras.
+We provide robust RANSAC-based estimators for absolute camera pose
+(single-camera and multi-camera-rig), essential matrix, fundamental matrix,
+homography, and two-view relative pose for calibrated cameras.
 
-All RANSAC and estimation parameters are exposed as objects that behave similarly as Python dataclasses. The RANSAC options are described in [`colmap/optim/ransac.h`](https://github.com/colmap/colmap/blob/main/src/colmap/optim/ransac.h#L43-L72) and their default values are:
+All RANSAC and estimation parameters are exposed as objects that behave
+similarly as Python dataclasses. The RANSAC options are described in
+[`colmap/optim/ransac.h`](https://github.com/colmap/colmap/blob/main/src/colmap/optim/ransac.h#L43-L72)
+and their default values are:
 
 ```python
 ransac_options = pycolmap.RANSACOptions(
@@ -155,7 +168,9 @@ answer = pycolmap.absolute_pose_estimation(points2D, points3D, camera)
 # Returns: dictionary of estimation outputs or None if failure
 ```
 
-2D and 3D points are passed as Numpy arrays or lists. The options are defined in [`estimators/absolute_pose.cc`](./pycolmap/estimators/absolute_pose.h#L100-L122) and can be passed as regular (nested) Python dictionaries:
+2D and 3D points are passed as Numpy arrays or lists. The options are defined in
+[`estimators/absolute_pose.cc`](./pycolmap/estimators/absolute_pose.h#L100-L122)
+and can be passed as regular (nested) Python dictionaries:
 
 ```python
 pycolmap.absolute_pose_estimation(
@@ -216,7 +231,8 @@ answer = pycolmap.homography_matrix_estimation(
 
 ### Two-view geometry estimation
 
-COLMAP can also estimate a relative pose between two calibrated cameras by estimating both E and H and accounting for the degeneracies of each model.
+COLMAP can also estimate a relative pose between two calibrated cameras by
+estimating both E and H and accounting for the degeneracies of each model.
 
 ```python
 # Parameters:
@@ -231,7 +247,10 @@ answer = pycolmap.estimate_calibrated_two_view_geometry(camera1, points1, camera
 # Returns: pycolmap.TwoViewGeometry
 ```
 
-The `TwoViewGeometryOptions` control how each model is selected. The output structure contains the geometric model, inlier matches, the relative pose (if `options.compute_relative_pose=True`), and the type of camera configuration, which is an instance of the enum `pycolmap.TwoViewGeometryConfiguration`.
+The `TwoViewGeometryOptions` control how each model is selected. The output
+structure contains the geometric model, inlier matches, the relative pose (if
+`options.compute_relative_pose=True`), and the type of camera configuration,
+which is an instance of the enum `pycolmap.TwoViewGeometryConfiguration`.
 
 ### Camera argument
 
@@ -246,7 +265,9 @@ camera = pycolmap.Camera(
 )
 ```
 
-The different camera models and their extra parameters are defined in [`colmap/src/colmap/sensor/models.h`](https://github.com/colmap/colmap/blob/main/src/colmap/sensor/models.h). For example for a pinhole camera:
+The different camera models and their extra parameters are defined in
+[`colmap/src/colmap/sensor/models.h`](https://github.com/colmap/colmap/blob/main/src/colmap/sensor/models.h).
+For example for a pinhole camera:
 
 ```python
 camera = pycolmap.Camera(
@@ -293,4 +314,3 @@ keypoints, descriptors = sift.extract(img)
 # - keypoints: Nx4 array; format: x (j), y (i), scale, orientation
 # - descriptors: Nx128 array; L2-normalized descriptors
 ```
-Created and maintained by [Mihai Dusmanu](https://github.com/mihaidusmanu/), [Philipp Lindenberger](https://github.com/Phil26AT), [Paul-Edouard Sarlin](https://github.com/Skydes), and other contributors.
