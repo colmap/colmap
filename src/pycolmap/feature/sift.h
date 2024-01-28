@@ -45,7 +45,7 @@ class Sift {
 
     const Bitmap bitmap =
         Bitmap::ConvertFromRawBits(const_cast<uint8_t*>(image.data()),
-                                   /*pitch=*/image.cols() * 8,
+                                   /*pitch=*/image.cols(),
                                    /*width=*/image.cols(),
                                    /*height=*/image.rows(),
                                    /*rgb=*/false);
