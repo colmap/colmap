@@ -152,7 +152,8 @@ template <typename T>
 inline T TemplateException(const char* file,
                            const int line,
                            const std::string& txt) {
-  return T(StringPrintf("[%s:%d] %s", __GetConstFileBaseName(file), line, txt));
+  return T(StringPrintf(
+      "[%s:%d] %s", __GetConstFileBaseName(file), line, txt.c_str()));
 }
 
 inline std::string __GetCheckString(const char* cond_str) {
