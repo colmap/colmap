@@ -51,7 +51,7 @@ namespace {
 double ComputeMaxErrorInCamera(const std::vector<size_t>& camera_idxs,
                                const std::vector<Camera>& cameras,
                                const double max_error_px) {
-  CHECK_GT(max_error_px, 0.0);
+  THROW_CHECK_GT(max_error_px, 0.0);
   double max_error_cam = 0.;
   for (const auto& camera_idx : camera_idxs) {
     max_error_cam += cameras[camera_idx].CamFromImgThreshold(max_error_px);
@@ -108,12 +108,12 @@ bool EstimateGeneralizedAbsolutePose(
     Rigid3d* rig_from_world,
     size_t* num_inliers,
     std::vector<char>* inlier_mask) {
-  CHECK_EQ(points2D.size(), points3D.size());
-  CHECK_EQ(points2D.size(), camera_idxs.size());
-  CHECK_EQ(cams_from_rig.size(), cameras.size());
-  CHECK_GE(*std::min_element(camera_idxs.begin(), camera_idxs.end()), 0);
-  CHECK_LT(*std::max_element(camera_idxs.begin(), camera_idxs.end()),
-           cameras.size());
+  THROW_CHECK_EQ(points2D.size(), points3D.size());
+  THROW_CHECK_EQ(points2D.size(), camera_idxs.size());
+  THROW_CHECK_EQ(cams_from_rig.size(), cameras.size());
+  THROW_CHECK_GE(*std::min_element(camera_idxs.begin(), camera_idxs.end()), 0);
+  THROW_CHECK_LT(*std::max_element(camera_idxs.begin(), camera_idxs.end()),
+                 cameras.size());
   options.Check();
   if (points2D.size() == 0) {
     return false;
@@ -163,13 +163,13 @@ bool RefineGeneralizedAbsolutePose(const AbsolutePoseRefinementOptions& options,
                                    Rigid3d* rig_from_world,
                                    std::vector<Camera>* cameras,
                                    Eigen::Matrix6d* rig_from_world_cov) {
-  CHECK_EQ(points2D.size(), inlier_mask.size());
-  CHECK_EQ(points2D.size(), points3D.size());
-  CHECK_EQ(points2D.size(), camera_idxs.size());
-  CHECK_EQ(cams_from_rig.size(), cameras->size());
-  CHECK_GE(*std::min_element(camera_idxs.begin(), camera_idxs.end()), 0);
-  CHECK_LT(*std::max_element(camera_idxs.begin(), camera_idxs.end()),
-           cameras->size());
+  THROW_CHECK_EQ(points2D.size(), inlier_mask.size());
+  THROW_CHECK_EQ(points2D.size(), points3D.size());
+  THROW_CHECK_EQ(points2D.size(), camera_idxs.size());
+  THROW_CHECK_EQ(cams_from_rig.size(), cameras->size());
+  THROW_CHECK_GE(*std::min_element(camera_idxs.begin(), camera_idxs.end()), 0);
+  THROW_CHECK_LT(*std::max_element(camera_idxs.begin(), camera_idxs.end()),
+                 cameras->size());
   options.Check();
 
   const auto loss_function =

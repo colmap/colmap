@@ -41,9 +41,9 @@ namespace colmap {
 void P3PEstimator::Estimate(const std::vector<X_t>& points2D,
                             const std::vector<Y_t>& points3D,
                             std::vector<M_t>* models) {
-  CHECK_EQ(points2D.size(), 3);
-  CHECK_EQ(points3D.size(), 3);
-  CHECK(models != nullptr);
+  THROW_CHECK_EQ(points2D.size(), 3);
+  THROW_CHECK_EQ(points3D.size(), 3);
+  THROW_CHECK(models != nullptr);
 
   models->clear();
 
@@ -178,9 +178,9 @@ void P3PEstimator::Residuals(const std::vector<X_t>& points2D,
 void EPNPEstimator::Estimate(const std::vector<X_t>& points2D,
                              const std::vector<Y_t>& points3D,
                              std::vector<M_t>* models) {
-  CHECK_GE(points2D.size(), 4);
-  CHECK_EQ(points2D.size(), points3D.size());
-  CHECK(models != nullptr);
+  THROW_CHECK_GE(points2D.size(), 4);
+  THROW_CHECK_EQ(points2D.size(), points3D.size());
+  THROW_CHECK(models != nullptr);
 
   models->clear();
 
