@@ -703,12 +703,14 @@ void Reconstruction::ReadBinary(const std::string& path) {
 }
 
 void Reconstruction::WriteText(const std::string& path) const {
+  THROW_CHECK_DIR_EXISTS(path);
   WriteCamerasText(JoinPaths(path, "cameras.txt"));
   WriteImagesText(JoinPaths(path, "images.txt"));
   WritePoints3DText(JoinPaths(path, "points3D.txt"));
 }
 
 void Reconstruction::WriteBinary(const std::string& path) const {
+  THROW_CHECK_DIR_EXISTS(path);
   WriteCamerasBinary(JoinPaths(path, "cameras.bin"));
   WriteImagesBinary(JoinPaths(path, "images.bin"));
   WritePoints3DBinary(JoinPaths(path, "points3D.bin"));
