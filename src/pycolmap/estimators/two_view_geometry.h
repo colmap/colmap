@@ -4,9 +4,9 @@
 #include "colmap/estimators/utils.h"
 #include "colmap/scene/camera.h"
 #include "colmap/scene/two_view_geometry.h"
+#include "colmap/util/logging.h"
 
 #include "pycolmap/helpers.h"
-#include "pycolmap/log_exceptions.h"
 #include "pycolmap/utils.h"
 
 #include <pybind11/eigen.h>
@@ -107,7 +107,7 @@ void BindTwoViewGeometryEstimator(py::module& m) {
         if (matches_ptr != nullptr) {
           matches = FeatureMatchesFromMatrix(*matches_ptr);
         } else {
-          THROW_CHECK_EQ(points1.size(), points2.size());
+          CHECK_EQ(points1.size(), points2.size());
           matches.reserve(points1.size());
           for (size_t i = 0; i < points1.size(); i++) {
             matches.emplace_back(i, i);
@@ -136,7 +136,7 @@ void BindTwoViewGeometryEstimator(py::module& m) {
         if (matches_ptr != nullptr) {
           matches = FeatureMatchesFromMatrix(*matches_ptr);
         } else {
-          THROW_CHECK_EQ(points1.size(), points2.size());
+          CHECK_EQ(points1.size(), points2.size());
           matches.reserve(points1.size());
           for (size_t i = 0; i < points1.size(); i++) {
             matches.emplace_back(i, i);

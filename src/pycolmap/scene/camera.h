@@ -2,11 +2,11 @@
 
 #include "colmap/scene/camera.h"
 #include "colmap/sensor/models.h"
+#include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/types.h"
 
 #include "pycolmap/helpers.h"
-#include "pycolmap/log_exceptions.h"
 #include "pycolmap/pybind11_extension.h"
 
 #include <memory>

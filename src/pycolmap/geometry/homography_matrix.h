@@ -1,8 +1,7 @@
 #pragma once
 
 #include "colmap/geometry/homography_matrix.h"
-
-#include "pycolmap/log_exceptions.h"
+#include "colmap/util/logging.h"
 
 #include <pybind11/eigen.h>
 #include <pybind11/pybind11.h>
@@ -18,7 +17,7 @@ py::dict PyPoseFromHomographyMatrix(
     const Eigen::Matrix3d& K2,
     const std::vector<Eigen::Vector2d>& points1,
     const std::vector<Eigen::Vector2d>& points2) {
-  THROW_CHECK_EQ(points1.size(), points1.size());
+  CHECK_EQ(points1.size(), points1.size());
   py::gil_scoped_release release;
 
   Eigen::Matrix3d R;

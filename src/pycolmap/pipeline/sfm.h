@@ -8,7 +8,6 @@
 #include "colmap/util/misc.h"
 
 #include "pycolmap/helpers.h"
-#include "pycolmap/log_exceptions.h"
 
 #include <memory>
 
@@ -30,8 +29,8 @@ std::shared_ptr<Reconstruction> TriangulatePoints(
     const bool clear_points,
     const IncrementalMapperOptions& options,
     const bool refine_intrinsics) {
-  THROW_CHECK_FILE_EXISTS(database_path);
-  THROW_CHECK_DIR_EXISTS(image_path);
+  CHECK_FILE_EXISTS(database_path);
+  CHECK_DIR_EXISTS(image_path);
   CreateDirIfNotExists(output_path);
 
   py::gil_scoped_release release;
@@ -53,14 +52,14 @@ std::map<size_t, std::shared_ptr<Reconstruction>> IncrementalMapping(
     const std::string& input_path,
     const std::function<void()>& initial_image_pair_callback,
     const std::function<void()>& next_image_callback) {
-  THROW_CHECK_FILE_EXISTS(database_path);
-  THROW_CHECK_DIR_EXISTS(image_path);
+  CHECK_FILE_EXISTS(database_path);
+  CHECK_DIR_EXISTS(image_path);
   CreateDirIfNotExists(output_path);
 
   py::gil_scoped_release release;
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   if (input_path != "") {
-    THROW_CHECK_DIR_EXISTS(input_path);
+    CHECK_DIR_EXISTS(input_path);
     reconstruction_manager->Read(input_path);
   }
   auto options_ = std::make_shared<IncrementalMapperOptions>(options);

@@ -46,6 +46,11 @@
 #define CHECK_DIR_EXISTS(path) \
   CHECK(ExistsDir(path)) << "Directory " << (path) << " does not exist."
 
+#define CHECK_PATH_OPEN(path)                           \
+  CHECK(std::ofstream(path, std::ios::trunc).is_open()) \
+      << "Could not open " << (path)                    \
+      << ". Is the path a directory or does the parent dir not exist?"
+
 #define CHECK_FILE_OPEN(file, path)  \
   CHECK((file).is_open())            \
       << "Could not open " << (path) \

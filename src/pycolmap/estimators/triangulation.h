@@ -3,9 +3,9 @@
 #include "colmap/estimators/triangulation.h"
 #include "colmap/scene/camera.h"
 #include "colmap/scene/image.h"
+#include "colmap/util/logging.h"
 
 #include "pycolmap/helpers.h"
-#include "pycolmap/log_exceptions.h"
 #include "pycolmap/utils.h"
 
 #include <pybind11/eigen.h>
@@ -21,8 +21,8 @@ py::dict PyEstimateTriangulation(
     const std::vector<Image>& images,
     const std::vector<Camera>& cameras,
     const EstimateTriangulationOptions& options) {
-  THROW_CHECK_EQ(images.size(), cameras.size());
-  THROW_CHECK_EQ(images.size(), point_data.size());
+  CHECK_EQ(images.size(), cameras.size());
+  CHECK_EQ(images.size(), point_data.size());
   py::object failure = py::none();
   py::gil_scoped_release release;
 

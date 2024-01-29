@@ -1,11 +1,11 @@
 #pragma once
 
 #include "colmap/scene/track.h"
+#include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/types.h"
 
 #include "pycolmap/helpers.h"
-#include "pycolmap/log_exceptions.h"
 
 #include <memory>
 
@@ -53,7 +53,7 @@ void BindTrack(py::module& m) {
       .def(
           "remove",
           [](Track& self, const size_t idx) {
-            THROW_CHECK_LT(idx, self.Elements().size());
+            CHECK_LT(idx, self.Elements().size());
             self.DeleteElement(idx);
           },
           "Remove TrackElement at index.")

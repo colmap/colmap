@@ -5,9 +5,10 @@
 #include "colmap/exe/feature.h"
 #include "colmap/exe/sfm.h"
 #include "colmap/feature/sift.h"
+#include "colmap/util/logging.h"
+#include "colmap/util/misc.h"
 
 #include "pycolmap/helpers.h"
-#include "pycolmap/log_exceptions.h"
 #include "pycolmap/utils.h"
 
 #include <memory>
@@ -31,7 +32,7 @@ void MatchFeatures(const std::string& database_path,
                    const Opts& matching_options,
                    const TwoViewGeometryOptions& verification_options,
                    const Device device) {
-  THROW_CHECK_FILE_EXISTS(database_path);
+  CHECK_FILE_EXISTS(database_path);
   try {
     py::cast(matching_options).attr("check").attr("__call__")();
   } catch (py::error_already_set& ex) {
@@ -53,8 +54,8 @@ void MatchFeatures(const std::string& database_path,
 void verify_matches(const std::string& database_path,
                     const std::string& pairs_path,
                     const TwoViewGeometryOptions& verification_options) {
-  THROW_CHECK_FILE_EXISTS(database_path);
-  THROW_CHECK_FILE_EXISTS(pairs_path);
+  CHECK_FILE_EXISTS(database_path);
+  CHECK_FILE_EXISTS(pairs_path);
   py::gil_scoped_release release;  // verification is multi-threaded
 
   SiftMatchingOptions sift_options;
@@ -208,9 +209,8 @@ void BindMatchFeatures(py::module& m) {
               &VTMOpts::match_list_path,
               "Optional path to file with specific image names to match.")
           .def("check", [](VTMOpts& self) {
-            THROW_CHECK_MSG(!self.vocab_tree_path.empty(),
-                            "vocab_tree_path required.");
-            THROW_CHECK_FILE_EXISTS(self.vocab_tree_path);
+            CHECK(!self.vocab_tree_path.empty()) << "vocab_tree_path required.";
+            CHECK_FILE_EXISTS(self.vocab_tree_path);
           });
   MakeDataclass(PyVocabTreeMatchingOptions);
   auto vocabtree_options = PyVocabTreeMatchingOptions().cast<VTMOpts>();

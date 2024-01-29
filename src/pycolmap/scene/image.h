@@ -2,11 +2,11 @@
 
 #include "colmap/geometry/rigid3.h"
 #include "colmap/scene/image.h"
+#include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/types.h"
 
 #include "pycolmap/helpers.h"
-#include "pycolmap/log_exceptions.h"
 
 #include <memory>
 #include <sstream>
@@ -92,7 +92,7 @@ void BindImage(py::module& m) {
           "camera_id",
           &Image::CameraId,
           [](Image& self, const camera_t camera_id) {
-            THROW_CHECK_NE(camera_id, kInvalidCameraId);
+            CHECK_NE(camera_id, kInvalidCameraId);
             self.SetCameraId(camera_id);
           },
           "Unique identifier of the camera.")
@@ -119,7 +119,7 @@ void BindImage(py::module& m) {
           "points2D",
           py::overload_cast<>(&Image::Points2D),
           [](Image& self, const std::vector<struct Point2D>& points2D) {
-            THROW_CUSTOM_CHECK(!points2D.empty(), std::invalid_argument);
+            CHECK(!points2D.empty());
             self.SetPoints2D(points2D);
           },
           "Array of Points2D (=keypoints).")
@@ -128,7 +128,7 @@ void BindImage(py::module& m) {
           [](Image& self,
              const point2D_t point2D_idx,
              const point3D_t point3D_id) {
-            THROW_CHECK_NE(point3D_id, kInvalidPoint3DId);
+            CHECK_NE(point3D_id, kInvalidPoint3DId);
             self.SetPoint3DForPoint2D(point2D_idx, point3D_id);
           },
           "Set the point as triangulated, i.e. it is part of a 3D point track.")
@@ -170,7 +170,7 @@ void BindImage(py::module& m) {
       .def(
           "set_up",
           [](Image& self, const struct Camera& camera) {
-            THROW_CHECK_EQ(self.CameraId(), camera.camera_id);
+            CHECK_EQ(self.CameraId(), camera.camera_id);
             self.SetUp(camera);
           },
           "Setup the image and necessary internal data structures before being "

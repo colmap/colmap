@@ -6,8 +6,8 @@
 #include "colmap/math/random.h"
 #include "colmap/optim/loransac.h"
 #include "colmap/scene/camera.h"
+#include "colmap/util/logging.h"
 
-#include "pycolmap/log_exceptions.h"
 #include "pycolmap/utils.h"
 
 #include <pybind11/eigen.h>
@@ -24,7 +24,7 @@ py::object PyEstimateAndDecomposeEssentialMatrix(
     Camera& camera1,
     Camera& camera2,
     const RANSACOptions& options) {
-  THROW_CHECK_EQ(points2D1.size(), points2D2.size());
+  CHECK_EQ(points2D1.size(), points2D2.size());
   py::object failure = py::none();
   py::gil_scoped_release release;
 
