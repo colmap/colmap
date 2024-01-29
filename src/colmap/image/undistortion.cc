@@ -949,8 +949,10 @@ void UndistortImage(const UndistortCameraOptions& options,
                     const Camera& distorted_camera,
                     Bitmap* undistorted_bitmap,
                     Camera* undistorted_camera) {
-  THROW_CHECK_EQ(distorted_camera.width, distorted_bitmap.Width());
-  THROW_CHECK_EQ(distorted_camera.height, distorted_bitmap.Height());
+  THROW_CHECK_EQ(distorted_camera.width,
+                 static_cast<size_t>(distorted_bitmap.Width()));
+  THROW_CHECK_EQ(distorted_camera.height,
+                 static_cast<size_t>(distorted_bitmap.Height()));
 
   *undistorted_camera = UndistortCamera(options, distorted_camera);
   undistorted_bitmap->Allocate(static_cast<int>(undistorted_camera->width),
@@ -1061,10 +1063,14 @@ void RectifyAndUndistortStereoImages(const UndistortCameraOptions& options,
                                      Bitmap* undistorted_image2,
                                      Camera* undistorted_camera,
                                      Eigen::Matrix4d* Q) {
-  THROW_CHECK_EQ(distorted_camera1.width, distorted_image1.Width());
-  THROW_CHECK_EQ(distorted_camera1.height, distorted_image1.Height());
-  THROW_CHECK_EQ(distorted_camera2.width, distorted_image2.Width());
-  THROW_CHECK_EQ(distorted_camera2.height, distorted_image2.Height());
+  THROW_CHECK_EQ(distorted_camera1.width,
+                 static_cast<size_t>(distorted_image1.Width()));
+  THROW_CHECK_EQ(distorted_camera1.height,
+                 static_cast<size_t>(distorted_image1.Height()));
+  THROW_CHECK_EQ(distorted_camera2.width,
+                 static_cast<size_t>(distorted_image2.Width()));
+  THROW_CHECK_EQ(distorted_camera2.height,
+                 static_cast<size_t>(distorted_image2.Height()));
 
   *undistorted_camera = UndistortCamera(options, distorted_camera1);
   undistorted_image1->Allocate(static_cast<int>(undistorted_camera->width),

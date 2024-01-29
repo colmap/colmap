@@ -118,15 +118,19 @@ void PatchMatch::Check() const {
   // Check that input data is well-formed.
   for (const int image_idx : unique_image_idxs) {
     THROW_CHECK_GE_MSG(image_idx, 0, image_idx);
-    THROW_CHECK_LT_MSG(image_idx, problem_.images->size(), image_idx);
+    THROW_CHECK_LT_MSG(
+        image_idx, static_cast<int>(problem_.images->size()), image_idx);
 
     const Image& image = problem_.images->at(image_idx);
     THROW_CHECK_GT_MSG(image.GetBitmap().Width(), 0, image_idx);
     THROW_CHECK_GT_MSG(image.GetBitmap().Height(), 0, image_idx);
     THROW_CHECK_MSG(image.GetBitmap().IsGrey(), image_idx);
-    THROW_CHECK_EQ_MSG(image.GetWidth(), image.GetBitmap().Width(), image_idx);
-    THROW_CHECK_EQ_MSG(
-        image.GetHeight(), image.GetBitmap().Height(), image_idx);
+    THROW_CHECK_EQ_MSG(image.GetWidth(),
+                       static_cast<size_t>(image.GetBitmap().Width()),
+                       image_idx);
+    THROW_CHECK_EQ_MSG(image.GetHeight(),
+                       static_cast<size_t>(image.GetBitmap().Height()),
+                       image_idx);
 
     // Make sure, the calibration matrix only contains fx, fy, cx, cy.
     THROW_CHECK_LT_MSG(std::abs(image.GetK()[1] - 0.0f), 1e-6f, image_idx);
@@ -136,7 +140,8 @@ void PatchMatch::Check() const {
     THROW_CHECK_LT_MSG(std::abs(image.GetK()[8] - 1.0f), 1e-6f, image_idx);
 
     if (options_.geom_consistency) {
-      THROW_CHECK_LT_MSG(image_idx, problem_.depth_maps->size(), image_idx);
+      THROW_CHECK_LT_MSG(
+          image_idx, static_cast<int>(problem_.depth_maps->size()), image_idx);
       const DepthMap& depth_map = problem_.depth_maps->at(image_idx);
       THROW_CHECK_EQ_MSG(image.GetWidth(), depth_map.GetWidth(), image_idx);
       THROW_CHECK_EQ_MSG(image.GetHeight(), depth_map.GetHeight(), image_idx);

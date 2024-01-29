@@ -246,7 +246,7 @@ void ImportPMVSWorkspace(const Workspace& workspace,
       image_idxs.resize(num_images);
       std::iota(image_idxs.begin(), image_idxs.end(), range_lower);
     } else {
-      THROW_CHECK_EQ(num_images + 2, elems.size());
+      THROW_CHECK_EQ(num_images + 2, static_cast<int>(elems.size()));
       image_idxs.reserve(num_images);
       for (size_t i = 2; i < elems.size(); ++i) {
         const int image_idx = std::stoull(elems[i]);

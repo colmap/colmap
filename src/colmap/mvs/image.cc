@@ -56,8 +56,8 @@ Image::Image(const std::string& path,
 
 void Image::SetBitmap(const Bitmap& bitmap) {
   bitmap_ = bitmap;
-  THROW_CHECK_EQ(width_, bitmap_.Width());
-  THROW_CHECK_EQ(height_, bitmap_.Height());
+  THROW_CHECK_EQ(width_, static_cast<size_t>(bitmap_.Width()));
+  THROW_CHECK_EQ(height_, static_cast<size_t>(bitmap_.Height()));
 }
 
 void Image::Rescale(const float factor) { Rescale(factor, factor); }

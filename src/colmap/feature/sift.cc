@@ -1330,7 +1330,7 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
                     "number of features and/or matches.";
       matches->clear();
     } else {
-      THROW_CHECK_LE(num_matches, matches->size());
+      THROW_CHECK_LE(static_cast<const size_t>(num_matches), matches->size());
       matches->resize(num_matches);
     }
   }
@@ -1359,7 +1359,8 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
 
     if (descriptors1 != nullptr) {
       THROW_CHECK_NOTNULL(keypoints1);
-      THROW_CHECK_EQ(descriptors1->rows(), keypoints1->size());
+      THROW_CHECK_EQ(static_cast<size_t>(descriptors1->rows()),
+                     keypoints1->size());
       THROW_CHECK_EQ(descriptors1->cols(), 128);
       WarnIfMaxNumMatchesReachedGPU(*descriptors1);
       const size_t kIndex = 0;
@@ -1373,7 +1374,8 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
 
     if (descriptors2 != nullptr) {
       THROW_CHECK_NOTNULL(keypoints2);
-      THROW_CHECK_EQ(descriptors2->rows(), keypoints2->size());
+      THROW_CHECK_EQ(static_cast<size_t>(descriptors2->rows()),
+                     keypoints2->size());
       THROW_CHECK_EQ(descriptors2->cols(), 128);
       WarnIfMaxNumMatchesReachedGPU(*descriptors2);
       const size_t kIndex = 1;
@@ -1429,7 +1431,8 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
                     "number of features.";
       two_view_geometry->inlier_matches.clear();
     } else {
-      THROW_CHECK_LE(num_matches, two_view_geometry->inlier_matches.size());
+      THROW_CHECK_LE(static_cast<const size_t>(num_matches),
+                     two_view_geometry->inlier_matches.size());
       two_view_geometry->inlier_matches.resize(num_matches);
     }
   }
