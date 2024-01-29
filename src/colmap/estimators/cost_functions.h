@@ -92,13 +92,14 @@ class ReprojErrorCostFunction {
 // Bundle adjustment cost function for variable
 // camera calibration and point parameters, and fixed camera pose.
 template <typename CameraModel>
-class ReprojErrorConstantPoseCostFunction {
+class ReprojErrorConstantPoseCostFunction
+    : public ReprojErrorCostFunction<CameraModel> {
+  using Parent = ReprojErrorCostFunction<CameraModel>;
+
  public:
   ReprojErrorConstantPoseCostFunction(const Rigid3d& cam_from_world,
                                       const Eigen::Vector2d& point2D)
-      : cam_from_world_(cam_from_world),
-        observed_x_(point2D(0)),
-        observed_y_(point2D(1)) {}
+      : Parent(point2D), cam_from_world_(cam_from_world) {}
 
   static ceres::CostFunction* Create(const Rigid3d& cam_from_world,
                                      const Eigen::Vector2d& point2D) {
@@ -114,35 +115,32 @@ class ReprojErrorConstantPoseCostFunction {
   bool operator()(const T* const point3D,
                   const T* const camera_params,
                   T* residuals) const {
-    const Eigen::Matrix<T, 3, 1> point3D_in_cam =
-        cam_from_world_.rotation.cast<T>() * EigenVector3Map<T>(point3D) +
+    const Eigen::Quaternion<T> cam_from_world_rotation =
+        cam_from_world_.rotation.cast<T>();
+    const Eigen::Matrix<T, 3, 1> cam_from_world_translation =
         cam_from_world_.translation.cast<T>();
-    CameraModel::ImgFromCam(camera_params,
-                            point3D_in_cam[0],
-                            point3D_in_cam[1],
-                            point3D_in_cam[2],
-                            &residuals[0],
-                            &residuals[1]);
-    residuals[0] -= T(observed_x_);
-    residuals[1] -= T(observed_y_);
-    return true;
+    return Parent::operator()(cam_from_world_rotation.coeffs().data(),
+                              cam_from_world_translation.data(),
+                              point3D,
+                              camera_params,
+                              residuals);
   }
 
  private:
   const Rigid3d& cam_from_world_;
-  const double observed_x_;
-  const double observed_y_;
 };
 
 // Bundle adjustment cost function for variable
 // camera pose and calibration parameters, and fixed point.
 template <typename CameraModel>
-class ReprojErrorConstantPoint3DCostFunction {
+class ReprojErrorConstantPoint3DCostFunction
+    : public ReprojErrorCostFunction<CameraModel> {
+  using Parent = ReprojErrorCostFunction<CameraModel>;
+
  public:
   ReprojErrorConstantPoint3DCostFunction(const Eigen::Vector2d& point2D,
                                          const Eigen::Vector3d& point3D)
-      : observed_x_(point2D(0)),
-        observed_y_(point2D(1)),
+      : Parent(point2D),
         point3D_x_(point3D(0)),
         point3D_y_(point3D(1)),
         point3D_z_(point3D(2)) {}
@@ -163,28 +161,15 @@ class ReprojErrorConstantPoint3DCostFunction {
                   const T* const cam_from_world_translation,
                   const T* const camera_params,
                   T* residuals) const {
-    Eigen::Matrix<T, 3, 1> point3D;
-    point3D[0] = T(point3D_x_);
-    point3D[1] = T(point3D_y_);
-    point3D[2] = T(point3D_z_);
-
-    const Eigen::Matrix<T, 3, 1> point3D_in_cam =
-        EigenQuaternionMap<T>(cam_from_world_rotation) * point3D +
-        EigenVector3Map<T>(cam_from_world_translation);
-    CameraModel::ImgFromCam(camera_params,
-                            point3D_in_cam[0],
-                            point3D_in_cam[1],
-                            point3D_in_cam[2],
-                            &residuals[0],
-                            &residuals[1]);
-    residuals[0] -= T(observed_x_);
-    residuals[1] -= T(observed_y_);
-    return true;
+    const T point3D[3] = {T(point3D_x_), T(point3D_y_), T(point3D_z_)};
+    return Parent::operator()(cam_from_world_rotation,
+                              cam_from_world_translation,
+                              point3D,
+                              camera_params,
+                              residuals);
   }
 
  private:
-  const double observed_x_;
-  const double observed_y_;
   const double point3D_x_;
   const double point3D_y_;
   const double point3D_z_;
