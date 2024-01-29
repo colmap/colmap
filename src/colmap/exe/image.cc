@@ -432,7 +432,7 @@ int RunImageUndistorterStandalone(int argc, char** argv) {
 
   {
     std::ifstream file(input_file);
-    CHECK(file.is_open()) << input_file;
+    CHECK_FILE_OPEN(file, input_file);
 
     std::string line;
     std::vector<std::string> lines;

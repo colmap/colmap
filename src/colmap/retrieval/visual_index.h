@@ -37,6 +37,7 @@
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/endian.h"
 #include "colmap/util/logging.h"
+#include "colmap/util/misc.h"
 
 #include <Eigen/Core>
 #include <boost/heap/fibonacci_heap.hpp>
@@ -566,7 +567,7 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Read(
     }
 
     std::ifstream file(path, std::ios::binary);
-    CHECK(file.is_open()) << path;
+    CHECK_FILE_OPEN(file, path);
     const uint64_t rows = ReadBinaryLittleEndian<uint64_t>(&file);
     const uint64_t cols = ReadBinaryLittleEndian<uint64_t>(&file);
     kDescType* visual_words_data = new kDescType[rows * cols];
@@ -600,7 +601,7 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Read(
 
   {
     std::ifstream file(path, std::ios::binary);
-    CHECK(file.is_open()) << path;
+    CHECK_FILE_OPEN(file, path);
     file.seekg(file_offset, std::ios::beg);
     inverted_index_.Read(&file);
   }
@@ -617,7 +618,7 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Write(
   {
     CHECK_NOTNULL(visual_words_.ptr());
     std::ofstream file(path, std::ios::binary);
-    CHECK(file.is_open()) << path;
+    CHECK_FILE_OPEN(file, path);
     WriteBinaryLittleEndian<uint64_t>(&file, visual_words_.rows);
     WriteBinaryLittleEndian<uint64_t>(&file, visual_words_.cols);
     for (size_t i = 0; i < visual_words_.rows * visual_words_.cols; ++i) {
@@ -643,7 +644,7 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Write(
 
   {
     std::ofstream file(path, std::ios::binary | std::ios::app);
-    CHECK(file.is_open()) << path;
+    CHECK_FILE_OPEN(file, path);
     inverted_index_.Write(&file);
   }
 }

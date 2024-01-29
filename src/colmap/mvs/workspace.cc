@@ -271,8 +271,8 @@ void ImportPMVSWorkspace(const Workspace& workspace,
         JoinPaths(workspace_path, stereo_folder, "fusion.cfg");
     std::ofstream patch_match_file(patch_match_path, std::ios::trunc);
     std::ofstream fusion_file(fusion_path, std::ios::trunc);
-    CHECK(patch_match_file.is_open()) << patch_match_path;
-    CHECK(fusion_file.is_open()) << fusion_path;
+    CHECK_FILE_OPEN(patch_match_file, patch_match_path);
+    CHECK_FILE_OPEN(fusion_file, fusion_path);
     for (size_t i = 0; i < image_names.size(); ++i) {
       const auto& ref_image_name = image_names[i];
       patch_match_file << ref_image_name << "\n";

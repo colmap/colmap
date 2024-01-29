@@ -31,6 +31,7 @@
 
 #include "colmap/util/endian.h"
 #include "colmap/util/logging.h"
+#include "colmap/util/misc.h"
 
 #include <fstream>
 #include <string>
@@ -154,7 +155,7 @@ void Mat<T>::Fill(const T value) {
 template <typename T>
 void Mat<T>::Read(const std::string& path) {
   std::ifstream file(path, std::ios::binary);
-  CHECK(file.is_open()) << path;
+  CHECK_FILE_OPEN(file, path);
 
   char unused_char;
   file >> width_ >> unused_char >> height_ >> unused_char >> depth_ >>
@@ -171,7 +172,7 @@ void Mat<T>::Read(const std::string& path) {
 template <typename T>
 void Mat<T>::Write(const std::string& path) const {
   std::ofstream file(path, std::ios::binary);
-  CHECK(file.is_open()) << path;
+  CHECK_FILE_OPEN(file, path);
   file << width_ << "&" << height_ << "&" << depth_ << "&";
   WriteBinaryLittleEndian<T>(&file, data_);
   file.close();

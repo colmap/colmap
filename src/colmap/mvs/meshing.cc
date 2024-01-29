@@ -282,7 +282,7 @@ class DelaunayMeshingInput {
 
     const std::string vis_path = JoinPaths(path, "fused.ply.vis");
     std::fstream vis_file(vis_path, std::ios::in | std::ios::binary);
-    CHECK(vis_file.is_open()) << vis_path;
+    CHECK_FILE_OPEN(vis_file, vis_path);
 
     const size_t vis_num_points = ReadBinaryLittleEndian<uint64_t>(&vis_file);
     CHECK_EQ(vis_num_points, ply_points.size());
@@ -634,7 +634,7 @@ double ComputeCosFacetCellAngle(const Delaunay& triangulation,
 void WriteDelaunayTriangulationPly(const std::string& path,
                                    const Delaunay& triangulation) {
   std::fstream file(path, std::ios::out);
-  CHECK(file.is_open());
+  CHECK_FILE_OPEN(file, path);
 
   file << "ply" << std::endl;
   file << "format ascii 1.0" << std::endl;

@@ -501,7 +501,7 @@ class VocabTreeFeatureMatcher : public Thread {
 
       // Read the match list path.
       std::ifstream file(options_.match_list_path);
-      CHECK(file.is_open()) << options_.match_list_path;
+      CHECK_FILE_OPEN(file, options_.match_list_path);
       std::string line;
       while (std::getline(file, line)) {
         StringTrim(&line);
@@ -959,7 +959,7 @@ class ImagePairsFeatureMatcher : public Thread {
     }
 
     std::ifstream file(options_.match_list_path);
-    CHECK(file.is_open()) << options_.match_list_path;
+    CHECK_FILE_OPEN(file, options_.match_list_path);
 
     std::string line;
     std::vector<std::pair<image_t, image_t>> image_pairs;
@@ -1098,7 +1098,7 @@ class FeaturePairsFeatureMatcher : public Thread {
     }
 
     std::ifstream file(options_.match_list_path);
-    CHECK(file.is_open()) << options_.match_list_path;
+    CHECK_FILE_OPEN(file, options_.match_list_path);
 
     std::string line;
     while (std::getline(file, line)) {

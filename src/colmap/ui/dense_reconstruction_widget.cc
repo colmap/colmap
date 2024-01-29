@@ -164,7 +164,7 @@ class MeshingOptionsTab : public OptionsWidget {
 std::vector<std::pair<std::string, std::string>> ReadPatchMatchConfig(
     const std::string& config_path) {
   std::ifstream file(config_path);
-  CHECK(file.is_open()) << config_path;
+  CHECK_FILE_OPEN(file, config_path);
 
   std::string line;
   std::string ref_image_name;

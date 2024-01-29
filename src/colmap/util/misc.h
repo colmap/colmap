@@ -193,7 +193,7 @@ std::string VectorToCSV(const std::vector<T>& values) {
 template <typename T>
 void ReadBinaryBlob(const std::string& path, std::vector<T>* data) {
   std::ifstream file(path, std::ios::binary | std::ios::ate);
-  CHECK(file.is_open()) << path;
+  CHECK_FILE_OPEN(file, path);
   file.seekg(0, std::ios::end);
   const size_t num_bytes = file.tellg();
   CHECK_EQ(num_bytes % sizeof(T), 0);
@@ -205,7 +205,7 @@ void ReadBinaryBlob(const std::string& path, std::vector<T>* data) {
 template <typename T>
 void WriteBinaryBlob(const std::string& path, const std::vector<T>& data) {
   std::ofstream file(path, std::ios::binary);
-  CHECK(file.is_open()) << path;
+  CHECK_FILE_OPEN(file, path);
   WriteBinaryLittleEndian<T>(&file, data);
 }
 

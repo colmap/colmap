@@ -279,7 +279,7 @@ bool Model::ReadFromBundlerPMVS(const std::string& path) {
   }
 
   std::ifstream file(bundle_file_path);
-  CHECK(file.is_open()) << bundle_file_path;
+  CHECK_FILE_OPEN(file, bundle_file_path);
 
   // Header line.
   std::string header;
@@ -370,7 +370,7 @@ bool Model::ReadFromRawPMVS(const std::string& path) {
         JoinPaths(path, "txt", StringPrintf("%08d.txt", image_idx));
 
     std::ifstream proj_matrix_file(proj_matrix_path);
-    CHECK(proj_matrix_file.is_open()) << proj_matrix_path;
+    CHECK_FILE_OPEN(proj_matrix_file, proj_matrix_path);
 
     std::string contour;
     proj_matrix_file >> contour;
@@ -408,7 +408,7 @@ bool Model::ReadFromRawPMVS(const std::string& path) {
   }
 
   std::ifstream vis_dat_file(vis_dat_path);
-  CHECK(vis_dat_file.is_open()) << vis_dat_path;
+  CHECK_FILE_OPEN(vis_dat_file, vis_dat_path);
 
   std::string visdata;
   vis_dat_file >> visdata;

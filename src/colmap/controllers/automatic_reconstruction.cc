@@ -49,8 +49,8 @@ AutomaticReconstructionController::AutomaticReconstructionController(
     : options_(options),
       reconstruction_manager_(std::move(reconstruction_manager)),
       active_thread_(nullptr) {
-  CHECK(ExistsDir(options_.workspace_path));
-  CHECK(ExistsDir(options_.image_path));
+  CHECK_DIR_EXISTS(options_.workspace_path);
+  CHECK_DIR_EXISTS(options_.image_path);
   CHECK_NOTNULL(reconstruction_manager_);
 
   option_manager_.AddAllOptions();

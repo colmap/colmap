@@ -755,7 +755,7 @@ void Reconstruction::ImportPLY(const std::vector<PlyPoint>& ply_points) {
 bool Reconstruction::ExportNVM(const std::string& path,
                                bool skip_distortion) const {
   std::ofstream file(path, std::ios::trunc);
-  CHECK(file.is_open()) << path;
+  CHECK_FILE_OPEN(file, path);
 
   // Ensure that we don't lose any precision by storing in text.
   file.precision(17);
@@ -852,7 +852,7 @@ bool Reconstruction::ExportCam(const std::string& path,
     name = JoinPaths(path, name.append(".cam"));
     std::ofstream file(name, std::ios::trunc);
 
-    CHECK(file.is_open()) << name;
+    CHECK_FILE_OPEN(file, name);
 
     // Ensure that we don't lose any precision by storing in text.
     file.precision(17);
@@ -919,11 +919,11 @@ bool Reconstruction::ExportRecon3D(const std::string& path,
   std::string image_map_path = base_path + "imagemap_0.txt";
 
   std::ofstream synth_file(synth_path, std::ios::trunc);
-  CHECK(synth_file.is_open()) << synth_path;
+  CHECK_FILE_OPEN(synth_file, synth_path);
   std::ofstream image_list_file(image_list_path, std::ios::trunc);
-  CHECK(image_list_file.is_open()) << image_list_path;
+  CHECK_FILE_OPEN(image_list_file, image_list_path);
   std::ofstream image_map_file(image_map_path, std::ios::trunc);
-  CHECK(image_map_file.is_open()) << image_map_path;
+  CHECK_FILE_OPEN(image_map_file, image_map_path);
 
   // Ensure that we don't lose any precision by storing in text.
   synth_file.precision(17);
@@ -1021,10 +1021,10 @@ bool Reconstruction::ExportBundler(const std::string& path,
                                    const std::string& list_path,
                                    bool skip_distortion) const {
   std::ofstream file(path, std::ios::trunc);
-  CHECK(file.is_open()) << path;
+  CHECK_FILE_OPEN(file, path);
 
   std::ofstream list_file(list_path, std::ios::trunc);
-  CHECK(list_file.is_open()) << list_path;
+  CHECK_FILE_OPEN(list_file, list_path);
 
   // Ensure that we don't lose any precision by storing in text.
   file.precision(17);
@@ -1129,7 +1129,7 @@ void Reconstruction::ExportVRML(const std::string& images_path,
                                 const double image_scale,
                                 const Eigen::Vector3d& image_rgb) const {
   std::ofstream images_file(images_path, std::ios::trunc);
-  CHECK(images_file.is_open()) << images_path;
+  CHECK_FILE_OPEN(images_file, images_path);
 
   const double six = image_scale * 0.15;
   const double siy = image_scale * 0.1;
@@ -1210,7 +1210,7 @@ void Reconstruction::ExportVRML(const std::string& images_path,
   // Write 3D points
 
   std::ofstream points3D_file(points3D_path, std::ios::trunc);
-  CHECK(points3D_file.is_open()) << points3D_path;
+  CHECK_FILE_OPEN(points3D_file, points3D_path);
 
   points3D_file << "#VRML V2.0 utf8\n";
   points3D_file << "Background { skyColor [1.0 1.0 1.0] } \n";
@@ -1457,7 +1457,7 @@ void Reconstruction::ReadCamerasText(const std::string& path) {
   cameras_.clear();
 
   std::ifstream file(path);
-  CHECK(file.is_open()) << path;
+  CHECK_FILE_OPEN(file, path);
 
   std::string line;
   std::string item;
@@ -1506,7 +1506,7 @@ void Reconstruction::ReadImagesText(const std::string& path) {
   images_.clear();
 
   std::ifstream file(path);
-  CHECK(file.is_open()) << path;
+  CHECK_FILE_OPEN(file, path);
 
   std::string line;
   std::string item;
@@ -1613,7 +1613,7 @@ void Reconstruction::ReadPoints3DText(const std::string& path) {
   points3D_.clear();
 
   std::ifstream file(path);
-  CHECK(file.is_open()) << path;
+  CHECK_FILE_OPEN(file, path);
 
   std::string line;
   std::string item;
@@ -1686,7 +1686,7 @@ void Reconstruction::ReadPoints3DText(const std::string& path) {
 
 void Reconstruction::ReadCamerasBinary(const std::string& path) {
   std::ifstream file(path, std::ios::binary);
-  CHECK(file.is_open()) << path;
+  CHECK_FILE_OPEN(file, path);
 
   const size_t num_cameras = ReadBinaryLittleEndian<uint64_t>(&file);
   for (size_t i = 0; i < num_cameras; ++i) {
@@ -1705,7 +1705,7 @@ void Reconstruction::ReadCamerasBinary(const std::string& path) {
 
 void Reconstruction::ReadImagesBinary(const std::string& path) {
   std::ifstream file(path, std::ios::binary);
-  CHECK(file.is_open()) << path;
+  CHECK_FILE_OPEN(file, path);
 
   const size_t num_reg_images = ReadBinaryLittleEndian<uint64_t>(&file);
   for (size_t i = 0; i < num_reg_images; ++i) {
@@ -1765,7 +1765,7 @@ void Reconstruction::ReadImagesBinary(const std::string& path) {
 
 void Reconstruction::ReadPoints3DBinary(const std::string& path) {
   std::ifstream file(path, std::ios::binary);
-  CHECK(file.is_open()) << path;
+  CHECK_FILE_OPEN(file, path);
 
   const size_t num_points3D = ReadBinaryLittleEndian<uint64_t>(&file);
   for (size_t i = 0; i < num_points3D; ++i) {
@@ -1796,7 +1796,7 @@ void Reconstruction::ReadPoints3DBinary(const std::string& path) {
 
 void Reconstruction::WriteCamerasText(const std::string& path) const {
   std::ofstream file(path, std::ios::trunc);
-  CHECK(file.is_open()) << path;
+  CHECK_FILE_OPEN(file, path);
 
   // Ensure that we don't loose any precision by storing in text.
   file.precision(17);
@@ -1827,7 +1827,7 @@ void Reconstruction::WriteCamerasText(const std::string& path) const {
 
 void Reconstruction::WriteImagesText(const std::string& path) const {
   std::ofstream file(path, std::ios::trunc);
-  CHECK(file.is_open()) << path;
+  CHECK_FILE_OPEN(file, path);
 
   // Ensure that we don't loose any precision by storing in text.
   file.precision(17);
@@ -1888,7 +1888,7 @@ void Reconstruction::WriteImagesText(const std::string& path) const {
 
 void Reconstruction::WritePoints3DText(const std::string& path) const {
   std::ofstream file(path, std::ios::trunc);
-  CHECK(file.is_open()) << path;
+  CHECK_FILE_OPEN(file, path);
 
   // Ensure that we don't loose any precision by storing in text.
   file.precision(17);
@@ -1927,7 +1927,7 @@ void Reconstruction::WritePoints3DText(const std::string& path) const {
 
 void Reconstruction::WriteCamerasBinary(const std::string& path) const {
   std::ofstream file(path, std::ios::trunc | std::ios::binary);
-  CHECK(file.is_open()) << path;
+  CHECK_FILE_OPEN(file, path);
 
   WriteBinaryLittleEndian<uint64_t>(&file, cameras_.size());
 
@@ -1945,7 +1945,7 @@ void Reconstruction::WriteCamerasBinary(const std::string& path) const {
 
 void Reconstruction::WriteImagesBinary(const std::string& path) const {
   std::ofstream file(path, std::ios::trunc | std::ios::binary);
-  CHECK(file.is_open()) << path;
+  CHECK_FILE_OPEN(file, path);
 
   WriteBinaryLittleEndian<uint64_t>(&file, reg_image_ids_.size());
 
@@ -1981,7 +1981,7 @@ void Reconstruction::WriteImagesBinary(const std::string& path) const {
 
 void Reconstruction::WritePoints3DBinary(const std::string& path) const {
   std::ofstream file(path, std::ios::trunc | std::ios::binary);
-  CHECK(file.is_open()) << path;
+  CHECK_FILE_OPEN(file, path);
 
   WriteBinaryLittleEndian<uint64_t>(&file, points3D_.size());
 

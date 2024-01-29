@@ -41,7 +41,7 @@ namespace colmap {
 
 std::vector<PlyPoint> ReadPly(const std::string& path) {
   std::ifstream file(path, std::ios::binary);
-  CHECK(file.is_open()) << path;
+  CHECK_FILE_OPEN(file, path);
 
   std::vector<PlyPoint> points;
 
@@ -324,7 +324,7 @@ void WriteTextPlyPoints(const std::string& path,
                         const bool write_normal,
                         const bool write_rgb) {
   std::ofstream file(path);
-  CHECK(file.is_open()) << path;
+  CHECK_FILE_OPEN(file, path);
 
   file << "ply" << std::endl;
   file << "format ascii 1.0" << std::endl;
@@ -371,7 +371,7 @@ void WriteBinaryPlyPoints(const std::string& path,
                           const bool write_normal,
                           const bool write_rgb) {
   std::fstream text_file(path, std::ios::out);
-  CHECK(text_file.is_open()) << path;
+  CHECK_FILE_OPEN(text_file, path);
 
   text_file << "ply" << std::endl;
   text_file << "format binary_little_endian 1.0" << std::endl;
@@ -398,7 +398,7 @@ void WriteBinaryPlyPoints(const std::string& path,
 
   std::fstream binary_file(path,
                            std::ios::out | std::ios::binary | std::ios::app);
-  CHECK(binary_file.is_open()) << path;
+  CHECK_FILE_OPEN(binary_file, path);
 
   for (const auto& point : points) {
     WriteBinaryLittleEndian<float>(&binary_file, point.x);
@@ -423,7 +423,7 @@ void WriteBinaryPlyPoints(const std::string& path,
 
 void WriteTextPlyMesh(const std::string& path, const PlyMesh& mesh) {
   std::fstream file(path, std::ios::out);
-  CHECK(file.is_open());
+  CHECK_FILE_OPEN(file, path);
 
   file << "ply" << std::endl;
   file << "format ascii 1.0" << std::endl;
@@ -450,7 +450,7 @@ void WriteTextPlyMesh(const std::string& path, const PlyMesh& mesh) {
 
 void WriteBinaryPlyMesh(const std::string& path, const PlyMesh& mesh) {
   std::fstream text_file(path, std::ios::out);
-  CHECK(text_file.is_open());
+  CHECK_FILE_OPEN(text_file, path);
 
   text_file << "ply" << std::endl;
   text_file << "format binary_little_endian 1.0" << std::endl;
@@ -465,7 +465,7 @@ void WriteBinaryPlyMesh(const std::string& path, const PlyMesh& mesh) {
 
   std::fstream binary_file(path,
                            std::ios::out | std::ios::binary | std::ios::app);
-  CHECK(binary_file.is_open()) << path;
+  CHECK_FILE_OPEN(binary_file, path);
 
   for (const auto& vertex : mesh.vertices) {
     WriteBinaryLittleEndian<float>(&binary_file, vertex.x);

@@ -562,7 +562,7 @@ void WritePointsVisibility(
     const std::string& path,
     const std::vector<std::vector<int>>& points_visibility) {
   std::fstream file(path, std::ios::out | std::ios::binary);
-  CHECK(file.is_open()) << path;
+  CHECK_FILE_OPEN(file, path);
 
   WriteBinaryLittleEndian<uint64_t>(&file, points_visibility.size());
 

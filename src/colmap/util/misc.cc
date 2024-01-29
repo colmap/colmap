@@ -186,7 +186,7 @@ std::vector<std::string> GetRecursiveDirList(const std::string& path) {
 
 size_t GetFileSize(const std::string& path) {
   std::ifstream file(path, std::ifstream::ate | std::ifstream::binary);
-  CHECK(file.is_open()) << path;
+  CHECK_FILE_OPEN(file, path);
   return file.tellg();
 }
 
@@ -279,7 +279,7 @@ std::vector<double> CSVToVector(const std::string& csv) {
 
 std::vector<std::string> ReadTextFileLines(const std::string& path) {
   std::ifstream file(path);
-  CHECK(file.is_open()) << path;
+  CHECK_FILE_OPEN(file, path);
 
   std::string line;
   std::vector<std::string> lines;
