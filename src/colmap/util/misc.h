@@ -40,6 +40,22 @@
 
 #include <boost/filesystem.hpp>
 
+#define CHECK_FILE_EXISTS(path) \
+  CHECK(ExistsFile(path)) << "File " << (path) << " does not exist."
+
+#define CHECK_DIR_EXISTS(path) \
+  CHECK(ExistsDir(path)) << "Directory " << (path) << " does not exist."
+
+#define CHECK_FILE_OPEN(file, path)  \
+  CHECK((file).is_open())            \
+      << "Could not open " << (path) \
+      << ". Is the path a directory or does the parent dir not exist?"
+
+#define CHECK_HAS_FILE_EXTENSION(path, ext)                              \
+  CHECK(HasFileExtension(path, ext))                                     \
+      << "Path " << (path) << " does not match file extension " << (ext) \
+      << "."
+
 namespace colmap {
 
 #ifndef STRINGIFY

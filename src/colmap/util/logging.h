@@ -35,6 +35,76 @@
 
 #include <glog/logging.h>
 
+// Override CHECKS and LOG(FATAL) to throw an exception instead of aborting
+// the program.
+// TODO(sarlinpe): Make these checks conditional on a global symbol.
+namespace google {
+
+// Redefinition in the google namespace
+const char* __GetConstFileBaseName(const char* file);
+
+std::string MakePrefix(const char* file, int line);
+
+template <typename T>
+class LogMessageFatalThrow : public LogMessage {
+ public:
+  LogMessageFatalThrow(const char* file, int line)
+      : LogMessage(file, line, GLOG_ERROR, &message_),
+        prefix_(MakePrefix(file, line)){};
+  LogMessageFatalThrow(const char* file, int line, std::string* message)
+      : LogMessage(file, line, GLOG_ERROR, message),
+        message_(*message),
+        prefix_(MakePrefix(file, line)){};
+  LogMessageFatalThrow(const char* file, int line, const CheckOpString& result)
+      : LogMessage(file, line, GLOG_ERROR, &message_),
+        prefix_(MakePrefix(file, line)) {
+    stream() << "Check failed: " << (*result.str_) << " ";
+    // On LOG(FATAL) glog does not bother cleaning up CheckOpString
+    // so we do it here.
+    delete result.str_;
+  };
+  [[noreturn]] ~LogMessageFatalThrow() noexcept(false) {
+    Flush();
+    throw T(prefix_ + message_);
+  };
+
+ private:
+  std::string message_;
+  std::string prefix_;
+};
+
+using LogMessageFatalThrowDefault = LogMessageFatalThrow<std::invalid_argument>;
+
+template <typename T>
+T ThrowCheckNotNull(const char* file, int line, const char* names, T&& t) {
+  if (t == nullptr) {
+    LogMessageFatalThrowDefault(file, line, new std::string(names));
+  }
+  return std::forward<T>(t);
+}
+
+}  // namespace google
+
+#undef COMPACT_GOOGLE_LOG_FATAL
+#define COMPACT_GOOGLE_LOG_FATAL \
+  google::LogMessageFatalThrowDefault(__FILE__, __LINE__)
+
+#undef LOG_TO_STRING_FATAL
+#define LOG_TO_STRING_FATAL(message) \
+  google::LogMessageFatalThrowDefault(__FILE__, __LINE__, message)
+
+#define LOG_FATAL_CUSTOM(exception) \
+  google::LogMessageFatalThrow<exception>(__FILE__, __LINE__).stream()
+
+#undef CHECK_OP
+#define CHECK_OP(name, op, val1, val2) \
+  CHECK_OP_LOG(name, op, val1, val2, google::LogMessageFatalThrowDefault)
+
+#undef CHECK_NOTNULL
+#define CHECK_NOTNULL(val)   \
+  google::ThrowCheckNotNull( \
+      __FILE__, __LINE__, "'" #val "' Must be non NULL", (val))
+
 // Option checker macros. In contrast to glog, this function does not abort the
 // program, but simply returns false on failure.
 #define CHECK_OPTION_IMPL(expr) \

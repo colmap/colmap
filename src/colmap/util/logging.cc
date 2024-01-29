@@ -29,6 +29,23 @@
 
 #include "colmap/util/logging.h"
 
+namespace google {
+
+const char* __GetConstFileBaseName(const char* file) {
+  const char* base = strrchr(file, '/');
+  if (!base) {
+    base = strrchr(file, '\\');
+  }
+  return base ? (base + 1) : file;
+}
+
+std::string MakePrefix(const char* file, int line) {
+  return "[" + std::string(__GetConstFileBaseName(file)) + ":" +
+         std::to_string(line) + "] ";
+};
+
+}  // namespace google
+
 namespace colmap {
 
 void InitializeGlog(char** argv) {
