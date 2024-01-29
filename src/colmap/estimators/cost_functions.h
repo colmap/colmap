@@ -230,6 +230,53 @@ class RigReprojErrorCostFunction {
   const double observed_y_;
 };
 
+// Rig bundle adjustment cost function for variable camera pose and camera
+// calibration and point parameters but fixed rig extrinsic poses.
+template <typename CameraModel>
+class RigReprojErrorConstantRigCostFunction
+    : public RigReprojErrorCostFunction<CameraModel> {
+  using Parent = RigReprojErrorCostFunction<CameraModel>;
+
+ public:
+  explicit RigReprojErrorConstantRigCostFunction(const Rigid3d& cam_from_rig,
+                                                 const Eigen::Vector2d& point2D)
+      : Parent(point2D), cam_from_rig_(cam_from_rig) {}
+
+  static ceres::CostFunction* Create(const Rigid3d& cam_from_rig,
+                                     const Eigen::Vector2d& point2D) {
+    return (new ceres::AutoDiffCostFunction<
+            RigReprojErrorConstantRigCostFunction<CameraModel>,
+            2,
+            4,
+            3,
+            3,
+            CameraModel::num_params>(
+        new RigReprojErrorConstantRigCostFunction(cam_from_rig, point2D)));
+  }
+
+  template <typename T>
+  bool operator()(const T* const rig_from_world_rotation,
+                  const T* const rig_from_world_translation,
+                  const T* const point3D,
+                  const T* const camera_params,
+                  T* residuals) const {
+    const Eigen::Quaternion<T> cam_from_rig_rotation =
+        cam_from_rig_.rotation.cast<T>();
+    const Eigen::Matrix<T, 3, 1> cam_from_rig_translation =
+        cam_from_rig_.translation.cast<T>();
+    return Parent::operator()(cam_from_rig_rotation.coeffs().data(),
+                              cam_from_rig_translation.data(),
+                              rig_from_world_rotation,
+                              rig_from_world_translation,
+                              point3D,
+                              camera_params,
+                              residuals);
+  }
+
+ private:
+  const Rigid3d& cam_from_rig_;
+};
+
 // Cost function for refining two-view geometry based on the Sampson-Error.
 //
 // First pose is assumed to be located at the origin with 0 rotation. Second
