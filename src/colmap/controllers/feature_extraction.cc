@@ -165,7 +165,7 @@ class SiftFeatureExtractorThread : public Thread {
   void Run() override {
     if (sift_options_.use_gpu) {
 #if !defined(COLMAP_CUDA_ENABLED)
-      CHECK(opengl_context_);
+      CHECK_NOTNULL(opengl_context_);
       CHECK(opengl_context_->MakeCurrent());
 #endif
     }

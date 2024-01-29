@@ -280,7 +280,7 @@ const SceneClustering::Cluster* SceneClustering::GetRootCluster() const {
 
 std::vector<const SceneClustering::Cluster*> SceneClustering::GetLeafClusters()
     const {
-  CHECK(root_cluster_);
+  CHECK_NOTNULL(root_cluster_);
 
   std::vector<const Cluster*> leaf_clusters;
 
