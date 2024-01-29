@@ -654,8 +654,12 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Quantize(
     const BuildOptions& options, const DescType& descriptors) {
   static_assert(DescType::IsRowMajor, "Descriptors must be row-major.");
 
+  // NOLINTBEGIN(clang-analyzer-cplusplus.NewDelete,
+  // clang-analyzer-optin.cplusplus.VirtualCall)
   THROW_CHECK_GE(options.num_visual_words, options.branching);
   THROW_CHECK_GE(descriptors.rows(), options.num_visual_words);
+  // NOLINTEND(clang-analyzer-cplusplus.NewDelete,
+  // clang-analyzer-optin.cplusplus.VirtualCall)
 
   const flann::Matrix<kDescType> descriptor_matrix(
       const_cast<kDescType*>(descriptors.data()),
@@ -671,7 +675,8 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Quantize(
   index_params["branching"] = options.branching;
   index_params["iterations"] = options.num_iterations;
   index_params["centers_init"] = flann::FLANN_CENTERS_KMEANSPP;
-  // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
+  // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall,
+  // clang-analyzer-cplusplus.NewDelete)
   const int num_centers = flann::hierarchicalClustering<flann::L2<kDescType>>(
       descriptor_matrix, centers, index_params);
 

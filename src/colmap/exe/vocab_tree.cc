@@ -135,13 +135,15 @@ int RunVocabTreeBuilder(int argc, char** argv) {
   const auto descriptors =
       LoadRandomDatabaseDescriptors(*options.database_path, max_num_images);
   LOG(INFO) << "=> Loaded a total of " << descriptors.rows() << " descriptors";
-  THROW_CHECK_GT(descriptors.size(), 0);
-
-  retrieval::VisualIndex<> visual_index;
 
   LOG(INFO) << "Building index for visual words...";
-  // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
+  retrieval::VisualIndex<> visual_index;
+  // NOLINTBEGIN(clang-analyzer-cplusplus.NewDelete,
+  // clang-analyzer-optin.cplusplus.VirtualCall)
+  THROW_CHECK_GT(descriptors.size(), 0);
   visual_index.Build(build_options, descriptors);
+  // NOLINTEND(clang-analyzer-cplusplus.NewDelete,
+  // clang-analyzer-optin.cplusplus.VirtualCall)
   LOG(INFO) << "=> Quantized descriptor space using "
             << visual_index.NumVisualWords() << " visual words";
 

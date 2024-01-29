@@ -136,8 +136,10 @@ void ComputeMinGraphCutStoerWagner(
     const std::vector<int>& weights,
     int* cut_weight,
     std::vector<char>* cut_labels) {
+  // NOLINTBEGIN(clang-analyzer-cplusplus.NewDelete)
   THROW_CHECK_EQ(edges.size(), weights.size());
   THROW_CHECK_GE(edges.size(), 2);
+  // NOLINTEND(clang-analyzer-cplusplus.NewDelete)
 
   typedef boost::property<boost::edge_weight_t, int> edge_weight_t;
   typedef boost::adjacency_list<boost::vecS,
