@@ -261,5 +261,65 @@ TEST(PoseGraphOptimization, AbsolutePose) {
   EXPECT_NEAR(residuals[5], -0.5, 1e-6);
 }
 
+TEST(PoseGraphOptimization, RelativePose) {
+  Rigid3d mes_j_from_i;
+  mes_j_from_i.translation << 0, 0, 1;
+  EigenMatrix6d covariance = EigenMatrix6d::Identity();
+  covariance(5, 5) = 4;
+  std::unique_ptr<ceres::CostFunction> cost_function(
+      MetricRelativePoseErrorCostFunction::Create(mes_j_from_i, covariance));
+
+  double i_from_world_rotation[4] = {0, 0, 0, 1};
+  double i_from_world_translation[3] = {0, 0, 0};
+  double j_from_world_rotation[4] = {0, 0, 0, 1};
+  double j_from_world_translation[3] = {0, 0, 1};
+  double residuals[6];
+  const double* parameters[4] = {i_from_world_rotation,
+                                 i_from_world_translation,
+                                 j_from_world_rotation,
+                                 j_from_world_translation};
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], 0);
+  EXPECT_EQ(residuals[2], 0);
+  EXPECT_EQ(residuals[3], 0);
+  EXPECT_EQ(residuals[4], 0);
+  EXPECT_EQ(residuals[5], 0);
+
+  i_from_world_translation[2] = 4;
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], 0);
+  EXPECT_EQ(residuals[2], 0);
+  EXPECT_EQ(residuals[3], 0);
+  EXPECT_EQ(residuals[4], 0);
+  EXPECT_EQ(residuals[5], 2);
+
+  j_from_world_translation[0] = 2;
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], 0);
+  EXPECT_EQ(residuals[2], 0);
+  EXPECT_EQ(residuals[3], -2);
+  EXPECT_EQ(residuals[4], 0);
+  EXPECT_EQ(residuals[5], 2);
+
+  // Rotation by 90 degrees around the Y axis.
+  const Eigen::Matrix3d rotation_matrix{
+      {0, 0, 1},
+      {0, 1, 0},
+      {-1, 0, 0},
+  };
+  Eigen::Map<Eigen::Quaterniond>(static_cast<double*>(j_from_world_rotation)) =
+      rotation_matrix;
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_NEAR(residuals[0], 0, 1e-6);
+  EXPECT_NEAR(residuals[1], DegToRad(-90.0), 1e-6);
+  EXPECT_NEAR(residuals[2], 0, 1e-6);
+  EXPECT_NEAR(residuals[3], 1, 1e-6);
+  EXPECT_NEAR(residuals[4], 0, 1e-6);
+  EXPECT_NEAR(residuals[5], 1.5, 1e-6);
+}
+
 }  // namespace
 }  // namespace colmap
