@@ -243,11 +243,8 @@ TEST(PoseGraphOptimization, AbsolutePose) {
   EXPECT_EQ(residuals[5], 0);
 
   // Rotation by 90 degrees around the Y axis.
-  const Eigen::Matrix3d rotation_matrix{
-      {0, 0, 1},
-      {0, 1, 0},
-      {-1, 0, 0},
-  };
+  Eigen::Matrix3d rotation_matrix;
+  rotation_matrix << 0, 0, 1, 0, 1, 0, -1, 0, 0;
   Eigen::Map<Eigen::Quaterniond>(
       static_cast<double*>(cam_from_world_rotation)) = rotation_matrix;
   cam_from_world_translation[1] = 2;
@@ -305,11 +302,8 @@ TEST(PoseGraphOptimization, RelativePose) {
   EXPECT_EQ(residuals[5], 2);
 
   // Rotation by 90 degrees around the Y axis.
-  const Eigen::Matrix3d rotation_matrix{
-      {0, 0, 1},
-      {0, 1, 0},
-      {-1, 0, 0},
-  };
+  Eigen::Matrix3d rotation_matrix;
+  rotation_matrix << 0, 0, 1, 0, 1, 0, -1, 0, 0;
   Eigen::Map<Eigen::Quaterniond>(static_cast<double*>(j_from_world_rotation)) =
       rotation_matrix;
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
