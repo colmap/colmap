@@ -192,7 +192,6 @@ TEST(BundleAdjustment, Rig) {
 TEST(BundleAdjustment, ConstantRig) {
   Rigid3d cam_from_rig;
   cam_from_rig.translation << 0, 0, -1;
-  LOG(INFO) << cam_from_rig.rotation << cam_from_rig.translation;
   std::unique_ptr<ceres::CostFunction> cost_function(
       RigReprojErrorConstantRigCostFunction<SimplePinholeCameraModel>::Create(
           cam_from_rig, Eigen::Vector2d::Zero()));
