@@ -33,6 +33,7 @@
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/geometry/triangulation.h"
 #include "colmap/scene/projection.h"
+#include "colmap/scene/reconstruction_pruning.h"
 #include "colmap/sensor/bitmap.h"
 #include "colmap/util/misc.h"
 
@@ -710,9 +711,33 @@ bool IncrementalMapper::AdjustGlobalBundle(
     ba_config.SetConstantCamPositions(reg_image_ids[1], {0});
   }
 
+  const double kMinCoverageGain = std::sqrt(1. / 24.) - std::sqrt(1. / 25.);
+  const std::vector<point3D_t> ignored_point3D_ids =
+      PruneReconstructionPoints3D(kMinCoverageGain, *reconstruction_);
+  for (const point3D_t point3D_id : ignored_point3D_ids) {
+    ba_config.IgnorePoint(point3D_id);
+  }
+
   // Run bundle adjustment.
   BundleAdjuster bundle_adjuster(ba_options, ba_config);
   if (!bundle_adjuster.Solve(reconstruction_.get())) {
+    return false;
+  }
+
+  BundleAdjustmentConfig ignored_points3D_ba_config;
+  for (const point3D_t point3D_id : ignored_point3D_ids) {
+    ignored_points3D_ba_config.AddVariablePoint(point3D_id);
+  }
+  for (const image_t image_id : reg_image_ids) {
+    ignored_points3D_ba_config.SetConstantCamPose(image_id);
+  }
+  for (const auto& camera : reconstruction_->Cameras()) {
+    ignored_points3D_ba_config.SetConstantCamIntrinsics(camera.first);
+  }
+
+  BundleAdjuster ignored_points3D_bundle_adjuster(ba_options,
+                                                  ignored_points3D_ba_config);
+  if (!ignored_points3D_bundle_adjuster.Solve(reconstruction_.get())) {
     return false;
   }
 

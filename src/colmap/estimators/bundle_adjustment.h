@@ -140,9 +140,11 @@ class BundleAdjustmentConfig {
   // be variable or constant but not both at the same time.
   void AddVariablePoint(point3D_t point3D_id);
   void AddConstantPoint(point3D_t point3D_id);
+  void IgnorePoint(point3D_t point3D_id);
   bool HasPoint(point3D_t point3D_id) const;
   bool HasVariablePoint(point3D_t point3D_id) const;
   bool HasConstantPoint(point3D_t point3D_id) const;
+  bool IsIgnoredPoint(point3D_t point3D_id) const;
   void RemoveVariablePoint(point3D_t point3D_id);
   void RemoveConstantPoint(point3D_t point3D_id);
 
@@ -157,6 +159,7 @@ class BundleAdjustmentConfig {
   std::unordered_set<image_t> image_ids_;
   std::unordered_set<point3D_t> variable_point3D_ids_;
   std::unordered_set<point3D_t> constant_point3D_ids_;
+  std::unordered_set<point3D_t> ignored_point3D_ids_;
   std::unordered_set<image_t> constant_cam_poses_;
   std::unordered_map<image_t, std::vector<int>> constant_cam_positions_;
 };

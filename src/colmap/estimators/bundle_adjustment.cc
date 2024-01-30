@@ -159,7 +159,6 @@ bool BundleAdjustmentConfig::HasConstantCamIntrinsics(
 }
 
 void BundleAdjustmentConfig::SetConstantCamPose(const image_t image_id) {
-  CHECK(HasImage(image_id));
   CHECK(!HasConstantCamPositions(image_id));
   constant_cam_poses_.insert(image_id);
 }
@@ -176,7 +175,6 @@ void BundleAdjustmentConfig::SetConstantCamPositions(
     const image_t image_id, const std::vector<int>& idxs) {
   CHECK_GT(idxs.size(), 0);
   CHECK_LE(idxs.size(), 3);
-  CHECK(HasImage(image_id));
   CHECK(!HasConstantCamPose(image_id));
   CHECK(!VectorContainsDuplicateValues(idxs))
       << "Tvec indices must not contain duplicates";
@@ -223,18 +221,28 @@ void BundleAdjustmentConfig::AddConstantPoint(const point3D_t point3D_id) {
   constant_point3D_ids_.insert(point3D_id);
 }
 
+void BundleAdjustmentConfig::IgnorePoint(const point3D_t point3D_id) {
+  CHECK(!HasVariablePoint(point3D_id));
+  CHECK(!HasConstantPoint(point3D_id));
+  ignored_point3D_ids_.insert(point3D_id);
+}
+
 bool BundleAdjustmentConfig::HasPoint(const point3D_t point3D_id) const {
   return HasVariablePoint(point3D_id) || HasConstantPoint(point3D_id);
 }
 
 bool BundleAdjustmentConfig::HasVariablePoint(
     const point3D_t point3D_id) const {
-  return variable_point3D_ids_.find(point3D_id) != variable_point3D_ids_.end();
+  return variable_point3D_ids_.count(point3D_id);
 }
 
 bool BundleAdjustmentConfig::HasConstantPoint(
     const point3D_t point3D_id) const {
-  return constant_point3D_ids_.find(point3D_id) != constant_point3D_ids_.end();
+  return constant_point3D_ids_.count(point3D_id);
+}
+
+bool BundleAdjustmentConfig::IsIgnoredPoint(const point3D_t point3D_id) const {
+  return ignored_point3D_ids_.count(point3D_id);
 }
 
 void BundleAdjustmentConfig::RemoveVariablePoint(const point3D_t point3D_id) {
@@ -364,7 +372,7 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
   // Add residuals to bundle adjustment problem.
   size_t num_observations = 0;
   for (const Point2D& point2D : image.Points2D()) {
-    if (!point2D.HasPoint3D()) {
+    if (!point2D.HasPoint3D() || config_.IsIgnoredPoint(point2D.point3D_id)) {
       continue;
     }
 
@@ -413,6 +421,10 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
 void BundleAdjuster::AddPointToProblem(const point3D_t point3D_id,
                                        Reconstruction* reconstruction,
                                        ceres::LossFunction* loss_function) {
+  if (config_.IsIgnoredPoint(point3D_id)) {
+    return;
+  }
+
   Point3D& point3D = reconstruction->Point3D(point3D_id);
 
   // Is 3D point already fully contained in the problem? I.e. its entire track

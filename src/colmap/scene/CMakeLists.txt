@@ -44,6 +44,7 @@ COLMAP_ADD_LIBRARY(
         projection.h projection.cc
         reconstruction.h reconstruction.cc
         reconstruction_manager.h reconstruction_manager.cc
+        reconstruction_pruning.h reconstruction_pruning.cc
         scene_clustering.h scene_clustering.cc
         synthetic.h synthetic.cc
         track.h track.cc
