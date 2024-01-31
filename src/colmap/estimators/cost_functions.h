@@ -319,15 +319,15 @@ inline void EigenQuaternionToAngleAxis(const T* eigen_quaternion,
 struct AbsolutePoseErrorCostFunction {
  public:
   explicit AbsolutePoseErrorCostFunction(const Rigid3d& cam_from_world,
-                                         const EigenMatrix6d& covariance)
+                                         const EigenMatrix6d& covariance_cam)
       : cam_from_world_(cam_from_world),
-        sqrt_information_(covariance.inverse().llt().matrixL()) {}
+        sqrt_information_cam_(covariance_cam.inverse().llt().matrixL()) {}
 
   static ceres::CostFunction* Create(const Rigid3d& cam_from_world,
-                                     const EigenMatrix6d& covariance) {
+                                     const EigenMatrix6d& covariance_cam) {
     return (
         new ceres::AutoDiffCostFunction<AbsolutePoseErrorCostFunction, 6, 4, 3>(
-            new AbsolutePoseErrorCostFunction(cam_from_world, covariance)));
+            new AbsolutePoseErrorCostFunction(cam_from_world, covariance_cam)));
   }
 
   template <typename T>
@@ -344,13 +344,13 @@ struct AbsolutePoseErrorCostFunction {
                      mes_from_est_q * EigenVector3Map<T>(cam_from_world_t);
 
     Eigen::Map<Eigen::Matrix<T, 6, 1>> residuals(residuals_ptr);
-    residuals.applyOnTheLeft(sqrt_information_.template cast<T>());
+    residuals.applyOnTheLeft(sqrt_information_cam_.template cast<T>());
     return true;
   }
 
  private:
   const Rigid3d& cam_from_world_;
-  const EigenMatrix6d sqrt_information_;
+  const EigenMatrix6d sqrt_information_cam_;
 };
 
 // 6-DoF error between two absolute poses based on a measurement that is their
@@ -360,20 +360,20 @@ struct AbsolutePoseErrorCostFunction {
 // translation errors, respectively.
 struct MetricRelativePoseErrorCostFunction {
  public:
-  explicit MetricRelativePoseErrorCostFunction(const Rigid3d& j_from_i,
-                                               const EigenMatrix6d& covariance)
+  explicit MetricRelativePoseErrorCostFunction(
+      const Rigid3d& j_from_i, const EigenMatrix6d& covariance_j)
       : j_from_i_(j_from_i),
-        sqrt_information_(covariance.inverse().llt().matrixL()) {}
+        sqrt_information_j_(covariance_j.inverse().llt().matrixL()) {}
 
   static ceres::CostFunction* Create(const Rigid3d& j_from_i,
-                                     const EigenMatrix6d& covariance) {
+                                     const EigenMatrix6d& covariance_j) {
     return (new ceres::AutoDiffCostFunction<MetricRelativePoseErrorCostFunction,
                                             6,
                                             4,
                                             3,
                                             4,
                                             3>(
-        new MetricRelativePoseErrorCostFunction(j_from_i, covariance)));
+        new MetricRelativePoseErrorCostFunction(j_from_i, covariance_j)));
   }
 
   template <typename T>
@@ -398,13 +398,13 @@ struct MetricRelativePoseErrorCostFunction {
                      j_from_i_.rotation.cast<T>() * i_from_j_t;
 
     Eigen::Map<Eigen::Matrix<T, 6, 1>> residuals(residuals_ptr);
-    residuals.applyOnTheLeft(sqrt_information_.template cast<T>());
+    residuals.applyOnTheLeft(sqrt_information_j_.template cast<T>());
     return true;
   }
 
  private:
   const Rigid3d& j_from_i_;
-  const EigenMatrix6d sqrt_information_;
+  const EigenMatrix6d sqrt_information_j_;
 };
 
 template <template <typename> class CostFunction, typename... Args>

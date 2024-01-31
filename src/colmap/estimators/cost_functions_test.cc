@@ -215,10 +215,11 @@ TEST(BundleAdjustment, RelativePose) {
 
 TEST(PoseGraphOptimization, AbsolutePose) {
   const Rigid3d mes_cam_from_world;
-  EigenMatrix6d covariance = EigenMatrix6d::Identity();
-  covariance(5, 5) = 4;
+  EigenMatrix6d covariance_cam = EigenMatrix6d::Identity();
+  covariance_cam(5, 5) = 4;
   std::unique_ptr<ceres::CostFunction> cost_function(
-      AbsolutePoseErrorCostFunction::Create(mes_cam_from_world, covariance));
+      AbsolutePoseErrorCostFunction::Create(mes_cam_from_world,
+                                            covariance_cam));
 
   double cam_from_world_rotation[4] = {0, 0, 0, 1};
   double cam_from_world_translation[3] = {0, 0, 0};
@@ -261,10 +262,10 @@ TEST(PoseGraphOptimization, AbsolutePose) {
 TEST(PoseGraphOptimization, RelativePose) {
   Rigid3d mes_j_from_i;
   mes_j_from_i.translation << 0, 0, 1;
-  EigenMatrix6d covariance = EigenMatrix6d::Identity();
-  covariance(5, 5) = 4;
+  EigenMatrix6d covariance_j = EigenMatrix6d::Identity();
+  covariance_j(5, 5) = 4;
   std::unique_ptr<ceres::CostFunction> cost_function(
-      MetricRelativePoseErrorCostFunction::Create(mes_j_from_i, covariance));
+      MetricRelativePoseErrorCostFunction::Create(mes_j_from_i, covariance_j));
 
   double i_from_world_rotation[4] = {0, 0, 0, 1};
   double i_from_world_translation[3] = {0, 0, 0};
