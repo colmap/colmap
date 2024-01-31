@@ -17,7 +17,7 @@ py::dict PyPoseFromHomographyMatrix(
     const Eigen::Matrix3d& K2,
     const std::vector<Eigen::Vector2d>& points1,
     const std::vector<Eigen::Vector2d>& points2) {
-  CHECK_EQ(points1.size(), points1.size());
+  THROW_CHECK_EQ(points1.size(), points1.size());
   py::gil_scoped_release release;
 
   Eigen::Matrix3d R;

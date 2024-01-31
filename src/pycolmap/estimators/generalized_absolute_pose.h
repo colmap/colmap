@@ -27,12 +27,12 @@ py::object PyEstimateAndRefineGeneralizedAbsolutePose(
     const RANSACOptions& ransac_options,
     const AbsolutePoseRefinementOptions& refinement_options,
     const bool return_covariance) {
-  CHECK_EQ(points2D.size(), points3D.size());
-  CHECK_EQ(points2D.size(), camera_idxs.size());
-  CHECK_EQ(cams_from_rig.size(), cameras.size());
-  CHECK_GE(*std::min_element(camera_idxs.begin(), camera_idxs.end()), 0);
-  CHECK_LT(*std::max_element(camera_idxs.begin(), camera_idxs.end()),
-           cameras.size());
+  THROW_CHECK_EQ(points2D.size(), points3D.size());
+  THROW_CHECK_EQ(points2D.size(), camera_idxs.size());
+  THROW_CHECK_EQ(cams_from_rig.size(), cameras.size());
+  THROW_CHECK_GE(*std::min_element(camera_idxs.begin(), camera_idxs.end()), 0);
+  THROW_CHECK_LT(*std::max_element(camera_idxs.begin(), camera_idxs.end()),
+                 cameras.size());
 
   py::object failure = py::none();
   py::gil_scoped_release release;

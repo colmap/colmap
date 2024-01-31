@@ -55,7 +55,7 @@ void BindReconstruction(py::module& m) {
       .def(
           "write",
           [](const Reconstruction& self, const std::string& path) {
-            CHECK_DIR_EXISTS(path);
+            THROW_CHECK_DIR_EXISTS(path);
             self.Write(path);
           },
           "output_dir"_a,
@@ -70,12 +70,12 @@ void BindReconstruction(py::module& m) {
            })
       .def("write_text",
            [](const Reconstruction& self, const std::string& path) {
-             CHECK_DIR_EXISTS(path);
+             THROW_CHECK_DIR_EXISTS(path);
              self.WriteText(path);
            })
       .def("write_binary",
            [](const Reconstruction& self, const std::string& path) {
-             CHECK_DIR_EXISTS(path);
+             THROW_CHECK_DIR_EXISTS(path);
              self.WriteBinary(path);
            })
       .def("num_images", &Reconstruction::NumImages)
@@ -102,8 +102,8 @@ void BindReconstruction(py::module& m) {
       .def(
           "add_camera",
           [](Reconstruction& self, const struct Camera& camera) {
-            CHECK(!self.ExistsCamera(camera.camera_id));
-            CHECK(camera.VerifyParams());
+            THROW_CHECK(!self.ExistsCamera(camera.camera_id));
+            THROW_CHECK(camera.VerifyParams());
             self.AddCamera(camera);
           },
           "Add new camera. There is only one camera per image, while multiple "
@@ -112,10 +112,10 @@ void BindReconstruction(py::module& m) {
       .def(
           "add_image",
           [](Reconstruction& self, const class Image& image) {
-            CHECK(!self.ExistsImage(image.ImageId()));
+            THROW_CHECK(!self.ExistsImage(image.ImageId()));
             self.AddImage(image);
             if (image.IsRegistered()) {
-              CHECK_NE(image.ImageId(), kInvalidImageId);
+              THROW_CHECK_NE(image.ImageId(), kInvalidImageId);
             }
           },
           "image"_a,
@@ -148,8 +148,8 @@ void BindReconstruction(py::module& m) {
       .def(
           "register_image",
           [](Reconstruction& self, image_t imid) {
-            CHECK_EQ(self.Image(imid).IsRegistered(),
-                     self.IsImageRegistered(imid));
+            THROW_CHECK_EQ(self.Image(imid).IsRegistered(),
+                           self.IsImageRegistered(imid));
             self.RegisterImage(imid);
           },
           "Register an existing image.")
@@ -239,8 +239,8 @@ void BindReconstruction(py::module& m) {
           [](const Reconstruction& self,
              const std::string& path,
              const bool skip_distortion) {
-            CHECK_HAS_FILE_EXTENSION(path, ".nvm");
-            CHECK_PATH_OPEN(path);
+            THROW_CHECK_HAS_FILE_EXTENSION(path, ".nvm");
+            THROW_CHECK_PATH_OPEN(path);
             self.ExportNVM(path, skip_distortion);
           },
           "output_path"_a,
@@ -257,7 +257,7 @@ void BindReconstruction(py::module& m) {
           [](const Reconstruction& self,
              const std::string& dir,
              const bool skip_distortion) {
-            CHECK_DIR_EXISTS(dir);
+            THROW_CHECK_DIR_EXISTS(dir);
             self.ExportCam(dir, skip_distortion);
           },
           "output_dir"_a,
@@ -289,10 +289,10 @@ void BindReconstruction(py::module& m) {
              const std::string& path,
              const std::string& list_path,
              const bool skip_distortion) {
-            CHECK_HAS_FILE_EXTENSION(path, ".out");
-            CHECK_HAS_FILE_EXTENSION(list_path, ".txt");
-            CHECK_PATH_OPEN(path);
-            CHECK_PATH_OPEN(list_path);
+            THROW_CHECK_HAS_FILE_EXTENSION(path, ".out");
+            THROW_CHECK_HAS_FILE_EXTENSION(list_path, ".txt");
+            THROW_CHECK_PATH_OPEN(path);
+            THROW_CHECK_PATH_OPEN(list_path);
             self.ExportBundler(path, list_path, skip_distortion);
           },
           "output_path"_a,
@@ -311,8 +311,8 @@ void BindReconstruction(py::module& m) {
       .def(
           "export_PLY",
           [](const Reconstruction& self, const std::string& path) {
-            CHECK_HAS_FILE_EXTENSION(path, ".ply");
-            CHECK_PATH_OPEN(path);
+            THROW_CHECK_HAS_FILE_EXTENSION(path, ".ply");
+            THROW_CHECK_PATH_OPEN(path);
             self.ExportPLY(path);
           },
           "output_path"_a,
@@ -324,10 +324,10 @@ void BindReconstruction(py::module& m) {
              const std::string& points3D_path,
              const double image_scale,
              const Eigen::Vector3d& image_rgb) {
-            CHECK_PATH_OPEN(images_path);
-            CHECK_PATH_OPEN(points3D_path);
-            CHECK_HAS_FILE_EXTENSION(images_path, ".wrl");
-            CHECK_HAS_FILE_EXTENSION(points3D_path, ".wrl");
+            THROW_CHECK_PATH_OPEN(images_path);
+            THROW_CHECK_PATH_OPEN(points3D_path);
+            THROW_CHECK_HAS_FILE_EXTENSION(images_path, ".wrl");
+            THROW_CHECK_HAS_FILE_EXTENSION(points3D_path, ".wrl");
             self.ExportVRML(images_path, points3D_path, image_scale, image_rgb);
           },
           "images_path"_a,
@@ -369,17 +369,17 @@ void BindReconstruction(py::module& m) {
               for (auto& track_el : p3D.track.Elements()) {
                 image_t image_id = track_el.image_id;
                 point2D_t point2D_idx = track_el.point2D_idx;
-                CHECK(self.ExistsImage(image_id)) << image_id;
-                CHECK(self.IsImageRegistered(image_id)) << image_id;
+                THROW_CHECK(self.ExistsImage(image_id)) << image_id;
+                THROW_CHECK(self.IsImageRegistered(image_id)) << image_id;
                 const Image& image = self.Image(image_id);
-                CHECK(image.IsRegistered());
-                CHECK_EQ(image.Point2D(point2D_idx).point3D_id, p3Did);
+                THROW_CHECK(image.IsRegistered());
+                THROW_CHECK_EQ(image.Point2D(point2D_idx).point3D_id, p3Did);
               }
             }
             for (auto& image_id : self.RegImageIds()) {
-              CHECK(self.Image(image_id).HasCamera()) << image_id;
+              THROW_CHECK(self.Image(image_id).HasCamera()) << image_id;
               camera_t camera_id = self.Image(image_id).CameraId();
-              CHECK(self.ExistsCamera(camera_id)) << camera_id;
+              THROW_CHECK(self.ExistsCamera(camera_id)) << camera_id;
             }
           },
           "Check if current reconstruction is well formed.")

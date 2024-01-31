@@ -30,10 +30,11 @@ void ExtractFeatures(const std::string& database_path,
                      ImageReaderOptions reader_options,
                      SiftExtractionOptions sift_options,
                      const Device device) {
-  CHECK(!ExistsFile(database_path)) << database_path << " already exists.";
-  CHECK_HAS_FILE_EXTENSION(database_path, ".db");
-  CHECK_PATH_OPEN(database_path);
-  CHECK_DIR_EXISTS(image_path);
+  THROW_CHECK(!ExistsFile(database_path))
+      << database_path << " already exists.";
+  THROW_CHECK_HAS_FILE_EXTENSION(database_path, ".db");
+  THROW_CHECK_PATH_OPEN(database_path);
+  THROW_CHECK_DIR_EXISTS(image_path);
   sift_options.use_gpu = IsGPU(device);
   VerifyGPUParams(sift_options.use_gpu);
 
@@ -47,10 +48,10 @@ void ExtractFeatures(const std::string& database_path,
     reader_options.image_list = image_list;
   }
 
-  CHECK(ExistsCameraModelWithName(reader_options.camera_model));
+  THROW_CHECK(ExistsCameraModelWithName(reader_options.camera_model));
 
-  CHECK(VerifyCameraParams(reader_options.camera_model,
-                           reader_options.camera_params))
+  THROW_CHECK(VerifyCameraParams(reader_options.camera_model,
+                                 reader_options.camera_params))
       << "Invalid camera parameters.";
 
   py::gil_scoped_release release;

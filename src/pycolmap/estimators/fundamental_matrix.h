@@ -20,7 +20,7 @@ py::object PyEstimateFundamentalMatrix(
     const std::vector<Eigen::Vector2d>& points2D1,
     const std::vector<Eigen::Vector2d>& points2D2,
     const RANSACOptions& options) {
-  CHECK_EQ(points2D1.size(), points2D2.size());
+  THROW_CHECK_EQ(points2D1.size(), points2D2.size());
   py::object failure = py::none();
   py::gil_scoped_release release;
 

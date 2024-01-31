@@ -24,7 +24,7 @@ py::object PyEstimateAndDecomposeEssentialMatrix(
     Camera& camera1,
     Camera& camera2,
     const RANSACOptions& options) {
-  CHECK_EQ(points2D1.size(), points2D2.size());
+  THROW_CHECK_EQ(points2D1.size(), points2D2.size());
   py::object failure = py::none();
   py::gil_scoped_release release;
 

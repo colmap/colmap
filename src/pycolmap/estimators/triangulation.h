@@ -21,8 +21,8 @@ py::dict PyEstimateTriangulation(
     const std::vector<Image>& images,
     const std::vector<Camera>& cameras,
     const EstimateTriangulationOptions& options) {
-  CHECK_EQ(images.size(), cameras.size());
-  CHECK_EQ(images.size(), point_data.size());
+  THROW_CHECK_EQ(images.size(), cameras.size());
+  THROW_CHECK_EQ(images.size(), point_data.size());
   py::object failure = py::none();
   py::gil_scoped_release release;
 

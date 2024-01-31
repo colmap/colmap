@@ -30,14 +30,15 @@ void BindAlignmentEstimator(py::module& m) {
          const Reconstruction& tgt_reconstruction,
          const double min_inlier_observations,
          const double max_reproj_error) {
-        CHECK_GE(min_inlier_observations, 0.0);
-        CHECK_LE(min_inlier_observations, 1.0);
+        THROW_CHECK_GE(min_inlier_observations, 0.0);
+        THROW_CHECK_LE(min_inlier_observations, 1.0);
         Sim3d tgt_from_src;
-        CHECK(AlignReconstructionsViaReprojections(src_reconstruction,
-                                                   tgt_reconstruction,
-                                                   min_inlier_observations,
-                                                   max_reproj_error,
-                                                   &tgt_from_src));
+        THROW_CHECK(
+            AlignReconstructionsViaReprojections(src_reconstruction,
+                                                 tgt_reconstruction,
+                                                 min_inlier_observations,
+                                                 max_reproj_error,
+                                                 &tgt_from_src));
         return tgt_from_src;
       },
       "src_reconstruction"_a,
@@ -50,12 +51,12 @@ void BindAlignmentEstimator(py::module& m) {
       [](const Reconstruction& src_reconstruction,
          const Reconstruction& tgt_reconstruction,
          const double max_proj_center_error) {
-        CHECK_GT(max_proj_center_error, 0.0);
+        THROW_CHECK_GT(max_proj_center_error, 0.0);
         Sim3d tgt_from_src;
-        CHECK(AlignReconstructionsViaProjCenters(src_reconstruction,
-                                                 tgt_reconstruction,
-                                                 max_proj_center_error,
-                                                 &tgt_from_src));
+        THROW_CHECK(AlignReconstructionsViaProjCenters(src_reconstruction,
+                                                       tgt_reconstruction,
+                                                       max_proj_center_error,
+                                                       &tgt_from_src));
         return tgt_from_src;
       },
       "src_reconstruction"_a,
@@ -69,17 +70,17 @@ void BindAlignmentEstimator(py::module& m) {
          const size_t min_common_observations,
          const double max_error,
          const double min_inlier_ratio) {
-        CHECK_GT(min_common_observations, 0);
-        CHECK_GT(max_error, 0.0);
-        CHECK_GE(min_inlier_ratio, 0.0);
-        CHECK_LE(min_inlier_ratio, 1.0);
+        THROW_CHECK_GT(min_common_observations, 0);
+        THROW_CHECK_GT(max_error, 0.0);
+        THROW_CHECK_GE(min_inlier_ratio, 0.0);
+        THROW_CHECK_LE(min_inlier_ratio, 1.0);
         Sim3d tgt_from_src;
-        CHECK(AlignReconstructionsViaPoints(src_reconstruction,
-                                            tgt_reconstruction,
-                                            min_common_observations,
-                                            max_error,
-                                            min_inlier_ratio,
-                                            &tgt_from_src));
+        THROW_CHECK(AlignReconstructionsViaPoints(src_reconstruction,
+                                                  tgt_reconstruction,
+                                                  min_common_observations,
+                                                  max_error,
+                                                  min_inlier_ratio,
+                                                  &tgt_from_src));
         return tgt_from_src;
       },
       "src_reconstruction"_a,
@@ -95,15 +96,15 @@ void BindAlignmentEstimator(py::module& m) {
          const std::vector<Eigen::Vector3d>& locations,
          const int min_common_images,
          const RANSACOptions& ransac_options) {
-        CHECK_GE(min_common_images, 3);
-        CHECK_EQ(image_names.size(), locations.size());
+        THROW_CHECK_GE(min_common_images, 3);
+        THROW_CHECK_EQ(image_names.size(), locations.size());
         Sim3d locationsFromSrc;
-        CHECK(AlignReconstructionToLocations(src,
-                                             image_names,
-                                             locations,
-                                             min_common_images,
-                                             ransac_options,
-                                             &locationsFromSrc));
+        THROW_CHECK(AlignReconstructionToLocations(src,
+                                                   image_names,
+                                                   locations,
+                                                   min_common_images,
+                                                   ransac_options,
+                                                   &locationsFromSrc));
         return locationsFromSrc;
       },
       "src"_a,
@@ -130,7 +131,7 @@ void BindAlignmentEstimator(py::module& m) {
                            max_proj_center_error,
                            errors,
                            rec2_from_rec1)) {
-          LOG_FATAL_CUSTOM(std::runtime_error)
+          LOG_FATAL_THROW(std::runtime_error)
               << "Reconstruction alignment failed.";
         }
         return py::dict("rec2_from_rec1"_a = rec2_from_rec1,

@@ -36,12 +36,12 @@ class Sift {
     VerifyGPUParams(use_gpu_);
     options_.use_gpu = use_gpu_;
     extractor_ = CreateSiftFeatureExtractor(options_);
-    CHECK(extractor_ != nullptr);
+    THROW_CHECK(extractor_ != nullptr);
   }
 
   sift_output_t Extract(const Eigen::Ref<const pyimage_t<uint8_t>>& image) {
-    CHECK_LE(image.rows(), options_.max_image_size);
-    CHECK_LE(image.cols(), options_.max_image_size);
+    THROW_CHECK_LE(image.rows(), options_.max_image_size);
+    THROW_CHECK_LE(image.cols(), options_.max_image_size);
 
     const Bitmap bitmap =
         Bitmap::ConvertFromRawBits(const_cast<uint8_t*>(image.data()),
@@ -52,7 +52,7 @@ class Sift {
 
     FeatureKeypoints keypoints_;
     FeatureDescriptors descriptors_;
-    CHECK(extractor_->Extract(bitmap, &keypoints_, &descriptors_));
+    THROW_CHECK(extractor_->Extract(bitmap, &keypoints_, &descriptors_));
     const size_t num_features = keypoints_.size();
 
     keypoints_t keypoints(num_features, kdim);

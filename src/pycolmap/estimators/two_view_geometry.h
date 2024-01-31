@@ -107,7 +107,7 @@ void BindTwoViewGeometryEstimator(py::module& m) {
         if (matches_ptr != nullptr) {
           matches = FeatureMatchesFromMatrix(*matches_ptr);
         } else {
-          CHECK_EQ(points1.size(), points2.size());
+          THROW_CHECK_EQ(points1.size(), points2.size());
           matches.reserve(points1.size());
           for (size_t i = 0; i < points1.size(); i++) {
             matches.emplace_back(i, i);
@@ -136,7 +136,7 @@ void BindTwoViewGeometryEstimator(py::module& m) {
         if (matches_ptr != nullptr) {
           matches = FeatureMatchesFromMatrix(*matches_ptr);
         } else {
-          CHECK_EQ(points1.size(), points2.size());
+          THROW_CHECK_EQ(points1.size(), points2.size());
           matches.reserve(points1.size());
           for (size_t i = 0; i < points1.size(); i++) {
             matches.emplace_back(i, i);

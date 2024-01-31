@@ -28,15 +28,15 @@ void ImportImages(const std::string& database_path,
                   const CameraMode camera_mode,
                   const std::vector<std::string>& image_list,
                   const ImageReaderOptions& options_) {
-  CHECK_FILE_EXISTS(database_path);
-  CHECK_DIR_EXISTS(image_path);
+  THROW_CHECK_FILE_EXISTS(database_path);
+  THROW_CHECK_DIR_EXISTS(image_path);
 
   ImageReaderOptions options(options_);
   options.database_path = database_path;
   options.image_path = image_path;
   options.image_list = image_list;
   UpdateImageReaderOptionsFromCameraMode(options, camera_mode);
-  CHECK(ExistsCameraModelWithName(options.camera_model))
+  THROW_CHECK(ExistsCameraModelWithName(options.camera_model))
       << "Invalid camera model: " << options.camera_model;
 
   Database database(options.database_path);
@@ -64,10 +64,10 @@ void ImportImages(const std::string& database_path,
 
 Camera InferCameraFromImage(const std::string& image_path,
                             const ImageReaderOptions& options) {
-  CHECK_FILE_EXISTS(image_path);
+  THROW_CHECK_FILE_EXISTS(image_path);
 
   Bitmap bitmap;
-  CHECK(bitmap.Read(image_path, false))
+  THROW_CHECK(bitmap.Read(image_path, false))
       << "Cannot read image file: " << image_path;
 
   double focal_length = 0.0;
@@ -82,7 +82,7 @@ Camera InferCameraFromImage(const std::string& image_path,
                                               bitmap.Width(),
                                               bitmap.Height());
   camera.has_prior_focal_length = has_prior_focal_length;
-  CHECK(camera.VerifyParams())
+  THROW_CHECK(camera.VerifyParams())
       << "Invalid camera params: " << camera.ParamsToString();
 
   return camera;
@@ -96,8 +96,8 @@ void UndistortImages(const std::string& output_path,
                      const CopyType copy_type,
                      const int num_patch_match_src_images,
                      const UndistortCameraOptions& undistort_camera_options) {
-  CHECK_DIR_EXISTS(input_path);
-  CHECK_DIR_EXISTS(image_path);
+  THROW_CHECK_DIR_EXISTS(input_path);
+  THROW_CHECK_DIR_EXISTS(image_path);
 
   CreateDirIfNotExists(output_path);
   Reconstruction reconstruction;

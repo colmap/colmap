@@ -53,7 +53,7 @@ void BindTrack(py::module& m) {
       .def(
           "remove",
           [](Track& self, const size_t idx) {
-            CHECK_LT(idx, self.Elements().size());
+            THROW_CHECK_LT(idx, self.Elements().size());
             self.DeleteElement(idx);
           },
           "Remove TrackElement at index.")

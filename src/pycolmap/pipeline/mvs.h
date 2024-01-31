@@ -27,9 +27,9 @@ void PatchMatchStereo(const std::string& workspace_path,
                       const std::string& pmvs_option_name,
                       const mvs::PatchMatchOptions& options,
                       const std::string& config_path) {
-  CHECK_DIR_EXISTS(workspace_path);
+  THROW_CHECK_DIR_EXISTS(workspace_path);
   StringToLower(&workspace_format);
-  CHECK(workspace_format == "colmap" || workspace_format == "pmvs")
+  THROW_CHECK(workspace_format == "colmap" || workspace_format == "pmvs")
       << "Invalid `workspace_format` - supported values are 'COLMAP' or "
          "'PMVS'.";
 
@@ -47,14 +47,14 @@ Reconstruction StereoFusion(const std::string& output_path,
                             const std::string& pmvs_option_name,
                             std::string input_type,
                             const mvs::StereoFusionOptions& options) {
-  CHECK_DIR_EXISTS(workspace_path);
+  THROW_CHECK_DIR_EXISTS(workspace_path);
   StringToLower(&workspace_format);
-  CHECK(workspace_format == "colmap" || workspace_format == "pmvs")
+  THROW_CHECK(workspace_format == "colmap" || workspace_format == "pmvs")
       << "Invalid `workspace_format` - supported values are 'COLMAP' or "
          "'PMVS'.";
 
   StringToLower(&input_type);
-  CHECK(input_type == "photometric" || input_type == "geometric")
+  THROW_CHECK(input_type == "photometric" || input_type == "geometric")
       << "Invalid input type - supported values are 'photometric' and "
          "'geometric'.";
 
@@ -76,8 +76,8 @@ Reconstruction StereoFusion(const std::string& output_path,
   if (ExistsDir(output_path)) {
     reconstruction.WriteBinary(output_path);
   } else {
-    CHECK_HAS_FILE_EXTENSION(output_path, ".ply");
-    CHECK_PATH_OPEN(output_path);
+    THROW_CHECK_HAS_FILE_EXTENSION(output_path, ".ply");
+    THROW_CHECK_PATH_OPEN(output_path);
     WriteBinaryPlyPoints(output_path, fuser.GetFusedPoints());
     mvs::WritePointsVisibility(output_path + ".vis",
                                fuser.GetFusedPointsVisibility());
