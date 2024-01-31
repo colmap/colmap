@@ -259,8 +259,7 @@ int RunMapper(int argc, char** argv) {
         });
   }
 
-  mapper.Start();
-  mapper.Wait();
+  mapper.Run();
 
   if (reconstruction_manager->Size() == 0) {
     LOG(ERROR) << "failed to create sparse model";

@@ -32,6 +32,7 @@
 #include "colmap/controllers/option_manager.h"
 #include "colmap/scene/reconstruction_manager.h"
 #include "colmap/util/threading.h"
+#include "colmap/util/threading_impl.h"
 
 #include <memory>
 #include <string>
