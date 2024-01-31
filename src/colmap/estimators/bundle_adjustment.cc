@@ -596,6 +596,17 @@ bool RigBundleAdjuster::Solve(Reconstruction* reconstruction,
 void RigBundleAdjuster::SetUp(Reconstruction* reconstruction,
                               std::vector<CameraRig>* camera_rigs,
                               ceres::LossFunction* loss_function) {
+  double scale = 0.;
+  for (const auto& camera_rig : *camera_rigs) {
+    double s = camera_rig.ComputeRigFromWorldScale(*reconstruction);
+    scale += s;
+  }
+  scale /= camera_rigs->size();
+
+  PrintHeading2(StringPrintf("Rescale reconstruction: %.3f", scale));
+  Sim3d tform(scale, Eigen::Quaterniond::Identity(), Eigen::Vector3d::Zero());
+  reconstruction->Transform(tform);
+
   ComputeCameraRigPoses(*reconstruction, *camera_rigs);
 
   for (const image_t image_id : config_.Images()) {
