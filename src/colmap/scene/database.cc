@@ -1316,7 +1316,7 @@ void Database::CreateImageTable() const {
       "    prior_tx   REAL,"
       "    prior_ty   REAL,"
       "    prior_tz   REAL,"
-      "CONSTRAINT image_id_check THROW_CHECK(image_id >= 0 and image_id < %d),"
+      "CONSTRAINT image_id_check CHECK(image_id >= 0 and image_id < %d),"
       "FOREIGN KEY(camera_id) REFERENCES cameras(camera_id));"
       "CREATE UNIQUE INDEX IF NOT EXISTS index_name ON images(name);",
       kMaxNumImages);

@@ -34,19 +34,19 @@
 namespace colmap {
 namespace {
 
-#define THROW_CHECK_EQUAL_RESULT(find_func1, coeffs1, find_func2, coeffs2) \
-  {                                                                        \
-    Eigen::VectorXd real1;                                                 \
-    Eigen::VectorXd imag1;                                                 \
-    const bool success1 = find_func1(coeffs1, &real1, &imag1);             \
-    Eigen::VectorXd real2;                                                 \
-    Eigen::VectorXd imag2;                                                 \
-    const bool success2 = find_func2(coeffs2, &real2, &imag2);             \
-    EXPECT_EQ(success1, success2);                                         \
-    if (success1) {                                                        \
-      EXPECT_EQ(real1, real2);                                             \
-      EXPECT_EQ(imag1, imag2);                                             \
-    }                                                                      \
+#define CHECK_EQUAL_RESULT(find_func1, coeffs1, find_func2, coeffs2) \
+  {                                                                  \
+    Eigen::VectorXd real1;                                           \
+    Eigen::VectorXd imag1;                                           \
+    const bool success1 = find_func1(coeffs1, &real1, &imag1);       \
+    Eigen::VectorXd real2;                                           \
+    Eigen::VectorXd imag2;                                           \
+    const bool success2 = find_func2(coeffs2, &real2, &imag2);       \
+    EXPECT_EQ(success1, success2);                                   \
+    if (success1) {                                                  \
+      EXPECT_EQ(real1, real2);                                       \
+      EXPECT_EQ(imag1, imag2);                                       \
+    }                                                                \
   }
 
 TEST(EvaluatePolynomial, Nominal) {
@@ -132,22 +132,22 @@ TEST(FindPolynomialRootsDurandKerner, Nominal) {
 }
 
 TEST(FindPolynomialRootsDurandKernerLinearQuadratic, Nominal) {
-  THROW_CHECK_EQUAL_RESULT(FindPolynomialRootsDurandKerner,
-                           Eigen::Vector2d(1, 2),
-                           FindLinearPolynomialRoots,
-                           Eigen::Vector2d(1, 2));
-  THROW_CHECK_EQUAL_RESULT(FindPolynomialRootsDurandKerner,
-                           (Eigen::VectorXd(4) << 0, 0, 1, 2).finished(),
-                           FindLinearPolynomialRoots,
-                           Eigen::Vector2d(1, 2));
-  THROW_CHECK_EQUAL_RESULT(FindPolynomialRootsDurandKerner,
-                           Eigen::Vector3d(1, 2, 3),
-                           FindQuadraticPolynomialRoots,
-                           Eigen::Vector3d(1, 2, 3));
-  THROW_CHECK_EQUAL_RESULT(FindPolynomialRootsDurandKerner,
-                           (Eigen::VectorXd(5) << 0, 0, 1, 2, 3).finished(),
-                           FindQuadraticPolynomialRoots,
-                           Eigen::Vector3d(1, 2, 3));
+  CHECK_EQUAL_RESULT(FindPolynomialRootsDurandKerner,
+                     Eigen::Vector2d(1, 2),
+                     FindLinearPolynomialRoots,
+                     Eigen::Vector2d(1, 2));
+  CHECK_EQUAL_RESULT(FindPolynomialRootsDurandKerner,
+                     (Eigen::VectorXd(4) << 0, 0, 1, 2).finished(),
+                     FindLinearPolynomialRoots,
+                     Eigen::Vector2d(1, 2));
+  CHECK_EQUAL_RESULT(FindPolynomialRootsDurandKerner,
+                     Eigen::Vector3d(1, 2, 3),
+                     FindQuadraticPolynomialRoots,
+                     Eigen::Vector3d(1, 2, 3));
+  CHECK_EQUAL_RESULT(FindPolynomialRootsDurandKerner,
+                     (Eigen::VectorXd(5) << 0, 0, 1, 2, 3).finished(),
+                     FindQuadraticPolynomialRoots,
+                     Eigen::Vector3d(1, 2, 3));
 }
 
 TEST(FindPolynomialRootsCompanionMatrix, Nominal) {
@@ -166,22 +166,22 @@ TEST(FindPolynomialRootsCompanionMatrix, Nominal) {
 }
 
 TEST(FindPolynomialRootsCompanionMatrixLinearQuadratic, Nominal) {
-  THROW_CHECK_EQUAL_RESULT(FindPolynomialRootsCompanionMatrix,
-                           Eigen::Vector2d(1, 2),
-                           FindLinearPolynomialRoots,
-                           Eigen::Vector2d(1, 2));
-  THROW_CHECK_EQUAL_RESULT(FindPolynomialRootsCompanionMatrix,
-                           (Eigen::VectorXd(4) << 0, 0, 1, 2).finished(),
-                           FindLinearPolynomialRoots,
-                           Eigen::Vector2d(1, 2));
-  THROW_CHECK_EQUAL_RESULT(FindPolynomialRootsCompanionMatrix,
-                           Eigen::Vector3d(1, 2, 3),
-                           FindQuadraticPolynomialRoots,
-                           Eigen::Vector3d(1, 2, 3));
-  THROW_CHECK_EQUAL_RESULT(FindPolynomialRootsCompanionMatrix,
-                           (Eigen::VectorXd(5) << 0, 0, 1, 2, 3).finished(),
-                           FindQuadraticPolynomialRoots,
-                           Eigen::Vector3d(1, 2, 3));
+  CHECK_EQUAL_RESULT(FindPolynomialRootsCompanionMatrix,
+                     Eigen::Vector2d(1, 2),
+                     FindLinearPolynomialRoots,
+                     Eigen::Vector2d(1, 2));
+  CHECK_EQUAL_RESULT(FindPolynomialRootsCompanionMatrix,
+                     (Eigen::VectorXd(4) << 0, 0, 1, 2).finished(),
+                     FindLinearPolynomialRoots,
+                     Eigen::Vector2d(1, 2));
+  CHECK_EQUAL_RESULT(FindPolynomialRootsCompanionMatrix,
+                     Eigen::Vector3d(1, 2, 3),
+                     FindQuadraticPolynomialRoots,
+                     Eigen::Vector3d(1, 2, 3));
+  CHECK_EQUAL_RESULT(FindPolynomialRootsCompanionMatrix,
+                     (Eigen::VectorXd(5) << 0, 0, 1, 2, 3).finished(),
+                     FindQuadraticPolynomialRoots,
+                     Eigen::Vector3d(1, 2, 3));
 }
 
 TEST(FindPolynomialRootsCompanionMatrixZeroSolution, Nominal) {

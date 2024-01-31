@@ -72,7 +72,7 @@ class Barrier {
 }  // namespace
 
 // IMPORTANT: EXPECT_TRUE_* macros are not thread-safe,
-//            so we use glog's THROW_CHECK macros inside threads.
+//            so we use glog's CHECK macros inside threads.
 
 TEST(Thread, Wait) {
   class TestThread : public Thread {
@@ -644,20 +644,20 @@ TEST(JobQueue, SingleProducerSingleConsumer) {
   JobQueue<int> job_queue;
 
   // IMPORTANT: EXPECT_TRUE_* macros are not thread-safe,
-  //            so we use glog's THROW_CHECK macros inside threads.
+  //            so we use glog's CHECK macros inside threads.
 
   std::thread producer_thread([&job_queue]() {
     for (int i = 0; i < 10; ++i) {
-      THROW_CHECK(job_queue.Push(i));
+      CHECK(job_queue.Push(i));
     }
   });
 
   std::thread consumer_thread([&job_queue]() {
-    THROW_CHECK_LE(job_queue.Size(), 10);
+    CHECK_LE(job_queue.Size(), 10);
     for (int i = 0; i < 10; ++i) {
       const auto job = job_queue.Pop();
-      THROW_CHECK(job.IsValid());
-      THROW_CHECK_LT(job.Data(), 10);
+      CHECK(job.IsValid());
+      CHECK_LT(job.Data(), 10);
     }
   });
 
@@ -669,20 +669,20 @@ TEST(JobQueue, SingleProducerSingleConsumerMaxNumJobs) {
   JobQueue<int> job_queue(2);
 
   // IMPORTANT: EXPECT_TRUE_* macros are not thread-safe,
-  //            so we use glog's THROW_CHECK macros inside threads.
+  //            so we use glog's CHECK macros inside threads.
 
   std::thread producer_thread([&job_queue]() {
     for (int i = 0; i < 10; ++i) {
-      THROW_CHECK(job_queue.Push(i));
+      CHECK(job_queue.Push(i));
     }
   });
 
   std::thread consumer_thread([&job_queue]() {
-    THROW_CHECK_LE(job_queue.Size(), 2);
+    CHECK_LE(job_queue.Size(), 2);
     for (int i = 0; i < 10; ++i) {
       const auto job = job_queue.Pop();
-      THROW_CHECK(job.IsValid());
-      THROW_CHECK_LT(job.Data(), 10);
+      CHECK(job.IsValid());
+      CHECK_LT(job.Data(), 10);
     }
   });
 
@@ -694,26 +694,26 @@ TEST(JobQueue, MultipleProducerSingleConsumer) {
   JobQueue<int> job_queue(1);
 
   // IMPORTANT: EXPECT_TRUE_* macros are not thread-safe,
-  //            so we use glog's THROW_CHECK macros inside threads.
+  //            so we use glog's CHECK macros inside threads.
 
   std::thread producer_thread1([&job_queue]() {
     for (int i = 0; i < 10; ++i) {
-      THROW_CHECK(job_queue.Push(i));
+      CHECK(job_queue.Push(i));
     }
   });
 
   std::thread producer_thread2([&job_queue]() {
     for (int i = 0; i < 10; ++i) {
-      THROW_CHECK(job_queue.Push(i));
+      CHECK(job_queue.Push(i));
     }
   });
 
   std::thread consumer_thread([&job_queue]() {
-    THROW_CHECK_LE(job_queue.Size(), 1);
+    CHECK_LE(job_queue.Size(), 1);
     for (int i = 0; i < 20; ++i) {
       const auto job = job_queue.Pop();
-      THROW_CHECK(job.IsValid());
-      THROW_CHECK_LT(job.Data(), 10);
+      CHECK(job.IsValid());
+      CHECK_LT(job.Data(), 10);
     }
   });
 
@@ -726,29 +726,29 @@ TEST(JobQueue, SingleProducerMultipleConsumer) {
   JobQueue<int> job_queue(1);
 
   // IMPORTANT: EXPECT_TRUE_* macros are not thread-safe,
-  //            so we use glog's THROW_CHECK macros inside threads.
+  //            so we use glog's CHECK macros inside threads.
 
   std::thread producer_thread([&job_queue]() {
     for (int i = 0; i < 20; ++i) {
-      THROW_CHECK(job_queue.Push(i));
+      CHECK(job_queue.Push(i));
     }
   });
 
   std::thread consumer_thread1([&job_queue]() {
-    THROW_CHECK_LE(job_queue.Size(), 1);
+    CHECK_LE(job_queue.Size(), 1);
     for (int i = 0; i < 10; ++i) {
       const auto job = job_queue.Pop();
-      THROW_CHECK(job.IsValid());
-      THROW_CHECK_LT(job.Data(), 20);
+      CHECK(job.IsValid());
+      CHECK_LT(job.Data(), 20);
     }
   });
 
   std::thread consumer_thread2([&job_queue]() {
-    THROW_CHECK_LE(job_queue.Size(), 1);
+    CHECK_LE(job_queue.Size(), 1);
     for (int i = 0; i < 10; ++i) {
       const auto job = job_queue.Pop();
-      THROW_CHECK(job.IsValid());
-      THROW_CHECK_LT(job.Data(), 20);
+      CHECK(job.IsValid());
+      CHECK_LT(job.Data(), 20);
     }
   });
 
@@ -761,35 +761,35 @@ TEST(JobQueue, MultipleProducerMultipleConsumer) {
   JobQueue<int> job_queue(1);
 
   // IMPORTANT: EXPECT_TRUE_* macros are not thread-safe,
-  //            so we use glog's THROW_CHECK macros inside threads.
+  //            so we use glog's CHECK macros inside threads.
 
   std::thread producer_thread1([&job_queue]() {
     for (int i = 0; i < 10; ++i) {
-      THROW_CHECK(job_queue.Push(i));
+      CHECK(job_queue.Push(i));
     }
   });
 
   std::thread producer_thread2([&job_queue]() {
     for (int i = 0; i < 10; ++i) {
-      THROW_CHECK(job_queue.Push(i));
+      CHECK(job_queue.Push(i));
     }
   });
 
   std::thread consumer_thread1([&job_queue]() {
-    THROW_CHECK_LE(job_queue.Size(), 1);
+    CHECK_LE(job_queue.Size(), 1);
     for (int i = 0; i < 10; ++i) {
       const auto job = job_queue.Pop();
-      THROW_CHECK(job.IsValid());
-      THROW_CHECK_LT(job.Data(), 10);
+      CHECK(job.IsValid());
+      CHECK_LT(job.Data(), 10);
     }
   });
 
   std::thread consumer_thread2([&job_queue]() {
-    THROW_CHECK_LE(job_queue.Size(), 1);
+    CHECK_LE(job_queue.Size(), 1);
     for (int i = 0; i < 10; ++i) {
       const auto job = job_queue.Pop();
-      THROW_CHECK(job.IsValid());
-      THROW_CHECK_LT(job.Data(), 10);
+      CHECK(job.IsValid());
+      CHECK_LT(job.Data(), 10);
     }
   });
 
@@ -803,18 +803,18 @@ TEST(JobQueue, Wait) {
   JobQueue<int> job_queue;
 
   // IMPORTANT: EXPECT_TRUE_* macros are not thread-safe,
-  //            so we use glog's THROW_CHECK macros inside threads.
+  //            so we use glog's CHECK macros inside threads.
 
   for (int i = 0; i < 10; ++i) {
-    THROW_CHECK(job_queue.Push(i));
+    CHECK(job_queue.Push(i));
   }
 
   std::thread consumer_thread([&job_queue]() {
-    THROW_CHECK_EQ(job_queue.Size(), 10);
+    CHECK_EQ(job_queue.Size(), 10);
     for (int i = 0; i < 10; ++i) {
       const auto job = job_queue.Pop();
-      THROW_CHECK(job.IsValid());
-      THROW_CHECK_EQ(job.Data(), i);
+      CHECK(job.IsValid());
+      CHECK_EQ(job.Data(), i);
     }
   });
 
@@ -831,13 +831,13 @@ TEST(JobQueue, StopProducer) {
   JobQueue<int> job_queue(1);
 
   // IMPORTANT: EXPECT_TRUE_* macros are not thread-safe,
-  //            so we use glog's THROW_CHECK macros inside threads.
+  //            so we use glog's CHECK macros inside threads.
 
   Barrier stopBarrier;
   std::thread producer_thread([&job_queue, &stopBarrier]() {
-    THROW_CHECK(job_queue.Push(0));
+    CHECK(job_queue.Push(0));
     stopBarrier.Wait();
-    THROW_CHECK(!job_queue.Push(0));
+    CHECK(!job_queue.Push(0));
   });
 
   stopBarrier.Wait();
@@ -854,17 +854,17 @@ TEST(JobQueue, StopConsumer) {
   JobQueue<int> job_queue(1);
 
   // IMPORTANT: EXPECT_TRUE_* macros are not thread-safe,
-  //            so we use glog's THROW_CHECK macros inside threads.
+  //            so we use glog's CHECK macros inside threads.
 
   EXPECT_TRUE(job_queue.Push(0));
 
   Barrier popBarrier;
   std::thread consumer_thread([&job_queue, &popBarrier]() {
     const auto job = job_queue.Pop();
-    THROW_CHECK(job.IsValid());
-    THROW_CHECK_EQ(job.Data(), 0);
+    CHECK(job.IsValid());
+    CHECK_EQ(job.Data(), 0);
     popBarrier.Wait();
-    THROW_CHECK(!job_queue.Pop().IsValid());
+    CHECK(!job_queue.Pop().IsValid());
   });
 
   popBarrier.Wait();
