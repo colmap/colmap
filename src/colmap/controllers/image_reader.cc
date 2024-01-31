@@ -47,7 +47,7 @@ bool ImageReaderOptions::Check() const {
 
 ImageReader::ImageReader(const ImageReaderOptions& options, Database* database)
     : options_(options), database_(database), image_index_(0) {
-  CHECK(options_.Check());
+  THROW_CHECK(options_.Check());
 
   // Ensure trailing slash, so that we can build the correct image name.
   options_.image_path =
@@ -70,16 +70,16 @@ ImageReader::ImageReader(const ImageReaderOptions& options, Database* database)
   }
 
   if (static_cast<camera_t>(options_.existing_camera_id) != kInvalidCameraId) {
-    CHECK(database->ExistsCamera(options_.existing_camera_id));
+    THROW_CHECK(database->ExistsCamera(options_.existing_camera_id));
     prev_camera_ = database->ReadCamera(options_.existing_camera_id);
   } else {
     // Set the manually specified camera parameters.
     prev_camera_.camera_id = kInvalidCameraId;
-    CHECK(ExistsCameraModelWithName(options_.camera_model));
+    THROW_CHECK(ExistsCameraModelWithName(options_.camera_model));
     prev_camera_.model_id = CameraModelNameToId(options_.camera_model);
     prev_camera_.params.resize(CameraModelNumParams(prev_camera_.model_id), 0.);
     if (!options_.camera_params.empty()) {
-      CHECK(prev_camera_.SetParamsFromString(options_.camera_params));
+      THROW_CHECK(prev_camera_.SetParamsFromString(options_.camera_params));
       prev_camera_.has_prior_focal_length = true;
     }
   }
@@ -89,12 +89,12 @@ ImageReader::Status ImageReader::Next(Camera* camera,
                                       Image* image,
                                       Bitmap* bitmap,
                                       Bitmap* mask) {
-  CHECK_NOTNULL(camera);
-  CHECK_NOTNULL(image);
-  CHECK_NOTNULL(bitmap);
+  THROW_CHECK_NOTNULL(camera);
+  THROW_CHECK_NOTNULL(image);
+  THROW_CHECK_NOTNULL(bitmap);
 
   image_index_ += 1;
-  CHECK_LE(image_index_, options_.image_list.size());
+  THROW_CHECK_LE(image_index_, options_.image_list.size());
 
   const std::string image_path = options_.image_list.at(image_index_ - 1);
 

@@ -116,7 +116,7 @@ T RandomGaussian(const T mean, const T stddev) {
 
 template <typename T>
 void Shuffle(const uint32_t num_to_shuffle, std::vector<T>* elems) {
-  CHECK_LE(num_to_shuffle, elems->size());
+  THROW_CHECK_LE(num_to_shuffle, elems->size());
   const uint32_t last_idx = static_cast<uint32_t>(elems->size() - 1);
   for (uint32_t i = 0; i < num_to_shuffle; ++i) {
     const auto j = RandomUniformInteger<uint32_t>(i, last_idx);

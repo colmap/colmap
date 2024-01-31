@@ -45,7 +45,7 @@ ProgressiveSampler::ProgressiveSampler(const size_t num_samples)
       T_n_p_(0) {}
 
 void ProgressiveSampler::Initialize(const size_t total_num_samples) {
-  CHECK_LE(num_samples_, total_num_samples);
+  THROW_CHECK_LE(num_samples_, total_num_samples);
   total_num_samples_ = total_num_samples;
 
   t_ = 0;

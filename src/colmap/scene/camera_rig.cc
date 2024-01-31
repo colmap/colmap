@@ -46,7 +46,7 @@ bool CameraRig::HasCamera(const camera_t camera_id) const {
 camera_t CameraRig::RefCameraId() const { return ref_camera_id_; }
 
 void CameraRig::SetRefCameraId(const camera_t camera_id) {
-  CHECK(HasCamera(camera_id));
+  THROW_CHECK(HasCamera(camera_id));
   ref_camera_id_ = camera_id;
 }
 
@@ -65,41 +65,41 @@ const std::vector<std::vector<image_t>>& CameraRig::Snapshots() const {
 
 void CameraRig::AddCamera(const camera_t camera_id,
                           const Rigid3d& cam_from_rig) {
-  CHECK(!HasCamera(camera_id));
-  CHECK_EQ(NumSnapshots(), 0);
+  THROW_CHECK(!HasCamera(camera_id));
+  THROW_CHECK_EQ(NumSnapshots(), 0);
   cams_from_rigs_.emplace(camera_id, cam_from_rig);
 }
 
 void CameraRig::AddSnapshot(const std::vector<image_t>& image_ids) {
-  CHECK(!image_ids.empty());
-  CHECK_LE(image_ids.size(), NumCameras());
-  CHECK(!VectorContainsDuplicateValues(image_ids));
+  THROW_CHECK(!image_ids.empty());
+  THROW_CHECK_LE(image_ids.size(), NumCameras());
+  THROW_CHECK(!VectorContainsDuplicateValues(image_ids));
   snapshots_.push_back(image_ids);
 }
 
 void CameraRig::Check(const Reconstruction& reconstruction) const {
-  CHECK(HasCamera(ref_camera_id_));
+  THROW_CHECK(HasCamera(ref_camera_id_));
 
   for (const auto& rig_camera : cams_from_rigs_) {
-    CHECK(reconstruction.ExistsCamera(rig_camera.first));
+    THROW_CHECK(reconstruction.ExistsCamera(rig_camera.first));
   }
 
   std::unordered_set<image_t> all_image_ids;
   for (const auto& snapshot : snapshots_) {
-    CHECK(!snapshot.empty());
-    CHECK_LE(snapshot.size(), NumCameras());
+    THROW_CHECK(!snapshot.empty());
+    THROW_CHECK_LE(snapshot.size(), NumCameras());
     bool has_ref_camera = false;
     for (const auto image_id : snapshot) {
-      CHECK(reconstruction.ExistsImage(image_id));
-      CHECK_EQ(all_image_ids.count(image_id), 0);
+      THROW_CHECK(reconstruction.ExistsImage(image_id));
+      THROW_CHECK_EQ(all_image_ids.count(image_id), 0);
       all_image_ids.insert(image_id);
       const auto& image = reconstruction.Image(image_id);
-      CHECK(HasCamera(image.CameraId()));
+      THROW_CHECK(HasCamera(image.CameraId()));
       if (image.CameraId() == ref_camera_id_) {
         has_ref_camera = true;
       }
     }
-    CHECK(has_ref_camera);
+    THROW_CHECK(has_ref_camera);
   }
 }
 
@@ -113,9 +113,9 @@ Rigid3d& CameraRig::CamFromRig(const camera_t camera_id) {
 
 double CameraRig::ComputeRigFromWorldScale(
     const Reconstruction& reconstruction) const {
-  CHECK_GT(NumSnapshots(), 0);
+  THROW_CHECK_GT(NumSnapshots(), 0);
   const size_t num_cameras = NumCameras();
-  CHECK_GT(num_cameras, 0);
+  THROW_CHECK_GT(num_cameras, 0);
 
   double rig_from_world_scale = 0;
   size_t num_dists = 0;
@@ -153,8 +153,8 @@ double CameraRig::ComputeRigFromWorldScale(
 }
 
 bool CameraRig::ComputeCamsFromRigs(const Reconstruction& reconstruction) {
-  CHECK_GT(NumSnapshots(), 0);
-  CHECK_NE(ref_camera_id_, kInvalidCameraId);
+  THROW_CHECK_GT(NumSnapshots(), 0);
+  THROW_CHECK_NE(ref_camera_id_, kInvalidCameraId);
 
   for (auto& cam_from_rig : cams_from_rigs_) {
     cam_from_rig.second.translation = Eigen::Vector3d::Zero();
@@ -174,7 +174,7 @@ bool CameraRig::ComputeCamsFromRigs(const Reconstruction& reconstruction) {
     }
 
     const Rigid3d world_from_ref_cam =
-        Inverse(CHECK_NOTNULL(ref_image)->CamFromWorld());
+        Inverse(THROW_CHECK_NOTNULL(ref_image)->CamFromWorld());
 
     // Compute the relative poses from all cameras in the current snapshot to
     // the reference camera.

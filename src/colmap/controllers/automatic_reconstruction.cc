@@ -48,9 +48,9 @@ AutomaticReconstructionController::AutomaticReconstructionController(
     : options_(options),
       reconstruction_manager_(std::move(reconstruction_manager)),
       active_thread_(nullptr) {
-  CHECK_DIR_EXISTS(options_.workspace_path);
-  CHECK_DIR_EXISTS(options_.image_path);
-  CHECK_NOTNULL(reconstruction_manager_);
+  THROW_CHECK_DIR_EXISTS(options_.workspace_path);
+  THROW_CHECK_DIR_EXISTS(options_.image_path);
+  THROW_CHECK_NOTNULL(reconstruction_manager_);
 
   option_manager_.AddAllOptions();
 
@@ -65,10 +65,10 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   } else if (options_.data_type == DataType::INTERNET) {
     option_manager_.ModifyForInternetData();
   } else {
-    LOG(FATAL) << "Data type not supported";
+    LOG(FATAL_THROW) << "Data type not supported";
   }
 
-  CHECK(ExistsCameraModelWithName(options_.camera_model));
+  THROW_CHECK(ExistsCameraModelWithName(options_.camera_model));
 
   if (options_.quality == Quality::LOW) {
     option_manager_.ModifyForLowQuality();
@@ -175,7 +175,7 @@ void AutomaticReconstructionController::Run() {
 }
 
 void AutomaticReconstructionController::RunFeatureExtraction() {
-  CHECK_NOTNULL(feature_extractor_);
+  THROW_CHECK_NOTNULL(feature_extractor_);
   active_thread_ = feature_extractor_.get();
   feature_extractor_->Start();
   feature_extractor_->Wait();
@@ -198,7 +198,7 @@ void AutomaticReconstructionController::RunFeatureMatching() {
     }
   }
 
-  CHECK_NOTNULL(matcher);
+  THROW_CHECK_NOTNULL(matcher);
   active_thread_ = matcher;
   matcher->Start();
   matcher->Wait();

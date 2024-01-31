@@ -892,7 +892,7 @@ bool OptionManager::Read(const std::string& path) {
 
   try {
     std::ifstream file(path);
-    CHECK_FILE_OPEN(file, path);
+    THROW_CHECK_FILE_OPEN(file, path);
     config::store(config::parse_config_file(file, *desc_), vmap);
     vmap.notify();
   } catch (std::exception& e) {

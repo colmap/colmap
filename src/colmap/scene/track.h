@@ -121,7 +121,7 @@ void Track::AddElements(const std::vector<TrackElement>& elements) {
 }
 
 void Track::DeleteElement(const size_t idx) {
-  CHECK_LT(idx, elements_.size());
+  THROW_CHECK_LT(idx, elements_.size());
   elements_.erase(elements_.begin() + idx);
 }
 

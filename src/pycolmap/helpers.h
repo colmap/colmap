@@ -32,8 +32,8 @@ T pyStringToEnum(const py::enum_<T>& enm, const std::string& value) {
   const auto values = enm.attr("__members__").template cast<py::dict>();
   const auto str_val = py::str(value);
   if (!values.contains(str_val)) {
-    LOG(FATAL) << "Invalid string value " << value << " for enum "
-               << enm.attr("__name__").template cast<std::string>();
+    LOG(FATAL_THROW) << "Invalid string value " << value << " for enum "
+                     << enm.attr("__name__").template cast<std::string>();
   }
   return T(values[str_val].template cast<T>());
 }
@@ -49,7 +49,8 @@ void AddStringToEnumConstructor(py::enum_<T>& enm) {
 void UpdateFromDict(py::object& self, const py::dict& dict) {
   for (const auto& it : dict) {
     if (!py::isinstance<py::str>(it.first)) {
-      LOG(FATAL) << "Dictionary key is not a string: " << py::str(it.first);
+      LOG(FATAL_THROW) << "Dictionary key is not a string: "
+                       << py::str(it.first);
     }
     const py::str name = py::reinterpret_borrow<py::str>(it.first);
     const py::handle& value = it.second;

@@ -187,7 +187,7 @@ double RadToDeg(const double rad) {
 
 template <typename T>
 double Median(const std::vector<T>& elems) {
-  CHECK(!elems.empty());
+  THROW_CHECK(!elems.empty());
 
   const size_t mid_idx = elems.size() / 2;
 
@@ -208,9 +208,9 @@ double Median(const std::vector<T>& elems) {
 
 template <typename T>
 T Percentile(const std::vector<T>& elems, const double p) {
-  CHECK(!elems.empty());
-  CHECK_GE(p, 0);
-  CHECK_LE(p, 100);
+  THROW_CHECK(!elems.empty());
+  THROW_CHECK_GE(p, 0);
+  THROW_CHECK_LE(p, 100);
 
   const int idx = static_cast<int>(std::round(p / 100 * (elems.size() - 1)));
   const size_t percentile_idx =
@@ -226,7 +226,7 @@ T Percentile(const std::vector<T>& elems, const double p) {
 
 template <typename T>
 double Mean(const std::vector<T>& elems) {
-  CHECK(!elems.empty());
+  THROW_CHECK(!elems.empty());
   double sum = 0;
   for (const auto el : elems) {
     sum += static_cast<double>(el);

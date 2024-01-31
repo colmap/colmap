@@ -87,7 +87,7 @@ Eigen::Vector3d RotationMatrixToCaley(const Eigen::Matrix3d& R) {
 Eigen::Vector3d ComputeRotationBetweenPoints(
     const std::vector<Eigen::Vector6d>& plueckers1,
     const std::vector<Eigen::Vector6d>& plueckers2) {
-  CHECK_EQ(plueckers1.size(), plueckers2.size());
+  THROW_CHECK_EQ(plueckers1.size(), plueckers2.size());
 
   // Compute the center of all observed points.
   Eigen::Vector3d points_center1 = Eigen::Vector3d::Zero();
@@ -342,8 +342,8 @@ double ComputeCost(const Eigen::Matrix3d& xxF,
                    const Eigen::Matrix<double, 9, 9>& m22P,
                    const Eigen::Vector3d& rotation,
                    const int step) {
-  CHECK_GE(step, 0);
-  CHECK_LE(step, 1);
+  THROW_CHECK_GE(step, 0);
+  THROW_CHECK_LE(step, 1);
 
   const Eigen::Vector4d roots = ComputeEigenValue(xxF,
                                                   yyF,
@@ -421,9 +421,9 @@ Eigen::Vector3d ComputeJacobian(const Eigen::Matrix3d& xxF,
 void GR6PEstimator::Estimate(const std::vector<X_t>& points1,
                              const std::vector<Y_t>& points2,
                              std::vector<M_t>* models) {
-  CHECK_GE(points1.size(), 6);
-  CHECK_EQ(points1.size(), points2.size());
-  CHECK(models != nullptr);
+  THROW_CHECK_GE(points1.size(), 6);
+  THROW_CHECK_EQ(points1.size(), points2.size());
+  THROW_CHECK(models != nullptr);
 
   models->clear();
 
@@ -721,7 +721,7 @@ void GR6PEstimator::Residuals(const std::vector<X_t>& points1,
                               const std::vector<Y_t>& points2,
                               const M_t& rig2_from_rig1,
                               std::vector<double>* residuals) {
-  CHECK_EQ(points1.size(), points2.size());
+  THROW_CHECK_EQ(points1.size(), points2.size());
   residuals->resize(points1.size(), 0);
   for (size_t i = 0; i < points1.size(); ++i) {
     const Rigid3d cam2_from_cam1 = points2[i].cam_from_rig * rig2_from_rig1 *

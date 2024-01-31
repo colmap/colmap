@@ -287,7 +287,7 @@ IncrementalMapperController::IncrementalMapperController(
       image_path_(image_path),
       database_path_(database_path),
       reconstruction_manager_(std::move(reconstruction_manager)) {
-  CHECK(options_->Check());
+  THROW_CHECK(options_->Check());
   RegisterCallback(INITIAL_IMAGE_PAIR_REG_CALLBACK);
   RegisterCallback(NEXT_IMAGE_REG_CALLBACK);
   RegisterCallback(LAST_IMAGE_REG_CALLBACK);
@@ -364,9 +364,10 @@ void IncrementalMapperController::Reconstruct(
   // Is there a sub-model before we start the reconstruction? I.e. the user
   // has imported an existing reconstruction.
   const bool initial_reconstruction_given = reconstruction_manager_->Size() > 0;
-  CHECK_LE(reconstruction_manager_->Size(), 1) << "Can only resume from a "
-                                                  "single reconstruction, but "
-                                                  "multiple are given.";
+  THROW_CHECK_LE(reconstruction_manager_->Size(), 1)
+      << "Can only resume from a "
+         "single reconstruction, but "
+         "multiple are given.";
 
   for (int num_trials = 0; num_trials < options_->init_num_trials;
        ++num_trials) {

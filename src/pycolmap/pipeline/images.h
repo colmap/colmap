@@ -133,8 +133,9 @@ void UndistortImages(const std::string& output_path,
     undistorter.reset(new CMPMVSUndistorter(
         undistort_camera_options, reconstruction, image_path, output_path));
   } else {
-    LOG(FATAL) << "Invalid `output_type` - supported values are {'COLMAP', "
-                  "'PMVS', 'CMP-MVS'}.";
+    LOG(FATAL_THROW)
+        << "Invalid `output_type` - supported values are {'COLMAP', "
+           "'PMVS', 'CMP-MVS'}.";
   }
   undistorter->Start();
   PyWait(undistorter.get());

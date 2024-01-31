@@ -60,7 +60,7 @@ int GetNumCudaDevices() {
 
 void SetBestCudaDevice(const int gpu_index) {
   const int num_cuda_devices = GetNumCudaDevices();
-  CHECK_GT(num_cuda_devices, 0) << "No CUDA devices available";
+  THROW_CHECK_GT(num_cuda_devices, 0) << "No CUDA devices available";
 
   int selected_gpu_index = -1;
   if (gpu_index >= 0) {
@@ -74,8 +74,9 @@ void SetBestCudaDevice(const int gpu_index) {
     CUDA_SAFE_CALL(cudaChooseDevice(&selected_gpu_index, all_devices.data()));
   }
 
-  CHECK_GE(selected_gpu_index, 0);
-  CHECK_LT(selected_gpu_index, num_cuda_devices) << "Invalid CUDA GPU selected";
+  THROW_CHECK_GE(selected_gpu_index, 0);
+  THROW_CHECK_LT(selected_gpu_index, num_cuda_devices)
+      << "Invalid CUDA GPU selected";
 
   cudaDeviceProp device;
   cudaGetDeviceProperties(&device, selected_gpu_index);

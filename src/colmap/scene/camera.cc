@@ -42,7 +42,7 @@ Camera Camera::CreateFromModelId(camera_t camera_id,
                                  const double focal_length,
                                  const size_t width,
                                  const size_t height) {
-  CHECK(ExistsCameraModelWithId(model_id));
+  THROW_CHECK(ExistsCameraModelWithId(model_id));
   Camera camera;
   camera.camera_id = camera_id;
   camera.model_id = model_id;
@@ -73,7 +73,7 @@ Eigen::Matrix3d Camera::CalibrationMatrix() const {
     K(0, 0) = params[idxs[0]];
     K(1, 1) = params[idxs[1]];
   } else {
-    LOG(FATAL)
+    LOG(FATAL_THROW)
         << "Camera model must either have 1 or 2 focal length parameters.";
   }
 
@@ -113,7 +113,7 @@ bool Camera::IsUndistorted() const {
 }
 
 void Camera::Rescale(const double scale) {
-  CHECK_GT(scale, 0.0);
+  THROW_CHECK_GT(scale, 0.0);
   const double scale_x = std::round(scale * width) / static_cast<double>(width);
   const double scale_y =
       std::round(scale * height) / static_cast<double>(height);
@@ -127,7 +127,7 @@ void Camera::Rescale(const double scale) {
     SetFocalLengthX(scale_x * FocalLengthX());
     SetFocalLengthY(scale_y * FocalLengthY());
   } else {
-    LOG(FATAL)
+    LOG(FATAL_THROW)
         << "Camera model must either have 1 or 2 focal length parameters.";
   }
 }
@@ -147,7 +147,7 @@ void Camera::Rescale(const size_t new_width, const size_t new_height) {
     SetFocalLengthX(scale_x * FocalLengthX());
     SetFocalLengthY(scale_y * FocalLengthY());
   } else {
-    LOG(FATAL)
+    LOG(FATAL_THROW)
         << "Camera model must either have 1 or 2 focal length parameters.";
   }
 }

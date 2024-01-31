@@ -91,8 +91,8 @@ Eigen::Vector3d PointFromPlueckerLineAndDepth(const Eigen::Vector6d& pluecker,
 Eigen::Matrix<double, 3, 6> ComputePolynomialCoefficients(
     const std::vector<Eigen::Vector6d>& plueckers,
     const std::vector<Eigen::Vector3d>& points3D) {
-  CHECK_EQ(plueckers.size(), 3);
-  CHECK_EQ(points3D.size(), 3);
+  THROW_CHECK_EQ(plueckers.size(), 3);
+  THROW_CHECK_EQ(points3D.size(), 3);
 
   Eigen::Matrix<double, 3, 6> K;
   const std::array<int, 3> is = {{0, 0, 1}};
@@ -208,9 +208,9 @@ std::vector<Eigen::Vector3d> ComputeDepthsSylvester(
 void GP3PEstimator::Estimate(const std::vector<X_t>& points2D,
                              const std::vector<Y_t>& points3D,
                              std::vector<M_t>* models) {
-  CHECK_EQ(points2D.size(), 3);
-  CHECK_EQ(points3D.size(), 3);
-  CHECK(models != nullptr);
+  THROW_CHECK_EQ(points2D.size(), 3);
+  THROW_CHECK_EQ(points3D.size(), 3);
+  THROW_CHECK(models != nullptr);
 
   models->clear();
 
@@ -271,7 +271,7 @@ void GP3PEstimator::Residuals(const std::vector<X_t>& points2D,
                               const std::vector<Y_t>& points3D,
                               const M_t& rig_from_world,
                               std::vector<double>* residuals) {
-  CHECK_EQ(points2D.size(), points3D.size());
+  THROW_CHECK_EQ(points2D.size(), points3D.size());
   residuals->resize(points2D.size(), 0);
   for (size_t i = 0; i < points2D.size(); ++i) {
     const Eigen::Vector3d point3D_in_cam =
@@ -287,7 +287,7 @@ void GP3PEstimator::Residuals(const std::vector<X_t>& points2D,
                            points2D[i].ray_in_cam.hnormalized())
                               .squaredNorm();
       } else {
-        LOG(FATAL) << "Invalid residual type";
+        LOG(FATAL_THROW) << "Invalid residual type";
       }
     } else {
       (*residuals)[i] = std::numeric_limits<double>::max();
