@@ -239,7 +239,7 @@ TEST(PoseGraphOptimization, AbsolutePose) {
   EXPECT_EQ(residuals[0], 0);
   EXPECT_EQ(residuals[1], 0);
   EXPECT_EQ(residuals[2], 0);
-  EXPECT_EQ(residuals[3], -1);
+  EXPECT_EQ(residuals[3], 1);
   EXPECT_EQ(residuals[4], 0);
   EXPECT_EQ(residuals[5], 0);
 
@@ -252,20 +252,20 @@ TEST(PoseGraphOptimization, AbsolutePose) {
   cam_from_world_translation[2] = 3;
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
   EXPECT_NEAR(residuals[0], 0, 1e-6);
-  EXPECT_NEAR(residuals[1], DegToRad(-90.0), 1e-6);
+  EXPECT_NEAR(residuals[1], DegToRad(90.0), 1e-6);
   EXPECT_NEAR(residuals[2], 0, 1e-6);
-  EXPECT_NEAR(residuals[3], 3, 1e-6);
-  EXPECT_NEAR(residuals[4], -2, 1e-6);
-  EXPECT_NEAR(residuals[5], -0.5, 1e-6);
+  EXPECT_NEAR(residuals[3], 1, 1e-6);
+  EXPECT_NEAR(residuals[4], 2, 1e-6);
+  EXPECT_NEAR(residuals[5], 1.5, 1e-6);
 }
 
 TEST(PoseGraphOptimization, RelativePose) {
-  Rigid3d mes_j_from_i;
-  mes_j_from_i.translation << 0, 0, 1;
+  Rigid3d i_from_j;
+  i_from_j.translation << 0, 0, -1;
   EigenMatrix6d covariance_j = EigenMatrix6d::Identity();
   covariance_j(5, 5) = 4;
   std::unique_ptr<ceres::CostFunction> cost_function(
-      MetricRelativePoseErrorCostFunction::Create(mes_j_from_i, covariance_j));
+      MetricRelativePoseErrorCostFunction::Create(i_from_j, covariance_j));
 
   double i_from_world_rotation[4] = {0, 0, 0, 1};
   double i_from_world_translation[3] = {0, 0, 0};
@@ -291,16 +291,16 @@ TEST(PoseGraphOptimization, RelativePose) {
   EXPECT_EQ(residuals[2], 0);
   EXPECT_EQ(residuals[3], 0);
   EXPECT_EQ(residuals[4], 0);
-  EXPECT_EQ(residuals[5], 2);
+  EXPECT_EQ(residuals[5], -2);
 
   j_from_world_translation[0] = 2;
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
   EXPECT_EQ(residuals[0], 0);
   EXPECT_EQ(residuals[1], 0);
   EXPECT_EQ(residuals[2], 0);
-  EXPECT_EQ(residuals[3], -2);
+  EXPECT_EQ(residuals[3], 2);
   EXPECT_EQ(residuals[4], 0);
-  EXPECT_EQ(residuals[5], 2);
+  EXPECT_EQ(residuals[5], -2);
 
   // Rotation by 90 degrees around the Y axis.
   Eigen::Matrix3d rotation_matrix;
@@ -309,11 +309,11 @@ TEST(PoseGraphOptimization, RelativePose) {
       rotation_matrix;
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
   EXPECT_NEAR(residuals[0], 0, 1e-6);
-  EXPECT_NEAR(residuals[1], DegToRad(-90.0), 1e-6);
+  EXPECT_NEAR(residuals[1], DegToRad(90.0), 1e-6);
   EXPECT_NEAR(residuals[2], 0, 1e-6);
-  EXPECT_NEAR(residuals[3], 1, 1e-6);
+  EXPECT_NEAR(residuals[3], -3, 1e-6);
   EXPECT_NEAR(residuals[4], 0, 1e-6);
-  EXPECT_NEAR(residuals[5], 1.5, 1e-6);
+  EXPECT_NEAR(residuals[5], 0.5, 1e-6);
 }
 
 }  // namespace

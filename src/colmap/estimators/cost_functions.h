@@ -320,7 +320,7 @@ struct AbsolutePoseErrorCostFunction {
  public:
   AbsolutePoseErrorCostFunction(const Rigid3d& cam_from_world,
                                 const EigenMatrix6d& covariance_cam)
-      : cam_from_world_(cam_from_world),
+      : world_from_cam_(Inverse(cam_from_world)),
         sqrt_information_cam_(covariance_cam.inverse().llt().matrixL()) {}
 
   static ceres::CostFunction* Create(const Rigid3d& cam_from_world,
@@ -334,14 +334,16 @@ struct AbsolutePoseErrorCostFunction {
   bool operator()(const T* const cam_from_world_q,
                   const T* const cam_from_world_t,
                   T* residuals_ptr) const {
-    const Eigen::Quaternion<T> mes_from_est_q =
-        cam_from_world_.rotation.cast<T>() *
-        EigenQuaternionMap<T>(cam_from_world_q).inverse();
-    EigenQuaternionToAngleAxis(mes_from_est_q.coeffs().data(), residuals_ptr);
+    const Eigen::Quaternion<T> param_from_measured_q =
+        EigenQuaternionMap<T>(cam_from_world_q) *
+        world_from_cam_.rotation.cast<T>();
+    EigenQuaternionToAngleAxis(param_from_measured_q.coeffs().data(),
+                               residuals_ptr);
 
-    Eigen::Map<Eigen::Matrix<T, 3, 1>> mes_from_est_t(residuals_ptr + 3);
-    mes_from_est_t = cam_from_world_.translation.cast<T>() -
-                     mes_from_est_q * EigenVector3Map<T>(cam_from_world_t);
+    Eigen::Map<Eigen::Matrix<T, 3, 1>> param_from_measured_t(residuals_ptr + 3);
+    param_from_measured_t = EigenVector3Map<T>(cam_from_world_t) +
+                            EigenQuaternionMap<T>(cam_from_world_q) *
+                                world_from_cam_.translation.cast<T>();
 
     Eigen::Map<Eigen::Matrix<T, 6, 1>> residuals(residuals_ptr);
     residuals.applyOnTheLeft(sqrt_information_cam_.template cast<T>());
@@ -349,7 +351,7 @@ struct AbsolutePoseErrorCostFunction {
   }
 
  private:
-  const Rigid3d& cam_from_world_;
+  const Rigid3d world_from_cam_;
   const EigenMatrix6d sqrt_information_cam_;
 };
 
@@ -358,14 +360,21 @@ struct AbsolutePoseErrorCostFunction {
 // defined in the reference frame of the camera j.
 // Its first and last three components correspond to the rotation and
 // translation errors, respectively.
+//
+// Derivation:
+// j_T_w = ΔT_j·j_T_i·i_T_w
+// where ΔT_j = exp(η_j) is the residual in SE(3) and η_j in tangent space.
+// Thus η_j = log(j_T_w·i_T_w⁻¹·i_T_j)
+// Rotation term: ΔR = log(j_R_w·i_R_w⁻¹·i_R_j)
+// Translation term: Δt = j_t_w + j_R_w·i_R_w⁻¹·(i_t_j -i_t_w)
 struct MetricRelativePoseErrorCostFunction {
  public:
-  MetricRelativePoseErrorCostFunction(const Rigid3d& j_from_i,
+  MetricRelativePoseErrorCostFunction(const Rigid3d& i_from_j,
                                       const EigenMatrix6d& covariance_j)
-      : j_from_i_(j_from_i),
+      : i_from_j_(i_from_j),
         sqrt_information_j_(covariance_j.inverse().llt().matrixL()) {}
 
-  static ceres::CostFunction* Create(const Rigid3d& j_from_i,
+  static ceres::CostFunction* Create(const Rigid3d& i_from_j,
                                      const EigenMatrix6d& covariance_j) {
     return (new ceres::AutoDiffCostFunction<MetricRelativePoseErrorCostFunction,
                                             6,
@@ -373,7 +382,7 @@ struct MetricRelativePoseErrorCostFunction {
                                             3,
                                             4,
                                             3>(
-        new MetricRelativePoseErrorCostFunction(j_from_i, covariance_j)));
+        new MetricRelativePoseErrorCostFunction(i_from_j, covariance_j)));
   }
 
   template <typename T>
@@ -382,20 +391,19 @@ struct MetricRelativePoseErrorCostFunction {
                   const T* const j_from_world_q,
                   const T* const j_from_world_t,
                   T* residuals_ptr) const {
-    const Eigen::Quaternion<T> i_from_j_q =
-        EigenQuaternionMap<T>(i_from_world_q) *
-        EigenQuaternionMap<T>(j_from_world_q).inverse();
-    Eigen::Matrix<T, 3, 1> i_from_j_t =
-        EigenVector3Map<T>(i_from_world_t) -
-        i_from_j_q * EigenVector3Map<T>(j_from_world_t);
+    const Eigen::Quaternion<T> j_from_i_q =
+        EigenQuaternionMap<T>(j_from_world_q) *
+        EigenQuaternionMap<T>(i_from_world_q).inverse();
+    const Eigen::Quaternion<T> param_from_measured_q =
+        j_from_i_q * i_from_j_.rotation.cast<T>();
+    EigenQuaternionToAngleAxis(param_from_measured_q.coeffs().data(),
+                               residuals_ptr);
 
-    const Eigen::Quaternion<T> mes_from_est_q =
-        j_from_i_.rotation.cast<T>() * i_from_j_q;
-    EigenQuaternionToAngleAxis(mes_from_est_q.coeffs().data(), residuals_ptr);
-
-    Eigen::Map<Eigen::Matrix<T, 3, 1>> mes_from_est_t(residuals_ptr + 3);
-    mes_from_est_t = j_from_i_.translation.cast<T>() +
-                     j_from_i_.rotation.cast<T>() * i_from_j_t;
+    Eigen::Matrix<T, 3, 1> i_from_jw_t =
+        i_from_j_.translation.cast<T>() - EigenVector3Map<T>(i_from_world_t);
+    Eigen::Map<Eigen::Matrix<T, 3, 1>> param_from_measured_t(residuals_ptr + 3);
+    param_from_measured_t =
+        EigenVector3Map<T>(j_from_world_t) + j_from_i_q * i_from_jw_t;
 
     Eigen::Map<Eigen::Matrix<T, 6, 1>> residuals(residuals_ptr);
     residuals.applyOnTheLeft(sqrt_information_j_.template cast<T>());
@@ -403,7 +411,7 @@ struct MetricRelativePoseErrorCostFunction {
   }
 
  private:
-  const Rigid3d& j_from_i_;
+  const Rigid3d& i_from_j_;
   const EigenMatrix6d sqrt_information_j_;
 };
 
