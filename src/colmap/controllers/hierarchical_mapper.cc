@@ -119,6 +119,8 @@ HierarchicalMapperController::HierarchicalMapperController(
 
 void HierarchicalMapperController::Run() {
   PrintHeading1("Partitioning scene");
+  Timer timer_controller;
+  timer_controller.Start();
 
   //////////////////////////////////////////////////////////////////////////////
   // Cluster scene graph
@@ -232,7 +234,7 @@ void HierarchicalMapperController::Run() {
   CHECK_GT(reconstruction_managers.begin()->second->Get(0)->NumRegImages(), 0);
   *reconstruction_manager_ = *reconstruction_managers.begin()->second;
 
-  GetTimer().PrintMinutes();
+  timer_controller.PrintMinutes();
 }
 
 }  // namespace colmap

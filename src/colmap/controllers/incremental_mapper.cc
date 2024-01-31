@@ -30,6 +30,7 @@
 #include "colmap/controllers/incremental_mapper.h"
 
 #include "colmap/util/misc.h"
+#include "colmap/util/timer.h"
 
 namespace colmap {
 namespace {
@@ -294,6 +295,8 @@ IncrementalMapperController::IncrementalMapperController(
 }
 
 void IncrementalMapperController::Run() {
+  Timer timer_controller;
+  timer_controller.Start();
   if (!LoadDatabase()) {
     return;
   }
@@ -320,7 +323,7 @@ void IncrementalMapperController::Run() {
     Reconstruct(init_mapper_options);
   }
 
-  GetTimer().PrintMinutes();
+  timer_controller.PrintMinutes();
 }
 
 bool IncrementalMapperController::LoadDatabase() {
