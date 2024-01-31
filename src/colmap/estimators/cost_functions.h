@@ -318,8 +318,8 @@ inline void EigenQuaternionToAngleAxis(const T* eigen_quaternion,
 // to the rotation and translation errors, respectively.
 struct AbsolutePoseErrorCostFunction {
  public:
-  explicit AbsolutePoseErrorCostFunction(const Rigid3d& cam_from_world,
-                                         const EigenMatrix6d& covariance_cam)
+  AbsolutePoseErrorCostFunction(const Rigid3d& cam_from_world,
+                                const EigenMatrix6d& covariance_cam)
       : cam_from_world_(cam_from_world),
         sqrt_information_cam_(covariance_cam.inverse().llt().matrixL()) {}
 
@@ -360,8 +360,8 @@ struct AbsolutePoseErrorCostFunction {
 // translation errors, respectively.
 struct MetricRelativePoseErrorCostFunction {
  public:
-  explicit MetricRelativePoseErrorCostFunction(
-      const Rigid3d& j_from_i, const EigenMatrix6d& covariance_j)
+  MetricRelativePoseErrorCostFunction(const Rigid3d& j_from_i,
+                                      const EigenMatrix6d& covariance_j)
       : j_from_i_(j_from_i),
         sqrt_information_j_(covariance_j.inverse().llt().matrixL()) {}
 
