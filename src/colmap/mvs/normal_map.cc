@@ -41,7 +41,7 @@ NormalMap::NormalMap(const size_t width, const size_t height)
 
 NormalMap::NormalMap(const Mat<float>& mat)
     : Mat<float>(mat.GetWidth(), mat.GetHeight(), mat.GetDepth()) {
-  CHECK_EQ(mat.GetDepth(), 3);
+  THROW_CHECK_EQ(mat.GetDepth(), 3);
   data_ = mat.GetData();
 }
 
@@ -97,9 +97,9 @@ void NormalMap::Downsize(const size_t max_width, const size_t max_height) {
 }
 
 Bitmap NormalMap::ToBitmap() const {
-  CHECK_GT(width_, 0);
-  CHECK_GT(height_, 0);
-  CHECK_EQ(depth_, 3);
+  THROW_CHECK_GT(width_, 0);
+  THROW_CHECK_GT(height_, 0);
+  THROW_CHECK_EQ(depth_, 3);
 
   Bitmap bitmap;
   bitmap.Allocate(width_, height_, true);

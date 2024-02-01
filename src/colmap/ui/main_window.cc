@@ -1317,7 +1317,7 @@ void MainWindow::SetOptions() {
   } else if (data_item == "Internet images") {
     options_.ModifyForInternetData();
   } else {
-    LOG(FATAL) << "Data type does not exist";
+    LOG(FATAL_THROW) << "Data type does not exist";
   }
 
   if (quality_item == "Low") {
@@ -1329,7 +1329,7 @@ void MainWindow::SetOptions() {
   } else if (quality_item == "Extreme") {
     options_.ModifyForExtremeQuality();
   } else {
-    LOG(FATAL) << "Quality level does not exist";
+    LOG(FATAL_THROW) << "Quality level does not exist";
   }
 }
 

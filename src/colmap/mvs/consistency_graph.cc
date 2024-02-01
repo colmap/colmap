@@ -69,7 +69,7 @@ void ConsistencyGraph::GetImageIdxs(const int row,
 
 void ConsistencyGraph::Read(const std::string& path) {
   std::fstream text_file(path, std::ios::in | std::ios::binary);
-  CHECK(text_file.is_open()) << path;
+  THROW_CHECK_FILE_OPEN(text_file, path);
 
   size_t width = 0;
   size_t height = 0;
@@ -81,12 +81,12 @@ void ConsistencyGraph::Read(const std::string& path) {
   const std::streampos pos = text_file.tellg();
   text_file.close();
 
-  CHECK_GT(width, 0);
-  CHECK_GT(height, 0);
-  CHECK_GT(depth, 0);
+  THROW_CHECK_GT(width, 0);
+  THROW_CHECK_GT(height, 0);
+  THROW_CHECK_GT(depth, 0);
 
   std::fstream binary_file(path, std::ios::in | std::ios::binary);
-  CHECK(binary_file.is_open()) << path;
+  THROW_CHECK_FILE_OPEN(binary_file, path);
 
   binary_file.seekg(0, std::ios::end);
   const size_t num_bytes = binary_file.tellg() - pos;
@@ -102,13 +102,13 @@ void ConsistencyGraph::Read(const std::string& path) {
 
 void ConsistencyGraph::Write(const std::string& path) const {
   std::fstream text_file(path, std::ios::out);
-  CHECK(text_file.is_open()) << path;
+  THROW_CHECK_FILE_OPEN(text_file, path);
   text_file << map_.cols() << "&" << map_.rows() << "&" << 1 << "&";
   text_file.close();
 
   std::fstream binary_file(path,
                            std::ios::out | std::ios::binary | std::ios::app);
-  CHECK(binary_file.is_open()) << path;
+  THROW_CHECK_FILE_OPEN(binary_file, path);
   WriteBinaryLittleEndian<int>(&binary_file, data_);
   binary_file.close();
 }

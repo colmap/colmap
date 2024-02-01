@@ -4,9 +4,9 @@
 #include "colmap/geometry/rigid3.h"
 #include "colmap/math/random.h"
 #include "colmap/scene/camera.h"
+#include "colmap/util/logging.h"
 
 #include "pycolmap/helpers.h"
-#include "pycolmap/log_exceptions.h"
 #include "pycolmap/utils.h"
 
 #include <pybind11/eigen.h>
@@ -24,15 +24,12 @@ py::object PyEstimateAndRefineAbsolutePose(
     const AbsolutePoseEstimationOptions& estimation_options,
     const AbsolutePoseRefinementOptions& refinement_options,
     const bool return_covariance) {
-  THROW_CHECK_EQ(points2D.size(), points3D.size());
   py::object failure = py::none();
   py::gil_scoped_release release;
 
-  // Absolute pose estimation.
   Rigid3d cam_from_world;
   size_t num_inliers;
   std::vector<char> inlier_mask;
-
   if (!EstimateAbsolutePose(estimation_options,
                             points2D,
                             points3D,
@@ -43,7 +40,6 @@ py::object PyEstimateAndRefineAbsolutePose(
     return failure;
   }
 
-  // Absolute pose refinement.
   Eigen::Matrix<double, 6, 6> covariance;
   if (!RefineAbsolutePose(refinement_options,
                           inlier_mask,
@@ -70,8 +66,6 @@ py::object PyRefineAbsolutePose(
     const PyInlierMask& inlier_mask,
     Camera& camera,
     const AbsolutePoseRefinementOptions& refinement_options) {
-  THROW_CHECK_EQ(points2D.size(), points3D.size());
-  THROW_CHECK_EQ(inlier_mask.size(), points2D.size());
   py::object failure = py::none();
   py::gil_scoped_release release;
 

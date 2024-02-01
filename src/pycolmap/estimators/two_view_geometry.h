@@ -4,9 +4,9 @@
 #include "colmap/estimators/utils.h"
 #include "colmap/scene/camera.h"
 #include "colmap/scene/two_view_geometry.h"
+#include "colmap/util/logging.h"
 
 #include "pycolmap/helpers.h"
-#include "pycolmap/log_exceptions.h"
 #include "pycolmap/utils.h"
 
 #include <pybind11/eigen.h>

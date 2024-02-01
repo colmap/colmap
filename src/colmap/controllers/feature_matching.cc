@@ -124,7 +124,7 @@ void MatchNearestNeighborsInVisualIndex(const int num_threads,
     visual_index->Query(
         query_options, keypoints, descriptors, &retrieval.image_scores);
 
-    CHECK(retrieval_queue.Push(std::move(retrieval)));
+    THROW_CHECK(retrieval_queue.Push(std::move(retrieval)));
   };
 
   // Initially, make all retrieval threads busy and continue with the matching.
@@ -158,7 +158,7 @@ void MatchNearestNeighborsInVisualIndex(const int num_threads,
 
     // Pop the next results from the retrieval queue.
     auto retrieval = retrieval_queue.Pop();
-    CHECK(retrieval.IsValid());
+    THROW_CHECK(retrieval.IsValid());
 
     const auto& image_id = retrieval.Data().image_id;
     const auto& image_scores = retrieval.Data().image_scores;
@@ -187,9 +187,9 @@ class ExhaustiveFeatureMatcher : public Thread {
         database_(database_path),
         cache_(5 * options_.block_size, &database_),
         matcher_(matching_options, geometry_options, &database_, &cache_) {
-    CHECK(options.Check());
-    CHECK(matching_options.Check());
-    CHECK(geometry_options.Check());
+    THROW_CHECK(options.Check());
+    THROW_CHECK(matching_options.Check());
+    THROW_CHECK(geometry_options.Check());
   }
 
  private:
@@ -299,9 +299,9 @@ class SequentialFeatureMatcher : public Thread {
                         5 * options_.overlap),
                &database_),
         matcher_(matching_options, geometry_options, &database_, &cache_) {
-    CHECK(options.Check());
-    CHECK(matching_options.Check());
-    CHECK(geometry_options.Check());
+    THROW_CHECK(options.Check());
+    THROW_CHECK(matching_options.Check());
+    THROW_CHECK(geometry_options.Check());
   }
 
  private:
@@ -472,9 +472,9 @@ class VocabTreeFeatureMatcher : public Thread {
         database_(database_path),
         cache_(5 * options_.num_images, &database_),
         matcher_(matching_options, geometry_options, &database_, &cache_) {
-    CHECK(options.Check());
-    CHECK(matching_options.Check());
-    CHECK(geometry_options.Check());
+    THROW_CHECK(options.Check());
+    THROW_CHECK(matching_options.Check());
+    THROW_CHECK(geometry_options.Check());
   }
 
  private:
@@ -508,7 +508,7 @@ class VocabTreeFeatureMatcher : public Thread {
 
       // Read the match list path.
       std::ifstream file(options_.match_list_path);
-      CHECK(file.is_open()) << options_.match_list_path;
+      THROW_CHECK_FILE_OPEN(file, options_.match_list_path);
       std::string line;
       while (std::getline(file, line)) {
         StringTrim(&line);
@@ -593,9 +593,9 @@ class SpatialFeatureMatcher : public Thread {
         database_(database_path),
         cache_(5 * options_.max_num_neighbors, &database_),
         matcher_(matching_options, geometry_options, &database_, &cache_) {
-    CHECK(options.Check());
-    CHECK(matching_options.Check());
-    CHECK(geometry_options.Check());
+    THROW_CHECK(options.Check());
+    THROW_CHECK(matching_options.Check());
+    THROW_CHECK(geometry_options.Check());
   }
 
  private:
@@ -813,9 +813,9 @@ class TransitiveFeatureMatcher : public Thread {
         database_(database_path),
         cache_(options_.batch_size, &database_),
         matcher_(matching_options, geometry_options, &database_, &cache_) {
-    CHECK(options.Check());
-    CHECK(matching_options.Check());
-    CHECK(geometry_options.Check());
+    THROW_CHECK(options.Check());
+    THROW_CHECK(matching_options.Check());
+    THROW_CHECK(geometry_options.Check());
   }
 
  private:
@@ -852,7 +852,7 @@ class TransitiveFeatureMatcher : public Thread {
       database_.ReadTwoViewGeometryNumInliers(&existing_image_pairs,
                                               &existing_num_inliers);
 
-      CHECK_EQ(existing_image_pairs.size(), existing_num_inliers.size());
+      THROW_CHECK_EQ(existing_image_pairs.size(), existing_num_inliers.size());
 
       std::unordered_map<image_t, std::vector<image_t>> adjacency;
       for (const auto& image_pair : existing_image_pairs) {
@@ -943,9 +943,9 @@ class ImagePairsFeatureMatcher : public Thread {
         database_(database_path),
         cache_(options.block_size, &database_),
         matcher_(matching_options, geometry_options, &database_, &cache_) {
-    CHECK(options.Check());
-    CHECK(matching_options.Check());
-    CHECK(geometry_options.Check());
+    THROW_CHECK(options.Check());
+    THROW_CHECK(matching_options.Check());
+    THROW_CHECK(geometry_options.Check());
   }
 
  private:
@@ -972,7 +972,7 @@ class ImagePairsFeatureMatcher : public Thread {
     }
 
     std::ifstream file(options_.match_list_path);
-    CHECK(file.is_open()) << options_.match_list_path;
+    THROW_CHECK_FILE_OPEN(file, options_.match_list_path);
 
     std::string line;
     std::vector<std::pair<image_t, image_t>> image_pairs;
@@ -1090,9 +1090,9 @@ class FeaturePairsFeatureMatcher : public Thread {
         geometry_options_(geometry_options),
         database_(database_path),
         cache_(kCacheSize, &database_) {
-    CHECK(options.Check());
-    CHECK(matching_options.Check());
-    CHECK(geometry_options.Check());
+    THROW_CHECK(options.Check());
+    THROW_CHECK(matching_options.Check());
+    THROW_CHECK(geometry_options.Check());
   }
 
  private:
@@ -1113,7 +1113,7 @@ class FeaturePairsFeatureMatcher : public Thread {
     }
 
     std::ifstream file(options_.match_list_path);
-    CHECK(file.is_open()) << options_.match_list_path;
+    THROW_CHECK_FILE_OPEN(file, options_.match_list_path);
 
     std::string line;
     while (std::getline(file, line)) {

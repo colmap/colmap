@@ -8,8 +8,9 @@
 #include "colmap/mvs/patch_match.h"
 #endif  // COLMAP_CUDA_ENABLED
 
+#include "colmap/util/logging.h"
+
 #include "pycolmap/helpers.h"
-#include "pycolmap/log_exceptions.h"
 
 #include <pybind11/iostream.h>
 #include <pybind11/pybind11.h>
@@ -28,11 +29,9 @@ void PatchMatchStereo(const std::string& workspace_path,
                       const std::string& config_path) {
   THROW_CHECK_DIR_EXISTS(workspace_path);
   StringToLower(&workspace_format);
-  THROW_CUSTOM_CHECK_MSG(
-      (workspace_format == "colmap" || workspace_format == "pmvs"),
-      std::invalid_argument,
-      "Invalid `workspace_format` - supported values are "
-      "'COLMAP' or 'PMVS'.")
+  THROW_CHECK(workspace_format == "colmap" || workspace_format == "pmvs")
+      << "Invalid `workspace_format` - supported values are 'COLMAP' or "
+         "'PMVS'.";
 
   py::gil_scoped_release release;
   mvs::PatchMatchController controller(
@@ -50,18 +49,14 @@ Reconstruction StereoFusion(const std::string& output_path,
                             const mvs::StereoFusionOptions& options) {
   THROW_CHECK_DIR_EXISTS(workspace_path);
   StringToLower(&workspace_format);
-  THROW_CUSTOM_CHECK_MSG(
-      (workspace_format == "colmap" || workspace_format == "pmvs"),
-      std::invalid_argument,
-      "Invalid `workspace_format` - supported values are "
-      "'COLMAP' or 'PMVS'.");
+  THROW_CHECK(workspace_format == "colmap" || workspace_format == "pmvs")
+      << "Invalid `workspace_format` - supported values are 'COLMAP' or "
+         "'PMVS'.";
 
   StringToLower(&input_type);
-  THROW_CUSTOM_CHECK_MSG(
-      (input_type == "photometric" || input_type == "geometric"),
-      std::invalid_argument,
-      "Invalid input type - supported values are 'photometric' and "
-      "'geometric'.");
+  THROW_CHECK(input_type == "photometric" || input_type == "geometric")
+      << "Invalid input type - supported values are 'photometric' and "
+         "'geometric'.";
 
   py::gil_scoped_release release;
   mvs::StereoFusion fuser(
@@ -81,8 +76,6 @@ Reconstruction StereoFusion(const std::string& output_path,
   if (ExistsDir(output_path)) {
     reconstruction.WriteBinary(output_path);
   } else {
-    THROW_CHECK_HAS_FILE_EXTENSION(output_path, ".ply")
-    THROW_CHECK_FILE_OPEN(output_path);
     WriteBinaryPlyPoints(output_path, fuser.GetFusedPoints());
     mvs::WritePointsVisibility(output_path + ".vis",
                                fuser.GetFusedPointsVisibility());

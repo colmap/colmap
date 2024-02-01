@@ -65,7 +65,7 @@ FeatureDescriptors LoadRandomDatabaseDescriptors(
     num_descriptors = database.NumDescriptors();
   } else {
     // Random subset of images in the database.
-    CHECK_LE(max_num_images, images.size());
+    THROW_CHECK_LE(max_num_images, images.size());
     RandomSampler random_sampler(max_num_images);
     random_sampler.Initialize(images.size());
     random_sampler.Sample(&image_idxs);
@@ -87,7 +87,7 @@ FeatureDescriptors LoadRandomDatabaseDescriptors(
     descriptor_row += image_descriptors.rows();
   }
 
-  CHECK_EQ(descriptor_row, num_descriptors);
+  THROW_CHECK_EQ(descriptor_row, num_descriptors);
 
   return descriptors;
 }
@@ -107,7 +107,7 @@ std::vector<Image> ReadVocabTreeRetrievalImageList(const std::string& path,
     images.reserve(image_names.size());
     for (const auto& image_name : image_names) {
       const auto image = database->ReadImageWithName(image_name);
-      CHECK_NE(image.ImageId(), kInvalidImageId);
+      THROW_CHECK_NE(image.ImageId(), kInvalidImageId);
       images.push_back(image);
     }
   }
@@ -135,7 +135,7 @@ int RunVocabTreeBuilder(int argc, char** argv) {
   const auto descriptors =
       LoadRandomDatabaseDescriptors(*options.database_path, max_num_images);
   LOG(INFO) << "=> Loaded a total of " << descriptors.rows() << " descriptors";
-  CHECK_GT(descriptors.size(), 0);
+  THROW_CHECK_GT(descriptors.size(), 0);
 
   retrieval::VisualIndex<> visual_index;
 

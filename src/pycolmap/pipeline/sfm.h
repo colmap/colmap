@@ -8,7 +8,6 @@
 #include "colmap/util/misc.h"
 
 #include "pycolmap/helpers.h"
-#include "pycolmap/log_exceptions.h"
 
 #include <memory>
 
@@ -60,7 +59,6 @@ std::map<size_t, std::shared_ptr<Reconstruction>> IncrementalMapping(
   py::gil_scoped_release release;
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   if (input_path != "") {
-    THROW_CHECK_DIR_EXISTS(input_path);
     reconstruction_manager->Read(input_path);
   }
   auto options_ = std::make_shared<IncrementalMapperOptions>(options);

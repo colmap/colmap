@@ -67,10 +67,10 @@ struct AbsolutePoseEstimationOptions {
   RANSACOptions ransac_options;
 
   void Check() const {
-    CHECK_GT(num_focal_length_samples, 0);
-    CHECK_GT(min_focal_length_ratio, 0);
-    CHECK_GT(max_focal_length_ratio, 0);
-    CHECK_LT(min_focal_length_ratio, max_focal_length_ratio);
+    THROW_CHECK_GT(num_focal_length_samples, 0);
+    THROW_CHECK_GT(min_focal_length_ratio, 0);
+    THROW_CHECK_GT(max_focal_length_ratio, 0);
+    THROW_CHECK_LT(min_focal_length_ratio, max_focal_length_ratio);
     ransac_options.Check();
   }
 };
@@ -95,9 +95,9 @@ struct AbsolutePoseRefinementOptions {
   bool print_summary = true;
 
   void Check() const {
-    CHECK_GE(gradient_tolerance, 0.0);
-    CHECK_GE(max_num_iterations, 0);
-    CHECK_GE(loss_function_scale, 0.0);
+    THROW_CHECK_GE(gradient_tolerance, 0.0);
+    THROW_CHECK_GE(max_num_iterations, 0);
+    THROW_CHECK_GE(loss_function_scale, 0.0);
   }
 };
 

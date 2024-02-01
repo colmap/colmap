@@ -128,7 +128,8 @@ int RunPoissonMesher(int argc, char** argv) {
   options.AddPoissonMeshingOptions();
   options.Parse(argc, argv);
 
-  CHECK(mvs::PoissonMeshing(*options.poisson_meshing, input_path, output_path));
+  THROW_CHECK(
+      mvs::PoissonMeshing(*options.poisson_meshing, input_path, output_path));
 
   return EXIT_SUCCESS;
 }

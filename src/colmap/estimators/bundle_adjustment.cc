@@ -57,7 +57,7 @@ ceres::LossFunction* BundleAdjustmentOptions::CreateLossFunction() const {
       loss_function = new ceres::CauchyLoss(loss_function_scale);
       break;
   }
-  CHECK_NOTNULL(loss_function);
+  THROW_CHECK_NOTNULL(loss_function);
   return loss_function;
 }
 
@@ -159,8 +159,8 @@ bool BundleAdjustmentConfig::HasConstantCamIntrinsics(
 }
 
 void BundleAdjustmentConfig::SetConstantCamPose(const image_t image_id) {
-  CHECK(HasImage(image_id));
-  CHECK(!HasConstantCamPositions(image_id));
+  THROW_CHECK(HasImage(image_id));
+  THROW_CHECK(!HasConstantCamPositions(image_id));
   constant_cam_poses_.insert(image_id);
 }
 
@@ -174,11 +174,11 @@ bool BundleAdjustmentConfig::HasConstantCamPose(const image_t image_id) const {
 
 void BundleAdjustmentConfig::SetConstantCamPositions(
     const image_t image_id, const std::vector<int>& idxs) {
-  CHECK_GT(idxs.size(), 0);
-  CHECK_LE(idxs.size(), 3);
-  CHECK(HasImage(image_id));
-  CHECK(!HasConstantCamPose(image_id));
-  CHECK(!VectorContainsDuplicateValues(idxs))
+  THROW_CHECK_GT(idxs.size(), 0);
+  THROW_CHECK_LE(idxs.size(), 3);
+  THROW_CHECK(HasImage(image_id));
+  THROW_CHECK(!HasConstantCamPose(image_id));
+  THROW_CHECK(!VectorContainsDuplicateValues(idxs))
       << "Tvec indices must not contain duplicates";
   constant_cam_positions_.emplace(image_id, idxs);
 }
@@ -214,12 +214,12 @@ const std::vector<int>& BundleAdjustmentConfig::ConstantCamPositions(
 }
 
 void BundleAdjustmentConfig::AddVariablePoint(const point3D_t point3D_id) {
-  CHECK(!HasConstantPoint(point3D_id));
+  THROW_CHECK(!HasConstantPoint(point3D_id));
   variable_point3D_ids_.insert(point3D_id);
 }
 
 void BundleAdjustmentConfig::AddConstantPoint(const point3D_t point3D_id) {
-  CHECK(!HasVariablePoint(point3D_id));
+  THROW_CHECK(!HasVariablePoint(point3D_id));
   constant_point3D_ids_.insert(point3D_id);
 }
 
@@ -252,12 +252,12 @@ void BundleAdjustmentConfig::RemoveConstantPoint(const point3D_t point3D_id) {
 BundleAdjuster::BundleAdjuster(const BundleAdjustmentOptions& options,
                                const BundleAdjustmentConfig& config)
     : options_(options), config_(config) {
-  CHECK(options_.Check());
+  THROW_CHECK(options_.Check());
 }
 
 bool BundleAdjuster::Solve(Reconstruction* reconstruction) {
-  CHECK_NOTNULL(reconstruction);
-  CHECK(!problem_) << "Cannot use the same BundleAdjuster multiple times";
+  THROW_CHECK_NOTNULL(reconstruction);
+  THROW_CHECK(!problem_) << "Cannot use the same BundleAdjuster multiple times";
 
   ceres::Problem::Options problem_options;
   problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
@@ -304,7 +304,7 @@ bool BundleAdjuster::Solve(Reconstruction* reconstruction) {
   }
 
   std::string solver_error;
-  CHECK(solver_options.IsValid(&solver_error)) << solver_error;
+  THROW_CHECK(solver_options.IsValid(&solver_error)) << solver_error;
 
   ceres::Solve(solver_options, problem_.get(), &summary_);
 
@@ -517,23 +517,23 @@ RigBundleAdjuster::RigBundleAdjuster(const BundleAdjustmentOptions& options,
 
 bool RigBundleAdjuster::Solve(Reconstruction* reconstruction,
                               std::vector<CameraRig>* camera_rigs) {
-  CHECK_NOTNULL(reconstruction);
-  CHECK_NOTNULL(camera_rigs);
-  CHECK(!problem_) << "Cannot use the same BundleAdjuster multiple times";
+  THROW_CHECK_NOTNULL(reconstruction);
+  THROW_CHECK_NOTNULL(camera_rigs);
+  THROW_CHECK(!problem_) << "Cannot use the same BundleAdjuster multiple times";
 
   // Check the validity of the provided camera rigs.
   std::unordered_set<camera_t> rig_camera_ids;
   for (auto& camera_rig : *camera_rigs) {
     camera_rig.Check(*reconstruction);
     for (const auto& camera_id : camera_rig.GetCameraIds()) {
-      CHECK_EQ(rig_camera_ids.count(camera_id), 0)
+      THROW_CHECK_EQ(rig_camera_ids.count(camera_id), 0)
           << "Camera must not be part of multiple camera rigs";
       rig_camera_ids.insert(camera_id);
     }
 
     for (const auto& snapshot : camera_rig.Snapshots()) {
       for (const auto& image_id : snapshot) {
-        CHECK_EQ(image_id_to_camera_rig_.count(image_id), 0)
+        THROW_CHECK_EQ(image_id_to_camera_rig_.count(image_id), 0)
             << "Image must not be part of multiple camera rigs";
         image_id_to_camera_rig_.emplace(image_id, &camera_rig);
       }
@@ -579,7 +579,7 @@ bool RigBundleAdjuster::Solve(Reconstruction* reconstruction,
 #endif  // CERES_VERSION_MAJOR
 
   std::string solver_error;
-  CHECK(solver_options.IsValid(&solver_error)) << solver_error;
+  THROW_CHECK(solver_options.IsValid(&solver_error)) << solver_error;
 
   ceres::Solve(solver_options, problem_.get(), &summary_);
 
@@ -646,9 +646,9 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
   Eigen::Matrix3x4d cam_from_world_mat = Eigen::Matrix3x4d::Zero();
 
   if (image_id_to_camera_rig_.count(image_id) > 0) {
-    CHECK(!constant_cam_pose)
+    THROW_CHECK(!constant_cam_pose)
         << "Images contained in a camera rig must not have constant pose";
-    CHECK(!constant_cam_position)
+    THROW_CHECK(!constant_cam_position)
         << "Images contained in a camera rig must not have constant tvec";
     camera_rig = image_id_to_camera_rig_.at(image_id);
     Rigid3d& rig_from_world = *image_id_to_rig_from_world_.at(image_id);
@@ -666,7 +666,7 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
   }
 
   // Collect cameras for final parameterization.
-  CHECK(image.HasCamera());
+  THROW_CHECK(image.HasCamera());
   camera_ids_.insert(image.CameraId());
 
   // The number of added observations for the current image.

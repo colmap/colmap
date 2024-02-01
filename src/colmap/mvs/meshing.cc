@@ -121,7 +121,7 @@ bool DelaunayMeshingOptions::Check() const {
 bool PoissonMeshing(const PoissonMeshingOptions& options,
                     const std::string& input_path,
                     const std::string& output_path) {
-  CHECK(options.Check());
+  THROW_CHECK(options.Check());
 
   std::vector<std::string> args;
 
@@ -282,10 +282,10 @@ class DelaunayMeshingInput {
 
     const std::string vis_path = JoinPaths(path, "fused.ply.vis");
     std::fstream vis_file(vis_path, std::ios::in | std::ios::binary);
-    CHECK(vis_file.is_open()) << vis_path;
+    THROW_CHECK_FILE_OPEN(vis_file, vis_path);
 
     const size_t vis_num_points = ReadBinaryLittleEndian<uint64_t>(&vis_file);
-    CHECK_EQ(vis_num_points, ply_points.size());
+    THROW_CHECK_EQ(vis_num_points, ply_points.size());
 
     points.reserve(ply_points.size());
     for (const auto& ply_point : ply_points) {
@@ -315,7 +315,7 @@ class DelaunayMeshingInput {
 
   Delaunay CreateSubSampledDelaunayTriangulation(
       const float max_proj_dist, const float max_depth_dist) const {
-    CHECK_GE(max_proj_dist, 0);
+    THROW_CHECK_GE(max_proj_dist, 0);
 
     if (max_proj_dist == 0) {
       return CreateDelaunayTriangulation();
@@ -634,7 +634,7 @@ double ComputeCosFacetCellAngle(const Delaunay& triangulation,
 void WriteDelaunayTriangulationPly(const std::string& path,
                                    const Delaunay& triangulation) {
   std::fstream file(path, std::ios::out);
-  CHECK(file.is_open());
+  THROW_CHECK_FILE_OPEN(file, path);
 
   file << "ply" << std::endl;
   file << "format ascii 1.0" << std::endl;
@@ -699,7 +699,7 @@ struct DelaunayCellData {
 
 PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
                         const DelaunayMeshingInput& input_data) {
-  CHECK(options.Check());
+  THROW_CHECK(options.Check());
 
   // Create a delaunay triangulation of all input points.
   LOG(INFO) << "Triangulating points...";
@@ -825,7 +825,7 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
       }
     }
 
-    CHECK(result_queue.Push(std::move(image_cell_graph_data)));
+    THROW_CHECK(result_queue.Push(std::move(image_cell_graph_data)));
   };
 
   // Add first batch of images to the thread job queue.
@@ -855,7 +855,7 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
 
     // Pop the next results from the queue.
     auto result = result_queue.Pop();
-    CHECK(result.IsValid());
+    THROW_CHECK(result.IsValid());
 
     // Accumulate the weights of the image into the global graph.
     const auto& image_cell_graph_data = result.Data();

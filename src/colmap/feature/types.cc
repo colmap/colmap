@@ -43,7 +43,7 @@ FeatureKeypoint::FeatureKeypoint(const float x_,
                                  const float scale,
                                  const float orientation)
     : x(x_), y(y_) {
-  CHECK_GE(scale, 0.0);
+  THROW_CHECK_GE(scale, 0.0);
   const float scale_cos_orientation = scale * std::cos(orientation);
   const float scale_sin_orientation = scale * std::sin(orientation);
   a11 = scale_cos_orientation;
@@ -66,8 +66,8 @@ FeatureKeypoint FeatureKeypoint::FromShapeParameters(const float x,
                                                      const float scale_y,
                                                      const float orientation,
                                                      const float shear) {
-  CHECK_GE(scale_x, 0.0);
-  CHECK_GE(scale_y, 0.0);
+  THROW_CHECK_GE(scale_x, 0.0);
+  THROW_CHECK_GE(scale_y, 0.0);
   return FeatureKeypoint(x,
                          y,
                          scale_x * std::cos(orientation),
@@ -79,8 +79,8 @@ FeatureKeypoint FeatureKeypoint::FromShapeParameters(const float x,
 void FeatureKeypoint::Rescale(const float scale) { Rescale(scale, scale); }
 
 void FeatureKeypoint::Rescale(const float scale_x, const float scale_y) {
-  CHECK_GT(scale_x, 0);
-  CHECK_GT(scale_y, 0);
+  THROW_CHECK_GT(scale_x, 0);
+  THROW_CHECK_GT(scale_y, 0);
   x *= scale_x;
   y *= scale_y;
   a11 *= scale_x;
