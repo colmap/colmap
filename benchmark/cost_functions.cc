@@ -29,62 +29,83 @@ static ReprojErrorData CreateReprojErrorData() {
   return std::move(data);
 }
 
-static void BM_ReprojErrorCostFunction(benchmark::State& state) {
+class BM_ReprojErrorCostFunction : public benchmark::Fixture {
+ public:
+  void SetUp(::benchmark::State& state) {
+    cost_function.reset(
+        ReprojErrorCostFunction<camera_model>::Create(data.point2D));
+  }
+
   ReprojErrorData data = CreateReprojErrorData();
-  const double* parameters[] = {data.cam_from_world.rotation.coeffs().data(),
-                                data.cam_from_world.translation.data(),
-                                data.point3D.data(),
-                                data.camera_params.data()};
+  const double* parameters[4] = {data.cam_from_world.rotation.coeffs().data(),
+                                 data.cam_from_world.translation.data(),
+                                 data.point3D.data(),
+                                 data.camera_params.data()};
   double residuals[2];
   double jacobian_q[2 * 4];
   double jacobian_t[2 * 3];
   double jacobian_p[2 * 3];
   double jacobian_params[2 * camera_model::num_params];
-  double* jacobians[] = {jacobian_q, jacobian_t, jacobian_p, jacobian_params};
-  std::unique_ptr<ceres::CostFunction> cost_function(
-      ReprojErrorCostFunction<camera_model>::Create(data.point2D));
+  double* jacobians[4] = {jacobian_q, jacobian_t, jacobian_p, jacobian_params};
+  std::unique_ptr<ceres::CostFunction> cost_function;
+};
 
+BENCHMARK_F(BM_ReprojErrorCostFunction, Run)(benchmark::State& state) {
   for (auto _ : state) {
     cost_function->Evaluate(parameters, residuals, jacobians);
   }
 }
-BENCHMARK(BM_ReprojErrorCostFunction);
 
-static void BM_ReprojErrorConstantPoseCostFunction(benchmark::State& state) {
+class BM_ReprojErrorConstantPoseCostFunction : public benchmark::Fixture {
+ public:
+  void SetUp(::benchmark::State& state) {
+    cost_function.reset(
+        ReprojErrorConstantPoseCostFunction<camera_model>::Create(
+            data.cam_from_world, data.point2D));
+  }
+
   ReprojErrorData data = CreateReprojErrorData();
-  const double* parameters[] = {data.point3D.data(), data.camera_params.data()};
+  const double* parameters[2] = {data.point3D.data(),
+                                 data.camera_params.data()};
   double residuals[2];
   double jacobian_p[2 * 3];
   double jacobian_params[2 * camera_model::num_params];
-  double* jacobians[] = {jacobian_p, jacobian_params};
-  std::unique_ptr<ceres::CostFunction> cost_function(
-      ReprojErrorConstantPoseCostFunction<camera_model>::Create(
-          data.cam_from_world, data.point2D));
+  double* jacobians[2] = {jacobian_p, jacobian_params};
+  std::unique_ptr<ceres::CostFunction> cost_function;
+};
 
+BENCHMARK_F(BM_ReprojErrorConstantPoseCostFunction, Run)
+(benchmark::State& state) {
   for (auto _ : state) {
     cost_function->Evaluate(parameters, residuals, jacobians);
   }
 }
-BENCHMARK(BM_ReprojErrorConstantPoseCostFunction);
 
-static void BM_ReprojErrorConstantPoint3DCostFunction(benchmark::State& state) {
+class BM_ReprojErrorConstantPoint3DCostFunction : public benchmark::Fixture {
+ public:
+  void SetUp(::benchmark::State& state) {
+    cost_function.reset(
+        ReprojErrorConstantPoint3DCostFunction<camera_model>::Create(
+            data.point2D, data.point3D));
+  }
+
   ReprojErrorData data = CreateReprojErrorData();
-  const double* parameters[] = {data.cam_from_world.rotation.coeffs().data(),
-                                data.cam_from_world.translation.data(),
-                                data.camera_params.data()};
+  const double* parameters[3] = {data.cam_from_world.rotation.coeffs().data(),
+                                 data.cam_from_world.translation.data(),
+                                 data.camera_params.data()};
   double residuals[2];
   double jacobian_q[2 * 4];
   double jacobian_t[2 * 3];
   double jacobian_params[2 * camera_model::num_params];
-  double* jacobians[] = {jacobian_q, jacobian_t, jacobian_params};
-  std::unique_ptr<ceres::CostFunction> cost_function(
-      ReprojErrorConstantPoint3DCostFunction<camera_model>::Create(
-          data.point2D, data.point3D));
+  double* jacobians[3] = {jacobian_q, jacobian_t, jacobian_params};
+  std::unique_ptr<ceres::CostFunction> cost_function;
+};
 
+BENCHMARK_F(BM_ReprojErrorConstantPoint3DCostFunction, Run)
+(benchmark::State& state) {
   for (auto _ : state) {
     cost_function->Evaluate(parameters, residuals, jacobians);
   }
 }
-BENCHMARK(BM_ReprojErrorConstantPoint3DCostFunction);
 
 BENCHMARK_MAIN();
