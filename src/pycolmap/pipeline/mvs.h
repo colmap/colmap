@@ -76,8 +76,6 @@ Reconstruction StereoFusion(const std::string& output_path,
   if (ExistsDir(output_path)) {
     reconstruction.WriteBinary(output_path);
   } else {
-    THROW_CHECK_HAS_FILE_EXTENSION(output_path, ".ply");
-    THROW_CHECK_PATH_OPEN(output_path);
     WriteBinaryPlyPoints(output_path, fuser.GetFusedPoints());
     mvs::WritePointsVisibility(output_path + ".vis",
                                fuser.GetFusedPointsVisibility());

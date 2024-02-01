@@ -35,8 +35,7 @@ class Sift {
       : options_(std::move(options)), use_gpu_(IsGPU(device)) {
     VerifyGPUParams(use_gpu_);
     options_.use_gpu = use_gpu_;
-    extractor_ = CreateSiftFeatureExtractor(options_);
-    THROW_CHECK(extractor_ != nullptr);
+    extractor_ = THROW_CHECK_NOTNULL(CreateSiftFeatureExtractor(options_));
   }
 
   sift_output_t Extract(const Eigen::Ref<const pyimage_t<uint8_t>>& image) {
