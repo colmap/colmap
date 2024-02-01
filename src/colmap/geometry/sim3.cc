@@ -37,7 +37,7 @@ namespace colmap {
 
 void Sim3d::ToFile(const std::string& path) const {
   std::ofstream file(path, std::ios::trunc);
-  CHECK(file.good()) << path;
+  THROW_CHECK(file.good()) << path;
   // Ensure that we don't loose any precision by storing in text.
   file.precision(17);
   file << scale << " " << rotation.w() << " " << rotation.x() << " "
@@ -47,7 +47,7 @@ void Sim3d::ToFile(const std::string& path) const {
 
 Sim3d Sim3d::FromFile(const std::string& path) {
   std::ifstream file(path);
-  CHECK(file.good()) << path;
+  THROW_CHECK(file.good()) << path;
   Sim3d t;
   file >> t.scale;
   file >> t.rotation.w();

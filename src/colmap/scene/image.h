@@ -219,7 +219,7 @@ void Image::SetName(const std::string& name) { name_ = name; }
 inline camera_t Image::CameraId() const { return camera_id_; }
 
 inline void Image::SetCameraId(const camera_t camera_id) {
-  CHECK_NE(camera_id, kInvalidCameraId);
+  THROW_CHECK_NE(camera_id, kInvalidCameraId);
   camera_id_ = camera_id;
 }
 

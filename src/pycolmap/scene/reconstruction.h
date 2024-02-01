@@ -2,11 +2,10 @@
 
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sensor/models.h"
+#include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/ply.h"
 #include "colmap/util/types.h"
-
-#include "pycolmap/log_exceptions.h"
 
 #include <memory>
 #include <sstream>
@@ -36,32 +35,11 @@ bool ExistsReconstruction(const std::string& path) {
   return (ExistsReconstructionText(path) || ExistsReconstructionBinary(path));
 }
 
-#define THROW_CHECK_RECONSTRUCTION_TEXT_EXISTS(input_path)                 \
-  THROW_CUSTOM_CHECK_MSG(                                                  \
-      ExistsReconstructionText(input_path),                                \
-      std::invalid_argument,                                               \
-      std::string("cameras.txt, images.txt, points3D.txt not found at ") + \
-          (input_path));
-
-#define THROW_CHECK_RECONSTRUCTION_BIN_EXISTS(input_path)                  \
-  THROW_CUSTOM_CHECK_MSG(                                                  \
-      ExistsReconstructionBinary(input_path),                              \
-      std::invalid_argument,                                               \
-      std::string("cameras.bin, images.bin, points3D.bin not found at ") + \
-          (input_path));
-
-#define THROW_CHECK_RECONSTRUCTION_EXISTS(input_path) \
-  THROW_CUSTOM_CHECK_MSG(                             \
-      ExistsReconstruction(input_path),               \
-      std::invalid_argument,                          \
-      std::string("cameras, images, points3D not found at ") + (input_path));
-
 void BindReconstruction(py::module& m) {
   py::class_<Reconstruction, std::shared_ptr<Reconstruction>>(m,
                                                               "Reconstruction")
       .def(py::init<>())
       .def(py::init([](const std::string& path) {
-             THROW_CHECK_RECONSTRUCTION_EXISTS(path);
              auto reconstruction = std::make_shared<Reconstruction>();
              reconstruction->Read(path);
              return reconstruction;
@@ -70,7 +48,6 @@ void BindReconstruction(py::module& m) {
       .def(
           "read",
           [](Reconstruction& self, const std::string& path) {
-            THROW_CHECK_RECONSTRUCTION_EXISTS(path);
             self.Read(path);
           },
           "sfm_dir"_a,
@@ -85,12 +62,10 @@ void BindReconstruction(py::module& m) {
           "Write reconstruction in COLMAP binary format.")
       .def("read_text",
            [](Reconstruction& self, const std::string& input_path) {
-             THROW_CHECK_RECONSTRUCTION_TEXT_EXISTS(input_path);
              self.ReadText(input_path);
            })
       .def("read_binary",
            [](Reconstruction& self, const std::string& input_path) {
-             THROW_CHECK_RECONSTRUCTION_BIN_EXISTS(input_path);
              self.ReadBinary(input_path);
            })
       .def("write_text",
@@ -265,7 +240,7 @@ void BindReconstruction(py::module& m) {
              const std::string& path,
              const bool skip_distortion) {
             THROW_CHECK_HAS_FILE_EXTENSION(path, ".nvm");
-            THROW_CHECK_FILE_OPEN(path);
+            THROW_CHECK_PATH_OPEN(path);
             self.ExportNVM(path, skip_distortion);
           },
           "output_path"_a,
@@ -316,8 +291,8 @@ void BindReconstruction(py::module& m) {
              const bool skip_distortion) {
             THROW_CHECK_HAS_FILE_EXTENSION(path, ".out");
             THROW_CHECK_HAS_FILE_EXTENSION(list_path, ".txt");
-            THROW_CHECK_FILE_OPEN(path);
-            THROW_CHECK_FILE_OPEN(list_path);
+            THROW_CHECK_PATH_OPEN(path);
+            THROW_CHECK_PATH_OPEN(list_path);
             self.ExportBundler(path, list_path, skip_distortion);
           },
           "output_path"_a,
@@ -337,7 +312,7 @@ void BindReconstruction(py::module& m) {
           "export_PLY",
           [](const Reconstruction& self, const std::string& path) {
             THROW_CHECK_HAS_FILE_EXTENSION(path, ".ply");
-            THROW_CHECK_FILE_OPEN(path);
+            THROW_CHECK_PATH_OPEN(path);
             self.ExportPLY(path);
           },
           "output_path"_a,
@@ -349,8 +324,8 @@ void BindReconstruction(py::module& m) {
              const std::string& points3D_path,
              const double image_scale,
              const Eigen::Vector3d& image_rgb) {
-            THROW_CHECK_FILE_OPEN(images_path);
-            THROW_CHECK_FILE_OPEN(points3D_path);
+            THROW_CHECK_PATH_OPEN(images_path);
+            THROW_CHECK_PATH_OPEN(points3D_path);
             THROW_CHECK_HAS_FILE_EXTENSION(images_path, ".wrl");
             THROW_CHECK_HAS_FILE_EXTENSION(points3D_path, ".wrl");
             self.ExportVRML(images_path, points3D_path, image_scale, image_rgb);
@@ -394,17 +369,17 @@ void BindReconstruction(py::module& m) {
               for (auto& track_el : p3D.track.Elements()) {
                 image_t image_id = track_el.image_id;
                 point2D_t point2D_idx = track_el.point2D_idx;
-                THROW_CHECK_MSG(self.ExistsImage(image_id), image_id);
-                THROW_CHECK_MSG(self.IsImageRegistered(image_id), image_id);
+                THROW_CHECK(self.ExistsImage(image_id)) << image_id;
+                THROW_CHECK(self.IsImageRegistered(image_id)) << image_id;
                 const Image& image = self.Image(image_id);
                 THROW_CHECK(image.IsRegistered());
-                THROW_CHECK_EQ(image.Point2D(point2D_idx).point3D_id, p3Did)
+                THROW_CHECK_EQ(image.Point2D(point2D_idx).point3D_id, p3Did);
               }
             }
             for (auto& image_id : self.RegImageIds()) {
-              THROW_CHECK_MSG(self.Image(image_id).HasCamera(), image_id);
+              THROW_CHECK(self.Image(image_id).HasCamera()) << image_id;
               camera_t camera_id = self.Image(image_id).CameraId();
-              THROW_CHECK_MSG(self.ExistsCamera(camera_id), camera_id);
+              THROW_CHECK(self.ExistsCamera(camera_id)) << camera_id;
             }
           },
           "Check if current reconstruction is well formed.")

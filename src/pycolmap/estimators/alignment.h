@@ -4,8 +4,7 @@
 #include "colmap/exe/model.h"
 #include "colmap/geometry/sim3.h"
 #include "colmap/scene/reconstruction.h"
-
-#include "pycolmap/log_exceptions.h"
+#include "colmap/util/logging.h"
 
 #include <pybind11/eigen.h>
 #include <pybind11/pybind11.h>
@@ -124,16 +123,17 @@ void BindAlignmentEstimator(py::module& m) {
          double max_proj_center_error) {
         std::vector<ImageAlignmentError> errors;
         Sim3d rec2_from_rec1;
-        THROW_CUSTOM_CHECK_MSG(CompareModels(reconstruction1,
-                                             reconstruction2,
-                                             alignment_error,
-                                             min_inlier_observations,
-                                             max_reproj_error,
-                                             max_proj_center_error,
-                                             errors,
-                                             rec2_from_rec1),
-                               std::runtime_error,
-                               "=> Reconstruction alignment failed.");
+        if (!CompareModels(reconstruction1,
+                           reconstruction2,
+                           alignment_error,
+                           min_inlier_observations,
+                           max_reproj_error,
+                           max_proj_center_error,
+                           errors,
+                           rec2_from_rec1)) {
+          LOG_FATAL_THROW(std::runtime_error)
+              << "Reconstruction alignment failed.";
+        }
         return py::dict("rec2_from_rec1"_a = rec2_from_rec1,
                         "errors"_a = errors);
       },

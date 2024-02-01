@@ -29,18 +29,19 @@
 
 #include "colmap/util/testing.h"
 
+#include "colmap/util/logging.h"
+
 #include <mutex>
 #include <set>
 
 #include <boost/filesystem.hpp>
-#include <glog/logging.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
 
 std::string CreateTestDir() {
-  const testing::TestInfo* test_info =
-      CHECK_NOTNULL(testing::UnitTest::GetInstance()->current_test_info());
+  const testing::TestInfo* test_info = THROW_CHECK_NOTNULL(
+      testing::UnitTest::GetInstance()->current_test_info());
   std::ostringstream test_name_stream;
   test_name_stream << test_info->test_suite_name() << "." << test_info->name();
   const std::string test_name = test_name_stream.str();

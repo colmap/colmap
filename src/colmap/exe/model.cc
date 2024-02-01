@@ -89,7 +89,7 @@ void WriteBoundingBox(const std::string& reconstruction_path,
     const std::string path =
         JoinPaths(reconstruction_path, "bbox_aligned" + suffix + ".txt");
     std::ofstream file(path, std::ios::trunc);
-    CHECK(file.is_open()) << path;
+    THROW_CHECK_FILE_OPEN(file, path);
 
     // Ensure that we don't loose any precision by storing in text.
     file.precision(17);
@@ -101,7 +101,7 @@ void WriteBoundingBox(const std::string& reconstruction_path,
     const std::string path =
         JoinPaths(reconstruction_path, "bbox_oriented" + suffix + ".txt");
     std::ofstream file(path, std::ios::trunc);
-    CHECK(file.is_open()) << path;
+    THROW_CHECK_FILE_OPEN(file, path);
 
     // Ensure that we don't loose any precision by storing in text.
     file.precision(17);
@@ -174,7 +174,7 @@ void ReadDatabaseCameraLocations(const std::string& database_path,
 void WriteComparisonErrorsCSV(const std::string& path,
                               const std::vector<ImageAlignmentError>& errors) {
   std::ofstream file(path, std::ios::trunc);
-  CHECK(file.is_open()) << path;
+  THROW_CHECK_FILE_OPEN(file, path);
 
   file.precision(17);
   file << "# Model comparison pose errors: one entry per common image\n";
@@ -510,7 +510,7 @@ int RunModelComparer(int argc, char** argv) {
     const std::string summary_path =
         JoinPaths(output_path, "errors_summary.txt");
     std::ofstream file(summary_path, std::ios::trunc);
-    CHECK(file.is_open()) << summary_path;
+    THROW_CHECK_FILE_OPEN(file, summary_path);
     PrintComparisonSummary(file, errors);
   }
   return EXIT_SUCCESS;
@@ -792,7 +792,7 @@ int RunModelOrientationAligner(int argc, char** argv) {
     new_from_old_world.rotation = Eigen::Quaterniond::FromTwoVectors(
         gravity_axis, Eigen::Vector3d(0, 1, 0));
   } else {
-    LOG(FATAL) << "Alignment method not supported";
+    LOG(FATAL_THROW) << "Alignment method not supported";
   }
 
   LOG(INFO) << "Using the rotation matrix:";
@@ -872,7 +872,7 @@ int RunModelSplitter(int argc, char** argv) {
   StringToLower(&split_type);
   if (split_type == "tiles") {
     std::ifstream file(split_params);
-    CHECK(file.is_open()) << split_params;
+    THROW_CHECK_FILE_OPEN(file, split_params);
 
     double x1, y1, z1, x2, y2, z2;
     std::string tile_key;

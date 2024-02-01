@@ -2,11 +2,11 @@
 
 #include "colmap/geometry/rigid3.h"
 #include "colmap/scene/image.h"
+#include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/types.h"
 
 #include "pycolmap/helpers.h"
-#include "pycolmap/log_exceptions.h"
 
 #include <memory>
 #include <sstream>
@@ -119,7 +119,7 @@ void BindImage(py::module& m) {
           "points2D",
           py::overload_cast<>(&Image::Points2D),
           [](Image& self, const std::vector<struct Point2D>& points2D) {
-            THROW_CUSTOM_CHECK(!points2D.empty(), std::invalid_argument);
+            THROW_CHECK(!points2D.empty());
             self.SetPoints2D(points2D);
           },
           "Array of Points2D (=keypoints).")

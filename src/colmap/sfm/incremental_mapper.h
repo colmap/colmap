@@ -42,12 +42,12 @@ namespace colmap {
 //
 //  IncrementalMapper mapper(&database_cache);
 //  mapper.BeginReconstruction(&reconstruction);
-//  CHECK(mapper.FindInitialImagePair(options, image_id1, image_id2));
-//  CHECK(mapper.RegisterInitialImagePair(options, image_id1, image_id2));
+//  THROW_CHECK(mapper.FindInitialImagePair(options, image_id1, image_id2));
+//  THROW_CHECK(mapper.RegisterInitialImagePair(options, image_id1, image_id2));
 //  while (...) {
 //    const auto next_image_ids = mapper.FindNextImages(options);
 //    for (const auto image_id : next_image_ids) {
-//      CHECK(mapper.RegisterNextImage(options, image_id));
+//      THROW_CHECK(mapper.RegisterNextImage(options, image_id));
 //      if (...) {
 //        mapper.AdjustLocalBundle(...);
 //      } else {

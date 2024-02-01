@@ -35,7 +35,7 @@ namespace {
 class GlogSink : public google::LogSink {
  public:
   explicit GlogSink(LogWidget* log_widget)
-      : log_widget_(CHECK_NOTNULL(log_widget)) {
+      : log_widget_(THROW_CHECK_NOTNULL(log_widget)) {
     google::AddLogSink(this);
   }
 

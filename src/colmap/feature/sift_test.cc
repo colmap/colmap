@@ -557,7 +557,7 @@ TEST(MatchSiftFeaturesGPU, Nominal) {
       SiftMatchingOptions options;
       options.use_gpu = true;
       options.max_num_matches = 1000;
-      auto matcher = CHECK_NOTNULL(CreateSiftFeatureMatcher(options));
+      auto matcher = THROW_CHECK_NOTNULL(CreateSiftFeatureMatcher(options));
 
       const auto empty_descriptors =
           std::make_shared<FeatureDescriptors>(0, 128);
@@ -628,7 +628,7 @@ TEST(MatchSiftFeaturesCPUvsGPU, Nominal) {
         custom_options.use_gpu = true;
         custom_options.max_num_matches = 1000;
         auto gpu_matcher =
-            CHECK_NOTNULL(CreateSiftFeatureMatcher(custom_options));
+            THROW_CHECK_NOTNULL(CreateSiftFeatureMatcher(custom_options));
         custom_options.use_gpu = false;
         auto cpu_matcher = CreateSiftFeatureMatcher(custom_options);
 
@@ -752,7 +752,7 @@ TEST(MatchGuidedSiftFeaturesGPU, Nominal) {
       SiftMatchingOptions options;
       options.use_gpu = true;
       options.max_num_matches = 1000;
-      auto matcher = CHECK_NOTNULL(CreateSiftFeatureMatcher(options));
+      auto matcher = THROW_CHECK_NOTNULL(CreateSiftFeatureMatcher(options));
 
       auto empty_keypoints = std::make_shared<FeatureKeypoints>(0);
       auto keypoints1 = std::make_shared<FeatureKeypoints>(2);

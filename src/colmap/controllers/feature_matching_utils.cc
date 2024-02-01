@@ -43,7 +43,7 @@ namespace colmap {
 FeatureMatcherCache::FeatureMatcherCache(const size_t cache_size,
                                          const Database* database)
     : cache_size_(cache_size), database_(database) {
-  CHECK_NOTNULL(database_);
+  THROW_CHECK_NOTNULL(database_);
 }
 
 void FeatureMatcherCache::Setup() {
@@ -179,7 +179,7 @@ FeatureMatcherWorker::FeatureMatcherWorker(
       cache_(cache),
       input_queue_(input_queue),
       output_queue_(output_queue) {
-  CHECK(matching_options_.Check());
+  THROW_CHECK(matching_options_.Check());
 
   prev_keypoints_image_ids_[0] = kInvalidImageId;
   prev_keypoints_image_ids_[1] = kInvalidImageId;
@@ -200,8 +200,8 @@ void FeatureMatcherWorker::SetMaxNumMatches(int max_num_matches) {
 void FeatureMatcherWorker::Run() {
   if (matching_options_.use_gpu) {
 #if !defined(COLMAP_CUDA_ENABLED)
-    CHECK(opengl_context_);
-    CHECK(opengl_context_->MakeCurrent());
+    THROW_CHECK_NOTNULL(opengl_context_);
+    THROW_CHECK(opengl_context_->MakeCurrent());
 #endif
   }
 
@@ -226,7 +226,7 @@ void FeatureMatcherWorker::Run() {
 
       if (!cache_->ExistsDescriptors(data.image_id1) ||
           !cache_->ExistsDescriptors(data.image_id2)) {
-        CHECK(output_queue_->Push(std::move(data)));
+        THROW_CHECK(output_queue_->Push(std::move(data)));
         continue;
       }
 
@@ -243,15 +243,15 @@ void FeatureMatcherWorker::Run() {
                        &data.matches);
       }
 
-      CHECK(output_queue_->Push(std::move(data)));
+      THROW_CHECK(output_queue_->Push(std::move(data)));
     }
   }
 }
 
 std::shared_ptr<FeatureKeypoints> FeatureMatcherWorker::GetKeypointsPtr(
     const int index, const image_t image_id) {
-  CHECK_GE(index, 0);
-  CHECK_LE(index, 1);
+  THROW_CHECK_GE(index, 0);
+  THROW_CHECK_LE(index, 1);
   if (prev_keypoints_image_ids_[index] == image_id) {
     return nullptr;
   } else {
@@ -263,8 +263,8 @@ std::shared_ptr<FeatureKeypoints> FeatureMatcherWorker::GetKeypointsPtr(
 
 std::shared_ptr<FeatureDescriptors> FeatureMatcherWorker::GetDescriptorsPtr(
     const int index, const image_t image_id) {
-  CHECK_GE(index, 0);
-  CHECK_LE(index, 1);
+  THROW_CHECK_GE(index, 0);
+  THROW_CHECK_LE(index, 1);
   if (prev_descriptors_image_ids_[index] == image_id) {
     return nullptr;
   } else {
@@ -289,7 +289,7 @@ class VerifierWorker : public Thread {
         cache_(cache),
         input_queue_(input_queue),
         output_queue_(output_queue) {
-    CHECK(options_.Check());
+    THROW_CHECK(options_.Check());
   }
 
  protected:
@@ -305,7 +305,7 @@ class VerifierWorker : public Thread {
 
         if (data.matches.size() <
             static_cast<size_t>(options_.min_num_inliers)) {
-          CHECK(output_queue_->Push(std::move(data)));
+          THROW_CHECK(output_queue_->Push(std::move(data)));
           continue;
         }
 
@@ -323,7 +323,7 @@ class VerifierWorker : public Thread {
         data.two_view_geometry = EstimateTwoViewGeometry(
             camera1, points1, camera2, points2, data.matches, options_);
 
-        CHECK(output_queue_->Push(std::move(data)));
+        THROW_CHECK(output_queue_->Push(std::move(data)));
       }
     }
   }
@@ -347,20 +347,20 @@ FeatureMatcherController::FeatureMatcherController(
       database_(database),
       cache_(cache),
       is_setup_(false) {
-  CHECK(matching_options_.Check());
-  CHECK(geometry_options_.Check());
+  THROW_CHECK(matching_options_.Check());
+  THROW_CHECK(geometry_options_.Check());
 
   const int num_threads = GetEffectiveNumThreads(matching_options_.num_threads);
-  CHECK_GT(num_threads, 0);
+  THROW_CHECK_GT(num_threads, 0);
 
   std::vector<int> gpu_indices = CSVToVector<int>(matching_options_.gpu_index);
-  CHECK_GT(gpu_indices.size(), 0);
+  THROW_CHECK_GT(gpu_indices.size(), 0);
 
 #if defined(COLMAP_CUDA_ENABLED)
   if (matching_options_.use_gpu && gpu_indices.size() == 1 &&
       gpu_indices[0] == -1) {
     const int num_cuda_devices = GetNumCudaDevices();
-    CHECK_GT(num_cuda_devices, 0);
+    THROW_CHECK_GT(num_cuda_devices, 0);
     gpu_indices.resize(num_cuda_devices);
     std::iota(gpu_indices.begin(), gpu_indices.end(), 0);
   }
@@ -473,7 +473,8 @@ FeatureMatcherController::~FeatureMatcherController() {
 bool FeatureMatcherController::Setup() {
   // Minimize the amount of allocated GPU memory by computing the maximum number
   // of descriptors for any image over the whole database.
-  const int max_num_features = CHECK_NOTNULL(database_)->MaxNumKeypoints();
+  const int max_num_features =
+      THROW_CHECK_NOTNULL(database_)->MaxNumKeypoints();
   matching_options_.max_num_matches =
       std::min(matching_options_.max_num_matches, max_num_features);
 
@@ -510,9 +511,9 @@ bool FeatureMatcherController::Setup() {
 
 void FeatureMatcherController::Match(
     const std::vector<std::pair<image_t, image_t>>& image_pairs) {
-  CHECK_NOTNULL(database_);
-  CHECK_NOTNULL(cache_);
-  CHECK(is_setup_);
+  THROW_CHECK_NOTNULL(database_);
+  THROW_CHECK_NOTNULL(cache_);
+  THROW_CHECK(is_setup_);
 
   if (image_pairs.empty()) {
     return;
@@ -568,9 +569,9 @@ void FeatureMatcherController::Match(
     if (exists_matches) {
       data.matches = cache_->GetMatches(image_pair.first, image_pair.second);
       cache_->DeleteMatches(image_pair.first, image_pair.second);
-      CHECK(verifier_queue_.Push(std::move(data)));
+      THROW_CHECK(verifier_queue_.Push(std::move(data)));
     } else {
-      CHECK(matcher_queue_.Push(std::move(data)));
+      THROW_CHECK(matcher_queue_.Push(std::move(data)));
     }
   }
 
@@ -580,7 +581,7 @@ void FeatureMatcherController::Match(
 
   for (size_t i = 0; i < num_outputs; ++i) {
     auto output_job = output_queue_.Pop();
-    CHECK(output_job.IsValid());
+    THROW_CHECK(output_job.IsValid());
     auto& output = output_job.Data();
 
     if (output.matches.size() <
@@ -598,7 +599,7 @@ void FeatureMatcherController::Match(
         output.image_id1, output.image_id2, output.two_view_geometry);
   }
 
-  CHECK_EQ(output_queue_.Size(), 0);
+  THROW_CHECK_EQ(output_queue_.Size(), 0);
 }
 
 }  // namespace colmap

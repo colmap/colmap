@@ -107,7 +107,7 @@ IncrementalMapper::IncrementalMapper(
 
 void IncrementalMapper::BeginReconstruction(
     const std::shared_ptr<Reconstruction>& reconstruction) {
-  CHECK(reconstruction_ == nullptr);
+  THROW_CHECK(reconstruction_ == nullptr);
   reconstruction_ = reconstruction;
   reconstruction_->Load(*database_cache_);
   reconstruction_->SetUp(database_cache_->CorrespondenceGraph());
@@ -132,7 +132,7 @@ void IncrementalMapper::BeginReconstruction(
 }
 
 void IncrementalMapper::EndReconstruction(const bool discard) {
-  CHECK_NOTNULL(reconstruction_);
+  THROW_CHECK_NOTNULL(reconstruction_);
 
   if (discard) {
     for (const image_t image_id : reconstruction_->RegImageIds()) {
@@ -148,7 +148,7 @@ void IncrementalMapper::EndReconstruction(const bool discard) {
 bool IncrementalMapper::FindInitialImagePair(const Options& options,
                                              image_t* image_id1,
                                              image_t* image_id2) {
-  CHECK(options.Check());
+  THROW_CHECK(options.Check());
 
   std::vector<image_t> image_ids1;
   if (*image_id1 != kInvalidImageId && *image_id2 == kInvalidImageId) {
@@ -202,8 +202,8 @@ bool IncrementalMapper::FindInitialImagePair(const Options& options,
 }
 
 std::vector<image_t> IncrementalMapper::FindNextImages(const Options& options) {
-  CHECK_NOTNULL(reconstruction_);
-  CHECK(options.Check());
+  THROW_CHECK_NOTNULL(reconstruction_);
+  THROW_CHECK(options.Check());
 
   std::function<float(const Image&)> rank_image_func;
   switch (options.image_selection_method) {
@@ -260,10 +260,10 @@ std::vector<image_t> IncrementalMapper::FindNextImages(const Options& options) {
 bool IncrementalMapper::RegisterInitialImagePair(const Options& options,
                                                  const image_t image_id1,
                                                  const image_t image_id2) {
-  CHECK_NOTNULL(reconstruction_);
-  CHECK_EQ(reconstruction_->NumRegImages(), 0);
+  THROW_CHECK_NOTNULL(reconstruction_);
+  THROW_CHECK_EQ(reconstruction_->NumRegImages(), 0);
 
-  CHECK(options.Check());
+  THROW_CHECK(options.Check());
 
   init_num_reg_trials_[image_id1] += 1;
   init_num_reg_trials_[image_id2] += 1;
@@ -341,15 +341,16 @@ bool IncrementalMapper::RegisterInitialImagePair(const Options& options,
 
 bool IncrementalMapper::RegisterNextImage(const Options& options,
                                           const image_t image_id) {
-  CHECK_NOTNULL(reconstruction_);
-  CHECK_GE(reconstruction_->NumRegImages(), 2);
+  THROW_CHECK_NOTNULL(reconstruction_);
+  THROW_CHECK_GE(reconstruction_->NumRegImages(), 2);
 
-  CHECK(options.Check());
+  THROW_CHECK(options.Check());
 
   Image& image = reconstruction_->Image(image_id);
   Camera& camera = reconstruction_->Camera(image.CameraId());
 
-  CHECK(!image.IsRegistered()) << "Image cannot be registered multiple times";
+  THROW_CHECK(!image.IsRegistered())
+      << "Image cannot be registered multiple times";
 
   num_reg_trials_[image_id] += 1;
 
@@ -537,25 +538,25 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
 size_t IncrementalMapper::TriangulateImage(
     const IncrementalTriangulator::Options& tri_options,
     const image_t image_id) {
-  CHECK_NOTNULL(reconstruction_);
+  THROW_CHECK_NOTNULL(reconstruction_);
   return triangulator_->TriangulateImage(tri_options, image_id);
 }
 
 size_t IncrementalMapper::Retriangulate(
     const IncrementalTriangulator::Options& tri_options) {
-  CHECK_NOTNULL(reconstruction_);
+  THROW_CHECK_NOTNULL(reconstruction_);
   return triangulator_->Retriangulate(tri_options);
 }
 
 size_t IncrementalMapper::CompleteTracks(
     const IncrementalTriangulator::Options& tri_options) {
-  CHECK_NOTNULL(reconstruction_);
+  THROW_CHECK_NOTNULL(reconstruction_);
   return triangulator_->CompleteAllTracks(tri_options);
 }
 
 size_t IncrementalMapper::MergeTracks(
     const IncrementalTriangulator::Options& tri_options) {
-  CHECK_NOTNULL(reconstruction_);
+  THROW_CHECK_NOTNULL(reconstruction_);
   return triangulator_->MergeAllTracks(tri_options);
 }
 
@@ -566,8 +567,8 @@ IncrementalMapper::AdjustLocalBundle(
     const IncrementalTriangulator::Options& tri_options,
     const image_t image_id,
     const std::unordered_set<point3D_t>& point3D_ids) {
-  CHECK_NOTNULL(reconstruction_);
-  CHECK(options.Check());
+  THROW_CHECK_NOTNULL(reconstruction_);
+  THROW_CHECK(options.Check());
 
   LocalBundleAdjustmentReport report;
 
@@ -677,13 +678,13 @@ IncrementalMapper::AdjustLocalBundle(
 
 bool IncrementalMapper::AdjustGlobalBundle(
     const Options& options, const BundleAdjustmentOptions& ba_options) {
-  CHECK_NOTNULL(reconstruction_);
+  THROW_CHECK_NOTNULL(reconstruction_);
 
   const std::vector<image_t>& reg_image_ids = reconstruction_->RegImageIds();
 
-  CHECK_GE(reg_image_ids.size(), 2) << "At least two images must be "
-                                       "registered for global "
-                                       "bundle-adjustment";
+  THROW_CHECK_GE(reg_image_ids.size(), 2) << "At least two images must be "
+                                             "registered for global "
+                                             "bundle-adjustment";
 
   // Avoid degeneracies in bundle adjustment.
   reconstruction_->FilterObservationsWithNegativeDepth();
@@ -724,8 +725,8 @@ bool IncrementalMapper::AdjustGlobalBundle(
 }
 
 size_t IncrementalMapper::FilterImages(const Options& options) {
-  CHECK_NOTNULL(reconstruction_);
-  CHECK(options.Check());
+  THROW_CHECK_NOTNULL(reconstruction_);
+  THROW_CHECK(options.Check());
 
   // Do not filter images in the early stage of the reconstruction, since the
   // calibration is often still refining a lot. Hence, the camera parameters
@@ -749,14 +750,14 @@ size_t IncrementalMapper::FilterImages(const Options& options) {
 }
 
 size_t IncrementalMapper::FilterPoints(const Options& options) {
-  CHECK_NOTNULL(reconstruction_);
-  CHECK(options.Check());
+  THROW_CHECK_NOTNULL(reconstruction_);
+  THROW_CHECK(options.Check());
   return reconstruction_->FilterAllPoints3D(options.filter_max_reproj_error,
                                             options.filter_min_tri_angle);
 }
 
 const Reconstruction& IncrementalMapper::GetReconstruction() const {
-  CHECK_NOTNULL(reconstruction_);
+  THROW_CHECK_NOTNULL(reconstruction_);
   return *reconstruction_;
 }
 
@@ -921,10 +922,10 @@ std::vector<image_t> IncrementalMapper::FindSecondInitialImage(
 
 std::vector<image_t> IncrementalMapper::FindLocalBundle(
     const Options& options, const image_t image_id) const {
-  CHECK(options.Check());
+  THROW_CHECK(options.Check());
 
   const Image& image = reconstruction_->Image(image_id);
-  CHECK(image.IsRegistered());
+  THROW_CHECK(image.IsRegistered());
 
   // Extract all images that have at least one 3D point with the query image
   // in common, and simultaneously count the number of common 3D points.
@@ -1108,7 +1109,7 @@ void IncrementalMapper::DeRegisterImageEvent(const image_t image_id) {
   const Image& image = reconstruction_->Image(image_id);
   size_t& num_reg_images_for_camera =
       num_reg_images_per_camera_.at(image.CameraId());
-  CHECK_GT(num_reg_images_for_camera, 0);
+  THROW_CHECK_GT(num_reg_images_for_camera, 0);
   num_reg_images_for_camera -= 1;
 
   size_t& num_regs_for_image = num_registrations_[image_id];

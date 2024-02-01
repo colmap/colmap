@@ -209,8 +209,8 @@ void InvertedFile<kEmbeddingDim>::AddEntry(const int image_id,
                                            typename DescType::Index feature_idx,
                                            const DescType& descriptor,
                                            const GeomType& geometry) {
-  CHECK_GE(image_id, 0);
-  CHECK_EQ(descriptor.size(), kEmbeddingDim);
+  THROW_CHECK_GE(image_id, 0);
+  THROW_CHECK_EQ(descriptor.size(), kEmbeddingDim);
   EntryType entry;
   entry.image_id = image_id;
   entry.feature_idx = feature_idx;
@@ -248,7 +248,7 @@ template <int kEmbeddingDim>
 void InvertedFile<kEmbeddingDim>::ConvertToBinaryDescriptor(
     const DescType& descriptor,
     std::bitset<kEmbeddingDim>* binary_descriptor) const {
-  CHECK_EQ(descriptor.size(), kEmbeddingDim);
+  THROW_CHECK_EQ(descriptor.size(), kEmbeddingDim);
   for (int i = 0; i < kEmbeddingDim; ++i) {
     (*binary_descriptor)[i] = descriptor[i] > thresholds_[i];
   }
@@ -294,7 +294,7 @@ void InvertedFile<kEmbeddingDim>::ComputeHammingEmbedding(
 template <int kEmbeddingDim>
 void InvertedFile<kEmbeddingDim>::ScoreFeature(
     const DescType& descriptor, std::vector<ImageScore>* image_scores) const {
-  CHECK_EQ(descriptor.size(), kEmbeddingDim);
+  THROW_CHECK_EQ(descriptor.size(), kEmbeddingDim);
 
   image_scores->clear();
 
@@ -374,7 +374,7 @@ void InvertedFile<kEmbeddingDim>::ComputeImageSelfSimilarities(
 
 template <int kEmbeddingDim>
 void InvertedFile<kEmbeddingDim>::Read(std::ifstream* ifs) {
-  CHECK(ifs->is_open());
+  THROW_CHECK(ifs->is_open());
 
   ifs->read(reinterpret_cast<char*>(&status_), sizeof(uint8_t));
   ifs->read(reinterpret_cast<char*>(&idf_weight_), sizeof(float));
@@ -394,7 +394,7 @@ void InvertedFile<kEmbeddingDim>::Read(std::ifstream* ifs) {
 
 template <int kEmbeddingDim>
 void InvertedFile<kEmbeddingDim>::Write(std::ofstream* ofs) const {
-  CHECK(ofs->is_open());
+  THROW_CHECK(ofs->is_open());
 
   ofs->write(reinterpret_cast<const char*>(&status_), sizeof(uint8_t));
   ofs->write(reinterpret_cast<const char*>(&idf_weight_), sizeof(float));

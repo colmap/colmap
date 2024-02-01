@@ -82,8 +82,8 @@ void Sampler::SampleX(const X_t& X, X_t* X_rand) {
 
 template <typename X_t, typename Y_t>
 void Sampler::SampleXY(const X_t& X, const Y_t& Y, X_t* X_rand, Y_t* Y_rand) {
-  CHECK_EQ(X.size(), Y.size());
-  CHECK_EQ(X_rand->size(), Y_rand->size());
+  THROW_CHECK_EQ(X.size(), Y.size());
+  THROW_CHECK_EQ(X_rand->size(), Y_rand->size());
   thread_local std::vector<size_t> sampled_idxs;
   Sample(&sampled_idxs);
   for (size_t i = 0; i < X_rand->size(); ++i) {

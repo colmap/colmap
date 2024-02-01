@@ -5,10 +5,10 @@
 #include "colmap/exe/feature.h"
 #include "colmap/exe/sfm.h"
 #include "colmap/feature/sift.h"
+#include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 
 #include "pycolmap/helpers.h"
-#include "pycolmap/log_exceptions.h"
 #include "pycolmap/utils.h"
 
 #include <memory>
@@ -30,10 +30,10 @@ void ExtractFeatures(const std::string& database_path,
                      ImageReaderOptions reader_options,
                      SiftExtractionOptions sift_options,
                      const Device device) {
-  THROW_CHECK_MSG(!ExistsFile(database_path),
-                  database_path + " already exists.");
+  THROW_CHECK(!ExistsFile(database_path))
+      << database_path << " already exists.";
   THROW_CHECK_HAS_FILE_EXTENSION(database_path, ".db");
-  THROW_CHECK_FILE_OPEN(database_path);
+  THROW_CHECK_PATH_OPEN(database_path);
   THROW_CHECK_DIR_EXISTS(image_path);
   sift_options.use_gpu = IsGPU(device);
   VerifyGPUParams(sift_options.use_gpu);
@@ -50,10 +50,9 @@ void ExtractFeatures(const std::string& database_path,
 
   THROW_CHECK(ExistsCameraModelWithName(reader_options.camera_model));
 
-  THROW_CUSTOM_CHECK_MSG(VerifyCameraParams(reader_options.camera_model,
-                                            reader_options.camera_params),
-                         std::invalid_argument,
-                         "Invalid camera parameters.");
+  THROW_CHECK(VerifyCameraParams(reader_options.camera_model,
+                                 reader_options.camera_params))
+      << "Invalid camera parameters.";
 
   py::gil_scoped_release release;
   std::unique_ptr<Thread> extractor =

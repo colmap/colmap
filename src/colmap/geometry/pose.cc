@@ -116,8 +116,8 @@ Eigen::Matrix3d EulerAnglesToRotationMatrix(const double rx,
 Eigen::Quaterniond AverageQuaternions(
     const std::vector<Eigen::Quaterniond>& quats,
     const std::vector<double>& weights) {
-  CHECK_EQ(quats.size(), weights.size());
-  CHECK_GT(quats.size(), 0);
+  THROW_CHECK_EQ(quats.size(), weights.size());
+  THROW_CHECK_GT(quats.size(), 0);
 
   if (quats.size() == 1) {
     return quats[0];
@@ -127,7 +127,7 @@ Eigen::Quaterniond AverageQuaternions(
   double weight_sum = 0;
 
   for (size_t i = 0; i < quats.size(); ++i) {
-    CHECK_GT(weights[i], 0);
+    THROW_CHECK_GT(weights[i], 0);
     const Eigen::Vector4d qvec = quats[i].normalized().coeffs();
     A += weights[i] * qvec * qvec.transpose();
     weight_sum += weights[i];
@@ -168,7 +168,7 @@ bool CheckCheirality(const Eigen::Matrix3d& R,
                      const std::vector<Eigen::Vector2d>& points1,
                      const std::vector<Eigen::Vector2d>& points2,
                      std::vector<Eigen::Vector3d>* points3D) {
-  CHECK_EQ(points1.size(), points2.size());
+  THROW_CHECK_EQ(points1.size(), points2.size());
   const Eigen::Matrix3x4d proj_matrix1 = Eigen::Matrix3x4d::Identity();
   Eigen::Matrix3x4d proj_matrix2;
   proj_matrix2.leftCols<3>() = R;

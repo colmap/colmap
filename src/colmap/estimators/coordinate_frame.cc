@@ -56,9 +56,9 @@ struct VanishingPointEstimator {
   static void Estimate(const std::vector<X_t>& line_segments,
                        const std::vector<Y_t>& lines,
                        std::vector<M_t>* models) {
-    CHECK_EQ(line_segments.size(), 2);
-    CHECK_EQ(lines.size(), 2);
-    CHECK(models != nullptr);
+    THROW_CHECK_EQ(line_segments.size(), 2);
+    THROW_CHECK_EQ(lines.size(), 2);
+    THROW_CHECK(models != nullptr);
     models->resize(1);
     (*models)[0] = lines[0].cross(lines[1]);
   }
@@ -175,7 +175,7 @@ Eigen::Matrix3d EstimateManhattanWorldFrame(
     LOG(INFO) << "Reading image...";
 
     colmap::Bitmap bitmap;
-    CHECK(bitmap.Read(colmap::JoinPaths(image_path, image.Name())));
+    THROW_CHECK(bitmap.Read(colmap::JoinPaths(image_path, image.Name())));
 
     LOG(INFO) << "Undistorting image...";
 

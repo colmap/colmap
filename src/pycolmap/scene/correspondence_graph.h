@@ -2,9 +2,8 @@
 
 #include "colmap/feature/types.h"
 #include "colmap/scene/correspondence_graph.h"
+#include "colmap/util/logging.h"
 #include "colmap/util/types.h"
-
-#include "pycolmap/log_exceptions.h"
 
 #include <memory>
 #include <sstream>

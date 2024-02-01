@@ -82,8 +82,8 @@ void TranslationTransformEstimator<kDim>::Estimate(
     const std::vector<X_t>& points1,
     const std::vector<Y_t>& points2,
     std::vector<M_t>* models) {
-  CHECK_EQ(points1.size(), points2.size());
-  CHECK(models != nullptr);
+  THROW_CHECK_EQ(points1.size(), points2.size());
+  THROW_CHECK(models != nullptr);
 
   models->clear();
 
@@ -108,7 +108,7 @@ void TranslationTransformEstimator<kDim>::Residuals(
     const std::vector<Y_t>& points2,
     const M_t& translation,
     std::vector<double>* residuals) {
-  CHECK_EQ(points1.size(), points2.size());
+  THROW_CHECK_EQ(points1.size(), points2.size());
 
   residuals->resize(points1.size());
 
