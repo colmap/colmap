@@ -30,6 +30,8 @@
 #include "colmap/estimators/cost_functions.h"
 
 #include "colmap/geometry/pose.h"
+#include "colmap/geometry/rigid3.h"
+#include "colmap/math/math.h"
 #include "colmap/sensor/models.h"
 
 #include <gtest/gtest.h>
@@ -209,6 +211,109 @@ TEST(BundleAdjustment, RelativePose) {
                                                        Eigen::Vector2d(1, 1)));
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
   EXPECT_EQ(residuals[0], 0.5);
+}
+
+TEST(PoseGraphOptimization, AbsolutePose) {
+  const Rigid3d mes_cam_from_world;
+  EigenMatrix6d covariance_cam = EigenMatrix6d::Identity();
+  covariance_cam(5, 5) = 4;
+  std::unique_ptr<ceres::CostFunction> cost_function(
+      AbsolutePoseErrorCostFunction::Create(mes_cam_from_world,
+                                            covariance_cam));
+
+  double cam_from_world_rotation[4] = {0, 0, 0, 1};
+  double cam_from_world_translation[3] = {0, 0, 0};
+  double residuals[6];
+  const double* parameters[2] = {cam_from_world_rotation,
+                                 cam_from_world_translation};
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], 0);
+  EXPECT_EQ(residuals[2], 0);
+  EXPECT_EQ(residuals[3], 0);
+  EXPECT_EQ(residuals[4], 0);
+  EXPECT_EQ(residuals[5], 0);
+
+  cam_from_world_translation[0] = 1;
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], 0);
+  EXPECT_EQ(residuals[2], 0);
+  EXPECT_EQ(residuals[3], 1);
+  EXPECT_EQ(residuals[4], 0);
+  EXPECT_EQ(residuals[5], 0);
+
+  // Rotation by 90 degrees around the Y axis.
+  Eigen::Matrix3d rotation_matrix;
+  rotation_matrix << 0, 0, 1, 0, 1, 0, -1, 0, 0;
+  Eigen::Map<Eigen::Quaterniond>(
+      static_cast<double*>(cam_from_world_rotation)) = rotation_matrix;
+  cam_from_world_translation[1] = 2;
+  cam_from_world_translation[2] = 3;
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_NEAR(residuals[0], 0, 1e-6);
+  EXPECT_NEAR(residuals[1], DegToRad(90.0), 1e-6);
+  EXPECT_NEAR(residuals[2], 0, 1e-6);
+  EXPECT_NEAR(residuals[3], 1, 1e-6);
+  EXPECT_NEAR(residuals[4], 2, 1e-6);
+  EXPECT_NEAR(residuals[5], 1.5, 1e-6);
+}
+
+TEST(PoseGraphOptimization, RelativePose) {
+  Rigid3d i_from_j;
+  i_from_j.translation << 0, 0, -1;
+  EigenMatrix6d covariance_j = EigenMatrix6d::Identity();
+  covariance_j(5, 5) = 4;
+  std::unique_ptr<ceres::CostFunction> cost_function(
+      MetricRelativePoseErrorCostFunction::Create(i_from_j, covariance_j));
+
+  double i_from_world_rotation[4] = {0, 0, 0, 1};
+  double i_from_world_translation[3] = {0, 0, 0};
+  double j_from_world_rotation[4] = {0, 0, 0, 1};
+  double j_from_world_translation[3] = {0, 0, 1};
+  double residuals[6];
+  const double* parameters[4] = {i_from_world_rotation,
+                                 i_from_world_translation,
+                                 j_from_world_rotation,
+                                 j_from_world_translation};
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], 0);
+  EXPECT_EQ(residuals[2], 0);
+  EXPECT_EQ(residuals[3], 0);
+  EXPECT_EQ(residuals[4], 0);
+  EXPECT_EQ(residuals[5], 0);
+
+  i_from_world_translation[2] = 4;
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], 0);
+  EXPECT_EQ(residuals[2], 0);
+  EXPECT_EQ(residuals[3], 0);
+  EXPECT_EQ(residuals[4], 0);
+  EXPECT_EQ(residuals[5], -2);
+
+  j_from_world_translation[0] = 2;
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], 0);
+  EXPECT_EQ(residuals[2], 0);
+  EXPECT_EQ(residuals[3], 2);
+  EXPECT_EQ(residuals[4], 0);
+  EXPECT_EQ(residuals[5], -2);
+
+  // Rotation by 90 degrees around the Y axis.
+  Eigen::Matrix3d rotation_matrix;
+  rotation_matrix << 0, 0, 1, 0, 1, 0, -1, 0, 0;
+  Eigen::Map<Eigen::Quaterniond>(static_cast<double*>(j_from_world_rotation)) =
+      rotation_matrix;
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_NEAR(residuals[0], 0, 1e-6);
+  EXPECT_NEAR(residuals[1], DegToRad(90.0), 1e-6);
+  EXPECT_NEAR(residuals[2], 0, 1e-6);
+  EXPECT_NEAR(residuals[3], -3, 1e-6);
+  EXPECT_NEAR(residuals[4], 0, 1e-6);
+  EXPECT_NEAR(residuals[5], 0.5, 1e-6);
 }
 
 }  // namespace
