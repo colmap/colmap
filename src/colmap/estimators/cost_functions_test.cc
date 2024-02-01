@@ -70,6 +70,15 @@ TEST(BundleAdjustment, AbsolutePose) {
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
   EXPECT_EQ(residuals[0], -2);
   EXPECT_EQ(residuals[1], 2);
+
+  std::unique_ptr<ceres::CostFunction> cost_function_with_noise(
+      IsotropicNoiseCostFunctionWrapper<
+          ReprojErrorCostFunction<SimplePinholeCameraModel>,
+          const Eigen::Vector2d>::Create(Eigen::Vector2d::Zero(), 2.0));
+  EXPECT_TRUE(
+      cost_function_with_noise->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], -1);
+  EXPECT_EQ(residuals[1], 1);
 }
 
 TEST(BundleAdjustment, ConstantPoseAbsolutePose) {

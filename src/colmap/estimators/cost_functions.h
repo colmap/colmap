@@ -32,6 +32,7 @@
 #include "colmap/geometry/rigid3.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/logging.h"
 
 #include <Eigen/Core>
 #include <ceres/ceres.h>
@@ -445,6 +446,41 @@ struct MetricRelativePoseErrorCostFunction {
  private:
   const Rigid3d& i_from_j_;
   const EigenMatrix6d sqrt_information_j_;
+};
+
+class LinearCostFunction : public ceres::CostFunction {
+ public:
+  LinearCostFunction(const double s) : s_(s) {
+    set_num_residuals(1);
+    mutable_parameter_block_sizes()->push_back(1);
+  }
+
+  bool Evaluate(double const* const* parameters,
+                double* residuals,
+                double** jacobians) const final {
+    *residuals = **parameters * s_;
+    if (jacobians && *jacobians) {
+      **jacobians = s_;
+    }
+    return true;
+  }
+
+ private:
+  const double s_;
+};
+
+template <class CostFunction, typename... Args>
+class IsotropicNoiseCostFunctionWrapper {
+ public:
+  static ceres::CostFunction* Create(Args&&... args, const double stddev) {
+    THROW_CHECK_GT(stddev, 0.0);
+    ceres::CostFunction* cost_function =
+        CostFunction::Create(std::forward<Args>(args)...);
+    std::vector<ceres::CostFunction*> conditioners(
+        cost_function->num_residuals(), new LinearCostFunction(1.0 / stddev));
+    return new ceres::ConditionedCostFunction(
+        cost_function, conditioners, ceres::TAKE_OWNERSHIP);
+  }
 };
 
 template <template <typename> class CostFunction, typename... Args>
