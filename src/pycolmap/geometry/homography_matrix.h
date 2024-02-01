@@ -17,15 +17,12 @@ py::dict PyPoseFromHomographyMatrix(
     const Eigen::Matrix3d& K2,
     const std::vector<Eigen::Vector2d>& points1,
     const std::vector<Eigen::Vector2d>& points2) {
-  THROW_CHECK_EQ(points1.size(), points1.size());
   py::gil_scoped_release release;
-
   Eigen::Matrix3d R;
   Eigen::Vector3d t;
   Eigen::Vector3d n;
   std::vector<Eigen::Vector3d> points3D;
   PoseFromHomographyMatrix(H, K1, K2, points1, points2, &R, &t, &n, &points3D);
-
   py::gil_scoped_acquire acquire;
   return py::dict("R"_a = R, "t"_a = t, "n"_a = n, "points3D"_a = points3D);
 }

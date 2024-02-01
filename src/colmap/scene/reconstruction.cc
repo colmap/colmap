@@ -162,6 +162,7 @@ void Reconstruction::AddImage(class Image image) {
   const bool is_registered = image.IsRegistered();
   THROW_CHECK(images_.emplace(image_id, std::move(image)).second);
   if (is_registered) {
+    THROW_CHECK_NE(image_id, kInvalidImageId);
     reg_image_ids_.push_back(image_id);
   }
 }
@@ -701,12 +702,14 @@ void Reconstruction::ReadBinary(const std::string& path) {
 }
 
 void Reconstruction::WriteText(const std::string& path) const {
+  THROW_CHECK_DIR_EXISTS(path);
   WriteCamerasText(JoinPaths(path, "cameras.txt"));
   WriteImagesText(JoinPaths(path, "images.txt"));
   WritePoints3DText(JoinPaths(path, "points3D.txt"));
 }
 
 void Reconstruction::WriteBinary(const std::string& path) const {
+  THROW_CHECK_DIR_EXISTS(path);
   WriteCamerasBinary(JoinPaths(path, "cameras.bin"));
   WriteImagesBinary(JoinPaths(path, "images.bin"));
   WritePoints3DBinary(JoinPaths(path, "points3D.bin"));

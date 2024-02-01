@@ -80,6 +80,7 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
                           Camera* camera,
                           size_t* num_inliers,
                           std::vector<char>* inlier_mask) {
+  THROW_CHECK_EQ(points2D.size(), points3D.size());
   options.Check();
 
   std::vector<double> focal_length_factors;
