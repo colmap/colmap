@@ -113,7 +113,7 @@ class BaseController {
   // Thread-related functions
   ///////////////////////////////////////////////////
   ThreadStatus status_;
-  std::shared_ptr<ThreadStatus> GetThreadStatus() { return std::shared_ptr<ThreadStatus>(&status_); }
+  ThreadStatus* GetThreadStatus() { return &status_; }
 
   // Check the state of the thread.
   bool IsStarted();
@@ -160,7 +160,7 @@ class ThreadImpl {
     controller_->AddCallback(BaseController::BLOCK_IF_PAUSED_CALLBACK, [&]() 
         {
           std::unique_lock<std::mutex> lock(mutex_);
-          std::shared_ptr<ThreadStatus> status = controller_->GetThreadStatus();
+          ThreadStatus* status = controller_->GetThreadStatus();
           if (status->paused) {
               status->pausing = true;
               pause_condition_.wait(lock);
@@ -176,7 +176,7 @@ class ThreadImpl {
     controller_->AddCallback(BaseController::CHECK_VALID_SETUP_CALLBACK, [&]()
         {
           std::unique_lock<std::mutex> lock(mutex_);
-          std::shared_ptr<ThreadStatus> status = controller_->GetThreadStatus();
+          ThreadStatus* status = controller_->GetThreadStatus();
           if (status->setup) {
             setup_condition_.wait(lock);
           }
@@ -187,7 +187,7 @@ class ThreadImpl {
 
   void Start() {
     std::unique_lock<std::mutex> lock(mutex_);
-    std::shared_ptr<ThreadStatus> status = controller_->GetThreadStatus();
+    ThreadStatus* status = controller_->GetThreadStatus();
     CHECK(!status->started || status->finished);
     Wait();
     thread_ = std::thread(&ThreadImpl::RunFunc, this);
@@ -207,7 +207,7 @@ class ThreadImpl {
 
   void Resume() {
     std::unique_lock<std::mutex> lock(mutex_);
-    std::shared_ptr<ThreadStatus> status = controller_->GetThreadStatus();
+    ThreadStatus* status = controller_->GetThreadStatus();
     if (status->paused) {
       status->paused = false;
       pause_condition_.notify_all();
