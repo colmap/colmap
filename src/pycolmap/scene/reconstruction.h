@@ -45,39 +45,18 @@ void BindReconstruction(py::module& m) {
              return reconstruction;
            }),
            "sfm_dir"_a)
-      .def(
-          "read",
-          [](Reconstruction& self, const std::string& path) {
-            self.Read(path);
-          },
-          "sfm_dir"_a,
-          "Read reconstruction in COLMAP format. Prefer binary.")
-      .def(
-          "write",
-          [](const Reconstruction& self, const std::string& path) {
-            THROW_CHECK_DIR_EXISTS(path);
-            self.Write(path);
-          },
-          "output_dir"_a,
-          "Write reconstruction in COLMAP binary format.")
-      .def("read_text",
-           [](Reconstruction& self, const std::string& input_path) {
-             self.ReadText(input_path);
-           })
-      .def("read_binary",
-           [](Reconstruction& self, const std::string& input_path) {
-             self.ReadBinary(input_path);
-           })
-      .def("write_text",
-           [](const Reconstruction& self, const std::string& path) {
-             THROW_CHECK_DIR_EXISTS(path);
-             self.WriteText(path);
-           })
-      .def("write_binary",
-           [](const Reconstruction& self, const std::string& path) {
-             THROW_CHECK_DIR_EXISTS(path);
-             self.WriteBinary(path);
-           })
+      .def("read",
+           &Reconstruction::Read,
+           "sfm_dir"_a,
+           "Read reconstruction in COLMAP format. Prefer binary.")
+      .def("write",
+           &Reconstruction::Write,
+           "output_dir"_a,
+           "Write reconstruction in COLMAP binary format.")
+      .def("read_text", &Reconstruction::ReadText)
+      .def("read_binary", &Reconstruction::ReadBinary)
+      .def("write_text", &Reconstruction::WriteText)
+      .def("write_binary", &Reconstruction::WriteBinary)
       .def("num_images", &Reconstruction::NumImages)
       .def("num_cameras", &Reconstruction::NumCameras)
       .def("num_reg_images", &Reconstruction::NumRegImages)
@@ -99,27 +78,14 @@ void BindReconstruction(py::module& m) {
       .def("exists_image", &Reconstruction::ExistsImage)
       .def("exists_point3D", &Reconstruction::ExistsPoint3D)
       .def("exists_image_pair", &Reconstruction::ExistsImagePair)
+      .def("add_camera",
+           &Reconstruction::AddCamera,
+           "camera"_a,
+           "Add new camera. There is only one camera per image, while multiple "
+           "images\n"
+           "might be taken by the same camera.")
       .def(
-          "add_camera",
-          [](Reconstruction& self, const struct Camera& camera) {
-            THROW_CHECK(!self.ExistsCamera(camera.camera_id));
-            THROW_CHECK(camera.VerifyParams());
-            self.AddCamera(camera);
-          },
-          "Add new camera. There is only one camera per image, while multiple "
-          "images\n"
-          "might be taken by the same camera.")
-      .def(
-          "add_image",
-          [](Reconstruction& self, const class Image& image) {
-            THROW_CHECK(!self.ExistsImage(image.ImageId()));
-            self.AddImage(image);
-            if (image.IsRegistered()) {
-              THROW_CHECK_NE(image.ImageId(), kInvalidImageId);
-            }
-          },
-          "image"_a,
-          "Add a new image.")
+          "add_image", &Reconstruction::AddImage, "image"_a, "Add a new image.")
       .def("add_point3D",
            &Reconstruction::AddPoint3D,
            "Add new 3D object, and return its unique ID.",
@@ -145,16 +111,13 @@ void BindReconstruction(py::module& m) {
            "Note that this deletes the entire 3D point, if the track has two "
            "elements\n"
            "prior to calling this method.")
-      .def(
-          "register_image",
-          [](Reconstruction& self, image_t imid) {
-            THROW_CHECK_EQ(self.Image(imid).IsRegistered(),
-                           self.IsImageRegistered(imid));
-            self.RegisterImage(imid);
-          },
-          "Register an existing image.")
+      .def("register_image",
+           &Reconstruction::RegisterImage,
+           "image_id"_a,
+           "Register an existing image.")
       .def("deregister_image",
            &Reconstruction::DeRegisterImage,
+           "image_id"_a,
            "De-register an existing image, and all its references.")
       .def("is_image_registered",
            &Reconstruction::IsImageRegistered,
@@ -236,13 +199,7 @@ void BindReconstruction(py::module& m) {
            "reconstruction.")
       .def(
           "export_NVM",
-          [](const Reconstruction& self,
-             const std::string& path,
-             const bool skip_distortion) {
-            THROW_CHECK_HAS_FILE_EXTENSION(path, ".nvm");
-            THROW_CHECK_PATH_OPEN(path);
-            self.ExportNVM(path, skip_distortion);
-          },
+          &Reconstruction::ExportNVM,
           "output_path"_a,
           "skip_distortion"_a = false,
           "Export reconstruction in NVM format (.nvm).\n\n"
@@ -254,12 +211,7 @@ void BindReconstruction(py::module& m) {
           "inaccurate for camera models with two focal lengths and distortion.")
       .def(
           "export_CAM",
-          [](const Reconstruction& self,
-             const std::string& dir,
-             const bool skip_distortion) {
-            THROW_CHECK_DIR_EXISTS(dir);
-            self.ExportCam(dir, skip_distortion);
-          },
+          &Reconstruction::ExportCam,
           "output_dir"_a,
           "skip_distortion"_a = false,
           "Exports in CAM format which is a simple text file that contains "
@@ -285,16 +237,7 @@ void BindReconstruction(py::module& m) {
           "inaccurate for camera models with two focal lengths and distortion.")
       .def(
           "export_bundler",
-          [](const Reconstruction& self,
-             const std::string& path,
-             const std::string& list_path,
-             const bool skip_distortion) {
-            THROW_CHECK_HAS_FILE_EXTENSION(path, ".out");
-            THROW_CHECK_HAS_FILE_EXTENSION(list_path, ".txt");
-            THROW_CHECK_PATH_OPEN(path);
-            THROW_CHECK_PATH_OPEN(list_path);
-            self.ExportBundler(path, list_path, skip_distortion);
-          },
+          &Reconstruction::ExportBundler,
           "output_path"_a,
           "list_path"_a,
           "skip_distortion"_a = false,
@@ -308,33 +251,17 @@ void BindReconstruction(py::module& m) {
           "length which will be inaccurate for camera models with two focal "
           "lengths\n"
           "and distortion.")
-      .def(
-          "export_PLY",
-          [](const Reconstruction& self, const std::string& path) {
-            THROW_CHECK_HAS_FILE_EXTENSION(path, ".ply");
-            THROW_CHECK_PATH_OPEN(path);
-            self.ExportPLY(path);
-          },
-          "output_path"_a,
-          "Export 3D points to PLY format (.ply).")
-      .def(
-          "export_VRML",
-          [](const Reconstruction& self,
-             const std::string& images_path,
-             const std::string& points3D_path,
-             const double image_scale,
-             const Eigen::Vector3d& image_rgb) {
-            THROW_CHECK_PATH_OPEN(images_path);
-            THROW_CHECK_PATH_OPEN(points3D_path);
-            THROW_CHECK_HAS_FILE_EXTENSION(images_path, ".wrl");
-            THROW_CHECK_HAS_FILE_EXTENSION(points3D_path, ".wrl");
-            self.ExportVRML(images_path, points3D_path, image_scale, image_rgb);
-          },
-          "images_path"_a,
-          "points3D_path"_a,
-          "image_scale"_a = 1.0,
-          "image_rgb"_a = Eigen::Vector3d(1, 0, 0),
-          "Export reconstruction in VRML format (.wrl).")
+      .def("export_PLY",
+           &Reconstruction::ExportPLY,
+           "output_path"_a,
+           "Export 3D points to PLY format (.ply).")
+      .def("export_VRML",
+           &Reconstruction::ExportVRML,
+           "images_path"_a,
+           "points3D_path"_a,
+           "image_scale"_a = 1.0,
+           "image_rgb"_a = Eigen::Vector3d(1, 0, 0),
+           "Export reconstruction in VRML format (.wrl).")
       .def("extract_colors_for_image",
            &Reconstruction::ExtractColorsForImage,
            "Extract colors for 3D points of given image. Colors will be "

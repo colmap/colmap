@@ -38,6 +38,9 @@ void BindTrack(py::module& m) {
         track->AddElements(elements);
         return track;
       }))
+      .def_property("elements",
+                    py::overload_cast<>(&Track::Elements),
+                    &Track::SetElements)
       .def("length", &Track::Length, "Track Length.")
       .def("add_element",
            py::overload_cast<image_t, point2D_t>(&Track::AddElement),
@@ -50,20 +53,16 @@ void BindTrack(py::module& m) {
           "add_element",
           py::overload_cast<const image_t, const point2D_t>(&Track::AddElement))
       .def("add_elements", &Track::AddElements, "Add TrackElement list.")
-      .def(
-          "remove",
-          [](Track& self, const size_t idx) {
-            THROW_CHECK_LT(idx, self.Elements().size());
-            self.DeleteElement(idx);
-          },
-          "Remove TrackElement at index.")
-      .def_property("elements",
-                    py::overload_cast<>(&Track::Elements),
-                    &Track::SetElements)
+      .def("remove",
+           py::overload_cast<size_t>(&Track::DeleteElement),
+           "index"_a,
+           "Remove TrackElement at index.")
       .def("remove",
            py::overload_cast<const image_t, const point2D_t>(
                &Track::DeleteElement),
-           "Remove TrackElement with (image_id,point2D_idx).")
+           "image_id"_a,
+           "point2D_idx"_a,
+           "Remove TrackElement with (image_id, point2D_idx).")
       .def("__repr__", [](const Track& self) {
         return "Track(length=" + std::to_string(self.Length()) + ")";
       });
