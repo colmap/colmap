@@ -155,7 +155,7 @@ int InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::NumVisualWords() const {
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
 void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::Initialize(
     const int num_words) {
-  CHECK_GT(num_words, 0);
+  THROW_CHECK_GT(num_words, 0);
   inverted_files_.resize(num_words);
   for (auto& inverted_file : inverted_files_) {
     inverted_file.Reset();
@@ -164,7 +164,7 @@ void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::Initialize(
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
 void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::Finalize() {
-  CHECK_GT(NumVisualWords(), 0);
+  THROW_CHECK_GT(NumVisualWords(), 0);
 
   for (auto& inverted_file : inverted_files_) {
     inverted_file.SortEntries();
@@ -187,8 +187,8 @@ void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
 void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::ComputeHammingEmbedding(
     const DescType& descriptors, const Eigen::VectorXi& word_ids) {
-  CHECK_EQ(descriptors.rows(), word_ids.rows());
-  CHECK_EQ(descriptors.cols(), kDescDim);
+  THROW_CHECK_EQ(descriptors.rows(), word_ids.rows());
+  THROW_CHECK_EQ(descriptors.cols(), kDescDim);
 
   // Skip every inverted file with less than kMinEntries entries.
   const size_t kMinEntries = 5;
@@ -226,7 +226,7 @@ void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::AddEntry(
     typename DescType::Index feature_idx,
     const DescType& descriptor,
     const GeomType& geometry) {
-  CHECK_EQ(descriptor.size(), kDescDim);
+  THROW_CHECK_EQ(descriptor.size(), kDescDim);
   const ProjDescType proj_desc =
       proj_matrix_ * descriptor.transpose().template cast<float>();
   inverted_files_.at(word_id).AddEntry(
@@ -245,7 +245,7 @@ void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::Query(
     const DescType& descriptors,
     const Eigen::MatrixXi& word_ids,
     std::vector<ImageScore>* image_scores) const {
-  CHECK_EQ(descriptors.cols(), kDescDim);
+  THROW_CHECK_EQ(descriptors.cols(), kDescDim);
 
   image_scores->clear();
 
@@ -350,17 +350,17 @@ void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::GetImageIds(
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
 void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::Read(
     std::ifstream* ifs) {
-  CHECK(ifs->is_open());
+  THROW_CHECK(ifs->is_open());
 
   int32_t num_words = 0;
   ifs->read(reinterpret_cast<char*>(&num_words), sizeof(int32_t));
-  CHECK_GT(num_words, 0);
+  THROW_CHECK_GT(num_words, 0);
 
   Initialize(num_words);
 
   int32_t N_t = 0;
   ifs->read(reinterpret_cast<char*>(&N_t), sizeof(int32_t));
-  CHECK_EQ(N_t, kEmbeddingDim)
+  THROW_CHECK_EQ(N_t, kEmbeddingDim)
       << "The length of the binary strings should be " << kEmbeddingDim
       << " but is " << N_t << ". The indices are not compatible!";
 
@@ -376,7 +376,7 @@ void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::Read(
 
   int32_t num_images = 0;
   ifs->read(reinterpret_cast<char*>(&num_images), sizeof(int32_t));
-  CHECK_GE(num_images, 0);
+  THROW_CHECK_GE(num_images, 0);
 
   normalization_constants_.clear();
   normalization_constants_.reserve(num_images);
@@ -392,11 +392,11 @@ void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::Read(
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
 void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::Write(
     std::ofstream* ofs) const {
-  CHECK(ofs->is_open());
+  THROW_CHECK(ofs->is_open());
 
   int32_t num_words = static_cast<int32_t>(NumVisualWords());
   ofs->write(reinterpret_cast<const char*>(&num_words), sizeof(int32_t));
-  CHECK_GT(num_words, 0);
+  THROW_CHECK_GT(num_words, 0);
 
   const int32_t N_t = static_cast<int32_t>(kEmbeddingDim);
   ofs->write(reinterpret_cast<const char*>(&N_t), sizeof(int32_t));

@@ -91,54 +91,54 @@ void PatchMatch::Problem::Print() const {
 }
 
 void PatchMatch::Check() const {
-  CHECK(options_.Check());
+  THROW_CHECK(options_.Check());
 
-  CHECK(!options_.gpu_index.empty());
+  THROW_CHECK(!options_.gpu_index.empty());
   const std::vector<int> gpu_indices = CSVToVector<int>(options_.gpu_index);
-  CHECK_EQ(gpu_indices.size(), 1);
-  CHECK_GE(gpu_indices[0], -1);
+  THROW_CHECK_EQ(gpu_indices.size(), 1);
+  THROW_CHECK_GE(gpu_indices[0], -1);
 
-  CHECK_NOTNULL(problem_.images);
+  THROW_CHECK_NOTNULL(problem_.images);
   if (options_.geom_consistency) {
-    CHECK_NOTNULL(problem_.depth_maps);
-    CHECK_NOTNULL(problem_.normal_maps);
-    CHECK_EQ(problem_.depth_maps->size(), problem_.images->size());
-    CHECK_EQ(problem_.normal_maps->size(), problem_.images->size());
+    THROW_CHECK_NOTNULL(problem_.depth_maps);
+    THROW_CHECK_NOTNULL(problem_.normal_maps);
+    THROW_CHECK_EQ(problem_.depth_maps->size(), problem_.images->size());
+    THROW_CHECK_EQ(problem_.normal_maps->size(), problem_.images->size());
   }
 
-  CHECK_GT(problem_.src_image_idxs.size(), 0);
+  THROW_CHECK_GT(problem_.src_image_idxs.size(), 0);
 
   // Check that there are no duplicate images and that the reference image
   // is not defined as a source image.
   std::set<int> unique_image_idxs(problem_.src_image_idxs.begin(),
                                   problem_.src_image_idxs.end());
   unique_image_idxs.insert(problem_.ref_image_idx);
-  CHECK_EQ(problem_.src_image_idxs.size() + 1, unique_image_idxs.size());
+  THROW_CHECK_EQ(problem_.src_image_idxs.size() + 1, unique_image_idxs.size());
 
   // Check that input data is well-formed.
   for (const int image_idx : unique_image_idxs) {
-    CHECK_GE(image_idx, 0) << image_idx;
-    CHECK_LT(image_idx, problem_.images->size()) << image_idx;
+    THROW_CHECK_GE(image_idx, 0) << image_idx;
+    THROW_CHECK_LT(image_idx, problem_.images->size()) << image_idx;
 
     const Image& image = problem_.images->at(image_idx);
-    CHECK_GT(image.GetBitmap().Width(), 0) << image_idx;
-    CHECK_GT(image.GetBitmap().Height(), 0) << image_idx;
-    CHECK(image.GetBitmap().IsGrey()) << image_idx;
-    CHECK_EQ(image.GetWidth(), image.GetBitmap().Width()) << image_idx;
-    CHECK_EQ(image.GetHeight(), image.GetBitmap().Height()) << image_idx;
+    THROW_CHECK_GT(image.GetBitmap().Width(), 0) << image_idx;
+    THROW_CHECK_GT(image.GetBitmap().Height(), 0) << image_idx;
+    THROW_CHECK(image.GetBitmap().IsGrey()) << image_idx;
+    THROW_CHECK_EQ(image.GetWidth(), image.GetBitmap().Width()) << image_idx;
+    THROW_CHECK_EQ(image.GetHeight(), image.GetBitmap().Height()) << image_idx;
 
     // Make sure, the calibration matrix only contains fx, fy, cx, cy.
-    CHECK_LT(std::abs(image.GetK()[1] - 0.0f), 1e-6f) << image_idx;
-    CHECK_LT(std::abs(image.GetK()[3] - 0.0f), 1e-6f) << image_idx;
-    CHECK_LT(std::abs(image.GetK()[6] - 0.0f), 1e-6f) << image_idx;
-    CHECK_LT(std::abs(image.GetK()[7] - 0.0f), 1e-6f) << image_idx;
-    CHECK_LT(std::abs(image.GetK()[8] - 1.0f), 1e-6f) << image_idx;
+    THROW_CHECK_LT(std::abs(image.GetK()[1] - 0.0f), 1e-6f) << image_idx;
+    THROW_CHECK_LT(std::abs(image.GetK()[3] - 0.0f), 1e-6f) << image_idx;
+    THROW_CHECK_LT(std::abs(image.GetK()[6] - 0.0f), 1e-6f) << image_idx;
+    THROW_CHECK_LT(std::abs(image.GetK()[7] - 0.0f), 1e-6f) << image_idx;
+    THROW_CHECK_LT(std::abs(image.GetK()[8] - 1.0f), 1e-6f) << image_idx;
 
     if (options_.geom_consistency) {
-      CHECK_LT(image_idx, problem_.depth_maps->size()) << image_idx;
+      THROW_CHECK_LT(image_idx, problem_.depth_maps->size()) << image_idx;
       const DepthMap& depth_map = problem_.depth_maps->at(image_idx);
-      CHECK_EQ(image.GetWidth(), depth_map.GetWidth()) << image_idx;
-      CHECK_EQ(image.GetHeight(), depth_map.GetHeight()) << image_idx;
+      THROW_CHECK_EQ(image.GetWidth(), depth_map.GetWidth()) << image_idx;
+      THROW_CHECK_EQ(image.GetHeight(), depth_map.GetHeight()) << image_idx;
     }
   }
 
@@ -146,8 +146,8 @@ void PatchMatch::Check() const {
     const Image& ref_image = problem_.images->at(problem_.ref_image_idx);
     const NormalMap& ref_normal_map =
         problem_.normal_maps->at(problem_.ref_image_idx);
-    CHECK_EQ(ref_image.GetWidth(), ref_normal_map.GetWidth());
-    CHECK_EQ(ref_image.GetHeight(), ref_normal_map.GetHeight());
+    THROW_CHECK_EQ(ref_image.GetWidth(), ref_normal_map.GetWidth());
+    THROW_CHECK_EQ(ref_image.GetHeight(), ref_normal_map.GetHeight());
   }
 }
 
@@ -397,7 +397,7 @@ void PatchMatchController::ReadGpuIndices() {
   gpu_indices_ = CSVToVector<int>(options_.gpu_index);
   if (gpu_indices_.size() == 1 && gpu_indices_[0] == -1) {
     const int num_cuda_devices = GetNumCudaDevices();
-    CHECK_GT(num_cuda_devices, 0);
+    THROW_CHECK_GT(num_cuda_devices, 0);
     gpu_indices_.resize(num_cuda_devices);
     std::iota(gpu_indices_.begin(), gpu_indices_.end(), 0);
   }
@@ -413,7 +413,7 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
 
   auto& problem = problems_.at(problem_idx);
   const int gpu_index = gpu_indices_.at(thread_pool_->GetThreadIndex());
-  CHECK_GE(gpu_index, -1);
+  THROW_CHECK_GE(gpu_index, -1);
 
   const std::string& stereo_folder = workspace_->GetOptions().stereo_folder;
   const std::string output_type =
@@ -446,8 +446,8 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
         depth_ranges_.at(problem.ref_image_idx).first;
     patch_match_options.depth_max =
         depth_ranges_.at(problem.ref_image_idx).second;
-    CHECK(patch_match_options.depth_min > 0 &&
-          patch_match_options.depth_max > 0)
+    THROW_CHECK(patch_match_options.depth_min > 0 &&
+                patch_match_options.depth_max > 0)
         << " - You must manually set the minimum and maximum depth, since no "
            "sparse model is provided in the workspace.";
   }

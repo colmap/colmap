@@ -4,9 +4,9 @@
 #include "colmap/geometry/rigid3.h"
 #include "colmap/math/random.h"
 #include "colmap/scene/camera.h"
+#include "colmap/util/logging.h"
 
 #include "pycolmap/helpers.h"
-#include "pycolmap/log_exceptions.h"
 #include "pycolmap/utils.h"
 
 #include <pybind11/eigen.h>

@@ -192,7 +192,7 @@ void PoseFromHomographyMatrix(const Eigen::Matrix3d& H,
                               Eigen::Vector3d* t,
                               Eigen::Vector3d* n,
                               std::vector<Eigen::Vector3d>* points3D) {
-  CHECK_EQ(points1.size(), points2.size());
+  THROW_CHECK_EQ(points1.size(), points2.size());
 
   std::vector<Eigen::Matrix3d> R_cmbs;
   std::vector<Eigen::Vector3d> t_cmbs;
@@ -218,7 +218,7 @@ Eigen::Matrix3d HomographyMatrixFromPose(const Eigen::Matrix3d& K1,
                                          const Eigen::Vector3d& t,
                                          const Eigen::Vector3d& n,
                                          const double d) {
-  CHECK_GT(d, 0);
+  THROW_CHECK_GT(d, 0);
   return K2 * (R - t * n.normalized().transpose() / d) * K1.inverse();
 }
 

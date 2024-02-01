@@ -52,7 +52,7 @@ class Sift {
 
     FeatureKeypoints keypoints_;
     FeatureDescriptors descriptors_;
-    THROW_CHECK(extractor_->Extract(bitmap, &keypoints_, &descriptors_))
+    THROW_CHECK(extractor_->Extract(bitmap, &keypoints_, &descriptors_));
     const size_t num_features = keypoints_.size();
 
     keypoints_t keypoints(num_features, kdim);

@@ -279,8 +279,8 @@ bool Bitmap::SetPixel(const int x,
 }
 
 const uint8_t* Bitmap::GetScanline(const int y) const {
-  CHECK_GE(y, 0);
-  CHECK_LT(y, height_);
+  THROW_CHECK_GE(y, 0);
+  THROW_CHECK_LT(y, height_);
   return FreeImage_GetScanLine(handle_.ptr, height_ - 1 - y);
 }
 
@@ -664,7 +664,7 @@ void Bitmap::Rescale(const int new_width,
       fi_filter = FILTER_BOX;
       break;
     default:
-      LOG(FATAL) << "Filter not implemented";
+      LOG(FATAL_THROW) << "Filter not implemented";
   }
   SetPtr(FreeImage_Rescale(handle_.ptr, new_width, new_height, fi_filter));
 }
@@ -691,18 +691,18 @@ Bitmap Bitmap::CloneAsRGB() const {
 }
 
 void Bitmap::CloneMetadata(Bitmap* target) const {
-  CHECK_NOTNULL(target);
-  CHECK_NOTNULL(target->Data());
+  THROW_CHECK_NOTNULL(target);
+  THROW_CHECK_NOTNULL(target->Data());
   FreeImage_CloneMetadata(handle_.ptr, target->Data());
 }
 
 void Bitmap::SetPtr(FIBITMAP* ptr) {
-  CHECK_NOTNULL(ptr);
+  THROW_CHECK_NOTNULL(ptr);
 
   if (!IsPtrSupported(ptr)) {
     FreeImageHandle temp_handle(ptr);
     ptr = FreeImage_ConvertTo24Bits(temp_handle.ptr);
-    CHECK(IsPtrSupported(ptr));
+    THROW_CHECK(IsPtrSupported(ptr));
   }
 
   handle_ = FreeImageHandle(ptr);

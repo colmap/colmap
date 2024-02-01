@@ -1,6 +1,6 @@
 #pragma once
 
-#include "pycolmap/log_exceptions.h"
+#include "colmap/util/logging.h"
 
 #include <iostream>
 #include <regex>
@@ -23,9 +23,9 @@ bool IsGPU(Device device) {
 void VerifyGPUParams(const bool use_gpu) {
 #ifndef COLMAP_CUDA_ENABLED
   if (use_gpu) {
-    THROW_EXCEPTION(std::invalid_argument,
-                    "Cannot use Sift GPU without CUDA support; "
-                    "set device='auto' or device='cpu'.")
+    LOG(FATAL_THROW)
+        << "Cannot use Sift GPU without CUDA support; set device='auto' "
+           "or device='cpu'.";
   }
 #endif
 }

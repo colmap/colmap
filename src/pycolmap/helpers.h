@@ -1,9 +1,8 @@
 #pragma once
 
+#include "colmap/util/logging.h"
 #include "colmap/util/string.h"
 #include "colmap/util/threading.h"
-
-#include "pycolmap/log_exceptions.h"
 
 #include <exception>
 #include <regex>
@@ -32,14 +31,11 @@ template <typename T>
 T pyStringToEnum(const py::enum_<T>& enm, const std::string& value) {
   const auto values = enm.attr("__members__").template cast<py::dict>();
   const auto str_val = py::str(value);
-  if (values.contains(str_val)) {
-    return T(values[str_val].template cast<T>());
+  if (!values.contains(str_val)) {
+    LOG(FATAL_THROW) << "Invalid string value " << value << " for enum "
+                     << enm.attr("__name__").template cast<std::string>();
   }
-  const std::string msg =
-      "Invalid string value " + value + " for enum " +
-      std::string(enm.attr("__name__").template cast<std::string>());
-  THROW_EXCEPTION(std::out_of_range, msg.c_str());
-  return T();
+  return T(values[str_val].template cast<T>());
 }
 
 template <typename T>
@@ -53,9 +49,8 @@ void AddStringToEnumConstructor(py::enum_<T>& enm) {
 void UpdateFromDict(py::object& self, const py::dict& dict) {
   for (const auto& it : dict) {
     if (!py::isinstance<py::str>(it.first)) {
-      const std::string msg = "Dictionary key is not a string: " +
-                              py::str(it.first).template cast<std::string>();
-      THROW_EXCEPTION(std::invalid_argument, msg.c_str());
+      LOG(FATAL_THROW) << "Dictionary key is not a string: "
+                       << py::str(it.first);
     }
     const py::str name = py::reinterpret_borrow<py::str>(it.first);
     const py::handle& value = it.second;

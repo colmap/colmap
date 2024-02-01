@@ -51,7 +51,7 @@ DepthMap::DepthMap(const Mat<float>& mat,
     : Mat<float>(mat.GetWidth(), mat.GetHeight(), mat.GetDepth()),
       depth_min_(depth_min),
       depth_max_(depth_max) {
-  CHECK_EQ(mat.GetDepth(), 1);
+  THROW_CHECK_EQ(mat.GetDepth(), 1);
   data_ = mat.GetData();
 }
 
@@ -84,8 +84,8 @@ void DepthMap::Downsize(const size_t max_width, const size_t max_height) {
 
 Bitmap DepthMap::ToBitmap(const float min_percentile,
                           const float max_percentile) const {
-  CHECK_GT(width_, 0);
-  CHECK_GT(height_, 0);
+  THROW_CHECK_GT(width_, 0);
+  THROW_CHECK_GT(height_, 0);
 
   Bitmap bitmap;
   bitmap.Allocate(width_, height_, true);

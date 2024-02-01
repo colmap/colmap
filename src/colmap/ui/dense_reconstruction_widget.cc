@@ -164,7 +164,7 @@ class MeshingOptionsTab : public OptionsWidget {
 std::vector<std::pair<std::string, std::string>> ReadPatchMatchConfig(
     const std::string& config_path) {
   std::ifstream file(config_path);
-  CHECK(file.is_open()) << config_path;
+  THROW_CHECK_FILE_OPEN(file, config_path);
 
   std::string line;
   std::string ref_image_name;
@@ -625,7 +625,7 @@ void DenseReconstructionWidget::ShowMeshingInfo() {
 
 QWidget* DenseReconstructionWidget::GenerateTableButtonWidget(
     const std::string& image_name, const std::string& type) {
-  CHECK(type == "photometric" || type == "geometric");
+  THROW_CHECK(type == "photometric" || type == "geometric");
   const bool photometric = type == "photometric";
 
   if (photometric) {

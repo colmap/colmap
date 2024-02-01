@@ -5,9 +5,10 @@
 #include "colmap/exe/feature.h"
 #include "colmap/exe/sfm.h"
 #include "colmap/feature/sift.h"
+#include "colmap/util/logging.h"
+#include "colmap/util/misc.h"
 
 #include "pycolmap/helpers.h"
-#include "pycolmap/log_exceptions.h"
 #include "pycolmap/utils.h"
 
 #include <memory>
@@ -208,8 +209,8 @@ void BindMatchFeatures(py::module& m) {
               &VTMOpts::match_list_path,
               "Optional path to file with specific image names to match.")
           .def("check", [](VTMOpts& self) {
-            THROW_CHECK_MSG(!self.vocab_tree_path.empty(),
-                            "vocab_tree_path required.");
+            THROW_CHECK(!self.vocab_tree_path.empty())
+                << "vocab_tree_path required.";
             THROW_CHECK_FILE_EXISTS(self.vocab_tree_path);
           });
   MakeDataclass(PyVocabTreeMatchingOptions);

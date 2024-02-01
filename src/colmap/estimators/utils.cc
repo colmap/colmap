@@ -40,7 +40,7 @@ void CenterAndNormalizeImagePoints(const std::vector<Eigen::Vector2d>& points,
                                    std::vector<Eigen::Vector2d>* normed_points,
                                    Eigen::Matrix3d* normed_from_orig) {
   const size_t num_points = points.size();
-  CHECK_GT(num_points, 0);
+  THROW_CHECK_GT(num_points, 0);
 
   // Calculate centroid.
   Eigen::Vector2d centroid(0, 0);
@@ -74,7 +74,7 @@ void ComputeSquaredSampsonError(const std::vector<Eigen::Vector2d>& points1,
                                 const Eigen::Matrix3d& E,
                                 std::vector<double>* residuals) {
   const size_t num_points1 = points1.size();
-  CHECK_EQ(num_points1, points2.size());
+  THROW_CHECK_EQ(num_points1, points2.size());
   residuals->resize(num_points1);
   for (size_t i = 0; i < num_points1; ++i) {
     const Eigen::Vector3d epipolar_line1 = E * points1[i].homogeneous();
@@ -94,7 +94,7 @@ void ComputeSquaredReprojectionError(
     const Eigen::Matrix3x4d& cam_from_world,
     std::vector<double>* residuals) {
   const size_t num_points2D = points2D.size();
-  CHECK_EQ(num_points2D, points3D.size());
+  THROW_CHECK_EQ(num_points2D, points3D.size());
   residuals->resize(num_points2D);
   for (size_t i = 0; i < num_points2D; ++i) {
     const Eigen::Vector3d point3D_in_cam =
