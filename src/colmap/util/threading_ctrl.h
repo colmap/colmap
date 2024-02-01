@@ -53,36 +53,69 @@ namespace colmap {
 #pragma clang diagnostic pop  // -Wkeyword-macro
 #endif
 
-struct ThreadStatus {
-  // Check the status
-  bool IsStarted() { return started; }
-  bool IsStopped() { return stopped; }
-  bool IsPaused() { return paused; }
-  bool IsRunning() { return started && !pausing && !finished; }
-  bool IsFinished() { return finished; }
+// Reimplementation of threading with thread-related functions outside controller
+// Following util/threading.h
 
-  // Update the status
-  void Start() {
-    started = true;
-    stopped = false;
-    paused = false;
-    pausing = false;
-    finished = false;
-    setup = false;
-    setup_valid = false;
-  }
+// Core methods of a controller, wrapped by BaseController
+class CoreController {
+ public:
+  CoreController() {};
+  virtual ~CoreController() = default;
 
-  bool started = false;
-  bool stopped = false;
-  bool paused = false;
-  bool pausing = false;
-  bool finished = false;
-  bool setup = false;
-  bool setup_valid = false;
+  // Set callbacks that can be triggered within the main run function.
+  void AddCallback(int id, const std::function<void()>& func);
+
+  // Call back to the function with the specified name, if it exists.
+  void Callback(int id) const;
+
+  // This is the main run function to be implemented by the child class. If you
+  // are looping over data and want to support the pause operation, call
+  // `BlockIfPaused` at appropriate places in the loop. To support the stop
+  // operation, check the `IsStopped` state and early return from this method.
+  virtual void Run() = 0;
+
+ protected:
+  // Register a new callback. Note that only registered callbacks can be
+  // set/reset and called from within the thread. Hence, this method should be
+  // called from the derived thread constructor.
+  void RegisterCallback(int id);
+
+ private:
+  std::unordered_map<int, std::list<std::function<void()>>> callbacks_;
 };
 
-class BaseController {
+
+// BaseController that supports templating in ControllerThread
+class BaseController: public CoreController {
  public:
+  struct ThreadStatus {
+    // Check the status
+    bool IsStarted() { return started; }
+    bool IsStopped() { return stopped; }
+    bool IsPaused() { return paused; }
+    bool IsRunning() { return started && !pausing && !finished; }
+    bool IsFinished() { return finished; }
+  
+    // Update the status
+    void Start() {
+      started = true;
+      stopped = false;
+      paused = false;
+      pausing = false;
+      finished = false;
+      setup = false;
+      setup_valid = false;
+    }
+  
+    bool started = false;
+    bool stopped = false;
+    bool paused = false;
+    bool pausing = false;
+    bool finished = false;
+    bool setup = false;
+    bool setup_valid = false;
+  };
+
   enum {
     STARTED_CALLBACK = INT_MIN,
     FINISHED_CALLBACK,
@@ -96,18 +129,6 @@ class BaseController {
 
   BaseController();
   virtual ~BaseController() = default;
-
-  // Set callbacks that can be triggered within the main run function.
-  void AddCallback(int id, const std::function<void()>& func);
-
-  // Call back to the function with the specified name, if it exists.
-  void Callback(int id) const;
-
-  // This is the main run function to be implemented by the child class. If you
-  // are looping over data and want to support the pause operation, call
-  // `BlockIfPaused` at appropriate places in the loop. To support the stop
-  // operation, check the `IsStopped` state and early return from this method.
-  virtual void Run() = 0;
 
   ///////////////////////////////////////////////////
   // Thread-related functions
@@ -134,23 +155,24 @@ class BaseController {
   bool CheckValidSetup();
 
  protected:
-  // Register a new callback. Note that only registered callbacks can be
-  // set/reset and called from within the thread. Hence, this method should be
-  // called from the derived thread constructor.
-  void RegisterCallback(int id);
-
   // Signal that the thread is setup. Only call this function once.
   void SignalValidSetup();
   void SignalInvalidSetup();
-
- private:
-  std::unordered_map<int, std::list<std::function<void()>>> callbacks_;
 };
 
+// Helper class to create single threads with simple controls
+// Similar usage as ``Thread`` class in util/threading.h except for initialization. e.g.,
+// 
+// std::shared_ptr<Controller> controller = std::make_shared<Controller>(args);
+// std::unique_ptr<ControllerThread<Controller>> thread = std::make_unique<ControllerThread<Controller>>(controller);
+//
+//
 template <class Controller>
-class ThreadImpl {
+class ControllerThread {
+  static_assert(std::is_base_of<BaseController, Controller>::value); // check if the Controller is inherited from BaseController
+
  public:
-  ThreadImpl(std::shared_ptr<Controller> controller) {
+  ControllerThread(std::shared_ptr<Controller> controller) {
     controller_ = controller;
     controller_->AddCallback(BaseController::LOCK_MUTEX_CALLBACK, [&]() 
         {
@@ -160,7 +182,7 @@ class ThreadImpl {
     controller_->AddCallback(BaseController::BLOCK_IF_PAUSED_CALLBACK, [&]() 
         {
           std::unique_lock<std::mutex> lock(mutex_);
-          ThreadStatus* status = controller_->GetThreadStatus();
+          auto* status = controller_->GetThreadStatus();
           if (status->paused) {
               status->pausing = true;
               pause_condition_.wait(lock);
@@ -176,21 +198,21 @@ class ThreadImpl {
     controller_->AddCallback(BaseController::CHECK_VALID_SETUP_CALLBACK, [&]()
         {
           std::unique_lock<std::mutex> lock(mutex_);
-          ThreadStatus* status = controller_->GetThreadStatus();
+          auto* status = controller_->GetThreadStatus();
           if (status->setup) {
             setup_condition_.wait(lock);
           }
         }
         );
   }
-  ~ThreadImpl() = default;
+  ~ControllerThread() = default;
 
   void Start() {
     std::unique_lock<std::mutex> lock(mutex_);
-    ThreadStatus* status = controller_->GetThreadStatus();
+    auto* status = controller_->GetThreadStatus();
     CHECK(!status->started || status->finished);
     Wait();
-    thread_ = std::thread(&ThreadImpl::RunFunc, this);
+    thread_ = std::thread(&ControllerThread::RunFunc, this);
     status->Start();
   }
 
@@ -207,7 +229,7 @@ class ThreadImpl {
 
   void Resume() {
     std::unique_lock<std::mutex> lock(mutex_);
-    ThreadStatus* status = controller_->GetThreadStatus();
+    auto* status = controller_->GetThreadStatus();
     if (status->paused) {
       status->paused = false;
       pause_condition_.notify_all();

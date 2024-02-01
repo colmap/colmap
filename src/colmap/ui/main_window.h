@@ -48,7 +48,7 @@
 #include "colmap/ui/reconstruction_stats_widget.h"
 #include "colmap/ui/render_options_widget.h"
 #include "colmap/ui/undistortion_widget.h"
-#include "colmap/util/threading_impl.h"
+#include "colmap/util/threading_ctrl.h"
 
 #include <QtCore>
 #include <QtGui>
@@ -146,7 +146,7 @@ class MainWindow : public QMainWindow {
   OptionManager options_;
 
   std::shared_ptr<ReconstructionManager> reconstruction_manager_;
-  std::unique_ptr<ThreadImpl<IncrementalMapperController>> mapper_controller_;
+  std::unique_ptr<ControllerThread<IncrementalMapperController>> mapper_controller_;
 
   Timer timer_;
 

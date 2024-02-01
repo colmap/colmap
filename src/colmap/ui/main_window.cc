@@ -610,7 +610,7 @@ void MainWindow::CreateControllers() {
   }
 
   mapper_controller_ =
-    std::make_unique<ThreadImpl<IncrementalMapperController>>(
+    std::make_unique<ControllerThread<IncrementalMapperController>>(
         std::make_shared<IncrementalMapperController>(options_.mapper,
                                                 *options_.image_path,
                                                 *options_.database_path,

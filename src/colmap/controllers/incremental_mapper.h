@@ -31,8 +31,7 @@
 
 #include "colmap/scene/reconstruction_manager.h"
 #include "colmap/sfm/incremental_mapper.h"
-#include "colmap/util/threading.h"
-#include "colmap/util/threading_impl.h"
+#include "colmap/util/threading_ctrl.h"
 
 namespace colmap {
 
