@@ -138,6 +138,11 @@ inline std::string __MakeExceptionPrefix(const char* file, int line) {
          std::to_string(line) + "] ";
 }
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4722)
+#endif
+
 template <typename T>
 class LogMessageFatalThrow : public google::LogMessage {
  public:
@@ -167,6 +172,10 @@ class LogMessageFatalThrow : public google::LogMessage {
   std::string message_;
   std::string prefix_;
 };
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 using LogMessageFatalThrowDefault = LogMessageFatalThrow<std::invalid_argument>;
 
