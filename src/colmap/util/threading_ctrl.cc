@@ -85,6 +85,16 @@ bool BaseController::IsFinished() {
   return status_.IsFinished();
 }
 
+void BaseController::RunFunc() {
+  Callback(STARTED_CALLBACK);
+  Run();
+  {
+    Callback(LOCK_MUTEX_CALLBACK);
+    status_.finished = true;
+  }
+  Callback(FINISHED_CALLBACK);
+}
+
 void BaseController::SignalValidSetup() {
   Callback(LOCK_MUTEX_CALLBACK);
   CHECK(!status_.setup);

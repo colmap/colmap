@@ -65,9 +65,6 @@ class CoreController {
   // Set callbacks that can be triggered within the main run function.
   void AddCallback(int id, const std::function<void()>& func);
 
-  // Call back to the function with the specified name, if it exists.
-  void Callback(int id) const;
-
   // This is the main run function to be implemented by the child class. If you
   // are looping over data and want to support the pause operation, call
   // `BlockIfPaused` at appropriate places in the loop. To support the stop
@@ -79,6 +76,9 @@ class CoreController {
   // set/reset and called from within the thread. Hence, this method should be
   // called from the derived thread constructor.
   void RegisterCallback(int id);
+
+  // Call back to the function with the specified name, if it exists.
+  void Callback(int id) const;
 
  private:
   std::unordered_map<int, std::list<std::function<void()>>> callbacks_;
@@ -153,6 +153,9 @@ class BaseController : public CoreController {
   // setup is valid. Note that the result is only meaningful if the thread gives
   // a setup signal.
   bool CheckValidSetup();
+
+  // wrapped function for threading
+  void RunFunc();
 
  protected:
   // Signal that the thread is setup. Only call this function once.
@@ -254,15 +257,7 @@ class ControllerThread {
  private:
   // Wrapper around the main run function of the controller to set the finished
   // flag.
-  void RunFunc() {
-    controller_->Callback(BaseController::STARTED_CALLBACK);
-    controller_->Run();
-    {
-      std::unique_lock<std::mutex> lock(mutex_);
-      controller_->GetThreadStatus()->finished = true;
-    }
-    controller_->Callback(BaseController::FINISHED_CALLBACK);
-  }
+  void RunFunc() { controller_->RunFunc(); }
 
   std::thread thread_;
   std::mutex mutex_;
