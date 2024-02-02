@@ -186,8 +186,7 @@ TEST(IncrementalMapperController, ChainedMatches) {
       /*image_path=*/"",
       database_path,
       reconstruction_manager);
-  mapper.Start();
-  mapper.Wait();
+  mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
   ExpectEqualReconstructions(gt_reconstruction,
