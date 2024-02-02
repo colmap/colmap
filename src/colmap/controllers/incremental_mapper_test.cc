@@ -84,7 +84,7 @@ TEST(IncrementalMapperController, WithoutNoise) {
       reconstruction_manager);
   mapper.Run();
 
-      ASSERT_EQ(reconstruction_manager->Size(), 1);
+  ASSERT_EQ(reconstruction_manager->Size(), 1);
   ExpectEqualReconstructions(gt_reconstruction,
                              *reconstruction_manager->Get(0),
                              /*max_rotation_error_deg=*/1e-2,
