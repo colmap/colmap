@@ -171,9 +171,9 @@ class BaseController : public CoreController {
 //
 template <class Controller>
 class ControllerThread {
-  static_assert(
-      std::is_base_of<BaseController, Controller>::
-          value);  // check if the Controller is inherited from BaseController
+  // check if the Controller class is inherited from BaseController
+  static_assert(std::is_base_of<BaseController, Controller>::value,
+                "The controller needs to be inherited from BaseController");
 
  public:
   ControllerThread(std::shared_ptr<Controller> controller) {
