@@ -176,7 +176,7 @@ class ControllerThread {
                 "The controller needs to be inherited from BaseController");
 
  public:
-  ControllerThread(std::shared_ptr<Controller> controller) {
+  explicit ControllerThread(std::shared_ptr<Controller> controller) {
     controller_ = controller;
     controller_->AddCallback(BaseController::LOCK_MUTEX_CALLBACK, [&]() {
       std::unique_lock<std::mutex> lock(mutex_);
