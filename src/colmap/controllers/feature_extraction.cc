@@ -33,8 +33,8 @@
 #include "colmap/scene/database.h"
 #include "colmap/util/cuda.h"
 #include "colmap/util/misc.h"
-#include "colmap/util/timer.h"
 #include "colmap/util/opengl_utils.h"
+#include "colmap/util/timer.h"
 
 #include <numeric>
 

@@ -29,8 +29,8 @@
 
 #pragma once
 
-#include "colmap/util/timer.h"
 #include "colmap/util/logging.h"
+#include "colmap/util/timer.h"
 
 #include <atomic>
 #include <climits>
@@ -53,13 +53,13 @@ namespace colmap {
 #pragma clang diagnostic pop  // -Wkeyword-macro
 #endif
 
-// Reimplementation of threading with thread-related functions outside controller
-// Following util/threading.h
+// Reimplementation of threading with thread-related functions outside
+// controller Following util/threading.h
 
 // Core methods of a controller, wrapped by BaseController
 class CoreController {
  public:
-  CoreController() {};
+  CoreController(){};
   virtual ~CoreController() = default;
 
   // Set callbacks that can be triggered within the main run function.
@@ -84,9 +84,8 @@ class CoreController {
   std::unordered_map<int, std::list<std::function<void()>>> callbacks_;
 };
 
-
 // BaseController that supports templating in ControllerThread
-class BaseController: public CoreController {
+class BaseController : public CoreController {
  public:
   struct ThreadStatus {
     // Check the status
@@ -95,7 +94,7 @@ class BaseController: public CoreController {
     bool IsPaused() { return paused; }
     bool IsRunning() { return started && !pausing && !finished; }
     bool IsFinished() { return finished; }
-  
+
     // Update the status
     void Start() {
       started = true;
@@ -106,7 +105,7 @@ class BaseController: public CoreController {
       setup = false;
       setup_valid = false;
     }
-  
+
     bool started = false;
     bool stopped = false;
     bool paused = false;
@@ -120,7 +119,8 @@ class BaseController: public CoreController {
     STARTED_CALLBACK = INT_MIN,
     FINISHED_CALLBACK,
 
-    // thread-related callbacks from here, only useful in the Thread class, empty as default
+    // thread-related callbacks from here, only useful in the Thread class,
+    // empty as default
     LOCK_MUTEX_CALLBACK,
     BLOCK_IF_PAUSED_CALLBACK,
     SIGNAL_SETUP_CALLBACK,
@@ -161,49 +161,44 @@ class BaseController: public CoreController {
 };
 
 // Helper class to create single threads with simple controls
-// Similar usage as ``Thread`` class in util/threading.h except for initialization. e.g.,
-// 
+// Similar usage as ``Thread`` class in util/threading.h except for
+// initialization. e.g.,
+//
 // std::shared_ptr<Controller> controller = std::make_shared<Controller>(args);
-// std::unique_ptr<ControllerThread<Controller>> thread = std::make_unique<ControllerThread<Controller>>(controller);
+// std::unique_ptr<ControllerThread<Controller>> thread =
+// std::make_unique<ControllerThread<Controller>>(controller);
 //
 //
 template <class Controller>
 class ControllerThread {
-  static_assert(std::is_base_of<BaseController, Controller>::value); // check if the Controller is inherited from BaseController
+  static_assert(
+      std::is_base_of<BaseController, Controller>::
+          value);  // check if the Controller is inherited from BaseController
 
  public:
   ControllerThread(std::shared_ptr<Controller> controller) {
     controller_ = controller;
-    controller_->AddCallback(BaseController::LOCK_MUTEX_CALLBACK, [&]() 
-        {
-          std::unique_lock<std::mutex> lock(mutex_);
-        }
-        );
-    controller_->AddCallback(BaseController::BLOCK_IF_PAUSED_CALLBACK, [&]() 
-        {
-          std::unique_lock<std::mutex> lock(mutex_);
-          auto* status = controller_->GetThreadStatus();
-          if (status->paused) {
-              status->pausing = true;
-              pause_condition_.wait(lock);
-              status->pausing = false;
-          }
-        }
-        );
-    controller_->AddCallback(BaseController::SIGNAL_SETUP_CALLBACK, [&]()
-        {
-          setup_condition_.notify_all();
-        }
-        );
-    controller_->AddCallback(BaseController::CHECK_VALID_SETUP_CALLBACK, [&]()
-        {
-          std::unique_lock<std::mutex> lock(mutex_);
-          auto* status = controller_->GetThreadStatus();
-          if (status->setup) {
-            setup_condition_.wait(lock);
-          }
-        }
-        );
+    controller_->AddCallback(BaseController::LOCK_MUTEX_CALLBACK, [&]() {
+      std::unique_lock<std::mutex> lock(mutex_);
+    });
+    controller_->AddCallback(BaseController::BLOCK_IF_PAUSED_CALLBACK, [&]() {
+      std::unique_lock<std::mutex> lock(mutex_);
+      auto* status = controller_->GetThreadStatus();
+      if (status->paused) {
+        status->pausing = true;
+        pause_condition_.wait(lock);
+        status->pausing = false;
+      }
+    });
+    controller_->AddCallback(BaseController::SIGNAL_SETUP_CALLBACK,
+                             [&]() { setup_condition_.notify_all(); });
+    controller_->AddCallback(BaseController::CHECK_VALID_SETUP_CALLBACK, [&]() {
+      std::unique_lock<std::mutex> lock(mutex_);
+      auto* status = controller_->GetThreadStatus();
+      if (status->setup) {
+        setup_condition_.wait(lock);
+      }
+    });
   }
   ~ControllerThread() = default;
 
@@ -248,16 +243,17 @@ class ControllerThread {
   bool IsRunning() { return controller_->IsRunning(); }
   bool IsFinished() { return controller_->IsFinished(); }
 
-  void AddCallback(int id, const std::function<void()>& func) { controller_->AddCallback(id, func); }
+  void AddCallback(int id, const std::function<void()>& func) {
+    controller_->AddCallback(id, func);
+  }
 
  protected:
   // Get the unique identifier of the current thread.
-  std::thread::id GetThreadId() const {
-    return std::this_thread::get_id();
-  }
+  std::thread::id GetThreadId() const { return std::this_thread::get_id(); }
 
  private:
-  // Wrapper around the main run function of the controller to set the finished flag.
+  // Wrapper around the main run function of the controller to set the finished
+  // flag.
   void RunFunc() {
     controller_->Callback(BaseController::STARTED_CALLBACK);
     controller_->Run();
@@ -277,4 +273,3 @@ class ControllerThread {
 };
 
 }  // namespace colmap
-

@@ -28,11 +28,13 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 #include "colmap/util/threading_ctrl.h"
+
 #include "colmap/util/logging.h"
 
 namespace colmap {
 
-void CoreController::AddCallback(const int id, const std::function<void()>& func) {
+void CoreController::AddCallback(const int id,
+                                 const std::function<void()>& func) {
   CHECK(func);
   CHECK_GT(callbacks_.count(id), 0) << "Callback not registered";
   callbacks_.at(id).push_back(func);
@@ -99,10 +101,7 @@ void BaseController::SignalInvalidSetup() {
   Callback(SIGNAL_SETUP_CALLBACK);
 }
 
-
-void BaseController::BlockIfPaused() {
-  Callback(BLOCK_IF_PAUSED_CALLBACK);
-}
+void BaseController::BlockIfPaused() { Callback(BLOCK_IF_PAUSED_CALLBACK); }
 
 bool BaseController::CheckValidSetup() {
   Callback(CHECK_VALID_SETUP_CALLBACK);
@@ -110,4 +109,3 @@ bool BaseController::CheckValidSetup() {
 }
 
 }  // namespace colmap
-

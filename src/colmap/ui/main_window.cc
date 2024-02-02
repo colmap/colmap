@@ -610,13 +610,12 @@ void MainWindow::CreateControllers() {
   }
 
   mapper_controller_ =
-    std::make_unique<ControllerThread<IncrementalMapperController>>(
-        std::make_shared<IncrementalMapperController>(options_.mapper,
-                                                *options_.image_path,
-                                                *options_.database_path,
-                                                reconstruction_manager_
-          )
-        );
+      std::make_unique<ControllerThread<IncrementalMapperController>>(
+          std::make_shared<IncrementalMapperController>(
+              options_.mapper,
+              *options_.image_path,
+              *options_.database_path,
+              reconstruction_manager_));
   mapper_controller_->AddCallback(
       IncrementalMapperController::INITIAL_IMAGE_PAIR_REG_CALLBACK, [this]() {
         if (!mapper_controller_->IsStopped()) {
