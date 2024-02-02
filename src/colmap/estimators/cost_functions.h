@@ -36,6 +36,7 @@
 
 #include <Eigen/Core>
 #include <ceres/ceres.h>
+#include <ceres/conditioned_cost_function.h>
 #include <ceres/rotation.h>
 
 namespace colmap {
@@ -450,7 +451,7 @@ struct MetricRelativePoseErrorCostFunction {
 
 class LinearCostFunction : public ceres::CostFunction {
  public:
-  LinearCostFunction(const double s) : s_(s) {
+  explicit LinearCostFunction(const double s) : s_(s) {
     set_num_residuals(1);
     mutable_parameter_block_sizes()->push_back(1);
   }
