@@ -141,8 +141,8 @@ const std::vector<std::vector<int>>& StereoFusion::GetFusedPointsVisibility()
 }
 
 void StereoFusion::Run() {
-  Timer timer_controller;
-  timer_controller.Start();
+  Timer run_timer;
+  run_timer.Start();
 
   fused_points_.clear();
   fused_points_visibility_.clear();
@@ -180,7 +180,7 @@ void StereoFusion::Run() {
   }
 
   if (IsStopped()) {
-    timer_controller.PrintMinutes();
+    run_timer.PrintMinutes();
     return;
   }
 
@@ -343,7 +343,7 @@ void StereoFusion::Run() {
   }
 
   LOG(INFO) << "Number of fused points: " << fused_points_.size();
-  timer_controller.PrintMinutes();
+  run_timer.PrintMinutes();
 }
 
 void StereoFusion::InitFusedPixelMask(int image_idx,

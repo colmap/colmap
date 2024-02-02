@@ -169,8 +169,8 @@ COLMAPUndistorter::COLMAPUndistorter(const UndistortCameraOptions& options,
 
 void COLMAPUndistorter::Run() {
   PrintHeading1("Image undistortion");
-  Timer timer_controller;
-  timer_controller.Start();
+  Timer run_timer;
+  run_timer.Start();
 
   CreateDirIfNotExists(JoinPaths(output_path_, "images"));
   CreateDirIfNotExists(JoinPaths(output_path_, "sparse"));
@@ -235,7 +235,7 @@ void COLMAPUndistorter::Run() {
   WriteScript(false);
   WriteScript(true);
 
-  timer_controller.PrintMinutes();
+  run_timer.PrintMinutes();
 }
 
 bool COLMAPUndistorter::Undistort(const image_t image_id) const {
@@ -314,8 +314,8 @@ PMVSUndistorter::PMVSUndistorter(const UndistortCameraOptions& options,
       reconstruction_(reconstruction) {}
 
 void PMVSUndistorter::Run() {
-  Timer timer_controller;
-  timer_controller.Start();
+  Timer run_timer;
+  run_timer.Start();
   PrintHeading1("Image undistortion (CMVS/PMVS)");
 
   CreateDirIfNotExists(JoinPaths(output_path_, "pmvs"));
@@ -367,7 +367,7 @@ void PMVSUndistorter::Run() {
   WriteCMVSCOLMAPScript(false);
   WriteCMVSCOLMAPScript(true);
 
-  timer_controller.PrintMinutes();
+  run_timer.PrintMinutes();
 }
 
 bool PMVSUndistorter::Undistort(const size_t reg_image_idx) const {
@@ -553,8 +553,8 @@ CMPMVSUndistorter::CMPMVSUndistorter(const UndistortCameraOptions& options,
       reconstruction_(reconstruction) {}
 
 void CMPMVSUndistorter::Run() {
-  Timer timer_controller;
-  timer_controller.Start();
+  Timer run_timer;
+  run_timer.Start();
   PrintHeading1("Image undistortion (CMP-MVS)");
 
   ThreadPool thread_pool;
@@ -576,7 +576,7 @@ void CMPMVSUndistorter::Run() {
     futures[i].get();
   }
 
-  timer_controller.PrintMinutes();
+  run_timer.PrintMinutes();
 }
 
 bool CMPMVSUndistorter::Undistort(const size_t reg_image_idx) const {
@@ -619,8 +619,8 @@ PureImageUndistorter::PureImageUndistorter(
       image_names_and_cameras_(image_names_and_cameras) {}
 
 void PureImageUndistorter::Run() {
-  Timer timer_controller;
-  timer_controller.Start();
+  Timer run_timer;
+  run_timer.Start();
   PrintHeading1("Image undistortion");
 
   CreateDirIfNotExists(output_path_);
@@ -645,7 +645,7 @@ void PureImageUndistorter::Run() {
     futures[i].get();
   }
 
-  timer_controller.PrintMinutes();
+  run_timer.PrintMinutes();
 }
 
 bool PureImageUndistorter::Undistort(const size_t image_idx) const {
@@ -686,8 +686,8 @@ StereoImageRectifier::StereoImageRectifier(
 
 void StereoImageRectifier::Run() {
   PrintHeading1("Stereo rectification");
-  Timer timer_controller;
-  timer_controller.Start();
+  Timer run_timer;
+  run_timer.Start();
 
   ThreadPool thread_pool;
   std::vector<std::future<void>> futures;
@@ -710,7 +710,7 @@ void StereoImageRectifier::Run() {
     futures[i].get();
   }
 
-  timer_controller.PrintMinutes();
+  run_timer.PrintMinutes();
 }
 
 void StereoImageRectifier::Rectify(const image_t image_id1,

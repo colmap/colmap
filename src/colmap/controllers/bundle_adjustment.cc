@@ -70,8 +70,8 @@ void BundleAdjustmentController::Run() {
   THROW_CHECK_NOTNULL(reconstruction_);
 
   PrintHeading1("Global bundle adjustment");
-  Timer timer_controller;
-  timer_controller.Start();
+  Timer run_timer;
+  run_timer.Start();
 
   const std::vector<image_t>& reg_image_ids = reconstruction_->RegImageIds();
 
@@ -100,7 +100,7 @@ void BundleAdjustmentController::Run() {
   BundleAdjuster bundle_adjuster(ba_options, ba_config);
   bundle_adjuster.Solve(reconstruction_.get());
 
-  timer_controller.PrintMinutes();
+  run_timer.PrintMinutes();
 }
 
 }  // namespace colmap

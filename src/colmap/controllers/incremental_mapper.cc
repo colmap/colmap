@@ -295,8 +295,8 @@ IncrementalMapperController::IncrementalMapperController(
 }
 
 void IncrementalMapperController::Run() {
-  Timer timer_controller;
-  timer_controller.Start();
+  Timer run_timer;
+  run_timer.Start();
   if (!LoadDatabase()) {
     return;
   }
@@ -323,7 +323,7 @@ void IncrementalMapperController::Run() {
     Reconstruct(init_mapper_options);
   }
 
-  timer_controller.PrintMinutes();
+  run_timer.PrintMinutes();
 }
 
 bool IncrementalMapperController::LoadDatabase() {

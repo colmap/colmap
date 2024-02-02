@@ -193,8 +193,8 @@ PatchMatchController::PatchMatchController(const PatchMatchOptions& options,
 }
 
 void PatchMatchController::Run() {
-  Timer timer_controller;
-  timer_controller.Start();
+  Timer run_timer;
+  run_timer.Start();
   ReadWorkspace();
   ReadProblems();
   ReadGpuIndices();
@@ -226,7 +226,7 @@ void PatchMatchController::Run() {
 
   thread_pool_->Wait();
 
-  timer_controller.PrintMinutes();
+  run_timer.PrintMinutes();
 }
 
 void PatchMatchController::ReadWorkspace() {
