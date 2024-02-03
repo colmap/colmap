@@ -84,7 +84,7 @@ void BaseController::SignalInvalidSetup() {
   Callback(SIGNAL_SETUP_CALLBACK);
 }
 
-bool BaseController::IsStopped() {
+bool BaseController::IsStopped() const {
   if (check_if_stop_fn)
     return check_if_stop_fn();
   else

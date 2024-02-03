@@ -86,7 +86,11 @@ class BaseController {
   void RunFunc();
 
   // check if the thread is stopped
-  bool IsStopped();
+  bool IsStopped() const;
+  bool CheckIfStopped() {
+    BlockIfPaused();
+    return IsStopped();
+  }
 
   // To be called from inside the main run function. This blocks the main
   // caller, if the thread is paused, until the thread is resumed.

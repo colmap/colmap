@@ -306,7 +306,7 @@ void IncrementalMapperController::Run() {
 
   const size_t kNumInitRelaxations = 2;
   for (size_t i = 0; i < kNumInitRelaxations; ++i) {
-    if (reconstruction_manager_->Size() > 0 || IsStopped()) {
+    if (reconstruction_manager_->Size() > 0 || CheckIfStopped()) {
       break;
     }
 
@@ -314,7 +314,7 @@ void IncrementalMapperController::Run() {
     init_mapper_options.init_min_num_inliers /= 2;
     Reconstruct(init_mapper_options);
 
-    if (reconstruction_manager_->Size() > 0 || IsStopped()) {
+    if (reconstruction_manager_->Size() > 0 || CheckIfStopped()) {
       break;
     }
 
@@ -374,8 +374,7 @@ void IncrementalMapperController::Reconstruct(
 
   for (int num_trials = 0; num_trials < options_->init_num_trials;
        ++num_trials) {
-    BlockIfPaused();
-    if (IsStopped()) {
+    if (CheckIfStopped()) {
       break;
     }
 
@@ -474,8 +473,7 @@ void IncrementalMapperController::Reconstruct(
     bool reg_next_success = true;
     bool prev_reg_next_success = true;
     while (reg_next_success) {
-      BlockIfPaused();
-      if (IsStopped()) {
+      if (CheckIfStopped()) {
         break;
       }
 
@@ -567,7 +565,7 @@ void IncrementalMapperController::Reconstruct(
       }
     }
 
-    if (IsStopped()) {
+    if (CheckIfStopped()) {
       mapper.EndReconstruction(/*discard=*/false);
       break;
     }
