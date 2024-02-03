@@ -449,29 +449,32 @@ struct MetricRelativePoseErrorCostFunction {
   const EigenMatrix6d sqrt_information_j_;
 };
 
-class LinearCostFunction : public ceres::CostFunction {
- public:
-  explicit LinearCostFunction(const double s) : s_(s) {
-    set_num_residuals(1);
-    mutable_parameter_block_sizes()->push_back(1);
-  }
-
-  bool Evaluate(double const* const* parameters,
-                double* residuals,
-                double** jacobians) const final {
-    *residuals = **parameters * s_;
-    if (jacobians && *jacobians) {
-      **jacobians = s_;
-    }
-    return true;
-  }
-
- private:
-  const double s_;
-};
-
+// A cost function that wraps another one and whiten its residuals with an
+// isotropic covariance, i.e. assuming that the variance is identical in and
+// independent between each dimension of the residual.
 template <class CostFunction, typename... Args>
 class IsotropicNoiseCostFunctionWrapper {
+  class LinearCostFunction : public ceres::CostFunction {
+   public:
+    explicit LinearCostFunction(const double s) : s_(s) {
+      set_num_residuals(1);
+      mutable_parameter_block_sizes()->push_back(1);
+    }
+
+    bool Evaluate(double const* const* parameters,
+                  double* residuals,
+                  double** jacobians) const final {
+      *residuals = **parameters * s_;
+      if (jacobians && *jacobians) {
+        **jacobians = s_;
+      }
+      return true;
+    }
+
+   private:
+    const double s_;
+  };
+
  public:
   static ceres::CostFunction* Create(Args&&... args, const double stddev) {
     THROW_CHECK_GT(stddev, 0.0);
