@@ -33,24 +33,6 @@
 
 namespace colmap {
 
-void CoreController::AddCallback(const int id,
-                                 const std::function<void()>& func) {
-  CHECK(func);
-  CHECK_GT(callbacks_.count(id), 0) << "Callback not registered";
-  callbacks_.at(id).push_back(func);
-}
-
-void CoreController::RegisterCallback(const int id) {
-  callbacks_.emplace(id, std::list<std::function<void()>>());
-}
-
-void CoreController::Callback(const int id) const {
-  CHECK_GT(callbacks_.count(id), 0) << "Callback not registered";
-  for (const auto& callback : callbacks_.at(id)) {
-    callback();
-  }
-}
-
 BaseController::BaseController() {
   RegisterCallback(STARTED_CALLBACK);
   RegisterCallback(FINISHED_CALLBACK);
@@ -59,6 +41,24 @@ BaseController::BaseController() {
   RegisterCallback(BLOCK_IF_PAUSED_CALLBACK);
   RegisterCallback(SIGNAL_SETUP_CALLBACK);
   RegisterCallback(CHECK_VALID_SETUP_CALLBACK);
+}
+
+void BaseController::AddCallback(const int id,
+                                 const std::function<void()>& func) {
+  CHECK(func);
+  CHECK_GT(callbacks_.count(id), 0) << "Callback not registered";
+  callbacks_.at(id).push_back(func);
+}
+
+void BaseController::RegisterCallback(const int id) {
+  callbacks_.emplace(id, std::list<std::function<void()>>());
+}
+
+void BaseController::Callback(const int id) const {
+  CHECK_GT(callbacks_.count(id), 0) << "Callback not registered";
+  for (const auto& callback : callbacks_.at(id)) {
+    callback();
+  }
 }
 
 void BaseController::RunFunc() {

@@ -55,37 +55,8 @@ namespace colmap {
 
 // Reimplementation of threading with thread-related functions outside
 // controller Following util/threading.h
-
-// Core methods of a controller, wrapped by BaseController
-class CoreController {
- public:
-  CoreController(){};
-  virtual ~CoreController() = default;
-
-  // Set callbacks that can be triggered within the main run function.
-  void AddCallback(int id, const std::function<void()>& func);
-
-  // This is the main run function to be implemented by the child class. If you
-  // are looping over data and want to support the pause operation, call
-  // `BlockIfPaused` at appropriate places in the loop. To support the stop
-  // operation, check the `IsStopped` state and early return from this method.
-  virtual void Run() = 0;
-
- protected:
-  // Register a new callback. Note that only registered callbacks can be
-  // set/reset and called from within the thread. Hence, this method should be
-  // called from the derived thread constructor.
-  void RegisterCallback(int id);
-
-  // Call back to the function with the specified name, if it exists.
-  void Callback(int id) const;
-
- private:
-  std::unordered_map<int, std::list<std::function<void()>>> callbacks_;
-};
-
 // BaseController that supports templating in ControllerThread
-class BaseController : public CoreController {
+class BaseController {
  public:
   BaseController();
   virtual ~BaseController() = default;
@@ -101,6 +72,15 @@ class BaseController : public CoreController {
     SIGNAL_SETUP_CALLBACK,
     CHECK_VALID_SETUP_CALLBACK,
   };
+
+  // Set callbacks that can be triggered within the main run function.
+  void AddCallback(int id, const std::function<void()>& func);
+
+  // This is the main run function to be implemented by the child class. If you
+  // are looping over data and want to support the pause operation, call
+  // `BlockIfPaused` at appropriate places in the loop. To support the stop
+  // operation, check the `IsStopped` state and early return from this method.
+  virtual void Run() = 0;
 
   // wrapped function for threading
   void RunFunc();
@@ -126,11 +106,20 @@ class BaseController : public CoreController {
   std::function<bool()> check_if_stop_fn;
 
  protected:
+  // Register a new callback. Note that only registered callbacks can be
+  // set/reset and called from within the thread. Hence, this method should be
+  // called from the derived thread constructor.
+  void RegisterCallback(int id);
+
+  // Call back to the function with the specified name, if it exists.
+  void Callback(int id) const;
+
   // Signal that the thread is setup. Only call this function once.
   void SignalValidSetup();
   void SignalInvalidSetup();
 
  private:
+  std::unordered_map<int, std::list<std::function<void()>>> callbacks_;
   bool setup_ = false;
   bool setup_valid_ = false;
 };
