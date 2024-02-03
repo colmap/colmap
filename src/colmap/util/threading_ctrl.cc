@@ -54,68 +54,48 @@ void CoreController::Callback(const int id) const {
 BaseController::BaseController() {
   RegisterCallback(STARTED_CALLBACK);
   RegisterCallback(FINISHED_CALLBACK);
+  // threading-related
   RegisterCallback(LOCK_MUTEX_CALLBACK);
   RegisterCallback(BLOCK_IF_PAUSED_CALLBACK);
   RegisterCallback(SIGNAL_SETUP_CALLBACK);
   RegisterCallback(CHECK_VALID_SETUP_CALLBACK);
 }
 
-bool BaseController::IsStarted() {
-  Callback(LOCK_MUTEX_CALLBACK);
-  return status_.IsStarted();
-}
-
-bool BaseController::IsStopped() {
-  Callback(LOCK_MUTEX_CALLBACK);
-  return status_.IsStopped();
-}
-
-bool BaseController::IsPaused() {
-  Callback(LOCK_MUTEX_CALLBACK);
-  return status_.IsPaused();
-}
-
-bool BaseController::IsRunning() {
-  Callback(LOCK_MUTEX_CALLBACK);
-  return status_.IsRunning();
-}
-
-bool BaseController::IsFinished() {
-  Callback(LOCK_MUTEX_CALLBACK);
-  return status_.IsFinished();
-}
-
 void BaseController::RunFunc() {
   Callback(STARTED_CALLBACK);
   Run();
-  {
-    Callback(LOCK_MUTEX_CALLBACK);
-    status_.finished = true;
-  }
+  Callback(LOCK_MUTEX_CALLBACK);
   Callback(FINISHED_CALLBACK);
 }
 
 void BaseController::SignalValidSetup() {
   Callback(LOCK_MUTEX_CALLBACK);
-  CHECK(!status_.setup);
-  status_.setup = true;
-  status_.setup_valid = true;
+  CHECK(!setup_);
+  setup_ = true;
+  setup_valid_ = true;
   Callback(SIGNAL_SETUP_CALLBACK);
 }
 
 void BaseController::SignalInvalidSetup() {
   Callback(LOCK_MUTEX_CALLBACK);
-  CHECK(!status_.setup);
-  status_.setup = true;
-  status_.setup_valid = false;
+  CHECK(!setup_);
+  setup_ = true;
+  setup_valid_ = false;
   Callback(SIGNAL_SETUP_CALLBACK);
+}
+
+bool BaseController::IsStopped() {
+  if (check_if_stop_fn)
+    return check_if_stop_fn();
+  else
+    return false;
 }
 
 void BaseController::BlockIfPaused() { Callback(BLOCK_IF_PAUSED_CALLBACK); }
 
 bool BaseController::CheckValidSetup() {
   Callback(CHECK_VALID_SETUP_CALLBACK);
-  return status_.setup_valid;
+  return setup_valid_;
 }
 
 }  // namespace colmap

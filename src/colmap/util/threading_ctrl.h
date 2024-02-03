@@ -87,33 +87,8 @@ class CoreController {
 // BaseController that supports templating in ControllerThread
 class BaseController : public CoreController {
  public:
-  struct ThreadStatus {
-    // Check the status
-    bool IsStarted() { return started; }
-    bool IsStopped() { return stopped; }
-    bool IsPaused() { return paused; }
-    bool IsRunning() { return started && !pausing && !finished; }
-    bool IsFinished() { return finished; }
-
-    // Update the status
-    void Start() {
-      started = true;
-      stopped = false;
-      paused = false;
-      pausing = false;
-      finished = false;
-      setup = false;
-      setup_valid = false;
-    }
-
-    bool started = false;
-    bool stopped = false;
-    bool paused = false;
-    bool pausing = false;
-    bool finished = false;
-    bool setup = false;
-    bool setup_valid = false;
-  };
+  BaseController();
+  virtual ~BaseController() = default;
 
   enum {
     STARTED_CALLBACK = INT_MIN,
@@ -127,21 +102,11 @@ class BaseController : public CoreController {
     CHECK_VALID_SETUP_CALLBACK,
   };
 
-  BaseController();
-  virtual ~BaseController() = default;
+  // wrapped function for threading
+  void RunFunc();
 
-  ///////////////////////////////////////////////////
-  // Thread-related functions
-  ///////////////////////////////////////////////////
-  ThreadStatus status_;
-  ThreadStatus* GetThreadStatus() { return &status_; }
-
-  // Check the state of the thread.
-  bool IsStarted();
+  // check if the thread is stopped
   bool IsStopped();
-  bool IsPaused();
-  bool IsRunning();
-  bool IsFinished();
 
   // To be called from inside the main run function. This blocks the main
   // caller, if the thread is paused, until the thread is resumed.
@@ -154,13 +119,20 @@ class BaseController : public CoreController {
   // a setup signal.
   bool CheckValidSetup();
 
-  // wrapped function for threading
-  void RunFunc();
+  // test if setup is called
+  bool SetupCalled() const { return setup_; }
+
+  // check_if_stop function
+  std::function<bool()> check_if_stop_fn;
 
  protected:
   // Signal that the thread is setup. Only call this function once.
   void SignalValidSetup();
   void SignalInvalidSetup();
+
+ private:
+  bool setup_ = false;
+  bool setup_valid_ = false;
 };
 
 // Helper class to create single threads with simple controls
@@ -179,57 +151,87 @@ class ControllerThread {
                 "The controller needs to be inherited from BaseController");
 
  public:
+  struct ThreadStatus {
+    // Check the status
+    bool IsStarted() const { return started; }
+    bool IsStopped() const { return stopped; }
+    bool IsPaused() const { return paused; }
+    bool IsRunning() const { return started && !pausing && !finished; }
+    bool IsFinished() const { return finished; }
+
+    // Update the status
+    void Start() {
+      started = true;
+      stopped = false;
+      paused = false;
+      pausing = false;
+      finished = false;
+    }
+
+    bool started = false;
+    bool stopped = false;
+    bool paused = false;
+    bool pausing = false;
+    bool finished = false;
+  };
+
+  // Check the state of the thread.
+  bool IsStarted() const { return status_.IsStarted(); }
+  bool IsStopped() const { return status_.IsStopped(); }
+  bool IsPaused() const { return status_.IsPaused(); }
+  bool IsRunning() const { return status_.IsRunning(); }
+  bool IsFinished() const { return status_.IsFinished(); }
+
   explicit ControllerThread(std::shared_ptr<Controller> controller) {
     controller_ = controller;
+    controller_->AddCallback(BaseController::FINISHED_CALLBACK,
+                             [&]() { status_.finished = true; });
     controller_->AddCallback(BaseController::LOCK_MUTEX_CALLBACK, [&]() {
       std::unique_lock<std::mutex> lock(mutex_);
     });
     controller_->AddCallback(BaseController::BLOCK_IF_PAUSED_CALLBACK, [&]() {
       std::unique_lock<std::mutex> lock(mutex_);
-      auto* status = controller_->GetThreadStatus();
-      if (status->paused) {
-        status->pausing = true;
+      if (status_.paused) {
+        status_.pausing = true;
         pause_condition_.wait(lock);
-        status->pausing = false;
+        status_.pausing = false;
       }
     });
     controller_->AddCallback(BaseController::SIGNAL_SETUP_CALLBACK,
                              [&]() { setup_condition_.notify_all(); });
     controller_->AddCallback(BaseController::CHECK_VALID_SETUP_CALLBACK, [&]() {
       std::unique_lock<std::mutex> lock(mutex_);
-      auto* status = controller_->GetThreadStatus();
-      if (status->setup) {
+      if (controller_->SetupCalled()) {
         setup_condition_.wait(lock);
       }
     });
+    controller_->check_if_stop_fn = [&]() { return IsStopped(); };
   }
   ~ControllerThread() = default;
 
   void Start() {
     std::unique_lock<std::mutex> lock(mutex_);
-    auto* status = controller_->GetThreadStatus();
-    CHECK(!status->started || status->finished);
+    CHECK(!status_.started || status_.finished);
     Wait();
     thread_ = std::thread(&ControllerThread::RunFunc, this);
-    status->Start();
+    status_.Start();
   }
 
   void Stop() {
     std::unique_lock<std::mutex> lock(mutex_);
-    controller_->GetThreadStatus()->stopped = true;
+    status_.stopped = true;
   }
 
   void Pause() {
     std::unique_lock<std::mutex> lock(mutex_);
-    controller_->GetThreadStatus()->paused = true;
+    status_.paused = true;
     Resume();
   }
 
   void Resume() {
     std::unique_lock<std::mutex> lock(mutex_);
-    auto* status = controller_->GetThreadStatus();
-    if (status->paused) {
-      status->paused = false;
+    if (status_.paused) {
+      status_.paused = false;
       pause_condition_.notify_all();
     }
   }
@@ -239,12 +241,6 @@ class ControllerThread {
       thread_.join();
     }
   }
-
-  bool IsStarted() { return controller_->IsStarted(); }
-  bool IsStopped() { return controller_->IsStopped(); }
-  bool IsPaused() { return controller_->IsPaused(); }
-  bool IsRunning() { return controller_->IsRunning(); }
-  bool IsFinished() { return controller_->IsFinished(); }
 
   void AddCallback(int id, const std::function<void()>& func) {
     controller_->AddCallback(id, func);
@@ -259,6 +255,7 @@ class ControllerThread {
   // flag.
   void RunFunc() { controller_->RunFunc(); }
 
+  ThreadStatus status_;
   std::thread thread_;
   std::mutex mutex_;
   std::condition_variable pause_condition_;
