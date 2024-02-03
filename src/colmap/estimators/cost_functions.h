@@ -477,8 +477,17 @@ class IsotropicNoiseCostFunctionWrapper {
     THROW_CHECK_GT(stddev, 0.0);
     ceres::CostFunction* cost_function =
         CostFunction::Create(std::forward<Args>(args)...);
+#if CERES_VERSION_MAJOR < 2
+    std::vector<ceres::CostFunction*> conditioners(
+        cost_function->num_residuals());
+    // Ceres <2.0 does not allow reuse the same conditioner multiple times.
+    for (size_t i = 0; i < conditioners.size(); ++i) {
+      conditioners.push_back(new LinearCostFunction(1.0 / stddev));
+    }
+#else
     std::vector<ceres::CostFunction*> conditioners(
         cost_function->num_residuals(), new LinearCostFunction(1.0 / stddev));
+#endif
     return new ceres::ConditionedCostFunction(
         cost_function, conditioners, ceres::TAKE_OWNERSHIP);
   }
