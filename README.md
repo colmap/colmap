@@ -35,22 +35,27 @@ If you use the image retrieval / vocabulary tree engine, please also cite:
 
 The latest source code is available at https://github.com/colmap/colmap. COLMAP
 builds on top of existing works and when using specific algorithms within
-COLMAP, please also cite the original authors, as specified in the source code.
+COLMAP, please also cite the original authors, as specified in the source code,
+and consider citing relevant third-party dependencies.
 
 
 Download
 --------
 
-Executables for Windows and Mac and other resources can be downloaded from
-https://demuc.de/colmap/. Executables for Linux/Unix/BSD are available at
-https://repology.org/metapackage/colmap/versions. To build COLMAP from source,
-please see https://colmap.github.io/install.html.
+* Binaries for **Windows** and **Mac** and other resources can be downloaded
+  from https://github.com/colmap/colmap/releases.
+* Binaries for **Linux/Unix/BSD** are available at
+  https://repology.org/metapackage/colmap/versions.
+* Pre-built **Docker** images are available at
+  https://hub.docker.com/r/colmap/colmap.
+* **Python bindings** are available at https://pypi.org/project/pycolmap.
+* To **build from source**, please see https://colmap.github.io/install.html.
+
 
 Getting Started
 ---------------
 
-1. Download the pre-built binaries from https://demuc.de/colmap/ or build the
-   library manually as described in the documentation.
+1. Download pre-built binaries or build from source.
 2. Download one of the provided datasets at https://demuc.de/colmap/datasets/
    or use your own images.
 3. Use the **automatic reconstruction** to easily build models
@@ -74,11 +79,17 @@ for bug reports, feature requests/additions, etc.
 Acknowledgments
 ---------------
 
-The library was originally written by Johannes L. Schönberger
-(https://demuc.de/) with funding provided by his PhD advisors Jan-Michael Frahm
-and Marc Pollefeys. Since then the project has benefited from countless
-community contributions, including bug fixes, improvements, new features,
-third-party tooling, and community support.
+COLMAP was originally written by [Johannes Schönberger](https://demuc.de/) with
+funding provided by his PhD advisors Jan-Michael Frahm and Marc Pollefeys.
+
+The Python bindings in PyCOLMAP were originally added by
+[Mihai Dusmanu](https://github.com/mihaidusmanu),
+[Philipp Lindenberger](https://github.com/Phil26AT), and
+[Paul-Edouard Sarlin](https://github.com/Skydes).
+
+The project has also benefitted from countless community contributions, including
+bug fixes, improvements, new features, third-party tooling, and community
+support (special credits to [Torsten Sattler](https://tsattler.github.io)).
 
 
 Contribution

@@ -163,7 +163,7 @@ TEST(Bitmap, ConvertToRowMajorArrayRGB) {
   bitmap.SetPixel(1, 0, BitmapColor<uint8_t>(2, 0, 0));
   bitmap.SetPixel(1, 1, BitmapColor<uint8_t>(3, 0, 0));
   const std::vector<uint8_t> array = bitmap.ConvertToRowMajorArray();
-  EXPECT_EQ(array.size(), 12);
+  ASSERT_EQ(array.size(), 12);
   EXPECT_EQ(array[0], 0);
   EXPECT_EQ(array[1], 0);
   EXPECT_EQ(array[2], 0);
@@ -186,7 +186,7 @@ TEST(Bitmap, ConvertToRowMajorArrayGrey) {
   bitmap.SetPixel(1, 0, BitmapColor<uint8_t>(2, 0, 0));
   bitmap.SetPixel(1, 1, BitmapColor<uint8_t>(3, 0, 0));
   const std::vector<uint8_t> array = bitmap.ConvertToRowMajorArray();
-  EXPECT_EQ(array.size(), 4);
+  ASSERT_EQ(array.size(), 4);
   EXPECT_EQ(array[0], 0);
   EXPECT_EQ(array[1], 2);
   EXPECT_EQ(array[2], 1);
@@ -201,7 +201,7 @@ TEST(Bitmap, ConvertToColMajorArrayRGB) {
   bitmap.SetPixel(1, 0, BitmapColor<uint8_t>(2, 0, 0));
   bitmap.SetPixel(1, 1, BitmapColor<uint8_t>(3, 0, 0));
   const std::vector<uint8_t> array = bitmap.ConvertToColMajorArray();
-  EXPECT_EQ(array.size(), 12);
+  ASSERT_EQ(array.size(), 12);
   EXPECT_EQ(array[0], 0);
   EXPECT_EQ(array[1], 0);
   EXPECT_EQ(array[2], 0);
@@ -224,11 +224,65 @@ TEST(Bitmap, ConvertToColMajorArrayGrey) {
   bitmap.SetPixel(1, 0, BitmapColor<uint8_t>(2, 0, 0));
   bitmap.SetPixel(1, 1, BitmapColor<uint8_t>(3, 0, 0));
   const std::vector<uint8_t> array = bitmap.ConvertToColMajorArray();
-  EXPECT_EQ(array.size(), 4);
+  ASSERT_EQ(array.size(), 4);
   EXPECT_EQ(array[0], 0);
   EXPECT_EQ(array[1], 1);
   EXPECT_EQ(array[2], 2);
   EXPECT_EQ(array[3], 3);
+}
+
+TEST(Bitmap, ConvertToFromRawBitsGrey) {
+  Bitmap bitmap;
+  bitmap.Allocate(3, 2, false);
+  bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(0));
+  bitmap.SetPixel(0, 1, BitmapColor<uint8_t>(1));
+  bitmap.SetPixel(1, 0, BitmapColor<uint8_t>(2));
+  bitmap.SetPixel(1, 1, BitmapColor<uint8_t>(3));
+
+  std::vector<uint8_t> raw_bits = bitmap.ConvertToRawBits();
+  ASSERT_EQ(raw_bits.size(), bitmap.Pitch() * bitmap.Height());
+
+  const std::vector<uint8_t> raw_bits_copy = raw_bits;
+  Bitmap bitmap_copy = Bitmap::ConvertFromRawBits(raw_bits.data(),
+                                                  bitmap.Pitch(),
+                                                  bitmap.Width(),
+                                                  bitmap.Height(),
+                                                  /*rgb=*/false);
+  EXPECT_EQ(bitmap.Width(), bitmap_copy.Width());
+  EXPECT_EQ(bitmap.Height(), bitmap_copy.Height());
+  EXPECT_EQ(bitmap.Channels(), bitmap_copy.Channels());
+  bitmap.SetPixel(0, 1, BitmapColor<uint8_t>(5));
+  bitmap_copy.SetPixel(0, 1, BitmapColor<uint8_t>(5));
+  EXPECT_EQ(raw_bits_copy, raw_bits);
+  EXPECT_EQ(bitmap.ConvertToRowMajorArray(),
+            bitmap_copy.ConvertToRowMajorArray());
+}
+
+TEST(Bitmap, ConvertToFromRawBitsRGB) {
+  Bitmap bitmap;
+  bitmap.Allocate(3, 2, true);
+  bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(0, 0, 0));
+  bitmap.SetPixel(0, 1, BitmapColor<uint8_t>(1, 0, 0));
+  bitmap.SetPixel(1, 0, BitmapColor<uint8_t>(2, 0, 0));
+  bitmap.SetPixel(1, 1, BitmapColor<uint8_t>(3, 0, 0));
+
+  std::vector<uint8_t> raw_bits = bitmap.ConvertToRawBits();
+  ASSERT_EQ(raw_bits.size(), bitmap.Pitch() * bitmap.Height() * 3);
+
+  const std::vector<uint8_t> raw_bits_copy = raw_bits;
+  Bitmap bitmap_copy = Bitmap::ConvertFromRawBits(raw_bits.data(),
+                                                  bitmap.Pitch(),
+                                                  bitmap.Width(),
+                                                  bitmap.Height(),
+                                                  /*rgb=*/true);
+  EXPECT_EQ(bitmap.Width(), bitmap_copy.Width());
+  EXPECT_EQ(bitmap.Height(), bitmap_copy.Height());
+  EXPECT_EQ(bitmap.Channels(), bitmap_copy.Channels());
+  bitmap.SetPixel(0, 1, BitmapColor<uint8_t>(5, 0, 0));
+  bitmap_copy.SetPixel(0, 1, BitmapColor<uint8_t>(5, 0, 0));
+  EXPECT_EQ(raw_bits_copy, raw_bits);
+  EXPECT_EQ(bitmap.ConvertToRowMajorArray(),
+            bitmap_copy.ConvertToRowMajorArray());
 }
 
 TEST(Bitmap, GetAndSetPixelRGB) {

@@ -75,11 +75,12 @@ TEST(Alignment, AlignReconstructionsViaReprojections) {
   tgt_reconstruction.Transform(gt_tgt_from_src);
 
   Sim3d tgt_from_src;
-  CHECK(AlignReconstructionsViaReprojections(src_reconstruction,
-                                             tgt_reconstruction,
-                                             /*min_inlier_observations=*/0.9,
-                                             /*max_reproj_error=*/2,
-                                             &tgt_from_src));
+  THROW_CHECK(
+      AlignReconstructionsViaReprojections(src_reconstruction,
+                                           tgt_reconstruction,
+                                           /*min_inlier_observations=*/0.9,
+                                           /*max_reproj_error=*/2,
+                                           &tgt_from_src));
   ExpectEqualSim3d(gt_tgt_from_src, tgt_from_src);
 }
 
@@ -91,10 +92,10 @@ TEST(Alignment, AlignReconstructionsViaProjCenters) {
   tgt_reconstruction.Transform(gt_tgt_from_src);
 
   Sim3d tgt_from_src;
-  CHECK(AlignReconstructionsViaProjCenters(src_reconstruction,
-                                           tgt_reconstruction,
-                                           /*max_proj_center_error=*/0.1,
-                                           &tgt_from_src));
+  THROW_CHECK(AlignReconstructionsViaProjCenters(src_reconstruction,
+                                                 tgt_reconstruction,
+                                                 /*max_proj_center_error=*/0.1,
+                                                 &tgt_from_src));
   ExpectEqualSim3d(gt_tgt_from_src, tgt_from_src);
 }
 
@@ -106,12 +107,12 @@ TEST(Alignment, AlignReconstructionsViaPoints) {
   tgt_reconstruction.Transform(gt_tgt_from_src);
 
   Sim3d tgt_from_src;
-  CHECK(AlignReconstructionsViaPoints(src_reconstruction,
-                                      tgt_reconstruction,
-                                      /*min_common_observations=*/3,
-                                      /*max_error=*/0.01,
-                                      /*min_inlier_ratio=*/0.9,
-                                      &tgt_from_src));
+  THROW_CHECK(AlignReconstructionsViaPoints(src_reconstruction,
+                                            tgt_reconstruction,
+                                            /*min_common_observations=*/3,
+                                            /*max_error=*/0.01,
+                                            /*min_inlier_ratio=*/0.9,
+                                            &tgt_from_src));
   ExpectEqualSim3d(gt_tgt_from_src, tgt_from_src);
 }
 

@@ -160,7 +160,7 @@ void Bitmap::Deallocate() {
 
 size_t Bitmap::NumBytes() const {
   if (handle_.ptr != nullptr) {
-    return ScanWidth() * height_;
+    return Pitch() * height_;
   } else {
     return 0;
   }
@@ -170,25 +170,7 @@ unsigned int Bitmap::BitsPerPixel() const {
   return FreeImage_GetBPP(handle_.ptr);
 }
 
-unsigned int Bitmap::ScanWidth() const {
-  return FreeImage_GetPitch(handle_.ptr);
-}
-
-std::vector<uint8_t> Bitmap::ConvertToRawBits() const {
-  const unsigned int scan_width = ScanWidth();
-  const unsigned int bpp = BitsPerPixel();
-  const bool kTopDown = true;
-  std::vector<uint8_t> raw_bits(scan_width * height_, 0);
-  FreeImage_ConvertToRawBits(raw_bits.data(),
-                             handle_.ptr,
-                             scan_width,
-                             bpp,
-                             FI_RGBA_RED_MASK,
-                             FI_RGBA_GREEN_MASK,
-                             FI_RGBA_BLUE_MASK,
-                             kTopDown);
-  return raw_bits;
-}
+unsigned int Bitmap::Pitch() const { return FreeImage_GetPitch(handle_.ptr); }
 
 std::vector<uint8_t> Bitmap::ConvertToRowMajorArray() const {
   std::vector<uint8_t> array(width_ * height_ * channels_);
@@ -219,6 +201,37 @@ std::vector<uint8_t> Bitmap::ConvertToColMajorArray() const {
     }
   }
   return array;
+}
+
+std::vector<uint8_t> Bitmap::ConvertToRawBits() const {
+  const unsigned int pitch = Pitch();
+  const unsigned int bpp = BitsPerPixel();
+  std::vector<uint8_t> raw_bits(pitch * height_ * bpp / 8, 0);
+  FreeImage_ConvertToRawBits(raw_bits.data(),
+                             handle_.ptr,
+                             pitch,
+                             bpp,
+                             FI_RGBA_RED_MASK,
+                             FI_RGBA_GREEN_MASK,
+                             FI_RGBA_BLUE_MASK,
+                             /*topdown=*/true);
+  return raw_bits;
+}
+
+Bitmap Bitmap::ConvertFromRawBits(
+    const uint8_t* data, int pitch, int width, int height, bool rgb) {
+  const unsigned bpp = rgb ? 24 : 8;
+  return Bitmap(FreeImage_ConvertFromRawBitsEx(/*copy_source=*/true,
+                                               const_cast<uint8_t*>(data),
+                                               FIT_BITMAP,
+                                               width,
+                                               height,
+                                               pitch,
+                                               bpp,
+                                               FI_RGBA_RED_MASK,
+                                               FI_RGBA_GREEN_MASK,
+                                               FI_RGBA_BLUE_MASK,
+                                               /*topdown=*/true));
 }
 
 bool Bitmap::GetPixel(const int x,
@@ -266,8 +279,8 @@ bool Bitmap::SetPixel(const int x,
 }
 
 const uint8_t* Bitmap::GetScanline(const int y) const {
-  CHECK_GE(y, 0);
-  CHECK_LT(y, height_);
+  THROW_CHECK_GE(y, 0);
+  THROW_CHECK_LT(y, height_);
   return FreeImage_GetScanLine(handle_.ptr, height_ - 1 - y);
 }
 
@@ -651,7 +664,7 @@ void Bitmap::Rescale(const int new_width,
       fi_filter = FILTER_BOX;
       break;
     default:
-      LOG(FATAL) << "Filter not implemented";
+      LOG(FATAL_THROW) << "Filter not implemented";
   }
   SetPtr(FreeImage_Rescale(handle_.ptr, new_width, new_height, fi_filter));
 }
@@ -678,18 +691,18 @@ Bitmap Bitmap::CloneAsRGB() const {
 }
 
 void Bitmap::CloneMetadata(Bitmap* target) const {
-  CHECK_NOTNULL(target);
-  CHECK_NOTNULL(target->Data());
+  THROW_CHECK_NOTNULL(target);
+  THROW_CHECK_NOTNULL(target->Data());
   FreeImage_CloneMetadata(handle_.ptr, target->Data());
 }
 
 void Bitmap::SetPtr(FIBITMAP* ptr) {
-  CHECK_NOTNULL(ptr);
+  THROW_CHECK_NOTNULL(ptr);
 
   if (!IsPtrSupported(ptr)) {
     FreeImageHandle temp_handle(ptr);
     ptr = FreeImage_ConvertTo24Bits(temp_handle.ptr);
-    CHECK(IsPtrSupported(ptr));
+    THROW_CHECK(IsPtrSupported(ptr));
   }
 
   handle_ = FreeImageHandle(ptr);

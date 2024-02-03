@@ -85,7 +85,7 @@ int RunAutomaticReconstructor(int argc, char** argv) {
     reconstruction_options.data_type =
         AutomaticReconstructionController::DataType::INTERNET;
   } else {
-    LOG(FATAL) << "Invalid data type provided";
+    LOG(FATAL_THROW) << "Invalid data type provided";
   }
 
   StringToLower(&quality);
@@ -102,7 +102,7 @@ int RunAutomaticReconstructor(int argc, char** argv) {
     reconstruction_options.quality =
         AutomaticReconstructionController::Quality::EXTREME;
   } else {
-    LOG(FATAL) << "Invalid quality provided";
+    LOG(FATAL_THROW) << "Invalid quality provided";
   }
 
   StringToLower(&mesher);
@@ -113,7 +113,7 @@ int RunAutomaticReconstructor(int argc, char** argv) {
     reconstruction_options.mesher =
         AutomaticReconstructionController::Mesher::DELAUNAY;
   } else {
-    LOG(FATAL) << "Invalid mesher provided";
+    LOG(FATAL_THROW) << "Invalid mesher provided";
   }
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
@@ -448,7 +448,7 @@ int RunPointTriangulatorImpl(
     timer.PrintMinutes();
   }
 
-  CHECK_GE(reconstruction->NumRegImages(), 2)
+  THROW_CHECK_GE(reconstruction->NumRegImages(), 2)
       << "Need at least two images for triangulation";
 
   IncrementalMapper mapper(database_cache);
@@ -511,7 +511,7 @@ int RunPointTriangulatorImpl(
 
     PrintHeading1("Bundle adjustment");
     BundleAdjuster bundle_adjuster(ba_options, ba_config);
-    CHECK(bundle_adjuster.Solve(reconstruction.get()));
+    THROW_CHECK(bundle_adjuster.Solve(reconstruction.get()));
 
     size_t num_changed_observations = 0;
     num_changed_observations += CompleteAndMergeTracks(mapper_options, &mapper);
@@ -752,7 +752,7 @@ int RunRigBundleAdjuster(int argc, char** argv) {
 
   BundleAdjustmentOptions ba_options = *options.bundle_adjustment;
   RigBundleAdjuster bundle_adjuster(ba_options, rig_ba_options, config);
-  CHECK(bundle_adjuster.Solve(&reconstruction, &camera_rigs));
+  THROW_CHECK(bundle_adjuster.Solve(&reconstruction, &camera_rigs));
 
   reconstruction.Write(output_path);
 

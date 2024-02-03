@@ -61,6 +61,38 @@
 #define CHECK_OPTION_GE(val1, val2) CHECK_OPTION_OP(_GE, >=, val1, val2)
 #define CHECK_OPTION_GT(val1, val2) CHECK_OPTION_OP(_GT, >, val1, val2)
 
+// Alternative checks to throw an exception instead of aborting the program.
+// Usage: THROW_CHECK(condition) << message;
+//        THROW_CHECK_EQ(val1, val2) << message;
+//        LOG(FATAL_THROW) << message;
+// These macros are copied from glog/logging.h and extended to a new severity
+// level FATAL_THROW.
+#define COMPACT_GOOGLE_LOG_FATAL_THROW \
+  LogMessageFatalThrowDefault(__FILE__, __LINE__)
+
+#define LOG_TO_STRING_FATAL_THROW(message) \
+  LogMessageFatalThrowDefault(__FILE__, __LINE__, message)
+
+#define LOG_FATAL_THROW(exception) \
+  LogMessageFatalThrow<exception>(__FILE__, __LINE__).stream()
+
+#define THROW_CHECK(condition)                                       \
+  LOG_IF(FATAL_THROW, GOOGLE_PREDICT_BRANCH_NOT_TAKEN(!(condition))) \
+      << "Check failed: " #condition " "
+
+#define THROW_CHECK_OP(name, op, val1, val2) \
+  CHECK_OP_LOG(name, op, val1, val2, LogMessageFatalThrowDefault)
+
+#define THROW_CHECK_EQ(val1, val2) THROW_CHECK_OP(_EQ, ==, val1, val2)
+#define THROW_CHECK_NE(val1, val2) THROW_CHECK_OP(_NE, !=, val1, val2)
+#define THROW_CHECK_LE(val1, val2) THROW_CHECK_OP(_LE, <=, val1, val2)
+#define THROW_CHECK_LT(val1, val2) THROW_CHECK_OP(_LT, <, val1, val2)
+#define THROW_CHECK_GE(val1, val2) THROW_CHECK_OP(_GE, >=, val1, val2)
+#define THROW_CHECK_GT(val1, val2) THROW_CHECK_OP(_GT, >, val1, val2)
+
+#define THROW_CHECK_NOTNULL(val) \
+  ThrowCheckNotNull(__FILE__, __LINE__, "'" #val "' Must be non NULL", (val))
+
 namespace colmap {
 
 // Initialize glog at the beginning of the program.
@@ -99,6 +131,51 @@ bool __CheckOptionOpImpl(const char* file,
                                std::to_string(val2).c_str());
     return false;
   }
+}
+
+inline std::string __MakeExceptionPrefix(const char* file, int line) {
+  return "[" + std::string(__GetConstFileBaseName(file)) + ":" +
+         std::to_string(line) + "] ";
+}
+
+template <typename T>
+class LogMessageFatalThrow : public google::LogMessage {
+ public:
+  LogMessageFatalThrow(const char* file, int line)
+      : google::LogMessage(file, line, google::GLOG_ERROR, &message_),
+        prefix_(__MakeExceptionPrefix(file, line)){};
+  LogMessageFatalThrow(const char* file, int line, std::string* message)
+      : google::LogMessage(file, line, google::GLOG_ERROR, message),
+        message_(*message),
+        prefix_(__MakeExceptionPrefix(file, line)){};
+  LogMessageFatalThrow(const char* file,
+                       int line,
+                       const google::CheckOpString& result)
+      : google::LogMessage(file, line, google::GLOG_ERROR, &message_),
+        prefix_(__MakeExceptionPrefix(file, line)) {
+    stream() << "Check failed: " << (*result.str_) << " ";
+    // On LOG(FATAL) glog does not bother cleaning up CheckOpString
+    // so we do it here.
+    delete result.str_;
+  };
+  [[noreturn]] ~LogMessageFatalThrow() noexcept(false) {
+    Flush();
+    throw T(prefix_ + message_);
+  };
+
+ private:
+  std::string message_;
+  std::string prefix_;
+};
+
+using LogMessageFatalThrowDefault = LogMessageFatalThrow<std::invalid_argument>;
+
+template <typename T>
+T ThrowCheckNotNull(const char* file, int line, const char* names, T&& t) {
+  if (t == nullptr) {
+    LogMessageFatalThrowDefault(file, line, new std::string(names));
+  }
+  return std::forward<T>(t);
 }
 
 }  // namespace colmap

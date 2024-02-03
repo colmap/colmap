@@ -45,7 +45,7 @@ class BundleAdjustmentIterationCallback : public ceres::IterationCallback {
 
   virtual ceres::CallbackReturnType operator()(
       const ceres::IterationSummary& summary) {
-    CHECK_NOTNULL(thread_);
+    THROW_CHECK_NOTNULL(thread_);
     thread_->BlockIfPaused();
     if (thread_->IsStopped()) {
       return ceres::SOLVER_TERMINATE_SUCCESSFULLY;
@@ -66,7 +66,7 @@ BundleAdjustmentController::BundleAdjustmentController(
     : options_(options), reconstruction_(std::move(reconstruction)) {}
 
 void BundleAdjustmentController::Run() {
-  CHECK_NOTNULL(reconstruction_);
+  THROW_CHECK_NOTNULL(reconstruction_);
 
   PrintHeading1("Global bundle adjustment");
 

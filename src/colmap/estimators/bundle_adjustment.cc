@@ -57,7 +57,7 @@ ceres::LossFunction* BundleAdjustmentOptions::CreateLossFunction() const {
       loss_function = new ceres::CauchyLoss(loss_function_scale);
       break;
   }
-  CHECK_NOTNULL(loss_function);
+  THROW_CHECK_NOTNULL(loss_function);
   return loss_function;
 }
 
@@ -159,8 +159,8 @@ bool BundleAdjustmentConfig::HasConstantCamIntrinsics(
 }
 
 void BundleAdjustmentConfig::SetConstantCamPose(const image_t image_id) {
-  CHECK(HasImage(image_id));
-  CHECK(!HasConstantCamPositions(image_id));
+  THROW_CHECK(HasImage(image_id));
+  THROW_CHECK(!HasConstantCamPositions(image_id));
   constant_cam_poses_.insert(image_id);
 }
 
@@ -174,11 +174,11 @@ bool BundleAdjustmentConfig::HasConstantCamPose(const image_t image_id) const {
 
 void BundleAdjustmentConfig::SetConstantCamPositions(
     const image_t image_id, const std::vector<int>& idxs) {
-  CHECK_GT(idxs.size(), 0);
-  CHECK_LE(idxs.size(), 3);
-  CHECK(HasImage(image_id));
-  CHECK(!HasConstantCamPose(image_id));
-  CHECK(!VectorContainsDuplicateValues(idxs))
+  THROW_CHECK_GT(idxs.size(), 0);
+  THROW_CHECK_LE(idxs.size(), 3);
+  THROW_CHECK(HasImage(image_id));
+  THROW_CHECK(!HasConstantCamPose(image_id));
+  THROW_CHECK(!VectorContainsDuplicateValues(idxs))
       << "Tvec indices must not contain duplicates";
   constant_cam_positions_.emplace(image_id, idxs);
 }
@@ -214,12 +214,12 @@ const std::vector<int>& BundleAdjustmentConfig::ConstantCamPositions(
 }
 
 void BundleAdjustmentConfig::AddVariablePoint(const point3D_t point3D_id) {
-  CHECK(!HasConstantPoint(point3D_id));
+  THROW_CHECK(!HasConstantPoint(point3D_id));
   variable_point3D_ids_.insert(point3D_id);
 }
 
 void BundleAdjustmentConfig::AddConstantPoint(const point3D_t point3D_id) {
-  CHECK(!HasVariablePoint(point3D_id));
+  THROW_CHECK(!HasVariablePoint(point3D_id));
   constant_point3D_ids_.insert(point3D_id);
 }
 
@@ -252,12 +252,12 @@ void BundleAdjustmentConfig::RemoveConstantPoint(const point3D_t point3D_id) {
 BundleAdjuster::BundleAdjuster(const BundleAdjustmentOptions& options,
                                const BundleAdjustmentConfig& config)
     : options_(options), config_(config) {
-  CHECK(options_.Check());
+  THROW_CHECK(options_.Check());
 }
 
 bool BundleAdjuster::Solve(Reconstruction* reconstruction) {
-  CHECK_NOTNULL(reconstruction);
-  CHECK(!problem_) << "Cannot use the same BundleAdjuster multiple times";
+  THROW_CHECK_NOTNULL(reconstruction);
+  THROW_CHECK(!problem_) << "Cannot use the same BundleAdjuster multiple times";
 
   ceres::Problem::Options problem_options;
   problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
@@ -304,7 +304,7 @@ bool BundleAdjuster::Solve(Reconstruction* reconstruction) {
   }
 
   std::string solver_error;
-  CHECK(solver_options.IsValid(&solver_error)) << solver_error;
+  THROW_CHECK(solver_options.IsValid(&solver_error)) << solver_error;
 
   ceres::Solve(solver_options, problem_.get(), &summary_);
 
@@ -374,36 +374,16 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
     Point3D& point3D = reconstruction->Point3D(point2D.point3D_id);
     assert(point3D.track.Length() > 1);
 
-    ceres::CostFunction* cost_function = nullptr;
-
     if (constant_cam_pose) {
-      switch (camera.model_id) {
-#define CAMERA_MODEL_CASE(CameraModel)                                        \
-  case CameraModel::model_id:                                                 \
-    cost_function = ReprojErrorConstantPoseCostFunction<CameraModel>::Create( \
-        image.CamFromWorld(), point2D.xy);                                    \
-    break;
-
-        CAMERA_MODEL_SWITCH_CASES
-
-#undef CAMERA_MODEL_CASE
-      }
-
       problem_->AddResidualBlock(
-          cost_function, loss_function, point3D.xyz.data(), camera_params);
+          CameraCostFunction<ReprojErrorConstantPoseCostFunction>(
+              camera.model_id, image.CamFromWorld(), point2D.xy),
+          loss_function,
+          point3D.xyz.data(),
+          camera_params);
     } else {
-      switch (camera.model_id) {
-#define CAMERA_MODEL_CASE(CameraModel)                                        \
-  case CameraModel::model_id:                                                 \
-    cost_function = ReprojErrorCostFunction<CameraModel>::Create(point2D.xy); \
-    break;
-
-        CAMERA_MODEL_SWITCH_CASES
-
-#undef CAMERA_MODEL_CASE
-      }
-
-      problem_->AddResidualBlock(cost_function,
+      problem_->AddResidualBlock(CameraCostFunction<ReprojErrorCostFunction>(
+                                     camera.model_id, point2D.xy),
                                  loss_function,
                                  cam_from_world_rotation,
                                  cam_from_world_translation,
@@ -464,22 +444,12 @@ void BundleAdjuster::AddPointToProblem(const point3D_t point3D_id,
       camera_ids_.insert(image.CameraId());
       config_.SetConstantCamIntrinsics(image.CameraId());
     }
-
-    ceres::CostFunction* cost_function = nullptr;
-
-    switch (camera.model_id) {
-#define CAMERA_MODEL_CASE(CameraModel)                                        \
-  case CameraModel::model_id:                                                 \
-    cost_function = ReprojErrorConstantPoseCostFunction<CameraModel>::Create( \
-        image.CamFromWorld(), point2D.xy);                                    \
-    break;
-
-      CAMERA_MODEL_SWITCH_CASES
-
-#undef CAMERA_MODEL_CASE
-    }
     problem_->AddResidualBlock(
-        cost_function, loss_function, point3D.xyz.data(), camera.params.data());
+        CameraCostFunction<ReprojErrorConstantPoseCostFunction>(
+            camera.model_id, image.CamFromWorld(), point2D.xy),
+        loss_function,
+        point3D.xyz.data(),
+        camera.params.data());
   }
 }
 
@@ -547,23 +517,23 @@ RigBundleAdjuster::RigBundleAdjuster(const BundleAdjustmentOptions& options,
 
 bool RigBundleAdjuster::Solve(Reconstruction* reconstruction,
                               std::vector<CameraRig>* camera_rigs) {
-  CHECK_NOTNULL(reconstruction);
-  CHECK_NOTNULL(camera_rigs);
-  CHECK(!problem_) << "Cannot use the same BundleAdjuster multiple times";
+  THROW_CHECK_NOTNULL(reconstruction);
+  THROW_CHECK_NOTNULL(camera_rigs);
+  THROW_CHECK(!problem_) << "Cannot use the same BundleAdjuster multiple times";
 
   // Check the validity of the provided camera rigs.
   std::unordered_set<camera_t> rig_camera_ids;
   for (auto& camera_rig : *camera_rigs) {
     camera_rig.Check(*reconstruction);
     for (const auto& camera_id : camera_rig.GetCameraIds()) {
-      CHECK_EQ(rig_camera_ids.count(camera_id), 0)
+      THROW_CHECK_EQ(rig_camera_ids.count(camera_id), 0)
           << "Camera must not be part of multiple camera rigs";
       rig_camera_ids.insert(camera_id);
     }
 
     for (const auto& snapshot : camera_rig.Snapshots()) {
       for (const auto& image_id : snapshot) {
-        CHECK_EQ(image_id_to_camera_rig_.count(image_id), 0)
+        THROW_CHECK_EQ(image_id_to_camera_rig_.count(image_id), 0)
             << "Image must not be part of multiple camera rigs";
         image_id_to_camera_rig_.emplace(image_id, &camera_rig);
       }
@@ -609,7 +579,7 @@ bool RigBundleAdjuster::Solve(Reconstruction* reconstruction,
 #endif  // CERES_VERSION_MAJOR
 
   std::string solver_error;
-  CHECK(solver_options.IsValid(&solver_error)) << solver_error;
+  THROW_CHECK(solver_options.IsValid(&solver_error)) << solver_error;
 
   ceres::Solve(solver_options, problem_.get(), &summary_);
 
@@ -676,9 +646,9 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
   Eigen::Matrix3x4d cam_from_world_mat = Eigen::Matrix3x4d::Zero();
 
   if (image_id_to_camera_rig_.count(image_id) > 0) {
-    CHECK(!constant_cam_pose)
+    THROW_CHECK(!constant_cam_pose)
         << "Images contained in a camera rig must not have constant pose";
-    CHECK(!constant_cam_position)
+    THROW_CHECK(!constant_cam_position)
         << "Images contained in a camera rig must not have constant tvec";
     camera_rig = image_id_to_camera_rig_.at(image_id);
     Rigid3d& rig_from_world = *image_id_to_rig_from_world_.at(image_id);
@@ -696,7 +666,7 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
   }
 
   // Collect cameras for final parameterization.
-  CHECK(image.HasCamera());
+  THROW_CHECK(image.HasCamera());
   camera_ids_.insert(image.CameraId());
 
   // The number of added observations for the current image.
@@ -721,37 +691,17 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
     num_observations += 1;
     point3D_num_observations_[point2D.point3D_id] += 1;
 
-    ceres::CostFunction* cost_function = nullptr;
-
     if (camera_rig == nullptr) {
       if (constant_cam_pose) {
-        switch (camera.model_id) {
-#define CAMERA_MODEL_CASE(CameraModel)                                        \
-  case CameraModel::model_id:                                                 \
-    cost_function = ReprojErrorConstantPoseCostFunction<CameraModel>::Create( \
-        image.CamFromWorld(), point2D.xy);                                    \
-    break;
-
-          CAMERA_MODEL_SWITCH_CASES
-
-#undef CAMERA_MODEL_CASE
-        }
-
         problem_->AddResidualBlock(
-            cost_function, loss_function, point3D.xyz.data(), camera_params);
+            CameraCostFunction<ReprojErrorConstantPoseCostFunction>(
+                camera.model_id, image.CamFromWorld(), point2D.xy),
+            loss_function,
+            point3D.xyz.data(),
+            camera_params);
       } else {
-        switch (camera.model_id) {
-#define CAMERA_MODEL_CASE(CameraModel)                                        \
-  case CameraModel::model_id:                                                 \
-    cost_function = ReprojErrorCostFunction<CameraModel>::Create(point2D.xy); \
-    break;
-
-          CAMERA_MODEL_SWITCH_CASES
-
-#undef CAMERA_MODEL_CASE
-        }
-
-        problem_->AddResidualBlock(cost_function,
+        problem_->AddResidualBlock(CameraCostFunction<ReprojErrorCostFunction>(
+                                       camera.model_id, point2D.xy),
                                    loss_function,
                                    cam_from_rig_rotation,     // rig == world
                                    cam_from_rig_translation,  // rig == world
@@ -759,19 +709,8 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
                                    camera_params);
       }
     } else {
-      switch (camera.model_id) {
-#define CAMERA_MODEL_CASE(CameraModel)                               \
-  case CameraModel::model_id:                                        \
-    cost_function =                                                  \
-        RigReprojErrorCostFunction<CameraModel>::Create(point2D.xy); \
-                                                                     \
-    break;
-
-        CAMERA_MODEL_SWITCH_CASES
-
-#undef CAMERA_MODEL_CASE
-      }
-      problem_->AddResidualBlock(cost_function,
+      problem_->AddResidualBlock(CameraCostFunction<RigReprojErrorCostFunction>(
+                                     camera.model_id, point2D.xy),
                                  loss_function,
                                  cam_from_rig_rotation,
                                  cam_from_rig_translation,
@@ -840,23 +779,12 @@ void RigBundleAdjuster::AddPointToProblem(const point3D_t point3D_id,
       config_.SetConstantCamIntrinsics(image.CameraId());
     }
 
-    ceres::CostFunction* cost_function = nullptr;
-
-    switch (camera.model_id) {
-#define CAMERA_MODEL_CASE(CameraModel)                                        \
-  case CameraModel::model_id:                                                 \
-    cost_function = ReprojErrorConstantPoseCostFunction<CameraModel>::Create( \
-        image.CamFromWorld(), point2D.xy);                                    \
-    problem_->AddResidualBlock(cost_function,                                 \
-                               loss_function,                                 \
-                               point3D.xyz.data(),                            \
-                               camera.params.data());                         \
-    break;
-
-      CAMERA_MODEL_SWITCH_CASES
-
-#undef CAMERA_MODEL_CASE
-    }
+    problem_->AddResidualBlock(
+        CameraCostFunction<ReprojErrorConstantPoseCostFunction>(
+            camera.model_id, image.CamFromWorld(), point2D.xy),
+        loss_function,
+        point3D.xyz.data(),
+        camera.params.data());
   }
 }
 

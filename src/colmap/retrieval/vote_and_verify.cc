@@ -137,8 +137,8 @@ void ComputeInliers(const TwoWayTransform& tform,
                     float max_scale_error,
                     size_t best_num_inliers,
                     std::vector<int>* inlier_idxs) {
-  CHECK_GT(max_transfer_error, 0);
-  CHECK_GT(max_scale_error, 0);
+  THROW_CHECK_GT(max_transfer_error, 0);
+  THROW_CHECK_GT(max_scale_error, 0);
 
   const size_t num_matches = matches.size();
   const size_t max_num_outliers = num_matches - best_num_inliers;
@@ -169,9 +169,9 @@ size_t ComputeEffectiveInlierCount(
     const float max_transfer_error,
     const float max_scale_error,
     const int num_bins) {
-  CHECK_GT(max_transfer_error, 0);
-  CHECK_GT(max_scale_error, 0);
-  CHECK_GT(num_bins, 0);
+  THROW_CHECK_GT(max_transfer_error, 0);
+  THROW_CHECK_GT(max_scale_error, 0);
+  THROW_CHECK_GT(num_bins, 0);
 
   std::vector<std::pair<float, float>> inlier_coords;
   inlier_coords.reserve(matches.size());
@@ -219,19 +219,19 @@ size_t ComputeEffectiveInlierCount(
 
 int VoteAndVerify(const VoteAndVerifyOptions& options,
                   const std::vector<FeatureGeometryMatch>& matches) {
-  CHECK_GT(options.num_levels, 0);
-  CHECK_GT(options.num_transformations, 0);
-  CHECK_GT(options.num_trans_bins, 0);
-  CHECK_EQ(options.num_trans_bins % 2, 0);
-  CHECK_GT(options.num_scale_bins, 0);
-  CHECK_EQ(options.num_scale_bins % 2, 0);
-  CHECK_GT(options.num_angle_bins, 0);
-  CHECK_EQ(options.num_angle_bins % 2, 0);
-  CHECK_GT(options.max_image_size, 0);
-  CHECK_GT(options.min_num_votes, 0);
-  CHECK_GE(options.confidence, 0);
-  CHECK_LE(options.confidence, 1);
-  CHECK_GT(options.num_eff_inlier_bins, 0);
+  THROW_CHECK_GT(options.num_levels, 0);
+  THROW_CHECK_GT(options.num_transformations, 0);
+  THROW_CHECK_GT(options.num_trans_bins, 0);
+  THROW_CHECK_EQ(options.num_trans_bins % 2, 0);
+  THROW_CHECK_GT(options.num_scale_bins, 0);
+  THROW_CHECK_EQ(options.num_scale_bins % 2, 0);
+  THROW_CHECK_GT(options.num_angle_bins, 0);
+  THROW_CHECK_EQ(options.num_angle_bins % 2, 0);
+  THROW_CHECK_GT(options.max_image_size, 0);
+  THROW_CHECK_GT(options.min_num_votes, 0);
+  THROW_CHECK_GE(options.confidence, 0);
+  THROW_CHECK_LE(options.confidence, 1);
+  THROW_CHECK_GT(options.num_eff_inlier_bins, 0);
 
   const size_t num_matches = matches.size();
   if (num_matches < AffineTransformEstimator::kMinNumSamples) {
@@ -409,7 +409,7 @@ int VoteAndVerify(const VoteAndVerifyOptions& options,
     std::vector<Eigen::Matrix<double, 2, 3>> models;
     AffineTransformEstimator::Estimate(
         best_inlier_points1, best_inlier_points2, &models);
-    CHECK_EQ(models.size(), 1);
+    THROW_CHECK_EQ(models.size(), 1);
     const Eigen::Matrix<double, 2, 3>& A = models[0];
     Eigen::Matrix3d A_homogeneous = Eigen::Matrix3d::Identity();
     A_homogeneous.topRows<2>() = A;

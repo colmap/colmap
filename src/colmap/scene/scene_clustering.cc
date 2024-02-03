@@ -43,14 +43,14 @@ bool SceneClustering::Options::Check() const {
 }
 
 SceneClustering::SceneClustering(const Options& options) : options_(options) {
-  CHECK(options_.Check());
+  THROW_CHECK(options_.Check());
 }
 
 void SceneClustering::Partition(
     const std::vector<std::pair<image_t, image_t>>& image_pairs,
     const std::vector<int>& num_inliers) {
-  CHECK(!root_cluster_);
-  CHECK_EQ(image_pairs.size(), num_inliers.size());
+  THROW_CHECK(!root_cluster_);
+  THROW_CHECK_EQ(image_pairs.size(), num_inliers.size());
 
   std::set<image_t> image_ids;
   std::vector<std::pair<int, int>> edges;
@@ -75,7 +75,7 @@ void SceneClustering::PartitionHierarchicalCluster(
     const std::vector<std::pair<int, int>>& edges,
     const std::vector<int>& weights,
     Cluster* cluster) {
-  CHECK_EQ(edges.size(), weights.size());
+  THROW_CHECK_EQ(edges.size(), weights.size());
 
   // If the cluster is small enough, we return from the recursive clustering.
   if (edges.empty() || cluster->image_ids.size() <=
@@ -194,7 +194,7 @@ void SceneClustering::PartitionHierarchicalCluster(
 void SceneClustering::PartitionFlatCluster(
     const std::vector<std::pair<int, int>>& edges,
     const std::vector<int>& weights) {
-  CHECK_EQ(edges.size(), weights.size());
+  THROW_CHECK_EQ(edges.size(), weights.size());
 
   // Partition the cluster using a normalized cut on the scene graph.
   const auto labels =
@@ -280,7 +280,7 @@ const SceneClustering::Cluster* SceneClustering::GetRootCluster() const {
 
 std::vector<const SceneClustering::Cluster*> SceneClustering::GetLeafClusters()
     const {
-  CHECK(root_cluster_);
+  THROW_CHECK_NOTNULL(root_cluster_);
 
   std::vector<const Cluster*> leaf_clusters;
 

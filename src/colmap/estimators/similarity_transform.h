@@ -99,7 +99,7 @@ inline bool EstimateSim3d(const std::vector<Eigen::Vector3d>& src,
   if (models.empty()) {
     return false;
   }
-  CHECK_EQ(models.size(), 1);
+  THROW_CHECK_EQ(models.size(), 1);
   tgt_from_src = Sim3d::FromMatrix(models[0]);
   return true;
 }
@@ -113,8 +113,8 @@ void SimilarityTransformEstimator<kDim, kEstimateScale>::Estimate(
     const std::vector<X_t>& src,
     const std::vector<Y_t>& dst,
     std::vector<M_t>* models) {
-  CHECK_EQ(src.size(), dst.size());
-  CHECK(models != nullptr);
+  THROW_CHECK_EQ(src.size(), dst.size());
+  THROW_CHECK(models != nullptr);
 
   models->clear();
 
@@ -142,7 +142,7 @@ void SimilarityTransformEstimator<kDim, kEstimateScale>::Residuals(
     const std::vector<Y_t>& dst,
     const M_t& matrix,
     std::vector<double>* residuals) {
-  CHECK_EQ(src.size(), dst.size());
+  THROW_CHECK_EQ(src.size(), dst.size());
 
   residuals->resize(src.size());
 

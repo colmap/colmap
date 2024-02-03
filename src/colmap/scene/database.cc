@@ -85,7 +85,7 @@ FeatureKeypoints FeatureKeypointsFromBlob(const FeatureKeypointsBlob& blob) {
                                      blob(i, 5));
     }
   } else {
-    LOG(FATAL) << "Keypoint format not supported";
+    LOG(FATAL_THROW) << "Keypoint format not supported";
   }
   return keypoints;
 }
@@ -101,7 +101,7 @@ FeatureMatchesBlob FeatureMatchesToBlob(const FeatureMatches& matches) {
 }
 
 FeatureMatches FeatureMatchesFromBlob(const FeatureMatchesBlob& blob) {
-  CHECK_EQ(blob.cols(), 2);
+  THROW_CHECK_EQ(blob.cols(), 2);
   FeatureMatches matches(static_cast<size_t>(blob.rows()));
   for (FeatureMatchesBlob::Index i = 0; i < blob.rows(); ++i) {
     matches[i].point2D_idx1 = blob(i, 0);
@@ -114,7 +114,7 @@ template <typename MatrixType>
 MatrixType ReadStaticMatrixBlob(sqlite3_stmt* sql_stmt,
                                 const int rc,
                                 const int col) {
-  CHECK_GE(col, 0);
+  THROW_CHECK_GE(col, 0);
 
   MatrixType matrix;
 
@@ -122,7 +122,8 @@ MatrixType ReadStaticMatrixBlob(sqlite3_stmt* sql_stmt,
     const size_t num_bytes =
         static_cast<size_t>(sqlite3_column_bytes(sql_stmt, col));
     if (num_bytes > 0) {
-      CHECK_EQ(num_bytes, matrix.size() * sizeof(typename MatrixType::Scalar));
+      THROW_CHECK_EQ(num_bytes,
+                     matrix.size() * sizeof(typename MatrixType::Scalar));
       memcpy(reinterpret_cast<char*>(matrix.data()),
              sqlite3_column_blob(sql_stmt, col),
              num_bytes);
@@ -140,7 +141,7 @@ template <typename MatrixType>
 MatrixType ReadDynamicMatrixBlob(sqlite3_stmt* sql_stmt,
                                  const int rc,
                                  const int col) {
-  CHECK_GE(col, 0);
+  THROW_CHECK_GE(col, 0);
 
   MatrixType matrix;
 
@@ -150,13 +151,14 @@ MatrixType ReadDynamicMatrixBlob(sqlite3_stmt* sql_stmt,
     const size_t cols =
         static_cast<size_t>(sqlite3_column_int64(sql_stmt, col + 1));
 
-    CHECK_GE(rows, 0);
-    CHECK_GE(cols, 0);
+    THROW_CHECK_GE(rows, 0);
+    THROW_CHECK_GE(cols, 0);
     matrix = MatrixType(rows, cols);
 
     const size_t num_bytes =
         static_cast<size_t>(sqlite3_column_bytes(sql_stmt, col + 2));
-    CHECK_EQ(matrix.size() * sizeof(typename MatrixType::Scalar), num_bytes);
+    THROW_CHECK_EQ(matrix.size() * sizeof(typename MatrixType::Scalar),
+                   num_bytes);
 
     memcpy(reinterpret_cast<char*>(matrix.data()),
            sqlite3_column_blob(sql_stmt, col + 2),
@@ -192,9 +194,9 @@ template <typename MatrixType>
 void WriteDynamicMatrixBlob(sqlite3_stmt* sql_stmt,
                             const MatrixType& matrix,
                             const int col) {
-  CHECK_GE(matrix.rows(), 0);
-  CHECK_GE(matrix.cols(), 0);
-  CHECK_GE(col, 0);
+  THROW_CHECK_GE(matrix.rows(), 0);
+  THROW_CHECK_GE(matrix.cols(), 0);
+  THROW_CHECK_GE(col, 0);
 
   const size_t num_bytes = matrix.size() * sizeof(typename MatrixType::Scalar);
   SQLITE3_CALL(sqlite3_bind_int64(sql_stmt, col + 0, matrix.rows()));
@@ -218,7 +220,7 @@ Camera ReadCameraRow(sqlite3_stmt* sql_stmt) {
   const size_t num_params_bytes =
       static_cast<size_t>(sqlite3_column_bytes(sql_stmt, 4));
   const size_t num_params = num_params_bytes / sizeof(double);
-  CHECK_EQ(num_params, CameraModelNumParams(camera.model_id));
+  THROW_CHECK_EQ(num_params, CameraModelNumParams(camera.model_id));
   camera.params.resize(num_params, 0.);
   memcpy(
       camera.params.data(), sqlite3_column_blob(sql_stmt, 4), num_params_bytes);
@@ -634,7 +636,7 @@ void Database::ReadTwoViewGeometryNumInliers(
 camera_t Database::WriteCamera(const Camera& camera,
                                const bool use_camera_id) const {
   if (use_camera_id) {
-    CHECK(!ExistsCamera(camera.camera_id)) << "camera_id must be unique";
+    THROW_CHECK(!ExistsCamera(camera.camera_id)) << "camera_id must be unique";
     SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_add_camera_, 1, camera.camera_id));
   } else {
     SQLITE3_CALL(sqlite3_bind_null(sql_stmt_add_camera_, 1));
@@ -666,7 +668,7 @@ camera_t Database::WriteCamera(const Camera& camera,
 image_t Database::WriteImage(const Image& image,
                              const bool use_image_id) const {
   if (use_image_id) {
-    CHECK(!ExistsImage(image.ImageId())) << "image_id must be unique";
+    THROW_CHECK(!ExistsImage(image.ImageId())) << "image_id must be unique";
     SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_add_image_, 1, image.ImageId()));
   } else {
     SQLITE3_CALL(sqlite3_bind_null(sql_stmt_add_image_, 1));
@@ -946,7 +948,7 @@ void Database::Merge(const Database& database1,
   std::unordered_map<image_t, image_t> new_image_ids1;
   for (auto& image : database1.ReadAllImages()) {
     image.SetCameraId(new_camera_ids1.at(image.CameraId()));
-    CHECK(!merged_database->ExistsImageWithName(image.Name()))
+    THROW_CHECK(!merged_database->ExistsImageWithName(image.Name()))
         << "The two databases must not contain images with the same name, but "
            "the there are images with name "
         << image.Name() << " in both databases";
@@ -961,7 +963,7 @@ void Database::Merge(const Database& database1,
   std::unordered_map<image_t, image_t> new_image_ids2;
   for (auto& image : database2.ReadAllImages()) {
     image.SetCameraId(new_camera_ids2.at(image.CameraId()));
-    CHECK(!merged_database->ExistsImageWithName(image.Name()))
+    THROW_CHECK(!merged_database->ExistsImageWithName(image.Name()))
         << "The two databases must not contain images with the same name, but "
            "the there are images with name "
         << image.Name() << " in both databases";
@@ -1560,7 +1562,7 @@ size_t Database::MaxColumn(const std::string& column,
 
 DatabaseTransaction::DatabaseTransaction(Database* database)
     : database_(database), database_lock_(database->transaction_mutex_) {
-  CHECK_NOTNULL(database_);
+  THROW_CHECK_NOTNULL(database_);
   database_->BeginTransaction();
 }
 

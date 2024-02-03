@@ -57,9 +57,9 @@ void WarpImageBetweenCameras(const Camera& source_camera,
                              const Camera& target_camera,
                              const Bitmap& source_image,
                              Bitmap* target_image) {
-  CHECK_EQ(source_camera.width, source_image.Width());
-  CHECK_EQ(source_camera.height, source_image.Height());
-  CHECK_NOTNULL(target_image);
+  THROW_CHECK_EQ(source_camera.width, source_image.Width());
+  THROW_CHECK_EQ(source_camera.height, source_image.Height());
+  THROW_CHECK_NOTNULL(target_image);
 
   target_image->Allocate(static_cast<int>(source_camera.width),
                          static_cast<int>(source_camera.height),
@@ -103,10 +103,10 @@ void WarpImageBetweenCameras(const Camera& source_camera,
 void WarpImageWithHomography(const Eigen::Matrix3d& H,
                              const Bitmap& source_image,
                              Bitmap* target_image) {
-  CHECK_NOTNULL(target_image);
-  CHECK_GT(target_image->Width(), 0);
-  CHECK_GT(target_image->Height(), 0);
-  CHECK_EQ(source_image.IsRGB(), target_image->IsRGB());
+  THROW_CHECK_NOTNULL(target_image);
+  THROW_CHECK_GT(target_image->Width(), 0);
+  THROW_CHECK_GT(target_image->Height(), 0);
+  THROW_CHECK_EQ(source_image.IsRGB(), target_image->IsRGB());
 
   Eigen::Vector3d target_pixel(0, 0, 1);
   for (int y = 0; y < target_image->Height(); ++y) {
@@ -132,9 +132,9 @@ void WarpImageWithHomographyBetweenCameras(const Eigen::Matrix3d& H,
                                            const Camera& target_camera,
                                            const Bitmap& source_image,
                                            Bitmap* target_image) {
-  CHECK_EQ(source_camera.width, source_image.Width());
-  CHECK_EQ(source_camera.height, source_image.Height());
-  CHECK_NOTNULL(target_image);
+  THROW_CHECK_EQ(source_camera.width, source_image.Width());
+  THROW_CHECK_EQ(source_camera.height, source_image.Height());
+  THROW_CHECK_NOTNULL(target_image);
 
   target_image->Allocate(static_cast<int>(source_camera.width),
                          static_cast<int>(source_camera.height),
@@ -182,12 +182,12 @@ void ResampleImageBilinear(const float* data,
                            const int new_rows,
                            const int new_cols,
                            float* resampled) {
-  CHECK_NOTNULL(data);
-  CHECK_NOTNULL(resampled);
-  CHECK_GT(rows, 0);
-  CHECK_GT(cols, 0);
-  CHECK_GT(new_rows, 0);
-  CHECK_GT(new_cols, 0);
+  THROW_CHECK_NOTNULL(data);
+  THROW_CHECK_NOTNULL(resampled);
+  THROW_CHECK_GT(rows, 0);
+  THROW_CHECK_GT(cols, 0);
+  THROW_CHECK_GT(new_rows, 0);
+  THROW_CHECK_GT(new_cols, 0);
 
   const float scale_r = static_cast<float>(rows) / static_cast<float>(new_rows);
   const float scale_c = static_cast<float>(cols) / static_cast<float>(new_cols);
@@ -226,12 +226,12 @@ void SmoothImage(const float* data,
                  const float sigma_r,
                  const float sigma_c,
                  float* smoothed) {
-  CHECK_NOTNULL(data);
-  CHECK_NOTNULL(smoothed);
-  CHECK_GT(rows, 0);
-  CHECK_GT(cols, 0);
-  CHECK_GT(sigma_r, 0);
-  CHECK_GT(sigma_c, 0);
+  THROW_CHECK_NOTNULL(data);
+  THROW_CHECK_NOTNULL(smoothed);
+  THROW_CHECK_GT(rows, 0);
+  THROW_CHECK_GT(cols, 0);
+  THROW_CHECK_GT(sigma_r, 0);
+  THROW_CHECK_GT(sigma_c, 0);
   vl_imsmooth_f(smoothed, cols, data, cols, rows, cols, sigma_c, sigma_r);
 }
 
@@ -241,14 +241,14 @@ void DownsampleImage(const float* data,
                      const int new_rows,
                      const int new_cols,
                      float* downsampled) {
-  CHECK_NOTNULL(data);
-  CHECK_NOTNULL(downsampled);
-  CHECK_LE(new_rows, rows);
-  CHECK_LE(new_cols, cols);
-  CHECK_GT(rows, 0);
-  CHECK_GT(cols, 0);
-  CHECK_GT(new_rows, 0);
-  CHECK_GT(new_cols, 0);
+  THROW_CHECK_NOTNULL(data);
+  THROW_CHECK_NOTNULL(downsampled);
+  THROW_CHECK_LE(new_rows, rows);
+  THROW_CHECK_LE(new_cols, cols);
+  THROW_CHECK_GT(rows, 0);
+  THROW_CHECK_GT(cols, 0);
+  THROW_CHECK_GT(new_rows, 0);
+  THROW_CHECK_GT(new_cols, 0);
 
   const float scale_c = static_cast<float>(cols) / static_cast<float>(new_cols);
   const float scale_r = static_cast<float>(rows) / static_cast<float>(new_rows);

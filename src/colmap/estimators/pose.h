@@ -75,9 +75,9 @@ struct AbsolutePoseRefinementOptions {
   bool print_summary = true;
 
   void Check() const {
-    CHECK_GE(gradient_tolerance, 0.0);
-    CHECK_GE(max_num_iterations, 0);
-    CHECK_GE(loss_function_scale, 0.0);
+    THROW_CHECK_GE(gradient_tolerance, 0.0);
+    THROW_CHECK_GE(max_num_iterations, 0);
+    THROW_CHECK_GE(loss_function_scale, 0.0);
   }
 };
 

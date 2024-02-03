@@ -1,0 +1,46 @@
+[build-system]
+requires = ["scikit-build-core>=0.3.3", "pybind11==2.11.1"]
+build-backend = "scikit_build_core.build"
+
+
+[project]
+name = "pycolmap"
+version = "3.10-dev"
+description="COLMAP bindings"
+readme = "README.md"
+authors = [
+  { name = "Mihai Dusmanu", email = "mihai.dusmanu@gmail.com" },
+  { name = "Paul-Edouard Sarlin", email = "psarlin@ethz.ch" },
+  { name = "Philipp Lindenberger", email = "plindenbe@ethz.ch" },
+]
+license = {text = "BSD-3-Clause"}
+urls = {Repository = "https://github.com/colmap/pycolmap"}
+requires-python = ">=3.7"
+dependencies = ["numpy"]
+classifiers = [
+  "License :: OSI Approved :: BSD License",
+  "Programming Language :: Python :: 3 :: Only",
+]
+
+
+[tool.scikit-build]
+wheel.expand-macos-universal-tags = true
+
+
+[tool.cibuildwheel]
+build = "cp3{8,9,10,11}-{macosx,manylinux,win}*"
+archs = ["auto64"]
+test-command = "python -c \"import pycolmap; print(pycolmap.__version__)\""
+
+[tool.cibuildwheel.environment]
+VCPKG_COMMIT_ID = "fa6e6a6ec3224f1d3697d544edef6272a59cd834"
+
+[tool.cibuildwheel.linux]
+before-all = "{package}/ci/install-colmap-centos.sh"
+
+[tool.cibuildwheel.macos]
+before-all = "{package}/ci/install-colmap-macos.sh"
+
+[tool.cibuildwheel.windows]
+before-all = "powershell -File {package}/ci/install-colmap-windows.ps1"
+before-build = "pip install delvewheel"

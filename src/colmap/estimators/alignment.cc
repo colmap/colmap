@@ -33,10 +33,9 @@
 #include "colmap/geometry/pose.h"
 #include "colmap/optim/loransac.h"
 #include "colmap/scene/projection.h"
+#include "colmap/util/logging.h"
 
 #include <unordered_map>
-
-#include <glog/logging.h>
 
 namespace colmap {
 namespace {
@@ -54,8 +53,8 @@ struct ReconstructionAlignmentEstimator {
 
   void SetReconstructions(const Reconstruction* src_reconstruction,
                           const Reconstruction* tgt_reconstruction) {
-    CHECK_NOTNULL(src_reconstruction);
-    CHECK_NOTNULL(tgt_reconstruction);
+    THROW_CHECK_NOTNULL(src_reconstruction);
+    THROW_CHECK_NOTNULL(tgt_reconstruction);
     src_reconstruction_ = src_reconstruction;
     tgt_reconstruction_ = tgt_reconstruction;
   }
@@ -64,17 +63,17 @@ struct ReconstructionAlignmentEstimator {
   void Estimate(const std::vector<X_t>& src_images,
                 const std::vector<Y_t>& tgt_images,
                 std::vector<M_t>* models) const {
-    CHECK_GE(src_images.size(), 3);
-    CHECK_GE(tgt_images.size(), 3);
-    CHECK_EQ(src_images.size(), tgt_images.size());
-    CHECK(models != nullptr);
+    THROW_CHECK_GE(src_images.size(), 3);
+    THROW_CHECK_GE(tgt_images.size(), 3);
+    THROW_CHECK_EQ(src_images.size(), tgt_images.size());
+    THROW_CHECK(models != nullptr);
 
     models->clear();
 
     std::vector<Eigen::Vector3d> proj_centers1(src_images.size());
     std::vector<Eigen::Vector3d> proj_centers2(tgt_images.size());
     for (size_t i = 0; i < src_images.size(); ++i) {
-      CHECK_EQ(src_images[i]->ImageId(), tgt_images[i]->ImageId());
+      THROW_CHECK_EQ(src_images[i]->ImageId(), tgt_images[i]->ImageId());
       proj_centers1[i] = src_images[i]->ProjectionCenter();
       proj_centers2[i] = tgt_images[i]->ProjectionCenter();
     }
@@ -97,9 +96,9 @@ struct ReconstructionAlignmentEstimator {
                  const std::vector<Y_t>& tgt_images,
                  const M_t& tgt_from_src,
                  std::vector<double>* residuals) const {
-    CHECK_EQ(src_images.size(), tgt_images.size());
-    CHECK_NOTNULL(src_reconstruction_);
-    CHECK_NOTNULL(tgt_reconstruction_);
+    THROW_CHECK_EQ(src_images.size(), tgt_images.size());
+    THROW_CHECK_NOTNULL(src_reconstruction_);
+    THROW_CHECK_NOTNULL(tgt_reconstruction_);
 
     const Sim3d srcFromTgt = Inverse(tgt_from_src);
 
@@ -109,7 +108,7 @@ struct ReconstructionAlignmentEstimator {
       const auto& src_image = *src_images[i];
       const auto& tgt_image = *tgt_images[i];
 
-      CHECK_EQ(src_image.ImageId(), tgt_image.ImageId());
+      THROW_CHECK_EQ(src_image.ImageId(), tgt_image.ImageId());
 
       const auto& src_camera =
           src_reconstruction_->Camera(src_image.CameraId());
@@ -121,7 +120,7 @@ struct ReconstructionAlignmentEstimator {
       const Eigen::Matrix3x4d tgt_cam_from_world =
           tgt_image.CamFromWorld().ToMatrix();
 
-      CHECK_EQ(src_image.NumPoints2D(), tgt_image.NumPoints2D());
+      THROW_CHECK_EQ(src_image.NumPoints2D(), tgt_image.NumPoints2D());
 
       size_t num_inliers = 0;
       size_t num_common_points = 0;
@@ -193,8 +192,8 @@ bool AlignReconstructionToLocations(
     const int min_common_images,
     const RANSACOptions& ransac_options,
     Sim3d* tgt_from_src) {
-  CHECK_GE(min_common_images, 3);
-  CHECK_EQ(tgt_image_names.size(), tgt_image_locations.size());
+  THROW_CHECK_GE(min_common_images, 3);
+  THROW_CHECK_EQ(tgt_image_names.size(), tgt_image_locations.size());
 
   // Find out which images are contained in the reconstruction and get the
   // positions of their camera centers.
@@ -250,8 +249,8 @@ bool AlignReconstructionsViaReprojections(
     const double min_inlier_observations,
     const double max_reproj_error,
     Sim3d* tgt_from_src) {
-  CHECK_GE(min_inlier_observations, 0.0);
-  CHECK_LE(min_inlier_observations, 1.0);
+  THROW_CHECK_GE(min_inlier_observations, 0.0);
+  THROW_CHECK_LE(min_inlier_observations, 1.0);
 
   RANSACOptions ransac_options;
   ransac_options.max_error = 1.0 - min_inlier_observations;
@@ -293,7 +292,7 @@ bool AlignReconstructionsViaProjCenters(
     const Reconstruction& tgt_reconstruction,
     const double max_proj_center_error,
     Sim3d* tgt_from_src) {
-  CHECK_GT(max_proj_center_error, 0);
+  THROW_CHECK_GT(max_proj_center_error, 0);
 
   std::vector<std::string> ref_image_names;
   std::vector<Eigen::Vector3d> ref_proj_centers;
@@ -350,10 +349,10 @@ bool AlignReconstructionsViaPoints(const Reconstruction& src_reconstruction,
                                    const double max_error,
                                    const double min_inlier_ratio,
                                    Sim3d* tgt_from_src) {
-  CHECK_GT(min_common_observations, 0);
-  CHECK_GT(max_error, 0.0);
-  CHECK_GE(min_inlier_ratio, 0.0);
-  CHECK_LE(min_inlier_ratio, 1.0);
+  THROW_CHECK_GT(min_common_observations, 0);
+  THROW_CHECK_GT(max_error, 0.0);
+  THROW_CHECK_GE(min_inlier_ratio, 0.0);
+  THROW_CHECK_LE(min_inlier_ratio, 1.0);
 
   std::vector<Eigen::Vector3d> src_xyz;
   std::vector<Eigen::Vector3d> tgt_xyz;
@@ -392,7 +391,7 @@ bool AlignReconstructionsViaPoints(const Reconstruction& src_reconstruction,
       tgt_xyz.push_back(tgt_reconstruction.Point3D(best_p3D->first).xyz);
     }
   }
-  CHECK_EQ(src_xyz.size(), tgt_xyz.size());
+  THROW_CHECK_EQ(src_xyz.size(), tgt_xyz.size());
   LOG(INFO) << "Found " << src_xyz.size() << " / "
             << src_reconstruction.NumPoints3D() << " valid correspondences.";
 

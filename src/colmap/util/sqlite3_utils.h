@@ -29,6 +29,8 @@
 
 #pragma once
 
+#include "colmap/util/logging.h"
+
 #include <cstdio>
 #include <cstdlib>
 #include <string>
@@ -46,9 +48,8 @@ inline int SQLite3CallHelper(int result_code,
     case SQLITE_DONE:
       return result_code;
     default:
-      LOG(ERROR) << "SQLite error [" << filename << ", line " << line
-                 << "]: " << sqlite3_errstr(result_code);
-      throw std::runtime_error("SQLite error");
+      LogMessageFatalThrow<std::runtime_error>(filename.c_str(), line).stream()
+          << "SQLite error: " << sqlite3_errstr(result_code);
   }
 }
 

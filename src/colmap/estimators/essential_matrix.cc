@@ -48,9 +48,9 @@ void EssentialMatrixFivePointEstimator::Estimate(
     const std::vector<X_t>& points1,
     const std::vector<Y_t>& points2,
     std::vector<M_t>* models) {
-  CHECK_EQ(points1.size(), points2.size());
-  CHECK_GE(points1.size(), 5);
-  CHECK(models != nullptr);
+  THROW_CHECK_EQ(points1.size(), points2.size());
+  THROW_CHECK_GE(points1.size(), 5);
+  THROW_CHECK(models != nullptr);
 
   models->clear();
 
@@ -177,9 +177,9 @@ void EssentialMatrixEightPointEstimator::Estimate(
     const std::vector<X_t>& points1,
     const std::vector<Y_t>& points2,
     std::vector<M_t>* models) {
-  CHECK_EQ(points1.size(), points2.size());
-  CHECK_GE(points1.size(), 8);
-  CHECK(models != nullptr);
+  THROW_CHECK_EQ(points1.size(), points2.size());
+  THROW_CHECK_GE(points1.size(), 8);
+  THROW_CHECK(models != nullptr);
 
   models->clear();
 
