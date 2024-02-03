@@ -86,11 +86,10 @@ class BaseController {
   void RunFunc();
 
   // check if the thread is stopped
+  void SetCheckIfStoppedFunc(const std::function<bool()>& func);
   bool IsStopped() const;
-  bool CheckIfStopped() {
-    BlockIfPaused();
-    return IsStopped();
-  }
+  // BlockIfPaused + IsStopped()
+  bool CheckIfStopped();
 
   // To be called from inside the main run function. This blocks the main
   // caller, if the thread is paused, until the thread is resumed.
@@ -106,9 +105,6 @@ class BaseController {
   // test if setup is called
   bool SetupCalled() const { return setup_; }
 
-  // check_if_stop function
-  std::function<bool()> check_if_stopped_fn;
-
  protected:
   // Register a new callback. Note that only registered callbacks can be
   // set/reset and called from within the thread. Hence, this method should be
@@ -123,9 +119,12 @@ class BaseController {
   void SignalInvalidSetup();
 
  private:
-  std::unordered_map<int, std::list<std::function<void()>>> callbacks_;
   bool setup_ = false;
   bool setup_valid_ = false;
+  // list of callbacks
+  std::unordered_map<int, std::list<std::function<void()>>> callbacks_;
+  // check_if_stop function
+  std::function<bool()> check_if_stopped_fn;
 };
 
 // Helper class to create single threads with simple controls
@@ -198,7 +197,7 @@ class ControllerThread {
         setup_condition_.wait(lock);
       }
     });
-    controller_->check_if_stopped_fn = [&]() { return IsStopped(); };
+    controller_->SetCheckIfStoppedFunc([&]() { return IsStopped(); });
   }
   ~ControllerThread() = default;
 

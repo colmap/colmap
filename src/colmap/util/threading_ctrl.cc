@@ -84,6 +84,10 @@ void BaseController::SignalInvalidSetup() {
   Callback(SIGNAL_SETUP_CALLBACK);
 }
 
+void BaseController::SetCheckIfStoppedFunc(const std::function<bool()>& func) {
+  check_if_stopped_fn = func;
+}
+
 bool BaseController::IsStopped() const {
   if (check_if_stopped_fn)
     return check_if_stopped_fn();
@@ -92,6 +96,11 @@ bool BaseController::IsStopped() const {
 }
 
 void BaseController::BlockIfPaused() { Callback(BLOCK_IF_PAUSED_CALLBACK); }
+
+bool BaseController::CheckIfStopped() {
+  BlockIfPaused();
+  return IsStopped();
+}
 
 bool BaseController::CheckValidSetup() {
   Callback(CHECK_VALID_SETUP_CALLBACK);
