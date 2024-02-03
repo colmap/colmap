@@ -107,7 +107,7 @@ class BaseController {
   bool SetupCalled() const { return setup_; }
 
   // check_if_stop function
-  std::function<bool()> check_if_stop_fn;
+  std::function<bool()> check_if_stopped_fn;
 
  protected:
   // Register a new callback. Note that only registered callbacks can be
@@ -198,7 +198,7 @@ class ControllerThread {
         setup_condition_.wait(lock);
       }
     });
-    controller_->check_if_stop_fn = [&]() { return IsStopped(); };
+    controller_->check_if_stopped_fn = [&]() { return IsStopped(); };
   }
   ~ControllerThread() = default;
 

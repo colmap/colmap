@@ -85,8 +85,8 @@ void BaseController::SignalInvalidSetup() {
 }
 
 bool BaseController::IsStopped() const {
-  if (check_if_stop_fn)
-    return check_if_stop_fn();
+  if (check_if_stopped_fn)
+    return check_if_stopped_fn();
   else
     return false;
 }
