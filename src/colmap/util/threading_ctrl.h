@@ -30,6 +30,7 @@
 #pragma once
 
 #include "colmap/util/logging.h"
+#include "colmap/util/threading.h"
 #include "colmap/util/timer.h"
 
 #include <atomic>
@@ -52,18 +53,6 @@ class BaseController {
   BaseController();
   virtual ~BaseController() = default;
 
-  enum {
-    STARTED_CALLBACK = INT_MIN,
-    FINISHED_CALLBACK,
-
-    // thread-related callbacks from here, only useful in the Thread class,
-    // empty as default
-    LOCK_MUTEX_CALLBACK,
-    BLOCK_IF_PAUSED_CALLBACK,
-    SIGNAL_SETUP_CALLBACK,
-    CHECK_VALID_SETUP_CALLBACK,
-  };
-
   // Set callbacks that can be triggered within the main run function.
   void AddCallback(int id, const std::function<void()>& func);
 
@@ -73,22 +62,9 @@ class BaseController {
   // operation, check the `IsStopped` state and early return from this method.
   virtual void Run() = 0;
 
-  // wrapped function for threading
-  void RunFunc();
-
   // check if the thread is stopped
   void SetCheckIfStoppedFunc(const std::function<bool()>& func);
   bool CheckIfStopped();
-
-  // To be called from outside. This blocks the caller until the thread is
-  // setup, i.e. it signaled that its setup was valid or not. If it never gives
-  // this signal, this call will block the caller infinitely. Check whether
-  // setup is valid. Note that the result is only meaningful if the thread gives
-  // a setup signal.
-  bool CheckValidSetup();
-
-  // test if setup is called
-  bool SetupCalled() const { return setup_; }
 
  protected:
   // Register a new callback. Note that only registered callbacks can be
@@ -99,17 +75,11 @@ class BaseController {
   // Call back to the function with the specified name, if it exists.
   void Callback(int id) const;
 
-  // Signal that the thread is setup. Only call this function once.
-  void SignalValidSetup();
-  void SignalInvalidSetup();
-
  private:
-  bool setup_ = false;
-  bool setup_valid_ = false;
   // list of callbacks
   std::unordered_map<int, std::list<std::function<void()>>> callbacks_;
   // check_if_stop function
-  std::function<bool()> check_if_stopped_fn;
+  std::function<bool()> check_if_stopped_fn_;
 };
 
 // Helper class to create single threads with simple controls
@@ -122,126 +92,31 @@ class BaseController {
 //
 //
 template <class Controller>
-class ControllerThread {
+class ControllerThread : public Thread {
   // check if the Controller class is inherited from BaseController
   static_assert(std::is_base_of<BaseController, Controller>::value,
                 "The controller needs to be inherited from BaseController");
 
  public:
-  struct ThreadStatus {
-    // Check the status
-    bool IsStarted() const { return started; }
-    bool IsStopped() const { return stopped; }
-    bool IsPaused() const { return paused; }
-    bool IsRunning() const { return started && !pausing && !finished; }
-    bool IsFinished() const { return finished; }
-
-    // Update the status
-    void Start() {
-      started = true;
-      stopped = false;
-      paused = false;
-      pausing = false;
-      finished = false;
-    }
-
-    bool started = false;
-    bool stopped = false;
-    bool paused = false;
-    bool pausing = false;
-    bool finished = false;
-  };
-
-  // Check the state of the thread.
-  bool IsStarted() { return status_.IsStarted(); }
-  bool IsStopped() {
-    BlockIfPaused();
-    return status_.IsStopped();
-  }
-  bool IsPaused() { return status_.IsPaused(); }
-  bool IsRunning() { return status_.IsRunning(); }
-  bool IsFinished() { return status_.IsFinished(); }
-
   explicit ControllerThread(std::shared_ptr<Controller> controller) {
     controller_ = controller;
-    controller_->AddCallback(BaseController::FINISHED_CALLBACK,
-                             [&]() { status_.finished = true; });
-    controller_->AddCallback(BaseController::LOCK_MUTEX_CALLBACK, [&]() {
-      std::unique_lock<std::mutex> lock(mutex_);
-    });
-    controller_->AddCallback(BaseController::SIGNAL_SETUP_CALLBACK,
-                             [&]() { setup_condition_.notify_all(); });
-    controller_->AddCallback(BaseController::CHECK_VALID_SETUP_CALLBACK, [&]() {
-      std::unique_lock<std::mutex> lock(mutex_);
-      if (controller_->SetupCalled()) {
-        setup_condition_.wait(lock);
-      }
-    });
     controller_->SetCheckIfStoppedFunc([&]() { return IsStopped(); });
   }
   ~ControllerThread() = default;
 
-  void Start() {
-    std::unique_lock<std::mutex> lock(mutex_);
-    CHECK(!status_.started || status_.finished);
-    Wait();
-    thread_ = std::thread(&ControllerThread::RunFunc, this);
-    status_.Start();
+  // do BlockIfPaused() every time before checking IsStopped()
+  bool IsStopped() {
+    BlockIfPaused();
+    return Thread::IsStopped();
   }
 
-  void Stop() {
-    std::unique_lock<std::mutex> lock(mutex_);
-    status_.stopped = true;
-  }
-
-  void Pause() {
-    std::unique_lock<std::mutex> lock(mutex_);
-    status_.paused = true;
-    Resume();
-  }
-
-  void Resume() {
-    std::unique_lock<std::mutex> lock(mutex_);
-    if (status_.paused) {
-      status_.paused = false;
-      pause_condition_.notify_all();
-    }
-  }
-
-  void Wait() {
-    if (thread_.joinable()) {
-      thread_.join();
-    }
-  }
-
-  void BlockIfPaused() {
-    std::unique_lock<std::mutex> lock(mutex_);
-    if (status_.paused) {
-      status_.pausing = true;
-      pause_condition_.wait(lock);
-      status_.pausing = false;
-    }
-  }
-
-  void AddCallback(int id, const std::function<void()>& func) {
+  // add a controller-specific callback
+  void AddControllerCallback(int id, const std::function<void()>& func) {
     controller_->AddCallback(id, func);
   }
 
- protected:
-  // Get the unique identifier of the current thread.
-  std::thread::id GetThreadId() const { return std::this_thread::get_id(); }
-
  private:
-  // Wrapper around the main run function of the controller to set the finished
-  // flag.
-  void RunFunc() { controller_->RunFunc(); }
-
-  ThreadStatus status_;
-  std::thread thread_;
-  std::mutex mutex_;
-  std::condition_variable pause_condition_;
-  std::condition_variable setup_condition_;
-
+  void Run() override { controller_->Run(); }
   std::shared_ptr<Controller> controller_;
 };
 

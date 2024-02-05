@@ -33,15 +33,7 @@
 
 namespace colmap {
 
-BaseController::BaseController() {
-  RegisterCallback(STARTED_CALLBACK);
-  RegisterCallback(FINISHED_CALLBACK);
-  // threading-related
-  RegisterCallback(LOCK_MUTEX_CALLBACK);
-  RegisterCallback(BLOCK_IF_PAUSED_CALLBACK);
-  RegisterCallback(SIGNAL_SETUP_CALLBACK);
-  RegisterCallback(CHECK_VALID_SETUP_CALLBACK);
-}
+BaseController::BaseController() {}
 
 void BaseController::AddCallback(const int id,
                                  const std::function<void()>& func) {
@@ -61,43 +53,15 @@ void BaseController::Callback(const int id) const {
   }
 }
 
-void BaseController::RunFunc() {
-  Callback(STARTED_CALLBACK);
-  Run();
-  Callback(LOCK_MUTEX_CALLBACK);
-  Callback(FINISHED_CALLBACK);
-}
-
-void BaseController::SignalValidSetup() {
-  Callback(LOCK_MUTEX_CALLBACK);
-  CHECK(!setup_);
-  setup_ = true;
-  setup_valid_ = true;
-  Callback(SIGNAL_SETUP_CALLBACK);
-}
-
-void BaseController::SignalInvalidSetup() {
-  Callback(LOCK_MUTEX_CALLBACK);
-  CHECK(!setup_);
-  setup_ = true;
-  setup_valid_ = false;
-  Callback(SIGNAL_SETUP_CALLBACK);
-}
-
 void BaseController::SetCheckIfStoppedFunc(const std::function<bool()>& func) {
-  check_if_stopped_fn = func;
+  check_if_stopped_fn_ = func;
 }
 
 bool BaseController::CheckIfStopped() {
-  if (check_if_stopped_fn)
-    return check_if_stopped_fn();
+  if (check_if_stopped_fn_)
+    return check_if_stopped_fn_();
   else
     return false;
-}
-
-bool BaseController::CheckValidSetup() {
-  Callback(CHECK_VALID_SETUP_CALLBACK);
-  return setup_valid_;
 }
 
 }  // namespace colmap
