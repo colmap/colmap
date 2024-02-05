@@ -1,6 +1,7 @@
 #pragma once
 
 #include "colmap/scene/reconstruction.h"
+#include "colmap/scene/reconstruction_io.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
@@ -87,7 +88,10 @@ void BindReconstruction(py::module& m) {
       .def(
           "add_image", &Reconstruction::AddImage, "image"_a, "Add a new image.")
       .def("add_point3D",
-           &Reconstruction::AddPoint3D,
+           py::overload_cast<const Eigen::Vector3d&,
+                             Track,
+                             const Eigen::Vector3ub&>(
+               &Reconstruction::AddPoint3D),
            "Add new 3D object, and return its unique ID.",
            "xyz"_a,
            "track"_a,
@@ -198,7 +202,7 @@ void BindReconstruction(py::module& m) {
            "only intended for visualization of data and usable for "
            "reconstruction.")
       .def("export_PLY",
-           &Reconstruction::ExportPLY,
+           &ExportPLY,
            "output_path"_a,
            "Export 3D points to PLY format (.ply).")
       .def("extract_colors_for_image",
