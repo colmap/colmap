@@ -21,10 +21,9 @@ py::dict PyEstimateTriangulation(
     const std::vector<Image>& images,
     const std::vector<Camera>& cameras,
     const EstimateTriangulationOptions& options) {
+  py::gil_scoped_release release;
   THROW_CHECK_EQ(images.size(), cameras.size());
   THROW_CHECK_EQ(images.size(), point_data.size());
-  py::object failure = py::none();
-  py::gil_scoped_release release;
 
   std::vector<TriangulationEstimator::PoseData> pose_data;
   pose_data.reserve(images.size());
@@ -35,13 +34,15 @@ py::dict PyEstimateTriangulation(
   }
   Eigen::Vector3d xyz;
   std::vector<char> inlier_mask;
-  if (!EstimateTriangulation(
-          options, point_data, pose_data, &inlier_mask, &xyz)) {
-    return failure;
-  }
+  const bool success =
+      EstimateTriangulation(options, point_data, pose_data, &inlier_mask, &xyz);
 
   py::gil_scoped_acquire acquire;
-  return py::dict("xyz"_a = xyz, "inliers"_a = ToPythonMask(inlier_mask));
+  if (success) {
+    return py::dict("xyz"_a = xyz, "inliers"_a = ToPythonMask(inlier_mask));
+  } else {
+    return py::none();
+  }
 }
 
 void BindTriangulationEstimator(py::module& m) {
