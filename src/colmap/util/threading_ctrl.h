@@ -87,13 +87,7 @@ class BaseController {
 
   // check if the thread is stopped
   void SetCheckIfStoppedFunc(const std::function<bool()>& func);
-  bool IsStopped() const;
-  // BlockIfPaused + IsStopped()
   bool CheckIfStopped();
-
-  // To be called from inside the main run function. This blocks the main
-  // caller, if the thread is paused, until the thread is resumed.
-  void BlockIfPaused();
 
   // To be called from outside. This blocks the caller until the thread is
   // setup, i.e. it signaled that its setup was valid or not. If it never gives
@@ -168,11 +162,14 @@ class ControllerThread {
   };
 
   // Check the state of the thread.
-  bool IsStarted() const { return status_.IsStarted(); }
-  bool IsStopped() const { return status_.IsStopped(); }
-  bool IsPaused() const { return status_.IsPaused(); }
-  bool IsRunning() const { return status_.IsRunning(); }
-  bool IsFinished() const { return status_.IsFinished(); }
+  bool IsStarted() { return status_.IsStarted(); }
+  bool IsStopped() {
+    BlockIfPaused();
+    return status_.IsStopped();
+  }
+  bool IsPaused() { return status_.IsPaused(); }
+  bool IsRunning() { return status_.IsRunning(); }
+  bool IsFinished() { return status_.IsFinished(); }
 
   explicit ControllerThread(std::shared_ptr<Controller> controller) {
     controller_ = controller;
@@ -180,14 +177,6 @@ class ControllerThread {
                              [&]() { status_.finished = true; });
     controller_->AddCallback(BaseController::LOCK_MUTEX_CALLBACK, [&]() {
       std::unique_lock<std::mutex> lock(mutex_);
-    });
-    controller_->AddCallback(BaseController::BLOCK_IF_PAUSED_CALLBACK, [&]() {
-      std::unique_lock<std::mutex> lock(mutex_);
-      if (status_.paused) {
-        status_.pausing = true;
-        pause_condition_.wait(lock);
-        status_.pausing = false;
-      }
     });
     controller_->AddCallback(BaseController::SIGNAL_SETUP_CALLBACK,
                              [&]() { setup_condition_.notify_all(); });
@@ -231,6 +220,15 @@ class ControllerThread {
   void Wait() {
     if (thread_.joinable()) {
       thread_.join();
+    }
+  }
+
+  void BlockIfPaused() {
+    std::unique_lock<std::mutex> lock(mutex_);
+    if (status_.paused) {
+      status_.pausing = true;
+      pause_condition_.wait(lock);
+      status_.pausing = false;
     }
   }
 

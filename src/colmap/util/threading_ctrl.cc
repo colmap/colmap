@@ -88,18 +88,11 @@ void BaseController::SetCheckIfStoppedFunc(const std::function<bool()>& func) {
   check_if_stopped_fn = func;
 }
 
-bool BaseController::IsStopped() const {
+bool BaseController::CheckIfStopped() {
   if (check_if_stopped_fn)
     return check_if_stopped_fn();
   else
     return false;
-}
-
-void BaseController::BlockIfPaused() { Callback(BLOCK_IF_PAUSED_CALLBACK); }
-
-bool BaseController::CheckIfStopped() {
-  BlockIfPaused();
-  return IsStopped();
 }
 
 bool BaseController::CheckValidSetup() {
