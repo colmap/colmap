@@ -27,45 +27,43 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#pragma once
-
 #include "colmap/util/logging.h"
 
-#include <cstdio>
-#include <cstdlib>
-#include <string>
-
-#include <sqlite3.h>
+#include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
-inline int SQLite3CallHelper(int result_code,
-                             const std::string& filename,
-                             int line) {
-  switch (result_code) {
-    case SQLITE_OK:
-    case SQLITE_ROW:
-    case SQLITE_DONE:
-      return result_code;
-    default:
-      LogMessageFatalThrow<std::runtime_error>(filename.c_str(), line).stream()
-          << "SQLite error: " << sqlite3_errstr(result_code);
-      return result_code;
+std::string PrintingFn(const std::string& message) {
+  if (message.empty()) {
+    LOG(FATAL_THROW) << "Error in PrintingFn";
   }
+  return message;
 }
 
-#define SQLITE3_CALL(func) SQLite3CallHelper(func, __FILE__, __LINE__)
+void ThrowCheck(const bool cond) { THROW_CHECK(cond) << "Error!"; }
 
-#define SQLITE3_EXEC(database, sql, callback)                             \
-  {                                                                       \
-    char* err_msg = nullptr;                                              \
-    const int result_code =                                               \
-        sqlite3_exec(database, sql, callback, nullptr, &err_msg);         \
-    if (result_code != SQLITE_OK) {                                       \
-      LOG(ERROR) << "SQLite error [" << __FILE__ << ", line " << __LINE__ \
-                 << "]: " << err_msg;                                     \
-      sqlite3_free(err_msg);                                              \
-    }                                                                     \
-  }
+void ThrowCheckEqual(const int val) { THROW_CHECK_EQ(val, 1) << "Error!"; }
 
+TEST(ExceptionLogging, Nominal) {
+  EXPECT_NO_THROW(ThrowCheck(true));
+  EXPECT_THROW(ThrowCheck(false), std::invalid_argument);
+  EXPECT_NO_THROW(ThrowCheckEqual(1));
+  EXPECT_THROW(ThrowCheckEqual(0), std::invalid_argument);
+  EXPECT_THROW(THROW_CHECK_NOTNULL(nullptr), std::invalid_argument);
+  EXPECT_THROW({ LOG(FATAL_THROW) << "Error!"; }, std::invalid_argument);
+  EXPECT_THROW({ LOG_FATAL_THROW(std::logic_error) << "Error!"; },
+               std::logic_error);
+}
+
+TEST(ExceptionLogging, Nested) {
+  EXPECT_NO_THROW(PrintingFn("message"));
+  EXPECT_THROW(PrintingFn(""), std::invalid_argument);
+  EXPECT_THROW({ LOG(FATAL_THROW) << "Error: " << PrintingFn("message"); },
+               std::invalid_argument);
+  EXPECT_THROW({ LOG(FATAL_THROW) << "Error: " << PrintingFn(""); },
+               std::invalid_argument);
+}
+
+}  // namespace
 }  // namespace colmap

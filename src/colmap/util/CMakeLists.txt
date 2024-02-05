@@ -88,6 +88,11 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_util
 )
 COLMAP_ADD_TEST(
+    NAME logging_test
+    SRCS logging_test.cc
+    LINK_LIBS colmap_util
+)
+COLMAP_ADD_TEST(
     NAME misc_test
     SRCS misc_test.cc
     LINK_LIBS colmap_util
