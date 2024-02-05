@@ -2,6 +2,7 @@
 
 #include "pycolmap/estimators/absolute_pose.h"
 #include "pycolmap/estimators/alignment.h"
+#include "pycolmap/estimators/cost_functions.h"
 #include "pycolmap/estimators/essential_matrix.h"
 #include "pycolmap/estimators/fundamental_matrix.h"
 #include "pycolmap/estimators/generalized_absolute_pose.h"
@@ -16,6 +17,7 @@ namespace py = pybind11;
 void BindEstimators(py::module& m) {
   BindAbsolutePoseEstimator(m);
   BindAlignmentEstimator(m);
+  BindCostFunctions(m);
   BindEssentialMatrixEstimator(m);
   BindFundamentalMatrixEstimator(m);
   BindGeneralizedAbsolutePoseEstimator(m);
