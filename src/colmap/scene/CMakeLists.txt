@@ -43,6 +43,7 @@ COLMAP_ADD_LIBRARY(
         point3d.h
         projection.h projection.cc
         reconstruction.h reconstruction.cc
+        reconstruction_io.h reconstruction_io.cc
         reconstruction_manager.h reconstruction_manager.cc
         scene_clustering.h scene_clustering.cc
         synthetic.h synthetic.cc
