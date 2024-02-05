@@ -32,6 +32,7 @@
 #include "colmap/util/threading.h"
 
 #include <functional>
+#include <list>
 #include <unordered_map>
 
 namespace colmap {
