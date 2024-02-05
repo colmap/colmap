@@ -32,9 +32,11 @@
 #include "colmap/geometry/rigid3.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/logging.h"
 
 #include <Eigen/Core>
 #include <ceres/ceres.h>
+#include <ceres/conditioned_cost_function.h>
 #include <ceres/rotation.h>
 
 namespace colmap {
@@ -445,6 +447,54 @@ struct MetricRelativePoseErrorCostFunction {
  private:
   const Rigid3d& i_from_j_;
   const EigenMatrix6d sqrt_information_j_;
+};
+
+// A cost function that wraps another one and whiten its residuals with an
+// isotropic covariance, i.e. assuming that the variance is identical in and
+// independent between each dimension of the residual.
+template <class CostFunction>
+class IsotropicNoiseCostFunctionWrapper {
+  class LinearCostFunction : public ceres::CostFunction {
+   public:
+    explicit LinearCostFunction(const double s) : s_(s) {
+      set_num_residuals(1);
+      mutable_parameter_block_sizes()->push_back(1);
+    }
+
+    bool Evaluate(double const* const* parameters,
+                  double* residuals,
+                  double** jacobians) const final {
+      *residuals = **parameters * s_;
+      if (jacobians && *jacobians) {
+        **jacobians = s_;
+      }
+      return true;
+    }
+
+   private:
+    const double s_;
+  };
+
+ public:
+  template <typename... Args>
+  static ceres::CostFunction* Create(const double stddev, Args&&... args) {
+    THROW_CHECK_GT(stddev, 0.0);
+    ceres::CostFunction* cost_function =
+        CostFunction::Create(std::forward<Args>(args)...);
+    const double scale = 1.0 / stddev;
+    std::vector<ceres::CostFunction*> conditioners(
+#if CERES_VERSION_MAJOR < 2
+        cost_function->num_residuals());
+    // Ceres <2.0 does not allow reusing the same conditioner multiple times.
+    for (size_t i = 0; i < conditioners.size(); ++i) {
+      conditioners[i] = new LinearCostFunction(scale);
+    }
+#else
+        cost_function->num_residuals(), new LinearCostFunction(scale));
+#endif
+    return new ceres::ConditionedCostFunction(
+        cost_function, conditioners, ceres::TAKE_OWNERSHIP);
+  }
 };
 
 template <template <typename> class CostFunction, typename... Args>
