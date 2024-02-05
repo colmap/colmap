@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/controllers/base_controller.h"
 #include "colmap/controllers/incremental_mapper.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sensor/bitmap.h"
@@ -48,7 +49,6 @@
 #include "colmap/ui/reconstruction_stats_widget.h"
 #include "colmap/ui/render_options_widget.h"
 #include "colmap/ui/undistortion_widget.h"
-#include "colmap/util/threading_ctrl.h"
 
 #include <QtCore>
 #include <QtGui>

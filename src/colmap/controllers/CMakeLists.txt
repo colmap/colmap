@@ -33,6 +33,7 @@ set(FOLDER_NAME "controllers")
 COLMAP_ADD_LIBRARY(
     NAME colmap_controllers
     SRCS
+        base_controller.h base_controller.cc
         automatic_reconstruction.h automatic_reconstruction.cc
         bundle_adjustment.h bundle_adjustment.cc
         hierarchical_mapper.h hierarchical_mapper.cc

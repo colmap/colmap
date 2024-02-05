@@ -27,8 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/util/threading_ctrl.h"
-
+#include "colmap/controllers/base_controller.h"
 #include "colmap/util/logging.h"
 
 namespace colmap {

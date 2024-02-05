@@ -42,7 +42,6 @@ COLMAP_ADD_LIBRARY(
         sqlite3_utils.h
         string.h string.cc
         threading.h threading.cc
-        threading_ctrl.h threading_ctrl.cc
         timer.h timer.cc
         types.h
         version.h version.cc
