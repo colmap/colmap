@@ -31,6 +31,7 @@
 
 #include "colmap/util/string.h"
 
+#include <exception>
 #include <iostream>
 
 #include <glog/logging.h>
@@ -163,9 +164,17 @@ class LogMessageFatalThrow : public google::LogMessage {
     // so we do it here.
     delete result.str_;
   };
-  [[noreturn]] ~LogMessageFatalThrow() noexcept(false) {
+  ~LogMessageFatalThrow() noexcept(false) {
     Flush();
-    throw T(prefix_ + message_);
+#if defined(__cpp_lib_uncaught_exceptions) && \
+    (__cpp_lib_uncaught_exceptions >= 201411L)
+    if (std::uncaught_exceptions() == 0)
+#else
+    if (!std::uncaught_exception())
+#endif
+    {
+      throw T(prefix_ + message_);
+    }
   };
 
  private:
