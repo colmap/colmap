@@ -1,6 +1,7 @@
 #pragma once
 
 #include "colmap/scene/reconstruction.h"
+#include "colmap/scene/reconstruction_io.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
@@ -87,7 +88,10 @@ void BindReconstruction(py::module& m) {
       .def(
           "add_image", &Reconstruction::AddImage, "image"_a, "Add a new image.")
       .def("add_point3D",
-           &Reconstruction::AddPoint3D,
+           py::overload_cast<const Eigen::Vector3d&,
+                             Track,
+                             const Eigen::Vector3ub&>(
+               &Reconstruction::AddPoint3D),
            "Add new 3D object, and return its unique ID.",
            "xyz"_a,
            "track"_a,
@@ -197,71 +201,10 @@ void BindReconstruction(py::module& m) {
            "Import from PLY format. Note that these import functions are\n"
            "only intended for visualization of data and usable for "
            "reconstruction.")
-      .def(
-          "export_NVM",
-          &Reconstruction::ExportNVM,
-          "output_path"_a,
-          "skip_distortion"_a = false,
-          "Export reconstruction in NVM format (.nvm).\n\n"
-          "Only supports SIMPLE_RADIAL camera models when exporting\n"
-          "distortion parameters. When skip_distortion == True it supports all "
-          "camera\n"
-          "models with the caveat that it's using the mean focal length which "
-          "will be\n"
-          "inaccurate for camera models with two focal lengths and distortion.")
-      .def(
-          "export_CAM",
-          &Reconstruction::ExportCam,
-          "output_dir"_a,
-          "skip_distortion"_a = false,
-          "Exports in CAM format which is a simple text file that contains "
-          "pose\n"
-          "information and camera intrinsics for each image and exports one "
-          "file per\n"
-          "image; it does not include information on the 3D points. The format "
-          "is as\n"
-          "follows (2 lines of text with space separated numbers):\n"
-          "<Tvec; 3 values> <Rotation matrix in row-major format; 9 values>\n"
-          "<focal_length> <k1> <k2> 1.0 <principal point X> <principal point "
-          "Y>\n"
-          "Note that focal length is relative to the image max(width, "
-          "height),\n"
-          "and principal points x and y are relative to width and height "
-          "respectively.\n\n"
-          "Only supports SIMPLE_RADIAL and RADIAL camera models when "
-          "exporting\n"
-          "distortion parameters. When skip_distortion == True it supports all "
-          "camera\n"
-          "models with the caveat that it's using the mean focal length which "
-          "will be\n"
-          "inaccurate for camera models with two focal lengths and distortion.")
-      .def(
-          "export_bundler",
-          &Reconstruction::ExportBundler,
-          "output_path"_a,
-          "list_path"_a,
-          "skip_distortion"_a = false,
-          "Export reconstruction in Bundler format.\n"
-          "Supports SIMPLE_PINHOLE, PINHOLE, SIMPLE_RADIAL and RADIAL camera "
-          "models\n"
-          "when exporting distortion parameters. When skip_distortion == True "
-          "it\n"
-          "supports all camera models with the caveat that it's using the mean "
-          "focal\n"
-          "length which will be inaccurate for camera models with two focal "
-          "lengths\n"
-          "and distortion.")
       .def("export_PLY",
-           &Reconstruction::ExportPLY,
+           &ExportPLY,
            "output_path"_a,
            "Export 3D points to PLY format (.ply).")
-      .def("export_VRML",
-           &Reconstruction::ExportVRML,
-           "images_path"_a,
-           "points3D_path"_a,
-           "image_scale"_a = 1.0,
-           "image_rgb"_a = Eigen::Vector3d(1, 0, 0),
-           "Export reconstruction in VRML format (.wrl).")
       .def("extract_colors_for_image",
            &Reconstruction::ExtractColorsForImage,
            "Extract colors for 3D points of given image. Colors will be "
