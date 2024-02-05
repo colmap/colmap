@@ -24,9 +24,7 @@ py::object PyEstimateAndRefineAbsolutePose(
     const AbsolutePoseEstimationOptions& estimation_options,
     const AbsolutePoseRefinementOptions& refinement_options,
     const bool return_covariance) {
-  py::object failure = py::none();
   py::gil_scoped_release release;
-
   Rigid3d cam_from_world;
   size_t num_inliers;
   std::vector<char> inlier_mask;
@@ -37,7 +35,8 @@ py::object PyEstimateAndRefineAbsolutePose(
                             &camera,
                             &num_inliers,
                             &inlier_mask)) {
-    return failure;
+    py::gil_scoped_acquire acquire;
+    return py::none();
   }
 
   Eigen::Matrix<double, 6, 6> covariance;
@@ -48,7 +47,8 @@ py::object PyEstimateAndRefineAbsolutePose(
                           &cam_from_world,
                           &camera,
                           return_covariance ? &covariance : nullptr)) {
-    return failure;
+    py::gil_scoped_acquire acquire;
+    return py::none();
   }
 
   py::gil_scoped_acquire acquire;
@@ -66,9 +66,7 @@ py::object PyRefineAbsolutePose(
     const PyInlierMask& inlier_mask,
     Camera& camera,
     const AbsolutePoseRefinementOptions& refinement_options) {
-  py::object failure = py::none();
   py::gil_scoped_release release;
-
   Rigid3d refined_cam_from_world = init_cam_from_world;
   std::vector<char> inlier_mask_char(inlier_mask.size());
   Eigen::Map<Eigen::Matrix<char, Eigen::Dynamic, 1>>(
@@ -79,10 +77,9 @@ py::object PyRefineAbsolutePose(
                           points3D,
                           &refined_cam_from_world,
                           &camera)) {
-    return failure;
+    py::gil_scoped_acquire acquire;
+    return py::none();
   }
-
-  // Success output dictionary.
   py::gil_scoped_acquire acquire;
   return py::dict("cam_from_world"_a = refined_cam_from_world);
 }
