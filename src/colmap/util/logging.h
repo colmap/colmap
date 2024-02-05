@@ -31,6 +31,7 @@
 
 #include "colmap/util/string.h"
 
+#include <exception>
 #include <iostream>
 
 #include <glog/logging.h>
@@ -138,6 +139,11 @@ inline std::string __MakeExceptionPrefix(const char* file, int line) {
          std::to_string(line) + "] ";
 }
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4722)
+#endif
+
 template <typename T>
 class LogMessageFatalThrow : public google::LogMessage {
  public:
@@ -158,9 +164,17 @@ class LogMessageFatalThrow : public google::LogMessage {
     // so we do it here.
     delete result.str_;
   };
-  [[noreturn]] ~LogMessageFatalThrow() noexcept(false) {
+  ~LogMessageFatalThrow() noexcept(false) {
     Flush();
-    throw T(prefix_ + message_);
+#if defined(__cpp_lib_uncaught_exceptions) && \
+    (__cpp_lib_uncaught_exceptions >= 201411L)
+    if (std::uncaught_exceptions() == 0)
+#else
+    if (!std::uncaught_exception())
+#endif
+    {
+      throw T(prefix_ + message_);
+    }
   };
 
  private:
@@ -168,12 +182,16 @@ class LogMessageFatalThrow : public google::LogMessage {
   std::string prefix_;
 };
 
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
+
 using LogMessageFatalThrowDefault = LogMessageFatalThrow<std::invalid_argument>;
 
 template <typename T>
 T ThrowCheckNotNull(const char* file, int line, const char* names, T&& t) {
   if (t == nullptr) {
-    LogMessageFatalThrowDefault(file, line, new std::string(names));
+    LogMessageFatalThrowDefault(file, line).stream() << names;
   }
   return std::forward<T>(t);
 }
