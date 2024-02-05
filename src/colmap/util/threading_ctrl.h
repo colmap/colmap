@@ -44,15 +44,6 @@
 
 namespace colmap {
 
-#ifdef __clang__
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wkeyword-macro"
-#endif
-
-#ifdef __clang__
-#pragma clang diagnostic pop  // -Wkeyword-macro
-#endif
-
 // Reimplementation of threading with thread-related functions outside
 // controller Following util/threading.h
 // BaseController that supports templating in ControllerThread
