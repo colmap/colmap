@@ -24,22 +24,17 @@ py::object PyEstimateAndDecomposeEssentialMatrix(
     Camera& camera1,
     Camera& camera2,
     const RANSACOptions& options) {
-  THROW_CHECK_EQ(points2D1.size(), points2D2.size());
-  py::object failure = py::none();
   py::gil_scoped_release release;
-
-  // Image to world.
+  THROW_CHECK_EQ(points2D1.size(), points2D2.size());
   std::vector<Eigen::Vector2d> world_points2D1;
   for (size_t idx = 0; idx < points2D1.size(); ++idx) {
     world_points2D1.push_back(camera1.CamFromImg(points2D1[idx]));
   }
-
   std::vector<Eigen::Vector2d> world_points2D2;
   for (size_t idx = 0; idx < points2D2.size(); ++idx) {
     world_points2D2.push_back(camera2.CamFromImg(points2D2[idx]));
   }
 
-  // Compute world error.
   const double max_error_px = options.max_error;
   const double max_error = 0.5 * (max_error_px / camera1.MeanFocalLength() +
                                   max_error_px / camera2.MeanFocalLength());
@@ -53,7 +48,8 @@ py::object PyEstimateAndDecomposeEssentialMatrix(
   const auto report = ransac.Estimate(world_points2D1, world_points2D2);
 
   if (!report.success) {
-    return failure;
+    py::gil_scoped_acquire acquire;
+    return py::none();
   }
 
   // Recover data from report.

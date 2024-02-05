@@ -27,9 +27,7 @@ py::object PyEstimateAndRefineGeneralizedAbsolutePose(
     const RANSACOptions& ransac_options,
     const AbsolutePoseRefinementOptions& refinement_options,
     const bool return_covariance) {
-  py::object failure = py::none();
   py::gil_scoped_release release;
-
   Rigid3d rig_from_world;
   size_t num_inliers;
   std::vector<char> inlier_mask;
@@ -42,7 +40,8 @@ py::object PyEstimateAndRefineGeneralizedAbsolutePose(
                                        &rig_from_world,
                                        &num_inliers,
                                        &inlier_mask)) {
-    return failure;
+    py::gil_scoped_acquire acquire;
+    return py::none();
   }
 
   Eigen::Matrix<double, 6, 6> covariance;
@@ -56,7 +55,8 @@ py::object PyEstimateAndRefineGeneralizedAbsolutePose(
           &rig_from_world,
           &cameras,
           return_covariance ? &covariance : nullptr)) {
-    return failure;
+    py::gil_scoped_acquire acquire;
+    return py::none();
   }
 
   py::gil_scoped_acquire acquire;

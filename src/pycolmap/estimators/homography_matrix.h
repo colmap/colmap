@@ -19,19 +19,16 @@ py::object PyEstimateHomographyMatrix(
     const std::vector<Eigen::Vector2d>& points2D1,
     const std::vector<Eigen::Vector2d>& points2D2,
     const RANSACOptions& options) {
-  THROW_CHECK_EQ(points2D1.size(), points2D2.size());
-  py::object failure = py::none();
   py::gil_scoped_release release;
-
+  THROW_CHECK_EQ(points2D1.size(), points2D2.size());
   LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator> H_ransac(
       options);
   const auto report = H_ransac.Estimate(points2D1, points2D2);
-  if (!report.success) {
-    return failure;
-  }
-
-  const Eigen::Matrix3d H = report.model;
   py::gil_scoped_acquire acquire;
+  if (!report.success) {
+    return py::none();
+  }
+  const Eigen::Matrix3d H = report.model;
   return py::dict("H"_a = H,
                   "num_inliers"_a = report.support.num_inliers,
                   "inliers"_a = ToPythonMask(report.inlier_mask));
