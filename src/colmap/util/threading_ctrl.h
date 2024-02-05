@@ -98,21 +98,19 @@ class ControllerThread : public Thread {
                 "The controller needs to be inherited from BaseController");
 
  public:
-  explicit ControllerThread(std::shared_ptr<Controller> controller) {
-    controller_ = controller;
+  explicit ControllerThread(std::shared_ptr<Controller> controller)
+      : controller_(std::move(controller)) {
     controller_->SetCheckIfStoppedFunc([&]() { return IsStopped(); });
   }
   ~ControllerThread() = default;
+
+  // get the handle to the controller in ControllerThread
+  const std::shared_ptr<Controller> GetController() { return controller_; }
 
   // do BlockIfPaused() every time before checking IsStopped()
   bool IsStopped() {
     BlockIfPaused();
     return Thread::IsStopped();
-  }
-
-  // add a controller-specific callback
-  void AddControllerCallback(int id, const std::function<void()>& func) {
-    controller_->AddCallback(id, func);
   }
 
  private:
