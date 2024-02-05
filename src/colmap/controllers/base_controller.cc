@@ -28,6 +28,7 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 #include "colmap/controllers/base_controller.h"
+
 #include "colmap/util/logging.h"
 
 namespace colmap {
