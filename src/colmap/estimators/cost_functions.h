@@ -486,7 +486,7 @@ class IsotropicNoiseCostFunctionWrapper {
         cost_function->num_residuals());
     // Ceres <2.0 does not allow reuse the same conditioner multiple times.
     for (size_t i = 0; i < conditioners.size(); ++i) {
-      conditioners.push_back(new LinearCostFunction(scale));
+      conditioners[i] = new LinearCostFunction(scale);
     }
 #else
         cost_function->num_residuals(), new LinearCostFunction(scale));
