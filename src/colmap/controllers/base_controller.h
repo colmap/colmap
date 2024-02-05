@@ -29,18 +29,9 @@
 
 #pragma once
 
-#include "colmap/util/logging.h"
 #include "colmap/util/threading.h"
-#include "colmap/util/timer.h"
 
-#include <atomic>
-#include <climits>
 #include <functional>
-#include <future>
-#include <list>
-#include <queue>
-#include <thread>
-#include <type_traits>
 #include <unordered_map>
 
 namespace colmap {
