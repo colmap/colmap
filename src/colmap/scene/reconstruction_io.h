@@ -144,7 +144,7 @@ void ExportPLY(const Reconstruction& reconstruction, const std::string& path);
 void ExportVRML(const Reconstruction& reconstruction,
                 const std::string& images_path,
                 const std::string& points3D_path,
-                const double image_scale,
+                double image_scale,
                 const Eigen::Vector3d& image_rgb);
 
 }  // namespace colmap
