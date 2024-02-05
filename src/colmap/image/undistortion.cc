@@ -31,6 +31,7 @@
 
 #include "colmap/geometry/pose.h"
 #include "colmap/image/warp.h"
+#include "colmap/scene/reconstruction_io.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/misc.h"
 
@@ -350,8 +351,8 @@ void PMVSUndistorter::Run() {
   Reconstruction undistorted_reconstruction = reconstruction_;
   UndistortReconstruction(options_, &undistorted_reconstruction);
   const std::string bundle_path = JoinPaths(output_path_, "pmvs/bundle.rd.out");
-  undistorted_reconstruction.ExportBundler(bundle_path,
-                                           bundle_path + ".list.txt");
+  ExportBundler(
+      undistorted_reconstruction, bundle_path, bundle_path + ".list.txt");
 
   LOG(INFO) << "Writing visibility file...";
   WriteVisibilityData();

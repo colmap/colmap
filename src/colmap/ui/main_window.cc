@@ -29,6 +29,7 @@
 
 #include "colmap/ui/main_window.h"
 
+#include "colmap/scene/reconstruction_io.h"
 #include "colmap/util/version.h"
 
 #include <clocale>
@@ -919,18 +920,20 @@ void MainWindow::ExportAs() {
         const std::shared_ptr<Reconstruction> reconstruction =
             reconstruction_manager_->Get(SelectedReconstructionIdx());
         if (filter == "NVM (*.nvm)") {
-          reconstruction->ExportNVM(export_path);
+          ExportNVM(*reconstruction, export_path);
         } else if (filter == "Bundler (*.out)") {
-          reconstruction->ExportBundler(export_path, export_path + ".list.txt");
+          ExportBundler(
+              *reconstruction, export_path, export_path + ".list.txt");
         } else if (filter == "PLY (*.ply)") {
-          reconstruction->ExportPLY(export_path);
+          ExportPLY(*reconstruction, export_path);
         } else if (filter == "VRML (*.wrl)") {
           const auto base_path =
               export_path.substr(0, export_path.find_last_of('.'));
-          reconstruction->ExportVRML(base_path + ".images.wrl",
-                                     base_path + ".points3D.wrl",
-                                     1,
-                                     Eigen::Vector3d(1, 0, 0));
+          ExportVRML(*reconstruction,
+                     base_path + ".images.wrl",
+                     base_path + ".points3D.wrl",
+                     1,
+                     Eigen::Vector3d(1, 0, 0));
         }
       });
 }
