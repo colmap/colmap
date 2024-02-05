@@ -191,7 +191,7 @@ using LogMessageFatalThrowDefault = LogMessageFatalThrow<std::invalid_argument>;
 template <typename T>
 T ThrowCheckNotNull(const char* file, int line, const char* names, T&& t) {
   if (t == nullptr) {
-    LogMessageFatalThrowDefault(file, line, new std::string(names));
+    LogMessageFatalThrowDefault(file, line).stream() << names;
   }
   return std::forward<T>(t);
 }
