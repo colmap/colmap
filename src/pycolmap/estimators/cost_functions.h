@@ -12,34 +12,26 @@ namespace py = pybind11;
 
 template <typename CameraModel>
 using ReprojErrorCostFunctionWithNoise =
-    IsotropicNoiseCostFunctionWrapper<ReprojErrorCostFunction<CameraModel>,
-                                      const Eigen::Vector2d&>;
+    IsotropicNoiseCostFunctionWrapper<ReprojErrorCostFunction<CameraModel>>;
 
 template <typename CameraModel>
 using ReprojErrorConstantPoseCostFunctionWithNoise =
     IsotropicNoiseCostFunctionWrapper<
-        ReprojErrorConstantPoseCostFunction<CameraModel>,
-        const Rigid3d&,
-        const Eigen::Vector2d&>;
+        ReprojErrorConstantPoseCostFunction<CameraModel>>;
 
 template <typename CameraModel>
 using ReprojErrorConstantPoint3DCostFunctionWithNoise =
     IsotropicNoiseCostFunctionWrapper<
-        ReprojErrorConstantPoint3DCostFunction<CameraModel>,
-        const Eigen::Vector2d&,
-        const Eigen::Vector3d&>;
+        ReprojErrorConstantPoint3DCostFunction<CameraModel>>;
 
 template <typename CameraModel>
 using RigReprojErrorCostFunctionWithNoise =
-    IsotropicNoiseCostFunctionWrapper<RigReprojErrorCostFunction<CameraModel>,
-                                      const Eigen::Vector2d&>;
+    IsotropicNoiseCostFunctionWrapper<RigReprojErrorCostFunction<CameraModel>>;
 
 template <typename CameraModel>
 using RigReprojErrorConstantRigCostFunctionWithNoise =
     IsotropicNoiseCostFunctionWrapper<
-        RigReprojErrorConstantRigCostFunction<CameraModel>,
-        const Rigid3d&,
-        const Eigen::Vector2d&>;
+        RigReprojErrorConstantRigCostFunction<CameraModel>>;
 
 void BindCostFunctions(py::module& m_parent) {
   py::module_ m = m_parent.def_submodule("cost_functions");
@@ -50,11 +42,11 @@ void BindCostFunctions(py::module& m_parent) {
         "point2D"_a);
   m.def("ReprojErrorCost",
         &CameraCostFunction<ReprojErrorCostFunctionWithNoise,
-                            const Eigen::Vector2d&,
-                            const double>,
+                            const double,
+                            const Eigen::Vector2d&>,
         "camera_model_id"_a,
-        "point2D"_a,
-        "stddev"_a);
+        "stddev"_a,
+        "point2D"_a);
   m.def("ReprojErrorCost",
         &CameraCostFunction<ReprojErrorConstantPoseCostFunction,
                             const Rigid3d&,
@@ -64,13 +56,13 @@ void BindCostFunctions(py::module& m_parent) {
         "point2D"_a);
   m.def("ReprojErrorCost",
         &CameraCostFunction<ReprojErrorConstantPoseCostFunctionWithNoise,
+                            const double,
                             const Rigid3d&,
-                            const Eigen::Vector2d&,
-                            const double>,
+                            const Eigen::Vector2d&>,
         "camera_model_id"_a,
+        "stddev"_a,
         "cam_from_world"_a,
-        "point2D"_a,
-        "stddev"_a);
+        "point2D"_a);
   m.def("ReprojErrorCost",
         &CameraCostFunction<ReprojErrorConstantPoint3DCostFunction,
                             const Eigen::Vector2d&,
@@ -80,13 +72,13 @@ void BindCostFunctions(py::module& m_parent) {
         "point3D"_a);
   m.def("ReprojErrorCost",
         &CameraCostFunction<ReprojErrorConstantPoint3DCostFunctionWithNoise,
+                            const double,
                             const Eigen::Vector2d&,
-                            const Eigen::Vector3d&,
-                            const double>,
+                            const Eigen::Vector3d&>,
         "camera_model_id"_a,
+        "stddev"_a,
         "point2D"_a,
-        "point3D"_a,
-        "stddev"_a);
+        "point3D"_a);
 
   m.def("RigReprojErrorCost",
         &CameraCostFunction<RigReprojErrorCostFunction, const Eigen::Vector2d&>,
@@ -94,11 +86,11 @@ void BindCostFunctions(py::module& m_parent) {
         "point2D"_a);
   m.def("RigReprojErrorCost",
         &CameraCostFunction<RigReprojErrorCostFunctionWithNoise,
-                            const Eigen::Vector2d&,
-                            const double>,
+                            const double,
+                            const Eigen::Vector2d&>,
         "camera_model_id"_a,
-        "point2D"_a,
-        "stddev"_a);
+        "stddev"_a,
+        "point2D"_a);
   m.def("RigReprojErrorCost",
         &CameraCostFunction<RigReprojErrorConstantRigCostFunction,
                             const Rigid3d&,
@@ -108,13 +100,13 @@ void BindCostFunctions(py::module& m_parent) {
         "point2D"_a);
   m.def("RigReprojErrorCost",
         &CameraCostFunction<RigReprojErrorConstantRigCostFunctionWithNoise,
+                            const double,
                             const Rigid3d&,
-                            const Eigen::Vector2d&,
-                            const double>,
+                            const Eigen::Vector2d&>,
         "camera_model_id"_a,
+        "stddev"_a,
         "cam_from_rig"_a,
-        "point2D"_a,
-        "stddev"_a);
+        "point2D"_a);
 
   m.def("SampsonErrorCost",
         &SampsonErrorCostFunction::Create,

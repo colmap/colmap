@@ -452,7 +452,7 @@ struct MetricRelativePoseErrorCostFunction {
 // A cost function that wraps another one and whiten its residuals with an
 // isotropic covariance, i.e. assuming that the variance is identical in and
 // independent between each dimension of the residual.
-template <class CostFunction, typename... Args>
+template <class CostFunction>
 class IsotropicNoiseCostFunctionWrapper {
   class LinearCostFunction : public ceres::CostFunction {
    public:
@@ -476,7 +476,8 @@ class IsotropicNoiseCostFunctionWrapper {
   };
 
  public:
-  static ceres::CostFunction* Create(Args&&... args, const double stddev) {
+  template <typename... Args>
+  static ceres::CostFunction* Create(const double stddev, Args&&... args) {
     THROW_CHECK_GT(stddev, 0.0);
     ceres::CostFunction* cost_function =
         CostFunction::Create(std::forward<Args>(args)...);
