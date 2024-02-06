@@ -31,6 +31,7 @@
 
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/misc.h"
+#include "colmap/util/timer.h"
 
 #include <Eigen/Geometry>
 
@@ -140,6 +141,9 @@ const std::vector<std::vector<int>>& StereoFusion::GetFusedPointsVisibility()
 }
 
 void StereoFusion::Run() {
+  Timer run_timer;
+  run_timer.Start();
+
   fused_points_.clear();
   fused_points_visibility_.clear();
 
@@ -176,7 +180,7 @@ void StereoFusion::Run() {
   }
 
   if (IsStopped()) {
-    GetTimer().PrintMinutes();
+    run_timer.PrintMinutes();
     return;
   }
 
@@ -339,7 +343,7 @@ void StereoFusion::Run() {
   }
 
   LOG(INFO) << "Number of fused points: " << fused_points_.size();
-  GetTimer().PrintMinutes();
+  run_timer.PrintMinutes();
 }
 
 void StereoFusion::InitFusedPixelMask(int image_idx,

@@ -35,6 +35,7 @@
 #include "colmap/geometry/gps.h"
 #include "colmap/retrieval/visual_index.h"
 #include "colmap/util/misc.h"
+#include "colmap/util/timer.h"
 
 #include <fstream>
 #include <numeric>
@@ -194,6 +195,8 @@ class ExhaustiveFeatureMatcher : public Thread {
  private:
   void Run() override {
     PrintHeading1("Exhaustive feature matching");
+    Timer run_timer;
+    run_timer.Start();
 
     if (!matcher_.Setup()) {
       return;
@@ -221,7 +224,7 @@ class ExhaustiveFeatureMatcher : public Thread {
             std::min(image_ids.size(), start_idx2 + block_size) - 1;
 
         if (IsStopped()) {
-          GetTimer().PrintMinutes();
+          run_timer.PrintMinutes();
           return;
         }
 
@@ -255,7 +258,7 @@ class ExhaustiveFeatureMatcher : public Thread {
       }
     }
 
-    GetTimer().PrintMinutes();
+    run_timer.PrintMinutes();
   }
 
   const ExhaustiveMatchingOptions options_;
@@ -304,6 +307,8 @@ class SequentialFeatureMatcher : public Thread {
  private:
   void Run() override {
     PrintHeading1("Sequential feature matching");
+    Timer run_timer;
+    run_timer.Start();
 
     if (!matcher_.Setup()) {
       return;
@@ -318,7 +323,7 @@ class SequentialFeatureMatcher : public Thread {
       RunLoopDetection(ordered_image_ids);
     }
 
-    GetTimer().PrintMinutes();
+    run_timer.PrintMinutes();
   }
 
   std::vector<image_t> GetOrderedImageIds() const {
@@ -475,6 +480,8 @@ class VocabTreeFeatureMatcher : public Thread {
  private:
   void Run() override {
     PrintHeading1("Vocabulary tree feature matching");
+    Timer run_timer;
+    run_timer.Start();
 
     if (!matcher_.Setup()) {
       return;
@@ -528,7 +535,7 @@ class VocabTreeFeatureMatcher : public Thread {
                              &visual_index);
 
     if (IsStopped()) {
-      GetTimer().PrintMinutes();
+      run_timer.PrintMinutes();
       return;
     }
 
@@ -545,7 +552,7 @@ class VocabTreeFeatureMatcher : public Thread {
                                        &visual_index,
                                        &matcher_);
 
-    GetTimer().PrintMinutes();
+    run_timer.PrintMinutes();
   }
 
   const VocabTreeMatchingOptions options_;
@@ -594,6 +601,8 @@ class SpatialFeatureMatcher : public Thread {
  private:
   void Run() override {
     PrintHeading1("Spatial feature matching");
+    Timer run_timer;
+    run_timer.Start();
 
     if (!matcher_.Setup()) {
       return;
@@ -664,7 +673,7 @@ class SpatialFeatureMatcher : public Thread {
 
     if (num_locations == 0) {
       LOG(INFO) << "=> No images with location data.";
-      GetTimer().PrintMinutes();
+      run_timer.PrintMinutes();
       return;
     }
 
@@ -729,7 +738,7 @@ class SpatialFeatureMatcher : public Thread {
 
     for (size_t i = 0; i < num_locations; ++i) {
       if (IsStopped()) {
-        GetTimer().PrintMinutes();
+        run_timer.PrintMinutes();
         return;
       }
 
@@ -764,7 +773,7 @@ class SpatialFeatureMatcher : public Thread {
       PrintElapsedTime(timer);
     }
 
-    GetTimer().PrintMinutes();
+    run_timer.PrintMinutes();
   }
 
   const SpatialMatchingOptions options_;
@@ -812,6 +821,8 @@ class TransitiveFeatureMatcher : public Thread {
  private:
   void Run() override {
     PrintHeading1("Transitive feature matching");
+    Timer run_timer;
+    run_timer.Start();
 
     if (!matcher_.Setup()) {
       return;
@@ -826,7 +837,7 @@ class TransitiveFeatureMatcher : public Thread {
 
     for (int iteration = 0; iteration < options_.num_iterations; ++iteration) {
       if (IsStopped()) {
-        GetTimer().PrintMinutes();
+        run_timer.PrintMinutes();
         return;
       }
 
@@ -875,7 +886,7 @@ class TransitiveFeatureMatcher : public Thread {
                   timer.Restart();
 
                   if (IsStopped()) {
-                    GetTimer().PrintMinutes();
+                    run_timer.PrintMinutes();
                     return;
                   }
                 }
@@ -892,7 +903,7 @@ class TransitiveFeatureMatcher : public Thread {
       PrintElapsedTime(timer);
     }
 
-    GetTimer().PrintMinutes();
+    run_timer.PrintMinutes();
   }
 
   const TransitiveMatchingOptions options_;
@@ -940,6 +951,8 @@ class ImagePairsFeatureMatcher : public Thread {
  private:
   void Run() override {
     PrintHeading1("Custom feature matching");
+    Timer run_timer;
+    run_timer.Start();
 
     if (!matcher_.Setup()) {
       return;
@@ -1011,7 +1024,7 @@ class ImagePairsFeatureMatcher : public Thread {
 
     for (size_t i = 0; i < image_pairs.size(); i += options_.block_size) {
       if (IsStopped()) {
-        GetTimer().PrintMinutes();
+        run_timer.PrintMinutes();
         return;
       }
 
@@ -1038,7 +1051,7 @@ class ImagePairsFeatureMatcher : public Thread {
       PrintElapsedTime(timer);
     }
 
-    GetTimer().PrintMinutes();
+    run_timer.PrintMinutes();
   }
 
   const ImagePairsMatchingOptions options_;
@@ -1087,6 +1100,8 @@ class FeaturePairsFeatureMatcher : public Thread {
 
   void Run() override {
     PrintHeading1("Importing matches");
+    Timer run_timer;
+    run_timer.Start();
 
     cache_.Setup();
 
@@ -1103,7 +1118,7 @@ class FeaturePairsFeatureMatcher : public Thread {
     std::string line;
     while (std::getline(file, line)) {
       if (IsStopped()) {
-        GetTimer().PrintMinutes();
+        run_timer.PrintMinutes();
         return;
       }
 
@@ -1205,7 +1220,7 @@ class FeaturePairsFeatureMatcher : public Thread {
       }
     }
 
-    GetTimer().PrintMinutes();
+    run_timer.PrintMinutes();
   }
 
   const FeaturePairsMatchingOptions options_;

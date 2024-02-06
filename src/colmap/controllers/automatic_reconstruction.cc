@@ -227,10 +227,8 @@ void AutomaticReconstructionController::RunSparseMapper() {
                                      *option_manager_.image_path,
                                      *option_manager_.database_path,
                                      reconstruction_manager_);
-  active_thread_ = &mapper;
-  mapper.Start();
-  mapper.Wait();
-  active_thread_ = nullptr;
+  mapper.SetCheckIfStoppedFunc([&]() { return IsStopped(); });
+  mapper.Run();
 
   CreateDirIfNotExists(sparse_path);
   reconstruction_manager_->Write(sparse_path);

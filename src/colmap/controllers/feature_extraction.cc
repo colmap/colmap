@@ -34,6 +34,7 @@
 #include "colmap/util/cuda.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/opengl_utils.h"
+#include "colmap/util/timer.h"
 
 #include <numeric>
 
@@ -428,6 +429,8 @@ class FeatureExtractorController : public Thread {
  private:
   void Run() override {
     PrintHeading1("Feature extraction");
+    Timer run_timer;
+    run_timer.Start();
 
     for (auto& resizer : resizers_) {
       resizer->Start();
@@ -487,7 +490,7 @@ class FeatureExtractorController : public Thread {
     writer_queue_->Stop();
     writer_->Wait();
 
-    GetTimer().PrintMinutes();
+    run_timer.PrintMinutes();
   }
 
   const ImageReaderOptions reader_options_;
@@ -516,6 +519,8 @@ class FeatureImporterController : public Thread {
  private:
   void Run() override {
     PrintHeading1("Feature import");
+    Timer run_timer;
+    run_timer.Start();
 
     if (!ExistsDir(import_path_)) {
       LOG(ERROR) << "Import directory does not exist.";
@@ -570,7 +575,7 @@ class FeatureImporterController : public Thread {
       }
     }
 
-    GetTimer().PrintMinutes();
+    run_timer.PrintMinutes();
   }
 
   const ImageReaderOptions reader_options_;

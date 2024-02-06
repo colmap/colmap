@@ -29,9 +29,9 @@
 
 #pragma once
 
+#include "colmap/controllers/base_controller.h"
 #include "colmap/scene/reconstruction_manager.h"
 #include "colmap/sfm/incremental_mapper.h"
-#include "colmap/util/threading.h"
 
 namespace colmap {
 
@@ -140,7 +140,7 @@ struct IncrementalMapperOptions {
 
 // Class that controls the incremental mapping procedure by iteratively
 // initializing reconstructions from the same scene graph.
-class IncrementalMapperController : public Thread {
+class IncrementalMapperController : public BaseController {
  public:
   enum {
     INITIAL_IMAGE_PAIR_REG_CALLBACK,
@@ -154,8 +154,9 @@ class IncrementalMapperController : public Thread {
       const std::string& database_path,
       std::shared_ptr<ReconstructionManager> reconstruction_manager);
 
- private:
   void Run();
+
+ private:
   bool LoadDatabase();
   void Reconstruct(const IncrementalMapper::Options& init_mapper_options);
 

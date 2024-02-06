@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/controllers/base_controller.h"
 #include "colmap/controllers/incremental_mapper.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sensor/bitmap.h"
@@ -145,7 +146,8 @@ class MainWindow : public QMainWindow {
   OptionManager options_;
 
   std::shared_ptr<ReconstructionManager> reconstruction_manager_;
-  std::unique_ptr<IncrementalMapperController> mapper_controller_;
+  std::unique_ptr<ControllerThread<IncrementalMapperController>>
+      mapper_controller_;
 
   Timer timer_;
 

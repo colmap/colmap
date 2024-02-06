@@ -31,6 +31,7 @@
 
 #include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/util/misc.h"
+#include "colmap/util/timer.h"
 
 #include <ceres/ceres.h>
 
@@ -69,6 +70,8 @@ void BundleAdjustmentController::Run() {
   THROW_CHECK_NOTNULL(reconstruction_);
 
   PrintHeading1("Global bundle adjustment");
+  Timer run_timer;
+  run_timer.Start();
 
   const std::vector<image_t>& reg_image_ids = reconstruction_->RegImageIds();
 
@@ -97,7 +100,7 @@ void BundleAdjustmentController::Run() {
   BundleAdjuster bundle_adjuster(ba_options, ba_config);
   bundle_adjuster.Solve(reconstruction_.get());
 
-  GetTimer().PrintMinutes();
+  run_timer.PrintMinutes();
 }
 
 }  // namespace colmap
