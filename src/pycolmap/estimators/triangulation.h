@@ -81,7 +81,7 @@ void BindTriangulationEstimator(py::module& m) {
         "point_data"_a,
         "images"_a,
         "cameras"_a,
-        "opions"_a = triangulation_options,
+        "options"_a = triangulation_options,
         "Robustly estimate 3D point from observations in multiple views using "
         "RANSAC");
 }
