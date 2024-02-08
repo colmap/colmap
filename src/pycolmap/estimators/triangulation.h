@@ -51,21 +51,30 @@ void BindTriangulationEstimator(py::module& m) {
   py::class_<TriangulationEstimator::PointData>(m, "PointData")
       .def(py::init<const Eigen::Vector2d&, const Eigen::Vector2d&>());
 
-  py::class_<EstimateTriangulationOptions> PyTriangulationOptions(
-      m, "EstimateTriangulationOptions");
+  using ResType = TriangulationEstimator::ResidualType;
+  auto PyResType =
+      py::enum_<ResType>(m, "TriangulationResidualType")
+          .value("ANGULAR_ERROR", ResType::ANGULAR_ERROR)
+          .value("REPROJECTION_ERROR", ResType::REPROJECTION_ERROR);
+  AddStringToEnumConstructor(PyResType);
+
+  using Options = EstimateTriangulationOptions;
+  py::class_<Options> PyTriangulationOptions(m, "EstimateTriangulationOptions");
   PyTriangulationOptions
       .def(py::init<>([PyRANSACOptions]() {
-        EstimateTriangulationOptions options;
+        Options options;
         // init through Python to obtain the new defaults defined in  __init__
         options.ransac_options = PyRANSACOptions().cast<RANSACOptions>();
         return options;
       }))
       .def_readwrite("min_tri_angle",
-                     &EstimateTriangulationOptions::min_tri_angle)
-      .def_readwrite("ransac", &EstimateTriangulationOptions::ransac_options);
+                     &Options::min_tri_angle,
+                     "Minimum triangulation angle in radians.")
+      .def_readwrite(
+          "residual_type", &Options::residual_type, "Employed residual type.")
+      .def_readwrite("ransac", &Options::ransac_options, "RANSAC options.");
   MakeDataclass(PyTriangulationOptions);
-  auto triangulation_options =
-      PyTriangulationOptions().cast<EstimateTriangulationOptions>();
+  auto triangulation_options = PyTriangulationOptions().cast<Options>();
 
   m.def("estimate_triangulation",
         &PyEstimateTriangulation,
