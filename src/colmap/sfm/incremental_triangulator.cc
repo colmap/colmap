@@ -185,32 +185,34 @@ size_t IncrementalTriangulator::CompleteImage(const Options& options,
     corrs_data.push_back(ref_corr_data);
 
     // Setup data for triangulation estimation.
-    std::vector<TriangulationEstimator::PointData> point_data;
-    point_data.resize(corrs_data.size());
-    std::vector<TriangulationEstimator::PoseData> pose_data;
-    pose_data.resize(corrs_data.size());
+    std::vector<Eigen::Vector2d> points;
+    points.resize(corrs_data.size());
+    std::vector<Rigid3d const*> cams_from_world;
+    cams_from_world.resize(corrs_data.size());
+    std::vector<Camera const*> cameras;
+    cameras.resize(corrs_data.size());
     for (size_t i = 0; i < corrs_data.size(); ++i) {
       const CorrData& corr_data = corrs_data[i];
-      point_data[i].point = corr_data.point2D->xy;
-      point_data[i].point_normalized =
-          corr_data.camera->CamFromImg(point_data[i].point);
-      pose_data[i].proj_matrix = corr_data.image->CamFromWorld().ToMatrix();
-      pose_data[i].proj_center = corr_data.image->ProjectionCenter();
-      pose_data[i].camera = corr_data.camera;
+      points[i] = corr_data.point2D->xy;
+      cams_from_world[i] = &corr_data.image->CamFromWorld();
+      cameras[i] = corr_data.camera;
     }
 
     // Enforce exhaustive sampling for small track lengths.
     const size_t kExhaustiveSamplingThreshold = 15;
-    if (point_data.size() <= kExhaustiveSamplingThreshold) {
-      tri_options.ransac_options.min_num_trials =
-          NChooseK(point_data.size(), 2);
+    if (points.size() <= kExhaustiveSamplingThreshold) {
+      tri_options.ransac_options.min_num_trials = NChooseK(points.size(), 2);
     }
 
     // Estimate triangulation.
     Eigen::Vector3d xyz;
     std::vector<char> inlier_mask;
-    if (!EstimateTriangulation(
-            tri_options, point_data, pose_data, &inlier_mask, &xyz)) {
+    if (!EstimateTriangulation(tri_options,
+                               points,
+                               cams_from_world,
+                               cameras,
+                               &inlier_mask,
+                               &xyz)) {
       continue;
     }
 
@@ -486,18 +488,17 @@ size_t IncrementalTriangulator::Create(
   }
 
   // Setup data for triangulation estimation.
-  std::vector<TriangulationEstimator::PointData> point_data;
-  point_data.resize(create_corrs_data.size());
-  std::vector<TriangulationEstimator::PoseData> pose_data;
-  pose_data.resize(create_corrs_data.size());
+  std::vector<Eigen::Vector2d> points;
+  points.resize(create_corrs_data.size());
+  std::vector<Rigid3d const*> cams_from_world;
+  cams_from_world.resize(create_corrs_data.size());
+  std::vector<Camera const*> cameras;
+  cameras.resize(create_corrs_data.size());
   for (size_t i = 0; i < create_corrs_data.size(); ++i) {
     const CorrData& corr_data = create_corrs_data[i];
-    point_data[i].point = corr_data.point2D->xy;
-    point_data[i].point_normalized =
-        corr_data.camera->CamFromImg(point_data[i].point);
-    pose_data[i].proj_matrix = corr_data.image->CamFromWorld().ToMatrix();
-    pose_data[i].proj_center = corr_data.image->ProjectionCenter();
-    pose_data[i].camera = corr_data.camera;
+    points[i] = corr_data.point2D->xy;
+    cams_from_world[i] = &corr_data.image->CamFromWorld();
+    cameras[i] = corr_data.camera;
   }
 
   // Setup estimation options.
@@ -513,15 +514,15 @@ size_t IncrementalTriangulator::Create(
 
   // Enforce exhaustive sampling for small track lengths.
   const size_t kExhaustiveSamplingThreshold = 15;
-  if (point_data.size() <= kExhaustiveSamplingThreshold) {
-    tri_options.ransac_options.min_num_trials = NChooseK(point_data.size(), 2);
+  if (points.size() <= kExhaustiveSamplingThreshold) {
+    tri_options.ransac_options.min_num_trials = NChooseK(points.size(), 2);
   }
 
   // Estimate triangulation.
   Eigen::Vector3d xyz;
   std::vector<char> inlier_mask;
   if (!EstimateTriangulation(
-          tri_options, point_data, pose_data, &inlier_mask, &xyz)) {
+          tri_options, points, cams_from_world, cameras, &inlier_mask, &xyz)) {
     return 0;
   }
 

@@ -17,25 +17,15 @@ using namespace pybind11::literals;
 namespace py = pybind11;
 
 py::object PyEstimateTriangulation(
-    const std::vector<TriangulationEstimator::PointData>& point_data,
-    const std::vector<Image>& images,
-    const std::vector<Camera>& cameras,
+    const std::vector<Eigen::Vector2d>& points,
+    const std::vector<Rigid3d const*>& cams_from_world,
+    const std::vector<Camera const*>& cameras,
     const EstimateTriangulationOptions& options) {
   py::gil_scoped_release release;
-  THROW_CHECK_EQ(images.size(), cameras.size());
-  THROW_CHECK_EQ(images.size(), point_data.size());
-
-  std::vector<TriangulationEstimator::PoseData> pose_data;
-  pose_data.reserve(images.size());
-  for (size_t i = 0; i < images.size(); ++i) {
-    pose_data.emplace_back(images[i].CamFromWorld().ToMatrix(),
-                           images[i].ProjectionCenter(),
-                           &cameras[i]);
-  }
   Eigen::Vector3d xyz;
   std::vector<char> inlier_mask;
-  const bool success =
-      EstimateTriangulation(options, point_data, pose_data, &inlier_mask, &xyz);
+  const bool success = EstimateTriangulation(
+      options, points, cams_from_world, cameras, &inlier_mask, &xyz);
 
   py::gil_scoped_acquire acquire;
   if (success) {
@@ -47,9 +37,6 @@ py::object PyEstimateTriangulation(
 
 void BindTriangulationEstimator(py::module& m) {
   auto PyRANSACOptions = m.attr("RANSACOptions");
-
-  py::class_<TriangulationEstimator::PointData>(m, "PointData")
-      .def(py::init<const Eigen::Vector2d&, const Eigen::Vector2d&>());
 
   using ResType = TriangulationEstimator::ResidualType;
   auto PyResType =
