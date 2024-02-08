@@ -37,7 +37,7 @@ namespace colmap {
 namespace {
 
 bool TriangulateTrack(
-    EstimateTriangulationOptions& tri_options,
+    const EstimateTriangulationOptions& options,
     const std::vector<IncrementalTriangulator::CorrData>& corrs_data,
     std::vector<char>& inlier_mask,
     Eigen::Vector3d& xyz) {
@@ -55,13 +55,14 @@ bool TriangulateTrack(
   }
 
   // Enforce exhaustive sampling for small track lengths.
+  EstimateTriangulationOptions options_(options);
   const size_t kExhaustiveSamplingThreshold = 15;
   if (points.size() <= kExhaustiveSamplingThreshold) {
-    tri_options.ransac_options.min_num_trials = NChooseK(points.size(), 2);
+    options_.ransac_options.min_num_trials = NChooseK(points.size(), 2);
   }
 
   return EstimateTriangulation(
-      tri_options, points, cams_from_world, cameras, &inlier_mask, &xyz);
+      options_, points, cams_from_world, cameras, &inlier_mask, &xyz);
 }
 
 }  // namespace
