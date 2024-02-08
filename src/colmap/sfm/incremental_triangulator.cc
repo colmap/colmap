@@ -34,6 +34,37 @@
 #include "colmap/util/misc.h"
 
 namespace colmap {
+namespace {
+
+bool TriangulateTrack(
+    EstimateTriangulationOptions& tri_options,
+    const std::vector<IncrementalTriangulator::CorrData>& corrs_data,
+    std::vector<char>& inlier_mask,
+    Eigen::Vector3d& xyz) {
+  std::vector<Eigen::Vector2d> points;
+  points.resize(corrs_data.size());
+  std::vector<Rigid3d const*> cams_from_world;
+  cams_from_world.resize(corrs_data.size());
+  std::vector<Camera const*> cameras;
+  cameras.resize(corrs_data.size());
+  for (size_t i = 0; i < corrs_data.size(); ++i) {
+    const auto& corr_data = corrs_data[i];
+    points[i] = corr_data.point2D->xy;
+    cams_from_world[i] = &corr_data.image->CamFromWorld();
+    cameras[i] = corr_data.camera;
+  }
+
+  // Enforce exhaustive sampling for small track lengths.
+  const size_t kExhaustiveSamplingThreshold = 15;
+  if (points.size() <= kExhaustiveSamplingThreshold) {
+    tri_options.ransac_options.min_num_trials = NChooseK(points.size(), 2);
+  }
+
+  return EstimateTriangulation(
+      tri_options, points, cams_from_world, cameras, &inlier_mask, &xyz);
+}
+
+}  // namespace
 
 bool IncrementalTriangulator::Options::Check() const {
   CHECK_OPTION_GE(max_transitivity, 0);
@@ -184,35 +215,10 @@ size_t IncrementalTriangulator::CompleteImage(const Options& options,
     ref_corr_data.point2D_idx = point2D_idx;
     corrs_data.push_back(ref_corr_data);
 
-    // Setup data for triangulation estimation.
-    std::vector<Eigen::Vector2d> points;
-    points.resize(corrs_data.size());
-    std::vector<Rigid3d const*> cams_from_world;
-    cams_from_world.resize(corrs_data.size());
-    std::vector<Camera const*> cameras;
-    cameras.resize(corrs_data.size());
-    for (size_t i = 0; i < corrs_data.size(); ++i) {
-      const CorrData& corr_data = corrs_data[i];
-      points[i] = corr_data.point2D->xy;
-      cams_from_world[i] = &corr_data.image->CamFromWorld();
-      cameras[i] = corr_data.camera;
-    }
-
-    // Enforce exhaustive sampling for small track lengths.
-    const size_t kExhaustiveSamplingThreshold = 15;
-    if (points.size() <= kExhaustiveSamplingThreshold) {
-      tri_options.ransac_options.min_num_trials = NChooseK(points.size(), 2);
-    }
-
     // Estimate triangulation.
     Eigen::Vector3d xyz;
     std::vector<char> inlier_mask;
-    if (!EstimateTriangulation(tri_options,
-                               points,
-                               cams_from_world,
-                               cameras,
-                               &inlier_mask,
-                               &xyz)) {
+    if (!TriangulateTrack(tri_options, corrs_data, inlier_mask, xyz)) {
       continue;
     }
 
@@ -487,20 +493,6 @@ size_t IncrementalTriangulator::Create(
     }
   }
 
-  // Setup data for triangulation estimation.
-  std::vector<Eigen::Vector2d> points;
-  points.resize(create_corrs_data.size());
-  std::vector<Rigid3d const*> cams_from_world;
-  cams_from_world.resize(create_corrs_data.size());
-  std::vector<Camera const*> cameras;
-  cameras.resize(create_corrs_data.size());
-  for (size_t i = 0; i < create_corrs_data.size(); ++i) {
-    const CorrData& corr_data = create_corrs_data[i];
-    points[i] = corr_data.point2D->xy;
-    cams_from_world[i] = &corr_data.image->CamFromWorld();
-    cameras[i] = corr_data.camera;
-  }
-
   // Setup estimation options.
   EstimateTriangulationOptions tri_options;
   tri_options.min_tri_angle = DegToRad(options.min_angle);
@@ -512,17 +504,10 @@ size_t IncrementalTriangulator::Create(
   tri_options.ransac_options.min_inlier_ratio = 0.02;
   tri_options.ransac_options.max_num_trials = 10000;
 
-  // Enforce exhaustive sampling for small track lengths.
-  const size_t kExhaustiveSamplingThreshold = 15;
-  if (points.size() <= kExhaustiveSamplingThreshold) {
-    tri_options.ransac_options.min_num_trials = NChooseK(points.size(), 2);
-  }
-
   // Estimate triangulation.
   Eigen::Vector3d xyz;
   std::vector<char> inlier_mask;
-  if (!EstimateTriangulation(
-          tri_options, points, cams_from_world, cameras, &inlier_mask, &xyz)) {
+  if (!TriangulateTrack(tri_options, create_corrs_data, inlier_mask, xyz)) {
     return 0;
   }
 
