@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include "colmap/controllers/base_controller.h"
+#include "colmap/util/base_controller.h"
 #include "colmap/util/threading.h"
 
 namespace colmap {

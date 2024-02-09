@@ -29,12 +29,12 @@
 
 #include "colmap/exe/image.h"
 
-#include "colmap/controllers/base_controller.h"
 #include "colmap/controllers/incremental_mapper.h"
 #include "colmap/controllers/option_manager.h"
 #include "colmap/image/undistortion.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sfm/incremental_mapper.h"
+#include "colmap/util/base_controller.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
 

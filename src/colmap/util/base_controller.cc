@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/controllers/base_controller.h"
+#include "colmap/util/base_controller.h"
 
 #include "colmap/util/logging.h"
 
