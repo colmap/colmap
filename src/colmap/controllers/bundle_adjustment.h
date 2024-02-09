@@ -32,7 +32,6 @@
 #include "colmap/controllers/base_controller.h"
 #include "colmap/controllers/option_manager.h"
 #include "colmap/scene/reconstruction.h"
-#include "colmap/util/threading.h"
 
 namespace colmap {
 
