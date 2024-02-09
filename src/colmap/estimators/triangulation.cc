@@ -136,17 +136,31 @@ void TriangulationEstimator::Residuals(const std::vector<X_t>& point_data,
   }
 }
 
-bool EstimateTriangulation(
-    const EstimateTriangulationOptions& options,
-    const std::vector<TriangulationEstimator::PointData>& point_data,
-    const std::vector<TriangulationEstimator::PoseData>& pose_data,
-    std::vector<char>* inlier_mask,
-    Eigen::Vector3d* xyz) {
+bool EstimateTriangulation(const EstimateTriangulationOptions& options,
+                           const std::vector<Eigen::Vector2d>& points,
+                           const std::vector<Rigid3d const*>& cams_from_world,
+                           const std::vector<Camera const*>& cameras,
+                           std::vector<char>* inlier_mask,
+                           Eigen::Vector3d* xyz) {
   THROW_CHECK_NOTNULL(inlier_mask);
   THROW_CHECK_NOTNULL(xyz);
-  THROW_CHECK_GE(point_data.size(), 2);
-  THROW_CHECK_EQ(point_data.size(), pose_data.size());
+  THROW_CHECK_GE(points.size(), 2);
+  THROW_CHECK_EQ(points.size(), cams_from_world.size());
+  THROW_CHECK_EQ(points.size(), cameras.size());
   options.Check();
+
+  std::vector<TriangulationEstimator::PointData> point_data;
+  point_data.resize(points.size());
+  std::vector<TriangulationEstimator::PoseData> pose_data;
+  pose_data.resize(points.size());
+  for (size_t i = 0; i < points.size(); ++i) {
+    point_data[i].point = points[i];
+    point_data[i].point_normalized = cameras[i]->CamFromImg(points[i]);
+    pose_data[i].proj_matrix = cams_from_world[i]->ToMatrix();
+    pose_data[i].proj_center = cams_from_world[i]->rotation.inverse() *
+                               -cams_from_world[i]->translation;
+    pose_data[i].camera = cameras[i];
+  }
 
   // Robustly estimate track using LORANSAC.
   LORANSAC<TriangulationEstimator,
