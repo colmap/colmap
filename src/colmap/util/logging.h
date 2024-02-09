@@ -156,7 +156,11 @@ class LogMessageFatalThrow : public google::LogMessage {
         prefix_(__MakeExceptionPrefix(file, line)){};
   LogMessageFatalThrow(const char* file,
                        int line,
+#if GLOG_VERSION_MAJOR >= 0 && GLOG_VERSION_MINOR >= 7
+                       const google::logging::internal::CheckOpString& result)
+#else
                        const google::CheckOpString& result)
+#endif
       : google::LogMessage(file, line, google::GLOG_ERROR, &message_),
         prefix_(__MakeExceptionPrefix(file, line)) {
     stream() << "Check failed: " << (*result.str_) << " ";

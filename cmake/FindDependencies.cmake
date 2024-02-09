@@ -20,6 +20,8 @@ find_package(LZ4 ${COLMAP_FIND_TYPE})
 find_package(Metis ${COLMAP_FIND_TYPE})
 
 find_package(Glog ${COLMAP_FIND_TYPE})
+add_definitions("-DGLOG_VERSION_MAJOR=${glog_VERSION_MAJOR}")
+add_definitions("-DGLOG_VERSION_MINOR=${glog_VERSION_MINOR}")
 
 find_package(SQLite3 ${COLMAP_FIND_TYPE})
 
