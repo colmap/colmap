@@ -157,8 +157,7 @@ int RunBundleAdjuster(int argc, char** argv) {
   reconstruction->Read(input_path);
 
   BundleAdjustmentController ba_controller(options, reconstruction);
-  ba_controller.Start();
-  ba_controller.Wait();
+  ba_controller.Run();
 
   reconstruction->Write(output_path);
 

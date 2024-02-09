@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/controllers/base_controller.h"
 #include "colmap/controllers/option_manager.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/threading.h"
@@ -36,14 +37,14 @@
 namespace colmap {
 
 // Class that controls the global bundle adjustment procedure.
-class BundleAdjustmentController : public Thread {
+class BundleAdjustmentController : public BaseController {
  public:
   BundleAdjustmentController(const OptionManager& options,
                              std::shared_ptr<Reconstruction> reconstruction);
 
- private:
   void Run();
 
+ private:
   const OptionManager options_;
   std::shared_ptr<Reconstruction> reconstruction_;
 };
