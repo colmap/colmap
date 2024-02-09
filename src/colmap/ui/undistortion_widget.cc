@@ -29,7 +29,7 @@
 
 #include "colmap/ui/undistortion_widget.h"
 
-#include "colmap/controllers/base_controller.h"
+#include "colmap/util/controller_thread.h"
 
 namespace colmap {
 

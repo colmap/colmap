@@ -36,6 +36,7 @@
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sfm/incremental_mapper.h"
 #include "colmap/util/misc.h"
+#include "colmap/util/timer.h"
 
 namespace colmap {
 namespace {
