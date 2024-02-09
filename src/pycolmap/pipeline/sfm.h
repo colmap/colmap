@@ -97,8 +97,7 @@ void BundleAdjustment(const std::shared_ptr<Reconstruction>& reconstruction,
   OptionManager option_manager;
   *option_manager.bundle_adjustment = options;
   BundleAdjustmentController controller(option_manager, reconstruction);
-  controller.Start();
-  PyWait(&controller);
+  controller.Run();
 }
 
 void BindSfM(py::module& m) {
