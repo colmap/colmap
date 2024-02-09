@@ -1,6 +1,6 @@
 #pragma once
 
-#include "colmap/controllers/base_controller.h"
+#include "colmap/util/base_controller.h"
 #include "colmap/controllers/image_reader.h"
 #include "colmap/exe/feature.h"
 #include "colmap/feature/sift.h"
