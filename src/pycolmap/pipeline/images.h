@@ -1,12 +1,12 @@
 #pragma once
 
-#include "colmap/util/base_controller.h"
 #include "colmap/controllers/image_reader.h"
 #include "colmap/exe/feature.h"
 #include "colmap/feature/sift.h"
 #include "colmap/image/undistortion.h"
 #include "colmap/scene/camera.h"
 #include "colmap/scene/reconstruction.h"
+#include "colmap/util/base_controller.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 
