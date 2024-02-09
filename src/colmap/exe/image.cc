@@ -29,6 +29,7 @@
 
 #include "colmap/exe/image.h"
 
+#include "colmap/controllers/base_controller.h"
 #include "colmap/controllers/incremental_mapper.h"
 #include "colmap/controllers/option_manager.h"
 #include "colmap/image/undistortion.h"
@@ -228,8 +229,7 @@ int RunImageRectifier(int argc, char** argv) {
                                  *options.image_path,
                                  output_path,
                                  stereo_pairs);
-  rectifier.Start();
-  rectifier.Wait();
+  rectifier.Run();
 
   return EXIT_SUCCESS;
 }
@@ -369,7 +369,7 @@ int RunImageUndistorter(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  std::unique_ptr<Thread> undistorter;
+  std::unique_ptr<BaseController> undistorter;
   if (output_type == "COLMAP") {
     undistorter =
         std::make_unique<COLMAPUndistorter>(undistort_camera_options,
@@ -395,8 +395,7 @@ int RunImageUndistorter(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  undistorter->Start();
-  undistorter->Wait();
+  undistorter->Run();
 
   return EXIT_SUCCESS;
 }
@@ -478,14 +477,13 @@ int RunImageUndistorterStandalone(int argc, char** argv) {
     }
   }
 
-  std::unique_ptr<Thread> undistorter;
+  std::unique_ptr<BaseController> undistorter;
   undistorter.reset(new PureImageUndistorter(undistort_camera_options,
                                              *options.image_path,
                                              output_path,
                                              image_names_and_cameras));
 
-  undistorter->Start();
-  undistorter->Wait();
+  undistorter->Run();
 
   return EXIT_SUCCESS;
 }

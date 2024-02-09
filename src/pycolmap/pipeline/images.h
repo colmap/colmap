@@ -1,5 +1,6 @@
 #pragma once
 
+#include "colmap/controllers/base_controller.h"
 #include "colmap/controllers/image_reader.h"
 #include "colmap/exe/feature.h"
 #include "colmap/feature/sift.h"
@@ -112,7 +113,7 @@ void UndistortImages(const std::string& output_path,
   }
 
   py::gil_scoped_release release;
-  std::unique_ptr<Thread> undistorter;
+  std::unique_ptr<BaseController> undistorter;
   if (output_type == "COLMAP") {
     undistorter.reset(new COLMAPUndistorter(undistort_camera_options,
                                             reconstruction,
@@ -132,8 +133,7 @@ void UndistortImages(const std::string& output_path,
         << "Invalid `output_type` - supported values are {'COLMAP', "
            "'PMVS', 'CMP-MVS'}.";
   }
-  undistorter->Start();
-  PyWait(undistorter.get());
+  undistorter->Run();
 }
 
 void BindImages(py::module& m) {

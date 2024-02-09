@@ -206,7 +206,7 @@ void COLMAPUndistorter::Run() {
   // when writing the MVS config files
   image_names_.clear();
   for (size_t i = 0; i < futures.size(); ++i) {
-    if (IsStopped()) {
+    if (CheckIfStopped()) {
       break;
     }
 
@@ -333,7 +333,7 @@ void PMVSUndistorter::Run() {
   }
 
   for (size_t i = 0; i < futures.size(); ++i) {
-    if (IsStopped()) {
+    if (CheckIfStopped()) {
       thread_pool.Stop();
       LOG(WARNING) << "Stopped the undistortion process. Image point "
                       "locations and camera parameters for not yet processed "
@@ -567,7 +567,7 @@ void CMPMVSUndistorter::Run() {
   }
 
   for (size_t i = 0; i < futures.size(); ++i) {
-    if (IsStopped()) {
+    if (CheckIfStopped()) {
       break;
     }
 
@@ -636,7 +636,7 @@ void PureImageUndistorter::Run() {
   }
 
   for (size_t i = 0; i < futures.size(); ++i) {
-    if (IsStopped()) {
+    if (CheckIfStopped()) {
       break;
     }
 
@@ -701,7 +701,7 @@ void StereoImageRectifier::Run() {
   }
 
   for (size_t i = 0; i < futures.size(); ++i) {
-    if (IsStopped()) {
+    if (CheckIfStopped()) {
       break;
     }
 

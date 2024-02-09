@@ -270,10 +270,8 @@ void AutomaticReconstructionController::RunDenseMapper() {
                                     *reconstruction_manager_->Get(i),
                                     *option_manager_.image_path,
                                     dense_path);
-      active_thread_ = &undistorter;
-      undistorter.Start();
-      undistorter.Wait();
-      active_thread_ = nullptr;
+      undistorter.SetCheckIfStoppedFunc([&]() { return IsStopped(); });
+      undistorter.Run();
     }
 
     if (IsStopped()) {
