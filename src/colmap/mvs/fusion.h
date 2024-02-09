@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/controllers/base_controller.h"
 #include "colmap/math/math.h"
 #include "colmap/mvs/depth_map.h"
 #include "colmap/mvs/image.h"
@@ -39,7 +40,6 @@
 #include "colmap/util/cache.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/ply.h"
-#include "colmap/util/threading.h"
 
 #include <cfloat>
 #include <unordered_set>
@@ -102,7 +102,7 @@ struct StereoFusionOptions {
   void Print() const;
 };
 
-class StereoFusion : public Thread {
+class StereoFusion : public BaseController {
  public:
   StereoFusion(const StereoFusionOptions& options,
                const std::string& workspace_path,
@@ -113,8 +113,9 @@ class StereoFusion : public Thread {
   const std::vector<PlyPoint>& GetFusedPoints() const;
   const std::vector<std::vector<int>>& GetFusedPointsVisibility() const;
 
- private:
   void Run();
+
+ private:
   void InitFusedPixelMask(int image_idx, size_t width, size_t height);
   void Fuse(int thread_id, int image_idx, int row, int col);
 

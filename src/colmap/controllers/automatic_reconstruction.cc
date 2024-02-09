@@ -286,10 +286,9 @@ void AutomaticReconstructionController::RunDenseMapper() {
     {
       mvs::PatchMatchController patch_match_controller(
           *option_manager_.patch_match_stereo, dense_path, "COLMAP", "");
-      active_thread_ = &patch_match_controller;
-      patch_match_controller.Start();
-      patch_match_controller.Wait();
-      active_thread_ = nullptr;
+      patch_match_controller.SetCheckIfStoppedFunc(
+          [&]() { return IsStopped(); });
+      patch_match_controller.Run();
     }
 #else   // COLMAP_CUDA_ENABLED
     LOG(WARNING) << "Skipping patch match stereo because CUDA is not available";
@@ -314,10 +313,8 @@ void AutomaticReconstructionController::RunDenseMapper() {
           "COLMAP",
           "",
           options_.quality == Quality::HIGH ? "geometric" : "photometric");
-      active_thread_ = &fuser;
-      fuser.Start();
-      fuser.Wait();
-      active_thread_ = nullptr;
+      fuser.SetCheckIfStoppedFunc([&]() { return IsStopped(); });
+      fuser.Run();
 
       LOG(INFO) << "Writing output: " << fused_path;
       WriteBinaryPlyPoints(fused_path, fuser.GetFusedPoints());

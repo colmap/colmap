@@ -29,6 +29,7 @@
 
 #include "colmap/ui/dense_reconstruction_widget.h"
 
+#include "colmap/controllers/base_controller.h"
 #include "colmap/image/undistortion.h"
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/meshing.h"
@@ -379,8 +380,10 @@ void DenseReconstructionWidget::Stereo() {
   }
 
 #if defined(COLMAP_CUDA_ENABLED)
-  auto processor = std::make_unique<mvs::PatchMatchController>(
-      *options_->patch_match_stereo, workspace_path, "COLMAP", "");
+  auto processor =
+      std::make_unique<ControllerThread<mvs::PatchMatchController>>(
+          std::make_shared<mvs::PatchMatchController>(
+              *options_->patch_match_stereo, workspace_path, "COLMAP", ""));
   processor->AddCallback(Thread::FINISHED_CALLBACK,
                          [this]() { refresh_workspace_action_->trigger(); });
   thread_control_widget_->StartThread("Stereo...", true, std::move(processor));
@@ -408,11 +411,13 @@ void DenseReconstructionWidget::Fusion() {
         this, "", tr("All images must be processed prior to fusion"));
   }
 
-  auto fuser = std::make_unique<mvs::StereoFusion>(
-      *options_->stereo_fusion, workspace_path, "COLMAP", "", input_type);
+  auto fuser = std::make_unique<ControllerThread<mvs::StereoFusion>>(
+      std::make_shared<mvs::StereoFusion>(
+          *options_->stereo_fusion, workspace_path, "COLMAP", "", input_type));
   fuser->AddCallback(Thread::FINISHED_CALLBACK, [this, fuser = fuser.get()]() {
-    fused_points_ = fuser->GetFusedPoints();
-    fused_points_visibility_ = fuser->GetFusedPointsVisibility();
+    fused_points_ = fuser->GetController()->GetFusedPoints();
+    fused_points_visibility_ =
+        fuser->GetController()->GetFusedPointsVisibility();
     write_fused_points_action_->trigger();
   });
   thread_control_widget_->StartThread("Fusion...", true, std::move(fuser));

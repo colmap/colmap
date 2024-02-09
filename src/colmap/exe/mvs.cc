@@ -111,8 +111,7 @@ int RunPatchMatchStereo(int argc, char** argv) {
                                        pmvs_option_name,
                                        config_path);
 
-  controller.Start();
-  controller.Wait();
+  controller.Run();
 
   return EXIT_SUCCESS;
 #endif  // COLMAP_CUDA_ENABLED
@@ -189,8 +188,7 @@ int RunStereoFuser(int argc, char** argv) {
                           pmvs_option_name,
                           input_type);
 
-  fuser.Start();
-  fuser.Wait();
+  fuser.Run();
 
   Reconstruction reconstruction;
 

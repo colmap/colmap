@@ -407,7 +407,7 @@ void PatchMatchController::ReadGpuIndices() {
 
 void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
                                           const size_t problem_idx) {
-  if (IsStopped()) {
+  if (CheckIfStopped()) {
     return;
   }
 
