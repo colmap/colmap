@@ -316,8 +316,7 @@ int RunHierarchicalMapper(int argc, char** argv) {
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   HierarchicalMapperController hierarchical_mapper(mapper_options,
                                                    reconstruction_manager);
-  hierarchical_mapper.Start();
-  hierarchical_mapper.Wait();
+  hierarchical_mapper.Run();
 
   if (reconstruction_manager->Size() == 0) {
     LOG(ERROR) << "failed to create sparse model";
