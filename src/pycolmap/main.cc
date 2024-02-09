@@ -85,7 +85,7 @@ void BindLogging(py::module& m) {
       .value("FATAL", Logging::LogSeverity::GLOG_FATAL)
       .export_values();
 
-#if GLOG_VERSION_MAJOR >= 0 && GLOG_VERSION_MINOR >= 6
+#if GLOG_VERSION_MAJOR > 0 || GLOG_VERSION_MINOR >= 6
   if (!google::IsGoogleLoggingInitialized())
 #endif
   {
