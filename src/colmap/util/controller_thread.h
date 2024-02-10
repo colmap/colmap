@@ -54,7 +54,6 @@ class ControllerThread : public Thread {
       : controller_(std::move(controller)) {
     controller_->SetCheckIfStoppedFunc([&]() { return IsStopped(); });
   }
-  ~ControllerThread() = default;
 
   // get the handle to the controller in ControllerThread
   const std::shared_ptr<Controller> GetController() { return controller_; }
