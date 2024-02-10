@@ -35,13 +35,11 @@
 namespace colmap {
 
 // Helper class to create single threads with simple controls
-// Similar usage as ``Thread`` class in util/threading.h except for
-// initialization. e.g.,
+// Similar usage as ``Thread`` class in util/threading.h
 //
 // std::shared_ptr<Controller> controller = std::make_shared<Controller>(args);
 // std::unique_ptr<ControllerThread<Controller>> thread =
 // std::make_unique<ControllerThread<Controller>>(controller);
-//
 //
 template <class Controller>
 class ControllerThread : public Thread {
