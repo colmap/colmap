@@ -38,7 +38,7 @@ std::pair<std::string, int> GetPythonCallFrame() {
 }
 
 void BindLogging(py::module& m) {
-  py::class_<Logging> PyLogging(m, "logging");
+  py::class_<Logging> PyLogging(m, "logging", py::module_local());
   PyLogging.def_readwrite_static("minloglevel", &FLAGS_minloglevel)
       .def_readwrite_static("stderrthreshold", &FLAGS_stderrthreshold)
       .def_readwrite_static("log_dir", &FLAGS_log_dir)
@@ -84,8 +84,15 @@ void BindLogging(py::module& m) {
       .value("ERROR", Logging::LogSeverity::GLOG_ERROR)
       .value("FATAL", Logging::LogSeverity::GLOG_FATAL)
       .export_values();
-  google::InitGoogleLogging("");
-  google::InstallFailureSignalHandler();
+
+#if defined(GLOG_VERSION_MAJOR) && \
+    (GLOG_VERSION_MAJOR > 0 || GLOG_VERSION_MINOR >= 6)
+  if (!google::IsGoogleLoggingInitialized())
+#endif
+  {
+    google::InitGoogleLogging("");
+    google::InstallFailureSignalHandler();
+  }
   FLAGS_alsologtostderr = true;
 }
 
