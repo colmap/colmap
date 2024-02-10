@@ -32,6 +32,7 @@
 #include "colmap/estimators/alignment.h"
 #include "colmap/scene/scene_clustering.h"
 #include "colmap/util/misc.h"
+#include "colmap/util/threading.h"
 
 namespace colmap {
 namespace {

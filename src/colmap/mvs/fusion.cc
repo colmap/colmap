@@ -31,6 +31,7 @@
 
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/misc.h"
+#include "colmap/util/threading.h"
 #include "colmap/util/timer.h"
 
 #include <Eigen/Geometry>
@@ -179,7 +180,7 @@ void StereoFusion::Run() {
     num_threads = GetEffectiveNumThreads(options_.num_threads);
   }
 
-  if (IsStopped()) {
+  if (CheckIfStopped()) {
     run_timer.PrintMinutes();
     return;
   }
@@ -281,7 +282,7 @@ void StereoFusion::Run() {
   for (int image_idx = 0; image_idx >= 0;
        image_idx = internal::FindNextImage(
            overlapping_images_, used_images_, fused_images_, image_idx)) {
-    if (IsStopped()) {
+    if (CheckIfStopped()) {
       break;
     }
 

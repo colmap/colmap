@@ -29,59 +29,17 @@
 
 #pragma once
 
+#include "colmap/util/base_controller.h"
 #include "colmap/util/threading.h"
-
-#include <functional>
-#include <list>
-#include <unordered_map>
 
 namespace colmap {
 
-// Reimplementation of threading with thread-related functions outside
-// controller Following util/threading.h
-// BaseController that supports templating in ControllerThread
-class BaseController {
- public:
-  BaseController();
-  virtual ~BaseController() = default;
-
-  // Set callbacks that can be triggered within the main run function.
-  void AddCallback(int id, const std::function<void()>& func);
-
-  // This is the main run function to be implemented by the child class. If you
-  // are looping over data and want to support the pause operation, call
-  // `BlockIfPaused` at appropriate places in the loop. To support the stop
-  // operation, check the `IsStopped` state and early return from this method.
-  virtual void Run() = 0;
-
-  // check if the thread is stopped
-  void SetCheckIfStoppedFunc(const std::function<bool()>& func);
-  bool CheckIfStopped();
-
- protected:
-  // Register a new callback. Note that only registered callbacks can be
-  // set/reset and called from within the thread. Hence, this method should be
-  // called from the derived thread constructor.
-  void RegisterCallback(int id);
-
-  // Call back to the function with the specified name, if it exists.
-  void Callback(int id) const;
-
- private:
-  // list of callbacks
-  std::unordered_map<int, std::list<std::function<void()>>> callbacks_;
-  // check_if_stop function
-  std::function<bool()> check_if_stopped_fn_;
-};
-
 // Helper class to create single threads with simple controls
-// Similar usage as ``Thread`` class in util/threading.h except for
-// initialization. e.g.,
+// Similar usage as ``Thread`` class in util/threading.h
 //
 // std::shared_ptr<Controller> controller = std::make_shared<Controller>(args);
 // std::unique_ptr<ControllerThread<Controller>> thread =
 // std::make_unique<ControllerThread<Controller>>(controller);
-//
 //
 template <class Controller>
 class ControllerThread : public Thread {
@@ -94,10 +52,9 @@ class ControllerThread : public Thread {
       : controller_(std::move(controller)) {
     controller_->SetCheckIfStoppedFunc([&]() { return IsStopped(); });
   }
-  ~ControllerThread() = default;
 
   // get the handle to the controller in ControllerThread
-  const std::shared_ptr<Controller> GetController() { return controller_; }
+  std::shared_ptr<Controller> GetController() { return controller_; }
 
   // do BlockIfPaused() every time before checking IsStopped()
   bool IsStopped() {

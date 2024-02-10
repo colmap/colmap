@@ -27,41 +27,50 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/controllers/base_controller.h"
+#pragma once
 
-#include "colmap/util/logging.h"
+#include <functional>
+#include <list>
+#include <unordered_map>
 
 namespace colmap {
 
-BaseController::BaseController() {}
+// Reimplementation of threading with thread-related functions outside
+// controller Following util/threading.h
+// BaseController that supports templating in ControllerThread at
+// util/controller_thread.h
+class BaseController {
+ public:
+  BaseController();
+  virtual ~BaseController() = default;
 
-void BaseController::AddCallback(const int id,
-                                 const std::function<void()>& func) {
-  CHECK(func);
-  CHECK_GT(callbacks_.count(id), 0) << "Callback not registered";
-  callbacks_.at(id).push_back(func);
-}
+  // Set callbacks that can be triggered within the main run function.
+  void AddCallback(int id, const std::function<void()>& func);
 
-void BaseController::RegisterCallback(const int id) {
-  callbacks_.emplace(id, std::list<std::function<void()>>());
-}
+  // This is the main run function to be implemented by the child class. If you
+  // are looping over data and want to support the pause operation, call
+  // `BlockIfPaused` at appropriate places in the loop. To support the stop
+  // operation, check the `IsStopped` state and early return from this method.
+  virtual void Run() = 0;
 
-void BaseController::Callback(const int id) const {
-  CHECK_GT(callbacks_.count(id), 0) << "Callback not registered";
-  for (const auto& callback : callbacks_.at(id)) {
-    callback();
-  }
-}
+  // check if the thread is stopped
+  void SetCheckIfStoppedFunc(const std::function<bool()>& func);
+  bool CheckIfStopped();
 
-void BaseController::SetCheckIfStoppedFunc(const std::function<bool()>& func) {
-  check_if_stopped_fn_ = func;
-}
+ protected:
+  // Register a new callback. Note that only registered callbacks can be
+  // set/reset and called from within the thread. Hence, this method should be
+  // called from the derived thread constructor.
+  void RegisterCallback(int id);
 
-bool BaseController::CheckIfStopped() {
-  if (check_if_stopped_fn_)
-    return check_if_stopped_fn_();
-  else
-    return false;
-}
+  // Call back to the function with the specified name, if it exists.
+  void Callback(int id) const;
+
+ private:
+  // list of callbacks
+  std::unordered_map<int, std::list<std::function<void()>>> callbacks_;
+  // check_if_stop function
+  std::function<bool()> check_if_stopped_fn_;
+};
 
 }  // namespace colmap

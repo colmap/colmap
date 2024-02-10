@@ -32,7 +32,7 @@
 #include "colmap/controllers/incremental_mapper.h"
 #include "colmap/scene/reconstruction_manager.h"
 #include "colmap/scene/scene_clustering.h"
-#include "colmap/util/threading.h"
+#include "colmap/util/base_controller.h"
 
 #include <memory>
 
@@ -43,7 +43,7 @@ namespace colmap {
 // mapping, and finally merges them all into a globally consistent
 // reconstruction. This is especially useful for larger-scale scenes, since
 // incremental mapping becomes slow with an increasing number of images.
-class HierarchicalMapperController : public Thread {
+class HierarchicalMapperController : public BaseController {
  public:
   struct Options {
     // The path to the image folder which are used as input.
@@ -71,9 +71,9 @@ class HierarchicalMapperController : public Thread {
       const Options& options,
       std::shared_ptr<ReconstructionManager> reconstruction_manager);
 
- private:
   void Run() override;
 
+ private:
   const Options options_;
   std::shared_ptr<ReconstructionManager> reconstruction_manager_;
 };

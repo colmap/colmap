@@ -31,6 +31,7 @@
 
 #include "colmap/controllers/bundle_adjustment.h"
 #include "colmap/ui/main_window.h"
+#include "colmap/util/controller_thread.h"
 
 namespace colmap {
 
@@ -99,8 +100,8 @@ void BundleAdjustmentWidget::Run() {
 
   WriteOptions();
 
-  auto thread =
-      std::make_unique<BundleAdjustmentController>(*options_, reconstruction_);
+  auto thread = std::make_unique<ControllerThread<BundleAdjustmentController>>(
+      std::make_shared<BundleAdjustmentController>(*options_, reconstruction_));
   thread->AddCallback(Thread::FINISHED_CALLBACK,
                       [this]() { render_action_->trigger(); });
 

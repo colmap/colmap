@@ -33,7 +33,9 @@ set(FOLDER_NAME "util")
 COLMAP_ADD_LIBRARY(
     NAME colmap_util
     SRCS
+        base_controller.h base_controller.cc
         cache.h
+        controller_thread.h
         eigen_alignment.h
         logging.h logging.cc
         misc.h misc.cc

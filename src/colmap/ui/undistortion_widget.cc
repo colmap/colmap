@@ -29,6 +29,8 @@
 
 #include "colmap/ui/undistortion_widget.h"
 
+#include "colmap/util/controller_thread.h"
+
 namespace colmap {
 
 UndistortionWidget::UndistortionWidget(QWidget* parent,
@@ -86,20 +88,23 @@ void UndistortionWidget::Undistort() {
     std::unique_ptr<Thread> undistorter;
 
     if (output_format_->currentIndex() == 0) {
-      undistorter = std::make_unique<COLMAPUndistorter>(undistortion_options_,
-                                                        *reconstruction_,
-                                                        *options_->image_path,
-                                                        output_path_);
+      undistorter = std::make_unique<ControllerThread<COLMAPUndistorter>>(
+          std::make_shared<COLMAPUndistorter>(undistortion_options_,
+                                              *reconstruction_,
+                                              *options_->image_path,
+                                              output_path_));
     } else if (output_format_->currentIndex() == 1) {
-      undistorter = std::make_unique<PMVSUndistorter>(undistortion_options_,
-                                                      *reconstruction_,
-                                                      *options_->image_path,
-                                                      output_path_);
+      undistorter = std::make_unique<ControllerThread<PMVSUndistorter>>(
+          std::make_shared<PMVSUndistorter>(undistortion_options_,
+                                            *reconstruction_,
+                                            *options_->image_path,
+                                            output_path_));
     } else if (output_format_->currentIndex() == 2) {
-      undistorter = std::make_unique<CMPMVSUndistorter>(undistortion_options_,
-                                                        *reconstruction_,
-                                                        *options_->image_path,
-                                                        output_path_);
+      undistorter = std::make_unique<ControllerThread<CMPMVSUndistorter>>(
+          std::make_shared<CMPMVSUndistorter>(undistortion_options_,
+                                              *reconstruction_,
+                                              *options_->image_path,
+                                              output_path_));
     } else {
       QMessageBox::critical(this, "", tr("Invalid output format"));
       return;

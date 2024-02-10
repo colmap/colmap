@@ -41,14 +41,13 @@ namespace {
 // Callback functor called after each bundle adjustment iteration.
 class BundleAdjustmentIterationCallback : public ceres::IterationCallback {
  public:
-  explicit BundleAdjustmentIterationCallback(Thread* thread)
-      : thread_(thread) {}
+  explicit BundleAdjustmentIterationCallback(BaseController* controller)
+      : controller_(controller) {}
 
   virtual ceres::CallbackReturnType operator()(
       const ceres::IterationSummary& summary) {
-    THROW_CHECK_NOTNULL(thread_);
-    thread_->BlockIfPaused();
-    if (thread_->IsStopped()) {
+    THROW_CHECK_NOTNULL(controller_);
+    if (controller_->CheckIfStopped()) {
       return ceres::SOLVER_TERMINATE_SUCCESSFULLY;
     } else {
       return ceres::SOLVER_CONTINUE;
@@ -56,7 +55,7 @@ class BundleAdjustmentIterationCallback : public ceres::IterationCallback {
   }
 
  private:
-  Thread* thread_;
+  BaseController* controller_;
 };
 
 }  // namespace
