@@ -56,7 +56,7 @@ class ControllerThread : public Thread {
   }
 
   // get the handle to the controller in ControllerThread
-  const std::shared_ptr<Controller> GetController() { return controller_; }
+  std::shared_ptr<Controller> GetController() { return controller_; }
 
   // do BlockIfPaused() every time before checking IsStopped()
   bool IsStopped() {
