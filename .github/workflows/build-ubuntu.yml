@@ -140,7 +140,13 @@ jobs:
             xvfb
 
           if [ "${{ matrix.config.cudaEnabled }}" == "true" ]; then
-            if [ "${{ matrix.config.os }}" == "ubuntu-22.04" ]; then
+            if [ "${{ matrix.config.os }}" == "ubuntu-20.04" ]; then
+              sudo apt-get install -y \
+                nvidia-cuda-toolkit \
+                nvidia-cuda-toolkit-gcc
+              echo "CC=/usr/bin/cuda-gcc" >> $GITHUB_ENV
+              echo "CXX=/usr/bin/cuda-g++" >> $GITHUB_ENV
+            elif [ "${{ matrix.config.os }}" == "ubuntu-22.04" ]; then
               sudo apt-get install -y \
                 nvidia-cuda-toolkit \
                 nvidia-cuda-toolkit-gcc \
@@ -148,12 +154,6 @@ jobs:
               echo "CC=/usr/bin/gcc-10" >> $GITHUB_ENV
               echo "CXX=/usr/bin/g++-10" >> $GITHUB_ENV
               echo "CUDAHOSTCXX=/usr/bin/g++-10" >> $GITHUB_ENV
-            elif [ "${{ matrix.config.os }}" != "ubuntu-22.04" ]; then
-              sudo apt-get install -y \
-                nvidia-cuda-toolkit \
-                nvidia-cuda-toolkit-gcc
-              echo "CC=/usr/bin/cuda-gcc" >> $GITHUB_ENV
-              echo "CXX=/usr/bin/cuda-g++" >> $GITHUB_ENV
             fi
           fi
 
@@ -188,8 +188,8 @@ jobs:
 
       - name: Install and build sample
         run: |
-          if [ "${{ matrix.config.asanEnabled }}" == "true" ||
-               "${{ matrix.config.cmakeBuildType }}" == "ClangTidy" ]; then
+          if [ "${{ matrix.config.asanEnabled }}" == "true" ] ||
+             [ "${{ matrix.config.cmakeBuildType }}" == "ClangTidy" ]; then
             exit 0
           fi
 
