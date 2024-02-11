@@ -1,4 +1,4 @@
-name: Build and publish wheels
+name: PyCOLMAP
 
 on:
   push:
@@ -8,7 +8,6 @@ on:
     types: [ assigned, opened, synchronize, reopened ]
   release:
     types: [ published, edited ]
-  workflow_dispatch:
 
 jobs:
   build:
