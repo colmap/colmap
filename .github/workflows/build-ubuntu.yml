@@ -79,7 +79,7 @@ jobs:
       - uses: actions/cache@v4
         id: cache-builds
         with:
-          key: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ github.run_id }}-${{ github.run_number }}
+          key: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}--${{ github.run_id }}-${{ github.run_number }}
           restore-keys: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}
           path: ${{ env.COMPILER_CACHE_DIR }}
       
@@ -188,7 +188,8 @@ jobs:
 
       - name: Install and build sample
         run: |
-          if [ "${{ matrix.config.asanEnabled }}" == "true" ]; then
+          if [ "${{ matrix.config.asanEnabled }}" == "true" ||
+               "${{ matrix.config.cmakeBuildType }}" == "ClangTidy" ]; then
             exit 0
           fi
 
@@ -207,7 +208,7 @@ jobs:
       - name: Run tests
         run: |
           if [ "${{ matrix.config.cmakeBuildType }}" == "ClangTidy" ]; then
-              exit 0
+            exit 0
           fi
 
           export DISPLAY=":99.0"
@@ -226,7 +227,7 @@ jobs:
       - name: Run E2E tests
         run: |
           if [ "${{ matrix.config.e2eTests }}" != "true" ]; then
-              exit 0
+            exit 0
           fi
 
           export DISPLAY=":99.0"
