@@ -17,7 +17,12 @@ jobs:
     strategy:
       matrix:
         config: [
-              {os: ubuntu-latest},
+              {
+                os: ubuntu-latest,
+                cmakeBuildType: Release,
+                asanEnabled: false,
+                guiEnabled: false
+              },
               # {os: macos-13, arch: x86_64},
               # {os: macos-13, arch: arm64},
               # {os: windows-latest},
@@ -103,18 +108,17 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           set -x
-          echo "##vso[task.prependpath]$(COMPILER_CACHE_DIR)/bin"
           cmake --version
           mkdir build
           cd build
           cmake .. \
             -GNinja \
-            -DCMAKE_BUILD_TYPE=${{ parameters.cmakeBuildType }} \
+            -DCMAKE_BUILD_TYPE=${{ runner.cmakeBuildType }} \
             -DCMAKE_INSTALL_PREFIX=./install \
             -DTESTS_ENABLED=ON \
             -DCMAKE_CUDA_ARCHITECTURES=50 \
-            -DASAN_ENABLED=${{ parameters.asanEnabled }} \
-            -DGUI_ENABLED=${{ parameters.guiEnabled }}
+            -DASAN_ENABLED=${{ runner.asanEnabled }} \
+            -DGUI_ENABLED=${{ runner.guiEnabled }}
           ninja -k $(numAllowedNinjaErrors)
 
       - name: Setup macOS
