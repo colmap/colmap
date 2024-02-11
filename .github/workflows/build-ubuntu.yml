@@ -21,7 +21,7 @@ jobs:
                 os: ubuntu-22.04,
                 cmakeBuildType: Release,
                 asanEnabled: false,
-                guiEnabled: false,
+                guiEnabled: true,
                 e2eTests: true,
               },
               # {os: macos-13, arch: x86_64},
@@ -45,8 +45,11 @@ jobs:
       
       - name: Install compiler cache
         run: |
+          mkdir -p "$CCACHE_DIR" "$CTCACHE_DIR"
+
           if [ -f "$COMPILER_CACHE_DIR/bin/ccache" ]; then
-              exit 0
+            echo "$COMPILER_CACHE_DIR/bin" >> $GITHUB_PATH
+            exit 0
           fi
 
           set -x
@@ -60,11 +63,6 @@ jobs:
           echo "108b087f156a9fe7da0c796de1ef73f5855d2a33a27983769ea39061359a40fc  ${ctcache_commit_id}.zip" | sha256sum --check
           unzip "${ctcache_commit_id}.zip"
           mv ctcache-${ctcache_commit_id}/clang-tidy* "$COMPILER_CACHE_DIR/bin"
-
-      - name: Setup compiler cache
-        run: |
-          echo "$COMPILER_CACHE_DIR/bin" >> $GITHUB_PATH
-          mkdir -p "$CCACHE_DIR" "$CTCACHE_DIR"
 
       - name: Check code format
         run: |
