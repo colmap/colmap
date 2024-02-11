@@ -12,7 +12,7 @@ on:
 
 jobs:
   build:
-    name: Build on ${{ matrix.config.os }} ${{ matrix.config.arch }}
+    name: ${{ matrix.config.os }} ${{ matrix.config.arch && matrix.config.arch || '' }} ${{ matrix.config.cmakeBuildType && matrix.config.cmakeBuildType || '' }} ${{ matrix.config.asanEnabled && 'ASan' || '' }}
     runs-on: ${{ matrix.config.os }}
     strategy:
       matrix:
@@ -21,7 +21,8 @@ jobs:
                 os: ubuntu-22.04,
                 cmakeBuildType: Release,
                 asanEnabled: false,
-                guiEnabled: false
+                guiEnabled: false,
+                e2eTests: true,
               },
               # {os: macos-13, arch: x86_64},
               # {os: macos-13, arch: arm64},
@@ -112,3 +113,50 @@ jobs:
             -DASAN_ENABLED=${{ matrix.config.asanEnabled }} \
             -DGUI_ENABLED=${{ matrix.config.guiEnabled }}
           ninja -k 10000
+
+      - name: Install and build sample
+        run: |
+          set -x
+          cd build
+          ninja install
+          cd ../doc/sample-project
+          mkdir build
+          cd build
+          colmap_DIR=$(Build.SourcesDirectory)/build/install/share/colmap cmake .. \
+            -GNinja \
+            -DCMAKE_CUDA_ARCHITECTURES=50
+          ninja
+          ./hello_world --message "world"
+
+      - name: Run tests
+        run: |
+          export DISPLAY=":99.0"
+          export QT_QPA_PLATFORM="offscreen"
+          Xvfb :99 &
+          sleep 3
+          cd build
+          ctest -E "$(ctestExclusions)"
+          tests_pass=$?
+          if [ $tests_pass -ne 0 ]; then
+              echo "Tests failed, rerunning with verbose output"
+              ctest --rerun-failed --output-on-failure
+          fi
+          exit $tests_pass
+
+      - name: Run E2E tests
+        if: matrix.config.e2eTests == 'true'
+        run: |
+          export DISPLAY=":99.0"
+          export QT_QPA_PLATFORM="offscreen"
+          Xvfb :99 &
+          sleep 3
+          sudo apt install 7zip
+          mkdir eth3d_benchmark
+          # Error thresholds in degrees and meters,
+          # as the ETH3D groundtruth has metric scale.
+          python ./scripts/python/benchmark_eth3d.py \
+              --workspace_path ./eth3d_benchmark \
+              --colmap_path ./build/src/colmap/exe/colmap \
+              --dataset_names boulders,door \
+              --max_rotation_error 1.0 \
+              --max_proj_center_error 0.05
