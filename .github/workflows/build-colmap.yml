@@ -1,4 +1,4 @@
-name: Build and publish wheels
+name: colmap
 
 on:
   push:
@@ -169,5 +169,3 @@ jobs:
           $VCPKG_CACHE_DIR = "${env:COMPILER_CACHE_DIR}/vcpkg"
           $VCPKG_BINARY_SOURCES = "clear;files,${VCPKG_CACHE_DIR},readwrite"
           echo "VCPKG_BINARY_SOURCES=${VCPKG_BINARY_SOURCES}" >> "${env:GITHUB_ENV}"
-
-      - name: Build
