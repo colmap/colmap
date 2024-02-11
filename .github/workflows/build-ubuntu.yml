@@ -122,7 +122,7 @@ jobs:
           cd ../doc/sample-project
           mkdir build
           cd build
-          colmap_DIR=$(Build.SourcesDirectory)/build/install/share/colmap cmake .. \
+          colmap_DIR=${{ github.workspace }}/build/install/share/colmap cmake .. \
             -GNinja \
             -DCMAKE_CUDA_ARCHITECTURES=50
           ninja
@@ -135,7 +135,7 @@ jobs:
           Xvfb :99 &
           sleep 3
           cd build
-          ctest -E "$(ctestExclusions)"
+          ctest
           tests_pass=$?
           if [ $tests_pass -ne 0 ]; then
               echo "Tests failed, rerunning with verbose output"
