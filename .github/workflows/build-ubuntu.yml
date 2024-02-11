@@ -211,12 +211,16 @@ jobs:
             exit 0
           fi
 
+          if [ "${{ matrix.config.cudaEnabled }}" == "true" ]; then
+            ctestExclusions="(feature/colmap_feature_sift_test)|(mvs/colmap_mvs_gpu_mat_test)"
+          fi
+
           export DISPLAY=":99.0"
           export QT_QPA_PLATFORM="offscreen"
           Xvfb :99 &
           sleep 3
           cd build
-          ctest
+          ctest -E "$ctestExclusions"
           tests_pass=$?
           if [ $tests_pass -ne 0 ]; then
               echo "Tests failed, rerunning with verbose output"
