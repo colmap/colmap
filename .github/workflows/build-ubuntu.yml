@@ -86,9 +86,9 @@ jobs:
       - name: Install compiler cache
         run: |
           mkdir -p "$CCACHE_DIR" "$CTCACHE_DIR"
+          echo "$COMPILER_CACHE_DIR/bin" >> $GITHUB_PATH
 
           if [ -f "$COMPILER_CACHE_DIR/bin/ccache" ]; then
-            echo "$COMPILER_CACHE_DIR/bin" >> $GITHUB_PATH
             exit 0
           fi
 
