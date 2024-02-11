@@ -24,6 +24,7 @@ jobs:
                 guiEnabled: true,
                 cudaEnabled: false,
                 e2eTests: true,
+                checkCodeFormat: true,
               },
               {
                 os: ubuntu-22.04,
@@ -32,6 +33,7 @@ jobs:
                 guiEnabled: false,
                 cudaEnabled: true,
                 e2eTests: false,
+                checkCodeFormat: false,
               },
               {
                 os: ubuntu-22.04,
@@ -40,6 +42,7 @@ jobs:
                 guiEnabled: false,
                 cudaEnabled: false,
                 e2eTests: false,
+                checkCodeFormat: false,
               },
               {
                 os: ubuntu-22.04,
@@ -48,6 +51,7 @@ jobs:
                 guiEnabled: false,
                 cudaEnabled: false,
                 e2eTests: false,
+                checkCodeFormat: false,
               },
               {
                 os: ubuntu-20.04,
@@ -56,6 +60,7 @@ jobs:
                 guiEnabled: true,
                 cudaEnabled: false,
                 e2eTests: false,
+                checkCodeFormat: false,
               },
               {
                 os: ubuntu-20.04,
@@ -64,6 +69,7 @@ jobs:
                 guiEnabled: false,
                 cudaEnabled: true,
                 e2eTests: false,
+                checkCodeFormat: false,
               },
         ]
 
@@ -106,6 +112,9 @@ jobs:
 
       - name: Check code format
         run: |
+          if [ "${{ matrix.config.checkCodeFormat }}" != "true" ]; then
+            exit 0
+          fi
           set +x -euo pipefail
           sudo apt-get update && sudo apt-get install -y clang-format-14 black
           ./scripts/format/clang_format.sh
