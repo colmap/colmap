@@ -40,6 +40,21 @@ jobs:
           key: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ github.run_id }}-${{ github.run_number }}
           restore-keys: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}
           path: ${{ env.COMPILER_CACHE_DIR }}
+      
+      - name: Install compiler cache
+        if: steps.cache-builds.outputs.cache-hit != 'true'
+        run: |
+          set -x
+          wget https://github.com/ccache/ccache/releases/download/v4.8.2/ccache-4.8.2-linux-x86_64.tar.xz
+          echo "0b33f39766fe9db67f40418aed6a5b3d7b2f4f7fab025a8213264b77a2d0e1b1  ccache-4.8.2-linux-x86_64.tar.xz" | sha256sum --check
+          tar xfv ccache-4.8.2-linux-x86_64.tar.xz
+          mkdir -p "$(COMPILER_CACHE_DIR)/bin"
+          mv ./ccache-4.8.2-linux-x86_64/ccache "$(COMPILER_CACHE_DIR)/bin"
+          ctcache_commit_id="66c3614175fc650591488519333c411b2eac15a3"
+          wget https://github.com/matus-chochlik/ctcache/archive/${ctcache_commit_id}.zip
+          echo "108b087f156a9fe7da0c796de1ef73f5855d2a33a27983769ea39061359a40fc  ${ctcache_commit_id}.zip" | sha256sum --check
+          unzip "${ctcache_commit_id}.zip"
+          mv ctcache-${ctcache_commit_id}/clang-tidy* "$(COMPILER_CACHE_DIR)/bin"
 
       - name: Check code format
         if: runner.os == 'Linux'
@@ -54,6 +69,9 @@ jobs:
       - name: Setup Ubuntu
         if: runner.os == 'Linux'
         run: |
+          echo "CCACHE_DIR=${CONTAINER_COMPILER_CACHE_DIR}/ccache" >> "$GITHUB_ENV"
+          echo "CCACHE_BASEDIR=/project" >> "$GITHUB_ENV"
+
           sudo apt-get install -y \
               build-essential \
               ninja-build \
@@ -87,10 +105,10 @@ jobs:
           cd build
           cmake .. \
             -GNinja \
-            -DCMAKE_BUILD_TYPE=${{ runner.cmakeBuildType }} \
+            -DCMAKE_BUILD_TYPE=${{ matrix.config.cmakeBuildType }} \
             -DCMAKE_INSTALL_PREFIX=./install \
             -DTESTS_ENABLED=ON \
             -DCMAKE_CUDA_ARCHITECTURES=50 \
-            -DASAN_ENABLED=${{ runner.asanEnabled }} \
-            -DGUI_ENABLED=${{ runner.guiEnabled }}
+            -DASAN_ENABLED=${{ matrix.config.asanEnabled }} \
+            -DGUI_ENABLED=${{ matrix.config.guiEnabled }}
           ninja -k 10000
