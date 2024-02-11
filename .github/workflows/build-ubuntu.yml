@@ -63,7 +63,6 @@ jobs:
           mkdir -p "$CCACHE_DIR" "$CTCACHE_DIR"
 
       - name: Check code format
-        if: runner.os == 'Linux'
         run: |
           set +x -euo pipefail
           sudo apt-get install -y clang-format-14 black
@@ -73,7 +72,6 @@ jobs:
           git diff --exit-code || echo "##vso[task.complete result=Failed;]"
 
       - name: Setup Ubuntu
-        if: runner.os == 'Linux'
         run: |
           echo "CCACHE_DIR=${CONTAINER_COMPILER_CACHE_DIR}/ccache" >> "$GITHUB_ENV"
           echo "CCACHE_BASEDIR=/project" >> "$GITHUB_ENV"
@@ -103,7 +101,6 @@ jobs:
               xvfb
 
       - name: Configure and build
-        if: runner.os == 'Linux'
         run: |
           set -x
           cmake --version
