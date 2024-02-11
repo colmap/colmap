@@ -73,9 +73,6 @@ jobs:
 
       - name: Setup Ubuntu
         run: |
-          echo "CCACHE_DIR=${CONTAINER_COMPILER_CACHE_DIR}/ccache" >> "$GITHUB_ENV"
-          echo "CCACHE_BASEDIR=/project" >> "$GITHUB_ENV"
-
           sudo apt-get install -y \
               build-essential \
               ninja-build \
