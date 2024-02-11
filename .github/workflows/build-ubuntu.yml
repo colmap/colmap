@@ -12,7 +12,7 @@ on:
 
 jobs:
   build:
-    name: ${{ matrix.config.os }} ${{ matrix.config.arch && matrix.config.arch || '' }} ${{ matrix.config.cmakeBuildType && matrix.config.cmakeBuildType || '' }} ${{ matrix.config.asanEnabled && 'ASan' || '' }}
+    name: ${{ matrix.config.os }} ${{ matrix.config.arch && matrix.config.arch || '' }} ${{ matrix.config.cmakeBuildType && matrix.config.cmakeBuildType || '' }} ${{ matrix.config.cudaEnabled && 'CUDA' || '' }} ${{ matrix.config.asanEnabled && 'ASan' || '' }}
     runs-on: ${{ matrix.config.os }}
     strategy:
       matrix:
@@ -22,11 +22,49 @@ jobs:
                 cmakeBuildType: Release,
                 asanEnabled: false,
                 guiEnabled: true,
+                cudaEnabled: false,
                 e2eTests: true,
               },
-              # {os: macos-13, arch: x86_64},
-              # {os: macos-13, arch: arm64},
-              # {os: windows-latest},
+              {
+                os: ubuntu-22.04,
+                cmakeBuildType: Release,
+                asanEnabled: false,
+                guiEnabled: false,
+                cudaEnabled: true,
+                e2eTests: false,
+              },
+              {
+                os: ubuntu-22.04,
+                cmakeBuildType: Release,
+                asanEnabled: true,
+                guiEnabled: false,
+                cudaEnabled: false,
+                e2eTests: false,
+              },
+              {
+                os: ubuntu-22.04,
+                cmakeBuildType: ClangTidy,
+                asanEnabled: false,
+                guiEnabled: false,
+                cudaEnabled: false,
+                e2eTests: false,
+              },
+              {
+                os: ubuntu-20.04,
+                cmakeBuildType: Release,
+                asanEnabled: false,
+                guiEnabled: true,
+                cudaEnabled: false,
+                e2eTests: false,
+              },
+              {
+                os: ubuntu-20.04,
+                cmakeBuildType: Release,
+                asanEnabled: false,
+                guiEnabled: false,
+                cudaEnabled: true,
+                e2eTests: false,
+              },
         ]
     env:
       COMPILER_CACHE_VERSION: 1
@@ -76,28 +114,58 @@ jobs:
       - name: Setup Ubuntu
         run: |
           sudo apt-get install -y \
-              build-essential \
-              ninja-build \
-              libboost-program-options-dev \
-              libboost-filesystem-dev \
-              libboost-graph-dev \
-              libboost-system-dev \
-              libeigen3-dev \
-              libceres-dev \
-              libflann-dev \
-              libfreeimage-dev \
-              libmetis-dev \
-              libgoogle-glog-dev \
-              libgtest-dev \
-              libsqlite3-dev \
-              libglew-dev \
-              qtbase5-dev \
-              libqt5opengl5-dev \
-              libcgal-dev \
-              libcgal-qt5-dev \
-              libgl1-mesa-dri \
-              libunwind-dev \
-              xvfb
+            build-essential \
+            ninja-build \
+            libboost-program-options-dev \
+            libboost-filesystem-dev \
+            libboost-graph-dev \
+            libboost-system-dev \
+            libeigen3-dev \
+            libceres-dev \
+            libflann-dev \
+            libfreeimage-dev \
+            libmetis-dev \
+            libgoogle-glog-dev \
+            libgtest-dev \
+            libsqlite3-dev \
+            libglew-dev \
+            qtbase5-dev \
+            libqt5opengl5-dev \
+            libcgal-dev \
+            libcgal-qt5-dev \
+            libgl1-mesa-dri \
+            libunwind-dev \
+            xvfb
+
+          if [ "${{ matrix.config.cudaEnabled }}" == "true" ]; then
+            if [ "${{ matrix.config.os }}" == "ubuntu-22.04" ]; then
+              sudo apt-get install -y \
+                nvidia-cuda-toolkit \
+                nvidia-cuda-toolkit-gcc \
+                gcc-10 g++-10
+              echo "CC=/usr/bin/gcc-10" >> $GITHUB_ENV
+              echo "CXX=/usr/bin/g++-10" >> $GITHUB_ENV
+              echo "CUDAHOSTCXX=/usr/bin/g++-10" >> $GITHUB_ENV
+            elif [ "${{ matrix.config.os }}" != "ubuntu-22.04" ]; then
+              sudo apt-get install -y \
+                nvidia-cuda-toolkit \
+                nvidia-cuda-toolkit-gcc
+              echo "CC=/usr/bin/cuda-gcc" >> $GITHUB_ENV
+              echo "CXX=/usr/bin/cuda-g++" >> $GITHUB_ENV
+            fi
+          fi
+
+          if [ "${{ matrix.config.asanEnabled }}" == "true" ]; then
+            sudo apt-get install -y clang-15 libomp-15-dev
+            echo "CC=/usr/bin/clang-15" >> $GITHUB_ENV
+            echo "CXX=/usr/bin/clang++-15" >> $GITHUB_ENV
+          fi
+
+          if [ "${{ matrix.config.cmakeBuildType }}" == "ClangTidy" ]; then
+            sudo apt-get install -y clang-15 clang-tidy-15 libomp-15-dev
+            echo "CC=/usr/bin/clang-15" >> $GITHUB_ENV
+            echo "CXX=/usr/bin/clang++-15" >> $GITHUB_ENV
+          fi
 
       - name: Configure and build
         run: |
@@ -109,14 +177,19 @@ jobs:
             -GNinja \
             -DCMAKE_BUILD_TYPE=${{ matrix.config.cmakeBuildType }} \
             -DCMAKE_INSTALL_PREFIX=./install \
-            -DTESTS_ENABLED=ON \
             -DCMAKE_CUDA_ARCHITECTURES=50 \
-            -DASAN_ENABLED=${{ matrix.config.asanEnabled }} \
-            -DGUI_ENABLED=${{ matrix.config.guiEnabled }}
+            -DTESTS_ENABLED=ON \
+            -DCUDA_ENABLED=${{ matrix.config.cudaEnabled }} \
+            -DGUI_ENABLED=${{ matrix.config.guiEnabled }} \
+            -DASAN_ENABLED=${{ matrix.config.asanEnabled }}
           ninja -k 10000
 
       - name: Install and build sample
         run: |
+          if [ "${{ matrix.config.asanEnabled }}" == "true" ]; then
+            exit 0
+          fi
+
           set -x
           cd build
           ninja install
@@ -131,6 +204,10 @@ jobs:
 
       - name: Run tests
         run: |
+          if [ "${{ matrix.config.cmakeBuildType }}" == "ClangTidy" ]; then
+              exit 0
+          fi
+
           export DISPLAY=":99.0"
           export QT_QPA_PLATFORM="offscreen"
           Xvfb :99 &
