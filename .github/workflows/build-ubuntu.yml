@@ -46,6 +46,9 @@ jobs:
       - name: Install compiler cache
         if: steps.cache-builds.outputs.cache-hit != 'true'
         run: |
+          if [ -f "$COMPILER_CACHE_DIR/bin/ccache" ]; then
+              exit 0
+          fi
           set -x
           wget https://github.com/ccache/ccache/releases/download/v4.8.2/ccache-4.8.2-linux-x86_64.tar.xz
           echo "0b33f39766fe9db67f40418aed6a5b3d7b2f4f7fab025a8213264b77a2d0e1b1  ccache-4.8.2-linux-x86_64.tar.xz" | sha256sum --check
@@ -141,10 +144,14 @@ jobs:
               echo "Tests failed, rerunning with verbose output"
               ctest --rerun-failed --output-on-failure
           fi
+          exit $tests_pass
 
       - name: Run E2E tests
-        if: matrix.config.e2eTests == 'true'
         run: |
+          if [ "${{ matrix.config.e2eTests }}" != "true" ]; then
+              exit 0
+          fi
+
           export DISPLAY=":99.0"
           export QT_QPA_PLATFORM="offscreen"
           Xvfb :99 &
@@ -159,3 +166,17 @@ jobs:
               --dataset_names boulders,door \
               --max_rotation_error 1.0 \
               --max_proj_center_error 0.05
+
+      - name: Cleanup compiler cache
+        run: |
+          set -x
+          ccache --show-stats --verbose
+          ccache --evict-older-than 1d
+          ccache --show-stats --verbose
+
+          echo "Size of ctcache before: $(du -sh $(CTCACHE_DIR))"
+          echo "Number of ctcache files before: $(find $(CTCACHE_DIR) | wc -l)"
+          # Delete cache older than 10 days.
+          find "$(CTCACHE_DIR)"/*/ -mtime +10 -print0 | xargs -0 rm -rf
+          echo "Size of ctcache after:  $(du -sh $(CTCACHE_DIR))"
+          echo "Number of ctcache files after: $(find $(CTCACHE_DIR) | wc -l)"
