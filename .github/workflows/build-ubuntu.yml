@@ -32,6 +32,7 @@ jobs:
       COMPILER_CACHE_DIR: ${{ github.workspace }}/compiler-cache
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
+      CTCACHE_DIR: ${{ github.workspace }}/compiler-cache/ctcache
     steps:
       - uses: actions/checkout@v4
       - uses: actions/cache@v4
@@ -59,7 +60,7 @@ jobs:
       - name: Setup compiler cache
         run: |
           echo "$COMPILER_CACHE_DIR/bin" >> $GITHUB_PATH
-          mkdir -p "$(CCACHE_DIR)" "$(CTCACHE_DIR)"
+          mkdir -p "$CCACHE_DIR" "$CTCACHE_DIR"
 
       - name: Check code format
         if: runner.os == 'Linux'
