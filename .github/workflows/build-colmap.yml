@@ -119,7 +119,7 @@ jobs:
             -DCMAKE_CUDA_ARCHITECTURES=50 \
             -DASAN_ENABLED=${{ runner.asanEnabled }} \
             -DGUI_ENABLED=${{ runner.guiEnabled }}
-          ninja -k $(numAllowedNinjaErrors)
+          ninja -k 10000
 
       - name: Setup macOS
         if: runner.os == 'macOS'
