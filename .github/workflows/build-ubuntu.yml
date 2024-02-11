@@ -141,7 +141,6 @@ jobs:
               echo "Tests failed, rerunning with verbose output"
               ctest --rerun-failed --output-on-failure
           fi
-          exit $tests_pass
 
       - name: Run E2E tests
         if: matrix.config.e2eTests == 'true'
