@@ -8,6 +8,22 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
+class DatabaseTransactionWrapper {
+ public:
+  explicit DatabaseTransactionWrapper(Database* database)
+      : database_(database){};
+
+  void enter() {
+    transaction_ = std::make_unique<DatabaseTransaction>(database_);
+  }
+
+  void exit(const py::args&) { transaction_.reset(); }
+
+ private:
+  Database* database_;
+  std::unique_ptr<DatabaseTransaction> transaction_;
+};
+
 void BindDatabase(py::module& m) {
   py::class_<Database> PyDatabase(m, "Database");
   PyDatabase.def(py::init<>())
@@ -127,6 +143,8 @@ void BindDatabase(py::module& m) {
                   "database2"_a,
                   "merged_database"_a);
 
-  py::class_<DatabaseTransaction>(m, "DatabaseTransaction")
-      .def(py::init<Database*>(), "database"_a);
+  py::class_<DatabaseTransactionWrapper>(m, "DatabaseTransaction")
+      .def(py::init<Database*>(), "database"_a)
+      .def("__enter__", &DatabaseTransactionWrapper::enter)
+      .def("__exit__", &DatabaseTransactionWrapper::exit);
 }
