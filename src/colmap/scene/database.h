@@ -45,6 +45,13 @@
 
 namespace colmap {
 
+typedef Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
+    FeatureKeypointsBlob;
+typedef Eigen::Matrix<uint8_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
+    FeatureDescriptorsBlob;
+typedef Eigen::Matrix<point2D_t, Eigen::Dynamic, 2, Eigen::RowMajor>
+    FeatureMatchesBlob;
+
 // Database class to read and write images, features, cameras, matches, etc.
 // from a SQLite database. The class is not thread-safe and must not be accessed
 // concurrently. The class is optimized for single-thread speed and for optimal
@@ -127,9 +134,8 @@ class Database {
   inline static image_pair_t ImagePairToPairId(image_t image_id1,
                                                image_t image_id2);
 
-  inline static void PairIdToImagePair(image_pair_t pair_id,
-                                       image_t* image_id1,
-                                       image_t* image_id2);
+  inline static std::pair<image_t, image_t> PairIdToImagePair(
+      image_pair_t pair_id);
 
   // Return true if image pairs should be swapped. Used to enforce a specific
   // image order to generate unique image pair identifiers independent of the
@@ -146,9 +152,12 @@ class Database {
   Image ReadImageWithName(const std::string& name) const;
   std::vector<Image> ReadAllImages() const;
 
+  FeatureKeypointsBlob ReadKeypointsBlob(image_t image_id) const;
   FeatureKeypoints ReadKeypoints(image_t image_id) const;
   FeatureDescriptors ReadDescriptors(image_t image_id) const;
 
+  FeatureMatchesBlob ReadMatchesBlob(image_t image_id1,
+                                     image_t image_id2) const;
   FeatureMatches ReadMatches(image_t image_id1, image_t image_id2) const;
   std::vector<std::pair<image_pair_t, FeatureMatches>> ReadAllMatches() const;
 
@@ -177,11 +186,15 @@ class Database {
   // `image_id1` and `image_id2` does not matter.
   void WriteKeypoints(image_t image_id,
                       const FeatureKeypoints& keypoints) const;
+  void WriteKeypoints(image_t image_id, const FeatureKeypointsBlob& blob) const;
   void WriteDescriptors(image_t image_id,
                         const FeatureDescriptors& descriptors) const;
   void WriteMatches(image_t image_id1,
                     image_t image_id2,
                     const FeatureMatches& matches) const;
+  void WriteMatches(image_t image_id1,
+                    image_t image_id2,
+                    const FeatureMatchesBlob& blob) const;
   void WriteTwoViewGeometry(image_t image_id1,
                             image_t image_id2,
                             const TwoViewGeometry& two_view_geometry) const;
@@ -369,13 +382,14 @@ image_pair_t Database::ImagePairToPairId(const image_t image_id1,
   }
 }
 
-void Database::PairIdToImagePair(const image_pair_t pair_id,
-                                 image_t* image_id1,
-                                 image_t* image_id2) {
-  *image_id2 = static_cast<image_t>(pair_id % kMaxNumImages);
-  *image_id1 = static_cast<image_t>((pair_id - *image_id2) / kMaxNumImages);
-  THROW_CHECK_LT(*image_id1, kMaxNumImages);
-  THROW_CHECK_LT(*image_id2, kMaxNumImages);
+std::pair<image_t, image_t> Database::PairIdToImagePair(
+    const image_pair_t pair_id) {
+  const image_t image_id2 = static_cast<image_t>(pair_id % kMaxNumImages);
+  const image_t image_id1 =
+      static_cast<image_t>((pair_id - image_id2) / kMaxNumImages);
+  THROW_CHECK_LT(image_id1, kMaxNumImages);
+  THROW_CHECK_LT(image_id2, kMaxNumImages);
+  return std::make_pair(image_id1, image_id2);
 }
 
 // Return true if image pairs should be swapped. Used to enforce a specific
