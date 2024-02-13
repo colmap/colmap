@@ -11,7 +11,7 @@ namespace py = pybind11;
 class DatabaseTransactionWrapper {
  public:
   explicit DatabaseTransactionWrapper(Database* database)
-      : database_(database){};
+      : database_(database) {}
 
   void enter() {
     transaction_ = std::make_unique<DatabaseTransaction>(database_);
