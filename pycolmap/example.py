@@ -31,6 +31,7 @@ def run():
 
     if database_path.exists():
         database_path.unlink()
+    logging.verbose_level = 1
     pycolmap.set_random_seed(0)
     pycolmap.extract_features(database_path, image_path)
     pycolmap.match_exhaustive(database_path)

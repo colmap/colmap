@@ -44,6 +44,7 @@ void BindLogging(py::module& m) {
       .def_readwrite_static("log_dir", &FLAGS_log_dir)
       .def_readwrite_static("logtostderr", &FLAGS_logtostderr)
       .def_readwrite_static("alsologtostderr", &FLAGS_alsologtostderr)
+      .def_readwrite_static("verbose_level", &FLAGS_v)
       .def_static(
           "set_log_destination",
           [](const Logging::LogSeverity severity, const std::string& path) {
