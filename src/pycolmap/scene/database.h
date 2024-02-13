@@ -59,7 +59,7 @@ void BindDatabase(py::module& m) {
       .def("read_camera", &Database::ReadCamera, "camera_id"_a)
       .def("read_all_cameras", &Database::ReadAllCameras)
       .def("read_image", &Database::ReadImage, "image_id"_a)
-      .def("read_image_with_name", &Database::ReadImageWithName, "name"_a)
+      .def("read_image", &Database::ReadImageWithName, "name"_a)
       .def("read_all_images", &Database::ReadAllImages)
       .def("read_keypoints", &Database::ReadKeypointsBlob, "image_id"_a)
       .def("read_descriptors", &Database::ReadDescriptors, "image_id"_a)
