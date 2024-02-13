@@ -194,7 +194,7 @@ class Database {
                     const FeatureMatches& matches) const;
   void WriteMatches(image_t image_id1,
                     image_t image_id2,
-                    FeatureMatchesBlob blob) const;
+                    const FeatureMatchesBlob& blob) const;
   void WriteTwoViewGeometry(image_t image_id1,
                             image_t image_id2,
                             const TwoViewGeometry& two_view_geometry) const;
