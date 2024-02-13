@@ -11,13 +11,21 @@ on:
 
 jobs:
   build:
-    name: ${{ matrix.config.os }} ${{ matrix.config.arch }}
+    name: ${{ matrix.config.os }} ${{ matrix.config.arch }} ${{ matrix.config.cmakeBuildType }}
     runs-on: ${{ matrix.config.os }}
     strategy:
       matrix:
         config: [
-              {os: macos-13, arch: x86_64},
-              {os: macos-13, arch: arm64},
+          {
+            os: macos-13,
+            arch: x86_64,
+            cmakeBuildType: Release,
+          },
+          {
+            os: macos-13,
+            arch: arm64,
+            cmakeBuildType: Release,
+          },
         ]
 
     env:
@@ -31,8 +39,8 @@ jobs:
       - uses: actions/cache@v4
         id: cache-builds
         with:
-          key: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ github.run_id }}-${{ github.run_number }}
-          restore-keys: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}
+          key: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ matrix.config.cmakeBuildType }}-${{ github.run_id }}-${{ github.run_number }}
+          restore-keys: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ matrix.config.cmakeBuildType }}
           path: ${{ env.COMPILER_CACHE_DIR }}
 
       - name: Setup Ubuntu
@@ -62,6 +70,7 @@ jobs:
           cd build
           cmake .. \
             -GNinja \
+            -DCMAKE_BUILD_TYPE=${{ matrix.config.cmakeBuildType }} \
             -DTESTS_ENABLED=ON \
             -DQt5_DIR=/usr/local/opt/qt/lib/cmake/Qt5
           ninja
