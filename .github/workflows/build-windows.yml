@@ -51,7 +51,7 @@ jobs:
           restore-keys: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}
           path: ${{ env.COMPILER_CACHE_DIR }}
       
-      - name: Install compiler cache
+      - name: Install ccache and ninja
         shell: pwsh
         run: |
           mkdir -p "$CCACHE_DIR" "$CTCACHE_DIR"
@@ -62,13 +62,10 @@ jobs:
           }
           .azure-pipelines/install-ccache.ps1 -Destination "$COMPILER_CACHE_DIR/bin"
 
-      - name: Prepare build
-        shell: pwsh
-        run: |
           curl -L -o `
             ninja.zip `
             https://github.com/ninja-build/ninja/releases/download/v1.10.2/ninja-win.zip
-          Expand-Archive -LiteralPath ninja.zip
+          Expand-Archive -LiteralPath ninja.zip -Destination "$COMPILER_CACHE_DIR/bin"
 
       - name: Setup vcpkg
         shell: pwsh
