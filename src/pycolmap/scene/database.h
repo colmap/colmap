@@ -51,13 +51,7 @@ void BindDatabase(py::module& m) {
                   "image_id1"_a,
                   "image_id2"_a)
       .def_static(
-          "pair_id_to_image_pair",
-          [](const image_pair_t pair_id) {
-            image_t image_id1, image_id2;
-            Database::PairIdToImagePair(pair_id, &image_id1, &image_id2);
-            return std::make_pair(image_id1, image_id2);
-          },
-          "pair_id"_a)
+          "pair_id_to_image_pair", &Database::PairIdToImagePair, "pair_id"_a)
       .def_static("swap_image_pair",
                   &Database::SwapImagePair,
                   "image_id1"_a,

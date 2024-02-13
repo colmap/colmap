@@ -134,9 +134,8 @@ class Database {
   inline static image_pair_t ImagePairToPairId(image_t image_id1,
                                                image_t image_id2);
 
-  inline static void PairIdToImagePair(image_pair_t pair_id,
-                                       image_t* image_id1,
-                                       image_t* image_id2);
+  inline static std::pair<image_t, image_t> PairIdToImagePair(
+      image_pair_t pair_id);
 
   // Return true if image pairs should be swapped. Used to enforce a specific
   // image order to generate unique image pair identifiers independent of the
@@ -383,13 +382,14 @@ image_pair_t Database::ImagePairToPairId(const image_t image_id1,
   }
 }
 
-void Database::PairIdToImagePair(const image_pair_t pair_id,
-                                 image_t* image_id1,
-                                 image_t* image_id2) {
-  *image_id2 = static_cast<image_t>(pair_id % kMaxNumImages);
-  *image_id1 = static_cast<image_t>((pair_id - *image_id2) / kMaxNumImages);
-  THROW_CHECK_LT(*image_id1, kMaxNumImages);
-  THROW_CHECK_LT(*image_id2, kMaxNumImages);
+std::pair<image_t, image_t> Database::PairIdToImagePair(
+    const image_pair_t pair_id) {
+  const image_t image_id2 = static_cast<image_t>(pair_id % kMaxNumImages);
+  const image_t image_id1 =
+      static_cast<image_t>((pair_id - image_id2) / kMaxNumImages);
+  THROW_CHECK_LT(image_id1, kMaxNumImages);
+  THROW_CHECK_LT(image_id2, kMaxNumImages);
+  return std::make_pair(std::move(image_id1), std::move(image_id2));
 }
 
 // Return true if image pairs should be swapped. Used to enforce a specific

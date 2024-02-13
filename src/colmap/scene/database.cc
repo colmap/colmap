@@ -618,12 +618,10 @@ void Database::ReadTwoViewGeometryNumInliers(
 
   while (SQLITE3_CALL(sqlite3_step(
              sql_stmt_read_two_view_geometry_num_inliers_)) == SQLITE_ROW) {
-    image_t image_id1;
-    image_t image_id2;
     const image_pair_t pair_id = static_cast<image_pair_t>(
         sqlite3_column_int64(sql_stmt_read_two_view_geometry_num_inliers_, 0));
-    PairIdToImagePair(pair_id, &image_id1, &image_id2);
-    image_pairs->emplace_back(image_id1, image_id2);
+    const auto image_pair = PairIdToImagePair(pair_id);
+    image_pairs->emplace_back(image_pair.first, image_pair.second);
 
     const int rows = static_cast<int>(
         sqlite3_column_int64(sql_stmt_read_two_view_geometry_num_inliers_, 1));
@@ -986,21 +984,19 @@ void Database::Merge(const Database& database1,
   // Merge the matches.
 
   for (const auto& matches : database1.ReadAllMatches()) {
-    image_t image_id1, image_id2;
-    Database::PairIdToImagePair(matches.first, &image_id1, &image_id2);
+    const auto image_pair = Database::PairIdToImagePair(matches.first);
 
-    const image_t new_image_id1 = new_image_ids1.at(image_id1);
-    const image_t new_image_id2 = new_image_ids1.at(image_id2);
+    const image_t new_image_id1 = new_image_ids1.at(image_pair.first);
+    const image_t new_image_id2 = new_image_ids1.at(image_pair.second);
 
     merged_database->WriteMatches(new_image_id1, new_image_id2, matches.second);
   }
 
   for (const auto& matches : database2.ReadAllMatches()) {
-    image_t image_id1, image_id2;
-    Database::PairIdToImagePair(matches.first, &image_id1, &image_id2);
+    const auto image_pair = Database::PairIdToImagePair(matches.first);
 
-    const image_t new_image_id1 = new_image_ids2.at(image_id1);
-    const image_t new_image_id2 = new_image_ids2.at(image_id2);
+    const image_t new_image_id1 = new_image_ids2.at(image_pair.first);
+    const image_t new_image_id2 = new_image_ids2.at(image_pair.second);
 
     merged_database->WriteMatches(new_image_id1, new_image_id2, matches.second);
   }
@@ -1013,11 +1009,10 @@ void Database::Merge(const Database& database1,
     database1.ReadTwoViewGeometries(&image_pair_ids, &two_view_geometries);
 
     for (size_t i = 0; i < two_view_geometries.size(); ++i) {
-      image_t image_id1, image_id2;
-      Database::PairIdToImagePair(image_pair_ids[i], &image_id1, &image_id2);
+      const auto image_pair = Database::PairIdToImagePair(image_pair_ids[i]);
 
-      const image_t new_image_id1 = new_image_ids1.at(image_id1);
-      const image_t new_image_id2 = new_image_ids1.at(image_id2);
+      const image_t new_image_id1 = new_image_ids1.at(image_pair.first);
+      const image_t new_image_id2 = new_image_ids1.at(image_pair.second);
 
       merged_database->WriteTwoViewGeometry(
           new_image_id1, new_image_id2, two_view_geometries[i]);
@@ -1030,11 +1025,10 @@ void Database::Merge(const Database& database1,
     database2.ReadTwoViewGeometries(&image_pair_ids, &two_view_geometries);
 
     for (size_t i = 0; i < two_view_geometries.size(); ++i) {
-      image_t image_id1, image_id2;
-      Database::PairIdToImagePair(image_pair_ids[i], &image_id1, &image_id2);
+      const auto image_pair = Database::PairIdToImagePair(image_pair_ids[i]);
 
-      const image_t new_image_id1 = new_image_ids2.at(image_id1);
-      const image_t new_image_id2 = new_image_ids2.at(image_id2);
+      const image_t new_image_id1 = new_image_ids2.at(image_pair.first);
+      const image_t new_image_id2 = new_image_ids2.at(image_pair.second);
 
       merged_database->WriteTwoViewGeometry(
           new_image_id1, new_image_id2, two_view_geometries[i]);
