@@ -389,7 +389,7 @@ std::pair<image_t, image_t> Database::PairIdToImagePair(
       static_cast<image_t>((pair_id - image_id2) / kMaxNumImages);
   THROW_CHECK_LT(image_id1, kMaxNumImages);
   THROW_CHECK_LT(image_id2, kMaxNumImages);
-  return std::make_pair(std::move(image_id1), std::move(image_id2));
+  return std::make_pair(image_id1, image_id2);
 }
 
 // Return true if image pairs should be swapped. Used to enforce a specific

@@ -458,7 +458,7 @@ FeatureKeypointsBlob Database::ReadKeypointsBlob(const image_t image_id) const {
   SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_read_keypoints_, 1, image_id));
 
   const int rc = SQLITE3_CALL(sqlite3_step(sql_stmt_read_keypoints_));
-  const FeatureKeypointsBlob blob = ReadDynamicMatrixBlob<FeatureKeypointsBlob>(
+  FeatureKeypointsBlob blob = ReadDynamicMatrixBlob<FeatureKeypointsBlob>(
       sql_stmt_read_keypoints_, rc, 0);
 
   SQLITE3_CALL(sqlite3_reset(sql_stmt_read_keypoints_));
@@ -729,7 +729,7 @@ void Database::WriteDescriptors(const image_t image_id,
 void Database::WriteMatches(const image_t image_id1,
                             const image_t image_id2,
                             const FeatureMatches& matches) const {
-  WriteMatches(image_id1, image_id2, std::move(FeatureMatchesToBlob(matches)));
+  WriteMatches(image_id1, image_id2, FeatureMatchesToBlob(matches));
 }
 
 void Database::WriteMatches(const image_t image_id1,
