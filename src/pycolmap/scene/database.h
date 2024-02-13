@@ -104,7 +104,7 @@ void BindDatabase(py::module& m) {
            "image_id"_a,
            "descriptors"_a)
       .def("write_matches",
-           py::overload_cast<image_t, image_t, FeatureMatchesBlob>(
+           py::overload_cast<image_t, image_t, const FeatureMatchesBlob&>(
                &Database::WriteMatches, py::const_),
            "image_id1"_a,
            "image_id2"_a,
