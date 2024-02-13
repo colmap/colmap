@@ -38,10 +38,10 @@ namespace {
 size_t TriangulateImage(const IncrementalMapperOptions& options,
                         const Image& image,
                         IncrementalMapper* mapper) {
-  LOG(INFO) << "=> Continued observations: " << image.NumPoints3D();
+  VLOG(1) << "=> Continued observations: " << image.NumPoints3D();
   const size_t num_tris =
       mapper->TriangulateImage(options.Triangulation(), image.ImageId());
-  LOG(INFO) << "=> Added observations: " << num_tris;
+  VLOG(1) << "=> Added observations: " << num_tris;
   return num_tris;
 }
 
@@ -76,11 +76,10 @@ void IterativeLocalRefinement(const IncrementalMapperOptions& options,
                                   options.Triangulation(),
                                   image_id,
                                   mapper->GetModifiedPoints3D());
-    LOG(INFO) << "=> Merged observations: " << report.num_merged_observations;
-    LOG(INFO) << "=> Completed observations: "
-              << report.num_completed_observations;
-    LOG(INFO) << "=> Filtered observations: "
-              << report.num_filtered_observations;
+    VLOG(1) << "=> Merged observations: " << report.num_merged_observations;
+    VLOG(1) << "=> Completed observations: "
+            << report.num_completed_observations;
+    VLOG(1) << "=> Filtered observations: " << report.num_filtered_observations;
     const double changed =
         report.num_adjusted_observations == 0
             ? 0
@@ -88,7 +87,7 @@ void IterativeLocalRefinement(const IncrementalMapperOptions& options,
                report.num_completed_observations +
                report.num_filtered_observations) /
                   static_cast<double>(report.num_adjusted_observations);
-    LOG(INFO) << StringPrintf("=> Changed observations: %.6f", changed);
+    VLOG(1) << StringPrintf("=> Changed observations: %.6f", changed);
     if (changed < options.ba_local_max_refinement_change) {
       break;
     }
@@ -103,8 +102,8 @@ void IterativeGlobalRefinement(const IncrementalMapperOptions& options,
                                IncrementalMapper* mapper) {
   PrintHeading1("Retriangulation");
   CompleteAndMergeTracks(options, mapper);
-  LOG(INFO) << "=> Retriangulated observations: "
-            << mapper->Retriangulate(options.Triangulation());
+  VLOG(1) << "=> Retriangulated observations: "
+          << mapper->Retriangulate(options.Triangulation());
 
   for (int i = 0; i < options.ba_global_max_refinements; ++i) {
     const size_t num_observations =
@@ -117,7 +116,7 @@ void IterativeGlobalRefinement(const IncrementalMapperOptions& options,
         num_observations == 0
             ? 0
             : static_cast<double>(num_changed_observations) / num_observations;
-    LOG(INFO) << StringPrintf("=> Changed observations: %.6f", changed);
+    VLOG(1) << StringPrintf("=> Changed observations: %.6f", changed);
     if (changed < options.ba_global_max_refinement_change) {
       break;
     }
@@ -158,14 +157,14 @@ size_t FilterPoints(const IncrementalMapperOptions& options,
                     IncrementalMapper* mapper) {
   const size_t num_filtered_observations =
       mapper->FilterPoints(options.Mapper());
-  LOG(INFO) << "=> Filtered observations: " << num_filtered_observations;
+  VLOG(1) << "=> Filtered observations: " << num_filtered_observations;
   return num_filtered_observations;
 }
 
 size_t FilterImages(const IncrementalMapperOptions& options,
                     IncrementalMapper* mapper) {
   const size_t num_filtered_images = mapper->FilterImages(options.Mapper());
-  LOG(INFO) << "=> Filtered images: " << num_filtered_images;
+  VLOG(1) << "=> Filtered images: " << num_filtered_images;
   return num_filtered_images;
 }
 
@@ -173,10 +172,10 @@ size_t CompleteAndMergeTracks(const IncrementalMapperOptions& options,
                               IncrementalMapper* mapper) {
   const size_t num_completed_observations =
       mapper->CompleteTracks(options.Triangulation());
-  LOG(INFO) << "=> Completed observations: " << num_completed_observations;
+  VLOG(1) << "=> Completed observations: " << num_completed_observations;
   const size_t num_merged_observations =
       mapper->MergeTracks(options.Triangulation());
-  LOG(INFO) << "=> Merged observations: " << num_merged_observations;
+  VLOG(1) << "=> Merged observations: " << num_merged_observations;
   return num_completed_observations + num_merged_observations;
 }
 
