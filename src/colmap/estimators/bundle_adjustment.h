@@ -256,6 +256,7 @@ class RigBundleAdjuster : public BundleAdjuster {
   std::unordered_set<double*> parameterized_quats_;
 };
 
-void PrintSolverSummary(const ceres::Solver::Summary& summary);
+void PrintSolverSummary(const ceres::Solver::Summary& summary,
+                        const std::string& header);
 
 }  // namespace colmap

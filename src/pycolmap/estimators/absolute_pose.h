@@ -117,7 +117,6 @@ void BindAbsolutePoseEstimator(py::module& m) {
         AbsolutePoseRefinementOptions options;
         options.refine_focal_length = false;
         options.refine_extra_params = false;
-        options.print_summary = false;
         return options;
       }))
       .def_readwrite("gradient_tolerance",
