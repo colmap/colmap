@@ -11,7 +11,7 @@ on:
 
 jobs:
   build:
-    name: ${{ matrix.config.os }} ${{ matrix.config.arch }} ${{ matrix.config.cmakeBuildType }}
+    name: ${{ matrix.config.os }} ${{ matrix.config.cmakeBuildType }}
     runs-on: ${{ matrix.config.os }}
     strategy:
       matrix:
@@ -31,6 +31,7 @@ jobs:
       COMPILER_CACHE_DIR: ${{ github.workspace }}/compiler-cache
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
+      VCPKG_COMMIT_ID: fa6e6a6ec3224f1d3697d544edef6272a59cd834
       VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
 
     steps:
@@ -47,32 +48,32 @@ jobs:
         uses: actions/cache@v4
         id: cache-builds
         with:
-          key: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}-${{ github.run_id }}-${{ github.run_number }}
-          restore-keys: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}
+          key: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}-${{ github.run_id }}-${{ github.run_number }}
+          restore-keys: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}
           path: ${{ env.COMPILER_CACHE_DIR }}
       
       - name: Install ccache and ninja
         shell: pwsh
         run: |
-          mkdir -p "$CCACHE_DIR" "$CTCACHE_DIR"
-          echo "$COMPILER_CACHE_DIR/bin" >> $GITHUB_PATH
+          mkdir -p "${{ env.CCACHE_DIR }}"
+          echo "${{ env.COMPILER_CACHE_DIR }}/bin" >> $GITHUB_PATH
 
-          if (Test-Path "$COMPILER_CACHE_DIR/bin/ccache") {
+          if (Test-Path "${{ env.COMPILER_CACHE_DIR }}/bin/ccache") {
             exit
           }
-          .azure-pipelines/install-ccache.ps1 -Destination "$COMPILER_CACHE_DIR/bin"
+          .azure-pipelines/install-ccache.ps1 -Destination "${{ env.COMPILER_CACHE_DIR }}/bin"
 
           curl -L -o `
             ninja.zip `
             https://github.com/ninja-build/ninja/releases/download/v1.10.2/ninja-win.zip
-          Expand-Archive -LiteralPath ninja.zip -Destination "$COMPILER_CACHE_DIR/bin"
+          Expand-Archive -LiteralPath ninja.zip -Destination "${{ env.COMPILER_CACHE_DIR }}/bin"
 
       - name: Setup vcpkg
         shell: pwsh
         run: |
           git clone https://github.com/microsoft/vcpkg
           cd vcpkg
-          git reset --hard $(vcpkgGitCommitId)
+          git reset --hard ${{ env.VCPKG_COMMIT_ID }}
           ./bootstrap-vcpkg.bat
           scripts/shell/enter_vs_dev_shell.ps1
           ./vcpkg.exe install --recurse @.github/workflows/build-windows-vcpkg.txt --clean-after-build
