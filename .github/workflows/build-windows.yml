@@ -76,7 +76,7 @@ jobs:
           git reset --hard ${{ env.VCPKG_COMMIT_ID }}
           ./bootstrap-vcpkg.bat
           scripts/shell/enter_vs_dev_shell.ps1
-          ./vcpkg.exe install --recurse @.github/workflows/build-windows-vcpkg.txt --clean-after-build
+          ./vcpkg.exe install --recurse .github/workflows/build-windows-vcpkg.txt --clean-after-build
 
       - name: Configure and build
         shell: pwsh
