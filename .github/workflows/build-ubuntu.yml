@@ -11,7 +11,7 @@ on:
 
 jobs:
   build:
-    name: ${{ matrix.config.cmakeBuildType }} ${{ matrix.config.cudaEnabled && 'CUDA' || '' }} ${{ matrix.config.asanEnabled && 'ASan' || '' }}
+    name: ${{ matrix.config.os }} ${{ matrix.config.cmakeBuildType }} ${{ matrix.config.cudaEnabled && 'CUDA' || '' }} ${{ matrix.config.asanEnabled && 'ASan' || '' }}
     runs-on: ${{ matrix.config.os }}
     strategy:
       matrix:
