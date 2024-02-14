@@ -76,6 +76,7 @@ jobs:
           cd vcpkg
           git reset --hard ${{ env.VCPKG_COMMIT_ID }}
           bootstrap-vcpkg.bat
+          $pwd
           vcpkg.exe install --recurse @${{ github.workspace }}/.github/workflows/build-windows-vcpkg.txt --clean-after-build
 
       - name: Configure and build
