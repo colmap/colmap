@@ -1,4 +1,4 @@
-name: COLMAP
+name: COLMAP (Windows)
 
 on:
   push:
