@@ -40,7 +40,7 @@
 #include "colmap/scene/camera.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/eigen_alignment.h"
-#include "colmap/util/misc.h"
+#include "colmap/util/logging.h"
 
 #include <Eigen/Core>
 #include <ceres/ceres.h>
@@ -277,9 +277,8 @@ bool RefineGeneralizedAbsolutePose(const AbsolutePoseRefinementOptions& options,
   ceres::Solver::Summary summary;
   ceres::Solve(solver_options, &problem, &summary);
 
-  if (options.print_summary) {
-    PrintHeading2("Pose refinement report");
-    PrintSolverSummary(summary);
+  if (options.print_summary || VLOG_IS_ON(1)) {
+    PrintSolverSummary(summary, "Pose refinement report");
   }
 
   if (problem.NumResiduals() > 0 && rig_from_world_cov != nullptr) {
