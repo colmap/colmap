@@ -36,11 +36,12 @@ namespace colmap {
 namespace {
 
 void IterativeGlobalRefinement(const IncrementalMapperOptions& options,
+                               const IncrementalMapper::Options& mapper_options,
                                IncrementalMapper& mapper) {
   LOG(INFO) << "Retriangulation and Global bundle adjustment";
   mapper.IterativeGlobalRefinement(options.ba_global_max_refinements,
                                    options.ba_global_max_refinement_change,
-                                   options.Mapper(),
+                                   mapper_options,
                                    options.GlobalBundleAdjustment(),
                                    options.Triangulation());
 }
@@ -250,7 +251,7 @@ bool IncrementalMapperController::LoadDatabase() {
 }
 
 void IncrementalMapperController::Reconstruct(
-    const IncrementalMapper::Options& init_mapper_options) {
+    const IncrementalMapper::Options& mapper_options) {
   //////////////////////////////////////////////////////////////////////////////
   // Main loop
   //////////////////////////////////////////////////////////////////////////////
@@ -294,8 +295,8 @@ void IncrementalMapperController::Reconstruct(
       // Try to find good initial pair.
       if (options_->init_image_id1 == -1 || options_->init_image_id2 == -1) {
         LOG(INFO) << "Finding good initial image pair";
-        const bool find_init_success = mapper.FindInitialImagePair(
-            init_mapper_options, &image_id1, &image_id2);
+        const bool find_init_success =
+            mapper.FindInitialImagePair(mapper_options, &image_id1, &image_id2);
         if (!find_init_success) {
           LOG(INFO) << "=> No good initial image pair found.";
           mapper.EndReconstruction(/*discard=*/true);
@@ -317,8 +318,8 @@ void IncrementalMapperController::Reconstruct(
 
       LOG(INFO) << StringPrintf(
           "Initializing with image pair #%d and #%d", image_id1, image_id2);
-      const bool reg_init_success = mapper.RegisterInitialImagePair(
-          init_mapper_options, image_id1, image_id2);
+      const bool reg_init_success =
+          mapper.RegisterInitialImagePair(mapper_options, image_id1, image_id2);
       if (!reg_init_success) {
         LOG(INFO) << "=> Initialization failed - possible solutions:"
                   << std::endl
@@ -331,10 +332,10 @@ void IncrementalMapperController::Reconstruct(
       }
 
       PrintHeading1("Global bundle adjustment");
-      mapper.AdjustGlobalBundle(options_->Mapper(),
+      mapper.AdjustGlobalBundle(mapper_options,
                                 options_->GlobalBundleAdjustment());
-      mapper.FilterPoints(options_->Mapper());
-      mapper.FilterImages(options_->Mapper());
+      mapper.FilterPoints(mapper_options);
+      mapper.FilterImages(mapper_options);
 
       // Initial image pair failed to register.
       if (reconstruction->NumRegImages() == 0 ||
@@ -375,7 +376,7 @@ void IncrementalMapperController::Reconstruct(
       reg_next_success = false;
 
       const std::vector<image_t> next_images =
-          mapper.FindNextImages(options_->Mapper());
+          mapper.FindNextImages(mapper_options);
 
       if (next_images.empty()) {
         break;
@@ -393,14 +394,14 @@ void IncrementalMapperController::Reconstruct(
                                   next_image.NumObservations());
 
         reg_next_success =
-            mapper.RegisterNextImage(options_->Mapper(), next_image_id);
+            mapper.RegisterNextImage(mapper_options, next_image_id);
 
         if (reg_next_success) {
           mapper.TriangulateImage(options_->Triangulation(), next_image_id);
           mapper.IterativeLocalRefinement(
               options_->ba_local_max_refinements,
               options_->ba_local_max_refinement_change,
-              options_->Mapper(),
+              mapper_options,
               options_->LocalBundleAdjustment(),
               options_->Triangulation(),
               next_image_id);
@@ -413,7 +414,7 @@ void IncrementalMapperController::Reconstruct(
                   options_->ba_global_points_ratio * ba_prev_num_points ||
               reconstruction->NumPoints3D() >=
                   options_->ba_global_points_freq + ba_prev_num_points) {
-            IterativeGlobalRefinement(*options_, mapper);
+            IterativeGlobalRefinement(*options_, mapper_options, mapper);
             ba_prev_num_points = reconstruction->NumPoints3D();
             ba_prev_num_reg_images = reconstruction->NumRegImages();
           }
@@ -459,7 +460,7 @@ void IncrementalMapperController::Reconstruct(
       if (!reg_next_success && prev_reg_next_success) {
         reg_next_success = true;
         prev_reg_next_success = false;
-        IterativeGlobalRefinement(*options_, mapper);
+        IterativeGlobalRefinement(*options_, mapper_options, mapper);
       } else {
         prev_reg_next_success = reg_next_success;
       }
@@ -474,7 +475,7 @@ void IncrementalMapperController::Reconstruct(
     if (reconstruction->NumRegImages() >= 2 &&
         reconstruction->NumRegImages() != ba_prev_num_reg_images &&
         reconstruction->NumPoints3D() != ba_prev_num_points) {
-      IterativeGlobalRefinement(*options_, mapper);
+      IterativeGlobalRefinement(*options_, mapper_options, mapper);
     }
 
     // Remember the total number of registered images before potentially
