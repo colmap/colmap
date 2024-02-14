@@ -61,7 +61,7 @@ void AdjustGlobalBundle(const IncrementalMapperOptions& options,
     custom_ba_options.solver_options.max_linear_solver_iterations = 200;
   }
 
-  PrintHeading1("Global bundle adjustment");
+  LOG(INFO) << "Global bundle adjustment";
   mapper->AdjustGlobalBundle(options.Mapper(), custom_ba_options);
 }
 
@@ -100,7 +100,7 @@ void IterativeLocalRefinement(const IncrementalMapperOptions& options,
 
 void IterativeGlobalRefinement(const IncrementalMapperOptions& options,
                                IncrementalMapper* mapper) {
-  PrintHeading1("Retriangulation");
+  LOG(INFO) << "Retriangulation";
   CompleteAndMergeTracks(options, mapper);
   VLOG(1) << "=> Retriangulated observations: "
           << mapper->Retriangulate(options.Triangulation());
@@ -137,7 +137,7 @@ void ExtractColors(const std::string& image_path,
 
 void WriteSnapshot(const Reconstruction& reconstruction,
                    const std::string& snapshot_path) {
-  PrintHeading1("Creating snapshot");
+  LOG(INFO) << "Creating snapshot";
   // Get the current timestamp in milliseconds.
   const size_t timestamp =
       std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -147,7 +147,7 @@ void WriteSnapshot(const Reconstruction& reconstruction,
   const std::string path =
       JoinPaths(snapshot_path, StringPrintf("%010d", timestamp));
   CreateDirIfNotExists(path);
-  LOG(INFO) << "=> Writing to " << path;
+  VLOG(1) << "=> Writing to " << path;
   reconstruction.Write(path);
 }
 
@@ -326,7 +326,7 @@ void IncrementalMapperController::Run() {
 }
 
 bool IncrementalMapperController::LoadDatabase() {
-  PrintHeading1("Loading database");
+  LOG(INFO) << "Loading database";
 
   // Make sure images of the given reconstruction are also included when
   // manually specifying images for the reconstrunstruction procedure.
@@ -399,7 +399,7 @@ void IncrementalMapperController::Reconstruct(
 
       // Try to find good initial pair.
       if (options_->init_image_id1 == -1 || options_->init_image_id2 == -1) {
-        PrintHeading1("Finding good initial image pair");
+        LOG(INFO) << "Finding good initial image pair";
         const bool find_init_success = mapper.FindInitialImagePair(
             init_mapper_options, &image_id1, &image_id2);
         if (!find_init_success) {
@@ -421,8 +421,8 @@ void IncrementalMapperController::Reconstruct(
         }
       }
 
-      PrintHeading1(StringPrintf(
-          "Initializing with image pair #%d and #%d", image_id1, image_id2));
+      LOG(INFO) << StringPrintf(
+          "Initializing with image pair #%d and #%d", image_id1, image_id2);
       const bool reg_init_success = mapper.RegisterInitialImagePair(
           init_mapper_options, image_id1, image_id2);
       if (!reg_init_success) {
@@ -489,10 +489,9 @@ void IncrementalMapperController::Reconstruct(
         const image_t next_image_id = next_images[reg_trial];
         const Image& next_image = reconstruction->Image(next_image_id);
 
-        PrintHeading1(StringPrintf("Registering image #%d (%d)",
-                                   next_image_id,
-                                   reconstruction->NumRegImages() + 1));
-
+        LOG(INFO) << StringPrintf("Registering image #%d (%d)",
+                                  next_image_id,
+                                  reconstruction->NumRegImages() + 1);
         LOG(INFO) << StringPrintf("=> Image sees %d / %d points",
                                   next_image.NumVisiblePoints3D(),
                                   next_image.NumObservations());
