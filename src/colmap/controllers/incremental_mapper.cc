@@ -250,6 +250,61 @@ bool IncrementalMapperController::LoadDatabase() {
   return true;
 }
 
+bool IncrementalMapperController::InitializeReconstruction(
+    IncrementalMapper& mapper,
+    const IncrementalMapper::Options& mapper_options,
+    Reconstruction& reconstruction) {
+  image_t image_id1 = static_cast<image_t>(options_->init_image_id1);
+  image_t image_id2 = static_cast<image_t>(options_->init_image_id2);
+
+  // Try to find good initial pair.
+  if (options_->init_image_id1 == -1 || options_->init_image_id2 == -1) {
+    LOG(INFO) << "Finding good initial image pair";
+    const bool find_init_success =
+        mapper.FindInitialImagePair(mapper_options, &image_id1, &image_id2);
+    if (!find_init_success) {
+      LOG(INFO) << "=> No good initial image pair found.";
+      return false;
+    }
+  } else {
+    if (!reconstruction.ExistsImage(image_id1) ||
+        !reconstruction.ExistsImage(image_id2)) {
+      LOG(INFO) << StringPrintf(
+          "=> Initial image pair #%d and #%d do not exist.",
+          image_id1,
+          image_id2);
+      return false;
+    }
+  }
+
+  LOG(INFO) << StringPrintf(
+      "Initializing with image pair #%d and #%d", image_id1, image_id2);
+  const bool reg_init_success =
+      mapper.RegisterInitialImagePair(mapper_options, image_id1, image_id2);
+  if (!reg_init_success) {
+    LOG(INFO) << "=> Initialization failed - possible solutions:" << std::endl
+              << "     - try to relax the initialization constraints"
+              << std::endl
+              << "     - manually select an initial image pair";
+    return false;
+  }
+
+  LOG(INFO) << "Global bundle adjustment";
+  mapper.AdjustGlobalBundle(mapper_options, options_->GlobalBundleAdjustment());
+  mapper.FilterPoints(mapper_options);
+  mapper.FilterImages(mapper_options);
+
+  // Initial image pair failed to register.
+  if (reconstruction.NumRegImages() == 0 || reconstruction.NumPoints3D() == 0) {
+    return false;
+  }
+
+  if (options_->extract_colors) {
+    ExtractColors(image_path_, image_id1, reconstruction);
+  }
+  return true;
+}
+
 bool IncrementalMapperController::ReconstructSubModel(
     IncrementalMapper& mapper,
     const IncrementalMapper::Options& mapper_options,
@@ -266,68 +321,15 @@ bool IncrementalMapperController::ReconstructSubModel(
   ////////////////////////////////////////////////////////////////////////////
 
   if (reconstruction->NumRegImages() == 0) {
-    image_t image_id1 = static_cast<image_t>(options_->init_image_id1);
-    image_t image_id2 = static_cast<image_t>(options_->init_image_id2);
-
-    // Try to find good initial pair.
-    if (options_->init_image_id1 == -1 || options_->init_image_id2 == -1) {
-      LOG(INFO) << "Finding good initial image pair";
-      const bool find_init_success =
-          mapper.FindInitialImagePair(mapper_options, &image_id1, &image_id2);
-      if (!find_init_success) {
-        LOG(INFO) << "=> No good initial image pair found.";
-        mapper.EndReconstruction(/*discard=*/true);
-        reconstruction_manager_->Delete(reconstruction_idx);
-        return kIsLastSubModel;
-      }
-    } else {
-      if (!reconstruction->ExistsImage(image_id1) ||
-          !reconstruction->ExistsImage(image_id2)) {
-        LOG(INFO) << StringPrintf(
-            "=> Initial image pair #%d and #%d do not exist.",
-            image_id1,
-            image_id2);
-        mapper.EndReconstruction(/*discard=*/true);
-        reconstruction_manager_->Delete(reconstruction_idx);
-        return kIsLastSubModel;
-      }
-    }
-
-    LOG(INFO) << StringPrintf(
-        "Initializing with image pair #%d and #%d", image_id1, image_id2);
-    const bool reg_init_success =
-        mapper.RegisterInitialImagePair(mapper_options, image_id1, image_id2);
-    if (!reg_init_success) {
-      LOG(INFO) << "=> Initialization failed - possible solutions:" << std::endl
-                << "     - try to relax the initialization constraints"
-                << std::endl
-                << "     - manually select an initial image pair";
-      mapper.EndReconstruction(/*discard=*/true);
-      reconstruction_manager_->Delete(reconstruction_idx);
-      return kIsLastSubModel;
-    }
-
-    LOG(INFO) << "Global bundle adjustment";
-    mapper.AdjustGlobalBundle(mapper_options,
-                              options_->GlobalBundleAdjustment());
-    mapper.FilterPoints(mapper_options);
-    mapper.FilterImages(mapper_options);
-
-    // Initial image pair failed to register.
-    if (reconstruction->NumRegImages() == 0 ||
-        reconstruction->NumPoints3D() == 0) {
+    if (!IncrementalMapperController::InitializeReconstruction(
+            mapper, mapper_options, *reconstruction)) {
       mapper.EndReconstruction(/*discard=*/true);
       reconstruction_manager_->Delete(reconstruction_idx);
       // If both initial images are manually specified, there is no need for
       // further initialization trials.
       return options_->init_image_id1 != -1 && options_->init_image_id2 != -1;
     }
-
-    if (options_->extract_colors) {
-      ExtractColors(image_path_, image_id1, *reconstruction);
-    }
   }
-
   Callback(INITIAL_IMAGE_PAIR_REG_CALLBACK);
 
   ////////////////////////////////////////////////////////////////////////////
