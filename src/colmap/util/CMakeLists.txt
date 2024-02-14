@@ -33,7 +33,9 @@ set(FOLDER_NAME "util")
 COLMAP_ADD_LIBRARY(
     NAME colmap_util
     SRCS
+        base_controller.h base_controller.cc
         cache.h
+        controller_thread.h
         eigen_alignment.h
         logging.h logging.cc
         misc.h misc.cc
@@ -85,6 +87,11 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME endian_test
     SRCS endian_test.cc
+    LINK_LIBS colmap_util
+)
+COLMAP_ADD_TEST(
+    NAME logging_test
+    SRCS logging_test.cc
     LINK_LIBS colmap_util
 )
 COLMAP_ADD_TEST(

@@ -29,6 +29,7 @@
 
 #include "colmap/ui/main_window.h"
 
+#include "colmap/scene/reconstruction_io.h"
 #include "colmap/util/version.h"
 
 #include <clocale>
@@ -610,30 +611,33 @@ void MainWindow::CreateControllers() {
   }
 
   mapper_controller_ =
-      std::make_unique<IncrementalMapperController>(options_.mapper,
-                                                    *options_.image_path,
-                                                    *options_.database_path,
-                                                    reconstruction_manager_);
-  mapper_controller_->AddCallback(
+      std::make_unique<ControllerThread<IncrementalMapperController>>(
+          std::make_shared<IncrementalMapperController>(
+              options_.mapper,
+              *options_.image_path,
+              *options_.database_path,
+              reconstruction_manager_));
+  mapper_controller_->GetController()->AddCallback(
       IncrementalMapperController::INITIAL_IMAGE_PAIR_REG_CALLBACK, [this]() {
         if (!mapper_controller_->IsStopped()) {
           action_render_now_->trigger();
         }
       });
-  mapper_controller_->AddCallback(
+  mapper_controller_->GetController()->AddCallback(
       IncrementalMapperController::NEXT_IMAGE_REG_CALLBACK, [this]() {
         if (!mapper_controller_->IsStopped()) {
           action_render_->trigger();
         }
       });
-  mapper_controller_->AddCallback(
+  mapper_controller_->GetController()->AddCallback(
       IncrementalMapperController::LAST_IMAGE_REG_CALLBACK, [this]() {
         if (!mapper_controller_->IsStopped()) {
           action_render_now_->trigger();
         }
       });
   mapper_controller_->AddCallback(
-      IncrementalMapperController::FINISHED_CALLBACK, [this]() {
+      ControllerThread<IncrementalMapperController>::FINISHED_CALLBACK,
+      [this]() {
         if (!mapper_controller_->IsStopped()) {
           action_render_now_->trigger();
           action_reconstruction_finish_->trigger();
@@ -916,18 +920,20 @@ void MainWindow::ExportAs() {
         const std::shared_ptr<Reconstruction> reconstruction =
             reconstruction_manager_->Get(SelectedReconstructionIdx());
         if (filter == "NVM (*.nvm)") {
-          reconstruction->ExportNVM(export_path);
+          ExportNVM(*reconstruction, export_path);
         } else if (filter == "Bundler (*.out)") {
-          reconstruction->ExportBundler(export_path, export_path + ".list.txt");
+          ExportBundler(
+              *reconstruction, export_path, export_path + ".list.txt");
         } else if (filter == "PLY (*.ply)") {
-          reconstruction->ExportPLY(export_path);
+          ExportPLY(*reconstruction, export_path);
         } else if (filter == "VRML (*.wrl)") {
           const auto base_path =
               export_path.substr(0, export_path.find_last_of('.'));
-          reconstruction->ExportVRML(base_path + ".images.wrl",
-                                     base_path + ".points3D.wrl",
-                                     1,
-                                     Eigen::Vector3d(1, 0, 0));
+          ExportVRML(*reconstruction,
+                     base_path + ".images.wrl",
+                     base_path + ".points3D.wrl",
+                     1,
+                     Eigen::Vector3d(1, 0, 0));
         }
       });
 }

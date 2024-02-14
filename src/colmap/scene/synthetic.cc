@@ -102,12 +102,10 @@ void SynthesizeChainedMatches(Reconstruction* reconstruction,
   }
 
   for (auto& two_view_geometry : two_view_geometries) {
-    image_t image_id1;
-    image_t image_id2;
-    Database::PairIdToImagePair(
-        two_view_geometry.first, &image_id1, &image_id2);
-    const auto& image1 = reconstruction->Image(image_id1);
-    const auto& image2 = reconstruction->Image(image_id2);
+    const auto image_pair =
+        Database::PairIdToImagePair(two_view_geometry.first);
+    const auto& image1 = reconstruction->Image(image_pair.first);
+    const auto& image2 = reconstruction->Image(image_pair.second);
     two_view_geometry.second.config = TwoViewGeometry::CALIBRATED;
     const Rigid3d cam2_from_cam1 =
         image2.CamFromWorld() * Inverse(image1.CamFromWorld());

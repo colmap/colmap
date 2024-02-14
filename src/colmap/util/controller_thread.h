@@ -29,23 +29,42 @@
 
 #pragma once
 
-#include "colmap/controllers/option_manager.h"
-#include "colmap/scene/reconstruction.h"
 #include "colmap/util/base_controller.h"
+#include "colmap/util/threading.h"
 
 namespace colmap {
 
-// Class that controls the global bundle adjustment procedure.
-class BundleAdjustmentController : public BaseController {
- public:
-  BundleAdjustmentController(const OptionManager& options,
-                             std::shared_ptr<Reconstruction> reconstruction);
+// Helper class to create single threads with simple controls
+// Similar usage as ``Thread`` class in util/threading.h
+//
+// std::shared_ptr<Controller> controller = std::make_shared<Controller>(args);
+// std::unique_ptr<ControllerThread<Controller>> thread =
+// std::make_unique<ControllerThread<Controller>>(controller);
+//
+template <class Controller>
+class ControllerThread : public Thread {
+  // check if the Controller class is inherited from BaseController
+  static_assert(std::is_base_of<BaseController, Controller>::value,
+                "The controller needs to be inherited from BaseController");
 
-  void Run();
+ public:
+  explicit ControllerThread(std::shared_ptr<Controller> controller)
+      : controller_(std::move(controller)) {
+    controller_->SetCheckIfStoppedFunc([&]() { return IsStopped(); });
+  }
+
+  // get the handle to the controller in ControllerThread
+  std::shared_ptr<Controller> GetController() { return controller_; }
+
+  // do BlockIfPaused() every time before checking IsStopped()
+  bool IsStopped() {
+    BlockIfPaused();
+    return Thread::IsStopped();
+  }
 
  private:
-  const OptionManager options_;
-  std::shared_ptr<Reconstruction> reconstruction_;
+  void Run() override { controller_->Run(); }
+  std::shared_ptr<Controller> controller_;
 };
 
 }  // namespace colmap

@@ -31,6 +31,7 @@
 
 #include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/util/misc.h"
+#include "colmap/util/timer.h"
 
 #include <ceres/ceres.h>
 
@@ -40,14 +41,13 @@ namespace {
 // Callback functor called after each bundle adjustment iteration.
 class BundleAdjustmentIterationCallback : public ceres::IterationCallback {
  public:
-  explicit BundleAdjustmentIterationCallback(Thread* thread)
-      : thread_(thread) {}
+  explicit BundleAdjustmentIterationCallback(BaseController* controller)
+      : controller_(controller) {}
 
   virtual ceres::CallbackReturnType operator()(
       const ceres::IterationSummary& summary) {
-    THROW_CHECK_NOTNULL(thread_);
-    thread_->BlockIfPaused();
-    if (thread_->IsStopped()) {
+    THROW_CHECK_NOTNULL(controller_);
+    if (controller_->CheckIfStopped()) {
       return ceres::SOLVER_TERMINATE_SUCCESSFULLY;
     } else {
       return ceres::SOLVER_CONTINUE;
@@ -55,7 +55,7 @@ class BundleAdjustmentIterationCallback : public ceres::IterationCallback {
   }
 
  private:
-  Thread* thread_;
+  BaseController* controller_;
 };
 
 }  // namespace
@@ -69,6 +69,8 @@ void BundleAdjustmentController::Run() {
   THROW_CHECK_NOTNULL(reconstruction_);
 
   PrintHeading1("Global bundle adjustment");
+  Timer run_timer;
+  run_timer.Start();
 
   const std::vector<image_t>& reg_image_ids = reconstruction_->RegImageIds();
 
@@ -97,7 +99,7 @@ void BundleAdjustmentController::Run() {
   BundleAdjuster bundle_adjuster(ba_options, ba_config);
   bundle_adjuster.Solve(reconstruction_.get());
 
-  GetTimer().PrintMinutes();
+  run_timer.PrintMinutes();
 }
 
 }  // namespace colmap

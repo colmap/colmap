@@ -29,23 +29,48 @@
 
 #pragma once
 
-#include "colmap/controllers/option_manager.h"
-#include "colmap/scene/reconstruction.h"
-#include "colmap/util/base_controller.h"
+#include <functional>
+#include <list>
+#include <unordered_map>
 
 namespace colmap {
 
-// Class that controls the global bundle adjustment procedure.
-class BundleAdjustmentController : public BaseController {
+// Reimplementation of threading with thread-related functions outside
+// controller Following util/threading.h
+// BaseController that supports templating in ControllerThread at
+// util/controller_thread.h
+class BaseController {
  public:
-  BundleAdjustmentController(const OptionManager& options,
-                             std::shared_ptr<Reconstruction> reconstruction);
+  BaseController();
+  virtual ~BaseController() = default;
 
-  void Run();
+  // Set callbacks that can be triggered within the main run function.
+  void AddCallback(int id, const std::function<void()>& func);
+
+  // This is the main run function to be implemented by the child class. If you
+  // are looping over data and want to support the pause operation, call
+  // `BlockIfPaused` at appropriate places in the loop. To support the stop
+  // operation, check the `IsStopped` state and early return from this method.
+  virtual void Run() = 0;
+
+  // check if the thread is stopped
+  void SetCheckIfStoppedFunc(const std::function<bool()>& func);
+  bool CheckIfStopped();
+
+ protected:
+  // Register a new callback. Note that only registered callbacks can be
+  // set/reset and called from within the thread. Hence, this method should be
+  // called from the derived thread constructor.
+  void RegisterCallback(int id);
+
+  // Call back to the function with the specified name, if it exists.
+  void Callback(int id) const;
 
  private:
-  const OptionManager options_;
-  std::shared_ptr<Reconstruction> reconstruction_;
+  // list of callbacks
+  std::unordered_map<int, std::list<std::function<void()>>> callbacks_;
+  // check_if_stop function
+  std::function<bool()> check_if_stopped_fn_;
 };
 
 }  // namespace colmap

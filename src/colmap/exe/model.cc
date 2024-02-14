@@ -35,6 +35,7 @@
 #include "colmap/geometry/gps.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/optim/ransac.h"
+#include "colmap/scene/reconstruction_io.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
 
@@ -597,23 +598,25 @@ int RunModelConverter(int argc, char** argv) {
   } else if (output_type == "txt") {
     reconstruction.WriteText(output_path);
   } else if (output_type == "nvm") {
-    reconstruction.ExportNVM(output_path, skip_distortion);
+    ExportNVM(reconstruction, output_path, skip_distortion);
   } else if (output_type == "bundler") {
-    reconstruction.ExportBundler(output_path + ".bundle.out",
-                                 output_path + ".list.txt",
-                                 skip_distortion);
+    ExportBundler(reconstruction,
+                  output_path + ".bundle.out",
+                  output_path + ".list.txt",
+                  skip_distortion);
   } else if (output_type == "r3d") {
-    reconstruction.ExportRecon3D(output_path, skip_distortion);
+    ExportRecon3D(reconstruction, output_path, skip_distortion);
   } else if (output_type == "cam") {
-    reconstruction.ExportCam(output_path, skip_distortion);
+    ExportCam(reconstruction, output_path, skip_distortion);
   } else if (output_type == "ply") {
-    reconstruction.ExportPLY(output_path);
+    ExportPLY(reconstruction, output_path);
   } else if (output_type == "vrml") {
     const auto base_path = output_path.substr(0, output_path.find_last_of('.'));
-    reconstruction.ExportVRML(base_path + ".images.wrl",
-                              base_path + ".points3D.wrl",
-                              1,
-                              Eigen::Vector3d(1, 0, 0));
+    ExportVRML(reconstruction,
+               base_path + ".images.wrl",
+               base_path + ".points3D.wrl",
+               1,
+               Eigen::Vector3d(1, 0, 0));
   } else {
     LOG(ERROR) << "Invalid `output_type`";
     return EXIT_FAILURE;
@@ -1029,7 +1032,7 @@ int RunModelTransformer(int argc, char** argv) {
 
   LOG(INFO) << "Writing output: " << output_path;
   if (is_dense) {
-    recon.ExportPLY(output_path);
+    ExportPLY(recon, output_path);
   } else {
     recon.Write(output_path);
   }

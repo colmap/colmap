@@ -81,8 +81,7 @@ std::map<size_t, std::shared_ptr<Reconstruction>> IncrementalMapping(
         initial_image_pair_callback);
   }
 
-  mapper.Start();
-  mapper.Wait();
+  mapper.Run();
 
   reconstruction_manager->Write(output_path);
   std::map<size_t, std::shared_ptr<Reconstruction>> reconstructions;
@@ -98,8 +97,7 @@ void BundleAdjustment(const std::shared_ptr<Reconstruction>& reconstruction,
   OptionManager option_manager;
   *option_manager.bundle_adjustment = options;
   BundleAdjustmentController controller(option_manager, reconstruction);
-  controller.Start();
-  PyWait(&controller);
+  controller.Run();
 }
 
 void BindSfM(py::module& m) {

@@ -34,6 +34,7 @@
 #include "colmap/mvs/model.h"
 #include "colmap/mvs/normal_map.h"
 #ifndef __CUDACC__
+#include "colmap/util/base_controller.h"
 #include "colmap/util/threading.h"
 #endif
 
@@ -245,16 +246,16 @@ class PatchMatch {
 
 #ifndef __CUDACC__
 
-class PatchMatchController : public Thread {
+class PatchMatchController : public BaseController {
  public:
   PatchMatchController(const PatchMatchOptions& options,
                        const std::string& workspace_path,
                        const std::string& workspace_format,
                        const std::string& pmvs_option_name,
                        const std::string& config_path = "");
+  void Run();
 
  private:
-  void Run();
   void ReadWorkspace();
   void ReadProblems();
   void ReadGpuIndices();

@@ -27,25 +27,41 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#pragma once
-
-#include "colmap/controllers/option_manager.h"
-#include "colmap/scene/reconstruction.h"
 #include "colmap/util/base_controller.h"
+
+#include "colmap/util/logging.h"
 
 namespace colmap {
 
-// Class that controls the global bundle adjustment procedure.
-class BundleAdjustmentController : public BaseController {
- public:
-  BundleAdjustmentController(const OptionManager& options,
-                             std::shared_ptr<Reconstruction> reconstruction);
+BaseController::BaseController() {}
 
-  void Run();
+void BaseController::AddCallback(const int id,
+                                 const std::function<void()>& func) {
+  CHECK(func);
+  CHECK_GT(callbacks_.count(id), 0) << "Callback not registered";
+  callbacks_.at(id).push_back(func);
+}
 
- private:
-  const OptionManager options_;
-  std::shared_ptr<Reconstruction> reconstruction_;
-};
+void BaseController::RegisterCallback(const int id) {
+  callbacks_.emplace(id, std::list<std::function<void()>>());
+}
+
+void BaseController::Callback(const int id) const {
+  CHECK_GT(callbacks_.count(id), 0) << "Callback not registered";
+  for (const auto& callback : callbacks_.at(id)) {
+    callback();
+  }
+}
+
+void BaseController::SetCheckIfStoppedFunc(const std::function<bool()>& func) {
+  check_if_stopped_fn_ = func;
+}
+
+bool BaseController::CheckIfStopped() {
+  if (check_if_stopped_fn_)
+    return check_if_stopped_fn_();
+  else
+    return false;
+}
 
 }  // namespace colmap

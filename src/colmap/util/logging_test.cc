@@ -27,25 +27,43 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#pragma once
+#include "colmap/util/logging.h"
 
-#include "colmap/controllers/option_manager.h"
-#include "colmap/scene/reconstruction.h"
-#include "colmap/util/base_controller.h"
+#include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
-// Class that controls the global bundle adjustment procedure.
-class BundleAdjustmentController : public BaseController {
- public:
-  BundleAdjustmentController(const OptionManager& options,
-                             std::shared_ptr<Reconstruction> reconstruction);
+std::string PrintingFn(const std::string& message) {
+  if (message.empty()) {
+    LOG(FATAL_THROW) << "Error in PrintingFn";
+  }
+  return message;
+}
 
-  void Run();
+void ThrowCheck(const bool cond) { THROW_CHECK(cond) << "Error!"; }
 
- private:
-  const OptionManager options_;
-  std::shared_ptr<Reconstruction> reconstruction_;
-};
+void ThrowCheckEqual(const int val) { THROW_CHECK_EQ(val, 1) << "Error!"; }
 
+TEST(ExceptionLogging, Nominal) {
+  EXPECT_NO_THROW(ThrowCheck(true));
+  EXPECT_THROW(ThrowCheck(false), std::invalid_argument);
+  EXPECT_NO_THROW(ThrowCheckEqual(1));
+  EXPECT_THROW(ThrowCheckEqual(0), std::invalid_argument);
+  EXPECT_THROW(THROW_CHECK_NOTNULL(nullptr), std::invalid_argument);
+  EXPECT_THROW({ LOG(FATAL_THROW) << "Error!"; }, std::invalid_argument);
+  EXPECT_THROW({ LOG_FATAL_THROW(std::logic_error) << "Error!"; },
+               std::logic_error);
+}
+
+TEST(ExceptionLogging, Nested) {
+  EXPECT_NO_THROW(PrintingFn("message"));
+  EXPECT_THROW(PrintingFn(""), std::invalid_argument);
+  EXPECT_THROW({ LOG(FATAL_THROW) << "Error: " << PrintingFn("message"); },
+               std::invalid_argument);
+  EXPECT_THROW({ LOG(FATAL_THROW) << "Error: " << PrintingFn(""); },
+               std::invalid_argument);
+}
+
+}  // namespace
 }  // namespace colmap

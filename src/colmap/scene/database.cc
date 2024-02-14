@@ -39,13 +39,6 @@
 namespace colmap {
 namespace {
 
-typedef Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
-    FeatureKeypointsBlob;
-typedef Eigen::Matrix<uint8_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
-    FeatureDescriptorsBlob;
-typedef Eigen::Matrix<point2D_t, Eigen::Dynamic, 2, Eigen::RowMajor>
-    FeatureMatchesBlob;
-
 void SwapFeatureMatchesBlob(FeatureMatchesBlob* matches) {
   matches->col(0).swap(matches->col(1));
 }
@@ -461,16 +454,19 @@ std::vector<Image> Database::ReadAllImages() const {
   return images;
 }
 
-FeatureKeypoints Database::ReadKeypoints(const image_t image_id) const {
+FeatureKeypointsBlob Database::ReadKeypointsBlob(const image_t image_id) const {
   SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_read_keypoints_, 1, image_id));
 
   const int rc = SQLITE3_CALL(sqlite3_step(sql_stmt_read_keypoints_));
-  const FeatureKeypointsBlob blob = ReadDynamicMatrixBlob<FeatureKeypointsBlob>(
+  FeatureKeypointsBlob blob = ReadDynamicMatrixBlob<FeatureKeypointsBlob>(
       sql_stmt_read_keypoints_, rc, 0);
 
   SQLITE3_CALL(sqlite3_reset(sql_stmt_read_keypoints_));
+  return blob;
+}
 
-  return FeatureKeypointsFromBlob(blob);
+FeatureKeypoints Database::ReadKeypoints(const image_t image_id) const {
+  return FeatureKeypointsFromBlob(ReadKeypointsBlob(image_id));
 }
 
 FeatureDescriptors Database::ReadDescriptors(const image_t image_id) const {
@@ -485,8 +481,8 @@ FeatureDescriptors Database::ReadDescriptors(const image_t image_id) const {
   return descriptors;
 }
 
-FeatureMatches Database::ReadMatches(image_t image_id1,
-                                     image_t image_id2) const {
+FeatureMatchesBlob Database::ReadMatchesBlob(image_t image_id1,
+                                             image_t image_id2) const {
   const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
   SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_read_matches_, 1, pair_id));
 
@@ -499,8 +495,12 @@ FeatureMatches Database::ReadMatches(image_t image_id1,
   if (SwapImagePair(image_id1, image_id2)) {
     SwapFeatureMatchesBlob(&blob);
   }
+  return blob;
+}
 
-  return FeatureMatchesFromBlob(blob);
+FeatureMatches Database::ReadMatches(image_t image_id1,
+                                     image_t image_id2) const {
+  return FeatureMatchesFromBlob(ReadMatchesBlob(image_id1, image_id2));
 }
 
 std::vector<std::pair<image_pair_t, FeatureMatches>> Database::ReadAllMatches()
@@ -618,12 +618,10 @@ void Database::ReadTwoViewGeometryNumInliers(
 
   while (SQLITE3_CALL(sqlite3_step(
              sql_stmt_read_two_view_geometry_num_inliers_)) == SQLITE_ROW) {
-    image_t image_id1;
-    image_t image_id2;
     const image_pair_t pair_id = static_cast<image_pair_t>(
         sqlite3_column_int64(sql_stmt_read_two_view_geometry_num_inliers_, 0));
-    PairIdToImagePair(pair_id, &image_id1, &image_id2);
-    image_pairs->emplace_back(image_id1, image_id2);
+    const auto image_pair = PairIdToImagePair(pair_id);
+    image_pairs->emplace_back(image_pair.first, image_pair.second);
 
     const int rows = static_cast<int>(
         sqlite3_column_int64(sql_stmt_read_two_view_geometry_num_inliers_, 1));
@@ -707,8 +705,11 @@ image_t Database::WriteImage(const Image& image,
 
 void Database::WriteKeypoints(const image_t image_id,
                               const FeatureKeypoints& keypoints) const {
-  const FeatureKeypointsBlob blob = FeatureKeypointsToBlob(keypoints);
+  WriteKeypoints(image_id, FeatureKeypointsToBlob(keypoints));
+}
 
+void Database::WriteKeypoints(const image_t image_id,
+                              const FeatureKeypointsBlob& blob) const {
   SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_write_keypoints_, 1, image_id));
   WriteDynamicMatrixBlob(sql_stmt_write_keypoints_, blob, 2);
 
@@ -728,14 +729,20 @@ void Database::WriteDescriptors(const image_t image_id,
 void Database::WriteMatches(const image_t image_id1,
                             const image_t image_id2,
                             const FeatureMatches& matches) const {
+  WriteMatches(image_id1, image_id2, FeatureMatchesToBlob(matches));
+}
+
+void Database::WriteMatches(const image_t image_id1,
+                            const image_t image_id2,
+                            const FeatureMatchesBlob& blob) const {
   const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
   SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_write_matches_, 1, pair_id));
 
   // Important: the swapped data must live until the query is executed.
-  FeatureMatchesBlob blob = FeatureMatchesToBlob(matches);
   if (SwapImagePair(image_id1, image_id2)) {
-    SwapFeatureMatchesBlob(&blob);
-    WriteDynamicMatrixBlob(sql_stmt_write_matches_, blob, 2);
+    FeatureMatchesBlob swapped_blob = blob;
+    SwapFeatureMatchesBlob(&swapped_blob);
+    WriteDynamicMatrixBlob(sql_stmt_write_matches_, swapped_blob, 2);
   } else {
     WriteDynamicMatrixBlob(sql_stmt_write_matches_, blob, 2);
   }
@@ -978,21 +985,19 @@ void Database::Merge(const Database& database1,
   // Merge the matches.
 
   for (const auto& matches : database1.ReadAllMatches()) {
-    image_t image_id1, image_id2;
-    Database::PairIdToImagePair(matches.first, &image_id1, &image_id2);
+    const auto image_pair = Database::PairIdToImagePair(matches.first);
 
-    const image_t new_image_id1 = new_image_ids1.at(image_id1);
-    const image_t new_image_id2 = new_image_ids1.at(image_id2);
+    const image_t new_image_id1 = new_image_ids1.at(image_pair.first);
+    const image_t new_image_id2 = new_image_ids1.at(image_pair.second);
 
     merged_database->WriteMatches(new_image_id1, new_image_id2, matches.second);
   }
 
   for (const auto& matches : database2.ReadAllMatches()) {
-    image_t image_id1, image_id2;
-    Database::PairIdToImagePair(matches.first, &image_id1, &image_id2);
+    const auto image_pair = Database::PairIdToImagePair(matches.first);
 
-    const image_t new_image_id1 = new_image_ids2.at(image_id1);
-    const image_t new_image_id2 = new_image_ids2.at(image_id2);
+    const image_t new_image_id1 = new_image_ids2.at(image_pair.first);
+    const image_t new_image_id2 = new_image_ids2.at(image_pair.second);
 
     merged_database->WriteMatches(new_image_id1, new_image_id2, matches.second);
   }
@@ -1005,11 +1010,10 @@ void Database::Merge(const Database& database1,
     database1.ReadTwoViewGeometries(&image_pair_ids, &two_view_geometries);
 
     for (size_t i = 0; i < two_view_geometries.size(); ++i) {
-      image_t image_id1, image_id2;
-      Database::PairIdToImagePair(image_pair_ids[i], &image_id1, &image_id2);
+      const auto image_pair = Database::PairIdToImagePair(image_pair_ids[i]);
 
-      const image_t new_image_id1 = new_image_ids1.at(image_id1);
-      const image_t new_image_id2 = new_image_ids1.at(image_id2);
+      const image_t new_image_id1 = new_image_ids1.at(image_pair.first);
+      const image_t new_image_id2 = new_image_ids1.at(image_pair.second);
 
       merged_database->WriteTwoViewGeometry(
           new_image_id1, new_image_id2, two_view_geometries[i]);
@@ -1022,11 +1026,10 @@ void Database::Merge(const Database& database1,
     database2.ReadTwoViewGeometries(&image_pair_ids, &two_view_geometries);
 
     for (size_t i = 0; i < two_view_geometries.size(); ++i) {
-      image_t image_id1, image_id2;
-      Database::PairIdToImagePair(image_pair_ids[i], &image_id1, &image_id2);
+      const auto image_pair = Database::PairIdToImagePair(image_pair_ids[i]);
 
-      const image_t new_image_id1 = new_image_ids2.at(image_id1);
-      const image_t new_image_id2 = new_image_ids2.at(image_id2);
+      const image_t new_image_id1 = new_image_ids2.at(image_pair.first);
+      const image_t new_image_id2 = new_image_ids2.at(image_pair.second);
 
       merged_database->WriteTwoViewGeometry(
           new_image_id1, new_image_id2, two_view_geometries[i]);

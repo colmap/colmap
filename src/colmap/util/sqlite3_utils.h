@@ -50,6 +50,7 @@ inline int SQLite3CallHelper(int result_code,
     default:
       LogMessageFatalThrow<std::runtime_error>(filename.c_str(), line).stream()
           << "SQLite error: " << sqlite3_errstr(result_code);
+      return result_code;
   }
 }
 

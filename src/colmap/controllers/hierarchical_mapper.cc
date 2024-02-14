@@ -32,6 +32,7 @@
 #include "colmap/estimators/alignment.h"
 #include "colmap/scene/scene_clustering.h"
 #include "colmap/util/misc.h"
+#include "colmap/util/threading.h"
 
 namespace colmap {
 namespace {
@@ -119,6 +120,8 @@ HierarchicalMapperController::HierarchicalMapperController(
 
 void HierarchicalMapperController::Run() {
   PrintHeading1("Partitioning scene");
+  Timer run_timer;
+  run_timer.Start();
 
   //////////////////////////////////////////////////////////////////////////////
   // Cluster scene graph
@@ -192,8 +195,7 @@ void HierarchicalMapperController::Run() {
                                            options_.image_path,
                                            options_.database_path,
                                            std::move(reconstruction_manager));
-        mapper.Start();
-        mapper.Wait();
+        mapper.Run();
       };
 
   // Start reconstructing the bigger clusters first for better resource usage.
@@ -233,7 +235,7 @@ void HierarchicalMapperController::Run() {
       reconstruction_managers.begin()->second->Get(0)->NumRegImages(), 0);
   *reconstruction_manager_ = *reconstruction_managers.begin()->second;
 
-  GetTimer().PrintMinutes();
+  run_timer.PrintMinutes();
 }
 
 }  // namespace colmap

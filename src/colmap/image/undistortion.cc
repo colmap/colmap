@@ -31,8 +31,10 @@
 
 #include "colmap/geometry/pose.h"
 #include "colmap/image/warp.h"
+#include "colmap/scene/reconstruction_io.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/misc.h"
+#include "colmap/util/threading.h"
 
 #include <fstream>
 
@@ -169,6 +171,8 @@ COLMAPUndistorter::COLMAPUndistorter(const UndistortCameraOptions& options,
 
 void COLMAPUndistorter::Run() {
   PrintHeading1("Image undistortion");
+  Timer run_timer;
+  run_timer.Start();
 
   CreateDirIfNotExists(JoinPaths(output_path_, "images"));
   CreateDirIfNotExists(JoinPaths(output_path_, "sparse"));
@@ -203,7 +207,7 @@ void COLMAPUndistorter::Run() {
   // when writing the MVS config files
   image_names_.clear();
   for (size_t i = 0; i < futures.size(); ++i) {
-    if (IsStopped()) {
+    if (CheckIfStopped()) {
       break;
     }
 
@@ -233,7 +237,7 @@ void COLMAPUndistorter::Run() {
   WriteScript(false);
   WriteScript(true);
 
-  GetTimer().PrintMinutes();
+  run_timer.PrintMinutes();
 }
 
 bool COLMAPUndistorter::Undistort(const image_t image_id) const {
@@ -312,6 +316,8 @@ PMVSUndistorter::PMVSUndistorter(const UndistortCameraOptions& options,
       reconstruction_(reconstruction) {}
 
 void PMVSUndistorter::Run() {
+  Timer run_timer;
+  run_timer.Start();
   PrintHeading1("Image undistortion (CMVS/PMVS)");
 
   CreateDirIfNotExists(JoinPaths(output_path_, "pmvs"));
@@ -328,7 +334,7 @@ void PMVSUndistorter::Run() {
   }
 
   for (size_t i = 0; i < futures.size(); ++i) {
-    if (IsStopped()) {
+    if (CheckIfStopped()) {
       thread_pool.Stop();
       LOG(WARNING) << "Stopped the undistortion process. Image point "
                       "locations and camera parameters for not yet processed "
@@ -346,8 +352,8 @@ void PMVSUndistorter::Run() {
   Reconstruction undistorted_reconstruction = reconstruction_;
   UndistortReconstruction(options_, &undistorted_reconstruction);
   const std::string bundle_path = JoinPaths(output_path_, "pmvs/bundle.rd.out");
-  undistorted_reconstruction.ExportBundler(bundle_path,
-                                           bundle_path + ".list.txt");
+  ExportBundler(
+      undistorted_reconstruction, bundle_path, bundle_path + ".list.txt");
 
   LOG(INFO) << "Writing visibility file...";
   WriteVisibilityData();
@@ -363,7 +369,7 @@ void PMVSUndistorter::Run() {
   WriteCMVSCOLMAPScript(false);
   WriteCMVSCOLMAPScript(true);
 
-  GetTimer().PrintMinutes();
+  run_timer.PrintMinutes();
 }
 
 bool PMVSUndistorter::Undistort(const size_t reg_image_idx) const {
@@ -549,6 +555,8 @@ CMPMVSUndistorter::CMPMVSUndistorter(const UndistortCameraOptions& options,
       reconstruction_(reconstruction) {}
 
 void CMPMVSUndistorter::Run() {
+  Timer run_timer;
+  run_timer.Start();
   PrintHeading1("Image undistortion (CMP-MVS)");
 
   ThreadPool thread_pool;
@@ -560,7 +568,7 @@ void CMPMVSUndistorter::Run() {
   }
 
   for (size_t i = 0; i < futures.size(); ++i) {
-    if (IsStopped()) {
+    if (CheckIfStopped()) {
       break;
     }
 
@@ -570,7 +578,7 @@ void CMPMVSUndistorter::Run() {
     futures[i].get();
   }
 
-  GetTimer().PrintMinutes();
+  run_timer.PrintMinutes();
 }
 
 bool CMPMVSUndistorter::Undistort(const size_t reg_image_idx) const {
@@ -613,6 +621,8 @@ PureImageUndistorter::PureImageUndistorter(
       image_names_and_cameras_(image_names_and_cameras) {}
 
 void PureImageUndistorter::Run() {
+  Timer run_timer;
+  run_timer.Start();
   PrintHeading1("Image undistortion");
 
   CreateDirIfNotExists(output_path_);
@@ -627,7 +637,7 @@ void PureImageUndistorter::Run() {
   }
 
   for (size_t i = 0; i < futures.size(); ++i) {
-    if (IsStopped()) {
+    if (CheckIfStopped()) {
       break;
     }
 
@@ -637,7 +647,7 @@ void PureImageUndistorter::Run() {
     futures[i].get();
   }
 
-  GetTimer().PrintMinutes();
+  run_timer.PrintMinutes();
 }
 
 bool PureImageUndistorter::Undistort(const size_t image_idx) const {
@@ -678,6 +688,8 @@ StereoImageRectifier::StereoImageRectifier(
 
 void StereoImageRectifier::Run() {
   PrintHeading1("Stereo rectification");
+  Timer run_timer;
+  run_timer.Start();
 
   ThreadPool thread_pool;
   std::vector<std::future<void>> futures;
@@ -690,7 +702,7 @@ void StereoImageRectifier::Run() {
   }
 
   for (size_t i = 0; i < futures.size(); ++i) {
-    if (IsStopped()) {
+    if (CheckIfStopped()) {
       break;
     }
 
@@ -700,7 +712,7 @@ void StereoImageRectifier::Run() {
     futures[i].get();
   }
 
-  GetTimer().PrintMinutes();
+  run_timer.PrintMinutes();
 }
 
 void StereoImageRectifier::Rectify(const image_t image_id1,

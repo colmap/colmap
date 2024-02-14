@@ -227,10 +227,8 @@ void AutomaticReconstructionController::RunSparseMapper() {
                                      *option_manager_.image_path,
                                      *option_manager_.database_path,
                                      reconstruction_manager_);
-  active_thread_ = &mapper;
-  mapper.Start();
-  mapper.Wait();
-  active_thread_ = nullptr;
+  mapper.SetCheckIfStoppedFunc([&]() { return IsStopped(); });
+  mapper.Run();
 
   CreateDirIfNotExists(sparse_path);
   reconstruction_manager_->Write(sparse_path);
@@ -272,10 +270,8 @@ void AutomaticReconstructionController::RunDenseMapper() {
                                     *reconstruction_manager_->Get(i),
                                     *option_manager_.image_path,
                                     dense_path);
-      active_thread_ = &undistorter;
-      undistorter.Start();
-      undistorter.Wait();
-      active_thread_ = nullptr;
+      undistorter.SetCheckIfStoppedFunc([&]() { return IsStopped(); });
+      undistorter.Run();
     }
 
     if (IsStopped()) {
@@ -288,10 +284,9 @@ void AutomaticReconstructionController::RunDenseMapper() {
     {
       mvs::PatchMatchController patch_match_controller(
           *option_manager_.patch_match_stereo, dense_path, "COLMAP", "");
-      active_thread_ = &patch_match_controller;
-      patch_match_controller.Start();
-      patch_match_controller.Wait();
-      active_thread_ = nullptr;
+      patch_match_controller.SetCheckIfStoppedFunc(
+          [&]() { return IsStopped(); });
+      patch_match_controller.Run();
     }
 #else   // COLMAP_CUDA_ENABLED
     LOG(WARNING) << "Skipping patch match stereo because CUDA is not available";
@@ -316,10 +311,8 @@ void AutomaticReconstructionController::RunDenseMapper() {
           "COLMAP",
           "",
           options_.quality == Quality::HIGH ? "geometric" : "photometric");
-      active_thread_ = &fuser;
-      fuser.Start();
-      fuser.Wait();
-      active_thread_ = nullptr;
+      fuser.SetCheckIfStoppedFunc([&]() { return IsStopped(); });
+      fuser.Run();
 
       LOG(INFO) << "Writing output: " << fused_path;
       WriteBinaryPlyPoints(fused_path, fuser.GetFusedPoints());

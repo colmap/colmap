@@ -31,6 +31,8 @@
 
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/misc.h"
+#include "colmap/util/threading.h"
+#include "colmap/util/timer.h"
 
 #include <Eigen/Geometry>
 
@@ -140,6 +142,9 @@ const std::vector<std::vector<int>>& StereoFusion::GetFusedPointsVisibility()
 }
 
 void StereoFusion::Run() {
+  Timer run_timer;
+  run_timer.Start();
+
   fused_points_.clear();
   fused_points_visibility_.clear();
 
@@ -175,8 +180,8 @@ void StereoFusion::Run() {
     num_threads = GetEffectiveNumThreads(options_.num_threads);
   }
 
-  if (IsStopped()) {
-    GetTimer().PrintMinutes();
+  if (CheckIfStopped()) {
+    run_timer.PrintMinutes();
     return;
   }
 
@@ -277,7 +282,7 @@ void StereoFusion::Run() {
   for (int image_idx = 0; image_idx >= 0;
        image_idx = internal::FindNextImage(
            overlapping_images_, used_images_, fused_images_, image_idx)) {
-    if (IsStopped()) {
+    if (CheckIfStopped()) {
       break;
     }
 
@@ -339,7 +344,7 @@ void StereoFusion::Run() {
   }
 
   LOG(INFO) << "Number of fused points: " << fused_points_.size();
-  GetTimer().PrintMinutes();
+  run_timer.PrintMinutes();
 }
 
 void StereoFusion::InitFusedPixelMask(int image_idx,

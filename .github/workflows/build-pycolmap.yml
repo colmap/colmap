@@ -1,4 +1,4 @@
-name: Build and publish wheels
+name: PyCOLMAP
 
 on:
   push:
@@ -8,11 +8,10 @@ on:
     types: [ assigned, opened, synchronize, reopened ]
   release:
     types: [ published, edited ]
-  workflow_dispatch:
 
 jobs:
   build:
-    name: Build on ${{ matrix.config.os }} ${{ matrix.config.arch }}
+    name: ${{ matrix.config.os }} ${{ matrix.config.arch }}
     runs-on: ${{ matrix.config.os }}
     strategy:
       matrix:

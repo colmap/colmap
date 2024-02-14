@@ -82,8 +82,7 @@ TEST(HierarchicalMapperController, WithoutNoise) {
   mapper_options.clustering_options.leaf_max_num_images = 5;
   mapper_options.clustering_options.image_overlap = 3;
   HierarchicalMapperController mapper(mapper_options, reconstruction_manager);
-  mapper.Start();
-  mapper.Wait();
+  mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
   ExpectEqualReconstructions(gt_reconstruction,
@@ -114,8 +113,7 @@ TEST(HierarchicalMapperController, MultiReconstruction) {
   mapper_options.clustering_options.leaf_max_num_images = 5;
   mapper_options.clustering_options.image_overlap = 3;
   HierarchicalMapperController mapper(mapper_options, reconstruction_manager);
-  mapper.Start();
-  mapper.Wait();
+  mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 2);
   Reconstruction* computed_reconstruction1 = nullptr;

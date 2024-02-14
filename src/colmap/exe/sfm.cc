@@ -157,8 +157,7 @@ int RunBundleAdjuster(int argc, char** argv) {
   reconstruction->Read(input_path);
 
   BundleAdjustmentController ba_controller(options, reconstruction);
-  ba_controller.Start();
-  ba_controller.Wait();
+  ba_controller.Run();
 
   reconstruction->Write(output_path);
 
@@ -259,8 +258,7 @@ int RunMapper(int argc, char** argv) {
         });
   }
 
-  mapper.Start();
-  mapper.Wait();
+  mapper.Run();
 
   if (reconstruction_manager->Size() == 0) {
     LOG(ERROR) << "failed to create sparse model";
@@ -318,8 +316,7 @@ int RunHierarchicalMapper(int argc, char** argv) {
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   HierarchicalMapperController hierarchical_mapper(mapper_options,
                                                    reconstruction_manager);
-  hierarchical_mapper.Start();
-  hierarchical_mapper.Wait();
+  hierarchical_mapper.Run();
 
   if (reconstruction_manager->Size() == 0) {
     LOG(ERROR) << "failed to create sparse model";
