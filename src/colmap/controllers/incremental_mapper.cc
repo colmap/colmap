@@ -35,94 +35,14 @@
 namespace colmap {
 namespace {
 
-size_t TriangulateImage(const IncrementalMapperOptions& options,
-                        const Image& image,
-                        IncrementalMapper* mapper) {
-  VLOG(1) << "=> Continued observations: " << image.NumPoints3D();
-  const size_t num_tris =
-      mapper->TriangulateImage(options.Triangulation(), image.ImageId());
-  VLOG(1) << "=> Added observations: " << num_tris;
-  return num_tris;
-}
-
-void AdjustGlobalBundle(const IncrementalMapperOptions& options,
-                        IncrementalMapper* mapper) {
-  BundleAdjustmentOptions custom_ba_options = options.GlobalBundleAdjustment();
-
-  const size_t num_reg_images = mapper->GetReconstruction().NumRegImages();
-
-  // Use stricter convergence criteria for first registered images.
-  const size_t kMinNumRegImagesForFastBA = 10;
-  if (num_reg_images < kMinNumRegImagesForFastBA) {
-    custom_ba_options.solver_options.function_tolerance /= 10;
-    custom_ba_options.solver_options.gradient_tolerance /= 10;
-    custom_ba_options.solver_options.parameter_tolerance /= 10;
-    custom_ba_options.solver_options.max_num_iterations *= 2;
-    custom_ba_options.solver_options.max_linear_solver_iterations = 200;
-  }
-
-  LOG(INFO) << "Global bundle adjustment";
-  mapper->AdjustGlobalBundle(options.Mapper(), custom_ba_options);
-}
-
-void IterativeLocalRefinement(const IncrementalMapperOptions& options,
-                              const image_t image_id,
-                              IncrementalMapper* mapper) {
-  auto ba_options = options.LocalBundleAdjustment();
-  for (int i = 0; i < options.ba_local_max_refinements; ++i) {
-    const auto report =
-        mapper->AdjustLocalBundle(options.Mapper(),
-                                  ba_options,
-                                  options.Triangulation(),
-                                  image_id,
-                                  mapper->GetModifiedPoints3D());
-    VLOG(1) << "=> Merged observations: " << report.num_merged_observations;
-    VLOG(1) << "=> Completed observations: "
-            << report.num_completed_observations;
-    VLOG(1) << "=> Filtered observations: " << report.num_filtered_observations;
-    const double changed =
-        report.num_adjusted_observations == 0
-            ? 0
-            : (report.num_merged_observations +
-               report.num_completed_observations +
-               report.num_filtered_observations) /
-                  static_cast<double>(report.num_adjusted_observations);
-    VLOG(1) << StringPrintf("=> Changed observations: %.6f", changed);
-    if (changed < options.ba_local_max_refinement_change) {
-      break;
-    }
-    // Only use robust cost function for first iteration.
-    ba_options.loss_function_type =
-        BundleAdjustmentOptions::LossFunctionType::TRIVIAL;
-  }
-  mapper->ClearModifiedPoints3D();
-}
-
 void IterativeGlobalRefinement(const IncrementalMapperOptions& options,
                                IncrementalMapper* mapper) {
-  LOG(INFO) << "Retriangulation";
-  CompleteAndMergeTracks(options, mapper);
-  VLOG(1) << "=> Retriangulated observations: "
-          << mapper->Retriangulate(options.Triangulation());
-
-  for (int i = 0; i < options.ba_global_max_refinements; ++i) {
-    const size_t num_observations =
-        mapper->GetReconstruction().ComputeNumObservations();
-    size_t num_changed_observations = 0;
-    AdjustGlobalBundle(options, mapper);
-    num_changed_observations += CompleteAndMergeTracks(options, mapper);
-    num_changed_observations += FilterPoints(options, mapper);
-    const double changed =
-        num_observations == 0
-            ? 0
-            : static_cast<double>(num_changed_observations) / num_observations;
-    VLOG(1) << StringPrintf("=> Changed observations: %.6f", changed);
-    if (changed < options.ba_global_max_refinement_change) {
-      break;
-    }
-  }
-
-  FilterImages(options, mapper);
+  LOG(INFO) << "Retriangulation and Global bundle adjustment";
+  mapper->IterativeGlobalRefinement(options.ba_global_max_refinements,
+                                    options.ba_global_max_refinement_change,
+                                    options.Mapper(),
+                                    options.GlobalBundleAdjustment(),
+                                    options.Triangulation());
 }
 
 void ExtractColors(const std::string& image_path,
@@ -152,32 +72,6 @@ void WriteSnapshot(const Reconstruction& reconstruction,
 }
 
 }  // namespace
-
-size_t FilterPoints(const IncrementalMapperOptions& options,
-                    IncrementalMapper* mapper) {
-  const size_t num_filtered_observations =
-      mapper->FilterPoints(options.Mapper());
-  VLOG(1) << "=> Filtered observations: " << num_filtered_observations;
-  return num_filtered_observations;
-}
-
-size_t FilterImages(const IncrementalMapperOptions& options,
-                    IncrementalMapper* mapper) {
-  const size_t num_filtered_images = mapper->FilterImages(options.Mapper());
-  VLOG(1) << "=> Filtered images: " << num_filtered_images;
-  return num_filtered_images;
-}
-
-size_t CompleteAndMergeTracks(const IncrementalMapperOptions& options,
-                              IncrementalMapper* mapper) {
-  const size_t num_completed_observations =
-      mapper->CompleteTracks(options.Triangulation());
-  VLOG(1) << "=> Completed observations: " << num_completed_observations;
-  const size_t num_merged_observations =
-      mapper->MergeTracks(options.Triangulation());
-  VLOG(1) << "=> Merged observations: " << num_merged_observations;
-  return num_completed_observations + num_merged_observations;
-}
 
 IncrementalMapper::Options IncrementalMapperOptions::Mapper() const {
   IncrementalMapper::Options options = mapper;
@@ -436,9 +330,11 @@ void IncrementalMapperController::Reconstruct(
         break;
       }
 
-      AdjustGlobalBundle(*options_, &mapper);
-      FilterPoints(*options_, &mapper);
-      FilterImages(*options_, &mapper);
+      PrintHeading1("Global bundle adjustment");
+      mapper.AdjustGlobalBundle(options_->Mapper(),
+                                options_->GlobalBundleAdjustment());
+      mapper.FilterPoints(options_->Mapper());
+      mapper.FilterImages(options_->Mapper());
 
       // Initial image pair failed to register.
       if (reconstruction->NumRegImages() == 0 ||
@@ -500,8 +396,14 @@ void IncrementalMapperController::Reconstruct(
             mapper.RegisterNextImage(options_->Mapper(), next_image_id);
 
         if (reg_next_success) {
-          TriangulateImage(*options_, next_image, &mapper);
-          IterativeLocalRefinement(*options_, next_image_id, &mapper);
+          mapper.TriangulateImage(options_->Triangulation(), next_image_id);
+          mapper.IterativeLocalRefinement(
+              options_->ba_local_max_refinements,
+              options_->ba_local_max_refinement_change,
+              options_->Mapper(),
+              options_->LocalBundleAdjustment(),
+              options_->Triangulation(),
+              next_image_id);
 
           if (reconstruction->NumRegImages() >=
                   options_->ba_global_images_ratio * ba_prev_num_reg_images ||

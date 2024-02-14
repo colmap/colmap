@@ -167,14 +167,4 @@ class IncrementalMapperController : public BaseController {
   std::shared_ptr<DatabaseCache> database_cache_;
 };
 
-// Globally filter points and images in mapper.
-size_t FilterPoints(const IncrementalMapperOptions& options,
-                    IncrementalMapper* mapper);
-size_t FilterImages(const IncrementalMapperOptions& options,
-                    IncrementalMapper* mapper);
-
-// Globally complete and merge tracks in mapper.
-size_t CompleteAndMergeTracks(const IncrementalMapperOptions& options,
-                              IncrementalMapper* mapper);
-
 }  // namespace colmap

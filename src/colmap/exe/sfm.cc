@@ -456,6 +456,7 @@ int RunPointTriangulatorImpl(
   //////////////////////////////////////////////////////////////////////////////
 
   const auto tri_options = mapper_options.Triangulation();
+  const auto map_options = mapper_options.Mapper();
 
   const std::vector<image_t>& reg_image_ids = reconstruction->RegImageIds();
 
@@ -482,7 +483,7 @@ int RunPointTriangulatorImpl(
 
   PrintHeading1("Retriangulation");
 
-  CompleteAndMergeTracks(mapper_options, &mapper);
+  mapper.CompleteAndMergeTracks(tri_options);
 
   //////////////////////////////////////////////////////////////////////////////
   // Bundle adjustment
@@ -511,8 +512,8 @@ int RunPointTriangulatorImpl(
     THROW_CHECK(bundle_adjuster.Solve(reconstruction.get()));
 
     size_t num_changed_observations = 0;
-    num_changed_observations += CompleteAndMergeTracks(mapper_options, &mapper);
-    num_changed_observations += FilterPoints(mapper_options, &mapper);
+    num_changed_observations += mapper.CompleteAndMergeTracks(tri_options);
+    num_changed_observations += mapper.FilterPoints(map_options);
     const double changed =
         static_cast<double>(num_changed_observations) / num_observations;
     LOG(INFO) << StringPrintf("=> Changed observations: %.6f", changed);

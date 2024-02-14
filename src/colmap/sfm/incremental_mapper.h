@@ -196,6 +196,10 @@ class IncrementalMapper {
   // the redundancy in subsequent bundle adjustments.
   size_t MergeTracks(const IncrementalTriangulator::Options& tri_options);
 
+  // Globally complete and merge tracks.
+  size_t CompleteAndMergeTracks(
+      const IncrementalTriangulator::Options& tri_options);
+
   // Adjust locally connected images and points of a reference image. In
   // addition, refine the provided 3D points. Only images connected to the
   // reference image are optimized. If the provided 3D points are not locally
@@ -211,6 +215,23 @@ class IncrementalMapper {
   // Global bundle adjustment using Ceres Solver.
   bool AdjustGlobalBundle(const Options& options,
                           const BundleAdjustmentOptions& ba_options);
+
+  // Perform multiple rounds of local bundle adjustment.
+  void IterativeLocalRefinement(
+      int max_num_refinements,
+      double max_refinement_change,
+      const Options& options,
+      const BundleAdjustmentOptions& ba_options,
+      const IncrementalTriangulator::Options& tri_options,
+      image_t image_id);
+
+  // Perform multiple rounds of global bundle adjustment.
+  void IterativeGlobalRefinement(
+      int max_num_refinements,
+      double max_refinement_change,
+      const Options& options,
+      const BundleAdjustmentOptions& ba_options,
+      const IncrementalTriangulator::Options& tri_options);
 
   // Filter images and point observations.
   size_t FilterImages(const Options& options);
