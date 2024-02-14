@@ -55,7 +55,7 @@ jobs:
       - name: Install ccache and ninja
         shell: pwsh
         run: |
-          mkdir -p "${{ env.CCACHE_DIR }}"
+          New-Item -ItemType Directory -Force -Path "${{ env.CCACHE_DIR }}"
           echo "${{ env.COMPILER_CACHE_DIR }}/bin" | Out-File -Encoding utf8 -Append -FilePath $env:GITHUB_PATH
 
           if (Test-Path "${{ env.COMPILER_CACHE_DIR }}/bin/ccache") {
