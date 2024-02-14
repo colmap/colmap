@@ -82,7 +82,7 @@ jobs:
         shell: pwsh
         run: |
           scripts/shell/enter_vs_dev_shell.ps1
-          vcpkg/vcpkg.exe integrate install
+          ${{ github.workspace }}/vcpkg/vcpkg.exe integrate install
           mkdir build
           cd build
           cmake .. `
@@ -97,7 +97,7 @@ jobs:
       - name: Run tests
         shell: pwsh
         run: |
-          vcpkg/vcpkg.exe integrate install
+          ${{ github.workspace }}/vcpkg/vcpkg.exe integrate install
           cd build
           ctest -E "(feature/colmap_feature_sift_test)|(util/colmap_util_opengl_utils_test)|(mvs/colmap_mvs_gpu_mat_test)"
           $tests_pass=$LastExitCode
