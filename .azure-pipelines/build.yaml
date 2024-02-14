@@ -41,10 +41,10 @@ jobs:
   #     displayName: 'Ubuntu 22.04 (ClangTidy)'
   #     ubuntuVersion: 22.04
   #     cmakeBuildType: ClangTidy
-  - template: build-mac.yaml
-    parameters:
-      displayName: 'Mac 12'
-      macVersion: 12
+  # - template: build-mac.yaml
+  #   parameters:
+  #     displayName: 'Mac 12'
+  #     macVersion: 12
   - template: build-docker.yaml
     parameters:
       displayName: 'Docker'

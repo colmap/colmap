@@ -149,11 +149,11 @@ class LogMessageFatalThrow : public google::LogMessage {
  public:
   LogMessageFatalThrow(const char* file, int line)
       : google::LogMessage(file, line, google::GLOG_ERROR, &message_),
-        prefix_(__MakeExceptionPrefix(file, line)){};
+        prefix_(__MakeExceptionPrefix(file, line)) {}
   LogMessageFatalThrow(const char* file, int line, std::string* message)
       : google::LogMessage(file, line, google::GLOG_ERROR, message),
         message_(*message),
-        prefix_(__MakeExceptionPrefix(file, line)){};
+        prefix_(__MakeExceptionPrefix(file, line)) {}
   LogMessageFatalThrow(const char* file,
                        int line,
 #if defined(GLOG_VERSION_MAJOR) && \
@@ -168,7 +168,7 @@ class LogMessageFatalThrow : public google::LogMessage {
     // On LOG(FATAL) glog does not bother cleaning up CheckOpString
     // so we do it here.
     delete result.str_;
-  };
+  }
   ~LogMessageFatalThrow() noexcept(false) {
     Flush();
 #if defined(__cpp_lib_uncaught_exceptions) && \
@@ -180,7 +180,7 @@ class LogMessageFatalThrow : public google::LogMessage {
     {
       throw T(prefix_ + message_);
     }
-  };
+  }
 
  private:
   std::string message_;

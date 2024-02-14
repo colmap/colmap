@@ -95,7 +95,7 @@ TEST(Database, ImagePairToPairId) {
       const image_pair_t pair_id = Database::ImagePairToPairId(i, j);
       image_t image_id1;
       image_t image_id2;
-      Database::PairIdToImagePair(pair_id, &image_id1, &image_id2);
+      std::tie(image_id1, image_id2) = Database::PairIdToImagePair(pair_id);
       if (i < j) {
         EXPECT_EQ(i, image_id1);
         EXPECT_EQ(j, image_id2);

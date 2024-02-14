@@ -1,4 +1,4 @@
-name: COLMAP
+name: COLMAP (Ubuntu)
 
 on:
   push:
@@ -11,65 +11,65 @@ on:
 
 jobs:
   build:
-    name: ${{ matrix.config.os }} ${{ matrix.config.arch }} ${{ matrix.config.cmakeBuildType }} ${{ matrix.config.cudaEnabled && 'CUDA' || '' }} ${{ matrix.config.asanEnabled && 'ASan' || '' }}
+    name: ${{ matrix.config.cmakeBuildType }} ${{ matrix.config.cudaEnabled && 'CUDA' || '' }} ${{ matrix.config.asanEnabled && 'ASan' || '' }}
     runs-on: ${{ matrix.config.os }}
     strategy:
       matrix:
         config: [
-              {
-                os: ubuntu-22.04,
-                cmakeBuildType: Release,
-                asanEnabled: false,
-                guiEnabled: true,
-                cudaEnabled: false,
-                e2eTests: true,
-                checkCodeFormat: true,
-              },
-              {
-                os: ubuntu-22.04,
-                cmakeBuildType: Release,
-                asanEnabled: false,
-                guiEnabled: false,
-                cudaEnabled: true,
-                e2eTests: false,
-                checkCodeFormat: false,
-              },
-              {
-                os: ubuntu-22.04,
-                cmakeBuildType: Release,
-                asanEnabled: true,
-                guiEnabled: false,
-                cudaEnabled: false,
-                e2eTests: false,
-                checkCodeFormat: false,
-              },
-              {
-                os: ubuntu-22.04,
-                cmakeBuildType: ClangTidy,
-                asanEnabled: false,
-                guiEnabled: false,
-                cudaEnabled: false,
-                e2eTests: false,
-                checkCodeFormat: false,
-              },
-              {
-                os: ubuntu-20.04,
-                cmakeBuildType: Release,
-                asanEnabled: false,
-                guiEnabled: true,
-                cudaEnabled: false,
-                e2eTests: false,
-                checkCodeFormat: false,
-              },
-              {
-                os: ubuntu-20.04,
-                cmakeBuildType: Release,
-                asanEnabled: false,
-                guiEnabled: false,
-                cudaEnabled: true,
-                e2eTests: false,
-                checkCodeFormat: false,
-              },
+          {
+            os: ubuntu-22.04,
+            cmakeBuildType: Release,
+            asanEnabled: false,
+            guiEnabled: true,
+            cudaEnabled: false,
+            e2eTests: true,
+            checkCodeFormat: true,
+          },
+          {
+            os: ubuntu-22.04,
+            cmakeBuildType: Release,
+            asanEnabled: false,
+            guiEnabled: false,
+            cudaEnabled: true,
+            e2eTests: false,
+            checkCodeFormat: false,
+          },
+          {
+            os: ubuntu-22.04,
+            cmakeBuildType: Release,
+            asanEnabled: true,
+            guiEnabled: false,
+            cudaEnabled: false,
+            e2eTests: false,
+            checkCodeFormat: false,
+          },
+          {
+            os: ubuntu-22.04,
+            cmakeBuildType: ClangTidy,
+            asanEnabled: false,
+            guiEnabled: false,
+            cudaEnabled: false,
+            e2eTests: false,
+            checkCodeFormat: false,
+          },
+          {
+            os: ubuntu-20.04,
+            cmakeBuildType: Release,
+            asanEnabled: false,
+            guiEnabled: true,
+            cudaEnabled: false,
+            e2eTests: false,
+            checkCodeFormat: false,
+          },
+          {
+            os: ubuntu-20.04,
+            cmakeBuildType: Release,
+            asanEnabled: false,
+            guiEnabled: false,
+            cudaEnabled: true,
+            e2eTests: false,
+            checkCodeFormat: false,
+          },
         ]
 
     env:
@@ -84,8 +84,8 @@ jobs:
       - uses: actions/cache@v4
         id: cache-builds
         with:
-          key: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}-${{ github.run_id }}-${{ github.run_number }}
-          restore-keys: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}
+          key: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}-${{ github.run_id }}-${{ github.run_number }}
+          restore-keys: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}
           path: ${{ env.COMPILER_CACHE_DIR }}
       
       - name: Install compiler cache
