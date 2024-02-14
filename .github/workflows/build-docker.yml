@@ -30,7 +30,7 @@ jobs:
 
       - name: Build and push
         run: |
-          dockertag=$(date +%Y%m%d).${{ github.run_id }}
+          dockertag=$(date +%Y%m%d).${{ github.run_number }}
           git_commit_id=$(git rev-parse --short "$GITHUB_SHA")
           if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
             cuda_archs="50;60;70;75;90"
@@ -40,7 +40,7 @@ jobs:
           docker build . \
             --file docker/Dockerfile \
             --tag colmap/colmap:$dockertag \
-            --build-arg COLMAP_GIT_COMMIT="$git_commit_id" \
+            --build-arg COLMAP_GIT_COMMIT="$GITHUB_SHA" \
             --build-arg CUDA_ARCHITECTURES="$cuda_archs"
           if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
             docker tag colmap/colmap:$dockertag colmap/colmap:latest
