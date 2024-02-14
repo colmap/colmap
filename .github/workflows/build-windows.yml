@@ -58,7 +58,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path "${{ env.CCACHE_DIR }}"
           echo "${{ env.COMPILER_CACHE_DIR }}/bin" | Out-File -Encoding utf8 -Append -FilePath $env:GITHUB_PATH
 
-          if (Test-Path -PathType Leaf "${{ env.COMPILER_CACHE_DIR }}/bin/ccache") {
+          if (Test-Path -PathType Leaf "${{ env.COMPILER_CACHE_DIR }}/bin/ccache.exe") {
             exit
           }
 
