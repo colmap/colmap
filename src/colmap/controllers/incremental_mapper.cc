@@ -36,21 +36,21 @@ namespace colmap {
 namespace {
 
 void IterativeGlobalRefinement(const IncrementalMapperOptions& options,
-                               IncrementalMapper* mapper) {
+                               IncrementalMapper& mapper) {
   LOG(INFO) << "Retriangulation and Global bundle adjustment";
-  mapper->IterativeGlobalRefinement(options.ba_global_max_refinements,
-                                    options.ba_global_max_refinement_change,
-                                    options.Mapper(),
-                                    options.GlobalBundleAdjustment(),
-                                    options.Triangulation());
+  mapper.IterativeGlobalRefinement(options.ba_global_max_refinements,
+                                   options.ba_global_max_refinement_change,
+                                   options.Mapper(),
+                                   options.GlobalBundleAdjustment(),
+                                   options.Triangulation());
 }
 
 void ExtractColors(const std::string& image_path,
                    const image_t image_id,
-                   Reconstruction* reconstruction) {
-  if (!reconstruction->ExtractColorsForImage(image_id, image_path)) {
+                   Reconstruction& reconstruction) {
+  if (!reconstruction.ExtractColorsForImage(image_id, image_path)) {
     LOG(WARNING) << StringPrintf("Could not read image %s at path %s.",
-                                 reconstruction->Image(image_id).Name().c_str(),
+                                 reconstruction.Image(image_id).Name().c_str(),
                                  image_path.c_str());
   }
 }
@@ -351,7 +351,7 @@ void IncrementalMapperController::Reconstruct(
       }
 
       if (options_->extract_colors) {
-        ExtractColors(image_path_, image_id1, reconstruction.get());
+        ExtractColors(image_path_, image_id1, *reconstruction);
       }
     }
 
@@ -413,13 +413,13 @@ void IncrementalMapperController::Reconstruct(
                   options_->ba_global_points_ratio * ba_prev_num_points ||
               reconstruction->NumPoints3D() >=
                   options_->ba_global_points_freq + ba_prev_num_points) {
-            IterativeGlobalRefinement(*options_, &mapper);
+            IterativeGlobalRefinement(*options_, mapper);
             ba_prev_num_points = reconstruction->NumPoints3D();
             ba_prev_num_reg_images = reconstruction->NumRegImages();
           }
 
           if (options_->extract_colors) {
-            ExtractColors(image_path_, next_image_id, reconstruction.get());
+            ExtractColors(image_path_, next_image_id, *reconstruction);
           }
 
           if (options_->snapshot_images_freq > 0 &&
@@ -459,7 +459,7 @@ void IncrementalMapperController::Reconstruct(
       if (!reg_next_success && prev_reg_next_success) {
         reg_next_success = true;
         prev_reg_next_success = false;
-        IterativeGlobalRefinement(*options_, &mapper);
+        IterativeGlobalRefinement(*options_, mapper);
       } else {
         prev_reg_next_success = reg_next_success;
       }
@@ -474,7 +474,7 @@ void IncrementalMapperController::Reconstruct(
     if (reconstruction->NumRegImages() >= 2 &&
         reconstruction->NumRegImages() != ba_prev_num_reg_images &&
         reconstruction->NumPoints3D() != ba_prev_num_points) {
-      IterativeGlobalRefinement(*options_, &mapper);
+      IterativeGlobalRefinement(*options_, mapper);
     }
 
     // Remember the total number of registered images before potentially
