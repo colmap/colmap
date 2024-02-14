@@ -44,6 +44,7 @@ void BindLogging(py::module& m) {
       .def_readwrite_static("log_dir", &FLAGS_log_dir)
       .def_readwrite_static("logtostderr", &FLAGS_logtostderr)
       .def_readwrite_static("alsologtostderr", &FLAGS_alsologtostderr)
+      .def_readwrite_static("verbose_level", &FLAGS_v)
       .def_static(
           "set_log_destination",
           [](const Logging::LogSeverity severity, const std::string& path) {
@@ -51,15 +52,24 @@ void BindLogging(py::module& m) {
                 static_cast<google::LogSeverity>(severity), path.c_str());
           })
       .def_static(
+          "verbose",
+          [](const int level, const std::string& msg) {
+            if (VLOG_IS_ON(level)) {
+              const auto frame = GetPythonCallFrame();
+              google::LogMessage(frame.first.c_str(), frame.second).stream()
+                  << msg;
+            }
+          })
+      .def_static(
           "info",
           [](const std::string& msg) {
-            auto frame = GetPythonCallFrame();
+            const auto frame = GetPythonCallFrame();
             google::LogMessage(frame.first.c_str(), frame.second).stream()
                 << msg;
           })
       .def_static("warning",
                   [](const std::string& msg) {
-                    auto frame = GetPythonCallFrame();
+                    const auto frame = GetPythonCallFrame();
                     google::LogMessage(
                         frame.first.c_str(), frame.second, google::GLOG_WARNING)
                             .stream()
@@ -67,14 +77,14 @@ void BindLogging(py::module& m) {
                   })
       .def_static("error",
                   [](const std::string& msg) {
-                    auto frame = GetPythonCallFrame();
+                    const auto frame = GetPythonCallFrame();
                     google::LogMessage(
                         frame.first.c_str(), frame.second, google::GLOG_ERROR)
                             .stream()
                         << msg;
                   })
       .def_static("fatal", [](const std::string& msg) {
-        auto frame = GetPythonCallFrame();
+        const auto frame = GetPythonCallFrame();
         google::LogMessageFatal(frame.first.c_str(), frame.second).stream()
             << msg;
       });
