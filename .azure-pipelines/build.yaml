@@ -45,6 +45,6 @@ jobs:
   #   parameters:
   #     displayName: 'Mac 12'
   #     macVersion: 12
-  - template: build-docker.yaml
-    parameters:
-      displayName: 'Docker'
+  # - template: build-docker.yaml
+  #   parameters:
+  #     displayName: 'Docker'

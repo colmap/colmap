@@ -11,8 +11,8 @@ on:
 
 jobs:
   build:
-    name: ${{ matrix.config.arch }}
-    runs-on: ${{ matrix.config.os }}
+    name: Docker Hub
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
 
