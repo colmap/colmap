@@ -159,6 +159,9 @@ class IncrementalMapperController : public BaseController {
  private:
   bool LoadDatabase();
   void Reconstruct(const IncrementalMapper::Options& init_mapper_options);
+  bool ReconstructSubModel(IncrementalMapper& mapper,
+                           const IncrementalMapper::Options& mapper_options,
+                           size_t reconstruction_idx);
 
   const std::shared_ptr<const IncrementalMapperOptions> options_;
   const std::string image_path_;

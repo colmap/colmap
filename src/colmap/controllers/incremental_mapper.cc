@@ -250,12 +250,237 @@ bool IncrementalMapperController::LoadDatabase() {
   return true;
 }
 
+bool IncrementalMapperController::ReconstructSubModel(
+    IncrementalMapper& mapper,
+    const IncrementalMapper::Options& mapper_options,
+    const size_t reconstruction_idx) {
+  const bool kIsLastSubModel = true;
+
+  std::shared_ptr<Reconstruction> reconstruction =
+      reconstruction_manager_->Get(reconstruction_idx);
+
+  mapper.BeginReconstruction(reconstruction);
+
+  ////////////////////////////////////////////////////////////////////////////
+  // Register initial pair
+  ////////////////////////////////////////////////////////////////////////////
+
+  if (reconstruction->NumRegImages() == 0) {
+    image_t image_id1 = static_cast<image_t>(options_->init_image_id1);
+    image_t image_id2 = static_cast<image_t>(options_->init_image_id2);
+
+    // Try to find good initial pair.
+    if (options_->init_image_id1 == -1 || options_->init_image_id2 == -1) {
+      LOG(INFO) << "Finding good initial image pair";
+      const bool find_init_success =
+          mapper.FindInitialImagePair(mapper_options, &image_id1, &image_id2);
+      if (!find_init_success) {
+        LOG(INFO) << "=> No good initial image pair found.";
+        mapper.EndReconstruction(/*discard=*/true);
+        reconstruction_manager_->Delete(reconstruction_idx);
+        return kIsLastSubModel;
+      }
+    } else {
+      if (!reconstruction->ExistsImage(image_id1) ||
+          !reconstruction->ExistsImage(image_id2)) {
+        LOG(INFO) << StringPrintf(
+            "=> Initial image pair #%d and #%d do not exist.",
+            image_id1,
+            image_id2);
+        mapper.EndReconstruction(/*discard=*/true);
+        reconstruction_manager_->Delete(reconstruction_idx);
+        return kIsLastSubModel;
+      }
+    }
+
+    LOG(INFO) << StringPrintf(
+        "Initializing with image pair #%d and #%d", image_id1, image_id2);
+    const bool reg_init_success =
+        mapper.RegisterInitialImagePair(mapper_options, image_id1, image_id2);
+    if (!reg_init_success) {
+      LOG(INFO) << "=> Initialization failed - possible solutions:" << std::endl
+                << "     - try to relax the initialization constraints"
+                << std::endl
+                << "     - manually select an initial image pair";
+      mapper.EndReconstruction(/*discard=*/true);
+      reconstruction_manager_->Delete(reconstruction_idx);
+      return kIsLastSubModel;
+    }
+
+    LOG(INFO) << "Global bundle adjustment";
+    mapper.AdjustGlobalBundle(mapper_options,
+                              options_->GlobalBundleAdjustment());
+    mapper.FilterPoints(mapper_options);
+    mapper.FilterImages(mapper_options);
+
+    // Initial image pair failed to register.
+    if (reconstruction->NumRegImages() == 0 ||
+        reconstruction->NumPoints3D() == 0) {
+      mapper.EndReconstruction(/*discard=*/true);
+      reconstruction_manager_->Delete(reconstruction_idx);
+      // If both initial images are manually specified, there is no need for
+      // further initialization trials.
+      return options_->init_image_id1 != -1 && options_->init_image_id2 != -1;
+    }
+
+    if (options_->extract_colors) {
+      ExtractColors(image_path_, image_id1, *reconstruction);
+    }
+  }
+
+  Callback(INITIAL_IMAGE_PAIR_REG_CALLBACK);
+
+  ////////////////////////////////////////////////////////////////////////////
+  // Incremental mapping
+  ////////////////////////////////////////////////////////////////////////////
+
+  size_t snapshot_prev_num_reg_images = reconstruction->NumRegImages();
+  size_t ba_prev_num_reg_images = reconstruction->NumRegImages();
+  size_t ba_prev_num_points = reconstruction->NumPoints3D();
+
+  bool reg_next_success = true;
+  bool prev_reg_next_success = true;
+  while (reg_next_success) {
+    if (CheckIfStopped()) {
+      break;
+    }
+
+    reg_next_success = false;
+
+    const std::vector<image_t> next_images =
+        mapper.FindNextImages(mapper_options);
+
+    if (next_images.empty()) {
+      break;
+    }
+
+    for (size_t reg_trial = 0; reg_trial < next_images.size(); ++reg_trial) {
+      const image_t next_image_id = next_images[reg_trial];
+      const Image& next_image = reconstruction->Image(next_image_id);
+
+      LOG(INFO) << StringPrintf("Registering image #%d (%d)",
+                                next_image_id,
+                                reconstruction->NumRegImages() + 1);
+      LOG(INFO) << StringPrintf("=> Image sees %d / %d points",
+                                next_image.NumVisiblePoints3D(),
+                                next_image.NumObservations());
+
+      reg_next_success =
+          mapper.RegisterNextImage(mapper_options, next_image_id);
+
+      if (reg_next_success) {
+        mapper.TriangulateImage(options_->Triangulation(), next_image_id);
+        mapper.IterativeLocalRefinement(
+            options_->ba_local_max_refinements,
+            options_->ba_local_max_refinement_change,
+            mapper_options,
+            options_->LocalBundleAdjustment(),
+            options_->Triangulation(),
+            next_image_id);
+
+        if (reconstruction->NumRegImages() >=
+                options_->ba_global_images_ratio * ba_prev_num_reg_images ||
+            reconstruction->NumRegImages() >=
+                options_->ba_global_images_freq + ba_prev_num_reg_images ||
+            reconstruction->NumPoints3D() >=
+                options_->ba_global_points_ratio * ba_prev_num_points ||
+            reconstruction->NumPoints3D() >=
+                options_->ba_global_points_freq + ba_prev_num_points) {
+          IterativeGlobalRefinement(*options_, mapper_options, mapper);
+          ba_prev_num_points = reconstruction->NumPoints3D();
+          ba_prev_num_reg_images = reconstruction->NumRegImages();
+        }
+
+        if (options_->extract_colors) {
+          ExtractColors(image_path_, next_image_id, *reconstruction);
+        }
+
+        if (options_->snapshot_images_freq > 0 &&
+            reconstruction->NumRegImages() >=
+                options_->snapshot_images_freq + snapshot_prev_num_reg_images) {
+          snapshot_prev_num_reg_images = reconstruction->NumRegImages();
+          WriteSnapshot(*reconstruction, options_->snapshot_path);
+        }
+
+        Callback(NEXT_IMAGE_REG_CALLBACK);
+
+        break;
+      } else {
+        LOG(INFO) << "=> Could not register, trying another image.";
+
+        // If initial pair fails to continue for some time,
+        // abort and try different initial pair.
+        const size_t kMinNumInitialRegTrials = 30;
+        if (reg_trial >= kMinNumInitialRegTrials &&
+            reconstruction->NumRegImages() <
+                static_cast<size_t>(options_->min_model_size)) {
+          break;
+        }
+      }
+    }
+
+    const size_t max_model_overlap =
+        static_cast<size_t>(options_->max_model_overlap);
+    if (mapper.NumSharedRegImages() >= max_model_overlap) {
+      break;
+    }
+
+    // If no image could be registered, try a single final global iterative
+    // bundle adjustment and try again to register one image. If this fails
+    // once, then exit the incremental mapping.
+    if (!reg_next_success && prev_reg_next_success) {
+      reg_next_success = true;
+      prev_reg_next_success = false;
+      IterativeGlobalRefinement(*options_, mapper_options, mapper);
+    } else {
+      prev_reg_next_success = reg_next_success;
+    }
+  }
+
+  if (CheckIfStopped()) {
+    mapper.EndReconstruction(/*discard=*/false);
+    return kIsLastSubModel;
+  }
+
+  // Only run final global BA, if last incremental BA was not global.
+  if (reconstruction->NumRegImages() >= 2 &&
+      reconstruction->NumRegImages() != ba_prev_num_reg_images &&
+      reconstruction->NumPoints3D() != ba_prev_num_points) {
+    IterativeGlobalRefinement(*options_, mapper_options, mapper);
+  }
+
+  // Remember the total number of registered images before potentially
+  // discarding it below due to small size, so we can out of the main loop,
+  // if all images were registered.
+  const size_t total_num_reg_images = mapper.NumTotalRegImages();
+
+  // If the total number of images is small then do not enforce the minimum
+  // model size so that we can reconstruct small image collections.
+  // Always keep the first reconstruction, independent of size.
+  const size_t min_model_size = std::min<size_t>(
+      0.8 * database_cache_->NumImages(), options_->min_model_size);
+  if ((options_->multiple_models && reconstruction_manager_->Size() > 1 &&
+       reconstruction->NumRegImages() < min_model_size) ||
+      reconstruction->NumRegImages() == 0) {
+    mapper.EndReconstruction(/*discard=*/true);
+    reconstruction_manager_->Delete(reconstruction_idx);
+  } else {
+    mapper.EndReconstruction(/*discard=*/false);
+  }
+
+  Callback(LAST_IMAGE_REG_CALLBACK);
+
+  if (!options_->multiple_models ||
+      reconstruction_manager_->Size() >=
+          static_cast<size_t>(options_->max_num_models) ||
+      total_num_reg_images >= database_cache_->NumImages() - 1) {
+    return kIsLastSubModel;
+  }
+  return !kIsLastSubModel;
+}
+
 void IncrementalMapperController::Reconstruct(
     const IncrementalMapper::Options& mapper_options) {
-  //////////////////////////////////////////////////////////////////////////////
-  // Main loop
-  //////////////////////////////////////////////////////////////////////////////
-
   IncrementalMapper mapper(database_cache_);
 
   // Is there a sub-model before we start the reconstruction? I.e. the user
@@ -268,241 +493,15 @@ void IncrementalMapperController::Reconstruct(
 
   for (int num_trials = 0; num_trials < options_->init_num_trials;
        ++num_trials) {
-    if (CheckIfStopped()) {
-      break;
-    }
-
     size_t reconstruction_idx;
     if (!initial_reconstruction_given || num_trials > 0) {
       reconstruction_idx = reconstruction_manager_->Add();
     } else {
       reconstruction_idx = 0;
     }
-
-    std::shared_ptr<Reconstruction> reconstruction =
-        reconstruction_manager_->Get(reconstruction_idx);
-
-    mapper.BeginReconstruction(reconstruction);
-
-    ////////////////////////////////////////////////////////////////////////////
-    // Register initial pair
-    ////////////////////////////////////////////////////////////////////////////
-
-    if (reconstruction->NumRegImages() == 0) {
-      image_t image_id1 = static_cast<image_t>(options_->init_image_id1);
-      image_t image_id2 = static_cast<image_t>(options_->init_image_id2);
-
-      // Try to find good initial pair.
-      if (options_->init_image_id1 == -1 || options_->init_image_id2 == -1) {
-        LOG(INFO) << "Finding good initial image pair";
-        const bool find_init_success =
-            mapper.FindInitialImagePair(mapper_options, &image_id1, &image_id2);
-        if (!find_init_success) {
-          LOG(INFO) << "=> No good initial image pair found.";
-          mapper.EndReconstruction(/*discard=*/true);
-          reconstruction_manager_->Delete(reconstruction_idx);
-          break;
-        }
-      } else {
-        if (!reconstruction->ExistsImage(image_id1) ||
-            !reconstruction->ExistsImage(image_id2)) {
-          LOG(INFO) << StringPrintf(
-              "=> Initial image pair #%d and #%d do not exist.",
-              image_id1,
-              image_id2);
-          mapper.EndReconstruction(/*discard=*/true);
-          reconstruction_manager_->Delete(reconstruction_idx);
-          return;
-        }
-      }
-
-      LOG(INFO) << StringPrintf(
-          "Initializing with image pair #%d and #%d", image_id1, image_id2);
-      const bool reg_init_success =
-          mapper.RegisterInitialImagePair(mapper_options, image_id1, image_id2);
-      if (!reg_init_success) {
-        LOG(INFO) << "=> Initialization failed - possible solutions:"
-                  << std::endl
-                  << "     - try to relax the initialization constraints"
-                  << std::endl
-                  << "     - manually select an initial image pair";
-        mapper.EndReconstruction(/*discard=*/true);
-        reconstruction_manager_->Delete(reconstruction_idx);
-        break;
-      }
-
-      PrintHeading1("Global bundle adjustment");
-      mapper.AdjustGlobalBundle(mapper_options,
-                                options_->GlobalBundleAdjustment());
-      mapper.FilterPoints(mapper_options);
-      mapper.FilterImages(mapper_options);
-
-      // Initial image pair failed to register.
-      if (reconstruction->NumRegImages() == 0 ||
-          reconstruction->NumPoints3D() == 0) {
-        mapper.EndReconstruction(/*discard=*/true);
-        reconstruction_manager_->Delete(reconstruction_idx);
-        // If both initial images are manually specified, there is no need for
-        // further initialization trials.
-        if (options_->init_image_id1 != -1 && options_->init_image_id2 != -1) {
-          break;
-        } else {
-          continue;
-        }
-      }
-
-      if (options_->extract_colors) {
-        ExtractColors(image_path_, image_id1, *reconstruction);
-      }
-    }
-
-    Callback(INITIAL_IMAGE_PAIR_REG_CALLBACK);
-
-    ////////////////////////////////////////////////////////////////////////////
-    // Incremental mapping
-    ////////////////////////////////////////////////////////////////////////////
-
-    size_t snapshot_prev_num_reg_images = reconstruction->NumRegImages();
-    size_t ba_prev_num_reg_images = reconstruction->NumRegImages();
-    size_t ba_prev_num_points = reconstruction->NumPoints3D();
-
-    bool reg_next_success = true;
-    bool prev_reg_next_success = true;
-    while (reg_next_success) {
-      if (CheckIfStopped()) {
-        break;
-      }
-
-      reg_next_success = false;
-
-      const std::vector<image_t> next_images =
-          mapper.FindNextImages(mapper_options);
-
-      if (next_images.empty()) {
-        break;
-      }
-
-      for (size_t reg_trial = 0; reg_trial < next_images.size(); ++reg_trial) {
-        const image_t next_image_id = next_images[reg_trial];
-        const Image& next_image = reconstruction->Image(next_image_id);
-
-        LOG(INFO) << StringPrintf("Registering image #%d (%d)",
-                                  next_image_id,
-                                  reconstruction->NumRegImages() + 1);
-        LOG(INFO) << StringPrintf("=> Image sees %d / %d points",
-                                  next_image.NumVisiblePoints3D(),
-                                  next_image.NumObservations());
-
-        reg_next_success =
-            mapper.RegisterNextImage(mapper_options, next_image_id);
-
-        if (reg_next_success) {
-          mapper.TriangulateImage(options_->Triangulation(), next_image_id);
-          mapper.IterativeLocalRefinement(
-              options_->ba_local_max_refinements,
-              options_->ba_local_max_refinement_change,
-              mapper_options,
-              options_->LocalBundleAdjustment(),
-              options_->Triangulation(),
-              next_image_id);
-
-          if (reconstruction->NumRegImages() >=
-                  options_->ba_global_images_ratio * ba_prev_num_reg_images ||
-              reconstruction->NumRegImages() >=
-                  options_->ba_global_images_freq + ba_prev_num_reg_images ||
-              reconstruction->NumPoints3D() >=
-                  options_->ba_global_points_ratio * ba_prev_num_points ||
-              reconstruction->NumPoints3D() >=
-                  options_->ba_global_points_freq + ba_prev_num_points) {
-            IterativeGlobalRefinement(*options_, mapper_options, mapper);
-            ba_prev_num_points = reconstruction->NumPoints3D();
-            ba_prev_num_reg_images = reconstruction->NumRegImages();
-          }
-
-          if (options_->extract_colors) {
-            ExtractColors(image_path_, next_image_id, *reconstruction);
-          }
-
-          if (options_->snapshot_images_freq > 0 &&
-              reconstruction->NumRegImages() >=
-                  options_->snapshot_images_freq +
-                      snapshot_prev_num_reg_images) {
-            snapshot_prev_num_reg_images = reconstruction->NumRegImages();
-            WriteSnapshot(*reconstruction, options_->snapshot_path);
-          }
-
-          Callback(NEXT_IMAGE_REG_CALLBACK);
-
-          break;
-        } else {
-          LOG(INFO) << "=> Could not register, trying another image.";
-
-          // If initial pair fails to continue for some time,
-          // abort and try different initial pair.
-          const size_t kMinNumInitialRegTrials = 30;
-          if (reg_trial >= kMinNumInitialRegTrials &&
-              reconstruction->NumRegImages() <
-                  static_cast<size_t>(options_->min_model_size)) {
-            break;
-          }
-        }
-      }
-
-      const size_t max_model_overlap =
-          static_cast<size_t>(options_->max_model_overlap);
-      if (mapper.NumSharedRegImages() >= max_model_overlap) {
-        break;
-      }
-
-      // If no image could be registered, try a single final global iterative
-      // bundle adjustment and try again to register one image. If this fails
-      // once, then exit the incremental mapping.
-      if (!reg_next_success && prev_reg_next_success) {
-        reg_next_success = true;
-        prev_reg_next_success = false;
-        IterativeGlobalRefinement(*options_, mapper_options, mapper);
-      } else {
-        prev_reg_next_success = reg_next_success;
-      }
-    }
-
-    if (CheckIfStopped()) {
-      mapper.EndReconstruction(/*discard=*/false);
-      break;
-    }
-
-    // Only run final global BA, if last incremental BA was not global.
-    if (reconstruction->NumRegImages() >= 2 &&
-        reconstruction->NumRegImages() != ba_prev_num_reg_images &&
-        reconstruction->NumPoints3D() != ba_prev_num_points) {
-      IterativeGlobalRefinement(*options_, mapper_options, mapper);
-    }
-
-    // Remember the total number of registered images before potentially
-    // discarding it below due to small size, so we can out of the main loop,
-    // if all images were registered.
-    const size_t total_num_reg_images = mapper.NumTotalRegImages();
-
-    // If the total number of images is small then do not enforce the minimum
-    // model size so that we can reconstruct small image collections.
-    // Always keep the first reconstruction, independent of size.
-    const size_t min_model_size = std::min<size_t>(
-        0.8 * database_cache_->NumImages(), options_->min_model_size);
-    if ((options_->multiple_models && reconstruction_manager_->Size() > 1 &&
-         reconstruction->NumRegImages() < min_model_size) ||
-        reconstruction->NumRegImages() == 0) {
-      mapper.EndReconstruction(/*discard=*/true);
-      reconstruction_manager_->Delete(reconstruction_idx);
-    } else {
-      mapper.EndReconstruction(/*discard=*/false);
-    }
-
-    Callback(LAST_IMAGE_REG_CALLBACK);
-
-    if (initial_reconstruction_given || !options_->multiple_models ||
-        reconstruction_manager_->Size() >=
-            static_cast<size_t>(options_->max_num_models) ||
-        total_num_reg_images >= database_cache_->NumImages() - 1) {
+    const bool is_last_trial =
+        ReconstructSubModel(mapper, mapper_options, reconstruction_idx);
+    if (initial_reconstruction_given || is_last_trial || CheckIfStopped()) {
       break;
     }
   }
