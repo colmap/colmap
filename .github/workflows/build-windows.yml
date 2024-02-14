@@ -71,19 +71,20 @@ jobs:
       - name: Setup vcpkg
         shell: pwsh
         run: |
-          scripts/shell/enter_vs_dev_shell.ps1
+          ./scripts/shell/enter_vs_dev_shell.ps1
+          cd ${{ github.workspace }}
           git clone https://github.com/microsoft/vcpkg
           cd vcpkg
           git reset --hard ${{ env.VCPKG_COMMIT_ID }}
-          bootstrap-vcpkg.bat
-          $pwd
-          vcpkg.exe install --recurse @${{ github.workspace }}/.github/workflows/build-windows-vcpkg.txt --clean-after-build
+          ./bootstrap-vcpkg.bat
+          ./vcpkg.exe install --recurse @${{ github.workspace }}/.github/workflows/build-windows-vcpkg.txt --clean-after-build
 
       - name: Configure and build
         shell: pwsh
         run: |
-          scripts/shell/enter_vs_dev_shell.ps1
-          ${{ github.workspace }}/vcpkg/vcpkg.exe integrate install
+          ./scripts/shell/enter_vs_dev_shell.ps1
+          cd ${{ github.workspace }}
+          ./vcpkg/vcpkg.exe integrate install
           mkdir build
           cd build
           cmake .. `
@@ -98,7 +99,7 @@ jobs:
       - name: Run tests
         shell: pwsh
         run: |
-          ${{ github.workspace }}/vcpkg/vcpkg.exe integrate install
+          ./vcpkg/vcpkg.exe integrate install
           cd build
           ctest -E "(feature/colmap_feature_sift_test)|(util/colmap_util_opengl_utils_test)|(mvs/colmap_mvs_gpu_mat_test)"
           $tests_pass=$LastExitCode
