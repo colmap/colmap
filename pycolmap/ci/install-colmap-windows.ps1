@@ -14,7 +14,7 @@ If (!(Test-Path -path ${NINJA_PATH} -PathType Leaf)) {
 }
 If (!(Test-Path -path "${COMPILER_TOOLS_DIR}/ccache.exe" -PathType Leaf)) {
     # For some reason this CI runs an earlier PowerShell version that is
-    # not compatible with colmap/.azure-pipelines/install-ccache.ps1
+    # not compatible with colmap/.github/workflows/install-ccache.ps1
     $folder = "ccache-4.8-windows-x86_64"
     $url = "https://github.com/ccache/ccache/releases/download/v4.8/${folder}.zip"
     $zip_path = "${env:TEMP}/${folder}.zip"

@@ -62,7 +62,7 @@ jobs:
             exit
           }
 
-          .azure-pipelines/install-ccache.ps1 -Destination "${{ env.COMPILER_CACHE_DIR }}/bin"
+          .github/workflows/install-ccache.ps1 -Destination "${{ env.COMPILER_CACHE_DIR }}/bin"
 
           curl -L -o `
             ninja.zip `
