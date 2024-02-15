@@ -305,6 +305,20 @@ bool IncrementalMapperController::InitializeReconstruction(
   return true;
 }
 
+bool IncrementalMapperController::CheckRunGlobalRefinement(
+    const Reconstruction& reconstruction,
+    const size_t ba_prev_num_reg_images,
+    const size_t ba_prev_num_points) {
+  return reconstruction.NumRegImages() >=
+             options_->ba_global_images_ratio * ba_prev_num_reg_images ||
+         reconstruction.NumRegImages() >=
+             options_->ba_global_images_freq + ba_prev_num_reg_images ||
+         reconstruction.NumPoints3D() >=
+             options_->ba_global_points_ratio * ba_prev_num_points ||
+         reconstruction.NumPoints3D() >=
+             options_->ba_global_points_freq + ba_prev_num_points;
+}
+
 bool IncrementalMapperController::ReconstructSubModel(
     IncrementalMapper& mapper,
     const IncrementalMapper::Options& mapper_options,
@@ -397,14 +411,8 @@ bool IncrementalMapperController::ReconstructSubModel(
                                       options_->Triangulation(),
                                       next_image_id);
 
-      if (reconstruction->NumRegImages() >=
-              options_->ba_global_images_ratio * ba_prev_num_reg_images ||
-          reconstruction->NumRegImages() >=
-              options_->ba_global_images_freq + ba_prev_num_reg_images ||
-          reconstruction->NumPoints3D() >=
-              options_->ba_global_points_ratio * ba_prev_num_points ||
-          reconstruction->NumPoints3D() >=
-              options_->ba_global_points_freq + ba_prev_num_points) {
+      if (CheckRunGlobalRefinement(
+              *reconstruction, ba_prev_num_reg_images, ba_prev_num_points)) {
         IterativeGlobalRefinement(*options_, mapper_options, mapper);
         ba_prev_num_points = reconstruction->NumPoints3D();
         ba_prev_num_reg_images = reconstruction->NumRegImages();
