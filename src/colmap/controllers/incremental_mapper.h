@@ -152,7 +152,7 @@ class IncrementalMapperController : public BaseController {
     LAST_IMAGE_REG_CALLBACK,
   };
 
-  enum class Status { NO_INITIAL_PAIR, BAD_INITIAL_PAIR, SUCCESS };
+  enum class Status { NO_INITIAL_PAIR, BAD_INITIAL_PAIR, SUCCESS, INTERRUPTED };
 
   IncrementalMapperController(
       std::shared_ptr<const IncrementalMapperOptions> options,
@@ -165,9 +165,10 @@ class IncrementalMapperController : public BaseController {
  private:
   bool LoadDatabase();
   void Reconstruct(const IncrementalMapper::Options& init_mapper_options);
-  bool ReconstructSubModel(IncrementalMapper& mapper,
-                           const IncrementalMapper::Options& mapper_options,
-                           size_t reconstruction_idx);
+  Status ReconstructSubModel(
+      IncrementalMapper& mapper,
+      const IncrementalMapper::Options& mapper_options,
+      const std::shared_ptr<Reconstruction>& reconstruction);
   Status InitializeReconstruction(
       IncrementalMapper& mapper,
       const IncrementalMapper::Options& mapper_options,
