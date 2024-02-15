@@ -250,7 +250,8 @@ bool IncrementalMapperController::LoadDatabase() {
   return true;
 }
 
-bool IncrementalMapperController::InitializeReconstruction(
+IncrementalMapperController::Status
+IncrementalMapperController::InitializeReconstruction(
     IncrementalMapper& mapper,
     const IncrementalMapper::Options& mapper_options,
     Reconstruction& reconstruction) {
@@ -258,13 +259,14 @@ bool IncrementalMapperController::InitializeReconstruction(
   image_t image_id2 = static_cast<image_t>(options_->init_image_id2);
 
   // Try to find good initial pair.
-  if (options_->init_image_id1 == -1 || options_->init_image_id2 == -1) {
+  TwoViewGeometry two_view_geometry;
+  if (!options_->IsInitialPairProvided()) {
     LOG(INFO) << "Finding good initial image pair";
     const bool find_init_success = mapper.FindInitialImagePair(
         mapper_options, two_view_geometry, &image_id1, &image_id2);
     if (!find_init_success) {
       LOG(INFO) << "=> No good initial image pair found.";
-      return false;
+      return Status::NO_INITIAL_PAIR;
     }
   } else {
     if (!reconstruction.ExistsImage(image_id1) ||
@@ -273,13 +275,13 @@ bool IncrementalMapperController::InitializeReconstruction(
           "=> Initial image pair #%d and #%d do not exist.",
           image_id1,
           image_id2);
-      return false;
+      return Status::BAD_INITIAL_PAIR;
     }
     const bool provided_init_success = mapper.EstimateInitialTwoViewGeometry(
         mapper_options, two_view_geometry, image_id1, image_id2);
     if (!provided_init_success) {
       LOG(INFO) << "Provided pair is insuitable for intialization.";
-      return false;
+      return Status::BAD_INITIAL_PAIR;
     }
   }
 
@@ -295,13 +297,13 @@ bool IncrementalMapperController::InitializeReconstruction(
 
   // Initial image pair failed to register.
   if (reconstruction.NumRegImages() == 0 || reconstruction.NumPoints3D() == 0) {
-    return false;
+    return Status::BAD_INITIAL_PAIR;
   }
 
   if (options_->extract_colors) {
     ExtractColors(image_path_, image_id1, reconstruction);
   }
-  return true;
+  return Status::SUCCESS;
 }
 
 bool IncrementalMapperController::CheckRunGlobalRefinement(
@@ -334,13 +336,17 @@ bool IncrementalMapperController::ReconstructSubModel(
   ////////////////////////////////////////////////////////////////////////////
 
   if (reconstruction->NumRegImages() == 0) {
-    if (!IncrementalMapperController::InitializeReconstruction(
-            mapper, mapper_options, *reconstruction)) {
+    const Status init_status =
+        IncrementalMapperController::InitializeReconstruction(
+            mapper, mapper_options, *reconstruction);
+    if (init_status != Status::SUCCESS) {
       mapper.EndReconstruction(/*discard=*/true);
       reconstruction_manager_->Delete(reconstruction_idx);
       // If both initial images are manually specified, there is no need for
       // further initialization trials.
-      return options_->init_image_id1 != -1 && options_->init_image_id2 != -1;
+      return (init_status == Status::NO_INITIAL_PAIR) ||
+             (init_status == Status::BAD_INITIAL_PAIR &&
+              options_->IsInitialPairProvided());
     }
   }
   Callback(INITIAL_IMAGE_PAIR_REG_CALLBACK);

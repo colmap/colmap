@@ -135,6 +135,10 @@ struct IncrementalMapperOptions {
   BundleAdjustmentOptions LocalBundleAdjustment() const;
   BundleAdjustmentOptions GlobalBundleAdjustment() const;
 
+  inline bool IsInitialPairProvided() const {
+    return init_image_id1 != -1 && init_image_id2 != -1;
+  }
+
   bool Check() const;
 };
 
@@ -147,6 +151,8 @@ class IncrementalMapperController : public BaseController {
     NEXT_IMAGE_REG_CALLBACK,
     LAST_IMAGE_REG_CALLBACK,
   };
+
+  enum class Status { NO_INITIAL_PAIR, BAD_INITIAL_PAIR, SUCCESS };
 
   IncrementalMapperController(
       std::shared_ptr<const IncrementalMapperOptions> options,
@@ -162,7 +168,7 @@ class IncrementalMapperController : public BaseController {
   bool ReconstructSubModel(IncrementalMapper& mapper,
                            const IncrementalMapper::Options& mapper_options,
                            size_t reconstruction_idx);
-  bool InitializeReconstruction(
+  Status InitializeReconstruction(
       IncrementalMapper& mapper,
       const IncrementalMapper::Options& mapper_options,
       Reconstruction& reconstruction);
