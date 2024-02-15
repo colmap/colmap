@@ -260,8 +260,8 @@ bool IncrementalMapperController::InitializeReconstruction(
   // Try to find good initial pair.
   if (options_->init_image_id1 == -1 || options_->init_image_id2 == -1) {
     LOG(INFO) << "Finding good initial image pair";
-    const bool find_init_success =
-        mapper.FindInitialImagePair(mapper_options, &image_id1, &image_id2);
+    const bool find_init_success = mapper.FindInitialImagePair(
+        mapper_options, two_view_geometry, &image_id1, &image_id2);
     if (!find_init_success) {
       LOG(INFO) << "=> No good initial image pair found.";
       return false;
@@ -275,19 +275,18 @@ bool IncrementalMapperController::InitializeReconstruction(
           image_id2);
       return false;
     }
+    const bool provided_init_success = mapper.EstimateInitialTwoViewGeometry(
+        mapper_options, two_view_geometry, image_id1, image_id2);
+    if (!provided_init_success) {
+      LOG(INFO) << "Provided pair is insuitable for intialization.";
+      return false;
+    }
   }
 
   LOG(INFO) << StringPrintf(
       "Initializing with image pair #%d and #%d", image_id1, image_id2);
-  const bool reg_init_success =
-      mapper.RegisterInitialImagePair(mapper_options, image_id1, image_id2);
-  if (!reg_init_success) {
-    LOG(INFO) << "=> Initialization failed - possible solutions:" << std::endl
-              << "     - try to relax the initialization constraints"
-              << std::endl
-              << "     - manually select an initial image pair";
-    return false;
-  }
+  mapper.RegisterInitialImagePair(
+      mapper_options, two_view_geometry, image_id1, image_id2);
 
   LOG(INFO) << "Global bundle adjustment";
   mapper.AdjustGlobalBundle(mapper_options, options_->GlobalBundleAdjustment());

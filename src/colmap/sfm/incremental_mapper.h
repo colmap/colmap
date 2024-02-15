@@ -42,8 +42,10 @@ namespace colmap {
 //
 //  IncrementalMapper mapper(&database_cache);
 //  mapper.BeginReconstruction(&reconstruction);
-//  THROW_CHECK(mapper.FindInitialImagePair(options, image_id1, image_id2));
-//  THROW_CHECK(mapper.RegisterInitialImagePair(options, image_id1, image_id2));
+//  TwoViewGeometry tvg;
+//  THROW_CHECK(
+//      mapper.FindInitialImagePair(options, tvg, image_id1, image_id2));
+//  mapper.RegisterInitialImagePair(options, tvg, image_id1, image_id2);
 //  while (...) {
 //    const auto next_image_ids = mapper.FindNextImages(options);
 //    for (const auto image_id : next_image_ids) {
@@ -157,6 +159,7 @@ class IncrementalMapper {
   // pairs should be passed to `RegisterInitialImagePair`. This function
   // automatically ignores image pairs that failed to register previously.
   bool FindInitialImagePair(const Options& options,
+                            TwoViewGeometry& two_view_geometry,
                             image_t* image_id1,
                             image_t* image_id2);
 
@@ -166,7 +169,8 @@ class IncrementalMapper {
   std::vector<image_t> FindNextImages(const Options& options);
 
   // Attempt to seed the reconstruction from an image pair.
-  bool RegisterInitialImagePair(const Options& options,
+  void RegisterInitialImagePair(const Options& options,
+                                const TwoViewGeometry& two_view_geometry,
                                 image_t image_id1,
                                 image_t image_id2);
 
@@ -252,6 +256,12 @@ class IncrementalMapper {
   // Clear the collection of changed 3D points.
   void ClearModifiedPoints3D();
 
+  // Estimate two view geometry and checks if it is suitable for initialization.
+  bool EstimateInitialTwoViewGeometry(const Options& options,
+                                      TwoViewGeometry& two_view_geometry,
+                                      image_t image_id1,
+                                      image_t image_id2);
+
  private:
   // Find seed images for incremental reconstruction. Suitable seed images have
   // a large number of correspondences and have camera calibration priors. The
@@ -276,10 +286,6 @@ class IncrementalMapper {
   void RegisterImageEvent(image_t image_id);
   void DeRegisterImageEvent(image_t image_id);
 
-  bool EstimateInitialTwoViewGeometry(const Options& options,
-                                      image_t image_id1,
-                                      image_t image_id2);
-
   // Class that holds all necessary data from database in memory.
   const std::shared_ptr<const DatabaseCache> database_cache_;
 
@@ -295,11 +301,6 @@ class IncrementalMapper {
   // Number of shared images between current reconstruction and all other
   // previous reconstructions.
   size_t num_shared_reg_images_;
-
-  // Estimated two-view geometry of last call to `FindFirstInitialImage`,
-  // used as a cache for a subsequent call to `RegisterInitialImagePair`.
-  image_pair_t prev_init_image_pair_id_;
-  TwoViewGeometry prev_init_two_view_geometry_;
 
   // Images and image pairs that have been used for initialization. Each image
   // and image pair is only tried once for initialization.

@@ -102,8 +102,7 @@ IncrementalMapper::IncrementalMapper(
       reconstruction_(nullptr),
       triangulator_(nullptr),
       num_total_reg_images_(0),
-      num_shared_reg_images_(0),
-      prev_init_image_pair_id_(kInvalidImagePairId) {}
+      num_shared_reg_images_(0) {}
 
 void IncrementalMapper::BeginReconstruction(
     const std::shared_ptr<Reconstruction>& reconstruction) {
@@ -124,9 +123,6 @@ void IncrementalMapper::BeginReconstruction(
       std::unordered_set<image_t>(reconstruction->RegImageIds().begin(),
                                   reconstruction->RegImageIds().end());
 
-  prev_init_image_pair_id_ = kInvalidImagePairId;
-  prev_init_two_view_geometry_ = TwoViewGeometry();
-
   filtered_images_.clear();
   num_reg_trials_.clear();
 }
@@ -146,6 +142,7 @@ void IncrementalMapper::EndReconstruction(const bool discard) {
 }
 
 bool IncrementalMapper::FindInitialImagePair(const Options& options,
+                                             TwoViewGeometry& two_view_geometry,
                                              image_t* image_id1,
                                              image_t* image_id2) {
   THROW_CHECK(options.Check());
@@ -188,7 +185,8 @@ bool IncrementalMapper::FindInitialImagePair(const Options& options,
 
       init_image_pairs_.insert(pair_id);
 
-      if (EstimateInitialTwoViewGeometry(options, *image_id1, *image_id2)) {
+      if (EstimateInitialTwoViewGeometry(
+              options, two_view_geometry, *image_id1, *image_id2)) {
         return true;
       }
     }
@@ -257,9 +255,11 @@ std::vector<image_t> IncrementalMapper::FindNextImages(const Options& options) {
   return ranked_images_ids;
 }
 
-bool IncrementalMapper::RegisterInitialImagePair(const Options& options,
-                                                 const image_t image_id1,
-                                                 const image_t image_id2) {
+void IncrementalMapper::RegisterInitialImagePair(
+    const Options& options,
+    const TwoViewGeometry& two_view_geometry,
+    const image_t image_id1,
+    const image_t image_id2) {
   THROW_CHECK_NOTNULL(reconstruction_);
   THROW_CHECK_EQ(reconstruction_->NumRegImages(), 0);
 
@@ -284,12 +284,8 @@ bool IncrementalMapper::RegisterInitialImagePair(const Options& options,
   // Estimate two-view geometry
   //////////////////////////////////////////////////////////////////////////////
 
-  if (!EstimateInitialTwoViewGeometry(options, image_id1, image_id2)) {
-    return false;
-  }
-
   image1.CamFromWorld() = Rigid3d();
-  image2.CamFromWorld() = prev_init_two_view_geometry_.cam2_from_cam1;
+  image2.CamFromWorld() = two_view_geometry.cam2_from_cam1;
 
   const Eigen::Matrix3x4d cam_from_world1 = image1.CamFromWorld().ToMatrix();
   const Eigen::Matrix3x4d cam_from_world2 = image2.CamFromWorld().ToMatrix();
@@ -335,8 +331,6 @@ bool IncrementalMapper::RegisterInitialImagePair(const Options& options,
       reconstruction_->AddPoint3D(xyz, track);
     }
   }
-
-  return true;
 }
 
 bool IncrementalMapper::RegisterNextImage(const Options& options,
@@ -1209,14 +1203,10 @@ void IncrementalMapper::DeRegisterImageEvent(const image_t image_id) {
 }
 
 bool IncrementalMapper::EstimateInitialTwoViewGeometry(
-    const Options& options, const image_t image_id1, const image_t image_id2) {
-  const image_pair_t image_pair_id =
-      Database::ImagePairToPairId(image_id1, image_id2);
-
-  if (prev_init_image_pair_id_ == image_pair_id) {
-    return true;
-  }
-
+    const Options& options,
+    TwoViewGeometry& two_view_geometry,
+    const image_t image_id1,
+    const image_t image_id2) {
   const Image& image1 = database_cache_->Image(image_id1);
   const Camera& camera1 = database_cache_->Camera(image1.CameraId());
 
@@ -1242,7 +1232,7 @@ bool IncrementalMapper::EstimateInitialTwoViewGeometry(
   TwoViewGeometryOptions two_view_geometry_options;
   two_view_geometry_options.ransac_options.min_num_trials = 30;
   two_view_geometry_options.ransac_options.max_error = options.init_max_error;
-  TwoViewGeometry two_view_geometry = EstimateCalibratedTwoViewGeometry(
+  two_view_geometry = EstimateCalibratedTwoViewGeometry(
       camera1, points1, camera2, points2, matches, two_view_geometry_options);
 
   if (!EstimateTwoViewGeometryPose(
@@ -1255,8 +1245,6 @@ bool IncrementalMapper::EstimateInitialTwoViewGeometry(
       std::abs(two_view_geometry.cam2_from_cam1.translation.z()) <
           options.init_max_forward_motion &&
       two_view_geometry.tri_angle > DegToRad(options.init_min_tri_angle)) {
-    prev_init_image_pair_id_ = image_pair_id;
-    prev_init_two_view_geometry_ = two_view_geometry;
     return true;
   }
 
