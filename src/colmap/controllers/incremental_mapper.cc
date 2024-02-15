@@ -342,11 +342,12 @@ bool IncrementalMapperController::ReconstructSubModel(
 
   bool reg_next_success = true;
   bool prev_reg_next_success = true;
-  while (reg_next_success) {
+  do {
     if (CheckIfStopped()) {
       break;
     }
 
+    prev_reg_next_success = reg_next_success;
     reg_next_success = false;
 
     const std::vector<image_t> next_images =
@@ -356,8 +357,9 @@ bool IncrementalMapperController::ReconstructSubModel(
       break;
     }
 
+    image_t next_image_id;
     for (size_t reg_trial = 0; reg_trial < next_images.size(); ++reg_trial) {
-      const image_t next_image_id = next_images[reg_trial];
+      next_image_id = next_images[reg_trial];
       const Image& next_image = reconstruction->Image(next_image_id);
 
       LOG(INFO) << StringPrintf("Registering image #%d (%d)",
@@ -371,41 +373,6 @@ bool IncrementalMapperController::ReconstructSubModel(
           mapper.RegisterNextImage(mapper_options, next_image_id);
 
       if (reg_next_success) {
-        mapper.TriangulateImage(options_->Triangulation(), next_image_id);
-        mapper.IterativeLocalRefinement(
-            options_->ba_local_max_refinements,
-            options_->ba_local_max_refinement_change,
-            mapper_options,
-            options_->LocalBundleAdjustment(),
-            options_->Triangulation(),
-            next_image_id);
-
-        if (reconstruction->NumRegImages() >=
-                options_->ba_global_images_ratio * ba_prev_num_reg_images ||
-            reconstruction->NumRegImages() >=
-                options_->ba_global_images_freq + ba_prev_num_reg_images ||
-            reconstruction->NumPoints3D() >=
-                options_->ba_global_points_ratio * ba_prev_num_points ||
-            reconstruction->NumPoints3D() >=
-                options_->ba_global_points_freq + ba_prev_num_points) {
-          IterativeGlobalRefinement(*options_, mapper_options, mapper);
-          ba_prev_num_points = reconstruction->NumPoints3D();
-          ba_prev_num_reg_images = reconstruction->NumRegImages();
-        }
-
-        if (options_->extract_colors) {
-          ExtractColors(image_path_, next_image_id, *reconstruction);
-        }
-
-        if (options_->snapshot_images_freq > 0 &&
-            reconstruction->NumRegImages() >=
-                options_->snapshot_images_freq + snapshot_prev_num_reg_images) {
-          snapshot_prev_num_reg_images = reconstruction->NumRegImages();
-          WriteSnapshot(*reconstruction, options_->snapshot_path);
-        }
-
-        Callback(NEXT_IMAGE_REG_CALLBACK);
-
         break;
       } else {
         LOG(INFO) << "=> Could not register, trying another image.";
@@ -421,6 +388,42 @@ bool IncrementalMapperController::ReconstructSubModel(
       }
     }
 
+    if (reg_next_success) {
+      mapper.TriangulateImage(options_->Triangulation(), next_image_id);
+      mapper.IterativeLocalRefinement(options_->ba_local_max_refinements,
+                                      options_->ba_local_max_refinement_change,
+                                      mapper_options,
+                                      options_->LocalBundleAdjustment(),
+                                      options_->Triangulation(),
+                                      next_image_id);
+
+      if (reconstruction->NumRegImages() >=
+              options_->ba_global_images_ratio * ba_prev_num_reg_images ||
+          reconstruction->NumRegImages() >=
+              options_->ba_global_images_freq + ba_prev_num_reg_images ||
+          reconstruction->NumPoints3D() >=
+              options_->ba_global_points_ratio * ba_prev_num_points ||
+          reconstruction->NumPoints3D() >=
+              options_->ba_global_points_freq + ba_prev_num_points) {
+        IterativeGlobalRefinement(*options_, mapper_options, mapper);
+        ba_prev_num_points = reconstruction->NumPoints3D();
+        ba_prev_num_reg_images = reconstruction->NumRegImages();
+      }
+
+      if (options_->extract_colors) {
+        ExtractColors(image_path_, next_image_id, *reconstruction);
+      }
+
+      if (options_->snapshot_images_freq > 0 &&
+          reconstruction->NumRegImages() >=
+              options_->snapshot_images_freq + snapshot_prev_num_reg_images) {
+        snapshot_prev_num_reg_images = reconstruction->NumRegImages();
+        WriteSnapshot(*reconstruction, options_->snapshot_path);
+      }
+
+      Callback(NEXT_IMAGE_REG_CALLBACK);
+    }
+
     const size_t max_model_overlap =
         static_cast<size_t>(options_->max_model_overlap);
     if (mapper.NumSharedRegImages() >= max_model_overlap) {
@@ -431,13 +434,9 @@ bool IncrementalMapperController::ReconstructSubModel(
     // bundle adjustment and try again to register one image. If this fails
     // once, then exit the incremental mapping.
     if (!reg_next_success && prev_reg_next_success) {
-      reg_next_success = true;
-      prev_reg_next_success = false;
       IterativeGlobalRefinement(*options_, mapper_options, mapper);
-    } else {
-      prev_reg_next_success = reg_next_success;
     }
-  }
+  } while (reg_next_success || prev_reg_next_success);
 
   if (CheckIfStopped()) {
     mapper.EndReconstruction(/*discard=*/false);
