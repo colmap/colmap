@@ -93,6 +93,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release `
             -DTESTS_ENABLED=ON `
             -DGUI_ENABLED=ON `
+            -DCUDA_ENABLED=OFF `
             -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake `
             -DVCPKG_TARGET_TRIPLET=x64-windows-release
           ninja
