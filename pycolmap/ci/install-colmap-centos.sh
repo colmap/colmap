@@ -3,7 +3,8 @@ set -e -x
 uname -a
 CURRDIR=$(pwd)
 
-yum install -y gcc gcc-c++ ninja-build curl zip unzip tar
+yum install -y gcc gcc-c++ ninja-build curl zip unzip tar \
+    opengl glu libx11 xrandr xi xxf86vm # needed for freeglut
 
 # ccache shipped by CentOS is too old so we download and cache it.
 COMPILER_TOOLS_DIR="${CONTAINER_COMPILER_CACHE_DIR}/bin"
