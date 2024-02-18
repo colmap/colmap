@@ -3,8 +3,7 @@ set -e -x
 uname -a
 CURRDIR=$(pwd)
 
-yum install -y gcc gcc-c++ ninja-build curl zip unzip tar \
-    opengl glu libx11 xrandr xi xxf86vm # needed for freeglut
+yum install -y gcc gcc-c++ ninja-build curl zip unzip tar
 
 # ccache shipped by CentOS is too old so we download and cache it.
 COMPILER_TOOLS_DIR="${CONTAINER_COMPILER_CACHE_DIR}/bin"
@@ -27,7 +26,7 @@ git checkout ${VCPKG_COMMIT_ID}
 # Build COLMAP
 cd ${CURRDIR}
 mkdir build && cd build
-CXXFLAGS="-fPIC" CFLAGS="-fPIC" cmake .. -GNinja \
+cmake .. -GNinja \
     -DCUDA_ENABLED=OFF \
     -DCGAL_ENABLED=OFF \
     -DGUI_ENABLED=OFF \
