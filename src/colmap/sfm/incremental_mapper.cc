@@ -694,15 +694,15 @@ bool IncrementalMapper::AdjustGlobalBundle(
                                              "registered for global "
                                              "bundle-adjustment";
 
-  BundleAdjustmentOptions ba_options_copy = ba_options;
+  BundleAdjustmentOptions ba_options_tmp = ba_options;
   // Use stricter convergence criteria for first registered images.
   const size_t kMinNumRegImagesForFastBA = 10;
   if (reg_image_ids.size() < kMinNumRegImagesForFastBA) {
-    ba_options_copy.solver_options.function_tolerance /= 10;
-    ba_options_copy.solver_options.gradient_tolerance /= 10;
-    ba_options_copy.solver_options.parameter_tolerance /= 10;
-    ba_options_copy.solver_options.max_num_iterations *= 2;
-    ba_options_copy.solver_options.max_linear_solver_iterations = 200;
+    ba_options_tmp.solver_options.function_tolerance /= 10;
+    ba_options_tmp.solver_options.gradient_tolerance /= 10;
+    ba_options_tmp.solver_options.parameter_tolerance /= 10;
+    ba_options_tmp.solver_options.max_num_iterations *= 2;
+    ba_options_tmp.solver_options.max_linear_solver_iterations = 200;
   }
 
   // Avoid degeneracies in bundle adjustment.
@@ -731,7 +731,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
   }
 
   // Run bundle adjustment.
-  BundleAdjuster bundle_adjuster(ba_options_copy, ba_config);
+  BundleAdjuster bundle_adjuster(ba_options_tmp, ba_config);
   if (!bundle_adjuster.Solve(reconstruction_.get())) {
     return false;
   }
@@ -750,10 +750,10 @@ void IncrementalMapper::IterativeLocalRefinement(
     const BundleAdjustmentOptions& ba_options,
     const IncrementalTriangulator::Options& tri_options,
     const image_t image_id) {
-  BundleAdjustmentOptions ba_options_copy = ba_options;
+  BundleAdjustmentOptions ba_options_tmp = ba_options;
   for (int i = 0; i < max_num_refinements; ++i) {
     const auto report = AdjustLocalBundle(
-        options, ba_options_copy, tri_options, image_id, GetModifiedPoints3D());
+        options, ba_options_tmp, tri_options, image_id, GetModifiedPoints3D());
     VLOG(1) << "=> Merged observations: " << report.num_merged_observations;
     VLOG(1) << "=> Completed observations: "
             << report.num_completed_observations;
@@ -770,7 +770,7 @@ void IncrementalMapper::IterativeLocalRefinement(
       break;
     }
     // Only use robust cost function for first iteration.
-    ba_options_copy.loss_function_type =
+    ba_options_tmp.loss_function_type =
         BundleAdjustmentOptions::LossFunctionType::TRIVIAL;
   }
   ClearModifiedPoints3D();
