@@ -143,23 +143,23 @@ void IncrementalMapper::EndReconstruction(const bool discard) {
 
 bool IncrementalMapper::FindInitialImagePair(const Options& options,
                                              TwoViewGeometry& two_view_geometry,
-                                             image_t* image_id1,
-                                             image_t* image_id2) {
+                                             image_t& image_id1,
+                                             image_t& image_id2) {
   THROW_CHECK(options.Check());
 
   std::vector<image_t> image_ids1;
-  if (*image_id1 != kInvalidImageId && *image_id2 == kInvalidImageId) {
-    // Only *image_id1 provided.
-    if (!database_cache_->ExistsImage(*image_id1)) {
+  if (image_id1 != kInvalidImageId && image_id2 == kInvalidImageId) {
+    // Only image_id1 provided.
+    if (!database_cache_->ExistsImage(image_id1)) {
       return false;
     }
-    image_ids1.push_back(*image_id1);
-  } else if (*image_id1 == kInvalidImageId && *image_id2 != kInvalidImageId) {
-    // Only *image_id2 provided.
-    if (!database_cache_->ExistsImage(*image_id2)) {
+    image_ids1.push_back(image_id1);
+  } else if (image_id1 == kInvalidImageId && image_id2 != kInvalidImageId) {
+    // Only image_id2 provided.
+    if (!database_cache_->ExistsImage(image_id2)) {
       return false;
     }
-    image_ids1.push_back(*image_id2);
+    image_ids1.push_back(image_id2);
   } else {
     // No initial seed image provided.
     image_ids1 = FindFirstInitialImage(options);
@@ -167,16 +167,16 @@ bool IncrementalMapper::FindInitialImagePair(const Options& options,
 
   // Try to find good initial pair.
   for (size_t i1 = 0; i1 < image_ids1.size(); ++i1) {
-    *image_id1 = image_ids1[i1];
+    image_id1 = image_ids1[i1];
 
     const std::vector<image_t> image_ids2 =
-        FindSecondInitialImage(options, *image_id1);
+        FindSecondInitialImage(options, image_id1);
 
     for (size_t i2 = 0; i2 < image_ids2.size(); ++i2) {
-      *image_id2 = image_ids2[i2];
+      image_id2 = image_ids2[i2];
 
       const image_pair_t pair_id =
-          Database::ImagePairToPairId(*image_id1, *image_id2);
+          Database::ImagePairToPairId(image_id1, image_id2);
 
       // Try every pair only once.
       if (init_image_pairs_.count(pair_id) > 0) {
@@ -186,15 +186,15 @@ bool IncrementalMapper::FindInitialImagePair(const Options& options,
       init_image_pairs_.insert(pair_id);
 
       if (EstimateInitialTwoViewGeometry(
-              options, two_view_geometry, *image_id1, *image_id2)) {
+              options, two_view_geometry, image_id1, image_id2)) {
         return true;
       }
     }
   }
 
   // No suitable pair found in entire dataset.
-  *image_id1 = kInvalidImageId;
-  *image_id2 = kInvalidImageId;
+  image_id1 = kInvalidImageId;
+  image_id2 = kInvalidImageId;
 
   return false;
 }

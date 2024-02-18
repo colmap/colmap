@@ -160,8 +160,8 @@ class IncrementalMapper {
   // automatically ignores image pairs that failed to register previously.
   bool FindInitialImagePair(const Options& options,
                             TwoViewGeometry& two_view_geometry,
-                            image_t* image_id1,
-                            image_t* image_id2);
+                            image_t& image_id1,
+                            image_t& image_id2);
 
   // Find best next image to register in the incremental reconstruction. The
   // images should be passed to `RegisterNextImage`. This function automatically

@@ -263,7 +263,7 @@ IncrementalMapperController::InitializeReconstruction(
   if (!options_->IsInitialPairProvided()) {
     LOG(INFO) << "Finding good initial image pair";
     const bool find_init_success = mapper.FindInitialImagePair(
-        mapper_options, two_view_geometry, &image_id1, &image_id2);
+        mapper_options, two_view_geometry, image_id1, image_id2);
     if (!find_init_success) {
       LOG(INFO) << "=> No good initial image pair found.";
       return Status::NO_INITIAL_PAIR;
