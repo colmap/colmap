@@ -5,11 +5,13 @@
     "license": "BSD-3-Clause",
     "supports": "(linux | (windows & !static) | osx) & (x86 | x64 | arm64)",
     "dependencies": [
+        "boost-algorithm",
         "boost-filesystem",
         "boost-graph",
+        "boost-heap",
         "boost-program-options",
-        "boost-system",
-        "boost-test",
+        "boost-property-map",
+        "boost-property-tree",
         {
             "name": "ceres",
             "features": [
@@ -24,6 +26,7 @@
         "gflags",
         "glew",
         "glog",
+        "metis",
         "sqlite3",
         {
             "name": "vcpkg-cmake",
