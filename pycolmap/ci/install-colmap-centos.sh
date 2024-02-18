@@ -15,8 +15,6 @@ if [ ! -f "${COMPILER_TOOLS_DIR}/ccache" ]; then
     cp ${FILE}/ccache ${COMPILER_TOOLS_DIR}
 fi
 export PATH="${COMPILER_TOOLS_DIR}:${PATH}"
-ccache --version
-ccache --help
 
 # Setup vcpkg
 git clone https://github.com/microsoft/vcpkg ${VCPKG_INSTALLATION_ROOT}

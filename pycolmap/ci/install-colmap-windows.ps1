@@ -35,8 +35,6 @@ git checkout "${env:VCPKG_COMMIT_ID}"
 
 cd ${CURRDIR}
 & "./scripts/shell/enter_vs_dev_shell.ps1"
-
-[System.Collections.ArrayList]$DEPS = Get-Content -Path "./pycolmap/ci/vcpkg-dependencies.txt"
 & "${env:VCPKG_INSTALLATION_ROOT}/vcpkg.exe" integrate install
 
 # Build COLMAP
