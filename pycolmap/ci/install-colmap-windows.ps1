@@ -26,7 +26,7 @@ If (!(Test-Path -path "${COMPILER_TOOLS_DIR}/ccache.exe" -PathType Leaf)) {
     Remove-Item -Recurse ${folder_path}
 }
 
-# Build the dependencies
+# Setup vcpkg
 cd ${CURRDIR}
 git clone https://github.com/microsoft/vcpkg ${env:VCPKG_INSTALLATION_ROOT}
 cd ${env:VCPKG_INSTALLATION_ROOT}

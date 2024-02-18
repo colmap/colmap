@@ -18,8 +18,7 @@ export PATH="${COMPILER_TOOLS_DIR}:${PATH}"
 ccache --version
 ccache --help
 
-# Build the dependencies
-DEPENDENCIES=$(cat ${CURRDIR}/pycolmap/ci/vcpkg-dependencies.txt)
+# Setup vcpkg
 git clone https://github.com/microsoft/vcpkg ${VCPKG_INSTALLATION_ROOT}
 cd ${VCPKG_INSTALLATION_ROOT}
 git checkout ${VCPKG_COMMIT_ID}
