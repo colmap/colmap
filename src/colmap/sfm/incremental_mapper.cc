@@ -102,8 +102,7 @@ IncrementalMapper::IncrementalMapper(
       reconstruction_(nullptr),
       triangulator_(nullptr),
       num_total_reg_images_(0),
-      num_shared_reg_images_(0),
-      prev_init_image_pair_id_(kInvalidImagePairId) {}
+      num_shared_reg_images_(0) {}
 
 void IncrementalMapper::BeginReconstruction(
     const std::shared_ptr<Reconstruction>& reconstruction) {
@@ -124,9 +123,6 @@ void IncrementalMapper::BeginReconstruction(
       std::unordered_set<image_t>(reconstruction->RegImageIds().begin(),
                                   reconstruction->RegImageIds().end());
 
-  prev_init_image_pair_id_ = kInvalidImagePairId;
-  prev_init_two_view_geometry_ = TwoViewGeometry();
-
   filtered_images_.clear();
   num_reg_trials_.clear();
 }
@@ -146,23 +142,24 @@ void IncrementalMapper::EndReconstruction(const bool discard) {
 }
 
 bool IncrementalMapper::FindInitialImagePair(const Options& options,
-                                             image_t* image_id1,
-                                             image_t* image_id2) {
+                                             TwoViewGeometry& two_view_geometry,
+                                             image_t& image_id1,
+                                             image_t& image_id2) {
   THROW_CHECK(options.Check());
 
   std::vector<image_t> image_ids1;
-  if (*image_id1 != kInvalidImageId && *image_id2 == kInvalidImageId) {
-    // Only *image_id1 provided.
-    if (!database_cache_->ExistsImage(*image_id1)) {
+  if (image_id1 != kInvalidImageId && image_id2 == kInvalidImageId) {
+    // Only image_id1 provided.
+    if (!database_cache_->ExistsImage(image_id1)) {
       return false;
     }
-    image_ids1.push_back(*image_id1);
-  } else if (*image_id1 == kInvalidImageId && *image_id2 != kInvalidImageId) {
-    // Only *image_id2 provided.
-    if (!database_cache_->ExistsImage(*image_id2)) {
+    image_ids1.push_back(image_id1);
+  } else if (image_id1 == kInvalidImageId && image_id2 != kInvalidImageId) {
+    // Only image_id2 provided.
+    if (!database_cache_->ExistsImage(image_id2)) {
       return false;
     }
-    image_ids1.push_back(*image_id2);
+    image_ids1.push_back(image_id2);
   } else {
     // No initial seed image provided.
     image_ids1 = FindFirstInitialImage(options);
@@ -170,16 +167,16 @@ bool IncrementalMapper::FindInitialImagePair(const Options& options,
 
   // Try to find good initial pair.
   for (size_t i1 = 0; i1 < image_ids1.size(); ++i1) {
-    *image_id1 = image_ids1[i1];
+    image_id1 = image_ids1[i1];
 
     const std::vector<image_t> image_ids2 =
-        FindSecondInitialImage(options, *image_id1);
+        FindSecondInitialImage(options, image_id1);
 
     for (size_t i2 = 0; i2 < image_ids2.size(); ++i2) {
-      *image_id2 = image_ids2[i2];
+      image_id2 = image_ids2[i2];
 
       const image_pair_t pair_id =
-          Database::ImagePairToPairId(*image_id1, *image_id2);
+          Database::ImagePairToPairId(image_id1, image_id2);
 
       // Try every pair only once.
       if (init_image_pairs_.count(pair_id) > 0) {
@@ -188,15 +185,16 @@ bool IncrementalMapper::FindInitialImagePair(const Options& options,
 
       init_image_pairs_.insert(pair_id);
 
-      if (EstimateInitialTwoViewGeometry(options, *image_id1, *image_id2)) {
+      if (EstimateInitialTwoViewGeometry(
+              options, two_view_geometry, image_id1, image_id2)) {
         return true;
       }
     }
   }
 
   // No suitable pair found in entire dataset.
-  *image_id1 = kInvalidImageId;
-  *image_id2 = kInvalidImageId;
+  image_id1 = kInvalidImageId;
+  image_id2 = kInvalidImageId;
 
   return false;
 }
@@ -257,9 +255,11 @@ std::vector<image_t> IncrementalMapper::FindNextImages(const Options& options) {
   return ranked_images_ids;
 }
 
-bool IncrementalMapper::RegisterInitialImagePair(const Options& options,
-                                                 const image_t image_id1,
-                                                 const image_t image_id2) {
+void IncrementalMapper::RegisterInitialImagePair(
+    const Options& options,
+    const TwoViewGeometry& two_view_geometry,
+    const image_t image_id1,
+    const image_t image_id2) {
   THROW_CHECK_NOTNULL(reconstruction_);
   THROW_CHECK_EQ(reconstruction_->NumRegImages(), 0);
 
@@ -284,12 +284,8 @@ bool IncrementalMapper::RegisterInitialImagePair(const Options& options,
   // Estimate two-view geometry
   //////////////////////////////////////////////////////////////////////////////
 
-  if (!EstimateInitialTwoViewGeometry(options, image_id1, image_id2)) {
-    return false;
-  }
-
   image1.CamFromWorld() = Rigid3d();
-  image2.CamFromWorld() = prev_init_two_view_geometry_.cam2_from_cam1;
+  image2.CamFromWorld() = two_view_geometry.cam2_from_cam1;
 
   const Eigen::Matrix3x4d cam_from_world1 = image1.CamFromWorld().ToMatrix();
   const Eigen::Matrix3x4d cam_from_world2 = image2.CamFromWorld().ToMatrix();
@@ -335,8 +331,6 @@ bool IncrementalMapper::RegisterInitialImagePair(const Options& options,
       reconstruction_->AddPoint3D(xyz, track);
     }
   }
-
-  return true;
 }
 
 bool IncrementalMapper::RegisterNextImage(const Options& options,
@@ -539,7 +533,12 @@ size_t IncrementalMapper::TriangulateImage(
     const IncrementalTriangulator::Options& tri_options,
     const image_t image_id) {
   THROW_CHECK_NOTNULL(reconstruction_);
-  return triangulator_->TriangulateImage(tri_options, image_id);
+  VLOG(1) << "=> Continued observations: "
+          << reconstruction_->Image(image_id).NumPoints3D();
+  const size_t num_tris =
+      triangulator_->TriangulateImage(tri_options, image_id);
+  VLOG(1) << "=> Added observations: " << num_tris;
+  return num_tris;
 }
 
 size_t IncrementalMapper::Retriangulate(
@@ -558,6 +557,15 @@ size_t IncrementalMapper::MergeTracks(
     const IncrementalTriangulator::Options& tri_options) {
   THROW_CHECK_NOTNULL(reconstruction_);
   return triangulator_->MergeAllTracks(tri_options);
+}
+
+size_t IncrementalMapper::CompleteAndMergeTracks(
+    const IncrementalTriangulator::Options& tri_options) {
+  const size_t num_completed_observations = CompleteTracks(tri_options);
+  VLOG(1) << "=> Completed observations: " << num_completed_observations;
+  const size_t num_merged_observations = MergeTracks(tri_options);
+  VLOG(1) << "=> Merged observations: " << num_merged_observations;
+  return num_completed_observations + num_merged_observations;
 }
 
 IncrementalMapper::LocalBundleAdjustmentReport
@@ -686,6 +694,17 @@ bool IncrementalMapper::AdjustGlobalBundle(
                                              "registered for global "
                                              "bundle-adjustment";
 
+  BundleAdjustmentOptions ba_options_tmp = ba_options;
+  // Use stricter convergence criteria for first registered images.
+  const size_t kMinNumRegImagesForFastBA = 10;
+  if (reg_image_ids.size() < kMinNumRegImagesForFastBA) {
+    ba_options_tmp.solver_options.function_tolerance /= 10;
+    ba_options_tmp.solver_options.gradient_tolerance /= 10;
+    ba_options_tmp.solver_options.parameter_tolerance /= 10;
+    ba_options_tmp.solver_options.max_num_iterations *= 2;
+    ba_options_tmp.solver_options.max_linear_solver_iterations = 200;
+  }
+
   // Avoid degeneracies in bundle adjustment.
   reconstruction_->FilterObservationsWithNegativeDepth();
 
@@ -712,7 +731,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
   }
 
   // Run bundle adjustment.
-  BundleAdjuster bundle_adjuster(ba_options, ba_config);
+  BundleAdjuster bundle_adjuster(ba_options_tmp, ba_config);
   if (!bundle_adjuster.Solve(reconstruction_.get())) {
     return false;
   }
@@ -722,6 +741,64 @@ bool IncrementalMapper::AdjustGlobalBundle(
   reconstruction_->Normalize();
 
   return true;
+}
+
+void IncrementalMapper::IterativeLocalRefinement(
+    const int max_num_refinements,
+    const double max_refinement_change,
+    const Options& options,
+    const BundleAdjustmentOptions& ba_options,
+    const IncrementalTriangulator::Options& tri_options,
+    const image_t image_id) {
+  BundleAdjustmentOptions ba_options_tmp = ba_options;
+  for (int i = 0; i < max_num_refinements; ++i) {
+    const auto report = AdjustLocalBundle(
+        options, ba_options_tmp, tri_options, image_id, GetModifiedPoints3D());
+    VLOG(1) << "=> Merged observations: " << report.num_merged_observations;
+    VLOG(1) << "=> Completed observations: "
+            << report.num_completed_observations;
+    VLOG(1) << "=> Filtered observations: " << report.num_filtered_observations;
+    const double changed =
+        report.num_adjusted_observations == 0
+            ? 0
+            : (report.num_merged_observations +
+               report.num_completed_observations +
+               report.num_filtered_observations) /
+                  static_cast<double>(report.num_adjusted_observations);
+    VLOG(1) << StringPrintf("=> Changed observations: %.6f", changed);
+    if (changed < max_refinement_change) {
+      break;
+    }
+    // Only use robust cost function for first iteration.
+    ba_options_tmp.loss_function_type =
+        BundleAdjustmentOptions::LossFunctionType::TRIVIAL;
+  }
+  ClearModifiedPoints3D();
+}
+
+void IncrementalMapper::IterativeGlobalRefinement(
+    const int max_num_refinements,
+    const double max_refinement_change,
+    const Options& options,
+    const BundleAdjustmentOptions& ba_options,
+    const IncrementalTriangulator::Options& tri_options) {
+  CompleteAndMergeTracks(tri_options);
+  VLOG(1) << "=> Retriangulated observations: " << Retriangulate(tri_options);
+  for (int i = 0; i < max_num_refinements; ++i) {
+    const size_t num_observations = reconstruction_->ComputeNumObservations();
+    AdjustGlobalBundle(options, ba_options);
+    size_t num_changed_observations = CompleteAndMergeTracks(tri_options);
+    num_changed_observations += FilterPoints(options);
+    const double changed =
+        num_observations == 0
+            ? 0
+            : static_cast<double>(num_changed_observations) / num_observations;
+    VLOG(1) << StringPrintf("=> Changed observations: %.6f", changed);
+    if (changed < max_refinement_change) {
+      break;
+    }
+  }
+  FilterImages(options);
 }
 
 size_t IncrementalMapper::FilterImages(const Options& options) {
@@ -746,14 +823,18 @@ size_t IncrementalMapper::FilterImages(const Options& options) {
     filtered_images_.insert(image_id);
   }
 
-  return image_ids.size();
+  const size_t num_filtered_images = image_ids.size();
+  VLOG(1) << "=> Filtered images: " << num_filtered_images;
+  return num_filtered_images;
 }
 
 size_t IncrementalMapper::FilterPoints(const Options& options) {
   THROW_CHECK_NOTNULL(reconstruction_);
   THROW_CHECK(options.Check());
-  return reconstruction_->FilterAllPoints3D(options.filter_max_reproj_error,
-                                            options.filter_min_tri_angle);
+  const size_t num_filtered_observations = reconstruction_->FilterAllPoints3D(
+      options.filter_max_reproj_error, options.filter_min_tri_angle);
+  VLOG(1) << "=> Filtered observations: " << num_filtered_observations;
+  return num_filtered_observations;
 }
 
 const Reconstruction& IncrementalMapper::GetReconstruction() const {
@@ -1122,14 +1203,10 @@ void IncrementalMapper::DeRegisterImageEvent(const image_t image_id) {
 }
 
 bool IncrementalMapper::EstimateInitialTwoViewGeometry(
-    const Options& options, const image_t image_id1, const image_t image_id2) {
-  const image_pair_t image_pair_id =
-      Database::ImagePairToPairId(image_id1, image_id2);
-
-  if (prev_init_image_pair_id_ == image_pair_id) {
-    return true;
-  }
-
+    const Options& options,
+    TwoViewGeometry& two_view_geometry,
+    const image_t image_id1,
+    const image_t image_id2) {
   const Image& image1 = database_cache_->Image(image_id1);
   const Camera& camera1 = database_cache_->Camera(image1.CameraId());
 
@@ -1155,7 +1232,7 @@ bool IncrementalMapper::EstimateInitialTwoViewGeometry(
   TwoViewGeometryOptions two_view_geometry_options;
   two_view_geometry_options.ransac_options.min_num_trials = 30;
   two_view_geometry_options.ransac_options.max_error = options.init_max_error;
-  TwoViewGeometry two_view_geometry = EstimateCalibratedTwoViewGeometry(
+  two_view_geometry = EstimateCalibratedTwoViewGeometry(
       camera1, points1, camera2, points2, matches, two_view_geometry_options);
 
   if (!EstimateTwoViewGeometryPose(
@@ -1168,8 +1245,6 @@ bool IncrementalMapper::EstimateInitialTwoViewGeometry(
       std::abs(two_view_geometry.cam2_from_cam1.translation.z()) <
           options.init_max_forward_motion &&
       two_view_geometry.tri_angle > DegToRad(options.init_min_tri_angle)) {
-    prev_init_image_pair_id_ = image_pair_id;
-    prev_init_two_view_geometry_ = two_view_geometry;
     return true;
   }
 
