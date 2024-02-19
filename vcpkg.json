@@ -19,12 +19,10 @@
                 "suitesparse"
             ]
         },
-        "cgal",
         "eigen3",
         "flann",
         "freeimage",
         "gflags",
-        "glew",
         "glog",
         "metis",
         "sqlite3",
@@ -38,8 +36,14 @@
         }
     ],
     "features": {
+        "tests": {
+            "description": "Build all tests.",
+            "dependencies": [
+                "gtest"
+            ]
+        },
         "cuda": {
-            "description": "Build with CUDA support.",
+            "description": "Build with CUDA.",
             "dependencies": [
                 "cuda"
             ]
@@ -47,13 +51,14 @@
         "gui": {
             "description": "Build the GUI.",
             "dependencies": [
+                "glew",
                 "qt5-base"
             ]
         },
-        "tests": {
-            "description": "Build all tests.",
+        "cgal": {
+            "description": "Build with CGAL.",
             "dependencies": [
-                "gtest"
+                "cgal"
             ]
         }
     }

@@ -57,6 +57,9 @@ endif()
 if(GUI_ENABLED)
     list(APPEND VCPKG_MANIFEST_FEATURES "gui")
 endif()
+if(CGAL_ENABLED)
+    list(APPEND VCPKG_MANIFEST_FEATURES "cgal")
+endif()
 
 project(COLMAP LANGUAGES C CXX)
 
