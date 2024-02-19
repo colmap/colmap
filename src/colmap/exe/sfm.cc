@@ -419,7 +419,7 @@ int RunPointTriangulatorImpl(
     const std::string& database_path,
     const std::string& image_path,
     const std::string& output_path,
-    const IncrementalMapperOptions& mapper_options,
+    const IncrementalMapperOptions& options,
     const bool clear_points,
     const bool refine_intrinsics) {
   PrintHeading1("Loading database");
@@ -430,12 +430,11 @@ int RunPointTriangulatorImpl(
     Timer timer;
     timer.Start();
     const Database database(database_path);
-    const size_t min_num_matches =
-        static_cast<size_t>(mapper_options.min_num_matches);
+    const size_t min_num_matches = static_cast<size_t>(options.min_num_matches);
     database_cache = DatabaseCache::Create(database,
                                            min_num_matches,
-                                           mapper_options.ignore_watermarks,
-                                           mapper_options.image_names);
+                                           options.ignore_watermarks,
+                                           options.image_names);
 
     if (clear_points) {
       reconstruction->DeleteAllPoints2DAndPoints3D();
@@ -455,7 +454,8 @@ int RunPointTriangulatorImpl(
   // Triangulation
   //////////////////////////////////////////////////////////////////////////////
 
-  const auto tri_options = mapper_options.Triangulation();
+  const auto tri_options = options.Triangulation();
+  const auto mapper_options = options.Mapper();
 
   const std::vector<image_t>& reg_image_ids = reconstruction->RegImageIds();
 
@@ -482,13 +482,13 @@ int RunPointTriangulatorImpl(
 
   PrintHeading1("Retriangulation");
 
-  CompleteAndMergeTracks(mapper_options, &mapper);
+  mapper.CompleteAndMergeTracks(tri_options);
 
   //////////////////////////////////////////////////////////////////////////////
   // Bundle adjustment
   //////////////////////////////////////////////////////////////////////////////
 
-  auto ba_options = mapper_options.GlobalBundleAdjustment();
+  auto ba_options = options.GlobalBundleAdjustment();
   ba_options.refine_focal_length = refine_intrinsics;
   ba_options.refine_principal_point = false;
   ba_options.refine_extra_params = refine_intrinsics;
@@ -500,7 +500,7 @@ int RunPointTriangulatorImpl(
     ba_config.AddImage(image_id);
   }
 
-  for (int i = 0; i < mapper_options.ba_global_max_refinements; ++i) {
+  for (int i = 0; i < options.ba_global_max_refinements; ++i) {
     // Avoid degeneracies in bundle adjustment.
     reconstruction->FilterObservationsWithNegativeDepth();
 
@@ -511,12 +511,12 @@ int RunPointTriangulatorImpl(
     THROW_CHECK(bundle_adjuster.Solve(reconstruction.get()));
 
     size_t num_changed_observations = 0;
-    num_changed_observations += CompleteAndMergeTracks(mapper_options, &mapper);
-    num_changed_observations += FilterPoints(mapper_options, &mapper);
+    num_changed_observations += mapper.CompleteAndMergeTracks(tri_options);
+    num_changed_observations += mapper.FilterPoints(mapper_options);
     const double changed =
         static_cast<double>(num_changed_observations) / num_observations;
     LOG(INFO) << StringPrintf("=> Changed observations: %.6f", changed);
-    if (changed < mapper_options.ba_global_max_refinement_change) {
+    if (changed < options.ba_global_max_refinement_change) {
       break;
     }
   }
