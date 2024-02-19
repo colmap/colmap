@@ -135,6 +135,10 @@ struct IncrementalMapperOptions {
   BundleAdjustmentOptions LocalBundleAdjustment() const;
   BundleAdjustmentOptions GlobalBundleAdjustment() const;
 
+  inline bool IsInitialPairProvided() const {
+    return init_image_id1 != -1 && init_image_id2 != -1;
+  }
+
   bool Check() const;
 };
 
@@ -148,6 +152,8 @@ class IncrementalMapperController : public BaseController {
     LAST_IMAGE_REG_CALLBACK,
   };
 
+  enum class Status { NO_INITIAL_PAIR, BAD_INITIAL_PAIR, SUCCESS, INTERRUPTED };
+
   IncrementalMapperController(
       std::shared_ptr<const IncrementalMapperOptions> options,
       const std::string& image_path,
@@ -159,6 +165,17 @@ class IncrementalMapperController : public BaseController {
  private:
   bool LoadDatabase();
   void Reconstruct(const IncrementalMapper::Options& init_mapper_options);
+  Status ReconstructSubModel(
+      IncrementalMapper& mapper,
+      const IncrementalMapper::Options& mapper_options,
+      const std::shared_ptr<Reconstruction>& reconstruction);
+  Status InitializeReconstruction(
+      IncrementalMapper& mapper,
+      const IncrementalMapper::Options& mapper_options,
+      Reconstruction& reconstruction);
+  bool CheckRunGlobalRefinement(const Reconstruction& reconstruction,
+                                size_t ba_prev_num_reg_images,
+                                size_t ba_prev_num_points);
 
   const std::shared_ptr<const IncrementalMapperOptions> options_;
   const std::string image_path_;
@@ -166,15 +183,5 @@ class IncrementalMapperController : public BaseController {
   std::shared_ptr<ReconstructionManager> reconstruction_manager_;
   std::shared_ptr<DatabaseCache> database_cache_;
 };
-
-// Globally filter points and images in mapper.
-size_t FilterPoints(const IncrementalMapperOptions& options,
-                    IncrementalMapper* mapper);
-size_t FilterImages(const IncrementalMapperOptions& options,
-                    IncrementalMapper* mapper);
-
-// Globally complete and merge tracks in mapper.
-size_t CompleteAndMergeTracks(const IncrementalMapperOptions& options,
-                              IncrementalMapper* mapper);
 
 }  // namespace colmap
