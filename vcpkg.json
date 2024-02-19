@@ -24,7 +24,12 @@
         "freeimage",
         "gflags",
         "glog",
-        "jasper[core]",
+        {
+            "name": "jasper",
+            "features": [
+                "core"
+            ]
+        },
         "metis",
         "sqlite3",
         {
