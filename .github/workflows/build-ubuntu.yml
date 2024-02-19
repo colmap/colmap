@@ -221,7 +221,7 @@ jobs:
           ./hello_world --message "world"
       
       - name: Build Python package
-        if: matrix.config.buildPythonPackage == 'true'
+        if: matrix.config.buildPythonPackage == true
         run: |
           set -x
           sudo apt-get update && sudo apt-get install -y \
