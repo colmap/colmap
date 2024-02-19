@@ -271,16 +271,17 @@ int RunMapper(int argc, char** argv) {
   if (input_path != "") {
     const auto& reconstruction = reconstruction_manager->Get(0);
 
-    // Map the coordinate back to the original coordinate frame.
+    // Transform the final reconstruction back to the original coordinate frame.
     if (options.mapper->fix_existing_images) {
-      std::vector<Eigen::Vector3d> new_fixed_image_positions;
-      new_fixed_image_positions.reserve(fixed_image_ids.size());
-      for (const image_t image_id : fixed_image_ids) {
-        new_fixed_image_positions.push_back(
-            reconstruction->Image(image_id).ProjectionCenter());
-      }
-
-      if (fixed_image_ids.size() >= 3) {
+      if (fixed_image_ids.size() < 3) {
+        LOG(WARNING) << "Too few images to transform the reconstruction.";
+      } else {
+        std::vector<Eigen::Vector3d> new_fixed_image_positions;
+        new_fixed_image_positions.reserve(fixed_image_ids.size());
+        for (const image_t image_id : fixed_image_ids) {
+          new_fixed_image_positions.push_back(
+              reconstruction->Image(image_id).ProjectionCenter());
+        }
         Sim3d orig_from_new;
         if (EstimateSim3d(new_fixed_image_positions,
                           orig_fixed_image_positions,
