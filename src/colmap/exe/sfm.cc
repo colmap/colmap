@@ -287,8 +287,8 @@ int RunMapper(int argc, char** argv) {
                           orig_from_new)) {
           reconstruction->Transform(orig_from_new);
         } else {
-          LOG(INFO) << "failed to map the coordinate back to the original "
-                       "coordinate frame";
+          LOG(WARNING) << "Failed to transform the reconstruction back "
+                          "to the input coordinate frame.";
         }
       }
     }
