@@ -24,10 +24,6 @@
         "freeimage",
         "gflags",
         "glog",
-        // Transitive dependency through freeimage -> libraw -> jasper.
-        // By default, jasper depends on opengl/freeglut, which we
-        // explicitly disable by only selecting "core" features.
-        // This is to reduce the resulting binary size of colmap.
         "jasper[core]",
         "metis",
         "sqlite3",
