@@ -24,6 +24,7 @@ jobs:
             cudaEnabled: false,
             e2eTests: true,
             checkCodeFormat: true,
+            buildPythonPackage: true,
           },
           {
             os: ubuntu-22.04,
@@ -33,6 +34,7 @@ jobs:
             cudaEnabled: true,
             e2eTests: false,
             checkCodeFormat: false,
+            buildPythonPackage: false,
           },
           {
             os: ubuntu-22.04,
@@ -42,6 +44,7 @@ jobs:
             cudaEnabled: false,
             e2eTests: false,
             checkCodeFormat: false,
+            buildPythonPackage: false,
           },
           {
             os: ubuntu-22.04,
@@ -51,6 +54,7 @@ jobs:
             cudaEnabled: false,
             e2eTests: false,
             checkCodeFormat: false,
+            buildPythonPackage: false,
           },
           {
             os: ubuntu-20.04,
@@ -60,6 +64,7 @@ jobs:
             cudaEnabled: false,
             e2eTests: false,
             checkCodeFormat: false,
+            buildPythonPackage: false,
           },
           {
             os: ubuntu-20.04,
@@ -69,6 +74,7 @@ jobs:
             cudaEnabled: true,
             e2eTests: false,
             checkCodeFormat: false,
+            buildPythonPackage: false,
           },
         ]
 
@@ -207,11 +213,27 @@ jobs:
           cd ../doc/sample-project
           mkdir build
           cd build
-          colmap_DIR=${{ github.workspace }}/build/install/share/colmap cmake .. \
+          export colmap_DIR=${{ github.workspace }}/build/install/share/colmap
+          cmake .. \
             -GNinja \
             -DCMAKE_CUDA_ARCHITECTURES=50
           ninja
           ./hello_world --message "world"
+      
+      - name: Build Python package
+        if: runner.buildPythonPackage == 'true'
+        run: |
+          set -x
+          sudo apt-get update && sudo apt-get install -y \
+            python3-pip \
+            python3-setuptools \
+            python3-wheel
+          pip install --upgrade pip setuptools wheel twine
+          export colmap_DIR=${{ github.workspace }}/build/install/share/colmap
+          cd pycolmap
+          pip wheel .
+          # twine check dist/*
+          # twine upload --repository pycolmap dist/*
 
       - name: Run tests
         run: |
