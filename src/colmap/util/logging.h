@@ -165,9 +165,12 @@ class LogMessageFatalThrow : public google::LogMessage {
       : google::LogMessage(file, line, google::GLOG_ERROR, &message_),
         prefix_(__MakeExceptionPrefix(file, line)) {
     stream() << "Check failed: " << (*result.str_) << " ";
-    // On LOG(FATAL) glog does not bother cleaning up CheckOpString
+    // On LOG(FATAL) glog<0.7.0 does not bother cleaning up CheckOpString
     // so we do it here.
+#if !(defined(GLOG_VERSION_MAJOR) && \
+      (GLOG_VERSION_MAJOR > 0 || GLOG_VERSION_MINOR >= 7))
     delete result.str_;
+#endif
   }
   ~LogMessageFatalThrow() noexcept(false) {
     Flush();
