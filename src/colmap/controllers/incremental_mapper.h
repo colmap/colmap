@@ -162,6 +162,9 @@ class IncrementalMapperController : public BaseController {
 
   void Run();
 
+  void TriangulateReconstruction(
+      const std::shared_ptr<Reconstruction>& reconstruction);
+
  private:
   bool LoadDatabase();
   void Reconstruct(const IncrementalMapper::Options& init_mapper_options);
