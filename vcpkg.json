@@ -26,9 +26,7 @@
         "glog",
         {
             "name": "jasper",
-            "features": [
-                "core"
-            ]
+            "default-features": false
         },
         "metis",
         "sqlite3",
