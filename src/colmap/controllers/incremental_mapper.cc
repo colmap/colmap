@@ -224,7 +224,7 @@ bool IncrementalMapperController::LoadDatabase() {
   LOG(INFO) << "Loading database";
 
   // Make sure images of the given reconstruction are also included when
-  // manually specifying images for the reconstrunstruction procedure.
+  // manually specifying images for the reconstruction procedure.
   std::unordered_set<std::string> image_names = options_->image_names;
   if (reconstruction_manager_->Size() == 1 && !options_->image_names.empty()) {
     const auto& reconstruction = reconstruction_manager_->Get(0);
