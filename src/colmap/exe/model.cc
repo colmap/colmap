@@ -356,6 +356,9 @@ int RunModelAligner(int argc, char** argv) {
                                        ransac_options,
                                        &tform);
 
+    if (alignment_success)
+        reconstruction.Transform(tform);
+
     std::vector<double> errors;
     errors.reserve(ref_image_names.size());
 
