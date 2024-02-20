@@ -35,7 +35,7 @@ RUN apt-get update && \
         libcgal-dev \
         libceres-dev
 
-# Dynamically determine COLMAP_GIT_COMMIT if not set by user, log the commit being built, and build COLMAP.
+# Build and install COLMAP, Dynamically determine COLMAP_GIT_COMMIT if not set by user, log the commit being built, and build COLMAP.
 RUN git clone https://github.com/colmap/colmap.git && \
     cd colmap && \
     git fetch --tags && \
@@ -48,3 +48,33 @@ RUN git clone https://github.com/colmap/colmap.git && \
         -DCMAKE_INSTALL_PREFIX=/colmap_installed && \
     ninja install
 
+#
+# Docker runtime stage.
+#
+FROM nvidia/cuda:${NVIDIA_CUDA_VERSION}-runtime-ubuntu${UBUNTU_VERSION} as runtime
+
+# Minimal dependencies to run COLMAP binary compiled in the builder stage.
+# Note: this reduces the size of the final image considerably, since all the
+# build dependencies are not needed.
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends --no-install-suggests \
+        libboost-filesystem1.74.0 \
+        libboost-program-options1.74.0 \
+        libc6 \
+        libceres2 \
+        libfreeimage3 \
+        libgcc-s1 \
+        libgl1 \
+        libglew2.2 \
+        libgoogle-glog0v5 \
+        libqt5core5a \
+        libqt5gui5 \
+        libqt5widgets5
+
+# Copy all files from /colmap_installed/ in the builder stage to /usr/local/ in
+# the runtime stage. This simulates installing COLMAP in the default location
+# (/usr/local/), which simplifies environment variables. It also allows the user
+# of this Docker image to use it as a base image for compiling against COLMAP as
+# a library. For instance, CMake will be able to find COLMAP easily with the
+# command: find_package(COLMAP REQUIRED).
+COPY --from=builder /colmap_installed/ /usr/local/
