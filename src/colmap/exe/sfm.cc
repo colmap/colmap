@@ -222,7 +222,8 @@ int RunMapper(int argc, char** argv) {
   // stability.
   std::vector<Eigen::Vector3d> orig_fixed_image_positions;
   std::vector<image_t> fixed_image_ids;
-  if (options.mapper->fix_existing_images) {
+  if (options.mapper->fix_existing_images &&
+      reconstruction_manager->Size() > 0) {
     const auto& reconstruction = reconstruction_manager->Get(0);
     fixed_image_ids = reconstruction->RegImageIds();
     orig_fixed_image_positions.reserve(fixed_image_ids.size());
@@ -267,21 +268,30 @@ int RunMapper(int argc, char** argv) {
 
   // In case the reconstruction is continued from an existing reconstruction, do
   // not create sub-folders but directly write the results.
-  if (input_path != "" && reconstruction_manager->Size() > 0) {
+  if (input_path != "") {
     const auto& reconstruction = reconstruction_manager->Get(0);
 
-    // Map the coordinate back to the original coordinate frame.
+    // Transform the final reconstruction back to the original coordinate frame.
     if (options.mapper->fix_existing_images) {
-      std::vector<Eigen::Vector3d> new_fixed_image_positions;
-      new_fixed_image_positions.reserve(fixed_image_ids.size());
-      for (const image_t image_id : fixed_image_ids) {
-        new_fixed_image_positions.push_back(
-            reconstruction->Image(image_id).ProjectionCenter());
+      if (fixed_image_ids.size() < 3) {
+        LOG(WARNING) << "Too few images to transform the reconstruction.";
+      } else {
+        std::vector<Eigen::Vector3d> new_fixed_image_positions;
+        new_fixed_image_positions.reserve(fixed_image_ids.size());
+        for (const image_t image_id : fixed_image_ids) {
+          new_fixed_image_positions.push_back(
+              reconstruction->Image(image_id).ProjectionCenter());
+        }
+        Sim3d orig_from_new;
+        if (EstimateSim3d(new_fixed_image_positions,
+                          orig_fixed_image_positions,
+                          orig_from_new)) {
+          reconstruction->Transform(orig_from_new);
+        } else {
+          LOG(WARNING) << "Failed to transform the reconstruction back "
+                          "to the input coordinate frame.";
+        }
       }
-      Sim3d orig_from_new;
-      EstimateSim3d(
-          new_fixed_image_positions, orig_fixed_image_positions, orig_from_new);
-      reconstruction->Transform(orig_from_new);
     }
 
     reconstruction->Write(output_path);
