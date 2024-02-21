@@ -49,13 +49,13 @@
         "cuda": {
             "description": "Build with CUDA.",
             "dependencies": [
+                "glew",
                 "cuda"
             ]
         },
         "gui": {
             "description": "Build the GUI.",
             "dependencies": [
-                "glew",
                 "qt5-base"
             ]
         },
