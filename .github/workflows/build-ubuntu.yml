@@ -24,7 +24,6 @@ jobs:
             cudaEnabled: false,
             e2eTests: true,
             checkCodeFormat: true,
-            buildPythonPackage: true,
           },
           {
             os: ubuntu-22.04,
@@ -34,7 +33,6 @@ jobs:
             cudaEnabled: true,
             e2eTests: false,
             checkCodeFormat: false,
-            buildPythonPackage: false,
           },
           {
             os: ubuntu-22.04,
@@ -44,7 +42,6 @@ jobs:
             cudaEnabled: false,
             e2eTests: false,
             checkCodeFormat: false,
-            buildPythonPackage: false,
           },
           {
             os: ubuntu-22.04,
@@ -54,7 +51,6 @@ jobs:
             cudaEnabled: false,
             e2eTests: false,
             checkCodeFormat: false,
-            buildPythonPackage: false,
           },
           {
             os: ubuntu-20.04,
@@ -64,7 +60,6 @@ jobs:
             cudaEnabled: false,
             e2eTests: false,
             checkCodeFormat: false,
-            buildPythonPackage: false,
           },
           {
             os: ubuntu-20.04,
@@ -74,7 +69,6 @@ jobs:
             cudaEnabled: true,
             e2eTests: false,
             checkCodeFormat: false,
-            buildPythonPackage: false,
           },
         ]
 
