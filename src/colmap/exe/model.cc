@@ -338,7 +338,6 @@ int RunModelAligner(int argc, char** argv) {
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
   Sim3d tform;
-  bool alignment_success = true;
 
   if (alignment_type == "plane") {
     PrintHeading2("Aligning reconstruction to principal plane");
