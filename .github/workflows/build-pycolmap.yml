@@ -78,6 +78,7 @@ jobs:
           # Fix: cibuildhweel cannot interpolate env variables.
           $CMAKE_TOOLCHAIN_FILE = $CMAKE_TOOLCHAIN_FILE.replace('\', '/')
           $VCPKG_INSTALLED_DIR = "${{ github.workspace }}/build/vcpkg_installed"
+          $VCPKG_INSTALLED_DIR = $VCPKG_INSTALLED_DIR.replace('\', '/')
           $CONFIG_SETTINGS = "cmake.define.CMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}"
           $CONFIG_SETTINGS = "${CONFIG_SETTINGS} cmake.define.VCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET}"
           $CONFIG_SETTINGS = "${CONFIG_SETTINGS} cmake.define.VCPKG_INSTALLED_DIR=${VCPKG_INSTALLED_DIR}"
