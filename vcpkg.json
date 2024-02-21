@@ -56,6 +56,7 @@
         "gui": {
             "description": "Build the GUI.",
             "dependencies": [
+                "glew",
                 "qt5-base"
             ]
         },
