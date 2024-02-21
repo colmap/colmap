@@ -235,7 +235,8 @@ class IncrementalMapper {
       double max_refinement_change,
       const Options& options,
       const BundleAdjustmentOptions& ba_options,
-      const IncrementalTriangulator::Options& tri_options);
+      const IncrementalTriangulator::Options& tri_options,
+      bool normalize_reconstruction = true);
 
   // Filter images and point observations.
   size_t FilterImages(const Options& options);

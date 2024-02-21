@@ -415,16 +415,17 @@ int RunPointTriangulator(int argc, char** argv) {
   auto reconstruction = std::make_shared<Reconstruction>();
   reconstruction->Read(input_path);
 
-  return RunPointTriangulatorImpl(reconstruction,
-                                  *options.database_path,
-                                  *options.image_path,
-                                  output_path,
-                                  *options.mapper,
-                                  clear_points,
-                                  refine_intrinsics);
+  RunPointTriangulatorImpl(reconstruction,
+                           *options.database_path,
+                           *options.image_path,
+                           output_path,
+                           *options.mapper,
+                           clear_points,
+                           refine_intrinsics);
+  return EXIT_SUCCESS;
 }
 
-int RunPointTriangulatorImpl(
+void RunPointTriangulatorImpl(
     const std::shared_ptr<Reconstruction>& reconstruction,
     const std::string& database_path,
     const std::string& image_path,
@@ -432,113 +433,25 @@ int RunPointTriangulatorImpl(
     const IncrementalMapperOptions& options,
     const bool clear_points,
     const bool refine_intrinsics) {
-  PrintHeading1("Loading database");
-
-  std::shared_ptr<DatabaseCache> database_cache;
-
-  {
-    Timer timer;
-    timer.Start();
-    const Database database(database_path);
-    const size_t min_num_matches = static_cast<size_t>(options.min_num_matches);
-    database_cache = DatabaseCache::Create(database,
-                                           min_num_matches,
-                                           options.ignore_watermarks,
-                                           options.image_names);
-
-    if (clear_points) {
-      reconstruction->DeleteAllPoints2DAndPoints3D();
-      reconstruction->TranscribeImageIdsToDatabase(database);
-    }
-
-    timer.PrintMinutes();
-  }
-
   THROW_CHECK_GE(reconstruction->NumRegImages(), 2)
       << "Need at least two images for triangulation";
-
-  IncrementalMapper mapper(database_cache);
-  mapper.BeginReconstruction(reconstruction);
-
-  //////////////////////////////////////////////////////////////////////////////
-  // Triangulation
-  //////////////////////////////////////////////////////////////////////////////
-
-  const auto tri_options = options.Triangulation();
-  const auto mapper_options = options.Mapper();
-
-  const std::vector<image_t>& reg_image_ids = reconstruction->RegImageIds();
-
-  for (size_t i = 0; i < reg_image_ids.size(); ++i) {
-    const image_t image_id = reg_image_ids[i];
-    const auto& image = reconstruction->Image(image_id);
-
-    PrintHeading1(StringPrintf("Triangulating image #%d (%d)", image_id, i));
-
-    const size_t num_existing_points3D = image.NumPoints3D();
-
-    LOG(INFO) << "=> Image sees " << num_existing_points3D << " / "
-              << image.NumObservations() << " points";
-
-    mapper.TriangulateImage(tri_options, image_id);
-
-    LOG(INFO) << "=> Triangulated "
-              << (image.NumPoints3D() - num_existing_points3D) << " points";
+  if (clear_points) {
+    const Database database(database_path);
+    reconstruction->DeleteAllPoints2DAndPoints3D();
+    reconstruction->TranscribeImageIdsToDatabase(database);
   }
 
-  //////////////////////////////////////////////////////////////////////////////
-  // Retriangulation
-  //////////////////////////////////////////////////////////////////////////////
+  auto options_tmp = std::make_shared<IncrementalMapperOptions>(options);
+  options_tmp->fix_existing_images = true;
+  options_tmp->ba_refine_focal_length = refine_intrinsics;
+  options_tmp->ba_refine_principal_point = false;
+  options_tmp->ba_refine_extra_params = refine_intrinsics;
 
-  PrintHeading1("Retriangulation");
-
-  mapper.CompleteAndMergeTracks(tri_options);
-
-  //////////////////////////////////////////////////////////////////////////////
-  // Bundle adjustment
-  //////////////////////////////////////////////////////////////////////////////
-
-  auto ba_options = options.GlobalBundleAdjustment();
-  ba_options.refine_focal_length = refine_intrinsics;
-  ba_options.refine_principal_point = false;
-  ba_options.refine_extra_params = refine_intrinsics;
-  ba_options.refine_extrinsics = false;
-
-  // Configure bundle adjustment.
-  BundleAdjustmentConfig ba_config;
-  for (const image_t image_id : reg_image_ids) {
-    ba_config.AddImage(image_id);
-  }
-
-  for (int i = 0; i < options.ba_global_max_refinements; ++i) {
-    // Avoid degeneracies in bundle adjustment.
-    reconstruction->FilterObservationsWithNegativeDepth();
-
-    const size_t num_observations = reconstruction->ComputeNumObservations();
-
-    PrintHeading1("Bundle adjustment");
-    BundleAdjuster bundle_adjuster(ba_options, ba_config);
-    THROW_CHECK(bundle_adjuster.Solve(reconstruction.get()));
-
-    size_t num_changed_observations = 0;
-    num_changed_observations += mapper.CompleteAndMergeTracks(tri_options);
-    num_changed_observations += mapper.FilterPoints(mapper_options);
-    const double changed =
-        static_cast<double>(num_changed_observations) / num_observations;
-    LOG(INFO) << StringPrintf("=> Changed observations: %.6f", changed);
-    if (changed < options.ba_global_max_refinement_change) {
-      break;
-    }
-  }
-
-  PrintHeading1("Extracting colors");
-  reconstruction->ExtractColorsForAllImages(image_path);
-
-  mapper.EndReconstruction(/*discard=*/false);
-
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  IncrementalMapperController mapper(
+      options_tmp, image_path, database_path, reconstruction_manager);
+  mapper.TriangulateReconstruction(reconstruction);
   reconstruction->Write(output_path);
-
-  return EXIT_SUCCESS;
 }
 
 namespace {
