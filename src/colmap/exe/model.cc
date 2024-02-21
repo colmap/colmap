@@ -356,12 +356,12 @@ int RunModelAligner(int argc, char** argv) {
                                        ransac_options,
                                        &tform);
 
-    if (alignment_success) {
-      reconstruction.Transform(tform);
-    } else {
-      LOG(ERROR) << "Alignment failed";
-      return;
+    if (!alignment_success) {
+      LOG(ERROR) << "=> Alignment failed";
+      return EXIT_FAILURE;
     }
+
+    reconstruction.Transform(tform);
 
     std::vector<double> errors;
     errors.reserve(ref_image_names.size());
@@ -409,17 +409,13 @@ int RunModelAligner(int argc, char** argv) {
     }
   }
 
-  if (alignment_success) {
-    LOG(INFO) << "=> Alignment succeeded";
-    reconstruction.Write(output_path);
-    if (!transform_path.empty()) {
-      tform.ToFile(transform_path);
-    }
-    return EXIT_SUCCESS;
-  } else {
-    LOG(INFO) << "=> Alignment failed";
-    return EXIT_FAILURE;
+  LOG(INFO) << "=> Alignment succeeded";
+  reconstruction.Write(output_path);
+  if (!transform_path.empty()) {
+    tform.ToFile(transform_path);
   }
+
+  return EXIT_SUCCESS;
 }
 
 int RunModelAnalyzer(int argc, char** argv) {
