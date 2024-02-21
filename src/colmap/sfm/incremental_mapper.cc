@@ -732,15 +732,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
 
   // Run bundle adjustment.
   BundleAdjuster bundle_adjuster(ba_options_tmp, ba_config);
-  if (!bundle_adjuster.Solve(reconstruction_.get())) {
-    return false;
-  }
-
-  // Normalize scene for numerical stability and
-  // to avoid large scale changes in viewer.
-  reconstruction_->Normalize();
-
-  return true;
+  return bundle_adjuster.Solve(reconstruction_.get());
 }
 
 void IncrementalMapper::IterativeLocalRefinement(
@@ -781,12 +773,18 @@ void IncrementalMapper::IterativeGlobalRefinement(
     const double max_refinement_change,
     const Options& options,
     const BundleAdjustmentOptions& ba_options,
-    const IncrementalTriangulator::Options& tri_options) {
+    const IncrementalTriangulator::Options& tri_options,
+    const bool normalize_reconstruction) {
   CompleteAndMergeTracks(tri_options);
   VLOG(1) << "=> Retriangulated observations: " << Retriangulate(tri_options);
   for (int i = 0; i < max_num_refinements; ++i) {
     const size_t num_observations = reconstruction_->ComputeNumObservations();
     AdjustGlobalBundle(options, ba_options);
+    if (normalize_reconstruction) {
+      // Normalize scene for numerical stability and
+      // to avoid large scale changes in the viewer.
+      reconstruction_->Normalize();
+    }
     size_t num_changed_observations = CompleteAndMergeTracks(tri_options);
     num_changed_observations += FilterPoints(options);
     const double changed =
@@ -798,7 +796,6 @@ void IncrementalMapper::IterativeGlobalRefinement(
       break;
     }
   }
-  FilterImages(options);
 }
 
 size_t IncrementalMapper::FilterImages(const Options& options) {
