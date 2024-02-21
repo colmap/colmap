@@ -219,21 +219,6 @@ jobs:
             -DCMAKE_CUDA_ARCHITECTURES=50
           ninja
           ./hello_world --message "world"
-      
-      - name: Build Python package
-        if: matrix.config.buildPythonPackage == true
-        run: |
-          set -x
-          sudo apt-get update && sudo apt-get install -y \
-            python3-pip \
-            python3-setuptools \
-            python3-wheel
-          pip install --upgrade pip setuptools wheel twine
-          export colmap_DIR=${{ github.workspace }}/build/install/share/colmap
-          cd pycolmap
-          pip wheel .
-          # twine check dist/*
-          # twine upload --repository pycolmap dist/*
 
       - name: Run tests
         run: |
