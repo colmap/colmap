@@ -44,6 +44,7 @@ void IterativeGlobalRefinement(const IncrementalMapperOptions& options,
                                    mapper_options,
                                    options.GlobalBundleAdjustment(),
                                    options.Triangulation());
+  mapper.FilterImages(mapper_options);
 }
 
 void ExtractColors(const std::string& image_path,
@@ -224,7 +225,7 @@ bool IncrementalMapperController::LoadDatabase() {
   LOG(INFO) << "Loading database";
 
   // Make sure images of the given reconstruction are also included when
-  // manually specifying images for the reconstrunstruction procedure.
+  // manually specifying images for the reconstruction procedure.
   std::unordered_set<std::string> image_names = options_->image_names;
   if (reconstruction_manager_->Size() == 1 && !options_->image_names.empty()) {
     const auto& reconstruction = reconstruction_manager_->Get(0);
@@ -292,6 +293,7 @@ IncrementalMapperController::InitializeReconstruction(
 
   LOG(INFO) << "Global bundle adjustment";
   mapper.AdjustGlobalBundle(mapper_options, options_->GlobalBundleAdjustment());
+  reconstruction.Normalize();
   mapper.FilterPoints(mapper_options);
   mapper.FilterImages(mapper_options);
 
@@ -533,6 +535,41 @@ void IncrementalMapperController::Reconstruct(
         LOG(FATAL_THROW) << "Unknown reconstruction status.";
     }
   }
+}
+
+void IncrementalMapperController::TriangulateReconstruction(
+    const std::shared_ptr<Reconstruction>& reconstruction) {
+  THROW_CHECK(LoadDatabase());
+  IncrementalMapper mapper(database_cache_);
+  mapper.BeginReconstruction(reconstruction);
+
+  LOG(INFO) << "Iterative triangulation";
+  const std::vector<image_t>& reg_image_ids = reconstruction->RegImageIds();
+  for (size_t i = 0; i < reg_image_ids.size(); ++i) {
+    const image_t image_id = reg_image_ids[i];
+    const auto& image = reconstruction->Image(image_id);
+
+    LOG(INFO) << StringPrintf("Triangulating image #%d (%d)", image_id, i);
+    const size_t num_existing_points3D = image.NumPoints3D();
+    LOG(INFO) << "=> Image sees " << num_existing_points3D << " / "
+              << image.NumObservations() << " points";
+
+    mapper.TriangulateImage(options_->Triangulation(), image_id);
+    VLOG(1) << "=> Triangulated "
+            << (image.NumPoints3D() - num_existing_points3D) << " points";
+  }
+
+  LOG(INFO) << "Retriangulation and Global bundle adjustment";
+  mapper.IterativeGlobalRefinement(options_->ba_global_max_refinements,
+                                   options_->ba_global_max_refinement_change,
+                                   options_->Mapper(),
+                                   options_->GlobalBundleAdjustment(),
+                                   options_->Triangulation(),
+                                   /*normalize_reconstruction=*/false);
+  mapper.EndReconstruction(/*discard=*/false);
+
+  LOG(INFO) << "Extracting colors";
+  reconstruction->ExtractColorsForAllImages(image_path_);
 }
 
 }  // namespace colmap
