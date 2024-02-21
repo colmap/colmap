@@ -15,24 +15,18 @@ if [ ! -f "${COMPILER_TOOLS_DIR}/ccache" ]; then
     cp ${FILE}/ccache ${COMPILER_TOOLS_DIR}
 fi
 export PATH="${COMPILER_TOOLS_DIR}:${PATH}"
-ccache --version
-ccache --help
 
-# Build the dependencies
-DEPENDENCIES=$(cat ${CURRDIR}/pycolmap/ci/vcpkg-dependencies.txt)
+# Setup vcpkg
 git clone https://github.com/microsoft/vcpkg ${VCPKG_INSTALLATION_ROOT}
 cd ${VCPKG_INSTALLATION_ROOT}
 git checkout ${VCPKG_COMMIT_ID}
 ./bootstrap-vcpkg.sh
-./vcpkg install --recurse --clean-after-build \
-    --triplet=${VCPKG_TARGET_TRIPLET} \
-    ${DEPENDENCIES}
 ./vcpkg integrate install
 
 # Build COLMAP
 cd ${CURRDIR}
 mkdir build && cd build
-CXXFLAGS="-fPIC" CFLAGS="-fPIC" cmake .. -GNinja \
+cmake .. -GNinja \
     -DCUDA_ENABLED=OFF \
     -DCGAL_ENABLED=OFF \
     -DGUI_ENABLED=OFF \

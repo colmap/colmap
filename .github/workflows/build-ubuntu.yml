@@ -207,7 +207,8 @@ jobs:
           cd ../doc/sample-project
           mkdir build
           cd build
-          colmap_DIR=${{ github.workspace }}/build/install/share/colmap cmake .. \
+          export colmap_DIR=${{ github.workspace }}/build/install/share/colmap
+          cmake .. \
             -GNinja \
             -DCMAKE_CUDA_ARCHITECTURES=50
           ninja
