@@ -568,12 +568,22 @@ TwoViewGeometry Database::ReadTwoViewGeometry(const image_t image_id1,
 
 void Database::ReadTwoViewGeometries(
     std::vector<image_pair_t>* image_pair_ids,
-    std::vector<TwoViewGeometry>* two_view_geometries) const {
+    std::vector<TwoViewGeometry>* two_view_geometries,
+    const std::unordered_set<image_t>* image_ids) const {
   int rc;
   while ((rc = SQLITE3_CALL(sqlite3_step(
               sql_stmt_read_two_view_geometries_))) == SQLITE_ROW) {
     const image_pair_t pair_id = static_cast<image_pair_t>(
         sqlite3_column_int64(sql_stmt_read_two_view_geometries_, 0));
+
+    if (image_ids != nullptr) {
+      const auto image_pair = PairIdToImagePair(pair_id);
+      if (image_ids->count(image_pair.first) == 0 &&
+          image_ids->count(image_pair.second) == 0) {
+        continue;
+      }
+    }
+
     image_pair_ids->push_back(pair_id);
 
     TwoViewGeometry two_view_geometry;

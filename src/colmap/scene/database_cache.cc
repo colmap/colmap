@@ -71,9 +71,31 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
   timer.Restart();
   LOG(INFO) << "Loading matches...";
 
+  std::unordered_set<image_t> image_ids;
+  std::vector<class Image> images;
+
+  {
+    images = database.ReadAllImages();
+
+    // Determines for which images data should be loaded.
+    if (image_names.empty()) {
+      for (const auto& image : images) {
+        image_ids.insert(image.ImageId());
+      }
+    } else {
+      for (const auto& image : images) {
+        if (image_names.count(image.Name()) > 0) {
+          image_ids.insert(image.ImageId());
+        }
+      }
+    }
+  }
+
   std::vector<image_pair_t> image_pair_ids;
   std::vector<TwoViewGeometry> two_view_geometries;
-  database.ReadTwoViewGeometries(&image_pair_ids, &two_view_geometries);
+  database.ReadTwoViewGeometries(&image_pair_ids,
+                                 &two_view_geometries,
+                                 image_names.empty() ? nullptr : &image_ids);
 
   LOG(INFO) << StringPrintf(
       " %d in %.3fs", image_pair_ids.size(), timer.ElapsedSeconds());
@@ -93,24 +115,8 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
   timer.Restart();
   LOG(INFO) << "Loading images...";
 
-  std::unordered_set<image_t> image_ids;
-
   {
-    std::vector<class Image> images = database.ReadAllImages();
     const size_t num_images = images.size();
-
-    // Determines for which images data should be loaded.
-    if (image_names.empty()) {
-      for (const auto& image : images) {
-        image_ids.insert(image.ImageId());
-      }
-    } else {
-      for (const auto& image : images) {
-        if (image_names.count(image.Name()) > 0) {
-          image_ids.insert(image.ImageId());
-        }
-      }
-    }
 
     // Collect all images that are connected in the correspondence graph.
     std::unordered_set<image_t> connected_image_ids;
