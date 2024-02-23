@@ -80,6 +80,8 @@ void BindReconstruction(py::module& m) {
       .def("exists_image", &Reconstruction::ExistsImage)
       .def("exists_point3D", &Reconstruction::ExistsPoint3D)
       .def("exists_image_pair", &Reconstruction::ExistsImagePair)
+      .def("set_up", &Reconstruction::SetUp, "correspondence_graph"_a)
+      .def("tear_down", &Reconstruction::TearDown)
       .def("add_camera",
            &Reconstruction::AddCamera,
            "camera"_a,
