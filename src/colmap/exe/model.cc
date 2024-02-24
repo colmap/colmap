@@ -338,7 +338,6 @@ int RunModelAligner(int argc, char** argv) {
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
   Sim3d tform;
-  bool alignment_success = true;
 
   if (alignment_type == "plane") {
     PrintHeading2("Aligning reconstruction to principal plane");
@@ -355,6 +354,13 @@ int RunModelAligner(int argc, char** argv) {
                                        min_common_images,
                                        ransac_options,
                                        &tform);
+
+    if (!alignment_success) {
+      LOG(ERROR) << "=> Alignment failed";
+      return EXIT_FAILURE;
+    }
+
+    reconstruction.Transform(tform);
 
     std::vector<double> errors;
     errors.reserve(ref_image_names.size());
@@ -402,17 +408,13 @@ int RunModelAligner(int argc, char** argv) {
     }
   }
 
-  if (alignment_success) {
-    LOG(INFO) << "=> Alignment succeeded";
-    reconstruction.Write(output_path);
-    if (!transform_path.empty()) {
-      tform.ToFile(transform_path);
-    }
-    return EXIT_SUCCESS;
-  } else {
-    LOG(INFO) << "=> Alignment failed";
-    return EXIT_FAILURE;
+  LOG(INFO) << "=> Alignment succeeded";
+  reconstruction.Write(output_path);
+  if (!transform_path.empty()) {
+    tform.ToFile(transform_path);
   }
+
+  return EXIT_SUCCESS;
 }
 
 int RunModelAnalyzer(int argc, char** argv) {

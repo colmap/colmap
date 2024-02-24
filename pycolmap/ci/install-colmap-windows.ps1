@@ -26,7 +26,7 @@ If (!(Test-Path -path "${COMPILER_TOOLS_DIR}/ccache.exe" -PathType Leaf)) {
     Remove-Item -Recurse ${folder_path}
 }
 
-# Build the dependencies
+# Setup vcpkg
 cd ${CURRDIR}
 git clone https://github.com/microsoft/vcpkg ${env:VCPKG_INSTALLATION_ROOT}
 cd ${env:VCPKG_INSTALLATION_ROOT}
@@ -35,10 +35,6 @@ git checkout "${env:VCPKG_COMMIT_ID}"
 
 cd ${CURRDIR}
 & "./scripts/shell/enter_vs_dev_shell.ps1"
-
-[System.Collections.ArrayList]$DEPS = Get-Content -Path "./pycolmap/ci/vcpkg-dependencies.txt"
-& "${env:VCPKG_INSTALLATION_ROOT}/vcpkg.exe" install --recurse --clean-after-build `
-    --triplet="${env:VCPKG_TARGET_TRIPLET}" @DEPS
 & "${env:VCPKG_INSTALLATION_ROOT}/vcpkg.exe" integrate install
 
 # Build COLMAP

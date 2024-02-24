@@ -31,7 +31,7 @@ jobs:
       COMPILER_CACHE_DIR: ${{ github.workspace }}/compiler-cache
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
-      VCPKG_COMMIT_ID: fa6e6a6ec3224f1d3697d544edef6272a59cd834
+      VCPKG_COMMIT_ID: 13bde2ff13192e1b2fdd37bd9b475c7665ae6ae5
       VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
 
     steps:
@@ -78,7 +78,6 @@ jobs:
           cd vcpkg
           git reset --hard ${{ env.VCPKG_COMMIT_ID }}
           ./bootstrap-vcpkg.bat
-          ./vcpkg.exe install --recurse @${{ github.workspace }}/.github/workflows/build-windows-vcpkg.txt --clean-after-build
 
       - name: Configure and build
         shell: pwsh
@@ -93,8 +92,10 @@ jobs:
             -DCMAKE_MAKE_PROGRAM=ninja `
             -DCMAKE_BUILD_TYPE=Release `
             -DTESTS_ENABLED=ON `
+            -DGUI_ENABLED=ON `
+            -DCUDA_ENABLED=OFF `
             -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake `
-            -DVCPKG_TARGET_TRIPLET=x64-windows
+            -DVCPKG_TARGET_TRIPLET=x64-windows-release
           ninja
 
       - name: Run tests
