@@ -3,7 +3,6 @@
 #include "colmap/geometry/rigid3.h"
 #include "colmap/geometry/sim3.h"
 
-#include "pycolmap/geometry/homography_matrix.h"
 #include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
 
@@ -17,6 +16,8 @@
 
 namespace py = pybind11;
 using namespace pybind11::literals;
+
+void BindHomographyGeometry(py::module& m);
 
 void BindGeometry(py::module& m) {
   BindHomographyGeometry(m);

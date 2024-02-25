@@ -1,5 +1,3 @@
-#pragma once
-
 #include "colmap/controllers/feature_matching.h"
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/exe/feature.h"

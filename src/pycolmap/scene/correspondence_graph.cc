@@ -1,7 +1,6 @@
-#pragma once
+#include "colmap/scene/correspondence_graph.h"
 
 #include "colmap/feature/types.h"
-#include "colmap/scene/correspondence_graph.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/types.h"
 

@@ -1,8 +1,7 @@
-#pragma once
+#include "colmap/exe/sfm.h"
 
 #include "colmap/controllers/bundle_adjustment.h"
 #include "colmap/controllers/incremental_mapper.h"
-#include "colmap/exe/sfm.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/misc.h"

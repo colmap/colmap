@@ -1,6 +1,5 @@
-#pragma once
-
 #include "colmap/estimators/triangulation.h"
+
 #include "colmap/scene/camera.h"
 #include "colmap/scene/image.h"
 #include "colmap/util/logging.h"

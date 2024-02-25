@@ -50,7 +50,6 @@
 namespace colmap {
 
 struct PlyPoint;
-struct RANSACOptions;
 class DatabaseCache;
 class CorrespondenceGraph;
 

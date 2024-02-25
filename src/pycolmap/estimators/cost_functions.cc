@@ -1,6 +1,5 @@
-#pragma once
-
 #include "colmap/estimators/cost_functions.h"
+
 #include "colmap/geometry/rigid3.h"
 
 #include <pybind11/eigen.h>

@@ -1,11 +1,11 @@
-#pragma once
-
 #include "colmap/scene/point2d.h"
+
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/types.h"
 
 #include "pycolmap/helpers.h"
+#include "pycolmap/pybind11_extension.h"
 
 #include <memory>
 #include <sstream>

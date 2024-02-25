@@ -1,5 +1,3 @@
-#pragma once
-
 #include "colmap/controllers/image_reader.h"
 #include "colmap/exe/feature.h"
 #include "colmap/feature/sift.h"

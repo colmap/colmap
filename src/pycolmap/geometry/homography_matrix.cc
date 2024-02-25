@@ -1,6 +1,5 @@
-#pragma once
-
 #include "colmap/geometry/homography_matrix.h"
+
 #include "colmap/util/logging.h"
 
 #include <pybind11/eigen.h>

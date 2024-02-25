@@ -1,6 +1,5 @@
-#pragma once
-
 #include "colmap/estimators/two_view_geometry.h"
+
 #include "colmap/estimators/utils.h"
 #include "colmap/scene/camera.h"
 #include "colmap/scene/two_view_geometry.h"

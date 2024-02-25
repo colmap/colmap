@@ -30,6 +30,7 @@
 #pragma once
 
 #include "colmap/geometry/sim3.h"
+#include "colmap/optim/ransac.h"
 #include "colmap/scene/reconstruction.h"
 
 namespace colmap {

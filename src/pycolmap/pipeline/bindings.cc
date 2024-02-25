@@ -1,13 +1,13 @@
-#include "pycolmap/pipeline/extract_features.h"
-#include "pycolmap/pipeline/images.h"
-#include "pycolmap/pipeline/match_features.h"
-#include "pycolmap/pipeline/meshing.h"
-#include "pycolmap/pipeline/mvs.h"
-#include "pycolmap/pipeline/sfm.h"
-
 #include <pybind11/pybind11.h>
 
 namespace py = pybind11;
+
+void BindExtractFeatures(py::module& m);
+void BindImages(py::module& m);
+void BindMatchFeatures(py::module& m);
+void BindMeshing(py::module& m);
+void BindMVS(py::module& m);
+void BindSfM(py::module& m);
 
 void BindPipeline(py::module& m) {
   BindImages(m);
