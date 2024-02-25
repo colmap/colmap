@@ -6,6 +6,8 @@
 #include <regex>
 #include <string>
 
+using namespace colmap;
+
 enum class Device { AUTO = -1, CPU = 0, CUDA = 1 };
 
 inline bool IsGPU(Device device) {
