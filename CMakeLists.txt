@@ -30,6 +30,37 @@
 
 cmake_minimum_required(VERSION 3.10)
 
+################################################################################
+# Options
+################################################################################
+
+option(SIMD_ENABLED "Whether to enable SIMD optimizations" ON)
+option(OPENMP_ENABLED "Whether to enable OpenMP parallelization" ON)
+option(IPO_ENABLED "Whether to enable interprocedural optimization" ON)
+option(CUDA_ENABLED "Whether to enable CUDA, if available" ON)
+option(GUI_ENABLED "Whether to enable the graphical UI" ON)
+option(OPENGL_ENABLED "Whether to enable OpenGL, if available" ON)
+option(TESTS_ENABLED "Whether to build test binaries" OFF)
+option(ASAN_ENABLED "Whether to enable AddressSanitizer flags" OFF)
+option(PROFILING_ENABLED "Whether to enable google-perftools linker flags" OFF)
+option(CCACHE_ENABLED "Whether to enable compiler caching, if available" ON)
+option(CGAL_ENABLED "Whether to enable the CGAL library" ON)
+
+# Propagate options to vcpkg manifest.
+if(TESTS_ENABLED)
+  enable_testing()
+  list(APPEND VCPKG_MANIFEST_FEATURES "tests")
+endif()
+if(CUDA_ENABLED)
+    list(APPEND VCPKG_MANIFEST_FEATURES "cuda")
+endif()
+if(GUI_ENABLED)
+    list(APPEND VCPKG_MANIFEST_FEATURES "gui")
+endif()
+if(CGAL_ENABLED)
+    list(APPEND VCPKG_MANIFEST_FEATURES "cgal")
+endif()
+
 project(COLMAP LANGUAGES C CXX)
 
 set(COLMAP_VERSION "3.10-dev")
@@ -56,26 +87,6 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/CMakeHelper.cmake NO_POLICY_SCOPE)
 # Build position-independent code, so that shared libraries can link against
 # COLMAP's static libraries.
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-
-################################################################################
-# Options
-################################################################################
-
-option(SIMD_ENABLED "Whether to enable SIMD optimizations" ON)
-option(OPENMP_ENABLED "Whether to enable OpenMP parallelization" ON)
-option(IPO_ENABLED "Whether to enable interprocedural optimization" ON)
-option(CUDA_ENABLED "Whether to enable CUDA, if available" ON)
-option(GUI_ENABLED "Whether to enable the graphical UI" ON)
-option(OPENGL_ENABLED "Whether to enable OpenGL, if available" ON)
-option(TESTS_ENABLED "Whether to build test binaries" OFF)
-option(ASAN_ENABLED "Whether to enable AddressSanitizer flags" OFF)
-option(PROFILING_ENABLED "Whether to enable google-perftools linker flags" OFF)
-option(CCACHE_ENABLED "Whether to enable compiler caching, if available" ON)
-option(CGAL_ENABLED "Whether to enable the CGAL library" ON)
-
-if(TESTS_ENABLED)
-    enable_testing()
-endif()
 
 ################################################################################
 # Dependency configuration
