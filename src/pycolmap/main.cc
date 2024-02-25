@@ -10,8 +10,8 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
-namespace py = pybind11;
 using namespace colmap;
+namespace py = pybind11;
 
 void BindEstimators(py::module& m);
 void BindGeometry(py::module& m);
