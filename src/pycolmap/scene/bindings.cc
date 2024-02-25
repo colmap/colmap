@@ -1,5 +1,3 @@
-#pragma once
-
 #include "pycolmap/scene/camera.h"
 #include "pycolmap/scene/correspondence_graph.h"
 #include "pycolmap/scene/database.h"

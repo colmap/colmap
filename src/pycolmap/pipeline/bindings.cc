@@ -1,5 +1,3 @@
-#pragma once
-
 #include "pycolmap/pipeline/extract_features.h"
 #include "pycolmap/pipeline/images.h"
 #include "pycolmap/pipeline/match_features.h"

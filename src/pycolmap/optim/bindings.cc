@@ -1,9 +1,10 @@
-#pragma once
-
 #include "colmap/optim/ransac.h"
+
+#include "pycolmap/helpers.h"
 
 #include <pybind11/pybind11.h>
 
+using namespace colmap;
 namespace py = pybind11;
 
 void BindOptim(py::module& m) {

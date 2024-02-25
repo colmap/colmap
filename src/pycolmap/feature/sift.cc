@@ -1,6 +1,5 @@
-#pragma once
-
 #include "colmap/feature/sift.h"
+
 #include "colmap/feature/utils.h"
 
 #include "pycolmap/helpers.h"

@@ -1,5 +1,3 @@
-#pragma once
-
 #include "pycolmap/sfm/incremental_mapper.h"
 #include "pycolmap/sfm/incremental_triangulator.h"
 

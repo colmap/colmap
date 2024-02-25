@@ -1,6 +1,7 @@
 #pragma once
 
 #include "colmap/scene/camera.h"
+#include "colmap/scene/point2d.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
