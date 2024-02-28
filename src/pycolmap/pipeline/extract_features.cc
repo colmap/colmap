@@ -7,6 +7,7 @@
 #include "colmap/util/misc.h"
 
 #include "pycolmap/helpers.h"
+#include "pycolmap/pybind11_extension.h"
 #include "pycolmap/utils.h"
 
 #include <memory>

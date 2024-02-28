@@ -3,6 +3,7 @@
 #include "colmap/util/misc.h"
 
 #include "pycolmap/helpers.h"
+#include "pycolmap/pybind11_extension.h"
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>

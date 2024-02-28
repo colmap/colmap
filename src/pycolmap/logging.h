@@ -1,5 +1,7 @@
 #pragma once
 
+#include "pycolmap/pybind11_extension.h"
+
 #include <glog/logging.h>
 #include <pybind11/pybind11.h>
 

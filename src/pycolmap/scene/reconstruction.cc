@@ -7,6 +7,8 @@
 #include "colmap/util/ply.h"
 #include "colmap/util/types.h"
 
+#include "pycolmap/pybind11_extension.h"
+
 #include <memory>
 #include <sstream>
 

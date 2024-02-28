@@ -1,5 +1,7 @@
 #include "colmap/scene/database.h"
 
+#include "pycolmap/pybind11_extension.h"
+
 #include <pybind11/pybind11.h>
 
 using namespace colmap;
