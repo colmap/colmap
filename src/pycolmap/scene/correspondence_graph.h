@@ -72,6 +72,7 @@ void BindCorrespondenceGraph(py::module& m) {
             }
             self.AddCorrespondences(image_id1, image_id2, matches);
           })
+      .def("find_correspondences", &CorrespondenceGraph::FindCorrespondences)
       .def("extract_correspondences",
            &CorrespondenceGraph::ExtractCorrespondences)
       .def("extract_transitive_correspondences",
