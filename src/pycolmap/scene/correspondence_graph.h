@@ -72,7 +72,18 @@ void BindCorrespondenceGraph(py::module& m) {
             }
             self.AddCorrespondences(image_id1, image_id2, matches);
           })
-      .def("find_correspondences", &CorrespondenceGraph::FindCorrespondences)
+      .def("find_correspondences",
+           [](const CorrespondenceGraph& self,
+              const image_t image_id,
+              const point2D_t point2D_idx) {
+             const auto corr_range =
+               self.FindCorrespondences(image_id, point2D_idx);
+             std::vector<CorrespondenceGraph::Correspondence> correspondences;               
+             for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
+               corrs.push_back(*corr);
+             }
+             return corrs;
+           })
       .def("extract_correspondences",
            &CorrespondenceGraph::ExtractCorrespondences)
       .def("extract_transitive_correspondences",
