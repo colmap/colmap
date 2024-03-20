@@ -81,6 +81,8 @@ class Reconstruction {
   inline const struct Point3D& Point3D(point3D_t point3D_id) const;
   inline const ImagePairStat& ImagePair(image_pair_t pair_id) const;
   inline ImagePairStat& ImagePair(image_t image_id1, image_t image_id2);
+  inline void SetImagePair(const image_pair_t pair_id,
+                           const Reconstruction::ImagePairStat& stats);
 
   // Get mutable objects.
   inline struct Camera& Camera(camera_t camera_id);
@@ -375,6 +377,11 @@ struct Point3D& Reconstruction::Point3D(const point3D_t point3D_id) {
 Reconstruction::ImagePairStat& Reconstruction::ImagePair(
     const image_pair_t pair_id) {
   return image_pair_stats_.at(pair_id);
+}
+
+void Reconstruction::SetImagePair(const image_pair_t pair_id,
+                                  const Reconstruction::ImagePairStat& stats) {
+  image_pair_stats_.emplace(pair_id, stats);
 }
 
 Reconstruction::ImagePairStat& Reconstruction::ImagePair(

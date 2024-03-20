@@ -37,6 +37,15 @@ bool ExistsReconstruction(const std::string& path) {
 }
 
 void BindReconstruction(py::module& m) {
+  py::class_ext_<Reconstruction::ImagePairStat,
+                 std::shared_ptr<Reconstruction::ImagePairStat>>(
+      m, "ImagePairStat")
+      .def(py::init<>())
+      .def_readwrite("num_tri_corrs",
+                     &Reconstruction::ImagePairStat::num_tri_corrs)
+      .def_readwrite("num_total_corrs",
+                     &Reconstruction::ImagePairStat::num_total_corrs);
+
   py::class_<Reconstruction, std::shared_ptr<Reconstruction>>(m,
                                                               "Reconstruction")
       .def(py::init<>())
@@ -63,6 +72,9 @@ void BindReconstruction(py::module& m) {
       .def("num_reg_images", &Reconstruction::NumRegImages)
       .def("num_points3D", &Reconstruction::NumPoints3D)
       .def("num_image_pairs", &Reconstruction::NumImagePairs)
+      .def("set_image_pair", &Reconstruction::SetImagePair)
+      .def("image_pair",
+           py::overload_cast<const image_pair_t>(&Reconstruction::ImagePair))
       .def_property_readonly("images",
                              &Reconstruction::Images,
                              py::return_value_policy::reference_internal)
@@ -73,7 +85,7 @@ void BindReconstruction(py::module& m) {
       .def_property_readonly("points3D",
                              &Reconstruction::Points3D,
                              py::return_value_policy::reference_internal)
-      .def("set_up", 
+      .def("set_up",
            &Reconstruction::SetUp,
            "Setup all relevant data structures before reconstruction.")
       .def("point3D_ids", &Reconstruction::Point3DIds)

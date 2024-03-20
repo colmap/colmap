@@ -56,6 +56,10 @@ void BindCorrespondenceGraph(py::module& m) {
               const image_t image_id2) {
              return self.NumCorrespondencesBetweenImages(image_id1, image_id2);
            })
+      .def("num_correspondences_between_all_images",
+           [](const CorrespondenceGraph& self) {
+             return self.NumCorrespondencesBetweenImages();
+           })
       .def("finalize", &CorrespondenceGraph::Finalize)
       .def("add_image", &CorrespondenceGraph::AddImage)
       .def(
