@@ -73,6 +73,9 @@ void BindReconstruction(py::module& m) {
       .def_property_readonly("points3D",
                              &Reconstruction::Points3D,
                              py::return_value_policy::reference_internal)
+      .def("set_up", 
+           &Reconstruction::SetUp,
+           "Setup all relevant data structures before reconstruction.")
       .def("point3D_ids", &Reconstruction::Point3DIds)
       .def("reg_image_ids", &Reconstruction::RegImageIds)
       .def("exists_camera", &Reconstruction::ExistsCamera)
