@@ -1,5 +1,6 @@
 #include "colmap/scene/reconstruction.h"
 
+#include "colmap/scene/correspondence_graph.h"
 #include "colmap/scene/reconstruction_io.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/logging.h"
@@ -38,6 +39,15 @@ bool ExistsReconstruction(const std::string& path) {
 }
 
 void BindReconstruction(py::module& m) {
+  py::class_ext_<Reconstruction::ImagePairStat,
+                 std::shared_ptr<Reconstruction::ImagePairStat>>(
+      m, "ImagePairStat")
+      .def(py::init<>())
+      .def_readwrite("num_tri_corrs",
+                     &Reconstruction::ImagePairStat::num_tri_corrs)
+      .def_readwrite("num_total_corrs",
+                     &Reconstruction::ImagePairStat::num_total_corrs);
+
   py::class_<Reconstruction, std::shared_ptr<Reconstruction>>(m,
                                                               "Reconstruction")
       .def(py::init<>())
@@ -80,6 +90,10 @@ void BindReconstruction(py::module& m) {
       .def("exists_image", &Reconstruction::ExistsImage)
       .def("exists_point3D", &Reconstruction::ExistsPoint3D)
       .def("exists_image_pair", &Reconstruction::ExistsImagePair)
+      .def("image_pair",
+           py::overload_cast<image_t, image_t>(&Reconstruction::ImagePair))
+      .def("image_pair",
+           py::overload_cast<image_pair_t>(&Reconstruction::ImagePair))
       .def("set_up", &Reconstruction::SetUp, "correspondence_graph"_a)
       .def("tear_down", &Reconstruction::TearDown)
       .def("add_camera",
