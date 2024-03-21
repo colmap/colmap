@@ -53,15 +53,16 @@ void BindCorrespondenceGraph(py::module& m) {
       .def("num_correspondences_for_image",
            &CorrespondenceGraph::NumCorrespondencesForImage,
            "image_id"_a)
-      .def(
-          "num_correspondences_between_images",
-          [](const CorrespondenceGraph& self,
-             const image_t image_id1,
-             const image_t image_id2) {
-            return self.NumCorrespondencesBetweenImages(image_id1, image_id2);
-          },
-          "image_id1"_a,
-          "image_id2"_a)
+      .def("num_correspondences_between_images",
+           py::overload_cast<image_t, image_t>(
+               &CorrespondenceGraph::NumCorrespondencesBetweenImages,
+               py::const_),
+           "image_id1"_a,
+           "image_id2"_a)
+      .def("num_correspondences_between_all_images",
+           py::overload_cast<>(
+               &CorrespondenceGraph::NumCorrespondencesBetweenImages,
+               py::const_))
       .def("finalize", &CorrespondenceGraph::Finalize)
       .def("add_image",
            &CorrespondenceGraph::AddImage,
