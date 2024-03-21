@@ -3,10 +3,12 @@
 #include "pycolmap/scene/camera.h"
 #include "pycolmap/scene/correspondence_graph.h"
 #include "pycolmap/scene/database.h"
+#include "pycolmap/scene/database_cache.h"
 #include "pycolmap/scene/image.h"
 #include "pycolmap/scene/point2D.h"
 #include "pycolmap/scene/point3D.h"
 #include "pycolmap/scene/reconstruction.h"
+#include "pycolmap/scene/reconstruction_manager.h"
 #include "pycolmap/scene/track.h"
 
 #include <pybind11/pybind11.h>
@@ -21,5 +23,7 @@ void BindScene(py::module& m) {
   BindPoint3D(m);
   BindCorrespondenceGraph(m);
   BindReconstruction(m);
+  BindReconstructionManager(m);
   BindDatabase(m);
+  BindDatabaseCache(m);
 }

@@ -146,7 +146,7 @@ struct IncrementalMapperOptions {
 // initializing reconstructions from the same scene graph.
 class IncrementalMapperController : public BaseController {
  public:
-  enum {
+  enum CallbackType {
     INITIAL_IMAGE_PAIR_REG_CALLBACK,
     NEXT_IMAGE_REG_CALLBACK,
     LAST_IMAGE_REG_CALLBACK,
@@ -165,8 +165,10 @@ class IncrementalMapperController : public BaseController {
   void TriangulateReconstruction(
       const std::shared_ptr<Reconstruction>& reconstruction);
 
- private:
   bool LoadDatabase();
+  std::shared_ptr<DatabaseCache> GetDatabaseCache() const { return database_cache_; }
+
+ private:
   void Reconstruct(const IncrementalMapper::Options& init_mapper_options);
   Status ReconstructSubModel(
       IncrementalMapper& mapper,

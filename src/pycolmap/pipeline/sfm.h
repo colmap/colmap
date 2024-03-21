@@ -102,7 +102,7 @@ void BundleAdjustment(const std::shared_ptr<Reconstruction>& reconstruction,
 
 void BindSfM(py::module& m) {
   using MapperOpts = IncrementalMapperOptions;
-  auto PyMapperOpts = py::class_<MapperOpts>(m, "IncrementalPipelineOptions");
+  auto PyMapperOpts = py::class_<MapperOpts, std::shared_ptr<MapperOpts>>(m, "IncrementalPipelineOptions");
   PyMapperOpts.def(py::init<>())
       .def_readwrite(
           "min_num_matches",

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "colmap/controllers/incremental_mapper.h"
 #include "colmap/sfm/incremental_mapper.h"
 
 #include "pycolmap/helpers.h"
@@ -11,19 +12,45 @@
 using namespace colmap;
 namespace py = pybind11;
 
-void BindIncrementalMapper(py::module& m) {
-  using ImageSelection = IncrementalMapper::Options::ImageSelectionMethod;
-  auto PyImageSelectionMethod =
-      py::enum_<ImageSelection>(m, "ImageSelectionMethod")
-          .value("MAX_VISIBLE_POINTS_NUM",
-                 ImageSelection::MAX_VISIBLE_POINTS_NUM)
-          .value("MAX_VISIBLE_POINTS_RATIO",
-                 ImageSelection::MAX_VISIBLE_POINTS_RATIO)
-          .value("MIN_UNCERTAINTY", ImageSelection::MIN_UNCERTAINTY);
-  AddStringToEnumConstructor(PyImageSelectionMethod);
+void BindIncrementalMapperController(py::module& m) {
+  // bind callbacks
+  using CallbackType = IncrementalMapperController::CallbackType;
+  auto PyCallbackType =
+      py::enum_<CallbackType>(m, "IncrementalMapperCallback")
+          .value("INITIAL_IMAGE_PAIR_REG_CALLBACK",
+                 CallbackType::INITIAL_IMAGE_PAIR_REG_CALLBACK)
+          .value("NEXT_IMAGE_REG_CALLBACK",
+                 CallbackType::NEXT_IMAGE_REG_CALLBACK)
+          .value("LAST_IMAGE_REG_CALLBACK",
+                 CallbackType::LAST_IMAGE_REG_CALLBACK);
+  AddStringToEnumConstructor(PyCallbackType);
 
+  // bind status
+  using Status = IncrementalMapperController::Status;
+  auto PyStatus =
+      py::enum_<Status>(m, "IncrementalMapperStatus")
+          .value("NO_INITIAL_PAIR", Status::NO_INITIAL_PAIR)
+          .value("BAD_INITIAL_PAIR", Status::BAD_INITIAL_PAIR)
+          .value("SUCCESS", Status::SUCCESS)
+          .value("INTERRUPTED", Status::INTERRUPTED);
+  AddStringToEnumConstructor(PyStatus);
+
+  // bind controller
+  py::class_<IncrementalMapperController, std::shared_ptr<IncrementalMapperController>>(m, "IncrementalMapperController")
+    .def(py::init<std::shared_ptr<const IncrementalMapperOptions>, 
+                  const std::string&, 
+                  const std::string&, 
+                  std::shared_ptr<ReconstructionManager>>(), 
+                  "options"_a, "image_path"_a, "database_path"_a, "reconstruction_manager"_a)
+    .def("AddCallback", &IncrementalMapperController::AddCallback, "id"_a, "func"_a)
+    .def("LoadDatabase", &IncrementalMapperController::LoadDatabase)
+    .def("GetDatabaseCache", &IncrementalMapperController::GetDatabaseCache)
+    .def("Run", &IncrementalMapperController::Run);
+}
+
+void BindIncrementalMapperOptions(py::module& m) {
   using Opts = IncrementalMapper::Options;
-  auto PyOpts = py::class_<Opts>(m, "IncrementalMapperOptions");
+  auto PyOpts = py::class_<Opts, std::shared_ptr<Opts>>(m, "IncrementalMapperOptions");
   PyOpts.def(py::init<>())
       .def_readwrite("init_min_num_inliers",
                      &Opts::init_min_num_inliers,
@@ -97,4 +124,29 @@ void BindIncrementalMapper(py::module& m) {
                      &Opts::image_selection_method,
                      "Method to find and select next best image to register.");
   MakeDataclass(PyOpts);
+}
+
+void BindIncrementalMapperImpl(py::module& m) {
+  // bind options
+  BindIncrementalMapperOptions(m);
+
+  // bind ImageSelectionMethod
+  using ImageSelection = IncrementalMapper::Options::ImageSelectionMethod;
+  auto PyImageSelectionMethod =
+      py::enum_<ImageSelection>(m, "ImageSelectionMethod")
+          .value("MAX_VISIBLE_POINTS_NUM",
+                 ImageSelection::MAX_VISIBLE_POINTS_NUM)
+          .value("MAX_VISIBLE_POINTS_RATIO",
+                 ImageSelection::MAX_VISIBLE_POINTS_RATIO)
+          .value("MIN_UNCERTAINTY", ImageSelection::MIN_UNCERTAINTY);
+  AddStringToEnumConstructor(PyImageSelectionMethod);
+
+  // bind incremental mapper
+  py::class_<IncrementalMapper, std::shared_ptr<IncrementalMapper>>(m, "IncrementalMapper")
+    .def(py::init<std::shared_ptr<const DatabaseCache>>());
+}
+
+void BindIncrementalMapper(py::module& m) {
+  BindIncrementalMapperController(m);
+  BindIncrementalMapperImpl(m);
 }
