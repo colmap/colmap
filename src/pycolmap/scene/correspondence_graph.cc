@@ -4,6 +4,8 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/types.h"
 
+#include "pycolmap/utils.h"
+
 #include <memory>
 #include <sstream>
 
@@ -70,13 +72,8 @@ void BindCorrespondenceGraph(py::module& m) {
           [](CorrespondenceGraph& self,
              const image_t image_id1,
              const image_t image_id2,
-             const Eigen::Ref<Eigen::Matrix<point2D_t, -1, 2, Eigen::RowMajor>>&
-                 corrs) {
-            FeatureMatches matches;
-            matches.reserve(corrs.rows());
-            for (Eigen::Index idx = 0; idx < corrs.rows(); ++idx) {
-              matches.push_back(FeatureMatch(corrs(idx, 0), corrs(idx, 1)));
-            }
+             const PyFeatureMatches& corrs) {
+            FeatureMatches matches = FeatureMatchesFromMatrix(corrs);
             self.AddCorrespondences(image_id1, image_id2, matches);
           },
           "image_id1"_a,
@@ -112,16 +109,10 @@ void BindCorrespondenceGraph(py::module& m) {
           "find_correspondences_between_images",
           [](const CorrespondenceGraph& self,
              const image_t image_id1,
-             const image_t image_id2) {
+             const image_t image_id2) -> PyFeatureMatches {
             const FeatureMatches matches =
                 self.FindCorrespondencesBetweenImages(image_id1, image_id2);
-            Eigen::Matrix<point2D_t, Eigen::Dynamic, 2, Eigen::RowMajor> corrs(
-                matches.size(), 2);
-            for (size_t idx = 0; idx < matches.size(); ++idx) {
-              corrs(idx, 0) = matches[idx].point2D_idx1;
-              corrs(idx, 1) = matches[idx].point2D_idx2;
-            }
-            return corrs;
+            return FeatureMatchesToMatrix(matches);
           },
           "image_id1"_a,
           "image_id2"_a)
