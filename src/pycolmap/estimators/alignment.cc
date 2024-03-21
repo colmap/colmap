@@ -6,6 +6,8 @@
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/logging.h"
 
+#include "pycolmap/pybind11_extension.h"
+
 #include <pybind11/eigen.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>

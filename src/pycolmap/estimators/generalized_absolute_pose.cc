@@ -6,6 +6,7 @@
 #include "colmap/scene/camera.h"
 #include "colmap/util/logging.h"
 
+#include "pycolmap/pybind11_extension.h"
 #include "pycolmap/utils.h"
 
 #include <pybind11/eigen.h>
