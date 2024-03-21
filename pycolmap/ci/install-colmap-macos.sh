@@ -7,6 +7,8 @@ rm -f '/usr/local/bin/2to3'
 rm -f '/usr/local/bin/2to3-3.11'
 rm -f '/usr/local/bin/2to3-3.12'
 rm -f '/usr/local/bin/idle3'
+rm -f '/usr/local/bin/idle3.11'
+rm -f '/usr/local/bin/idle3.12'
 
 brew update
 brew install git cmake ninja llvm ccache
