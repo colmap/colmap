@@ -2,6 +2,7 @@
 set -x -e
 CURRDIR=$(pwd)
 
+rm -f "/usr/local/bin/2to3*"  # Fix `brew link` error.
 brew update
 brew install git cmake ninja llvm ccache
 

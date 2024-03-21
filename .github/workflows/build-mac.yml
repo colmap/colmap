@@ -40,7 +40,7 @@ jobs:
 
       - name: Setup Mac
         run: |
-          rm -f '/usr/local/bin/2to3*'  # Fix `brew link` error.
+          rm -f "/usr/local/bin/2to3*"  # Fix `brew link` error.
           brew install \
             cmake \
             ninja \
