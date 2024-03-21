@@ -21,7 +21,7 @@ void BindCorrespondenceGraph(py::module& m) {
              std::shared_ptr<CorrespondenceGraph::Correspondence>>(
       m, "Correspondence")
       .def(py::init<>())
-      .def(py::init<image_t, point2D_t>())
+      .def(py::init<image_t, point2D_t>(), "image_id"_a, "point2D_idx"_a)
       .def_readwrite("image_id", &CorrespondenceGraph::Correspondence::image_id)
       .def_readwrite("point2D_idx",
                      &CorrespondenceGraph::Correspondence::point2D_idx)
@@ -44,19 +44,27 @@ void BindCorrespondenceGraph(py::module& m) {
       .def(py::init<>())
       .def("num_images", &CorrespondenceGraph::NumImages)
       .def("num_image_pairs", &CorrespondenceGraph::NumImagePairs)
-      .def("exists_image", &CorrespondenceGraph::ExistsImage)
+      .def("exists_image", &CorrespondenceGraph::ExistsImage, "image_id"_a)
       .def("num_observations_for_image",
-           &CorrespondenceGraph::NumObservationsForImage)
+           &CorrespondenceGraph::NumObservationsForImage,
+           "image_id"_a)
       .def("num_correspondences_for_image",
-           &CorrespondenceGraph::NumCorrespondencesForImage)
-      .def("num_correspondences_between_images",
-           [](const CorrespondenceGraph& self,
-              const image_t image_id1,
-              const image_t image_id2) {
-             return self.NumCorrespondencesBetweenImages(image_id1, image_id2);
-           })
+           &CorrespondenceGraph::NumCorrespondencesForImage,
+           "image_id"_a)
+      .def(
+          "num_correspondences_between_images",
+          [](const CorrespondenceGraph& self,
+             const image_t image_id1,
+             const image_t image_id2) {
+            return self.NumCorrespondencesBetweenImages(image_id1, image_id2);
+          },
+          "image_id1"_a,
+          "image_id2"_a)
       .def("finalize", &CorrespondenceGraph::Finalize)
-      .def("add_image", &CorrespondenceGraph::AddImage)
+      .def("add_image",
+           &CorrespondenceGraph::AddImage,
+           "image_id"_a,
+           "num_points2D"_a)
       .def(
           "add_correspondences",
           [](CorrespondenceGraph& self,
@@ -70,7 +78,10 @@ void BindCorrespondenceGraph(py::module& m) {
               matches.push_back(FeatureMatch(corrs(idx, 0), corrs(idx, 1)));
             }
             self.AddCorrespondences(image_id1, image_id2, matches);
-          })
+          },
+          "image_id1"_a,
+          "image_id2"_a,
+          "correspondences"_a)
       .def(
           "extract_correspondences",
           [](const CorrespondenceGraph& self,
@@ -97,23 +108,31 @@ void BindCorrespondenceGraph(py::module& m) {
           "image_id"_a,
           "point2D_idx"_a,
           "transitivity"_a)
-      .def("find_correspondences_between_images",
-           [](const CorrespondenceGraph& self,
-              const image_t image_id1,
-              const image_t image_id2) {
-             const FeatureMatches matches =
-                 self.FindCorrespondencesBetweenImages(image_id1, image_id2);
-             Eigen::Matrix<point2D_t, Eigen::Dynamic, 2, Eigen::RowMajor> corrs(
-                 matches.size(), 2);
-             for (size_t idx = 0; idx < matches.size(); ++idx) {
-               corrs(idx, 0) = matches[idx].point2D_idx1;
-               corrs(idx, 1) = matches[idx].point2D_idx2;
-             }
-             return corrs;
-           })
-      .def("has_correspondences", &CorrespondenceGraph::HasCorrespondences)
+      .def(
+          "find_correspondences_between_images",
+          [](const CorrespondenceGraph& self,
+             const image_t image_id1,
+             const image_t image_id2) {
+            const FeatureMatches matches =
+                self.FindCorrespondencesBetweenImages(image_id1, image_id2);
+            Eigen::Matrix<point2D_t, Eigen::Dynamic, 2, Eigen::RowMajor> corrs(
+                matches.size(), 2);
+            for (size_t idx = 0; idx < matches.size(); ++idx) {
+              corrs(idx, 0) = matches[idx].point2D_idx1;
+              corrs(idx, 1) = matches[idx].point2D_idx2;
+            }
+            return corrs;
+          },
+          "image_id1"_a,
+          "image_id2"_a)
+      .def("has_correspondences",
+           &CorrespondenceGraph::HasCorrespondences,
+           "image_id"_a,
+           "point2D_idx"_a)
       .def("is_two_view_observation",
-           &CorrespondenceGraph::IsTwoViewObservation)
+           &CorrespondenceGraph::IsTwoViewObservation,
+           "image_id"_a,
+           "point2D_idx"_a)
       .def("__copy__",
            [](const CorrespondenceGraph& self) {
              return CorrespondenceGraph(self);
