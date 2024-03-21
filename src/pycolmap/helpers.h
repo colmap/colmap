@@ -46,7 +46,7 @@ void AddStringToEnumConstructor(py::enum_<T>& enm) {
   py::implicitly_convertible<std::string, T>();
 }
 
-void UpdateFromDict(py::object& self, const py::dict& dict) {
+inline void UpdateFromDict(py::object& self, const py::dict& dict) {
   for (const auto& it : dict) {
     if (!py::isinstance<py::str>(it.first)) {
       LOG(FATAL_THROW) << "Dictionary key is not a string: "
@@ -118,12 +118,13 @@ void UpdateFromDict(py::object& self, const py::dict& dict) {
   }
 }
 
-bool AttributeIsFunction(const std::string& name, const py::object& value) {
+inline bool AttributeIsFunction(const std::string& name,
+                                const py::object& value) {
   return (name.find("__") == 0 || name.rfind("__") != std::string::npos ||
           py::hasattr(value, "__func__") || py::hasattr(value, "__call__"));
 }
 
-std::vector<std::string> ListObjectAttributes(const py::object& pyself) {
+inline std::vector<std::string> ListObjectAttributes(const py::object& pyself) {
   std::vector<std::string> attributes;
   for (const auto& handle : pyself.attr("__dir__")()) {
     const py::str attribute = py::reinterpret_borrow<py::str>(handle);
@@ -301,7 +302,7 @@ for (...) {
 struct PyInterrupt {
   using clock = std::chrono::steady_clock;
   using sec = std::chrono::duration<double>;
-  explicit PyInterrupt(double gap = -1.0);
+  explicit PyInterrupt(double gap = -1.0) : gap_(gap), start(clock::now()) {}
 
   inline bool Raised();
 
@@ -313,9 +314,7 @@ struct PyInterrupt {
   double gap_;
 };
 
-PyInterrupt::PyInterrupt(double gap) : gap_(gap), start(clock::now()) {}
-
-bool PyInterrupt::Raised() {
+inline bool PyInterrupt::Raised() {
   const sec duration = clock::now() - start;
   if (!found && duration.count() > gap_) {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -327,7 +326,7 @@ bool PyInterrupt::Raised() {
 }
 
 // Instead of thread.Wait() call this to allow interrupts through python
-void PyWait(Thread* thread, double gap = 2.0) {
+inline void PyWait(Thread* thread, double gap = 2.0) {
   PyInterrupt py_interrupt(gap);
   while (thread->IsRunning()) {
     if (py_interrupt.Raised()) {
