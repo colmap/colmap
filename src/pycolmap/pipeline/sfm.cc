@@ -252,7 +252,7 @@ void BindSfM(py::module& m) {
       .def("get_mapper", &MapperOpts::Mapper)
       .def("get_triangulation", &MapperOpts::Triangulation)
       .def("get_local_bundle_adjustment", &MapperOpts::LocalBundleAdjustment)
-      .def("get_global_bundle_adjustment", &MapperOpts::LocalBundleAdjustment)
+      .def("get_global_bundle_adjustment", &MapperOpts::GlobalBundleAdjustment)
       .def("is_initial_pair_provided", &MapperOpts::IsInitialPairProvided);
   MakeDataclass(PyMapperOpts);
   auto mapper_options = PyMapperOpts().cast<MapperOpts>();
