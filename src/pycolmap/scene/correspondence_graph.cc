@@ -4,6 +4,8 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/types.h"
 
+#include "pycolmap/utils.h"
+
 #include <memory>
 #include <sstream>
 
@@ -21,7 +23,7 @@ void BindCorrespondenceGraph(py::module& m) {
              std::shared_ptr<CorrespondenceGraph::Correspondence>>(
       m, "Correspondence")
       .def(py::init<>())
-      .def(py::init<image_t, point2D_t>())
+      .def(py::init<image_t, point2D_t>(), "image_id"_a, "point2D_idx"_a)
       .def_readwrite("image_id", &CorrespondenceGraph::Correspondence::image_id)
       .def_readwrite("point2D_idx",
                      &CorrespondenceGraph::Correspondence::point2D_idx)
@@ -44,54 +46,85 @@ void BindCorrespondenceGraph(py::module& m) {
       .def(py::init<>())
       .def("num_images", &CorrespondenceGraph::NumImages)
       .def("num_image_pairs", &CorrespondenceGraph::NumImagePairs)
-      .def("exists_image", &CorrespondenceGraph::ExistsImage)
+      .def("exists_image", &CorrespondenceGraph::ExistsImage, "image_id"_a)
       .def("num_observations_for_image",
-           &CorrespondenceGraph::NumObservationsForImage)
+           &CorrespondenceGraph::NumObservationsForImage,
+           "image_id"_a)
       .def("num_correspondences_for_image",
-           &CorrespondenceGraph::NumCorrespondencesForImage)
+           &CorrespondenceGraph::NumCorrespondencesForImage,
+           "image_id"_a)
       .def("num_correspondences_between_images",
-           [](const CorrespondenceGraph& self,
-              const image_t image_id1,
-              const image_t image_id2) {
-             return self.NumCorrespondencesBetweenImages(image_id1, image_id2);
-           })
+           py::overload_cast<image_t, image_t>(
+               &CorrespondenceGraph::NumCorrespondencesBetweenImages,
+               py::const_),
+           "image_id1"_a,
+           "image_id2"_a)
+      .def("num_correspondences_between_all_images",
+           py::overload_cast<>(
+               &CorrespondenceGraph::NumCorrespondencesBetweenImages,
+               py::const_))
       .def("finalize", &CorrespondenceGraph::Finalize)
-      .def("add_image", &CorrespondenceGraph::AddImage)
+      .def("add_image",
+           &CorrespondenceGraph::AddImage,
+           "image_id"_a,
+           "num_points2D"_a)
       .def(
           "add_correspondences",
           [](CorrespondenceGraph& self,
              const image_t image_id1,
              const image_t image_id2,
-             const Eigen::Ref<Eigen::Matrix<point2D_t, -1, 2, Eigen::RowMajor>>&
-                 corrs) {
-            FeatureMatches matches;
-            matches.reserve(corrs.rows());
-            for (Eigen::Index idx = 0; idx < corrs.rows(); ++idx) {
-              matches.push_back(FeatureMatch(corrs(idx, 0), corrs(idx, 1)));
-            }
+             const PyFeatureMatches& corrs) {
+            FeatureMatches matches = FeatureMatchesFromMatrix(corrs);
             self.AddCorrespondences(image_id1, image_id2, matches);
-          })
-      .def("extract_correspondences",
-           &CorrespondenceGraph::ExtractCorrespondences)
-      .def("extract_transitive_correspondences",
-           &CorrespondenceGraph::ExtractTransitiveCorrespondences)
-      .def("find_correspondences_between_images",
-           [](const CorrespondenceGraph& self,
-              const image_t image_id1,
-              const image_t image_id2) {
-             const FeatureMatches matches =
-                 self.FindCorrespondencesBetweenImages(image_id1, image_id2);
-             Eigen::Matrix<point2D_t, Eigen::Dynamic, 2, Eigen::RowMajor> corrs(
-                 matches.size(), 2);
-             for (size_t idx = 0; idx < matches.size(); ++idx) {
-               corrs(idx, 0) = matches[idx].point2D_idx1;
-               corrs(idx, 1) = matches[idx].point2D_idx2;
-             }
-             return corrs;
-           })
-      .def("has_correspondences", &CorrespondenceGraph::HasCorrespondences)
+          },
+          "image_id1"_a,
+          "image_id2"_a,
+          "correspondences"_a)
+      .def(
+          "extract_correspondences",
+          [](const CorrespondenceGraph& self,
+             const image_t image_id,
+             const point2D_t point2D_idx) {
+            std::vector<CorrespondenceGraph::Correspondence> correspondences;
+            self.ExtractCorrespondences(
+                image_id, point2D_idx, &correspondences);
+            return correspondences;
+          },
+          "image_id"_a,
+          "point2D_idx"_a)
+      .def(
+          "extract_transitive_correspondences",
+          [](const CorrespondenceGraph& self,
+             const image_t image_id,
+             const point2D_t point2D_idx,
+             const size_t transitivity) {
+            std::vector<CorrespondenceGraph::Correspondence> correspondences;
+            self.ExtractTransitiveCorrespondences(
+                image_id, point2D_idx, transitivity, &correspondences);
+            return correspondences;
+          },
+          "image_id"_a,
+          "point2D_idx"_a,
+          "transitivity"_a)
+      .def(
+          "find_correspondences_between_images",
+          [](const CorrespondenceGraph& self,
+             const image_t image_id1,
+             const image_t image_id2) -> PyFeatureMatches {
+            const FeatureMatches matches =
+                self.FindCorrespondencesBetweenImages(image_id1, image_id2);
+            return FeatureMatchesToMatrix(matches);
+          },
+          "image_id1"_a,
+          "image_id2"_a)
+      .def("has_correspondences",
+           &CorrespondenceGraph::HasCorrespondences,
+           "image_id"_a,
+           "point2D_idx"_a)
       .def("is_two_view_observation",
-           &CorrespondenceGraph::IsTwoViewObservation)
+           &CorrespondenceGraph::IsTwoViewObservation,
+           "image_id"_a,
+           "point2D_idx"_a)
       .def("__copy__",
            [](const CorrespondenceGraph& self) {
              return CorrespondenceGraph(self);
