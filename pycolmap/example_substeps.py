@@ -145,7 +145,7 @@ def main_reconstruct_sub_model(
             break
         for reg_trial in range(len(next_images)):
             next_image_id = next_images[reg_trial]
-            next_image = reconstruction.image(next_image_id)
+            next_image = reconstruction.images[next_image_id]
             logging.info(
                 "Registering image #{0} ({1})".format(
                     next_image_id, reconstruction.num_reg_images() + 1
