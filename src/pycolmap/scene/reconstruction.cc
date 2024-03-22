@@ -64,6 +64,26 @@ void BindReconstruction(py::module& m) {
       .def("num_reg_images", &Reconstruction::NumRegImages)
       .def("num_points3D", &Reconstruction::NumPoints3D)
       .def("num_image_pairs", &Reconstruction::NumImagePairs)
+      .def("camera", [](Reconstruction& self, camera_t camera_id)
+          {
+            const Camera& camera = self.Camera(camera_id);
+            return camera;
+          }, "camera_id"_a)
+      .def("image", [](Reconstruction& self, image_t image_id)
+          {
+            const Image& image = self.Image(image_id);
+            return image;
+          }, "image_id"_a)
+      .def("point3D", [](Reconstruction& self, point3D_t point3D_id)
+          {
+            const Point3D& point3D = self.Point3D(point3D_id);
+            return point3D;
+          }, "point3D_id"_a)
+      .def("image_pair", [](Reconstruction& self, image_pair_t pair_id)
+          {
+            const Reconstruction::ImagePairStat& image_pair = self.ImagePair(pair_id);
+            return image_pair;
+          }, "pair_id"_a)
       .def_property_readonly("images",
                              &Reconstruction::Images,
                              py::return_value_policy::reference_internal)
@@ -130,6 +150,10 @@ void BindReconstruction(py::module& m) {
       .def(
           "normalize",
           &Reconstruction::Normalize,
+          "extent"_a = 10.0,
+          "p0"_a = 0.1,
+          "p1"_a = 0.9,
+          "use_images"_a = true,
           "Normalize scene by scaling and translation to avoid degenerate\n"
           "visualization after bundle adjustment and to improve numerical\n"
           "stability of algorithms.\n\n"

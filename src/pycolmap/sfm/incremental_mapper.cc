@@ -45,13 +45,15 @@ void BindIncrementalMapperController(py::module& m) {
     .def("add_callback", &IncrementalMapperController::AddCallback, "id"_a, "func"_a)
     .def("callback", &IncrementalMapperController::Callback, "id"_a)
     .def("load_database", &IncrementalMapperController::LoadDatabase)
+    .def("get_image_path", &IncrementalMapperController::GetImagePath)
+    .def("get_database_path", &IncrementalMapperController::GetDatabasePath)
     .def("get_options", &IncrementalMapperController::GetOptions)
     .def("get_reconstruction_manager", &IncrementalMapperController::GetReconstructionManager)
     .def("get_database_cache", &IncrementalMapperController::GetDatabaseCache)
+    .def("check_run_global_refinement", &IncrementalMapperController::CheckRunGlobalRefinement, "reconstruction"_a, "ba_prev_num_reg_images"_a, "ba_prev_num_points"_a)
     .def("Reconstruct", &IncrementalMapperController::Reconstruct, "mapper_options"_a)
     .def("ReconstructSubModel", &IncrementalMapperController::ReconstructSubModel, "core_mapper"_a, "mapper_options"_a, "reconstruction"_a)
     .def("InitializeReconstruction", &IncrementalMapperController::InitializeReconstruction, "core_mapper"_a, "mapper_options"_a, "reconstruction"_a)
-    .def("CheckRunGlobalRefinement", &IncrementalMapperController::CheckRunGlobalRefinement, "reconstruction"_a, "ba_prev_num_reg_images"_a, "ba_prev_num_points"_a)
     .def("Run", &IncrementalMapperController::Run);
 }
 
@@ -148,31 +150,43 @@ void BindIncrementalMapperImpl(py::module& m) {
           .value("MIN_UNCERTAINTY", ImageSelection::MIN_UNCERTAINTY);
   AddStringToEnumConstructor(PyImageSelectionMethod);
 
+  // bind local bundle adjustment report
+  using LocalBAReport = IncrementalMapper::LocalBundleAdjustmentReport;
+  auto PyLocalBAReport = py::class_<LocalBAReport>(m, "LocalBundleAdjustmentReport");
+  PyLocalBAReport.def(py::init<>())
+    .def_readwrite("num_merged_observations", &LocalBAReport::num_merged_observations)
+    .def_readwrite("num_completed_observations", &LocalBAReport::num_completed_observations)
+    .def_readwrite("num_filtered_observations", &LocalBAReport::num_filtered_observations)
+    .def_readwrite("num_adjusted_observations", &LocalBAReport::num_adjusted_observations);
+  MakeDataclass(PyLocalBAReport);
+
   // bind incremental mapper
-  // TODO: migrate comments
-  // TODO: bind or better handle BA
+  // TODO: migrate comments. improve formatting
   py::class_<IncrementalMapper, std::shared_ptr<IncrementalMapper>>(m, "IncrementalMapper")
     .def(py::init<std::shared_ptr<const DatabaseCache>>())
     .def("begin_reconstruction", &IncrementalMapper::BeginReconstruction, "reconstruction"_a)
     .def("end_reconstruction", &IncrementalMapper::EndReconstruction, "discard"_a)
-    .def("find_initial_image_pair", 
+    .def("find_initial_image_pair", // explicitly handle the conversion from -1 (int) to image_t (uint32_t)
         [](IncrementalMapper& self, 
-           const IncrementalMapper::Options& options) 
+           const IncrementalMapper::Options& options,
+           int image_id1,
+           int image_id2) 
         {
           TwoViewGeometry two_view_geometry;
-          image_t image_id1, image_id2;
-          self.FindInitialImagePair(options, two_view_geometry, image_id1, image_id2);
-          return std::make_pair(std::make_pair(image_id1, image_id2), two_view_geometry);
-        }, "options"_a)
-    .def("estimate_initial_two_view_geometry", 
+          image_t image_id1_cast = image_id1;
+          image_t image_id2_cast = image_id2;
+          bool success = self.FindInitialImagePair(options, two_view_geometry, image_id1_cast, image_id2_cast);
+          return std::make_pair(success, std::make_pair(std::make_pair(image_id1_cast, image_id2_cast), two_view_geometry));
+        }, "options"_a, "image_id1"_a, "image_id2"_a)
+    .def("estimate_initial_two_view_geometry",
         [](IncrementalMapper& self, 
            const IncrementalMapper::Options& options, 
            const image_t image_id1,
            const image_t image_id2) 
         {
           TwoViewGeometry two_view_geometry;
-          self.EstimateInitialTwoViewGeometry(options, two_view_geometry, image_id1, image_id2);
-          return two_view_geometry;
+          bool success = self.EstimateInitialTwoViewGeometry(options, two_view_geometry, image_id1, image_id2);
+          return std::make_pair(success, two_view_geometry);
         }, "options"_a, "image_id1"_a, "image_id2"_a)
     .def("register_initial_image_pair", &IncrementalMapper::RegisterInitialImagePair, "options"_a, "two_view_geometry"_a, "image_id1"_a, "image_id2"_a)
     .def("find_next_images", &IncrementalMapper::FindNextImages, "options"_a)
@@ -182,13 +196,17 @@ void BindIncrementalMapperImpl(py::module& m) {
     .def("complete_tracks", &IncrementalMapper::CompleteTracks, "tri_options"_a)
     .def("merge_tracks", &IncrementalMapper::MergeTracks, "tri_options"_a)
     .def("complete_and_merge_tracks", &IncrementalMapper::CompleteAndMergeTracks, "tri_options"_a)
+    .def("adjust_local_bundle", &IncrementalMapper::AdjustLocalBundle, "options"_a, "ba_options"_a, "tri_options"_a, "image_id"_a, "point3D_ids"_a)
+    .def("iterative_local_refinement", &IncrementalMapper::IterativeLocalRefinement, "max_num_refinements"_a, "max_refinement_change"_a, "options"_a, "ba_options"_a, "tri_options"_a, "image_id"_a)
+    .def("adjust_global_bundle", &IncrementalMapper::AdjustGlobalBundle, "options"_a, "ba_options"_a)
+    .def("iterative_global_refinement", &IncrementalMapper::IterativeGlobalRefinement, "max_num_refinements"_a, "max_refinement_change"_a, "options"_a, "ba_options"_a, "tri_options"_a, "normalize_reconstruction"_a = true)
     .def("filter_images", &IncrementalMapper::FilterImages, "options"_a)
     .def("filter_points", &IncrementalMapper::FilterPoints, "options"_a)
     .def("get_reconstruction", &IncrementalMapper::GetReconstruction)
     .def("num_total_reg_images", &IncrementalMapper::NumTotalRegImages)
     .def("num_shared_reg_images", &IncrementalMapper::NumSharedRegImages)
-    .def("get_modified_points3d", &IncrementalMapper::GetModifiedPoints3D)
-    .def("clear_modified_points3d", &IncrementalMapper::ClearModifiedPoints3D);
+    .def("get_modified_points3D", &IncrementalMapper::GetModifiedPoints3D)
+    .def("clear_modified_points3D", &IncrementalMapper::ClearModifiedPoints3D);
 }
 
 void BindIncrementalMapper(py::module& m) {

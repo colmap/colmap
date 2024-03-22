@@ -9,10 +9,134 @@ import enlighten
 import pycolmap
 from pycolmap import logging
 
+def extract_colors(image_path, image_id, reconstruction):
+    if not reconstruction.extract_colors_for_image(image_id, image_path):
+        logging.warning("Could not read image {0} at path {1}".format(image_id, image_path))
+
+def write_snapshot(reconstruction, snapshot_path):
+    logging.info("Creating snapshot")
+    timestamp = time.time() * 1000
+    path = os.path.join(snapshot_path, "{0:010d}".format(timestamp))
+    if not os.path.exists(path):
+        os.makedirs(path)
+    logging.verbose("=> Writing to {0}".format(path))
+    reconstruction.write(path)
+
+def iterative_global_refinement(options, mapper_options, core_mapper):
+    logging.info("Retriangulation and Global bundle adjustment")
+    core_mapper.iterative_global_refinement(options.ba_global_max_refinements,
+                                          options.ba_global_max_refinement_change,
+                                          mapper_options,
+                                          options.get_global_bundle_adjustment(),
+                                          options.get_triangulation())
+    core_mapper.filter_images(mapper_options)
+
+def initialize_reconstruction(mapper, core_mapper, mapper_options, reconstruction):
+    # Following the implementation of src/colmap/controllers/incremental_mapper.cc
+    # Equivalent to:
+    # return mapper.InitializeReconstruction(core, mapper_options, reconstruction)
+    options = mapper.get_options()
+    image_id1, image_id2 = options.init_image_id1, options.init_image_id2
+
+    # Try to find good initial pair
+    if not options.is_initial_pair_provided():
+        logging.info("Finding good initial image pair")
+        init_res = core_mapper.find_initial_image_pair(mapper_options, image_id1, image_id2)
+        find_init_success, image_id1, image_id2, two_view_geometry = init_res[0], init_res[1][0][0], init_res[1][0][1], init_res[1][1]
+        if not find_init_success:
+            logging.info("No good initial image pair found.")
+            return pycolmap.IncrementalMapperStatus.NO_INITIAL_PAIR
+    else:
+        if (not reconstruction.exists_image(image_id1)) or (not reconstruction.exists_image(image_id2)):
+            logging.info("=> Initial image pair #{0} and #{1} do not exist.".format(image_id1, image_id2))
+            return pycolmap.IncrementalMapperStatus.BAD_INITIAL_PAIR
+        provided_init_res = core_mapper.estimate_initial_two_view_geometry(mapper_options, image_id1, image_id2)
+        provided_init_success, two_view_geometry = provided_init_res[0], provided_init_res[1]
+        if not provided_init_success:
+            logging.info("Provided pair is insuitable for initialization")
+            return pycolmap.IncrementalMapperStatus.BAD_INITIAL_PAIR
+    logging.info("Initializing with image pair #{0} and #{1}".format(image_id1, image_id2))
+    core_mapper.register_initial_image_pair(mapper_options, two_view_geometry, image_id1, image_id2)
+    logging.info("Global bundle adjustment")
+    core_mapper.adjust_global_bundle(mapper_options, options.get_global_bundle_adjustment())
+    reconstruction.normalize()
+    core_mapper.filter_points(mapper_options)
+    core_mapper.filter_images(mapper_options)
+
+    # Initial image pair failed to register
+    if reconstruction.num_reg_images() == 0 or reconstruction.num_points3D() == 0:
+        return pycolmap.IncrementalMapperStatus.BAD_INITIAL_PAIR
+    if options.extract_colors:
+        extract_colors(mapper.get_image_path(), image_id1, reconstruction)
+    return pycolmap.IncrementalMapperStatus.SUCCESS
+
 def main_reconstruct_sub_model(mapper, core_mapper, mapper_options, reconstruction):
     # Following the implementation of src/colmap/controllers/incremental_mapper.cc
     # Equivalent to:
-    return mapper.ReconstructSubModel(core_mapper, mapper_options, reconstruction)
+    # return mapper.ReconstructSubModel(core_mapper, mapper_options, reconstruction)
+
+    # register initial pair
+    core_mapper.begin_reconstruction(reconstruction)
+    if reconstruction.num_reg_images() == 0:
+        init_status = initialize_reconstruction(mapper, core_mapper, mapper_options, reconstruction)
+        if init_status != pycolmap.IncrementalMapperStatus.SUCCESS:
+            return init_status;
+        mapper.callback(pycolmap.IncrementalMapperCallback.INITIAL_IMAGE_PAIR_REG_CALLBACK)
+
+    # incremental mapping
+    options = mapper.get_options()
+    snapshot_prev_num_reg_images = reconstruction.num_reg_images()
+    ba_prev_num_reg_images = reconstruction.num_reg_images()
+    ba_prev_num_points = reconstruction.num_points3D()
+    reg_next_success, prev_reg_next_success = True, True
+    while True:
+        if not (reg_next_success or prev_reg_next_success):
+            break
+        prev_reg_next_success = reg_next_success
+        reg_next_success = False
+        next_images = core_mapper.find_next_images(mapper_options)
+        if len(next_images) == 0:
+            break
+        for reg_trial in range(len(next_images)):
+            next_image_id = next_images[reg_trial]
+            next_image = reconstruction.image(next_image_id)
+            logging.info("Registering image #{0} ({1})".format(next_image_id, reconstruction.num_reg_images() + 1))
+            logging.info("=> Image sees {0} / {1} points".format(next_image.num_visible_points3D(), next_image.num_observations))
+            reg_next_success = core_mapper.register_next_image(mapper_options, next_image_id)
+            if reg_next_success:
+                break
+            else:
+                logging.info("=> Could not register, trying another image.")
+            # If initial pair fails to continue for some time,
+            # abort and try different initial pair.
+            kMinNumInitialRegTrials = 30;
+            if reg_trial >= kMinNumInitialRegTrials and reconstruction.num_reg_images() < options.min_model_size:
+                break
+        if reg_next_success:
+            core_mapper.triangulate_image(options.get_triangulation(), next_image_id)
+            core_mapper.iterative_local_refinement(options.ba_local_max_refinements,
+                                                   options.ba_local_max_refinement_change,
+                                                   mapper_options,
+                                                   options.get_local_bundle_adjustment(),
+                                                   options.get_triangulation(),
+                                                   next_image_id)
+            if mapper.check_run_global_refinement(reconstruction, ba_prev_num_reg_images, ba_prev_num_points):
+                iterative_global_refinement(options, mapper_options, core_mapper)
+                ba_prev_num_points = reconstruction.num_points3D()
+                ba_prev_num_reg_images = reconstruction.num_reg_images()
+            if options.extract_colors:
+                extract_colors(mapper.get_image_path(), next_image_id, reconstruction)
+            if options.snapshot_images_freq > 0 and reconstruction.num_reg_images() >= options.snapshot_images_freq + snapshot_prev_num_reg_images:
+                snapshot_prev_num_reg_images = reconstruction.num_reg_images()
+                write_snapshot(reconstruction, options.snapshot_path)
+            mapper.callback(pycolmap.IncrementalMapperCallback.NEXT_IMAGE_REG_CALLBACK)
+        if core_mapper.num_shared_reg_images() >= int(options.max_model_overlap):
+            break
+        if (not reg_next_success) and prev_reg_next_success:
+            iterative_global_refinement(options, mapper_options, core_mapper)
+    if reconstruction.num_reg_images() >= 2 and reconstruction.num_reg_images() != ba_prev_num_reg_images and reconstruciton.num_points3D != ba_prev_num_points:
+        iterative_global_refinement(options, mapper_options, core_mapper)
+    return pycolmap.IncrementalMapperStatus.SUCCESS
 
 def main_reconstruct(mapper, mapper_options):
     # Following the implementation of src/colmap/controllers/incremental_mapper.cc
@@ -51,7 +175,7 @@ def main_reconstruct(mapper, mapper_options):
             if initial_reconstruction_given or options.multiple_models or reconstruction_manager.size() >= options.max_num_models or total_num_reg_images >= database_cache.num_images() - 1:
                 return;
         else:
-            logging.error("Unknown reconstruction status")
+            logging.fatal("Unknown reconstruction status")
 
 def main_incremental_mapper(mapper):
     # Following the implementation of src/colmap/controllers/incremental_mapper.cc
