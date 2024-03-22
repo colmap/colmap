@@ -44,7 +44,7 @@ def initialize_reconstruction(
 ):
     # Following the implementation of src/colmap/controllers/incremental_mapper.cc
     # Equivalent to:
-    # return mapper.InitializeReconstruction(core, mapper_options, reconstruction)
+    # return mapper.initialize_reconstruction(core, mapper_options, reconstruction)
     options = mapper.get_options()
     image_id1, image_id2 = options.init_image_id1, options.init_image_id2
 
@@ -115,7 +115,7 @@ def main_reconstruct_sub_model(
 ):
     # Following the implementation of src/colmap/controllers/incremental_mapper.cc
     # Equivalent to:
-    # return mapper.ReconstructSubModel(core_mapper, mapper_options, reconstruction)
+    # return mapper.reconstruct_sub_model(core_mapper, mapper_options, reconstruction)
 
     # register initial pair
     core_mapper.begin_reconstruction(reconstruction)
@@ -224,7 +224,7 @@ def main_reconstruct_sub_model(
 def main_reconstruct(mapper, mapper_options):
     # Following the implementation of src/colmap/controllers/incremental_mapper.cc
     # Equivalent to:
-    # mapper.Reconstruct(mapper_options)
+    # mapper.reconstruct(mapper_options)
     options = mapper.get_options()
     reconstruction_manager = mapper.get_reconstruction_manager()
     database_cache = mapper.get_database_cache()
@@ -287,7 +287,7 @@ def main_reconstruct(mapper, mapper_options):
 def main_incremental_mapper(mapper):
     # Following the implementation of src/colmap/controllers/incremental_mapper.cc
     # Equivalent to:
-    # mapper.Run()
+    # mapper.run()
     timer = pycolmap.Timer()
     timer.start()
     if not mapper.load_database():
