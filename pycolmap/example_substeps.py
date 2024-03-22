@@ -289,7 +289,7 @@ def main_incremental_mapper(mapper):
     # Equivalent to:
     # mapper.Run()
     timer = pycolmap.Timer()
-    timer.Start()
+    timer.start()
     if not mapper.load_database():
         return
     init_mapper_options = mapper.get_options().get_mapper()
@@ -307,7 +307,7 @@ def main_incremental_mapper(mapper):
         logging.info("=> Relaxing the initialization constraints")
         init_mapper_options.init_min_tri_angle /= 2
         main_reconstruct(mapper, init_mapper_options)
-    timer.PrintMinutes()
+    timer.print_minutes()
 
 
 def incremental_mapping(
