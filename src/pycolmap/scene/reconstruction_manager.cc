@@ -15,7 +15,9 @@ void BindReconstructionManager(py::module& m) {
       m, "ReconstructionManager")
       .def(py::init<>())
       .def("size", &ReconstructionManager::Size)
-      .def("get", py::overload_cast<size_t>(&ReconstructionManager::Get), "idx"_a) 
+      .def("get",
+           py::overload_cast<size_t>(&ReconstructionManager::Get),
+           "idx"_a)
       .def("add", &ReconstructionManager::Add)
       .def("delete", &ReconstructionManager::Delete, "idx"_a)
       .def("clear", &ReconstructionManager::Clear)
