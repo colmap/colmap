@@ -166,10 +166,15 @@ class IncrementalMapperController : public BaseController {
       const std::shared_ptr<Reconstruction>& reconstruction);
 
   bool LoadDatabase();
+
+  // getter functions for python pipelines
+  std::shared_ptr<const IncrementalMapperOptions> GetOptions() const { return options_; }
+  std::shared_ptr<ReconstructionManager> GetReconstructionManager() const { return reconstruction_manager_; }
   std::shared_ptr<DatabaseCache> GetDatabaseCache() const { return database_cache_; }
 
- private:
   void Reconstruct(const IncrementalMapper::Options& init_mapper_options);
+
+ private:
   Status ReconstructSubModel(
       IncrementalMapper& mapper,
       const IncrementalMapper::Options& mapper_options,

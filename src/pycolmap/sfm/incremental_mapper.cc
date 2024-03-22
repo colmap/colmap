@@ -44,7 +44,10 @@ void BindIncrementalMapperController(py::module& m) {
                   "options"_a, "image_path"_a, "database_path"_a, "reconstruction_manager"_a)
     .def("AddCallback", &IncrementalMapperController::AddCallback, "id"_a, "func"_a)
     .def("LoadDatabase", &IncrementalMapperController::LoadDatabase)
+    .def("GetOptions", &IncrementalMapperController::GetOptions)
+    .def("GetReconstructionManager", &IncrementalMapperController::GetReconstructionManager)
     .def("GetDatabaseCache", &IncrementalMapperController::GetDatabaseCache)
+    .def("Reconstruct", &IncrementalMapperController::Reconstruct, "mapper_options"_a)
     .def("Run", &IncrementalMapperController::Run);
 }
 
