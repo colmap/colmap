@@ -2,6 +2,9 @@
 set -x -e
 CURRDIR=$(pwd)
 
+# Fix `brew link` error.
+find /usr/local/bin -lname '*/Library/Frameworks/Python.framework/*' -delete
+
 brew update
 brew install git cmake ninja llvm ccache
 

@@ -40,7 +40,9 @@ jobs:
 
       - name: Setup Mac
         run: |
-          rm -f '/usr/local/bin/2to3*'  # Fix `brew link` error.
+          # Fix `brew link` error.
+          find /usr/local/bin -lname '*/Library/Frameworks/Python.framework/*' -delete
+
           brew install \
             cmake \
             ninja \

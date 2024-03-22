@@ -6,9 +6,11 @@
 #include <regex>
 #include <string>
 
+using namespace colmap;
+
 enum class Device { AUTO = -1, CPU = 0, CUDA = 1 };
 
-bool IsGPU(Device device) {
+inline bool IsGPU(Device device) {
   if (device == Device::AUTO) {
 #ifdef COLMAP_CUDA_ENABLED
     return true;
@@ -20,7 +22,7 @@ bool IsGPU(Device device) {
   }
 }
 
-void VerifyGPUParams(const bool use_gpu) {
+inline void VerifyGPUParams(const bool use_gpu) {
 #ifndef COLMAP_CUDA_ENABLED
   if (use_gpu) {
     LOG(FATAL_THROW)
@@ -32,7 +34,7 @@ void VerifyGPUParams(const bool use_gpu) {
 
 typedef Eigen::Matrix<bool, Eigen::Dynamic, 1> PyInlierMask;
 
-PyInlierMask ToPythonMask(const std::vector<char>& mask_char) {
+inline PyInlierMask ToPythonMask(const std::vector<char>& mask_char) {
   return Eigen::Map<const Eigen::Matrix<char, Eigen::Dynamic, 1>>(
              mask_char.data(), mask_char.size())
       .cast<bool>();
