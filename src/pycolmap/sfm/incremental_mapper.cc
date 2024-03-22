@@ -53,12 +53,12 @@ void BindIncrementalMapperController(py::module& m) {
            "func"_a)
       .def("callback", &IncrementalMapperController::Callback, "id"_a)
       .def("load_database", &IncrementalMapperController::LoadDatabase)
-      .def("get_image_path", &IncrementalMapperController::GetImagePath)
-      .def("get_database_path", &IncrementalMapperController::GetDatabasePath)
-      .def("get_options", &IncrementalMapperController::GetOptions)
-      .def("get_reconstruction_manager",
-           &IncrementalMapperController::GetReconstructionManager)
-      .def("get_database_cache", &IncrementalMapperController::GetDatabaseCache)
+      .def("image_path", &IncrementalMapperController::ImagePath)
+      .def("database_path", &IncrementalMapperController::DatabasePath)
+      .def("options", &IncrementalMapperController::Options)
+      .def("reconstruction_manager",
+           &IncrementalMapperController::ReconstructionManager)
+      .def("database_cache", &IncrementalMapperController::DatabaseCache)
       .def("check_run_global_refinement",
            &IncrementalMapperController::CheckRunGlobalRefinement,
            "reconstruction"_a,

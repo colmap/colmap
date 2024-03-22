@@ -158,7 +158,7 @@ class IncrementalMapperController : public BaseController {
       std::shared_ptr<const IncrementalMapperOptions> options,
       const std::string& image_path,
       const std::string& database_path,
-      std::shared_ptr<ReconstructionManager> reconstruction_manager);
+      std::shared_ptr<class ReconstructionManager> reconstruction_manager);
 
   void Run();
 
@@ -168,15 +168,15 @@ class IncrementalMapperController : public BaseController {
   bool LoadDatabase();
 
   // getter functions for python pipelines
-  const std::string GetImagePath() const { return image_path_; }
-  const std::string GetDatabasePath() const { return database_path_; }
-  std::shared_ptr<const IncrementalMapperOptions> GetOptions() const {
+  const std::string ImagePath() const { return image_path_; }
+  const std::string DatabasePath() const { return database_path_; }
+  std::shared_ptr<const IncrementalMapperOptions> Options() const {
     return options_;
   }
-  std::shared_ptr<ReconstructionManager> GetReconstructionManager() const {
+  std::shared_ptr<class ReconstructionManager> ReconstructionManager() const {
     return reconstruction_manager_;
   }
-  std::shared_ptr<DatabaseCache> GetDatabaseCache() const {
+  std::shared_ptr<class DatabaseCache> DatabaseCache() const {
     return database_cache_;
   }
 
@@ -200,8 +200,8 @@ class IncrementalMapperController : public BaseController {
   const std::shared_ptr<const IncrementalMapperOptions> options_;
   const std::string image_path_;
   const std::string database_path_;
-  std::shared_ptr<ReconstructionManager> reconstruction_manager_;
-  std::shared_ptr<DatabaseCache> database_cache_;
+  std::shared_ptr<class ReconstructionManager> reconstruction_manager_;
+  std::shared_ptr<class DatabaseCache> database_cache_;
 };
 
 }  // namespace colmap
