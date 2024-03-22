@@ -14,14 +14,14 @@ void BindReconstructionManager(py::module& m) {
   py::class_<ReconstructionManager, std::shared_ptr<ReconstructionManager>>(m,
                                                               "ReconstructionManager")
       .def(py::init<>())
-      .def("Size", &ReconstructionManager::Size)
-      .def("Get", [](ReconstructionManager& self, size_t idx) {
+      .def("size", &ReconstructionManager::Size)
+      .def("get", [](ReconstructionManager& self, size_t idx) {
           std::shared_ptr<const Reconstruction> rec = self.Get(idx);
           return rec;
           }, "idx"_a)
-      .def("Add", &ReconstructionManager::Add)
-      .def("Delete", &ReconstructionManager::Delete, "idx"_a)
-      .def("Clear", &ReconstructionManager::Clear)
-      .def("Read", &ReconstructionManager::Read, "path"_a)
-      .def("Write", &ReconstructionManager::Write, "path"_a);
+      .def("add", &ReconstructionManager::Add)
+      .def("delete", &ReconstructionManager::Delete, "idx"_a)
+      .def("clear", &ReconstructionManager::Clear)
+      .def("read", &ReconstructionManager::Read, "path"_a)
+      .def("write", &ReconstructionManager::Write, "path"_a);
 }

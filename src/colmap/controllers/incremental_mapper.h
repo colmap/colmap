@@ -174,19 +174,21 @@ class IncrementalMapperController : public BaseController {
 
   void Reconstruct(const IncrementalMapper::Options& init_mapper_options);
 
- private:
   Status ReconstructSubModel(
       IncrementalMapper& mapper,
       const IncrementalMapper::Options& mapper_options,
       const std::shared_ptr<Reconstruction>& reconstruction);
+
   Status InitializeReconstruction(
       IncrementalMapper& mapper,
       const IncrementalMapper::Options& mapper_options,
       Reconstruction& reconstruction);
+
   bool CheckRunGlobalRefinement(const Reconstruction& reconstruction,
                                 size_t ba_prev_num_reg_images,
                                 size_t ba_prev_num_points);
 
+ private:
   const std::shared_ptr<const IncrementalMapperOptions> options_;
   const std::string image_path_;
   const std::string database_path_;
