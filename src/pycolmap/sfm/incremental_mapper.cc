@@ -225,14 +225,14 @@ void BindIncrementalMapperImpl(py::module& m) {
           [](IncrementalMapper& self,
              const IncrementalMapper::Options& options,
              const image_t image_id1,
-             const image_t image_id2) {
+             const image_t image_id2) -> py::object {
             TwoViewGeometry two_view_geometry;
             bool success = self.EstimateInitialTwoViewGeometry(
                 options, two_view_geometry, image_id1, image_id2);
             if (success)
               return py::cast(two_view_geometry);
             else
-              return py::cast<py::object>(Py_None);
+              return py::none();
           },
           "options"_a,
           "image_id1"_a,
