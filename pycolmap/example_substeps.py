@@ -73,14 +73,10 @@ def initialize_reconstruction(
                 )
             )
             return pycolmap.IncrementalMapperStatus.BAD_INITIAL_PAIR
-        provided_init_res = core_mapper.estimate_initial_two_view_geometry(
+        two_view_geometry = core_mapper.estimate_initial_two_view_geometry(
             mapper_options, image_id1, image_id2
         )
-        provided_init_success, two_view_geometry = (
-            provided_init_res[0],
-            provided_init_res[1],
-        )
-        if not provided_init_success:
+        if two_view_geometry is None:
             logging.info("Provided pair is insuitable for initialization")
             return pycolmap.IncrementalMapperStatus.BAD_INITIAL_PAIR
     logging.info(

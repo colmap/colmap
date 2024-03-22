@@ -229,7 +229,10 @@ void BindIncrementalMapperImpl(py::module& m) {
             TwoViewGeometry two_view_geometry;
             bool success = self.EstimateInitialTwoViewGeometry(
                 options, two_view_geometry, image_id1, image_id2);
-            return std::make_pair(success, two_view_geometry);
+            if (success)
+              return py::cast(two_view_geometry);
+            else
+              return py::cast<py::object>(Py_None);
           },
           "options"_a,
           "image_id1"_a,
