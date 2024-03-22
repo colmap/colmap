@@ -64,20 +64,20 @@ void BindIncrementalMapperController(py::module& m) {
            "reconstruction"_a,
            "ba_prev_num_reg_images"_a,
            "ba_prev_num_points"_a)
-      .def("Reconstruct",
+      .def("reconstruct",
            &IncrementalMapperController::Reconstruct,
            "mapper_options"_a)
-      .def("ReconstructSubModel",
+      .def("reconstruct_sub_model",
            &IncrementalMapperController::ReconstructSubModel,
            "core_mapper"_a,
            "mapper_options"_a,
            "reconstruction"_a)
-      .def("InitializeReconstruction",
+      .def("initialize_reconstruction",
            &IncrementalMapperController::InitializeReconstruction,
            "core_mapper"_a,
            "mapper_options"_a,
            "reconstruction"_a)
-      .def("Run", &IncrementalMapperController::Run);
+      .def("run", &IncrementalMapperController::Run);
 }
 
 void BindIncrementalMapperOptions(py::module& m) {
