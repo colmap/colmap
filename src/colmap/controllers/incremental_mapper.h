@@ -170,9 +170,15 @@ class IncrementalMapperController : public BaseController {
   // getter functions for python pipelines
   const std::string GetImagePath() const { return image_path_; }
   const std::string GetDatabasePath() const { return database_path_; }
-  std::shared_ptr<const IncrementalMapperOptions> GetOptions() const { return options_; }
-  std::shared_ptr<ReconstructionManager> GetReconstructionManager() const { return reconstruction_manager_; }
-  std::shared_ptr<DatabaseCache> GetDatabaseCache() const { return database_cache_; }
+  std::shared_ptr<const IncrementalMapperOptions> GetOptions() const {
+    return options_;
+  }
+  std::shared_ptr<ReconstructionManager> GetReconstructionManager() const {
+    return reconstruction_manager_;
+  }
+  std::shared_ptr<DatabaseCache> GetDatabaseCache() const {
+    return database_cache_;
+  }
 
   void Reconstruct(const IncrementalMapper::Options& init_mapper_options);
 
