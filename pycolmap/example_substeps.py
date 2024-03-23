@@ -11,9 +11,7 @@ from pycolmap import logging
 
 def extract_colors(image_path, image_id, reconstruction):
     if not reconstruction.extract_colors_for_image(image_id, image_path):
-        logging.warning(
-            "Could not read image {0} at path {1}".format(image_id, image_path)
-        )
+        logging.warning(f"Could not read image {image_id} at path {image_path}")
 
 
 def write_snapshot(reconstruction, snapshot_path):
@@ -21,7 +19,7 @@ def write_snapshot(reconstruction, snapshot_path):
     timestamp = time.time() * 1000
     path = snapshot_path / f"{timestamp:010d}"
     path.mkdir(exist_ok=True, parents=True)
-    logging.verbose("=> Writing to {0}".format(path))
+    logging.verbose(f"=> Writing to {path}")
     reconstruction.write(path)
 
 
@@ -66,9 +64,8 @@ def initialize_reconstruction(
             not reconstruction.exists_image(image_id2)
         ):
             logging.info(
-                "=> Initial image pair #{0} and #{1} do not exist.".format(
-                    image_id1, image_id2
-                )
+                f"=> Initial image pair #{image_id1} "
+                f"and #{image_id2} do not exist."
             )
             return pycolmap.IncrementalMapperStatus.BAD_INITIAL_PAIR
         two_view_geometry = core_mapper.estimate_initial_two_view_geometry(
@@ -77,11 +74,7 @@ def initialize_reconstruction(
         if two_view_geometry is None:
             logging.info("Provided pair is insuitable for initialization")
             return pycolmap.IncrementalMapperStatus.BAD_INITIAL_PAIR
-    logging.info(
-        "Initializing with image pair #{0} and #{1}".format(
-            image_id1, image_id2
-        )
-    )
+    logging.info(f"Initializing with image pair #{image_id1} and #{image_id2}")
     core_mapper.register_initial_image_pair(
         mapper_options, two_view_geometry, image_id1, image_id2
     )
@@ -141,15 +134,12 @@ def main_reconstruct_sub_model(
             next_image_id = next_images[reg_trial]
             next_image = reconstruction.images[next_image_id]
             logging.info(
-                "Registering image #{0} ({1})".format(
-                    next_image_id, reconstruction.num_reg_images() + 1
-                )
+                f"Registering image #{next_image_id} "
+                f"({reconstruction.num_reg_images() + 1})"
             )
             logging.info(
-                "=> Image sees {0} / {1} points".format(
-                    next_image.num_visible_points3D(),
-                    next_image.num_observations,
-                )
+                f"=> Image sees {next_image.num_visible_points3D()} "
+                f"/ {next_image.num_observations} points"
             )
             reg_next_success = core_mapper.register_next_image(
                 mapper_options, next_image_id
@@ -223,7 +213,7 @@ def main_reconstruct(mapper, mapper_options):
     core_mapper = pycolmap.IncrementalMapper(database_cache)
     initial_reconstruction_given = reconstruction_manager.size() > 0
     if reconstruction_manager.size() > 1:
-        logging.error(
+        logging.fatal(
             "Can only resume from a single reconstruction, but multiple are given"
         )
     for num_trials in range(options.init_num_trials):
@@ -273,7 +263,7 @@ def main_reconstruct(mapper, mapper_options):
             ):
                 return
         else:
-            logging.fatal("Unknown reconstruction status")
+            logging.fatal(f"Unknown reconstruction status: {status}")
 
 
 def main_incremental_mapper(mapper):
@@ -311,13 +301,9 @@ def incremental_mapping(
 ):
     # Following the implementation of src/pycolmap/pipeline/sfm.cc
     if not database_path.exists():
-        logging.error(
-            "Error! Database path does not exist: {0}".format(database_path)
-        )
+        logging.fatal(f"Database path does not exist: {database_path}")
     if not image_path.exists():
-        logging.error(
-            "Error! Image path does not exist: {0}".format(image_path)
-        )
+        logging.fatal(f"Image path does not exist: {image_path}")
     output_path.mkdir(exist_ok=True, parents=True)
     reconstruction_manager = pycolmap.ReconstructionManager()
     if (input_path is not None) and input_path != "":
