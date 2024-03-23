@@ -247,7 +247,7 @@ def main_reconstruct(mapper, mapper_options):
         ):
             core_mapper.end_reconstruction(True)
             reconstruction_manager.delete(reconstruction_idx)
-            if options.IsInitialPairProvided():
+            if options.is_initial_pair_provided():
                 return
         elif status == pycolmap.IncrementalMapperStatus.SUCCESS:
             total_num_reg_images = core_mapper.num_total_reg_images()
