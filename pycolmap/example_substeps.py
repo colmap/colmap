@@ -38,9 +38,7 @@ def iterative_global_refinement(options, mapper_options, core_mapper):
 def initialize_reconstruction(
     mapper, core_mapper, mapper_options, reconstruction
 ):
-    # Following the implementation of src/colmap/controllers/incremental_mapper.cc
-    # Equivalent to:
-    # return mapper.initialize_reconstruction(core, mapper_options, reconstruction)
+    """Equivalent to IncrementalMapperController.initialize_reconstruction(...)"""
     options = mapper.options
     init_pair = (options.init_image_id1, options.init_image_id2)
 
@@ -85,13 +83,8 @@ def initialize_reconstruction(
     return pycolmap.IncrementalMapperStatus.SUCCESS
 
 
-def main_reconstruct_sub_model(
-    mapper, core_mapper, mapper_options, reconstruction
-):
-    # Following the implementation of src/colmap/controllers/incremental_mapper.cc
-    # Equivalent to:
-    # return mapper.reconstruct_sub_model(core_mapper, mapper_options, reconstruction)
-
+def reconstruct_sub_model(mapper, core_mapper, mapper_options, reconstruction):
+    """Equivalent to IncrementalMapperController.reconstruct_sub_model(...)"""
     # register initial pair
     core_mapper.begin_reconstruction(reconstruction)
     if reconstruction.num_reg_images() == 0:
@@ -191,10 +184,8 @@ def main_reconstruct_sub_model(
     return pycolmap.IncrementalMapperStatus.SUCCESS
 
 
-def main_reconstruct(mapper, mapper_options):
-    # Following the implementation of src/colmap/controllers/incremental_mapper.cc
-    # Equivalent to:
-    # mapper.reconstruct(mapper_options)
+def reconstruct(mapper, mapper_options):
+    """Equivalent to IncrementalMapperController.reconstruct(...)"""
     options = mapper.options
     reconstruction_manager = mapper.reconstruction_manager
     database_cache = mapper.database_cache
@@ -210,14 +201,14 @@ def main_reconstruct(mapper, mapper_options):
         else:
             reconstruction_idx = 0
         reconstruction = reconstruction_manager.get(reconstruction_idx)
-        status = main_reconstruct_sub_model(
+        status = reconstruct_sub_model(
             mapper, core_mapper, mapper_options, reconstruction
         )
         if status == pycolmap.IncrementalMapperStatus.INTERRUPTED:
             core_mapper.end_reconstruction(False)
-        elif (
-            status == pycolmap.IncrementalMapperStatus.NO_INITIAL_PAIR
-            or status == pycolmap.IncrementalMapperStatus.BAD_INITIAL_PAIR
+        elif status in (
+            pycolmap.IncrementalMapperStatus.NO_INITIAL_PAIR,
+            pycolmap.IncrementalMapperStatus.BAD_INITIAL_PAIR,
         ):
             core_mapper.end_reconstruction(True)
             reconstruction_manager.delete(reconstruction_idx)
@@ -255,15 +246,13 @@ def main_reconstruct(mapper, mapper_options):
 
 
 def main_incremental_mapper(mapper):
-    # Following the implementation of src/colmap/controllers/incremental_mapper.cc
-    # Equivalent to:
-    # mapper.run()
+    """Equivalent to IncrementalMapperController.run()"""
     timer = pycolmap.Timer()
     timer.start()
     if not mapper.load_database():
         return
     init_mapper_options = mapper.options.get_mapper()
-    main_reconstruct(mapper, init_mapper_options)
+    reconstruct(mapper, init_mapper_options)
 
     kNumInitRelaxations = 2
     for i in range(2):
@@ -271,12 +260,12 @@ def main_incremental_mapper(mapper):
             break
         logging.info("=> Relaxing the initialization constraints")
         init_mapper_options.init_min_num_inliers /= 2
-        main_reconstruct(mapper, init_mapper_options)
+        reconstruct(mapper, init_mapper_options)
         if mapper.reconstruction_manager.size() > 0:
             break
         logging.info("=> Relaxing the initialization constraints")
         init_mapper_options.init_min_tri_angle /= 2
-        main_reconstruct(mapper, init_mapper_options)
+        reconstruct(mapper, init_mapper_options)
     timer.print_minutes()
 
 
@@ -287,7 +276,6 @@ def incremental_mapping(
     options=pycolmap.IncrementalPipelineOptions(),
     input_path=None,
 ):
-    # Following the implementation of src/pycolmap/pipeline/sfm.cc
     if not database_path.exists():
         logging.fatal(f"Database path does not exist: {database_path}")
     if not image_path.exists():
