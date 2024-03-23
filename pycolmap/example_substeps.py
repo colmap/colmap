@@ -42,41 +42,29 @@ def initialize_reconstruction(
     # Equivalent to:
     # return mapper.initialize_reconstruction(core, mapper_options, reconstruction)
     options = mapper.options
-    image_id1, image_id2 = options.init_image_id1, options.init_image_id2
+    init_pair = (options.init_image_id1, options.init_image_id2)
 
     # Try to find good initial pair
     if not options.is_initial_pair_provided():
         logging.info("Finding good initial image pair")
-        init_res = core_mapper.find_initial_image_pair(
-            mapper_options, image_id1, image_id2
-        )
-        find_init_success, image_id1, image_id2, two_view_geometry = (
-            init_res[0],
-            init_res[1][0][0],
-            init_res[1][0][1],
-            init_res[1][1],
-        )
-        if not find_init_success:
+        ret = core_mapper.find_initial_image_pair(mapper_options, *init_pair)
+        if ret is None:
             logging.info("No good initial image pair found.")
             return pycolmap.IncrementalMapperStatus.NO_INITIAL_PAIR
+        init_pair, two_view_geometry = ret
     else:
-        if (not reconstruction.exists_image(image_id1)) or (
-            not reconstruction.exists_image(image_id2)
-        ):
-            logging.info(
-                f"=> Initial image pair #{image_id1} "
-                f"and #{image_id2} do not exist."
-            )
+        if not all(reconstruction.exists_image(i) for i in init_pair):
+            logging.info(f"=> Initial image pair {init_pair} does not exist.")
             return pycolmap.IncrementalMapperStatus.BAD_INITIAL_PAIR
         two_view_geometry = core_mapper.estimate_initial_two_view_geometry(
-            mapper_options, image_id1, image_id2
+            mapper_options, *init_pair
         )
         if two_view_geometry is None:
             logging.info("Provided pair is insuitable for initialization")
             return pycolmap.IncrementalMapperStatus.BAD_INITIAL_PAIR
-    logging.info(f"Initializing with image pair #{image_id1} and #{image_id2}")
+    logging.info(f"Initializing with image pair {init_pair}")
     core_mapper.register_initial_image_pair(
-        mapper_options, two_view_geometry, image_id1, image_id2
+        mapper_options, two_view_geometry, *init_pair
     )
     logging.info("Global bundle adjustment")
     core_mapper.adjust_global_bundle(
@@ -93,7 +81,7 @@ def initialize_reconstruction(
     ):
         return pycolmap.IncrementalMapperStatus.BAD_INITIAL_PAIR
     if options.extract_colors:
-        extract_colors(mapper.image_path, image_id1, reconstruction)
+        extract_colors(mapper.image_path, init_pair[0], reconstruction)
     return pycolmap.IncrementalMapperStatus.SUCCESS
 
 

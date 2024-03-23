@@ -205,21 +205,24 @@ void BindIncrementalMapperImpl(py::module& m) {
            &IncrementalMapper::EndReconstruction,
            "discard"_a)
       .def(
-          "find_initial_image_pair",  // explicitly handle the conversion from
-                                      // -1 (int) to image_t (uint32_t)
+          "find_initial_image_pair",
           [](IncrementalMapper& self,
              const IncrementalMapper::Options& options,
              int image_id1,
-             int image_id2) {
-            TwoViewGeometry two_view_geometry;
+             int image_id2) -> py::object {
+            // Explicitly handle the conversion
+            // from -1 (int) to kInvalidImageId (uint32_t).
             image_t image_id1_cast = image_id1;
             image_t image_id2_cast = image_id2;
-            bool success = self.FindInitialImagePair(
+            TwoViewGeometry two_view_geometry;
+            const bool success = self.FindInitialImagePair(
                 options, two_view_geometry, image_id1_cast, image_id2_cast);
-            return std::make_pair(
-                success,
-                std::make_pair(std::make_pair(image_id1_cast, image_id2_cast),
-                               two_view_geometry));
+            if (success) {
+              const auto pair = std::make_pair(image_id1_cast, image_id2_cast);
+              return py::cast(std::make_pair(pair, two_view_geometry));
+            } else {
+              return py::none();
+            }
           },
           "options"_a,
           "image_id1"_a,
@@ -231,7 +234,7 @@ void BindIncrementalMapperImpl(py::module& m) {
              const image_t image_id1,
              const image_t image_id2) -> py::object {
             TwoViewGeometry two_view_geometry;
-            bool success = self.EstimateInitialTwoViewGeometry(
+            const bool success = self.EstimateInitialTwoViewGeometry(
                 options, two_view_geometry, image_id1, image_id2);
             if (success)
               return py::cast(two_view_geometry);
