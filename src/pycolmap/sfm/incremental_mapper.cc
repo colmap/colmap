@@ -47,18 +47,22 @@ void BindIncrementalMapperController(py::module& m) {
            "image_path"_a,
            "database_path"_a,
            "reconstruction_manager"_a)
+      .def_property_readonly("options", &IncrementalMapperController::Options)
+      .def_property_readonly("image_path",
+                             &IncrementalMapperController::ImagePath)
+      .def_property_readonly("database_path",
+                             &IncrementalMapperController::DatabasePath)
+      .def_property_readonly(
+          "reconstruction_manager",
+          &IncrementalMapperController::ReconstructionManager)
+      .def_property_readonly("database_cache",
+                             &IncrementalMapperController::DatabaseCache)
       .def("add_callback",
            &IncrementalMapperController::AddCallback,
            "id"_a,
            "func"_a)
       .def("callback", &IncrementalMapperController::Callback, "id"_a)
       .def("load_database", &IncrementalMapperController::LoadDatabase)
-      .def("image_path", &IncrementalMapperController::ImagePath)
-      .def("database_path", &IncrementalMapperController::DatabasePath)
-      .def("options", &IncrementalMapperController::Options)
-      .def("reconstruction_manager",
-           &IncrementalMapperController::ReconstructionManager)
-      .def("database_cache", &IncrementalMapperController::DatabaseCache)
       .def("check_run_global_refinement",
            &IncrementalMapperController::CheckRunGlobalRefinement,
            "reconstruction"_a,

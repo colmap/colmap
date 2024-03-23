@@ -45,7 +45,7 @@ def initialize_reconstruction(
     # Following the implementation of src/colmap/controllers/incremental_mapper.cc
     # Equivalent to:
     # return mapper.initialize_reconstruction(core, mapper_options, reconstruction)
-    options = mapper.options()
+    options = mapper.options
     image_id1, image_id2 = options.init_image_id1, options.init_image_id2
 
     # Try to find good initial pair
@@ -102,7 +102,7 @@ def initialize_reconstruction(
     ):
         return pycolmap.IncrementalMapperStatus.BAD_INITIAL_PAIR
     if options.extract_colors:
-        extract_colors(mapper.image_path(), image_id1, reconstruction)
+        extract_colors(mapper.image_path, image_id1, reconstruction)
     return pycolmap.IncrementalMapperStatus.SUCCESS
 
 
@@ -126,7 +126,7 @@ def main_reconstruct_sub_model(
         )
 
     # incremental mapping
-    options = mapper.options()
+    options = mapper.options
     snapshot_prev_num_reg_images = reconstruction.num_reg_images()
     ba_prev_num_reg_images = reconstruction.num_reg_images()
     ba_prev_num_points = reconstruction.num_points3D()
@@ -189,9 +189,7 @@ def main_reconstruct_sub_model(
                 ba_prev_num_points = reconstruction.num_points3D()
                 ba_prev_num_reg_images = reconstruction.num_reg_images()
             if options.extract_colors:
-                extract_colors(
-                    mapper.image_path(), next_image_id, reconstruction
-                )
+                extract_colors(mapper.image_path, next_image_id, reconstruction)
             if (
                 options.snapshot_images_freq > 0
                 and reconstruction.num_reg_images()
@@ -221,9 +219,9 @@ def main_reconstruct(mapper, mapper_options):
     # Following the implementation of src/colmap/controllers/incremental_mapper.cc
     # Equivalent to:
     # mapper.reconstruct(mapper_options)
-    options = mapper.options()
-    reconstruction_manager = mapper.reconstruction_manager()
-    database_cache = mapper.database_cache()
+    options = mapper.options
+    reconstruction_manager = mapper.reconstruction_manager
+    database_cache = mapper.database_cache
     core_mapper = pycolmap.IncrementalMapper(database_cache)
     initial_reconstruction_given = reconstruction_manager.size() > 0
     if reconstruction_manager.size() > 1:
@@ -288,17 +286,17 @@ def main_incremental_mapper(mapper):
     timer.start()
     if not mapper.load_database():
         return
-    init_mapper_options = mapper.options().get_mapper()
+    init_mapper_options = mapper.options.get_mapper()
     main_reconstruct(mapper, init_mapper_options)
 
     kNumInitRelaxations = 2
     for i in range(2):
-        if mapper.reconstruction_manager().size() > 0:
+        if mapper.reconstruction_manager.size() > 0:
             break
         logging.info("=> Relaxing the initialization constraints")
         init_mapper_options.init_min_num_inliers /= 2
         main_reconstruct(mapper, init_mapper_options)
-        if mapper.reconstruction_manager().size() > 0:
+        if mapper.reconstruction_manager.size() > 0:
             break
         logging.info("=> Relaxing the initialization constraints")
         init_mapper_options.init_min_tri_angle /= 2
