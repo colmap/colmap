@@ -1,4 +1,5 @@
 import shutil
+import time
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -174,7 +175,7 @@ def reconstruct_sub_model(controller, mapper, mapper_options, reconstruction):
     if (
         reconstruction.num_reg_images() >= 2
         and reconstruction.num_reg_images() != ba_prev_num_reg_images
-        and reconstruciton.num_points3D != ba_prev_num_points
+        and reconstruction.num_points3D != ba_prev_num_points
     ):
         iterative_global_refinement(options, mapper_options, mapper)
     return pycolmap.IncrementalMapperStatus.SUCCESS
@@ -250,8 +251,7 @@ def main_incremental_mapper(controller):
     init_mapper_options = controller.options.get_mapper()
     reconstruct(controller, init_mapper_options)
 
-    kNumInitRelaxations = 2
-    for i in range(2):
+    for i in range(2):  # number of relaxations
         if controller.reconstruction_manager.size() > 0:
             break
         logging.info("=> Relaxing the initialization constraints")
