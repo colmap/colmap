@@ -1,4 +1,3 @@
-import os
 import shutil
 import urllib.request
 import zipfile
@@ -20,9 +19,8 @@ def extract_colors(image_path, image_id, reconstruction):
 def write_snapshot(reconstruction, snapshot_path):
     logging.info("Creating snapshot")
     timestamp = time.time() * 1000
-    path = os.path.join(snapshot_path, "{0:010d}".format(timestamp))
-    if not os.path.exists(path):
-        os.makedirs(path)
+    path = snapshot_path / f"{timestamp:010d}"
+    path.mkdir(exist_ok=True, parents=True)
     logging.verbose("=> Writing to {0}".format(path))
     reconstruction.write(path)
 
@@ -196,7 +194,7 @@ def main_reconstruct_sub_model(
                 >= options.snapshot_images_freq + snapshot_prev_num_reg_images
             ):
                 snapshot_prev_num_reg_images = reconstruction.num_reg_images()
-                write_snapshot(reconstruction, options.snapshot_path)
+                write_snapshot(reconstruction, Path(options.snapshot_path))
             mapper.callback(
                 pycolmap.IncrementalMapperCallback.NEXT_IMAGE_REG_CALLBACK
             )
@@ -312,16 +310,15 @@ def incremental_mapping(
     input_path=None,
 ):
     # Following the implementation of src/pycolmap/pipeline/sfm.cc
-    if not os.path.exists(database_path):
+    if not database_path.exists():
         logging.error(
             "Error! Database path does not exist: {0}".format(database_path)
         )
-    if not os.path.exists(image_path):
+    if not image_path.exists():
         logging.error(
             "Error! Image path does not exist: {0}".format(image_path)
         )
-    if not os.path.exists(output_path):
-        os.makedirs(output_path)
+    output_path.mkdir(exist_ok=True, parents=True)
     reconstruction_manager = pycolmap.ReconstructionManager()
     if (input_path is not None) and input_path != "":
         reconstruction_manager.read(input_path)
