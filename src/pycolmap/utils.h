@@ -1,10 +1,13 @@
 #pragma once
 
+#include "colmap/feature/types.h"
 #include "colmap/util/logging.h"
 
 #include <iostream>
 #include <regex>
 #include <string>
+
+#include <Eigen/Core>
 
 using namespace colmap;
 
@@ -38,4 +41,25 @@ inline PyInlierMask ToPythonMask(const std::vector<char>& mask_char) {
   return Eigen::Map<const Eigen::Matrix<char, Eigen::Dynamic, 1>>(
              mask_char.data(), mask_char.size())
       .cast<bool>();
+}
+
+typedef Eigen::Matrix<uint32_t, Eigen::Dynamic, 2, Eigen::RowMajor>
+    PyFeatureMatches;
+
+inline PyFeatureMatches FeatureMatchesToMatrix(const FeatureMatches& matches) {
+  PyFeatureMatches matrix(matches.size(), 2);
+  for (size_t i = 0; i < matches.size(); i++) {
+    matrix(i, 0) = matches[i].point2D_idx1;
+    matrix(i, 1) = matches[i].point2D_idx2;
+  }
+  return matrix;
+}
+
+inline FeatureMatches FeatureMatchesFromMatrix(const PyFeatureMatches& matrix) {
+  FeatureMatches matches(matrix.rows());
+  for (size_t i = 0; i < matches.size(); i++) {
+    matches[i].point2D_idx1 = matrix(i, 0);
+    matches[i].point2D_idx2 = matrix(i, 1);
+  }
+  return matches;
 }

@@ -162,6 +162,10 @@ void BindImage(py::module& m) {
           "camera"_a,
           "Setup the image and necessary internal data structures before being "
           "used in reconstruction.")
+      .def("tear_down",
+           &Image::TearDown,
+           "Tear down the image and necessary internal data structures after "
+           "being used in reconstruction.")
       .def("has_camera",
            &Image::HasCamera,
            "Check whether identifier of camera has been set.")
