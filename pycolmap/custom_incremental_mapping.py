@@ -1,3 +1,7 @@
+"""
+Python reimplementation of the C++ incremental mapper with equivalent logic.
+"""
+
 import shutil
 import time
 import urllib.request

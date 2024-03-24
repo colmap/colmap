@@ -1,3 +1,7 @@
+"""
+An example for running incremental SfM on a set of images with pycolmap interfaces.
+"""
+
 import shutil
 import urllib.request
 import zipfile
