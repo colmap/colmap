@@ -173,7 +173,8 @@ class IncrementalMapperController : public BaseController {
   const std::shared_ptr<const IncrementalMapperOptions>& Options() const {
     return options_;
   }
-  const std::shared_ptr<class ReconstructionManager>& ReconstructionManager() const {
+  const std::shared_ptr<class ReconstructionManager>& ReconstructionManager()
+      const {
     return reconstruction_manager_;
   }
   const std::shared_ptr<class DatabaseCache>& DatabaseCache() const {
