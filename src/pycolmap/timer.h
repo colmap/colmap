@@ -15,7 +15,7 @@ void BindTimer(py::module& m) {
       .def("pause", &Timer::Pause)
       .def("resume", &Timer::Resume)
       .def("reset", &Timer::Reset)
-      .def("elapsed_microSeconds", &Timer::ElapsedMicroSeconds)
+      .def("elapsed_micro_seconds", &Timer::ElapsedMicroSeconds)
       .def("elapsed_seconds", &Timer::ElapsedSeconds)
       .def("elapsed_minutes", &Timer::ElapsedMinutes)
       .def("elapsed_hours", &Timer::ElapsedHours)
