@@ -178,7 +178,7 @@ IncrementalMapperController::IncrementalMapperController(
     std::shared_ptr<const IncrementalMapperOptions> options,
     const std::string& image_path,
     const std::string& database_path,
-    std::shared_ptr<ReconstructionManager> reconstruction_manager)
+    std::shared_ptr<class ReconstructionManager> reconstruction_manager)
     : options_(std::move(options)),
       image_path_(image_path),
       database_path_(database_path),

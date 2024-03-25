@@ -4,6 +4,7 @@
 #include "pycolmap/helpers.h"
 #include "pycolmap/logging.h"
 #include "pycolmap/pybind11_extension.h"
+#include "pycolmap/timer.h"
 #include "pycolmap/utils.h"
 
 #include <pybind11/iostream.h>
@@ -39,6 +40,7 @@ PYBIND11_MODULE(pycolmap, m) {
   AddStringToEnumConstructor(PyDevice);
 
   BindLogging(m);
+  BindTimer(m);
   BindGeometry(m);
   BindOptim(m);
   BindScene(m);

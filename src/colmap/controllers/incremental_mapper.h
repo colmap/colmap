@@ -146,7 +146,7 @@ struct IncrementalMapperOptions {
 // initializing reconstructions from the same scene graph.
 class IncrementalMapperController : public BaseController {
  public:
-  enum {
+  enum CallbackType {
     INITIAL_IMAGE_PAIR_REG_CALLBACK,
     NEXT_IMAGE_REG_CALLBACK,
     LAST_IMAGE_REG_CALLBACK,
@@ -158,33 +158,51 @@ class IncrementalMapperController : public BaseController {
       std::shared_ptr<const IncrementalMapperOptions> options,
       const std::string& image_path,
       const std::string& database_path,
-      std::shared_ptr<ReconstructionManager> reconstruction_manager);
+      std::shared_ptr<class ReconstructionManager> reconstruction_manager);
 
   void Run();
 
   void TriangulateReconstruction(
       const std::shared_ptr<Reconstruction>& reconstruction);
 
- private:
   bool LoadDatabase();
+
+  // getter functions for python pipelines
+  const std::string& ImagePath() const { return image_path_; }
+  const std::string& DatabasePath() const { return database_path_; }
+  const std::shared_ptr<const IncrementalMapperOptions>& Options() const {
+    return options_;
+  }
+  const std::shared_ptr<class ReconstructionManager>& ReconstructionManager()
+      const {
+    return reconstruction_manager_;
+  }
+  const std::shared_ptr<class DatabaseCache>& DatabaseCache() const {
+    return database_cache_;
+  }
+
   void Reconstruct(const IncrementalMapper::Options& init_mapper_options);
+
   Status ReconstructSubModel(
       IncrementalMapper& mapper,
       const IncrementalMapper::Options& mapper_options,
       const std::shared_ptr<Reconstruction>& reconstruction);
+
   Status InitializeReconstruction(
       IncrementalMapper& mapper,
       const IncrementalMapper::Options& mapper_options,
       Reconstruction& reconstruction);
+
   bool CheckRunGlobalRefinement(const Reconstruction& reconstruction,
                                 size_t ba_prev_num_reg_images,
                                 size_t ba_prev_num_points);
 
+ private:
   const std::shared_ptr<const IncrementalMapperOptions> options_;
   const std::string image_path_;
   const std::string database_path_;
-  std::shared_ptr<ReconstructionManager> reconstruction_manager_;
-  std::shared_ptr<DatabaseCache> database_cache_;
+  std::shared_ptr<class ReconstructionManager> reconstruction_manager_;
+  std::shared_ptr<class DatabaseCache> database_cache_;
 };
 
 }  // namespace colmap

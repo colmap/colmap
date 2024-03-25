@@ -146,6 +146,10 @@ void BindReconstruction(py::module& m) {
       .def(
           "normalize",
           &Reconstruction::Normalize,
+          "extent"_a = 10.0,
+          "p0"_a = 0.1,
+          "p1"_a = 0.9,
+          "use_images"_a = true,
           "Normalize scene by scaling and translation to avoid degenerate\n"
           "visualization after bundle adjustment and to improve numerical\n"
           "stability of algorithms.\n\n"

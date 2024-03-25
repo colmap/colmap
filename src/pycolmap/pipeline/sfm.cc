@@ -101,7 +101,8 @@ void BundleAdjustment(const std::shared_ptr<Reconstruction>& reconstruction,
 
 void BindSfM(py::module& m) {
   using MapperOpts = IncrementalMapperOptions;
-  auto PyMapperOpts = py::class_<MapperOpts>(m, "IncrementalPipelineOptions");
+  auto PyMapperOpts = py::class_<MapperOpts, std::shared_ptr<MapperOpts>>(
+      m, "IncrementalPipelineOptions");
   PyMapperOpts.def(py::init<>())
       .def_readwrite(
           "min_num_matches",
@@ -249,7 +250,10 @@ void BindSfM(py::module& m) {
                      &MapperOpts::triangulation,
                      "Options of the IncrementalTriangulator.")
       .def("get_mapper", &MapperOpts::Mapper)
-      .def("get_triangulation", &MapperOpts::Triangulation);
+      .def("get_triangulation", &MapperOpts::Triangulation)
+      .def("get_local_bundle_adjustment", &MapperOpts::LocalBundleAdjustment)
+      .def("get_global_bundle_adjustment", &MapperOpts::GlobalBundleAdjustment)
+      .def("is_initial_pair_provided", &MapperOpts::IsInitialPairProvided);
   MakeDataclass(PyMapperOpts);
   auto mapper_options = PyMapperOpts().cast<MapperOpts>();
 
