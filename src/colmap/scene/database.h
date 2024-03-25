@@ -38,6 +38,7 @@
 
 #include <mutex>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include <Eigen/Core>
@@ -165,7 +166,8 @@ class Database {
                                       image_t image_id2) const;
   void ReadTwoViewGeometries(
       std::vector<image_pair_t>* image_pair_ids,
-      std::vector<TwoViewGeometry>* two_view_geometries) const;
+      std::vector<TwoViewGeometry>* two_view_geometries,
+      const std::unordered_set<image_t>* image_ids = nullptr) const;
 
   // Read all image pairs that have an entry in the `NumVerifiedImagePairs`
   // table with at least one inlier match and their number of inlier matches.
