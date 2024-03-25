@@ -40,6 +40,7 @@
 #include <Eigen/Geometry>
 #include <Eigen/LU>
 #include <Eigen/SVD>
+#include <PoseLib/solvers/relpose_5pt.h>
 
 namespace colmap {
 
@@ -48,9 +49,23 @@ void EssentialMatrixFivePointEstimator::Estimate(
     const std::vector<Y_t>& points2,
     std::vector<M_t>* models) {
   THROW_CHECK_EQ(points1.size(), points2.size());
+  THROW_CHECK_GE(points1.size(), 5);
   THROW_CHECK(models != nullptr);
 
   models->clear();
+
+  // Poselib implements the same algorithm but special-cased only for 5 points.
+  // It is a little faster in this case than the generic implementation below.
+  if (points1.size() == 5) {
+    thread_local static std::vector<Eigen::Vector3d> points1_h(5);
+    thread_local static std::vector<Eigen::Vector3d> points2_h(5);
+    for (int i = 0; i < 5; ++i) {
+      points1_h[i] = points1[i].homogeneous();
+      points2_h[i] = points2[i].homogeneous();
+    }
+    poselib::relpose_5pt(points1_h, points2_h, models);
+    return;
+  }
 
   // Step 1: Extraction of the nullspace x, y, z, w.
 
@@ -163,6 +178,7 @@ void EssentialMatrixEightPointEstimator::Estimate(
     const std::vector<Y_t>& points2,
     std::vector<M_t>* models) {
   THROW_CHECK_EQ(points1.size(), points2.size());
+  THROW_CHECK_GE(points1.size(), 8);
   THROW_CHECK(models != nullptr);
 
   models->clear();

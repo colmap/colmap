@@ -32,7 +32,7 @@
 #include "colmap/estimators/essential_matrix.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/math/random.h"
-#include "colmap/optim/ransac.h"
+#include "colmap/optim/loransac.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/eigen_alignment.h"
 
@@ -70,7 +70,8 @@ TEST(EssentialMatrix, FivePoint) {
   options.confidence = 0.9999;
   options.min_inlier_ratio = 0.1;
 
-  RANSAC<EssentialMatrixFivePointEstimator> ransac(options);
+  LORANSAC<EssentialMatrixFivePointEstimator, EssentialMatrixFivePointEstimator>
+      ransac(options);
 
   const auto report = ransac.Estimate(points1, points2);
 

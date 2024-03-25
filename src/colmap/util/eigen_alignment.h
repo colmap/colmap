@@ -29,6 +29,9 @@
 
 #pragma once
 
+#ifndef COLMAP_SRC_UTIL_ALIGNMENT_H_
+#define COLMAP_SRC_UTIL_ALIGNMENT_H_
+
 #include <Eigen/Core>
 
 #ifdef _MSVC_LANG
@@ -37,7 +40,9 @@
 #define CPP_VERSION __cplusplus
 #endif
 
-#if !EIGEN_VERSION_AT_LEAST(3, 4, 0) || CPP_VERSION < 201703L
+// Only enable custom Eigen alignment allocators for non-ASan builds to avoid
+// mis-matching alloc-dealloc errors.
+#if !ASAN_ENABLED && (!EIGEN_VERSION_AT_LEAST(3, 4, 0) || CPP_VERSION < 201703L)
 
 #include <initializer_list>
 #include <memory>
@@ -103,3 +108,5 @@ EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION_CUSTOM(Eigen::Matrix<double, 3, 4>)
 #endif
 
 #undef CPP_VERSION
+
+#endif  // COLMAP_SRC_UTIL_ALIGNMENT_H_
