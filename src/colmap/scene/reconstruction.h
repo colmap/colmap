@@ -50,7 +50,6 @@
 namespace colmap {
 
 struct PlyPoint;
-struct RANSACOptions;
 class DatabaseCache;
 class CorrespondenceGraph;
 
@@ -80,15 +79,15 @@ class Reconstruction {
   inline const class Image& Image(image_t image_id) const;
   inline const struct Point3D& Point3D(point3D_t point3D_id) const;
   inline const ImagePairStat& ImagePair(image_pair_t pair_id) const;
-  inline ImagePairStat& ImagePair(image_t image_id1, image_t image_id2);
+  inline const ImagePairStat& ImagePair(image_t image_id1,
+                                        image_t image_id2) const;
 
   // Get mutable objects.
   inline struct Camera& Camera(camera_t camera_id);
   inline class Image& Image(image_t image_id);
   inline struct Point3D& Point3D(point3D_t point3D_id);
   inline ImagePairStat& ImagePair(image_pair_t pair_id);
-  inline const ImagePairStat& ImagePair(image_t image_id1,
-                                        image_t image_id2) const;
+  inline ImagePairStat& ImagePair(image_t image_id1, image_t image_id2);
 
   // Get reference to all objects.
   inline const std::unordered_map<camera_t, struct Camera>& Cameras() const;
