@@ -293,6 +293,7 @@ set(COLMAP_EXPORT_LIBS
     colmap_controllers
     colmap_estimators
     colmap_exe
+    colmap_feature_types
     colmap_feature
     colmap_geometry
     colmap_image
