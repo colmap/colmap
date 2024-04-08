@@ -264,55 +264,15 @@ BundleAdjuster::BundleAdjuster(const BundleAdjustmentOptions& options,
 }
 
 bool BundleAdjuster::Solve(Reconstruction* reconstruction) {
-  THROW_CHECK_NOTNULL(reconstruction);
-  THROW_CHECK(!problem_) << "Cannot use the same BundleAdjuster multiple times";
-
-  ceres::Problem::Options problem_options;
-  problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
-  problem_ = std::make_unique<ceres::Problem>(problem_options);
-
   const auto loss_function =
       std::unique_ptr<ceres::LossFunction>(options_.CreateLossFunction());
-  SetUp(reconstruction, loss_function.get());
+  SetUpProblem(reconstruction, loss_function.get());
 
   if (problem_->NumResiduals() == 0) {
     return false;
   }
 
-  ceres::Solver::Options solver_options = options_.solver_options;
-  const bool has_sparse =
-      solver_options.sparse_linear_algebra_library_type != ceres::NO_SPARSE;
-
-  // Empirical choice.
-  const size_t kMaxNumImagesDirectDenseSolver = 50;
-  const size_t kMaxNumImagesDirectSparseSolver = 1000;
-  const size_t num_images = config_.NumImages();
-  if (num_images <= kMaxNumImagesDirectDenseSolver) {
-    solver_options.linear_solver_type = ceres::DENSE_SCHUR;
-  } else if (num_images <= kMaxNumImagesDirectSparseSolver && has_sparse) {
-    solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
-  } else {  // Indirect sparse (preconditioned CG) solver.
-    solver_options.linear_solver_type = ceres::ITERATIVE_SCHUR;
-    solver_options.preconditioner_type = ceres::SCHUR_JACOBI;
-  }
-
-  if (problem_->NumResiduals() <
-      options_.min_num_residuals_for_multi_threading) {
-    solver_options.num_threads = 1;
-#if CERES_VERSION_MAJOR < 2
-    solver_options.num_linear_solver_threads = 1;
-#endif  // CERES_VERSION_MAJOR
-  } else {
-    solver_options.num_threads =
-        GetEffectiveNumThreads(solver_options.num_threads);
-#if CERES_VERSION_MAJOR < 2
-    solver_options.num_linear_solver_threads =
-        GetEffectiveNumThreads(solver_options.num_linear_solver_threads);
-#endif  // CERES_VERSION_MAJOR
-  }
-
-  std::string solver_error;
-  THROW_CHECK(solver_options.IsValid(&solver_error)) << solver_error;
+  ceres::Solver::Options solver_options = SetUpSolverOptions(*problem_, options_.solver_options);
 
   ceres::Solve(solver_options, problem_.get(), &summary_);
 
@@ -331,7 +291,7 @@ const BundleAdjustmentConfig& BundleAdjuster::Config() const {
   return config_;
 }
 
-const std::unique_ptr<ceres::Problem>& BundleAdjuster::Problem() const {
+const ceres::Problem& BundleAdjuster::Problem() const {
   return *problem_;
 }
 
@@ -339,8 +299,17 @@ const ceres::Solver::Summary& BundleAdjuster::Summary() const {
   return summary_;
 }
 
-void BundleAdjuster::SetUp(Reconstruction* reconstruction,
+void BundleAdjuster::SetUpProblem(Reconstruction* reconstruction,
                            ceres::LossFunction* loss_function) {
+  THROW_CHECK_NOTNULL(reconstruction);
+  THROW_CHECK(!problem_) << "Cannot set up problem from the same BundleAdjuster multiple times";
+
+  // Initialize an empty problem
+  ceres::Problem::Options problem_options;
+  problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
+  problem_ = std::make_unique<ceres::Problem>(problem_options);
+
+  // Set up problem
   // Warning: AddPointsToProblem assumes that AddImageToProblem is called first.
   // Do not change order of instructions!
   for (const image_t image_id : config_.Images()) {
@@ -355,6 +324,45 @@ void BundleAdjuster::SetUp(Reconstruction* reconstruction,
 
   ParameterizeCameras(reconstruction);
   ParameterizePoints(reconstruction);
+}
+
+ceres::Solver::Options BundleAdjuster::SetUpSolverOptions(const ceres::Problem& problem,
+                                                          const ceres::Solver::Options& input_solver_options) const {
+  ceres::Solver::Options solver_options = input_solver_options;
+  const bool has_sparse =
+      solver_options.sparse_linear_algebra_library_type != ceres::NO_SPARSE;
+
+  // Empirical choice.
+  const size_t kMaxNumImagesDirectDenseSolver = 50;
+  const size_t kMaxNumImagesDirectSparseSolver = 1000;
+  const size_t num_images = config_.NumImages();
+  if (num_images <= kMaxNumImagesDirectDenseSolver) {
+    solver_options.linear_solver_type = ceres::DENSE_SCHUR;
+  } else if (num_images <= kMaxNumImagesDirectSparseSolver && has_sparse) {
+    solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
+  } else {  // Indirect sparse (preconditioned CG) solver.
+    solver_options.linear_solver_type = ceres::ITERATIVE_SCHUR;
+    solver_options.preconditioner_type = ceres::SCHUR_JACOBI;
+  }
+
+  if (problem.NumResiduals() <
+      options_.min_num_residuals_for_multi_threading) {
+    solver_options.num_threads = 1;
+#if CERES_VERSION_MAJOR < 2
+    solver_options.num_linear_solver_threads = 1;
+#endif  // CERES_VERSION_MAJOR
+  } else {
+    solver_options.num_threads =
+        GetEffectiveNumThreads(solver_options.num_threads);
+#if CERES_VERSION_MAJOR < 2
+    solver_options.num_linear_solver_threads =
+        GetEffectiveNumThreads(solver_options.num_linear_solver_threads);
+#endif  // CERES_VERSION_MAJOR
+  }
+
+  std::string solver_error;
+  THROW_CHECK(solver_options.IsValid(&solver_error)) << solver_error;
+  return solver_options;
 }
 
 void BundleAdjuster::AddImageToProblem(const image_t image_id,
@@ -530,9 +538,33 @@ RigBundleAdjuster::RigBundleAdjuster(const BundleAdjustmentOptions& options,
 
 bool RigBundleAdjuster::Solve(Reconstruction* reconstruction,
                               std::vector<CameraRig>* camera_rigs) {
+  const auto loss_function =
+      std::unique_ptr<ceres::LossFunction>(options_.CreateLossFunction());
+  SetUpProblem(reconstruction, camera_rigs, loss_function.get());
+
+  if (problem_->NumResiduals() == 0) {
+    return false;
+  }
+
+  ceres::Solver::Options solver_options = SetUpSolverOptions(*problem_, options_.solver_options);
+
+  ceres::Solve(solver_options, problem_.get(), &summary_);
+
+  if (options_.print_summary || VLOG_IS_ON(1)) {
+    PrintSolverSummary(summary_, "Rig Bundle adjustment report");
+  }
+
+  TearDown(reconstruction, *camera_rigs);
+
+  return true;
+}
+
+void RigBundleAdjuster::SetUpProblem(Reconstruction* reconstruction,
+                                     std::vector<CameraRig>* camera_rigs,
+                                     ceres::LossFunction* loss_function) {
   THROW_CHECK_NOTNULL(reconstruction);
   THROW_CHECK_NOTNULL(camera_rigs);
-  THROW_CHECK(!problem_) << "Cannot use the same BundleAdjuster multiple times";
+  THROW_CHECK(!problem_) << "Cannot set up problem from the same BundleAdjuster multiple times";
 
   // Check the validity of the provided camera rigs.
   std::unordered_set<camera_t> rig_camera_ids;
@@ -553,59 +585,12 @@ bool RigBundleAdjuster::Solve(Reconstruction* reconstruction,
     }
   }
 
+  // Initialize an empty problem
   ceres::Problem::Options problem_options;
   problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
   problem_ = std::make_unique<ceres::Problem>(problem_options);
 
-  const auto loss_function =
-      std::unique_ptr<ceres::LossFunction>(options_.CreateLossFunction());
-  SetUp(reconstruction, camera_rigs, loss_function.get());
-
-  if (problem_->NumResiduals() == 0) {
-    return false;
-  }
-
-  ceres::Solver::Options solver_options = options_.solver_options;
-  const bool has_sparse =
-      solver_options.sparse_linear_algebra_library_type != ceres::NO_SPARSE;
-
-  // Empirical choice.
-  const size_t kMaxNumImagesDirectDenseSolver = 50;
-  const size_t kMaxNumImagesDirectSparseSolver = 1000;
-  const size_t num_images = config_.NumImages();
-  if (num_images <= kMaxNumImagesDirectDenseSolver) {
-    solver_options.linear_solver_type = ceres::DENSE_SCHUR;
-  } else if (num_images <= kMaxNumImagesDirectSparseSolver && has_sparse) {
-    solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
-  } else {  // Indirect sparse (preconditioned CG) solver.
-    solver_options.linear_solver_type = ceres::ITERATIVE_SCHUR;
-    solver_options.preconditioner_type = ceres::SCHUR_JACOBI;
-  }
-
-  solver_options.num_threads =
-      GetEffectiveNumThreads(solver_options.num_threads);
-#if CERES_VERSION_MAJOR < 2
-  solver_options.num_linear_solver_threads =
-      GetEffectiveNumThreads(solver_options.num_linear_solver_threads);
-#endif  // CERES_VERSION_MAJOR
-
-  std::string solver_error;
-  THROW_CHECK(solver_options.IsValid(&solver_error)) << solver_error;
-
-  ceres::Solve(solver_options, problem_.get(), &summary_);
-
-  if (options_.print_summary || VLOG_IS_ON(1)) {
-    PrintSolverSummary(summary_, "Rig Bundle adjustment report");
-  }
-
-  TearDown(reconstruction, *camera_rigs);
-
-  return true;
-}
-
-void RigBundleAdjuster::SetUp(Reconstruction* reconstruction,
-                              std::vector<CameraRig>* camera_rigs,
-                              ceres::LossFunction* loss_function) {
+  // Set up problem
   ComputeCameraRigPoses(*reconstruction, *camera_rigs);
 
   for (const image_t image_id : config_.Images()) {
