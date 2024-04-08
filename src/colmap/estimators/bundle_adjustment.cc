@@ -194,6 +194,10 @@ bool BundleAdjustmentConfig::HasConstantCamPositions(
          constant_cam_positions_.end();
 }
 
+const std::unordered_set<camera_t> BundleAdjustmentConfig::ConstantIntrinsics() const {
+  return constant_intrinsics_;
+}
+
 const std::unordered_set<image_t>& BundleAdjustmentConfig::Images() const {
   return image_ids_;
 }
@@ -206,6 +210,10 @@ const std::unordered_set<point3D_t>& BundleAdjustmentConfig::VariablePoints()
 const std::unordered_set<point3D_t>& BundleAdjustmentConfig::ConstantPoints()
     const {
   return constant_point3D_ids_;
+}
+
+const std::unordered_set<image_t>& BundleAdjustmentConfig::ConstantCamPoses() const {
+  return constant_cam_poses_;
 }
 
 const std::vector<int>& BundleAdjustmentConfig::ConstantCamPositions(
@@ -312,9 +320,19 @@ bool BundleAdjuster::Solve(Reconstruction* reconstruction) {
     PrintSolverSummary(summary_, "Bundle adjustment report");
   }
 
-  TearDown(reconstruction);
-
   return true;
+}
+
+const BundleAdjustmentOptions& BundleAdjuster::Options() const {
+  return options_;
+}
+
+const BundleAdjustmentConfig& BundleAdjuster::Config() const {
+  return config_;
+}
+
+const std::unique_ptr<ceres::Problem>& BundleAdjuster::Problem() const {
+  return *problem_;
 }
 
 const ceres::Solver::Summary& BundleAdjuster::Summary() const {
@@ -337,10 +355,6 @@ void BundleAdjuster::SetUp(Reconstruction* reconstruction,
 
   ParameterizeCameras(reconstruction);
   ParameterizePoints(reconstruction);
-}
-
-void BundleAdjuster::TearDown(Reconstruction*) {
-  // Nothing to do
 }
 
 void BundleAdjuster::AddImageToProblem(const image_t image_id,

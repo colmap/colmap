@@ -147,9 +147,11 @@ class BundleAdjustmentConfig {
   void RemoveConstantPoint(point3D_t point3D_id);
 
   // Access configuration data.
+  const std::unordered_set<camera_t> ConstantIntrinsics() const;
   const std::unordered_set<image_t>& Images() const;
   const std::unordered_set<point3D_t>& VariablePoints() const;
   const std::unordered_set<point3D_t>& ConstantPoints() const;
+  const std::unordered_set<image_t>& ConstantCamPoses() const;
   const std::vector<int>& ConstantCamPositions(image_t image_id) const;
 
  private:
@@ -170,14 +172,19 @@ class BundleAdjuster {
 
   bool Solve(Reconstruction* reconstruction);
 
+  // Set up the problem
+  void SetUp(Reconstruction* reconstruction,
+             ceres::LossFunction* loss_function);
+
+  // Getter functions below
+  const BundleAdjustmentOptions& Options() const;
+  const BundleAdjustmentConfig& Config() const;
+  // Get the Ceres problem after the last call to "set_up"
+  const ceres::Problem& Problem() const;
   // Get the Ceres solver summary for the last call to `Solve`.
   const ceres::Solver::Summary& Summary() const;
 
  private:
-  void SetUp(Reconstruction* reconstruction,
-             ceres::LossFunction* loss_function);
-  void TearDown(Reconstruction* reconstruction);
-
   void AddImageToProblem(image_t image_id,
                          Reconstruction* reconstruction,
                          ceres::LossFunction* loss_function);
