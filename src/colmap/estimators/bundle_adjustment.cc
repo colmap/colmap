@@ -194,7 +194,8 @@ bool BundleAdjustmentConfig::HasConstantCamPositions(
          constant_cam_positions_.end();
 }
 
-const std::unordered_set<camera_t> BundleAdjustmentConfig::ConstantIntrinsics() const {
+const std::unordered_set<camera_t> BundleAdjustmentConfig::ConstantIntrinsics()
+    const {
   return constant_intrinsics_;
 }
 
@@ -212,7 +213,8 @@ const std::unordered_set<point3D_t>& BundleAdjustmentConfig::ConstantPoints()
   return constant_point3D_ids_;
 }
 
-const std::unordered_set<image_t>& BundleAdjustmentConfig::ConstantCamPoses() const {
+const std::unordered_set<image_t>& BundleAdjustmentConfig::ConstantCamPoses()
+    const {
   return constant_cam_poses_;
 }
 
@@ -272,7 +274,8 @@ bool BundleAdjuster::Solve(Reconstruction* reconstruction) {
     return false;
   }
 
-  ceres::Solver::Options solver_options = SetUpSolverOptions(*problem_, options_.solver_options);
+  ceres::Solver::Options solver_options =
+      SetUpSolverOptions(*problem_, options_.solver_options);
 
   ceres::Solve(solver_options, problem_.get(), &summary_);
 
@@ -287,22 +290,19 @@ const BundleAdjustmentOptions& BundleAdjuster::Options() const {
   return options_;
 }
 
-const BundleAdjustmentConfig& BundleAdjuster::Config() const {
-  return config_;
-}
+const BundleAdjustmentConfig& BundleAdjuster::Config() const { return config_; }
 
-const ceres::Problem& BundleAdjuster::Problem() const {
-  return *problem_;
-}
+const ceres::Problem& BundleAdjuster::Problem() const { return *problem_; }
 
 const ceres::Solver::Summary& BundleAdjuster::Summary() const {
   return summary_;
 }
 
-const ceres::Problem& BundleAdjuster::SetUpProblem(Reconstruction* reconstruction,
-                           ceres::LossFunction* loss_function) {
+const ceres::Problem& BundleAdjuster::SetUpProblem(
+    Reconstruction* reconstruction, ceres::LossFunction* loss_function) {
   THROW_CHECK_NOTNULL(reconstruction);
-  THROW_CHECK(!problem_) << "Cannot set up problem from the same BundleAdjuster multiple times";
+  THROW_CHECK(!problem_)
+      << "Cannot set up problem from the same BundleAdjuster multiple times";
 
   // Initialize an empty problem
   ceres::Problem::Options problem_options;
@@ -327,8 +327,9 @@ const ceres::Problem& BundleAdjuster::SetUpProblem(Reconstruction* reconstructio
   return *problem_;
 }
 
-ceres::Solver::Options BundleAdjuster::SetUpSolverOptions(const ceres::Problem& problem,
-                                                          const ceres::Solver::Options& input_solver_options) const {
+ceres::Solver::Options BundleAdjuster::SetUpSolverOptions(
+    const ceres::Problem& problem,
+    const ceres::Solver::Options& input_solver_options) const {
   ceres::Solver::Options solver_options = input_solver_options;
   const bool has_sparse =
       solver_options.sparse_linear_algebra_library_type != ceres::NO_SPARSE;
@@ -346,8 +347,7 @@ ceres::Solver::Options BundleAdjuster::SetUpSolverOptions(const ceres::Problem& 
     solver_options.preconditioner_type = ceres::SCHUR_JACOBI;
   }
 
-  if (problem.NumResiduals() <
-      options_.min_num_residuals_for_multi_threading) {
+  if (problem.NumResiduals() < options_.min_num_residuals_for_multi_threading) {
     solver_options.num_threads = 1;
 #if CERES_VERSION_MAJOR < 2
     solver_options.num_linear_solver_threads = 1;
@@ -547,7 +547,8 @@ bool RigBundleAdjuster::Solve(Reconstruction* reconstruction,
     return false;
   }
 
-  ceres::Solver::Options solver_options = SetUpSolverOptions(*problem_, options_.solver_options);
+  ceres::Solver::Options solver_options =
+      SetUpSolverOptions(*problem_, options_.solver_options);
 
   ceres::Solve(solver_options, problem_.get(), &summary_);
 
@@ -560,12 +561,14 @@ bool RigBundleAdjuster::Solve(Reconstruction* reconstruction,
   return true;
 }
 
-const ceres::Problem& RigBundleAdjuster::SetUpProblem(Reconstruction* reconstruction,
-                                     std::vector<CameraRig>* camera_rigs,
-                                     ceres::LossFunction* loss_function) {
+const ceres::Problem& RigBundleAdjuster::SetUpProblem(
+    Reconstruction* reconstruction,
+    std::vector<CameraRig>* camera_rigs,
+    ceres::LossFunction* loss_function) {
   THROW_CHECK_NOTNULL(reconstruction);
   THROW_CHECK_NOTNULL(camera_rigs);
-  THROW_CHECK(!problem_) << "Cannot set up problem from the same BundleAdjuster multiple times";
+  THROW_CHECK(!problem_)
+      << "Cannot set up problem from the same BundleAdjuster multiple times";
 
   // Check the validity of the provided camera rigs.
   std::unordered_set<camera_t> rig_camera_ids;
