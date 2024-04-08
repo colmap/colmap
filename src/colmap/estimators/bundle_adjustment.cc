@@ -553,8 +553,6 @@ bool RigBundleAdjuster::Solve(Reconstruction* reconstruction,
     }
   }
 
-  problem_ = std::make_unique<ceres::Problem>();
-
   ceres::Problem::Options problem_options;
   problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
   problem_ = std::make_unique<ceres::Problem>(problem_options);
