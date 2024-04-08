@@ -173,7 +173,7 @@ class BundleAdjuster {
   bool Solve(Reconstruction* reconstruction);
 
   // Set up the problem
-  void SetUpProblem(Reconstruction* reconstruction,
+  const ceres::Problem& SetUpProblem(Reconstruction* reconstruction,
                     ceres::LossFunction* loss_function);
   ceres::Solver::Options SetUpSolverOptions(const ceres::Problem& problem,
                                             const ceres::Solver::Options& input_solver_options) const;
@@ -228,7 +228,7 @@ class RigBundleAdjuster : public BundleAdjuster {
   bool Solve(Reconstruction* reconstruction,
              std::vector<CameraRig>* camera_rigs);
 
-  void SetUpProblem(Reconstruction* reconstruction,
+  const ceres::Problem& SetUpProblem(Reconstruction* reconstruction,
              std::vector<CameraRig>* camera_rigs,
              ceres::LossFunction* loss_function);
 

@@ -299,7 +299,7 @@ const ceres::Solver::Summary& BundleAdjuster::Summary() const {
   return summary_;
 }
 
-void BundleAdjuster::SetUpProblem(Reconstruction* reconstruction,
+const ceres::Problem& BundleAdjuster::SetUpProblem(Reconstruction* reconstruction,
                            ceres::LossFunction* loss_function) {
   THROW_CHECK_NOTNULL(reconstruction);
   THROW_CHECK(!problem_) << "Cannot set up problem from the same BundleAdjuster multiple times";
@@ -324,6 +324,7 @@ void BundleAdjuster::SetUpProblem(Reconstruction* reconstruction,
 
   ParameterizeCameras(reconstruction);
   ParameterizePoints(reconstruction);
+  return *problem_;
 }
 
 ceres::Solver::Options BundleAdjuster::SetUpSolverOptions(const ceres::Problem& problem,
@@ -559,7 +560,7 @@ bool RigBundleAdjuster::Solve(Reconstruction* reconstruction,
   return true;
 }
 
-void RigBundleAdjuster::SetUpProblem(Reconstruction* reconstruction,
+const ceres::Problem& RigBundleAdjuster::SetUpProblem(Reconstruction* reconstruction,
                                      std::vector<CameraRig>* camera_rigs,
                                      ceres::LossFunction* loss_function) {
   THROW_CHECK_NOTNULL(reconstruction);
@@ -606,6 +607,7 @@ void RigBundleAdjuster::SetUpProblem(Reconstruction* reconstruction,
   ParameterizeCameras(reconstruction);
   ParameterizePoints(reconstruction);
   ParameterizeCameraRigs(reconstruction);
+  return *problem_;
 }
 
 void RigBundleAdjuster::TearDown(Reconstruction* reconstruction,
