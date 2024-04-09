@@ -17,7 +17,7 @@ find_package(colmap REQUIRED)
 
 find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
 
-find_package(pybind11 2.11.1 REQUIRED)
+find_package(pybind11 2.12.0 REQUIRED)
 
 file(GLOB_RECURSE SOURCE_FILES "${PROJECT_SOURCE_DIR}/../src/pycolmap/*.cc")
 pybind11_add_module(pycolmap ${SOURCE_FILES})
