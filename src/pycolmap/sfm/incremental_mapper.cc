@@ -296,7 +296,18 @@ void BindIncrementalMapperImpl(py::module& m) {
            "normalize_reconstruction"_a = true)
       .def("filter_images", &IncrementalMapper::FilterImages, "options"_a)
       .def("filter_points", &IncrementalMapper::FilterPoints, "options"_a)
-      .def("get_reconstruction", &IncrementalMapper::GetReconstruction)
+      .def("get_reconstruction",
+           &IncrementalMapper::GetReconstruction,
+           py::return_value_policy::reference)
+      .def("get_triangulator",
+           &IncrementalMapper::GetTriangulator,
+           py::return_value_policy::reference_internal)
+      .def_property_readonly("filtered_images",
+                             &IncrementalMapper::GetFilteredImages)
+      .def_property_readonly("existing_image_ids",
+                             &IncrementalMapper::GetExistingImageIds)
+      .def_property_readonly("num_reg_images_per_camera",
+                             &IncrementalMapper::GetNumRegImagesPerCamera)
       .def("num_total_reg_images", &IncrementalMapper::NumTotalRegImages)
       .def("num_shared_reg_images", &IncrementalMapper::NumSharedRegImages)
       .def("get_modified_points3D", &IncrementalMapper::GetModifiedPoints3D)

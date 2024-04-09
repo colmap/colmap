@@ -12,6 +12,7 @@ import enlighten
 
 import pycolmap
 from pycolmap import logging
+import custom_bundle_adjustment
 
 
 def extract_colors(image_path, image_id, reconstruction):
@@ -30,7 +31,9 @@ def write_snapshot(reconstruction, snapshot_path):
 
 def iterative_global_refinement(options, mapper_options, mapper):
     logging.info("Retriangulation and Global bundle adjustment")
-    mapper.iterative_global_refinement(
+    # mapper.iterative_global_refinement(
+    custom_bundle_adjustment.iterative_global_refinement(
+        mapper,
         options.ba_global_max_refinements,
         options.ba_global_max_refinement_change,
         mapper_options,
@@ -70,8 +73,11 @@ def initialize_reconstruction(
         mapper_options, two_view_geometry, *init_pair
     )
     logging.info("Global bundle adjustment")
-    mapper.adjust_global_bundle(
-        mapper_options, options.get_global_bundle_adjustment()
+    # mapper.adjust_global_bundle(
+    #     mapper_options, options.get_global_bundle_adjustment()
+    # )
+    custom_bundle_adjustment.adjust_global_bundle(
+        mapper, mapper_options, options.get_global_bundle_adjustment()
     )
     reconstruction.normalize()
     mapper.filter_points(mapper_options)
@@ -144,7 +150,8 @@ def reconstruct_sub_model(controller, mapper, mapper_options, reconstruction):
                 break
         if reg_next_success:
             mapper.triangulate_image(options.get_triangulation(), next_image_id)
-            mapper.iterative_local_refinement(
+            custom_bundle_adjustment.iterative_local_refinement(
+                mapper,
                 options.ba_local_max_refinements,
                 options.ba_local_max_refinement_change,
                 mapper_options,

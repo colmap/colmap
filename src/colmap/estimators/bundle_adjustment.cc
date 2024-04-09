@@ -298,16 +298,16 @@ const ceres::Solver::Summary& BundleAdjuster::Summary() const {
   return summary_;
 }
 
-const ceres::Problem& BundleAdjuster::SetUpProblem(
+ceres::Problem* BundleAdjuster::SetUpProblem(
     Reconstruction* reconstruction, ceres::LossFunction* loss_function) {
   THROW_CHECK_NOTNULL(reconstruction);
-  THROW_CHECK(!problem_)
-      << "Cannot set up problem from the same BundleAdjuster multiple times";
+  // THROW_CHECK(!problem_)
+  //     << "Cannot set up problem from the same BundleAdjuster multiple times";
 
   // Initialize an empty problem
   ceres::Problem::Options problem_options;
   problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
-  problem_ = std::make_unique<ceres::Problem>(problem_options);
+  problem_ = std::make_shared<ceres::Problem>(problem_options);
 
   // Set up problem
   // Warning: AddPointsToProblem assumes that AddImageToProblem is called first.
@@ -324,7 +324,7 @@ const ceres::Problem& BundleAdjuster::SetUpProblem(
 
   ParameterizeCameras(reconstruction);
   ParameterizePoints(reconstruction);
-  return *problem_;
+  return problem_.get();
 }
 
 ceres::Solver::Options BundleAdjuster::SetUpSolverOptions(
@@ -561,7 +561,7 @@ bool RigBundleAdjuster::Solve(Reconstruction* reconstruction,
   return true;
 }
 
-const ceres::Problem& RigBundleAdjuster::SetUpProblem(
+ceres::Problem* RigBundleAdjuster::SetUpProblem(
     Reconstruction* reconstruction,
     std::vector<CameraRig>* camera_rigs,
     ceres::LossFunction* loss_function) {
@@ -592,7 +592,7 @@ const ceres::Problem& RigBundleAdjuster::SetUpProblem(
   // Initialize an empty problem
   ceres::Problem::Options problem_options;
   problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
-  problem_ = std::make_unique<ceres::Problem>(problem_options);
+  problem_ = std::make_shared<ceres::Problem>(problem_options);
 
   // Set up problem
   ComputeCameraRigPoses(*reconstruction, *camera_rigs);
@@ -610,7 +610,7 @@ const ceres::Problem& RigBundleAdjuster::SetUpProblem(
   ParameterizeCameras(reconstruction);
   ParameterizePoints(reconstruction);
   ParameterizeCameraRigs(reconstruction);
-  return *problem_;
+  return problem_.get();
 }
 
 void RigBundleAdjuster::TearDown(Reconstruction* reconstruction,

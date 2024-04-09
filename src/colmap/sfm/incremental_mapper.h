@@ -242,7 +242,16 @@ class IncrementalMapper {
   size_t FilterImages(const Options& options);
   size_t FilterPoints(const Options& options);
 
-  const Reconstruction& GetReconstruction() const;
+  // Getter functions
+  const Reconstruction* GetReconstruction() const {
+    return reconstruction_.get();
+  };
+  const IncrementalTriangulator* GetTriangulator() const {
+    return triangulator_.get();
+  };
+  const std::unordered_set<image_t>& GetFilteredImages() const;
+  const std::unordered_set<image_t>& GetExistingImageIds() const;
+  const std::unordered_map<camera_t, size_t>& GetNumRegImagesPerCamera() const;
 
   // Number of images that are registered in at least on reconstruction.
   size_t NumTotalRegImages() const;

@@ -834,10 +834,20 @@ size_t IncrementalMapper::FilterPoints(const Options& options) {
   return num_filtered_observations;
 }
 
-const Reconstruction& IncrementalMapper::GetReconstruction() const {
-  THROW_CHECK_NOTNULL(reconstruction_);
-  return *reconstruction_;
+const std::unordered_set<image_t>& IncrementalMapper::GetFilteredImages()
+    const {
+  return filtered_images_;
 }
+
+const std::unordered_set<image_t>& IncrementalMapper::GetExistingImageIds()
+    const {
+  return existing_image_ids_;
+}
+
+const std::unordered_map<camera_t, size_t>&
+IncrementalMapper::GetNumRegImagesPerCamera() const {
+  return num_reg_images_per_camera_;
+};
 
 size_t IncrementalMapper::NumTotalRegImages() const {
   return num_total_reg_images_;
