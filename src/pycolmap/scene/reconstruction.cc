@@ -82,7 +82,8 @@ void BindReconstruction(py::module& m) {
                              py::return_value_policy::reference_internal)
       .def("image", py::overload_cast<image_t>(&Reconstruction::Image))
       .def_property_readonly("image_pairs", &Reconstruction::ImagePairs)
-      .def("image_pair", py::overload_cast<image_pair_t>(&Reconstruction::ImagePair))
+      .def("image_pair",
+           py::overload_cast<image_pair_t>(&Reconstruction::ImagePair))
       .def_property_readonly("cameras",
                              &Reconstruction::Cameras,
                              py::return_value_policy::reference_internal)
