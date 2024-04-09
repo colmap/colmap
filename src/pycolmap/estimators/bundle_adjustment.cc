@@ -28,37 +28,72 @@ void BindBundleAdjuster(py::module& m) {
           .def("add_image", &BACfg::AddImage, "image_id"_a)
           .def("has_image", &BACfg::HasImage, "image_id"_a)
           .def("remove_image", &BACfg::RemoveImage, "image_id"_a)
-          .def("set_constant_cam_intrinsics", &BACfg::SetConstantCamIntrinsics, "camera_id"_a)
-          .def("set_variable_cam_intrinsics", &BACfg::SetVariableCamIntrinsics, "camera_id"_a)
-          .def("has_constant_cam_intrinsics", &BACfg::HasConstantCamIntrinsics, "camera_id"_a)
-          .def("set_constant_cam_pose", &BACfg::SetConstantCamPose, "image_id"_a)
-          .def("set_variable_cam_pose", &BACfg::SetVariableCamPose, "image_id"_a)
-          .def("has_constant_cam_pose", &BACfg::HasConstantCamPose, "image_id"_a)
-          .def("set_constant_cam_positions", &BACfg::SetConstantCamPositions, "image_id"_a, "idxs"_a)
-          .def("remove_variable_cam_positions", &BACfg::RemoveConstantCamPositions, "image_id"_a)
-          .def("has_constant_cam_positions", &BACfg::HasConstantCamPositions, "image_id"_a)
+          .def("set_constant_cam_intrinsics",
+               &BACfg::SetConstantCamIntrinsics,
+               "camera_id"_a)
+          .def("set_variable_cam_intrinsics",
+               &BACfg::SetVariableCamIntrinsics,
+               "camera_id"_a)
+          .def("has_constant_cam_intrinsics",
+               &BACfg::HasConstantCamIntrinsics,
+               "camera_id"_a)
+          .def(
+              "set_constant_cam_pose", &BACfg::SetConstantCamPose, "image_id"_a)
+          .def(
+              "set_variable_cam_pose", &BACfg::SetVariableCamPose, "image_id"_a)
+          .def(
+              "has_constant_cam_pose", &BACfg::HasConstantCamPose, "image_id"_a)
+          .def("set_constant_cam_positions",
+               &BACfg::SetConstantCamPositions,
+               "image_id"_a,
+               "idxs"_a)
+          .def("remove_variable_cam_positions",
+               &BACfg::RemoveConstantCamPositions,
+               "image_id"_a)
+          .def("has_constant_cam_positions",
+               &BACfg::HasConstantCamPositions,
+               "image_id"_a)
           .def("add_variable_point", &BACfg::AddVariablePoint, "point3D_id"_a)
           .def("add_constant_point", &BACfg::AddConstantPoint, "point3D_id"_a)
           .def("has_point", &BACfg::HasPoint, "point3D_id"_a)
           .def("has_variable_point", &BACfg::HasVariablePoint, "point3D_id"_a)
           .def("has_constant_point", &BACfg::HasConstantPoint, "point3D_id"_a)
-          .def("remove_variable_point", &BACfg::RemoveVariablePoint, "point3D_id"_a)
-          .def("remove_constant_point", &BACfg::RemoveConstantPoint, "point3D_id"_a)
-          .def_property_readonly("constant_intrinsics", &BACfg::ConstantIntrinsics)
+          .def("remove_variable_point",
+               &BACfg::RemoveVariablePoint,
+               "point3D_id"_a)
+          .def("remove_constant_point",
+               &BACfg::RemoveConstantPoint,
+               "point3D_id"_a)
+          .def_property_readonly("constant_intrinsics",
+                                 &BACfg::ConstantIntrinsics)
           .def_property_readonly("image_ids", &BACfg::Images)
           .def_property_readonly("variable_point3D_ids", &BACfg::VariablePoints)
           .def_property_readonly("constant_point3D_ids", &BACfg::ConstantPoints)
           .def_property_readonly("constant_cam_poses", &BACfg::ConstantCamPoses)
-          .def("constant_cam_positions", &BACfg::ConstantCamPositions, "image_id"_a);
+          .def("constant_cam_positions",
+               &BACfg::ConstantCamPositions,
+               "image_id"_a);
   MakeDataclass(PyBundleAdjustmentConfig);
 
   py::class_<BundleAdjuster>(m, "BundleAdjuster")
-    .def(py::init<const BundleAdjustmentOptions&, const BundleAdjustmentConfig&>())
-    .def("solve", &BundleAdjuster::Solve, "reconstruction"_a)
-    .def("set_up_problem", &BundleAdjuster::SetUpProblem, "reconstruction"_a, "loss_function"_a, py::return_value_policy::reference)
-    .def("set_up_solver_options", &BundleAdjuster::SetUpSolverOptions, "problem"_a, "input_solver_options"_a)
-    .def("get_problem", &BundleAdjuster::Problem, py::return_value_policy::reference)
-    .def_property_readonly("options", &BundleAdjuster::Options)
-    .def_property_readonly("config", &BundleAdjuster::Config)
-    .def_property_readonly("summary", &BundleAdjuster::Summary, py::return_value_policy::reference);
+      .def(py::init<const BundleAdjustmentOptions&,
+                    const BundleAdjustmentConfig&>())
+      .def("solve", &BundleAdjuster::Solve, "reconstruction"_a)
+      .def("set_up_problem",
+           &BundleAdjuster::SetUpProblem,
+           "reconstruction"_a,
+           "loss_function"_a,
+           py::return_value_policy::take_ownership)
+      .def("set_up_solver_options",
+           &BundleAdjuster::SetUpSolverOptions,
+           "problem"_a,
+           "input_solver_options"_a)
+      .def("get_problem",
+           &BundleAdjuster::Problem,
+           py::return_value_policy::take_ownership)
+      .def_property_readonly("options", &BundleAdjuster::Options)
+      .def_property_readonly("config", &BundleAdjuster::Config)
+      .def_property_readonly("summary",
+                             &BundleAdjuster::Summary,
+                             py::return_value_policy::reference_internal);
 }

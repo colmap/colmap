@@ -14,7 +14,6 @@ import pycolmap
 from pycolmap import logging
 import custom_bundle_adjustment
 
-
 def extract_colors(image_path, image_id, reconstruction):
     if not reconstruction.extract_colors_for_image(image_id, image_path):
         logging.warning(f"Could not read image {image_id} at path {image_path}")

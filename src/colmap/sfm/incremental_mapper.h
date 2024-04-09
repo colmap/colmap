@@ -243,11 +243,11 @@ class IncrementalMapper {
   size_t FilterPoints(const Options& options);
 
   // Getter functions
-  const Reconstruction* GetReconstruction() const {
-    return reconstruction_.get();
+  const std::shared_ptr<Reconstruction>& GetReconstruction() const {
+    return reconstruction_;
   };
-  const IncrementalTriangulator* GetTriangulator() const {
-    return triangulator_.get();
+  const std::shared_ptr<IncrementalTriangulator>& GetTriangulator() const {
+    return triangulator_;
   };
   const std::unordered_set<image_t>& GetFilteredImages() const;
   const std::unordered_set<image_t>& GetExistingImageIds() const;
@@ -272,6 +272,12 @@ class IncrementalMapper {
                                       image_t image_id1,
                                       image_t image_id2);
 
+  // Find local bundle for given image in the reconstruction. The local bundle
+  // is defined as the images that are most connected, i.e. maximum number of
+  // shared 3D points, to the given image.
+  std::vector<image_t> FindLocalBundle(const Options& options,
+                                       image_t image_id) const;
+
  private:
   // Find seed images for incremental reconstruction. Suitable seed images have
   // a large number of correspondences and have camera calibration priors. The
@@ -285,12 +291,6 @@ class IncrementalMapper {
   std::vector<image_t> FindSecondInitialImage(const Options& options,
                                               image_t image_id1) const;
 
-  // Find local bundle for given image in the reconstruction. The local bundle
-  // is defined as the images that are most connected, i.e. maximum number of
-  // shared 3D points, to the given image.
-  std::vector<image_t> FindLocalBundle(const Options& options,
-                                       image_t image_id) const;
-
   // Register / De-register image in current reconstruction and update
   // the number of shared images between all reconstructions.
   void RegisterImageEvent(image_t image_id);
@@ -303,7 +303,7 @@ class IncrementalMapper {
   std::shared_ptr<Reconstruction> reconstruction_;
 
   // Class that is responsible for incremental triangulation.
-  std::unique_ptr<IncrementalTriangulator> triangulator_;
+  std::shared_ptr<IncrementalTriangulator> triangulator_;
 
   // Number of images that are registered in at least on reconstruction.
   size_t num_total_reg_images_;

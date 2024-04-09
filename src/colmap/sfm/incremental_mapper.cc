@@ -110,7 +110,7 @@ void IncrementalMapper::BeginReconstruction(
   reconstruction_ = reconstruction;
   reconstruction_->Load(*database_cache_);
   reconstruction_->SetUp(database_cache_->CorrespondenceGraph());
-  triangulator_ = std::make_unique<IncrementalTriangulator>(
+  triangulator_ = std::make_shared<IncrementalTriangulator>(
       database_cache_->CorrespondenceGraph(), reconstruction);
 
   num_shared_reg_images_ = 0;

@@ -22,6 +22,9 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
+using Point3DMap = std::unordered_map<point3D_t, Point3D>;
+PYBIND11_MAKE_OPAQUE(Point3DMap);
+
 bool ExistsReconstructionText(const std::string& path) {
   return (ExistsFile(JoinPaths(path, "cameras.txt")) &&
           ExistsFile(JoinPaths(path, "images.txt")) &&
@@ -77,13 +80,17 @@ void BindReconstruction(py::module& m) {
       .def_property_readonly("images",
                              &Reconstruction::Images,
                              py::return_value_policy::reference_internal)
+      .def("image", py::overload_cast<image_t>(&Reconstruction::Image))
       .def_property_readonly("image_pairs", &Reconstruction::ImagePairs)
+      .def("image_pair", py::overload_cast<image_pair_t>(&Reconstruction::ImagePair))
       .def_property_readonly("cameras",
                              &Reconstruction::Cameras,
                              py::return_value_policy::reference_internal)
+      .def("camera", py::overload_cast<camera_t>(&Reconstruction::Camera))
       .def_property_readonly("points3D",
                              &Reconstruction::Points3D,
                              py::return_value_policy::reference_internal)
+      .def("point3D", py::overload_cast<point3D_t>(&Reconstruction::Point3D))
       .def("point3D_ids", &Reconstruction::Point3DIds)
       .def("reg_image_ids", &Reconstruction::RegImageIds)
       .def("exists_camera", &Reconstruction::ExistsCamera)

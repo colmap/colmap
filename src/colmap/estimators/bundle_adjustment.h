@@ -183,7 +183,7 @@ class BundleAdjuster {
   const BundleAdjustmentOptions& Options() const;
   const BundleAdjustmentConfig& Config() const;
   // Get the Ceres problem after the last call to "set_up"
-  const ceres::Problem& Problem() const;
+  const std::shared_ptr<ceres::Problem>& Problem() const;
   // Get the Ceres solver summary for the last call to `Solve`.
   const ceres::Solver::Summary& Summary() const;
 

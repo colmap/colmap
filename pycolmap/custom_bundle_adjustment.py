@@ -8,7 +8,6 @@ from pycolmap import logging
 import copy
 
 def solve_bundle_adjustment(reconstruction, ba_options, ba_config):
-    import pdb
     bundle_adjuster = pycolmap.BundleAdjuster(ba_options, ba_config)
     bundle_adjuster.solve(reconstruction)
     return bundle_adjuster.summary
@@ -18,7 +17,6 @@ def solve_bundle_adjustment(reconstruction, ba_options, ba_config):
         return None
     solver_options = bundle_adjuster.set_up_solver_options(problem, bundle_adjuster.options.solver_options)
     summary = pyceres.SolverSummary()
-    pdb.set_trace()
     pyceres.solve(solver_options, problem, summary)
     return summary
 """
@@ -109,9 +107,11 @@ def adjust_local_bundle(mapper, mapper_options, ba_options, tri_options, image_i
         num_images_per_camera = {}
         for image_id in ba_config.image_ids:
             image = reconstruction.images[image_id]
+            if image.camera_id not in num_images_per_camera:
+                num_images_per_camera[image.camera_id] = 0
             num_images_per_camera[image.camera_id] += 1
         for camera_id, num_images_local in num_images_per_camera.items():
-            if num_images_local < reconstruction.num_reg_images_per_camera[camera_id]:
+            if num_images_local < mapper.num_reg_images_per_camera[camera_id]:
                 ba_config.set_constant_cam_intrinsics(camera_id)
 
         # Fix 7 DOF to avoid scale/rotation/translation drift in bundle adjustment
@@ -129,20 +129,20 @@ def adjust_local_bundle(mapper, mapper_options, ba_options, tri_options, image_i
         # long track 3D points as they are usually already very stable and adding
         # to them to bundle adjustment and track merging/completion would slow
         # down the local bundle adjustment significantly.
-        varialbe_point3D_ids = []
-        for point3D_id in point3D_ids:
+        variable_point3D_ids = set()
+        for point3D_id in list(point3D_ids):
             point3D = reconstruction.points3D[point3D_id]
             kMaxTrackLength = 15
-            if (not point3D.error != -1.) or point3D.track.length() <= kMaxTrackLength:
+            if (point3D.error == -1.) or point3D.track.length() <= kMaxTrackLength:
                 ba_config.add_variable_point(point3D_id)
-                variable_point3D_ids.push_back(point3D_id)
+                variable_point3D_ids.add(point3D_id)
 
         # Adjust the local bundle
-        summary = solve_bundle_adjustment(reconstruction, ba_options, ba_config)
+        summary = solve_bundle_adjustment(mapper.get_reconstruction(), ba_options, ba_config)
         logging.info("Local Bundle Adjustment")
         logging.info(summary.BriefReport())
 
-        report.num_adjusted_observations = summary.num_residuals / 2
+        report.num_adjusted_observations = int(summary.num_residuals / 2)
         # Merge refined tracks with other existing points
         report.num_merged_observations = mapper.get_triangulator().merge_tracks(tri_options, variable_point3D_ids)
         # Complete tracks that may have failed to triangulate before refinement
@@ -150,19 +150,19 @@ def adjust_local_bundle(mapper, mapper_options, ba_options, tri_options, image_i
         report.num_completed_observations = mapper.get_triangulator().complete_tracks(tri_options, variable_point3D_ids)
         report.num_completed_observations += mapper.get_triangulator().complete_image(tri_options, image_id)
 
-    filter_image_ids = []
-    filter_image_ids.push_back(image_id)
-    filter_image_ids.extend(local_bundle)
+    filter_image_ids = set()
+    filter_image_ids.add(image_id)
+    filter_image_ids.update(local_bundle)
     report.num_filtered_observations = reconstruction.filter_points3D_in_images(mapper_options.filter_max_reproj_error, mapper_options.filter_min_tri_angle, filter_image_ids)
     report.num_filtered_observations += reconstruction.filter_points3D(mapper_options.filter_max_reproj_error, mapper_options.filter_min_tri_angle, point3D_ids)
     return report
 
 def iterative_local_refinement(mapper, max_num_refinements, max_refinement_change, mapper_options, ba_options, tri_options, image_id):
     """Equivalent to mapper.iterative_local_refinement(...)"""
-    reconstruction = mapper.get_reconstruction()
     ba_options_tmp = copy.deepcopy(ba_options)
     for i in range(max_num_refinements):
-        report = mapper.adjust_local_bundle(mapper_options, ba_options_tmp, tri_options, image_id, mapper.get_modified_points3D())
+        # report = mapper.adjust_local_bundle(mapper_options, ba_options_tmp, tri_options, image_id, mapper.get_modified_points3D())
+        report = adjust_local_bundle(mapper, mapper_options, ba_options_tmp, tri_options, image_id, mapper.get_modified_points3D())
         logging.verbose(1, "=> Merged observations: {0}".format(report.num_merged_observations))
         logging.verbose(1, "=> Completed observations: {0}".format(report.num_completed_observations))
         logging.verbose(1, "=> Filtered observations: {0}".format(report.num_filtered_observations))

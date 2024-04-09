@@ -282,6 +282,10 @@ void BindIncrementalMapperImpl(py::module& m) {
            "ba_options"_a,
            "tri_options"_a,
            "image_id"_a)
+      .def("find_local_bundle",
+           &IncrementalMapper::FindLocalBundle,
+           "options"_a,
+           "image_id"_a)
       .def("adjust_global_bundle",
            &IncrementalMapper::AdjustGlobalBundle,
            "options"_a,
@@ -298,7 +302,7 @@ void BindIncrementalMapperImpl(py::module& m) {
       .def("filter_points", &IncrementalMapper::FilterPoints, "options"_a)
       .def("get_reconstruction",
            &IncrementalMapper::GetReconstruction,
-           py::return_value_policy::reference)
+           py::return_value_policy::reference_internal)
       .def("get_triangulator",
            &IncrementalMapper::GetTriangulator,
            py::return_value_policy::reference_internal)
