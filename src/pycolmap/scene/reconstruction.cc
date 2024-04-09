@@ -22,9 +22,6 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
-using Point3DMap = std::unordered_map<point3D_t, Point3D>;
-PYBIND11_MAKE_OPAQUE(Point3DMap);
-
 bool ExistsReconstructionText(const std::string& path) {
   return (ExistsFile(JoinPaths(path, "cameras.txt")) &&
           ExistsFile(JoinPaths(path, "images.txt")) &&
