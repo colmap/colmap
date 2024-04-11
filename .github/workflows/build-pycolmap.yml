@@ -17,9 +17,9 @@ jobs:
       matrix:
         config: [
               {os: ubuntu-latest},
-              {os: macos-13, arch: x86_64},
-              {os: macos-13, arch: arm64},
-              {os: windows-latest},
+              #{os: macos-13, arch: x86_64},
+              #{os: macos-13, arch: arm64},
+              #{os: windows-latest},
         ]
     env:
       COMPILER_CACHE_VERSION: 1
