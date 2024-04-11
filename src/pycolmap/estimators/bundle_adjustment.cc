@@ -88,9 +88,7 @@ void BindBundleAdjuster(py::module& m) {
            &BundleAdjuster::SetUpSolverOptions,
            "problem"_a,
            "input_solver_options"_a)
-      .def("get_problem",
-           &BundleAdjuster::Problem,
-           py::return_value_policy::take_ownership)
+      .def_property_readonly("problem", &BundleAdjuster::Problem)
       .def_property_readonly("options", &BundleAdjuster::Options)
       .def_property_readonly("config", &BundleAdjuster::Config)
       .def_property_readonly("summary",

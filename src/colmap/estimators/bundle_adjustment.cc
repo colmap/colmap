@@ -292,8 +292,8 @@ const BundleAdjustmentOptions& BundleAdjuster::Options() const {
 
 const BundleAdjustmentConfig& BundleAdjuster::Config() const { return config_; }
 
-const std::shared_ptr<ceres::Problem>& BundleAdjuster::Problem() const {
-  return problem_;
+ceres::Problem* BundleAdjuster::Problem() {
+  return problem_.get();
 }
 
 const ceres::Solver::Summary& BundleAdjuster::Summary() const {
@@ -309,7 +309,7 @@ ceres::Problem* BundleAdjuster::SetUpProblem(
   // Initialize an empty problem
   ceres::Problem::Options problem_options;
   problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
-  problem_ = std::make_shared<ceres::Problem>(problem_options);
+  problem_ = std::make_unique<ceres::Problem>(problem_options);
 
   // Set up problem
   // Warning: AddPointsToProblem assumes that AddImageToProblem is called first.
@@ -594,7 +594,7 @@ ceres::Problem* RigBundleAdjuster::SetUpProblem(
   // Initialize an empty problem
   ceres::Problem::Options problem_options;
   problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
-  problem_ = std::make_shared<ceres::Problem>(problem_options);
+  problem_ = std::make_unique<ceres::Problem>(problem_options);
 
   // Set up problem
   ComputeCameraRigPoses(*reconstruction, *camera_rigs);
