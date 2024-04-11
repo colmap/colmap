@@ -131,7 +131,7 @@ def adjust_local_bundle(mapper, mapper_options, ba_options, tri_options, image_i
         # down the local bundle adjustment significantly.
         variable_point3D_ids = set()
         for point3D_id in list(point3D_ids):
-            point3D = reconstruction.points3D[point3D_id]
+            point3D = reconstruction.point3D(point3D_id)
             kMaxTrackLength = 15
             if (point3D.error == -1.) or point3D.track.length() <= kMaxTrackLength:
                 ba_config.add_variable_point(point3D_id)
