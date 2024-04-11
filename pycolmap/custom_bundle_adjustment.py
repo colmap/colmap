@@ -12,12 +12,17 @@ def solve_bundle_adjustment(reconstruction, ba_options, ba_config):
     bundle_adjuster.solve(reconstruction)
     return bundle_adjuster.summary
 """
+def solve_bundle_adjustment(reconstruction, ba_options, ba_config):
+    bundle_adjuster = pycolmap.BundleAdjuster(ba_options, ba_config)
     problem = bundle_adjuster.set_up_problem(reconstruction, pyceres.TrivialLoss()) # TODO
     if problem.num_residuals() == 0:
         return None
     solver_options = bundle_adjuster.set_up_solver_options(problem, bundle_adjuster.options.solver_options)
     summary = pyceres.SolverSummary()
+    import pdb
+    pdb.set_trace()
     pyceres.solve(solver_options, problem, summary)
+    # pyceres.solve(solver_options, bundle_adjuster.problem, summary)
     return summary
 """
 
