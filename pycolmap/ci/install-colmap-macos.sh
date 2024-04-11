@@ -8,8 +8,8 @@ find /usr/local/bin -lname '*/Library/Frameworks/Python.framework/*' -delete
 brew update
 brew install git cmake ninja llvm ccache
 rm -rf $(which cmake)
-wget https://raw.githubusercontent.com/Homebrew/homebrew-core/c93f8de910aaf6b4a1b9021caee32ece216787b4/Formula/c/cmake.rb
-brew install cmake.rb
+brew unlink cmake
+brew install cmake@3.29.0
 
 # When building lapack-reference, vcpkg/cmake looks for gfortran.
 ln -s $(which gfortran-13) "$(dirname $(which gfortran-13))/gfortran"
