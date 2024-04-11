@@ -96,6 +96,10 @@ jobs:
             -DCUDA_ENABLED=OFF `
             -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake `
             -DVCPKG_TARGET_TRIPLET=x64-windows-release
+          echo "Print config-x64-windows-release-rel-CMakeCache.txt.log"
+          get-content D:\a\colmap\colmap\vcpkg\buildtrees\freeimage\config-x64-windows-release-rel-CMakeCache.txt.log
+          echo "Print config-x64-windows-release-out.log"
+          get-content D:\a\colmap\colmap\vcpkg\buildtrees\freeimage\config-x64-windows-release-out.log
           ninja
 
       - name: Run tests
