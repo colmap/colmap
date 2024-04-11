@@ -9,7 +9,7 @@ brew update
 brew install git cmake ninja llvm ccache
 rm -rf $(which cmake)
 brew unlink cmake
-wget https://raw.githubusercontent.com/Homebrew/homebrew-cask/e123e922e28be1dff5b2ef13186a4e674382eb4d/Casks/c/cmake.rb
+wget https://raw.githubusercontent.com/Homebrew/homebrew-cask/master/Casks/c/cmake.rb
 brew install cmake.rb
 
 # When building lapack-reference, vcpkg/cmake looks for gfortran.
