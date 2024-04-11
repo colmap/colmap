@@ -33,7 +33,7 @@ archs = ["auto64"]
 test-command = "python -c \"import pycolmap; print(pycolmap.__version__)\""
 
 [tool.cibuildwheel.environment]
-VCPKG_COMMIT_ID = "0bc3f04da6cb8ae1dbd5e2051032c596bb03cffa"
+VCPKG_COMMIT_ID = "1b2372fdd420185c6f516541b81228c55061dca4"
 
 [tool.cibuildwheel.linux]
 before-all = "{package}/ci/install-colmap-centos.sh"

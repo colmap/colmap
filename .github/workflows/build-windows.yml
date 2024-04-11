@@ -31,7 +31,7 @@ jobs:
       COMPILER_CACHE_DIR: ${{ github.workspace }}/compiler-cache
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
-      VCPKG_COMMIT_ID: 0bc3f04da6cb8ae1dbd5e2051032c596bb03cffa
+      VCPKG_COMMIT_ID: 1b2372fdd420185c6f516541b81228c55061dca4
       VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
 
     steps:
