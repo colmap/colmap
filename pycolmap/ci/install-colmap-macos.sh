@@ -1,5 +1,5 @@
 #!/bin/bash
-set -x -e
+set -x
 CURRDIR=$(pwd)
 
 # Fix `brew link` error.
@@ -31,7 +31,10 @@ cmake .. -GNinja \
     -DCMAKE_TOOLCHAIN_FILE="${CMAKE_TOOLCHAIN_FILE}" \
     -DVCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET} \
     -DCMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES} \
+    -DVCPKG_INSTALL_OPTIONS="--debug" \
     `if [[ ${CIBW_ARCHS_MACOS} == "arm64" ]]; then echo "-DSIMD_ENABLED=OFF"; fi`
+cat /Users/runner/work/vcpkg/buildtrees/freeimage/config-arm64-osx-release-rel-CMakeCache.txt.log
+cat /Users/runner/work/vcpkg/buildtrees/freeimage/config-arm64-osx-release-out.log
 ninja install
 
 ccache --show-stats --verbose
