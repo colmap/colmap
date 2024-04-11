@@ -292,9 +292,7 @@ const BundleAdjustmentOptions& BundleAdjuster::Options() const {
 
 const BundleAdjustmentConfig& BundleAdjuster::Config() const { return config_; }
 
-ceres::Problem* BundleAdjuster::Problem() {
-  return problem_.get();
-}
+ceres::Problem* BundleAdjuster::Problem() { return problem_.get(); }
 
 const ceres::Solver::Summary& BundleAdjuster::Summary() const {
   return summary_;
