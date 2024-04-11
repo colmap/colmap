@@ -1,5 +1,5 @@
 #!/bin/bash
-set -x
+set -x -e
 CURRDIR=$(pwd)
 
 # Fix `brew link` error.
@@ -7,6 +7,9 @@ find /usr/local/bin -lname '*/Library/Frameworks/Python.framework/*' -delete
 
 brew update
 brew install git cmake ninja llvm ccache
+rm -rf $(which cmake)
+wget https://raw.githubusercontent.com/Homebrew/homebrew-core/c93f8de910aaf6b4a1b9021caee32ece216787b4/Formula/c/cmake.rb
+brew install cmake.rb
 
 # When building lapack-reference, vcpkg/cmake looks for gfortran.
 ln -s $(which gfortran-13) "$(dirname $(which gfortran-13))/gfortran"
@@ -31,10 +34,7 @@ cmake .. -GNinja \
     -DCMAKE_TOOLCHAIN_FILE="${CMAKE_TOOLCHAIN_FILE}" \
     -DVCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET} \
     -DCMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES} \
-    -DVCPKG_INSTALL_OPTIONS="--debug" \
     `if [[ ${CIBW_ARCHS_MACOS} == "arm64" ]]; then echo "-DSIMD_ENABLED=OFF"; fi`
-cat /Users/runner/work/vcpkg/buildtrees/freeimage/config-arm64-osx-release-rel-CMakeCache.txt.log
-cat /Users/runner/work/vcpkg/buildtrees/freeimage/config-arm64-osx-release-out.log
 ninja install
 
 ccache --show-stats --verbose
