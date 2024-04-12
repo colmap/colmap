@@ -93,7 +93,7 @@ jobs:
       - name: Set env (Ubuntu)
         if: runner.os == 'Linux'
         run: |
-          VCPKG_TARGET_TRIPLET="x64-linux-release"
+          VCPKG_TARGET_TRIPLET="x64-linux"
           echo "VCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET}" >> "$GITHUB_ENV"
 
           VCPKG_INSTALLATION_ROOT="${{ github.workspace }}/vcpkg"
