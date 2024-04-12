@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -x
 uname -a
 CURRDIR=$(pwd)
 
