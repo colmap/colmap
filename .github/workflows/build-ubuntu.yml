@@ -121,7 +121,7 @@ jobs:
           git diff --name-only
           git diff --exit-code || (echo "Code formatting failed" && exit 1)
 
-      - name: Get latest CMake and Ninja
+      - name: Install CMake and Ninja
         uses: lukka/get-cmake@latest
 
       - name: Setup Ubuntu
