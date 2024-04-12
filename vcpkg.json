@@ -16,7 +16,8 @@
             "name": "ceres",
             "features": [
                 "lapack",
-                "suitesparse"
+                "suitesparse",
+                "schur"
             ]
         },
         "eigen3",
