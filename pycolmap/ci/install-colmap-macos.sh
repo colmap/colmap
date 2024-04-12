@@ -22,6 +22,7 @@ git checkout ${VCPKG_COMMIT_ID}
 cd ${CURRDIR}
 mkdir build && cd build
 export ARCHFLAGS="-arch ${CIBW_ARCHS_MACOS}"
+export MACOSX_DEPLOYMENT_TARGET="10.12"
 cmake .. -GNinja \
     -DGUI_ENABLED=OFF \
     -DCUDA_ENABLED=OFF \
