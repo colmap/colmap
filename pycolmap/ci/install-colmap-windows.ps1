@@ -4,13 +4,13 @@ $COMPILER_TOOLS_DIR = "${env:COMPILER_CACHE_DIR}/bin"
 New-Item -ItemType Directory -Force -Path ${COMPILER_TOOLS_DIR}
 $env:Path = "${COMPILER_TOOLS_DIR};" + $env:Path
 
-$NINJA_PATH = "${COMPILER_TOOLS_DIR}/ninja.exe"
-If (!(Test-Path -path ${NINJA_PATH} -PathType Leaf)) {
-    $zip_path = "${env:TEMP}/ninja.zip"
-    $url = "https://github.com/ninja-build/ninja/releases/download/v1.10.2/ninja-win.zip"
-    curl.exe -L -o ${zip_path} ${url}
-    Expand-Archive -LiteralPath ${zip_path} -DestinationPath ${COMPILER_TOOLS_DIR}
-    Remove-Item ${zip_path}
+#$NINJA_PATH = "${COMPILER_TOOLS_DIR}/ninja.exe"
+#If (!(Test-Path -path ${NINJA_PATH} -PathType Leaf)) {
+    #$zip_path = "${env:TEMP}/ninja.zip"
+    #$url = "https://github.com/ninja-build/ninja/releases/download/v1.10.2/ninja-win.zip"
+    #curl.exe -L -o ${zip_path} ${url}
+    #Expand-Archive -LiteralPath ${zip_path} -DestinationPath ${COMPILER_TOOLS_DIR}
+    #Remove-Item ${zip_path}
 }
 If (!(Test-Path -path "${COMPILER_TOOLS_DIR}/ccache.exe" -PathType Leaf)) {
     # For some reason this CI runs an earlier PowerShell version that is
