@@ -3,7 +3,7 @@ set -e -x
 uname -a
 CURRDIR=$(pwd)
 
-yum install -y gcc gcc-c++ curl zip unzip tar
+yum install -y gcc gcc-c++ ninja-build curl zip unzip tar
 
 # ccache shipped by CentOS is too old so we download and cache it.
 COMPILER_TOOLS_DIR="${CONTAINER_COMPILER_CACHE_DIR}/bin"
@@ -33,7 +33,6 @@ cmake .. -GNinja \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_TOOLCHAIN_FILE="${CMAKE_TOOLCHAIN_FILE}" \
     -DVCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET} \
-    -DVCPKG_INSTALL_OPTIONS="--debug" \
     -DCMAKE_EXE_LINKER_FLAGS_INIT="-ldl"
 ninja install
 
