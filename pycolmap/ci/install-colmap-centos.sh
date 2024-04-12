@@ -26,6 +26,7 @@ git checkout ${VCPKG_COMMIT_ID}
 # Build COLMAP
 cd ${CURRDIR}
 mkdir build && cd build
+export CFLAGS="${CFLAGS} -D_POSIX_C_SOURCE=199309L"
 cmake .. -GNinja \
     -DCUDA_ENABLED=OFF \
     -DCGAL_ENABLED=OFF \
@@ -34,7 +35,7 @@ cmake .. -GNinja \
     -DCMAKE_TOOLCHAIN_FILE="${CMAKE_TOOLCHAIN_FILE}" \
     -DVCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET} \
     -DCMAKE_EXE_LINKER_FLAGS_INIT="-ldl"
-cat /home/runner/work/colmap/colmap/vcpkg/buildtrees/gklib/install-x64-linux-release-rel-out.log
+cat /home/runner/work/colmap/colmap/vcpkg/buildtrees/gklib/install-x64-linux-dbg-out.log
 ninja install
 
 ccache --show-stats --verbose
