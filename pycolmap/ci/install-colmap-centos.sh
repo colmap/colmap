@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e -x
+set -x
 uname -a
 CURRDIR=$(pwd)
 
@@ -35,6 +35,7 @@ cmake .. -GNinja \
     -DCMAKE_TOOLCHAIN_FILE="${CMAKE_TOOLCHAIN_FILE}" \
     -DVCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET} \
     -DCMAKE_EXE_LINKER_FLAGS_INIT="-ldl"
+cat /home/runner/work/colmap/colmap/vcpkg/buildtrees/openexr/install-x64-linux-release-rel-out.log
 ninja install
 
 ccache --show-stats --verbose
