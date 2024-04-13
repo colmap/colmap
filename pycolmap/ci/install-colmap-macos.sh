@@ -1,5 +1,5 @@
 #!/bin/bash
-set -x
+set -e -x
 CURRDIR=$(pwd)
 
 # Fix `brew link` error.
@@ -22,7 +22,6 @@ git checkout ${VCPKG_COMMIT_ID}
 cd ${CURRDIR}
 mkdir build && cd build
 export ARCHFLAGS="-arch ${CIBW_ARCHS_MACOS}"
-export MACOSX_DEPLOYMENT_TARGET="10.12"  # for glog
 cmake .. -GNinja \
     -DGUI_ENABLED=OFF \
     -DCUDA_ENABLED=OFF \
@@ -33,7 +32,6 @@ cmake .. -GNinja \
     -DVCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET} \
     -DCMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES} \
     `if [[ ${CIBW_ARCHS_MACOS} == "arm64" ]]; then echo "-DSIMD_ENABLED=OFF"; fi`
-cat /Users/runner/work/vcpkg/buildtrees/glog/install-arm64-osx-release-rel-out.log
 ninja install
 
 ccache --show-stats --verbose

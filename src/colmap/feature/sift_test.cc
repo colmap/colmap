@@ -39,7 +39,6 @@
 #include "colmap/feature/utils.h"
 #include "colmap/math/math.h"
 #include "colmap/math/random.h"
-#include "colmap/util/logging.h"
 #include "colmap/util/opengl_utils.h"
 
 #include "thirdparty/SiftGPU/SiftGPU.h"
