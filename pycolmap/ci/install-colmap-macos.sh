@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e -x
+set -x -e
 CURRDIR=$(pwd)
 
 # Fix `brew link` error.
