@@ -43,12 +43,12 @@ COLMAP_ADD_LIBRARY(
         incremental_mapper.h incremental_mapper.cc
         option_manager.h option_manager.cc
     PUBLIC_LINK_LIBS
+        colmap_estimators
         colmap_scene
         colmap_util
         Eigen3::Eigen
         Boost::program_options
     PRIVATE_LINK_LIBS
-        colmap_estimators
         colmap_feature
         colmap_image
         colmap_math

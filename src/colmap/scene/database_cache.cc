@@ -29,13 +29,24 @@
 
 #include "colmap/scene/database_cache.h"
 
-#include "colmap/feature/utils.h"
 #include "colmap/util/string.h"
 #include "colmap/util/timer.h"
 
 #include <unordered_set>
 
 namespace colmap {
+namespace {
+
+std::vector<Eigen::Vector2d> FeatureKeypointsToPointsVector(
+    const FeatureKeypoints& keypoints) {
+  std::vector<Eigen::Vector2d> points(keypoints.size());
+  for (size_t i = 0; i < keypoints.size(); ++i) {
+    points[i] = Eigen::Vector2d(keypoints[i].x, keypoints[i].y);
+  }
+  return points;
+}
+
+}  // namespace
 
 std::shared_ptr<DatabaseCache> DatabaseCache::Create(
     const Database& database,

@@ -37,11 +37,11 @@ COLMAP_ADD_LIBRARY(
         undistortion.h undistortion.cc
         warp.h warp.cc
     PUBLIC_LINK_LIBS
+        colmap_scene
         Eigen3::Eigen
     PRIVATE_LINK_LIBS
         colmap_util
         colmap_sensor
-        colmap_scene
         colmap_lsd
 )
 

@@ -52,7 +52,7 @@ COLMAP_ADD_LIBRARY(
         visibility_pyramid.h visibility_pyramid.cc
     PUBLIC_LINK_LIBS
         colmap_sensor
-        colmap_feature
+        colmap_feature_types
         colmap_geometry
         colmap_util
         Eigen3::Eigen
