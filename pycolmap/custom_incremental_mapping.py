@@ -24,7 +24,7 @@ def write_snapshot(reconstruction, snapshot_path):
     timestamp = time.time() * 1000
     path = snapshot_path / f"{timestamp:010d}"
     path.mkdir(exist_ok=True, parents=True)
-    logging.verbose(f"=> Writing to {path}")
+    logging.verbose(1, f"=> Writing to {path}")
     reconstruction.write(path)
 
 
