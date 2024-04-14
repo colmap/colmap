@@ -52,7 +52,7 @@ jobs:
           restore-keys: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}
           path: ${{ env.COMPILER_CACHE_DIR }}
       
-      - name: Install ccache and ninja
+      - name: Install ccache
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path "${{ env.CCACHE_DIR }}"
@@ -64,10 +64,8 @@ jobs:
 
           .github/workflows/install-ccache.ps1 -Destination "${{ env.COMPILER_CACHE_DIR }}/bin"
 
-          curl -L -o `
-            ninja.zip `
-            https://github.com/ninja-build/ninja/releases/download/v1.10.2/ninja-win.zip
-          Expand-Archive -LiteralPath ninja.zip -Destination "${{ env.COMPILER_CACHE_DIR }}/bin"
+      - name: Install CMake and Ninja
+        uses: lukka/get-cmake@latest
 
       - name: Setup vcpkg
         shell: pwsh
