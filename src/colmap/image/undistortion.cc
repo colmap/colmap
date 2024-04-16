@@ -964,15 +964,13 @@ void UndistortImage(const UndistortCameraOptions& options,
   THROW_CHECK_EQ(distorted_camera.height, distorted_bitmap.Height());
 
   *undistorted_camera = UndistortCamera(options, distorted_camera);
-  undistorted_bitmap->Allocate(static_cast<int>(undistorted_camera->width),
-                               static_cast<int>(undistorted_camera->height),
-                               distorted_bitmap.IsRGB());
-  distorted_bitmap.CloneMetadata(undistorted_bitmap);
 
   WarpImageBetweenCameras(distorted_camera,
                           *undistorted_camera,
                           distorted_bitmap,
                           undistorted_bitmap);
+
+  distorted_bitmap.CloneMetadata(undistorted_bitmap);
 }
 
 void UndistortReconstruction(const UndistortCameraOptions& options,
