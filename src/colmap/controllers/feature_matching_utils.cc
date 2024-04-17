@@ -231,7 +231,7 @@ void FeatureMatcherWorker::Run() {
       }
 
       if (matching_options_.guided_matching) {
-        matcher->MatchGuided(geometry_options_,
+        matcher->MatchGuided(geometry_options_.ransac_options.max_error,
                              GetKeypointsPtr(0, data.image_id1),
                              GetKeypointsPtr(1, data.image_id2),
                              GetDescriptorsPtr(0, data.image_id1),
