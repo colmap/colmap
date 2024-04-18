@@ -31,6 +31,21 @@
 set(FOLDER_NAME "feature")
 
 COLMAP_ADD_LIBRARY(
+    NAME colmap_feature_types
+    SRCS
+        types.h types.cc
+    PUBLIC_LINK_LIBS
+        colmap_util
+        Eigen3::Eigen
+)
+
+COLMAP_ADD_TEST(
+    NAME types_test
+    SRCS types_test.cc
+    LINK_LIBS colmap_feature_types
+)
+
+COLMAP_ADD_LIBRARY(
     NAME colmap_feature
     SRCS
         extractor.h
@@ -39,12 +54,14 @@ COLMAP_ADD_LIBRARY(
         types.h types.cc
         utils.h utils.cc
     PUBLIC_LINK_LIBS
-        Eigen3::Eigen
+        colmap_feature_types
+        colmap_scene
     PRIVATE_LINK_LIBS
         colmap_util
         colmap_math
         colmap_sensor
         colmap_vlfeat
+        Eigen3::Eigen
         flann
         lz4
 )
@@ -69,8 +86,3 @@ COLMAP_ADD_TEST(
 if(TESTS_ENABLED AND GUI_ENABLED)
     target_link_libraries(colmap_feature_sift_test Qt5::Widgets)
 endif()
-COLMAP_ADD_TEST(
-    NAME types_test
-    SRCS types_test.cc
-    LINK_LIBS colmap_feature
-)
