@@ -297,6 +297,7 @@ void BindSfM(py::module& m) {
   auto PyBundleAdjustmentOptions =
       py::class_<BAOpts>(m, "BundleAdjustmentOptions")
           .def(py::init<>())
+          .def("create_loss_function", &BAOpts::CreateLossFunction)
           .def_readwrite("loss_function_type",
                          &BAOpts::loss_function_type,
                          "Loss function types: Trivial (non-robust) and Cauchy "

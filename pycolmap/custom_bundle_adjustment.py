@@ -24,7 +24,7 @@ class PyBundleAdjuster(object):
         self.point3D_num_observations = dict()
 
     def solve(self, reconstruction: pycolmap.Reconstruction):
-        loss = pyceres.TrivialLoss()  # TODO: use loss from config
+        loss = self.options.create_loss_function()
         self.set_up_problem(reconstruction, loss)
         if self.problem.num_residuals == 0:
             return False
@@ -32,8 +32,6 @@ class PyBundleAdjuster(object):
             self.problem, self.options.solver_options
         )
         pyceres.solve(solver_options, self.problem, self.summary)
-        if self.options.print_summary:
-            logging.verbose(1, self.summary)  # TODO
         return True
 
     def set_up_problem(
@@ -192,8 +190,8 @@ class PyBundleAdjuster(object):
 
 
 def solve_bundle_adjustment(reconstruction, ba_options, ba_config):
-    # bundle_adjuster = pycolmap.BundleAdjuster(ba_options, ba_config)
-    bundle_adjuster = PyBundleAdjuster(ba_options, ba_config)
+    bundle_adjuster = pycolmap.BundleAdjuster(ba_options, ba_config)
+    # bundle_adjuster = PyBundleAdjuster(ba_options, ba_config)
     bundle_adjuster.solve(reconstruction)
     return bundle_adjuster.summary
 
