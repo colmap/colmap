@@ -191,7 +191,7 @@ class PyBundleAdjuster(object):
 
 def solve_bundle_adjustment(reconstruction, ba_options, ba_config):
     bundle_adjuster = pycolmap.BundleAdjuster(ba_options, ba_config)
-    # alternatively, use:
+    # alternative equivalent python-based bundle adjustment (slower):
     # bundle_adjuster = PyBundleAdjuster(ba_options, ba_config)
     bundle_adjuster.solve(reconstruction)
     return bundle_adjuster.summary
