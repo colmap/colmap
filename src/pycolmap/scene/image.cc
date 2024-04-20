@@ -110,6 +110,7 @@ void BindImage(py::module& m) {
             self.CamFromWorldPrior() = cam_from_world;
           },
           "The pose prior of the image, e.g. extracted from EXIF tags.")
+      .def("point2D", py::overload_cast<camera_t>(&Image::Point2D))
       .def_property("points2D",
                     py::overload_cast<>(&Image::Points2D),
                     py::overload_cast<const std::vector<struct Point2D>&>(

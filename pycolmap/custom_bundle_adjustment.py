@@ -90,15 +90,18 @@ class PyBundleAdjuster(object):
                              reconstruction: pycolmap.Reconstruction,
                              loss: pyceres.LossFunction):
         point3D = reconstruction.points3D[point3D_id]
-        if self.point3D_num_observations[point3D_id] == point3D.track.length():
-            return
+        if point3D_id in self.point3D_num_observations:
+            if self.point3D_num_observations[point3D_id] == point3D.track.length():
+                return
+        else:
+            self.point3D_num_observations[point3D_id] = 0
         for track_el in point3D.track.elements:
             if self.config.has_image(track_el.image_id):
                 continue
             self.point3D_num_observations[point3D_id] += 1
             image = reconstruction.images[track_el.image_id]
             camera = reconstruction.cameras[image.camera_id]
-            point2D = image.points2D[track_el.point2D_idx]
+            point2D = image.point2D(track_el.point2D_idx)
             if image.camera_id not in self.camera_ids:
                 self.camera_ids.add(image.camera_id)
                 self.config.set_constant_cam_intrinsics(image.camera_id)
@@ -131,33 +134,11 @@ class PyBundleAdjuster(object):
             point3D = reconstruction.points3D[point3D_id]
             self.problem.set_parameter_block_constant(point3D.xyz)
 
-"""
-def solve_bundle_adjustment(reconstruction, ba_options, ba_config):
-    bundle_adjuster = PyBundleAdjuster(ba_options, ba_config)
-    bundle_adjuster.solve(reconstruction)
-    return bundle_adjuster.summary
-"""
-
 def solve_bundle_adjustment(reconstruction, ba_options, ba_config):
     # bundle_adjuster = pycolmap.BundleAdjuster(ba_options, ba_config)
     bundle_adjuster = PyBundleAdjuster(ba_options, ba_config)
     bundle_adjuster.solve(reconstruction)
     return bundle_adjuster.summary
-
-"""
-def solve_bundle_adjustment(reconstruction, ba_options, ba_config):
-    bundle_adjuster = pycolmap.BundleAdjuster(ba_options, ba_config)
-    problem = bundle_adjuster.set_up_problem(reconstruction, pyceres.TrivialLoss()) # TODO
-    if problem.num_residuals() == 0:
-        return None
-    solver_options = bundle_adjuster.set_up_solver_options(problem, bundle_adjuster.options.solver_options)
-    summary = pyceres.SolverSummary()
-    import pdb
-    pdb.set_trace()
-    pyceres.solve(solver_options, problem, summary)
-    # pyceres.solve(solver_options, bundle_adjuster.problem, summary)
-    return summary
-"""
 
 def adjust_global_bundle(mapper, mapper_options, ba_options):
     """Equivalent to mapper.adjust_global_bundle(...)"""
