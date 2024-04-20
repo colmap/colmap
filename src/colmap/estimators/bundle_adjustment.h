@@ -184,7 +184,7 @@ class BundleAdjuster {
   const BundleAdjustmentConfig& Config() const;
   // Get the Ceres problem after the last call to "set_up"
   ceres::Problem* Problem();
-  // Get the Ceres solver summary for the last call to `Solve`.
+  // Get the Ceres solver summary after the last call to `Solve`.
   const ceres::Solver::Summary& Summary() const;
 
  private:

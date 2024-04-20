@@ -31,7 +31,7 @@ def write_snapshot(reconstruction, snapshot_path):
 
 def iterative_global_refinement(options, mapper_options, mapper):
     logging.info("Retriangulation and Global bundle adjustment")
-    # mapper.iterative_global_refinement(
+    # The following is equivalent to mapper.iterative_global_refinement(...)
     custom_bundle_adjustment.iterative_global_refinement(
         mapper,
         options.ba_global_max_refinements,
@@ -73,9 +73,7 @@ def initialize_reconstruction(
         mapper_options, two_view_geometry, *init_pair
     )
     logging.info("Global bundle adjustment")
-    # mapper.adjust_global_bundle(
-    #     mapper_options, options.get_global_bundle_adjustment()
-    # )
+    # The following is equivalent to: mapper.adjust_global_bundle(...)
     custom_bundle_adjustment.adjust_global_bundle(
         mapper, mapper_options, options.get_global_bundle_adjustment()
     )
@@ -150,6 +148,7 @@ def reconstruct_sub_model(controller, mapper, mapper_options, reconstruction):
                 break
         if reg_next_success:
             mapper.triangulate_image(options.get_triangulation(), next_image_id)
+            # The following is equivalent to mapper.iterative_local_refinement(...)
             custom_bundle_adjustment.iterative_local_refinement(
                 mapper,
                 options.ba_local_max_refinements,
