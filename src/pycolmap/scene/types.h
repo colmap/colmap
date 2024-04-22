@@ -1,8 +1,8 @@
 #pragma once
 
+#include "colmap/scene/camera.h"
 #include "colmap/scene/image.h"
 #include "colmap/scene/point2d.h"
-#include "colmap/scene/camera.h"
 #include "colmap/scene/point3d.h"
 #include "colmap/util/types.h"
 
