@@ -1,11 +1,14 @@
 #include "colmap/scene/image.h"
 
 #include "colmap/geometry/rigid3.h"
+#include "colmap/scene/point2d.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/types.h"
 
 #include "pycolmap/helpers.h"
+#include "pycolmap/pybind11_extension.h"
+#include "pycolmap/scene/types.h"
 
 #include <memory>
 #include <sstream>
@@ -18,9 +21,6 @@
 using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
-
-using ImageMap = std::unordered_map<image_t, Image>;
-PYBIND11_MAKE_OPAQUE(ImageMap);
 
 std::string PrintImage(const Image& image) {
   std::stringstream ss;
@@ -53,27 +53,11 @@ std::shared_ptr<Image> MakeImage(const std::string& name,
 }
 
 void BindImage(py::module& m) {
-  py::bind_map<ImageMap>(m, "MapImageIdToImage")
-      .def("__repr__", [](const ImageMap& self) {
-        std::stringstream ss;
-        ss << "{";
-        bool is_first = true;
-        for (const auto& pair : self) {
-          if (!is_first) {
-            ss << ",\n ";
-          }
-          is_first = false;
-          ss << pair.first << ": " << PrintImage(pair.second);
-        }
-        ss << "}";
-        return ss.str();
-      });
-
   py::class_<Image, std::shared_ptr<Image>> PyImage(m, "Image");
   PyImage.def(py::init<>())
       .def(py::init(&MakeImage<Point2D>),
            "name"_a = "",
-           "points2D"_a = std::vector<Point2D>(),
+           "points2D"_a = Point2DVector(),
            "cam_from_world"_a = Rigid3d(),
            "camera_id"_a = kInvalidCameraId,
            "id"_a = kInvalidImageId)
@@ -110,11 +94,12 @@ void BindImage(py::module& m) {
             self.CamFromWorldPrior() = cam_from_world;
           },
           "The pose prior of the image, e.g. extracted from EXIF tags.")
-      .def_property("points2D",
-                    py::overload_cast<>(&Image::Points2D),
-                    py::overload_cast<const std::vector<struct Point2D>&>(
-                        &Image::SetPoints2D),
-                    "Array of Points2D (=keypoints).")
+      .def_property(
+          "points2D",
+          py::overload_cast<>(&Image::Points2D),
+          py::overload_cast<const Point2DVector&>(&Image::SetPoints2D),
+          "Array of Points2D (=keypoints).")
+      .def("point2D", py::overload_cast<camera_t>(&Image::Point2D))
       .def(
           "set_point3D_for_point2D",
           &Image::SetPoint3DForPoint2D,
@@ -221,7 +206,7 @@ void BindImage(py::module& m) {
            })
       .def("get_valid_points2D",
            [](const Image& self) {
-             std::vector<Point2D> valid_points2D;
+             Point2DVector valid_points2D;
 
              for (point2D_t point2D_idx = 0; point2D_idx < self.NumPoints2D();
                   ++point2D_idx) {
@@ -234,4 +219,20 @@ void BindImage(py::module& m) {
            })
       .def("__repr__", &PrintImage);
   MakeDataclass(PyImage);
+
+  py::bind_map<ImageMap>(m, "MapImageIdToImage")
+      .def("__repr__", [](const ImageMap& self) {
+        std::stringstream ss;
+        ss << "{";
+        bool is_first = true;
+        for (const auto& pair : self) {
+          if (!is_first) {
+            ss << ",\n ";
+          }
+          is_first = false;
+          ss << pair.first << ": " << PrintImage(pair.second);
+        }
+        ss << "}";
+        return ss.str();
+      });
 }
