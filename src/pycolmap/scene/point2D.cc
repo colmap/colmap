@@ -28,6 +28,17 @@ std::string PrintPoint2D(const Point2D& p2D) {
 }
 
 void BindPoint2D(py::module& m) {
+  py::class_ext_<Point2D, std::shared_ptr<Point2D>> PyPoint2D(m, "Point2D");
+  PyPoint2D.def(py::init<>())
+      .def(py::init<const Eigen::Vector2d&, size_t>(),
+           "xy"_a,
+           "point3D_id"_a = kInvalidPoint3DId)
+      .def_readwrite("xy", &Point2D::xy)
+      .def_readwrite("point3D_id", &Point2D::point3D_id)
+      .def("has_point3D", &Point2D::HasPoint3D)
+      .def("__repr__", &PrintPoint2D);
+  MakeDataclass(PyPoint2D);
+
   py::bind_vector<Point2DVector>(m, "ListPoint2D")
       .def("__repr__", [](const Point2DVector& self) {
         std::string repr = "[";
@@ -42,15 +53,4 @@ void BindPoint2D(py::module& m) {
         repr += "]";
         return repr;
       });
-
-  py::class_ext_<Point2D, std::shared_ptr<Point2D>> PyPoint2D(m, "Point2D");
-  PyPoint2D.def(py::init<>())
-      .def(py::init<const Eigen::Vector2d&, size_t>(),
-           "xy"_a,
-           "point3D_id"_a = kInvalidPoint3DId)
-      .def_readwrite("xy", &Point2D::xy)
-      .def_readwrite("point3D_id", &Point2D::point3D_id)
-      .def("has_point3D", &Point2D::HasPoint3D)
-      .def("__repr__", &PrintPoint2D);
-  MakeDataclass(PyPoint2D);
 }

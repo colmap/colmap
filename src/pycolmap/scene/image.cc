@@ -53,22 +53,6 @@ std::shared_ptr<Image> MakeImage(const std::string& name,
 }
 
 void BindImage(py::module& m) {
-  py::bind_map<ImageMap>(m, "MapImageIdToImage")
-      .def("__repr__", [](const ImageMap& self) {
-        std::stringstream ss;
-        ss << "{";
-        bool is_first = true;
-        for (const auto& pair : self) {
-          if (!is_first) {
-            ss << ",\n ";
-          }
-          is_first = false;
-          ss << pair.first << ": " << PrintImage(pair.second);
-        }
-        ss << "}";
-        return ss.str();
-      });
-
   py::class_<Image, std::shared_ptr<Image>> PyImage(m, "Image");
   PyImage.def(py::init<>())
       .def(py::init(&MakeImage<Point2D>),
@@ -235,4 +219,20 @@ void BindImage(py::module& m) {
            })
       .def("__repr__", &PrintImage);
   MakeDataclass(PyImage);
+
+  py::bind_map<ImageMap>(m, "MapImageIdToImage")
+      .def("__repr__", [](const ImageMap& self) {
+        std::stringstream ss;
+        ss << "{";
+        bool is_first = true;
+        for (const auto& pair : self) {
+          if (!is_first) {
+            ss << ",\n ";
+          }
+          is_first = false;
+          ss << pair.first << ": " << PrintImage(pair.second);
+        }
+        ss << "}";
+        return ss.str();
+      });
 }

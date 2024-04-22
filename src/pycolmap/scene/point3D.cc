@@ -19,12 +19,6 @@ using namespace colmap;
 namespace py = pybind11;
 
 void BindPoint3D(py::module& m) {
-  py::bind_map<Point3DMap>(m, "MapPoint3DIdToPoint3D")
-      .def("__repr__", [](const Point3DMap& self) {
-        return "MapPoint3DIdToPoint3D(num_points3D=" +
-               std::to_string(self.size()) + ")";
-      });
-
   py::class_ext_<Point3D, std::shared_ptr<Point3D>> PyPoint3D(m, "Point3D");
   PyPoint3D.def(py::init<>())
       .def_readwrite("xyz", &Point3D::xyz)
@@ -39,4 +33,10 @@ void BindPoint3D(py::module& m) {
         return ss.str();
       });
   MakeDataclass(PyPoint3D);
+
+  py::bind_map<Point3DMap>(m, "MapPoint3DIdToPoint3D")
+      .def("__repr__", [](const Point3DMap& self) {
+        return "MapPoint3DIdToPoint3D(num_points3D=" +
+               std::to_string(self.size()) + ")";
+      });
 }
