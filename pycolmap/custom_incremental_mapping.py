@@ -237,7 +237,7 @@ def reconstruct(controller, mapper_options):
             )
             if (
                 initial_reconstruction_given
-                or options.multiple_models
+                or (not options.multiple_models)
                 or reconstruction_manager.size() >= options.max_num_models
                 or total_num_reg_images >= database_cache.num_images() - 1
             ):
