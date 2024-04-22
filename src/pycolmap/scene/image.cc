@@ -6,6 +6,7 @@
 #include "colmap/util/types.h"
 
 #include "pycolmap/helpers.h"
+#include "pycolmap/scene/types.h"
 
 #include <memory>
 #include <sstream>
@@ -18,9 +19,6 @@
 using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
-
-using ImageMap = std::unordered_map<image_t, Image>;
-PYBIND11_MAKE_OPAQUE(ImageMap);
 
 std::string PrintImage(const Image& image) {
   std::stringstream ss;

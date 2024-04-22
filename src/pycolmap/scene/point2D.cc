@@ -6,11 +6,11 @@
 
 #include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
+#include "pycolmap/scene/types.h"
 
 #include <memory>
 #include <sstream>
 
-#include <Eigen/StdVector>
 #include <pybind11/eigen.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -19,10 +19,6 @@
 using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
-
-using Point2DVector =
-    std::vector<struct Point2D, Eigen::aligned_allocator<Point2D>>;
-PYBIND11_MAKE_OPAQUE(Point2DVector);
 
 std::string PrintPoint2D(const Point2D& p2D) {
   std::stringstream ss;

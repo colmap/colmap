@@ -8,6 +8,7 @@
 
 #include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
+#include "pycolmap/scene/types.h"
 
 #include <memory>
 #include <sstream>
@@ -20,9 +21,6 @@
 using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
-
-using CameraMap = std::unordered_map<camera_t, Camera>;
-PYBIND11_MAKE_OPAQUE(CameraMap);
 
 std::string PrintCamera(const Camera& camera) {
   const bool valid_model = ExistsCameraModelWithId(camera.model_id);

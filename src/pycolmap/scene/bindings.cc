@@ -14,9 +14,9 @@ void BindReconstructionManager(py::module& m);
 void BindTrack(py::module& m);
 
 void BindScene(py::module& m) {
+  BindPoint2D(m);
   BindImage(m);
   BindCamera(m);
-  BindPoint2D(m);
   BindTrack(m);
   BindPoint3D(m);
   BindCorrespondenceGraph(m);

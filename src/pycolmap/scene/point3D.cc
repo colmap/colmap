@@ -6,6 +6,7 @@
 
 #include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
+#include "pycolmap/scene/types.h"
 
 #include <memory>
 #include <sstream>
@@ -16,9 +17,6 @@
 
 using namespace colmap;
 namespace py = pybind11;
-
-using Point3DMap = std::unordered_map<point3D_t, Point3D>;
-PYBIND11_MAKE_OPAQUE(Point3DMap);
 
 void BindPoint3D(py::module& m) {
   py::bind_map<Point3DMap>(m, "MapPoint3DIdToPoint3D")
