@@ -259,7 +259,9 @@ def main_incremental_mapper(controller):
         if controller.reconstruction_manager.size() > 0:
             break
         logging.info("=> Relaxing the initialization constraints")
-        init_mapper_options.init_min_num_inliers /= 2
+        init_mapper_options.init_min_num_inliers = int(
+            init_mapper_options.init_min_num_inliers / 2
+        )
         reconstruct(controller, init_mapper_options)
         if controller.reconstruction_manager.size() > 0:
             break
