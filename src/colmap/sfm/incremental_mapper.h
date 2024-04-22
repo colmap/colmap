@@ -243,15 +243,11 @@ class IncrementalMapper {
   size_t FilterPoints(const Options& options);
 
   // Getter functions
-  const std::shared_ptr<Reconstruction>& GetReconstruction() const {
-    return reconstruction_;
-  };
-  const std::shared_ptr<IncrementalTriangulator>& GetTriangulator() const {
-    return triangulator_;
-  };
-  const std::unordered_set<image_t>& GetFilteredImages() const;
-  const std::unordered_set<image_t>& GetExistingImageIds() const;
-  const std::unordered_map<camera_t, size_t>& GetNumRegImagesPerCamera() const;
+  const std::shared_ptr<class Reconstruction>& Reconstruction() const;
+  const std::shared_ptr<IncrementalTriangulator>& Triangulator() const;
+  const std::unordered_set<image_t>& FilteredImages() const;
+  const std::unordered_set<image_t>& ExistingImageIds() const;
+  const std::unordered_map<camera_t, size_t>& NumRegImagesPerCamera() const;
 
   // Number of images that are registered in at least on reconstruction.
   size_t NumTotalRegImages() const;
@@ -300,7 +296,7 @@ class IncrementalMapper {
   const std::shared_ptr<const DatabaseCache> database_cache_;
 
   // Class that holds data of the reconstruction.
-  std::shared_ptr<Reconstruction> reconstruction_;
+  std::shared_ptr<class Reconstruction> reconstruction_;
 
   // Class that is responsible for incremental triangulation.
   std::shared_ptr<IncrementalTriangulator> triangulator_;

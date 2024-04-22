@@ -301,17 +301,17 @@ void BindIncrementalMapperImpl(py::module& m) {
       .def("filter_images", &IncrementalMapper::FilterImages, "options"_a)
       .def("filter_points", &IncrementalMapper::FilterPoints, "options"_a)
       .def("get_reconstruction",
-           &IncrementalMapper::GetReconstruction,
+           &IncrementalMapper::Reconstruction,
            py::return_value_policy::reference_internal)
       .def("get_triangulator",
-           &IncrementalMapper::GetTriangulator,
+           &IncrementalMapper::Triangulator,
            py::return_value_policy::reference_internal)
       .def_property_readonly("filtered_images",
-                             &IncrementalMapper::GetFilteredImages)
+                             &IncrementalMapper::FilteredImages)
       .def_property_readonly("existing_image_ids",
-                             &IncrementalMapper::GetExistingImageIds)
+                             &IncrementalMapper::ExistingImageIds)
       .def_property_readonly("num_reg_images_per_camera",
-                             &IncrementalMapper::GetNumRegImagesPerCamera)
+                             &IncrementalMapper::NumRegImagesPerCamera)
       .def("num_total_reg_images", &IncrementalMapper::NumTotalRegImages)
       .def("num_shared_reg_images", &IncrementalMapper::NumSharedRegImages)
       .def("get_modified_points3D", &IncrementalMapper::GetModifiedPoints3D)

@@ -301,8 +301,6 @@ const ceres::Solver::Summary& BundleAdjuster::Summary() const {
 ceres::Problem* BundleAdjuster::SetUpProblem(
     Reconstruction* reconstruction, ceres::LossFunction* loss_function) {
   THROW_CHECK_NOTNULL(reconstruction);
-  // THROW_CHECK(!problem_)
-  //     << "Cannot set up problem from the same BundleAdjuster multiple times";
 
   // Initialize an empty problem
   ceres::Problem::Options problem_options;
