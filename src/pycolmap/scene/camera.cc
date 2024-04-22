@@ -149,7 +149,7 @@ void BindCamera(py::module& m) {
           "Project list of points in image plane to world / infinity.")
       .def(
           "cam_from_img",
-          [](const Camera& self, const std::vector<Point2D>& image_points) {
+          [](const Camera& self, const Point2DVector& image_points) {
             std::vector<Eigen::Vector2d> world_points(image_points.size());
             for (size_t idx = 0; idx < image_points.size(); ++idx) {
               world_points[idx] = self.CamFromImg(image_points[idx].xy);
@@ -184,7 +184,7 @@ void BindCamera(py::module& m) {
           "Project list of points from world / infinity to image plane.")
       .def(
           "img_from_cam",
-          [](const Camera& self, const std::vector<Point2D>& world_points) {
+          [](const Camera& self, const Point2DVector& world_points) {
             std::vector<Eigen::Vector2d> image_points(world_points.size());
             for (size_t idx = 0; idx < world_points.size(); ++idx) {
               image_points[idx] = self.ImgFromCam(world_points[idx].xy);
