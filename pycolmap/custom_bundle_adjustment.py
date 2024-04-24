@@ -244,7 +244,6 @@ def adjust_global_bundle(mapper, mapper_options, ba_options):
     summary = solve_bundle_adjustment(reconstruction, ba_options_tmp, ba_config)
     logging.info("Global Bundle Adjustment")
     logging.info(summary.BriefReport())
-    return True
 
 
 def iterative_global_refinement(
