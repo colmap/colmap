@@ -243,7 +243,7 @@ def reconstruct(controller, mapper_options):
             )
             if (
                 initial_reconstruction_given
-                or options.multiple_models
+                or (not options.multiple_models)
                 or reconstruction_manager.size() >= options.max_num_models
                 or total_num_reg_images >= database_cache.num_images() - 1
             ):
@@ -265,7 +265,9 @@ def main_incremental_mapper(controller):
         if controller.reconstruction_manager.size() > 0:
             break
         logging.info("=> Relaxing the initialization constraints")
-        init_mapper_options.init_min_num_inliers /= 2
+        init_mapper_options.init_min_num_inliers = int(
+            init_mapper_options.init_min_num_inliers / 2
+        )
         reconstruct(controller, init_mapper_options)
         if controller.reconstruction_manager.size() > 0:
             break
