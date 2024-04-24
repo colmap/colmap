@@ -195,10 +195,13 @@ def solve_bundle_adjustment(reconstruction, ba_options, ba_config):
     # bundle_adjuster = PyBundleAdjuster(ba_options, ba_config)
     loss = ba_options.create_loss_function()
     bundle_adjuster.set_up_problem(reconstruction, loss)
-    solver_options = bundle_adjuster.set_up_solver_options(bundle_adjuster.problem, ba_options.solver_options)
+    solver_options = bundle_adjuster.set_up_solver_options(
+        bundle_adjuster.problem, ba_options.solver_options
+    )
     summary = pyceres.SolverSummary()
     pyceres.solve(solver_options, bundle_adjuster.problem, summary)
     return summary
+
 
 def adjust_global_bundle(mapper, mapper_options, ba_options):
     """Equivalent to mapper.adjust_global_bundle(...)"""
