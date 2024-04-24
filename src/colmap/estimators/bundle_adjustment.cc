@@ -298,8 +298,8 @@ const ceres::Solver::Summary& BundleAdjuster::Summary() const {
   return summary_;
 }
 
-ceres::Problem* BundleAdjuster::SetUpProblem(
-    Reconstruction* reconstruction, ceres::LossFunction* loss_function) {
+void BundleAdjuster::SetUpProblem(Reconstruction* reconstruction,
+                                  ceres::LossFunction* loss_function) {
   THROW_CHECK_NOTNULL(reconstruction);
 
   // Initialize an empty problem
@@ -322,7 +322,6 @@ ceres::Problem* BundleAdjuster::SetUpProblem(
 
   ParameterizeCameras(reconstruction);
   ParameterizePoints(reconstruction);
-  return problem_.get();
 }
 
 ceres::Solver::Options BundleAdjuster::SetUpSolverOptions(
@@ -559,10 +558,9 @@ bool RigBundleAdjuster::Solve(Reconstruction* reconstruction,
   return true;
 }
 
-ceres::Problem* RigBundleAdjuster::SetUpProblem(
-    Reconstruction* reconstruction,
-    std::vector<CameraRig>* camera_rigs,
-    ceres::LossFunction* loss_function) {
+void RigBundleAdjuster::SetUpProblem(Reconstruction* reconstruction,
+                                     std::vector<CameraRig>* camera_rigs,
+                                     ceres::LossFunction* loss_function) {
   THROW_CHECK_NOTNULL(reconstruction);
   THROW_CHECK_NOTNULL(camera_rigs);
   THROW_CHECK(!problem_)
@@ -608,7 +606,6 @@ ceres::Problem* RigBundleAdjuster::SetUpProblem(
   ParameterizeCameras(reconstruction);
   ParameterizePoints(reconstruction);
   ParameterizeCameraRigs(reconstruction);
-  return problem_.get();
 }
 
 void RigBundleAdjuster::TearDown(Reconstruction* reconstruction,
