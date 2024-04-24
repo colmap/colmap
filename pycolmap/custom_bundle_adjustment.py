@@ -193,8 +193,9 @@ def solve_bundle_adjustment(reconstruction, ba_options, ba_config):
     bundle_adjuster = pycolmap.BundleAdjuster(ba_options, ba_config)
     # alternative equivalent python-based bundle adjustment (slower):
     # bundle_adjuster = PyBundleAdjuster(ba_options, ba_config)
-    loss = ba_options.create_loss_function()
-    bundle_adjuster.set_up_problem(reconstruction, loss)
+    bundle_adjuster.set_up_problem(
+        reconstruction, ba_options.create_loss_function()
+    )
     solver_options = bundle_adjuster.set_up_solver_options(
         bundle_adjuster.problem, ba_options.solver_options
     )
@@ -370,9 +371,7 @@ def adjust_local_bundle(
             mapper.get_triangulator().complete_image(tri_options, image_id)
         )
 
-    filter_image_ids = set()
-    filter_image_ids.add(image_id)
-    filter_image_ids.update(local_bundle)
+    filter_image_ids = {image_id, *local_bundle}
     report.num_filtered_observations = reconstruction.filter_points3D_in_images(
         mapper_options.filter_max_reproj_error,
         mapper_options.filter_min_tri_angle,
