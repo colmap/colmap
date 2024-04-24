@@ -25,8 +25,7 @@ class PyBundleAdjuster(object):
 
     def solve(self, reconstruction: pycolmap.Reconstruction):
         loss = self.options.create_loss_function()
-        self.set_up_problem_cpp(reconstruction, loss)
-        # self.set_up_problem(reconstruction, loss)
+        self.set_up_problem(reconstruction, loss)
         if self.problem.num_residuals() == 0:
             return False
         solver_options = self.set_up_solver_options(
@@ -34,16 +33,6 @@ class PyBundleAdjuster(object):
         )
         pyceres.solve(solver_options, self.problem, self.summary)
         return True
-
-    def set_up_problem_cpp(
-        self,
-        reconstruction: pycolmap.Reconstruction,
-        loss: pyceres.LossFunction,
-    ):
-        bundle_adjuster = pycolmap.BundleAdjuster(self.options, self.config)
-        bundle_adjuster.set_up_problem(reconstruction, loss)
-        self.problem = bundle_adjuster.problem
-        return self.problem
 
     def set_up_problem(
         self,
@@ -201,14 +190,15 @@ class PyBundleAdjuster(object):
 
 
 def solve_bundle_adjustment(reconstruction, ba_options, ba_config):
-    # bundle_adjuster = pycolmap.BundleAdjuster(ba_options, ba_config)
+    bundle_adjuster = pycolmap.BundleAdjuster(ba_options, ba_config)
     # alternative equivalent python-based bundle adjustment (slower):
-    bundle_adjuster = PyBundleAdjuster(ba_options, ba_config)
-    bundle_adjuster.solve(reconstruction)
-    # debug:
-    # pyceres.solve(pyceres.SolverOptions(), bundle_adjuster.problem, pyceres.SolverSummary())
-    return bundle_adjuster.summary
-
+    # bundle_adjuster = PyBundleAdjuster(ba_options, ba_config)
+    loss = ba_options.create_loss_function()
+    bundle_adjuster.set_up_problem(reconstruction, loss)
+    solver_options = bundle_adjuster.set_up_solver_options(bundle_adjuster.problem, ba_options.solver_options)
+    summary = pyceres.SolverSummary()
+    pyceres.solve(solver_options, bundle_adjuster.problem, summary)
+    return summary
 
 def adjust_global_bundle(mapper, mapper_options, ba_options):
     """Equivalent to mapper.adjust_global_bundle(...)"""
