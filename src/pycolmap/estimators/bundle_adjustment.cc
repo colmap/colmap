@@ -82,7 +82,8 @@ void BindBundleAdjuster(py::module& m) {
       .def("set_up_problem",
            &BundleAdjuster::SetUpProblem,
            "reconstruction"_a,
-           "loss_function"_a, py::keep_alive<1, 3>())
+           "loss_function"_a,
+           py::keep_alive<1, 3>())
       .def("set_up_solver_options",
            &BundleAdjuster::SetUpSolverOptions,
            "problem"_a,
