@@ -82,8 +82,7 @@ void BindBundleAdjuster(py::module& m) {
       .def("set_up_problem",
            &BundleAdjuster::SetUpProblem,
            "reconstruction"_a,
-           "loss_function"_a,
-           py::return_value_policy::take_ownership)
+           "loss_function"_a)
       .def("set_up_solver_options",
            &BundleAdjuster::SetUpSolverOptions,
            "problem"_a,
