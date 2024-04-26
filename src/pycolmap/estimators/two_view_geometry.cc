@@ -58,17 +58,20 @@ void BindTwoViewGeometryEstimator(py::module& m) {
 
   py::class_<TwoViewGeometry> PyTwoViewGeometry(m, "TwoViewGeometry");
   PyTwoViewGeometry.def(py::init<>())
-      .def_readonly("config", &TwoViewGeometry::config)
-      .def_readonly("E", &TwoViewGeometry::E)
-      .def_readonly("F", &TwoViewGeometry::F)
-      .def_readonly("H", &TwoViewGeometry::H)
-      .def_readonly("cam2_from_cam1", &TwoViewGeometry::cam2_from_cam1)
-      .def_property_readonly(
+      .def_readwrite("config", &TwoViewGeometry::config)
+      .def_readwrite("E", &TwoViewGeometry::E)
+      .def_readwrite("F", &TwoViewGeometry::F)
+      .def_readwrite("H", &TwoViewGeometry::H)
+      .def_readwrite("cam2_from_cam1", &TwoViewGeometry::cam2_from_cam1)
+      .def_property(
           "inlier_matches",
           [](const TwoViewGeometry& self) {
             return FeatureMatchesToMatrix(self.inlier_matches);
+          },
+          [](TwoViewGeometry& self, const PyFeatureMatches& matrix) {
+            self.inlier_matches = FeatureMatchesFromMatrix(matrix);
           })
-      .def_readonly("tri_angle", &TwoViewGeometry::tri_angle)
+      .def_readwrite("tri_angle", &TwoViewGeometry::tri_angle)
       .def("invert", &TwoViewGeometry::Invert);
   MakeDataclass(PyTwoViewGeometry);
 
