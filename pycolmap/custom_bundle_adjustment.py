@@ -206,7 +206,7 @@ def solve_bundle_adjustment(reconstruction, ba_options, ba_config):
 
 def adjust_global_bundle(mapper, mapper_options, ba_options):
     """Equivalent to mapper.adjust_global_bundle(...)"""
-    reconstruction = mapper.get_reconstruction()
+    reconstruction = mapper.reconstruction
     assert reconstruction is not None
     reg_image_ids = reconstruction.reg_image_ids()
     if len(reg_image_ids) < 2:
@@ -260,14 +260,10 @@ def iterative_global_refinement(
     normalize_reconstruction=True,
 ):
     """Equivalent to mapper.iterative_global_refinement(...)"""
-    reconstruction = mapper.get_reconstruction()
+    reconstruction = mapper.reconstruction
     mapper.complete_and_merge_tracks(tri_options)
-    logging.verbose(
-        1,
-        "=> Retriangulated observations: {0}".format(
-            mapper.retriangulate(tri_options)
-        ),
-    )
+    num_retriangulated_observations = mapper.retriangulate(tri_options)
+    logging.verbose(1, f"=> Retriangulated observations: {num_retriangulated_observations}")
     for i in range(max_num_refinements):
         num_observations = reconstruction.compute_num_observations()
         # mapper.adjust_global_bundle(mapper_options, ba_options)
@@ -281,7 +277,7 @@ def iterative_global_refinement(
             if num_observations == 0
             else num_changed_observations / num_observations
         )
-        logging.verbose(1, "=> Changed observations: {0:.6f}".format(changed))
+        logging.verbose(1, f"=> Changed observations: {changed:.6f}")
         if changed < max_refinement_change:
             break
 
@@ -290,7 +286,7 @@ def adjust_local_bundle(
     mapper, mapper_options, ba_options, tri_options, image_id, point3D_ids
 ):
     """Equivalent to mapper.adjust_local_bundle(...)"""
-    reconstruction = mapper.get_reconstruction()
+    reconstruction = mapper.reconstruction
     assert reconstruction is not None
     report = pycolmap.LocalBundleAdjustmentReport()
 
@@ -350,25 +346,26 @@ def adjust_local_bundle(
 
         # Adjust the local bundle
         summary = solve_bundle_adjustment(
-            mapper.get_reconstruction(), ba_options, ba_config
+            mapper.reconstruction, ba_options, ba_config
         )
         logging.info("Local Bundle Adjustment")
         logging.info(summary.BriefReport())
 
         report.num_adjusted_observations = int(summary.num_residuals / 2)
         # Merge refined tracks with other existing points
-        report.num_merged_observations = mapper.get_triangulator().merge_tracks(
+        report.num_merged_observations = mapper.triangulator.merge_tracks(
             tri_options, variable_point3D_ids
         )
         # Complete tracks that may have failed to triangulate before refinement
-        # of camera pose and calibration in bundle adjustment. This may avoid that some points are filtered and it helps for subsequent image registrations
+        # of camera pose and calibration in bundle adjustment. This may avoid that
+        # some points are filtered and it helps for subsequent image registrations
         report.num_completed_observations = (
-            mapper.get_triangulator().complete_tracks(
+            mapper.triangulator.complete_tracks(
                 tri_options, variable_point3D_ids
             )
         )
         report.num_completed_observations += (
-            mapper.get_triangulator().complete_image(tri_options, image_id)
+            mapper.triangulator.complete_image(tri_options, image_id)
         )
 
     filter_image_ids = {image_id, *local_bundle}
@@ -408,21 +405,15 @@ def iterative_local_refinement(
         )
         logging.verbose(
             1,
-            "=> Merged observations: {0}".format(
-                report.num_merged_observations
-            ),
+            f"=> Merged observations: {report.num_merged_observations}"
         )
         logging.verbose(
             1,
-            "=> Completed observations: {0}".format(
-                report.num_completed_observations
-            ),
+            f"=> Completed observations: {report.num_completed_observations}"
         )
         logging.verbose(
             1,
-            "=> Filtered observations: {0}".format(
-                report.num_filtered_observations
-            ),
+            f"=> Filtered observations: {report.num_filtered_observations}"
         )
         changed = 0
         if report.num_adjusted_observations != 0:
@@ -431,7 +422,7 @@ def iterative_local_refinement(
                 + report.num_completed_observations
                 + report.num_filtered_observations
             ) / report.num_adjusted_observations
-        logging.verbose(1, "=> Changed observations: {0:.6f}".format(changed))
+        logging.verbose(1, f"=> Changed observations: {changed:.6f}")
         if changed < max_refinement_change:
             break
 
