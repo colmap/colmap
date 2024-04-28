@@ -39,6 +39,7 @@ COLMAP_ADD_LIBRARY(
         database.h database.cc
         database_cache.h database_cache.cc
         image.h image.cc
+        imu.h
         point2d.h
         point3d.h
         projection.h projection.cc

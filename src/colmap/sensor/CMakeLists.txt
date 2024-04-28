@@ -35,6 +35,7 @@ COLMAP_ADD_LIBRARY(
     SRCS
         bitmap.h bitmap.cc
         database.h database.cc
+        imu.h
         models.h models.cc
         specs.h specs.cc
     PUBLIC_LINK_LIBS
@@ -53,12 +54,12 @@ COLMAP_ADD_TEST(
         colmap_sensor
         freeimage::FreeImage
 )
-COLMAP_ADD_TEST( 
+COLMAP_ADD_TEST(
     NAME database_test
     SRCS database_test.cc
     LINK_LIBS colmap_sensor
 )
-COLMAP_ADD_TEST( 
+COLMAP_ADD_TEST(
     NAME models_test
     SRCS models_test.cc
     LINK_LIBS colmap_sensor
