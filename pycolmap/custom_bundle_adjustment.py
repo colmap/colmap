@@ -275,9 +275,9 @@ def iterative_global_refinement(
         num_changed_observations = mapper.complete_and_merge_tracks(tri_options)
         num_changed_observations += mapper.filter_points(mapper_options)
         changed = (
-            0
-            if num_observations == 0
-            else num_changed_observations / num_observations
+            num_changed_observations / num_observations
+            if num_observations > 0
+            else 0
         )
         logging.verbose(1, f"=> Changed observations: {changed:.6f}")
         if changed < max_refinement_change:
@@ -296,7 +296,7 @@ def adjust_local_bundle(
     local_bundle = mapper.find_local_bundle(mapper_options, image_id)
 
     # Do the bundle adjustment only if there is any connected images
-    if len(local_bundle) > 0:
+    if local_bundle:
         ba_config = pycolmap.BundleAdjustmentConfig()
         ba_config.add_image(image_id)
         for local_image_id in local_bundle:
@@ -413,7 +413,7 @@ def iterative_local_refinement(
             1, f"=> Filtered observations: {report.num_filtered_observations}"
         )
         changed = 0
-        if report.num_adjusted_observations != 0:
+        if report.num_adjusted_observations > 0:
             changed = (
                 report.num_merged_observations
                 + report.num_completed_observations
