@@ -263,7 +263,9 @@ def iterative_global_refinement(
     reconstruction = mapper.reconstruction
     mapper.complete_and_merge_tracks(tri_options)
     num_retriangulated_observations = mapper.retriangulate(tri_options)
-    logging.verbose(1, f"=> Retriangulated observations: {num_retriangulated_observations}")
+    logging.verbose(
+        1, f"=> Retriangulated observations: {num_retriangulated_observations}"
+    )
     for i in range(max_num_refinements):
         num_observations = reconstruction.compute_num_observations()
         # mapper.adjust_global_bundle(mapper_options, ba_options)
@@ -359,13 +361,11 @@ def adjust_local_bundle(
         # Complete tracks that may have failed to triangulate before refinement
         # of camera pose and calibration in bundle adjustment. This may avoid that
         # some points are filtered and it helps for subsequent image registrations
-        report.num_completed_observations = (
-            mapper.triangulator.complete_tracks(
-                tri_options, variable_point3D_ids
-            )
+        report.num_completed_observations = mapper.triangulator.complete_tracks(
+            tri_options, variable_point3D_ids
         )
-        report.num_completed_observations += (
-            mapper.triangulator.complete_image(tri_options, image_id)
+        report.num_completed_observations += mapper.triangulator.complete_image(
+            tri_options, image_id
         )
 
     filter_image_ids = {image_id, *local_bundle}
@@ -404,16 +404,13 @@ def iterative_local_refinement(
             mapper.get_modified_points3D(),
         )
         logging.verbose(
-            1,
-            f"=> Merged observations: {report.num_merged_observations}"
+            1, f"=> Merged observations: {report.num_merged_observations}"
         )
         logging.verbose(
-            1,
-            f"=> Completed observations: {report.num_completed_observations}"
+            1, f"=> Completed observations: {report.num_completed_observations}"
         )
         logging.verbose(
-            1,
-            f"=> Filtered observations: {report.num_filtered_observations}"
+            1, f"=> Filtered observations: {report.num_filtered_observations}"
         )
         changed = 0
         if report.num_adjusted_observations != 0:
