@@ -243,8 +243,8 @@ class IncrementalMapper {
   size_t FilterPoints(const Options& options);
 
   // Getter functions
-  const std::shared_ptr<class Reconstruction>& Reconstruction() const;
-  const std::shared_ptr<IncrementalTriangulator>& Triangulator() const;
+  std::shared_ptr<class Reconstruction> Reconstruction() const;
+  std::shared_ptr<IncrementalTriangulator> Triangulator() const;
   const std::unordered_set<image_t>& FilteredImages() const;
   const std::unordered_set<image_t>& ExistingImageIds() const;
   const std::unordered_map<camera_t, size_t>& NumRegImagesPerCamera() const;

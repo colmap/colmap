@@ -834,13 +834,13 @@ size_t IncrementalMapper::FilterPoints(const Options& options) {
   return num_filtered_observations;
 }
 
-const std::shared_ptr<class Reconstruction>& IncrementalMapper::Reconstruction()
+std::shared_ptr<class Reconstruction> IncrementalMapper::Reconstruction()
     const {
   return reconstruction_;
 }
 
-const std::shared_ptr<IncrementalTriangulator>&
-IncrementalMapper::Triangulator() const {
+std::shared_ptr<IncrementalTriangulator> IncrementalMapper::Triangulator()
+    const {
   return triangulator_;
 }
 
