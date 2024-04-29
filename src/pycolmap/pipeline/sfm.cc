@@ -298,10 +298,11 @@ void BindSfM(py::module& m) {
                          "single-threaded is typically better for small bundle "
                          "adjustment problems "
                          "due to the overhead of threading. ")
-          .def_readwrite("solver_options",
-                         &BAOpts::solver_options,
-                         "Ceres-Solver options. To be able to use this feature "
-                         "one needs pyceres as a dependency");
+          .def_readwrite(
+              "solver_options",
+              &BAOpts::solver_options,
+              "Ceres-Solver options. To be able to use this feature "
+              "one needs to install pyceres and import it beforehand");
   MakeDataclass(PyBundleAdjustmentOptions);
   auto ba_options = PyBundleAdjustmentOptions().cast<BAOpts>();
 
