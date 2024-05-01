@@ -105,12 +105,12 @@ IncrementalMapper::IncrementalMapper(
       num_shared_reg_images_(0) {}
 
 void IncrementalMapper::BeginReconstruction(
-    const std::shared_ptr<Reconstruction>& reconstruction) {
+    const std::shared_ptr<class Reconstruction>& reconstruction) {
   THROW_CHECK(reconstruction_ == nullptr);
   reconstruction_ = reconstruction;
   reconstruction_->Load(*database_cache_);
   reconstruction_->SetUp(database_cache_->CorrespondenceGraph());
-  triangulator_ = std::make_unique<IncrementalTriangulator>(
+  triangulator_ = std::make_shared<IncrementalTriangulator>(
       database_cache_->CorrespondenceGraph(), reconstruction);
 
   num_shared_reg_images_ = 0;
@@ -834,9 +834,27 @@ size_t IncrementalMapper::FilterPoints(const Options& options) {
   return num_filtered_observations;
 }
 
-const Reconstruction& IncrementalMapper::GetReconstruction() const {
-  THROW_CHECK_NOTNULL(reconstruction_);
-  return *reconstruction_;
+std::shared_ptr<class Reconstruction> IncrementalMapper::Reconstruction()
+    const {
+  return reconstruction_;
+}
+
+std::shared_ptr<IncrementalTriangulator> IncrementalMapper::Triangulator()
+    const {
+  return triangulator_;
+}
+
+const std::unordered_set<image_t>& IncrementalMapper::FilteredImages() const {
+  return filtered_images_;
+}
+
+const std::unordered_set<image_t>& IncrementalMapper::ExistingImageIds() const {
+  return existing_image_ids_;
+}
+
+const std::unordered_map<camera_t, size_t>&
+IncrementalMapper::NumRegImagesPerCamera() const {
+  return num_reg_images_per_camera_;
 }
 
 size_t IncrementalMapper::NumTotalRegImages() const {
