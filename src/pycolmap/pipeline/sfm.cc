@@ -302,7 +302,7 @@ void BindSfM(py::module& m) {
               "solver_options",
               &BAOpts::solver_options,
               "Ceres-Solver options. To be able to use this feature "
-              "one needs to install pyceres and import it beforehand");
+              "one needs to install pyceres and import it beforehand. ");
   MakeDataclass(PyBundleAdjustmentOptions);
   auto ba_options = PyBundleAdjustmentOptions().cast<BAOpts>();
 
