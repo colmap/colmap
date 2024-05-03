@@ -129,6 +129,7 @@ void WriteCOLMAPCommands(const bool geometric,
   }
   if (geometric) {
     *file << indent << "  --input_type geometric \\" << std::endl;
+    *file << indent << "  --ignore_missing_files true \\" << std::endl;
   } else {
     *file << indent << "  --input_type photometric \\" << std::endl;
   }
