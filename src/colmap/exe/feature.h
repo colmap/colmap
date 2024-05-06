@@ -35,7 +35,7 @@ namespace colmap {
 
 // This enum can be used as optional input for feature_extractor and
 // feature_importer to ensure that the camera flags of ImageReader are set in an
-// exclusive and unambigous way. The table below explains the corespondence of
+// exclusive and unambiguous way. The table below explains the correspondence of
 // each setting with the flags
 //
 // -----------------------------------------------------------------------------------

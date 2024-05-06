@@ -578,7 +578,7 @@ def main():
     parser.add_argument(
         "--output_format",
         choices=[".bin", ".txt"],
-        help="outut model format",
+        help="output model format",
         default=".txt",
     )
     args = parser.parse_args()

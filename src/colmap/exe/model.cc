@@ -92,7 +92,7 @@ void WriteBoundingBox(const std::string& reconstruction_path,
     std::ofstream file(path, std::ios::trunc);
     THROW_CHECK_FILE_OPEN(file, path);
 
-    // Ensure that we don't loose any precision by storing in text.
+    // Ensure that we don't lose any precision by storing in text.
     file.precision(17);
     file << bounds.first.transpose() << "\n";
     file << bounds.second.transpose() << "\n";
@@ -104,7 +104,7 @@ void WriteBoundingBox(const std::string& reconstruction_path,
     std::ofstream file(path, std::ios::trunc);
     THROW_CHECK_FILE_OPEN(file, path);
 
-    // Ensure that we don't loose any precision by storing in text.
+    // Ensure that we don't lose any precision by storing in text.
     file.precision(17);
     const Eigen::Vector3d center = (bounds.first + bounds.second) * 0.5;
     file << center.transpose() << "\n\n";
@@ -237,7 +237,7 @@ void PrintComparisonSummary(std::ostream& out,
 // images (WARNING: provide only one of the above)
 // - ref_is_gps: if true the prior positions are converted from GPS
 // (lat/lon/alt) to ECEF or ENU
-// - merge_image_and_ref_origins: if true the reconstuction will be shifted so
+// - merge_image_and_ref_origins: if true the reconstruction will be shifted so
 // that the first prior position is used for its camera position
 // - transform_path: path to store the Sim3 transformation used for the
 // alignment
