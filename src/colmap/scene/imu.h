@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include "colmap/geometry/sim3.h"
+#include "colmap/geometry/rigid3.h"
 #include "colmap/sensor/imu.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
@@ -37,31 +37,74 @@
 
 #include <vector>
 
+#include <Eigen/Dense>
 #include <Eigen/Geometry>
 
 namespace colmap {
 
 // An Imu class storing the sensor information and a linked visual camera
-// This visual-centric design is aligned to the fact that COLMAP is mainly interested in visual images.
-// TODO: support rigs
+// TODO: support rigs + unify sensors
 class Imu {
-public:
+ public:
   ImuCalibration calib;
   camera_t imu_id = kInvalidCameraId;
 
-  // information for the associated visual camera
-  camera_t camera_id = kInvalidCameraId; // the camera linked to IMU
-  Sim3 cam_to_imu;
+  // information for the associated visual camera. TODO: change to rigs
+  camera_t camera_id = kInvalidCameraId;  // the camera linked to IMU.
+  Rigid3 cam_to_imu;
 };
 
 // A state class storing speed and biases for discrete-time optimization
 class ImuState {
-public:
-  Eigen::Matrix<double, 9, 1> data; // 3 x speed + 6 x biases
-  // TODO: implement the interfaces
-  
-  camera_t imu_id; // the identifier of the associated IMU 
-  image_t image_id; // the corresponding image from visual input
+ public:
+  inline const Eigen::Vector3d& Velocity() const;
+  inline Eigen::Map<Eigen::Vector3d> Velocity();
+  inline const Eigen::Vector3d& AccBias() const;
+  inline Eigen::Map<Eigen::Vector3d> AccBias();
+  inline const Eigen::Vector3d& GyroBias() const;
+  inline Eigen::Map<Eigen::Vector3d> GyroBias();
+
+  inline const camera_t& ImuId() const;
+  inline camera_t ImuId();
+  inline const image_t& ImageId() const;
+  inline image_t ImageId();
+
+ private:
+  Eigen::Matrix<double, 9, 1> data_;  // 3-DoF speed + 6-DoF biases (acc + gyro)
+  camera_t imu_id_;                   // the identifier of the associated IMU
+  image_t image_id_;  // the corresponding image from visual input
 };
+
+inline const Eigen::Vector3d& ImuState::Velocity() const {
+  return data_.head<3>();
+}
+
+inline Eigen::Map<Eigen::Vector3d> ImuState::Velocity() {
+  return Eigen::Map<Eigen::Vector3d>(data_.data());
+}
+
+inline const Eigen::Vector3d& ImuState::AccBias() const {
+  return data_.segment<3>(3);
+}
+
+inline Eigen::Map<Eigen::Vector3d> ImuState::AccBias() {
+  return Eigen::Map<Eigen::Vector3d>(data_.data() + 3);
+}
+
+inline const Eigen::Vector3d& ImuState::AccBias() const {
+  return data_.tail<3>();
+}
+
+inline Eigen::Map<Eigen::Vector3d> ImuState::AccBias() {
+  return Eigen::Map<Eigen::Vector3d>(data_.data() + 6);
+}
+
+inline const camera_t& ImuId() const { return imu_id_; }
+
+inline camera_t ImuId() { return imu_id_; }
+
+inline const image_t ImageId() const { return image_id_; }
+
+inline image_t ImageId() { return image_id_; }
 
 }  // namespace colmap
