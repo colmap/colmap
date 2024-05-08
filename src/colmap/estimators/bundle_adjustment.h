@@ -147,9 +147,11 @@ class BundleAdjustmentConfig {
   void RemoveConstantPoint(point3D_t point3D_id);
 
   // Access configuration data.
+  const std::unordered_set<camera_t> ConstantIntrinsics() const;
   const std::unordered_set<image_t>& Images() const;
   const std::unordered_set<point3D_t>& VariablePoints() const;
   const std::unordered_set<point3D_t>& ConstantPoints() const;
+  const std::unordered_set<image_t>& ConstantCamPoses() const;
   const std::vector<int>& ConstantCamPositions(image_t image_id) const;
 
  private:
@@ -170,14 +172,22 @@ class BundleAdjuster {
 
   bool Solve(Reconstruction* reconstruction);
 
-  // Get the Ceres solver summary for the last call to `Solve`.
+  // Set up the problem
+  void SetUpProblem(Reconstruction* reconstruction,
+                    ceres::LossFunction* loss_function);
+  ceres::Solver::Options SetUpSolverOptions(
+      const ceres::Problem& problem,
+      const ceres::Solver::Options& input_solver_options) const;
+
+  // Getter functions below
+  const BundleAdjustmentOptions& Options() const;
+  const BundleAdjustmentConfig& Config() const;
+  // Get the Ceres problem after the last call to "set_up"
+  std::shared_ptr<ceres::Problem> Problem();
+  // Get the Ceres solver summary after the last call to `Solve`.
   const ceres::Solver::Summary& Summary() const;
 
  private:
-  void SetUp(Reconstruction* reconstruction,
-             ceres::LossFunction* loss_function);
-  void TearDown(Reconstruction* reconstruction);
-
   void AddImageToProblem(image_t image_id,
                          Reconstruction* reconstruction,
                          ceres::LossFunction* loss_function);
@@ -192,7 +202,7 @@ class BundleAdjuster {
 
   const BundleAdjustmentOptions options_;
   BundleAdjustmentConfig config_;
-  std::unique_ptr<ceres::Problem> problem_;
+  std::shared_ptr<ceres::Problem> problem_;
   ceres::Solver::Summary summary_;
   std::unordered_set<camera_t> camera_ids_;
   std::unordered_map<point3D_t, size_t> point3D_num_observations_;
@@ -219,13 +229,14 @@ class RigBundleAdjuster : public BundleAdjuster {
   bool Solve(Reconstruction* reconstruction,
              std::vector<CameraRig>* camera_rigs);
 
- private:
-  void SetUp(Reconstruction* reconstruction,
-             std::vector<CameraRig>* camera_rigs,
-             ceres::LossFunction* loss_function);
+  void SetUpProblem(Reconstruction* reconstruction,
+                    std::vector<CameraRig>* camera_rigs,
+                    ceres::LossFunction* loss_function);
+
   void TearDown(Reconstruction* reconstruction,
                 const std::vector<CameraRig>& camera_rigs);
 
+ private:
   void AddImageToProblem(image_t image_id,
                          Reconstruction* reconstruction,
                          std::vector<CameraRig>* camera_rigs,

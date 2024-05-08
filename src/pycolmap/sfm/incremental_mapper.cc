@@ -282,6 +282,10 @@ void BindIncrementalMapperImpl(py::module& m) {
            "ba_options"_a,
            "tri_options"_a,
            "image_id"_a)
+      .def("find_local_bundle",
+           &IncrementalMapper::FindLocalBundle,
+           "options"_a,
+           "image_id"_a)
       .def("adjust_global_bundle",
            &IncrementalMapper::AdjustGlobalBundle,
            "options"_a,
@@ -296,7 +300,15 @@ void BindIncrementalMapperImpl(py::module& m) {
            "normalize_reconstruction"_a = true)
       .def("filter_images", &IncrementalMapper::FilterImages, "options"_a)
       .def("filter_points", &IncrementalMapper::FilterPoints, "options"_a)
-      .def("get_reconstruction", &IncrementalMapper::GetReconstruction)
+      .def_property_readonly("reconstruction",
+                             &IncrementalMapper::Reconstruction)
+      .def_property_readonly("triangulator", &IncrementalMapper::Triangulator)
+      .def_property_readonly("filtered_images",
+                             &IncrementalMapper::FilteredImages)
+      .def_property_readonly("existing_image_ids",
+                             &IncrementalMapper::ExistingImageIds)
+      .def_property_readonly("num_reg_images_per_camera",
+                             &IncrementalMapper::NumRegImagesPerCamera)
       .def("num_total_reg_images", &IncrementalMapper::NumTotalRegImages)
       .def("num_shared_reg_images", &IncrementalMapper::NumSharedRegImages)
       .def("get_modified_points3D", &IncrementalMapper::GetModifiedPoints3D)
