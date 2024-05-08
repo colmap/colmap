@@ -452,8 +452,9 @@ Reconstruction Reconstruction::Crop(
   for (const auto& image : images_) {
     auto new_image = image.second;
     new_image.SetRegistered(false);
-    for (point2D_t pid = 0; pid < new_image.NumPoints2D(); ++pid) {
-      new_image.ResetPoint3DForPoint2D(pid);
+    const auto num_points2D = new_image.NumPoints2D();
+    for (point2D_t point2D_idx = 0; point2D_idx < num_points2D; ++point2D_idx) {
+      new_image.ResetPoint3DForPoint2D(point2D_idx);
     }
     cropped_reconstruction.AddImage(std::move(new_image));
   }
