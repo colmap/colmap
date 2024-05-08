@@ -174,7 +174,13 @@ class PreintegratedImuMeasurementCostFunction {
                   const T* const j_from_world_t,
                   const T* const j_imu_state,
                   T* residuals) const {
-    // TODO: Check and perform reintegration when needed
+    // Check and perform reintegration when needed
+    Eigen::Vector6d biases_double;
+    for (size_t i = 0; i < 6; ++i) {
+      biases_double(i) = ConvertToDouble<T>::convert(i_imu_state[i + 3]);
+    }
+    if (measurement_.CheckReintegrate(biases_double))
+      measurement_.Reintegrate(biases_double);
     // Compute residuals
     // imu state
     EigenVector3Map<T> v_i(i_imu_state);
@@ -260,7 +266,22 @@ class PreintegratedImuMeasurementCostFunction {
   }
 
  private:
-  PreintegratedImuMeasurement measurement_;
+  // TODO: dubious design on making it mutable. But no other way out up to now
+  mutable PreintegratedImuMeasurement measurement_;
+
+  // Convert from type T (including ceres::Jet) to double
+  // default case: return the value directly
+  template <typename T>
+  struct ConvertToDouble {
+    static double convert(const T& value) { return static_cast<double>(value); }
+  };
+  // specialization for Jet type
+  template <typename Scalar, int N>
+  struct ConvertToDouble<ceres::Jet<Scalar, N>> {
+    static double convert(const ceres::Jet<Scalar, N>& value) {
+      return value.a;
+    }
+  };
 };
 
 }  // namespace colmap
