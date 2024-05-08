@@ -88,7 +88,7 @@ void PreintegratedImuMeasurement::integrate(const Eigen::Vector3d& acc_true, con
   jacobian_biases_.block<3, 3>(3, 0) += (jacobian_biases_.block<3, 3>(6, 0) * dt - 0.5 * Rs * dt * dt);
   jacobian_biases_.block<3, 3>(3, 3) += (jacobian_biases_.block<3, 3>(6, 3) * dt - 0.5 * Rs * skew_acc * jacobian_biases_.block<3, 3>(0, 3) * dt * dt); 
 
-  // velocity: Eq. (69/12) from [A]
+  // velocity: Eq. (69 1/2) from [A]
   jacobian_biases_.block<3, 3>(6, 0) = (- Rs * dt);
   jacobian_biases_.block<3, 3>(6, 3) += (- Rs * skew_acc * jacobian_biases_.block<3, 3>(0, 3) * dt);
 
