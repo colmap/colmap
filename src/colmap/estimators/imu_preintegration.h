@@ -45,7 +45,6 @@ namespace colmap {
 struct ImuPreintegrationOptions {
   // check whether to reintegrate
   double reintegrate_vel_norm_thres = 0.0001;
-  // TODO: add threshold for gyro
 };
 
 class PreintegratedImuMeasurement {
@@ -66,7 +65,8 @@ class PreintegratedImuMeasurement {
   // Add measurements
   void AddMeasurement(const ImuMeasurement& m);
   void AddMeasurements(const ImuMeasurements& ms);
-  void Finish();  // LLT decomposition TODO: add finish flag for checking
+  void Finish();
+  bool HasFinished() const;
 
   // Reintegrate
   bool CheckReintegrate(const Eigen::Vector6d& biases) const;
@@ -102,6 +102,9 @@ class PreintegratedImuMeasurement {
 
   // Flag to check if the first measurement has already been added.
   bool has_started_ = false;
+
+  // Flag to check if LLT is performed
+  bool has_finished_ = false;
 
   // Preintegrated measurements (imu to gravity-aligned metric world)
   Eigen::Quaterniond delta_R_ij_ =
@@ -140,7 +143,9 @@ class PreintegratedImuMeasurement {
 class PreintegratedImuMeasurementCostFunction {
  public:
   PreintegratedImuMeasurementCostFunction(const PreintegratedImuMeasurement& m)
-      : measurement_(m) {}
+      : measurement_(m) {
+    if (measurement_.HasFinished()) measurement_.Finish();
+  }
 
   static ceres::CostFunction* Create(const PreintegratedImuMeasurement& m) {
     return (
