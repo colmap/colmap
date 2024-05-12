@@ -366,4 +366,8 @@ const Eigen::Vector3d PreintegratedImuMeasurement::Gravity() const {
   return Eigen::Vector3d(0., 0., calib_.gravity_magnitude);
 }
 
+const ImuMeasurements PreintegratedImuMeasurement::Measurements() const {
+  return measurements_;
+}
+
 }  // namespace colmap

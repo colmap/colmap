@@ -88,6 +88,7 @@ class PreintegratedImuMeasurement {
   const Eigen::Matrix<double, 15, 15> LMatrix() const;
   const Eigen::Vector3d Gravity()
       const;  // TODO: improve the support for gravity
+  const ImuMeasurements Measurements() const;
 
  private:
   // Options

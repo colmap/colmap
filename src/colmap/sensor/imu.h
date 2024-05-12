@@ -74,11 +74,11 @@ struct ImuMeasurement {
   Eigen::Vector3d linear_acceleration;
   Eigen::Vector3d angular_velocity;
 
-  ImuMeasurement() = default;
   ImuMeasurement(const double t,
                  const Eigen::Vector3d& lin_acc,
                  const Eigen::Vector3d& ang_vel)
       : timestamp(t), linear_acceleration(lin_acc), angular_velocity(ang_vel) {}
+  ~ImuMeasurement() = default;
 };
 
 typedef std::vector<ImuMeasurement> ImuMeasurements;

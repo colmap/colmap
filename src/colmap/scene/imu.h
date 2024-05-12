@@ -46,23 +46,28 @@ namespace colmap {
 // TODO: support rigs + unify sensors
 class Imu {
  public:
+  Imu() = default;
+  ~Imu() = default;
   ImuCalibration calib;
   camera_t imu_id = kInvalidCameraId;
 
   // information for the associated visual camera. TODO: change to rigs
   camera_t camera_id = kInvalidCameraId;  // the camera linked to IMU.
-  Rigid3 cam_to_imu;
+  Rigid3d cam_to_imu;
 };
 
 // A state class storing speed and biases for discrete-time optimization
 class ImuState {
  public:
-  inline const Eigen::Vector3d& Velocity() const;
-  inline Eigen::Map<Eigen::Vector3d> Velocity();
-  inline const Eigen::Vector3d& AccBias() const;
-  inline Eigen::Map<Eigen::Vector3d> AccBias();
-  inline const Eigen::Vector3d& GyroBias() const;
-  inline Eigen::Map<Eigen::Vector3d> GyroBias();
+  ImuState() = default;
+  ~ImuState() = default;
+  inline const double* Data() const;
+  inline const Eigen::Vector3d Velocity() const;
+  inline const double* VelocityPtr();
+  inline const Eigen::Vector3d AccBias() const;
+  inline const double* AccBiasPtr();
+  inline const Eigen::Vector3d GyroBias() const;
+  inline const double* GyroBiasPtr();
 
   inline const camera_t& ImuId() const;
   inline camera_t ImuId();
@@ -75,36 +80,32 @@ class ImuState {
   image_t image_id_;  // the corresponding image from visual input
 };
 
-inline const Eigen::Vector3d& ImuState::Velocity() const {
-  return data_.head<3>();
+const double* ImuState::Data() const { return data_.data(); }
+
+const Eigen::Vector3d ImuState::Velocity() const {
+  return Eigen::Vector3d(data_.data());
 }
 
-inline Eigen::Map<Eigen::Vector3d> ImuState::Velocity() {
-  return Eigen::Map<Eigen::Vector3d>(data_.data());
+const double* ImuState::VelocityPtr() { return data_.data(); }
+
+const Eigen::Vector3d ImuState::AccBias() const {
+  return Eigen::Vector3d(data_.data() + 3);
 }
 
-inline const Eigen::Vector3d& ImuState::AccBias() const {
-  return data_.segment<3>(3);
+const double* ImuState::AccBiasPtr() { return data_.data() + 3; }
+
+const Eigen::Vector3d ImuState::GyroBias() const {
+  return Eigen::Vector3d(data_.data() + 6);
 }
 
-inline Eigen::Map<Eigen::Vector3d> ImuState::AccBias() {
-  return Eigen::Map<Eigen::Vector3d>(data_.data() + 3);
-}
+const double* ImuState::GyroBiasPtr() { return data_.data() + 6; }
 
-inline const Eigen::Vector3d& ImuState::AccBias() const {
-  return data_.tail<3>();
-}
+const camera_t& ImuState::ImuId() const { return imu_id_; }
 
-inline Eigen::Map<Eigen::Vector3d> ImuState::AccBias() {
-  return Eigen::Map<Eigen::Vector3d>(data_.data() + 6);
-}
+camera_t ImuState::ImuId() { return imu_id_; }
 
-inline const camera_t& ImuId() const { return imu_id_; }
+const image_t& ImuState::ImageId() const { return image_id_; }
 
-inline camera_t ImuId() { return imu_id_; }
-
-inline const image_t ImageId() const { return image_id_; }
-
-inline image_t ImageId() { return image_id_; }
+image_t ImuState::ImageId() { return image_id_; }
 
 }  // namespace colmap
