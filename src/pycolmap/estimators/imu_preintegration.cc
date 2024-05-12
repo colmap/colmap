@@ -14,14 +14,24 @@ namespace py = pybind11;
 
 void BindImuPreintegration(py::module& m) {
   using ImuPreITGOpt = ImuPreintegrationOptions;
-  py::class_<ImuPreITGOpt> PyImuPreintegrationOptions(m, "ImuPreintegrationOptions");
+  py::class_<ImuPreITGOpt> PyImuPreintegrationOptions(
+      m, "ImuPreintegrationOptions");
   PyImuPreintegrationOptions.def(py::init<>())
-      .def_readwrite("reintegrate_vel_norm_thres", &ImuPreITGOpt::reintegrate_vel_norm_thres);
+      .def_readwrite("reintegrate_vel_norm_thres",
+                     &ImuPreITGOpt::reintegrate_vel_norm_thres);
 
   using PIM = PreintegratedImuMeasurement;
-  py::class_<PIM> PyPreintegratedImuMeasurement(m, "PreintegratedImuMeasurement");
+  py::class_<PIM> PyPreintegratedImuMeasurement(m,
+                                                "PreintegratedImuMeasurement");
   PyPreintegratedImuMeasurement
-      .def(py::init<const ImuPreintegrationOptions&, const ImuCalibration&, const double, const double>(), "options"_a, "calib"_a, "t_start"_a, "t_end"_a)
+      .def(py::init<const ImuPreintegrationOptions&,
+                    const ImuCalibration&,
+                    const double,
+                    const double>(),
+           "options"_a,
+           "calib"_a,
+           "t_start"_a,
+           "t_end"_a)
       .def("reset", &PIM::Reset)
       .def("has_started", &PIM::HasStarted)
       .def("set_biases", &PIM::SetBiases, "biases"_a)
@@ -31,7 +41,9 @@ void BindImuPreintegration(py::module& m) {
       .def("has_finished", &PIM::HasFinished)
       .def("check_reintegrate", &PIM::CheckReintegrate, "biases"_a)
       .def("reintegrate", py::overload_cast<>(&PIM::Reintegrate))
-      .def("reintegrate", py::overload_cast<const Eigen::Vector6d&>(&PIM::Reintegrate), "biases"_a)
+      .def("reintegrate",
+           py::overload_cast<const Eigen::Vector6d&>(&PIM::Reintegrate),
+           "biases"_a)
       .def_property_readonly("delta_t", &PIM::DeltaT)
       .def_property_readonly("delta_R", &PIM::DeltaR)
       .def_property_readonly("delta_v", &PIM::DeltaV)

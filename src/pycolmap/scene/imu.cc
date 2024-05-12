@@ -1,4 +1,5 @@
 #include "colmap/sensor/imu.h"
+
 #include "colmap/scene/imu.h"
 
 #include "pycolmap/helpers.h"
@@ -18,17 +19,23 @@ void BindImu(py::module& m) {
       .def(py::init<>())
       .def_readwrite("acc_noise_density", &ImuCalibration::acc_noise_density)
       .def_readwrite("gyro_noise_density", &ImuCalibration::gyro_noise_density)
-      .def_readwrite("acc_bias_random_walk_sigma", &ImuCalibration::acc_bias_random_walk_sigma)
-      .def_readwrite("gyro_bias_random_walk_sigma", &ImuCalibration::gyro_bias_random_walk_sigma)
+      .def_readwrite("acc_bias_random_walk_sigma",
+                     &ImuCalibration::acc_bias_random_walk_sigma)
+      .def_readwrite("gyro_bias_random_walk_sigma",
+                     &ImuCalibration::gyro_bias_random_walk_sigma)
       .def_readwrite("acc_saturation_max", &ImuCalibration::acc_saturation_max)
-      .def_readwrite("gyro_saturation_max", &ImuCalibration::gyro_saturation_max)
+      .def_readwrite("gyro_saturation_max",
+                     &ImuCalibration::gyro_saturation_max)
       .def_readwrite("gravity_magnitude", &ImuCalibration::gravity_magnitude)
       .def_readwrite("imu_rate", &ImuCalibration::imu_rate);
 
   py::class_<ImuMeasurement>(m, "ImuMeasurement")
-      .def(py::init<const double, const Eigen::Vector3d&, const Eigen::Vector3d&>())
+      .def(py::init<const double,
+                    const Eigen::Vector3d&,
+                    const Eigen::Vector3d&>())
       .def_readwrite("timestamp", &ImuMeasurement::timestamp)
-      .def_readwrite("linear_acceleration", &ImuMeasurement::linear_acceleration)
+      .def_readwrite("linear_acceleration",
+                     &ImuMeasurement::linear_acceleration)
       .def_readwrite("angular_velocity", &ImuMeasurement::angular_velocity);
 
   py::class_<Imu>(m, "Imu")
