@@ -36,7 +36,15 @@ void BindImu(py::module& m) {
       .def_readwrite("timestamp", &ImuMeasurement::timestamp)
       .def_readwrite("linear_acceleration",
                      &ImuMeasurement::linear_acceleration)
-      .def_readwrite("angular_velocity", &ImuMeasurement::angular_velocity);
+      .def_readwrite("angular_velocity", &ImuMeasurement::angular_velocity)
+      .def("__repr__", [](const ImuMeasurement& m) {
+        std::stringstream ss;
+        ss << "ImuMeasurement("
+           << "t=" << m.timestamp << ", "
+           << "acc=[" << m.linear_acceleration.format(vec_fmt) << "], "
+           << "gyro=[" << m.angular_velocity.format(vec_fmt) << "])";
+        return ss.str();
+      });
 
   py::class_<ImuMeasurements>(m, "ImuMeasurements")
       .def(py::init<>())
