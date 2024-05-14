@@ -193,7 +193,8 @@ class PreintegratedImuMeasurementCostFunction {
     EigenVector3Map<T> delta_b_a(delta_b.data());
     EigenVector3Map<T> delta_b_g(delta_b.data() + 3);
     const T dt = T(measurement_.DeltaT());
-    Eigen::Matrix<T, 3, 1> gravity = EigenVector3Map<T>(gravity_direction) * T(measurement_.GravityMagnitude());
+    Eigen::Matrix<T, 3, 1> gravity = EigenVector3Map<T>(gravity_direction) *
+                                     T(measurement_.GravityMagnitude());
 
     // change frame (measure the extrinsics from imu to metric)
     // T_imu_to_metric = T_imu_to_cam * T_cam_to_world * T_world_to_metric
