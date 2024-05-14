@@ -367,8 +367,8 @@ const Eigen::Matrix<double, 15, 15> PreintegratedImuMeasurement::LMatrix()
   return L_matrix_;
 }
 
-const Eigen::Vector3d PreintegratedImuMeasurement::Gravity() const {
-  return Eigen::Vector3d(0., 0., calib_.gravity_magnitude);
+const double PreintegratedImuMeasurement::GravityMagnitude() const {
+  return calib_.gravity_magnitude;
 }
 
 const ImuMeasurements PreintegratedImuMeasurement::Measurements() const {

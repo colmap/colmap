@@ -86,8 +86,7 @@ class PreintegratedImuMeasurement {
   const Eigen::Matrix3d dv_dbg() const;
   const Eigen::Vector6d& Biases() const;
   const Eigen::Matrix<double, 15, 15> LMatrix() const;
-  const Eigen::Vector3d Gravity()
-      const;  // TODO: improve the support for gravity
+  const double GravityMagnitude() const;
   const ImuMeasurements Measurements() const;
 
  private:
@@ -155,6 +154,7 @@ class PreintegratedImuMeasurementCostFunction {
                                         4,
                                         3,
                                         1,
+                                        3,
                                         4,
                                         3,
                                         9,
@@ -168,6 +168,7 @@ class PreintegratedImuMeasurementCostFunction {
   bool operator()(const T* const cam_to_imu_q,
                   const T* const cam_to_imu_t,
                   const T* const log_scale,
+                  const T* const gravity_direction,
                   const T* const i_from_world_q,
                   const T* const i_from_world_t,
                   const T* const i_imu_state,
@@ -192,8 +193,7 @@ class PreintegratedImuMeasurementCostFunction {
     EigenVector3Map<T> delta_b_a(delta_b.data());
     EigenVector3Map<T> delta_b_g(delta_b.data() + 3);
     const T dt = T(measurement_.DeltaT());
-    Eigen::Matrix<T, 3, 1> gravity =
-        measurement_.Gravity().cast<T>();  // TODO: support gravity optimization
+    Eigen::Matrix<T, 3, 1> gravity = EigenVector3Map<T>(gravity_direction) * T(measurement_.GravityMagnitude());
 
     // change frame (measure the extrinsics from imu to metric)
     // T_imu_to_metric = T_imu_to_cam * T_cam_to_world * T_world_to_metric

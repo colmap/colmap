@@ -54,7 +54,7 @@ void BindImuPreintegration(py::module& m) {
       .def_property_readonly("dv_dbg", &PIM::dv_dbg)
       .def_property_readonly("biases", &PIM::Biases)
       .def_property_readonly("L_matrix", &PIM::LMatrix)
-      .def_property_readonly("gravity", &PIM::Gravity)
+      .def_property_readonly("gravity_magnitude", &PIM::GravityMagnitude)
       .def_property_readonly("measurements", &PIM::Measurements);
 
   m.def("PreintegratedImuMeasurementCost",
