@@ -62,12 +62,20 @@ void BindImu(py::module& m) {
       .def("back", &ImuMeasurements::back)
       .def("empty", &ImuMeasurements::empty)
       .def("clear", &ImuMeasurements::clear)
-      .def("size", &ImuMeasurements::size)
+      .def("__len__", &ImuMeasurements::size)
       .def("__getitem__",
            [](const ImuMeasurements& ms, size_t idx) { return ms[idx]; })
       .def("get_measurements_contain_edge",
            &ImuMeasurements::GetMeasurementsContainEdge)
-      .def_property_readonly("data", &ImuMeasurements::Data);
+      .def_property_readonly("data", &ImuMeasurements::Data)
+      .def("__repr__", [](const ImuMeasurements& ms) {
+        std::stringstream ss;
+        ss << "ImuMeasurements("
+           << "n=" << ms.size() << ", "
+           << "tmin=" << ms.front().timestamp << ", "
+           << "tmax=" << ms.back().timestamp << ")";
+        return ss.str();
+      });
 
   py::class_<Imu>(m, "Imu")
       .def(py::init<>())
