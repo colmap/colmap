@@ -185,8 +185,8 @@ class PreintegratedImuMeasurementCostFunction {
       measurement_.Reintegrate(biases_double);
     // Compute residuals
     // imu state
-    EigenVector3Map<T> v_i(i_imu_state);
-    EigenVector3Map<T> v_j(j_imu_state);
+    EigenVector3Map<T> v_i_data(i_imu_state);
+    EigenVector3Map<T> v_j_data(j_imu_state);
     Eigen::Matrix<T, 6, 1> delta_b =
         Eigen::Map<const Eigen::Matrix<T, 6, 1>>(i_imu_state + 3) -
         measurement_.Biases().cast<T>();
@@ -218,8 +218,12 @@ class PreintegratedImuMeasurementCostFunction {
     Eigen::Matrix<T, 3, 1> j_imu_to_world_t =
         imu_to_cam_q * j_to_world_t + imu_to_cam_t;
     // scale
-    i_imu_to_world_t = i_imu_to_world_t * ceres::exp(log_scale[0]);
-    j_imu_to_world_t = j_imu_to_world_t * ceres::exp(log_scale[0]);
+    T scale = ceres::exp(log_scale[0]);
+    i_imu_to_world_t = i_imu_to_world_t * scale;
+    j_imu_to_world_t = j_imu_to_world_t * scale;
+    // velocities should be multiplied with scale as well
+    Eigen::Matrix<T, 3, 1> v_i = v_i_data * scale;
+    Eigen::Matrix<T, 3, 1> v_j = v_j_data * scale;
 
     // Eq. (44) and (45) from Forster et al. "On-Manifold Preintegration for
     // Real-time Visual-Inertial Odometry" TRO 16. rotation: residuals[0:3]
