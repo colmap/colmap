@@ -337,11 +337,20 @@ ceres::Solver::Options BundleAdjuster::SetUpSolverOptions(
   const size_t num_images = config_.NumImages();
   if (num_images <= kMaxNumImagesDirectDenseSolver) {
     solver_options.linear_solver_type = ceres::DENSE_SCHUR;
-  } else if (num_images <= kMaxNumImagesDirectSparseSolver && has_sparse) {
-    solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
+//  } else if (num_images <= kMaxNumImagesDirectSparseSolver && has_sparse) {
+//    solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
   } else {  // Indirect sparse (preconditioned CG) solver.
-    solver_options.linear_solver_type = ceres::ITERATIVE_SCHUR;
-    solver_options.preconditioner_type = ceres::SCHUR_JACOBI;
+    solver_options.linear_solver_type = ceres::ITERATIVE_SCHUR
+    solver_options.preconditioner_type = ceres::IDENTITY;
+    solver_options.use_spse_initialization = true;
+    solver_options.max_linear_solver_iterations = 0;
+
+    // The following two settings are worth tuning for your application.
+    Solver::Options::max_num_spse_iterations = 5;
+    Solver::Options::spse_tolerance = 0.1;
+
+//    solver_options.linear_solver_type = ceres::ITERATIVE_SCHUR;
+//    solver_options.preconditioner_type = ceres::SCHUR_JACOBI;
   }
 
   if (problem.NumResiduals() < options_.min_num_residuals_for_multi_threading) {
