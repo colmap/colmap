@@ -31,12 +31,24 @@
 
 namespace colmap {
 
-ImuMeasurements ImuMeasurements::GetMeasurementsContainEdge(const double t1, const double t2) {
+ImuMeasurements ImuMeasurements::GetMeasurementsContainEdge(const double t1,
+                                                            const double t2) {
   ImuMeasurements res;
-  if (t1 >= t2 || t1 < begin()->timestamp || t2 > end()->timestamp)
-    return res;
-  auto it1 = std::upper_bound(measurements_.begin(), measurements_.end(), ImuMeasurement(t1, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero()), [](const ImuMeasurement& m1, const ImuMeasurement& m2) { return m1.timestamp < m2.timestamp; });
-  auto it2 = std::lower_bound(measurements_.begin(), measurements_.end(), ImuMeasurement(t2, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero()), [](const ImuMeasurement& m1, const ImuMeasurement& m2) { return m1.timestamp < m2.timestamp; });
+  if (t1 >= t2 || t1 < begin()->timestamp || t2 > end()->timestamp) return res;
+  auto it1 = std::upper_bound(
+      measurements_.begin(),
+      measurements_.end(),
+      ImuMeasurement(t1, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero()),
+      [](const ImuMeasurement& m1, const ImuMeasurement& m2) {
+        return m1.timestamp < m2.timestamp;
+      });
+  auto it2 = std::lower_bound(
+      measurements_.begin(),
+      measurements_.end(),
+      ImuMeasurement(t2, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero()),
+      [](const ImuMeasurement& m1, const ImuMeasurement& m2) {
+        return m1.timestamp < m2.timestamp;
+      });
   for (auto it = it1 - 1; it <= it2; ++it) {
     res.insert(*it);
   }
