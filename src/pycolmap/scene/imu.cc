@@ -38,6 +38,29 @@ void BindImu(py::module& m) {
                      &ImuMeasurement::linear_acceleration)
       .def_readwrite("angular_velocity", &ImuMeasurement::angular_velocity);
 
+  py::class_<ImuMeasurements>(m, "ImuMeasurements")
+      .def(py::init<>())
+      .def(py::init<const std::vector<ImuMeasurement>&>())
+      .def(py::init<const ImuMeasurements&>())
+      .def("insert",
+           py::overload_cast<const ImuMeasurement&>(&ImuMeasurements::insert))
+      .def("insert",
+           py::overload_cast<const std::vector<ImuMeasurement>&>(
+               &ImuMeasurements::insert))
+      .def("insert",
+           py::overload_cast<const ImuMeasurements&>(&ImuMeasurements::insert))
+      .def("remove", &ImuMeasurements::remove)
+      .def("front", &ImuMeasurements::front)
+      .def("back", &ImuMeasurements::back)
+      .def("empty", &ImuMeasurements::empty)
+      .def("clear", &ImuMeasurements::clear)
+      .def("size", &ImuMeasurements::size)
+      .def("__getitem__",
+           [](const ImuMeasurements& ms, size_t idx) { return ms[idx]; })
+      .def("get_measurements_contain_edge",
+           &ImuMeasurements::GetMeasurementsContainEdge)
+      .def_property_readonly("data", &ImuMeasurements::Data);
+
   py::class_<Imu>(m, "Imu")
       .def(py::init<>())
       .def_readwrite("imu_id", &Imu::camera_id)

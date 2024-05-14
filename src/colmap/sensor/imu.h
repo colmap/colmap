@@ -32,6 +32,8 @@
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/types.h"
 
+#include <algorithm>
+
 namespace colmap {
 
 // References:
@@ -81,6 +83,61 @@ struct ImuMeasurement {
   ~ImuMeasurement() = default;
 };
 
-typedef std::vector<ImuMeasurement> ImuMeasurements;
+// priority list for Imu measurements based on timestamps
+class ImuMeasurements {
+ public:
+  ImuMeasurements() = default;
+  ~ImuMeasurements() = default;
+  ImuMeasurements(const std::vector<ImuMeasurement>& ms) { insert(ms); }
+  ImuMeasurements(const ImuMeasurements& ms) { insert(ms); }
+  void insert(const ImuMeasurement& m) {
+    auto it = std::lower_bound(
+        measurements_.begin(),
+        measurements_.end(),
+        m,
+        [](const ImuMeasurement& m1, const ImuMeasurement& m2) {
+          return m1.timestamp < m2.timestamp;
+        });
+    measurements_.insert(it, m);
+  }
+  void insert(const std::vector<ImuMeasurement>& ms) {
+    for (auto it = ms.begin(); it != ms.end(); ++it) insert(*it);
+  }
+  void insert(const ImuMeasurements& ms) {
+    for (auto it = ms.begin(); it != ms.end(); ++it) insert(*it);
+  }
+  void remove(const ImuMeasurement& m) {
+    auto it = std::lower_bound(
+        measurements_.begin(),
+        measurements_.end(),
+        m,
+        [](const ImuMeasurement& m1, const ImuMeasurement& m2) {
+          return m1.timestamp < m2.timestamp;
+        });
+    if (it != measurements_.end() && it->timestamp == m.timestamp)
+      measurements_.erase(it);
+    else
+      throw std::invalid_argument("Element not found in the list");
+  }
+  void clear() { measurements_.clear(); }
+  bool empty() const { return measurements_.empty(); }
+  size_t size() const { return measurements_.size(); }
+  const ImuMeasurement& operator[](size_t index) const {
+    return measurements_[index];
+  }
+  typename std::vector<ImuMeasurement>::const_iterator begin() const {
+    return measurements_.begin();
+  }
+  const ImuMeasurement& front() const { return measurements_.front(); }
+  typename std::vector<ImuMeasurement>::const_iterator end() const {
+    return measurements_.end();
+  }
+  const ImuMeasurement& back() const { return measurements_.back(); }
+  const std::vector<ImuMeasurement>& Data() const { return measurements_; }
+  ImuMeasurements GetMeasurementsContainEdge(const double t1, const double t2);
+
+ private:
+  std::vector<ImuMeasurement> measurements_;
+};
 
 }  // namespace colmap

@@ -156,7 +156,7 @@ void PreintegratedImuMeasurement::AddMeasurement(const ImuMeasurement& m) {
     THROW_CHECK_LE(m.timestamp, t_start_)
         << "The timestamp of the first IMU measurement should not be later "
            "than the start of integration";
-    measurements_.push_back(m);
+    measurements_.insert(m);
     has_started_ = true;
     return;
   }
@@ -166,14 +166,19 @@ void PreintegratedImuMeasurement::AddMeasurement(const ImuMeasurement& m) {
   THROW_CHECK_GT(m.timestamp, last_measurement.timestamp);
   if (m.timestamp <= t_start_) {
     LOG(WARNING) << "The timestamp of this measurement is earlier than "
-                    "t_start. Ignore the previous timestamps.";
+                    "t_start. Ignore the previous measurements.";
     measurements_.clear();
-    measurements_.push_back(m);
+    measurements_.insert(m);
+    return;
+  }
+  if (last_measurement.timestamp >= t_end_) {
+    LOG(WARNING) << "The timestamp of the last measurement has already reached "
+                    "t_end. Ignore the current measurement.";
     return;
   }
 
   // Append measurements
-  measurements_.push_back(m);
+  measurements_.insert(m);
 
   // Get measurements at the boundaries
   Eigen::Vector3d acc_s = last_measurement.linear_acceleration;

@@ -62,7 +62,7 @@ class PreintegratedImuMeasurement {
   // Set speed and biases
   void SetBiases(const Eigen::Vector6d& biases);
 
-  // Add measurements
+  // Add measurements: measurements need to be added in chronological order
   void AddMeasurement(const ImuMeasurement& m);
   void AddMeasurements(const ImuMeasurements& ms);
   void Finish();
