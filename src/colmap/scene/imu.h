@@ -62,10 +62,16 @@ class ImuState {
   ImuState() = default;
   ~ImuState() = default;
   inline const double* Data() const;
+
+  inline void SetVelocity(const Eigen::Vector3d& vec);
   inline const Eigen::Vector3d Velocity() const;
   inline const double* VelocityPtr();
+
+  inline void SetAccBias(const Eigen::Vector3d& vec);
   inline const Eigen::Vector3d AccBias() const;
   inline const double* AccBiasPtr();
+
+  inline void SetGyroBias(const Eigen::Vector3d& vec);
   inline const Eigen::Vector3d GyroBias() const;
   inline const double* GyroBiasPtr();
 
@@ -75,12 +81,18 @@ class ImuState {
   inline image_t ImageId();
 
  private:
-  Eigen::Matrix<double, 9, 1> data_;  // 3-DoF speed + 6-DoF biases (acc + gyro)
-  camera_t imu_id_;                   // the identifier of the associated IMU
+  Eigen::Matrix<double, 9, 1> data_ =
+      Eigen::Matrix<double, 9, 1>::Zero();  // 3-DoF speed + 6-DoF biases (acc +
+                                            // gyro)
+  camera_t imu_id_;   // the identifier of the associated IMU
   image_t image_id_;  // the corresponding image from visual input
 };
 
 const double* ImuState::Data() const { return data_.data(); }
+
+void ImuState::SetVelocity(const Eigen::Vector3d& vec) {
+  data_.head<3>() = vec;
+}
 
 const Eigen::Vector3d ImuState::Velocity() const {
   return Eigen::Vector3d(data_.data());
@@ -88,11 +100,19 @@ const Eigen::Vector3d ImuState::Velocity() const {
 
 const double* ImuState::VelocityPtr() { return data_.data(); }
 
+void ImuState::SetAccBias(const Eigen::Vector3d& vec) {
+  data_.segment<3>(3) = vec;
+}
+
 const Eigen::Vector3d ImuState::AccBias() const {
   return Eigen::Vector3d(data_.data() + 3);
 }
 
 const double* ImuState::AccBiasPtr() { return data_.data() + 3; }
+
+void ImuState::SetGyroBias(const Eigen::Vector3d& vec) {
+  data_.tail<3>() = vec;
+}
 
 const Eigen::Vector3d ImuState::GyroBias() const {
   return Eigen::Vector3d(data_.data() + 6);

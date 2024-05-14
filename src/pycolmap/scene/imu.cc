@@ -85,6 +85,9 @@ void BindImu(py::module& m) {
 
   py::class_<ImuState>(m, "ImuState")
       .def(py::init<>())
+      .def("set_velocity", &ImuState::SetVelocity)
+      .def("set_acc_bias", &ImuState::SetAccBias)
+      .def("set_gyro_bias", &ImuState::SetGyroBias)
       .def_property_readonly("data", &ImuState::Data)
       .def_property_readonly("velocity", &ImuState::Velocity)
       .def_property_readonly("velocity_ptr", &ImuState::VelocityPtr)
