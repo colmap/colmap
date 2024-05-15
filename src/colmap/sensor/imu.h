@@ -88,7 +88,9 @@ class ImuMeasurements {
  public:
   ImuMeasurements() = default;
   ~ImuMeasurements() = default;
-  ImuMeasurements(const std::vector<ImuMeasurement>& ms) { insert(ms); }
+  explicit ImuMeasurements(const std::vector<ImuMeasurement>& ms) {
+    insert(ms);
+  }
   ImuMeasurements(const ImuMeasurements& ms) { insert(ms); }
   void insert(const ImuMeasurement& m) {
     auto it = std::lower_bound(
@@ -134,7 +136,7 @@ class ImuMeasurements {
   }
   const ImuMeasurement& back() const { return measurements_.back(); }
   const std::vector<ImuMeasurement>& Data() const { return measurements_; }
-  ImuMeasurements GetMeasurementsContainEdge(const double t1, const double t2);
+  ImuMeasurements GetMeasurementsContainEdge(double t1, double t2);
 
  private:
   std::vector<ImuMeasurement> measurements_;

@@ -31,8 +31,8 @@
 
 namespace colmap {
 
-ImuMeasurements ImuMeasurements::GetMeasurementsContainEdge(const double t1,
-                                                            const double t2) {
+ImuMeasurements ImuMeasurements::GetMeasurementsContainEdge(double t1,
+                                                            double t2) {
   ImuMeasurements res;
   if (t1 >= t2 || t1 < front().timestamp || t2 > back().timestamp) return res;
   auto it1 = std::upper_bound(
