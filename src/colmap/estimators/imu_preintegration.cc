@@ -39,8 +39,8 @@ namespace colmap {
 PreintegratedImuMeasurement::PreintegratedImuMeasurement(
     const ImuPreintegrationOptions& options,
     const ImuCalibration& calib,
-    const double t_start,
-    const double t_end) {
+    double t_start,
+    double t_end) {
   options_ = options;
   calib_ = calib;
   THROW_CHECK_LT(t_start, t_end);
@@ -71,9 +71,9 @@ void PreintegratedImuMeasurement::SetBiases(const Eigen::Vector6d& biases) {
 
 void PreintegratedImuMeasurement::integrate(const Eigen::Vector3d& acc_true,
                                             const Eigen::Vector3d& gyro_true,
-                                            const double dt,
-                                            const double acc_noise_density,
-                                            const double gyro_noise_density) {
+                                            double dt,
+                                            double acc_noise_density,
+                                            double gyro_noise_density) {
   has_finished_ = false;
 
   // [Reference]
