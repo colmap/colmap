@@ -113,6 +113,7 @@ class ImuMeasurements {
       measurements_ = ms.Data();
     } else {
       for (auto it = ms.begin(); it != ms.end(); ++it) insert(*it);
+      // TODO: merge two sorted list could be made faster
     }
   }
   void remove(const ImuMeasurement& m) {
