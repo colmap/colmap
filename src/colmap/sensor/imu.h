@@ -97,10 +97,28 @@ class ImuMeasurements {
     measurements_.insert(it, m);
   }
   void insert(const std::vector<ImuMeasurement>& ms) {
-    for (auto it = ms.begin(); it != ms.end(); ++it) insert(*it);
+    if (empty()) {
+      measurements_ = ms;
+      std::sort(measurements_.begin(),
+                measurements_.end(),
+                [](const ImuMeasurement& m1, const ImuMeasurement& m2) {
+                  return m1.timestamp < m2.timestamp;
+                });
+    } else {
+      for (auto it = ms.begin(); it != ms.end(); ++it) insert(*it);
+    }
   }
   void insert(const ImuMeasurements& ms) {
-    for (auto it = ms.begin(); it != ms.end(); ++it) insert(*it);
+    if (empty()) {
+      measurements_ = ms.Data();
+      std::sort(measurements_.begin(),
+                measurements_.end(),
+                [](const ImuMeasurement& m1, const ImuMeasurement& m2) {
+                  return m1.timestamp < m2.timestamp;
+                });
+    } else {
+      for (auto it = ms.begin(); it != ms.end(); ++it) insert(*it);
+    }
   }
   void remove(const ImuMeasurement& m) {
     auto it = std::lower_bound(
