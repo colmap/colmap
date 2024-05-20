@@ -31,6 +31,7 @@
 
 #include "colmap/controllers/feature_matching_utils.h"
 #include "colmap/estimators/two_view_geometry.h"
+#include "colmap/feature/pairing.h"
 #include "colmap/feature/utils.h"
 #include "colmap/geometry/gps.h"
 #include "colmap/retrieval/visual_index.h"
@@ -970,48 +971,8 @@ class ImagePairsFeatureMatcher : public Thread {
       const auto& image = cache_.GetImage(image_id);
       image_name_to_image_id.emplace(image.Name(), image_id);
     }
-
-    std::ifstream file(options_.match_list_path);
-    THROW_CHECK_FILE_OPEN(file, options_.match_list_path);
-
-    std::string line;
-    std::vector<std::pair<image_t, image_t>> image_pairs;
-    std::unordered_set<colmap::image_pair_t> image_pairs_set;
-    while (std::getline(file, line)) {
-      StringTrim(&line);
-
-      if (line.empty() || line[0] == '#') {
-        continue;
-      }
-
-      std::stringstream line_stream(line);
-
-      std::string image_name1;
-      std::string image_name2;
-
-      std::getline(line_stream, image_name1, ' ');
-      StringTrim(&image_name1);
-      std::getline(line_stream, image_name2, ' ');
-      StringTrim(&image_name2);
-
-      if (image_name_to_image_id.count(image_name1) == 0) {
-        LOG(ERROR) << "Image " << image_name1 << " does not exist.";
-        continue;
-      }
-      if (image_name_to_image_id.count(image_name2) == 0) {
-        LOG(ERROR) << "Image " << image_name2 << " does not exist.";
-        continue;
-      }
-
-      const image_t image_id1 = image_name_to_image_id.at(image_name1);
-      const image_t image_id2 = image_name_to_image_id.at(image_name2);
-      const image_pair_t image_pair =
-          Database::ImagePairToPairId(image_id1, image_id2);
-      const bool image_pair_exists = image_pairs_set.insert(image_pair).second;
-      if (image_pair_exists) {
-        image_pairs.emplace_back(image_id1, image_id2);
-      }
-    }
+    std::vector<std::pair<image_t, image_t>> image_pairs =
+        ReadImagePairsText(options_.match_list_path, image_name_to_image_id);
 
     //////////////////////////////////////////////////////////////////////////////
     // Feature matching
