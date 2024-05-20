@@ -41,8 +41,7 @@ namespace colmap {
 // [2]
 // https://github.com/uzh-rpg/rpg_svo_pro_open/blob/master/svo_common/include/svo/common/imu_calibration.h
 // Default parameters are for ADIS16448 IMU.
-class ImuCalibration {
- public:
+struct ImuCalibration {
   /// Accelerometer noise density (sigma). [m/s^2*1/sqrt(Hz)]
   double acc_noise_density = 0.01883649;
 
@@ -66,9 +65,6 @@ class ImuCalibration {
 
   /// Expected IMU Rate [1/s]
   double imu_rate = 20.0;
-
-  ImuCalibration() = default;
-  ~ImuCalibration() = default;
 };
 
 struct ImuMeasurement {
@@ -80,14 +76,12 @@ struct ImuMeasurement {
                  const Eigen::Vector3d& lin_acc,
                  const Eigen::Vector3d& ang_vel)
       : timestamp(t), linear_acceleration(lin_acc), angular_velocity(ang_vel) {}
-  ~ImuMeasurement() = default;
 };
 
 // priority list for Imu measurements based on timestamps
 class ImuMeasurements {
  public:
   ImuMeasurements() = default;
-  ~ImuMeasurements() = default;
   explicit ImuMeasurements(const std::vector<ImuMeasurement>& ms) {
     insert(ms);
   }
