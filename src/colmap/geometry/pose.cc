@@ -163,16 +163,14 @@ Eigen::Quaterniond QuaternionFromAngleAxis(const Eigen::Vector3d& omega) {
 
 Eigen::Matrix3d RightJacobianFromAngleAxis(const Eigen::Vector3d& omega) {
   Eigen::Matrix3d skew_omega = CrossProductMatrix(omega);
-  double theta = omega.norm();
-  Eigen::Matrix3d J;
-  if (theta < 1e-6)
-    J = Eigen::Matrix3d::Identity() - 0.5 * skew_omega;
-  else {
-    Eigen::Matrix3d M = skew_omega / theta;
-    J = Eigen::Matrix3d::Identity() - ((1.0 - std::cos(theta)) / theta) * M +
-        (1.0 - std::sin(theta) / theta) * M * M;
+  const double theta = omega.norm();
+  if (theta < 1e-6) {
+    return Eigen::Matrix3d::Identity() - 0.5 * skew_omega;
+  } else {
+    const Eigen::Matrix3d M = skew_omega / theta;
+    return Eigen::Matrix3d::Identity() - (((1.0 - std::cos(theta)) / theta) +
+        (1.0 - std::sin(theta) / theta) * M) * M;
   }
-  return J;
 }
 
 namespace {
