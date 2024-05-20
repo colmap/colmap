@@ -111,11 +111,6 @@ class ImuMeasurements {
   void insert(const ImuMeasurements& ms) {
     if (empty()) {
       measurements_ = ms.Data();
-      std::sort(measurements_.begin(),
-                measurements_.end(),
-                [](const ImuMeasurement& m1, const ImuMeasurement& m2) {
-                  return m1.timestamp < m2.timestamp;
-                });
     } else {
       for (auto it = ms.begin(); it != ms.end(); ++it) insert(*it);
     }
