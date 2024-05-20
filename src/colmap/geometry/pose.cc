@@ -168,8 +168,10 @@ Eigen::Matrix3d RightJacobianFromAngleAxis(const Eigen::Vector3d& omega) {
     return Eigen::Matrix3d::Identity() - 0.5 * skew_omega;
   } else {
     const Eigen::Matrix3d M = skew_omega / theta;
-    return Eigen::Matrix3d::Identity() - (((1.0 - std::cos(theta)) / theta) +
-        (1.0 - std::sin(theta) / theta) * M) * M;
+    return Eigen::Matrix3d::Identity() -
+           (((1.0 - std::cos(theta)) / theta) * Eigen::Matrix3d::Identity() +
+            (1.0 - std::sin(theta) / theta) * M) *
+               M;
   }
 }
 
