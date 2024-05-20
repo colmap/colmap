@@ -53,7 +53,7 @@ class Imu {
 
   // information for the associated visual camera. TODO: change to rigs
   camera_t camera_id = kInvalidCameraId;  // the camera linked to IMU.
-  Rigid3d cam_to_imu;
+  Rigid3d imu_from_cam;
 };
 
 // A state class storing speed and biases for discrete-time optimization

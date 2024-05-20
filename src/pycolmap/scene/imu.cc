@@ -81,7 +81,7 @@ void BindImu(py::module& m) {
       .def(py::init<>())
       .def_readwrite("imu_id", &Imu::camera_id)
       .def_readwrite("camera_id", &Imu::camera_id)
-      .def_readwrite("cam_to_imu", &Imu::cam_to_imu);
+      .def_readwrite("imu_from_cam", &Imu::imu_from_cam);
 
   py::class_<ImuState>(m, "ImuState")
       .def(py::init<>())

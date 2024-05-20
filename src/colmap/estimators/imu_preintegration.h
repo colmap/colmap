@@ -166,8 +166,8 @@ class PreintegratedImuMeasurementCostFunction {
   }
 
   template <typename T>
-  bool operator()(const T* const cam_to_imu_q,
-                  const T* const cam_to_imu_t,
+  bool operator()(const T* const imu_from_cam_q,
+                  const T* const imu_from_cam_t,
                   const T* const log_scale,
                   const T* const gravity_direction,
                   const T* const i_from_world_q,
@@ -197,31 +197,31 @@ class PreintegratedImuMeasurementCostFunction {
     Eigen::Matrix<T, 3, 1> gravity = EigenVector3Map<T>(gravity_direction) *
                                      T(measurement_.GravityMagnitude());
 
-    // change frame (measure the extrinsics from imu to metric)
-    // T_imu_to_metric = T_imu_to_cam * T_cam_to_world * T_world_to_metric
-    Eigen::Quaternion<T> imu_to_cam_q =
-        EigenQuaternionMap<T>(cam_to_imu_q).inverse();
-    Eigen::Matrix<T, 3, 1> imu_to_cam_t =
-        imu_to_cam_q * EigenVector3Map<T>(cam_to_imu_t) * T(-1.);
-    Eigen::Quaternion<T> i_to_world_q =
+    // change frame (measure the extrinsics from imu to world)
+    // T_world_from_imu = T_world_from_cam * T_cam_from_imu
+    Eigen::Quaternion<T> cam_from_imu_q =
+        EigenQuaternionMap<T>(imu_from_cam_q).inverse();
+    Eigen::Matrix<T, 3, 1> cam_from_imu_t =
+        cam_from_imu_q * EigenVector3Map<T>(imu_from_cam_t) * T(-1.);
+    Eigen::Quaternion<T> world_from_i_q =
         EigenQuaternionMap<T>(i_from_world_q).inverse();
-    Eigen::Matrix<T, 3, 1> i_to_world_t =
-        i_to_world_q * EigenVector3Map<T>(i_from_world_t) * T(-1.);
-    Eigen::Quaternion<T> j_to_world_q =
+    Eigen::Matrix<T, 3, 1> world_from_i_t =
+        world_from_i_q * EigenVector3Map<T>(i_from_world_t) * T(-1.);
+    Eigen::Quaternion<T> world_from_j_q =
         EigenQuaternionMap<T>(j_from_world_q).inverse();
-    Eigen::Matrix<T, 3, 1> j_to_world_t =
-        j_to_world_q * EigenVector3Map<T>(j_from_world_t) * T(-1.);
+    Eigen::Matrix<T, 3, 1> world_from_j_t =
+        world_from_j_q * EigenVector3Map<T>(j_from_world_t) * T(-1.);
     // compose
-    Eigen::Quaternion<T> i_imu_to_world_q = imu_to_cam_q * i_to_world_q;
-    Eigen::Matrix<T, 3, 1> i_imu_to_world_t =
-        imu_to_cam_q * i_to_world_t + imu_to_cam_t;
-    Eigen::Quaternion<T> j_imu_to_world_q = imu_to_cam_q * j_to_world_q;
-    Eigen::Matrix<T, 3, 1> j_imu_to_world_t =
-        imu_to_cam_q * j_to_world_t + imu_to_cam_t;
+    Eigen::Quaternion<T> world_from_i_imu_q = world_from_i_q * cam_from_imu_q;
+    Eigen::Matrix<T, 3, 1> world_from_i_imu_t =
+        world_from_i_q * cam_from_imu_t + world_from_i_t;
+    Eigen::Quaternion<T> world_from_j_imu_q = world_from_j_q * cam_from_imu_q;
+    Eigen::Matrix<T, 3, 1> world_from_j_imu_t =
+        world_from_j_q * cam_from_imu_t + world_from_j_t;
     // scale
     T scale = ceres::exp(log_scale[0]);
-    i_imu_to_world_t = i_imu_to_world_t * scale;
-    j_imu_to_world_t = j_imu_to_world_t * scale;
+    world_from_i_imu_t = world_from_i_imu_t * scale;
+    world_from_j_imu_t = world_from_j_imu_t * scale;
     // velocities should be multiplied with scale as well
     Eigen::Matrix<T, 3, 1> v_i = v_i_data * scale;
     Eigen::Matrix<T, 3, 1> v_j = v_j_data * scale;
@@ -229,7 +229,7 @@ class PreintegratedImuMeasurementCostFunction {
     // Eq. (44) and (45) from Forster et al. "On-Manifold Preintegration for
     // Real-time Visual-Inertial Odometry" TRO 16. rotation: residuals[0:3]
     const Eigen::Quaternion<T> j_from_i_q =
-        i_imu_to_world_q.inverse() * j_imu_to_world_q;
+        world_from_j_imu_q.inverse() * world_from_i_imu_q;
     Eigen::Matrix<T, 3, 1> omega_bias =
         measurement_.dR_dbg().cast<T>() * delta_b_g;
     Eigen::Quaternion<T> Dq_bias;
@@ -241,9 +241,9 @@ class PreintegratedImuMeasurementCostFunction {
                                residuals);
     // translation: residuals[3:6]
     const Eigen::Matrix<T, 3, 1> j_from_i_p =
-        j_imu_to_world_t - i_imu_to_world_t;
+        world_from_j_imu_t - world_from_i_imu_t;
     Eigen::Matrix<T, 3, 1> est_dp =
-        i_imu_to_world_q.inverse() *
+        world_from_i_imu_q.inverse() *
         (j_from_i_p - v_i * dt - 0.5 * gravity * dt * dt);
     Eigen::Matrix<T, 3, 1> Dp = measurement_.DeltaP().cast<T>() +
                                 measurement_.dp_dba().cast<T>() * delta_b_a +
@@ -254,7 +254,7 @@ class PreintegratedImuMeasurementCostFunction {
     // velocity: residuals[6:9]
     const Eigen::Matrix<T, 3, 1> j_from_i_v = v_j - v_i;
     Eigen::Matrix<T, 3, 1> est_dv =
-        i_imu_to_world_q.inverse() * (j_from_i_v - gravity * dt);
+        world_from_i_imu_q.inverse() * (j_from_i_v - gravity * dt);
     Eigen::Matrix<T, 3, 1> Dv = measurement_.DeltaV().cast<T>() +
                                 measurement_.dv_dba().cast<T>() * delta_b_a +
                                 measurement_.dv_dbg().cast<T>() * delta_b_g;
