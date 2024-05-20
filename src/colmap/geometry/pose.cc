@@ -155,10 +155,15 @@ Rigid3d InterpolateCameraPoses(const Rigid3d& cam_from_world1,
 }
 
 Eigen::Quaterniond QuaternionFromAngleAxis(const Eigen::Vector3d& omega) {
-  double half_angle = 0.5 * omega.norm();
-  Eigen::Vector3d axis = omega.normalized();
-  Eigen::Quaterniond q(Eigen::AngleAxisd(half_angle, axis));
-  return q;
+  const double theta = omega.norm();
+  if (theta < std::numeric_limits<double>::epsilon())
+    return Eigen::Quaterniond::Identity();
+  else {
+    const double half_angle = theta / 2.0;
+    Eigen::Vector3d axis = omega / theta;
+    Eigen::Quaterniond q(Eigen::AngleAxisd(half_angle, axis));
+    return q;
+  }
 }
 
 Eigen::Matrix3d RightJacobianFromAngleAxis(const Eigen::Vector3d& omega) {
