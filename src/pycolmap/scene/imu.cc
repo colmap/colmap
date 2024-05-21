@@ -84,9 +84,16 @@ void BindImu(py::module& m) {
 
   py::class_<Imu>(m, "Imu")
       .def(py::init<>())
-      .def_readwrite("imu_id", &Imu::camera_id)
+      .def_readwrite("imu_id", &Imu::imu_id)
       .def_readwrite("camera_id", &Imu::camera_id)
-      .def_readwrite("imu_from_cam", &Imu::imu_from_cam);
+      .def_readwrite("imu_from_cam", &Imu::imu_from_cam)
+      .def("__repr__", [](const Imu& s) {
+        std::stringstream ss;
+        ss << "Imu("
+           << "imu_id=" << s.imu_id << ", "
+           << "camera_id=" << s.camera_id << ")";
+        return ss.str();
+      });
 
   py::class_<ImuState>(m, "ImuState")
       .def(py::init<>())
@@ -99,5 +106,13 @@ void BindImu(py::module& m) {
       .def_property_readonly("acc_bias", &ImuState::AccBias)
       .def_property_readonly("acc_bias_ptr", &ImuState::AccBiasPtr)
       .def_property_readonly("gyro_bias", &ImuState::GyroBias)
-      .def_property_readonly("gyro_bias_ptr", &ImuState::GyroBiasPtr);
+      .def_property_readonly("gyro_bias_ptr", &ImuState::GyroBiasPtr)
+      .def("__repr__", [](const ImuState& s) {
+        std::stringstream ss;
+        ss << "ImuState("
+           << "vel=[" << s.Velocity().format(vec_fmt) << "], "
+           << "acc_bias=[" << s.AccBias().format(vec_fmt) << "], "
+           << "gyro_bias=[" << s.GyroBias().format(vec_fmt) << "])";
+        return ss.str();
+      });
 }
