@@ -235,8 +235,8 @@ class VocabTreePairGenerator : public PairGenerator<VocabTreeMatchingOptions> {
                          const std::vector<image_t>& query_image_ids = {})
       : options_(options),
         cache_(std::move(THROW_CHECK_NOTNULL(cache))),
-        thread_pool(-1),  // TODO: fixme  matching_options.num_threads
-        queue(-1) {
+        thread_pool(options_.num_threads),
+        queue(options_.num_threads) {
     THROW_CHECK(options.Check());
 
     // Read the pre-trained vocabulary tree from disk.
@@ -339,8 +339,7 @@ class VocabTreePairGenerator : public PairGenerator<VocabTreeMatchingOptions> {
  private:
   void IndexImages(const std::vector<image_t>& image_ids) {
     retrieval::VisualIndex<>::IndexOptions index_options;
-    index_options.num_threads =
-        -1;  // TODO: fixme matching_options.num_threads;
+    index_options.num_threads = options_.num_threads;
     index_options.num_checks = options_.num_checks;
 
     for (size_t i = 0; i < image_ids.size(); ++i) {
@@ -621,11 +620,10 @@ class SpatialPairGenerator : public PairGenerator<SpatialMatchingOptions> {
     flann::Matrix<float> distances(distance_matrix_.data(), num_locations, knn);
 
     flann::SearchParams search_params(flann::FLANN_CHECKS_AUTOTUNED);
-    const int num_threads = -1;  // TODO: get from options_
-    if (num_threads == ThreadPool::kMaxNumThreads) {
+    if (options_.num_threads == ThreadPool::kMaxNumThreads) {
       search_params.cores = std::thread::hardware_concurrency();
     } else {
-      search_params.cores = num_threads;
+      search_params.cores = options_.num_threads;
     }
     if (search_params.cores <= 0) {
       search_params.cores = 1;

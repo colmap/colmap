@@ -98,6 +98,9 @@ struct VocabTreeMatchingOptions {
   // Optional path to file with specific image names to match.
   std::string match_list_path = "";
 
+  // Number of threads for indexing and retrieval.
+  int num_threads = -1;
+
   bool Check() const;
 };
 
@@ -185,6 +188,9 @@ struct SpatialMatchingOptions {
   // The maximum distance between the query and nearest neighbor. For GPS
   // coordinates the unit is Euclidean distance in meters.
   double max_distance = 100;
+
+  // Number of threads for indexing and retrieval.
+  int num_threads = -1;
 
   bool Check() const;
 };
