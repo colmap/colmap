@@ -57,7 +57,7 @@ class GenericFeatureMatcher : public Thread {
       : pair_options_(pair_options),
         database_(new Database(database_path)),
         cache_(new FeatureMatcherCache(
-            DerivedPairGenerator::CacheSize(pair_options_), database_.get())),
+            DerivedPairGenerator::CacheSize(pair_options_), database_)),
         matcher_(
             matching_options, geometry_options, database_.get(), cache_.get()) {
     THROW_CHECK(matching_options.Check());
@@ -186,9 +186,10 @@ class TransitiveFeatureMatcher : public Thread {
                            const std::string& database_path)
       : options_(options),
         matching_options_(matching_options),
-        database_(database_path),
-        cache_(options_.batch_size, &database_),
-        matcher_(matching_options, geometry_options, &database_, &cache_) {
+        database_(new Database(database_path)),
+        cache_(new FeatureMatcherCache(options_.batch_size, database_)),
+        matcher_(
+            matching_options, geometry_options, database_.get(), cache_.get()) {
     THROW_CHECK(options.Check());
     THROW_CHECK(matching_options.Check());
     THROW_CHECK(geometry_options.Check());
@@ -204,9 +205,9 @@ class TransitiveFeatureMatcher : public Thread {
       return;
     }
 
-    cache_.Setup();
+    cache_->Setup();
 
-    const std::vector<image_t> image_ids = cache_.GetImageIds();
+    const std::vector<image_t> image_ids = cache_->GetImageIds();
 
     std::vector<std::pair<image_t, image_t>> image_pairs;
     std::unordered_set<image_pair_t> image_pair_ids;
@@ -225,8 +226,8 @@ class TransitiveFeatureMatcher : public Thread {
 
       std::vector<std::pair<image_t, image_t>> existing_image_pairs;
       std::vector<int> existing_num_inliers;
-      database_.ReadTwoViewGeometryNumInliers(&existing_image_pairs,
-                                              &existing_num_inliers);
+      database_->ReadTwoViewGeometryNumInliers(&existing_image_pairs,
+                                               &existing_num_inliers);
 
       THROW_CHECK_EQ(existing_image_pairs.size(), existing_num_inliers.size());
 
@@ -255,7 +256,7 @@ class TransitiveFeatureMatcher : public Thread {
                   num_batches += 1;
                   LOG(INFO)
                       << StringPrintf("  Batch %d", num_batches) << std::flush;
-                  DatabaseTransaction database_transaction(&database_);
+                  DatabaseTransaction database_transaction(database_.get());
                   matcher_.Match(image_pairs);
                   image_pairs.clear();
                   PrintElapsedTime(timer);
@@ -274,7 +275,7 @@ class TransitiveFeatureMatcher : public Thread {
 
       num_batches += 1;
       LOG(INFO) << StringPrintf("  Batch %d", num_batches) << std::flush;
-      DatabaseTransaction database_transaction(&database_);
+      DatabaseTransaction database_transaction(database_.get());
       matcher_.Match(image_pairs);
       PrintElapsedTime(timer);
     }
@@ -284,8 +285,8 @@ class TransitiveFeatureMatcher : public Thread {
 
   const TransitiveMatchingOptions options_;
   const SiftMatchingOptions matching_options_;
-  Database database_;
-  FeatureMatcherCache cache_;
+  const std::shared_ptr<Database> database_;
+  const std::shared_ptr<FeatureMatcherCache> cache_;
   FeatureMatcherController matcher_;
 };
 
@@ -331,8 +332,8 @@ class FeaturePairsFeatureMatcher : public Thread {
       : options_(options),
         matching_options_(matching_options),
         geometry_options_(geometry_options),
-        database_(database_path),
-        cache_(kCacheSize, &database_) {
+        database_(new Database(database_path)),
+        cache_(new FeatureMatcherCache(kCacheSize, database_)) {
     THROW_CHECK(options.Check());
     THROW_CHECK(matching_options.Check());
     THROW_CHECK(geometry_options.Check());
@@ -346,12 +347,12 @@ class FeaturePairsFeatureMatcher : public Thread {
     Timer run_timer;
     run_timer.Start();
 
-    cache_.Setup();
+    cache_->Setup();
 
     std::unordered_map<std::string, const Image*> image_name_to_image;
-    image_name_to_image.reserve(cache_.GetImageIds().size());
-    for (const auto image_id : cache_.GetImageIds()) {
-      const auto& image = cache_.GetImage(image_id);
+    image_name_to_image.reserve(cache_->GetImageIds().size());
+    for (const auto image_id : cache_->GetImageIds()) {
+      const auto& image = cache_->GetImage(image_id);
       image_name_to_image.emplace(image.Name(), &image);
     }
 
@@ -398,7 +399,7 @@ class FeaturePairsFeatureMatcher : public Thread {
       const Image& image2 = *image_name_to_image[image_name2];
 
       bool skip_pair = false;
-      if (database_.ExistsInlierMatches(image1.ImageId(), image2.ImageId())) {
+      if (database_->ExistsInlierMatches(image1.ImageId(), image2.ImageId())) {
         LOG(INFO) << "SKIP: Matches for image pair already exist in database.";
         skip_pair = true;
       }
@@ -428,14 +429,14 @@ class FeaturePairsFeatureMatcher : public Thread {
         continue;
       }
 
-      const Camera& camera1 = cache_.GetCamera(image1.CameraId());
-      const Camera& camera2 = cache_.GetCamera(image2.CameraId());
+      const Camera& camera1 = cache_->GetCamera(image1.CameraId());
+      const Camera& camera2 = cache_->GetCamera(image2.CameraId());
 
       if (options_.verify_matches) {
-        database_.WriteMatches(image1.ImageId(), image2.ImageId(), matches);
+        database_->WriteMatches(image1.ImageId(), image2.ImageId(), matches);
 
-        const auto keypoints1 = cache_.GetKeypoints(image1.ImageId());
-        const auto keypoints2 = cache_.GetKeypoints(image2.ImageId());
+        const auto keypoints1 = cache_->GetKeypoints(image1.ImageId());
+        const auto keypoints2 = cache_->GetKeypoints(image2.ImageId());
 
         TwoViewGeometry two_view_geometry =
             EstimateTwoViewGeometry(camera1,
@@ -445,7 +446,7 @@ class FeaturePairsFeatureMatcher : public Thread {
                                     matches,
                                     geometry_options_);
 
-        database_.WriteTwoViewGeometry(
+        database_->WriteTwoViewGeometry(
             image1.ImageId(), image2.ImageId(), two_view_geometry);
       } else {
         TwoViewGeometry two_view_geometry;
@@ -458,7 +459,7 @@ class FeaturePairsFeatureMatcher : public Thread {
 
         two_view_geometry.inlier_matches = matches;
 
-        database_.WriteTwoViewGeometry(
+        database_->WriteTwoViewGeometry(
             image1.ImageId(), image2.ImageId(), two_view_geometry);
       }
     }
@@ -469,8 +470,8 @@ class FeaturePairsFeatureMatcher : public Thread {
   const FeaturePairsMatchingOptions options_;
   const SiftMatchingOptions matching_options_;
   const TwoViewGeometryOptions geometry_options_;
-  Database database_;
-  FeatureMatcherCache cache_;
+  const std::shared_ptr<Database> database_;
+  const std::shared_ptr<FeatureMatcherCache> cache_;
 };
 
 }  // namespace

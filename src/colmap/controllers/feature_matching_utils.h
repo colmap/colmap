@@ -53,7 +53,7 @@ struct FeatureMatcherData {
 // Cache for feature matching to minimize database access during matching.
 class FeatureMatcherCache {
  public:
-  FeatureMatcherCache(size_t cache_size, const Database* database);
+  FeatureMatcherCache(size_t cache_size, std::shared_ptr<Database> database);
 
   void Setup();
 
@@ -82,7 +82,7 @@ class FeatureMatcherCache {
 
  private:
   const size_t cache_size_;
-  const Database* database_;
+  const std::shared_ptr<Database> database_;
   std::mutex database_mutex_;
   std::unordered_map<camera_t, Camera> cameras_cache_;
   std::unordered_map<image_t, Image> images_cache_;

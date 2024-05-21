@@ -41,10 +41,9 @@
 namespace colmap {
 
 FeatureMatcherCache::FeatureMatcherCache(const size_t cache_size,
-                                         const Database* database)
-    : cache_size_(cache_size), database_(database) {
-  THROW_CHECK_NOTNULL(database_);
-}
+                                         std::shared_ptr<Database> database)
+    : cache_size_(cache_size),
+      database_(std::move(THROW_CHECK_NOTNULL(database))) {}
 
 void FeatureMatcherCache::Setup() {
   std::vector<Camera> cameras = database_->ReadAllCameras();

@@ -112,7 +112,7 @@ ExhaustivePairGenerator::ExhaustivePairGenerator(
     : ExhaustivePairGenerator(
           options,
           std::make_shared<FeatureMatcherCache>(
-              CacheSize(options), THROW_CHECK_NOTNULL(database).get())) {}
+              CacheSize(options), THROW_CHECK_NOTNULL(database))) {}
 
 ExhaustivePairGenerator::ExhaustivePairGenerator(
     const ExhaustiveMatchingOptions& options,
