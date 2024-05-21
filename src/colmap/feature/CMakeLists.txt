@@ -50,7 +50,6 @@ COLMAP_ADD_LIBRARY(
     SRCS
         extractor.h
         matcher.h
-        pairing.h pairing.cc
         sift.h sift.cc
         types.h types.cc
         utils.h utils.cc
