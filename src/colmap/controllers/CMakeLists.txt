@@ -42,8 +42,10 @@ COLMAP_ADD_LIBRARY(
         image_reader.h image_reader.cc
         incremental_mapper.h incremental_mapper.cc
         option_manager.h option_manager.cc
+        pairing.h pairing.cc
     PUBLIC_LINK_LIBS
         colmap_estimators
+        colmap_retrieval
         colmap_scene
         colmap_util
         Eigen3::Eigen
@@ -53,7 +55,6 @@ COLMAP_ADD_LIBRARY(
         colmap_image
         colmap_math
         colmap_mvs
-        colmap_retrieval
         colmap_sfm
         Ceres::ceres
         Boost::filesystem
