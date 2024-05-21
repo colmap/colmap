@@ -68,10 +68,11 @@ struct ImuCalibration {
 };
 
 struct ImuMeasurement {
-  double timestamp;
-  Eigen::Vector3d linear_acceleration;
-  Eigen::Vector3d angular_velocity;
+  double timestamp = 0.0;
+  Eigen::Vector3d linear_acceleration = Eigen::Vector3d::Zero();
+  Eigen::Vector3d angular_velocity = Eigen::Vector3d::Zero();
 
+  ImuMeasurement() {}
   ImuMeasurement(const double t,
                  const Eigen::Vector3d& lin_acc,
                  const Eigen::Vector3d& ang_vel)

@@ -33,7 +33,7 @@ void BindImu(py::module& m) {
 
   py::class_ext_<ImuMeasurement, std::shared_ptr<ImuMeasurement>>
       PyImuMeasurement(m, "ImuMeasurement");
-  PyImuMeasurement
+  PyImuMeasurement.def(py::init<>())
       .def(py::init<const double,
                     const Eigen::Vector3d&,
                     const Eigen::Vector3d&>())
