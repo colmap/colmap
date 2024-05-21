@@ -46,6 +46,7 @@ void BindImuPreintegration(py::module& m) {
            "biases"_a)
       .def_property_readonly("delta_t", &PIM::DeltaT)
       .def_property_readonly("delta_R", &PIM::DeltaR)
+      .def_property_readonly("delta_p", &PIM::DeltaP)
       .def_property_readonly("delta_v", &PIM::DeltaV)
       .def_property_readonly("dR_dbg", &PIM::dR_dbg)
       .def_property_readonly("dp_dba", &PIM::dp_dba)
