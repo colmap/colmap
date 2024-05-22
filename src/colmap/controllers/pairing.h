@@ -58,10 +58,10 @@ class ExhaustivePairGenerator : public PairGenerator {
   }
 
   ExhaustivePairGenerator(const ExhaustiveMatchingOptions& options,
-                          const std::shared_ptr<Database>& database);
+                          const std::shared_ptr<FeatureMatcherCache>& cache);
 
   ExhaustivePairGenerator(const ExhaustiveMatchingOptions& options,
-                          const std::shared_ptr<FeatureMatcherCache>& cache);
+                          const std::shared_ptr<Database>& database);
 
   void Reset() override;
 
@@ -88,6 +88,10 @@ class VocabTreePairGenerator : public PairGenerator {
 
   VocabTreePairGenerator(const VocabTreeMatchingOptions& options,
                          std::shared_ptr<FeatureMatcherCache> cache,
+                         const std::vector<image_t>& query_image_ids = {});
+
+  VocabTreePairGenerator(const VocabTreeMatchingOptions& options,
+                         const std::shared_ptr<Database>& database,
                          const std::vector<image_t>& query_image_ids = {});
 
   void Reset() override;
@@ -128,6 +132,9 @@ class SequentialPairGenerator : public PairGenerator {
   SequentialPairGenerator(const SequentialMatchingOptions& options,
                           std::shared_ptr<FeatureMatcherCache> cache);
 
+  SequentialPairGenerator(const SequentialMatchingOptions& options,
+                          const std::shared_ptr<Database>& database);
+
   void Reset() override;
 
   bool HasFinished() const override;
@@ -154,6 +161,9 @@ class SpatialPairGenerator : public PairGenerator {
 
   SpatialPairGenerator(const SpatialMatchingOptions& options,
                        const std::shared_ptr<FeatureMatcherCache>& cache);
+
+  SpatialPairGenerator(const SpatialMatchingOptions& options,
+                       const std::shared_ptr<Database>& database);
 
   void Reset() override;
 
@@ -185,6 +195,9 @@ class ImportedPairGenerator : public PairGenerator {
 
   ImportedPairGenerator(const ImagePairsMatchingOptions& options,
                         const std::shared_ptr<FeatureMatcherCache>& cache);
+
+  ImportedPairGenerator(const ImagePairsMatchingOptions& options,
+                        const std::shared_ptr<Database>& database);
 
   void Reset() override;
 

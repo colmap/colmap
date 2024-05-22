@@ -106,14 +106,6 @@ std::vector<std::pair<image_t, image_t>> PairGenerator::AllPairs() {
 
 ExhaustivePairGenerator::ExhaustivePairGenerator(
     const ExhaustiveMatchingOptions& options,
-    const std::shared_ptr<Database>& database)
-    : ExhaustivePairGenerator(
-          options,
-          std::make_shared<FeatureMatcherCache>(
-              CacheSize(options), THROW_CHECK_NOTNULL(database))) {}
-
-ExhaustivePairGenerator::ExhaustivePairGenerator(
-    const ExhaustiveMatchingOptions& options,
     const std::shared_ptr<FeatureMatcherCache>& cache)
     : options_(options),
       image_ids_(THROW_CHECK_NOTNULL(cache)->GetImageIds()),
@@ -126,6 +118,15 @@ ExhaustivePairGenerator::ExhaustivePairGenerator(
   image_pairs_.reserve(num_pairs_per_block);
   Reset();
 }
+
+ExhaustivePairGenerator::ExhaustivePairGenerator(
+    const ExhaustiveMatchingOptions& options,
+    const std::shared_ptr<Database>& database)
+    : ExhaustivePairGenerator(
+          options,
+          std::make_shared<FeatureMatcherCache>(CacheSize(options),
+                                                THROW_CHECK_NOTNULL(database),
+                                                /*do_setup=*/true)) {}
 
 void ExhaustivePairGenerator::Reset() {
   start_idx1_ = 0;
@@ -228,6 +229,17 @@ VocabTreePairGenerator::VocabTreePairGenerator(
 
   Reset();
 }
+
+VocabTreePairGenerator::VocabTreePairGenerator(
+    const VocabTreeMatchingOptions& options,
+    const std::shared_ptr<Database>& database,
+    const std::vector<image_t>& query_image_ids)
+    : VocabTreePairGenerator(
+          options,
+          std::make_shared<FeatureMatcherCache>(CacheSize(options),
+                                                THROW_CHECK_NOTNULL(database),
+                                                /*do_setup=*/true),
+          query_image_ids) {}
 
 void VocabTreePairGenerator::Reset() {
   query_idx_ = 0;
@@ -343,6 +355,15 @@ SequentialPairGenerator::SequentialPairGenerator(
 
   Reset();
 }
+
+SequentialPairGenerator::SequentialPairGenerator(
+    const SequentialMatchingOptions& options,
+    const std::shared_ptr<Database>& database)
+    : SequentialPairGenerator(
+          options,
+          std::make_shared<FeatureMatcherCache>(CacheSize(options),
+                                                THROW_CHECK_NOTNULL(database),
+                                                /*do_setup=*/true)) {}
 
 void SequentialPairGenerator::Reset() {
   image_idx_ = 0;
@@ -485,6 +506,15 @@ SpatialPairGenerator::SpatialPairGenerator(
   Reset();
 }
 
+SpatialPairGenerator::SpatialPairGenerator(
+    const SpatialMatchingOptions& options,
+    const std::shared_ptr<Database>& database)
+    : SpatialPairGenerator(
+          options,
+          std::make_shared<FeatureMatcherCache>(CacheSize(options),
+                                                THROW_CHECK_NOTNULL(database),
+                                                /*do_setup=*/true)) {}
+
 void SpatialPairGenerator::Reset() { current_idx_ = 0; }
 
 bool SpatialPairGenerator::HasFinished() const {
@@ -591,6 +621,15 @@ ImportedPairGenerator::ImportedPairGenerator(
   block_image_pairs_.reserve(options_.block_size);
   Reset();
 }
+
+ImportedPairGenerator::ImportedPairGenerator(
+    const ImagePairsMatchingOptions& options,
+    const std::shared_ptr<Database>& database)
+    : ImportedPairGenerator(
+          options,
+          std::make_shared<FeatureMatcherCache>(CacheSize(options),
+                                                THROW_CHECK_NOTNULL(database),
+                                                /*do_setup=*/true)) {}
 
 void ImportedPairGenerator::Reset() { pair_idx_ = 0; }
 

@@ -53,7 +53,9 @@ struct FeatureMatcherData {
 // Cache for feature matching to minimize database access during matching.
 class FeatureMatcherCache {
  public:
-  FeatureMatcherCache(size_t cache_size, std::shared_ptr<Database> database);
+  FeatureMatcherCache(size_t cache_size,
+                      std::shared_ptr<Database> database,
+                      bool do_setup = false);
 
   void Setup();
 
