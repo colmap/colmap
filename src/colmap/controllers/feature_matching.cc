@@ -254,8 +254,7 @@ class TransitiveFeatureMatcher : public Thread {
                 image_pair_ids.insert(image_pair_id);
                 if (image_pairs.size() >= batch_size) {
                   num_batches += 1;
-                  LOG(INFO)
-                      << StringPrintf("  Batch %d", num_batches) << std::flush;
+                  LOG(INFO) << StringPrintf("  Batch %d", num_batches);
                   DatabaseTransaction database_transaction(database_.get());
                   matcher_.Match(image_pairs);
                   image_pairs.clear();
@@ -274,7 +273,7 @@ class TransitiveFeatureMatcher : public Thread {
       }
 
       num_batches += 1;
-      LOG(INFO) << StringPrintf("  Batch %d", num_batches) << std::flush;
+      LOG(INFO) << StringPrintf("  Batch %d", num_batches);
       DatabaseTransaction database_transaction(database_.get());
       matcher_.Match(image_pairs);
       PrintElapsedTime(timer);

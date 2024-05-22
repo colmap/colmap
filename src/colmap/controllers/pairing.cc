@@ -153,8 +153,7 @@ std::vector<std::pair<image_t, image_t>> ExhaustivePairGenerator::Next() {
                             start_idx1_ / block_size_ + 1,
                             num_blocks_,
                             start_idx2_ / block_size_ + 1,
-                            num_blocks_)
-            << std::flush;
+                            num_blocks_);
 
   for (size_t idx1 = start_idx1_; idx1 <= end_idx1; ++idx1) {
     for (size_t idx2 = start_idx2_; idx2 <= end_idx2; ++idx2) {
@@ -257,10 +256,8 @@ std::vector<std::pair<image_t, image_t>> VocabTreePairGenerator::Next() {
     }
   }
 
-  LOG(INFO) << StringPrintf("Matching image [%d/%d]",
-                            result_idx_ + 1,
-                            query_image_ids_.size())
-            << std::flush;
+  LOG(INFO) << StringPrintf(
+      "Matching image [%d/%d]", result_idx_ + 1, query_image_ids_.size());
 
   // Push the next image to the retrieval queue.
   if (query_idx_ < query_image_ids_.size()) {
@@ -293,8 +290,8 @@ void VocabTreePairGenerator::IndexImages(
   for (size_t i = 0; i < image_ids.size(); ++i) {
     Timer timer;
     timer.Start();
-    LOG(INFO) << StringPrintf("Indexing image [%d/%d]", i + 1, image_ids.size())
-              << std::flush;
+    LOG(INFO) << StringPrintf(
+        "Indexing image [%d/%d]", i + 1, image_ids.size());
     auto keypoints = *cache_->GetKeypoints(image_ids[i]);
     auto descriptors = *cache_->GetDescriptors(image_ids[i]);
     if (options_.max_num_features > 0 &&
@@ -371,8 +368,7 @@ std::vector<std::pair<image_t, image_t>> SequentialPairGenerator::Next() {
     return image_pairs_;
   }
   LOG(INFO) << StringPrintf(
-                   "Matching image [%d/%d]", image_idx_ + 1, image_ids_.size())
-            << std::flush;
+      "Matching image [%d/%d]", image_idx_ + 1, image_ids_.size());
 
   const auto image_id1 = image_ids_.at(image_idx_);
   for (int i = 0; i < options_.overlap; ++i) {
@@ -430,7 +426,7 @@ SpatialPairGenerator::SpatialPairGenerator(
 
   Timer timer;
   timer.Start();
-  LOG(INFO) << "Indexing images..." << std::flush;
+  LOG(INFO) << "Indexing images...";
 
   Eigen::Matrix<float, Eigen::Dynamic, 3, Eigen::RowMajor> location_matrix =
       ReadLocationData(*cache);
@@ -447,7 +443,7 @@ SpatialPairGenerator::SpatialPairGenerator(
   ////////////////////////////////////////////////////////////////////////////
 
   timer.Restart();
-  LOG(INFO) << "Building search index..." << std::flush;
+  LOG(INFO) << "Building search index...";
 
   flann::Matrix<float> locations(
       location_matrix.data(), num_locations, location_matrix.cols());
@@ -464,7 +460,7 @@ SpatialPairGenerator::SpatialPairGenerator(
 
   timer.Restart();
 
-  LOG(INFO) << "Searching for nearest neighbors..." << std::flush;
+  LOG(INFO) << "Searching for nearest neighbors...";
 
   const int knn = std::min<int>(options_.max_num_neighbors, num_locations);
   image_pairs_.reserve(knn);
@@ -503,10 +499,8 @@ std::vector<std::pair<image_t, image_t>> SpatialPairGenerator::Next() {
     return image_pairs_;
   }
 
-  LOG(INFO) << StringPrintf("Matching image [%d/%d]",
-                            current_idx_ + 1,
-                            location_idxs_.size())
-            << std::flush;
+  LOG(INFO) << StringPrintf(
+      "Matching image [%d/%d]", current_idx_ + 1, location_idxs_.size());
   const int knn =
       std::min<int>(options_.max_num_neighbors, location_idxs_.size());
   const float max_distance =
@@ -614,8 +608,7 @@ std::vector<std::pair<image_t, image_t>> ImportedPairGenerator::Next() {
 
   LOG(INFO) << StringPrintf("Matching block [%d/%d]",
                             pair_idx_ / options_.block_size + 1,
-                            image_pairs_.size() / options_.block_size + 1)
-            << std::flush;
+                            image_pairs_.size() / options_.block_size + 1);
 
   const size_t block_end =
       std::min(pair_idx_ + options_.block_size, image_pairs_.size());
