@@ -92,6 +92,16 @@ class PreintegratedImuMeasurement {
   const ImuMeasurements Measurements() const;
 
  private:
+  // Clock
+  double t_start_ = 0.0;  // from what time to start the integration.
+  double t_end_ = 0.0;    // until what time to do the integration.
+
+  // Flag to check if the first measurement has already been added.
+  bool has_started_ = false;
+
+  // Flag to check if LLT is performed
+  bool has_finished_ = false;
+
   // Options
   ImuPreintegrationOptions options_;
 
@@ -103,16 +113,6 @@ class PreintegratedImuMeasurement {
   Eigen::Matrix3d gyro_rect_mat_inv_ = Eigen::Matrix3d::Identity();
   Eigen::Vector6d biases_ =
       Eigen::Vector6d::Zero();  // bias on acc (3-DoF) + gyro (3-DoF)
-
-  // Clock
-  double t_start_ = 0.0;  // from what time to start the integration.
-  double t_end_ = 0.0;    // until what time to do the integration.
-
-  // Flag to check if the first measurement has already been added.
-  bool has_started_ = false;
-
-  // Flag to check if LLT is performed
-  bool has_finished_ = false;
 
   // Preintegrated measurements (imu to gravity-aligned metric world)
   Eigen::Quaterniond delta_R_ij_ =
