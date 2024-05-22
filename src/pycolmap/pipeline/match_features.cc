@@ -1,4 +1,5 @@
 #include "colmap/controllers/feature_matching.h"
+#include "colmap/controllers/pairing.h"
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/exe/feature.h"
 #include "colmap/exe/sfm.h"
@@ -147,7 +148,8 @@ void BindMatchFeatures(py::module& m) {
                          "largest-scale features will be indexed.")
           .def_readwrite("vocab_tree_path",
                          &SeqMOpts::vocab_tree_path,
-                         "Path to the vocabulary tree.");
+                         "Path to the vocabulary tree.")
+          .def("vocab_tree_options", &SeqMOpts::VocabTreeOptions);
   MakeDataclass(PySequentialMatchingOptions);
   auto sequential_options = PySequentialMatchingOptions().cast<SeqMOpts>();
 
@@ -170,7 +172,8 @@ void BindMatchFeatures(py::module& m) {
           .def_readwrite("max_distance",
                          &SpMOpts::max_distance,
                          "The maximum distance between the query and nearest "
-                         "neighbor [meters].");
+                         "neighbor [meters].")
+          .def_readwrite("num_threads", &SpMOpts::num_threads);
   MakeDataclass(PySpatialMatchingOptions);
   auto spatial_options = PySpatialMatchingOptions().cast<SpMOpts>();
 
@@ -205,6 +208,7 @@ void BindMatchFeatures(py::module& m) {
               "match_list_path",
               &VTMOpts::match_list_path,
               "Optional path to file with specific image names to match.")
+          .def_readwrite("num_threads", &VTMOpts::num_threads)
           .def("check", [](VTMOpts& self) {
             THROW_CHECK(!self.vocab_tree_path.empty())
                 << "vocab_tree_path required.";
@@ -258,4 +262,39 @@ void BindMatchFeatures(py::module& m) {
         "pairs_path"_a,
         "options"_a = verification_options,
         "Run geometric verification of the matches");
+
+  py::class_<PairGenerator>(m, "PairGenerator")
+      .def("reset", &PairGenerator::Reset)
+      .def("has_finished", &PairGenerator::HasFinished)
+      .def("next", &PairGenerator::Next)
+      .def("all_pairs", &PairGenerator::AllPairs);
+  py::class_<ExhaustivePairGenerator, PairGenerator>(m,
+                                                     "ExhaustivePairGenerator")
+      .def(py::init<const ExhaustiveMatchingOptions&,
+                    const std::shared_ptr<Database>&>(),
+           "options"_a,
+           "database"_a);
+  py::class_<VocabTreePairGenerator, PairGenerator>(m, "VocabTreePairGenerator")
+      .def(py::init<const VocabTreeMatchingOptions&,
+                    const std::shared_ptr<Database>&,
+                    const std::vector<image_t>&>(),
+           "options"_a,
+           "database"_a,
+           "query_image_ids"_a = std::vector<image_t>());
+  py::class_<SequentialPairGenerator, PairGenerator>(m,
+                                                     "SequentialPairGenerator")
+      .def(py::init<const SequentialMatchingOptions&,
+                    const std::shared_ptr<Database>&>(),
+           "options"_a,
+           "database"_a);
+  py::class_<SpatialPairGenerator, PairGenerator>(m, "SpatialPairGenerator")
+      .def(py::init<const SpatialMatchingOptions&,
+                    const std::shared_ptr<Database>&>(),
+           "options"_a,
+           "database"_a);
+  py::class_<ImportedPairGenerator, PairGenerator>(m, "ImportedPairGenerator")
+      .def(py::init<const ImagePairsMatchingOptions&,
+                    const std::shared_ptr<Database>&>(),
+           "options"_a,
+           "database"_a);
 }
