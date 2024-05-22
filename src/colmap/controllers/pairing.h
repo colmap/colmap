@@ -66,11 +66,11 @@ class ExhaustivePairGenerator
   ExhaustivePairGenerator(const ExhaustiveMatchingOptions& options,
                           const std::shared_ptr<FeatureMatcherCache>& cache);
 
-  void Reset();
+  void Reset() override;
 
-  bool HasFinished() const;
+  bool HasFinished() const override;
 
-  std::vector<std::pair<image_t, image_t>> Next();
+  std::vector<std::pair<image_t, image_t>> Next() override;
 
  private:
   const ExhaustiveMatchingOptions options_;
@@ -92,11 +92,11 @@ class VocabTreePairGenerator : public PairGenerator<VocabTreeMatchingOptions> {
                          std::shared_ptr<FeatureMatcherCache> cache,
                          const std::vector<image_t>& query_image_ids = {});
 
-  void Reset();
+  void Reset() override;
 
-  bool HasFinished() const;
+  bool HasFinished() const override;
 
-  std::vector<std::pair<image_t, image_t>> Next();
+  std::vector<std::pair<image_t, image_t>> Next() override;
 
  private:
   void IndexImages(const std::vector<image_t>& image_ids);
@@ -130,11 +130,11 @@ class SequentialPairGenerator
   SequentialPairGenerator(const SequentialMatchingOptions& options,
                           std::shared_ptr<FeatureMatcherCache> cache);
 
-  void Reset();
+  void Reset() override;
 
-  bool HasFinished() const;
+  bool HasFinished() const override;
 
-  std::vector<std::pair<image_t, image_t>> Next();
+  std::vector<std::pair<image_t, image_t>> Next() override;
 
  private:
   std::vector<image_t> GetOrderedImageIds() const;
@@ -156,11 +156,11 @@ class SpatialPairGenerator : public PairGenerator<SpatialMatchingOptions> {
   SpatialPairGenerator(const SpatialMatchingOptions& options,
                        const std::shared_ptr<FeatureMatcherCache>& cache);
 
-  void Reset();
+  void Reset() override;
 
-  bool HasFinished() const;
+  bool HasFinished() const override;
 
-  std::vector<std::pair<image_t, image_t>> Next();
+  std::vector<std::pair<image_t, image_t>> Next() override;
 
  private:
   Eigen::Matrix<float, Eigen::Dynamic, 3, Eigen::RowMajor> ReadLocationData(
@@ -186,11 +186,11 @@ class ImportedPairGenerator : public PairGenerator<ImagePairsMatchingOptions> {
   ImportedPairGenerator(const ImagePairsMatchingOptions& options,
                         const std::shared_ptr<FeatureMatcherCache>& cache);
 
-  void Reset();
+  void Reset() override;
 
-  bool HasFinished() const;
+  bool HasFinished() const override;
 
-  std::vector<std::pair<image_t, image_t>> Next();
+  std::vector<std::pair<image_t, image_t>> Next() override;
 
  private:
   const ImagePairsMatchingOptions options_;
