@@ -116,7 +116,6 @@ ExhaustivePairGenerator::ExhaustivePairGenerator(
   LOG(INFO) << "Generating exhaustive image pairs...";
   const size_t num_pairs_per_block = block_size_ * (block_size_ - 1) / 2;
   image_pairs_.reserve(num_pairs_per_block);
-  Reset();
 }
 
 ExhaustivePairGenerator::ExhaustivePairGenerator(
@@ -226,8 +225,6 @@ VocabTreePairGenerator::VocabTreePairGenerator(
   query_options_.num_checks = options_.num_checks;
   query_options_.num_images_after_verification =
       options_.num_images_after_verification;
-
-  Reset();
 }
 
 VocabTreePairGenerator::VocabTreePairGenerator(
@@ -352,8 +349,6 @@ SequentialPairGenerator::SequentialPairGenerator(
     vocab_tree_pair_generator_ = std::make_unique<VocabTreePairGenerator>(
         options_.VocabTreeOptions(), cache_, query_image_ids);
   }
-
-  Reset();
 }
 
 SequentialPairGenerator::SequentialPairGenerator(
@@ -439,9 +434,6 @@ SpatialPairGenerator::SpatialPairGenerator(
     : options_(options), image_ids_(cache->GetImageIds()) {
   LOG(INFO) << "Generating spatial image pairs...";
   THROW_CHECK(options.Check());
-  ////////////////////////////////////////////////////////////////////////////
-  // Spatial indexing
-  ////////////////////////////////////////////////////////////////////////////
 
   Timer timer;
   timer.Start();
@@ -457,10 +449,6 @@ SpatialPairGenerator::SpatialPairGenerator(
     return;
   }
 
-  ////////////////////////////////////////////////////////////////////////////
-  // Building spatial index
-  ////////////////////////////////////////////////////////////////////////////
-
   timer.Restart();
   LOG(INFO) << "Building search index...";
 
@@ -473,12 +461,7 @@ SpatialPairGenerator::SpatialPairGenerator(
 
   LOG(INFO) << StringPrintf(" in %.3fs", timer.ElapsedSeconds());
 
-  //////////////////////////////////////////////////////////////////////////////
-  // Searching spatial index
-  //////////////////////////////////////////////////////////////////////////////
-
   timer.Restart();
-
   LOG(INFO) << "Searching for nearest neighbors...";
 
   const int knn = std::min<int>(options_.max_num_neighbors, num_locations);
@@ -503,7 +486,6 @@ SpatialPairGenerator::SpatialPairGenerator(
   search_index.knnSearch(locations, indices, distances, knn, search_params);
 
   LOG(INFO) << StringPrintf(" in %.3fs", timer.ElapsedSeconds());
-  Reset();
 }
 
 SpatialPairGenerator::SpatialPairGenerator(
@@ -619,7 +601,6 @@ ImportedPairGenerator::ImportedPairGenerator(
   image_pairs_ =
       ReadImagePairsText(options_.match_list_path, image_name_to_image_id);
   block_image_pairs_.reserve(options_.block_size);
-  Reset();
 }
 
 ImportedPairGenerator::ImportedPairGenerator(

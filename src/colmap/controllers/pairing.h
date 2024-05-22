@@ -74,8 +74,8 @@ class ExhaustivePairGenerator : public PairGenerator {
   const std::vector<image_t> image_ids_;
   const size_t block_size_;
   const size_t num_blocks_;
-  size_t start_idx1_;
-  size_t start_idx2_;
+  size_t start_idx1_ = 0;
+  size_t start_idx2_ = 0;
   std::vector<std::pair<image_t, image_t>> image_pairs_;
 };
 
@@ -115,11 +115,11 @@ class VocabTreePairGenerator : public PairGenerator {
   ThreadPool thread_pool;
   JobQueue<Retrieval> queue;
   retrieval::VisualIndex<> visual_index_;
+  retrieval::VisualIndex<>::QueryOptions query_options_;
   std::vector<image_t> query_image_ids_;
   std::vector<std::pair<image_t, image_t>> image_pairs_;
-  size_t query_idx_;
-  size_t result_idx_;
-  retrieval::VisualIndex<>::QueryOptions query_options_;
+  size_t query_idx_ = 0;
+  size_t result_idx_ = 0;
 };
 
 class SequentialPairGenerator : public PairGenerator {
@@ -149,7 +149,7 @@ class SequentialPairGenerator : public PairGenerator {
   std::vector<image_t> image_ids_;
   std::unique_ptr<VocabTreePairGenerator> vocab_tree_pair_generator_;
   std::vector<std::pair<image_t, image_t>> image_pairs_;
-  size_t image_idx_;
+  size_t image_idx_ = 0;
 };
 
 class SpatialPairGenerator : public PairGenerator {
@@ -183,7 +183,7 @@ class SpatialPairGenerator : public PairGenerator {
       distance_matrix_;
   std::vector<image_t> image_ids_;
   std::vector<size_t> location_idxs_;
-  size_t current_idx_;
+  size_t current_idx_ = 0;
 };
 
 class ImportedPairGenerator : public PairGenerator {
@@ -209,7 +209,7 @@ class ImportedPairGenerator : public PairGenerator {
   const ImagePairsMatchingOptions options_;
   std::vector<std::pair<image_t, image_t>> image_pairs_;
   std::vector<std::pair<image_t, image_t>> block_image_pairs_;
-  size_t pair_idx_;
+  size_t pair_idx_ = 0;
 };
 
 }  // namespace colmap
