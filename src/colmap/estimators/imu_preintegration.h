@@ -59,7 +59,9 @@ class PreintegratedImuMeasurement {
   void Reset();
   bool HasStarted() const;
 
-  // Set biases
+  // Set rectification matrices and biases
+  void SetAccRectMat(const Eigen::Matrix3d& mat);
+  void SetGyroRectMat(const Eigen::Matrix3d& mat);
   void SetBiases(const Eigen::Vector6d& biases);
 
   // Add measurements: measurements need to be added in chronological order
@@ -93,8 +95,14 @@ class PreintegratedImuMeasurement {
   // Options
   ImuPreintegrationOptions options_;
 
-  // IMU Calibration
+  // IMU Calibration.
   ImuCalibration calib_;
+  // TODO: the rectification matrix and bias should go into calibration
+  // m = M(m_true + b), i.e. m_true = M^{-1}(m - b)
+  Eigen::Matrix3d acc_rect_mat_inv_ = Eigen::Matrix3d::Identity();
+  Eigen::Matrix3d gyro_rect_mat_inv_ = Eigen::Matrix3d::Identity();
+  Eigen::Vector6d biases_ =
+      Eigen::Vector6d::Zero();  // bias on acc (3-DoF) + gyro (3-DoF)
 
   // Clock
   double t_start_ = 0.0;  // from what time to start the integration.
@@ -112,8 +120,6 @@ class PreintegratedImuMeasurement {
   Eigen::Vector3d delta_p_ij_ = Eigen::Vector3d::Zero();  // position changes
   Eigen::Vector3d delta_v_ij_ = Eigen::Vector3d::Zero();  // velocity changes
   double delta_t_ = 0;                                    // accumulated time
-  Eigen::Vector6d biases_ =
-      Eigen::Vector6d::Zero();  // bias on acc (3-DoF) + gyro (3-DoF)
 
   // Accounting for bias changes
   Eigen::Matrix<double, 9, 6> jacobian_biases_ =

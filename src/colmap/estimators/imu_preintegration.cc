@@ -65,6 +65,14 @@ bool PreintegratedImuMeasurement::HasStarted() const { return has_started_; }
 
 bool PreintegratedImuMeasurement::HasFinished() const { return has_finished_; }
 
+void PreintegratedImuMeasurement::SetAccRectMat(const Eigen::Matrix3d& mat) {
+  acc_rect_mat_inv_ = mat.inverse();
+}
+
+void PreintegratedImuMeasurement::SetGyroRectMat(const Eigen::Matrix3d& mat) {
+  gyro_rect_mat_inv_ = mat.inverse();
+}
+
 void PreintegratedImuMeasurement::SetBiases(const Eigen::Vector6d& biases) {
   biases_ = biases;
 }
@@ -213,7 +221,9 @@ void PreintegratedImuMeasurement::AddMeasurement(const ImuMeasurement& m) {
   acc_e = acc_e_tmp;
   gyro_e = gyro_e_tmp;
   Eigen::Vector3d acc_true = 0.5 * (acc_s + acc_e) - biases_.head<3>();
+  acc_true = acc_rect_mat_inv_ * acc_true;
   Eigen::Vector3d gyro_true = 0.5 * (gyro_s + gyro_e) - biases_.tail<3>();
+  gyro_true = gyro_rect_mat_inv_ * gyro_true;
 
   // Check saturation
   double acc_noise_density = calib_.acc_noise_density;

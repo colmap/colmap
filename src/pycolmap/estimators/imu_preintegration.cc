@@ -34,6 +34,8 @@ void BindImuPreintegration(py::module& m) {
            "t_end"_a)
       .def("reset", &PIM::Reset)
       .def("has_started", &PIM::HasStarted)
+      .def("set_acc_rect_mat", &PIM::SetAccRectMat, "mat"_a)
+      .def("set_gyro_rect_mat", &PIM::SetGyroRectMat, "mat"_a)
       .def("set_biases", &PIM::SetBiases, "biases"_a)
       .def("add_measurement", &PIM::AddMeasurement, "measurement"_a)
       .def("add_measurements", &PIM::AddMeasurements, "measurements"_a)
