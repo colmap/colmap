@@ -123,6 +123,7 @@ ExhaustivePairGenerator::ExhaustivePairGenerator(
       num_blocks_(static_cast<size_t>(
           std::ceil(static_cast<double>(image_ids_.size()) / block_size_))) {
   THROW_CHECK(options.Check());
+  LOG(INFO) << "Generating exhaustive image pairs...";
   const size_t num_pairs_per_block = block_size_ * (block_size_ - 1) / 2;
   image_pairs_.reserve(num_pairs_per_block);
   Reset();
@@ -182,6 +183,7 @@ VocabTreePairGenerator::VocabTreePairGenerator(
       thread_pool(options_.num_threads),
       queue(options_.num_threads) {
   THROW_CHECK(options.Check());
+  LOG(INFO) << "Generating image pairs with vocabulary tree...";
 
   // Read the pre-trained vocabulary tree from disk.
   visual_index_.Read(options_.vocab_tree_path);
@@ -330,6 +332,7 @@ SequentialPairGenerator::SequentialPairGenerator(
     std::shared_ptr<FeatureMatcherCache> cache)
     : options_(options), cache_(std::move(THROW_CHECK_NOTNULL(cache))) {
   THROW_CHECK(options.Check());
+  LOG(INFO) << "Generating sequential image pairs...";
   image_ids_ = GetOrderedImageIds();
   image_pairs_.reserve(options_.overlap);
 
@@ -419,6 +422,7 @@ SpatialPairGenerator::SpatialPairGenerator(
     const SpatialMatchingOptions& options,
     const std::shared_ptr<FeatureMatcherCache>& cache)
     : options_(options), image_ids_(cache->GetImageIds()) {
+  LOG(INFO) << "Generating spatial image pairs...";
   THROW_CHECK(options.Check());
   ////////////////////////////////////////////////////////////////////////////
   // Spatial indexing
@@ -580,6 +584,7 @@ ImportedPairGenerator::ImportedPairGenerator(
     const ImagePairsMatchingOptions& options,
     const std::shared_ptr<FeatureMatcherCache>& cache)
     : options_(options) {
+  LOG(INFO) << "Importing image pairs...";
   THROW_CHECK(options.Check());
 
   const std::vector<image_t> image_ids = cache->GetImageIds();
