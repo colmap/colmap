@@ -37,11 +37,8 @@
 
 namespace colmap {
 
-template <typename DerivedPairOptions>
 class PairGenerator {
  public:
-  using PairOptions = DerivedPairOptions;
-
   virtual ~PairGenerator() = default;
 
   virtual void Reset() = 0;
@@ -53,9 +50,9 @@ class PairGenerator {
   std::vector<std::pair<image_t, image_t>> AllPairs();
 };
 
-class ExhaustivePairGenerator
-    : public PairGenerator<ExhaustiveMatchingOptions> {
+class ExhaustivePairGenerator : public PairGenerator {
  public:
+  using PairOptions = ExhaustiveMatchingOptions;
   static size_t CacheSize(const ExhaustiveMatchingOptions& options) {
     return 5 * options.block_size;
   }
@@ -82,8 +79,9 @@ class ExhaustivePairGenerator
   std::vector<std::pair<image_t, image_t>> image_pairs_;
 };
 
-class VocabTreePairGenerator : public PairGenerator<VocabTreeMatchingOptions> {
+class VocabTreePairGenerator : public PairGenerator {
  public:
+  using PairOptions = VocabTreeMatchingOptions;
   static size_t CacheSize(const VocabTreeMatchingOptions& options) {
     return 5 * options.num_images;
   }
@@ -120,9 +118,9 @@ class VocabTreePairGenerator : public PairGenerator<VocabTreeMatchingOptions> {
   retrieval::VisualIndex<>::QueryOptions query_options_;
 };
 
-class SequentialPairGenerator
-    : public PairGenerator<SequentialMatchingOptions> {
+class SequentialPairGenerator : public PairGenerator {
  public:
+  using PairOptions = SequentialMatchingOptions;
   static size_t CacheSize(const SequentialMatchingOptions& options) {
     return std::max(5 * options.loop_detection_num_images, 5 * options.overlap);
   }
@@ -147,8 +145,9 @@ class SequentialPairGenerator
   size_t image_idx_;
 };
 
-class SpatialPairGenerator : public PairGenerator<SpatialMatchingOptions> {
+class SpatialPairGenerator : public PairGenerator {
  public:
+  using PairOptions = SpatialMatchingOptions;
   static size_t CacheSize(const SpatialMatchingOptions& options) {
     return 5 * options.max_num_neighbors;
   }
@@ -177,8 +176,9 @@ class SpatialPairGenerator : public PairGenerator<SpatialMatchingOptions> {
   size_t current_idx_;
 };
 
-class ImportedPairGenerator : public PairGenerator<ImagePairsMatchingOptions> {
+class ImportedPairGenerator : public PairGenerator {
  public:
+  using PairOptions = ImagePairsMatchingOptions;
   static size_t CacheSize(const ImagePairsMatchingOptions& options) {
     return options.block_size;
   }

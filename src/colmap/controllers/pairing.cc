@@ -93,9 +93,7 @@ std::vector<std::pair<image_t, image_t>> ReadImagePairsText(
 
 }  // namespace
 
-template <typename DerivedPairOptions>
-std::vector<std::pair<image_t, image_t>>
-PairGenerator<DerivedPairOptions>::AllPairs() {
+std::vector<std::pair<image_t, image_t>> PairGenerator::AllPairs() {
   std::vector<std::pair<image_t, image_t>> image_pairs;
   while (!this->HasFinished()) {
     std::vector<std::pair<image_t, image_t>> image_pairs_block = this->Next();
