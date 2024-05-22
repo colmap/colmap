@@ -350,7 +350,7 @@ SequentialPairGenerator::SequentialPairGenerator(
       query_image_ids.push_back(image_ids_[i]);
     }
     vocab_tree_pair_generator_ = std::make_unique<VocabTreePairGenerator>(
-        options_.VocabTreeOptions(), cache, query_image_ids);
+        options_.VocabTreeOptions(), cache_, query_image_ids);
   }
 
   Reset();
@@ -380,7 +380,7 @@ bool SequentialPairGenerator::HasFinished() const {
 
 std::vector<std::pair<image_t, image_t>> SequentialPairGenerator::Next() {
   image_pairs_.clear();
-  if (HasFinished()) {
+  if (image_idx_ >= image_ids_.size()) {
     if (vocab_tree_pair_generator_) {
       return vocab_tree_pair_generator_->Next();
     }
