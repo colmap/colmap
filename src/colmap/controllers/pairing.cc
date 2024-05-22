@@ -405,7 +405,7 @@ std::vector<std::pair<image_t, image_t>> SequentialPairGenerator::Next() {
       break;
     }
   }
-
+  ++image_idx_;
   return image_pairs_;
 }
 
