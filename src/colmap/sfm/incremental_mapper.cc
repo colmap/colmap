@@ -100,6 +100,7 @@ IncrementalMapper::IncrementalMapper(
     std::shared_ptr<const DatabaseCache> database_cache)
     : database_cache_(std::move(database_cache)),
       reconstruction_(nullptr),
+      obs_manager_(nullptr),
       triangulator_(nullptr),
       num_total_reg_images_(0),
       num_shared_reg_images_(0) {}
@@ -109,9 +110,11 @@ void IncrementalMapper::BeginReconstruction(
   THROW_CHECK(reconstruction_ == nullptr);
   reconstruction_ = reconstruction;
   reconstruction_->Load(*database_cache_);
-  reconstruction_->SetUp(database_cache_->CorrespondenceGraph());
+  reconstruction_->SetUp();
+  obs_manager_ = std::make_shared<ObservationManager>(
+      reconstruction, database_cache_->CorrespondenceGraph());
   triangulator_ = std::make_shared<IncrementalTriangulator>(
-      database_cache_->CorrespondenceGraph(), reconstruction);
+      database_cache_->CorrespondenceGraph(), reconstruction, obs_manager_);
 
   num_shared_reg_images_ = 0;
   num_reg_images_per_camera_.clear();
@@ -261,6 +264,7 @@ void IncrementalMapper::RegisterInitialImagePair(
     const image_t image_id1,
     const image_t image_id2) {
   THROW_CHECK_NOTNULL(reconstruction_);
+  THROW_CHECK_NOTNULL(obs_manager_);
   THROW_CHECK_EQ(reconstruction_->NumRegImages(), 0);
 
   THROW_CHECK(options.Check());
@@ -328,7 +332,7 @@ void IncrementalMapper::RegisterInitialImagePair(
         HasPointPositiveDepth(cam_from_world2, xyz)) {
       track.Element(0).point2D_idx = corr.point2D_idx1;
       track.Element(1).point2D_idx = corr.point2D_idx2;
-      reconstruction_->AddPoint3D(xyz, track);
+      obs_manager_->AddPoint3D(xyz, track);
     }
   }
 }
@@ -336,6 +340,7 @@ void IncrementalMapper::RegisterInitialImagePair(
 bool IncrementalMapper::RegisterNextImage(const Options& options,
                                           const image_t image_id) {
   THROW_CHECK_NOTNULL(reconstruction_);
+  THROW_CHECK_NOTNULL(obs_manager_);
   THROW_CHECK_GE(reconstruction_->NumRegImages(), 2);
 
   THROW_CHECK(options.Check());
@@ -520,7 +525,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
       if (!point2D.HasPoint3D()) {
         const point3D_t point3D_id = tri_corrs[i].second;
         const TrackElement track_el(image_id, point2D_idx);
-        reconstruction_->AddObservation(point3D_id, track_el);
+        obs_manager_->AddObservation(point3D_id, track_el);
         triangulator_->AddModifiedPoint3D(point3D_id);
       }
     }
@@ -576,6 +581,7 @@ IncrementalMapper::AdjustLocalBundle(
     const image_t image_id,
     const std::unordered_set<point3D_t>& point3D_ids) {
   THROW_CHECK_NOTNULL(reconstruction_);
+  THROW_CHECK_NOTNULL(obs_manager_);
   THROW_CHECK(options.Check());
 
   LocalBundleAdjustmentReport report;
@@ -673,13 +679,13 @@ IncrementalMapper::AdjustLocalBundle(
   filter_image_ids.insert(image_id);
   filter_image_ids.insert(local_bundle.begin(), local_bundle.end());
   report.num_filtered_observations =
-      reconstruction_->FilterPoints3DInImages(options.filter_max_reproj_error,
-                                              options.filter_min_tri_angle,
-                                              filter_image_ids);
+      obs_manager_->FilterPoints3DInImages(options.filter_max_reproj_error,
+                                           options.filter_min_tri_angle,
+                                           filter_image_ids);
   report.num_filtered_observations +=
-      reconstruction_->FilterPoints3D(options.filter_max_reproj_error,
-                                      options.filter_min_tri_angle,
-                                      point3D_ids);
+      obs_manager_->FilterPoints3D(options.filter_max_reproj_error,
+                                   options.filter_min_tri_angle,
+                                   point3D_ids);
 
   return report;
 }
@@ -687,6 +693,7 @@ IncrementalMapper::AdjustLocalBundle(
 bool IncrementalMapper::AdjustGlobalBundle(
     const Options& options, const BundleAdjustmentOptions& ba_options) {
   THROW_CHECK_NOTNULL(reconstruction_);
+  THROW_CHECK_NOTNULL(obs_manager_);
 
   const std::vector<image_t>& reg_image_ids = reconstruction_->RegImageIds();
 
@@ -706,7 +713,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
   }
 
   // Avoid degeneracies in bundle adjustment.
-  reconstruction_->FilterObservationsWithNegativeDepth();
+  obs_manager_->FilterObservationsWithNegativeDepth();
 
   // Configure bundle adjustment.
   BundleAdjustmentConfig ba_config;
@@ -800,6 +807,7 @@ void IncrementalMapper::IterativeGlobalRefinement(
 
 size_t IncrementalMapper::FilterImages(const Options& options) {
   THROW_CHECK_NOTNULL(reconstruction_);
+  THROW_CHECK_NOTNULL(obs_manager_);
   THROW_CHECK(options.Check());
 
   // Do not filter images in the early stage of the reconstruction, since the
@@ -811,9 +819,9 @@ size_t IncrementalMapper::FilterImages(const Options& options) {
   }
 
   const std::vector<image_t> image_ids =
-      reconstruction_->FilterImages(options.min_focal_length_ratio,
-                                    options.max_focal_length_ratio,
-                                    options.max_extra_param);
+      obs_manager_->FilterImages(options.min_focal_length_ratio,
+                                 options.max_focal_length_ratio,
+                                 options.max_extra_param);
 
   for (const image_t image_id : image_ids) {
     DeRegisterImageEvent(image_id);
@@ -826,9 +834,9 @@ size_t IncrementalMapper::FilterImages(const Options& options) {
 }
 
 size_t IncrementalMapper::FilterPoints(const Options& options) {
-  THROW_CHECK_NOTNULL(reconstruction_);
+  THROW_CHECK_NOTNULL(obs_manager_);
   THROW_CHECK(options.Check());
-  const size_t num_filtered_observations = reconstruction_->FilterAllPoints3D(
+  const size_t num_filtered_observations = obs_manager_->FilterAllPoints3D(
       options.filter_max_reproj_error, options.filter_min_tri_angle);
   VLOG(1) << "=> Filtered observations: " << num_filtered_observations;
   return num_filtered_observations;

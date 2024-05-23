@@ -34,6 +34,7 @@
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sfm/incremental_triangulator.h"
+#include "colmap/sfm/observation_manager.h"
 
 namespace colmap {
 
@@ -297,6 +298,9 @@ class IncrementalMapper {
 
   // Class that holds data of the reconstruction.
   std::shared_ptr<class Reconstruction> reconstruction_;
+
+  // Class that is responsible for keeping track of 3D point statistics.
+  std::shared_ptr<ObservationManager> obs_manager_;
 
   // Class that is responsible for incremental triangulation.
   std::shared_ptr<IncrementalTriangulator> triangulator_;

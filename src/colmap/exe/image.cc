@@ -34,6 +34,7 @@
 #include "colmap/image/undistortion.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sfm/incremental_mapper.h"
+#include "colmap/sfm/observation_manager.h"
 #include "colmap/util/base_controller.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
@@ -167,16 +168,17 @@ int RunImageFilterer(int argc, char** argv) {
   options.AddDefaultOption("min_num_observations", &min_num_observations);
   options.Parse(argc, argv);
 
-  Reconstruction reconstruction;
-  reconstruction.Read(input_path);
+  auto reconstruction = std::make_shared<Reconstruction>();
+  reconstruction->Read(input_path);
 
-  const size_t num_reg_images = reconstruction.NumRegImages();
+  const size_t num_reg_images = reconstruction->NumRegImages();
 
-  reconstruction.FilterImages(
-      min_focal_length_ratio, max_focal_length_ratio, max_extra_param);
+  ObservationManager(reconstruction)
+      .FilterImages(
+          min_focal_length_ratio, max_focal_length_ratio, max_extra_param);
 
   std::vector<image_t> filtered_image_ids;
-  for (const auto& image : reconstruction.Images()) {
+  for (const auto& image : reconstruction->Images()) {
     if (image.second.IsRegistered() &&
         image.second.NumPoints3D() < min_num_observations) {
       filtered_image_ids.push_back(image.first);
@@ -184,17 +186,17 @@ int RunImageFilterer(int argc, char** argv) {
   }
 
   for (const auto image_id : filtered_image_ids) {
-    reconstruction.DeRegisterImage(image_id);
+    reconstruction->DeRegisterImage(image_id);
   }
 
   const size_t num_filtered_images =
-      num_reg_images - reconstruction.NumRegImages();
+      num_reg_images - reconstruction->NumRegImages();
 
   LOG(INFO) << StringPrintf("Filtered %d images from a total of %d images",
                             num_filtered_images,
                             num_reg_images);
 
-  reconstruction.Write(output_path);
+  reconstruction->Write(output_path);
 
   return EXIT_SUCCESS;
 }

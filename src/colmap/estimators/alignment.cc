@@ -490,7 +490,8 @@ bool MergeReconstructions(const double max_reproj_error,
     }
   }
 
-  tgt_reconstruction->FilterAllPoints3D(max_reproj_error, /*min_tri_angle=*/0);
+  // tgt_reconstruction->FilterAllPoints3D(max_reproj_error,
+  // /*min_tri_angle=*/0); // TODO: fixme
 
   return true;
 }

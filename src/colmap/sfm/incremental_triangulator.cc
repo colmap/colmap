@@ -84,9 +84,19 @@ bool IncrementalTriangulator::Options::Check() const {
 
 IncrementalTriangulator::IncrementalTriangulator(
     std::shared_ptr<const CorrespondenceGraph> correspondence_graph,
+    std::shared_ptr<Reconstruction> reconstruction,
+    std::shared_ptr<ObservationManager> obs_manager)
+    : correspondence_graph_(std::move(correspondence_graph)),
+      reconstruction_(std::move(reconstruction)),
+      obs_manager_(std::move(obs_manager)) {}
+
+IncrementalTriangulator::IncrementalTriangulator(
+    std::shared_ptr<const CorrespondenceGraph> correspondence_graph,
     std::shared_ptr<Reconstruction> reconstruction)
     : correspondence_graph_(std::move(correspondence_graph)),
-      reconstruction_(std::move(reconstruction)) {}
+      reconstruction_(std::move(reconstruction)),
+      obs_manager_(std::make_shared<ObservationManager>(
+          reconstruction_, correspondence_graph_)) {}
 
 size_t IncrementalTriangulator::TriangulateImage(const Options& options,
                                                  const image_t image_id) {
@@ -234,8 +244,7 @@ size_t IncrementalTriangulator::CompleteImage(const Options& options,
       }
     }
 
-    const point3D_t point3D_id =
-        reconstruction_->AddPoint3D(xyz, std::move(track));
+    const point3D_t point3D_id = obs_manager_->AddPoint3D(xyz, track);
     modified_point3D_ids_.insert(point3D_id);
   }
 
@@ -310,7 +319,7 @@ size_t IncrementalTriangulator::Retriangulate(const Options& options) {
   Options re_options = options;
   re_options.continue_max_angle_error = options.re_max_angle_error;
 
-  for (const auto& image_pair : reconstruction_->ImagePairs()) {
+  for (const auto& image_pair : obs_manager_->ImagePairs()) {
     // Only perform retriangulation for under-reconstructed image pairs.
     const double tri_ratio =
         static_cast<double>(image_pair.second.num_tri_corrs) /
@@ -525,8 +534,7 @@ size_t IncrementalTriangulator::Create(
 
   // Add estimated point to reconstruction.
   const size_t track_length = track.Length();
-  const point3D_t point3D_id =
-      reconstruction_->AddPoint3D(xyz, std::move(track));
+  const point3D_t point3D_id = obs_manager_->AddPoint3D(xyz, track);
   modified_point3D_ids_.insert(point3D_id);
 
   const size_t kMinRecursiveTrackLength = 3;
@@ -575,7 +583,7 @@ size_t IncrementalTriangulator::Continue(
     const CorrData& corr_data = corrs_data[best_idx];
     const TrackElement track_el(ref_corr_data.image_id,
                                 ref_corr_data.point2D_idx);
-    reconstruction_->AddObservation(corr_data.point2D->point3D_id, track_el);
+    obs_manager_->AddObservation(corr_data.point2D->point3D_id, track_el);
     modified_point3D_ids_.insert(corr_data.point2D->point3D_id);
     return 1;
   }
@@ -653,7 +661,7 @@ size_t IncrementalTriangulator::Merge(const Options& options,
             point3D.track.Length() + corr_point3D.track.Length();
 
         const point3D_t merged_point3D_id =
-            reconstruction_->MergePoints3D(point3D_id, corr_point2D.point3D_id);
+            obs_manager_->MergePoints3D(point3D_id, corr_point2D.point3D_id);
 
         modified_point3D_ids_.erase(point3D_id);
         modified_point3D_ids_.erase(corr_point2D.point3D_id);
@@ -725,7 +733,7 @@ size_t IncrementalTriangulator::Complete(const Options& options,
 
         // Success, add observation to point track.
         const TrackElement track_el(corr->image_id, corr->point2D_idx);
-        reconstruction_->AddObservation(point3D_id, track_el);
+        obs_manager_->AddObservation(point3D_id, track_el);
         modified_point3D_ids_.insert(point3D_id);
 
         // Recursively complete track for this new correspondence.

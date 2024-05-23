@@ -62,6 +62,7 @@ COLMAP_ADD_LIBRARY(
         colmap_util
     PRIVATE_LINK_LIBS
         Boost::boost
+        colmap_sfm
 )
 
 COLMAP_ADD_EXECUTABLE(
