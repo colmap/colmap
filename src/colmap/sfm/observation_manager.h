@@ -109,6 +109,13 @@ class ObservationManager {
   // De-register an existing image, and all its references.
   void DeRegisterImage(image_t image_id);
 
+  // Get the number of observations, i.e. the number of image points that
+  // have at least one correspondence to another image.
+  inline point2D_t NumObservations(image_t image_id) const;
+
+  // Get the number of correspondences for all image points.
+  inline point2D_t NumCorrespondences(image_t image_id) const;
+
   // Get the number of observations that see a triangulated point, i.e. the
   // number of image points that have at least one correspondence to a
   // triangulated point in another image.
@@ -147,6 +154,13 @@ class ObservationManager {
                             bool is_deleted_point3D);
 
   struct ImageStat {
+    // The number of image points that have at least one correspondence to
+    // another image.
+    point2D_t num_observations;
+
+    // The sum of correspondences per image point.
+    point2D_t num_correspondences;
+
     // The number of 2D points, which have at least one corresponding 2D point
     // in another image that is part of a 3D point track, i.e. the sum of
     // `points2D` where `num_tris > 0`.
@@ -170,6 +184,14 @@ class ObservationManager {
 const std::unordered_map<image_pair_t, ObservationManager::ImagePairStat>&
 ObservationManager::ImagePairs() const {
   return image_pair_stats_;
+}
+
+point2D_t ObservationManager::NumObservations(const image_t image_id) const {
+  return image_stats_.at(image_id).num_observations;
+}
+
+point2D_t ObservationManager::NumCorrespondences(const image_t image_id) const {
+  return image_stats_.at(image_id).num_correspondences;
 }
 
 point2D_t ObservationManager::NumVisiblePoints3D(const image_t image_id) const {

@@ -60,20 +60,19 @@ void SortAndAppendNextImages(std::vector<std::pair<image_t, float>> image_ranks,
 }
 
 float RankNextImageMaxVisiblePointsNum(
-    const Image& image, const class ObservationManager& obs_manager) {
-  return static_cast<float>(obs_manager.NumVisiblePoints3D(image.ImageId()));
+    const image_t image_id, const class ObservationManager& obs_manager) {
+  return static_cast<float>(obs_manager.NumVisiblePoints3D(image_id));
 }
 
 float RankNextImageMaxVisiblePointsRatio(
-    const Image& image, const class ObservationManager& obs_manager) {
-  return static_cast<float>(obs_manager.NumVisiblePoints3D(image.ImageId())) /
-         static_cast<float>(image.NumObservations());
+    const image_t image_id, const class ObservationManager& obs_manager) {
+  return static_cast<float>(obs_manager.NumVisiblePoints3D(image_id)) /
+         static_cast<float>(obs_manager.NumObservations(image_id));
 }
 
-float RankNextImageMinUncertainty(const Image& image,
+float RankNextImageMinUncertainty(const image_t image_id,
                                   const class ObservationManager& obs_manager) {
-  return static_cast<float>(
-      obs_manager.Point3DVisibilityScore(image.ImageId()));
+  return static_cast<float>(obs_manager.Point3DVisibilityScore(image_id));
 }
 
 }  // namespace
@@ -210,7 +209,7 @@ std::vector<image_t> IncrementalMapper::FindNextImages(const Options& options) {
   THROW_CHECK_NOTNULL(reconstruction_);
   THROW_CHECK(options.Check());
 
-  std::function<float(const Image&, const class ObservationManager&)>
+  std::function<float(image_t, const class ObservationManager&)>
       rank_image_func;
   switch (options.image_selection_method) {
     case Options::ImageSelectionMethod::MAX_VISIBLE_POINTS_NUM:
@@ -248,7 +247,7 @@ std::vector<image_t> IncrementalMapper::FindNextImages(const Options& options) {
 
     // If image has been filtered or failed to register, place it in the
     // second bucket and prefer images that have not been tried before.
-    const float rank = rank_image_func(image.second, *obs_manager_);
+    const float rank = rank_image_func(image.first, *obs_manager_);
     if (filtered_images_.count(image.first) == 0 && num_reg_trials == 0) {
       image_ranks.emplace_back(image.first, rank);
     } else {
@@ -909,7 +908,7 @@ std::vector<image_t> IncrementalMapper::FindFirstInitialImage(
   image_infos.reserve(reconstruction_->NumImages());
   for (const auto& image : reconstruction_->Images()) {
     // Only images with correspondences can be registered.
-    if (image.second.NumCorrespondences() == 0) {
+    if (obs_manager_->NumCorrespondences(image.first) == 0) {
       continue;
     }
 
@@ -931,7 +930,8 @@ std::vector<image_t> IncrementalMapper::FindFirstInitialImage(
     ImageInfo image_info;
     image_info.image_id = image.first;
     image_info.prior_focal_length = camera.has_prior_focal_length;
-    image_info.num_correspondences = image.second.NumCorrespondences();
+    image_info.num_correspondences =
+        obs_manager_->NumCorrespondences(image.first);
     image_infos.push_back(image_info);
   }
 

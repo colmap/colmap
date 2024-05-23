@@ -292,7 +292,9 @@ int RunImageRegistrator(int argc, char** argv) {
 
     LOG(INFO) << "\n=> Image sees "
               << mapper.ObservationManager()->NumVisiblePoints3D(image.first)
-              << " / " << image.second.NumObservations() << " points";
+              << " / "
+              << mapper.ObservationManager()->NumObservations(image.first)
+              << " points";
 
     mapper.RegisterNextImage(mapper_options, image.first);
   }

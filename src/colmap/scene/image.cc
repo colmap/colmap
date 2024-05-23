@@ -45,8 +45,6 @@ Image::Image()
       camera_id_(kInvalidCameraId),
       registered_(false),
       num_points3D_(0),
-      num_observations_(0),
-      num_correspondences_(0),
       cam_from_world_prior_(Eigen::Quaterniond(kNaN, kNaN, kNaN, kNaN),
                             Eigen::Vector3d(kNaN, kNaN, kNaN)) {}
 

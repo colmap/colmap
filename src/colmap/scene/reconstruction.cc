@@ -77,8 +77,6 @@ void Reconstruction::Load(const DatabaseCache& database_cache) {
         THROW_CHECK_EQ(image.second.NumPoints2D(),
                        existing_image.NumPoints2D());
       }
-      existing_image.SetNumObservations(image.second.NumObservations());
-      existing_image.SetNumCorrespondences(image.second.NumCorrespondences());
     } else {
       AddImage(image.second);
     }
@@ -233,7 +231,6 @@ void Reconstruction::DeleteAllPoints2DAndPoints3D() {
     new_image.SetName(image.second.Name());
     new_image.SetCameraId(image.second.CameraId());
     new_image.SetRegistered(image.second.IsRegistered());
-    new_image.SetNumCorrespondences(image.second.NumCorrespondences());
     new_image.CamFromWorld() = image.second.CamFromWorld();
     new_image.CamFromWorldPrior() = image.second.CamFromWorldPrior();
     image.second = std::move(new_image);

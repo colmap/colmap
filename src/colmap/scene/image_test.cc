@@ -43,8 +43,6 @@ TEST(Image, Default) {
   EXPECT_FALSE(image.IsRegistered());
   EXPECT_EQ(image.NumPoints2D(), 0);
   EXPECT_EQ(image.NumPoints3D(), 0);
-  EXPECT_EQ(image.NumObservations(), 0);
-  EXPECT_EQ(image.NumCorrespondences(), 0);
   EXPECT_EQ(image.CamFromWorld().rotation.coeffs(),
             Eigen::Quaterniond::Identity().coeffs());
   EXPECT_EQ(image.CamFromWorld().translation, Eigen::Vector3d::Zero());
@@ -102,20 +100,6 @@ TEST(Image, NumPoints3D) {
   image.SetPoint3DForPoint2D(0, 1);
   image.SetPoint3DForPoint2D(1, 2);
   EXPECT_EQ(image.NumPoints3D(), 2);
-}
-
-TEST(Image, NumObservations) {
-  Image image;
-  EXPECT_EQ(image.NumObservations(), 0);
-  image.SetNumObservations(10);
-  EXPECT_EQ(image.NumObservations(), 10);
-}
-
-TEST(Image, NumCorrespondences) {
-  Image image;
-  EXPECT_EQ(image.NumCorrespondences(), 0);
-  image.SetNumCorrespondences(10);
-  EXPECT_EQ(image.NumCorrespondences(), 10);
 }
 
 TEST(Image, Points2D) {

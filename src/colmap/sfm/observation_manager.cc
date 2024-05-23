@@ -65,6 +65,12 @@ ObservationManager::ObservationManager(
         kNumPoint3DVisibilityPyramidLevels, camera.width, camera.height);
     image_stat.num_correspondences_have_point3D.resize(image.NumPoints2D(), 0);
     image_stat.num_visible_points3D = 0;
+    if (correspondence_graph_) {
+      image_stat.num_observations =
+          correspondence_graph_->NumObservationsForImage(id_image.first);
+      image_stat.num_correspondences =
+          correspondence_graph_->NumCorrespondencesForImage(id_image.first);
+    }
     image_stats_.emplace(id_image.first, image_stat);
   }
 
@@ -96,7 +102,7 @@ void ObservationManager::IncrementCorrespondenceHasPoint3D(
 
   stats.point3D_visibility_pyramid.SetPoint(point2D.xy(0), point2D.xy(1));
 
-  assert(stats.num_visible_points3D <= image.NumObservations());
+  assert(stats.num_visible_points3D <= stats.num_observations);
 }
 
 void ObservationManager::DecrementCorrespondenceHasPoint3D(
@@ -112,7 +118,7 @@ void ObservationManager::DecrementCorrespondenceHasPoint3D(
 
   stats.point3D_visibility_pyramid.ResetPoint(point2D.xy(0), point2D.xy(1));
 
-  assert(stats.num_visible_points3D <= image.NumObservations());
+  assert(stats.num_visible_points3D <= stats.num_observations);
 }
 
 void ObservationManager::SetObservationAsTriangulated(

@@ -79,15 +79,6 @@ class Image {
   // are part of a 3D point track.
   inline point2D_t NumPoints3D() const;
 
-  // Get the number of observations, i.e. the number of image points that
-  // have at least one correspondence to another image.
-  inline point2D_t NumObservations() const;
-  inline void SetNumObservations(point2D_t num_observations);
-
-  // Get the number of correspondences for all image points.
-  inline point2D_t NumCorrespondences() const;
-  inline void SetNumCorrespondences(point2D_t num_observations);
-
   // World to camera pose.
   inline const Rigid3d& CamFromWorld() const;
   inline Rigid3d& CamFromWorld();
@@ -137,13 +128,6 @@ class Image {
   // where `point3D_id != kInvalidPoint3DId`.
   point2D_t num_points3D_;
 
-  // The number of image points that have at least one correspondence to
-  // another image.
-  point2D_t num_observations_;
-
-  // The sum of correspondences per image point.
-  point2D_t num_correspondences_;
-
   // The pose of the image, defined as the transformation from world to camera.
   Rigid3d cam_from_world_;
 
@@ -186,18 +170,6 @@ point2D_t Image::NumPoints2D() const {
 }
 
 point2D_t Image::NumPoints3D() const { return num_points3D_; }
-
-point2D_t Image::NumObservations() const { return num_observations_; }
-
-void Image::SetNumObservations(const point2D_t num_observations) {
-  num_observations_ = num_observations;
-}
-
-point2D_t Image::NumCorrespondences() const { return num_correspondences_; }
-
-void Image::SetNumCorrespondences(const point2D_t num_correspondences) {
-  num_correspondences_ = num_correspondences;
-}
 
 const Rigid3d& Image::CamFromWorld() const { return cam_from_world_; }
 
