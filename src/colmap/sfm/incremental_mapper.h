@@ -245,6 +245,7 @@ class IncrementalMapper {
 
   // Getter functions
   std::shared_ptr<class Reconstruction> Reconstruction() const;
+  std::shared_ptr<class ObservationManager> ObservationManager() const;
   std::shared_ptr<IncrementalTriangulator> Triangulator() const;
   const std::unordered_set<image_t>& FilteredImages() const;
   const std::unordered_set<image_t>& ExistingImageIds() const;
@@ -300,7 +301,7 @@ class IncrementalMapper {
   std::shared_ptr<class Reconstruction> reconstruction_;
 
   // Class that is responsible for keeping track of 3D point statistics.
-  std::shared_ptr<ObservationManager> obs_manager_;
+  std::shared_ptr<class ObservationManager> obs_manager_;
 
   // Class that is responsible for incremental triangulation.
   std::shared_ptr<IncrementalTriangulator> triangulator_;

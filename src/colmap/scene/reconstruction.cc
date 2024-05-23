@@ -85,19 +85,12 @@ void Reconstruction::Load(const DatabaseCache& database_cache) {
   }
 }
 
-void Reconstruction::SetUp() {
-  for (auto& image : images_) {
-    image.second.SetUp(Camera(image.second.CameraId()));
-  }
-}
-
 void Reconstruction::TearDown() {
   // Remove all not yet registered images.
   std::unordered_set<camera_t> keep_camera_ids;
   for (auto it = images_.begin(); it != images_.end();) {
     if (it->second.IsRegistered()) {
       keep_camera_ids.insert(it->second.CameraId());
-      it->second.TearDown();
       ++it;
     } else {
       it = images_.erase(it);

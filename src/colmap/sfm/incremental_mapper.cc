@@ -59,17 +59,21 @@ void SortAndAppendNextImages(std::vector<std::pair<image_t, float>> image_ranks,
   image_ranks.clear();
 }
 
-float RankNextImageMaxVisiblePointsNum(const Image& image) {
-  return static_cast<float>(image.NumVisiblePoints3D());
+float RankNextImageMaxVisiblePointsNum(
+    const Image& image, const class ObservationManager& obs_manager) {
+  return static_cast<float>(obs_manager.NumVisiblePoints3D(image.ImageId()));
 }
 
-float RankNextImageMaxVisiblePointsRatio(const Image& image) {
-  return static_cast<float>(image.NumVisiblePoints3D()) /
+float RankNextImageMaxVisiblePointsRatio(
+    const Image& image, const class ObservationManager& obs_manager) {
+  return static_cast<float>(obs_manager.NumVisiblePoints3D(image.ImageId())) /
          static_cast<float>(image.NumObservations());
 }
 
-float RankNextImageMinUncertainty(const Image& image) {
-  return static_cast<float>(image.Point3DVisibilityScore());
+float RankNextImageMinUncertainty(const Image& image,
+                                  const class ObservationManager& obs_manager) {
+  return static_cast<float>(
+      obs_manager.Point3DVisibilityScore(image.ImageId()));
 }
 
 }  // namespace
@@ -110,8 +114,8 @@ void IncrementalMapper::BeginReconstruction(
   THROW_CHECK(reconstruction_ == nullptr);
   reconstruction_ = reconstruction;
   reconstruction_->Load(*database_cache_);
-  reconstruction_->SetUp();
-  obs_manager_ = std::make_shared<ObservationManager>(
+  // reconstruction_->SetUp();
+  obs_manager_ = std::make_shared<class ObservationManager>(
       reconstruction, database_cache_->CorrespondenceGraph());
   triangulator_ = std::make_shared<IncrementalTriangulator>(
       database_cache_->CorrespondenceGraph(), reconstruction, obs_manager_);
@@ -206,7 +210,8 @@ std::vector<image_t> IncrementalMapper::FindNextImages(const Options& options) {
   THROW_CHECK_NOTNULL(reconstruction_);
   THROW_CHECK(options.Check());
 
-  std::function<float(const Image&)> rank_image_func;
+  std::function<float(const Image&, const class ObservationManager&)>
+      rank_image_func;
   switch (options.image_selection_method) {
     case Options::ImageSelectionMethod::MAX_VISIBLE_POINTS_NUM:
       rank_image_func = RankNextImageMaxVisiblePointsNum;
@@ -230,7 +235,7 @@ std::vector<image_t> IncrementalMapper::FindNextImages(const Options& options) {
     }
 
     // Only consider images with a sufficient number of visible points.
-    if (image.second.NumVisiblePoints3D() <
+    if (obs_manager_->NumVisiblePoints3D(image.first) <
         static_cast<size_t>(options.abs_pose_min_num_inliers)) {
       continue;
     }
@@ -243,7 +248,7 @@ std::vector<image_t> IncrementalMapper::FindNextImages(const Options& options) {
 
     // If image has been filtered or failed to register, place it in the
     // second bucket and prefer images that have not been tried before.
-    const float rank = rank_image_func(image.second);
+    const float rank = rank_image_func(image.second, *obs_manager_);
     if (filtered_images_.count(image.first) == 0 && num_reg_trials == 0) {
       image_ranks.emplace_back(image.first, rank);
     } else {
@@ -354,7 +359,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   num_reg_trials_[image_id] += 1;
 
   // Check if enough 2D-3D correspondences.
-  if (image.NumVisiblePoints3D() <
+  if (obs_manager_->NumVisiblePoints3D(image_id) <
       static_cast<size_t>(options.abs_pose_min_num_inliers)) {
     return false;
   }
@@ -845,6 +850,11 @@ size_t IncrementalMapper::FilterPoints(const Options& options) {
 std::shared_ptr<class Reconstruction> IncrementalMapper::Reconstruction()
     const {
   return reconstruction_;
+}
+
+std::shared_ptr<class ObservationManager>
+IncrementalMapper::ObservationManager() const {
+  return obs_manager_;
 }
 
 std::shared_ptr<IncrementalTriangulator> IncrementalMapper::Triangulator()

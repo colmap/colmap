@@ -46,16 +46,6 @@ class ObservationManager {
     size_t num_total_corrs = 0;
   };
 
-  struct ImageStat {
-    // Per image point, the number of correspondences that have a 3D point.
-    std::vector<point2D_t> num_correspondences_have_point3D_;
-
-    // Data structure to compute the distribution of triangulated
-    // correspondences in the image. Note that this structure is only usable
-    // after `SetUp`.
-    VisibilityPyramid point3D_visibility_pyramid_;
-  };
-
   ObservationManager(std::shared_ptr<Reconstruction> reconstruction,
                      std::shared_ptr<const CorrespondenceGraph>
                          correspondence_graph = nullptr);
@@ -119,6 +109,35 @@ class ObservationManager {
   // De-register an existing image, and all its references.
   void DeRegisterImage(image_t image_id);
 
+  // Get the number of observations that see a triangulated point, i.e. the
+  // number of image points that have at least one correspondence to a
+  // triangulated point in another image.
+  inline point2D_t NumVisiblePoints3D(image_t image_id) const;
+
+  // Get the score of triangulated observations. In contrast to
+  // `NumVisiblePoints3D`, this score also captures the distribution
+  // of triangulated observations in the image. This is useful to select
+  // the next best image in incremental reconstruction, because a more
+  // uniform distribution of observations results in more robust registration.
+  inline size_t Point3DVisibilityScore(image_t image_id) const;
+
+  // The number of levels in the 3D point multi-resolution visibility pyramid.
+  static const int kNumPoint3DVisibilityPyramidLevels;
+
+  // Indicate that another image has a point that is triangulated and has
+  // a correspondence to this image point. Note that this must only be called
+  // after calling `SetUp`.
+  void IncrementCorrespondenceHasPoint3D(image_t image_id,
+                                         point2D_t point2D_idx);
+
+  // Indicate that another image has a point that is not triangulated any more
+  // and has a correspondence to this image point. This assumes that
+  // `IncrementCorrespondenceHasPoint3D` was called for the same image point
+  // and correspondence before. Note that this must only be called
+  // after calling `SetUp`.
+  void DecrementCorrespondenceHasPoint3D(image_t image_id,
+                                         point2D_t point2D_idx);
+
  private:
   void SetObservationAsTriangulated(image_t image_id,
                                     point2D_t point2D_idx,
@@ -126,6 +145,21 @@ class ObservationManager {
   void ResetTriObservations(image_t image_id,
                             point2D_t point2D_idx,
                             bool is_deleted_point3D);
+
+  struct ImageStat {
+    // The number of 2D points, which have at least one corresponding 2D point
+    // in another image that is part of a 3D point track, i.e. the sum of
+    // `points2D` where `num_tris > 0`.
+    point2D_t num_visible_points3D;
+
+    // Per image point, the number of correspondences that have a 3D point.
+    std::vector<point2D_t> num_correspondences_have_point3D;
+
+    // Data structure to compute the distribution of triangulated
+    // correspondences in the image. Note that this structure is only usable
+    // after `SetUp`.
+    VisibilityPyramid point3D_visibility_pyramid;
+  };
 
   const std::shared_ptr<Reconstruction> reconstruction_;
   const std::shared_ptr<const CorrespondenceGraph> correspondence_graph_;
@@ -136,6 +170,15 @@ class ObservationManager {
 const std::unordered_map<image_pair_t, ObservationManager::ImagePairStat>&
 ObservationManager::ImagePairs() const {
   return image_pair_stats_;
+}
+
+point2D_t ObservationManager::NumVisiblePoints3D(const image_t image_id) const {
+  return image_stats_.at(image_id).num_visible_points3D;
+}
+
+size_t ObservationManager::Point3DVisibilityScore(
+    const image_t image_id) const {
+  return image_stats_.at(image_id).point3D_visibility_pyramid.Score();
 }
 
 }  // namespace colmap

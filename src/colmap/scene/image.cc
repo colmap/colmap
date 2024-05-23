@@ -39,8 +39,6 @@ static constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
 
 }  // namespace
 
-const int Image::kNumPoint3DVisibilityPyramidLevels = 6;
-
 Image::Image()
     : image_id_(kInvalidImageId),
       name_(""),
@@ -49,24 +47,12 @@ Image::Image()
       num_points3D_(0),
       num_observations_(0),
       num_correspondences_(0),
-      num_visible_points3D_(0),
       cam_from_world_prior_(Eigen::Quaterniond(kNaN, kNaN, kNaN, kNaN),
                             Eigen::Vector3d(kNaN, kNaN, kNaN)) {}
-
-void Image::SetUp(const struct Camera& camera) {
-  THROW_CHECK_EQ(camera_id_, camera.camera_id);
-  point3D_visibility_pyramid_ = VisibilityPyramid(
-      kNumPoint3DVisibilityPyramidLevels, camera.width, camera.height);
-}
-
-void Image::TearDown() {
-  point3D_visibility_pyramid_ = VisibilityPyramid(0, 0, 0);
-}
 
 void Image::SetPoints2D(const std::vector<Eigen::Vector2d>& points) {
   THROW_CHECK(points2D_.empty());
   points2D_.resize(points.size());
-  num_correspondences_have_point3D_.resize(points.size(), 0);
   for (point2D_t point2D_idx = 0; point2D_idx < points.size(); ++point2D_idx) {
     points2D_[point2D_idx].xy = points[point2D_idx];
   }
@@ -75,7 +61,6 @@ void Image::SetPoints2D(const std::vector<Eigen::Vector2d>& points) {
 void Image::SetPoints2D(const std::vector<struct Point2D>& points) {
   THROW_CHECK(points2D_.empty());
   points2D_ = points;
-  num_correspondences_have_point3D_.resize(points.size(), 0);
   num_points3D_ = 0;
   for (const auto& point2D : points2D_) {
     if (point2D.HasPoint3D()) {
@@ -108,32 +93,6 @@ bool Image::HasPoint3D(const point3D_t point3D_id) const {
                       [point3D_id](const struct Point2D& point2D) {
                         return point2D.point3D_id == point3D_id;
                       }) != points2D_.end();
-}
-
-void Image::IncrementCorrespondenceHasPoint3D(const point2D_t point2D_idx) {
-  const struct Point2D& point2D = points2D_.at(point2D_idx);
-
-  num_correspondences_have_point3D_[point2D_idx] += 1;
-  if (num_correspondences_have_point3D_[point2D_idx] == 1) {
-    num_visible_points3D_ += 1;
-  }
-
-  point3D_visibility_pyramid_.SetPoint(point2D.xy(0), point2D.xy(1));
-
-  assert(num_visible_points3D_ <= num_observations_);
-}
-
-void Image::DecrementCorrespondenceHasPoint3D(const point2D_t point2D_idx) {
-  const struct Point2D& point2D = points2D_.at(point2D_idx);
-
-  num_correspondences_have_point3D_[point2D_idx] -= 1;
-  if (num_correspondences_have_point3D_[point2D_idx] == 0) {
-    num_visible_points3D_ -= 1;
-  }
-
-  point3D_visibility_pyramid_.ResetPoint(point2D.xy(0), point2D.xy(1));
-
-  assert(num_visible_points3D_ <= num_observations_);
 }
 
 Eigen::Vector3d Image::ProjectionCenter() const {

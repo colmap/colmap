@@ -206,5 +206,99 @@ TEST(ObservationManager, FilterImages) {
   EXPECT_EQ(reconstruction->NumRegImages(), 0);
 }
 
+TEST(ObservationManager, NumVisiblePoints3D) {
+  auto reconstruction = std::make_shared<Reconstruction>();
+  const image_t kImageId = 1;
+  const camera_t kCameraId = 1;
+  {
+    const Camera camera = Camera::CreateFromModelId(kCameraId,
+                                                    CameraModelId::kPinhole,
+                                                    /*focal_length=*/10,
+                                                    /*width=*/10,
+                                                    /*height=*/10);
+    reconstruction->AddCamera(camera);
+    Image image;
+    image.SetImageId(kImageId);
+    image.SetCameraId(kCameraId);
+    image.SetPoints2D(std::vector<Eigen::Vector2d>(10));
+    image.SetNumObservations(10);
+    reconstruction->AddImage(image);
+  }
+  ObservationManager obs_manager(reconstruction);
+
+  EXPECT_EQ(obs_manager.NumVisiblePoints3D(kImageId), 0);
+  obs_manager.IncrementCorrespondenceHasPoint3D(kImageId, 0);
+  EXPECT_EQ(obs_manager.NumVisiblePoints3D(kImageId), 1);
+  obs_manager.IncrementCorrespondenceHasPoint3D(kImageId, 0);
+  obs_manager.IncrementCorrespondenceHasPoint3D(kImageId, 1);
+  EXPECT_EQ(obs_manager.NumVisiblePoints3D(kImageId), 2);
+  obs_manager.DecrementCorrespondenceHasPoint3D(kImageId, 0);
+  EXPECT_EQ(obs_manager.NumVisiblePoints3D(kImageId), 2);
+  obs_manager.DecrementCorrespondenceHasPoint3D(kImageId, 0);
+  EXPECT_EQ(obs_manager.NumVisiblePoints3D(kImageId), 1);
+  obs_manager.DecrementCorrespondenceHasPoint3D(kImageId, 1);
+  EXPECT_EQ(obs_manager.NumVisiblePoints3D(kImageId), 0);
+}
+
+TEST(ObservationManager, Point3DVisibilityScore) {
+  auto reconstruction = std::make_shared<Reconstruction>();
+  const image_t kImageId = 1;
+  const camera_t kCameraId = 1;
+  {
+    const Camera camera = Camera::CreateFromModelId(kCameraId,
+                                                    CameraModelId::kPinhole,
+                                                    /*focal_length=*/4,
+                                                    /*width=*/4,
+                                                    /*height=*/4);
+    reconstruction->AddCamera(camera);
+    Image image;
+    image.SetImageId(kImageId);
+    image.SetCameraId(kCameraId);
+    std::vector<Eigen::Vector2d> points2D;
+    for (size_t i = 0; i < 4; ++i) {
+      for (size_t j = 0; j < 4; ++j) {
+        points2D.emplace_back(i, j);
+      }
+    }
+    image.SetPoints2D(points2D);
+    image.SetNumObservations(16);
+    reconstruction->AddImage(image);
+  }
+  ObservationManager obs_manager(reconstruction);
+
+  Eigen::Matrix<size_t, Eigen::Dynamic, 1> scores(
+      ObservationManager::kNumPoint3DVisibilityPyramidLevels, 1);
+  for (int i = 1; i <= ObservationManager::kNumPoint3DVisibilityPyramidLevels;
+       ++i) {
+    scores(i - 1) = (1 << i) * (1 << i);
+  }
+  EXPECT_EQ(obs_manager.Point3DVisibilityScore(kImageId), 0);
+  obs_manager.IncrementCorrespondenceHasPoint3D(kImageId, 0);
+  EXPECT_EQ(obs_manager.Point3DVisibilityScore(kImageId), scores.sum());
+  obs_manager.IncrementCorrespondenceHasPoint3D(kImageId, 0);
+  EXPECT_EQ(obs_manager.Point3DVisibilityScore(kImageId), scores.sum());
+  obs_manager.IncrementCorrespondenceHasPoint3D(kImageId, 1);
+  EXPECT_EQ(obs_manager.Point3DVisibilityScore(kImageId),
+            scores.sum() + scores.bottomRows(scores.size() - 1).sum());
+  obs_manager.IncrementCorrespondenceHasPoint3D(kImageId, 1);
+  obs_manager.IncrementCorrespondenceHasPoint3D(kImageId, 1);
+  obs_manager.IncrementCorrespondenceHasPoint3D(kImageId, 4);
+  EXPECT_EQ(obs_manager.Point3DVisibilityScore(kImageId),
+            scores.sum() + 2 * scores.bottomRows(scores.size() - 1).sum());
+  obs_manager.IncrementCorrespondenceHasPoint3D(kImageId, 4);
+  obs_manager.IncrementCorrespondenceHasPoint3D(kImageId, 5);
+  EXPECT_EQ(obs_manager.Point3DVisibilityScore(kImageId),
+            scores.sum() + 3 * scores.bottomRows(scores.size() - 1).sum());
+  obs_manager.DecrementCorrespondenceHasPoint3D(kImageId, 0);
+  EXPECT_EQ(obs_manager.Point3DVisibilityScore(kImageId),
+            scores.sum() + 3 * scores.bottomRows(scores.size() - 1).sum());
+  obs_manager.DecrementCorrespondenceHasPoint3D(kImageId, 0);
+  EXPECT_EQ(obs_manager.Point3DVisibilityScore(kImageId),
+            scores.sum() + 2 * scores.bottomRows(scores.size() - 1).sum());
+  obs_manager.IncrementCorrespondenceHasPoint3D(kImageId, 2);
+  EXPECT_EQ(obs_manager.Point3DVisibilityScore(kImageId),
+            2 * scores.sum() + 2 * scores.bottomRows(scores.size() - 1).sum());
+}
+
 }  // namespace
 }  // namespace colmap

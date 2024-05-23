@@ -376,9 +376,10 @@ IncrementalMapperController::ReconstructSubModel(
       LOG(INFO) << StringPrintf("Registering image #%d (%d)",
                                 next_image_id,
                                 reconstruction->NumRegImages() + 1);
-      LOG(INFO) << StringPrintf("=> Image sees %d / %d points",
-                                next_image.NumVisiblePoints3D(),
-                                next_image.NumObservations());
+      LOG(INFO) << StringPrintf(
+          "=> Image sees %d / %d points",
+          mapper.ObservationManager()->NumVisiblePoints3D(next_image_id),
+          next_image.NumObservations());
 
       reg_next_success =
           mapper.RegisterNextImage(mapper_options, next_image_id);

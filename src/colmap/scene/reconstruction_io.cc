@@ -180,7 +180,6 @@ void ReadImagesText(Reconstruction& reconstruction, const std::string& path) {
       }
     }
 
-    image.SetUp(reconstruction.Camera(image.CameraId()));
     image.SetPoints2D(points2D);
 
     for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
@@ -326,7 +325,6 @@ void ReadImagesBinary(Reconstruction& reconstruction, const std::string& path) {
       point3D_ids.push_back(ReadBinaryLittleEndian<point3D_t>(&file));
     }
 
-    image.SetUp(reconstruction.Camera(image.CameraId()));
     image.SetPoints2D(points2D);
 
     for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();

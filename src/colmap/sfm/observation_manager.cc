@@ -37,20 +37,35 @@
 
 namespace colmap {
 
+const int ObservationManager::kNumPoint3DVisibilityPyramidLevels = 6;
+
 ObservationManager::ObservationManager(
     std::shared_ptr<Reconstruction> reconstruction,
     std::shared_ptr<const CorrespondenceGraph> correspondence_graph)
     : reconstruction_(std::move(THROW_CHECK_NOTNULL(reconstruction))),
       correspondence_graph_(std::move(correspondence_graph)) {
   // Add image pairs.
-  image_pair_stats_.clear();
   if (correspondence_graph_) {
+    image_pair_stats_.reserve(correspondence_graph_->NumImagePairs());
     for (const auto& image_pair :
          correspondence_graph_->NumCorrespondencesBetweenImages()) {
       ImagePairStat image_pair_stat;
       image_pair_stat.num_total_corrs = image_pair.second;
       image_pair_stats_.emplace(image_pair.first, image_pair_stat);
     }
+  }
+
+  // Add image stats.
+  image_stats_.reserve(reconstruction_->NumImages());
+  for (const auto& id_image : reconstruction_->Images()) {
+    const class Image& image = id_image.second;
+    const class Camera& camera = reconstruction_->Camera(image.CameraId());
+    ImageStat image_stat;
+    image_stat.point3D_visibility_pyramid = VisibilityPyramid(
+        kNumPoint3DVisibilityPyramidLevels, camera.width, camera.height);
+    image_stat.num_correspondences_have_point3D.resize(image.NumPoints2D(), 0);
+    image_stat.num_visible_points3D = 0;
+    image_stats_.emplace(id_image.first, image_stat);
   }
 
   // If an existing model was loaded from disk and there were already images
@@ -66,6 +81,38 @@ ObservationManager::ObservationManager(
       }
     }
   }
+}
+
+void ObservationManager::IncrementCorrespondenceHasPoint3D(
+    const image_t image_id, const point2D_t point2D_idx) {
+  const Image& image = reconstruction_->Image(image_id);
+  const struct Point2D& point2D = image.Point2D(point2D_idx);
+  ImageStat& stats = image_stats_.at(image_id);
+
+  stats.num_correspondences_have_point3D[point2D_idx] += 1;
+  if (stats.num_correspondences_have_point3D[point2D_idx] == 1) {
+    stats.num_visible_points3D += 1;
+  }
+
+  stats.point3D_visibility_pyramid.SetPoint(point2D.xy(0), point2D.xy(1));
+
+  assert(stats.num_visible_points3D <= image.NumObservations());
+}
+
+void ObservationManager::DecrementCorrespondenceHasPoint3D(
+    const image_t image_id, const point2D_t point2D_idx) {
+  const Image& image = reconstruction_->Image(image_id);
+  const struct Point2D& point2D = image.Point2D(point2D_idx);
+  ImageStat& stats = image_stats_.at(image_id);
+
+  stats.num_correspondences_have_point3D[point2D_idx] -= 1;
+  if (stats.num_correspondences_have_point3D[point2D_idx] == 0) {
+    stats.num_visible_points3D -= 1;
+  }
+
+  stats.point3D_visibility_pyramid.ResetPoint(point2D.xy(0), point2D.xy(1));
+
+  assert(stats.num_visible_points3D <= image.NumObservations());
 }
 
 void ObservationManager::SetObservationAsTriangulated(
@@ -86,7 +133,7 @@ void ObservationManager::SetObservationAsTriangulated(
   for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
     class Image& corr_image = reconstruction_->Image(corr->image_id);
     const Point2D& corr_point2D = corr_image.Point2D(corr->point2D_idx);
-    corr_image.IncrementCorrespondenceHasPoint3D(corr->point2D_idx);
+    IncrementCorrespondenceHasPoint3D(corr->image_id, corr->point2D_idx);
     // Update number of shared 3D points between image pairs and make sure to
     // only count the correspondences once (not twice forward and backward).
     if (point2D.point3D_id == corr_point2D.point3D_id &&
@@ -118,7 +165,7 @@ void ObservationManager::ResetTriObservations(const image_t image_id,
   for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
     class Image& corr_image = reconstruction_->Image(corr->image_id);
     const Point2D& corr_point2D = corr_image.Point2D(corr->point2D_idx);
-    corr_image.DecrementCorrespondenceHasPoint3D(corr->point2D_idx);
+    DecrementCorrespondenceHasPoint3D(corr->image_id, corr->point2D_idx);
     // Update number of shared 3D points between image pairs and make sure to
     // only count the correspondences once (not twice forward and backward).
     if (point2D.point3D_id == corr_point2D.point3D_id &&

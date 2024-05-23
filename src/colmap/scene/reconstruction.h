@@ -92,9 +92,6 @@ class Reconstruction {
   // Load data from given `DatabaseCache`.
   void Load(const DatabaseCache& database_cache);
 
-  // Setup all relevant data structures before reconstruction.
-  void SetUp();
-
   // Finalize the Reconstruction after the reconstruction has finished.
   // Once a scene has been finalized, it cannot be used for reconstruction.
   // This removes all not yet registered images and unused cameras, in order to

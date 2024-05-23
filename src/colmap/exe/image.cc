@@ -290,7 +290,8 @@ int RunImageRegistrator(int argc, char** argv) {
     PrintHeading1("Registering image #" + std::to_string(image.first) + " (" +
                   std::to_string(reconstruction->NumRegImages() + 1) + ")");
 
-    LOG(INFO) << "\n=> Image sees " << image.second.NumVisiblePoints3D()
+    LOG(INFO) << "\n=> Image sees "
+              << mapper.ObservationManager()->NumVisiblePoints3D(image.first)
               << " / " << image.second.NumObservations() << " points";
 
     mapper.RegisterNextImage(mapper_options, image.first);
