@@ -137,16 +137,14 @@ class ObservationManager {
   static const int kNumPoint3DVisibilityPyramidLevels;
 
   // Indicate that another image has a point that is triangulated and has
-  // a correspondence to this image point. Note that this must only be called
-  // after calling `SetUp`.
+  // a correspondence to this image point.
   void IncrementCorrespondenceHasPoint3D(image_t image_id,
                                          point2D_t point2D_idx);
 
   // Indicate that another image has a point that is not triangulated any more
   // and has a correspondence to this image point. This assumes that
   // `IncrementCorrespondenceHasPoint3D` was called for the same image point
-  // and correspondence before. Note that this must only be called
-  // after calling `SetUp`.
+  // and correspondence before.
   void DecrementCorrespondenceHasPoint3D(image_t image_id,
                                          point2D_t point2D_idx);
 
@@ -175,8 +173,7 @@ class ObservationManager {
     std::vector<point2D_t> num_correspondences_have_point3D;
 
     // Data structure to compute the distribution of triangulated
-    // correspondences in the image. Note that this structure is only usable
-    // after `SetUp`.
+    // correspondences in the image.
     VisibilityPyramid point3D_visibility_pyramid;
   };
 
