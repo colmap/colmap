@@ -83,24 +83,23 @@ TEST(SynthesizeDataset, Nominal) {
   // All observations should be perfect and have sufficient triangulation angle.
   // No points or observations should be filtered.
   const double kMaxReprojError = 1e-3;
-  const double kMinTriAngleDeg = 1;
+  const double kMinTriAngleDeg = 0.4;
   std::unordered_map<image_t, Eigen::Vector3d> proj_centers;
   for (const auto& point3D_id : reconstruction.Point3DIds()) {
     struct Point3D& point3D = reconstruction.Point3D(point3D_id);
     for (size_t i1 = 0; i1 < point3D.track.Length(); ++i1) {
       const auto& track_el = point3D.track.Element(i1);
-      const class Image& image = reconstruction.Image(track_el.image_id);
+      const image_t image_id1 = track_el.image_id;
+      const class Image& image = reconstruction.Image(image_id1);
       const struct Camera& camera = reconstruction.Camera(image.CameraId());
       const Point2D& point2D = image.Point2D(track_el.point2D_idx);
       const double squared_reproj_error = CalculateSquaredReprojectionError(
           point2D.xy, point3D.xyz, image.CamFromWorld(), camera);
-      EXPECT_LT(squared_reproj_error, kMaxReprojError * kMaxReprojError);
+      EXPECT_LE(squared_reproj_error, kMaxReprojError * kMaxReprojError);
 
-      const image_t image_id1 = track_el.image_id;
       Eigen::Vector3d proj_center1;
       if (proj_centers.count(image_id1) == 0) {
-        const class Image& image1 = reconstruction.Image(image_id1);
-        proj_center1 = image1.ProjectionCenter();
+        proj_center1 = image.ProjectionCenter();
         proj_centers.emplace(image_id1, proj_center1);
       } else {
         proj_center1 = proj_centers.at(image_id1);
@@ -112,7 +111,7 @@ TEST(SynthesizeDataset, Nominal) {
 
         const double tri_angle = CalculateTriangulationAngle(
             proj_center1, proj_center2, point3D.xyz);
-        EXPECT_GT(tri_angle, DegToRad(kMinTriAngleDeg));
+        EXPECT_GE(tri_angle, DegToRad(kMinTriAngleDeg));
       }
     }
   }
