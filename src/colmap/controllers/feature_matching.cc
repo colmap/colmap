@@ -55,8 +55,8 @@ class GenericFeatureMatcher : public Thread {
       const TwoViewGeometryOptions& geometry_options,
       const std::string& database_path)
       : pair_options_(pair_options),
-        database_(new Database(database_path)),
-        cache_(new FeatureMatcherCache(
+        database_(std::make_shared<Database>(database_path)),
+        cache_(std::make_shared<FeatureMatcherCache>(
             DerivedPairGenerator::CacheSize(pair_options_), database_)),
         matcher_(
             matching_options, geometry_options, database_.get(), cache_.get()) {
@@ -84,7 +84,7 @@ class GenericFeatureMatcher : public Thread {
       }
       Timer timer;
       timer.Start();
-      std::vector<std::pair<image_t, image_t>> image_pairs =
+      const std::vector<std::pair<image_t, image_t>> image_pairs =
           pair_generator.Next();
       DatabaseTransaction database_transaction(database_.get());
       matcher_.Match(image_pairs);
@@ -186,8 +186,9 @@ class TransitiveFeatureMatcher : public Thread {
                            const std::string& database_path)
       : options_(options),
         matching_options_(matching_options),
-        database_(new Database(database_path)),
-        cache_(new FeatureMatcherCache(options_.batch_size, database_)),
+        database_(std::make_shared<Database>(database_path)),
+        cache_(std::make_shared<FeatureMatcherCache>(options_.batch_size,
+                                                     database_)),
         matcher_(
             matching_options, geometry_options, database_.get(), cache_.get()) {
     THROW_CHECK(options.Check());
@@ -331,8 +332,8 @@ class FeaturePairsFeatureMatcher : public Thread {
       : options_(options),
         matching_options_(matching_options),
         geometry_options_(geometry_options),
-        database_(new Database(database_path)),
-        cache_(new FeatureMatcherCache(kCacheSize, database_)) {
+        database_(std::make_shared<Database>(database_path)),
+        cache_(std::make_shared<FeatureMatcherCache>(kCacheSize, database_)) {
     THROW_CHECK(options.Check());
     THROW_CHECK(matching_options.Check());
     THROW_CHECK(geometry_options.Check());
