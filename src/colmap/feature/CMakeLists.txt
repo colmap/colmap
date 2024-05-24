@@ -49,15 +49,18 @@ COLMAP_ADD_LIBRARY(
     NAME colmap_feature
     SRCS
         extractor.h
-        matcher.h
+        matcher.h matcher.cc
+        pairing.h pairing.cc
         sift.h sift.cc
         types.h types.cc
         utils.h utils.cc
     PUBLIC_LINK_LIBS
         colmap_feature_types
+        colmap_retrieval
         colmap_scene
-    PRIVATE_LINK_LIBS
         colmap_util
+    PRIVATE_LINK_LIBS
+        colmap_geometry
         colmap_math
         colmap_sensor
         colmap_vlfeat
