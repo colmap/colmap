@@ -37,6 +37,11 @@
 
 namespace colmap {
 
+bool MergeAndFilterReconstructions(
+    const double max_reproj_error,
+    const Reconstruction& src_reconstruction,
+    const std::shared_ptr<Reconstruction>& tgt_reconstruction);
+
 class ObservationManager {
  public:
   struct ImagePairStat {

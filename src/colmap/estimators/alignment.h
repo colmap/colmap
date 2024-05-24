@@ -89,8 +89,9 @@ std::vector<ImageAlignmentError> ComputeImageAlignmentError(
 
 // Aligns the source to the target reconstruction and merges cameras, images,
 // points3D into the target using the alignment. Returns false on failure.
-bool MergeReconstructions(double max_reproj_error,
-                          const Reconstruction& src_reconstruction,
-                          Reconstruction* tgt_reconstruction);
+bool MergeReconstructions(
+    double max_reproj_error,
+    const Reconstruction& src_reconstruction,
+    const std::shared_ptr<Reconstruction>& tgt_reconstruction);
 
 }  // namespace colmap

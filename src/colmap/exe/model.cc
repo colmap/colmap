@@ -36,6 +36,7 @@
 #include "colmap/geometry/pose.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/scene/reconstruction_io.h"
+#include "colmap/sfm/observation_manager.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
 
@@ -722,24 +723,24 @@ int RunModelMerger(int argc, char** argv) {
   LOG(INFO) << StringPrintf("Images: %d", reconstruction1.NumRegImages());
   LOG(INFO) << StringPrintf("Points: %d", reconstruction1.NumPoints3D());
 
-  Reconstruction reconstruction2;
-  reconstruction2.Read(input_path2);
+  auto reconstruction2 = std::make_shared<Reconstruction>();
+  reconstruction2->Read(input_path2);
   PrintHeading2("Reconstruction 2");
-  LOG(INFO) << StringPrintf("Images: %d", reconstruction2.NumRegImages());
-  LOG(INFO) << StringPrintf("Points: %d", reconstruction2.NumPoints3D());
+  LOG(INFO) << StringPrintf("Images: %d", reconstruction2->NumRegImages());
+  LOG(INFO) << StringPrintf("Points: %d", reconstruction2->NumPoints3D());
 
   PrintHeading2("Merging reconstructions");
-  if (MergeReconstructions(
-          max_reproj_error, reconstruction1, &reconstruction2)) {
+  if (MergeAndFilterReconstructions(
+          max_reproj_error, reconstruction1, reconstruction2)) {
     LOG(INFO) << "=> Merge succeeded";
     PrintHeading2("Merged reconstruction");
-    LOG(INFO) << StringPrintf("Images: %d", reconstruction2.NumRegImages());
-    LOG(INFO) << StringPrintf("Points: %d", reconstruction2.NumPoints3D());
+    LOG(INFO) << StringPrintf("Images: %d", reconstruction2->NumRegImages());
+    LOG(INFO) << StringPrintf("Points: %d", reconstruction2->NumPoints3D());
   } else {
     LOG(INFO) << "=> Merge failed";
   }
 
-  reconstruction2.Write(output_path);
+  reconstruction2->Write(output_path);
 
   return EXIT_SUCCESS;
 }

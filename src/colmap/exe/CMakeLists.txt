@@ -59,6 +59,7 @@ COLMAP_ADD_LIBRARY(
         colmap_geometry
         colmap_optim
         colmap_scene
+        colmap_sfm
         colmap_util
     PRIVATE_LINK_LIBS
         Boost::boost

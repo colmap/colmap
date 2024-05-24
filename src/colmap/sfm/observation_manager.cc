@@ -29,6 +29,7 @@
 
 #include "colmap/sfm/observation_manager.h"
 
+#include "colmap/estimators/alignment.h"
 #include "colmap/geometry/triangulation.h"
 #include "colmap/scene/camera.h"
 #include "colmap/scene/projection.h"
@@ -36,6 +37,19 @@
 #include "colmap/util/misc.h"
 
 namespace colmap {
+
+bool MergeAndFilterReconstructions(
+    const double max_reproj_error,
+    const Reconstruction& src_reconstruction,
+    const std::shared_ptr<Reconstruction>& tgt_reconstruction) {
+  if (!MergeReconstructions(
+          max_reproj_error, src_reconstruction, tgt_reconstruction)) {
+    return false;
+  }
+  ObservationManager(tgt_reconstruction)
+      .FilterAllPoints3D(max_reproj_error, /*min_tri_angle=*/0);
+  return true;
+}
 
 const int ObservationManager::kNumPoint3DVisibilityPyramidLevels = 6;
 

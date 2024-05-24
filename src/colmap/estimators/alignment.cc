@@ -408,9 +408,10 @@ bool AlignReconstructionsViaPoints(const Reconstruction& src_reconstruction,
   return report.success;
 }
 
-bool MergeReconstructions(const double max_reproj_error,
-                          const Reconstruction& src_reconstruction,
-                          Reconstruction* tgt_reconstruction) {
+bool MergeReconstructions(
+    const double max_reproj_error,
+    const Reconstruction& src_reconstruction,
+    const std::shared_ptr<Reconstruction>& tgt_reconstruction) {
   Sim3d tgt_from_src;
   if (!AlignReconstructionsViaReprojections(src_reconstruction,
                                             *tgt_reconstruction,
@@ -489,10 +490,6 @@ bool MergeReconstructions(const double max_reproj_error,
       }
     }
   }
-
-  // tgt_reconstruction->FilterAllPoints3D(max_reproj_error,
-  // /*min_tri_angle=*/0); // TODO: fixme
-
   return true;
 }
 

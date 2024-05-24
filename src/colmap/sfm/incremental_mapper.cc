@@ -144,6 +144,7 @@ void IncrementalMapper::EndReconstruction(const bool discard) {
 
   reconstruction_->TearDown();
   reconstruction_ = nullptr;
+  obs_manager_.reset();
   triangulator_.reset();
 }
 
