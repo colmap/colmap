@@ -91,11 +91,7 @@ class IncrementalTriangulator {
   IncrementalTriangulator(
       std::shared_ptr<const CorrespondenceGraph> correspondence_graph,
       std::shared_ptr<Reconstruction> reconstruction,
-      std::shared_ptr<ObservationManager> obs_manager);
-
-  IncrementalTriangulator(
-      std::shared_ptr<const CorrespondenceGraph> correspondence_graph,
-      std::shared_ptr<Reconstruction> reconstruction);
+      std::shared_ptr<ObservationManager> obs_manager = nullptr);
 
   // Triangulate observations of image.
   //

@@ -88,15 +88,12 @@ IncrementalTriangulator::IncrementalTriangulator(
     std::shared_ptr<ObservationManager> obs_manager)
     : correspondence_graph_(std::move(correspondence_graph)),
       reconstruction_(std::move(reconstruction)),
-      obs_manager_(std::move(obs_manager)) {}
-
-IncrementalTriangulator::IncrementalTriangulator(
-    std::shared_ptr<const CorrespondenceGraph> correspondence_graph,
-    std::shared_ptr<Reconstruction> reconstruction)
-    : correspondence_graph_(std::move(correspondence_graph)),
-      reconstruction_(std::move(reconstruction)),
-      obs_manager_(std::make_shared<ObservationManager>(
-          reconstruction_, correspondence_graph_)) {}
+      obs_manager_(std::move(obs_manager)) {
+  if (!obs_manager_) {
+    obs_manager_ = std::make_shared<ObservationManager>(reconstruction_,
+                                                        correspondence_graph_);
+  }
+}
 
 size_t IncrementalTriangulator::TriangulateImage(const Options& options,
                                                  const image_t image_id) {
