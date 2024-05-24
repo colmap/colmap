@@ -32,6 +32,7 @@
 #include "colmap/controllers/feature_matching_utils.h"
 #include "colmap/controllers/pairing.h"
 #include "colmap/estimators/two_view_geometry.h"
+#include "colmap/feature/matcher.h"
 #include "colmap/feature/utils.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/timer.h"

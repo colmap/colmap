@@ -49,7 +49,7 @@ COLMAP_ADD_LIBRARY(
     NAME colmap_feature
     SRCS
         extractor.h
-        matcher.h
+        matcher.h matcher.cc
         sift.h sift.cc
         types.h types.cc
         utils.h utils.cc
