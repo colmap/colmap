@@ -30,7 +30,6 @@
 #include "colmap/controllers/feature_matching.h"
 
 #include "colmap/controllers/feature_matching_utils.h"
-#include "colmap/controllers/pairing.h"
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/feature/matcher.h"
 #include "colmap/feature/utils.h"
@@ -102,11 +101,6 @@ class GenericFeatureMatcher : public Thread {
 
 }  // namespace
 
-bool ExhaustiveMatchingOptions::Check() const {
-  CHECK_OPTION_GT(block_size, 1);
-  return true;
-}
-
 std::unique_ptr<Thread> CreateExhaustiveFeatureMatcher(
     const ExhaustiveMatchingOptions& options,
     const SiftMatchingOptions& matching_options,
@@ -114,13 +108,6 @@ std::unique_ptr<Thread> CreateExhaustiveFeatureMatcher(
     const std::string& database_path) {
   return std::make_unique<GenericFeatureMatcher<ExhaustivePairGenerator>>(
       options, matching_options, geometry_options, database_path);
-}
-
-bool VocabTreeMatchingOptions::Check() const {
-  CHECK_OPTION_GT(num_images, 0);
-  CHECK_OPTION_GT(num_nearest_neighbors, 0);
-  CHECK_OPTION_GT(num_checks, 0);
-  return true;
 }
 
 std::unique_ptr<Thread> CreateVocabTreeFeatureMatcher(
@@ -132,27 +119,6 @@ std::unique_ptr<Thread> CreateVocabTreeFeatureMatcher(
       options, matching_options, geometry_options, database_path);
 }
 
-bool SequentialMatchingOptions::Check() const {
-  CHECK_OPTION_GT(overlap, 0);
-  CHECK_OPTION_GT(loop_detection_period, 0);
-  CHECK_OPTION_GT(loop_detection_num_images, 0);
-  CHECK_OPTION_GT(loop_detection_num_nearest_neighbors, 0);
-  CHECK_OPTION_GT(loop_detection_num_checks, 0);
-  return true;
-}
-
-VocabTreeMatchingOptions SequentialMatchingOptions::VocabTreeOptions() const {
-  VocabTreeMatchingOptions options;
-  options.num_images = loop_detection_num_images;
-  options.num_nearest_neighbors = loop_detection_num_nearest_neighbors;
-  options.num_checks = loop_detection_num_checks;
-  options.num_images_after_verification =
-      loop_detection_num_images_after_verification;
-  options.max_num_features = loop_detection_max_num_features;
-  options.vocab_tree_path = vocab_tree_path;
-  return options;
-}
-
 std::unique_ptr<Thread> CreateSequentialFeatureMatcher(
     const SequentialMatchingOptions& options,
     const SiftMatchingOptions& matching_options,
@@ -160,12 +126,6 @@ std::unique_ptr<Thread> CreateSequentialFeatureMatcher(
     const std::string& database_path) {
   return std::make_unique<GenericFeatureMatcher<SequentialPairGenerator>>(
       options, matching_options, geometry_options, database_path);
-}
-
-bool SpatialMatchingOptions::Check() const {
-  CHECK_OPTION_GT(max_num_neighbors, 0);
-  CHECK_OPTION_GT(max_distance, 0.0);
-  return true;
 }
 
 std::unique_ptr<Thread> CreateSpatialFeatureMatcher(
@@ -293,12 +253,6 @@ class TransitiveFeatureMatcher : public Thread {
 
 }  // namespace
 
-bool TransitiveMatchingOptions::Check() const {
-  CHECK_OPTION_GT(batch_size, 0);
-  CHECK_OPTION_GT(num_iterations, 0);
-  return true;
-}
-
 std::unique_ptr<Thread> CreateTransitiveFeatureMatcher(
     const TransitiveMatchingOptions& options,
     const SiftMatchingOptions& matching_options,
@@ -306,11 +260,6 @@ std::unique_ptr<Thread> CreateTransitiveFeatureMatcher(
     const std::string& database_path) {
   return std::make_unique<TransitiveFeatureMatcher>(
       options, matching_options, geometry_options, database_path);
-}
-
-bool ImagePairsMatchingOptions::Check() const {
-  CHECK_OPTION_GT(block_size, 0);
-  return true;
 }
 
 std::unique_ptr<Thread> CreateImagePairsFeatureMatcher(
@@ -476,8 +425,6 @@ class FeaturePairsFeatureMatcher : public Thread {
 };
 
 }  // namespace
-
-bool FeaturePairsMatchingOptions::Check() const { return true; }
 
 std::unique_ptr<Thread> CreateFeaturePairsFeatureMatcher(
     const FeaturePairsMatchingOptions& options,

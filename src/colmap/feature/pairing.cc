@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/controllers/pairing.h"
+#include "colmap/feature/pairing.h"
 
 #include "colmap/feature/utils.h"
 #include "colmap/geometry/gps.h"
@@ -92,6 +92,58 @@ std::vector<std::pair<image_t, image_t>> ReadImagePairsText(
 }
 
 }  // namespace
+
+bool ExhaustiveMatchingOptions::Check() const {
+  CHECK_OPTION_GT(block_size, 1);
+  return true;
+}
+
+bool VocabTreeMatchingOptions::Check() const {
+  CHECK_OPTION_GT(num_images, 0);
+  CHECK_OPTION_GT(num_nearest_neighbors, 0);
+  CHECK_OPTION_GT(num_checks, 0);
+  return true;
+}
+
+bool SequentialMatchingOptions::Check() const {
+  CHECK_OPTION_GT(overlap, 0);
+  CHECK_OPTION_GT(loop_detection_period, 0);
+  CHECK_OPTION_GT(loop_detection_num_images, 0);
+  CHECK_OPTION_GT(loop_detection_num_nearest_neighbors, 0);
+  CHECK_OPTION_GT(loop_detection_num_checks, 0);
+  return true;
+}
+
+VocabTreeMatchingOptions SequentialMatchingOptions::VocabTreeOptions() const {
+  VocabTreeMatchingOptions options;
+  options.num_images = loop_detection_num_images;
+  options.num_nearest_neighbors = loop_detection_num_nearest_neighbors;
+  options.num_checks = loop_detection_num_checks;
+  options.num_images_after_verification =
+      loop_detection_num_images_after_verification;
+  options.max_num_features = loop_detection_max_num_features;
+  options.vocab_tree_path = vocab_tree_path;
+  return options;
+}
+
+bool SpatialMatchingOptions::Check() const {
+  CHECK_OPTION_GT(max_num_neighbors, 0);
+  CHECK_OPTION_GT(max_distance, 0.0);
+  return true;
+}
+
+bool TransitiveMatchingOptions::Check() const {
+  CHECK_OPTION_GT(batch_size, 0);
+  CHECK_OPTION_GT(num_iterations, 0);
+  return true;
+}
+
+bool ImagePairsMatchingOptions::Check() const {
+  CHECK_OPTION_GT(block_size, 0);
+  return true;
+}
+
+bool FeaturePairsMatchingOptions::Check() const { return true; }
 
 std::vector<std::pair<image_t, image_t>> PairGenerator::AllPairs() {
   std::vector<std::pair<image_t, image_t>> image_pairs;
