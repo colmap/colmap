@@ -211,21 +211,19 @@ TEST(ObservationManager, NumVisiblePoints3D) {
   const image_t kImageId1 = 1;
   const image_t kImageId2 = 2;
   const camera_t kCameraId = 1;
-  {
-    const Camera camera = Camera::CreateFromModelId(kCameraId,
-                                                    CameraModelId::kPinhole,
-                                                    /*focal_length=*/10,
-                                                    /*width=*/10,
-                                                    /*height=*/10);
-    reconstruction->AddCamera(camera);
-    Image image;
-    image.SetImageId(kImageId1);
-    image.SetCameraId(kCameraId);
-    image.SetPoints2D(std::vector<Eigen::Vector2d>(10));
-    reconstruction->AddImage(image);
-    image.SetImageId(kImageId2);
-    reconstruction->AddImage(image);
-  }
+  const Camera camera = Camera::CreateFromModelId(kCameraId,
+                                                  CameraModelId::kPinhole,
+                                                  /*focal_length=*/10,
+                                                  /*width=*/10,
+                                                  /*height=*/10);
+  reconstruction->AddCamera(camera);
+  Image image;
+  image.SetImageId(kImageId1);
+  image.SetCameraId(kCameraId);
+  image.SetPoints2D(std::vector<Eigen::Vector2d>(10));
+  reconstruction->AddImage(image);
+  image.SetImageId(kImageId2);
+  reconstruction->AddImage(image);
   auto correspondence_graph = std::make_shared<CorrespondenceGraph>();
   correspondence_graph->AddImage(kImageId1, 10);
   correspondence_graph->AddImage(kImageId2, 10);
@@ -259,27 +257,26 @@ TEST(ObservationManager, Point3DVisibilityScore) {
   const image_t kImageId1 = 1;
   const camera_t kCameraId = 1;
   const image_t kImageId2 = 2;
-  {
-    const Camera camera = Camera::CreateFromModelId(kCameraId,
-                                                    CameraModelId::kPinhole,
-                                                    /*focal_length=*/4,
-                                                    /*width=*/4,
-                                                    /*height=*/4);
-    reconstruction->AddCamera(camera);
-    Image image;
-    image.SetImageId(kImageId1);
-    image.SetCameraId(kCameraId);
-    std::vector<Eigen::Vector2d> points2D;
-    for (size_t i = 0; i < 4; ++i) {
-      for (size_t j = 0; j < 4; ++j) {
-        points2D.emplace_back(i, j);
-      }
+  const Camera camera = Camera::CreateFromModelId(kCameraId,
+                                                  CameraModelId::kPinhole,
+                                                  /*focal_length=*/4,
+                                                  /*width=*/4,
+                                                  /*height=*/4);
+  reconstruction->AddCamera(camera);
+  Image image;
+  image.SetImageId(kImageId1);
+  image.SetCameraId(kCameraId);
+  std::vector<Eigen::Vector2d> points2D;
+  for (size_t i = 0; i < 4; ++i) {
+    for (size_t j = 0; j < 4; ++j) {
+      points2D.emplace_back(i, j);
     }
-    image.SetPoints2D(points2D);
-    reconstruction->AddImage(image);
-    image.SetImageId(kImageId2);
-    reconstruction->AddImage(image);
   }
+  image.SetPoints2D(points2D);
+  reconstruction->AddImage(image);
+  image.SetImageId(kImageId2);
+  reconstruction->AddImage(image);
+
   auto correspondence_graph = std::make_shared<CorrespondenceGraph>();
   correspondence_graph->AddImage(kImageId1, 16);
   correspondence_graph->AddImage(kImageId2, 16);
