@@ -283,15 +283,14 @@ class FeaturePairsFeatureMatcher : public Thread {
         matching_options_(matching_options),
         geometry_options_(geometry_options),
         database_(std::make_shared<Database>(database_path)),
-        cache_(std::make_shared<FeatureMatcherCache>(kCacheSize, database_)) {
+        cache_(std::make_shared<FeatureMatcherCache>(/*cache_size=*/100,
+                                                     database_)) {
     THROW_CHECK(options.Check());
     THROW_CHECK(matching_options.Check());
     THROW_CHECK(geometry_options.Check());
   }
 
  private:
-  const static size_t kCacheSize = 100;
-
   void Run() override {
     PrintHeading1("Importing matches");
     Timer run_timer;
