@@ -26,7 +26,7 @@ class DatabaseTransactionWrapper {
 };
 
 void BindDatabase(py::module& m) {
-  py::class_<Database> PyDatabase(m, "Database");
+  py::class_<Database, std::shared_ptr<Database>> PyDatabase(m, "Database");
   PyDatabase.def(py::init<>())
       .def(py::init<const std::string&>(), "path"_a)
       .def("open", &Database::Open, "path"_a)
