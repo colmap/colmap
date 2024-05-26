@@ -50,9 +50,9 @@ class ObservationManager {
     size_t num_total_corrs = 0;
   };
 
-  ObservationManager(Reconstruction& reconstruction,
-                     std::shared_ptr<const CorrespondenceGraph>
-                         correspondence_graph = nullptr);
+  explicit ObservationManager(Reconstruction& reconstruction,
+                              std::shared_ptr<const CorrespondenceGraph>
+                                  correspondence_graph = nullptr);
 
   inline const std::unordered_map<image_pair_t, ImagePairStat>& ImagePairs()
       const;
