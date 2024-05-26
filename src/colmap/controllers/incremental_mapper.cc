@@ -552,7 +552,8 @@ void IncrementalMapperController::TriangulateReconstruction(
     LOG(INFO) << StringPrintf("Triangulating image #%d (%d)", image_id, i);
     const size_t num_existing_points3D = image.NumPoints3D();
     LOG(INFO) << "=> Image sees " << num_existing_points3D << " / "
-              << image.NumPoints2D() << " points";
+              << mapper.ObservationManager()->NumObservations(image_id)
+              << " points";
 
     mapper.TriangulateImage(options_->Triangulation(), image_id);
     VLOG(1) << "=> Triangulated "
