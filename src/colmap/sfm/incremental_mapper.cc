@@ -117,7 +117,7 @@ void IncrementalMapper::BeginReconstruction(
   obs_manager_ = std::make_shared<class ObservationManager>(
       *reconstruction_, database_cache_->CorrespondenceGraph());
   triangulator_ = std::make_shared<IncrementalTriangulator>(
-      database_cache_->CorrespondenceGraph(), reconstruction, obs_manager_);
+      database_cache_->CorrespondenceGraph(), *reconstruction_, obs_manager_);
 
   num_shared_reg_images_ = 0;
   num_reg_images_per_camera_.clear();

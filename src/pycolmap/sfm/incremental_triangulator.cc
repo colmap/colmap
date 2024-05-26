@@ -78,11 +78,12 @@ void BindIncrementalTriangulator(py::module& m) {
   py::class_<IncrementalTriangulator, std::shared_ptr<IncrementalTriangulator>>(
       m, "IncrementalTriangulator")
       .def(py::init<std::shared_ptr<const CorrespondenceGraph>,
-                    std::shared_ptr<Reconstruction>,
+                    Reconstruction&,
                     std::shared_ptr<ObservationManager>>(),
            "correspondence_graph"_a,
            "reconstruction"_a,
-           "observation_manager"_a = py::none())
+           "observation_manager"_a = py::none(),
+           py::keep_alive<1, 3>())
       .def("triangulate_image", &IncrementalTriangulator::TriangulateImage)
       .def("complete_image", &IncrementalTriangulator::CompleteImage)
       .def("complete_all_tracks", &IncrementalTriangulator::CompleteAllTracks)
