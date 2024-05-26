@@ -377,8 +377,8 @@ IncrementalMapperController::ReconstructSubModel(
                                 reconstruction->NumRegImages() + 1);
       LOG(INFO) << StringPrintf(
           "=> Image sees %d / %d points",
-          mapper.ObservationManager()->NumVisiblePoints3D(next_image_id),
-          mapper.ObservationManager()->NumObservations(next_image_id));
+          mapper.ObservationManager().NumVisiblePoints3D(next_image_id),
+          mapper.ObservationManager().NumObservations(next_image_id));
 
       reg_next_success =
           mapper.RegisterNextImage(mapper_options, next_image_id);
@@ -552,7 +552,7 @@ void IncrementalMapperController::TriangulateReconstruction(
     LOG(INFO) << StringPrintf("Triangulating image #%d (%d)", image_id, i);
     const size_t num_existing_points3D = image.NumPoints3D();
     LOG(INFO) << "=> Image sees " << num_existing_points3D << " / "
-              << mapper.ObservationManager()->NumObservations(image_id)
+              << mapper.ObservationManager().NumObservations(image_id)
               << " points";
 
     mapper.TriangulateImage(options_->Triangulation(), image_id);

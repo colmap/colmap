@@ -852,14 +852,14 @@ std::shared_ptr<class Reconstruction> IncrementalMapper::Reconstruction()
   return reconstruction_;
 }
 
-std::shared_ptr<class ObservationManager>
-IncrementalMapper::ObservationManager() const {
-  return obs_manager_;
+class ObservationManager& IncrementalMapper::ObservationManager() const {
+  THROW_CHECK_NOTNULL(obs_manager_);
+  return *obs_manager_;
 }
 
-std::shared_ptr<IncrementalTriangulator> IncrementalMapper::Triangulator()
-    const {
-  return triangulator_;
+IncrementalTriangulator& IncrementalMapper::Triangulator() const {
+  THROW_CHECK_NOTNULL(triangulator_);
+  return *triangulator_;
 }
 
 const std::unordered_set<image_t>& IncrementalMapper::FilteredImages() const {

@@ -245,8 +245,8 @@ class IncrementalMapper {
 
   // Getter functions
   std::shared_ptr<class Reconstruction> Reconstruction() const;
-  std::shared_ptr<class ObservationManager> ObservationManager() const;
-  std::shared_ptr<IncrementalTriangulator> Triangulator() const;
+  class ObservationManager& ObservationManager() const;
+  IncrementalTriangulator& Triangulator() const;
   const std::unordered_set<image_t>& FilteredImages() const;
   const std::unordered_set<image_t>& ExistingImageIds() const;
   const std::unordered_map<camera_t, size_t>& NumRegImagesPerCamera() const;

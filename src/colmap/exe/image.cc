@@ -291,9 +291,9 @@ int RunImageRegistrator(int argc, char** argv) {
                   std::to_string(reconstruction->NumRegImages() + 1) + ")");
 
     LOG(INFO) << "\n=> Image sees "
-              << mapper.ObservationManager()->NumVisiblePoints3D(image.first)
+              << mapper.ObservationManager().NumVisiblePoints3D(image.first)
               << " / "
-              << mapper.ObservationManager()->NumObservations(image.first)
+              << mapper.ObservationManager().NumObservations(image.first)
               << " points";
 
     mapper.RegisterNextImage(mapper_options, image.first);
