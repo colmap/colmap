@@ -21,10 +21,11 @@ void BindObservationManager(py::module& m) {
 
   py::class_<ObservationManager, std::shared_ptr<ObservationManager>>(
       m, "ObservationManager")
-      .def(py::init<std::shared_ptr<Reconstruction>,
+      .def(py::init<Reconstruction&,
                     std::shared_ptr<const CorrespondenceGraph>>(),
            "reconstruction"_a,
-           "correspondence_graph"_a = py::none())
+           "correspondence_graph"_a = py::none(),
+           py::keep_alive<1, 2>())
       .def_property_readonly("image_pairs", &ObservationManager::ImagePairs)
       .def("add_point3D",
            &ObservationManager::AddPoint3D,

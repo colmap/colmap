@@ -37,10 +37,9 @@
 
 namespace colmap {
 
-bool MergeAndFilterReconstructions(
-    double max_reproj_error,
-    const Reconstruction& src_reconstruction,
-    const std::shared_ptr<Reconstruction>& tgt_reconstruction);
+bool MergeAndFilterReconstructions(double max_reproj_error,
+                                   const Reconstruction& src_reconstruction,
+                                   Reconstruction& tgt_reconstruction);
 
 class ObservationManager {
  public:
@@ -51,7 +50,7 @@ class ObservationManager {
     size_t num_total_corrs = 0;
   };
 
-  ObservationManager(std::shared_ptr<Reconstruction> reconstruction,
+  ObservationManager(Reconstruction& reconstruction,
                      std::shared_ptr<const CorrespondenceGraph>
                          correspondence_graph = nullptr);
 
@@ -177,7 +176,7 @@ class ObservationManager {
     VisibilityPyramid point3D_visibility_pyramid;
   };
 
-  const std::shared_ptr<Reconstruction> reconstruction_;
+  Reconstruction& reconstruction_;
   const std::shared_ptr<const CorrespondenceGraph> correspondence_graph_;
   std::unordered_map<image_pair_t, ImagePairStat> image_pair_stats_;
   std::unordered_map<image_t, ImageStat> image_stats_;

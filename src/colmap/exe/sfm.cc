@@ -356,23 +356,23 @@ int RunPointFiltering(int argc, char** argv) {
   options.AddDefaultOption("min_tri_angle", &min_tri_angle);
   options.Parse(argc, argv);
 
-  auto reconstruction = std::make_shared<Reconstruction>();
-  reconstruction->Read(input_path);
+  Reconstruction reconstruction;
+  reconstruction.Read(input_path);
 
   size_t num_filtered = ObservationManager(reconstruction)
                             .FilterAllPoints3D(max_reproj_error, min_tri_angle);
 
-  for (const auto point3D_id : reconstruction->Point3DIds()) {
-    const auto& point3D = reconstruction->Point3D(point3D_id);
+  for (const auto point3D_id : reconstruction.Point3DIds()) {
+    const auto& point3D = reconstruction.Point3D(point3D_id);
     if (point3D.track.Length() < min_track_len) {
       num_filtered += point3D.track.Length();
-      reconstruction->DeletePoint3D(point3D_id);
+      reconstruction.DeletePoint3D(point3D_id);
     }
   }
 
   LOG(INFO) << "Filtered observations: " << num_filtered;
 
-  reconstruction->Write(output_path);
+  reconstruction.Write(output_path);
 
   return EXIT_SUCCESS;
 }

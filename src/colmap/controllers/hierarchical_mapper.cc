@@ -64,7 +64,7 @@ void MergeClusters(const SceneClustering::Cluster& cluster,
         const double kMaxReprojError = 8.0;
         const int num_reg_images_j = reconstructions[j]->NumRegImages();
         if (MergeAndFilterReconstructions(
-                kMaxReprojError, *reconstructions[j], reconstructions[i])) {
+                kMaxReprojError, *reconstructions[j], *reconstructions[i])) {
           LOG(INFO) << StringPrintf(
               "=> Merged clusters with %d and %d images into %d images",
               num_reg_images_i,

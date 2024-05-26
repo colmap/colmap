@@ -81,7 +81,7 @@ void BundleAdjustmentController::Run() {
   }
 
   // Avoid degeneracies in bundle adjustment.
-  ObservationManager(reconstruction_).FilterObservationsWithNegativeDepth();
+  ObservationManager(*reconstruction_).FilterObservationsWithNegativeDepth();
 
   BundleAdjustmentOptions ba_options = *options_.bundle_adjustment;
 

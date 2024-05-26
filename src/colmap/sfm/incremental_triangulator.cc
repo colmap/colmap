@@ -90,7 +90,7 @@ IncrementalTriangulator::IncrementalTriangulator(
       reconstruction_(std::move(reconstruction)),
       obs_manager_(std::move(obs_manager)) {
   if (!obs_manager_) {
-    obs_manager_ = std::make_shared<ObservationManager>(reconstruction_,
+    obs_manager_ = std::make_shared<ObservationManager>(*reconstruction_,
                                                         correspondence_graph_);
   }
 }
