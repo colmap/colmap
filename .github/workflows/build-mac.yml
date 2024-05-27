@@ -76,6 +76,7 @@ jobs:
       - name: Run tests
         run: |
           cd build
+          set +e
           ctest
           tests_pass=$?
           if [ $tests_pass -ne 0 ]; then

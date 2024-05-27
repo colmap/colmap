@@ -225,7 +225,7 @@ def adjust_global_bundle(mapper, mapper_options, ba_options):
         ba_options_tmp.solver_options.max_linear_solver_iterations = 200
 
     # Avoid degeneracies in bundle adjustment
-    reconstruction.filter_observations_with_negative_depth()
+    mapper.observation_manager.filter_observations_with_negative_depth()
 
     # Configure bundle adjustment
     ba_config = pycolmap.BundleAdjustmentConfig()
@@ -370,15 +370,19 @@ def adjust_local_bundle(
         )
 
     filter_image_ids = {image_id, *local_bundle}
-    report.num_filtered_observations = reconstruction.filter_points3D_in_images(
-        mapper_options.filter_max_reproj_error,
-        mapper_options.filter_min_tri_angle,
-        filter_image_ids,
+    report.num_filtered_observations = (
+        mapper.observation_manager.filter_points3D_in_images(
+            mapper_options.filter_max_reproj_error,
+            mapper_options.filter_min_tri_angle,
+            filter_image_ids,
+        )
     )
-    report.num_filtered_observations += reconstruction.filter_points3D(
-        mapper_options.filter_max_reproj_error,
-        mapper_options.filter_min_tri_angle,
-        point3D_ids,
+    report.num_filtered_observations += (
+        mapper.observation_manager.filter_points3D(
+            mapper_options.filter_max_reproj_error,
+            mapper_options.filter_min_tri_angle,
+            point3D_ids,
+        )
     )
     return report
 

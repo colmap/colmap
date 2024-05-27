@@ -34,6 +34,7 @@
 #include "colmap/image/undistortion.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sfm/incremental_mapper.h"
+#include "colmap/sfm/observation_manager.h"
 #include "colmap/util/base_controller.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
@@ -172,8 +173,9 @@ int RunImageFilterer(int argc, char** argv) {
 
   const size_t num_reg_images = reconstruction.NumRegImages();
 
-  reconstruction.FilterImages(
-      min_focal_length_ratio, max_focal_length_ratio, max_extra_param);
+  ObservationManager(reconstruction)
+      .FilterImages(
+          min_focal_length_ratio, max_focal_length_ratio, max_extra_param);
 
   std::vector<image_t> filtered_image_ids;
   for (const auto& image : reconstruction.Images()) {
@@ -288,8 +290,11 @@ int RunImageRegistrator(int argc, char** argv) {
     PrintHeading1("Registering image #" + std::to_string(image.first) + " (" +
                   std::to_string(reconstruction->NumRegImages() + 1) + ")");
 
-    LOG(INFO) << "\n=> Image sees " << image.second.NumVisiblePoints3D()
-              << " / " << image.second.NumObservations() << " points";
+    LOG(INFO) << "\n=> Image sees "
+              << mapper.ObservationManager().NumVisiblePoints3D(image.first)
+              << " / "
+              << mapper.ObservationManager().NumObservations(image.first)
+              << " points";
 
     mapper.RegisterNextImage(mapper_options, image.first);
   }

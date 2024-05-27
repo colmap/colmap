@@ -322,12 +322,6 @@ DatabaseImageViewerWidget::DatabaseImageViewerWidget(
   table_widget_->setItem(table_row, 1, num_points3D_item_);
   table_row += 1;
 
-  table_widget_->setItem(
-      table_row, 0, new QTableWidgetItem("num_observations"));
-  num_obs_item_ = new QTableWidgetItem();
-  table_widget_->setItem(table_row, 1, num_obs_item_);
-  table_row += 1;
-
   table_widget_->setItem(table_row, 0, new QTableWidgetItem("name"));
   name_item_ = new QTableWidgetItem();
   table_widget_->setItem(table_row, 1, name_item_);
@@ -378,7 +372,6 @@ void DatabaseImageViewerWidget::ShowImageWithId(const image_t image_id) {
   }
 
   num_points3D_item_->setText(QString::number(image.NumPoints3D()));
-  num_obs_item_->setText(QString::number(image.NumObservations()));
   name_item_->setText(QString::fromStdString(image.Name()));
 
   ResizeTable();

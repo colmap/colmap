@@ -29,6 +29,8 @@
 
 #include "colmap/scene/synthetic.h"
 
+#include "colmap/geometry/triangulation.h"
+#include "colmap/scene/projection.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/testing.h"
 
@@ -80,9 +82,39 @@ TEST(SynthesizeDataset, Nominal) {
 
   // All observations should be perfect and have sufficient triangulation angle.
   // No points or observations should be filtered.
-  EXPECT_EQ(reconstruction.FilterAllPoints3D(/*max_reproj_error=*/1e-3,
-                                             /*min_tri_angle=*/1),
-            0);
+  const double kMaxReprojError = 1e-3;
+  const double kMinTriAngleDeg = 0.4;
+  std::unordered_map<image_t, Eigen::Vector3d> proj_centers;
+  for (const auto& point3D_id : reconstruction.Point3DIds()) {
+    struct Point3D& point3D = reconstruction.Point3D(point3D_id);
+    for (size_t i1 = 0; i1 < point3D.track.Length(); ++i1) {
+      const auto& track_el = point3D.track.Element(i1);
+      const image_t image_id1 = track_el.image_id;
+      const class Image& image = reconstruction.Image(image_id1);
+      const struct Camera& camera = reconstruction.Camera(image.CameraId());
+      const Point2D& point2D = image.Point2D(track_el.point2D_idx);
+      const double squared_reproj_error = CalculateSquaredReprojectionError(
+          point2D.xy, point3D.xyz, image.CamFromWorld(), camera);
+      EXPECT_LE(squared_reproj_error, kMaxReprojError * kMaxReprojError);
+
+      Eigen::Vector3d proj_center1;
+      if (proj_centers.count(image_id1) == 0) {
+        proj_center1 = image.ProjectionCenter();
+        proj_centers.emplace(image_id1, proj_center1);
+      } else {
+        proj_center1 = proj_centers.at(image_id1);
+      }
+
+      for (size_t i2 = 0; i2 < i1; ++i2) {
+        const image_t image_id2 = point3D.track.Element(i2).image_id;
+        const Eigen::Vector3d proj_center2 = proj_centers.at(image_id2);
+
+        const double tri_angle = CalculateTriangulationAngle(
+            proj_center1, proj_center2, point3D.xyz);
+        EXPECT_GE(tri_angle, DegToRad(kMinTriAngleDeg));
+      }
+    }
+  }
 }
 
 TEST(SynthesizeDataset, WithNoise) {
