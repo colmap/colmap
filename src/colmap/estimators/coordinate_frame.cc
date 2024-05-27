@@ -156,6 +156,7 @@ Eigen::Vector3d EstimateGravityVectorFromImageOrientation(
   return FindBestConsensusAxis(downward_axes, max_axis_distance);
 }
 
+#ifdef COLMAP_LSD_ENABLED
 Eigen::Matrix3d EstimateManhattanWorldFrame(
     const ManhattanWorldFrameEstimationOptions& options,
     const Reconstruction& reconstruction,
@@ -303,6 +304,7 @@ Eigen::Matrix3d EstimateManhattanWorldFrame(
 
   return frame;
 }
+#endif
 
 void AlignToPrincipalPlane(Reconstruction* reconstruction, Sim3d* tform) {
   // Perform SVD on the 3D points to estimate the ground plane basis

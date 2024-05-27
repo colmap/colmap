@@ -742,7 +742,11 @@ int RunModelMerger(int argc, char** argv) {
 int RunModelOrientationAligner(int argc, char** argv) {
   std::string input_path;
   std::string output_path;
+#ifdef COLMAP_LSD_ENABLED
   std::string method = "MANHATTAN-WORLD";
+#else
+  std::string method = "IMAGE-ORIENTATION";
+#endif
 
   ManhattanWorldFrameEstimationOptions frame_estimation_options;
 
@@ -750,18 +754,31 @@ int RunModelOrientationAligner(int argc, char** argv) {
   options.AddImageOptions();
   options.AddRequiredOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
+#ifdef COLMAP_LSD_ENABLED
   options.AddDefaultOption(
       "method", &method, "{MANHATTAN-WORLD, IMAGE-ORIENTATION}");
+#else
+  options.AddDefaultOption(
+      "method", &method, "{IMAGE-ORIENTATION}");
+#endif
   options.AddDefaultOption("max_image_size",
                            &frame_estimation_options.max_image_size);
   options.Parse(argc, argv);
 
   StringToLower(&method);
+#ifdef COLMAP_LSD_ENABLED
   if (method != "manhattan-world" && method != "image-orientation") {
     LOG(ERROR) << "Invalid `method` - supported values are "
                   "'MANHATTAN-WORLD' or 'IMAGE-ORIENTATION'.";
     return EXIT_FAILURE;
   }
+#else
+  if (method != "image-orientation") {
+    LOG(ERROR) << "Invalid `method` - supported values are "
+                  "'IMAGE-ORIENTATION'.";
+    return EXIT_FAILURE;
+  }
+#endif
 
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
@@ -770,6 +787,7 @@ int RunModelOrientationAligner(int argc, char** argv) {
 
   Sim3d new_from_old_world;
 
+#ifdef COLMAP_LSD_ENABLED
   if (method == "manhattan-world") {
     const Eigen::Matrix3d frame = EstimateManhattanWorldFrame(
         frame_estimation_options, reconstruction, *options.image_path);
@@ -787,10 +805,14 @@ int RunModelOrientationAligner(int argc, char** argv) {
       LOG(INFO) << "Aligning horizontal and vertical axes";
     }
   } else if (method == "image-orientation") {
+#else
+  if (method == "image-orientation") {
+#endif
     const Eigen::Vector3d gravity_axis =
         EstimateGravityVectorFromImageOrientation(reconstruction);
     new_from_old_world.rotation = Eigen::Quaterniond::FromTwoVectors(
         gravity_axis, Eigen::Vector3d(0, 1, 0));
+
   } else {
     LOG(FATAL) << "Alignment method not supported";
   }
