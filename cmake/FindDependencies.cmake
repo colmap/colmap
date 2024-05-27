@@ -20,6 +20,11 @@ find_package(LZ4 ${COLMAP_FIND_TYPE})
 find_package(Metis ${COLMAP_FIND_TYPE})
 
 find_package(Glog ${COLMAP_FIND_TYPE})
+if(DEFINED glog_VERSION_MAJOR)
+  # Older versions of glog don't export version variables.
+  add_definitions("-DGLOG_VERSION_MAJOR=${glog_VERSION_MAJOR}")
+  add_definitions("-DGLOG_VERSION_MINOR=${glog_VERSION_MINOR}")
+endif()
 
 find_package(SQLite3 ${COLMAP_FIND_TYPE})
 
@@ -122,15 +127,11 @@ endif()
 
 if(CUDA_ENABLED AND CUDA_FOUND)
     if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
-        message(
-            FATAL_ERROR "You must set CMAKE_CUDA_ARCHITECTURES to e.g. 'native', 'all-major', '70', etc. "
-            "More information at https://cmake.org/cmake/help/latest/prop_tgt/CUDA_ARCHITECTURES.html")
+        set(CMAKE_CUDA_ARCHITECTURES "native")
     endif()
 
     add_definitions("-DCOLMAP_CUDA_ENABLED")
 
-    # Fix for some combinations of CUDA and GCC (e.g. under Ubuntu 16.04).
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -D_FORCE_INLINES")
     # Do not show warnings if the architectures are deprecated.
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Wno-deprecated-gpu-targets")
     # Explicitly set PIC flags for CUDA targets.

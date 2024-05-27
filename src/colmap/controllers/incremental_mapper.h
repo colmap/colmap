@@ -31,7 +31,7 @@
 
 #include "colmap/scene/reconstruction_manager.h"
 #include "colmap/sfm/incremental_mapper.h"
-#include "colmap/util/threading.h"
+#include "colmap/util/base_controller.h"
 
 namespace colmap {
 
@@ -135,45 +135,74 @@ struct IncrementalMapperOptions {
   BundleAdjustmentOptions LocalBundleAdjustment() const;
   BundleAdjustmentOptions GlobalBundleAdjustment() const;
 
+  inline bool IsInitialPairProvided() const {
+    return init_image_id1 != -1 && init_image_id2 != -1;
+  }
+
   bool Check() const;
 };
 
 // Class that controls the incremental mapping procedure by iteratively
 // initializing reconstructions from the same scene graph.
-class IncrementalMapperController : public Thread {
+class IncrementalMapperController : public BaseController {
  public:
-  enum {
+  enum CallbackType {
     INITIAL_IMAGE_PAIR_REG_CALLBACK,
     NEXT_IMAGE_REG_CALLBACK,
     LAST_IMAGE_REG_CALLBACK,
   };
 
+  enum class Status { NO_INITIAL_PAIR, BAD_INITIAL_PAIR, SUCCESS, INTERRUPTED };
+
   IncrementalMapperController(
       std::shared_ptr<const IncrementalMapperOptions> options,
       const std::string& image_path,
       const std::string& database_path,
-      std::shared_ptr<ReconstructionManager> reconstruction_manager);
+      std::shared_ptr<class ReconstructionManager> reconstruction_manager);
 
- private:
   void Run();
+
+  void TriangulateReconstruction(
+      const std::shared_ptr<Reconstruction>& reconstruction);
+
   bool LoadDatabase();
+
+  // getter functions for python pipelines
+  const std::string& ImagePath() const { return image_path_; }
+  const std::string& DatabasePath() const { return database_path_; }
+  const std::shared_ptr<const IncrementalMapperOptions>& Options() const {
+    return options_;
+  }
+  const std::shared_ptr<class ReconstructionManager>& ReconstructionManager()
+      const {
+    return reconstruction_manager_;
+  }
+  const std::shared_ptr<class DatabaseCache>& DatabaseCache() const {
+    return database_cache_;
+  }
+
   void Reconstruct(const IncrementalMapper::Options& init_mapper_options);
 
+  Status ReconstructSubModel(
+      IncrementalMapper& mapper,
+      const IncrementalMapper::Options& mapper_options,
+      const std::shared_ptr<Reconstruction>& reconstruction);
+
+  Status InitializeReconstruction(
+      IncrementalMapper& mapper,
+      const IncrementalMapper::Options& mapper_options,
+      Reconstruction& reconstruction);
+
+  bool CheckRunGlobalRefinement(const Reconstruction& reconstruction,
+                                size_t ba_prev_num_reg_images,
+                                size_t ba_prev_num_points);
+
+ private:
   const std::shared_ptr<const IncrementalMapperOptions> options_;
   const std::string image_path_;
   const std::string database_path_;
-  std::shared_ptr<ReconstructionManager> reconstruction_manager_;
-  std::shared_ptr<DatabaseCache> database_cache_;
+  std::shared_ptr<class ReconstructionManager> reconstruction_manager_;
+  std::shared_ptr<class DatabaseCache> database_cache_;
 };
-
-// Globally filter points and images in mapper.
-size_t FilterPoints(const IncrementalMapperOptions& options,
-                    IncrementalMapper* mapper);
-size_t FilterImages(const IncrementalMapperOptions& options,
-                    IncrementalMapper* mapper);
-
-// Globally complete and merge tracks in mapper.
-size_t CompleteAndMergeTracks(const IncrementalMapperOptions& options,
-                              IncrementalMapper* mapper);
 
 }  // namespace colmap

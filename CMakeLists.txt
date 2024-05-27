@@ -30,9 +30,40 @@
 
 cmake_minimum_required(VERSION 3.10)
 
+################################################################################
+# Options
+################################################################################
+
+option(SIMD_ENABLED "Whether to enable SIMD optimizations" ON)
+option(OPENMP_ENABLED "Whether to enable OpenMP parallelization" ON)
+option(IPO_ENABLED "Whether to enable interprocedural optimization" ON)
+option(CUDA_ENABLED "Whether to enable CUDA, if available" ON)
+option(GUI_ENABLED "Whether to enable the graphical UI" ON)
+option(OPENGL_ENABLED "Whether to enable OpenGL, if available" ON)
+option(TESTS_ENABLED "Whether to build test binaries" OFF)
+option(ASAN_ENABLED "Whether to enable AddressSanitizer flags" OFF)
+option(PROFILING_ENABLED "Whether to enable google-perftools linker flags" OFF)
+option(CCACHE_ENABLED "Whether to enable compiler caching, if available" ON)
+option(CGAL_ENABLED "Whether to enable the CGAL library" ON)
+
+# Propagate options to vcpkg manifest.
+if(TESTS_ENABLED)
+  enable_testing()
+  list(APPEND VCPKG_MANIFEST_FEATURES "tests")
+endif()
+if(CUDA_ENABLED)
+    list(APPEND VCPKG_MANIFEST_FEATURES "cuda")
+endif()
+if(GUI_ENABLED)
+    list(APPEND VCPKG_MANIFEST_FEATURES "gui")
+endif()
+if(CGAL_ENABLED)
+    list(APPEND VCPKG_MANIFEST_FEATURES "cgal")
+endif()
+
 project(COLMAP LANGUAGES C CXX)
 
-set(COLMAP_VERSION "3.9.1")
+set(COLMAP_VERSION "3.10-dev")
 
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -58,6 +89,7 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/CMakeHelper.cmake NO_POLICY_SCOPE)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 ################################################################################
+<<<<<<< HEAD
 # Options
 ################################################################################
 
@@ -86,6 +118,8 @@ else()
 endif()
 
 ################################################################################
+=======
+>>>>>>> main
 # Dependency configuration
 ################################################################################
 
@@ -119,6 +153,8 @@ if(IS_MSVC)
     add_definitions("-DGL_GLEXT_PROTOTYPES")
     add_definitions("-DNOMINMAX")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc")
+    # Disable warning: 'initializing': conversion from 'X' to 'Y', possible loss of data
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4244 /wd4267 /wd4305")
     # Enable object level parallel builds in Visual Studio.
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /MP")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
@@ -299,6 +335,7 @@ set(COLMAP_EXPORT_LIBS
     colmap_controllers
     colmap_estimators
     colmap_exe
+    colmap_feature_types
     colmap_feature
     colmap_geometry
     colmap_image

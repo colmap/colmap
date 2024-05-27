@@ -32,6 +32,7 @@
 #include "colmap/estimators/alignment.h"
 #include "colmap/scene/scene_clustering.h"
 #include "colmap/util/misc.h"
+#include "colmap/util/threading.h"
 
 namespace colmap {
 namespace {
@@ -104,7 +105,7 @@ bool HierarchicalMapperController::Options::Check() const {
   CHECK_OPTION_GT(init_num_trials, -1);
   CHECK_OPTION_GE(num_workers, -1);
   clustering_options.Check();
-  CHECK_EQ(clustering_options.branching, 2);
+  THROW_CHECK_EQ(clustering_options.branching, 2);
   incremental_options.Check();
   return true;
 }
@@ -114,11 +115,13 @@ HierarchicalMapperController::HierarchicalMapperController(
     std::shared_ptr<ReconstructionManager> reconstruction_manager)
     : options_(options),
       reconstruction_manager_(std::move(reconstruction_manager)) {
-  CHECK(options_.Check());
+  THROW_CHECK(options_.Check());
 }
 
 void HierarchicalMapperController::Run() {
   PrintHeading1("Partitioning scene");
+  Timer run_timer;
+  run_timer.Start();
 
   //////////////////////////////////////////////////////////////////////////////
   // Cluster scene graph
@@ -192,8 +195,7 @@ void HierarchicalMapperController::Run() {
                                            options_.image_path,
                                            options_.database_path,
                                            std::move(reconstruction_manager));
-        mapper.Start();
-        mapper.Wait();
+        mapper.Run();
       };
 
   // Start reconstructing the bigger clusters first for better resource usage.
@@ -224,15 +226,18 @@ void HierarchicalMapperController::Run() {
   // Merge clusters
   //////////////////////////////////////////////////////////////////////////////
 
-  PrintHeading1("Merging clusters");
+  if (leaf_clusters.size() > 1) {
+    PrintHeading1("Merging clusters");
 
-  MergeClusters(*scene_clustering.GetRootCluster(), &reconstruction_managers);
+    MergeClusters(*scene_clustering.GetRootCluster(), &reconstruction_managers);
+  }
 
-  CHECK_EQ(reconstruction_managers.size(), 1);
-  CHECK_GT(reconstruction_managers.begin()->second->Get(0)->NumRegImages(), 0);
+  THROW_CHECK_EQ(reconstruction_managers.size(), 1);
+  THROW_CHECK_GT(
+      reconstruction_managers.begin()->second->Get(0)->NumRegImages(), 0);
   *reconstruction_manager_ = *reconstruction_managers.begin()->second;
 
-  GetTimer().PrintMinutes();
+  run_timer.PrintMinutes();
 }
 
 }  // namespace colmap

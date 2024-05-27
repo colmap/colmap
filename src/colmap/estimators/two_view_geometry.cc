@@ -63,7 +63,7 @@ FeatureMatches ExtractInlierMatches(const FeatureMatches& matches,
 
 FeatureMatches ExtractOutlierMatches(const FeatureMatches& matches,
                                      const FeatureMatches& inlier_matches) {
-  CHECK_GE(matches.size(), inlier_matches.size());
+  THROW_CHECK_GE(matches.size(), inlier_matches.size());
 
   std::unordered_set<std::pair<point2D_t, point2D_t>> inlier_matches_set;
   inlier_matches_set.reserve(inlier_matches.size());
@@ -417,7 +417,7 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
     const std::vector<Eigen::Vector2d>& points2,
     const FeatureMatches& matches,
     const TwoViewGeometryOptions& options) {
-  CHECK(options.Check());
+  THROW_CHECK(options.Check());
 
   TwoViewGeometry geometry;
 
@@ -569,7 +569,7 @@ bool DetectWatermark(const Camera& camera1,
                      const size_t num_inliers,
                      const std::vector<char>& inlier_mask,
                      const TwoViewGeometryOptions& options) {
-  CHECK(options.Check());
+  THROW_CHECK(options.Check());
 
   // Check if inlier points in border region and extract inlier matches.
 

@@ -82,8 +82,7 @@ TEST(IncrementalMapperController, WithoutNoise) {
       /*image_path=*/"",
       database_path,
       reconstruction_manager);
-  mapper.Start();
-  mapper.Wait();
+  mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
   ExpectEqualReconstructions(gt_reconstruction,
@@ -111,8 +110,7 @@ TEST(IncrementalMapperController, WithNoise) {
       /*image_path=*/"",
       database_path,
       reconstruction_manager);
-  mapper.Start();
-  mapper.Wait();
+  mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
   ExpectEqualReconstructions(gt_reconstruction,
@@ -144,8 +142,7 @@ TEST(IncrementalMapperController, MultiReconstruction) {
                                      /*image_path=*/"",
                                      database_path,
                                      reconstruction_manager);
-  mapper.Start();
-  mapper.Wait();
+  mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 2);
   Reconstruction* computed_reconstruction1 = nullptr;
@@ -189,8 +186,7 @@ TEST(IncrementalMapperController, ChainedMatches) {
       /*image_path=*/"",
       database_path,
       reconstruction_manager);
-  mapper.Start();
-  mapper.Wait();
+  mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
   ExpectEqualReconstructions(gt_reconstruction,

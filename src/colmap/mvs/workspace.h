@@ -37,6 +37,8 @@
 #include "colmap/util/cache.h"
 #include "colmap/util/misc.h"
 
+#include <memory>
+
 namespace colmap {
 namespace mvs {
 

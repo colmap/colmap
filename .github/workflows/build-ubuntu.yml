@@ -1,0 +1,275 @@
+name: COLMAP (Ubuntu)
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [ assigned, opened, synchronize, reopened ]
+  release:
+    types: [ published, edited ]
+
+jobs:
+  build:
+    name: ${{ matrix.config.os }} ${{ matrix.config.cmakeBuildType }} ${{ matrix.config.cudaEnabled && 'CUDA' || '' }} ${{ matrix.config.asanEnabled && 'ASan' || '' }}
+    runs-on: ${{ matrix.config.os }}
+    strategy:
+      matrix:
+        config: [
+          {
+            os: ubuntu-22.04,
+            cmakeBuildType: Release,
+            asanEnabled: false,
+            guiEnabled: true,
+            cudaEnabled: false,
+            e2eTests: true,
+            checkCodeFormat: true,
+          },
+          {
+            os: ubuntu-22.04,
+            cmakeBuildType: Release,
+            asanEnabled: false,
+            guiEnabled: false,
+            cudaEnabled: true,
+            e2eTests: false,
+            checkCodeFormat: false,
+          },
+          {
+            os: ubuntu-22.04,
+            cmakeBuildType: Release,
+            asanEnabled: true,
+            guiEnabled: false,
+            cudaEnabled: false,
+            e2eTests: false,
+            checkCodeFormat: false,
+          },
+          {
+            os: ubuntu-22.04,
+            cmakeBuildType: ClangTidy,
+            asanEnabled: false,
+            guiEnabled: false,
+            cudaEnabled: false,
+            e2eTests: false,
+            checkCodeFormat: false,
+          },
+          {
+            os: ubuntu-20.04,
+            cmakeBuildType: Release,
+            asanEnabled: false,
+            guiEnabled: true,
+            cudaEnabled: false,
+            e2eTests: false,
+            checkCodeFormat: false,
+          },
+          {
+            os: ubuntu-20.04,
+            cmakeBuildType: Release,
+            asanEnabled: false,
+            guiEnabled: false,
+            cudaEnabled: true,
+            e2eTests: false,
+            checkCodeFormat: false,
+          },
+        ]
+
+    env:
+      COMPILER_CACHE_VERSION: 1
+      COMPILER_CACHE_DIR: ${{ github.workspace }}/compiler-cache
+      CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
+      CCACHE_BASEDIR: ${{ github.workspace }}
+      CTCACHE_DIR: ${{ github.workspace }}/compiler-cache/ctcache
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        id: cache-builds
+        with:
+          key: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}-${{ github.run_id }}-${{ github.run_number }}
+          restore-keys: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}
+          path: ${{ env.COMPILER_CACHE_DIR }}
+      
+      - name: Install compiler cache
+        run: |
+          mkdir -p "$CCACHE_DIR" "$CTCACHE_DIR"
+          echo "$COMPILER_CACHE_DIR/bin" >> $GITHUB_PATH
+
+          if [ -f "$COMPILER_CACHE_DIR/bin/ccache" ]; then
+            exit 0
+          fi
+
+          set -x
+          wget https://github.com/ccache/ccache/releases/download/v4.8.2/ccache-4.8.2-linux-x86_64.tar.xz
+          echo "0b33f39766fe9db67f40418aed6a5b3d7b2f4f7fab025a8213264b77a2d0e1b1  ccache-4.8.2-linux-x86_64.tar.xz" | sha256sum --check
+          tar xfv ccache-4.8.2-linux-x86_64.tar.xz
+          mkdir -p "$COMPILER_CACHE_DIR/bin"
+          mv ./ccache-4.8.2-linux-x86_64/ccache "$COMPILER_CACHE_DIR/bin"
+          ctcache_commit_id="66c3614175fc650591488519333c411b2eac15a3"
+          wget https://github.com/matus-chochlik/ctcache/archive/${ctcache_commit_id}.zip
+          echo "108b087f156a9fe7da0c796de1ef73f5855d2a33a27983769ea39061359a40fc  ${ctcache_commit_id}.zip" | sha256sum --check
+          unzip "${ctcache_commit_id}.zip"
+          mv ctcache-${ctcache_commit_id}/clang-tidy* "$COMPILER_CACHE_DIR/bin"
+
+      - name: Check code format
+        run: |
+          if [ "${{ matrix.config.checkCodeFormat }}" != "true" ]; then
+            exit 0
+          fi
+          set +x -euo pipefail
+          sudo apt-get update && sudo apt-get install -y clang-format-14 black
+          ./scripts/format/clang_format.sh
+          ./scripts/format/black.sh
+          git diff --name-only
+          git diff --exit-code || (echo "Code formatting failed" && exit 1)
+
+      - name: Install CMake and Ninja
+        uses: lukka/get-cmake@latest
+
+      - name: Setup Ubuntu
+        run: |
+          sudo apt-get update && sudo apt-get install -y \
+            build-essential \
+            libboost-program-options-dev \
+            libboost-filesystem-dev \
+            libboost-graph-dev \
+            libboost-system-dev \
+            libeigen3-dev \
+            libceres-dev \
+            libflann-dev \
+            libfreeimage-dev \
+            libmetis-dev \
+            libgoogle-glog-dev \
+            libgtest-dev \
+            libsqlite3-dev \
+            libglew-dev \
+            qtbase5-dev \
+            libqt5opengl5-dev \
+            libcgal-dev \
+            libcgal-qt5-dev \
+            libgl1-mesa-dri \
+            libunwind-dev \
+            xvfb
+
+          if [ "${{ matrix.config.cudaEnabled }}" == "true" ]; then
+            if [ "${{ matrix.config.os }}" == "ubuntu-20.04" ]; then
+              sudo apt-get install -y \
+                nvidia-cuda-toolkit \
+                nvidia-cuda-toolkit-gcc
+              echo "CC=/usr/bin/cuda-gcc" >> $GITHUB_ENV
+              echo "CXX=/usr/bin/cuda-g++" >> $GITHUB_ENV
+            elif [ "${{ matrix.config.os }}" == "ubuntu-22.04" ]; then
+              sudo apt-get install -y \
+                nvidia-cuda-toolkit \
+                nvidia-cuda-toolkit-gcc \
+                gcc-10 g++-10
+              echo "CC=/usr/bin/gcc-10" >> $GITHUB_ENV
+              echo "CXX=/usr/bin/g++-10" >> $GITHUB_ENV
+              echo "CUDAHOSTCXX=/usr/bin/g++-10" >> $GITHUB_ENV
+            fi
+          fi
+
+          if [ "${{ matrix.config.asanEnabled }}" == "true" ]; then
+            sudo apt-get install -y clang-15 libomp-15-dev
+            echo "CC=/usr/bin/clang-15" >> $GITHUB_ENV
+            echo "CXX=/usr/bin/clang++-15" >> $GITHUB_ENV
+          fi
+
+          if [ "${{ matrix.config.cmakeBuildType }}" == "ClangTidy" ]; then
+            sudo apt-get install -y clang-15 clang-tidy-15 libomp-15-dev
+            echo "CC=/usr/bin/clang-15" >> $GITHUB_ENV
+            echo "CXX=/usr/bin/clang++-15" >> $GITHUB_ENV
+          fi
+
+      - name: Configure and build
+        run: |
+          set -x
+          cmake --version
+          mkdir build
+          cd build
+          cmake .. \
+            -GNinja \
+            -DCMAKE_BUILD_TYPE=${{ matrix.config.cmakeBuildType }} \
+            -DCMAKE_INSTALL_PREFIX=./install \
+            -DCMAKE_CUDA_ARCHITECTURES=50 \
+            -DTESTS_ENABLED=ON \
+            -DCUDA_ENABLED=${{ matrix.config.cudaEnabled }} \
+            -DGUI_ENABLED=${{ matrix.config.guiEnabled }} \
+            -DASAN_ENABLED=${{ matrix.config.asanEnabled }}
+          ninja -k 10000
+
+      - name: Install and build sample
+        run: |
+          if [ "${{ matrix.config.asanEnabled }}" == "true" ] ||
+             [ "${{ matrix.config.cmakeBuildType }}" == "ClangTidy" ]; then
+            exit 0
+          fi
+
+          set -x
+          cd build
+          ninja install
+          cd ../doc/sample-project
+          mkdir build
+          cd build
+          export colmap_DIR=${{ github.workspace }}/build/install/share/colmap
+          cmake .. \
+            -GNinja \
+            -DCMAKE_CUDA_ARCHITECTURES=50
+          ninja
+          ./hello_world --message "world"
+
+      - name: Run tests
+        run: |
+          if [ "${{ matrix.config.cmakeBuildType }}" == "ClangTidy" ]; then
+            exit 0
+          fi
+
+          if [ "${{ matrix.config.cudaEnabled }}" == "true" ]; then
+            ctestExclusions="(feature/colmap_feature_sift_test)|(mvs/colmap_mvs_gpu_mat_test)"
+          fi
+
+          export DISPLAY=":99.0"
+          export QT_QPA_PLATFORM="offscreen"
+          Xvfb :99 &
+          sleep 3
+          cd build
+          ctest -E "$ctestExclusions"
+          tests_pass=$?
+          if [ $tests_pass -ne 0 ]; then
+              echo "Tests failed, rerunning with verbose output"
+              ctest --rerun-failed --output-on-failure
+          fi
+          exit $tests_pass
+
+      - name: Run E2E tests
+        run: |
+          if [ "${{ matrix.config.e2eTests }}" != "true" ]; then
+            exit 0
+          fi
+
+          export DISPLAY=":99.0"
+          export QT_QPA_PLATFORM="offscreen"
+          Xvfb :99 &
+          sleep 3
+          sudo apt install 7zip
+          mkdir eth3d_benchmark
+          # Error thresholds in degrees and meters,
+          # as the ETH3D groundtruth has metric scale.
+          GLOG_v=1 python ./scripts/python/benchmark_eth3d.py \
+              --workspace_path ./eth3d_benchmark \
+              --colmap_path ./build/src/colmap/exe/colmap \
+              --dataset_names boulders,door \
+              --max_rotation_error 1.0 \
+              --max_proj_center_error 0.05
+
+      - name: Cleanup compiler cache
+        run: |
+          set -x
+          ccache --show-stats --verbose
+          ccache --evict-older-than 1d
+          ccache --show-stats --verbose
+
+          echo "Size of ctcache before: $(du -sh $CTCACHE_DIR)"
+          echo "Number of ctcache files before: $(find $CTCACHE_DIR | wc -l)"
+          # Delete cache older than 10 days.
+          find "$CTCACHE_DIR"/*/ -mtime +10 -print0 | xargs -0 rm -rf
+          echo "Size of ctcache after:  $(du -sh $CTCACHE_DIR)"
+          echo "Number of ctcache files after: $(find $CTCACHE_DIR | wc -l)"

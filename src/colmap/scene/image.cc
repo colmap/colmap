@@ -54,7 +54,7 @@ Image::Image()
                             Eigen::Vector3d(kNaN, kNaN, kNaN)) {}
 
 void Image::SetUp(const struct Camera& camera) {
-  CHECK_EQ(camera_id_, camera.camera_id);
+  THROW_CHECK_EQ(camera_id_, camera.camera_id);
   point3D_visibility_pyramid_ = VisibilityPyramid(
       kNumPoint3DVisibilityPyramidLevels, camera.width, camera.height);
 }
@@ -64,7 +64,7 @@ void Image::TearDown() {
 }
 
 void Image::SetPoints2D(const std::vector<Eigen::Vector2d>& points) {
-  CHECK(points2D_.empty());
+  THROW_CHECK(points2D_.empty());
   points2D_.resize(points.size());
   num_correspondences_have_point3D_.resize(points.size(), 0);
   for (point2D_t point2D_idx = 0; point2D_idx < points.size(); ++point2D_idx) {
@@ -73,7 +73,7 @@ void Image::SetPoints2D(const std::vector<Eigen::Vector2d>& points) {
 }
 
 void Image::SetPoints2D(const std::vector<struct Point2D>& points) {
-  CHECK(points2D_.empty());
+  THROW_CHECK(points2D_.empty());
   points2D_ = points;
   num_correspondences_have_point3D_.resize(points.size(), 0);
   num_points3D_ = 0;
@@ -86,7 +86,7 @@ void Image::SetPoints2D(const std::vector<struct Point2D>& points) {
 
 void Image::SetPoint3DForPoint2D(const point2D_t point2D_idx,
                                  const point3D_t point3D_id) {
-  CHECK_NE(point3D_id, kInvalidPoint3DId);
+  THROW_CHECK_NE(point3D_id, kInvalidPoint3DId);
   struct Point2D& point2D = points2D_.at(point2D_idx);
   if (!point2D.HasPoint3D()) {
     num_points3D_ += 1;

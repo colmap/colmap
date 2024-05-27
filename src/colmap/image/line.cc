@@ -37,6 +37,8 @@ extern "C" {
 }
 #endif
 
+#include <memory>
+
 namespace colmap {
 namespace {
 
@@ -89,7 +91,7 @@ std::vector<LineSegment> DetectLineSegments(const Bitmap& bitmap,
 
 std::vector<LineSegmentOrientation> ClassifyLineSegmentOrientations(
     const std::vector<LineSegment>& segments, const double tolerance) {
-  CHECK_LE(tolerance, 0.5);
+  THROW_CHECK_LE(tolerance, 0.5);
 
   std::vector<LineSegmentOrientation> orientations;
   orientations.reserve(segments.size());

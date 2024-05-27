@@ -30,9 +30,9 @@
 #pragma once
 
 #include "colmap/estimators/two_view_geometry.h"
+#include "colmap/feature/matcher.h"
 #include "colmap/feature/sift.h"
 #include "colmap/scene/database.h"
-#include "colmap/util/cache.h"
 #include "colmap/util/opengl_utils.h"
 #include "colmap/util/threading.h"
 
@@ -48,50 +48,6 @@ struct FeatureMatcherData {
   image_t image_id2 = kInvalidImageId;
   FeatureMatches matches;
   TwoViewGeometry two_view_geometry;
-};
-
-// Cache for feature matching to minimize database access during matching.
-class FeatureMatcherCache {
- public:
-  FeatureMatcherCache(size_t cache_size, const Database* database);
-
-  void Setup();
-
-  const Camera& GetCamera(camera_t camera_id) const;
-  const Image& GetImage(image_t image_id) const;
-  std::shared_ptr<FeatureKeypoints> GetKeypoints(image_t image_id);
-  std::shared_ptr<FeatureDescriptors> GetDescriptors(image_t image_id);
-  FeatureMatches GetMatches(image_t image_id1, image_t image_id2);
-  std::vector<image_t> GetImageIds() const;
-
-  bool ExistsKeypoints(image_t image_id);
-  bool ExistsDescriptors(image_t image_id);
-
-  bool ExistsMatches(image_t image_id1, image_t image_id2);
-  bool ExistsInlierMatches(image_t image_id1, image_t image_id2);
-
-  void WriteMatches(image_t image_id1,
-                    image_t image_id2,
-                    const FeatureMatches& matches);
-  void WriteTwoViewGeometry(image_t image_id1,
-                            image_t image_id2,
-                            const TwoViewGeometry& two_view_geometry);
-
-  void DeleteMatches(image_t image_id1, image_t image_id2);
-  void DeleteInlierMatches(image_t image_id1, image_t image_id2);
-
- private:
-  const size_t cache_size_;
-  const Database* database_;
-  std::mutex database_mutex_;
-  std::unordered_map<camera_t, Camera> cameras_cache_;
-  std::unordered_map<image_t, Image> images_cache_;
-  std::unique_ptr<LRUCache<image_t, std::shared_ptr<FeatureKeypoints>>>
-      keypoints_cache_;
-  std::unique_ptr<LRUCache<image_t, std::shared_ptr<FeatureDescriptors>>>
-      descriptors_cache_;
-  std::unique_ptr<LRUCache<image_t, bool>> keypoints_exists_cache_;
-  std::unique_ptr<LRUCache<image_t, bool>> descriptors_exists_cache_;
 };
 
 class FeatureMatcherWorker : public Thread {

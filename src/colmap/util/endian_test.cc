@@ -98,8 +98,7 @@ void TestIntNativeToLitteBigEndian() {
   std::default_random_engine prng;
   std::uniform_int_distribution<T> distribution(
       std::numeric_limits<T>::lowest(), std::numeric_limits<T>::max());
-  constexpr int kNumTrials = 100;
-  for (int i = 0; i < kNumTrials; ++i) {
+  for (int i = 0; i < 100; ++i) {
     const T x = distribution(prng);
     EXPECT_EQ(LittleEndianToNative<T>(NativeToLittleEndian<T>(x)), x);
     EXPECT_EQ(BigEndianToNative<T>(NativeToBigEndian<T>(x)), x);
@@ -111,8 +110,7 @@ void TestRealNativeToLitteBigEndian() {
   std::default_random_engine prng;
   std::uniform_real_distribution<T> distribution(
       std::numeric_limits<T>::lowest(), std::numeric_limits<T>::max());
-  constexpr int kNumTrials = 100;
-  for (int i = 0; i < kNumTrials; ++i) {
+  for (int i = 0; i < 100; ++i) {
     const T x = distribution(prng);
     EXPECT_EQ(LittleEndianToNative<T>(NativeToLittleEndian<T>(x)), x);
     EXPECT_EQ(BigEndianToNative<T>(NativeToBigEndian<T>(x)), x);
@@ -143,8 +141,7 @@ void TestIntReadWriteBinaryLittleEndian() {
   std::default_random_engine prng;
   std::uniform_int_distribution<T> distribution(
       std::numeric_limits<T>::lowest(), std::numeric_limits<T>::max());
-  constexpr int kNumTrials = 100;
-  for (int i = 0; i < kNumTrials; ++i) {
+  for (int i = 0; i < 100; ++i) {
     std::stringstream file;
     const T orig_value = distribution(prng);
     WriteBinaryLittleEndian<T>(&file, orig_value);
@@ -170,8 +167,7 @@ void TestFloatReadWriteBinaryLittleEndian() {
   std::default_random_engine prng;
   std::uniform_real_distribution<T> distribution(
       std::numeric_limits<T>::lowest(), std::numeric_limits<T>::max());
-  constexpr int kNumTrials = 100;
-  for (int i = 0; i < kNumTrials; ++i) {
+  for (int i = 0; i < 100; ++i) {
     std::stringstream file;
     const T orig_value = distribution(prng);
     WriteBinaryLittleEndian<T>(&file, orig_value);

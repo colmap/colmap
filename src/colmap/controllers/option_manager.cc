@@ -30,11 +30,11 @@
 #include "colmap/controllers/option_manager.h"
 
 #include "colmap/controllers/feature_extraction.h"
-#include "colmap/controllers/feature_matching.h"
 #include "colmap/controllers/image_reader.h"
 #include "colmap/controllers/incremental_mapper.h"
 #include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/estimators/two_view_geometry.h"
+#include "colmap/feature/pairing.h"
 #include "colmap/feature/sift.h"
 #include "colmap/math/random.h"
 #include "colmap/mvs/fusion.h"
@@ -892,7 +892,7 @@ bool OptionManager::Read(const std::string& path) {
 
   try {
     std::ifstream file(path);
-    CHECK(file.is_open()) << path;
+    THROW_CHECK_FILE_OPEN(file, path);
     config::store(config::parse_config_file(file, *desc_), vmap);
     vmap.notify();
   } catch (std::exception& e) {

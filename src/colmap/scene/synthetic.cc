@@ -102,12 +102,10 @@ void SynthesizeChainedMatches(Reconstruction* reconstruction,
   }
 
   for (auto& two_view_geometry : two_view_geometries) {
-    image_t image_id1;
-    image_t image_id2;
-    Database::PairIdToImagePair(
-        two_view_geometry.first, &image_id1, &image_id2);
-    const auto& image1 = reconstruction->Image(image_id1);
-    const auto& image2 = reconstruction->Image(image_id2);
+    const auto image_pair =
+        Database::PairIdToImagePair(two_view_geometry.first);
+    const auto& image1 = reconstruction->Image(image_pair.first);
+    const auto& image2 = reconstruction->Image(image_pair.second);
     two_view_geometry.second.config = TwoViewGeometry::CALIBRATED;
     const Rigid3d cam2_from_cam1 =
         image2.CamFromWorld() * Inverse(image1.CamFromWorld());
@@ -122,12 +120,12 @@ void SynthesizeChainedMatches(Reconstruction* reconstruction,
 void SynthesizeDataset(const SyntheticDatasetOptions& options,
                        Reconstruction* reconstruction,
                        Database* database) {
-  CHECK_GT(options.num_cameras, 0);
-  CHECK_GT(options.num_images, 0);
-  CHECK_LE(options.num_cameras, options.num_images);
-  CHECK_GE(options.num_points3D, 0);
-  CHECK_GE(options.num_points2D_without_point3D, 0);
-  CHECK_GE(options.point2D_stddev, 0);
+  THROW_CHECK_GT(options.num_cameras, 0);
+  THROW_CHECK_GT(options.num_images, 0);
+  THROW_CHECK_LE(options.num_cameras, options.num_images);
+  THROW_CHECK_GE(options.num_points3D, 0);
+  THROW_CHECK_GE(options.num_points2D_without_point3D, 0);
+  THROW_CHECK_GE(options.point2D_stddev, 0);
 
   // Synthesize cameras.
   std::vector<camera_t> camera_ids(options.num_cameras);
@@ -137,7 +135,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
     camera.height = options.camera_height;
     camera.model_id = options.camera_model_id;
     camera.params = options.camera_params;
-    CHECK(camera.VerifyParams());
+    THROW_CHECK(camera.VerifyParams());
     const camera_t camera_id =
         (database == nullptr) ? camera_idx + 1 : database->WriteCamera(camera);
     camera_ids[camera_idx] = camera_id;
@@ -239,7 +237,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
         SynthesizeChainedMatches(reconstruction, database);
         break;
       default:
-        LOG(FATAL) << "Invalid MatchConfig specified";
+        LOG(FATAL_THROW) << "Invalid MatchConfig specified";
     }
   }
 

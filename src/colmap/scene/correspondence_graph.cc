@@ -49,7 +49,7 @@ CorrespondenceGraph::NumCorrespondencesBetweenImages() const {
 }
 
 void CorrespondenceGraph::Finalize() {
-  CHECK(!finalized_);
+  THROW_CHECK(!finalized_);
   finalized_ = true;
 
   // Flatten all correspondences, remove images without observations.
@@ -83,7 +83,7 @@ void CorrespondenceGraph::Finalize() {
     it->second.flat_corr_begs[num_points2D] = it->second.flat_corrs.size();
 
     // Ensure we reserved enough space before insertion.
-    CHECK_EQ(it->second.flat_corrs.size(), num_total_corrs);
+    THROW_CHECK_EQ(it->second.flat_corrs.size(), num_total_corrs);
 
     // Deallocate original data.
     it->second.corrs.clear();
@@ -95,7 +95,7 @@ void CorrespondenceGraph::Finalize() {
 
 void CorrespondenceGraph::AddImage(const image_t image_id,
                                    const size_t num_points) {
-  CHECK(!ExistsImage(image_id));
+  THROW_CHECK(!ExistsImage(image_id));
   images_[image_id].corrs.resize(num_points);
 }
 
@@ -188,7 +188,7 @@ void CorrespondenceGraph::AddCorrespondences(const image_t image_id1,
 CorrespondenceGraph::CorrespondenceRange
 CorrespondenceGraph::FindCorrespondences(const image_t image_id,
                                          const point2D_t point2D_idx) const {
-  CHECK(finalized_);
+  THROW_CHECK(finalized_);
   const point2D_t next_point2D_idx = point2D_idx + 1;
   const Image& image = images_.at(image_id);
   const Correspondence* beg =

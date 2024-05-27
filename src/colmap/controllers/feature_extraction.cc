@@ -34,6 +34,7 @@
 #include "colmap/util/cuda.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/opengl_utils.h"
+#include "colmap/util/timer.h"
 
 #include <numeric>
 
@@ -152,7 +153,7 @@ class SiftFeatureExtractorThread : public Thread {
         camera_mask_(camera_mask),
         input_queue_(input_queue),
         output_queue_(output_queue) {
-    CHECK(sift_options_.Check());
+    THROW_CHECK(sift_options_.Check());
 
 #if !defined(COLMAP_CUDA_ENABLED)
     if (sift_options_.use_gpu) {
@@ -165,8 +166,8 @@ class SiftFeatureExtractorThread : public Thread {
   void Run() override {
     if (sift_options_.use_gpu) {
 #if !defined(COLMAP_CUDA_ENABLED)
-      CHECK(opengl_context_);
-      CHECK(opengl_context_->MakeCurrent());
+      THROW_CHECK_NOTNULL(opengl_context_);
+      THROW_CHECK(opengl_context_->MakeCurrent());
 #endif
     }
 
@@ -337,8 +338,8 @@ class FeatureExtractorController : public Thread {
         sift_options_(sift_options),
         database_(reader_options_.database_path),
         image_reader_(reader_options_, &database_) {
-    CHECK(reader_options_.Check());
-    CHECK(sift_options_.Check());
+    THROW_CHECK(reader_options_.Check());
+    THROW_CHECK(sift_options_.Check());
 
     std::shared_ptr<Bitmap> camera_mask;
     if (!reader_options_.camera_mask_path.empty()) {
@@ -353,7 +354,7 @@ class FeatureExtractorController : public Thread {
     }
 
     const int num_threads = GetEffectiveNumThreads(sift_options_.num_threads);
-    CHECK_GT(num_threads, 0);
+    THROW_CHECK_GT(num_threads, 0);
 
     // Make sure that we only have limited number of objects in the queue to
     // avoid excess in memory usage since images and features take lots of
@@ -375,12 +376,12 @@ class FeatureExtractorController : public Thread {
     if (!sift_options_.domain_size_pooling &&
         !sift_options_.estimate_affine_shape && sift_options_.use_gpu) {
       std::vector<int> gpu_indices = CSVToVector<int>(sift_options_.gpu_index);
-      CHECK_GT(gpu_indices.size(), 0);
+      THROW_CHECK_GT(gpu_indices.size(), 0);
 
 #if defined(COLMAP_CUDA_ENABLED)
       if (gpu_indices.size() == 1 && gpu_indices[0] == -1) {
         const int num_cuda_devices = GetNumCudaDevices();
-        CHECK_GT(num_cuda_devices, 0);
+        THROW_CHECK_GT(num_cuda_devices, 0);
         gpu_indices.resize(num_cuda_devices);
         std::iota(gpu_indices.begin(), gpu_indices.end(), 0);
       }
@@ -428,6 +429,8 @@ class FeatureExtractorController : public Thread {
  private:
   void Run() override {
     PrintHeading1("Feature extraction");
+    Timer run_timer;
+    run_timer.Start();
 
     for (auto& resizer : resizers_) {
       resizer->Start();
@@ -465,9 +468,9 @@ class FeatureExtractorController : public Thread {
       }
 
       if (sift_options_.max_image_size > 0) {
-        CHECK(resizer_queue_->Push(std::move(image_data)));
+        THROW_CHECK(resizer_queue_->Push(std::move(image_data)));
       } else {
-        CHECK(extractor_queue_->Push(std::move(image_data)));
+        THROW_CHECK(extractor_queue_->Push(std::move(image_data)));
       }
     }
 
@@ -487,7 +490,7 @@ class FeatureExtractorController : public Thread {
     writer_queue_->Stop();
     writer_->Wait();
 
-    GetTimer().PrintMinutes();
+    run_timer.PrintMinutes();
   }
 
   const ImageReaderOptions reader_options_;
@@ -516,6 +519,8 @@ class FeatureImporterController : public Thread {
  private:
   void Run() override {
     PrintHeading1("Feature import");
+    Timer run_timer;
+    run_timer.Start();
 
     if (!ExistsDir(import_path_)) {
       LOG(ERROR) << "Import directory does not exist.";
@@ -570,7 +575,7 @@ class FeatureImporterController : public Thread {
       }
     }
 
-    GetTimer().PrintMinutes();
+    run_timer.PrintMinutes();
   }
 
   const ImageReaderOptions reader_options_;

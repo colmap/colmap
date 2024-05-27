@@ -37,9 +37,8 @@
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/meshing.h"
 #include "colmap/mvs/patch_match.h"
+#include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
-
-#include <glog/logging.h>
 
 namespace colmap {
 
@@ -49,9 +48,9 @@ AutomaticReconstructionController::AutomaticReconstructionController(
     : options_(options),
       reconstruction_manager_(std::move(reconstruction_manager)),
       active_thread_(nullptr) {
-  CHECK(ExistsDir(options_.workspace_path));
-  CHECK(ExistsDir(options_.image_path));
-  CHECK_NOTNULL(reconstruction_manager_);
+  THROW_CHECK_DIR_EXISTS(options_.workspace_path);
+  THROW_CHECK_DIR_EXISTS(options_.image_path);
+  THROW_CHECK_NOTNULL(reconstruction_manager_);
 
   option_manager_.AddAllOptions();
 
@@ -66,10 +65,10 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   } else if (options_.data_type == DataType::INTERNET) {
     option_manager_.ModifyForInternetData();
   } else {
-    LOG(FATAL) << "Data type not supported";
+    LOG(FATAL_THROW) << "Data type not supported";
   }
 
-  CHECK(ExistsCameraModelWithName(options_.camera_model));
+  THROW_CHECK(ExistsCameraModelWithName(options_.camera_model));
 
   if (options_.quality == Quality::LOW) {
     option_manager_.ModifyForLowQuality();
@@ -176,7 +175,7 @@ void AutomaticReconstructionController::Run() {
 }
 
 void AutomaticReconstructionController::RunFeatureExtraction() {
-  CHECK(feature_extractor_);
+  THROW_CHECK_NOTNULL(feature_extractor_);
   active_thread_ = feature_extractor_.get();
   feature_extractor_->Start();
   feature_extractor_->Wait();
@@ -199,7 +198,7 @@ void AutomaticReconstructionController::RunFeatureMatching() {
     }
   }
 
-  CHECK(matcher);
+  THROW_CHECK_NOTNULL(matcher);
   active_thread_ = matcher;
   matcher->Start();
   matcher->Wait();
@@ -228,10 +227,8 @@ void AutomaticReconstructionController::RunSparseMapper() {
                                      *option_manager_.image_path,
                                      *option_manager_.database_path,
                                      reconstruction_manager_);
-  active_thread_ = &mapper;
-  mapper.Start();
-  mapper.Wait();
-  active_thread_ = nullptr;
+  mapper.SetCheckIfStoppedFunc([&]() { return IsStopped(); });
+  mapper.Run();
 
   CreateDirIfNotExists(sparse_path);
   reconstruction_manager_->Write(sparse_path);
@@ -273,10 +270,8 @@ void AutomaticReconstructionController::RunDenseMapper() {
                                     *reconstruction_manager_->Get(i),
                                     *option_manager_.image_path,
                                     dense_path);
-      active_thread_ = &undistorter;
-      undistorter.Start();
-      undistorter.Wait();
-      active_thread_ = nullptr;
+      undistorter.SetCheckIfStoppedFunc([&]() { return IsStopped(); });
+      undistorter.Run();
     }
 
     if (IsStopped()) {
@@ -289,10 +284,9 @@ void AutomaticReconstructionController::RunDenseMapper() {
     {
       mvs::PatchMatchController patch_match_controller(
           *option_manager_.patch_match_stereo, dense_path, "COLMAP", "");
-      active_thread_ = &patch_match_controller;
-      patch_match_controller.Start();
-      patch_match_controller.Wait();
-      active_thread_ = nullptr;
+      patch_match_controller.SetCheckIfStoppedFunc(
+          [&]() { return IsStopped(); });
+      patch_match_controller.Run();
     }
 #else   // COLMAP_CUDA_ENABLED
     LOG(WARNING) << "Skipping patch match stereo because CUDA is not available";
@@ -317,10 +311,8 @@ void AutomaticReconstructionController::RunDenseMapper() {
           "COLMAP",
           "",
           options_.quality == Quality::HIGH ? "geometric" : "photometric");
-      active_thread_ = &fuser;
-      fuser.Start();
-      fuser.Wait();
-      active_thread_ = nullptr;
+      fuser.SetCheckIfStoppedFunc([&]() { return IsStopped(); });
+      fuser.Run();
 
       LOG(INFO) << "Writing output: " << fused_path;
       WriteBinaryPlyPoints(fused_path, fuser.GetFusedPoints());

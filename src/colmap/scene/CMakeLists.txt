@@ -43,6 +43,7 @@ COLMAP_ADD_LIBRARY(
         point3d.h
         projection.h projection.cc
         reconstruction.h reconstruction.cc
+        reconstruction_io.h reconstruction_io.cc
         reconstruction_manager.h reconstruction_manager.cc
         scene_clustering.h scene_clustering.cc
         synthetic.h synthetic.cc
@@ -51,7 +52,7 @@ COLMAP_ADD_LIBRARY(
         visibility_pyramid.h visibility_pyramid.cc
     PUBLIC_LINK_LIBS
         colmap_sensor
-        colmap_feature
+        colmap_feature_types
         colmap_geometry
         colmap_util
         Eigen3::Eigen

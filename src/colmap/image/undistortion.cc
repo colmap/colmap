@@ -31,8 +31,10 @@
 
 #include "colmap/geometry/pose.h"
 #include "colmap/image/warp.h"
+#include "colmap/scene/reconstruction_io.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/misc.h"
+#include "colmap/util/threading.h"
 
 #include <fstream>
 
@@ -56,10 +58,10 @@ void WriteProjectionMatrix(const std::string& path,
                            const Camera& camera,
                            const Image& image,
                            const std::string& header) {
-  CHECK(camera.model_id == PinholeCameraModel::model_id);
+  THROW_CHECK(camera.model_id == PinholeCameraModel::model_id);
 
   std::ofstream file(path, std::ios::trunc);
-  CHECK(file.is_open()) << path;
+  THROW_CHECK_FILE_OPEN(file, path);
 
   Eigen::Matrix3d calib_matrix = Eigen::Matrix3d::Identity();
   calib_matrix(0, 0) = camera.FocalLengthX();
@@ -169,6 +171,8 @@ COLMAPUndistorter::COLMAPUndistorter(const UndistortCameraOptions& options,
 
 void COLMAPUndistorter::Run() {
   PrintHeading1("Image undistortion");
+  Timer run_timer;
+  run_timer.Start();
 
   CreateDirIfNotExists(JoinPaths(output_path_, "images"));
   CreateDirIfNotExists(JoinPaths(output_path_, "sparse"));
@@ -203,7 +207,7 @@ void COLMAPUndistorter::Run() {
   // when writing the MVS config files
   image_names_.clear();
   for (size_t i = 0; i < futures.size(); ++i) {
-    if (IsStopped()) {
+    if (CheckIfStopped()) {
       break;
     }
 
@@ -233,7 +237,7 @@ void COLMAPUndistorter::Run() {
   WriteScript(false);
   WriteScript(true);
 
-  GetTimer().PrintMinutes();
+  run_timer.PrintMinutes();
 }
 
 bool COLMAPUndistorter::Undistort(const image_t image_id) const {
@@ -274,7 +278,7 @@ bool COLMAPUndistorter::Undistort(const image_t image_id) const {
 void COLMAPUndistorter::WritePatchMatchConfig() const {
   const auto path = JoinPaths(output_path_, "stereo/patch-match.cfg");
   std::ofstream file(path, std::ios::trunc);
-  CHECK(file.is_open()) << path;
+  THROW_CHECK_FILE_OPEN(file, path);
   for (const auto& image_name : image_names_) {
     file << image_name << std::endl;
     file << "__auto__, " << num_patch_match_src_images_ << std::endl;
@@ -284,7 +288,7 @@ void COLMAPUndistorter::WritePatchMatchConfig() const {
 void COLMAPUndistorter::WriteFusionConfig() const {
   const auto path = JoinPaths(output_path_, "stereo/fusion.cfg");
   std::ofstream file(path, std::ios::trunc);
-  CHECK(file.is_open()) << path;
+  THROW_CHECK_FILE_OPEN(file, path);
   for (const auto& image_name : image_names_) {
     file << image_name << std::endl;
   }
@@ -295,7 +299,7 @@ void COLMAPUndistorter::WriteScript(const bool geometric) const {
       output_path_,
       geometric ? "run-colmap-geometric.sh" : "run-colmap-photometric.sh");
   std::ofstream file(path, std::ios::trunc);
-  CHECK(file.is_open()) << path;
+  THROW_CHECK_FILE_OPEN(file, path);
 
   file << "# You must set $COLMAP_EXE_PATH to " << std::endl
        << "# the directory containing the COLMAP executables." << std::endl;
@@ -312,6 +316,8 @@ PMVSUndistorter::PMVSUndistorter(const UndistortCameraOptions& options,
       reconstruction_(reconstruction) {}
 
 void PMVSUndistorter::Run() {
+  Timer run_timer;
+  run_timer.Start();
   PrintHeading1("Image undistortion (CMVS/PMVS)");
 
   CreateDirIfNotExists(JoinPaths(output_path_, "pmvs"));
@@ -328,7 +334,7 @@ void PMVSUndistorter::Run() {
   }
 
   for (size_t i = 0; i < futures.size(); ++i) {
-    if (IsStopped()) {
+    if (CheckIfStopped()) {
       thread_pool.Stop();
       LOG(WARNING) << "Stopped the undistortion process. Image point "
                       "locations and camera parameters for not yet processed "
@@ -346,8 +352,8 @@ void PMVSUndistorter::Run() {
   Reconstruction undistorted_reconstruction = reconstruction_;
   UndistortReconstruction(options_, &undistorted_reconstruction);
   const std::string bundle_path = JoinPaths(output_path_, "pmvs/bundle.rd.out");
-  undistorted_reconstruction.ExportBundler(bundle_path,
-                                           bundle_path + ".list.txt");
+  ExportBundler(
+      undistorted_reconstruction, bundle_path, bundle_path + ".list.txt");
 
   LOG(INFO) << "Writing visibility file...";
   WriteVisibilityData();
@@ -363,7 +369,7 @@ void PMVSUndistorter::Run() {
   WriteCMVSCOLMAPScript(false);
   WriteCMVSCOLMAPScript(true);
 
-  GetTimer().PrintMinutes();
+  run_timer.PrintMinutes();
 }
 
 bool PMVSUndistorter::Undistort(const size_t reg_image_idx) const {
@@ -398,7 +404,7 @@ bool PMVSUndistorter::Undistort(const size_t reg_image_idx) const {
 void PMVSUndistorter::WriteVisibilityData() const {
   const auto path = JoinPaths(output_path_, "pmvs/vis.dat");
   std::ofstream file(path, std::ios::trunc);
-  CHECK(file.is_open()) << path;
+  THROW_CHECK_FILE_OPEN(file, path);
 
   file << "VISDATA" << std::endl;
   file << reconstruction_.NumRegImages() << std::endl;
@@ -437,7 +443,7 @@ void PMVSUndistorter::WriteVisibilityData() const {
 void PMVSUndistorter::WritePMVSScript() const {
   const auto path = JoinPaths(output_path_, "run-pmvs.sh");
   std::ofstream file(path, std::ios::trunc);
-  CHECK(file.is_open()) << path;
+  THROW_CHECK_FILE_OPEN(file, path);
 
   file << "# You must set $PMVS_EXE_PATH to " << std::endl
        << "# the directory containing the CMVS-PMVS executables." << std::endl;
@@ -447,7 +453,7 @@ void PMVSUndistorter::WritePMVSScript() const {
 void PMVSUndistorter::WriteCMVSPMVSScript() const {
   const auto path = JoinPaths(output_path_, "run-cmvs-pmvs.sh");
   std::ofstream file(path, std::ios::trunc);
-  CHECK(file.is_open()) << path;
+  THROW_CHECK_FILE_OPEN(file, path);
 
   file << "# You must set $PMVS_EXE_PATH to " << std::endl
        << "# the directory containing the CMVS-PMVS executables." << std::endl;
@@ -469,7 +475,7 @@ void PMVSUndistorter::WriteCOLMAPScript(const bool geometric) const {
       output_path_,
       geometric ? "run-colmap-geometric.sh" : "run-colmap-photometric.sh");
   std::ofstream file(path, std::ios::trunc);
-  CHECK(file.is_open()) << path;
+  THROW_CHECK_FILE_OPEN(file, path);
 
   file << "# You must set $COLMAP_EXE_PATH to " << std::endl
        << "# the directory containing the COLMAP executables." << std::endl;
@@ -483,7 +489,7 @@ void PMVSUndistorter::WriteCMVSCOLMAPScript(const bool geometric) const {
                 geometric ? "run-cmvs-colmap-geometric.sh"
                           : "run-cmvs-colmap-photometric.sh");
   std::ofstream file(path, std::ios::trunc);
-  CHECK(file.is_open()) << path;
+  THROW_CHECK_FILE_OPEN(file, path);
 
   file << "# You must set $PMVS_EXE_PATH to " << std::endl
        << "# the directory containing the CMVS-PMVS executables" << std::endl;
@@ -513,7 +519,7 @@ void PMVSUndistorter::WriteCMVSCOLMAPScript(const bool geometric) const {
 void PMVSUndistorter::WriteOptionFile() const {
   const auto path = JoinPaths(output_path_, "pmvs/option-all");
   std::ofstream file(path, std::ios::trunc);
-  CHECK(file.is_open()) << path;
+  THROW_CHECK_FILE_OPEN(file, path);
 
   file << "# Generated by COLMAP - all images, no clustering." << std::endl;
 
@@ -549,6 +555,8 @@ CMPMVSUndistorter::CMPMVSUndistorter(const UndistortCameraOptions& options,
       reconstruction_(reconstruction) {}
 
 void CMPMVSUndistorter::Run() {
+  Timer run_timer;
+  run_timer.Start();
   PrintHeading1("Image undistortion (CMP-MVS)");
 
   ThreadPool thread_pool;
@@ -560,7 +568,7 @@ void CMPMVSUndistorter::Run() {
   }
 
   for (size_t i = 0; i < futures.size(); ++i) {
-    if (IsStopped()) {
+    if (CheckIfStopped()) {
       break;
     }
 
@@ -570,7 +578,7 @@ void CMPMVSUndistorter::Run() {
     futures[i].get();
   }
 
-  GetTimer().PrintMinutes();
+  run_timer.PrintMinutes();
 }
 
 bool CMPMVSUndistorter::Undistort(const size_t reg_image_idx) const {
@@ -613,6 +621,8 @@ PureImageUndistorter::PureImageUndistorter(
       image_names_and_cameras_(image_names_and_cameras) {}
 
 void PureImageUndistorter::Run() {
+  Timer run_timer;
+  run_timer.Start();
   PrintHeading1("Image undistortion");
 
   CreateDirIfNotExists(output_path_);
@@ -627,7 +637,7 @@ void PureImageUndistorter::Run() {
   }
 
   for (size_t i = 0; i < futures.size(); ++i) {
-    if (IsStopped()) {
+    if (CheckIfStopped()) {
       break;
     }
 
@@ -637,7 +647,7 @@ void PureImageUndistorter::Run() {
     futures[i].get();
   }
 
-  GetTimer().PrintMinutes();
+  run_timer.PrintMinutes();
 }
 
 bool PureImageUndistorter::Undistort(const size_t image_idx) const {
@@ -678,6 +688,8 @@ StereoImageRectifier::StereoImageRectifier(
 
 void StereoImageRectifier::Run() {
   PrintHeading1("Stereo rectification");
+  Timer run_timer;
+  run_timer.Start();
 
   ThreadPool thread_pool;
   std::vector<std::future<void>> futures;
@@ -690,7 +702,7 @@ void StereoImageRectifier::Run() {
   }
 
   for (size_t i = 0; i < futures.size(); ++i) {
-    if (IsStopped()) {
+    if (CheckIfStopped()) {
       break;
     }
 
@@ -700,7 +712,7 @@ void StereoImageRectifier::Run() {
     futures[i].get();
   }
 
-  GetTimer().PrintMinutes();
+  run_timer.PrintMinutes();
 }
 
 void StereoImageRectifier::Rectify(const image_t image_id1,
@@ -760,23 +772,23 @@ void StereoImageRectifier::Rectify(const image_t image_id1,
 
   const auto Q_path = JoinPaths(output_path_, stereo_pair_name, "Q.txt");
   std::ofstream Q_file(Q_path, std::ios::trunc);
-  CHECK(Q_file.is_open()) << Q_path;
+  THROW_CHECK_FILE_OPEN(Q_file, Q_path);
   WriteMatrix(Q, &Q_file);
 }
 
 Camera UndistortCamera(const UndistortCameraOptions& options,
                        const Camera& camera) {
-  CHECK_GE(options.blank_pixels, 0);
-  CHECK_LE(options.blank_pixels, 1);
-  CHECK_GT(options.min_scale, 0.0);
-  CHECK_LE(options.min_scale, options.max_scale);
-  CHECK_NE(options.max_image_size, 0);
-  CHECK_GE(options.roi_min_x, 0.0);
-  CHECK_GE(options.roi_min_y, 0.0);
-  CHECK_LE(options.roi_max_x, 1.0);
-  CHECK_LE(options.roi_max_y, 1.0);
-  CHECK_LT(options.roi_min_x, options.roi_max_x);
-  CHECK_LT(options.roi_min_y, options.roi_max_y);
+  THROW_CHECK_GE(options.blank_pixels, 0);
+  THROW_CHECK_LE(options.blank_pixels, 1);
+  THROW_CHECK_GT(options.min_scale, 0.0);
+  THROW_CHECK_LE(options.min_scale, options.max_scale);
+  THROW_CHECK_NE(options.max_image_size, 0);
+  THROW_CHECK_GE(options.roi_min_x, 0.0);
+  THROW_CHECK_GE(options.roi_min_y, 0.0);
+  THROW_CHECK_LE(options.roi_max_x, 1.0);
+  THROW_CHECK_LE(options.roi_max_y, 1.0);
+  THROW_CHECK_LT(options.roi_min_x, options.roi_max_x);
+  THROW_CHECK_LT(options.roi_min_y, options.roi_max_y);
 
   Camera undistorted_camera;
   undistorted_camera.model_id = PinholeCameraModel::model_id;
@@ -786,7 +798,7 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
 
   // Copy focal length parameters.
   const span<const size_t> focal_length_idxs = camera.FocalLengthIdxs();
-  CHECK_LE(focal_length_idxs.size(), 2)
+  THROW_CHECK_LE(focal_length_idxs.size(), 2)
       << "Not more than two focal length parameters supported.";
   undistorted_camera.SetFocalLengthX(camera.FocalLengthX());
   undistorted_camera.SetFocalLengthY(camera.FocalLengthY());
@@ -948,19 +960,17 @@ void UndistortImage(const UndistortCameraOptions& options,
                     const Camera& distorted_camera,
                     Bitmap* undistorted_bitmap,
                     Camera* undistorted_camera) {
-  CHECK_EQ(distorted_camera.width, distorted_bitmap.Width());
-  CHECK_EQ(distorted_camera.height, distorted_bitmap.Height());
+  THROW_CHECK_EQ(distorted_camera.width, distorted_bitmap.Width());
+  THROW_CHECK_EQ(distorted_camera.height, distorted_bitmap.Height());
 
   *undistorted_camera = UndistortCamera(options, distorted_camera);
-  undistorted_bitmap->Allocate(static_cast<int>(undistorted_camera->width),
-                               static_cast<int>(undistorted_camera->height),
-                               distorted_bitmap.IsRGB());
-  distorted_bitmap.CloneMetadata(undistorted_bitmap);
 
   WarpImageBetweenCameras(distorted_camera,
                           *undistorted_camera,
                           distorted_bitmap,
                           undistorted_bitmap);
+
+  distorted_bitmap.CloneMetadata(undistorted_bitmap);
 }
 
 void UndistortReconstruction(const UndistortCameraOptions& options,
@@ -993,10 +1003,10 @@ void RectifyStereoCameras(const Camera& camera1,
                           Eigen::Matrix3d* H1,
                           Eigen::Matrix3d* H2,
                           Eigen::Matrix4d* Q) {
-  CHECK(camera1.model_id == SimplePinholeCameraModel::model_id ||
-        camera1.model_id == PinholeCameraModel::model_id);
-  CHECK(camera2.model_id == SimplePinholeCameraModel::model_id ||
-        camera2.model_id == PinholeCameraModel::model_id);
+  THROW_CHECK(camera1.model_id == SimplePinholeCameraModel::model_id ||
+              camera1.model_id == PinholeCameraModel::model_id);
+  THROW_CHECK(camera2.model_id == SimplePinholeCameraModel::model_id ||
+              camera2.model_id == PinholeCameraModel::model_id);
 
   // Compute the average rotation between the first and the second camera.
   Eigen::AngleAxisd half_cam2_from_cam1(cam2_from_cam1.rotation);
@@ -1060,10 +1070,10 @@ void RectifyAndUndistortStereoImages(const UndistortCameraOptions& options,
                                      Bitmap* undistorted_image2,
                                      Camera* undistorted_camera,
                                      Eigen::Matrix4d* Q) {
-  CHECK_EQ(distorted_camera1.width, distorted_image1.Width());
-  CHECK_EQ(distorted_camera1.height, distorted_image1.Height());
-  CHECK_EQ(distorted_camera2.width, distorted_image2.Width());
-  CHECK_EQ(distorted_camera2.height, distorted_image2.Height());
+  THROW_CHECK_EQ(distorted_camera1.width, distorted_image1.Width());
+  THROW_CHECK_EQ(distorted_camera1.height, distorted_image1.Height());
+  THROW_CHECK_EQ(distorted_camera2.width, distorted_image2.Width());
+  THROW_CHECK_EQ(distorted_camera2.height, distorted_image2.Height());
 
   *undistorted_camera = UndistortCamera(options, distorted_camera1);
   undistorted_image1->Allocate(static_cast<int>(undistorted_camera->width),

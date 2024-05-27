@@ -34,6 +34,38 @@
 #include "colmap/util/misc.h"
 
 namespace colmap {
+namespace {
+
+bool TriangulateTrack(
+    const EstimateTriangulationOptions& options,
+    const std::vector<IncrementalTriangulator::CorrData>& corrs_data,
+    std::vector<char>& inlier_mask,
+    Eigen::Vector3d& xyz) {
+  std::vector<Eigen::Vector2d> points;
+  points.resize(corrs_data.size());
+  std::vector<Rigid3d const*> cams_from_world;
+  cams_from_world.resize(corrs_data.size());
+  std::vector<Camera const*> cameras;
+  cameras.resize(corrs_data.size());
+  for (size_t i = 0; i < corrs_data.size(); ++i) {
+    const auto& corr_data = corrs_data[i];
+    points[i] = corr_data.point2D->xy;
+    cams_from_world[i] = &corr_data.image->CamFromWorld();
+    cameras[i] = corr_data.camera;
+  }
+
+  // Enforce exhaustive sampling for small track lengths.
+  EstimateTriangulationOptions options_(options);
+  const size_t kExhaustiveSamplingThreshold = 15;
+  if (points.size() <= kExhaustiveSamplingThreshold) {
+    options_.ransac_options.min_num_trials = NChooseK(points.size(), 2);
+  }
+
+  return EstimateTriangulation(
+      options_, points, cams_from_world, cameras, &inlier_mask, &xyz);
+}
+
+}  // namespace
 
 bool IncrementalTriangulator::Options::Check() const {
   CHECK_OPTION_GE(max_transitivity, 0);
@@ -58,7 +90,7 @@ IncrementalTriangulator::IncrementalTriangulator(
 
 size_t IncrementalTriangulator::TriangulateImage(const Options& options,
                                                  const image_t image_id) {
-  CHECK(options.Check());
+  THROW_CHECK(options.Check());
 
   size_t num_tris = 0;
 
@@ -119,7 +151,7 @@ size_t IncrementalTriangulator::TriangulateImage(const Options& options,
 
 size_t IncrementalTriangulator::CompleteImage(const Options& options,
                                               const image_t image_id) {
-  CHECK(options.Check());
+  THROW_CHECK(options.Check());
 
   size_t num_tris = 0;
 
@@ -184,33 +216,10 @@ size_t IncrementalTriangulator::CompleteImage(const Options& options,
     ref_corr_data.point2D_idx = point2D_idx;
     corrs_data.push_back(ref_corr_data);
 
-    // Setup data for triangulation estimation.
-    std::vector<TriangulationEstimator::PointData> point_data;
-    point_data.resize(corrs_data.size());
-    std::vector<TriangulationEstimator::PoseData> pose_data;
-    pose_data.resize(corrs_data.size());
-    for (size_t i = 0; i < corrs_data.size(); ++i) {
-      const CorrData& corr_data = corrs_data[i];
-      point_data[i].point = corr_data.point2D->xy;
-      point_data[i].point_normalized =
-          corr_data.camera->CamFromImg(point_data[i].point);
-      pose_data[i].proj_matrix = corr_data.image->CamFromWorld().ToMatrix();
-      pose_data[i].proj_center = corr_data.image->ProjectionCenter();
-      pose_data[i].camera = corr_data.camera;
-    }
-
-    // Enforce exhaustive sampling for small track lengths.
-    const size_t kExhaustiveSamplingThreshold = 15;
-    if (point_data.size() <= kExhaustiveSamplingThreshold) {
-      tri_options.ransac_options.min_num_trials =
-          NChooseK(point_data.size(), 2);
-    }
-
     // Estimate triangulation.
     Eigen::Vector3d xyz;
     std::vector<char> inlier_mask;
-    if (!EstimateTriangulation(
-            tri_options, point_data, pose_data, &inlier_mask, &xyz)) {
+    if (!TriangulateTrack(tri_options, corrs_data, inlier_mask, xyz)) {
       continue;
     }
 
@@ -235,7 +244,7 @@ size_t IncrementalTriangulator::CompleteImage(const Options& options,
 
 size_t IncrementalTriangulator::CompleteTracks(
     const Options& options, const std::unordered_set<point3D_t>& point3D_ids) {
-  CHECK(options.Check());
+  THROW_CHECK(options.Check());
 
   size_t num_completed = 0;
 
@@ -249,7 +258,7 @@ size_t IncrementalTriangulator::CompleteTracks(
 }
 
 size_t IncrementalTriangulator::CompleteAllTracks(const Options& options) {
-  CHECK(options.Check());
+  THROW_CHECK(options.Check());
 
   size_t num_completed = 0;
 
@@ -264,7 +273,7 @@ size_t IncrementalTriangulator::CompleteAllTracks(const Options& options) {
 
 size_t IncrementalTriangulator::MergeTracks(
     const Options& options, const std::unordered_set<point3D_t>& point3D_ids) {
-  CHECK(options.Check());
+  THROW_CHECK(options.Check());
 
   size_t num_merged = 0;
 
@@ -278,7 +287,7 @@ size_t IncrementalTriangulator::MergeTracks(
 }
 
 size_t IncrementalTriangulator::MergeAllTracks(const Options& options) {
-  CHECK(options.Check());
+  THROW_CHECK(options.Check());
 
   size_t num_merged = 0;
 
@@ -292,7 +301,7 @@ size_t IncrementalTriangulator::MergeAllTracks(const Options& options) {
 }
 
 size_t IncrementalTriangulator::Retriangulate(const Options& options) {
-  CHECK(options.Check());
+  THROW_CHECK(options.Check());
 
   size_t num_tris = 0;
 
@@ -314,7 +323,8 @@ size_t IncrementalTriangulator::Retriangulate(const Options& options) {
 
     image_t image_id1;
     image_t image_id2;
-    Database::PairIdToImagePair(image_pair.first, &image_id1, &image_id2);
+    std::tie(image_id1, image_id2) =
+        Database::PairIdToImagePair(image_pair.first);
 
     const Image& image1 = reconstruction_->Image(image_id1);
     if (!image1.IsRegistered()) {
@@ -485,21 +495,6 @@ size_t IncrementalTriangulator::Create(
     }
   }
 
-  // Setup data for triangulation estimation.
-  std::vector<TriangulationEstimator::PointData> point_data;
-  point_data.resize(create_corrs_data.size());
-  std::vector<TriangulationEstimator::PoseData> pose_data;
-  pose_data.resize(create_corrs_data.size());
-  for (size_t i = 0; i < create_corrs_data.size(); ++i) {
-    const CorrData& corr_data = create_corrs_data[i];
-    point_data[i].point = corr_data.point2D->xy;
-    point_data[i].point_normalized =
-        corr_data.camera->CamFromImg(point_data[i].point);
-    pose_data[i].proj_matrix = corr_data.image->CamFromWorld().ToMatrix();
-    pose_data[i].proj_center = corr_data.image->ProjectionCenter();
-    pose_data[i].camera = corr_data.camera;
-  }
-
   // Setup estimation options.
   EstimateTriangulationOptions tri_options;
   tri_options.min_tri_angle = DegToRad(options.min_angle);
@@ -511,17 +506,10 @@ size_t IncrementalTriangulator::Create(
   tri_options.ransac_options.min_inlier_ratio = 0.02;
   tri_options.ransac_options.max_num_trials = 10000;
 
-  // Enforce exhaustive sampling for small track lengths.
-  const size_t kExhaustiveSamplingThreshold = 15;
-  if (point_data.size() <= kExhaustiveSamplingThreshold) {
-    tri_options.ransac_options.min_num_trials = NChooseK(point_data.size(), 2);
-  }
-
   // Estimate triangulation.
   Eigen::Vector3d xyz;
   std::vector<char> inlier_mask;
-  if (!EstimateTriangulation(
-          tri_options, point_data, pose_data, &inlier_mask, &xyz)) {
+  if (!TriangulateTrack(tri_options, create_corrs_data, inlier_mask, xyz)) {
     return 0;
   }
 

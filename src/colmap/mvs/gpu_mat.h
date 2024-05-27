@@ -380,7 +380,7 @@ void GpuMat<T>::Rotate(GpuMat<T>* output) {
 template <typename T>
 void GpuMat<T>::Read(const std::string& path) {
   std::fstream text_file(path, std::ios::in | std::ios::binary);
-  CHECK(text_file.is_open()) << path;
+  THROW_CHECK_FILE_OPEN(text_file, path);
 
   size_t width;
   size_t height;

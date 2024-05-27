@@ -56,7 +56,7 @@ COLMAP_ADD_LIBRARY(
     PUBLIC_LINK_LIBS
         colmap_util
         colmap_math
-        colmap_feature
+        colmap_feature_types
         colmap_geometry
         colmap_sensor
         colmap_image

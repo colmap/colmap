@@ -34,6 +34,7 @@
 #include "colmap/mvs/meshing.h"
 #include "colmap/mvs/patch_match.h"
 #include "colmap/ui/main_window.h"
+#include "colmap/util/controller_thread.h"
 
 namespace colmap {
 namespace {
@@ -164,7 +165,7 @@ class MeshingOptionsTab : public OptionsWidget {
 std::vector<std::pair<std::string, std::string>> ReadPatchMatchConfig(
     const std::string& config_path) {
   std::ifstream file(config_path);
-  CHECK(file.is_open()) << config_path;
+  THROW_CHECK_FILE_OPEN(file, config_path);
 
   std::string line;
   std::string ref_image_name;
@@ -361,11 +362,11 @@ void DenseReconstructionWidget::Undistort() {
     return;
   }
 
-  auto undistorter =
-      std::make_unique<COLMAPUndistorter>(UndistortCameraOptions(),
+  auto undistorter = std::make_unique<ControllerThread<COLMAPUndistorter>>(
+      std::make_shared<COLMAPUndistorter>(UndistortCameraOptions(),
                                           *reconstruction_,
                                           *options_->image_path,
-                                          workspace_path);
+                                          workspace_path));
   undistorter->AddCallback(Thread::FINISHED_CALLBACK,
                            [this]() { refresh_workspace_action_->trigger(); });
   thread_control_widget_->StartThread(
@@ -379,8 +380,10 @@ void DenseReconstructionWidget::Stereo() {
   }
 
 #if defined(COLMAP_CUDA_ENABLED)
-  auto processor = std::make_unique<mvs::PatchMatchController>(
-      *options_->patch_match_stereo, workspace_path, "COLMAP", "");
+  auto processor =
+      std::make_unique<ControllerThread<mvs::PatchMatchController>>(
+          std::make_shared<mvs::PatchMatchController>(
+              *options_->patch_match_stereo, workspace_path, "COLMAP", ""));
   processor->AddCallback(Thread::FINISHED_CALLBACK,
                          [this]() { refresh_workspace_action_->trigger(); });
   thread_control_widget_->StartThread("Stereo...", true, std::move(processor));
@@ -408,11 +411,13 @@ void DenseReconstructionWidget::Fusion() {
         this, "", tr("All images must be processed prior to fusion"));
   }
 
-  auto fuser = std::make_unique<mvs::StereoFusion>(
-      *options_->stereo_fusion, workspace_path, "COLMAP", "", input_type);
+  auto fuser = std::make_unique<ControllerThread<mvs::StereoFusion>>(
+      std::make_shared<mvs::StereoFusion>(
+          *options_->stereo_fusion, workspace_path, "COLMAP", "", input_type));
   fuser->AddCallback(Thread::FINISHED_CALLBACK, [this, fuser = fuser.get()]() {
-    fused_points_ = fuser->GetFusedPoints();
-    fused_points_visibility_ = fuser->GetFusedPointsVisibility();
+    fused_points_ = fuser->GetController()->GetFusedPoints();
+    fused_points_visibility_ =
+        fuser->GetController()->GetFusedPointsVisibility();
     write_fused_points_action_->trigger();
   });
   thread_control_widget_->StartThread("Fusion...", true, std::move(fuser));
@@ -625,7 +630,7 @@ void DenseReconstructionWidget::ShowMeshingInfo() {
 
 QWidget* DenseReconstructionWidget::GenerateTableButtonWidget(
     const std::string& image_name, const std::string& type) {
-  CHECK(type == "photometric" || type == "geometric");
+  THROW_CHECK(type == "photometric" || type == "geometric");
   const bool photometric = type == "photometric";
 
   if (photometric) {

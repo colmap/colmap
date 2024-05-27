@@ -31,6 +31,8 @@
 
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/misc.h"
+#include "colmap/util/threading.h"
+#include "colmap/util/timer.h"
 
 #include <Eigen/Geometry>
 
@@ -40,7 +42,7 @@ namespace internal {
 
 template <typename T>
 float Median(std::vector<T>* elems) {
-  CHECK(!elems->empty());
+  THROW_CHECK(!elems->empty());
   const size_t mid_idx = elems->size() / 2;
   std::nth_element(elems->begin(), elems->begin() + mid_idx, elems->end());
   if (elems->size() % 2 == 0) {
@@ -60,7 +62,7 @@ int FindNextImage(const std::vector<std::vector<int>>& overlapping_images,
                   const std::vector<char>& used_images,
                   const std::vector<char>& fused_images,
                   const int prev_image_idx) {
-  CHECK_EQ(used_images.size(), fused_images.size());
+  THROW_CHECK_EQ(used_images.size(), fused_images.size());
 
   for (const auto image_idx : overlapping_images.at(prev_image_idx)) {
     if (used_images.at(image_idx) && !fused_images.at(image_idx)) {
@@ -127,7 +129,7 @@ StereoFusion::StereoFusion(const StereoFusionOptions& options,
       max_squared_reproj_error_(options_.max_reproj_error *
                                 options_.max_reproj_error),
       min_cos_normal_error_(std::cos(DegToRad(options_.max_normal_error))) {
-  CHECK(options_.Check());
+  THROW_CHECK(options_.Check());
 }
 
 const std::vector<PlyPoint>& StereoFusion::GetFusedPoints() const {
@@ -140,6 +142,9 @@ const std::vector<std::vector<int>>& StereoFusion::GetFusedPointsVisibility()
 }
 
 void StereoFusion::Run() {
+  Timer run_timer;
+  run_timer.Start();
+
   fused_points_.clear();
   fused_points_visibility_.clear();
 
@@ -175,8 +180,8 @@ void StereoFusion::Run() {
     num_threads = GetEffectiveNumThreads(options_.num_threads);
   }
 
-  if (IsStopped()) {
-    GetTimer().PrintMinutes();
+  if (CheckIfStopped()) {
+    run_timer.PrintMinutes();
     return;
   }
 
@@ -277,7 +282,7 @@ void StereoFusion::Run() {
   for (int image_idx = 0; image_idx >= 0;
        image_idx = internal::FindNextImage(
            overlapping_images_, used_images_, fused_images_, image_idx)) {
-    if (IsStopped()) {
+    if (CheckIfStopped()) {
       break;
     }
 
@@ -339,7 +344,7 @@ void StereoFusion::Run() {
   }
 
   LOG(INFO) << "Number of fused points: " << fused_points_.size();
-  GetTimer().PrintMinutes();
+  run_timer.PrintMinutes();
 }
 
 void StereoFusion::InitFusedPixelMask(int image_idx,
@@ -562,7 +567,7 @@ void WritePointsVisibility(
     const std::string& path,
     const std::vector<std::vector<int>>& points_visibility) {
   std::fstream file(path, std::ios::out | std::ios::binary);
-  CHECK(file.is_open()) << path;
+  THROW_CHECK_FILE_OPEN(file, path);
 
   WriteBinaryLittleEndian<uint64_t>(&file, points_visibility.size());
 

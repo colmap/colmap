@@ -34,9 +34,17 @@
 #include <boost/graph/stoer_wagner_min_cut.hpp>
 #include <boost/property_map/property_map.hpp>
 
+#ifdef _MSC_VER
+#pragma warning(push)
+// Disable warning C4005: 'PRId32': macro redefinition
+#pragma warning(disable : 4005)
+#endif
 extern "C" {
-#include "metis.h"
+#include <metis.h>
 }
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 #include "colmap/util/logging.h"
 
@@ -79,10 +87,10 @@ class MetisGraph {
 
     xadj_.push_back(edge_idx);
 
-    CHECK_EQ(edge_idx, 2 * edges.size());
-    CHECK_EQ(xadj_.size(), vertex_id_to_idx_.size() + 1);
-    CHECK_EQ(adjncy_.size(), 2 * edges.size());
-    CHECK_EQ(adjwgt_.size(), 2 * edges.size());
+    THROW_CHECK_EQ(edge_idx, 2 * edges.size());
+    THROW_CHECK_EQ(xadj_.size(), vertex_id_to_idx_.size() + 1);
+    THROW_CHECK_EQ(adjncy_.size(), 2 * edges.size());
+    THROW_CHECK_EQ(adjwgt_.size(), 2 * edges.size());
 
     nvtxs = vertex_id_to_idx_.size();
 
@@ -128,8 +136,8 @@ void ComputeMinGraphCutStoerWagner(
     const std::vector<int>& weights,
     int* cut_weight,
     std::vector<char>* cut_labels) {
-  CHECK_EQ(edges.size(), weights.size());
-  CHECK_GE(edges.size(), 2);
+  THROW_CHECK_EQ(edges.size(), weights.size());
+  THROW_CHECK_GE(edges.size(), 2);
 
   typedef boost::property<boost::edge_weight_t, int> edge_weight_t;
   typedef boost::adjacency_list<boost::vecS,
@@ -141,8 +149,8 @@ void ComputeMinGraphCutStoerWagner(
 
   int max_vertex_index = 0;
   for (const auto& edge : edges) {
-    CHECK_GE(edge.first, 0);
-    CHECK_GE(edge.second, 0);
+    THROW_CHECK_GE(edge.first, 0);
+    THROW_CHECK_GE(edge.second, 0);
     max_vertex_index = std::max(max_vertex_index, edge.first);
     max_vertex_index = std::max(max_vertex_index, edge.second);
   }
@@ -171,9 +179,9 @@ std::unordered_map<int, int> ComputeNormalizedMinGraphCut(
     const std::vector<std::pair<int, int>>& edges,
     const std::vector<int>& weights,
     const int num_parts) {
-  CHECK(!edges.empty());
-  CHECK_EQ(edges.size(), weights.size());
-  CHECK_GT(num_parts, 0);
+  THROW_CHECK(!edges.empty());
+  THROW_CHECK_EQ(edges.size(), weights.size());
+  THROW_CHECK_GT(num_parts, 0);
 
   MetisGraph graph(edges, weights);
 
@@ -200,11 +208,11 @@ std::unordered_map<int, int> ComputeNormalizedMinGraphCut(
                                               cut_labels.data());
 
   if (metisResult == METIS_ERROR_INPUT) {
-    LOG(FATAL) << "INTERNAL: Metis input error";
+    LOG(FATAL_THROW) << "INTERNAL: Metis input error";
   } else if (metisResult == METIS_ERROR_MEMORY) {
-    LOG(FATAL) << "INTERNAL: Metis memory error";
+    LOG(FATAL_THROW) << "INTERNAL: Metis memory error";
   } else if (metisResult == METIS_ERROR) {
-    LOG(FATAL) << "INTERNAL: Metis 'some other type of error'";
+    LOG(FATAL_THROW) << "INTERNAL: Metis 'some other type of error'";
   }
 
   std::unordered_map<int, int> labels;

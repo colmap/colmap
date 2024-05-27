@@ -32,8 +32,8 @@
 #include "colmap/geometry/rigid3.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sensor/bitmap.h"
+#include "colmap/util/base_controller.h"
 #include "colmap/util/misc.h"
-#include "colmap/util/threading.h"
 
 namespace colmap {
 
@@ -61,7 +61,7 @@ struct UndistortCameraOptions {
 
 // Undistort images and export undistorted cameras, as required by the
 // mvs::PatchMatchController class.
-class COLMAPUndistorter : public Thread {
+class COLMAPUndistorter : public BaseController {
  public:
   COLMAPUndistorter(
       const UndistortCameraOptions& options,
@@ -72,9 +72,9 @@ class COLMAPUndistorter : public Thread {
       CopyType copy_type = CopyType::COPY,
       const std::vector<image_t>& image_ids = std::vector<image_t>());
 
- private:
   void Run();
 
+ private:
   bool Undistort(image_t image_id) const;
   void WritePatchMatchConfig() const;
   void WriteFusionConfig() const;
@@ -91,16 +91,16 @@ class COLMAPUndistorter : public Thread {
 };
 
 // Undistort images and prepare data for CMVS/PMVS.
-class PMVSUndistorter : public Thread {
+class PMVSUndistorter : public BaseController {
  public:
   PMVSUndistorter(const UndistortCameraOptions& options,
                   const Reconstruction& reconstruction,
                   const std::string& image_path,
                   const std::string& output_path);
 
- private:
   void Run();
 
+ private:
   bool Undistort(size_t reg_image_idx) const;
   void WriteVisibilityData() const;
   void WriteOptionFile() const;
@@ -116,16 +116,16 @@ class PMVSUndistorter : public Thread {
 };
 
 // Undistort images and prepare data for CMP-MVS.
-class CMPMVSUndistorter : public Thread {
+class CMPMVSUndistorter : public BaseController {
  public:
   CMPMVSUndistorter(const UndistortCameraOptions& options,
                     const Reconstruction& reconstruction,
                     const std::string& image_path,
                     const std::string& output_path);
 
- private:
   void Run();
 
+ private:
   bool Undistort(size_t reg_image_idx) const;
 
   UndistortCameraOptions options_;
@@ -137,7 +137,7 @@ class CMPMVSUndistorter : public Thread {
 // Undistort images and export undistorted cameras without the need for a
 // reconstruction. Instead, the image names and camera model information are
 // read from a text file.
-class PureImageUndistorter : public Thread {
+class PureImageUndistorter : public BaseController {
  public:
   PureImageUndistorter(const UndistortCameraOptions& options,
                        const std::string& image_path,
@@ -145,9 +145,9 @@ class PureImageUndistorter : public Thread {
                        const std::vector<std::pair<std::string, Camera>>&
                            image_names_and_cameras);
 
- private:
   void Run();
 
+ private:
   bool Undistort(size_t reg_image_idx) const;
 
   UndistortCameraOptions options_;
@@ -157,7 +157,7 @@ class PureImageUndistorter : public Thread {
 };
 
 // Rectify stereo image pairs.
-class StereoImageRectifier : public Thread {
+class StereoImageRectifier : public BaseController {
  public:
   StereoImageRectifier(
       const UndistortCameraOptions& options,
@@ -166,9 +166,9 @@ class StereoImageRectifier : public Thread {
       const std::string& output_path,
       const std::vector<std::pair<image_t, image_t>>& stereo_pairs);
 
- private:
   void Run();
 
+ private:
   void Rectify(image_t image_id1, image_t image_id2) const;
 
   UndistortCameraOptions options_;

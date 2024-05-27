@@ -85,7 +85,7 @@ int RunAutomaticReconstructor(int argc, char** argv) {
     reconstruction_options.data_type =
         AutomaticReconstructionController::DataType::INTERNET;
   } else {
-    LOG(FATAL) << "Invalid data type provided";
+    LOG(FATAL_THROW) << "Invalid data type provided";
   }
 
   StringToLower(&quality);
@@ -102,7 +102,7 @@ int RunAutomaticReconstructor(int argc, char** argv) {
     reconstruction_options.quality =
         AutomaticReconstructionController::Quality::EXTREME;
   } else {
-    LOG(FATAL) << "Invalid quality provided";
+    LOG(FATAL_THROW) << "Invalid quality provided";
   }
 
   StringToLower(&mesher);
@@ -113,7 +113,7 @@ int RunAutomaticReconstructor(int argc, char** argv) {
     reconstruction_options.mesher =
         AutomaticReconstructionController::Mesher::DELAUNAY;
   } else {
-    LOG(FATAL) << "Invalid mesher provided";
+    LOG(FATAL_THROW) << "Invalid mesher provided";
   }
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
@@ -157,8 +157,7 @@ int RunBundleAdjuster(int argc, char** argv) {
   reconstruction->Read(input_path);
 
   BundleAdjustmentController ba_controller(options, reconstruction);
-  ba_controller.Start();
-  ba_controller.Wait();
+  ba_controller.Run();
 
   reconstruction->Write(output_path);
 
@@ -223,7 +222,8 @@ int RunMapper(int argc, char** argv) {
   // stability.
   std::vector<Eigen::Vector3d> orig_fixed_image_positions;
   std::vector<image_t> fixed_image_ids;
-  if (options.mapper->fix_existing_images) {
+  if (options.mapper->fix_existing_images &&
+      reconstruction_manager->Size() > 0) {
     const auto& reconstruction = reconstruction_manager->Get(0);
     fixed_image_ids = reconstruction->RegImageIds();
     orig_fixed_image_positions.reserve(fixed_image_ids.size());
@@ -259,8 +259,7 @@ int RunMapper(int argc, char** argv) {
         });
   }
 
-  mapper.Start();
-  mapper.Wait();
+  mapper.Run();
 
   if (reconstruction_manager->Size() == 0) {
     LOG(ERROR) << "failed to create sparse model";
@@ -269,21 +268,30 @@ int RunMapper(int argc, char** argv) {
 
   // In case the reconstruction is continued from an existing reconstruction, do
   // not create sub-folders but directly write the results.
-  if (input_path != "" && reconstruction_manager->Size() > 0) {
+  if (input_path != "") {
     const auto& reconstruction = reconstruction_manager->Get(0);
 
-    // Map the coordinate back to the original coordinate frame.
+    // Transform the final reconstruction back to the original coordinate frame.
     if (options.mapper->fix_existing_images) {
-      std::vector<Eigen::Vector3d> new_fixed_image_positions;
-      new_fixed_image_positions.reserve(fixed_image_ids.size());
-      for (const image_t image_id : fixed_image_ids) {
-        new_fixed_image_positions.push_back(
-            reconstruction->Image(image_id).ProjectionCenter());
+      if (fixed_image_ids.size() < 3) {
+        LOG(WARNING) << "Too few images to transform the reconstruction.";
+      } else {
+        std::vector<Eigen::Vector3d> new_fixed_image_positions;
+        new_fixed_image_positions.reserve(fixed_image_ids.size());
+        for (const image_t image_id : fixed_image_ids) {
+          new_fixed_image_positions.push_back(
+              reconstruction->Image(image_id).ProjectionCenter());
+        }
+        Sim3d orig_from_new;
+        if (EstimateSim3d(new_fixed_image_positions,
+                          orig_fixed_image_positions,
+                          orig_from_new)) {
+          reconstruction->Transform(orig_from_new);
+        } else {
+          LOG(WARNING) << "Failed to transform the reconstruction back "
+                          "to the input coordinate frame.";
+        }
       }
-      Sim3d orig_from_new;
-      EstimateSim3d(
-          new_fixed_image_positions, orig_fixed_image_positions, orig_from_new);
-      reconstruction->Transform(orig_from_new);
     }
 
     reconstruction->Write(output_path);
@@ -318,8 +326,7 @@ int RunHierarchicalMapper(int argc, char** argv) {
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   HierarchicalMapperController hierarchical_mapper(mapper_options,
                                                    reconstruction_manager);
-  hierarchical_mapper.Start();
-  hierarchical_mapper.Wait();
+  hierarchical_mapper.Run();
 
   if (reconstruction_manager->Size() == 0) {
     LOG(ERROR) << "failed to create sparse model";
@@ -408,130 +415,43 @@ int RunPointTriangulator(int argc, char** argv) {
   auto reconstruction = std::make_shared<Reconstruction>();
   reconstruction->Read(input_path);
 
-  return RunPointTriangulatorImpl(reconstruction,
-                                  *options.database_path,
-                                  *options.image_path,
-                                  output_path,
-                                  *options.mapper,
-                                  clear_points,
-                                  refine_intrinsics);
+  RunPointTriangulatorImpl(reconstruction,
+                           *options.database_path,
+                           *options.image_path,
+                           output_path,
+                           *options.mapper,
+                           clear_points,
+                           refine_intrinsics);
+  return EXIT_SUCCESS;
 }
 
-int RunPointTriangulatorImpl(
+void RunPointTriangulatorImpl(
     const std::shared_ptr<Reconstruction>& reconstruction,
     const std::string& database_path,
     const std::string& image_path,
     const std::string& output_path,
-    const IncrementalMapperOptions& mapper_options,
+    const IncrementalMapperOptions& options,
     const bool clear_points,
     const bool refine_intrinsics) {
-  PrintHeading1("Loading database");
-
-  std::shared_ptr<DatabaseCache> database_cache;
-
-  {
-    Timer timer;
-    timer.Start();
-    const Database database(database_path);
-    const size_t min_num_matches =
-        static_cast<size_t>(mapper_options.min_num_matches);
-    database_cache = DatabaseCache::Create(database,
-                                           min_num_matches,
-                                           mapper_options.ignore_watermarks,
-                                           mapper_options.image_names);
-
-    if (clear_points) {
-      reconstruction->DeleteAllPoints2DAndPoints3D();
-      reconstruction->TranscribeImageIdsToDatabase(database);
-    }
-
-    timer.PrintMinutes();
-  }
-
-  CHECK_GE(reconstruction->NumRegImages(), 2)
+  THROW_CHECK_GE(reconstruction->NumRegImages(), 2)
       << "Need at least two images for triangulation";
-
-  IncrementalMapper mapper(database_cache);
-  mapper.BeginReconstruction(reconstruction);
-
-  //////////////////////////////////////////////////////////////////////////////
-  // Triangulation
-  //////////////////////////////////////////////////////////////////////////////
-
-  const auto tri_options = mapper_options.Triangulation();
-
-  const std::vector<image_t>& reg_image_ids = reconstruction->RegImageIds();
-
-  for (size_t i = 0; i < reg_image_ids.size(); ++i) {
-    const image_t image_id = reg_image_ids[i];
-    const auto& image = reconstruction->Image(image_id);
-
-    PrintHeading1(StringPrintf("Triangulating image #%d (%d)", image_id, i));
-
-    const size_t num_existing_points3D = image.NumPoints3D();
-
-    LOG(INFO) << "=> Image sees " << num_existing_points3D << " / "
-              << image.NumObservations() << " points";
-
-    mapper.TriangulateImage(tri_options, image_id);
-
-    LOG(INFO) << "=> Triangulated "
-              << (image.NumPoints3D() - num_existing_points3D) << " points";
+  if (clear_points) {
+    const Database database(database_path);
+    reconstruction->DeleteAllPoints2DAndPoints3D();
+    reconstruction->TranscribeImageIdsToDatabase(database);
   }
 
-  //////////////////////////////////////////////////////////////////////////////
-  // Retriangulation
-  //////////////////////////////////////////////////////////////////////////////
+  auto options_tmp = std::make_shared<IncrementalMapperOptions>(options);
+  options_tmp->fix_existing_images = true;
+  options_tmp->ba_refine_focal_length = refine_intrinsics;
+  options_tmp->ba_refine_principal_point = false;
+  options_tmp->ba_refine_extra_params = refine_intrinsics;
 
-  PrintHeading1("Retriangulation");
-
-  CompleteAndMergeTracks(mapper_options, &mapper);
-
-  //////////////////////////////////////////////////////////////////////////////
-  // Bundle adjustment
-  //////////////////////////////////////////////////////////////////////////////
-
-  auto ba_options = mapper_options.GlobalBundleAdjustment();
-  ba_options.refine_focal_length = refine_intrinsics;
-  ba_options.refine_principal_point = false;
-  ba_options.refine_extra_params = refine_intrinsics;
-  ba_options.refine_extrinsics = false;
-
-  // Configure bundle adjustment.
-  BundleAdjustmentConfig ba_config;
-  for (const image_t image_id : reg_image_ids) {
-    ba_config.AddImage(image_id);
-  }
-
-  for (int i = 0; i < mapper_options.ba_global_max_refinements; ++i) {
-    // Avoid degeneracies in bundle adjustment.
-    reconstruction->FilterObservationsWithNegativeDepth();
-
-    const size_t num_observations = reconstruction->ComputeNumObservations();
-
-    PrintHeading1("Bundle adjustment");
-    BundleAdjuster bundle_adjuster(ba_options, ba_config);
-    CHECK(bundle_adjuster.Solve(reconstruction.get()));
-
-    size_t num_changed_observations = 0;
-    num_changed_observations += CompleteAndMergeTracks(mapper_options, &mapper);
-    num_changed_observations += FilterPoints(mapper_options, &mapper);
-    const double changed =
-        static_cast<double>(num_changed_observations) / num_observations;
-    LOG(INFO) << StringPrintf("=> Changed observations: %.6f", changed);
-    if (changed < mapper_options.ba_global_max_refinement_change) {
-      break;
-    }
-  }
-
-  PrintHeading1("Extracting colors");
-  reconstruction->ExtractColorsForAllImages(image_path);
-
-  mapper.EndReconstruction(/*discard=*/false);
-
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  IncrementalMapperController mapper(
+      options_tmp, image_path, database_path, reconstruction_manager);
+  mapper.TriangulateReconstruction(reconstruction);
   reconstruction->Write(output_path);
-
-  return EXIT_SUCCESS;
 }
 
 namespace {
@@ -752,7 +672,7 @@ int RunRigBundleAdjuster(int argc, char** argv) {
 
   BundleAdjustmentOptions ba_options = *options.bundle_adjustment;
   RigBundleAdjuster bundle_adjuster(ba_options, rig_ba_options, config);
-  CHECK(bundle_adjuster.Solve(&reconstruction, &camera_rigs));
+  THROW_CHECK(bundle_adjuster.Solve(&reconstruction, &camera_rigs));
 
   reconstruction.Write(output_path);
 

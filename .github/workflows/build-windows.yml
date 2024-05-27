@@ -1,0 +1,117 @@
+name: COLMAP (Windows)
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [ assigned, opened, synchronize, reopened ]
+  release:
+    types: [ published, edited ]
+
+jobs:
+  build:
+    name: ${{ matrix.config.os }} ${{ matrix.config.cmakeBuildType }}
+    runs-on: ${{ matrix.config.os }}
+    strategy:
+      matrix:
+        config: [
+          {
+            os: windows-2019,
+            cmakeBuildType: Release,
+          },
+          {
+            os: windows-2022,
+            cmakeBuildType: Release,
+          },
+        ]
+
+    env:
+      COMPILER_CACHE_VERSION: 1
+      COMPILER_CACHE_DIR: ${{ github.workspace }}/compiler-cache
+      CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
+      CCACHE_BASEDIR: ${{ github.workspace }}
+      VCPKG_COMMIT_ID: 13bde2ff13192e1b2fdd37bd9b475c7665ae6ae5
+      VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Export GitHub Actions cache env
+        uses: actions/github-script@v7
+        with:
+          script: |
+            core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+
+      - name: Compiler cache
+        uses: actions/cache@v4
+        id: cache-builds
+        with:
+          key: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}-${{ github.run_id }}-${{ github.run_number }}
+          restore-keys: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}
+          path: ${{ env.COMPILER_CACHE_DIR }}
+      
+      - name: Install ccache
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "${{ env.CCACHE_DIR }}"
+          echo "${{ env.COMPILER_CACHE_DIR }}/bin" | Out-File -Encoding utf8 -Append -FilePath $env:GITHUB_PATH
+
+          if (Test-Path -PathType Leaf "${{ env.COMPILER_CACHE_DIR }}/bin/ccache.exe") {
+            exit
+          }
+
+          .github/workflows/install-ccache.ps1 -Destination "${{ env.COMPILER_CACHE_DIR }}/bin"
+
+      - name: Install CMake and Ninja
+        uses: lukka/get-cmake@latest
+
+      - name: Setup vcpkg
+        shell: pwsh
+        run: |
+          ./scripts/shell/enter_vs_dev_shell.ps1
+          cd ${{ github.workspace }}
+          git clone https://github.com/microsoft/vcpkg
+          cd vcpkg
+          git reset --hard ${{ env.VCPKG_COMMIT_ID }}
+          ./bootstrap-vcpkg.bat
+
+      - name: Configure and build
+        shell: pwsh
+        run: |
+          ./scripts/shell/enter_vs_dev_shell.ps1
+          cd ${{ github.workspace }}
+          ./vcpkg/vcpkg.exe integrate install
+          mkdir build
+          cd build
+          cmake .. `
+            -GNinja `
+            -DCMAKE_MAKE_PROGRAM=ninja `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DTESTS_ENABLED=ON `
+            -DGUI_ENABLED=ON `
+            -DCUDA_ENABLED=OFF `
+            -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake `
+            -DVCPKG_TARGET_TRIPLET=x64-windows-release
+          ninja
+
+      - name: Run tests
+        shell: pwsh
+        run: |
+          ./vcpkg/vcpkg.exe integrate install
+          cd build
+          ctest -E "(feature/colmap_feature_sift_test)|(util/colmap_util_opengl_utils_test)|(mvs/colmap_mvs_gpu_mat_test)"
+          $tests_pass=$LastExitCode
+          if ($tests_pass -ne 0) {
+              echo "`n`n`nTests failed, rerunning with verbose output"
+              ctest --rerun-failed --output-on-failure
+          }
+          exit $tests_pass
+
+      - name: Cleanup compiler cache
+        shell: pwsh
+        run: |
+          ccache --show-stats --verbose
+          ccache --evict-older-than 1d
+          ccache --show-stats --verbose
