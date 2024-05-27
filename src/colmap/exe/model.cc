@@ -764,8 +764,7 @@ int RunModelOrientationAligner(int argc, char** argv) {
   options.AddDefaultOption(
       "method", &method, "{MANHATTAN-WORLD, IMAGE-ORIENTATION}");
 #else
-  options.AddDefaultOption(
-      "method", &method, "{IMAGE-ORIENTATION}");
+  options.AddDefaultOption("method", &method, "{IMAGE-ORIENTATION}");
 #endif
   options.AddDefaultOption("max_image_size",
                            &frame_estimation_options.max_image_size);
