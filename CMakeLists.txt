@@ -45,6 +45,7 @@ option(ASAN_ENABLED "Whether to enable AddressSanitizer flags" OFF)
 option(PROFILING_ENABLED "Whether to enable google-perftools linker flags" OFF)
 option(CCACHE_ENABLED "Whether to enable compiler caching, if available" ON)
 option(CGAL_ENABLED "Whether to enable the CGAL library" ON)
+option(LSD_ENABLED "Whether to enable the LSD library" ON)
 
 # Propagate options to vcpkg manifest.
 if(TESTS_ENABLED)
@@ -59,6 +60,13 @@ if(GUI_ENABLED)
 endif()
 if(CGAL_ENABLED)
     list(APPEND VCPKG_MANIFEST_FEATURES "cgal")
+endif()
+
+if(LSD_ENABLED)
+    message(STATUS "Enabling LSD support")
+    add_definitions("-DCOLMAP_LSD_ENABLED")
+else()
+    message(STATUS "Disabling LSD support")
 endif()
 
 project(COLMAP LANGUAGES C CXX)
@@ -89,37 +97,6 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/CMakeHelper.cmake NO_POLICY_SCOPE)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 ################################################################################
-<<<<<<< HEAD
-# Options
-################################################################################
-
-option(SIMD_ENABLED "Whether to enable SIMD optimizations" ON)
-option(OPENMP_ENABLED "Whether to enable OpenMP parallelization" ON)
-option(IPO_ENABLED "Whether to enable interprocedural optimization" ON)
-option(CUDA_ENABLED "Whether to enable CUDA, if available" ON)
-option(GUI_ENABLED "Whether to enable the graphical UI" ON)
-option(OPENGL_ENABLED "Whether to enable OpenGL, if available" ON)
-option(TESTS_ENABLED "Whether to build test binaries" OFF)
-option(ASAN_ENABLED "Whether to enable AddressSanitizer flags" OFF)
-option(PROFILING_ENABLED "Whether to enable google-perftools linker flags" OFF)
-option(CCACHE_ENABLED "Whether to enable compiler caching, if available" ON)
-option(CGAL_ENABLED "Whether to enable the CGAL library" ON)
-option(LSD_ENABLED "Whether to enable the LSD library" ON)
-
-if(TESTS_ENABLED)
-    enable_testing()
-endif()
-
-if(LSD_ENABLED)
-    message(STATUS "Enabling LSD support")
-    add_definitions("-DCOLMAP_LSD_ENABLED")
-else()
-    message(STATUS "Disabling LSD support")
-endif()
-
-################################################################################
-=======
->>>>>>> main
 # Dependency configuration
 ################################################################################
 
