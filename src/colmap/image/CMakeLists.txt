@@ -42,8 +42,10 @@ COLMAP_ADD_LIBRARY(
     PRIVATE_LINK_LIBS
         colmap_util
         colmap_sensor
-        colmap_lsd
 )
+if(LSD_ENABLED)
+    target_link_libraries(colmap_image PRIVATE colmap_lsd)
+endif()
 
 COLMAP_ADD_TEST(
     NAME line_test
