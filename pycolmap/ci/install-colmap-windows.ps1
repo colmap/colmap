@@ -25,10 +25,11 @@ cd build
 cmake .. `
     -GNinja `
     -DCMAKE_MAKE_PROGRAM=ninja `
-    -DCMAKE_BUILD_TYPE="Release" `
     -DCUDA_ENABLED="OFF" `
-    -DCGAL_ENABLED="OFF" `
     -DGUI_ENABLED="OFF" `
+    -DCGAL_ENABLED="OFF" `
+    -DLSD_ENABLED="OFF" `
+    -DCMAKE_BUILD_TYPE="Release" `
     -DCMAKE_TOOLCHAIN_FILE="${env:CMAKE_TOOLCHAIN_FILE}" `
     -DVCPKG_TARGET_TRIPLET="${env:VCPKG_TARGET_TRIPLET}"
 ninja install
