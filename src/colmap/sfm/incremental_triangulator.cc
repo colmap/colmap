@@ -84,9 +84,16 @@ bool IncrementalTriangulator::Options::Check() const {
 
 IncrementalTriangulator::IncrementalTriangulator(
     std::shared_ptr<const CorrespondenceGraph> correspondence_graph,
-    std::shared_ptr<Reconstruction> reconstruction)
+    Reconstruction& reconstruction,
+    std::shared_ptr<ObservationManager> obs_manager)
     : correspondence_graph_(std::move(correspondence_graph)),
-      reconstruction_(std::move(reconstruction)) {}
+      reconstruction_(reconstruction),
+      obs_manager_(std::move(obs_manager)) {
+  if (!obs_manager_) {
+    obs_manager_ = std::make_shared<ObservationManager>(reconstruction_,
+                                                        correspondence_graph_);
+  }
+}
 
 size_t IncrementalTriangulator::TriangulateImage(const Options& options,
                                                  const image_t image_id) {
@@ -96,12 +103,12 @@ size_t IncrementalTriangulator::TriangulateImage(const Options& options,
 
   ClearCaches();
 
-  const Image& image = reconstruction_->Image(image_id);
+  const Image& image = reconstruction_.Image(image_id);
   if (!image.IsRegistered()) {
     return num_tris;
   }
 
-  const Camera& camera = reconstruction_->Camera(image.CameraId());
+  const Camera& camera = reconstruction_.Camera(image.CameraId());
   if (HasCameraBogusParams(options, camera)) {
     return num_tris;
   }
@@ -157,12 +164,12 @@ size_t IncrementalTriangulator::CompleteImage(const Options& options,
 
   ClearCaches();
 
-  const Image& image = reconstruction_->Image(image_id);
+  const Image& image = reconstruction_.Image(image_id);
   if (!image.IsRegistered()) {
     return num_tris;
   }
 
-  const Camera& camera = reconstruction_->Camera(image.CameraId());
+  const Camera& camera = reconstruction_.Camera(image.CameraId());
   if (HasCameraBogusParams(options, camera)) {
     return num_tris;
   }
@@ -234,8 +241,7 @@ size_t IncrementalTriangulator::CompleteImage(const Options& options,
       }
     }
 
-    const point3D_t point3D_id =
-        reconstruction_->AddPoint3D(xyz, std::move(track));
+    const point3D_t point3D_id = obs_manager_->AddPoint3D(xyz, track);
     modified_point3D_ids_.insert(point3D_id);
   }
 
@@ -264,7 +270,7 @@ size_t IncrementalTriangulator::CompleteAllTracks(const Options& options) {
 
   ClearCaches();
 
-  for (const point3D_t point3D_id : reconstruction_->Point3DIds()) {
+  for (const point3D_t point3D_id : reconstruction_.Point3DIds()) {
     num_completed += Complete(options, point3D_id);
   }
 
@@ -293,7 +299,7 @@ size_t IncrementalTriangulator::MergeAllTracks(const Options& options) {
 
   ClearCaches();
 
-  for (const point3D_t point3D_id : reconstruction_->Point3DIds()) {
+  for (const point3D_t point3D_id : reconstruction_.Point3DIds()) {
     num_merged += Merge(options, point3D_id);
   }
 
@@ -310,7 +316,7 @@ size_t IncrementalTriangulator::Retriangulate(const Options& options) {
   Options re_options = options;
   re_options.continue_max_angle_error = options.re_max_angle_error;
 
-  for (const auto& image_pair : reconstruction_->ImagePairs()) {
+  for (const auto& image_pair : obs_manager_->ImagePairs()) {
     // Only perform retriangulation for under-reconstructed image pairs.
     const double tri_ratio =
         static_cast<double>(image_pair.second.num_tri_corrs) /
@@ -326,12 +332,12 @@ size_t IncrementalTriangulator::Retriangulate(const Options& options) {
     std::tie(image_id1, image_id2) =
         Database::PairIdToImagePair(image_pair.first);
 
-    const Image& image1 = reconstruction_->Image(image_id1);
+    const Image& image1 = reconstruction_.Image(image_id1);
     if (!image1.IsRegistered()) {
       continue;
     }
 
-    const Image& image2 = reconstruction_->Image(image_id2);
+    const Image& image2 = reconstruction_.Image(image_id2);
     if (!image2.IsRegistered()) {
       continue;
     }
@@ -344,8 +350,8 @@ size_t IncrementalTriangulator::Retriangulate(const Options& options) {
     }
     num_re_trials += 1;
 
-    const Camera& camera1 = reconstruction_->Camera(image1.CameraId());
-    const Camera& camera2 = reconstruction_->Camera(image2.CameraId());
+    const Camera& camera1 = reconstruction_.Camera(image1.CameraId());
+    const Camera& camera2 = reconstruction_.Camera(image2.CameraId());
     if (HasCameraBogusParams(options, camera1) ||
         HasCameraBogusParams(options, camera2)) {
       continue;
@@ -413,7 +419,7 @@ IncrementalTriangulator::GetModifiedPoints3D() {
   // First remove any missing 3D points from the set.
   for (auto it = modified_point3D_ids_.begin();
        it != modified_point3D_ids_.end();) {
-    if (reconstruction_->ExistsPoint3D(*it)) {
+    if (reconstruction_.ExistsPoint3D(*it)) {
       ++it;
     } else {
       modified_point3D_ids_.erase(it++);
@@ -446,12 +452,12 @@ size_t IncrementalTriangulator::Find(const Options& options,
   size_t num_triangulated = 0;
 
   for (const auto& corr : found_corrs_) {
-    const Image& corr_image = reconstruction_->Image(corr.image_id);
+    const Image& corr_image = reconstruction_.Image(corr.image_id);
     if (!corr_image.IsRegistered()) {
       continue;
     }
 
-    const Camera& corr_camera = reconstruction_->Camera(corr_image.CameraId());
+    const Camera& corr_camera = reconstruction_.Camera(corr_image.CameraId());
     if (HasCameraBogusParams(options, corr_camera)) {
       continue;
     }
@@ -525,8 +531,7 @@ size_t IncrementalTriangulator::Create(
 
   // Add estimated point to reconstruction.
   const size_t track_length = track.Length();
-  const point3D_t point3D_id =
-      reconstruction_->AddPoint3D(xyz, std::move(track));
+  const point3D_t point3D_id = obs_manager_->AddPoint3D(xyz, track);
   modified_point3D_ids_.insert(point3D_id);
 
   const size_t kMinRecursiveTrackLength = 3;
@@ -556,7 +561,7 @@ size_t IncrementalTriangulator::Continue(
     }
 
     const Point3D& point3D =
-        reconstruction_->Point3D(corr_data.point2D->point3D_id);
+        reconstruction_.Point3D(corr_data.point2D->point3D_id);
 
     const double angle_error =
         CalculateAngularError(ref_corr_data.point2D->xy,
@@ -575,7 +580,7 @@ size_t IncrementalTriangulator::Continue(
     const CorrData& corr_data = corrs_data[best_idx];
     const TrackElement track_el(ref_corr_data.image_id,
                                 ref_corr_data.point2D_idx);
-    reconstruction_->AddObservation(corr_data.point2D->point3D_id, track_el);
+    obs_manager_->AddObservation(corr_data.point2D->point3D_id, track_el);
     modified_point3D_ids_.insert(corr_data.point2D->point3D_id);
     return 1;
   }
@@ -585,20 +590,20 @@ size_t IncrementalTriangulator::Continue(
 
 size_t IncrementalTriangulator::Merge(const Options& options,
                                       const point3D_t point3D_id) {
-  if (!reconstruction_->ExistsPoint3D(point3D_id)) {
+  if (!reconstruction_.ExistsPoint3D(point3D_id)) {
     return 0;
   }
 
   const double max_squared_reproj_error =
       options.merge_max_reproj_error * options.merge_max_reproj_error;
 
-  const auto& point3D = reconstruction_->Point3D(point3D_id);
+  const auto& point3D = reconstruction_.Point3D(point3D_id);
 
   for (const auto& track_el : point3D.track.Elements()) {
     const auto corr_range = correspondence_graph_->FindCorrespondences(
         track_el.image_id, track_el.point2D_idx);
     for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
-      const auto& image = reconstruction_->Image(corr->image_id);
+      const auto& image = reconstruction_.Image(corr->image_id);
       if (!image.IsRegistered()) {
         continue;
       }
@@ -612,7 +617,7 @@ size_t IncrementalTriangulator::Merge(const Options& options,
       // Try to merge the two 3D points.
 
       const Point3D& corr_point3D =
-          reconstruction_->Point3D(corr_point2D.point3D_id);
+          reconstruction_.Point3D(corr_point2D.point3D_id);
 
       merge_trials_[point3D_id].insert(corr_point2D.point3D_id);
       merge_trials_[corr_point2D.point3D_id].insert(point3D_id);
@@ -628,9 +633,9 @@ size_t IncrementalTriangulator::Merge(const Options& options,
       for (const Track* track : {&point3D.track, &corr_point3D.track}) {
         for (const auto test_track_el : track->Elements()) {
           const Image& test_image =
-              reconstruction_->Image(test_track_el.image_id);
+              reconstruction_.Image(test_track_el.image_id);
           const Camera& test_camera =
-              reconstruction_->Camera(test_image.CameraId());
+              reconstruction_.Camera(test_image.CameraId());
           const Point2D& test_point2D =
               test_image.Point2D(test_track_el.point2D_idx);
           if (CalculateSquaredReprojectionError(test_point2D.xy,
@@ -653,7 +658,7 @@ size_t IncrementalTriangulator::Merge(const Options& options,
             point3D.track.Length() + corr_point3D.track.Length();
 
         const point3D_t merged_point3D_id =
-            reconstruction_->MergePoints3D(point3D_id, corr_point2D.point3D_id);
+            obs_manager_->MergePoints3D(point3D_id, corr_point2D.point3D_id);
 
         modified_point3D_ids_.erase(point3D_id);
         modified_point3D_ids_.erase(corr_point2D.point3D_id);
@@ -678,14 +683,14 @@ size_t IncrementalTriangulator::Complete(const Options& options,
                                          const point3D_t point3D_id) {
   size_t num_completed = 0;
 
-  if (!reconstruction_->ExistsPoint3D(point3D_id)) {
+  if (!reconstruction_.ExistsPoint3D(point3D_id)) {
     return num_completed;
   }
 
   const double max_squared_reproj_error =
       options.complete_max_reproj_error * options.complete_max_reproj_error;
 
-  const Point3D& point3D = reconstruction_->Point3D(point3D_id);
+  const Point3D& point3D = reconstruction_.Point3D(point3D_id);
 
   std::vector<TrackElement> queue = point3D.track.Elements();
 
@@ -702,7 +707,7 @@ size_t IncrementalTriangulator::Complete(const Options& options,
       const auto corr_range = correspondence_graph_->FindCorrespondences(
           queue_elem.image_id, queue_elem.point2D_idx);
       for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
-        const Image& image = reconstruction_->Image(corr->image_id);
+        const Image& image = reconstruction_.Image(corr->image_id);
         if (!image.IsRegistered()) {
           continue;
         }
@@ -712,7 +717,7 @@ size_t IncrementalTriangulator::Complete(const Options& options,
           continue;
         }
 
-        const Camera& camera = reconstruction_->Camera(image.CameraId());
+        const Camera& camera = reconstruction_.Camera(image.CameraId());
         if (HasCameraBogusParams(options, camera)) {
           continue;
         }
@@ -725,7 +730,7 @@ size_t IncrementalTriangulator::Complete(const Options& options,
 
         // Success, add observation to point track.
         const TrackElement track_el(corr->image_id, corr->point2D_idx);
-        reconstruction_->AddObservation(point3D_id, track_el);
+        obs_manager_->AddObservation(point3D_id, track_el);
         modified_point3D_ids_.insert(point3D_id);
 
         // Recursively complete track for this new correspondence.

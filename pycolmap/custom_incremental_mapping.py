@@ -122,15 +122,15 @@ def reconstruct_sub_model(controller, mapper, mapper_options, reconstruction):
             break
         for reg_trial in range(len(next_images)):
             next_image_id = next_images[reg_trial]
-            next_image = reconstruction.images[next_image_id]
             logging.info(
                 f"Registering image #{next_image_id} "
                 f"({reconstruction.num_reg_images() + 1})"
             )
-            logging.info(
-                f"=> Image sees {next_image.num_visible_points3D()} "
-                f"/ {next_image.num_observations} points"
+            num_vis = mapper.observation_manager.num_visible_points3D(
+                next_image_id
             )
+            num_obs = mapper.observation_manager.num_observations(next_image_id)
+            logging.info(f"=> Image sees {num_vis} / {num_obs} points")
             reg_next_success = mapper.register_next_image(
                 mapper_options, next_image_id
             )

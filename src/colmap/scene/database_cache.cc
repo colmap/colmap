@@ -192,14 +192,6 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
 
   cache->correspondence_graph_->Finalize();
 
-  // Set number of observations and correspondences per image.
-  for (auto& image : cache->images_) {
-    image.second.SetNumObservations(
-        cache->correspondence_graph_->NumObservationsForImage(image.first));
-    image.second.SetNumCorrespondences(
-        cache->correspondence_graph_->NumCorrespondencesForImage(image.first));
-  }
-
   LOG(INFO) << StringPrintf(" in %.3fs (ignored %d)",
                             timer.ElapsedSeconds(),
                             num_ignored_image_pairs);

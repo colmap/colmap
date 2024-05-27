@@ -35,10 +35,18 @@ COLMAP_ADD_LIBRARY(
     SRCS
         incremental_mapper.h incremental_mapper.cc
         incremental_triangulator.h incremental_triangulator.cc
+        observation_manager.h observation_manager.cc
     PUBLIC_LINK_LIBS
         colmap_scene
         colmap_estimators
+        colmap_util
     PRIVATE_LINK_LIBS
         colmap_geometry
         colmap_image
+)
+
+COLMAP_ADD_TEST(
+    NAME observation_manager_test
+    SRCS observation_manager_test.cc
+    LINK_LIBS colmap_sfm
 )
