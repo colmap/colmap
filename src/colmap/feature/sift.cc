@@ -709,14 +709,17 @@ std::unique_ptr<FeatureExtractor> CreateSiftFeatureExtractor(
     const SiftExtractionOptions& options) {
   if (options.estimate_affine_shape || options.domain_size_pooling ||
       options.force_covariant_extractor) {
+    LOG(INFO) << "Creating Covariant SIFT CPU feature extractor";
     return CovariantSiftCPUFeatureExtractor::Create(options);
   } else if (options.use_gpu) {
 #if defined(COLMAP_GPU_ENABLED)
+    LOG(INFO) << "Creating SIFT GPU feature extractor";
     return SiftGPUFeatureExtractor::Create(options);
 #else
     return nullptr;
 #endif  // COLMAP_GPU_ENABLED
   } else {
+    LOG(INFO) << "Creating SIFT CPU feature extractor";
     return SiftCPUFeatureExtractor::Create(options);
   }
 }
@@ -1445,11 +1448,13 @@ std::unique_ptr<FeatureMatcher> CreateSiftFeatureMatcher(
     const SiftMatchingOptions& options) {
   if (options.use_gpu) {
 #if defined(COLMAP_GPU_ENABLED)
+    LOG(INFO) << "Creating SIFT GPU feature matcher";
     return SiftGPUFeatureMatcher::Create(options);
 #else
     return nullptr;
 #endif  // COLMAP_GPU_ENABLED
   } else {
+    LOG(INFO) << "Creating SIFT CPU feature matcher";
     return SiftCPUFeatureMatcher::Create(options);
   }
 }
