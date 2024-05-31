@@ -10,6 +10,7 @@
 #include <pybind11/stl_bind.h>
 
 using namespace colmap;
+using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindIncrementalTriangulator(py::module& m) {
@@ -76,8 +77,13 @@ void BindIncrementalTriangulator(py::module& m) {
   // HasCameraBogusParams once they become public.
   py::class_<IncrementalTriangulator, std::shared_ptr<IncrementalTriangulator>>(
       m, "IncrementalTriangulator")
-      .def(py::init<std::shared_ptr<CorrespondenceGraph>,
-                    std::shared_ptr<Reconstruction>>())
+      .def(py::init<std::shared_ptr<const CorrespondenceGraph>,
+                    Reconstruction&,
+                    std::shared_ptr<ObservationManager>>(),
+           "correspondence_graph"_a,
+           "reconstruction"_a,
+           "observation_manager"_a = py::none(),
+           py::keep_alive<1, 3>())
       .def("triangulate_image", &IncrementalTriangulator::TriangulateImage)
       .def("complete_image", &IncrementalTriangulator::CompleteImage)
       .def("complete_all_tracks", &IncrementalTriangulator::CompleteAllTracks)

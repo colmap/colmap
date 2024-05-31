@@ -110,47 +110,16 @@ void BindImage(py::module& m) {
            &Image::ResetPoint3DForPoint2D,
            "Set the point as not triangulated, i.e. it is not part of a 3D "
            "point track")
-      .def("is_point3D_visible",
-           &Image::IsPoint3DVisible,
-           "Check whether an image point has a correspondence to an image "
-           "point in\n"
-           "another image that has a 3D point.")
       .def("has_point3D",
            &Image::HasPoint3D,
            "Check whether one of the image points is part of the 3D point "
            "track.")
-      .def("increment_correspondence_has_point3D",
-           &Image::IncrementCorrespondenceHasPoint3D,
-           "Indicate that another image has a point that is triangulated and "
-           "has\n"
-           "a correspondence to this image point. Note that this must only be "
-           "called\n"
-           "after calling `SetUp`.")
-      .def("decrement_correspondence_has_point3D",
-           &Image::DecrementCorrespondenceHasPoint3D,
-           "Indicate that another image has a point that is not triangulated "
-           "any more\n"
-           "and has a correspondence to this image point. This assumes that\n"
-           "`IncrementCorrespondenceHasPoint3D` was called for the same image "
-           "point\n"
-           "and correspondence before. Note that this must only be called\n"
-           "after calling `SetUp`.")
       .def("projection_center",
            &Image::ProjectionCenter,
            "Extract the projection center in world space.")
       .def("viewing_direction",
            &Image::ViewingDirection,
            "Extract the viewing direction of the image.")
-      .def(
-          "set_up",
-          &Image::SetUp,
-          "camera"_a,
-          "Setup the image and necessary internal data structures before being "
-          "used in reconstruction.")
-      .def("tear_down",
-           &Image::TearDown,
-           "Tear down the image and necessary internal data structures after "
-           "being used in reconstruction.")
       .def("has_camera",
            &Image::HasCamera,
            "Check whether identifier of camera has been set.")
@@ -166,31 +135,6 @@ void BindImage(py::module& m) {
           &Image::NumPoints3D,
           "Get the number of triangulations, i.e. the number of points that\n"
           "are part of a 3D point track.")
-      .def_property(
-          "num_observations",
-          &Image::NumObservations,
-          &Image::SetNumObservations,
-          "Number of observations, i.e. the number of image points that\n"
-          "have at least one correspondence to another image.")
-      .def_property("num_correspondences",
-                    &Image::NumCorrespondences,
-                    &Image::SetNumCorrespondences,
-                    "Number of correspondences for all image points.")
-      .def("num_visible_points3D",
-           &Image::NumVisiblePoints3D,
-           "Get the number of observations that see a triangulated point, i.e. "
-           "the\n"
-           "number of image points that have at least one correspondence to a\n"
-           "triangulated point in another image.")
-      .def("point3D_visibility_score",
-           &Image::Point3DVisibilityScore,
-           "Get the score of triangulated observations. In contrast to\n"
-           "`NumVisiblePoints3D`, this score also captures the distribution\n"
-           "of triangulated observations in the image. This is useful to "
-           "select\n"
-           "the next best image in incremental reconstruction, because a more\n"
-           "uniform distribution of observations results in more robust "
-           "registration.")
       .def("get_valid_point2D_ids",
            [](const Image& self) {
              std::vector<point2D_t> valid_point2D_ids;

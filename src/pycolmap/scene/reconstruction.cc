@@ -40,15 +40,6 @@ bool ExistsReconstruction(const std::string& path) {
 }
 
 void BindReconstruction(py::module& m) {
-  py::class_ext_<Reconstruction::ImagePairStat,
-                 std::shared_ptr<Reconstruction::ImagePairStat>>(
-      m, "ImagePairStat")
-      .def(py::init<>())
-      .def_readwrite("num_tri_corrs",
-                     &Reconstruction::ImagePairStat::num_tri_corrs)
-      .def_readwrite("num_total_corrs",
-                     &Reconstruction::ImagePairStat::num_total_corrs);
-
   py::class_<Reconstruction, std::shared_ptr<Reconstruction>>(m,
                                                               "Reconstruction")
       .def(py::init<>())
@@ -74,14 +65,10 @@ void BindReconstruction(py::module& m) {
       .def("num_cameras", &Reconstruction::NumCameras)
       .def("num_reg_images", &Reconstruction::NumRegImages)
       .def("num_points3D", &Reconstruction::NumPoints3D)
-      .def("num_image_pairs", &Reconstruction::NumImagePairs)
       .def_property_readonly("images",
                              &Reconstruction::Images,
                              py::return_value_policy::reference_internal)
       .def("image", py::overload_cast<image_t>(&Reconstruction::Image))
-      .def_property_readonly("image_pairs", &Reconstruction::ImagePairs)
-      .def("image_pair",
-           py::overload_cast<image_pair_t>(&Reconstruction::ImagePair))
       .def_property_readonly("cameras",
                              &Reconstruction::Cameras,
                              py::return_value_policy::reference_internal)
@@ -95,12 +82,6 @@ void BindReconstruction(py::module& m) {
       .def("exists_camera", &Reconstruction::ExistsCamera)
       .def("exists_image", &Reconstruction::ExistsImage)
       .def("exists_point3D", &Reconstruction::ExistsPoint3D)
-      .def("exists_image_pair", &Reconstruction::ExistsImagePair)
-      .def("image_pair",
-           py::overload_cast<image_t, image_t>(&Reconstruction::ImagePair))
-      .def("image_pair",
-           py::overload_cast<image_pair_t>(&Reconstruction::ImagePair))
-      .def("set_up", &Reconstruction::SetUp, "correspondence_graph"_a)
       .def("tear_down", &Reconstruction::TearDown)
       .def("add_camera",
            &Reconstruction::AddCamera,
@@ -181,48 +162,12 @@ void BindReconstruction(py::module& m) {
            &Reconstruction::FindCommonRegImageIds,
            "Find images that are both present in this and the given "
            "reconstruction.")
-      .def(
-          "filter_points3D",
-          &Reconstruction::FilterPoints3D,
-          "Filter 3D points with large reprojection error, negative depth, or\n"
-          "insufficient triangulation angle.\n\n"
-          "@param max_reproj_error    The maximum reprojection error.\n"
-          "@param min_tri_angle       The minimum triangulation angle.\n"
-          "@param point3D_ids         The points to be filtered.\n\n"
-          "@return                    The number of filtered observations.")
-      .def(
-          "filter_points3D_in_images",
-          &Reconstruction::FilterPoints3DInImages,
-          "Filter 3D points with large reprojection error, negative depth, or\n"
-          "insufficient triangulation angle.\n\n"
-          "@param max_reproj_error    The maximum reprojection error.\n"
-          "@param min_tri_angle       The minimum triangulation angle.\n"
-          "@param image_ids           The the image ids in which the points3D "
-          "are filtered.\n\n"
-          "@return                    The number of filtered observations.")
-      .def(
-          "filter_all_points3D",
-          &Reconstruction::FilterAllPoints3D,
-          "Filter 3D points with large reprojection error, negative depth, or\n"
-          "insufficient triangulation angle.\n\n"
-          "@param max_reproj_error    The maximum reprojection error.\n"
-          "@param min_tri_angle       The minimum triangulation angle.\n\n"
-          "@return                    The number of filtered observations.")
-      .def("filter_observations_with_negative_depth",
-           &Reconstruction::FilterObservationsWithNegativeDepth,
-           "Filter observations that have negative depth.\n\n"
-           "@return    The number of filtered observations.")
-      .def("filter_images",
-           &Reconstruction::FilterImages,
-           "Filter images without observations or bogus camera parameters.\n\n"
-           "@return    The identifiers of the filtered images.")
       .def("compute_num_observations", &Reconstruction::ComputeNumObservations)
       .def("compute_mean_track_length", &Reconstruction::ComputeMeanTrackLength)
       .def("compute_mean_observations_per_reg_image",
            &Reconstruction::ComputeMeanObservationsPerRegImage)
       .def("compute_mean_reprojection_error",
            &Reconstruction::ComputeMeanReprojectionError)
-      // .def("convert_to_PLY", &Reconstruction::ConvertToPLY)
       .def("import_PLY",
            py::overload_cast<const std::string&>(&Reconstruction::ImportPLY),
            "Import from PLY format. Note that these import functions are\n"

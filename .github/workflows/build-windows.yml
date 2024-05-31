@@ -101,11 +101,12 @@ jobs:
         run: |
           ./vcpkg/vcpkg.exe integrate install
           cd build
-          ctest -E "(feature/colmap_feature_sift_test)|(util/colmap_util_opengl_utils_test)|(mvs/colmap_mvs_gpu_mat_test)"
+          $EXCLUDED_TESTS = "(feature/colmap_feature_sift_test)|(util/colmap_util_opengl_utils_test)|(mvs/colmap_mvs_gpu_mat_test)"
+          ctest -E ${EXCLUDED_TESTS}
           $tests_pass=$LastExitCode
           if ($tests_pass -ne 0) {
               echo "`n`n`nTests failed, rerunning with verbose output"
-              ctest --rerun-failed --output-on-failure
+              ctest -E ${EXCLUDED_TESTS} --rerun-failed --output-on-failure
           }
           exit $tests_pass
 

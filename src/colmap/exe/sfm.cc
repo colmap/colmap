@@ -36,6 +36,7 @@
 #include "colmap/estimators/similarity_transform.h"
 #include "colmap/exe/gui.h"
 #include "colmap/scene/reconstruction.h"
+#include "colmap/sfm/observation_manager.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/opengl_utils.h"
 
@@ -358,8 +359,8 @@ int RunPointFiltering(int argc, char** argv) {
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
 
-  size_t num_filtered =
-      reconstruction.FilterAllPoints3D(max_reproj_error, min_tri_angle);
+  size_t num_filtered = ObservationManager(reconstruction)
+                            .FilterAllPoints3D(max_reproj_error, min_tri_angle);
 
   for (const auto point3D_id : reconstruction.Point3DIds()) {
     const auto& point3D = reconstruction.Point3D(point3D_id);

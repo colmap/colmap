@@ -302,6 +302,8 @@ void BindIncrementalMapperImpl(py::module& m) {
       .def("filter_points", &IncrementalMapper::FilterPoints, "options"_a)
       .def_property_readonly("reconstruction",
                              &IncrementalMapper::Reconstruction)
+      .def_property_readonly("observation_manager",
+                             &IncrementalMapper::ObservationManager)
       .def_property_readonly("triangulator", &IncrementalMapper::Triangulator)
       .def_property_readonly("filtered_images",
                              &IncrementalMapper::FilteredImages)
