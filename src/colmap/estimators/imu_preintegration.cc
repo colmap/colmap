@@ -270,6 +270,7 @@ bool PreintegratedImuMeasurement::CheckReintegrate(
 void PreintegratedImuMeasurement::Reintegrate() {
   Reset();
   ImuMeasurement last_measurement = measurements_[0];
+  has_started_ = true;
   for (size_t i = 1; i < measurements_.size(); ++i) {
     // Current measurement
     auto m = measurements_[i];

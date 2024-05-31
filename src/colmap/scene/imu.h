@@ -61,7 +61,8 @@ class ImuState {
  public:
   ImuState() = default;
   ~ImuState() = default;
-  inline const double* Data() const;
+  inline const Eigen::Matrix<double, 9, 1>& Data() const;
+  inline Eigen::Matrix<double, 9, 1>& Data();
 
   inline void SetVelocity(const Eigen::Vector3d& vec);
   inline const Eigen::Vector3d Velocity() const;
@@ -88,7 +89,9 @@ class ImuState {
   image_t image_id_;  // the corresponding image from visual input
 };
 
-const double* ImuState::Data() const { return data_.data(); }
+const Eigen::Matrix<double, 9, 1>& ImuState::Data() const { return data_; }
+
+Eigen::Matrix<double, 9, 1>& ImuState::Data() { return data_; }
 
 void ImuState::SetVelocity(const Eigen::Vector3d& vec) {
   data_.head<3>() = vec;
