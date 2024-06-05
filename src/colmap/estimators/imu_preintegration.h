@@ -87,6 +87,7 @@ class PreintegratedImuMeasurement {
   const Eigen::Matrix3d dv_dba() const;
   const Eigen::Matrix3d dv_dbg() const;
   const Eigen::Vector6d& Biases() const;
+  const Eigen::Matrix<double, 15, 15> Covariance() const;
   const Eigen::Matrix<double, 15, 15> LMatrix() const;
   const double GravityMagnitude() const;
   const ImuMeasurements Measurements() const;
@@ -133,7 +134,8 @@ class PreintegratedImuMeasurement {
                                               // bias + gyro bias)
 
   // LLT decomposition of the information matrix for least squares optimization
-  Eigen::Matrix<double, 15, 15> L_matrix_;
+  Eigen::Matrix<double, 15, 15> L_matrix_ =
+      Eigen::Matrix<double, 15, 15>::Zero();
 
   // Measurements
   ImuMeasurements measurements_;

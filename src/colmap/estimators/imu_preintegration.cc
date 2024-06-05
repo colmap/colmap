@@ -34,6 +34,8 @@
 
 #include <cmath>
 
+#include <Eigen/Dense>
+
 namespace colmap {
 
 PreintegratedImuMeasurement::PreintegratedImuMeasurement(
@@ -249,13 +251,19 @@ void PreintegratedImuMeasurement::AddMeasurements(const ImuMeasurements& ms) {
 
 void PreintegratedImuMeasurement::Finish() {
   // Enforce symmetry
-  covs_ = (0.5 * covs_ + 0.5 * covs_.transpose()).eval();
+  covs_ = (covs_ + covs_.transpose()) / 2.0;
 
-  // LLT decomposition
-  Eigen::Matrix<double, 15, 15> information = covs_.inverse();
-  Eigen::LLT<Eigen::Matrix<double, 15, 15>> lltofI(information);
-  L_matrix_ = lltofI.matrixL().transpose();
-  has_finished_ = true;
+  // LLT decomposition of Fisher information matrix with SVD
+  Eigen::JacobiSVD<Eigen::Matrix<double, 15, 15>> svd(
+      covs_, Eigen::ComputeThinU | Eigen::ComputeThinV);
+  Eigen::MatrixXd U = svd.matrixU();
+  Eigen::VectorXd singularValues = svd.singularValues();
+  const double epsilon = 1e-12;
+  Eigen::VectorXd invSqrtSingularValues =
+      singularValues.array().max(0.).sqrt().max(epsilon).inverse();
+  Eigen::MatrixXd invSqrtSingularValuesDiag =
+      invSqrtSingularValues.asDiagonal();
+  L_matrix_ = U * invSqrtSingularValuesDiag;
 }
 
 bool PreintegratedImuMeasurement::CheckReintegrate(
@@ -371,6 +379,11 @@ const Eigen::Matrix3d PreintegratedImuMeasurement::dv_dbg() const {
 
 const Eigen::Vector6d& PreintegratedImuMeasurement::Biases() const {
   return biases_;
+}
+
+const Eigen::Matrix<double, 15, 15> PreintegratedImuMeasurement::Covariance()
+    const {
+  return covs_;
 }
 
 const Eigen::Matrix<double, 15, 15> PreintegratedImuMeasurement::LMatrix()
