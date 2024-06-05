@@ -238,7 +238,7 @@ class PreintegratedImuMeasurementCostFunction {
     // Eq. (44) and (45) from Forster et al. "On-Manifold Preintegration for
     // Real-time Visual-Inertial Odometry" TRO 16. rotation: residuals[0:3]
     const Eigen::Quaternion<T> j_from_i_q =
-        world_from_j_imu_q.inverse() * world_from_i_imu_q;
+        world_from_i_imu_q.inverse() * world_from_j_imu_q;
     Eigen::Matrix<T, 3, 1> omega_bias =
         measurement_.dR_dbg().cast<T>() * delta_b_g;
     Eigen::Quaternion<T> Dq_bias;

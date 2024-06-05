@@ -159,9 +159,8 @@ Eigen::Quaterniond QuaternionFromAngleAxis(const Eigen::Vector3d& omega) {
   if (theta < std::numeric_limits<double>::epsilon())
     return Eigen::Quaterniond::Identity();
   else {
-    const double half_angle = theta / 2.0;
     Eigen::Vector3d axis = omega / theta;
-    Eigen::Quaterniond q(Eigen::AngleAxisd(half_angle, axis));
+    Eigen::Quaterniond q(Eigen::AngleAxisd(theta, axis));
     return q;
   }
 }
