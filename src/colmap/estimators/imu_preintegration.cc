@@ -263,7 +263,7 @@ void PreintegratedImuMeasurement::Finish() {
       singularValues.array().max(0.).sqrt().max(epsilon).inverse();
   Eigen::MatrixXd invSqrtSingularValuesDiag =
       invSqrtSingularValues.asDiagonal();
-  L_matrix_ = invSqrtSingularValuesDiag * U.transpose();
+  L_matrix_ = U * invSqrtSingularValuesDiag;
 
   // Set flag
   has_finished_ = true;

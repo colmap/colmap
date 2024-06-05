@@ -276,7 +276,7 @@ class PreintegratedImuMeasurementCostFunction {
 
     // Weight by the covariance inverse
     Eigen::Map<Eigen::Matrix<T, 15, 1>> residuals_data(residuals);
-    residuals_data.applyOnTheLeft(measurement_.LMatrix().cast<T>());
+    residuals_data.applyOnTheLeft(measurement_.LMatrix().transpose().cast<T>());
     return true;
   }
 
