@@ -264,6 +264,9 @@ void PreintegratedImuMeasurement::Finish() {
   Eigen::MatrixXd invSqrtSingularValuesDiag =
       invSqrtSingularValues.asDiagonal();
   L_matrix_ = U * invSqrtSingularValuesDiag;
+
+  // Set flag
+  has_finished_ = true;
 }
 
 bool PreintegratedImuMeasurement::CheckReintegrate(
