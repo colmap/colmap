@@ -282,7 +282,6 @@ class PreintegratedImuMeasurementCostFunction {
   }
 
  private:
-  // TODO: dubious design on making it mutable. But no other way out up to now
   mutable PreintegratedImuMeasurement measurement_;
 
   // Convert from type T (including ceres::Jet) to double
