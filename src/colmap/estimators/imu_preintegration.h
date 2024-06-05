@@ -153,7 +153,7 @@ class PreintegratedImuMeasurementCostFunction {
   explicit PreintegratedImuMeasurementCostFunction(
       const PreintegratedImuMeasurement& m)
       : measurement_(m) {
-    if (measurement_.HasFinished()) measurement_.Finish();
+    if (!measurement_.HasFinished()) measurement_.Finish();
   }
 
   static ceres::CostFunction* Create(const PreintegratedImuMeasurement& m) {
