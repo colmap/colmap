@@ -271,11 +271,19 @@ void PreintegratedImuMeasurement::Finish() {
 
 bool PreintegratedImuMeasurement::CheckReintegrate(
     const Eigen::Vector6d& biases) const {
-  // TODO: also check gyro
   THROW_CHECK_EQ(HasStarted(), true);
   Eigen::Vector6d diff_biases = biases - biases_;
+
+  // check acc
   double v_norm = diff_biases.head<3>().norm() * delta_t_;
-  return v_norm > options_.reintegrate_vel_norm_thres;
+  if (v_norm > options_.reintegrate_vel_norm_thres) return true;
+
+  // check gyro
+  double angle_norm = diff_biases.tail<3>().norm() * delta_t_;
+  if (angle_norm > options_.reintegrate_angle_norm_thres) return true;
+
+  // else return false
+  return false;
 }
 
 void PreintegratedImuMeasurement::Reintegrate() {

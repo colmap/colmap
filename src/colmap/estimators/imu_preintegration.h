@@ -45,6 +45,7 @@ namespace colmap {
 struct ImuPreintegrationOptions {
   // check whether to reintegrate
   double reintegrate_vel_norm_thres = 0.0001;
+  double reintegrate_angle_norm_thres = 0.0001;
 };
 
 class PreintegratedImuMeasurement {

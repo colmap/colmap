@@ -18,7 +18,9 @@ void BindImuPreintegration(py::module& m) {
       m, "ImuPreintegrationOptions");
   PyImuPreintegrationOptions.def(py::init<>())
       .def_readwrite("reintegrate_vel_norm_thres",
-                     &ImuPreITGOpt::reintegrate_vel_norm_thres);
+                     &ImuPreITGOpt::reintegrate_vel_norm_thres)
+      .def_readwrite("reintegrate_angle_norm_thres",
+                     &ImuPreITGOpt::reintegrate_angle_norm_thres);
 
   using PIM = PreintegratedImuMeasurement;
   py::class_<PIM> PyPreintegratedImuMeasurement(m,
