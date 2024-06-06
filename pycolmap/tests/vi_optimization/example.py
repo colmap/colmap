@@ -1,5 +1,6 @@
 """
 Example test for iterative visual-inertial optimization with IMU preintegration factors from pycolmap.
+Data was initialized and rectified with online MPS service from Project Aria.
 """
 
 import shutil
