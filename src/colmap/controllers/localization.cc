@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/controllers/feature_extraction.h"
+#include "colmap/controllers/localization.h"
 
 #include "colmap/feature/sift.h"
 #include "colmap/scene/database.h"
@@ -81,18 +81,6 @@ void MaskKeypoints(const Bitmap& mask,
   keypoints->resize(out_index);
   descriptors->conservativeResize(out_index, descriptors->cols());
 }
-
-struct ImageData {
-  ImageReader::Status status = ImageReader::Status::FAILURE;
-
-  Camera camera;
-  Image image;
-  Bitmap bitmap;
-  Bitmap mask;
-
-  FeatureKeypoints keypoints;
-  FeatureDescriptors descriptors;
-};
 
 class ImageResizerThread : public Thread {
  public:
@@ -229,106 +217,6 @@ class SiftFeatureExtractorThread : public Thread {
   JobQueue<ImageData>* output_queue_;
 };
 
-class FeatureWriterThread : public Thread {
- public:
-  FeatureWriterThread(size_t num_images,
-                      Database* database,
-                      JobQueue<ImageData>* input_queue)
-      : num_images_(num_images),
-        database_(database),
-        input_queue_(input_queue) {}
-
- private:
-  void Run() override {
-    size_t image_index = 0;
-    while (true) {
-      if (IsStopped()) {
-        break;
-      }
-
-      auto input_job = input_queue_->Pop();
-      if (input_job.IsValid()) {
-        auto& image_data = input_job.Data();
-
-        image_index += 1;
-
-        LOG(INFO) << StringPrintf(
-            "Processed file [%d/%d]", image_index, num_images_);
-
-        LOG(INFO) << StringPrintf("  Name:            %s",
-                                  image_data.image.Name().c_str());
-
-        if (image_data.status == ImageReader::Status::IMAGE_EXISTS) {
-          LOG(INFO) << "  SKIP: Features for image already extracted.";
-        } else if (image_data.status == ImageReader::Status::BITMAP_ERROR) {
-          LOG(ERROR) << "Failed to read image file format.";
-        } else if (image_data.status ==
-                   ImageReader::Status::CAMERA_SINGLE_DIM_ERROR) {
-          LOG(ERROR) << "Single camera specified, "
-                        "but images have different dimensions.";
-        } else if (image_data.status ==
-                   ImageReader::Status::CAMERA_EXIST_DIM_ERROR) {
-          LOG(ERROR) << "Image previously processed, but current image "
-                        "has different dimensions.";
-        } else if (image_data.status ==
-                   ImageReader::Status::CAMERA_PARAM_ERROR) {
-          LOG(ERROR) << "Camera has invalid parameters.";
-        } else if (image_data.status == ImageReader::Status::FAILURE) {
-          LOG(ERROR) << "Failed to extract features.";
-        }
-
-        if (image_data.status != ImageReader::Status::SUCCESS) {
-          continue;
-        }
-
-        LOG(INFO) << StringPrintf("  Dimensions:      %d x %d",
-                                  image_data.camera.width,
-                                  image_data.camera.height);
-        LOG(INFO) << StringPrintf("  Camera:          #%d - %s",
-                                  image_data.camera.camera_id,
-                                  image_data.camera.ModelName().c_str());
-        LOG(INFO) << StringPrintf(
-            "  Focal Length:    %.2fpx%s",
-            image_data.camera.MeanFocalLength(),
-            image_data.camera.has_prior_focal_length ? " (Prior)" : "");
-        const Eigen::Vector3d& translation_prior =
-            image_data.image.CamFromWorldPrior().translation;
-        if (translation_prior.array().isFinite().any()) {
-          LOG(INFO) << StringPrintf(
-              "  GPS:             LAT=%.3f, LON=%.3f, ALT=%.3f",
-              translation_prior.x(),
-              translation_prior.y(),
-              translation_prior.z());
-        }
-        LOG(INFO) << StringPrintf("  Features:        %d",
-                                  image_data.keypoints.size());
-
-        DatabaseTransaction database_transaction(database_);
-
-        if (image_data.image.ImageId() == kInvalidImageId) {
-          image_data.image.SetImageId(database_->WriteImage(image_data.image));
-        }
-
-        if (!database_->ExistsKeypoints(image_data.image.ImageId())) {
-          database_->WriteKeypoints(image_data.image.ImageId(),
-                                    image_data.keypoints);
-        }
-
-        if (!database_->ExistsDescriptors(image_data.image.ImageId())) {
-          database_->WriteDescriptors(image_data.image.ImageId(),
-                                      image_data.descriptors);
-        }
-      } else {
-        break;
-      }
-    }
-  }
-
-  const size_t num_images_;
-  Database* database_;
-  JobQueue<ImageData>* input_queue_;
-};
-
 // Feature extraction class to extract features for all images in a directory.
 class FeatureExtractorController : public Thread {
  public:
@@ -421,9 +309,15 @@ class FeatureExtractorController : public Thread {
                                                          writer_queue_.get()));
       }
     }
-
-    writer_ = std::make_unique<FeatureWriterThread>(
-        image_reader_.NumImages(), &database_, writer_queue_.get());
+  }
+    
+  ImageData & GetImageData() {
+    auto job = writer_queue_->Pop();
+    if (job.IsValid()) {
+      auto & image_data = job.Data();
+      return image_data;
+    }
+    return imageDataEmpty;
   }
 
  private:
@@ -439,8 +333,6 @@ class FeatureExtractorController : public Thread {
     for (auto& extractor : extractors_) {
       extractor->Start();
     }
-
-    writer_->Start();
 
     for (auto& extractor : extractors_) {
       if (!extractor->CheckValidSetup()) {
@@ -485,11 +377,7 @@ class FeatureExtractorController : public Thread {
     for (auto& extractor : extractors_) {
       extractor->Wait();
     }
-
-    writer_queue_->Wait();
-    writer_queue_->Stop();
-    writer_->Wait();
-
+      
     run_timer.PrintMinutes();
   }
 
@@ -498,103 +386,28 @@ class FeatureExtractorController : public Thread {
 
   Database database_;
   ImageReader image_reader_;
+  ImageData imageDataEmpty;
 
   std::vector<std::unique_ptr<Thread>> resizers_;
   std::vector<std::unique_ptr<Thread>> extractors_;
-  std::unique_ptr<Thread> writer_;
 
   std::unique_ptr<JobQueue<ImageData>> resizer_queue_;
   std::unique_ptr<JobQueue<ImageData>> extractor_queue_;
   std::unique_ptr<JobQueue<ImageData>> writer_queue_;
 };
 
-// Import features from text files. Each image must have a corresponding text
-// file with the same name and an additional ".txt" suffix.
-class FeatureImporterController : public Thread {
- public:
-  FeatureImporterController(const ImageReaderOptions& reader_options,
-                            const std::string& import_path)
-      : reader_options_(reader_options), import_path_(import_path) {}
-
- private:
-  void Run() override {
-    PrintHeading1("Feature import");
-    Timer run_timer;
-    run_timer.Start();
-
-    if (!ExistsDir(import_path_)) {
-      LOG(ERROR) << "Import directory does not exist.";
-      return;
-    }
-
-    Database database(reader_options_.database_path);
-    ImageReader image_reader(reader_options_, &database);
-
-    while (image_reader.NextIndex() < image_reader.NumImages()) {
-      if (IsStopped()) {
-        break;
-      }
-
-      LOG(INFO) << StringPrintf("Processing file [%d/%d]",
-                                image_reader.NextIndex() + 1,
-                                image_reader.NumImages());
-
-      // Load image data and possibly save camera to database.
-      Camera camera;
-      Image image;
-      Bitmap bitmap;
-      if (image_reader.Next(&camera, &image, &bitmap, nullptr) !=
-          ImageReader::Status::SUCCESS) {
-        continue;
-      }
-
-      const std::string path = JoinPaths(import_path_, image.Name() + ".txt");
-
-      if (ExistsFile(path)) {
-        FeatureKeypoints keypoints;
-        FeatureDescriptors descriptors;
-        LoadSiftFeaturesFromTextFile(path, &keypoints, &descriptors);
-
-        LOG(INFO) << "Features:       " << keypoints.size();
-
-        DatabaseTransaction database_transaction(&database);
-
-        if (image.ImageId() == kInvalidImageId) {
-          image.SetImageId(database.WriteImage(image));
-        }
-
-        if (!database.ExistsKeypoints(image.ImageId())) {
-          database.WriteKeypoints(image.ImageId(), keypoints);
-        }
-
-        if (!database.ExistsDescriptors(image.ImageId())) {
-          database.WriteDescriptors(image.ImageId(), descriptors);
-        }
-      } else {
-        LOG(INFO) << "SKIP: No features found at " << path;
-      }
-    }
-
-    run_timer.PrintMinutes();
-  }
-
-  const ImageReaderOptions reader_options_;
-  const std::string import_path_;
-};
-
 }  // namespace
 
-std::unique_ptr<Thread> CreateFeatureExtractorController(
+std::unique_ptr<Thread> CreateFeatureExtractorController2(
     const ImageReaderOptions& reader_options,
     const SiftExtractionOptions& sift_options) {
   return std::make_unique<FeatureExtractorController>(reader_options,
                                                       sift_options);
 }
 
-std::unique_ptr<Thread> CreateFeatureImporterController(
-    const ImageReaderOptions& reader_options, const std::string& import_path) {
-  return std::make_unique<FeatureImporterController>(reader_options,
-                                                     import_path);
+ImageData & GetImageData( std::unique_ptr<Thread> & thread ) {
+    std::unique_ptr<FeatureExtractorController> controller(static_cast<FeatureExtractorController*>(thread.release()));
+    return controller->GetImageData();
 }
 
 }  // namespace colmap

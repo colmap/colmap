@@ -35,14 +35,23 @@
 
 namespace colmap {
 
+struct ImageData {
+  ImageReader::Status status = ImageReader::Status::FAILURE;
+
+  Camera camera;
+  Image image;
+  Bitmap bitmap;
+  Bitmap mask;
+
+  FeatureKeypoints keypoints;
+  FeatureDescriptors descriptors;
+};
+
 // Reads images from a folder, extracts features, and writes them to database.
-std::unique_ptr<Thread> CreateFeatureExtractorController(
+std::unique_ptr<Thread> CreateFeatureExtractorController2(
     const ImageReaderOptions& reader_options,
     const SiftExtractionOptions& sift_options);
 
-// Import features from text files. Each image must have a corresponding text
-// file with the same name and an additional ".txt" suffix.
-std::unique_ptr<Thread> CreateFeatureImporterController(
-    const ImageReaderOptions& reader_options, const std::string& import_path);
+ImageData & GetImageData( std::unique_ptr<Thread> & thread );
 
 }  // namespace colmap

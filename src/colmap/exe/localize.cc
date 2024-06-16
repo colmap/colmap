@@ -76,7 +76,7 @@ int RunLocalizer(int argc, char** argv) {
       app.reset(new QApplication(argc, argv));
     }
 
-    auto feature_extractor = CreateFeatureExtractorController(
+    auto feature_extractor = CreateFeatureExtractorController2(
         reader_options, *options.sift_extraction);
 
     if (options.sift_extraction->use_gpu && kUseOpenGL) {
@@ -86,6 +86,8 @@ int RunLocalizer(int argc, char** argv) {
       feature_extractor->Wait();
     }
 
+    ImageData & imageData = GetImageData( feature_extractor );
+     
     return EXIT_SUCCESS;
 }
 
