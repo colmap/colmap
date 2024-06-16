@@ -35,6 +35,7 @@
 #include "colmap/exe/mvs.h"
 #include "colmap/exe/sfm.h"
 #include "colmap/exe/vocab_tree.h"
+#include "colmap/exe/localize.h"
 #include "colmap/util/version.h"
 
 namespace {
@@ -138,6 +139,7 @@ int main(int argc, char** argv) {
   commands.emplace_back("vocab_tree_builder", &colmap::RunVocabTreeBuilder);
   commands.emplace_back("vocab_tree_matcher", &colmap::RunVocabTreeMatcher);
   commands.emplace_back("vocab_tree_retriever", &colmap::RunVocabTreeRetriever);
+  commands.emplace_back("localize", &colmap::RunLocalizer);
 
   if (argc == 1) {
     return ShowHelp(commands);
