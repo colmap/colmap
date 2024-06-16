@@ -44,365 +44,365 @@ namespace {
 void ScaleKeypoints(const Bitmap& bitmap,
                     const Camera& camera,
                     FeatureKeypoints* keypoints) {
-  if (static_cast<size_t>(bitmap.Width()) != camera.width ||
-      static_cast<size_t>(bitmap.Height()) != camera.height) {
-    const float scale_x = static_cast<float>(camera.width) / bitmap.Width();
-    const float scale_y = static_cast<float>(camera.height) / bitmap.Height();
-    for (auto& keypoint : *keypoints) {
-      keypoint.Rescale(scale_x, scale_y);
+    if (static_cast<size_t>(bitmap.Width()) != camera.width ||
+        static_cast<size_t>(bitmap.Height()) != camera.height) {
+        const float scale_x = static_cast<float>(camera.width) / bitmap.Width();
+        const float scale_y = static_cast<float>(camera.height) / bitmap.Height();
+        for (auto& keypoint : *keypoints) {
+            keypoint.Rescale(scale_x, scale_y);
+        }
     }
-  }
 }
 
 void MaskKeypoints(const Bitmap& mask,
                    FeatureKeypoints* keypoints,
                    FeatureDescriptors* descriptors) {
-  size_t out_index = 0;
-  BitmapColor<uint8_t> color;
-  for (size_t i = 0; i < keypoints->size(); ++i) {
-    if (!mask.GetPixel(static_cast<int>(keypoints->at(i).x),
-                       static_cast<int>(keypoints->at(i).y),
-                       &color) ||
-        color.r == 0) {
-      // Delete this keypoint by not copying it to the output.
-    } else {
-      // Retain this keypoint by copying it to the output index (in case this
-      // index differs from its current position).
-      if (out_index != i) {
-        keypoints->at(out_index) = keypoints->at(i);
-        for (int col = 0; col < descriptors->cols(); ++col) {
-          (*descriptors)(out_index, col) = (*descriptors)(i, col);
+    size_t out_index = 0;
+    BitmapColor<uint8_t> color;
+    for (size_t i = 0; i < keypoints->size(); ++i) {
+        if (!mask.GetPixel(static_cast<int>(keypoints->at(i).x),
+                           static_cast<int>(keypoints->at(i).y),
+                           &color) ||
+            color.r == 0) {
+            // Delete this keypoint by not copying it to the output.
+        } else {
+            // Retain this keypoint by copying it to the output index (in case this
+            // index differs from its current position).
+            if (out_index != i) {
+                keypoints->at(out_index) = keypoints->at(i);
+                for (int col = 0; col < descriptors->cols(); ++col) {
+                    (*descriptors)(out_index, col) = (*descriptors)(i, col);
+                }
+            }
+            out_index += 1;
         }
-      }
-      out_index += 1;
     }
-  }
-
-  keypoints->resize(out_index);
-  descriptors->conservativeResize(out_index, descriptors->cols());
+    
+    keypoints->resize(out_index);
+    descriptors->conservativeResize(out_index, descriptors->cols());
 }
 
 class ImageResizerThread : public Thread {
- public:
-  ImageResizerThread(int max_image_size,
-                     JobQueue<ImageData>* input_queue,
-                     JobQueue<ImageData>* output_queue)
-      : max_image_size_(max_image_size),
-        input_queue_(input_queue),
-        output_queue_(output_queue) {}
-
- private:
-  void Run() override {
-    while (true) {
-      if (IsStopped()) {
-        break;
-      }
-
-      auto input_job = input_queue_->Pop();
-      if (input_job.IsValid()) {
-        auto& image_data = input_job.Data();
-
-        if (image_data.status == ImageReader::Status::SUCCESS) {
-          if (static_cast<int>(image_data.bitmap.Width()) > max_image_size_ ||
-              static_cast<int>(image_data.bitmap.Height()) > max_image_size_) {
-            // Fit the down-sampled version exactly into the max dimensions.
-            const double scale =
-                static_cast<double>(max_image_size_) /
-                std::max(image_data.bitmap.Width(), image_data.bitmap.Height());
-            const int new_width =
-                static_cast<int>(image_data.bitmap.Width() * scale);
-            const int new_height =
-                static_cast<int>(image_data.bitmap.Height() * scale);
-
-            image_data.bitmap.Rescale(new_width, new_height);
-          }
+public:
+    ImageResizerThread(int max_image_size,
+                       JobQueue<ImageData>* input_queue,
+                       JobQueue<ImageData>* output_queue)
+    : max_image_size_(max_image_size),
+    input_queue_(input_queue),
+    output_queue_(output_queue) {}
+    
+private:
+    void Run() override {
+        while (true) {
+            if (IsStopped()) {
+                break;
+            }
+            
+            auto input_job = input_queue_->Pop();
+            if (input_job.IsValid()) {
+                auto& image_data = input_job.Data();
+                
+                if (image_data.status == ImageReader::Status::SUCCESS) {
+                    if (static_cast<int>(image_data.bitmap.Width()) > max_image_size_ ||
+                        static_cast<int>(image_data.bitmap.Height()) > max_image_size_) {
+                        // Fit the down-sampled version exactly into the max dimensions.
+                        const double scale =
+                        static_cast<double>(max_image_size_) /
+                        std::max(image_data.bitmap.Width(), image_data.bitmap.Height());
+                        const int new_width =
+                        static_cast<int>(image_data.bitmap.Width() * scale);
+                        const int new_height =
+                        static_cast<int>(image_data.bitmap.Height() * scale);
+                        
+                        image_data.bitmap.Rescale(new_width, new_height);
+                    }
+                }
+                
+                output_queue_->Push(std::move(image_data));
+            } else {
+                break;
+            }
         }
-
-        output_queue_->Push(std::move(image_data));
-      } else {
-        break;
-      }
     }
-  }
-
-  const int max_image_size_;
-
-  JobQueue<ImageData>* input_queue_;
-  JobQueue<ImageData>* output_queue_;
+    
+    const int max_image_size_;
+    
+    JobQueue<ImageData>* input_queue_;
+    JobQueue<ImageData>* output_queue_;
 };
 
 class SiftFeatureExtractorThread : public Thread {
- public:
-  SiftFeatureExtractorThread(const SiftExtractionOptions& sift_options,
-                             const std::shared_ptr<Bitmap>& camera_mask,
-                             JobQueue<ImageData>* input_queue,
-                             JobQueue<ImageData>* output_queue)
-      : sift_options_(sift_options),
-        camera_mask_(camera_mask),
-        input_queue_(input_queue),
-        output_queue_(output_queue) {
-    THROW_CHECK(sift_options_.Check());
-
+public:
+    SiftFeatureExtractorThread(const SiftExtractionOptions& sift_options,
+                               const std::shared_ptr<Bitmap>& camera_mask,
+                               JobQueue<ImageData>* input_queue,
+                               JobQueue<ImageData>* output_queue)
+    : sift_options_(sift_options),
+    camera_mask_(camera_mask),
+    input_queue_(input_queue),
+    output_queue_(output_queue) {
+        THROW_CHECK(sift_options_.Check());
+        
 #if !defined(COLMAP_CUDA_ENABLED)
-    if (sift_options_.use_gpu) {
-      opengl_context_ = std::make_unique<OpenGLContextManager>();
-    }
-#endif
-  }
-
- private:
-  void Run() override {
-    if (sift_options_.use_gpu) {
-#if !defined(COLMAP_CUDA_ENABLED)
-      THROW_CHECK_NOTNULL(opengl_context_);
-      THROW_CHECK(opengl_context_->MakeCurrent());
-#endif
-    }
-
-    std::unique_ptr<FeatureExtractor> extractor =
-        CreateSiftFeatureExtractor(sift_options_);
-    if (extractor == nullptr) {
-      LOG(ERROR) << "Failed to create feature extractor.";
-      SignalInvalidSetup();
-      return;
-    }
-
-    SignalValidSetup();
-
-    while (true) {
-      if (IsStopped()) {
-        break;
-      }
-
-      auto input_job = input_queue_->Pop();
-      if (input_job.IsValid()) {
-        auto& image_data = input_job.Data();
-
-        if (image_data.status == ImageReader::Status::SUCCESS) {
-          if (extractor->Extract(image_data.bitmap,
-                                 &image_data.keypoints,
-                                 &image_data.descriptors)) {
-            ScaleKeypoints(
-                image_data.bitmap, image_data.camera, &image_data.keypoints);
-            if (camera_mask_) {
-              MaskKeypoints(*camera_mask_,
-                            &image_data.keypoints,
-                            &image_data.descriptors);
-            }
-            if (image_data.mask.Data()) {
-              MaskKeypoints(image_data.mask,
-                            &image_data.keypoints,
-                            &image_data.descriptors);
-            }
-          } else {
-            image_data.status = ImageReader::Status::FAILURE;
-          }
+        if (sift_options_.use_gpu) {
+            opengl_context_ = std::make_unique<OpenGLContextManager>();
         }
-
-        image_data.bitmap.Deallocate();
-
-        output_queue_->Push(std::move(image_data));
-      } else {
-        break;
-      }
+#endif
     }
-  }
-
-  const SiftExtractionOptions sift_options_;
-  std::shared_ptr<Bitmap> camera_mask_;
-
-  std::unique_ptr<OpenGLContextManager> opengl_context_;
-
-  JobQueue<ImageData>* input_queue_;
-  JobQueue<ImageData>* output_queue_;
+    
+private:
+    void Run() override {
+        if (sift_options_.use_gpu) {
+#if !defined(COLMAP_CUDA_ENABLED)
+            THROW_CHECK_NOTNULL(opengl_context_);
+            THROW_CHECK(opengl_context_->MakeCurrent());
+#endif
+        }
+        
+        std::unique_ptr<FeatureExtractor> extractor =
+        CreateSiftFeatureExtractor(sift_options_);
+        if (extractor == nullptr) {
+            LOG(ERROR) << "Failed to create feature extractor.";
+            SignalInvalidSetup();
+            return;
+        }
+        
+        SignalValidSetup();
+        
+        while (true) {
+            if (IsStopped()) {
+                break;
+            }
+            
+            auto input_job = input_queue_->Pop();
+            if (input_job.IsValid()) {
+                auto& image_data = input_job.Data();
+                
+                if (image_data.status == ImageReader::Status::SUCCESS) {
+                    if (extractor->Extract(image_data.bitmap,
+                                           &image_data.keypoints,
+                                           &image_data.descriptors)) {
+                        ScaleKeypoints(
+                                       image_data.bitmap, image_data.camera, &image_data.keypoints);
+                        if (camera_mask_) {
+                            MaskKeypoints(*camera_mask_,
+                                          &image_data.keypoints,
+                                          &image_data.descriptors);
+                        }
+                        if (image_data.mask.Data()) {
+                            MaskKeypoints(image_data.mask,
+                                          &image_data.keypoints,
+                                          &image_data.descriptors);
+                        }
+                    } else {
+                        image_data.status = ImageReader::Status::FAILURE;
+                    }
+                }
+                
+                image_data.bitmap.Deallocate();
+                
+                output_queue_->Push(std::move(image_data));
+            } else {
+                break;
+            }
+        }
+    }
+    
+    const SiftExtractionOptions sift_options_;
+    std::shared_ptr<Bitmap> camera_mask_;
+    
+    std::unique_ptr<OpenGLContextManager> opengl_context_;
+    
+    JobQueue<ImageData>* input_queue_;
+    JobQueue<ImageData>* output_queue_;
 };
 
 // Feature extraction class to extract features for all images in a directory.
 class FeatureExtractorController : public Thread {
- public:
-  FeatureExtractorController(const ImageReaderOptions& reader_options,
-                             const SiftExtractionOptions& sift_options)
-      : reader_options_(reader_options),
-        sift_options_(sift_options),
-        database_(reader_options_.database_path),
-        image_reader_(reader_options_, &database_) {
-    THROW_CHECK(reader_options_.Check());
-    THROW_CHECK(sift_options_.Check());
-
-    std::shared_ptr<Bitmap> camera_mask;
-    if (!reader_options_.camera_mask_path.empty()) {
-      camera_mask = std::make_shared<Bitmap>();
-      if (!camera_mask->Read(reader_options_.camera_mask_path,
-                             /*as_rgb*/ false)) {
-        LOG(ERROR) << "Cannot read camera mask file: "
-                   << reader_options_.camera_mask_path
-                   << ". No mask is going to be used.";
-        camera_mask.reset();
-      }
-    }
-
-    const int num_threads = GetEffectiveNumThreads(sift_options_.num_threads);
-    THROW_CHECK_GT(num_threads, 0);
-
-    // Make sure that we only have limited number of objects in the queue to
-    // avoid excess in memory usage since images and features take lots of
-    // memory.
-    const int kQueueSize = 1;
-    resizer_queue_ = std::make_unique<JobQueue<ImageData>>(kQueueSize);
-    extractor_queue_ = std::make_unique<JobQueue<ImageData>>(kQueueSize);
-    writer_queue_ = std::make_unique<JobQueue<ImageData>>(kQueueSize);
-
-    if (sift_options_.max_image_size > 0) {
-      for (int i = 0; i < num_threads; ++i) {
-        resizers_.emplace_back(
-            std::make_unique<ImageResizerThread>(sift_options_.max_image_size,
-                                                 resizer_queue_.get(),
-                                                 extractor_queue_.get()));
-      }
-    }
-
-    if (!sift_options_.domain_size_pooling &&
-        !sift_options_.estimate_affine_shape && sift_options_.use_gpu) {
-      std::vector<int> gpu_indices = CSVToVector<int>(sift_options_.gpu_index);
-      THROW_CHECK_GT(gpu_indices.size(), 0);
-
+public:
+    FeatureExtractorController(const ImageReaderOptions& reader_options,
+                               const SiftExtractionOptions& sift_options)
+    : reader_options_(reader_options),
+    sift_options_(sift_options),
+    database_(reader_options_.database_path),
+    image_reader_(reader_options_, &database_) {
+        THROW_CHECK(reader_options_.Check());
+        THROW_CHECK(sift_options_.Check());
+        
+        std::shared_ptr<Bitmap> camera_mask;
+        if (!reader_options_.camera_mask_path.empty()) {
+            camera_mask = std::make_shared<Bitmap>();
+            if (!camera_mask->Read(reader_options_.camera_mask_path,
+                                   /*as_rgb*/ false)) {
+                LOG(ERROR) << "Cannot read camera mask file: "
+                << reader_options_.camera_mask_path
+                << ". No mask is going to be used.";
+                camera_mask.reset();
+            }
+        }
+        
+        const int num_threads = GetEffectiveNumThreads(sift_options_.num_threads);
+        THROW_CHECK_GT(num_threads, 0);
+        
+        // Make sure that we only have limited number of objects in the queue to
+        // avoid excess in memory usage since images and features take lots of
+        // memory.
+        const int kQueueSize = 1;
+        resizer_queue_ = std::make_unique<JobQueue<ImageData>>(kQueueSize);
+        extractor_queue_ = std::make_unique<JobQueue<ImageData>>(kQueueSize);
+        writer_queue_ = std::make_unique<JobQueue<ImageData>>(kQueueSize);
+        
+        if (sift_options_.max_image_size > 0) {
+            for (int i = 0; i < num_threads; ++i) {
+                resizers_.emplace_back(
+                                       std::make_unique<ImageResizerThread>(sift_options_.max_image_size,
+                                                                            resizer_queue_.get(),
+                                                                            extractor_queue_.get()));
+            }
+        }
+        
+        if (!sift_options_.domain_size_pooling &&
+            !sift_options_.estimate_affine_shape && sift_options_.use_gpu) {
+            std::vector<int> gpu_indices = CSVToVector<int>(sift_options_.gpu_index);
+            THROW_CHECK_GT(gpu_indices.size(), 0);
+            
 #if defined(COLMAP_CUDA_ENABLED)
-      if (gpu_indices.size() == 1 && gpu_indices[0] == -1) {
-        const int num_cuda_devices = GetNumCudaDevices();
-        THROW_CHECK_GT(num_cuda_devices, 0);
-        gpu_indices.resize(num_cuda_devices);
-        std::iota(gpu_indices.begin(), gpu_indices.end(), 0);
-      }
+            if (gpu_indices.size() == 1 && gpu_indices[0] == -1) {
+                const int num_cuda_devices = GetNumCudaDevices();
+                THROW_CHECK_GT(num_cuda_devices, 0);
+                gpu_indices.resize(num_cuda_devices);
+                std::iota(gpu_indices.begin(), gpu_indices.end(), 0);
+            }
 #endif  // COLMAP_CUDA_ENABLED
-
-      auto sift_gpu_options = sift_options_;
-      for (const auto& gpu_index : gpu_indices) {
-        sift_gpu_options.gpu_index = std::to_string(gpu_index);
-        extractors_.emplace_back(
-            std::make_unique<SiftFeatureExtractorThread>(sift_gpu_options,
-                                                         camera_mask,
-                                                         extractor_queue_.get(),
-                                                         writer_queue_.get()));
-      }
-    } else {
-      if (sift_options_.num_threads == -1 &&
-          sift_options_.max_image_size ==
-              SiftExtractionOptions().max_image_size &&
-          sift_options_.first_octave == SiftExtractionOptions().first_octave) {
-        LOG(WARNING)
-            << "Your current options use the maximum number of "
-               "threads on the machine to extract features. Extracting SIFT "
-               "features on the CPU can consume a lot of RAM per thread for "
-               "large images. Consider reducing the maximum image size and/or "
-               "the first octave or manually limit the number of extraction "
-               "threads. Ignore this warning, if your machine has sufficient "
-               "memory for the current settings.";
-      }
-
-      auto custom_sift_options = sift_options_;
-      custom_sift_options.use_gpu = false;
-      for (int i = 0; i < num_threads; ++i) {
-        extractors_.emplace_back(
-            std::make_unique<SiftFeatureExtractorThread>(custom_sift_options,
-                                                         camera_mask,
-                                                         extractor_queue_.get(),
-                                                         writer_queue_.get()));
-      }
+            
+            auto sift_gpu_options = sift_options_;
+            for (const auto& gpu_index : gpu_indices) {
+                sift_gpu_options.gpu_index = std::to_string(gpu_index);
+                extractors_.emplace_back(
+                                         std::make_unique<SiftFeatureExtractorThread>(sift_gpu_options,
+                                                                                      camera_mask,
+                                                                                      extractor_queue_.get(),
+                                                                                      writer_queue_.get()));
+            }
+        } else {
+            if (sift_options_.num_threads == -1 &&
+                sift_options_.max_image_size ==
+                SiftExtractionOptions().max_image_size &&
+                sift_options_.first_octave == SiftExtractionOptions().first_octave) {
+                LOG(WARNING)
+                << "Your current options use the maximum number of "
+                "threads on the machine to extract features. Extracting SIFT "
+                "features on the CPU can consume a lot of RAM per thread for "
+                "large images. Consider reducing the maximum image size and/or "
+                "the first octave or manually limit the number of extraction "
+                "threads. Ignore this warning, if your machine has sufficient "
+                "memory for the current settings.";
+            }
+            
+            auto custom_sift_options = sift_options_;
+            custom_sift_options.use_gpu = false;
+            for (int i = 0; i < num_threads; ++i) {
+                extractors_.emplace_back(
+                                         std::make_unique<SiftFeatureExtractorThread>(custom_sift_options,
+                                                                                      camera_mask,
+                                                                                      extractor_queue_.get(),
+                                                                                      writer_queue_.get()));
+            }
+        }
     }
-  }
     
-  ImageData & GetImageData() {
-    auto job = writer_queue_->Pop();
-    if (job.IsValid()) {
-      auto & image_data = job.Data();
-      return image_data;
+    ImageData & GetImageData() {
+        auto job = writer_queue_->Pop();
+        if (job.IsValid()) {
+            auto & image_data = job.Data();
+            return image_data;
+        }
+        return imageDataEmpty;
     }
-    return imageDataEmpty;
-  }
-
- private:
-  void Run() override {
-    PrintHeading1("Feature extraction");
-    Timer run_timer;
-    run_timer.Start();
-
-    for (auto& resizer : resizers_) {
-      resizer->Start();
-    }
-
-    for (auto& extractor : extractors_) {
-      extractor->Start();
-    }
-
-    for (auto& extractor : extractors_) {
-      if (!extractor->CheckValidSetup()) {
-        return;
-      }
-    }
-
-    while (image_reader_.NextIndex() < image_reader_.NumImages()) {
-      if (IsStopped()) {
+    
+private:
+    void Run() override {
+        PrintHeading1("Feature extraction");
+        Timer run_timer;
+        run_timer.Start();
+        
+        for (auto& resizer : resizers_) {
+            resizer->Start();
+        }
+        
+        for (auto& extractor : extractors_) {
+            extractor->Start();
+        }
+        
+        for (auto& extractor : extractors_) {
+            if (!extractor->CheckValidSetup()) {
+                return;
+            }
+        }
+        
+        while (image_reader_.NextIndex() < image_reader_.NumImages()) {
+            if (IsStopped()) {
+                resizer_queue_->Stop();
+                extractor_queue_->Stop();
+                resizer_queue_->Clear();
+                extractor_queue_->Clear();
+                break;
+            }
+            
+            ImageData image_data;
+            image_data.status = image_reader_.Next(&image_data.camera,
+                                                   &image_data.image,
+                                                   &image_data.bitmap,
+                                                   &image_data.mask);
+            
+            if (image_data.status != ImageReader::Status::SUCCESS) {
+                image_data.bitmap.Deallocate();
+            }
+            
+            if (sift_options_.max_image_size > 0) {
+                THROW_CHECK(resizer_queue_->Push(std::move(image_data)));
+            } else {
+                THROW_CHECK(extractor_queue_->Push(std::move(image_data)));
+            }
+        }
+        
+        resizer_queue_->Wait();
         resizer_queue_->Stop();
+        for (auto& resizer : resizers_) {
+            resizer->Wait();
+        }
+        
+        extractor_queue_->Wait();
         extractor_queue_->Stop();
-        resizer_queue_->Clear();
-        extractor_queue_->Clear();
-        break;
-      }
-
-      ImageData image_data;
-      image_data.status = image_reader_.Next(&image_data.camera,
-                                             &image_data.image,
-                                             &image_data.bitmap,
-                                             &image_data.mask);
-
-      if (image_data.status != ImageReader::Status::SUCCESS) {
-        image_data.bitmap.Deallocate();
-      }
-
-      if (sift_options_.max_image_size > 0) {
-        THROW_CHECK(resizer_queue_->Push(std::move(image_data)));
-      } else {
-        THROW_CHECK(extractor_queue_->Push(std::move(image_data)));
-      }
+        for (auto& extractor : extractors_) {
+            extractor->Wait();
+        }
+        
+        run_timer.PrintMinutes();
     }
-
-    resizer_queue_->Wait();
-    resizer_queue_->Stop();
-    for (auto& resizer : resizers_) {
-      resizer->Wait();
-    }
-
-    extractor_queue_->Wait();
-    extractor_queue_->Stop();
-    for (auto& extractor : extractors_) {
-      extractor->Wait();
-    }
-      
-    run_timer.PrintMinutes();
-  }
-
-  const ImageReaderOptions reader_options_;
-  const SiftExtractionOptions sift_options_;
-
-  Database database_;
-  ImageReader image_reader_;
-  ImageData imageDataEmpty;
-
-  std::vector<std::unique_ptr<Thread>> resizers_;
-  std::vector<std::unique_ptr<Thread>> extractors_;
-
-  std::unique_ptr<JobQueue<ImageData>> resizer_queue_;
-  std::unique_ptr<JobQueue<ImageData>> extractor_queue_;
-  std::unique_ptr<JobQueue<ImageData>> writer_queue_;
+    
+    const ImageReaderOptions reader_options_;
+    const SiftExtractionOptions sift_options_;
+    
+    Database database_;
+    ImageReader image_reader_;
+    ImageData imageDataEmpty;
+    
+    std::vector<std::unique_ptr<Thread>> resizers_;
+    std::vector<std::unique_ptr<Thread>> extractors_;
+    
+    std::unique_ptr<JobQueue<ImageData>> resizer_queue_;
+    std::unique_ptr<JobQueue<ImageData>> extractor_queue_;
+    std::unique_ptr<JobQueue<ImageData>> writer_queue_;
 };
 
 }  // namespace
 
 std::unique_ptr<Thread> CreateFeatureExtractorController2(
-    const ImageReaderOptions& reader_options,
-    const SiftExtractionOptions& sift_options) {
-  return std::make_unique<FeatureExtractorController>(reader_options,
-                                                      sift_options);
+                                                          const ImageReaderOptions& reader_options,
+                                                          const SiftExtractionOptions& sift_options) {
+    return std::make_unique<FeatureExtractorController>(reader_options,
+                                                        sift_options);
 }
 
 ImageData & GetImageData( std::unique_ptr<Thread> & thread ) {

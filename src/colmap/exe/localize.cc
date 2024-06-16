@@ -19,7 +19,7 @@ int RunLocalizer(int argc, char** argv) {
     std::string image_to_localize;
     int camera_mode = -1;
     std::string descriptor_normalization = "l1_root";
-
+    
     OptionManager options;
     options.AddDatabaseOptions();
     options.AddImageOptions();
@@ -35,59 +35,59 @@ int RunLocalizer(int argc, char** argv) {
         LOG(ERROR) << "Missing arg image_to_localize`";
         return EXIT_FAILURE;
     }
-
+    
     ImageReaderOptions reader_options = *options.image_reader;
     reader_options.database_path = *options.database_path;
     reader_options.image_path = *options.image_path;
     reader_options.image_list.push_back(image_to_localize);
-
+    
     if (camera_mode >= 0) {
-      UpdateImageReaderOptionsFromCameraMode(reader_options,
-                                             (CameraMode)camera_mode);
+        UpdateImageReaderOptionsFromCameraMode(reader_options,
+                                               (CameraMode)camera_mode);
     }
-
+    
     StringToLower(&descriptor_normalization);
     if (descriptor_normalization == "l1_root") {
-      options.sift_extraction->normalization =
-          SiftExtractionOptions::Normalization::L1_ROOT;
+        options.sift_extraction->normalization =
+        SiftExtractionOptions::Normalization::L1_ROOT;
     } else if (descriptor_normalization == "l2") {
-      options.sift_extraction->normalization =
-          SiftExtractionOptions::Normalization::L2;
+        options.sift_extraction->normalization =
+        SiftExtractionOptions::Normalization::L2;
     } else {
-      LOG(ERROR) << "Invalid `descriptor_normalization`";
-      return EXIT_FAILURE;
+        LOG(ERROR) << "Invalid `descriptor_normalization`";
+        return EXIT_FAILURE;
     }
-
+    
     if (!ExistsCameraModelWithName(reader_options.camera_model)) {
-      LOG(ERROR) << "Camera model does not exist";
+        LOG(ERROR) << "Camera model does not exist";
     }
-
+    
     if (!VerifyCameraParams(reader_options.camera_model,
                             reader_options.camera_params)) {
-      return EXIT_FAILURE;
+        return EXIT_FAILURE;
     }
-
+    
     if (!VerifySiftGPUParams(options.sift_extraction->use_gpu)) {
-      return EXIT_FAILURE;
+        return EXIT_FAILURE;
     }
-
+    
     std::unique_ptr<QApplication> app;
     if (options.sift_extraction->use_gpu && kUseOpenGL) {
-      app.reset(new QApplication(argc, argv));
+        app.reset(new QApplication(argc, argv));
     }
-
+    
     auto feature_extractor = CreateFeatureExtractorController2(
-        reader_options, *options.sift_extraction);
-
+                                                               reader_options, *options.sift_extraction);
+    
     if (options.sift_extraction->use_gpu && kUseOpenGL) {
-      RunThreadWithOpenGLContext(feature_extractor.get());
+        RunThreadWithOpenGLContext(feature_extractor.get());
     } else {
-      feature_extractor->Start();
-      feature_extractor->Wait();
+        feature_extractor->Start();
+        feature_extractor->Wait();
     }
-
+    
     ImageData & imageData = GetImageData( feature_extractor );
-     
+    
     return EXIT_SUCCESS;
 }
 
