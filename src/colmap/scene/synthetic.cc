@@ -53,7 +53,7 @@ void AddOutlierMatches(double inlier_ratio,
   std::shuffle(matches->begin(), matches->end(), *PRNG);
 }
 
-void SynthesizeExhaustiveMatches(const SyntheticDatasetOptions& options,
+void SynthesizeExhaustiveMatches(double inlier_match_ratio,
                                  Reconstruction* reconstruction,
                                  Database* database) {
   const std::vector<image_t>& reg_image_ids = reconstruction->RegImageIds();
@@ -95,7 +95,7 @@ void SynthesizeExhaustiveMatches(const SyntheticDatasetOptions& options,
 
       FeatureMatches matches = two_view_geometry.inlier_matches;
       AddOutlierMatches(
-          options.inlier_match_ratio, num_points2D1, num_points2D2, &matches);
+          inlier_match_ratio, num_points2D1, num_points2D2, &matches);
 
       database->WriteMatches(image1.ImageId(), image2.ImageId(), matches);
       database->WriteTwoViewGeometry(
@@ -104,7 +104,7 @@ void SynthesizeExhaustiveMatches(const SyntheticDatasetOptions& options,
   }
 }
 
-void SynthesizeChainedMatches(const SyntheticDatasetOptions& options,
+void SynthesizeChainedMatches(double inlier_match_ratio,
                               Reconstruction* reconstruction,
                               Database* database) {
   std::unordered_map<image_pair_t, TwoViewGeometry> two_view_geometries;
@@ -145,7 +145,7 @@ void SynthesizeChainedMatches(const SyntheticDatasetOptions& options,
                                        camera1.CalibrationMatrix());
 
     FeatureMatches matches = two_view_geometry.second.inlier_matches;
-    AddOutlierMatches(options.inlier_match_ratio,
+    AddOutlierMatches(inlier_match_ratio,
                       image1.NumPoints2D(),
                       image2.NumPoints2D(),
                       &matches);
@@ -274,10 +274,12 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
   if (database != nullptr) {
     switch (options.match_config) {
       case SyntheticDatasetOptions::MatchConfig::EXHAUSTIVE:
-        SynthesizeExhaustiveMatches(options, reconstruction, database);
+        SynthesizeExhaustiveMatches(
+            options.inlier_match_ratio, reconstruction, database);
         break;
       case SyntheticDatasetOptions::MatchConfig::CHAINED:
-        SynthesizeChainedMatches(options, reconstruction, database);
+        SynthesizeChainedMatches(
+            options.inlier_match_ratio, reconstruction, database);
         break;
       default:
         LOG(FATAL_THROW) << "Invalid MatchConfig specified";
