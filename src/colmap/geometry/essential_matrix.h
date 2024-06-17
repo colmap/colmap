@@ -125,4 +125,10 @@ Eigen::Vector3d EpipoleFromEssentialMatrix(const Eigen::Matrix3d& E,
 // @return       Inverted essential matrix.
 Eigen::Matrix3d InvertEssentialMatrix(const Eigen::Matrix3d& matrix);
 
+// Composes the fundamental matrix from image 1 to 2 from the essential matrix
+// and two camera's calibrations.
+Eigen::Matrix3d FundamentalFromEssentialMatrix(const Eigen::Matrix3d& K2,
+                                               const Eigen::Matrix3d& E,
+                                               const Eigen::Matrix3d& K1);
+
 }  // namespace colmap
