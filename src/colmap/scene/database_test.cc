@@ -269,23 +269,50 @@ TEST(Database, Matches) {
   Database database(Database::kInMemoryDatabasePath);
   const image_t image_id1 = 1;
   const image_t image_id2 = 2;
-  const FeatureMatches matches = FeatureMatches(1000);
-  database.WriteMatches(image_id1, image_id2, matches);
-  const FeatureMatches matches_read =
-      database.ReadMatches(image_id1, image_id2);
-  EXPECT_EQ(matches.size(), matches_read.size());
-  for (size_t i = 0; i < matches.size(); ++i) {
-    EXPECT_EQ(matches[i].point2D_idx1, matches_read[i].point2D_idx1);
-    EXPECT_EQ(matches[i].point2D_idx2, matches_read[i].point2D_idx2);
+  constexpr int kNumMatches = 1000;
+  FeatureMatches matches12(kNumMatches);
+  FeatureMatches matches21(kNumMatches);
+  for (size_t i = 0; i < matches12.size(); ++i) {
+    matches12[i].point2D_idx1 = i;
+    matches12[i].point2D_idx2 = 10000 + i;
+    matches21[i].point2D_idx1 = 10000 + i;
+    matches21[i].point2D_idx2 = i;
   }
+
+  auto expectValidMatches = [&matches12, &database]() {
+    EXPECT_EQ(database.NumMatchedImagePairs(), 1);
+    const FeatureMatches matches_read12 =
+        database.ReadMatches(image_id1, image_id2);
+    EXPECT_EQ(matches12.size(), matches_read12.size());
+    for (size_t i = 0; i < matches12.size(); ++i) {
+      EXPECT_EQ(matches12[i].point2D_idx1, matches_read12[i].point2D_idx1);
+      EXPECT_EQ(matches12[i].point2D_idx2, matches_read12[i].point2D_idx2);
+    }
+    const FeatureMatches matches_read21 =
+        database.ReadMatches(image_id2, image_id1);
+    EXPECT_EQ(matches12.size(), matches_read21.size());
+    for (size_t i = 0; i < matches12.size(); ++i) {
+      EXPECT_EQ(matches12[i].point2D_idx1, matches_read21[i].point2D_idx2);
+      EXPECT_EQ(matches12[i].point2D_idx2, matches_read21[i].point2D_idx1);
+    }
+  };
+
+  EXPECT_EQ(database.NumMatchedImagePairs(), 0);
+  database.WriteMatches(image_id1, image_id2, matches12);
+  expectValidMatches();
+  database.DeleteMatches(image_id1, image_id2);
+  EXPECT_EQ(database.NumMatchedImagePairs(), 0);
+  database.WriteMatches(image_id2, image_id1, matches21);
+  expectValidMatches();
+
   EXPECT_EQ(database.ReadAllMatches().size(), 1);
   EXPECT_EQ(database.ReadAllMatches()[0].first,
             Database::ImagePairToPairId(image_id1, image_id2));
-  EXPECT_EQ(database.NumMatches(), 1000);
+  EXPECT_EQ(database.NumMatches(), kNumMatches);
   database.DeleteMatches(image_id1, image_id2);
   EXPECT_EQ(database.NumMatches(), 0);
-  database.WriteMatches(image_id1, image_id2, matches);
-  EXPECT_EQ(database.NumMatches(), 1000);
+  database.WriteMatches(image_id1, image_id2, matches12);
+  EXPECT_EQ(database.NumMatches(), kNumMatches);
   database.ClearMatches();
   EXPECT_EQ(database.NumMatches(), 0);
 }
