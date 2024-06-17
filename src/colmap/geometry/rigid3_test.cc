@@ -120,10 +120,12 @@ TEST(Rigid3d, Adjoint) {
   const Eigen::Matrix6d A = Eigen::Matrix6d::Random();
   const Eigen::Matrix6d cov_b_from_a = A * A.transpose();
   const Eigen::Matrix6d adjoint_b_from_a = b_from_a.Adjoint();
-  const Eigen::Matrix6d cov_a_from_b = adjoint_b_from_a * cov_b_from_a * adjoint_b_from_a.transpose();
+  const Eigen::Matrix6d cov_a_from_b =
+      adjoint_b_from_a * cov_b_from_a * adjoint_b_from_a.transpose();
   const Rigid3d a_from_b = Inverse(b_from_a);
   const Eigen::Matrix6d adjoint_a_from_b = a_from_b.Adjoint();
-  const Eigen::Matrix6d cov_b_from_a_test = adjoint_a_from_b * cov_a_from_b * adjoint_a_from_b.transpose();
+  const Eigen::Matrix6d cov_b_from_a_test =
+      adjoint_a_from_b * cov_a_from_b * adjoint_a_from_b.transpose();
   EXPECT_LT((cov_b_from_a_test - cov_b_from_a).norm(), 1e-6);
 }
 
