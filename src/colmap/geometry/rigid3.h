@@ -55,6 +55,8 @@ struct Rigid3d {
     return matrix;
   }
 
+  // Adjoint matrix to propagate uncertainty on Rigid3d
+  // [Reference] https://gtsam.org/2021/02/23/uncertainties-part3.html
   inline Eigen::Matrix6d Adjoint() const {
     Eigen::Matrix6d adjoint = Eigen::Matrix6d::Zero();
     Eigen::Matrix3d skew_t;
