@@ -20,6 +20,9 @@ def add_imu_residuals(
     reconstruction,
     preintegrated_measurements,
     variables,
+    optimize_scale=True,
+    optimize_gravity=True,
+    optimize_imu_from_cam=True,
     optimize_bias=True,
 ):
     loss = pyceres.TrivialLoss()
@@ -47,6 +50,16 @@ def add_imu_residuals(
     prob.set_manifold(
         variables["imu_from_cam"].rotation.quat, pyceres.QuaternionManifold()
     )
+    # [Optional] fix variables
+    if not optimize_scale:
+        prob.set_parameter_block_constant(variables["log_scale"])
+    if not optimize_gravity:
+        prob.set_parameter_block_constant(variables["gravity"])
+    if not optimize_imu_from_cam:
+        prob.set_parameter_block_constant(
+            variables["imu_from_cam"].rotation.quat
+        )
+        prob.set_parameter_block_constant(variables["imu_from_cam"].translation)
     if not optimize_bias:
         constant_idxs = np.arange(3, 9)
         for image_id, state in variables["imu_states"].items():
