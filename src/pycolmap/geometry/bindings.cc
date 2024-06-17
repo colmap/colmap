@@ -80,6 +80,7 @@ void BindGeometry(py::module& m) {
       .def_readwrite("rotation", &Rigid3d::rotation)
       .def_readwrite("translation", &Rigid3d::translation)
       .def("matrix", &Rigid3d::ToMatrix)
+      .def("adjoint", &Rigid3d::Adjoint)
       .def("essential_matrix", &EssentialMatrixFromPose)
       .def(py::self * Rigid3d())
       .def(py::self * Eigen::Vector3d())

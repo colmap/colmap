@@ -54,6 +54,17 @@ struct Rigid3d {
     matrix.col(3) = translation;
     return matrix;
   }
+
+  inline Eigen::Matrix6d Adjoint() const {
+    Eigen::Matrix6d adjoint = Eigen::Matrix6d::Zero();
+    Eigen::Matrix3d skew_t;
+    skew_t << 0, -translation(2), translation(1), translation(2), 0, -translation(0), -translation(1), translation(0), 0;
+    Eigen::Matrix3d rot_matrix = rotation.toRotationMatrix();
+    adjoint.block<3, 3>(0, 0) = rot_matrix;
+    adjoint.block<3, 3>(3, 0) = skew_t * rot_matrix;
+    adjoint.block<3, 3>(3, 3) = rot_matrix;
+    return adjoint;
+  }
 };
 
 // Return inverse transform.
