@@ -15,8 +15,8 @@ authors = [
 ]
 license = {text = "BSD-3-Clause"}
 urls = {Repository = "https://github.com/colmap/pycolmap"}
-requires-python = ">=3.7"
-dependencies = ["numpy>=1.26"]
+requires-python = ">=3.8"
+dependencies = ["numpy>=1.25"]
 classifiers = [
   "License :: OSI Approved :: BSD License",
   "Programming Language :: Python :: 3 :: Only",
