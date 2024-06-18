@@ -279,7 +279,7 @@ TEST(Database, Matches) {
     matches21[i].point2D_idx2 = i;
   }
 
-  auto expectValidMatches = [&matches12, &database]() {
+  auto expectValidMatches = [&]() {
     EXPECT_EQ(database.NumMatchedImagePairs(), 1);
     const FeatureMatches matches_read12 =
         database.ReadMatches(image_id1, image_id2);
