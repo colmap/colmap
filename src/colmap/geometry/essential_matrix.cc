@@ -142,4 +142,10 @@ Eigen::Matrix3d InvertEssentialMatrix(const Eigen::Matrix3d& E) {
   return E.transpose();
 }
 
+Eigen::Matrix3d FundamentalFromEssentialMatrix(const Eigen::Matrix3d& K2,
+                                               const Eigen::Matrix3d& E,
+                                               const Eigen::Matrix3d& K1) {
+  return K2.transpose().inverse() * E * K1.inverse();
+}
+
 }  // namespace colmap

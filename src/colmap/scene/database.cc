@@ -739,8 +739,9 @@ void Database::WriteMatches(const image_t image_id1,
   SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_write_matches_, 1, pair_id));
 
   // Important: the swapped data must live until the query is executed.
+  FeatureMatchesBlob swapped_blob;
   if (SwapImagePair(image_id1, image_id2)) {
-    FeatureMatchesBlob swapped_blob = blob;
+    swapped_blob = blob;
     SwapFeatureMatchesBlob(&swapped_blob);
     WriteDynamicMatrixBlob(sql_stmt_write_matches_, swapped_blob, 2);
   } else {
