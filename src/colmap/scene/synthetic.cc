@@ -150,9 +150,7 @@ void SynthesizeChainedMatches(double inlier_match_ratio,
                       image2.NumPoints2D(),
                       &matches);
 
-    database->WriteMatches(image1.ImageId(),
-                           image2.ImageId(),
-                           matches);
+    database->WriteMatches(image1.ImageId(), image2.ImageId(), matches);
     database->WriteTwoViewGeometry(
         image1.ImageId(), image2.ImageId(), two_view_geometry.second);
   }
