@@ -61,7 +61,8 @@ struct Rigid3d {
     Eigen::Matrix6d adjoint;
     adjoint.block<3, 3>(0, 0) = rotation.toRotationMatrix();
     adjoint.block<3, 3>(0, 3).setZero();
-    adjoint.block<3, 3>(3, 0) = translation.colwise().cross(adjoint.block<3, 3>(0, 0));
+    adjoint.block<3, 3>(3, 0) =
+        adjoint.block<3, 3>(0, 0).colwise().cross(-translation);  // t x R
     adjoint.block<3, 3>(3, 3) = adjoint.block<3, 3>(0, 0);
     return adjoint;
   }
