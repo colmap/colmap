@@ -51,14 +51,14 @@ TEST(HomographyMatrix, Minimal) {
       dst.push_back((expected_H * src[i].homogeneous()).hnormalized());
     }
 
-    HomographyMatrixEstimator estimated_H;
+    HomographyMatrixEstimator estimator;
     std::vector<Eigen::Matrix3d> models;
-    estimated_H.Estimate(src, dst, &models);
+    estimator.Estimate(src, dst, &models);
 
     ASSERT_EQ(models.size(), 1);
 
     std::vector<double> residuals;
-    estimated_H.Residuals(src, dst, models[0], &residuals);
+    estimator.Residuals(src, dst, models[0], &residuals);
 
     for (size_t i = 0; i < 4; ++i) {
       EXPECT_LT(residuals[i], 1e-6);
@@ -79,13 +79,13 @@ TEST(HomographyMatrix, NonMinimal) {
       dst.push_back((expected_H * src[i].homogeneous()).hnormalized());
     }
 
-    HomographyMatrixEstimator estimated_H;
+    HomographyMatrixEstimator estimator;
     std::vector<Eigen::Matrix3d> models;
-    estimated_H.Estimate(src, dst, &models);
+    estimator.Estimate(src, dst, &models);
     ASSERT_EQ(models.size(), 1);
 
     std::vector<double> residuals;
-    estimated_H.Residuals(src, dst, models[0], &residuals);
+    estimator.Residuals(src, dst, models[0], &residuals);
 
     for (size_t i = 0; i < 4; ++i) {
       EXPECT_LT(residuals[i], 1e-6);
@@ -110,13 +110,13 @@ TEST(HomographyMatrix, NumericalStability) {
       dst.push_back((expected_H * src[i].homogeneous()).hnormalized());
     }
 
-    HomographyMatrixEstimator estimated_H;
+    HomographyMatrixEstimator estimator;
     std::vector<Eigen::Matrix3d> models;
-    estimated_H.Estimate(src, dst, &models);
+    estimator.Estimate(src, dst, &models);
     ASSERT_EQ(models.size(), 1);
 
     std::vector<double> residuals;
-    estimated_H.Residuals(src, dst, models[0], &residuals);
+    estimator.Residuals(src, dst, models[0], &residuals);
 
     for (size_t i = 0; i < 4; ++i) {
       EXPECT_LT(residuals[i], 1e-6);
@@ -140,9 +140,9 @@ TEST(HomographyMatrix, Degenerate) {
     dst.push_back(dsth.hnormalized());
   }
 
-  HomographyMatrixEstimator estimated_H;
+  HomographyMatrixEstimator estimator;
   std::vector<Eigen::Matrix3d> models;
-  estimated_H.Estimate(src, dst, &models);
+  estimator.Estimate(src, dst, &models);
 
   ASSERT_EQ(models.size(), 0);
 }
