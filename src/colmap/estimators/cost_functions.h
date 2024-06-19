@@ -394,7 +394,8 @@ struct AbsolutePoseErrorCostFunction {
                                 world_from_cam_.translation.cast<T>();
 
     Eigen::Map<Eigen::Matrix<T, 6, 1>> residuals(residuals_ptr);
-    residuals.applyOnTheLeft(sqrt_information_cam_.transpose().template cast<T>());
+    residuals.applyOnTheLeft(
+        sqrt_information_cam_.transpose().template cast<T>());
     return true;
   }
 
@@ -454,7 +455,8 @@ struct MetricRelativePoseErrorCostFunction {
         EigenVector3Map<T>(j_from_world_t) + j_from_i_q * i_from_jw_t;
 
     Eigen::Map<Eigen::Matrix<T, 6, 1>> residuals(residuals_ptr);
-    residuals.applyOnTheLeft(sqrt_information_j_.transpose().template cast<T>());
+    residuals.applyOnTheLeft(
+        sqrt_information_j_.transpose().template cast<T>());
     return true;
   }
 
