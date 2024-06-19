@@ -53,9 +53,8 @@ inline Eigen::MatrixXd SqrtInformation(const Eigen::MatrixXd& covariance) {
       covariance, Eigen::ComputeThinU | Eigen::ComputeThinV);
   Eigen::MatrixXd U = svd.matrixU();
   Eigen::VectorXd singularValues = svd.singularValues();
-  const double epsilon = 1e-12;
   Eigen::VectorXd invSqrtSingularValues =
-      singularValues.array().max(0.).sqrt().max(epsilon).inverse();
+      singularValues.array().max(0.).sqrt().max(FLT_EPSILON).inverse();
   Eigen::MatrixXd invSqrtSingularValuesDiag =
       invSqrtSingularValues.asDiagonal();
   return U * invSqrtSingularValuesDiag;
