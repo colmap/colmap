@@ -66,7 +66,7 @@ class PyBundleAdjuster(object):
     ):
         image = reconstruction.images[image_id]
         pose = image.cam_from_world
-        camera = reconstruction.cameras[image.image_id]
+        camera = reconstruction.cameras[image.camera_id]
         constant_cam_pose = (
             not self.options.refine_extrinsics
         ) or self.config.has_constant_cam_pose(image.image_id)
