@@ -254,7 +254,8 @@ void PreintegratedImuMeasurement::Finish() {
   covs_ = (covs_ + covs_.transpose()) / 2.0;
 
   // LLT decomposition of Fisher information
-  Eigen::MatrixXd information = (covs_ + Eigen::Matrix<double, 15, 15>::Identity() * 1e-12).inverse();
+  Eigen::MatrixXd information =
+      (covs_ + Eigen::Matrix<double, 15, 15>::Identity() * 1e-12).inverse();
   L_matrix_ = information.llt().matrixL();
 
   // Set flag
