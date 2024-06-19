@@ -253,17 +253,9 @@ void PreintegratedImuMeasurement::Finish() {
   // Enforce symmetry
   covs_ = (covs_ + covs_.transpose()) / 2.0;
 
-  // LLT decomposition of Fisher information matrix with SVD
-  Eigen::JacobiSVD<Eigen::Matrix<double, 15, 15>> svd(
-      covs_, Eigen::ComputeThinU | Eigen::ComputeThinV);
-  Eigen::MatrixXd U = svd.matrixU();
-  Eigen::VectorXd singularValues = svd.singularValues();
-  const double epsilon = 1e-12;
-  Eigen::VectorXd invSqrtSingularValues =
-      singularValues.array().max(0.).sqrt().max(epsilon).inverse();
-  Eigen::MatrixXd invSqrtSingularValuesDiag =
-      invSqrtSingularValues.asDiagonal();
-  L_matrix_ = U * invSqrtSingularValuesDiag;
+  // LLT decomposition of Fisher information
+  Eigen::MatrixXd information = (covs_ + Eigen::Matrix<double, 15, 15>::Identity() * 1e-12).inverse();
+  L_matrix_ = information.llt().matrixL();
 
   // Set flag
   has_finished_ = true;
