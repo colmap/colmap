@@ -54,6 +54,18 @@ struct Rigid3d {
     matrix.col(3) = translation;
     return matrix;
   }
+
+  // Adjoint matrix to propagate uncertainty on Rigid3d
+  // [Reference] https://gtsam.org/2021/02/23/uncertainties-part3.html
+  inline Eigen::Matrix6d Adjoint() const {
+    Eigen::Matrix6d adjoint;
+    adjoint.block<3, 3>(0, 0) = rotation.toRotationMatrix();
+    adjoint.block<3, 3>(0, 3).setZero();
+    adjoint.block<3, 3>(3, 0) =
+        adjoint.block<3, 3>(0, 0).colwise().cross(-translation);  // t x R
+    adjoint.block<3, 3>(3, 3) = adjoint.block<3, 3>(0, 0);
+    return adjoint;
+  }
 };
 
 // Return inverse transform.
