@@ -48,16 +48,7 @@ using EigenQuaternionMap = Eigen::Map<const Eigen::Quaternion<T>>;
 using EigenMatrix6d = Eigen::Matrix<double, 6, 6>;
 
 inline Eigen::MatrixXd SqrtInformation(const Eigen::MatrixXd& covariance) {
-  // LLT decomposition of Fisher information matrix with SVD
-  Eigen::JacobiSVD<Eigen::MatrixXd> svd(
-      covariance, Eigen::ComputeThinU | Eigen::ComputeThinV);
-  Eigen::MatrixXd U = svd.matrixU();
-  Eigen::VectorXd singularValues = svd.singularValues();
-  Eigen::VectorXd invSqrtSingularValues =
-      singularValues.array().max(0.).sqrt().max(FLT_EPSILON).inverse();
-  Eigen::MatrixXd invSqrtSingularValuesDiag =
-      invSqrtSingularValues.asDiagonal();
-  return U * invSqrtSingularValuesDiag;
+  return covariance.inverse().llt().matrixL();
 }
 
 // Standard bundle adjustment cost function for variable
