@@ -44,6 +44,7 @@ void IterativeGlobalRefinement(const IncrementalMapperOptions& options,
                                    mapper_options,
                                    options.GlobalBundleAdjustment(),
                                    options.Triangulation());
+  mapper.FilterImages(mapper_options);
 }
 
 void ExtractColors(const std::string& image_path,
@@ -177,7 +178,7 @@ IncrementalMapperController::IncrementalMapperController(
     std::shared_ptr<const IncrementalMapperOptions> options,
     const std::string& image_path,
     const std::string& database_path,
-    std::shared_ptr<ReconstructionManager> reconstruction_manager)
+    std::shared_ptr<class ReconstructionManager> reconstruction_manager)
     : options_(std::move(options)),
       image_path_(image_path),
       database_path_(database_path),
@@ -292,6 +293,7 @@ IncrementalMapperController::InitializeReconstruction(
 
   LOG(INFO) << "Global bundle adjustment";
   mapper.AdjustGlobalBundle(mapper_options, options_->GlobalBundleAdjustment());
+  reconstruction.Normalize();
   mapper.FilterPoints(mapper_options);
   mapper.FilterImages(mapper_options);
 
@@ -369,14 +371,14 @@ IncrementalMapperController::ReconstructSubModel(
     image_t next_image_id;
     for (size_t reg_trial = 0; reg_trial < next_images.size(); ++reg_trial) {
       next_image_id = next_images[reg_trial];
-      const Image& next_image = reconstruction->Image(next_image_id);
 
       LOG(INFO) << StringPrintf("Registering image #%d (%d)",
                                 next_image_id,
                                 reconstruction->NumRegImages() + 1);
-      LOG(INFO) << StringPrintf("=> Image sees %d / %d points",
-                                next_image.NumVisiblePoints3D(),
-                                next_image.NumObservations());
+      LOG(INFO) << StringPrintf(
+          "=> Image sees %d / %d points",
+          mapper.ObservationManager().NumVisiblePoints3D(next_image_id),
+          mapper.ObservationManager().NumObservations(next_image_id));
 
       reg_next_success =
           mapper.RegisterNextImage(mapper_options, next_image_id);
@@ -533,6 +535,42 @@ void IncrementalMapperController::Reconstruct(
         LOG(FATAL_THROW) << "Unknown reconstruction status.";
     }
   }
+}
+
+void IncrementalMapperController::TriangulateReconstruction(
+    const std::shared_ptr<Reconstruction>& reconstruction) {
+  THROW_CHECK(LoadDatabase());
+  IncrementalMapper mapper(database_cache_);
+  mapper.BeginReconstruction(reconstruction);
+
+  LOG(INFO) << "Iterative triangulation";
+  const std::vector<image_t>& reg_image_ids = reconstruction->RegImageIds();
+  for (size_t i = 0; i < reg_image_ids.size(); ++i) {
+    const image_t image_id = reg_image_ids[i];
+    const auto& image = reconstruction->Image(image_id);
+
+    LOG(INFO) << StringPrintf("Triangulating image #%d (%d)", image_id, i);
+    const size_t num_existing_points3D = image.NumPoints3D();
+    LOG(INFO) << "=> Image sees " << num_existing_points3D << " / "
+              << mapper.ObservationManager().NumObservations(image_id)
+              << " points";
+
+    mapper.TriangulateImage(options_->Triangulation(), image_id);
+    VLOG(1) << "=> Triangulated "
+            << (image.NumPoints3D() - num_existing_points3D) << " points";
+  }
+
+  LOG(INFO) << "Retriangulation and Global bundle adjustment";
+  mapper.IterativeGlobalRefinement(options_->ba_global_max_refinements,
+                                   options_->ba_global_max_refinement_change,
+                                   options_->Mapper(),
+                                   options_->GlobalBundleAdjustment(),
+                                   options_->Triangulation(),
+                                   /*normalize_reconstruction=*/false);
+  mapper.EndReconstruction(/*discard=*/false);
+
+  LOG(INFO) << "Extracting colors";
+  reconstruction->ExtractColorsForAllImages(image_path_);
 }
 
 }  // namespace colmap

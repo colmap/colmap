@@ -31,6 +31,7 @@
 
 #include "colmap/estimators/alignment.h"
 #include "colmap/scene/scene_clustering.h"
+#include "colmap/sfm/observation_manager.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
 
@@ -62,9 +63,8 @@ void MergeClusters(const SceneClustering::Cluster& cluster,
       for (size_t j = 0; j < i; ++j) {
         const double kMaxReprojError = 8.0;
         const int num_reg_images_j = reconstructions[j]->NumRegImages();
-        if (MergeReconstructions(kMaxReprojError,
-                                 *reconstructions[j],
-                                 reconstructions[i].get())) {
+        if (MergeAndFilterReconstructions(
+                kMaxReprojError, *reconstructions[j], *reconstructions[i])) {
           LOG(INFO) << StringPrintf(
               "=> Merged clusters with %d and %d images into %d images",
               num_reg_images_i,
@@ -226,9 +226,11 @@ void HierarchicalMapperController::Run() {
   // Merge clusters
   //////////////////////////////////////////////////////////////////////////////
 
-  PrintHeading1("Merging clusters");
+  if (leaf_clusters.size() > 1) {
+    PrintHeading1("Merging clusters");
 
-  MergeClusters(*scene_clustering.GetRootCluster(), &reconstruction_managers);
+    MergeClusters(*scene_clustering.GetRootCluster(), &reconstruction_managers);
+  }
 
   THROW_CHECK_EQ(reconstruction_managers.size(), 1);
   THROW_CHECK_GT(

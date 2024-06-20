@@ -47,6 +47,10 @@ template <typename T>
 using EigenQuaternionMap = Eigen::Map<const Eigen::Quaternion<T>>;
 using EigenMatrix6d = Eigen::Matrix<double, 6, 6>;
 
+inline Eigen::MatrixXd SqrtInformation(const Eigen::MatrixXd& covariance) {
+  return covariance.inverse().llt().matrixL();
+}
+
 // Standard bundle adjustment cost function for variable
 // camera pose, calibration, and point parameters.
 template <typename CameraModel>
@@ -355,7 +359,7 @@ struct AbsolutePoseErrorCostFunction {
   AbsolutePoseErrorCostFunction(const Rigid3d& cam_from_world,
                                 const EigenMatrix6d& covariance_cam)
       : world_from_cam_(Inverse(cam_from_world)),
-        sqrt_information_cam_(covariance_cam.inverse().llt().matrixL()) {}
+        sqrt_information_cam_(SqrtInformation(covariance_cam)) {}
 
   static ceres::CostFunction* Create(const Rigid3d& cam_from_world,
                                      const EigenMatrix6d& covariance_cam) {
@@ -380,7 +384,8 @@ struct AbsolutePoseErrorCostFunction {
                                 world_from_cam_.translation.cast<T>();
 
     Eigen::Map<Eigen::Matrix<T, 6, 1>> residuals(residuals_ptr);
-    residuals.applyOnTheLeft(sqrt_information_cam_.template cast<T>());
+    residuals.applyOnTheLeft(
+        sqrt_information_cam_.transpose().template cast<T>());
     return true;
   }
 
@@ -406,7 +411,7 @@ struct MetricRelativePoseErrorCostFunction {
   MetricRelativePoseErrorCostFunction(const Rigid3d& i_from_j,
                                       const EigenMatrix6d& covariance_j)
       : i_from_j_(i_from_j),
-        sqrt_information_j_(covariance_j.inverse().llt().matrixL()) {}
+        sqrt_information_j_(SqrtInformation(covariance_j)) {}
 
   static ceres::CostFunction* Create(const Rigid3d& i_from_j,
                                      const EigenMatrix6d& covariance_j) {
@@ -440,7 +445,8 @@ struct MetricRelativePoseErrorCostFunction {
         EigenVector3Map<T>(j_from_world_t) + j_from_i_q * i_from_jw_t;
 
     Eigen::Map<Eigen::Matrix<T, 6, 1>> residuals(residuals_ptr);
-    residuals.applyOnTheLeft(sqrt_information_j_.template cast<T>());
+    residuals.applyOnTheLeft(
+        sqrt_information_j_.transpose().template cast<T>());
     return true;
   }
 

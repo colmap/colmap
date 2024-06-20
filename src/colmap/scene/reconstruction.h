@@ -50,22 +50,13 @@
 namespace colmap {
 
 struct PlyPoint;
-struct RANSACOptions;
 class DatabaseCache;
-class CorrespondenceGraph;
 
 // Reconstruction class holds all information about a single reconstructed
 // model. It is used by the mapping and bundle adjustment classes and can be
 // written to and read from disk.
 class Reconstruction {
  public:
-  struct ImagePairStat {
-    // The number of triangulated correspondences between two images.
-    size_t num_tri_corrs = 0;
-    // The number of total correspondences/matches between two images.
-    size_t num_total_corrs = 0;
-  };
-
   Reconstruction();
 
   // Get number of objects.
@@ -73,30 +64,22 @@ class Reconstruction {
   inline size_t NumImages() const;
   inline size_t NumRegImages() const;
   inline size_t NumPoints3D() const;
-  inline size_t NumImagePairs() const;
 
   // Get const objects.
   inline const struct Camera& Camera(camera_t camera_id) const;
   inline const class Image& Image(image_t image_id) const;
   inline const struct Point3D& Point3D(point3D_t point3D_id) const;
-  inline const ImagePairStat& ImagePair(image_pair_t pair_id) const;
-  inline ImagePairStat& ImagePair(image_t image_id1, image_t image_id2);
 
   // Get mutable objects.
   inline struct Camera& Camera(camera_t camera_id);
   inline class Image& Image(image_t image_id);
   inline struct Point3D& Point3D(point3D_t point3D_id);
-  inline ImagePairStat& ImagePair(image_pair_t pair_id);
-  inline const ImagePairStat& ImagePair(image_t image_id1,
-                                        image_t image_id2) const;
 
   // Get reference to all objects.
   inline const std::unordered_map<camera_t, struct Camera>& Cameras() const;
   inline const std::unordered_map<image_t, class Image>& Images() const;
   inline const std::vector<image_t>& RegImageIds() const;
   inline const std::unordered_map<point3D_t, struct Point3D>& Points3D() const;
-  inline const std::unordered_map<image_pair_t, ImagePairStat>& ImagePairs()
-      const;
 
   // Identifiers of all 3D points.
   std::unordered_set<point3D_t> Point3DIds() const;
@@ -105,19 +88,12 @@ class Reconstruction {
   inline bool ExistsCamera(camera_t camera_id) const;
   inline bool ExistsImage(image_t image_id) const;
   inline bool ExistsPoint3D(point3D_t point3D_id) const;
-  inline bool ExistsImagePair(image_pair_t pair_id) const;
 
   // Load data from given `DatabaseCache`.
   void Load(const DatabaseCache& database_cache);
 
-  // Setup all relevant data structures before reconstruction. Note the
-  // correspondence graph object must live until `TearDown` is called.
-  void SetUp(std::shared_ptr<const CorrespondenceGraph> correspondence_graph);
-
   // Finalize the Reconstruction after the reconstruction has finished.
-  //
   // Once a scene has been finalized, it cannot be used for reconstruction.
-  //
   // This removes all not yet registered images and unused cameras, in order to
   // save memory.
   void TearDown();
@@ -210,34 +186,6 @@ class Reconstruction {
   // the names of the images.
   void TranscribeImageIdsToDatabase(const Database& database);
 
-  // Filter 3D points with large reprojection error, negative depth, or
-  // insufficient triangulation angle.
-  //
-  // @param max_reproj_error    The maximum reprojection error.
-  // @param min_tri_angle       The minimum triangulation angle.
-  // @param point3D_ids         The points to be filtered.
-  //
-  // @return                    The number of filtered observations.
-  size_t FilterPoints3D(double max_reproj_error,
-                        double min_tri_angle,
-                        const std::unordered_set<point3D_t>& point3D_ids);
-  size_t FilterPoints3DInImages(double max_reproj_error,
-                                double min_tri_angle,
-                                const std::unordered_set<image_t>& image_ids);
-  size_t FilterAllPoints3D(double max_reproj_error, double min_tri_angle);
-
-  // Filter observations that have negative depth.
-  //
-  // @return    The number of filtered observations.
-  size_t FilterObservationsWithNegativeDepth();
-
-  // Filter images without observations or bogus camera parameters.
-  //
-  // @return    The identifiers of the filtered images.
-  std::vector<image_t> FilterImages(double min_focal_length_ratio,
-                                    double max_focal_length_ratio,
-                                    double max_extra_param);
-
   // Compute statistics for scene.
   size_t ComputeNumObservations() const;
   double ComputeMeanTrackLength() const;
@@ -289,29 +237,12 @@ class Reconstruction {
   void CreateImageDirs(const std::string& path) const;
 
  private:
-  size_t FilterPoints3DWithSmallTriangulationAngle(
-      double min_tri_angle, const std::unordered_set<point3D_t>& point3D_ids);
-  size_t FilterPoints3DWithLargeReprojectionError(
-      double max_reproj_error,
-      const std::unordered_set<point3D_t>& point3D_ids);
-
   std::tuple<Eigen::Vector3d, Eigen::Vector3d, Eigen::Vector3d>
   ComputeBoundsAndCentroid(double p0, double p1, bool use_images) const;
-
-  void SetObservationAsTriangulated(image_t image_id,
-                                    point2D_t point2D_idx,
-                                    bool is_continued_point3D);
-  void ResetTriObservations(image_t image_id,
-                            point2D_t point2D_idx,
-                            bool is_deleted_point3D);
-
-  std::shared_ptr<const CorrespondenceGraph> correspondence_graph_;
 
   std::unordered_map<camera_t, struct Camera> cameras_;
   std::unordered_map<image_t, class Image> images_;
   std::unordered_map<point3D_t, struct Point3D> points3D_;
-
-  std::unordered_map<image_pair_t, ImagePairStat> image_pair_stats_;
 
   // { image_id, ... } where `images_.at(image_id).registered == true`.
   std::vector<image_t> reg_image_ids_;
@@ -332,10 +263,6 @@ size_t Reconstruction::NumRegImages() const { return reg_image_ids_.size(); }
 
 size_t Reconstruction::NumPoints3D() const { return points3D_.size(); }
 
-size_t Reconstruction::NumImagePairs() const {
-  return image_pair_stats_.size();
-}
-
 const struct Camera& Reconstruction::Camera(const camera_t camera_id) const {
   return cameras_.at(camera_id);
 }
@@ -349,17 +276,6 @@ const struct Point3D& Reconstruction::Point3D(
   return points3D_.at(point3D_id);
 }
 
-const Reconstruction::ImagePairStat& Reconstruction::ImagePair(
-    const image_pair_t pair_id) const {
-  return image_pair_stats_.at(pair_id);
-}
-
-const Reconstruction::ImagePairStat& Reconstruction::ImagePair(
-    const image_t image_id1, const image_t image_id2) const {
-  const auto pair_id = Database::ImagePairToPairId(image_id1, image_id2);
-  return image_pair_stats_.at(pair_id);
-}
-
 struct Camera& Reconstruction::Camera(const camera_t camera_id) {
   return cameras_.at(camera_id);
 }
@@ -370,17 +286,6 @@ class Image& Reconstruction::Image(const image_t image_id) {
 
 struct Point3D& Reconstruction::Point3D(const point3D_t point3D_id) {
   return points3D_.at(point3D_id);
-}
-
-Reconstruction::ImagePairStat& Reconstruction::ImagePair(
-    const image_pair_t pair_id) {
-  return image_pair_stats_.at(pair_id);
-}
-
-Reconstruction::ImagePairStat& Reconstruction::ImagePair(
-    const image_t image_id1, const image_t image_id2) {
-  const auto pair_id = Database::ImagePairToPairId(image_id1, image_id2);
-  return image_pair_stats_.at(pair_id);
 }
 
 const std::unordered_map<camera_t, Camera>& Reconstruction::Cameras() const {
@@ -399,11 +304,6 @@ const std::unordered_map<point3D_t, Point3D>& Reconstruction::Points3D() const {
   return points3D_;
 }
 
-const std::unordered_map<image_pair_t, Reconstruction::ImagePairStat>&
-Reconstruction::ImagePairs() const {
-  return image_pair_stats_;
-}
-
 bool Reconstruction::ExistsCamera(const camera_t camera_id) const {
   return cameras_.find(camera_id) != cameras_.end();
 }
@@ -414,10 +314,6 @@ bool Reconstruction::ExistsImage(const image_t image_id) const {
 
 bool Reconstruction::ExistsPoint3D(const point3D_t point3D_id) const {
   return points3D_.find(point3D_id) != points3D_.end();
-}
-
-bool Reconstruction::ExistsImagePair(const image_pair_t pair_id) const {
-  return image_pair_stats_.find(pair_id) != image_pair_stats_.end();
 }
 
 bool Reconstruction::IsImageRegistered(const image_t image_id) const {

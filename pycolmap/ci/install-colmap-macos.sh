@@ -2,21 +2,20 @@
 set -x -e
 CURRDIR=$(pwd)
 
+# Fix `brew link` error.
+find /usr/local/bin -lname '*/Library/Frameworks/Python.framework/*' -delete
+
 brew update
 brew install git cmake ninja llvm ccache
 
 # When building lapack-reference, vcpkg/cmake looks for gfortran.
 ln -s $(which gfortran-13) "$(dirname $(which gfortran-13))/gfortran"
 
-# Build the dependencies
-DEPENDENCIES=$(cat ${CURRDIR}/pycolmap/ci/vcpkg-dependencies.txt)
+# Setup vcpkg
 git clone https://github.com/microsoft/vcpkg ${VCPKG_INSTALLATION_ROOT}
 cd ${VCPKG_INSTALLATION_ROOT}
 git checkout ${VCPKG_COMMIT_ID}
 ./bootstrap-vcpkg.sh
-./vcpkg install --recurse --clean-after-build \
-    --triplet=${VCPKG_TARGET_TRIPLET} \
-    ${DEPENDENCIES}
 ./vcpkg integrate install
 
 # Build COLMAP
@@ -24,9 +23,10 @@ cd ${CURRDIR}
 mkdir build && cd build
 export ARCHFLAGS="-arch ${CIBW_ARCHS_MACOS}"
 cmake .. -GNinja \
-    -DGUI_ENABLED=OFF \
     -DCUDA_ENABLED=OFF \
+    -DGUI_ENABLED=OFF \
     -DCGAL_ENABLED=OFF \
+    -DLSD_ENABLED=OFF \
     -DCMAKE_BUILD_TYPE=Release \
     -DCCACHE_ENABLED=ON \
     -DCMAKE_TOOLCHAIN_FILE="${CMAKE_TOOLCHAIN_FILE}" \

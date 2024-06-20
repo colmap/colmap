@@ -29,10 +29,17 @@
 
 #pragma once
 
-#include "colmap/estimators/two_view_geometry.h"
 #include "colmap/feature/types.h"
+#include "colmap/scene/camera.h"
+#include "colmap/scene/database.h"
+#include "colmap/scene/image.h"
+#include "colmap/scene/two_view_geometry.h"
+#include "colmap/util/cache.h"
+#include "colmap/util/types.h"
 
 #include <memory>
+#include <mutex>
+#include <unordered_map>
 
 namespace colmap {
 
@@ -53,12 +60,58 @@ class FeatureMatcher {
       FeatureMatches* matches) = 0;
 
   virtual void MatchGuided(
-      const TwoViewGeometryOptions& options,
+      double max_error,
       const std::shared_ptr<const FeatureKeypoints>& keypoints1,
       const std::shared_ptr<const FeatureKeypoints>& keypoints2,
       const std::shared_ptr<const FeatureDescriptors>& descriptors1,
       const std::shared_ptr<const FeatureDescriptors>& descriptors2,
       TwoViewGeometry* two_view_geometry) = 0;
+};
+
+// Cache for feature matching to minimize database access during matching.
+class FeatureMatcherCache {
+ public:
+  FeatureMatcherCache(size_t cache_size,
+                      std::shared_ptr<Database> database,
+                      bool do_setup = false);
+
+  void Setup();
+
+  const Camera& GetCamera(camera_t camera_id) const;
+  const Image& GetImage(image_t image_id) const;
+  std::shared_ptr<FeatureKeypoints> GetKeypoints(image_t image_id);
+  std::shared_ptr<FeatureDescriptors> GetDescriptors(image_t image_id);
+  FeatureMatches GetMatches(image_t image_id1, image_t image_id2);
+  std::vector<image_t> GetImageIds() const;
+
+  bool ExistsKeypoints(image_t image_id);
+  bool ExistsDescriptors(image_t image_id);
+
+  bool ExistsMatches(image_t image_id1, image_t image_id2);
+  bool ExistsInlierMatches(image_t image_id1, image_t image_id2);
+
+  void WriteMatches(image_t image_id1,
+                    image_t image_id2,
+                    const FeatureMatches& matches);
+  void WriteTwoViewGeometry(image_t image_id1,
+                            image_t image_id2,
+                            const TwoViewGeometry& two_view_geometry);
+
+  void DeleteMatches(image_t image_id1, image_t image_id2);
+  void DeleteInlierMatches(image_t image_id1, image_t image_id2);
+
+ private:
+  const size_t cache_size_;
+  const std::shared_ptr<Database> database_;
+  std::mutex database_mutex_;
+  std::unordered_map<camera_t, Camera> cameras_cache_;
+  std::unordered_map<image_t, Image> images_cache_;
+  std::unique_ptr<LRUCache<image_t, std::shared_ptr<FeatureKeypoints>>>
+      keypoints_cache_;
+  std::unique_ptr<LRUCache<image_t, std::shared_ptr<FeatureDescriptors>>>
+      descriptors_cache_;
+  std::unique_ptr<LRUCache<image_t, bool>> keypoints_exists_cache_;
+  std::unique_ptr<LRUCache<image_t, bool>> descriptors_exists_cache_;
 };
 
 }  // namespace colmap

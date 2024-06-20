@@ -40,7 +40,9 @@ jobs:
 
       - name: Setup Mac
         run: |
-          rm -f '/usr/local/bin/2to3*'  # Fix `brew link` error.
+          # Fix `brew link` error.
+          find /usr/local/bin -lname '*/Library/Frameworks/Python.framework/*' -delete
+
           brew install \
             cmake \
             ninja \
@@ -74,6 +76,7 @@ jobs:
       - name: Run tests
         run: |
           cd build
+          set +e
           ctest
           tests_pass=$?
           if [ $tests_pass -ne 0 ]; then

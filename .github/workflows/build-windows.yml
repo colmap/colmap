@@ -31,7 +31,7 @@ jobs:
       COMPILER_CACHE_DIR: ${{ github.workspace }}/compiler-cache
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
-      VCPKG_COMMIT_ID: fa6e6a6ec3224f1d3697d544edef6272a59cd834
+      VCPKG_COMMIT_ID: 13bde2ff13192e1b2fdd37bd9b475c7665ae6ae5
       VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
 
     steps:
@@ -52,7 +52,7 @@ jobs:
           restore-keys: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}
           path: ${{ env.COMPILER_CACHE_DIR }}
       
-      - name: Install ccache and ninja
+      - name: Install ccache
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path "${{ env.CCACHE_DIR }}"
@@ -64,10 +64,8 @@ jobs:
 
           .github/workflows/install-ccache.ps1 -Destination "${{ env.COMPILER_CACHE_DIR }}/bin"
 
-          curl -L -o `
-            ninja.zip `
-            https://github.com/ninja-build/ninja/releases/download/v1.10.2/ninja-win.zip
-          Expand-Archive -LiteralPath ninja.zip -Destination "${{ env.COMPILER_CACHE_DIR }}/bin"
+      - name: Install CMake and Ninja
+        uses: lukka/get-cmake@latest
 
       - name: Setup vcpkg
         shell: pwsh
@@ -78,7 +76,6 @@ jobs:
           cd vcpkg
           git reset --hard ${{ env.VCPKG_COMMIT_ID }}
           ./bootstrap-vcpkg.bat
-          ./vcpkg.exe install --recurse @${{ github.workspace }}/.github/workflows/build-windows-vcpkg.txt --clean-after-build
 
       - name: Configure and build
         shell: pwsh
@@ -93,8 +90,10 @@ jobs:
             -DCMAKE_MAKE_PROGRAM=ninja `
             -DCMAKE_BUILD_TYPE=Release `
             -DTESTS_ENABLED=ON `
+            -DGUI_ENABLED=ON `
+            -DCUDA_ENABLED=OFF `
             -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake `
-            -DVCPKG_TARGET_TRIPLET=x64-windows
+            -DVCPKG_TARGET_TRIPLET=x64-windows-release
           ninja
 
       - name: Run tests
@@ -102,11 +101,12 @@ jobs:
         run: |
           ./vcpkg/vcpkg.exe integrate install
           cd build
-          ctest -E "(feature/colmap_feature_sift_test)|(util/colmap_util_opengl_utils_test)|(mvs/colmap_mvs_gpu_mat_test)"
+          $EXCLUDED_TESTS = "(feature/colmap_feature_sift_test)|(util/colmap_util_opengl_utils_test)|(mvs/colmap_mvs_gpu_mat_test)"
+          ctest -E ${EXCLUDED_TESTS}
           $tests_pass=$LastExitCode
           if ($tests_pass -ne 0) {
               echo "`n`n`nTests failed, rerunning with verbose output"
-              ctest --rerun-failed --output-on-failure
+              ctest -E ${EXCLUDED_TESTS} --rerun-failed --output-on-failure
           }
           exit $tests_pass
 

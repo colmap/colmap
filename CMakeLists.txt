@@ -30,6 +30,45 @@
 
 cmake_minimum_required(VERSION 3.10)
 
+################################################################################
+# Options
+################################################################################
+
+option(SIMD_ENABLED "Whether to enable SIMD optimizations" ON)
+option(OPENMP_ENABLED "Whether to enable OpenMP parallelization" ON)
+option(IPO_ENABLED "Whether to enable interprocedural optimization" ON)
+option(CUDA_ENABLED "Whether to enable CUDA, if available" ON)
+option(GUI_ENABLED "Whether to enable the graphical UI" ON)
+option(OPENGL_ENABLED "Whether to enable OpenGL, if available" ON)
+option(TESTS_ENABLED "Whether to build test binaries" OFF)
+option(ASAN_ENABLED "Whether to enable AddressSanitizer flags" OFF)
+option(PROFILING_ENABLED "Whether to enable google-perftools linker flags" OFF)
+option(CCACHE_ENABLED "Whether to enable compiler caching, if available" ON)
+option(CGAL_ENABLED "Whether to enable the CGAL library" ON)
+option(LSD_ENABLED "Whether to enable the LSD library" ON)
+
+# Propagate options to vcpkg manifest.
+if(TESTS_ENABLED)
+  enable_testing()
+  list(APPEND VCPKG_MANIFEST_FEATURES "tests")
+endif()
+if(CUDA_ENABLED)
+    list(APPEND VCPKG_MANIFEST_FEATURES "cuda")
+endif()
+if(GUI_ENABLED)
+    list(APPEND VCPKG_MANIFEST_FEATURES "gui")
+endif()
+if(CGAL_ENABLED)
+    list(APPEND VCPKG_MANIFEST_FEATURES "cgal")
+endif()
+
+if(LSD_ENABLED)
+    message(STATUS "Enabling LSD support")
+    add_definitions("-DCOLMAP_LSD_ENABLED")
+else()
+    message(STATUS "Disabling LSD support")
+endif()
+
 project(COLMAP LANGUAGES C CXX)
 
 set(COLMAP_VERSION "3.10-dev")
@@ -56,26 +95,6 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/CMakeHelper.cmake NO_POLICY_SCOPE)
 # Build position-independent code, so that shared libraries can link against
 # COLMAP's static libraries.
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-
-################################################################################
-# Options
-################################################################################
-
-option(SIMD_ENABLED "Whether to enable SIMD optimizations" ON)
-option(OPENMP_ENABLED "Whether to enable OpenMP parallelization" ON)
-option(IPO_ENABLED "Whether to enable interprocedural optimization" ON)
-option(CUDA_ENABLED "Whether to enable CUDA, if available" ON)
-option(GUI_ENABLED "Whether to enable the graphical UI" ON)
-option(OPENGL_ENABLED "Whether to enable OpenGL, if available" ON)
-option(TESTS_ENABLED "Whether to build test binaries" OFF)
-option(ASAN_ENABLED "Whether to enable AddressSanitizer flags" OFF)
-option(PROFILING_ENABLED "Whether to enable google-perftools linker flags" OFF)
-option(CCACHE_ENABLED "Whether to enable compiler caching, if available" ON)
-option(CGAL_ENABLED "Whether to enable the CGAL library" ON)
-
-if(TESTS_ENABLED)
-    enable_testing()
-endif()
 
 ################################################################################
 # Dependency configuration
@@ -214,7 +233,9 @@ COLMAP_ADD_SOURCE_DIR(src/colmap/tools TOOLS_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/ui UI_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/util UTIL_SRCS *.h *.cc)
 
-COLMAP_ADD_SOURCE_DIR(src/thirdparty/LSD THIRDPARTY_LSD_SRCS *.h *.c)
+if(LSD_ENABLED)
+    COLMAP_ADD_SOURCE_DIR(src/thirdparty/LSD THIRDPARTY_LSD_SRCS *.h *.c)
+endif()
 COLMAP_ADD_SOURCE_DIR(src/thirdparty/PoissonRecon THIRDPARTY_POISSON_RECON_SRCS *.h *.cpp *.inl)
 COLMAP_ADD_SOURCE_DIR(src/thirdparty/SiftGPU THIRDPARTY_SIFT_GPU_SRCS *.h *.cpp *.cu)
 COLMAP_ADD_SOURCE_DIR(src/thirdparty/VLFeat THIRDPARTY_VLFEAT_SRCS *.h *.c *.tc)
@@ -222,8 +243,7 @@ COLMAP_ADD_SOURCE_DIR(src/thirdparty/VLFeat THIRDPARTY_VLFEAT_SRCS *.h *.c *.tc)
 # Add all of the source files to a regular library target, as using a custom
 # target does not allow us to set its C++ include directories (and thus
 # intellisense can't find any of the included files).
-add_library(
-    ${COLMAP_SRC_ROOT_FOLDER}
+set(ALL_SRCS
     ${CONTROLLERS_SRCS}
     ${ESTIMATORS_SRCS}
     ${EXE_SRCS}
@@ -240,10 +260,20 @@ add_library(
     ${TOOLS_SRCS}
     ${UI_SRCS}
     ${UTIL_SRCS}
-    ${THIRDPARTY_LSD_SRCS}
     ${THIRDPARTY_POISSON_RECON_SRCS}
     ${THIRDPARTY_SIFT_GPU_SRCS}
     ${THIRDPARTY_VLFEAT_SRCS}
+)
+
+if(LSD_ENABLED)
+    list(APPEND ALL_SRCS
+        ${THIRDPARTY_LSD_SRCS}
+    )
+endif()
+
+add_library(
+    ${COLMAP_SRC_ROOT_FOLDER}
+    ${ALL_SRCS}
 )
 
 # Prevent the library from being compiled automatically.
@@ -282,6 +312,7 @@ set(COLMAP_EXPORT_LIBS
     colmap_controllers
     colmap_estimators
     colmap_exe
+    colmap_feature_types
     colmap_feature
     colmap_geometry
     colmap_image
@@ -294,10 +325,15 @@ set(COLMAP_EXPORT_LIBS
     colmap_sfm
     colmap_util
     # Third-party.
-    colmap_lsd
     colmap_poisson_recon
     colmap_vlfeat
 )
+if(LSD_ENABLED)
+    list(APPEND COLMAP_EXPORT_LIBS
+         # Third-party.
+         colmap_lsd
+    )
+endif()
 if(GUI_ENABLED)
     list(APPEND COLMAP_EXPORT_LIBS
          colmap_ui

@@ -47,6 +47,9 @@ class BaseController {
   // Set callbacks that can be triggered within the main run function.
   void AddCallback(int id, const std::function<void()>& func);
 
+  // Call back to the function with the specified name, if it exists.
+  void Callback(int id) const;
+
   // This is the main run function to be implemented by the child class. If you
   // are looping over data and want to support the pause operation, call
   // `BlockIfPaused` at appropriate places in the loop. To support the stop
@@ -62,9 +65,6 @@ class BaseController {
   // set/reset and called from within the thread. Hence, this method should be
   // called from the derived thread constructor.
   void RegisterCallback(int id);
-
-  // Call back to the function with the specified name, if it exists.
-  void Callback(int id) const;
 
  private:
   // list of callbacks

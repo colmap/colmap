@@ -29,13 +29,24 @@
 
 #include "colmap/scene/database_cache.h"
 
-#include "colmap/feature/utils.h"
 #include "colmap/util/string.h"
 #include "colmap/util/timer.h"
 
 #include <unordered_set>
 
 namespace colmap {
+namespace {
+
+std::vector<Eigen::Vector2d> FeatureKeypointsToPointsVector(
+    const FeatureKeypoints& keypoints) {
+  std::vector<Eigen::Vector2d> points(keypoints.size());
+  for (size_t i = 0; i < keypoints.size(); ++i) {
+    points[i] = Eigen::Vector2d(keypoints[i].x, keypoints[i].y);
+  }
+  return points;
+}
+
+}  // namespace
 
 std::shared_ptr<DatabaseCache> DatabaseCache::Create(
     const Database& database,
@@ -180,14 +191,6 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
   }
 
   cache->correspondence_graph_->Finalize();
-
-  // Set number of observations and correspondences per image.
-  for (auto& image : cache->images_) {
-    image.second.SetNumObservations(
-        cache->correspondence_graph_->NumObservationsForImage(image.first));
-    image.second.SetNumCorrespondences(
-        cache->correspondence_graph_->NumCorrespondencesForImage(image.first));
-  }
 
   LOG(INFO) << StringPrintf(" in %.3fs (ignored %d)",
                             timer.ElapsedSeconds(),

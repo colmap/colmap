@@ -709,14 +709,17 @@ std::unique_ptr<FeatureExtractor> CreateSiftFeatureExtractor(
     const SiftExtractionOptions& options) {
   if (options.estimate_affine_shape || options.domain_size_pooling ||
       options.force_covariant_extractor) {
+    LOG(INFO) << "Creating Covariant SIFT CPU feature extractor";
     return CovariantSiftCPUFeatureExtractor::Create(options);
   } else if (options.use_gpu) {
 #if defined(COLMAP_GPU_ENABLED)
+    LOG(INFO) << "Creating SIFT GPU feature extractor";
     return SiftGPUFeatureExtractor::Create(options);
 #else
     return nullptr;
 #endif  // COLMAP_GPU_ENABLED
   } else {
+    LOG(INFO) << "Creating SIFT CPU feature extractor";
     return SiftCPUFeatureExtractor::Create(options);
   }
 }
@@ -1081,7 +1084,7 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
   }
 
   void MatchGuided(
-      const TwoViewGeometryOptions& options,
+      const double max_error,
       const std::shared_ptr<const FeatureKeypoints>& keypoints1,
       const std::shared_ptr<const FeatureKeypoints>& keypoints2,
       const std::shared_ptr<const FeatureDescriptors>& descriptors1,
@@ -1108,8 +1111,7 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
       flann_index2_ = BuildFlannIndex(*descriptors2_);
     }
 
-    const float max_residual =
-        options.ransac_options.max_error * options.ransac_options.max_error;
+    const float max_residual = max_error * max_error;
 
     const Eigen::Matrix3f F = two_view_geometry->F.cast<float>();
     const Eigen::Matrix3f H = two_view_geometry->H.cast<float>();
@@ -1327,7 +1329,7 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
   }
 
   void MatchGuided(
-      const TwoViewGeometryOptions& options,
+      const double max_error,
       const std::shared_ptr<const FeatureKeypoints>& keypoints1,
       const std::shared_ptr<const FeatureKeypoints>& keypoints2,
       const std::shared_ptr<const FeatureDescriptors>& descriptors1,
@@ -1399,8 +1401,7 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
     two_view_geometry->inlier_matches.resize(
         static_cast<size_t>(options_.max_num_matches));
 
-    const float max_residual = static_cast<float>(
-        options.ransac_options.max_error * options.ransac_options.max_error);
+    const float max_residual = static_cast<float>(max_error * max_error);
 
     const int num_matches = sift_match_gpu_.GetGuidedSiftMatch(
         options_.max_num_matches,
@@ -1447,11 +1448,13 @@ std::unique_ptr<FeatureMatcher> CreateSiftFeatureMatcher(
     const SiftMatchingOptions& options) {
   if (options.use_gpu) {
 #if defined(COLMAP_GPU_ENABLED)
+    LOG(INFO) << "Creating SIFT GPU feature matcher";
     return SiftGPUFeatureMatcher::Create(options);
 #else
     return nullptr;
 #endif  // COLMAP_GPU_ENABLED
   } else {
+    LOG(INFO) << "Creating SIFT CPU feature matcher";
     return SiftCPUFeatureMatcher::Create(options);
   }
 }

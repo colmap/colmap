@@ -43,10 +43,6 @@ TEST(Image, Default) {
   EXPECT_FALSE(image.IsRegistered());
   EXPECT_EQ(image.NumPoints2D(), 0);
   EXPECT_EQ(image.NumPoints3D(), 0);
-  EXPECT_EQ(image.NumObservations(), 0);
-  EXPECT_EQ(image.NumCorrespondences(), 0);
-  EXPECT_EQ(image.NumVisiblePoints3D(), 0);
-  EXPECT_EQ(image.Point3DVisibilityScore(), 0);
   EXPECT_EQ(image.CamFromWorld().rotation.coeffs(),
             Eigen::Quaterniond::Identity().coeffs());
   EXPECT_EQ(image.CamFromWorld().translation, Eigen::Vector3d::Zero());
@@ -104,89 +100,6 @@ TEST(Image, NumPoints3D) {
   image.SetPoint3DForPoint2D(0, 1);
   image.SetPoint3DForPoint2D(1, 2);
   EXPECT_EQ(image.NumPoints3D(), 2);
-}
-
-TEST(Image, NumObservations) {
-  Image image;
-  EXPECT_EQ(image.NumObservations(), 0);
-  image.SetNumObservations(10);
-  EXPECT_EQ(image.NumObservations(), 10);
-}
-
-TEST(Image, NumCorrespondences) {
-  Image image;
-  EXPECT_EQ(image.NumCorrespondences(), 0);
-  image.SetNumCorrespondences(10);
-  EXPECT_EQ(image.NumCorrespondences(), 10);
-}
-
-TEST(Image, NumVisiblePoints3D) {
-  Image image;
-  image.SetPoints2D(std::vector<Eigen::Vector2d>(10));
-  image.SetNumObservations(10);
-  Camera camera;
-  camera.width = 10;
-  camera.height = 10;
-  image.SetUp(camera);
-  EXPECT_EQ(image.NumVisiblePoints3D(), 0);
-  image.IncrementCorrespondenceHasPoint3D(0);
-  EXPECT_EQ(image.NumVisiblePoints3D(), 1);
-  image.IncrementCorrespondenceHasPoint3D(0);
-  image.IncrementCorrespondenceHasPoint3D(1);
-  EXPECT_EQ(image.NumVisiblePoints3D(), 2);
-  image.DecrementCorrespondenceHasPoint3D(0);
-  EXPECT_EQ(image.NumVisiblePoints3D(), 2);
-  image.DecrementCorrespondenceHasPoint3D(0);
-  EXPECT_EQ(image.NumVisiblePoints3D(), 1);
-  image.DecrementCorrespondenceHasPoint3D(1);
-  EXPECT_EQ(image.NumVisiblePoints3D(), 0);
-}
-
-TEST(Image, Point3DVisibilityScore) {
-  Image image;
-  std::vector<Eigen::Vector2d> points2D;
-  for (size_t i = 0; i < 4; ++i) {
-    for (size_t j = 0; j < 4; ++j) {
-      points2D.emplace_back(i, j);
-    }
-  }
-  image.SetPoints2D(points2D);
-  image.SetNumObservations(16);
-  Camera camera;
-  camera.width = 4;
-  camera.height = 4;
-  image.SetUp(camera);
-  Eigen::Matrix<size_t, Eigen::Dynamic, 1> scores(
-      image.kNumPoint3DVisibilityPyramidLevels, 1);
-  for (int i = 1; i <= image.kNumPoint3DVisibilityPyramidLevels; ++i) {
-    scores(i - 1) = (1 << i) * (1 << i);
-  }
-  EXPECT_EQ(image.Point3DVisibilityScore(), 0);
-  image.IncrementCorrespondenceHasPoint3D(0);
-  EXPECT_EQ(image.Point3DVisibilityScore(), scores.sum());
-  image.IncrementCorrespondenceHasPoint3D(0);
-  EXPECT_EQ(image.Point3DVisibilityScore(), scores.sum());
-  image.IncrementCorrespondenceHasPoint3D(1);
-  EXPECT_EQ(image.Point3DVisibilityScore(),
-            scores.sum() + scores.bottomRows(scores.size() - 1).sum());
-  image.IncrementCorrespondenceHasPoint3D(1);
-  image.IncrementCorrespondenceHasPoint3D(1);
-  image.IncrementCorrespondenceHasPoint3D(4);
-  EXPECT_EQ(image.Point3DVisibilityScore(),
-            scores.sum() + 2 * scores.bottomRows(scores.size() - 1).sum());
-  image.IncrementCorrespondenceHasPoint3D(4);
-  image.IncrementCorrespondenceHasPoint3D(5);
-  EXPECT_EQ(image.Point3DVisibilityScore(),
-            scores.sum() + 3 * scores.bottomRows(scores.size() - 1).sum());
-  image.DecrementCorrespondenceHasPoint3D(0);
-  EXPECT_EQ(image.Point3DVisibilityScore(),
-            scores.sum() + 3 * scores.bottomRows(scores.size() - 1).sum());
-  image.DecrementCorrespondenceHasPoint3D(0);
-  EXPECT_EQ(image.Point3DVisibilityScore(),
-            scores.sum() + 2 * scores.bottomRows(scores.size() - 1).sum());
-  image.IncrementCorrespondenceHasPoint3D(2);
-  EXPECT_EQ(image.Point3DVisibilityScore(),
-            2 * scores.sum() + 2 * scores.bottomRows(scores.size() - 1).sum());
 }
 
 TEST(Image, Points2D) {
