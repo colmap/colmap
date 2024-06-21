@@ -38,8 +38,10 @@
 namespace colmap {
 namespace {
 
-TEST(HomographyMatrix, Minimal) {
-  constexpr size_t kNumPoints = 4;
+class HomographyMatrixTests : public ::testing::TestWithParam<size_t> {};
+
+TEST_P(HomographyMatrixTests, Nominal) {
+  const size_t kNumPoints = GetParam();
   for (int x = 0; x < 10; ++x) {
     Eigen::Matrix3d expected_H;
     expected_H << x, 0.2, 0.3, 30, 0.2, 0.1, 0.3, 20, 1;
@@ -55,33 +57,6 @@ TEST(HomographyMatrix, Minimal) {
     std::vector<Eigen::Matrix3d> models;
     estimator.Estimate(src, dst, &models);
 
-    ASSERT_EQ(models.size(), 1);
-
-    std::vector<double> residuals;
-    estimator.Residuals(src, dst, models[0], &residuals);
-
-    for (size_t i = 0; i < kNumPoints; ++i) {
-      EXPECT_LT(residuals[i], 1e-6);
-    }
-  }
-}
-
-TEST(HomographyMatrix, NonMinimal) {
-  constexpr size_t kNumPoints = 20;
-  for (int x = 0; x < 10; ++x) {
-    Eigen::Matrix3d expected_H;
-    expected_H << x, 0.2, 0.3, 30, 0.2, 0.1, 0.3, 20, 1;
-
-    std::vector<Eigen::Vector2d> src;
-    std::vector<Eigen::Vector2d> dst;
-    for (size_t i = 0; i < kNumPoints; ++i) {
-      src.push_back(Eigen::Vector2d::Random());
-      dst.push_back((expected_H * src[i].homogeneous()).hnormalized());
-    }
-
-    HomographyMatrixEstimator estimator;
-    std::vector<Eigen::Matrix3d> models;
-    estimator.Estimate(src, dst, &models);
     ASSERT_EQ(models.size(), 1);
 
     std::vector<double> residuals;
@@ -96,8 +71,8 @@ TEST(HomographyMatrix, NonMinimal) {
 // Test numerical stability with large coordinates. This is to ensure that the
 // homography matrix estimator is numerically stable despite not using
 // coordinate normalization. We can do this because of double precision.
-TEST(HomographyMatrix, MinimalNumericalStability) {
-  constexpr size_t kNumPoints = 4;
+TEST_P(HomographyMatrixTests, NumericalStability) {
+  const size_t kNumPoints = GetParam();
   constexpr double kCoordinateScale = 1e6;
   for (int x = 1; x < 10; ++x) {
     Eigen::Matrix3d expected_H = Eigen::Matrix3d::Identity();
@@ -124,36 +99,8 @@ TEST(HomographyMatrix, MinimalNumericalStability) {
   }
 }
 
-TEST(HomographyMatrix, NonMinimalNumericalStability) {
-  constexpr size_t kNumPoints = 1000;
-  constexpr double kCoordinateScale = 1e6;
-  for (int x = 1; x < 10; ++x) {
-    Eigen::Matrix3d expected_H = Eigen::Matrix3d::Identity();
-    expected_H(0, 0) = x;
-
-    std::vector<Eigen::Vector2d> src;
-    std::vector<Eigen::Vector2d> dst;
-    for (size_t i = 0; i < kNumPoints; ++i) {
-      src.push_back(Eigen::Vector2d::Random() * kCoordinateScale);
-      dst.push_back((expected_H * src[i].homogeneous()).hnormalized());
-    }
-
-    HomographyMatrixEstimator estimator;
-    std::vector<Eigen::Matrix3d> models;
-    estimator.Estimate(src, dst, &models);
-    ASSERT_EQ(models.size(), 1);
-
-    std::vector<double> residuals;
-    estimator.Residuals(src, dst, models[0], &residuals);
-
-    for (size_t i = 0; i < kNumPoints; ++i) {
-      EXPECT_LT(residuals[i], 1e-6);
-    }
-  }
-}
-
-TEST(HomographyMatrix, NoiseStability) {
-  constexpr size_t kNumPoints = 1000;
+TEST_P(HomographyMatrixTests, NoiseStability) {
+  const size_t kNumPoints = GetParam();
   constexpr double kNoise = 1e-3;
   for (int x = 1; x < 10; ++x) {
     Eigen::Matrix3d expected_H = Eigen::Matrix3d::Identity();
@@ -181,28 +128,41 @@ TEST(HomographyMatrix, NoiseStability) {
   }
 }
 
-TEST(HomographyMatrix, Degenerate) {
-  Eigen::Matrix3d expected_H;
-  expected_H << 0.1, 0.2, 0.3, 30, 0.2, 0.1, 0.3, 20, 1;
+TEST_P(HomographyMatrixTests, Degenerate) {
+  const size_t kNumPoints = GetParam();
+  constexpr double kNoise = 1e-3;
 
-  std::vector<Eigen::Vector2d> src;
-  src.emplace_back(2, 1);
-  src.emplace_back(2, 1);
-  src.emplace_back(3, 1);
-  src.emplace_back(10, 30);
+  for (int x = 0; x < 10; ++x) {
+    Eigen::Matrix3d expected_H;
+    expected_H << x, 0.2, 0.3, 30, 0.2, 0.1, 0.3, 20, 1;
 
-  std::vector<Eigen::Vector2d> dst;
-  for (size_t i = 0; i < src.size(); ++i) {
-    const Eigen::Vector3d dsth = expected_H * src[i].homogeneous();
-    dst.push_back(dsth.hnormalized());
+    std::vector<Eigen::Vector2d> src;
+    src.emplace_back(2, 1);
+    src.emplace_back(3, 1);
+    src.emplace_back(10, 30);
+    ASSERT_GE(kNumPoints, 4);
+    const size_t num_redundant_points = kNumPoints - src.size();
+    for (size_t i = 0; i < num_redundant_points; ++i) {
+      src.emplace_back(src.front());
+    }
+
+    std::vector<Eigen::Vector2d> dst;
+    for (size_t i = 0; i < src.size(); ++i) {
+      const Eigen::Vector3d dsth = expected_H * src[i].homogeneous();
+      dst.push_back(dsth.hnormalized() + Eigen::Vector2d::Random() * kNoise);
+    }
+
+    HomographyMatrixEstimator estimator;
+    std::vector<Eigen::Matrix3d> models;
+    estimator.Estimate(src, dst, &models);
+
+    ASSERT_EQ(models.size(), 0);
   }
-
-  HomographyMatrixEstimator estimator;
-  std::vector<Eigen::Matrix3d> models;
-  estimator.Estimate(src, dst, &models);
-
-  ASSERT_EQ(models.size(), 0);
 }
+
+INSTANTIATE_TEST_SUITE_P(HomographyMatrix,
+                         HomographyMatrixTests,
+                         ::testing::Values(4, 8, 64, 1024));
 
 }  // namespace
 }  // namespace colmap

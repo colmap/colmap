@@ -76,6 +76,9 @@ void HomographyMatrixEstimator::Estimate(const std::vector<X_t>& points1,
     // Solve for the nullspace of the constraint matrix.
     Eigen::JacobiSVD<Eigen::Matrix<double, Eigen::Dynamic, 9>> svd(
         A, Eigen::ComputeFullV);
+    if (svd.rank() < 8) {
+      return;
+    }
     const Eigen::VectorXd nullspace = svd.matrixV().col(8);
     H = Eigen::Map<const Eigen::Matrix3d>(nullspace.data()).transpose();
   }
