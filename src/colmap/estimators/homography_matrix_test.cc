@@ -60,7 +60,7 @@ TEST(HomographyMatrix, Minimal) {
     std::vector<double> residuals;
     estimator.Residuals(src, dst, models[0], &residuals);
 
-    for (size_t i = 0; i < 4; ++i) {
+    for (size_t i = 0; i < kNumPoints; ++i) {
       EXPECT_LT(residuals[i], 1e-6);
     }
   }
@@ -87,7 +87,7 @@ TEST(HomographyMatrix, NonMinimal) {
     std::vector<double> residuals;
     estimator.Residuals(src, dst, models[0], &residuals);
 
-    for (size_t i = 0; i < 4; ++i) {
+    for (size_t i = 0; i < kNumPoints; ++i) {
       EXPECT_LT(residuals[i], 1e-6);
     }
   }
@@ -118,7 +118,7 @@ TEST(HomographyMatrix, NumericalStability) {
     std::vector<double> residuals;
     estimator.Residuals(src, dst, models[0], &residuals);
 
-    for (size_t i = 0; i < 4; ++i) {
+    for (size_t i = 0; i < kNumPoints; ++i) {
       EXPECT_LT(residuals[i], 1e-6);
     }
   }
