@@ -267,7 +267,9 @@ BundleAdjustmentCovarianceEstimator::EstimatePoseCovariance(
     LOG(FATAL_THROW) << StringPrintf(
         "Error! The Schur complement on pose parameters is rank "
         "deficient. Number of columns: {%d}, rank: {%d}. This is likely due to "
-        "the poses being underconstrained with Gauge ambiguity.");
+        "the poses being underconstrained with Gauge ambiguity.",
+        S_poses.rows(),
+        luOfS_poses.rank());
   }
   Eigen::MatrixXd cov_poses = S_poses.inverse();
 
