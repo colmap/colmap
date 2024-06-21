@@ -29,41 +29,11 @@
 
 #include "colmap/estimators/covariance.h"
 
+#include <Eigen/Dense>
 #include <Eigen/Sparse>
 #include <ceres/crs_matrix.h>
 
 namespace colmap {
-
-namespace {
-
-Eigen::SparseMatrix<double> convertCRSToEigenSparse(
-    const ceres::CRSMatrix& crsMatrix) {
-  int rows = crsMatrix.num_rows;
-  int cols = crsMatrix.num_cols;
-  Eigen::SparseMatrix<double> mat(rows, cols);
-
-  // Reserve space for the non-zero elements
-  mat.reserve(crsMatrix.values.size());
-
-  // Iterate over each row in the CRSMatrix
-  for (int r = 0; r < rows; ++r) {
-    int start = crsMatrix.rows[r];
-    int end = crsMatrix.rows[r + 1];
-
-    // Add each non-zero element to the Eigen::SparseMatrix
-    for (int j = start; j < end; ++j) {
-      int col = crsMatrix.cols[j];
-      double value = crsMatrix.values[j];
-      mat.insert(r, col) = value;
-    }
-  }
-
-  // Finalize the Eigen::SparseMatrix
-  mat.finalize();
-  return mat;
-}
-
-}  // namespace
 
 Eigen::Matrix6d GetCovarianceForPoseInverse(const Eigen::Matrix6d& covar,
                                             const Rigid3d& rigid3) {
@@ -225,7 +195,13 @@ BundleAdjustmentCovarianceEstimator::EstimatePoseCovariance(
   problem->Evaluate(eval_options, nullptr, nullptr, nullptr, &J_full_crs);
   int num_residuals = J_full_crs.num_rows;
   int num_params = J_full_crs.num_cols;
-  Eigen::SparseMatrix<double> J_full = convertCRSToEigenSparse(J_full_crs);
+  Eigen::Map<Eigen::SparseMatrix<double, Eigen::RowMajor>> J_full(
+      J_full_crs.num_rows,
+      J_full_crs.num_cols,
+      J_full_crs.values.size(),
+      J_full_crs.rows.data(),
+      J_full_crs.cols.data(),
+      J_full_crs.values.data());
 
   // Step 3: Schur elimination on points
   LOG(INFO) << "Schur elimination on points";
@@ -288,9 +264,10 @@ BundleAdjustmentCovarianceEstimator::EstimatePoseCovariance(
       num_params_poses);
   Eigen::FullPivLU<Eigen::MatrixXd> luOfS_poses(S_poses);
   if (luOfS_poses.rank() < S_poses.rows()) {
-    LOG(FATAL_THROW) << "Error! The Hessian on the pose parameters is rank "
-                        "deficient. This is likely due to the poses being "
-                        "underconstrained with Gauge ambiguity.";
+    LOG(FATAL_THROW) << StringPrintf(
+        "Error! The Schur complement on pose parameters is rank "
+        "deficient. Number of columns: {%d}, rank: {%d}. This is likely due to "
+        "the poses being underconstrained with Gauge ambiguity.");
   }
   Eigen::MatrixXd cov_poses = S_poses.inverse();
 
