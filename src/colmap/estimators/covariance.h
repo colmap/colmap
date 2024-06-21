@@ -56,7 +56,7 @@ class BundleAdjustmentCovarianceEstimator {
   static std::map<image_t, Eigen::MatrixXd> EstimatePoseCovariance(
       ceres::Problem* problem,
       Reconstruction* reconstruction,
-      const double lambda = 1e-6);
+      double lambda = 1e-6);
 };
 
 }  // namespace colmap
