@@ -146,7 +146,9 @@ BundleAdjustmentCovarianceEstimator::EstimatePoseCovarianceCeresBackend(
 
 std::map<image_t, Eigen::MatrixXd>
 BundleAdjustmentCovarianceEstimator::EstimatePoseCovariance(
-    ceres::Problem* problem, Reconstruction* reconstruction) {
+    ceres::Problem* problem,
+    Reconstruction* reconstruction,
+    const double lambda) {
   THROW_CHECK_NOTNULL(problem);
   THROW_CHECK_NOTNULL(reconstruction);
 
@@ -250,7 +252,7 @@ BundleAdjustmentCovarianceEstimator::EstimatePoseCovariance(
         H_pp.block(counter_p, counter_p, num_params_point, num_params_point);
     Eigen::MatrixXd subMatrix = subMatrix_sparse;
     subMatrix +=
-        0.001 * Eigen::MatrixXd::Identity(subMatrix.rows(), subMatrix.cols());
+        lambda * Eigen::MatrixXd::Identity(subMatrix.rows(), subMatrix.cols());
     Eigen::MatrixXd subMatrix_inv = subMatrix.inverse();
     // update matrix
     for (int i = 0; i < num_params_point; ++i) {

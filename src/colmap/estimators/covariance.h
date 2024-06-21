@@ -42,18 +42,21 @@ Eigen::Matrix6d GetCovarianceForPoseInverse(const Eigen::Matrix6d& covar,
                                             const Rigid3d& rigid3);
 
 // Covariance estimation for bundle adjustment (or extended) problem.
-// The interface is applicable to all ceres problem that is extended on top of
-// the reprojection error based bundle adjustment. The Schur complement is
-// computed explicitly to eliminate the hessian block for all the 3D points,
-// which is essential to avoid Jacobian rank deficiency for large-scale bundle
-// adjustment
+// The interface is applicable to all ceres problem extended on top of bundle
+// adjustment. The Schur complement is computed explicitly to eliminate the
+// hessian block for all the 3D points, which is essential to avoid Jacobian
+// rank deficiency for large-scale reconstruction
 class BundleAdjustmentCovarianceEstimator {
  public:
   static std::map<image_t, Eigen::MatrixXd> EstimatePoseCovarianceCeresBackend(
       ceres::Problem* problem, Reconstruction* reconstruction);
 
+  // The parameter lambda is the dumping factor used to avoid Jacobian rank
+  // deficiency for poorly conditioned 3D points
   static std::map<image_t, Eigen::MatrixXd> EstimatePoseCovariance(
-      ceres::Problem* problem, Reconstruction* reconstruction);
+      ceres::Problem* problem,
+      Reconstruction* reconstruction,
+      const double lambda = 1e-6);
 };
 
 }  // namespace colmap

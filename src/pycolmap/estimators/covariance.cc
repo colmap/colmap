@@ -26,5 +26,6 @@ void BindCovarianceEstimator(py::module& m) {
   m.def("estimate_pose_covariance_from_ba",
         &BundleAdjustmentCovarianceEstimator::EstimatePoseCovariance,
         py::arg("problem"),
-        py::arg("reconstruction"));
+        py::arg("reconstruction"),
+        py::arg("lambda") = 1e-6);
 }
