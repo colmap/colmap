@@ -28,6 +28,7 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 #include "colmap/estimators/covariance.h"
+
 #include "colmap/estimators/cost_functions.h"
 
 #include <Eigen/Dense>
