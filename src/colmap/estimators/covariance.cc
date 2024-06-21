@@ -238,9 +238,9 @@ BundleAdjustmentCovarianceEstimator::EstimatePoseCovariance(
         H_pp_inv.coeffRef(counter_p + i, counter_p + j) = subMatrix_inv(i, j);
       }
     }
-    H_pp_inv.makeCompressed();
     counter_p += num_params_point;
   }
+  H_pp_inv.makeCompressed();
   Eigen::SparseMatrix<double> S = H_cc - H_cp * H_pp_inv * H_pc;
 
   // Step 4: Schur elimination on other variables to get pose covariance
