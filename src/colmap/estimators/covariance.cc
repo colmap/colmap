@@ -76,12 +76,12 @@ BundleAdjustmentCovarianceEstimator::EstimatePoseCovarianceCeresBackend(
     int num_params_qvec = 0;
     const double* qvec = image.second.CamFromWorld().rotation.coeffs().data();
     if (problem->HasParameterBlock(qvec) &&
-        !problem->IsParameterBlockConstant(qvec))
+        !problem->IsParameterBlockConstant(const_cast<double*>(qvec)))
       num_params_qvec = ParameterBlockTangentSize(problem, qvec);
     int num_params_tvec = 0;
     const double* tvec = image.second.CamFromWorld().translation.data();
     if (problem->HasParameterBlock(tvec) &&
-        !problem->IsParameterBlockConstant(tvec))
+        !problem->IsParameterBlockConstant(const_cast<double*>(tvec)))
       num_params_tvec = ParameterBlockTangentSize(problem, tvec);
 
     // get covariance
