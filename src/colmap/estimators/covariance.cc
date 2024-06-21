@@ -36,40 +36,44 @@ namespace colmap {
 
 namespace {
 
-Eigen::SparseMatrix<double> convertCRSToEigenSparse(const ceres::CRSMatrix& crsMatrix) {
-    int rows = crsMatrix.num_rows;
-    int cols = crsMatrix.num_cols;
-    Eigen::SparseMatrix<double> mat(rows, cols);
-    
-    // Reserve space for the non-zero elements
-    mat.reserve(crsMatrix.values.size());
-    
-    // Iterate over each row in the CRSMatrix
-    for (int r = 0; r < rows; ++r) {
-        int start = crsMatrix.rows[r];
-        int end = crsMatrix.rows[r + 1];
-        
-        // Add each non-zero element to the Eigen::SparseMatrix
-        for (int j = start; j < end; ++j) {
-            int col = crsMatrix.cols[j];
-            double value = crsMatrix.values[j];
-            mat.insert(r, col) = value;
-        }
+Eigen::SparseMatrix<double> convertCRSToEigenSparse(
+    const ceres::CRSMatrix& crsMatrix) {
+  int rows = crsMatrix.num_rows;
+  int cols = crsMatrix.num_cols;
+  Eigen::SparseMatrix<double> mat(rows, cols);
+
+  // Reserve space for the non-zero elements
+  mat.reserve(crsMatrix.values.size());
+
+  // Iterate over each row in the CRSMatrix
+  for (int r = 0; r < rows; ++r) {
+    int start = crsMatrix.rows[r];
+    int end = crsMatrix.rows[r + 1];
+
+    // Add each non-zero element to the Eigen::SparseMatrix
+    for (int j = start; j < end; ++j) {
+      int col = crsMatrix.cols[j];
+      double value = crsMatrix.values[j];
+      mat.insert(r, col) = value;
     }
-    
-    // Finalize the Eigen::SparseMatrix
-    mat.finalize();
-    return mat;
+  }
+
+  // Finalize the Eigen::SparseMatrix
+  mat.finalize();
+  return mat;
 }
 
-} // namespace
+}  // namespace
 
-Eigen::Matrix6d GetCovarianceForPoseInverse(const Eigen::Matrix6d covar, const Rigid3d& rigid3) {
+Eigen::Matrix6d GetCovarianceForPoseInverse(const Eigen::Matrix6d covar,
+                                            const Rigid3d& rigid3) {
   Eigen::Matrix6d adjoint = rigid3.Adjoint();
   return adjoint * covar * adjoint.transpose();
 }
 
-std::map<image_t, Eigen::MatrixXd> BundleAdjustmentCovarianceEstimator::EstimatePoseCovarianceCeresBackend(ceres::Problem* problem, Reconstruction* reconstruction) {
+std::map<image_t, Eigen::MatrixXd>
+BundleAdjustmentCovarianceEstimator::EstimatePoseCovarianceCeresBackend(
+    ceres::Problem* problem, Reconstruction* reconstruction) {
   THROW_CHECK_NOTNULL(problem);
   THROW_CHECK_NOTNULL(reconstruction);
 
@@ -77,58 +81,72 @@ std::map<image_t, Eigen::MatrixXd> BundleAdjustmentCovarianceEstimator::Estimate
   ceres::Covariance::Options options;
   ceres::Covariance covariance_computer(options);
   std::vector<std::pair<const double*, const double*>> pointer_values;
-  for (const auto& image: reconstruction->Images()) {
+  for (const auto& image : reconstruction->Images()) {
     const double* qvec = image.second.CamFromWorld().rotation.coeffs().data();
-    bool qvec_valid = problem->HasParameterBlock(qvec) && !problem->IsParameterBlockConstant(qvec);
+    bool qvec_valid = problem->HasParameterBlock(qvec) &&
+                      !problem->IsParameterBlockConstant(qvec);
     const double* tvec = image.second.CamFromWorld().translation.data();
-    bool tvec_valid = problem->HasParameterBlock(tvec) && !problem->IsParameterBlockConstant(tvec);
-    if (qvec_valid)
-      pointer_values.push_back(std::make_pair(qvec, qvec));
-    if (tvec_valid)
-      pointer_values.push_back(std::make_pair(tvec, tvec));
+    bool tvec_valid = problem->HasParameterBlock(tvec) &&
+                      !problem->IsParameterBlockConstant(tvec);
+    if (qvec_valid) pointer_values.push_back(std::make_pair(qvec, qvec));
+    if (tvec_valid) pointer_values.push_back(std::make_pair(tvec, tvec));
     if (qvec_valid && tvec_valid)
       pointer_values.push_back(std::make_pair(qvec, tvec));
   }
-  covariance_computer.Compute(pointer_values, problem);  
+  covariance_computer.Compute(pointer_values, problem);
 
   // Construct covariance for each pose
   std::map<image_t, Eigen::MatrixXd> covs;
-  for (const auto& image: reconstruction->Images()) {
+  for (const auto& image : reconstruction->Images()) {
     // compute number of effective parameters
     int num_params_qvec = 0;
     const double* qvec = image.second.CamFromWorld().rotation.coeffs().data();
-    if (problem->HasParameterBlock(qvec) && !problem->IsParameterBlockConstant(qvec))
+    if (problem->HasParameterBlock(qvec) &&
+        !problem->IsParameterBlockConstant(qvec))
       num_params_qvec = problem->ParameterBlockTangentSize(qvec);
     int num_params_tvec = 0;
     const double* tvec = image.second.CamFromWorld().translation.data();
-    if (problem->HasParameterBlock(tvec) && !problem->IsParameterBlockConstant(tvec))
+    if (problem->HasParameterBlock(tvec) &&
+        !problem->IsParameterBlockConstant(tvec))
       num_params_tvec = problem->ParameterBlockTangentSize(tvec);
 
     // get covariance
     int num_params = num_params_qvec + num_params_tvec;
     Eigen::MatrixXd covar(num_params, num_params);
     if (num_params_qvec > 0) {
-      Eigen::Matrix<double, -1, -1, Eigen::RowMajor> cov_qq(num_params_qvec, num_params_qvec);
-      covariance_computer.GetCovarianceBlockInTangentSpace(qvec, qvec, cov_qq.data());
+      Eigen::Matrix<double, -1, -1, Eigen::RowMajor> cov_qq(num_params_qvec,
+                                                            num_params_qvec);
+      covariance_computer.GetCovarianceBlockInTangentSpace(
+          qvec, qvec, cov_qq.data());
       covar.block(0, 0, num_params_qvec, num_params_qvec) = cov_qq;
     }
     if (num_params_tvec > 0) {
-      Eigen::Matrix<double, -1, -1, Eigen::RowMajor> cov_tt(num_params_tvec, num_params_tvec);
-      covariance_computer.GetCovarianceBlockInTangentSpace(tvec, tvec, cov_tt.data());
-      covar.block(num_params_qvec, num_params_qvec, num_params_tvec, num_params_tvec) = cov_tt;
+      Eigen::Matrix<double, -1, -1, Eigen::RowMajor> cov_tt(num_params_tvec,
+                                                            num_params_tvec);
+      covariance_computer.GetCovarianceBlockInTangentSpace(
+          tvec, tvec, cov_tt.data());
+      covar.block(
+          num_params_qvec, num_params_qvec, num_params_tvec, num_params_tvec) =
+          cov_tt;
     }
     if (num_params_qvec > 0 && num_params_tvec > 0) {
-      Eigen::Matrix<double, -1, -1, Eigen::RowMajor> cov_qt(num_params_qvec, num_params_tvec);
-      covariance_computer.GetCovarianceBlockInTangentSpace(qvec, tvec, cov_qt.data());
-      covar.block(0, num_params_qvec, num_params_qvec, num_params_tvec) = cov_qt;
-      covar.block(num_params_qvec, 0, num_params_tvec, num_params_qvec) = cov_qt.transpose();
+      Eigen::Matrix<double, -1, -1, Eigen::RowMajor> cov_qt(num_params_qvec,
+                                                            num_params_tvec);
+      covariance_computer.GetCovarianceBlockInTangentSpace(
+          qvec, tvec, cov_qt.data());
+      covar.block(0, num_params_qvec, num_params_qvec, num_params_tvec) =
+          cov_qt;
+      covar.block(num_params_qvec, 0, num_params_tvec, num_params_qvec) =
+          cov_qt.transpose();
     }
     covs.insert(std::make_pair(image.second.ImageId(), covar));
   }
   return covs;
 }
 
-std::map<image_t, Eigen::MatrixXd> BundleAdjustmentCovarianceEstimator::EstimatePoseCovariance(ceres::Problem* problem, Reconstruction* reconstruction) {
+std::map<image_t, Eigen::MatrixXd>
+BundleAdjustmentCovarianceEstimator::EstimatePoseCovariance(
+    ceres::Problem* problem, Reconstruction* reconstruction) {
   THROW_CHECK_NOTNULL(problem);
   THROW_CHECK_NOTNULL(reconstruction);
 
@@ -139,10 +157,11 @@ std::map<image_t, Eigen::MatrixXd> BundleAdjustmentCovarianceEstimator::Estimate
 
   // Left: parameters for poses
   int num_params_poses = 0;
-  for (const auto& image: reconstruction->Images()) {
+  for (const auto& image : reconstruction->Images()) {
     int num_params_qvec = 0;
     const double* qvec = image.second.CamFromWorld().rotation.coeffs().data();
-    if (problem->HasParameterBlock(qvec) && !problem->IsParameterBlockConstant(qvec))
+    if (problem->HasParameterBlock(qvec) &&
+        !problem->IsParameterBlockConstant(qvec))
       num_params_qvec = problem->ParameterBlockTangentSize(qvec);
     if (num_params_qvec > 0) {
       parameter_blocks.push_back(qvec);
@@ -152,7 +171,8 @@ std::map<image_t, Eigen::MatrixXd> BundleAdjustmentCovarianceEstimator::Estimate
 
     int num_params_tvec = 0;
     const double* tvec = image.second.CamFromWorld().translation.data();
-    if (problem->HasParameterBlock(tvec) && !problem->IsParameterBlockConstant(tvec))
+    if (problem->HasParameterBlock(tvec) &&
+        !problem->IsParameterBlockConstant(tvec))
       num_params_tvec = problem->ParameterBlockTangentSize(tvec);
     if (num_params_tvec > 0) {
       parameter_blocks.push_back(tvec);
@@ -163,10 +183,11 @@ std::map<image_t, Eigen::MatrixXd> BundleAdjustmentCovarianceEstimator::Estimate
 
   // Right: parameters for 3D points that we want to eliminate
   int num_params_points = 0;
-  for (const auto& point3D: reconstruction->Points3D()) {
+  for (const auto& point3D : reconstruction->Points3D()) {
     const double* point3D_ptr = point3D.second.xyz.data();
     int num_params_point = 0;
-    if (problem->HasParameterBlock(point3D_ptr) && !problem->IsParameterBlockConstant(point3D_ptr)) {
+    if (problem->HasParameterBlock(point3D_ptr) &&
+        !problem->IsParameterBlockConstant(point3D_ptr)) {
       num_params_point = problem->ParameterBlockTangentSize(point3D_ptr);
     }
     if (num_params_point > 0) {
@@ -179,53 +200,57 @@ std::map<image_t, Eigen::MatrixXd> BundleAdjustmentCovarianceEstimator::Estimate
   // Middle: parameters other than poses and 3D points
   std::vector<double*> all_parameter_blocks;
   problem->GetParameterBlocks(&all_parameter_blocks);
-  for (const auto& block: all_parameter_blocks) {
-    if (problem->IsParameterBlockConstant(block))
-      continue;
-    // check if the current parameter block is in either the pose or point parameter blocks
-    if (pose_and_point_parameter_blocks.find(block) == pose_and_point_parameter_blocks.end()) {
+  for (const auto& block : all_parameter_blocks) {
+    if (problem->IsParameterBlockConstant(block)) continue;
+    // check if the current parameter block is in either the pose or point
+    // parameter blocks
+    if (pose_and_point_parameter_blocks.find(block) ==
+        pose_and_point_parameter_blocks.end()) {
       parameter_blocks.push_back(block);
     }
   }
-  parameter_blocks.insert(parameter_blocks.end(), point_blocks.begin(), point_blocks.end());
+  parameter_blocks.insert(
+      parameter_blocks.end(), point_blocks.begin(), point_blocks.end());
 
-
-  // Step 2: Evaluate Jacobian 
+  // Step 2: Evaluate Jacobian
   LOG(INFO) << "Evaluate jacobians";
   ceres::Problem::EvaluateOptions eval_options;
   eval_options.parameter_blocks.clear();
-  for (const auto& block: parameter_blocks) {
-    eval_options.parameter_blocks.push_back(const_cast<double *>(block));
+  for (const auto& block : parameter_blocks) {
+    eval_options.parameter_blocks.push_back(const_cast<double*>(block));
   }
   ceres::CRSMatrix J_full_crs;
   problem->Evaluate(eval_options, nullptr, nullptr, nullptr, &J_full_crs);
   int num_residuals = J_full_crs.num_rows;
   int num_params = J_full_crs.num_cols;
   Eigen::SparseMatrix<double> J_full = convertCRSToEigenSparse(J_full_crs);
-  
 
   // Step 3: Schur elimination on points
   LOG(INFO) << "Schur elimination on points";
-  Eigen::SparseMatrix<double> J_c = J_full.block(0, 0, num_residuals, num_params - num_params_points);
-  Eigen::SparseMatrix<double> J_p = J_full.block(0, num_params - num_params_points, num_residuals, num_params_points);
-  Eigen::SparseMatrix<double> H_cc = J_c.transpose() * J_c;  
-  Eigen::SparseMatrix<double> H_cp = J_c.transpose() * J_p;  
-  Eigen::SparseMatrix<double> H_pc = H_cp.transpose();  
-  Eigen::SparseMatrix<double> H_pp = J_p.transpose() * J_p;  
+  Eigen::SparseMatrix<double> J_c =
+      J_full.block(0, 0, num_residuals, num_params - num_params_points);
+  Eigen::SparseMatrix<double> J_p = J_full.block(
+      0, num_params - num_params_points, num_residuals, num_params_points);
+  Eigen::SparseMatrix<double> H_cc = J_c.transpose() * J_c;
+  Eigen::SparseMatrix<double> H_cp = J_c.transpose() * J_p;
+  Eigen::SparseMatrix<double> H_pc = H_cp.transpose();
+  Eigen::SparseMatrix<double> H_pp = J_p.transpose() * J_p;
   // in-place computation of H_pp_inv
-  Eigen::SparseMatrix<double> H_pp_inv = H_pp; // actually a shallow copy
+  Eigen::SparseMatrix<double> H_pp_inv = H_pp;  // actually a shallow copy
   int counter_p = 0;
-  for (const auto& point3D: reconstruction->Points3D()) {
+  for (const auto& point3D : reconstruction->Points3D()) {
     const double* point3D_ptr = point3D.second.xyz.data();
     int num_params_point = 0;
-    if (problem->HasParameterBlock(point3D_ptr) && !problem->IsParameterBlockConstant(point3D_ptr)) {
+    if (problem->HasParameterBlock(point3D_ptr) &&
+        !problem->IsParameterBlockConstant(point3D_ptr)) {
       num_params_point = problem->ParameterBlockTangentSize(point3D_ptr);
     }
-    if (num_params_point == 0)
-      continue;
-    Eigen::SparseMatrix<double> subMatrix_sparse = H_pp.block(counter_p, counter_p, num_params_point, num_params_point);
+    if (num_params_point == 0) continue;
+    Eigen::SparseMatrix<double> subMatrix_sparse =
+        H_pp.block(counter_p, counter_p, num_params_point, num_params_point);
     Eigen::MatrixXd subMatrix = subMatrix_sparse;
-    subMatrix += 0.001 * Eigen::MatrixXd::Identity(subMatrix.rows(), subMatrix.cols());
+    subMatrix +=
+        0.001 * Eigen::MatrixXd::Identity(subMatrix.rows(), subMatrix.cols());
     Eigen::MatrixXd subMatrix_inv = subMatrix.inverse();
     // update matrix
     for (int i = 0; i < num_params_point; ++i) {
@@ -236,48 +261,57 @@ std::map<image_t, Eigen::MatrixXd> BundleAdjustmentCovarianceEstimator::Estimate
     H_pp_inv.makeCompressed();
     counter_p += num_params_point;
   }
-  Eigen::SparseMatrix<double> S = H_cc - H_cp * H_pp_inv * H_pc; 
-
+  Eigen::SparseMatrix<double> S = H_cc - H_cp * H_pp_inv * H_pc;
 
   // Step 4: Schur elimination on other variables to get pose covariance
   Eigen::MatrixXd S_dense = S;
   int num_params_variables = S_dense.rows() - num_params_poses;
-  LOG(INFO) << StringPrintf("Schur elimination on other variables (n = %d)", num_params_variables);
-  Eigen::MatrixXd S_aa = S_dense.block(0, 0, num_params_poses, num_params_poses);
-  Eigen::MatrixXd S_ab = S_dense.block(0, num_params_poses, num_params_poses, num_params_variables);
+  LOG(INFO) << StringPrintf("Schur elimination on other variables (n = %d)",
+                            num_params_variables);
+  Eigen::MatrixXd S_aa =
+      S_dense.block(0, 0, num_params_poses, num_params_poses);
+  Eigen::MatrixXd S_ab = S_dense.block(
+      0, num_params_poses, num_params_poses, num_params_variables);
   Eigen::MatrixXd S_ba = S_ab.transpose();
-  Eigen::MatrixXd S_bb = S_dense.block(num_params_poses, num_params_poses, num_params_variables, num_params_variables);
+  Eigen::MatrixXd S_bb = S_dense.block(num_params_poses,
+                                       num_params_poses,
+                                       num_params_variables,
+                                       num_params_variables);
   Eigen::LDLT<Eigen::MatrixXd> ldltOfS_bb(S_bb);
   Eigen::MatrixXd S_poses = S_aa - S_ab * ldltOfS_bb.solve(S_ba);
 
-
   // Step 5: Compute covariance
-  LOG(INFO) << StringPrintf("Inverting Schur complement for pose parameters (n = %d)", num_params_poses);
+  LOG(INFO) << StringPrintf(
+      "Inverting Schur complement for pose parameters (n = %d)",
+      num_params_poses);
   Eigen::FullPivLU<Eigen::MatrixXd> luOfS_poses(S_poses);
   if (luOfS_poses.rank() < S_poses.rows()) {
-    LOG(FATAL_THROW) << "Error! The Hessian on the pose parameters is rank deficient. This is likely due to the poses being underconstrained with Gauge ambiguity.";
+    LOG(FATAL_THROW) << "Error! The Hessian on the pose parameters is rank "
+                        "deficient. This is likely due to the poses being "
+                        "underconstrained with Gauge ambiguity.";
   }
   Eigen::MatrixXd cov_poses = S_poses.inverse();
-
 
   // Step 6: Construct output
   std::map<image_t, Eigen::MatrixXd> covs;
   int counter_c = 0;
-  for (const auto& image: reconstruction->Images()) {
+  for (const auto& image : reconstruction->Images()) {
     int num_params_qvec = 0;
     const double* qvec = image.second.CamFromWorld().rotation.coeffs().data();
-    if (problem->HasParameterBlock(qvec) && !problem->IsParameterBlockConstant(qvec))
+    if (problem->HasParameterBlock(qvec) &&
+        !problem->IsParameterBlockConstant(qvec))
       num_params_qvec = problem->ParameterBlockTangentSize(qvec);
     int num_params_tvec = 0;
     const double* tvec = image.second.CamFromWorld().translation.data();
-    if (problem->HasParameterBlock(tvec) && !problem->IsParameterBlockConstant(tvec))
+    if (problem->HasParameterBlock(tvec) &&
+        !problem->IsParameterBlockConstant(tvec))
       num_params_tvec = problem->ParameterBlockTangentSize(tvec);
     int num_params_pose = num_params_qvec + num_params_tvec;
-    if (num_params_pose == 0)
-      continue;
+    if (num_params_pose == 0) continue;
 
     // get covariance
-    Eigen::MatrixXd covar = cov_poses.block(counter_c, counter_c, num_params_pose, num_params_pose);
+    Eigen::MatrixXd covar =
+        cov_poses.block(counter_c, counter_c, num_params_pose, num_params_pose);
     counter_c += num_params_pose;
     covs.insert(std::make_pair(image.second.ImageId(), covar));
   }
