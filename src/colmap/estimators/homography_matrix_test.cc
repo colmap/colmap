@@ -124,6 +124,35 @@ TEST(HomographyMatrix, NumericalStability) {
   }
 }
 
+TEST(HomographyMatrix, NoiseStability) {
+  constexpr size_t kNumPoints = 1000;
+  constexpr double kNoise = 1e-3;
+  for (int x = 1; x < 10; ++x) {
+    Eigen::Matrix3d expected_H = Eigen::Matrix3d::Identity();
+    expected_H(0, 0) = x;
+
+    std::vector<Eigen::Vector2d> src;
+    std::vector<Eigen::Vector2d> dst;
+    for (size_t i = 0; i < kNumPoints; ++i) {
+      src.push_back(Eigen::Vector2d::Random());
+      dst.push_back((expected_H * src[i].homogeneous()).hnormalized() +
+                    Eigen::Vector2d::Random() * kNoise);
+    }
+
+    HomographyMatrixEstimator estimator;
+    std::vector<Eigen::Matrix3d> models;
+    estimator.Estimate(src, dst, &models);
+    ASSERT_EQ(models.size(), 1);
+
+    std::vector<double> residuals;
+    estimator.Residuals(src, dst, models[0], &residuals);
+
+    for (size_t i = 0; i < kNumPoints; ++i) {
+      EXPECT_LT(residuals[i], 1e-5);
+    }
+  }
+}
+
 TEST(HomographyMatrix, Degenerate) {
   Eigen::Matrix3d expected_H;
   expected_H << 0.1, 0.2, 0.3, 30, 0.2, 0.1, 0.3, 20, 1;
