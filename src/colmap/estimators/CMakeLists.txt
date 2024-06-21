@@ -39,6 +39,7 @@ COLMAP_ADD_LIBRARY(
         bundle_adjustment.h bundle_adjustment.cc
         coordinate_frame.h coordinate_frame.cc
         cost_functions.h
+        covariance.h covariance.cc
         essential_matrix.h essential_matrix.cc
         euclidean_transform.h
         fundamental_matrix.h fundamental_matrix.cc
