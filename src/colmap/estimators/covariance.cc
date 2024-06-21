@@ -53,11 +53,13 @@ BundleAdjustmentCovarianceEstimator::EstimatePoseCovarianceCeresBackend(
   std::vector<std::pair<const double*, const double*>> pointer_values;
   for (const auto& image : reconstruction->Images()) {
     const double* qvec = image.second.CamFromWorld().rotation.coeffs().data();
-    bool qvec_valid = problem->HasParameterBlock(qvec) &&
-                      !problem->IsParameterBlockConstant(qvec);
+    bool qvec_valid =
+        problem->HasParameterBlock(qvec) &&
+        !problem->IsParameterBlockConstant(const_cast<double*>(qvec));
     const double* tvec = image.second.CamFromWorld().translation.data();
-    bool tvec_valid = problem->HasParameterBlock(tvec) &&
-                      !problem->IsParameterBlockConstant(tvec);
+    bool tvec_valid =
+        problem->HasParameterBlock(tvec) &&
+        !problem->IsParameterBlockConstant(const_cast<double*>(tvec));
     if (qvec_valid) pointer_values.push_back(std::make_pair(qvec, qvec));
     if (tvec_valid) pointer_values.push_back(std::make_pair(tvec, tvec));
     if (qvec_valid && tvec_valid)
@@ -133,7 +135,7 @@ BundleAdjustmentCovarianceEstimator::EstimatePoseCovariance(
     int num_params_qvec = 0;
     const double* qvec = image.second.CamFromWorld().rotation.coeffs().data();
     if (problem->HasParameterBlock(qvec) &&
-        !problem->IsParameterBlockConstant(qvec))
+        !problem->IsParameterBlockConstant(const_cast<double*>(qvec)))
       num_params_qvec = problem->ParameterBlockTangentSize(qvec);
     if (num_params_qvec > 0) {
       parameter_blocks.push_back(qvec);
@@ -144,7 +146,7 @@ BundleAdjustmentCovarianceEstimator::EstimatePoseCovariance(
     int num_params_tvec = 0;
     const double* tvec = image.second.CamFromWorld().translation.data();
     if (problem->HasParameterBlock(tvec) &&
-        !problem->IsParameterBlockConstant(tvec))
+        !problem->IsParameterBlockConstant(const_cast<double*>(tvec)))
       num_params_tvec = problem->ParameterBlockTangentSize(tvec);
     if (num_params_tvec > 0) {
       parameter_blocks.push_back(tvec);
@@ -159,7 +161,7 @@ BundleAdjustmentCovarianceEstimator::EstimatePoseCovariance(
     const double* point3D_ptr = point3D.second.xyz.data();
     int num_params_point = 0;
     if (problem->HasParameterBlock(point3D_ptr) &&
-        !problem->IsParameterBlockConstant(point3D_ptr)) {
+        !problem->IsParameterBlockConstant(const_cast<double*>(point3D_ptr))) {
       num_params_point = problem->ParameterBlockTangentSize(point3D_ptr);
     }
     if (num_params_point > 0) {
@@ -220,7 +222,7 @@ BundleAdjustmentCovarianceEstimator::EstimatePoseCovariance(
     const double* point3D_ptr = point3D.second.xyz.data();
     int num_params_point = 0;
     if (problem->HasParameterBlock(point3D_ptr) &&
-        !problem->IsParameterBlockConstant(point3D_ptr)) {
+        !problem->IsParameterBlockConstant(const_cast<double*>(point3D_ptr))) {
       num_params_point = problem->ParameterBlockTangentSize(point3D_ptr);
     }
     if (num_params_point == 0) continue;
@@ -280,12 +282,12 @@ BundleAdjustmentCovarianceEstimator::EstimatePoseCovariance(
     int num_params_qvec = 0;
     const double* qvec = image.second.CamFromWorld().rotation.coeffs().data();
     if (problem->HasParameterBlock(qvec) &&
-        !problem->IsParameterBlockConstant(qvec))
+        !problem->IsParameterBlockConstant(const_cast<double*>(qvec)))
       num_params_qvec = problem->ParameterBlockTangentSize(qvec);
     int num_params_tvec = 0;
     const double* tvec = image.second.CamFromWorld().translation.data();
     if (problem->HasParameterBlock(tvec) &&
-        !problem->IsParameterBlockConstant(tvec))
+        !problem->IsParameterBlockConstant(const_cast<double*>(tvec)))
       num_params_tvec = problem->ParameterBlockTangentSize(tvec);
     int num_params_pose = num_params_qvec + num_params_tvec;
     if (num_params_pose == 0) continue;
