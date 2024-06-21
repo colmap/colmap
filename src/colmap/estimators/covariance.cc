@@ -266,7 +266,7 @@ BundleAdjustmentCovarianceEstimator::EstimatePoseCovariance(
   if (luOfS_poses.rank() < S_poses.rows()) {
     LOG(FATAL_THROW) << StringPrintf(
         "Error! The Schur complement on pose parameters is rank "
-        "deficient. Number of columns: {%d}, rank: {%d}. This is likely due to "
+        "deficient. Number of columns: %d, rank: %d. This is likely due to "
         "the poses being underconstrained with Gauge ambiguity.",
         S_poses.rows(),
         luOfS_poses.rank());
