@@ -28,6 +28,7 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 #include "colmap/estimators/covariance.h"
+#include "colmap/estimators/cost_functions.h"
 
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
@@ -75,12 +76,12 @@ BundleAdjustmentCovarianceEstimator::EstimatePoseCovarianceCeresBackend(
     const double* qvec = image.second.CamFromWorld().rotation.coeffs().data();
     if (problem->HasParameterBlock(qvec) &&
         !problem->IsParameterBlockConstant(qvec))
-      num_params_qvec = problem->ParameterBlockTangentSize(qvec);
+      num_params_qvec = ParameterBlockTangentSize(problem, qvec);
     int num_params_tvec = 0;
     const double* tvec = image.second.CamFromWorld().translation.data();
     if (problem->HasParameterBlock(tvec) &&
         !problem->IsParameterBlockConstant(tvec))
-      num_params_tvec = problem->ParameterBlockTangentSize(tvec);
+      num_params_tvec = ParameterBlockTangentSize(problem, tvec);
 
     // get covariance
     int num_params = num_params_qvec + num_params_tvec;
@@ -136,7 +137,7 @@ BundleAdjustmentCovarianceEstimator::EstimatePoseCovariance(
     const double* qvec = image.second.CamFromWorld().rotation.coeffs().data();
     if (problem->HasParameterBlock(qvec) &&
         !problem->IsParameterBlockConstant(const_cast<double*>(qvec)))
-      num_params_qvec = problem->ParameterBlockTangentSize(qvec);
+      num_params_qvec = ParameterBlockTangentSize(problem, qvec);
     if (num_params_qvec > 0) {
       parameter_blocks.push_back(qvec);
       pose_and_point_parameter_blocks.insert(qvec);
@@ -147,7 +148,7 @@ BundleAdjustmentCovarianceEstimator::EstimatePoseCovariance(
     const double* tvec = image.second.CamFromWorld().translation.data();
     if (problem->HasParameterBlock(tvec) &&
         !problem->IsParameterBlockConstant(const_cast<double*>(tvec)))
-      num_params_tvec = problem->ParameterBlockTangentSize(tvec);
+      num_params_tvec = ParameterBlockTangentSize(problem, tvec);
     if (num_params_tvec > 0) {
       parameter_blocks.push_back(tvec);
       pose_and_point_parameter_blocks.insert(tvec);
@@ -162,7 +163,7 @@ BundleAdjustmentCovarianceEstimator::EstimatePoseCovariance(
     int num_params_point = 0;
     if (problem->HasParameterBlock(point3D_ptr) &&
         !problem->IsParameterBlockConstant(const_cast<double*>(point3D_ptr))) {
-      num_params_point = problem->ParameterBlockTangentSize(point3D_ptr);
+      num_params_point = ParameterBlockTangentSize(problem, point3D_ptr);
     }
     if (num_params_point > 0) {
       point_blocks.push_back(point3D_ptr);
@@ -223,7 +224,7 @@ BundleAdjustmentCovarianceEstimator::EstimatePoseCovariance(
     int num_params_point = 0;
     if (problem->HasParameterBlock(point3D_ptr) &&
         !problem->IsParameterBlockConstant(const_cast<double*>(point3D_ptr))) {
-      num_params_point = problem->ParameterBlockTangentSize(point3D_ptr);
+      num_params_point = ParameterBlockTangentSize(problem, point3D_ptr);
     }
     if (num_params_point == 0) continue;
     Eigen::SparseMatrix<double> subMatrix_sparse =
@@ -283,12 +284,12 @@ BundleAdjustmentCovarianceEstimator::EstimatePoseCovariance(
     const double* qvec = image.second.CamFromWorld().rotation.coeffs().data();
     if (problem->HasParameterBlock(qvec) &&
         !problem->IsParameterBlockConstant(const_cast<double*>(qvec)))
-      num_params_qvec = problem->ParameterBlockTangentSize(qvec);
+      num_params_qvec = ParameterBlockTangentSize(problem, qvec);
     int num_params_tvec = 0;
     const double* tvec = image.second.CamFromWorld().translation.data();
     if (problem->HasParameterBlock(tvec) &&
         !problem->IsParameterBlockConstant(const_cast<double*>(tvec)))
-      num_params_tvec = problem->ParameterBlockTangentSize(tvec);
+      num_params_tvec = ParameterBlockTangentSize(problem, tvec);
     int num_params_pose = num_params_qvec + num_params_tvec;
     if (num_params_pose == 0) continue;
 
