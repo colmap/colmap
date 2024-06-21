@@ -120,9 +120,7 @@ BundleAdjustmentCovarianceEstimator::EstimatePoseCovarianceCeresBackend(
 
 std::map<image_t, Eigen::MatrixXd>
 BundleAdjustmentCovarianceEstimator::EstimatePoseCovariance(
-    ceres::Problem* problem,
-    Reconstruction* reconstruction,
-    double lambda) {
+    ceres::Problem* problem, Reconstruction* reconstruction, double lambda) {
   THROW_CHECK_NOTNULL(problem);
   THROW_CHECK_NOTNULL(reconstruction);
 
