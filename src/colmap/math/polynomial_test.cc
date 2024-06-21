@@ -148,7 +148,7 @@ TEST(FindCubicPolynomialRoots, MultiRoot) {
       FindPolynomialRootsDurandKerner(coeffs, &real_durand_kerner, nullptr));
   std::sort(real_durand_kerner.data(),
             real_durand_kerner.data() + real_durand_kerner.size());
-  EXPECT_TRUE(real.isApprox(real_durand_kerner, 1e-4)) << real_durand_kerner;
+  EXPECT_TRUE(real.isApprox(real_durand_kerner, 1e-4));
 }
 
 TEST(FindPolynomialRootsDurandKerner, Nominal) {
