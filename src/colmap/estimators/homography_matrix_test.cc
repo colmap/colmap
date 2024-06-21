@@ -96,7 +96,35 @@ TEST(HomographyMatrix, NonMinimal) {
 // Test numerical stability with large coordinates. This is to ensure that the
 // homography matrix estimator is numerically stable despite not using
 // coordinate normalization. We can do this because of double precision.
-TEST(HomographyMatrix, NumericalStability) {
+TEST(HomographyMatrix, MinimalNumericalStability) {
+  constexpr size_t kNumPoints = 4;
+  constexpr double kCoordinateScale = 1e6;
+  for (int x = 1; x < 10; ++x) {
+    Eigen::Matrix3d expected_H = Eigen::Matrix3d::Identity();
+    expected_H(0, 0) = x;
+
+    std::vector<Eigen::Vector2d> src;
+    std::vector<Eigen::Vector2d> dst;
+    for (size_t i = 0; i < kNumPoints; ++i) {
+      src.push_back(Eigen::Vector2d::Random() * kCoordinateScale);
+      dst.push_back((expected_H * src[i].homogeneous()).hnormalized());
+    }
+
+    HomographyMatrixEstimator estimator;
+    std::vector<Eigen::Matrix3d> models;
+    estimator.Estimate(src, dst, &models);
+    ASSERT_EQ(models.size(), 1);
+
+    std::vector<double> residuals;
+    estimator.Residuals(src, dst, models[0], &residuals);
+
+    for (size_t i = 0; i < kNumPoints; ++i) {
+      EXPECT_LT(residuals[i], 1e-6);
+    }
+  }
+}
+
+TEST(HomographyMatrix, NonMinimalNumericalStability) {
   constexpr size_t kNumPoints = 1000;
   constexpr double kCoordinateScale = 1e6;
   for (int x = 1; x < 10; ++x) {
