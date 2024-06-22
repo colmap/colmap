@@ -147,12 +147,11 @@ class BundleAdjustmentCovarianceEstimator
   bool ComputeFull() override;
   bool Compute() override;
 
- protected:
+ private:
   // The Schur complement for all parameters (except for 3D points) after Schur
   // elimination
   Eigen::SparseMatrix<double> S_matrix_;
 
- private:
   // damping factor to avoid rank deficiency for poorly conditioned 3D points
   double lambda_ = 1e-6;
 
