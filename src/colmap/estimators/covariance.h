@@ -70,7 +70,7 @@ class BundleAdjustmentCovarianceEstimatorBase {
   // test if the pose is inside the problem as non-constant variables
   bool HasPose(image_t image_id) const;
 
-  // poses parameters
+  // pose parameters
   Eigen::MatrixXd GetPoseCovariance() const;
   Eigen::MatrixXd GetPoseCovariance(image_t image_id) const;
   Eigen::MatrixXd GetPoseCovariance(
