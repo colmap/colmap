@@ -35,6 +35,7 @@
 #include "colmap/util/threading.h"
 
 // mapper.
+#include "colmap/controllers/incremental_mapper.h"
 #include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/scene/database.h"
 #include "colmap/scene/database_cache.h"
@@ -65,7 +66,7 @@ std::unique_ptr<Thread> CreateFeatureExtractorController2(
                                                           const ImageReaderOptions& reader_options,
                                                           const SiftExtractionOptions& sift_options);
 
-ImageData & GetImageData( std::unique_ptr<Thread> & thread );
+ImageData GetImageData( std::unique_ptr<Thread> & thread );
 
 //----------------------------------------------------------------
 //  MAPPER.
@@ -208,7 +209,7 @@ public:
     
     // Attempt to register image to the existing model. This requires that
     // a previous call to `RegisterInitialImagePair` was successful.
-    bool RegisterNextImage(const Options& options, image_t image_id);
+    bool RegisterNextImage(const IncrementalMapper::Options& options, ImageData & imageData);
     
     // Triangulate observations of image.
     size_t TriangulateImage(const IncrementalTriangulator::Options& tri_options,

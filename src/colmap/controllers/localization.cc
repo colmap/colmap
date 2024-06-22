@@ -38,6 +38,7 @@
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/geometry/triangulation.h"
 #include "colmap/scene/projection.h"
+#include "colmap/scene/correspondence_graph.h"
 #include "colmap/sensor/bitmap.h"
 
 #include "colmap/util/cuda.h"
@@ -328,11 +329,11 @@ public:
         }
     }
     
-    ImageData & GetImageData() {
+    ImageData GetImageData() {
         auto job = writer_queue_->Pop();
         if (job.IsValid()) {
-            auto & image_data = job.Data();
-            return image_data;
+            ImageData image_data = job.Data();
+            return std::move(image_data);
         }
         return imageDataEmpty;
     }
@@ -422,9 +423,10 @@ std::unique_ptr<Thread> CreateFeatureExtractorController2(
                                                         sift_options);
 }
 
-ImageData & GetImageData( std::unique_ptr<Thread> & thread ) {
+ImageData GetImageData( std::unique_ptr<Thread> & thread ) {
     std::unique_ptr<FeatureExtractorController> controller(static_cast<FeatureExtractorController*>(thread.release()));
-    return controller->GetImageData();
+    ImageData imageData = controller->GetImageData();
+    return imageData;
 }
 
 //----------------------------------------------------------------
@@ -728,89 +730,28 @@ void IncrementalMapper2::RegisterInitialImagePair(const Options& options,
     }
 }
 
-bool IncrementalMapper2::RegisterNextImage(const Options& options,
-                                           const image_t image_id) {
+bool IncrementalMapper2::RegisterNextImage(const IncrementalMapper::Options& options,
+                                           ImageData & imageData) {
     THROW_CHECK_NOTNULL(reconstruction_);
     THROW_CHECK_NOTNULL(obs_manager_);
     THROW_CHECK_GE(reconstruction_->NumRegImages(), 2);
     
     THROW_CHECK(options.Check());
     
-    Image& image = reconstruction_->Image(image_id);
-    Camera& camera = reconstruction_->Camera(image.CameraId());
+    Image& image = imageData.image;
+    Camera& camera = imageData.camera;
     
-    THROW_CHECK(!image.IsRegistered())
-    << "Image cannot be registered multiple times";
-    
-    num_reg_trials_[image_id] += 1;
-    
-    // Check if enough 2D-3D correspondences.
-    if (obs_manager_->NumVisiblePoints3D(image_id) <
-        static_cast<size_t>(options.abs_pose_min_num_inliers)) {
-        return false;
-    }
-    
-    //////////////////////////////////////////////////////////////////////////////
-    // Search for 2D-3D correspondences
-    //////////////////////////////////////////////////////////////////////////////
-    
-    std::vector<std::pair<point2D_t, point3D_t>> tri_corrs;
     std::vector<Eigen::Vector2d> tri_points2D;
     std::vector<Eigen::Vector3d> tri_points3D;
     
-    const std::shared_ptr<const CorrespondenceGraph> correspondence_graph =
-    database_cache_->CorrespondenceGraph();
-    
-    std::unordered_set<point3D_t> corr_point3D_ids;
-    for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
-         ++point2D_idx) {
-        const Point2D& point2D = image.Point2D(point2D_idx);
-        
-        corr_point3D_ids.clear();
-        const auto corr_range =
-        correspondence_graph->FindCorrespondences(image_id, point2D_idx);
-        for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
-            const Image& corr_image = reconstruction_->Image(corr->image_id);
-            if (!corr_image.IsRegistered()) {
-                continue;
-            }
-            
-            const Point2D& corr_point2D = corr_image.Point2D(corr->point2D_idx);
-            if (!corr_point2D.HasPoint3D()) {
-                continue;
-            }
-            
-            // Avoid duplicate correspondences.
-            if (corr_point3D_ids.count(corr_point2D.point3D_id) > 0) {
-                continue;
-            }
-            
-            const Camera& corr_camera =
-            reconstruction_->Camera(corr_image.CameraId());
-            
-            // Avoid correspondences to images with bogus camera parameters.
-            if (corr_camera.HasBogusParams(options.min_focal_length_ratio,
-                                           options.max_focal_length_ratio,
-                                           options.max_extra_param)) {
-                continue;
-            }
-            
-            const Point3D& point3D =
-            reconstruction_->Point3D(corr_point2D.point3D_id);
-            
-            tri_corrs.emplace_back(point2D_idx, corr_point2D.point3D_id);
-            corr_point3D_ids.insert(corr_point2D.point3D_id);
-            tri_points2D.push_back(point2D.xy);
-            tri_points3D.push_back(point3D.xyz);
-        }
+    for (int i=0; i<imageData.keypoints.size(); i++) {
+        const FeatureKeypoint & keypoint = imageData.keypoints[i];
+        tri_points2D.push_back( Eigen::Vector2d(keypoint.x, keypoint.y) );
     }
     
-    // The size of `next_image.num_tri_obs` and `tri_corrs_point2D_idxs.size()`
-    // can only differ, when there are images with bogus camera parameters, and
-    // hence we skip some of the 2D-3D correspondences.
-    if (tri_points2D.size() <
-        static_cast<size_t>(options.abs_pose_min_num_inliers)) {
-        return false;
+    for (const auto& pointId : reconstruction_->Point3DIds()) {
+        const Point3D & point3D = reconstruction_->Point3D( pointId );
+        tri_points3D.push_back( point3D.xyz );
     }
     
     //////////////////////////////////////////////////////////////////////////////
@@ -844,7 +785,6 @@ bool IncrementalMapper2::RegisterNextImage(const Options& options,
                                   options.max_extra_param)) {
             // Previously refined camera has bogus parameters,
             // so reset parameters and try to re-estimage.
-            camera.params = database_cache_->Camera(image.CameraId()).params;
             abs_pose_options.estimate_focal_length = !camera.has_prior_focal_length;
             abs_pose_refinement_options.refine_focal_length = true;
             abs_pose_refinement_options.refine_extra_params = true;
@@ -857,7 +797,6 @@ bool IncrementalMapper2::RegisterNextImage(const Options& options,
         // Camera not refined before. Note that the camera parameters might have
         // been changed before but the image was filtered, so we explicitly reset
         // the camera parameters and try to re-estimate them.
-        camera.params = database_cache_->Camera(image.CameraId()).params;
         abs_pose_options.estimate_focal_length = !camera.has_prior_focal_length;
         abs_pose_refinement_options.refine_focal_length = true;
         abs_pose_refinement_options.refine_extra_params = true;
@@ -900,26 +839,6 @@ bool IncrementalMapper2::RegisterNextImage(const Options& options,
                             &image.CamFromWorld(),
                             &camera)) {
         return false;
-    }
-    
-    //////////////////////////////////////////////////////////////////////////////
-    // Continue tracks
-    //////////////////////////////////////////////////////////////////////////////
-    
-    reconstruction_->RegisterImage(image_id);
-    RegisterImageEvent(image_id);
-    
-    for (size_t i = 0; i < inlier_mask.size(); ++i) {
-        if (inlier_mask[i]) {
-            const point2D_t point2D_idx = tri_corrs[i].first;
-            const Point2D& point2D = image.Point2D(point2D_idx);
-            if (!point2D.HasPoint3D()) {
-                const point3D_t point3D_id = tri_corrs[i].second;
-                const TrackElement track_el(image_id, point2D_idx);
-                obs_manager_->AddObservation(point3D_id, track_el);
-                triangulator_->AddModifiedPoint3D(point3D_id);
-            }
-        }
     }
     
     return true;
