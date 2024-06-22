@@ -52,7 +52,7 @@ class BundleAdjustmentCovarianceEstimatorBase {
  public:
   BundleAdjustmentCovarianceEstimatorBase(ceres::Problem* problem,
                                           Reconstruction* reconstruction);
-  ~BundleAdjustmentCovarianceEstimatorBase() = default;
+  virtual ~BundleAdjustmentCovarianceEstimatorBase() = default;
 
   // Compute covariance for all paramt\ers (except for 3D points)
   // Stored the full matrix at cov_variables_ and the subblock copy at
