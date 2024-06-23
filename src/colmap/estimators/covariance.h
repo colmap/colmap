@@ -160,7 +160,7 @@ class BundleAdjustmentCovarianceEstimator
 // The covariance for each image is in the order [R, t] with both of them
 // potentially on manifold (R is always at least parameterized with
 // ceres::QuaternionManifold on Lie Algebra). As a result, the covariance is
-// only computed on the non-constant parts for each variables. If the full parts
+// only computed on the non-constant part for each variable. If the full parts
 // of both the rotation and translation are in the problem, the covariance
 // matrix will be 6x6.
 bool EstimatePoseCovarianceCeresBackend(
