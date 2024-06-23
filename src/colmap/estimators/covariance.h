@@ -80,9 +80,9 @@ class BundleAdjustmentCovarianceEstimatorBase {
   Eigen::MatrixXd GetCovariance(double* parameter_block1,
                                 double* paramter_block2) const;
 
-  // test if either "ComputeFull()" or "Compute()" has been called
+  // test if either ``ComputeFull()`` or ``Compute()`` has been called
   bool HasValidPoseCovariance() const;
-  // test if "ComputeFull()" has been called
+  // test if ``ComputeFull()`` has been called
   bool HasValidFullCovariance() const;
 
  protected:
@@ -157,11 +157,18 @@ class BundleAdjustmentCovarianceEstimator
   bool HasValidSchurComplement() const;
 };
 
+// The covariance for each image is in the order [R, t] with both of them
+// potentially on manifold (R is always at least parameterized with
+// ceres::QuaternionManifold on Lie Algebra). As a result, the covariance is
+// only computed on the non-constant parts for each variables. If the full parts
+// of both the rotation and translation are in the problem, the covariance
+// matrix will be 6x6.
 bool EstimatePoseCovarianceCeresBackend(
     ceres::Problem* problem,
     Reconstruction* reconstruction,
     std::map<image_t, Eigen::MatrixXd>& image_id_to_covar);
 
+// Similar to the convention above for ``EstimatePoseCovarianceCeresBackend``.
 bool EstimatePoseCovariance(
     ceres::Problem* problem,
     Reconstruction* reconstruction,
