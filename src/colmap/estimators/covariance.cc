@@ -401,6 +401,7 @@ bool BundleAdjustmentCovarianceEstimator::Compute() {
                                        num_params_poses_,
                                        num_params_other_variables_,
                                        num_params_other_variables_);
+  S_bb += lambda_ * Eigen::MatrixXd::Identity(S_bb.rows(), S_bb.cols());
   Eigen::LDLT<Eigen::MatrixXd> ldltOfS_bb(S_bb);
   Eigen::MatrixXd S_poses = S_aa - S_ab * ldltOfS_bb.solve(S_ba);
 

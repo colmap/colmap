@@ -152,7 +152,7 @@ class BundleAdjustmentCovarianceEstimator
   // elimination
   Eigen::SparseMatrix<double> S_matrix_;
 
-  // damping factor to avoid rank deficiency for poorly conditioned 3D points
+  // damping factor to avoid rank deficiency
   double lambda_ = 1e-6;
 
   // Compute the Schur complement for poses and other variables by eliminating
