@@ -71,6 +71,11 @@ void BindGeometry(py::module& m) {
   py::implicitly_convertible<py::array, Eigen::Quaterniond>();
   MakeDataclass(PyRotation3d);
 
+  m.def("get_covariance_for_rigid3d_inverse",
+        &GetCovarianceForRigid3dInverse,
+        py::arg("covar"),
+        py::arg("rigid3"));
+
   py::class_ext_<Rigid3d> PyRigid3d(m, "Rigid3d");
   PyRigid3d.def(py::init<>())
       .def(py::init<const Eigen::Quaterniond&, const Eigen::Vector3d&>())
