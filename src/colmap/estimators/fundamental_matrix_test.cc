@@ -29,12 +29,14 @@
 
 #include "colmap/estimators/fundamental_matrix.h"
 
+#include "colmap/geometry/essential_matrix.h"
+
 #include <gtest/gtest.h>
 
 namespace colmap {
 namespace {
 
-TEST(FundamentalMatrix, SevenPoint) {
+TEST(FundamentalSevenPointEstimator, Reference) {
   const double points1_raw[] = {0.4964,
                                 1.0577,
                                 0.3650,
@@ -93,7 +95,44 @@ TEST(FundamentalMatrix, SevenPoint) {
   EXPECT_NEAR(F(2, 2), 1., 1e-6);
 }
 
-TEST(FundamentalMatrix, EightPoint) {
+TEST(FundamentalSevenPointEstimator, Nominal) {
+  const size_t kNumPoints = 7;
+  const Eigen::Matrix3d K =
+      (Eigen::Matrix3d() << 1000, 0, 500, 0, 1000, 500, 0, 0, 1).finished();
+  for (size_t k = 0; k < 10; ++k) {
+    const Rigid3d cam2_from_cam1(Eigen::Quaterniond::UnitRandom(),
+                                 Eigen::Vector3d::Random());
+    Eigen::Matrix3d expected_F = FundamentalFromEssentialMatrix(
+        K, EssentialMatrixFromPose(cam2_from_cam1), K);
+    expected_F /= expected_F(2, 2);
+    std::vector<Eigen::Vector2d> points1;
+    std::vector<Eigen::Vector2d> points2;
+    for (size_t i = 0; i < kNumPoints; ++i) {
+      points1.push_back(K.topRows<2>() *
+                        Eigen::Vector2d::Random().homogeneous());
+      const double random_depth = 1 + rand() / static_cast<double>(RAND_MAX);
+      points2.push_back((K * (cam2_from_cam1 * (random_depth * K.inverse() *
+                                                points1.back().homogeneous())))
+                            .hnormalized());
+    }
+
+    FundamentalMatrixSevenPointEstimator estimator;
+    std::vector<Eigen::Matrix3d> models;
+    estimator.Estimate(points1, points2, &models);
+
+    bool found = false;
+    for (Eigen::Matrix3d& F : models) {
+      F /= F(2, 2);
+      if (F.isApprox(expected_F, 1e-3)) {
+        found = true;
+        break;
+      }
+    }
+    EXPECT_TRUE(found);
+  }
+}
+
+TEST(FundamentalMatrixEightPointEstimator, Reference) {
   const double points1_raw[] = {1.839035,
                                 1.924743,
                                 0.543582,
@@ -156,6 +195,50 @@ TEST(FundamentalMatrix, EightPoint) {
   EXPECT_NEAR(F(2, 1), -0.429478, 1e-5);
   EXPECT_NEAR(F(2, 2), 0.0221019, 1e-5);
 }
+
+class FundamentalMatrixEightPointEstimatorTests
+    : public ::testing::TestWithParam<size_t> {};
+
+TEST_P(FundamentalMatrixEightPointEstimatorTests, Nominal) {
+  const size_t kNumPoints = GetParam();
+  const Eigen::Matrix3d K =
+      (Eigen::Matrix3d() << 1000, 0, 500, 0, 1000, 500, 0, 0, 1).finished();
+  for (size_t k = 0; k < 10; ++k) {
+    const Rigid3d cam2_from_cam1(Eigen::Quaterniond::UnitRandom(),
+                                 Eigen::Vector3d::Random());
+    Eigen::Matrix3d expected_F = FundamentalFromEssentialMatrix(
+        K, EssentialMatrixFromPose(cam2_from_cam1), K);
+    expected_F /= expected_F(2, 2);
+    std::vector<Eigen::Vector2d> points1;
+    std::vector<Eigen::Vector2d> points2;
+    for (size_t i = 0; i < kNumPoints; ++i) {
+      points1.push_back(K.topRows<2>() *
+                        Eigen::Vector2d::Random().homogeneous());
+      const double random_depth = 1 + rand() / static_cast<double>(RAND_MAX);
+      points2.push_back((K * (cam2_from_cam1 * (random_depth * K.inverse() *
+                                                points1.back().homogeneous())))
+                            .hnormalized());
+    }
+
+    FundamentalMatrixEightPointEstimator estimator;
+    std::vector<Eigen::Matrix3d> models;
+    estimator.Estimate(points1, points2, &models);
+
+    bool found = false;
+    for (Eigen::Matrix3d& F : models) {
+      F /= F(2, 2);
+      if (F.isApprox(expected_F, 1e-3)) {
+        found = true;
+        break;
+      }
+    }
+    EXPECT_TRUE(found);
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(FundamentalMatrixEightPointEstimator,
+                         FundamentalMatrixEightPointEstimatorTests,
+                         ::testing::Values(8, 16, 32));
 
 }  // namespace
 }  // namespace colmap

@@ -96,12 +96,23 @@ void FundamentalMatrixSevenPointEstimator::Estimate(
               f1(8) * (f2(0) * f2(4) - f2(1) * f2(3));
   coeffs(3) = f2(0) * t3 - f2(1) * t4 + f2(2) * t5;
 
-  const double inv_c0 = 1.0 / coeffs(0);
-  coeffs.tail<3>() *= inv_c0;
-
   Eigen::Vector3d roots;
-  const int num_roots =
-      FindCubicPolynomialRoots(coeffs(1), coeffs(2), coeffs(3), &roots);
+  int num_roots = 0;
+  if (std::abs(coeffs(0)) <= 1e-6) {
+    Eigen::VectorXd roots_real;
+    Eigen::VectorXd roots_imag;
+    FindQuadraticPolynomialRoots(coeffs.tail<3>(), &roots_real, &roots_imag);
+    for (int i = 0; i < roots_real.size(); ++i) {
+      if (std::abs(roots_imag(i)) <= 1e-6) {
+        roots(num_roots++) = roots_real(i);
+      }
+    }
+  } else {
+    const double inv_c0 = 1.0 / coeffs(0);
+    coeffs.tail<3>() *= inv_c0;
+    num_roots =
+        FindCubicPolynomialRoots(coeffs(1), coeffs(2), coeffs(3), &roots);
+  }
 
   models->reserve(num_roots);
   for (int i = 0; i < num_roots; ++i) {
