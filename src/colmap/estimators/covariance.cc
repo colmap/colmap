@@ -98,7 +98,7 @@ void BundleAdjustmentCovarianceEstimatorBase::Setup() {
   num_params_other_variables_ = 0;
   std::vector<double*> all_parameter_blocks;
   problem_->GetParameterBlocks(&all_parameter_blocks);
-  for (const auto& block : all_parameter_blocks) {
+  for (double* block : all_parameter_blocks) {
     if (problem_->IsParameterBlockConstant(block)) continue;
     // check if the current parameter block is in either the pose or point
     // parameter blocks
@@ -230,7 +230,7 @@ Eigen::MatrixXd BundleAdjustmentCovarianceEstimatorBase::GetCovariance(
     const std::vector<double*>& blocks) const {
   THROW_CHECK(HasValidFullCovariance());
   std::vector<int> indices;
-  for (const auto& block : blocks) {
+  for (const double* block : blocks) {
     THROW_CHECK(HasBlock(block));
     int index = GetBlockIndex(block);
     int num_params_pose = GetBlockTangentSize(block);
@@ -269,17 +269,13 @@ bool BundleAdjustmentCovarianceEstimatorCeresBackend::ComputeFull() {
   ceres::Covariance::Options options;
   ceres::Covariance covariance_computer(options);
   std::vector<const double*> parameter_blocks;
-  for (const auto& block : pose_blocks_) {
+  for (const double* block : pose_blocks_) {
     parameter_blocks.push_back(block);
   }
-  for (const auto& block : other_variables_blocks_) {
+  for (const double* block : other_variables_blocks_) {
     parameter_blocks.push_back(block);
   }
-  try {
-    covariance_computer.Compute(parameter_blocks, problem_);
-  } catch (const std::exception& e) {
-    return false;
-  }
+  if (!covariance_computer.Compute(parameter_blocks, problem_)) return false;
   int num_params = num_params_poses_ + num_params_other_variables_;
   Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> covs(
       num_params, num_params);
@@ -294,14 +290,10 @@ bool BundleAdjustmentCovarianceEstimatorCeresBackend::Compute() {
   ceres::Covariance::Options options;
   ceres::Covariance covariance_computer(options);
   std::vector<const double*> parameter_blocks;
-  for (const auto& block : pose_blocks_) {
+  for (const double* block : pose_blocks_) {
     parameter_blocks.push_back(block);
   }
-  try {
-    covariance_computer.Compute(parameter_blocks, problem_);
-  } catch (const std::exception& e) {
-    return false;
-  }
+  if (!covariance_computer.Compute(parameter_blocks, problem_)) return false;
   Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> covs(
       num_params_poses_, num_params_poses_);
   covariance_computer.GetCovarianceMatrixInTangentSpace(parameter_blocks,
@@ -319,13 +311,13 @@ void BundleAdjustmentCovarianceEstimator::ComputeSchurComplement() {
   LOG(INFO) << "Evaluate jacobian matrix";
   ceres::Problem::EvaluateOptions eval_options;
   eval_options.parameter_blocks.clear();
-  for (const auto& block : pose_blocks_) {
+  for (const double* block : pose_blocks_) {
     eval_options.parameter_blocks.push_back(const_cast<double*>(block));
   }
-  for (const auto& block : other_variables_blocks_) {
+  for (const double* block : other_variables_blocks_) {
     eval_options.parameter_blocks.push_back(const_cast<double*>(block));
   }
-  for (const auto& block : point_blocks_) {
+  for (const double* block : point_blocks_) {
     eval_options.parameter_blocks.push_back(const_cast<double*>(block));
   }
   ceres::CRSMatrix J_full_crs;
@@ -351,9 +343,9 @@ void BundleAdjustmentCovarianceEstimator::ComputeSchurComplement() {
   Eigen::SparseMatrix<double> H_pc = H_cp.transpose();
   Eigen::SparseMatrix<double> H_pp = J_p.transpose() * J_p;
   // in-place computation of H_pp_inv
-  Eigen::SparseMatrix<double> H_pp_inv = H_pp;  // shallow copy
+  Eigen::SparseMatrix<double>& H_pp_inv = H_pp;  // reference
   int counter_p = 0;
-  for (const auto& block : point_blocks_) {
+  for (const double* block : point_blocks_) {
     int num_params_point = ParameterBlockTangentSize(problem_, block);
     Eigen::SparseMatrix<double> subMatrix_sparse =
         H_pp.block(counter_p, counter_p, num_params_point, num_params_point);
@@ -443,33 +435,32 @@ bool BundleAdjustmentCovarianceEstimator::Compute() {
 bool EstimatePoseCovarianceCeresBackend(
     ceres::Problem* problem,
     Reconstruction* reconstruction,
-    std::map<image_t, Eigen::MatrixXd>& res) {
+    std::map<image_t, Eigen::MatrixXd>& image_id_to_covar) {
   BundleAdjustmentCovarianceEstimatorCeresBackend estimator(problem,
                                                             reconstruction);
   if (!estimator.Compute()) return false;
-  res.clear();
+  image_id_to_covar.clear();
   for (const auto& image : reconstruction->Images()) {
     image_t image_id = image.first;
     if (!estimator.HasPose(image_id)) continue;
-    Eigen::MatrixXd cov = estimator.GetPoseCovariance(image_id);
-    res.insert(std::make_pair(image_id, cov));
+    image_id_to_covar.emplace(image_id, estimator.GetPoseCovariance(image_id));
   }
   return true;
 }
 
-bool EstimatePoseCovariance(ceres::Problem* problem,
-                            Reconstruction* reconstruction,
-                            std::map<image_t, Eigen::MatrixXd>& res,
-                            double lambda) {
+bool EstimatePoseCovariance(
+    ceres::Problem* problem,
+    Reconstruction* reconstruction,
+    std::map<image_t, Eigen::MatrixXd>& image_id_to_covar,
+    double lambda) {
   BundleAdjustmentCovarianceEstimator estimator(problem, reconstruction);
   estimator.SetLambda(lambda);
   if (!estimator.Compute()) return false;
-  res.clear();
+  image_id_to_covar.clear();
   for (const auto& image : reconstruction->Images()) {
     image_t image_id = image.first;
     if (!estimator.HasPose(image_id)) continue;
-    Eigen::MatrixXd cov = estimator.GetPoseCovariance(image_id);
-    res.insert(std::make_pair(image_id, cov));
+    image_id_to_covar.emplace(image_id, estimator.GetPoseCovariance(image_id));
   }
   return true;
 }

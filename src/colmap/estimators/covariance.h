@@ -164,11 +164,12 @@ class BundleAdjustmentCovarianceEstimator
 bool EstimatePoseCovarianceCeresBackend(
     ceres::Problem* problem,
     Reconstruction* reconstruction,
-    std::map<image_t, Eigen::MatrixXd>& res);
+    std::map<image_t, Eigen::MatrixXd>& image_id_to_covar);
 
-bool EstimatePoseCovariance(ceres::Problem* problem,
-                            Reconstruction* reconstruction,
-                            std::map<image_t, Eigen::MatrixXd>& res,
-                            double lambda = 1e-6);
+bool EstimatePoseCovariance(
+    ceres::Problem* problem,
+    Reconstruction* reconstruction,
+    std::map<image_t, Eigen::MatrixXd>& image_id_to_covar,
+    double lambda = 1e-6);
 
 }  // namespace colmap
