@@ -269,11 +269,11 @@ bool BundleAdjustmentCovarianceEstimatorCeresBackend::ComputeFull() {
   ceres::Covariance::Options options;
   ceres::Covariance covariance_computer(options);
   std::vector<const double*> parameter_blocks;
-  paramter_blocks.insert(
+  parameter_blocks.insert(
       parameter_blocks.end(), pose_blocks_.begin(), pose_blocks_.end());
-  paramter_blocks.insert(parameter_blocks.end(),
-                         other_variables_blocks_.begin(),
-                         other_variables_blocks_.end());
+  parameter_blocks.insert(parameter_blocks.end(),
+                          other_variables_blocks_.begin(),
+                          other_variables_blocks_.end());
   if (!covariance_computer.Compute(parameter_blocks, problem_)) return false;
   int num_params = num_params_poses_ + num_params_other_variables_;
   Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> covs(
@@ -289,7 +289,7 @@ bool BundleAdjustmentCovarianceEstimatorCeresBackend::Compute() {
   ceres::Covariance::Options options;
   ceres::Covariance covariance_computer(options);
   std::vector<const double*> parameter_blocks;
-  paramter_blocks.insert(
+  parameter_blocks.insert(
       parameter_blocks.end(), pose_blocks_.begin(), pose_blocks_.end());
   if (!covariance_computer.Compute(parameter_blocks, problem_)) return false;
   Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> covs(
@@ -309,13 +309,15 @@ void BundleAdjustmentCovarianceEstimator::ComputeSchurComplement() {
   LOG(INFO) << "Evaluate jacobian matrix";
   ceres::Problem::EvaluateOptions eval_options;
   eval_options.parameter_blocks.clear();
-  paramter_blocks.insert(
-      parameter_blocks.end(), pose_blocks_.begin(), pose_blocks_.end());
-  paramter_blocks.insert(parameter_blocks.end(),
-                         other_variables_blocks_.begin(),
-                         other_variables_blocks_.end());
-  paramter_blocks.insert(
-      parameter_blocks.end(), point_blocks_.begin(), point_blocks_.end());
+  for (const double* block : pose_blocks_) {
+    eval_options.parameter_blocks.push_back(const_cast<double*>(block));
+  }
+  for (const double* block : other_variables_blocks_) {
+    eval_options.parameter_blocks.push_back(const_cast<double*>(block));
+  }
+  for (const double* block : point_blocks_) {
+    eval_options.parameter_blocks.push_back(const_cast<double*>(block));
+  }
   ceres::CRSMatrix J_full_crs;
   problem_->Evaluate(eval_options, nullptr, nullptr, nullptr, &J_full_crs);
   int num_residuals = J_full_crs.num_rows;
