@@ -191,9 +191,6 @@ Eigen::MatrixXd BundleAdjustmentCovarianceEstimatorBase::GetPoseCovariance(
       indices.push_back(index + i);
     }
   }
-#if EIGEN_VERSION_AT_LEAST(3, 4, 0)
-  Eigen::MatrixXd output = cov_poses_(indices, indices);
-#else
   size_t n_indices = indices.size();
   Eigen::MatrixXd output(n_indices, n_indices);
   for (size_t i = 0; i < n_indices; ++i) {
@@ -201,7 +198,6 @@ Eigen::MatrixXd BundleAdjustmentCovarianceEstimatorBase::GetPoseCovariance(
       output(i, j) = cov_poses_(indices[i], indices[j]);
     }
   }
-#endif
   return output;
 }
 
@@ -238,9 +234,6 @@ Eigen::MatrixXd BundleAdjustmentCovarianceEstimatorBase::GetCovariance(
       indices.push_back(index + i);
     }
   }
-#if EIGEN_VERSION_AT_LEAST(3, 4, 0)
-  Eigen::MatrixXd output = cov_variables_(indices, indices);
-#else
   size_t n_indices = indices.size();
   Eigen::MatrixXd output(n_indices, n_indices);
   for (size_t i = 0; i < n_indices; ++i) {
@@ -248,7 +241,6 @@ Eigen::MatrixXd BundleAdjustmentCovarianceEstimatorBase::GetCovariance(
       output(i, j) = cov_variables_(indices[i], indices[j]);
     }
   }
-#endif
   return output;
 }
 
