@@ -63,7 +63,7 @@ void BundleAdjustmentCovarianceEstimatorBase::Setup() {
         !problem_->IsParameterBlockConstant(const_cast<double*>(qvec))) {
       int num_params_qvec = ParameterBlockTangentSize(problem_, qvec);
       pose_blocks_.push_back(qvec);
-      map_block_to_index_.insert(std::make_pair(qvec, num_params_poses_));
+      map_block_to_index_.emplace(qvec, num_params_poses_);
       num_params_poses_ += num_params_qvec;
       pose_and_point_parameter_blocks.insert(qvec);
     }
@@ -73,7 +73,7 @@ void BundleAdjustmentCovarianceEstimatorBase::Setup() {
         !problem_->IsParameterBlockConstant(const_cast<double*>(tvec))) {
       int num_params_tvec = ParameterBlockTangentSize(problem_, tvec);
       pose_blocks_.push_back(tvec);
-      map_block_to_index_.insert(std::make_pair(tvec, num_params_poses_));
+      map_block_to_index_.emplace(tvec, num_params_poses_);
       num_params_poses_ += num_params_tvec;
       pose_and_point_parameter_blocks.insert(tvec);
     }
@@ -269,12 +269,11 @@ bool BundleAdjustmentCovarianceEstimatorCeresBackend::ComputeFull() {
   ceres::Covariance::Options options;
   ceres::Covariance covariance_computer(options);
   std::vector<const double*> parameter_blocks;
-  for (const double* block : pose_blocks_) {
-    parameter_blocks.push_back(block);
-  }
-  for (const double* block : other_variables_blocks_) {
-    parameter_blocks.push_back(block);
-  }
+  paramter_blocks.insert(
+      parameter_blocks.end(), pose_blocks_.begin(), pose_blocks_.end());
+  paramter_blocks.insert(parameter_blocks.end(),
+                         other_variables_blocks_.begin(),
+                         other_variables_blocks_.end());
   if (!covariance_computer.Compute(parameter_blocks, problem_)) return false;
   int num_params = num_params_poses_ + num_params_other_variables_;
   Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> covs(
@@ -290,9 +289,8 @@ bool BundleAdjustmentCovarianceEstimatorCeresBackend::Compute() {
   ceres::Covariance::Options options;
   ceres::Covariance covariance_computer(options);
   std::vector<const double*> parameter_blocks;
-  for (const double* block : pose_blocks_) {
-    parameter_blocks.push_back(block);
-  }
+  paramter_blocks.insert(
+      parameter_blocks.end(), pose_blocks_.begin(), pose_blocks_.end());
   if (!covariance_computer.Compute(parameter_blocks, problem_)) return false;
   Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> covs(
       num_params_poses_, num_params_poses_);
@@ -311,15 +309,13 @@ void BundleAdjustmentCovarianceEstimator::ComputeSchurComplement() {
   LOG(INFO) << "Evaluate jacobian matrix";
   ceres::Problem::EvaluateOptions eval_options;
   eval_options.parameter_blocks.clear();
-  for (const double* block : pose_blocks_) {
-    eval_options.parameter_blocks.push_back(const_cast<double*>(block));
-  }
-  for (const double* block : other_variables_blocks_) {
-    eval_options.parameter_blocks.push_back(const_cast<double*>(block));
-  }
-  for (const double* block : point_blocks_) {
-    eval_options.parameter_blocks.push_back(const_cast<double*>(block));
-  }
+  paramter_blocks.insert(
+      parameter_blocks.end(), pose_blocks_.begin(), pose_blocks_.end());
+  paramter_blocks.insert(parameter_blocks.end(),
+                         other_variables_blocks_.begin(),
+                         other_variables_blocks_.end());
+  paramter_blocks.insert(
+      parameter_blocks.end(), point_blocks_.begin(), point_blocks_.end());
   ceres::CRSMatrix J_full_crs;
   problem_->Evaluate(eval_options, nullptr, nullptr, nullptr, &J_full_crs);
   int num_residuals = J_full_crs.num_rows;
