@@ -79,7 +79,7 @@ TEST(FundamentalMatrix, SevenPoint) {
   estimator.Estimate(points1, points2, &models);
 
   ASSERT_EQ(models.size(), 1);
-  const auto& F = models[0];
+  const Eigen::Matrix3d F = models[0] / models[0](2, 2);
 
   // Reference values obtained from Matlab.
   EXPECT_NEAR(F(0, 0), 4.81441976, 1e-6);
@@ -146,15 +146,15 @@ TEST(FundamentalMatrix, EightPoint) {
   const auto& F = models[0];
 
   // Reference values obtained from Matlab.
-  EXPECT_TRUE(std::abs(F(0, 0) - -0.217859) < 1e-5);
-  EXPECT_TRUE(std::abs(F(0, 1) - 0.419282) < 1e-5);
-  EXPECT_TRUE(std::abs(F(0, 2) - -0.0343075) < 1e-5);
-  EXPECT_TRUE(std::abs(F(1, 0) - -0.0717941) < 1e-5);
-  EXPECT_TRUE(std::abs(F(1, 1) - 0.0451643) < 1e-5);
-  EXPECT_TRUE(std::abs(F(1, 2) - 0.0216073) < 1e-5);
-  EXPECT_TRUE(std::abs(F(2, 0) - 0.248062) < 1e-5);
-  EXPECT_TRUE(std::abs(F(2, 1) - -0.429478) < 1e-5);
-  EXPECT_TRUE(std::abs(F(2, 2) - 0.0221019) < 1e-5);
+  EXPECT_NEAR(F(0, 0), -0.217859, 1e-5);
+  EXPECT_NEAR(F(0, 1), 0.419282, 1e-5);
+  EXPECT_NEAR(F(0, 2), -0.0343075, 1e-5);
+  EXPECT_NEAR(F(1, 0), -0.0717941, 1e-5);
+  EXPECT_NEAR(F(1, 1), 0.0451643, 1e-5);
+  EXPECT_NEAR(F(1, 2), 0.0216073, 1e-5);
+  EXPECT_NEAR(F(2, 0), 0.248062, 1e-5);
+  EXPECT_NEAR(F(2, 1), -0.429478, 1e-5);
+  EXPECT_NEAR(F(2, 2), 0.0221019, 1e-5);
 }
 
 }  // namespace

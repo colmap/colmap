@@ -54,36 +54,22 @@ void FundamentalMatrixSevenPointEstimator::Estimate(
 
   models->clear();
 
-  // Note that no normalization of the points is necessary here.
-
   // Setup system of equations: [points2(i,:), 1]' * F * [points1(i,:), 1]'.
-  Eigen::Matrix<double, 7, 9> A;
+  Eigen::Matrix<double, 9, 7> A;
   for (size_t i = 0; i < 7; ++i) {
-    const double x0 = points1[i](0);
-    const double y0 = points1[i](1);
-    const double x1 = points2[i](0);
-    const double y1 = points2[i](1);
-    A(i, 0) = x1 * x0;
-    A(i, 1) = x1 * y0;
-    A(i, 2) = x1;
-    A(i, 3) = y1 * x0;
-    A(i, 4) = y1 * y0;
-    A(i, 5) = y1;
-    A(i, 6) = x0;
-    A(i, 7) = y0;
-    A(i, 8) = 1;
+    A.col(i) << points1[i].x() * points2[i].homogeneous(),
+        points1[i].y() * points2[i].homogeneous(), points2[i].homogeneous();
   }
 
   // 9 unknowns with 7 equations, so we have 2D null space.
-  Eigen::JacobiSVD<Eigen::Matrix<double, 7, 9>> svd(A, Eigen::ComputeFullV);
-  const Eigen::Matrix<double, 9, 9>& f = svd.matrixV();
-  Eigen::Matrix<double, 1, 9> f1 = f.col(7);
-  Eigen::Matrix<double, 1, 9> f2 = f.col(8);
-
-  f1 -= f2;
+  Eigen::Matrix<double, 9, 9> Q = A.fullPivHouseholderQr().matrixQ();
 
   // Normalize, such that lambda + mu = 1
   // and add constraint det(F) = det(lambda * f1 + (1 - lambda) * f2).
+
+  auto f1 = Q.col(7);
+  auto f2 = Q.col(8);
+  f1 -= f2;
 
   const double t0 = f1(4) * f1(8) - f1(5) * f1(7);
   const double t1 = f1(3) * f1(8) - f1(5) * f1(6);
@@ -110,35 +96,17 @@ void FundamentalMatrixSevenPointEstimator::Estimate(
               f1(8) * (f2(0) * f2(4) - f2(1) * f2(3));
   coeffs(3) = f2(0) * t3 - f2(1) * t4 + f2(2) * t5;
 
-  Eigen::VectorXd roots_real;
-  Eigen::VectorXd roots_imag;
-  if (!FindPolynomialRootsCompanionMatrix(coeffs, &roots_real, &roots_imag)) {
-    return;
-  }
+  const double inv_c0 = 1.0 / coeffs(0);
+  coeffs.tail<3>() *= inv_c0;
 
-  models->reserve(roots_real.size());
+  Eigen::Vector3d roots;
+  const int num_roots =
+      FindCubicPolynomialRoots(coeffs(1), coeffs(2), coeffs(3), &roots);
 
-  for (Eigen::VectorXd::Index i = 0; i < roots_real.size(); ++i) {
-    const double kMaxRootImag = 1e-10;
-    if (std::abs(roots_imag(i)) > kMaxRootImag) {
-      continue;
-    }
-
-    const double lambda = roots_real(i);
-    const double mu = 1;
-
-    Eigen::MatrixXd F = lambda * f1 + mu * f2;
-
-    F.resize(3, 3);
-
-    const double kEps = 1e-10;
-    if (std::abs(F(2, 2)) < kEps) {
-      continue;
-    }
-
-    F /= F(2, 2);
-
-    models->push_back(F.transpose());
+  models->reserve(num_roots);
+  for (int i = 0; i < num_roots; ++i) {
+    const Eigen::Matrix<double, 9, 1> F = (f1 * roots[i] + f2).normalized();
+    models->push_back(Eigen::Map<const Eigen::Matrix3d>(F.data()));
   }
 }
 
