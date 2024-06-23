@@ -35,12 +35,6 @@
 
 namespace colmap {
 
-Eigen::Matrix6d GetCovarianceForPoseInverse(const Eigen::Matrix6d& covar,
-                                            const Rigid3d& rigid3) {
-  Eigen::Matrix6d adjoint = rigid3.Adjoint();
-  return adjoint * covar * adjoint.transpose();
-}
-
 BundleAdjustmentCovarianceEstimatorBase::
     BundleAdjustmentCovarianceEstimatorBase(ceres::Problem* problem,
                                             Reconstruction* reconstruction) {

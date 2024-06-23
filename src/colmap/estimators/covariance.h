@@ -39,10 +39,6 @@
 
 namespace colmap {
 
-// Update covariance (n = 6) for rigid3d.inverse()
-Eigen::Matrix6d GetCovarianceForPoseInverse(const Eigen::Matrix6d& covar,
-                                            const Rigid3d& rigid3);
-
 // Covariance estimation for bundle adjustment (or extended) problem.
 // The interface is applicable to all ceres problem extended on top of bundle
 // adjustment. The Schur complement is computed explicitly to eliminate the
