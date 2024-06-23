@@ -119,7 +119,6 @@ TEST(Rigid3d, Adjoint) {
   const Rigid3d b_from_a = TestRigid3d();
   const Eigen::Matrix6d A = Eigen::Matrix6d::Random();
   const Eigen::Matrix6d cov_b_from_a = A * A.transpose();
-  const Eigen::Matrix6d adjoint_b_from_a = b_from_a.Adjoint();
   const Eigen::Matrix6d cov_a_from_b =
       GetCovarianceForRigid3dInverse(cov_b_from_a, b_from_a);
   const Rigid3d a_from_b = Inverse(b_from_a);
