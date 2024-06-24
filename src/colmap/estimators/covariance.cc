@@ -357,10 +357,10 @@ bool BundleAdjustmentCovarianceEstimator::ComputeFull() {
       "Inverting Schur complement for all variables except for 3D points (n = "
       "%d)",
       num_params_poses_ + num_params_other_variables_);
-  Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> lltOfS(S_matrix_);
+  Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> ldltOfS(S_matrix_);
   int rank = 0;
   for (int i = 0; i < S_matrix_.rows(); ++i) {
-    if (lltOfS.vectorD().coeff(i) != 0.0) rank++;
+    if (ldltOfS.vectorD().coeff(i) != 0.0) rank++;
   }
   if (rank < S_matrix_.rows()) {
     LOG(INFO) << StringPrintf(
@@ -373,7 +373,7 @@ bool BundleAdjustmentCovarianceEstimator::ComputeFull() {
   }
   Eigen::SparseMatrix<double> I(S_matrix_.rows(), S_matrix_.cols());
   I.setIdentity();
-  Eigen::SparseMatrix<double> S_inv = lltOfS.solve(I);
+  Eigen::SparseMatrix<double> S_inv = ldltOfS.solve(I);
   cov_variables_ = S_inv;  // convert to dense matrix
   cov_poses_ = cov_variables_.block(0, 0, num_params_poses_, num_params_poses_);
   return true;
