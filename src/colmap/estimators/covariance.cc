@@ -353,22 +353,28 @@ bool BundleAdjustmentCovarianceEstimator::ComputeFull() {
   if (!HasValidSchurComplement()) {
     ComputeSchurComplement();
   }
-  Eigen::MatrixXd S_dense = S_matrix_;
   LOG(INFO) << StringPrintf(
       "Inverting Schur complement for all variables except for 3D points (n = "
       "%d)",
       num_params_poses_ + num_params_other_variables_);
-  Eigen::FullPivLU<Eigen::MatrixXd> luOfS_dense(S_dense);
-  if (luOfS_dense.rank() < S_dense.rows()) {
+  Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> lltOfS(S_matrix_);
+  int rank = 0;
+  for (int i = 0; i < S_matrix_.rows(); ++i) {
+    if (lltOfS.vectorD().coeff(i) != 0.0) rank++;
+  }
+  if (rank < S_matrix_.rows()) {
     LOG(INFO) << StringPrintf(
         "Unable to compute covariance. The Schur complement on all variables "
         "(except for 3D points) is rank deficient. Number of columns: %d, "
         "rank: %d.",
-        S_dense.rows(),
-        luOfS_dense.rank());
+        S_matrix_.rows(),
+        rank);
     return false;
   }
-  cov_variables_ = luOfS_dense.inverse();
+  Eigen::SparseMatrix<double> I(S_matrix_.rows(), S_matrix_.cols());
+  I.setIdentity();
+  Eigen::SparseMatrix<double> S_inv = lltOfS.solve(I);
+  cov_variables_ = S_inv;  // convert to dense matrix
   cov_poses_ = cov_variables_.block(0, 0, num_params_poses_, num_params_poses_);
   return true;
 }
@@ -379,23 +385,30 @@ bool BundleAdjustmentCovarianceEstimator::Compute() {
   }
 
   // Schur elimination on other variables to get pose covariance
-  Eigen::MatrixXd S_dense = S_matrix_;
   LOG(INFO) << StringPrintf("Schur elimination on other variables (n = %d)",
                             num_params_other_variables_);
-  Eigen::MatrixXd S_aa =
-      S_dense.block(0, 0, num_params_poses_, num_params_poses_);
-  Eigen::MatrixXd S_ab = S_dense.block(
+  Eigen::SparseMatrix<double> S_aa =
+      S_matrix_.block(0, 0, num_params_poses_, num_params_poses_);
+  Eigen::SparseMatrix<double> S_ab = S_matrix_.block(
       0, num_params_poses_, num_params_poses_, num_params_other_variables_);
-  Eigen::MatrixXd S_ba = S_ab.transpose();
-  Eigen::MatrixXd S_bb = S_dense.block(num_params_poses_,
-                                       num_params_poses_,
-                                       num_params_other_variables_,
-                                       num_params_other_variables_);
-  S_bb += lambda_ * Eigen::MatrixXd::Identity(S_bb.rows(), S_bb.cols());
-  Eigen::LDLT<Eigen::MatrixXd> ldltOfS_bb(S_bb);
-  Eigen::MatrixXd S_poses = S_aa - S_ab * ldltOfS_bb.solve(S_ba);
+  Eigen::SparseMatrix<double> S_ba = S_ab.transpose();
+  Eigen::SparseMatrix<double> S_bb =
+      S_matrix_.block(num_params_poses_,
+                      num_params_poses_,
+                      num_params_other_variables_,
+                      num_params_other_variables_);
+  for (int i = 0; i < S_bb.rows(); ++i) {
+    if (S_bb.coeff(i, i) == 0.0)
+      S_bb.coeffRef(i, i) = lambda_;
+    else
+      S_bb.coeffRef(i, i) += lambda_;
+  }
+  Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> lltOfS_bb(S_bb);
+  Eigen::SparseMatrix<double> S_poses_sparse =
+      S_aa - S_ab * lltOfS_bb.solve(S_ba);
 
   // Step 5: Compute covariance
+  Eigen::MatrixXd S_poses = S_poses_sparse;  // convert to dense matrix
   LOG(INFO) << StringPrintf(
       "Inverting Schur complement for pose parameters (n = %d)",
       num_params_poses_);
