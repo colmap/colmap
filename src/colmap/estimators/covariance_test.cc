@@ -29,10 +29,10 @@
 
 #include "colmap/estimators/covariance.h"
 
-#include "colmap/scene/synthetic.h"
-#include "colmap/scene/reconstruction.h"
-#include "colmap/math/random.h"
 #include "colmap/estimators/bundle_adjustment.h"
+#include "colmap/math/random.h"
+#include "colmap/scene/reconstruction.h"
+#include "colmap/scene/synthetic.h"
 
 #include <gtest/gtest.h>
 
@@ -48,10 +48,11 @@ void GenerateReconstruction(Reconstruction* reconstruction) {
   SynthesizeDataset(synthetic_dataset_options, reconstruction);
 }
 
-std::shared_ptr<BundleAdjuster> BuildBundleAdjuster(Reconstruction* reconstruction) {
+std::shared_ptr<BundleAdjuster> BuildBundleAdjuster(
+    Reconstruction* reconstruction) {
   BundleAdjustmentConfig config;
   std::vector<image_t> image_ids;
-  for (const auto& image: reconstruction->Images()) {
+  for (const auto& image : reconstruction->Images()) {
     image_ids.push_back(image.first);
     config.AddImage(image.first);
   }
@@ -61,7 +62,9 @@ std::shared_ptr<BundleAdjuster> BuildBundleAdjuster(Reconstruction* reconstructi
   return std::make_shared<BundleAdjuster>(options, config);
 }
 
-void ExpectNearEigenMatrixXd(const Eigen::MatrixXd& mat1, const Eigen::MatrixXd& mat2, double tolerance) {
+void ExpectNearEigenMatrixXd(const Eigen::MatrixXd& mat1,
+                             const Eigen::MatrixXd& mat2,
+                             double tolerance) {
   ASSERT_EQ(mat1.rows(), mat2.rows());
   ASSERT_EQ(mat1.cols(), mat2.cols());
   for (int i = 0; i < mat1.rows(); ++i) {
@@ -71,23 +74,28 @@ void ExpectNearEigenMatrixXd(const Eigen::MatrixXd& mat1, const Eigen::MatrixXd&
   }
 }
 
-} // namespace
+}  // namespace
 
 TEST(Covariance, PoseCovarianceInterface) {
   Reconstruction reconstruction;
   GenerateReconstruction(&reconstruction);
-  std::shared_ptr<BundleAdjuster> bundle_adjuster = BuildBundleAdjuster(&reconstruction);
+  std::shared_ptr<BundleAdjuster> bundle_adjuster =
+      BuildBundleAdjuster(&reconstruction);
   bundle_adjuster->Solve(&reconstruction);
   std::shared_ptr<ceres::Problem> problem = bundle_adjuster->Problem();
-  
+
   std::map<image_t, Eigen::MatrixXd> image_id_to_covar_ceres;
-  ASSERT_TRUE(EstimatePoseCovarianceCeresBackend(problem.get(), &reconstruction, image_id_to_covar_ceres));
+  ASSERT_TRUE(EstimatePoseCovarianceCeresBackend(
+      problem.get(), &reconstruction, image_id_to_covar_ceres));
   std::map<image_t, Eigen::MatrixXd> image_id_to_covar;
-  if (!EstimatePoseCovarianceCeresBackend(problem.get(), &reconstruction, image_id_to_covar))
-    LOG(INFO)<< "Skipping due to failure of ceres covariance computation.";
-    return;
-  for (auto it = image_id_to_covar.begin(); it != image_id_to_covar.end(); ++it) {
-    ASSERT_TRUE(image_id_to_covar_ceres.find(it->first) != image_id_to_covar_ceres.end());
+  if (!EstimatePoseCovarianceCeresBackend(
+          problem.get(), &reconstruction, image_id_to_covar))
+    LOG(INFO) << "Skipping due to failure of ceres covariance computation.";
+  return;
+  for (auto it = image_id_to_covar.begin(); it != image_id_to_covar.end();
+       ++it) {
+    ASSERT_TRUE(image_id_to_covar_ceres.find(it->first) !=
+                image_id_to_covar_ceres.end());
     Eigen::MatrixXd covar = it->second;
     Eigen::MatrixXd covar_ceres = image_id_to_covar_ceres.at(it->first);
     ExpectNearEigenMatrixXd(covar, covar_ceres, 1e-6);
@@ -97,28 +105,29 @@ TEST(Covariance, PoseCovarianceInterface) {
 TEST(Covariance, PoseCovariance) {
   Reconstruction reconstruction;
   GenerateReconstruction(&reconstruction);
-  std::shared_ptr<BundleAdjuster> bundle_adjuster = BuildBundleAdjuster(&reconstruction);
+  std::shared_ptr<BundleAdjuster> bundle_adjuster =
+      BuildBundleAdjuster(&reconstruction);
   bundle_adjuster->Solve(&reconstruction);
   std::shared_ptr<ceres::Problem> problem = bundle_adjuster->Problem();
 
   BundleAdjustmentCovarianceEstimator estimator(problem.get(), &reconstruction);
   ASSERT_TRUE(estimator.Compute());
-  BundleAdjustmentCovarianceEstimatorCeresBackend estimator_ceres(problem.get(), &reconstruction);
+  BundleAdjustmentCovarianceEstimatorCeresBackend estimator_ceres(
+      problem.get(), &reconstruction);
   if (!estimator_ceres.Compute())
-    LOG(INFO)<< "Skipping due to failure of ceres covariance computation.";
-    return;
+    LOG(INFO) << "Skipping due to failure of ceres covariance computation.";
+  return;
 
   // covariance for each image
   std::vector<image_t> image_ids;
-  for (const auto& image: reconstruction.Images()) {
+  for (const auto& image : reconstruction.Images()) {
     image_ids.push_back(image.first);
   }
   Eigen::MatrixXd covar, covar_ceres;
   size_t n_images = image_ids.size();
   for (size_t i = 0; i < n_images; ++i) {
     image_t image_id = image_ids[i];
-    if (!estimator.HasPose(image_id))
-      continue;
+    if (!estimator.HasPose(image_id)) continue;
     covar = estimator.GetPoseCovariance(image_id);
     covar_ceres = estimator_ceres.GetPoseCovariance(image_id);
     ExpectNearEigenMatrixXd(covar, covar_ceres, 1e-6);
@@ -138,11 +147,9 @@ TEST(Covariance, PoseCovariance) {
   // multiple images
   std::vector<image_t> test_image_ids;
   for (size_t i = 0; i < n_images; ++i) {
-    if (i % 2 != 0)
-      continue;
+    if (i % 2 != 0) continue;
     image_t image_id = image_ids[i];
-    if (!estimator.HasPose(image_id))
-      continue;
+    if (!estimator.HasPose(image_id)) continue;
     test_image_ids.push_back(image_id);
   }
   covar = estimator.GetPoseCovariance(test_image_ids);
@@ -153,21 +160,22 @@ TEST(Covariance, PoseCovariance) {
 TEST(Covariance, ComputeFull) {
   Reconstruction reconstruction;
   GenerateReconstruction(&reconstruction);
-  std::shared_ptr<BundleAdjuster> bundle_adjuster = BuildBundleAdjuster(&reconstruction);
+  std::shared_ptr<BundleAdjuster> bundle_adjuster =
+      BuildBundleAdjuster(&reconstruction);
   bundle_adjuster->Solve(&reconstruction);
   std::shared_ptr<ceres::Problem> problem = bundle_adjuster->Problem();
 
   BundleAdjustmentCovarianceEstimator estimator(problem.get(), &reconstruction);
   ASSERT_TRUE(estimator.ComputeFull());
-  BundleAdjustmentCovarianceEstimatorCeresBackend estimator_ceres(problem.get(), &reconstruction);
+  BundleAdjustmentCovarianceEstimatorCeresBackend estimator_ceres(
+      problem.get(), &reconstruction);
   if (!estimator_ceres.ComputeFull())
-    LOG(INFO)<< "Skipping due to failure of ceres covariance computation.";
-    return;
+    LOG(INFO) << "Skipping due to failure of ceres covariance computation.";
+  return;
   std::vector<double*> parameter_blocks;
-  for (const auto& camera: reconstruction.Cameras()) {
+  for (const auto& camera : reconstruction.Cameras()) {
     const double* ptr = camera.second.params.data();
-    if (!estimator.HasBlock(const_cast<double*>(ptr)))
-      continue;
+    if (!estimator.HasBlock(const_cast<double*>(ptr))) continue;
     parameter_blocks.push_back(const_cast<double*>(ptr));
   }
   Eigen::MatrixXd covar = estimator.GetCovariance(parameter_blocks);
@@ -181,7 +189,7 @@ TEST(Covariance, RankDeficientPoints) {
 
   // add poorly conditioned points into reconstruction
   std::vector<image_t> image_ids;
-  for (const auto& image: reconstruction.Images()) {
+  for (const auto& image : reconstruction.Images()) {
     image_ids.push_back(image.first);
   }
   size_t n_images = image_ids.size();
@@ -199,17 +207,17 @@ TEST(Covariance, RankDeficientPoints) {
       Track track;
       // image 1
       Point2D point2D_1;
-      point2D_1.xy = camera1.ImgFromCam(
-          (image1.CamFromWorld() * point).hnormalized());
-      point2D_t point2D_idx_1 = image1.NumPoints2D(); 
+      point2D_1.xy =
+          camera1.ImgFromCam((image1.CamFromWorld() * point).hnormalized());
+      point2D_t point2D_idx_1 = image1.NumPoints2D();
       auto& point2Ds_1 = image1.Points2D();
       point2Ds_1.push_back(point2D_1);
       track.AddElement(image_id1, point2D_idx_1);
       // image 2
       Point2D point2D_2;
-      point2D_2.xy = camera2.ImgFromCam(
-          (image2.CamFromWorld() * point).hnormalized());
-      point2D_t point2D_idx_2 = image2.NumPoints2D(); 
+      point2D_2.xy =
+          camera2.ImgFromCam((image2.CamFromWorld() * point).hnormalized());
+      point2D_t point2D_idx_2 = image2.NumPoints2D();
       auto& point2Ds_2 = image2.Points2D();
       point2Ds_2.push_back(point2D_2);
       track.AddElement(image_id2, point2D_idx_2);
@@ -222,12 +230,14 @@ TEST(Covariance, RankDeficientPoints) {
   }
 
   // bundle adjustment
-  std::shared_ptr<BundleAdjuster> bundle_adjuster = BuildBundleAdjuster(&reconstruction);
+  std::shared_ptr<BundleAdjuster> bundle_adjuster =
+      BuildBundleAdjuster(&reconstruction);
   bundle_adjuster->Solve(&reconstruction);
   std::shared_ptr<ceres::Problem> problem = bundle_adjuster->Problem();
 
   // covariance computation
-  BundleAdjustmentCovarianceEstimatorCeresBackend estimator_ceres(problem.get(), &reconstruction);
+  BundleAdjustmentCovarianceEstimatorCeresBackend estimator_ceres(
+      problem.get(), &reconstruction);
   ASSERT_TRUE(!estimator_ceres.Compute());
   BundleAdjustmentCovarianceEstimator estimator(problem.get(), &reconstruction);
   ASSERT_TRUE(estimator.Compute());
