@@ -131,6 +131,7 @@ void FundamentalMatrixEightPointEstimator::Estimate(
 
   models->clear();
 
+  // Center and normalize image points for better numerical stability.
   std::vector<X_t> normed_points1;
   std::vector<Y_t> normed_points2;
   Eigen::Matrix3d normed_from_orig1;
