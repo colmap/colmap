@@ -80,6 +80,10 @@ void FundamentalMatrixSevenPointEstimator::Estimate(
 
   Eigen::Vector4d coeffs;
   coeffs(0) = f1(0) * t0 - f1(1) * t1 + f1(2) * t2;
+  if (std::abs(coeffs(0)) < 1e-16) {
+    return;
+  }
+
   coeffs(1) = f2(0) * t0 - f2(1) * t1 + f2(2) * t2 -
               f2(3) * (f1(1) * f1(8) - f1(2) * f1(7)) +
               f2(4) * (f1(0) * f1(8) - f1(2) * f1(6)) -
@@ -96,23 +100,11 @@ void FundamentalMatrixSevenPointEstimator::Estimate(
               f1(8) * (f2(0) * f2(4) - f2(1) * f2(3));
   coeffs(3) = f2(0) * t3 - f2(1) * t4 + f2(2) * t5;
 
+  coeffs.tail<3>() /= coeffs(0);
+
   Eigen::Vector3d roots;
-  int num_roots = 0;
-  if (std::abs(coeffs(0)) <= 1e-6) {
-    Eigen::VectorXd roots_real;
-    Eigen::VectorXd roots_imag;
-    FindQuadraticPolynomialRoots(coeffs.tail<3>(), &roots_real, &roots_imag);
-    for (int i = 0; i < roots_real.size(); ++i) {
-      if (std::abs(roots_imag(i)) <= 1e-6) {
-        roots(num_roots++) = roots_real(i);
-      }
-    }
-  } else {
-    const double inv_c0 = 1.0 / coeffs(0);
-    coeffs.tail<3>() *= inv_c0;
-    num_roots =
-        FindCubicPolynomialRoots(coeffs(1), coeffs(2), coeffs(3), &roots);
-  }
+  const int num_roots =
+      FindCubicPolynomialRoots(coeffs(1), coeffs(2), coeffs(3), &roots);
 
   models->reserve(num_roots);
   for (int i = 0; i < num_roots; ++i) {

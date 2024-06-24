@@ -30,6 +30,7 @@
 #include "colmap/estimators/fundamental_matrix.h"
 
 #include "colmap/geometry/essential_matrix.h"
+#include "colmap/math/random.h"
 
 #include <gtest/gtest.h>
 
@@ -110,7 +111,7 @@ TEST(FundamentalSevenPointEstimator, Nominal) {
     for (size_t i = 0; i < kNumPoints; ++i) {
       points1.push_back(K.topRows<2>() *
                         Eigen::Vector2d::Random().homogeneous());
-      const double random_depth = 1 + rand() / static_cast<double>(RAND_MAX);
+      const double random_depth = RandomUniformReal<double>(0.2, 2.0);
       points2.push_back((K * (cam2_from_cam1 * (random_depth * K.inverse() *
                                                 points1.back().homogeneous())))
                             .hnormalized());
@@ -214,7 +215,7 @@ TEST_P(FundamentalMatrixEightPointEstimatorTests, Nominal) {
     for (size_t i = 0; i < kNumPoints; ++i) {
       points1.push_back(K.topRows<2>() *
                         Eigen::Vector2d::Random().homogeneous());
-      const double random_depth = 1 + rand() / static_cast<double>(RAND_MAX);
+      const double random_depth = RandomUniformReal<double>(0.2, 2.0);
       points2.push_back((K * (cam2_from_cam1 * (random_depth * K.inverse() *
                                                 points1.back().homogeneous())))
                             .hnormalized());
