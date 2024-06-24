@@ -89,7 +89,7 @@ TEST(Covariance, PoseCovarianceInterface) {
       problem.get(), &reconstruction, image_id_to_covar_ceres));
   std::map<image_t, Eigen::MatrixXd> image_id_to_covar;
   if (!EstimatePoseCovarianceCeresBackend(
-        problem.get(), &reconstruction, image_id_to_covar)) {
+          problem.get(), &reconstruction, image_id_to_covar)) {
     LOG(INFO) << "Skipping due to failure of ceres covariance computation.";
     return;
   }
