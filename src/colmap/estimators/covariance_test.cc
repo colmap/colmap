@@ -205,8 +205,9 @@ TEST(Covariance, RankDeficientPoints) {
     Image& image2 = reconstruction.Image(image_id2);
     const Camera& camera2 = reconstruction.Camera(image1.CameraId());
     Eigen::Vector3d position_2 = Inverse(image2.CamFromWorld()).translation;
-    for (double j = 0.2; j < 1.0; j += 0.2) {
-      Eigen::Vector3d point = j * position_1 + (1 - j) * position_2;
+    std::vector<double> values = {0.2, 0.4, 0.6, 0.8};
+    for (const double& val : values) {
+      Eigen::Vector3d point = val * position_1 + (1 - val) * position_2;
       Track track;
       // image 1
       Point2D point2D_1;
