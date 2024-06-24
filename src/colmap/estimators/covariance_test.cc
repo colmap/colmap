@@ -89,9 +89,10 @@ TEST(Covariance, PoseCovarianceInterface) {
       problem.get(), &reconstruction, image_id_to_covar_ceres));
   std::map<image_t, Eigen::MatrixXd> image_id_to_covar;
   if (!EstimatePoseCovarianceCeresBackend(
-          problem.get(), &reconstruction, image_id_to_covar))
+        problem.get(), &reconstruction, image_id_to_covar)) {
     LOG(INFO) << "Skipping due to failure of ceres covariance computation.";
-  return;
+    return;
+  }
   for (auto it = image_id_to_covar.begin(); it != image_id_to_covar.end();
        ++it) {
     ASSERT_TRUE(image_id_to_covar_ceres.find(it->first) !=
@@ -114,9 +115,10 @@ TEST(Covariance, PoseCovariance) {
   ASSERT_TRUE(estimator.Compute());
   BundleAdjustmentCovarianceEstimatorCeresBackend estimator_ceres(
       problem.get(), &reconstruction);
-  if (!estimator_ceres.Compute())
+  if (!estimator_ceres.Compute()) {
     LOG(INFO) << "Skipping due to failure of ceres covariance computation.";
-  return;
+    return;
+  }
 
   // covariance for each image
   std::vector<image_t> image_ids;
@@ -169,9 +171,10 @@ TEST(Covariance, ComputeFull) {
   ASSERT_TRUE(estimator.ComputeFull());
   BundleAdjustmentCovarianceEstimatorCeresBackend estimator_ceres(
       problem.get(), &reconstruction);
-  if (!estimator_ceres.ComputeFull())
+  if (!estimator_ceres.ComputeFull()) {
     LOG(INFO) << "Skipping due to failure of ceres covariance computation.";
-  return;
+    return;
+  }
   std::vector<double*> parameter_blocks;
   for (const auto& camera : reconstruction.Cameras()) {
     const double* ptr = camera.second.params.data();
