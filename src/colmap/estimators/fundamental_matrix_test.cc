@@ -50,12 +50,11 @@ Eigen::Matrix3d RandomCalibrationMatrix() {
       .finished();
 }
 
-std::pair<std::vector<Eigen::Vector2d>, std::vector<Eigen::Vector2d>>
-RandomEpipolarCorrespondences(const Rigid3d& cam2_from_cam1,
-                              const Eigen::Matrix3d& K,
-                              size_t num_points) {
-  std::vector<Eigen::Vector2d> points1;
-  std::vector<Eigen::Vector2d> points2;
+void RandomEpipolarCorrespondences(const Rigid3d& cam2_from_cam1,
+                                   const Eigen::Matrix3d& K,
+                                   size_t num_points,
+                                   std::vector<Eigen::Vector2d>& points1,
+                                   std::vector<Eigen::Vector2d>& points2) {
   for (size_t i = 0; i < num_points; ++i) {
     points1.push_back(K.topRows<2>() * Eigen::Vector2d::Random().homogeneous());
     const double random_depth = RandomUniformReal<double>(0.2, 2.0);
@@ -63,7 +62,6 @@ RandomEpipolarCorrespondences(const Rigid3d& cam2_from_cam1,
                                               points1.back().homogeneous())))
                           .hnormalized());
   }
-  return {std::move(points1), std::move(points2)};
 }
 
 void ExpectAtLeastOneEqualFundamentalUpToScale(
@@ -145,8 +143,10 @@ TEST(FundamentalSevenPointEstimator, Nominal) {
                                  Eigen::Vector3d::Random());
     Eigen::Matrix3d expected_F = FundamentalFromEssentialMatrix(
         K, EssentialMatrixFromPose(cam2_from_cam1), K);
-    const auto [points1, points2] =
-        RandomEpipolarCorrespondences(cam2_from_cam1, K, kNumPoints);
+    std::vector<Eigen::Vector2d> points1;
+    std::vector<Eigen::Vector2d> points2;
+    RandomEpipolarCorrespondences(
+        cam2_from_cam1, K, kNumPoints, points1, points2);
 
     FundamentalMatrixSevenPointEstimator estimator;
     std::vector<Eigen::Matrix3d> models;
@@ -231,8 +231,10 @@ TEST_P(FundamentalMatrixEightPointEstimatorTests, Nominal) {
                                  Eigen::Vector3d::Random());
     Eigen::Matrix3d expected_F = FundamentalFromEssentialMatrix(
         K, EssentialMatrixFromPose(cam2_from_cam1), K);
-    const auto [points1, points2] =
-        RandomEpipolarCorrespondences(cam2_from_cam1, K, kNumPoints);
+    std::vector<Eigen::Vector2d> points1;
+    std::vector<Eigen::Vector2d> points2;
+    RandomEpipolarCorrespondences(
+        cam2_from_cam1, K, kNumPoints, points1, points2);
 
     FundamentalMatrixEightPointEstimator estimator;
     std::vector<Eigen::Matrix3d> models;
