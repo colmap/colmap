@@ -71,11 +71,6 @@ void BindGeometry(py::module& m) {
   py::implicitly_convertible<py::array, Eigen::Quaterniond>();
   MakeDataclass(PyRotation3d);
 
-  m.def("get_covariance_for_rigid3d_inverse",
-        &GetCovarianceForRigid3dInverse,
-        py::arg("covar"),
-        py::arg("rigid3"));
-
   py::class_ext_<Rigid3d> PyRigid3d(m, "Rigid3d");
   PyRigid3d.def(py::init<>())
       .def(py::init<const Eigen::Quaterniond&, const Eigen::Vector3d&>())
@@ -98,6 +93,11 @@ void BindGeometry(py::module& m) {
                     t.translation.transpose();
            })
       .def("inverse", static_cast<Rigid3d (*)(const Rigid3d&)>(&Inverse))
+      .def("get_covariance_for_inverse",
+           static_cast<Eigen::Matrix6d (*)(const Rigid3d&,
+                                           const Eigen::Matrix6d&)>(
+               &GetCovarianceForRigid3dInverse),
+           py::arg("covar"))
       .def_static("interpolate", &InterpolateCameraPoses)
       .def("__repr__", [](const Rigid3d& self) {
         std::stringstream ss;

@@ -78,10 +78,10 @@ inline Rigid3d Inverse(const Rigid3d& b_from_a) {
 
 // Update covariance (6x6) for rigid3d.inverse()
 inline Eigen::Matrix6d GetCovarianceForRigid3dInverse(
-    const Eigen::Matrix6d& covar, const Rigid3d& rigid3) {
-  Eigen::Matrix6d adjoint = rigid3.Adjoint();
+    const Rigid3d& rigid3, const Eigen::Matrix6d& covar) {
+  const Eigen::Matrix6d adjoint = rigid3.Adjoint();
   return adjoint * covar * adjoint.transpose();
-};
+}
 
 // Apply transform to point such that one can write expressions like:
 //      x_in_b = b_from_a * x_in_a
