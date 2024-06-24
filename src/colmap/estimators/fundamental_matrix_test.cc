@@ -37,6 +37,47 @@
 namespace colmap {
 namespace {
 
+Eigen::Matrix3d RandomCalibrationMatrix() {
+  return (Eigen::Matrix3d() << RandomUniformReal<double>(800, 1200),
+          0,
+          RandomUniformReal<double>(400, 600),
+          0,
+          RandomUniformReal<double>(800, 1200),
+          RandomUniformReal<double>(400, 600),
+          0,
+          0,
+          1)
+      .finished();
+}
+
+std::pair<std::vector<Eigen::Vector2d>, std::vector<Eigen::Vector2d>>
+RandomEpipolarCorrespondences(const Rigid3d& cam2_from_cam1,
+                              const Eigen::Matrix3d& K,
+                              size_t num_points) {
+  std::vector<Eigen::Vector2d> points1;
+  std::vector<Eigen::Vector2d> points2;
+  for (size_t i = 0; i < num_points; ++i) {
+    points1.push_back(K.topRows<2>() * Eigen::Vector2d::Random().homogeneous());
+    const double random_depth = RandomUniformReal<double>(0.2, 2.0);
+    points2.push_back((K * (cam2_from_cam1 * (random_depth * K.inverse() *
+                                              points1.back().homogeneous())))
+                          .hnormalized());
+  }
+  return {std::move(points1), std::move(points2)};
+}
+
+void ExpectAtLeastOneEqualFundamentalUpToScale(
+    Eigen::Matrix3d& F, std::vector<Eigen::Matrix3d>& Fs) {
+  F /= F(2, 2);
+  for (Eigen::Matrix3d& F_candidate : Fs) {
+    F_candidate /= F_candidate(2, 2);
+    if (F_candidate.isApprox(F, 1e-6)) {
+      return;
+    }
+  }
+  FAIL() << "No fundamental matrix is equal up to scale.";
+}
+
 TEST(FundamentalSevenPointEstimator, Reference) {
   const double points1_raw[] = {0.4964,
                                 1.0577,
@@ -98,38 +139,21 @@ TEST(FundamentalSevenPointEstimator, Reference) {
 
 TEST(FundamentalSevenPointEstimator, Nominal) {
   const size_t kNumPoints = 7;
-  const Eigen::Matrix3d K =
-      (Eigen::Matrix3d() << 1000, 0, 500, 0, 1000, 500, 0, 0, 1).finished();
-  for (size_t k = 0; k < 10; ++k) {
-    const Rigid3d cam2_from_cam1(Eigen::Quaterniond::UnitRandom(),
-                                 Eigen::Vector3d::Random());
+  for (size_t k = 0; k < 100; ++k) {
+    const Eigen::Matrix3d K = RandomCalibrationMatrix();
+    const Rigid3d cam2_from_cam1(
+        Eigen::Quaterniond::UnitRandom(),
+        Eigen::Vector3d(2, 2, 2) + Eigen::Vector3d::Random());
     Eigen::Matrix3d expected_F = FundamentalFromEssentialMatrix(
         K, EssentialMatrixFromPose(cam2_from_cam1), K);
-    expected_F /= expected_F(2, 2);
-    std::vector<Eigen::Vector2d> points1;
-    std::vector<Eigen::Vector2d> points2;
-    for (size_t i = 0; i < kNumPoints; ++i) {
-      points1.push_back(K.topRows<2>() *
-                        Eigen::Vector2d::Random().homogeneous());
-      const double random_depth = RandomUniformReal<double>(0.2, 2.0);
-      points2.push_back((K * (cam2_from_cam1 * (random_depth * K.inverse() *
-                                                points1.back().homogeneous())))
-                            .hnormalized());
-    }
+    const auto [points1, points2] =
+        RandomEpipolarCorrespondences(cam2_from_cam1, K, kNumPoints);
 
     FundamentalMatrixSevenPointEstimator estimator;
     std::vector<Eigen::Matrix3d> models;
     estimator.Estimate(points1, points2, &models);
 
-    bool found = false;
-    for (Eigen::Matrix3d& F : models) {
-      F /= F(2, 2);
-      if (F.isApprox(expected_F, 1e-3)) {
-        found = true;
-        break;
-      }
-    }
-    EXPECT_TRUE(found);
+    ExpectAtLeastOneEqualFundamentalUpToScale(expected_F, models);
   }
 }
 
@@ -202,38 +226,21 @@ class FundamentalMatrixEightPointEstimatorTests
 
 TEST_P(FundamentalMatrixEightPointEstimatorTests, Nominal) {
   const size_t kNumPoints = GetParam();
-  const Eigen::Matrix3d K =
-      (Eigen::Matrix3d() << 1000, 0, 500, 0, 1000, 500, 0, 0, 1).finished();
-  for (size_t k = 0; k < 10; ++k) {
-    const Rigid3d cam2_from_cam1(Eigen::Quaterniond::UnitRandom(),
-                                 Eigen::Vector3d::Random());
+  for (size_t k = 0; k < 100; ++k) {
+    const Eigen::Matrix3d K = RandomCalibrationMatrix();
+    const Rigid3d cam2_from_cam1(
+        Eigen::Quaterniond::UnitRandom(),
+        Eigen::Vector3d(2, 2, 2) + Eigen::Vector3d::Random());
     Eigen::Matrix3d expected_F = FundamentalFromEssentialMatrix(
         K, EssentialMatrixFromPose(cam2_from_cam1), K);
-    expected_F /= expected_F(2, 2);
-    std::vector<Eigen::Vector2d> points1;
-    std::vector<Eigen::Vector2d> points2;
-    for (size_t i = 0; i < kNumPoints; ++i) {
-      points1.push_back(K.topRows<2>() *
-                        Eigen::Vector2d::Random().homogeneous());
-      const double random_depth = RandomUniformReal<double>(0.2, 2.0);
-      points2.push_back((K * (cam2_from_cam1 * (random_depth * K.inverse() *
-                                                points1.back().homogeneous())))
-                            .hnormalized());
-    }
+    const auto [points1, points2] =
+        RandomEpipolarCorrespondences(cam2_from_cam1, K, kNumPoints);
 
     FundamentalMatrixEightPointEstimator estimator;
     std::vector<Eigen::Matrix3d> models;
     estimator.Estimate(points1, points2, &models);
 
-    bool found = false;
-    for (Eigen::Matrix3d& F : models) {
-      F /= F(2, 2);
-      if (F.isApprox(expected_F, 1e-3)) {
-        found = true;
-        break;
-      }
-    }
-    EXPECT_TRUE(found);
+    ExpectAtLeastOneEqualFundamentalUpToScale(expected_F, models);
   }
 }
 
