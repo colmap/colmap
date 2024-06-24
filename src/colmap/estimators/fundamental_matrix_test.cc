@@ -141,9 +141,8 @@ TEST(FundamentalSevenPointEstimator, Nominal) {
   const size_t kNumPoints = 7;
   for (size_t k = 0; k < 100; ++k) {
     const Eigen::Matrix3d K = RandomCalibrationMatrix();
-    const Rigid3d cam2_from_cam1(
-        Eigen::Quaterniond::UnitRandom(),
-        Eigen::Vector3d(2, 2, 2) + Eigen::Vector3d::Random());
+    const Rigid3d cam2_from_cam1(Eigen::Quaterniond::UnitRandom(),
+                                 Eigen::Vector3d::Random());
     Eigen::Matrix3d expected_F = FundamentalFromEssentialMatrix(
         K, EssentialMatrixFromPose(cam2_from_cam1), K);
     const auto [points1, points2] =
@@ -228,9 +227,8 @@ TEST_P(FundamentalMatrixEightPointEstimatorTests, Nominal) {
   const size_t kNumPoints = GetParam();
   for (size_t k = 0; k < 100; ++k) {
     const Eigen::Matrix3d K = RandomCalibrationMatrix();
-    const Rigid3d cam2_from_cam1(
-        Eigen::Quaterniond::UnitRandom(),
-        Eigen::Vector3d(2, 2, 2) + Eigen::Vector3d::Random());
+    const Rigid3d cam2_from_cam1(Eigen::Quaterniond::UnitRandom(),
+                                 Eigen::Vector3d::Random());
     Eigen::Matrix3d expected_F = FundamentalFromEssentialMatrix(
         K, EssentialMatrixFromPose(cam2_from_cam1), K);
     const auto [points1, points2] =
