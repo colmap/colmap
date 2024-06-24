@@ -38,7 +38,7 @@ void BindCovarianceEstimator(py::module& m) {
       },
       py::arg("problem"),
       py::arg("reconstruction"),
-      py::arg("lambda") = 1e-6);
+      py::arg("lambda") = 1e-8);
 
   using EstimatorBase = BundleAdjustmentCovarianceEstimatorBase;
   py::class_<EstimatorBase>(m, "BundleAdjustmentCovarianceEstimatorBase")
@@ -104,5 +104,5 @@ void BindCovarianceEstimator(py::module& m) {
       .def(py::init<ceres::Problem*, Reconstruction*, double>(),
            py::arg("problem"),
            py::arg("reconstruction"),
-           py::arg("lambda") = 1e-6);
+           py::arg("lambda") = 1e-8);
 }

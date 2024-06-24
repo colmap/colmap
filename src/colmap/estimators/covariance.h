@@ -136,7 +136,7 @@ class BundleAdjustmentCovarianceEstimator
  public:
   BundleAdjustmentCovarianceEstimator(ceres::Problem* problem,
                                       Reconstruction* reconstruction,
-                                      double lambda = 1e-6)
+                                      double lambda = 1e-8)
       : BundleAdjustmentCovarianceEstimatorBase(problem, reconstruction),
         lambda_(lambda) {}
 
@@ -149,7 +149,7 @@ class BundleAdjustmentCovarianceEstimator
   Eigen::SparseMatrix<double> S_matrix_;
 
   // The damping factor to avoid rank deficiency
-  const double lambda_ = 1e-6;
+  const double lambda_ = 1e-8;
 
   // Compute the Schur complement for poses and other variables by eliminating
   // 3D points
@@ -173,6 +173,6 @@ bool EstimatePoseCovariance(
     ceres::Problem* problem,
     Reconstruction* reconstruction,
     std::map<image_t, Eigen::MatrixXd>& image_id_to_covar,
-    double lambda = 1e-6);
+    double lambda = 1e-8);
 
 }  // namespace colmap

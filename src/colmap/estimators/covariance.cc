@@ -368,7 +368,7 @@ bool BundleAdjustmentCovarianceEstimator::ComputeFull() {
         luOfS_dense.rank());
     return false;
   }
-  cov_variables_ = S_dense.inverse();
+  cov_variables_ = luOfS_dense.inverse();
   cov_poses_ = cov_variables_.block(0, 0, num_params_poses_, num_params_poses_);
   return true;
 }
@@ -409,7 +409,7 @@ bool BundleAdjustmentCovarianceEstimator::Compute() {
         luOfS_poses.rank());
     return false;
   }
-  cov_poses_ = S_poses.inverse();
+  cov_poses_ = luOfS_poses.inverse();
   return true;
 }
 
