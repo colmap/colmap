@@ -50,12 +50,12 @@ class BundleAdjustmentCovarianceEstimatorBase {
                                           Reconstruction* reconstruction);
   virtual ~BundleAdjustmentCovarianceEstimatorBase() = default;
 
-  // Compute covariance for all paramt\ers (except for 3D points)
-  // Stored the full matrix at cov_variables_ and the subblock copy at
+  // Compute covariance for all parameters (except for 3D points).
+  // Store the full matrix at cov_variables_ and the subblock copy at
   // cov_poses_;
   virtual bool ComputeFull() = 0;
 
-  // Compute covariance for pose paramters
+  // Compute covariance for pose paramters.
   // Stored at cov_poses_;
   virtual bool Compute() = 0;
 
@@ -135,10 +135,10 @@ class BundleAdjustmentCovarianceEstimator
     : public BundleAdjustmentCovarianceEstimatorBase {
  public:
   BundleAdjustmentCovarianceEstimator(ceres::Problem* problem,
-                                      Reconstruction* reconstruction)
-      : BundleAdjustmentCovarianceEstimatorBase(problem, reconstruction) {}
-
-  void SetLambda(double lambda);  // update daming factor. default = 1e-6
+                                      Reconstruction* reconstruction,
+                                      double lambda = 1e-6)
+      : BundleAdjustmentCovarianceEstimatorBase(problem, reconstruction),
+        lambda_(lambda) {}
 
   bool ComputeFull() override;
   bool Compute() override;
@@ -148,8 +148,8 @@ class BundleAdjustmentCovarianceEstimator
   // elimination
   Eigen::SparseMatrix<double> S_matrix_;
 
-  // damping factor to avoid rank deficiency
-  double lambda_ = 1e-6;
+  // The damping factor to avoid rank deficiency
+  const double lambda_ = 1e-6;
 
   // Compute the Schur complement for poses and other variables by eliminating
   // 3D points

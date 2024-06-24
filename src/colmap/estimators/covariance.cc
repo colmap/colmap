@@ -286,10 +286,6 @@ bool BundleAdjustmentCovarianceEstimatorCeresBackend::Compute() {
   return true;
 }
 
-void BundleAdjustmentCovarianceEstimator::SetLambda(double lambda) {
-  lambda_ = lambda;
-}
-
 void BundleAdjustmentCovarianceEstimator::ComputeSchurComplement() {
   // Evaluate jacobian
   LOG(INFO) << "Evaluate jacobian matrix";
@@ -438,8 +434,8 @@ bool EstimatePoseCovariance(
     Reconstruction* reconstruction,
     std::map<image_t, Eigen::MatrixXd>& image_id_to_covar,
     double lambda) {
-  BundleAdjustmentCovarianceEstimator estimator(problem, reconstruction);
-  estimator.SetLambda(lambda);
+  BundleAdjustmentCovarianceEstimator estimator(
+      problem, reconstruction, lambda);
   if (!estimator.Compute()) return false;
   image_id_to_covar.clear();
   for (const auto& image : reconstruction->Images()) {
