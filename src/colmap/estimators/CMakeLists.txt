@@ -93,6 +93,11 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_estimators
 )
 COLMAP_ADD_TEST(
+    NAME covariance_test
+    SRCS covariance_test.cc
+    LINK_LIBS colmap_estimators
+)
+COLMAP_ADD_TEST(
     NAME cost_functions_test
     SRCS cost_functions_test.cc
     LINK_LIBS colmap_estimators
