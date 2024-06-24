@@ -105,6 +105,4 @@ void BindCovarianceEstimator(py::module& m) {
            py::arg("problem"),
            py::arg("reconstruction"),
            py::arg("lambda") = 1e-6);
-
-#undef REGISTER_ESTIMATOR
 }
