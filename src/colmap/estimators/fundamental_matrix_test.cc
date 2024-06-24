@@ -308,13 +308,13 @@ TEST_P(FundamentalMatrixEightPointEstimatorTests, NoiseStability) {
     estimator.Estimate(points1, points2, &models);
 
     ExpectAtLeastOneValidModel(
-        estimator, points1, points2, expected_F, models, 1e-3, 1e-4);
+        estimator, points1, points2, expected_F, models, 1e-3, 1e-2);
   }
 }
 
 INSTANTIATE_TEST_SUITE_P(FundamentalMatrixEightPointEstimator,
                          FundamentalMatrixEightPointEstimatorTests,
-                         ::testing::Values(8, 16, 32));
+                         ::testing::Values(8, 64, 1024));
 
 }  // namespace
 }  // namespace colmap

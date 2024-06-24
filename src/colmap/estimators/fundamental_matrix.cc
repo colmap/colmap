@@ -139,22 +139,24 @@ void FundamentalMatrixEightPointEstimator::Estimate(
   CenterAndNormalizeImagePoints(points2, &normed_points2, &normed_from_orig2);
 
   // Setup homogeneous linear equation as x2' * F * x1 = 0.
-  Eigen::Matrix<double, 9, Eigen::Dynamic> A(points1.size(), 9);
+  Eigen::Matrix<double, Eigen::Dynamic, 9> A(points1.size(), 9);
   for (size_t i = 0; i < points1.size(); ++i) {
-    A.col(i) << normed_points2[i].x() * normed_points1[i].homogeneous(),
-        normed_points2[i].y() * normed_points1[i].homogeneous(),
-        normed_points1[i].homogeneous();
+    A.row(i) << normed_points2[i].x() *
+                    normed_points1[i].transpose().homogeneous(),
+        normed_points2[i].y() * normed_points1[i].transpose().homogeneous(),
+        normed_points1[i].transpose().homogeneous();
   }
 
   // Solve for the nullspace of the constraint matrix.
   Eigen::Matrix3d E;
   if (points1.size() == 8) {
-    Eigen::Matrix<double, 9, 9> Q = A.householderQr().householderQ();
+    Eigen::Matrix<double, 9, 9> Q =
+        A.transpose().householderQr().householderQ();
     E = Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(
         Q.col(8).data());
   } else {
     Eigen::JacobiSVD<Eigen::Matrix<double, Eigen::Dynamic, 9>> svd(
-        A.transpose(), Eigen::ComputeFullV);
+        A, Eigen::ComputeFullV);
     E = Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(
         svd.matrixV().col(8).data());
   }
