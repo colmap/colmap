@@ -23,7 +23,7 @@ void ConvertListOfPyArraysToConstPointers(
   }
 }
 
-} // namespace
+}  // namespace
 
 void BindCovarianceEstimator(py::module& m) {
   m.def(
