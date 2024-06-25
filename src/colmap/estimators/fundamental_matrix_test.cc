@@ -64,16 +64,31 @@ void RandomEpipolarCorrespondences(const Rigid3d& cam2_from_cam1,
   }
 }
 
-void ExpectAtLeastOneEqualFundamentalUpToScale(
-    Eigen::Matrix3d& F, std::vector<Eigen::Matrix3d>& Fs) {
-  F /= F(2, 2);
-  for (Eigen::Matrix3d& F_candidate : Fs) {
-    F_candidate /= F_candidate(2, 2);
-    if (F_candidate.isApprox(F, 1e-6)) {
-      return;
+template <typename Estimator>
+void ExpectAtLeastOneValidModel(const Estimator& estimator,
+                                const std::vector<Eigen::Vector2d>& points1,
+                                const std::vector<Eigen::Vector2d>& points2,
+                                Eigen::Matrix3d& expected_F,
+                                std::vector<Eigen::Matrix3d>& models,
+                                double F_eps = 1e-6,
+                                double r_eps = 1e-6) {
+  expected_F /= expected_F(2, 2);
+  for (size_t i = 0; i < models.size(); ++i) {
+    Eigen::Matrix3d F = models[i];
+    F /= F(2, 2);
+    if (!F.isApprox(expected_F, F_eps)) {
+      continue;
     }
+
+    std::vector<double> residuals;
+    estimator.Residuals(points1, points2, F, &residuals);
+    for (size_t j = 0; j < points1.size(); ++j) {
+      EXPECT_LT(residuals[j], r_eps);
+    }
+
+    return;
   }
-  FAIL() << "No fundamental matrix is equal up to scale.";
+  ADD_FAILURE() << "No fundamental matrix is equal up to scale.";
 }
 
 TEST(FundamentalSevenPointEstimator, Reference) {
@@ -152,7 +167,7 @@ TEST(FundamentalSevenPointEstimator, Nominal) {
     std::vector<Eigen::Matrix3d> models;
     estimator.Estimate(points1, points2, &models);
 
-    ExpectAtLeastOneEqualFundamentalUpToScale(expected_F, models);
+    ExpectAtLeastOneValidModel(estimator, points1, points2, expected_F, models);
   }
 }
 
@@ -206,18 +221,18 @@ TEST(FundamentalMatrixEightPointEstimator, Reference) {
   estimator.Estimate(points1, points2, &models);
 
   ASSERT_EQ(models.size(), 1);
-  const auto& F = models[0];
+  const auto& F = models[0] / models[0](2, 2);
 
   // Reference values obtained from Matlab.
-  EXPECT_NEAR(F(0, 0), -0.217859, 1e-5);
-  EXPECT_NEAR(F(0, 1), 0.419282, 1e-5);
-  EXPECT_NEAR(F(0, 2), -0.0343075, 1e-5);
-  EXPECT_NEAR(F(1, 0), -0.0717941, 1e-5);
-  EXPECT_NEAR(F(1, 1), 0.0451643, 1e-5);
-  EXPECT_NEAR(F(1, 2), 0.0216073, 1e-5);
-  EXPECT_NEAR(F(2, 0), 0.248062, 1e-5);
-  EXPECT_NEAR(F(2, 1), -0.429478, 1e-5);
-  EXPECT_NEAR(F(2, 2), 0.0221019, 1e-5);
+  EXPECT_NEAR(F(0, 0), -9.85701, 1e-5);
+  EXPECT_NEAR(F(0, 1), 18.97038, 1e-5);
+  EXPECT_NEAR(F(0, 2), -1.55224, 1e-5);
+  EXPECT_NEAR(F(1, 0), -3.24832, 1e-5);
+  EXPECT_NEAR(F(1, 1), 2.04346, 1e-5);
+  EXPECT_NEAR(F(1, 2), 0.977619, 1e-5);
+  EXPECT_NEAR(F(2, 0), 11.22355, 1e-5);
+  EXPECT_NEAR(F(2, 1), -19.43171, 1e-5);
+  EXPECT_NEAR(F(2, 2), 1, 1e-5);
 }
 
 class FundamentalMatrixEightPointEstimatorTests
@@ -240,13 +255,66 @@ TEST_P(FundamentalMatrixEightPointEstimatorTests, Nominal) {
     std::vector<Eigen::Matrix3d> models;
     estimator.Estimate(points1, points2, &models);
 
-    ExpectAtLeastOneEqualFundamentalUpToScale(expected_F, models);
+    ExpectAtLeastOneValidModel(estimator, points1, points2, expected_F, models);
+  }
+}
+
+TEST_P(FundamentalMatrixEightPointEstimatorTests, NumericalStability) {
+  const size_t kNumPoints = GetParam();
+  constexpr double kCoordinateScale = 1e3;
+  for (size_t k = 0; k < 100; ++k) {
+    Eigen::Matrix3d K = RandomCalibrationMatrix();
+    K(0, 0) *= kCoordinateScale;
+    K(1, 1) *= kCoordinateScale;
+    K(0, 2) *= kCoordinateScale;
+    K(1, 2) *= kCoordinateScale;
+    const Rigid3d cam2_from_cam1(Eigen::Quaterniond::UnitRandom(),
+                                 Eigen::Vector3d::Random());
+    Eigen::Matrix3d expected_F = FundamentalFromEssentialMatrix(
+        K, EssentialMatrixFromPose(cam2_from_cam1), K);
+    std::vector<Eigen::Vector2d> points1;
+    std::vector<Eigen::Vector2d> points2;
+    RandomEpipolarCorrespondences(
+        cam2_from_cam1, K, kNumPoints, points1, points2);
+
+    FundamentalMatrixEightPointEstimator estimator;
+    std::vector<Eigen::Matrix3d> models;
+    estimator.Estimate(points1, points2, &models);
+
+    ExpectAtLeastOneValidModel(
+        estimator, points1, points2, expected_F, models, 1e-4, 1e-4);
+  }
+}
+
+TEST_P(FundamentalMatrixEightPointEstimatorTests, NoiseStability) {
+  const size_t kNumPoints = GetParam();
+  constexpr double kNoise = 1e-4;
+  for (size_t k = 0; k < 100; ++k) {
+    const Eigen::Matrix3d K = RandomCalibrationMatrix();
+    const Rigid3d cam2_from_cam1(Eigen::Quaterniond::UnitRandom(),
+                                 Eigen::Vector3d::Random());
+    Eigen::Matrix3d expected_F = FundamentalFromEssentialMatrix(
+        K, EssentialMatrixFromPose(cam2_from_cam1), K);
+    std::vector<Eigen::Vector2d> points1;
+    std::vector<Eigen::Vector2d> points2;
+    RandomEpipolarCorrespondences(
+        cam2_from_cam1, K, kNumPoints, points1, points2);
+    for (size_t i = 0; i < kNumPoints; ++i) {
+      points2[i] += Eigen::Vector2d::Random() * kNoise;
+    }
+
+    FundamentalMatrixEightPointEstimator estimator;
+    std::vector<Eigen::Matrix3d> models;
+    estimator.Estimate(points1, points2, &models);
+
+    ExpectAtLeastOneValidModel(
+        estimator, points1, points2, expected_F, models, 1e-3, 1e-2);
   }
 }
 
 INSTANTIATE_TEST_SUITE_P(FundamentalMatrixEightPointEstimator,
                          FundamentalMatrixEightPointEstimatorTests,
-                         ::testing::Values(8, 16, 32));
+                         ::testing::Values(8, 64, 1024));
 
 }  // namespace
 }  // namespace colmap
