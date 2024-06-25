@@ -37,11 +37,9 @@ namespace colmap {
 
 BundleAdjustmentCovarianceEstimatorBase::
     BundleAdjustmentCovarianceEstimatorBase(ceres::Problem* problem,
-                                            Reconstruction* reconstruction) {
-  THROW_CHECK_NOTNULL(problem);
-  problem_ = problem;
-  THROW_CHECK_NOTNULL(reconstruction);
-  reconstruction_ = reconstruction;
+                                            Reconstruction* reconstruction)
+    : problem_(THROW_CHECK_NOTNULL(problem)),
+      reconstruction_(THROW_CHECK_NOTNULL(reconstruction)) {
   SetUp(reconstruction_);
 }
 
@@ -49,9 +47,8 @@ BundleAdjustmentCovarianceEstimatorBase::
     BundleAdjustmentCovarianceEstimatorBase(
         ceres::Problem* problem,
         const std::vector<const double*>& pose_blocks,
-        const std::vector<const double*>& point_blocks) {
-  THROW_CHECK_NOTNULL(problem);
-  problem_ = problem;
+        const std::vector<const double*>& point_blocks)
+    : problem_(THROW_CHECK_NOTNULL(problem)) {
   SetUp(pose_blocks, point_blocks);
 }
 
@@ -116,9 +113,6 @@ void BundleAdjustmentCovarianceEstimatorBase::SetUp(
 
   // Parse parameter blocks for poses
   SetPoseBlocks(pose_blocks);
-
-  // Parse parameter blocks for other variables
-  SetUpOtherVariablesBlocks();
 }
 
 void BundleAdjustmentCovarianceEstimatorBase::SetPoseBlocks(
@@ -194,7 +188,7 @@ bool BundleAdjustmentCovarianceEstimatorBase::HasPose(image_t image_id) const {
       reconstruction_->Image(image_id).CamFromWorld().rotation.coeffs().data();
   const double* tvec =
       reconstruction_->Image(image_id).CamFromWorld().translation.data();
-  return HasBlock(qvec) && HasBlock(tvec);
+  return HasPoseBlock(qvec) && HasPoseBlock(tvec);
 }
 
 int BundleAdjustmentCovarianceEstimatorBase::GetBlockIndex(
