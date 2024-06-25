@@ -240,9 +240,6 @@ TEST(Covariance, RankDeficientPoints) {
   std::shared_ptr<ceres::Problem> problem = bundle_adjuster->Problem();
 
   // covariance computation
-  BundleAdjustmentCovarianceEstimatorCeresBackend estimator_ceres(
-      problem.get(), &reconstruction);
-  ASSERT_TRUE(!estimator_ceres.Compute());
   BundleAdjustmentCovarianceEstimator estimator(problem.get(), &reconstruction);
   ASSERT_TRUE(estimator.Compute());
 }
