@@ -42,8 +42,23 @@ void BindCovarianceEstimator(py::module& m) {
 
   using EstimatorBase = BundleAdjustmentCovarianceEstimatorBase;
   py::class_<EstimatorBase>(m, "BundleAdjustmentCovarianceEstimatorBase")
-      .def("has_pose", &EstimatorBase::HasPose, py::arg("image_id"))
+      .def(
+          "set_pose_blocks",
+          [](EstimatorBase& self, std::vector<py::array_t<double>>& pyarrays) {
+            std::vector<const double*> blocks;
+            for (auto it = pyarrays.begin(); it != pyarrays.end(); ++it) {
+              py::buffer_info info = it->request();
+              blocks.push_back((const double*)info.ptr);
+            }
+            return self.SetPoseBlocks(blocks);
+          },
+          py::arg("pose_blocks"))
       .def("has_block", &EstimatorBase::HasBlock, py::arg("parameter_block"))
+      .def("has_pose_block",
+           &EstimatorBase::HasPoseBlock,
+           py::arg("parameter_block"))
+      .def("has_reconstruction", &EstimatorBase::HasReconstruction)
+      .def("has_pose", &EstimatorBase::HasPose, py::arg("image_id"))
       .def("compute", &EstimatorBase::Compute)
       .def("compute_full", &EstimatorBase::ComputeFull)
       .def("get_pose_covariance",
@@ -61,6 +76,37 @@ void BindCovarianceEstimator(py::module& m) {
                &EstimatorBase::GetPoseCovariance, py::const_),
            py::arg("image_id1"),
            py::arg("image_id2"))
+      .def(
+          "get_pose_covariance",
+          [](EstimatorBase& self, py::array_t<double>& pyarray) {
+            py::buffer_info info = pyarray.request();
+            return self.GetPoseCovariance((double*)info.ptr);
+          },
+          py::arg("paramter_block"))
+      .def(
+          "get_pose_covariance",
+          [](EstimatorBase& self, std::vector<py::array_t<double>>& pyarrays) {
+            std::vector<double*> blocks;
+            for (auto it = pyarrays.begin(); it != pyarrays.end(); ++it) {
+              py::buffer_info info = it->request();
+              blocks.push_back((double*)info.ptr);
+            }
+            return self.GetPoseCovariance(blocks);
+          },
+          py::arg("parameter_blocks"))
+      .def(
+          "get_pose_covariance",
+          [](EstimatorBase& self,
+             py::array_t<double>& pyarray1,
+             py::array_t<double>& pyarray2) {
+            py::buffer_info info1 = pyarray1.request();
+            py::buffer_info info2 = pyarray2.request();
+            return self.GetPoseCovariance((double*)info1.ptr,
+                                          (double*)info2.ptr);
+          },
+          py::arg("parameter_block1"),
+          py::arg("parameter_block2"))
+
       .def(
           "get_covariance",
           [](EstimatorBase& self, py::array_t<double>& pyarray) {
@@ -97,12 +143,61 @@ void BindCovarianceEstimator(py::module& m) {
       m, "BundleAdjustmentCovarianceEstimatorCeresBackend")
       .def(py::init<ceres::Problem*, Reconstruction*>(),
            py::arg("problem"),
-           py::arg("reconstruction"));
+           py::arg("reconstruction"))
+      .def(
+          py::init([](ceres::Problem* problem,
+                      std::vector<py::array_t<double>>& pose_blocks_pyarrays,
+                      std::vector<py::array_t<double>>& point_blocks_pyarrays) {
+            std::vector<const double*> pose_blocks;
+            for (auto it = pose_blocks_pyarrays.begin();
+                 it != pose_blocks_pyarrays.end();
+                 ++it) {
+              py::buffer_info info = it->request();
+              pose_blocks.push_back((const double*)info.ptr);
+            }
+            std::vector<const double*> point_blocks;
+            for (auto it = point_blocks_pyarrays.begin();
+                 it != point_blocks_pyarrays.end();
+                 ++it) {
+              py::buffer_info info = it->request();
+              point_blocks.push_back((const double*)info.ptr);
+            }
+            return new BundleAdjustmentCovarianceEstimatorCeresBackend(
+                problem, pose_blocks, point_blocks);
+          }),
+          py::arg("problem"),
+          py::arg("pose_blocks"),
+          py::arg("point_blocks"));
 
   py::class_<BundleAdjustmentCovarianceEstimator, EstimatorBase>(
       m, "BundleAdjustmentCovarianceEstimator")
       .def(py::init<ceres::Problem*, Reconstruction*, double>(),
            py::arg("problem"),
            py::arg("reconstruction"),
+           py::arg("lambda") = 1e-8)
+      .def(py::init([](ceres::Problem* problem,
+                       std::vector<py::array_t<double>>& pose_blocks_pyarrays,
+                       std::vector<py::array_t<double>>& point_blocks_pyarrays,
+                       const double lambda) {
+             std::vector<const double*> pose_blocks;
+             for (auto it = pose_blocks_pyarrays.begin();
+                  it != pose_blocks_pyarrays.end();
+                  ++it) {
+               py::buffer_info info = it->request();
+               pose_blocks.push_back((const double*)info.ptr);
+             }
+             std::vector<const double*> point_blocks;
+             for (auto it = point_blocks_pyarrays.begin();
+                  it != point_blocks_pyarrays.end();
+                  ++it) {
+               py::buffer_info info = it->request();
+               point_blocks.push_back((const double*)info.ptr);
+             }
+             return new BundleAdjustmentCovarianceEstimator(
+                 problem, pose_blocks, point_blocks, lambda);
+           }),
+           py::arg("problem"),
+           py::arg("pose_blocks"),
+           py::arg("point_blocks"),
            py::arg("lambda") = 1e-8);
 }

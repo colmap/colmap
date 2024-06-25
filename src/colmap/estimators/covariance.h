@@ -46,9 +46,18 @@ namespace colmap {
 // rank deficiency for large-scale reconstruction
 class BundleAdjustmentCovarianceEstimatorBase {
  public:
+  // Construct with a COLMAP reconstruction
   BundleAdjustmentCovarianceEstimatorBase(ceres::Problem* problem,
                                           Reconstruction* reconstruction);
+  // Construct by specifying pose blocks and point blocks
+  BundleAdjustmentCovarianceEstimatorBase(
+      ceres::Problem* problem,
+      const std::vector<const double*>& pose_blocks,
+      const std::vector<const double*>& point_blocks);
   virtual ~BundleAdjustmentCovarianceEstimatorBase() = default;
+
+  // Manually set pose blocks that are interested
+  void SetPoseBlocks(const std::vector<const double*>& pose_blocks);
 
   // Compute covariance for all parameters (except for 3D points).
   // Store the full matrix at cov_variables_ and the subblock copy at
@@ -63,6 +72,10 @@ class BundleAdjustmentCovarianceEstimatorBase {
   // test if the block corresponds to any parameter in the problem except for 3D
   // points
   bool HasBlock(const double* params) const;
+  // test if the block corresponds to any parameter in the pose_blocks
+  bool HasPoseBlock(const double* params) const;
+  // test if the estimator is constructed with a COLMAP reconstruction
+  bool HasReconstruction() const;
   // test if the pose is inside the problem as non-constant variables
   bool HasPose(image_t image_id) const;
 
@@ -72,6 +85,11 @@ class BundleAdjustmentCovarianceEstimatorBase {
   Eigen::MatrixXd GetPoseCovariance(
       const std::vector<image_t>& image_ids) const;
   Eigen::MatrixXd GetPoseCovariance(image_t image_id1, image_t image_id2) const;
+  Eigen::MatrixXd GetPoseCovariance(double* parameter_block) const;
+  Eigen::MatrixXd GetPoseCovariance(
+      const std::vector<double*>& parameter_blocks) const;
+  Eigen::MatrixXd GetPoseCovariance(double* parameter_block1,
+                                    double* parameter_block2) const;
 
   // all parameters (except for 3D points)
   Eigen::MatrixXd GetCovariance(double* parameter_block) const;
@@ -113,11 +131,14 @@ class BundleAdjustmentCovarianceEstimatorBase {
   ceres::Problem* problem_;
 
   // reconstruction
-  Reconstruction* reconstruction_;
+  Reconstruction* reconstruction_ = nullptr;
 
  private:
   // set up parameter blocks
-  void Setup();
+  void SetUp(Reconstruction* reconstruction);
+  void SetUp(const std::vector<const double*>& pose_blocks,
+             const std::vector<const double*>& point_blocks);
+  void SetUpOtherVariablesBlocks();
 };
 
 class BundleAdjustmentCovarianceEstimatorCeresBackend
@@ -126,6 +147,13 @@ class BundleAdjustmentCovarianceEstimatorCeresBackend
   BundleAdjustmentCovarianceEstimatorCeresBackend(
       ceres::Problem* problem, Reconstruction* reconstruction)
       : BundleAdjustmentCovarianceEstimatorBase(problem, reconstruction) {}
+
+  BundleAdjustmentCovarianceEstimatorCeresBackend(
+      ceres::Problem* problem,
+      const std::vector<const double*>& pose_blocks,
+      const std::vector<const double*>& point_blocks)
+      : BundleAdjustmentCovarianceEstimatorBase(
+            problem, pose_blocks, point_blocks) {}
 
   bool ComputeFull() override;
   bool Compute() override;
@@ -138,6 +166,14 @@ class BundleAdjustmentCovarianceEstimator
                                       Reconstruction* reconstruction,
                                       double lambda = 1e-8)
       : BundleAdjustmentCovarianceEstimatorBase(problem, reconstruction),
+        lambda_(lambda) {}
+  BundleAdjustmentCovarianceEstimator(
+      ceres::Problem* problem,
+      const std::vector<const double*>& pose_blocks,
+      const std::vector<const double*>& point_blocks,
+      double lambda = 1e-8)
+      : BundleAdjustmentCovarianceEstimatorBase(
+            problem, pose_blocks, point_blocks),
         lambda_(lambda) {}
 
   bool ComputeFull() override;
