@@ -97,6 +97,7 @@ class BundleAdjustmentCovarianceEstimatorBase {
   // get the starting index of the parameter block in the matrix
   // orders: [pose_blocks, other_variables_blocks, point_blocks]
   std::map<const double*, int> map_block_to_index_;
+
   int GetBlockIndex(const double* params) const;
   int GetBlockTangentSize(const double* params) const;
   int GetPoseIndex(image_t image_id) const;
