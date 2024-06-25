@@ -102,8 +102,7 @@ class BundleAdjustmentCovarianceEstimatorBase {
   int GetPoseIndex(image_t image_id) const;
   int GetPoseTangentSize(image_t image_id) const;
 
-  // covariance for all parameters (except for 3D points), equal to
-  // H_cc_.inverse()
+  // covariance for all parameters (except for 3D points)
   Eigen::MatrixXd cov_variables_;
 
   // covariance for pose parameters
