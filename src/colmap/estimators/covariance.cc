@@ -384,7 +384,7 @@ bool BundleAdjustmentCovarianceEstimator::Compute() {
     ComputeSchurComplement();
   }
 
-  // Schur elimination on other variables to get pose covariance
+  // Schur elimination on other variables
   LOG(INFO) << StringPrintf("Schur elimination on other variables (n = %d)",
                             num_params_other_variables_);
   Eigen::SparseMatrix<double> S_aa =
@@ -404,25 +404,27 @@ bool BundleAdjustmentCovarianceEstimator::Compute() {
       S_bb.coeffRef(i, i) += lambda_;
   }
   Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> lltOfS_bb(S_bb);
-  Eigen::SparseMatrix<double> S_poses_sparse =
-      S_aa - S_ab * lltOfS_bb.solve(S_ba);
+  Eigen::SparseMatrix<double> S_poses = S_aa - S_ab * lltOfS_bb.solve(S_ba);
 
-  // Step 5: Compute covariance
-  Eigen::MatrixXd S_poses = S_poses_sparse;  // convert to dense matrix
-  LOG(INFO) << StringPrintf(
-      "Inverting Schur complement for pose parameters (n = %d)",
-      num_params_poses_);
-  Eigen::FullPivLU<Eigen::MatrixXd> luOfS_poses(S_poses);
-  if (luOfS_poses.rank() < S_poses.rows()) {
+  // Compute pose covariance
+  Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> ldltOfS_poses(S_poses);
+  int rank = 0;
+  for (int i = 0; i < S_matrix_.rows(); ++i) {
+    if (ldltOfS_poses.vectorD().coeff(i) != 0.0) rank++;
+  }
+  if (rank < S_poses.rows()) {
     LOG(INFO) << StringPrintf(
         "Unable to compute covariance. The Schur complement on pose parameters "
         "is rank deficient. Number of columns: %d, rank: %d. This is likely "
         "due to the poses being underconstrained with Gauge ambiguity.",
         S_poses.rows(),
-        luOfS_poses.rank());
+        rank);
     return false;
   }
-  cov_poses_ = luOfS_poses.inverse();
+  Eigen::SparseMatrix<double> I(S_poses.rows(), S_poses.cols());
+  I.setIdentity();
+  Eigen::SparseMatrix<double> S_poses_inv = ldltOfS_poses.solve(I);
+  cov_poses_ = S_poses_inv;  // convert to dense matrix
   return true;
 }
 
