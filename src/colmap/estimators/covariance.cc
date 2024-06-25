@@ -312,7 +312,7 @@ void BundleAdjustmentCovarianceEstimator::ComputeSchurComplement() {
       J_full_crs.cols.data(),
       J_full_crs.values.data());
 
-  // Step 3: Schur elimination on points
+  // Schur elimination on points
   LOG(INFO) << "Schur elimination on points";
   Eigen::SparseMatrix<double> J_c =
       J_full.block(0, 0, num_residuals, num_params - num_params_points_);
