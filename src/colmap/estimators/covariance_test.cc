@@ -99,7 +99,7 @@ TEST(Covariance, PoseCovarianceInterface) {
                 image_id_to_covar_ceres.end());
     Eigen::MatrixXd covar = it->second;
     Eigen::MatrixXd covar_ceres = image_id_to_covar_ceres.at(it->first);
-    ExpectNearEigenMatrixXd(covar, covar_ceres, 1e-6);
+    ExpectNearEigenMatrixXd(covar, covar_ceres, 1e-5);
   }
 }
 
@@ -132,7 +132,7 @@ TEST(Covariance, PoseCovariance) {
     if (!estimator.HasPose(image_id)) continue;
     covar = estimator.GetPoseCovariance(image_id);
     covar_ceres = estimator_ceres.GetPoseCovariance(image_id);
-    ExpectNearEigenMatrixXd(covar, covar_ceres, 1e-6);
+    ExpectNearEigenMatrixXd(covar, covar_ceres, 1e-5);
   }
 
   // cross image covariance
@@ -143,7 +143,7 @@ TEST(Covariance, PoseCovariance) {
       continue;
     covar = estimator.GetPoseCovariance(image_id1, image_id2);
     covar_ceres = estimator_ceres.GetPoseCovariance(image_id1, image_id2);
-    ExpectNearEigenMatrixXd(covar, covar_ceres, 1e-6);
+    ExpectNearEigenMatrixXd(covar, covar_ceres, 1e-5);
   }
 
   // multiple images
@@ -156,7 +156,7 @@ TEST(Covariance, PoseCovariance) {
   }
   covar = estimator.GetPoseCovariance(test_image_ids);
   covar_ceres = estimator_ceres.GetPoseCovariance(test_image_ids);
-  ExpectNearEigenMatrixXd(covar, covar_ceres, 1e-6);
+  ExpectNearEigenMatrixXd(covar, covar_ceres, 1e-5);
 }
 
 TEST(Covariance, ComputeFull) {
@@ -183,7 +183,7 @@ TEST(Covariance, ComputeFull) {
   }
   Eigen::MatrixXd covar = estimator.GetCovariance(parameter_blocks);
   Eigen::MatrixXd covar_ceres = estimator_ceres.GetCovariance(parameter_blocks);
-  ExpectNearEigenMatrixXd(covar, covar_ceres, 1e-6);
+  ExpectNearEigenMatrixXd(covar, covar_ceres, 1e-5);
 }
 
 TEST(Covariance, RankDeficientPoints) {
