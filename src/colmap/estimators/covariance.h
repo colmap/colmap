@@ -78,7 +78,7 @@ class BundleAdjustmentCovarianceEstimatorBase {
   Eigen::MatrixXd GetCovariance(
       const std::vector<double*>& parameter_blocks) const;
   Eigen::MatrixXd GetCovariance(double* parameter_block1,
-                                double* paramter_block2) const;
+                                double* parameter_block2) const;
 
   // test if either ``ComputeFull()`` or ``Compute()`` has been called
   bool HasValidPoseCovariance() const;
