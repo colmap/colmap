@@ -409,7 +409,7 @@ bool BundleAdjustmentCovarianceEstimator::Compute() {
   // Compute pose covariance
   Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> ldltOfS_poses(S_poses);
   int rank = 0;
-  for (int i = 0; i < S_matrix_.rows(); ++i) {
+  for (int i = 0; i < S_poses.rows(); ++i) {
     if (ldltOfS_poses.vectorD().coeff(i) != 0.0) rank++;
   }
   if (rank < S_poses.rows()) {
