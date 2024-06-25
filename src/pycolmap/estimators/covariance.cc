@@ -11,6 +11,20 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
+namespace {
+
+void ConvertListOfPyArraysToConstPointers(
+    const std::vector<py::array_t<double>>& pyarrays,
+    std::vector<const double*>& blocks) {
+  blocks.clear();
+  for (auto it = pyarrays.begin(); it != pyarrays.end(); ++it) {
+    py::buffer_info info = it->request();
+    blocks.push_back((const double*)info.ptr);
+  }
+}
+
+} // namespace
+
 void BindCovarianceEstimator(py::module& m) {
   m.def(
       "estimate_pose_covariance_from_ba_ceres_backend",
@@ -46,10 +60,7 @@ void BindCovarianceEstimator(py::module& m) {
           "set_pose_blocks",
           [](EstimatorBase& self, std::vector<py::array_t<double>>& pyarrays) {
             std::vector<const double*> blocks;
-            for (auto it = pyarrays.begin(); it != pyarrays.end(); ++it) {
-              py::buffer_info info = it->request();
-              blocks.push_back((const double*)info.ptr);
-            }
+            ConvertListOfPyArraysToConstPointers(pyarrays, blocks);
             return self.SetPoseBlocks(blocks);
           },
           py::arg("pose_blocks"))
@@ -149,19 +160,11 @@ void BindCovarianceEstimator(py::module& m) {
                       std::vector<py::array_t<double>>& pose_blocks_pyarrays,
                       std::vector<py::array_t<double>>& point_blocks_pyarrays) {
             std::vector<const double*> pose_blocks;
-            for (auto it = pose_blocks_pyarrays.begin();
-                 it != pose_blocks_pyarrays.end();
-                 ++it) {
-              py::buffer_info info = it->request();
-              pose_blocks.push_back((const double*)info.ptr);
-            }
+            ConvertListOfPyArraysToConstPointers(pose_blocks_pyarrays,
+                                                 pose_blocks);
             std::vector<const double*> point_blocks;
-            for (auto it = point_blocks_pyarrays.begin();
-                 it != point_blocks_pyarrays.end();
-                 ++it) {
-              py::buffer_info info = it->request();
-              point_blocks.push_back((const double*)info.ptr);
-            }
+            ConvertListOfPyArraysToConstPointers(point_blocks_pyarrays,
+                                                 point_blocks);
             return new BundleAdjustmentCovarianceEstimatorCeresBackend(
                 problem, pose_blocks, point_blocks);
           }),
@@ -180,19 +183,11 @@ void BindCovarianceEstimator(py::module& m) {
                        std::vector<py::array_t<double>>& point_blocks_pyarrays,
                        const double lambda) {
              std::vector<const double*> pose_blocks;
-             for (auto it = pose_blocks_pyarrays.begin();
-                  it != pose_blocks_pyarrays.end();
-                  ++it) {
-               py::buffer_info info = it->request();
-               pose_blocks.push_back((const double*)info.ptr);
-             }
+             ConvertListOfPyArraysToConstPointers(pose_blocks_pyarrays,
+                                                  pose_blocks);
              std::vector<const double*> point_blocks;
-             for (auto it = point_blocks_pyarrays.begin();
-                  it != point_blocks_pyarrays.end();
-                  ++it) {
-               py::buffer_info info = it->request();
-               point_blocks.push_back((const double*)info.ptr);
-             }
+             ConvertListOfPyArraysToConstPointers(point_blocks_pyarrays,
+                                                  point_blocks);
              return new BundleAdjustmentCovarianceEstimator(
                  problem, pose_blocks, point_blocks, lambda);
            }),
