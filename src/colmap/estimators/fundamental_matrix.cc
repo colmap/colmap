@@ -126,6 +126,7 @@ void FundamentalMatrixEightPointEstimator::Estimate(
     const std::vector<Y_t>& points2,
     std::vector<M_t>* models) {
   THROW_CHECK_EQ(points1.size(), points2.size());
+  THROW_CHECK_GE(points1.size(), 8);
   THROW_CHECK(models != nullptr);
 
   models->clear();
@@ -139,30 +140,36 @@ void FundamentalMatrixEightPointEstimator::Estimate(
   CenterAndNormalizeImagePoints(points2, &normed_points2, &normed_from_orig2);
 
   // Setup homogeneous linear equation as x2' * F * x1 = 0.
-  Eigen::Matrix<double, Eigen::Dynamic, 9> cmatrix(points1.size(), 9);
+  Eigen::Matrix<double, Eigen::Dynamic, 9> A(points1.size(), 9);
   for (size_t i = 0; i < points1.size(); ++i) {
-    cmatrix.block<1, 3>(i, 0) = normed_points1[i].homogeneous();
-    cmatrix.block<1, 3>(i, 0) *= normed_points2[i].x();
-    cmatrix.block<1, 3>(i, 3) = normed_points1[i].homogeneous();
-    cmatrix.block<1, 3>(i, 3) *= normed_points2[i].y();
-    cmatrix.block<1, 3>(i, 6) = normed_points1[i].homogeneous();
+    A.row(i) << normed_points2[i].x() *
+                    normed_points1[i].transpose().homogeneous(),
+        normed_points2[i].y() * normed_points1[i].transpose().homogeneous(),
+        normed_points1[i].transpose().homogeneous();
   }
 
   // Solve for the nullspace of the constraint matrix.
-  Eigen::JacobiSVD<Eigen::Matrix<double, Eigen::Dynamic, 9>> cmatrix_svd(
-      cmatrix, Eigen::ComputeFullV);
-  const Eigen::VectorXd cmatrix_nullspace = cmatrix_svd.matrixV().col(8);
-  const Eigen::Map<const Eigen::Matrix3d> ematrix_t(cmatrix_nullspace.data());
+  Eigen::Matrix3d E;
+  if (points1.size() == 8) {
+    Eigen::Matrix<double, 9, 9> Q =
+        A.transpose().householderQr().householderQ();
+    E = Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(
+        Q.col(8).data());
+  } else {
+    Eigen::JacobiSVD<Eigen::Matrix<double, Eigen::Dynamic, 9>> svd(
+        A, Eigen::ComputeFullV);
+    E = Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(
+        svd.matrixV().col(8).data());
+  }
 
   // Enforcing the internal constraint that two singular values must non-zero
   // and one must be zero.
-  Eigen::JacobiSVD<Eigen::Matrix3d> fmatrix_svd(
-      ematrix_t.transpose(), Eigen::ComputeFullU | Eigen::ComputeFullV);
-  Eigen::Vector3d singular_values = fmatrix_svd.singularValues();
+  Eigen::JacobiSVD<Eigen::Matrix3d> svd(
+      E, Eigen::ComputeFullU | Eigen::ComputeFullV);
+  Eigen::Vector3d singular_values = svd.singularValues();
   singular_values(2) = 0.0;
-  const Eigen::Matrix3d F = fmatrix_svd.matrixU() *
-                            singular_values.asDiagonal() *
-                            fmatrix_svd.matrixV().transpose();
+  const Eigen::Matrix3d F =
+      svd.matrixU() * singular_values.asDiagonal() * svd.matrixV().transpose();
 
   models->resize(1);
   (*models)[0] = normed_from_orig2.transpose() * F * normed_from_orig1;
