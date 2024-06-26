@@ -179,8 +179,7 @@ bool BundleAdjustmentCovarianceEstimatorBase::HasBlock(
 bool BundleAdjustmentCovarianceEstimatorBase::HasPoseBlock(
     const double* params) const {
   const auto it = map_block_to_index_.find(params);
-  if (it == map_block_to_index_.end())
-    return false;
+  if (it == map_block_to_index_.end()) return false;
   return it->second < num_params_poses_;
 }
 
@@ -447,8 +446,8 @@ void BundleAdjustmentCovarianceEstimator::ComputeSchurComplement() {
     Eigen::SparseMatrix<double> sub_matrix_sparse =
         H_pp.block(counter_p, counter_p, num_params_point, num_params_point);
     Eigen::MatrixXd sub_matrix = sub_matrix_sparse;
-    sub_matrix +=
-        lambda_ * Eigen::MatrixXd::Identity(sub_matrix.rows(), sub_matrix.cols());
+    sub_matrix += lambda_ * Eigen::MatrixXd::Identity(sub_matrix.rows(),
+                                                      sub_matrix.cols());
     Eigen::MatrixXd sub_matrix_inv = sub_matrix.inverse();
     // update matrix
     for (int i = 0; i < num_params_point; ++i) {
