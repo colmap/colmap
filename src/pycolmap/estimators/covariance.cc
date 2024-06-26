@@ -16,7 +16,7 @@ namespace {
 void ConvertListOfPyArraysToConstPointers(
     const std::vector<py::array_t<double>>& pyarrays,
     std::vector<const double*>& blocks) {
-  blocks.clear();
+  blocks.reserve(pyarrays.size());
   for (auto it = pyarrays.begin(); it != pyarrays.end(); ++it) {
     py::buffer_info info = it->request();
     blocks.push_back((const double*)info.ptr);
