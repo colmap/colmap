@@ -178,8 +178,10 @@ bool BundleAdjustmentCovarianceEstimatorBase::HasBlock(
 
 bool BundleAdjustmentCovarianceEstimatorBase::HasPoseBlock(
     const double* params) const {
-  if (!HasBlock(params)) return false;
-  return map_block_to_index_.at(params) < num_params_poses_;
+  const auto it = map_block_to_index_.find(params);
+  if (it == map_block_to_index_.end())
+    return false;
+  return it->second < num_params_poses_;
 }
 
 bool BundleAdjustmentCovarianceEstimatorBase::HasPose(image_t image_id) const {
@@ -392,13 +394,10 @@ bool BundleAdjustmentCovarianceEstimatorCeresBackend::ComputeFull() {
 bool BundleAdjustmentCovarianceEstimatorCeresBackend::Compute() {
   ceres::Covariance::Options options;
   ceres::Covariance covariance_computer(options);
-  std::vector<const double*> parameter_blocks;
-  parameter_blocks.insert(
-      parameter_blocks.end(), pose_blocks_.begin(), pose_blocks_.end());
-  if (!covariance_computer.Compute(parameter_blocks, problem_)) return false;
+  if (!covariance_computer.Compute(pose_blocks_, problem_)) return false;
   Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> covs(
       num_params_poses_, num_params_poses_);
-  covariance_computer.GetCovarianceMatrixInTangentSpace(parameter_blocks,
+  covariance_computer.GetCovarianceMatrixInTangentSpace(pose_blocks_,
                                                         covs.data());
   cov_poses_ = covs;
   return true;
@@ -445,16 +444,16 @@ void BundleAdjustmentCovarianceEstimator::ComputeSchurComplement() {
   int counter_p = 0;
   for (const double* block : point_blocks_) {
     int num_params_point = ParameterBlockTangentSize(problem_, block);
-    Eigen::SparseMatrix<double> subMatrix_sparse =
+    Eigen::SparseMatrix<double> sub_matrix_sparse =
         H_pp.block(counter_p, counter_p, num_params_point, num_params_point);
-    Eigen::MatrixXd subMatrix = subMatrix_sparse;
-    subMatrix +=
-        lambda_ * Eigen::MatrixXd::Identity(subMatrix.rows(), subMatrix.cols());
-    Eigen::MatrixXd subMatrix_inv = subMatrix.inverse();
+    Eigen::MatrixXd sub_matrix = sub_matrix_sparse;
+    sub_matrix +=
+        lambda_ * Eigen::MatrixXd::Identity(sub_matrix.rows(), sub_matrix.cols());
+    Eigen::MatrixXd sub_matrix_inv = sub_matrix.inverse();
     // update matrix
     for (int i = 0; i < num_params_point; ++i) {
       for (int j = 0; j < num_params_point; ++j) {
-        H_pp_inv.coeffRef(counter_p + i, counter_p + j) = subMatrix_inv(i, j);
+        H_pp_inv.coeffRef(counter_p + i, counter_p + j) = sub_matrix_inv(i, j);
       }
     }
     counter_p += num_params_point;
