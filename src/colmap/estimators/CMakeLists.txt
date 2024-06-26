@@ -39,6 +39,7 @@ COLMAP_ADD_LIBRARY(
         bundle_adjustment.h bundle_adjustment.cc
         coordinate_frame.h coordinate_frame.cc
         cost_functions.h
+        covariance.h covariance.cc
         essential_matrix.h essential_matrix.cc
         euclidean_transform.h
         fundamental_matrix.h fundamental_matrix.cc
@@ -90,6 +91,11 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME coordinate_frame_test
     SRCS coordinate_frame_test.cc
+    LINK_LIBS colmap_estimators
+)
+COLMAP_ADD_TEST(
+    NAME covariance_test
+    SRCS covariance_test.cc
     LINK_LIBS colmap_estimators
 )
 COLMAP_ADD_TEST(

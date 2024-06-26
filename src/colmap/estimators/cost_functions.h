@@ -47,6 +47,10 @@ template <typename T>
 using EigenQuaternionMap = Eigen::Map<const Eigen::Quaternion<T>>;
 using EigenMatrix6d = Eigen::Matrix<double, 6, 6>;
 
+inline Eigen::MatrixXd SqrtInformation(const Eigen::MatrixXd& covariance) {
+  return covariance.inverse().llt().matrixL().transpose();
+}
+
 // Standard bundle adjustment cost function for variable
 // camera pose, calibration, and point parameters.
 template <typename CameraModel>
@@ -366,7 +370,7 @@ struct AbsolutePoseErrorCostFunction {
   AbsolutePoseErrorCostFunction(const Rigid3d& cam_from_world,
                                 const EigenMatrix6d& covariance_cam)
       : world_from_cam_(Inverse(cam_from_world)),
-        sqrt_information_cam_(covariance_cam.inverse().llt().matrixL()) {}
+        sqrt_information_cam_(SqrtInformation(covariance_cam)) {}
 
   static ceres::CostFunction* Create(const Rigid3d& cam_from_world,
                                      const EigenMatrix6d& covariance_cam) {
@@ -417,7 +421,7 @@ struct MetricRelativePoseErrorCostFunction {
   MetricRelativePoseErrorCostFunction(const Rigid3d& i_from_j,
                                       const EigenMatrix6d& covariance_j)
       : i_from_j_(i_from_j),
-        sqrt_information_j_(covariance_j.inverse().llt().matrixL()) {}
+        sqrt_information_j_(SqrtInformation(covariance_j)) {}
 
   static ceres::CostFunction* Create(const Rigid3d& i_from_j,
                                      const EigenMatrix6d& covariance_j) {
@@ -555,6 +559,16 @@ inline void SetSphereManifold(ceres::Problem* problem, double* params) {
 #else
   problem->SetParameterization(
       params, new ceres::HomogeneousVectorParameterization(size));
+#endif
+}
+
+inline int ParameterBlockTangentSize(ceres::Problem* problem,
+                                     const double* param) {
+#if CERES_VERSION_MAJOR >= 3 || \
+    (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 1)
+  return problem->ParameterBlockTangentSize(param);
+#else
+  return problem->ParameterBlockLocalSize(param);
 #endif
 }
 

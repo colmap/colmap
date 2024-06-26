@@ -6,6 +6,7 @@ void BindAbsolutePoseEstimator(py::module& m);
 void BindAlignmentEstimator(py::module& m);
 void BindBundleAdjuster(py::module& m);
 void BindCostFunctions(py::module& m);
+void BindCovarianceEstimator(py::module& m);
 void BindEssentialMatrixEstimator(py::module& m);
 void BindFundamentalMatrixEstimator(py::module& m);
 void BindGeneralizedAbsolutePoseEstimator(py::module& m);
@@ -19,6 +20,7 @@ void BindEstimators(py::module& m) {
   BindAlignmentEstimator(m);
   BindBundleAdjuster(m);
   BindCostFunctions(m);
+  BindCovarianceEstimator(m);
   BindEssentialMatrixEstimator(m);
   BindFundamentalMatrixEstimator(m);
   BindGeneralizedAbsolutePoseEstimator(m);

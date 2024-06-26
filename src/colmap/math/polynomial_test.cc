@@ -116,6 +116,41 @@ TEST(FindQuadraticPolynomialRootsComplex, Nominal) {
       1e-6);
 }
 
+TEST(FindCubicPolynomialRoots, SingleRoot) {
+  const Eigen::Vector4d coeffs(
+      1, 0.276025076998578, 0.679702676853675, 0.655098003973841);
+  Eigen::Vector3d real;
+  EXPECT_EQ(FindCubicPolynomialRoots(coeffs(1), coeffs(2), coeffs(3), &real),
+            1);
+  EXPECT_NEAR(real(0), -0.68359403879256575, 1e-6);
+  EXPECT_NEAR(
+      EvaluatePolynomial(coeffs, std::complex<double>(real(0), 0)).real(),
+      0.0,
+      1e-6);
+}
+
+TEST(FindCubicPolynomialRoots, MultiRoot) {
+  const Eigen::Vector4d coeffs(1, -3, -3, 5);
+  Eigen::Vector3d real;
+  EXPECT_EQ(FindCubicPolynomialRoots(coeffs(1), coeffs(2), coeffs(3), &real),
+            3);
+  std::sort(real.data(), real.data() + real.size());
+  EXPECT_TRUE(real.isApprox(
+      Eigen::Vector3d(-1.4494897427831781, 1, 3.4494897427831783), 1e-6));
+  for (int i = 0; i < 3; ++i) {
+    EXPECT_NEAR(
+        EvaluatePolynomial(coeffs, std::complex<double>(real(i), 0)).real(),
+        0.0,
+        1e-6);
+  }
+  Eigen::VectorXd real_durand_kerner;
+  EXPECT_TRUE(
+      FindPolynomialRootsDurandKerner(coeffs, &real_durand_kerner, nullptr));
+  std::sort(real_durand_kerner.data(),
+            real_durand_kerner.data() + real_durand_kerner.size());
+  EXPECT_TRUE(real.isApprox(real_durand_kerner, 1e-4));
+}
+
 TEST(FindPolynomialRootsDurandKerner, Nominal) {
   Eigen::VectorXd real;
   Eigen::VectorXd imag;
