@@ -85,14 +85,14 @@ TEST(Covariance, PoseCovarianceInterface) {
   std::shared_ptr<ceres::Problem> problem = bundle_adjuster->Problem();
 
   std::map<image_t, Eigen::MatrixXd> image_id_to_covar_ceres;
-  ASSERT_TRUE(EstimatePoseCovarianceCeresBackend(
-      problem.get(), &reconstruction, image_id_to_covar_ceres));
-  std::map<image_t, Eigen::MatrixXd> image_id_to_covar;
   if (!EstimatePoseCovarianceCeresBackend(
-          problem.get(), &reconstruction, image_id_to_covar)) {
+          problem.get(), &reconstruction, image_id_to_covar_ceres)) {
     LOG(INFO) << "Skipping due to failure of ceres covariance computation.";
     return;
   }
+  std::map<image_t, Eigen::MatrixXd> image_id_to_covar;
+  ASSERT_TRUE(EstimatePoseCovariance(
+      problem.get(), &reconstruction, image_id_to_covar));
   for (auto it = image_id_to_covar.begin(); it != image_id_to_covar.end();
        ++it) {
     ASSERT_TRUE(image_id_to_covar_ceres.find(it->first) !=
@@ -103,7 +103,7 @@ TEST(Covariance, PoseCovarianceInterface) {
   }
 }
 
-TEST(Covariance, PoseCovariance) {
+TEST(Covariance, Compute) {
   Reconstruction reconstruction;
   GenerateReconstruction(&reconstruction);
   std::shared_ptr<BundleAdjuster> bundle_adjuster =
@@ -111,14 +111,14 @@ TEST(Covariance, PoseCovariance) {
   bundle_adjuster->Solve(&reconstruction);
   std::shared_ptr<ceres::Problem> problem = bundle_adjuster->Problem();
 
-  BundleAdjustmentCovarianceEstimator estimator(problem.get(), &reconstruction);
-  ASSERT_TRUE(estimator.Compute());
   BundleAdjustmentCovarianceEstimatorCeresBackend estimator_ceres(
       problem.get(), &reconstruction);
   if (!estimator_ceres.Compute()) {
     LOG(INFO) << "Skipping due to failure of ceres covariance computation.";
     return;
   }
+  BundleAdjustmentCovarianceEstimator estimator(problem.get(), &reconstruction);
+  ASSERT_TRUE(estimator.Compute());
 
   // covariance for each image
   std::vector<image_t> image_ids;
@@ -167,14 +167,14 @@ TEST(Covariance, ComputeFull) {
   bundle_adjuster->Solve(&reconstruction);
   std::shared_ptr<ceres::Problem> problem = bundle_adjuster->Problem();
 
-  BundleAdjustmentCovarianceEstimator estimator(problem.get(), &reconstruction);
-  ASSERT_TRUE(estimator.ComputeFull());
   BundleAdjustmentCovarianceEstimatorCeresBackend estimator_ceres(
       problem.get(), &reconstruction);
   if (!estimator_ceres.ComputeFull()) {
     LOG(INFO) << "Skipping due to failure of ceres covariance computation.";
     return;
   }
+  BundleAdjustmentCovarianceEstimator estimator(problem.get(), &reconstruction);
+  ASSERT_TRUE(estimator.ComputeFull());
   std::vector<double*> parameter_blocks;
   for (const auto& camera : reconstruction.Cameras()) {
     const double* ptr = camera.second.params.data();
