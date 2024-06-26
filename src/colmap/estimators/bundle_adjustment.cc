@@ -266,9 +266,9 @@ BundleAdjuster::BundleAdjuster(const BundleAdjustmentOptions& options,
 }
 
 bool BundleAdjuster::Solve(Reconstruction* reconstruction) {
-  const auto loss_function =
+  loss_function_ =
       std::unique_ptr<ceres::LossFunction>(options_.CreateLossFunction());
-  SetUpProblem(reconstruction, loss_function.get());
+  SetUpProblem(reconstruction, loss_function_.get());
 
   if (problem_->NumResiduals() == 0) {
     return false;
@@ -536,9 +536,9 @@ RigBundleAdjuster::RigBundleAdjuster(const BundleAdjustmentOptions& options,
 
 bool RigBundleAdjuster::Solve(Reconstruction* reconstruction,
                               std::vector<CameraRig>* camera_rigs) {
-  const auto loss_function =
+  loss_function_ =
       std::unique_ptr<ceres::LossFunction>(options_.CreateLossFunction());
-  SetUpProblem(reconstruction, camera_rigs, loss_function.get());
+  SetUpProblem(reconstruction, camera_rigs, loss_function_.get());
 
   if (problem_->NumResiduals() == 0) {
     return false;

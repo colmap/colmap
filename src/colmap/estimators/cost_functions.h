@@ -551,4 +551,14 @@ inline void SetSphereManifold(ceres::Problem* problem, double* params) {
 #endif
 }
 
+inline int ParameterBlockTangentSize(ceres::Problem* problem,
+                                     const double* param) {
+#if CERES_VERSION_MAJOR >= 3 || \
+    (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 1)
+  return problem->ParameterBlockTangentSize(param);
+#else
+  return problem->ParameterBlockLocalSize(param);
+#endif
+}
+
 }  // namespace colmap
