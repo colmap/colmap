@@ -135,9 +135,6 @@ class BundleAdjustmentCovarianceEstimatorBase {
 
  private:
   // set up parameter blocks
-  void SetUp(Reconstruction* reconstruction);
-  void SetUp(const std::vector<const double*>& pose_blocks,
-             const std::vector<const double*>& point_blocks);
   void SetUpOtherVariablesBlocks();
 };
 

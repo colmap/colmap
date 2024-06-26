@@ -40,22 +40,6 @@ BundleAdjustmentCovarianceEstimatorBase::
                                             Reconstruction* reconstruction)
     : problem_(THROW_CHECK_NOTNULL(problem)),
       reconstruction_(THROW_CHECK_NOTNULL(reconstruction)) {
-  SetUp(reconstruction_);
-}
-
-BundleAdjustmentCovarianceEstimatorBase::
-    BundleAdjustmentCovarianceEstimatorBase(
-        ceres::Problem* problem,
-        const std::vector<const double*>& pose_blocks,
-        const std::vector<const double*>& point_blocks)
-    : problem_(THROW_CHECK_NOTNULL(problem)) {
-  SetUp(pose_blocks, point_blocks);
-}
-
-void BundleAdjustmentCovarianceEstimatorBase::SetUp(
-    Reconstruction* reconstruction) {
-  THROW_CHECK_NOTNULL(reconstruction);
-
   // Parse parameter blocks for poses
   pose_blocks_.clear();
   num_params_poses_ = 0;
@@ -96,9 +80,12 @@ void BundleAdjustmentCovarianceEstimatorBase::SetUp(
   SetUpOtherVariablesBlocks();
 }
 
-void BundleAdjustmentCovarianceEstimatorBase::SetUp(
-    const std::vector<const double*>& pose_blocks,
-    const std::vector<const double*>& point_blocks) {
+BundleAdjustmentCovarianceEstimatorBase::
+    BundleAdjustmentCovarianceEstimatorBase(
+        ceres::Problem* problem,
+        const std::vector<const double*>& pose_blocks,
+        const std::vector<const double*>& point_blocks)
+    : problem_(THROW_CHECK_NOTNULL(problem)) {
   // Parse parameter blocks for 3D points
   point_blocks_.clear();
   num_params_points_ = 0;
