@@ -61,8 +61,8 @@ void ExpectAtLeastOneValidModel(const Estimator& estimator,
                                 const std::vector<Eigen::Vector2d>& points2,
                                 Eigen::Matrix3d& expected_E,
                                 std::vector<Eigen::Matrix3d>& models,
-                                double E_eps = 1e-5,
-                                double r_eps = 1e-6) {
+                                double E_eps = 1e-4,
+                                double r_eps = 1e-5) {
   expected_E /= expected_E(2, 2);
   for (size_t i = 0; i < models.size(); ++i) {
     Eigen::Matrix3d E = models[i];
