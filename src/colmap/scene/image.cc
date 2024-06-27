@@ -44,9 +44,7 @@ Image::Image()
       name_(""),
       camera_id_(kInvalidCameraId),
       registered_(false),
-      num_points3D_(0),
-      cam_from_world_prior_(Eigen::Quaterniond(kNaN, kNaN, kNaN, kNaN),
-                            Eigen::Vector3d(kNaN, kNaN, kNaN)) {}
+      num_points3D_(0) {}
 
 void Image::SetPoints2D(const std::vector<Eigen::Vector2d>& points) {
   THROW_CHECK(points2D_.empty());

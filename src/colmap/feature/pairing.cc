@@ -599,10 +599,11 @@ SpatialPairGenerator::ReadLocationData(const FeatureMatcherCache& cache) {
       image_ids_.size(), 3);
 
   for (size_t i = 0; i < image_ids_.size(); ++i) {
-    const auto& image = cache.GetImage(image_ids_[i]);
+    if (!cache.ExistsLocationPrior(image_ids_[i])) {
+      continue;
+    }
     const Eigen::Vector3d& translation_prior =
-        image.CamFromWorldPrior().translation;
-
+        cache.GetLocationPrior(image_ids_[i]).position;
     if ((translation_prior(0) == 0 && translation_prior(1) == 0 &&
          options_.ignore_z) ||
         (translation_prior(0) == 0 && translation_prior(1) == 0 &&

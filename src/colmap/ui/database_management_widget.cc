@@ -560,34 +560,6 @@ void ImageTab::Reload() {
         i, 1, new QTableWidgetItem(QString::fromStdString(image.Name())));
     table_widget_->setItem(
         i, 2, new QTableWidgetItem(QString::number(image.CameraId())));
-    table_widget_->setItem(i,
-                           3,
-                           new QTableWidgetItem(QString::number(
-                               image.CamFromWorldPrior().rotation.w())));
-    table_widget_->setItem(i,
-                           4,
-                           new QTableWidgetItem(QString::number(
-                               image.CamFromWorldPrior().rotation.x())));
-    table_widget_->setItem(i,
-                           5,
-                           new QTableWidgetItem(QString::number(
-                               image.CamFromWorldPrior().rotation.y())));
-    table_widget_->setItem(i,
-                           6,
-                           new QTableWidgetItem(QString::number(
-                               image.CamFromWorldPrior().rotation.z())));
-    table_widget_->setItem(i,
-                           7,
-                           new QTableWidgetItem(QString::number(
-                               image.CamFromWorldPrior().translation.x())));
-    table_widget_->setItem(i,
-                           8,
-                           new QTableWidgetItem(QString::number(
-                               image.CamFromWorldPrior().translation.y())));
-    table_widget_->setItem(i,
-                           9,
-                           new QTableWidgetItem(QString::number(
-                               image.CamFromWorldPrior().translation.z())));
   }
   table_widget_->resizeColumnsToContents();
 

@@ -83,4 +83,15 @@ class GPSTransform {
   double e2_;
 };
 
+struct LocationPrior {
+ public:
+  Eigen::Vector3d position =
+      Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
+
+  LocationPrior() = default;
+  LocationPrior(const Eigen::Vector3d& position) : position(position) {}
+
+  bool IsValid() { return position.array().isFinite().any(); }
+};
+
 }  // namespace colmap

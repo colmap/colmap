@@ -163,9 +163,10 @@ void ReadDatabaseCameraLocations(const std::string& database_path,
                                  std::vector<Eigen::Vector3d>* ref_locations) {
   Database database(database_path);
   for (const auto& image : database.ReadAllImages()) {
-    if (image.CamFromWorldPrior().translation.array().isFinite().all()) {
+    if (database.ExistsLocationPrior(image.ImageId())) {
       ref_image_names->push_back(image.Name());
-      ref_locations->push_back(image.CamFromWorldPrior().translation);
+      ref_locations->push_back(
+          database.ReadLocationPrior(image.ImageId()).position);
     }
   }
 

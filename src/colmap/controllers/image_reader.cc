@@ -87,6 +87,7 @@ ImageReader::ImageReader(const ImageReaderOptions& options, Database* database)
 
 ImageReader::Status ImageReader::Next(Camera* camera,
                                       Image* image,
+                                      LocationPrior* location_prior,
                                       Bitmap* bitmap,
                                       Bitmap* mask) {
   THROW_CHECK_NOTNULL(camera);
@@ -249,11 +250,11 @@ ImageReader::Status ImageReader::Next(Camera* camera,
     // Extract GPS data.
     //////////////////////////////////////////////////////////////////////////////
 
-    Eigen::Vector3d& translation_prior = image->CamFromWorldPrior().translation;
-    if (!bitmap->ExifLatitude(&translation_prior.x()) ||
-        !bitmap->ExifLongitude(&translation_prior.y()) ||
-        !bitmap->ExifAltitude(&translation_prior.z())) {
-      translation_prior.setConstant(std::numeric_limits<double>::quiet_NaN());
+    Eigen::Vector3d position_prior;
+    if (bitmap->ExifLatitude(&position_prior.x()) &&
+        bitmap->ExifLongitude(&position_prior.y()) &&
+        bitmap->ExifAltitude(&position_prior.z())) {
+      location_prior->position = position_prior;
     }
   }
 

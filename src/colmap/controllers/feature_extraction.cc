@@ -30,6 +30,7 @@
 #include "colmap/controllers/feature_extraction.h"
 
 #include "colmap/feature/sift.h"
+#include "colmap/geometry/gps.h"
 #include "colmap/scene/database.h"
 #include "colmap/util/cuda.h"
 #include "colmap/util/misc.h"
@@ -87,6 +88,7 @@ struct ImageData {
 
   Camera camera;
   Image image;
+  LocationPrior location_prior;
   Bitmap bitmap;
   Bitmap mask;
 
@@ -291,15 +293,6 @@ class FeatureWriterThread : public Thread {
             "  Focal Length:    %.2fpx%s",
             image_data.camera.MeanFocalLength(),
             image_data.camera.has_prior_focal_length ? " (Prior)" : "");
-        const Eigen::Vector3d& translation_prior =
-            image_data.image.CamFromWorldPrior().translation;
-        if (translation_prior.array().isFinite().any()) {
-          LOG(INFO) << StringPrintf(
-              "  GPS:             LAT=%.3f, LON=%.3f, ALT=%.3f",
-              translation_prior.x(),
-              translation_prior.y(),
-              translation_prior.z());
-        }
         LOG(INFO) << StringPrintf("  Features:        %d",
                                   image_data.keypoints.size());
 
@@ -307,6 +300,15 @@ class FeatureWriterThread : public Thread {
 
         if (image_data.image.ImageId() == kInvalidImageId) {
           image_data.image.SetImageId(database_->WriteImage(image_data.image));
+          if (image_data.location_prior.IsValid()) {
+            LOG(INFO) << StringPrintf(
+                "  GPS:             LAT=%.3f, LON=%.3f, ALT=%.3f",
+                image_data.location_prior.position.x(),
+                image_data.location_prior.position.y(),
+                image_data.location_prior.position.z());
+            database_->WriteLocationPrior(image_data.image.ImageId(),
+                                          image_data.location_prior);
+          }
         }
 
         if (!database_->ExistsKeypoints(image_data.image.ImageId())) {
@@ -460,6 +462,7 @@ class FeatureExtractorController : public Thread {
       ImageData image_data;
       image_data.status = image_reader_.Next(&image_data.camera,
                                              &image_data.image,
+                                             &image_data.location_prior,
                                              &image_data.bitmap,
                                              &image_data.mask);
 
@@ -542,8 +545,10 @@ class FeatureImporterController : public Thread {
       // Load image data and possibly save camera to database.
       Camera camera;
       Image image;
+      LocationPrior location_prior;
       Bitmap bitmap;
-      if (image_reader.Next(&camera, &image, &bitmap, nullptr) !=
+      if (image_reader.Next(
+              &camera, &image, &location_prior, &bitmap, nullptr) !=
           ImageReader::Status::SUCCESS) {
         continue;
       }
@@ -561,6 +566,9 @@ class FeatureImporterController : public Thread {
 
         if (image.ImageId() == kInvalidImageId) {
           image.SetImageId(database.WriteImage(image));
+          if (location_prior.IsValid()) {
+            database.WriteLocationPrior(image.ImageId(), location_prior);
+          }
         }
 
         if (!database.ExistsKeypoints(image.ImageId())) {

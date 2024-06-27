@@ -231,22 +231,6 @@ Image ReadImageRow(sqlite3_stmt* sql_stmt) {
       reinterpret_cast<const char*>(sqlite3_column_text(sql_stmt, 1))));
   image.SetCameraId(static_cast<camera_t>(sqlite3_column_int64(sql_stmt, 2)));
 
-  auto ExtractDoubleColumnOrNaN = [sql_stmt](size_t column) {
-    // NaNs are automatically converted to NULLs in SQLite.
-    if (sqlite3_column_type(sql_stmt, column) != SQLITE_NULL) {
-      return sqlite3_column_double(sql_stmt, column);
-    }
-    return std::numeric_limits<double>::quiet_NaN();
-  };
-
-  image.CamFromWorldPrior().rotation.w() = ExtractDoubleColumnOrNaN(3);
-  image.CamFromWorldPrior().rotation.x() = ExtractDoubleColumnOrNaN(4);
-  image.CamFromWorldPrior().rotation.y() = ExtractDoubleColumnOrNaN(5);
-  image.CamFromWorldPrior().rotation.z() = ExtractDoubleColumnOrNaN(6);
-  image.CamFromWorldPrior().translation.x() = ExtractDoubleColumnOrNaN(7);
-  image.CamFromWorldPrior().translation.y() = ExtractDoubleColumnOrNaN(8);
-  image.CamFromWorldPrior().translation.z() = ExtractDoubleColumnOrNaN(9);
-
   return image;
 }
 
@@ -322,6 +306,10 @@ bool Database::ExistsImageWithName(const std::string& name) const {
   return ExistsRowString(sql_stmt_exists_image_name_, name);
 }
 
+bool Database::ExistsLocationPrior(const image_t image_id) const {
+  return ExistsRowId(sql_stmt_exists_location_prior_, image_id);
+}
+
 bool Database::ExistsKeypoints(const image_t image_id) const {
   return ExistsRowId(sql_stmt_exists_keypoints_, image_id);
 }
@@ -345,6 +333,10 @@ bool Database::ExistsInlierMatches(const image_t image_id1,
 size_t Database::NumCameras() const { return CountRows("cameras"); }
 
 size_t Database::NumImages() const { return CountRows("images"); }
+
+size_t Database::NumLocationPriors() const {
+  return CountRows("location_priors");
+}
 
 size_t Database::NumKeypoints() const { return SumColumn("rows", "keypoints"); }
 
@@ -452,6 +444,18 @@ std::vector<Image> Database::ReadAllImages() const {
   SQLITE3_CALL(sqlite3_reset(sql_stmt_read_images_));
 
   return images;
+}
+
+LocationPrior Database::ReadLocationPrior(const image_t image_id) const {
+  SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_read_location_prior_, 1, image_id));
+  LocationPrior prior;
+  const int rc = SQLITE3_CALL(sqlite3_step(sql_stmt_read_location_prior_));
+  if (rc == SQLITE_ROW) {
+    prior.position = ReadStaticMatrixBlob<Eigen::Vector3d>(
+        sql_stmt_read_location_prior_, rc, 1);
+  }
+  SQLITE3_CALL(sqlite3_reset(sql_stmt_read_location_prior_));
+  return prior;
 }
 
 FeatureKeypointsBlob Database::ReadKeypointsBlob(const image_t image_id) const {
@@ -679,28 +683,19 @@ image_t Database::WriteImage(const Image& image,
                                  SQLITE_STATIC));
   SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_add_image_, 3, image.CameraId()));
 
-  // NaNs are automatically converted to NULLs in SQLite.
-  SQLITE3_CALL(sqlite3_bind_double(
-      sql_stmt_add_image_, 4, image.CamFromWorldPrior().rotation.w()));
-  SQLITE3_CALL(sqlite3_bind_double(
-      sql_stmt_add_image_, 5, image.CamFromWorldPrior().rotation.x()));
-  SQLITE3_CALL(sqlite3_bind_double(
-      sql_stmt_add_image_, 6, image.CamFromWorldPrior().rotation.y()));
-  SQLITE3_CALL(sqlite3_bind_double(
-      sql_stmt_add_image_, 7, image.CamFromWorldPrior().rotation.z()));
-
-  // NaNs are automatically converted to NULLs in SQLite.
-  SQLITE3_CALL(sqlite3_bind_double(
-      sql_stmt_add_image_, 8, image.CamFromWorldPrior().translation.x()));
-  SQLITE3_CALL(sqlite3_bind_double(
-      sql_stmt_add_image_, 9, image.CamFromWorldPrior().translation.y()));
-  SQLITE3_CALL(sqlite3_bind_double(
-      sql_stmt_add_image_, 10, image.CamFromWorldPrior().translation.z()));
-
   SQLITE3_CALL(sqlite3_step(sql_stmt_add_image_));
   SQLITE3_CALL(sqlite3_reset(sql_stmt_add_image_));
 
   return static_cast<image_t>(sqlite3_last_insert_rowid(database_));
+}
+
+void Database::WriteLocationPrior(const image_t image_id,
+                                  const LocationPrior& location_prior) const {
+  SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_write_location_prior_, 1, image_id));
+  WriteStaticMatrixBlob(
+      sql_stmt_write_location_prior_, location_prior.position, 2);
+  SQLITE3_CALL(sqlite3_step(sql_stmt_write_location_prior_));
+  SQLITE3_CALL(sqlite3_reset(sql_stmt_write_location_prior_));
 }
 
 void Database::WriteKeypoints(const image_t image_id,
@@ -847,22 +842,7 @@ void Database::UpdateImage(const Image& image) const {
                                  static_cast<int>(image.Name().size()),
                                  SQLITE_STATIC));
   SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_update_image_, 2, image.CameraId()));
-  SQLITE3_CALL(sqlite3_bind_double(
-      sql_stmt_update_image_, 3, image.CamFromWorldPrior().rotation.w()));
-  SQLITE3_CALL(sqlite3_bind_double(
-      sql_stmt_update_image_, 4, image.CamFromWorldPrior().rotation.x()));
-  SQLITE3_CALL(sqlite3_bind_double(
-      sql_stmt_update_image_, 5, image.CamFromWorldPrior().rotation.y()));
-  SQLITE3_CALL(sqlite3_bind_double(
-      sql_stmt_update_image_, 6, image.CamFromWorldPrior().rotation.z()));
-  SQLITE3_CALL(sqlite3_bind_double(
-      sql_stmt_update_image_, 7, image.CamFromWorldPrior().translation.x()));
-  SQLITE3_CALL(sqlite3_bind_double(
-      sql_stmt_update_image_, 8, image.CamFromWorldPrior().translation.y()));
-  SQLITE3_CALL(sqlite3_bind_double(
-      sql_stmt_update_image_, 9, image.CamFromWorldPrior().translation.z()));
-
-  SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_update_image_, 10, image.ImageId()));
+  SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_update_image_, 3, image.ImageId()));
 
   SQLITE3_CALL(sqlite3_step(sql_stmt_update_image_));
   SQLITE3_CALL(sqlite3_reset(sql_stmt_update_image_));
@@ -894,6 +874,7 @@ void Database::ClearAllTables() const {
   ClearTwoViewGeometries();
   ClearDescriptors();
   ClearKeypoints();
+  ClearLocationPriors();
   ClearImages();
   ClearCameras();
 }
@@ -907,6 +888,12 @@ void Database::ClearCameras() const {
 void Database::ClearImages() const {
   SQLITE3_CALL(sqlite3_step(sql_stmt_clear_images_));
   SQLITE3_CALL(sqlite3_reset(sql_stmt_clear_images_));
+  database_cleared_ = true;
+}
+
+void Database::ClearLocationPriors() const {
+  SQLITE3_CALL(sqlite3_step(sql_stmt_clear_location_priors_));
+  SQLITE3_CALL(sqlite3_reset(sql_stmt_clear_location_priors_));
   database_cleared_ = true;
 }
 
@@ -966,6 +953,10 @@ void Database::Merge(const Database& database1,
     const auto descriptors = database1.ReadDescriptors(image.ImageId());
     merged_database->WriteKeypoints(new_image_id, keypoints);
     merged_database->WriteDescriptors(new_image_id, descriptors);
+    if (database1.ExistsLocationPrior(image.ImageId())) {
+      merged_database->WriteLocationPrior(
+          new_image_id, database1.ReadLocationPrior(image.ImageId()));
+    }
   }
 
   std::unordered_map<image_t, image_t> new_image_ids2;
@@ -981,6 +972,10 @@ void Database::Merge(const Database& database1,
     const auto descriptors = database2.ReadDescriptors(image.ImageId());
     merged_database->WriteKeypoints(new_image_id, keypoints);
     merged_database->WriteDescriptors(new_image_id, descriptors);
+    if (database2.ExistsLocationPrior(image.ImageId())) {
+      merged_database->WriteLocationPrior(
+          new_image_id, database2.ReadLocationPrior(image.ImageId()));
+    }
   }
 
   // Merge the matches.
@@ -1082,6 +1077,11 @@ void Database::PrepareSQLStatements() {
       database_, sql.c_str(), -1, &sql_stmt_exists_image_name_, 0));
   sql_stmts_.push_back(sql_stmt_exists_image_name_);
 
+  sql = "SELECT 1 FROM location_priors WHERE image_id = ?;";
+  SQLITE3_CALL(sqlite3_prepare_v2(
+      database_, sql.c_str(), -1, &sql_stmt_exists_location_prior_, 0));
+  sql_stmts_.push_back(sql_stmt_exists_location_prior_);
+
   sql = "SELECT 1 FROM keypoints WHERE image_id = ?;";
   SQLITE3_CALL(sqlite3_prepare_v2(
       database_, sql.c_str(), -1, &sql_stmt_exists_keypoints_, 0));
@@ -1112,10 +1112,7 @@ void Database::PrepareSQLStatements() {
       sqlite3_prepare_v2(database_, sql.c_str(), -1, &sql_stmt_add_camera_, 0));
   sql_stmts_.push_back(sql_stmt_add_camera_);
 
-  sql =
-      "INSERT INTO images(image_id, name, camera_id, prior_qw, prior_qx, "
-      "prior_qy, prior_qz, prior_tx, prior_ty, prior_tz) VALUES(?, ?, ?, ?, ?, "
-      "?, ?, ?, ?, ?);";
+  sql = "INSERT INTO images(image_id, name, camera_id) VALUES(?, ?, ?);";
   SQLITE3_CALL(
       sqlite3_prepare_v2(database_, sql.c_str(), -1, &sql_stmt_add_image_, 0));
   sql_stmts_.push_back(sql_stmt_add_image_);
@@ -1130,10 +1127,7 @@ void Database::PrepareSQLStatements() {
       database_, sql.c_str(), -1, &sql_stmt_update_camera_, 0));
   sql_stmts_.push_back(sql_stmt_update_camera_);
 
-  sql =
-      "UPDATE images SET name=?, camera_id=?, prior_qw=?, prior_qx=?, "
-      "prior_qy=?, prior_qz=?, prior_tx=?, prior_ty=?, prior_tz=? WHERE "
-      "image_id=?;";
+  sql = "UPDATE images SET name=?, camera_id=? WHERE image_id=?;";
   SQLITE3_CALL(sqlite3_prepare_v2(
       database_, sql.c_str(), -1, &sql_stmt_update_image_, 0));
   sql_stmts_.push_back(sql_stmt_update_image_);
@@ -1165,6 +1159,11 @@ void Database::PrepareSQLStatements() {
   SQLITE3_CALL(sqlite3_prepare_v2(
       database_, sql.c_str(), -1, &sql_stmt_read_images_, 0));
   sql_stmts_.push_back(sql_stmt_read_images_);
+
+  sql = "SELECT * FROM location_priors WHERE image_id = ?;";
+  SQLITE3_CALL(sqlite3_prepare_v2(
+      database_, sql.c_str(), -1, &sql_stmt_read_location_prior_, 0));
+  sql_stmts_.push_back(sql_stmt_read_keypoints_);
 
   sql = "SELECT rows, cols, data FROM keypoints WHERE image_id = ?;";
   SQLITE3_CALL(sqlite3_prepare_v2(
@@ -1209,6 +1208,11 @@ void Database::PrepareSQLStatements() {
   //////////////////////////////////////////////////////////////////////////////
   // write_*
   //////////////////////////////////////////////////////////////////////////////
+  sql = "INSERT INTO location_priors(image_id, position) VALUES(?, ?);";
+  SQLITE3_CALL(sqlite3_prepare_v2(
+      database_, sql.c_str(), -1, &sql_stmt_write_location_prior_, 0));
+  sql_stmts_.push_back(sql_stmt_write_location_prior_);
+
   sql = "INSERT INTO keypoints(image_id, rows, cols, data) VALUES(?, ?, ?, ?);";
   SQLITE3_CALL(sqlite3_prepare_v2(
       database_, sql.c_str(), -1, &sql_stmt_write_keypoints_, 0));
@@ -1258,6 +1262,11 @@ void Database::PrepareSQLStatements() {
       database_, sql.c_str(), -1, &sql_stmt_clear_images_, 0));
   sql_stmts_.push_back(sql_stmt_clear_images_);
 
+  sql = "DELETE FROM location_priors;";
+  SQLITE3_CALL(sqlite3_prepare_v2(
+      database_, sql.c_str(), -1, &sql_stmt_clear_location_priors_, 0));
+  sql_stmts_.push_back(sql_stmt_clear_location_priors_);
+
   sql = "DELETE FROM descriptors;";
   SQLITE3_CALL(sqlite3_prepare_v2(
       database_, sql.c_str(), -1, &sql_stmt_clear_descriptors_, 0));
@@ -1288,6 +1297,7 @@ void Database::FinalizeSQLStatements() {
 void Database::CreateTables() const {
   CreateCameraTable();
   CreateImageTable();
+  CreateLocationPriorTable();
   CreateKeypointsTable();
   CreateDescriptorsTable();
   CreateMatchesTable();
@@ -1313,17 +1323,20 @@ void Database::CreateImageTable() const {
       "   (image_id   INTEGER  PRIMARY KEY AUTOINCREMENT  NOT NULL,"
       "    name       TEXT                                NOT NULL UNIQUE,"
       "    camera_id  INTEGER                             NOT NULL,"
-      "    prior_qw   REAL,"
-      "    prior_qx   REAL,"
-      "    prior_qy   REAL,"
-      "    prior_qz   REAL,"
-      "    prior_tx   REAL,"
-      "    prior_ty   REAL,"
-      "    prior_tz   REAL,"
       "CONSTRAINT image_id_check CHECK(image_id >= 0 and image_id < %d),"
       "FOREIGN KEY(camera_id) REFERENCES cameras(camera_id));"
       "CREATE UNIQUE INDEX IF NOT EXISTS index_name ON images(name);",
       kMaxNumImages);
+
+  SQLITE3_EXEC(database_, sql.c_str(), nullptr);
+}
+
+void Database::CreateLocationPriorTable() const {
+  const std::string sql =
+      "CREATE TABLE IF NOT EXISTS location_priors"
+      "   (image_id  INTEGER  PRIMARY KEY  NOT NULL,"
+      "    position  BLOB,"
+      "FOREIGN KEY(image_id) REFERENCES images(image_id) ON DELETE CASCADE);";
 
   SQLITE3_EXEC(database_, sql.c_str(), nullptr);
 }

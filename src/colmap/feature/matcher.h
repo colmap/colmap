@@ -30,6 +30,7 @@
 #pragma once
 
 #include "colmap/feature/types.h"
+#include "colmap/geometry/gps.h"
 #include "colmap/scene/camera.h"
 #include "colmap/scene/database.h"
 #include "colmap/scene/image.h"
@@ -79,11 +80,13 @@ class FeatureMatcherCache {
 
   const Camera& GetCamera(camera_t camera_id) const;
   const Image& GetImage(image_t image_id) const;
+  const LocationPrior& GetLocationPrior(image_t image_id) const;
   std::shared_ptr<FeatureKeypoints> GetKeypoints(image_t image_id);
   std::shared_ptr<FeatureDescriptors> GetDescriptors(image_t image_id);
   FeatureMatches GetMatches(image_t image_id1, image_t image_id2);
   std::vector<image_t> GetImageIds() const;
 
+  bool ExistsLocationPrior(image_t image_id) const;
   bool ExistsKeypoints(image_t image_id);
   bool ExistsDescriptors(image_t image_id);
 
@@ -106,6 +109,7 @@ class FeatureMatcherCache {
   std::mutex database_mutex_;
   std::unordered_map<camera_t, Camera> cameras_cache_;
   std::unordered_map<image_t, Image> images_cache_;
+  std::unordered_map<image_t, LocationPrior> locations_priors_cache_;
   std::unique_ptr<LRUCache<image_t, std::shared_ptr<FeatureKeypoints>>>
       keypoints_cache_;
   std::unique_ptr<LRUCache<image_t, std::shared_ptr<FeatureDescriptors>>>
