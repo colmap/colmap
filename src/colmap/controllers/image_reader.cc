@@ -255,6 +255,8 @@ ImageReader::Status ImageReader::Next(Camera* camera,
         bitmap->ExifLongitude(&position_prior.y()) &&
         bitmap->ExifAltitude(&position_prior.z())) {
       location_prior->position = position_prior;
+      location_prior->coordinate_system =
+          LocationPrior::CoordinateSystem::WGS84;
     }
   }
 

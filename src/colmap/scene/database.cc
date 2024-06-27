@@ -453,6 +453,8 @@ LocationPrior Database::ReadLocationPrior(const image_t image_id) const {
   if (rc == SQLITE_ROW) {
     prior.position = ReadStaticMatrixBlob<Eigen::Vector3d>(
         sql_stmt_read_location_prior_, rc, 1);
+    prior.coordinate_system = static_cast<LocationPrior::CoordinateSystem>(
+        sqlite3_column_int64(sql_stmt_read_location_prior_, 2));
   }
   SQLITE3_CALL(sqlite3_reset(sql_stmt_read_location_prior_));
   return prior;
@@ -694,6 +696,10 @@ void Database::WriteLocationPrior(const image_t image_id,
   SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_write_location_prior_, 1, image_id));
   WriteStaticMatrixBlob(
       sql_stmt_write_location_prior_, location_prior.position, 2);
+  SQLITE3_CALL(sqlite3_bind_int64(
+      sql_stmt_write_location_prior_,
+      3,
+      static_cast<sqlite3_int64>(location_prior.coordinate_system)));
   SQLITE3_CALL(sqlite3_step(sql_stmt_write_location_prior_));
   SQLITE3_CALL(sqlite3_reset(sql_stmt_write_location_prior_));
 }
@@ -1208,7 +1214,9 @@ void Database::PrepareSQLStatements() {
   //////////////////////////////////////////////////////////////////////////////
   // write_*
   //////////////////////////////////////////////////////////////////////////////
-  sql = "INSERT INTO location_priors(image_id, position) VALUES(?, ?);";
+  sql =
+      "INSERT INTO location_priors(image_id, position, coordinate_system) "
+      "VALUES(?, ?, ?);";
   SQLITE3_CALL(sqlite3_prepare_v2(
       database_, sql.c_str(), -1, &sql_stmt_write_location_prior_, 0));
   sql_stmts_.push_back(sql_stmt_write_location_prior_);
@@ -1334,8 +1342,9 @@ void Database::CreateImageTable() const {
 void Database::CreateLocationPriorTable() const {
   const std::string sql =
       "CREATE TABLE IF NOT EXISTS location_priors"
-      "   (image_id  INTEGER  PRIMARY KEY  NOT NULL,"
-      "    position  BLOB,"
+      "   (image_id          INTEGER  PRIMARY KEY  NOT NULL,"
+      "    position          BLOB,"
+      "    coordinate_system INTEGER               NOT NULL,"
       "FOREIGN KEY(image_id) REFERENCES images(image_id) ON DELETE CASCADE);";
 
   SQLITE3_EXEC(database_, sql.c_str(), nullptr);

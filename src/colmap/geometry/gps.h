@@ -85,11 +85,20 @@ class GPSTransform {
 
 struct LocationPrior {
  public:
+  enum class CoordinateSystem {
+    UNDEFINED = -1,
+    WGS84 = 0,
+    CARTESIAN = 1,
+  };
+
   Eigen::Vector3d position =
       Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
+  CoordinateSystem coordinate_system = CoordinateSystem::UNDEFINED;
 
   LocationPrior() = default;
   LocationPrior(const Eigen::Vector3d& position) : position(position) {}
+  LocationPrior(const Eigen::Vector3d& position, const CoordinateSystem system)
+      : position(position), coordinate_system(system) {}
 
   bool IsValid() { return position.array().isFinite().any(); }
 };

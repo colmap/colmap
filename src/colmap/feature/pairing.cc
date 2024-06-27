@@ -602,8 +602,8 @@ SpatialPairGenerator::ReadLocationData(const FeatureMatcherCache& cache) {
     if (!cache.ExistsLocationPrior(image_ids_[i])) {
       continue;
     }
-    const Eigen::Vector3d& translation_prior =
-        cache.GetLocationPrior(image_ids_[i]).position;
+    const auto location_prior = cache.GetLocationPrior(image_ids_[i]);
+    const Eigen::Vector3d& translation_prior = location_prior.position;
     if ((translation_prior(0) == 0 && translation_prior(1) == 0 &&
          options_.ignore_z) ||
         (translation_prior(0) == 0 && translation_prior(1) == 0 &&
@@ -613,23 +613,28 @@ SpatialPairGenerator::ReadLocationData(const FeatureMatcherCache& cache) {
 
     location_idxs_.push_back(i);
 
-    if (options_.is_gps) {
-      ells[0](0) = translation_prior(0);
-      ells[0](1) = translation_prior(1);
-      ells[0](2) = options_.ignore_z ? 0 : translation_prior(2);
+    switch (location_prior.coordinate_system) {
+      case LocationPrior::CoordinateSystem::WGS84: {
+        ells[0](0) = translation_prior(0);
+        ells[0](1) = translation_prior(1);
+        ells[0](2) = options_.ignore_z ? 0 : translation_prior(2);
 
-      const auto xyzs = gps_transform.EllToXYZ(ells);
-
-      location_matrix(num_locations, 0) = static_cast<float>(xyzs[0](0));
-      location_matrix(num_locations, 1) = static_cast<float>(xyzs[0](1));
-      location_matrix(num_locations, 2) = static_cast<float>(xyzs[0](2));
-    } else {
-      location_matrix(num_locations, 0) =
-          static_cast<float>(translation_prior(0));
-      location_matrix(num_locations, 1) =
-          static_cast<float>(translation_prior(1));
-      location_matrix(num_locations, 2) =
-          static_cast<float>(options_.ignore_z ? 0 : translation_prior(2));
+        const auto xyzs = gps_transform.EllToXYZ(ells);
+        location_matrix(num_locations, 0) = static_cast<float>(xyzs[0](0));
+        location_matrix(num_locations, 1) = static_cast<float>(xyzs[0](1));
+        location_matrix(num_locations, 2) = static_cast<float>(xyzs[0](2));
+      } break;
+      case LocationPrior::CoordinateSystem::UNDEFINED:
+        LOG(INFO) << "Unknown coordinate system for image " << image_ids_[i]
+                  << ", assuming cartesian.";
+      case LocationPrior::CoordinateSystem::CARTESIAN:
+      default:
+        location_matrix(num_locations, 0) =
+            static_cast<float>(translation_prior(0));
+        location_matrix(num_locations, 1) =
+            static_cast<float>(translation_prior(1));
+        location_matrix(num_locations, 2) =
+            static_cast<float>(options_.ignore_z ? 0 : translation_prior(2));
     }
 
     num_locations += 1;

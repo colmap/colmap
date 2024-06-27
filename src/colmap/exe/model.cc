@@ -165,8 +165,13 @@ void ReadDatabaseCameraLocations(const std::string& database_path,
   for (const auto& image : database.ReadAllImages()) {
     if (database.ExistsLocationPrior(image.ImageId())) {
       ref_image_names->push_back(image.Name());
-      ref_locations->push_back(
-          database.ReadLocationPrior(image.ImageId()).position);
+      const auto location_prior = database.ReadLocationPrior(image.ImageId());
+      if (ref_is_gps) {
+        THROW_CHECK_EQ(
+            static_cast<int>(location_prior.coordinate_system),
+            static_cast<int>(LocationPrior::CoordinateSystem::WGS84));
+      }
+      ref_locations->push_back(location_prior.position);
     }
   }
 

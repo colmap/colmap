@@ -187,11 +187,15 @@ TEST(Database, LocationPrior) {
   image.SetCameraId(camera.camera_id);
   image.SetImageId(database.WriteImage(image));
   EXPECT_EQ(database.NumLocationPriors(), 0);
-  LocationPrior location_prior(Eigen::Vector3d(0.1, 0.2, 0.3));
+  LocationPrior location_prior(Eigen::Vector3d(0.1, 0.2, 0.3),
+                               LocationPrior::CoordinateSystem::CARTESIAN);
+  EXPECT_TRUE(location_prior.IsValid());
   database.WriteLocationPrior(image.ImageId(), location_prior);
   EXPECT_EQ(database.NumLocationPriors(), 1);
   auto read_location_prior = database.ReadLocationPrior(image.ImageId());
   EXPECT_EQ(read_location_prior.position, location_prior.position);
+  EXPECT_EQ(read_location_prior.coordinate_system,
+            location_prior.coordinate_system);
   EXPECT_TRUE(read_location_prior.IsValid());
   database.ClearLocationPriors();
   EXPECT_EQ(database.NumLocationPriors(), 0);
