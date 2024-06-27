@@ -149,23 +149,23 @@ void FundamentalMatrixEightPointEstimator::Estimate(
   }
 
   // Solve for the nullspace of the constraint matrix.
-  Eigen::Matrix3d E;
+  Eigen::Matrix3d Q;
   if (points1.size() == 8) {
-    Eigen::Matrix<double, 9, 9> Q =
+    Eigen::Matrix<double, 9, 9> QQ =
         A.transpose().householderQr().householderQ();
-    E = Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(
-        Q.col(8).data());
+    Q = Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(
+        QQ.col(8).data());
   } else {
     Eigen::JacobiSVD<Eigen::Matrix<double, Eigen::Dynamic, 9>> svd(
         A, Eigen::ComputeFullV);
-    E = Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(
+    Q = Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(
         svd.matrixV().col(8).data());
   }
 
   // Enforcing the internal constraint that two singular values must non-zero
   // and one must be zero.
   Eigen::JacobiSVD<Eigen::Matrix3d> svd(
-      E, Eigen::ComputeFullU | Eigen::ComputeFullV);
+      Q, Eigen::ComputeFullU | Eigen::ComputeFullV);
   Eigen::Vector3d singular_values = svd.singularValues();
   singular_values(2) = 0.0;
   const Eigen::Matrix3d F =
