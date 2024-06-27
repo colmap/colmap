@@ -196,8 +196,7 @@ TEST_P(EssentialMatrixEightPointEstimatorTests, Nominal) {
     std::vector<Eigen::Matrix3d> models;
     estimator.Estimate(points1, points2, &models);
 
-    ExpectAtLeastOneValidModel(
-        estimator, points1, points2, expected_E, models, 1e-1, 1e-5);
+    ExpectAtLeastOneValidModel(estimator, points1, points2, expected_E, models);
   }
 }
 
