@@ -96,7 +96,8 @@ struct LocationPrior {
   CoordinateSystem coordinate_system = CoordinateSystem::UNDEFINED;
 
   LocationPrior() = default;
-  LocationPrior(const Eigen::Vector3d& position) : position(position) {}
+  explicit LocationPrior(const Eigen::Vector3d& position)
+      : position(position) {}
   LocationPrior(const Eigen::Vector3d& position, const CoordinateSystem system)
       : position(position), coordinate_system(system) {}
 
