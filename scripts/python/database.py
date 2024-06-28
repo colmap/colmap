@@ -222,6 +222,13 @@ class COLMAPDatabase(sqlite3.Connection):
         )
         return cursor.lastrowid
 
+    def add_location_prior(self, image_id, position, coordinate_system=-1):
+        position = np.asarray(position, dtype=np.float64)
+        self.execute(
+            "INSERT INTO location_priors VALUES (?, ?, ?)",
+            (image_id, array_to_blob(position), coordinate_system),
+        )
+
     def add_keypoints(self, image_id, keypoints):
         assert len(keypoints.shape) == 2
         assert keypoints.shape[1] in [2, 4, 6]
