@@ -453,6 +453,47 @@ struct MetricRelativePoseErrorCostFunction {
   const EigenMatrix6d sqrt_information_j_;
 };
 
+// Cost function for aligning one 3D point with a reference 3D point with
+// covariance r = s * R * p + t - p_ref
+struct Point3dAlignmentCostFunction {
+ public:
+  Point3dAlignmentCostFunction(const Eigen::Vector3d& ref_point,
+                               const Eigen::Matrix3d& covariance_point)
+      : ref_point_(ref_point),
+        sqrt_information_point_(SqrtInformation(covariance_point)) {}
+
+  static ceres::CostFunction* Create(const Eigen::Vector3d& ref_point,
+                                     const Eigen::Matrix3d& covariance_point) {
+    return (
+        new ceres::
+            AutoDiffCostFunction<Point3dAlignmentCostFunction, 3, 3, 4, 3, 1>(
+                new Point3dAlignmentCostFunction(ref_point, covariance_point)));
+  }
+
+  template <typename T>
+  bool operator()(const T* const point,
+                  const T* const transform_q,
+                  const T* const transform_t,
+                  const T* const log_scale,
+                  T* residuals_ptr) const {
+    T scale = ceres::exp(log_scale[0]);
+    const Eigen::Quaternion<T> T_q = EigenQuaternionMap<T>(transform_q);
+    const Eigen::Matrix<T, 3, 1> transform_point =
+        T_q * EigenVector3Map<T>(point) * scale +
+        EigenVector3Map<T>(transform_t);
+    for (size_t i = 0; i < 3; ++i) {
+      residuals_ptr[i] = transform_point[i] - T(ref_point_[i]);
+    }
+    Eigen::Map<Eigen::Matrix<T, 3, 1>> residuals(residuals_ptr);
+    residuals.applyOnTheLeft(sqrt_information_point_.template cast<T>());
+    return true;
+  }
+
+ private:
+  const Eigen::Vector3d ref_point_;
+  const Eigen::Matrix3d sqrt_information_point_;
+};
+
 // A cost function that wraps another one and whiten its residuals with an
 // isotropic covariance, i.e. assuming that the variance is identical in and
 // independent between each dimension of the residual.
