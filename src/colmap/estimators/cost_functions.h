@@ -454,7 +454,8 @@ struct MetricRelativePoseErrorCostFunction {
 };
 
 // Cost function for aligning one 3D point with a reference 3D point with
-// covariance r = s * R * p + t - p_ref
+// covariance. Convention is similar to colmap::Sim3d
+// r = exp(log_scale) * R * p + t - p_ref
 struct Point3dAlignmentCostFunction {
  public:
   Point3dAlignmentCostFunction(const Eigen::Vector3d& ref_point,
