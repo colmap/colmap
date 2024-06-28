@@ -231,6 +231,7 @@ jobs:
           Xvfb :99 &
           sleep 3
           cd build
+          set +e
           ctest -E "$ctestExclusions"
           tests_pass=$?
           if [ $tests_pass -ne 0 ]; then
