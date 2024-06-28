@@ -33,11 +33,6 @@
 #include "colmap/scene/projection.h"
 
 namespace colmap {
-namespace {
-
-static constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
-
-}  // namespace
 
 Image::Image()
     : image_id_(kInvalidImageId),
