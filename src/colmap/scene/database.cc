@@ -1169,7 +1169,7 @@ void Database::PrepareSQLStatements() {
   sql = "SELECT * FROM location_priors WHERE image_id = ?;";
   SQLITE3_CALL(sqlite3_prepare_v2(
       database_, sql.c_str(), -1, &sql_stmt_read_location_prior_, 0));
-  sql_stmts_.push_back(sql_stmt_read_keypoints_);
+  sql_stmts_.push_back(sql_stmt_read_location_prior_);
 
   sql = "SELECT rows, cols, data FROM keypoints WHERE image_id = ?;";
   SQLITE3_CALL(sqlite3_prepare_v2(
