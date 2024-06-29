@@ -9,7 +9,7 @@ namespace py = pybind11;
 
 bool IsPyceresAvailable() {
   try {
-      py::module_::import("pyceres");
+    py::module_::import("pyceres");
   } catch (const py::import_error&) {
     return false;
   }
@@ -19,8 +19,9 @@ bool IsPyceresAvailable() {
 void BindCustomizedManifold(py::module& m) {
 #if CERES_VERSION_MAJOR >= 3 || \
     (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 1)
-  py::class_<PositiveExponentialManifold<ceres::DYNAMIC>, ceres::Manifold>(m, "PositiveExponentialManifold")
-    .def(py::init<int>());
+  py::class_<PositiveExponentialManifold<ceres::DYNAMIC>, ceres::Manifold>(
+      m, "PositiveExponentialManifold")
+      .def(py::init<int>());
 #endif
 }
 
