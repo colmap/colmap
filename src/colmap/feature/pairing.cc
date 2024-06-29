@@ -602,7 +602,7 @@ SpatialPairGenerator::ReadLocationData(const FeatureMatcherCache& cache) {
     if (!cache.ExistsLocationPrior(image_ids_[i])) {
       continue;
     }
-    const auto location_prior = cache.GetLocationPrior(image_ids_[i]);
+    const auto& location_prior = cache.GetLocationPrior(image_ids_[i]);
     const Eigen::Vector3d& translation_prior = location_prior.position;
     if ((translation_prior(0) == 0 && translation_prior(1) == 0 &&
          options_.ignore_z) ||
