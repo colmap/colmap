@@ -117,6 +117,14 @@ void BindGeometry(py::module& m) {
       .def_readwrite("scale", &Sim3d::scale)
       .def_readwrite("rotation", &Sim3d::rotation)
       .def_readwrite("translation", &Sim3d::translation)
+      .def_property_readonly("scale_ptr",  // for optimization
+                             [](Sim3d& self) {
+                               py::array_t<double> pyarray(1);
+                               double* const pyarray_data =
+                                   static_cast<double*>(pyarray.request().ptr);
+                               pyarray_data[0] = self.scale;
+                               return pyarray;
+                             })
       .def("matrix", &Sim3d::ToMatrix)
       .def(py::self * Sim3d())
       .def(py::self * Eigen::Vector3d())
