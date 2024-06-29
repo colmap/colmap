@@ -8,10 +8,12 @@ using namespace pybind11::literals;
 namespace py = pybind11;
 
 bool IsPyceresAvailable() {
-  py::module importlib = py::module::import("importlib");
-  py::object find_spec_func = importlib.attr("util").attr("find_spec");
-  py::object module_spec = find_spec_func("pyceres");
-  return !module_spec.is_none();
+  try {
+    py::module::import("pyceres");
+  } catch (const py::import_error&) {
+    return false;
+  }
+  return true;
 }
 
 void BindCustomizedManifold(py::module& m) {
