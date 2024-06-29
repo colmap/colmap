@@ -455,7 +455,7 @@ struct MetricRelativePoseErrorCostFunction {
 
 // Cost function for aligning one 3D point with a reference 3D point with
 // covariance. Convention is similar to colmap::Sim3d
-// r = exp(log_scale) * R * point + t - ref_point
+// r = scale * R * point + t - ref_point
 struct Point3dAlignmentCostFunction {
  public:
   Point3dAlignmentCostFunction(const Eigen::Vector3d& ref_point,
@@ -475,12 +475,11 @@ struct Point3dAlignmentCostFunction {
   bool operator()(const T* const point,
                   const T* const transform_q,
                   const T* const transform_t,
-                  const T* const log_scale,
+                  const T* const scale,
                   T* residuals_ptr) const {
-    T scale = ceres::exp(log_scale[0]);
     const Eigen::Quaternion<T> T_q = EigenQuaternionMap<T>(transform_q);
     const Eigen::Matrix<T, 3, 1> transform_point =
-        T_q * EigenVector3Map<T>(point) * scale +
+        T_q * EigenVector3Map<T>(point) * scale[0] +
         EigenVector3Map<T>(transform_t);
     for (size_t i = 0; i < 3; ++i) {
       residuals_ptr[i] = transform_point[i] - T(ref_point_[i]);
@@ -556,51 +555,6 @@ ceres::CostFunction* CameraCostFunction(const CameraModelId camera_model_id,
 
 #undef CAMERA_MODEL_CASE
   }
-}
-
-inline void SetQuaternionManifold(ceres::Problem* problem, double* quat_xyzw) {
-#if CERES_VERSION_MAJOR >= 3 || \
-    (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 1)
-  problem->SetManifold(quat_xyzw, new ceres::EigenQuaternionManifold);
-#else
-  problem->SetParameterization(quat_xyzw,
-                               new ceres::EigenQuaternionParameterization);
-#endif
-}
-
-inline void SetSubsetManifold(int size,
-                              const std::vector<int>& constant_params,
-                              ceres::Problem* problem,
-                              double* params) {
-#if CERES_VERSION_MAJOR >= 3 || \
-    (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 1)
-  problem->SetManifold(params,
-                       new ceres::SubsetManifold(size, constant_params));
-#else
-  problem->SetParameterization(
-      params, new ceres::SubsetParameterization(size, constant_params));
-#endif
-}
-
-template <int size>
-inline void SetSphereManifold(ceres::Problem* problem, double* params) {
-#if CERES_VERSION_MAJOR >= 3 || \
-    (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 1)
-  problem->SetManifold(params, new ceres::SphereManifold<size>);
-#else
-  problem->SetParameterization(
-      params, new ceres::HomogeneousVectorParameterization(size));
-#endif
-}
-
-inline int ParameterBlockTangentSize(ceres::Problem* problem,
-                                     const double* param) {
-#if CERES_VERSION_MAJOR >= 3 || \
-    (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 1)
-  return problem->ParameterBlockTangentSize(param);
-#else
-  return problem->ParameterBlockLocalSize(param);
-#endif
 }
 
 }  // namespace colmap

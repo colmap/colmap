@@ -367,8 +367,6 @@ TEST(PoseGraphOptimization, Point3dAlignment) {
   Sim3d tform = Sim3d(RandomUniformReal<double>(0.1, 10),
                       Eigen::Quaterniond::UnitRandom(),
                       Eigen::Vector3d::Random());
-  double log_scale = std::log(tform.scale);
-
   // construct cost function and evaluate
   Eigen::Vector3d ref_point(1., 1., 1.);
   Eigen::Matrix3d covariance_point = Eigen::Matrix3d::Identity();
@@ -379,7 +377,7 @@ TEST(PoseGraphOptimization, Point3dAlignment) {
   const double* parameters[4] = {point.data(),
                                  tform.rotation.coeffs().data(),
                                  tform.translation.data(),
-                                 &log_scale};
+                                 &tform.scale};
   double residuals[3];
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
 
