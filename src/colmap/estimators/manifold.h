@@ -87,7 +87,7 @@ class PositiveExponentialManifold : public ceres::Manifold {
             const double* delta,
             double* x_plus_delta) const override {
     for (size_t i = 0; i < size; ++i) {
-      x_plus_delta[i] = std::exp(std::log(x[i]) + delta[i]);
+      x_plus_delta[i] = x[i] * std::exp(delta[i]);
     }
     return true;
   }
@@ -114,7 +114,7 @@ class PositiveExponentialParameterization
             const double* delta,
             double* x_plus_delta) const override {
     for (size_t i = 0; i < size; ++i) {
-      x_plus_delta[i] = std::exp(std::log(x[i]) + delta[i]);
+      x_plus_delta[i] = x[i] * std::exp(delta[i]);
     }
     return true;
   }
