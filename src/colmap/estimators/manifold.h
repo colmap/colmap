@@ -34,8 +34,9 @@
 
 namespace colmap {
 
-#include "ceres/ceres.h"
 #include <cmath>
+
+#include "ceres/ceres.h"
 
 inline void SetQuaternionManifold(ceres::Problem* problem, double* quat_xyzw) {
 #if CERES_VERSION_MAJOR >= 3 || \
@@ -81,14 +82,16 @@ class PositiveExponentialManifold : public ceres::Manifold {
  public:
   PositiveExponentialManifold() {}
   ~PositiveExponentialManifold() {}
-  
-  bool Plus(const double* x, const double* delta, double* x_plus_delta) const override {
+
+  bool Plus(const double* x,
+            const double* delta,
+            double* x_plus_delta) const override {
     for (size_t i = 0; i < size; ++i) {
       x_plus_delta[i] = std::exp(std::log(x[i]) + delta[i]);
     }
     return true;
   }
-  
+
   bool PlusJacobian(const double* x, double* jacobian) const override {
     for (size_t i = 0; i < size; ++i) {
       jacobian[size * i + i] = x[i];
@@ -101,18 +104,21 @@ class PositiveExponentialManifold : public ceres::Manifold {
 };
 #else
 template <int size = 1>
-class PositiveExponentialParameterization: public ceres::LocalParameterization {
+class PositiveExponentialParameterization
+    : public ceres::LocalParameterization {
  public:
   PositiveExponentialParameterization() {}
   ~PositiveExponentialParameterization() {}
-  
-  bool Plus(const double* x, const double* delta, double* x_plus_delta) const override {
+
+  bool Plus(const double* x,
+            const double* delta,
+            double* x_plus_delta) const override {
     for (size_t i = 0; i < size; ++i) {
       x_plus_delta[i] = std::exp(std::log(x[i]) + delta[i]);
     }
     return true;
   }
-  
+
   bool ComputeJacobian(const double* x, double* jacobian) const override {
     for (size_t i = 0; i < size; ++i) {
       jacobian[size * i + i] = x[i];
@@ -126,7 +132,8 @@ class PositiveExponentialParameterization: public ceres::LocalParameterization {
 #endif
 
 template <int size = 1>
-inline void SetPositiveExponentialManifold(ceres::Problem* problem, double* params) {
+inline void SetPositiveExponentialManifold(ceres::Problem* problem,
+                                           double* params) {
 #if CERES_VERSION_MAJOR >= 3 || \
     (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 1)
   problem->SetManifold(params, new PositiveExponentialManifold<size>);
