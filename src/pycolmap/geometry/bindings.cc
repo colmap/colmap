@@ -119,11 +119,14 @@ void BindGeometry(py::module& m) {
       .def_readwrite("translation", &Sim3d::translation)
       .def_property_readonly("scale_ptr",  // for optimization
                              [](Sim3d& self) {
-                               py::array_t<double> pyarray(1);
-                               double* const pyarray_data =
-                                   static_cast<double*>(pyarray.request().ptr);
-                               pyarray_data[0] = self.scale;
-                               return pyarray;
+                               py::buffer_info buffer_info(
+                                   &self.scale,
+                                   sizeof(double),
+                                   py::format_descriptor<double>::format(),
+                                   1,
+                                   {1},
+                                   {sizeof(double)});
+                               return py::array(buffer_info);
                              })
       .def("matrix", &Sim3d::ToMatrix)
       .def(py::self * Sim3d())
