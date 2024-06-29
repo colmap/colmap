@@ -138,7 +138,7 @@ inline void SetPositiveExponentialManifold(ceres::Problem* problem,
     (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 1)
   problem->SetManifold(params, new PositiveExponentialManifold<size>);
 #else
-  problem->SetParameterization(quat_xyzw,
+  problem->SetParameterization(params,
                                new PositiveExponentialParameterization<size>);
 #endif
 }
