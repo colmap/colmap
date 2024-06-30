@@ -11,6 +11,7 @@ void BindEssentialMatrixEstimator(py::module& m);
 void BindFundamentalMatrixEstimator(py::module& m);
 void BindGeneralizedAbsolutePoseEstimator(py::module& m);
 void BindHomographyMatrixEstimator(py::module& m);
+void BindManifold(py::module& m);
 void BindTriangulationEstimator(py::module& m);
 void BindTwoViewGeometryEstimator(py::module& m);
 void BindImuPreintegration(py::module& m);
@@ -25,6 +26,7 @@ void BindEstimators(py::module& m) {
   BindFundamentalMatrixEstimator(m);
   BindGeneralizedAbsolutePoseEstimator(m);
   BindHomographyMatrixEstimator(m);
+  BindManifold(m);
   BindTriangulationEstimator(m);
   BindTwoViewGeometryEstimator(m);
   BindImuPreintegration(m);
