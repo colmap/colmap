@@ -42,7 +42,7 @@ and consider citing relevant third-party dependencies.
 Download
 --------
 
-* Binaries for **Windows** and **Mac** and other resources can be downloaded
+* Binaries for **Windows** and other resources can be downloaded
   from https://github.com/colmap/colmap/releases.
 * Binaries for **Linux/Unix/BSD** are available at
   https://repology.org/metapackage/colmap/versions.
