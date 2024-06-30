@@ -10,7 +10,7 @@ namespace py = pybind11;
 bool IsPyceresAvailable() {
   try {
     py::module::import("pyceres");
-  } catch (const py::import_error&) {
+  } catch (const py::error_already_set&) {
     return false;
   }
   return true;
