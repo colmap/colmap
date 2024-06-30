@@ -1,20 +1,13 @@
 #include "colmap/estimators/manifold.h"
 
+#include "pycolmap/helpers.h"
+
 #include <pybind11/eigen.h>
 #include <pybind11/pybind11.h>
 
 using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
-
-bool IsPyceresAvailable() {
-  try {
-    py::module::import("pyceres");
-  } catch (const py::error_already_set&) {
-    return false;
-  }
-  return true;
-}
 
 void BindCustomizedManifold(py::module& m) {
 #if CERES_VERSION_MAJOR >= 3 || \
@@ -27,8 +20,7 @@ void BindCustomizedManifold(py::module& m) {
 
 void BindManifold(py::module& m_parent) {
   py::module_ m = m_parent.def_submodule("manifold");
-  bool is_pyceres_available = IsPyceresAvailable();
-  if (is_pyceres_available) {
+  if (IsPyceresAvailable()) {
     BindCustomizedManifold(m);
   }
 }
