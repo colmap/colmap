@@ -196,7 +196,7 @@ void EssentialMatrixEightPointEstimator::Estimate(
         svd.matrixV().col(8).data());
   }
 
-  // Enforcing the internal constraint that two singular values must non-zero
+  // Enforcing the internal constraint that two singular values must be non-zero
   // and one must be zero.
   Eigen::JacobiSVD<Eigen::Matrix3d> svd(
       Q, Eigen::ComputeFullU | Eigen::ComputeFullV);
