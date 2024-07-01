@@ -156,9 +156,13 @@ Configure and compile COLMAP::
     export PATH="/usr/local/opt/qt@5/bin:$PATH"
     mkdir build
     cd build
-    cmake ..  -GNinja -DQt5_DIR=/usr/local/opt/qt/lib/cmake/Qt5
+    cmake .. -GNinja -DQt5_DIR=/usr/local/opt/qt/lib/cmake/Qt5
     ninja
     sudo ninja install
+
+On Macs with ARM the brew paths are different so you need this
+
+    cmake .. -GNinja -DCMAKE_PREFIX_PATH="/opt/homebrew/opt/flann;/opt/homebrew/opt/metis;/opt/homebrew/opt/suite-sparse;/opt/homebrew/opt/qt@5;/opt/homebrew/opt/freeimage"
 
 If you have Qt 6 installed on your system as well, you might have to temporarily
 link your Qt 5 installation while configuring CMake::
