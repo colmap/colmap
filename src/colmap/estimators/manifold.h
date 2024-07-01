@@ -74,7 +74,7 @@ inline void SetSphereManifold(ceres::Problem* problem, double* params) {
 }
 
 // Use an exponential function to ensure the variable to be strictly positive
-// Generally for the scale parameters
+// Generally applicable for scale parameters
 #if CERES_VERSION_MAJOR >= 3 || \
     (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 1)
 template <int AmbientSpaceDimension>
