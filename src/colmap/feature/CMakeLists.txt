@@ -56,11 +56,11 @@ COLMAP_ADD_LIBRARY(
         utils.h utils.cc
     PUBLIC_LINK_LIBS
         colmap_feature_types
+        colmap_geometry
         colmap_retrieval
         colmap_scene
         colmap_util
     PRIVATE_LINK_LIBS
-        colmap_geometry
         colmap_math
         colmap_sensor
         colmap_vlfeat

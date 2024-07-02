@@ -157,11 +157,6 @@ void BindMatchFeatures(py::module& m) {
   auto PySpatialMatchingOptions =
       py::class_<SpMOpts>(m, "SpatialMatchingOptions")
           .def(py::init<>())
-          .def_readwrite("is_gps",
-                         &SpMOpts::is_gps,
-                         "Whether the location priors in the database are "
-                         "GPS coordinates in the form of longitude and "
-                         "latitude coordinates in degrees.")
           .def_readwrite(
               "ignore_z",
               &SpMOpts::ignore_z,

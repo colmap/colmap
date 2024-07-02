@@ -407,8 +407,6 @@ void OptionManager::AddSpatialMatchingOptions() {
 
   AddMatchingOptions();
 
-  AddAndRegisterDefaultOption("SpatialMatching.is_gps",
-                              &spatial_matching->is_gps);
   AddAndRegisterDefaultOption("SpatialMatching.ignore_z",
                               &spatial_matching->ignore_z);
   AddAndRegisterDefaultOption("SpatialMatching.max_num_neighbors",

@@ -114,10 +114,6 @@ struct SequentialMatchingOptions {
 };
 
 struct SpatialMatchingOptions {
-  // Whether the location priors in the database are GPS coordinates in
-  // the form of longitude and latitude coordinates in degrees.
-  bool is_gps = true;
-
   // Whether to ignore the Z-component of the location prior.
   bool ignore_z = true;
 

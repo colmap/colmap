@@ -264,7 +264,6 @@ void VocabTreeMatchingTab::Run() {
 
 SpatialMatchingTab::SpatialMatchingTab(QWidget* parent, OptionManager* options)
     : FeatureMatchingTab(parent, options) {
-  options_widget_->AddOptionBool(&options_->spatial_matching->is_gps, "is_gps");
   options_widget_->AddOptionBool(&options_->spatial_matching->ignore_z,
                                  "ignore_z");
   options_widget_->AddOptionInt(&options_->spatial_matching->max_num_neighbors,

@@ -54,6 +54,14 @@ void FeatureMatcherCache::Setup() {
     images_cache_.emplace(image.ImageId(), std::move(image));
   }
 
+  locations_priors_cache_.reserve(database_->NumLocationPriors());
+  for (const auto& id_and_image : images_cache_) {
+    if (database_->ExistsLocationPrior(id_and_image.first)) {
+      locations_priors_cache_.emplace(
+          id_and_image.first, database_->ReadLocationPrior(id_and_image.first));
+    }
+  }
+
   keypoints_cache_ =
       std::make_unique<LRUCache<image_t, std::shared_ptr<FeatureKeypoints>>>(
           cache_size_, [this](const image_t image_id) {
@@ -87,6 +95,11 @@ const Image& FeatureMatcherCache::GetImage(const image_t image_id) const {
   return images_cache_.at(image_id);
 }
 
+const LocationPrior& FeatureMatcherCache::GetLocationPrior(
+    const image_t image_id) const {
+  return locations_priors_cache_.at(image_id);
+}
+
 std::shared_ptr<FeatureKeypoints> FeatureMatcherCache::GetKeypoints(
     const image_t image_id) {
   std::lock_guard<std::mutex> lock(database_mutex_);
@@ -112,6 +125,11 @@ std::vector<image_t> FeatureMatcherCache::GetImageIds() const {
     image_ids.push_back(image.first);
   }
   return image_ids;
+}
+
+bool FeatureMatcherCache::ExistsLocationPrior(const image_t image_id) const {
+  return locations_priors_cache_.find(image_id) !=
+         locations_priors_cache_.end();
 }
 
 bool FeatureMatcherCache::ExistsKeypoints(const image_t image_id) {
