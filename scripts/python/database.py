@@ -64,7 +64,7 @@ CREATE_IMAGES_TABLE = """CREATE TABLE IF NOT EXISTS images (
     MAX_IMAGE_ID
 )
 
-CREATE_LOCATION_PRIORS_TABLE = """CREATE TABLE IF NOT EXISTS location_priors (
+CREATE_POSE_PRIORS_TABLE = """CREATE TABLE IF NOT EXISTS pose_priors (
     image_id INTEGER PRIMARY KEY NOT NULL,
     position BLOB,
     coordinate_system INTEGER NOT NULL,
@@ -106,7 +106,7 @@ CREATE_ALL = "; ".join(
     [
         CREATE_CAMERAS_TABLE,
         CREATE_IMAGES_TABLE,
-        CREATE_LOCATION_PRIORS_TABLE,
+        CREATE_POSE_PRIORS_TABLE,
         CREATE_KEYPOINTS_TABLE,
         CREATE_DESCRIPTORS_TABLE,
         CREATE_MATCHES_TABLE,
@@ -160,8 +160,8 @@ class COLMAPDatabase(sqlite3.Connection):
         self.create_images_table = lambda: self.executescript(
             CREATE_IMAGES_TABLE
         )
-        self.create_location_priors_table = lambda: self.executescript(
-            CREATE_LOCATION_PRIORS_TABLE
+        self.create_pose_priors_table = lambda: self.executescript(
+            CREATE_POSE_PRIORS_TABLE
         )
         self.create_two_view_geometries_table = lambda: self.executescript(
             CREATE_TWO_VIEW_GEOMETRIES_TABLE
@@ -222,10 +222,10 @@ class COLMAPDatabase(sqlite3.Connection):
         )
         return cursor.lastrowid
 
-    def add_location_prior(self, image_id, position, coordinate_system=-1):
+    def add_pose_prior(self, image_id, position, coordinate_system=-1):
         position = np.asarray(position, dtype=np.float64)
         self.execute(
-            "INSERT INTO location_priors VALUES (?, ?, ?)",
+            "INSERT INTO pose_priors VALUES (?, ?, ?)",
             (image_id, array_to_blob(position), coordinate_system),
         )
 

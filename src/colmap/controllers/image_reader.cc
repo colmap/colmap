@@ -87,7 +87,7 @@ ImageReader::ImageReader(const ImageReaderOptions& options, Database* database)
 
 ImageReader::Status ImageReader::Next(Camera* camera,
                                       Image* image,
-                                      LocationPrior* location_prior,
+                                      PosePrior* pose_prior,
                                       Bitmap* bitmap,
                                       Bitmap* mask) {
   THROW_CHECK_NOTNULL(camera);
@@ -254,9 +254,8 @@ ImageReader::Status ImageReader::Next(Camera* camera,
     if (bitmap->ExifLatitude(&position_prior.x()) &&
         bitmap->ExifLongitude(&position_prior.y()) &&
         bitmap->ExifAltitude(&position_prior.z())) {
-      location_prior->position = position_prior;
-      location_prior->coordinate_system =
-          LocationPrior::CoordinateSystem::WGS84;
+      pose_prior->position = position_prior;
+      pose_prior->coordinate_system = PosePrior::CoordinateSystem::WGS84;
     }
   }
 

@@ -143,27 +143,27 @@ void BindGeometry(py::module& m) {
   py::implicitly_convertible<py::array, Sim3d>();
   MakeDataclass(PySim3d);
 
-  using LPCoordinateSystem = LocationPrior::CoordinateSystem;
-  py::enum_<LPCoordinateSystem> PyCoordinateSystem(
-      m, "LocationPriorCoordinateSystem");
+  using LPCoordinateSystem = PosePrior::CoordinateSystem;
+  py::enum_<LPCoordinateSystem> PyCoordinateSystem(m,
+                                                   "PosePriorCoordinateSystem");
   PyCoordinateSystem.value("UNDEFINED", LPCoordinateSystem::UNDEFINED)
       .value("WGS84", LPCoordinateSystem::WGS84)
       .value("CARTESIAN", LPCoordinateSystem::CARTESIAN);
   AddStringToEnumConstructor(PyCoordinateSystem);
 
-  py::class_ext_<LocationPrior> PyLocationPrior(m, "LocationPrior");
-  PyLocationPrior.def(py::init<>())
+  py::class_ext_<PosePrior> PyPosePrior(m, "PosePrior");
+  PyPosePrior.def(py::init<>())
       .def(py::init<const Eigen::Vector3d&>())
       .def(py::init<const Eigen::Vector3d&, const LPCoordinateSystem>())
-      .def_readwrite("rotation", &LocationPrior::position)
-      .def_readwrite("translation", &LocationPrior::coordinate_system)
-      .def("is_valid", &LocationPrior::IsValid)
-      .def("__repr__", [](const LocationPrior& self) {
+      .def_readwrite("rotation", &PosePrior::position)
+      .def_readwrite("translation", &PosePrior::coordinate_system)
+      .def("is_valid", &PosePrior::IsValid)
+      .def("__repr__", [](const PosePrior& self) {
         std::stringstream ss;
-        ss << "LocationPrior("
+        ss << "PosePrior("
            << "position=[" << self.position.format(vec_fmt) << "], "
            << "system=" << py::str(py::cast(self.coordinate_system)) << ")";
         return ss.str();
       });
-  MakeDataclass(PyLocationPrior);
+  MakeDataclass(PyPosePrior);
 }

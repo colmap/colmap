@@ -599,11 +599,11 @@ SpatialPairGenerator::ReadLocationData(const FeatureMatcherCache& cache) {
       image_ids_.size(), 3);
 
   for (size_t i = 0; i < image_ids_.size(); ++i) {
-    if (!cache.ExistsLocationPrior(image_ids_[i])) {
+    if (!cache.ExistsPosePrior(image_ids_[i])) {
       continue;
     }
-    const auto& location_prior = cache.GetLocationPrior(image_ids_[i]);
-    const Eigen::Vector3d& translation_prior = location_prior.position;
+    const auto& pose_prior = cache.GetPosePrior(image_ids_[i]);
+    const Eigen::Vector3d& translation_prior = pose_prior.position;
     if ((translation_prior(0) == 0 && translation_prior(1) == 0 &&
          options_.ignore_z) ||
         (translation_prior(0) == 0 && translation_prior(1) == 0 &&
@@ -613,8 +613,8 @@ SpatialPairGenerator::ReadLocationData(const FeatureMatcherCache& cache) {
 
     location_idxs_.push_back(i);
 
-    switch (location_prior.coordinate_system) {
-      case LocationPrior::CoordinateSystem::WGS84: {
+    switch (pose_prior.coordinate_system) {
+      case PosePrior::CoordinateSystem::WGS84: {
         ells[0](0) = translation_prior(0);
         ells[0](1) = translation_prior(1);
         ells[0](2) = options_.ignore_z ? 0 : translation_prior(2);
@@ -624,10 +624,10 @@ SpatialPairGenerator::ReadLocationData(const FeatureMatcherCache& cache) {
         location_matrix(num_locations, 1) = static_cast<float>(xyzs[0](1));
         location_matrix(num_locations, 2) = static_cast<float>(xyzs[0](2));
       } break;
-      case LocationPrior::CoordinateSystem::UNDEFINED:
+      case PosePrior::CoordinateSystem::UNDEFINED:
         LOG(INFO) << "Unknown coordinate system for image " << image_ids_[i]
                   << ", assuming cartesian.";
-      case LocationPrior::CoordinateSystem::CARTESIAN:
+      case PosePrior::CoordinateSystem::CARTESIAN:
       default:
         location_matrix(num_locations, 0) =
             static_cast<float>(translation_prior(0));

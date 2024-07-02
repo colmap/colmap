@@ -110,7 +110,7 @@ class ImageReader {
 
   Status Next(Camera* camera,
               Image* image,
-              LocationPrior* location_prior,
+              PosePrior* pose_prior,
               Bitmap* bitmap,
               Bitmap* mask);
   size_t NextIndex() const;

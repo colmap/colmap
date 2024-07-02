@@ -85,7 +85,7 @@ class Database {
   bool ExistsCamera(camera_t camera_id) const;
   bool ExistsImage(image_t image_id) const;
   bool ExistsImageWithName(const std::string& name) const;
-  bool ExistsLocationPrior(image_t image_id) const;
+  bool ExistsPosePrior(image_t image_id) const;
   bool ExistsKeypoints(image_t image_id) const;
   bool ExistsDescriptors(image_t image_id) const;
   bool ExistsMatches(image_t image_id1, image_t image_id2) const;
@@ -97,8 +97,8 @@ class Database {
   //  Number of rows in `images` table.
   size_t NumImages() const;
 
-  //  Number of rows in `location_priors` table.
-  size_t NumLocationPriors() const;
+  //  Number of rows in `pose_priors` table.
+  size_t NumPosePriors() const;
 
   // Sum of `rows` column in `keypoints` table, i.e. number of total keypoints.
   size_t NumKeypoints() const;
@@ -157,7 +157,7 @@ class Database {
   Image ReadImageWithName(const std::string& name) const;
   std::vector<Image> ReadAllImages() const;
 
-  LocationPrior ReadLocationPrior(image_t image_id) const;
+  PosePrior ReadPosePrior(image_t image_id) const;
 
   FeatureKeypointsBlob ReadKeypointsBlob(image_t image_id) const;
   FeatureKeypoints ReadKeypoints(image_t image_id) const;
@@ -191,8 +191,7 @@ class Database {
   // Write a new entry in the database. The user is responsible for making sure
   // that the entry does not yet exist. For image pairs, the order of
   // `image_id1` and `image_id2` does not matter.
-  void WriteLocationPrior(image_t image_id,
-                          const LocationPrior& location_prior) const;
+  void WritePosePrior(image_t image_id, const PosePrior& pose_prior) const;
   void WriteKeypoints(image_t image_id,
                       const FeatureKeypoints& keypoints) const;
   void WriteKeypoints(image_t image_id, const FeatureKeypointsBlob& blob) const;
@@ -231,8 +230,8 @@ class Database {
   // Clear the entire images, keypoints, and descriptors tables
   void ClearImages() const;
 
-  // Clear the entire location_priors table
-  void ClearLocationPriors() const;
+  // Clear the entire pose_priors table
+  void ClearPosePriors() const;
 
   // Clear the entire descriptors table
   void ClearDescriptors() const;
@@ -271,7 +270,7 @@ class Database {
   void CreateTables() const;
   void CreateCameraTable() const;
   void CreateImageTable() const;
-  void CreateLocationPriorTable() const;
+  void CreatePosePriorTable() const;
   void CreateKeypointsTable() const;
   void CreateDescriptorsTable() const;
   void CreateMatchesTable() const;
@@ -319,7 +318,7 @@ class Database {
   sqlite3_stmt* sql_stmt_exists_camera_ = nullptr;
   sqlite3_stmt* sql_stmt_exists_image_id_ = nullptr;
   sqlite3_stmt* sql_stmt_exists_image_name_ = nullptr;
-  sqlite3_stmt* sql_stmt_exists_location_prior_ = nullptr;
+  sqlite3_stmt* sql_stmt_exists_pose_prior_ = nullptr;
   sqlite3_stmt* sql_stmt_exists_keypoints_ = nullptr;
   sqlite3_stmt* sql_stmt_exists_descriptors_ = nullptr;
   sqlite3_stmt* sql_stmt_exists_matches_ = nullptr;
@@ -339,7 +338,7 @@ class Database {
   sqlite3_stmt* sql_stmt_read_image_id_ = nullptr;
   sqlite3_stmt* sql_stmt_read_image_name_ = nullptr;
   sqlite3_stmt* sql_stmt_read_images_ = nullptr;
-  sqlite3_stmt* sql_stmt_read_location_prior_ = nullptr;
+  sqlite3_stmt* sql_stmt_read_pose_prior_ = nullptr;
   sqlite3_stmt* sql_stmt_read_keypoints_ = nullptr;
   sqlite3_stmt* sql_stmt_read_descriptors_ = nullptr;
   sqlite3_stmt* sql_stmt_read_matches_ = nullptr;
@@ -349,7 +348,7 @@ class Database {
   sqlite3_stmt* sql_stmt_read_two_view_geometry_num_inliers_ = nullptr;
 
   // write_*
-  sqlite3_stmt* sql_stmt_write_location_prior_ = nullptr;
+  sqlite3_stmt* sql_stmt_write_pose_prior_ = nullptr;
   sqlite3_stmt* sql_stmt_write_keypoints_ = nullptr;
   sqlite3_stmt* sql_stmt_write_descriptors_ = nullptr;
   sqlite3_stmt* sql_stmt_write_matches_ = nullptr;
@@ -362,7 +361,7 @@ class Database {
   // clear_*
   sqlite3_stmt* sql_stmt_clear_cameras_ = nullptr;
   sqlite3_stmt* sql_stmt_clear_images_ = nullptr;
-  sqlite3_stmt* sql_stmt_clear_location_priors_ = nullptr;
+  sqlite3_stmt* sql_stmt_clear_pose_priors_ = nullptr;
   sqlite3_stmt* sql_stmt_clear_descriptors_ = nullptr;
   sqlite3_stmt* sql_stmt_clear_keypoints_ = nullptr;
   sqlite3_stmt* sql_stmt_clear_matches_ = nullptr;

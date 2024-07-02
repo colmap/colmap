@@ -88,7 +88,7 @@ struct ImageData {
 
   Camera camera;
   Image image;
-  LocationPrior location_prior;
+  PosePrior pose_prior;
   Bitmap bitmap;
   Bitmap mask;
 
@@ -300,14 +300,14 @@ class FeatureWriterThread : public Thread {
 
         if (image_data.image.ImageId() == kInvalidImageId) {
           image_data.image.SetImageId(database_->WriteImage(image_data.image));
-          if (image_data.location_prior.IsValid()) {
+          if (image_data.pose_prior.IsValid()) {
             LOG(INFO) << StringPrintf(
                 "  GPS:             LAT=%.3f, LON=%.3f, ALT=%.3f",
-                image_data.location_prior.position.x(),
-                image_data.location_prior.position.y(),
-                image_data.location_prior.position.z());
-            database_->WriteLocationPrior(image_data.image.ImageId(),
-                                          image_data.location_prior);
+                image_data.pose_prior.position.x(),
+                image_data.pose_prior.position.y(),
+                image_data.pose_prior.position.z());
+            database_->WritePosePrior(image_data.image.ImageId(),
+                                      image_data.pose_prior);
           }
         }
 
@@ -462,7 +462,7 @@ class FeatureExtractorController : public Thread {
       ImageData image_data;
       image_data.status = image_reader_.Next(&image_data.camera,
                                              &image_data.image,
-                                             &image_data.location_prior,
+                                             &image_data.pose_prior,
                                              &image_data.bitmap,
                                              &image_data.mask);
 
@@ -545,10 +545,9 @@ class FeatureImporterController : public Thread {
       // Load image data and possibly save camera to database.
       Camera camera;
       Image image;
-      LocationPrior location_prior;
+      PosePrior pose_prior;
       Bitmap bitmap;
-      if (image_reader.Next(
-              &camera, &image, &location_prior, &bitmap, nullptr) !=
+      if (image_reader.Next(&camera, &image, &pose_prior, &bitmap, nullptr) !=
           ImageReader::Status::SUCCESS) {
         continue;
       }
@@ -566,8 +565,8 @@ class FeatureImporterController : public Thread {
 
         if (image.ImageId() == kInvalidImageId) {
           image.SetImageId(database.WriteImage(image));
-          if (location_prior.IsValid()) {
-            database.WriteLocationPrior(image.ImageId(), location_prior);
+          if (pose_prior.IsValid()) {
+            database.WritePosePrior(image.ImageId(), pose_prior);
           }
         }
 

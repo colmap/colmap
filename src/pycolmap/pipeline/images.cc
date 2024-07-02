@@ -47,17 +47,17 @@ void ImportImages(const std::string& database_path,
     }
     Camera camera;
     Image image;
-    LocationPrior location_prior;
+    PosePrior pose_prior;
     Bitmap bitmap;
-    if (image_reader.Next(&camera, &image, &location_prior, &bitmap, nullptr) !=
+    if (image_reader.Next(&camera, &image, &pose_prior, &bitmap, nullptr) !=
         ImageReader::Status::SUCCESS) {
       continue;
     }
     DatabaseTransaction database_transaction(&database);
     if (image.ImageId() == kInvalidImageId) {
       image.SetImageId(database.WriteImage(image));
-      if (location_prior.IsValid()) {
-        database.WriteLocationPrior(image.ImageId(), location_prior);
+      if (pose_prior.IsValid()) {
+        database.WritePosePrior(image.ImageId(), pose_prior);
       }
     }
   }

@@ -83,7 +83,7 @@ class GPSTransform {
   double e2_;
 };
 
-struct LocationPrior {
+struct PosePrior {
  public:
   enum class CoordinateSystem {
     UNDEFINED = -1,
@@ -95,10 +95,9 @@ struct LocationPrior {
       Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
   CoordinateSystem coordinate_system = CoordinateSystem::UNDEFINED;
 
-  LocationPrior() = default;
-  explicit LocationPrior(const Eigen::Vector3d& position)
-      : position(position) {}
-  LocationPrior(const Eigen::Vector3d& position, const CoordinateSystem system)
+  PosePrior() = default;
+  explicit PosePrior(const Eigen::Vector3d& position) : position(position) {}
+  PosePrior(const Eigen::Vector3d& position, const CoordinateSystem system)
       : position(position), coordinate_system(system) {}
 
   bool IsValid() { return position.array().isFinite().any(); }

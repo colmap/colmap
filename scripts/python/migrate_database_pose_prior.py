@@ -42,7 +42,7 @@ if __name__ == "__main__":
 
     db = COLMAPDatabase.connect(args.database_path)
 
-    location_priors = {}
+    pose_priors = {}
     rows = db.execute("SELECT * FROM images")
     for image_id, _, _, *cam_from_world_prior in rows:
         if not cam_from_world_prior:  # newer format database
@@ -55,23 +55,23 @@ if __name__ == "__main__":
                 "will be lost during migration."
             )
         if np.isfinite(tvec).any():
-            location_priors[image_id] = tvec
-    print(f"Found location priors for {len(location_priors)} images.")
+            pose_priors[image_id] = tvec
+    print(f"Found location priors for {len(pose_priors)} images.")
 
     coordinate_systems = {"UNKNOWN": -1, "WGS84": 0, "CARTESIAN": 1}
     coordinate_system = coordinate_systems[
         "CARTESIAN" if args.is_cartesian else "WGS84"
     ]
-    db.create_location_priors_table()
-    for image_id, position in location_priors.items():
+    db.create_pose_priors_table()
+    for image_id, position in pose_priors.items():
         (exists,) = db.execute(
-            "SELECT COUNT(*) FROM location_priors WHERE image_id = ?",
+            "SELECT COUNT(*) FROM pose_priors WHERE image_id = ?",
             (image_id,),
         ).fetchone()
         if exists:
             print(f"Location prior for {image_id} already exists, skipping.")
             continue
-        db.add_location_prior(image_id, position, coordinate_system)
+        db.add_pose_prior(image_id, position, coordinate_system)
 
     if args.cleanup:
         for col in ["qw", "qx", "qy", "qz", "tx", "ty", "tz"]:
