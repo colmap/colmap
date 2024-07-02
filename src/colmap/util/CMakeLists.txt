@@ -43,6 +43,7 @@ COLMAP_ADD_LIBRARY(
         ply.h ply.cc
         sqlite3_utils.h
         string.h string.cc
+        testing.h testing.cc
         threading.h threading.cc
         timer.h timer.cc
         types.h
@@ -55,13 +56,6 @@ COLMAP_ADD_LIBRARY(
     PRIVATE_LINK_LIBS
         Boost::boost
 )
-if(TESTS_ENABLED)
-    target_sources(
-        colmap_util
-        PRIVATE
-            testing.h testing.cc
-    )
-endif()
 
 if(GUI_ENABLED)
     target_link_libraries(colmap_util PUBLIC Qt5::Core Qt5::OpenGL OpenGL::GL)
