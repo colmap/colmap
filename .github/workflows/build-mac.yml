@@ -77,13 +77,7 @@ jobs:
         run: |
           cd build
           set +e
-          ctest
-          tests_pass=$?
-          if [ $tests_pass -ne 0 ]; then
-              echo "\n\n\nTests failed, rerunning with verbose output"
-              ctest --rerun-failed --output-on-failure
-          fi
-          exit $tests_pass
+          ctest --output-on-failure
 
       - name: Cleanup compiler cache
         run: |
