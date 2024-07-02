@@ -472,6 +472,8 @@ void OptionManager::AddBundleAdjustmentOptions() {
                               &bundle_adjustment->refine_extra_params);
   AddAndRegisterDefaultOption("BundleAdjustment.refine_extrinsics",
                               &bundle_adjustment->refine_extrinsics);
+  AddAndRegisterDefaultOption("BundleAdjustment.refine_point3Ds",
+                              &bundle_adjustment->refine_point3Ds);
 }
 
 void OptionManager::AddMapperOptions() {
