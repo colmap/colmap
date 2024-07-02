@@ -32,6 +32,7 @@
 #include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/estimators/cost_functions.h"
 #include "colmap/estimators/generalized_absolute_pose.h"
+#include "colmap/estimators/manifold.h"
 #include "colmap/estimators/pose.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/math/matrix.h"

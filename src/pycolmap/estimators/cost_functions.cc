@@ -120,4 +120,8 @@ void BindCostFunctions(py::module& m_parent) {
         &MetricRelativePoseErrorCostFunction::Create,
         "i_from_j"_a,
         "covariance_j"_a);
+  m.def("Point3dAlignmentCost",
+        &Point3dAlignmentCostFunction::Create,
+        "ref_point"_a,
+        "covariance_point"_a);
 }
