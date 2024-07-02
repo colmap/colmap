@@ -3,6 +3,7 @@ set -e -x
 uname -a
 CURRDIR=$(pwd)
 
+yum update -y
 yum install -y gcc gcc-c++ ninja-build curl zip unzip tar
 
 # ccache shipped by CentOS is too old so we download and cache it.
