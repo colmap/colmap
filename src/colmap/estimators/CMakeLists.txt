@@ -39,6 +39,7 @@ COLMAP_ADD_LIBRARY(
         bundle_adjustment.h bundle_adjustment.cc
         coordinate_frame.h coordinate_frame.cc
         cost_functions.h
+        manifold.h
         covariance.h covariance.cc
         essential_matrix.h essential_matrix.cc
         euclidean_transform.h
@@ -47,6 +48,7 @@ COLMAP_ADD_LIBRARY(
         generalized_absolute_pose_coeffs.h generalized_absolute_pose_coeffs.cc
         generalized_relative_pose.h generalized_relative_pose.cc
         homography_matrix.h homography_matrix.cc
+        imu_preintegration.h imu_preintegration.cc
         pose.h pose.cc
         generalized_pose.h generalized_pose.cc
         similarity_transform.h

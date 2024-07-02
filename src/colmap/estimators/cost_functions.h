@@ -350,6 +350,17 @@ inline void EigenQuaternionToAngleAxis(const T* eigen_quaternion,
   ceres::QuaternionToAngleAxis(quaternion, angle_axis);
 }
 
+template <typename T>
+inline void EigenAngleAxisToQuaternion(const T* angle_axis,
+                                       T* eigen_quaternion) {
+  T quaternion[4];
+  ceres::AngleAxisToQuaternion(angle_axis, quaternion);
+  eigen_quaternion[0] = quaternion[1];
+  eigen_quaternion[1] = quaternion[2];
+  eigen_quaternion[2] = quaternion[3];
+  eigen_quaternion[3] = quaternion[0];
+}
+
 // 6-DoF error on the absolute pose. The residual is the log of the error pose,
 // splitting SE(3) into SO(3) x R^3. The 6x6 covariance matrix is defined in the
 // reference frame of the camera. Its first and last three components correspond
@@ -453,6 +464,47 @@ struct MetricRelativePoseErrorCostFunction {
   const EigenMatrix6d sqrt_information_j_;
 };
 
+// Cost function for aligning one 3D point with a reference 3D point with
+// covariance. Convention is similar to colmap::Sim3d
+// r = scale * R * point + t - ref_point
+struct Point3dAlignmentCostFunction {
+ public:
+  Point3dAlignmentCostFunction(const Eigen::Vector3d& ref_point,
+                               const Eigen::Matrix3d& covariance_point)
+      : ref_point_(ref_point),
+        sqrt_information_point_(SqrtInformation(covariance_point)) {}
+
+  static ceres::CostFunction* Create(const Eigen::Vector3d& ref_point,
+                                     const Eigen::Matrix3d& covariance_point) {
+    return (
+        new ceres::
+            AutoDiffCostFunction<Point3dAlignmentCostFunction, 3, 3, 4, 3, 1>(
+                new Point3dAlignmentCostFunction(ref_point, covariance_point)));
+  }
+
+  template <typename T>
+  bool operator()(const T* const point,
+                  const T* const transform_q,
+                  const T* const transform_t,
+                  const T* const scale,
+                  T* residuals_ptr) const {
+    const Eigen::Quaternion<T> T_q = EigenQuaternionMap<T>(transform_q);
+    const Eigen::Matrix<T, 3, 1> transform_point =
+        T_q * EigenVector3Map<T>(point) * scale[0] +
+        EigenVector3Map<T>(transform_t);
+    for (size_t i = 0; i < 3; ++i) {
+      residuals_ptr[i] = transform_point[i] - T(ref_point_[i]);
+    }
+    Eigen::Map<Eigen::Matrix<T, 3, 1>> residuals(residuals_ptr);
+    residuals.applyOnTheLeft(sqrt_information_point_.template cast<T>());
+    return true;
+  }
+
+ private:
+  const Eigen::Vector3d ref_point_;
+  const Eigen::Matrix3d sqrt_information_point_;
+};
+
 // A cost function that wraps another one and whiten its residuals with an
 // isotropic covariance, i.e. assuming that the variance is identical in and
 // independent between each dimension of the residual.
@@ -514,51 +566,6 @@ ceres::CostFunction* CameraCostFunction(const CameraModelId camera_model_id,
 
 #undef CAMERA_MODEL_CASE
   }
-}
-
-inline void SetQuaternionManifold(ceres::Problem* problem, double* quat_xyzw) {
-#if CERES_VERSION_MAJOR >= 3 || \
-    (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 1)
-  problem->SetManifold(quat_xyzw, new ceres::EigenQuaternionManifold);
-#else
-  problem->SetParameterization(quat_xyzw,
-                               new ceres::EigenQuaternionParameterization);
-#endif
-}
-
-inline void SetSubsetManifold(int size,
-                              const std::vector<int>& constant_params,
-                              ceres::Problem* problem,
-                              double* params) {
-#if CERES_VERSION_MAJOR >= 3 || \
-    (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 1)
-  problem->SetManifold(params,
-                       new ceres::SubsetManifold(size, constant_params));
-#else
-  problem->SetParameterization(
-      params, new ceres::SubsetParameterization(size, constant_params));
-#endif
-}
-
-template <int size>
-inline void SetSphereManifold(ceres::Problem* problem, double* params) {
-#if CERES_VERSION_MAJOR >= 3 || \
-    (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 1)
-  problem->SetManifold(params, new ceres::SphereManifold<size>);
-#else
-  problem->SetParameterization(
-      params, new ceres::HomogeneousVectorParameterization(size));
-#endif
-}
-
-inline int ParameterBlockTangentSize(ceres::Problem* problem,
-                                     const double* param) {
-#if CERES_VERSION_MAJOR >= 3 || \
-    (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 1)
-  return problem->ParameterBlockTangentSize(param);
-#else
-  return problem->ParameterBlockLocalSize(param);
-#endif
 }
 
 }  // namespace colmap
