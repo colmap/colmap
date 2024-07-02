@@ -58,10 +58,8 @@ void PreintegratedImuMeasurement::Reset() {
   delta_v_ij_ = Eigen::Vector3d::Zero();
   delta_t_ = 0;
   jacobian_biases_ = Eigen::Matrix<double, 9, 6>::Zero();
-  covs_ = Eigen::Matrix<double, 9, 9>::Zero();
-  covs_bias_ = Eigen::Matrix<double, 6, 6>::Zero();
-  sqrt_information_ = Eigen::Matrix<double, 9, 9>::Zero();
-  sqrt_information_bias_ = Eigen::Matrix<double, 6, 6>::Zero();
+  covs_ = Eigen::Matrix<double, 15, 15>::Zero();
+  sqrt_information_ = Eigen::Matrix<double, 15, 15>::Zero();
 
   has_started_ = false;
   has_finished_ = false;
@@ -110,30 +108,10 @@ void PreintegratedImuMeasurement::integrate(const Eigen::Vector3d& acc_true,
   Eigen::Matrix3d Jr = RightJacobianFromAngleAxis(gyro_true * dt);
   Eigen::Matrix3d skew_acc = CrossProductMatrix(acc_true);
 
-  // inversely update t, v, R due to the dependencies.
-
-  // translation: Eq. (69 1/2) from [A]
-  jacobian_biases_.block<3, 3>(3, 0) +=
-      (jacobian_biases_.block<3, 3>(6, 0) * dt - 0.5 * Rs * dt * dt);
-  jacobian_biases_.block<3, 3>(3, 3) +=
-      (jacobian_biases_.block<3, 3>(6, 3) * dt -
-       0.5 * Rs * skew_acc * jacobian_biases_.block<3, 3>(0, 3) * dt * dt);
-
-  // velocity: Eq. (69 1/2) from [A]
-  jacobian_biases_.block<3, 3>(6, 0) = (-Rs * dt);
-  jacobian_biases_.block<3, 3>(6, 3) +=
-      (-Rs * skew_acc * jacobian_biases_.block<3, 3>(0, 3) * dt);
-
-  // rotation: combining Eq. (69 1/2) and the tricks of Eq. (59) from [A]
-  jacobian_biases_.block<3, 3>(0, 3) =
-      dq.inverse().toRotationMatrix() * jacobian_biases_.block<3, 3>(0, 3) -
-      Jr * dt;
-
   // Covariance propagation
   // Eq. (63) from [A]
   // Step 1: jacobian-based propagation
-  Eigen::Matrix<double, 9, 9> A = Eigen::Matrix<double, 9, 9>::Identity();
-
+  Eigen::Matrix<double, 15, 15> A = Eigen::Matrix<double, 15, 15>::Identity();
   // rotation: Eq. (59) from [A]
   A.block<3, 3>(0, 0) = dq.inverse().toRotationMatrix();
 
@@ -144,25 +122,46 @@ void PreintegratedImuMeasurement::integrate(const Eigen::Vector3d& acc_true,
   // velocity: Eq. (60) from [A]
   A.block<3, 3>(6, 0) = -Rs * skew_acc * dt;
 
+  // fill in the bias-related jacobians
+  // inversely update t, v, R due to the dependencies.
+  // translation: Eq. (69 1/2) from [A]
+  A.block<3, 3>(3, 9) =
+      jacobian_biases_.block<3, 3>(6, 0) * dt - 0.5 * Rs * dt * dt;
+  A.block<3, 3>(3, 12) =
+      (jacobian_biases_.block<3, 3>(6, 3) * dt -
+       0.5 * Rs * skew_acc * jacobian_biases_.block<3, 3>(0, 3) * dt * dt);
+  jacobian_biases_.block<3, 3>(3, 0) += A.block<3, 3>(3, 9);
+  jacobian_biases_.block<3, 3>(3, 3) += A.block<3, 3>(3, 12);
+
+  // velocity: Eq. (69 1/2) from [A]
+  A.block<3, 3>(6, 9) = -Rs * dt;
+  A.block<3, 3>(6, 12) =
+      -Rs * skew_acc * jacobian_biases_.block<3, 3>(0, 3) * dt;
+  jacobian_biases_.block<3, 3>(6, 0) += A.block<3, 3>(6, 9);
+  jacobian_biases_.block<3, 3>(6, 3) += A.block<3, 3>(6, 12);
+
+  // rotation: combining Eq. (69 1/2) and the tricks of Eq. (59) from [A]
+  Eigen::Matrix3d dR_dbg_updated =
+      dq.inverse().toRotationMatrix() * jacobian_biases_.block<3, 3>(0, 3) -
+      Jr * dt;
+  A.block<3, 3>(0, 12) = dR_dbg_updated - jacobian_biases_.block<3, 3>(0, 3);
+  jacobian_biases_.block<3, 3>(0, 3) = dR_dbg_updated;
+
   // propagate
   covs_ = A * covs_ * A.transpose();
 
   // Step 2: add noise
   double vars_v = pow(acc_noise_density, 2) * dt;
   double vars_omega = pow(gyro_noise_density, 2) * dt;
+  double vars_p = 0.5 * vars_v * dt * dt;
   double vars_ba = pow(calib_.acc_bias_random_walk_sigma, 2) * dt;
   double vars_bg = pow(calib_.gyro_bias_random_walk_sigma, 2) * dt;
-  Eigen::Matrix<double, 9, 9> Sigma = Eigen::Matrix<double, 9, 9>::Identity();
-  Sigma.block<3, 3>(0, 0) *= (vars_omega + vars_bg);
-  Sigma.block<3, 3>(6, 6) *= (vars_v + vars_ba);
-  Sigma.block<3, 3>(3, 3) *= 0.5 * Sigma.block<3, 3>(6, 6) * dt * dt;
-
-  covs_.block<3, 3>(0, 0) += Jr * Sigma.block<3, 3>(0, 0) * Jr.transpose();
-  covs_.block<6, 6>(3, 3) += Sigma.block<6, 6>(3, 3);
-
-  // update bias covariance with random walk
-  covs_bias_.block<3, 3>(0, 0) += Eigen::Matrix3d::Identity() * vars_ba;
-  covs_bias_.block<3, 3>(3, 3) += Eigen::Matrix3d::Identity() * vars_bg;
+  covs_.block<3, 3>(0, 0) +=
+      Eigen::Matrix3d::Identity() * vars_omega;  // omit Jr
+  covs_.block<3, 3>(3, 3) += Eigen::Matrix3d::Identity() * vars_p;
+  covs_.block<3, 3>(6, 6) += Eigen::Matrix3d::Identity() * vars_v;
+  covs_.block<3, 3>(9, 9) += Eigen::Matrix3d::Identity() * vars_ba;
+  covs_.block<3, 3>(12, 12) += Eigen::Matrix3d::Identity() * vars_bg;
 }
 
 void PreintegratedImuMeasurement::AddMeasurement(const ImuMeasurement& m) {
@@ -257,11 +256,10 @@ void PreintegratedImuMeasurement::AddMeasurements(const ImuMeasurements& ms) {
 void PreintegratedImuMeasurement::Finish() {
   // Enforce symmetry and stability
   covs_ = (covs_ + covs_.transpose()) / 2.0;
-  covs_ += Eigen::Matrix<double, 9, 9>::Identity() * 1e-12;
+  covs_ += Eigen::Matrix<double, 15, 15>::Identity() * 1e-18;
 
   // Factorize
   sqrt_information_ = colmap::SqrtInformation(covs_);
-  sqrt_information_bias_ = colmap::SqrtInformation(covs_bias_);
 
   // Set flag
   has_finished_ = true;
@@ -390,24 +388,14 @@ const Eigen::Vector6d& PreintegratedImuMeasurement::Biases() const {
   return biases_;
 }
 
-const Eigen::Matrix<double, 9, 9> PreintegratedImuMeasurement::Covariance()
+const Eigen::Matrix<double, 15, 15> PreintegratedImuMeasurement::Covariance()
     const {
   return covs_;
 }
 
-const Eigen::Matrix<double, 6, 6> PreintegratedImuMeasurement::BiasCovariance()
-    const {
-  return covs_bias_;
-}
-
-const Eigen::Matrix<double, 9, 9> PreintegratedImuMeasurement::SqrtInformation()
-    const {
+const Eigen::Matrix<double, 15, 15>
+PreintegratedImuMeasurement::SqrtInformation() const {
   return sqrt_information_;
-}
-
-const Eigen::Matrix<double, 6, 6>
-PreintegratedImuMeasurement::BiasSqrtInformation() const {
-  return sqrt_information_bias_;
 }
 
 const double PreintegratedImuMeasurement::GravityMagnitude() const {
