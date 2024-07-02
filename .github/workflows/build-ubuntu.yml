@@ -231,13 +231,7 @@ jobs:
           Xvfb :99 &
           sleep 3
           cd build
-          ctest -E "$ctestExclusions"
-          tests_pass=$?
-          if [ $tests_pass -ne 0 ]; then
-              echo "Tests failed, rerunning with verbose output"
-              ctest --rerun-failed --output-on-failure
-          fi
-          exit $tests_pass
+          ctest -E "$ctestExclusions" --output-on-failure
 
       - name: Run E2E tests
         run: |
