@@ -1,4 +1,5 @@
 #include "colmap/geometry/essential_matrix.h"
+#include "colmap/geometry/gps.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/geometry/sim3.h"
@@ -141,4 +142,28 @@ void BindGeometry(py::module& m) {
       });
   py::implicitly_convertible<py::array, Sim3d>();
   MakeDataclass(PySim3d);
+
+  using PPCoordinateSystem = PosePrior::CoordinateSystem;
+  py::enum_<PPCoordinateSystem> PyCoordinateSystem(m,
+                                                   "PosePriorCoordinateSystem");
+  PyCoordinateSystem.value("UNDEFINED", PPCoordinateSystem::UNDEFINED)
+      .value("WGS84", PPCoordinateSystem::WGS84)
+      .value("CARTESIAN", PPCoordinateSystem::CARTESIAN);
+  AddStringToEnumConstructor(PyCoordinateSystem);
+
+  py::class_ext_<PosePrior> PyPosePrior(m, "PosePrior");
+  PyPosePrior.def(py::init<>())
+      .def(py::init<const Eigen::Vector3d&>())
+      .def(py::init<const Eigen::Vector3d&, const PPCoordinateSystem>())
+      .def_readwrite("rotation", &PosePrior::position)
+      .def_readwrite("translation", &PosePrior::coordinate_system)
+      .def("is_valid", &PosePrior::IsValid)
+      .def("__repr__", [](const PosePrior& self) {
+        std::stringstream ss;
+        ss << "PosePrior("
+           << "position=[" << self.position.format(vec_fmt) << "], "
+           << "system=" << py::str(py::cast(self.coordinate_system)) << ")";
+        return ss.str();
+      });
+  MakeDataclass(PyPosePrior);
 }

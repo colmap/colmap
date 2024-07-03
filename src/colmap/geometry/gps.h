@@ -83,4 +83,24 @@ class GPSTransform {
   double e2_;
 };
 
+struct PosePrior {
+ public:
+  enum class CoordinateSystem {
+    UNDEFINED = -1,
+    WGS84 = 0,
+    CARTESIAN = 1,
+  };
+
+  Eigen::Vector3d position =
+      Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
+  CoordinateSystem coordinate_system = CoordinateSystem::UNDEFINED;
+
+  PosePrior() = default;
+  explicit PosePrior(const Eigen::Vector3d& position) : position(position) {}
+  PosePrior(const Eigen::Vector3d& position, const CoordinateSystem system)
+      : position(position), coordinate_system(system) {}
+
+  bool IsValid() { return position.array().isFinite().any(); }
+};
+
 }  // namespace colmap
