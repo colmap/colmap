@@ -503,7 +503,7 @@ BundleAdjustmentCovarianceEstimator::GetPoseCovarianceBlockOperation(
     return cov_poses_.block(
         row_start, col_start, row_block_size, col_block_size);
   }
-  // HasValidPoseRefactorization() == True
+  // HasValidPoseRefactorization() == true
   Eigen::MatrixXd output(row_block_size, col_block_size);
   for (int row = 0; row < row_block_size; ++row) {
     for (int col = 0; col < col_block_size; ++col) {
@@ -539,7 +539,7 @@ BundleAdjustmentCovarianceEstimator::GetCovarianceBlockOperation(
     return cov_variables_.block(
         row_start, col_start, row_block_size, col_block_size);
   }
-  // HasValidRefactorization() == True
+  // HasValidRefactorization() == true
   Eigen::MatrixXd output(row_block_size, col_block_size);
   for (int row = 0; row < row_block_size; ++row) {
     for (int col = 0; col < col_block_size; ++col) {
