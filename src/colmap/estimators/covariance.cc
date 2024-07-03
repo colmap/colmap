@@ -585,6 +585,8 @@ bool BundleAdjustmentCovarianceEstimator::FactorizeFull() {
   Eigen::MatrixXd L_dense = L;
   L_matrix_variables_inv_ = L_dense.triangularView<Eigen::Lower>().solve(
       Eigen::MatrixXd::Identity(L_dense.rows(), L_dense.cols()));
+  LOG(INFO) << "Finish factorization by having the lower triangular matrix L "
+               "inverted.";
   return true;
 }
 
@@ -677,6 +679,8 @@ bool BundleAdjustmentCovarianceEstimator::Factorize() {
   Eigen::MatrixXd L_poses_dense = L_poses;
   L_matrix_poses_inv_ = L_poses_dense.triangularView<Eigen::Lower>().solve(
       Eigen::MatrixXd::Identity(L_poses_dense.rows(), L_poses_dense.cols()));
+  LOG(INFO) << "Finish factorization by having the lower triangular matrix L "
+               "inverted.";
   return true;
 }
 
