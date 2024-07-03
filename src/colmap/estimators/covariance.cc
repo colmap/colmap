@@ -558,7 +558,7 @@ bool BundleAdjustmentCovarianceEstimator::FactorizeFull() {
       "Inverting Schur complement for all variables except for 3D points (n = "
       "%d)",
       num_params_poses_ + num_params_other_variables_);
-  LOG(INFO) << StringPrintf("Start sparse Choleskey decomposition (n = %d)",
+  LOG(INFO) << StringPrintf("Start sparse Cholesky decomposition (n = %d)",
                             num_params_poses_ + num_params_other_variables_);
   Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> ldltOfS(S_matrix_);
   int rank = 0;
@@ -596,7 +596,7 @@ bool BundleAdjustmentCovarianceEstimator::ComputeFull() {
       "Inverting Schur complement for all variables except for 3D points (n = "
       "%d)",
       num_params_poses_ + num_params_other_variables_);
-  LOG(INFO) << StringPrintf("Start sparse Choleskey decomposition (n = %d)",
+  LOG(INFO) << StringPrintf("Start sparse Cholesky decomposition (n = %d)",
                             num_params_poses_ + num_params_other_variables_);
   Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> ldltOfS(S_matrix_);
   int rank = 0;
@@ -648,7 +648,7 @@ bool BundleAdjustmentCovarianceEstimator::Factorize() {
   Eigen::SparseMatrix<double> S_poses = S_aa - S_ab * lltOfS_bb.solve(S_ba);
 
   // Compute pose covariance
-  LOG(INFO) << StringPrintf("Start sparse Choleskey decomposition (n = %d)",
+  LOG(INFO) << StringPrintf("Start sparse Cholesky decomposition (n = %d)",
                             num_params_poses_);
   Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> ldltOfS_poses(S_poses);
   int rank = 0;
@@ -708,7 +708,7 @@ bool BundleAdjustmentCovarianceEstimator::Compute() {
   Eigen::SparseMatrix<double> S_poses = S_aa - S_ab * lltOfS_bb.solve(S_ba);
 
   // Compute pose covariance
-  LOG(INFO) << StringPrintf("Start sparse Choleskey decomposition (n = %d)",
+  LOG(INFO) << StringPrintf("Start sparse Cholesky decomposition (n = %d)",
                             num_params_poses_);
   Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> ldltOfS_poses(S_poses);
   int rank = 0;
