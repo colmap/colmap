@@ -116,8 +116,8 @@ void FindOptimalImageObservations(const Eigen::Matrix3d& E,
   const double d = std::sqrt(b * b - a * c);
   double lambda = c / (b + d);
 
-  n1 -= E_tilde * lambda * n1;
-  n2 -= E_tilde.transpose() * lambda * n2;
+  n1 -= E_tilde * lambda * n2;
+  n2 -= E_tilde.transpose() * lambda * n1;
 
   lambda *= (2.0 * d) / (n1.squaredNorm() + n2.squaredNorm());
 
