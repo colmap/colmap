@@ -19,6 +19,9 @@ git checkout ${VCPKG_COMMIT_ID}
 cd ${CURRDIR}
 mkdir build && cd build
 export ARCHFLAGS="-arch ${CIBW_ARCHS_MACOS}"
+export CC=/usr/local/bin/gcc-14
+export CXX=/usr/local/bin/g++-14
+export FC=/usr/local/bin/gfortran-14
 cmake .. -GNinja \
     -DCUDA_ENABLED=OFF \
     -DGUI_ENABLED=OFF \
@@ -27,7 +30,6 @@ cmake .. -GNinja \
     -DCCACHE_ENABLED=ON \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_MAKE_PROGRAM=/usr/local/bin/ninja \
-    -DCMAKE_Fortran_COMPILER=/usr/local/bin/gfortran-14 \
     -DCMAKE_TOOLCHAIN_FILE="${CMAKE_TOOLCHAIN_FILE}" \
     -DVCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET} \
     -DCMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES} \
