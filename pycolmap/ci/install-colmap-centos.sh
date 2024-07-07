@@ -8,9 +8,9 @@ export PATH="/usr/bin"
 # Install toolchain under AlmaLinux 8,
 # see https://almalinux.pkgs.org/8/almalinux-appstream-x86_64/
 yum install -y \
-    gcc-toolset-10-gcc \
-    gcc-toolset-10-gcc-c++ \
-    gcc-toolset-10-gcc-gfortran \
+    gcc \
+    gcc-c++ \
+    gcc-gfortran \
     git \
     cmake3 \
     ninja-build \
@@ -46,9 +46,9 @@ cmake3 .. \
     -DCGAL_ENABLED=OFF \
     -DLSD_ENABLED=OFF \
     -DCMAKE_MAKE_PROGRAM=/usr/bin/ninja \
-    -DCMAKE_C_COMPILER=/opt/rh/gcc-toolset-10/root/usr/bin/cc \
-    -DCMAKE_CXX_COMPILER=/opt/rh/gcc-toolset-10/root/usr/bin/c++ \
-    -DCMAKE_Fortran_COMPILER=/opt/rh/gcc-toolset-10/root/usr/bin/gfortran \
+    -DCMAKE_C_COMPILER=/usr/bin/cc \
+    -DCMAKE_CXX_COMPILER=/usr/bin/c++ \
+    -DCMAKE_Fortran_COMPILER=/usr/bin/gfortran \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_TOOLCHAIN_FILE="${CMAKE_TOOLCHAIN_FILE}" \
     -DVCPKG_TARGET_TRIPLET="${VCPKG_TARGET_TRIPLET}" \
