@@ -3,10 +3,7 @@ set -e -x
 uname -a
 CURRDIR=$(pwd)
 
-yum install -y gcc gcc-c++ ninja-build curl zip unzip tar
-
-# TODO: REMOVE
-ninja --version
+yum install -y gcc gcc-c++ cmake ccache ninja-build curl zip unzip tar
 
 # Setup vcpkg
 git clone https://github.com/microsoft/vcpkg ${VCPKG_INSTALLATION_ROOT}
