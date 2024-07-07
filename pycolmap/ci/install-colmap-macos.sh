@@ -8,9 +8,6 @@ find /usr/local/bin -lname '*/Library/Frameworks/Python.framework/*' -delete
 brew update
 brew install git cmake ninja gcc ccache
 
-# When building lapack-reference, vcpkg/cmake looks for gfortran.
-ln -s $(which gfortran-14) "$(dirname $(which gfortran-14))/gfortran"
-
 # Setup vcpkg
 git clone https://github.com/microsoft/vcpkg ${VCPKG_INSTALLATION_ROOT}
 cd ${VCPKG_INSTALLATION_ROOT}
@@ -30,9 +27,9 @@ cmake .. -GNinja \
     -DCCACHE_ENABLED=ON \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_MAKE_PROGRAM=/usr/local/bin/ninja \
-    -DCMAKE_C_COMPILER=/usr/local/bin/gcc \
-    -DCMAKE_CXX_COMPILER=/usr/local/bin/g++ \
-    -DCMAKE_Fortran_COMPILER=/usr/local/bin/gfortran \
+    -DCMAKE_C_COMPILER=/usr/local/bin/gcc-14 \
+    -DCMAKE_CXX_COMPILER=/usr/local/bin/g++-14 \
+    -DCMAKE_Fortran_COMPILER=/usr/local/bin/gfortran-14 \
     -DCMAKE_TOOLCHAIN_FILE="${CMAKE_TOOLCHAIN_FILE}" \
     -DVCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET} \
     -DCMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES} \
