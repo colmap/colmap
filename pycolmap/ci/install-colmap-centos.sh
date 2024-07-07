@@ -34,7 +34,7 @@ cmake3 .. \
     -DCGAL_ENABLED=OFF \
     -DLSD_ENABLED=OFF \
     -DCMAKE_MAKE_PROGRAM=/usr/bin/ninja \
-    -DCMAKE_CC_COMPILER=/usr/bin/cc \
+    -DCMAKE_C_COMPILER=/usr/bin/cc \
     -DCMAKE_CXX_COMPILER=/usr/bin/g++ \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_TOOLCHAIN_FILE="${CMAKE_TOOLCHAIN_FILE}" \
