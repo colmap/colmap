@@ -127,6 +127,7 @@ endif()
 
 if(IS_MSVC)
     # Some fixes for the Glog library.
+    add_definitions("-DGLOG_USE_GLOG_EXPORT")
     add_definitions("-DGLOG_NO_ABBREVIATED_SEVERITIES")
     add_definitions("-DGL_GLEXT_PROTOTYPES")
     add_definitions("-DNOMINMAX")
