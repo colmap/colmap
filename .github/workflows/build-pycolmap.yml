@@ -38,7 +38,7 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           if [[ ${{ matrix.config.arch }} == "x86_64" ]]; then
-            VCPKG_TARGET_TRIPLET="x64-osx"
+            VCPKG_TARGET_TRIPLET="x64-osx-release"
           elif [[ ${{ matrix.config.arch }} == "arm64" ]]; then
             VCPKG_TARGET_TRIPLET="arm64-osx-release"
           else
@@ -72,7 +72,7 @@ jobs:
           echo "VCPKG_INSTALLATION_ROOT=${VCPKG_INSTALLATION_ROOT}" >> "${env:GITHUB_ENV}"
           $CMAKE_TOOLCHAIN_FILE = "${VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake"
           echo "CMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}" >> "${env:GITHUB_ENV}"
-          $VCPKG_TARGET_TRIPLET = "x64-windows"
+          $VCPKG_TARGET_TRIPLET = "x64-windows-release"
           echo "VCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET}" >> "${env:GITHUB_ENV}"
 
           # Fix: cibuildhweel cannot interpolate env variables.

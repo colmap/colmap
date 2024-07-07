@@ -8,7 +8,7 @@ find /usr/local/bin -lname '*/Library/Frameworks/Python.framework/*' -delete
 brew update
 brew install git cmake ninja llvm ccache
 
-export PATH="/usr/local/opt/llvm/bin:$PATH"
+export PATH="/usr/local/bin:/usr/local/opt/llvm/bin"
 
 # When building lapack-reference, vcpkg/cmake looks for gfortran.
 ln -s $(which gfortran-13) "$(dirname $(which gfortran-13))/gfortran"
