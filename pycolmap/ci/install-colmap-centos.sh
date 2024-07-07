@@ -3,6 +3,8 @@ set -e -x
 uname -a
 CURRDIR=$(pwd)
 
+export PATH="/usr/bin"
+
 yum install -y gcc gcc-c++ cmake3 ninja-build curl zip unzip tar
 
 # ccache shipped by CentOS is too old so we download and cache it.
@@ -33,7 +35,7 @@ cmake .. -GNinja \
     -DLSD_ENABLED=OFF \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_TOOLCHAIN_FILE="${CMAKE_TOOLCHAIN_FILE}" \
-    -DVCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET} \
+    -DVCPKG_TARGET_TRIPLET="${VCPKG_TARGET_TRIPLET}" \
     -DCMAKE_EXE_LINKER_FLAGS_INIT="-ldl"
 ninja install
 
