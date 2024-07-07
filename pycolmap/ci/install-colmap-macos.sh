@@ -8,7 +8,7 @@ find /usr/local/bin -lname '*/Library/Frameworks/Python.framework/*' -delete
 brew update
 brew install git cmake ninja llvm gfortran ccache
 
-export PATH="/usr/local/bin:/usr/local/opt/llvm/bin"
+export PATH="/usr/local/bin:/usr/local/opt/llvm/bin:$PATH"
 
 # Setup vcpkg
 git clone https://github.com/microsoft/vcpkg ${VCPKG_INSTALLATION_ROOT}
