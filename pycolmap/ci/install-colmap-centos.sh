@@ -3,7 +3,18 @@ set -e -x
 uname -a
 CURRDIR=$(pwd)
 
-yum install -y gcc gcc-c++ cmake ccache ninja-build curl zip unzip tar
+yum install -y gcc gcc-c++ cmake3 ccache ninja-build curl zip unzip tar
+
+# ccache shipped by CentOS is too old so we download and cache it.
+COMPILER_TOOLS_DIR="${CONTAINER_COMPILER_CACHE_DIR}/bin"
+mkdir -p ${COMPILER_TOOLS_DIR}
+if [ ! -f "${COMPILER_TOOLS_DIR}/ccache" ]; then
+    FILE="ccache-4.10.1-linux-x86_64"
+    curl -sSLO https://github.com/ccache/ccache/releases/download/v4.10.1/${FILE}.tar.xz
+    tar -xf ${FILE}.tar.xz
+    cp ${FILE}/ccache ${COMPILER_TOOLS_DIR}
+fi
+export PATH="${COMPILER_TOOLS_DIR}:${PATH}"
 
 # Setup vcpkg
 git clone https://github.com/microsoft/vcpkg ${VCPKG_INSTALLATION_ROOT}
