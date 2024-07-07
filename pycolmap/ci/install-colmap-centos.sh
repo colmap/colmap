@@ -33,11 +33,12 @@ cmake3 .. \
     -DGUI_ENABLED=OFF \
     -DCGAL_ENABLED=OFF \
     -DLSD_ENABLED=OFF \
+    -DCMAKE_MAKE_PROGRAM=/usr/bin/ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_TOOLCHAIN_FILE="${CMAKE_TOOLCHAIN_FILE}" \
     -DVCPKG_TARGET_TRIPLET="${VCPKG_TARGET_TRIPLET}" \
     -DCMAKE_EXE_LINKER_FLAGS_INIT="-ldl"
-make -j$(nproc) install
+ninja install
 
 ccache --show-stats --verbose
 ccache --evict-older-than 1d
