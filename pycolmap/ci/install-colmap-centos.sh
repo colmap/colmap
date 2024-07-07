@@ -46,11 +46,11 @@ cmake3 .. \
     -DCGAL_ENABLED=OFF \
     -DLSD_ENABLED=OFF \
     -DCCACHE_ENABLED=ON \
+    -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_MAKE_PROGRAM=/usr/bin/ninja \
     -DCMAKE_C_COMPILER=/usr/bin/cc \
     -DCMAKE_CXX_COMPILER=/usr/bin/c++ \
     -DCMAKE_Fortran_COMPILER=/usr/bin/gfortran \
-    -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_TOOLCHAIN_FILE="${CMAKE_TOOLCHAIN_FILE}" \
     -DVCPKG_TARGET_TRIPLET="${VCPKG_TARGET_TRIPLET}" \
     -DCMAKE_EXE_LINKER_FLAGS_INIT="-ldl"
