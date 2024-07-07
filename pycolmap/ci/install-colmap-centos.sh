@@ -28,7 +28,7 @@ git checkout ${VCPKG_COMMIT_ID}
 # Build COLMAP
 cd ${CURRDIR}
 mkdir build && cd build
-cmake3 .. -GNinja \
+cmake3 .. \
     -DCUDA_ENABLED=OFF \
     -DGUI_ENABLED=OFF \
     -DCGAL_ENABLED=OFF \
@@ -37,7 +37,7 @@ cmake3 .. -GNinja \
     -DCMAKE_TOOLCHAIN_FILE="${CMAKE_TOOLCHAIN_FILE}" \
     -DVCPKG_TARGET_TRIPLET="${VCPKG_TARGET_TRIPLET}" \
     -DCMAKE_EXE_LINKER_FLAGS_INIT="-ldl"
-ninja install
+make -j$(nproc) install
 
 ccache --show-stats --verbose
 ccache --evict-older-than 1d
