@@ -27,8 +27,6 @@ cmake .. -GNinja \
     -DCCACHE_ENABLED=ON \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_MAKE_PROGRAM=/usr/local/bin/ninja \
-    -DCMAKE_C_COMPILER=/usr/local/bin/gcc-14 \
-    -DCMAKE_CXX_COMPILER=/usr/local/bin/g++-14 \
     -DCMAKE_Fortran_COMPILER=/usr/local/bin/gfortran-14 \
     -DCMAKE_TOOLCHAIN_FILE="${CMAKE_TOOLCHAIN_FILE}" \
     -DVCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET} \
