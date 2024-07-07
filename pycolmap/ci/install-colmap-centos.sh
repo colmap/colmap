@@ -45,6 +45,7 @@ cmake3 .. \
     -DGUI_ENABLED=OFF \
     -DCGAL_ENABLED=OFF \
     -DLSD_ENABLED=OFF \
+    -DCCACHE_ENABLED=ON \
     -DCMAKE_MAKE_PROGRAM=/usr/bin/ninja \
     -DCMAKE_C_COMPILER=/usr/bin/cc \
     -DCMAKE_CXX_COMPILER=/usr/bin/c++ \
