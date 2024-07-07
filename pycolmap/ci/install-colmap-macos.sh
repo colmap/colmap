@@ -22,9 +22,6 @@ git checkout ${VCPKG_COMMIT_ID}
 cd ${CURRDIR}
 mkdir build && cd build
 export ARCHFLAGS="-arch ${CIBW_ARCHS_MACOS}"
-export CC=/usr/local/bin/gcc-14
-export CXX=/usr/local/bin/g++-14
-export FC=/usr/local/bin/gfortran-14
 cmake .. -GNinja \
     -DCUDA_ENABLED=OFF \
     -DGUI_ENABLED=OFF \
