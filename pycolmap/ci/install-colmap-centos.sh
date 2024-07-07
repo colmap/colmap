@@ -3,7 +3,7 @@ set -e -x
 uname -a
 CURRDIR=$(pwd)
 
-yum install -y gcc gcc-c++ cmake3 ccache ninja-build curl zip unzip tar
+yum install -y gcc gcc-c++ cmake3 ninja-build curl zip unzip tar
 
 # ccache shipped by CentOS is too old so we download and cache it.
 COMPILER_TOOLS_DIR="${CONTAINER_COMPILER_CACHE_DIR}/bin"
