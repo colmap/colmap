@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/geometry/gps.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/math/math.h"
 #include "colmap/scene/camera.h"
@@ -83,6 +84,12 @@ class Image {
   inline const Rigid3d& CamFromWorld() const;
   inline Rigid3d& CamFromWorld();
 
+  // Camera to world pose prior.
+  inline const PosePrior& WorldFromCamPrior() const;
+  inline PosePrior& WorldFromCamPrior();
+  // Check if PosePrior is valid
+  inline bool hasPosePrior() const;
+
   // Access the coordinates of image points.
   inline const struct Point2D& Point2D(point2D_t point2D_idx) const;
   inline struct Point2D& Point2D(point2D_t point2D_idx);
@@ -127,6 +134,10 @@ class Image {
   // The pose of the image, defined as the transformation from world to camera.
   Rigid3d cam_from_world_;
 
+  // The pose prior of the image, if any, defined as the transformation from
+  // camera to world.
+  PosePrior world_from_cam_pose_prior_;
+
   // All image points, including points that are not part of a 3D point track.
   std::vector<struct Point2D> points2D_;
 };
@@ -167,6 +178,16 @@ point2D_t Image::NumPoints3D() const { return num_points3D_; }
 const Rigid3d& Image::CamFromWorld() const { return cam_from_world_; }
 
 Rigid3d& Image::CamFromWorld() { return cam_from_world_; }
+
+const PosePrior& Image::WorldFromCamPrior() const {
+  return world_from_cam_pose_prior_;
+}
+
+PosePrior& Image::WorldFromCamPrior() { return world_from_cam_pose_prior_; }
+
+bool Image::hasPosePrior() const {
+  return world_from_cam_pose_prior_.IsValid();
+}
 
 const struct Point2D& Image::Point2D(const point2D_t point2D_idx) const {
   return points2D_.at(point2D_idx);
