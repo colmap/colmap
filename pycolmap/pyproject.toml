@@ -32,7 +32,7 @@ build = "cp3{8,9,10,11,12}-{macosx,manylinux,win}*"
 archs = ["auto64"]
 
 [tool.cibuildwheel.environment]
-VCPKG_COMMIT_ID = "576379156e82da642f8d1834220876759f13534d"
+VCPKG_COMMIT_ID = "e01906b2ba7e645a76ee021a19de616edc98d29f"
 
 [tool.cibuildwheel.linux]
 before-all = "{package}/ci/install-colmap-centos.sh"
