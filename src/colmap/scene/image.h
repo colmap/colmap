@@ -88,7 +88,7 @@ class Image {
   inline const PosePrior& WorldFromCamPrior() const;
   inline PosePrior& WorldFromCamPrior();
   // Check if PosePrior is valid
-  inline bool hasPosePrior() const;
+  inline bool HasPosePrior() const;
 
   // Access the coordinates of image points.
   inline const struct Point2D& Point2D(point2D_t point2D_idx) const;
@@ -185,7 +185,7 @@ const PosePrior& Image::WorldFromCamPrior() const {
 
 PosePrior& Image::WorldFromCamPrior() { return world_from_cam_pose_prior_; }
 
-bool Image::hasPosePrior() const {
+bool Image::HasPosePrior() const {
   return world_from_cam_pose_prior_.IsValid();
 }
 
