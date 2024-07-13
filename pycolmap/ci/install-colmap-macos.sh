@@ -22,11 +22,6 @@ cd ${VCPKG_INSTALLATION_ROOT}
 git checkout ${VCPKG_COMMIT_ID}
 ./bootstrap-vcpkg.sh
 ./vcpkg integrate install
-export MACOSX_DEPLOYMENT_TARGET="10.12"
-./vcpkg install --debug glog:${VCPKG_TARGET_TRIPLET}  || true
-ls -la /Users/runner/work/vcpkg/buildtrees/glog/
-cat /Users/runner/work/vcpkg/buildtrees/glog/install-arm64-osx-release-rel-out.log
-exit 1
 
 # Build COLMAP
 cd ${CURRDIR}
