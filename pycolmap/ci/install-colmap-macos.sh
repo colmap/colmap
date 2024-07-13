@@ -8,7 +8,7 @@ find /usr/local/bin -lname '*/Library/Frameworks/Python.framework/*' -delete
 brew update
 brew install git cmake ninja llvm gfortran ccache
 
-export PATH="/usr/local/opt/llvm/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+export PATH="/usr/local/opt/llvm/bin:$PATH"
 export CPPFLAGS="-I/usr/local/opt/llvm/include"
 export LDFLAGS="-L/usr/local/opt/llvm/lib/c++ -Wl,-rpath,/usr/local/opt/llvm/lib/c++"
 export ARCHFLAGS="-arch ${CIBW_ARCHS_MACOS}"

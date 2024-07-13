@@ -146,7 +146,7 @@ jobs:
             libcgal-qt5-dev \
             libgl1-mesa-dri \
             libunwind-dev \
-            xvfb 
+            xvfb
 
           if [ "${{ matrix.config.cudaEnabled }}" == "true" ]; then
             if [ "${{ matrix.config.os }}" == "ubuntu-20.04" ]; then
