@@ -12,6 +12,7 @@ export PATH="/usr/local/opt/llvm/bin:$PATH"
 export CPPFLAGS="-I/usr/local/opt/llvm/include"
 export LDFLAGS="-L/usr/local/opt/llvm/lib/c++ -Wl,-rpath,/usr/local/opt/llvm/lib/c++"
 export ARCHFLAGS="-arch ${CIBW_ARCHS_MACOS}"
+export MACOSX_DEPLOYMENT_TARGET="${CMAKE_OSX_DEPLOYMENT_TARGET}"
 
 # When building lapack-reference, vcpkg/cmake looks for gfortran.
 ln -s $(which gfortran-14) "$(dirname $(which gfortran-14))/gfortran"
