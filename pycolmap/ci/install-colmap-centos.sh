@@ -40,7 +40,7 @@ git checkout ${VCPKG_COMMIT_ID}
 # Build COLMAP
 cd ${CURRDIR}
 mkdir build && cd build
-cmake3 .. \
+cmake3 .. -GNinja \
     -DCUDA_ENABLED=OFF \
     -DGUI_ENABLED=OFF \
     -DCGAL_ENABLED=OFF \
