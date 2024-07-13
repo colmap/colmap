@@ -50,7 +50,6 @@ jobs:
           VCPKG_INSTALLATION_ROOT="/Users/runner/work/vcpkg"
           CMAKE_TOOLCHAIN_FILE="${VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake"
           CMAKE_OSX_ARCHITECTURES=${{ matrix.config.arch }}
-          CMAKE_OSX_DEPLOYMENT_TARGET="10.12"
           echo "VCPKG_INSTALLATION_ROOT=${VCPKG_INSTALLATION_ROOT}" >> "$GITHUB_ENV"
           echo "CMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}" >> "$GITHUB_ENV"
           echo "CMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES}" >> "$GITHUB_ENV"

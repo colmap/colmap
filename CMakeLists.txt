@@ -305,8 +305,8 @@ endif()
 # Configure the uninstallation script.
 if(UNINSTALL_ENABLED)
     configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/CMakeUninstall.cmake.in"
-                "${CMAKE_CURRENT_BINARY_DIR}/CMakeUninstall.cmake"
-                IMMEDIATE @ONLY)
+                   "${CMAKE_CURRENT_BINARY_DIR}/CMakeUninstall.cmake"
+                   IMMEDIATE @ONLY)
     add_custom_target(uninstall COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/CMakeUninstall.cmake)
     set_target_properties(uninstall PROPERTIES FOLDER ${CMAKE_TARGETS_ROOT_FOLDER})
 endif()
