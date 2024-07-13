@@ -24,6 +24,9 @@ cd ${VCPKG_INSTALLATION_ROOT}
 git checkout ${VCPKG_COMMIT_ID}
 ./bootstrap-vcpkg.sh
 ./vcpkg integrate install
+./vcpkg install --debug openexr
+cat /Users/runner/work/vcpkg/buildtrees/openexr/install-x64-osx-release-rel-out.log
+exit 1
 
 # Build COLMAP
 cd ${CURRDIR}
