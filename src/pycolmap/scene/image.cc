@@ -88,13 +88,6 @@ void BindImage(py::module& m) {
           "The pose of the image, defined as the transformation from world to "
           "camera space.")
       .def_property(
-          "cam_from_world_prior",
-          py::overload_cast<>(&Image::CamFromWorldPrior),
-          [](Image& self, const Rigid3d& cam_from_world) {
-            self.CamFromWorldPrior() = cam_from_world;
-          },
-          "The pose prior of the image, e.g. extracted from EXIF tags.")
-      .def_property(
           "points2D",
           py::overload_cast<>(&Image::Points2D),
           py::overload_cast<const Point2DVector&>(&Image::SetPoints2D),

@@ -1,6 +1,7 @@
 #include "colmap/controllers/image_reader.h"
 #include "colmap/exe/feature.h"
 #include "colmap/feature/sift.h"
+#include "colmap/geometry/gps.h"
 #include "colmap/image/undistortion.h"
 #include "colmap/scene/camera.h"
 #include "colmap/scene/reconstruction.h"
@@ -46,14 +47,18 @@ void ImportImages(const std::string& database_path,
     }
     Camera camera;
     Image image;
+    PosePrior pose_prior;
     Bitmap bitmap;
-    if (image_reader.Next(&camera, &image, &bitmap, nullptr) !=
+    if (image_reader.Next(&camera, &image, &pose_prior, &bitmap, nullptr) !=
         ImageReader::Status::SUCCESS) {
       continue;
     }
     DatabaseTransaction database_transaction(&database);
     if (image.ImageId() == kInvalidImageId) {
       image.SetImageId(database.WriteImage(image));
+      if (pose_prior.IsValid()) {
+        database.WritePosePrior(image.ImageId(), pose_prior);
+      }
     }
   }
 }
