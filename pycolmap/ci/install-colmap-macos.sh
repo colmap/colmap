@@ -38,8 +38,8 @@ cmake .. -GNinja \
     -DCMAKE_CXX_COMPILER=/usr/local/opt/llvm/bin/clang++ \
     -DCMAKE_Fortran_COMPILER=/usr/local/bin/gfortran \
     -DCMAKE_TOOLCHAIN_FILE="${CMAKE_TOOLCHAIN_FILE}" \
-    -DVCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET} \
-    -DCMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES} \
+    -DVCPKG_TARGET_TRIPLET="${VCPKG_TARGET_TRIPLET}" \
+    -DCMAKE_OSX_ARCHITECTURES="${CMAKE_OSX_ARCHITECTURES}" \
     `if [[ ${CIBW_ARCHS_MACOS} == "arm64" ]]; then echo "-DSIMD_ENABLED=OFF"; fi`
 ninja install
 

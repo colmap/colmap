@@ -18,7 +18,9 @@ jobs:
         config: [
               {os: ubuntu-latest},
               {os: macos-13, arch: x86_64},
-              {os: macos-13, arch: arm64},
+              # TODO: Re-enable once we have access to a machine with arm64 for
+              # local debugging of vcpkg failure.
+              # {os: macos-13, arch: arm64},
               {os: windows-latest},
         ]
     env:
