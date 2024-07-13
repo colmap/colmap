@@ -70,7 +70,7 @@ jobs:
             -GNinja \
             -DCMAKE_BUILD_TYPE=${{ matrix.config.cmakeBuildType }} \
             -DTESTS_ENABLED=ON \
-            -DQt5_DIR=/usr/local/opt/qt/lib/cmake/Qt5
+            -DQt5_DIR=/opt/homebrew/opt/qt@5
           ninja
 
       - name: Run tests
