@@ -17,8 +17,8 @@ jobs:
       matrix:
         config: [
           {
-            os: macos-13,
-            arch: x86_64,
+            os: macos-14,
+            arch: arm64,
             cmakeBuildType: Release,
           },
         ]
@@ -70,7 +70,7 @@ jobs:
             -GNinja \
             -DCMAKE_BUILD_TYPE=${{ matrix.config.cmakeBuildType }} \
             -DTESTS_ENABLED=ON \
-            -DQt5_DIR=/usr/local/opt/qt/lib/cmake/Qt5
+            -DCMAKE_PREFIX_PATH="/opt/homebrew/opt/flann;/opt/homebrew/opt/metis;/opt/homebrew/opt/suite-sparse;/opt/homebrew/opt/qt@5;/opt/homebrew/opt/freeimage"
           ninja
 
       - name: Run tests
