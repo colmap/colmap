@@ -13,11 +13,7 @@ sudo xcode-select --reset
 export ARCHFLAGS="-arch ${CMAKE_OSX_ARCHITECTURES}"
 
 # When building lapack-reference, vcpkg/cmake looks for gfortran.
-gfortran_path="$(dirname $(which gfortran-14))/gfortran"
-if [[ ! -f "$gfortran_path" ]]; then
-    ln -s "$(which gfortran-14)" "$gfortran_path"
-fi
-
+ln -sf $(which gfortran-14) "$(dirname $(which gfortran-14))/gfortran"
 
 # Setup vcpkg
 git clone https://github.com/microsoft/vcpkg ${VCPKG_INSTALLATION_ROOT}
