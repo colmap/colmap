@@ -24,7 +24,7 @@ cd ${VCPKG_INSTALLATION_ROOT}
 git checkout ${VCPKG_COMMIT_ID}
 ./bootstrap-vcpkg.sh
 ./vcpkg integrate install
-./vcpkg install --debug openexr
+./vcpkg install --debug openexr || true
 cat /Users/runner/work/vcpkg/buildtrees/openexr/install-x64-osx-release-rel-out.log
 exit 1
 
