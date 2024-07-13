@@ -22,6 +22,7 @@ cd ${VCPKG_INSTALLATION_ROOT}
 git checkout ${VCPKG_COMMIT_ID}
 ./bootstrap-vcpkg.sh
 ./vcpkg integrate install
+./vcpkg install --debug glog:${VCPKG_TARGET_TRIPLET}
 
 # Build COLMAP
 cd ${CURRDIR}
