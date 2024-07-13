@@ -18,7 +18,7 @@ jobs:
         config: [
               {os: ubuntu-latest},
               {os: macos-14, arch: x86_64},
-              {os: macos-14, arch: arm64},
+              # {os: macos-14, arch: arm64},
               {os: windows-latest},
         ]
     env:
