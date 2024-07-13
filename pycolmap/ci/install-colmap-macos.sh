@@ -12,7 +12,7 @@ llvm_prefix="$(brew --prefix llvm)"
 export PATH="$llvm_prefix/bin:$PATH"
 export CPPFLAGS="-I$llvm_prefix/include"
 export LDFLAGS="-L$llvm_prefix/lib/c++ -Wl,-rpath,$llvm_prefix/lib/c++"
-export ARCHFLAGS="-arch ${CIBW_ARCHS_MACOS}"
+export ARCHFLAGS="-arch ${CMAKE_OSX_ARCHITECTURES}"
 export MACOSX_DEPLOYMENT_TARGET="${CMAKE_OSX_DEPLOYMENT_TARGET}"
 
 # When building lapack-reference, vcpkg/cmake looks for gfortran.
