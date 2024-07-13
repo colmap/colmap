@@ -6,12 +6,14 @@ CURRDIR=$(pwd)
 find /usr/local/bin -lname '*/Library/Frameworks/Python.framework/*' -delete
 
 brew update
-brew install git cmake ninja llvm gfortran ccache
+brew install git cmake ninja gfortran ccache
 
-llvm_prefix="$(brew --prefix llvm)"
-export PATH="$llvm_prefix/bin:$PATH"
-export CPPFLAGS="-I$llvm_prefix/include"
-export LDFLAGS="-L$llvm_prefix/lib/c++ -Wl,-rpath,$llvm_prefix/lib/c++"
+sudo xcode-select --reset
+
+# llvm_prefix="$(brew --prefix llvm)"
+# export PATH="$llvm_prefix/bin:$PATH"
+# export CPPFLAGS="-I$llvm_prefix/include"
+# export LDFLAGS="-L$llvm_prefix/lib/c++ -Wl,-rpath,$llvm_prefix/lib/c++"
 export ARCHFLAGS="-arch ${CMAKE_OSX_ARCHITECTURES}"
 export MACOSX_DEPLOYMENT_TARGET="${CMAKE_OSX_DEPLOYMENT_TARGET}"
 
@@ -39,8 +41,6 @@ mkdir build && cd build
     -DCCACHE_ENABLED=ON \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_MAKE_PROGRAM="$(brew --prefix ninja)/bin/ninja" \
-    -DCMAKE_C_COMPILER="$llvm_prefix/bin/clang" \
-    -DCMAKE_CXX_COMPILER="$llvm_prefix/bin/clang++" \
     -DCMAKE_Fortran_COMPILER="/usr/local/bin/gfortran" \
     -DCMAKE_TOOLCHAIN_FILE="${CMAKE_TOOLCHAIN_FILE}" \
     -DVCPKG_TARGET_TRIPLET="${VCPKG_TARGET_TRIPLET}" \
