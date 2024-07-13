@@ -39,7 +39,8 @@ mkdir build && cd build
     -DCMAKE_OSX_ARCHITECTURES="${CMAKE_OSX_ARCHITECTURES}" \
     -DCMAKE_OSX_DEPLOYMENT_TARGET="${CMAKE_OSX_DEPLOYMENT_TARGET}" \
     `if [[ ${CIBW_ARCHS_MACOS} == "arm64" ]]; then echo "-DSIMD_ENABLED=OFF"; fi`
-ninja install
+ninja
+sudo ninja install
 
 ccache --show-stats --verbose
 ccache --evict-older-than 1d
