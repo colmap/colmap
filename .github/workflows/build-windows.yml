@@ -68,6 +68,8 @@ jobs:
         id: cuda-toolkit
         with:
           cuda: '12.5.0'
+          sub-packages: '["nvcc", "visual_studio_integration"]'
+          method: 'network'
 
       - name: Install CMake and Ninja
         uses: lukka/get-cmake@latest
