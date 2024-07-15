@@ -103,6 +103,7 @@ jobs:
             -GNinja `
             -DCMAKE_MAKE_PROGRAM=ninja `
             -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_CUDA_ARCHITECTURES=50 `
             -DTESTS_ENABLED=ON `
             -DGUI_ENABLED=ON `
             -DCUDA_ENABLED=${{ matrix.config.cudaEnabled }} `
