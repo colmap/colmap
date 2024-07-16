@@ -99,9 +99,9 @@ jobs:
           ./vcpkg/vcpkg.exe integrate install
           mkdir build
           cd build
-          ls -la "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}"
-          ls -la "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/bin"
-          ls -la "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/lib"
+          ls "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}"
+          ls "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/bin"
+          ls "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/lib"
           cmake .. `
             -GNinja `
             -DCMAKE_MAKE_PROGRAM=ninja `
