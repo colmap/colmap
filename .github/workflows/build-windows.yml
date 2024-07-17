@@ -74,7 +74,7 @@ jobs:
       - uses: Jimver/cuda-toolkit@v0.2.16
         id: cuda-toolkit
         with:
-          cuda: '12.5.0'
+          cuda: '12.2.2'
           sub-packages: '["nvcc", "cudart", "curand"]'
           method: 'network'
 
@@ -99,6 +99,7 @@ jobs:
           ./vcpkg/vcpkg.exe integrate install
           mkdir build
           cd build
+          cmake --version
           ls "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}"
           ls "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/bin"
           ls "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/lib"
