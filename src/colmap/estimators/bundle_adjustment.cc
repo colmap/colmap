@@ -864,9 +864,10 @@ bool PositionPriorBundleAdjuster::Solve(Reconstruction* reconstruction) {
 
   // Apply RANSAC-based Sim3 Alignment
   if (prior_options_.use_prior_position) {
-    LOG(INFO) << "Initial Alignment w.r.t. prior position (rmse / median): "
-              << std::sqrt(Mean(vini_err2_wrt_prior)) << " / "
-              << std::sqrt(Median(vini_err2_wrt_prior)) << " m";
+    LOG(INFO)
+        << "Initial alignment error w.r.t. prior position (rmse / median): "
+        << std::sqrt(Mean(vini_err2_wrt_prior)) << " / "
+        << std::sqrt(Median(vini_err2_wrt_prior)) << " m";
 
     RANSACOptions ransac_options;
     ransac_options.max_error = (options_.prior_position_std * 3.).norm();
@@ -893,17 +894,18 @@ bool PositionPriorBundleAdjuster::Solve(Reconstruction* reconstruction) {
         }
       }
 
-      LOG(INFO) << "Rigid Sim3 Alignment w.r.t. prior position: \n"
-                << "- scale : " << tform.scale << "\n"
-                << "- trans : " << tform.translation.transpose() << "\n"
-                << "- rot : " << tform.rotation.coeffs().transpose();
+      LOG(INFO) << "Rigid Sim3 alignment w.r.t. prior position:";
+      LOG(INFO) << "  - scale : " << tform.scale;
+      LOG(INFO) << "  - trans : " << tform.translation.transpose();
+      LOG(INFO) << "  - rot : " << tform.rotation.coeffs().transpose();
 
-      LOG(INFO) << "Sim3 Alignment w.r.t. prior position (rmse / median): "
-                << std::sqrt(Mean(verr2_wrt_prior)) << " / "
-                << std::sqrt(Median(verr2_wrt_prior)) << " m";
+      LOG(INFO)
+          << "Sim3 alignment error w.r.t. prior position (rmse / median): "
+          << std::sqrt(Mean(verr2_wrt_prior)) << " / "
+          << std::sqrt(Median(verr2_wrt_prior)) << " m";
 
     } else {
-      LOG(WARNING) << "Sim3 Alignment w.r.t. prior position failed!";
+      LOG(WARNING) << "Sim3 alignment w.r.t. prior position failed!";
     }
   }
 
@@ -926,16 +928,6 @@ bool PositionPriorBundleAdjuster::Solve(Reconstruction* reconstruction) {
           sim_to_center * image.WorldFromCamPrior().position;
     }
   }
-
-  // DEBUG
-  LOG(INFO) << "Prev centroid: " << sim_to_center.translation.transpose();
-  Eigen::Vector3d new_center = Eigen::Vector3d::Zero();
-  for (const auto& image_id : config_.Images()) {
-    new_center += reconstruction->Image(image_id).ProjectionCenter();
-  }
-  new_center /= config_.NumImages();
-  LOG(INFO) << "New centroid: " << new_center.transpose();
-  // --- DEBUG
 
   SetUpProblem(
       reconstruction, loss_function_.get(), prior_loss_function_.get());
