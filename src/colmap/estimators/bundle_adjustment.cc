@@ -828,8 +828,11 @@ PositionPriorBundleAdjuster::PositionPriorBundleAdjuster(
 bool PositionPriorBundleAdjuster::Solve(Reconstruction* reconstruction) {
   loss_function_ =
       std::unique_ptr<ceres::LossFunction>(options_.CreateLossFunction());
-  prior_loss_function_ =
-      std::make_unique<ceres::CauchyLoss>(options_.prior_position_loss_scale);
+
+  if (options_.use_robust_loss_on_prior_position) {
+    prior_loss_function_ =
+        std::make_unique<ceres::CauchyLoss>(options_.prior_position_loss_scale);
+  }
 
   // Compute initial squared error between position priors & current images
   // projection center and prepare data for RANSAC-based sim3 alignment
