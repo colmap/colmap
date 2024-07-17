@@ -75,7 +75,7 @@ jobs:
         id: cuda-toolkit
         with:
           cuda: '12.2.2'
-          sub-packages: '["nvcc", "cudart", "curand"]'
+          # sub-packages: '["nvcc", "cudart", "curand"]'
           method: 'network'
 
       - name: Install CMake and Ninja
