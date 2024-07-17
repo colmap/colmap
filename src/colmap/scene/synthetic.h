@@ -58,6 +58,9 @@ struct SyntheticDatasetOptions {
     CHAINED = 2,
   };
   MatchConfig match_config = MatchConfig::EXHAUSTIVE;
+
+  bool use_prior_position = false;
+  double prior_position_stddev = 1.5;
 };
 
 void SynthesizeDataset(const SyntheticDatasetOptions& options,
