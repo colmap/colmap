@@ -104,6 +104,19 @@ class BundleAdjustmentCovarianceEstimatorBase {
   bool HasValidFullCovariance() const;
 
  protected:
+  // indexing the covariance matrix
+  virtual double GetCovarianceByIndex(int row, int col) const;
+  virtual Eigen::MatrixXd GetCovarianceBlockOperation(int row_start,
+                                                      int col_start,
+                                                      int row_block_size,
+                                                      int col_block_size) const;
+  virtual double GetPoseCovarianceByIndex(int row, int col) const;
+  virtual Eigen::MatrixXd GetPoseCovarianceBlockOperation(
+      int row_start,
+      int col_start,
+      int row_block_size,
+      int col_block_size) const;
+
   // blocks parsed from reconstruction (initialized at construction)
   std::vector<const double*> pose_blocks_;
   int num_params_poses_ = 0;
@@ -176,7 +189,27 @@ class BundleAdjustmentCovarianceEstimator
   bool ComputeFull() override;
   bool Compute() override;
 
+  // factorization
+  bool FactorizeFull();
+  bool Factorize();
+  bool HasValidFullFactorization() const;
+  bool HasValidPoseFactorization() const;
+
  private:
+  // indexing the covariance matrix
+  double GetCovarianceByIndex(int row, int col) const override;
+  Eigen::MatrixXd GetCovarianceBlockOperation(
+      int row_start,
+      int col_start,
+      int row_block_size,
+      int col_block_size) const override;
+  double GetPoseCovarianceByIndex(int row, int col) const override;
+  Eigen::MatrixXd GetPoseCovarianceBlockOperation(
+      int row_start,
+      int col_start,
+      int row_block_size,
+      int col_block_size) const override;
+
   // The Schur complement for all parameters (except for 3D points) after Schur
   // elimination
   Eigen::SparseMatrix<double> S_matrix_;
@@ -188,6 +221,10 @@ class BundleAdjustmentCovarianceEstimator
   // 3D points
   void ComputeSchurComplement();
   bool HasValidSchurComplement() const;
+
+  // The inverse of L matrix after Cholesky factorization
+  Eigen::MatrixXd L_matrix_variables_inv_;
+  Eigen::MatrixXd L_matrix_poses_inv_;
 };
 
 // The covariance for each image is in the order [R, t] with both of them
