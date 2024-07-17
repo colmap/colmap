@@ -353,16 +353,16 @@ int RunPositionPriorMapper(int argc, char** argv) {
 
   options.mapper->use_prior_position = true;
 
-  options.AddRequiredOption("set_prior_position_from_database",
-                            &options.mapper->set_prior_position_from_database);
+  options.AddDefaultOption("set_prior_position_from_database",
+                           &options.mapper->set_prior_position_from_database);
   options.AddDefaultOption("prior_position_std_x",
                            &options.mapper->prior_position_std_x);
   options.AddDefaultOption("prior_position_std_y",
                            &options.mapper->prior_position_std_y);
   options.AddDefaultOption("prior_position_std_z",
                            &options.mapper->prior_position_std_z);
-  options.AddRequiredOption("use_robust_loss_on_prior_position",
-                            &options.mapper->use_robust_loss_on_prior_position);
+  options.AddDefaultOption("use_robust_loss_on_prior_position",
+                           &options.mapper->use_robust_loss_on_prior_position);
   options.AddDefaultOption("prior_position_loss_scale",
                            &options.mapper->prior_position_loss_scale);
   options.Parse(argc, argv);
