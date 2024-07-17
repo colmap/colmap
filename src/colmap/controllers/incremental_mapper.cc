@@ -153,6 +153,7 @@ BundleAdjustmentOptions IncrementalMapperOptions::GlobalBundleAdjustment()
     options.use_robust_loss_on_prior_position =
         use_robust_loss_on_prior_position;
     options.prior_position_loss_scale = prior_position_loss_scale;
+    options.print_summary = true;
   }
   return options;
 }

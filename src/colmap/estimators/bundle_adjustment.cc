@@ -864,10 +864,10 @@ bool PositionPriorBundleAdjuster::Solve(Reconstruction* reconstruction) {
 
   // Apply RANSAC-based Sim3 Alignment
   if (prior_options_.use_prior_position) {
-    LOG(INFO)
-        << "Initial alignment error w.r.t. prior position (rmse / median): "
-        << std::sqrt(Mean(vini_err2_wrt_prior)) << " / "
-        << std::sqrt(Median(vini_err2_wrt_prior)) << " m";
+    LOG(INFO) << "Initial alignment error w.r.t. prior position:";
+    LOG(INFO) << "  - rmse:   " << std::sqrt(Mean(vini_err2_wrt_prior)) << " m";
+    LOG(INFO) << "  - median: " << std::sqrt(Median(vini_err2_wrt_prior))
+              << " m";
 
     RANSACOptions ransac_options;
     ransac_options.max_error = (options_.prior_position_std * 3.).norm();
@@ -897,12 +897,11 @@ bool PositionPriorBundleAdjuster::Solve(Reconstruction* reconstruction) {
       LOG(INFO) << "Rigid Sim3 alignment w.r.t. prior position:";
       LOG(INFO) << "  - scale : " << tform.scale;
       LOG(INFO) << "  - trans : " << tform.translation.transpose();
-      LOG(INFO) << "  - rot : " << tform.rotation.coeffs().transpose();
+      // LOG(INFO) << "  - rot : " << tform.rotation.coeffs().transpose();
 
-      LOG(INFO)
-          << "Sim3 alignment error w.r.t. prior position (rmse / median): "
-          << std::sqrt(Mean(verr2_wrt_prior)) << " / "
-          << std::sqrt(Median(verr2_wrt_prior)) << " m";
+      LOG(INFO) << "Sim3 alignment error w.r.t. prior position:";
+      LOG(INFO) << "  - rmse:   " << std::sqrt(Mean(verr2_wrt_prior)) << " m";
+      LOG(INFO) << "  - median: " << std::sqrt(Median(verr2_wrt_prior)) << " m";
 
     } else {
       LOG(WARNING) << "Sim3 alignment w.r.t. prior position failed!";
@@ -953,7 +952,7 @@ bool PositionPriorBundleAdjuster::Solve(Reconstruction* reconstruction) {
   }
 
   if (options_.print_summary || VLOG_IS_ON(1)) {
-    PrintSolverSummary(summary_, "Bundle adjustment report");
+    PrintSolverSummary(summary_, "Position Prior Bundle adjustment report");
   }
 
   return true;
