@@ -69,6 +69,19 @@ struct BundleAdjustmentOptions {
   // due to the overhead of threading.
   int min_num_residuals_for_multi_threading = 50000;
 
+  // Whether to use prior camera positions
+  bool use_prior_position = false;
+
+  // Standard deviation on the position priors
+  Eigen::Vector3d prior_position_std = Eigen::Vector3d::Ones();
+
+  // Whether to use a robust loss on prior locations
+  bool use_robust_loss_on_prior_position = false;
+
+  // Threshold on the residual for the robust loss
+  // (chi2 for 3DOF at 95% = 7.815)
+  double prior_position_loss_scale = 7.815;
+
   // Ceres-Solver options.
   ceres::Solver::Options solver_options;
 
@@ -276,15 +289,11 @@ class PositionPriorBundleAdjuster : public BundleAdjuster {
     bool use_prior_position = true;
 
     // Standard deviation on the position priors
-    Eigen::Vector3d position_prior_xyz_std = Eigen::Vector3d::Ones();
-
-    // Whether to use a robust loss on prior locations
-    bool use_robust_loss_on_prior_position = false;
-
-    // Threshold on the residual for the robust loss
-    // (chi2 for 3DOF at 95% = 7.815)
-    double position_prior_loss_scale = 7.815;
+    Eigen::Matrix3d prior_position_covariance = Eigen::Matrix3d::Identity();
   };
+
+  PositionPriorBundleAdjuster(const BundleAdjustmentOptions& options,
+                              const BundleAdjustmentConfig& config);
 
   PositionPriorBundleAdjuster(const BundleAdjustmentOptions& options,
                               const Options& prior_options,
@@ -303,7 +312,7 @@ class PositionPriorBundleAdjuster : public BundleAdjuster {
                          ceres::LossFunction* loss_function,
                          ceres::LossFunction* prior_loss_function);
 
-  const Options prior_options_;
+  Options prior_options_;
 
   std::unique_ptr<ceres::LossFunction> prior_loss_function_;
 

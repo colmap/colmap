@@ -819,15 +819,17 @@ void RigBundleAdjuster::ParameterizeCameraRigs(Reconstruction* reconstruction) {
 
 PositionPriorBundleAdjuster::PositionPriorBundleAdjuster(
     const BundleAdjustmentOptions& options,
-    const Options& prior_options,
     const BundleAdjustmentConfig& config)
-    : BundleAdjuster(options, config), prior_options_(prior_options) {}
+    : BundleAdjuster(options, config) {
+  prior_options_.prior_position_covariance =
+      options_.prior_position_std.cwiseAbs2().asDiagonal();
+}
 
 bool PositionPriorBundleAdjuster::Solve(Reconstruction* reconstruction) {
   loss_function_ =
       std::unique_ptr<ceres::LossFunction>(options_.CreateLossFunction());
-  prior_loss_function_ = std::make_unique<ceres::CauchyLoss>(
-      prior_options_.position_prior_loss_scale);
+  prior_loss_function_ =
+      std::make_unique<ceres::CauchyLoss>(options_.prior_position_loss_scale);
 
   // Compute initial squared error between position priors & current images
   // projection center and prepare data for RANSAC-based sim3 alignment
@@ -846,14 +848,25 @@ bool PositionPriorBundleAdjuster::Solve(Reconstruction* reconstruction) {
     }
   }
 
-  std::cout << "\nInitial Alignment w.r.t. prior position (rmse / median): "
-            << std::sqrt(Mean(vini_err2_wrt_prior)) << " / "
-            << std::sqrt(Median(vini_err2_wrt_prior)) << " m\n";
+  // Fallback to classic BA if not enough registered images with a prior
+  // position
+  prior_options_.use_prior_position = v_src.size() > 2;
 
-  if (v_src.size() > 5) {
+  // Fix 7-DOFs of BA problem for classic BA
+  if (!prior_options_.use_prior_position) {
+    const std::vector<image_t>& reg_image_ids = reconstruction->RegImageIds();
+    config_.SetConstantCamPose(reg_image_ids[0]);
+    config_.SetConstantCamPositions(reg_image_ids[1], {0});
+  }
+
+  // Apply RANSAC-based Sim3 Alignment
+  if (prior_options_.use_prior_position) {
+    LOG(INFO) << "Initial Alignment w.r.t. prior position (rmse / median): "
+              << std::sqrt(Mean(vini_err2_wrt_prior)) << " / "
+              << std::sqrt(Median(vini_err2_wrt_prior)) << " m";
+
     RANSACOptions ransac_options;
-    ransac_options.max_error =
-        (prior_options_.position_prior_xyz_std * 3.).norm();
+    ransac_options.max_error = (options_.prior_position_std * 3.).norm();
 
     LORANSAC<SimilarityTransformEstimator<3, true>,
              SimilarityTransformEstimator<3, true>>
@@ -877,17 +890,17 @@ bool PositionPriorBundleAdjuster::Solve(Reconstruction* reconstruction) {
         }
       }
 
-      std::cout << "\nRigid Sim3 Alignment w.r.t. prior position: \n";
-      std::cout << "- scale : " << tform.scale << "\n";
-      std::cout << "- trans : " << tform.translation.transpose() << "\n";
-      std::cout << "- rot : " << tform.rotation.coeffs().transpose() << "\n\n";
+      LOG(INFO) << "Rigid Sim3 Alignment w.r.t. prior position: \n"
+                << "- scale : " << tform.scale << "\n"
+                << "- trans : " << tform.translation.transpose() << "\n"
+                << "- rot : " << tform.rotation.coeffs().transpose();
 
-      std::cout << "\nSim3 Alignment w.r.t. prior position (rmse / median): "
+      LOG(INFO) << "Sim3 Alignment w.r.t. prior position (rmse / median): "
                 << std::sqrt(Mean(verr2_wrt_prior)) << " / "
-                << std::sqrt(Median(verr2_wrt_prior)) << " m\n";
+                << std::sqrt(Median(verr2_wrt_prior)) << " m";
 
     } else {
-      std::cout << "\nSim3 Alignment w.r.t. prior position failed!\n";
+      LOG(WARNING) << "Sim3 Alignment w.r.t. prior position failed!";
     }
   }
 
@@ -912,13 +925,13 @@ bool PositionPriorBundleAdjuster::Solve(Reconstruction* reconstruction) {
   }
 
   // DEBUG
-  std::cout << "\nPrev centroid: " << sim_to_center.translation.transpose();
+  LOG(INFO) << "Prev centroid: " << sim_to_center.translation.transpose();
   Eigen::Vector3d new_center = Eigen::Vector3d::Zero();
   for (const auto& image_id : config_.Images()) {
     new_center += reconstruction->Image(image_id).ProjectionCenter();
   }
   new_center /= config_.NumImages();
-  std::cout << "\nNew centroid: " << new_center.transpose() << "\n";
+  LOG(INFO) << "New centroid: " << new_center.transpose();
   // --- DEBUG
 
   SetUpProblem(
@@ -1046,18 +1059,13 @@ void PositionPriorBundleAdjuster::AddImageToProblem(
       }
     }
 
-    if (image.HasPosePrior()) {
-      static Eigen::Matrix3d prior_covariance = Eigen::Matrix3d::Zero();
-      if (prior_covariance.isZero(1e-8)) {
-        prior_covariance =
-            prior_options_.position_prior_xyz_std.cwiseAbs2().asDiagonal();
-      }
-      problem_->AddResidualBlock(
-          PositionPriorErrorCostFunction::Create(
-              image.WorldFromCamPrior().position, prior_covariance),
-          prior_loss_function,
-          cam_from_world_rotation,
-          cam_from_world_translation);
+    if (prior_options_.use_prior_position && image.HasPosePrior()) {
+      problem_->AddResidualBlock(PositionPriorErrorCostFunction::Create(
+                                     image.WorldFromCamPrior().position,
+                                     prior_options_.prior_position_covariance),
+                                 prior_loss_function,
+                                 cam_from_world_rotation,
+                                 cam_from_world_translation);
     }
   }
 }

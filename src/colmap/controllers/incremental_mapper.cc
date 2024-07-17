@@ -145,6 +145,15 @@ BundleAdjustmentOptions IncrementalMapperOptions::GlobalBundleAdjustment()
       ba_min_num_residuals_for_multi_threading;
   options.loss_function_type =
       BundleAdjustmentOptions::LossFunctionType::TRIVIAL;
+
+  if (use_prior_position) {
+    options.use_prior_position = use_prior_position;
+    options.prior_position_std = Eigen::Vector3d(
+        prior_position_std_x, prior_position_std_y, prior_position_std_z);
+    options.use_robust_loss_on_prior_position =
+        use_robust_loss_on_prior_position;
+    options.prior_position_loss_scale = prior_position_loss_scale;
+  }
   return options;
 }
 
@@ -169,6 +178,10 @@ bool IncrementalMapperOptions::Check() const {
   CHECK_OPTION_GT(ba_global_max_refinements, 0);
   CHECK_OPTION_GE(ba_global_max_refinement_change, 0);
   CHECK_OPTION_GE(snapshot_images_freq, 0);
+  CHECK_OPTION_GT(prior_position_std_x, 0.);
+  CHECK_OPTION_GT(prior_position_std_y, 0.);
+  CHECK_OPTION_GT(prior_position_std_z, 0.);
+  CHECK_OPTION_GT(prior_position_loss_scale, 0.);
   CHECK_OPTION(Mapper().Check());
   CHECK_OPTION(Triangulation().Check());
   return true;
@@ -247,6 +260,78 @@ bool IncrementalMapperController::LoadDatabase() {
     LOG(WARNING) << "No images with matches found in the database";
     return false;
   }
+
+  // If prior positions are to be used and setup from the database, convert
+  // geographic coords. to cartesian ones
+  if (options_->use_prior_position &&
+      options_->set_prior_position_from_database) {
+    return SetupPriorPoseFromDatabase();
+  }
+
+  return true;
+}
+
+bool IncrementalMapperController::SetupPriorPoseFromDatabase() {
+  LOG(INFO) << "Setting up prior positions";
+
+  Timer timer;
+  timer.Start();
+  std::size_t nb_prior_positions = 0;
+  bool prior_is_gps = true;
+  std::vector<Eigen::Vector3d> v_gps_prior;
+  image_t ref_image_id = std::numeric_limits<image_t>::max();
+  double ref_lat = std::numeric_limits<double>::max();
+  double ref_lon = std::numeric_limits<double>::max();
+  v_gps_prior.reserve(database_cache_->NumImages());
+  for (const auto& image : database_cache_->Images()) {
+    if (image.second.HasPosePrior()) {
+      ++nb_prior_positions;
+      if (image.second.WorldFromCamPrior().coordinate_system !=
+          PosePrior::CoordinateSystem::WGS84) {
+        prior_is_gps = false;
+        // break;
+      } else {
+        v_gps_prior.push_back(image.second.WorldFromCamPrior().position);
+        // Image with the lowest id is to be used as the origin for prior
+        // position conversion
+        if (image.first < ref_image_id) {
+          ref_image_id = image.first;
+          ref_lat = image.second.WorldFromCamPrior().position[0];
+          ref_lon = image.second.WorldFromCamPrior().position[1];
+        }
+      }
+    }
+  }
+
+  if (nb_prior_positions < 3) {
+    LOG(ERROR) << "At least 3 images should have a prior for "
+                  "prior-based sfm...\n"
+               << "Only " << nb_prior_positions << " / "
+               << database_cache_->NumImages()
+               << " images have a pose prior...";
+    return false;
+  }
+
+  // Convert geographic to cartesian
+  if (prior_is_gps) {
+    const GPSTransform gps_transform(GPSTransform::WGS84);
+    const std::vector<Eigen::Vector3d> v_xyz_prior =
+        gps_transform.EllToENU(v_gps_prior, ref_lat, ref_lon);
+
+    auto xyz_prior_it = v_xyz_prior.begin();
+    for (auto& image : database_cache_->Images()) {
+      if (image.second.HasPosePrior()) {
+        database_cache_->Image(image.first).WorldFromCamPrior() =
+            PosePrior(*xyz_prior_it, PosePrior::CoordinateSystem::CARTESIAN);
+        xyz_prior_it++;
+      }
+    }
+  } else if (!prior_is_gps && !v_gps_prior.empty()) {
+    LOG(ERROR)
+        << "Database is mixing GPS & non-GPS prior positions... Aborting";
+    return false;
+  }
+  timer.PrintMinutes();
 
   return true;
 }

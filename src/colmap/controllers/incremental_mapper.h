@@ -114,6 +114,24 @@ struct IncrementalMapperOptions {
   int ba_global_max_refinements = 5;
   double ba_global_max_refinement_change = 0.0005;
 
+  // Whether to use prior camera positions
+  bool use_prior_position = false;
+
+  // Whether to setup the prior positions from database
+  bool set_prior_position_from_database = true;
+
+  // Standard deviation on the position priors
+  double prior_position_std_x = 1.;
+  double prior_position_std_y = 1.;
+  double prior_position_std_z = 1.;
+
+  // Whether to use a robust loss on prior locations
+  bool use_robust_loss_on_prior_position = false;
+
+  // Threshold on the residual for the robust loss
+  // (chi2 for 3DOF at 95% = 7.815)
+  double prior_position_loss_scale = 7.815;
+
   // Path to a folder with reconstruction snapshots during incremental
   // reconstruction. Snapshots will be saved according to the specified
   // frequency of registered images.
@@ -166,6 +184,8 @@ class IncrementalMapperController : public BaseController {
       const std::shared_ptr<Reconstruction>& reconstruction);
 
   bool LoadDatabase();
+
+  bool SetupPriorPoseFromDatabase();
 
   // getter functions for python pipelines
   const std::string& ImagePath() const { return image_path_; }
