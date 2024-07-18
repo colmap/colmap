@@ -307,7 +307,7 @@ class PositionPriorBundleAdjuster : public BundleAdjuster {
                     ceres::LossFunction* prior_loss_function);
 
  private:
-  void AddImageToProblem(const image_t image_id,
+  void AddImageToProblem(image_t image_id,
                          Reconstruction* reconstruction,
                          ceres::LossFunction* loss_function,
                          ceres::LossFunction* prior_loss_function);

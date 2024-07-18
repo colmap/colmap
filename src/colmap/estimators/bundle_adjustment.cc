@@ -988,7 +988,7 @@ void PositionPriorBundleAdjuster::SetUpProblem(
 }
 
 void PositionPriorBundleAdjuster::AddImageToProblem(
-    const image_t image_id,
+    image_t image_id,
     Reconstruction* reconstruction,
     ceres::LossFunction* loss_function,
     ceres::LossFunction* prior_loss_function) {
