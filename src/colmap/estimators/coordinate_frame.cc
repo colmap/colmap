@@ -41,56 +41,6 @@
 namespace colmap {
 namespace {
 
-struct VanishingPointEstimator {
-  // The line segments.
-  typedef LineSegment X_t;
-  // The line representation of the segments.
-  typedef Eigen::Vector3d Y_t;
-  // The vanishing point.
-  typedef Eigen::Vector3d M_t;
-
-  // The minimum number of samples needed to estimate a model.
-  static const int kMinNumSamples = 2;
-
-  // Estimate the vanishing point from at least two line segments.
-  static void Estimate(const std::vector<X_t>& line_segments,
-                       const std::vector<Y_t>& lines,
-                       std::vector<M_t>* models) {
-    THROW_CHECK_EQ(line_segments.size(), 2);
-    THROW_CHECK_EQ(lines.size(), 2);
-    THROW_CHECK(models != nullptr);
-    models->resize(1);
-    (*models)[0] = lines[0].cross(lines[1]);
-  }
-
-  // Calculate the squared distance of each line segment's end point to the line
-  // connecting the vanishing point and the midpoint of the line segment.
-  static void Residuals(const std::vector<X_t>& line_segments,
-                        const std::vector<Y_t>& lines,
-                        const M_t& vanishing_point,
-                        std::vector<double>* residuals) {
-    residuals->resize(line_segments.size());
-
-    // Check if vanishing point is at infinity.
-    if (vanishing_point[2] == 0) {
-      std::fill(residuals->begin(),
-                residuals->end(),
-                std::numeric_limits<double>::max());
-      return;
-    }
-
-    for (size_t i = 0; i < lines.size(); ++i) {
-      const Eigen::Vector3d midpoint =
-          (0.5 * (line_segments[i].start + line_segments[i].end)).homogeneous();
-      const Eigen::Vector3d connecting_line = midpoint.cross(vanishing_point);
-      const double signed_distance =
-          connecting_line.dot(line_segments[i].end.homogeneous()) /
-          connecting_line.head<2>().norm();
-      (*residuals)[i] = signed_distance * signed_distance;
-    }
-  }
-};
-
 Eigen::Vector3d FindBestConsensusAxis(const std::vector<Eigen::Vector3d>& axes,
                                       const double max_distance) {
   if (axes.empty()) {
@@ -157,6 +107,57 @@ Eigen::Vector3d EstimateGravityVectorFromImageOrientation(
 }
 
 #ifdef COLMAP_LSD_ENABLED
+
+struct VanishingPointEstimator {
+  // The line segments.
+  typedef LineSegment X_t;
+  // The line representation of the segments.
+  typedef Eigen::Vector3d Y_t;
+  // The vanishing point.
+  typedef Eigen::Vector3d M_t;
+
+  // The minimum number of samples needed to estimate a model.
+  static const int kMinNumSamples = 2;
+
+  // Estimate the vanishing point from at least two line segments.
+  static void Estimate(const std::vector<X_t>& line_segments,
+                       const std::vector<Y_t>& lines,
+                       std::vector<M_t>* models) {
+    THROW_CHECK_EQ(line_segments.size(), 2);
+    THROW_CHECK_EQ(lines.size(), 2);
+    THROW_CHECK(models != nullptr);
+    models->resize(1);
+    (*models)[0] = lines[0].cross(lines[1]);
+  }
+
+  // Calculate the squared distance of each line segment's end point to the line
+  // connecting the vanishing point and the midpoint of the line segment.
+  static void Residuals(const std::vector<X_t>& line_segments,
+                        const std::vector<Y_t>& lines,
+                        const M_t& vanishing_point,
+                        std::vector<double>* residuals) {
+    residuals->resize(line_segments.size());
+
+    // Check if vanishing point is at infinity.
+    if (vanishing_point[2] == 0) {
+      std::fill(residuals->begin(),
+                residuals->end(),
+                std::numeric_limits<double>::max());
+      return;
+    }
+
+    for (size_t i = 0; i < lines.size(); ++i) {
+      const Eigen::Vector3d midpoint =
+          (0.5 * (line_segments[i].start + line_segments[i].end)).homogeneous();
+      const Eigen::Vector3d connecting_line = midpoint.cross(vanishing_point);
+      const double signed_distance =
+          connecting_line.dot(line_segments[i].end.homogeneous()) /
+          connecting_line.head<2>().norm();
+      (*residuals)[i] = signed_distance * signed_distance;
+    }
+  }
+};
+
 Eigen::Matrix3d EstimateManhattanWorldFrame(
     const ManhattanWorldFrameEstimationOptions& options,
     const Reconstruction& reconstruction,

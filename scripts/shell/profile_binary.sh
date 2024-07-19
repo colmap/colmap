@@ -1,3 +1,4 @@
+#!/bin/bash
 # Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 # All rights reserved.
 #
@@ -27,65 +28,25 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+# Script to perform profiling on a command. For example:
+#   ./profile_binary.sh ./src/colmap/exe/colmap automatic_reconstructor ...
 
-set(FOLDER_NAME "feature")
+perf_bin=$(find /usr/lib/linux-tools -name perf | head -1)
+if [[ -z $perf_bin ]]; then
+    echo "Error: Perf tool not found. Under ubuntu, install as:"
+    echo "       sudo apt-get install linux-tools-generic"
+    exit 1
+fi
 
-COLMAP_ADD_LIBRARY(
-    NAME colmap_feature_types
-    SRCS
-        types.h types.cc
-    PUBLIC_LINK_LIBS
-        colmap_util
-        Eigen3::Eigen
-)
+"$perf_bin" record -e cycles:u -g "$@"
 
-COLMAP_ADD_TEST(
-    NAME types_test
-    SRCS types_test.cc
-    LINK_LIBS colmap_feature_types
-)
+binary_filename=$(basename -- "${binary_path}")
+profile_path="$binary_filename.perf.data"
+mv perf.data "$profile_path"
 
-COLMAP_ADD_LIBRARY(
-    NAME colmap_feature
-    SRCS
-        extractor.h
-        matcher.h matcher.cc
-        pairing.h pairing.cc
-        sift.h sift.cc
-        types.h types.cc
-        utils.h utils.cc
-    PUBLIC_LINK_LIBS
-        colmap_feature_types
-        colmap_geometry
-        colmap_retrieval
-        colmap_scene
-        colmap_util
-    PRIVATE_LINK_LIBS
-        colmap_math
-        colmap_sensor
-        colmap_vlfeat
-        Eigen3::Eigen
-        flann
-        lz4
-)
-if(GPU_ENABLED)
-    target_link_libraries(colmap_feature PRIVATE colmap_sift_gpu)
-    if(NOT GUI_ENABLED)
-        target_link_libraries(colmap_feature PRIVATE GLEW::GLEW)
-    endif()
-endif()
-
-COLMAP_ADD_TEST(
-    NAME feature_utils_test
-    SRCS utils_test.cc
-    LINK_LIBS colmap_feature
-)
-COLMAP_ADD_TEST(
-    NAME sift_test
-    SRCS sift_test.cc
-    LINK_LIBS
-        colmap_feature
-)
-if(TESTS_ENABLED AND GUI_ENABLED)
-    target_link_libraries(colmap_feature_sift_test Qt5::Widgets)
-endif()
+echo "#####################################################################"
+echo "###### Profiling finished. Inspect results using the commands: ######"
+echo "#####################################################################"
+echo "If the perf output contains unknown list items, recompile with RelWithDebInfo"
+echo "$perf_bin report -i $profile_path"
+echo "$perf_bin report --stdio -g graph,0.5,caller -i $profile_path"

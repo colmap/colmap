@@ -31,7 +31,7 @@ jobs:
       COMPILER_CACHE_DIR: ${{ github.workspace }}/compiler-cache
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
-      VCPKG_COMMIT_ID: 13bde2ff13192e1b2fdd37bd9b475c7665ae6ae5
+      VCPKG_COMMIT_ID: e01906b2ba7e645a76ee021a19de616edc98d29f
       VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
 
     steps:
@@ -102,13 +102,7 @@ jobs:
           ./vcpkg/vcpkg.exe integrate install
           cd build
           $EXCLUDED_TESTS = "(feature/colmap_feature_sift_test)|(util/colmap_util_opengl_utils_test)|(mvs/colmap_mvs_gpu_mat_test)"
-          ctest -E ${EXCLUDED_TESTS}
-          $tests_pass=$LastExitCode
-          if ($tests_pass -ne 0) {
-              echo "`n`n`nTests failed, rerunning with verbose output"
-              ctest -E ${EXCLUDED_TESTS} --rerun-failed --output-on-failure
-          }
-          exit $tests_pass
+          ctest -E ${EXCLUDED_TESTS} --output-on-failure
 
       - name: Cleanup compiler cache
         shell: pwsh

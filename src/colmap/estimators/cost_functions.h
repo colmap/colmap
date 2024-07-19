@@ -48,7 +48,7 @@ using EigenQuaternionMap = Eigen::Map<const Eigen::Quaternion<T>>;
 using EigenMatrix6d = Eigen::Matrix<double, 6, 6>;
 
 inline Eigen::MatrixXd SqrtInformation(const Eigen::MatrixXd& covariance) {
-  return covariance.inverse().llt().matrixL();
+  return covariance.inverse().llt().matrixL().transpose();
 }
 
 // Standard bundle adjustment cost function for variable
@@ -384,8 +384,7 @@ struct AbsolutePoseErrorCostFunction {
                                 world_from_cam_.translation.cast<T>();
 
     Eigen::Map<Eigen::Matrix<T, 6, 1>> residuals(residuals_ptr);
-    residuals.applyOnTheLeft(
-        sqrt_information_cam_.transpose().template cast<T>());
+    residuals.applyOnTheLeft(sqrt_information_cam_.template cast<T>());
     return true;
   }
 
@@ -445,8 +444,7 @@ struct MetricRelativePoseErrorCostFunction {
         EigenVector3Map<T>(j_from_world_t) + j_from_i_q * i_from_jw_t;
 
     Eigen::Map<Eigen::Matrix<T, 6, 1>> residuals(residuals_ptr);
-    residuals.applyOnTheLeft(
-        sqrt_information_j_.transpose().template cast<T>());
+    residuals.applyOnTheLeft(sqrt_information_j_.template cast<T>());
     return true;
   }
 
@@ -550,6 +548,16 @@ inline void SetSphereManifold(ceres::Problem* problem, double* params) {
 #else
   problem->SetParameterization(
       params, new ceres::HomogeneousVectorParameterization(size));
+#endif
+}
+
+inline int ParameterBlockTangentSize(ceres::Problem* problem,
+                                     const double* param) {
+#if CERES_VERSION_MAJOR >= 3 || \
+    (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 1)
+  return problem->ParameterBlockTangentSize(param);
+#else
+  return problem->ParameterBlockLocalSize(param);
 #endif
 }
 
