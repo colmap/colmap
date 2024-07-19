@@ -100,7 +100,7 @@ struct PosePrior {
   PosePrior(const Eigen::Vector3d& position, const CoordinateSystem system)
       : position(position), coordinate_system(system) {}
 
-  bool IsValid() { return position.array().isFinite().any(); }
+  inline bool IsValid() const { return position.array().isFinite().any(); }
 };
 
 }  // namespace colmap
