@@ -75,7 +75,7 @@ jobs:
         id: cuda-toolkit
         with:
           cuda: '12.5.0'
-          # sub-packages: '["nvcc", "cudart", "curand"]'
+          sub-packages: '["nvcc", "cudart", "curand_dev", "nvrtc_dev", "nvtx", "nsight_nvtx", "visual_studio_integration", ]'
           method: 'network'
 
       - name: Install CMake and Ninja
@@ -99,10 +99,6 @@ jobs:
           ./vcpkg/vcpkg.exe integrate install
           mkdir build
           cd build
-          cmake --version
-          ls "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}"
-          ls "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/bin"
-          ls "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/lib"
           cmake .. `
             -GNinja `
             -DCMAKE_MAKE_PROGRAM=ninja `
