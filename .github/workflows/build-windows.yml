@@ -74,7 +74,7 @@ jobs:
       - uses: Jimver/cuda-toolkit@v0.2.16
         id: cuda-toolkit
         with:
-          cuda: '12.2.2'
+          cuda: '12.5.0'
           # sub-packages: '["nvcc", "cudart", "curand"]'
           method: 'network'
 
