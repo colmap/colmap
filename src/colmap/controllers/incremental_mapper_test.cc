@@ -275,5 +275,43 @@ TEST(IncrementalMapperController, PriorBasedSfMWithNoise) {
                              /*align=*/true);
 }
 
+TEST(IncrementalMapperController, GPSPriorBasedSfMWithNoise) {
+  const std::string database_path = CreateTestDir() + "/database.db";
+
+  Database database(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_cameras = 2;
+  synthetic_dataset_options.num_images = 17;
+  synthetic_dataset_options.num_points3D = 500;
+  synthetic_dataset_options.point2D_stddev = 0.5;
+
+  synthetic_dataset_options.use_prior_position = true;
+  synthetic_dataset_options.use_geographic_coords_prior = true;
+  synthetic_dataset_options.prior_position_stddev = 1.5;
+  SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction, &database);
+
+  std::shared_ptr<IncrementalMapperOptions> mapper_options =
+      std::make_shared<IncrementalMapperOptions>();
+
+  mapper_options->use_prior_position = true;
+  mapper_options->use_robust_loss_on_prior_position = true;
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  IncrementalMapperController mapper(mapper_options,
+                                     /*image_path=*/"",
+                                     database_path,
+                                     reconstruction_manager);
+  mapper.Run();
+
+  ASSERT_EQ(reconstruction_manager->Size(), 1);
+  ExpectEqualReconstructions(gt_reconstruction,
+                             *reconstruction_manager->Get(0),
+                             /*max_rotation_error_deg=*/1e-1,
+                             /*max_proj_center_error=*/1e-1,
+                             /*num_obs_tolerance=*/0.02,
+                             /*align=*/true);
+}
+
 }  // namespace
 }  // namespace colmap
