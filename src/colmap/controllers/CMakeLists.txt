@@ -45,6 +45,7 @@ COLMAP_ADD_LIBRARY(
     PUBLIC_LINK_LIBS
         colmap_estimators
         colmap_feature
+        colmap_geometry
         colmap_scene
         colmap_util
         Eigen3::Eigen

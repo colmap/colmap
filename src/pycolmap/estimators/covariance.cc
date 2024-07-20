@@ -191,5 +191,12 @@ void BindCovarianceEstimator(py::module& m) {
            py::arg("problem"),
            py::arg("pose_blocks"),
            py::arg("point_blocks"),
-           py::arg("lambda") = 1e-8);
+           py::arg("lambda") = 1e-8)
+      .def("factorize_full",
+           &BundleAdjustmentCovarianceEstimator::FactorizeFull)
+      .def("factorize", &BundleAdjustmentCovarianceEstimator::Factorize)
+      .def("has_valid_full_factorization",
+           &BundleAdjustmentCovarianceEstimator::HasValidFullFactorization)
+      .def("has_valid_pose_factorization",
+           &BundleAdjustmentCovarianceEstimator::HasValidPoseFactorization);
 }

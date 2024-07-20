@@ -83,10 +83,6 @@ class Image {
   inline const Rigid3d& CamFromWorld() const;
   inline Rigid3d& CamFromWorld();
 
-  // World to camera pose prior, e.g. given by EXIF gyroscope tag.
-  inline const Rigid3d& CamFromWorldPrior() const;
-  inline Rigid3d& CamFromWorldPrior();
-
   // Access the coordinates of image points.
   inline const struct Point2D& Point2D(point2D_t point2D_idx) const;
   inline struct Point2D& Point2D(point2D_t point2D_idx);
@@ -131,9 +127,6 @@ class Image {
   // The pose of the image, defined as the transformation from world to camera.
   Rigid3d cam_from_world_;
 
-  // The pose prior of the image, e.g. extracted from EXIF tags.
-  Rigid3d cam_from_world_prior_;
-
   // All image points, including points that are not part of a 3D point track.
   std::vector<struct Point2D> points2D_;
 };
@@ -174,12 +167,6 @@ point2D_t Image::NumPoints3D() const { return num_points3D_; }
 const Rigid3d& Image::CamFromWorld() const { return cam_from_world_; }
 
 Rigid3d& Image::CamFromWorld() { return cam_from_world_; }
-
-const Rigid3d& Image::CamFromWorldPrior() const {
-  return cam_from_world_prior_;
-}
-
-Rigid3d& Image::CamFromWorldPrior() { return cam_from_world_prior_; }
 
 const struct Point2D& Image::Point2D(const point2D_t point2D_idx) const {
   return points2D_.at(point2D_idx);
