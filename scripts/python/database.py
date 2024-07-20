@@ -58,18 +58,17 @@ CREATE_IMAGES_TABLE = """CREATE TABLE IF NOT EXISTS images (
     image_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     name TEXT NOT NULL UNIQUE,
     camera_id INTEGER NOT NULL,
-    prior_qw REAL,
-    prior_qx REAL,
-    prior_qy REAL,
-    prior_qz REAL,
-    prior_tx REAL,
-    prior_ty REAL,
-    prior_tz REAL,
     CONSTRAINT image_id_check CHECK(image_id >= 0 and image_id < {}),
     FOREIGN KEY(camera_id) REFERENCES cameras(camera_id))
 """.format(
     MAX_IMAGE_ID
 )
+
+CREATE_POSE_PRIORS_TABLE = """CREATE TABLE IF NOT EXISTS pose_priors (
+    image_id INTEGER PRIMARY KEY NOT NULL,
+    position BLOB,
+    coordinate_system INTEGER NOT NULL,
+    FOREIGN KEY(image_id) REFERENCES images(image_id) ON DELETE CASCADE)"""
 
 CREATE_TWO_VIEW_GEOMETRIES_TABLE = """
 CREATE TABLE IF NOT EXISTS two_view_geometries (
@@ -107,6 +106,7 @@ CREATE_ALL = "; ".join(
     [
         CREATE_CAMERAS_TABLE,
         CREATE_IMAGES_TABLE,
+        CREATE_POSE_PRIORS_TABLE,
         CREATE_KEYPOINTS_TABLE,
         CREATE_DESCRIPTORS_TABLE,
         CREATE_MATCHES_TABLE,
@@ -159,6 +159,9 @@ class COLMAPDatabase(sqlite3.Connection):
         )
         self.create_images_table = lambda: self.executescript(
             CREATE_IMAGES_TABLE
+        )
+        self.create_pose_priors_table = lambda: self.executescript(
+            CREATE_POSE_PRIORS_TABLE
         )
         self.create_two_view_geometries_table = lambda: self.executescript(
             CREATE_TWO_VIEW_GEOMETRIES_TABLE
@@ -218,6 +221,13 @@ class COLMAPDatabase(sqlite3.Connection):
             ),
         )
         return cursor.lastrowid
+
+    def add_pose_prior(self, image_id, position, coordinate_system=-1):
+        position = np.asarray(position, dtype=np.float64)
+        self.execute(
+            "INSERT INTO pose_priors VALUES (?, ?, ?)",
+            (image_id, array_to_blob(position), coordinate_system),
+        )
 
     def add_keypoints(self, image_id, keypoints):
         assert len(keypoints.shape) == 2
