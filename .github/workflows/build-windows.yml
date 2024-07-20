@@ -138,7 +138,7 @@ jobs:
           if (${{ matrix.config.cudaEnabled }}) {
             $cuda_feature = "--x-feature=cuda"
           }
-          ./vcpkg/vcpkg.exe install --triplet=x64-windows-release --x-feature=gui $tests_feature $cuda_feature
+          ./vcpkg/vcpkg.exe install --x-feature=gui $tests_feature $cuda_feature
           ./vcpkg/vcpkg.exe export --raw --output-dir export --output colmap
           cp export/colmap/installed/x64-windows/bin/*.dll install/bin
           cp -r export/colmap/installed/x64-windows/plugins install
