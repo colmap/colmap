@@ -20,11 +20,15 @@ jobs:
             os: windows-2019,
             cmakeBuildType: Release,
             cudaEnabled: false,
+            testsEnabled: true,
+            exportPackage: true,
           },
           {
             os: windows-2022,
             cmakeBuildType: Release,
             cudaEnabled: true,
+            testsEnabled: true,
+            exportPackage: false,
           },
         ]
 
@@ -99,13 +103,14 @@ jobs:
             -GNinja `
             -DCMAKE_MAKE_PROGRAM=ninja `
             -DCMAKE_BUILD_TYPE=Release `
-            -DTESTS_ENABLED=ON `
+            -DTESTS_ENABLED=${{ matrix.config.testsEnabled }} `
             -DGUI_ENABLED=ON `
             -DCUDA_ENABLED=${{ matrix.config.cudaEnabled }} `
             -DCMAKE_CUDA_ARCHITECTURES=50 `
             -DCUDAToolkit_ROOT="${{ steps.cuda-toolkit.outputs.CUDA_PATH }}" `
             -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake" `
-            -DVCPKG_TARGET_TRIPLET=x64-windows-release
+            -DVCPKG_TARGET_TRIPLET=x64-windows-release `
+            -DCMAKE_INSTALL_PREFIX=install
           ninja
 
       - name: Run tests
@@ -115,6 +120,34 @@ jobs:
           cd build
           $EXCLUDED_TESTS = "(feature/colmap_feature_sift_test)|(util/colmap_util_opengl_utils_test)|(mvs/colmap_mvs_gpu_mat_test)"
           ctest -E ${EXCLUDED_TESTS} --output-on-failure
+
+      - name: Export package
+        if: matrix.config.exportPackage
+        shell: pwsh
+        run: |
+          ./vcpkg/vcpkg.exe integrate install
+
+          cd build
+          ninja install
+
+          $test_feature = ""
+          if (${{ matrix.config.testsEnabled }}) {
+            $test_feature = "--x-feature=tests"
+          }
+          $cuda_feature = ""
+          if (${{ matrix.config.cudaEnabled }}) {
+            $cuda_feature = "--x-feature=cuda"
+          }
+          ./vcpkg/vcpkg.exe install --triplet=x64-windows-release --x-feature=gui $tests_feature $cuda_feature
+          ./vcpkg/vcpkg.exe export --raw --output-dir export --output colmap
+          cp export/colmap/installed/x64-windows/bin/*.dll install/bin
+          cp -r export/colmap/installed/x64-windows/plugins install
+
+      - uses: actions/upload-artifact@v4
+        if: matrix.config.exportPackage
+        with:
+          name: colmap-x64-windows
+          path: install
 
       - name: Cleanup compiler cache
         shell: pwsh
