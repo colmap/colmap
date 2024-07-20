@@ -163,7 +163,8 @@ class IncrementalMapperController : public BaseController {
   void Run();
 
   void TriangulateReconstruction(
-      const std::shared_ptr<Reconstruction>& reconstruction);
+      const std::shared_ptr<Reconstruction>& reconstruction,
+      std::unordered_set<image_t> fixed_image_ids = {});
 
   bool LoadDatabase();
 

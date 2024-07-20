@@ -108,6 +108,11 @@ IncrementalMapper::IncrementalMapper(
       num_total_reg_images_(0),
       num_shared_reg_images_(0) {}
 
+void IncrementalMapper::SetFixedImageIds(std::unordered_set<image_t> image_ids) {
+
+  existing_image_ids_ = image_ids;
+}
+
 void IncrementalMapper::BeginReconstruction(
     const std::shared_ptr<class Reconstruction>& reconstruction) {
   THROW_CHECK(reconstruction_ == nullptr);

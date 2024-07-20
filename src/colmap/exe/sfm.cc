@@ -183,6 +183,64 @@ int RunColorExtractor(int argc, char** argv) {
   return EXIT_SUCCESS;
 }
 
+
+int RunIncrementalModelRefiner(int argc, char** argv) {
+  std::string input_path;
+  std::string output_path;
+  std::string image_list_path;
+
+  OptionManager options;
+  options.AddDatabaseOptions();
+  options.AddImageOptions();
+  options.AddRequiredOption("input_path", &input_path);
+  options.AddRequiredOption("output_path", &output_path);
+  options.AddDefaultOption("image_list_path", &image_list_path);
+  options.AddMapperOptions();
+  options.Parse(argc, argv);
+
+  if (!ExistsDir(input_path)) {
+    std::cerr << "ERROR: `input_path` is not a directory\n";
+    return EXIT_FAILURE;
+  }
+
+  if (!ExistsDir(output_path)) {
+    std::cerr << "ERROR: `output_path` is not a directory\n";
+    return EXIT_FAILURE;
+  }
+
+  //  auto options_tmp = std::make_shared<IncrementalMapperOptions>(options.mapper);
+  options.mapper->fix_existing_images = true;
+  //  options_tmp->fix_existing_images = true;
+  //  options_tmp->ba_refine_focal_length = refine_intrinsics;
+  //  options_tmp->ba_refine_principal_point = false;
+  //  options_tmp->ba_refine_extra_params = refine_intrinsics;
+  PrintHeading1("Loading model");
+
+  auto reconstruction = std::make_shared<Reconstruction>();
+  reconstruction->Read(input_path);
+
+  // Loads the list of images for which the camera pose will be fixed.
+  std::unordered_set<image_t> image_ids_fixed_poses;
+  if (!image_list_path.empty()) {
+    const auto image_names = ReadTextFileLines(image_list_path);
+    for (const std::string& image_name : image_names) {
+      const Image* image = reconstruction->FindImageWithName(image_name);
+      if (image != nullptr) {
+        image_ids_fixed_poses.insert(image->ImageId());
+      }
+    }
+  }
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  IncrementalMapperController mapper(
+      options.mapper, *options.image_path, *options.database_path, reconstruction_manager);
+  mapper.TriangulateReconstruction(reconstruction, image_ids_fixed_poses);
+
+  reconstruction->Write(output_path);
+
+  return EXIT_SUCCESS;
+}
+
 int RunMapper(int argc, char** argv) {
   std::string input_path;
   std::string output_path;
