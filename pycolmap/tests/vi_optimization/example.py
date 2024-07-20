@@ -248,10 +248,11 @@ def run():
     options = pycolmap.ImuPreintegrationOptions()
     imu_calib = pycolmap.ImuCalibration()
     imu_calib.gravity_magnitude = 9.81
-    imu_calib.acc_noise_density = 0.8e-6
-    imu_calib.gyro_noise_density = 1.0e-2
-    imu_calib.acc_bias_random_walk_sigma = 350.0e-6
-    imu_calib.gyro_bias_random_walk_sigma = 0.6e-3
+    # [Reference] https://facebookresearch.github.io/projectaria_tools/docs/tech_insights/imu_noise_model
+    imu_calib.acc_noise_density = 0.8e-4 * 9.81
+    imu_calib.gyro_noise_density = 1e-2 * (np.pi / 180.0)
+    imu_calib.acc_bias_random_walk_sigma = 3.5e-5 * 9.81
+    imu_calib.gyro_bias_random_walk_sigma = 1.3e-3 * (np.pi / 180.0)
     imu_calib.acc_saturation_max = 8.0 * imu_calib.gravity_magnitude
     imu_calib.gyro_saturation_max = 1000.0
     imu_calib.imu_rate = 1000.0
