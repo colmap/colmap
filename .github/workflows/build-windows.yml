@@ -141,7 +141,7 @@ jobs:
           cp vcpkg_export/colmap/installed/x64-windows/bin/*.dll install/bin
           cp vcpkg_export/colmap/installed/x64-windows-release/bin/*.dll install/bin
           cp -r vcpkg_export/colmap/installed/x64-windows/plugins install
-          Remove-Item -Recurse -Force install/include install/lib install/share
+          Remove-Item -Recurse -Force install/include,install/lib,install/share
 
       - name: Upload package
         uses: actions/upload-artifact@v4
