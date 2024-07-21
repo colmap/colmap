@@ -70,7 +70,8 @@ jobs:
 
           .github/workflows/install-ccache.ps1 -Destination "${{ env.COMPILER_CACHE_DIR }}/bin"
 
-      - uses: Jimver/cuda-toolkit@v0.2.16
+      - name: Install CUDA
+        uses: Jimver/cuda-toolkit@v0.2.16
         if: matrix.config.cudaEnabled
         id: cuda-toolkit
         with:
@@ -138,11 +139,12 @@ jobs:
           cp vcpkg_export/colmap/installed/x64-windows/bin/*.dll install/bin
           cp -r vcpkg_export/colmap/installed/x64-windows/plugins install
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload package
+        uses: actions/upload-artifact@v4
         if: matrix.config.exportPackage
         with:
           name: colmap-x64-windows
-          path: install
+          path: build/install
 
       - name: Cleanup compiler cache
         shell: pwsh
