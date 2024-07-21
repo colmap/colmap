@@ -149,7 +149,6 @@ jobs:
           cp vcpkg_export/colmap/installed/x64-windows-release/bin/*.dll install/bin
           cp -r vcpkg_export/colmap/installed/x64-windows/plugins install
           if ($${{ matrix.config.cudaEnabled }}) {
-              ls "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/bin/"
               cp "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/bin/cudart64_*.dll" install/bin
               cp "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/bin/curand64_*.dll" install/bin
           }
