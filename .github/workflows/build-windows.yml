@@ -138,10 +138,10 @@ jobs:
           if (${{ matrix.config.cudaEnabled }}) {
             $cuda_feature = "--x-feature=cuda"
           }
-          ./vcpkg/vcpkg.exe install --x-feature=gui $tests_feature $cuda_feature
-          ./vcpkg/vcpkg.exe export --raw --output-dir export --output colmap
-          cp export/colmap/installed/x64-windows/bin/*.dll install/bin
-          cp -r export/colmap/installed/x64-windows/plugins install
+          ../vcpkg/vcpkg.exe install --x-feature=gui $tests_feature $cuda_feature
+          ../vcpkg/vcpkg.exe export --raw --output-dir vcpkg_export --output colmap
+          cp vcpkg_export/colmap/installed/x64-windows/bin/*.dll install/bin
+          cp -r vcpkg_export/colmap/installed/x64-windows/plugins install
 
       - uses: actions/upload-artifact@v4
         if: matrix.config.exportPackage
