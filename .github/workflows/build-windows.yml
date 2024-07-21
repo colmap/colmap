@@ -11,7 +11,7 @@ on:
 
 jobs:
   build:
-    name: ${{ matrix.config.os }} ${{ matrix.config.cmakeBuildType }}
+    name: ${{ matrix.config.os }} ${{ matrix.config.cmakeBuildType }} ${{ matrix.config.cudaEnabled && 'CUDA' || '' }}
     runs-on: ${{ matrix.config.os }}
     strategy:
       matrix:
@@ -19,10 +19,12 @@ jobs:
           {
             os: windows-2019,
             cmakeBuildType: Release,
+            cudaEnabled: false,
           },
           {
             os: windows-2022,
             cmakeBuildType: Release,
+            cudaEnabled: true,
           },
         ]
 
@@ -64,6 +66,14 @@ jobs:
 
           .github/workflows/install-ccache.ps1 -Destination "${{ env.COMPILER_CACHE_DIR }}/bin"
 
+      - uses: Jimver/cuda-toolkit@v0.2.16
+        if: matrix.config.cudaEnabled
+        id: cuda-toolkit
+        with:
+          cuda: '12.5.0'
+          sub-packages: '["nvcc", "cudart", "curand_dev", "nvrtc_dev", "nvtx"]'
+          method: 'network'
+
       - name: Install CMake and Ninja
         uses: lukka/get-cmake@latest
 
@@ -91,8 +101,10 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release `
             -DTESTS_ENABLED=ON `
             -DGUI_ENABLED=ON `
-            -DCUDA_ENABLED=OFF `
-            -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake `
+            -DCUDA_ENABLED=${{ matrix.config.cudaEnabled }} `
+            -DCMAKE_CUDA_ARCHITECTURES=50 `
+            -DCUDAToolkit_ROOT="${{ steps.cuda-toolkit.outputs.CUDA_PATH }}" `
+            -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake" `
             -DVCPKG_TARGET_TRIPLET=x64-windows-release
           ninja
 
