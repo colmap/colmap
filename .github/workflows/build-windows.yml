@@ -21,14 +21,21 @@ jobs:
             cmakeBuildType: Release,
             cudaEnabled: false,
             testsEnabled: true,
-            exportPackage: true,
+            exportPackage: false,
           },
           {
             os: windows-2022,
             cmakeBuildType: Release,
             cudaEnabled: true,
             testsEnabled: true,
-            exportPackage: false,
+            exportPackage: true,
+          },
+          {
+            os: windows-2022,
+            cmakeBuildType: Release,
+            cudaEnabled: false,
+            testsEnabled: true,
+            exportPackage: true,
           },
         ]
 
@@ -145,9 +152,16 @@ jobs:
 
       - name: Upload package
         uses: actions/upload-artifact@v4
-        if: matrix.config.exportPackage
+        if: ${{ matrix.config.exportPackage && matrix.config.cudaEnabled }}
         with:
-          name: colmap-x64-windows
+          name: colmap-x64-windows-cuda
+          path: build/install
+
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        if: ${{ matrix.config.exportPackage && !matrix.config.cudaEnabled }}
+        with:
+          name: colmap-x64-windows-nocuda
           path: build/install
 
       - name: Cleanup compiler cache
