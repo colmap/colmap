@@ -130,15 +130,10 @@ jobs:
           cd build
           ninja install
 
-          $test_feature = ""
-          if (${{ matrix.config.testsEnabled }}) {
-            $test_feature = "--x-feature=tests"
-          }
-          $cuda_feature = ""
-          if (${{ matrix.config.cudaEnabled }}) {
-            $cuda_feature = "--x-feature=cuda"
-          }
-          ../vcpkg/vcpkg.exe install --x-feature=gui $tests_feature $cuda_feature
+          ../vcpkg/vcpkg.exe install `
+              --x-feature=gui `
+              if ($${{ matrix.config.testsEnabled }}) { echo "--x-feature=tests" } `
+              if ($${{ matrix.config.cudaEnabled }}) { echo "--x-feature=cuda" }
           ../vcpkg/vcpkg.exe export --raw --output-dir vcpkg_export --output colmap
           cp vcpkg_export/colmap/installed/x64-windows/bin/*.dll install/bin
           cp -r vcpkg_export/colmap/installed/x64-windows/plugins install
