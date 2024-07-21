@@ -83,7 +83,7 @@ jobs:
         id: cuda-toolkit
         with:
           cuda: '12.5.0'
-          sub-packages: '["nvcc", "cudart", "curand_dev", "nvrtc_dev", "nvtx"]'
+          sub-packages: '["nvcc", "nvtx", "cudart", "curand", "curand_dev", "nvrtc_dev"]'
           method: 'network'
 
       - name: Install CMake and Ninja
@@ -149,6 +149,7 @@ jobs:
           cp vcpkg_export/colmap/installed/x64-windows-release/bin/*.dll install/bin
           cp -r vcpkg_export/colmap/installed/x64-windows/plugins install
           if ($${{ matrix.config.cudaEnabled }}) {
+              ls "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/bin/"
               cp "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/bin/cudart64_*.dll" install/bin
               cp "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/bin/curand64_*.dll" install/bin
           }
