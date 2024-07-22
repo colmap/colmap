@@ -12,6 +12,7 @@ install-debug/
 install-release/
 data/
 doc/_build
+vcpkg_installed/
 
 # Compiled Object files
 *.slo
