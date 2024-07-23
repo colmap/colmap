@@ -1,6 +1,5 @@
 COLMAP 3.10 (07/23/2024)
 ------------------------
-
 * Add missing "include <memory>" needed for unique_ptr by @Tobias-Fischer in https://github.com/colmap/colmap/pull/2338
 * Support decoding multi-byte characters in Python script by @jot-jt in https://github.com/colmap/colmap/pull/2344
 * Split Dockerfile in two stages: builder and runtime. by @pablospe in https://github.com/colmap/colmap/pull/2347
