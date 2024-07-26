@@ -89,13 +89,13 @@ jobs:
           cd doc
           make html
 
-      # - name: Deploy to external repos
-      #   uses: peaceiris/actions-gh-pages@v3
-      #   with:
-      #     deploy_key: ${{ inputs.deploy-token }}
-      #     external_repository: ${{ inputs.external-repo }}
-      #     publish_branch: ${{ inputs.external-repo-branch }}
-      #     publish_dir: ${{ inputs.docs-build }}
+      - name: Deploy to external repos
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          deploy_key: ${{ secrets.GITHUB_TOKEN }}
+          external_repository: colmap/colmap.github.io
+          publish_branch: master
+          publish_dir: doc/_build/html
 
       - uses: actions/cache@v4
         id: cache-builds
