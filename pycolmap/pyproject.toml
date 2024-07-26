@@ -4,6 +4,9 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "pycolmap"
+# WARNING: This version must follow the MAJOR.MINOR.PATCH format. If only
+# MAJOR.MINOR is used, cibuildwheel will add a .dev0 patch version, which
+# results in releasing a pre-release version on PyPI.
 version = "3.11.dev0"
 description = "COLMAP bindings"
 readme = "README.md"
