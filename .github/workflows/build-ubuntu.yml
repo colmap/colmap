@@ -85,7 +85,7 @@ jobs:
       - name: Build documentation
         run: |
           sudo apt-get install -y python3 python-is-python3
-          pip install sphinx sphinx_rtd_theme
+          pip install sphinx==7.4.7 sphinx_rtd_theme==2.0.0
           cd doc
           make html
 
