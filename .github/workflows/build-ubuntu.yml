@@ -24,6 +24,7 @@ jobs:
             cudaEnabled: false,
             e2eTests: true,
             checkCodeFormat: true,
+            buildDocs: true,
           },
           {
             os: ubuntu-22.04,
@@ -33,6 +34,7 @@ jobs:
             cudaEnabled: true,
             e2eTests: false,
             checkCodeFormat: false,
+            buildDocs: false,
           },
           {
             os: ubuntu-22.04,
@@ -42,6 +44,7 @@ jobs:
             cudaEnabled: false,
             e2eTests: false,
             checkCodeFormat: false,
+            buildDocs: false,
           },
           {
             os: ubuntu-22.04,
@@ -51,6 +54,7 @@ jobs:
             cudaEnabled: false,
             e2eTests: false,
             checkCodeFormat: false,
+            buildDocs: false,
           },
           {
             os: ubuntu-20.04,
@@ -60,6 +64,7 @@ jobs:
             cudaEnabled: false,
             e2eTests: false,
             checkCodeFormat: false,
+            buildDocs: false,
           },
           {
             os: ubuntu-20.04,
@@ -69,6 +74,7 @@ jobs:
             cudaEnabled: true,
             e2eTests: false,
             checkCodeFormat: false,
+            buildDocs: false,
           },
         ]
 
@@ -83,13 +89,15 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Build documentation
+        if: matrix.config.buildDocs
         run: |
           sudo apt-get install -y python3 python-is-python3
           pip install sphinx sphinx_rtd_theme
           cd doc
           make html
 
-      - name: Deploy to external repos
+      - name: Publish docs
+        if: matrix.config.buildDocs
         uses: peaceiris/actions-gh-pages@v4
         with:
           deploy_key: ${{ secrets.GITHUB_TOKEN }}
