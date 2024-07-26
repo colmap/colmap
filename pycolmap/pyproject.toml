@@ -14,6 +14,7 @@ authors = [
   { name = "Johannes Schönberger", email = "jsch@demuc.de" },
   { name = "Mihai Dusmanu", email = "mihai.dusmanu@gmail.com" },
   { name = "Paul-Edouard Sarlin", email = "psarlin@ethz.ch" },
+  { name = "Shaohui Liu", email = "b1ueber2y@gmail.com" },
   { name = "Philipp Lindenberger", email = "plindenbe@ethz.ch" },
 ]
 license = {text = "BSD-3-Clause"}
