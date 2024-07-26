@@ -81,6 +81,22 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Build documentation
+        run: |
+          sudo apt-get install -y python3 python-is-python3
+          pip install sphinx
+          cd doc
+          make html
+
+      # - name: Deploy to external repos
+      #   uses: peaceiris/actions-gh-pages@v3
+      #   with:
+      #     deploy_key: ${{ inputs.deploy-token }}
+      #     external_repository: ${{ inputs.external-repo }}
+      #     publish_branch: ${{ inputs.external-repo-branch }}
+      #     publish_dir: ${{ inputs.docs-build }}
+
       - uses: actions/cache@v4
         id: cache-builds
         with:
