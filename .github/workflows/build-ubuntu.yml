@@ -100,7 +100,7 @@ jobs:
         if: matrix.config.buildDocs
         uses: peaceiris/actions-gh-pages@v4
         with:
-          deploy_key: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           external_repository: colmap/colmap.github.io
           publish_branch: master
           publish_dir: doc/_build/html
