@@ -482,10 +482,8 @@ struct Point3dAlignmentCostFunction {
     const Eigen::Matrix<T, 3, 1> transform_point =
         T_q * EigenVector3Map<T>(point) * scale[0] +
         EigenVector3Map<T>(transform_t);
-    for (size_t i = 0; i < 3; ++i) {
-      residuals_ptr[i] = transform_point[i] - T(ref_point_[i]);
-    }
     Eigen::Map<Eigen::Matrix<T, 3, 1>> residuals(residuals_ptr);
+    residuals = transform_point - ref_point_.cast<T>();
     residuals.applyOnTheLeft(sqrt_information_point_.template cast<T>());
     return true;
   }
