@@ -409,6 +409,10 @@ Image Database::ReadImage(const image_t image_id) const {
 
   SQLITE3_CALL(sqlite3_reset(sql_stmt_read_image_id_));
 
+  if (ExistsPosePrior(image_id)) {
+    image.WorldFromCamPrior() = ReadPosePrior(image_id);
+  }
+
   return image;
 }
 
@@ -428,6 +432,10 @@ Image Database::ReadImageWithName(const std::string& name) const {
 
   SQLITE3_CALL(sqlite3_reset(sql_stmt_read_image_name_));
 
+  if (ExistsPosePrior(image.ImageId())) {
+    image.WorldFromCamPrior() = ReadPosePrior(image.ImageId());
+  }
+
   return image;
 }
 
@@ -440,6 +448,12 @@ std::vector<Image> Database::ReadAllImages() const {
   }
 
   SQLITE3_CALL(sqlite3_reset(sql_stmt_read_images_));
+
+  for (auto& image : images) {
+    if (ExistsPosePrior(image.ImageId())) {
+      image.WorldFromCamPrior() = ReadPosePrior(image.ImageId());
+    }
+  }
 
   return images;
 }

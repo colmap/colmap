@@ -69,6 +69,19 @@ struct BundleAdjustmentOptions {
   // due to the overhead of threading.
   int min_num_residuals_for_multi_threading = 50000;
 
+  // Whether to use prior camera positions
+  bool use_prior_position = false;
+
+  // Standard deviation on the position priors
+  Eigen::Vector3d prior_position_std = Eigen::Vector3d::Ones();
+
+  // Whether to use a robust loss on prior locations
+  bool use_robust_loss_on_prior_position = false;
+
+  // Threshold on the residual for the robust loss
+  // (chi2 for 3DOF at 95% = 7.815)
+  double prior_position_loss_scale = 7.815;
+
   // Ceres-Solver options.
   ceres::Solver::Options solver_options;
 
@@ -187,7 +200,7 @@ class BundleAdjuster {
   // Get the Ceres solver summary after the last call to `Solve`.
   const ceres::Solver::Summary& Summary() const;
 
- private:
+ protected:
   void AddImageToProblem(image_t image_id,
                          Reconstruction* reconstruction,
                          ceres::LossFunction* loss_function);
@@ -196,7 +209,6 @@ class BundleAdjuster {
                          Reconstruction* reconstruction,
                          ceres::LossFunction* loss_function);
 
- protected:
   void ParameterizeCameras(Reconstruction* reconstruction);
   void ParameterizePoints(Reconstruction* reconstruction);
 
@@ -268,6 +280,46 @@ class RigBundleAdjuster : public BundleAdjuster {
   // The Quaternions added to the problem, used to set the local
   // parameterization once after setting up the problem.
   std::unordered_set<double*> parameterized_quats_;
+};
+
+class PositionPriorBundleAdjuster : public BundleAdjuster {
+ public:
+  struct Options {
+    // Whether to use prior camera positions
+    bool use_prior_position = true;
+
+    // Standard deviation on the position priors
+    Eigen::Matrix3d prior_position_covariance = Eigen::Matrix3d::Identity();
+  };
+
+  PositionPriorBundleAdjuster(const BundleAdjustmentOptions& options,
+                              const BundleAdjustmentConfig& config);
+
+  PositionPriorBundleAdjuster(const BundleAdjustmentOptions& options,
+                              const Options& prior_options,
+                              const BundleAdjustmentConfig& config);
+
+  bool Solve(Reconstruction* reconstruction);
+
+  // Set up the problem
+  void SetUpProblem(Reconstruction* reconstruction,
+                    ceres::LossFunction* loss_function,
+                    ceres::LossFunction* prior_loss_function);
+
+ private:
+  void AddImageToProblem(image_t image_id,
+                         Reconstruction* reconstruction,
+                         ceres::LossFunction* loss_function,
+                         ceres::LossFunction* prior_loss_function);
+
+  Options prior_options_;
+
+  std::unique_ptr<ceres::LossFunction> prior_loss_function_;
+
+  // Rotation from camera frame to world frame (i.e. prior pos frame)
+  // to be used to allow the alignment w.r.t. to the position priors
+  // through a common rotation even when some poses are set as const
+  Eigen::Vector4d qwc0_ = Eigen::Vector4d(1.0, 0.0, 0.0, 0.0);
 };
 
 void PrintSolverSummary(const ceres::Solver::Summary& summary,

@@ -120,4 +120,9 @@ void BindCostFunctions(py::module& m_parent) {
         &MetricRelativePoseErrorCostFunction::Create,
         "i_from_j"_a,
         "covariance_j"_a);
+
+  m.def("PositionPriorErrorCost",
+        &PositionPriorErrorCostFunction::Create,
+        "world_from_cam_position_prior"_a,
+        "covariance"_a);
 }

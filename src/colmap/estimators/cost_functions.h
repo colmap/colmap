@@ -453,6 +453,43 @@ struct MetricRelativePoseErrorCostFunction {
   const EigenMatrix6d sqrt_information_j_;
 };
 
+// 3-DoF error on the cam to world position.
+struct PositionPriorErrorCostFunction {
+ public:
+  PositionPriorErrorCostFunction(
+      const Eigen::Vector3d& world_from_cam_position_prior,
+      const Eigen::Matrix3d& covariance)
+      : world_from_cam_position_prior_(world_from_cam_position_prior),
+        sqrt_information_prior_(SqrtInformation(covariance)) {}
+
+  static ceres::CostFunction* Create(
+      Eigen::Vector3d& world_from_cam_position_prior,
+      const Eigen::Matrix3d& covariance) {
+    return (new ceres::
+                AutoDiffCostFunction<PositionPriorErrorCostFunction, 3, 4, 3>(
+                    new PositionPriorErrorCostFunction(
+                        world_from_cam_position_prior, covariance)));
+  }
+
+  template <typename T>
+  bool operator()(const T* const cam_from_world_q,
+                  const T* const cam_from_world_t,
+                  T* residuals_ptr) const {
+    Eigen::Map<Eigen::Matrix<T, 3, 1>> residuals(residuals_ptr);
+    residuals = (EigenQuaternionMap<T>(cam_from_world_q).inverse() *
+                 -EigenVector3Map<T>(cam_from_world_t)) -
+                world_from_cam_position_prior_.cast<T>();
+
+    residuals.applyOnTheLeft(sqrt_information_prior_.cast<T>());
+
+    return true;
+  }
+
+ private:
+  const Eigen::Vector3d world_from_cam_position_prior_;
+  const Eigen::Matrix3d sqrt_information_prior_;
+};
+
 // A cost function that wraps another one and whiten its residuals with an
 // isotropic covariance, i.e. assuming that the variance is identical in and
 // independent between each dimension of the residual.

@@ -717,6 +717,11 @@ bool IncrementalMapper::AdjustGlobalBundle(
     ba_options_tmp.solver_options.max_linear_solver_iterations = 200;
   }
 
+  // Only use prior motions if at least 3 images have been registered.
+  if (ba_options_tmp.use_prior_position) {
+    ba_options_tmp.use_prior_position = reg_image_ids.size() > 2;
+  }
+
   // Avoid degeneracies in bundle adjustment.
   obs_manager_->FilterObservationsWithNegativeDepth();
 
@@ -735,16 +740,22 @@ bool IncrementalMapper::AdjustGlobalBundle(
     }
   }
 
-  // Fix 7-DOFs of the bundle adjustment problem.
-  ba_config.SetConstantCamPose(reg_image_ids[0]);
-  if (!options.fix_existing_images ||
-      !existing_image_ids_.count(reg_image_ids[1])) {
-    ba_config.SetConstantCamPositions(reg_image_ids[1], {0});
-  }
+  if (!ba_options_tmp.use_prior_position) {
+    // Fix 7-DOFs of the bundle adjustment problem.
+    ba_config.SetConstantCamPose(reg_image_ids[0]);
+    if (!options.fix_existing_images ||
+        !existing_image_ids_.count(reg_image_ids[1])) {
+      ba_config.SetConstantCamPositions(reg_image_ids[1], {0});
+    }
 
-  // Run bundle adjustment.
-  BundleAdjuster bundle_adjuster(ba_options_tmp, ba_config);
-  return bundle_adjuster.Solve(reconstruction_.get());
+    // Run bundle adjustment.
+    BundleAdjuster bundle_adjuster(ba_options_tmp, ba_config);
+    return bundle_adjuster.Solve(reconstruction_.get());
+  } else {
+    PositionPriorBundleAdjuster prior_bundle_adjuster(ba_options_tmp,
+                                                      ba_config);
+    return prior_bundle_adjuster.Solve(reconstruction_.get());
+  }
 }
 
 void IncrementalMapper::IterativeLocalRefinement(
@@ -792,7 +803,7 @@ void IncrementalMapper::IterativeGlobalRefinement(
   for (int i = 0; i < max_num_refinements; ++i) {
     const size_t num_observations = reconstruction_->ComputeNumObservations();
     AdjustGlobalBundle(options, ba_options);
-    if (normalize_reconstruction) {
+    if (normalize_reconstruction && !ba_options.use_prior_position) {
       // Normalize scene for numerical stability and
       // to avoid large scale changes in the viewer.
       reconstruction_->Normalize();

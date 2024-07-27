@@ -29,7 +29,10 @@
 
 #include "colmap/estimators/bundle_adjustment.h"
 
+#include "colmap/estimators/alignment.h"
 #include "colmap/estimators/cost_functions.h"
+#include "colmap/estimators/similarity_transform.h"
+#include "colmap/optim/loransac.h"
 #include "colmap/scene/projection.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/misc.h"
@@ -807,6 +810,257 @@ void RigBundleAdjuster::ComputeCameraRigPoses(
 void RigBundleAdjuster::ParameterizeCameraRigs(Reconstruction* reconstruction) {
   for (double* cam_from_rig_rotation : parameterized_quats_) {
     SetQuaternionManifold(problem_.get(), cam_from_rig_rotation);
+  }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// PositionPriorBundleAdjuster
+////////////////////////////////////////////////////////////////////////////////
+
+PositionPriorBundleAdjuster::PositionPriorBundleAdjuster(
+    const BundleAdjustmentOptions& options,
+    const BundleAdjustmentConfig& config)
+    : BundleAdjuster(options, config) {
+  prior_options_.prior_position_covariance =
+      options_.prior_position_std.cwiseAbs2().asDiagonal();
+}
+
+bool PositionPriorBundleAdjuster::Solve(Reconstruction* reconstruction) {
+  loss_function_ =
+      std::unique_ptr<ceres::LossFunction>(options_.CreateLossFunction());
+
+  if (options_.use_robust_loss_on_prior_position) {
+    prior_loss_function_ =
+        std::make_unique<ceres::CauchyLoss>(options_.prior_position_loss_scale);
+  }
+
+  // Compute initial squared error between position priors & current images
+  // projection center and prepare data for RANSAC-based sim3 alignment
+  std::vector<double> vini_err2_wrt_prior;
+  std::vector<Eigen::Vector3d> v_src, v_dst;
+  vini_err2_wrt_prior.reserve(config_.NumImages());
+  v_src.reserve(config_.NumImages());
+  v_dst.reserve(config_.NumImages());
+  for (const auto& image_id : config_.Images()) {
+    const auto& image = reconstruction->Image(image_id);
+    if (image.HasPosePrior()) {
+      v_src.push_back(image.ProjectionCenter());
+      v_dst.push_back(image.WorldFromCamPrior().position);
+      vini_err2_wrt_prior.push_back(
+          (v_src.back() - v_dst.back()).squaredNorm());
+    }
+  }
+
+  // Fallback to classic BA if not enough registered images with a prior
+  // position
+  prior_options_.use_prior_position = v_src.size() > 2;
+
+  // Fix 7-DOFs of BA problem for classic BA
+  if (!prior_options_.use_prior_position) {
+    const std::vector<image_t>& reg_image_ids = reconstruction->RegImageIds();
+    config_.SetConstantCamPose(reg_image_ids[0]);
+    config_.SetConstantCamPositions(reg_image_ids[1], {0});
+  }
+
+  // Apply RANSAC-based Sim3 Alignment
+  if (prior_options_.use_prior_position) {
+    LOG(INFO) << "Initial alignment error w.r.t. prior position:";
+    LOG(INFO) << "  - rmse:   " << std::sqrt(Mean(vini_err2_wrt_prior)) << " m";
+    LOG(INFO) << "  - median: " << std::sqrt(Median(vini_err2_wrt_prior))
+              << " m";
+
+    RANSACOptions ransac_options;
+    ransac_options.max_error = (options_.prior_position_std * 3.).norm();
+
+    LORANSAC<SimilarityTransformEstimator<3, true>,
+             SimilarityTransformEstimator<3, true>>
+        ransac(ransac_options);
+
+    const auto report = ransac.Estimate(v_src, v_dst);
+
+    if (report.success) {
+      // Apply sim3 transform
+      const Sim3d tform = Sim3d::FromMatrix(report.model);
+      reconstruction->Transform(tform);
+
+      std::vector<double> verr2_wrt_prior;
+      verr2_wrt_prior.reserve(vini_err2_wrt_prior.size());
+      for (const auto& image_id : config_.Images()) {
+        const auto& image = reconstruction->Image(image_id);
+        if (image.HasPosePrior()) {
+          verr2_wrt_prior.push_back(
+              (image.ProjectionCenter() - image.WorldFromCamPrior().position)
+                  .squaredNorm());
+        }
+      }
+
+      LOG(INFO) << "Rigid Sim3 alignment w.r.t. prior position:";
+      LOG(INFO) << "  - scale : " << tform.scale;
+      LOG(INFO) << "  - trans : " << tform.translation.transpose();
+      // LOG(INFO) << "  - rot : " << tform.rotation.coeffs().transpose();
+
+      LOG(INFO) << "Sim3 alignment error w.r.t. prior position:";
+      LOG(INFO) << "  - rmse:   " << std::sqrt(Mean(verr2_wrt_prior)) << " m";
+      LOG(INFO) << "  - median: " << std::sqrt(Median(verr2_wrt_prior)) << " m";
+
+    } else {
+      LOG(WARNING) << "Sim3 alignment w.r.t. prior position failed!";
+    }
+  }
+
+  // Put the centroid of the reconstruction to (0.,0.,0.)
+  // to avoid any numerical instability
+  Sim3d sim_to_center;
+  for (const auto& image_id : config_.Images()) {
+    sim_to_center.translation -=
+        reconstruction->Image(image_id).ProjectionCenter();
+  }
+  sim_to_center.translation /= config_.NumImages();
+
+  reconstruction->Transform(sim_to_center);
+
+  // Transform the priors according to the centroid projection
+  for (const auto image_id : config_.Images()) {
+    auto& image = reconstruction->Image(image_id);
+    if (image.HasPosePrior()) {
+      image.WorldFromCamPrior().position =
+          sim_to_center * image.WorldFromCamPrior().position;
+    }
+  }
+
+  SetUpProblem(
+      reconstruction, loss_function_.get(), prior_loss_function_.get());
+
+  if (problem_->NumResiduals() == 0) {
+    return false;
+  }
+
+  ceres::Solver::Options solver_options =
+      SetUpSolverOptions(*problem_, options_.solver_options);
+
+  ceres::Solve(solver_options, problem_.get(), &summary_);
+
+  // Unproject centroid from (0.,0.,0.)
+  const Sim3d sim_from_center = Inverse(sim_to_center);
+  reconstruction->Transform(sim_from_center);
+  for (const auto image_id : config_.Images()) {
+    auto& image = reconstruction->Image(image_id);
+    if (image.HasPosePrior()) {
+      image.WorldFromCamPrior().position =
+          sim_from_center * image.WorldFromCamPrior().position;
+    }
+  }
+
+  if (options_.print_summary || VLOG_IS_ON(1)) {
+    PrintSolverSummary(summary_, "Position Prior Bundle adjustment report");
+  }
+
+  return true;
+}
+
+void PositionPriorBundleAdjuster::SetUpProblem(
+    Reconstruction* reconstruction,
+    ceres::LossFunction* loss_function,
+    ceres::LossFunction* prior_loss_function) {
+  THROW_CHECK_NOTNULL(reconstruction);
+
+  // Initialize an empty problem
+  ceres::Problem::Options problem_options;
+  problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
+  problem_ = std::make_shared<ceres::Problem>(problem_options);
+
+  // Set up problem
+  // Warning: AddPointsToProblem assumes that AddImageToProblem is called first.
+  // Do not change order of instructions!
+  for (const image_t image_id : config_.Images()) {
+    AddImageToProblem(
+        image_id, reconstruction, loss_function, prior_loss_function);
+  }
+  for (const auto point3D_id : config_.VariablePoints()) {
+    AddPointToProblem(point3D_id, reconstruction, loss_function);
+  }
+  for (const auto point3D_id : config_.ConstantPoints()) {
+    AddPointToProblem(point3D_id, reconstruction, loss_function);
+  }
+
+  ParameterizeCameras(reconstruction);
+  ParameterizePoints(reconstruction);
+}
+
+void PositionPriorBundleAdjuster::AddImageToProblem(
+    image_t image_id,
+    Reconstruction* reconstruction,
+    ceres::LossFunction* loss_function,
+    ceres::LossFunction* prior_loss_function) {
+  Image& image = reconstruction->Image(image_id);
+  Camera& camera = reconstruction->Camera(image.CameraId());
+
+  // CostFunction assumes unit quaternions.
+  image.CamFromWorld().rotation.normalize();
+
+  double* cam_from_world_rotation =
+      image.CamFromWorld().rotation.coeffs().data();
+  double* cam_from_world_translation = image.CamFromWorld().translation.data();
+  double* camera_params = camera.params.data();
+
+  const bool constant_cam_pose =
+      !options_.refine_extrinsics || config_.HasConstantCamPose(image_id);
+
+  // Add residuals to bundle adjustment problem.
+  size_t num_observations = 0;
+  for (const Point2D& point2D : image.Points2D()) {
+    if (!point2D.HasPoint3D()) {
+      continue;
+    }
+
+    num_observations += 1;
+    point3D_num_observations_[point2D.point3D_id] += 1;
+
+    Point3D& point3D = reconstruction->Point3D(point2D.point3D_id);
+    assert(point3D.track.Length() > 1);
+
+    if (constant_cam_pose) {
+      problem_->AddResidualBlock(
+          CameraCostFunction<ReprojErrorConstantPoseCostFunction>(
+              camera.model_id, image.CamFromWorld(), point2D.xy),
+          loss_function,
+          point3D.xyz.data(),
+          camera_params);
+    } else {
+      problem_->AddResidualBlock(CameraCostFunction<ReprojErrorCostFunction>(
+                                     camera.model_id, point2D.xy),
+                                 loss_function,
+                                 cam_from_world_rotation,
+                                 cam_from_world_translation,
+                                 point3D.xyz.data(),
+                                 camera_params);
+    }
+  }
+
+  if (num_observations > 0) {
+    camera_ids_.insert(image.CameraId());
+
+    // Set pose parameterization.
+    if (!constant_cam_pose) {
+      SetQuaternionManifold(problem_.get(), cam_from_world_rotation);
+      if (config_.HasConstantCamPositions(image_id)) {
+        const std::vector<int>& constant_position_idxs =
+            config_.ConstantCamPositions(image_id);
+        SetSubsetManifold(3,
+                          constant_position_idxs,
+                          problem_.get(),
+                          cam_from_world_translation);
+      }
+    }
+
+    if (prior_options_.use_prior_position && image.HasPosePrior()) {
+      problem_->AddResidualBlock(PositionPriorErrorCostFunction::Create(
+                                     image.WorldFromCamPrior().position,
+                                     prior_options_.prior_position_covariance),
+                                 prior_loss_function,
+                                 cam_from_world_rotation,
+                                 cam_from_world_translation);
+    }
   }
 }
 

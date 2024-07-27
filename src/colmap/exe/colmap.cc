@@ -128,6 +128,8 @@ int main(int argc, char** argv) {
   commands.emplace_back("patch_match_stereo", &colmap::RunPatchMatchStereo);
   commands.emplace_back("point_filtering", &colmap::RunPointFiltering);
   commands.emplace_back("point_triangulator", &colmap::RunPointTriangulator);
+  commands.emplace_back("position_prior_mapper",
+                        &colmap::RunPositionPriorMapper);
   commands.emplace_back("poisson_mesher", &colmap::RunPoissonMesher);
   commands.emplace_back("project_generator", &colmap::RunProjectGenerator);
   commands.emplace_back("rig_bundle_adjuster", &colmap::RunRigBundleAdjuster);
