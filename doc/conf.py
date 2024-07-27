@@ -52,8 +52,8 @@ copyright = u"2023, Johannes L. Schoenberger"
 # |version| and |release|, also used in various other places throughout the
 # built documents.
 #
-# The short X.Y version.
-version = "3.10-dev"
+# The short MAJOR.MINOR.PATCH version.
+version = "3.11.0.dev0"
 # The full version, including alpha/beta/rc tags.
 release = version
 
