@@ -466,7 +466,8 @@ struct MetricRelativePoseErrorCostFunction {
 
 // Cost function for aligning one 3D point with a reference 3D point with
 // covariance. Convention is similar to colmap::Sim3d
-// r = scale * R * point + t - ref_point
+// residual = scale_b_from_a * R_b_from_a * point_in_a + t_b_from_a -
+// ref_point_in_b
 struct Point3dAlignmentCostFunction {
  public:
   Point3dAlignmentCostFunction(const Eigen::Vector3d& ref_point,
@@ -492,10 +493,8 @@ struct Point3dAlignmentCostFunction {
     const Eigen::Matrix<T, 3, 1> transform_point =
         T_q * EigenVector3Map<T>(point) * scale[0] +
         EigenVector3Map<T>(transform_t);
-    for (size_t i = 0; i < 3; ++i) {
-      residuals_ptr[i] = transform_point[i] - T(ref_point_[i]);
-    }
     Eigen::Map<Eigen::Matrix<T, 3, 1>> residuals(residuals_ptr);
+    residuals = transform_point - ref_point_.cast<T>();
     residuals.applyOnTheLeft(sqrt_information_point_.template cast<T>());
     return true;
   }
