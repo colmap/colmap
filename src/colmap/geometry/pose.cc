@@ -34,6 +34,7 @@
 #include "colmap/util/eigen_alignment.h"
 
 #include <Eigen/Eigenvalues>
+#include <Eigen/Geometry>
 
 namespace colmap {
 
@@ -151,6 +152,31 @@ Rigid3d InterpolateCameraPoses(const Rigid3d& cam_from_world1,
       cam_from_world2.translation - cam_from_world1.translation;
   return Rigid3d(cam_from_world1.rotation.slerp(t, cam_from_world2.rotation),
                  cam_from_world1.translation + translation12 * t);
+}
+
+Eigen::Quaterniond QuaternionFromAngleAxis(const Eigen::Vector3d& omega) {
+  const double theta = omega.norm();
+  if (theta < std::numeric_limits<double>::epsilon())
+    return Eigen::Quaterniond::Identity();
+  else {
+    Eigen::Vector3d axis = omega / theta;
+    Eigen::Quaterniond q(Eigen::AngleAxisd(theta, axis));
+    return q;
+  }
+}
+
+Eigen::Matrix3d RightJacobianFromAngleAxis(const Eigen::Vector3d& omega) {
+  Eigen::Matrix3d skew_omega = CrossProductMatrix(omega);
+  const double theta = omega.norm();
+  if (theta < 1e-6) {
+    return Eigen::Matrix3d::Identity() - 0.5 * skew_omega;
+  } else {
+    const Eigen::Matrix3d M = skew_omega / theta;
+    return Eigen::Matrix3d::Identity() -
+           (((1.0 - std::cos(theta)) / theta) * Eigen::Matrix3d::Identity() +
+            (1.0 - std::sin(theta) / theta) * M) *
+               M;
+  }
 }
 
 namespace {
