@@ -543,7 +543,7 @@ void IncrementalMapperController::TriangulateReconstruction(
   THROW_CHECK(LoadDatabase());
   IncrementalMapper mapper(database_cache_);
   mapper.BeginReconstruction(reconstruction);
-  
+
   if (!fixed_image_ids.empty()) {
     mapper.SetFixedImageIds(fixed_image_ids);
   }

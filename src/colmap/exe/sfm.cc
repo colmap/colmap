@@ -183,7 +183,6 @@ int RunColorExtractor(int argc, char** argv) {
   return EXIT_SUCCESS;
 }
 
-
 int RunIncrementalModelRefiner(int argc, char** argv) {
   std::string input_path;
   std::string output_path;
@@ -233,8 +232,10 @@ int RunIncrementalModelRefiner(int argc, char** argv) {
     }
   }
 
-  IncrementalMapperController mapper(
-      options.mapper, *options.image_path, *options.database_path, reconstruction_manager);
+  IncrementalMapperController mapper(options.mapper,
+                                     *options.image_path,
+                                     *options.database_path,
+                                     reconstruction_manager);
   mapper.TriangulateReconstruction(reconstruction, image_ids_fixed_poses);
 
   reconstruction->Write(output_path);
