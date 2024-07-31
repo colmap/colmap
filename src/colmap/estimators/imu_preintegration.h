@@ -243,7 +243,7 @@ class PreintegratedImuMeasurementCostFunction {
     EigenAngleAxisToQuaternion(omega_bias.data(), Dq_bias.coeffs().data());
     const Eigen::Quaternion<T> Dq = measurement_.DeltaR().cast<T>() * Dq_bias;
     const Eigen::Quaternion<T> param_from_measured_q =
-        Dq.inverse() * j_from_i_q;
+        (Dq.inverse() * j_from_i_q).normalized();
     EigenQuaternionToAngleAxis(param_from_measured_q.coeffs().data(),
                                residuals);
     // translation: residuals[3:6]
