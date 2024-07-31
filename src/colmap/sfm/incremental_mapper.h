@@ -146,7 +146,7 @@ class IncrementalMapper {
       std::shared_ptr<const DatabaseCache> database_cache);
 
   // Set existing_image_ids_ to a custom list of images
-  // This will be overridden in at the beginning of TriangulateReconstruction in BeginReconstruction
+  // This will be used at the beginning of TriangulateReconstruction
   void SetFixedImageIds(std::unordered_set<image_t> image_ids);
 
   // Prepare the mapper for a new reconstruction, which might have existing

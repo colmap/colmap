@@ -109,7 +109,6 @@ IncrementalMapper::IncrementalMapper(
       num_shared_reg_images_(0) {}
 
 void IncrementalMapper::SetFixedImageIds(std::unordered_set<image_t> image_ids) {
-
   existing_image_ids_ = image_ids;
 }
 

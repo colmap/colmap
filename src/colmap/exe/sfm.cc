@@ -198,28 +198,30 @@ int RunIncrementalModelRefiner(int argc, char** argv) {
   options.AddMapperOptions();
   options.Parse(argc, argv);
 
-  if (!ExistsDir(input_path)) {
-    std::cerr << "ERROR: `input_path` is not a directory\n";
-    return EXIT_FAILURE;
+  options.mapper->fix_existing_images = true;
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  if (input_path != "") {
+    if (!ExistsDir(input_path)) {
+      LOG(ERROR) << "`input_path` is not a directory.";
+      return EXIT_FAILURE;
+    }
+    reconstruction_manager->Read(input_path);
   }
 
   if (!ExistsDir(output_path)) {
-    std::cerr << "ERROR: `output_path` is not a directory\n";
+    LOG(ERROR) << "`output_path` is not a directory.";
     return EXIT_FAILURE;
   }
 
-  //  auto options_tmp = std::make_shared<IncrementalMapperOptions>(options.mapper);
-  options.mapper->fix_existing_images = true;
-  //  options_tmp->fix_existing_images = true;
-  //  options_tmp->ba_refine_focal_length = refine_intrinsics;
-  //  options_tmp->ba_refine_principal_point = false;
-  //  options_tmp->ba_refine_extra_params = refine_intrinsics;
-  PrintHeading1("Loading model");
-
-  auto reconstruction = std::make_shared<Reconstruction>();
-  reconstruction->Read(input_path);
+  if (!image_list_path.empty()) {
+    const auto image_names = ReadTextFileLines(image_list_path);
+    options.mapper->image_names =
+        std::unordered_set<std::string>(image_names.begin(), image_names.end());
+  }
 
   // Loads the list of images for which the camera pose will be fixed.
+  auto reconstruction = reconstruction_manager->Get(0);
   std::unordered_set<image_t> image_ids_fixed_poses;
   if (!image_list_path.empty()) {
     const auto image_names = ReadTextFileLines(image_list_path);
@@ -231,7 +233,6 @@ int RunIncrementalModelRefiner(int argc, char** argv) {
     }
   }
 
-  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   IncrementalMapperController mapper(
       options.mapper, *options.image_path, *options.database_path, reconstruction_manager);
   mapper.TriangulateReconstruction(reconstruction, image_ids_fixed_poses);
