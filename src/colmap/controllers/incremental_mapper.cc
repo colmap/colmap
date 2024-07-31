@@ -538,11 +538,15 @@ void IncrementalMapperController::Reconstruct(
 }
 
 void IncrementalMapperController::TriangulateReconstruction(
-    const std::shared_ptr<Reconstruction>& reconstruction) {
+    const std::shared_ptr<Reconstruction>& reconstruction,
+    const std::unordered_set<image_t> fixed_image_ids) {
   THROW_CHECK(LoadDatabase());
   IncrementalMapper mapper(database_cache_);
   mapper.BeginReconstruction(reconstruction);
 
+  if (!fixed_image_ids.empty()) {
+    mapper.SetFixedImageIds(fixed_image_ids);
+  }
   LOG(INFO) << "Iterative triangulation";
   const std::vector<image_t>& reg_image_ids = reconstruction->RegImageIds();
   for (size_t i = 0; i < reg_image_ids.size(); ++i) {
