@@ -339,3 +339,13 @@ inline void PyWait(Thread* thread, double gap = 2.0) {
   // after finishing join the thread to avoid abort
   thread->Wait();
 }
+
+// Test if pyceres is available
+inline bool IsPyceresAvailable() {
+  try {
+    py::module::import("pyceres");
+  } catch (const py::error_already_set&) {
+    return false;
+  }
+  return true;
+}

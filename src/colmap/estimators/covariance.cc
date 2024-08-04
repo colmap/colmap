@@ -29,7 +29,7 @@
 
 #include "colmap/estimators/covariance.h"
 
-#include "colmap/estimators/cost_functions.h"
+#include "colmap/estimators/manifold.h"
 
 #include <ceres/crs_matrix.h>
 

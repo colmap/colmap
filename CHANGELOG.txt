@@ -1,3 +1,93 @@
+COLMAP 3.10 (07/23/2024)
+------------------------
+* Add missing "include <memory>" needed for unique_ptr by @Tobias-Fischer in https://github.com/colmap/colmap/pull/2338
+* Support decoding multi-byte characters in Python script by @jot-jt in https://github.com/colmap/colmap/pull/2344
+* Split Dockerfile in two stages: builder and runtime. by @pablospe in https://github.com/colmap/colmap/pull/2347
+* Dockerfile improvements by @pablospe in https://github.com/colmap/colmap/pull/2356
+* Update VCPKG commit in Windows CI by @sarlinpe in https://github.com/colmap/colmap/pull/2365
+* Simplify the creation of reprojection error cost functions by @sarlinpe in https://github.com/colmap/colmap/pull/2364
+* Migrate pycolmap by @sarlinpe in https://github.com/colmap/colmap/pull/2367
+* Rename master -> main in pycolmap CI by @sarlinpe in https://github.com/colmap/colmap/pull/2370
+* Bind SetPRNGSeed by @sarlinpe in https://github.com/colmap/colmap/pull/2369
+* Encapsulate freeimage usage from pycolmap in colmap bitmap by @ahojnnes in https://github.com/colmap/colmap/pull/2372
+* Re-generate version info on git changes by @ahojnnes in https://github.com/colmap/colmap/pull/2373
+* Consolidate colmap/pycolmap readmes, updated acknowledgements, etc. by @ahojnnes in https://github.com/colmap/colmap/pull/2374
+* Fix crashing pycolmap CI on Windows by @sarlinpe in https://github.com/colmap/colmap/pull/2383
+* Add costs for pose graph optimization by @sarlinpe in https://github.com/colmap/colmap/pull/2378
+* Switch to exception checks - v2 by @sarlinpe in https://github.com/colmap/colmap/pull/2376
+* Cleanup checks in pycolmap by @sarlinpe in https://github.com/colmap/colmap/pull/2388
+* Add RigReprojErrorConstantRigCostFunction by @sarlinpe in https://github.com/colmap/colmap/pull/2377
+* Add cost functions to pycolmap by @sarlinpe in https://github.com/colmap/colmap/pull/2393
+* Fix warning C4722 by @whuaegeanse in https://github.com/colmap/colmap/pull/2391
+* Move reconstruction IO utils to a new file by @sarlinpe in https://github.com/colmap/colmap/pull/2399
+* Acquire the GIL before returning None by @sarlinpe in https://github.com/colmap/colmap/pull/2400
+* Disentangle the controller from threading and integrate the new logic into IncrementalMapperController by @B1ueber2y in https://github.com/colmap/colmap/pull/2392
+* Simplify the low-level triangulation API by @sarlinpe in https://github.com/colmap/colmap/pull/2402
+* Initialize glog in pycolmap only if not already done by @sarlinpe in https://github.com/colmap/colmap/pull/2405
+* Adapt all the controllers to inherit from BaseController rather than Thread (except for feature extraction and matching) by @B1ueber2y in https://github.com/colmap/colmap/pull/2406
+* Update path to models.h in database docs by @diffner in https://github.com/colmap/colmap/pull/2412
+* Migrate Ubuntu CI pipelines from ADO to Github by @ahojnnes in https://github.com/colmap/colmap/pull/2411
+* Build wheels for Python 3.12 by @sarlinpe in https://github.com/colmap/colmap/pull/2416
+* Migrate MacOS CI pipeline from ADO to Github by @ahojnnes in https://github.com/colmap/colmap/pull/2418
+* Improve bindings of Database by @sarlinpe in https://github.com/colmap/colmap/pull/2413
+* Migrate Windows CI pipeline from ADO to Github by @ahojnnes in https://github.com/colmap/colmap/pull/2419
+* Reduce logging during incremental mapping by @sarlinpe in https://github.com/colmap/colmap/pull/2420
+* Migrate Docker CI from ADO to Github, remove ADO pipelines by @ahojnnes in https://github.com/colmap/colmap/pull/2422
+* Simplify IncrementalMapperController by @sarlinpe in https://github.com/colmap/colmap/pull/2421
+* Fix for glog 0.7.0 by @sarlinpe in https://github.com/colmap/colmap/pull/2428
+* Fix typo by @whuaegeanse in https://github.com/colmap/colmap/pull/2430
+* Fix RunMapper by @whuaegeanse in https://github.com/colmap/colmap/pull/2431
+* Do triangulation in the IncrementalMapperController by @sarlinpe in https://github.com/colmap/colmap/pull/2429
+* Only push a new Docker image on release by @sarlinpe in https://github.com/colmap/colmap/pull/2436
+* model aligner with type "custom" does not update reconstruction by @lpanaf in https://github.com/colmap/colmap/pull/2433
+* Define vcpkg manifest by @ahojnnes in https://github.com/colmap/colmap/pull/2426
+* Fix ordering of keyword arguments in pycolmap.rig_absolute_pose_estimation by @sarlinpe in https://github.com/colmap/colmap/pull/2440
+* Reduce the build time of pycolmap by @sarlinpe in https://github.com/colmap/colmap/pull/2443
+* Improve bindings of CorrespondenceGraph by @sarlinpe in https://github.com/colmap/colmap/pull/2476
+* Bind Reconstruction::{SetUp,ImagePairStats} by @sarlinpe in https://github.com/colmap/colmap/pull/2477
+* Add bindings for substeps of incremental mapper with a python example by @B1ueber2y in https://github.com/colmap/colmap/pull/2478
+* Debug crashing VCPKG-based CI builds by @sarlinpe in https://github.com/colmap/colmap/pull/2508
+* Upgrade to pybind11 v2.12. Fix bind_map and reconstruction.points3D by @B1ueber2y in https://github.com/colmap/colmap/pull/2502
+* Minor fix on logging for the pycolmap customized runner by @B1ueber2y in https://github.com/colmap/colmap/pull/2503
+* Fix missing public link deps, break circular feature-scene dependency by @ahojnnes in https://github.com/colmap/colmap/pull/2497
+* Avoid duplicate image allocation during undistortion by @fseegraeber in https://github.com/colmap/colmap/pull/2520
+* Fix reconstruction.points3D by @B1ueber2y in https://github.com/colmap/colmap/pull/2523
+* Fix 'std::out_of_range' error when using hierarchical_mapper by @GrayMask in https://github.com/colmap/colmap/pull/2526
+* Fix binding for std::vector<Point2D> by @sarlinpe in https://github.com/colmap/colmap/pull/2533
+* Include pybind eigen header by @tmnku in https://github.com/colmap/colmap/pull/2510
+* Fix pycolmap python pipeline for multiple models by @B1ueber2y in https://github.com/colmap/colmap/pull/2531
+* make two view geometry writable by @tmnku in https://github.com/colmap/colmap/pull/2540
+* Customized python interface for bundle adjustment by @B1ueber2y in https://github.com/colmap/colmap/pull/2509
+* Fix typos by @MaximSmolskiy in https://github.com/colmap/colmap/pull/2553
+* Implicitly convert iterator to ListPoint2D by @sarlinpe in https://github.com/colmap/colmap/pull/2558
+* Fix model_cropper not resetting image.num_points3D of cropped_rec by @ArneSchulzTUBS in https://github.com/colmap/colmap/pull/2557
+* Split pair generation and matching by @sarlinpe in https://github.com/colmap/colmap/pull/2573
+* Add ObservationManager by @sarlinpe in https://github.com/colmap/colmap/pull/2575
+* Log info about created feature extractor/matcher types by @ahojnnes in https://github.com/colmap/colmap/pull/2579
+* LSD: making the AGPL dependency optional by @zap150 in https://github.com/colmap/colmap/pull/2578
+* Disable LSD when building pycolmap wheels by @sarlinpe in https://github.com/colmap/colmap/pull/2580
+* Synthesize full two-view geometry and raw matches by @ahojnnes in https://github.com/colmap/colmap/pull/2595
+* Support Adjoint matrix computation for Rigid3d by @B1ueber2y in https://github.com/colmap/colmap/pull/2598
+* Fix cost functions for pose graph optimization by @B1ueber2y in https://github.com/colmap/colmap/pull/2601
+* Fix python bundle adjustment example with pyceres by @B1ueber2y in https://github.com/colmap/colmap/pull/2606
+* Faster homography estimator by @ahojnnes in https://github.com/colmap/colmap/pull/2603
+* Add function to find real cubic polynomial roots by @ahojnnes in https://github.com/colmap/colmap/pull/2609
+* Align with the convention of ceres doc on SqrtInformation. by @B1ueber2y in https://github.com/colmap/colmap/pull/2611
+* Faster 7-point fundamental matrix estimator by @ahojnnes in https://github.com/colmap/colmap/pull/2612
+* Faster 8-point fundamental matrix estimator by @ahojnnes in https://github.com/colmap/colmap/pull/2613
+* Covariance estimation for bundle adjustment with Schur elimination by @B1ueber2y in https://github.com/colmap/colmap/pull/2610
+* Mac OS improvements by @BSVogler in https://github.com/colmap/colmap/pull/2622
+* Update cibuildwheel to 2.19.2 by @ahojnnes in https://github.com/colmap/colmap/pull/2632
+* Faster essential matrix estimators by @ahojnnes in https://github.com/colmap/colmap/pull/2618
+* Remove CamFromWorldPrior and create LocationPrior by @sarlinpe in https://github.com/colmap/colmap/pull/2620
+* Add option to disable uninstall target, restore CI pipeline by @ahojnnes in https://github.com/colmap/colmap/pull/2634
+* Faster covariance computation for small blocks by @B1ueber2y in https://github.com/colmap/colmap/pull/2633
+* Fix optimal point algorithm by @morrishelle in https://github.com/colmap/colmap/pull/2640
+* Add shell script helper for profiling by @ahojnnes in https://github.com/colmap/colmap/pull/2635
+* Declare PosePrior::IsValid as const by @ahojnnes in https://github.com/colmap/colmap/pull/2653
+* Add CI build for Windows CUDA by @ahojnnes in https://github.com/colmap/colmap/pull/2651
+* Publish windows binaries from CI by @ahojnnes in https://github.com/colmap/colmap/pull/2663
+
 COLMAP 3.9.1 (01/08/2024)
 -------------------------
 * Version 3.9 changelog by @ahojnnes in https://github.com/colmap/colmap/pull/2325
