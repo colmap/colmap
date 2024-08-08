@@ -63,6 +63,15 @@ if(TESTS_ENABLED)
     )
 endif()
 
+if(DEFINED glog_VERSION_MAJOR)
+    # Older versions of glog don't export version variables.
+    target_compile_definitions(colmap_util
+        PUBLIC
+            -DGLOG_VERSION_MAJOR=${glog_VERSION_MAJOR}
+            -DGLOG_VERSION_MINOR=${glog_VERSION_MINOR}
+    )
+endif()
+
 if(GUI_ENABLED)
     target_link_libraries(colmap_util PUBLIC Qt5::Core Qt5::OpenGL OpenGL::GL)
 endif()
