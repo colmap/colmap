@@ -87,11 +87,11 @@ bool Image::HasPoint3D(const point3D_t point3D_id) const {
 }
 
 Eigen::Vector3d Image::ProjectionCenter() const {
-  return cam_from_world_.rotation.inverse() * -cam_from_world_.translation;
+  return CamFromWorld().rotation.inverse() * -CamFromWorld().translation;
 }
 
 Eigen::Vector3d Image::ViewingDirection() const {
-  return cam_from_world_.rotation.toRotationMatrix().row(2);
+  return CamFromWorld().rotation.toRotationMatrix().row(2);
 }
 
 }  // namespace colmap
