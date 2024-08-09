@@ -113,7 +113,7 @@ class Image {
 
   // Reproject the 3D point onto the image in pixels (only when the camera
   // pointer is available) Return false if the 3D point is behind the camera.
-  std::pair<bool, Eigen::Vector2d> ProjectPoint3D(
+  std::pair<bool, Eigen::Vector2d> ProjectPoint(
       const Eigen::Vector3d& point3D) const;
 
  private:

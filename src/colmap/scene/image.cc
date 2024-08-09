@@ -94,9 +94,12 @@ Eigen::Vector3d Image::ViewingDirection() const {
   return cam_from_world_.rotation.toRotationMatrix().row(2);
 }
 
-std::pair<bool, Eigen::Vector2d> Image::ProjectPoint3D(
+std::pair<bool, Eigen::Vector2d> Image::ProjectPoint(
     const Eigen::Vector3d& point3D) const {
+  // The camera pointer has to be existent for this function
   THROW_CHECK(HasCameraPtr());
+
+  // Transform point3D
   const Eigen::Vector3d point3D_in_cam = CamFromWorld() * point3D;
 
   // Check that point is in front of camera.
