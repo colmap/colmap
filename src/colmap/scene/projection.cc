@@ -40,7 +40,7 @@ double CalculateSquaredReprojectionError(const Eigen::Vector2d& point2D,
                                          const Camera& camera) {
   const Eigen::Vector3d point3D_in_cam = cam_from_world * point3D;
 
-  // Check that point is infront of camera.
+  // Check that point is in front of camera.
   if (point3D_in_cam.z() < std::numeric_limits<double>::epsilon()) {
     return std::numeric_limits<double>::max();
   }
@@ -56,7 +56,7 @@ double CalculateSquaredReprojectionError(
     const Camera& camera) {
   const double proj_z = cam_from_world.row(2).dot(point3D.homogeneous());
 
-  // Check that point is infront of camera.
+  // Check that point is in front of camera.
   if (proj_z < std::numeric_limits<double>::epsilon()) {
     return std::numeric_limits<double>::max();
   }

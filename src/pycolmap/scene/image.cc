@@ -76,8 +76,8 @@ void BindImage(py::module& m) {
                     &Image::SetCameraId,
                     "Unique identifier of the camera.")
       .def_property("camera",
-                    &Image::Camera,
-                    &Image::SetCamera,
+                    &Image::CameraPtr,
+                    &Image::SetCameraPtr,
                     "The address of the camera")
       .def_property("name",
                     py::overload_cast<>(&Image::Name),
@@ -117,6 +117,16 @@ void BindImage(py::module& m) {
       .def("viewing_direction",
            &Image::ViewingDirection,
            "Extract the viewing direction of the image.")
+      .def(
+          "project_point3d",
+          [](const Image& self, const Eigen::Vector3d& point3D) -> py::object {
+            auto res = self.ProjectPoint3D(point3D);
+            if (res.first)
+              return py::cast(res.second);
+            else
+              return py::none();
+          },
+          "Project 3D point onto the image")
       .def("has_camera",
            &Image::HasCamera,
            "Check whether identifier of camera has been set.")

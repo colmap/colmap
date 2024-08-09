@@ -68,8 +68,8 @@ class Image {
   // Check whether identifier of camera has been set.
   inline bool HasCamera() const;
   // [Optional]: Access the shared pointer of the camera
-  inline std::shared_ptr<struct Camera> Camera() const;
-  inline void SetCamera(const std::shared_ptr<struct Camera>& camera);
+  inline std::shared_ptr<struct Camera> CameraPtr() const;
+  inline void SetCameraPtr(const std::shared_ptr<struct Camera>& camera);
   // check whether the camera pointer has been set
   inline bool HasCameraPtr() const;
 
@@ -110,6 +110,11 @@ class Image {
 
   // Extract the viewing direction of the image.
   Eigen::Vector3d ViewingDirection() const;
+
+  // Reproject the 3D point onto the image in pixels (only when the camera
+  // pointer is available) Return false if the 3D point is behind the camera.
+  std::pair<bool, Eigen::Vector2d> ProjectPoint3D(
+      const Eigen::Vector3d& point3D) const;
 
  private:
   // Identifier of the image, if not specified `kInvalidImageId`.
@@ -161,9 +166,11 @@ inline void Image::SetCameraId(const camera_t camera_id) {
 
 inline bool Image::HasCamera() const { return camera_id_ != kInvalidCameraId; }
 
-inline std::shared_ptr<struct Camera> Image::Camera() const { return camera_; }
+inline std::shared_ptr<struct Camera> Image::CameraPtr() const {
+  return camera_;
+}
 
-inline void Image::SetCamera(const std::shared_ptr<struct Camera>& camera) {
+inline void Image::SetCameraPtr(const std::shared_ptr<struct Camera>& camera) {
   THROW_CHECK_NE(camera->camera_id, kInvalidCameraId);
   camera_ = camera;
   camera_id_ = camera->camera_id;

@@ -94,4 +94,18 @@ Eigen::Vector3d Image::ViewingDirection() const {
   return cam_from_world_.rotation.toRotationMatrix().row(2);
 }
 
+std::pair<bool, Eigen::Vector2d> Image::ProjectPoint3D(
+    const Eigen::Vector3d& point3D) const {
+  THROW_CHECK(HasCameraPtr());
+  const Eigen::Vector3d point3D_in_cam = CamFromWorld() * point3D;
+
+  // Check that point is in front of camera.
+  if (point3D_in_cam.z() < std::numeric_limits<double>::epsilon()) {
+    return std::make_pair(false, Eigen::Vector2d());
+  }
+
+  return std::make_pair(true,
+                        CameraPtr()->ImgFromCam(point3D_in_cam.hnormalized()));
+}
+
 }  // namespace colmap
