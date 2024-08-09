@@ -75,6 +75,10 @@ void BindImage(py::module& m) {
                     &Image::CameraId,
                     &Image::SetCameraId,
                     "Unique identifier of the camera.")
+      .def_property("camera",
+                    &Image::Camera,
+                    &Image::SetCamera,
+                    "The address of the camera")
       .def_property("name",
                     py::overload_cast<>(&Image::Name),
                     &Image::SetName,
@@ -116,6 +120,9 @@ void BindImage(py::module& m) {
       .def("has_camera",
            &Image::HasCamera,
            "Check whether identifier of camera has been set.")
+      .def("has_camera_ptr",
+           &Image::HasCameraPtr,
+           "Check whether the camera address has been set.")
       .def_property("registered",
                     &Image::IsRegistered,
                     &Image::SetRegistered,
