@@ -52,6 +52,11 @@ if(TARGET glog::glog)
     set(GLOG_FOUND TRUE)
     message(STATUS "Found Glog")
     message(STATUS "  Target : glog::glog")
+    target_compile_definitions(glog::glog
+        INTERFACE
+            -DGLOG_VERSION_MAJOR=${glog_VERSION_MAJOR}
+            -DGLOG_VERSION_MINOR=${glog_VERSION_MINOR}
+    )
 else()
     # Older versions of glog don't come with a find_package config.
     # Fall back to custom logic to find the library and remap to imported target.
