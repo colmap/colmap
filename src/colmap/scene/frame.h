@@ -128,7 +128,7 @@ class Frame {
   inline Rigid3d& SensorFromWorld();
 
   // Get the sensor from world transformation
-  inline Rigid3d SensorFromWorld(data_t data_id) const;
+  inline Rigid3d SensorFromWorld(sensor_t sensor_id) const;
 
  private:
   frame_t frame_id_;
@@ -253,12 +253,12 @@ Rigid3d& Frame::SensorFromWorld() {
   return FrameFromWorld();
 }
 
-Rigid3d Frame::SensorFromWorld(data_t data_id) const {
-  THROW_CHECK(HasData(data_id));
-  if (!HasRigCalibration() || rig_calibration_->IsReference(data_id.first)) {
+Rigid3d Frame::SensorFromWorld(sensor_t sensor_id) const {
+  if (!HasRigCalibration() || rig_calibration_->IsReference(sensor_id)) {
     return SensorFromWorld();
   }
-  return rig_calibration_->SensorFromRig(data_id.first) * frame_from_world_;
+  THROW_CHECK(rig_calibration_->HasSensor(sensor_id));
+  return rig_calibration_->SensorFromRig(sensor_id) * frame_from_world_;
 }
 
 }  // namespace colmap
