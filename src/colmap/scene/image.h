@@ -181,17 +181,13 @@ frame_t Image::FrameId() const { return frame_id_; }
 
 void Image::SetFrameId(frame_t frame_id) { frame_id_ = frame_id; }
 
-std::shared_ptr<class Frame> Image::Frame() {
-  return frame_;
-}
+std::shared_ptr<class Frame> Image::Frame() { return frame_; }
 
 void Image::SetFrame(const std::shared_ptr<class Frame>& frame) {
   frame_ = frame;
 }
 
-bool Image::HasFrame() const {
-  return frame_ != nullptr;
-}
+bool Image::HasFrame() const { return frame_ != nullptr; }
 
 const Rigid3d& Image::CamFromWorld() const { return cam_from_world_; }
 
