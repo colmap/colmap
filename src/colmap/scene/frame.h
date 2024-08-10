@@ -94,8 +94,7 @@ class RigCalibration {
 
   // sensor_from_rig transformation.
   std::map<sensor_t, Rigid3d> map_sensor_from_rig_;
-  std::map<sensor_t, bool>
-      is_fixed_sensor_from_rig_;  // for optimization
+  std::map<sensor_t, bool> is_fixed_sensor_from_rig_;  // for optimization
 };
 
 class Frame {
