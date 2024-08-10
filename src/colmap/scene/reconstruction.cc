@@ -127,7 +127,7 @@ void Reconstruction::AddImage(class Image image, bool sync_camera_pointer) {
     reg_image_ids_.push_back(image_id);
   }
   if (sync_camera_pointer) {
-    if (!ExistsCamera(image.CameraId()))
+    if (!ExistsCamera(Image(image_id).CameraId()))
       LOG(FATAL_THROW) << "The camera id for the added image needs to be "
                           "existent in the reconstruction if one wants to sync "
                           "the camera pointer with AddImage(image_id, true)";
