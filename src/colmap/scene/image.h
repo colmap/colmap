@@ -191,7 +191,9 @@ void Image::SetFrameId(frame_t frame_id) { frame_id_ = frame_id; }
 
 const std::shared_ptr<class Frame> Image::Frame() const { return frame_; }
 
-void Image::SetFrame(std::shared_ptr<class Frame> frame) { frame_ = frame; }
+void Image::SetFrame(std::shared_ptr<class Frame> frame) {
+  frame_ = std::move(frame);
+}
 
 bool Image::HasFrame() const { return frame_ != nullptr; }
 

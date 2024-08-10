@@ -63,7 +63,7 @@ class RigCalibration {
   // operation
   inline void AddReferenceSensor(sensor_t ref_sensor_id);
   inline void AddSensor(sensor_t sensor_id,
-                        Rigid3d sensor_from_rig = Rigid3d(),
+                        const Rigid3d& sensor_from_rig = Rigid3d(),
                         bool is_fixed = false);
 
   // Check whether the sensor exists in the rig
@@ -163,7 +163,7 @@ void RigCalibration::AddReferenceSensor(sensor_t ref_sensor_id) {
 }
 
 void RigCalibration::AddSensor(sensor_t sensor_id,
-                               Rigid3d sensor_from_rig,
+                               const Rigid3d& sensor_from_rig,
                                bool is_fixed) {
   if (NumSensors() == 0)
     LOG(FATAL_THROW) << "The reference sensor needs to added first before any "
@@ -231,7 +231,7 @@ const std::shared_ptr<class RigCalibration> Frame::RigCalibration() const {
 
 void Frame::SetRigCalibration(
     std::shared_ptr<class RigCalibration> rig_calibration) {
-  rig_calibration_ = rig_calibration;
+  rig_calibration_ = std::move(rig_calibration);
 }
 
 bool Frame::HasRigCalibration() const {
