@@ -90,7 +90,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: matrix.config.exportPackage
         with:
-          name: colmap-x64-mac
+          name: colmap-${{ matrix.config.arch }}-mac
           path: build/src/colmap/exe/COLMAP.app
 
       - name: Cleanup compiler cache
