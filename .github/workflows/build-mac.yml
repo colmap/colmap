@@ -23,6 +23,12 @@ jobs:
             cmakeBuildType: Release,
             exportPackage: true,
           },
+          {
+            os: macos-14,
+            arch: x86_64,
+            cmakeBuildType: Release,
+            exportPackage: true,
+          },
         ]
 
     env:
