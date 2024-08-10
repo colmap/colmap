@@ -12,13 +12,14 @@ on:
 
 jobs:
   build:
-    name: ${{ matrix.config.os }} ${{ matrix.config.cmakeBuildType }}
+    name: ${{ matrix.config.os }} ${{ matrix.config.arch }} ${{ matrix.config.cmakeBuildType }}
     runs-on: ${{ matrix.config.os }}
     strategy:
       matrix:
         config: [
           {
             os: macos-14,
+            arch: arm64,
             cmakeBuildType: Release,
             exportPackage: true,
           },
@@ -35,8 +36,8 @@ jobs:
       - uses: actions/cache@v4
         id: cache-builds
         with:
-          key: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ github.run_id }}-${{ github.run_number }}
-          restore-keys: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}
+          key: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ matrix.config.cmakeBuildType }}-${{ github.run_id }}-${{ github.run_number }}
+          restore-keys: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ matrix.config.cmakeBuildType }}
           path: ${{ env.COMPILER_CACHE_DIR }}
 
       - name: Setup Mac
@@ -71,7 +72,7 @@ jobs:
             -GNinja \
             -DCMAKE_BUILD_TYPE=${{ matrix.config.cmakeBuildType }} \
             -DTESTS_ENABLED=ON \
-            -DCMAKE_OSX_ARCHITECTURES=arm64;x86_64 \
+            -DCMAKE_OSX_ARCHITECTURES=${{ matrix.config.arch }} \
             -DCMAKE_PREFIX_PATH="/opt/homebrew/opt/flann;/opt/homebrew/opt/metis;/opt/homebrew/opt/suite-sparse;/opt/homebrew/opt/qt@5;/opt/homebrew/opt/freeimage"
           ninja
 
@@ -90,7 +91,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: matrix.config.exportPackage
         with:
-          name: colmap-mac
+          name: colmap-${{ matrix.config.arch }}-mac
           path: build/src/colmap/exe/COLMAP.zip
 
       - name: Cleanup compiler cache
