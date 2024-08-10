@@ -66,7 +66,7 @@ install_name_tool -change @rpath/libtbb.dylib /usr/local/lib/libtbb.dylib $BASE_
 install_name_tool -change @rpath/libtbbmalloc.dylib /usr/local/lib/libtbbmalloc.dylib $BASE_PATH/COLMAP.app/Contents/MacOS/COLMAP
 
 echo "Linking dynamic libraries"
-/usr/local/opt/qt5/bin/macdeployqt "$BASE_PATH/COLMAP.app"
+/usr/local/opt/qt@5/bin/macdeployqt "$BASE_PATH/COLMAP.app"
 
 echo "Wrapping binary"
 cat <<EOM >"$BASE_PATH/COLMAP.app/Contents/MacOS/colmap_gui.sh"
@@ -76,7 +76,3 @@ script_path="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
 EOM
 chmod +x $BASE_PATH/COLMAP.app/Contents/MacOS/colmap_gui.sh
 sed -i '' 's#<string>colmap</string>#<string>colmap_gui.sh</string>#g' $BASE_PATH/COLMAP.app/Contents/Info.plist
-
-echo "Compressing application"
-cd "$BASE_PATH"
-zip -r "COLMAP-mac.zip" "COLMAP.app"

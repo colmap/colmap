@@ -21,6 +21,7 @@ jobs:
             os: macos-14,
             arch: arm64,
             cmakeBuildType: Release,
+            exportPackage: true,
           },
         ]
 
@@ -79,6 +80,18 @@ jobs:
           cd build
           set +e
           ctest --output-on-failure
+
+      - name: Export package
+        if: matrix.config.exportPackage
+        run: |
+          scripts/shell/build_mac_app.sh build/src/colmap/exe/colmap
+
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        if: matrix.config.exportPackage
+        with:
+          name: colmap-x64-mac
+          path: build/src/colmap/exe/COLMAP.app
 
       - name: Cleanup compiler cache
         run: |
