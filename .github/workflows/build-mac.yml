@@ -91,7 +91,7 @@ jobs:
         if: matrix.config.exportPackage
         with:
           name: colmap-${{ matrix.config.arch }}-mac
-          path: build/src/colmap/exe/COLMAP.app
+          path: build/src/colmap/exe/COLMAP.zip
 
       - name: Cleanup compiler cache
         run: |
