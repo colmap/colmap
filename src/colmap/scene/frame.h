@@ -39,112 +39,217 @@
 
 namespace colmap {
 
-typedef uint64_t frame_t;
-typedef uint32_t rig_t;
-
+// Sensor type
 enum class SensorType {
   Camera = 0,
   IMU = 1,
   Location = 2, // include GNSS, radios, compass, etc.
 };
 
-typedef data_t std::pair<SensorType, uint64_t>;
+// Unique identifier of the sensor
+typedef std::pair<SensorType, uint32_t> sensor_t;
 
+// Unique identifier of the data point from a sensor
+typedef std::pair<sensor_t, uint64_t> data_t;
+
+// Rig calibration storing the sensor from rig transformation
 class RigCalibration {
  public:
-  inline rig_t RigId() const {
-    return rig_id_;
-  }
+  // Access the unique identifier of the rig
+  inline rig_t RigId() const;
+  inline void SetRigId(rig_t rig_id);
 
-  inline data_t RefDataId() const {
-    return ref_data_id_;
-  }
+  // Add sensor into the rig
+  // ``AddReferenceSensor`` needs to called first before all the ``AddSensor`` operation
+  inline void AddReferenceSensor(sensor_t ref_sensor_id);
+  inline void AddSensor(sensor_t sensor_id, Rigid3d sensor_from_rig = Rigid3d(), bool is_fixed = false);
 
-  inline bool HasData(data_t data_id) const {
-    if (data_id == ref_data_id_)
-      return true;
-    else
-      return sensor_from_rig_.find(data_id) != sensor_from_rig_.end();
-  }
+  // Check whether the sensor exists in the rig
+  inline bool HasSensor(sensor_t sensor_id) const;
 
-  inline bool IsReference(data_t data_id) const {
-    return data_id == ref_data_id_;
-  }
+  // Count the number of sensors available in the rig
+  inline size_t NumSensors() const;
 
-  inline size_t CountData() const {
-    return sensor_from_rig_.size() + 1;
-  }
+  // Access the reference sensor id (default to be the first added sensor)
+  inline sensor_t RefSensorId() const;
 
-  inline Rigi3d& GetSensorFromRig(data_t data_id) {
-    THROW_CHECK(!IsReference(data_id));
-    auto it = sensor_from_rig_.find(data_id);
-    if (it == sensor_from_rig_.end())
-      LOG(FATAL_THROW) << StringPrintf("Data id (%d) not found in the rig calibration", data_id);
-    return sensor_from_rig_.at(data_id);
-  }
+  // Check if the sensor is the reference sensor of the rig
+  inline bool IsReference(sensor_t sensor_id) const;
 
-  inline const Rigid3d GetSensorFromRig(data_t data_id) const {
-    if (IsReference(data_id))
-      return Rigid3d(); // return identity
-    else {
-      auto it = sensor_from_rig_.find(data_id);
-      if (it == sensor_from_rig_.end())
-        LOG(FATAL_THROW) << StringPrintf("Data id (%d) not found in the rig calibration", data_id);
-      return sensor_from_rig_.at(data_id);
-    }
-  }
+  // Access sensor from rig transformations
+  inline Rigi3d& SensorFromRig(sensor_t sensor_id);
+  inline const Rigid3d& SensorFromRig(sensor_t sensor_id) const;
 
  private:
+  // Unique identifier of the device.
   rig_t rig_id_;
-  data_t ref_data_id_;
-  std::unordered_map<data_t, Rigid3d> sensor_from_rig_;
+
+  // Reference sensor id which has the identity transformation to the rig.
+  sensor_t ref_sensor_id_;
+
+  // list of sensors
+  std::unordered_set<sensor_t> sensor_ids_;
+
+  // sensor_from_rig transformation.
+  std::unordered_map<sensor_t, Rigid3d> map_sensor_from_rig_;
+  std::unordered_map<sensor_t, bool> is_fixed_sensor_from_rig_; // for optimization
 };
 
 struct Frame {
  public:
-  inline frame_t FrameId() const { return frame_id_; }
-  inline std::unordered_set<data_t>& DataIds() { return data_ids_; }
-  inline const std::unordered_set<data_t>& DataIds() const { return data_ids_; }
-  inline std::shared_ptr<RigCalibration> RigCalibration() const {
-    return rig_calibration_;
-  }
+  // Access the unique identifier of the frame
+  inline frame_t FrameId() const;
+  inline void SetFrameId(frame_t frame_id);
 
-  inline bool HasData(data_t data_id) const {
-    return data_ids_.find(data_id) != data_ids_.end();
-  }
+  // Access data ids
+  inline std::unordered_set<data_t>& DataIds();
+  inline const std::unordered_set<data_t>& DataIds() const;
+  inline void AddData(data_t data_id);
 
-  inline bool HasRigCalibration() const {
-    if (rig_calibration_ == nullptr)
-      return false;
-    else
-      return rig_calibration_.CountData() > 1;
-  }
+  // Check whether the data id is existent in the frame
+  inline bool HasData(data_t data_id) const;
 
-  inline const Rigid3d& FrameFromWorld() const { return frame_from_world_; }
-  inline Rigid3d& FrameFromWorld() { return frame_from_world_; }
+  // Access the unique identifier of the rig
+  inline rig_t RigId() const;
+  inline void SetRigId(rig_t rig_id);
 
-  inline const Rigid3d& SensorFromWorld() const {
-    THROW_CHECK(!HasRigCalibration());
-    return FrameFromWorld();
-  }
-  inline Rigid3d SensorFromWorld() const {
-    THROW_CHECK(!HasRigCalibration());
-    return FrameFromWorld();
-  }
+  // Check if the frame has a non-trivial rig calibration
+  inline std::shared_ptr<RigCalibration> RigCalibration() const;
+  inline void SetRigCalibration(const std::shared_ptr<RigCalibration>& rig_calibration);
+  inline bool HasRigCalibration() const;
 
-  inline Rigid3d SensorFromWorld(data_t data_id) const {
-    THROW_CHECK(HasData(data_id));
-    if (!HasRigCalibration()) {
-      return SensorFromWorld();
-    }
-    return rig_calibration_.GetSensorFromRig(data_id) * frame_from_world_;
-  }
+  // Access the frame from world transformation
+  inline const Rigid3d& FrameFromWorld() const;
+  inline Rigid3d& FrameFromWorld();
+  inline const Rigid3d& SensorFromWorld() const;
+  inline Rigid3d& SensorFromWorld();
+
+  // Get the sensor from world transformation
+  inline Rigid3d SensorFromWorld(data_t data_id) const;
 
  private:
   frame_t frame_id_;
   std::unordered_set<data_t> data_ids_;
+
+  // Store the frame_from_world transformation and an optional rig calibration. If the rig calibration is a nullptr, the frame becomes a single sensor case, where rig modeling is no longer needed.
   Rigid3d frame_from_world_;
-  std::shared_ptr<RigCalibration> rig_calibration_ = nullptr; // nullptr if no rig
+  rig_t rig_id_ = kInvalidRigId;
+  std::shared_ptr<RigCalibration> rig_calibration_ = nullptr; 
 };
+
+////////////////////////////////////////////////////////////////////////////////
+// Implementation
+////////////////////////////////////////////////////////////////////////////////
+
+rig_t RigCalibration::RigId() const {
+  return rig_id_;
+}
+
+void RigCalibration::SetRigId(rig_t rig_id) {
+  rig_id_ = rig_id;
+}
+
+bool RigCalibration::HasSensor(sensor_t sensor_id) const {
+  return sensor_ids_.find(sensor_id) != sensor_ids_.end();
+}
+
+size_t RigCalibration::NumSensors() const {
+  return sensor_ids_.size();
+}
+
+void AddReferenceSensor(sensor_t ref_sensor_id) {
+  THROW_CHECK(sensor_ids_.empty()); // The reference sensor must be added first
+  ref_sensor_id_ = ref_sensor_id;
+  sensor_ids_.insert(ref_sensor_id);
+}
+
+sensor_t RigCalibration::RefSensorId() const {
+  return ref_sensor_id_;
+}
+
+bool RigCalibration::IsReference(sensor_t sensor_id) const {
+  return sensor_id == ref_sensor_id_;
+}
+
+void RigCalibration::AddSensor(sensor_t sensor_id, Rigid3d sensor_from_rig, bool is_fixed) {
+  if (NumSensors() == 0)
+    LOG(FATAL_THROW) << "The reference sensor needs to added first before any sensor being added.";
+  else {
+    if (HasSensor(sensor_id))
+      LOG(FATAL_THROW) << StringPrintf("Sensor id (%d, %d) is inserted twice into the rig", sensor_id.first, sensor_id.second);
+    map_sensor_from_rig_.emplace(sensor_id, sensor_from_rig);
+    is_fixed_sensor_from_rig_.emplace(sensor_id, is_fixed);
+    sensor_ids_.insert(sensor_id);
+  }
+}
+
+Rigi3d& RigCalibration::SensorFromRig(sensor_t sensor_id) {
+  THROW_CHECK(!IsRereference(sensor_id))
+  auto it = map_sensor_from_rig_.find(sensor_id);
+  if (it == map_sensor_from_rig_.end())
+    LOG(FATAL_THROW) << StringPrintf("Sensor id (%d, %d) not found in the rig calibration", sensor_id.first, sensor_id.second);
+  return map_sensor_from_rig_.at(sensor_id);
+}
+
+const Rigid3d& RigCalibration::SensorFromRig(sensor_t sensor_id) const {
+  THROW_CHECK(!IsRereference(sensor_id))
+  auto it = map_sensor_from_rig_.find(sensor_id);
+  if (it == map_sensor_from_rig_.end())
+    LOG(FATAL_THROW) << StringPrintf("Sensor id (%d, %d) not found in the rig calibration", sensor_id.first, sensor_id.second);
+  return map_sensor_from_rig_.at(sensor_id);
+}
+
+frame_t Frame::FrameId(frame_t frame_id) const { return frame_id_; }
+
+std::unordered_set<data_t>& Frame::DataIds() { return data_ids_; }
+
+const std::unordered_set<data_t>& Frame::DataIds() const { return data_ids_; }
+
+void Frame::AddData(data_t data_id) {
+  data_ids_.insert(data_id);
+}
+
+bool Frame::HasData(data_t data_id) const {
+  return data_ids_.find(data_id) != data_ids_.end();
+}
+
+rig_t Frame::RigId() const { return rig_id_; }
+
+void Frame::SetRigId(rig_t rig_id) { rig_id_ = rig_id; }
+
+std::shared_ptr<RigCalibration> Frame::RigCalibration() const {
+  return rig_calibration_;
+}
+
+void Frame::SetRigCalibration(const std::shared_ptr<RigCalibration>& rig_calibration) {
+  rig_calibration_ = rig_calibration;
+}
+
+bool Frame::HasRigCalibration() const {
+  if (rig_calibration_ == nullptr)
+    return false;
+  else
+    return rig_calibration_.NumSensors() > 1;
+}
+
+const Rigid3d& Frame::FrameFromWorld() const { return frame_from_world_; }
+Rigid3d& Frame::FrameFromWorld() { return frame_from_world_; }
+
+const Rigid3d& Frame::SensorFromWorld() const {
+  THROW_CHECK(!HasRigCalibration());
+  return FrameFromWorld();
+}
+Rigid3d& Frame::SensorFromWorld() {
+  THROW_CHECK(!HasRigCalibration());
+  return FrameFromWorld();
+}
+
+Rigid3d Frame::SensorFromWorld(data_t data_id) const {
+  THROW_CHECK(HasData(data_id));
+  if (!HasRigCalibration() || rig_calibration_->IsReference(data_id.first)) {
+    return SensorFromWorld();
+  }
+  return rig_calibration_->SensorFromRig(data_id.first) * frame_from_world_;
+}
 
 }  // namespace colmap

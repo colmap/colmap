@@ -32,6 +32,7 @@
 #include "colmap/geometry/rigid3.h"
 #include "colmap/math/math.h"
 #include "colmap/scene/camera.h"
+#include "colmap/scene/frame.h"
 #include "colmap/scene/point2d.h"
 #include "colmap/scene/visibility_pyramid.h"
 #include "colmap/util/eigen_alignment.h"
@@ -79,6 +80,13 @@ class Image {
   // are part of a 3D point track.
   inline point2D_t NumPoints3D() const;
 
+  // [Optional] The corresponding frame of the image
+  inline frame_t FrameId() const;
+  inline void SetFrameId(frame_t frame_id);
+  inline std::shared_ptr<class Frame> Frame() const;
+  inline void SetFrame(const std::shared_ptr<class Frame>& frame);
+  inline bool HasFrame() const;
+
   // World to camera pose.
   inline const Rigid3d& CamFromWorld() const;
   inline Rigid3d& CamFromWorld();
@@ -124,7 +132,12 @@ class Image {
   // where `point3D_id != kInvalidPoint3DId`.
   point2D_t num_points3D_;
 
+  // [Optional] The corresponding frame (rig) of the image
+  frame_t frame_id_;
+  std::shared_ptr<class Frame> frame_ = nullptr;
+
   // The pose of the image, defined as the transformation from world to camera.
+  // Only useful when the corresponding frame (rig) does not exist.
   Rigid3d cam_from_world_;
 
   // All image points, including points that are not part of a 3D point track.
@@ -163,6 +176,22 @@ point2D_t Image::NumPoints2D() const {
 }
 
 point2D_t Image::NumPoints3D() const { return num_points3D_; }
+
+frame_t Image::FrameId() const { return frame_id_; }
+
+void Image::SetFrameId(frame_t frame_id) { frame_id_ = frame_id; }
+
+std::shared_ptr<class Frame> Image::Frame() {
+  return frame_;
+}
+
+void Image::SetFrame(const std::shared_ptr<class Frame>& frame) {
+  frame_ = frame;
+}
+
+bool Image::HasFrame() const {
+  return frame_ != nullptr;
+}
 
 const Rigid3d& Image::CamFromWorld() const { return cam_from_world_; }
 

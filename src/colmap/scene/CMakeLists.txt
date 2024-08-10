@@ -38,6 +38,7 @@ COLMAP_ADD_LIBRARY(
         correspondence_graph.h correspondence_graph.cc
         database.h database.cc
         database_cache.h database_cache.cc
+        frame.h
         image.h image.cc
         point2d.h
         point3d.h
