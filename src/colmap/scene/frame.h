@@ -35,6 +35,7 @@
 #include "colmap/util/types.h"
 
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace colmap {
@@ -80,7 +81,7 @@ class RigCalibration {
   inline bool IsReference(sensor_t sensor_id) const;
 
   // Access sensor from rig transformations
-  inline Rigi3d& SensorFromRig(sensor_t sensor_id);
+  inline Rigid3d& SensorFromRig(sensor_t sensor_id);
   inline const Rigid3d& SensorFromRig(sensor_t sensor_id) const;
 
  private:
@@ -99,7 +100,7 @@ class RigCalibration {
       is_fixed_sensor_from_rig_;  // for optimization
 };
 
-struct Frame {
+class Frame {
  public:
   // Access the unique identifier of the frame
   inline frame_t FrameId() const;
@@ -118,9 +119,9 @@ struct Frame {
   inline void SetRigId(rig_t rig_id);
 
   // Check if the frame has a non-trivial rig calibration
-  inline std::shared_ptr<RigCalibration> RigCalibration() const;
+  inline const std::shared_ptr<class RigCalibration> RigCalibration() const;
   inline void SetRigCalibration(
-      const std::shared_ptr<RigCalibration>& rig_calibration);
+      std::shared_ptr<class RigCalibration> rig_calibration);
   inline bool HasRigCalibration() const;
 
   // Access the frame from world transformation
@@ -141,7 +142,7 @@ struct Frame {
   // case, where rig modeling is no longer needed.
   Rigid3d frame_from_world_;
   rig_t rig_id_ = kInvalidRigId;
-  std::shared_ptr<RigCalibration> rig_calibration_ = nullptr;
+  std::shared_ptr<class RigCalibration> rig_calibration_ = nullptr;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -158,16 +159,10 @@ bool RigCalibration::HasSensor(sensor_t sensor_id) const {
 
 size_t RigCalibration::NumSensors() const { return sensor_ids_.size(); }
 
-void AddReferenceSensor(sensor_t ref_sensor_id) {
+void RigCalibration::AddReferenceSensor(sensor_t ref_sensor_id) {
   THROW_CHECK(sensor_ids_.empty());  // The reference sensor must be added first
   ref_sensor_id_ = ref_sensor_id;
   sensor_ids_.insert(ref_sensor_id);
-}
-
-sensor_t RigCalibration::RefSensorId() const { return ref_sensor_id_; }
-
-bool RigCalibration::IsReference(sensor_t sensor_id) const {
-  return sensor_id == ref_sensor_id_;
 }
 
 void RigCalibration::AddSensor(sensor_t sensor_id,
@@ -188,10 +183,15 @@ void RigCalibration::AddSensor(sensor_t sensor_id,
   }
 }
 
-Rigi3d& RigCalibration::SensorFromRig(sensor_t sensor_id) {
-  THROW_CHECK(!IsRereference(sensor_id))
-  auto it = map_sensor_from_rig_.find(sensor_id);
-  if (it == map_sensor_from_rig_.end())
+sensor_t RigCalibration::RefSensorId() const { return ref_sensor_id_; }
+
+bool RigCalibration::IsReference(sensor_t sensor_id) const {
+  return sensor_id == ref_sensor_id_;
+}
+
+Rigid3d& RigCalibration::SensorFromRig(sensor_t sensor_id) {
+  THROW_CHECK(!IsReference(sensor_id));
+  if (map_sensor_from_rig_.find(sensor_id) == map_sensor_from_rig_.end())
     LOG(FATAL_THROW) << StringPrintf(
         "Sensor id (%d, %d) not found in the rig calibration",
         sensor_id.first,
@@ -200,7 +200,7 @@ Rigi3d& RigCalibration::SensorFromRig(sensor_t sensor_id) {
 }
 
 const Rigid3d& RigCalibration::SensorFromRig(sensor_t sensor_id) const {
-  THROW_CHECK(!IsRereference(sensor_id))
+  THROW_CHECK(!IsReference(sensor_id));
   auto it = map_sensor_from_rig_.find(sensor_id);
   if (it == map_sensor_from_rig_.end())
     LOG(FATAL_THROW) << StringPrintf(
@@ -210,7 +210,9 @@ const Rigid3d& RigCalibration::SensorFromRig(sensor_t sensor_id) const {
   return map_sensor_from_rig_.at(sensor_id);
 }
 
-frame_t Frame::FrameId(frame_t frame_id) const { return frame_id_; }
+frame_t Frame::FrameId() const { return frame_id_; }
+
+void Frame::SetFrameId(frame_t frame_id) { frame_id_ = frame_id; }
 
 std::unordered_set<data_t>& Frame::DataIds() { return data_ids_; }
 
@@ -226,20 +228,20 @@ rig_t Frame::RigId() const { return rig_id_; }
 
 void Frame::SetRigId(rig_t rig_id) { rig_id_ = rig_id; }
 
-std::shared_ptr<RigCalibration> Frame::RigCalibration() const {
+const std::shared_ptr<class RigCalibration> Frame::RigCalibration() const {
   return rig_calibration_;
 }
 
 void Frame::SetRigCalibration(
-    const std::shared_ptr<RigCalibration>& rig_calibration) {
+    std::shared_ptr<class RigCalibration> rig_calibration) {
   rig_calibration_ = rig_calibration;
 }
 
 bool Frame::HasRigCalibration() const {
-  if (rig_calibration_ == nullptr)
+  if (!rig_calibration_)
     return false;
   else
-    return rig_calibration_.NumSensors() > 1;
+    return rig_calibration_->NumSensors() > 1;
 }
 
 const Rigid3d& Frame::FrameFromWorld() const { return frame_from_world_; }

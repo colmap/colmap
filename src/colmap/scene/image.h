@@ -83,8 +83,8 @@ class Image {
   // [Optional] The corresponding frame of the image
   inline frame_t FrameId() const;
   inline void SetFrameId(frame_t frame_id);
-  inline std::shared_ptr<class Frame> Frame() const;
-  inline void SetFrame(const std::shared_ptr<class Frame>& frame);
+  inline const std::shared_ptr<class Frame> Frame() const;
+  inline void SetFrame(std::shared_ptr<class Frame> frame);
   inline bool HasFrame() const;
 
   // World to camera pose.
@@ -181,9 +181,9 @@ frame_t Image::FrameId() const { return frame_id_; }
 
 void Image::SetFrameId(frame_t frame_id) { frame_id_ = frame_id; }
 
-std::shared_ptr<class Frame> Image::Frame() { return frame_; }
+const std::shared_ptr<class Frame> Image::Frame() const { return frame_; }
 
-void Image::SetFrame(const std::shared_ptr<class Frame>& frame) {
+void Image::SetFrame(std::shared_ptr<class Frame> frame) {
   frame_ = frame;
 }
 
