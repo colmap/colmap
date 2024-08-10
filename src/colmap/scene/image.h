@@ -201,27 +201,26 @@ bool Image::HasNonTrivialFrame() const {
              std::make_pair(SensorType::Camera, CameraId()));
 }
 
-const Rigid3d& Image::CamFromWorld() const { 
+const Rigid3d& Image::CamFromWorld() const {
   if (HasNonTrivialFrame()) {
     // sync cam from world
     sensor_t sensor_id = std::make_pair(SensorType::Camera, CameraId());
     cam_from_world_ = frame_->SensorFromWorld(sensor_id);
     return cam_from_world_;
-  }
-  else if (HasFrame()) {
+  } else if (HasFrame()) {
     return frame_->SensorFromWorld();
-  }
-  else
+  } else
     return cam_from_world_;
 }
 
 Rigid3d& Image::CamFromWorld() {
   if (HasNonTrivialFrame())
-    LOG(FATAL_THROW) << "No reference available for cam_from_world transformation, since composition with rig calibration is needed";
+    LOG(FATAL_THROW)
+        << "No reference available for cam_from_world transformation, since "
+           "composition with rig calibration is needed";
   if (HasFrame()) {
     return frame_->SensorFromWorld();
-  }
-  else
+  } else
     return cam_from_world_;
 }
 
