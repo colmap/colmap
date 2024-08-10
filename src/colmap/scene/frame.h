@@ -29,13 +29,11 @@
 
 #pragma once
 
-#include "colmap/geometry/pose.h"
-#include "colmap/scene/camera.h"
-#include "colmap/scene/reconstruction.h"
+#include "colmap/geometry/rigid3.h"
 #include "colmap/util/types.h"
 
-#include <unordered_map>
-#include <unordered_set>
+#include <map>
+#include <set>
 #include <vector>
 
 namespace colmap {
@@ -92,11 +90,11 @@ class RigCalibration {
   sensor_t ref_sensor_id_;
 
   // list of sensors
-  std::unordered_set<sensor_t> sensor_ids_;
+  std::set<sensor_t> sensor_ids_;
 
   // sensor_from_rig transformation.
-  std::unordered_map<sensor_t, Rigid3d> map_sensor_from_rig_;
-  std::unordered_map<sensor_t, bool>
+  std::map<sensor_t, Rigid3d> map_sensor_from_rig_;
+  std::map<sensor_t, bool>
       is_fixed_sensor_from_rig_;  // for optimization
 };
 
@@ -107,8 +105,8 @@ class Frame {
   inline void SetFrameId(frame_t frame_id);
 
   // Access data ids
-  inline std::unordered_set<data_t>& DataIds();
-  inline const std::unordered_set<data_t>& DataIds() const;
+  inline std::set<data_t>& DataIds();
+  inline const std::set<data_t>& DataIds() const;
   inline void AddData(data_t data_id);
 
   // Check whether the data id is existent in the frame
@@ -135,7 +133,7 @@ class Frame {
 
  private:
   frame_t frame_id_;
-  std::unordered_set<data_t> data_ids_;
+  std::set<data_t> data_ids_;
 
   // Store the frame_from_world transformation and an optional rig calibration.
   // If the rig calibration is a nullptr, the frame becomes a single sensor
@@ -214,9 +212,9 @@ frame_t Frame::FrameId() const { return frame_id_; }
 
 void Frame::SetFrameId(frame_t frame_id) { frame_id_ = frame_id; }
 
-std::unordered_set<data_t>& Frame::DataIds() { return data_ids_; }
+std::set<data_t>& Frame::DataIds() { return data_ids_; }
 
-const std::unordered_set<data_t>& Frame::DataIds() const { return data_ids_; }
+const std::set<data_t>& Frame::DataIds() const { return data_ids_; }
 
 void Frame::AddData(data_t data_id) { data_ids_.insert(data_id); }
 
