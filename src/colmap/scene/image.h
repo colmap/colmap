@@ -133,7 +133,7 @@ class BaseImage {
 
 class Image : public BaseImage {
  public:
-  Image(struct Camera* camera);
+  explicit Image(struct Camera* camera);
 
   // Copy constructor
   Image(const Image& image);
