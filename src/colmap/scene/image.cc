@@ -45,27 +45,19 @@ Image::Image(struct Camera* camera) : BaseImage(), camera_(camera) {
   BaseImage::SetCameraId(camera->camera_id);
 }
 
-Image::Image(const Image& image) : camera_(image.Camera()) {
-  CopyFromBaseImage(image);
-}
-
 Image::Image(const BaseImage& base_image, struct Camera* camera)
     : camera_(camera) {
   // Check if the camera id matches the one in the base image
   THROW_CHECK_EQ(base_image.CameraId(), camera->camera_id);
 
   // Copy data from the BaseImage instance
-  CopyFromBaseImage(base_image);
-}
-
-void Image::CopyFromBaseImage(const BaseImage& image) {
-  SetImageId(image.ImageId());
-  SetName(image.Name());
-  BaseImage::SetCameraId(image.CameraId());
-  SetRegistered(image.IsRegistered());
-  num_points3D_ = image.NumPoints3D();
-  cam_from_world_ = image.CamFromWorld();
-  SetPoints2D(image.Points2D());
+  SetImageId(base_image.ImageId());
+  SetName(base_image.Name());
+  BaseImage::SetCameraId(base_image.CameraId());
+  SetRegistered(base_image.IsRegistered());
+  num_points3D_ = base_image.NumPoints3D();
+  cam_from_world_ = base_image.CamFromWorld();
+  SetPoints2D(base_image.Points2D());
 }
 
 void BaseImage::SetPoints2D(const std::vector<Eigen::Vector2d>& points) {

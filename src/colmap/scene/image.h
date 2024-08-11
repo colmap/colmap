@@ -135,9 +135,6 @@ class Image : public BaseImage {
  public:
   explicit Image(struct Camera* camera);
 
-  // Copy constructor
-  Image(const Image& image);
-
   // Initialized from an existing ``BaseImage`` with a raw camera pointer
   Image(const BaseImage& base_image, struct Camera* camera);
 
@@ -158,9 +155,6 @@ class Image : public BaseImage {
  private:
   // The address of the corresponding camera
   struct Camera* camera_;
-
-  // Copy from base image
-  void CopyFromBaseImage(const BaseImage& image);
 };
 
 ////////////////////////////////////////////////////////////////////////////////
