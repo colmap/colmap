@@ -80,9 +80,32 @@ TEST(Reconstruction, AddCamera) {
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
 }
 
+TEST(Reconstruction, AddBaseImage) {
+  Reconstruction reconstruction;
+  Camera camera =
+      Camera::CreateFromModelId(1, SimplePinholeCameraModel::model_id, 1, 1, 1);
+  reconstruction.AddCamera(camera);
+  BaseImage image;
+  image.SetImageId(1);
+  image.SetCameraId(camera.camera_id);
+  reconstruction.AddImage(image);
+  EXPECT_TRUE(reconstruction.ExistsImage(1));
+  EXPECT_EQ(reconstruction.Image(1).ImageId(), 1);
+  EXPECT_FALSE(reconstruction.Image(1).IsRegistered());
+  EXPECT_EQ(reconstruction.Images().count(1), 1);
+  EXPECT_EQ(reconstruction.Images().size(), 1);
+  EXPECT_EQ(reconstruction.NumCameras(), 0);
+  EXPECT_EQ(reconstruction.NumImages(), 1);
+  EXPECT_EQ(reconstruction.NumRegImages(), 0);
+  EXPECT_EQ(reconstruction.NumPoints3D(), 0);
+}
+
 TEST(Reconstruction, AddImage) {
   Reconstruction reconstruction;
-  BaseImage image;
+  Camera camera =
+      Camera::CreateFromModelId(1, SimplePinholeCameraModel::model_id, 1, 1, 1);
+  reconstruction.AddCamera(camera);
+  Image image(&reconstruction.Camera(camera.camera_id));
   image.SetImageId(1);
   reconstruction.AddImage(image);
   EXPECT_TRUE(reconstruction.ExistsImage(1));

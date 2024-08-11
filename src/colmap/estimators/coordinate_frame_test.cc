@@ -58,8 +58,12 @@ TEST(CoordinateFrame, AlignToPrincipalPlane) {
   // axis.
   Sim3d tform;
   Reconstruction reconstruction;
+  Camera camera =
+    Camera::CreateFromModelId(1, SimplePinholeCameraModel::model_id, 1, 1, 1);
+  reconstruction.AddCamera(camera);
+
   // Setup image with projection center at (1, 0, 0)
-  BaseImage image;
+  Image image(&reconstruction.Camera(camera.camera_id));
   image.SetImageId(1);
   image.SetRegistered(true);
   image.CamFromWorld() =
