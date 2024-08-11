@@ -150,7 +150,7 @@ void GenerateReconstruction(const size_t num_images,
                                   kImageSize);
     reconstruction->AddCamera(camera);
 
-    Image image(&reconstruction.Camera(camera_id));
+    Image image(&reconstruction->Camera(camera_id));
     image.SetImageId(image_id);
     image.SetName(std::to_string(i));
     image.CamFromWorld() = Rigid3d(
@@ -692,8 +692,8 @@ TEST(BundleAdjustment, RigTwoView) {
 TEST(BundleAdjustment, RigFourView) {
   Reconstruction reconstruction;
   GenerateReconstruction(4, 100, &reconstruction);
-  reconstruction.Image(2).SetCameraId(0);
-  reconstruction.Image(3).SetCameraId(1);
+  reconstruction.Image(2).SetCamera(&reconstruction.Camera(0));
+  reconstruction.Image(3).SetCamera(&reconstruction.Camera(1));
   const auto orig_reconstruction = reconstruction;
 
   BundleAdjustmentConfig config;
@@ -744,8 +744,8 @@ TEST(BundleAdjustment, RigFourView) {
 TEST(BundleAdjustment, ConstantRigFourView) {
   Reconstruction reconstruction;
   GenerateReconstruction(4, 100, &reconstruction);
-  reconstruction.Image(2).SetCameraId(0);
-  reconstruction.Image(3).SetCameraId(1);
+  reconstruction.Image(2).SetCamera(&reconstruction.Camera(0));
+  reconstruction.Image(3).SetCamera(&reconstruction.Camera(1));
   const auto orig_reconstruction = reconstruction;
 
   BundleAdjustmentConfig config;
@@ -796,8 +796,8 @@ TEST(BundleAdjustment, ConstantRigFourView) {
 TEST(BundleAdjustment, RigFourViewPartial) {
   Reconstruction reconstruction;
   GenerateReconstruction(4, 100, &reconstruction);
-  reconstruction.Image(2).SetCameraId(0);
-  reconstruction.Image(3).SetCameraId(1);
+  reconstruction.Image(2).SetCamera(&reconstruction.Camera(0));
+  reconstruction.Image(3).SetCamera(&reconstruction.Camera(1));
   const auto orig_reconstruction = reconstruction;
 
   BundleAdjustmentConfig config;
