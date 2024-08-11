@@ -44,9 +44,8 @@ void GenerateReconstruction(const image_t num_images,
   reconstruction.AddCamera(camera);
 
   for (image_t image_id = 1; image_id <= num_images; ++image_id) {
-    Image image;
+    Image image(&reconstruction.Camera(camera.camera_id));
     image.SetImageId(image_id);
-    image.SetCameraId(camera.camera_id);
     image.SetName("image" + std::to_string(image_id));
     image.SetPoints2D(
         std::vector<Eigen::Vector2d>(kNumPoints2D, Eigen::Vector2d::Zero()));
@@ -216,9 +215,8 @@ TEST(ObservationManager, NumVisiblePoints3D) {
                                                   /*width=*/10,
                                                   /*height=*/10);
   reconstruction.AddCamera(camera);
-  Image image;
+  Image image(&reconstruction.Camera(kCameraId));
   image.SetImageId(kImageId1);
-  image.SetCameraId(kCameraId);
   image.SetPoints2D(std::vector<Eigen::Vector2d>(10));
   reconstruction.AddImage(image);
   image.SetImageId(kImageId2);
@@ -262,9 +260,8 @@ TEST(ObservationManager, Point3DVisibilityScore) {
                                                   /*width=*/4,
                                                   /*height=*/4);
   reconstruction.AddCamera(camera);
-  Image image;
+  Image image(&reconstruction.Camera(kCameraId));
   image.SetImageId(kImageId1);
-  image.SetCameraId(kCameraId);
   std::vector<Eigen::Vector2d> points2D;
   for (size_t i = 0; i < 4; ++i) {
     for (size_t j = 0; j < 4; ++j) {

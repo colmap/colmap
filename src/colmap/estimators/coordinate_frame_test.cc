@@ -59,7 +59,7 @@ TEST(CoordinateFrame, AlignToPrincipalPlane) {
   Sim3d tform;
   Reconstruction reconstruction;
   // Setup image with projection center at (1, 0, 0)
-  Image image;
+  BaseImage image;
   image.SetImageId(1);
   image.SetRegistered(true);
   image.CamFromWorld() =

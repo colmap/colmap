@@ -46,9 +46,8 @@ void GenerateReconstruction(const image_t num_images,
   reconstruction->AddCamera(camera);
 
   for (image_t image_id = 1; image_id <= num_images; ++image_id) {
-    Image image;
+    Image image(&reconstruction.Camera(camera.camera_id));
     image.SetImageId(image_id);
-    image.SetCameraId(camera.camera_id);
     image.SetName("image" + std::to_string(image_id));
     image.SetPoints2D(
         std::vector<Eigen::Vector2d>(kNumPoints2D, Eigen::Vector2d::Zero()));
@@ -83,7 +82,7 @@ TEST(Reconstruction, AddCamera) {
 
 TEST(Reconstruction, AddImage) {
   Reconstruction reconstruction;
-  Image image;
+  BaseImage image;
   image.SetImageId(1);
   reconstruction.AddImage(image);
   EXPECT_TRUE(reconstruction.ExistsImage(1));
@@ -239,7 +238,7 @@ TEST(Reconstruction, Normalize) {
   EXPECT_NEAR(reconstruction.Image(2).CamFromWorld().translation.z(), 0, 1e-6);
   EXPECT_NEAR(reconstruction.Image(3).CamFromWorld().translation.z(), 5, 1e-6);
   reconstruction.Normalize(20);
-  Image image;
+  Image image(reconstruction.Image(1).Camera());
   image.SetImageId(4);
   reconstruction.AddImage(image);
   reconstruction.RegisterImage(4);

@@ -150,9 +150,8 @@ void GenerateReconstruction(const size_t num_images,
                                   kImageSize);
     reconstruction->AddCamera(camera);
 
-    Image image;
+    Image image(&reconstruction.Camera(camera_id));
     image.SetImageId(image_id);
-    image.SetCameraId(camera_id);
     image.SetName(std::to_string(i));
     image.CamFromWorld() = Rigid3d(
         Eigen::Quaterniond::Identity(),

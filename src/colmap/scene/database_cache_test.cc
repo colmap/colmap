@@ -45,12 +45,10 @@ TEST(DatabaseCache, Nominal) {
   const Camera camera = Camera::CreateFromModelId(
       kInvalidCameraId, SimplePinholeCameraModel::model_id, 1, 1, 1);
   const camera_t camera_id = database.WriteCamera(camera);
-  Image image1;
+  Image image1(&camera);
   image1.SetName("image1");
-  image1.SetCameraId(camera_id);
-  Image image2;
+  Image image2(&camera);
   image2.SetName("image2");
-  image2.SetCameraId(camera_id);
   const image_t image_id1 = database.WriteImage(image1);
   const image_t image_id2 = database.WriteImage(image2);
   database.WriteKeypoints(image_id1, FeatureKeypoints(10));

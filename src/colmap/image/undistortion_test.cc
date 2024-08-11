@@ -196,9 +196,8 @@ TEST(UndistortReconstruction, Nominal) {
   reconstruction.AddCamera(camera);
 
   for (image_t image_id = 1; image_id <= kNumImages; ++image_id) {
-    Image image;
+    Image image(&reconstruction.Camera(1));
     image.SetImageId(image_id);
-    image.SetCameraId(1);
     image.SetName("image" + std::to_string(image_id));
     image.SetPoints2D(
         std::vector<Eigen::Vector2d>(kNumPoints2D, Eigen::Vector2d::Ones()));

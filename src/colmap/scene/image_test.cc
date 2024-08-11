@@ -35,7 +35,7 @@ namespace colmap {
 namespace {
 
 TEST(Image, Default) {
-  Image image;
+  BaseImage image;
   EXPECT_EQ(image.ImageId(), kInvalidImageId);
   EXPECT_EQ(image.Name(), "");
   EXPECT_EQ(image.CameraId(), kInvalidCameraId);
@@ -50,14 +50,14 @@ TEST(Image, Default) {
 }
 
 TEST(Image, ImageId) {
-  Image image;
+  BaseImage image;
   EXPECT_EQ(image.ImageId(), kInvalidImageId);
   image.SetImageId(1);
   EXPECT_EQ(image.ImageId(), 1);
 }
 
 TEST(Image, Name) {
-  Image image;
+  BaseImage image;
   EXPECT_EQ(image.Name(), "");
   image.SetName("test1");
   EXPECT_EQ(image.Name(), "test1");
@@ -66,14 +66,14 @@ TEST(Image, Name) {
 }
 
 TEST(Image, CameraId) {
-  Image image;
+  BaseImage image;
   EXPECT_EQ(image.CameraId(), kInvalidCameraId);
   image.SetCameraId(1);
   EXPECT_EQ(image.CameraId(), 1);
 }
 
 TEST(Image, Registered) {
-  Image image;
+  BaseImage image;
   EXPECT_FALSE(image.IsRegistered());
   image.SetRegistered(true);
   EXPECT_TRUE(image.IsRegistered());
@@ -82,14 +82,14 @@ TEST(Image, Registered) {
 }
 
 TEST(Image, NumPoints2D) {
-  Image image;
+  BaseImage image;
   EXPECT_EQ(image.NumPoints2D(), 0);
   image.SetPoints2D(std::vector<Eigen::Vector2d>(10));
   EXPECT_EQ(image.NumPoints2D(), 10);
 }
 
 TEST(Image, NumPoints3D) {
-  Image image;
+  BaseImage image;
   image.SetPoints2D(std::vector<Eigen::Vector2d>(10));
   EXPECT_EQ(image.NumPoints3D(), 0);
   image.SetPoint3DForPoint2D(0, 0);
@@ -100,7 +100,7 @@ TEST(Image, NumPoints3D) {
 }
 
 TEST(Image, Points2D) {
-  Image image;
+  BaseImage image;
   EXPECT_EQ(image.Points2D().size(), 0);
   std::vector<Eigen::Vector2d> points2D(10);
   points2D[0] = Eigen::Vector2d(1.0, 2.0);
@@ -112,7 +112,7 @@ TEST(Image, Points2D) {
 }
 
 TEST(Image, Points2DWith3D) {
-  Image image;
+  BaseImage image;
   EXPECT_EQ(image.Points2D().size(), 0);
   std::vector<Point2D> points2D(10);
   points2D[0].xy = Eigen::Vector2d(1.0, 2.0);
@@ -125,7 +125,7 @@ TEST(Image, Points2DWith3D) {
 }
 
 TEST(Image, Points3D) {
-  Image image;
+  BaseImage image;
   image.SetPoints2D(std::vector<Eigen::Vector2d>(2));
   EXPECT_FALSE(image.Point2D(0).HasPoint3D());
   EXPECT_FALSE(image.Point2D(1).HasPoint3D());
@@ -168,12 +168,12 @@ TEST(Image, Points3D) {
 }
 
 TEST(Image, ProjectionCenter) {
-  Image image;
+  BaseImage image;
   EXPECT_EQ(image.ProjectionCenter(), Eigen::Vector3d::Zero());
 }
 
 TEST(Image, ViewingDirection) {
-  Image image;
+  BaseImage image;
   EXPECT_EQ(image.ViewingDirection(), Eigen::Vector3d(0, 0, 1));
 }
 
