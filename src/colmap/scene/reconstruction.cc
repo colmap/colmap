@@ -229,7 +229,6 @@ void Reconstruction::DeleteAllPoints2DAndPoints3D() {
     class Image new_image(image.second.Camera());
     new_image.SetImageId(image.second.ImageId());
     new_image.SetName(image.second.Name());
-    new_image.SetCameraId(image.second.CameraId());
     new_image.SetRegistered(image.second.IsRegistered());
     new_image.CamFromWorld() = image.second.CamFromWorld();
     image.second = std::move(new_image);

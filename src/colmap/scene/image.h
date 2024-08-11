@@ -147,6 +147,9 @@ class Image : public BaseImage {
   // Switch to different camera address
   inline void SetCamera(struct Camera* camera);
 
+  // Disable ``SetCameraId``
+  void SetCameraId(camera_t camera_id) = delete;
+
   // Reproject the 3D point onto the image in pixels (only when the camera
   // pointer is available) Return false if the 3D point is behind the camera.
   std::pair<bool, Eigen::Vector2d> ProjectPoint(
@@ -219,7 +222,7 @@ inline struct Camera* Image::Camera() const { return camera_; }
 
 inline void Image::SetCamera(struct Camera* camera) {
   camera_ = camera;
-  SetCameraId(camera->camera_id);
+  camera_id_ = camera->camera_id;
 }
 
 }  // namespace colmap

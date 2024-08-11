@@ -200,7 +200,6 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
 
     Image image(&camera);
     image.SetName("image" + std::to_string(existing_num_images + image_idx));
-    image.SetCameraId(camera_ids[image_idx % options.num_cameras]);
     // Synthesize image poses with projection centers on sphere with radious 5
     // centered at origin.
     const Eigen::Vector3d view_dir = -Eigen::Vector3d::Random().normalized();
