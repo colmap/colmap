@@ -116,7 +116,7 @@ void Reconstruction::AddCamera(struct Camera camera) {
   THROW_CHECK(cameras_.emplace(camera_id, std::move(camera)).second);
 }
 
-void Reconstruction::AddImage(BaseImage base_image) {
+void Reconstruction::AddImage(const BaseImage& base_image) {
   THROW_CHECK(ExistsCamera(base_image.CameraId()));
   const image_t image_id = base_image.ImageId();
   const bool is_registered = base_image.IsRegistered();
