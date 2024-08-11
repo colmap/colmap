@@ -222,7 +222,7 @@ inline struct Camera* Image::Camera() const { return camera_; }
 
 inline void Image::SetCamera(struct Camera* camera) {
   camera_ = camera;
-  camera_id_ = camera->camera_id;
+  BaseImage::SetCameraId(camera->camera_id);
 }
 
 }  // namespace colmap

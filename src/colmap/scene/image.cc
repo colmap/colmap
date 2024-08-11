@@ -42,7 +42,7 @@ BaseImage::BaseImage()
       num_points3D_(0) {}
 
 Image::Image(struct Camera* camera) : BaseImage(), camera_(camera) {
-  camera_id_ = camera->camera_id;
+  BaseImage::SetCameraId(camera->camera_id);
 }
 
 Image::Image(const Image& image) : camera_(image.Camera()) {
@@ -61,7 +61,7 @@ Image::Image(const BaseImage& base_image, struct Camera* camera)
 void Image::CopyFromBaseImage(const BaseImage& image) {
   SetImageId(image.ImageId());
   SetName(image.Name());
-  camera_id_ = image.CameraId();
+  BaseImage::SetCameraId(image.CameraId());
   SetRegistered(image.IsRegistered());
   num_points3D_ = image.NumPoints3D();
   cam_from_world_ = image.CamFromWorld();
