@@ -120,7 +120,7 @@ void Reconstruction::AddImage(BaseImage base_image) {
   THROW_CHECK(ExistsCamera(base_image.CameraId()));
   const image_t image_id = base_image.ImageId();
   const bool is_registered = base_image.IsRegistered();
-  Image image(base_image, &Camera(base_image.CameraId()));
+  class Image image(base_image, &Camera(base_image.CameraId()));
   THROW_CHECK(images_.emplace(image_id, std::move(image)).second);
   if (is_registered) {
     THROW_CHECK_NE(image_id, kInvalidImageId);
