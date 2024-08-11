@@ -34,14 +34,41 @@
 
 namespace colmap {
 
-Image::Image()
+BaseImage::BaseImage()
     : image_id_(kInvalidImageId),
       name_(""),
       camera_id_(kInvalidCameraId),
       registered_(false),
       num_points3D_(0) {}
 
-void Image::SetPoints2D(const std::vector<Eigen::Vector2d>& points) {
+Image::Image(struct Camera* camera) : BaseImage(), camera_(camera) {
+  SetCameraId(camera->camera_id);
+}
+
+Image::Image(const Image& image) : camera_(image.Camera()) {
+  CopyFromBaseImage(image);
+}
+
+Image::Image(const BaseImage& base_image, struct Camera* camera)
+    : camera_(camera) {
+  // Check if the camera id matches the one in the base image
+  THROW_CHECK_EQ(base_image.CameraId(), camera->camera_id);
+
+  // Copy data from the BaseImage instance
+  CopyFromBaseImage(base_image);
+}
+
+void Image::CopyFromBaseImage(const BaseImage& image) {
+  SetImageId(image.ImageId());
+  SetName(image.Name());
+  SetCameraId(image.CameraId());
+  SetRegistered(image.IsRegistered());
+  num_points3D_ = image.NumPoints3D();
+  cam_from_world_ = image.CamFromWorld();
+  SetPoints2D(image.Points2D());
+}
+
+void BaseImage::SetPoints2D(const std::vector<Eigen::Vector2d>& points) {
   THROW_CHECK(points2D_.empty());
   points2D_.resize(points.size());
   for (point2D_t point2D_idx = 0; point2D_idx < points.size(); ++point2D_idx) {
@@ -49,7 +76,7 @@ void Image::SetPoints2D(const std::vector<Eigen::Vector2d>& points) {
   }
 }
 
-void Image::SetPoints2D(const std::vector<struct Point2D>& points) {
+void BaseImage::SetPoints2D(const std::vector<struct Point2D>& points) {
   THROW_CHECK(points2D_.empty());
   points2D_ = points;
   num_points3D_ = 0;
@@ -60,8 +87,8 @@ void Image::SetPoints2D(const std::vector<struct Point2D>& points) {
   }
 }
 
-void Image::SetPoint3DForPoint2D(const point2D_t point2D_idx,
-                                 const point3D_t point3D_id) {
+void BaseImage::SetPoint3DForPoint2D(const point2D_t point2D_idx,
+                                     const point3D_t point3D_id) {
   THROW_CHECK_NE(point3D_id, kInvalidPoint3DId);
   struct Point2D& point2D = points2D_.at(point2D_idx);
   if (!point2D.HasPoint3D()) {
@@ -70,7 +97,7 @@ void Image::SetPoint3DForPoint2D(const point2D_t point2D_idx,
   point2D.point3D_id = point3D_id;
 }
 
-void Image::ResetPoint3DForPoint2D(const point2D_t point2D_idx) {
+void BaseImage::ResetPoint3DForPoint2D(const point2D_t point2D_idx) {
   struct Point2D& point2D = points2D_.at(point2D_idx);
   if (point2D.HasPoint3D()) {
     point2D.point3D_id = kInvalidPoint3DId;
@@ -78,7 +105,7 @@ void Image::ResetPoint3DForPoint2D(const point2D_t point2D_idx) {
   }
 }
 
-bool Image::HasPoint3D(const point3D_t point3D_id) const {
+bool BaseImage::HasPoint3D(const point3D_t point3D_id) const {
   return std::find_if(points2D_.begin(),
                       points2D_.end(),
                       [point3D_id](const struct Point2D& point2D) {
@@ -86,19 +113,16 @@ bool Image::HasPoint3D(const point3D_t point3D_id) const {
                       }) != points2D_.end();
 }
 
-Eigen::Vector3d Image::ProjectionCenter() const {
+Eigen::Vector3d BaseImage::ProjectionCenter() const {
   return cam_from_world_.rotation.inverse() * -cam_from_world_.translation;
 }
 
-Eigen::Vector3d Image::ViewingDirection() const {
+Eigen::Vector3d BaseImage::ViewingDirection() const {
   return cam_from_world_.rotation.toRotationMatrix().row(2);
 }
 
 std::pair<bool, Eigen::Vector2d> Image::ProjectPoint(
     const Eigen::Vector3d& point3D) const {
-  // The camera pointer has to be existent for this function
-  THROW_CHECK(HasCameraPtr());
-
   // Transform point3D
   const Eigen::Vector3d point3D_in_cam = CamFromWorld() * point3D;
 
@@ -108,7 +132,7 @@ std::pair<bool, Eigen::Vector2d> Image::ProjectPoint(
   }
 
   return std::make_pair(true,
-                        CameraPtr()->ImgFromCam(point3D_in_cam.hnormalized()));
+                        camera_->ImgFromCam(point3D_in_cam.hnormalized()));
 }
 
 }  // namespace colmap

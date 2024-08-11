@@ -66,7 +66,7 @@ inline Eigen::Vector4f IndexToRGB(const size_t index) {
   return color;
 }
 
-void BuildImageModel(const Image& image,
+void BuildImageModel(const BaseImage& image,
                      const Camera& camera,
                      const float image_size,
                      const Eigen::Vector4f& plane_color,
@@ -378,7 +378,7 @@ void ModelViewerWidget::ReloadReconstruction() {
 
   images.clear();
   for (const image_t image_id : reg_image_ids) {
-    images[image_id] = reconstruction->Image(image_id);
+    images.at(image_id) = reconstruction->Image(image_id);
   }
 
   statusbar_status_label->setText(
@@ -950,7 +950,7 @@ void ModelViewerWidget::UploadPointData(const bool selection_mode) {
       }
     }
   } else {  // Image selected
-    const auto& selected_image = images[selected_image_id_];
+    const auto& selected_image = images.at(selected_image_id_);
     for (const auto& point3D : points3D) {
       if (point3D.second.error <= options_->render->max_error &&
           point3D.second.track.Length() >= min_track_len) {
@@ -1012,7 +1012,7 @@ void ModelViewerWidget::UploadPointConnectionData() {
 
   // All images in which 3D point is observed.
   for (const auto& track_el : point3D.track.Elements()) {
-    const Image& conn_image = images[track_el.image_id];
+    const Image& conn_image = images.at(track_el.image_id);
     const Eigen::Vector3f conn_proj_center =
         conn_image.ProjectionCenter().cast<float>();
     line.point2 = PointPainter::Data(conn_proj_center(0),
@@ -1038,7 +1038,7 @@ void ModelViewerWidget::UploadImageData(const bool selection_mode) {
   triangle_data.reserve(2 * reg_image_ids.size());
 
   for (const image_t image_id : reg_image_ids) {
-    const Image& image = images[image_id];
+    const Image& image = images.at(image_id);
     const Camera& camera = cameras[image.CameraId()];
 
     Eigen::Vector4f plane_color;
@@ -1118,7 +1118,7 @@ void ModelViewerWidget::UploadImageConnectionData() {
 
     // All connected images to the selected image.
     for (const image_t conn_image_id : conn_image_ids) {
-      const Image& conn_image = images[conn_image_id];
+      const Image& conn_image = images.at(conn_image_id);
       const Eigen::Vector3f conn_proj_center =
           conn_image.ProjectionCenter().cast<float>();
       line.point2 = PointPainter::Data(conn_proj_center(0),
@@ -1148,11 +1148,11 @@ void ModelViewerWidget::UploadMovieGrabberData() {
   triangle_data.reserve(2 * movie_grabber_widget_->views.size());
 
   if (movie_grabber_widget_->views.size() > 0) {
-    const Image& image0 = movie_grabber_widget_->views[0];
+    const BaseImage& image0 = movie_grabber_widget_->views[0];
     Eigen::Vector3f prev_proj_center = image0.ProjectionCenter().cast<float>();
 
     for (size_t i = 1; i < movie_grabber_widget_->views.size(); ++i) {
-      const Image& image = movie_grabber_widget_->views[i];
+      const BaseImage& image = movie_grabber_widget_->views[i];
       const Eigen::Vector3f curr_proj_center =
           image.ProjectionCenter().cast<float>();
       LinePainter::Data path;
@@ -1188,7 +1188,7 @@ void ModelViewerWidget::UploadMovieGrabberData() {
 
     // Build all camera models
     for (size_t i = 0; i < movie_grabber_widget_->views.size(); ++i) {
-      const Image& image = movie_grabber_widget_->views[i];
+      const BaseImage& image = movie_grabber_widget_->views[i];
       Eigen::Vector4f plane_color;
       Eigen::Vector4f frame_color;
       if (i == selected_movie_grabber_view_) {

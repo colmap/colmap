@@ -81,8 +81,6 @@ void Reconstruction::Load(const DatabaseCache& database_cache) {
       AddImage(image.second);
     }
   }
-
-  SyncCameraPointers();
 }
 
 void Reconstruction::TearDown() {
@@ -118,21 +116,13 @@ void Reconstruction::AddCamera(struct Camera camera) {
   THROW_CHECK(cameras_.emplace(camera_id, std::move(camera)).second);
 }
 
-void Reconstruction::AddImage(class Image image, bool sync_camera_pointer) {
+void Reconstruction::AddImage(class Image image) {
   const image_t image_id = image.ImageId();
   const bool is_registered = image.IsRegistered();
   THROW_CHECK(images_.emplace(image_id, std::move(image)).second);
   if (is_registered) {
     THROW_CHECK_NE(image_id, kInvalidImageId);
     reg_image_ids_.push_back(image_id);
-  }
-  if (sync_camera_pointer) {
-    if (!ExistsCamera(Image(image_id).CameraId()))
-      LOG(FATAL_THROW) << "The camera id for the added image needs to be "
-                          "existent in the reconstruction if one wants to sync "
-                          "the camera pointer with AddImage(image_id, true)";
-    Image(image_id).SetCameraPtr(std::make_shared<struct Camera>(
-        cameras_.at(Image(image_id).CameraId())));
   }
 }
 
@@ -236,7 +226,7 @@ void Reconstruction::DeleteObservation(const image_t image_id,
 void Reconstruction::DeleteAllPoints2DAndPoints3D() {
   points3D_.clear();
   for (auto& image : images_) {
-    class Image new_image;
+    class Image new_image(image.second.Camera());
     new_image.SetImageId(image.second.ImageId());
     new_image.SetName(image.second.Name());
     new_image.SetCameraId(image.second.CameraId());
@@ -560,7 +550,6 @@ void Reconstruction::ReadText(const std::string& path) {
   ReadCamerasText(*this, JoinPaths(path, "cameras.txt"));
   ReadImagesText(*this, JoinPaths(path, "images.txt"));
   ReadPoints3DText(*this, JoinPaths(path, "points3D.txt"));
-  SyncCameraPointers();
 }
 
 void Reconstruction::ReadBinary(const std::string& path) {
@@ -570,7 +559,6 @@ void Reconstruction::ReadBinary(const std::string& path) {
   ReadCamerasBinary(*this, JoinPaths(path, "cameras.bin"));
   ReadImagesBinary(*this, JoinPaths(path, "images.bin"));
   ReadPoints3DBinary(*this, JoinPaths(path, "points3D.bin"));
-  SyncCameraPointers();
 }
 
 void Reconstruction::WriteText(const std::string& path) const {
@@ -726,13 +714,6 @@ void Reconstruction::CreateImageDirs(const std::string& path) const {
   }
   for (const auto& dir : image_dirs) {
     CreateDirIfNotExists(dir, /*recursive=*/true);
-  }
-}
-
-void Reconstruction::SyncCameraPointers() {
-  for (auto& image : images_) {
-    image.second.SetCameraPtr(
-        std::make_shared<struct Camera>(cameras_.at(image.second.CameraId())));
   }
 }
 

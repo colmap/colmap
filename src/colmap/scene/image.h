@@ -48,9 +48,9 @@ namespace colmap {
 // Class that holds information about an image. An image is the product of one
 // camera shot at a certain location (parameterized as the pose). An image may
 // share a camera with multiple other images, if its intrinsics are the same.
-class Image {
+class BaseImage {
  public:
-  Image();
+  BaseImage();
 
   // Access the unique identifier of the image.
   inline image_t ImageId() const;
@@ -67,11 +67,6 @@ class Image {
   inline void SetCameraId(camera_t camera_id);
   // Check whether identifier of camera has been set.
   inline bool HasCamera() const;
-  // [Optional]: Access the shared pointer of the camera
-  inline std::shared_ptr<struct Camera> CameraPtr() const;
-  inline void SetCameraPtr(const std::shared_ptr<struct Camera>& camera);
-  // check whether the camera pointer has been set
-  inline bool HasCameraPtr() const;
 
   // Check if image is registered.
   inline bool IsRegistered() const;
@@ -111,12 +106,7 @@ class Image {
   // Extract the viewing direction of the image.
   Eigen::Vector3d ViewingDirection() const;
 
-  // Reproject the 3D point onto the image in pixels (only when the camera
-  // pointer is available) Return false if the 3D point is behind the camera.
-  std::pair<bool, Eigen::Vector2d> ProjectPoint(
-      const Eigen::Vector3d& point3D) const;
-
- private:
+ protected:
   // Identifier of the image, if not specified `kInvalidImageId`.
   image_t image_id_;
 
@@ -126,8 +116,6 @@ class Image {
   // The identifier of the associated camera. Note that multiple images might
   // share the same camera. If not specified `kInvalidCameraId`.
   camera_t camera_id_;
-  // [Optional] the shared pointer of the camera
-  std::shared_ptr<struct Camera> camera_ = nullptr;
 
   // Whether the image is successfully registered in the reconstruction.
   bool registered_;
@@ -143,65 +131,95 @@ class Image {
   std::vector<struct Point2D> points2D_;
 };
 
+class Image : public BaseImage {
+ public:
+  Image(struct Camera* camera);
+
+  // Copy constructor
+  Image(const Image& image);
+
+  // Initialized from an existing ``BaseImage`` with a raw camera pointer
+  Image(const BaseImage& base_image, struct Camera* camera);
+
+  // Access the address of the corresponding camera
+  inline struct Camera* Camera() const;
+
+  // Switch to different camera address
+  inline void SetCamera(struct Camera* camera);
+
+  // Reproject the 3D point onto the image in pixels (only when the camera
+  // pointer is available) Return false if the 3D point is behind the camera.
+  std::pair<bool, Eigen::Vector2d> ProjectPoint(
+      const Eigen::Vector3d& point3D) const;
+
+ private:
+  // The address of the corresponding camera
+  struct Camera* camera_;
+
+  // Copy from base image
+  void CopyFromBaseImage(const BaseImage& image);
+};
+
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////
 
-image_t Image::ImageId() const { return image_id_; }
+image_t BaseImage::ImageId() const { return image_id_; }
 
-void Image::SetImageId(const image_t image_id) { image_id_ = image_id; }
+void BaseImage::SetImageId(const image_t image_id) { image_id_ = image_id; }
 
-const std::string& Image::Name() const { return name_; }
+const std::string& BaseImage::Name() const { return name_; }
 
-std::string& Image::Name() { return name_; }
+std::string& BaseImage::Name() { return name_; }
 
-void Image::SetName(const std::string& name) { name_ = name; }
+void BaseImage::SetName(const std::string& name) { name_ = name; }
 
-inline camera_t Image::CameraId() const { return camera_id_; }
+inline camera_t BaseImage::CameraId() const { return camera_id_; }
 
-inline void Image::SetCameraId(const camera_t camera_id) {
+inline void BaseImage::SetCameraId(const camera_t camera_id) {
   THROW_CHECK_NE(camera_id, kInvalidCameraId);
   camera_id_ = camera_id;
 }
 
-inline bool Image::HasCamera() const { return camera_id_ != kInvalidCameraId; }
-
-inline std::shared_ptr<struct Camera> Image::CameraPtr() const {
-  return camera_;
+inline bool BaseImage::HasCamera() const {
+  return camera_id_ != kInvalidCameraId;
 }
 
-inline void Image::SetCameraPtr(const std::shared_ptr<struct Camera>& camera) {
-  THROW_CHECK_NE(camera->camera_id, kInvalidCameraId);
-  camera_ = camera;
-  camera_id_ = camera->camera_id;
+bool BaseImage::IsRegistered() const { return registered_; }
+
+void BaseImage::SetRegistered(const bool registered) {
+  registered_ = registered;
 }
 
-inline bool Image::HasCameraPtr() const { return camera_ != nullptr; }
-
-bool Image::IsRegistered() const { return registered_; }
-
-void Image::SetRegistered(const bool registered) { registered_ = registered; }
-
-point2D_t Image::NumPoints2D() const {
+point2D_t BaseImage::NumPoints2D() const {
   return static_cast<point2D_t>(points2D_.size());
 }
 
-point2D_t Image::NumPoints3D() const { return num_points3D_; }
+point2D_t BaseImage::NumPoints3D() const { return num_points3D_; }
 
-const Rigid3d& Image::CamFromWorld() const { return cam_from_world_; }
+const Rigid3d& BaseImage::CamFromWorld() const { return cam_from_world_; }
 
-Rigid3d& Image::CamFromWorld() { return cam_from_world_; }
+Rigid3d& BaseImage::CamFromWorld() { return cam_from_world_; }
 
-const struct Point2D& Image::Point2D(const point2D_t point2D_idx) const {
+const struct Point2D& BaseImage::Point2D(const point2D_t point2D_idx) const {
   return points2D_.at(point2D_idx);
 }
 
-struct Point2D& Image::Point2D(const point2D_t point2D_idx) {
+struct Point2D& BaseImage::Point2D(const point2D_t point2D_idx) {
   return points2D_.at(point2D_idx);
 }
 
-const std::vector<struct Point2D>& Image::Points2D() const { return points2D_; }
+const std::vector<struct Point2D>& BaseImage::Points2D() const {
+  return points2D_;
+}
 
-std::vector<struct Point2D>& Image::Points2D() { return points2D_; }
+std::vector<struct Point2D>& BaseImage::Points2D() { return points2D_; }
+
+inline struct Camera* Image::Camera() const { return camera_; }
+
+inline void Image::SetCamera(struct Camera* camera) {
+  camera_ = camera;
+  SetCameraId(camera->camera_id);
+}
 
 }  // namespace colmap

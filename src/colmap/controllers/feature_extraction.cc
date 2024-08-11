@@ -87,7 +87,7 @@ struct ImageData {
   ImageReader::Status status = ImageReader::Status::FAILURE;
 
   Camera camera;
-  Image image;
+  BaseImage image;
   PosePrior pose_prior;
   Bitmap bitmap;
   Bitmap mask;
@@ -544,7 +544,7 @@ class FeatureImporterController : public Thread {
 
       // Load image data and possibly save camera to database.
       Camera camera;
-      Image image;
+      BaseImage image;
       PosePrior pose_prior;
       Bitmap bitmap;
       if (image_reader.Next(&camera, &image, &pose_prior, &bitmap, nullptr) !=

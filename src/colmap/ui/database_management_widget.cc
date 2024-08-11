@@ -154,7 +154,7 @@ MatchesTab::MatchesTab(QWidget* parent,
   InitializeTable(table_header);
 }
 
-void MatchesTab::Reload(const std::vector<Image>& images,
+void MatchesTab::Reload(const std::vector<BaseImage>& images,
                         const image_t image_id) {
   matches_.clear();
 
@@ -189,7 +189,7 @@ TwoViewGeometriesTab::TwoViewGeometriesTab(QWidget* parent,
   InitializeTable(table_header);
 }
 
-void TwoViewGeometriesTab::Reload(const std::vector<Image>& images,
+void TwoViewGeometriesTab::Reload(const std::vector<BaseImage>& images,
                                   const image_t image_id) {
   matches_.clear();
   configs_.clear();
@@ -245,7 +245,7 @@ OverlappingImagesWidget::OverlappingImagesWidget(QWidget* parent,
   grid->addWidget(close_button, 1, 0, Qt::AlignRight);
 }
 
-void OverlappingImagesWidget::ShowMatches(const std::vector<Image>& images,
+void OverlappingImagesWidget::ShowMatches(const std::vector<BaseImage>& images,
                                           const image_t image_id) {
   parent_->setDisabled(true);
 
@@ -565,7 +565,7 @@ void ImageTab::Clear() {
 }
 
 void ImageTab::itemChanged(QTableWidgetItem* item) {
-  Image& image = images_.at(item->row());
+  BaseImage& image = images_.at(item->row());
   camera_t camera_id = kInvalidCameraId;
 
   switch (item->column()) {

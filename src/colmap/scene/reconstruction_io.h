@@ -37,12 +37,16 @@ namespace colmap {
 
 void ReadCamerasText(Reconstruction& reconstruction, const std::string& path);
 
+// This ``ReadImagesText`` function can only be called with cameras loaded in
+// the reconstruction, e.g., after ``ReadCamerasText`` is called
 void ReadImagesText(Reconstruction& reconstruction, const std::string& path);
 
 void ReadPoints3DText(Reconstruction& reconstruction, const std::string& path);
 
 void ReadCamerasBinary(Reconstruction& reconstruction, const std::string& path);
 
+// This ``ReadImagesBinary`` function can only be called with cameras loaded in
+// the reconstruction, e.g., after ``ReadCamerasBinary`` is called
 void ReadImagesBinary(Reconstruction& reconstruction, const std::string& path);
 
 void ReadPoints3DBinary(Reconstruction& reconstruction,

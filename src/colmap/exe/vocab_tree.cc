@@ -52,7 +52,7 @@ FeatureDescriptors LoadRandomDatabaseDescriptors(
   Database database(database_path);
   DatabaseTransaction database_transaction(&database);
 
-  const std::vector<Image> images = database.ReadAllImages();
+  const std::vector<BaseImage> images = database.ReadAllImages();
 
   FeatureDescriptors descriptors;
 
@@ -92,9 +92,9 @@ FeatureDescriptors LoadRandomDatabaseDescriptors(
   return descriptors;
 }
 
-std::vector<Image> ReadVocabTreeRetrievalImageList(const std::string& path,
-                                                   Database* database) {
-  std::vector<Image> images;
+std::vector<BaseImage> ReadVocabTreeRetrievalImageList(const std::string& path,
+                                                       Database* database) {
+  std::vector<BaseImage> images;
   if (path.empty()) {
     images.reserve(database->NumImages());
     for (const auto& image : database->ReadAllImages()) {
@@ -184,7 +184,7 @@ int RunVocabTreeRetriever(int argc, char** argv) {
   const auto query_images =
       (!query_image_list_path.empty() || output_index_path.empty())
           ? ReadVocabTreeRetrievalImageList(query_image_list_path, &database)
-          : std::vector<Image>();
+          : std::vector<BaseImage>();
 
   //////////////////////////////////////////////////////////////////////////////
   // Perform image indexing
@@ -233,7 +233,7 @@ int RunVocabTreeRetriever(int argc, char** argv) {
   // Perform image queries
   //////////////////////////////////////////////////////////////////////////////
 
-  std::unordered_map<image_t, const Image*> image_id_to_image;
+  std::unordered_map<image_t, const BaseImage*> image_id_to_image;
   image_id_to_image.reserve(database_images.size());
   for (const auto& image : database_images) {
     image_id_to_image.emplace(image.ImageId(), &image);

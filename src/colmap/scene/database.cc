@@ -223,8 +223,8 @@ Camera ReadCameraRow(sqlite3_stmt* sql_stmt) {
   return camera;
 }
 
-Image ReadImageRow(sqlite3_stmt* sql_stmt) {
-  Image image;
+BaseImage ReadImageRow(sqlite3_stmt* sql_stmt) {
+  BaseImage image;
 
   image.SetImageId(static_cast<image_t>(sqlite3_column_int64(sql_stmt, 0)));
   image.SetName(std::string(
@@ -397,10 +397,10 @@ std::vector<Camera> Database::ReadAllCameras() const {
   return cameras;
 }
 
-Image Database::ReadImage(const image_t image_id) const {
+BaseImage Database::ReadImage(const image_t image_id) const {
   SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_read_image_id_, 1, image_id));
 
-  Image image;
+  BaseImage image;
 
   const int rc = SQLITE3_CALL(sqlite3_step(sql_stmt_read_image_id_));
   if (rc == SQLITE_ROW) {
@@ -412,14 +412,14 @@ Image Database::ReadImage(const image_t image_id) const {
   return image;
 }
 
-Image Database::ReadImageWithName(const std::string& name) const {
+BaseImage Database::ReadImageWithName(const std::string& name) const {
   SQLITE3_CALL(sqlite3_bind_text(sql_stmt_read_image_name_,
                                  1,
                                  name.c_str(),
                                  static_cast<int>(name.size()),
                                  SQLITE_STATIC));
 
-  Image image;
+  BaseImage image;
 
   const int rc = SQLITE3_CALL(sqlite3_step(sql_stmt_read_image_name_));
   if (rc == SQLITE_ROW) {
@@ -431,8 +431,8 @@ Image Database::ReadImageWithName(const std::string& name) const {
   return image;
 }
 
-std::vector<Image> Database::ReadAllImages() const {
-  std::vector<Image> images;
+std::vector<BaseImage> Database::ReadAllImages() const {
+  std::vector<BaseImage> images;
   images.reserve(NumImages());
 
   while (SQLITE3_CALL(sqlite3_step(sql_stmt_read_images_)) == SQLITE_ROW) {
@@ -667,7 +667,7 @@ camera_t Database::WriteCamera(const Camera& camera,
   return static_cast<camera_t>(sqlite3_last_insert_rowid(database_));
 }
 
-image_t Database::WriteImage(const Image& image,
+image_t Database::WriteImage(const BaseImage& image,
                              const bool use_image_id) const {
   if (use_image_id) {
     THROW_CHECK(!ExistsImage(image.ImageId())) << "image_id must be unique";
@@ -838,7 +838,7 @@ void Database::UpdateCamera(const Camera& camera) const {
   SQLITE3_CALL(sqlite3_reset(sql_stmt_update_camera_));
 }
 
-void Database::UpdateImage(const Image& image) const {
+void Database::UpdateImage(const BaseImage& image) const {
   SQLITE3_CALL(sqlite3_bind_text(sql_stmt_update_image_,
                                  1,
                                  image.Name().c_str(),

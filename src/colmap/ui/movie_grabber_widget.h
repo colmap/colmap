@@ -45,7 +45,7 @@ class MovieGrabberWidget : public QWidget {
   MovieGrabberWidget(QWidget* parent, ModelViewerWidget* model_viewer_widget);
 
   // List of views, used to visualize the movie grabber camera path.
-  std::vector<Image> views;
+  std::vector<BaseImage> views;
 
   struct ViewData {
     QMatrix4x4 model_view_matrix;

@@ -103,7 +103,7 @@ class Reconstruction {
   void AddCamera(struct Camera camera);
 
   // Add new image. optionally load camera address in the image
-  void AddImage(class Image image, bool sync_camera_pointer = false);
+  void AddImage(class Image image);
 
   // Add new 3D point with known ID.
   void AddPoint3D(point3D_t point3D_id, struct Point3D point3D);
@@ -235,9 +235,6 @@ class Reconstruction {
 
   // Create all image sub-directories in the given path.
   void CreateImageDirs(const std::string& path) const;
-
-  // Load the camera address for each image
-  void SyncCameraPointers();
 
  private:
   std::tuple<Eigen::Vector3d, Eigen::Vector3d, Eigen::Vector3d>

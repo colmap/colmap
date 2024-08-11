@@ -195,7 +195,10 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
   const int existing_num_images =
       (database == nullptr) ? 0 : database->NumImages();
   for (int image_idx = 0; image_idx < options.num_images; ++image_idx) {
-    Image image;
+    camera_t camera_id = camera_ids[image_idx % options.num_cameras];
+    Camera& camera = reconstruction->Camera(camera_id);
+
+    Image image(&camera);
     image.SetName("image" + std::to_string(existing_num_images + image_idx));
     image.SetCameraId(camera_ids[image_idx % options.num_cameras]);
     // Synthesize image poses with projection centers on sphere with radious 5
@@ -206,8 +209,6 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
         Eigen::Quaterniond::FromTwoVectors(view_dir, Eigen::Vector3d(0, 0, 1));
     image.CamFromWorld().translation =
         image.CamFromWorld().rotation * -proj_center;
-
-    const Camera& camera = reconstruction->Camera(image.CameraId());
 
     std::vector<Point2D> points2D;
     points2D.reserve(options.num_points3D +

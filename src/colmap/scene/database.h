@@ -153,9 +153,9 @@ class Database {
   Camera ReadCamera(camera_t camera_id) const;
   std::vector<Camera> ReadAllCameras() const;
 
-  Image ReadImage(image_t image_id) const;
-  Image ReadImageWithName(const std::string& name) const;
-  std::vector<Image> ReadAllImages() const;
+  BaseImage ReadImage(image_t image_id) const;
+  BaseImage ReadImageWithName(const std::string& name) const;
+  std::vector<BaseImage> ReadAllImages() const;
 
   PosePrior ReadPosePrior(image_t image_id) const;
 
@@ -186,7 +186,7 @@ class Database {
 
   // Add new image and return its database identifier. If `use_image_id`
   // is false a new identifier is automatically generated.
-  image_t WriteImage(const Image& image, bool use_image_id = false) const;
+  image_t WriteImage(const BaseImage& image, bool use_image_id = false) const;
 
   // Write a new entry in the database. The user is responsible for making sure
   // that the entry does not yet exist. For image pairs, the order of
@@ -213,7 +213,7 @@ class Database {
 
   // Update an existing image in the database. The user is responsible for
   // making sure that the entry already exists.
-  void UpdateImage(const Image& image) const;
+  void UpdateImage(const BaseImage& image) const;
 
   // Delete matches of an image pair.
   void DeleteMatches(image_t image_id1, image_t image_id2) const;

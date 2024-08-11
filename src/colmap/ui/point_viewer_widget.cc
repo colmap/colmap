@@ -164,7 +164,7 @@ void PointViewerWidget::Show(const point3D_t point3D_id) {
   std::vector<std::pair<TrackElement, std::string>> track_idx_image_name_pairs;
   track_idx_image_name_pairs.reserve(point3D.track.Length());
   for (const auto& track_el : point3D.track.Elements()) {
-    const Image& image = model_viewer_widget_->images[track_el.image_id];
+    const Image& image = model_viewer_widget_->images.at(track_el.image_id);
     track_idx_image_name_pairs.emplace_back(track_el, image.Name());
   }
 
@@ -178,7 +178,8 @@ void PointViewerWidget::Show(const point3D_t point3D_id) {
   // Paint features for each track element.
 
   for (const auto& track_el : track_idx_image_name_pairs) {
-    const Image& image = model_viewer_widget_->images[track_el.first.image_id];
+    const Image& image =
+        model_viewer_widget_->images.at(track_el.first.image_id);
     const Camera& camera = model_viewer_widget_->cameras[image.CameraId()];
     const Point2D& point2D = image.Point2D(track_el.first.point2D_idx);
     const Eigen::Vector2d proj_point2D =

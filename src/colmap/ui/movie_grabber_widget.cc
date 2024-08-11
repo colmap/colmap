@@ -186,7 +186,7 @@ void MovieGrabberWidget::Assemble() {
       model_viewer_widget_->ModelViewMatrix();
   const float point_size_cached = model_viewer_widget_->PointSize();
   const float image_size_cached = model_viewer_widget_->ImageSize();
-  const std::vector<Image> views_cached = views;
+  const std::vector<BaseImage> views_cached = views;
 
   // Make sure we do not render movie grabber path.
   views.clear();
@@ -291,7 +291,7 @@ void MovieGrabberWidget::UpdateViews() {
 
     const Eigen::Matrix4d model_view_matrix =
         QMatrixToEigen(view_data_.at(item).model_view_matrix).cast<double>();
-    Image image;
+    BaseImage image;
     image.CamFromWorld() =
         Rigid3d(Eigen::Quaterniond(model_view_matrix.topLeftCorner<3, 3>()),
                 model_view_matrix.topRightCorner<3, 1>());

@@ -107,7 +107,7 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
   std::unordered_set<image_t> image_ids;
 
   {
-    std::vector<class Image> images = database.ReadAllImages();
+    std::vector<BaseImage> images = database.ReadAllImages();
     const size_t num_images = images.size();
 
     // Determines for which images data should be loaded.
@@ -142,7 +142,9 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
     // Load images with correspondences and discard images without
     // correspondences, as those images are useless for SfM.
     cache->images_.reserve(connected_image_ids.size());
-    for (auto& image : images) {
+    for (const auto& base_image : images) {
+      camera_t camera_id = base_image.CameraId();
+      class Image image(base_image, &cache->cameras_[camera_id]);
       const image_t image_id = image.ImageId();
       if (image_ids.count(image_id) > 0 &&
           connected_image_ids.count(image_id) > 0) {

@@ -153,7 +153,7 @@ TEST(Database, Image) {
       kInvalidCameraId, "SIMPLE_PINHOLE", 1.0, 1, 1);
   camera.camera_id = database.WriteCamera(camera);
   EXPECT_EQ(database.NumImages(), 0);
-  Image image;
+  BaseImage image;
   image.SetName("test");
   image.SetCameraId(camera.camera_id);
   image.SetImageId(database.WriteImage(image));
@@ -166,7 +166,7 @@ TEST(Database, Image) {
   read_image = database.ReadImage(image.ImageId());
   EXPECT_EQ(read_image.ImageId(), image.ImageId());
   EXPECT_EQ(read_image.CameraId(), image.CameraId());
-  Image image2 = image;
+  BaseImage image2 = image;
   image2.SetName("test2");
   image2.SetImageId(image.ImageId() + 1);
   database.WriteImage(image2, true);
@@ -182,7 +182,7 @@ TEST(Database, PosePrior) {
   Database database(Database::kInMemoryDatabasePath);
   Camera camera;
   camera.camera_id = database.WriteCamera(camera);
-  Image image;
+  BaseImage image;
   image.SetName("test");
   image.SetCameraId(camera.camera_id);
   image.SetImageId(database.WriteImage(image));
@@ -204,7 +204,7 @@ TEST(Database, Keypoints) {
   Database database(Database::kInMemoryDatabasePath);
   Camera camera;
   camera.camera_id = database.WriteCamera(camera);
-  Image image;
+  BaseImage image;
   image.SetName("test");
   image.SetCameraId(camera.camera_id);
   image.SetImageId(database.WriteImage(image));
@@ -243,7 +243,7 @@ TEST(Database, Descriptors) {
   Database database(Database::kInMemoryDatabasePath);
   Camera camera;
   camera.camera_id = database.WriteCamera(camera);
-  Image image;
+  BaseImage image;
   image.SetName("test");
   image.SetCameraId(camera.camera_id);
   image.SetImageId(database.WriteImage(image));
@@ -426,7 +426,7 @@ TEST(Database, Merge) {
   camera.camera_id = database1.WriteCamera(camera);
   camera.camera_id = database2.WriteCamera(camera);
 
-  Image image;
+  BaseImage image;
   image.SetCameraId(camera.camera_id);
 
   image.SetName("test1");

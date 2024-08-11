@@ -86,7 +86,7 @@ ImageReader::ImageReader(const ImageReaderOptions& options, Database* database)
 }
 
 ImageReader::Status ImageReader::Next(Camera* camera,
-                                      Image* image,
+                                      BaseImage* image,
                                       PosePrior* pose_prior,
                                       Bitmap* bitmap,
                                       Bitmap* mask) {

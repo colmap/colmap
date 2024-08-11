@@ -59,8 +59,8 @@ class TwoViewInfoTab : public QWidget {
   OptionManager* options_;
   Database* database_;
 
-  const Image* image_;
-  std::vector<std::pair<const Image*, FeatureMatches>> matches_;
+  const BaseImage* image_;
+  std::vector<std::pair<const BaseImage*, FeatureMatches>> matches_;
   std::vector<int> configs_;
   std::vector<size_t> sorted_matches_idxs_;
 
@@ -73,7 +73,7 @@ class MatchesTab : public TwoViewInfoTab {
  public:
   MatchesTab(QWidget* parent, OptionManager* options, Database* database);
 
-  void Reload(const std::vector<Image>& images, image_t image_id);
+  void Reload(const std::vector<BaseImage>& images, image_t image_id);
 };
 
 class TwoViewGeometriesTab : public TwoViewInfoTab {
@@ -82,7 +82,7 @@ class TwoViewGeometriesTab : public TwoViewInfoTab {
                        OptionManager* options,
                        Database* database);
 
-  void Reload(const std::vector<Image>& images, image_t image_id);
+  void Reload(const std::vector<BaseImage>& images, image_t image_id);
 };
 
 class OverlappingImagesWidget : public QWidget {
@@ -91,7 +91,7 @@ class OverlappingImagesWidget : public QWidget {
                           OptionManager* options,
                           Database* database);
 
-  void ShowMatches(const std::vector<Image>& images, image_t image_id);
+  void ShowMatches(const std::vector<BaseImage>& images, image_t image_id);
 
  private:
   void closeEvent(QCloseEvent* event);
@@ -152,7 +152,7 @@ class ImageTab : public QWidget {
   OptionManager* options_;
   Database* database_;
 
-  std::vector<Image> images_;
+  std::vector<BaseImage> images_;
 
   QTableWidget* table_widget_;
   QLabel* info_label_;

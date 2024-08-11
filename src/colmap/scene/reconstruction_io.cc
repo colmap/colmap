@@ -110,12 +110,12 @@ void ReadImagesText(Reconstruction& reconstruction, const std::string& path) {
     std::getline(line_stream1, item, ' ');
     const image_t image_id = std::stoul(item);
 
-    class Image image;
-    image.SetImageId(image_id);
+    BaseImage base_image;
+    base_image.SetImageId(image_id);
 
-    image.SetRegistered(true);
+    base_image.SetRegistered(true);
 
-    Rigid3d& cam_from_world = image.CamFromWorld();
+    Rigid3d& cam_from_world = base_image.CamFromWorld();
 
     std::getline(line_stream1, item, ' ');
     cam_from_world.rotation.w() = std::stold(item);
@@ -142,11 +142,16 @@ void ReadImagesText(Reconstruction& reconstruction, const std::string& path) {
 
     // CAMERA_ID
     std::getline(line_stream1, item, ' ');
-    image.SetCameraId(std::stoul(item));
+    base_image.SetCameraId(std::stoul(item));
 
     // NAME
     std::getline(line_stream1, item, ' ');
-    image.SetName(item);
+    base_image.SetName(item);
+
+    // convert to Image object
+    THROW_CHECK(reconstruction.ExistsCamera(base_image.CameraId()));
+    struct Camera& camera = reconstruction.Camera(base_image.CameraId());
+    class Image image(base_image, &camera);
 
     // POINTS2D
     if (!std::getline(file, line)) {
@@ -288,11 +293,11 @@ void ReadImagesBinary(Reconstruction& reconstruction, const std::string& path) {
 
   const size_t num_reg_images = ReadBinaryLittleEndian<uint64_t>(&file);
   for (size_t i = 0; i < num_reg_images; ++i) {
-    class Image image;
+    BaseImage base_image;
 
-    image.SetImageId(ReadBinaryLittleEndian<image_t>(&file));
+    base_image.SetImageId(ReadBinaryLittleEndian<image_t>(&file));
 
-    Rigid3d& cam_from_world = image.CamFromWorld();
+    Rigid3d& cam_from_world = base_image.CamFromWorld();
     cam_from_world.rotation.w() = ReadBinaryLittleEndian<double>(&file);
     cam_from_world.rotation.x() = ReadBinaryLittleEndian<double>(&file);
     cam_from_world.rotation.y() = ReadBinaryLittleEndian<double>(&file);
@@ -302,15 +307,20 @@ void ReadImagesBinary(Reconstruction& reconstruction, const std::string& path) {
     cam_from_world.translation.y() = ReadBinaryLittleEndian<double>(&file);
     cam_from_world.translation.z() = ReadBinaryLittleEndian<double>(&file);
 
-    image.SetCameraId(ReadBinaryLittleEndian<camera_t>(&file));
+    base_image.SetCameraId(ReadBinaryLittleEndian<camera_t>(&file));
 
     char name_char;
     do {
       file.read(&name_char, 1);
       if (name_char != '\0') {
-        image.Name() += name_char;
+        base_image.Name() += name_char;
       }
     } while (name_char != '\0');
+
+    // convert to Image object
+    THROW_CHECK(reconstruction.ExistsCamera(base_image.CameraId()));
+    struct Camera& camera = reconstruction.Camera(base_image.CameraId());
+    class Image image(base_image, &camera);
 
     const size_t num_points2D = ReadBinaryLittleEndian<uint64_t>(&file);
 

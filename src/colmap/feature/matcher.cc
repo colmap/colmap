@@ -48,9 +48,11 @@ void FeatureMatcherCache::Setup() {
     cameras_cache_.emplace(camera.camera_id, std::move(camera));
   }
 
-  std::vector<Image> images = database_->ReadAllImages();
+  std::vector<BaseImage> images = database_->ReadAllImages();
   images_cache_.reserve(images.size());
-  for (Image& image : images) {
+  for (BaseImage& base_image : images) {
+    camera_t camera_id = base_image.CameraId();
+    Image image(base_image, &cameras_cache_[camera_id]);
     images_cache_.emplace(image.ImageId(), std::move(image));
   }
 
