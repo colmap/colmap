@@ -46,7 +46,7 @@ void ImportImages(const std::string& database_path,
       throw py::error_already_set();
     }
     Camera camera;
-    Image image;
+    BaseImage image;
     PosePrior pose_prior;
     Bitmap bitmap;
     if (image_reader.Next(&camera, &image, &pose_prior, &bitmap, nullptr) !=
