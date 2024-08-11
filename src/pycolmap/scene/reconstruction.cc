@@ -90,7 +90,7 @@ void BindReconstruction(py::module& m) {
            "images\n"
            "might be taken by the same camera.")
       .def("add_image",
-           py::overload_cast<BaseImage>(&Reconstruction::AddImage),
+           py::overload_cast<const BaseImage&>(&Reconstruction::AddImage),
            "base_image"_a,
            "Add a new image.")
       .def("add_image",
