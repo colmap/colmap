@@ -94,7 +94,7 @@ TEST(Reconstruction, AddBaseImage) {
   EXPECT_FALSE(reconstruction.Image(1).IsRegistered());
   EXPECT_EQ(reconstruction.Images().count(1), 1);
   EXPECT_EQ(reconstruction.Images().size(), 1);
-  EXPECT_EQ(reconstruction.NumCameras(), 0);
+  EXPECT_EQ(reconstruction.NumCameras(), 1);
   EXPECT_EQ(reconstruction.NumImages(), 1);
   EXPECT_EQ(reconstruction.NumRegImages(), 0);
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
@@ -113,7 +113,7 @@ TEST(Reconstruction, AddImage) {
   EXPECT_FALSE(reconstruction.Image(1).IsRegistered());
   EXPECT_EQ(reconstruction.Images().count(1), 1);
   EXPECT_EQ(reconstruction.Images().size(), 1);
-  EXPECT_EQ(reconstruction.NumCameras(), 0);
+  EXPECT_EQ(reconstruction.NumCameras(), 1);
   EXPECT_EQ(reconstruction.NumImages(), 1);
   EXPECT_EQ(reconstruction.NumRegImages(), 0);
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
