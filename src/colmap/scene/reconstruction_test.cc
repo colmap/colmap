@@ -46,7 +46,7 @@ void GenerateReconstruction(const image_t num_images,
   reconstruction->AddCamera(camera);
 
   for (image_t image_id = 1; image_id <= num_images; ++image_id) {
-    Image image(&reconstruction.Camera(camera.camera_id));
+    Image image(&reconstruction->Camera(camera.camera_id));
     image.SetImageId(image_id);
     image.SetName("image" + std::to_string(image_id));
     image.SetPoints2D(
