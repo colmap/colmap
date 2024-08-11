@@ -102,7 +102,9 @@ class Reconstruction {
   // might be taken by the same camera.
   void AddCamera(struct Camera camera);
 
-  // Add new image. optionally load camera address in the image
+  // Add new image. The corresponding camera needs to be existent in the
+  // reconstruction before ``AddImage`` is called
+  void AddImage(BaseImage base_image);
   void AddImage(class Image image);
 
   // Add new 3D point with known ID.
