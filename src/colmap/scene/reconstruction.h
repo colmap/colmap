@@ -102,7 +102,7 @@ class Reconstruction {
   // might be taken by the same camera.
   void AddCamera(struct Camera camera);
 
-  // Add new image. The corresponding camera needs to be existent in the
+  // Add new image. The corresponding camera needs to exist in the
   // reconstruction before ``AddImage`` is called
   void AddImage(const BaseImage& base_image);
   void AddImage(class Image image);
