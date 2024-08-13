@@ -39,7 +39,7 @@ void BindIncrementalMapperController(py::module& m) {
   py::class_<IncrementalMapperController,
              std::shared_ptr<IncrementalMapperController>>(
       m, "IncrementalMapperController")
-      .def(py::init<std::shared_ptr<const IncrementalMapperOptions>,
+      .def(py::init<std::shared_ptr<const IncrementalPipelineOptions>,
                     const std::string&,
                     const std::string&,
                     std::shared_ptr<ReconstructionManager>>(),
