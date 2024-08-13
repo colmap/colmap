@@ -182,6 +182,7 @@ TEST(NChooseK, Nominal) {
 
   EXPECT_EQ(NChooseK(500, 3), 20708500);
   EXPECT_EQ(NChooseK(500, 7), 1486071034734000);
+  EXPECT_EQ(NChooseK(10000, 5), 832500291625002000);
 }
 
 TEST(TruncateCast, Nominal) {

@@ -33,10 +33,7 @@ namespace colmap {
 
 // Implementation based on: https://blog.plover.com/math/choose.html
 uint64_t NChooseK(uint64_t n, uint64_t k) {
-  if (n == 0) {
-    return 0;
-  }
-  if (n < k) {
+  if (n == 0 || n < k) {
     return 0;
   }
 
