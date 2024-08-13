@@ -206,7 +206,7 @@ TEST(Image, ImagefromBaseImage) {
 
   Camera camera =
       Camera::CreateFromModelId(1, SimplePinholeCameraModel::model_id, 1, 1, 1);
-  Image image(image, &camera);
+  Image image(base_image, &camera);
   EXPECT_EQ(image.ImageId(), base_image.ImageId());
   EXPECT_EQ(image.Name(), base_image.Name());
   EXPECT_EQ(image.CameraId(), base_image.CameraId());
