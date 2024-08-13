@@ -196,6 +196,7 @@ TEST(Image, ImageConstructor) {
 
 TEST(Image, ImagefromBaseImage) {
   BaseImage base_image;
+  base_image.SetCameraId(1);
   base_image.SetImageId(2);
   base_image.SetName("test1");
   base_image.SetRegistered(true);
