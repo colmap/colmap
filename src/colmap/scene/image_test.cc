@@ -177,5 +177,47 @@ TEST(Image, ViewingDirection) {
   EXPECT_EQ(image.ViewingDirection(), Eigen::Vector3d(0, 0, 1));
 }
 
+TEST(Image, ImageConstructor) {
+  Camera camera =
+      Camera::CreateFromModelId(1, SimplePinholeCameraModel::model_id, 1, 1, 1);
+  Image image(&camera);
+  EXPECT_EQ(image.ImageId(), kInvalidImageId);
+  EXPECT_EQ(image.Name(), "");
+  EXPECT_EQ(image.CameraId(), camera.camera_id);
+  EXPECT_TRUE(image.HasCamera());
+  EXPECT_FALSE(image.IsRegistered());
+  EXPECT_EQ(image.NumPoints2D(), 0);
+  EXPECT_EQ(image.NumPoints3D(), 0);
+  EXPECT_EQ(image.CamFromWorld().rotation.coeffs(),
+            Eigen::Quaterniond::Identity().coeffs());
+  EXPECT_EQ(image.CamFromWorld().translation, Eigen::Vector3d::Zero());
+  EXPECT_EQ(image.Points2D().size(), 0);
+}
+
+TEST(Image, ImagefromBaseImage) {
+  BaseImage base_image;
+  base_image.SetImageId(2);
+  base_image.SetName("test1");
+  base_image.SetRegistered(true);
+  base_image.SetPoints2D(std::vector<Eigen::Vector2d>(10));
+  base_image.SetPoint3DForPoint2D(0, 0);
+  base_image.SetPoint3DForPoint2D(1, 2);
+
+  Camera camera =
+      Camera::CreateFromModelId(1, SimplePinholeCameraModel::model_id, 1, 1, 1);
+  Image image(image, &camera);
+  EXPECT_EQ(image.ImageId(), base_image.ImageId());
+  EXPECT_EQ(image.Name(), base_image.Name());
+  EXPECT_EQ(image.CameraId(), base_image.CameraId());
+  EXPECT_TRUE(image.HasCamera());
+  EXPECT_EQ(image.IsRegistered(), base_image.IsRegistered());
+  EXPECT_EQ(image.NumPoints2D(), base_image.NumPoints2D());
+  EXPECT_EQ(image.NumPoints3D(), base_image.NumPoints3D());
+  EXPECT_EQ(image.CamFromWorld().rotation.coeffs(),
+            base_image.CamFromWorld().rotation.coeffs());
+  EXPECT_EQ(image.CamFromWorld().translation,
+            base_image.CamFromWorld().translation);
+}
+
 }  // namespace
 }  // namespace colmap
