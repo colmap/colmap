@@ -431,7 +431,7 @@ void RunPointTriangulatorImpl(
     const std::string& database_path,
     const std::string& image_path,
     const std::string& output_path,
-    const IncrementalMapperOptions& options,
+    const IncrementalPipelineOptions& options,
     const bool clear_points,
     const bool refine_intrinsics) {
   THROW_CHECK_GE(reconstruction->NumRegImages(), 2)
@@ -442,7 +442,7 @@ void RunPointTriangulatorImpl(
     reconstruction->TranscribeImageIdsToDatabase(database);
   }
 
-  auto options_tmp = std::make_shared<IncrementalMapperOptions>(options);
+  auto options_tmp = std::make_shared<IncrementalPipelineOptions>(options);
   options_tmp->fix_existing_images = true;
   options_tmp->ba_refine_focal_length = refine_intrinsics;
   options_tmp->ba_refine_principal_point = false;

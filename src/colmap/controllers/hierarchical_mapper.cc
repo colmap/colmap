@@ -178,7 +178,7 @@ void HierarchicalMapperController::Run() {
           return;
         }
 
-        auto incremental_options = std::make_shared<IncrementalMapperOptions>(
+        auto incremental_options = std::make_shared<IncrementalPipelineOptions>(
             options_.incremental_options);
         incremental_options->max_model_overlap = 3;
         incremental_options->init_num_trials = options_.init_num_trials;

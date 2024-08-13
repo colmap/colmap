@@ -78,7 +78,7 @@ TEST(IncrementalMapperController, WithoutNoise) {
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   IncrementalMapperController mapper(
-      std::make_shared<IncrementalMapperOptions>(),
+      std::make_shared<IncrementalPipelineOptions>(),
       /*image_path=*/"",
       database_path,
       reconstruction_manager);
@@ -106,7 +106,7 @@ TEST(IncrementalMapperController, WithNoise) {
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   IncrementalMapperController mapper(
-      std::make_shared<IncrementalMapperOptions>(),
+      std::make_shared<IncrementalPipelineOptions>(),
       /*image_path=*/"",
       database_path,
       reconstruction_manager);
@@ -136,7 +136,7 @@ TEST(IncrementalMapperController, MultiReconstruction) {
   SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction2, &database);
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
-  auto mapper_options = std::make_shared<IncrementalMapperOptions>();
+  auto mapper_options = std::make_shared<IncrementalPipelineOptions>();
   mapper_options->min_model_size = 4;
   IncrementalMapperController mapper(mapper_options,
                                      /*image_path=*/"",
@@ -182,7 +182,7 @@ TEST(IncrementalMapperController, ChainedMatches) {
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   IncrementalMapperController mapper(
-      std::make_shared<IncrementalMapperOptions>(),
+      std::make_shared<IncrementalPipelineOptions>(),
       /*image_path=*/"",
       database_path,
       reconstruction_manager);
