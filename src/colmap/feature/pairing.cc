@@ -438,18 +438,21 @@ std::vector<std::pair<image_t, image_t>> SequentialPairGenerator::Next() {
 
   const auto image_id1 = image_ids_.at(image_idx_);
   for (int i = 0; i < options_.overlap; ++i) {
-    const size_t image_idx_2 = image_idx_ + i;
-    if (image_idx_2 < image_ids_.size()) {
-      image_pairs_.emplace_back(image_id1, image_ids_.at(image_idx_2));
-      if (options_.quadratic_overlap) {
-        const size_t image_idx_2_quadratic = image_idx_ + (1ull << i);
-        if (image_idx_2_quadratic < image_ids_.size()) {
-          image_pairs_.emplace_back(image_id1,
-                                    image_ids_.at(image_idx_2_quadratic));
-        }
+    if (options_.quadratic_overlap) {
+      const size_t image_idx_2_quadratic = image_idx_ + (1ull << i);
+      if (image_idx_2_quadratic < image_ids_.size()) {
+        image_pairs_.emplace_back(image_id1,
+                                  image_ids_.at(image_idx_2_quadratic));
+      } else {
+        break;
       }
     } else {
-      break;
+      const size_t image_idx_2 = image_idx_ + i + 1;
+      if (image_idx_2 < image_ids_.size()) {
+        image_pairs_.emplace_back(image_id1, image_ids_.at(image_idx_2));
+      } else {
+        break;
+      }
     }
   }
   ++image_idx_;
