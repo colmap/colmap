@@ -45,6 +45,29 @@ void CreateSyntheticDatabase(int num_images, Database& database) {
       synthetic_dataset_options, &unused_reconstruction, &database);
 }
 
+TEST(ExhaustivePairGenerator, Nominal) {
+  constexpr int kNumImages = 34;
+  auto database = std::make_shared<Database>(Database::kInMemoryDatabasePath);
+  CreateSyntheticDatabase(kNumImages, *database);
+  const std::vector<Image> images = database->ReadAllImages();
+  CHECK_EQ(images.size(), kNumImages);
+
+  ExhaustiveMatchingOptions options;
+  options.block_size = 10;
+  ExhaustivePairGenerator generator(options, database);
+  const int num_expected_blocks =
+      std::ceil(static_cast<double>(kNumImages) / options.block_size) *
+      std::ceil(static_cast<double>(kNumImages) / options.block_size);
+  std::set<std::pair<image_t, image_t>> pairs;
+  for (int i = 0; i < num_expected_blocks; ++i) {
+    for (const auto& pair : generator.Next()) {
+      pairs.insert(pair);
+    }
+  }
+  EXPECT_EQ(pairs.size(), kNumImages * (kNumImages - 1) / 2);
+  EXPECT_TRUE(generator.Next().empty());
+}
+
 TEST(SequentialPairGenerator, Linear) {
   constexpr int kNumImages = 5;
   auto database = std::make_shared<Database>(Database::kInMemoryDatabasePath);
