@@ -132,5 +132,89 @@ TEST(SequentialPairGenerator, Quadratic) {
   EXPECT_TRUE(generator.Next().empty());
 }
 
+TEST(SpatialPairGenerator, Nominal) {
+  constexpr int kNumImages = 3;
+  auto database = std::make_shared<Database>(Database::kInMemoryDatabasePath);
+  CreateSyntheticDatabase(kNumImages, *database);
+  const std::vector<Image> images = database->ReadAllImages();
+  CHECK_EQ(images.size(), kNumImages);
+  database->WritePosePrior(images[0].ImageId(),
+                           PosePrior(Eigen::Vector3d(1, 2, 3)));
+  database->WritePosePrior(images[1].ImageId(),
+                           PosePrior(Eigen::Vector3d(2, 3, 4)));
+  database->WritePosePrior(images[2].ImageId(),
+                           PosePrior(Eigen::Vector3d(2, 4, 12)));
+
+  SpatialMatchingOptions options;
+  options.max_num_neighbors = 1;
+  options.max_distance = 1000;
+  options.ignore_z = false;
+  {
+    SpatialPairGenerator generator(options, database);
+    const std::vector<std::pair<image_t, image_t>> expected_pairs1 = {
+        {images[2].ImageId(), images[1].ImageId()}};
+    EXPECT_EQ(generator.Next(), expected_pairs1);
+    const std::vector<std::pair<image_t, image_t>> expected_pairs2 = {
+        {images[1].ImageId(), images[0].ImageId()}};
+    EXPECT_EQ(generator.Next(), expected_pairs2);
+    const std::vector<std::pair<image_t, image_t>> expected_pairs3 = {
+        {images[0].ImageId(), images[1].ImageId()}};
+    EXPECT_EQ(generator.Next(), expected_pairs3);
+    EXPECT_TRUE(generator.Next().empty());
+    EXPECT_TRUE(generator.Next().empty());
+  }
+
+  {
+    options.ignore_z = true;
+    SpatialPairGenerator generator(options, database);
+    const std::vector<std::pair<image_t, image_t>> expected_pairs1 = {
+        {images[2].ImageId(), images[1].ImageId()}};
+    EXPECT_EQ(generator.Next(), expected_pairs1);
+    const std::vector<std::pair<image_t, image_t>> expected_pairs2 = {
+        {images[1].ImageId(), images[2].ImageId()}};
+    EXPECT_EQ(generator.Next(), expected_pairs2);
+    const std::vector<std::pair<image_t, image_t>> expected_pairs3 = {
+        {images[0].ImageId(), images[1].ImageId()}};
+    EXPECT_EQ(generator.Next(), expected_pairs3);
+    EXPECT_TRUE(generator.Next().empty());
+    EXPECT_TRUE(generator.Next().empty());
+  }
+
+  {
+    options.ignore_z = false;
+    options.max_distance = 5;
+    SpatialPairGenerator generator(options, database);
+    EXPECT_TRUE(generator.Next().empty());
+    const std::vector<std::pair<image_t, image_t>> expected_pairs2 = {
+        {images[1].ImageId(), images[0].ImageId()}};
+    EXPECT_EQ(generator.Next(), expected_pairs2);
+    const std::vector<std::pair<image_t, image_t>> expected_pairs3 = {
+        {images[0].ImageId(), images[1].ImageId()}};
+    EXPECT_EQ(generator.Next(), expected_pairs3);
+    EXPECT_TRUE(generator.Next().empty());
+    EXPECT_TRUE(generator.Next().empty());
+  }
+
+  {
+    options.max_num_neighbors = 2;
+    options.max_distance = 1000;
+    SpatialPairGenerator generator(options, database);
+    const std::vector<std::pair<image_t, image_t>> expected_pairs1 = {
+        {images[2].ImageId(), images[1].ImageId()},
+        {images[2].ImageId(), images[0].ImageId()}};
+    EXPECT_EQ(generator.Next(), expected_pairs1);
+    const std::vector<std::pair<image_t, image_t>> expected_pairs2 = {
+        {images[1].ImageId(), images[0].ImageId()},
+        {images[1].ImageId(), images[2].ImageId()}};
+    EXPECT_EQ(generator.Next(), expected_pairs2);
+    const std::vector<std::pair<image_t, image_t>> expected_pairs3 = {
+        {images[0].ImageId(), images[1].ImageId()},
+        {images[0].ImageId(), images[2].ImageId()}};
+    EXPECT_EQ(generator.Next(), expected_pairs3);
+    EXPECT_TRUE(generator.Next().empty());
+    EXPECT_TRUE(generator.Next().empty());
+  }
+}
+
 }  // namespace
 }  // namespace colmap

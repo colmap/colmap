@@ -54,11 +54,11 @@ void FeatureMatcherCache::Setup() {
     images_cache_.emplace(image.ImageId(), std::move(image));
   }
 
-  locations_priors_cache_.reserve(database_->NumPosePriors());
+  pose_priors_cache_.reserve(database_->NumPosePriors());
   for (const auto& id_and_image : images_cache_) {
     if (database_->ExistsPosePrior(id_and_image.first)) {
-      locations_priors_cache_.emplace(
-          id_and_image.first, database_->ReadPosePrior(id_and_image.first));
+      pose_priors_cache_.emplace(id_and_image.first,
+                                 database_->ReadPosePrior(id_and_image.first));
     }
   }
 
@@ -97,7 +97,7 @@ const Image& FeatureMatcherCache::GetImage(const image_t image_id) const {
 
 const PosePrior& FeatureMatcherCache::GetPosePrior(
     const image_t image_id) const {
-  return locations_priors_cache_.at(image_id);
+  return pose_priors_cache_.at(image_id);
 }
 
 std::shared_ptr<FeatureKeypoints> FeatureMatcherCache::GetKeypoints(
@@ -128,8 +128,7 @@ std::vector<image_t> FeatureMatcherCache::GetImageIds() const {
 }
 
 bool FeatureMatcherCache::ExistsPosePrior(const image_t image_id) const {
-  return locations_priors_cache_.find(image_id) !=
-         locations_priors_cache_.end();
+  return pose_priors_cache_.find(image_id) != pose_priors_cache_.end();
 }
 
 bool FeatureMatcherCache::ExistsKeypoints(const image_t image_id) {
