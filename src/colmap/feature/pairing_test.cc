@@ -30,6 +30,7 @@
 #include "colmap/feature/pairing.h"
 
 #include "colmap/scene/synthetic.h"
+#include "colmap/util/testing.h"
 
 #include <gtest/gtest.h>
 
@@ -214,6 +215,32 @@ TEST(SpatialPairGenerator, Nominal) {
     EXPECT_TRUE(generator.Next().empty());
     EXPECT_TRUE(generator.Next().empty());
   }
+}
+
+TEST(ImportedPairGenerator, Nominal) {
+  constexpr int kNumImages = 10;
+  auto database = std::make_shared<Database>(Database::kInMemoryDatabasePath);
+  CreateSyntheticDatabase(kNumImages, *database);
+  const std::vector<Image> images = database->ReadAllImages();
+  CHECK_EQ(images.size(), kNumImages);
+
+  const std::string match_list_path = CreateTestDir() + "/pairs.txt";
+  std::ofstream match_list_file(match_list_path);
+  match_list_file << images[2].Name() << " " << images[4].Name() << "\n";
+  match_list_file << images[1].Name() << " " << images[3].Name() << "\n";
+  match_list_file << images[2].Name() << " " << images[9].Name() << "\n";
+  match_list_file.close();
+
+  ImagePairsMatchingOptions options;
+  options.match_list_path = match_list_path;
+  ImportedPairGenerator generator(options, database);
+  const std::vector<std::pair<image_t, image_t>> expected_pairs = {
+      {images[2].ImageId(), images[4].ImageId()},
+      {images[1].ImageId(), images[3].ImageId()},
+      {images[2].ImageId(), images[9].ImageId()}};
+  EXPECT_EQ(generator.Next(), expected_pairs);
+  EXPECT_TRUE(generator.Next().empty());
+  EXPECT_TRUE(generator.Next().empty());
 }
 
 }  // namespace
