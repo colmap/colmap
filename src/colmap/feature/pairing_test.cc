@@ -66,6 +66,7 @@ TEST(ExhaustivePairGenerator, Nominal) {
   }
   EXPECT_EQ(pairs.size(), kNumImages * (kNumImages - 1) / 2);
   EXPECT_TRUE(generator.Next().empty());
+  EXPECT_TRUE(generator.Next().empty());
 }
 
 TEST(SequentialPairGenerator, Linear) {
