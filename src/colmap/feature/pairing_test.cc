@@ -36,21 +36,76 @@
 namespace colmap {
 namespace {
 
-Database CreateSyntheticDatabase(Database& database) {
-  Reconstruction reconstruction;
-  Database database(":memory:");
+void CreateSyntheticDatabase(int num_images, Database& database) {
+  Reconstruction unused_reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
-  synthetic_dataset_options.num_cameras = 100;
-  synthetic_dataset_options.num_images = 100;
-  SynthesizeDataset(synthetic_dataset_options, &reconstruction, &database);
-  return database;
+  synthetic_dataset_options.num_cameras = num_images;
+  synthetic_dataset_options.num_images = num_images;
+  SynthesizeDataset(
+      synthetic_dataset_options, &unused_reconstruction, &database);
 }
 
-TEST(SequentialPairGenerator, Nominal) {
-  Database database = CreateSyntheticDatabase();
+TEST(SequentialPairGenerator, Linear) {
+  constexpr int kNumImages = 5;
+  auto database = std::make_shared<Database>(Database::kInMemoryDatabasePath);
+  CreateSyntheticDatabase(kNumImages, *database);
+  const std::vector<Image> images = database->ReadAllImages();
+  CHECK_EQ(images.size(), kNumImages);
+
   SequentialMatchingOptions options;
-  options.overlap = 2;
+  options.overlap = 3;
+  options.quadratic_overlap = false;
   SequentialPairGenerator generator(options, database);
+  const std::vector<std::pair<image_t, image_t>> expected_pairs1 = {
+      {images[0].ImageId(), images[1].ImageId()},
+      {images[0].ImageId(), images[2].ImageId()},
+      {images[0].ImageId(), images[3].ImageId()}};
+  EXPECT_EQ(generator.Next(), expected_pairs1);
+  const std::vector<std::pair<image_t, image_t>> expected_pairs2 = {
+      {images[1].ImageId(), images[2].ImageId()},
+      {images[1].ImageId(), images[3].ImageId()},
+      {images[1].ImageId(), images[4].ImageId()}};
+  EXPECT_EQ(generator.Next(), expected_pairs2);
+  const std::vector<std::pair<image_t, image_t>> expected_pairs3 = {
+      {images[2].ImageId(), images[3].ImageId()},
+      {images[2].ImageId(), images[4].ImageId()}};
+  EXPECT_EQ(generator.Next(), expected_pairs3);
+  const std::vector<std::pair<image_t, image_t>> expected_pairs4 = {
+      {images[3].ImageId(), images[4].ImageId()}};
+  EXPECT_EQ(generator.Next(), expected_pairs4);
+  EXPECT_TRUE(generator.Next().empty());
+  EXPECT_TRUE(generator.Next().empty());
+}
+
+TEST(SequentialPairGenerator, Quadratic) {
+  constexpr int kNumImages = 5;
+  auto database = std::make_shared<Database>(Database::kInMemoryDatabasePath);
+  CreateSyntheticDatabase(kNumImages, *database);
+  const std::vector<Image> images = database->ReadAllImages();
+  CHECK_EQ(images.size(), kNumImages);
+
+  SequentialMatchingOptions options;
+  options.overlap = 3;
+  options.quadratic_overlap = true;
+  SequentialPairGenerator generator(options, database);
+  const std::vector<std::pair<image_t, image_t>> expected_pairs1 = {
+      {images[0].ImageId(), images[1].ImageId()},
+      {images[0].ImageId(), images[2].ImageId()},
+      {images[0].ImageId(), images[4].ImageId()}};
+  EXPECT_EQ(generator.Next(), expected_pairs1);
+  const std::vector<std::pair<image_t, image_t>> expected_pairs2 = {
+      {images[1].ImageId(), images[2].ImageId()},
+      {images[1].ImageId(), images[3].ImageId()}};
+  EXPECT_EQ(generator.Next(), expected_pairs2);
+  const std::vector<std::pair<image_t, image_t>> expected_pairs3 = {
+      {images[2].ImageId(), images[3].ImageId()},
+      {images[2].ImageId(), images[4].ImageId()}};
+  EXPECT_EQ(generator.Next(), expected_pairs3);
+  const std::vector<std::pair<image_t, image_t>> expected_pairs4 = {
+      {images[3].ImageId(), images[4].ImageId()}};
+  EXPECT_EQ(generator.Next(), expected_pairs4);
+  EXPECT_TRUE(generator.Next().empty());
+  EXPECT_TRUE(generator.Next().empty());
 }
 
 }  // namespace
