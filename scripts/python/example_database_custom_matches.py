@@ -76,8 +76,9 @@ def create_database(database_path):
     db.add_keypoints(3,kp3)
 
     # Add descriptors [Optional]
-    # db.add_descriptors(1, features1[1])
-    # db.add_descriptors(2, features2[1])
+    # db.add_descriptors(1, des1)
+    # db.add_descriptors(2, des2)
+    # db.add_descriptors(3, des3)
 
     # Add matches
     db.add_matches( 1, 2, matches12)
