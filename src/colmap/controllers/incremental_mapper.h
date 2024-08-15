@@ -144,7 +144,7 @@ struct IncrementalPipelineOptions {
 
 // Class that controls the incremental mapping procedure by iteratively
 // initializing reconstructions from the same scene graph.
-class IncrementalMapperController : public BaseController {
+class IncrementalPipeline : public BaseController {
  public:
   enum CallbackType {
     INITIAL_IMAGE_PAIR_REG_CALLBACK,
@@ -154,7 +154,7 @@ class IncrementalMapperController : public BaseController {
 
   enum class Status { NO_INITIAL_PAIR, BAD_INITIAL_PAIR, SUCCESS, INTERRUPTED };
 
-  IncrementalMapperController(
+  IncrementalPipeline(
       std::shared_ptr<const IncrementalPipelineOptions> options,
       const std::string& image_path,
       const std::string& database_path,

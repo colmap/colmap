@@ -174,7 +174,7 @@ bool IncrementalPipelineOptions::Check() const {
   return true;
 }
 
-IncrementalMapperController::IncrementalMapperController(
+IncrementalPipeline::IncrementalPipeline(
     std::shared_ptr<const IncrementalPipelineOptions> options,
     const std::string& image_path,
     const std::string& database_path,
@@ -189,7 +189,7 @@ IncrementalMapperController::IncrementalMapperController(
   RegisterCallback(LAST_IMAGE_REG_CALLBACK);
 }
 
-void IncrementalMapperController::Run() {
+void IncrementalPipeline::Run() {
   Timer run_timer;
   run_timer.Start();
   if (!LoadDatabase()) {
@@ -221,7 +221,7 @@ void IncrementalMapperController::Run() {
   run_timer.PrintMinutes();
 }
 
-bool IncrementalMapperController::LoadDatabase() {
+bool IncrementalPipeline::LoadDatabase() {
   LOG(INFO) << "Loading database";
 
   // Make sure images of the given reconstruction are also included when
@@ -251,8 +251,7 @@ bool IncrementalMapperController::LoadDatabase() {
   return true;
 }
 
-IncrementalMapperController::Status
-IncrementalMapperController::InitializeReconstruction(
+IncrementalPipeline::Status IncrementalPipeline::InitializeReconstruction(
     IncrementalMapper& mapper,
     const IncrementalMapper::Options& mapper_options,
     Reconstruction& reconstruction) {
@@ -308,7 +307,7 @@ IncrementalMapperController::InitializeReconstruction(
   return Status::SUCCESS;
 }
 
-bool IncrementalMapperController::CheckRunGlobalRefinement(
+bool IncrementalPipeline::CheckRunGlobalRefinement(
     const Reconstruction& reconstruction,
     const size_t ba_prev_num_reg_images,
     const size_t ba_prev_num_points) {
@@ -322,8 +321,7 @@ bool IncrementalMapperController::CheckRunGlobalRefinement(
              options_->ba_global_points_freq + ba_prev_num_points;
 }
 
-IncrementalMapperController::Status
-IncrementalMapperController::ReconstructSubModel(
+IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
     IncrementalMapper& mapper,
     const IncrementalMapper::Options& mapper_options,
     const std::shared_ptr<Reconstruction>& reconstruction) {
@@ -334,9 +332,8 @@ IncrementalMapperController::ReconstructSubModel(
   ////////////////////////////////////////////////////////////////////////////
 
   if (reconstruction->NumRegImages() == 0) {
-    const Status init_status =
-        IncrementalMapperController::InitializeReconstruction(
-            mapper, mapper_options, *reconstruction);
+    const Status init_status = IncrementalPipeline::InitializeReconstruction(
+        mapper, mapper_options, *reconstruction);
     if (init_status != Status::SUCCESS) {
       return init_status;
     }
@@ -456,7 +453,7 @@ IncrementalMapperController::ReconstructSubModel(
   return Status::SUCCESS;
 }
 
-void IncrementalMapperController::Reconstruct(
+void IncrementalPipeline::Reconstruct(
     const IncrementalMapper::Options& mapper_options) {
   IncrementalMapper mapper(database_cache_);
 
@@ -537,7 +534,7 @@ void IncrementalMapperController::Reconstruct(
   }
 }
 
-void IncrementalMapperController::TriangulateReconstruction(
+void IncrementalPipeline::TriangulateReconstruction(
     const std::shared_ptr<Reconstruction>& reconstruction) {
   THROW_CHECK(LoadDatabase());
   IncrementalMapper mapper(database_cache_);

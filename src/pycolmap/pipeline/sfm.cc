@@ -60,23 +60,21 @@ std::map<size_t, std::shared_ptr<Reconstruction>> IncrementalMapping(
     reconstruction_manager->Read(input_path);
   }
   auto options_ = std::make_shared<IncrementalPipelineOptions>(options);
-  IncrementalMapperController mapper(
+  IncrementalPipeline mapper(
       options_, image_path, database_path, reconstruction_manager);
 
   PyInterrupt py_interrupt(1.0);  // Check for interrupts every second
-  mapper.AddCallback(IncrementalMapperController::NEXT_IMAGE_REG_CALLBACK,
-                     [&]() {
-                       if (py_interrupt.Raised()) {
-                         throw py::error_already_set();
-                       }
-                       if (next_image_callback) {
-                         next_image_callback();
-                       }
-                     });
+  mapper.AddCallback(IncrementalPipeline::NEXT_IMAGE_REG_CALLBACK, [&]() {
+    if (py_interrupt.Raised()) {
+      throw py::error_already_set();
+    }
+    if (next_image_callback) {
+      next_image_callback();
+    }
+  });
   if (initial_image_pair_callback) {
-    mapper.AddCallback(
-        IncrementalMapperController::INITIAL_IMAGE_PAIR_REG_CALLBACK,
-        initial_image_pair_callback);
+    mapper.AddCallback(IncrementalPipeline::INITIAL_IMAGE_PAIR_REG_CALLBACK,
+                       initial_image_pair_callback);
   }
 
   mapper.Run();

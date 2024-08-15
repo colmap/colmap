@@ -191,10 +191,10 @@ void HierarchicalMapperController::Run() {
               image_id_to_name.at(image_id));
         }
 
-        IncrementalMapperController mapper(std::move(incremental_options),
-                                           options_.image_path,
-                                           options_.database_path,
-                                           std::move(reconstruction_manager));
+        IncrementalPipeline mapper(std::move(incremental_options),
+                                   options_.image_path,
+                                   options_.database_path,
+                                   std::move(reconstruction_manager));
         mapper.Run();
       };
 
