@@ -89,8 +89,11 @@ void BindReconstruction(py::module& m) {
            "Add new camera. There is only one camera per image, while multiple "
            "images\n"
            "might be taken by the same camera.")
-      .def(
-          "add_image", &Reconstruction::AddImage, "image"_a, "Add a new image.")
+      .def("add_image",
+           &Reconstruction::AddImage,
+           "image"_a,
+           "sync_camera_pointer"_a = false,
+           "Add a new image.")
       .def("add_point3D",
            py::overload_cast<const Eigen::Vector3d&,
                              Track,
@@ -202,6 +205,9 @@ void BindReconstruction(py::module& m) {
       .def("create_image_dirs",
            &Reconstruction::CreateImageDirs,
            "Create all image sub-directories in the given path.")
+      .def("sync_camera_pointers",
+           &Reconstruction::SyncCameraPointers,
+           "Load camera address for each image")
       .def(
           "check",
           [](Reconstruction& self) {
