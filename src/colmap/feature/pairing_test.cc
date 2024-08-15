@@ -33,6 +33,7 @@
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -68,7 +69,7 @@ TEST(ExhaustivePairGenerator, Nominal) {
   }
   EXPECT_EQ(pairs.size(), kNumImages * (kNumImages - 1) / 2);
   EXPECT_TRUE(generator.Next().empty());
-  EXPECT_TRUE(generator.Next().empty());
+  EXPECT_TRUE(generator.HasFinished());
 }
 
 retrieval::VisualIndex<> CreateSyntheticVisualIndex() {
@@ -107,7 +108,7 @@ TEST(VocabTreePairGenerator, Nominal) {
           pairs.size());
     }
     EXPECT_TRUE(generator.Next().empty());
-    EXPECT_TRUE(generator.Next().empty());
+    EXPECT_TRUE(generator.HasFinished());
   }
 
   {
@@ -118,7 +119,7 @@ TEST(VocabTreePairGenerator, Nominal) {
       EXPECT_EQ(pairs.size(), kNumImages);
     }
     EXPECT_TRUE(generator.Next().empty());
-    EXPECT_TRUE(generator.Next().empty());
+    EXPECT_TRUE(generator.HasFinished());
   }
 }
 
@@ -133,25 +134,25 @@ TEST(SequentialPairGenerator, Linear) {
   options.overlap = 3;
   options.quadratic_overlap = false;
   SequentialPairGenerator generator(options, database);
-  EXPECT_EQ(generator.Next(),
-            (std::vector<std::pair<image_t, image_t>>{
-                {images[0].ImageId(), images[1].ImageId()},
-                {images[0].ImageId(), images[2].ImageId()},
-                {images[0].ImageId(), images[3].ImageId()}}));
-  EXPECT_EQ(generator.Next(),
-            (std::vector<std::pair<image_t, image_t>>{
-                {images[1].ImageId(), images[2].ImageId()},
-                {images[1].ImageId(), images[3].ImageId()},
-                {images[1].ImageId(), images[4].ImageId()}}));
-  EXPECT_EQ(generator.Next(),
-            (std::vector<std::pair<image_t, image_t>>{
-                {images[2].ImageId(), images[3].ImageId()},
-                {images[2].ImageId(), images[4].ImageId()}}));
-  EXPECT_EQ(generator.Next(),
-            (std::vector<std::pair<image_t, image_t>>{
-                {images[3].ImageId(), images[4].ImageId()}}));
+  EXPECT_THAT(generator.Next(),
+              testing::ElementsAre(
+                  std::make_pair(images[0].ImageId(), images[1].ImageId()),
+                  std::make_pair(images[0].ImageId(), images[2].ImageId()),
+                  std::make_pair(images[0].ImageId(), images[3].ImageId())));
+  EXPECT_THAT(generator.Next(),
+              testing::ElementsAre(
+                  std::make_pair(images[1].ImageId(), images[2].ImageId()),
+                  std::make_pair(images[1].ImageId(), images[3].ImageId()),
+                  std::make_pair(images[1].ImageId(), images[4].ImageId())));
+  EXPECT_THAT(generator.Next(),
+              testing::ElementsAre(
+                  std::make_pair(images[2].ImageId(), images[3].ImageId()),
+                  std::make_pair(images[2].ImageId(), images[4].ImageId())));
+  EXPECT_THAT(generator.Next(),
+              testing::ElementsAre(
+                  std::make_pair(images[3].ImageId(), images[4].ImageId())));
   EXPECT_TRUE(generator.Next().empty());
-  EXPECT_TRUE(generator.Next().empty());
+  EXPECT_TRUE(generator.HasFinished());
 }
 
 TEST(SequentialPairGenerator, Quadratic) {
@@ -165,24 +166,24 @@ TEST(SequentialPairGenerator, Quadratic) {
   options.overlap = 3;
   options.quadratic_overlap = true;
   SequentialPairGenerator generator(options, database);
-  EXPECT_EQ(generator.Next(),
-            (std::vector<std::pair<image_t, image_t>>{
-                {images[0].ImageId(), images[1].ImageId()},
-                {images[0].ImageId(), images[2].ImageId()},
-                {images[0].ImageId(), images[4].ImageId()}}));
-  EXPECT_EQ(generator.Next(),
-            (std::vector<std::pair<image_t, image_t>>{
-                {images[1].ImageId(), images[2].ImageId()},
-                {images[1].ImageId(), images[3].ImageId()}}));
-  EXPECT_EQ(generator.Next(),
-            (std::vector<std::pair<image_t, image_t>>{
-                {images[2].ImageId(), images[3].ImageId()},
-                {images[2].ImageId(), images[4].ImageId()}}));
-  EXPECT_EQ(generator.Next(),
-            (std::vector<std::pair<image_t, image_t>>{
-                {images[3].ImageId(), images[4].ImageId()}}));
+  EXPECT_THAT(generator.Next(),
+              testing::ElementsAre(
+                  std::make_pair(images[0].ImageId(), images[1].ImageId()),
+                  std::make_pair(images[0].ImageId(), images[2].ImageId()),
+                  std::make_pair(images[0].ImageId(), images[4].ImageId())));
+  EXPECT_THAT(generator.Next(),
+              testing::ElementsAre(
+                  std::make_pair(images[1].ImageId(), images[2].ImageId()),
+                  std::make_pair(images[1].ImageId(), images[3].ImageId())));
+  EXPECT_THAT(generator.Next(),
+              testing::ElementsAre(
+                  std::make_pair(images[2].ImageId(), images[3].ImageId()),
+                  std::make_pair(images[2].ImageId(), images[4].ImageId())));
+  EXPECT_THAT(generator.Next(),
+              testing::ElementsAre(
+                  std::make_pair(images[3].ImageId(), images[4].ImageId())));
   EXPECT_TRUE(generator.Next().empty());
-  EXPECT_TRUE(generator.Next().empty());
+  EXPECT_TRUE(generator.HasFinished());
 }
 
 TEST(SpatialPairGenerator, Nominal) {
@@ -204,68 +205,69 @@ TEST(SpatialPairGenerator, Nominal) {
   options.ignore_z = false;
   {
     SpatialPairGenerator generator(options, database);
-    EXPECT_EQ(generator.Next(),
-              (std::vector<std::pair<image_t, image_t>>{
-                  {images[2].ImageId(), images[1].ImageId()}}));
-    EXPECT_EQ(generator.Next(),
-              (std::vector<std::pair<image_t, image_t>>{
-                  {images[1].ImageId(), images[0].ImageId()}}));
-    EXPECT_EQ(generator.Next(),
-              (std::vector<std::pair<image_t, image_t>>{
-                  {images[0].ImageId(), images[1].ImageId()}}));
+
+    EXPECT_THAT(generator.Next(),
+                testing::ElementsAre(
+                    std::make_pair(images[0].ImageId(), images[1].ImageId())));
+    EXPECT_THAT(generator.Next(),
+                testing::ElementsAre(
+                    std::make_pair(images[1].ImageId(), images[0].ImageId())));
+    EXPECT_THAT(generator.Next(),
+                testing::ElementsAre(
+                    std::make_pair(images[2].ImageId(), images[1].ImageId())));
     EXPECT_TRUE(generator.Next().empty());
-    EXPECT_TRUE(generator.Next().empty());
+    EXPECT_TRUE(generator.HasFinished());
   }
 
   {
     options.ignore_z = true;
     SpatialPairGenerator generator(options, database);
-    EXPECT_EQ(generator.Next(),
-              (std::vector<std::pair<image_t, image_t>>{
-                  {images[2].ImageId(), images[1].ImageId()}}));
-    EXPECT_EQ(generator.Next(),
-              (std::vector<std::pair<image_t, image_t>>{
-                  {images[1].ImageId(), images[2].ImageId()}}));
-    EXPECT_EQ(generator.Next(),
-              (std::vector<std::pair<image_t, image_t>>{
-                  {images[0].ImageId(), images[1].ImageId()}}));
+    EXPECT_THAT(generator.Next(),
+                testing::ElementsAre(
+                    std::make_pair(images[0].ImageId(), images[1].ImageId())));
+    EXPECT_THAT(generator.Next(),
+                testing::ElementsAre(
+                    std::make_pair(images[1].ImageId(), images[2].ImageId())));
+    EXPECT_THAT(generator.Next(),
+                testing::ElementsAre(
+                    std::make_pair(images[2].ImageId(), images[1].ImageId())));
     EXPECT_TRUE(generator.Next().empty());
-    EXPECT_TRUE(generator.Next().empty());
+    EXPECT_TRUE(generator.HasFinished());
   }
 
   {
     options.ignore_z = false;
     options.max_distance = 5;
     SpatialPairGenerator generator(options, database);
+    EXPECT_THAT(generator.Next(),
+                testing::ElementsAre(
+                    std::make_pair(images[0].ImageId(), images[1].ImageId())));
+    EXPECT_THAT(generator.Next(),
+                testing::ElementsAre(
+                    std::make_pair(images[1].ImageId(), images[0].ImageId())));
     EXPECT_TRUE(generator.Next().empty());
-    EXPECT_EQ(generator.Next(),
-              (std::vector<std::pair<image_t, image_t>>{
-                  {images[1].ImageId(), images[0].ImageId()}}));
-    EXPECT_EQ(generator.Next(),
-              (std::vector<std::pair<image_t, image_t>>{
-                  {images[0].ImageId(), images[1].ImageId()}}));
     EXPECT_TRUE(generator.Next().empty());
-    EXPECT_TRUE(generator.Next().empty());
+    EXPECT_TRUE(generator.HasFinished());
   }
 
   {
     options.max_num_neighbors = 2;
     options.max_distance = 1000;
     SpatialPairGenerator generator(options, database);
-    EXPECT_EQ(generator.Next(),
-              (std::vector<std::pair<image_t, image_t>>{
-                  {images[2].ImageId(), images[1].ImageId()},
-                  {images[2].ImageId(), images[0].ImageId()}}));
-    EXPECT_EQ(generator.Next(),
-              (std::vector<std::pair<image_t, image_t>>{
-                  {images[1].ImageId(), images[0].ImageId()},
-                  {images[1].ImageId(), images[2].ImageId()}}));
-    EXPECT_EQ(generator.Next(),
-              (std::vector<std::pair<image_t, image_t>>{
-                  {images[0].ImageId(), images[1].ImageId()},
-                  {images[0].ImageId(), images[2].ImageId()}}));
+    EXPECT_THAT(generator.Next(),
+                testing::ElementsAre(
+                    std::make_pair(images[0].ImageId(), images[1].ImageId()),
+                    std::make_pair(images[0].ImageId(), images[2].ImageId())));
+    EXPECT_THAT(generator.Next(),
+                testing::ElementsAre(
+                    std::make_pair(images[1].ImageId(), images[0].ImageId()),
+                    std::make_pair(images[1].ImageId(), images[2].ImageId())));
+    EXPECT_THAT(generator.Next(),
+                testing::ElementsAre(
+                    std::make_pair(images[2].ImageId(), images[1].ImageId()),
+                    std::make_pair(images[2].ImageId(), images[0].ImageId())));
     EXPECT_TRUE(generator.Next().empty());
-    EXPECT_TRUE(generator.Next().empty());
+    EXPECT_TRUE(generator.HasFinished());
   }
 }
 
@@ -276,23 +278,34 @@ TEST(ImportedPairGenerator, Nominal) {
   const std::vector<Image> images = database->ReadAllImages();
   CHECK_EQ(images.size(), kNumImages);
 
-  const std::string match_list_path = CreateTestDir() + "/pairs.txt";
-  std::ofstream match_list_file(match_list_path);
-  match_list_file << images[2].Name() << " " << images[4].Name() << "\n";
-  match_list_file << images[1].Name() << " " << images[3].Name() << "\n";
-  match_list_file << images[2].Name() << " " << images[9].Name() << "\n";
-  match_list_file.close();
-
   ImagePairsMatchingOptions options;
-  options.match_list_path = match_list_path;
-  ImportedPairGenerator generator(options, database);
-  EXPECT_EQ(generator.Next(),
-            (std::vector<std::pair<image_t, image_t>>{
-                {images[2].ImageId(), images[4].ImageId()},
-                {images[1].ImageId(), images[3].ImageId()},
-                {images[2].ImageId(), images[9].ImageId()}}));
-  EXPECT_TRUE(generator.Next().empty());
-  EXPECT_TRUE(generator.Next().empty());
+  options.match_list_path = CreateTestDir() + "/pairs.txt";
+
+  {
+    std::ofstream match_list_file(options.match_list_path);
+    match_list_file.close();
+
+    ImportedPairGenerator generator(options, database);
+    EXPECT_TRUE(generator.Next().empty());
+    EXPECT_TRUE(generator.HasFinished());
+  }
+
+  {
+    std::ofstream match_list_file(options.match_list_path);
+    match_list_file << images[2].Name() << " " << images[4].Name() << "\n";
+    match_list_file << images[1].Name() << " " << images[3].Name() << "\n";
+    match_list_file << images[2].Name() << " " << images[9].Name() << "\n";
+    match_list_file.close();
+
+    ImportedPairGenerator generator(options, database);
+    EXPECT_THAT(generator.Next(),
+                testing::ElementsAre(
+                    std::make_pair(images[2].ImageId(), images[4].ImageId()),
+                    std::make_pair(images[1].ImageId(), images[3].ImageId()),
+                    std::make_pair(images[2].ImageId(), images[9].ImageId())));
+    EXPECT_TRUE(generator.Next().empty());
+    EXPECT_TRUE(generator.HasFinished());
+  }
 }
 
 }  // namespace

@@ -124,6 +124,10 @@ std::vector<image_t> FeatureMatcherCache::GetImageIds() const {
   for (const auto& image : images_cache_) {
     image_ids.push_back(image.first);
   }
+  // Sort the images for deterministic behavior. Note that the images_cache_ is
+  // an unordered_map, which does not guarantee a deterministic order across
+  // different standard library implementations.
+  std::sort(image_ids.begin(), image_ids.end());
   return image_ids;
 }
 
