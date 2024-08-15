@@ -96,7 +96,7 @@ Eigen::Vector3d Image::ViewingDirection() const {
 
 std::pair<bool, Eigen::Vector2d> Image::ProjectPoint(
     const Eigen::Vector3d& point3D) const {
-  // The camera pointer has to be existent for this function
+  // The camera pointer has to exist for this function
   THROW_CHECK(HasCameraPtr());
 
   // Transform point3D

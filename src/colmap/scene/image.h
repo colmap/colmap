@@ -67,9 +67,11 @@ class Image {
   inline void SetCameraId(camera_t camera_id);
   // Check whether identifier of camera has been set.
   inline bool HasCamera() const;
-  // [Optional]: Access the shared pointer of the camera
-  inline std::shared_ptr<struct Camera> CameraPtr() const;
-  inline void SetCameraPtr(const std::shared_ptr<struct Camera>& camera);
+  // [Optional]: Access the address of the camera
+  inline struct Camera* CameraPtr() const;
+  inline void SetCameraPtr(struct Camera* camera);
+  // make the camera address a nullptr
+  inline void UnsetCameraPtr();
   // check whether the camera pointer has been set
   inline bool HasCameraPtr() const;
 
@@ -126,8 +128,8 @@ class Image {
   // The identifier of the associated camera. Note that multiple images might
   // share the same camera. If not specified `kInvalidCameraId`.
   camera_t camera_id_;
-  // [Optional] the shared pointer of the camera
-  std::shared_ptr<struct Camera> camera_ = nullptr;
+  // [Optional] the address of the camera
+  Camera* camera_ = nullptr;
 
   // Whether the image is successfully registered in the reconstruction.
   bool registered_;
@@ -161,20 +163,26 @@ inline camera_t Image::CameraId() const { return camera_id_; }
 
 inline void Image::SetCameraId(const camera_t camera_id) {
   THROW_CHECK_NE(camera_id, kInvalidCameraId);
+  THROW_CHECK(!HasCameraPtr())
+      << "SetCameraId can only be used when no camera address is synced in the "
+         "image. Call UnsetCameraPtr() first";
   camera_id_ = camera_id;
 }
 
 inline bool Image::HasCamera() const { return camera_id_ != kInvalidCameraId; }
 
-inline std::shared_ptr<struct Camera> Image::CameraPtr() const {
+inline struct Camera* Image::CameraPtr() const {
+  THROW_CHECK(HasCameraPtr());
   return camera_;
 }
 
-inline void Image::SetCameraPtr(const std::shared_ptr<struct Camera>& camera) {
+inline void Image::SetCameraPtr(struct Camera* camera) {
   THROW_CHECK_NE(camera->camera_id, kInvalidCameraId);
   camera_ = camera;
   camera_id_ = camera->camera_id;
 }
+
+inline void Image::UnsetCameraPtr() { camera_ = nullptr; }
 
 inline bool Image::HasCameraPtr() const { return camera_ != nullptr; }
 

@@ -131,8 +131,7 @@ void Reconstruction::AddImage(class Image image, bool sync_camera_pointer) {
       LOG(FATAL_THROW) << "The camera id for the added image needs to be "
                           "existent in the reconstruction if one wants to sync "
                           "the camera pointer with AddImage(image_id, true)";
-    Image(image_id).SetCameraPtr(std::make_shared<struct Camera>(
-        cameras_.at(Image(image_id).CameraId())));
+    Image(image_id).SetCameraPtr(&cameras_.at(Image(image_id).CameraId()));
   }
 }
 
@@ -731,8 +730,7 @@ void Reconstruction::CreateImageDirs(const std::string& path) const {
 
 void Reconstruction::SyncCameraPointers() {
   for (auto& image : images_) {
-    image.second.SetCameraPtr(
-        std::make_shared<struct Camera>(cameras_.at(image.second.CameraId())));
+    image.second.SetCameraPtr(&cameras_.at(image.second.CameraId()));
   }
 }
 

@@ -133,6 +133,9 @@ void BindImage(py::module& m) {
       .def("has_camera_ptr",
            &Image::HasCameraPtr,
            "Check whether the camera address has been set.")
+      .def("unset_camera_ptr",
+           &Image::UnsetCameraPtr,
+           "Make the camera address a nullptr")
       .def_property("registered",
                     &Image::IsRegistered,
                     &Image::SetRegistered,
