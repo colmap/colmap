@@ -966,7 +966,12 @@ void OptionManager::Write(const std::string& path) const {
     }
   }
 
-  boost::property_tree::write_ini(path, pt);
+  std::ofstream file(path);
+  THROW_CHECK_FILE_OPEN(file, path);
+  // Ensure that we don't lose any precision by storing in text.
+  file.precision(17);
+  boost::property_tree::write_ini(file, pt);
+  file.close();
 }
 
 }  // namespace colmap

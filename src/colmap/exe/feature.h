@@ -38,15 +38,17 @@ namespace colmap {
 // exclusive and unambiguous way. The table below explains the correspondence of
 // each setting with the flags
 //
+// clang-format off
 // -----------------------------------------------------------------------------------
-// |            |                         ImageReaderOptions | | CameraMode |
-// single_camera | single_camera_per_folder | single_camera_per_image |
+// |            |                         ImageReaderOptions                         |
+// | CameraMode | single_camera | single_camera_per_folder | single_camera_per_image |
 // |------------|---------------|--------------------------|-------------------------|
-// | AUTO       | false         | false                    | false | | SINGLE |
-// true          | false                    | false                   | |
-// PER_FOLDER | false         | true                     | false | | PER_IMAGE
-// | false         | false                    | true                    |
+// | AUTO       | false         | false                    | false                   |
+// | SINGLE     | true          | false                    | false                   |
+// | PER_FOLDER | false         | true                     | false                   |
+// | PER_IMAGE  | false         | false                    | true                    |
 // -----------------------------------------------------------------------------------
+// clang-format on
 //
 // Note: When using AUTO mode a camera model will be uniquely identified by the
 // following 5 parameters from EXIF tags:
