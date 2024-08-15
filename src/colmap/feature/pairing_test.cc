@@ -91,6 +91,8 @@ TEST(VocabTreePairGenerator, Nominal) {
 
   VocabTreeMatchingOptions options;
   options.vocab_tree_path = CreateTestDir() + "/vocab_tree.txt";
+
+  // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
   CreateSyntheticVisualIndex().Write(options.vocab_tree_path);
 
   {
