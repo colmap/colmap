@@ -151,7 +151,9 @@ def evaluate_eth3d(args):
 
         print("Processing ETH3D scene:", scene)
 
-        with open(scene_path / "dslr_calibration_undistorted/cameras.txt", "r") as fid:
+        with open(
+            scene_path / "dslr_calibration_undistorted/cameras.txt", "r"
+        ) as fid:
             for line in fid:
                 if not line.startswith("#"):
                     first_camera_data = line.split()
@@ -197,12 +199,16 @@ def evaluate_eth3d(args):
 
 def format_results(results, thresholds):
     column = "scenes"
-    size1 = max(len(column) + 2, max(map(len, (s.keys() for s in results.values()))))
+    size1 = max(
+        len(column) + 2, max(map(len, (s.keys() for s in results.values())))
+    )
     metric = "AUC @ X cm (%)"
     size2 = max(len(metric) + 2, len(thresholds) * 6 - 1)
     header = f"{column:-^{size1}} {metric:-^{size2}}"
     header += "\n" + " " * (size1 + 1)
-    header += " ".join(f'{str(t*100).rstrip("0").rstrip("."):^5}' for t in thresholds)
+    header += " ".join(
+        f'{str(t*100).rstrip("0").rstrip("."):^5}' for t in thresholds
+    )
     text = [header]
     for dataset, scene_results in results.items():
         text.append(f"\n{dataset:-^{size1 + size2 + 1}}")
@@ -220,11 +226,18 @@ def parse_args():
     parser.add_argument("--datasets", nargs="+", default=["eth3d"])
     parser.add_argument("--run_path", default=Path(__file__).parent / "runs")
     parser.add_argument(
-        "--run_name", default=datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        "--run_name",
+        default=datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"),
     )
-    parser.add_argument("--overwrite_database", default=False, action="store_true")
-    parser.add_argument("--overwrite_reconstruction", default=False, action="store_true")
-    parser.add_argument("--overwrite_alignment", default=False, action="store_true")
+    parser.add_argument(
+        "--overwrite_database", default=False, action="store_true"
+    )
+    parser.add_argument(
+        "--overwrite_reconstruction", default=False, action="store_true"
+    )
+    parser.add_argument(
+        "--overwrite_alignment", default=False, action="store_true"
+    )
     parser.add_argument("--colmap_path", required=True)
     parser.add_argument("--use_gpu", default=True, action="store_true")
     parser.add_argument("--use_cpu", dest="use_gpu", action="store_false")
