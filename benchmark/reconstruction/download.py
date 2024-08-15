@@ -4,22 +4,31 @@ from pathlib import Path
 import subprocess
 
 
+def download_vocab_tree(data_path: Path):
+    data_path.mkdir(parents=True, exist_ok=True)
+    subprocess.check_call(
+        ["wget", "-c", "https://demuc.de/colmap/vocab_tree_flickr100K_words256K.bin"],
+        cwd=data_path,
+    )
+
+
 def download_eth3d(data_path: Path):
     data_path.mkdir(parents=True, exist_ok=True)
 
-    undistorted_images = "multi_view_training_dslr_undistorted.7z"
-
+    multi_view = "multi_view_training_dslr_undistorted.7z"
     subprocess.check_call(
-        ["wget", "-c", "https://www.eth3d.net/data/" + undistorted_images],
+        ["wget", "-c", "https://www.eth3d.net/data/" + multi_view],
         cwd=data_path,
     )
-    subprocess.check_call(["7zz", "x", undistorted_images], cwd=data_path)
+    subprocess.check_call(["7zz", "x", mult_view], cwd=data_path)
 
-    scan = "multi_view_training_dslr_scan_eval.7z"
+    many_view = "multi_view_training_rig_undistorted.7z"
     subprocess.check_call(
-        ["wget", "-c", "https://www.eth3d.net/data/" + scan], cwd=data_path
+        ["wget", "-c", "https://www.eth3d.net/data/" + many_view],
+        cwd=data_path,
     )
-    subprocess.check_call(["7zz", "x", scan], cwd=data_path)
+    subprocess.check_call(["7zz", "x", many_view], cwd=data_path)
+
 
 
 def parse_args():
@@ -33,6 +42,7 @@ def parse_args():
 def main():
     args = parse_args()
 
+    download_vocab_tree(args.data_path)
     download_eth3d(args.data_path / "eth3d")
 
 

@@ -35,7 +35,9 @@ def colmap_reconstruction(
             "--image_path",
             image_path,
             "--workspace_path",
-            workspace_path.resolve(),
+            workspace_path,
+            "--vocab_tree_path",
+            args.data_path / "vocab_tree_flickr100K_words256K.bin",
             "--use_gpu",
             "1" if args.use_gpu else "0",
             "--num_threads",
@@ -148,12 +150,11 @@ def evaluate_eth3d(args):
 
         scene = scene_path.name
         workspace_path = args.run_path / args.run_name / "eth3d" / scene
+        sparse_gt_path = list(scene_path.glob("*_calibration_undistorted"))[0]
 
         print("Processing ETH3D scene:", scene)
 
-        with open(
-            scene_path / "dslr_calibration_undistorted/cameras.txt", "r"
-        ) as fid:
+        with open(sparse_gt_path / "cameras.txt", "r") as fid:
             for line in fid:
                 if not line.startswith("#"):
                     first_camera_data = line.split()
@@ -176,7 +177,6 @@ def evaluate_eth3d(args):
         )
 
         sparse_path = workspace_path / "sparse/0"
-        sparse_gt_path = scene_path / "dslr_calibration_undistorted"
         sparse_aligned_path = workspace_path / "sparse_aligned"
         colmap_alignment(
             args=args,
