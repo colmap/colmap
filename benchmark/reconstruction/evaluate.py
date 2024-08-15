@@ -21,7 +21,7 @@ def colmap_reconstruction(
         database_path.unlink()
 
     sparse_path = workspace_path / "sparse"
-    if args.overwrite_sparse and sparse_path.exists():
+    if args.overwrite_reconstruction and sparse_path.exists():
         shutil.rmtree(sparse_path)
 
     if sparse_path.exists():
@@ -51,9 +51,12 @@ def colmap_reconstruction(
 def colmap_alignment(
     args, sparse_path, sparse_gt_path, sparse_aligned_path, max_ref_model_error
 ):
+    if args.overwrite_alignment and sparse_aligned_path.exists():
+        shutil.rmtree(sparse_aligned_path)
     if sparse_aligned_path.exists():
         print("Skipping alignment, as it already exists")
         return
+
     if sparse_path.exists():
         sparse_aligned_path.mkdir(parents=True, exist_ok=True)
         subprocess.call(
@@ -220,7 +223,8 @@ def parse_args():
         "--run_name", default=datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     )
     parser.add_argument("--overwrite_database", default=False, action="store_true")
-    parser.add_argument("--overwrite_sparse", default=False, action="store_true")
+    parser.add_argument("--overwrite_reconstruction", default=False, action="store_true")
+    parser.add_argument("--overwrite_alignment", default=False, action="store_true")
     parser.add_argument("--colmap_path", required=True)
     parser.add_argument("--use_gpu", default=True, action="store_true")
     parser.add_argument("--use_cpu", dest="use_gpu", action="store_false")
@@ -236,8 +240,11 @@ def parse_args():
     args = parser.parse_args()
     args.colmap_path = Path(args.colmap_path).resolve()
     if args.overwrite_database:
-        print("Overwriting database also overwrites sparse")
-        args.overwrite_sparse = True
+        print("Overwriting database also overwrites reconstruction")
+        args.overwrite_reconstruction = True
+    if args.overwrite_reconstruction:
+        print("Overwriting reconstruction also overwrites alignment")
+        args.overwrite_alignment = True
     return args
 
 
