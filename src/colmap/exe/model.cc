@@ -312,7 +312,7 @@ int RunModelAligner(int argc, char** argv) {
       ref_images_path.empty() && alignment_type != "plane") {
     LOG(ERROR) << "One of the following arguments must be specified: "
                   "--ref_model_path, --database_path, "
-                  "--ref_images_path, alignment_type=plane";
+                  "--ref_images_path, --alignment_type=plane";
     return EXIT_FAILURE;
   }
 
