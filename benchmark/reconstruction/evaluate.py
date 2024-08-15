@@ -5,12 +5,19 @@ import datetime
 import shutil
 
 
-def run_colmap(args, workspace_path, image_path, extra_args=[]):
+def run_colmap(
+    args,
+    workspace_path,
+    image_path,
+    ref_model_path=None,
+    max_ref_model_error=0.1,
+    extra_args=[],
+):
     workspace_path.mkdir(parents=True, exist_ok=True)
 
     database_path = workspace_path / "database.db"
     if args.overwrite_database and database_path.exists():
-        database_path.remove()
+        database_path.unlink()
 
     sparse_path = workspace_path / "sparse"
     if args.overwrite_sparse and sparse_path.exists():
@@ -39,6 +46,26 @@ def run_colmap(args, workspace_path, image_path, extra_args=[]):
         cwd=workspace_path,
     )
 
+    sparse_path = workspace_path / "sparse/0"
+    sparse_aligned_path = workspace_path / "sparse_aligned"
+    if ref_model_path is not None and sparse_path.exists():
+        sparse_aligned_path.mkdir(parents=True, exist_ok=True)
+        subprocess.call(
+            [
+                args.colmap_path,
+                "model_aligner",
+                "--input_path",
+                sparse_path,
+                "--ref_model_path",
+                ref_model_path,
+                "--output_path",
+                sparse_aligned_path,
+                "--alignment_max_error",
+                str(max_ref_model_error),
+            ],
+            cwd=workspace_path,
+        )
+
 
 def evaluate_eth3d(args):
     for scene_path in Path(args.data_path / "eth3d").iterdir():
@@ -61,9 +88,11 @@ def evaluate_eth3d(args):
                     break
 
         run_colmap(
-            args,
-            workspace_path,
-            scene_path / "images",
+            args=args,
+            workspace_path=workspace_path,
+            image_path=scene_path / "images",
+            ref_model_path=scene_path / "dslr_calibration_undistorted",
+            max_ref_model_error=0.1,
             extra_args=[
                 "--camera_model",
                 "PINHOLE",
@@ -87,9 +116,12 @@ def parse_args():
     parser.add_argument("--use_gpu", default=True, action="store_true")
     parser.add_argument("--use_cpu", dest="use_gpu", action="store_false")
     parser.add_argument("--num_threads", type=int, default=-1)
-    parser.add_argument("--quality", default="medium")
+    parser.add_argument("--quality", default="high")
     args = parser.parse_args()
     args.colmap_path = Path(args.colmap_path).resolve()
+    if args.overwrite_database:
+        print("Overwriting database also overwrites sparse")
+        args.overwrite_sparse = True
     return args
 
 
