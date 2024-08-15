@@ -29,6 +29,7 @@
 
 #include "colmap/feature/pairing.h"
 
+#include "colmap/retrieval/visual_index.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
 
@@ -68,6 +69,54 @@ TEST(ExhaustivePairGenerator, Nominal) {
   EXPECT_EQ(pairs.size(), kNumImages * (kNumImages - 1) / 2);
   EXPECT_TRUE(generator.Next().empty());
   EXPECT_TRUE(generator.Next().empty());
+}
+
+retrieval::VisualIndex<> CreateSyntheticVisualIndex() {
+  retrieval::VisualIndex<> visual_index;
+  retrieval::VisualIndex<>::BuildOptions build_options;
+  build_options.num_visual_words = 5;
+  build_options.branching = 5;
+  visual_index.Build(build_options,
+                     retrieval::VisualIndex<>::DescType::Random(50, 128));
+  return visual_index;
+}
+
+TEST(VocabTreePairGenerator, Nominal) {
+  constexpr int kNumImages = 5;
+  auto database = std::make_shared<Database>(Database::kInMemoryDatabasePath);
+  CreateSyntheticDatabase(kNumImages, *database);
+  const std::vector<Image> images = database->ReadAllImages();
+  CHECK_EQ(images.size(), kNumImages);
+
+  VocabTreeMatchingOptions options;
+  options.vocab_tree_path = CreateTestDir() + "/vocab_tree.txt";
+  CreateSyntheticVisualIndex().Write(options.vocab_tree_path);
+
+  {
+    options.num_images = 3;
+    VocabTreePairGenerator generator(options, database);
+    for (int i = 0; i < kNumImages; ++i) {
+      const auto pairs = generator.Next();
+      EXPECT_EQ(pairs.size(), options.num_images);
+      EXPECT_EQ(
+          (std::set<std::pair<image_t, image_t>>(pairs.begin(), pairs.end())
+               .size()),
+          pairs.size());
+    }
+    EXPECT_TRUE(generator.Next().empty());
+    EXPECT_TRUE(generator.Next().empty());
+  }
+
+  {
+    options.num_images = 100;
+    VocabTreePairGenerator generator(options, database);
+    for (int i = 0; i < kNumImages; ++i) {
+      const auto pairs = generator.Next();
+      EXPECT_EQ(pairs.size(), kNumImages);
+    }
+    EXPECT_TRUE(generator.Next().empty());
+    EXPECT_TRUE(generator.Next().empty());
+  }
 }
 
 TEST(SequentialPairGenerator, Linear) {
