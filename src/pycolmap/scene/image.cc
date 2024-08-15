@@ -26,10 +26,15 @@ std::string PrintImage(const Image& image) {
   std::stringstream ss;
   ss << "Image(image_id="
      << (image.ImageId() != kInvalidImageId ? std::to_string(image.ImageId())
-                                            : "Invalid")
-     << ", camera_id="
-     << (image.HasCamera() ? std::to_string(image.CameraId()) : "Invalid")
-     << ", name=\"" << image.Name() << "\""
+                                            : "Invalid");
+  if (!image.HasCameraPtr()) {
+    ss << ", camera_id="
+       << (image.HasCamera() ? std::to_string(image.CameraId()) : "Invalid");
+  } else {
+    ss << ", camera=Camera(camera_id=" << std::to_string(image.CameraId())
+       << ")";
+  }
+  ss << ", name=\"" << image.Name() << "\""
      << ", triangulated=" << image.NumPoints3D() << "/" << image.NumPoints2D()
      << ")";
   return ss.str();
