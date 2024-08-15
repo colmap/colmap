@@ -130,23 +130,23 @@ TEST(SequentialPairGenerator, Linear) {
   options.overlap = 3;
   options.quadratic_overlap = false;
   SequentialPairGenerator generator(options, database);
-  const std::vector<std::pair<image_t, image_t>> expected_pairs1 = {
-      {images[0].ImageId(), images[1].ImageId()},
-      {images[0].ImageId(), images[2].ImageId()},
-      {images[0].ImageId(), images[3].ImageId()}};
-  EXPECT_EQ(generator.Next(), expected_pairs1);
-  const std::vector<std::pair<image_t, image_t>> expected_pairs2 = {
-      {images[1].ImageId(), images[2].ImageId()},
-      {images[1].ImageId(), images[3].ImageId()},
-      {images[1].ImageId(), images[4].ImageId()}};
-  EXPECT_EQ(generator.Next(), expected_pairs2);
-  const std::vector<std::pair<image_t, image_t>> expected_pairs3 = {
-      {images[2].ImageId(), images[3].ImageId()},
-      {images[2].ImageId(), images[4].ImageId()}};
-  EXPECT_EQ(generator.Next(), expected_pairs3);
-  const std::vector<std::pair<image_t, image_t>> expected_pairs4 = {
-      {images[3].ImageId(), images[4].ImageId()}};
-  EXPECT_EQ(generator.Next(), expected_pairs4);
+  EXPECT_EQ(generator.Next(),
+            (std::vector<std::pair<image_t, image_t>>{
+                {images[0].ImageId(), images[1].ImageId()},
+                {images[0].ImageId(), images[2].ImageId()},
+                {images[0].ImageId(), images[3].ImageId()}}));
+  EXPECT_EQ(generator.Next(),
+            (std::vector<std::pair<image_t, image_t>>{
+                {images[1].ImageId(), images[2].ImageId()},
+                {images[1].ImageId(), images[3].ImageId()},
+                {images[1].ImageId(), images[4].ImageId()}}));
+  EXPECT_EQ(generator.Next(),
+            (std::vector<std::pair<image_t, image_t>>{
+                {images[2].ImageId(), images[3].ImageId()},
+                {images[2].ImageId(), images[4].ImageId()}}));
+  EXPECT_EQ(generator.Next(),
+            (std::vector<std::pair<image_t, image_t>>{
+                {images[3].ImageId(), images[4].ImageId()}}));
   EXPECT_TRUE(generator.Next().empty());
   EXPECT_TRUE(generator.Next().empty());
 }
@@ -162,22 +162,22 @@ TEST(SequentialPairGenerator, Quadratic) {
   options.overlap = 3;
   options.quadratic_overlap = true;
   SequentialPairGenerator generator(options, database);
-  const std::vector<std::pair<image_t, image_t>> expected_pairs1 = {
-      {images[0].ImageId(), images[1].ImageId()},
-      {images[0].ImageId(), images[2].ImageId()},
-      {images[0].ImageId(), images[4].ImageId()}};
-  EXPECT_EQ(generator.Next(), expected_pairs1);
-  const std::vector<std::pair<image_t, image_t>> expected_pairs2 = {
-      {images[1].ImageId(), images[2].ImageId()},
-      {images[1].ImageId(), images[3].ImageId()}};
-  EXPECT_EQ(generator.Next(), expected_pairs2);
-  const std::vector<std::pair<image_t, image_t>> expected_pairs3 = {
-      {images[2].ImageId(), images[3].ImageId()},
-      {images[2].ImageId(), images[4].ImageId()}};
-  EXPECT_EQ(generator.Next(), expected_pairs3);
-  const std::vector<std::pair<image_t, image_t>> expected_pairs4 = {
-      {images[3].ImageId(), images[4].ImageId()}};
-  EXPECT_EQ(generator.Next(), expected_pairs4);
+  EXPECT_EQ(generator.Next(),
+            (std::vector<std::pair<image_t, image_t>>{
+                {images[0].ImageId(), images[1].ImageId()},
+                {images[0].ImageId(), images[2].ImageId()},
+                {images[0].ImageId(), images[4].ImageId()}}));
+  EXPECT_EQ(generator.Next(),
+            (std::vector<std::pair<image_t, image_t>>{
+                {images[1].ImageId(), images[2].ImageId()},
+                {images[1].ImageId(), images[3].ImageId()}}));
+  EXPECT_EQ(generator.Next(),
+            (std::vector<std::pair<image_t, image_t>>{
+                {images[2].ImageId(), images[3].ImageId()},
+                {images[2].ImageId(), images[4].ImageId()}}));
+  EXPECT_EQ(generator.Next(),
+            (std::vector<std::pair<image_t, image_t>>{
+                {images[3].ImageId(), images[4].ImageId()}}));
   EXPECT_TRUE(generator.Next().empty());
   EXPECT_TRUE(generator.Next().empty());
 }
@@ -201,15 +201,15 @@ TEST(SpatialPairGenerator, Nominal) {
   options.ignore_z = false;
   {
     SpatialPairGenerator generator(options, database);
-    const std::vector<std::pair<image_t, image_t>> expected_pairs1 = {
-        {images[2].ImageId(), images[1].ImageId()}};
-    EXPECT_EQ(generator.Next(), expected_pairs1);
-    const std::vector<std::pair<image_t, image_t>> expected_pairs2 = {
-        {images[1].ImageId(), images[0].ImageId()}};
-    EXPECT_EQ(generator.Next(), expected_pairs2);
-    const std::vector<std::pair<image_t, image_t>> expected_pairs3 = {
-        {images[0].ImageId(), images[1].ImageId()}};
-    EXPECT_EQ(generator.Next(), expected_pairs3);
+    EXPECT_EQ(generator.Next(),
+              (std::vector<std::pair<image_t, image_t>>{
+                  {images[2].ImageId(), images[1].ImageId()}}));
+    EXPECT_EQ(generator.Next(),
+              (std::vector<std::pair<image_t, image_t>>{
+                  {images[1].ImageId(), images[0].ImageId()}}));
+    EXPECT_EQ(generator.Next(),
+              (std::vector<std::pair<image_t, image_t>>{
+                  {images[0].ImageId(), images[1].ImageId()}}));
     EXPECT_TRUE(generator.Next().empty());
     EXPECT_TRUE(generator.Next().empty());
   }
@@ -217,15 +217,15 @@ TEST(SpatialPairGenerator, Nominal) {
   {
     options.ignore_z = true;
     SpatialPairGenerator generator(options, database);
-    const std::vector<std::pair<image_t, image_t>> expected_pairs1 = {
-        {images[2].ImageId(), images[1].ImageId()}};
-    EXPECT_EQ(generator.Next(), expected_pairs1);
-    const std::vector<std::pair<image_t, image_t>> expected_pairs2 = {
-        {images[1].ImageId(), images[2].ImageId()}};
-    EXPECT_EQ(generator.Next(), expected_pairs2);
-    const std::vector<std::pair<image_t, image_t>> expected_pairs3 = {
-        {images[0].ImageId(), images[1].ImageId()}};
-    EXPECT_EQ(generator.Next(), expected_pairs3);
+    EXPECT_EQ(generator.Next(),
+              (std::vector<std::pair<image_t, image_t>>{
+                  {images[2].ImageId(), images[1].ImageId()}}));
+    EXPECT_EQ(generator.Next(),
+              (std::vector<std::pair<image_t, image_t>>{
+                  {images[1].ImageId(), images[2].ImageId()}}));
+    EXPECT_EQ(generator.Next(),
+              (std::vector<std::pair<image_t, image_t>>{
+                  {images[0].ImageId(), images[1].ImageId()}}));
     EXPECT_TRUE(generator.Next().empty());
     EXPECT_TRUE(generator.Next().empty());
   }
@@ -235,12 +235,12 @@ TEST(SpatialPairGenerator, Nominal) {
     options.max_distance = 5;
     SpatialPairGenerator generator(options, database);
     EXPECT_TRUE(generator.Next().empty());
-    const std::vector<std::pair<image_t, image_t>> expected_pairs2 = {
-        {images[1].ImageId(), images[0].ImageId()}};
-    EXPECT_EQ(generator.Next(), expected_pairs2);
-    const std::vector<std::pair<image_t, image_t>> expected_pairs3 = {
-        {images[0].ImageId(), images[1].ImageId()}};
-    EXPECT_EQ(generator.Next(), expected_pairs3);
+    EXPECT_EQ(generator.Next(),
+              (std::vector<std::pair<image_t, image_t>>{
+                  {images[1].ImageId(), images[0].ImageId()}}));
+    EXPECT_EQ(generator.Next(),
+              (std::vector<std::pair<image_t, image_t>>{
+                  {images[0].ImageId(), images[1].ImageId()}}));
     EXPECT_TRUE(generator.Next().empty());
     EXPECT_TRUE(generator.Next().empty());
   }
@@ -249,18 +249,18 @@ TEST(SpatialPairGenerator, Nominal) {
     options.max_num_neighbors = 2;
     options.max_distance = 1000;
     SpatialPairGenerator generator(options, database);
-    const std::vector<std::pair<image_t, image_t>> expected_pairs1 = {
-        {images[2].ImageId(), images[1].ImageId()},
-        {images[2].ImageId(), images[0].ImageId()}};
-    EXPECT_EQ(generator.Next(), expected_pairs1);
-    const std::vector<std::pair<image_t, image_t>> expected_pairs2 = {
-        {images[1].ImageId(), images[0].ImageId()},
-        {images[1].ImageId(), images[2].ImageId()}};
-    EXPECT_EQ(generator.Next(), expected_pairs2);
-    const std::vector<std::pair<image_t, image_t>> expected_pairs3 = {
-        {images[0].ImageId(), images[1].ImageId()},
-        {images[0].ImageId(), images[2].ImageId()}};
-    EXPECT_EQ(generator.Next(), expected_pairs3);
+    EXPECT_EQ(generator.Next(),
+              (std::vector<std::pair<image_t, image_t>>{
+                  {images[2].ImageId(), images[1].ImageId()},
+                  {images[2].ImageId(), images[0].ImageId()}}));
+    EXPECT_EQ(generator.Next(),
+              (std::vector<std::pair<image_t, image_t>>{
+                  {images[1].ImageId(), images[0].ImageId()},
+                  {images[1].ImageId(), images[2].ImageId()}}));
+    EXPECT_EQ(generator.Next(),
+              (std::vector<std::pair<image_t, image_t>>{
+                  {images[0].ImageId(), images[1].ImageId()},
+                  {images[0].ImageId(), images[2].ImageId()}}));
     EXPECT_TRUE(generator.Next().empty());
     EXPECT_TRUE(generator.Next().empty());
   }
@@ -283,11 +283,11 @@ TEST(ImportedPairGenerator, Nominal) {
   ImagePairsMatchingOptions options;
   options.match_list_path = match_list_path;
   ImportedPairGenerator generator(options, database);
-  const std::vector<std::pair<image_t, image_t>> expected_pairs = {
-      {images[2].ImageId(), images[4].ImageId()},
-      {images[1].ImageId(), images[3].ImageId()},
-      {images[2].ImageId(), images[9].ImageId()}};
-  EXPECT_EQ(generator.Next(), expected_pairs);
+  EXPECT_EQ(generator.Next(),
+            (std::vector<std::pair<image_t, image_t>>{
+                {images[2].ImageId(), images[4].ImageId()},
+                {images[1].ImageId(), images[3].ImageId()},
+                {images[2].ImageId(), images[9].ImageId()}}));
   EXPECT_TRUE(generator.Next().empty());
   EXPECT_TRUE(generator.Next().empty());
 }
