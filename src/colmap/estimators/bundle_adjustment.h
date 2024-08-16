@@ -64,10 +64,19 @@ struct BundleAdjustmentOptions {
   // Whether to print a final summary.
   bool print_summary = true;
 
+  // Whether to use Ceres' CUDA sparse linear algebra library, if available.
+  bool use_gpu = false;
+  std::string gpu_index = "-1";
+
   // Minimum number of residuals to enable multi-threading. Note that
   // single-threaded is typically better for small bundle adjustment problems
   // due to the overhead of threading.
   int min_num_residuals_for_multi_threading = 50000;
+
+  // Heuristic thresholds to switch between direct, sparse, and iterative
+  // solvers. These thresholds may not be optimal for all types of problems.
+  int max_num_images_direct_dense_solver = 50;
+  int max_num_images_direct_sparse_solver = 1000;
 
   // Ceres-Solver options.
   ceres::Solver::Options solver_options;
