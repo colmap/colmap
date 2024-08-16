@@ -30,6 +30,7 @@ RUN apt-get update && \
         libmetis-dev \
         libgoogle-glog-dev \
         libgtest-dev \
+        libgmock-dev \
         libsqlite3-dev \
         libglew-dev \
         qtbase5-dev \
