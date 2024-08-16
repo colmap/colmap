@@ -15,19 +15,19 @@ def download_vocab_tree(data_path: Path):
 def download_eth3d(data_path: Path):
     data_path.mkdir(parents=True, exist_ok=True)
 
-    multi_view = "multi_view_training_dslr_undistorted.7z"
+    multi_view_dslr = "multi_view_training_dslr_undistorted.7z"
     subprocess.check_call(
-        ["wget", "-c", "https://www.eth3d.net/data/" + multi_view],
+        ["wget", "-c", "https://www.eth3d.net/data/" + multi_view_dslr],
         cwd=data_path,
     )
     subprocess.check_call(["7zz", "x", mult_view], cwd=data_path)
 
-    many_view = "multi_view_training_rig_undistorted.7z"
+    multi_view_rig = "multi_view_training_rig_undistorted.7z"
     subprocess.check_call(
-        ["wget", "-c", "https://www.eth3d.net/data/" + many_view],
+        ["wget", "-c", "https://www.eth3d.net/data/" + multi_view_rig],
         cwd=data_path,
     )
-    subprocess.check_call(["7zz", "x", many_view], cwd=data_path)
+    subprocess.check_call(["7zz", "x", multi_view_rig], cwd=data_path)
 
 
 
