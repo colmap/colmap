@@ -81,6 +81,13 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_feature
 )
 COLMAP_ADD_TEST(
+    NAME pairing_test
+    SRCS pairing_test.cc
+    LINK_LIBS
+        colmap_feature
+        colmap_scene
+)
+COLMAP_ADD_TEST(
     NAME sift_test
     SRCS sift_test.cc
     LINK_LIBS
