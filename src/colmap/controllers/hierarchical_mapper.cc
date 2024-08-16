@@ -178,7 +178,7 @@ void HierarchicalMapperController::Run() {
           return;
         }
 
-        auto incremental_options = std::make_shared<IncrementalMapperOptions>(
+        auto incremental_options = std::make_shared<IncrementalPipelineOptions>(
             options_.incremental_options);
         incremental_options->max_model_overlap = 3;
         incremental_options->init_num_trials = options_.init_num_trials;
@@ -191,10 +191,10 @@ void HierarchicalMapperController::Run() {
               image_id_to_name.at(image_id));
         }
 
-        IncrementalMapperController mapper(std::move(incremental_options),
-                                           options_.image_path,
-                                           options_.database_path,
-                                           std::move(reconstruction_manager));
+        IncrementalPipeline mapper(std::move(incremental_options),
+                                   options_.image_path,
+                                   options_.database_path,
+                                   std::move(reconstruction_manager));
         mapper.Run();
       };
 

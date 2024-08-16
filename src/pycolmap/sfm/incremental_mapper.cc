@@ -13,9 +13,9 @@
 using namespace colmap;
 namespace py = pybind11;
 
-void BindIncrementalMapperController(py::module& m) {
+void BindIncrementalPipeline(py::module& m) {
   // bind callbacks
-  using CallbackType = IncrementalMapperController::CallbackType;
+  using CallbackType = IncrementalPipeline::CallbackType;
   auto PyCallbackType =
       py::enum_<CallbackType>(m, "IncrementalMapperCallback")
           .value("INITIAL_IMAGE_PAIR_REG_CALLBACK",
@@ -27,7 +27,7 @@ void BindIncrementalMapperController(py::module& m) {
   AddStringToEnumConstructor(PyCallbackType);
 
   // bind status
-  using Status = IncrementalMapperController::Status;
+  using Status = IncrementalPipeline::Status;
   auto PyStatus = py::enum_<Status>(m, "IncrementalMapperStatus")
                       .value("NO_INITIAL_PAIR", Status::NO_INITIAL_PAIR)
                       .value("BAD_INITIAL_PAIR", Status::BAD_INITIAL_PAIR)
@@ -36,10 +36,9 @@ void BindIncrementalMapperController(py::module& m) {
   AddStringToEnumConstructor(PyStatus);
 
   // bind controller
-  py::class_<IncrementalMapperController,
-             std::shared_ptr<IncrementalMapperController>>(
-      m, "IncrementalMapperController")
-      .def(py::init<std::shared_ptr<const IncrementalMapperOptions>,
+  py::class_<IncrementalPipeline, std::shared_ptr<IncrementalPipeline>>(
+      m, "IncrementalPipeline")
+      .def(py::init<std::shared_ptr<const IncrementalPipelineOptions>,
                     const std::string&,
                     const std::string&,
                     std::shared_ptr<ReconstructionManager>>(),
@@ -47,41 +46,34 @@ void BindIncrementalMapperController(py::module& m) {
            "image_path"_a,
            "database_path"_a,
            "reconstruction_manager"_a)
-      .def_property_readonly("options", &IncrementalMapperController::Options)
-      .def_property_readonly("image_path",
-                             &IncrementalMapperController::ImagePath)
+      .def_property_readonly("options", &IncrementalPipeline::Options)
+      .def_property_readonly("image_path", &IncrementalPipeline::ImagePath)
       .def_property_readonly("database_path",
-                             &IncrementalMapperController::DatabasePath)
-      .def_property_readonly(
-          "reconstruction_manager",
-          &IncrementalMapperController::ReconstructionManager)
+                             &IncrementalPipeline::DatabasePath)
+      .def_property_readonly("reconstruction_manager",
+                             &IncrementalPipeline::ReconstructionManager)
       .def_property_readonly("database_cache",
-                             &IncrementalMapperController::DatabaseCache)
-      .def("add_callback",
-           &IncrementalMapperController::AddCallback,
-           "id"_a,
-           "func"_a)
-      .def("callback", &IncrementalMapperController::Callback, "id"_a)
-      .def("load_database", &IncrementalMapperController::LoadDatabase)
+                             &IncrementalPipeline::DatabaseCache)
+      .def("add_callback", &IncrementalPipeline::AddCallback, "id"_a, "func"_a)
+      .def("callback", &IncrementalPipeline::Callback, "id"_a)
+      .def("load_database", &IncrementalPipeline::LoadDatabase)
       .def("check_run_global_refinement",
-           &IncrementalMapperController::CheckRunGlobalRefinement,
+           &IncrementalPipeline::CheckRunGlobalRefinement,
            "reconstruction"_a,
            "ba_prev_num_reg_images"_a,
            "ba_prev_num_points"_a)
-      .def("reconstruct",
-           &IncrementalMapperController::Reconstruct,
-           "mapper_options"_a)
+      .def("reconstruct", &IncrementalPipeline::Reconstruct, "mapper_options"_a)
       .def("reconstruct_sub_model",
-           &IncrementalMapperController::ReconstructSubModel,
+           &IncrementalPipeline::ReconstructSubModel,
            "core_mapper"_a,
            "mapper_options"_a,
            "reconstruction"_a)
       .def("initialize_reconstruction",
-           &IncrementalMapperController::InitializeReconstruction,
+           &IncrementalPipeline::InitializeReconstruction,
            "core_mapper"_a,
            "mapper_options"_a,
            "reconstruction"_a)
-      .def("run", &IncrementalMapperController::Run);
+      .def("run", &IncrementalPipeline::Run);
 }
 
 void BindIncrementalMapperOptions(py::module& m) {
@@ -319,6 +311,6 @@ void BindIncrementalMapperImpl(py::module& m) {
 }
 
 void BindIncrementalMapper(py::module& m) {
-  BindIncrementalMapperController(m);
+  BindIncrementalPipeline(m);
   BindIncrementalMapperImpl(m);
 }

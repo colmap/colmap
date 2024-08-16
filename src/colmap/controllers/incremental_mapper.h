@@ -35,7 +35,7 @@
 
 namespace colmap {
 
-struct IncrementalMapperOptions {
+struct IncrementalPipelineOptions {
   // The minimum number of matches for inlier matches to be considered.
   int min_num_matches = 15;
 
@@ -144,7 +144,7 @@ struct IncrementalMapperOptions {
 
 // Class that controls the incremental mapping procedure by iteratively
 // initializing reconstructions from the same scene graph.
-class IncrementalMapperController : public BaseController {
+class IncrementalPipeline : public BaseController {
  public:
   enum CallbackType {
     INITIAL_IMAGE_PAIR_REG_CALLBACK,
@@ -154,8 +154,8 @@ class IncrementalMapperController : public BaseController {
 
   enum class Status { NO_INITIAL_PAIR, BAD_INITIAL_PAIR, SUCCESS, INTERRUPTED };
 
-  IncrementalMapperController(
-      std::shared_ptr<const IncrementalMapperOptions> options,
+  IncrementalPipeline(
+      std::shared_ptr<const IncrementalPipelineOptions> options,
       const std::string& image_path,
       const std::string& database_path,
       std::shared_ptr<class ReconstructionManager> reconstruction_manager);
@@ -170,7 +170,7 @@ class IncrementalMapperController : public BaseController {
   // getter functions for python pipelines
   const std::string& ImagePath() const { return image_path_; }
   const std::string& DatabasePath() const { return database_path_; }
-  const std::shared_ptr<const IncrementalMapperOptions>& Options() const {
+  const std::shared_ptr<const IncrementalPipelineOptions>& Options() const {
     return options_;
   }
   const std::shared_ptr<class ReconstructionManager>& ReconstructionManager()
@@ -198,7 +198,7 @@ class IncrementalMapperController : public BaseController {
                                 size_t ba_prev_num_points);
 
  private:
-  const std::shared_ptr<const IncrementalMapperOptions> options_;
+  const std::shared_ptr<const IncrementalPipelineOptions> options_;
   const std::string image_path_;
   const std::string database_path_;
   std::shared_ptr<class ReconstructionManager> reconstruction_manager_;

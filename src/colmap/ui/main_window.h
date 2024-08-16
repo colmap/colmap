@@ -146,8 +146,7 @@ class MainWindow : public QMainWindow {
   OptionManager options_;
 
   std::shared_ptr<ReconstructionManager> reconstruction_manager_;
-  std::unique_ptr<ControllerThread<IncrementalMapperController>>
-      mapper_controller_;
+  std::unique_ptr<ControllerThread<IncrementalPipeline>> mapper_controller_;
 
   Timer timer_;
 

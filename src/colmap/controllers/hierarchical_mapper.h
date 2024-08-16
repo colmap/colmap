@@ -62,7 +62,7 @@ class HierarchicalMapperController : public BaseController {
     SceneClustering::Options clustering_options;
 
     // Options used to reconstruction each cluster individually.
-    IncrementalMapperOptions incremental_options;
+    IncrementalPipelineOptions incremental_options;
 
     bool Check() const;
   };

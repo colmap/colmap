@@ -35,7 +35,7 @@
 namespace colmap {
 namespace {
 
-void IterativeGlobalRefinement(const IncrementalMapperOptions& options,
+void IterativeGlobalRefinement(const IncrementalPipelineOptions& options,
                                const IncrementalMapper::Options& mapper_options,
                                IncrementalMapper& mapper) {
   LOG(INFO) << "Retriangulation and Global bundle adjustment";
@@ -75,7 +75,7 @@ void WriteSnapshot(const Reconstruction& reconstruction,
 
 }  // namespace
 
-IncrementalMapper::Options IncrementalMapperOptions::Mapper() const {
+IncrementalMapper::Options IncrementalPipelineOptions::Mapper() const {
   IncrementalMapper::Options options = mapper;
   options.abs_pose_refine_focal_length = ba_refine_focal_length;
   options.abs_pose_refine_extra_params = ba_refine_extra_params;
@@ -88,7 +88,7 @@ IncrementalMapper::Options IncrementalMapperOptions::Mapper() const {
   return options;
 }
 
-IncrementalTriangulator::Options IncrementalMapperOptions::Triangulation()
+IncrementalTriangulator::Options IncrementalPipelineOptions::Triangulation()
     const {
   IncrementalTriangulator::Options options = triangulation;
   options.min_focal_length_ratio = min_focal_length_ratio;
@@ -97,7 +97,7 @@ IncrementalTriangulator::Options IncrementalMapperOptions::Triangulation()
   return options;
 }
 
-BundleAdjustmentOptions IncrementalMapperOptions::LocalBundleAdjustment()
+BundleAdjustmentOptions IncrementalPipelineOptions::LocalBundleAdjustment()
     const {
   BundleAdjustmentOptions options;
   options.solver_options.function_tolerance = ba_local_function_tolerance;
@@ -122,7 +122,7 @@ BundleAdjustmentOptions IncrementalMapperOptions::LocalBundleAdjustment()
   return options;
 }
 
-BundleAdjustmentOptions IncrementalMapperOptions::GlobalBundleAdjustment()
+BundleAdjustmentOptions IncrementalPipelineOptions::GlobalBundleAdjustment()
     const {
   BundleAdjustmentOptions options;
   options.solver_options.function_tolerance = ba_global_function_tolerance;
@@ -148,7 +148,7 @@ BundleAdjustmentOptions IncrementalMapperOptions::GlobalBundleAdjustment()
   return options;
 }
 
-bool IncrementalMapperOptions::Check() const {
+bool IncrementalPipelineOptions::Check() const {
   CHECK_OPTION_GT(min_num_matches, 0);
   CHECK_OPTION_GT(max_num_models, 0);
   CHECK_OPTION_GT(max_model_overlap, 0);
@@ -174,8 +174,8 @@ bool IncrementalMapperOptions::Check() const {
   return true;
 }
 
-IncrementalMapperController::IncrementalMapperController(
-    std::shared_ptr<const IncrementalMapperOptions> options,
+IncrementalPipeline::IncrementalPipeline(
+    std::shared_ptr<const IncrementalPipelineOptions> options,
     const std::string& image_path,
     const std::string& database_path,
     std::shared_ptr<class ReconstructionManager> reconstruction_manager)
@@ -189,7 +189,7 @@ IncrementalMapperController::IncrementalMapperController(
   RegisterCallback(LAST_IMAGE_REG_CALLBACK);
 }
 
-void IncrementalMapperController::Run() {
+void IncrementalPipeline::Run() {
   Timer run_timer;
   run_timer.Start();
   if (!LoadDatabase()) {
@@ -221,7 +221,7 @@ void IncrementalMapperController::Run() {
   run_timer.PrintMinutes();
 }
 
-bool IncrementalMapperController::LoadDatabase() {
+bool IncrementalPipeline::LoadDatabase() {
   LOG(INFO) << "Loading database";
 
   // Make sure images of the given reconstruction are also included when
@@ -251,8 +251,7 @@ bool IncrementalMapperController::LoadDatabase() {
   return true;
 }
 
-IncrementalMapperController::Status
-IncrementalMapperController::InitializeReconstruction(
+IncrementalPipeline::Status IncrementalPipeline::InitializeReconstruction(
     IncrementalMapper& mapper,
     const IncrementalMapper::Options& mapper_options,
     Reconstruction& reconstruction) {
@@ -308,7 +307,7 @@ IncrementalMapperController::InitializeReconstruction(
   return Status::SUCCESS;
 }
 
-bool IncrementalMapperController::CheckRunGlobalRefinement(
+bool IncrementalPipeline::CheckRunGlobalRefinement(
     const Reconstruction& reconstruction,
     const size_t ba_prev_num_reg_images,
     const size_t ba_prev_num_points) {
@@ -322,8 +321,7 @@ bool IncrementalMapperController::CheckRunGlobalRefinement(
              options_->ba_global_points_freq + ba_prev_num_points;
 }
 
-IncrementalMapperController::Status
-IncrementalMapperController::ReconstructSubModel(
+IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
     IncrementalMapper& mapper,
     const IncrementalMapper::Options& mapper_options,
     const std::shared_ptr<Reconstruction>& reconstruction) {
@@ -334,9 +332,8 @@ IncrementalMapperController::ReconstructSubModel(
   ////////////////////////////////////////////////////////////////////////////
 
   if (reconstruction->NumRegImages() == 0) {
-    const Status init_status =
-        IncrementalMapperController::InitializeReconstruction(
-            mapper, mapper_options, *reconstruction);
+    const Status init_status = IncrementalPipeline::InitializeReconstruction(
+        mapper, mapper_options, *reconstruction);
     if (init_status != Status::SUCCESS) {
       return init_status;
     }
@@ -456,7 +453,7 @@ IncrementalMapperController::ReconstructSubModel(
   return Status::SUCCESS;
 }
 
-void IncrementalMapperController::Reconstruct(
+void IncrementalPipeline::Reconstruct(
     const IncrementalMapper::Options& mapper_options) {
   IncrementalMapper mapper(database_cache_);
 
@@ -537,7 +534,7 @@ void IncrementalMapperController::Reconstruct(
   }
 }
 
-void IncrementalMapperController::TriangulateReconstruction(
+void IncrementalPipeline::TriangulateReconstruction(
     const std::shared_ptr<Reconstruction>& reconstruction) {
   THROW_CHECK(LoadDatabase());
   IncrementalMapper mapper(database_cache_);

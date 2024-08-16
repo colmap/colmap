@@ -67,7 +67,7 @@ OptionManager::OptionManager(bool add_project_options) {
   transitive_matching = std::make_shared<TransitiveMatchingOptions>();
   image_pairs_matching = std::make_shared<ImagePairsMatchingOptions>();
   bundle_adjustment = std::make_shared<BundleAdjustmentOptions>();
-  mapper = std::make_shared<IncrementalMapperOptions>();
+  mapper = std::make_shared<IncrementalPipelineOptions>();
   patch_match_stereo = std::make_shared<mvs::PatchMatchOptions>();
   stereo_fusion = std::make_shared<mvs::StereoFusionOptions>();
   poisson_meshing = std::make_shared<mvs::PoissonMeshingOptions>();
@@ -789,7 +789,7 @@ void OptionManager::ResetOptions(const bool reset_paths) {
   *transitive_matching = TransitiveMatchingOptions();
   *image_pairs_matching = ImagePairsMatchingOptions();
   *bundle_adjustment = BundleAdjustmentOptions();
-  *mapper = IncrementalMapperOptions();
+  *mapper = IncrementalPipelineOptions();
   *patch_match_stereo = mvs::PatchMatchOptions();
   *stereo_fusion = mvs::StereoFusionOptions();
   *poisson_meshing = mvs::PoissonMeshingOptions();
