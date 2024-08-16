@@ -35,7 +35,6 @@
 
 namespace colmap {
 
-
 // NOLINTNEXTLINE(clang-analyzer-optin.performance.Padding)
 struct IncrementalPipelineOptions {
   // The minimum number of matches for inlier matches to be considered.
