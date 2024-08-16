@@ -344,7 +344,9 @@ ceres::Solver::Options BundleAdjuster::SetUpSolverOptions(
   } else if (num_images <= options_.max_num_images_direct_sparse_solver &&
              has_sparse) {
     solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
-#if !defined(CERES_NO_CUDSS)
+#if (CERES_VERSION_MAJOR >= 3 ||                                \
+     (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 2)) && \
+    !defined(CERES_NO_CUDSS)
     if (options_.use_gpu) {
       const std::vector<int> gpu_indices = CSVToVector<int>(options_.gpu_index);
       THROW_CHECK_GT(gpu_indices.size(), 0);
