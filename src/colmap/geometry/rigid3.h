@@ -54,6 +54,18 @@ struct Rigid3d {
     matrix.col(3) = translation;
     return matrix;
   }
+
+  // Adjoint matrix to propagate uncertainty on Rigid3d
+  // [Reference] https://gtsam.org/2021/02/23/uncertainties-part3.html
+  inline Eigen::Matrix6d Adjoint() const {
+    Eigen::Matrix6d adjoint;
+    adjoint.block<3, 3>(0, 0) = rotation.toRotationMatrix();
+    adjoint.block<3, 3>(0, 3).setZero();
+    adjoint.block<3, 3>(3, 0) =
+        adjoint.block<3, 3>(0, 0).colwise().cross(-translation);  // t x R
+    adjoint.block<3, 3>(3, 3) = adjoint.block<3, 3>(0, 0);
+    return adjoint;
+  }
 };
 
 // Return inverse transform.
@@ -62,6 +74,13 @@ inline Rigid3d Inverse(const Rigid3d& b_from_a) {
   a_from_b.rotation = b_from_a.rotation.inverse();
   a_from_b.translation = a_from_b.rotation * -b_from_a.translation;
   return a_from_b;
+}
+
+// Update covariance (6x6) for rigid3d.inverse()
+inline Eigen::Matrix6d GetCovarianceForRigid3dInverse(
+    const Rigid3d& rigid3, const Eigen::Matrix6d& covar) {
+  const Eigen::Matrix6d adjoint = rigid3.Adjoint();
+  return adjoint * covar * adjoint.transpose();
 }
 
 // Apply transform to point such that one can write expressions like:

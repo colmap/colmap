@@ -74,7 +74,7 @@ struct BundleAdjustmentOptions {
 
   BundleAdjustmentOptions() {
     solver_options.function_tolerance = 0.0;
-    solver_options.gradient_tolerance = 0.0;
+    solver_options.gradient_tolerance = 1e-4;
     solver_options.parameter_tolerance = 0.0;
     solver_options.logging_type = ceres::LoggingType::SILENT;
     solver_options.max_num_iterations = 100;
@@ -206,6 +206,9 @@ class BundleAdjuster {
   ceres::Solver::Summary summary_;
   std::unordered_set<camera_t> camera_ids_;
   std::unordered_map<point3D_t, size_t> point3D_num_observations_;
+
+  // Hold the life of loss function for Solve()
+  std::unique_ptr<ceres::LossFunction> loss_function_;
 };
 
 class RigBundleAdjuster : public BundleAdjuster {

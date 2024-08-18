@@ -163,9 +163,14 @@ void ReadDatabaseCameraLocations(const std::string& database_path,
                                  std::vector<Eigen::Vector3d>* ref_locations) {
   Database database(database_path);
   for (const auto& image : database.ReadAllImages()) {
-    if (image.CamFromWorldPrior().translation.array().isFinite().all()) {
+    if (database.ExistsPosePrior(image.ImageId())) {
       ref_image_names->push_back(image.Name());
-      ref_locations->push_back(image.CamFromWorldPrior().translation);
+      const auto pose_prior = database.ReadPosePrior(image.ImageId());
+      if (ref_is_gps) {
+        THROW_CHECK_EQ(static_cast<int>(pose_prior.coordinate_system),
+                       static_cast<int>(PosePrior::CoordinateSystem::WGS84));
+      }
+      ref_locations->push_back(pose_prior.position);
     }
   }
 
@@ -257,10 +262,7 @@ void PrintComparisonSummary(std::ostream& out,
 // the estimate an alignment
 // - estimate_scale: if true apply the computed scale when aligning the
 // reconstruction
-// - robust_alignment: if true use a ransac-based estimation for robust
-// alignment
-// - robust_alignment_max_error: ransac error to use if robust alignment is
-// enabled
+// - alignment_max_error: ransac error to use
 int RunModelAligner(int argc, char** argv) {
   std::string input_path;
   std::string output_path;

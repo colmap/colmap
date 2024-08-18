@@ -115,5 +115,17 @@ TEST(Rigid3d, Compose) {
   EXPECT_LT((d_from_a * x_in_a - x_in_d).norm(), 1e-6);
 }
 
+TEST(Rigid3d, Adjoint) {
+  const Rigid3d b_from_a = TestRigid3d();
+  const Eigen::Matrix6d A = Eigen::Matrix6d::Random();
+  const Eigen::Matrix6d cov_b_from_a = A * A.transpose();
+  const Eigen::Matrix6d cov_a_from_b =
+      GetCovarianceForRigid3dInverse(b_from_a, cov_b_from_a);
+  const Rigid3d a_from_b = Inverse(b_from_a);
+  const Eigen::Matrix6d cov_b_from_a_test =
+      GetCovarianceForRigid3dInverse(a_from_b, cov_a_from_b);
+  EXPECT_LT((cov_b_from_a_test - cov_b_from_a).norm(), 1e-6);
+}
+
 }  // namespace
 }  // namespace colmap

@@ -223,10 +223,10 @@ void AutomaticReconstructionController::RunSparseMapper() {
     }
   }
 
-  IncrementalMapperController mapper(option_manager_.mapper,
-                                     *option_manager_.image_path,
-                                     *option_manager_.database_path,
-                                     reconstruction_manager_);
+  IncrementalPipeline mapper(option_manager_.mapper,
+                             *option_manager_.image_path,
+                             *option_manager_.database_path,
+                             reconstruction_manager_);
   mapper.SetCheckIfStoppedFunc([&]() { return IsStopped(); });
   mapper.Run();
 

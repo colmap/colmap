@@ -65,6 +65,9 @@ TEST(SynthesizeDataset, Nominal) {
     EXPECT_EQ(image.second.NumPoints2D(),
               database.ReadKeypoints(image.first).size());
     EXPECT_EQ(image.second.NumPoints2D(),
+              database.ReadDescriptors(image.first).rows());
+    EXPECT_EQ(database.ReadDescriptors(image.first).cols(), 128);
+    EXPECT_EQ(image.second.NumPoints2D(),
               options.num_points3D + options.num_points2D_without_point3D);
     EXPECT_EQ(image.second.NumPoints3D(), options.num_points3D);
   }
@@ -86,20 +89,29 @@ TEST(SynthesizeDataset, Nominal) {
   const double kMinTriAngleDeg = 0.4;
   std::unordered_map<image_t, Eigen::Vector3d> proj_centers;
   for (const auto& point3D_id : reconstruction.Point3DIds()) {
-    struct Point3D& point3D = reconstruction.Point3D(point3D_id);
+    Point3D& point3D = reconstruction.Point3D(point3D_id);
+
+    // Make sure all descriptors of the same 3D point have identical features.
+    const FeatureDescriptor descriptors =
+        database.ReadDescriptors(point3D.track.Element(0).image_id)
+            .row(point3D.track.Element(0).point2D_idx);
+
     for (size_t i1 = 0; i1 < point3D.track.Length(); ++i1) {
       const auto& track_el = point3D.track.Element(i1);
       const image_t image_id1 = track_el.image_id;
-      const class Image& image = reconstruction.Image(image_id1);
-      const struct Camera& camera = reconstruction.Camera(image.CameraId());
-      const Point2D& point2D = image.Point2D(track_el.point2D_idx);
+      const Image& image1 = reconstruction.Image(image_id1);
+      const Camera& camera1 = reconstruction.Camera(image1.CameraId());
+      const Point2D& point2D = image1.Point2D(track_el.point2D_idx);
       const double squared_reproj_error = CalculateSquaredReprojectionError(
-          point2D.xy, point3D.xyz, image.CamFromWorld(), camera);
+          point2D.xy, point3D.xyz, image1.CamFromWorld(), camera1);
       EXPECT_LE(squared_reproj_error, kMaxReprojError * kMaxReprojError);
+      EXPECT_EQ(descriptors,
+                database.ReadDescriptors(point3D.track.Element(i1).image_id)
+                    .row(point3D.track.Element(i1).point2D_idx));
 
       Eigen::Vector3d proj_center1;
       if (proj_centers.count(image_id1) == 0) {
-        proj_center1 = image.ProjectionCenter();
+        proj_center1 = image1.ProjectionCenter();
         proj_centers.emplace(image_id1, proj_center1);
       } else {
         proj_center1 = proj_centers.at(image_id1);

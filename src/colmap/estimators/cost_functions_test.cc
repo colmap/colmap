@@ -31,7 +31,9 @@
 
 #include "colmap/geometry/pose.h"
 #include "colmap/geometry/rigid3.h"
+#include "colmap/geometry/sim3.h"
 #include "colmap/math/math.h"
+#include "colmap/math/random.h"
 #include "colmap/sensor/models.h"
 
 #include <gtest/gtest.h>
@@ -358,6 +360,32 @@ TEST(PoseGraphOptimization, RelativePose) {
   EXPECT_NEAR(residuals[3], -3, 1e-6);
   EXPECT_NEAR(residuals[4], 0, 1e-6);
   EXPECT_NEAR(residuals[5], 0.5, 1e-6);
+}
+
+TEST(PoseGraphOptimization, Point3dAlignment) {
+  // generate a test transformation
+  Sim3d tform = Sim3d(RandomUniformReal<double>(0.1, 10),
+                      Eigen::Quaterniond::UnitRandom(),
+                      Eigen::Vector3d::Random());
+  // construct cost function and evaluate
+  Eigen::Vector3d ref_point(1., 1., 1.);
+  Eigen::Matrix3d covariance_point = Eigen::Matrix3d::Identity();
+  covariance_point(2, 2) = 4.;
+  std::unique_ptr<ceres::CostFunction> cost_function(
+      Point3dAlignmentCostFunction::Create(ref_point, covariance_point));
+  Eigen::Vector3d point(0., 0., 0.);
+  const double* parameters[4] = {point.data(),
+                                 tform.rotation.coeffs().data(),
+                                 tform.translation.data(),
+                                 &tform.scale};
+  double residuals[3];
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+
+  // test with reference computation from C++
+  Eigen::Vector3d error = tform * point - ref_point;
+  EXPECT_NEAR(residuals[0], error[0], 1e-6);
+  EXPECT_NEAR(residuals[1], error[1], 1e-6);
+  EXPECT_NEAR(residuals[2], error[2] / 2.0, 1e-6);
 }
 
 }  // namespace

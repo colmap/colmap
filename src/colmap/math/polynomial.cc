@@ -140,6 +140,45 @@ bool FindQuadraticPolynomialRoots(const Eigen::VectorXd& coeffs,
   return true;
 }
 
+int FindCubicPolynomialRoots(double c2,
+                             double c1,
+                             double c0,
+                             Eigen::Vector3d* real) {
+  constexpr double k2PiOver3 = 2.09439510239319526263557236234192;
+  constexpr double k4PiOver3 = 4.18879020478639052527114472468384;
+  const double c2_over_3 = c2 / 3.0;
+  const double a = c1 - c2 * c2_over_3;
+  double b = (2.0 * c2 * c2 * c2 - 9.0 * c2 * c1) / 27.0 + c0;
+  double c = b * b / 4.0 + a * a * a / 27.0;
+  int num_roots = 0;
+  if (c > 0) {
+    c = std::sqrt(c);
+    b *= -0.5;
+    (*real)[0] = std::cbrt(b + c) + std::cbrt(b - c) - c2_over_3;
+    num_roots = 1;
+  } else {
+    c = 3.0 * b / (2.0 * a) * std::sqrt(-3.0 / a);
+    double d = 2.0 * std::sqrt(-a / 3.0);
+    const double acos_over_3 = std::acos(c) / 3.0;
+    (*real)[0] = d * std::cos(acos_over_3) - c2_over_3;
+    (*real)[1] = d * std::cos(acos_over_3 - k2PiOver3) - c2_over_3;
+    (*real)[2] = d * std::cos(acos_over_3 - k4PiOver3) - c2_over_3;
+    num_roots = 3;
+  }
+
+  // Single Newton iteration.
+  for (int i = 0; i < num_roots; ++i) {
+    const double x = (*real)[i];
+    const double x2 = x * x;
+    const double x3 = x * x2;
+    const double dx =
+        -(x3 + c2 * x2 + c1 * x + c0) / (3 * x2 + 2 * c2 * x + c1);
+    (*real)[i] += dx;
+  }
+
+  return num_roots;
+}
+
 bool FindPolynomialRootsDurandKerner(const Eigen::VectorXd& coeffs_all,
                                      Eigen::VectorXd* real,
                                      Eigen::VectorXd* imag) {

@@ -2,10 +2,7 @@
 Python reimplementation of the C++ incremental mapper with equivalent logic.
 """
 
-import shutil
 import time
-import urllib.request
-import zipfile
 from pathlib import Path
 
 import enlighten
@@ -46,7 +43,7 @@ def iterative_global_refinement(options, mapper_options, mapper):
 def initialize_reconstruction(
     controller, mapper, mapper_options, reconstruction
 ):
-    """Equivalent to IncrementalMapperController.initialize_reconstruction(...)"""
+    """Equivalent to IncrementalPipeline.initialize_reconstruction(...)"""
     options = controller.options
     init_pair = (options.init_image_id1, options.init_image_id2)
 
@@ -93,7 +90,7 @@ def initialize_reconstruction(
 
 
 def reconstruct_sub_model(controller, mapper, mapper_options, reconstruction):
-    """Equivalent to IncrementalMapperController.reconstruct_sub_model(...)"""
+    """Equivalent to IncrementalPipeline.reconstruct_sub_model(...)"""
     # register initial pair
     mapper.begin_reconstruction(reconstruction)
     if reconstruction.num_reg_images() == 0:
@@ -192,7 +189,7 @@ def reconstruct_sub_model(controller, mapper, mapper_options, reconstruction):
 
 
 def reconstruct(controller, mapper_options):
-    """Equivalent to IncrementalMapperController.reconstruct(...)"""
+    """Equivalent to IncrementalPipeline.reconstruct(...)"""
     options = controller.options
     reconstruction_manager = controller.reconstruction_manager
     database_cache = controller.database_cache
@@ -253,7 +250,7 @@ def reconstruct(controller, mapper_options):
 
 
 def main_incremental_mapper(controller):
-    """Equivalent to IncrementalMapperController.run()"""
+    """Equivalent to IncrementalPipeline.run()"""
     timer = pycolmap.Timer()
     timer.start()
     if not controller.load_database():
@@ -292,7 +289,7 @@ def main(
     reconstruction_manager = pycolmap.ReconstructionManager()
     if input_path is not None and input_path != "":
         reconstruction_manager.read(input_path)
-    mapper = pycolmap.IncrementalMapperController(
+    mapper = pycolmap.IncrementalPipeline(
         options, image_path, database_path, reconstruction_manager
     )
 

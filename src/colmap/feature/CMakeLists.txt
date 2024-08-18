@@ -56,11 +56,11 @@ COLMAP_ADD_LIBRARY(
         utils.h utils.cc
     PUBLIC_LINK_LIBS
         colmap_feature_types
+        colmap_geometry
         colmap_retrieval
         colmap_scene
         colmap_util
     PRIVATE_LINK_LIBS
-        colmap_geometry
         colmap_math
         colmap_sensor
         colmap_vlfeat
@@ -79,6 +79,13 @@ COLMAP_ADD_TEST(
     NAME feature_utils_test
     SRCS utils_test.cc
     LINK_LIBS colmap_feature
+)
+COLMAP_ADD_TEST(
+    NAME pairing_test
+    SRCS pairing_test.cc
+    LINK_LIBS
+        colmap_feature
+        colmap_scene
 )
 COLMAP_ADD_TEST(
     NAME sift_test

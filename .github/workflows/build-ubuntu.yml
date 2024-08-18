@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - release/*
   pull_request:
     types: [ assigned, opened, synchronize, reopened ]
   release:
@@ -121,13 +122,12 @@ jobs:
           git diff --name-only
           git diff --exit-code || (echo "Code formatting failed" && exit 1)
 
-      - name: Install CMake and Ninja
-        uses: lukka/get-cmake@latest
-
       - name: Setup Ubuntu
         run: |
           sudo apt-get update && sudo apt-get install -y \
             build-essential \
+            cmake \
+            ninja-build \
             libboost-program-options-dev \
             libboost-filesystem-dev \
             libboost-graph-dev \
@@ -139,6 +139,7 @@ jobs:
             libmetis-dev \
             libgoogle-glog-dev \
             libgtest-dev \
+            libgmock-dev \
             libsqlite3-dev \
             libglew-dev \
             qtbase5-dev \
@@ -231,13 +232,7 @@ jobs:
           Xvfb :99 &
           sleep 3
           cd build
-          ctest -E "$ctestExclusions"
-          tests_pass=$?
-          if [ $tests_pass -ne 0 ]; then
-              echo "Tests failed, rerunning with verbose output"
-              ctest --rerun-failed --output-on-failure
-          fi
-          exit $tests_pass
+          ctest -E "$ctestExclusions" --output-on-failure
 
       - name: Run E2E tests
         run: |

@@ -25,7 +25,7 @@ std::shared_ptr<Reconstruction> TriangulatePoints(
     const std::string& image_path,
     const std::string& output_path,
     const bool clear_points,
-    const IncrementalMapperOptions& options,
+    const IncrementalPipelineOptions& options,
     const bool refine_intrinsics) {
   THROW_CHECK_FILE_EXISTS(database_path);
   THROW_CHECK_DIR_EXISTS(image_path);
@@ -46,7 +46,7 @@ std::map<size_t, std::shared_ptr<Reconstruction>> IncrementalMapping(
     const std::string& database_path,
     const std::string& image_path,
     const std::string& output_path,
-    const IncrementalMapperOptions& options,
+    const IncrementalPipelineOptions& options,
     const std::string& input_path,
     const std::function<void()>& initial_image_pair_callback,
     const std::function<void()>& next_image_callback) {
@@ -59,24 +59,22 @@ std::map<size_t, std::shared_ptr<Reconstruction>> IncrementalMapping(
   if (input_path != "") {
     reconstruction_manager->Read(input_path);
   }
-  auto options_ = std::make_shared<IncrementalMapperOptions>(options);
-  IncrementalMapperController mapper(
+  auto options_ = std::make_shared<IncrementalPipelineOptions>(options);
+  IncrementalPipeline mapper(
       options_, image_path, database_path, reconstruction_manager);
 
   PyInterrupt py_interrupt(1.0);  // Check for interrupts every second
-  mapper.AddCallback(IncrementalMapperController::NEXT_IMAGE_REG_CALLBACK,
-                     [&]() {
-                       if (py_interrupt.Raised()) {
-                         throw py::error_already_set();
-                       }
-                       if (next_image_callback) {
-                         next_image_callback();
-                       }
-                     });
+  mapper.AddCallback(IncrementalPipeline::NEXT_IMAGE_REG_CALLBACK, [&]() {
+    if (py_interrupt.Raised()) {
+      throw py::error_already_set();
+    }
+    if (next_image_callback) {
+      next_image_callback();
+    }
+  });
   if (initial_image_pair_callback) {
-    mapper.AddCallback(
-        IncrementalMapperController::INITIAL_IMAGE_PAIR_REG_CALLBACK,
-        initial_image_pair_callback);
+    mapper.AddCallback(IncrementalPipeline::INITIAL_IMAGE_PAIR_REG_CALLBACK,
+                       initial_image_pair_callback);
   }
 
   mapper.Run();
@@ -99,7 +97,7 @@ void BundleAdjustment(const std::shared_ptr<Reconstruction>& reconstruction,
 }
 
 void BindSfM(py::module& m) {
-  using MapperOpts = IncrementalMapperOptions;
+  using MapperOpts = IncrementalPipelineOptions;
   auto PyMapperOpts = py::class_<MapperOpts, std::shared_ptr<MapperOpts>>(
       m, "IncrementalPipelineOptions");
   PyMapperOpts.def(py::init<>())

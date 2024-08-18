@@ -67,7 +67,7 @@ OptionManager::OptionManager(bool add_project_options) {
   transitive_matching = std::make_shared<TransitiveMatchingOptions>();
   image_pairs_matching = std::make_shared<ImagePairsMatchingOptions>();
   bundle_adjustment = std::make_shared<BundleAdjustmentOptions>();
-  mapper = std::make_shared<IncrementalMapperOptions>();
+  mapper = std::make_shared<IncrementalPipelineOptions>();
   patch_match_stereo = std::make_shared<mvs::PatchMatchOptions>();
   stereo_fusion = std::make_shared<mvs::StereoFusionOptions>();
   poisson_meshing = std::make_shared<mvs::PoissonMeshingOptions>();
@@ -407,8 +407,6 @@ void OptionManager::AddSpatialMatchingOptions() {
 
   AddMatchingOptions();
 
-  AddAndRegisterDefaultOption("SpatialMatching.is_gps",
-                              &spatial_matching->is_gps);
   AddAndRegisterDefaultOption("SpatialMatching.ignore_z",
                               &spatial_matching->ignore_z);
   AddAndRegisterDefaultOption("SpatialMatching.max_num_neighbors",
@@ -791,7 +789,7 @@ void OptionManager::ResetOptions(const bool reset_paths) {
   *transitive_matching = TransitiveMatchingOptions();
   *image_pairs_matching = ImagePairsMatchingOptions();
   *bundle_adjustment = BundleAdjustmentOptions();
-  *mapper = IncrementalMapperOptions();
+  *mapper = IncrementalPipelineOptions();
   *patch_match_stereo = mvs::PatchMatchOptions();
   *stereo_fusion = mvs::StereoFusionOptions();
   *poisson_meshing = mvs::PoissonMeshingOptions();
@@ -968,7 +966,12 @@ void OptionManager::Write(const std::string& path) const {
     }
   }
 
-  boost::property_tree::write_ini(path, pt);
+  std::ofstream file(path);
+  THROW_CHECK_FILE_OPEN(file, path);
+  // Ensure that we don't lose any precision by storing in text.
+  file.precision(17);
+  boost::property_tree::write_ini(file, pt);
+  file.close();
 }
 
 }  // namespace colmap

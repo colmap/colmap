@@ -46,6 +46,7 @@ option(PROFILING_ENABLED "Whether to enable google-perftools linker flags" OFF)
 option(CCACHE_ENABLED "Whether to enable compiler caching, if available" ON)
 option(CGAL_ENABLED "Whether to enable the CGAL library" ON)
 option(LSD_ENABLED "Whether to enable the LSD library" ON)
+option(UNINSTALL_ENABLED "Whether to create a target to 'uninstall' colmap" ON)
 
 # Propagate options to vcpkg manifest.
 if(TESTS_ENABLED)
@@ -71,7 +72,7 @@ endif()
 
 project(COLMAP LANGUAGES C CXX)
 
-set(COLMAP_VERSION "3.10-dev")
+set(COLMAP_VERSION "3.11.0.dev0")
 
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -126,6 +127,7 @@ endif()
 
 if(IS_MSVC)
     # Some fixes for the Glog library.
+    add_definitions("-DGLOG_USE_GLOG_EXPORT")
     add_definitions("-DGLOG_NO_ABBREVIATED_SEVERITIES")
     add_definitions("-DGL_GLEXT_PROTOTYPES")
     add_definitions("-DNOMINMAX")
@@ -301,11 +303,13 @@ if(UNIX AND NOT APPLE)
 endif()
 
 # Configure the uninstallation script.
-configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/CMakeUninstall.cmake.in"
-               "${CMAKE_CURRENT_BINARY_DIR}/CMakeUninstall.cmake"
-               IMMEDIATE @ONLY)
-add_custom_target(uninstall COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/CMakeUninstall.cmake)
-set_target_properties(uninstall PROPERTIES FOLDER ${CMAKE_TARGETS_ROOT_FOLDER})
+if(UNINSTALL_ENABLED)
+    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/CMakeUninstall.cmake.in"
+                   "${CMAKE_CURRENT_BINARY_DIR}/CMakeUninstall.cmake"
+                   IMMEDIATE @ONLY)
+    add_custom_target(uninstall COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/CMakeUninstall.cmake)
+    set_target_properties(uninstall PROPERTIES FOLDER ${CMAKE_TARGETS_ROOT_FOLDER})
+endif()
 
 set(COLMAP_EXPORT_LIBS
     # Internal.
@@ -356,7 +360,10 @@ add_library(colmap INTERFACE)
 target_link_libraries(colmap INTERFACE ${COLMAP_EXPORT_LIBS})
 set(INSTALL_INCLUDE_DIR "${CMAKE_INSTALL_PREFIX}/include")
 target_include_directories(
-    colmap INTERFACE $<INSTALL_INTERFACE:${INSTALL_INCLUDE_DIR}>)
+    colmap
+    INTERFACE
+        $<INSTALL_INTERFACE:${INSTALL_INCLUDE_DIR}>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>)
 
 install(
     TARGETS colmap ${COLMAP_EXPORT_LIBS}

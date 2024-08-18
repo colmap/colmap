@@ -1,3 +1,4 @@
+#!/bin/bash
 # Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 # All rights reserved.
 #
@@ -27,46 +28,25 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+# Script to perform profiling on a command. For example:
+#   ./profile_binary.sh ./src/colmap/exe/colmap automatic_reconstructor ...
 
-set(FOLDER_NAME "controllers")
+perf_bin=$(find /usr/lib/linux-tools -name perf | head -1)
+if [[ -z $perf_bin ]]; then
+    echo "Error: Perf tool not found. Under ubuntu, install as:"
+    echo "       sudo apt-get install linux-tools-generic"
+    exit 1
+fi
 
-COLMAP_ADD_LIBRARY(
-    NAME colmap_controllers
-    SRCS
-        automatic_reconstruction.h automatic_reconstruction.cc
-        bundle_adjustment.h bundle_adjustment.cc
-        hierarchical_mapper.h hierarchical_mapper.cc
-        feature_extraction.h feature_extraction.cc
-        feature_matching.h feature_matching.cc
-        feature_matching_utils.h feature_matching_utils.cc
-        image_reader.h image_reader.cc
-        incremental_mapper.h incremental_mapper.cc
-        option_manager.h option_manager.cc
-    PUBLIC_LINK_LIBS
-        colmap_estimators
-        colmap_feature
-        colmap_geometry
-        colmap_scene
-        colmap_util
-        Eigen3::Eigen
-        Boost::program_options
-    PRIVATE_LINK_LIBS
-        colmap_image
-        colmap_math
-        colmap_mvs
-        colmap_sfm
-        Ceres::ceres
-        Boost::filesystem
-        Boost::boost
-)
+"$perf_bin" record -e cycles:u -g "$@"
 
-COLMAP_ADD_TEST(
-    NAME hierarchical_mapper_test
-    SRCS hierarchical_mapper_test.cc
-    LINK_LIBS colmap_controllers
-)
-COLMAP_ADD_TEST(
-    NAME incremental_mapper_test
-    SRCS incremental_mapper_test.cc
-    LINK_LIBS colmap_controllers
-)
+binary_filename=$(basename -- "${binary_path}")
+profile_path="$binary_filename.perf.data"
+mv perf.data "$profile_path"
+
+echo "#####################################################################"
+echo "###### Profiling finished. Inspect results using the commands: ######"
+echo "#####################################################################"
+echo "If the perf output contains unknown list items, recompile with RelWithDebInfo"
+echo "$perf_bin report -i $profile_path"
+echo "$perf_bin report --stdio -g graph,0.5,caller -i $profile_path"

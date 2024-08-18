@@ -156,27 +156,16 @@ TEST(Database, Image) {
   Image image;
   image.SetName("test");
   image.SetCameraId(camera.camera_id);
-  image.CamFromWorldPrior() = Rigid3d(Eigen::Quaterniond(0.1, 0.2, 0.3, 0.4),
-                                      Eigen::Vector3d(0.1, 0.2, 0.3));
   image.SetImageId(database.WriteImage(image));
   EXPECT_EQ(database.NumImages(), 1);
   EXPECT_TRUE(database.ExistsImage(image.ImageId()));
   auto read_image = database.ReadImage(image.ImageId());
   EXPECT_EQ(read_image.ImageId(), image.ImageId());
   EXPECT_EQ(read_image.CameraId(), image.CameraId());
-  EXPECT_EQ(read_image.CamFromWorldPrior().rotation.coeffs(),
-            image.CamFromWorldPrior().rotation.coeffs());
-  EXPECT_EQ(read_image.CamFromWorldPrior().translation,
-            image.CamFromWorldPrior().translation);
-  image.CamFromWorldPrior().translation.x() += 2;
   database.UpdateImage(image);
   read_image = database.ReadImage(image.ImageId());
   EXPECT_EQ(read_image.ImageId(), image.ImageId());
   EXPECT_EQ(read_image.CameraId(), image.CameraId());
-  EXPECT_EQ(read_image.CamFromWorldPrior().rotation.coeffs(),
-            image.CamFromWorldPrior().rotation.coeffs());
-  EXPECT_EQ(read_image.CamFromWorldPrior().translation,
-            image.CamFromWorldPrior().translation);
   Image image2 = image;
   image2.SetName("test2");
   image2.SetImageId(image.ImageId() + 1);
@@ -187,6 +176,28 @@ TEST(Database, Image) {
   EXPECT_EQ(database.ReadAllImages().size(), 2);
   database.ClearImages();
   EXPECT_EQ(database.NumImages(), 0);
+}
+
+TEST(Database, PosePrior) {
+  Database database(Database::kInMemoryDatabasePath);
+  Camera camera;
+  camera.camera_id = database.WriteCamera(camera);
+  Image image;
+  image.SetName("test");
+  image.SetCameraId(camera.camera_id);
+  image.SetImageId(database.WriteImage(image));
+  EXPECT_EQ(database.NumPosePriors(), 0);
+  PosePrior pose_prior(Eigen::Vector3d(0.1, 0.2, 0.3),
+                       PosePrior::CoordinateSystem::CARTESIAN);
+  EXPECT_TRUE(pose_prior.IsValid());
+  database.WritePosePrior(image.ImageId(), pose_prior);
+  EXPECT_EQ(database.NumPosePriors(), 1);
+  auto read_pose_prior = database.ReadPosePrior(image.ImageId());
+  EXPECT_EQ(read_pose_prior.position, pose_prior.position);
+  EXPECT_EQ(read_pose_prior.coordinate_system, pose_prior.coordinate_system);
+  EXPECT_TRUE(read_pose_prior.IsValid());
+  database.ClearPosePriors();
+  EXPECT_EQ(database.NumPosePriors(), 0);
 }
 
 TEST(Database, Keypoints) {
@@ -269,23 +280,50 @@ TEST(Database, Matches) {
   Database database(Database::kInMemoryDatabasePath);
   const image_t image_id1 = 1;
   const image_t image_id2 = 2;
-  const FeatureMatches matches = FeatureMatches(1000);
-  database.WriteMatches(image_id1, image_id2, matches);
-  const FeatureMatches matches_read =
-      database.ReadMatches(image_id1, image_id2);
-  EXPECT_EQ(matches.size(), matches_read.size());
-  for (size_t i = 0; i < matches.size(); ++i) {
-    EXPECT_EQ(matches[i].point2D_idx1, matches_read[i].point2D_idx1);
-    EXPECT_EQ(matches[i].point2D_idx2, matches_read[i].point2D_idx2);
+  constexpr int kNumMatches = 1000;
+  FeatureMatches matches12(kNumMatches);
+  FeatureMatches matches21(kNumMatches);
+  for (size_t i = 0; i < matches12.size(); ++i) {
+    matches12[i].point2D_idx1 = i;
+    matches12[i].point2D_idx2 = 10000 + i;
+    matches21[i].point2D_idx1 = 10000 + i;
+    matches21[i].point2D_idx2 = i;
   }
+
+  auto expectValidMatches = [&]() {
+    EXPECT_EQ(database.NumMatchedImagePairs(), 1);
+    const FeatureMatches matches_read12 =
+        database.ReadMatches(image_id1, image_id2);
+    EXPECT_EQ(matches12.size(), matches_read12.size());
+    for (size_t i = 0; i < matches12.size(); ++i) {
+      EXPECT_EQ(matches12[i].point2D_idx1, matches_read12[i].point2D_idx1);
+      EXPECT_EQ(matches12[i].point2D_idx2, matches_read12[i].point2D_idx2);
+    }
+    const FeatureMatches matches_read21 =
+        database.ReadMatches(image_id2, image_id1);
+    EXPECT_EQ(matches12.size(), matches_read21.size());
+    for (size_t i = 0; i < matches12.size(); ++i) {
+      EXPECT_EQ(matches12[i].point2D_idx1, matches_read21[i].point2D_idx2);
+      EXPECT_EQ(matches12[i].point2D_idx2, matches_read21[i].point2D_idx1);
+    }
+  };
+
+  EXPECT_EQ(database.NumMatchedImagePairs(), 0);
+  database.WriteMatches(image_id1, image_id2, matches12);
+  expectValidMatches();
+  database.DeleteMatches(image_id1, image_id2);
+  EXPECT_EQ(database.NumMatchedImagePairs(), 0);
+  database.WriteMatches(image_id2, image_id1, matches21);
+  expectValidMatches();
+
   EXPECT_EQ(database.ReadAllMatches().size(), 1);
   EXPECT_EQ(database.ReadAllMatches()[0].first,
             Database::ImagePairToPairId(image_id1, image_id2));
-  EXPECT_EQ(database.NumMatches(), 1000);
+  EXPECT_EQ(database.NumMatches(), kNumMatches);
   database.DeleteMatches(image_id1, image_id2);
   EXPECT_EQ(database.NumMatches(), 0);
-  database.WriteMatches(image_id1, image_id2, matches);
-  EXPECT_EQ(database.NumMatches(), 1000);
+  database.WriteMatches(image_id1, image_id2, matches12);
+  EXPECT_EQ(database.NumMatches(), kNumMatches);
   database.ClearMatches();
   EXPECT_EQ(database.NumMatches(), 0);
 }
@@ -390,8 +428,6 @@ TEST(Database, Merge) {
 
   Image image;
   image.SetCameraId(camera.camera_id);
-  image.CamFromWorldPrior() = Rigid3d(Eigen::Quaterniond(0.1, 0.2, 0.3, 0.4),
-                                      Eigen::Vector3d(0.1, 0.2, 0.3));
 
   image.SetName("test1");
   const image_t image_id1 = database1.WriteImage(image);
@@ -401,6 +437,11 @@ TEST(Database, Merge) {
   const image_t image_id3 = database2.WriteImage(image);
   image.SetName("test4");
   const image_t image_id4 = database2.WriteImage(image);
+
+  database1.WritePosePrior(image_id1,
+                           PosePrior(Eigen::Vector3d::Constant(0.1)));
+  database2.WritePosePrior(image_id3,
+                           PosePrior(Eigen::Vector3d::Constant(0.2)));
 
   auto keypoints1 = FeatureKeypoints(10);
   keypoints1[0].x = 100;
@@ -433,6 +474,7 @@ TEST(Database, Merge) {
   Database::Merge(database1, database2, &merged_database);
   EXPECT_EQ(merged_database.NumCameras(), 2);
   EXPECT_EQ(merged_database.NumImages(), 4);
+  EXPECT_EQ(merged_database.NumPosePriors(), 2);
   EXPECT_EQ(merged_database.NumKeypoints(), 100);
   EXPECT_EQ(merged_database.NumDescriptors(), 100);
   EXPECT_EQ(merged_database.NumMatches(), 20);
@@ -441,6 +483,10 @@ TEST(Database, Merge) {
   EXPECT_EQ(merged_database.ReadAllImages()[1].CameraId(), 1);
   EXPECT_EQ(merged_database.ReadAllImages()[2].CameraId(), 2);
   EXPECT_EQ(merged_database.ReadAllImages()[3].CameraId(), 2);
+  EXPECT_EQ(merged_database.ReadPosePrior(1).position.x(), 0.1);
+  EXPECT_FALSE(merged_database.ExistsPosePrior(2));
+  EXPECT_EQ(merged_database.ReadPosePrior(3).position.x(), 0.2);
+  EXPECT_FALSE(merged_database.ExistsPosePrior(4));
   EXPECT_EQ(merged_database.ReadKeypoints(1).size(), 10);
   EXPECT_EQ(merged_database.ReadKeypoints(2).size(), 20);
   EXPECT_EQ(merged_database.ReadKeypoints(3).size(), 30);
@@ -460,6 +506,7 @@ TEST(Database, Merge) {
   merged_database.ClearAllTables();
   EXPECT_EQ(merged_database.NumCameras(), 0);
   EXPECT_EQ(merged_database.NumImages(), 0);
+  EXPECT_EQ(merged_database.NumPosePriors(), 0);
   EXPECT_EQ(merged_database.NumKeypoints(), 0);
   EXPECT_EQ(merged_database.NumDescriptors(), 0);
   EXPECT_EQ(merged_database.NumMatches(), 0);
