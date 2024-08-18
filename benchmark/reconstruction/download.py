@@ -7,7 +7,11 @@ import subprocess
 def download_vocab_tree(data_path: Path):
     data_path.mkdir(parents=True, exist_ok=True)
     subprocess.check_call(
-        ["wget", "-c", "https://demuc.de/colmap/vocab_tree_flickr100K_words256K.bin"],
+        [
+            "wget",
+            "-c",
+            "https://demuc.de/colmap/vocab_tree_flickr100K_words256K.bin",
+        ],
         cwd=data_path,
     )
 

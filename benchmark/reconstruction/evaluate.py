@@ -80,6 +80,11 @@ def colmap_alignment(
 def compute_errors(sparse_gt_path, sparse_path):
     sparse_gt = pycolmap.Reconstruction()
     sparse_gt.read(sparse_gt_path)
+
+    if not (sparse_path / "images.txt").exists():
+        print("Reconstruction or alignment failed")
+        return len(sparse_gt.images) * [np.inf], len(sparse_gt.images) * [180]
+
     sparse = pycolmap.Reconstruction()
     sparse.read(sparse_path)
 
