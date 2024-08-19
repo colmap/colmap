@@ -211,6 +211,40 @@ std::string CreateSummary(const T& self, bool write_type) {
 }
 
 template <typename T, typename... options>
+std::string CreateRepresentation(const T& self) {
+  std::stringstream ss;
+  auto pyself = py::cast(self);
+  ss << pyself.attr("__class__").attr("__name__").template cast<std::string>()
+     << "(";
+  bool is_first = true;
+  for (auto& handle : pyself.attr("__dir__")()) {
+    const py::str name = py::reinterpret_borrow<py::str>(handle);
+    py::object attribute;
+    try {
+      attribute = pyself.attr(name);
+    } catch (const std::exception& e) {
+      // Some properties are not valid for some uninitialized objects.
+      continue;
+    }
+    if (AttributeIsFunction(name, attribute)) {
+      continue;
+    }
+    if (!is_first) {
+      ss << ", ";
+    }
+    is_first = false;
+    ss << name.template cast<std::string>() << "=";
+    if (py::isinstance<py::str>(attribute)) {
+      ss << "'" << py::str(attribute) << "'";
+    } else {
+      ss << py::str(attribute);
+    }
+  }
+  ss << ")";
+  return ss.str();
+}
+
+template <typename T, typename... options>
 void AddDefaultsToDocstrings(py::class_<T, options...> cls) {
   auto obj = cls();
   for (auto& handle : obj.attr("__dir__")()) {
@@ -242,6 +276,9 @@ void MakeDataclass(py::class_<T, options...> cls,
   AddDefaultsToDocstrings(cls);
   if (!py::hasattr(cls, "summary")) {
     cls.def("summary", &CreateSummary<T>, "write_type"_a = false);
+  }
+  if (!cls.attr("__dict__").contains("__repr__")) {
+    cls.def("__repr__", &CreateRepresentation<T>);
   }
   cls.def("mergedict", &UpdateFromDict);
   cls.def(
