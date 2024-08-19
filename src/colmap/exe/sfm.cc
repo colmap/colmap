@@ -301,7 +301,7 @@ int RunMapper(int argc, char** argv) {
 }
 
 int RunHierarchicalMapper(int argc, char** argv) {
-  HierarchicalMapperController::Options mapper_options;
+  HierarchicalPipeline::Options mapper_options;
   std::string output_path;
 
   OptionManager options;
@@ -324,8 +324,8 @@ int RunHierarchicalMapper(int argc, char** argv) {
 
   mapper_options.incremental_options = *options.mapper;
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
-  HierarchicalMapperController hierarchical_mapper(mapper_options,
-                                                   reconstruction_manager);
+  HierarchicalPipeline hierarchical_mapper(mapper_options,
+                                           reconstruction_manager);
   hierarchical_mapper.Run();
 
   if (reconstruction_manager->Size() == 0) {
