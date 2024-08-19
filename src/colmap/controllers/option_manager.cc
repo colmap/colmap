@@ -470,6 +470,19 @@ void OptionManager::AddBundleAdjustmentOptions() {
                               &bundle_adjustment->refine_extra_params);
   AddAndRegisterDefaultOption("BundleAdjustment.refine_extrinsics",
                               &bundle_adjustment->refine_extrinsics);
+  AddAndRegisterDefaultOption("BundleAdjustment.use_gpu",
+                              &bundle_adjustment->use_gpu);
+  AddAndRegisterDefaultOption("BundleAdjustment.gpu_index",
+                              &bundle_adjustment->gpu_index);
+  AddAndRegisterDefaultOption(
+      "BundleAdjustment.min_num_residuals_for_multi_threading",
+      &bundle_adjustment->min_num_residuals_for_multi_threading);
+  AddAndRegisterDefaultOption(
+      "BundleAdjustment.max_num_images_direct_dense_solver",
+      &bundle_adjustment->max_num_images_direct_dense_solver);
+  AddAndRegisterDefaultOption(
+      "BundleAdjustment.max_num_images_direct_sparse_solver",
+      &bundle_adjustment->max_num_images_direct_sparse_solver);
 }
 
 void OptionManager::AddMapperOptions() {
@@ -535,6 +548,8 @@ void OptionManager::AddMapperOptions() {
                               &mapper->ba_local_max_refinements);
   AddAndRegisterDefaultOption("Mapper.ba_local_max_refinement_change",
                               &mapper->ba_local_max_refinement_change);
+  AddAndRegisterDefaultOption("Mapper.ba_use_gpu", &mapper->ba_use_gpu);
+  AddAndRegisterDefaultOption("Mapper.ba_gpu_index", &mapper->ba_gpu_index);
   AddAndRegisterDefaultOption("Mapper.snapshot_path", &mapper->snapshot_path);
   AddAndRegisterDefaultOption("Mapper.snapshot_images_freq",
                               &mapper->snapshot_images_freq);

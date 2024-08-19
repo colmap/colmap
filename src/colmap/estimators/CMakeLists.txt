@@ -68,6 +68,10 @@ COLMAP_ADD_LIBRARY(
         Ceres::ceres
 )
 
+if(CUDA_ENABLED)
+    target_link_libraries(colmap_estimators PUBLIC colmap_util_cuda)
+endif()
+
 COLMAP_ADD_TEST(
     NAME absolute_pose_test
     SRCS absolute_pose_test.cc

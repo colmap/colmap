@@ -130,9 +130,12 @@ BundleAdjustmentOptions IncrementalPipelineOptions::GlobalBundleAdjustment()
   options.solver_options.parameter_tolerance = 0.0;
   options.solver_options.max_num_iterations = ba_global_max_num_iterations;
   options.solver_options.max_linear_solver_iterations = 100;
-  options.solver_options.logging_type =
-      ceres::LoggingType::PER_MINIMIZER_ITERATION;
-  options.solver_options.minimizer_progress_to_stdout = false;
+  options.solver_options.logging_type = ceres::LoggingType::SILENT;
+  if (VLOG_IS_ON(2)) {
+    options.solver_options.minimizer_progress_to_stdout = true;
+    options.solver_options.logging_type =
+        ceres::LoggingType::PER_MINIMIZER_ITERATION;
+  }
   options.solver_options.num_threads = num_threads;
 #if CERES_VERSION_MAJOR < 2
   options.solver_options.num_linear_solver_threads = num_threads;
@@ -145,6 +148,8 @@ BundleAdjustmentOptions IncrementalPipelineOptions::GlobalBundleAdjustment()
       ba_min_num_residuals_for_multi_threading;
   options.loss_function_type =
       BundleAdjustmentOptions::LossFunctionType::TRIVIAL;
+  options.use_gpu = ba_use_gpu;
+  options.gpu_index = ba_gpu_index;
   return options;
 }
 

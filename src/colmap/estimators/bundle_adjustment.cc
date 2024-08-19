@@ -33,6 +33,7 @@
 #include "colmap/estimators/manifold.h"
 #include "colmap/scene/projection.h"
 #include "colmap/sensor/models.h"
+#include "colmap/util/cuda.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
 #include "colmap/util/timer.h"
@@ -329,17 +330,30 @@ ceres::Solver::Options BundleAdjuster::SetUpSolverOptions(
     const ceres::Problem& problem,
     const ceres::Solver::Options& input_solver_options) const {
   ceres::Solver::Options solver_options = input_solver_options;
+  if (VLOG_IS_ON(2)) {
+    solver_options.minimizer_progress_to_stdout = true;
+    solver_options.logging_type = ceres::LoggingType::PER_MINIMIZER_ITERATION;
+  }
+
   const bool has_sparse =
       solver_options.sparse_linear_algebra_library_type != ceres::NO_SPARSE;
 
-  // Empirical choice.
-  const size_t kMaxNumImagesDirectDenseSolver = 50;
-  const size_t kMaxNumImagesDirectSparseSolver = 1000;
-  const size_t num_images = config_.NumImages();
-  if (num_images <= kMaxNumImagesDirectDenseSolver) {
+  const int num_images = config_.NumImages();
+  if (num_images <= options_.max_num_images_direct_dense_solver) {
     solver_options.linear_solver_type = ceres::DENSE_SCHUR;
-  } else if (num_images <= kMaxNumImagesDirectSparseSolver && has_sparse) {
+  } else if (num_images <= options_.max_num_images_direct_sparse_solver &&
+             has_sparse) {
     solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
+#if (CERES_VERSION_MAJOR >= 3 ||                                \
+     (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 2)) && \
+    !defined(CERES_NO_CUDSS) && defined(CUDA_ENABLED)
+    if (options_.use_gpu) {
+      const std::vector<int> gpu_indices = CSVToVector<int>(options_.gpu_index);
+      THROW_CHECK_GT(gpu_indices.size(), 0);
+      SetBestCudaDevice(gpu_indices[0]);
+      solver_options.sparse_linear_algebra_library_type = ceres::CUDA_SPARSE;
+    }
+#endif
   } else {  // Indirect sparse (preconditioned CG) solver.
     solver_options.linear_solver_type = ceres::ITERATIVE_SCHUR;
     solver_options.preconditioner_type = ceres::SCHUR_JACOBI;
@@ -813,8 +827,12 @@ void RigBundleAdjuster::ParameterizeCameraRigs(Reconstruction* reconstruction) {
 
 void PrintSolverSummary(const ceres::Solver::Summary& summary,
                         const std::string& header) {
+  if (VLOG_IS_ON(3)) {
+    LOG(INFO) << summary.FullReport();
+  }
+
   std::ostringstream log;
-  log << "\n" << header << ":\n";
+  log << header << "\n";
   log << std::right << std::setw(16) << "Residuals : ";
   log << std::left << summary.num_residuals_reduced << "\n";
 
