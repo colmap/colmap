@@ -201,7 +201,8 @@ void BindIncrementalMapperImpl(py::module& m) {
           [](IncrementalMapper& self,
              const IncrementalMapper::Options& options,
              int image_id1,
-             int image_id2) -> py::object {
+             int image_id2)
+              -> py::typing::Optional<py::typing::Tuple<image_t, image_t>> {
             // Explicitly handle the conversion
             // from -1 (int) to kInvalidImageId (uint32_t).
             image_t image_id1_cast = image_id1;
@@ -224,7 +225,7 @@ void BindIncrementalMapperImpl(py::module& m) {
           [](IncrementalMapper& self,
              const IncrementalMapper::Options& options,
              const image_t image_id1,
-             const image_t image_id2) -> py::object {
+             const image_t image_id2) -> py::typing::Optional<TwoViewGeometry> {
             TwoViewGeometry two_view_geometry;
             const bool success = self.EstimateInitialTwoViewGeometry(
                 options, two_view_geometry, image_id1, image_id2);

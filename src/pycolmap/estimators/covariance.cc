@@ -30,7 +30,7 @@ void BindCovarianceEstimator(py::module& m) {
   m.def(
       "estimate_pose_covariance_from_ba_ceres_backend",
       [](ceres::Problem* problem,
-         Reconstruction* reconstruction) -> py::object {
+         Reconstruction* reconstruction) -> py::typing::Optional<py::dict> {
         std::map<image_t, Eigen::MatrixXd> image_id_to_covar;
         if (!EstimatePoseCovarianceCeresBackend(
                 problem, reconstruction, image_id_to_covar))
@@ -44,7 +44,7 @@ void BindCovarianceEstimator(py::module& m) {
       "estimate_pose_covariance_from_ba",
       [](ceres::Problem* problem,
          Reconstruction* reconstruction,
-         double lambda) -> py::object {
+         double damping) -> py::typing::Optional<py::dict> {
         std::map<image_t, Eigen::MatrixXd> image_id_to_covar;
         if (!EstimatePoseCovariance(
                 problem, reconstruction, image_id_to_covar, lambda))

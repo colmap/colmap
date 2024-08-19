@@ -26,7 +26,7 @@ else()
 endif()
 find_package(Python REQUIRED COMPONENTS Interpreter ${DEV_MODULE} REQUIRED)
 
-find_package(pybind11 2.12.0 REQUIRED)
+find_package(pybind11 2.13.0 REQUIRED)
 
 file(GLOB_RECURSE SOURCE_FILES "${PROJECT_SOURCE_DIR}/../src/pycolmap/*.cc")
 pybind11_add_module(pycolmap ${SOURCE_FILES})

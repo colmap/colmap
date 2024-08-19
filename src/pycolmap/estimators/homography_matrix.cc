@@ -15,7 +15,7 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
-py::object PyEstimateHomographyMatrix(
+py::typing::Optional<py::dict> PyEstimateHomographyMatrix(
     const std::vector<Eigen::Vector2d>& points2D1,
     const std::vector<Eigen::Vector2d>& points2D2,
     const RANSACOptions& options) {

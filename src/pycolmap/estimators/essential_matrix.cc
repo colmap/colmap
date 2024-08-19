@@ -18,7 +18,7 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
-py::object PyEstimateAndDecomposeEssentialMatrix(
+py::typing::Optional<py::dict> PyEstimateAndDecomposeEssentialMatrix(
     const std::vector<Eigen::Vector2d>& points2D1,
     const std::vector<Eigen::Vector2d>& points2D2,
     Camera& camera1,

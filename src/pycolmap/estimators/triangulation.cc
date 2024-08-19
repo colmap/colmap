@@ -17,7 +17,7 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
-py::object PyEstimateTriangulation(
+py::typing::Optional<py::dict> PyEstimateTriangulation(
     const std::vector<Eigen::Vector2d>& points,
     const std::vector<Rigid3d const*>& cams_from_world,
     const std::vector<Camera const*>& cameras,

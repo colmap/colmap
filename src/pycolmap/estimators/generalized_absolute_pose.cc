@@ -17,7 +17,7 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
-py::object PyEstimateAndRefineGeneralizedAbsolutePose(
+py::typing::Optional<py::dict> PyEstimateAndRefineGeneralizedAbsolutePose(
     const std::vector<Eigen::Vector2d>& points2D,
     const std::vector<Eigen::Vector3d>& points3D,
     const std::vector<size_t>& camera_idxs,
