@@ -13,6 +13,8 @@ using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindBundleAdjuster(py::module& m) {
+  IsPyceresAvailable();  // Try to import pyceres to populate the docstrings.
+
   using BAOpts = BundleAdjustmentOptions;
   auto PyBALossFunctionType =
       py::enum_<BAOpts::LossFunctionType>(m, "LossFunctionType")

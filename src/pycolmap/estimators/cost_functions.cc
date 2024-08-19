@@ -2,6 +2,8 @@
 
 #include "colmap/geometry/rigid3.h"
 
+#include "pycolmap/helpers.h"
+
 #include <pybind11/eigen.h>
 #include <pybind11/pybind11.h>
 
@@ -34,6 +36,7 @@ using RigReprojErrorConstantRigCostFunctionWithNoise =
 
 void BindCostFunctions(py::module& m_parent) {
   py::module_ m = m_parent.def_submodule("cost_functions");
+  IsPyceresAvailable();  // Try to import pyceres to populate the docstrings.
 
   m.def("ReprojErrorCost",
         &CameraCostFunction<ReprojErrorCostFunction, const Eigen::Vector2d&>,
