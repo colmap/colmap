@@ -252,57 +252,6 @@ void BindSfM(py::module& m) {
       .def("get_global_bundle_adjustment", &MapperOpts::GlobalBundleAdjustment)
       .def("is_initial_pair_provided", &MapperOpts::IsInitialPairProvided);
   MakeDataclass(PyMapperOpts);
-  auto mapper_options = PyMapperOpts().cast<MapperOpts>();
-
-  using BAOpts = BundleAdjustmentOptions;
-  auto PyBALossFunctionType =
-      py::enum_<BAOpts::LossFunctionType>(m, "LossFunctionType")
-          .value("TRIVIAL", BAOpts::LossFunctionType::TRIVIAL)
-          .value("SOFT_L1", BAOpts::LossFunctionType::SOFT_L1)
-          .value("CAUCHY", BAOpts::LossFunctionType::CAUCHY);
-  AddStringToEnumConstructor(PyBALossFunctionType);
-  auto PyBundleAdjustmentOptions =
-      py::class_<BAOpts>(m, "BundleAdjustmentOptions")
-          .def(py::init<>())
-          .def("create_loss_function", &BAOpts::CreateLossFunction)
-          .def_readwrite("loss_function_type",
-                         &BAOpts::loss_function_type,
-                         "Loss function types: Trivial (non-robust) and Cauchy "
-                         "(robust) loss.")
-          .def_readwrite("loss_function_scale",
-                         &BAOpts::loss_function_scale,
-                         "Scaling factor determines residual at which "
-                         "robustification takes place.")
-          .def_readwrite("refine_focal_length",
-                         &BAOpts::refine_focal_length,
-                         "Whether to refine the focal length parameter group.")
-          .def_readwrite(
-              "refine_principal_point",
-              &BAOpts::refine_principal_point,
-              "Whether to refine the principal point parameter group.")
-          .def_readwrite("refine_extra_params",
-                         &BAOpts::refine_extra_params,
-                         "Whether to refine the extra parameter group.")
-          .def_readwrite("refine_extrinsics",
-                         &BAOpts::refine_extrinsics,
-                         "Whether to refine the extrinsic parameter group.")
-          .def_readwrite("print_summary",
-                         &BAOpts::print_summary,
-                         "Whether to print a final summary.")
-          .def_readwrite("min_num_residuals_for_multi_threading",
-                         &BAOpts::min_num_residuals_for_multi_threading,
-                         "Minimum number of residuals to enable "
-                         "multi-threading. Note that "
-                         "single-threaded is typically better for small bundle "
-                         "adjustment problems "
-                         "due to the overhead of threading. ")
-          .def_readwrite(
-              "solver_options",
-              &BAOpts::solver_options,
-              "Ceres-Solver options. To be able to use this feature "
-              "one needs to install pyceres and import it beforehand. ");
-  MakeDataclass(PyBundleAdjustmentOptions);
-  auto ba_options = PyBundleAdjustmentOptions().cast<BAOpts>();
 
   m.def("triangulate_points",
         &TriangulatePoints,
@@ -311,7 +260,7 @@ void BindSfM(py::module& m) {
         "image_path"_a,
         "output_path"_a,
         "clear_points"_a = true,
-        "options"_a = mapper_options,
+        "options"_a = IncrementalPipelineOptions(),
         "refine_intrinsics"_a = false,
         "Triangulate 3D points from known camera poses");
 
@@ -320,7 +269,7 @@ void BindSfM(py::module& m) {
         "database_path"_a,
         "image_path"_a,
         "output_path"_a,
-        "options"_a = mapper_options,
+        "options"_a = IncrementalPipelineOptions(),
         "input_path"_a = py::str(""),
         "initial_image_pair_callback"_a = py::none(),
         "next_image_callback"_a = py::none(),
@@ -329,6 +278,6 @@ void BindSfM(py::module& m) {
   m.def("bundle_adjustment",
         &BundleAdjustment,
         "reconstruction"_a,
-        "options"_a = ba_options,
+        "options"_a = BundleAdjustmentOptions(),
         "Jointly refine 3D points and camera poses");
 }
