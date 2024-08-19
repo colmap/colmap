@@ -106,50 +106,6 @@ void BindMatchFeatures(py::module& m) {
           .def_readwrite("block_size", &EMOpts::block_size);
   MakeDataclass(PyExhaustiveMatchingOptions);
 
-  using SeqMOpts = SequentialMatchingOptions;
-  auto PySequentialMatchingOptions =
-      py::class_<SeqMOpts>(m, "SequentialMatchingOptions")
-          .def(py::init<>())
-          .def_readwrite("overlap",
-                         &SeqMOpts::overlap,
-                         "Number of overlapping image pairs.")
-          .def_readwrite(
-              "quadratic_overlap",
-              &SeqMOpts::quadratic_overlap,
-              "Whether to match images against their quadratic neighbors.")
-          .def_readwrite("loop_detection",
-                         &SeqMOpts::loop_detection,
-                         "Loop detection is invoked every "
-                         "`loop_detection_period` images.")
-          .def_readwrite("loop_detection_num_images",
-                         &SeqMOpts::loop_detection_num_images,
-                         "The number of images to retrieve in loop "
-                         "detection. This number should be significantly "
-                         "bigger than the sequential matching overlap.")
-          .def_readwrite(
-              "loop_detection_num_nearest_neighbors",
-              &SeqMOpts::loop_detection_num_nearest_neighbors,
-              "Number of nearest neighbors to retrieve per query feature.")
-          .def_readwrite(
-              "loop_detection_num_checks",
-              &SeqMOpts::loop_detection_num_checks,
-              "Number of nearest-neighbor checks to use in retrieval.")
-          .def_readwrite(
-              "loop_detection_num_images_after_verification",
-              &SeqMOpts::loop_detection_num_images_after_verification,
-              "How many images to return after spatial verification. Set to "
-              "0 to turn off spatial verification.")
-          .def_readwrite("loop_detection_max_num_features",
-                         &SeqMOpts::loop_detection_max_num_features,
-                         "The maximum number of features to use for indexing "
-                         "an image. If an image has more features, only the "
-                         "largest-scale features will be indexed.")
-          .def_readwrite("vocab_tree_path",
-                         &SeqMOpts::vocab_tree_path,
-                         "Path to the vocabulary tree.")
-          .def("vocab_tree_options", &SeqMOpts::VocabTreeOptions);
-  MakeDataclass(PySequentialMatchingOptions);
-
   using SpMOpts = SpatialMatchingOptions;
   auto PySpatialMatchingOptions =
       py::class_<SpMOpts>(m, "SpatialMatchingOptions")
@@ -207,6 +163,50 @@ void BindMatchFeatures(py::module& m) {
           });
   MakeDataclass(PyVocabTreeMatchingOptions);
 
+  using SeqMOpts = SequentialMatchingOptions;
+  auto PySequentialMatchingOptions =
+      py::class_<SeqMOpts>(m, "SequentialMatchingOptions")
+          .def(py::init<>())
+          .def_readwrite("overlap",
+                         &SeqMOpts::overlap,
+                         "Number of overlapping image pairs.")
+          .def_readwrite(
+              "quadratic_overlap",
+              &SeqMOpts::quadratic_overlap,
+              "Whether to match images against their quadratic neighbors.")
+          .def_readwrite("loop_detection",
+                         &SeqMOpts::loop_detection,
+                         "Loop detection is invoked every "
+                         "`loop_detection_period` images.")
+          .def_readwrite("loop_detection_num_images",
+                         &SeqMOpts::loop_detection_num_images,
+                         "The number of images to retrieve in loop "
+                         "detection. This number should be significantly "
+                         "bigger than the sequential matching overlap.")
+          .def_readwrite(
+              "loop_detection_num_nearest_neighbors",
+              &SeqMOpts::loop_detection_num_nearest_neighbors,
+              "Number of nearest neighbors to retrieve per query feature.")
+          .def_readwrite(
+              "loop_detection_num_checks",
+              &SeqMOpts::loop_detection_num_checks,
+              "Number of nearest-neighbor checks to use in retrieval.")
+          .def_readwrite(
+              "loop_detection_num_images_after_verification",
+              &SeqMOpts::loop_detection_num_images_after_verification,
+              "How many images to return after spatial verification. Set to "
+              "0 to turn off spatial verification.")
+          .def_readwrite("loop_detection_max_num_features",
+                         &SeqMOpts::loop_detection_max_num_features,
+                         "The maximum number of features to use for indexing "
+                         "an image. If an image has more features, only the "
+                         "largest-scale features will be indexed.")
+          .def_readwrite("vocab_tree_path",
+                         &SeqMOpts::vocab_tree_path,
+                         "Path to the vocabulary tree.")
+          .def("vocab_tree_options", &SeqMOpts::VocabTreeOptions);
+  MakeDataclass(PySequentialMatchingOptions);
+
   using IPMOpts = ImagePairsMatchingOptions;
   auto PyImagePairsMatchingOptions =
       py::class_<IPMOpts>(m, "ImagePairsMatchingOptions")
@@ -228,15 +228,6 @@ void BindMatchFeatures(py::module& m) {
         "device"_a = Device::AUTO,
         "Exhaustive feature matching");
 
-  m.def("match_sequential",
-        &MatchFeatures<SeqMOpts, CreateSequentialFeatureMatcher>,
-        "database_path"_a,
-        "sift_options"_a = SiftMatchingOptions(),
-        "matching_options"_a = SequentialMatchingOptions(),
-        "verification_options"_a = TwoViewGeometryOptions(),
-        "device"_a = Device::AUTO,
-        "Sequential feature matching");
-
   m.def("match_spatial",
         &MatchFeatures<SpMOpts, CreateSpatialFeatureMatcher>,
         "database_path"_a,
@@ -254,6 +245,15 @@ void BindMatchFeatures(py::module& m) {
         "verification_options"_a = TwoViewGeometryOptions(),
         "device"_a = Device::AUTO,
         "Vocab tree feature matching");
+
+  m.def("match_sequential",
+        &MatchFeatures<SeqMOpts, CreateSequentialFeatureMatcher>,
+        "database_path"_a,
+        "sift_options"_a = SiftMatchingOptions(),
+        "matching_options"_a = SequentialMatchingOptions(),
+        "verification_options"_a = TwoViewGeometryOptions(),
+        "device"_a = Device::AUTO,
+        "Sequential feature matching");
 
   m.def("verify_matches",
         &verify_matches,
