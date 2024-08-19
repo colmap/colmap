@@ -47,13 +47,13 @@ void BindCovarianceEstimator(py::module& m) {
          double damping) -> py::typing::Optional<py::dict> {
         std::map<image_t, Eigen::MatrixXd> image_id_to_covar;
         if (!EstimatePoseCovariance(
-                problem, reconstruction, image_id_to_covar, lambda))
+                problem, reconstruction, image_id_to_covar, damping))
           return py::none();
         return py::cast(image_id_to_covar);
       },
       py::arg("problem"),
       py::arg("reconstruction"),
-      py::arg("lambda") = 1e-8);
+      py::arg("damping") = 1e-8);
 
   using EstimatorBase = BundleAdjustmentCovarianceEstimatorBase;
   py::class_<EstimatorBase>(m, "BundleAdjustmentCovarianceEstimatorBase")
@@ -176,22 +176,22 @@ void BindCovarianceEstimator(py::module& m) {
       .def(py::init<ceres::Problem*, Reconstruction*, double>(),
            py::arg("problem"),
            py::arg("reconstruction"),
-           py::arg("lambda") = 1e-8)
+           py::arg("damping") = 1e-8)
       .def(py::init([](ceres::Problem* problem,
                        std::vector<py::array_t<double>>& pose_blocks_pyarrays,
                        std::vector<py::array_t<double>>& point_blocks_pyarrays,
-                       const double lambda) {
+                       const double damping) {
              std::vector<const double*> pose_blocks =
                  ConvertListOfPyArraysToConstPointers(pose_blocks_pyarrays);
              std::vector<const double*> point_blocks =
                  ConvertListOfPyArraysToConstPointers(point_blocks_pyarrays);
              return new BundleAdjustmentCovarianceEstimator(
-                 problem, pose_blocks, point_blocks, lambda);
+                 problem, pose_blocks, point_blocks, damping);
            }),
            py::arg("problem"),
            py::arg("pose_blocks"),
            py::arg("point_blocks"),
-           py::arg("lambda") = 1e-8)
+           py::arg("damping") = 1e-8)
       .def("factorize_full",
            &BundleAdjustmentCovarianceEstimator::FactorizeFull)
       .def("factorize", &BundleAdjustmentCovarianceEstimator::Factorize)
