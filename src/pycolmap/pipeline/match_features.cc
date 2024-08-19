@@ -98,7 +98,6 @@ void BindMatchFeatures(py::module& m) {
                          "Whether to perform guided matching, if geometric "
                          "verification succeeds.");
   MakeDataclass(PySiftMatchingOptions);
-  auto sift_matching_options = PySiftMatchingOptions().cast<SMOpts>();
 
   using EMOpts = ExhaustiveMatchingOptions;
   auto PyExhaustiveMatchingOptions =
@@ -106,7 +105,6 @@ void BindMatchFeatures(py::module& m) {
           .def(py::init<>())
           .def_readwrite("block_size", &EMOpts::block_size);
   MakeDataclass(PyExhaustiveMatchingOptions);
-  auto exhaustive_options = PyExhaustiveMatchingOptions().cast<EMOpts>();
 
   using SeqMOpts = SequentialMatchingOptions;
   auto PySequentialMatchingOptions =
@@ -151,7 +149,6 @@ void BindMatchFeatures(py::module& m) {
                          "Path to the vocabulary tree.")
           .def("vocab_tree_options", &SeqMOpts::VocabTreeOptions);
   MakeDataclass(PySequentialMatchingOptions);
-  auto sequential_options = PySequentialMatchingOptions().cast<SeqMOpts>();
 
   using SpMOpts = SpatialMatchingOptions;
   auto PySpatialMatchingOptions =
@@ -170,7 +167,6 @@ void BindMatchFeatures(py::module& m) {
                          "neighbor [meters].")
           .def_readwrite("num_threads", &SpMOpts::num_threads);
   MakeDataclass(PySpatialMatchingOptions);
-  auto spatial_options = PySpatialMatchingOptions().cast<SpMOpts>();
 
   using VTMOpts = VocabTreeMatchingOptions;
   auto PyVocabTreeMatchingOptions =
@@ -210,44 +206,52 @@ void BindMatchFeatures(py::module& m) {
             THROW_CHECK_FILE_EXISTS(self.vocab_tree_path);
           });
   MakeDataclass(PyVocabTreeMatchingOptions);
-  auto vocabtree_options = PyVocabTreeMatchingOptions().cast<VTMOpts>();
 
-  auto verification_options =
-      m.attr("TwoViewGeometryOptions")().cast<TwoViewGeometryOptions>();
+  using IPMOpts = ImagePairsMatchingOptions;
+  auto PyImagePairsMatchingOptions =
+      py::class_<IPMOpts>(m, "ImagePairsMatchingOptions")
+          .def(py::init<>())
+          .def_readwrite("block_size",
+                         &IPMOpts::block_size,
+                         "Number of image pairs to match in one batch.")
+          .def_readwrite("match_list_path",
+                         &IPMOpts::match_list_path,
+                         "Path to the file with the matches.");
+  MakeDataclass(PyImagePairsMatchingOptions);
 
   m.def("match_exhaustive",
         &MatchFeatures<EMOpts, CreateExhaustiveFeatureMatcher>,
         "database_path"_a,
-        "sift_options"_a = sift_matching_options,
-        "matching_options"_a = exhaustive_options,
-        "verification_options"_a = verification_options,
+        "sift_options"_a = SiftMatchingOptions(),
+        "matching_options"_a = ExhaustiveMatchingOptions(),
+        "verification_options"_a = TwoViewGeometryOptions(),
         "device"_a = Device::AUTO,
         "Exhaustive feature matching");
 
   m.def("match_sequential",
         &MatchFeatures<SeqMOpts, CreateSequentialFeatureMatcher>,
         "database_path"_a,
-        "sift_options"_a = sift_matching_options,
-        "matching_options"_a = sequential_options,
-        "verification_options"_a = verification_options,
+        "sift_options"_a = SiftMatchingOptions(),
+        "matching_options"_a = SequentialMatchingOptions(),
+        "verification_options"_a = TwoViewGeometryOptions(),
         "device"_a = Device::AUTO,
         "Sequential feature matching");
 
   m.def("match_spatial",
         &MatchFeatures<SpMOpts, CreateSpatialFeatureMatcher>,
         "database_path"_a,
-        "sift_options"_a = sift_matching_options,
-        "matching_options"_a = spatial_options,
-        "verification_options"_a = verification_options,
+        "sift_options"_a = SiftMatchingOptions(),
+        "matching_options"_a = SpatialMatchingOptions(),
+        "verification_options"_a = TwoViewGeometryOptions(),
         "device"_a = Device::AUTO,
         "Spatial feature matching");
 
   m.def("match_vocabtree",
         &MatchFeatures<VTMOpts, CreateVocabTreeFeatureMatcher>,
         "database_path"_a,
-        "sift_options"_a = sift_matching_options,
-        "matching_options"_a = vocabtree_options,
-        "verification_options"_a = verification_options,
+        "sift_options"_a = SiftMatchingOptions(),
+        "matching_options"_a = VocabTreeMatchingOptions(),
+        "verification_options"_a = TwoViewGeometryOptions(),
         "device"_a = Device::AUTO,
         "Vocab tree feature matching");
 
@@ -255,7 +259,7 @@ void BindMatchFeatures(py::module& m) {
         &verify_matches,
         "database_path"_a,
         "pairs_path"_a,
-        "options"_a = verification_options,
+        "options"_a = TwoViewGeometryOptions(),
         "Run geometric verification of the matches");
 
   py::class_<PairGenerator>(m, "PairGenerator")
