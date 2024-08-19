@@ -1,7 +1,7 @@
-import os
+import shutil
 import argparse
-from pathlib import Path
 import subprocess
+from pathlib import Path
 
 
 def download_vocab_tree(data_path: Path):
@@ -17,19 +17,64 @@ def download_vocab_tree(data_path: Path):
 
 
 def download_eth3d(data_path: Path):
-    data_path.mkdir(parents=True, exist_ok=True)
-
-    for filename in [
-        "multi_view_training_dslr_undistorted.7z",
-        "multi_view_test_dslr_undistorted.7z",
-        "multi_view_training_rig_undistorted.7z",
-        "multi_view_test_rig_undistorted.7z",
+    for filename, category in [
+        ("multi_view_training_dslr_undistorted.7z", "dslr"),
+        ("multi_view_test_dslr_undistorted.7z", "dslr"),
+        ("multi_view_training_rig_undistorted.7z", "rig"),
+        ("multi_view_test_rig_undistorted.7z", "rig"),
     ]:
+        target_folder = data_path / category
+        target_folder.mkdir(parents=True, exist_ok=True)
         subprocess.check_call(
             ["wget", "-c", "https://www.eth3d.net/data/" + filename],
-            cwd=data_path,
+            cwd=target_folder,
         )
-        subprocess.check_call(["7zz", "x", filename], cwd=data_path)
+        subprocess.check_call(["7zz", "x", filename], cwd=target_folder)
+
+
+def download_imc2023(data_path: Path):
+    data_path.mkdir(parents=True, exist_ok=True)
+
+    subprocess.check_call(
+        [
+            "kaggle",
+            "competitions",
+            "download",
+            "-c",
+            f"image-matching-challenge-2023",
+            "-p",
+            str(data_path),
+        ],
+    )
+    subprocess.check_call(
+        ["unzip", f"image-matching-challenge-2023.zip"], cwd=data_path
+    )
+
+
+def download_imc2024(data_path: Path):
+    data_path.mkdir(parents=True, exist_ok=True)
+
+    subprocess.check_call(
+        [
+            "kaggle",
+            "competitions",
+            "download",
+            "-c",
+            f"image-matching-challenge-2024",
+            "-p",
+            str(data_path),
+        ],
+    )
+    subprocess.check_call(
+        ["unzip", f"image-matching-challenge-2024.zip"], cwd=data_path
+    )
+    # Move all scenes to the "all" category sub-folder.
+    category_path = data_path / "train/all"
+    category_path.mkdir(parents=True, exist_ok=True)
+    for scene in (data_path / "train").iterdir():
+        if str(scene).endswith("/all"):
+            continue
+        shutil.move(scene, data_path / category_path)
 
 
 def parse_args():
@@ -45,6 +90,8 @@ def main():
 
     download_vocab_tree(args.data_path)
     download_eth3d(args.data_path / "eth3d")
+    download_imc2023(args.data_path / "imc2023")
+    download_imc2024(args.data_path / "imc2024")
 
 
 if __name__ == "__main__":
