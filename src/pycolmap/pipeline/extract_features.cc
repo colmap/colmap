@@ -53,15 +53,17 @@ void ExtractFeatures(const std::string& database_path,
 }
 
 void BindExtractFeatures(py::module& m) {
-  m.def("extract_features",
-        &ExtractFeatures,
-        "database_path"_a,
-        "image_path"_a,
-        "image_list"_a = std::vector<std::string>(),
-        "camera_mode"_a = CameraMode::AUTO,
-        "camera_model"_a = "SIMPLE_RADIAL",
-        "reader_options"_a = ImageReaderOptions(),
-        "sift_options"_a = SiftExtractionOptions(),
-        "device"_a = Device::AUTO,
-        "Extract SIFT Features and write them to database");
+  m.def(
+      "extract_features",
+      &ExtractFeatures,
+      "database_path"_a,
+      "image_path"_a,
+      "image_list"_a = std::vector<std::string>(),
+      "camera_mode"_a = CameraMode::AUTO,
+      "camera_model"_a = "SIMPLE_RADIAL",
+      py::arg_v("reader_options", ImageReaderOptions(), "ImageReaderOptions()"),
+      py::arg_v(
+          "sift_options", SiftExtractionOptions(), "SiftExtractionOptions()"),
+      "device"_a = Device::AUTO,
+      "Extract SIFT Features and write them to database");
 }

@@ -219,47 +219,68 @@ void BindMatchFeatures(py::module& m) {
                          "Path to the file with the matches.");
   MakeDataclass(PyImagePairsMatchingOptions);
 
-  m.def("match_exhaustive",
-        &MatchFeatures<EMOpts, CreateExhaustiveFeatureMatcher>,
-        "database_path"_a,
-        "sift_options"_a = SiftMatchingOptions(),
-        "matching_options"_a = ExhaustiveMatchingOptions(),
-        "verification_options"_a = TwoViewGeometryOptions(),
-        "device"_a = Device::AUTO,
-        "Exhaustive feature matching");
+  m.def(
+      "match_exhaustive",
+      &MatchFeatures<EMOpts, CreateExhaustiveFeatureMatcher>,
+      "database_path"_a,
+      py::arg_v("sift_options", SiftMatchingOptions(), "SiftMatchingOptions()"),
+      py::arg_v("matching_options",
+                ExhaustiveMatchingOptions(),
+                "ExhaustiveMatchingOptions()"),
+      py::arg_v("verification_options",
+                TwoViewGeometryOptions(),
+                "TwoViewGeometryOptions()"),
+      "device"_a = Device::AUTO,
+      "Exhaustive feature matching");
 
-  m.def("match_spatial",
-        &MatchFeatures<SpMOpts, CreateSpatialFeatureMatcher>,
-        "database_path"_a,
-        "sift_options"_a = SiftMatchingOptions(),
-        "matching_options"_a = SpatialMatchingOptions(),
-        "verification_options"_a = TwoViewGeometryOptions(),
-        "device"_a = Device::AUTO,
-        "Spatial feature matching");
+  m.def(
+      "match_spatial",
+      &MatchFeatures<SpMOpts, CreateSpatialFeatureMatcher>,
+      "database_path"_a,
+      py::arg_v("sift_options", SiftMatchingOptions(), "SiftMatchingOptions()"),
+      py::arg_v("matching_options",
+                SpatialMatchingOptions(),
+                "SpatialMatchingOptions()"),
+      py::arg_v("verification_options",
+                TwoViewGeometryOptions(),
+                "TwoViewGeometryOptions()"),
+      "device"_a = Device::AUTO,
+      "Spatial feature matching");
 
-  m.def("match_vocabtree",
-        &MatchFeatures<VTMOpts, CreateVocabTreeFeatureMatcher>,
-        "database_path"_a,
-        "sift_options"_a = SiftMatchingOptions(),
-        "matching_options"_a = VocabTreeMatchingOptions(),
-        "verification_options"_a = TwoViewGeometryOptions(),
-        "device"_a = Device::AUTO,
-        "Vocab tree feature matching");
+  m.def(
+      "match_vocabtree",
+      &MatchFeatures<VTMOpts, CreateVocabTreeFeatureMatcher>,
+      "database_path"_a,
+      py::arg_v("sift_options", SiftMatchingOptions(), "SiftMatchingOptions()"),
+      py::arg_v("matching_options",
+                VocabTreeMatchingOptions(),
+                "VocabTreeMatchingOptions()"),
+      py::arg_v("verification_options",
+                TwoViewGeometryOptions(),
+                "TwoViewGeometryOptions()"),
+      "device"_a = Device::AUTO,
+      "Vocab tree feature matching");
 
-  m.def("match_sequential",
-        &MatchFeatures<SeqMOpts, CreateSequentialFeatureMatcher>,
-        "database_path"_a,
-        "sift_options"_a = SiftMatchingOptions(),
-        "matching_options"_a = SequentialMatchingOptions(),
-        "verification_options"_a = TwoViewGeometryOptions(),
-        "device"_a = Device::AUTO,
-        "Sequential feature matching");
+  m.def(
+      "match_sequential",
+      &MatchFeatures<SeqMOpts, CreateSequentialFeatureMatcher>,
+      "database_path"_a,
+      py::arg_v("sift_options", SiftMatchingOptions(), "SiftMatchingOptions()"),
+      py::arg_v("matching_options",
+                SequentialMatchingOptions(),
+                "SequentialMatchingOptions()"),
+      py::arg_v("verification_options",
+                TwoViewGeometryOptions(),
+                "TwoViewGeometryOptions()"),
+      "device"_a = Device::AUTO,
+      "Sequential feature matching");
 
   m.def("verify_matches",
         &verify_matches,
         "database_path"_a,
         "pairs_path"_a,
-        "options"_a = TwoViewGeometryOptions(),
+        py::arg_v(
+            "options", TwoViewGeometryOptions(), "TwoViewGeometryOptions()"),
         "Run geometric verification of the matches");
 
   py::class_<PairGenerator>(m, "PairGenerator")

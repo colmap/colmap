@@ -95,6 +95,6 @@ void BindEssentialMatrixEstimator(py::module& m) {
         "points2D2"_a,
         "camera1"_a,
         "camera2"_a,
-        "estimation_options"_a = est_options,
+        py::arg_v("estimation_options", est_options, "RANSACOptions()"),
         "LORANSAC + 5-point algorithm.");
 }

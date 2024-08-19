@@ -41,6 +41,6 @@ void BindHomographyMatrixEstimator(py::module& m) {
         &PyEstimateHomographyMatrix,
         "points2D1"_a,
         "points2D2"_a,
-        "estimation_options"_a = est_options,
+        py::arg_v("estimation_options", est_options, "RANSACOptions()"),
         "LORANSAC + 4-point DLT algorithm.");
 }

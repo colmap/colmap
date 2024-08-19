@@ -70,7 +70,8 @@ void BindTwoViewGeometryEstimator(py::module& m) {
       "camera2"_a,
       "points2"_a,
       "matches"_a = py::none(),
-      "options"_a = TwoViewGeometryOptions());
+      py::arg_v(
+          "options", TwoViewGeometryOptions(), "TwoViewGeometryOptions()"));
 
   m.def(
       "estimate_two_view_geometry",
@@ -99,7 +100,8 @@ void BindTwoViewGeometryEstimator(py::module& m) {
       "camera2"_a,
       "points2"_a,
       "matches"_a = py::none(),
-      "options"_a = TwoViewGeometryOptions());
+      py::arg_v(
+          "options", TwoViewGeometryOptions(), "TwoViewGeometryOptions()"));
 
   m.def("estimate_two_view_geometry_pose",
         &EstimateTwoViewGeometryPose,

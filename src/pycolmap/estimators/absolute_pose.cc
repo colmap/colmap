@@ -134,23 +134,28 @@ void BindAbsolutePoseEstimator(py::module& m) {
   auto ref_options =
       PyRefinementOptions().cast<AbsolutePoseRefinementOptions>();
 
-  m.def("absolute_pose_estimation",
-        &PyEstimateAndRefineAbsolutePose,
-        "points2D"_a,
-        "points3D"_a,
-        "camera"_a,
-        "estimation_options"_a = est_options,
-        "refinement_options"_a = ref_options,
-        "return_covariance"_a = false,
-        "Absolute pose estimation with non-linear refinement.");
+  m.def(
+      "absolute_pose_estimation",
+      &PyEstimateAndRefineAbsolutePose,
+      "points2D"_a,
+      "points3D"_a,
+      "camera"_a,
+      py::arg_v(
+          "estimation_options", est_options, "AbsolutePoseEstimationOptions()"),
+      py::arg_v(
+          "refinement_options", ref_options, "AbsolutePoseRefinementOptions()"),
+      "return_covariance"_a = false,
+      "Absolute pose estimation with non-linear refinement.");
 
-  m.def("pose_refinement",
-        &PyRefineAbsolutePose,
-        "cam_from_world"_a,
-        "points2D"_a,
-        "points3D"_a,
-        "inlier_mask"_a,
-        "camera"_a,
-        "refinement_options"_a = ref_options,
-        "Non-linear refinement of absolute pose.");
+  m.def(
+      "pose_refinement",
+      &PyRefineAbsolutePose,
+      "cam_from_world"_a,
+      "points2D"_a,
+      "points3D"_a,
+      "inlier_mask"_a,
+      "camera"_a,
+      py::arg_v(
+          "refinement_options", ref_options, "AbsolutePoseRefinementOptions()"),
+      "Non-linear refinement of absolute pose.");
 }

@@ -104,7 +104,9 @@ void BindSfM(py::module& m) {
         "image_path"_a,
         "output_path"_a,
         "clear_points"_a = true,
-        "options"_a = IncrementalPipelineOptions(),
+        py::arg_v("options",
+                  IncrementalPipelineOptions(),
+                  "IncrementalPipelineOptions()"),
         "refine_intrinsics"_a = false,
         "Triangulate 3D points from known camera poses");
 
@@ -113,7 +115,9 @@ void BindSfM(py::module& m) {
         "database_path"_a,
         "image_path"_a,
         "output_path"_a,
-        "options"_a = IncrementalPipelineOptions(),
+        py::arg_v("options",
+                  IncrementalPipelineOptions(),
+                  "IncrementalPipelineOptions()"),
         "input_path"_a = py::str(""),
         "initial_image_pair_callback"_a = py::none(),
         "next_image_callback"_a = py::none(),
@@ -122,6 +126,7 @@ void BindSfM(py::module& m) {
   m.def("bundle_adjustment",
         &BundleAdjustment,
         "reconstruction"_a,
-        "options"_a = BundleAdjustmentOptions(),
+        py::arg_v(
+            "options", BundleAdjustmentOptions(), "BundleAdjustmentOptions()"),
         "Jointly refine 3D points and camera poses");
 }

@@ -62,14 +62,15 @@ void BindTriangulationEstimator(py::module& m) {
           "residual_type", &Options::residual_type, "Employed residual type.")
       .def_readwrite("ransac", &Options::ransac_options, "RANSAC options.");
   MakeDataclass(PyTriangulationOptions);
-  auto triangulation_options = PyTriangulationOptions().cast<Options>();
 
   m.def("estimate_triangulation",
         &PyEstimateTriangulation,
         "point_data"_a,
         "images"_a,
         "cameras"_a,
-        "options"_a = triangulation_options,
+        py::arg_v("options",
+                  EstimateTriangulationOptions(),
+                  "EstimateTriangulationOptions()"),
         "Robustly estimate 3D point from observations in multiple views using "
         "RANSAC");
 }
