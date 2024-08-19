@@ -193,8 +193,8 @@ void BindImages(py::module& m) {
 
   auto PyCopyType = py::enum_<CopyType>(m, "CopyType")
                         .value("copy", CopyType::COPY)
-                        .value("soft-link", CopyType::SOFT_LINK)
-                        .value("hard-link", CopyType::HARD_LINK);
+                        .value("softlink", CopyType::SOFT_LINK)
+                        .value("hardlink", CopyType::HARD_LINK);
   AddStringToEnumConstructor(PyCopyType);
 
   using UDOpts = UndistortCameraOptions;
