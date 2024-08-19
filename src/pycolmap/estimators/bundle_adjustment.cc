@@ -67,7 +67,9 @@ void BindBundleAdjuster(py::module& m) {
 
   py::class_<BundleAdjuster>(m, "BundleAdjuster")
       .def(py::init<const BundleAdjustmentOptions&,
-                    const BundleAdjustmentConfig&>())
+                    const BundleAdjustmentConfig&>(),
+           "options"_a,
+           "config"_a)
       .def("solve", &BundleAdjuster::Solve, "reconstruction"_a)
       .def("set_up_problem",
            &BundleAdjuster::SetUpProblem,
