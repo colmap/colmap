@@ -115,7 +115,12 @@ void BindGeometry(py::module& m) {
       .def(
           py::init<double, const Eigen::Quaterniond&, const Eigen::Vector3d&>())
       .def(py::init(&Sim3d::FromMatrix))
-      .def_readwrite("scale", &Sim3d::scale)
+      .def_property(
+          "scale",
+          [](Sim3d& self) {
+            return py::array({}, {}, &self.scale, py::cast(self));
+          },
+          [](Sim3d& self, double scale) { self.scale = scale; })
       .def_readwrite("rotation", &Sim3d::rotation)
       .def_readwrite("translation", &Sim3d::translation)
       .def("matrix", &Sim3d::ToMatrix)

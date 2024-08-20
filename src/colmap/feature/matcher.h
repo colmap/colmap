@@ -109,7 +109,7 @@ class FeatureMatcherCache {
   std::mutex database_mutex_;
   std::unordered_map<camera_t, Camera> cameras_cache_;
   std::unordered_map<image_t, Image> images_cache_;
-  std::unordered_map<image_t, PosePrior> locations_priors_cache_;
+  std::unordered_map<image_t, PosePrior> pose_priors_cache_;
   std::unique_ptr<LRUCache<image_t, std::shared_ptr<FeatureKeypoints>>>
       keypoints_cache_;
   std::unique_ptr<LRUCache<image_t, std::shared_ptr<FeatureDescriptors>>>

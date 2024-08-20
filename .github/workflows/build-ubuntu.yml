@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - release/*
   pull_request:
     types: [ assigned, opened, synchronize, reopened ]
   release:
@@ -138,6 +139,7 @@ jobs:
             libmetis-dev \
             libgoogle-glog-dev \
             libgtest-dev \
+            libgmock-dev \
             libsqlite3-dev \
             libglew-dev \
             qtbase5-dev \

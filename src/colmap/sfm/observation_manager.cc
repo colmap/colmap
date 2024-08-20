@@ -78,7 +78,8 @@ ObservationManager::ObservationManager(
         kNumPoint3DVisibilityPyramidLevels, camera.width, camera.height);
     image_stat.num_correspondences_have_point3D.resize(image.NumPoints2D(), 0);
     image_stat.num_visible_points3D = 0;
-    if (correspondence_graph_) {
+    if (correspondence_graph_ &&
+        correspondence_graph_->ExistsImage(id_image.first)) {
       image_stat.num_observations =
           correspondence_graph_->NumObservationsForImage(id_image.first);
       image_stat.num_correspondences =
