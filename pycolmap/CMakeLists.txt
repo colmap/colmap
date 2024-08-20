@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 project(${SKBUILD_PROJECT_NAME} VERSION ${SKBUILD_PROJECT_VERSION})
+option(GENERATE_STUBS "Whether to generate stubs" ON)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_CXX_STANDARD 14)
@@ -20,9 +21,9 @@ endif()
 find_package(colmap REQUIRED)
 
 if (CMAKE_VERSION VERSION_LESS 3.18)
-  set(DEV_MODULE Development)
+    set(DEV_MODULE Development)
 else()
-  set(DEV_MODULE Development.Module)
+    set(DEV_MODULE Development.Module)
 endif()
 find_package(Python REQUIRED COMPONENTS Interpreter ${DEV_MODULE} REQUIRED)
 
@@ -34,3 +35,17 @@ target_include_directories(pycolmap PRIVATE ${PROJECT_SOURCE_DIR}/../src/)
 target_link_libraries(pycolmap PRIVATE colmap::colmap glog::glog Ceres::ceres)
 target_compile_definitions(pycolmap PRIVATE VERSION_INFO="${PROJECT_VERSION}")
 install(TARGETS pycolmap LIBRARY DESTINATION .)
+
+if(GENERATE_STUBS)
+    set(STUBGEN_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/pycolmap")
+    add_custom_command(
+        TARGET pycolmap POST_BUILD
+        COMMAND
+          "${CMAKE_COMMAND}" -E env
+          "PYTHONPATH=$<TARGET_FILE_DIR:${PROJECT_NAME}>$<IF:$<PLATFORM_ID:Windows>,$<SEMICOLON>,:>$ENV{PYTHONPATH}"
+          "${PROJECT_SOURCE_DIR}/generate_stubs.sh" "${Python_EXECUTABLE}" "${CMAKE_CURRENT_BINARY_DIR}"
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+        COMMENT "Generating pybind11 stubs"
+    )
+    install(DIRECTORY ${STUBGEN_OUTPUT_DIR} DESTINATION .)
+endif()
