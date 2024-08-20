@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 project(${SKBUILD_PROJECT_NAME} VERSION ${SKBUILD_PROJECT_VERSION})
-option(GENERATE_STUBS "Whether to generate stubs" ON)
+option(GENERATE_STUBS "Whether to generate stubs" OFF)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_CXX_STANDARD 14)
@@ -37,6 +37,7 @@ target_compile_definitions(pycolmap PRIVATE VERSION_INFO="${PROJECT_VERSION}")
 install(TARGETS pycolmap LIBRARY DESTINATION .)
 
 if(GENERATE_STUBS)
+    message(STATUS "Enabling stubs generation.")
     set(STUBGEN_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/pycolmap")
     add_custom_command(
         TARGET pycolmap POST_BUILD
