@@ -196,7 +196,7 @@ TEST(IncrementalPipeline, ChainedMatches) {
                              /*num_obs_tolerance=*/0);
 }
 
-TEST(IncrementalMapperController, PriorBasedSfMNoNoise) {
+TEST(IncrementalPipeline, PriorBasedSfMNoNoise) {
   const std::string database_path = CreateTestDir() + "/database.db";
 
   Database database(database_path);
@@ -211,16 +211,16 @@ TEST(IncrementalMapperController, PriorBasedSfMNoNoise) {
   synthetic_dataset_options.prior_position_stddev = 0.0;
   SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction, &database);
 
-  std::shared_ptr<IncrementalMapperOptions> mapper_options =
-      std::make_shared<IncrementalMapperOptions>();
+  std::shared_ptr<IncrementalPipelineOptions> mapper_options =
+      std::make_shared<IncrementalPipelineOptions>();
 
   mapper_options->use_prior_position = true;
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
-  IncrementalMapperController mapper(mapper_options,
-                                     /*image_path=*/"",
-                                     database_path,
-                                     reconstruction_manager);
+  IncrementalPipeline mapper(mapper_options,
+                             /*image_path=*/"",
+                             database_path,
+                             reconstruction_manager);
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
@@ -235,7 +235,7 @@ TEST(IncrementalMapperController, PriorBasedSfMNoNoise) {
                              /*align=*/false);
 }
 
-TEST(IncrementalMapperController, PriorBasedSfMWithNoise) {
+TEST(IncrementalPipeline, PriorBasedSfMWithNoise) {
   const std::string database_path = CreateTestDir() + "/database.db";
 
   Database database(database_path);
@@ -250,17 +250,17 @@ TEST(IncrementalMapperController, PriorBasedSfMWithNoise) {
   synthetic_dataset_options.prior_position_stddev = 1.5;
   SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction, &database);
 
-  std::shared_ptr<IncrementalMapperOptions> mapper_options =
-      std::make_shared<IncrementalMapperOptions>();
+  std::shared_ptr<IncrementalPipelineOptions> mapper_options =
+      std::make_shared<IncrementalPipelineOptions>();
 
   mapper_options->use_prior_position = true;
   mapper_options->use_robust_loss_on_prior_position = true;
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
-  IncrementalMapperController mapper(mapper_options,
-                                     /*image_path=*/"",
-                                     database_path,
-                                     reconstruction_manager);
+  IncrementalPipeline mapper(mapper_options,
+                             /*image_path=*/"",
+                             database_path,
+                             reconstruction_manager);
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
@@ -272,7 +272,7 @@ TEST(IncrementalMapperController, PriorBasedSfMWithNoise) {
                              /*align=*/true);
 }
 
-TEST(IncrementalMapperController, GPSPriorBasedSfMWithNoise) {
+TEST(IncrementalPipeline, GPSPriorBasedSfMWithNoise) {
   const std::string database_path = CreateTestDir() + "/database.db";
 
   Database database(database_path);
@@ -288,17 +288,17 @@ TEST(IncrementalMapperController, GPSPriorBasedSfMWithNoise) {
   synthetic_dataset_options.prior_position_stddev = 1.5;
   SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction, &database);
 
-  std::shared_ptr<IncrementalMapperOptions> mapper_options =
-      std::make_shared<IncrementalMapperOptions>();
+  std::shared_ptr<IncrementalPipelineOptions> mapper_options =
+      std::make_shared<IncrementalPipelineOptions>();
 
   mapper_options->use_prior_position = true;
   mapper_options->use_robust_loss_on_prior_position = true;
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
-  IncrementalMapperController mapper(mapper_options,
-                                     /*image_path=*/"",
-                                     database_path,
-                                     reconstruction_manager);
+  IncrementalPipeline mapper(mapper_options,
+                             /*image_path=*/"",
+                             database_path,
+                             reconstruction_manager);
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);

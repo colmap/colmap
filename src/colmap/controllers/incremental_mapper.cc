@@ -277,7 +277,7 @@ bool IncrementalPipeline::LoadDatabase() {
   return true;
 }
 
-bool IncrementalMapperController::SetupPriorPoseFromDatabase() {
+bool IncrementalPipeline::SetupPriorPoseFromDatabase() {
   LOG(INFO) << "Setting up prior positions";
 
   Timer timer;
