@@ -47,6 +47,7 @@ if(GENERATE_STUBS)
           ${PROJECT_SOURCE_DIR}/generate_stubs.sh "${Python_EXECUTABLE}" "${CMAKE_CURRENT_BINARY_DIR}"
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
         COMMENT "Generating pybind11 stubs"
+        VERBATIM
     )
     #install(DIRECTORY ${STUBGEN_OUTPUT_DIR} DESTINATION .)
 endif()
