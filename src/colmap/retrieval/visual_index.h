@@ -530,7 +530,6 @@ template <typename kDescType, int kDescDim, int kEmbeddingDim>
 void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Build(
     const BuildOptions& options, const DescType& descriptors) {
   // Quantize the descriptor space into visual words.
-
   if (visual_words_.ptr() != nullptr) {
     delete[] visual_words_.ptr();
   }
