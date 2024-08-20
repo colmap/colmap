@@ -277,32 +277,22 @@ bool IncrementalMapperController::SetupPriorPoseFromDatabase() {
 
   Timer timer;
   timer.Start();
-  std::size_t nb_prior_positions = 0;
+
   bool prior_is_gps = true;
-  std::vector<Eigen::Vector3d> v_gps_prior;
-  image_t ref_image_id = std::numeric_limits<image_t>::max();
+
+  // GPS reference to be used for EllToENU conversion
   double ref_lat = std::numeric_limits<double>::max();
   double ref_lon = std::numeric_limits<double>::max();
-  v_gps_prior.reserve(database_cache_->NumImages());
+
+  // Get ordered image_ids to use image with lowest ID as the GPS ref.
+  std::set<image_t> image_ids_with_prior;
   for (const auto& image : database_cache_->Images()) {
     if (image.second.HasPosePrior()) {
-      ++nb_prior_positions;
-      if (image.second.WorldFromCamPrior().coordinate_system !=
-          PosePrior::CoordinateSystem::WGS84) {
-        prior_is_gps = false;
-        // break;
-      } else {
-        v_gps_prior.push_back(image.second.WorldFromCamPrior().position);
-        // Image with the lowest id is to be used as the origin for prior
-        // position conversion
-        if (image.first < ref_image_id) {
-          ref_image_id = image.first;
-          ref_lat = image.second.WorldFromCamPrior().position[0];
-          ref_lon = image.second.WorldFromCamPrior().position[1];
-        }
-      }
+      image_ids_with_prior.insert(image.first);
     }
   }
+
+  const std::size_t nb_prior_positions = image_ids_with_prior.size();
 
   if (nb_prior_positions < 3) {
     LOG(ERROR) << "At least 3 images should have a prior for "
@@ -313,6 +303,26 @@ bool IncrementalMapperController::SetupPriorPoseFromDatabase() {
     return false;
   }
 
+  // Get GPS priors
+  std::vector<Eigen::Vector3d> v_gps_prior;
+  v_gps_prior.reserve(nb_prior_positions);
+
+  for (const auto& image_id : image_ids_with_prior) {
+    const Image& image = database_cache_->Image(image_id);
+    if (image.WorldFromCamPrior().coordinate_system !=
+        PosePrior::CoordinateSystem::WGS84) {
+      prior_is_gps = false;
+    } else {
+      // Image with the lowest id is to be used as the origin for prior
+      // position conversion
+      if (v_gps_prior.empty()) {
+        ref_lat = image.WorldFromCamPrior().position[0];
+        ref_lon = image.WorldFromCamPrior().position[1];
+      }
+      v_gps_prior.push_back(image.WorldFromCamPrior().position);
+    }
+  }
+
   // Convert geographic to cartesian
   if (prior_is_gps) {
     const GPSTransform gps_transform(GPSTransform::WGS84);
@@ -320,12 +330,10 @@ bool IncrementalMapperController::SetupPriorPoseFromDatabase() {
         gps_transform.EllToENU(v_gps_prior, ref_lat, ref_lon);
 
     auto xyz_prior_it = v_xyz_prior.begin();
-    for (auto& image : database_cache_->Images()) {
-      if (image.second.HasPosePrior()) {
-        database_cache_->Image(image.first).WorldFromCamPrior() =
-            PosePrior(*xyz_prior_it, PosePrior::CoordinateSystem::CARTESIAN);
-        xyz_prior_it++;
-      }
+    for (const auto& image_id : image_ids_with_prior) {
+      database_cache_->Image(image_id).WorldFromCamPrior() =
+          PosePrior(*xyz_prior_it, PosePrior::CoordinateSystem::CARTESIAN);
+      xyz_prior_it++;
     }
   } else if (!prior_is_gps && !v_gps_prior.empty()) {
     LOG(ERROR)
