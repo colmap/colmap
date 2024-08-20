@@ -155,7 +155,8 @@ class VisualIndex {
 
  private:
   // Quantize the descriptor space into visual words.
-  flann::Matrix<kDescType> Quantize(const BuildOptions& options, const DescType& descriptors) const;
+  flann::Matrix<kDescType> Quantize(const BuildOptions& options,
+                                    const DescType& descriptors) const;
 
   // Query for nearest neighbor images and return nearest neighbor visual word
   // identifiers for each descriptor.
@@ -653,7 +654,8 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Write(
 }
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
-flann::Matrix<kDescType> VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Quantize(
+flann::Matrix<kDescType>
+VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Quantize(
     const BuildOptions& options, const DescType& descriptors) const {
   static_assert(DescType::IsRowMajor, "Descriptors must be row-major.");
 
