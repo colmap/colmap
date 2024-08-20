@@ -95,7 +95,7 @@ int RunLocalizer(int argc, char** argv) {
     
     ImageData imageData = GetImageData( feature_extractor );
     
-    PrintHeading1("Loading database");
+    PrintHeading1("Loading database");  
 
     std::shared_ptr<DatabaseCache> database_cache;
     {

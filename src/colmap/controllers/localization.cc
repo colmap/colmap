@@ -370,6 +370,7 @@ private:
             ImageData image_data;
             image_data.status = image_reader_.Next(&image_data.camera,
                                                    &image_data.image,
+                                                   &image_data.pose_prior,
                                                    &image_data.bitmap,
                                                    &image_data.mask);
             

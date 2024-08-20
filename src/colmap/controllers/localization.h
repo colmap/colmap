@@ -51,12 +51,13 @@ namespace colmap {
 
 struct ImageData {
     ImageReader::Status status = ImageReader::Status::FAILURE;
-    
+
     Camera camera;
     Image image;
+    PosePrior pose_prior;
     Bitmap bitmap;
     Bitmap mask;
-    
+
     FeatureKeypoints keypoints;
     FeatureDescriptors descriptors;
 };
