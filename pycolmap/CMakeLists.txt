@@ -45,6 +45,7 @@ if(GENERATE_STUBS)
           "${CMAKE_COMMAND}" -E env
           #"PYTHONPATH=$<TARGET_FILE_DIR:${PROJECT_NAME}>$<IF:$<PLATFORM_ID:Windows>,$<SEMICOLON>,:>$ENV{PYTHONPATH}"
           #${PROJECT_SOURCE_DIR}/generate_stubs.sh "${Python_EXECUTABLE}" "${CMAKE_CURRENT_BINARY_DIR}"
+          "PYTHONPATH=$<TARGET_FILE_DIR:${PROJECT_NAME}>:$ENV{PYTHONPATH}"
           "${Python_EXECUTABLE}" -m pybind11_stubgen pycolmap -o "${CMAKE_CURRENT_BINARY_DIR}" --ignore-all-errors
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
         COMMENT "Generating pybind11 stubs"
