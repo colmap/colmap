@@ -315,11 +315,6 @@ class PositionPriorBundleAdjuster : public BundleAdjuster {
   Options prior_options_;
 
   std::unique_ptr<ceres::LossFunction> prior_loss_function_;
-
-  // Rotation from camera frame to world frame (i.e. prior pos frame)
-  // to be used to allow the alignment w.r.t. to the position priors
-  // through a common rotation even when some poses are set as const
-  Eigen::Vector4d qwc0_ = Eigen::Vector4d(1.0, 0.0, 0.0, 0.0);
 };
 
 void PrintSolverSummary(const ceres::Solver::Summary& summary,
