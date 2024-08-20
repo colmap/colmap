@@ -7,9 +7,9 @@ $PYTHON_EXEC -m pybind11_stubgen pycolmap -o $OUTPUT \
         --ignore-invalid-expressions "ceres::*" \
         --print-invalid-expressions-as-is \
         --print-safe-value-reprs "[a-zA-Z]+Options\(\)"
-FILES="$OUTPUT/pycolmap/*.pyi"
-sed -i -E 's/: ceres::([a-zA-Z]|::)+//g' $FILES
-sed -i -E 's/ -> ceres::([a-zA-Z]|::)+:$/:/g' $FILES
-$PYTHON_EXEC -m black --line-length 80 $FILES
-$PYTHON_EXEC -m isort --profile=black $FILES
+#FILES="$OUTPUT/pycolmap/*.pyi"
+#sed -i -E 's/: ceres::([a-zA-Z]|::)+//g' $FILES
+#sed -i -E 's/ -> ceres::([a-zA-Z]|::)+:$/:/g' $FILES
+#$PYTHON_EXEC -m black --line-length 80 $FILES
+#$PYTHON_EXEC -m isort --profile=black $FILES
 #mypy $FILES --implicit-optional
