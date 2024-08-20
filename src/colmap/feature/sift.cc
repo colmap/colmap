@@ -54,8 +54,183 @@
 
 #include <Eigen/Geometry>
 #include <flann/flann.hpp>
+#ifdef COLMAP_FAISS_ENABLED
+#include <faiss/index_factory.h>
+#endif  // COLMAP_FAISS_ENABLED
 
 namespace colmap {
+
+using MatrixXi =
+    Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+
+class Index {
+ public:
+  virtual ~Index() = default;
+
+  virtual void BuildIndex(const FeatureDescriptors& descriptors) = 0;
+
+  virtual void Search(const FeatureDescriptors& query_descriptors,
+                      const FeatureDescriptors& index_descriptors,
+                      const int num_neighbors,
+                      MatrixXi* indices,
+                      MatrixXi* distances) = 0;
+};
+
+class FlannIndex : public Index {
+ public:
+  void BuildIndex(const FeatureDescriptors& index_descriptors) override {
+    THROW_CHECK_EQ(index_descriptors.cols(), 128);
+    const int num_index_descriptors = index_descriptors.rows();
+    if (num_index_descriptors == 0) {
+      // Flann is not happy when the input has no descriptors.
+      index_ = nullptr;
+      return;
+    }
+    const flann::Matrix<uint8_t> descriptors_matrix(
+        const_cast<uint8_t*>(index_descriptors.data()),
+        num_index_descriptors,
+        index_descriptors.cols());
+    index_ = std::make_unique<FlannIndexType>(
+        descriptors_matrix, flann::KDTreeIndexParams(kNumTreesInForest));
+    index_->buildIndex();
+  }
+
+  void Search(const FeatureDescriptors& query_descriptors,
+              const FeatureDescriptors& index_descriptors,
+              const int num_neighbors,
+              MatrixXi* indices,
+              MatrixXi* distances) override {
+    THROW_CHECK_NOTNULL(index_);
+    THROW_CHECK_EQ(query_descriptors.cols(), 128);
+    THROW_CHECK_EQ(index_descriptors.cols(), 128);
+
+    const int num_query_descriptors = query_descriptors.rows();
+    const int num_index_descriptors = index_descriptors.rows();
+    if (num_query_descriptors == 0 || num_index_descriptors == 0) {
+      return;
+    }
+
+    const int num_eff_neighbors =
+        std::min(num_neighbors, num_index_descriptors);
+
+    indices->resize(num_query_descriptors, num_eff_neighbors);
+    distances->resize(num_query_descriptors, num_eff_neighbors);
+    const flann::Matrix<uint8_t> query_matrix(
+        const_cast<uint8_t*>(query_descriptors.data()),
+        num_query_descriptors,
+        query_descriptors.cols());
+
+    flann::Matrix<int> indices_matrix(
+        indices->data(), num_query_descriptors, num_eff_neighbors);
+    std::vector<float> distances_vector(num_query_descriptors *
+                                        num_eff_neighbors);
+    flann::Matrix<float> distances_matrix(
+        distances_vector.data(), num_query_descriptors, num_eff_neighbors);
+    index_->knnSearch(query_matrix,
+                      indices_matrix,
+                      distances_matrix,
+                      num_eff_neighbors,
+                      flann::SearchParams(kNumLeafsToVisit));
+
+    for (int query_idx = 0; query_idx < num_query_descriptors; ++query_idx) {
+      for (int k = 0; k < num_eff_neighbors; ++k) {
+        const int index_idx = indices->coeff(query_idx, k);
+        (*distances)(query_idx, k) =
+            query_descriptors.row(query_idx).cast<int>().dot(
+                index_descriptors.row(index_idx).cast<int>());
+      }
+    }
+  }
+
+ private:
+  constexpr static int kNumTreesInForest = 4;
+  constexpr static int kNumLeafsToVisit = 128;
+
+  using FlannIndexType = flann::Index<flann::L2<uint8_t>>;
+  std::unique_ptr<FlannIndexType> index_;
+};
+
+#ifdef COLMAP_FAISS_ENABLED
+
+class FaissIndex : public Index {
+ public:
+  void BuildIndex(const FeatureDescriptors& index_descriptors) override {
+    THROW_CHECK_EQ(index_descriptors.cols(), 128);
+    const int num_index_descriptors = index_descriptors.rows();
+    if (num_index_descriptors == 0) {
+      index_ = nullptr;
+      return;
+    }
+
+    std::ostringstream index_type;
+    if (num_index_descriptors < 4 * kNumDescriptorsPerCluster) {
+      index_type << "Flat";
+    } else {
+      // index_type << "IVF" << num_index_descriptors /
+      // kNumDescriptorsPerCluster
+      //            << ",Flat";
+      index_type << "IVF64,Flat";
+    }
+    const Eigen::Matrix<float, Eigen::Dynamic, 128, Eigen::RowMajor>
+        descriptors_float = index_descriptors.cast<float>();
+    index_ = std::unique_ptr<faiss::Index>(faiss::index_factory(
+        index_descriptors.cols(), index_type.str().c_str(), faiss::METRIC_L2));
+    index_->train(num_index_descriptors, descriptors_float.data());
+    index_->add(num_index_descriptors, descriptors_float.data());
+  }
+
+  void Search(const FeatureDescriptors& query_descriptors,
+              const FeatureDescriptors& index_descriptors,
+              const int num_neighbors,
+              MatrixXi* indices,
+              MatrixXi* distances) override {
+    THROW_CHECK_NOTNULL(index_);
+    THROW_CHECK_EQ(query_descriptors.cols(), 128);
+    THROW_CHECK_EQ(index_descriptors.cols(), 128);
+
+    const int num_query_descriptors = query_descriptors.rows();
+    const int num_index_descriptors = index_descriptors.rows();
+    if (num_query_descriptors == 0 || num_index_descriptors == 0) {
+      return;
+    }
+
+    const int num_eff_neighbors =
+        std::min(num_neighbors, num_index_descriptors);
+
+    indices->resize(num_query_descriptors, num_eff_neighbors);
+    distances->resize(num_query_descriptors, num_eff_neighbors);
+
+    const size_t num_search_results = num_query_descriptors * num_eff_neighbors;
+    std::vector<float> faiss_distances(num_search_results);
+    std::vector<faiss::Index::idx_t> faiss_indices(num_search_results);
+
+    Eigen::Matrix<float, Eigen::Dynamic, 128, Eigen::RowMajor>
+        query_descriptors_float = query_descriptors.cast<float>();
+
+    index_->search(num_query_descriptors,
+                   query_descriptors_float.data(),
+                   num_eff_neighbors,
+                   faiss_distances.data(),
+                   faiss_indices.data());
+
+    for (int query_idx = 0; query_idx < num_query_descriptors; ++query_idx) {
+      for (int k = 0; k < num_eff_neighbors; ++k) {
+        const int index_idx = faiss_indices[query_idx * num_eff_neighbors + k];
+        (*indices)(query_idx, k) = index_idx;
+        (*distances)(query_idx, k) =
+            query_descriptors.row(query_idx).cast<int>().dot(
+                index_descriptors.row(index_idx).cast<int>());
+      }
+    }
+  }
+
+ private:
+  constexpr static int kNumDescriptorsPerCluster = 64;
+
+  std::unique_ptr<faiss::Index> index_;
+};
+
+#endif  // COLMAP_FAISS_ENABLED
 
 bool SiftExtractionOptions::Check() const {
   if (use_gpu) {
@@ -836,8 +1011,7 @@ Eigen::MatrixXi ComputeSiftDistanceMatrix(
   const Eigen::Matrix<int, Eigen::Dynamic, 128> descriptors2_int =
       descriptors2.cast<int>();
 
-  Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> dists(
-      descriptors1.rows(), descriptors2.rows());
+  MatrixXi dists(descriptors1.rows(), descriptors2.rows());
 
   for (FeatureDescriptors::Index i1 = 0; i1 < descriptors1.rows(); ++i1) {
     for (FeatureDescriptors::Index i2 = 0; i2 < descriptors2.rows(); ++i2) {
@@ -853,154 +1027,6 @@ Eigen::MatrixXi ComputeSiftDistanceMatrix(
   }
 
   return dists;
-}
-
-void FindNearestNeighborsFlann(
-    const FeatureDescriptors& query,
-    const FeatureDescriptors& index,
-    const flann::Index<flann::L2<uint8_t>>& flann_index,
-    Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>*
-        indices,
-    Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>*
-        distances) {
-  if (query.rows() == 0 || index.rows() == 0) {
-    return;
-  }
-
-  constexpr size_t kNumNearestNeighbors = 2;
-  constexpr size_t kNumLeafsToVisit = 128;
-
-  const size_t num_nearest_neighbors =
-      std::min(kNumNearestNeighbors, static_cast<size_t>(index.rows()));
-
-  indices->resize(query.rows(), num_nearest_neighbors);
-  distances->resize(query.rows(), num_nearest_neighbors);
-  const flann::Matrix<uint8_t> query_matrix(
-      const_cast<uint8_t*>(query.data()), query.rows(), 128);
-
-  flann::Matrix<int> indices_matrix(
-      indices->data(), query.rows(), num_nearest_neighbors);
-  std::vector<float> distances_vector(query.rows() * num_nearest_neighbors);
-  flann::Matrix<float> distances_matrix(
-      distances_vector.data(), query.rows(), num_nearest_neighbors);
-  flann_index.knnSearch(query_matrix,
-                        indices_matrix,
-                        distances_matrix,
-                        num_nearest_neighbors,
-                        flann::SearchParams(kNumLeafsToVisit));
-
-  for (Eigen::Index query_idx = 0; query_idx < indices->rows(); ++query_idx) {
-    for (Eigen::Index k = 0; k < indices->cols(); ++k) {
-      const Eigen::Index index_idx = indices->coeff(query_idx, k);
-      (*distances)(query_idx, k) = query.row(query_idx).cast<int>().dot(
-          index.row(index_idx).cast<int>());
-    }
-  }
-}
-
-size_t FindBestMatchesOneWayFLANN(
-    const Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>&
-        indices,
-    const Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>&
-        distances,
-    const float max_ratio,
-    const float max_distance,
-    std::vector<int>* matches) {
-  // SIFT descriptor vectors are normalized to length 512.
-  const float kDistNorm = 1.0f / (512.0f * 512.0f);
-
-  size_t num_matches = 0;
-  matches->resize(indices.rows(), -1);
-
-  for (int d1_idx = 0; d1_idx < indices.rows(); ++d1_idx) {
-    int best_i2 = -1;
-    int best_dist = 0;
-    int second_best_dist = 0;
-    for (int n_idx = 0; n_idx < indices.cols(); ++n_idx) {
-      const int d2_idx = indices(d1_idx, n_idx);
-      const int dist = distances(d1_idx, n_idx);
-      if (dist > best_dist) {
-        best_i2 = d2_idx;
-        second_best_dist = best_dist;
-        best_dist = dist;
-      } else if (dist > second_best_dist) {
-        second_best_dist = dist;
-      }
-    }
-
-    // Check if any match found.
-    if (best_i2 == -1) {
-      continue;
-    }
-
-    const float best_dist_normed =
-        std::acos(std::min(kDistNorm * best_dist, 1.0f));
-
-    // Check if match distance passes threshold.
-    if (best_dist_normed > max_distance) {
-      continue;
-    }
-
-    const float second_best_dist_normed =
-        std::acos(std::min(kDistNorm * second_best_dist, 1.0f));
-
-    // Check if match passes ratio test. Keep this comparison >= in order to
-    // ensure that the case of best == second_best is detected.
-    if (best_dist_normed >= max_ratio * second_best_dist_normed) {
-      continue;
-    }
-
-    num_matches += 1;
-    (*matches)[d1_idx] = best_i2;
-  }
-
-  return num_matches;
-}
-
-void FindBestMatchesFlann(
-    const Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>&
-        indices_1to2,
-    const Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>&
-        distances_1to2,
-    const Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>&
-        indices_2to1,
-    const Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>&
-        distances_2to1,
-    const float max_ratio,
-    const float max_distance,
-    const bool cross_check,
-    FeatureMatches* matches) {
-  matches->clear();
-
-  std::vector<int> matches12;
-  const size_t num_matches12 = FindBestMatchesOneWayFLANN(
-      indices_1to2, distances_1to2, max_ratio, max_distance, &matches12);
-
-  if (cross_check && indices_2to1.rows()) {
-    std::vector<int> matches21;
-    const size_t num_matches21 = FindBestMatchesOneWayFLANN(
-        indices_2to1, distances_2to1, max_ratio, max_distance, &matches21);
-    matches->reserve(std::min(num_matches12, num_matches21));
-    for (size_t i1 = 0; i1 < matches12.size(); ++i1) {
-      if (matches12[i1] != -1 && matches21[matches12[i1]] != -1 &&
-          matches21[matches12[i1]] == static_cast<int>(i1)) {
-        FeatureMatch match;
-        match.point2D_idx1 = i1;
-        match.point2D_idx2 = matches12[i1];
-        matches->push_back(match);
-      }
-    }
-  } else {
-    matches->reserve(num_matches12);
-    for (size_t i1 = 0; i1 < matches12.size(); ++i1) {
-      if (matches12[i1] != -1) {
-        FeatureMatch match;
-        match.point2D_idx1 = i1;
-        match.point2D_idx2 = matches12[i1];
-        matches->push_back(match);
-      }
-    }
-  }
 }
 
 class SiftCPUFeatureMatcher : public FeatureMatcher {
@@ -1024,13 +1050,17 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
     if (descriptors1 != nullptr) {
       THROW_CHECK_EQ(descriptors1->cols(), 128);
       descriptors1_ = descriptors1;
-      flann_index1_ = BuildFlannIndex(*descriptors1_);
+      if (!options_.brute_force_cpu_matcher) {
+        index1_ = BuildIndex(*descriptors1_);
+      }
     }
 
     if (descriptors2 != nullptr) {
       THROW_CHECK_EQ(descriptors2->cols(), 128);
       descriptors2_ = descriptors2;
-      flann_index2_ = BuildFlannIndex(*descriptors2_);
+      if (!options_.brute_force_cpu_matcher) {
+        index2_ = BuildIndex(*descriptors2_);
+      }
     }
 
     THROW_CHECK_NOTNULL(descriptors1_);
@@ -1051,36 +1081,31 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
       return;
     }
 
-    Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
-        indices_1to2;
-    Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
-        distances_1to2;
-    Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
-        indices_2to1;
-    Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
-        distances_2to1;
-
-    FindNearestNeighborsFlann(*descriptors1_,
-                              *descriptors2_,
-                              *flann_index2_,
-                              &indices_1to2,
-                              &distances_1to2);
+    MatrixXi indices_1to2;
+    MatrixXi distances_1to2;
+    MatrixXi indices_2to1;
+    MatrixXi distances_2to1;
+    index2_->Search(*descriptors1_,
+                    *descriptors2_,
+                    /*num_neighbors=*/2,
+                    &indices_1to2,
+                    &distances_1to2);
     if (options_.cross_check) {
-      FindNearestNeighborsFlann(*descriptors2_,
-                                *descriptors1_,
-                                *flann_index1_,
-                                &indices_2to1,
-                                &distances_2to1);
+      index1_->Search(*descriptors2_,
+                      *descriptors1_,
+                      /*num_neighbors=*/2,
+                      &indices_2to1,
+                      &distances_2to1);
     }
 
-    FindBestMatchesFlann(indices_1to2,
-                         distances_1to2,
-                         indices_2to1,
-                         distances_2to1,
-                         options_.max_ratio,
-                         options_.max_distance,
-                         options_.cross_check,
-                         matches);
+    FindBestMatches(indices_1to2,
+                    distances_1to2,
+                    indices_2to1,
+                    distances_2to1,
+                    options_.max_ratio,
+                    options_.max_distance,
+                    options_.cross_check,
+                    matches);
   }
 
   void MatchGuided(
@@ -1099,7 +1124,9 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
       THROW_CHECK_EQ(descriptors1->cols(), 128);
       keypoints1_ = keypoints1;
       descriptors1_ = descriptors1;
-      flann_index1_ = BuildFlannIndex(*descriptors1_);
+      if (!options_.brute_force_cpu_matcher) {
+        index1_ = BuildIndex(*descriptors1_);
+      }
     }
 
     if (descriptors2 != nullptr) {
@@ -1108,7 +1135,9 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
       THROW_CHECK_EQ(descriptors2->cols(), 128);
       keypoints2_ = keypoints2;
       descriptors2_ = descriptors2;
-      flann_index2_ = BuildFlannIndex(*descriptors2_);
+      if (!options_.brute_force_cpu_matcher) {
+        index2_ = BuildIndex(*descriptors2_);
+      }
     }
 
     const float max_residual = max_error * max_error;
@@ -1153,14 +1182,10 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
                                                             *descriptors2_,
                                                             guided_filter);
 
-    Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
-        indices_1to2(dists.rows(), dists.cols());
-    Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
-        indices_2to1(dists.cols(), dists.rows());
-    Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
-        distances_1to2 = dists;
-    Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
-        distances_2to1 = dists.transpose();
+    MatrixXi indices_1to2(dists.rows(), dists.cols());
+    MatrixXi indices_2to1(dists.cols(), dists.rows());
+    MatrixXi distances_1to2 = dists;
+    MatrixXi distances_2to1 = dists.transpose();
 
     for (int i = 0; i < indices_1to2.rows(); ++i) {
       indices_1to2.row(i) = Eigen::VectorXi::LinSpaced(
@@ -1171,33 +1196,123 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
           indices_2to1.cols(), 0, indices_2to1.cols() - 1);
     }
 
-    FindBestMatchesFlann(indices_1to2,
-                         distances_1to2,
-                         indices_2to1,
-                         distances_2to1,
-                         options_.max_ratio,
-                         options_.max_distance,
-                         options_.cross_check,
-                         &two_view_geometry->inlier_matches);
+    FindBestMatches(indices_1to2,
+                    distances_1to2,
+                    indices_2to1,
+                    distances_2to1,
+                    options_.max_ratio,
+                    options_.max_distance,
+                    options_.cross_check,
+                    &two_view_geometry->inlier_matches);
   }
 
  private:
-  using FlannIndexType = flann::Index<flann::L2<uint8_t>>;
-
-  static std::unique_ptr<FlannIndexType> BuildFlannIndex(
+  static std::unique_ptr<Index> BuildIndex(
       const FeatureDescriptors& descriptors) {
-    THROW_CHECK_EQ(descriptors.cols(), 128);
-    if (descriptors.rows() == 0) {
-      // Flann is not happy when the input has no descriptors.
-      return nullptr;
-    }
-    const flann::Matrix<uint8_t> descriptors_matrix(
-        const_cast<uint8_t*>(descriptors.data()), descriptors.rows(), 128);
-    constexpr size_t kNumTreesInForest = 4;
-    auto index = std::make_unique<FlannIndexType>(
-        descriptors_matrix, flann::KDTreeIndexParams(kNumTreesInForest));
-    index->buildIndex();
+#ifdef COLMAP_FAISS_ENABLED
+    auto index = std::make_unique<FaissIndex>();
+#else
+    auto index = std::make_unique<FlannIndex>();
+#endif  // COLMAP_FAISS_ENABLED
+    index->BuildIndex(descriptors);
     return index;
+  }
+
+  void FindBestMatches(const MatrixXi& indices_1to2,
+                       const MatrixXi& distances_1to2,
+                       const MatrixXi& indices_2to1,
+                       const MatrixXi& distances_2to1,
+                       const float max_ratio,
+                       const float max_distance,
+                       const bool cross_check,
+                       FeatureMatches* matches) {
+    matches->clear();
+
+    std::vector<int> matches12;
+    const size_t num_matches12 = FindBestMatchesOneWay(
+        indices_1to2, distances_1to2, max_ratio, max_distance, &matches12);
+
+    if (cross_check && indices_2to1.rows()) {
+      std::vector<int> matches21;
+      const size_t num_matches21 = FindBestMatchesOneWay(
+          indices_2to1, distances_2to1, max_ratio, max_distance, &matches21);
+      matches->reserve(std::min(num_matches12, num_matches21));
+      for (size_t i1 = 0; i1 < matches12.size(); ++i1) {
+        if (matches12[i1] != -1 && matches21[matches12[i1]] != -1 &&
+            matches21[matches12[i1]] == static_cast<int>(i1)) {
+          FeatureMatch match;
+          match.point2D_idx1 = i1;
+          match.point2D_idx2 = matches12[i1];
+          matches->push_back(match);
+        }
+      }
+    } else {
+      matches->reserve(num_matches12);
+      for (size_t i1 = 0; i1 < matches12.size(); ++i1) {
+        if (matches12[i1] != -1) {
+          FeatureMatch match;
+          match.point2D_idx1 = i1;
+          match.point2D_idx2 = matches12[i1];
+          matches->push_back(match);
+        }
+      }
+    }
+  }
+
+  size_t FindBestMatchesOneWay(const MatrixXi& indices,
+                               const MatrixXi& distances,
+                               const float max_ratio,
+                               const float max_distance,
+                               std::vector<int>* matches) {
+    // SIFT descriptor vectors are normalized to length 512.
+    const float kDistNorm = 1.0f / (512.0f * 512.0f);
+
+    size_t num_matches = 0;
+    matches->resize(indices.rows(), -1);
+
+    for (int d1_idx = 0; d1_idx < indices.rows(); ++d1_idx) {
+      int best_i2 = -1;
+      int best_dist = 0;
+      int second_best_dist = 0;
+      for (int n_idx = 0; n_idx < indices.cols(); ++n_idx) {
+        const int d2_idx = indices(d1_idx, n_idx);
+        const int dist = distances(d1_idx, n_idx);
+        if (dist > best_dist) {
+          best_i2 = d2_idx;
+          second_best_dist = best_dist;
+          best_dist = dist;
+        } else if (dist > second_best_dist) {
+          second_best_dist = dist;
+        }
+      }
+
+      // Check if any match found.
+      if (best_i2 == -1) {
+        continue;
+      }
+
+      const float best_dist_normed =
+          std::acos(std::min(kDistNorm * best_dist, 1.0f));
+
+      // Check if match distance passes threshold.
+      if (best_dist_normed > max_distance) {
+        continue;
+      }
+
+      const float second_best_dist_normed =
+          std::acos(std::min(kDistNorm * second_best_dist, 1.0f));
+
+      // Check if match passes ratio test. Keep this comparison >= in order to
+      // ensure that the case of best == second_best is detected.
+      if (best_dist_normed >= max_ratio * second_best_dist_normed) {
+        continue;
+      }
+
+      num_matches += 1;
+      (*matches)[d1_idx] = best_i2;
+    }
+
+    return num_matches;
   }
 
   const SiftMatchingOptions options_;
@@ -1205,8 +1320,8 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
   std::shared_ptr<const FeatureKeypoints> keypoints2_;
   std::shared_ptr<const FeatureDescriptors> descriptors1_;
   std::shared_ptr<const FeatureDescriptors> descriptors2_;
-  std::unique_ptr<FlannIndexType> flann_index1_;
-  std::unique_ptr<FlannIndexType> flann_index2_;
+  std::unique_ptr<Index> index1_;
+  std::unique_ptr<Index> index2_;
 };
 
 #if defined(COLMAP_GPU_ENABLED)

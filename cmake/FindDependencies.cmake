@@ -45,6 +45,11 @@ if(NOT TARGET Ceres::ceres)
         Ceres::ceres INTERFACE ${CERES_LIBRARIES})
 endif()
 
+find_package(faiss ${COLMAP_FIND_TYPE})
+if(faiss_FOUND)
+    add_definitions("-DCOLMAP_FAISS_ENABLED")
+endif()
+
 if(TESTS_ENABLED)
     find_package(GTest ${COLMAP_FIND_TYPE})
 endif()
