@@ -10,8 +10,7 @@ brew install git cmake ninja gfortran ccache
 
 sudo xcode-select --reset
 
-export ARCHFLAGS="-arch ${CMAKE_OSX_ARCHITECTURES}"
-
+echo "Has ARCHFLAGS = ${ARCHFLAGS}"
 # When building lapack-reference, vcpkg/cmake looks for gfortran.
 ln -sf $(which gfortran-14) "$(dirname $(which gfortran-14))/gfortran"
 
