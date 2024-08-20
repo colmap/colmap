@@ -135,7 +135,7 @@ jobs:
           package-dir: ./pycolmap/
         env:
           CIBW_ARCHS_MACOS: ${{ matrix.config.arch }}
-            CIBW_DEBUG_TRACEBACK: TRUE
+          CIBW_DEBUG_TRACEBACK: true
       - name: Archive wheels
         uses: actions/upload-artifact@v4
         with:
