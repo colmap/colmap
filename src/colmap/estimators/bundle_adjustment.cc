@@ -928,8 +928,17 @@ bool PositionPriorBundleAdjuster::Solve(Reconstruction* reconstruction) {
     }
   }
 
-  SetUpProblem(
-      reconstruction, loss_function_.get(), prior_loss_function_.get());
+  // Set up problem
+  // Warning: SetUpProblem must be called before AddPosePriorToProblem()
+  // Do not change order of instructions!
+  SetUpProblem(reconstruction, loss_function_.get());
+
+  if (prior_options_.use_prior_position) {
+    for (const image_t image_id : config_.Images()) {
+      AddPosePriorToProblem(
+          image_id, reconstruction, prior_loss_function_.get());
+    }
+  }
 
   if (problem_->NumResiduals() == 0) {
     return false;
@@ -958,110 +967,33 @@ bool PositionPriorBundleAdjuster::Solve(Reconstruction* reconstruction) {
   return true;
 }
 
-void PositionPriorBundleAdjuster::SetUpProblem(
-    Reconstruction* reconstruction,
-    ceres::LossFunction* loss_function,
-    ceres::LossFunction* prior_loss_function) {
-  THROW_CHECK_NOTNULL(reconstruction);
-
-  // Initialize an empty problem
-  ceres::Problem::Options problem_options;
-  problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
-  problem_ = std::make_shared<ceres::Problem>(problem_options);
-
-  // Set up problem
-  // Warning: AddPointsToProblem assumes that AddImageToProblem is called first.
-  // Do not change order of instructions!
-  for (const image_t image_id : config_.Images()) {
-    AddImageToProblem(
-        image_id, reconstruction, loss_function, prior_loss_function);
-  }
-  for (const auto point3D_id : config_.VariablePoints()) {
-    AddPointToProblem(point3D_id, reconstruction, loss_function);
-  }
-  for (const auto point3D_id : config_.ConstantPoints()) {
-    AddPointToProblem(point3D_id, reconstruction, loss_function);
-  }
-
-  ParameterizeCameras(reconstruction);
-  ParameterizePoints(reconstruction);
-}
-
-void PositionPriorBundleAdjuster::AddImageToProblem(
+void PositionPriorBundleAdjuster::AddPosePriorToProblem(
     image_t image_id,
     Reconstruction* reconstruction,
-    ceres::LossFunction* loss_function,
     ceres::LossFunction* prior_loss_function) {
   Image& image = reconstruction->Image(image_id);
-  Camera& camera = reconstruction->Camera(image.CameraId());
 
-  // CostFunction assumes unit quaternions.
-  image.CamFromWorld().rotation.normalize();
+  if (!image.HasPosePrior()) {
+    return;
+  }
 
+  double* cam_from_world_translation = image.CamFromWorld().translation.data();
+
+  // If image has not been added to the problem do not use it
+  if (!problem_->HasParameterBlock(cam_from_world_translation)) {
+    return;
+  }
+
+  // image.CamFromWorld().rotation is already normalized in AddImageToProblem()
   double* cam_from_world_rotation =
       image.CamFromWorld().rotation.coeffs().data();
-  double* cam_from_world_translation = image.CamFromWorld().translation.data();
-  double* camera_params = camera.params.data();
 
-  const bool constant_cam_pose =
-      !options_.refine_extrinsics || config_.HasConstantCamPose(image_id);
-
-  // Add residuals to bundle adjustment problem.
-  size_t num_observations = 0;
-  for (const Point2D& point2D : image.Points2D()) {
-    if (!point2D.HasPoint3D()) {
-      continue;
-    }
-
-    num_observations += 1;
-    point3D_num_observations_[point2D.point3D_id] += 1;
-
-    Point3D& point3D = reconstruction->Point3D(point2D.point3D_id);
-    assert(point3D.track.Length() > 1);
-
-    if (constant_cam_pose) {
-      problem_->AddResidualBlock(
-          CameraCostFunction<ReprojErrorConstantPoseCostFunction>(
-              camera.model_id, image.CamFromWorld(), point2D.xy),
-          loss_function,
-          point3D.xyz.data(),
-          camera_params);
-    } else {
-      problem_->AddResidualBlock(CameraCostFunction<ReprojErrorCostFunction>(
-                                     camera.model_id, point2D.xy),
-                                 loss_function,
-                                 cam_from_world_rotation,
-                                 cam_from_world_translation,
-                                 point3D.xyz.data(),
-                                 camera_params);
-    }
-  }
-
-  if (num_observations > 0) {
-    camera_ids_.insert(image.CameraId());
-
-    // Set pose parameterization.
-    if (!constant_cam_pose) {
-      SetQuaternionManifold(problem_.get(), cam_from_world_rotation);
-      if (config_.HasConstantCamPositions(image_id)) {
-        const std::vector<int>& constant_position_idxs =
-            config_.ConstantCamPositions(image_id);
-        SetSubsetManifold(3,
-                          constant_position_idxs,
-                          problem_.get(),
-                          cam_from_world_translation);
-      }
-    }
-
-    if (prior_options_.use_prior_position && image.HasPosePrior()) {
-      problem_->AddResidualBlock(PositionPriorErrorCostFunction::Create(
-                                     image.WorldFromCamPrior().position,
-                                     prior_options_.prior_position_covariance),
-                                 prior_loss_function,
-                                 cam_from_world_rotation,
-                                 cam_from_world_translation);
-    }
-  }
+  problem_->AddResidualBlock(PositionPriorErrorCostFunction::Create(
+                                 image.WorldFromCamPrior().position,
+                                 prior_options_.prior_position_covariance),
+                             prior_loss_function,
+                             cam_from_world_rotation,
+                             cam_from_world_translation);
 }
 
 void PrintSolverSummary(const ceres::Solver::Summary& summary,

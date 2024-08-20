@@ -295,22 +295,12 @@ class PositionPriorBundleAdjuster : public BundleAdjuster {
   PositionPriorBundleAdjuster(const BundleAdjustmentOptions& options,
                               const BundleAdjustmentConfig& config);
 
-  PositionPriorBundleAdjuster(const BundleAdjustmentOptions& options,
-                              const Options& prior_options,
-                              const BundleAdjustmentConfig& config);
-
   bool Solve(Reconstruction* reconstruction);
 
-  // Set up the problem
-  void SetUpProblem(Reconstruction* reconstruction,
-                    ceres::LossFunction* loss_function,
-                    ceres::LossFunction* prior_loss_function);
-
  private:
-  void AddImageToProblem(image_t image_id,
-                         Reconstruction* reconstruction,
-                         ceres::LossFunction* loss_function,
-                         ceres::LossFunction* prior_loss_function);
+  void AddPosePriorToProblem(image_t image_id,
+                             Reconstruction* reconstruction,
+                             ceres::LossFunction* prior_loss_function);
 
   Options prior_options_;
 
