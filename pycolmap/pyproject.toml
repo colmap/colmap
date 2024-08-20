@@ -43,6 +43,7 @@ build-verbosity = 3
 
 [tool.cibuildwheel.environment]
 VCPKG_COMMIT_ID = "e01906b2ba7e645a76ee021a19de616edc98d29f"
+VERBOSE =1
 
 [tool.cibuildwheel.linux]
 before-all = "{package}/ci/install-colmap-centos.sh"
