@@ -84,6 +84,7 @@ jobs:
           $CONFIG_SETTINGS = "cmake.define.CMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}"
           $CONFIG_SETTINGS = "${CONFIG_SETTINGS} cmake.define.VCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET}"
           $CONFIG_SETTINGS = "${CONFIG_SETTINGS} cmake.define.VCPKG_INSTALLED_DIR=${VCPKG_INSTALLED_DIR}"
+          $CONFIG_SETTINGS = "${CONFIG_SETTINGS} cmake.define.GENERATE_STUBS=OFF"
           echo "CIBW_CONFIG_SETTINGS_WINDOWS=${CONFIG_SETTINGS}" >> "${env:GITHUB_ENV}"
           $CIBW_REPAIR_WHEEL_COMMAND = "delvewheel repair -v --add-path ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin -w {dest_dir} {wheel}"
           echo "CIBW_REPAIR_WHEEL_COMMAND_WINDOWS=${CIBW_REPAIR_WHEEL_COMMAND}" >> "${env:GITHUB_ENV}"
@@ -105,7 +106,6 @@ jobs:
 
           # Fix: cibuildhweel cannot interpolate env variables.
           CONFIG_SETTINGS="cmake.define.CMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}"
-          CONFIG_SETTINGS="${CONFIG_SETTINGS} cmake.define.GENERATE_STUBS=ON"
           CONFIG_SETTINGS="${CONFIG_SETTINGS} cmake.define.VCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET}"
           CONFIG_SETTINGS="${CONFIG_SETTINGS} cmake.define.VCPKG_INSTALLED_DIR=/project/build/vcpkg_installed"
           echo "CIBW_CONFIG_SETTINGS_LINUX=${CONFIG_SETTINGS}" >> "$GITHUB_ENV"
