@@ -143,7 +143,7 @@ def compute_errors(sparse_gt_path, sparse_path):
     sparse_gt = pycolmap.Reconstruction()
     sparse_gt.read(sparse_gt_path)
 
-    if not (sparse_path / "images.txt").exists():
+    if not (sparse_path / "images.bin").exists():
         print("Reconstruction or alignment failed")
         return len(sparse_gt.images) * [np.inf], len(sparse_gt.images) * [180]
 
@@ -220,6 +220,8 @@ def evaluate_eth3d(args):
         category = category_path.name
         results[category] = {}
 
+        all_dts = []
+
         for scene_path in category_path.iterdir():
             if not scene_path.is_dir():
                 continue
@@ -259,10 +261,14 @@ def evaluate_eth3d(args):
                 sparse_path=sparse_aligned_path,
             )
 
+            all_dts.extend(dts)
+
             # The ground truth poses are deemed accurate only up to 1mm.
             results[category][scene] = compute_auc(
                 dts, args.thresholds, min_error=0.001
             )
+
+        results[category]["__all__"] = compute_auc(all_dts, args.thresholds, min_error=0.02)
 
     return results
 
@@ -278,6 +284,8 @@ def evaluate_imc(args, year):
 
         category = category_path.name
         results[category] = {}
+        
+        all_dts = []
 
         for scene_path in category_path.iterdir():
             if not scene_path.is_dir():
@@ -313,28 +321,36 @@ def evaluate_imc(args, year):
                 sparse_path=sparse_aligned_path,
             )
 
+            all_dts.extend(dts)
+
             # The ground truth poses are deemed accurate only up to 2cm.
             results[category][scene] = compute_auc(dts, args.thresholds, min_error=0.02)
+
+        results[category]["__all__"] = compute_auc(all_dts, args.thresholds, min_error=0.02)
 
     return results
 
 
 def format_results(results, thresholds):
     column = "scenes"
-    size1 = max(len(column) + 2, max(map(len, (s.keys() for s in results.values()))))
+    size1 = max(len(column) + 2, max(len(s) for d in results.values() for c in d.values() for s in c.keys()))
     metric = "AUC @ X cm (%)"
-    size2 = max(len(metric) + 2, len(thresholds) * 6 - 1)
-    header = f"{column:-^{size1}} {metric:-^{size2}}"
+    size2 = max(len(metric) + 2, len(thresholds) * 7 - 1)
+    header = f"{column:=^{size1}} {metric:=^{size2}}"
     header += "\n" + " " * (size1 + 1)
-    header += " ".join(f'{str(t*100).rstrip("0").rstrip("."):^5}' for t in thresholds)
+    header += " ".join(f'{str(t*100).rstrip("0").rstrip("."):^6}' for t in thresholds)
     text = [header]
     for dataset, category_results in results.items():
         for category, scene_results in category_results.items():
-            text.append(f"\n{dataset-category:-^{size1 + size2 + 1}}")
+            text.append(f"\n{dataset + '=' + category:=^{size1 + size2 + 1}}")
             for scene, aucs in scene_results.items():
                 assert len(aucs) == len(thresholds)
-                row = f"{scene:<{size1}} "
-                row += " ".join(f"{auc:>5.2f}" for auc in aucs)
+                row = ""
+                if scene == "__all__":
+                    scene = ""
+                    row += "-" * (size1 + size2 + 1) + "\n"
+                row += f"{scene:<{size1}} "
+                row += " ".join(f"{auc:>6.2f}" for auc in aucs)
                 text.append(row)
     return "\n".join(text)
 
