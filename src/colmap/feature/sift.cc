@@ -51,11 +51,13 @@
 #include <array>
 #include <fstream>
 #include <memory>
+#include <random>
 
 #include <Eigen/Geometry>
 #include <flann/flann.hpp>
 #ifdef COLMAP_FAISS_ENABLED
 #include <faiss/index_factory.h>
+#include <omp.h>
 #endif  // COLMAP_FAISS_ENABLED
 
 namespace colmap {
@@ -73,7 +75,7 @@ class Index {
                       const FeatureDescriptors& index_descriptors,
                       const int num_neighbors,
                       MatrixXi* indices,
-                      MatrixXi* distances) = 0;
+                      MatrixXi* distances) const = 0;
 };
 
 class FlannIndex : public Index {
@@ -99,7 +101,7 @@ class FlannIndex : public Index {
               const FeatureDescriptors& index_descriptors,
               const int num_neighbors,
               MatrixXi* indices,
-              MatrixXi* distances) override {
+              MatrixXi* distances) const override {
     THROW_CHECK_NOTNULL(index_);
     THROW_CHECK_EQ(query_descriptors.cols(), 128);
     THROW_CHECK_EQ(index_descriptors.cols(), 128);
@@ -163,19 +165,34 @@ class FaissIndex : public Index {
     }
 
     std::ostringstream index_type;
-    if (num_index_descriptors < 4 * kNumDescriptorsPerCluster) {
+    if (num_index_descriptors < 512) {
       index_type << "Flat";
     } else {
       // index_type << "IVF" << num_index_descriptors /
       // kNumDescriptorsPerCluster
       //            << ",Flat";
-      index_type << "IVF64,Flat";
+      index_type << "IVF32,Flat";
     }
+
     const Eigen::Matrix<float, Eigen::Dynamic, 128, Eigen::RowMajor>
         descriptors_float = index_descriptors.cast<float>();
-    index_ = std::unique_ptr<faiss::Index>(faiss::index_factory(
-        index_descriptors.cols(), index_type.str().c_str(), faiss::METRIC_L2));
-    index_->train(num_index_descriptors, descriptors_float.data());
+
+    const int num_train_descriptors = std::min(num_index_descriptors, 39 * 32);
+    std::vector<int> train_descriptor_idxs(num_index_descriptors);
+    std::iota(train_descriptor_idxs.begin(), train_descriptor_idxs.end(), 0);
+    std::shuffle(train_descriptor_idxs.begin(),
+                 train_descriptor_idxs.end(),
+                 std::mt19937(42));
+    Eigen::Matrix<float, Eigen::Dynamic, 128, Eigen::RowMajor>
+        train_descriptors(num_train_descriptors, 128);
+    for (int i = 0; i < num_train_descriptors; ++i) {
+      train_descriptors.row(i) =
+          descriptors_float.row(train_descriptor_idxs[i]);
+    }
+
+    index_ = std::unique_ptr<faiss::Index>(
+        faiss::index_factory(128, index_type.str().c_str(), faiss::METRIC_L2));
+    index_->train(num_train_descriptors, train_descriptors.data());
     index_->add(num_index_descriptors, descriptors_float.data());
   }
 
@@ -183,7 +200,7 @@ class FaissIndex : public Index {
               const FeatureDescriptors& index_descriptors,
               const int num_neighbors,
               MatrixXi* indices,
-              MatrixXi* distances) override {
+              MatrixXi* distances) const override {
     THROW_CHECK_NOTNULL(index_);
     THROW_CHECK_EQ(query_descriptors.cols(), 128);
     THROW_CHECK_EQ(index_descriptors.cols(), 128);
@@ -1034,6 +1051,16 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
   explicit SiftCPUFeatureMatcher(const SiftMatchingOptions& options)
       : options_(options) {
     THROW_CHECK(options_.Check());
+#ifdef COLMAP_FAISS_ENABLED
+    omp_num_threads_ = omp_get_num_threads();
+    omp_set_num_threads(1);
+#endif  // COLMAP_FAISS_ENABLED
+  }
+
+  ~SiftCPUFeatureMatcher() override {
+#ifdef COLMAP_FAISS_ENABLED
+    omp_set_num_threads(omp_num_threads_);
+#endif  // COLMAP_FAISS_ENABLED
   }
 
   static std::unique_ptr<FeatureMatcher> Create(
@@ -1322,6 +1349,7 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
   std::shared_ptr<const FeatureDescriptors> descriptors2_;
   std::unique_ptr<Index> index1_;
   std::unique_ptr<Index> index2_;
+  int omp_num_threads_ = -1;
 };
 
 #if defined(COLMAP_GPU_ENABLED)
