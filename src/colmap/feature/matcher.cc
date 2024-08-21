@@ -29,7 +29,90 @@
 
 #include "colmap/feature/matcher.h"
 
+#include <flann/flann.hpp>
+
 namespace colmap {
+namespace {
+
+class FlannFeatureMatcherIndex : public FeatureMatcherIndex {
+ public:
+  void Build(const FeatureDescriptors& index_descriptors) override {
+    THROW_CHECK_EQ(index_descriptors.cols(), 128);
+    const int num_index_descriptors = index_descriptors.rows();
+    if (num_index_descriptors == 0) {
+      // Flann is not happy when the input has no descriptors.
+      index_ = nullptr;
+      return;
+    }
+    const flann::Matrix<uint8_t> descriptors_matrix(
+        const_cast<uint8_t*>(index_descriptors.data()),
+        num_index_descriptors,
+        index_descriptors.cols());
+    index_ = std::make_unique<FlannIndexType>(
+        descriptors_matrix, flann::KDTreeIndexParams(kNumTreesInForest));
+    index_->buildIndex();
+  }
+
+  void Search(const FeatureDescriptors& query_descriptors,
+              const FeatureDescriptors& index_descriptors,
+              const int num_neighbors,
+              FeatureMatcher::MatrixXi* indices,
+              FeatureMatcher::MatrixXi* distances) const override {
+    THROW_CHECK_NOTNULL(index_);
+    THROW_CHECK_EQ(query_descriptors.cols(), 128);
+    THROW_CHECK_EQ(index_descriptors.cols(), 128);
+
+    const int num_query_descriptors = query_descriptors.rows();
+    const int num_index_descriptors = index_descriptors.rows();
+    if (num_query_descriptors == 0 || num_index_descriptors == 0) {
+      return;
+    }
+
+    const int num_eff_neighbors =
+        std::min(num_neighbors, num_index_descriptors);
+
+    indices->resize(num_query_descriptors, num_eff_neighbors);
+    distances->resize(num_query_descriptors, num_eff_neighbors);
+    const flann::Matrix<uint8_t> query_matrix(
+        const_cast<uint8_t*>(query_descriptors.data()),
+        num_query_descriptors,
+        query_descriptors.cols());
+
+    flann::Matrix<int> indices_matrix(
+        indices->data(), num_query_descriptors, num_eff_neighbors);
+    std::vector<float> distances_vector(num_query_descriptors *
+                                        num_eff_neighbors);
+    flann::Matrix<float> distances_matrix(
+        distances_vector.data(), num_query_descriptors, num_eff_neighbors);
+    index_->knnSearch(query_matrix,
+                      indices_matrix,
+                      distances_matrix,
+                      num_eff_neighbors,
+                      flann::SearchParams(kNumLeafsToVisit));
+
+    for (int query_idx = 0; query_idx < num_query_descriptors; ++query_idx) {
+      for (int k = 0; k < num_eff_neighbors; ++k) {
+        const int index_idx = indices->coeff(query_idx, k);
+        (*distances)(query_idx, k) =
+            query_descriptors.row(query_idx).cast<int>().dot(
+                index_descriptors.row(index_idx).cast<int>());
+      }
+    }
+  }
+
+ private:
+  constexpr static int kNumTreesInForest = 4;
+  constexpr static int kNumLeafsToVisit = 128;
+
+  using FlannIndexType = flann::Index<flann::L2<uint8_t>>;
+  std::unique_ptr<FlannIndexType> index_;
+};
+
+}  // namespace
+
+std::unique_ptr<FeatureMatcherIndex> FeatureMatcherIndex::Create() {
+  return std::make_unique<FlannFeatureMatcherIndex>();
+}
 
 FeatureMatcherCache::FeatureMatcherCache(const size_t cache_size,
                                          std::shared_ptr<Database> database,
@@ -76,6 +159,14 @@ void FeatureMatcherCache::Setup() {
                 database_->ReadDescriptors(image_id));
           });
 
+  matcher_index_cache_ =
+      std::make_unique<LRUCache<image_t, std::shared_ptr<FeatureMatcherIndex>>>(
+          images_cache_.size(), [this](const image_t image_id) {
+            auto index = FeatureMatcherIndex::Create();
+            index->Build(*GetDescriptors(image_id));
+            return index;
+          });
+
   keypoints_exists_cache_ = std::make_unique<LRUCache<image_t, bool>>(
       images_cache_.size(), [this](const image_t image_id) {
         return database_->ExistsKeypoints(image_id);
@@ -102,19 +193,29 @@ const PosePrior& FeatureMatcherCache::GetPosePrior(
 
 std::shared_ptr<FeatureKeypoints> FeatureMatcherCache::GetKeypoints(
     const image_t image_id) {
-  std::lock_guard<std::mutex> lock(database_mutex_);
+  std::lock_guard<std::mutex> lock(mutex_);
   return keypoints_cache_->Get(image_id);
 }
 
 std::shared_ptr<FeatureDescriptors> FeatureMatcherCache::GetDescriptors(
     const image_t image_id) {
-  std::lock_guard<std::mutex> lock(database_mutex_);
+  std::lock_guard<std::mutex> lock(mutex_);
   return descriptors_cache_->Get(image_id);
+}
+
+std::shared_ptr<FeatureMatcherIndex> FeatureMatcherCache::GetMatcherIndex(
+    const image_t image_id) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  if (matcher_index_cache_->Exists(image_id)) {
+    return matcher_index_cache_->Get(image_id);
+  }
+  
+  return matcher_index_cache_->Get(image_id);
 }
 
 FeatureMatches FeatureMatcherCache::GetMatches(const image_t image_id1,
                                                const image_t image_id2) {
-  std::lock_guard<std::mutex> lock(database_mutex_);
+  std::lock_guard<std::mutex> lock(mutex_);
   return database_->ReadMatches(image_id1, image_id2);
 }
 
@@ -136,31 +237,31 @@ bool FeatureMatcherCache::ExistsPosePrior(const image_t image_id) const {
 }
 
 bool FeatureMatcherCache::ExistsKeypoints(const image_t image_id) {
-  std::lock_guard<std::mutex> lock(database_mutex_);
+  std::lock_guard<std::mutex> lock(mutex_);
   return keypoints_exists_cache_->Get(image_id);
 }
 
 bool FeatureMatcherCache::ExistsDescriptors(const image_t image_id) {
-  std::lock_guard<std::mutex> lock(database_mutex_);
+  std::lock_guard<std::mutex> lock(mutex_);
   return descriptors_exists_cache_->Get(image_id);
 }
 
 bool FeatureMatcherCache::ExistsMatches(const image_t image_id1,
                                         const image_t image_id2) {
-  std::lock_guard<std::mutex> lock(database_mutex_);
+  std::lock_guard<std::mutex> lock(mutex_);
   return database_->ExistsMatches(image_id1, image_id2);
 }
 
 bool FeatureMatcherCache::ExistsInlierMatches(const image_t image_id1,
                                               const image_t image_id2) {
-  std::lock_guard<std::mutex> lock(database_mutex_);
+  std::lock_guard<std::mutex> lock(mutex_);
   return database_->ExistsInlierMatches(image_id1, image_id2);
 }
 
 void FeatureMatcherCache::WriteMatches(const image_t image_id1,
                                        const image_t image_id2,
                                        const FeatureMatches& matches) {
-  std::lock_guard<std::mutex> lock(database_mutex_);
+  std::lock_guard<std::mutex> lock(mutex_);
   database_->WriteMatches(image_id1, image_id2, matches);
 }
 
@@ -168,19 +269,19 @@ void FeatureMatcherCache::WriteTwoViewGeometry(
     const image_t image_id1,
     const image_t image_id2,
     const TwoViewGeometry& two_view_geometry) {
-  std::lock_guard<std::mutex> lock(database_mutex_);
+  std::lock_guard<std::mutex> lock(mutex_);
   database_->WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
 }
 
 void FeatureMatcherCache::DeleteMatches(const image_t image_id1,
                                         const image_t image_id2) {
-  std::lock_guard<std::mutex> lock(database_mutex_);
+  std::lock_guard<std::mutex> lock(mutex_);
   database_->DeleteMatches(image_id1, image_id2);
 }
 
 void FeatureMatcherCache::DeleteInlierMatches(const image_t image_id1,
                                               const image_t image_id2) {
-  std::lock_guard<std::mutex> lock(database_mutex_);
+  std::lock_guard<std::mutex> lock(mutex_);
   database_->DeleteInlierMatches(image_id1, image_id2);
 }
 

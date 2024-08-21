@@ -44,8 +44,16 @@
 
 namespace colmap {
 
+class FeatureMatcherIndex;
+
 class FeatureMatcher {
  public:
+  using MatrixXi =
+      Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+
+  using LoadFeatureMatcherIndexFunc =
+      std::function<std::shared_ptr<FeatureMatcherIndex>()>;
+
   virtual ~FeatureMatcher() = default;
 
   // If the same matcher is used for matching multiple pairs of feature sets,
@@ -58,6 +66,8 @@ class FeatureMatcher {
   virtual void Match(
       const std::shared_ptr<const FeatureDescriptors>& descriptors1,
       const std::shared_ptr<const FeatureDescriptors>& descriptors2,
+      const LoadFeatureMatcherIndexFunc& load_index_func1,
+      const LoadFeatureMatcherIndexFunc& load_index_func2,
       FeatureMatches* matches) = 0;
 
   virtual void MatchGuided(
@@ -66,7 +76,24 @@ class FeatureMatcher {
       const std::shared_ptr<const FeatureKeypoints>& keypoints2,
       const std::shared_ptr<const FeatureDescriptors>& descriptors1,
       const std::shared_ptr<const FeatureDescriptors>& descriptors2,
+      const LoadFeatureMatcherIndexFunc& load_index_func1,
+      const LoadFeatureMatcherIndexFunc& load_index_func2,
       TwoViewGeometry* two_view_geometry) = 0;
+};
+
+class FeatureMatcherIndex {
+ public:
+  virtual ~FeatureMatcherIndex() = default;
+
+  static std::unique_ptr<FeatureMatcherIndex> Create();
+
+  virtual void Build(const FeatureDescriptors& descriptors) = 0;
+
+  virtual void Search(const FeatureDescriptors& query_descriptors,
+                      const FeatureDescriptors& index_descriptors,
+                      int num_neighbors,
+                      FeatureMatcher::MatrixXi* indices,
+                      FeatureMatcher::MatrixXi* distances) const = 0;
 };
 
 // Cache for feature matching to minimize database access during matching.
@@ -83,6 +110,7 @@ class FeatureMatcherCache {
   const PosePrior& GetPosePrior(image_t image_id) const;
   std::shared_ptr<FeatureKeypoints> GetKeypoints(image_t image_id);
   std::shared_ptr<FeatureDescriptors> GetDescriptors(image_t image_id);
+  std::shared_ptr<FeatureMatcherIndex> GetMatcherIndex(image_t image_id);
   FeatureMatches GetMatches(image_t image_id1, image_t image_id2);
   std::vector<image_t> GetImageIds() const;
 
@@ -106,7 +134,7 @@ class FeatureMatcherCache {
  private:
   const size_t cache_size_;
   const std::shared_ptr<Database> database_;
-  std::mutex database_mutex_;
+  std::mutex mutex_;
   std::unordered_map<camera_t, Camera> cameras_cache_;
   std::unordered_map<image_t, Image> images_cache_;
   std::unordered_map<image_t, PosePrior> pose_priors_cache_;
@@ -114,6 +142,8 @@ class FeatureMatcherCache {
       keypoints_cache_;
   std::unique_ptr<LRUCache<image_t, std::shared_ptr<FeatureDescriptors>>>
       descriptors_cache_;
+  std::unique_ptr<LRUCache<image_t, std::shared_ptr<FeatureMatcherIndex>>>
+      matcher_index_cache_;
   std::unique_ptr<LRUCache<image_t, bool>> keypoints_exists_cache_;
   std::unique_ptr<LRUCache<image_t, bool>> descriptors_exists_cache_;
 };

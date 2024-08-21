@@ -102,16 +102,27 @@ void FeatureMatcherWorker::Run() {
         continue;
       }
 
+      auto load_matcher_index_func1 = [this, &data]() {
+        return cache_->GetMatcherIndex(data.image_id1);
+      };
+      auto load_matcher_index_func2 = [this, &data]() {
+        return cache_->GetMatcherIndex(data.image_id2);
+      };
+
       if (matching_options_.guided_matching) {
         matcher->MatchGuided(geometry_options_.ransac_options.max_error,
                              GetKeypointsPtr(0, data.image_id1),
                              GetKeypointsPtr(1, data.image_id2),
                              GetDescriptorsPtr(0, data.image_id1),
                              GetDescriptorsPtr(1, data.image_id2),
+                             load_matcher_index_func1,
+                             load_matcher_index_func2,
                              &data.two_view_geometry);
       } else {
         matcher->Match(GetDescriptorsPtr(0, data.image_id1),
                        GetDescriptorsPtr(1, data.image_id2),
+                       load_matcher_index_func1,
+                       load_matcher_index_func2,
                        &data.matches);
       }
 

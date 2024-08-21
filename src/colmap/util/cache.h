@@ -32,9 +32,12 @@
 #include "colmap/util/logging.h"
 
 #include <functional>
+#include <future>
 #include <iostream>
 #include <limits>
 #include <list>
+#include <memory>
+#include <mutex>
 #include <unordered_map>
 
 namespace colmap {
@@ -44,23 +47,35 @@ namespace colmap {
 template <typename key_t, typename value_t>
 class LRUCache {
  public:
-  LRUCache(size_t max_num_elems,
-           const std::function<value_t(const key_t&)>& getter_func);
+  using LoadFn = std::function<std::shared_ptr<value_t>(const key_t&)>;
+
+  LRUCache(size_t max_num_elems, LoadFn load_fn);
   virtual ~LRUCache() = default;
 
   // The number of elements in the cache.
-  size_t NumElems() const;
-  size_t MaxNumElems() const;
+  virtual size_t NumElems() const;
+  virtual size_t MaxNumElems() const;
 
   // Check whether the element with the given key exists.
-  bool Exists(const key_t& key) const;
+  virtual bool Exists(const key_t& key) const;
 
   // Get the value of an element either from the cache or compute the new value.
-  const value_t& Get(const key_t& key);
-  value_t& GetMutable(const key_t& key);
+  virtual std::shared_ptr<value_t> Get(const key_t& key);
 
   // Manually set the value of an element.
-  virtual void Set(const key_t& key, value_t value);
+  virtual void Set(const key_t& key, std::shared_ptr<value_t> value);
+
+  // Manually evict an element from the cache.
+  // Returns true if the element was evicted.
+  virtual bool Evict(const key_t& key) {
+    const auto it = elems_map_.find(key);
+    if (it != elems_map_.end()) {
+      elems_list_.erase(it->second);
+      elems_map_.erase(it);
+      return true;
+    }
+    return false;
+  }
 
   // Pop least recently used element from cache.
   virtual void Pop();
@@ -69,7 +84,7 @@ class LRUCache {
   virtual void Clear();
 
  protected:
-  typedef typename std::pair<key_t, value_t> key_value_pair_t;
+  typedef typename std::pair<key_t, std::shared_ptr<value_t>> key_value_pair_t;
   typedef typename std::list<key_value_pair_t>::iterator list_iterator_t;
 
   // Maximum number of least-recently-used elements the cache remembers.
@@ -82,7 +97,7 @@ class LRUCache {
   std::unordered_map<key_t, list_iterator_t> elems_map_;
 
   // Function to compute new values if not in the cache.
-  const std::function<value_t(const key_t&)> getter_func_;
+  const LoadFn load_fn_;
 };
 
 // Least Recently Used cache implementation that is constrained by a maximum
@@ -92,15 +107,20 @@ class LRUCache {
 template <typename key_t, typename value_t>
 class MemoryConstrainedLRUCache : public LRUCache<key_t, value_t> {
  public:
-  MemoryConstrainedLRUCache(
-      size_t max_num_bytes,
-      const std::function<value_t(const key_t&)>& getter_func);
+  using typename LRUCache<key_t, value_t>::LoadFn;
+
+  MemoryConstrainedLRUCache(size_t max_num_bytes, LoadFn load_fn);
 
   size_t NumBytes() const;
   size_t MaxNumBytes() const;
   void UpdateNumBytes(const key_t& key);
 
-  void Set(const key_t& key, value_t value) override;
+  bool Evict(const key_t& key) override {
+    elems_num_bytes_.erase(key);
+    return LRUCache<key_t, value_t>::Evict(key);
+  }
+
+  void Set(const key_t& key, std::shared_ptr<value_t> value) override;
   void Pop() override;
   void Clear() override;
 
@@ -110,11 +130,45 @@ class MemoryConstrainedLRUCache : public LRUCache<key_t, value_t> {
   using LRUCache<key_t, value_t>::max_num_elems_;
   using LRUCache<key_t, value_t>::elems_list_;
   using LRUCache<key_t, value_t>::elems_map_;
-  using LRUCache<key_t, value_t>::getter_func_;
+  using LRUCache<key_t, value_t>::load_fn_;
 
   const size_t max_num_bytes_;
   size_t num_bytes_;
   std::unordered_map<key_t, size_t> elems_num_bytes_;
+};
+
+template <typename key_t, typename value_t>
+class ThreadSafeLRUCache : public LRUCache<key_t, value_t> {
+ public:
+  using typename LRUCache<key_t, value_t>::LoadFn;
+
+  ThreadSafeLRUCache(size_t max_num_elems, LoadFn load_fn)
+      : cache_(max_num_elems, std::move(load_fn)) {}
+
+  size_t NumElems() const override;
+  size_t MaxNumElems() const override;
+
+  bool Exists(const key_t& key) const override;
+
+  std::shared_ptr<value_t> Get(const key_t& key) override;
+
+  void Set(const key_t& key, std::shared_ptr<value_t> value) override;
+
+  bool Evict(const key_t& key) override;
+
+  void Pop() override;
+
+  void Clear() override;
+
+ protected:
+  struct Entry {
+    Entry() : future(promise.get_future()) {}
+    std::promise<std::shared_ptr<value_t>> promise;
+    std::shared_future<std::shared_ptr<value_t>> future;
+    bool is_loading = false;
+  };
+
+  std::mutex cache_mutex_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -122,11 +176,9 @@ class MemoryConstrainedLRUCache : public LRUCache<key_t, value_t> {
 ////////////////////////////////////////////////////////////////////////////////
 
 template <typename key_t, typename value_t>
-LRUCache<key_t, value_t>::LRUCache(
-    const size_t max_num_elems,
-    const std::function<value_t(const key_t&)>& getter_func)
-    : max_num_elems_(max_num_elems), getter_func_(getter_func) {
-  THROW_CHECK(getter_func);
+LRUCache<key_t, value_t>::LRUCache(const size_t max_num_elems, LoadFn load_fn)
+    : max_num_elems_(max_num_elems), load_fn_(std::move(load_fn)) {
+  THROW_CHECK_NOTNULL(load_fn_);
   THROW_CHECK_GT(max_num_elems, 0);
 }
 
@@ -146,15 +198,10 @@ bool LRUCache<key_t, value_t>::Exists(const key_t& key) const {
 }
 
 template <typename key_t, typename value_t>
-const value_t& LRUCache<key_t, value_t>::Get(const key_t& key) {
-  return GetMutable(key);
-}
-
-template <typename key_t, typename value_t>
-value_t& LRUCache<key_t, value_t>::GetMutable(const key_t& key) {
+std::shared_ptr<value_t> LRUCache<key_t, value_t>::Get(const key_t& key) {
   const auto it = elems_map_.find(key);
   if (it == elems_map_.end()) {
-    Set(key, std::move(getter_func_(key)));
+    Set(key, load_fn_(key));
     return elems_map_[key]->second;
   } else {
     elems_list_.splice(elems_list_.begin(), elems_list_, it->second);
@@ -163,17 +210,31 @@ value_t& LRUCache<key_t, value_t>::GetMutable(const key_t& key) {
 }
 
 template <typename key_t, typename value_t>
-void LRUCache<key_t, value_t>::Set(const key_t& key, value_t value) {
+void LRUCache<key_t, value_t>::Set(const key_t& key,
+                                   std::shared_ptr<value_t> value) {
+  THROW_CHECK_NOTNULL(value);
+
   auto it = elems_map_.find(key);
   elems_list_.emplace_front(key, std::move(value));
   if (it != elems_map_.end()) {
     elems_list_.erase(it->second);
     elems_map_.erase(it);
   }
-  elems_map_[key] = elems_list_.begin();
+  elems_map_.emplace_hint(it, key, elems_list_.begin());
   if (elems_map_.size() > max_num_elems_) {
     Pop();
   }
+}
+
+template <typename key_t, typename value_t>
+bool LRUCache<key_t, value_t>::Evict(const key_t& key) {
+  const auto it = elems_map_.find(key);
+  if (it != elems_map_.end()) {
+    elems_list_.erase(it->second);
+    elems_map_.erase(it);
+    return true;
+  }
+  return false;
 }
 
 template <typename key_t, typename value_t>
@@ -194,9 +255,9 @@ void LRUCache<key_t, value_t>::Clear() {
 
 template <typename key_t, typename value_t>
 MemoryConstrainedLRUCache<key_t, value_t>::MemoryConstrainedLRUCache(
-    const size_t max_num_bytes,
-    const std::function<value_t(const key_t&)>& getter_func)
-    : LRUCache<key_t, value_t>(std::numeric_limits<size_t>::max(), getter_func),
+    const size_t max_num_bytes, LoadFn load_fn)
+    : LRUCache<key_t, value_t>(std::numeric_limits<size_t>::max(),
+                               std::move(load_fn)),
       max_num_bytes_(max_num_bytes),
       num_bytes_(0) {
   THROW_CHECK_GT(max_num_bytes, 0);
@@ -213,9 +274,11 @@ size_t MemoryConstrainedLRUCache<key_t, value_t>::MaxNumBytes() const {
 }
 
 template <typename key_t, typename value_t>
-void MemoryConstrainedLRUCache<key_t, value_t>::Set(const key_t& key,
-                                                    value_t value) {
-  const size_t num_bytes = value.NumBytes();
+void MemoryConstrainedLRUCache<key_t, value_t>::Set(
+    const key_t& key, std::shared_ptr<value_t> value) {
+  THROW_CHECK_NOTNULL(value);
+
+  const size_t num_bytes = value->NumBytes();
   auto it = elems_map_.find(key);
   elems_list_.emplace_front(key, std::move(value));
   if (it != elems_map_.end()) {
@@ -251,7 +314,7 @@ void MemoryConstrainedLRUCache<key_t, value_t>::UpdateNumBytes(
   auto& num_bytes = elems_num_bytes_.at(key);
   num_bytes_ -= num_bytes;
   THROW_CHECK_GE(num_bytes_, 0);
-  num_bytes = LRUCache<key_t, value_t>::Get(key).NumBytes();
+  num_bytes = LRUCache<key_t, value_t>::Get(key)->NumBytes();
   num_bytes_ += num_bytes;
 
   while (num_bytes_ > max_num_bytes_ && elems_map_.size() > 1) {
@@ -264,6 +327,64 @@ void MemoryConstrainedLRUCache<key_t, value_t>::Clear() {
   LRUCache<key_t, value_t>::Clear();
   num_bytes_ = 0;
   elems_num_bytes_.clear();
+}
+
+template <typename key_t, typename value_t>
+std::shared_ptr<value_t> ThreadSafeLRUCache<key_t, value_t>::Get(
+    const key_t& key) {
+  bool should_load = false;
+  std::shared_ptr<Entry> entry;
+  std::shared_future<std::shared_ptr<value_t>> shared_future;
+
+  {
+    std::lock_guard<std::mutex> lock(cache_mutex_);
+    entry = cache_.Get(key);
+    if (entry == nullptr) {
+      return nullptr;
+    }
+    shared_future = entry->future;
+    if (!entry->is_loading) {
+      should_load = true;
+      entry->is_loading = true;
+    }
+  }
+
+  if (should_load) {
+    try {
+      entry->promise.set_value(THROW_CHECK_NOTNULL(load_fn_(key)));
+    } catch (...) {
+      // Evict the cache entry after load failed and set the exception.
+      std::lock_guard<std::mutex> lock(cache_mutex_);
+      cache_.Evict(key);
+      entry->promise.set_exception(std::current_exception());
+    }
+  }
+
+  return shared_future.get();
+}
+
+template <typename key_t, typename value_t>
+bool ThreadSafeLRUCache<key_t, value_t>::Evict(const key_t& key) {
+  std::lock_guard<std::mutex> lock(cache_mutex_);
+  return cache_.Evict(key);
+}
+
+template <typename key_t, typename value_t>
+void ThreadSafeLRUCache<key_t, value_t>::Clear() {
+  std::lock_guard<std::mutex> lock(cache_mutex_);
+  return cache_.Clear();
+}
+
+template <typename key_t, typename value_t>
+int ThreadSafeLRUCache<key_t, value_t>::NumElems() {
+  std::lock_guard<std::mutex> lock(cache_mutex_);
+  return cache_.NumElems();
+}
+
+template <typename key_t, typename value_t>
+int ThreadSafeLRUCache<key_t, value_t>::MaxNumElems() {
+  std::lock_guard<std::mutex> lock(cache_mutex_);
+  return cache_.MaxNumElems();
 }
 
 }  // namespace colmap

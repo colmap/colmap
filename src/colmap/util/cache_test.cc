@@ -35,64 +35,33 @@ namespace colmap {
 namespace {
 
 TEST(LRUCache, Empty) {
-  LRUCache<int, int> cache(5, [](const int key) { return key; });
+  LRUCache<int, int> cache(
+      5, [](const int key) { return std::make_shared<int>(key); });
   EXPECT_EQ(cache.NumElems(), 0);
   EXPECT_EQ(cache.MaxNumElems(), 5);
 }
 
 TEST(LRUCache, Get) {
-  LRUCache<int, int> cache(5, [](const int key) { return key; });
+  LRUCache<int, int> cache(
+      5, [](const int key) { return std::make_shared<int>(key); });
   EXPECT_EQ(cache.NumElems(), 0);
   for (int i = 0; i < 5; ++i) {
-    EXPECT_EQ(cache.Get(i), i);
+    EXPECT_EQ(*cache.Get(i), i);
     EXPECT_EQ(cache.NumElems(), i + 1);
     EXPECT_TRUE(cache.Exists(i));
   }
 
-  EXPECT_EQ(cache.Get(5), 5);
+  EXPECT_EQ(*cache.Get(5), 5);
   EXPECT_EQ(cache.NumElems(), 5);
   EXPECT_FALSE(cache.Exists(0));
   EXPECT_TRUE(cache.Exists(5));
 
-  EXPECT_EQ(cache.Get(5), 5);
+  EXPECT_EQ(*cache.Get(5), 5);
   EXPECT_EQ(cache.NumElems(), 5);
   EXPECT_FALSE(cache.Exists(0));
   EXPECT_TRUE(cache.Exists(5));
 
-  EXPECT_EQ(cache.Get(6), 6);
-  EXPECT_EQ(cache.NumElems(), 5);
-  EXPECT_FALSE(cache.Exists(0));
-  EXPECT_FALSE(cache.Exists(1));
-  EXPECT_TRUE(cache.Exists(6));
-}
-
-TEST(LRUCache, GetMutable) {
-  LRUCache<int, int> cache(5, [](const int key) { return key; });
-  EXPECT_EQ(cache.NumElems(), 0);
-  for (int i = 0; i < 5; ++i) {
-    EXPECT_EQ(cache.GetMutable(i), i);
-    EXPECT_EQ(cache.NumElems(), i + 1);
-    EXPECT_TRUE(cache.Exists(i));
-  }
-
-  EXPECT_EQ(cache.GetMutable(5), 5);
-  EXPECT_EQ(cache.NumElems(), 5);
-  EXPECT_FALSE(cache.Exists(0));
-  EXPECT_TRUE(cache.Exists(5));
-
-  EXPECT_EQ(cache.GetMutable(5), 5);
-  EXPECT_EQ(cache.NumElems(), 5);
-  EXPECT_FALSE(cache.Exists(0));
-  EXPECT_TRUE(cache.Exists(5));
-
-  EXPECT_EQ(cache.GetMutable(6), 6);
-  EXPECT_EQ(cache.NumElems(), 5);
-  EXPECT_FALSE(cache.Exists(0));
-  EXPECT_FALSE(cache.Exists(1));
-  EXPECT_TRUE(cache.Exists(6));
-
-  cache.GetMutable(6) = 66;
-  EXPECT_EQ(cache.GetMutable(6), 66);
+  EXPECT_EQ(*cache.Get(6), 6);
   EXPECT_EQ(cache.NumElems(), 5);
   EXPECT_FALSE(cache.Exists(0));
   EXPECT_FALSE(cache.Exists(1));
@@ -100,20 +69,21 @@ TEST(LRUCache, GetMutable) {
 }
 
 TEST(LRUCache, Set) {
-  LRUCache<int, int> cache(5, [](const int key) { return -1; });
+  LRUCache<int, int> cache(
+      5, [](const int key) { return std::make_shared<int>(-1); });
   EXPECT_EQ(cache.NumElems(), 0);
   for (int i = 0; i < 5; ++i) {
-    cache.Set(i, i);
+    cache.Set(i, std::make_shared<int>(i));
     EXPECT_EQ(cache.NumElems(), i + 1);
     EXPECT_TRUE(cache.Exists(i));
   }
 
-  EXPECT_EQ(cache.Get(5), -1);
+  EXPECT_EQ(*cache.Get(5), -1);
   EXPECT_EQ(cache.NumElems(), 5);
   EXPECT_FALSE(cache.Exists(0));
   EXPECT_TRUE(cache.Exists(5));
 
-  EXPECT_EQ(cache.Get(6), -1);
+  EXPECT_EQ(*cache.Get(6), -1);
   EXPECT_EQ(cache.NumElems(), 5);
   EXPECT_FALSE(cache.Exists(0));
   EXPECT_FALSE(cache.Exists(1));
@@ -121,15 +91,16 @@ TEST(LRUCache, Set) {
 }
 
 TEST(LRUCache, Pop) {
-  LRUCache<int, int> cache(5, [](const int key) { return key; });
+  LRUCache<int, int> cache(
+      5, [](const int key) { return std::make_shared<int>(key); });
   EXPECT_EQ(cache.NumElems(), 0);
   for (int i = 0; i < 5; ++i) {
-    EXPECT_EQ(cache.Get(i), i);
+    EXPECT_EQ(*cache.Get(i), i);
     EXPECT_EQ(cache.NumElems(), i + 1);
     EXPECT_TRUE(cache.Exists(i));
   }
 
-  EXPECT_EQ(cache.Get(5), 5);
+  EXPECT_EQ(*cache.Get(5), 5);
   EXPECT_EQ(cache.NumElems(), 5);
   EXPECT_FALSE(cache.Exists(0));
   EXPECT_TRUE(cache.Exists(5));
@@ -149,10 +120,11 @@ TEST(LRUCache, Pop) {
 }
 
 TEST(LRUCache, Clear) {
-  LRUCache<int, int> cache(5, [](const int key) { return key; });
+  LRUCache<int, int> cache(
+      5, [](const int key) { return std::make_shared<int>(key); });
   EXPECT_EQ(cache.NumElems(), 0);
   for (int i = 0; i < 5; ++i) {
-    EXPECT_EQ(cache.Get(i), i);
+    EXPECT_EQ(*cache.Get(i), i);
     EXPECT_EQ(cache.NumElems(), i + 1);
     EXPECT_TRUE(cache.Exists(i));
   }
@@ -160,7 +132,7 @@ TEST(LRUCache, Clear) {
   cache.Clear();
   EXPECT_EQ(cache.NumElems(), 0);
 
-  EXPECT_EQ(cache.Get(0), 0);
+  EXPECT_EQ(*cache.Get(0), 0);
   EXPECT_EQ(cache.NumElems(), 1);
   EXPECT_TRUE(cache.Exists(0));
 }
@@ -173,7 +145,7 @@ struct SizedElem {
 
 TEST(MemoryConstrainedLRUCache, Empty) {
   MemoryConstrainedLRUCache<int, SizedElem> cache(
-      5, [](const int key) { return SizedElem(key); });
+      5, [](const int key) { return std::make_shared<SizedElem>(key); });
   EXPECT_EQ(cache.NumElems(), 0);
   EXPECT_EQ(cache.MaxNumElems(), std::numeric_limits<size_t>::max());
   EXPECT_EQ(cache.NumBytes(), 0);
@@ -182,34 +154,34 @@ TEST(MemoryConstrainedLRUCache, Empty) {
 
 TEST(MemoryConstrainedLRUCache, Get) {
   MemoryConstrainedLRUCache<int, SizedElem> cache(
-      10, [](const int key) { return SizedElem(key); });
+      10, [](const int key) { return std::make_shared<SizedElem>(key); });
   EXPECT_EQ(cache.NumElems(), 0);
   for (int i = 0; i < 5; ++i) {
-    EXPECT_EQ(cache.Get(i).NumBytes(), i);
+    EXPECT_EQ(cache.Get(i)->NumBytes(), i);
     EXPECT_EQ(cache.NumElems(), i + 1);
     EXPECT_TRUE(cache.Exists(i));
   }
 
-  EXPECT_EQ(cache.Get(5).NumBytes(), 5);
+  EXPECT_EQ(cache.Get(5)->NumBytes(), 5);
   EXPECT_EQ(cache.NumElems(), 2);
   EXPECT_EQ(cache.NumBytes(), 9);
   EXPECT_FALSE(cache.Exists(0));
   EXPECT_TRUE(cache.Exists(5));
 
-  EXPECT_EQ(cache.Get(5).NumBytes(), 5);
+  EXPECT_EQ(cache.Get(5)->NumBytes(), 5);
   EXPECT_EQ(cache.NumElems(), 2);
   EXPECT_EQ(cache.NumBytes(), 9);
   EXPECT_FALSE(cache.Exists(0));
   EXPECT_TRUE(cache.Exists(5));
 
-  EXPECT_EQ(cache.Get(6).NumBytes(), 6);
+  EXPECT_EQ(cache.Get(6)->NumBytes(), 6);
   EXPECT_EQ(cache.NumElems(), 1);
   EXPECT_EQ(cache.NumBytes(), 6);
   EXPECT_FALSE(cache.Exists(0));
   EXPECT_FALSE(cache.Exists(1));
   EXPECT_TRUE(cache.Exists(6));
 
-  EXPECT_EQ(cache.Get(1).NumBytes(), 1);
+  EXPECT_EQ(cache.Get(1)->NumBytes(), 1);
   EXPECT_EQ(cache.NumElems(), 2);
   EXPECT_EQ(cache.NumBytes(), 7);
   EXPECT_FALSE(cache.Exists(0));
@@ -219,10 +191,10 @@ TEST(MemoryConstrainedLRUCache, Get) {
 
 TEST(MemoryConstrainedLRUCache, Clear) {
   MemoryConstrainedLRUCache<int, SizedElem> cache(
-      10, [](const int key) { return SizedElem(key); });
+      10, [](const int key) { return std::make_shared<SizedElem>(key); });
   EXPECT_EQ(cache.NumElems(), 0);
   for (int i = 0; i < 5; ++i) {
-    EXPECT_EQ(cache.Get(i).NumBytes(), i);
+    EXPECT_EQ(cache.Get(i)->NumBytes(), i);
     EXPECT_EQ(cache.NumElems(), i + 1);
     EXPECT_TRUE(cache.Exists(i));
   }
@@ -231,7 +203,7 @@ TEST(MemoryConstrainedLRUCache, Clear) {
   EXPECT_EQ(cache.NumElems(), 0);
   EXPECT_EQ(cache.NumBytes(), 0);
 
-  EXPECT_EQ(cache.Get(1).NumBytes(), 1);
+  EXPECT_EQ(cache.Get(1)->NumBytes(), 1);
   EXPECT_EQ(cache.NumBytes(), 1);
   EXPECT_EQ(cache.NumElems(), 1);
   EXPECT_TRUE(cache.Exists(1));
@@ -239,34 +211,34 @@ TEST(MemoryConstrainedLRUCache, Clear) {
 
 TEST(MemoryConstrainedLRUCache, UpdateNumBytes) {
   MemoryConstrainedLRUCache<int, SizedElem> cache(
-      50, [](const int key) { return SizedElem(key); });
+      50, [](const int key) { return std::make_shared<SizedElem>(key); });
   EXPECT_EQ(cache.NumElems(), 0);
   for (int i = 0; i < 5; ++i) {
-    EXPECT_EQ(cache.Get(i).NumBytes(), i);
+    EXPECT_EQ(cache.Get(i)->NumBytes(), i);
     EXPECT_EQ(cache.NumElems(), i + 1);
     EXPECT_TRUE(cache.Exists(i));
   }
 
   EXPECT_EQ(cache.NumBytes(), 10);
 
-  cache.GetMutable(4).num_bytes = 3;
+  cache.Get(4)->num_bytes = 3;
   EXPECT_EQ(cache.NumBytes(), 10);
   cache.UpdateNumBytes(4);
   EXPECT_EQ(cache.NumBytes(), 9);
 
-  cache.GetMutable(2).num_bytes = 3;
+  cache.Get(2)->num_bytes = 3;
   EXPECT_EQ(cache.NumBytes(), 9);
   cache.UpdateNumBytes(2);
   EXPECT_EQ(cache.NumBytes(), 10);
 
-  cache.GetMutable(0).num_bytes = 40;
+  cache.Get(0)->num_bytes = 40;
   EXPECT_EQ(cache.NumBytes(), 10);
   cache.UpdateNumBytes(0);
   EXPECT_EQ(cache.NumBytes(), 50);
 
   cache.Clear();
   EXPECT_EQ(cache.NumBytes(), 0);
-  EXPECT_EQ(cache.Get(2).NumBytes(), 2);
+  EXPECT_EQ(cache.Get(2)->NumBytes(), 2);
   EXPECT_EQ(cache.NumBytes(), 2);
 }
 
