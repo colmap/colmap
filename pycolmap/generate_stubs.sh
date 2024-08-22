@@ -16,4 +16,3 @@ perl -i -pe's/ -> ceres::([a-zA-Z]|::)+:$/:/g' $FILES
 
 $PYTHON_EXEC -m black --line-length 80 $FILES
 $PYTHON_EXEC -m isort --profile=black $FILES
-#mypy $FILES --implicit-optional
