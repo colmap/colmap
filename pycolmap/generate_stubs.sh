@@ -9,7 +9,7 @@ $PYTHON_EXEC -m pybind11_stubgen pycolmap -o $OUTPUT \
         --print-invalid-expressions-as-is \
         --print-safe-value-reprs "[a-zA-Z]+Options\(\)"
 mv "$OUTPUT/pycolmap" "$OUTPUT/pycolmap-stubs"
-FILES="$OUTPUT/pycolmap/*.pyi"
+FILES="$OUTPUT/pycolmap-stubs/*.pyi"
 
 perl -i -pe's/: ceres::([a-zA-Z]|::)+//g' $FILES
 perl -i -pe's/ -> ceres::([a-zA-Z]|::)+:$/:/g' $FILES
