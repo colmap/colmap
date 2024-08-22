@@ -17,7 +17,6 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /MP")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
 endif()
-message(STATUS "ARCHFLAGS = $ENV{ARCHFLAGS}")
 
 find_package(colmap REQUIRED)
 
@@ -46,9 +45,9 @@ if(GENERATE_STUBS)
           "${CMAKE_COMMAND}" -E env
           #"PYTHONPATH=$<TARGET_FILE_DIR:${PROJECT_NAME}>$<IF:$<PLATFORM_ID:Windows>,$<SEMICOLON>,:>$ENV{PYTHONPATH}"
           #${PROJECT_SOURCE_DIR}/generate_stubs.sh "${Python_EXECUTABLE}" "${CMAKE_CURRENT_BINARY_DIR}"
-          file "${Python_EXECUTABLE}" &&
           "PYTHONPATH=$<TARGET_FILE_DIR:pycolmap>:$ENV{PYTHONPATH}"
-          "${Python_EXECUTABLE}" -m pybind11_stubgen pycolmap -o "${CMAKE_CURRENT_BINARY_DIR}" --ignore-all-errors
+          bash ${PROJECT_SOURCE_DIR}/generate_stubs.sh "${Python_EXECUTABLE}" "${CMAKE_CURRENT_BINARY_DIR}"
+          #"${Python_EXECUTABLE}" -m pybind11_stubgen pycolmap -o "${CMAKE_CURRENT_BINARY_DIR}" --ignore-all-errors
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
         COMMENT "Generating pybind11 stubs"
         VERBATIM
