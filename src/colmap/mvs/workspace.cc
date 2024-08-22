@@ -167,52 +167,56 @@ CachedWorkspace::CachedImage& CachedWorkspace::CachedImage::operator=(
 CachedWorkspace::CachedWorkspace(const Options& options)
     : Workspace(options),
       cache_((size_t)(1024.0 * 1024.0 * 1024.0 * options.cache_size),
-             [](const int) { return CachedImage(); }) {}
+             [](const int) { return std::make_shared<CachedImage>(); }) {}
 
 const Bitmap& CachedWorkspace::GetBitmap(const int image_idx) {
-  auto& cached_image = cache_.GetMutable(image_idx);
-  if (!cached_image.bitmap) {
-    cached_image.bitmap = std::make_unique<Bitmap>();
-    cached_image.bitmap->Read(GetBitmapPath(image_idx), options_.image_as_rgb);
+  auto cached_image = cache_.Get(image_idx);
+  std::lock_guard<std::mutex> lock(cached_image->mutex);
+  if (!cached_image->bitmap) {
+    cached_image->bitmap = std::make_unique<Bitmap>();
+    cached_image->bitmap->Read(GetBitmapPath(image_idx), options_.image_as_rgb);
     if (options_.max_image_size > 0) {
-      cached_image.bitmap->Rescale(model_.images.at(image_idx).GetWidth(),
-                                   model_.images.at(image_idx).GetHeight());
+      cached_image->bitmap->Rescale(model_.images.at(image_idx).GetWidth(),
+                                    model_.images.at(image_idx).GetHeight());
     }
-    cached_image.num_bytes += cached_image.bitmap->NumBytes();
+    cached_image->num_bytes += cached_image->bitmap->NumBytes();
     cache_.UpdateNumBytes(image_idx);
   }
-  return *cached_image.bitmap;
+  return *cached_image->bitmap;
 }
 
 const DepthMap& CachedWorkspace::GetDepthMap(const int image_idx) {
-  auto& cached_image = cache_.GetMutable(image_idx);
-  if (!cached_image.depth_map) {
-    cached_image.depth_map = std::make_unique<DepthMap>();
-    cached_image.depth_map->Read(GetDepthMapPath(image_idx));
+  auto cached_image = cache_.Get(image_idx);
+  std::lock_guard<std::mutex> lock(cached_image->mutex);
+  if (!cached_image->depth_map) {
+    cached_image->depth_map = std::make_unique<DepthMap>();
+    cached_image->depth_map->Read(GetDepthMapPath(image_idx));
     if (options_.max_image_size > 0) {
-      cached_image.depth_map->Downsize(model_.images.at(image_idx).GetWidth(),
-                                       model_.images.at(image_idx).GetHeight());
-    }
-    cached_image.num_bytes += cached_image.depth_map->GetNumBytes();
-    cache_.UpdateNumBytes(image_idx);
-  }
-  return *cached_image.depth_map;
-}
-
-const NormalMap& CachedWorkspace::GetNormalMap(const int image_idx) {
-  auto& cached_image = cache_.GetMutable(image_idx);
-  if (!cached_image.normal_map) {
-    cached_image.normal_map = std::make_unique<NormalMap>();
-    cached_image.normal_map->Read(GetNormalMapPath(image_idx));
-    if (options_.max_image_size > 0) {
-      cached_image.normal_map->Downsize(
+      cached_image->depth_map->Downsize(
           model_.images.at(image_idx).GetWidth(),
           model_.images.at(image_idx).GetHeight());
     }
-    cached_image.num_bytes += cached_image.normal_map->GetNumBytes();
+    cached_image->num_bytes += cached_image->depth_map->GetNumBytes();
     cache_.UpdateNumBytes(image_idx);
   }
-  return *cached_image.normal_map;
+  return *cached_image->depth_map;
+}
+
+const NormalMap& CachedWorkspace::GetNormalMap(const int image_idx) {
+  auto cached_image = cache_.Get(image_idx);
+  std::lock_guard<std::mutex> lock(cached_image->mutex);
+  if (!cached_image->normal_map) {
+    cached_image->normal_map = std::make_unique<NormalMap>();
+    cached_image->normal_map->Read(GetNormalMapPath(image_idx));
+    if (options_.max_image_size > 0) {
+      cached_image->normal_map->Downsize(
+          model_.images.at(image_idx).GetWidth(),
+          model_.images.at(image_idx).GetHeight());
+    }
+    cached_image->num_bytes += cached_image->normal_map->GetNumBytes();
+    cache_.UpdateNumBytes(image_idx);
+  }
+  return *cached_image->normal_map;
 }
 
 void ImportPMVSWorkspace(const Workspace& workspace,

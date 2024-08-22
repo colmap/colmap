@@ -125,57 +125,68 @@ FeatureMatcherCache::FeatureMatcherCache(const size_t cache_size,
 }
 
 void FeatureMatcherCache::Setup() {
-  std::vector<Camera> cameras = database_->ReadAllCameras();
-  cameras_cache_.reserve(cameras.size());
-  for (Camera& camera : cameras) {
-    cameras_cache_.emplace(camera.camera_id, std::move(camera));
-  }
+  {
+    std::lock_guard<std::mutex> lock(database_mutex_);
 
-  std::vector<Image> images = database_->ReadAllImages();
-  images_cache_.reserve(images.size());
-  for (Image& image : images) {
-    images_cache_.emplace(image.ImageId(), std::move(image));
-  }
+    std::vector<Camera> cameras = database_->ReadAllCameras();
+    cameras_cache_.reserve(cameras.size());
+    for (Camera& camera : cameras) {
+      cameras_cache_.emplace(camera.camera_id, std::move(camera));
+    }
 
-  pose_priors_cache_.reserve(database_->NumPosePriors());
-  for (const auto& id_and_image : images_cache_) {
-    if (database_->ExistsPosePrior(id_and_image.first)) {
-      pose_priors_cache_.emplace(id_and_image.first,
-                                 database_->ReadPosePrior(id_and_image.first));
+    std::vector<Image> images = database_->ReadAllImages();
+    images_cache_.reserve(images.size());
+    for (Image& image : images) {
+      images_cache_.emplace(image.ImageId(), std::move(image));
+    }
+
+    pose_priors_cache_.reserve(database_->NumPosePriors());
+    for (const auto& id_and_image : images_cache_) {
+      if (database_->ExistsPosePrior(id_and_image.first)) {
+        pose_priors_cache_.emplace(
+            id_and_image.first, database_->ReadPosePrior(id_and_image.first));
+      }
     }
   }
 
   keypoints_cache_ =
-      std::make_unique<LRUCache<image_t, std::shared_ptr<FeatureKeypoints>>>(
+      std::make_unique<ThreadSafeLRUCache<image_t, FeatureKeypoints>>(
           cache_size_, [this](const image_t image_id) {
+            std::lock_guard<std::mutex> lock(database_mutex_);
             return std::make_shared<FeatureKeypoints>(
                 database_->ReadKeypoints(image_id));
           });
 
   descriptors_cache_ =
-      std::make_unique<LRUCache<image_t, std::shared_ptr<FeatureDescriptors>>>(
+      std::make_unique<ThreadSafeLRUCache<image_t, FeatureDescriptors>>(
           cache_size_, [this](const image_t image_id) {
+            std::lock_guard<std::mutex> lock(database_mutex_);
             return std::make_shared<FeatureDescriptors>(
                 database_->ReadDescriptors(image_id));
           });
 
   matcher_index_cache_ =
-      std::make_unique<LRUCache<image_t, std::shared_ptr<FeatureMatcherIndex>>>(
+      std::make_unique<ThreadSafeLRUCache<image_t, FeatureMatcherIndex>>(
           images_cache_.size(), [this](const image_t image_id) {
+            auto descriptors = GetDescriptors(image_id);
             auto index = FeatureMatcherIndex::Create();
-            index->Build(*GetDescriptors(image_id));
+            index->Build(*descriptors);
             return index;
           });
 
-  keypoints_exists_cache_ = std::make_unique<LRUCache<image_t, bool>>(
+  keypoints_exists_cache_ = std::make_unique<ThreadSafeLRUCache<image_t, bool>>(
       images_cache_.size(), [this](const image_t image_id) {
-        return database_->ExistsKeypoints(image_id);
+        std::lock_guard<std::mutex> lock(database_mutex_);
+        return std::make_shared<bool>(database_->ExistsKeypoints(image_id));
       });
 
-  descriptors_exists_cache_ = std::make_unique<LRUCache<image_t, bool>>(
-      images_cache_.size(), [this](const image_t image_id) {
-        return database_->ExistsDescriptors(image_id);
-      });
+  descriptors_exists_cache_ =
+      std::make_unique<ThreadSafeLRUCache<image_t, bool>>(
+          images_cache_.size(), [this](const image_t image_id) {
+            std::lock_guard<std::mutex> lock(database_mutex_);
+            return std::make_shared<bool>(
+                database_->ExistsDescriptors(image_id));
+          });
 }
 
 const Camera& FeatureMatcherCache::GetCamera(const camera_t camera_id) const {
@@ -193,29 +204,22 @@ const PosePrior& FeatureMatcherCache::GetPosePrior(
 
 std::shared_ptr<FeatureKeypoints> FeatureMatcherCache::GetKeypoints(
     const image_t image_id) {
-  std::lock_guard<std::mutex> lock(mutex_);
   return keypoints_cache_->Get(image_id);
 }
 
 std::shared_ptr<FeatureDescriptors> FeatureMatcherCache::GetDescriptors(
     const image_t image_id) {
-  std::lock_guard<std::mutex> lock(mutex_);
   return descriptors_cache_->Get(image_id);
 }
 
 std::shared_ptr<FeatureMatcherIndex> FeatureMatcherCache::GetMatcherIndex(
     const image_t image_id) {
-  std::lock_guard<std::mutex> lock(mutex_);
-  if (matcher_index_cache_->Exists(image_id)) {
-    return matcher_index_cache_->Get(image_id);
-  }
-  
   return matcher_index_cache_->Get(image_id);
 }
 
 FeatureMatches FeatureMatcherCache::GetMatches(const image_t image_id1,
                                                const image_t image_id2) {
-  std::lock_guard<std::mutex> lock(mutex_);
+  std::lock_guard<std::mutex> lock(database_mutex_);
   return database_->ReadMatches(image_id1, image_id2);
 }
 
@@ -237,31 +241,29 @@ bool FeatureMatcherCache::ExistsPosePrior(const image_t image_id) const {
 }
 
 bool FeatureMatcherCache::ExistsKeypoints(const image_t image_id) {
-  std::lock_guard<std::mutex> lock(mutex_);
-  return keypoints_exists_cache_->Get(image_id);
+  return *keypoints_exists_cache_->Get(image_id);
 }
 
 bool FeatureMatcherCache::ExistsDescriptors(const image_t image_id) {
-  std::lock_guard<std::mutex> lock(mutex_);
-  return descriptors_exists_cache_->Get(image_id);
+  return *descriptors_exists_cache_->Get(image_id);
 }
 
 bool FeatureMatcherCache::ExistsMatches(const image_t image_id1,
                                         const image_t image_id2) {
-  std::lock_guard<std::mutex> lock(mutex_);
+  std::lock_guard<std::mutex> lock(database_mutex_);
   return database_->ExistsMatches(image_id1, image_id2);
 }
 
 bool FeatureMatcherCache::ExistsInlierMatches(const image_t image_id1,
                                               const image_t image_id2) {
-  std::lock_guard<std::mutex> lock(mutex_);
+  std::lock_guard<std::mutex> lock(database_mutex_);
   return database_->ExistsInlierMatches(image_id1, image_id2);
 }
 
 void FeatureMatcherCache::WriteMatches(const image_t image_id1,
                                        const image_t image_id2,
                                        const FeatureMatches& matches) {
-  std::lock_guard<std::mutex> lock(mutex_);
+  std::lock_guard<std::mutex> lock(database_mutex_);
   database_->WriteMatches(image_id1, image_id2, matches);
 }
 
@@ -269,19 +271,19 @@ void FeatureMatcherCache::WriteTwoViewGeometry(
     const image_t image_id1,
     const image_t image_id2,
     const TwoViewGeometry& two_view_geometry) {
-  std::lock_guard<std::mutex> lock(mutex_);
+  std::lock_guard<std::mutex> lock(database_mutex_);
   database_->WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
 }
 
 void FeatureMatcherCache::DeleteMatches(const image_t image_id1,
                                         const image_t image_id2) {
-  std::lock_guard<std::mutex> lock(mutex_);
+  std::lock_guard<std::mutex> lock(database_mutex_);
   database_->DeleteMatches(image_id1, image_id2);
 }
 
 void FeatureMatcherCache::DeleteInlierMatches(const image_t image_id1,
                                               const image_t image_id2) {
-  std::lock_guard<std::mutex> lock(mutex_);
+  std::lock_guard<std::mutex> lock(database_mutex_);
   database_->DeleteInlierMatches(image_id1, image_id2);
 }
 

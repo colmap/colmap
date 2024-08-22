@@ -134,18 +134,18 @@ class FeatureMatcherCache {
  private:
   const size_t cache_size_;
   const std::shared_ptr<Database> database_;
-  std::mutex mutex_;
+  std::mutex database_mutex_;
   std::unordered_map<camera_t, Camera> cameras_cache_;
   std::unordered_map<image_t, Image> images_cache_;
   std::unordered_map<image_t, PosePrior> pose_priors_cache_;
-  std::unique_ptr<LRUCache<image_t, std::shared_ptr<FeatureKeypoints>>>
+  std::unique_ptr<ThreadSafeLRUCache<image_t, FeatureKeypoints>>
       keypoints_cache_;
-  std::unique_ptr<LRUCache<image_t, std::shared_ptr<FeatureDescriptors>>>
+  std::unique_ptr<ThreadSafeLRUCache<image_t, FeatureDescriptors>>
       descriptors_cache_;
-  std::unique_ptr<LRUCache<image_t, std::shared_ptr<FeatureMatcherIndex>>>
+  std::unique_ptr<ThreadSafeLRUCache<image_t, FeatureMatcherIndex>>
       matcher_index_cache_;
-  std::unique_ptr<LRUCache<image_t, bool>> keypoints_exists_cache_;
-  std::unique_ptr<LRUCache<image_t, bool>> descriptors_exists_cache_;
+  std::unique_ptr<ThreadSafeLRUCache<image_t, bool>> keypoints_exists_cache_;
+  std::unique_ptr<ThreadSafeLRUCache<image_t, bool>> descriptors_exists_cache_;
 };
 
 }  // namespace colmap
