@@ -34,7 +34,7 @@
 namespace colmap {
 namespace {
 
-class FlannFeatureMatcherIndex : public FeatureMatcherIndex {
+class FlannFeatureDescriptorIndex : public FeatureDescriptorIndex {
  public:
   void Build(const FeatureDescriptors& index_descriptors) override {
     THROW_CHECK_EQ(index_descriptors.cols(), 128);
@@ -56,8 +56,8 @@ class FlannFeatureMatcherIndex : public FeatureMatcherIndex {
   void Search(const FeatureDescriptors& query_descriptors,
               const FeatureDescriptors& index_descriptors,
               const int num_neighbors,
-              FeatureMatcher::MatrixXi* indices,
-              FeatureMatcher::MatrixXi* distances) const override {
+              Eigen::RowMajorMatrixXi* indices,
+              Eigen::RowMajorMatrixXi* distances) const override {
     THROW_CHECK_NOTNULL(index_);
     THROW_CHECK_EQ(query_descriptors.cols(), 128);
     THROW_CHECK_EQ(index_descriptors.cols(), 128);
@@ -110,8 +110,8 @@ class FlannFeatureMatcherIndex : public FeatureMatcherIndex {
 
 }  // namespace
 
-std::unique_ptr<FeatureMatcherIndex> FeatureMatcherIndex::Create() {
-  return std::make_unique<FlannFeatureMatcherIndex>();
+std::unique_ptr<FeatureDescriptorIndex> FeatureDescriptorIndex::Create() {
+  return std::make_unique<FlannFeatureDescriptorIndex>();
 }
 
 FeatureMatcherCache::FeatureMatcherCache(const size_t cache_size,
@@ -165,11 +165,11 @@ void FeatureMatcherCache::Setup() {
                 database_->ReadDescriptors(image_id));
           });
 
-  matcher_index_cache_ =
-      std::make_unique<ThreadSafeLRUCache<image_t, FeatureMatcherIndex>>(
+  descriptor_index_cache_ =
+      std::make_unique<ThreadSafeLRUCache<image_t, FeatureDescriptorIndex>>(
           images_cache_.size(), [this](const image_t image_id) {
             auto descriptors = GetDescriptors(image_id);
-            auto index = FeatureMatcherIndex::Create();
+            auto index = FeatureDescriptorIndex::Create();
             index->Build(*descriptors);
             return index;
           });
@@ -212,11 +212,6 @@ std::shared_ptr<FeatureDescriptors> FeatureMatcherCache::GetDescriptors(
   return descriptors_cache_->Get(image_id);
 }
 
-std::shared_ptr<FeatureMatcherIndex> FeatureMatcherCache::GetMatcherIndex(
-    const image_t image_id) {
-  return matcher_index_cache_->Get(image_id);
-}
-
 FeatureMatches FeatureMatcherCache::GetMatches(const image_t image_id1,
                                                const image_t image_id2) {
   std::lock_guard<std::mutex> lock(database_mutex_);
@@ -234,6 +229,11 @@ std::vector<image_t> FeatureMatcherCache::GetImageIds() const {
   // different standard library implementations.
   std::sort(image_ids.begin(), image_ids.end());
   return image_ids;
+}
+
+ThreadSafeLRUCache<image_t, FeatureDescriptorIndex>&
+FeatureMatcherCache::GetFeatureDescriptorIndexCache() {
+  return *descriptor_index_cache_;
 }
 
 bool FeatureMatcherCache::ExistsPosePrior(const image_t image_id) const {

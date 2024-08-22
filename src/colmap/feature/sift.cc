@@ -725,7 +725,7 @@ std::unique_ptr<FeatureExtractor> CreateSiftFeatureExtractor(
 
 namespace {
 
-size_t FindBestMatchesOneWayBruteForce(const FeatureMatcher::MatrixXi& dists,
+size_t FindBestMatchesOneWayBruteForce(const Eigen::RowMajorMatrixXi& dists,
                                        const float max_ratio,
                                        const float max_distance,
                                        std::vector<int>* matches) {
@@ -779,7 +779,7 @@ size_t FindBestMatchesOneWayBruteForce(const FeatureMatcher::MatrixXi& dists,
   return num_matches;
 }
 
-void FindBestMatchesBruteForce(const FeatureMatcher::MatrixXi& dists,
+void FindBestMatchesBruteForce(const Eigen::RowMajorMatrixXi& dists,
                                const float max_ratio,
                                const float max_distance,
                                const bool cross_check,
@@ -817,8 +817,8 @@ void FindBestMatchesBruteForce(const FeatureMatcher::MatrixXi& dists,
   }
 }
 
-size_t FindBestMatchesOneWayIndex(const FeatureMatcher::MatrixXi& indices,
-                                  const FeatureMatcher::MatrixXi& distances,
+size_t FindBestMatchesOneWayIndex(const Eigen::RowMajorMatrixXi& indices,
+                                  const Eigen::RowMajorMatrixXi& distances,
                                   const float max_ratio,
                                   const float max_distance,
                                   std::vector<int>* matches) {
@@ -873,10 +873,10 @@ size_t FindBestMatchesOneWayIndex(const FeatureMatcher::MatrixXi& indices,
   return num_matches;
 }
 
-void FindBestMatchesIndex(const FeatureMatcher::MatrixXi& indices_1to2,
-                          const FeatureMatcher::MatrixXi& distances_1to2,
-                          const FeatureMatcher::MatrixXi& indices_2to1,
-                          const FeatureMatcher::MatrixXi& distances_2to1,
+void FindBestMatchesIndex(const Eigen::RowMajorMatrixXi& indices_1to2,
+                          const Eigen::RowMajorMatrixXi& distances_1to2,
+                          const Eigen::RowMajorMatrixXi& indices_2to1,
+                          const Eigen::RowMajorMatrixXi& distances_2to1,
                           const float max_ratio,
                           const float max_distance,
                           const bool cross_check,
@@ -914,7 +914,7 @@ void FindBestMatchesIndex(const FeatureMatcher::MatrixXi& indices_1to2,
   }
 }
 
-FeatureMatcher::MatrixXi ComputeSiftDistanceMatrix(
+Eigen::RowMajorMatrixXi ComputeSiftDistanceMatrix(
     const FeatureKeypoints* keypoints1,
     const FeatureKeypoints* keypoints2,
     const FeatureDescriptors& descriptors1,
@@ -932,7 +932,7 @@ FeatureMatcher::MatrixXi ComputeSiftDistanceMatrix(
   const Eigen::Matrix<int, Eigen::Dynamic, 128> descriptors2_int =
       descriptors2.cast<int>();
 
-  FeatureMatcher::MatrixXi dists(descriptors1.rows(), descriptors2.rows());
+  Eigen::RowMajorMatrixXi dists(descriptors1.rows(), descriptors2.rows());
   for (FeatureDescriptors::Index i1 = 0; i1 < descriptors1.rows(); ++i1) {
     for (FeatureDescriptors::Index i2 = 0; i2 < descriptors2.rows(); ++i2) {
       if (guided_filter != nullptr && guided_filter((*keypoints1)[i1].x,
@@ -961,40 +961,40 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
     return std::make_unique<SiftCPUFeatureMatcher>(options);
   }
 
-  void Match(const std::shared_ptr<const FeatureDescriptors>& descriptors1,
-             const std::shared_ptr<const FeatureDescriptors>& descriptors2,
-             const LoadFeatureMatcherIndexFunc& load_matcher_index_func1,
-             const LoadFeatureMatcherIndexFunc& load_matcher_index_func2,
+  void Match(const Image& image1,
+             const Image& image2,
              FeatureMatches* matches) override {
     THROW_CHECK_NOTNULL(matches);
+    THROW_CHECK_NE(image1.image_id, kInvalidImageId);
+    THROW_CHECK_NE(image2.image_id, kInvalidImageId);
+    THROW_CHECK_NOTNULL(image1.descriptors);
+    THROW_CHECK_NOTNULL(image2.descriptors);
+    THROW_CHECK_EQ(image1.descriptors->cols(), 128);
+    THROW_CHECK_EQ(image2.descriptors->cols(), 128);
+
     matches->clear();
 
-    if (descriptors1 != nullptr) {
-      THROW_CHECK_EQ(descriptors1->cols(), 128);
-      descriptors1_ = descriptors1;
-      if (!options_.brute_force_cpu_matcher) {
-        index1_ = load_matcher_index_func1();
-      }
+    if (!options_.cpu_brute_force_matcher &&
+        (prev_image_id1_ == kInvalidImageId ||
+         prev_image_id1_ != image1.image_id)) {
+      index1_ = options_.cpu_descriptor_index_cache->Get(image1.image_id);
+      prev_image_id1_ = image1.image_id;
     }
 
-    if (descriptors2 != nullptr) {
-      THROW_CHECK_EQ(descriptors2->cols(), 128);
-      descriptors2_ = descriptors2;
-      if (!options_.brute_force_cpu_matcher) {
-        index2_ = load_matcher_index_func2();
-      }
+    if (!options_.cpu_brute_force_matcher &&
+        (prev_image_id2_ == kInvalidImageId ||
+         prev_image_id2_ != image2.image_id)) {
+      index2_ = options_.cpu_descriptor_index_cache->Get(image2.image_id);
+      prev_image_id2_ = image2.image_id;
     }
 
-    THROW_CHECK_NOTNULL(descriptors1_);
-    THROW_CHECK_NOTNULL(descriptors2_);
-
-    if (descriptors1_->rows() == 0 || descriptors2_->rows() == 0) {
+    if (image1.descriptors->rows() == 0 || image2.descriptors->rows() == 0) {
       return;
     }
 
-    if (options_.brute_force_cpu_matcher) {
-      const FeatureMatcher::MatrixXi distances = ComputeSiftDistanceMatrix(
-          nullptr, nullptr, *descriptors1_, *descriptors2_, nullptr);
+    if (options_.cpu_brute_force_matcher) {
+      const Eigen::RowMajorMatrixXi distances = ComputeSiftDistanceMatrix(
+          nullptr, nullptr, *image1.descriptors, *image2.descriptors, nullptr);
       FindBestMatchesBruteForce(distances,
                                 options_.max_ratio,
                                 options_.max_distance,
@@ -1003,18 +1003,18 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
       return;
     }
 
-    FeatureMatcher::MatrixXi indices_1to2;
-    FeatureMatcher::MatrixXi distances_1to2;
-    FeatureMatcher::MatrixXi indices_2to1;
-    FeatureMatcher::MatrixXi distances_2to1;
-    index2_->Search(*descriptors1_,
-                    *descriptors2_,
+    Eigen::RowMajorMatrixXi indices_1to2;
+    Eigen::RowMajorMatrixXi distances_1to2;
+    Eigen::RowMajorMatrixXi indices_2to1;
+    Eigen::RowMajorMatrixXi distances_2to1;
+    index2_->Search(*image1.descriptors,
+                    *image2.descriptors,
                     /*num_neighbors=*/2,
                     &indices_1to2,
                     &distances_1to2);
     if (options_.cross_check) {
-      index1_->Search(*descriptors2_,
-                      *descriptors1_,
+      index1_->Search(*image2.descriptors,
+                      *image1.descriptors,
                       /*num_neighbors=*/2,
                       &indices_2to1,
                       &distances_2to1);
@@ -1030,38 +1030,36 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
                          matches);
   }
 
-  void MatchGuided(
-      const double max_error,
-      const std::shared_ptr<const FeatureKeypoints>& keypoints1,
-      const std::shared_ptr<const FeatureKeypoints>& keypoints2,
-      const std::shared_ptr<const FeatureDescriptors>& descriptors1,
-      const std::shared_ptr<const FeatureDescriptors>& descriptors2,
-      const LoadFeatureMatcherIndexFunc& load_matcher_index_func1,
-      const LoadFeatureMatcherIndexFunc& load_matcher_index_func2,
-      TwoViewGeometry* two_view_geometry) override {
+  void MatchGuided(const double max_error,
+                   const Image& image1,
+                   const Image& image2,
+                   TwoViewGeometry* two_view_geometry) override {
     THROW_CHECK_NOTNULL(two_view_geometry);
+    THROW_CHECK_NE(image1.image_id, kInvalidImageId);
+    THROW_CHECK_NE(image2.image_id, kInvalidImageId);
+    THROW_CHECK_NOTNULL(image1.descriptors);
+    THROW_CHECK_NOTNULL(image1.keypoints);
+    THROW_CHECK_NOTNULL(image2.descriptors);
+    THROW_CHECK_NOTNULL(image2.keypoints);
+    THROW_CHECK_EQ(image1.descriptors->rows(), image1.keypoints->size());
+    THROW_CHECK_EQ(image2.descriptors->rows(), image2.keypoints->size());
+    THROW_CHECK_EQ(image1.descriptors->cols(), 128);
+    THROW_CHECK_EQ(image2.descriptors->cols(), 128);
+
     two_view_geometry->inlier_matches.clear();
 
-    if (descriptors1 != nullptr) {
-      THROW_CHECK_NOTNULL(keypoints1);
-      THROW_CHECK_EQ(descriptors1->rows(), keypoints1->size());
-      THROW_CHECK_EQ(descriptors1->cols(), 128);
-      keypoints1_ = keypoints1;
-      descriptors1_ = descriptors1;
-      if (!options_.brute_force_cpu_matcher) {
-        index1_ = load_matcher_index_func1();
-      }
+    if (!options_.cpu_brute_force_matcher &&
+        (prev_image_id1_ == kInvalidImageId ||
+         prev_image_id1_ != image1.image_id)) {
+      index1_ = options_.cpu_descriptor_index_cache->Get(image1.image_id);
+      prev_image_id1_ = image1.image_id;
     }
 
-    if (descriptors2 != nullptr) {
-      THROW_CHECK_NOTNULL(keypoints2);
-      THROW_CHECK_EQ(descriptors2->rows(), keypoints2->size());
-      THROW_CHECK_EQ(descriptors2->cols(), 128);
-      keypoints2_ = keypoints2;
-      descriptors2_ = descriptors2;
-      if (!options_.brute_force_cpu_matcher) {
-        index2_ = load_matcher_index_func2();
-      }
+    if (!options_.cpu_brute_force_matcher &&
+        (prev_image_id2_ == kInvalidImageId ||
+         prev_image_id2_ != image2.image_id)) {
+      index2_ = options_.cpu_descriptor_index_cache->Get(image2.image_id);
+      prev_image_id2_ = image2.image_id;
     }
 
     const float max_residual = max_error * max_error;
@@ -1100,22 +1098,22 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
 
     THROW_CHECK(guided_filter);
 
-    const FeatureMatcher::MatrixXi distances_1to2 =
-        ComputeSiftDistanceMatrix(keypoints1_.get(),
-                                  keypoints2_.get(),
-                                  *descriptors1_,
-                                  *descriptors2_,
+    const Eigen::RowMajorMatrixXi distances_1to2 =
+        ComputeSiftDistanceMatrix(image1.keypoints.get(),
+                                  image2.keypoints.get(),
+                                  *image1.descriptors,
+                                  *image2.descriptors,
                                   guided_filter);
-    const FeatureMatcher::MatrixXi distances_2to1 = distances_1to2.transpose();
+    const Eigen::RowMajorMatrixXi distances_2to1 = distances_1to2.transpose();
 
-    FeatureMatcher::MatrixXi indices_1to2(distances_1to2.rows(),
-                                          distances_1to2.cols());
+    Eigen::RowMajorMatrixXi indices_1to2(distances_1to2.rows(),
+                                         distances_1to2.cols());
     for (int i = 0; i < indices_1to2.rows(); ++i) {
       indices_1to2.row(i) = Eigen::VectorXi::LinSpaced(
           indices_1to2.cols(), 0, indices_1to2.cols() - 1);
     }
-    FeatureMatcher::MatrixXi indices_2to1(distances_1to2.cols(),
-                                          distances_1to2.rows());
+    Eigen::RowMajorMatrixXi indices_2to1(distances_1to2.cols(),
+                                         distances_1to2.rows());
     for (int i = 0; i < indices_2to1.rows(); ++i) {
       indices_2to1.row(i) = Eigen::VectorXi::LinSpaced(
           indices_2to1.cols(), 0, indices_2to1.cols() - 1);
@@ -1133,12 +1131,11 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
 
  private:
   const SiftMatchingOptions options_;
-  std::shared_ptr<const FeatureKeypoints> keypoints1_;
-  std::shared_ptr<const FeatureKeypoints> keypoints2_;
-  std::shared_ptr<const FeatureDescriptors> descriptors1_;
-  std::shared_ptr<const FeatureDescriptors> descriptors2_;
-  std::shared_ptr<FeatureMatcherIndex> index1_;
-  std::shared_ptr<FeatureMatcherIndex> index2_;
+  ThreadSafeLRUCache<image_t, FeatureDescriptorIndex>* index_cache_;
+  image_t prev_image_id1_ = kInvalidImageId;
+  image_t prev_image_id2_ = kInvalidImageId;
+  std::shared_ptr<FeatureDescriptorIndex> index1_;
+  std::shared_ptr<FeatureDescriptorIndex> index2_;
   int omp_num_threads_ = -1;
 };
 
@@ -1218,30 +1215,39 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
     return matcher;
   }
 
-  void Match(const std::shared_ptr<const FeatureDescriptors>& descriptors1,
-             const std::shared_ptr<const FeatureDescriptors>& descriptors2,
-             const LoadFeatureMatcherIndexFunc& load_matcher_index_func1,
-             const LoadFeatureMatcherIndexFunc& load_matcher_index_func2,
+  void Match(const Image& image1,
+             const Image& image2,
              FeatureMatches* matches) override {
     THROW_CHECK_NOTNULL(matches);
+    THROW_CHECK_NE(image1.image_id, kInvalidImageId);
+    THROW_CHECK_NE(image2.image_id, kInvalidImageId);
+    THROW_CHECK_NOTNULL(image1.descriptors);
+    THROW_CHECK_NOTNULL(image2.descriptors);
+    THROW_CHECK_EQ(image1.descriptors->cols(), 128);
+    THROW_CHECK_EQ(image2.descriptors->cols(), 128);
+
     matches->clear();
 
     std::lock_guard<std::mutex> lock(
         *sift_match_gpu_mutexes_[sift_match_gpu_.gpu_index]);
 
-    if (descriptors1 != nullptr) {
-      THROW_CHECK_EQ(descriptors1->cols(), 128);
-      WarnIfMaxNumMatchesReachedGPU(*descriptors1);
+    if (prev_image_id1_ == kInvalidImageId || prev_is_guided_ ||
+        prev_image_id1_ != image1.image_id) {
+      WarnIfMaxNumMatchesReachedGPU(*image1.descriptors);
       sift_match_gpu_.SetDescriptors(
-          0, descriptors1->rows(), descriptors1->data());
+          0, image1.descriptors->rows(), image1.descriptors->data());
+      prev_image_id1_ = image1.image_id;
     }
 
-    if (descriptors2 != nullptr) {
-      THROW_CHECK_EQ(descriptors2->cols(), 128);
-      WarnIfMaxNumMatchesReachedGPU(*descriptors2);
+    if (prev_image_id2_ == kInvalidImageId || prev_is_guided_ ||
+        prev_image_id2_ != image2.image_id) {
+      WarnIfMaxNumMatchesReachedGPU(*image2.descriptors);
       sift_match_gpu_.SetDescriptors(
-          1, descriptors2->rows(), descriptors2->data());
+          1, image2.descriptors->rows(), image2.descriptors->data());
+      prev_image_id2_ = image2.image_id;
     }
+
+    prev_is_guided_ = false;
 
     matches->resize(static_cast<size_t>(options_.max_num_matches));
 
@@ -1263,15 +1269,10 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
     }
   }
 
-  void MatchGuided(
-      const double max_error,
-      const std::shared_ptr<const FeatureKeypoints>& keypoints1,
-      const std::shared_ptr<const FeatureKeypoints>& keypoints2,
-      const std::shared_ptr<const FeatureDescriptors>& descriptors1,
-      const std::shared_ptr<const FeatureDescriptors>& descriptors2,
-      const LoadFeatureMatcherIndexFunc& load_matcher_index_func1,
-      const LoadFeatureMatcherIndexFunc& load_matcher_index_func2,
-      TwoViewGeometry* two_view_geometry) override {
+  void MatchGuided(const double max_error,
+                   const Image& image1,
+                   const Image& image2,
+                   TwoViewGeometry* two_view_geometry) override {
     static_assert(offsetof(FeatureKeypoint, x) == 0 * sizeof(float),
                   "Invalid keypoint format");
     static_assert(offsetof(FeatureKeypoint, y) == 1 * sizeof(float),
@@ -1280,6 +1281,17 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
                   "Invalid keypoint format");
 
     THROW_CHECK_NOTNULL(two_view_geometry);
+    THROW_CHECK_NE(image1.image_id, kInvalidImageId);
+    THROW_CHECK_NE(image2.image_id, kInvalidImageId);
+    THROW_CHECK_NOTNULL(image1.descriptors);
+    THROW_CHECK_NOTNULL(image1.keypoints);
+    THROW_CHECK_NOTNULL(image2.descriptors);
+    THROW_CHECK_NOTNULL(image2.keypoints);
+    THROW_CHECK_EQ(image1.descriptors->rows(), image1.keypoints->size());
+    THROW_CHECK_EQ(image2.descriptors->rows(), image2.keypoints->size());
+    THROW_CHECK_EQ(image1.descriptors->cols(), 128);
+    THROW_CHECK_EQ(image2.descriptors->cols(), 128);
+
     two_view_geometry->inlier_matches.clear();
 
     std::lock_guard<std::mutex> lock(
@@ -1287,33 +1299,33 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
 
     constexpr size_t kFeatureShapeNumElems = 4;
 
-    if (descriptors1 != nullptr) {
-      THROW_CHECK_NOTNULL(keypoints1);
-      THROW_CHECK_EQ(descriptors1->rows(), keypoints1->size());
-      THROW_CHECK_EQ(descriptors1->cols(), 128);
-      WarnIfMaxNumMatchesReachedGPU(*descriptors1);
+    if (prev_image_id1_ == kInvalidImageId || !prev_is_guided_ ||
+        prev_image_id1_ != image1.image_id) {
+      WarnIfMaxNumMatchesReachedGPU(*image1.descriptors);
       const size_t kIndex = 0;
       sift_match_gpu_.SetDescriptors(
-          kIndex, descriptors1->rows(), descriptors1->data());
+          kIndex, image1.descriptors->rows(), image1.descriptors->data());
       sift_match_gpu_.SetFeautreLocation(
           kIndex,
-          reinterpret_cast<const float*>(keypoints1->data()),
+          reinterpret_cast<const float*>(image1.keypoints->data()),
           kFeatureShapeNumElems);
+      prev_image_id1_ = image1.image_id;
     }
 
-    if (descriptors2 != nullptr) {
-      THROW_CHECK_NOTNULL(keypoints2);
-      THROW_CHECK_EQ(descriptors2->rows(), keypoints2->size());
-      THROW_CHECK_EQ(descriptors2->cols(), 128);
-      WarnIfMaxNumMatchesReachedGPU(*descriptors2);
+    if (prev_image_id2_ == kInvalidImageId || !prev_is_guided_ ||
+        prev_image_id2_ != image2.image_id) {
+      WarnIfMaxNumMatchesReachedGPU(*image2.descriptors);
       const size_t kIndex = 1;
       sift_match_gpu_.SetDescriptors(
-          kIndex, descriptors2->rows(), descriptors2->data());
+          kIndex, image2.descriptors->rows(), image2.descriptors->data());
       sift_match_gpu_.SetFeautreLocation(
           kIndex,
-          reinterpret_cast<const float*>(keypoints2->data()),
+          reinterpret_cast<const float*>(image2.keypoints->data()),
           kFeatureShapeNumElems);
+      prev_image_id2_ = image2.image_id;
     }
+
+    prev_is_guided_ = true;
 
     Eigen::Matrix<float, 3, 3, Eigen::RowMajor> F;
     Eigen::Matrix<float, 3, 3, Eigen::RowMajor> H;
@@ -1376,6 +1388,9 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
 
   const SiftMatchingOptions options_;
   SiftMatchGPU sift_match_gpu_;
+  bool prev_is_guided_ = false;
+  image_t prev_image_id1_ = kInvalidImageId;
+  image_t prev_image_id2_ = kInvalidImageId;
 };
 #endif  // COLMAP_GPU_ENABLED
 
