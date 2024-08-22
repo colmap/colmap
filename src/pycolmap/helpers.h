@@ -171,7 +171,7 @@ std::string CreateSummary(const T& self, bool write_type) {
     py::object attribute;
     try {
       attribute = pyself.attr(name);
-    } catch (const std::exception& e) {
+    } catch (const std::exception&) {
       // Some properties are not valid for some uninitialized objects.
       continue;
     }
@@ -222,7 +222,7 @@ std::string CreateRepresentation(const T& self) {
     py::object attribute;
     try {
       attribute = pyself.attr(name);
-    } catch (const std::exception& e) {
+    } catch (const std::exception&) {
       // Some properties are not valid for some uninitialized objects.
       continue;
     }
@@ -252,7 +252,7 @@ void AddDefaultsToDocstrings(py::class_<T, options...> cls) {
     py::object member;
     try {
       member = obj.attr(attribute.c_str());
-    } catch (const std::exception& e) {
+    } catch (const std::exception&) {
       // Some properties are not valid for some uninitialized objects.
       continue;
     }
