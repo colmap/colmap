@@ -118,7 +118,14 @@ FeatureMatcherCache::FeatureMatcherCache(const size_t cache_size,
                                          std::shared_ptr<Database> database,
                                          const bool do_setup)
     : cache_size_(cache_size),
-      database_(std::move(THROW_CHECK_NOTNULL(database))) {
+      database_(std::move(THROW_CHECK_NOTNULL(database))),
+      descriptor_index_cache_(
+              cache_size_, [this](const image_t image_id) {
+                auto descriptors = GetDescriptors(image_id);
+                auto index = FeatureDescriptorIndex::Create();
+                index->Build(*descriptors);
+                return index;
+              }) {
   if (do_setup) {
     Setup();
   }
@@ -163,15 +170,6 @@ void FeatureMatcherCache::Setup() {
             std::lock_guard<std::mutex> lock(database_mutex_);
             return std::make_shared<FeatureDescriptors>(
                 database_->ReadDescriptors(image_id));
-          });
-
-  descriptor_index_cache_ =
-      std::make_unique<ThreadSafeLRUCache<image_t, FeatureDescriptorIndex>>(
-          images_cache_.size(), [this](const image_t image_id) {
-            auto descriptors = GetDescriptors(image_id);
-            auto index = FeatureDescriptorIndex::Create();
-            index->Build(*descriptors);
-            return index;
           });
 
   keypoints_exists_cache_ = std::make_unique<ThreadSafeLRUCache<image_t, bool>>(
@@ -233,7 +231,7 @@ std::vector<image_t> FeatureMatcherCache::GetImageIds() const {
 
 ThreadSafeLRUCache<image_t, FeatureDescriptorIndex>&
 FeatureMatcherCache::GetFeatureDescriptorIndexCache() {
-  return *descriptor_index_cache_;
+  return descriptor_index_cache_;
 }
 
 bool FeatureMatcherCache::ExistsPosePrior(const image_t image_id) const {

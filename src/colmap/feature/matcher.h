@@ -136,10 +136,9 @@ class FeatureMatcherCache {
       keypoints_cache_;
   std::unique_ptr<ThreadSafeLRUCache<image_t, FeatureDescriptors>>
       descriptors_cache_;
-  std::unique_ptr<ThreadSafeLRUCache<image_t, FeatureDescriptorIndex>>
-      descriptor_index_cache_;
   std::unique_ptr<ThreadSafeLRUCache<image_t, bool>> keypoints_exists_cache_;
   std::unique_ptr<ThreadSafeLRUCache<image_t, bool>> descriptors_exists_cache_;
+  ThreadSafeLRUCache<image_t, FeatureDescriptorIndex> descriptor_index_cache_;
 };
 
 }  // namespace colmap

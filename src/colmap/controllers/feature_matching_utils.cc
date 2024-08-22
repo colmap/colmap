@@ -74,6 +74,7 @@ void FeatureMatcherWorker::Run() {
 
   matching_options_.cpu_descriptor_index_cache =
       &cache_->GetFeatureDescriptorIndexCache();
+  THROW_CHECK_NOTNULL(matching_options_.cpu_descriptor_index_cache);
 
   std::unique_ptr<FeatureMatcher> matcher =
       CreateSiftFeatureMatcher(matching_options_);
