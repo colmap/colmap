@@ -31,7 +31,7 @@ void BindAlignmentEstimator(py::module& m) {
       [](const Reconstruction& src_reconstruction,
          const Reconstruction& tgt_reconstruction,
          const double min_inlier_observations,
-         const double max_reproj_error) -> py::object {
+         const double max_reproj_error) -> py::typing::Optional<Sim3d> {
         Sim3d tgt_from_src;
         if (!AlignReconstructionsViaReprojections(src_reconstruction,
                                                   tgt_reconstruction,
@@ -51,7 +51,7 @@ void BindAlignmentEstimator(py::module& m) {
       "align_reconstructions_via_proj_centers",
       [](const Reconstruction& src_reconstruction,
          const Reconstruction& tgt_reconstruction,
-         const double max_proj_center_error) -> py::object {
+         const double max_proj_center_error) -> py::typing::Optional<Sim3d> {
         Sim3d tgt_from_src;
         if (!AlignReconstructionsViaProjCenters(src_reconstruction,
                                                 tgt_reconstruction,
@@ -71,7 +71,7 @@ void BindAlignmentEstimator(py::module& m) {
          const Reconstruction& tgt_reconstruction,
          const size_t min_common_observations,
          const double max_error,
-         const double min_inlier_ratio) -> py::object {
+         const double min_inlier_ratio) -> py::typing::Optional<Sim3d> {
         Sim3d tgt_from_src;
         if (!AlignReconstructionsViaPoints(src_reconstruction,
                                            tgt_reconstruction,
@@ -95,7 +95,7 @@ void BindAlignmentEstimator(py::module& m) {
          const std::vector<std::string>& image_names,
          const std::vector<Eigen::Vector3d>& locations,
          const int min_common_images,
-         const RANSACOptions& ransac_options) -> py::object {
+         const RANSACOptions& ransac_options) -> py::typing::Optional<Sim3d> {
         Sim3d locations_from_src;
         if (!AlignReconstructionToLocations(src,
                                             image_names,
@@ -120,7 +120,7 @@ void BindAlignmentEstimator(py::module& m) {
          const std::string& alignment_error,
          double min_inlier_observations,
          double max_reproj_error,
-         double max_proj_center_error) -> py::object {
+         double max_proj_center_error) -> py::typing::Optional<py::dict> {
         std::vector<ImageAlignmentError> errors;
         Sim3d rec2_from_rec1;
         if (!CompareModels(reconstruction1,
