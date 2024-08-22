@@ -36,7 +36,7 @@ target_link_libraries(pycolmap PRIVATE colmap::colmap glog::glog Ceres::ceres)
 target_compile_definitions(pycolmap PRIVATE VERSION_INFO="${PROJECT_VERSION}")
 install(TARGETS pycolmap LIBRARY DESTINATION .)
 
-if(GENERATE_STUBS)
+if(GENERATE_STUBS AND UNIX)
     message(STATUS "Enabling stubs generation")
     set(STUBGEN_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/pycolmap")
     add_custom_command(
