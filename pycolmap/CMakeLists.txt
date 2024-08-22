@@ -38,7 +38,7 @@ install(TARGETS pycolmap LIBRARY DESTINATION .)
 
 if(GENERATE_STUBS AND UNIX)
     message(STATUS "Enabling stubs generation")
-    set(STUBGEN_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/pycolmap")
+    set(STUBGEN_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/pycolmap-stubs")
     add_custom_command(
         TARGET pycolmap POST_BUILD
         COMMAND
