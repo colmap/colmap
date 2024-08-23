@@ -47,12 +47,6 @@ namespace colmap {
 
 class FeatureMatcher {
  public:
-  // Function to load a feature matcher index. This may be used by some matcher
-  // implementations to speedup feature matching by pre-computing search data
-  // structures.
-  using LoadFeatureDescriptorIndexFunc =
-      std::function<std::shared_ptr<FeatureDescriptorIndex>()>;
-
   virtual ~FeatureMatcher() = default;
 
   struct Image {
