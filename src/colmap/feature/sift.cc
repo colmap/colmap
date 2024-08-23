@@ -1153,12 +1153,10 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
 
  private:
   const SiftMatchingOptions options_;
-  ThreadSafeLRUCache<image_t, FeatureDescriptorIndex>* index_cache_;
   image_t prev_image_id1_ = kInvalidImageId;
   image_t prev_image_id2_ = kInvalidImageId;
   std::shared_ptr<FeatureDescriptorIndex> index1_;
   std::shared_ptr<FeatureDescriptorIndex> index2_;
-  int omp_num_threads_ = -1;
 };
 
 #if defined(COLMAP_GPU_ENABLED)
