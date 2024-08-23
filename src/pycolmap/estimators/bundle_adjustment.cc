@@ -51,18 +51,43 @@ void BindBundleAdjuster(py::module& m) {
           .def_readwrite("print_summary",
                          &BAOpts::print_summary,
                          "Whether to print a final summary.")
-          .def_readwrite("min_num_residuals_for_multi_threading",
-                         &BAOpts::min_num_residuals_for_multi_threading,
-                         "Minimum number of residuals to enable "
-                         "multi-threading. Note that "
-                         "single-threaded is typically better for small bundle "
-                         "adjustment problems "
-                         "due to the overhead of threading. ")
+          .def_readwrite("use_gpu",
+                         &BAOpts::use_gpu,
+                         "Whether to use Ceres' CUDA linear algebra library, "
+                         "if available.")
+          .def_readwrite("gpu_index",
+                         &BAOpts::gpu_index,
+                         "Which GPU to use for solving the problem.")
+          .def_readwrite(
+              "min_num_residuals_for_cpu_multi_threading",
+              &BAOpts::min_num_residuals_for_cpu_multi_threading,
+              "Minimum number of residuals to enable multi-threading. Note "
+              "that single-threaded is typically better for small bundle "
+              "adjustment problems due to the overhead of threading.")
+          .def_readwrite("min_num_images_gpu_solver",
+                         &BAOpts::min_num_images_gpu_solver,
+                         "Minimum number of images to use the GPU solver.")
+          .def_readwrite("max_num_images_direct_dense_cpu_solver",
+                         &BAOpts::max_num_images_direct_dense_cpu_solver,
+                         "Threshold to switch between direct, sparse, and "
+                         "iterative solvers.")
+          .def_readwrite("max_num_images_direct_sparse_cpu_solver",
+                         &BAOpts::max_num_images_direct_sparse_cpu_solver,
+                         "Threshold to switch between direct, sparse, and "
+                         "iterative solvers.")
+          .def_readwrite("max_num_images_direct_dense_gpu_solver",
+                         &BAOpts::max_num_images_direct_dense_gpu_solver,
+                         "Threshold to switch between direct, sparse, and "
+                         "iterative solvers.")
+          .def_readwrite("max_num_images_direct_sparse_gpu_solver",
+                         &BAOpts::max_num_images_direct_sparse_gpu_solver,
+                         "Threshold to switch between direct, sparse, and "
+                         "iterative solvers.")
           .def_readwrite(
               "solver_options",
               &BAOpts::solver_options,
               "Ceres-Solver options. To be able to use this feature "
-              "one needs to install pyceres and import it beforehand. ");
+              "one needs to install pyceres and import it beforehand.");
   MakeDataclass(PyBundleAdjustmentOptions);
 
   using BACfg = BundleAdjustmentConfig;
