@@ -77,12 +77,12 @@ if(GPU_ENABLED)
 endif()
 
 COLMAP_ADD_TEST(
-    NAME feature_index_test
+    NAME index_test
     SRCS index_test.cc
     LINK_LIBS colmap_feature
 )
 COLMAP_ADD_TEST(
-    NAME feature_utils_test
+    NAME utils_test
     SRCS utils_test.cc
     LINK_LIBS colmap_feature
 )
