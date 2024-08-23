@@ -86,8 +86,8 @@ void BindIncrementalPipeline(py::module& m) {
           &Opts::ba_refine_extra_params,
           "Which intrinsic parameters to optimize during the reconstruction.")
       .def_readwrite(
-          "ba_min_num_residuals_for_multi_threading",
-          &Opts::ba_min_num_residuals_for_multi_threading,
+          "ba_min_num_residuals_for_cpu_multi_threading",
+          &Opts::ba_min_num_residuals_for_cpu_multi_threading,
           "The minimum number of residuals per bundle adjustment problem to "
           "enable multi-threading solving of the problems.")
       .def_readwrite(

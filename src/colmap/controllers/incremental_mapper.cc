@@ -114,11 +114,13 @@ BundleAdjustmentOptions IncrementalPipelineOptions::LocalBundleAdjustment()
   options.refine_focal_length = ba_refine_focal_length;
   options.refine_principal_point = ba_refine_principal_point;
   options.refine_extra_params = ba_refine_extra_params;
-  options.min_num_residuals_for_multi_threading =
-      ba_min_num_residuals_for_multi_threading;
+  options.min_num_residuals_for_cpu_multi_threading =
+      ba_min_num_residuals_for_cpu_multi_threading;
   options.loss_function_scale = 1.0;
   options.loss_function_type =
       BundleAdjustmentOptions::LossFunctionType::SOFT_L1;
+  options.use_gpu = ba_use_gpu;
+  options.gpu_index = ba_gpu_index;
   return options;
 }
 
@@ -144,8 +146,8 @@ BundleAdjustmentOptions IncrementalPipelineOptions::GlobalBundleAdjustment()
   options.refine_focal_length = ba_refine_focal_length;
   options.refine_principal_point = ba_refine_principal_point;
   options.refine_extra_params = ba_refine_extra_params;
-  options.min_num_residuals_for_multi_threading =
-      ba_min_num_residuals_for_multi_threading;
+  options.min_num_residuals_for_cpu_multi_threading =
+      ba_min_num_residuals_for_cpu_multi_threading;
   options.loss_function_type =
       BundleAdjustmentOptions::LossFunctionType::TRIVIAL;
   options.use_gpu = ba_use_gpu;
