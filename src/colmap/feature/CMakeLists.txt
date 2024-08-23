@@ -49,6 +49,7 @@ COLMAP_ADD_LIBRARY(
     NAME colmap_feature
     SRCS
         extractor.h
+        index.h index.cc
         matcher.h matcher.cc
         pairing.h pairing.cc
         sift.h sift.cc
@@ -75,6 +76,11 @@ if(GPU_ENABLED)
     endif()
 endif()
 
+COLMAP_ADD_TEST(
+    NAME feature_index_test
+    SRCS index_test.cc
+    LINK_LIBS colmap_feature
+)
 COLMAP_ADD_TEST(
     NAME feature_utils_test
     SRCS utils_test.cc

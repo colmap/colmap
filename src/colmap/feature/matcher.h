@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/feature/index.h"
 #include "colmap/feature/types.h"
 #include "colmap/geometry/gps.h"
 #include "colmap/scene/camera.h"
@@ -43,21 +44,6 @@
 #include <unordered_map>
 
 namespace colmap {
-
-class FeatureDescriptorIndex {
- public:
-  virtual ~FeatureDescriptorIndex() = default;
-
-  static std::unique_ptr<FeatureDescriptorIndex> Create();
-
-  virtual void Build(const FeatureDescriptors& descriptors) = 0;
-
-  virtual void Search(const FeatureDescriptors& query_descriptors,
-                      const FeatureDescriptors& index_descriptors,
-                      int num_neighbors,
-                      Eigen::RowMajorMatrixXi* indices,
-                      Eigen::RowMajorMatrixXi* distances) const = 0;
-};
 
 class FeatureMatcher {
  public:

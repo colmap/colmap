@@ -56,6 +56,9 @@
 
 namespace colmap {
 
+// SIFT descriptors are normalized to length 512 (w/ quantization errors).
+constexpr int kSqSiftDescriptorNorm = 512 * 512;
+
 bool SiftExtractionOptions::Check() const {
   if (use_gpu) {
     CHECK_OPTION_GT(CSVToVector<int>(gpu_index).size(), 0);
@@ -725,46 +728,48 @@ std::unique_ptr<FeatureExtractor> CreateSiftFeatureExtractor(
 
 namespace {
 
-size_t FindBestMatchesOneWayBruteForce(const Eigen::RowMajorMatrixXi& dists,
-                                       const float max_ratio,
-                                       const float max_distance,
-                                       std::vector<int>* matches) {
-  // SIFT descriptor vectors are normalized to length 512.
-  constexpr float kDistNorm = static_cast<float>(1. / (512. * 512.));
+size_t FindBestMatchesOneWayBruteForce(
+    const Eigen::RowMajorMatrixXi& dot_products,
+    const float max_ratio,
+    const float max_distance,
+    std::vector<int>* matches) {
+  constexpr float kInvSqDescriptorNorm =
+      static_cast<float>(1. / kSqSiftDescriptorNorm);
 
   size_t num_matches = 0;
-  matches->resize(dists.rows(), -1);
+  matches->resize(dot_products.rows(), -1);
 
-  for (Eigen::Index i1 = 0; i1 < dists.rows(); ++i1) {
-    int best_i2 = -1;
-    int best_dist = 0;
-    int second_best_dist = 0;
-    for (Eigen::Index i2 = 0; i2 < dists.cols(); ++i2) {
-      const int dist = dists(i1, i2);
-      if (dist > best_dist) {
-        best_i2 = i2;
-        second_best_dist = best_dist;
-        best_dist = dist;
-      } else if (dist > second_best_dist) {
-        second_best_dist = dist;
+  for (Eigen::Index i1 = 0; i1 < dot_products.rows(); ++i1) {
+    int best_d2_idx = -1;
+    int best_dot_product = 0;
+    int second_best_dot_product = 0;
+    for (Eigen::Index i2 = 0; i2 < dot_products.cols(); ++i2) {
+      const int dot_product = dot_products(i1, i2);
+      if (dot_product > best_dot_product) {
+        best_d2_idx = i2;
+        second_best_dot_product = best_dot_product;
+        best_dot_product = dot_product;
+      } else if (dot_product > second_best_dot_product) {
+        second_best_dot_product = dot_product;
       }
     }
 
     // Check if any match found.
-    if (best_i2 == -1) {
+    if (best_d2_idx == -1) {
       continue;
     }
 
+    // Convert to L2 distance in which the thresholds are defined.
     const float best_dist_normed =
-        std::acos(std::min(kDistNorm * best_dist, 1.0f));
+        std::acos(std::min(kInvSqDescriptorNorm * best_dot_product, 1.0f));
 
     // Check if match distance passes threshold.
     if (best_dist_normed > max_distance) {
       continue;
     }
 
-    const float second_best_dist_normed =
-        std::acos(std::min(kDistNorm * second_best_dist, 1.0f));
+    const float second_best_dist_normed = std::acos(
+        std::min(kInvSqDescriptorNorm * second_best_dot_product, 1.0f));
 
     // Check if match passes ratio test. Keep this comparison >= in order to
     // ensure that the case of best == second_best is detected.
@@ -772,45 +777,45 @@ size_t FindBestMatchesOneWayBruteForce(const Eigen::RowMajorMatrixXi& dists,
       continue;
     }
 
-    num_matches += 1;
-    (*matches)[i1] = best_i2;
+    ++num_matches;
+    (*matches)[i1] = best_d2_idx;
   }
 
   return num_matches;
 }
 
-void FindBestMatchesBruteForce(const Eigen::RowMajorMatrixXi& dists,
+void FindBestMatchesBruteForce(const Eigen::RowMajorMatrixXi& dot_products,
                                const float max_ratio,
                                const float max_distance,
                                const bool cross_check,
                                FeatureMatches* matches) {
   matches->clear();
 
-  std::vector<int> matches12;
-  const size_t num_matches12 = FindBestMatchesOneWayBruteForce(
-      dists, max_ratio, max_distance, &matches12);
+  std::vector<int> matches_1to2;
+  const size_t num_matches_1to2 = FindBestMatchesOneWayBruteForce(
+      dot_products, max_ratio, max_distance, &matches_1to2);
 
   if (cross_check) {
-    std::vector<int> matches21;
-    const size_t num_matches21 = FindBestMatchesOneWayBruteForce(
-        dists.transpose(), max_ratio, max_distance, &matches21);
-    matches->reserve(std::min(num_matches12, num_matches21));
-    for (size_t i1 = 0; i1 < matches12.size(); ++i1) {
-      if (matches12[i1] != -1 && matches21[matches12[i1]] != -1 &&
-          matches21[matches12[i1]] == static_cast<int>(i1)) {
+    std::vector<int> matches_2to1;
+    const size_t num_matches_2to1 = FindBestMatchesOneWayBruteForce(
+        dot_products.transpose(), max_ratio, max_distance, &matches_2to1);
+    matches->reserve(std::min(num_matches_1to2, num_matches_2to1));
+    for (size_t i1 = 0; i1 < matches_1to2.size(); ++i1) {
+      if (matches_1to2[i1] != -1 && matches_2to1[matches_1to2[i1]] != -1 &&
+          matches_2to1[matches_1to2[i1]] == static_cast<int>(i1)) {
         FeatureMatch match;
         match.point2D_idx1 = i1;
-        match.point2D_idx2 = matches12[i1];
+        match.point2D_idx2 = matches_1to2[i1];
         matches->push_back(match);
       }
     }
   } else {
-    matches->reserve(num_matches12);
-    for (size_t i1 = 0; i1 < matches12.size(); ++i1) {
-      if (matches12[i1] != -1) {
+    matches->reserve(num_matches_1to2);
+    for (size_t i1 = 0; i1 < matches_1to2.size(); ++i1) {
+      if (matches_1to2[i1] != -1) {
         FeatureMatch match;
         match.point2D_idx1 = i1;
-        match.point2D_idx2 = matches12[i1];
+        match.point2D_idx2 = matches_1to2[i1];
         matches->push_back(match);
       }
     }
@@ -818,103 +823,103 @@ void FindBestMatchesBruteForce(const Eigen::RowMajorMatrixXi& dists,
 }
 
 size_t FindBestMatchesOneWayIndex(const Eigen::RowMajorMatrixXi& indices,
-                                  const Eigen::RowMajorMatrixXi& distances,
+                                  const Eigen::RowMajorMatrixXi& l2_dists,
                                   const float max_ratio,
                                   const float max_distance,
                                   std::vector<int>* matches) {
-  // SIFT descriptor vectors are normalized to length 512.
-  constexpr float kDistNorm = static_cast<float>(1. / (512. * 512.));
+  const int max_l2_dist = kSqSiftDescriptorNorm * max_distance * max_distance;
 
   size_t num_matches = 0;
   matches->resize(indices.rows(), -1);
 
   for (int d1_idx = 0; d1_idx < indices.rows(); ++d1_idx) {
-    int best_i2 = -1;
-    int best_dist = 0;
-    int second_best_dist = 0;
+    int best_d2_idx = -1;
+    int best_l2_dist = std::numeric_limits<int>::max();
+    int second_best_l2_dist = std::numeric_limits<int>::max();
     for (int n_idx = 0; n_idx < indices.cols(); ++n_idx) {
       const int d2_idx = indices(d1_idx, n_idx);
-      const int dist = distances(d1_idx, n_idx);
-      if (dist > best_dist) {
-        best_i2 = d2_idx;
-        second_best_dist = best_dist;
-        best_dist = dist;
-      } else if (dist > second_best_dist) {
-        second_best_dist = dist;
+      const int l2_dist = l2_dists(d1_idx, n_idx);
+      if (l2_dist < best_l2_dist) {
+        best_d2_idx = d2_idx;
+        second_best_l2_dist = best_l2_dist;
+        best_l2_dist = l2_dist;
+      } else if (l2_dist < second_best_l2_dist) {
+        second_best_l2_dist = l2_dist;
       }
     }
 
     // Check if any match found.
-    if (best_i2 == -1) {
+    if (best_d2_idx == -1) {
       continue;
     }
-
-    const float best_dist_normed =
-        std::acos(std::min(kDistNorm * best_dist, 1.0f));
 
     // Check if match distance passes threshold.
-    if (best_dist_normed > max_distance) {
+    if (best_l2_dist > max_l2_dist) {
       continue;
     }
-
-    const float second_best_dist_normed =
-        std::acos(std::min(kDistNorm * second_best_dist, 1.0f));
 
     // Check if match passes ratio test. Keep this comparison >= in order to
     // ensure that the case of best == second_best is detected.
-    if (best_dist_normed >= max_ratio * second_best_dist_normed) {
+    if (std::sqrt(static_cast<float>(best_l2_dist)) >=
+        max_ratio * std::sqrt(static_cast<float>(second_best_l2_dist))) {
       continue;
     }
 
-    num_matches += 1;
-    (*matches)[d1_idx] = best_i2;
+    ++num_matches;
+    (*matches)[d1_idx] = best_d2_idx;
   }
 
   return num_matches;
 }
 
 void FindBestMatchesIndex(const Eigen::RowMajorMatrixXi& indices_1to2,
-                          const Eigen::RowMajorMatrixXi& distances_1to2,
+                          const Eigen::RowMajorMatrixXi& l2_dists_1to2,
                           const Eigen::RowMajorMatrixXi& indices_2to1,
-                          const Eigen::RowMajorMatrixXi& distances_2to1,
+                          const Eigen::RowMajorMatrixXi& l2_dists_2to1,
                           const float max_ratio,
                           const float max_distance,
                           const bool cross_check,
                           FeatureMatches* matches) {
   matches->clear();
 
-  std::vector<int> matches12;
-  const size_t num_matches12 = FindBestMatchesOneWayIndex(
-      indices_1to2, distances_1to2, max_ratio, max_distance, &matches12);
+  std::vector<int> matches_1to2;
+  const size_t num_matches_1to2 = FindBestMatchesOneWayIndex(
+      indices_1to2, l2_dists_1to2, max_ratio, max_distance, &matches_1to2);
 
   if (cross_check && indices_2to1.rows()) {
-    std::vector<int> matches21;
-    const size_t num_matches21 = FindBestMatchesOneWayIndex(
-        indices_2to1, distances_2to1, max_ratio, max_distance, &matches21);
-    matches->reserve(std::min(num_matches12, num_matches21));
-    for (size_t i1 = 0; i1 < matches12.size(); ++i1) {
-      if (matches12[i1] != -1 && matches21[matches12[i1]] != -1 &&
-          matches21[matches12[i1]] == static_cast<int>(i1)) {
+    std::vector<int> matches_2to1;
+    const size_t num_matches_2to1 = FindBestMatchesOneWayIndex(
+        indices_2to1, l2_dists_2to1, max_ratio, max_distance, &matches_2to1);
+    matches->reserve(std::min(num_matches_1to2, num_matches_2to1));
+    for (size_t i1 = 0; i1 < matches_1to2.size(); ++i1) {
+      if (matches_1to2[i1] != -1 && matches_2to1[matches_1to2[i1]] != -1 &&
+          matches_2to1[matches_1to2[i1]] == static_cast<int>(i1)) {
         FeatureMatch match;
         match.point2D_idx1 = i1;
-        match.point2D_idx2 = matches12[i1];
+        match.point2D_idx2 = matches_1to2[i1];
         matches->push_back(match);
       }
     }
   } else {
-    matches->reserve(num_matches12);
-    for (size_t i1 = 0; i1 < matches12.size(); ++i1) {
-      if (matches12[i1] != -1) {
+    matches->reserve(num_matches_1to2);
+    for (size_t i1 = 0; i1 < matches_1to2.size(); ++i1) {
+      if (matches_1to2[i1] != -1) {
         FeatureMatch match;
         match.point2D_idx1 = i1;
-        match.point2D_idx2 = matches12[i1];
+        match.point2D_idx2 = matches_1to2[i1];
         matches->push_back(match);
       }
     }
   }
 }
 
+enum class DistanceType {
+  L2,
+  DOT_PRODUCT,
+};
+
 Eigen::RowMajorMatrixXi ComputeSiftDistanceMatrix(
+    const DistanceType distance_type,
     const FeatureKeypoints* keypoints1,
     const FeatureKeypoints* keypoints2,
     const FeatureDescriptors& descriptors1,
@@ -932,21 +937,36 @@ Eigen::RowMajorMatrixXi ComputeSiftDistanceMatrix(
   const Eigen::Matrix<int, Eigen::Dynamic, 128> descriptors2_int =
       descriptors2.cast<int>();
 
-  Eigen::RowMajorMatrixXi dists(descriptors1.rows(), descriptors2.rows());
+  Eigen::RowMajorMatrixXi distances(descriptors1.rows(), descriptors2.rows());
   for (FeatureDescriptors::Index i1 = 0; i1 < descriptors1.rows(); ++i1) {
     for (FeatureDescriptors::Index i2 = 0; i2 < descriptors2.rows(); ++i2) {
       if (guided_filter != nullptr && guided_filter((*keypoints1)[i1].x,
                                                     (*keypoints1)[i1].y,
                                                     (*keypoints2)[i2].x,
                                                     (*keypoints2)[i2].y)) {
-        dists(i1, i2) = 0;
+        if (distance_type == DistanceType::L2) {
+          distances(i1, i2) = kSqSiftDescriptorNorm;
+        } else if (distance_type == DistanceType::DOT_PRODUCT) {
+          distances(i1, i2) = 0;
+        } else {
+          LOG(FATAL_THROW) << "Distance type not supported";
+        }
       } else {
-        dists(i1, i2) = descriptors1_int.row(i1).dot(descriptors2_int.row(i2));
+        if (distance_type == DistanceType::L2) {
+          distances(i1, i2) =
+              (descriptors1_int.row(i1) - descriptors2_int.row(i2))
+                  .squaredNorm();
+        } else if (distance_type == DistanceType::DOT_PRODUCT) {
+          distances(i1, i2) =
+              descriptors1_int.row(i1).dot(descriptors2_int.row(i2));
+        } else {
+          LOG(FATAL_THROW) << "Distance type not supported";
+        }
       }
     }
   }
 
-  return dists;
+  return distances;
 }
 
 class SiftCPUFeatureMatcher : public FeatureMatcher {
@@ -993,9 +1013,14 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
     }
 
     if (options_.cpu_brute_force_matcher) {
-      const Eigen::RowMajorMatrixXi distances = ComputeSiftDistanceMatrix(
-          nullptr, nullptr, *image1.descriptors, *image2.descriptors, nullptr);
-      FindBestMatchesBruteForce(distances,
+      const Eigen::RowMajorMatrixXi dot_products =
+          ComputeSiftDistanceMatrix(DistanceType::DOT_PRODUCT,
+                                    nullptr,
+                                    nullptr,
+                                    *image1.descriptors,
+                                    *image2.descriptors,
+                                    nullptr);
+      FindBestMatchesBruteForce(dot_products,
                                 options_.max_ratio,
                                 options_.max_distance,
                                 options_.cross_check,
@@ -1004,26 +1029,22 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
     }
 
     Eigen::RowMajorMatrixXi indices_1to2;
-    Eigen::RowMajorMatrixXi distances_1to2;
+    Eigen::RowMajorMatrixXi l2_dists_1to2;
     Eigen::RowMajorMatrixXi indices_2to1;
-    Eigen::RowMajorMatrixXi distances_2to1;
-    index2_->Search(*image1.descriptors,
-                    *image2.descriptors,
-                    /*num_neighbors=*/2,
-                    &indices_1to2,
-                    &distances_1to2);
+    Eigen::RowMajorMatrixXi l2_dists_2to1;
+    index2_->Search(
+        /*num_neighbors=*/2, *image1.descriptors, indices_1to2, l2_dists_1to2);
     if (options_.cross_check) {
-      index1_->Search(*image2.descriptors,
-                      *image1.descriptors,
-                      /*num_neighbors=*/2,
-                      &indices_2to1,
-                      &distances_2to1);
+      index1_->Search(/*num_neighbors=*/2,
+                      *image2.descriptors,
+                      indices_2to1,
+                      l2_dists_2to1);
     }
 
     FindBestMatchesIndex(indices_1to2,
-                         distances_1to2,
+                         l2_dists_1to2,
                          indices_2to1,
-                         distances_2to1,
+                         l2_dists_2to1,
                          options_.max_ratio,
                          options_.max_distance,
                          options_.cross_check,
@@ -1098,31 +1119,32 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
 
     THROW_CHECK(guided_filter);
 
-    const Eigen::RowMajorMatrixXi distances_1to2 =
-        ComputeSiftDistanceMatrix(image1.keypoints.get(),
+    const Eigen::RowMajorMatrixXi l2_dists_1to2 =
+        ComputeSiftDistanceMatrix(DistanceType::L2,
+                                  image1.keypoints.get(),
                                   image2.keypoints.get(),
                                   *image1.descriptors,
                                   *image2.descriptors,
                                   guided_filter);
-    const Eigen::RowMajorMatrixXi distances_2to1 = distances_1to2.transpose();
+    const Eigen::RowMajorMatrixXi l2_dists_2to1 = l2_dists_1to2.transpose();
 
-    Eigen::RowMajorMatrixXi indices_1to2(distances_1to2.rows(),
-                                         distances_1to2.cols());
+    Eigen::RowMajorMatrixXi indices_1to2(l2_dists_1to2.rows(),
+                                         l2_dists_1to2.cols());
     for (int i = 0; i < indices_1to2.rows(); ++i) {
       indices_1to2.row(i) = Eigen::VectorXi::LinSpaced(
           indices_1to2.cols(), 0, indices_1to2.cols() - 1);
     }
-    Eigen::RowMajorMatrixXi indices_2to1(distances_1to2.cols(),
-                                         distances_1to2.rows());
+    Eigen::RowMajorMatrixXi indices_2to1(l2_dists_1to2.cols(),
+                                         l2_dists_1to2.rows());
     for (int i = 0; i < indices_2to1.rows(); ++i) {
       indices_2to1.row(i) = Eigen::VectorXi::LinSpaced(
           indices_2to1.cols(), 0, indices_2to1.cols() - 1);
     }
 
     FindBestMatchesIndex(indices_1to2,
-                         distances_1to2,
+                         l2_dists_1to2,
                          indices_2to1,
-                         distances_2to1,
+                         l2_dists_2to1,
                          options_.max_ratio,
                          options_.max_distance,
                          options_.cross_check,

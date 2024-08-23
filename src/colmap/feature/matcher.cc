@@ -29,103 +29,19 @@
 
 #include "colmap/feature/matcher.h"
 
-#include <flann/flann.hpp>
-
 namespace colmap {
-namespace {
-
-class FlannFeatureDescriptorIndex : public FeatureDescriptorIndex {
- public:
-  void Build(const FeatureDescriptors& index_descriptors) override {
-    THROW_CHECK_EQ(index_descriptors.cols(), 128);
-    const int num_index_descriptors = index_descriptors.rows();
-    if (num_index_descriptors == 0) {
-      // Flann is not happy when the input has no descriptors.
-      index_ = nullptr;
-      return;
-    }
-    const flann::Matrix<uint8_t> descriptors_matrix(
-        const_cast<uint8_t*>(index_descriptors.data()),
-        num_index_descriptors,
-        index_descriptors.cols());
-    index_ = std::make_unique<FlannIndexType>(
-        descriptors_matrix, flann::KDTreeIndexParams(kNumTreesInForest));
-    index_->buildIndex();
-  }
-
-  void Search(const FeatureDescriptors& query_descriptors,
-              const FeatureDescriptors& index_descriptors,
-              const int num_neighbors,
-              Eigen::RowMajorMatrixXi* indices,
-              Eigen::RowMajorMatrixXi* distances) const override {
-    THROW_CHECK_NOTNULL(index_);
-    THROW_CHECK_EQ(query_descriptors.cols(), 128);
-    THROW_CHECK_EQ(index_descriptors.cols(), 128);
-
-    const int num_query_descriptors = query_descriptors.rows();
-    const int num_index_descriptors = index_descriptors.rows();
-    if (num_query_descriptors == 0 || num_index_descriptors == 0) {
-      return;
-    }
-
-    const int num_eff_neighbors =
-        std::min(num_neighbors, num_index_descriptors);
-
-    indices->resize(num_query_descriptors, num_eff_neighbors);
-    distances->resize(num_query_descriptors, num_eff_neighbors);
-    const flann::Matrix<uint8_t> query_matrix(
-        const_cast<uint8_t*>(query_descriptors.data()),
-        num_query_descriptors,
-        query_descriptors.cols());
-
-    flann::Matrix<int> indices_matrix(
-        indices->data(), num_query_descriptors, num_eff_neighbors);
-    std::vector<float> distances_vector(num_query_descriptors *
-                                        num_eff_neighbors);
-    flann::Matrix<float> distances_matrix(
-        distances_vector.data(), num_query_descriptors, num_eff_neighbors);
-    index_->knnSearch(query_matrix,
-                      indices_matrix,
-                      distances_matrix,
-                      num_eff_neighbors,
-                      flann::SearchParams(kNumLeafsToVisit));
-
-    for (int query_idx = 0; query_idx < num_query_descriptors; ++query_idx) {
-      for (int k = 0; k < num_eff_neighbors; ++k) {
-        const int index_idx = indices->coeff(query_idx, k);
-        (*distances)(query_idx, k) =
-            query_descriptors.row(query_idx).cast<int>().dot(
-                index_descriptors.row(index_idx).cast<int>());
-      }
-    }
-  }
-
- private:
-  constexpr static int kNumTreesInForest = 4;
-  constexpr static int kNumLeafsToVisit = 128;
-
-  using FlannIndexType = flann::Index<flann::L2<uint8_t>>;
-  std::unique_ptr<FlannIndexType> index_;
-};
-
-}  // namespace
-
-std::unique_ptr<FeatureDescriptorIndex> FeatureDescriptorIndex::Create() {
-  return std::make_unique<FlannFeatureDescriptorIndex>();
-}
 
 FeatureMatcherCache::FeatureMatcherCache(const size_t cache_size,
                                          std::shared_ptr<Database> database,
                                          const bool do_setup)
     : cache_size_(cache_size),
       database_(std::move(THROW_CHECK_NOTNULL(database))),
-      descriptor_index_cache_(
-              cache_size_, [this](const image_t image_id) {
-                auto descriptors = GetDescriptors(image_id);
-                auto index = FeatureDescriptorIndex::Create();
-                index->Build(*descriptors);
-                return index;
-              }) {
+      descriptor_index_cache_(cache_size_, [this](const image_t image_id) {
+        auto descriptors = GetDescriptors(image_id);
+        auto index = FeatureDescriptorIndex::Create();
+        index->Build(*descriptors);
+        return index;
+      }) {
   if (do_setup) {
     Setup();
   }

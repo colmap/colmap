@@ -266,14 +266,18 @@ TEST(ExtractSiftFeaturesGPU, Nominal) {
 
 FeatureDescriptors CreateRandomFeatureDescriptors(const size_t num_features) {
   SetPRNGSeed(0);
-  FeatureDescriptorsFloat descriptors(num_features, 128);
+  FeatureDescriptorsFloat descriptors_float =
+      FeatureDescriptorsFloat::Zero(num_features, 128);
+  std::vector<int> dims(128);
+  std::iota(dims.begin(), dims.end(), 0);
   for (size_t i = 0; i < num_features; ++i) {
-    for (size_t j = 0; j < 128; ++j) {
-      descriptors(i, j) = std::pow(RandomUniformReal(0.0f, 1.0f), 2);
+    std::shuffle(dims.begin(), dims.end(), *PRNG);
+    for (size_t j = 0; j < 10; ++j) {
+      descriptors_float(i, dims[j]) = 1.0f;
     }
   }
-  L2NormalizeFeatureDescriptors(&descriptors);
-  return FeatureDescriptorsToUnsignedByte(descriptors);
+  L2NormalizeFeatureDescriptors(&descriptors_float);
+  return FeatureDescriptorsToUnsignedByte(descriptors_float);
 }
 
 void CheckEqualMatches(const FeatureMatches& matches1,
@@ -468,7 +472,7 @@ TEST(SiftCPUFeatureMatcherFlannVsBruteForce, Nominal) {
         match_options, descriptors1.topRows(49), descriptors2);
     EXPECT_EQ(num_matches2, 48);
 
-    match_options.max_ratio = 0.5;
+    match_options.max_ratio = 0.6;
     const size_t num_matches3 =
         TestFlannVsBruteForce(match_options, descriptors1, descriptors2);
     EXPECT_EQ(num_matches3, 49);
@@ -707,7 +711,7 @@ TEST(MatchSiftFeaturesCPUvsGPU, Nominal) {
             TestCPUvsGPU(match_options, descriptors1.topRows(49), descriptors2);
         EXPECT_EQ(num_matches2, 48);
 
-        match_options.max_ratio = 0.5;
+        match_options.max_ratio = 0.6;
         const size_t num_matches3 =
             TestCPUvsGPU(match_options, descriptors1, descriptors2);
         EXPECT_EQ(num_matches3, 49);
