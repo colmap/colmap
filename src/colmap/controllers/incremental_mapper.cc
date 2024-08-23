@@ -119,6 +119,8 @@ BundleAdjustmentOptions IncrementalPipelineOptions::LocalBundleAdjustment()
   options.loss_function_scale = 1.0;
   options.loss_function_type =
       BundleAdjustmentOptions::LossFunctionType::SOFT_L1;
+  options.use_gpu = ba_use_gpu;
+  options.gpu_index = ba_gpu_index;
   return options;
 }
 

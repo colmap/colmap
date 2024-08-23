@@ -65,6 +65,8 @@ ceres::LossFunction* BundleAdjustmentOptions::CreateLossFunction() const {
 
 bool BundleAdjustmentOptions::Check() const {
   CHECK_OPTION_GE(loss_function_scale, 0);
+  CHECK_OPTION_LT(max_num_images_direct_dense_solver,
+                  max_num_images_direct_sparse_solver);
   return true;
 }
 
@@ -344,16 +346,6 @@ ceres::Solver::Options BundleAdjuster::SetUpSolverOptions(
   } else if (num_images <= options_.max_num_images_direct_sparse_solver &&
              has_sparse) {
     solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
-#if (CERES_VERSION_MAJOR >= 3 ||                                \
-     (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 2)) && \
-    !defined(CERES_NO_CUDSS) && defined(COLMAP_CUDA_ENABLED)
-    if (options_.use_gpu) {
-      const std::vector<int> gpu_indices = CSVToVector<int>(options_.gpu_index);
-      THROW_CHECK_GT(gpu_indices.size(), 0);
-      SetBestCudaDevice(gpu_indices[0]);
-      solver_options.sparse_linear_algebra_library_type = ceres::CUDA_SPARSE;
-    }
-#endif
   } else {  // Indirect sparse (preconditioned CG) solver.
     solver_options.linear_solver_type = ceres::ITERATIVE_SCHUR;
     solver_options.preconditioner_type = ceres::SCHUR_JACOBI;
@@ -372,6 +364,18 @@ ceres::Solver::Options BundleAdjuster::SetUpSolverOptions(
         GetEffectiveNumThreads(solver_options.num_linear_solver_threads);
 #endif  // CERES_VERSION_MAJOR
   }
+
+#if (CERES_VERSION_MAJOR >= 3 ||                                \
+     (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 2)) && \
+    !defined(CERES_NO_CUDSS) && defined(COLMAP_CUDA_ENABLED)
+  if (options_.use_gpu) {
+    const std::vector<int> gpu_indices = CSVToVector<int>(options_.gpu_index);
+    THROW_CHECK_GT(gpu_indices.size(), 0);
+    SetBestCudaDevice(gpu_indices[0]);
+    solver_options.dense_linear_algebra_library_type = ceres::CUDA;
+    solver_options.sparse_linear_algebra_library_type = ceres::CUDA_SPARSE;
+  }
+#endif
 
   std::string solver_error;
   THROW_CHECK(solver_options.IsValid(&solver_error)) << solver_error;
