@@ -322,7 +322,7 @@ TEST(CreateSiftGPUMatcherCUDA, Nominal) {
 }
 
 struct FeatureDescriptorIndexCacheHelper {
-  FeatureDescriptorIndexCacheHelper(
+  explicit FeatureDescriptorIndexCacheHelper(
       const std::vector<FeatureMatcher::Image>& images)
       : index_cache(100, [this](const image_t image_id) {
           auto index = FeatureDescriptorIndex::Create();
