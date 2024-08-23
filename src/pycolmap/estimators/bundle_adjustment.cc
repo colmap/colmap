@@ -67,6 +67,22 @@ void BindBundleAdjuster(py::module& m) {
           .def_readwrite("min_num_images_gpu_solver",
                          &BAOpts::min_num_images_gpu_solver,
                          "Minimum number of images to use the GPU solver.")
+          .def_readwrite("max_num_images_direct_dense_cpu_solver",
+                         &BAOpts::max_num_images_direct_dense_cpu_solver,
+                         "Threshold to switch between direct, sparse, and "
+                         "iterative solvers.")
+          .def_readwrite("max_num_images_direct_sparse_cpu_solver",
+                         &BAOpts::max_num_images_direct_sparse_cpu_solver,
+                         "Threshold to switch between direct, sparse, and "
+                         "iterative solvers.")
+          .def_readwrite("max_num_images_direct_dense_gpu_solver",
+                         &BAOpts::max_num_images_direct_dense_gpu_solver,
+                         "Threshold to switch between direct, sparse, and "
+                         "iterative solvers.")
+          .def_readwrite("max_num_images_direct_sparse_gpu_solver",
+                         &BAOpts::max_num_images_direct_sparse_gpu_solver,
+                         "Threshold to switch between direct, sparse, and "
+                         "iterative solvers.")
           .def_readwrite(
               "solver_options",
               &BAOpts::solver_options,
