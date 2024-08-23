@@ -44,14 +44,11 @@ void BindTrack(py::module& m) {
       .def("add_element",
            py::overload_cast<image_t, point2D_t>(&Track::AddElement),
            "Add observation (image_id, point2D_idx) to track.")
+      .def("add_elements", &Track::AddElements, "Add TrackElement list.")
       .def("delete_element",
            py::overload_cast<image_t, point2D_t>(&Track::DeleteElement),
            "Delete observation (image_id, point2D_idx) from track.")
       .def("append", py::overload_cast<const TrackElement&>(&Track::AddElement))
-      .def(
-          "add_element",
-          py::overload_cast<const image_t, const point2D_t>(&Track::AddElement))
-      .def("add_elements", &Track::AddElements, "Add TrackElement list.")
       .def("remove",
            py::overload_cast<size_t>(&Track::DeleteElement),
            "index"_a,
