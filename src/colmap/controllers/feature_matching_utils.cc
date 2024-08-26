@@ -53,11 +53,6 @@ FeatureMatcherWorker::FeatureMatcherWorker(
       output_queue_(output_queue) {
   THROW_CHECK(matching_options_.Check());
 
-  prev_keypoints_image_ids_[0] = kInvalidImageId;
-  prev_keypoints_image_ids_[1] = kInvalidImageId;
-  prev_descriptors_image_ids_[0] = kInvalidImageId;
-  prev_descriptors_image_ids_[1] = kInvalidImageId;
-
   if (matching_options_.use_gpu) {
 #if !defined(COLMAP_CUDA_ENABLED)
     opengl_context_ = std::make_unique<OpenGLContextManager>();
@@ -76,6 +71,10 @@ void FeatureMatcherWorker::Run() {
     THROW_CHECK(opengl_context_->MakeCurrent());
 #endif
   }
+
+  matching_options_.cpu_descriptor_index_cache =
+      &cache_->GetFeatureDescriptorIndexCache();
+  THROW_CHECK_NOTNULL(matching_options_.cpu_descriptor_index_cache);
 
   std::unique_ptr<FeatureMatcher> matcher =
       CreateSiftFeatureMatcher(matching_options_);
@@ -104,45 +103,32 @@ void FeatureMatcherWorker::Run() {
 
       if (matching_options_.guided_matching) {
         matcher->MatchGuided(geometry_options_.ransac_options.max_error,
-                             GetKeypointsPtr(0, data.image_id1),
-                             GetKeypointsPtr(1, data.image_id2),
-                             GetDescriptorsPtr(0, data.image_id1),
-                             GetDescriptorsPtr(1, data.image_id2),
+                             {
+                                 data.image_id1,
+                                 cache_->GetDescriptors(data.image_id1),
+                                 cache_->GetKeypoints(data.image_id1),
+                             },
+                             {
+                                 data.image_id2,
+                                 cache_->GetDescriptors(data.image_id2),
+                                 cache_->GetKeypoints(data.image_id2),
+                             },
                              &data.two_view_geometry);
       } else {
-        matcher->Match(GetDescriptorsPtr(0, data.image_id1),
-                       GetDescriptorsPtr(1, data.image_id2),
-                       &data.matches);
+        matcher->Match(
+            {
+                data.image_id1,
+                cache_->GetDescriptors(data.image_id1),
+            },
+            {
+                data.image_id2,
+                cache_->GetDescriptors(data.image_id2),
+            },
+            &data.matches);
       }
 
       THROW_CHECK(output_queue_->Push(std::move(data)));
     }
-  }
-}
-
-std::shared_ptr<FeatureKeypoints> FeatureMatcherWorker::GetKeypointsPtr(
-    const int index, const image_t image_id) {
-  THROW_CHECK_GE(index, 0);
-  THROW_CHECK_LE(index, 1);
-  if (prev_keypoints_image_ids_[index] == image_id) {
-    return nullptr;
-  } else {
-    prev_keypoints_image_ids_[index] = image_id;
-    prev_keypoints_[index] = cache_->GetKeypoints(image_id);
-    return prev_keypoints_[index];
-  }
-}
-
-std::shared_ptr<FeatureDescriptors> FeatureMatcherWorker::GetDescriptorsPtr(
-    const int index, const image_t image_id) {
-  THROW_CHECK_GE(index, 0);
-  THROW_CHECK_LE(index, 1);
-  if (prev_descriptors_image_ids_[index] == image_id) {
-    return nullptr;
-  } else {
-    prev_descriptors_image_ids_[index] = image_id;
-    prev_descriptors_[index] = cache_->GetDescriptors(image_id);
-    return prev_descriptors_[index];
   }
 }
 
