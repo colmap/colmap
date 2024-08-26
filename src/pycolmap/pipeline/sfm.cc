@@ -48,8 +48,8 @@ std::map<size_t, std::shared_ptr<Reconstruction>> IncrementalMapping(
     const std::string& output_path,
     const IncrementalPipelineOptions& options,
     const std::string& input_path,
-    const std::function<void()>& initial_image_pair_callback,
-    const std::function<void()>& next_image_callback) {
+    std::function<void()> initial_image_pair_callback,
+    std::function<void()> next_image_callback) {
   THROW_CHECK_FILE_EXISTS(database_path);
   THROW_CHECK_DIR_EXISTS(image_path);
   CreateDirIfNotExists(output_path);
@@ -64,17 +64,19 @@ std::map<size_t, std::shared_ptr<Reconstruction>> IncrementalMapping(
       options_, image_path, database_path, reconstruction_manager);
 
   PyInterrupt py_interrupt(1.0);  // Check for interrupts every second
-  mapper.AddCallback(IncrementalPipeline::NEXT_IMAGE_REG_CALLBACK, [&]() {
-    if (py_interrupt.Raised()) {
-      throw py::error_already_set();
-    }
-    if (next_image_callback) {
-      next_image_callback();
-    }
-  });
+  mapper.AddCallback(
+      IncrementalPipeline::NEXT_IMAGE_REG_CALLBACK,
+      [&py_interrupt, next_image_callback = std::move(next_image_callback)]() {
+        if (py_interrupt.Raised()) {
+          throw py::error_already_set();
+        }
+        if (next_image_callback) {
+          next_image_callback();
+        }
+      });
   if (initial_image_pair_callback) {
     mapper.AddCallback(IncrementalPipeline::INITIAL_IMAGE_PAIR_REG_CALLBACK,
-                       initial_image_pair_callback);
+                       std::move(initial_image_pair_callback));
   }
 
   mapper.Run();
