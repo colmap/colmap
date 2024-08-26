@@ -163,6 +163,8 @@ TEST(ScaleSigmoid, Nominal) {
 }
 
 TEST(NChooseK, Nominal) {
+  EXPECT_EQ(NChooseK(0, 0), 0);
+
   EXPECT_EQ(NChooseK(1, 0), 1);
   EXPECT_EQ(NChooseK(2, 0), 1);
   EXPECT_EQ(NChooseK(3, 0), 1);
@@ -179,6 +181,8 @@ TEST(NChooseK, Nominal) {
   EXPECT_EQ(NChooseK(5, 2), 10);
 
   EXPECT_EQ(NChooseK(500, 3), 20708500);
+  EXPECT_EQ(NChooseK(500, 7), 1486071034734000);
+  EXPECT_EQ(NChooseK(10000, 5), 832500291625002000);
 }
 
 TEST(TruncateCast, Nominal) {

@@ -295,8 +295,8 @@ class SpatialPairGenerator : public PairGenerator {
   std::vector<std::pair<image_t, image_t>> Next() override;
 
  private:
-  Eigen::Matrix<float, Eigen::Dynamic, 3, Eigen::RowMajor> ReadLocationData(
-      const FeatureMatcherCache& cache);
+  Eigen::Matrix<float, Eigen::Dynamic, 3, Eigen::RowMajor>
+  ReadPositionPriorData(const FeatureMatcherCache& cache);
 
   const SpatialMatchingOptions options_;
   std::vector<std::pair<image_t, image_t>> image_pairs_;
@@ -305,8 +305,9 @@ class SpatialPairGenerator : public PairGenerator {
   Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
       distance_matrix_;
   std::vector<image_t> image_ids_;
-  std::vector<size_t> location_idxs_;
+  std::vector<size_t> position_idxs_;
   size_t current_idx_ = 0;
+  int knn_ = 0;
 };
 
 class ImportedPairGenerator : public PairGenerator {

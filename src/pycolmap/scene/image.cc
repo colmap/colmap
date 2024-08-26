@@ -57,7 +57,7 @@ void BindImage(py::module& m) {
   PyImage.def(py::init<>())
       .def(py::init(&MakeImage<Point2D>),
            "name"_a = "",
-           "points2D"_a = Point2DVector(),
+           py::arg_v("points2D", Point2DVector(), "ListPoint2D()"),
            "cam_from_world"_a = Rigid3d(),
            "camera_id"_a = kInvalidCameraId,
            "id"_a = kInvalidImageId)
