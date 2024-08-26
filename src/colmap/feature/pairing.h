@@ -310,6 +310,35 @@ class SpatialPairGenerator : public PairGenerator {
   int knn_ = 0;
 };
 
+class TransitivePairGenerator : public PairGenerator {
+ public:
+  using PairOptions = TransitiveMatchingOptions;
+  static size_t CacheSize(const TransitiveMatchingOptions& options) {
+    return 2 * options.batch_size;
+  }
+
+  TransitivePairGenerator(const TransitiveMatchingOptions& options,
+                          const std::shared_ptr<FeatureMatcherCache>& cache);
+
+  TransitivePairGenerator(const TransitiveMatchingOptions& options,
+                          const std::shared_ptr<Database>& database);
+
+  void Reset() override;
+
+  bool HasFinished() const override;
+
+  std::vector<std::pair<image_t, image_t>> Next() override;
+
+ private:
+  const TransitiveMatchingOptions options_;
+  const std::shared_ptr<FeatureMatcherCache> cache_;
+  int current_iteration_ = 0;
+  int current_batch_idx_ = 0;
+  int current_num_batches_ = 0;
+  std::vector<std::pair<image_t, image_t>> image_pairs_;
+  std::unordered_set<image_pair_t> image_pair_ids_;
+};
+
 class ImportedPairGenerator : public PairGenerator {
  public:
   using PairOptions = ImagePairsMatchingOptions;

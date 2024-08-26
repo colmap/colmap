@@ -103,6 +103,12 @@ void FeatureMatcherCache::Setup() {
           });
 }
 
+void FeatureMatcherCache::AccessDatabase(
+    const std::function<void(const Database& database)>& func) {
+  std::lock_guard<std::mutex> lock(database_mutex_);
+  func(*database_);
+}
+
 const Camera& FeatureMatcherCache::GetCamera(const camera_t camera_id) const {
   return cameras_cache_.at(camera_id);
 }
