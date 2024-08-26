@@ -697,11 +697,11 @@ std::vector<std::pair<image_t, image_t>> TransitivePairGenerator::Next() {
 
   std::vector<std::pair<image_t, image_t>> existing_image_pairs;
   std::vector<int> existing_num_inliers;
-  cache_->AccessDatabase([this, &existing_image_pairs, &existing_num_inliers](
-                             const Database& database) {
-    database.ReadTwoViewGeometryNumInliers(&existing_image_pairs,
-                                           &existing_num_inliers);
-  });
+  cache_->AccessDatabase(
+      [&existing_image_pairs, &existing_num_inliers](const Database& database) {
+        database.ReadTwoViewGeometryNumInliers(&existing_image_pairs,
+                                               &existing_num_inliers);
+      });
 
   std::unordered_map<image_t, std::vector<image_t>> adjacency;
   for (const auto& image_pair : existing_image_pairs) {
