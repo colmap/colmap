@@ -643,6 +643,102 @@ SpatialPairGenerator::ReadPositionPriorData(const FeatureMatcherCache& cache) {
   return position_matrix;
 }
 
+TransitivePairGenerator::TransitivePairGenerator(
+    const TransitiveMatchingOptions& options,
+    const std::shared_ptr<FeatureMatcherCache>& cache)
+    : options_(options), cache_(cache) {
+  THROW_CHECK(options.Check());
+}
+
+TransitivePairGenerator::TransitivePairGenerator(
+    const TransitiveMatchingOptions& options,
+    const std::shared_ptr<Database>& database)
+    : TransitivePairGenerator(
+          options,
+          std::make_shared<FeatureMatcherCache>(CacheSize(options),
+                                                THROW_CHECK_NOTNULL(database),
+                                                /*do_setup=*/true)) {}
+
+void TransitivePairGenerator::Reset() {
+  current_iteration_ = 0;
+  current_batch_idx_ = 0;
+  image_pairs_.clear();
+  image_pair_ids_.clear();
+}
+
+bool TransitivePairGenerator::HasFinished() const {
+  return current_iteration_ >= options_.num_iterations && image_pairs_.empty();
+}
+
+std::vector<std::pair<image_t, image_t>> TransitivePairGenerator::Next() {
+  if (!image_pairs_.empty()) {
+    current_batch_idx_++;
+    std::vector<std::pair<image_t, image_t>> batch;
+    while (!image_pairs_.empty() &&
+           static_cast<int>(batch.size()) < options_.batch_size) {
+      batch.push_back(image_pairs_.back());
+      image_pairs_.pop_back();
+    }
+    LOG(INFO) << StringPrintf(
+        "Matching batch [%d/%d]", current_batch_idx_, current_num_batches_);
+    return batch;
+  }
+
+  if (current_iteration_ >= options_.num_iterations) {
+    return {};
+  }
+
+  current_batch_idx_ = 0;
+  current_num_batches_ = 0;
+  current_iteration_++;
+
+  LOG(INFO) << StringPrintf(
+      "Iteration [%d/%d]", current_iteration_, options_.num_iterations);
+
+  std::vector<std::pair<image_t, image_t>> existing_image_pairs;
+  std::vector<int> existing_num_inliers;
+  cache_->AccessDatabase(
+      [&existing_image_pairs, &existing_num_inliers](const Database& database) {
+        database.ReadTwoViewGeometryNumInliers(&existing_image_pairs,
+                                               &existing_num_inliers);
+      });
+
+  std::unordered_map<image_t, std::vector<image_t>> adjacency;
+  for (const auto& image_pair : existing_image_pairs) {
+    adjacency[image_pair.first].push_back(image_pair.second);
+    adjacency[image_pair.second].push_back(image_pair.first);
+    image_pair_ids_.insert(
+        Database::ImagePairToPairId(image_pair.first, image_pair.second));
+  }
+
+  for (const auto& image : adjacency) {
+    const auto image_id1 = image.first;
+    for (const auto& image_id2 : image.second) {
+      const auto it = adjacency.find(image_id2);
+      if (it == adjacency.end()) {
+        continue;
+      }
+      for (const auto& image_id3 : it->second) {
+        if (image_id1 == image_id3) {
+          continue;
+        }
+        const auto image_pair_id =
+            Database::ImagePairToPairId(image_id1, image_id3);
+        if (image_pair_ids_.count(image_pair_id) != 0) {
+          continue;
+        }
+        image_pairs_.emplace_back(image_id1, image_id3);
+        image_pair_ids_.insert(image_pair_id);
+      }
+    }
+  }
+
+  current_num_batches_ =
+      std::ceil(static_cast<double>(image_pairs_.size()) / options_.batch_size);
+
+  return Next();
+}
+
 ImportedPairGenerator::ImportedPairGenerator(
     const ImagePairsMatchingOptions& options,
     const std::shared_ptr<FeatureMatcherCache>& cache)

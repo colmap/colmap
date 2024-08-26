@@ -43,7 +43,7 @@ namespace colmap {
 namespace {
 
 void PrintElapsedTime(const Timer& timer) {
-  LOG(INFO) << StringPrintf(" in %.3fs", timer.ElapsedSeconds());
+  LOG(INFO) << StringPrintf("in %.3fs", timer.ElapsedSeconds());
 }
 
 template <typename DerivedPairGenerator>
@@ -137,128 +137,12 @@ std::unique_ptr<Thread> CreateSpatialFeatureMatcher(
       options, matching_options, geometry_options, database_path);
 }
 
-namespace {
-
-class TransitiveFeatureMatcher : public Thread {
- public:
-  TransitiveFeatureMatcher(const TransitiveMatchingOptions& options,
-                           const SiftMatchingOptions& matching_options,
-                           const TwoViewGeometryOptions& geometry_options,
-                           const std::string& database_path)
-      : options_(options),
-        matching_options_(matching_options),
-        database_(std::make_shared<Database>(database_path)),
-        cache_(std::make_shared<FeatureMatcherCache>(options_.batch_size,
-                                                     database_)),
-        matcher_(
-            matching_options, geometry_options, database_.get(), cache_.get()) {
-    THROW_CHECK(options.Check());
-    THROW_CHECK(matching_options.Check());
-    THROW_CHECK(geometry_options.Check());
-  }
-
- private:
-  void Run() override {
-    PrintHeading1("Transitive feature matching");
-    Timer run_timer;
-    run_timer.Start();
-
-    if (!matcher_.Setup()) {
-      return;
-    }
-
-    cache_->Setup();
-
-    const std::vector<image_t> image_ids = cache_->GetImageIds();
-
-    std::vector<std::pair<image_t, image_t>> image_pairs;
-    std::unordered_set<image_pair_t> image_pair_ids;
-
-    for (int iteration = 0; iteration < options_.num_iterations; ++iteration) {
-      if (IsStopped()) {
-        run_timer.PrintMinutes();
-        return;
-      }
-
-      Timer timer;
-      timer.Start();
-
-      LOG(INFO) << StringPrintf(
-          "Iteration [%d/%d]", iteration + 1, options_.num_iterations);
-
-      std::vector<std::pair<image_t, image_t>> existing_image_pairs;
-      std::vector<int> existing_num_inliers;
-      database_->ReadTwoViewGeometryNumInliers(&existing_image_pairs,
-                                               &existing_num_inliers);
-
-      THROW_CHECK_EQ(existing_image_pairs.size(), existing_num_inliers.size());
-
-      std::unordered_map<image_t, std::vector<image_t>> adjacency;
-      for (const auto& image_pair : existing_image_pairs) {
-        adjacency[image_pair.first].push_back(image_pair.second);
-        adjacency[image_pair.second].push_back(image_pair.first);
-      }
-
-      const size_t batch_size = static_cast<size_t>(options_.batch_size);
-
-      size_t num_batches = 0;
-      image_pairs.clear();
-      image_pair_ids.clear();
-      for (const auto& image : adjacency) {
-        const auto image_id1 = image.first;
-        for (const auto& image_id2 : image.second) {
-          if (adjacency.count(image_id2) > 0) {
-            for (const auto& image_id3 : adjacency.at(image_id2)) {
-              const auto image_pair_id =
-                  Database::ImagePairToPairId(image_id1, image_id3);
-              if (image_pair_ids.count(image_pair_id) == 0) {
-                image_pairs.emplace_back(image_id1, image_id3);
-                image_pair_ids.insert(image_pair_id);
-                if (image_pairs.size() >= batch_size) {
-                  num_batches += 1;
-                  LOG(INFO) << StringPrintf("  Batch %d", num_batches);
-                  DatabaseTransaction database_transaction(database_.get());
-                  matcher_.Match(image_pairs);
-                  image_pairs.clear();
-                  PrintElapsedTime(timer);
-                  timer.Restart();
-
-                  if (IsStopped()) {
-                    run_timer.PrintMinutes();
-                    return;
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-
-      num_batches += 1;
-      LOG(INFO) << StringPrintf("  Batch %d", num_batches);
-      DatabaseTransaction database_transaction(database_.get());
-      matcher_.Match(image_pairs);
-      PrintElapsedTime(timer);
-    }
-
-    run_timer.PrintMinutes();
-  }
-
-  const TransitiveMatchingOptions options_;
-  const SiftMatchingOptions matching_options_;
-  const std::shared_ptr<Database> database_;
-  const std::shared_ptr<FeatureMatcherCache> cache_;
-  FeatureMatcherController matcher_;
-};
-
-}  // namespace
-
 std::unique_ptr<Thread> CreateTransitiveFeatureMatcher(
     const TransitiveMatchingOptions& options,
     const SiftMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path) {
-  return std::make_unique<TransitiveFeatureMatcher>(
+  return std::make_unique<GenericFeatureMatcher<TransitivePairGenerator>>(
       options, matching_options, geometry_options, database_path);
 }
 

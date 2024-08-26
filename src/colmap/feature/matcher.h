@@ -78,6 +78,11 @@ class FeatureMatcherCache {
 
   void Setup();
 
+  // Executes a function that accesses the database. This function is thread
+  // safe and ensures that only one function can access the database at a time.
+  void AccessDatabase(
+      const std::function<void(const Database& database)>& func);
+
   const Camera& GetCamera(camera_t camera_id) const;
   const Image& GetImage(image_t image_id) const;
   const PosePrior& GetPosePrior(image_t image_id) const;
