@@ -194,6 +194,8 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
 
   const int existing_num_images =
       (database == nullptr) ? 0 : database->NumImages();
+  int total_num_descriptors =
+      (database == nullptr) ? 0 : database->NumDescriptors();
   for (int image_idx = 0; image_idx < options.num_images; ++image_idx) {
     Image image;
     image.SetName("image" + std::to_string(existing_num_images + image_idx));
@@ -248,10 +250,24 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
       // Create keypoints to add to database.
       FeatureKeypoints keypoints;
       keypoints.reserve(points2D.size());
-      for (const auto& point2D : points2D) {
+      FeatureDescriptors descriptors(points2D.size(), 128);
+      std::uniform_int_distribution<int> feature_distribution(0, 255);
+      for (point2D_t point2D_idx = 0; point2D_idx < points2D.size();
+           ++point2D_idx) {
+        const auto& point2D = points2D[point2D_idx];
         keypoints.emplace_back(point2D.xy(0), point2D.xy(1));
+        // Generate a unique descriptor for each 3D point. If the 2D point does
+        // not observe a 3D point, generate a random unique descriptor.
+        std::mt19937 feature_generator(point2D.HasPoint3D()
+                                           ? point2D.point3D_id
+                                           : options.num_points3D +
+                                                 (++total_num_descriptors));
+        for (int d = 0; d < descriptors.cols(); ++d) {
+          descriptors(point2D_idx, d) = feature_distribution(feature_generator);
+        }
       }
       database->WriteKeypoints(image_id, keypoints);
+      database->WriteDescriptors(image_id, descriptors);
     }
 
     for (point2D_t point2D_idx = 0; point2D_idx < points2D.size();

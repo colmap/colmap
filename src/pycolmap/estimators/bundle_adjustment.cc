@@ -13,6 +13,83 @@ using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindBundleAdjuster(py::module& m) {
+  IsPyceresAvailable();  // Try to import pyceres to populate the docstrings.
+
+  using BAOpts = BundleAdjustmentOptions;
+  auto PyBALossFunctionType =
+      py::enum_<BAOpts::LossFunctionType>(m, "LossFunctionType")
+          .value("TRIVIAL", BAOpts::LossFunctionType::TRIVIAL)
+          .value("SOFT_L1", BAOpts::LossFunctionType::SOFT_L1)
+          .value("CAUCHY", BAOpts::LossFunctionType::CAUCHY);
+  AddStringToEnumConstructor(PyBALossFunctionType);
+
+  auto PyBundleAdjustmentOptions =
+      py::class_<BAOpts>(m, "BundleAdjustmentOptions")
+          .def(py::init<>())
+          .def("create_loss_function", &BAOpts::CreateLossFunction)
+          .def_readwrite("loss_function_type",
+                         &BAOpts::loss_function_type,
+                         "Loss function types: Trivial (non-robust) and Cauchy "
+                         "(robust) loss.")
+          .def_readwrite("loss_function_scale",
+                         &BAOpts::loss_function_scale,
+                         "Scaling factor determines residual at which "
+                         "robustification takes place.")
+          .def_readwrite("refine_focal_length",
+                         &BAOpts::refine_focal_length,
+                         "Whether to refine the focal length parameter group.")
+          .def_readwrite(
+              "refine_principal_point",
+              &BAOpts::refine_principal_point,
+              "Whether to refine the principal point parameter group.")
+          .def_readwrite("refine_extra_params",
+                         &BAOpts::refine_extra_params,
+                         "Whether to refine the extra parameter group.")
+          .def_readwrite("refine_extrinsics",
+                         &BAOpts::refine_extrinsics,
+                         "Whether to refine the extrinsic parameter group.")
+          .def_readwrite("print_summary",
+                         &BAOpts::print_summary,
+                         "Whether to print a final summary.")
+          .def_readwrite("use_gpu",
+                         &BAOpts::use_gpu,
+                         "Whether to use Ceres' CUDA linear algebra library, "
+                         "if available.")
+          .def_readwrite("gpu_index",
+                         &BAOpts::gpu_index,
+                         "Which GPU to use for solving the problem.")
+          .def_readwrite(
+              "min_num_residuals_for_cpu_multi_threading",
+              &BAOpts::min_num_residuals_for_cpu_multi_threading,
+              "Minimum number of residuals to enable multi-threading. Note "
+              "that single-threaded is typically better for small bundle "
+              "adjustment problems due to the overhead of threading.")
+          .def_readwrite("min_num_images_gpu_solver",
+                         &BAOpts::min_num_images_gpu_solver,
+                         "Minimum number of images to use the GPU solver.")
+          .def_readwrite("max_num_images_direct_dense_cpu_solver",
+                         &BAOpts::max_num_images_direct_dense_cpu_solver,
+                         "Threshold to switch between direct, sparse, and "
+                         "iterative solvers.")
+          .def_readwrite("max_num_images_direct_sparse_cpu_solver",
+                         &BAOpts::max_num_images_direct_sparse_cpu_solver,
+                         "Threshold to switch between direct, sparse, and "
+                         "iterative solvers.")
+          .def_readwrite("max_num_images_direct_dense_gpu_solver",
+                         &BAOpts::max_num_images_direct_dense_gpu_solver,
+                         "Threshold to switch between direct, sparse, and "
+                         "iterative solvers.")
+          .def_readwrite("max_num_images_direct_sparse_gpu_solver",
+                         &BAOpts::max_num_images_direct_sparse_gpu_solver,
+                         "Threshold to switch between direct, sparse, and "
+                         "iterative solvers.")
+          .def_readwrite(
+              "solver_options",
+              &BAOpts::solver_options,
+              "Ceres-Solver options. To be able to use this feature "
+              "one needs to install pyceres and import it beforehand.");
+  MakeDataclass(PyBundleAdjustmentOptions);
+
   using BACfg = BundleAdjustmentConfig;
   py::class_<BACfg> PyBundleAdjustmentConfig(m, "BundleAdjustmentConfig");
   PyBundleAdjustmentConfig.def(py::init<>())
@@ -67,7 +144,9 @@ void BindBundleAdjuster(py::module& m) {
 
   py::class_<BundleAdjuster>(m, "BundleAdjuster")
       .def(py::init<const BundleAdjustmentOptions&,
-                    const BundleAdjustmentConfig&>())
+                    const BundleAdjustmentConfig&>(),
+           "options"_a,
+           "config"_a)
       .def("solve", &BundleAdjuster::Solve, "reconstruction"_a)
       .def("set_up_problem",
            &BundleAdjuster::SetUpProblem,

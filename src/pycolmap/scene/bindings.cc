@@ -14,6 +14,7 @@ void BindPoint3D(py::module& m);
 void BindReconstruction(py::module& m);
 void BindReconstructionManager(py::module& m);
 void BindTrack(py::module& m);
+void BindTwoViewGeometryScene(py::module& m);
 void BindImu(py::module& m);
 
 void BindScene(py::module& m) {
@@ -25,6 +26,7 @@ void BindScene(py::module& m) {
   BindCorrespondenceGraph(m);
   BindReconstruction(m);
   BindReconstructionManager(m);
+  BindTwoViewGeometryScene(m);
   BindDatabase(m);
   BindDatabaseCache(m);
   BindImu(m);
