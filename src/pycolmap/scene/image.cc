@@ -80,10 +80,13 @@ void BindImage(py::module& m) {
                     &Image::CameraId,
                     &Image::SetCameraId,
                     "Unique identifier of the camera.")
-      .def_property("camera",
-                    &Image::CameraPtr,
-                    &Image::SetCameraPtr,
-                    "The address of the camera")
+      .def_property(
+          "camera",
+          [](Image& self) -> py::typing::Optional<colmap::Camera> {
+            return self.CameraPtr();
+          },
+          &Image::SetCameraPtr,
+          "The address of the camera")
       .def_property("name",
                     py::overload_cast<>(&Image::Name),
                     &Image::SetName,
