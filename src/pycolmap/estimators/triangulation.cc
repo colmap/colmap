@@ -17,7 +17,7 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
-py::object PyEstimateTriangulation(
+py::typing::Optional<py::dict> PyEstimateTriangulation(
     const std::vector<Eigen::Vector2d>& points,
     const std::vector<Rigid3d const*>& cams_from_world,
     const std::vector<Camera const*>& cameras,
@@ -62,14 +62,15 @@ void BindTriangulationEstimator(py::module& m) {
           "residual_type", &Options::residual_type, "Employed residual type.")
       .def_readwrite("ransac", &Options::ransac_options, "RANSAC options.");
   MakeDataclass(PyTriangulationOptions);
-  auto triangulation_options = PyTriangulationOptions().cast<Options>();
 
   m.def("estimate_triangulation",
         &PyEstimateTriangulation,
         "point_data"_a,
         "images"_a,
         "cameras"_a,
-        "options"_a = triangulation_options,
+        py::arg_v("options",
+                  EstimateTriangulationOptions(),
+                  "EstimateTriangulationOptions()"),
         "Robustly estimate 3D point from observations in multiple views using "
         "RANSAC");
 }

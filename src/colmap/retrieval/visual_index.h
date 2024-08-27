@@ -155,7 +155,8 @@ class VisualIndex {
 
  private:
   // Quantize the descriptor space into visual words.
-  void Quantize(const BuildOptions& options, const DescType& descriptors);
+  flann::Matrix<kDescType> Quantize(const BuildOptions& options,
+                                    const DescType& descriptors) const;
 
   // Query for nearest neighbor images and return nearest neighbor visual word
   // identifiers for each descriptor.
@@ -530,7 +531,10 @@ template <typename kDescType, int kDescDim, int kEmbeddingDim>
 void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Build(
     const BuildOptions& options, const DescType& descriptors) {
   // Quantize the descriptor space into visual words.
-  Quantize(options, descriptors);
+  if (visual_words_.ptr() != nullptr) {
+    delete[] visual_words_.ptr();
+  }
+  visual_words_ = Quantize(options, descriptors);
 
   // Build the search index on the visual words.
   flann::AutotunedIndexParams index_params;
@@ -650,8 +654,9 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Write(
 }
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
-void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Quantize(
-    const BuildOptions& options, const DescType& descriptors) {
+flann::Matrix<kDescType>
+VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Quantize(
+    const BuildOptions& options, const DescType& descriptors) const {
   static_assert(DescType::IsRowMajor, "Descriptors must be row-major.");
 
   THROW_CHECK_GE(options.num_visual_words, options.branching);
@@ -687,11 +692,7 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Quantize(
     }
   }
 
-  if (visual_words_.ptr() != nullptr) {
-    delete[] visual_words_.ptr();
-  }
-
-  visual_words_ = flann::Matrix<kDescType>(
+  return flann::Matrix<kDescType>(
       visual_words_data, num_centers, descriptors.cols());
 }
 

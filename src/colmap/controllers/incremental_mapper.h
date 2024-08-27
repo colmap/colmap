@@ -35,7 +35,8 @@
 
 namespace colmap {
 
-struct IncrementalMapperOptions {
+// NOLINTNEXTLINE(clang-analyzer-optin.performance.Padding)
+struct IncrementalPipelineOptions {
   // The minimum number of matches for inlier matches to be considered.
   int min_num_matches = 15;
 
@@ -85,7 +86,7 @@ struct IncrementalMapperOptions {
 
   // The minimum number of residuals per bundle adjustment problem to
   // enable multi-threading solving of the problems.
-  int ba_min_num_residuals_for_multi_threading = 50000;
+  int ba_min_num_residuals_for_cpu_multi_threading = 50000;
 
   // The number of images to optimize in local bundle adjustment.
   int ba_local_num_images = 6;
@@ -113,6 +114,10 @@ struct IncrementalMapperOptions {
   double ba_local_max_refinement_change = 0.001;
   int ba_global_max_refinements = 5;
   double ba_global_max_refinement_change = 0.0005;
+
+  // Whether to use Ceres' CUDA sparse linear algebra library, if available.
+  bool ba_use_gpu = false;
+  std::string ba_gpu_index = "-1";
 
   // Path to a folder with reconstruction snapshots during incremental
   // reconstruction. Snapshots will be saved according to the specified
@@ -144,7 +149,7 @@ struct IncrementalMapperOptions {
 
 // Class that controls the incremental mapping procedure by iteratively
 // initializing reconstructions from the same scene graph.
-class IncrementalMapperController : public BaseController {
+class IncrementalPipeline : public BaseController {
  public:
   enum CallbackType {
     INITIAL_IMAGE_PAIR_REG_CALLBACK,
@@ -154,8 +159,8 @@ class IncrementalMapperController : public BaseController {
 
   enum class Status { NO_INITIAL_PAIR, BAD_INITIAL_PAIR, SUCCESS, INTERRUPTED };
 
-  IncrementalMapperController(
-      std::shared_ptr<const IncrementalMapperOptions> options,
+  IncrementalPipeline(
+      std::shared_ptr<const IncrementalPipelineOptions> options,
       const std::string& image_path,
       const std::string& database_path,
       std::shared_ptr<class ReconstructionManager> reconstruction_manager);
@@ -170,7 +175,7 @@ class IncrementalMapperController : public BaseController {
   // getter functions for python pipelines
   const std::string& ImagePath() const { return image_path_; }
   const std::string& DatabasePath() const { return database_path_; }
-  const std::shared_ptr<const IncrementalMapperOptions>& Options() const {
+  const std::shared_ptr<const IncrementalPipelineOptions>& Options() const {
     return options_;
   }
   const std::shared_ptr<class ReconstructionManager>& ReconstructionManager()
@@ -198,7 +203,7 @@ class IncrementalMapperController : public BaseController {
                                 size_t ba_prev_num_points);
 
  private:
-  const std::shared_ptr<const IncrementalMapperOptions> options_;
+  const std::shared_ptr<const IncrementalPipelineOptions> options_;
   const std::string image_path_;
   const std::string database_path_;
   std::shared_ptr<class ReconstructionManager> reconstruction_manager_;
