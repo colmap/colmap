@@ -172,6 +172,7 @@ inline void Image::SetCameraId(const camera_t camera_id) {
 inline bool Image::HasCamera() const { return camera_id_ != kInvalidCameraId; }
 
 inline struct Camera* Image::CameraPtr() const {
+  THROW_CHECK_NOTNULL(camera);
   return camera_;
 }
 
