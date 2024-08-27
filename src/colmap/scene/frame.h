@@ -51,7 +51,13 @@ typedef std::pair<SensorType, uint32_t> sensor_t;
 // Unique identifier of the data point from a sensor
 typedef std::pair<sensor_t, uint64_t> data_t;
 
-// Rig calibration storing the sensor from rig transformation
+// Rig calibration storing the sensor from rig transformation.
+// The reference sensor shares identity poses with the device.
+// This design is mainly for two purposes:
+// 1) In the visual-inertial optimization one of the IMUs is generally used as
+// the reference frame since it is metric.
+// 2) Not having a reference frame brings a 6 DoF Gauge for each rig, which is
+// not ideal particularly when it comes to covariance estimation.
 class RigCalibration {
  public:
   // Access the unique identifier of the rig

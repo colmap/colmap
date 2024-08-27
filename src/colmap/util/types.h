@@ -85,7 +85,7 @@ typedef uint32_t image_t;
 // Unique identifier for frames.
 typedef uint64_t frame_t;
 
-// Unique identiier for rigs.
+// Unique identifier for rigs.
 typedef uint32_t rig_t;
 
 // Each image pair gets a unique ID, see `Database::ImagePairToPairId`.
