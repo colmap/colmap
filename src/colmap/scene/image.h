@@ -71,7 +71,7 @@ class Image {
   inline struct Camera* CameraPtr() const;
   inline void SetCameraPtr(struct Camera* camera);
   // make the camera address a nullptr
-  inline void UnsetCameraPtr();
+  inline void ResetCameraPtr();
   // check whether the camera pointer has been set
   inline bool HasCameraPtr() const;
 
@@ -165,7 +165,7 @@ inline void Image::SetCameraId(const camera_t camera_id) {
   THROW_CHECK_NE(camera_id, kInvalidCameraId);
   THROW_CHECK(!HasCameraPtr())
       << "SetCameraId can only be used when no camera address is synced in the "
-         "image. Call UnsetCameraPtr() first";
+         "image. Call ResetCameraPtr() first";
   camera_id_ = camera_id;
 }
 
@@ -177,12 +177,13 @@ inline struct Camera* Image::CameraPtr() const {
 }
 
 inline void Image::SetCameraPtr(struct Camera* camera) {
+  THROW_CHECK_NOTNULL(camera);
   THROW_CHECK_NE(camera->camera_id, kInvalidCameraId);
   camera_ = camera;
   camera_id_ = camera->camera_id;
 }
 
-inline void Image::UnsetCameraPtr() { camera_ = nullptr; }
+inline void Image::ResetCameraPtr() { camera_ = nullptr; }
 
 inline bool Image::HasCameraPtr() const { return camera_ != nullptr; }
 
