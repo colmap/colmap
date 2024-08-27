@@ -82,8 +82,12 @@ void BindImage(py::module& m) {
                     "Unique identifier of the camera.")
       .def_property(
           "camera",
-          [](Image& self) -> py::typing::Optional<colmap::Camera> {
-            return self.CameraPtr();
+          [](Image& self) -> py:typing::Optional<colmap::Camera> {
+            colmap::Camera* camera_ptr = self.CameraPtr();
+            if (camera_ptr)
+              return py::cast(*camera_ptr);
+            else
+              return py::none();
           },
           &Image::SetCameraPtr,
           "The address of the camera")
