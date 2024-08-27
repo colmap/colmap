@@ -39,7 +39,7 @@ void RunPointTriangulatorImpl(
     const std::string& database_path,
     const std::string& image_path,
     const std::string& output_path,
-    const IncrementalMapperOptions& options,
+    const IncrementalPipelineOptions& options,
     bool clear_points,
     bool refine_intrinsics);
 

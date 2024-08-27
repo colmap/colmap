@@ -39,21 +39,21 @@
 // Option checker macros. In contrast to glog, this function does not abort the
 // program, but simply returns false on failure.
 #define CHECK_OPTION_IMPL(expr) \
-  __CheckOptionImpl(__FILE__, __LINE__, (expr), #expr)
-#define CHECK_OPTION(expr)                                     \
-  if (!__CheckOptionImpl(__FILE__, __LINE__, (expr), #expr)) { \
-    return false;                                              \
+  colmap::__CheckOptionImpl(__FILE__, __LINE__, (expr), #expr)
+#define CHECK_OPTION(expr)                                             \
+  if (!colmap::__CheckOptionImpl(__FILE__, __LINE__, (expr), #expr)) { \
+    return false;                                                      \
   }
-#define CHECK_OPTION_OP(name, op, val1, val2) \
-  if (!__CheckOptionOpImpl(__FILE__,          \
-                           __LINE__,          \
-                           (val1 op val2),    \
-                           val1,              \
-                           val2,              \
-                           #val1,             \
-                           #val2,             \
-                           #op)) {            \
-    return false;                             \
+#define CHECK_OPTION_OP(name, op, val1, val2)      \
+  if (!colmap::__CheckOptionOpImpl(__FILE__,       \
+                                   __LINE__,       \
+                                   (val1 op val2), \
+                                   val1,           \
+                                   val2,           \
+                                   #val1,          \
+                                   #val2,          \
+                                   #op)) {         \
+    return false;                                  \
   }
 #define CHECK_OPTION_EQ(val1, val2) CHECK_OPTION_OP(_EQ, ==, val1, val2)
 #define CHECK_OPTION_NE(val1, val2) CHECK_OPTION_OP(_NE, !=, val1, val2)
@@ -69,20 +69,20 @@
 // These macros are copied from glog/logging.h and extended to a new severity
 // level FATAL_THROW.
 #define COMPACT_GOOGLE_LOG_FATAL_THROW \
-  LogMessageFatalThrowDefault(__FILE__, __LINE__)
+  colmap::LogMessageFatalThrowDefault(__FILE__, __LINE__)
 
 #define LOG_TO_STRING_FATAL_THROW(message) \
-  LogMessageFatalThrowDefault(__FILE__, __LINE__, message)
+  colmap::LogMessageFatalThrowDefault(__FILE__, __LINE__, message)
 
 #define LOG_FATAL_THROW(exception) \
-  LogMessageFatalThrow<exception>(__FILE__, __LINE__).stream()
+  colmap::LogMessageFatalThrow<exception>(__FILE__, __LINE__).stream()
 
 #define THROW_CHECK(condition)                                       \
   LOG_IF(FATAL_THROW, GOOGLE_PREDICT_BRANCH_NOT_TAKEN(!(condition))) \
       << "Check failed: " #condition " "
 
 #define THROW_CHECK_OP(name, op, val1, val2) \
-  CHECK_OP_LOG(name, op, val1, val2, LogMessageFatalThrowDefault)
+  CHECK_OP_LOG(name, op, val1, val2, colmap::LogMessageFatalThrowDefault)
 
 #define THROW_CHECK_EQ(val1, val2) THROW_CHECK_OP(_EQ, ==, val1, val2)
 #define THROW_CHECK_NE(val1, val2) THROW_CHECK_OP(_NE, !=, val1, val2)
@@ -92,7 +92,8 @@
 #define THROW_CHECK_GT(val1, val2) THROW_CHECK_OP(_GT, >, val1, val2)
 
 #define THROW_CHECK_NOTNULL(val) \
-  ThrowCheckNotNull(__FILE__, __LINE__, "'" #val "' Must be non NULL", (val))
+  colmap::ThrowCheckNotNull(     \
+      __FILE__, __LINE__, "'" #val "' Must be non NULL", (val))
 
 namespace colmap {
 

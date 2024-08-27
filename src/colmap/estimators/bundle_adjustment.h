@@ -64,17 +64,34 @@ struct BundleAdjustmentOptions {
   // Whether to print a final summary.
   bool print_summary = true;
 
-  // Minimum number of residuals to enable multi-threading. Note that
-  // single-threaded is typically better for small bundle adjustment problems
-  // due to the overhead of threading.
-  int min_num_residuals_for_multi_threading = 50000;
+  // Whether to use Ceres' CUDA linear algebra library, if available.
+  bool use_gpu = false;
+  std::string gpu_index = "-1";
+
+  // Heuristic threshold to switch from CPU to GPU based solvers.
+  // Typically, the GPU is faster for large problems but the overhead of
+  // transferring memory from the CPU to the GPU leads to better CPU performance
+  // for small problems. This depends on the specific problem and hardware.
+  int min_num_images_gpu_solver = 50;
+
+  // Heuristic threshold on the minimum number of residuals to enable
+  // multi-threading. Note that single-threaded is typically better for small
+  // bundle adjustment problems due to the overhead of threading.
+  int min_num_residuals_for_cpu_multi_threading = 50000;
+
+  // Heuristic thresholds to switch between direct, sparse, and iterative
+  // solvers. These thresholds may not be optimal for all types of problems.
+  int max_num_images_direct_dense_cpu_solver = 50;
+  int max_num_images_direct_sparse_cpu_solver = 1000;
+  int max_num_images_direct_dense_gpu_solver = 200;
+  int max_num_images_direct_sparse_gpu_solver = 4000;
 
   // Ceres-Solver options.
   ceres::Solver::Options solver_options;
 
   BundleAdjustmentOptions() {
     solver_options.function_tolerance = 0.0;
-    solver_options.gradient_tolerance = 0.0;
+    solver_options.gradient_tolerance = 1e-4;
     solver_options.parameter_tolerance = 0.0;
     solver_options.logging_type = ceres::LoggingType::SILENT;
     solver_options.max_num_iterations = 100;

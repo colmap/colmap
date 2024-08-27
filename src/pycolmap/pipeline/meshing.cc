@@ -57,7 +57,6 @@ void BindMeshing(py::module& m) {
               &PoissonMOpts::num_threads,
               "The number of threads used for the Poisson reconstruction.");
   MakeDataclass(PyPoissonMeshingOptions);
-  auto poisson_options = PyPoissonMeshingOptions().cast<PoissonMOpts>();
 
   using DMOpts = mvs::DelaunayMeshingOptions;
   auto PyDelaunayMeshingOptions =
@@ -115,7 +114,6 @@ void BindMeshing(py::module& m) {
                          "The number of threads to use for reconstruction. "
                          "Default is all threads.");
   MakeDataclass(PyDelaunayMeshingOptions);
-  auto delaunay_options = PyDelaunayMeshingOptions().cast<DMOpts>();
 
   m.def(
       "poisson_meshing",
@@ -130,22 +128,27 @@ void BindMeshing(py::module& m) {
       },
       "input_path"_a,
       "output_path"_a,
-      "options"_a = poisson_options,
+      py::arg_v(
+          "options", mvs::PoissonMeshingOptions(), "PoissonMeshingOptions()"),
       "Perform Poisson surface reconstruction and return true if successful.");
 
 #ifdef COLMAP_CGAL_ENABLED
-  m.def("sparse_delaunay_meshing",
-        &mvs::SparseDelaunayMeshing,
-        "input_path"_a,
-        "output_path"_a,
-        "options"_a = delaunay_options,
-        "Delaunay meshing of sparse COLMAP reconstructions.");
+  m.def(
+      "sparse_delaunay_meshing",
+      &mvs::SparseDelaunayMeshing,
+      "input_path"_a,
+      "output_path"_a,
+      py::arg_v(
+          "options", mvs::DelaunayMeshingOptions(), "DelaunayMeshingOptions()"),
+      "Delaunay meshing of sparse COLMAP reconstructions.");
 
-  m.def("dense_delaunay_meshing",
-        &mvs::DenseDelaunayMeshing,
-        "input_path"_a,
-        "output_path"_a,
-        "options"_a = delaunay_options,
-        "Delaunay meshing of dense COLMAP reconstructions.");
+  m.def(
+      "dense_delaunay_meshing",
+      &mvs::DenseDelaunayMeshing,
+      "input_path"_a,
+      "output_path"_a,
+      py::arg_v(
+          "options", mvs::DelaunayMeshingOptions(), "DelaunayMeshingOptions()"),
+      "Delaunay meshing of dense COLMAP reconstructions.");
 #endif
 };

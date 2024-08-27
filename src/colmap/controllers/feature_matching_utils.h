@@ -66,11 +66,6 @@ class FeatureMatcherWorker : public Thread {
  private:
   void Run() override;
 
-  std::shared_ptr<FeatureKeypoints> GetKeypointsPtr(int index,
-                                                    image_t image_id);
-  std::shared_ptr<FeatureDescriptors> GetDescriptorsPtr(int index,
-                                                        image_t image_id);
-
   SiftMatchingOptions matching_options_;
   TwoViewGeometryOptions geometry_options_;
   FeatureMatcherCache* cache_;
@@ -78,11 +73,6 @@ class FeatureMatcherWorker : public Thread {
   JobQueue<Output>* output_queue_;
 
   std::unique_ptr<OpenGLContextManager> opengl_context_;
-
-  std::array<image_t, 2> prev_keypoints_image_ids_;
-  std::array<std::shared_ptr<FeatureKeypoints>, 2> prev_keypoints_;
-  std::array<image_t, 2> prev_descriptors_image_ids_;
-  std::array<std::shared_ptr<FeatureDescriptors>, 2> prev_descriptors_;
 };
 
 // Multi-threaded and multi-GPU SIFT feature matcher, which writes the computed

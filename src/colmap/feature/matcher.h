@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/feature/index.h"
 #include "colmap/feature/types.h"
 #include "colmap/geometry/gps.h"
 #include "colmap/scene/camera.h"
@@ -48,25 +49,24 @@ class FeatureMatcher {
  public:
   virtual ~FeatureMatcher() = default;
 
-  // If the same matcher is used for matching multiple pairs of feature sets,
-  // then the caller may pass a nullptr to one of the keypoint/descriptor
-  // arguments to inform the implementation that the keypoints/descriptors are
-  // identical to the previous call. This allows the implementation to skip e.g.
-  // uploading data to GPU memory or pre-computing search data structures for
-  // one of the descriptors.
+  struct Image {
+    // Unique identifier for the image. Allows a matcher to cache some
+    // computations per image in consecutive calls to matching.
+    image_t image_id = kInvalidImageId;
+    // Used for both normal and guided matching.
+    std::shared_ptr<const FeatureDescriptors> descriptors;
+    // Only used for guided matching.
+    std::shared_ptr<const FeatureKeypoints> keypoints;
+  };
 
-  virtual void Match(
-      const std::shared_ptr<const FeatureDescriptors>& descriptors1,
-      const std::shared_ptr<const FeatureDescriptors>& descriptors2,
-      FeatureMatches* matches) = 0;
+  virtual void Match(const Image& image1,
+                     const Image& image2,
+                     FeatureMatches* matches) = 0;
 
-  virtual void MatchGuided(
-      double max_error,
-      const std::shared_ptr<const FeatureKeypoints>& keypoints1,
-      const std::shared_ptr<const FeatureKeypoints>& keypoints2,
-      const std::shared_ptr<const FeatureDescriptors>& descriptors1,
-      const std::shared_ptr<const FeatureDescriptors>& descriptors2,
-      TwoViewGeometry* two_view_geometry) = 0;
+  virtual void MatchGuided(double max_error,
+                           const Image& image1,
+                           const Image& image2,
+                           TwoViewGeometry* two_view_geometry) = 0;
 };
 
 // Cache for feature matching to minimize database access during matching.
@@ -78,6 +78,11 @@ class FeatureMatcherCache {
 
   void Setup();
 
+  // Executes a function that accesses the database. This function is thread
+  // safe and ensures that only one function can access the database at a time.
+  void AccessDatabase(
+      const std::function<void(const Database& database)>& func);
+
   const Camera& GetCamera(camera_t camera_id) const;
   const Image& GetImage(image_t image_id) const;
   const PosePrior& GetPosePrior(image_t image_id) const;
@@ -85,6 +90,8 @@ class FeatureMatcherCache {
   std::shared_ptr<FeatureDescriptors> GetDescriptors(image_t image_id);
   FeatureMatches GetMatches(image_t image_id1, image_t image_id2);
   std::vector<image_t> GetImageIds() const;
+  ThreadSafeLRUCache<image_t, FeatureDescriptorIndex>&
+  GetFeatureDescriptorIndexCache();
 
   bool ExistsPosePrior(image_t image_id) const;
   bool ExistsKeypoints(image_t image_id);
@@ -109,13 +116,14 @@ class FeatureMatcherCache {
   std::mutex database_mutex_;
   std::unordered_map<camera_t, Camera> cameras_cache_;
   std::unordered_map<image_t, Image> images_cache_;
-  std::unordered_map<image_t, PosePrior> locations_priors_cache_;
-  std::unique_ptr<LRUCache<image_t, std::shared_ptr<FeatureKeypoints>>>
+  std::unordered_map<image_t, PosePrior> pose_priors_cache_;
+  std::unique_ptr<ThreadSafeLRUCache<image_t, FeatureKeypoints>>
       keypoints_cache_;
-  std::unique_ptr<LRUCache<image_t, std::shared_ptr<FeatureDescriptors>>>
+  std::unique_ptr<ThreadSafeLRUCache<image_t, FeatureDescriptors>>
       descriptors_cache_;
-  std::unique_ptr<LRUCache<image_t, bool>> keypoints_exists_cache_;
-  std::unique_ptr<LRUCache<image_t, bool>> descriptors_exists_cache_;
+  std::unique_ptr<ThreadSafeLRUCache<image_t, bool>> keypoints_exists_cache_;
+  std::unique_ptr<ThreadSafeLRUCache<image_t, bool>> descriptors_exists_cache_;
+  ThreadSafeLRUCache<image_t, FeatureDescriptorIndex> descriptor_index_cache_;
 };
 
 }  // namespace colmap

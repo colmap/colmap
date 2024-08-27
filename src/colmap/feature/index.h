@@ -29,48 +29,25 @@
 
 #pragma once
 
-#include <functional>
-#include <list>
-#include <unordered_map>
+#include "colmap/feature/types.h"
+#include "colmap/util/types.h"
+
+#include <memory>
 
 namespace colmap {
 
-// Reimplementation of threading with thread-related functions outside
-// controller Following util/threading.h
-// BaseController that supports templating in ControllerThread at
-// util/controller_thread.h
-class BaseController {
+class FeatureDescriptorIndex {
  public:
-  BaseController();
-  virtual ~BaseController() = default;
+  virtual ~FeatureDescriptorIndex() = default;
 
-  // Set callbacks that can be triggered within the main run function.
-  void AddCallback(int id, std::function<void()> func);
+  static std::unique_ptr<FeatureDescriptorIndex> Create();
 
-  // Call back to the function with the specified name, if it exists.
-  void Callback(int id) const;
+  virtual void Build(const FeatureDescriptors& descriptors) = 0;
 
-  // This is the main run function to be implemented by the child class. If you
-  // are looping over data and want to support the pause operation, call
-  // `BlockIfPaused` at appropriate places in the loop. To support the stop
-  // operation, check the `IsStopped` state and early return from this method.
-  virtual void Run() = 0;
-
-  // check if the thread is stopped
-  void SetCheckIfStoppedFunc(std::function<bool()> func);
-  bool CheckIfStopped();
-
- protected:
-  // Register a new callback. Note that only registered callbacks can be
-  // set/reset and called from within the thread. Hence, this method should be
-  // called from the derived thread constructor.
-  void RegisterCallback(int id);
-
- private:
-  // list of callbacks
-  std::unordered_map<int, std::list<std::function<void()>>> callbacks_;
-  // check_if_stop function
-  std::function<bool()> check_if_stopped_fn_;
+  virtual void Search(int num_neighbors,
+                      const FeatureDescriptors& query_descriptors,
+                      Eigen::RowMajorMatrixXi& indices,
+                      Eigen::RowMajorMatrixXi& l2_dists) const = 0;
 };
 
 }  // namespace colmap
