@@ -81,6 +81,7 @@ Dependencies from the default Ubuntu repositories::
         libmetis-dev \
         libgoogle-glog-dev \
         libgtest-dev \
+        libgmock-dev \
         libsqlite3-dev \
         libglew-dev \
         qtbase5-dev \
@@ -194,9 +195,6 @@ To compile CUDA for multiple compute architectures, please use::
     .\vcpkg install colmap[cuda-redist]:x64-windows
 
 Please refer to the next section for more details.
-
-**Visual Studio 2022**  has some known compiler bugs that crash when
-compiling COLMAP's source code.
 
 
 VCPKG

@@ -171,7 +171,7 @@ std::string CreateSummary(const T& self, bool write_type) {
     py::object attribute;
     try {
       attribute = pyself.attr(name);
-    } catch (const std::exception& e) {
+    } catch (const std::exception&) {
       // Some properties are not valid for some uninitialized objects.
       continue;
     }
@@ -211,6 +211,40 @@ std::string CreateSummary(const T& self, bool write_type) {
 }
 
 template <typename T, typename... options>
+std::string CreateRepresentation(const T& self) {
+  std::stringstream ss;
+  auto pyself = py::cast(self);
+  ss << pyself.attr("__class__").attr("__name__").template cast<std::string>()
+     << "(";
+  bool is_first = true;
+  for (auto& handle : pyself.attr("__dir__")()) {
+    const py::str name = py::reinterpret_borrow<py::str>(handle);
+    py::object attribute;
+    try {
+      attribute = pyself.attr(name);
+    } catch (const std::exception&) {
+      // Some properties are not valid for some uninitialized objects.
+      continue;
+    }
+    if (AttributeIsFunction(name, attribute)) {
+      continue;
+    }
+    if (!is_first) {
+      ss << ", ";
+    }
+    is_first = false;
+    ss << name.template cast<std::string>() << "=";
+    if (py::isinstance<py::str>(attribute)) {
+      ss << "'" << py::str(attribute) << "'";
+    } else {
+      ss << py::str(attribute);
+    }
+  }
+  ss << ")";
+  return ss.str();
+}
+
+template <typename T, typename... options>
 void AddDefaultsToDocstrings(py::class_<T, options...> cls) {
   auto obj = cls();
   for (auto& handle : obj.attr("__dir__")()) {
@@ -218,7 +252,7 @@ void AddDefaultsToDocstrings(py::class_<T, options...> cls) {
     py::object member;
     try {
       member = obj.attr(attribute.c_str());
-    } catch (const std::exception& e) {
+    } catch (const std::exception&) {
       // Some properties are not valid for some uninitialized objects.
       continue;
     }
@@ -242,6 +276,9 @@ void MakeDataclass(py::class_<T, options...> cls,
   AddDefaultsToDocstrings(cls);
   if (!py::hasattr(cls, "summary")) {
     cls.def("summary", &CreateSummary<T>, "write_type"_a = false);
+  }
+  if (!cls.attr("__dict__").contains("__repr__")) {
+    cls.def("__repr__", &CreateRepresentation<T>);
   }
   cls.def("mergedict", &UpdateFromDict);
   cls.def(
@@ -338,4 +375,14 @@ inline void PyWait(Thread* thread, double gap = 2.0) {
   }
   // after finishing join the thread to avoid abort
   thread->Wait();
+}
+
+// Test if pyceres is available
+inline bool IsPyceresAvailable() {
+  try {
+    py::module::import("pyceres");
+  } catch (const py::error_already_set&) {
+    return false;
+  }
+  return true;
 }

@@ -201,24 +201,10 @@ class COLMAPDatabase(sqlite3.Connection):
         self,
         name,
         camera_id,
-        prior_q=np.full(4, np.NaN),
-        prior_t=np.full(3, np.NaN),
         image_id=None,
     ):
         cursor = self.execute(
-            "INSERT INTO images VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (
-                image_id,
-                name,
-                camera_id,
-                prior_q[0],
-                prior_q[1],
-                prior_q[2],
-                prior_q[3],
-                prior_t[0],
-                prior_t[1],
-                prior_t[2],
-            ),
+            "INSERT INTO images VALUES (?, ?, ?)", (image_id, name, camera_id)
         )
         return cursor.lastrowid
 

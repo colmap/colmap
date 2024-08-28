@@ -27,6 +27,14 @@ std::pair<std::string, int> GetPythonCallFrame() {
 
 void BindLogging(py::module& m) {
   py::class_<Logging> PyLogging(m, "logging", py::module_local());
+
+  py::enum_<Logging::LogSeverity>(PyLogging, "Level")
+      .value("INFO", Logging::LogSeverity::GLOG_INFO)
+      .value("WARNING", Logging::LogSeverity::GLOG_WARNING)
+      .value("ERROR", Logging::LogSeverity::GLOG_ERROR)
+      .value("FATAL", Logging::LogSeverity::GLOG_FATAL)
+      .export_values();
+
   PyLogging.def_readwrite_static("minloglevel", &FLAGS_minloglevel)
       .def_readwrite_static("stderrthreshold", &FLAGS_stderrthreshold)
       .def_readwrite_static("log_dir", &FLAGS_log_dir)
@@ -76,12 +84,6 @@ void BindLogging(py::module& m) {
         google::LogMessageFatal(frame.first.c_str(), frame.second).stream()
             << msg;
       });
-  py::enum_<Logging::LogSeverity>(PyLogging, "Level")
-      .value("INFO", Logging::LogSeverity::GLOG_INFO)
-      .value("WARNING", Logging::LogSeverity::GLOG_WARNING)
-      .value("ERROR", Logging::LogSeverity::GLOG_ERROR)
-      .value("FATAL", Logging::LogSeverity::GLOG_FATAL)
-      .export_values();
 
 #if defined(GLOG_VERSION_MAJOR) && \
     (GLOG_VERSION_MAJOR > 0 || GLOG_VERSION_MINOR >= 6)

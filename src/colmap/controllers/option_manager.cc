@@ -67,7 +67,7 @@ OptionManager::OptionManager(bool add_project_options) {
   transitive_matching = std::make_shared<TransitiveMatchingOptions>();
   image_pairs_matching = std::make_shared<ImagePairsMatchingOptions>();
   bundle_adjustment = std::make_shared<BundleAdjustmentOptions>();
-  mapper = std::make_shared<IncrementalMapperOptions>();
+  mapper = std::make_shared<IncrementalPipelineOptions>();
   patch_match_stereo = std::make_shared<mvs::PatchMatchOptions>();
   stereo_fusion = std::make_shared<mvs::StereoFusionOptions>();
   poisson_meshing = std::make_shared<mvs::PoissonMeshingOptions>();
@@ -470,6 +470,27 @@ void OptionManager::AddBundleAdjustmentOptions() {
                               &bundle_adjustment->refine_extra_params);
   AddAndRegisterDefaultOption("BundleAdjustment.refine_extrinsics",
                               &bundle_adjustment->refine_extrinsics);
+  AddAndRegisterDefaultOption("BundleAdjustment.use_gpu",
+                              &bundle_adjustment->use_gpu);
+  AddAndRegisterDefaultOption("BundleAdjustment.gpu_index",
+                              &bundle_adjustment->gpu_index);
+  AddAndRegisterDefaultOption("BundleAdjustment.min_num_images_gpu_solver",
+                              &bundle_adjustment->min_num_images_gpu_solver);
+  AddAndRegisterDefaultOption(
+      "BundleAdjustment.min_num_residuals_for_cpu_multi_threading",
+      &bundle_adjustment->min_num_residuals_for_cpu_multi_threading);
+  AddAndRegisterDefaultOption(
+      "BundleAdjustment.max_num_images_direct_dense_cpu_solver",
+      &bundle_adjustment->max_num_images_direct_dense_cpu_solver);
+  AddAndRegisterDefaultOption(
+      "BundleAdjustment.max_num_images_direct_sparse_cpu_solver",
+      &bundle_adjustment->max_num_images_direct_sparse_cpu_solver);
+  AddAndRegisterDefaultOption(
+      "BundleAdjustment.max_num_images_direct_dense_gpu_solver",
+      &bundle_adjustment->max_num_images_direct_dense_gpu_solver);
+  AddAndRegisterDefaultOption(
+      "BundleAdjustment.max_num_images_direct_sparse_gpu_solver",
+      &bundle_adjustment->max_num_images_direct_sparse_gpu_solver);
 }
 
 void OptionManager::AddMapperOptions() {
@@ -506,9 +527,6 @@ void OptionManager::AddMapperOptions() {
                               &mapper->ba_refine_principal_point);
   AddAndRegisterDefaultOption("Mapper.ba_refine_extra_params",
                               &mapper->ba_refine_extra_params);
-  AddAndRegisterDefaultOption(
-      "Mapper.ba_min_num_residuals_for_multi_threading",
-      &mapper->ba_min_num_residuals_for_multi_threading);
   AddAndRegisterDefaultOption("Mapper.ba_local_num_images",
                               &mapper->ba_local_num_images);
   AddAndRegisterDefaultOption("Mapper.ba_local_function_tolerance",
@@ -535,6 +553,11 @@ void OptionManager::AddMapperOptions() {
                               &mapper->ba_local_max_refinements);
   AddAndRegisterDefaultOption("Mapper.ba_local_max_refinement_change",
                               &mapper->ba_local_max_refinement_change);
+  AddAndRegisterDefaultOption("Mapper.ba_use_gpu", &mapper->ba_use_gpu);
+  AddAndRegisterDefaultOption("Mapper.ba_gpu_index", &mapper->ba_gpu_index);
+  AddAndRegisterDefaultOption(
+      "Mapper.ba_min_num_residuals_for_cpu_multi_threading",
+      &mapper->ba_min_num_residuals_for_cpu_multi_threading);
   AddAndRegisterDefaultOption("Mapper.snapshot_path", &mapper->snapshot_path);
   AddAndRegisterDefaultOption("Mapper.snapshot_images_freq",
                               &mapper->snapshot_images_freq);
@@ -789,7 +812,7 @@ void OptionManager::ResetOptions(const bool reset_paths) {
   *transitive_matching = TransitiveMatchingOptions();
   *image_pairs_matching = ImagePairsMatchingOptions();
   *bundle_adjustment = BundleAdjustmentOptions();
-  *mapper = IncrementalMapperOptions();
+  *mapper = IncrementalPipelineOptions();
   *patch_match_stereo = mvs::PatchMatchOptions();
   *stereo_fusion = mvs::StereoFusionOptions();
   *poisson_meshing = mvs::PoissonMeshingOptions();
@@ -966,7 +989,12 @@ void OptionManager::Write(const std::string& path) const {
     }
   }
 
-  boost::property_tree::write_ini(path, pt);
+  std::ofstream file(path);
+  THROW_CHECK_FILE_OPEN(file, path);
+  // Ensure that we don't lose any precision by storing in text.
+  file.precision(17);
+  boost::property_tree::write_ini(file, pt);
+  file.close();
 }
 
 }  // namespace colmap

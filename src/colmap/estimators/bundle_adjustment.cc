@@ -30,8 +30,10 @@
 #include "colmap/estimators/bundle_adjustment.h"
 
 #include "colmap/estimators/cost_functions.h"
+#include "colmap/estimators/manifold.h"
 #include "colmap/scene/projection.h"
 #include "colmap/sensor/models.h"
+#include "colmap/util/cuda.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
 #include "colmap/util/timer.h"
@@ -63,6 +65,10 @@ ceres::LossFunction* BundleAdjustmentOptions::CreateLossFunction() const {
 
 bool BundleAdjustmentOptions::Check() const {
   CHECK_OPTION_GE(loss_function_scale, 0);
+  CHECK_OPTION_LT(max_num_images_direct_dense_cpu_solver,
+                  max_num_images_direct_sparse_cpu_solver);
+  CHECK_OPTION_LT(max_num_images_direct_dense_gpu_solver,
+                  max_num_images_direct_sparse_gpu_solver);
   return true;
 }
 
@@ -328,23 +334,46 @@ ceres::Solver::Options BundleAdjuster::SetUpSolverOptions(
     const ceres::Problem& problem,
     const ceres::Solver::Options& input_solver_options) const {
   ceres::Solver::Options solver_options = input_solver_options;
+  if (VLOG_IS_ON(2)) {
+    solver_options.minimizer_progress_to_stdout = true;
+    solver_options.logging_type = ceres::LoggingType::PER_MINIMIZER_ITERATION;
+  }
+
+  const int num_images = config_.NumImages();
   const bool has_sparse =
       solver_options.sparse_linear_algebra_library_type != ceres::NO_SPARSE;
 
-  // Empirical choice.
-  const size_t kMaxNumImagesDirectDenseSolver = 50;
-  const size_t kMaxNumImagesDirectSparseSolver = 1000;
-  const size_t num_images = config_.NumImages();
-  if (num_images <= kMaxNumImagesDirectDenseSolver) {
+  int max_num_images_direct_dense_solver =
+      options_.max_num_images_direct_dense_cpu_solver;
+  int max_num_images_direct_sparse_solver =
+      options_.max_num_images_direct_sparse_cpu_solver;
+#if (CERES_VERSION_MAJOR >= 3 ||                                \
+     (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 2)) && \
+    !defined(CERES_NO_CUDSS) && defined(COLMAP_CUDA_ENABLED)
+  if (options_.use_gpu && num_images >= options_.min_num_images_gpu_solver) {
+    const std::vector<int> gpu_indices = CSVToVector<int>(options_.gpu_index);
+    THROW_CHECK_GT(gpu_indices.size(), 0);
+    SetBestCudaDevice(gpu_indices[0]);
+    solver_options.dense_linear_algebra_library_type = ceres::CUDA;
+    solver_options.sparse_linear_algebra_library_type = ceres::CUDA_SPARSE;
+    max_num_images_direct_dense_solver =
+        options_.max_num_images_direct_dense_gpu_solver;
+    max_num_images_direct_sparse_solver =
+        options_.max_num_images_direct_sparse_gpu_solver;
+  }
+#endif
+
+  if (num_images <= max_num_images_direct_dense_solver) {
     solver_options.linear_solver_type = ceres::DENSE_SCHUR;
-  } else if (num_images <= kMaxNumImagesDirectSparseSolver && has_sparse) {
+  } else if (has_sparse && num_images <= max_num_images_direct_sparse_solver) {
     solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
   } else {  // Indirect sparse (preconditioned CG) solver.
     solver_options.linear_solver_type = ceres::ITERATIVE_SCHUR;
     solver_options.preconditioner_type = ceres::SCHUR_JACOBI;
   }
 
-  if (problem.NumResiduals() < options_.min_num_residuals_for_multi_threading) {
+  if (problem.NumResiduals() <
+      options_.min_num_residuals_for_cpu_multi_threading) {
     solver_options.num_threads = 1;
 #if CERES_VERSION_MAJOR < 2
     solver_options.num_linear_solver_threads = 1;
@@ -812,8 +841,12 @@ void RigBundleAdjuster::ParameterizeCameraRigs(Reconstruction* reconstruction) {
 
 void PrintSolverSummary(const ceres::Solver::Summary& summary,
                         const std::string& header) {
+  if (VLOG_IS_ON(3)) {
+    LOG(INFO) << summary.FullReport();
+  }
+
   std::ostringstream log;
-  log << "\n" << header << ":\n";
+  log << header << "\n";
   log << std::right << std::setw(16) << "Residuals : ";
   log << std::left << summary.num_residuals_reduced << "\n";
 

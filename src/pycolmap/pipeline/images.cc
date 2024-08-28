@@ -189,12 +189,11 @@ void BindImages(py::module& m) {
               "images. No features will be extracted in regions where the "
               "mask is black (pixel intensity value 0 in grayscale)");
   MakeDataclass(PyImageReaderOptions);
-  auto reader_options = PyImageReaderOptions().cast<IROpts>();
 
   auto PyCopyType = py::enum_<CopyType>(m, "CopyType")
                         .value("copy", CopyType::COPY)
-                        .value("soft-link", CopyType::SOFT_LINK)
-                        .value("hard-link", CopyType::HARD_LINK);
+                        .value("softlink", CopyType::SOFT_LINK)
+                        .value("hardlink", CopyType::HARD_LINK);
   AddStringToEnumConstructor(PyCopyType);
 
   using UDOpts = UndistortCameraOptions;
@@ -222,7 +221,6 @@ void BindImages(py::module& m) {
           .def_readwrite("roi_max_x", &UDOpts::roi_max_x)
           .def_readwrite("roi_max_y", &UDOpts::roi_max_y);
   MakeDataclass(PyUndistortCameraOptions);
-  auto undistort_options = PyUndistortCameraOptions().cast<UDOpts>();
 
   m.def("import_images",
         &ImportImages,
@@ -230,13 +228,13 @@ void BindImages(py::module& m) {
         "image_path"_a,
         "camera_mode"_a = CameraMode::AUTO,
         "image_list"_a = std::vector<std::string>(),
-        "options"_a = reader_options,
+        py::arg_v("options", ImageReaderOptions(), "ImageReaderOptions()"),
         "Import images into a database");
 
   m.def("infer_camera_from_image",
         &InferCameraFromImage,
         "image_path"_a,
-        "options"_a = reader_options,
+        py::arg_v("options", ImageReaderOptions(), "ImageReaderOptions()"),
         "Guess the camera parameters from the EXIF metadata");
 
   m.def("undistort_images",
@@ -248,6 +246,8 @@ void BindImages(py::module& m) {
         "output_type"_a = "COLMAP",
         "copy_policy"_a = CopyType::COPY,
         "num_patch_match_src_images"_a = 20,
-        "undistort_options"_a = undistort_options,
+        py::arg_v("undistort_options",
+                  UndistortCameraOptions(),
+                  "UndistortCameraOptions()"),
         "Undistort images");
 }

@@ -148,7 +148,11 @@ struct SiftMatchingOptions {
   bool guided_matching = false;
 
   // Whether to use brute-force instead of FLANN based CPU matching.
-  bool brute_force_cpu_matcher = false;
+  bool cpu_brute_force_matcher = false;
+
+  // Cache for reusing descriptor index for feature matching.
+  ThreadSafeLRUCache<image_t, FeatureDescriptorIndex>*
+      cpu_descriptor_index_cache = nullptr;
 
   bool Check() const;
 };
