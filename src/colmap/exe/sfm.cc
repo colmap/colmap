@@ -221,13 +221,13 @@ int RunIncrementalModelRefiner(int argc, char** argv) {
 
   // Loads the list of images for which the camera pose will be fixed.
   auto reconstruction = reconstruction_manager->Get(0);
-  std::unordered_set<image_t> image_ids_fixed_poses;
+  std::unordered_set<image_t> fixed_image_ids;
   if (!image_list_path.empty()) {
     const auto image_names = ReadTextFileLines(image_list_path);
     for (const std::string& image_name : image_names) {
       const Image* image = reconstruction->FindImageWithName(image_name);
       if (image != nullptr) {
-        image_ids_fixed_poses.insert(image->ImageId());
+        fixed_image_ids.insert(image->ImageId());
       }
     }
   }
@@ -236,7 +236,7 @@ int RunIncrementalModelRefiner(int argc, char** argv) {
                                      *options.image_path,
                                      *options.database_path,
                                      reconstruction_manager);
-  mapper.TriangulateReconstruction(reconstruction, image_ids_fixed_poses);
+  mapper.TriangulateReconstruction(reconstruction, fixed_image_ids);
 
   reconstruction->Write(output_path);
 

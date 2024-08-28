@@ -145,10 +145,6 @@ class IncrementalMapper {
   explicit IncrementalMapper(
       std::shared_ptr<const DatabaseCache> database_cache);
 
-  // Set existing_image_ids_ to a custom list of images
-  // This will be used at the beginning of TriangulateReconstruction
-  void SetFixedImageIds(std::unordered_set<image_t> image_ids);
-
   // Prepare the mapper for a new reconstruction, which might have existing
   // registered images (in which case `RegisterNextImage` must be called) or
   // which is empty (in which case `RegisterInitialImagePair` must be called).
@@ -261,6 +257,10 @@ class IncrementalMapper {
   // Number of shared images between current reconstruction and all other
   // previous reconstructions.
   size_t NumSharedRegImages() const;
+
+  // Set existing_image_ids_ to a custom list of images
+  // This will be used at the beginning of TriangulateReconstruction
+  void SetExistingImageIds(const std::unordered_set<image_t>& image_ids);
 
   // Get changed 3D points, since the last call to `ClearModifiedPoints3D`.
   const std::unordered_set<point3D_t>& GetModifiedPoints3D();

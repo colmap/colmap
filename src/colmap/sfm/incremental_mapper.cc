@@ -108,11 +108,6 @@ IncrementalMapper::IncrementalMapper(
       num_total_reg_images_(0),
       num_shared_reg_images_(0) {}
 
-void IncrementalMapper::SetFixedImageIds(
-    std::unordered_set<image_t> image_ids) {
-  existing_image_ids_ = image_ids;
-}
-
 void IncrementalMapper::BeginReconstruction(
     const std::shared_ptr<class Reconstruction>& reconstruction) {
   THROW_CHECK(reconstruction_ == nullptr);
@@ -886,6 +881,11 @@ size_t IncrementalMapper::NumTotalRegImages() const {
 
 size_t IncrementalMapper::NumSharedRegImages() const {
   return num_shared_reg_images_;
+}
+
+void IncrementalMapper::SetExistingImageIds(
+    const std::unordered_set<image_t>& image_ids) {
+  existing_image_ids_ = image_ids;
 }
 
 const std::unordered_set<point3D_t>& IncrementalMapper::GetModifiedPoints3D() {
