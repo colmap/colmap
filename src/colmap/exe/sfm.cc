@@ -354,6 +354,10 @@ int RunPositionPriorMapper(int argc, char** argv) {
 
   options.AddDefaultOption("set_prior_position_from_database",
                            &options.mapper->set_prior_position_from_database);
+  options.AddDefaultOption("priors_share_same_covariance",
+                           &options.mapper->priors_share_same_covariance,
+                           "If true, covariance on priors will be set from the "
+                           "prior_position_std_... options");
   options.AddDefaultOption("prior_position_std_x",
                            &options.mapper->prior_position_std_x);
   options.AddDefaultOption("prior_position_std_y",

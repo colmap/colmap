@@ -347,6 +347,20 @@ bool IncrementalPipeline::SetupPriorPoseFromDatabase() {
   }
   timer.PrintMinutes();
 
+  if (options_->priors_share_same_covariance) {
+    const Eigen::Matrix3d covariance =
+        Eigen::Vector3d(options_->prior_position_std_x,
+                        options_->prior_position_std_y,
+                        options_->prior_position_std_z)
+            .cwiseAbs2()
+            .asDiagonal();
+
+    for (const auto& image_id : image_ids_with_prior) {
+      database_cache_->Image(image_id).WorldFromCamPrior().position_covariance =
+          covariance;
+    }
+  }
+
   return true;
 }
 

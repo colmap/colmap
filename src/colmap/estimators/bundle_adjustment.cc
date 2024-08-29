@@ -992,6 +992,11 @@ void PositionPriorBundleAdjuster::AddPosePriorToProblem(
     return;
   }
 
+  const PosePrior& prior = image.WorldFromCamPrior();
+  if (!prior.IsCovarianceValid()) {
+    return;
+  }
+
   double* cam_from_world_translation = image.CamFromWorld().translation.data();
 
   // If image has not been added to the problem do not use it
@@ -1004,8 +1009,7 @@ void PositionPriorBundleAdjuster::AddPosePriorToProblem(
       image.CamFromWorld().rotation.coeffs().data();
 
   problem_->AddResidualBlock(PositionPriorErrorCostFunction::Create(
-                                 image.WorldFromCamPrior().position,
-                                 prior_options_.prior_position_covariance),
+                                 prior.position, prior.position_covariance),
                              prior_loss_function,
                              cam_from_world_rotation,
                              cam_from_world_translation);
