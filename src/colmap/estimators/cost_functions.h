@@ -503,7 +503,7 @@ struct PositionPriorErrorCostFunction {
         sqrt_information_prior_(SqrtInformation(covariance)) {}
 
   static ceres::CostFunction* Create(
-      Eigen::Vector3d& world_from_cam_position_prior,
+      const Eigen::Vector3d& world_from_cam_position_prior,
       const Eigen::Matrix3d& covariance) {
     return (new ceres::
                 AutoDiffCostFunction<PositionPriorErrorCostFunction, 3, 4, 3>(
