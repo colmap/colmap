@@ -829,15 +829,15 @@ void RigBundleAdjuster::ParameterizeCameraRigs(Reconstruction* reconstruction) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// PositionPriorBundleAdjuster
+// PosePriorBundleAdjuster
 ////////////////////////////////////////////////////////////////////////////////
 
-PositionPriorBundleAdjuster::PositionPriorBundleAdjuster(
+PosePriorBundleAdjuster::PosePriorBundleAdjuster(
     const BundleAdjustmentOptions& options,
     const BundleAdjustmentConfig& config)
     : BundleAdjuster(options, config) {}
 
-bool PositionPriorBundleAdjuster::Solve(Reconstruction* reconstruction) {
+bool PosePriorBundleAdjuster::Solve(Reconstruction* reconstruction) {
   loss_function_ =
       std::unique_ptr<ceres::LossFunction>(options_.CreateLossFunction());
 
@@ -946,7 +946,7 @@ bool PositionPriorBundleAdjuster::Solve(Reconstruction* reconstruction) {
   return true;
 }
 
-void PositionPriorBundleAdjuster::SetUpProblem(
+void PosePriorBundleAdjuster::SetUpProblem(
     Reconstruction* reconstruction,
     ceres::LossFunction* loss_function,
     ceres::LossFunction* prior_loss_function) {
@@ -963,7 +963,7 @@ void PositionPriorBundleAdjuster::SetUpProblem(
   }
 }
 
-void PositionPriorBundleAdjuster::AddPosePriorToProblem(
+void PosePriorBundleAdjuster::AddPosePriorToProblem(
     image_t image_id,
     Reconstruction* reconstruction,
     ceres::LossFunction* prior_loss_function) {
@@ -996,7 +996,7 @@ void PositionPriorBundleAdjuster::AddPosePriorToProblem(
                              cam_from_world_translation);
 }
 
-void PositionPriorBundleAdjuster::projectCentroidToOrigin(
+void PosePriorBundleAdjuster::projectCentroidToOrigin(
     Reconstruction* reconstruction) {
   // Make sure that sim_to_center is identity
   prior_options_.sim_to_center = Sim3d();
@@ -1018,7 +1018,7 @@ void PositionPriorBundleAdjuster::projectCentroidToOrigin(
   }
 }
 
-void PositionPriorBundleAdjuster::projectCentroidFromOrigin(
+void PosePriorBundleAdjuster::projectCentroidFromOrigin(
     Reconstruction* reconstruction) {
   const Sim3d sim_from_center = Inverse(prior_options_.sim_to_center);
   reconstruction->Transform(sim_from_center);

@@ -752,8 +752,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
     BundleAdjuster bundle_adjuster(ba_options_tmp, ba_config);
     return bundle_adjuster.Solve(reconstruction_.get());
   } else {
-    PositionPriorBundleAdjuster prior_bundle_adjuster(ba_options_tmp,
-                                                      ba_config);
+    PosePriorBundleAdjuster prior_bundle_adjuster(ba_options_tmp, ba_config);
     return prior_bundle_adjuster.Solve(reconstruction_.get());
   }
 }

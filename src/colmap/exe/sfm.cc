@@ -339,7 +339,7 @@ int RunHierarchicalMapper(int argc, char** argv) {
   return EXIT_SUCCESS;
 }
 
-int RunPositionPriorMapper(int argc, char** argv) {
+int RunPosePriorMapper(int argc, char** argv) {
   std::string input_path;
   std::string output_path;
 

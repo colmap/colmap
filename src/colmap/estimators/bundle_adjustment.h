@@ -291,7 +291,7 @@ class RigBundleAdjuster : public BundleAdjuster {
   std::unordered_set<double*> parameterized_quats_;
 };
 
-class PositionPriorBundleAdjuster : public BundleAdjuster {
+class PosePriorBundleAdjuster : public BundleAdjuster {
  public:
   struct Options {
     // Whether to use prior camera positions
@@ -301,8 +301,8 @@ class PositionPriorBundleAdjuster : public BundleAdjuster {
     Sim3d sim_to_center;
   };
 
-  PositionPriorBundleAdjuster(const BundleAdjustmentOptions& options,
-                              const BundleAdjustmentConfig& config);
+  PosePriorBundleAdjuster(const BundleAdjustmentOptions& options,
+                          const BundleAdjustmentConfig& config);
 
   bool Solve(Reconstruction* reconstruction);
 
