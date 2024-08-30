@@ -835,10 +835,7 @@ void RigBundleAdjuster::ParameterizeCameraRigs(Reconstruction* reconstruction) {
 PositionPriorBundleAdjuster::PositionPriorBundleAdjuster(
     const BundleAdjustmentOptions& options,
     const BundleAdjustmentConfig& config)
-    : BundleAdjuster(options, config) {
-  prior_options_.prior_position_covariance =
-      options_.prior_position_std.cwiseAbs2().asDiagonal();
-}
+    : BundleAdjuster(options, config) {}
 
 bool PositionPriorBundleAdjuster::Solve(Reconstruction* reconstruction) {
   loss_function_ =
@@ -925,35 +922,10 @@ bool PositionPriorBundleAdjuster::Solve(Reconstruction* reconstruction) {
 
   // Put the centroid of the reconstruction to (0.,0.,0.)
   // to avoid any numerical instability
-  Sim3d sim_to_center;
-  for (const auto& image_id : config_.Images()) {
-    sim_to_center.translation -=
-        reconstruction->Image(image_id).ProjectionCenter();
-  }
-  sim_to_center.translation /= config_.NumImages();
+  projectCentroidToOrigin(reconstruction);
 
-  reconstruction->Transform(sim_to_center);
-
-  // Transform the priors according to the centroid projection
-  for (const auto image_id : config_.Images()) {
-    auto& image = reconstruction->Image(image_id);
-    if (image.HasPosePrior()) {
-      image.WorldFromCamPrior().position =
-          sim_to_center * image.WorldFromCamPrior().position;
-    }
-  }
-
-  // Set up problem
-  // Warning: SetUpProblem must be called before AddPosePriorToProblem()
-  // Do not change order of instructions!
-  SetUpProblem(reconstruction, loss_function_.get());
-
-  if (prior_options_.use_prior_position) {
-    for (const image_t image_id : config_.Images()) {
-      AddPosePriorToProblem(
-          image_id, reconstruction, prior_loss_function_.get());
-    }
-  }
+  SetUpProblem(
+      reconstruction, loss_function_.get(), prior_loss_function_.get());
 
   if (problem_->NumResiduals() == 0) {
     return false;
@@ -965,21 +937,30 @@ bool PositionPriorBundleAdjuster::Solve(Reconstruction* reconstruction) {
   ceres::Solve(solver_options, problem_.get(), &summary_);
 
   // Unproject centroid from (0.,0.,0.)
-  const Sim3d sim_from_center = Inverse(sim_to_center);
-  reconstruction->Transform(sim_from_center);
-  for (const auto image_id : config_.Images()) {
-    auto& image = reconstruction->Image(image_id);
-    if (image.HasPosePrior()) {
-      image.WorldFromCamPrior().position =
-          sim_from_center * image.WorldFromCamPrior().position;
-    }
-  }
+  projectCentroidFromOrigin(reconstruction);
 
   if (options_.print_summary || VLOG_IS_ON(1)) {
     PrintSolverSummary(summary_, "Position Prior Bundle adjustment report");
   }
 
   return true;
+}
+
+void PositionPriorBundleAdjuster::SetUpProblem(
+    Reconstruction* reconstruction,
+    ceres::LossFunction* loss_function,
+    ceres::LossFunction* prior_loss_function) {
+  // Set up problem
+  // Warning: SetUpProblem must be called before AddPosePriorToProblem()
+  // Do not change order of instructions!
+  SetUpProblem(reconstruction, loss_function_.get());
+
+  if (prior_options_.use_prior_position) {
+    for (const image_t image_id : config_.Images()) {
+      AddPosePriorToProblem(
+          image_id, reconstruction, prior_loss_function_.get());
+    }
+  }
 }
 
 void PositionPriorBundleAdjuster::AddPosePriorToProblem(
@@ -1013,6 +994,41 @@ void PositionPriorBundleAdjuster::AddPosePriorToProblem(
                              prior_loss_function,
                              cam_from_world_rotation,
                              cam_from_world_translation);
+}
+
+void PositionPriorBundleAdjuster::projectCentroidToOrigin(
+    Reconstruction* reconstruction) {
+  // Make sure that sim_to_center is identity
+  prior_options_.sim_to_center = Sim3d();
+  for (const auto& image_id : config_.Images()) {
+    prior_options_.sim_to_center.translation -=
+        reconstruction->Image(image_id).ProjectionCenter();
+  }
+  prior_options_.sim_to_center.translation /= config_.NumImages();
+
+  reconstruction->Transform(prior_options_.sim_to_center);
+
+  // Transform the priors according to the centroid projection
+  for (const auto image_id : config_.Images()) {
+    auto& image = reconstruction->Image(image_id);
+    if (image.HasPosePrior()) {
+      image.WorldFromCamPrior().position =
+          prior_options_.sim_to_center * image.WorldFromCamPrior().position;
+    }
+  }
+}
+
+void PositionPriorBundleAdjuster::projectCentroidFromOrigin(
+    Reconstruction* reconstruction) {
+  const Sim3d sim_from_center = Inverse(prior_options_.sim_to_center);
+  reconstruction->Transform(sim_from_center);
+  for (const auto image_id : config_.Images()) {
+    auto& image = reconstruction->Image(image_id);
+    if (image.HasPosePrior()) {
+      image.WorldFromCamPrior().position =
+          sim_from_center * image.WorldFromCamPrior().position;
+    }
+  }
 }
 
 void PrintSolverSummary(const ceres::Solver::Summary& summary,

@@ -297,8 +297,8 @@ class PositionPriorBundleAdjuster : public BundleAdjuster {
     // Whether to use prior camera positions
     bool use_prior_position = true;
 
-    // Standard deviation on the position priors
-    Eigen::Matrix3d prior_position_covariance = Eigen::Matrix3d::Identity();
+    // Sim3d transformation that project reconstruction's centroid to (0.,0.,0.)
+    Sim3d sim_to_center;
   };
 
   PositionPriorBundleAdjuster(const BundleAdjustmentOptions& options,
@@ -306,10 +306,19 @@ class PositionPriorBundleAdjuster : public BundleAdjuster {
 
   bool Solve(Reconstruction* reconstruction);
 
+  using BundleAdjuster::SetUpProblem;
+
+  void SetUpProblem(Reconstruction* reconstruction,
+                    ceres::LossFunction* loss_function,
+                    ceres::LossFunction* prior_loss_function);
+
  private:
   void AddPosePriorToProblem(image_t image_id,
                              Reconstruction* reconstruction,
                              ceres::LossFunction* prior_loss_function);
+
+  void projectCentroidToOrigin(Reconstruction* reconstruction);
+  void projectCentroidFromOrigin(Reconstruction* reconstruction);
 
   Options prior_options_;
 
