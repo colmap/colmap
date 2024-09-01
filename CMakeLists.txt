@@ -47,6 +47,7 @@ option(CCACHE_ENABLED "Whether to enable compiler caching, if available" ON)
 option(CGAL_ENABLED "Whether to enable the CGAL library" ON)
 option(LSD_ENABLED "Whether to enable the LSD library" ON)
 option(UNINSTALL_ENABLED "Whether to create a target to 'uninstall' colmap" ON)
+option(ABSL_ENABLED "Whether to enable abseil, if ceres 2.3.0 is available" OFF)
 
 # Propagate options to vcpkg manifest.
 if(TESTS_ENABLED)

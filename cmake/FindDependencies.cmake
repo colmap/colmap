@@ -35,6 +35,17 @@ find_package(Glew ${COLMAP_FIND_TYPE})
 
 find_package(Git)
 
+if(ABSL_ENABLED)
+    find_package(absl ${COLMAP_FIND_TYPE})
+    message("-- Found abseil version ${absl_VERSION}: ${absl_DIR}")
+    # For some reason unknown to me having the version number in the
+    # find_package call fails. So we check for he minimum version
+    # manually.
+    if(absl_VERSION VERSION_LESS 20240116)
+      message(FATAL_ERROR "The version of abseil installed on the system is " ${absl_VERSION} " need at least 20240116")
+    endif()    
+endif()
+
 find_package(Ceres ${COLMAP_FIND_TYPE})
 if(NOT TARGET Ceres::ceres)
     # Older Ceres versions don't come with an imported interface target.
