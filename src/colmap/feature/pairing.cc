@@ -158,7 +158,7 @@ std::vector<std::pair<image_t, image_t>> PairGenerator::AllPairs() {
 
 ExhaustivePairGenerator::ExhaustivePairGenerator(
     const ExhaustiveMatchingOptions& options,
-    const std::shared_ptr<FeatureMatcherCache>& cache)
+    std::shared_ptr<FeatureMatcherCache> cache)
     : options_(options),
       image_ids_(THROW_CHECK_NOTNULL(cache)->GetImageIds()),
       block_size_(static_cast<size_t>(options_.block_size)),
@@ -172,12 +172,11 @@ ExhaustivePairGenerator::ExhaustivePairGenerator(
 
 ExhaustivePairGenerator::ExhaustivePairGenerator(
     const ExhaustiveMatchingOptions& options,
-    const std::shared_ptr<Database>& database)
+    std::shared_ptr<Database> database)
     : ExhaustivePairGenerator(
           options,
-          std::make_shared<FeatureMatcherCache>(CacheSize(options),
-                                                THROW_CHECK_NOTNULL(database),
-                                                /*do_setup=*/true)) {}
+          std::make_shared<FeatureMatcherCache>(
+              options.CacheSize(), THROW_CHECK_NOTNULL(std::move(database)))) {}
 
 void ExhaustivePairGenerator::Reset() {
   start_idx1_ = 0;
@@ -281,13 +280,12 @@ VocabTreePairGenerator::VocabTreePairGenerator(
 
 VocabTreePairGenerator::VocabTreePairGenerator(
     const VocabTreeMatchingOptions& options,
-    const std::shared_ptr<Database>& database,
+    std::shared_ptr<Database> database,
     const std::vector<image_t>& query_image_ids)
     : VocabTreePairGenerator(
           options,
-          std::make_shared<FeatureMatcherCache>(CacheSize(options),
-                                                THROW_CHECK_NOTNULL(database),
-                                                /*do_setup=*/true),
+          std::make_shared<FeatureMatcherCache>(
+              options.CacheSize(), THROW_CHECK_NOTNULL(std::move(database))),
           query_image_ids) {}
 
 void VocabTreePairGenerator::Reset() {
@@ -405,12 +403,11 @@ SequentialPairGenerator::SequentialPairGenerator(
 
 SequentialPairGenerator::SequentialPairGenerator(
     const SequentialMatchingOptions& options,
-    const std::shared_ptr<Database>& database)
+    std::shared_ptr<Database> database)
     : SequentialPairGenerator(
           options,
-          std::make_shared<FeatureMatcherCache>(CacheSize(options),
-                                                THROW_CHECK_NOTNULL(database),
-                                                /*do_setup=*/true)) {}
+          std::make_shared<FeatureMatcherCache>(
+              options.CacheSize(), THROW_CHECK_NOTNULL(std::move(database)))) {}
 
 void SequentialPairGenerator::Reset() {
   image_idx_ = 0;
@@ -485,7 +482,7 @@ std::vector<image_t> SequentialPairGenerator::GetOrderedImageIds() const {
 
 SpatialPairGenerator::SpatialPairGenerator(
     const SpatialMatchingOptions& options,
-    const std::shared_ptr<FeatureMatcherCache>& cache)
+    std::shared_ptr<FeatureMatcherCache> cache)
     : options_(options), image_ids_(THROW_CHECK_NOTNULL(cache)->GetImageIds()) {
   LOG(INFO) << "Generating spatial image pairs...";
   THROW_CHECK(options.Check());
@@ -544,13 +541,11 @@ SpatialPairGenerator::SpatialPairGenerator(
 }
 
 SpatialPairGenerator::SpatialPairGenerator(
-    const SpatialMatchingOptions& options,
-    const std::shared_ptr<Database>& database)
+    const SpatialMatchingOptions& options, std::shared_ptr<Database> database)
     : SpatialPairGenerator(
           options,
-          std::make_shared<FeatureMatcherCache>(CacheSize(options),
-                                                THROW_CHECK_NOTNULL(database),
-                                                /*do_setup=*/true)) {}
+          std::make_shared<FeatureMatcherCache>(
+              options.CacheSize(), THROW_CHECK_NOTNULL(std::move(database)))) {}
 
 void SpatialPairGenerator::Reset() { current_idx_ = 0; }
 
@@ -589,7 +584,7 @@ std::vector<std::pair<image_t, image_t>> SpatialPairGenerator::Next() {
 }
 
 Eigen::Matrix<float, Eigen::Dynamic, 3, Eigen::RowMajor>
-SpatialPairGenerator::ReadPositionPriorData(const FeatureMatcherCache& cache) {
+SpatialPairGenerator::ReadPositionPriorData(FeatureMatcherCache& cache) {
   GPSTransform gps_transform;
   std::vector<Eigen::Vector3d> ells(1);
 
@@ -645,19 +640,18 @@ SpatialPairGenerator::ReadPositionPriorData(const FeatureMatcherCache& cache) {
 
 TransitivePairGenerator::TransitivePairGenerator(
     const TransitiveMatchingOptions& options,
-    const std::shared_ptr<FeatureMatcherCache>& cache)
+    std::shared_ptr<FeatureMatcherCache> cache)
     : options_(options), cache_(cache) {
   THROW_CHECK(options.Check());
 }
 
 TransitivePairGenerator::TransitivePairGenerator(
     const TransitiveMatchingOptions& options,
-    const std::shared_ptr<Database>& database)
+    std::shared_ptr<Database> database)
     : TransitivePairGenerator(
           options,
-          std::make_shared<FeatureMatcherCache>(CacheSize(options),
-                                                THROW_CHECK_NOTNULL(database),
-                                                /*do_setup=*/true)) {}
+          std::make_shared<FeatureMatcherCache>(
+              options.CacheSize(), THROW_CHECK_NOTNULL(std::move(database)))) {}
 
 void TransitivePairGenerator::Reset() {
   current_iteration_ = 0;
@@ -741,7 +735,7 @@ std::vector<std::pair<image_t, image_t>> TransitivePairGenerator::Next() {
 
 ImportedPairGenerator::ImportedPairGenerator(
     const ImagePairsMatchingOptions& options,
-    const std::shared_ptr<FeatureMatcherCache>& cache)
+    std::shared_ptr<FeatureMatcherCache> cache)
     : options_(options) {
   LOG(INFO) << "Importing image pairs...";
   THROW_CHECK(options.Check());
@@ -760,12 +754,11 @@ ImportedPairGenerator::ImportedPairGenerator(
 
 ImportedPairGenerator::ImportedPairGenerator(
     const ImagePairsMatchingOptions& options,
-    const std::shared_ptr<Database>& database)
+    std::shared_ptr<Database> database)
     : ImportedPairGenerator(
           options,
-          std::make_shared<FeatureMatcherCache>(CacheSize(options),
-                                                THROW_CHECK_NOTNULL(database),
-                                                /*do_setup=*/true)) {}
+          std::make_shared<FeatureMatcherCache>(
+              options.CacheSize(), THROW_CHECK_NOTNULL(std::move(database)))) {}
 
 void ImportedPairGenerator::Reset() { pair_idx_ = 0; }
 
