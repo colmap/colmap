@@ -59,8 +59,8 @@ void BindTriangulationEstimator(py::module& m) {
 
   m.def("estimate_triangulation",
         &PyEstimateTriangulation,
-        "point_data"_a,
-        "images"_a,
+        "points"_a,
+        "cams_from_world"_a,
         "cameras"_a,
         py::arg_v("options",
                   EstimateTriangulationOptions(),
