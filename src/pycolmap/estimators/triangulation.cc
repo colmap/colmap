@@ -48,13 +48,7 @@ void BindTriangulationEstimator(py::module& m) {
 
   using Options = EstimateTriangulationOptions;
   py::class_<Options> PyTriangulationOptions(m, "EstimateTriangulationOptions");
-  PyTriangulationOptions
-      .def(py::init<>([PyRANSACOptions]() {
-        Options options;
-        // init through Python to obtain the new defaults defined in  __init__
-        options.ransac_options = PyRANSACOptions().cast<RANSACOptions>();
-        return options;
-      }))
+  PyTriangulationOptions.def(py::init<>())
       .def_readwrite("min_tri_angle",
                      &Options::min_tri_angle,
                      "Minimum triangulation angle in radians.")
