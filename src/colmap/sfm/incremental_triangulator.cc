@@ -180,9 +180,6 @@ size_t IncrementalTriangulator::CompleteImage(const Options& options,
   tri_options.residual_type =
       TriangulationEstimator::ResidualType::REPROJECTION_ERROR;
   tri_options.ransac_options.max_error = options.complete_max_reproj_error;
-  tri_options.ransac_options.confidence = 0.9999;
-  tri_options.ransac_options.min_inlier_ratio = 0.02;
-  tri_options.ransac_options.max_num_trials = 10000;
 
   // Correspondence data for reference observation in given image. We iterate
   // over all observations of the image and each observation once becomes
@@ -508,9 +505,6 @@ size_t IncrementalTriangulator::Create(
       TriangulationEstimator::ResidualType::ANGULAR_ERROR;
   tri_options.ransac_options.max_error =
       DegToRad(options.create_max_angle_error);
-  tri_options.ransac_options.confidence = 0.9999;
-  tri_options.ransac_options.min_inlier_ratio = 0.02;
-  tri_options.ransac_options.max_num_trials = 10000;
 
   // Estimate triangulation.
   Eigen::Vector3d xyz;
