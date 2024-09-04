@@ -67,10 +67,6 @@ py::typing::Optional<py::dict> PyEstimateAndRefineGeneralizedAbsolutePose(
 }
 
 void BindGeneralizedAbsolutePoseEstimator(py::module& m) {
-  auto est_options = m.attr("RANSACOptions")().cast<RANSACOptions>();
-  auto ref_options = m.attr("AbsolutePoseRefinementOptions")()
-                         .cast<AbsolutePoseRefinementOptions>();
-
   m.def(
       "rig_absolute_pose_estimation",
       &PyEstimateAndRefineGeneralizedAbsolutePose,
@@ -79,9 +75,12 @@ void BindGeneralizedAbsolutePoseEstimator(py::module& m) {
       "camera_idxs"_a,
       "cams_from_rig"_a,
       "cameras"_a,
-      py::arg_v("estimation_options", est_options, "RANSACOptions()"),
-      py::arg_v(
-          "refinement_options", ref_options, "AbsolutePoseRefinementOptions()"),
+      py::arg_v("estimation_options",
+                AbsolutePoseEstimationOptions().ransac_options,
+                "AbsolutePoseEstimationOptions().ransac"),
+      py::arg_v("refinement_options",
+                AbsolutePoseRefinementOptions(),
+                "AbsolutePoseRefinementOptions()"),
       "return_covariance"_a = false,
       "Absolute pose estimation with non-linear refinement for a multi-camera "
       "rig.");
