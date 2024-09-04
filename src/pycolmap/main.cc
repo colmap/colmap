@@ -53,6 +53,7 @@ PYBIND11_MODULE(pycolmap, m) {
 
   m.def("set_random_seed",
         &SetPRNGSeed,
+        "seed"_a,
         "Initialize the PRNG with the given seed.");
 
   py::add_ostream_redirect(m, "ostream");

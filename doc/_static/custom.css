@@ -1,0 +1,4 @@
+/*Fixes https://github.com/readthedocs/sphinx_rtd_theme/issues/1301#issuecomment-1876120817 */
+.py.property {
+    display: block !important;
+}

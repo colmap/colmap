@@ -83,11 +83,10 @@ void BindBundleAdjuster(py::module& m) {
                          &BAOpts::max_num_images_direct_sparse_gpu_solver,
                          "Threshold to switch between direct, sparse, and "
                          "iterative solvers.")
-          .def_readwrite(
-              "solver_options",
-              &BAOpts::solver_options,
-              "Ceres-Solver options. To be able to use this feature "
-              "one needs to install pyceres and import it beforehand.");
+          .def_readwrite("solver_options",
+                         &BAOpts::solver_options,
+                         "Options for the Ceres solver. Using this member "
+                         "requires having PyCeres installed.");
   MakeDataclass(PyBundleAdjustmentOptions);
 
   using BACfg = BundleAdjustmentConfig;
