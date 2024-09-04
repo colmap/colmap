@@ -146,8 +146,7 @@ ImageReader::Status ImageReader::Next(Camera* camera,
     const std::string mask_path =
         JoinPaths(options_.mask_path, image->Name() + ".png");
     if (ExistsFile(mask_path) && !mask->Read(mask_path, false)) {
-      // NOTE: Maybe introduce a separate error type MASK_ERROR?
-      return Status::BITMAP_ERROR;
+      return Status::MASK_ERROR;
     }
   }
 
@@ -281,6 +280,8 @@ std::string ImageReader::StatusToString(const ImageReader::Status status) {
       return "IMAGE_EXISTS: Features for image were already extracted.";
     case ImageReader::Status::BITMAP_ERROR:
       return "BITMAP_ERROR: Failed to read the image file format.";
+    case ImageReader::Status::MASK_ERROR:
+      return "MASK_ERROR: Failed to read the mask file.";
     case ImageReader::Status::CAMERA_SINGLE_DIM_ERROR:
       return "CAMERA_SINGLE_DIM_ERROR: Single camera specified, but images "
              "have different dimensions.";
