@@ -738,9 +738,9 @@ ImportedPairGenerator::ImportedPairGenerator(
     const ImagePairsMatchingOptions& options,
     const std::shared_ptr<FeatureMatcherCache>& cache)
     : options_(options) {
-  LOG(INFO) << "Importing image pairs...";
   THROW_CHECK(options.Check());
 
+  LOG(INFO) << "Importing image pairs...";
   const std::vector<image_t> image_ids = cache->GetImageIds();
   std::unordered_map<std::string, image_t> image_name_to_image_id;
   image_name_to_image_id.reserve(image_ids.size());
