@@ -41,9 +41,6 @@ FeatureMatcherCache::FeatureMatcherCache(
         index->Build(*descriptors);
         return index;
       }) {
-  std::lock_guard<std::mutex> lock(database_mutex_);
-  const size_t num_images = database_->NumImages();
-
   keypoints_cache_ =
       std::make_unique<ThreadSafeLRUCache<image_t, FeatureKeypoints>>(
           cache_size_, [this](const image_t image_id) {
@@ -61,14 +58,14 @@ FeatureMatcherCache::FeatureMatcherCache(
           });
 
   keypoints_exists_cache_ = std::make_unique<ThreadSafeLRUCache<image_t, bool>>(
-      num_images, [this](const image_t image_id) {
+      cache_size_, [this](const image_t image_id) {
         std::lock_guard<std::mutex> lock(database_mutex_);
         return std::make_shared<bool>(database_->ExistsKeypoints(image_id));
       });
 
   descriptors_exists_cache_ =
       std::make_unique<ThreadSafeLRUCache<image_t, bool>>(
-          num_images, [this](const image_t image_id) {
+          cache_size_, [this](const image_t image_id) {
             std::lock_guard<std::mutex> lock(database_mutex_);
             return std::make_shared<bool>(
                 database_->ExistsDescriptors(image_id));
