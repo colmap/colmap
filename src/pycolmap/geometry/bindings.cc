@@ -164,14 +164,15 @@ void BindGeometry(py::module& m) {
   PyPosePrior.def(py::init<>())
       .def(py::init<const Eigen::Vector3d&>())
       .def(py::init<const Eigen::Vector3d&, const PPCoordinateSystem>())
-      .def_readwrite("rotation", &PosePrior::position)
-      .def_readwrite("translation", &PosePrior::coordinate_system)
+      .def_readwrite("position", &PosePrior::position)
+      .def_readwrite("coordinate_system", &PosePrior::coordinate_system)
       .def("is_valid", &PosePrior::IsValid)
       .def("__repr__", [](const PosePrior& self) {
         std::stringstream ss;
         ss << "PosePrior("
            << "position=[" << self.position.format(vec_fmt) << "], "
-           << "system=" << py::str(py::cast(self.coordinate_system)) << ")";
+           << "coordinates=" << py::str(py::cast(self.coordinate_system))
+           << ")";
         return ss.str();
       });
   MakeDataclass(PyPosePrior);
