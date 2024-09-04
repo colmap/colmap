@@ -99,7 +99,11 @@ void BindGeometry(py::module& m) {
                                            const Eigen::Matrix6d&)>(
                &GetCovarianceForRigid3dInverse),
            py::arg("covar"))
-      .def_static("interpolate", &InterpolateCameraPoses)
+      .def_static("interpolate",
+                  &InterpolateCameraPoses,
+                  "cam_from_world1"_a,
+                  "cam_from_world2"_a,
+                  "t"_a)
       .def("__repr__", [](const Rigid3d& self) {
         std::stringstream ss;
         ss << "Rigid3d("
