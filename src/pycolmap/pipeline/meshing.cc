@@ -120,10 +120,6 @@ void BindMeshing(py::module& m) {
       [](const std::string& input_path,
          const std::string& output_path,
          const PoissonMOpts& options) -> void {
-        THROW_CHECK_HAS_FILE_EXTENSION(input_path, ".ply");
-        THROW_CHECK_FILE_EXISTS(input_path);
-        THROW_CHECK_HAS_FILE_EXTENSION(output_path, ".ply");
-        THROW_CHECK_PATH_OPEN(output_path);
         mvs::PoissonMeshing(options, input_path, output_path);
       },
       "input_path"_a,
@@ -135,7 +131,11 @@ void BindMeshing(py::module& m) {
 #ifdef COLMAP_CGAL_ENABLED
   m.def(
       "sparse_delaunay_meshing",
-      &mvs::SparseDelaunayMeshing,
+      [](const std::string& input_path,
+         const std::string& output_path,
+         const DMOpts& options) -> void {
+        mvs::SparseDelaunayMeshing(options, input_path, output_path);
+      },
       "input_path"_a,
       "output_path"_a,
       py::arg_v(
@@ -144,7 +144,11 @@ void BindMeshing(py::module& m) {
 
   m.def(
       "dense_delaunay_meshing",
-      &mvs::DenseDelaunayMeshing,
+      [](const std::string& input_path,
+         const std::string& output_path,
+         const DMOpts& options) -> void {
+        mvs::DenseDelaunayMeshing(options, input_path, output_path);
+      },
       "input_path"_a,
       "output_path"_a,
       py::arg_v(

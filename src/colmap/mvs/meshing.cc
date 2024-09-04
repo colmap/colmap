@@ -122,6 +122,10 @@ bool PoissonMeshing(const PoissonMeshingOptions& options,
                     const std::string& input_path,
                     const std::string& output_path) {
   THROW_CHECK(options.Check());
+  THROW_CHECK_HAS_FILE_EXTENSION(input_path, ".ply");
+  THROW_CHECK_FILE_EXISTS(input_path);
+  THROW_CHECK_HAS_FILE_EXTENSION(output_path, ".ply");
+  THROW_CHECK_PATH_OPEN(output_path);
 
   std::vector<std::string> args;
 
