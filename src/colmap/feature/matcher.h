@@ -72,7 +72,8 @@ class FeatureMatcher {
 // Cache for feature matching to minimize database access during matching.
 class FeatureMatcherCache {
  public:
-  FeatureMatcherCache(size_t cache_size, std::shared_ptr<Database> database);
+  FeatureMatcherCache(size_t cache_size,
+                      const std::shared_ptr<Database>& database);
 
   // Executes a function that accesses the database. This function is thread
   // safe and ensures that only one function can access the database at a time.

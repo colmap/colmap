@@ -31,10 +31,10 @@
 
 namespace colmap {
 
-FeatureMatcherCache::FeatureMatcherCache(const size_t cache_size,
-                                         std::shared_ptr<Database> database)
+FeatureMatcherCache::FeatureMatcherCache(
+    const size_t cache_size, const std::shared_ptr<Database>& database)
     : cache_size_(cache_size),
-      database_(std::move(THROW_CHECK_NOTNULL(database))),
+      database_(THROW_CHECK_NOTNULL(database)),
       descriptor_index_cache_(cache_size_, [this](const image_t image_id) {
         auto descriptors = GetDescriptors(image_id);
         auto index = FeatureDescriptorIndex::Create();
