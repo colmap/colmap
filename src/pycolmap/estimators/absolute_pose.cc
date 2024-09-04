@@ -87,15 +87,7 @@ void BindAbsolutePoseEstimator(py::module& m) {
   auto PyRANSACOptions = m.attr("RANSACOptions");
   py::class_<AbsolutePoseEstimationOptions> PyEstimationOptions(
       m, "AbsolutePoseEstimationOptions");
-  PyEstimationOptions
-      .def(py::init<>([PyRANSACOptions]() {
-        AbsolutePoseEstimationOptions options;
-        options.estimate_focal_length = false;
-        // init through Python to obtain the new defaults defined in __init__
-        options.ransac_options = PyRANSACOptions().cast<RANSACOptions>();
-        options.ransac_options.max_error = 12.0;
-        return options;
-      }))
+  PyEstimationOptions.def(py::init<>())
       .def_readwrite("estimate_focal_length",
                      &AbsolutePoseEstimationOptions::estimate_focal_length)
       .def_readwrite("num_focal_length_samples",
@@ -106,18 +98,10 @@ void BindAbsolutePoseEstimator(py::module& m) {
                      &AbsolutePoseEstimationOptions::max_focal_length_ratio)
       .def_readwrite("ransac", &AbsolutePoseEstimationOptions::ransac_options);
   MakeDataclass(PyEstimationOptions);
-  auto est_options =
-      PyEstimationOptions().cast<AbsolutePoseEstimationOptions>();
 
   py::class_<AbsolutePoseRefinementOptions> PyRefinementOptions(
       m, "AbsolutePoseRefinementOptions");
-  PyRefinementOptions
-      .def(py::init<>([]() {
-        AbsolutePoseRefinementOptions options;
-        options.refine_focal_length = false;
-        options.refine_extra_params = false;
-        return options;
-      }))
+  PyRefinementOptions.def(py::init<>())
       .def_readwrite("gradient_tolerance",
                      &AbsolutePoseRefinementOptions::gradient_tolerance)
       .def_readwrite("max_num_iterations",
@@ -131,31 +115,30 @@ void BindAbsolutePoseEstimator(py::module& m) {
       .def_readwrite("print_summary",
                      &AbsolutePoseRefinementOptions::print_summary);
   MakeDataclass(PyRefinementOptions);
-  auto ref_options =
-      PyRefinementOptions().cast<AbsolutePoseRefinementOptions>();
 
-  m.def(
-      "absolute_pose_estimation",
-      &PyEstimateAndRefineAbsolutePose,
-      "points2D"_a,
-      "points3D"_a,
-      "camera"_a,
-      py::arg_v(
-          "estimation_options", est_options, "AbsolutePoseEstimationOptions()"),
-      py::arg_v(
-          "refinement_options", ref_options, "AbsolutePoseRefinementOptions()"),
-      "return_covariance"_a = false,
-      "Absolute pose estimation with non-linear refinement.");
+  m.def("absolute_pose_estimation",
+        &PyEstimateAndRefineAbsolutePose,
+        "points2D"_a,
+        "points3D"_a,
+        "camera"_a,
+        py::arg_v("estimation_options",
+                  AbsolutePoseEstimationOptions(),
+                  "AbsolutePoseEstimationOptions()"),
+        py::arg_v("refinement_options",
+                  AbsolutePoseRefinementOptions(),
+                  "AbsolutePoseRefinementOptions()"),
+        "return_covariance"_a = false,
+        "Absolute pose estimation with non-linear refinement.");
 
-  m.def(
-      "pose_refinement",
-      &PyRefineAbsolutePose,
-      "cam_from_world"_a,
-      "points2D"_a,
-      "points3D"_a,
-      "inlier_mask"_a,
-      "camera"_a,
-      py::arg_v(
-          "refinement_options", ref_options, "AbsolutePoseRefinementOptions()"),
-      "Non-linear refinement of absolute pose.");
+  m.def("pose_refinement",
+        &PyRefineAbsolutePose,
+        "cam_from_world"_a,
+        "points2D"_a,
+        "points3D"_a,
+        "inlier_mask"_a,
+        "camera"_a,
+        py::arg_v("refinement_options",
+                  AbsolutePoseRefinementOptions(),
+                  "AbsolutePoseRefinementOptions()"),
+        "Non-linear refinement of absolute pose.");
 }
