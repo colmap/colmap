@@ -133,22 +133,18 @@ void BindMeshing(py::module& m) {
       "Perform Poisson surface reconstruction and return true if successful.");
 
 #ifdef COLMAP_CGAL_ENABLED
-  m.def(
-      "sparse_delaunay_meshing",
-      &mvs::SparseDelaunayMeshing,
-      "input_path"_a,
-      "output_path"_a,
-      py::arg_v(
-          "options", mvs::DelaunayMeshingOptions(), "DelaunayMeshingOptions()"),
-      "Delaunay meshing of sparse COLMAP reconstructions.");
+  m.def("sparse_delaunay_meshing",
+        &mvs::SparseDelaunayMeshing,
+        "options"_a,
+        "input_path"_a,
+        "output_path"_a,
+        "Delaunay meshing of sparse COLMAP reconstructions.");
 
-  m.def(
-      "dense_delaunay_meshing",
-      &mvs::DenseDelaunayMeshing,
-      "input_path"_a,
-      "output_path"_a,
-      py::arg_v(
-          "options", mvs::DelaunayMeshingOptions(), "DelaunayMeshingOptions()"),
-      "Delaunay meshing of dense COLMAP reconstructions.");
+  m.def("dense_delaunay_meshing",
+        &mvs::DenseDelaunayMeshing,
+        "options"_a,
+        "input_path"_a,
+        "output_path"_a,
+        "Delaunay meshing of dense COLMAP reconstructions.");
 #endif
 };
