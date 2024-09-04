@@ -116,6 +116,8 @@ class ImageReader {
   size_t NextIndex() const;
   size_t NumImages() const;
 
+  static std::string StatusToString(Status status);
+
  private:
   // Image reader options.
   ImageReaderOptions options_;
