@@ -1,0 +1,258 @@
+[  0%] Building C object src/thirdparty/VLFeat/CMakeFiles/colmap_vlfeat.dir/aib.c.o
+[  2%] Building C object src/thirdparty/VLFeat/CMakeFiles/colmap_vlfeat.dir/array.c.o
+[  2%] Building C object src/thirdparty/VLFeat/CMakeFiles/colmap_vlfeat.dir/covdet.c.o
+[  2%] Building C object src/thirdparty/VLFeat/CMakeFiles/colmap_vlfeat.dir/dsift.c.o
+[  2%] Building C object src/thirdparty/VLFeat/CMakeFiles/colmap_vlfeat.dir/fisher.c.o
+[  4%] Building C object src/thirdparty/VLFeat/CMakeFiles/colmap_vlfeat.dir/generic.c.o
+[  4%] Building C object src/thirdparty/VLFeat/CMakeFiles/colmap_vlfeat.dir/getopt_long.c.o
+[  4%] Building C object src/thirdparty/VLFeat/CMakeFiles/colmap_vlfeat.dir/gmm.c.o
+[  4%] Building C object src/thirdparty/VLFeat/CMakeFiles/colmap_vlfeat.dir/hikmeans.c.o
+[  4%] Building C object src/thirdparty/VLFeat/CMakeFiles/colmap_vlfeat.dir/hog.c.o
+[  6%] Building C object src/thirdparty/VLFeat/CMakeFiles/colmap_vlfeat.dir/homkermap.c.o
+[  6%] Building C object src/thirdparty/VLFeat/CMakeFiles/colmap_vlfeat.dir/host.c.o
+[  6%] Building C object src/thirdparty/VLFeat/CMakeFiles/colmap_vlfeat.dir/ikmeans.c.o
+[  6%] Building C object src/thirdparty/VLFeat/CMakeFiles/colmap_vlfeat.dir/imopv.c.o
+[  6%] Building C object src/thirdparty/VLFeat/CMakeFiles/colmap_vlfeat.dir/kdtree.c.o
+[  9%] Building C object src/thirdparty/VLFeat/CMakeFiles/colmap_vlfeat.dir/kmeans.c.o
+[  9%] Building C object src/thirdparty/VLFeat/CMakeFiles/colmap_vlfeat.dir/lbp.c.o
+[  9%] Building C object src/thirdparty/VLFeat/CMakeFiles/colmap_vlfeat.dir/liop.c.o
+[  9%] Building C object src/thirdparty/VLFeat/CMakeFiles/colmap_vlfeat.dir/mathop.c.o
+[  9%] Building C object src/thirdparty/VLFeat/CMakeFiles/colmap_vlfeat.dir/mser.c.o
+[ 11%] Building C object src/thirdparty/VLFeat/CMakeFiles/colmap_vlfeat.dir/pgm.c.o
+[ 11%] Building C object src/thirdparty/VLFeat/CMakeFiles/colmap_vlfeat.dir/quickshift.c.o
+[ 11%] Building C object src/thirdparty/VLFeat/CMakeFiles/colmap_vlfeat.dir/random.c.o
+[ 11%] Building C object src/thirdparty/VLFeat/CMakeFiles/colmap_vlfeat.dir/rodrigues.c.o
+[ 11%] Building C object src/thirdparty/VLFeat/CMakeFiles/colmap_vlfeat.dir/scalespace.c.o
+[ 13%] Building C object src/thirdparty/VLFeat/CMakeFiles/colmap_vlfeat.dir/sift.c.o
+[ 13%] Building C object src/thirdparty/VLFeat/CMakeFiles/colmap_vlfeat.dir/slic.c.o
+[ 13%] Building C object src/thirdparty/VLFeat/CMakeFiles/colmap_vlfeat.dir/stringop.c.o
+[ 13%] Building C object src/thirdparty/VLFeat/CMakeFiles/colmap_vlfeat.dir/svm.c.o
+[ 13%] Building C object src/thirdparty/VLFeat/CMakeFiles/colmap_vlfeat.dir/svmdataset.c.o
+[ 15%] Building C object src/thirdparty/VLFeat/CMakeFiles/colmap_vlfeat.dir/vlad.c.o
+[ 15%] Building C object src/thirdparty/VLFeat/CMakeFiles/colmap_vlfeat.dir/mathop_avx.c.o
+[ 15%] Building C object src/thirdparty/VLFeat/CMakeFiles/colmap_vlfeat.dir/imopv_sse2.c.o
+[ 15%] Building C object src/thirdparty/VLFeat/CMakeFiles/colmap_vlfeat.dir/mathop_sse2.c.o
+[ 18%] Linking C static library libcolmap_vlfeat.a
+[ 18%] Built target colmap_vlfeat
+
+[ 18%] Building CXX object src/colmap/util/CMakeFiles/colmap_util.dir/base_controller.cc.o
+[ 18%] Building CXX object src/colmap/util/CMakeFiles/colmap_util.dir/logging.cc.o
+[ 18%] Building CXX object src/colmap/util/CMakeFiles/colmap_util.dir/misc.cc.o
+[ 18%] Building CXX object src/colmap/util/CMakeFiles/colmap_util.dir/opengl_utils.cc.o
+[ 20%] Building CXX object src/colmap/util/CMakeFiles/colmap_util.dir/ply.cc.o
+[ 20%] Building CXX object src/colmap/util/CMakeFiles/colmap_util.dir/string.cc.o
+[ 20%] Building CXX object src/colmap/util/CMakeFiles/colmap_util.dir/threading.cc.o
+[ 20%] Building CXX object src/colmap/util/CMakeFiles/colmap_util.dir/timer.cc.o
+[ 20%] Building CXX object src/colmap/util/CMakeFiles/colmap_util.dir/version.cc.o
+[ 22%] Linking CXX static library libcolmap_util.a
+[ 22%] Built target colmap_util
+
+[ 22%] Building CXX object src/colmap/feature/CMakeFiles/colmap_feature_types.dir/types.cc.o
+[ 22%] Linking CXX static library libcolmap_feature_types.a
+[ 22%] Built target colmap_feature_types
+
+[ 22%] Building CXX object src/colmap/math/CMakeFiles/colmap_math.dir/graph_cut.cc.o
+[ 22%] Building CXX object src/colmap/math/CMakeFiles/colmap_math.dir/math.cc.o
+[ 25%] Building CXX object src/colmap/math/CMakeFiles/colmap_math.dir/polynomial.cc.o
+[ 25%] Building CXX object src/colmap/math/CMakeFiles/colmap_math.dir/random.cc.o
+[ 25%] Linking CXX static library libcolmap_math.a
+[ 25%] Built target colmap_math
+
+[ 25%] Building CXX object src/colmap/geometry/CMakeFiles/colmap_geometry.dir/essential_matrix.cc.o
+[ 27%] Building CXX object src/colmap/geometry/CMakeFiles/colmap_geometry.dir/gps.cc.o
+[ 27%] Building CXX object src/colmap/geometry/CMakeFiles/colmap_geometry.dir/homography_matrix.cc.o
+[ 27%] Building CXX object src/colmap/geometry/CMakeFiles/colmap_geometry.dir/pose.cc.o
+[ 27%] Building CXX object src/colmap/geometry/CMakeFiles/colmap_geometry.dir/sim3.cc.o
+[ 27%] Building CXX object src/colmap/geometry/CMakeFiles/colmap_geometry.dir/triangulation.cc.o
+[ 29%] Linking CXX static library libcolmap_geometry.a
+[ 29%] Built target colmap_geometry
+
+[ 29%] Building CXX object src/colmap/sensor/CMakeFiles/colmap_sensor.dir/bitmap.cc.o
+[ 29%] Building CXX object src/colmap/sensor/CMakeFiles/colmap_sensor.dir/database.cc.o
+[ 29%] Building CXX object src/colmap/sensor/CMakeFiles/colmap_sensor.dir/models.cc.o
+[ 31%] Building CXX object src/colmap/sensor/CMakeFiles/colmap_sensor.dir/specs.cc.o
+[ 31%] Linking CXX static library libcolmap_sensor.a
+[ 31%] Built target colmap_sensor
+
+[ 31%] Building CXX object src/colmap/scene/CMakeFiles/colmap_scene.dir/camera.cc.o
+[ 31%] Building CXX object src/colmap/scene/CMakeFiles/colmap_scene.dir/camera_rig.cc.o
+[ 31%] Building CXX object src/colmap/scene/CMakeFiles/colmap_scene.dir/correspondence_graph.cc.o
+[ 31%] Building CXX object src/colmap/scene/CMakeFiles/colmap_scene.dir/database.cc.o
+[ 34%] Building CXX object src/colmap/scene/CMakeFiles/colmap_scene.dir/database_cache.cc.o
+[ 34%] Building CXX object src/colmap/scene/CMakeFiles/colmap_scene.dir/image.cc.o
+[ 34%] Building CXX object src/colmap/scene/CMakeFiles/colmap_scene.dir/projection.cc.o
+[ 34%] Building CXX object src/colmap/scene/CMakeFiles/colmap_scene.dir/reconstruction.cc.o
+[ 34%] Building CXX object src/colmap/scene/CMakeFiles/colmap_scene.dir/reconstruction_io.cc.o
+[ 36%] Building CXX object src/colmap/scene/CMakeFiles/colmap_scene.dir/reconstruction_manager.cc.o
+[ 36%] Building CXX object src/colmap/scene/CMakeFiles/colmap_scene.dir/scene_clustering.cc.o
+[ 36%] Building CXX object src/colmap/scene/CMakeFiles/colmap_scene.dir/synthetic.cc.o
+[ 36%] Building CXX object src/colmap/scene/CMakeFiles/colmap_scene.dir/track.cc.o
+[ 36%] Building CXX object src/colmap/scene/CMakeFiles/colmap_scene.dir/two_view_geometry.cc.o
+[ 38%] Building CXX object src/colmap/scene/CMakeFiles/colmap_scene.dir/visibility_pyramid.cc.o
+[ 38%] Linking CXX static library libcolmap_scene.a
+[ 38%] Built target colmap_scene
+
+[ 38%] Building CXX object src/thirdparty/SiftGPU/CMakeFiles/colmap_sift_gpu.dir/FrameBufferObject.cpp.o
+[ 38%] Building CXX object src/thirdparty/SiftGPU/CMakeFiles/colmap_sift_gpu.dir/GlobalUtil.cpp.o
+[ 38%] Building CXX object src/thirdparty/SiftGPU/CMakeFiles/colmap_sift_gpu.dir/GLTexImage.cpp.o
+[ 38%] Building CXX object src/thirdparty/SiftGPU/CMakeFiles/colmap_sift_gpu.dir/ProgramGLSL.cpp.o
+[ 40%] Building CXX object src/thirdparty/SiftGPU/CMakeFiles/colmap_sift_gpu.dir/PyramidGL.cpp.o
+[ 40%] Building CXX object src/thirdparty/SiftGPU/CMakeFiles/colmap_sift_gpu.dir/ShaderMan.cpp.o
+[ 40%] Building CXX object src/thirdparty/SiftGPU/CMakeFiles/colmap_sift_gpu.dir/SiftGPU.cpp.o
+[ 40%] Building CXX object src/thirdparty/SiftGPU/CMakeFiles/colmap_sift_gpu.dir/SiftMatch.cpp.o
+[ 40%] Building CXX object src/thirdparty/SiftGPU/CMakeFiles/colmap_sift_gpu.dir/SiftPyramid.cpp.o
+[ 43%] Building CXX object src/thirdparty/SiftGPU/CMakeFiles/colmap_sift_gpu.dir/CuTexImage.cpp.o
+[ 43%] Building CUDA object src/thirdparty/SiftGPU/CMakeFiles/colmap_sift_gpu.dir/ProgramCU.cu.o
+[ 43%] Building CXX object src/thirdparty/SiftGPU/CMakeFiles/colmap_sift_gpu.dir/PyramidCU.cpp.o
+[ 43%] Building CXX object src/thirdparty/SiftGPU/CMakeFiles/colmap_sift_gpu.dir/SiftMatchCU.cpp.o
+[ 43%] Linking CXX static library libcolmap_sift_gpu.a
+[ 43%] Built target colmap_sift_gpu
+
+[ 43%] Building CXX object src/colmap/feature/CMakeFiles/colmap_feature.dir/sift.cc.o
+[ 43%] Building CXX object src/colmap/feature/CMakeFiles/colmap_feature.dir/types.cc.o
+[ 45%] Building CXX object src/colmap/feature/CMakeFiles/colmap_feature.dir/utils.cc.o
+[ 45%] Linking CXX static library libcolmap_feature.a
+[ 45%] Built target colmap_feature
+
+[ 47%] Building C object src/thirdparty/LSD/CMakeFiles/colmap_lsd.dir/lsd.c.o
+[ 47%] Linking C static library libcolmap_lsd.a
+[ 47%] Built target colmap_lsd
+
+[ 47%] Building CXX object src/colmap/image/CMakeFiles/colmap_image.dir/line.cc.o
+[ 47%] Building CXX object src/colmap/image/CMakeFiles/colmap_image.dir/undistortion.cc.o
+[ 47%] Building CXX object src/colmap/image/CMakeFiles/colmap_image.dir/warp.cc.o
+[ 47%] Linking CXX static library libcolmap_image.a
+[ 47%] Built target colmap_image
+
+[ 47%] Building CXX object src/colmap/optim/CMakeFiles/colmap_optim.dir/combination_sampler.cc.o
+[ 47%] Building CXX object src/colmap/optim/CMakeFiles/colmap_optim.dir/least_absolute_deviations.cc.o
+[ 47%] Building CXX object src/colmap/optim/CMakeFiles/colmap_optim.dir/progressive_sampler.cc.o
+[ 50%] Building CXX object src/colmap/optim/CMakeFiles/colmap_optim.dir/random_sampler.cc.o
+[ 50%] Building CXX object src/colmap/optim/CMakeFiles/colmap_optim.dir/sprt.cc.o
+[ 50%] Building CXX object src/colmap/optim/CMakeFiles/colmap_optim.dir/support_measurement.cc.o
+[ 50%] Linking CXX static library libcolmap_optim.a
+[ 50%] Built target colmap_optim
+
+[ 50%] Building CXX object src/colmap/estimators/CMakeFiles/colmap_estimators.dir/absolute_pose.cc.o
+[ 50%] Building CXX object src/colmap/estimators/CMakeFiles/colmap_estimators.dir/affine_transform.cc.o
+[ 50%] Building CXX object src/colmap/estimators/CMakeFiles/colmap_estimators.dir/alignment.cc.o
+[ 50%] Building CXX object src/colmap/estimators/CMakeFiles/colmap_estimators.dir/bundle_adjustment.cc.o
+[ 52%] Building CXX object src/colmap/estimators/CMakeFiles/colmap_estimators.dir/coordinate_frame.cc.o
+[ 52%] Building CXX object src/colmap/estimators/CMakeFiles/colmap_estimators.dir/essential_matrix.cc.o
+[ 52%] Building CXX object src/colmap/estimators/CMakeFiles/colmap_estimators.dir/fundamental_matrix.cc.o
+[ 52%] Building CXX object src/colmap/estimators/CMakeFiles/colmap_estimators.dir/generalized_absolute_pose.cc.o
+[ 52%] Building CXX object src/colmap/estimators/CMakeFiles/colmap_estimators.dir/generalized_absolute_pose_coeffs.cc.o
+[ 54%] Building CXX object src/colmap/estimators/CMakeFiles/colmap_estimators.dir/generalized_relative_pose.cc.o
+[ 54%] Building CXX object src/colmap/estimators/CMakeFiles/colmap_estimators.dir/homography_matrix.cc.o
+[ 54%] Building CXX object src/colmap/estimators/CMakeFiles/colmap_estimators.dir/pose.cc.o
+[ 54%] Building CXX object src/colmap/estimators/CMakeFiles/colmap_estimators.dir/generalized_pose.cc.o
+[ 54%] Building CXX object src/colmap/estimators/CMakeFiles/colmap_estimators.dir/triangulation.cc.o
+[ 56%] Building CXX object src/colmap/estimators/CMakeFiles/colmap_estimators.dir/two_view_geometry.cc.o
+[ 56%] Building CXX object src/colmap/estimators/CMakeFiles/colmap_estimators.dir/utils.cc.o
+[ 56%] Linking CXX static library libcolmap_estimators.a
+[ 56%] Built target colmap_estimators
+
+[ 56%] Building CXX object src/thirdparty/PoissonRecon/CMakeFiles/colmap_poisson_recon.dir/CmdLineParser.cpp.o
+[ 59%] Building CXX object src/thirdparty/PoissonRecon/CMakeFiles/colmap_poisson_recon.dir/Factor.cpp.o
+[ 59%] Building CXX object src/thirdparty/PoissonRecon/CMakeFiles/colmap_poisson_recon.dir/Geometry.cpp.o
+[ 59%] Building CXX object src/thirdparty/PoissonRecon/CMakeFiles/colmap_poisson_recon.dir/MarchingCubes.cpp.o
+[ 59%] Building CXX object src/thirdparty/PoissonRecon/CMakeFiles/colmap_poisson_recon.dir/PlyFile.cpp.o
+[ 61%] Building CXX object src/thirdparty/PoissonRecon/CMakeFiles/colmap_poisson_recon.dir/PoissonRecon.cpp.o
+[ 61%] Building CXX object src/thirdparty/PoissonRecon/CMakeFiles/colmap_poisson_recon.dir/SurfaceTrimmer.cpp.o
+[ 61%] Linking CXX static library libcolmap_poisson_recon.a
+[ 61%] Built target colmap_poisson_recon
+
+[ 61%] Building CXX object src/colmap/mvs/CMakeFiles/colmap_mvs.dir/consistency_graph.cc.o
+[ 61%] Building CXX object src/colmap/mvs/CMakeFiles/colmap_mvs.dir/depth_map.cc.o
+[ 63%] Building CXX object src/colmap/mvs/CMakeFiles/colmap_mvs.dir/fusion.cc.o
+[ 63%] Building CXX object src/colmap/mvs/CMakeFiles/colmap_mvs.dir/image.cc.o
+[ 63%] Building CXX object src/colmap/mvs/CMakeFiles/colmap_mvs.dir/meshing.cc.o
+[ 63%] Building CXX object src/colmap/mvs/CMakeFiles/colmap_mvs.dir/model.cc.o
+[ 63%] Building CXX object src/colmap/mvs/CMakeFiles/colmap_mvs.dir/normal_map.cc.o
+[ 65%] Building CXX object src/colmap/mvs/CMakeFiles/colmap_mvs.dir/workspace.cc.o
+[ 65%] Linking CXX static library libcolmap_mvs.a
+[ 65%] Built target colmap_mvs
+
+[ 65%] Building CXX object src/colmap/retrieval/CMakeFiles/colmap_retrieval.dir/geometry.cc.o
+[ 65%] Building CXX object src/colmap/retrieval/CMakeFiles/colmap_retrieval.dir/vote_and_verify.cc.o
+[ 68%] Linking CXX static library libcolmap_retrieval.a
+[ 68%] Built target colmap_retrieval
+
+[ 68%] Building CXX object src/colmap/sfm/CMakeFiles/colmap_sfm.dir/incremental_mapper.cc.o
+[ 68%] Building CXX object src/colmap/sfm/CMakeFiles/colmap_sfm.dir/incremental_triangulator.cc.o
+[ 70%] Linking CXX static library libcolmap_sfm.a
+[ 70%] Built target colmap_sfm
+
+[ 70%] Building CXX object src/colmap/controllers/CMakeFiles/colmap_controllers.dir/automatic_reconstruction.cc.o
+[ 70%] Building CXX object src/colmap/controllers/CMakeFiles/colmap_controllers.dir/bundle_adjustment.cc.o
+[ 70%] Building CXX object src/colmap/controllers/CMakeFiles/colmap_controllers.dir/hierarchical_mapper.cc.o
+[ 70%] Building CXX object src/colmap/controllers/CMakeFiles/colmap_controllers.dir/feature_extraction.cc.o
+[ 72%] Building CXX object src/colmap/controllers/CMakeFiles/colmap_controllers.dir/feature_matching.cc.o
+[ 72%] Building CXX object src/colmap/controllers/CMakeFiles/colmap_controllers.dir/feature_matching_utils.cc.o
+[ 72%] Building CXX object src/colmap/controllers/CMakeFiles/colmap_controllers.dir/image_reader.cc.o
+[ 72%] Building CXX object src/colmap/controllers/CMakeFiles/colmap_controllers.dir/incremental_mapper.cc.o
+[ 72%] Building CXX object src/colmap/controllers/CMakeFiles/colmap_controllers.dir/option_manager.cc.o
+[ 75%] Linking CXX static library libcolmap_controllers.a
+[ 75%] Built target colmap_controllers
+
+[ 75%] Building CXX object src/colmap/exe/CMakeFiles/colmap_exe.dir/feature.cc.o
+[ 75%] Building CXX object src/colmap/exe/CMakeFiles/colmap_exe.dir/sfm.cc.o
+[ 77%] Building CXX object src/colmap/exe/CMakeFiles/colmap_exe.dir/model.cc.o
+[ 77%] Linking CXX static library libcolmap_exe.a
+[ 77%] Built target colmap_exe
+
+[ 77%] Building CXX object src/colmap/util/CMakeFiles/colmap_util_cuda.dir/cuda.cc.o
+[ 77%] Building CXX object src/colmap/util/CMakeFiles/colmap_util_cuda.dir/cudacc.cc.o
+[ 77%] Linking CXX static library libcolmap_util_cuda.a
+[ 77%] Built target colmap_util_cuda
+
+[ 77%] Building CUDA object src/colmap/mvs/CMakeFiles/colmap_mvs_cuda.dir/gpu_mat_prng.cu.o
+[ 77%] Building CUDA object src/colmap/mvs/CMakeFiles/colmap_mvs_cuda.dir/gpu_mat_ref_image.cu.o
+[ 77%] Building CXX object src/colmap/mvs/CMakeFiles/colmap_mvs_cuda.dir/patch_match.cc.o
+[ 79%] Building CUDA object src/colmap/mvs/CMakeFiles/colmap_mvs_cuda.dir/patch_match_cuda.cu.o
+[ 79%] Linking CXX static library libcolmap_mvs_cuda.a
+[ 79%] Built target colmap_mvs_cuda
+
+[ 81%] Automatic RCC for resources.qrc
+[ 81%] Building CXX object src/colmap/ui/CMakeFiles/colmap_ui.dir/automatic_reconstruction_widget.cc.o
+[ 81%] Building CXX object src/colmap/ui/CMakeFiles/colmap_ui.dir/bundle_adjustment_widget.cc.o
+[ 81%] Building CXX object src/colmap/ui/CMakeFiles/colmap_ui.dir/colormaps.cc.o
+[ 81%] Building CXX object src/colmap/ui/CMakeFiles/colmap_ui.dir/database_management_widget.cc.o
+[ 84%] Building CXX object src/colmap/ui/CMakeFiles/colmap_ui.dir/dense_reconstruction_widget.cc.o
+[ 84%] Building CXX object src/colmap/ui/CMakeFiles/colmap_ui.dir/feature_extraction_widget.cc.o
+[ 84%] Building CXX object src/colmap/ui/CMakeFiles/colmap_ui.dir/feature_matching_widget.cc.o
+[ 84%] Building CXX object src/colmap/ui/CMakeFiles/colmap_ui.dir/image_viewer_widget.cc.o
+[ 84%] Building CXX object src/colmap/ui/CMakeFiles/colmap_ui.dir/license_widget.cc.o
+[ 86%] Building CXX object src/colmap/ui/CMakeFiles/colmap_ui.dir/line_painter.cc.o
+[ 86%] Building CXX object src/colmap/ui/CMakeFiles/colmap_ui.dir/log_widget.cc.o
+[ 86%] Building CXX object src/colmap/ui/CMakeFiles/colmap_ui.dir/main_window.cc.o
+[ 86%] Building CXX object src/colmap/ui/CMakeFiles/colmap_ui.dir/match_matrix_widget.cc.o
+[ 86%] Building CXX object src/colmap/ui/CMakeFiles/colmap_ui.dir/model_viewer_widget.cc.o
+[ 88%] Building CXX object src/colmap/ui/CMakeFiles/colmap_ui.dir/movie_grabber_widget.cc.o
+[ 88%] Building CXX object src/colmap/ui/CMakeFiles/colmap_ui.dir/options_widget.cc.o
+[ 88%] Building CXX object src/colmap/ui/CMakeFiles/colmap_ui.dir/point_painter.cc.o
+[ 88%] Building CXX object src/colmap/ui/CMakeFiles/colmap_ui.dir/point_viewer_widget.cc.o
+[ 90%] Building CXX object src/colmap/ui/CMakeFiles/colmap_ui.dir/project_widget.cc.o
+[ 90%] Building CXX object src/colmap/ui/CMakeFiles/colmap_ui.dir/qt_utils.cc.o
+[ 90%] Building CXX object src/colmap/ui/CMakeFiles/colmap_ui.dir/reconstruction_manager_widget.cc.o
+[ 90%] Building CXX object src/colmap/ui/CMakeFiles/colmap_ui.dir/reconstruction_options_widget.cc.o
+[ 90%] Building CXX object src/colmap/ui/CMakeFiles/colmap_ui.dir/reconstruction_stats_widget.cc.o
+[ 93%] Building CXX object src/colmap/ui/CMakeFiles/colmap_ui.dir/render_options_widget.cc.o
+[ 93%] Building CXX object src/colmap/ui/CMakeFiles/colmap_ui.dir/thread_control_widget.cc.o
+[ 93%] Building CXX object src/colmap/ui/CMakeFiles/colmap_ui.dir/triangle_painter.cc.o
+[ 93%] Building CXX object src/colmap/ui/CMakeFiles/colmap_ui.dir/undistortion_widget.cc.o
+[ 93%] Building CXX object src/colmap/ui/CMakeFiles/colmap_ui.dir/colmap_ui_autogen/EWIEGA46WW/qrc_resources.cpp.o
+[ 95%] Linking CXX static library libcolmap_ui.a
+[ 95%] Built target colmap_ui
+
+[ 95%] Building CXX object src/colmap/exe/CMakeFiles/colmap_main.dir/feature.cc.o
+[ 95%] Building CXX object src/colmap/exe/CMakeFiles/colmap_main.dir/sfm.cc.o
+[ 95%] Building CXX object src/colmap/exe/CMakeFiles/colmap_main.dir/colmap.cc.o
+[ 97%] Building CXX object src/colmap/exe/CMakeFiles/colmap_main.dir/database.cc.o
+[ 97%] Building CXX object src/colmap/exe/CMakeFiles/colmap_main.dir/gui.cc.o
+[ 97%] Building CXX object src/colmap/exe/CMakeFiles/colmap_main.dir/image.cc.o
+[ 97%] Building CXX object src/colmap/exe/CMakeFiles/colmap_main.dir/model.cc.o
+[ 97%] Building CXX object src/colmap/exe/CMakeFiles/colmap_main.dir/mvs.cc.o
+[100%] Building CXX object src/colmap/exe/CMakeFiles/colmap_main.dir/vocab_tree.cc.o
+[100%] Linking CXX executable colmap
+[100%] Built target colmap_main
