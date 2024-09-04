@@ -57,7 +57,7 @@ class FeatureMatcherWorker : public Thread {
 
   FeatureMatcherWorker(const SiftMatchingOptions& matching_options,
                        const TwoViewGeometryOptions& geometry_options,
-                       std::shared_ptr<FeatureMatcherCache> cache,
+                       const std::shared_ptr<FeatureMatcherCache>& cache,
                        JobQueue<Input>* input_queue,
                        JobQueue<Output>* output_queue);
 

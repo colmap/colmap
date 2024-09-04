@@ -43,12 +43,12 @@ namespace colmap {
 FeatureMatcherWorker::FeatureMatcherWorker(
     const SiftMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
-    std::shared_ptr<FeatureMatcherCache> cache,
+    const std::shared_ptr<FeatureMatcherCache>& cache,
     JobQueue<Input>* input_queue,
     JobQueue<Output>* output_queue)
     : matching_options_(matching_options),
       geometry_options_(geometry_options),
-      cache_(std::move(cache)),
+      cache_(cache),
       input_queue_(input_queue),
       output_queue_(output_queue) {
   THROW_CHECK(matching_options_.Check());
