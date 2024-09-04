@@ -82,7 +82,7 @@ struct BundleAdjustmentOptions {
   bool use_prior_position = false;
 
   // Standard deviation on the position priors
-  Eigen::Vector3d prior_position_std = Eigen::Vector3d::Ones();
+  // Eigen::Vector3d prior_position_std = Eigen::Vector3d::Ones();
 
   // Whether to use a robust loss on prior locations
   bool use_robust_loss_on_prior_position = false;
@@ -297,32 +297,43 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
     // Whether to use prior camera positions
     bool use_prior_position = true;
 
+    // Maximum RANSAC error for Sim3D alignment
+    double ransac_max_error = 0.;
+
     // Sim3d transformation that project reconstruction's centroid to (0.,0.,0.)
     Sim3d sim_to_center;
   };
 
-  PosePriorBundleAdjuster(const BundleAdjustmentOptions& options,
-                          const BundleAdjustmentConfig& config);
+  PosePriorBundleAdjuster(
+      const BundleAdjustmentOptions& options,
+      const BundleAdjustmentConfig& config,
+      const std::unordered_map<image_t, PosePrior>& image_id_to_pose_prior);
 
   bool Solve(Reconstruction* reconstruction);
-
-  using BundleAdjuster::SetUpProblem;
 
   void SetUpProblem(Reconstruction* reconstruction,
                     ceres::LossFunction* loss_function,
                     ceres::LossFunction* prior_loss_function);
 
  private:
+  size_t NumPosePriors() const { return image_id_to_pose_prior_.size(); };
+
   void AddPosePriorToProblem(image_t image_id,
+                             const PosePrior& prior,
                              Reconstruction* reconstruction,
                              ceres::LossFunction* prior_loss_function);
 
-  void projectCentroidToOrigin(Reconstruction* reconstruction);
-  void projectCentroidFromOrigin(Reconstruction* reconstruction);
+  void Sim3DAlignment(Reconstruction* reconstruction);
+
+  void ProjectCentroidToOrigin(Reconstruction* reconstruction);
+  void ProjectCentroidFromOrigin(Reconstruction* reconstruction);
+
+  void setRansacMaxErrorFromPriorsCovariance();
 
   Options prior_options_;
-
   std::unique_ptr<ceres::LossFunction> prior_loss_function_;
+
+  const std::unordered_map<image_t, PosePrior>& image_id_to_pose_prior_;
 };
 
 void PrintSolverSummary(const ceres::Solver::Summary& summary,

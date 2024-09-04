@@ -286,6 +286,9 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
           RandomGaussian<double>(0, options.prior_position_stddev),
           RandomGaussian<double>(0, options.prior_position_stddev));
 
+      PosePrior noisy_prior(proj_center + noise,
+                            PosePrior::CoordinateSystem::CARTESIAN);
+
       if (options.use_geographic_coords_prior) {
         static const GPSTransform gps_trans;
 
@@ -293,17 +296,12 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
         static const double lon0 = 8.549099927632087;
         static const double alt0 = 451.5;
 
-        const Eigen::Vector3d noisy_prior =
-            gps_trans.ENUToEll({proj_center + noise}, lat0, lon0, alt0)[0];
-
-        image.WorldFromCamPrior() =
-            PosePrior(noisy_prior, PosePrior::CoordinateSystem::WGS84);
-      } else {
-        image.WorldFromCamPrior() = PosePrior(
-            proj_center + noise, PosePrior::CoordinateSystem::CARTESIAN);
+        noisy_prior.position =
+            gps_trans.ENUToEll({noisy_prior.position}, lat0, lon0, alt0)[0];
+        noisy_prior.coordinate_system = PosePrior::CoordinateSystem::WGS84;
       }
 
-      database->WritePosePrior(image_id, image.WorldFromCamPrior());
+      database->WritePosePrior(image_id, noisy_prior);
     }
 
     image.SetImageId(image_id);

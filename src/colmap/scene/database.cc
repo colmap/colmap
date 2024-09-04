@@ -409,10 +409,6 @@ Image Database::ReadImage(const image_t image_id) const {
 
   SQLITE3_CALL(sqlite3_reset(sql_stmt_read_image_id_));
 
-  if (ExistsPosePrior(image_id)) {
-    image.WorldFromCamPrior() = ReadPosePrior(image_id);
-  }
-
   return image;
 }
 
@@ -432,10 +428,6 @@ Image Database::ReadImageWithName(const std::string& name) const {
 
   SQLITE3_CALL(sqlite3_reset(sql_stmt_read_image_name_));
 
-  if (ExistsPosePrior(image.ImageId())) {
-    image.WorldFromCamPrior() = ReadPosePrior(image.ImageId());
-  }
-
   return image;
 }
 
@@ -449,12 +441,6 @@ std::vector<Image> Database::ReadAllImages() const {
 
   SQLITE3_CALL(sqlite3_reset(sql_stmt_read_images_));
 
-  for (auto& image : images) {
-    if (ExistsPosePrior(image.ImageId())) {
-      image.WorldFromCamPrior() = ReadPosePrior(image.ImageId());
-    }
-  }
-
   return images;
 }
 
@@ -465,8 +451,10 @@ PosePrior Database::ReadPosePrior(const image_t image_id) const {
   if (rc == SQLITE_ROW) {
     prior.position =
         ReadStaticMatrixBlob<Eigen::Vector3d>(sql_stmt_read_pose_prior_, rc, 1);
+    prior.position_covariance =
+        ReadStaticMatrixBlob<Eigen::Matrix3d>(sql_stmt_read_pose_prior_, rc, 2);
     prior.coordinate_system = static_cast<PosePrior::CoordinateSystem>(
-        sqlite3_column_int64(sql_stmt_read_pose_prior_, 2));
+        sqlite3_column_int64(sql_stmt_read_pose_prior_, 3));
   }
   SQLITE3_CALL(sqlite3_reset(sql_stmt_read_pose_prior_));
   return prior;
@@ -707,9 +695,11 @@ void Database::WritePosePrior(const image_t image_id,
                               const PosePrior& pose_prior) const {
   SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_write_pose_prior_, 1, image_id));
   WriteStaticMatrixBlob(sql_stmt_write_pose_prior_, pose_prior.position, 2);
+  WriteStaticMatrixBlob(
+      sql_stmt_write_pose_prior_, pose_prior.position_covariance, 3);
   SQLITE3_CALL(sqlite3_bind_int64(
       sql_stmt_write_pose_prior_,
-      3,
+      4,
       static_cast<sqlite3_int64>(pose_prior.coordinate_system)));
   SQLITE3_CALL(sqlite3_step(sql_stmt_write_pose_prior_));
   SQLITE3_CALL(sqlite3_reset(sql_stmt_write_pose_prior_));
@@ -863,6 +853,21 @@ void Database::UpdateImage(const Image& image) const {
 
   SQLITE3_CALL(sqlite3_step(sql_stmt_update_image_));
   SQLITE3_CALL(sqlite3_reset(sql_stmt_update_image_));
+}
+
+void Database::UpdatePosePrior(image_t image_id,
+                               const PosePrior& pose_prior) const {
+  WriteStaticMatrixBlob(sql_stmt_update_pose_prior_, pose_prior.position, 1);
+  WriteStaticMatrixBlob(
+      sql_stmt_update_pose_prior_, pose_prior.position_covariance, 2);
+  SQLITE3_CALL(sqlite3_bind_int64(
+      sql_stmt_update_pose_prior_,
+      3,
+      static_cast<sqlite3_int64>(pose_prior.coordinate_system)));
+  SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_update_pose_prior_, 4, image_id));
+
+  SQLITE3_CALL(sqlite3_step(sql_stmt_update_pose_prior_));
+  SQLITE3_CALL(sqlite3_reset(sql_stmt_update_pose_prior_));
 }
 
 void Database::DeleteMatches(const image_t image_id1,
@@ -1149,6 +1154,13 @@ void Database::PrepareSQLStatements() {
       database_, sql.c_str(), -1, &sql_stmt_update_image_, 0));
   sql_stmts_.push_back(sql_stmt_update_image_);
 
+  sql =
+      "UPDATE pose_priors SET position=?, covariance=?, coordinate_system=? "
+      "WHERE image_id=?;";
+  SQLITE3_CALL(sqlite3_prepare_v2(
+      database_, sql.c_str(), -1, &sql_stmt_update_pose_prior_, 0));
+  sql_stmts_.push_back(sql_stmt_update_pose_prior_);
+
   //////////////////////////////////////////////////////////////////////////////
   // read_*
   //////////////////////////////////////////////////////////////////////////////
@@ -1226,8 +1238,9 @@ void Database::PrepareSQLStatements() {
   // write_*
   //////////////////////////////////////////////////////////////////////////////
   sql =
-      "INSERT INTO pose_priors(image_id, position, coordinate_system) "
-      "VALUES(?, ?, ?);";
+      "INSERT INTO pose_priors(image_id, position, covariance, "
+      "coordinate_system) "
+      "VALUES(?, ?, ?, ?);";
   SQLITE3_CALL(sqlite3_prepare_v2(
       database_, sql.c_str(), -1, &sql_stmt_write_pose_prior_, 0));
   sql_stmts_.push_back(sql_stmt_write_pose_prior_);
@@ -1355,6 +1368,7 @@ void Database::CreatePosePriorTable() const {
       "CREATE TABLE IF NOT EXISTS pose_priors"
       "   (image_id          INTEGER  PRIMARY KEY  NOT NULL,"
       "    position          BLOB,"
+      "    covariance        BLOB,"
       "    coordinate_system INTEGER               NOT NULL,"
       "FOREIGN KEY(image_id) REFERENCES images(image_id) ON DELETE CASCADE);";
 

@@ -46,10 +46,6 @@ TEST(Image, Default) {
   EXPECT_EQ(image.CamFromWorld().rotation.coeffs(),
             Eigen::Quaterniond::Identity().coeffs());
   EXPECT_EQ(image.CamFromWorld().translation, Eigen::Vector3d::Zero());
-  EXPECT_TRUE(image.WorldFromCamPrior().position.array().isNaN().all());
-  EXPECT_TRUE(image.WorldFromCamPrior().IsValid() == false);
-  EXPECT_TRUE(image.WorldFromCamPrior().coordinate_system ==
-              PosePrior::CoordinateSystem::UNDEFINED);
   EXPECT_EQ(image.Points2D().size(), 0);
 }
 

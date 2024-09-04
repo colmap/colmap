@@ -215,6 +215,10 @@ class Database {
   // making sure that the entry already exists.
   void UpdateImage(const Image& image) const;
 
+  // Update an existing pose_prior in the database. The user is responsible for
+  // making sure that the entry already exists.
+  void UpdatePosePrior(image_t image_id, const PosePrior& pose_prior) const;
+
   // Delete matches of an image pair.
   void DeleteMatches(image_t image_id1, image_t image_id2) const;
 
@@ -331,6 +335,7 @@ class Database {
   // update_*
   sqlite3_stmt* sql_stmt_update_camera_ = nullptr;
   sqlite3_stmt* sql_stmt_update_image_ = nullptr;
+  sqlite3_stmt* sql_stmt_update_pose_prior_ = nullptr;
 
   // read_*
   sqlite3_stmt* sql_stmt_read_camera_ = nullptr;

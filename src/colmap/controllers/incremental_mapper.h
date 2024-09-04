@@ -122,18 +122,6 @@ struct IncrementalPipelineOptions {
   // Whether to use prior camera positions
   bool use_prior_position = false;
 
-  // Whether to setup the prior positions from database
-  bool set_prior_position_from_database = true;
-
-  // Whether all priors should have the same covariance (in which case the below
-  // stds will be used)
-  bool priors_share_same_covariance = true;
-
-  // Standard deviation on the position priors
-  double prior_position_std_x = 1.;
-  double prior_position_std_y = 1.;
-  double prior_position_std_z = 1.;
-
   // Whether to use a robust loss on prior locations
   bool use_robust_loss_on_prior_position = false;
 
@@ -193,8 +181,6 @@ class IncrementalPipeline : public BaseController {
       const std::shared_ptr<Reconstruction>& reconstruction);
 
   bool LoadDatabase();
-
-  bool SetupPriorPoseFromDatabase();
 
   // getter functions for python pipelines
   const std::string& ImagePath() const { return image_path_; }

@@ -834,8 +834,12 @@ void RigBundleAdjuster::ParameterizeCameraRigs(Reconstruction* reconstruction) {
 
 PosePriorBundleAdjuster::PosePriorBundleAdjuster(
     const BundleAdjustmentOptions& options,
-    const BundleAdjustmentConfig& config)
-    : BundleAdjuster(options, config) {}
+    const BundleAdjustmentConfig& config,
+    const std::unordered_map<image_t, PosePrior>& image_id_to_pose_prior)
+    : BundleAdjuster(options, config),
+      image_id_to_pose_prior_(image_id_to_pose_prior) {
+  setRansacMaxErrorFromPriorsCovariance();
+}
 
 bool PosePriorBundleAdjuster::Solve(Reconstruction* reconstruction) {
   loss_function_ =
@@ -846,83 +850,19 @@ bool PosePriorBundleAdjuster::Solve(Reconstruction* reconstruction) {
         std::make_unique<ceres::CauchyLoss>(options_.prior_position_loss_scale);
   }
 
-  // Compute initial squared error between position priors & current images
-  // projection center and prepare data for RANSAC-based sim3 alignment
-  std::vector<double> vini_err2_wrt_prior;
-  std::vector<Eigen::Vector3d> v_src, v_dst;
-  vini_err2_wrt_prior.reserve(config_.NumImages());
-  v_src.reserve(config_.NumImages());
-  v_dst.reserve(config_.NumImages());
-  for (const auto& image_id : config_.Images()) {
-    const auto& image = reconstruction->Image(image_id);
-    if (image.HasPosePrior()) {
-      v_src.push_back(image.ProjectionCenter());
-      v_dst.push_back(image.WorldFromCamPrior().position);
-      vini_err2_wrt_prior.push_back(
-          (v_src.back() - v_dst.back()).squaredNorm());
-    }
-  }
+  // Initialize images' position w.r.t. priors with a rigid sim3D alignment
+  Sim3DAlignment(reconstruction);
 
-  // Fallback to classic BA if not enough registered images with a prior
-  // position
-  prior_options_.use_prior_position = v_src.size() > 2;
-
-  // Fix 7-DOFs of BA problem for classic BA
+  // Fix 7-DOFs of BA problem if not enough valid pose priors
   if (!prior_options_.use_prior_position) {
     const std::vector<image_t>& reg_image_ids = reconstruction->RegImageIds();
     config_.SetConstantCamPose(reg_image_ids[0]);
     config_.SetConstantCamPositions(reg_image_ids[1], {0});
   }
 
-  // Apply RANSAC-based Sim3 Alignment
-  if (prior_options_.use_prior_position) {
-    LOG(INFO) << "Initial alignment error w.r.t. prior position:";
-    LOG(INFO) << "  - rmse:   " << std::sqrt(Mean(vini_err2_wrt_prior)) << " m";
-    LOG(INFO) << "  - median: " << std::sqrt(Median(vini_err2_wrt_prior))
-              << " m";
-
-    RANSACOptions ransac_options;
-    ransac_options.max_error = (options_.prior_position_std * 3.).norm();
-
-    LORANSAC<SimilarityTransformEstimator<3, true>,
-             SimilarityTransformEstimator<3, true>>
-        ransac(ransac_options);
-
-    const auto report = ransac.Estimate(v_src, v_dst);
-
-    if (report.success) {
-      // Apply sim3 transform
-      const Sim3d tform = Sim3d::FromMatrix(report.model);
-      reconstruction->Transform(tform);
-
-      std::vector<double> verr2_wrt_prior;
-      verr2_wrt_prior.reserve(vini_err2_wrt_prior.size());
-      for (const auto& image_id : config_.Images()) {
-        const auto& image = reconstruction->Image(image_id);
-        if (image.HasPosePrior()) {
-          verr2_wrt_prior.push_back(
-              (image.ProjectionCenter() - image.WorldFromCamPrior().position)
-                  .squaredNorm());
-        }
-      }
-
-      LOG(INFO) << "Rigid Sim3 alignment w.r.t. prior position:";
-      LOG(INFO) << "  - scale : " << tform.scale;
-      LOG(INFO) << "  - trans : " << tform.translation.transpose();
-      // LOG(INFO) << "  - rot : " << tform.rotation.coeffs().transpose();
-
-      LOG(INFO) << "Sim3 alignment error w.r.t. prior position:";
-      LOG(INFO) << "  - rmse:   " << std::sqrt(Mean(verr2_wrt_prior)) << " m";
-      LOG(INFO) << "  - median: " << std::sqrt(Median(verr2_wrt_prior)) << " m";
-
-    } else {
-      LOG(WARNING) << "Sim3 alignment w.r.t. prior position failed!";
-    }
-  }
-
   // Put the centroid of the reconstruction to (0.,0.,0.)
   // to avoid any numerical instability
-  projectCentroidToOrigin(reconstruction);
+  ProjectCentroidToOrigin(reconstruction);
 
   SetUpProblem(
       reconstruction, loss_function_.get(), prior_loss_function_.get());
@@ -937,10 +877,10 @@ bool PosePriorBundleAdjuster::Solve(Reconstruction* reconstruction) {
   ceres::Solve(solver_options, problem_.get(), &summary_);
 
   // Unproject centroid from (0.,0.,0.)
-  projectCentroidFromOrigin(reconstruction);
+  ProjectCentroidFromOrigin(reconstruction);
 
   if (options_.print_summary || VLOG_IS_ON(1)) {
-    PrintSolverSummary(summary_, "Position Prior Bundle adjustment report");
+    PrintSolverSummary(summary_, "Pose Prior Bundle adjustment report");
   }
 
   return true;
@@ -953,30 +893,27 @@ void PosePriorBundleAdjuster::SetUpProblem(
   // Set up problem
   // Warning: SetUpProblem must be called before AddPosePriorToProblem()
   // Do not change order of instructions!
-  SetUpProblem(reconstruction, loss_function_.get());
+  BundleAdjuster::SetUpProblem(reconstruction, loss_function_.get());
 
   if (prior_options_.use_prior_position) {
-    for (const image_t image_id : config_.Images()) {
-      AddPosePriorToProblem(
-          image_id, reconstruction, prior_loss_function_.get());
+    for (const auto& id_and_prior : image_id_to_pose_prior_) {
+      AddPosePriorToProblem(id_and_prior.first,
+                            id_and_prior.second,
+                            reconstruction,
+                            prior_loss_function_.get());
     }
   }
 }
 
 void PosePriorBundleAdjuster::AddPosePriorToProblem(
     image_t image_id,
+    const PosePrior& prior,
     Reconstruction* reconstruction,
     ceres::LossFunction* prior_loss_function) {
+  if (!prior.IsValid() || !prior.IsCovarianceValid()) {
+    return;
+  }
   Image& image = reconstruction->Image(image_id);
-
-  if (!image.HasPosePrior()) {
-    return;
-  }
-
-  const PosePrior& prior = image.WorldFromCamPrior();
-  if (!prior.IsCovarianceValid()) {
-    return;
-  }
 
   double* cam_from_world_translation = image.CamFromWorld().translation.data();
 
@@ -990,13 +927,94 @@ void PosePriorBundleAdjuster::AddPosePriorToProblem(
       image.CamFromWorld().rotation.coeffs().data();
 
   problem_->AddResidualBlock(PositionPriorErrorCostFunction::Create(
-                                 prior.position, prior.position_covariance),
+                                 prior_options_.sim_to_center * prior.position,
+                                 prior.position_covariance),
                              prior_loss_function,
                              cam_from_world_rotation,
                              cam_from_world_translation);
 }
 
-void PosePriorBundleAdjuster::projectCentroidToOrigin(
+void PosePriorBundleAdjuster::Sim3DAlignment(Reconstruction* reconstruction) {
+  // Compute initial squared error between position priors & current images
+  // projection center and prepare data for RANSAC-based sim3 alignment
+  std::vector<double> vini_err2_wrt_prior;
+  std::vector<Eigen::Vector3d> v_src, v_tgt;
+  vini_err2_wrt_prior.reserve(NumPosePriors());
+  v_src.reserve(NumPosePriors());
+  v_tgt.reserve(NumPosePriors());
+
+  for (const auto& id_and_prior : image_id_to_pose_prior_) {
+    const PosePrior& prior = id_and_prior.second;
+    if (prior.IsValid()) {
+      const auto& image = reconstruction->Image(id_and_prior.first);
+      v_src.push_back(image.ProjectionCenter());
+      v_tgt.push_back(prior.position);
+      vini_err2_wrt_prior.push_back(
+          (v_src.back() - v_tgt.back()).squaredNorm());
+    }
+  }
+
+  if (v_src.size() < 3) {
+    LOG(WARNING)
+        << "Not enough valid pose priors for PosePrior based alignment!";
+    prior_options_.use_prior_position = false;
+    return;
+  }
+
+  VLOG(2) << "Initial alignment error w.r.t. prior position:\n"
+          << "  - rmse:   " << std::sqrt(Mean(vini_err2_wrt_prior)) << " m\n"
+          << "  - median: " << std::sqrt(Median(vini_err2_wrt_prior)) << " m\n";
+
+  Sim3d sim3_tform;
+  bool success = false;
+
+  // Apply RANSAC-based Sim3 Alignment if ransac_max_error is set
+  if (prior_options_.ransac_max_error > 0.) {
+    RANSACOptions ransac_options;
+    ransac_options.max_error = prior_options_.ransac_max_error;
+
+    LORANSAC<SimilarityTransformEstimator<3, true>,
+             SimilarityTransformEstimator<3, true>>
+        ransac(ransac_options);
+
+    const auto report = ransac.Estimate(v_src, v_tgt);
+
+    if (report.success) {
+      // Apply sim3 transform
+      sim3_tform = Sim3d::FromMatrix(report.model);
+      success = true;
+    }
+  } else {
+    success = colmap::EstimateSim3d(v_src, v_tgt, sim3_tform);
+  }
+
+  if (success) {
+    reconstruction->Transform(sim3_tform);
+
+    std::vector<double> verr2_wrt_prior;
+    verr2_wrt_prior.reserve(vini_err2_wrt_prior.size());
+    for (const auto& id_and_prior : image_id_to_pose_prior_) {
+      const PosePrior& prior = id_and_prior.second;
+      if (prior.IsValid()) {
+        const auto& image = reconstruction->Image(id_and_prior.first);
+        verr2_wrt_prior.push_back(
+            (image.ProjectionCenter() - prior.position).squaredNorm());
+      }
+    }
+
+    VLOG(2) << "Rigid Sim3 alignment w.r.t. prior position:\n"
+            << "  - scale : " << sim3_tform.scale << "\n"
+            << "  - trans : " << sim3_tform.translation.transpose() << "\n";
+
+    VLOG(2) << "Sim3 alignment error w.r.t. prior position:\n"
+            << "  - rmse:   " << std::sqrt(Mean(verr2_wrt_prior)) << " m\n"
+            << "  - median: " << std::sqrt(Median(verr2_wrt_prior)) << " m\n";
+  } else {
+    LOG(WARNING) << "Sim3 alignment w.r.t. prior position failed!";
+  }
+}
+
+void PosePriorBundleAdjuster::ProjectCentroidToOrigin(
     Reconstruction* reconstruction) {
   // Make sure that sim_to_center is identity
   prior_options_.sim_to_center = Sim3d();
@@ -1008,26 +1026,29 @@ void PosePriorBundleAdjuster::projectCentroidToOrigin(
 
   reconstruction->Transform(prior_options_.sim_to_center);
 
-  // Transform the priors according to the centroid projection
-  for (const auto image_id : config_.Images()) {
-    auto& image = reconstruction->Image(image_id);
-    if (image.HasPosePrior()) {
-      image.WorldFromCamPrior().position =
-          prior_options_.sim_to_center * image.WorldFromCamPrior().position;
-    }
-  }
+  // Do not transform priors as they will be transformed when added to
+  // ceres::Problem
 }
 
-void PosePriorBundleAdjuster::projectCentroidFromOrigin(
+void PosePriorBundleAdjuster::ProjectCentroidFromOrigin(
     Reconstruction* reconstruction) {
   const Sim3d sim_from_center = Inverse(prior_options_.sim_to_center);
   reconstruction->Transform(sim_from_center);
-  for (const auto image_id : config_.Images()) {
-    auto& image = reconstruction->Image(image_id);
-    if (image.HasPosePrior()) {
-      image.WorldFromCamPrior().position =
-          sim_from_center * image.WorldFromCamPrior().position;
+}
+
+void PosePriorBundleAdjuster::setRansacMaxErrorFromPriorsCovariance() {
+  std::size_t nb_cov = 0;
+  Eigen::Vector3d avg_cov = Eigen::Vector3d::Zero();
+  for (const auto& id_and_prior : image_id_to_pose_prior_) {
+    const PosePrior& prior = id_and_prior.second;
+    if (prior.IsCovarianceValid()) {
+      avg_cov += prior.position_covariance.diagonal();
+      ++nb_cov;
     }
+  }
+  if (!avg_cov.isZero()) {
+    prior_options_.ransac_max_error =
+        (3. * (avg_cov / nb_cov).cwiseSqrt()).norm();
   }
 }
 

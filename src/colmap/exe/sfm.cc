@@ -45,6 +45,20 @@
 
 namespace colmap {
 
+void updateDatabasePosePriorsCovariance(const std::string& _database_path,
+                                        const Eigen::Matrix3d& _covariance) {
+  Database database(_database_path);
+  DatabaseTransaction database_transaction(&database);
+
+  for (const auto& image : database.ReadAllImages()) {
+    if (database.ExistsPosePrior(image.ImageId())) {
+      PosePrior prior = database.ReadPosePrior(image.ImageId());
+      prior.position_covariance = _covariance;
+      database.UpdatePosePrior(image.ImageId(), prior);
+    }
+  }
+}
+
 int RunAutomaticReconstructor(int argc, char** argv) {
   AutomaticReconstructionController::Options reconstruction_options;
   std::string data_type = "individual";
@@ -343,6 +357,11 @@ int RunPosePriorMapper(int argc, char** argv) {
   std::string input_path;
   std::string output_path;
 
+  bool set_database_priors_covariance = false;
+  double prior_position_std_x = 1.;
+  double prior_position_std_y = 1.;
+  double prior_position_std_z = 1.;
+
   OptionManager options;
   options.AddDatabaseOptions();
   options.AddImageOptions();
@@ -352,18 +371,13 @@ int RunPosePriorMapper(int argc, char** argv) {
 
   options.mapper->use_prior_position = true;
 
-  options.AddDefaultOption("set_prior_position_from_database",
-                           &options.mapper->set_prior_position_from_database);
-  options.AddDefaultOption("priors_share_same_covariance",
-                           &options.mapper->priors_share_same_covariance,
+  options.AddDefaultOption("set_database_priors_covariance",
+                           &set_database_priors_covariance,
                            "If true, covariance on priors will be set from the "
-                           "prior_position_std_... options");
-  options.AddDefaultOption("prior_position_std_x",
-                           &options.mapper->prior_position_std_x);
-  options.AddDefaultOption("prior_position_std_y",
-                           &options.mapper->prior_position_std_y);
-  options.AddDefaultOption("prior_position_std_z",
-                           &options.mapper->prior_position_std_z);
+                           "following prior_position_std_... options");
+  options.AddDefaultOption("prior_position_std_x", &prior_position_std_x);
+  options.AddDefaultOption("prior_position_std_y", &prior_position_std_y);
+  options.AddDefaultOption("prior_position_std_z", &prior_position_std_z);
   options.AddDefaultOption("use_robust_loss_on_prior_position",
                            &options.mapper->use_robust_loss_on_prior_position);
   options.AddDefaultOption("prior_position_loss_scale",
@@ -373,6 +387,15 @@ int RunPosePriorMapper(int argc, char** argv) {
   if (!ExistsDir(output_path)) {
     LOG(ERROR) << "`output_path` is not a directory.";
     return EXIT_FAILURE;
+  }
+
+  if (set_database_priors_covariance) {
+    const Eigen::Matrix3d covariance =
+        Eigen::Vector3d(
+            prior_position_std_x, prior_position_std_y, prior_position_std_z)
+            .cwiseAbs2()
+            .asDiagonal();
+    updateDatabasePosePriorsCovariance(*options.database_path, covariance);
   }
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
