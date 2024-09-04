@@ -81,7 +81,7 @@ class FeatureMatcherCache {
 
   const Camera& GetCamera(camera_t camera_id);
   const Image& GetImage(image_t image_id);
-  const PosePrior& GetPosePrior(image_t image_id);
+  const PosePrior* GetPosePriorOrNull(image_t image_id);
   std::shared_ptr<FeatureKeypoints> GetKeypoints(image_t image_id);
   std::shared_ptr<FeatureDescriptors> GetDescriptors(image_t image_id);
   FeatureMatches GetMatches(image_t image_id1, image_t image_id2);
@@ -89,7 +89,6 @@ class FeatureMatcherCache {
   ThreadSafeLRUCache<image_t, FeatureDescriptorIndex>&
   GetFeatureDescriptorIndexCache();
 
-  bool ExistsPosePrior(image_t image_id) const;
   bool ExistsKeypoints(image_t image_id);
   bool ExistsDescriptors(image_t image_id);
 

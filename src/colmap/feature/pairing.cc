@@ -595,11 +595,11 @@ SpatialPairGenerator::ReadPositionPriorData(FeatureMatcherCache& cache) {
       image_ids_.size(), 3);
 
   for (size_t i = 0; i < image_ids_.size(); ++i) {
-    if (!cache.ExistsPosePrior(image_ids_[i])) {
+    const PosePrior* pose_prior = cache.GetPosePriorOrNull(image_ids_[i]);
+    if (pose_prior == nullptr) {
       continue;
     }
-    const auto& pose_prior = cache.GetPosePrior(image_ids_[i]);
-    const Eigen::Vector3d& position_prior = pose_prior.position;
+    const Eigen::Vector3d& position_prior = pose_prior->position;
     if ((position_prior(0) == 0 && position_prior(1) == 0 &&
          options_.ignore_z) ||
         (position_prior(0) == 0 && position_prior(1) == 0 &&
@@ -609,7 +609,7 @@ SpatialPairGenerator::ReadPositionPriorData(FeatureMatcherCache& cache) {
 
     position_idxs_.push_back(i);
 
-    switch (pose_prior.coordinate_system) {
+    switch (pose_prior->coordinate_system) {
       case PosePrior::CoordinateSystem::WGS84: {
         ells[0](0) = position_prior(0);
         ells[0](1) = position_prior(1);

@@ -91,9 +91,14 @@ const Image& FeatureMatcherCache::GetImage(const image_t image_id) {
   return images_cache_->at(image_id);
 }
 
-const PosePrior& FeatureMatcherCache::GetPosePrior(const image_t image_id) {
+const PosePrior* FeatureMatcherCache::GetPosePriorOrNull(
+    const image_t image_id) {
   MaybeLoadPosePriors();
-  return pose_priors_cache_->at(image_id);
+  const auto it = pose_priors_cache_->find(image_id);
+  if (it == pose_priors_cache_->end()) {
+    return nullptr;
+  }
+  return &it->second;
 }
 
 std::shared_ptr<FeatureKeypoints> FeatureMatcherCache::GetKeypoints(
@@ -130,10 +135,6 @@ std::vector<image_t> FeatureMatcherCache::GetImageIds() {
 ThreadSafeLRUCache<image_t, FeatureDescriptorIndex>&
 FeatureMatcherCache::GetFeatureDescriptorIndexCache() {
   return descriptor_index_cache_;
-}
-
-bool FeatureMatcherCache::ExistsPosePrior(const image_t image_id) const {
-  return pose_priors_cache_->find(image_id) != pose_priors_cache_->end();
 }
 
 bool FeatureMatcherCache::ExistsKeypoints(const image_t image_id) {
