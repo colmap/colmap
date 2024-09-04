@@ -199,7 +199,7 @@ void BindReconstruction(py::module& m) {
            "path"_a,
            "Extract colors for 3D points of given image. Colors will be "
            "extracted only for 3D points which are completely black. "
-           "True if image could be read at given path.")
+           "Return True if the image could be read at the given path.")
       .def("extract_colors_for_all_images",
            &Reconstruction::ExtractColorsForAllImages,
            "Extract colors for all 3D points by computing the mean color of "
