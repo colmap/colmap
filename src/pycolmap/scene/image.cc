@@ -92,7 +92,10 @@ void BindImage(py::module& m) {
           py::overload_cast<>(&Image::Points2D),
           py::overload_cast<const Point2DVector&>(&Image::SetPoints2D),
           "Array of Points2D (=keypoints).")
-      .def("point2D", py::overload_cast<camera_t>(&Image::Point2D))
+      .def("point2D",
+           py::overload_cast<camera_t>(&Image::Point2D),
+           "point2D_idx"_a,
+           "Direct accessor for a point2D.")
       .def(
           "set_point3D_for_point2D",
           &Image::SetPoint3DForPoint2D,
@@ -101,12 +104,13 @@ void BindImage(py::module& m) {
           "Set the point as triangulated, i.e. it is part of a 3D point track.")
       .def("reset_point3D_for_point2D",
            &Image::ResetPoint3DForPoint2D,
+           "point2D_idx"_a,
            "Set the point as not triangulated, i.e. it is not part of a 3D "
            "point track")
       .def("has_point3D",
            &Image::HasPoint3D,
-           "Check whether one of the image points is part of the 3D point "
-           "track.")
+           "point3D_id"_a,
+           "Check whether one of the image points is part of a 3D point track.")
       .def("projection_center",
            &Image::ProjectionCenter,
            "Extract the projection center in world space.")

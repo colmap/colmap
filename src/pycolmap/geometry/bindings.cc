@@ -15,8 +15,9 @@
 #include <pybind11/stl.h>
 #include <pybind11/stl_bind.h>
 
-namespace py = pybind11;
+using namespace colmap;
 using namespace pybind11::literals;
+namespace py = pybind11;
 
 void BindHomographyGeometry(py::module& m);
 
@@ -59,10 +60,12 @@ void BindGeometry(py::module& m) {
            [](const Eigen::Quaterniond& self) {
              return Eigen::AngleAxis<double>(self).angle();
            })
-      .def("angle_to",
-           [](const Eigen::Quaterniond& self, const Eigen::Quaterniond& other) {
-             return self.angularDistance(other);
-           })
+      .def(
+          "angle_to",
+          [](const Eigen::Quaterniond& self, const Eigen::Quaterniond& other) {
+            return self.angularDistance(other);
+          },
+          "other"_a)
       .def("inverse", &Eigen::Quaterniond::inverse)
       .def("__repr__", [](const Eigen::Quaterniond& self) {
         std::stringstream ss;
@@ -139,7 +142,7 @@ void BindGeometry(py::module& m) {
                         .rowwise() +
                     t.translation.transpose();
            })
-      .def("transform_camera_world", &TransformCameraWorld)
+      .def("transform_camera_world", &TransformCameraWorld, "cam_from_world"_a)
       .def("inverse", static_cast<Sim3d (*)(const Sim3d&)>(&Inverse))
       .def("__repr__", [](const Sim3d& self) {
         std::stringstream ss;
