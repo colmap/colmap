@@ -63,45 +63,34 @@ void BindObservationManager(py::module& m) {
            "min_tri_angle"_a,
            "point3D_ids"_a,
            "Filter 3D points with large reprojection error, negative depth, or"
-           "insufficient triangulation angle.\n"
-           "@param max_reproj_error    The maximum reprojection error.\n"
-           "@param min_tri_angle       The minimum triangulation angle.\n"
-           "@param point3D_ids         The points to be filtered.\n\n"
-           "@return                    The number of filtered observations.")
-      .def(
-          "filter_points3D_in_images",
-          &ObservationManager::FilterPoints3DInImages,
-          "max_reproj_error"_a,
-          "min_tri_angle"_a,
-          "image_ids"_a,
-          "Filter 3D points with large reprojection error, negative depth, or\n"
-          "insufficient triangulation angle.\n\n"
-          "@param max_reproj_error    The maximum reprojection error.\n"
-          "@param min_tri_angle       The minimum triangulation angle.\n"
-          "@param image_ids           The the image ids in which the points3D "
-          "are filtered.\n\n"
-          "@return                    The number of filtered observations.")
-      .def(
-          "filter_all_points3D",
-          &ObservationManager::FilterAllPoints3D,
-          "max_reproj_error"_a,
-          "min_tri_angle"_a,
-          "Filter 3D points with large reprojection error, negative depth, or\n"
-          "insufficient triangulation angle.\n\n"
-          "@param max_reproj_error    The maximum reprojection error.\n"
-          "@param min_tri_angle       The minimum triangulation angle.\n\n"
-          "@return                    The number of filtered observations.")
+           "insufficient triangulation angle. Return the number of filtered "
+           "observations.")
+      .def("filter_points3D_in_images",
+           &ObservationManager::FilterPoints3DInImages,
+           "max_reproj_error"_a,
+           "min_tri_angle"_a,
+           "image_ids"_a,
+           "Filter 3D points with large reprojection error, negative depth, or"
+           "insufficient triangulation angle. Return the number of filtered "
+           "observations.")
+      .def("filter_all_points3D",
+           &ObservationManager::FilterAllPoints3D,
+           "max_reproj_error"_a,
+           "min_tri_angle"_a,
+           "Filter 3D points with large reprojection error, negative depth, or"
+           "insufficient triangulation angle. Return the number of filtered "
+           "observations.")
       .def("filter_observations_with_negative_depth",
            &ObservationManager::FilterObservationsWithNegativeDepth,
-           "Filter observations that have negative depth.\n\n"
-           "@return    The number of filtered observations.")
+           "Filter observations that have negative depth. Return the number of "
+           "filtered observations.")
       .def("filter_images",
            &ObservationManager::FilterImages,
            "min_focal_length_ratio"_a,
            "max_focal_length_ratio"_a,
            "max_extra_param"_a,
-           "Filter images without observations or bogus camera parameters.\n\n"
-           "@return    The identifiers of the filtered images.")
+           "Filter images without observations or bogus camera parameters."
+           "Return the identifiers of the filtered images.")
       .def("deregister_image",
            &ObservationManager::DeRegisterImage,
            "image_id"_a,
@@ -109,7 +98,7 @@ void BindObservationManager(py::module& m) {
       .def("num_observations",
            &ObservationManager::NumObservations,
            "image_id"_a,
-           "Number of observations, i.e. the number of image points that\n"
+           "Number of observations, i.e. the number of image points that"
            "have at least one correspondence to another image.")
       .def("num_correspondences",
            &ObservationManager::NumCorrespondences,
@@ -124,8 +113,8 @@ void BindObservationManager(py::module& m) {
       .def("point3D_visibility_score",
            &ObservationManager::Point3DVisibilityScore,
            "image_id"_a,
-           "Get the score of triangulated observations. In contrast to\n"
-           "`NumVisiblePoints3D`, this score also captures the distribution\n"
+           "Get the score of triangulated observations. In contrast to"
+           "`NumVisiblePoints3D`, this score also captures the distribution"
            "of triangulated observations in the image. This is useful to "
            "select the next best image in incremental reconstruction, because a"
            "more uniform distribution of observations results in more robust "
