@@ -129,6 +129,13 @@ struct EstimateTriangulationOptions {
   // RANSAC options for TriangulationEstimator.
   RANSACOptions ransac_options;
 
+  EstimateTriangulationOptions() {
+    ransac_options.max_error = DegToRad(2.0);
+    ransac_options.confidence = 0.9999;
+    ransac_options.min_inlier_ratio = 0.02;
+    ransac_options.max_num_trials = 10000;
+  }
+
   void Check() const {
     THROW_CHECK_GE(min_tri_angle, 0.0);
     ransac_options.Check();

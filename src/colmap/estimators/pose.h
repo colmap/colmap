@@ -66,6 +66,15 @@ struct AbsolutePoseEstimationOptions {
   // Options used for P3P RANSAC.
   RANSACOptions ransac_options;
 
+  AbsolutePoseEstimationOptions() {
+    ransac_options.max_error = 12.0;
+    // Use high confidence to avoid preemptive termination of P3P RANSAC
+    // - too early termination may lead to bad registration.
+    ransac_options.min_num_trials = 100;
+    ransac_options.max_num_trials = 10000;
+    ransac_options.confidence = 0.99999;
+  }
+
   void Check() const {
     THROW_CHECK_GT(num_focal_length_samples, 0);
     THROW_CHECK_GT(min_focal_length_ratio, 0);
@@ -86,10 +95,10 @@ struct AbsolutePoseRefinementOptions {
   double loss_function_scale = 1.0;
 
   // Whether to refine the focal length parameter group.
-  bool refine_focal_length = true;
+  bool refine_focal_length = false;
 
   // Whether to refine the extra parameter group.
-  bool refine_extra_params = true;
+  bool refine_extra_params = false;
 
   // Whether to print final summary.
   bool print_summary = false;
