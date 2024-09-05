@@ -174,7 +174,7 @@ void BindGeometry(py::module& m) {
         std::stringstream ss;
         ss << "PosePrior("
            << "position=[" << self.position.format(vec_fmt) << "], "
-           << "coordinates=" << py::str(py::cast(self.coordinate_system))
+           << "coordinate_system=" << py::str(py::cast(self.coordinate_system))
            << ")";
         return ss.str();
       });
