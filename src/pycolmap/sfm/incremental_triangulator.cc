@@ -90,7 +90,7 @@ void BindIncrementalTriangulator(py::module& m) {
            "image_id"_a)
       .def("complete_image",
            &IncrementalTriangulator::CompleteImage,
-           "optionts"_a,
+           "options"_a,
            "image_id"_a)
       .def("complete_all_tracks",
            &IncrementalTriangulator::CompleteAllTracks,
