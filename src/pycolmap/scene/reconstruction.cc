@@ -57,10 +57,10 @@ void BindReconstruction(py::module& m) {
            &Reconstruction::Write,
            "output_dir"_a,
            "Write reconstruction in COLMAP binary format.")
-      .def("read_text", &Reconstruction::ReadText)
-      .def("read_binary", &Reconstruction::ReadBinary)
-      .def("write_text", &Reconstruction::WriteText)
-      .def("write_binary", &Reconstruction::WriteBinary)
+      .def("read_text", &Reconstruction::ReadText, "path"_a)
+      .def("read_binary", &Reconstruction::ReadBinary, "path"_a)
+      .def("write_text", &Reconstruction::WriteText, "path"_a)
+      .def("write_binary", &Reconstruction::WriteBinary, "path"_a)
       .def("num_images", &Reconstruction::NumImages)
       .def("num_cameras", &Reconstruction::NumCameras)
       .def("num_reg_images", &Reconstruction::NumRegImages)
@@ -68,27 +68,35 @@ void BindReconstruction(py::module& m) {
       .def_property_readonly("images",
                              &Reconstruction::Images,
                              py::return_value_policy::reference_internal)
-      .def("image", py::overload_cast<image_t>(&Reconstruction::Image))
+      .def("image",
+           py::overload_cast<image_t>(&Reconstruction::Image),
+           "image_id"_a,
+           "Direct accessor for an image.")
       .def_property_readonly("cameras",
                              &Reconstruction::Cameras,
                              py::return_value_policy::reference_internal)
-      .def("camera", py::overload_cast<camera_t>(&Reconstruction::Camera))
+      .def("camera",
+           py::overload_cast<camera_t>(&Reconstruction::Camera),
+           "camera_id"_a,
+           "Direct accessor for a camera.")
       .def_property_readonly("points3D",
                              &Reconstruction::Points3D,
                              py::return_value_policy::reference_internal)
-      .def("point3D", py::overload_cast<point3D_t>(&Reconstruction::Point3D))
+      .def("point3D",
+           py::overload_cast<point3D_t>(&Reconstruction::Point3D),
+           "point3D_id"_a,
+           "Direct accessor for a Point3D.")
       .def("point3D_ids", &Reconstruction::Point3DIds)
       .def("reg_image_ids", &Reconstruction::RegImageIds)
-      .def("exists_camera", &Reconstruction::ExistsCamera)
-      .def("exists_image", &Reconstruction::ExistsImage)
-      .def("exists_point3D", &Reconstruction::ExistsPoint3D)
+      .def("exists_camera", &Reconstruction::ExistsCamera, "camera_id"_a)
+      .def("exists_image", &Reconstruction::ExistsImage, "image_id"_a)
+      .def("exists_point3D", &Reconstruction::ExistsPoint3D, "point3D_id"_a)
       .def("tear_down", &Reconstruction::TearDown)
       .def("add_camera",
            &Reconstruction::AddCamera,
            "camera"_a,
            "Add new camera. There is only one camera per image, while multiple "
-           "images\n"
-           "might be taken by the same camera.")
+           "images might be taken by the same camera.")
       .def(
           "add_image", &Reconstruction::AddImage, "image"_a, "Add a new image.")
       .def("add_point3D",
@@ -102,23 +110,28 @@ void BindReconstruction(py::module& m) {
            "color"_a = Eigen::Vector3ub::Zero())
       .def("add_observation",
            &Reconstruction::AddObservation,
+           "point3D_id"_a,
+           "track_element"_a,
            "Add observation to existing 3D point.")
-      .def("merge_points3D",
-           &Reconstruction::MergePoints3D,
-           "Merge two 3D points and return new identifier of new 3D point.\n"
-           "The location of the merged 3D point is a weighted average of the "
-           "two\n"
-           "original 3D point's locations according to their track lengths.")
+      .def(
+          "merge_points3D",
+          &Reconstruction::MergePoints3D,
+          "point3D_id1"_a,
+          "point3D_id2"_a,
+          "Merge two 3D points and return new identifier of new 3D point."
+          "The location of the merged 3D point is a weighted average of the "
+          "two original 3D point's locations according to their track lengths.")
       .def("delete_point3D",
            &Reconstruction::DeletePoint3D,
+           "point3D_id"_a,
            "Delete a 3D point, and all its references in the observed images.")
       .def("delete_observation",
            &Reconstruction::DeleteObservation,
+           "image_id"_a,
+           "point2D_idx"_a,
            "Delete one observation from an image and the corresponding 3D "
-           "point.\n"
-           "Note that this deletes the entire 3D point, if the track has two "
-           "elements\n"
-           "prior to calling this method.")
+           "point. Note that this deletes the entire 3D point, if the track "
+           "has two elements prior to calling this method.")
       .def("register_image",
            &Reconstruction::RegisterImage,
            "image_id"_a,
@@ -129,37 +142,39 @@ void BindReconstruction(py::module& m) {
            "De-register an existing image, and all its references.")
       .def("is_image_registered",
            &Reconstruction::IsImageRegistered,
+           "image_id"_a,
            "Check if image is registered.")
-      .def(
-          "normalize",
-          &Reconstruction::Normalize,
-          "extent"_a = 10.0,
-          "p0"_a = 0.1,
-          "p1"_a = 0.9,
-          "use_images"_a = true,
-          "Normalize scene by scaling and translation to avoid degenerate\n"
-          "visualization after bundle adjustment and to improve numerical\n"
-          "stability of algorithms.\n\n"
-          "Translates scene such that the mean of the camera centers or point\n"
-          "locations are at the origin of the coordinate system.\n\n"
-          "Scales scene such that the minimum and maximum camera centers are "
-          "at the\n"
-          "given `extent`, whereas `p0` and `p1` determine the minimum and\n"
-          "maximum percentiles of the camera centers considered.")
+      .def("normalize",
+           &Reconstruction::Normalize,
+           "extent"_a = 10.0,
+           "p0"_a = 0.1,
+           "p1"_a = 0.9,
+           "use_images"_a = true,
+           "Normalize scene by scaling and translation to avoid degenerate"
+           "visualization after bundle adjustment and to improve numerical"
+           "stability of algorithms.\n\n"
+           "Translates scene such that the mean of the camera centers or point"
+           "locations are at the origin of the coordinate system.\n\n"
+           "Scales scene such that the minimum and maximum camera centers are "
+           "at the given `extent`, whereas `p0` and `p1` determine the minimum "
+           "and maximum percentiles of the camera centers considered.")
       .def("transform",
            &Reconstruction::Transform,
+           "new_from_old_world"_a,
            "Apply the 3D similarity transformation to all images and points.")
       .def("compute_bounding_box",
            &Reconstruction::ComputeBoundingBox,
            "p0"_a = 0.0,
            "p1"_a = 1.0)
-      .def("crop", &Reconstruction::Crop)
+      .def("crop", &Reconstruction::Crop, "bbox"_a)
       .def("find_image_with_name",
            &Reconstruction::FindImageWithName,
            py::return_value_policy::reference_internal,
+           "name"_a,
            "Find image with matching name. Returns None if no match is found.")
       .def("find_common_reg_image_ids",
            &Reconstruction::FindCommonRegImageIds,
+           "other"_a,
            "Find images that are both present in this and the given "
            "reconstruction.")
       .def("compute_num_observations", &Reconstruction::ComputeNumObservations)
@@ -170,7 +185,8 @@ void BindReconstruction(py::module& m) {
            &Reconstruction::ComputeMeanReprojectionError)
       .def("import_PLY",
            py::overload_cast<const std::string&>(&Reconstruction::ImportPLY),
-           "Import from PLY format. Note that these import functions are\n"
+           "path"_a,
+           "Import from PLY format. Note that these import functions are"
            "only intended for visualization of data and usable for "
            "reconstruction.")
       .def("export_PLY",
@@ -179,28 +195,19 @@ void BindReconstruction(py::module& m) {
            "Export 3D points to PLY format (.ply).")
       .def("extract_colors_for_image",
            &Reconstruction::ExtractColorsForImage,
+           "image_id"_a,
+           "path"_a,
            "Extract colors for 3D points of given image. Colors will be "
-           "extracted\n"
-           "only for 3D points which are completely black.\n\n"
-           "@param image_id      Identifier of the image for which to extract "
-           "colors.\n"
-           "@param path          Absolute or relative path to root folder of "
-           "image.\n"
-           "                     The image path is determined by concatenating "
-           "the\n"
-           "                     root path and the name of the image.\n\n"
-           "@return              True if image could be read at given path.")
+           "extracted only for 3D points which are completely black. "
+           "Return True if the image could be read at the given path.")
       .def("extract_colors_for_all_images",
            &Reconstruction::ExtractColorsForAllImages,
            "Extract colors for all 3D points by computing the mean color of "
-           "all images.\n\n"
-           "@param path          Absolute or relative path to root folder of "
-           "image.\n"
-           "                     The image path is determined by concatenating "
-           "the\n"
-           "                     root path and the name of the image.")
+           "all images.",
+           "path"_a)
       .def("create_image_dirs",
            &Reconstruction::CreateImageDirs,
+           "path"_a,
            "Create all image sub-directories in the given path.")
       .def(
           "check",
