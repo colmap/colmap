@@ -102,7 +102,9 @@ class Reconstruction {
   // might be taken by the same camera.
   void AddCamera(struct Camera camera);
 
-  // Add new image.
+  // Add new image. Its camera must have been added before. If its camera object
+  // is unset, it will be automatically set from the added cameras in the
+  // reconstruction.
   void AddImage(class Image image);
 
   // Add new 3D point with known ID.

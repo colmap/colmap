@@ -39,7 +39,8 @@ TEST(Image, Default) {
   EXPECT_EQ(image.ImageId(), kInvalidImageId);
   EXPECT_EQ(image.Name(), "");
   EXPECT_EQ(image.CameraId(), kInvalidCameraId);
-  EXPECT_FALSE(image.HasCamera());
+  EXPECT_FALSE(image.HasCameraId());
+  EXPECT_FALSE(image.HasCameraPtr());
   EXPECT_FALSE(image.IsRegistered());
   EXPECT_EQ(image.NumPoints2D(), 0);
   EXPECT_EQ(image.NumPoints3D(), 0);

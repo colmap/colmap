@@ -117,6 +117,13 @@ void Reconstruction::AddCamera(struct Camera camera) {
 }
 
 void Reconstruction::AddImage(class Image image) {
+  THROW_CHECK(image.HasCameraId());
+  const auto camera_it = cameras_.find(image.CameraId());
+  if (image.HasCameraPtr()) {
+    THROW_CHECK_EQ(image.CameraPtr(), &camera_it->second);
+  } else {
+    image.SetCameraPtr(&camera_it->second);
+  }
   const image_t image_id = image.ImageId();
   const bool is_registered = image.IsRegistered();
   THROW_CHECK(images_.emplace(image_id, std::move(image)).second);
@@ -387,6 +394,7 @@ Reconstruction Reconstruction::Crop(
   for (const auto& image : images_) {
     auto new_image = image.second;
     new_image.SetRegistered(false);
+    new_image.ResetCameraPtr();
     const auto num_points2D = new_image.NumPoints2D();
     for (point2D_t point2D_idx = 0; point2D_idx < num_points2D; ++point2D_idx) {
       new_image.ResetPoint3DForPoint2D(point2D_idx);
