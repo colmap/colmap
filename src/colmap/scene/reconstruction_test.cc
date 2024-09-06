@@ -85,10 +85,11 @@ TEST(Reconstruction, AddImage) {
   Reconstruction reconstruction;
   Camera camera =
       Camera::CreateFromModelId(1, CameraModelId::kSimplePinhole, 1, 1, 1);
-  reconstruction.AddCamera(camera);
   Image image;
   image.SetCameraId(camera.camera_id);
   image.SetImageId(1);
+  EXPECT_ANY_THROW(reconstruction.AddImage(image));
+  reconstruction.AddCamera(camera);
   reconstruction.AddImage(image);
   EXPECT_TRUE(reconstruction.ExistsImage(1));
   EXPECT_EQ(reconstruction.Image(1).ImageId(), 1);

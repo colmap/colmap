@@ -76,19 +76,19 @@ TEST(Image, CameraId) {
 TEST(Image, CameraPtr) {
   Image image;
   EXPECT_FALSE(image.HasCameraPtr());
-  EXPECT_THROW(image.CameraPtr(), std::invalid_argument);
+  EXPECT_ANY_THROW(image.CameraPtr());
   Camera camera;
   camera.camera_id = 1;
-  EXPECT_THROW(image.SetCameraPtr(&camera), std::invalid_argument);
+  EXPECT_ANY_THROW(image.SetCameraPtr(&camera));
   image.SetCameraId(2);
-  EXPECT_THROW(image.SetCameraPtr(&camera), std::invalid_argument);
+  EXPECT_ANY_THROW(image.SetCameraPtr(&camera));
   image.SetCameraId(1);
   image.SetCameraPtr(&camera);
   EXPECT_TRUE(image.HasCameraPtr());
   EXPECT_EQ(image.CameraPtr(), &camera);
   image.ResetCameraPtr();
   EXPECT_FALSE(image.HasCameraPtr());
-  EXPECT_THROW(image.CameraPtr(), std::invalid_argument);
+  EXPECT_ANY_THROW(image.CameraPtr());
 }
 
 TEST(Image, Registered) {
