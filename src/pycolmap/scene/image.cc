@@ -28,7 +28,7 @@ std::string PrintImage(const Image& image) {
      << (image.ImageId() != kInvalidImageId ? std::to_string(image.ImageId())
                                             : "Invalid")
      << ", camera_id="
-     << (image.HasCamera() ? std::to_string(image.CameraId()) : "Invalid")
+     << (image.HasCameraId() ? std::to_string(image.CameraId()) : "Invalid")
      << ", name=\"" << image.Name() << "\""
      << ", triangulated=" << image.NumPoints3D() << "/" << image.NumPoints2D()
      << ")";

@@ -226,7 +226,7 @@ void BindReconstruction(py::module& m) {
               }
             }
             for (auto& image_id : self.RegImageIds()) {
-              THROW_CHECK(self.Image(image_id).HasCamera()) << image_id;
+              THROW_CHECK(self.Image(image_id).HasCameraId()) << image_id;
               camera_t camera_id = self.Image(image_id).CameraId();
               THROW_CHECK(self.ExistsCamera(camera_id)) << camera_id;
             }
