@@ -803,6 +803,7 @@ void IncrementalMapper::IterativeGlobalRefinement(
       break;
     }
   }
+  ClearModifiedPoints3D();
 }
 
 size_t IncrementalMapper::FilterImages(const Options& options) {
