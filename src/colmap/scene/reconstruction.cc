@@ -118,11 +118,11 @@ void Reconstruction::AddCamera(struct Camera camera) {
 
 void Reconstruction::AddImage(class Image image) {
   THROW_CHECK(image.HasCameraId());
-  const auto camera_it = cameras_.find(image.CameraId());
+  auto& camera = Camera(image.CameraId());
   if (image.HasCameraPtr()) {
-    THROW_CHECK_EQ(image.CameraPtr(), &camera_it->second);
+    THROW_CHECK_EQ(image.CameraPtr(), &camera);
   } else {
-    image.SetCameraPtr(&camera_it->second);
+    image.SetCameraPtr(&camera);
   }
   const image_t image_id = image.ImageId();
   const bool is_registered = image.IsRegistered();
