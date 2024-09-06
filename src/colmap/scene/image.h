@@ -69,6 +69,7 @@ class Image {
   inline bool HasCameraId() const;
 
   // Access to the underlying, shared camera object.
+  // This is typically only set when the image was added to a reconstruction.
   inline struct Camera* CameraPtr() const;
   inline void SetCameraPtr(struct Camera* camera);
   inline void ResetCameraPtr();
