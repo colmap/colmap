@@ -73,6 +73,24 @@ TEST(Image, CameraId) {
   EXPECT_EQ(image.CameraId(), 1);
 }
 
+TEST(Image, CameraPtr) {
+  Image image;
+  EXPECT_FALSE(image.HasCameraPtr());
+  EXPECT_THROW(image.CameraPtr(), std::invalid_argument);
+  Camera camera;
+  camera.camera_id = 1;
+  EXPECT_THROW(image.SetCameraPtr(&camera), std::invalid_argument);
+  image.SetCameraId(2);
+  EXPECT_THROW(image.SetCameraPtr(&camera), std::invalid_argument);
+  image.SetCameraId(1);
+  image.SetCameraPtr(&camera);
+  EXPECT_TRUE(image.HasCameraPtr());
+  EXPECT_EQ(image.CameraPtr(), &camera);
+  image.ResetCameraPtr();
+  EXPECT_FALSE(image.HasCameraPtr());
+  EXPECT_THROW(image.CameraPtr(), std::invalid_argument);
+}
+
 TEST(Image, Registered) {
   Image image;
   EXPECT_FALSE(image.IsRegistered());
@@ -176,6 +194,19 @@ TEST(Image, ProjectionCenter) {
 TEST(Image, ViewingDirection) {
   Image image;
   EXPECT_EQ(image.ViewingDirection(), Eigen::Vector3d(0, 0, 1));
+}
+
+TEST(Image, ProjectPoint) {
+  Image image;
+  Camera camera =
+      Camera::CreateFromModelId(1, CameraModelId::kSimplePinhole, 1, 1, 1);
+  image.SetCameraId(camera.camera_id);
+  image.SetCameraPtr(&camera);
+  const auto result = image.ProjectPoint(Eigen::Vector3d(2, 0, 1));
+  EXPECT_TRUE(result.first);
+  EXPECT_EQ(result.second, Eigen::Vector2d(2.5, 0.5));
+  EXPECT_FALSE(image.ProjectPoint(Eigen::Vector3d(2, 0, 0)).first);
+  EXPECT_FALSE(image.ProjectPoint(Eigen::Vector3d(2, 0, -1)).first);
 }
 
 }  // namespace
