@@ -29,7 +29,7 @@ std::string PrintImage(const Image& image) {
                                             : "Invalid");
   if (!image.HasCameraPtr()) {
     ss << ", camera_id="
-       << (image.HasCamera() ? std::to_string(image.CameraId()) : "Invalid");
+       << (image.HasCameraId() ? std::to_string(image.CameraId()) : "Invalid");
   } else {
     ss << ", camera=Camera(camera_id=" << std::to_string(image.CameraId())
        << ")";
