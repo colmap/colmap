@@ -134,7 +134,8 @@ void BindImage(py::module& m) {
            "Extract the viewing direction of the image.")
       .def(
           "project_point",
-          [](const Image& self, const Eigen::Vector3d& point3D) -> py::object {
+          [](const Image& self, const Eigen::Vector3d& point3D)
+              -> py::typing::Optional<Eigen::Vector2d> {
             auto result = self.ProjectPoint(point3D);
             if (result.first)
               return py::cast(result.second);
