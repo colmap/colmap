@@ -18,8 +18,8 @@ void BindTwoViewGeometryScene(py::module& m);
 
 void BindScene(py::module& m) {
   BindPoint2D(m);
-  BindImage(m);
   BindCamera(m);
+  BindImage(m);
   BindTrack(m);
   BindPoint3D(m);
   BindCorrespondenceGraph(m);
