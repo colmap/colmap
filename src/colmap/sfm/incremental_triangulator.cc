@@ -108,8 +108,7 @@ size_t IncrementalTriangulator::TriangulateImage(const Options& options,
     return num_tris;
   }
 
-  const Camera& camera = reconstruction_.Camera(image.CameraId());
-  if (HasCameraBogusParams(options, camera)) {
+  if (HasCameraBogusParams(options, *image.CameraPtr())) {
     return num_tris;
   }
 
@@ -119,7 +118,7 @@ size_t IncrementalTriangulator::TriangulateImage(const Options& options,
   CorrData ref_corr_data;
   ref_corr_data.image_id = image_id;
   ref_corr_data.image = &image;
-  ref_corr_data.camera = &camera;
+  ref_corr_data.camera = image.CameraPtr();
 
   // Container for correspondences from reference observation to other images.
   std::vector<CorrData> corrs_data;

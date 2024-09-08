@@ -26,10 +26,15 @@ std::string PrintImage(const Image& image) {
   std::stringstream ss;
   ss << "Image(image_id="
      << (image.ImageId() != kInvalidImageId ? std::to_string(image.ImageId())
-                                            : "Invalid")
-     << ", camera_id="
-     << (image.HasCamera() ? std::to_string(image.CameraId()) : "Invalid")
-     << ", name=\"" << image.Name() << "\""
+                                            : "Invalid");
+  if (!image.HasCameraPtr()) {
+    ss << ", camera_id="
+       << (image.HasCameraId() ? std::to_string(image.CameraId()) : "Invalid");
+  } else {
+    ss << ", camera=Camera(camera_id=" << std::to_string(image.CameraId())
+       << ")";
+  }
+  ss << ", name=\"" << image.Name() << "\""
      << ", triangulated=" << image.NumPoints3D() << "/" << image.NumPoints2D()
      << ")";
   return ss.str();
@@ -75,6 +80,16 @@ void BindImage(py::module& m) {
                     &Image::CameraId,
                     &Image::SetCameraId,
                     "Unique identifier of the camera.")
+      .def_property(
+          "camera",
+          [](Image& self) -> py::typing::Optional<Camera> {
+            if (self.HasCameraPtr())
+              return py::cast(*self.CameraPtr());
+            else
+              return py::none();
+          },
+          &Image::SetCameraPtr,
+          "The address of the camera")
       .def_property("name",
                     py::overload_cast<>(&Image::Name),
                     &Image::SetName,
@@ -92,7 +107,10 @@ void BindImage(py::module& m) {
           py::overload_cast<>(&Image::Points2D),
           py::overload_cast<const Point2DVector&>(&Image::SetPoints2D),
           "Array of Points2D (=keypoints).")
-      .def("point2D", py::overload_cast<camera_t>(&Image::Point2D))
+      .def("point2D",
+           py::overload_cast<camera_t>(&Image::Point2D),
+           "point2D_idx"_a,
+           "Direct accessor for a point2D.")
       .def(
           "set_point3D_for_point2D",
           &Image::SetPoint3DForPoint2D,
@@ -101,21 +119,39 @@ void BindImage(py::module& m) {
           "Set the point as triangulated, i.e. it is part of a 3D point track.")
       .def("reset_point3D_for_point2D",
            &Image::ResetPoint3DForPoint2D,
+           "point2D_idx"_a,
            "Set the point as not triangulated, i.e. it is not part of a 3D "
            "point track")
       .def("has_point3D",
            &Image::HasPoint3D,
-           "Check whether one of the image points is part of the 3D point "
-           "track.")
+           "point3D_id"_a,
+           "Check whether one of the image points is part of a 3D point track.")
       .def("projection_center",
            &Image::ProjectionCenter,
            "Extract the projection center in world space.")
       .def("viewing_direction",
            &Image::ViewingDirection,
            "Extract the viewing direction of the image.")
-      .def("has_camera",
-           &Image::HasCamera,
+      .def(
+          "project_point",
+          [](const Image& self, const Eigen::Vector3d& point3D)
+              -> py::typing::Optional<Eigen::Vector2d> {
+            auto result = self.ProjectPoint(point3D);
+            if (result.first)
+              return py::cast(result.second);
+            else
+              return py::none();
+          },
+          "Project 3D point onto the image")
+      .def("has_camera_id",
+           &Image::HasCameraId,
            "Check whether identifier of camera has been set.")
+      .def("has_camera_ptr",
+           &Image::HasCameraPtr,
+           "Check whether the camera pointer has been set.")
+      .def("reset_camera_ptr",
+           &Image::ResetCameraPtr,
+           "Make the camera pointer a nullptr.")
       .def_property("registered",
                     &Image::IsRegistered,
                     &Image::SetRegistered,

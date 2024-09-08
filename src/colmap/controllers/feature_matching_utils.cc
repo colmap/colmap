@@ -43,7 +43,7 @@ namespace colmap {
 FeatureMatcherWorker::FeatureMatcherWorker(
     const SiftMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
-    FeatureMatcherCache* cache,
+    const std::shared_ptr<FeatureMatcherCache>& cache,
     JobQueue<Input>* input_queue,
     JobQueue<Output>* output_queue)
     : matching_options_(matching_options),
@@ -140,11 +140,11 @@ class VerifierWorker : public Thread {
   typedef FeatureMatcherData Output;
 
   VerifierWorker(const TwoViewGeometryOptions& options,
-                 FeatureMatcherCache* cache,
+                 std::shared_ptr<FeatureMatcherCache> cache,
                  JobQueue<Input>* input_queue,
                  JobQueue<Output>* output_queue)
       : options_(options),
-        cache_(cache),
+        cache_(std::move(cache)),
         input_queue_(input_queue),
         output_queue_(output_queue) {
     THROW_CHECK(options_.Check());
@@ -188,7 +188,7 @@ class VerifierWorker : public Thread {
 
  private:
   const TwoViewGeometryOptions options_;
-  FeatureMatcherCache* cache_;
+  std::shared_ptr<FeatureMatcherCache> cache_;
   JobQueue<Input>* input_queue_;
   JobQueue<Output>* output_queue_;
 };
@@ -198,12 +198,10 @@ class VerifierWorker : public Thread {
 FeatureMatcherController::FeatureMatcherController(
     const SiftMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
-    Database* database,
-    FeatureMatcherCache* cache)
+    std::shared_ptr<FeatureMatcherCache> cache)
     : matching_options_(matching_options),
       geometry_options_(geometry_options),
-      database_(database),
-      cache_(cache),
+      cache_(std::move(cache)),
       is_setup_(false) {
   THROW_CHECK(matching_options_.Check());
   THROW_CHECK(geometry_options_.Check());
@@ -234,7 +232,7 @@ FeatureMatcherController::FeatureMatcherController(
       matchers_.emplace_back(
           std::make_unique<FeatureMatcherWorker>(matching_options_copy,
                                                  geometry_options_,
-                                                 cache,
+                                                 cache_,
                                                  &matcher_queue_,
                                                  &verifier_queue_));
     }
@@ -247,7 +245,7 @@ FeatureMatcherController::FeatureMatcherController(
       matchers_.emplace_back(
           std::make_unique<FeatureMatcherWorker>(matching_options_copy,
                                                  geometry_options_,
-                                                 cache,
+                                                 cache_,
                                                  &matcher_queue_,
                                                  &verifier_queue_));
     }
@@ -258,7 +256,7 @@ FeatureMatcherController::FeatureMatcherController(
     // Redirect the verification output to final round of guided matching.
     for (int i = 0; i < num_threads; ++i) {
       verifiers_.emplace_back(std::make_unique<VerifierWorker>(
-          geometry_options_, cache, &verifier_queue_, &guided_matcher_queue_));
+          geometry_options_, cache_, &verifier_queue_, &guided_matcher_queue_));
     }
 
     if (matching_options_.use_gpu) {
@@ -269,7 +267,7 @@ FeatureMatcherController::FeatureMatcherController(
         guided_matchers_.emplace_back(
             std::make_unique<FeatureMatcherWorker>(matching_options_copy,
                                                    geometry_options_,
-                                                   cache,
+                                                   cache_,
                                                    &guided_matcher_queue_,
                                                    &output_queue_));
       }
@@ -279,7 +277,7 @@ FeatureMatcherController::FeatureMatcherController(
         guided_matchers_.emplace_back(
             std::make_unique<FeatureMatcherWorker>(matching_options_,
                                                    geometry_options_,
-                                                   cache,
+                                                   cache_,
                                                    &guided_matcher_queue_,
                                                    &output_queue_));
       }
@@ -287,7 +285,7 @@ FeatureMatcherController::FeatureMatcherController(
   } else {
     for (int i = 0; i < num_threads; ++i) {
       verifiers_.emplace_back(std::make_unique<VerifierWorker>(
-          geometry_options_, cache, &verifier_queue_, &output_queue_));
+          geometry_options_, cache_, &verifier_queue_, &output_queue_));
     }
   }
 }
@@ -331,8 +329,7 @@ FeatureMatcherController::~FeatureMatcherController() {
 bool FeatureMatcherController::Setup() {
   // Minimize the amount of allocated GPU memory by computing the maximum number
   // of descriptors for any image over the whole database.
-  const int max_num_features =
-      THROW_CHECK_NOTNULL(database_)->MaxNumKeypoints();
+  const int max_num_features = THROW_CHECK_NOTNULL(cache_)->MaxNumKeypoints();
   matching_options_.max_num_matches =
       std::min(matching_options_.max_num_matches, max_num_features);
 
@@ -369,7 +366,6 @@ bool FeatureMatcherController::Setup() {
 
 void FeatureMatcherController::Match(
     const std::vector<std::pair<image_t, image_t>>& image_pairs) {
-  THROW_CHECK_NOTNULL(database_);
   THROW_CHECK_NOTNULL(cache_);
   THROW_CHECK(is_setup_);
 

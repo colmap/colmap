@@ -6,6 +6,7 @@
 #include <pybind11/pybind11.h>
 
 using namespace colmap;
+using namespace pybind11::literals;
 namespace py = pybind11;
 
 struct Logging {
@@ -46,7 +47,9 @@ void BindLogging(py::module& m) {
           [](const Logging::LogSeverity severity, const std::string& path) {
             google::SetLogDestination(
                 static_cast<google::LogSeverity>(severity), path.c_str());
-          })
+          },
+          "level"_a,
+          "path"_a)
       .def_static(
           "verbose",
           [](const int level, const std::string& msg) {
@@ -55,35 +58,45 @@ void BindLogging(py::module& m) {
               google::LogMessage(frame.first.c_str(), frame.second).stream()
                   << msg;
             }
-          })
+          },
+          "level"_a,
+          "message"_a)
       .def_static(
           "info",
           [](const std::string& msg) {
             const auto frame = GetPythonCallFrame();
             google::LogMessage(frame.first.c_str(), frame.second).stream()
                 << msg;
-          })
-      .def_static("warning",
-                  [](const std::string& msg) {
-                    const auto frame = GetPythonCallFrame();
-                    google::LogMessage(
-                        frame.first.c_str(), frame.second, google::GLOG_WARNING)
-                            .stream()
-                        << msg;
-                  })
-      .def_static("error",
-                  [](const std::string& msg) {
-                    const auto frame = GetPythonCallFrame();
-                    google::LogMessage(
-                        frame.first.c_str(), frame.second, google::GLOG_ERROR)
-                            .stream()
-                        << msg;
-                  })
-      .def_static("fatal", [](const std::string& msg) {
-        const auto frame = GetPythonCallFrame();
-        google::LogMessageFatal(frame.first.c_str(), frame.second).stream()
-            << msg;
-      });
+          },
+          "message"_a)
+      .def_static(
+          "warning",
+          [](const std::string& msg) {
+            const auto frame = GetPythonCallFrame();
+            google::LogMessage(
+                frame.first.c_str(), frame.second, google::GLOG_WARNING)
+                    .stream()
+                << msg;
+          },
+          "message"_a)
+      .def_static(
+          "error",
+          [](const std::string& msg) {
+            const auto frame = GetPythonCallFrame();
+            google::LogMessage(
+                frame.first.c_str(), frame.second, google::GLOG_ERROR)
+                    .stream()
+                << msg;
+          },
+          "message"_a)
+      .def_static(
+          "fatal",
+          [](const std::string& msg) {
+            const auto frame = GetPythonCallFrame();
+            google::LogMessageFatal(frame.first.c_str(), frame.second).stream()
+                << msg;
+          },
+          "message"_a);
 
 #if defined(GLOG_VERSION_MAJOR) && \
     (GLOG_VERSION_MAJOR > 0 || GLOG_VERSION_MINOR >= 6)

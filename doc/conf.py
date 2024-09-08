@@ -31,6 +31,7 @@ import os
 extensions = [
     "sphinx.ext.mathjax",
     "sphinx.ext.autodoc",
+    "sphinx.ext.autodoc.typehints",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -274,3 +275,8 @@ texinfo_documents = [
 
 # If true, do not generate a @detailmenu in the "Top" node's menu.
 # texinfo_no_detailmenu = False
+
+# Configure how Python API docs are displayed.
+autodoc_member_order = "bysource"
+autodoc_typehints = "both"
+python_maximum_signature_line_length = 120

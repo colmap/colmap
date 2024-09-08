@@ -396,7 +396,7 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
                                        Reconstruction* reconstruction,
                                        ceres::LossFunction* loss_function) {
   Image& image = reconstruction->Image(image_id);
-  Camera& camera = reconstruction->Camera(image.CameraId());
+  Camera& camera = *image.CameraPtr();
 
   // CostFunction assumes unit quaternions.
   image.CamFromWorld().rotation.normalize();
@@ -479,7 +479,7 @@ void BundleAdjuster::AddPointToProblem(const point3D_t point3D_id,
     point3D_num_observations_[point3D_id] += 1;
 
     Image& image = reconstruction->Image(track_el.image_id);
-    Camera& camera = reconstruction->Camera(image.CameraId());
+    Camera& camera = *image.CameraPtr();
     const Point2D& point2D = image.Point2D(track_el.point2D_idx);
 
     // CostFunction assumes unit quaternions.
@@ -656,7 +656,7 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
       rig_options_.max_reproj_error * rig_options_.max_reproj_error;
 
   Image& image = reconstruction->Image(image_id);
-  Camera& camera = reconstruction->Camera(image.CameraId());
+  Camera& camera = *image.CameraPtr();
 
   const bool constant_cam_pose = config_.HasConstantCamPose(image_id);
   const bool constant_cam_position = config_.HasConstantCamPositions(image_id);
@@ -690,7 +690,7 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
   }
 
   // Collect cameras for final parameterization.
-  THROW_CHECK(image.HasCamera());
+  THROW_CHECK(image.HasCameraId());
   camera_ids_.insert(image.CameraId());
 
   // The number of added observations for the current image.
@@ -792,7 +792,7 @@ void RigBundleAdjuster::AddPointToProblem(const point3D_t point3D_id,
     point3D_num_observations_[point3D_id] += 1;
 
     Image& image = reconstruction->Image(track_el.image_id);
-    Camera& camera = reconstruction->Camera(image.CameraId());
+    Camera& camera = *image.CameraPtr();
     const Point2D& point2D = image.Point2D(track_el.point2D_idx);
 
     // We do not want to refine the camera of images that are not

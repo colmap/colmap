@@ -98,7 +98,12 @@ void BindReconstruction(py::module& m) {
            "Add new camera. There is only one camera per image, while multiple "
            "images might be taken by the same camera.")
       .def(
-          "add_image", &Reconstruction::AddImage, "image"_a, "Add a new image.")
+          "add_image",
+          &Reconstruction::AddImage,
+          "image"_a,
+          "Add new image. Its camera must have been added before. If its "
+          "camera object is unset, it will be automatically populated from the "
+          "added cameras.")
       .def("add_point3D",
            py::overload_cast<const Eigen::Vector3d&,
                              Track,
@@ -226,7 +231,7 @@ void BindReconstruction(py::module& m) {
               }
             }
             for (auto& image_id : self.RegImageIds()) {
-              THROW_CHECK(self.Image(image_id).HasCamera()) << image_id;
+              THROW_CHECK(self.Image(image_id).HasCameraId()) << image_id;
               camera_t camera_id = self.Image(image_id).CameraId();
               THROW_CHECK(self.ExistsCamera(camera_id)) << camera_id;
             }
