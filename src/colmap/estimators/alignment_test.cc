@@ -130,8 +130,8 @@ TEST(Alignment, MergeReconstructions) {
     if (tgt_reconstruction.Image(image_id).CameraId() == 0) {
       tgt_reconstruction.DeRegisterImage(image_id);
     }
-    tgt_reconstruction.TearDown();
   }
+  tgt_reconstruction.TearDown();
   EXPECT_EQ(tgt_reconstruction.NumCameras(), 1);
   EXPECT_EQ(tgt_reconstruction.NumImages(), 10);
   MergeReconstructions(0.01, src_reconstruction, tgt_reconstruction);
