@@ -687,15 +687,11 @@ size_t IncrementalTriangulator::Complete(const Options& options,
   std::vector<TrackElement> queue = point3D.track.Elements();
 
   const int max_transitivity = options.complete_max_transitivity;
-  for (int transitivity = 0; transitivity < max_transitivity; ++transitivity) {
-    if (queue.empty()) {
-      break;
-    }
+  for (int transitivity = 1; transitivity <= max_transitivity; ++transitivity) {
+    while (!queue.empty()) {
+      const TrackElement queue_elem = queue.back();
+      queue.pop_back();
 
-    const std::vector<TrackElement> prev_queue = queue;
-    queue.clear();
-
-    for (const TrackElement& queue_elem : prev_queue) {
       const auto corr_range = correspondence_graph_->FindCorrespondences(
           queue_elem.image_id, queue_elem.point2D_idx);
       for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
@@ -721,17 +717,21 @@ size_t IncrementalTriangulator::Complete(const Options& options,
         }
 
         // Success, add observation to point track.
-        const TrackElement track_el(corr->image_id, corr->point2D_idx);
-        obs_manager_->AddObservation(point3D_id, track_el);
+        obs_manager_->AddObservation(
+            point3D_id, TrackElement(corr->image_id, corr->point2D_idx));
         modified_point3D_ids_.insert(point3D_id);
 
         // Recursively complete track for this new correspondence.
-        if (transitivity < max_transitivity - 1) {
+        if (transitivity < max_transitivity) {
           queue.emplace_back(corr->image_id, corr->point2D_idx);
         }
 
         num_completed += 1;
       }
+    }
+
+    if (queue.empty()) {
+      break;
     }
   }
 
