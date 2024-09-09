@@ -181,7 +181,7 @@ inline void Image::SetCameraPtr(struct Camera* camera) {
     THROW_CHECK_EQ(camera->camera_id, camera_id_);
     camera_ptr_ = camera;
   } else {  // switch to new camera
-    camera_id = camera->camera_id;
+    camera_id_ = camera->camera_id;
     camera_ptr_ = camera;
   }
 }
