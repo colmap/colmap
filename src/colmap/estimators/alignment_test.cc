@@ -139,7 +139,7 @@ TEST(Alignment, MergeReconstructions) {
   EXPECT_EQ(tgt_reconstruction.NumImages(), 20);
   EXPECT_EQ(tgt_reconstruction.NumPoints3D(), 50);
   EXPECT_EQ(tgt_reconstruction.ComputeNumObservations(),
-            src_reconstruction.ComputeNumObservations);
+            src_reconstruction.ComputeNumObservations());
 }
 
 }  // namespace colmap
