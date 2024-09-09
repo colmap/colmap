@@ -57,7 +57,7 @@ class FeatureMatcherWorker : public Thread {
 
   FeatureMatcherWorker(const SiftMatchingOptions& matching_options,
                        const TwoViewGeometryOptions& geometry_options,
-                       FeatureMatcherCache* cache,
+                       const std::shared_ptr<FeatureMatcherCache>& cache,
                        JobQueue<Input>* input_queue,
                        JobQueue<Output>* output_queue);
 
@@ -68,7 +68,7 @@ class FeatureMatcherWorker : public Thread {
 
   SiftMatchingOptions matching_options_;
   TwoViewGeometryOptions geometry_options_;
-  FeatureMatcherCache* cache_;
+  std::shared_ptr<FeatureMatcherCache> cache_;
   JobQueue<Input>* input_queue_;
   JobQueue<Output>* output_queue_;
 
@@ -85,8 +85,7 @@ class FeatureMatcherController {
   FeatureMatcherController(
       const SiftMatchingOptions& matching_options,
       const TwoViewGeometryOptions& two_view_geometry_options,
-      Database* database,
-      FeatureMatcherCache* cache);
+      std::shared_ptr<FeatureMatcherCache> cache);
 
   ~FeatureMatcherController();
 
@@ -99,8 +98,7 @@ class FeatureMatcherController {
  private:
   SiftMatchingOptions matching_options_;
   TwoViewGeometryOptions geometry_options_;
-  Database* database_;
-  FeatureMatcherCache* cache_;
+  std::shared_ptr<FeatureMatcherCache> cache_;
 
   bool is_setup_;
 

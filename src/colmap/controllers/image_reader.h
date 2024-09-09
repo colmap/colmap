@@ -101,6 +101,7 @@ class ImageReader {
     SUCCESS,
     IMAGE_EXISTS,
     BITMAP_ERROR,
+    MASK_ERROR,
     CAMERA_SINGLE_DIM_ERROR,
     CAMERA_EXIST_DIM_ERROR,
     CAMERA_PARAM_ERROR
@@ -115,6 +116,8 @@ class ImageReader {
               Bitmap* mask);
   size_t NextIndex() const;
   size_t NumImages() const;
+
+  static std::string StatusToString(Status status);
 
  private:
   // Image reader options.

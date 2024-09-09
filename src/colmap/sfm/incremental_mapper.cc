@@ -284,10 +284,10 @@ void IncrementalMapper::RegisterInitialImagePair(
   init_image_pairs_.insert(pair_id);
 
   Image& image1 = reconstruction_->Image(image_id1);
-  const Camera& camera1 = reconstruction_->Camera(image1.CameraId());
+  const Camera& camera1 = *image1.CameraPtr();
 
   Image& image2 = reconstruction_->Image(image_id2);
-  const Camera& camera2 = reconstruction_->Camera(image2.CameraId());
+  const Camera& camera2 = *image2.CameraPtr();
 
   //////////////////////////////////////////////////////////////////////////////
   // Estimate two-view geometry
@@ -351,7 +351,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   THROW_CHECK(options.Check());
 
   Image& image = reconstruction_->Image(image_id);
-  Camera& camera = reconstruction_->Camera(image.CameraId());
+  Camera& camera = *image.CameraPtr();
 
   THROW_CHECK(!image.IsRegistered())
       << "Image cannot be registered multiple times";
@@ -399,8 +399,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
         continue;
       }
 
-      const Camera& corr_camera =
-          reconstruction_->Camera(corr_image.CameraId());
+      const Camera& corr_camera = *corr_image.CameraPtr();
 
       // Avoid correspondences to images with bogus camera parameters.
       if (corr_camera.HasBogusParams(options.min_focal_length_ratio,
@@ -803,6 +802,7 @@ void IncrementalMapper::IterativeGlobalRefinement(
       break;
     }
   }
+  ClearModifiedPoints3D();
 }
 
 size_t IncrementalMapper::FilterImages(const Options& options) {
@@ -921,8 +921,7 @@ std::vector<image_t> IncrementalMapper::FindFirstInitialImage(
       continue;
     }
 
-    const struct Camera& camera =
-        reconstruction_->Camera(image.second.CameraId());
+    const Camera& camera = *image.second.CameraPtr();
     ImageInfo image_info;
     image_info.image_id = image.first;
     image_info.prior_focal_length = camera.has_prior_focal_length;
@@ -993,8 +992,8 @@ std::vector<image_t> IncrementalMapper::FindSecondInitialImage(
   image_infos.reserve(reconstruction_->NumImages());
   for (const auto elem : num_correspondences) {
     if (elem.second >= init_min_num_inliers) {
-      const class Image& image = reconstruction_->Image(elem.first);
-      const struct Camera& camera = reconstruction_->Camera(image.CameraId());
+      const Image& image = reconstruction_->Image(elem.first);
+      const Camera& camera = *image.CameraPtr();
       ImageInfo image_info;
       image_info.image_id = elem.first;
       image_info.prior_focal_length = camera.has_prior_focal_length;

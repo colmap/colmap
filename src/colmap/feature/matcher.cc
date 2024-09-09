@@ -31,47 +31,16 @@
 
 namespace colmap {
 
-FeatureMatcherCache::FeatureMatcherCache(const size_t cache_size,
-                                         std::shared_ptr<Database> database,
-                                         const bool do_setup)
+FeatureMatcherCache::FeatureMatcherCache(
+    const size_t cache_size, const std::shared_ptr<Database>& database)
     : cache_size_(cache_size),
-      database_(std::move(THROW_CHECK_NOTNULL(database))),
+      database_(THROW_CHECK_NOTNULL(database)),
       descriptor_index_cache_(cache_size_, [this](const image_t image_id) {
         auto descriptors = GetDescriptors(image_id);
         auto index = FeatureDescriptorIndex::Create();
         index->Build(*descriptors);
         return index;
       }) {
-  if (do_setup) {
-    Setup();
-  }
-}
-
-void FeatureMatcherCache::Setup() {
-  {
-    std::lock_guard<std::mutex> lock(database_mutex_);
-
-    std::vector<Camera> cameras = database_->ReadAllCameras();
-    cameras_cache_.reserve(cameras.size());
-    for (Camera& camera : cameras) {
-      cameras_cache_.emplace(camera.camera_id, std::move(camera));
-    }
-
-    std::vector<Image> images = database_->ReadAllImages();
-    images_cache_.reserve(images.size());
-    for (Image& image : images) {
-      images_cache_.emplace(image.ImageId(), std::move(image));
-    }
-
-    pose_priors_cache_.reserve(database_->NumPosePriors());
-    for (const auto& id_and_image : images_cache_) {
-      if (database_->ExistsPosePrior(id_and_image.first)) {
-        pose_priors_cache_.emplace(
-            id_and_image.first, database_->ReadPosePrior(id_and_image.first));
-      }
-    }
-  }
-
   keypoints_cache_ =
       std::make_unique<ThreadSafeLRUCache<image_t, FeatureKeypoints>>(
           cache_size_, [this](const image_t image_id) {
@@ -89,14 +58,14 @@ void FeatureMatcherCache::Setup() {
           });
 
   keypoints_exists_cache_ = std::make_unique<ThreadSafeLRUCache<image_t, bool>>(
-      images_cache_.size(), [this](const image_t image_id) {
+      cache_size_, [this](const image_t image_id) {
         std::lock_guard<std::mutex> lock(database_mutex_);
         return std::make_shared<bool>(database_->ExistsKeypoints(image_id));
       });
 
   descriptors_exists_cache_ =
       std::make_unique<ThreadSafeLRUCache<image_t, bool>>(
-          images_cache_.size(), [this](const image_t image_id) {
+          cache_size_, [this](const image_t image_id) {
             std::lock_guard<std::mutex> lock(database_mutex_);
             return std::make_shared<bool>(
                 database_->ExistsDescriptors(image_id));
@@ -109,17 +78,24 @@ void FeatureMatcherCache::AccessDatabase(
   func(*database_);
 }
 
-const Camera& FeatureMatcherCache::GetCamera(const camera_t camera_id) const {
-  return cameras_cache_.at(camera_id);
+const Camera& FeatureMatcherCache::GetCamera(const camera_t camera_id) {
+  MaybeLoadCameras();
+  return cameras_cache_->at(camera_id);
 }
 
-const Image& FeatureMatcherCache::GetImage(const image_t image_id) const {
-  return images_cache_.at(image_id);
+const Image& FeatureMatcherCache::GetImage(const image_t image_id) {
+  MaybeLoadImages();
+  return images_cache_->at(image_id);
 }
 
-const PosePrior& FeatureMatcherCache::GetPosePrior(
-    const image_t image_id) const {
-  return pose_priors_cache_.at(image_id);
+const PosePrior* FeatureMatcherCache::GetPosePriorOrNull(
+    const image_t image_id) {
+  MaybeLoadPosePriors();
+  const auto it = pose_priors_cache_->find(image_id);
+  if (it == pose_priors_cache_->end()) {
+    return nullptr;
+  }
+  return &it->second;
 }
 
 std::shared_ptr<FeatureKeypoints> FeatureMatcherCache::GetKeypoints(
@@ -138,10 +114,12 @@ FeatureMatches FeatureMatcherCache::GetMatches(const image_t image_id1,
   return database_->ReadMatches(image_id1, image_id2);
 }
 
-std::vector<image_t> FeatureMatcherCache::GetImageIds() const {
+std::vector<image_t> FeatureMatcherCache::GetImageIds() {
+  MaybeLoadImages();
+
   std::vector<image_t> image_ids;
-  image_ids.reserve(images_cache_.size());
-  for (const auto& image : images_cache_) {
+  image_ids.reserve(images_cache_->size());
+  for (const auto& image : *images_cache_) {
     image_ids.push_back(image.first);
   }
   // Sort the images for deterministic behavior. Note that the images_cache_ is
@@ -154,10 +132,6 @@ std::vector<image_t> FeatureMatcherCache::GetImageIds() const {
 ThreadSafeLRUCache<image_t, FeatureDescriptorIndex>&
 FeatureMatcherCache::GetFeatureDescriptorIndexCache() {
   return descriptor_index_cache_;
-}
-
-bool FeatureMatcherCache::ExistsPosePrior(const image_t image_id) const {
-  return pose_priors_cache_.find(image_id) != pose_priors_cache_.end();
 }
 
 bool FeatureMatcherCache::ExistsKeypoints(const image_t image_id) {
@@ -205,6 +179,58 @@ void FeatureMatcherCache::DeleteInlierMatches(const image_t image_id1,
                                               const image_t image_id2) {
   std::lock_guard<std::mutex> lock(database_mutex_);
   database_->DeleteInlierMatches(image_id1, image_id2);
+}
+
+size_t FeatureMatcherCache::MaxNumKeypoints() {
+  std::lock_guard<std::mutex> lock(database_mutex_);
+  return database_->MaxNumKeypoints();
+}
+
+void FeatureMatcherCache::MaybeLoadCameras() {
+  if (cameras_cache_) {
+    return;
+  }
+
+  std::lock_guard<std::mutex> lock(database_mutex_);
+  std::vector<Camera> cameras = database_->ReadAllCameras();
+  cameras_cache_ = std::make_unique<std::unordered_map<camera_t, Camera>>();
+  cameras_cache_->reserve(cameras.size());
+  for (Camera& camera : cameras) {
+    cameras_cache_->emplace(camera.camera_id, std::move(camera));
+  }
+}
+
+void FeatureMatcherCache::MaybeLoadImages() {
+  if (images_cache_) {
+    return;
+  }
+
+  std::lock_guard<std::mutex> lock(database_mutex_);
+  std::vector<Image> images = database_->ReadAllImages();
+  images_cache_ = std::make_unique<std::unordered_map<image_t, Image>>();
+  images_cache_->reserve(images.size());
+  for (Image& image : images) {
+    images_cache_->emplace(image.ImageId(), std::move(image));
+  }
+}
+
+void FeatureMatcherCache::MaybeLoadPosePriors() {
+  if (pose_priors_cache_) {
+    return;
+  }
+
+  MaybeLoadImages();
+
+  std::lock_guard<std::mutex> lock(database_mutex_);
+  pose_priors_cache_ =
+      std::make_unique<std::unordered_map<image_t, PosePrior>>();
+  pose_priors_cache_->reserve(database_->NumPosePriors());
+  for (const auto& image : *images_cache_) {
+    if (database_->ExistsPosePrior(image.first)) {
+      pose_priors_cache_->emplace(image.first,
+                                  database_->ReadPosePrior(image.first));
+    }
+  }
 }
 
 }  // namespace colmap
