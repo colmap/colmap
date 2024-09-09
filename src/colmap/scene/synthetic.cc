@@ -59,13 +59,11 @@ void SynthesizeExhaustiveMatches(double inlier_match_ratio,
   const std::vector<image_t>& reg_image_ids = reconstruction->RegImageIds();
   for (size_t image_idx1 = 0; image_idx1 < reg_image_ids.size(); ++image_idx1) {
     const auto& image1 = reconstruction->Image(reg_image_ids[image_idx1]);
-    const Eigen::Matrix3d K1 =
-        reconstruction->Camera(image1.CameraId()).CalibrationMatrix();
+    const Eigen::Matrix3d K1 = image1.CameraPtr()->CalibrationMatrix();
     const auto num_points2D1 = image1.NumPoints2D();
     for (size_t image_idx2 = 0; image_idx2 < image_idx1; ++image_idx2) {
       const auto& image2 = reconstruction->Image(reg_image_ids[image_idx2]);
-      const Eigen::Matrix3d K2 =
-          reconstruction->Camera(image2.CameraId()).CalibrationMatrix();
+      const Eigen::Matrix3d K2 = image2.CameraPtr()->CalibrationMatrix();
       const auto num_points2D2 = image2.NumPoints2D();
 
       TwoViewGeometry two_view_geometry;
@@ -131,9 +129,9 @@ void SynthesizeChainedMatches(double inlier_match_ratio,
     const auto image_pair =
         Database::PairIdToImagePair(two_view_geometry.first);
     const auto& image1 = reconstruction->Image(image_pair.first);
-    const auto& camera1 = reconstruction->Camera(image1.CameraId());
+    const auto& camera1 = *image1.CameraPtr();
     const auto& image2 = reconstruction->Image(image_pair.second);
-    const auto& camera2 = reconstruction->Camera(image2.CameraId());
+    const auto& camera2 = *image2.CameraPtr();
     two_view_geometry.second.config = TwoViewGeometry::CALIBRATED;
     two_view_geometry.second.cam2_from_cam1 =
         image2.CamFromWorld() * Inverse(image1.CamFromWorld());

@@ -30,6 +30,8 @@ import os
 # ones.
 extensions = [
     "sphinx.ext.mathjax",
+    "sphinx.ext.autodoc",
+    "sphinx.ext.autodoc.typehints",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -46,7 +48,7 @@ master_doc = "index"
 
 # General information about the project.
 project = u"COLMAP"
-copyright = u"2023, Johannes L. Schoenberger"
+copyright = u"2024, Johannes L. Schoenberger"
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -129,7 +131,8 @@ html_theme_path = ["_themes"]
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-# html_static_path = ['_static']
+html_static_path = ["_static"]
+html_css_files = ["custom.css"]
 
 # Add any extra paths that contain custom files (such as robots.txt or
 # .htaccess) here, relative to this directory. These files are copied
@@ -272,3 +275,8 @@ texinfo_documents = [
 
 # If true, do not generate a @detailmenu in the "Top" node's menu.
 # texinfo_no_detailmenu = False
+
+# Configure how Python API docs are displayed.
+autodoc_member_order = "bysource"
+autodoc_typehints = "both"
+python_maximum_signature_line_length = 120

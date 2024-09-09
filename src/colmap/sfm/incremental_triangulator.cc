@@ -108,8 +108,7 @@ size_t IncrementalTriangulator::TriangulateImage(const Options& options,
     return num_tris;
   }
 
-  const Camera& camera = reconstruction_.Camera(image.CameraId());
-  if (HasCameraBogusParams(options, camera)) {
+  if (HasCameraBogusParams(options, *image.CameraPtr())) {
     return num_tris;
   }
 
@@ -119,7 +118,7 @@ size_t IncrementalTriangulator::TriangulateImage(const Options& options,
   CorrData ref_corr_data;
   ref_corr_data.image_id = image_id;
   ref_corr_data.image = &image;
-  ref_corr_data.camera = &camera;
+  ref_corr_data.camera = image.CameraPtr();
 
   // Container for correspondences from reference observation to other images.
   std::vector<CorrData> corrs_data;
@@ -180,9 +179,6 @@ size_t IncrementalTriangulator::CompleteImage(const Options& options,
   tri_options.residual_type =
       TriangulationEstimator::ResidualType::REPROJECTION_ERROR;
   tri_options.ransac_options.max_error = options.complete_max_reproj_error;
-  tri_options.ransac_options.confidence = 0.9999;
-  tri_options.ransac_options.min_inlier_ratio = 0.02;
-  tri_options.ransac_options.max_num_trials = 10000;
 
   // Correspondence data for reference observation in given image. We iterate
   // over all observations of the image and each observation once becomes
@@ -508,9 +504,6 @@ size_t IncrementalTriangulator::Create(
       TriangulationEstimator::ResidualType::ANGULAR_ERROR;
   tri_options.ransac_options.max_error =
       DegToRad(options.create_max_angle_error);
-  tri_options.ransac_options.confidence = 0.9999;
-  tri_options.ransac_options.min_inlier_ratio = 0.02;
-  tri_options.ransac_options.max_num_trials = 10000;
 
   // Estimate triangulation.
   Eigen::Vector3d xyz;
@@ -695,15 +688,11 @@ size_t IncrementalTriangulator::Complete(const Options& options,
   std::vector<TrackElement> queue = point3D.track.Elements();
 
   const int max_transitivity = options.complete_max_transitivity;
-  for (int transitivity = 0; transitivity < max_transitivity; ++transitivity) {
-    if (queue.empty()) {
-      break;
-    }
+  for (int transitivity = 1; transitivity <= max_transitivity; ++transitivity) {
+    while (!queue.empty()) {
+      const TrackElement queue_elem = queue.back();
+      queue.pop_back();
 
-    const std::vector<TrackElement> prev_queue = queue;
-    queue.clear();
-
-    for (const TrackElement& queue_elem : prev_queue) {
       const auto corr_range = correspondence_graph_->FindCorrespondences(
           queue_elem.image_id, queue_elem.point2D_idx);
       for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
@@ -729,17 +718,21 @@ size_t IncrementalTriangulator::Complete(const Options& options,
         }
 
         // Success, add observation to point track.
-        const TrackElement track_el(corr->image_id, corr->point2D_idx);
-        obs_manager_->AddObservation(point3D_id, track_el);
+        obs_manager_->AddObservation(
+            point3D_id, TrackElement(corr->image_id, corr->point2D_idx));
         modified_point3D_ids_.insert(point3D_id);
 
         // Recursively complete track for this new correspondence.
-        if (transitivity < max_transitivity - 1) {
+        if (transitivity < max_transitivity) {
           queue.emplace_back(corr->image_id, corr->point2D_idx);
         }
 
         num_completed += 1;
       }
+    }
+
+    if (queue.empty()) {
+      break;
     }
   }
 

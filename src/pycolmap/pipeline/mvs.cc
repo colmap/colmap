@@ -168,14 +168,13 @@ void BindMVS(py::module& m) {
                          &PMOpts::write_consistency_graph,
                          "Whether to write the consistency graph.");
   MakeDataclass(PyPatchMatchOptions);
-  auto patch_match_options = PyPatchMatchOptions().cast<PMOpts>();
 
   m.def("patch_match_stereo",
         &PatchMatchStereo,
         "workspace_path"_a,
         "workspace_format"_a = "COLMAP",
         "pmvs_option_name"_a = "option-all",
-        "options"_a = patch_match_options,
+        py::arg_v("options", mvs::PatchMatchOptions(), "PatchMatchOptions()"),
         "config_path"_a = "",
         "Runs Patch-Match-Stereo (requires CUDA)");
 #endif  // COLMAP_CUDA_ENABLED
@@ -231,15 +230,15 @@ void BindMVS(py::module& m) {
                          &SFOpts::bounding_box,
                          "Bounding box Tuple[min, max]");
   MakeDataclass(PyStereoFusionOptions);
-  auto stereo_fusion_options = PyStereoFusionOptions().cast<SFOpts>();
 
-  m.def("stereo_fusion",
-        &StereoFusion,
-        "output_path"_a,
-        "workspace_path"_a,
-        "workspace_format"_a = "COLMAP",
-        "pmvs_option_name"_a = "option-all",
-        "input_type"_a = "geometric",
-        "options"_a = stereo_fusion_options,
-        "Stereo Fusion");
+  m.def(
+      "stereo_fusion",
+      &StereoFusion,
+      "output_path"_a,
+      "workspace_path"_a,
+      "workspace_format"_a = "COLMAP",
+      "pmvs_option_name"_a = "option-all",
+      "input_type"_a = "geometric",
+      py::arg_v("options", mvs::StereoFusionOptions(), "StereoFusionOptions()"),
+      "Stereo Fusion");
 }

@@ -271,6 +271,41 @@ TEST(SpatialPairGenerator, Nominal) {
   }
 }
 
+TEST(TransitivePairGenerator, Nominal) {
+  constexpr int kNumImages = 5;
+  auto database = std::make_shared<Database>(Database::kInMemoryDatabasePath);
+  CreateSyntheticDatabase(kNumImages, *database);
+  const std::vector<Image> images = database->ReadAllImages();
+  CHECK_EQ(images.size(), kNumImages);
+
+  TwoViewGeometry two_view_geometry;
+  two_view_geometry.inlier_matches.resize(10);
+
+  database->ClearTwoViewGeometries();
+  database->WriteTwoViewGeometry(
+      images[0].ImageId(), images[1].ImageId(), two_view_geometry);
+  database->WriteTwoViewGeometry(
+      images[0].ImageId(), images[2].ImageId(), two_view_geometry);
+  database->WriteTwoViewGeometry(
+      images[1].ImageId(), images[3].ImageId(), two_view_geometry);
+
+  TransitiveMatchingOptions options;
+  TransitivePairGenerator generator(options, database);
+  const auto pairs1 = generator.Next();
+  EXPECT_THAT(pairs1,
+              testing::UnorderedElementsAre(
+                  std::make_pair(images[2].ImageId(), images[1].ImageId()),
+                  std::make_pair(images[3].ImageId(), images[0].ImageId())));
+  for (const auto& pair : pairs1) {
+    database->WriteTwoViewGeometry(pair.first, pair.second, two_view_geometry);
+  }
+  EXPECT_THAT(generator.Next(),
+              testing::ElementsAre(
+                  std::make_pair(images[3].ImageId(), images[2].ImageId())));
+  EXPECT_TRUE(generator.Next().empty());
+  EXPECT_TRUE(generator.HasFinished());
+}
+
 TEST(ImportedPairGenerator, Nominal) {
   constexpr int kNumImages = 10;
   auto database = std::make_shared<Database>(Database::kInMemoryDatabasePath);

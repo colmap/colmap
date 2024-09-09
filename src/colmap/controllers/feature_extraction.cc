@@ -260,26 +260,9 @@ class FeatureWriterThread : public Thread {
         LOG(INFO) << StringPrintf("  Name:            %s",
                                   image_data.image.Name().c_str());
 
-        if (image_data.status == ImageReader::Status::IMAGE_EXISTS) {
-          LOG(INFO) << "  SKIP: Features for image already extracted.";
-        } else if (image_data.status == ImageReader::Status::BITMAP_ERROR) {
-          LOG(ERROR) << "Failed to read image file format.";
-        } else if (image_data.status ==
-                   ImageReader::Status::CAMERA_SINGLE_DIM_ERROR) {
-          LOG(ERROR) << "Single camera specified, "
-                        "but images have different dimensions.";
-        } else if (image_data.status ==
-                   ImageReader::Status::CAMERA_EXIST_DIM_ERROR) {
-          LOG(ERROR) << "Image previously processed, but current image "
-                        "has different dimensions.";
-        } else if (image_data.status ==
-                   ImageReader::Status::CAMERA_PARAM_ERROR) {
-          LOG(ERROR) << "Camera has invalid parameters.";
-        } else if (image_data.status == ImageReader::Status::FAILURE) {
-          LOG(ERROR) << "Failed to extract features.";
-        }
-
         if (image_data.status != ImageReader::Status::SUCCESS) {
+          LOG(ERROR) << image_data.image.Name() << " "
+                     << ImageReader::StatusToString(image_data.status);
           continue;
         }
 

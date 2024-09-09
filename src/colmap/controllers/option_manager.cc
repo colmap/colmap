@@ -474,15 +474,23 @@ void OptionManager::AddBundleAdjustmentOptions() {
                               &bundle_adjustment->use_gpu);
   AddAndRegisterDefaultOption("BundleAdjustment.gpu_index",
                               &bundle_adjustment->gpu_index);
+  AddAndRegisterDefaultOption("BundleAdjustment.min_num_images_gpu_solver",
+                              &bundle_adjustment->min_num_images_gpu_solver);
   AddAndRegisterDefaultOption(
-      "BundleAdjustment.min_num_residuals_for_multi_threading",
-      &bundle_adjustment->min_num_residuals_for_multi_threading);
+      "BundleAdjustment.min_num_residuals_for_cpu_multi_threading",
+      &bundle_adjustment->min_num_residuals_for_cpu_multi_threading);
   AddAndRegisterDefaultOption(
-      "BundleAdjustment.max_num_images_direct_dense_solver",
-      &bundle_adjustment->max_num_images_direct_dense_solver);
+      "BundleAdjustment.max_num_images_direct_dense_cpu_solver",
+      &bundle_adjustment->max_num_images_direct_dense_cpu_solver);
   AddAndRegisterDefaultOption(
-      "BundleAdjustment.max_num_images_direct_sparse_solver",
-      &bundle_adjustment->max_num_images_direct_sparse_solver);
+      "BundleAdjustment.max_num_images_direct_sparse_cpu_solver",
+      &bundle_adjustment->max_num_images_direct_sparse_cpu_solver);
+  AddAndRegisterDefaultOption(
+      "BundleAdjustment.max_num_images_direct_dense_gpu_solver",
+      &bundle_adjustment->max_num_images_direct_dense_gpu_solver);
+  AddAndRegisterDefaultOption(
+      "BundleAdjustment.max_num_images_direct_sparse_gpu_solver",
+      &bundle_adjustment->max_num_images_direct_sparse_gpu_solver);
 }
 
 void OptionManager::AddMapperOptions() {
@@ -519,9 +527,6 @@ void OptionManager::AddMapperOptions() {
                               &mapper->ba_refine_principal_point);
   AddAndRegisterDefaultOption("Mapper.ba_refine_extra_params",
                               &mapper->ba_refine_extra_params);
-  AddAndRegisterDefaultOption(
-      "Mapper.ba_min_num_residuals_for_multi_threading",
-      &mapper->ba_min_num_residuals_for_multi_threading);
   AddAndRegisterDefaultOption("Mapper.ba_local_num_images",
                               &mapper->ba_local_num_images);
   AddAndRegisterDefaultOption("Mapper.ba_local_function_tolerance",
@@ -550,6 +555,9 @@ void OptionManager::AddMapperOptions() {
                               &mapper->ba_local_max_refinement_change);
   AddAndRegisterDefaultOption("Mapper.ba_use_gpu", &mapper->ba_use_gpu);
   AddAndRegisterDefaultOption("Mapper.ba_gpu_index", &mapper->ba_gpu_index);
+  AddAndRegisterDefaultOption(
+      "Mapper.ba_min_num_residuals_for_cpu_multi_threading",
+      &mapper->ba_min_num_residuals_for_cpu_multi_threading);
   AddAndRegisterDefaultOption("Mapper.snapshot_path", &mapper->snapshot_path);
   AddAndRegisterDefaultOption("Mapper.snapshot_images_freq",
                               &mapper->snapshot_images_freq);
