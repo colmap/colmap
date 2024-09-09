@@ -89,6 +89,7 @@ std::vector<ImageAlignmentError> ComputeImageAlignmentError(
 
 // Aligns the source to the target reconstruction and merges cameras, images,
 // points3D into the target using the alignment. Returns false on failure.
+// TODO: This function needs a unit test.
 bool MergeReconstructions(double max_reproj_error,
                           const Reconstruction& src_reconstruction,
                           Reconstruction& tgt_reconstruction);
