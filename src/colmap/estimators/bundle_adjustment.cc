@@ -911,6 +911,7 @@ void PosePriorBundleAdjuster::AddPosePriorToProblem(
     Reconstruction* reconstruction,
     ceres::LossFunction* prior_loss_function) {
   if (!prior.IsValid() || !prior.IsCovarianceValid()) {
+    LOG(ERROR) << "\n Could not add prior for image #" << image_id << "\n";
     return;
   }
   Image& image = reconstruction->Image(image_id);
