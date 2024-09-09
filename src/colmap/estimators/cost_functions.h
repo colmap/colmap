@@ -516,12 +516,10 @@ struct PositionPriorErrorCostFunction {
                   const T* const cam_from_world_t,
                   T* residuals_ptr) const {
     Eigen::Map<Eigen::Matrix<T, 3, 1>> residuals(residuals_ptr);
-    residuals = (EigenQuaternionMap<T>(cam_from_world_q).inverse() *
-                 -EigenVector3Map<T>(cam_from_world_t)) -
-                world_from_cam_position_prior_.cast<T>();
-
-    residuals.applyOnTheLeft(sqrt_information_prior_.cast<T>());
-
+    residuals = world_from_cam_position_prior_.cast<T>() +
+                EigenQuaternionMap<T>(cam_from_world_q).inverse() *
+                    EigenVector3Map<T>(cam_from_world_t);
+    residuals.applyOnTheLeft(sqrt_information_prior_.template cast<T>());
     return true;
   }
 
