@@ -436,15 +436,16 @@ bool MergeReconstructions(const double max_reproj_error,
   // Register the missing images in this src_reconstruction.
   for (const auto image_id : missing_image_ids) {
     auto src_image = src_reconstruction.Image(image_id);
+    src_image.ResetCameraPtr();
     src_image.SetRegistered(false);
     src_image.CamFromWorld() =
         TransformCameraWorld(tgt_from_src, src_image.CamFromWorld());
-    tgt_reconstruction.AddImage(src_image);
-    tgt_reconstruction.RegisterImage(image_id);
     if (!tgt_reconstruction.ExistsCamera(src_image.CameraId())) {
       tgt_reconstruction.AddCamera(
           src_reconstruction.Camera(src_image.CameraId()));
     }
+    tgt_reconstruction.AddImage(src_image);
+    tgt_reconstruction.RegisterImage(image_id);
   }
 
   // Merge the two point clouds using the following two rules:

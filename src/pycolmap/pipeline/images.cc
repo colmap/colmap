@@ -49,8 +49,10 @@ void ImportImages(const std::string& database_path,
     Image image;
     PosePrior pose_prior;
     Bitmap bitmap;
-    if (image_reader.Next(&camera, &image, &pose_prior, &bitmap, nullptr) !=
-        ImageReader::Status::SUCCESS) {
+    const ImageReader::Status status =
+        image_reader.Next(&camera, &image, &pose_prior, &bitmap, nullptr);
+    if (status != ImageReader::Status::SUCCESS) {
+      LOG(ERROR) << image.Name() << " " << ImageReader::StatusToString(status);
       continue;
     }
     DatabaseTransaction database_transaction(&database);

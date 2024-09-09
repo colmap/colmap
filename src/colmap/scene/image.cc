@@ -38,6 +38,7 @@ Image::Image()
     : image_id_(kInvalidImageId),
       name_(""),
       camera_id_(kInvalidCameraId),
+      camera_ptr_(nullptr),
       registered_(false),
       num_points3D_(0) {}
 
@@ -92,6 +93,16 @@ Eigen::Vector3d Image::ProjectionCenter() const {
 
 Eigen::Vector3d Image::ViewingDirection() const {
   return CamFromWorld().rotation.toRotationMatrix().row(2);
+}
+
+std::pair<bool, Eigen::Vector2d> Image::ProjectPoint(
+    const Eigen::Vector3d& point3D) const {
+  THROW_CHECK(HasCameraPtr());
+  const Eigen::Vector3d point3D_in_cam = cam_from_world_ * point3D;
+  if (point3D_in_cam.z() < std::numeric_limits<double>::epsilon()) {
+    return {false, Eigen::Vector2d()};
+  }
+  return {true, camera_ptr_->ImgFromCam(point3D_in_cam.hnormalized())};
 }
 
 }  // namespace colmap

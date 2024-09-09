@@ -284,10 +284,10 @@ void IncrementalMapper::RegisterInitialImagePair(
   init_image_pairs_.insert(pair_id);
 
   Image& image1 = reconstruction_->Image(image_id1);
-  const Camera& camera1 = reconstruction_->Camera(image1.CameraId());
+  const Camera& camera1 = *image1.CameraPtr();
 
   Image& image2 = reconstruction_->Image(image_id2);
-  const Camera& camera2 = reconstruction_->Camera(image2.CameraId());
+  const Camera& camera2 = *image2.CameraPtr();
 
   //////////////////////////////////////////////////////////////////////////////
   // Estimate two-view geometry
@@ -351,7 +351,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   THROW_CHECK(options.Check());
 
   Image& image = reconstruction_->Image(image_id);
-  Camera& camera = reconstruction_->Camera(image.CameraId());
+  Camera& camera = *image.CameraPtr();
 
   THROW_CHECK(!image.IsRegistered())
       << "Image cannot be registered multiple times";
@@ -399,8 +399,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
         continue;
       }
 
-      const Camera& corr_camera =
-          reconstruction_->Camera(corr_image.CameraId());
+      const Camera& corr_camera = *corr_image.CameraPtr();
 
       // Avoid correspondences to images with bogus camera parameters.
       if (corr_camera.HasBogusParams(options.min_focal_length_ratio,
@@ -444,11 +443,6 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   abs_pose_options.ransac_options.max_error = options.abs_pose_max_error;
   abs_pose_options.ransac_options.min_inlier_ratio =
       options.abs_pose_min_inlier_ratio;
-  // Use high confidence to avoid preemptive termination of P3P RANSAC
-  // - too early termination may lead to bad registration.
-  abs_pose_options.ransac_options.min_num_trials = 100;
-  abs_pose_options.ransac_options.max_num_trials = 10000;
-  abs_pose_options.ransac_options.confidence = 0.99999;
 
   AbsolutePoseRefinementOptions abs_pose_refinement_options;
   if (num_reg_images_per_camera_[image.CameraId()] > 0) {
@@ -808,6 +802,7 @@ void IncrementalMapper::IterativeGlobalRefinement(
       break;
     }
   }
+  ClearModifiedPoints3D();
 }
 
 size_t IncrementalMapper::FilterImages(const Options& options) {
@@ -926,8 +921,7 @@ std::vector<image_t> IncrementalMapper::FindFirstInitialImage(
       continue;
     }
 
-    const struct Camera& camera =
-        reconstruction_->Camera(image.second.CameraId());
+    const Camera& camera = *image.second.CameraPtr();
     ImageInfo image_info;
     image_info.image_id = image.first;
     image_info.prior_focal_length = camera.has_prior_focal_length;
@@ -998,8 +992,8 @@ std::vector<image_t> IncrementalMapper::FindSecondInitialImage(
   image_infos.reserve(reconstruction_->NumImages());
   for (const auto elem : num_correspondences) {
     if (elem.second >= init_min_num_inliers) {
-      const class Image& image = reconstruction_->Image(elem.first);
-      const struct Camera& camera = reconstruction_->Camera(image.CameraId());
+      const Image& image = reconstruction_->Image(elem.first);
+      const Camera& camera = *image.CameraPtr();
       ImageInfo image_info;
       image_info.image_id = elem.first;
       image_info.prior_focal_length = camera.has_prior_focal_length;
