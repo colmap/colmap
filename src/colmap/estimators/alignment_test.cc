@@ -136,6 +136,8 @@ TEST(Alignment, MergeReconstructions) {
   tgt_reconstruction.TearDown();
   EXPECT_EQ(tgt_reconstruction.NumCameras(), 1);
   EXPECT_EQ(tgt_reconstruction.NumImages(), 10);
+
+  // Merge reconstructions
   MergeReconstructions(0.01, src_reconstruction, tgt_reconstruction);
   EXPECT_EQ(tgt_reconstruction.NumCameras(), 2);
   EXPECT_EQ(tgt_reconstruction.NumImages(), 20);
