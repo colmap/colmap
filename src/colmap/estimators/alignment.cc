@@ -439,7 +439,8 @@ bool MergeReconstructions(const double max_reproj_error,
     src_image.CamFromWorld() =
         TransformCameraWorld(tgt_from_src, src_image.CamFromWorld());
     if (!tgt_reconstruction.ExistsCamera(src_image.CameraId())) {
-      tgt_reconstruction.AddCamera(*src_image.CameraPtr());
+      tgt_reconstruction.AddCamera(
+          src_reconstruction.Camera(src_image.CameraId()));
     }
     tgt_reconstruction.AddImage(src_image);
     tgt_reconstruction.RegisterImage(image_id);
