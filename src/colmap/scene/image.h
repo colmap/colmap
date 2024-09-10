@@ -66,7 +66,14 @@ class Image {
   inline camera_t CameraId() const;
   inline void SetCameraId(camera_t camera_id);
   // Check whether identifier of camera has been set.
-  inline bool HasCamera() const;
+  inline bool HasCameraId() const;
+
+  // Access to the underlying, shared camera object.
+  // This is typically only set when the image was added to a reconstruction.
+  inline struct Camera* CameraPtr() const;
+  inline void SetCameraPtr(struct Camera* camera);
+  inline void ResetCameraPtr();
+  inline bool HasCameraPtr() const;
 
   // Check if image is registered.
   inline bool IsRegistered() const;
@@ -106,6 +113,11 @@ class Image {
   // Extract the viewing direction of the image.
   Eigen::Vector3d ViewingDirection() const;
 
+  // Reproject the 3D point onto the image in pixels (throws if the camera
+  // object was not set). Return false if the 3D point is behind the camera.
+  std::pair<bool, Eigen::Vector2d> ProjectPoint(
+      const Eigen::Vector3d& point3D) const;
+
  private:
   // Identifier of the image, if not specified `kInvalidImageId`.
   image_t image_id_;
@@ -116,6 +128,7 @@ class Image {
   // The identifier of the associated camera. Note that multiple images might
   // share the same camera. If not specified `kInvalidCameraId`.
   camera_t camera_id_;
+  struct Camera* camera_ptr_;
 
   // Whether the image is successfully registered in the reconstruction.
   bool registered_;
@@ -149,10 +162,33 @@ inline camera_t Image::CameraId() const { return camera_id_; }
 
 inline void Image::SetCameraId(const camera_t camera_id) {
   THROW_CHECK_NE(camera_id, kInvalidCameraId);
+  THROW_CHECK(!HasCameraPtr());
   camera_id_ = camera_id;
 }
 
-inline bool Image::HasCamera() const { return camera_id_ != kInvalidCameraId; }
+inline bool Image::HasCameraId() const {
+  return camera_id_ != kInvalidCameraId;
+}
+
+inline struct Camera* Image::CameraPtr() const {
+  return THROW_CHECK_NOTNULL(camera_ptr_);
+}
+
+inline void Image::SetCameraPtr(struct Camera* camera) {
+  THROW_CHECK_NOTNULL(camera);
+  THROW_CHECK_NE(camera->camera_id, kInvalidCameraId);
+  if (!HasCameraPtr()) {
+    THROW_CHECK_EQ(camera->camera_id, camera_id_);
+    camera_ptr_ = camera;
+  } else {  // switch to new camera
+    camera_id_ = camera->camera_id;
+    camera_ptr_ = camera;
+  }
+}
+
+inline void Image::ResetCameraPtr() { camera_ptr_ = nullptr; }
+
+inline bool Image::HasCameraPtr() const { return camera_ptr_ != nullptr; }
 
 bool Image::IsRegistered() const { return registered_; }
 

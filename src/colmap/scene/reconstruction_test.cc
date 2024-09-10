@@ -83,15 +83,20 @@ TEST(Reconstruction, AddCamera) {
 
 TEST(Reconstruction, AddImage) {
   Reconstruction reconstruction;
+  Camera camera =
+      Camera::CreateFromModelId(1, CameraModelId::kSimplePinhole, 1, 1, 1);
   Image image;
+  image.SetCameraId(camera.camera_id);
   image.SetImageId(1);
+  EXPECT_ANY_THROW(reconstruction.AddImage(image));
+  reconstruction.AddCamera(camera);
   reconstruction.AddImage(image);
   EXPECT_TRUE(reconstruction.ExistsImage(1));
   EXPECT_EQ(reconstruction.Image(1).ImageId(), 1);
   EXPECT_FALSE(reconstruction.Image(1).IsRegistered());
   EXPECT_EQ(reconstruction.Images().count(1), 1);
   EXPECT_EQ(reconstruction.Images().size(), 1);
-  EXPECT_EQ(reconstruction.NumCameras(), 0);
+  EXPECT_EQ(reconstruction.NumCameras(), 1);
   EXPECT_EQ(reconstruction.NumImages(), 1);
   EXPECT_EQ(reconstruction.NumRegImages(), 0);
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
@@ -240,6 +245,7 @@ TEST(Reconstruction, Normalize) {
   EXPECT_NEAR(reconstruction.Image(3).CamFromWorld().translation.z(), 5, 1e-6);
   reconstruction.Normalize(20);
   Image image;
+  image.SetCameraId(reconstruction.Image(1).CameraId());
   image.SetImageId(4);
   reconstruction.AddImage(image);
   reconstruction.RegisterImage(4);
