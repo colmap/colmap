@@ -28,7 +28,8 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 
-# This script creates a deployable package of COLMAP for Mac OS X.
+# This script creates a deployable package of COLMAP for Mac OS.
+# It takes the path of the main colmap executable.
 
 BASE_PATH=$(dirname $1)
 
@@ -62,11 +63,11 @@ cat <<EOM >"$BASE_PATH/COLMAP.app/Contents/Info.plist"
 </plist>
 EOM
 
-install_name_tool -change @rpath/libtbb.dylib /usr/local/lib/libtbb.dylib $BASE_PATH/COLMAP.app/Contents/MacOS/COLMAP
-install_name_tool -change @rpath/libtbbmalloc.dylib /usr/local/lib/libtbbmalloc.dylib $BASE_PATH/COLMAP.app/Contents/MacOS/COLMAP
+install_name_tool -change @rpath/libtbb.dylib $(brew --prefix tbb)/lib/libtbb.dylib $BASE_PATH/COLMAP.app/Contents/MacOS/COLMAP
+install_name_tool -change @rpath/libtbbmalloc.dylib $(brew --prefix tbb)/lib/libtbbmalloc.dylib $BASE_PATH/COLMAP.app/Contents/MacOS/COLMAP
 
 echo "Linking dynamic libraries"
-/usr/local/opt/qt5/bin/macdeployqt "$BASE_PATH/COLMAP.app"
+"$(brew --prefix qt5)/bin/macdeployqt" "$BASE_PATH/COLMAP.app"
 
 echo "Wrapping binary"
 cat <<EOM >"$BASE_PATH/COLMAP.app/Contents/MacOS/colmap_gui.sh"
@@ -79,4 +80,4 @@ sed -i '' 's#<string>colmap</string>#<string>colmap_gui.sh</string>#g' $BASE_PAT
 
 echo "Compressing application"
 cd "$BASE_PATH"
-zip -r "COLMAP-mac.zip" "COLMAP.app"
+zip -r "COLMAP.zip" "COLMAP.app"

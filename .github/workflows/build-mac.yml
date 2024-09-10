@@ -21,6 +21,7 @@ jobs:
             os: macos-14,
             arch: arm64,
             cmakeBuildType: Release,
+            exportPackage: true,
           },
         ]
 
@@ -71,6 +72,7 @@ jobs:
             -GNinja \
             -DCMAKE_BUILD_TYPE=${{ matrix.config.cmakeBuildType }} \
             -DTESTS_ENABLED=ON \
+            -DCMAKE_OSX_ARCHITECTURES=${{ matrix.config.arch }} \
             -DCMAKE_PREFIX_PATH="/opt/homebrew/opt/flann;/opt/homebrew/opt/metis;/opt/homebrew/opt/suite-sparse;/opt/homebrew/opt/qt@5;/opt/homebrew/opt/freeimage"
           ninja
 
@@ -79,6 +81,18 @@ jobs:
           cd build
           set +e
           ctest --output-on-failure
+
+      - name: Export package
+        if: matrix.config.exportPackage
+        run: |
+          scripts/shell/build_mac_app.sh build/src/colmap/exe/colmap
+
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        if: matrix.config.exportPackage
+        with:
+          name: colmap-${{ matrix.config.arch }}-mac
+          path: build/src/colmap/exe/COLMAP.zip
 
       - name: Cleanup compiler cache
         run: |
