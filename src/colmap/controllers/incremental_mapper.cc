@@ -489,12 +489,13 @@ void IncrementalPipeline::Reconstruct(
     const Status status =
         ReconstructSubModel(mapper, mapper_options, reconstruction);
     switch (status) {
-      case Status::INTERRUPTED:
+      case Status::INTERRUPTED: {
         mapper.EndReconstruction(/*discard=*/false);
         return;
+      }
 
       case Status::NO_INITIAL_PAIR:
-      case Status::BAD_INITIAL_PAIR:
+      case Status::BAD_INITIAL_PAIR: {
         mapper.EndReconstruction(/*discard=*/true);
         reconstruction_manager_->Delete(reconstruction_idx);
         // If both initial images are manually specified, there is no need for
@@ -503,6 +504,7 @@ void IncrementalPipeline::Reconstruct(
           return;
         }
         break;
+      }
 
       case Status::SUCCESS: {
         // Remember the total number of registered images before potentially
@@ -533,7 +535,9 @@ void IncrementalPipeline::Reconstruct(
             total_num_reg_images >= database_cache_->NumImages() - 1) {
           return;
         }
-      } break;
+
+        break;
+      }
 
       default:
         LOG(FATAL_THROW) << "Unknown reconstruction status.";
