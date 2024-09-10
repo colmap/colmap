@@ -862,12 +862,12 @@ void PrintSolverSummary(const ceres::Solver::Summary& summary,
 
   log << std::right << std::setw(16) << "Initial cost : ";
   log << std::right << std::setprecision(6)
-      << std::sqrt(summary.initial_cost / summary.num_residuals_reduced)
+      << std::sqrt(2 * summary.initial_cost / summary.num_residuals_reduced)
       << " [px]\n";
 
   log << std::right << std::setw(16) << "Final cost : ";
   log << std::right << std::setprecision(6)
-      << std::sqrt(summary.final_cost / summary.num_residuals_reduced)
+      << std::sqrt(2 * summary.final_cost / summary.num_residuals_reduced)
       << " [px]\n";
 
   log << std::right << std::setw(16) << "Termination : ";
