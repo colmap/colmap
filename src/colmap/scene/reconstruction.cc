@@ -526,7 +526,7 @@ void Reconstruction::UpdatePoint3DErrors() {
     for (const auto& track_el : point3D.second.track.Elements()) {
       const auto& image = Image(track_el.image_id);
       const auto& point2D = image.Point2D(track_el.point2D_idx);
-      const auto& camera = Camera(image.CameraId());
+      const auto& camera = *image.CameraPtr();
       point3D.second.error += std::sqrt(CalculateSquaredReprojectionError(
           point2D.xy, point3D.second.xyz, image.CamFromWorld(), camera));
     }
