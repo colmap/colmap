@@ -77,7 +77,7 @@ GeneralizedCameraProblem BuildGeneralizedCameraProblem() {
         problem.camera_idxs.push_back(problem.cameras.size());
       }
     }
-    problem.cameras.push_back(reconstruction.Camera(image.CameraId()));
+    problem.cameras.push_back(*image.CameraPtr());
     problem.cams_from_rig.push_back(image.CamFromWorld() *
                                     Inverse(problem.gt_rig_from_world));
   }
