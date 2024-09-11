@@ -41,7 +41,7 @@ namespace {
 
 // Check if all camera pointers are correctly set
 bool CheckReconstruction(const Reconstruction& reconstruction) {
-  for (const auto& image : reconstruction.images_) {
+  for (const auto& image : reconstruction.Images()) {
     if (!image.second.HasCameraPtr()) return false;
     auto& camera = reconstruction.Camera(image.second.CameraId());
     if (image.second.CameraPtr() != &camera) return false;
