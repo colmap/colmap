@@ -298,17 +298,6 @@ class RigBundleAdjuster : public BundleAdjuster {
 
 class PosePriorBundleAdjuster : public BundleAdjuster {
  public:
-  struct Options {
-    // Whether to use prior camera positions
-    bool use_prior_position = true;
-
-    // Maximum RANSAC error for Sim3D alignment
-    double ransac_max_error = 0.;
-
-    // Sim3d transformation that project reconstruction's centroid to (0.,0.,0.)
-    Sim3d sim_to_center;
-  };
-
   PosePriorBundleAdjuster(
       const BundleAdjustmentOptions& options,
       const BundleAdjustmentConfig& config,
@@ -335,10 +324,18 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
 
   void setRansacMaxErrorFromPriorsCovariance();
 
-  Options prior_options_;
   std::unique_ptr<ceres::LossFunction> prior_loss_function_;
 
   const std::unordered_map<image_t, PosePrior>& image_id_to_pose_prior_;
+
+  // Whether to use prior camera positions
+  bool use_prior_position_ = true;
+
+  // Maximum RANSAC error for Sim3D alignment
+  double ransac_max_error_ = 0.;
+
+  // Sim3d transformation that project reconstruction's centroid to (0.,0.,0.)
+  Sim3d sim_to_center_;
 };
 
 void PrintSolverSummary(const ceres::Solver::Summary& summary,

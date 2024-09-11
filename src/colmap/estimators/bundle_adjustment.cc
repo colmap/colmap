@@ -868,7 +868,7 @@ bool PosePriorBundleAdjuster::Solve(Reconstruction* reconstruction) {
   Sim3DAlignment(reconstruction);
 
   // Fix 7-DOFs of BA problem if not enough valid pose priors
-  if (!prior_options_.use_prior_position) {
+  if (!use_prior_position_) {
     const std::vector<image_t>& reg_image_ids = reconstruction->RegImageIds();
     config_.SetConstantCamPose(reg_image_ids[0]);
     config_.SetConstantCamPositions(reg_image_ids[1], {0});
@@ -909,7 +909,7 @@ void PosePriorBundleAdjuster::SetUpProblem(
   // Do not change order of instructions!
   BundleAdjuster::SetUpProblem(reconstruction, loss_function_.get());
 
-  if (prior_options_.use_prior_position) {
+  if (use_prior_position_) {
     for (const auto& id_and_prior : image_id_to_pose_prior_) {
       AddPosePriorToProblem(id_and_prior.first,
                             id_and_prior.second,
@@ -941,12 +941,12 @@ void PosePriorBundleAdjuster::AddPosePriorToProblem(
   double* cam_from_world_rotation =
       image.CamFromWorld().rotation.coeffs().data();
 
-  problem_->AddResidualBlock(PositionPriorErrorCostFunction::Create(
-                                 prior_options_.sim_to_center * prior.position,
-                                 prior.position_covariance),
-                             prior_loss_function,
-                             cam_from_world_rotation,
-                             cam_from_world_translation);
+  problem_->AddResidualBlock(
+      PositionPriorErrorCostFunction::Create(sim_to_center_ * prior.position,
+                                             prior.position_covariance),
+      prior_loss_function,
+      cam_from_world_rotation,
+      cam_from_world_translation);
 }
 
 void PosePriorBundleAdjuster::Sim3DAlignment(Reconstruction* reconstruction) {
@@ -972,7 +972,7 @@ void PosePriorBundleAdjuster::Sim3DAlignment(Reconstruction* reconstruction) {
   if (v_src.size() < 3) {
     LOG(WARNING)
         << "Not enough valid pose priors for PosePrior based alignment!";
-    prior_options_.use_prior_position = false;
+    use_prior_position_ = false;
     return;
   }
 
@@ -984,9 +984,9 @@ void PosePriorBundleAdjuster::Sim3DAlignment(Reconstruction* reconstruction) {
   bool success = false;
 
   // Apply RANSAC-based Sim3 Alignment if ransac_max_error is set
-  if (prior_options_.ransac_max_error > 0.) {
+  if (ransac_max_error_ > 0.) {
     RANSACOptions ransac_options;
-    ransac_options.max_error = prior_options_.ransac_max_error;
+    ransac_options.max_error = ransac_max_error_;
 
     LORANSAC<SimilarityTransformEstimator<3, true>,
              SimilarityTransformEstimator<3, true>>
@@ -1032,14 +1032,14 @@ void PosePriorBundleAdjuster::Sim3DAlignment(Reconstruction* reconstruction) {
 void PosePriorBundleAdjuster::ProjectCentroidToOrigin(
     Reconstruction* reconstruction) {
   // Make sure that sim_to_center is identity
-  prior_options_.sim_to_center = Sim3d();
+  sim_to_center_ = Sim3d();
   for (const auto& image_id : config_.Images()) {
-    prior_options_.sim_to_center.translation -=
+    sim_to_center_.translation -=
         reconstruction->Image(image_id).ProjectionCenter();
   }
-  prior_options_.sim_to_center.translation /= config_.NumImages();
+  sim_to_center_.translation /= config_.NumImages();
 
-  reconstruction->Transform(prior_options_.sim_to_center);
+  reconstruction->Transform(sim_to_center_);
 
   // Do not transform priors as they will be transformed when added to
   // ceres::Problem
@@ -1047,7 +1047,7 @@ void PosePriorBundleAdjuster::ProjectCentroidToOrigin(
 
 void PosePriorBundleAdjuster::ProjectCentroidFromOrigin(
     Reconstruction* reconstruction) {
-  const Sim3d sim_from_center = Inverse(prior_options_.sim_to_center);
+  const Sim3d sim_from_center = Inverse(sim_to_center_);
   reconstruction->Transform(sim_from_center);
 }
 
@@ -1062,8 +1062,7 @@ void PosePriorBundleAdjuster::setRansacMaxErrorFromPriorsCovariance() {
     }
   }
   if (!avg_cov.isZero()) {
-    prior_options_.ransac_max_error =
-        (3. * (avg_cov / nb_cov).cwiseSqrt()).norm();
+    ransac_max_error_ = (3. * (avg_cov / nb_cov).cwiseSqrt()).norm();
   }
 }
 
