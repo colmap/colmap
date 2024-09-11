@@ -287,6 +287,14 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
       PosePrior noisy_prior(proj_center + noise,
                             PosePrior::CoordinateSystem::CARTESIAN);
 
+      if (options.prior_position_stddev > 0.) {
+        noisy_prior.position_covariance = options.prior_position_stddev *
+                                          options.prior_position_stddev *
+                                          Eigen::Matrix3d::Identity();
+      } else {
+        noisy_prior.position_covariance = Eigen::Matrix3d::Identity();
+      }
+
       if (options.use_geographic_coords_prior) {
         static const GPSTransform gps_trans;
 
