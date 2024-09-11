@@ -711,11 +711,6 @@ bool IncrementalMapper::AdjustGlobalBundle(
     ba_options_tmp.solver_options.max_linear_solver_iterations = 200;
   }
 
-  // Only use prior motions if at least 3 images have been registered.
-  if (ba_options_tmp.use_prior_position) {
-    ba_options_tmp.use_prior_position = reg_image_ids.size() > 2;
-  }
-
   // Avoid degeneracies in bundle adjustment.
   obs_manager_->FilterObservationsWithNegativeDepth();
 
@@ -734,7 +729,11 @@ bool IncrementalMapper::AdjustGlobalBundle(
     }
   }
 
-  if (!ba_options_tmp.use_prior_position) {
+  // Only use prior pose if at least 3 images have been registered.
+  const bool use_prior_position =
+      options.use_prior_position && reg_image_ids.size() > 2;
+
+  if (!use_prior_position) {
     // Fix 7-DOFs of the bundle adjustment problem.
     ba_config.SetConstantCamPose(reg_image_ids[0]);
     if (!options.fix_existing_images ||
@@ -747,7 +746,12 @@ bool IncrementalMapper::AdjustGlobalBundle(
     return bundle_adjuster.Solve(reconstruction_.get());
   } else {
     PosePriorBundleAdjuster prior_bundle_adjuster(
-        ba_options_tmp, ba_config, database_cache_->PosePriors());
+        ba_options_tmp,
+        PosePriorBundleAdjuster::Options(
+            options.use_robust_loss_on_prior_position,
+            options.prior_position_loss_scale),
+        ba_config,
+        database_cache_->PosePriors());
     return prior_bundle_adjuster.Solve(reconstruction_.get());
   }
 }
@@ -797,7 +801,7 @@ void IncrementalMapper::IterativeGlobalRefinement(
   for (int i = 0; i < max_num_refinements; ++i) {
     const size_t num_observations = reconstruction_->ComputeNumObservations();
     AdjustGlobalBundle(options, ba_options);
-    if (normalize_reconstruction && !ba_options.use_prior_position) {
+    if (normalize_reconstruction && !options.use_prior_position) {
       // Normalize scene for numerical stability and
       // to avoid large scale changes in the viewer.
       reconstruction_->Normalize();

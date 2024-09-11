@@ -85,6 +85,9 @@ IncrementalMapper::Options IncrementalPipelineOptions::Mapper() const {
   options.num_threads = num_threads;
   options.local_ba_num_images = ba_local_num_images;
   options.fix_existing_images = fix_existing_images;
+  options.use_prior_position = use_prior_position;
+  options.use_robust_loss_on_prior_position = use_robust_loss_on_prior_position;
+  options.prior_position_loss_scale = prior_position_loss_scale;
   return options;
 }
 
@@ -152,14 +155,6 @@ BundleAdjustmentOptions IncrementalPipelineOptions::GlobalBundleAdjustment()
       BundleAdjustmentOptions::LossFunctionType::TRIVIAL;
   options.use_gpu = ba_use_gpu;
   options.gpu_index = ba_gpu_index;
-
-  if (use_prior_position) {
-    options.use_prior_position = use_prior_position;
-    options.use_robust_loss_on_prior_position =
-        use_robust_loss_on_prior_position;
-    options.prior_position_loss_scale = prior_position_loss_scale;
-    options.print_summary = true;
-  }
   return options;
 }
 

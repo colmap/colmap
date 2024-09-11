@@ -86,16 +86,6 @@ struct BundleAdjustmentOptions {
   int max_num_images_direct_dense_gpu_solver = 200;
   int max_num_images_direct_sparse_gpu_solver = 4000;
 
-  // Whether to use prior camera positions
-  bool use_prior_position = false;
-
-  // Whether to use a robust loss on prior locations
-  bool use_robust_loss_on_prior_position = false;
-
-  // Threshold on the residual for the robust loss
-  // (chi2 for 3DOF at 95% = 7.815)
-  double prior_position_loss_scale = 7.815;
-
   // Ceres-Solver options.
   ceres::Solver::Options solver_options;
 
@@ -298,8 +288,26 @@ class RigBundleAdjuster : public BundleAdjuster {
 
 class PosePriorBundleAdjuster : public BundleAdjuster {
  public:
+  struct Options {
+    Options(bool use_robust_loss_on_prior_position,
+            double prior_position_loss_scale)
+        : use_robust_loss_on_prior_position(use_robust_loss_on_prior_position),
+          prior_position_loss_scale(prior_position_loss_scale) {}
+
+    // Whether to use a robust loss on prior locations
+    bool use_robust_loss_on_prior_position = false;
+
+    // Threshold on the residual for the robust loss
+    // (chi2 for 3DOF at 95% = 7.815)
+    double prior_position_loss_scale = 7.815;
+
+    // Maximum RANSAC error for Sim3D alignment
+    double ransac_max_error = 0.;
+  };
+
   PosePriorBundleAdjuster(
       const BundleAdjustmentOptions& options,
+      const Options& prior_options,
       const BundleAdjustmentConfig& config,
       const std::unordered_map<image_t, PosePrior>& image_id_to_pose_prior);
 
@@ -324,15 +332,13 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
 
   void setRansacMaxErrorFromPriorsCovariance();
 
+  Options prior_options_;
   std::unique_ptr<ceres::LossFunction> prior_loss_function_;
 
   const std::unordered_map<image_t, PosePrior>& image_id_to_pose_prior_;
 
   // Whether to use prior camera positions
   bool use_prior_position_ = true;
-
-  // Maximum RANSAC error for Sim3D alignment
-  double ransac_max_error_ = 0.;
 
   // Sim3d transformation that project reconstruction's centroid to (0.,0.,0.)
   Sim3d sim_to_center_;

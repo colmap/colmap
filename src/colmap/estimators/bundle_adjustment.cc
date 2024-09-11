@@ -848,9 +848,11 @@ void RigBundleAdjuster::ParameterizeCameraRigs(Reconstruction* reconstruction) {
 
 PosePriorBundleAdjuster::PosePriorBundleAdjuster(
     const BundleAdjustmentOptions& options,
+    const Options& prior_options,
     const BundleAdjustmentConfig& config,
     const std::unordered_map<image_t, PosePrior>& image_id_to_pose_prior)
     : BundleAdjuster(options, config),
+      prior_options_(prior_options),
       image_id_to_pose_prior_(image_id_to_pose_prior) {
   setRansacMaxErrorFromPriorsCovariance();
 }
@@ -859,9 +861,9 @@ bool PosePriorBundleAdjuster::Solve(Reconstruction* reconstruction) {
   loss_function_ =
       std::unique_ptr<ceres::LossFunction>(options_.CreateLossFunction());
 
-  if (options_.use_robust_loss_on_prior_position) {
-    prior_loss_function_ =
-        std::make_unique<ceres::CauchyLoss>(options_.prior_position_loss_scale);
+  if (prior_options_.use_robust_loss_on_prior_position) {
+    prior_loss_function_ = std::make_unique<ceres::CauchyLoss>(
+        prior_options_.prior_position_loss_scale);
   }
 
   // Initialize images' position w.r.t. priors with a rigid sim3D alignment
@@ -984,9 +986,9 @@ void PosePriorBundleAdjuster::Sim3DAlignment(Reconstruction* reconstruction) {
   bool success = false;
 
   // Apply RANSAC-based Sim3 Alignment if ransac_max_error is set
-  if (ransac_max_error_ > 0.) {
+  if (prior_options_.ransac_max_error > 0.) {
     RANSACOptions ransac_options;
-    ransac_options.max_error = ransac_max_error_;
+    ransac_options.max_error = prior_options_.ransac_max_error;
 
     LORANSAC<SimilarityTransformEstimator<3, true>,
              SimilarityTransformEstimator<3, true>>
@@ -1062,7 +1064,8 @@ void PosePriorBundleAdjuster::setRansacMaxErrorFromPriorsCovariance() {
     }
   }
   if (!avg_cov.isZero()) {
-    ransac_max_error_ = (3. * (avg_cov / nb_cov).cwiseSqrt()).norm();
+    prior_options_.ransac_max_error =
+        (3. * (avg_cov / nb_cov).cwiseSqrt()).norm();
   }
 }
 
