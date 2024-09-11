@@ -113,7 +113,6 @@ void IncrementalMapper::BeginReconstruction(
   THROW_CHECK(reconstruction_ == nullptr);
   reconstruction_ = reconstruction;
   reconstruction_->Load(*database_cache_);
-  // reconstruction_->SetUp();
   obs_manager_ = std::make_shared<class ObservationManager>(
       *reconstruction_, database_cache_->CorrespondenceGraph());
   triangulator_ = std::make_shared<IncrementalTriangulator>(
