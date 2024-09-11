@@ -59,9 +59,6 @@ class Reconstruction {
  public:
   Reconstruction();
 
-  // [TEST] Check if all camera pointers are correctly set
-  bool Check() const;
-
   // Get number of objects.
   inline size_t NumCameras() const;
   inline size_t NumImages() const;

@@ -39,6 +39,16 @@
 namespace colmap {
 namespace {
 
+// Check if all camera pointers are correctly set
+bool CheckReconstruction(const Reconstruction& reconstruction) {
+  for (const auto& image : reconstruction.images_) {
+    if (!image.second.HasCameraPtr()) return false;
+    auto& camera = reconstruction.Camera(image.second.CameraId());
+    if (image.second.CameraPtr() != &camera) return false;
+  }
+  return true;
+}
+
 void GenerateReconstruction(const image_t num_images,
                             Reconstruction* reconstruction) {
   const size_t kNumPoints2D = 10;
@@ -101,7 +111,7 @@ TEST(Reconstruction, AddImage) {
   EXPECT_EQ(reconstruction.NumImages(), 1);
   EXPECT_EQ(reconstruction.NumRegImages(), 0);
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
-  EXPECT_TRUE(reconstruction.Check());
+  EXPECT_TRUE(CheckReconstruction(reconstruction));
 }
 
 TEST(Reconstruction, AddPoint3D) {
@@ -485,7 +495,7 @@ TEST(Reconstruction, DeleteAllPoints2DAndPoints3D) {
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
   reconstruction.DeleteAllPoints2DAndPoints3D();
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
-  EXPECT_TRUE(reconstruction.Check());
+  EXPECT_TRUE(CheckReconstruction(reconstruction));
 }
 
 }  // namespace
