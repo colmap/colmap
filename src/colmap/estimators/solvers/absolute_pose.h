@@ -29,7 +29,7 @@ class P3PEstimator {
  public:
   // The 2D image feature observations.
   using X_t = Point2DWithRay;
-  // The observed 3D features in the world frame.
+  // The observed 3D points in the world frame.
   using Y_t = Eigen::Vector3d;
   // The transformation from the world to the camera frame.
   using M_t = Rigid3d;
