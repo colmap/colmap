@@ -82,6 +82,30 @@ class P3PEstimator {
                         std::vector<double>* residuals);
 };
 
+// Variant of the P3P estimator that considers 3D point covariance for scaling
+// the computed residuals.
+class P3PCEstimator {
+ public:
+  // The 2D image feature observations.
+  typedef Eigen::Vector2d X_t;
+  // The observed 3D points and their covariance in the world frame.
+  typedef std::pair<Eigen::Vector3d, Eigen::Matrix3d> Y_t;
+  // The transformation from the world to the camera frame.
+  typedef Eigen::Matrix3x4d M_t;
+
+  // The minimum number of samples needed to estimate a model.
+  static const int kMinNumSamples = 3;
+
+  static void Estimate(const std::vector<X_t>& points2D,
+                       const std::vector<Y_t>& points3D,
+                       std::vector<M_t>* models);
+
+  static void Residuals(const std::vector<X_t>& points2D,
+                        const std::vector<Y_t>& points3D,
+                        const M_t& proj_matrix,
+                        std::vector<double>* residuals);
+};
+
 // EPNP solver for the PNP (Perspective-N-Point) problem. The solver needs a
 // minimum of 4 2D-3D correspondences.
 //

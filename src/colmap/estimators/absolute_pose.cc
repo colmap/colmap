@@ -170,9 +170,86 @@ void P3PEstimator::Estimate(const std::vector<X_t>& points2D,
 
 void P3PEstimator::Residuals(const std::vector<X_t>& points2D,
                              const std::vector<Y_t>& points3D,
-                             const M_t& proj_matrix,
+                             const M_t& cam_from_world,
                              std::vector<double>* residuals) {
-  ComputeSquaredReprojectionError(points2D, points3D, proj_matrix, residuals);
+  ComputeSquaredReprojectionError(
+      points2D, points3D, cam_from_world, residuals);
+}
+
+void P3PCEstimator::Estimate(const std::vector<X_t>& points2D,
+                             const std::vector<Y_t>& points3D,
+                             std::vector<M_t>* models) {
+  thread_local std::vector<Eigen::Vector3d> points3D_without_cov(3);
+  points3D_without_cov[0] = points3D[0].second;
+  points3D_without_cov[1] = points3D[1].second;
+  points3D_without_cov[2] = points3D[2].second;
+  P3PEstimator::Estimate(points2D, points3D_without_cov, models);
+}
+
+// We compute the residual as the probability density of the measured 2D point
+// observing the uncertain 3D point. We do this by projecting the 3D point
+// covariance from the world to the image space. We assume uniform 2D point
+// covariance.
+
+// Projection of 3D point covariance to the projected 2D covariance in the image
+// plane using covariance propagation:
+//
+// Let  S_X := 3D point covariance
+//      S_x := Projected 2D point covariance
+//      R   := World to camera rotation
+//      t   := World to camera translation
+//
+// The projection from world to image plane (ignoring intrinsics):
+//
+//      x = P(X) = Proj(Pose(X))
+//
+//      with Pose(X) = R * X + t
+//      with Proj(C) = [C_x/C_z]
+//                     [C_y/C_z]
+//
+// Covariance propagation using first order approximation:
+//
+//      S_x = J_P(X) * S_X * J_P(X)^T
+//
+// We can compute the Jacobian using the chain rule:
+//
+//      J_P(X) = J_Proj(Pose(X)) * J_Pose(X)
+//
+//      with J_Pose = R
+//      with J_Proj = [1/C_z,     0, -C_x/C_z^2]
+//                    [    0, 1/C_z, -C_y/C_z^2]
+//
+// Hence, we obtain:
+//
+//      S_x = J_Proj * J_Pose * S_X * (J_Proj * J_Pose)^T
+void P3PCEstimator::Residuals(const std::vector<X_t>& points2D,
+                              const std::vector<Y_t>& points3D,
+                              const M_t& cam_from_world,
+                              std::vector<double>* residuals) {
+  const size_t num_points2D = points2D.size();
+  THROW_CHECK_EQ(num_points2D, points3D.size());
+  residuals->resize(num_points2D);
+  for (size_t i = 0; i < num_points2D; ++i) {
+    const Eigen::Vector3d point3D_in_cam =
+        cam_from_world * points3D[i].first.homogeneous();
+    if (point3D_in_cam.z() > std::numeric_limits<double>::epsilon()) {
+      Eigen::Matrix<double, 2, 3> J_proj;
+      J_proj << 1 / point3D_in_cam.z(), 0,
+          -point3D_in_cam.x() / (point3D_in_cam.z() * point3D_in_cam.z()), 0,
+          1 / point3D_in_cam.z(),
+          -point3D_in_cam.y() / (point3D_in_cam.z() * point3D_in_cam.z());
+      const Eigen::Matrix<double, 2, 3> J =
+          J_proj * cam_from_world.leftCols<3>();
+      const Eigen::Matrix2d proj_cov = J * points3D[i].second * J.transpose();
+      const Eigen::Vector2d diff = point3D_in_cam.hnormalized() - points2D[i];
+      const double density =
+          std::exp(-0.5 * diff.transpose() * proj_cov.inverse() * diff) /
+          std::sqrt(4 * EIGEN_PI * EIGEN_PI * proj_cov.determinant());
+      (*residuals)[i] = 1 / density;
+    } else {
+      (*residuals)[i] = std::numeric_limits<double>::max();
+    }
+  }
 }
 
 void EPNPEstimator::Estimate(const std::vector<X_t>& points2D,
@@ -185,25 +262,26 @@ void EPNPEstimator::Estimate(const std::vector<X_t>& points2D,
   models->clear();
 
   EPNPEstimator epnp;
-  M_t proj_matrix;
-  if (!epnp.ComputePose(points2D, points3D, &proj_matrix)) {
+  M_t cam_from_world;
+  if (!epnp.ComputePose(points2D, points3D, &cam_from_world)) {
     return;
   }
 
   models->resize(1);
-  (*models)[0] = proj_matrix;
+  (*models)[0] = cam_from_world;
 }
 
 void EPNPEstimator::Residuals(const std::vector<X_t>& points2D,
                               const std::vector<Y_t>& points3D,
-                              const M_t& proj_matrix,
+                              const M_t& cam_from_world,
                               std::vector<double>* residuals) {
-  ComputeSquaredReprojectionError(points2D, points3D, proj_matrix, residuals);
+  ComputeSquaredReprojectionError(
+      points2D, points3D, cam_from_world, residuals);
 }
 
 bool EPNPEstimator::ComputePose(const std::vector<Eigen::Vector2d>& points2D,
                                 const std::vector<Eigen::Vector3d>& points3D,
-                                Eigen::Matrix3x4d* proj_matrix) {
+                                Eigen::Matrix3x4d* cam_from_world) {
   points2D_ = &points2D;
   points3D_ = &points3D;
 
@@ -248,8 +326,8 @@ bool EPNPEstimator::ComputePose(const std::vector<Eigen::Vector2d>& points2D,
     best_idx = 3;
   }
 
-  proj_matrix->leftCols<3>() = Rs[best_idx];
-  proj_matrix->rightCols<1>() = ts[best_idx];
+  cam_from_world->leftCols<3>() = Rs[best_idx];
+  cam_from_world->rightCols<1>() = ts[best_idx];
 
   return true;
 }
@@ -590,13 +668,13 @@ void EPNPEstimator::EstimateRT(Eigen::Matrix3d* R, Eigen::Vector3d* t) {
 
 double EPNPEstimator::ComputeTotalReprojectionError(const Eigen::Matrix3d& R,
                                                     const Eigen::Vector3d& t) {
-  Eigen::Matrix3x4d proj_matrix;
-  proj_matrix.leftCols<3>() = R;
-  proj_matrix.rightCols<1>() = t;
+  Eigen::Matrix3x4d cam_from_world;
+  cam_from_world.leftCols<3>() = R;
+  cam_from_world.rightCols<1>() = t;
 
   std::vector<double> residuals;
   ComputeSquaredReprojectionError(
-      *points2D_, *points3D_, proj_matrix, &residuals);
+      *points2D_, *points3D_, cam_from_world, &residuals);
 
   double reproj_error = 0.0;
   for (const double residual : residuals) {
