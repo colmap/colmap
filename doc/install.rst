@@ -166,11 +166,6 @@ Configure and compile COLMAP::
     ninja
     sudo ninja install
 
-On Macs with ARM the brew paths are different so you need this
-
-    brew_prefix="$(brew --prefix)"
-    cmake .. -GNinja -DCMAKE_PREFIX_PATH="$brew_prefix/flann;$brew_prefix/metis;$brew_prefix/suite-sparse;$brew_prefix/qt@5;$brew_prefix/freeimage"
-
 If you have Qt 6 installed on your system as well, you might have to temporarily
 link your Qt 5 installation while configuring CMake::
 
