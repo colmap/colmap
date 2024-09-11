@@ -231,7 +231,7 @@ COLMAP 3.9 (01/06/2024)
 * Add EstimateGeneralizedAbsolutePose by @sarlinpe in https://github.com/colmap/colmap/pull/2174
 * Fix bug in ReconstructionManagerWidget::Update by @whuaegeanse in https://github.com/colmap/colmap/pull/2186
 * Fix missing retrieval dependency by @ahojnnes in https://github.com/colmap/colmap/pull/2189
-* Removing clustering_options_ and mapper_options_ in Hierarchical Mapper Controller by @Serenitysmk in https://github.com/colmap/colmap/pull/2193
+* Removing clustering_options and mapper_options in Hierarchical Mapper Controller by @Serenitysmk in https://github.com/colmap/colmap/pull/2193
 * Publish docker image to docker hub by @ahojnnes in https://github.com/colmap/colmap/pull/2195
 * Fix Cuda architecture in docker build by @ahojnnes in https://github.com/colmap/colmap/pull/2196
 * Fix all-major cuda arch missing in CMake < 3.23 by @ahojnnes in https://github.com/colmap/colmap/pull/2197
