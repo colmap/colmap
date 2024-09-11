@@ -876,9 +876,9 @@ bool PosePriorBundleAdjuster::Solve(Reconstruction* reconstruction) {
     config_.SetConstantCamPositions(reg_image_ids[1], {0});
   }
 
-  // Put the centroid of the reconstruction to (0.,0.,0.)
-  // to avoid any numerical instability
-  ProjectCentroidToOrigin(reconstruction);
+  // Normalize the reconstruction to avoid any numerical instability BUT do not
+  // transform priors as they will be transformed when added to ceres::Problem
+  normalized_from_metric_ = reconstruction->Normalize(/*fixed_scale=*/true);
 
   SetUpProblem(
       reconstruction, loss_function_.get(), prior_loss_function_.get());
@@ -892,8 +892,8 @@ bool PosePriorBundleAdjuster::Solve(Reconstruction* reconstruction) {
 
   ceres::Solve(solver_options, problem_.get(), &summary_);
 
-  // Unproject centroid from (0.,0.,0.)
-  ProjectCentroidFromOrigin(reconstruction);
+  // Transform back the reconstruction to its coordinate system state
+  reconstruction->Transform(Inverse(normalized_from_metric_));
 
   if (options_.print_summary || VLOG_IS_ON(1)) {
     PrintSolverSummary(summary_, "Pose Prior Bundle adjustment report");
@@ -944,8 +944,8 @@ void PosePriorBundleAdjuster::AddPosePriorToProblem(
       image.CamFromWorld().rotation.coeffs().data();
 
   problem_->AddResidualBlock(
-      PositionPriorErrorCostFunction::Create(sim_to_center_ * prior.position,
-                                             prior.position_covariance),
+      PositionPriorErrorCostFunction::Create(
+          normalized_from_metric_ * prior.position, prior.position_covariance),
       prior_loss_function,
       cam_from_world_rotation,
       cam_from_world_translation);
@@ -1029,28 +1029,6 @@ void PosePriorBundleAdjuster::Sim3DAlignment(Reconstruction* reconstruction) {
   } else {
     LOG(WARNING) << "Sim3 alignment w.r.t. prior position failed!";
   }
-}
-
-void PosePriorBundleAdjuster::ProjectCentroidToOrigin(
-    Reconstruction* reconstruction) {
-  // Make sure that sim_to_center is identity
-  sim_to_center_ = Sim3d();
-  for (const auto& image_id : config_.Images()) {
-    sim_to_center_.translation -=
-        reconstruction->Image(image_id).ProjectionCenter();
-  }
-  sim_to_center_.translation /= config_.NumImages();
-
-  reconstruction->Transform(sim_to_center_);
-
-  // Do not transform priors as they will be transformed when added to
-  // ceres::Problem
-}
-
-void PosePriorBundleAdjuster::ProjectCentroidFromOrigin(
-    Reconstruction* reconstruction) {
-  const Sim3d sim_from_center = Inverse(sim_to_center_);
-  reconstruction->Transform(sim_from_center);
 }
 
 void PosePriorBundleAdjuster::setRansacMaxErrorFromPriorsCovariance() {

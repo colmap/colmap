@@ -327,9 +327,6 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
 
   void Sim3DAlignment(Reconstruction* reconstruction);
 
-  void ProjectCentroidToOrigin(Reconstruction* reconstruction);
-  void ProjectCentroidFromOrigin(Reconstruction* reconstruction);
-
   void setRansacMaxErrorFromPriorsCovariance();
 
   Options prior_options_;
@@ -341,7 +338,7 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
   bool use_prior_position_ = true;
 
   // Sim3d transformation that project reconstruction's centroid to (0.,0.,0.)
-  Sim3d sim_to_center_;
+  Sim3d normalized_from_metric_;
 };
 
 void PrintSolverSummary(const ceres::Solver::Summary& summary,
