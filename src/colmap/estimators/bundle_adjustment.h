@@ -89,9 +89,6 @@ struct BundleAdjustmentOptions {
   // Whether to use prior camera positions
   bool use_prior_position = false;
 
-  // Standard deviation on the position priors
-  // Eigen::Vector3d prior_position_std = Eigen::Vector3d::Ones();
-
   // Whether to use a robust loss on prior locations
   bool use_robust_loss_on_prior_position = false;
 
