@@ -90,7 +90,7 @@ void BindAlignmentEstimator(py::module& m) {
       "min_inlier_ratio"_a = 0.9);
 
   m.def(
-      "align_reconstrution_to_locations",
+      "align_reconstruction_to_locations",
       [](const Reconstruction& src,
          const std::vector<std::string>& image_names,
          const std::vector<Eigen::Vector3d>& locations,
