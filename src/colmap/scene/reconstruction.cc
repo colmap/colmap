@@ -43,6 +43,15 @@ namespace colmap {
 
 Reconstruction::Reconstruction() : max_point3D_id_(0) {}
 
+bool Reconstruction::Check() const {
+  for (const auto& image : images_) {
+    if (!image.second.HasCameraPtr()) return false;
+    auto& camera = Camera(image.second.CameraId());
+    if (image.second.CameraPtr() != &camera) return false;
+  }
+  return true;
+}
+
 std::unordered_set<point3D_t> Reconstruction::Point3DIds() const {
   std::unordered_set<point3D_t> point3D_ids;
   point3D_ids.reserve(points3D_.size());
