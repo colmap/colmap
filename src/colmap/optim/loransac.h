@@ -151,7 +151,7 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
       const auto support = support_measurer.Evaluate(residuals, max_residual);
 
       // Do local optimization if better than all previous subsets.
-      if (support_measurer.Compare(support, best_support)) {
+      if (support_measurer.IsLeftBetter(support, best_support)) {
         best_support = support;
         best_model = sample_model;
         best_model_is_local = false;
@@ -187,7 +187,7 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
                   support_measurer.Evaluate(residuals, max_residual);
 
               // Check if locally optimized model is better.
-              if (support_measurer.Compare(local_support, best_support)) {
+              if (support_measurer.IsLeftBetter(local_support, best_support)) {
                 best_support = local_support;
                 best_model = local_model;
                 best_model_is_local = true;
