@@ -484,6 +484,7 @@ TEST(Reconstruction, DeleteAllPoints2DAndPoints3D) {
   synthetic_dataset_options.point2D_stddev = 0;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
   reconstruction.DeleteAllPoints2DAndPoints3D();
+  EXPECT_EQ(reconstruction.NumPoints3D(), 0);
   EXPECT_TRUE(reconstruction.Check());
 }
 
