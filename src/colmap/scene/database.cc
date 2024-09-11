@@ -1155,7 +1155,8 @@ void Database::PrepareSQLStatements() {
   sql_stmts_.push_back(sql_stmt_update_image_);
 
   sql =
-      "UPDATE pose_priors SET position=?, covariance=?, coordinate_system=? "
+      "UPDATE pose_priors SET position=?, position_covariance=?, "
+      "coordinate_system=? "
       "WHERE image_id=?;";
   SQLITE3_CALL(sqlite3_prepare_v2(
       database_, sql.c_str(), -1, &sql_stmt_update_pose_prior_, 0));
@@ -1238,7 +1239,7 @@ void Database::PrepareSQLStatements() {
   // write_*
   //////////////////////////////////////////////////////////////////////////////
   sql =
-      "INSERT INTO pose_priors(image_id, position, covariance, "
+      "INSERT INTO pose_priors(image_id, position, position_covariance, "
       "coordinate_system) "
       "VALUES(?, ?, ?, ?);";
   SQLITE3_CALL(sqlite3_prepare_v2(
@@ -1366,10 +1367,10 @@ void Database::CreateImageTable() const {
 void Database::CreatePosePriorTable() const {
   const std::string sql =
       "CREATE TABLE IF NOT EXISTS pose_priors"
-      "   (image_id          INTEGER  PRIMARY KEY  NOT NULL,"
-      "    position          BLOB,"
-      "    covariance        BLOB,"
-      "    coordinate_system INTEGER               NOT NULL,"
+      "   (image_id                   INTEGER  PRIMARY KEY  NOT NULL,"
+      "    position                   BLOB,"
+      "    position_covariance        BLOB,"
+      "    coordinate_system          INTEGER               NOT NULL,"
       "FOREIGN KEY(image_id) REFERENCES images(image_id) ON DELETE CASCADE);";
 
   SQLITE3_EXEC(database_, sql.c_str(), nullptr);
