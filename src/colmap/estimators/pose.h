@@ -119,6 +119,8 @@ struct AbsolutePoseRefinementOptions {
 // @param options              Absolute pose estimation options.
 // @param points2D             Corresponding 2D points.
 // @param points3D             Corresponding 3D points.
+// @param points3D_cov         (Optional) Corresponding 3D point covariances.
+//                             Used to score hypotheses in RANSAC.
 // @param cam_from_world       Estimated absolute camera pose.
 // @param camera               Camera for which to estimate pose. Modified
 //                             in-place to store the estimated focal length.
@@ -129,6 +131,7 @@ struct AbsolutePoseRefinementOptions {
 bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
                           const std::vector<Eigen::Vector2d>& points2D,
                           const std::vector<Eigen::Vector3d>& points3D,
+                          const std::vector<Eigen::Matrix3d>* points3D_cov,
                           Rigid3d* cam_from_world,
                           Camera* camera,
                           size_t* num_inliers,
