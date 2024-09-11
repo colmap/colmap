@@ -171,8 +171,6 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
 
     for (const auto& id_and_image : cache->images_) {
       if (database.ExistsPosePrior(id_and_image.first)) {
-        // Should we ensure that PosePrior isValid() == true?
-        // (same in matcher.cc FeatureMatcherCache())
         cache->pose_priors_.emplace(id_and_image.first,
                                     database.ReadPosePrior(id_and_image.first));
       }
