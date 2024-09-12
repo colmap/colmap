@@ -71,7 +71,7 @@ jobs:
             -GNinja \
             -DCMAKE_BUILD_TYPE=${{ matrix.config.cmakeBuildType }} \
             -DTESTS_ENABLED=ON \
-            -DCMAKE_PREFIX_PATH="/opt/homebrew/opt/flann;/opt/homebrew/opt/metis;/opt/homebrew/opt/suite-sparse;/opt/homebrew/opt/qt@5;/opt/homebrew/opt/freeimage"
+            -DCMAKE_PREFIX_PATH="$(brew --prefix qt@5)"
           ninja
 
       - name: Run tests
