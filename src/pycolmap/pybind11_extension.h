@@ -108,9 +108,8 @@ class class_ext_ : public class_<type_, options...> {
     static_assert(
         std::is_same<C, type>::value || std::is_base_of<C, type>::value,
         "def_readwrite() requires a class member (or base class member)");
-    cpp_function fget([pm](type& c) -> D& { return c.*pm; }, is_method(*this)),
-        fset([pm](type& c, const D& value) { c.*pm = value; },
-             is_method(*this));
+    cpp_function fget([pm](type&c) -> D& { return c.*pm; }, is_method(*this)),
+        fset([pm](type&c, const D&value) { c.*pm = value; }, is_method(*this));
     this->def_property(
         name, fget, fset, return_value_policy::reference_internal, extra...);
     return *this;
