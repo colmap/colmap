@@ -97,13 +97,11 @@ Rigid3d InterpolateCameraPoses(const Rigid3d& cam_from_world1,
 // Perform cheirality constraint test, i.e., determine which of the triangulated
 // correspondences lie in front of both cameras.
 //
-// @param cam2_from_cam1_rot    Relative camera rotation.
-// @param cam2_from_cam1_trans  Relative camera translation.
-// @param points1               First set of corresponding points.
-// @param points2               Second set of corresponding points.
-// @param points3D              Points that lie in front of both cameras.
-bool CheckCheirality(const Eigen::Matrix3d& cam2_from_cam1_rot,
-                     const Eigen::Vector3d& cam2_from_cam1_trans,
+// @param cam2_from_cam1  Relative camera transformation.
+// @param points1         First set of corresponding points.
+// @param points2         Second set of corresponding points.
+// @param points3D        Points that lie in front of both cameras.
+bool CheckCheirality(const Rigid3d& cam2_from_cam1,
                      const std::vector<Eigen::Vector2d>& points1,
                      const std::vector<Eigen::Vector2d>& points2,
                      std::vector<Eigen::Vector3d>* points3D);
