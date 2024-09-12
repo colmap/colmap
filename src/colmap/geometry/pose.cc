@@ -163,18 +163,15 @@ double CalculateDepth(const Eigen::Matrix3x4d& cam_from_world,
 
 }  // namespace
 
-bool CheckCheirality(const Eigen::Matrix3d& cam2_from_cam1_rot,
-                     const Eigen::Vector3d& cam2_from_cam1_trans,
+bool CheckCheirality(const Rigid3d& cam2_from_cam1,
                      const std::vector<Eigen::Vector2d>& points1,
                      const std::vector<Eigen::Vector2d>& points2,
                      std::vector<Eigen::Vector3d>* points3D) {
   THROW_CHECK_EQ(points1.size(), points2.size());
   const Eigen::Matrix3x4d cam1_from_world = Eigen::Matrix3x4d::Identity();
-  Eigen::Matrix3x4d cam2_from_world;
-  cam2_from_world.leftCols<3>() = cam2_from_cam1_rot;
-  cam2_from_world.rightCols<1>() = cam2_from_cam1_trans;
+  const Eigen::Matrix3x4d cam2_from_world = cam2_from_cam1.ToMatrix();
   constexpr double kMinDepth = std::numeric_limits<double>::epsilon();
-  const double max_depth = 1000.0 * cam2_from_cam1_trans.norm();
+  const double max_depth = 1000.0 * cam2_from_cam1.translation.norm();
   points3D->clear();
   for (size_t i = 0; i < points1.size(); ++i) {
     const Eigen::Vector3d point3D = TriangulatePoint(
