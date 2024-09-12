@@ -200,14 +200,14 @@ void PoseFromHomographyMatrix(const Eigen::Matrix3d& H,
   DecomposeHomographyMatrix(H, K1, K2, &R_cmbs, &t_cmbs, &n_cmbs);
 
   points3D->clear();
+  std::vector<Eigen::Vector3d> points3D_cmb;
   for (size_t i = 0; i < R_cmbs.size(); ++i) {
-    std::vector<Eigen::Vector3d> points3D_cmb;
     CheckCheirality(R_cmbs[i], t_cmbs[i], points1, points2, &points3D_cmb);
     if (points3D_cmb.size() >= points3D->size()) {
       *R = R_cmbs[i];
       *t = t_cmbs[i];
       *n = n_cmbs[i];
-      *points3D = points3D_cmb;
+      std::swap(*points3D, points3D_cmb);
     }
   }
 }
