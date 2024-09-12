@@ -26,7 +26,7 @@ py::dict PyPoseFromHomographyMatrix(
       H, K1, K2, points1, points2, &cam2_from_cam1, &normal, &points3D);
   py::gil_scoped_acquire acquire;
   return py::dict("cam2_from_cam1"_a = cam2_from_cam1,
-                  "normal"_a = n,
+                  "normal"_a = normal,
                   "points3D"_a = points3D);
 }
 
