@@ -72,18 +72,18 @@ void PoseFromEssentialMatrix(const Eigen::Matrix3d& E,
   Eigen::Matrix3d R2;
   DecomposeEssentialMatrix(E, &R1, &R2, t);
 
-  // Generate all possible projection matrix combinations.
+  // Generate all possible pose combinations.
   const std::array<Eigen::Matrix3d, 4> R_cmbs{{R1, R2, R1, R2}};
   const std::array<Eigen::Vector3d, 4> t_cmbs{{*t, *t, -*t, -*t}};
 
   points3D->clear();
+  std::vector<Eigen::Vector3d> points3D_cmb;
   for (size_t i = 0; i < R_cmbs.size(); ++i) {
-    std::vector<Eigen::Vector3d> points3D_cmb;
     CheckCheirality(R_cmbs[i], t_cmbs[i], points1, points2, &points3D_cmb);
     if (points3D_cmb.size() >= points3D->size()) {
       *R = R_cmbs[i];
       *t = t_cmbs[i];
-      *points3D = points3D_cmb;
+      std::swap(*points3D, points3D_cmb);
     }
   }
 }
