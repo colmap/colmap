@@ -40,16 +40,39 @@ namespace colmap {
 
 struct FeatureKeypoint {
   FeatureKeypoint();
-  FeatureKeypoint(float x, float y);
-  FeatureKeypoint(float x, float y, float scale, float orientation);
-  FeatureKeypoint(float x, float y, float a11, float a12, float a21, float a22);
+  FeatureKeypoint(float x,
+                  float y,
+                  const Eigen::Matrix2d& covar = Eigen::Matrix2d::Identity());
+  FeatureKeypoint(float x,
+                  float y,
+                  float scale,
+                  float orientation,
+                  const Eigen::Matrix2d& covar = Eigen::Matrix2d::Identity());
+  FeatureKeypoint(float x,
+                  float y,
+                  float a11,
+                  float a12,
+                  float a21,
+                  float a22,
+                  const Eigen::Matrix2d& covar = Eigen::Matrix2d::Identity());
+  FeatureKeypoint(float x,
+                  float y,
+                  float a11,
+                  float a12,
+                  float a21,
+                  float a22,
+                  float s11,
+                  float s22,
+                  float s12);
 
-  static FeatureKeypoint FromShapeParameters(float x,
-                                             float y,
-                                             float scale_x,
-                                             float scale_y,
-                                             float orientation,
-                                             float shear);
+  static FeatureKeypoint FromShapeParameters(
+      float x,
+      float y,
+      float scale_x,
+      float scale_y,
+      float orientation,
+      float shear,
+      const Eigen::Matrix2d& covar = Eigen::Matrix2d::Identity());
 
   // Rescale the feature location and shape size by the given scale factor.
   void Rescale(float scale);
@@ -62,6 +85,9 @@ struct FeatureKeypoint {
   float ComputeOrientation() const;
   float ComputeShear() const;
 
+  // Compute 2D uncertainty
+  Eigen::Matrix2d GetCovariance() const;
+
   // Location of the feature, with the origin at the upper left image corner,
   // i.e. the upper left pixel has the coordinate (0.5, 0.5).
   float x;
@@ -72,6 +98,14 @@ struct FeatureKeypoint {
   float a12;
   float a21;
   float a22;
+
+  // 2D covariance of the keypoint (default: identity)
+  float s11 = 1.0;
+  float s22 = 1.0;
+  float s12 = 0.0;
+
+ private:
+  void InitializeCovariance(const Eigen::Matrix2d& covar);
 };
 
 typedef Eigen::Matrix<uint8_t, 1, Eigen::Dynamic, Eigen::RowMajor>

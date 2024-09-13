@@ -29,6 +29,7 @@
 
 #include "colmap/scene/database_cache.h"
 
+#include "colmap/scene/point2d.h"
 #include "colmap/util/string.h"
 #include "colmap/util/timer.h"
 
@@ -37,11 +38,13 @@
 namespace colmap {
 namespace {
 
-std::vector<Eigen::Vector2d> FeatureKeypointsToPointsVector(
+std::vector<Point2D> FeatureKeypointsToPointsVector(
     const FeatureKeypoints& keypoints) {
-  std::vector<Eigen::Vector2d> points(keypoints.size());
+  std::vector<Point2D> points(keypoints.size());
   for (size_t i = 0; i < keypoints.size(); ++i) {
-    points[i] = Eigen::Vector2d(keypoints[i].x, keypoints[i].y);
+    points[i].xy = Eigen::Vector2d(keypoints[i].x, keypoints[i].y);
+    points[i].covar << keypoints[i].s11, keypoints[i].s12, keypoints[i].s12,
+        keypoints[i].s22;
   }
   return points;
 }

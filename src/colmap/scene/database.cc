@@ -44,7 +44,7 @@ void SwapFeatureMatchesBlob(FeatureMatchesBlob* matches) {
 }
 
 FeatureKeypointsBlob FeatureKeypointsToBlob(const FeatureKeypoints& keypoints) {
-  const FeatureKeypointsBlob::Index kNumCols = 6;
+  const FeatureKeypointsBlob::Index kNumCols = 9;
   FeatureKeypointsBlob blob(keypoints.size(), kNumCols);
   for (size_t i = 0; i < keypoints.size(); ++i) {
     blob(i, 0) = keypoints[i].x;
@@ -53,6 +53,9 @@ FeatureKeypointsBlob FeatureKeypointsToBlob(const FeatureKeypoints& keypoints) {
     blob(i, 3) = keypoints[i].a12;
     blob(i, 4) = keypoints[i].a21;
     blob(i, 5) = keypoints[i].a22;
+    blob(i, 6) = keypoints[i].s11;
+    blob(i, 7) = keypoints[i].s22;
+    blob(i, 8) = keypoints[i].s12;
   }
   return blob;
 }
@@ -76,6 +79,18 @@ FeatureKeypoints FeatureKeypointsFromBlob(const FeatureKeypointsBlob& blob) {
                                      blob(i, 3),
                                      blob(i, 4),
                                      blob(i, 5));
+    }
+  } else if (blob.cols() == 9) {
+    for (FeatureKeypointsBlob::Index i = 0; i < blob.rows(); ++i) {
+      keypoints[i] = FeatureKeypoint(blob(i, 0),
+                                     blob(i, 1),
+                                     blob(i, 2),
+                                     blob(i, 3),
+                                     blob(i, 4),
+                                     blob(i, 5),
+                                     blob(i, 6),
+                                     blob(i, 7),
+                                     blob(i, 8));
     }
   } else {
     LOG(FATAL_THROW) << "Keypoint format not supported";

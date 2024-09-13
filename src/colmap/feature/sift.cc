@@ -1297,7 +1297,7 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
                   "Invalid keypoint format");
     static_assert(offsetof(FeatureKeypoint, y) == 1 * sizeof(float),
                   "Invalid keypoint format");
-    static_assert(sizeof(FeatureKeypoint) == 6 * sizeof(float),
+    static_assert(sizeof(FeatureKeypoint) == 9 * sizeof(float),
                   "Invalid keypoint format");
 
     THROW_CHECK_NOTNULL(two_view_geometry);

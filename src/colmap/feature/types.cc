@@ -35,13 +35,18 @@ namespace colmap {
 
 FeatureKeypoint::FeatureKeypoint() : FeatureKeypoint(0, 0) {}
 
-FeatureKeypoint::FeatureKeypoint(const float x, const float y)
-    : FeatureKeypoint(x, y, 1, 0, 0, 1) {}
+FeatureKeypoint::FeatureKeypoint(const float x,
+                                 const float y,
+                                 const Eigen::Matrix2d& covar)
+    : FeatureKeypoint(x, y, 1, 0, 0, 1) {
+  InitializeCovariance(covar);
+}
 
 FeatureKeypoint::FeatureKeypoint(const float x_,
                                  const float y_,
                                  const float scale,
-                                 const float orientation)
+                                 const float orientation,
+                                 const Eigen::Matrix2d& covar)
     : x(x_), y(y_) {
   THROW_CHECK_GE(scale, 0.0);
   const float scale_cos_orientation = scale * std::cos(orientation);
@@ -50,6 +55,7 @@ FeatureKeypoint::FeatureKeypoint(const float x_,
   a12 = -scale_sin_orientation;
   a21 = scale_sin_orientation;
   a22 = scale_cos_orientation;
+  InitializeCovariance(covar);
 }
 
 FeatureKeypoint::FeatureKeypoint(const float x_,
@@ -57,15 +63,49 @@ FeatureKeypoint::FeatureKeypoint(const float x_,
                                  const float a11_,
                                  const float a12_,
                                  const float a21_,
-                                 const float a22_)
-    : x(x_), y(y_), a11(a11_), a12(a12_), a21(a21_), a22(a22_) {}
+                                 const float a22_,
+                                 const Eigen::Matrix2d& covar)
+    : x(x_), y(y_), a11(a11_), a12(a12_), a21(a21_), a22(a22_) {
+  InitializeCovariance(covar);
+}
 
-FeatureKeypoint FeatureKeypoint::FromShapeParameters(const float x,
-                                                     const float y,
-                                                     const float scale_x,
-                                                     const float scale_y,
-                                                     const float orientation,
-                                                     const float shear) {
+FeatureKeypoint::FeatureKeypoint(const float x_,
+                                 const float y_,
+                                 const float a11_,
+                                 const float a12_,
+                                 const float a21_,
+                                 const float a22_,
+                                 const float s11_,
+                                 const float s22_,
+                                 const float s12_)
+    : x(x_),
+      y(y_),
+      a11(a11_),
+      a12(a12_),
+      a21(a21_),
+      a22(a22_),
+      s11(s11_),
+      s22(s22_),
+      s12(s12_) {}
+
+void FeatureKeypoint::InitializeCovariance(const Eigen::Matrix2d& covar) {
+  THROW_CHECK_EQ(covar(0, 1), covar(1, 0))
+      << "Covariance matrix needs to be symmetric.";
+  THROW_CHECK_GT(covar(0, 0), 0);
+  THROW_CHECK_GT(covar(1, 1), 0);
+  s11 = covar(0, 0);
+  s12 = covar(0, 1);
+  s22 = covar(1, 1);
+}
+
+FeatureKeypoint FeatureKeypoint::FromShapeParameters(
+    const float x,
+    const float y,
+    const float scale_x,
+    const float scale_y,
+    const float orientation,
+    const float shear,
+    const Eigen::Matrix2d& covar) {
   THROW_CHECK_GE(scale_x, 0.0);
   THROW_CHECK_GE(scale_y, 0.0);
   return FeatureKeypoint(x,
@@ -73,7 +113,8 @@ FeatureKeypoint FeatureKeypoint::FromShapeParameters(const float x,
                          scale_x * std::cos(orientation),
                          -scale_y * std::sin(orientation + shear),
                          scale_x * std::sin(orientation),
-                         scale_y * std::cos(orientation + shear));
+                         scale_y * std::cos(orientation + shear),
+                         covar);
 }
 
 void FeatureKeypoint::Rescale(const float scale) { Rescale(scale, scale); }
@@ -107,6 +148,12 @@ float FeatureKeypoint::ComputeOrientation() const {
 
 float FeatureKeypoint::ComputeShear() const {
   return std::atan2(-a12, a22) - ComputeOrientation();
+}
+
+Eigen::Matrix2d FeatureKeypoint::GetCovariance() const {
+  Eigen::Matrix2d covar;
+  covar << s11, s12, s12, s22;
+  return covar;
 }
 
 }  // namespace colmap

@@ -56,10 +56,16 @@ inline Eigen::MatrixXd SqrtInformation(const Eigen::MatrixXd& covariance) {
 template <typename CameraModel>
 class ReprojErrorCostFunction {
  public:
-  explicit ReprojErrorCostFunction(const Eigen::Vector2d& point2D)
-      : observed_x_(point2D(0)), observed_y_(point2D(1)) {}
+  explicit ReprojErrorCostFunction(
+      const Eigen::Vector2d& point2D,
+      const Eigen::Matrix2d& point2D_covar = Eigen::Matrix2d::Identity())
+      : observed_x_(point2D(0)),
+        observed_y_(point2D(1)),
+        sqrt_information_point_(SqrtInformation(point2D_covar)) {}
 
-  static ceres::CostFunction* Create(const Eigen::Vector2d& point2D) {
+  static ceres::CostFunction* Create(
+      const Eigen::Vector2d& point2D,
+      const Eigen::Matrix2d& point2D_covar = Eigen::Matrix2d::Identity()) {
     return (
         new ceres::AutoDiffCostFunction<ReprojErrorCostFunction<CameraModel>,
                                         2,
@@ -67,7 +73,7 @@ class ReprojErrorCostFunction {
                                         3,
                                         3,
                                         CameraModel::num_params>(
-            new ReprojErrorCostFunction(point2D)));
+            new ReprojErrorCostFunction(point2D, point2D_covar)));
   }
 
   template <typename T>
@@ -75,7 +81,7 @@ class ReprojErrorCostFunction {
                   const T* const cam_from_world_translation,
                   const T* const point3D,
                   const T* const camera_params,
-                  T* residuals) const {
+                  T* residuals_ptr) const {
     const Eigen::Matrix<T, 3, 1> point3D_in_cam =
         EigenQuaternionMap<T>(cam_from_world_rotation) *
             EigenVector3Map<T>(point3D) +
@@ -84,16 +90,19 @@ class ReprojErrorCostFunction {
                             point3D_in_cam[0],
                             point3D_in_cam[1],
                             point3D_in_cam[2],
-                            &residuals[0],
-                            &residuals[1]);
-    residuals[0] -= T(observed_x_);
-    residuals[1] -= T(observed_y_);
+                            &residuals_ptr[0],
+                            &residuals_ptr[1]);
+    residuals_ptr[0] -= T(observed_x_);
+    residuals_ptr[1] -= T(observed_y_);
+    Eigen::Map<Eigen::Matrix<T, 2, 1>> residuals(residuals_ptr);
+    residuals.applyOnTheLeft(sqrt_information_point_.template cast<T>());
     return true;
   }
 
  private:
   const double observed_x_;
   const double observed_y_;
+  const Eigen::Matrix2d sqrt_information_point_;
 };
 
 // Bundle adjustment cost function for variable
@@ -104,18 +113,22 @@ class ReprojErrorConstantPoseCostFunction
   using Parent = ReprojErrorCostFunction<CameraModel>;
 
  public:
-  ReprojErrorConstantPoseCostFunction(const Rigid3d& cam_from_world,
-                                      const Eigen::Vector2d& point2D)
-      : Parent(point2D), cam_from_world_(cam_from_world) {}
+  ReprojErrorConstantPoseCostFunction(
+      const Rigid3d& cam_from_world,
+      const Eigen::Vector2d& point2D,
+      const Eigen::Matrix2d& point2D_covar = Eigen::Matrix2d::Identity())
+      : Parent(point2D, point2D_covar), cam_from_world_(cam_from_world) {}
 
-  static ceres::CostFunction* Create(const Rigid3d& cam_from_world,
-                                     const Eigen::Vector2d& point2D) {
+  static ceres::CostFunction* Create(
+      const Rigid3d& cam_from_world,
+      const Eigen::Vector2d& point2D,
+      const Eigen::Matrix2d& point2D_covar = Eigen::Matrix2d::Identity()) {
     return (new ceres::AutoDiffCostFunction<
             ReprojErrorConstantPoseCostFunction<CameraModel>,
             2,
             3,
-            CameraModel::num_params>(
-        new ReprojErrorConstantPoseCostFunction(cam_from_world, point2D)));
+            CameraModel::num_params>(new ReprojErrorConstantPoseCostFunction(
+        cam_from_world, point2D, point2D_covar)));
   }
 
   template <typename T>
@@ -145,22 +158,26 @@ class ReprojErrorConstantPoint3DCostFunction
   using Parent = ReprojErrorCostFunction<CameraModel>;
 
  public:
-  ReprojErrorConstantPoint3DCostFunction(const Eigen::Vector2d& point2D,
-                                         const Eigen::Vector3d& point3D)
-      : Parent(point2D),
+  ReprojErrorConstantPoint3DCostFunction(
+      const Eigen::Vector2d& point2D,
+      const Eigen::Vector3d& point3D,
+      const Eigen::Matrix2d& point2D_covar = Eigen::Matrix2d::Identity())
+      : Parent(point2D, point2D_covar),
         point3D_x_(point3D(0)),
         point3D_y_(point3D(1)),
         point3D_z_(point3D(2)) {}
 
-  static ceres::CostFunction* Create(const Eigen::Vector2d& point2D,
-                                     const Eigen::Vector3d& point3D) {
+  static ceres::CostFunction* Create(
+      const Eigen::Vector2d& point2D,
+      const Eigen::Vector3d& point3D,
+      const Eigen::Matrix2d& point2D_covar = Eigen::Matrix2d::Identity()) {
     return (new ceres::AutoDiffCostFunction<
             ReprojErrorConstantPoint3DCostFunction<CameraModel>,
             2,
             4,
             3,
-            CameraModel::num_params>(
-        new ReprojErrorConstantPoint3DCostFunction(point2D, point3D)));
+            CameraModel::num_params>(new ReprojErrorConstantPoint3DCostFunction(
+        point2D, point3D, point2D_covar)));
   }
 
   template <typename T>
@@ -191,10 +208,16 @@ class ReprojErrorConstantPoint3DCostFunction
 template <typename CameraModel>
 class RigReprojErrorCostFunction {
  public:
-  explicit RigReprojErrorCostFunction(const Eigen::Vector2d& point2D)
-      : observed_x_(point2D(0)), observed_y_(point2D(1)) {}
+  explicit RigReprojErrorCostFunction(
+      const Eigen::Vector2d& point2D,
+      const Eigen::Matrix2d& point2D_covar = Eigen::Matrix2d::Identity())
+      : observed_x_(point2D(0)),
+        observed_y_(point2D(1)),
+        sqrt_information_point_(SqrtInformation(point2D_covar)) {}
 
-  static ceres::CostFunction* Create(const Eigen::Vector2d& point2D) {
+  static ceres::CostFunction* Create(
+      const Eigen::Vector2d& point2D,
+      const Eigen::Matrix2d& point2D_covar = Eigen::Matrix2d::Identity()) {
     return (
         new ceres::AutoDiffCostFunction<RigReprojErrorCostFunction<CameraModel>,
                                         2,
@@ -204,7 +227,7 @@ class RigReprojErrorCostFunction {
                                         3,
                                         3,
                                         CameraModel::num_params>(
-            new RigReprojErrorCostFunction(point2D)));
+            new RigReprojErrorCostFunction(point2D, point2D_covar)));
   }
 
   template <typename T>
@@ -214,7 +237,7 @@ class RigReprojErrorCostFunction {
                   const T* const rig_from_world_translation,
                   const T* const point3D,
                   const T* const camera_params,
-                  T* residuals) const {
+                  T* residuals_ptr) const {
     const Eigen::Matrix<T, 3, 1> point3D_in_cam =
         EigenQuaternionMap<T>(cam_from_rig_rotation) *
             (EigenQuaternionMap<T>(rig_from_world_rotation) *
@@ -225,16 +248,19 @@ class RigReprojErrorCostFunction {
                             point3D_in_cam[0],
                             point3D_in_cam[1],
                             point3D_in_cam[2],
-                            &residuals[0],
-                            &residuals[1]);
-    residuals[0] -= T(observed_x_);
-    residuals[1] -= T(observed_y_);
+                            &residuals_ptr[0],
+                            &residuals_ptr[1]);
+    residuals_ptr[0] -= T(observed_x_);
+    residuals_ptr[1] -= T(observed_y_);
+    Eigen::Map<Eigen::Matrix<T, 2, 1>> residuals(residuals_ptr);
+    residuals.applyOnTheLeft(sqrt_information_point_.template cast<T>());
     return true;
   }
 
  private:
   const double observed_x_;
   const double observed_y_;
+  const Eigen::Matrix2d sqrt_information_point_;
 };
 
 // Rig bundle adjustment cost function for variable camera pose and camera
@@ -245,20 +271,24 @@ class RigReprojErrorConstantRigCostFunction
   using Parent = RigReprojErrorCostFunction<CameraModel>;
 
  public:
-  explicit RigReprojErrorConstantRigCostFunction(const Rigid3d& cam_from_rig,
-                                                 const Eigen::Vector2d& point2D)
-      : Parent(point2D), cam_from_rig_(cam_from_rig) {}
+  explicit RigReprojErrorConstantRigCostFunction(
+      const Rigid3d& cam_from_rig,
+      const Eigen::Vector2d& point2D,
+      const Eigen::Matrix2d& point2D_covar = Eigen::Matrix2d::Identity())
+      : Parent(point2D, point2D_covar), cam_from_rig_(cam_from_rig) {}
 
-  static ceres::CostFunction* Create(const Rigid3d& cam_from_rig,
-                                     const Eigen::Vector2d& point2D) {
+  static ceres::CostFunction* Create(
+      const Rigid3d& cam_from_rig,
+      const Eigen::Vector2d& point2D,
+      const Eigen::Matrix2d& point2D_covar = Eigen::Matrix2d::Identity()) {
     return (new ceres::AutoDiffCostFunction<
             RigReprojErrorConstantRigCostFunction<CameraModel>,
             2,
             4,
             3,
             3,
-            CameraModel::num_params>(
-        new RigReprojErrorConstantRigCostFunction(cam_from_rig, point2D)));
+            CameraModel::num_params>(new RigReprojErrorConstantRigCostFunction(
+        cam_from_rig, point2D, point2D_covar)));
   }
 
   template <typename T>

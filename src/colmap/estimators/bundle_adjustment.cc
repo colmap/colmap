@@ -434,18 +434,19 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
     if (constant_cam_pose) {
       problem_->AddResidualBlock(
           CameraCostFunction<ReprojErrorConstantPoseCostFunction>(
-              camera.model_id, image.CamFromWorld(), point2D.xy),
+              camera.model_id, image.CamFromWorld(), point2D.xy, point2D.covar),
           loss_function,
           point3D.xyz.data(),
           camera_params);
     } else {
-      problem_->AddResidualBlock(CameraCostFunction<ReprojErrorCostFunction>(
-                                     camera.model_id, point2D.xy),
-                                 loss_function,
-                                 cam_from_world_rotation,
-                                 cam_from_world_translation,
-                                 point3D.xyz.data(),
-                                 camera_params);
+      problem_->AddResidualBlock(
+          CameraCostFunction<ReprojErrorCostFunction>(
+              camera.model_id, point2D.xy, point2D.covar),
+          loss_function,
+          cam_from_world_rotation,
+          cam_from_world_translation,
+          point3D.xyz.data(),
+          camera_params);
     }
   }
 
@@ -503,7 +504,7 @@ void BundleAdjuster::AddPointToProblem(const point3D_t point3D_id,
     }
     problem_->AddResidualBlock(
         CameraCostFunction<ReprojErrorConstantPoseCostFunction>(
-            camera.model_id, image.CamFromWorld(), point2D.xy),
+            camera.model_id, image.CamFromWorld(), point2D.xy, point2D.covar),
         loss_function,
         point3D.xyz.data(),
         camera.params.data());
@@ -728,29 +729,34 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
       if (constant_cam_pose) {
         problem_->AddResidualBlock(
             CameraCostFunction<ReprojErrorConstantPoseCostFunction>(
-                camera.model_id, image.CamFromWorld(), point2D.xy),
+                camera.model_id,
+                image.CamFromWorld(),
+                point2D.xy,
+                point2D.covar),
             loss_function,
             point3D.xyz.data(),
             camera_params);
       } else {
-        problem_->AddResidualBlock(CameraCostFunction<ReprojErrorCostFunction>(
-                                       camera.model_id, point2D.xy),
-                                   loss_function,
-                                   cam_from_rig_rotation,     // rig == world
-                                   cam_from_rig_translation,  // rig == world
-                                   point3D.xyz.data(),
-                                   camera_params);
+        problem_->AddResidualBlock(
+            CameraCostFunction<ReprojErrorCostFunction>(
+                camera.model_id, point2D.xy, point2D.covar),
+            loss_function,
+            cam_from_rig_rotation,     // rig == world
+            cam_from_rig_translation,  // rig == world
+            point3D.xyz.data(),
+            camera_params);
       }
     } else {
-      problem_->AddResidualBlock(CameraCostFunction<RigReprojErrorCostFunction>(
-                                     camera.model_id, point2D.xy),
-                                 loss_function,
-                                 cam_from_rig_rotation,
-                                 cam_from_rig_translation,
-                                 rig_from_world_rotation,
-                                 rig_from_world_translation,
-                                 point3D.xyz.data(),
-                                 camera_params);
+      problem_->AddResidualBlock(
+          CameraCostFunction<RigReprojErrorCostFunction>(
+              camera.model_id, point2D.xy, point2D.covar),
+          loss_function,
+          cam_from_rig_rotation,
+          cam_from_rig_translation,
+          rig_from_world_rotation,
+          rig_from_world_translation,
+          point3D.xyz.data(),
+          camera_params);
     }
   }
 
@@ -814,7 +820,7 @@ void RigBundleAdjuster::AddPointToProblem(const point3D_t point3D_id,
 
     problem_->AddResidualBlock(
         CameraCostFunction<ReprojErrorConstantPoseCostFunction>(
-            camera.model_id, image.CamFromWorld(), point2D.xy),
+            camera.model_id, image.CamFromWorld(), point2D.xy, point2D.covar),
         loss_function,
         point3D.xyz.data(),
         camera.params.data());
