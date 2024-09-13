@@ -96,8 +96,8 @@ void FeatureKeypoint::InitializeCovariance(const Eigen::Matrix2d& covar) {
       << "Covariance matrix needs to be symmetric.";
   THROW_CHECK_GE(covar(0, 0), 0);
   THROW_CHECK_GE(covar(1, 1), 0);
-  THROW_CHECK_GE(covar.determinant(), 0)
-      << "Covariance matrix needs to be PSD.";
+  float determinant = covar(0, 0) * covar(1, 1) - covar(0, 1) * covar(1, 0);
+  THROW_CHECK_GE(determinant, 0) << "Covariance matrix needs to be PSD.";
   s11 = covar(0, 0);
   s12 = covar(0, 1);
   s22 = covar(1, 1);
