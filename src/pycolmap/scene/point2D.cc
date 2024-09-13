@@ -23,17 +23,20 @@ namespace py = pybind11;
 std::string PrintPoint2D(const Point2D& p2D) {
   std::stringstream ss;
   ss << "Point2D(xy=[" << p2D.xy.format(vec_fmt) << "], point3D_id="
-     << (p2D.HasPoint3D() ? std::to_string(p2D.point3D_id) : "Invalid") << ")";
+     << (p2D.HasPoint3D() ? std::to_string(p2D.point3D_id) : "Invalid")
+     << ", covar=[" << p2D.covar.format(vec_fmt) << "])";
   return ss.str();
 }
 
 void BindPoint2D(py::module& m) {
   py::class_ext_<Point2D, std::shared_ptr<Point2D>> PyPoint2D(m, "Point2D");
   PyPoint2D.def(py::init<>())
-      .def(py::init<const Eigen::Vector2d&, size_t>(),
+      .def(py::init<const Eigen::Vector2d&, const Eigen::Matrix2d&, size_t>(),
            "xy"_a,
+           "covar"_a = Eigen::Matrix2d::Identity(),
            "point3D_id"_a = kInvalidPoint3DId)
       .def_readwrite("xy", &Point2D::xy)
+      .def_readwrite("covar", &Point2D::covar)
       .def_readwrite("point3D_id", &Point2D::point3D_id)
       .def("has_point3D", &Point2D::HasPoint3D)
       .def("__repr__", &PrintPoint2D);
