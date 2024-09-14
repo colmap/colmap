@@ -91,6 +91,7 @@ enum class CameraModelId {
   kSimpleRadialFisheye = 8,
   kRadialFisheye = 9,
   kThinPrismFisheye = 10,
+  kAriaFisheye = 11,
 };
 
 #ifndef CAMERA_MODEL_DEFINITIONS
@@ -143,7 +144,8 @@ enum class CameraModelId {
   CAMERA_MODEL_CASE(OpenCVFisheyeCameraModel)       \
   CAMERA_MODEL_CASE(FullOpenCVCameraModel)          \
   CAMERA_MODEL_CASE(FOVCameraModel)                 \
-  CAMERA_MODEL_CASE(ThinPrismFisheyeCameraModel)
+  CAMERA_MODEL_CASE(ThinPrismFisheyeCameraModel)    \
+  CAMERA_MODEL_CASE(AriaFisheyeCameraModel)
 #endif
 
 #ifndef CAMERA_MODEL_SWITCH_CASES
@@ -370,6 +372,23 @@ struct ThinPrismFisheyeCameraModel
     : public BaseCameraModel<ThinPrismFisheyeCameraModel> {
   CAMERA_MODEL_DEFINITIONS(
       CameraModelId::kThinPrismFisheye, "THIN_PRISM_FISHEYE", 2, 2, 8)
+};
+
+// Aria Glasses Camera Model
+//
+// Camera model with radial and tangential distortion coefficients and
+// additional coefficients accounting for thin-prism distortion.
+//
+// See
+// https://facebookresearch.github.io/projectaria_tools/docs/tech_insights/camera_intrinsic_models#the-fisheyeradtanthinprism-fisheye624-model
+//
+// Parameter list is expected in the following order:
+//
+//    fx, fy, cx, cy, k1, k2, k3, k4, k5, k6, p1, p2, sx1, sx2, sy1, sy2
+//
+struct AriaFisheyeCameraModel : public BaseCameraModel<AriaFisheyeCameraModel> {
+  CAMERA_MODEL_DEFINITIONS(
+      CameraModelId::kAriaFisheye, "ARIA_FISHEYE", 2, 2, 12)
 };
 
 // Check whether camera model with given name or identifier exists.
@@ -1538,6 +1557,91 @@ void ThinPrismFisheyeCameraModel::Distortion(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// AriaFishEyeCameraModel
+
+std::string AriaFishEyeCameraModel::InitializeParamsInfo() {
+  return "fx, fy, cx, cy, k1, k2, k3, k4, k5, k6, p1, p2, sx1, sx2, sy1, sy2";
+}
+
+std::array<size_t, 2> AriaFishEyeCameraModel::InitializeFocalLengthIdxs() {
+  return {0, 1};
+}
+
+std::array<size_t, 2> AriaFishEyeCameraModel::InitializePrincipalPointIdxs() {
+  return {2, 3};
+}
+
+std::array<size_t, 12> AriaFishEyeCameraModel::InitializeExtraParamsIdxs() {
+  return {4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
+}
+
+std::vector<double> AriaFishEyeCameraModel::InitializeParams(
+    const double focal_length, const size_t width, const size_t height) {
+  std::vector<double> params(AriaFishEyeCameraModel::num_params);
+  params[0] = focal_length;
+  params[1] = focal_length;
+  params[2] = width / 2.0;
+  params[3] = height / 2.0;
+
+  for (size_t i = 4; i < AriaFishEyeCameraModel::num_params; ++i) {
+    params[i] = 0;
+  }
+
+  return params;
+}
+
+template <typename T>
+void AriaFishEyeCameraModel::Distortion(
+    const T* extra_params, const T u, const T v, T* du, T* dv) {
+  const int numK = 6;
+  const T radial_coeffs[numK] = {extra_params[0],
+                                 extra_params[1],
+                                 extra_params[2],
+                                 extra_params[3],
+                                 extra_params[4],
+                                 extra_params[5]};
+
+  const T p1 = extra_params[6];
+  const T p2 = extra_params[7];
+  const T sx1 = extra_params[8];
+  const T sx2 = extra_params[9];
+  const T sy1 = extra_params[10];
+  const T sy2 = extra_params[11];
+
+  const T r = ceres::sqrt(u * u + v * v);
+  const T theta = ceres::atan(r);
+  const T theta2 = theta * theta;
+  T th_radial = T(1);
+  T theta_power = theta2;
+  for (int i = 0; i < numK; ++i) {
+    th_radial += radial_coeffs[i] * theta_power;
+    theta_power *= theta2;
+  }
+
+  const T theta_divr =
+      (r < std::numeric_limits<T>::epsilon()) ? static_cast<T>(1.0) : theta / r;
+
+  const T x = th_radial * theta_divr * u;
+  const T y = th_radial * theta_divr * v;
+
+  const T x2 = x * x;
+  const T y2 = y * y;
+  const T xy = x * y;
+  const T r2 = x2 + y2;
+  const T r4 = r2 * r2;
+
+  const T dx_tang = T(2) * p1 * xy + p2 * (r2 + T(2) * x2);
+  const T dy_tang = T(2) * p2 * xy + p1 * (r2 + T(2) * y2);
+
+  const T dx_tp = sx1 * r2 + sx2 * r4;
+  const T dy_tp = sy1 * r2 + sy2 * r4;
+
+  const T x_distorted = x + dx_tang + dx_tp;
+  const T y_distorted = y + dy_tang + dy_tp;
+
+  *du = x_distorted - u;
+  *dv = y_distorted - v;
+}
 
 Eigen::Vector2d CameraModelImgFromCam(const CameraModelId model_id,
                                       const std::vector<double>& params,
