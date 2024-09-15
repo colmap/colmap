@@ -87,8 +87,9 @@ FeatureKeypoint::FeatureKeypoint(const float x_,
       s11(s11_),
       s22(s22_),
       s12(s12_) {
-  THROW_CHECK_GT(s11, 0);
-  THROW_CHECK_GT(s22, 0);
+  THROW_CHECK_GE(s11, 0);
+  THROW_CHECK_GE(s22, 0);
+  THROW_CHECK_GE(s11 * s22 - s12 * s12, 0);
 }
 
 void FeatureKeypoint::InitializeCovariance(const Eigen::Matrix2d& covar) {

@@ -55,10 +55,6 @@ struct Point2D {
 
   // Get covariance matrix
   inline Eigen::Matrix2d GetCovariance() const {
-    THROW_CHECK_GE(covar_data(0), 0);
-    THROW_CHECK_GE(covar_data(1), 0);
-    THROW_CHECK_GE(
-        covar_data(0) * covar_data(1) - covar_data(2) * covar_data(2), 0);
     Eigen::Matrix2d covar;
     covar << covar_data(0), covar_data(2), covar_data(2), covar_data(1);
     return covar;
