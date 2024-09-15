@@ -43,7 +43,8 @@ struct Point2D {
   Eigen::Vector2d xy = Eigen::Vector2d::Zero();
 
   // The 2D covariance of the keypoint
-  Eigen::Matrix2d covar = Eigen::Matrix2d::Identity();
+  Eigen::Vector3f covar_data =
+      Eigen::Vector3f(1.0f, 1.0f, 0.0f);  // s11, s22, s12
 
   // The identifier of the 3D point. If the 2D point is not part of a 3D point
   // track the identifier is `kInvalidPoint3DId` and `HasPoint3D() = false`.
@@ -51,6 +52,17 @@ struct Point2D {
 
   // Determin whether the 2D point observes a 3D point.
   inline bool HasPoint3D() const { return point3D_id != kInvalidPoint3DId; }
+
+  // Get covariance matrix
+  inline Eigen::Matrix2d GetCovariance() const {
+    THROW_CHECK_GE(covar_data(0), 0);
+    THROW_CHECK_GE(covar_data(1), 0);
+    THROW_CHECK_GE(
+        covar_data(0) * covar_data(1) - covar_data(2) * covar_data(2), 0);
+    Eigen::Matrix2d covar;
+    covar << covar_data(0), covar_data(2), covar_data(2), covar_data(1);
+    return covar;
+  }
 };
 
 }  // namespace colmap

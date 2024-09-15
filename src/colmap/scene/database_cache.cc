@@ -43,8 +43,8 @@ std::vector<Point2D> FeatureKeypointsToPointsVector(
   std::vector<Point2D> points(keypoints.size());
   for (size_t i = 0; i < keypoints.size(); ++i) {
     points[i].xy = Eigen::Vector2d(keypoints[i].x, keypoints[i].y);
-    points[i].covar << keypoints[i].s11, keypoints[i].s12, keypoints[i].s12,
-        keypoints[i].s22;
+    points[i].covar_data =
+        Eigen::Vector3f(keypoints[i].s11, keypoints[i].s22, keypoints[i].s12);
   }
   return points;
 }

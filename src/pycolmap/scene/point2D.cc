@@ -24,7 +24,7 @@ std::string PrintPoint2D(const Point2D& p2D) {
   std::stringstream ss;
   ss << "Point2D(xy=[" << p2D.xy.format(vec_fmt) << "], point3D_id="
      << (p2D.HasPoint3D() ? std::to_string(p2D.point3D_id) : "Invalid")
-     << ", covar=[" << p2D.covar.format(vec_fmt) << "])";
+     << ", covar=[" << p2D.GetCovariance().format(vec_fmt) << "])";
   return ss.str();
 }
 
@@ -33,12 +33,13 @@ void BindPoint2D(py::module& m) {
   PyPoint2D.def(py::init<>())
       .def(py::init<const Eigen::Vector2d&, const Eigen::Matrix2d&, size_t>(),
            "xy"_a,
-           "covar"_a = Eigen::Matrix2d::Identity(),
+           "covar"_a = Eigen::Vector3f(1.0f, 1.0f, 0.0f),
            "point3D_id"_a = kInvalidPoint3DId)
       .def_readwrite("xy", &Point2D::xy)
-      .def_readwrite("covar", &Point2D::covar)
+      .def_readwrite("covar_data", &Point2D::covar_data)
       .def_readwrite("point3D_id", &Point2D::point3D_id)
       .def("has_point3D", &Point2D::HasPoint3D)
+      .def("get_covariance", &Point2D::GetCovariance)
       .def("__repr__", &PrintPoint2D);
   MakeDataclass(PyPoint2D);
 
