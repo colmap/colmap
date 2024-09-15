@@ -31,7 +31,7 @@ std::string PrintPoint2D(const Point2D& p2D) {
 void BindPoint2D(py::module& m) {
   py::class_ext_<Point2D, std::shared_ptr<Point2D>> PyPoint2D(m, "Point2D");
   PyPoint2D.def(py::init<>())
-      .def(py::init<const Eigen::Vector2d&, const Eigen::Matrix2d&, size_t>(),
+      .def(py::init<const Eigen::Vector2d&, const Eigen::Vector3f&, size_t>(),
            "xy"_a,
            "covar"_a = Eigen::Vector3f(1.0f, 1.0f, 0.0f),
            "point3D_id"_a = kInvalidPoint3DId)
