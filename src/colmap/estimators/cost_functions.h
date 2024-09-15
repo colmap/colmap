@@ -47,6 +47,22 @@ template <typename T>
 using EigenQuaternionMap = Eigen::Map<const Eigen::Quaternion<T>>;
 using EigenMatrix6d = Eigen::Matrix<double, 6, 6>;
 
+enum CovarianceType {
+  IDENTITY = 1,
+  DIAGONAL = 2,
+  GENERAL = 3,
+};
+
+inline CovarianceType GetCovarianceType(const Eigen::MatrixXd& covariance) {
+  if (covariance.isDiagonal()) {
+    if (covariance.isIdentity())
+      return CovarianceType::IDENTITY;
+    else
+      return CovarianceType::DIAGONAL;
+  } else
+    return CovarianceType::GENERAL;
+}
+
 inline Eigen::MatrixXd SqrtInformation(const Eigen::MatrixXd& covariance) {
   return covariance.inverse().llt().matrixL().transpose();
 }
@@ -61,7 +77,8 @@ class ReprojErrorCostFunction {
       const Eigen::Matrix2d& point2D_covar = Eigen::Matrix2d::Identity())
       : observed_x_(point2D(0)),
         observed_y_(point2D(1)),
-        sqrt_information_point_(SqrtInformation(point2D_covar)) {}
+        sqrt_information_point_(SqrtInformation(point2D_covar)),
+        covariance_type_(GetCovarianceType(point2D_covar)) {}
 
   static ceres::CostFunction* Create(
       const Eigen::Vector2d& point2D,
@@ -94,8 +111,13 @@ class ReprojErrorCostFunction {
                             &residuals_ptr[1]);
     residuals_ptr[0] -= T(observed_x_);
     residuals_ptr[1] -= T(observed_y_);
-    Eigen::Map<Eigen::Matrix<T, 2, 1>> residuals(residuals_ptr);
-    residuals.applyOnTheLeft(sqrt_information_point_.template cast<T>());
+    if (covariance_type_ == CovarianceType::GENERAL) {
+      Eigen::Map<Eigen::Matrix<T, 2, 1>> residuals(residuals_ptr);
+      residuals.applyOnTheLeft(sqrt_information_point_.template cast<T>());
+    } else if (covariance_type_ == CovarianceType::DIAGONAL) {
+      residuals_ptr[0] *= T(sqrt_information_point_(0, 0));
+      residuals_ptr[1] *= T(sqrt_information_point_(1, 1));
+    }
     return true;
   }
 
@@ -103,6 +125,7 @@ class ReprojErrorCostFunction {
   const double observed_x_;
   const double observed_y_;
   const Eigen::Matrix2d sqrt_information_point_;
+  const CovarianceType covariance_type_;
 };
 
 // Bundle adjustment cost function for variable
@@ -213,7 +236,8 @@ class RigReprojErrorCostFunction {
       const Eigen::Matrix2d& point2D_covar = Eigen::Matrix2d::Identity())
       : observed_x_(point2D(0)),
         observed_y_(point2D(1)),
-        sqrt_information_point_(SqrtInformation(point2D_covar)) {}
+        sqrt_information_point_(SqrtInformation(point2D_covar)),
+        covariance_type_(GetCovarianceType(point2D_covar)) {}
 
   static ceres::CostFunction* Create(
       const Eigen::Vector2d& point2D,
@@ -252,8 +276,13 @@ class RigReprojErrorCostFunction {
                             &residuals_ptr[1]);
     residuals_ptr[0] -= T(observed_x_);
     residuals_ptr[1] -= T(observed_y_);
-    Eigen::Map<Eigen::Matrix<T, 2, 1>> residuals(residuals_ptr);
-    residuals.applyOnTheLeft(sqrt_information_point_.template cast<T>());
+    if (covariance_type_ == CovarianceType::GENERAL) {
+      Eigen::Map<Eigen::Matrix<T, 2, 1>> residuals(residuals_ptr);
+      residuals.applyOnTheLeft(sqrt_information_point_.template cast<T>());
+    } else if (covariance_type_ == CovarianceType::DIAGONAL) {
+      residuals_ptr[0] *= T(sqrt_information_point_(0, 0));
+      residuals_ptr[1] *= T(sqrt_information_point_(1, 1));
+    }
     return true;
   }
 
@@ -261,6 +290,7 @@ class RigReprojErrorCostFunction {
   const double observed_x_;
   const double observed_y_;
   const Eigen::Matrix2d sqrt_information_point_;
+  const CovarianceType covariance_type_;
 };
 
 // Rig bundle adjustment cost function for variable camera pose and camera
