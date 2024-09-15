@@ -31,12 +31,23 @@
 
 #include "colmap/geometry/pose.h"
 #include "colmap/geometry/sim3.h"
+#include "colmap/scene/synthetic.h"
 #include "colmap/sensor/models.h"
 
 #include <gtest/gtest.h>
 
 namespace colmap {
 namespace {
+
+// Check if all camera pointers are correctly set
+bool CheckReconstruction(const Reconstruction& reconstruction) {
+  for (const auto& image : reconstruction.Images()) {
+    if (!image.second.HasCameraPtr()) return false;
+    auto& camera = reconstruction.Camera(image.second.CameraId());
+    if (image.second.CameraPtr() != &camera) return false;
+  }
+  return true;
+}
 
 void GenerateReconstruction(const image_t num_images,
                             Reconstruction* reconstruction) {
@@ -100,6 +111,7 @@ TEST(Reconstruction, AddImage) {
   EXPECT_EQ(reconstruction.NumImages(), 1);
   EXPECT_EQ(reconstruction.NumRegImages(), 0);
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
+  EXPECT_TRUE(CheckReconstruction(reconstruction));
 }
 
 TEST(Reconstruction, AddPoint3D) {
@@ -471,6 +483,19 @@ TEST(Reconstruction, UpdatePoint3DErrors) {
   reconstruction.Point3D(point3D_id).xyz = Eigen::Vector3d(0, 1, 1);
   reconstruction.UpdatePoint3DErrors();
   EXPECT_EQ(reconstruction.Point3D(point3D_id).error, 1);
+}
+
+TEST(Reconstruction, DeleteAllPoints2DAndPoints3D) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_cameras = 2;
+  synthetic_dataset_options.num_images = 20;
+  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.point2D_stddev = 0;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  reconstruction.DeleteAllPoints2DAndPoints3D();
+  EXPECT_EQ(reconstruction.NumPoints3D(), 0);
+  EXPECT_TRUE(CheckReconstruction(reconstruction));
 }
 
 }  // namespace

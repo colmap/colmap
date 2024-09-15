@@ -58,20 +58,18 @@ void DecomposeEssentialMatrix(const Eigen::Matrix3d& E,
 //
 // The pose of the first image is assumed to be P = [I | 0].
 //
-// @param E            3x3 essential matrix.
-// @param points1      First set of corresponding points.
-// @param points2      Second set of corresponding points.
-// @param inlier_mask  Only points with `true` in the inlier mask are
-//                     considered in the cheirality test. Size of the
-//                     inlier mask must match the number of points N.
-// @param R            Most probable 3x3 rotation matrix.
-// @param t            Most probable 3x1 translation vector.
-// @param points3D     Triangulated 3D points infront of camera.
+// @param E               3x3 essential matrix.
+// @param points1         First set of corresponding points.
+// @param points2         Second set of corresponding points.
+// @param inlier_mask     Only points with `true` in the inlier mask are
+//                        considered in the cheirality test. Size of the
+//                        inlier mask must match the number of points N.
+// @param cam2_from_cam1  Relative camera transformation.
+// @param points3D        Triangulated 3D points infront of camera.
 void PoseFromEssentialMatrix(const Eigen::Matrix3d& E,
                              const std::vector<Eigen::Vector2d>& points1,
                              const std::vector<Eigen::Vector2d>& points2,
-                             Eigen::Matrix3d* R,
-                             Eigen::Vector3d* t,
+                             Rigid3d* cam2_from_cam1,
                              std::vector<Eigen::Vector3d>* points3D);
 
 // Compose essential matrix from relative camera poses.

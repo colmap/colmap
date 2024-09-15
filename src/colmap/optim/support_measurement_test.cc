@@ -49,21 +49,21 @@ TEST(InlierSupportMeasurer, Nominal) {
   EXPECT_EQ(support1.residual_sum, 0.0);
   InlierSupportMeasurer::Support support2;
   support2.num_inliers = 2;
-  EXPECT_TRUE(measurer.Compare(support1, support2));
-  EXPECT_FALSE(measurer.Compare(support2, support1));
+  EXPECT_TRUE(measurer.IsLeftBetter(support1, support2));
+  EXPECT_FALSE(measurer.IsLeftBetter(support2, support1));
   support2.residual_sum = support1.residual_sum;
-  EXPECT_TRUE(measurer.Compare(support1, support2));
-  EXPECT_FALSE(measurer.Compare(support2, support1));
+  EXPECT_TRUE(measurer.IsLeftBetter(support1, support2));
+  EXPECT_FALSE(measurer.IsLeftBetter(support2, support1));
   support2.num_inliers = support1.num_inliers;
   support2.residual_sum += 0.01;
-  EXPECT_TRUE(measurer.Compare(support1, support2));
-  EXPECT_FALSE(measurer.Compare(support2, support1));
+  EXPECT_TRUE(measurer.IsLeftBetter(support1, support2));
+  EXPECT_FALSE(measurer.IsLeftBetter(support2, support1));
   support2.residual_sum -= 0.01;
-  EXPECT_FALSE(measurer.Compare(support1, support2));
-  EXPECT_FALSE(measurer.Compare(support2, support1));
+  EXPECT_FALSE(measurer.IsLeftBetter(support1, support2));
+  EXPECT_FALSE(measurer.IsLeftBetter(support2, support1));
   support2.residual_sum -= 0.01;
-  EXPECT_FALSE(measurer.Compare(support1, support2));
-  EXPECT_TRUE(measurer.Compare(support2, support1));
+  EXPECT_FALSE(measurer.IsLeftBetter(support1, support2));
+  EXPECT_TRUE(measurer.IsLeftBetter(support2, support1));
 }
 
 TEST(UniqueInlierSupportMeasurer, Nominal) {
@@ -83,35 +83,35 @@ TEST(UniqueInlierSupportMeasurer, Nominal) {
 
   UniqueInlierSupportMeasurer::Support support2;
   support2.num_unique_inliers = support1.num_unique_inliers - 1;
-  EXPECT_TRUE(measurer.Compare(support1, support2));
-  EXPECT_FALSE(measurer.Compare(support2, support1));
+  EXPECT_TRUE(measurer.IsLeftBetter(support1, support2));
+  EXPECT_FALSE(measurer.IsLeftBetter(support2, support1));
   support2.num_inliers = support1.num_inliers + 1;
-  EXPECT_TRUE(measurer.Compare(support1, support2));
-  EXPECT_FALSE(measurer.Compare(support2, support1));
+  EXPECT_TRUE(measurer.IsLeftBetter(support1, support2));
+  EXPECT_FALSE(measurer.IsLeftBetter(support2, support1));
   support2.num_inliers = support1.num_inliers;
-  EXPECT_TRUE(measurer.Compare(support1, support2));
-  EXPECT_FALSE(measurer.Compare(support2, support1));
+  EXPECT_TRUE(measurer.IsLeftBetter(support1, support2));
+  EXPECT_FALSE(measurer.IsLeftBetter(support2, support1));
   support2.residual_sum = support1.residual_sum - 0.01;
-  EXPECT_TRUE(measurer.Compare(support1, support2));
-  EXPECT_FALSE(measurer.Compare(support2, support1));
+  EXPECT_TRUE(measurer.IsLeftBetter(support1, support2));
+  EXPECT_FALSE(measurer.IsLeftBetter(support2, support1));
   support2.residual_sum = support1.residual_sum;
-  EXPECT_TRUE(measurer.Compare(support1, support2));
-  EXPECT_FALSE(measurer.Compare(support2, support1));
+  EXPECT_TRUE(measurer.IsLeftBetter(support1, support2));
+  EXPECT_FALSE(measurer.IsLeftBetter(support2, support1));
   support2.num_unique_inliers = support1.num_unique_inliers;
-  EXPECT_FALSE(measurer.Compare(support1, support2));
-  EXPECT_FALSE(measurer.Compare(support2, support1));
+  EXPECT_FALSE(measurer.IsLeftBetter(support1, support2));
+  EXPECT_FALSE(measurer.IsLeftBetter(support2, support1));
   support2.residual_sum = support1.residual_sum - 0.01;
-  EXPECT_FALSE(measurer.Compare(support1, support2));
-  EXPECT_TRUE(measurer.Compare(support2, support1));
+  EXPECT_FALSE(measurer.IsLeftBetter(support1, support2));
+  EXPECT_TRUE(measurer.IsLeftBetter(support2, support1));
   support2.num_inliers = support1.num_inliers + 1;
   support2.residual_sum = support1.residual_sum + 0.01;
-  EXPECT_FALSE(measurer.Compare(support1, support2));
-  EXPECT_TRUE(measurer.Compare(support2, support1));
+  EXPECT_FALSE(measurer.IsLeftBetter(support1, support2));
+  EXPECT_TRUE(measurer.IsLeftBetter(support2, support1));
   support2.num_unique_inliers = support1.num_unique_inliers + 1;
   support2.num_inliers = support1.num_inliers - 1;
   support2.residual_sum = support1.residual_sum + 0.01;
-  EXPECT_FALSE(measurer.Compare(support1, support2));
-  EXPECT_TRUE(measurer.Compare(support2, support1));
+  EXPECT_FALSE(measurer.IsLeftBetter(support1, support2));
+  EXPECT_TRUE(measurer.IsLeftBetter(support2, support1));
 }
 
 TEST(MEstimatorSupportMeasurer, Nominal) {
@@ -124,18 +124,18 @@ TEST(MEstimatorSupportMeasurer, Nominal) {
   EXPECT_EQ(support1.num_inliers, 3);
   EXPECT_EQ(support1.score, 1.0);
   MEstimatorSupportMeasurer::Support support2 = support1;
-  EXPECT_FALSE(measurer.Compare(support1, support2));
-  EXPECT_FALSE(measurer.Compare(support2, support1));
+  EXPECT_FALSE(measurer.IsLeftBetter(support1, support2));
+  EXPECT_FALSE(measurer.IsLeftBetter(support2, support1));
   support2.num_inliers -= 1;
   support2.score += 0.01;
-  EXPECT_TRUE(measurer.Compare(support1, support2));
-  EXPECT_FALSE(measurer.Compare(support2, support1));
+  EXPECT_TRUE(measurer.IsLeftBetter(support1, support2));
+  EXPECT_FALSE(measurer.IsLeftBetter(support2, support1));
   support2.score -= 0.01;
-  EXPECT_FALSE(measurer.Compare(support1, support2));
-  EXPECT_FALSE(measurer.Compare(support2, support1));
+  EXPECT_FALSE(measurer.IsLeftBetter(support1, support2));
+  EXPECT_FALSE(measurer.IsLeftBetter(support2, support1));
   support2.score -= 0.01;
-  EXPECT_FALSE(measurer.Compare(support1, support2));
-  EXPECT_TRUE(measurer.Compare(support2, support1));
+  EXPECT_FALSE(measurer.IsLeftBetter(support1, support2));
+  EXPECT_TRUE(measurer.IsLeftBetter(support2, support1));
 }
 
 }  // namespace
