@@ -242,10 +242,7 @@ void P3PCEstimator::Residuals(const std::vector<X_t>& points2D,
           J_proj * cam_from_world.leftCols<3>();
       const Eigen::Matrix2d proj_cov = J * points3D[i].second * J.transpose();
       const Eigen::Vector2d diff = point3D_in_cam.hnormalized() - points2D[i];
-      const double density =
-          std::exp(-0.5 * diff.transpose() * proj_cov.inverse() * diff) /
-          std::sqrt(4 * EIGEN_PI * EIGEN_PI * proj_cov.determinant());
-      (*residuals)[i] = 1 / density;
+      (*residuals)[i] = diff.transpose() * proj_cov.inverse() * diff;
     } else {
       (*residuals)[i] = std::numeric_limits<double>::max();
     }
