@@ -35,10 +35,10 @@
 
 namespace colmap {
 
-// Check if point within sigma_factor * sigma uncertainty ellipse.
-bool IsPointWithinUncertaintyInterval(const Eigen::Vector2d& mean,
-                                      const Eigen::Matrix2d& cov,
-                                      const Eigen::Vector2d& x,
-                                      double sigma_factor);
+// Check if point is within sigma_factor * sigma uncertainty ellipse.
+bool InsideUncertaintyInterval(const Eigen::Vector2d& mean,
+                               const Eigen::Matrix2d& cov,
+                               const Eigen::Vector2d& x,
+                               double sigma_factor);
 
 }  // namespace colmap

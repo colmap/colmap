@@ -34,32 +34,32 @@
 namespace colmap {
 namespace {
 
-TEST(IsPointWithinUncertaintyInterval, Degenerate) {
-  EXPECT_FALSE(IsPointWithinUncertaintyInterval(Eigen::Vector2d::Zero(),
-                                                Eigen::Matrix2d::Zero(),
-                                                Eigen::Vector2d(0, 0),
-                                                1));
-  EXPECT_FALSE(IsPointWithinUncertaintyInterval(
-      Eigen::Vector2d::Zero(),
-      (Eigen::Matrix2d() << 1, 0, 0, 0).finished(),
-      Eigen::Vector2d(0, 0),
-      1));
-  EXPECT_FALSE(IsPointWithinUncertaintyInterval(
-      Eigen::Vector2d::Zero(),
-      (Eigen::Matrix2d() << 0, 0, 0, 1).finished(),
-      Eigen::Vector2d(0, 0),
-      1));
+TEST(InsideUncertaintyInterval, Degenerate) {
+  EXPECT_FALSE(InsideUncertaintyInterval(Eigen::Vector2d::Zero(),
+                                         Eigen::Matrix2d::Zero(),
+                                         Eigen::Vector2d(0, 0),
+                                         1));
+  EXPECT_FALSE(
+      InsideUncertaintyInterval(Eigen::Vector2d::Zero(),
+                                (Eigen::Matrix2d() << 1, 0, 0, 0).finished(),
+                                Eigen::Vector2d(0, 0),
+                                1));
+  EXPECT_FALSE(
+      InsideUncertaintyInterval(Eigen::Vector2d::Zero(),
+                                (Eigen::Matrix2d() << 0, 0, 0, 1).finished(),
+                                Eigen::Vector2d(0, 0),
+                                1));
 }
 
 bool AreSymmetricPointsWithinZeroMeanUncertaintyInterval(
     const Eigen::Matrix2d& cov, const Eigen::Vector2d& x, double sigma_factor) {
-  return IsPointWithinUncertaintyInterval(
+  return InsideUncertaintyInterval(
              Eigen::Vector2d::Zero(), cov, x, sigma_factor) &&
-         IsPointWithinUncertaintyInterval(
+         InsideUncertaintyInterval(
              Eigen::Vector2d::Zero(), cov, -x, sigma_factor);
 }
 
-TEST(IsPointWithinUncertaintyInterval, Identity) {
+TEST(InsideUncertaintyInterval, Identity) {
   const Eigen::Matrix2d cov = Eigen::Matrix2d::Identity();
   EXPECT_TRUE(AreSymmetricPointsWithinZeroMeanUncertaintyInterval(
       cov, Eigen::Vector2d(0, 0), 1));
@@ -85,20 +85,16 @@ TEST(IsPointWithinUncertaintyInterval, Identity) {
       cov, Eigen::Vector2d(0, 2.01), 2.01));
 }
 
-TEST(IsPointWithinUncertaintyInterval, NonZeroMean) {
+TEST(InsideUncertaintyInterval, NonZeroMean) {
   const Eigen::Vector2d mean = Eigen::Vector2d(2, 3);
   const Eigen::Matrix2d cov = Eigen::Matrix2d::Identity();
-  EXPECT_FALSE(
-      IsPointWithinUncertaintyInterval(mean, cov, Eigen::Vector2d(0, 0), 1));
-  EXPECT_TRUE(
-      IsPointWithinUncertaintyInterval(mean, cov, Eigen::Vector2d(2, 3), 1));
-  EXPECT_TRUE(
-      IsPointWithinUncertaintyInterval(mean, cov, Eigen::Vector2d(1, 3), 1));
-  EXPECT_TRUE(
-      IsPointWithinUncertaintyInterval(mean, cov, Eigen::Vector2d(2, 2), 1));
+  EXPECT_FALSE(InsideUncertaintyInterval(mean, cov, Eigen::Vector2d(0, 0), 1));
+  EXPECT_TRUE(InsideUncertaintyInterval(mean, cov, Eigen::Vector2d(2, 3), 1));
+  EXPECT_TRUE(InsideUncertaintyInterval(mean, cov, Eigen::Vector2d(1, 3), 1));
+  EXPECT_TRUE(InsideUncertaintyInterval(mean, cov, Eigen::Vector2d(2, 2), 1));
 }
 
-TEST(IsPointWithinUncertaintyInterval, Isotropic) {
+TEST(InsideUncertaintyInterval, Isotropic) {
   const Eigen::Matrix2d cov = (Eigen::Matrix2d() << 1, 0, 0, 4).finished();
   EXPECT_TRUE(AreSymmetricPointsWithinZeroMeanUncertaintyInterval(
       cov, Eigen::Vector2d(0, 0), 1));
@@ -116,7 +112,7 @@ TEST(IsPointWithinUncertaintyInterval, Isotropic) {
       cov, Eigen::Vector2d(0, 2.01), 2.01));
 }
 
-TEST(IsPointWithinUncertaintyInterval, Anisotropic) {
+TEST(InsideUncertaintyInterval, Anisotropic) {
   const Eigen::Matrix2d cov = (Eigen::Matrix2d() << 1, 0.5, 0.5, 1).finished();
   EXPECT_TRUE(AreSymmetricPointsWithinZeroMeanUncertaintyInterval(
       cov, Eigen::Vector2d(0, 0), 1));

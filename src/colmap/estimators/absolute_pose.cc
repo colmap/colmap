@@ -251,10 +251,10 @@ void CovariantP3PEstimator::Residuals(const std::vector<X_t>& points2D,
     }
 
     const Eigen::Vector2d proj_point = point3D_in_cam.hnormalized();
-    if (!IsPointWithinUncertaintyInterval(points2D[0].first,
-                                          points2D[0].second,
-                                          proj_point,
-                                          kInlierSigmaFactor)) {
+    if (!InsideUncertaintyInterval(points2D[0].first,
+                                   points2D[0].second,
+                                   proj_point,
+                                   kInlierSigmaFactor)) {
       (*residuals)[i] = std::numeric_limits<double>::max();
       continue;
     }
@@ -266,7 +266,7 @@ void CovariantP3PEstimator::Residuals(const std::vector<X_t>& points2D,
         -point3D_in_cam.y() / (point3D_in_cam.z() * point3D_in_cam.z());
     const Eigen::Matrix<double, 2, 3> J = J_proj * cam_from_world.leftCols<3>();
     const Eigen::Matrix2d proj_cov = J * points3D[i].second * J.transpose();
-    if (!IsPointWithinUncertaintyInterval(
+    if (!InsideUncertaintyInterval(
             proj_point, proj_cov, points2D[i].first, kInlierSigmaFactor)) {
       (*residuals)[i] = std::numeric_limits<double>::max();
       continue;
