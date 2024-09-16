@@ -186,30 +186,34 @@ void P3PCEstimator::Estimate(const std::vector<X_t>& points2D,
   P3PEstimator::Estimate(points2D, points3D_without_cov, models);
 }
 
-// We compute the residual as the probability density of the measured 2D point
-// observing the uncertain 3D point. We do this by projecting the 3D point
-// covariance from the world to the image space. We assume uniform 2D point
-// covariance.
-
-// Projection of 3D point covariance to the projected 2D covariance in the image
-// plane using covariance propagation:
+// We would like to compute the maximum likelihood estimate of the absolute pose
+// P = [R, t] \in SE(3) given uncertain 2D-3D point correspondences. Let r_i \in
+// R^2 ~ N(0, S_r) with i = 1...N be the reprojection residual of a 3D point X_i
+// \in R^3 ~ N(0, S_X) observed in the 2D image at x_i \in R^2 ~ N(0, S_x).
+// Assuming all-inliers, we can compute the likelihood of a pose estimate as:
 //
-// Let  S_X := 3D point covariance
-//      S_x := Projected 2D point covariance
-//      R   := World to camera rotation
-//      t   := World to camera translation
+//      L = prod_i exp(-1/2 * r_i^T S_x_i^-1 * r_i)
+//                 / sqrt((2 * PI)^2 * |S_x_i|)
 //
-// The projection from world to image plane (ignoring intrinsics):
+//      with r_i     = x_i - Proj(Pose(X)) = x_i - Proj(R * X_i + t)
+//           Proj(C) = [C_x/C_z; C_y/C_z]
 //
-//      x = P(X) = Proj(Pose(X))
+// To find the maximum likelihood estimate, we minimize the negative log
+// likelihood:
 //
-//      with Pose(X) = R * X + t
-//      with Proj(C) = [C_x/C_z]
-//                     [C_y/C_z]
+//      NLL = sum_i 1/2 * (r_i^T S_x * r_i + log(|S_x_i|) + 2 * log(2 * PI)))
 //
-// Covariance propagation using first order approximation:
+// We can drop the last term, which is a constant offset to the objective.
 //
-//      S_x = J_P(X) * S_X * J_P(X)^T
+// Considering both 2D and 3D point uncertainties, we use the covariance:
+//
+//      S_x' = S_x + Proj(Pose(S_X))
+//
+// where the projection of the 3D point covariance to the projected 2D
+// covariance in the image plane can be computed using covariance propagation
+// using first order approximation:
+//
+//      Proj(Pose(S_X)) = J_P(X) * S_X * J_P(X)^T
 //
 // We can compute the Jacobian using the chain rule:
 //
@@ -221,7 +225,7 @@ void P3PCEstimator::Estimate(const std::vector<X_t>& points2D,
 //
 // Hence, we obtain:
 //
-//      S_x = J_Proj * J_Pose * S_X * (J_Proj * J_Pose)^T
+//      Proj(Pose(S_X)) = J_Proj * J_Pose * S_X * (J_Proj * J_Pose)^T
 void P3PCEstimator::Residuals(const std::vector<X_t>& points2D,
                               const std::vector<Y_t>& points3D,
                               const M_t& cam_from_world,
@@ -242,7 +246,9 @@ void P3PCEstimator::Residuals(const std::vector<X_t>& points2D,
           J_proj * cam_from_world.leftCols<3>();
       const Eigen::Matrix2d proj_cov = J * points3D[i].second * J.transpose();
       const Eigen::Vector2d diff = point3D_in_cam.hnormalized() - points2D[i];
-      (*residuals)[i] = diff.transpose() * proj_cov.inverse() * diff;
+      // (*residuals)[i] = diff.transpose() * proj_cov.inverse() * diff;
+      (*residuals)[i] = diff.transpose() * proj_cov.inverse() * diff +
+                        std::log(proj_cov.determinant());
     } else {
       (*residuals)[i] = std::numeric_limits<double>::max();
     }
