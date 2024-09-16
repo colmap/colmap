@@ -33,10 +33,10 @@
 
 namespace colmap {
 
-bool IsPointWithinUncertaintyInterval(const Eigen::Vector2d& mean,
-                                      const Eigen::Matrix2d& cov,
-                                      const Eigen::Vector2d& x,
-                                      double sigma_factor) {
+bool InsideUncertaintyInterval(const Eigen::Vector2d& mean,
+                               const Eigen::Matrix2d& cov,
+                               const Eigen::Vector2d& x,
+                               double sigma_factor) {
   // Closed-form computation of Eigen values.
   const double a = cov(0, 0);
   const double b = cov(1, 0);
