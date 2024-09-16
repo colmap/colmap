@@ -1652,10 +1652,10 @@ void AriaFisheyeCameraModel::Distortion(
   const T theta = ceres::atan(r);
   const T theta2 = theta * theta;
   T th_radial = T(1);
-  T theta_power = theta2;
+  T theta_power = T(1);
   for (int i = 0; i < numK; ++i) {
-    th_radial += radial_coeffs[i] * theta_power;
     theta_power *= theta2;
+    th_radial += radial_coeffs[i] * theta_power;
   }
 
   const T theta_divr =
