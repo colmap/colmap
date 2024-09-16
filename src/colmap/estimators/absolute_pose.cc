@@ -176,14 +176,20 @@ void P3PEstimator::Residuals(const std::vector<X_t>& points2D,
       points2D, points3D, cam_from_world, residuals);
 }
 
-void P3PCEstimator::Estimate(const std::vector<X_t>& points2D,
-                             const std::vector<Y_t>& points3D,
-                             std::vector<M_t>* models) {
+void CovariantP3PEstimator::Estimate(const std::vector<X_t>& points2D,
+                                     const std::vector<Y_t>& points3D,
+                                     std::vector<M_t>* models) {
+  THROW_CHECK_EQ(points2D.size(), 3);
+  THROW_CHECK_EQ(points3D.size(), 3);
+  thread_local std::vector<Eigen::Vector2d> points2D_without_cov(3);
+  points2D_without_cov[0] = points2D[0].first;
+  points2D_without_cov[1] = points2D[1].first;
+  points2D_without_cov[2] = points2D[2].first;
   thread_local std::vector<Eigen::Vector3d> points3D_without_cov(3);
   points3D_without_cov[0] = points3D[0].first;
   points3D_without_cov[1] = points3D[1].first;
   points3D_without_cov[2] = points3D[2].first;
-  P3PEstimator::Estimate(points2D, points3D_without_cov, models);
+  P3PEstimator::Estimate(points2D_without_cov, points3D_without_cov, models);
 }
 
 // We would like to compute the maximum likelihood estimate of the absolute pose
@@ -226,10 +232,14 @@ void P3PCEstimator::Estimate(const std::vector<X_t>& points2D,
 // Hence, we obtain:
 //
 //      Proj(Pose(S_X)) = J_Proj * J_Pose * S_X * (J_Proj * J_Pose)^T
-void P3PCEstimator::Residuals(const std::vector<X_t>& points2D,
-                              const std::vector<Y_t>& points3D,
-                              const M_t& cam_from_world,
-                              std::vector<double>* residuals) {
+void CovariantP3PEstimator::Residuals(const std::vector<X_t>& points2D,
+                                      const std::vector<Y_t>& points3D,
+                                      const M_t& cam_from_world,
+                                      std::vector<double>* residuals) {
+  // TODO: It only makes sense to compute the likelihood for residuals that are
+  // inliers to the Gaussian. We need to perform inlier/outlier classification
+  // either here based on reprojection error / mahalabonis distance or on the
+  // final residual... to be evaluated.
   const size_t num_points2D = points2D.size();
   THROW_CHECK_EQ(num_points2D, points3D.size());
   residuals->resize(num_points2D);
@@ -245,10 +255,17 @@ void P3PCEstimator::Residuals(const std::vector<X_t>& points2D,
       const Eigen::Matrix<double, 2, 3> J =
           J_proj * cam_from_world.leftCols<3>();
       const Eigen::Matrix2d proj_cov = J * points3D[i].second * J.transpose();
-      const Eigen::Vector2d diff = point3D_in_cam.hnormalized() - points2D[i];
-      // (*residuals)[i] = diff.transpose() * proj_cov.inverse() * diff;
-      (*residuals)[i] = diff.transpose() * proj_cov.inverse() * diff +
-                        std::log(proj_cov.determinant());
+      const Eigen::Matrix2d cov = points2D[i].second + proj_cov;
+      const Eigen::Vector2d diff =
+          point3D_in_cam.hnormalized() - points2D[i].first;
+      // (*residuals)[i] = diff.transpose() * cov.inverse() * diff;
+
+      // TODO: Note that the term log(|S_x_i|) is a constant if considering only
+      // 2D uncertainties. If considering 3D uncertainties, it depends on the
+      // camera pose but only changes slowly close to the optimal camera pose.
+      // We may be able to drop this term.
+      (*residuals)[i] =
+          diff.transpose() * cov.inverse() * diff + std::log(cov.determinant());
     } else {
       (*residuals)[i] = std::numeric_limits<double>::max();
     }
