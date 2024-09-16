@@ -91,7 +91,7 @@ enum class CameraModelId {
   kSimpleRadialFisheye = 8,
   kRadialFisheye = 9,
   kThinPrismFisheye = 10,
-  kAriaFisheye = 11,
+  kRadTanThinPrismFisheye = 11,
 };
 
 #ifndef CAMERA_MODEL_DEFINITIONS
@@ -388,8 +388,11 @@ struct ThinPrismFisheyeCameraModel
 //
 struct RadTanThinPrismFisheyeModel
     : public BaseCameraModel<RadTanThinPrismFisheyeModel> {
-  CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kAriaFisheye, "RAD_TAN_THIN_PRISM_FISHEYE", 2, 2, 12)
+  CAMERA_MODEL_DEFINITIONS(CameraModelId::kRadTanThinPrismFisheye,
+                           "RAD_TAN_THIN_PRISM_FISHEYE",
+                           2,
+                           2,
+                           12)
 };
 
 // Check whether camera model with given name or identifier exists.
