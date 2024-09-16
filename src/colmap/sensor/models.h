@@ -145,7 +145,7 @@ enum class CameraModelId {
   CAMERA_MODEL_CASE(FullOpenCVCameraModel)          \
   CAMERA_MODEL_CASE(FOVCameraModel)                 \
   CAMERA_MODEL_CASE(ThinPrismFisheyeCameraModel)    \
-  CAMERA_MODEL_CASE(AriaFisheyeCameraModel)
+  CAMERA_MODEL_CASE(RadTanThinPrismFisheyeModel)
 #endif
 
 #ifndef CAMERA_MODEL_SWITCH_CASES
@@ -374,7 +374,7 @@ struct ThinPrismFisheyeCameraModel
       CameraModelId::kThinPrismFisheye, "THIN_PRISM_FISHEYE", 2, 2, 8)
 };
 
-// Aria Glasses Camera Model
+// RadTanThinPrismFisheye Camera Model
 //
 // Camera model with radial and tangential distortion coefficients and
 // additional coefficients accounting for thin-prism distortion.
@@ -387,13 +387,15 @@ struct ThinPrismFisheyeCameraModel
 //    fx, fy, cx, cy, k1, k2, k3, k4, k5, k6, p1, p2, sx1, sx2, sy1, sy2
 //
 // Note:
-//    Tangential coefficients p1, p2 correspond to p1, p0 in the Fisheye624 Aria
-// model. Thin prism coefficients sx1, sx2, sy1, sy2 correspond to s0, s1, s2,
-// s3 in the Fisheye624 Aria model.
+//    Tangential coefficients p1, p2 correspond to p1, p0 in the Fisheye624
+//    RadTanThinPrismFisheye model. Thin prism coefficients sx1, sx2, sy1, sy2
+//    correspond to s0, s1, s2, s3 in the Fisheye624 RadTanThinPrismFisheye
+//    model.
 //
-struct AriaFisheyeCameraModel : public BaseCameraModel<AriaFisheyeCameraModel> {
+struct RadTanThinPrismFisheyeModel
+    : public BaseCameraModel<RadTanThinPrismFisheyeModel> {
   CAMERA_MODEL_DEFINITIONS(
-      CameraModelId::kAriaFisheye, "ARIA_FISHEYE", 2, 2, 12)
+      CameraModelId::kAriaFisheye, "RAD_TAN_THIN_PRISM_FISHEYE", 2, 2, 12)
 };
 
 // Check whether camera model with given name or identifier exists.
@@ -1562,33 +1564,35 @@ void ThinPrismFisheyeCameraModel::Distortion(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// AriaFisheyeCameraModel
+// RadTanThinPrismFisheyeModel
 
-std::string AriaFisheyeCameraModel::InitializeParamsInfo() {
+std::string RadTanThinPrismFisheyeModel::InitializeParamsInfo() {
   return "fx, fy, cx, cy, k1, k2, k3, k4, k5, k6, p1, p2, sx1, sx2, sy1, sy2";
 }
 
-std::array<size_t, 2> AriaFisheyeCameraModel::InitializeFocalLengthIdxs() {
+std::array<size_t, 2> RadTanThinPrismFisheyeModel::InitializeFocalLengthIdxs() {
   return {0, 1};
 }
 
-std::array<size_t, 2> AriaFisheyeCameraModel::InitializePrincipalPointIdxs() {
+std::array<size_t, 2>
+RadTanThinPrismFisheyeModel::InitializePrincipalPointIdxs() {
   return {2, 3};
 }
 
-std::array<size_t, 12> AriaFisheyeCameraModel::InitializeExtraParamsIdxs() {
+std::array<size_t, 12>
+RadTanThinPrismFisheyeModel::InitializeExtraParamsIdxs() {
   return {4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
 }
 
-std::vector<double> AriaFisheyeCameraModel::InitializeParams(
+std::vector<double> RadTanThinPrismFisheyeModel::InitializeParams(
     const double focal_length, const size_t width, const size_t height) {
-  std::vector<double> params(AriaFisheyeCameraModel::num_params);
+  std::vector<double> params(RadTanThinPrismFisheyeModel::num_params);
   params[0] = focal_length;
   params[1] = focal_length;
   params[2] = width / 2.0;
   params[3] = height / 2.0;
 
-  for (size_t i = 4; i < AriaFisheyeCameraModel::num_params; ++i) {
+  for (size_t i = 4; i < RadTanThinPrismFisheyeModel::num_params; ++i) {
     params[i] = 0;
   }
 
@@ -1596,7 +1600,7 @@ std::vector<double> AriaFisheyeCameraModel::InitializeParams(
 }
 
 template <typename T>
-void AriaFisheyeCameraModel::ImgFromCam(
+void RadTanThinPrismFisheyeModel::ImgFromCam(
     const T* params, T u, T v, T w, T* x, T* y) {
   const T f1 = params[0];
   const T f2 = params[1];
@@ -1616,7 +1620,7 @@ void AriaFisheyeCameraModel::ImgFromCam(
 }
 
 template <typename T>
-void AriaFisheyeCameraModel::CamFromImg(
+void RadTanThinPrismFisheyeModel::CamFromImg(
     const T* params, const T x, const T y, T* u, T* v, T* w) {
   const T f1 = params[0];
   const T f2 = params[1];
@@ -1631,7 +1635,7 @@ void AriaFisheyeCameraModel::CamFromImg(
 }
 
 template <typename T>
-void AriaFisheyeCameraModel::Distortion(
+void RadTanThinPrismFisheyeModel::Distortion(
     const T* extra_params, const T u, const T v, T* du, T* dv) {
   const int numK = 6;
   const T radial_coeffs[numK] = {extra_params[0],
