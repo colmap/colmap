@@ -86,9 +86,9 @@ class P3PEstimator {
 // scaling the computed residuals.
 class CovariantP3PEstimator {
  public:
-  // The observed 2D points and their covariance in the image plane.
+  // The observed 2D points and its covariance in the image plane.
   typedef std::pair<Eigen::Vector2d, Eigen::Matrix2d> X_t;
-  // The observed 3D points and their covariance in the world frame.
+  // The observed 3D points and its covariance in the world frame.
   typedef std::pair<Eigen::Vector3d, Eigen::Matrix3d> Y_t;
   // The transformation from the world to the camera frame.
   typedef Eigen::Matrix3x4d M_t;
