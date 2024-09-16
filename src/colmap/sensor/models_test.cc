@@ -228,7 +228,7 @@ TEST(ThinPrismFisheye, Nominal) {
                                           0.001});
 }
 
-TEST(AriaFisheye, Nominal) {
+TEST(RadTanThinPrismFisheye, Nominal) {
   std::vector<double> params = {241.996,
                                 241.996,
                                 323.024,
@@ -246,7 +246,7 @@ TEST(AriaFisheye, Nominal) {
                                 0.00007,
                                 -0.00017};
 
-  TestModel<AriaFisheyeCameraModel>(params);
+  TestModel<RadTanThinPrismFisheyeModel>(params);
 }
 
 }  // namespace
