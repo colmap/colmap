@@ -1557,33 +1557,33 @@ void ThinPrismFisheyeCameraModel::Distortion(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// AriaFishEyeCameraModel
+// AriaFisheyeCameraModel
 
-std::string AriaFishEyeCameraModel::InitializeParamsInfo() {
+std::string AriaFisheyeCameraModel::InitializeParamsInfo() {
   return "fx, fy, cx, cy, k1, k2, k3, k4, k5, k6, p1, p2, sx1, sx2, sy1, sy2";
 }
 
-std::array<size_t, 2> AriaFishEyeCameraModel::InitializeFocalLengthIdxs() {
+std::array<size_t, 2> AriaFisheyeCameraModel::InitializeFocalLengthIdxs() {
   return {0, 1};
 }
 
-std::array<size_t, 2> AriaFishEyeCameraModel::InitializePrincipalPointIdxs() {
+std::array<size_t, 2> AriaFisheyeCameraModel::InitializePrincipalPointIdxs() {
   return {2, 3};
 }
 
-std::array<size_t, 12> AriaFishEyeCameraModel::InitializeExtraParamsIdxs() {
+std::array<size_t, 12> AriaFisheyeCameraModel::InitializeExtraParamsIdxs() {
   return {4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
 }
 
-std::vector<double> AriaFishEyeCameraModel::InitializeParams(
+std::vector<double> AriaFisheyeCameraModel::InitializeParams(
     const double focal_length, const size_t width, const size_t height) {
-  std::vector<double> params(AriaFishEyeCameraModel::num_params);
+  std::vector<double> params(AriaFisheyeCameraModel::num_params);
   params[0] = focal_length;
   params[1] = focal_length;
   params[2] = width / 2.0;
   params[3] = height / 2.0;
 
-  for (size_t i = 4; i < AriaFishEyeCameraModel::num_params; ++i) {
+  for (size_t i = 4; i < AriaFisheyeCameraModel::num_params; ++i) {
     params[i] = 0;
   }
 
@@ -1591,7 +1591,7 @@ std::vector<double> AriaFishEyeCameraModel::InitializeParams(
 }
 
 template <typename T>
-void AriaFishEyeCameraModel::ImgFromCam(
+void AriaFisheyeCameraModel::ImgFromCam(
     const T* params, T u, T v, T w, T* x, T* y) {
   const T f1 = params[0];
   const T f2 = params[1];
@@ -1623,7 +1623,7 @@ void AriaFishEyeCameraModel::ImgFromCam(
 }
 
 template <typename T>
-void AriaFishEyeCameraModel::CamFromImg(
+void AriaFisheyeCameraModel::CamFromImg(
     const T* params, const T x, const T y, T* u, T* v, T* w) {
   const T f1 = params[0];
   const T f2 = params[1];
@@ -1650,7 +1650,7 @@ void AriaFishEyeCameraModel::CamFromImg(
 }
 
 template <typename T>
-void AriaFishEyeCameraModel::Distortion(
+void AriaFisheyeCameraModel::Distortion(
     const T* extra_params, const T u, const T v, T* du, T* dv) {
   const int numK = 6;
   const T radial_coeffs[numK] = {extra_params[0],
