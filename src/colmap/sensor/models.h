@@ -386,6 +386,11 @@ struct ThinPrismFisheyeCameraModel
 //
 //    fx, fy, cx, cy, k1, k2, k3, k4, k5, k6, p1, p2, sx1, sx2, sy1, sy2
 //
+// Note:
+//    Tangential coefficients p1, p2 correspond to p1, p0 in the Fisheye624 Aria
+// model. Thin prism coefficients sx1, sx2, sy1, sy2 correspond to s0, s1, s2,
+// s3 in the Fisheye624 Aria model.
+//
 struct AriaFisheyeCameraModel : public BaseCameraModel<AriaFisheyeCameraModel> {
   CAMERA_MODEL_DEFINITIONS(
       CameraModelId::kAriaFisheye, "ARIA_FISHEYE", 2, 2, 12)
@@ -1601,18 +1606,6 @@ void AriaFisheyeCameraModel::ImgFromCam(
   u /= w;
   v /= w;
 
-  // const T r = ceres::sqrt(u * u + v * v);
-  // T uu, vv;
-
-  // if (r > T(std::numeric_limits<double>::epsilon())) {
-  //   const T theta = ceres::atan(r);
-  //   uu = theta * u / r;
-  //   vv = theta * v / r;
-  // } else {
-  //   uu = u;
-  //   vv = v;
-  // }
-
   T du, dv;
   Distortion(&params[4], u, v, &du, &dv);
   *x = u + du;
@@ -1635,18 +1628,6 @@ void AriaFisheyeCameraModel::CamFromImg(
   *w = 1;
 
   IterativeUndistortion(&params[4], u, v);
-
-  // const T r = ceres::sqrt((*u) * (*u) + (*v) * (*v));
-  // if (r > T(std::numeric_limits<double>::epsilon())) {
-  //   const T theta = r;
-  //   const T theta_cos_theta = theta * ceres::cos(theta);
-
-  //   if (theta_cos_theta > T(std::numeric_limits<double>::epsilon())) {
-  //     const T scale = ceres::sin(theta) / theta_cos_theta;
-  //     *u *= scale;
-  //     *v *= scale;
-  //   }
-  // }
 }
 
 template <typename T>
