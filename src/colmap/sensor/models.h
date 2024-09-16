@@ -384,13 +384,7 @@ struct ThinPrismFisheyeCameraModel
 //
 // Parameter list is expected in the following order:
 //
-//    fx, fy, cx, cy, k1, k2, k3, k4, k5, k6, p1, p2, sx1, sx2, sy1, sy2
-//
-// Note:
-//    Tangential coefficients p1, p2 correspond to p1, p0 in the Fisheye624
-//    RadTanThinPrismFisheye model. Thin prism coefficients sx1, sx2, sy1, sy2
-//    correspond to s0, s1, s2, s3 in the Fisheye624 RadTanThinPrismFisheye
-//    model.
+//    fx, fy, cx, cy, k0, k1, k2, k3, k4, k5, p0, p1, s0, s1, s2, s3
 //
 struct RadTanThinPrismFisheyeModel
     : public BaseCameraModel<RadTanThinPrismFisheyeModel> {
@@ -1567,7 +1561,7 @@ void ThinPrismFisheyeCameraModel::Distortion(
 // RadTanThinPrismFisheyeModel
 
 std::string RadTanThinPrismFisheyeModel::InitializeParamsInfo() {
-  return "fx, fy, cx, cy, k1, k2, k3, k4, k5, k6, p1, p2, sx1, sx2, sy1, sy2";
+  return "fx, fy, cx, cy, k0, k1, k2, k3, k4, k5, p0, p1, s0, s1, s2, s3";
 }
 
 std::array<size_t, 2> RadTanThinPrismFisheyeModel::InitializeFocalLengthIdxs() {
@@ -1645,12 +1639,12 @@ void RadTanThinPrismFisheyeModel::Distortion(
                                  extra_params[4],
                                  extra_params[5]};
 
-  const T p1 = extra_params[6];
-  const T p2 = extra_params[7];
-  const T sx1 = extra_params[8];
-  const T sx2 = extra_params[9];
-  const T sy1 = extra_params[10];
-  const T sy2 = extra_params[11];
+  const T p0 = extra_params[6];
+  const T p1 = extra_params[7];
+  const T s0 = extra_params[8];
+  const T s1 = extra_params[9];
+  const T s2 = extra_params[10];
+  const T s3 = extra_params[11];
 
   const T r = ceres::sqrt(u * u + v * v);
   const T theta = ceres::atan(r);
@@ -1674,11 +1668,11 @@ void RadTanThinPrismFisheyeModel::Distortion(
   const T r2 = x2 + y2;
   const T r4 = r2 * r2;
 
-  const T dx_tang = T(2) * p1 * xy + p2 * (r2 + T(2) * x2);
-  const T dy_tang = T(2) * p2 * xy + p1 * (r2 + T(2) * y2);
+  const T dx_tang = T(2) * p1 * xy + p0 * (r2 + T(2) * x2);
+  const T dy_tang = T(2) * p0 * xy + p1 * (r2 + T(2) * y2);
 
-  const T dx_tp = sx1 * r2 + sx2 * r4;
-  const T dy_tp = sy1 * r2 + sy2 * r4;
+  const T dx_tp = s0 * r2 + s1 * r4;
+  const T dy_tp = s2 * r2 + s3 * r4;
 
   const T x_distorted = x + dx_tang + dx_tp;
   const T y_distorted = y + dy_tang + dy_tp;
