@@ -228,5 +228,26 @@ TEST(ThinPrismFisheye, Nominal) {
                                           0.001});
 }
 
+TEST(AriaFisheye, Nominal) {
+  std::vector<double> params = {241.996,
+                                241.996,
+                                323.024,
+                                240.497,
+                                -0.0232,
+                                0.0924,
+                                -0.0591,
+                                0.003,
+                                0.0048,
+                                -0.0009,
+                                0.0005,
+                                0.0002,
+                                -0.0009,
+                                -0.0001,
+                                0.00007,
+                                -0.00017};
+
+  TestModel<AriaFisheyeCameraModel>(params);
+}
+
 }  // namespace
 }  // namespace colmap
