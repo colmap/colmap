@@ -30,6 +30,7 @@
 #include "colmap/estimators/absolute_pose.h"
 
 #include "colmap/estimators/utils.h"
+#include "colmap/geometry/covariance.h"
 #include "colmap/math/polynomial.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
@@ -236,39 +237,49 @@ void CovariantP3PEstimator::Residuals(const std::vector<X_t>& points2D,
                                       const std::vector<Y_t>& points3D,
                                       const M_t& cam_from_world,
                                       std::vector<double>* residuals) {
-  // TODO: It only makes sense to compute the likelihood for residuals that are
-  // inliers to the Gaussian. We need to perform inlier/outlier classification
-  // either here based on reprojection error / mahalabonis distance or on the
-  // final residual... to be evaluated.
+  constexpr double kInlierSigmaFactor = 3.0;
+
   const size_t num_points2D = points2D.size();
   THROW_CHECK_EQ(num_points2D, points3D.size());
   residuals->resize(num_points2D);
   for (size_t i = 0; i < num_points2D; ++i) {
     const Eigen::Vector3d point3D_in_cam =
         cam_from_world * points3D[i].first.homogeneous();
-    if (point3D_in_cam.z() > std::numeric_limits<double>::epsilon()) {
-      Eigen::Matrix<double, 2, 3> J_proj;
-      J_proj << 1 / point3D_in_cam.z(), 0,
-          -point3D_in_cam.x() / (point3D_in_cam.z() * point3D_in_cam.z()), 0,
-          1 / point3D_in_cam.z(),
-          -point3D_in_cam.y() / (point3D_in_cam.z() * point3D_in_cam.z());
-      const Eigen::Matrix<double, 2, 3> J =
-          J_proj * cam_from_world.leftCols<3>();
-      const Eigen::Matrix2d proj_cov = J * points3D[i].second * J.transpose();
-      const Eigen::Matrix2d cov = points2D[i].second + proj_cov;
-      const Eigen::Vector2d diff =
-          point3D_in_cam.hnormalized() - points2D[i].first;
-      // (*residuals)[i] = diff.transpose() * cov.inverse() * diff;
-
-      // TODO: Note that the term log(|S_x_i|) is a constant if considering only
-      // 2D uncertainties. If considering 3D uncertainties, it depends on the
-      // camera pose but only changes slowly close to the optimal camera pose.
-      // We may be able to drop this term.
-      (*residuals)[i] =
-          diff.transpose() * cov.inverse() * diff + std::log(cov.determinant());
-    } else {
+    if (point3D_in_cam.z() <= std::numeric_limits<double>::epsilon()) {
       (*residuals)[i] = std::numeric_limits<double>::max();
+      continue;
     }
+
+    const Eigen::Vector2d proj_point = point3D_in_cam.hnormalized();
+    if (!IsPointWithinUncertaintyInterval(points2D[0].first,
+                                          points2D[0].second,
+                                          proj_point,
+                                          kInlierSigmaFactor)) {
+      (*residuals)[i] = std::numeric_limits<double>::max();
+      continue;
+    }
+
+    Eigen::Matrix<double, 2, 3> J_proj;
+    J_proj << 1 / point3D_in_cam.z(), 0,
+        -point3D_in_cam.x() / (point3D_in_cam.z() * point3D_in_cam.z()), 0,
+        1 / point3D_in_cam.z(),
+        -point3D_in_cam.y() / (point3D_in_cam.z() * point3D_in_cam.z());
+    const Eigen::Matrix<double, 2, 3> J = J_proj * cam_from_world.leftCols<3>();
+    const Eigen::Matrix2d proj_cov = J * points3D[i].second * J.transpose();
+    if (!IsPointWithinUncertaintyInterval(
+            proj_point, proj_cov, points2D[i].first, kInlierSigmaFactor)) {
+      (*residuals)[i] = std::numeric_limits<double>::max();
+      continue;
+    }
+
+    // TODO: Note that the term log(|S_x_i|) is a constant if considering only
+    // 2D uncertainties. If considering 3D uncertainties, it depends on the
+    // camera pose but only changes slowly close to the optimal camera pose.
+    // We may be able to drop this term.
+    const Eigen::Matrix2d joint_cov = points2D[i].second + proj_cov;
+    const Eigen::Vector2d diff = proj_point - points2D[i].first;
+    (*residuals)[i] = diff.transpose() * joint_cov.inverse() * diff +
+                      std::log(joint_cov.determinant());
   }
 }
 
