@@ -1635,6 +1635,18 @@ void AriaFishEyeCameraModel::CamFromImg(
   *w = 1;
 
   IterativeUndistortion(&params[4], u, v);
+
+  const T r = ceres::sqrt((*u) * (*u) + (*v) * (*v));
+  if (r > T(std::numeric_limits<double>::epsilon())) {
+    const T theta = r;
+    const T theta_cos_theta = theta * ceres::cos(theta);
+
+    if (theta_cos_theta > T(std::numeric_limits<double>::epsilon())) {
+      const T scale = ceres::sin(theta) / theta_cos_theta;
+      *u *= scale;
+      *v *= scale;
+    }
+  }
 }
 
 template <typename T>
