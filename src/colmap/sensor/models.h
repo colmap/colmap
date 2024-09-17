@@ -1023,12 +1023,12 @@ void OpenCVFisheyeCameraModel::CamFromImg(
   const T c2 = params[3];
 
   // Lift points to normalized plane
-  *u = (x - c1) / f1;
-  *v = (y - c2) / f2;
+  T uu, vv;
+  uu = (x - c1) / f1;
+  vv = (y - c2) / f2;
   *w = 1;
 
   // Undistortion
-  T uu, vv;
   IterativeUndistortion(&params[4], &uu, &vv);
 
   // Back to pixel
@@ -1345,12 +1345,12 @@ void SimpleRadialFisheyeCameraModel::CamFromImg(
   const T c2 = params[2];
 
   // Lift points to normalized plane
-  *u = (x - c1) / f;
-  *v = (y - c2) / f;
+  T uu, vv;
+  uu = (x - c1) / f;
+  vv = (y - c2) / f;
   *w = 1;
 
   // Undistortion
-  T uu, vv;
   IterativeUndistortion(&params[3], &uu, &vv);
 
   // Back to pixel
@@ -1425,12 +1425,12 @@ void RadialFisheyeCameraModel::CamFromImg(
   const T c2 = params[2];
 
   // Lift points to normalized plane
-  *u = (x - c1) / f;
-  *v = (y - c2) / f;
+  T uu, vv;
+  uu = (x - c1) / f;
+  vv = (y - c2) / f;
   *w = 1;
 
   // Undistortion
-  T uu, vv;
   IterativeUndistortion(&params[3], &uu, &vv);
 
   // Back to pixel
@@ -1520,11 +1520,11 @@ void ThinPrismFisheyeCameraModel::CamFromImg(
   const T c2 = params[3];
 
   // Lift points to normalized plane
-  *u = (x - c1) / f1;
-  *v = (y - c2) / f2;
+  T uu, vv;
+  uu = (x - c1) / f1;
+  vv = (y - c2) / f2;
   *w = 1;
 
-  T uu, vv;
   IterativeUndistortion(&params[4], &uu, &vv);
   PixelFromFisheye(uu, vv, u, v);
 }
