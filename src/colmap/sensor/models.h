@@ -1649,9 +1649,7 @@ void RadTanThinPrismFisheyeModel::Distortion(
   const T s2 = extra_params[10];
   const T s3 = extra_params[11];
 
-  const T r = ceres::sqrt(u * u + v * v);
-  const T theta = ceres::atan(r);
-  const T theta2 = theta * theta;
+  const T theta2 = u * u + v * v;
   T th_radial = T(1);
   T theta_power = T(1);
   for (int i = 0; i < numK; ++i) {
@@ -1659,11 +1657,8 @@ void RadTanThinPrismFisheyeModel::Distortion(
     th_radial += radial_coeffs[i] * theta_power;
   }
 
-  const T theta_divr =
-      (r < std::numeric_limits<T>::epsilon()) ? static_cast<T>(1.0) : theta / r;
-
-  const T x = th_radial * theta_divr * u;
-  const T y = th_radial * theta_divr * v;
+  const T x = th_radial * u;
+  const T y = th_radial * v;
 
   const T x2 = x * x;
   const T y2 = y * y;
