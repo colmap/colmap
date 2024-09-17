@@ -63,7 +63,7 @@ void TestCamFromImgToImg(const std::vector<double>& params,
   EXPECT_EQ(w, uvw.z());
   if (CameraModelIsFisheye(CameraModel::model_id)) {
     if (!FisheyeCameraModelIsValidPixel(
-            CameraModel::model_id, params.data(), Eigen::Vector2d(x0, y0)))
+            CameraModel::model_id, params, Eigen::Vector2d(x0, y0)))
       return;
   }
   CameraModel::ImgFromCam(params.data(), u, v, w, &x, &y);
