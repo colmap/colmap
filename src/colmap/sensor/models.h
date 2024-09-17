@@ -1005,7 +1005,7 @@ void OpenCVFisheyeCameraModel::ImgFromCam(
 
   // Distortion
   T duu, dvv;
-  Distortion(&params[3], uu, vv, &duu, &dvv);
+  Distortion(&params[4], uu, vv, &duu, &dvv);
   *x = uu + duu;
   *y = vv + dvv;
 
@@ -1351,7 +1351,7 @@ void SimpleRadialFisheyeCameraModel::CamFromImg(
 
   // Undistortion
   T uu, vv;
-  IterativeUndistortion(&params[4], &uu, &vv);
+  IterativeUndistortion(&params[3], &uu, &vv);
 
   // Back to pixel
   PixelFromFisheye(uu, vv, u, v);
@@ -1431,7 +1431,7 @@ void RadialFisheyeCameraModel::CamFromImg(
 
   // Undistortion
   T uu, vv;
-  IterativeUndistortion(&params[4], &uu, &vv);
+  IterativeUndistortion(&params[3], &uu, &vv);
 
   // Back to pixel
   PixelFromFisheye(uu, vv, u, v);
