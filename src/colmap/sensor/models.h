@@ -1607,10 +1607,21 @@ void RadTanThinPrismFisheyeModel::ImgFromCam(
   u /= w;
   v /= w;
 
+  const T r = ceres::sqrt(u * u + v * v);
+  T uu, vv;
+  if (r > T(std::numeric_limits<double>::epsilon())) {
+    const T theta = ceres::atan(r);
+    uu = theta * u / r;
+    vv = theta * v / r;
+  } else {
+    uu = u;
+    vv = v;
+  }
+
   T du, dv;
-  Distortion(&params[4], u, v, &du, &dv);
-  *x = u + du;
-  *y = v + dv;
+  Distortion(&params[4], uu, vv, &du, &dv);
+  *x = uu + du;
+  *y = vv + dv;
 
   *x = f1 * *x + c1;
   *y = f2 * *y + c2;
@@ -1629,6 +1640,14 @@ void RadTanThinPrismFisheyeModel::CamFromImg(
   *w = 1;
 
   IterativeUndistortion(&params[4], u, v);
+
+  const T theta = ceres::sqrt(*u * *u + *v * *v);
+  const T theta_cos_theta = theta * ceres::cos(theta);
+  if (theta_cos_theta > T(std::numeric_limits<double>::epsilon())) {
+    const T scale = ceres::sin(theta) / theta_cos_theta;
+    *u *= scale;
+    *v *= scale;
+  }
 }
 
 template <typename T>
