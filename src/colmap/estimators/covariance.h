@@ -32,6 +32,8 @@
 #include "colmap/geometry/rigid3.h"
 #include "colmap/scene/reconstruction.h"
 
+#include <unordered_map>
+
 #include <Eigen/Core>
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
@@ -39,25 +41,19 @@
 
 namespace colmap {
 
-// Covariance estimation for bundle adjustment (or extended) problem.
-// The interface is applicable to all ceres problem extended on top of bundle
-// adjustment. The Schur complement is computed explicitly to eliminate the
-// hessian block for all the 3D points, which is essential to avoid Jacobian
-// rank deficiency for large-scale reconstruction
 class BundleAdjustmentCovarianceEstimatorBase {
  public:
-  // Construct with a COLMAP reconstruction
+  // Construct with a COLMAP reconstruction for all image poses.
   BundleAdjustmentCovarianceEstimatorBase(ceres::Problem* problem,
-                                          Reconstruction* reconstruction);
-  // Construct by specifying pose blocks and point blocks
+                                          const Reconstruction* reconstruction);
+
+  // Construct by manually specifying pose blocks and point blocks.
   BundleAdjustmentCovarianceEstimatorBase(
       ceres::Problem* problem,
       const std::vector<const double*>& pose_blocks,
       const std::vector<const double*>& point_blocks);
-  virtual ~BundleAdjustmentCovarianceEstimatorBase() = default;
 
-  // Manually set pose blocks that are interested
-  void SetPoseBlocks(const std::vector<const double*>& pose_blocks);
+  virtual ~BundleAdjustmentCovarianceEstimatorBase() = default;
 
   // Compute covariance for all parameters (except for 3D points).
   // Store the full matrix at cov_variables_ and the subblock copy at
@@ -127,7 +123,7 @@ class BundleAdjustmentCovarianceEstimatorBase {
 
   // get the starting index of the parameter block in the matrix
   // orders: [pose_blocks, other_variables_blocks, point_blocks]
-  std::map<const double*, int> map_block_to_index_;
+  std::unordered_map<const double*, int> map_block_to_index_;
 
   int GetBlockIndex(const double* params) const;
   int GetBlockTangentSize(const double* params) const;
@@ -143,8 +139,8 @@ class BundleAdjustmentCovarianceEstimatorBase {
   // ceres problem
   ceres::Problem* problem_;
 
-  // reconstruction
-  Reconstruction* reconstruction_ = nullptr;
+  // (Optional) reconstruction
+  const Reconstruction* reconstruction_ = nullptr;
 
  private:
   // set up parameter blocks
@@ -155,7 +151,7 @@ class BundleAdjustmentCovarianceEstimatorCeresBackend
     : public BundleAdjustmentCovarianceEstimatorBase {
  public:
   BundleAdjustmentCovarianceEstimatorCeresBackend(
-      ceres::Problem* problem, Reconstruction* reconstruction)
+      ceres::Problem* problem, const Reconstruction* reconstruction)
       : BundleAdjustmentCovarianceEstimatorBase(problem, reconstruction) {}
 
   BundleAdjustmentCovarianceEstimatorCeresBackend(
@@ -169,11 +165,16 @@ class BundleAdjustmentCovarianceEstimatorCeresBackend
   bool Compute() override;
 };
 
+// Covariance estimation for bundle adjustment (or extended) problem. The
+// interface is applicable to all ceres problem extended on top of bundle
+// adjustment. The Schur complement is computed explicitly to eliminate the
+// hessian block for all the 3D points, which is essential to avoid Jacobian
+// rank deficiency for large-scale reconstruction.
 class BundleAdjustmentCovarianceEstimator
     : public BundleAdjustmentCovarianceEstimatorBase {
  public:
   BundleAdjustmentCovarianceEstimator(ceres::Problem* problem,
-                                      Reconstruction* reconstruction,
+                                      const Reconstruction* reconstruction,
                                       double lambda = 1e-8)
       : BundleAdjustmentCovarianceEstimatorBase(problem, reconstruction),
         lambda_(lambda) {}
@@ -235,13 +236,13 @@ class BundleAdjustmentCovarianceEstimator
 // matrix will be 6x6.
 bool EstimatePoseCovarianceCeresBackend(
     ceres::Problem* problem,
-    Reconstruction* reconstruction,
+    const Reconstruction* reconstruction,
     std::map<image_t, Eigen::MatrixXd>& image_id_to_covar);
 
-// Similar to the convention above for ``EstimatePoseCovarianceCeresBackend``.
+// Similar to the convention above for `EstimatePoseCovarianceCeresBackend`.
 bool EstimatePoseCovariance(
     ceres::Problem* problem,
-    Reconstruction* reconstruction,
+    const Reconstruction* reconstruction,
     std::map<image_t, Eigen::MatrixXd>& image_id_to_covar,
     double lambda = 1e-8);
 

@@ -59,6 +59,7 @@ std::shared_ptr<BundleAdjuster> BuildBundleAdjuster(
   config.SetConstantCamPose(image_ids[0]);
   config.SetConstantCamPositions(image_ids[1], {0});
   BundleAdjustmentOptions options;
+  options.solver_options.num_threads = 1;
   return std::make_shared<BundleAdjuster>(options, config);
 }
 

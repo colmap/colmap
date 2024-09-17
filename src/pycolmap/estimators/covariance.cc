@@ -29,8 +29,8 @@ std::vector<const double*> ConvertListOfPyArraysToConstPointers(
 void BindCovarianceEstimator(py::module& m) {
   m.def(
       "estimate_pose_covariance_from_ba_ceres_backend",
-      [](ceres::Problem* problem,
-         Reconstruction* reconstruction) -> py::typing::Optional<py::dict> {
+      [](ceres::Problem* problem, const Reconstruction* reconstruction)
+          -> py::typing::Optional<py::dict> {
         std::map<image_t, Eigen::MatrixXd> image_id_to_covar;
         if (!EstimatePoseCovarianceCeresBackend(
                 problem, reconstruction, image_id_to_covar))
@@ -43,7 +43,7 @@ void BindCovarianceEstimator(py::module& m) {
   m.def(
       "estimate_pose_covariance_from_ba",
       [](ceres::Problem* problem,
-         Reconstruction* reconstruction,
+         const Reconstruction* reconstruction,
          double damping) -> py::typing::Optional<py::dict> {
         std::map<image_t, Eigen::MatrixXd> image_id_to_covar;
         if (!EstimatePoseCovariance(
@@ -57,14 +57,6 @@ void BindCovarianceEstimator(py::module& m) {
 
   using EstimatorBase = BundleAdjustmentCovarianceEstimatorBase;
   py::class_<EstimatorBase>(m, "BundleAdjustmentCovarianceEstimatorBase")
-      .def(
-          "set_pose_blocks",
-          [](EstimatorBase& self, std::vector<py::array_t<double>>& pyarrays) {
-            std::vector<const double*> blocks =
-                ConvertListOfPyArraysToConstPointers(pyarrays);
-            return self.SetPoseBlocks(blocks);
-          },
-          py::arg("pose_blocks"))
       .def("has_block", &EstimatorBase::HasBlock, py::arg("parameter_block"))
       .def("has_pose_block",
            &EstimatorBase::HasPoseBlock,
@@ -153,7 +145,7 @@ void BindCovarianceEstimator(py::module& m) {
 
   py::class_<BundleAdjustmentCovarianceEstimatorCeresBackend, EstimatorBase>(
       m, "BundleAdjustmentCovarianceEstimatorCeresBackend")
-      .def(py::init<ceres::Problem*, Reconstruction*>(),
+      .def(py::init<ceres::Problem*, const Reconstruction*>(),
            py::arg("problem"),
            py::arg("reconstruction"))
       .def(
@@ -173,7 +165,7 @@ void BindCovarianceEstimator(py::module& m) {
 
   py::class_<BundleAdjustmentCovarianceEstimator, EstimatorBase>(
       m, "BundleAdjustmentCovarianceEstimator")
-      .def(py::init<ceres::Problem*, Reconstruction*, double>(),
+      .def(py::init<ceres::Problem*, const Reconstruction*, double>(),
            py::arg("problem"),
            py::arg("reconstruction"),
            py::arg("damping") = 1e-8)
