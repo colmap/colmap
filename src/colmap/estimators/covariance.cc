@@ -130,7 +130,7 @@ void BundleAdjustmentCovarianceEstimatorBase::SetUpOtherVariablesBlocks() {
   }
 
   // Parse parameter blocks for other variables
-  num_params_other_variables_ = 0;
+  num_params_other_vars_ = 0;
   std::vector<double*> all_parameter_blocks;
   problem_->GetParameterBlocks(&all_parameter_blocks);
   for (const double* block : all_parameter_blocks) {
@@ -139,11 +139,11 @@ void BundleAdjustmentCovarianceEstimatorBase::SetUpOtherVariablesBlocks() {
             pose_and_point_parameter_blocks.end()) {
       continue;
     }
-    other_variables_blocks_.push_back(block);
-    map_block_to_index_.emplace(
-        block, num_params_poses_ + num_params_other_variables_);
+    other_vars_blocks_.push_back(block);
+    map_block_to_index_.emplace(block,
+                                num_params_poses_ + num_params_other_vars_);
     const int num_params_block = ParameterBlockTangentSize(*problem_, block);
-    num_params_other_variables_ += num_params_block;
+    num_params_other_vars_ += num_params_block;
   }
 }
 
@@ -384,10 +384,10 @@ bool BundleAdjustmentCovarianceEstimatorCeresBackend::ComputeFull() {
   parameter_blocks.insert(
       parameter_blocks.end(), pose_blocks_.begin(), pose_blocks_.end());
   parameter_blocks.insert(parameter_blocks.end(),
-                          other_variables_blocks_.begin(),
-                          other_variables_blocks_.end());
+                          other_vars_blocks_.begin(),
+                          other_vars_blocks_.end());
   if (!covariance_computer.Compute(parameter_blocks, problem_)) return false;
-  int num_params = num_params_poses_ + num_params_other_variables_;
+  int num_params = num_params_poses_ + num_params_other_vars_;
   Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> covs(
       num_params, num_params);
   covariance_computer.GetCovarianceMatrixInTangentSpace(parameter_blocks,
@@ -413,13 +413,12 @@ void BundleAdjustmentCovarianceEstimator::ComputeSchurComplement() {
   // Evaluate jacobian
   LOG(INFO) << "Evaluate jacobian matrix";
   ceres::Problem::EvaluateOptions eval_options;
-  eval_options.parameter_blocks.reserve(pose_blocks_.size() +
-                                        point_blocks_.size() +
-                                        other_variables_blocks_.size());
+  eval_options.parameter_blocks.reserve(
+      pose_blocks_.size() + point_blocks_.size() + other_vars_blocks_.size());
   for (const double* block : pose_blocks_) {
     eval_options.parameter_blocks.push_back(const_cast<double*>(block));
   }
-  for (const double* block : other_variables_blocks_) {
+  for (const double* block : other_vars_blocks_) {
     eval_options.parameter_blocks.push_back(const_cast<double*>(block));
   }
   for (const double* block : point_blocks_) {
@@ -553,9 +552,9 @@ bool BundleAdjustmentCovarianceEstimator::FactorizeFull() {
   LOG(INFO) << StringPrintf(
       "Inverting Schur complement for all variables except for 3D points (n = "
       "%d)",
-      num_params_poses_ + num_params_other_variables_);
+      num_params_poses_ + num_params_other_vars_);
   LOG(INFO) << StringPrintf("Start sparse Cholesky decomposition (n = %d)",
-                            num_params_poses_ + num_params_other_variables_);
+                            num_params_poses_ + num_params_other_vars_);
   Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> ldltOfS(S_matrix_);
   int rank = 0;
   for (int i = 0; i < S_matrix_.rows(); ++i) {
@@ -593,9 +592,9 @@ bool BundleAdjustmentCovarianceEstimator::ComputeFull() {
   LOG(INFO) << StringPrintf(
       "Inverting Schur complement for all variables except for 3D points (n = "
       "%d)",
-      num_params_poses_ + num_params_other_variables_);
+      num_params_poses_ + num_params_other_vars_);
   LOG(INFO) << StringPrintf("Start sparse Cholesky decomposition (n = %d)",
-                            num_params_poses_ + num_params_other_variables_);
+                            num_params_poses_ + num_params_other_vars_);
   Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> ldltOfS(S_matrix_);
   int rank = 0;
   for (int i = 0; i < S_matrix_.rows(); ++i) {
@@ -625,17 +624,16 @@ bool BundleAdjustmentCovarianceEstimator::Factorize() {
   }
   // Schur elimination on other variables
   LOG(INFO) << StringPrintf("Schur elimination on other variables (n = %d)",
-                            num_params_other_variables_);
+                            num_params_other_vars_);
   const Eigen::SparseMatrix<double> S_aa =
       S_matrix_.block(0, 0, num_params_poses_, num_params_poses_);
   const Eigen::SparseMatrix<double> S_ab = S_matrix_.block(
-      0, num_params_poses_, num_params_poses_, num_params_other_variables_);
+      0, num_params_poses_, num_params_poses_, num_params_other_vars_);
   const Eigen::SparseMatrix<double> S_ba = S_ab.transpose();
-  Eigen::SparseMatrix<double> S_bb =
-      S_matrix_.block(num_params_poses_,
-                      num_params_poses_,
-                      num_params_other_variables_,
-                      num_params_other_variables_);
+  Eigen::SparseMatrix<double> S_bb = S_matrix_.block(num_params_poses_,
+                                                     num_params_poses_,
+                                                     num_params_other_vars_,
+                                                     num_params_other_vars_);
   for (int i = 0; i < S_bb.rows(); ++i) {
     if (S_bb.coeff(i, i) == 0.0) {
       S_bb.coeffRef(i, i) = lambda_;
@@ -689,17 +687,16 @@ bool BundleAdjustmentCovarianceEstimator::Compute() {
 
   // Schur elimination on other variables
   LOG(INFO) << StringPrintf("Schur elimination on other variables (n = %d)",
-                            num_params_other_variables_);
+                            num_params_other_vars_);
   Eigen::SparseMatrix<double> S_aa =
       S_matrix_.block(0, 0, num_params_poses_, num_params_poses_);
   Eigen::SparseMatrix<double> S_ab = S_matrix_.block(
-      0, num_params_poses_, num_params_poses_, num_params_other_variables_);
+      0, num_params_poses_, num_params_poses_, num_params_other_vars_);
   Eigen::SparseMatrix<double> S_ba = S_ab.transpose();
-  Eigen::SparseMatrix<double> S_bb =
-      S_matrix_.block(num_params_poses_,
-                      num_params_poses_,
-                      num_params_other_variables_,
-                      num_params_other_variables_);
+  Eigen::SparseMatrix<double> S_bb = S_matrix_.block(num_params_poses_,
+                                                     num_params_poses_,
+                                                     num_params_other_vars_,
+                                                     num_params_other_vars_);
   for (int i = 0; i < S_bb.rows(); ++i) {
     if (S_bb.coeff(i, i) == 0.0)
       S_bb.coeffRef(i, i) = lambda_;

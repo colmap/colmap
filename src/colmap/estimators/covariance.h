@@ -116,13 +116,13 @@ class BundleAdjustmentCovarianceEstimatorBase {
   // blocks parsed from reconstruction (initialized at construction)
   std::vector<const double*> pose_blocks_;
   int num_params_poses_ = 0;
-  std::vector<const double*> other_variables_blocks_;
-  int num_params_other_variables_ = 0;
+  std::vector<const double*> other_vars_blocks_;
+  int num_params_other_vars_ = 0;
   std::vector<const double*> point_blocks_;
   int num_params_points_ = 0;
 
-  // get the starting index of the parameter block in the matrix
-  // orders: [pose_blocks, other_variables_blocks, point_blocks]
+  // Starting index of the parameter block in the matrix with blocks in the
+  // order: [pose_blocks, other_vars_blocks, point_blocks]
   std::unordered_map<const double*, int> map_block_to_index_;
 
   int GetBlockIndex(const double* params) const;
