@@ -1293,11 +1293,21 @@ void SimpleRadialFisheyeCameraModel::ImgFromCam(
   u /= w;
   v /= w;
 
+  // Fisheye coordinates
+  T uu = u;
+  T vv = v;
+  const T r = ceres::sqrt(u * u + v * v);
+  if (r > T(std::numeric_limits<double>::epsilon())) {
+    const T theta = ceres::atan(r);
+    uu = u * theta / r;
+    vv = v * theta / r;
+  }
+
   // Distortion
-  T du, dv;
-  Distortion(&params[3], u, v, &du, &dv);
-  *x = u + du;
-  *y = v + dv;
+  T duu, dvv;
+  Distortion(&params[3], uu, vv, &duu, &dvv);
+  *x = uu + duu;
+  *y = vv + dvv;
 
   // Transform to image coordinates
   *x = f * *x + c1;
@@ -1316,7 +1326,17 @@ void SimpleRadialFisheyeCameraModel::CamFromImg(
   *v = (y - c2) / f;
   *w = 1;
 
-  IterativeUndistortion(&params[3], u, v);
+  // Undistortion
+  IterativeUndistortion(&params[4], u, v);
+
+  // Map from Fisheye back to image coordinates
+  const T theta = ceres::sqrt(*u * *u + *v * *v);
+  const T theta_cos_theta = theta * ceres::cos(theta);
+  if (theta_cos_theta > T(std::numeric_limits<double>::epsilon())) {
+    const T scale = ceres::sin(theta) / theta_cos_theta;
+    *u *= scale;
+    *v *= scale;
+  }
 }
 
 template <typename T>
@@ -1324,18 +1344,10 @@ void SimpleRadialFisheyeCameraModel::Distortion(
     const T* extra_params, const T u, const T v, T* du, T* dv) {
   const T k = extra_params[0];
 
-  const T r = ceres::sqrt(u * u + v * v);
-
-  if (r > T(std::numeric_limits<double>::epsilon())) {
-    const T theta = ceres::atan(r);
-    const T theta2 = theta * theta;
-    const T thetad = theta * (T(1) + k * theta2);
-    *du = u * thetad / r - u;
-    *dv = v * thetad / r - v;
-  } else {
-    *du = T(0);
-    *dv = T(0);
-  }
+  const T theta2 = u * u + v * v;
+  const T radial = k * theta2;
+  *du = u * radial;
+  *dv = v * radial;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
