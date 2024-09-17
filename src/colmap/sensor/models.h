@@ -1691,12 +1691,11 @@ double CameraModelCamFromImgThreshold(const CameraModelId model_id,
 
 bool CameraModelIsFisheye(const CameraModelId model_id) {
   switch (model_id) {
-#define CAMERA_MODEL_CASE(CameraModel) \
-  case CameraModel::model_id:          \
-    return true;                       \
-    break;
+#define CAMERA_MODEL_CASE(CameraModel) case CameraModel::model_id:
 
     FISHEYE_CAMERA_MODEL_CASES
+    return true;
+    break;
     default:
       return false;
       break;
