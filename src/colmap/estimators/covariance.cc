@@ -39,8 +39,7 @@ namespace colmap {
 
 BundleAdjustmentCovarianceEstimatorBase::
     BundleAdjustmentCovarianceEstimatorBase(
-        ceres::Problem* problem,
-        const Reconstruction* reconstruction)
+        ceres::Problem* problem, const Reconstruction* reconstruction)
     : problem_(THROW_CHECK_NOTNULL(problem)),
       reconstruction_(THROW_CHECK_NOTNULL(reconstruction)) {
   // Parse parameter blocks for poses
