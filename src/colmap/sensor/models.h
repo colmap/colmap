@@ -195,7 +195,7 @@ struct BaseCameraModel {
 
 // Base model for Fisheye camera models
 template <typename CameraModel>
-struct BaseFisheyeCameraModel: public BaseCameraModel<CameraModel> {
+struct BaseFisheyeCameraModel : public BaseCameraModel<CameraModel> {
   template <typename T>
   static inline void FisheyeFromPixel(const T u, const T v, T* uu, T* vv) {
     *uu = u;
