@@ -76,7 +76,7 @@ class BundleAdjustmentCovarianceEstimatorBase {
   bool HasPose(image_t image_id) const;
 
   // pose parameters
-  Eigen::MatrixXd GetPoseCovariance() const;
+  const Eigen::MatrixXd& GetPoseCovariance() const;
   Eigen::MatrixXd GetPoseCovariance(image_t image_id) const;
   Eigen::MatrixXd GetPoseCovariance(
       const std::vector<image_t>& image_ids) const;

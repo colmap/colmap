@@ -244,8 +244,8 @@ BundleAdjustmentCovarianceEstimatorBase::GetCovarianceBlockOperation(
       row_start, col_start, row_block_size, col_block_size);
 }
 
-Eigen::MatrixXd BundleAdjustmentCovarianceEstimatorBase::GetPoseCovariance()
-    const {
+const Eigen::MatrixXd&
+BundleAdjustmentCovarianceEstimatorBase::GetPoseCovariance() const {
   THROW_CHECK(HasValidPoseCovariance());
   return cov_poses_;
 }
@@ -264,7 +264,7 @@ Eigen::MatrixXd BundleAdjustmentCovarianceEstimatorBase::GetPoseCovariance(
     const std::vector<image_t>& image_ids) const {
   THROW_CHECK(HasReconstruction());
   std::vector<int> indices;
-  for (const auto& image_id : image_ids) {
+  for (const image_t image_id : image_ids) {
     THROW_CHECK(HasPose(image_id));
     const int index = GetPoseIndex(image_id);
     const int num_params_pose = GetPoseTangentSize(image_id);
@@ -355,10 +355,10 @@ Eigen::MatrixXd BundleAdjustmentCovarianceEstimatorBase::GetCovariance(
       indices.push_back(index + i);
     }
   }
-  size_t n_indices = indices.size();
+  const int n_indices = indices.size();
   Eigen::MatrixXd output(n_indices, n_indices);
-  for (size_t i = 0; i < n_indices; ++i) {
-    for (size_t j = 0; j < n_indices; ++j) {
+  for (int i = 0; i < n_indices; ++i) {
+    for (int j = 0; j < n_indices; ++j) {
       output(i, j) = GetCovarianceByIndex(indices[i], indices[j]);
     }
   }
@@ -392,7 +392,7 @@ bool BundleAdjustmentCovarianceEstimatorCeresBackend::ComputeFull() {
       num_params, num_params);
   covariance_computer.GetCovarianceMatrixInTangentSpace(parameter_blocks,
                                                         covs.data());
-  cov_variables_ = covs;
+  cov_variables_ = std::move(covs);
   cov_poses_ = cov_variables_.block(0, 0, num_params_poses_, num_params_poses_);
   return true;
 }
@@ -405,7 +405,7 @@ bool BundleAdjustmentCovarianceEstimatorCeresBackend::Compute() {
       num_params_poses_, num_params_poses_);
   covariance_computer.GetCovarianceMatrixInTangentSpace(pose_blocks_,
                                                         covs.data());
-  cov_poses_ = covs;
+  cov_poses_ = std::move(covs);
   return true;
 }
 
@@ -413,7 +413,9 @@ void BundleAdjustmentCovarianceEstimator::ComputeSchurComplement() {
   // Evaluate jacobian
   LOG(INFO) << "Evaluate jacobian matrix";
   ceres::Problem::EvaluateOptions eval_options;
-  eval_options.parameter_blocks.clear();
+  eval_options.parameter_blocks.reserve(pose_blocks_.size() +
+                                        point_blocks_.size() +
+                                        other_variables_blocks_.size());
   for (const double* block : pose_blocks_) {
     eval_options.parameter_blocks.push_back(const_cast<double*>(block));
   }
@@ -425,9 +427,9 @@ void BundleAdjustmentCovarianceEstimator::ComputeSchurComplement() {
   }
   ceres::CRSMatrix J_full_crs;
   problem_->Evaluate(eval_options, nullptr, nullptr, nullptr, &J_full_crs);
-  int num_residuals = J_full_crs.num_rows;
-  int num_params = J_full_crs.num_cols;
-  Eigen::Map<Eigen::SparseMatrix<double, Eigen::RowMajor>> J_full(
+  const int num_residuals = J_full_crs.num_rows;
+  const int num_params = J_full_crs.num_cols;
+  const Eigen::Map<const Eigen::SparseMatrix<double, Eigen::RowMajor>> J_full(
       J_full_crs.num_rows,
       J_full_crs.num_cols,
       J_full_crs.values.size(),
@@ -437,25 +439,24 @@ void BundleAdjustmentCovarianceEstimator::ComputeSchurComplement() {
 
   // Schur elimination on points
   LOG(INFO) << "Schur elimination on points";
-  Eigen::SparseMatrix<double> J_c =
+  const Eigen::SparseMatrix<double> J_c =
       J_full.block(0, 0, num_residuals, num_params - num_params_points_);
-  Eigen::SparseMatrix<double> J_p = J_full.block(
+  const Eigen::SparseMatrix<double> J_p = J_full.block(
       0, num_params - num_params_points_, num_residuals, num_params_points_);
-  Eigen::SparseMatrix<double> H_cc = J_c.transpose() * J_c;
-  Eigen::SparseMatrix<double> H_cp = J_c.transpose() * J_p;
-  Eigen::SparseMatrix<double> H_pc = H_cp.transpose();
+  const Eigen::SparseMatrix<double> H_cc = J_c.transpose() * J_c;
+  const Eigen::SparseMatrix<double> H_cp = J_c.transpose() * J_p;
+  const Eigen::SparseMatrix<double> H_pc = H_cp.transpose();
   Eigen::SparseMatrix<double> H_pp = J_p.transpose() * J_p;
   // in-place computation of H_pp_inv
   Eigen::SparseMatrix<double>& H_pp_inv = H_pp;  // reference
   int counter_p = 0;
   for (const double* block : point_blocks_) {
     const int num_params_point = ParameterBlockTangentSize(*problem_, block);
-    Eigen::SparseMatrix<double> sub_matrix_sparse =
+    Eigen::MatrixXd sub_matrix =
         H_pp.block(counter_p, counter_p, num_params_point, num_params_point);
-    Eigen::MatrixXd sub_matrix = sub_matrix_sparse;
     sub_matrix += lambda_ * Eigen::MatrixXd::Identity(sub_matrix.rows(),
                                                       sub_matrix.cols());
-    Eigen::MatrixXd sub_matrix_inv = sub_matrix.inverse();
+    const Eigen::MatrixXd sub_matrix_inv = sub_matrix.inverse();
     // update matrix
     for (int i = 0; i < num_params_point; ++i) {
       for (int j = 0; j < num_params_point; ++j) {
@@ -479,10 +480,11 @@ bool BundleAdjustmentCovarianceEstimator::HasValidPoseFactorization() const {
 double BundleAdjustmentCovarianceEstimator::GetPoseCovarianceByIndex(
     int row, int col) const {
   THROW_CHECK(HasValidPoseCovariance() || HasValidPoseFactorization());
-  if (HasValidPoseCovariance())
+  if (HasValidPoseCovariance()) {
     return cov_poses_(row, col);
-  else
+  } else {
     return L_matrix_poses_inv_.col(row).dot(L_matrix_poses_inv_.col(col));
+  }
 }
 
 Eigen::MatrixXd
@@ -514,11 +516,12 @@ bool BundleAdjustmentCovarianceEstimator::HasValidFullFactorization() const {
 double BundleAdjustmentCovarianceEstimator::GetCovarianceByIndex(
     int row, int col) const {
   THROW_CHECK(HasValidFullCovariance() || HasValidFullFactorization());
-  if (HasValidFullCovariance())
+  if (HasValidFullCovariance()) {
     return cov_variables_(row, col);
-  else
+  } else {
     return L_matrix_variables_inv_.col(row).dot(
         L_matrix_variables_inv_.col(col));
+  }
 }
 
 Eigen::MatrixXd
@@ -610,7 +613,7 @@ bool BundleAdjustmentCovarianceEstimator::ComputeFull() {
   LOG(INFO) << "Finish sparse Cholesky decomposition.";
   Eigen::SparseMatrix<double> I(S_matrix_.rows(), S_matrix_.cols());
   I.setIdentity();
-  Eigen::SparseMatrix<double> S_inv = ldltOfS.solve(I);
+  const Eigen::SparseMatrix<double> S_inv = ldltOfS.solve(I);
   cov_variables_ = S_inv;  // convert to dense matrix
   cov_poses_ = cov_variables_.block(0, 0, num_params_poses_, num_params_poses_);
   return true;
@@ -623,24 +626,26 @@ bool BundleAdjustmentCovarianceEstimator::Factorize() {
   // Schur elimination on other variables
   LOG(INFO) << StringPrintf("Schur elimination on other variables (n = %d)",
                             num_params_other_variables_);
-  Eigen::SparseMatrix<double> S_aa =
+  const Eigen::SparseMatrix<double> S_aa =
       S_matrix_.block(0, 0, num_params_poses_, num_params_poses_);
-  Eigen::SparseMatrix<double> S_ab = S_matrix_.block(
+  const Eigen::SparseMatrix<double> S_ab = S_matrix_.block(
       0, num_params_poses_, num_params_poses_, num_params_other_variables_);
-  Eigen::SparseMatrix<double> S_ba = S_ab.transpose();
+  const Eigen::SparseMatrix<double> S_ba = S_ab.transpose();
   Eigen::SparseMatrix<double> S_bb =
       S_matrix_.block(num_params_poses_,
                       num_params_poses_,
                       num_params_other_variables_,
                       num_params_other_variables_);
   for (int i = 0; i < S_bb.rows(); ++i) {
-    if (S_bb.coeff(i, i) == 0.0)
+    if (S_bb.coeff(i, i) == 0.0) {
       S_bb.coeffRef(i, i) = lambda_;
-    else
+    } else {
       S_bb.coeffRef(i, i) += lambda_;
+    }
   }
   Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> lltOfS_bb(S_bb);
-  Eigen::SparseMatrix<double> S_poses = S_aa - S_ab * lltOfS_bb.solve(S_ba);
+  const Eigen::SparseMatrix<double> S_poses =
+      S_aa - S_ab * lltOfS_bb.solve(S_ba);
 
   // Compute pose covariance
   LOG(INFO) << StringPrintf("Start sparse Cholesky decomposition (n = %d)",
