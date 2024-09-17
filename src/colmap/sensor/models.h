@@ -197,7 +197,7 @@ struct BaseCameraModel {
 template <typename CameraModel>
 struct BaseFisheyeCameraModel : public BaseCameraModel<CameraModel> {
   template <typename T>
-  static inline void FisheyeFromPixel(const T u, const T v, T* uu, T* vv) {
+  static inline void FisheyeFromNormal(const T u, const T v, T* uu, T* vv) {
     *uu = u;
     *vv = v;
     const T r = ceres::sqrt(u * u + v * v);
@@ -209,7 +209,7 @@ struct BaseFisheyeCameraModel : public BaseCameraModel<CameraModel> {
   }
 
   template <typename T>
-  static inline void PixelFromFisheye(const T uu, const T vv, T* u, T* v) {
+  static inline void NormalFromFisheye(const T uu, const T vv, T* u, T* v) {
     *u = uu;
     *v = vv;
     const T theta = ceres::sqrt(uu * uu + vv * vv);
@@ -1001,7 +1001,7 @@ void OpenCVFisheyeCameraModel::ImgFromCam(
 
   // Fisheye coordinates
   T uu, vv;
-  FisheyeFromPixel(u, v, &uu, &vv);
+  FisheyeFromNormal(u, v, &uu, &vv);
 
   // Distortion
   T duu, dvv;
@@ -1032,7 +1032,7 @@ void OpenCVFisheyeCameraModel::CamFromImg(
   IterativeUndistortion(&params[4], &uu, &vv);
 
   // Back to pixel
-  PixelFromFisheye(uu, vv, u, v);
+  NormalFromFisheye(uu, vv, u, v);
 }
 
 template <typename T>
@@ -1324,7 +1324,7 @@ void SimpleRadialFisheyeCameraModel::ImgFromCam(
 
   // Fisheye coordinates
   T uu, vv;
-  FisheyeFromPixel(u, v, &uu, &vv);
+  FisheyeFromNormal(u, v, &uu, &vv);
 
   // Distortion
   T duu, dvv;
@@ -1354,7 +1354,7 @@ void SimpleRadialFisheyeCameraModel::CamFromImg(
   IterativeUndistortion(&params[3], &uu, &vv);
 
   // Back to pixel
-  PixelFromFisheye(uu, vv, u, v);
+  NormalFromFisheye(uu, vv, u, v);
 }
 
 template <typename T>
@@ -1404,7 +1404,7 @@ void RadialFisheyeCameraModel::ImgFromCam(
 
   // Fisheye coordinates
   T uu, vv;
-  FisheyeFromPixel(u, v, &uu, &vv);
+  FisheyeFromNormal(u, v, &uu, &vv);
 
   // Distortion
   T duu, dvv;
@@ -1434,7 +1434,7 @@ void RadialFisheyeCameraModel::CamFromImg(
   IterativeUndistortion(&params[3], &uu, &vv);
 
   // Back to pixel
-  PixelFromFisheye(uu, vv, u, v);
+  NormalFromFisheye(uu, vv, u, v);
 }
 
 template <typename T>
@@ -1498,7 +1498,7 @@ void ThinPrismFisheyeCameraModel::ImgFromCam(
   v /= w;
 
   T uu, vv;
-  FisheyeFromPixel(u, v, &uu, &vv);
+  FisheyeFromNormal(u, v, &uu, &vv);
 
   // Distortion
   T du, dv;
@@ -1526,7 +1526,7 @@ void ThinPrismFisheyeCameraModel::CamFromImg(
   *w = 1;
 
   IterativeUndistortion(&params[4], &uu, &vv);
-  PixelFromFisheye(uu, vv, u, v);
+  NormalFromFisheye(uu, vv, u, v);
 }
 
 template <typename T>
