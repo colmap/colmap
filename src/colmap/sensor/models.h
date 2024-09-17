@@ -1010,8 +1010,8 @@ void OpenCVFisheyeCameraModel::ImgFromCam(
   *y = vv + dvv;
 
   // Transform to image coordinates
-  *x = f * *x + c1;
-  *y = f * *y + c2;
+  *x = f1 * *x + c1;
+  *y = f2 * *y + c2;
 }
 
 template <typename T>
@@ -1047,7 +1047,7 @@ void OpenCVFisheyeCameraModel::Distortion(
   const T theta4 = theta2 * theta2;
   const T theta6 = theta4 * theta2;
   const T theta8 = theta4 * theta4;
-  radial = k1 * theta2 + k2 * theta4 + k3 * theta6 + k4 * theta8;
+  T radial = k1 * theta2 + k2 * theta4 + k3 * theta6 + k4 * theta8;
   *du = u * radial;
   *dv = v * radial;
 }
@@ -1445,7 +1445,7 @@ void RadialFisheyeCameraModel::Distortion(
 
   const T theta2 = u * u + v * v;
   const T theta4 = theta2 * theta2;
-  radial = k1 * theta2 + k2 * theta4;
+  T radial = k1 * theta2 + k2 * theta4;
   *du = u * radial;
   *dv = v * radial;
 }
