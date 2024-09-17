@@ -61,11 +61,6 @@ void TestCamFromImgToImg(const std::vector<double>& params,
   EXPECT_EQ(u, uvw.x());
   EXPECT_EQ(v, uvw.y());
   EXPECT_EQ(w, uvw.z());
-  if (CameraModelIsFisheye(CameraModel::model_id)) {
-    if (!FisheyeCameraModelIsValidPixel(
-            CameraModel::model_id, params, Eigen::Vector2d(x0, y0)))
-      return;
-  }
   CameraModel::ImgFromCam(params.data(), u, v, w, &x, &y);
   EXPECT_NEAR(x, x0, 1e-6);
   EXPECT_NEAR(y, y0, 1e-6);
@@ -141,6 +136,11 @@ void TestModel(const std::vector<double>& params) {
 
   for (int x = 0; x <= 800; x += 50) {
     for (int y = 0; y <= 800; y += 50) {
+      if (CameraModelIsFisheye(CameraModel::model_id)) {
+        if (!FisheyeCameraModelIsValidPixel(
+                CameraModel::model_id, params, Eigen::Vector2d(x, y)))
+          continue;
+      }
       TestCamFromImgToImg<CameraModel>(params, x, y);
     }
   }
