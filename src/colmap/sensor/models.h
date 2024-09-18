@@ -1079,11 +1079,7 @@ void OpenCVFisheyeCameraModel::CamFromImg(
   T uu, vv;
   FisheyeCoordinateFromImg(params, x, y, &uu, &vv);
   *w = 1;
-
-  // Undistortion
   IterativeUndistortion(&params[4], &uu, &vv);
-
-  // Back to pixel
   NormalFromFisheye(uu, vv, u, v);
 }
 
@@ -1099,7 +1095,7 @@ void OpenCVFisheyeCameraModel::Distortion(
   const T theta4 = theta2 * theta2;
   const T theta6 = theta4 * theta2;
   const T theta8 = theta4 * theta4;
-  T radial = k1 * theta2 + k2 * theta4 + k3 * theta6 + k4 * theta8;
+  const T radial = k1 * theta2 + k2 * theta4 + k3 * theta6 + k4 * theta8;
   *du = u * radial;
   *dv = v * radial;
 }
@@ -1407,15 +1403,10 @@ void SimpleRadialFisheyeCameraModel::ImgFromCam(
 template <typename T>
 void SimpleRadialFisheyeCameraModel::CamFromImg(
     const T* params, const T x, const T y, T* u, T* v, T* w) {
-  // Lift points to normalized plane
   T uu, vv;
   FisheyeCoordinateFromImg(params, x, y, &uu, &vv);
   *w = 1;
-
-  // Undistortion
   IterativeUndistortion(&params[3], &uu, &vv);
-
-  // Back to pixel
   NormalFromFisheye(uu, vv, u, v);
 }
 
@@ -1497,15 +1488,10 @@ void RadialFisheyeCameraModel::ImgFromCam(
 template <typename T>
 void RadialFisheyeCameraModel::CamFromImg(
     const T* params, const T x, const T y, T* u, T* v, T* w) {
-  // Lift points to normalized plane
   T uu, vv;
   FisheyeCoordinateFromImg(params, x, y, &uu, &vv);
   *w = 1;
-
-  // Undistortion
   IterativeUndistortion(&params[3], &uu, &vv);
-
-  // Back to pixel
   NormalFromFisheye(uu, vv, u, v);
 }
 
@@ -1517,7 +1503,7 @@ void RadialFisheyeCameraModel::Distortion(
 
   const T theta2 = u * u + v * v;
   const T theta4 = theta2 * theta2;
-  T radial = k1 * theta2 + k2 * theta4;
+  const T radial = k1 * theta2 + k2 * theta4;
   *du = u * radial;
   *dv = v * radial;
 }
@@ -1601,11 +1587,9 @@ void ThinPrismFisheyeCameraModel::ImgFromCam(
 template <typename T>
 void ThinPrismFisheyeCameraModel::CamFromImg(
     const T* params, const T x, const T y, T* u, T* v, T* w) {
-  // Lift points to normalized plane
   T uu, vv;
   FisheyeCoordinateFromImg(params, x, y, &uu, &vv);
   *w = 1;
-
   IterativeUndistortion(&params[4], &uu, &vv);
   NormalFromFisheye(uu, vv, u, v);
 }
@@ -1695,10 +1679,8 @@ bool CameraModelIsFisheye(const CameraModelId model_id) {
 
     FISHEYE_CAMERA_MODEL_CASES
     return true;
-    break;
     default:
       return false;
-      break;
 
 #undef CAMERA_MODEL_CASE
   }
@@ -1716,17 +1698,17 @@ bool FisheyeCameraModelIsValidPixel(const CameraModelId model_id,
     CameraModel::FisheyeCoordinateFromImg(             \
         params.data(), xy.x(), xy.y(), &uu, &vv);      \
     const double theta = std::sqrt(uu * uu + vv * vv); \
-    if (theta < M_PI / 2.0)                            \
+    if (theta < M_PI / 2.0) {                          \
       return true;                                     \
-    else                                               \
+    } else {                                           \
       return false;                                    \
-  } break;
+    }                                                  \
+  }
 
     FISHEYE_CAMERA_MODEL_CASES
     default:
       throw std::domain_error(
           "Camera model does not exist or is not a fisheye camera");
-      break;
 
 #undef CAMERA_MODEL_CASE
   }
