@@ -167,13 +167,21 @@ void BindGeometry(py::module& m) {
   PyPosePrior.def(py::init<>())
       .def(py::init<const Eigen::Vector3d&>())
       .def(py::init<const Eigen::Vector3d&, const PPCoordinateSystem>())
+      .def(py::init<const Eigen::Vector3d&, const Eigen::Matrix3d&>())
+      .def(py::init<const Eigen::Vector3d&,
+                    const Eigen::Matrix3d&,
+                    const PPCoordinateSystem>())
       .def_readwrite("position", &PosePrior::position)
+      .def_readwrite("position_covariance", &PosePrior::position_covariance)
       .def_readwrite("coordinate_system", &PosePrior::coordinate_system)
       .def("is_valid", &PosePrior::IsValid)
+      .def("is_covariance_valid", &PosePrior::IsCovarianceValid)
       .def("__repr__", [](const PosePrior& self) {
         std::stringstream ss;
         ss << "PosePrior("
            << "position=[" << self.position.format(vec_fmt) << "], "
+           << "position_covariance=["
+           << self.position_covariance.format(vec_fmt) << "], "
            << "coordinate_system=" << py::str(py::cast(self.coordinate_system))
            << ")";
         return ss.str();
