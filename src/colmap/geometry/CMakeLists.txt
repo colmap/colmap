@@ -33,7 +33,6 @@ set(FOLDER_NAME "geometry")
 COLMAP_ADD_LIBRARY(
     NAME colmap_geometry
     SRCS
-        covariance.h covariance.cc
         essential_matrix.h essential_matrix.cc
         gps.h gps.cc
         homography_matrix.h homography_matrix.cc
@@ -47,11 +46,6 @@ COLMAP_ADD_LIBRARY(
         Eigen3::Eigen
 )
 
-COLMAP_ADD_TEST(
-    NAME covariance_test
-    SRCS covariance_test.cc
-    LINK_LIBS colmap_geometry
-)
 COLMAP_ADD_TEST(
     NAME essential_matrix_test
     SRCS essential_matrix_test.cc

@@ -29,6 +29,7 @@
 
 #include "colmap/sfm/incremental_mapper.h"
 
+#include "colmap/estimators/covariance.h"
 #include "colmap/estimators/pose.h"
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/geometry/triangulation.h"
@@ -370,6 +371,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   std::vector<std::pair<point2D_t, point3D_t>> tri_corrs;
   std::vector<Eigen::Vector2d> tri_points2D;
   std::vector<Eigen::Vector3d> tri_points3D;
+  std::vector<point3D_t> tri_point3D_ids;
 
   const std::shared_ptr<const CorrespondenceGraph> correspondence_graph =
       database_cache_->CorrespondenceGraph();
@@ -414,6 +416,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
       corr_point3D_ids.insert(corr_point2D.point3D_id);
       tri_points2D.push_back(point2D.xy);
       tri_points3D.push_back(point3D.xyz);
+      tri_point3D_ids.push_back(corr_point2D.point3D_id);
     }
   }
 
@@ -479,12 +482,26 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
     abs_pose_refinement_options.refine_extra_params = false;
   }
 
+  const std::vector<Eigen::Matrix3d> tri_points3D_cov =
+      EstimatePointCovariance(reconstruction_.get(), tri_point3D_ids);
+
   size_t num_inliers;
   std::vector<char> inlier_mask;
+  if (!EstimateAbsolutePose(abs_pose_options,
+                            tri_points2D,
+                            tri_points3D,
+                            nullptr,
+                            &image.CamFromWorld(),
+                            &camera,
+                            &num_inliers,
+                            &inlier_mask)) {
+    return false;
+  }
 
   if (!EstimateAbsolutePose(abs_pose_options,
                             tri_points2D,
                             tri_points3D,
+                            &tri_points3D_cov,
                             &image.CamFromWorld(),
                             &camera,
                             &num_inliers,

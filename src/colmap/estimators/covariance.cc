@@ -29,6 +29,7 @@
 
 #include "colmap/estimators/covariance.h"
 
+#include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/estimators/manifold.h"
 
 #include <ceres/crs_matrix.h>
@@ -767,6 +768,33 @@ bool EstimatePoseCovariance(
     image_id_to_covar.emplace(image_id, estimator.GetPoseCovariance(image_id));
   }
   return true;
+}
+
+std::vector<Eigen::Matrix3d> EstimatePointCovariance(
+    Reconstruction* reconstruction, const std::vector<point3D_t>& point3D_ids) {
+  BundleAdjustmentConfig ba_config;
+  for (const point3D_t point3D_id : point3D_ids) {
+    ba_config.AddVariablePoint(point3D_id);
+  }
+
+  BundleAdjuster bundle_adjuster(BundleAdjustmentOptions(), ba_config);
+  bundle_adjuster.SetUpProblem(reconstruction, /*loss_function=*/nullptr);
+
+  std::vector<Eigen::Matrix3d> covs;
+  covs.reserve(point3D_ids.size());
+  for (const point3D_t point3D_id : point3D_ids) {
+    const Point3D& point3D = reconstruction->Point3D(point3D_id);
+    Eigen::Matrix<double, 3, 3, Eigen::RowMajor> cov;
+    ceres::Covariance::Options options;
+    ceres::Covariance covariance_computer(options);
+    if (!covariance_computer.Compute({point3D.xyz.data()},
+                                     bundle_adjuster.Problem().get())) {
+    }
+    covariance_computer.GetCovarianceMatrixInTangentSpace({point3D.xyz.data()},
+                                                          cov.data());
+    covs.push_back(cov);
+  }
+  return covs;
 }
 
 }  // namespace colmap

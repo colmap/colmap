@@ -45,6 +45,8 @@ namespace colmap {
 namespace {
 
 typedef LORANSAC<P3PEstimator, EPNPEstimator> AbsolutePoseRANSAC;
+typedef RANSAC<CovariantP3PEstimator, MEstimatorSupportMeasurer>
+    CovariantAbsolutePoseRANSAC;
 
 void EstimateAbsolutePoseKernel(const Camera& camera,
                                 const double focal_length_factor,
@@ -72,6 +74,56 @@ void EstimateAbsolutePoseKernel(const Camera& camera,
   *report = ransac.Estimate(points2D_in_cam, points3D);
 }
 
+void EstimateCovariantAbsolutePoseKernel(
+    const Camera& camera,
+    const double focal_length_factor,
+    const std::vector<Eigen::Vector2d>& points2D,
+    const std::vector<Eigen::Vector3d>& points3D,
+    const std::vector<Eigen::Matrix3d>& points3D_cov,
+    const RANSACOptions& options,
+    AbsolutePoseRANSAC::Report* report) {
+  constexpr double kSigmaInlierFactor = 3.0;
+
+  // Scale the focal length by the given factor.
+  Camera scaled_camera = camera;
+  for (const size_t idx : camera.FocalLengthIdxs()) {
+    scaled_camera.params[idx] *= focal_length_factor;
+  }
+
+  const double max_error_in_cam =
+      scaled_camera.CamFromImgThreshold(options.max_error);
+  const Eigen::Matrix2d point2D_cov = (max_error_in_cam / kSigmaInlierFactor) *
+                                      (max_error_in_cam / kSigmaInlierFactor) *
+                                      Eigen::Matrix2d::Identity();
+
+  // Normalize image coordinates with current camera hypothesis.
+  std::vector<std::pair<Eigen::Vector2d, Eigen::Matrix2d>> points2D_with_cov(
+      points2D.size());
+  for (size_t i = 0; i < points2D.size(); ++i) {
+    points2D_with_cov[i] = {scaled_camera.CamFromImg(points2D[i]), point2D_cov};
+  }
+
+  std::vector<std::pair<Eigen::Vector3d, Eigen::Matrix3d>> points3D_with_cov(
+      points3D.size());
+  for (size_t i = 0; i < points3D.size(); ++i) {
+    points3D_with_cov[i] = {points3D[i], points3D_cov[i]};
+  }
+
+  // Estimate pose for given focal length.
+  auto custom_options = options;
+  // TODO: Do we need to account for the log(det(cov)) term in the residual?
+  custom_options.max_error = kSigmaInlierFactor;
+  CovariantAbsolutePoseRANSAC ransac(custom_options);
+  const auto covariant_report =
+      ransac.Estimate(points2D_with_cov, points3D_with_cov);
+
+  report->success = covariant_report.success;
+  report->num_trials = covariant_report.num_trials;
+  report->support.num_inliers = covariant_report.support.num_inliers;
+  report->inlier_mask = covariant_report.inlier_mask;
+  report->model = covariant_report.model;
+}
+
 }  // namespace
 
 bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
@@ -83,6 +135,10 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
                           size_t* num_inliers,
                           std::vector<char>* inlier_mask) {
   THROW_CHECK_EQ(points2D.size(), points3D.size());
+  if (points3D_cov != nullptr) {
+    THROW_CHECK_EQ(points2D.size(), points3D_cov->size());
+  }
+
   options.Check();
 
   std::vector<double> focal_length_factors;
@@ -115,13 +171,24 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
       options.num_threads, static_cast<int>(focal_length_factors.size())));
 
   for (size_t i = 0; i < focal_length_factors.size(); ++i) {
-    futures[i] = thread_pool.AddTask(EstimateAbsolutePoseKernel,
-                                     *camera,
-                                     focal_length_factors[i],
-                                     points2D,
-                                     points3D,
-                                     options.ransac_options,
-                                     &reports[i]);
+    if (points3D_cov == nullptr) {
+      futures[i] = thread_pool.AddTask(EstimateAbsolutePoseKernel,
+                                       *camera,
+                                       focal_length_factors[i],
+                                       points2D,
+                                       points3D,
+                                       options.ransac_options,
+                                       &reports[i]);
+    } else {
+      futures[i] = thread_pool.AddTask(EstimateCovariantAbsolutePoseKernel,
+                                       *camera,
+                                       focal_length_factors[i],
+                                       points2D,
+                                       points3D,
+                                       *points3D_cov,
+                                       options.ransac_options,
+                                       &reports[i]);
+    }
   }
 
   double focal_length_factor = 0;
@@ -160,6 +227,8 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
       cam_from_world->translation.array().isNaN().any()) {
     return false;
   }
+
+  LOG(INFO) << "Absolute pose estimation with " << *num_inliers << " inliers";
 
   return true;
 }

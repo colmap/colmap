@@ -245,4 +245,8 @@ bool EstimatePoseCovariance(
     std::map<image_t, Eigen::MatrixXd>& image_id_to_covar,
     double lambda = 1e-8);
 
+std::vector<Eigen::Matrix3d> EstimatePointCovariance(
+    Reconstruction* reconstruction,
+    const std::vector<point3D_t>& point3D_ids);
+
 }  // namespace colmap
