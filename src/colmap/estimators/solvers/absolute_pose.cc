@@ -4,7 +4,6 @@
 
 #include "colmap/estimators/cost_functions/tiny_manifold.h"
 #include "colmap/estimators/solvers/poselib_utils.h"
-#include "colmap/geometry/covariance.h"
 #include "colmap/optim/tiny_solver.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
@@ -275,7 +274,7 @@ void CovariantP3PEstimator::Residuals(const std::vector<X_t>& points2D,
                                       const std::vector<Y_t>& points3D,
                                       const M_t& cam_from_world,
                                       std::vector<double>* residuals) {
-  constexpr double kInlierSigmaFactor = 3.0;
+  constexpr double kInlierSigmaFactorSqr = 3.0 * 3.0;
 
   const size_t num_points2D = points2D.size();
   THROW_CHECK_EQ(num_points2D, points3D.size());
@@ -287,16 +286,7 @@ void CovariantP3PEstimator::Residuals(const std::vector<X_t>& points2D,
       (*residuals)[i] = std::numeric_limits<double>::max();
       continue;
     }
-
     const Eigen::Vector2d proj_point = point3D_in_cam.hnormalized();
-    if (!InsideUncertaintyInterval(points2D[0].first,
-                                   points2D[0].second,
-                                   proj_point,
-                                   kInlierSigmaFactor)) {
-      (*residuals)[i] = std::numeric_limits<double>::max();
-      continue;
-    }
-
     Eigen::Matrix<double, 2, 3> J_proj;
     J_proj << 1 / point3D_in_cam.z(), 0,
         -point3D_in_cam.x() / (point3D_in_cam.z() * point3D_in_cam.z()), 0,
@@ -304,20 +294,15 @@ void CovariantP3PEstimator::Residuals(const std::vector<X_t>& points2D,
         -point3D_in_cam.y() / (point3D_in_cam.z() * point3D_in_cam.z());
     const Eigen::Matrix<double, 2, 3> J = J_proj * cam_from_world.leftCols<3>();
     const Eigen::Matrix2d proj_cov = J * points3D[i].second * J.transpose();
-    if (!InsideUncertaintyInterval(
-            proj_point, proj_cov, points2D[i].first, kInlierSigmaFactor)) {
+    const Eigen::Matrix2d joint_cov = points2D[i].second + proj_cov;
+    const Eigen::Vector2d proj_error = proj_point - points2D[i].first;
+    const double mahalanobis_dist_sqr =
+        proj_error.transpose() * joint_cov.inverse() * proj_error;
+    if (mahalanobis_dist_sqr > kInlierSigmaFactorSqr) {
       (*residuals)[i] = std::numeric_limits<double>::max();
       continue;
     }
-
-    // TODO: Note that the term log(|S_x_i|) is a constant if considering only
-    // 2D uncertainties. If considering 3D uncertainties, it depends on the
-    // camera pose but only changes slowly close to the optimal camera pose.
-    // We may be able to drop this term.
-    const Eigen::Matrix2d joint_cov = points2D[i].second + proj_cov;
-    const Eigen::Vector2d diff = proj_point - points2D[i].first;
-    (*residuals)[i] = diff.transpose() * joint_cov.inverse() * diff +
-                      std::log(joint_cov.determinant());
+    (*residuals)[i] = mahalanobis_dist_sqr + std::log(joint_cov.determinant());
   }
 }
 

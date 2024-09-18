@@ -127,4 +127,9 @@ std::vector<const double*> GetOtherParams(
     const std::vector<PointParam>& points);
 
 }  // namespace internal
+
+std::vector<Eigen::Matrix3d> EstimatePointCovariance(
+    Reconstruction* reconstruction,
+    const std::vector<point3D_t>& point3D_ids);
+
 }  // namespace colmap
