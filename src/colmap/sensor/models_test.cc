@@ -136,10 +136,10 @@ void TestModel(const std::vector<double>& params) {
 
   for (int x = 0; x <= 800; x += 50) {
     for (int y = 0; y <= 800; y += 50) {
-      if (CameraModelIsFisheye(CameraModel::model_id)) {
-        if (!FisheyeCameraModelIsValidPixel(
-                CameraModel::model_id, params, Eigen::Vector2d(x, y)))
-          continue;
+      if (CameraModelIsFisheye(CameraModel::model_id) &&
+          !FisheyeCameraModelIsValidPixel(
+              CameraModel::model_id, params, Eigen::Vector2d(x, y))) {
+        continue;
       }
       TestCamFromImgToImg<CameraModel>(params, x, y);
     }
