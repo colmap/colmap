@@ -168,13 +168,11 @@ enum class CameraModelId {
 #endif
 
 #ifndef FISHEYE_CAMERA_MODEL_DEFINITIONS
-#define FISHEYE_CAMERA_MODEL_DEFINITIONS        \
-  template <typename T>                         \
-  static void ImgFromFisheyeCoordinate(         \
-      const T* params, T uu, T vv, T* x, T* y); \
-  template <typename T>                         \
-  static void FisheyeCoordinateFromImg(         \
-      const T* params, T x, T y, T* uu, T* vv);
+#define FISHEYE_CAMERA_MODEL_DEFINITIONS                               \
+  template <typename T>                                                \
+  static void ImgFromFisheye(const T* params, T uu, T vv, T* x, T* y); \
+  template <typename T>                                                \
+  static void FisheyeFromImg(const T* params, T x, T y, T* uu, T* vv);
 #endif
 
 // The "Curiously Recurring Template Pattern" (CRTP) is used here, so that we
@@ -1031,7 +1029,7 @@ std::vector<double> OpenCVFisheyeCameraModel::InitializeParams(
 }
 
 template <typename T>
-void OpenCVFisheyeCameraModel::ImgFromFisheyeCoordinate(
+void OpenCVFisheyeCameraModel::ImgFromFisheye(
     const T* params, T uu, T vv, T* x, T* y) {
   const T f1 = params[0];
   const T f2 = params[1];
@@ -1043,7 +1041,7 @@ void OpenCVFisheyeCameraModel::ImgFromFisheyeCoordinate(
 }
 
 template <typename T>
-void OpenCVFisheyeCameraModel::FisheyeCoordinateFromImg(
+void OpenCVFisheyeCameraModel::FisheyeFromImg(
     const T* params, T x, T y, T* uu, T* vv) {
   const T f1 = params[0];
   const T f2 = params[1];
@@ -1069,7 +1067,7 @@ void OpenCVFisheyeCameraModel::ImgFromCam(
   Distortion(&params[4], uu, vv, &duu, &dvv);
 
   // Transform to image coordinates
-  ImgFromFisheyeCoordinate(params, uu + duu, vv + dvv, x, y);
+  ImgFromFisheye(params, uu + duu, vv + dvv, x, y);
 }
 
 template <typename T>
@@ -1077,7 +1075,7 @@ void OpenCVFisheyeCameraModel::CamFromImg(
     const T* params, const T x, const T y, T* u, T* v, T* w) {
   // Lift points to normalized plane
   T uu, vv;
-  FisheyeCoordinateFromImg(params, x, y, &uu, &vv);
+  FisheyeFromImg(params, x, y, &uu, &vv);
   *w = 1;
   IterativeUndistortion(&params[4], &uu, &vv);
   NormalFromFisheye(uu, vv, u, v);
@@ -1361,7 +1359,7 @@ std::vector<double> SimpleRadialFisheyeCameraModel::InitializeParams(
 }
 
 template <typename T>
-void SimpleRadialFisheyeCameraModel::ImgFromFisheyeCoordinate(
+void SimpleRadialFisheyeCameraModel::ImgFromFisheye(
     const T* params, T uu, T vv, T* x, T* y) {
   const T f = params[0];
   const T c1 = params[1];
@@ -1372,7 +1370,7 @@ void SimpleRadialFisheyeCameraModel::ImgFromFisheyeCoordinate(
 }
 
 template <typename T>
-void SimpleRadialFisheyeCameraModel::FisheyeCoordinateFromImg(
+void SimpleRadialFisheyeCameraModel::FisheyeFromImg(
     const T* params, T x, T y, T* uu, T* vv) {
   const T f = params[0];
   const T c1 = params[1];
@@ -1397,14 +1395,14 @@ void SimpleRadialFisheyeCameraModel::ImgFromCam(
   Distortion(&params[3], uu, vv, &duu, &dvv);
 
   // Transform to image coordinates
-  ImgFromFisheyeCoordinate(params, uu + duu, vv + dvv, x, y);
+  ImgFromFisheye(params, uu + duu, vv + dvv, x, y);
 }
 
 template <typename T>
 void SimpleRadialFisheyeCameraModel::CamFromImg(
     const T* params, const T x, const T y, T* u, T* v, T* w) {
   T uu, vv;
-  FisheyeCoordinateFromImg(params, x, y, &uu, &vv);
+  FisheyeFromImg(params, x, y, &uu, &vv);
   *w = 1;
   IterativeUndistortion(&params[3], &uu, &vv);
   NormalFromFisheye(uu, vv, u, v);
@@ -1446,7 +1444,7 @@ std::vector<double> RadialFisheyeCameraModel::InitializeParams(
 }
 
 template <typename T>
-void RadialFisheyeCameraModel::ImgFromFisheyeCoordinate(
+void RadialFisheyeCameraModel::ImgFromFisheye(
     const T* params, T uu, T vv, T* x, T* y) {
   const T f = params[0];
   const T c1 = params[1];
@@ -1457,7 +1455,7 @@ void RadialFisheyeCameraModel::ImgFromFisheyeCoordinate(
 }
 
 template <typename T>
-void RadialFisheyeCameraModel::FisheyeCoordinateFromImg(
+void RadialFisheyeCameraModel::FisheyeFromImg(
     const T* params, T x, T y, T* uu, T* vv) {
   const T f = params[0];
   const T c1 = params[1];
@@ -1482,14 +1480,14 @@ void RadialFisheyeCameraModel::ImgFromCam(
   Distortion(&params[3], uu, vv, &duu, &dvv);
 
   // Transform to image coordinates
-  ImgFromFisheyeCoordinate(params, uu + duu, vv + dvv, x, y);
+  ImgFromFisheye(params, uu + duu, vv + dvv, x, y);
 }
 
 template <typename T>
 void RadialFisheyeCameraModel::CamFromImg(
     const T* params, const T x, const T y, T* u, T* v, T* w) {
   T uu, vv;
-  FisheyeCoordinateFromImg(params, x, y, &uu, &vv);
+  FisheyeFromImg(params, x, y, &uu, &vv);
   *w = 1;
   IterativeUndistortion(&params[3], &uu, &vv);
   NormalFromFisheye(uu, vv, u, v);
@@ -1545,7 +1543,7 @@ std::vector<double> ThinPrismFisheyeCameraModel::InitializeParams(
 }
 
 template <typename T>
-void ThinPrismFisheyeCameraModel::ImgFromFisheyeCoordinate(
+void ThinPrismFisheyeCameraModel::ImgFromFisheye(
     const T* params, T uu, T vv, T* x, T* y) {
   const T f1 = params[0];
   const T f2 = params[1];
@@ -1557,7 +1555,7 @@ void ThinPrismFisheyeCameraModel::ImgFromFisheyeCoordinate(
 }
 
 template <typename T>
-void ThinPrismFisheyeCameraModel::FisheyeCoordinateFromImg(
+void ThinPrismFisheyeCameraModel::FisheyeFromImg(
     const T* params, T x, T y, T* uu, T* vv) {
   const T f1 = params[0];
   const T f2 = params[1];
@@ -1581,14 +1579,14 @@ void ThinPrismFisheyeCameraModel::ImgFromCam(
   Distortion(&params[4], uu, vv, &duu, &dvv);
 
   // Transform to image coordinates
-  ImgFromFisheyeCoordinate(params, uu + duu, vv + dvv, x, y);
+  ImgFromFisheye(params, uu + duu, vv + dvv, x, y);
 }
 
 template <typename T>
 void ThinPrismFisheyeCameraModel::CamFromImg(
     const T* params, const T x, const T y, T* u, T* v, T* w) {
   T uu, vv;
-  FisheyeCoordinateFromImg(params, x, y, &uu, &vv);
+  FisheyeFromImg(params, x, y, &uu, &vv);
   *w = 1;
   IterativeUndistortion(&params[4], &uu, &vv);
   NormalFromFisheye(uu, vv, u, v);
@@ -1692,17 +1690,16 @@ bool FisheyeCameraModelIsValidPixel(const CameraModelId model_id,
                                     const std::vector<double>& params,
                                     const Eigen::Vector2d& xy) {
   switch (model_id) {
-#define CAMERA_MODEL_CASE(CameraModel)                 \
-  case CameraModel::model_id: {                        \
-    double uu, vv;                                     \
-    CameraModel::FisheyeCoordinateFromImg(             \
-        params.data(), xy.x(), xy.y(), &uu, &vv);      \
-    const double theta = std::sqrt(uu * uu + vv * vv); \
-    if (theta < M_PI / 2.0) {                          \
-      return true;                                     \
-    } else {                                           \
-      return false;                                    \
-    }                                                  \
+#define CAMERA_MODEL_CASE(CameraModel)                                    \
+  case CameraModel::model_id: {                                           \
+    double uu, vv;                                                        \
+    CameraModel::FisheyeFromImg(params.data(), xy.x(), xy.y(), &uu, &vv); \
+    const double theta = std::sqrt(uu * uu + vv * vv);                    \
+    if (theta < M_PI / 2.0) {                                             \
+      return true;                                                        \
+    } else {                                                              \
+      return false;                                                       \
+    }                                                                     \
   }
 
     FISHEYE_CAMERA_MODEL_CASES
