@@ -867,7 +867,7 @@ bool PosePriorBundleAdjuster::Solve(Reconstruction* reconstruction) {
   }
 
   // Initialize images' position w.r.t. priors with a rigid sim3D alignment
-  Sim3DAlignment(reconstruction);
+  use_prior_position_ = Sim3DAlignment(reconstruction);
 
   // Fix 7-DOFs of BA problem if not enough valid pose priors
   if (!use_prior_position_) {
@@ -927,7 +927,7 @@ void PosePriorBundleAdjuster::AddPosePriorToProblem(
     Reconstruction* reconstruction,
     ceres::LossFunction* prior_loss_function) {
   if (!prior.IsValid() || !prior.IsCovarianceValid()) {
-    LOG(ERROR) << "\n Could not add prior for image #" << image_id << "\n";
+    LOG(ERROR) << "Could not add prior for image #" << image_id << "\n";
     return;
   }
   Image& image = reconstruction->Image(image_id);
@@ -951,7 +951,7 @@ void PosePriorBundleAdjuster::AddPosePriorToProblem(
       cam_from_world_translation);
 }
 
-void PosePriorBundleAdjuster::Sim3DAlignment(Reconstruction* reconstruction) {
+bool PosePriorBundleAdjuster::Sim3DAlignment(Reconstruction* reconstruction) {
   // Compute initial squared error between position priors & current images
   // projection center and prepare data for RANSAC-based sim3 alignment
   std::vector<double> vini_err2_wrt_prior;
@@ -974,8 +974,7 @@ void PosePriorBundleAdjuster::Sim3DAlignment(Reconstruction* reconstruction) {
   if (v_src.size() < 3) {
     LOG(WARNING)
         << "Not enough valid pose priors for PosePrior based alignment!";
-    use_prior_position_ = false;
-    return;
+    return false;
   }
 
   VLOG(2) << "Initial alignment error w.r.t. prior position:\n"
@@ -1029,6 +1028,8 @@ void PosePriorBundleAdjuster::Sim3DAlignment(Reconstruction* reconstruction) {
   } else {
     LOG(WARNING) << "Sim3 alignment w.r.t. prior position failed!";
   }
+
+  return success;
 }
 
 void PosePriorBundleAdjuster::setRansacMaxErrorFromPriorsCovariance() {
