@@ -209,13 +209,20 @@ class COLMAPDatabase(sqlite3.Connection):
         )
         return cursor.lastrowid
 
-    def add_pose_prior(self, image_id, position, coordinate_system=-1, position_covariance=None):
+    def add_pose_prior(
+        self, image_id, position, coordinate_system=-1, position_covariance=None
+    ):
         position = np.asarray(position, dtype=np.float64)
         if position_covariance is None:
-            position_covariance = np.full((3,3), np.nan, dtype=np.float64)
+            position_covariance = np.full((3, 3), np.nan, dtype=np.float64)
         self.execute(
             "INSERT INTO pose_priors VALUES (?, ?, ?, ?)",
-            (image_id, array_to_blob(position), coordinate_system, array_to_blob(position_covariance)),
+            (
+                image_id,
+                array_to_blob(position),
+                coordinate_system,
+                array_to_blob(position_covariance),
+            ),
         )
 
     def add_keypoints(self, image_id, keypoints):
@@ -365,12 +372,12 @@ def example_usage():
     db.add_matches(image_id3, image_id4, matches34)
 
     # Create dummy pose_priors.
-    
-    pos1 = np.random.rand(3,1) * np.random.randint(10)
-    pos2 = np.random.rand(3,1) * np.random.randint(10)
-    pos3 = np.random.rand(3,1) * np.random.randint(10)
 
-    cov3 = np.random.rand(3,3) * np.random.randint(10)
+    pos1 = np.random.rand(3, 1) * np.random.randint(10)
+    pos2 = np.random.rand(3, 1) * np.random.randint(10)
+    pos3 = np.random.rand(3, 1) * np.random.randint(10)
+
+    cov3 = np.random.rand(3, 3) * np.random.randint(10)
 
     pose_prior1 = [image_id1, pos1, 1, None]
     pose_prior2 = [image_id2, pos2, -1, None]
@@ -381,8 +388,8 @@ def example_usage():
     db.add_pose_prior(*pose_prior3)
 
     # Convert unset covariance to nan matrix for later check
-    pose_prior1[3] = np.full((3,3), np.nan, dtype=np.float64)
-    pose_prior2[3] = np.full((3,3), np.nan, dtype=np.float64)
+    pose_prior1[3] = np.full((3, 3), np.nan, dtype=np.float64)
+    pose_prior2[3] = np.full((3, 3), np.nan, dtype=np.float64)
 
     # Commit the data to the file.
 
@@ -437,7 +444,7 @@ def example_usage():
     assert np.all(matches[(image_id3, image_id4)] == matches34)
 
     # Read and check pose_priors
-    
+
     rows = db.execute("SELECT * FROM pose_priors")
 
     img_id1, pos1, coord_sys1, cov1 = next(rows)
@@ -447,18 +454,18 @@ def example_usage():
     assert pose_prior1[0] == img_id1
     assert pose_prior2[0] == img_id2
     assert pose_prior3[0] == img_id3
-    
-    assert pose_prior1[1].all() == blob_to_array(pos1, np.float64, (3,1)).all()
-    assert pose_prior2[1].all() == blob_to_array(pos2, np.float64, (3,1)).all()
-    assert pose_prior3[1].all() == blob_to_array(pos3, np.float64, (3,1)).all()
+
+    assert pose_prior1[1].all() == blob_to_array(pos1, np.float64, (3, 1)).all()
+    assert pose_prior2[1].all() == blob_to_array(pos2, np.float64, (3, 1)).all()
+    assert pose_prior3[1].all() == blob_to_array(pos3, np.float64, (3, 1)).all()
 
     assert pose_prior1[2] == coord_sys1
     assert pose_prior2[2] == coord_sys2
     assert pose_prior3[2] == coord_sys3
-    
-    assert pose_prior1[3].all() == blob_to_array(cov1, np.float64, (3,3)).all()
-    assert pose_prior2[3].all() == blob_to_array(cov2, np.float64, (3,3)).all()
-    assert pose_prior3[3].all() == blob_to_array(cov3, np.float64, (3,3)).all()
+
+    assert pose_prior1[3].all() == blob_to_array(cov1, np.float64, (3, 3)).all()
+    assert pose_prior2[3].all() == blob_to_array(cov2, np.float64, (3, 3)).all()
+    assert pose_prior3[3].all() == blob_to_array(cov3, np.float64, (3, 3)).all()
 
     # Clean up.
 
