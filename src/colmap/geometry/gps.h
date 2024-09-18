@@ -110,9 +110,9 @@ struct PosePrior {
         position_covariance(covariance),
         coordinate_system(system) {}
 
-  inline bool IsValid() const { return position.array().isFinite().any(); }
+  inline bool IsValid() const { return position.allFinite(); }
   inline bool IsCovarianceValid() const {
-    return position_covariance.array().isFinite().any();
+    return position_covariance.allFinite();
   }
 };
 
