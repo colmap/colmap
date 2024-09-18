@@ -75,10 +75,10 @@ void ComputeSquaredSampsonError(const std::vector<Eigen::Vector2d>& points1,
 // correspondences and a projection matrix. Returns DBL_MAX if a 3D point is
 // behind the given camera.
 //
-// @param points2D      Normalized 2D image points.
-// @param points3D      3D world points.
-// @param proj_matrix   3x4 projection matrix.
-// @param residuals     Output vector of residuals.
+// @param points2D        Normalized 2D image points.
+// @param points3D        3D world points.
+// @param cam_from_world  3x4 projection matrix.
+// @param residuals       Output vector of residuals.
 void ComputeSquaredReprojectionError(
     const std::vector<Eigen::Vector2d>& points2D,
     const std::vector<Eigen::Vector3d>& points3D,

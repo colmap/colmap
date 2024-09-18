@@ -168,7 +168,7 @@ size_t IncrementalTriangulator::CompleteImage(const Options& options,
     return num_tris;
   }
 
-  const Camera& camera = reconstruction_.Camera(image.CameraId());
+  const Camera& camera = *image.CameraPtr();
   if (HasCameraBogusParams(options, camera)) {
     return num_tris;
   }
@@ -346,8 +346,8 @@ size_t IncrementalTriangulator::Retriangulate(const Options& options) {
     }
     num_re_trials += 1;
 
-    const Camera& camera1 = reconstruction_.Camera(image1.CameraId());
-    const Camera& camera2 = reconstruction_.Camera(image2.CameraId());
+    const Camera& camera1 = *image1.CameraPtr();
+    const Camera& camera2 = *image2.CameraPtr();
     if (HasCameraBogusParams(options, camera1) ||
         HasCameraBogusParams(options, camera2)) {
       continue;
@@ -453,7 +453,7 @@ size_t IncrementalTriangulator::Find(const Options& options,
       continue;
     }
 
-    const Camera& corr_camera = reconstruction_.Camera(corr_image.CameraId());
+    const Camera& corr_camera = *corr_image.CameraPtr();
     if (HasCameraBogusParams(options, corr_camera)) {
       continue;
     }
@@ -627,8 +627,7 @@ size_t IncrementalTriangulator::Merge(const Options& options,
         for (const auto test_track_el : track->Elements()) {
           const Image& test_image =
               reconstruction_.Image(test_track_el.image_id);
-          const Camera& test_camera =
-              reconstruction_.Camera(test_image.CameraId());
+          const Camera& test_camera = *test_image.CameraPtr();
           const Point2D& test_point2D =
               test_image.Point2D(test_track_el.point2D_idx);
           if (CalculateSquaredReprojectionError(test_point2D.xy,
@@ -706,7 +705,7 @@ size_t IncrementalTriangulator::Complete(const Options& options,
           continue;
         }
 
-        const Camera& camera = reconstruction_.Camera(image.CameraId());
+        const Camera& camera = *image.CameraPtr();
         if (HasCameraBogusParams(options, camera)) {
           continue;
         }

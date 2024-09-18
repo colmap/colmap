@@ -350,20 +350,29 @@ ceres::Solver::Options BundleAdjuster::SetUpSolverOptions(
       options_.max_num_images_direct_dense_cpu_solver;
   int max_num_images_direct_sparse_solver =
       options_.max_num_images_direct_sparse_cpu_solver;
-#if (CERES_VERSION_MAJOR >= 3 ||                                \
-     (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 2)) && \
-    !defined(CERES_NO_CUDSS) && defined(COLMAP_CUDA_ENABLED)
+
+#ifdef COLMAP_CUDA_ENABLED
+#if (CERES_VERSION_MAJOR >= 3 || \
+     (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 2))
   if (options_.use_gpu && num_images >= options_.min_num_images_gpu_solver) {
     const std::vector<int> gpu_indices = CSVToVector<int>(options_.gpu_index);
     THROW_CHECK_GT(gpu_indices.size(), 0);
     SetBestCudaDevice(gpu_indices[0]);
     solver_options.dense_linear_algebra_library_type = ceres::CUDA;
-    solver_options.sparse_linear_algebra_library_type = ceres::CUDA_SPARSE;
     max_num_images_direct_dense_solver =
         options_.max_num_images_direct_dense_gpu_solver;
+  }
+#endif
+
+#if (CERES_VERSION_MAJOR >= 3 ||                                \
+     (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 3)) && \
+    !defined(CERES_NO_CUDSS)
+  if (options_.use_gpu && num_images >= options_.min_num_images_gpu_solver) {
+    solver_options.sparse_linear_algebra_library_type = ceres::CUDA_SPARSE;
     max_num_images_direct_sparse_solver =
         options_.max_num_images_direct_sparse_gpu_solver;
   }
+#endif
 #endif
 
   if (num_images <= max_num_images_direct_dense_solver) {

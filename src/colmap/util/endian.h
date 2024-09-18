@@ -79,22 +79,6 @@ T ReverseBytes(const T& data) {
   return data_reversed;
 }
 
-inline bool IsLittleEndian() {
-#ifdef BOOST_BIG_ENDIAN
-  return false;
-#else
-  return true;
-#endif
-}
-
-inline bool IsBigEndian() {
-#ifdef BOOST_BIG_ENDIAN
-  return true;
-#else
-  return false;
-#endif
-}
-
 template <typename T>
 T LittleEndianToNative(const T x) {
   if (IsLittleEndian()) {

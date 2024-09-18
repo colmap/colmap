@@ -178,8 +178,13 @@ inline struct Camera* Image::CameraPtr() const {
 inline void Image::SetCameraPtr(struct Camera* camera) {
   THROW_CHECK_NOTNULL(camera);
   THROW_CHECK_NE(camera->camera_id, kInvalidCameraId);
-  THROW_CHECK_EQ(camera->camera_id, camera_id_);
-  camera_ptr_ = camera;
+  if (!HasCameraPtr()) {
+    THROW_CHECK_EQ(camera->camera_id, camera_id_);
+    camera_ptr_ = camera;
+  } else {  // switch to new camera
+    camera_id_ = camera->camera_id;
+    camera_ptr_ = camera;
+  }
 }
 
 inline void Image::ResetCameraPtr() { camera_ptr_ = nullptr; }

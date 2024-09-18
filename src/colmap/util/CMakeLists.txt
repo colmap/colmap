@@ -37,6 +37,7 @@ COLMAP_ADD_LIBRARY(
         cache.h
         controller_thread.h
         eigen_alignment.h
+        endian.h endian.cc
         logging.h logging.cc
         misc.h misc.cc
         opengl_utils.h opengl_utils.cc

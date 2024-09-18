@@ -72,13 +72,13 @@ class P3PEstimator {
   // Calculate the squared reprojection error given a set of 2D-3D point
   // correspondences and a projection matrix.
   //
-  // @param points2D     Normalized 2D image points as Nx2 matrix.
-  // @param points3D     3D world points as Nx3 matrix.
-  // @param proj_matrix  3x4 projection matrix.
-  // @param residuals    Output vector of residuals.
+  // @param points2D        Normalized 2D image points as Nx2 matrix.
+  // @param points3D        3D world points as Nx3 matrix.
+  // @param cam_from_world  3x4 projection matrix.
+  // @param residuals       Output vector of residuals.
   static void Residuals(const std::vector<X_t>& points2D,
                         const std::vector<Y_t>& points3D,
-                        const M_t& proj_matrix,
+                        const M_t& cam_from_world,
                         std::vector<double>* residuals);
 };
 
@@ -119,19 +119,19 @@ class EPNPEstimator {
   // Calculate the squared reprojection error given a set of 2D-3D point
   // correspondences and a projection matrix.
   //
-  // @param points2D     Normalized 2D image points as Nx2 matrix.
-  // @param points3D     3D world points as Nx3 matrix.
-  // @param proj_matrix  3x4 projection matrix.
-  // @param residuals    Output vector of residuals.
+  // @param points2D        Normalized 2D image points as Nx2 matrix.
+  // @param points3D        3D world points as Nx3 matrix.
+  // @param cam_from_world  3x4 projection matrix.
+  // @param residuals       Output vector of residuals.
   static void Residuals(const std::vector<X_t>& points2D,
                         const std::vector<Y_t>& points3D,
-                        const M_t& proj_matrix,
+                        const M_t& cam_from_world,
                         std::vector<double>* residuals);
 
  private:
   bool ComputePose(const std::vector<Eigen::Vector2d>& points2D,
                    const std::vector<Eigen::Vector3d>& points3D,
-                   Eigen::Matrix3x4d* proj_matrix);
+                   Eigen::Matrix3x4d* cam_from_world);
 
   void ChooseControlPoints();
   bool ComputeBarycentricCoordinates();
