@@ -55,6 +55,11 @@ void BindCovarianceEstimator(py::module& m) {
       py::arg("reconstruction"),
       py::arg("damping") = 1e-8);
 
+  m.def("estimate_point_covariance",
+        &EstimatePointCovariance,
+        py::arg("reconstruction"),
+        py::arg("point3D_ids"));
+
   using EstimatorBase = BundleAdjustmentCovarianceEstimatorBase;
   py::class_<EstimatorBase>(m, "BundleAdjustmentCovarianceEstimatorBase")
       .def(
