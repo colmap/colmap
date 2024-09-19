@@ -700,4 +700,30 @@ double EPNPEstimator::ComputeTotalReprojectionError(const Eigen::Matrix3d& R,
   return reproj_error;
 }
 
+void CovariantEPNPEstimator::Estimate(const std::vector<X_t>& points2D,
+                                      const std::vector<Y_t>& points3D,
+                                      std::vector<M_t>* models) {
+  // TODO: EPNP could theoretically take advantage of the covariance.
+  THROW_CHECK_GE(points2D.size(), 4);
+  THROW_CHECK_EQ(points2D.size(), points3D.size());
+  const size_t num_points = points2D.size();
+  thread_local std::vector<Eigen::Vector2d> points2D_without_cov;
+  thread_local std::vector<Eigen::Vector3d> points3D_without_cov;
+  points2D_without_cov.resize(num_points);
+  points3D_without_cov.resize(num_points);
+  for (size_t i = 0; i < num_points; ++i) {
+    points2D_without_cov[i] = points2D[i].first;
+    points3D_without_cov[i] = points3D[i].first;
+    EPNPEstimator::Estimate(points2D_without_cov, points3D_without_cov, models);
+  }
+}
+
+void CovariantEPNPEstimator::Residuals(const std::vector<X_t>& points2D,
+                                       const std::vector<Y_t>& points3D,
+                                       const M_t& cam_from_world,
+                                       std::vector<double>* residuals) {
+  CovariantP3PEstimator::Residuals(
+      points2D, points3D, cam_from_world, residuals);
+}
+
 }  // namespace colmap

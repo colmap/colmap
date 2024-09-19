@@ -45,7 +45,9 @@ namespace colmap {
 namespace {
 
 typedef LORANSAC<P3PEstimator, EPNPEstimator> AbsolutePoseRANSAC;
-typedef RANSAC<CovariantP3PEstimator, MEstimatorSupportMeasurer>
+typedef LORANSAC<CovariantP3PEstimator,
+                 CovariantEPNPEstimator,
+                 MEstimatorSupportMeasurer>
     CovariantAbsolutePoseRANSAC;
 
 void EstimateAbsolutePoseKernel(const Camera& camera,

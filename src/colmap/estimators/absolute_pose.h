@@ -203,4 +203,28 @@ class EPNPEstimator {
   std::array<Eigen::Vector3d, 4> ccs_;
 };
 
+// Variant of the EPNP estimator that considers 2D-3D point covariance for
+// scaling the computed residuals.
+class CovariantEPNPEstimator {
+ public:
+  // The observed 2D points and its covariance in the image plane.
+  typedef std::pair<Eigen::Vector2d, Eigen::Matrix2d> X_t;
+  // The observed 3D points and its covariance in the world frame.
+  typedef std::pair<Eigen::Vector3d, Eigen::Matrix3d> Y_t;
+  // The transformation from the world to the camera frame.
+  typedef Eigen::Matrix3x4d M_t;
+
+  // The minimum number of samples needed to estimate a model.
+  static const int kMinNumSamples = 3;
+
+  static void Estimate(const std::vector<X_t>& points2D,
+                       const std::vector<Y_t>& points3D,
+                       std::vector<M_t>* models);
+
+  static void Residuals(const std::vector<X_t>& points2D,
+                        const std::vector<Y_t>& points3D,
+                        const M_t& proj_matrix,
+                        std::vector<double>* residuals);
+};
+
 }  // namespace colmap
