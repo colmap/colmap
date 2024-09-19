@@ -34,6 +34,33 @@
 namespace colmap {
 namespace {
 
+bool FisheyeCameraModelIsValidPixel(const CameraModelId model_id,
+                                    const std::vector<double>& params,
+                                    const Eigen::Vector2d& xy) {
+  switch (model_id) {
+#define CAMERA_MODEL_CASE(CameraModel)                                    \
+  case CameraModel::model_id: {                                           \
+    double uu, vv;                                                        \
+    CameraModel::FisheyeFromImg(params.data(), xy.x(), xy.y(), &uu, &vv); \
+    const double theta = std::sqrt(uu * uu + vv * vv);                    \
+    if (theta < M_PI / 2.0) {                                             \
+      return true;                                                        \
+    } else {                                                              \
+      return false;                                                       \
+    }                                                                     \
+  }
+
+    FISHEYE_CAMERA_MODEL_CASES
+    default:
+      throw std::domain_error(
+          "Camera model does not exist or is not a fisheye camera");
+
+#undef CAMERA_MODEL_CASE
+  }
+
+  return false;
+}
+
 template <typename CameraModel>
 void TestCamToCamFromImg(const std::vector<double>& params,
                          const double u0,
