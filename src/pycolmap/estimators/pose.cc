@@ -78,6 +78,7 @@ py::typing::Optional<py::dict> PyRefineAbsolutePose(
 py::typing::Optional<py::dict> PyEstimateAndRefineAbsolutePose(
     const std::vector<Eigen::Vector2d>& points2D,
     const std::vector<Eigen::Vector3d>& points3D,
+    const std::vector<Eigen::Matrix3d>& points3D_cov,
     Camera& camera,
     const AbsolutePoseEstimationOptions& estimation_options,
     const AbsolutePoseRefinementOptions& refinement_options,
@@ -89,6 +90,7 @@ py::typing::Optional<py::dict> PyEstimateAndRefineAbsolutePose(
   if (!EstimateAbsolutePose(estimation_options,
                             points2D,
                             points3D,
+                            points3D_cov,
                             &cam_from_world,
                             &camera,
                             &num_inliers,
@@ -97,6 +99,7 @@ py::typing::Optional<py::dict> PyEstimateAndRefineAbsolutePose(
     return py::none();
   }
 
+  // TODO: Pass the points3D_cov to the refinement.
   Eigen::Matrix<double, 6, 6> covariance;
   if (!RefineAbsolutePose(refinement_options,
                           inlier_mask,
@@ -314,6 +317,7 @@ void BindAbsolutePoseEstimator(py::module& m) {
         &PyEstimateAndRefineAbsolutePose,
         "points2D"_a,
         "points3D"_a,
+        "points3D_cov"_a,
         "camera"_a,
         py::arg_v("estimation_options",
                   AbsolutePoseEstimationOptions(),
