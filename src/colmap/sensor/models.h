@@ -542,17 +542,6 @@ inline double CameraModelCamFromImgThreshold(CameraModelId model_id,
 // @return              Whether it is a fisheye camera model.
 inline bool CameraModelIsFisheye(CameraModelId model_id);
 
-// Test if an image pixel coordinate is valid in the Fisheye camera.
-//
-// @param model_id      Unique identifier of camera model.
-// @param params        Array of camera parameters.
-// @param xy            Image coordinates in pixels.
-//
-// @return              Whether the image pixel coordinate is valid..
-inline bool FisheyeCameraModelIsValidPixel(CameraModelId model_id,
-                                           const std::vector<double>& params,
-                                           const Eigen::Vector2d& xy);
-
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////
