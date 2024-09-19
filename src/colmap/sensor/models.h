@@ -1057,8 +1057,6 @@ void OpenCVFisheyeCameraModel::ImgFromCam(
     const T* params, T u, T v, T w, T* x, T* y) {
   u /= w;
   v /= w;
-
-  // Fisheye coordinates
   T uu, vv;
   FisheyeFromNormal(u, v, &uu, &vv);
 
@@ -1385,8 +1383,6 @@ void SimpleRadialFisheyeCameraModel::ImgFromCam(
     const T* params, T u, T v, T w, T* x, T* y) {
   u /= w;
   v /= w;
-
-  // Fisheye coordinates
   T uu, vv;
   FisheyeFromNormal(u, v, &uu, &vv);
 
@@ -1470,8 +1466,6 @@ void RadialFisheyeCameraModel::ImgFromCam(
     const T* params, T u, T v, T w, T* x, T* y) {
   u /= w;
   v /= w;
-
-  // Fisheye coordinates
   T uu, vv;
   FisheyeFromNormal(u, v, &uu, &vv);
 
