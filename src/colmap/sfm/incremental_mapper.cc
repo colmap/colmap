@@ -487,21 +487,21 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
 
   size_t num_inliers;
   std::vector<char> inlier_mask;
-  if (!EstimateAbsolutePose(abs_pose_options,
-                            tri_points2D,
-                            tri_points3D,
-                            nullptr,
-                            &image.CamFromWorld(),
-                            &camera,
-                            &num_inliers,
-                            &inlier_mask)) {
-    return false;
-  }
+  // if (!EstimateAbsolutePose(abs_pose_options,
+  //                           tri_points2D,
+  //                           tri_points3D,
+  //                           /*points3D_cov=*/{},
+  //                           &image.CamFromWorld(),
+  //                           &camera,
+  //                           &num_inliers,
+  //                           &inlier_mask)) {
+  //   return false;
+  // }
 
   if (!EstimateAbsolutePose(abs_pose_options,
                             tri_points2D,
                             tri_points3D,
-                            &tri_points3D_cov,
+                            tri_points3D_cov,
                             &image.CamFromWorld(),
                             &camera,
                             &num_inliers,

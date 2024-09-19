@@ -131,7 +131,7 @@ struct AbsolutePoseRefinementOptions {
 bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
                           const std::vector<Eigen::Vector2d>& points2D,
                           const std::vector<Eigen::Vector3d>& points3D,
-                          const std::vector<Eigen::Matrix3d>* points3D_cov,
+                          const std::vector<Eigen::Matrix3d>& points3D_cov,
                           Rigid3d* cam_from_world,
                           Camera* camera,
                           size_t* num_inliers,

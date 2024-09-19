@@ -129,14 +129,14 @@ void EstimateCovariantAbsolutePoseKernel(
 bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
                           const std::vector<Eigen::Vector2d>& points2D,
                           const std::vector<Eigen::Vector3d>& points3D,
-                          const std::vector<Eigen::Matrix3d>* points3D_cov,
+                          const std::vector<Eigen::Matrix3d>& points3D_cov,
                           Rigid3d* cam_from_world,
                           Camera* camera,
                           size_t* num_inliers,
                           std::vector<char>* inlier_mask) {
   THROW_CHECK_EQ(points2D.size(), points3D.size());
-  if (points3D_cov != nullptr) {
-    THROW_CHECK_EQ(points2D.size(), points3D_cov->size());
+  if (!points3D_cov.empty()) {
+    THROW_CHECK_EQ(points2D.size(), points3D_cov.size());
   }
 
   options.Check();
@@ -171,7 +171,7 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
       options.num_threads, static_cast<int>(focal_length_factors.size())));
 
   for (size_t i = 0; i < focal_length_factors.size(); ++i) {
-    if (points3D_cov == nullptr) {
+    if (points3D_cov.empty()) {
       futures[i] = thread_pool.AddTask(EstimateAbsolutePoseKernel,
                                        *camera,
                                        focal_length_factors[i],
@@ -185,7 +185,7 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
                                        focal_length_factors[i],
                                        points2D,
                                        points3D,
-                                       *points3D_cov,
+                                       points3D_cov,
                                        options.ransac_options,
                                        &reports[i]);
     }
