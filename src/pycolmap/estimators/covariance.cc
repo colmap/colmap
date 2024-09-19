@@ -137,4 +137,10 @@ void BindCovarianceEstimator(py::module& m) {
       "standard configuration of bundle adjustment problems, but be careful "
       "if you modify the underlying problem with custom residuals. Returns "
       "null if the estimation was not successful.");
+
+  m.def("estimate_point_covariance",
+        &EstimatePointCovariance,
+        py::arg("reconstruction"),
+        py::arg("point3D_ids"));
+
 }
