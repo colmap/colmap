@@ -91,6 +91,8 @@ class ModelViewerWidget : public QOpenGLWidget,
   void SetPointSize(float point_size);
   void SetImageSize(float image_size);
 
+  void TogglePointCov();
+
   void SetBackgroundColor(float r, float g, float b);
 
   // Copy of current scene data that is displayed
@@ -100,6 +102,7 @@ class ModelViewerWidget : public QOpenGLWidget,
   NodeHashMap<frame_t, Frame> frames;
   NodeHashMap<image_t, Image> images;
   NodeHashMap<point3D_t, Point3D> points3D;
+  std::vector<std::pair<point3D_t, Eigen::Matrix3f>> points3D_cov;
   std::vector<image_t> reg_image_ids;
 
   std::optional<std::vector<PlyPoint>> point_cloud;
@@ -157,6 +160,7 @@ class ModelViewerWidget : public QOpenGLWidget,
 
   PointPainter point_painter_;
   LinePainter point_connection_painter_;
+  LinePainter point_cov_painter_;
 
   LinePainter image_line_painter_;
   TrianglePainter image_triangle_painter_;

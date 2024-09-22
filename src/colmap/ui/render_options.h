@@ -37,6 +37,9 @@ struct RenderOptions {
   // Whether to render mesh colors/textures (false = uniform gray).
   bool mesh_color = true;
 
+  // Whether to visualize point covariances.
+  bool point_covariance = false;
+
   // The projection type of the renderer.
   int projection_type = ProjectionType::PERSPECTIVE;
 

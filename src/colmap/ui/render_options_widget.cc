@@ -153,6 +153,7 @@ RenderOptionsWidget::RenderOptionsWidget(QWidget* parent,
   AddSpacer();
 
   AddOptionBool(&options->render->image_connections, "Image connections");
+  AddOptionBool(&options->render->point_covariance, "Point covariance");
 
   AddSpacer();
 

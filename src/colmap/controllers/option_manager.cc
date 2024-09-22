@@ -1179,6 +1179,7 @@ void OptionManager::AddRenderOptions() {
   AddDefaultOption("Render.refresh_rate", &render->refresh_rate);
   AddDefaultOption("Render.adapt_refresh_rate", &render->adapt_refresh_rate);
   AddDefaultOption("Render.image_connections", &render->image_connections);
+  AddDefaultOption("Render.point_covariance", &render->point_covariance);
   AddDefaultOption("Render.projection_type", &render->projection_type);
 }
 
