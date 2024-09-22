@@ -482,32 +482,31 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
     abs_pose_refinement_options.refine_extra_params = false;
   }
 
-  const std::vector<Eigen::Matrix3d> tri_points3D_cov =
-      EstimatePointCovariance(reconstruction_.get(), tri_point3D_ids);
-
   size_t num_inliers;
   std::vector<char> inlier_mask;
-  // if (!EstimateAbsolutePose(abs_pose_options,
-  //                           tri_points2D,
-  //                           tri_points3D,
-  //                           /*points3D_cov=*/{},
-  //                           &image.CamFromWorld(),
-  //                           &camera,
-  //                           &num_inliers,
-  //                           &inlier_mask)) {
-  //   return false;
-  // }
-
   if (!EstimateAbsolutePose(abs_pose_options,
                             tri_points2D,
                             tri_points3D,
-                            tri_points3D_cov,
+                            /*points3D_cov=*/{},
                             &image.CamFromWorld(),
                             &camera,
                             &num_inliers,
                             &inlier_mask)) {
     return false;
   }
+
+  // const std::vector<Eigen::Matrix3d> tri_points3D_cov =
+  //     EstimatePointCovariance(reconstruction_.get(), tri_point3D_ids);
+  // if (!EstimateAbsolutePose(abs_pose_options,
+  //                           tri_points2D,
+  //                           tri_points3D,
+  //                           tri_points3D_cov,
+  //                           &image.CamFromWorld(),
+  //                           &camera,
+  //                           &num_inliers,
+  //                           &inlier_mask)) {
+  //   return false;
+  // }
 
   if (num_inliers < static_cast<size_t>(options.abs_pose_min_num_inliers)) {
     return false;

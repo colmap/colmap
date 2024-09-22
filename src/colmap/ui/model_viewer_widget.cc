@@ -29,12 +29,14 @@
 
 #include "colmap/ui/model_viewer_widget.h"
 
+#include "colmap/estimators/covariance.h"
 #include "colmap/ui/main_window.h"
 
 #define SELECTION_BUFFER_IMAGE_IDX 0
 #define SELECTION_BUFFER_POINT_IDX 1
 
 const Eigen::Vector4f kSelectedPointColor(0.0f, 1.0f, 0.0f, 1.0f);
+const Eigen::Vector4f kPointCovColor(0.0f, 0.0f, 1.0f, 0.8f);
 
 const Eigen::Vector4f kSelectedImagePlaneColor(1.0f, 0.0f, 1.0f, 0.6f);
 const Eigen::Vector4f kSelectedImageFrameColor(0.8f, 0.0f, 0.8f, 1.0f);
@@ -349,6 +351,7 @@ void ModelViewerWidget::paintGL() {
   // Points
   point_painter_.Render(pmv_matrix, point_size_);
   point_connection_painter_.Render(pmv_matrix, width(), height(), 1);
+  point_cov_painter_.Render(pmv_matrix, width(), height(), 1.5);
 
   // Images
   image_line_painter_.Render(pmv_matrix, width(), height(), 1);
@@ -381,6 +384,26 @@ void ModelViewerWidget::ReloadReconstruction() {
     images[image_id] = reconstruction->Image(image_id);
   }
 
+  if (options_->render->point_covariance) {
+    constexpr size_t kCovStepSize = 20;
+    std::vector<point3D_t> point3D_ids;
+    point3D_ids.reserve(points3D.size() / kCovStepSize);
+    size_t point3D_idx = 0;
+    for (const auto& point3D : points3D) {
+      if (point3D.second.track.Length() >= options_->render->min_track_len &&
+          point3D_idx++ % kCovStepSize == 0) {
+        point3D_ids.push_back(point3D.first);
+      }
+    }
+    const std::vector<Eigen::Matrix3d> covs =
+        EstimatePointCovariance(reconstruction.get(), point3D_ids);
+    points3D_cov.resize(covs.size());
+    for (size_t cov_idx = 0; cov_idx < covs.size(); ++cov_idx) {
+      points3D_cov[cov_idx] =
+          std::make_pair(point3D_ids[cov_idx], covs[cov_idx].cast<float>());
+    }
+  }
+
   statusbar_status_label->setText(
       QString().asprintf("%d Images - %d Points",
                          static_cast<int>(reg_image_ids.size()),
@@ -393,6 +416,7 @@ void ModelViewerWidget::ClearReconstruction() {
   cameras.clear();
   images.clear();
   points3D.clear();
+  points3D_cov.clear();
   reg_image_ids.clear();
   reconstruction = nullptr;
   Upload();
@@ -780,6 +804,7 @@ void ModelViewerWidget::SetupPainters() {
 
   point_painter_.Setup();
   point_connection_painter_.Setup();
+  point_cov_painter_.Setup();
 
   image_line_painter_.Setup();
   image_triangle_painter_.Setup();
@@ -985,6 +1010,40 @@ void ModelViewerWidget::UploadPointData(const bool selection_mode) {
   }
 
   point_painter_.Upload(data);
+
+  std::vector<LinePainter::Data> cov_data;
+  if (options_->render->point_covariance) {
+    cov_data.reserve(points3D_cov.size());
+
+    for (const auto& point3D_cov : points3D_cov) {
+      const auto& point3D = points3D[point3D_cov.first];
+      const Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> eig_solver(
+          point3D_cov.second);
+      const Eigen::Vector3f cov_major_axis =
+          100 * eig_solver.eigenvalues()(2) * eig_solver.eigenvectors().col(2);
+
+      LinePainter::Data line;
+      line.point1 = PointPainter::Data(
+          static_cast<float>(point3D.xyz(0)) + cov_major_axis(0),
+          static_cast<float>(point3D.xyz(1)) + cov_major_axis(1),
+          static_cast<float>(point3D.xyz(2)) + cov_major_axis(2),
+          kPointCovColor(0),
+          kPointCovColor(1),
+          kPointCovColor(2),
+          kPointCovColor(3));
+      line.point2 = PointPainter::Data(
+          static_cast<float>(point3D.xyz(0)) - cov_major_axis(0),
+          static_cast<float>(point3D.xyz(1)) - cov_major_axis(1),
+          static_cast<float>(point3D.xyz(2)) - cov_major_axis(2),
+          kPointCovColor(0),
+          kPointCovColor(1),
+          kPointCovColor(2),
+          kPointCovColor(3));
+
+      cov_data.push_back(line);
+    }
+  }
+  point_cov_painter_.Upload(cov_data);
 }
 
 void ModelViewerWidget::UploadPointConnectionData() {

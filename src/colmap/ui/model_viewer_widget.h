@@ -113,6 +113,8 @@ class ModelViewerWidget : public QOpenGLWidget,
   void SetPointSize(float point_size);
   void SetImageSize(float image_size);
 
+  void TogglePointCov();
+
   void SetBackgroundColor(float r, float g, float b);
 
   // Copy of current scene data that is displayed
@@ -120,6 +122,7 @@ class ModelViewerWidget : public QOpenGLWidget,
   std::unordered_map<camera_t, Camera> cameras;
   std::unordered_map<image_t, Image> images;
   std::unordered_map<point3D_t, Point3D> points3D;
+  std::vector<std::pair<point3D_t, Eigen::Matrix3f>> points3D_cov;
   std::vector<image_t> reg_image_ids;
 
   QLabel* statusbar_status_label;
@@ -164,6 +167,7 @@ class ModelViewerWidget : public QOpenGLWidget,
 
   PointPainter point_painter_;
   LinePainter point_connection_painter_;
+  LinePainter point_cov_painter_;
 
   LinePainter image_line_painter_;
   TrianglePainter image_triangle_painter_;

@@ -57,6 +57,9 @@ struct RenderOptions {
   // Whether to visualize image connections.
   bool image_connections = false;
 
+  // Whether to visualize point covariances.
+  bool point_covariance = false;
+
   // The projection type of the renderer.
   int projection_type = ProjectionType::PERSPECTIVE;
 
