@@ -1020,7 +1020,8 @@ void ModelViewerWidget::UploadPointData(const bool selection_mode) {
       const Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> eig_solver(
           point3D_cov.second);
       const Eigen::Vector3f cov_major_axis =
-          100 * eig_solver.eigenvalues()(2) * eig_solver.eigenvectors().col(2);
+          3 * std::sqrt(eig_solver.eigenvalues()(2)) *
+          eig_solver.eigenvectors().col(2);
 
       LinePainter::Data line;
       line.point1 = PointPainter::Data(
