@@ -11,113 +11,123 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
-template <typename CameraModel>
-using ReprojErrorCostFunctionWithNoise =
-    IsotropicNoiseCostFunctionWrapper<ReprojErrorCostFunction<CameraModel>>;
-
-template <typename CameraModel>
-using ReprojErrorConstantPoseCostFunctionWithNoise =
-    IsotropicNoiseCostFunctionWrapper<
-        ReprojErrorConstantPoseCostFunction<CameraModel>>;
-
-template <typename CameraModel>
-using ReprojErrorConstantPoint3DCostFunctionWithNoise =
-    IsotropicNoiseCostFunctionWrapper<
-        ReprojErrorConstantPoint3DCostFunction<CameraModel>>;
-
-template <typename CameraModel>
-using RigReprojErrorCostFunctionWithNoise =
-    IsotropicNoiseCostFunctionWrapper<RigReprojErrorCostFunction<CameraModel>>;
-
-template <typename CameraModel>
-using RigReprojErrorConstantRigCostFunctionWithNoise =
-    IsotropicNoiseCostFunctionWrapper<
-        RigReprojErrorConstantRigCostFunction<CameraModel>>;
-
 void BindCostFunctions(py::module& m_parent) {
   py::module_ m = m_parent.def_submodule("cost_functions");
   IsPyceresAvailable();  // Try to import pyceres to populate the docstrings.
 
+  auto PyCovarianceType = py::enum_<CovarianceType>(m, "CovarianceType")
+                              .value("IDENTITY", CovarianceType::IDENTITY)
+                              .value("DIAGONAL", CovarianceType::DIAGONAL)
+                              .value("GENERAL", CovarianceType::GENERAL);
+  AddStringToEnumConstructor(PyCovarianceType);
+
   m.def("ReprojErrorCost",
-        &CameraCostFunction<ReprojErrorCostFunction, const Eigen::Vector2d&>,
+        &CameraCostFunction<ReprojErrorCostFunction,
+                            const Eigen::Vector2d&,
+                            const Eigen::Matrix2d&>,
         "camera_model_id"_a,
         "point2D"_a,
+        "point2D_covar"_a =
+            Eigen::Matrix2d::Identity(),  // Useless variable. This must be
+                                          // identity.
         "Reprojection error.");
-  m.def("ReprojErrorCost",
-        &CameraCostFunction<ReprojErrorCostFunctionWithNoise,
-                            const double,
-                            const Eigen::Vector2d&>,
+  m.def("WeightedReprojErrorCost",
+        &WeightedCameraCostFunction<ReprojErrorCostFunction,
+                                    const Eigen::Vector2d&,
+                                    const Eigen::Matrix2d&>,
         "camera_model_id"_a,
-        "stddev"_a,
+        "covariance_type"_a,
         "point2D"_a,
+        "point2D_covar"_a = Eigen::Matrix2d::Identity(),
         "Reprojection error with 2D detection noise.");
   m.def("ReprojErrorCost",
         &CameraCostFunction<ReprojErrorConstantPoseCostFunction,
                             const Rigid3d&,
-                            const Eigen::Vector2d&>,
+                            const Eigen::Vector2d&,
+                            const Eigen::Matrix2d&>,
         "camera_model_id"_a,
         "cam_from_world"_a,
         "point2D"_a,
+        "point2D_covar"_a =
+            Eigen::Matrix2d::Identity(),  // Useless variable. This must be
+                                          // identity.
         "Reprojection error with constant camera pose.");
-  m.def("ReprojErrorCost",
-        &CameraCostFunction<ReprojErrorConstantPoseCostFunctionWithNoise,
-                            const double,
-                            const Rigid3d&,
-                            const Eigen::Vector2d&>,
+  m.def("WeightedReprojErrorCost",
+        &WeightedCameraCostFunction<ReprojErrorConstantPoseCostFunction,
+                                    const Rigid3d&,
+                                    const Eigen::Vector2d&,
+                                    const Eigen::Matrix2d&>,
         "camera_model_id"_a,
-        "stddev"_a,
+        "covariance_type"_a,
         "cam_from_world"_a,
         "point2D"_a,
+        "point2D_covar"_a = Eigen::Matrix2d::Identity(),
         "Reprojection error with constant camera pose and 2D detection noise.");
   m.def("ReprojErrorCost",
         &CameraCostFunction<ReprojErrorConstantPoint3DCostFunction,
                             const Eigen::Vector2d&,
-                            const Eigen::Vector3d&>,
+                            const Eigen::Vector3d&,
+                            const Eigen::Matrix2d&>,
         "camera_model_id"_a,
         "point2D"_a,
         "point3D"_a,
+        "point2D_covar"_a =
+            Eigen::Matrix2d::Identity(),  // Useless variable. This must be
+                                          // identity.
         "Reprojection error with constant 3D point.");
-  m.def("ReprojErrorCost",
-        &CameraCostFunction<ReprojErrorConstantPoint3DCostFunctionWithNoise,
-                            const double,
-                            const Eigen::Vector2d&,
-                            const Eigen::Vector3d&>,
+  m.def("WeightedReprojErrorCost",
+        &WeightedCameraCostFunction<ReprojErrorConstantPoint3DCostFunction,
+                                    const Eigen::Vector2d&,
+                                    const Eigen::Vector3d&,
+                                    const Eigen::Matrix2d&>,
         "camera_model_id"_a,
-        "stddev"_a,
+        "covariance_type"_a,
         "point2D"_a,
         "point3D"_a,
+        "point2D_covar"_a = Eigen::Matrix2d::Identity(),
         "Reprojection error with constant 3D point and 2D detection noise.");
 
   m.def("RigReprojErrorCost",
-        &CameraCostFunction<RigReprojErrorCostFunction, const Eigen::Vector2d&>,
+        &CameraCostFunction<RigReprojErrorCostFunction,
+                            const Eigen::Vector2d&,
+                            const Eigen::Matrix2d&>,
         "camera_model_id"_a,
         "point2D"_a,
+        "point2D_covar"_a =
+            Eigen::Matrix2d::Identity(),  // Useless variable. This must be
+                                          // identity.
         "Reprojection error for camera rig.");
-  m.def("RigReprojErrorCost",
-        &CameraCostFunction<RigReprojErrorCostFunctionWithNoise,
-                            const double,
-                            const Eigen::Vector2d&>,
+  m.def("WeightedRigReprojErrorCost",
+        &WeightedCameraCostFunction<RigReprojErrorCostFunction,
+                                    const Eigen::Vector2d&,
+                                    const Eigen::Matrix2d&>,
         "camera_model_id"_a,
-        "stddev"_a,
+        "covariance_type"_a,
         "point2D"_a,
+        "point2D_covar"_a = Eigen::Matrix2d::Identity(),
         "Reprojection error for camera rig with 2D detection noise.");
   m.def("RigReprojErrorCost",
         &CameraCostFunction<RigReprojErrorConstantRigCostFunction,
                             const Rigid3d&,
-                            const Eigen::Vector2d&>,
+                            const Eigen::Vector2d&,
+                            const Eigen::Matrix2d&>,
         "camera_model_id"_a,
         "cam_from_rig"_a,
         "point2D"_a,
+        "point2D_covar"_a =
+            Eigen::Matrix2d::Identity(),  // Useless variable. This must be
+                                          // identity.
         "Reprojection error for camera rig with constant cam-from-rig pose.");
-  m.def("RigReprojErrorCost",
-        &CameraCostFunction<RigReprojErrorConstantRigCostFunctionWithNoise,
-                            const double,
-                            const Rigid3d&,
-                            const Eigen::Vector2d&>,
+  m.def("WeightedRigReprojErrorCost",
+        &WeightedCameraCostFunction<RigReprojErrorConstantRigCostFunction,
+                                    const Rigid3d&,
+                                    const Eigen::Vector2d&,
+                                    const Eigen::Matrix2d&>,
         "camera_model_id"_a,
-        "stddev"_a,
+        "covariance_type"_a,
         "cam_from_rig"_a,
         "point2D"_a,
+        "point2D_covar"_a = Eigen::Matrix2d::Identity(),
         "Reprojection error for camera rig with constant cam-from-rig pose and "
         "2D detection noise.");
 
@@ -128,17 +138,17 @@ void BindCostFunctions(py::module& m_parent) {
         "Sampson error for two-view geometry.");
 
   m.def("AbsolutePoseErrorCost",
-        &AbsolutePoseErrorCostFunction::Create,
+        &AbsolutePoseErrorCostFunction<CovarianceType::GENERAL>::Create,
         "cam_from_world"_a,
         "covariance_cam"_a,
         "6-DoF error on the absolute pose.");
   m.def("MetricRelativePoseErrorCost",
-        &MetricRelativePoseErrorCostFunction::Create,
+        &MetricRelativePoseErrorCostFunction<CovarianceType::GENERAL>::Create,
         "i_from_j"_a,
         "covariance_j"_a,
         "6-DoF error between two absolute poses based on their relative pose.");
   m.def("Point3dAlignmentCost",
-        &Point3dAlignmentCostFunction::Create,
+        &Point3dAlignmentCostFunction<CovarianceType::GENERAL>::Create,
         "ref_point"_a,
         "covariance_point"_a,
         "Error between 3D points transformed by a similarity transform.");
