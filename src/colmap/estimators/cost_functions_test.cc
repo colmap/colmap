@@ -72,14 +72,6 @@ TEST(BundleAdjustment, AbsolutePose) {
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
   EXPECT_EQ(residuals[0], -2);
   EXPECT_EQ(residuals[1], 2);
-
-  std::unique_ptr<ceres::CostFunction> cost_function_with_noise(
-      IsotropicNoiseCostFunctionWrapper<CostFunction>::Create(
-          2.0, Eigen::Vector2d::Zero()));
-  EXPECT_TRUE(
-      cost_function_with_noise->Evaluate(parameters, residuals, nullptr));
-  EXPECT_EQ(residuals[0], -1);
-  EXPECT_EQ(residuals[1], 1);
 }
 
 TEST(BundleAdjustment, ConstantPoseAbsolutePose) {
@@ -264,8 +256,8 @@ TEST(PoseGraphOptimization, AbsolutePose) {
   EigenMatrix6d covariance_cam = EigenMatrix6d::Identity();
   covariance_cam(5, 5) = 4;
   std::unique_ptr<ceres::CostFunction> cost_function(
-      AbsolutePoseErrorCostFunction::Create(mes_cam_from_world,
-                                            covariance_cam));
+      AbsolutePoseErrorCostFunction<CovarianceType::GENERAL>::Create(
+          mes_cam_from_world, covariance_cam));
 
   double cam_from_world_rotation[4] = {0, 0, 0, 1};
   double cam_from_world_translation[3] = {0, 0, 0};
@@ -311,7 +303,8 @@ TEST(PoseGraphOptimization, RelativePose) {
   EigenMatrix6d covariance_j = EigenMatrix6d::Identity();
   covariance_j(5, 5) = 4;
   std::unique_ptr<ceres::CostFunction> cost_function(
-      MetricRelativePoseErrorCostFunction::Create(i_from_j, covariance_j));
+      MetricRelativePoseErrorCostFunction<CovarianceType::GENERAL>::Create(
+          i_from_j, covariance_j));
 
   double i_from_world_rotation[4] = {0, 0, 0, 1};
   double i_from_world_translation[3] = {0, 0, 0};
@@ -372,7 +365,8 @@ TEST(PoseGraphOptimization, Point3dAlignment) {
   Eigen::Matrix3d covariance_point = Eigen::Matrix3d::Identity();
   covariance_point(2, 2) = 4.;
   std::unique_ptr<ceres::CostFunction> cost_function(
-      Point3dAlignmentCostFunction::Create(ref_point, covariance_point));
+      Point3dAlignmentCostFunction<CovarianceType::GENERAL>::Create(
+          ref_point, covariance_point));
   Eigen::Vector3d point(0., 0., 0.);
   const double* parameters[4] = {point.data(),
                                  tform.rotation.coeffs().data(),
