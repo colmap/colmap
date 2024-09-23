@@ -166,7 +166,8 @@ enum class CameraModelId {
   CAMERA_MODEL_CASE(SimpleRadialFisheyeCameraModel) \
   CAMERA_MODEL_CASE(RadialFisheyeCameraModel)       \
   CAMERA_MODEL_CASE(OpenCVFisheyeCameraModel)       \
-  CAMERA_MODEL_CASE(ThinPrismFisheyeCameraModel)
+  CAMERA_MODEL_CASE(ThinPrismFisheyeCameraModel)    \
+  CAMERA_MODEL_CASE(RadTanThinPrismFisheyeModel)
 #endif
 
 #ifndef FISHEYE_CAMERA_MODEL_DEFINITIONS
@@ -438,12 +439,13 @@ struct ThinPrismFisheyeCameraModel
 //    fx, fy, cx, cy, k0, k1, k2, k3, k4, k5, p0, p1, s0, s1, s2, s3
 //
 struct RadTanThinPrismFisheyeModel
-    : public BaseCameraModel<RadTanThinPrismFisheyeModel> {
+    : public BaseFisheyeCameraModel<RadTanThinPrismFisheyeModel> {
   CAMERA_MODEL_DEFINITIONS(CameraModelId::kRadTanThinPrismFisheye,
                            "RAD_TAN_THIN_PRISM_FISHEYE",
                            2,
                            2,
                            12)
+  FISHEYE_CAMERA_MODEL_DEFINITIONS
 };
 
 // Check whether camera model with given name or identifier exists.
@@ -1659,57 +1661,50 @@ std::vector<double> RadTanThinPrismFisheyeModel::InitializeParams(
 }
 
 template <typename T>
-void RadTanThinPrismFisheyeModel::ImgFromCam(
-    const T* params, T u, T v, T w, T* x, T* y) {
+void RadTanThinPrismFisheyeModel::ImgFromFisheye(
+    const T* params, T uu, T vv, T* x, T* y) {
   const T f1 = params[0];
   const T f2 = params[1];
   const T c1 = params[2];
   const T c2 = params[3];
 
+  *x = f1 * uu + c1;
+  *y = f2 * vv + c2;
+}
+
+template <typename T>
+void RadTanThinPrismFisheyeModel::FisheyeFromImg(
+    const T* params, T x, T y, T* uu, T* vv) {
+  const T f1 = params[0];
+  const T f2 = params[1];
+  const T c1 = params[2];
+  const T c2 = params[3];
+
+  *uu = (x - c1) / f1;
+  *vv = (y - c2) / f2;
+}
+
+template <typename T>
+void RadTanThinPrismFisheyeModel::ImgFromCam(
+    const T* params, T u, T v, T w, T* x, T* y) {
   u /= w;
   v /= w;
-
-  const T r = ceres::sqrt(u * u + v * v);
   T uu, vv;
-  if (r > T(std::numeric_limits<double>::epsilon())) {
-    const T theta = ceres::atan(r);
-    uu = theta * u / r;
-    vv = theta * v / r;
-  } else {
-    uu = u;
-    vv = v;
-  }
+  FisheyeFromNormal(u, v, &uu, &vv);
 
-  T du, dv;
-  Distortion(&params[4], uu, vv, &du, &dv);
-  *x = uu + du;
-  *y = vv + dv;
-
-  *x = f1 * *x + c1;
-  *y = f2 * *y + c2;
+  T duu, dvv;
+  Distortion(&params[4], uu, vv, &duu, &dvv);
+  ImgFromFisheye(params, uu + duu, vv + dvv, x, y);
 }
 
 template <typename T>
 void RadTanThinPrismFisheyeModel::CamFromImg(
     const T* params, const T x, const T y, T* u, T* v, T* w) {
-  const T f1 = params[0];
-  const T f2 = params[1];
-  const T c1 = params[2];
-  const T c2 = params[3];
-
-  *u = (x - c1) / f1;
-  *v = (y - c2) / f2;
+  T uu, vv;
+  FisheyeFromImg(params, x, y, &uu, &vv);
   *w = 1;
-
-  IterativeUndistortion(&params[4], u, v);
-
-  const T theta = ceres::sqrt(*u * *u + *v * *v);
-  const T theta_cos_theta = theta * ceres::cos(theta);
-  if (theta_cos_theta > T(std::numeric_limits<double>::epsilon())) {
-    const T scale = ceres::sin(theta) / theta_cos_theta;
-    *u *= scale;
-    *v *= scale;
-  }
+  IterativeUndistortion(&params[4], &uu, &vv);
+  NormalFromFisheye(uu, vv, u, v);
 }
 
 template <typename T>
