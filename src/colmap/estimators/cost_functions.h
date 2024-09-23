@@ -51,23 +51,39 @@ inline Eigen::MatrixXd SqrtInformation(const Eigen::MatrixXd& covariance) {
   return covariance.inverse().llt().matrixL().transpose();
 }
 
+template <typename CostFunctor, int kNumResiduals, int... Parameters>
+ceres::CostFunction* CreateAutoDiffCostFunctionFull(
+    CostFunctor* functor, std::integer_sequence<int, Parameters...>) {
+  return new ceres::
+      AutoDiffCostFunction<CostFunctor, kNumResiduals, Parameters...>(functor);
+}
+
+template <typename CostFunctor>
+ceres::CostFunction* CreateAutoDiffCostFunction(CostFunctor* functor) {
+  return CreateAutoDiffCostFunctionFull<CostFunctor,
+                                        CostFunctor::kNumResiduals>(
+      functor, typename CostFunctor::Parameters{});
+}
+
+template <int kNumRes, int... Params>
+class BaseCostFunction {
+ public:
+  static const int kNumResiduals = kNumRes;
+  typedef std::integer_sequence<int, Params...> Parameters;
+};
+
 // Standard bundle adjustment cost function for variable
 // camera pose, calibration, and point parameters.
 template <typename CameraModel>
-class ReprojErrorCostFunction {
+class ReprojErrorCostFunction
+    : public BaseCostFunction<2, 4, 3, 3, CameraModel::num_params> {
  public:
   explicit ReprojErrorCostFunction(const Eigen::Vector2d& point2D)
       : observed_x_(point2D(0)), observed_y_(point2D(1)) {}
 
   static ceres::CostFunction* Create(const Eigen::Vector2d& point2D) {
-    return (
-        new ceres::AutoDiffCostFunction<ReprojErrorCostFunction<CameraModel>,
-                                        2,
-                                        4,
-                                        3,
-                                        3,
-                                        CameraModel::num_params>(
-            new ReprojErrorCostFunction(point2D)));
+    return CreateAutoDiffCostFunction(
+        new ReprojErrorCostFunction<CameraModel>(point2D));
   }
 
   template <typename T>
@@ -539,6 +555,38 @@ class IsotropicNoiseCostFunctionWrapper {
     return new ceres::ConditionedCostFunction(
         cost_function, conditioners, ceres::TAKE_OWNERSHIP);
   }
+};
+
+template <class CostFunctor>
+class WeightedCostFunction {
+ public:
+  static const int kNumResiduals = CostFunctor::kNumResiduals;
+  typedef typename CostFunctor::Parameters Parameters;
+  typedef Eigen::Matrix<double, kNumResiduals, kNumResiduals> MatrixNd;
+
+  WeightedCostFunction(const MatrixNd& weight, const CostFunctor* functor)
+      : weight_(weight), functor_(functor) {}
+
+  template <typename... Args>
+  static ceres::CostFunction* Create(const MatrixNd& weight, Args&&... args) {
+    const CostFunctor* cost_function =
+        new CostFunctor(std::forward<Args>(args)...);
+    return CreateAutoDiffCostFunction(
+        new WeightedCostFunction<CostFunctor>(weight, cost_function));
+  }
+
+  template <typename T, typename... Args>
+  bool operator()(Args&&... args, T* residuals_ptr) {
+    const bool ret =
+        functor_->operator()(std::forward<Args>(args)..., residuals_ptr);
+    Eigen::Map<Eigen::Matrix<T, kNumResiduals, 1>> residuals(residuals_ptr);
+    residuals.applyOnTheLeft(weight_.template cast<T>());
+    return ret;
+  }
+
+ private:
+  const MatrixNd weight_;
+  std::unique_ptr<const CostFunctor> functor_;
 };
 
 template <template <typename> class CostFunction, typename... Args>
