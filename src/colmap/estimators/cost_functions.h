@@ -441,9 +441,8 @@ inline void EigenQuaternionToAngleAxis(const T* eigen_quaternion,
 template <CovarianceType CTYPE = CovarianceType::GENERAL>
 struct AbsolutePoseErrorCostFunction {
  public:
-  AbsolutePoseErrorCostFunction(
-      const Rigid3d& cam_from_world,
-      const EigenMatrix6d& covariance_cam = EigenMatrix6d::Identity())
+  AbsolutePoseErrorCostFunction(const Rigid3d& cam_from_world,
+                                const EigenMatrix6d& covariance_cam)
       : world_from_cam_(Inverse(cam_from_world)),
         sqrt_information_cam_(SqrtInformation<CTYPE>(covariance_cam)) {
     THROW_CHECK(CheckCovarianceByType<CTYPE>(covariance_cam));
@@ -499,9 +498,8 @@ struct AbsolutePoseErrorCostFunction {
 template <CovarianceType CTYPE = CovarianceType::GENERAL>
 struct MetricRelativePoseErrorCostFunction {
  public:
-  MetricRelativePoseErrorCostFunction(
-      const Rigid3d& i_from_j,
-      const EigenMatrix6d& covariance_j = Eigen::Matrix6d::Identity())
+  MetricRelativePoseErrorCostFunction(const Rigid3d& i_from_j,
+                                      const EigenMatrix6d& covariance_j)
       : i_from_j_(i_from_j),
         sqrt_information_j_(SqrtInformation<CTYPE>(covariance_j)) {
     THROW_CHECK(CheckCovarianceByType<CTYPE>(covariance_j));
