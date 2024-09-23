@@ -455,11 +455,6 @@ PosePrior Database::ReadPosePrior(const image_t image_id) const {
         sqlite3_column_int64(sql_stmt_read_pose_prior_, 2));
     prior.position_covariance =
         ReadStaticMatrixBlob<Eigen::Matrix3d>(sql_stmt_read_pose_prior_, rc, 3);
-
-    if (prior.position_covariance.isZero()) {
-      prior.position_covariance =
-          Eigen::Matrix3d::Constant(std::numeric_limits<double>::quiet_NaN());
-    }
   }
   SQLITE3_CALL(sqlite3_reset(sql_stmt_read_pose_prior_));
   return prior;
@@ -1468,9 +1463,21 @@ void Database::UpdateSchema() const {
   }
 
   if (!ExistsColumn("pose_priors", "position_covariance")) {
+    // Create position_covariance matrix column
     SQLITE3_EXEC(database_,
-                 "ALTER TABLE pose_priors ADD COLUMN position_covariance BLOB;",
+                 "ALTER TABLE pose_priors ADD COLUMN position_covariance BLOB "
+                 "DEFAULT NULL;",
                  nullptr);
+
+    // Set position_covariance column to NaN matrices
+    const std::string update_sql =
+        "UPDATE pose_priors SET position_covariance = ?;";
+    sqlite3_stmt* update_stmt;
+    SQLITE3_CALL(
+        sqlite3_prepare_v2(database_, update_sql.c_str(), -1, &update_stmt, 0));
+    WriteStaticMatrixBlob(update_stmt, PosePrior().position_covariance, 1);
+    SQLITE3_CALL(sqlite3_step(update_stmt));
+    SQLITE3_CALL(sqlite3_finalize(update_stmt));
   }
 
   // Update user version number.
