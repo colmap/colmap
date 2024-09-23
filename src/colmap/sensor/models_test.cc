@@ -262,7 +262,7 @@ TEST(ThinPrismFisheye, Nominal) {
 
 TEST(RadTanThinPrismFisheye, Nominal) {
   std::vector<double> params = {241.996,
-                                252.123,
+                                241.996,
                                 323.024,
                                 240.497,
                                 -0.0232,
