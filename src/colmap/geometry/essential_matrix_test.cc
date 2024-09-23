@@ -87,14 +87,15 @@ TEST(PoseFromEssentialMatrix, Nominal) {
 
   points3D.clear();
 
-  Eigen::Matrix3d R;
-  Eigen::Vector3d t;
-  PoseFromEssentialMatrix(E, points1, points2, &R, &t, &points3D);
+  Rigid3d cam2_from_cam1_est;
+  PoseFromEssentialMatrix(E, points1, points2, &cam2_from_cam1_est, &points3D);
 
   EXPECT_EQ(points3D.size(), 4);
 
-  EXPECT_TRUE(R.isApprox(cam2_from_cam1.rotation.toRotationMatrix()));
-  EXPECT_TRUE(t.isApprox(cam2_from_cam1.translation));
+  EXPECT_TRUE(cam2_from_cam1_est.rotation.toRotationMatrix().isApprox(
+      cam2_from_cam1.rotation.toRotationMatrix()));
+  EXPECT_TRUE(
+      cam2_from_cam1_est.translation.isApprox(cam2_from_cam1.translation));
 }
 
 TEST(FindOptimalImageObservations, Nominal) {

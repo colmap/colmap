@@ -46,7 +46,7 @@ test-command = "python -c \"import pycolmap; print(pycolmap.__version__)\" &&  p
 VCPKG_COMMIT_ID = "e01906b2ba7e645a76ee021a19de616edc98d29f"
 
 [tool.cibuildwheel.linux]
-before-all = "{package}/ci/install-colmap-centos.sh"
+before-all = "{package}/ci/install-colmap-almalinux.sh"
 
 [tool.cibuildwheel.macos]
 before-all = "{package}/ci/install-colmap-macos.sh"
