@@ -63,27 +63,31 @@ void DecomposeEssentialMatrix(const Eigen::Matrix3d& E,
 void PoseFromEssentialMatrix(const Eigen::Matrix3d& E,
                              const std::vector<Eigen::Vector2d>& points1,
                              const std::vector<Eigen::Vector2d>& points2,
-                             Eigen::Matrix3d* R,
-                             Eigen::Vector3d* t,
+                             Rigid3d* cam2_from_cam1,
                              std::vector<Eigen::Vector3d>* points3D) {
   THROW_CHECK_EQ(points1.size(), points2.size());
 
   Eigen::Matrix3d R1;
   Eigen::Matrix3d R2;
-  DecomposeEssentialMatrix(E, &R1, &R2, t);
+  Eigen::Vector3d t;
+  DecomposeEssentialMatrix(E, &R1, &R2, &t);
 
-  // Generate all possible projection matrix combinations.
-  const std::array<Eigen::Matrix3d, 4> R_cmbs{{R1, R2, R1, R2}};
-  const std::array<Eigen::Vector3d, 4> t_cmbs{{*t, *t, -*t, -*t}};
+  const Eigen::Quaterniond quat1(R1);
+  const Eigen::Quaterniond quat2(R2);
+
+  // Generate all possible pose combinations.
+  const std::array<Rigid3d, 4> cams2_from_cams1{{Rigid3d(quat1, t),
+                                                 Rigid3d(quat2, t),
+                                                 Rigid3d(quat1, -t),
+                                                 Rigid3d(quat2, -t)}};
 
   points3D->clear();
-  for (size_t i = 0; i < R_cmbs.size(); ++i) {
-    std::vector<Eigen::Vector3d> points3D_cmb;
-    CheckCheirality(R_cmbs[i], t_cmbs[i], points1, points2, &points3D_cmb);
-    if (points3D_cmb.size() >= points3D->size()) {
-      *R = R_cmbs[i];
-      *t = t_cmbs[i];
-      *points3D = points3D_cmb;
+  std::vector<Eigen::Vector3d> tentative_points3D;
+  for (size_t i = 0; i < cams2_from_cams1.size(); ++i) {
+    CheckCheirality(cams2_from_cams1[i], points1, points2, &tentative_points3D);
+    if (tentative_points3D.size() >= points3D->size()) {
+      *cam2_from_cam1 = cams2_from_cams1[i];
+      std::swap(*points3D, tentative_points3D);
     }
   }
 }

@@ -245,7 +245,7 @@ bool COLMAPUndistorter::Undistort(const image_t image_id) const {
 
   Bitmap distorted_bitmap;
   Bitmap undistorted_bitmap;
-  const Camera& camera = reconstruction_.Camera(image.CameraId());
+  const Camera& camera = *image.CameraPtr();
   Camera undistorted_camera;
 
   const std::string input_image_path = JoinPaths(image_path_, image.Name());
@@ -380,7 +380,7 @@ bool PMVSUndistorter::Undistort(const size_t reg_image_idx) const {
 
   const image_t image_id = reconstruction_.RegImageIds().at(reg_image_idx);
   const Image& image = reconstruction_.Image(image_id);
-  const Camera& camera = reconstruction_.Camera(image.CameraId());
+  const Camera& camera = *image.CameraPtr();
 
   Bitmap distorted_bitmap;
   const std::string input_image_path = JoinPaths(image_path_, image.Name());
@@ -589,7 +589,7 @@ bool CMPMVSUndistorter::Undistort(const size_t reg_image_idx) const {
 
   const image_t image_id = reconstruction_.RegImageIds().at(reg_image_idx);
   const Image& image = reconstruction_.Image(image_id);
-  const Camera& camera = reconstruction_.Camera(image.CameraId());
+  const Camera& camera = *image.CameraPtr();
 
   Bitmap distorted_bitmap;
   const std::string input_image_path = JoinPaths(image_path_, image.Name());

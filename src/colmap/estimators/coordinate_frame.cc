@@ -167,7 +167,7 @@ Eigen::Matrix3d EstimateManhattanWorldFrame(
   for (size_t i = 0; i < reconstruction.NumRegImages(); ++i) {
     const auto image_id = reconstruction.RegImageIds()[i];
     const auto& image = reconstruction.Image(image_id);
-    const auto& camera = reconstruction.Camera(image.CameraId());
+    const auto& camera = *image.CameraPtr();
 
     PrintHeading1(StringPrintf("Processing image %s (%d / %d)",
                                image.Name().c_str(),

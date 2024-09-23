@@ -186,16 +186,9 @@ size_t EstimateRelativePose(const RANSACOptions& ransac_options,
     }
   }
 
-  Eigen::Matrix3d cam2_from_cam1_rot_mat;
   std::vector<Eigen::Vector3d> points3D;
-  PoseFromEssentialMatrix(report.model,
-                          inliers1,
-                          inliers2,
-                          &cam2_from_cam1_rot_mat,
-                          &cam2_from_cam1->translation,
-                          &points3D);
-
-  cam2_from_cam1->rotation = Eigen::Quaterniond(cam2_from_cam1_rot_mat);
+  PoseFromEssentialMatrix(
+      report.model, inliers1, inliers2, cam2_from_cam1, &points3D);
 
   if (cam2_from_cam1->rotation.coeffs().array().isNaN().any() ||
       cam2_from_cam1->translation.array().isNaN().any()) {
@@ -383,17 +376,10 @@ bool RefineEssentialMatrix(const ceres::Solver::Options& options,
   }
 
   // Extract relative pose from essential matrix.
-
   Rigid3d cam2_from_cam1;
-  Eigen::Matrix3d cam2_from_cam1_rot_mat;
   std::vector<Eigen::Vector3d> points3D;
-  PoseFromEssentialMatrix(*E,
-                          inlier_points1,
-                          inlier_points2,
-                          &cam2_from_cam1_rot_mat,
-                          &cam2_from_cam1.translation,
-                          &points3D);
-  cam2_from_cam1.rotation = Eigen::Quaterniond(cam2_from_cam1_rot_mat);
+  PoseFromEssentialMatrix(
+      *E, inlier_points1, inlier_points2, &cam2_from_cam1, &points3D);
 
   if (points3D.size() == 0) {
     return false;
