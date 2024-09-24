@@ -237,11 +237,8 @@ bool DatabaseCache::SetupPosePriors() {
   Timer timer;
   timer.Start();
 
-  if (NumPosePriors() < 3) {
-    LOG(ERROR) << "At least 3 images should have a prior for "
-                  "prior-based sfm...\n"
-               << "Only " << NumPosePriors() << " / " << NumImages()
-               << " images have a pose prior...";
+  if (NumPosePriors() == 0) {
+    LOG(ERROR) << "No pose priors in database...";
     return false;
   }
 
