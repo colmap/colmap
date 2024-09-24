@@ -327,7 +327,7 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
 
   bool Sim3DAlignment(Reconstruction* reconstruction);
 
-  void setRansacMaxErrorFromPriorsCovariance();
+  void SetRansacMaxErrorFromPriorsCovariance();
 
   Options prior_options_;
   std::unique_ptr<ceres::LossFunction> prior_loss_function_;

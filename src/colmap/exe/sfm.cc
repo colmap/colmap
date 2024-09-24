@@ -45,19 +45,19 @@
 
 namespace colmap {
 
-void updateDatabasePosePriorsCovariance(const std::string& _database_path,
-                                        const Eigen::Matrix3d& _covariance) {
-  Database database(_database_path);
+void UpdateDatabasePosePriorsCovariance(const std::string& database_path,
+                                        const Eigen::Matrix3d& covariance) {
+  Database database(database_path);
   DatabaseTransaction database_transaction(&database);
 
   LOG(INFO)
       << "Setting up database pose priors with the same covariance matrix: \n"
-      << _covariance << "\n";
+      << covariance << "\n";
 
   for (const auto& image : database.ReadAllImages()) {
     if (database.ExistsPosePrior(image.ImageId())) {
       PosePrior prior = database.ReadPosePrior(image.ImageId());
-      prior.position_covariance = _covariance;
+      prior.position_covariance = covariance;
       database.UpdatePosePrior(image.ImageId(), prior);
     }
   }
@@ -361,7 +361,7 @@ int RunPosePriorMapper(int argc, char** argv) {
   std::string input_path;
   std::string output_path;
 
-  bool set_database_priors_covariance = false;
+  bool overwrite_priors_covariance = false;
   double prior_position_std_x = 1.;
   double prior_position_std_y = 1.;
   double prior_position_std_z = 1.;
@@ -375,10 +375,11 @@ int RunPosePriorMapper(int argc, char** argv) {
 
   options.mapper->use_prior_position = true;
 
-  options.AddDefaultOption("set_database_priors_covariance",
-                           &set_database_priors_covariance,
-                           "If true, covariance on priors will be set from the "
-                           "following prior_position_std_... options");
+  options.AddDefaultOption(
+      "overwrite_priors_covariance",
+      &overwrite_priors_covariance,
+      "Priors covariance read from database. If true, overwrite the priors "
+      "covariance using the follwoing prior_position_std_... options");
   options.AddDefaultOption("prior_position_std_x", &prior_position_std_x);
   options.AddDefaultOption("prior_position_std_y", &prior_position_std_y);
   options.AddDefaultOption("prior_position_std_z", &prior_position_std_z);
@@ -393,13 +394,13 @@ int RunPosePriorMapper(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  if (set_database_priors_covariance) {
+  if (overwrite_priors_covariance) {
     const Eigen::Matrix3d covariance =
         Eigen::Vector3d(
             prior_position_std_x, prior_position_std_y, prior_position_std_z)
             .cwiseAbs2()
             .asDiagonal();
-    updateDatabasePosePriorsCovariance(*options.database_path, covariance);
+    UpdateDatabasePosePriorsCovariance(*options.database_path, covariance);
   }
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();

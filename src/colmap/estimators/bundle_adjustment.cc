@@ -863,7 +863,7 @@ PosePriorBundleAdjuster::PosePriorBundleAdjuster(
     : BundleAdjuster(options, config),
       prior_options_(prior_options),
       image_id_to_pose_prior_(image_id_to_pose_prior) {
-  setRansacMaxErrorFromPriorsCovariance();
+  SetRansacMaxErrorFromPriorsCovariance();
 }
 
 bool PosePriorBundleAdjuster::Solve(Reconstruction* reconstruction) {
@@ -936,7 +936,7 @@ void PosePriorBundleAdjuster::AddPosePriorToProblem(
     Reconstruction* reconstruction,
     ceres::LossFunction* prior_loss_function) {
   if (!prior.IsValid() || !prior.IsCovarianceValid()) {
-    LOG(ERROR) << "Could not add prior for image #" << image_id << "\n";
+    LOG(ERROR) << "Could not add prior for image #" << image_id;
     return;
   }
   Image& image = reconstruction->Image(image_id);
@@ -1010,7 +1010,7 @@ bool PosePriorBundleAdjuster::Sim3DAlignment(Reconstruction* reconstruction) {
       success = true;
     }
   } else {
-    success = colmap::EstimateSim3d(v_src, v_tgt, sim3_tform);
+    success = EstimateSim3d(v_src, v_tgt, sim3_tform);
   }
 
   if (success) {
@@ -1041,7 +1041,7 @@ bool PosePriorBundleAdjuster::Sim3DAlignment(Reconstruction* reconstruction) {
   return success;
 }
 
-void PosePriorBundleAdjuster::setRansacMaxErrorFromPriorsCovariance() {
+void PosePriorBundleAdjuster::SetRansacMaxErrorFromPriorsCovariance() {
   std::size_t nb_cov = 0;
   Eigen::Vector3d avg_cov = Eigen::Vector3d::Zero();
   for (const auto& id_and_prior : image_id_to_pose_prior_) {

@@ -231,7 +231,7 @@ const class Image* DatabaseCache::FindImageWithName(
   return nullptr;
 }
 
-bool DatabaseCache::setupPosePriors() {
+bool DatabaseCache::SetupPosePriors() {
   LOG(INFO) << "Setting up prior positions...";
 
   Timer timer;
