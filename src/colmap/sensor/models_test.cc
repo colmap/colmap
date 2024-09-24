@@ -260,5 +260,26 @@ TEST(ThinPrismFisheye, Nominal) {
                                           0.001});
 }
 
+TEST(RadTanThinPrismFisheye, Nominal) {
+  std::vector<double> params = {651.123,
+                                655.123,
+                                386.123,
+                                511.123,
+                                -0.0232,
+                                0.0924,
+                                -0.0591,
+                                0.003,
+                                0.0048,
+                                -0.0009,
+                                0.0002,
+                                0.0005,
+                                -0.0009,
+                                -0.0001,
+                                0.00007,
+                                -0.00017};
+
+  TestModel<RadTanThinPrismFisheyeModel>(params);
+}
+
 }  // namespace
 }  // namespace colmap
