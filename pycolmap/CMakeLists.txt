@@ -18,8 +18,6 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
 endif()
 
-find_package(SQLite3 REQUIRED)
-
 find_package(colmap REQUIRED)
 
 if (CMAKE_VERSION VERSION_LESS 3.18)
