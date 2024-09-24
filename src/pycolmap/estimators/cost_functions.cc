@@ -18,7 +18,7 @@ void BindCostFunctions(py::module& m_parent) {
   auto PyCovarianceType = py::enum_<CovarianceType>(m, "CovarianceType")
                               .value("IDENTITY", CovarianceType::IDENTITY)
                               .value("DIAGONAL", CovarianceType::DIAGONAL)
-                              .value("GENERAL", CovarianceType::GENERAL);
+                              .value("DENSE", CovarianceType::DENSE);
   AddStringToEnumConstructor(PyCovarianceType);
 
   m.def("ReprojErrorCost",
@@ -138,17 +138,17 @@ void BindCostFunctions(py::module& m_parent) {
         "Sampson error for two-view geometry.");
 
   m.def("AbsolutePoseErrorCost",
-        &AbsolutePoseErrorCostFunction<CovarianceType::GENERAL>::Create,
+        &AbsolutePoseErrorCostFunction<CovarianceType::DENSE>::Create,
         "cam_from_world"_a,
         "covariance_cam"_a,
         "6-DoF error on the absolute pose.");
   m.def("MetricRelativePoseErrorCost",
-        &MetricRelativePoseErrorCostFunction<CovarianceType::GENERAL>::Create,
+        &MetricRelativePoseErrorCostFunction<CovarianceType::DENSE>::Create,
         "i_from_j"_a,
         "covariance_j"_a,
         "6-DoF error between two absolute poses based on their relative pose.");
   m.def("Point3dAlignmentCost",
-        &Point3dAlignmentCostFunction<CovarianceType::GENERAL>::Create,
+        &Point3dAlignmentCostFunction<CovarianceType::DENSE>::Create,
         "ref_point"_a,
         "covariance_point"_a,
         "Error between 3D points transformed by a similarity transform.");

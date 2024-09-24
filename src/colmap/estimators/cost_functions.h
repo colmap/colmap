@@ -47,53 +47,54 @@ template <typename T>
 using EigenQuaternionMap = Eigen::Map<const Eigen::Quaternion<T>>;
 using EigenMatrix6d = Eigen::Matrix<double, 6, 6>;
 
-enum CovarianceType {
+enum class CovarianceType {
   IDENTITY = 1,
   DIAGONAL = 2,
-  GENERAL = 3,
+  DENSE = 3,
 };
 
-template <CovarianceType CTYPE = CovarianceType::GENERAL>
+template <CovarianceType CTYPE = CovarianceType::DENSE>
 inline Eigen::MatrixXd SqrtInformation(const Eigen::MatrixXd& covariance) {
-  if constexpr (CTYPE == CovarianceType::IDENTITY)
+  if constexpr (CTYPE == CovarianceType::IDENTITY) {
     return covariance;
-  else
+  } else {
     return covariance.inverse().llt().matrixL().transpose();
+  }
 }
 
 inline CovarianceType GetCovarianceType(const Eigen::MatrixXd& covariance) {
   if (covariance.isDiagonal()) {
-    if (covariance.isIdentity())
+    if (covariance.isIdentity()) {
       return CovarianceType::IDENTITY;
-    else
+    } else {
       return CovarianceType::DIAGONAL;
-  } else
-    return CovarianceType::GENERAL;
+    }
+  } else {
+    return CovarianceType::DENSE;
+  }
 }
 
 template <CovarianceType CTYPE>
 inline bool CheckCovarianceByType(const Eigen::MatrixXd& covariance) {
-  if constexpr (CTYPE == CovarianceType::IDENTITY)
+  if constexpr (CTYPE == CovarianceType::IDENTITY) {
     return covariance.isIdentity();
-  else if constexpr (CTYPE == CovarianceType::DIAGONAL)
+  } else if constexpr (CTYPE == CovarianceType::DIAGONAL) {
     return covariance.isDiagonal();
-  else
+  } else {
     return true;
+  }
 }
 
 template <typename T, int N, CovarianceType CTYPE = CovarianceType::IDENTITY>
-inline void ApplyCovariance(T* residuals,
-                            const Eigen::MatrixXd& sqrt_information) {
-  if constexpr (CTYPE == CovarianceType::IDENTITY)
+inline void ApplySqrtInformation(
+    T* residuals, const Eigen::Matrix<double, N, N>& sqrt_information) {
+  if constexpr (CTYPE == CovarianceType::IDENTITY) {
     return;
-  else if constexpr (CTYPE == CovarianceType::DIAGONAL) {
-    THROW_CHECK_EQ(sqrt_information.rows(), sqrt_information.cols());
+  } else if constexpr (CTYPE == CovarianceType::DIAGONAL) {
     for (int i = 0; i < sqrt_information.rows(); ++i) {
       residuals[i] *= sqrt_information(i, i);
     }
-  } else if constexpr (CTYPE == CovarianceType::GENERAL) {
-    THROW_CHECK_EQ(N, sqrt_information.rows());
-    THROW_CHECK_EQ(sqrt_information.rows(), sqrt_information.cols());
+  } else if constexpr (CTYPE == CovarianceType::DENSE) {
     Eigen::Map<Eigen::Matrix<T, N, 1>> residuals_map(residuals);
     residuals_map.applyOnTheLeft(sqrt_information.template cast<T>());
   }
@@ -109,7 +110,7 @@ class ReprojErrorCostFunction {
       const Eigen::Matrix2d& point2D_covar = Eigen::Matrix2d::Identity())
       : observed_x_(point2D(0)),
         observed_y_(point2D(1)),
-        sqrt_information_point_(SqrtInformation<CTYPE>(point2D_covar)) {
+        sqrt_info_point2D_(SqrtInformation<CTYPE>(point2D_covar)) {
     THROW_CHECK(CheckCovarianceByType<CTYPE>(point2D_covar));
   }
 
@@ -145,7 +146,7 @@ class ReprojErrorCostFunction {
     residuals[0] -= T(observed_x_);
     residuals[1] -= T(observed_y_);
     if constexpr (CTYPE != CovarianceType::IDENTITY) {
-      ApplyCovariance<T, 2, CTYPE>(residuals, sqrt_information_point_);
+      ApplySqrtInformation<T, 2, CTYPE>(residuals, sqrt_info_point2D_);
     }
     return true;
   }
@@ -153,7 +154,7 @@ class ReprojErrorCostFunction {
  private:
   const double observed_x_;
   const double observed_y_;
-  const Eigen::Matrix2d sqrt_information_point_;
+  const Eigen::Matrix2d sqrt_info_point2D_;
 };
 
 // Bundle adjustment cost function for variable
@@ -264,7 +265,7 @@ class RigReprojErrorCostFunction {
       const Eigen::Matrix2d& point2D_covar = Eigen::Matrix2d::Identity())
       : observed_x_(point2D(0)),
         observed_y_(point2D(1)),
-        sqrt_information_point_(SqrtInformation<CTYPE>(point2D_covar)) {
+        sqrt_info_point2D_(SqrtInformation<CTYPE>(point2D_covar)) {
     THROW_CHECK(CheckCovarianceByType<CTYPE>(point2D_covar));
   }
 
@@ -306,7 +307,7 @@ class RigReprojErrorCostFunction {
     residuals[0] -= T(observed_x_);
     residuals[1] -= T(observed_y_);
     if constexpr (CTYPE != CovarianceType::IDENTITY) {
-      ApplyCovariance<T, 2, CTYPE>(residuals, sqrt_information_point_);
+      ApplySqrtInformation<T, 2, CTYPE>(residuals, sqrt_info_point2D_);
     }
     return true;
   }
@@ -314,7 +315,7 @@ class RigReprojErrorCostFunction {
  private:
   const double observed_x_;
   const double observed_y_;
-  const Eigen::Matrix2d sqrt_information_point_;
+  const Eigen::Matrix2d sqrt_info_point2D_;
 };
 
 // Rig bundle adjustment cost function for variable camera pose and camera
@@ -438,7 +439,7 @@ inline void EigenQuaternionToAngleAxis(const T* eigen_quaternion,
 // splitting SE(3) into SO(3) x R^3. The 6x6 covariance matrix is defined in the
 // reference frame of the camera. Its first and last three components correspond
 // to the rotation and translation errors, respectively.
-template <CovarianceType CTYPE = CovarianceType::GENERAL>
+template <CovarianceType CTYPE = CovarianceType::DENSE>
 struct AbsolutePoseErrorCostFunction {
  public:
   AbsolutePoseErrorCostFunction(const Rigid3d& cam_from_world,
@@ -473,7 +474,7 @@ struct AbsolutePoseErrorCostFunction {
                                 world_from_cam_.translation.cast<T>();
 
     if constexpr (CTYPE != CovarianceType::IDENTITY) {
-      ApplyCovariance<T, 6, CTYPE>(residuals, sqrt_information_cam_);
+      ApplySqrtInformation<T, 6, CTYPE>(residuals, sqrt_information_cam_);
     }
     return true;
   }
@@ -495,7 +496,7 @@ struct AbsolutePoseErrorCostFunction {
 // Thus η_j = log(j_T_w·i_T_w⁻¹·i_T_j)
 // Rotation term: ΔR = log(j_R_w·i_R_w⁻¹·i_R_j)
 // Translation term: Δt = j_t_w + j_R_w·i_R_w⁻¹·(i_t_j -i_t_w)
-template <CovarianceType CTYPE = CovarianceType::GENERAL>
+template <CovarianceType CTYPE = CovarianceType::DENSE>
 struct MetricRelativePoseErrorCostFunction {
  public:
   MetricRelativePoseErrorCostFunction(const Rigid3d& i_from_j,
@@ -538,7 +539,7 @@ struct MetricRelativePoseErrorCostFunction {
         EigenVector3Map<T>(j_from_world_t) + j_from_i_q * i_from_jw_t;
 
     if constexpr (CTYPE != CovarianceType::IDENTITY) {
-      ApplyCovariance<T, 6, CTYPE>(residuals, sqrt_information_j_);
+      ApplySqrtInformation<T, 6, CTYPE>(residuals, sqrt_information_j_);
     }
     return true;
   }
@@ -552,7 +553,7 @@ struct MetricRelativePoseErrorCostFunction {
 // covariance. Convention is similar to colmap::Sim3d
 // residual = scale_b_from_a * R_b_from_a * point_in_a + t_b_from_a -
 // ref_point_in_b
-template <CovarianceType CTYPE = CovarianceType::GENERAL>
+template <CovarianceType CTYPE = CovarianceType::DENSE>
 struct Point3dAlignmentCostFunction {
  public:
   Point3dAlignmentCostFunction(const Eigen::Vector3d& ref_point,
@@ -587,7 +588,7 @@ struct Point3dAlignmentCostFunction {
       residuals[i] = transform_point[i] - T(ref_point_[i]);
     }
     if constexpr (CTYPE != CovarianceType::IDENTITY) {
-      ApplyCovariance<T, 3, CTYPE>(residuals, sqrt_information_point_);
+      ApplySqrtInformation<T, 3, CTYPE>(residuals, sqrt_information_point_);
     }
     return true;
   }
@@ -630,8 +631,8 @@ ceres::CostFunction* WeightedCameraCostFunction(
       case CovarianceType::DIAGONAL:                                        \
         return CostFunction<CameraModel, CovarianceType::DIAGONAL>::Create( \
             std::forward<Args>(args)...);                                   \
-      case CovarianceType::GENERAL:                                         \
-        return CostFunction<CameraModel, CovarianceType::GENERAL>::Create(  \
+      case CovarianceType::DENSE:                                           \
+        return CostFunction<CameraModel, CovarianceType::DENSE>::Create(    \
             std::forward<Args>(args)...);                                   \
       default:                                                              \
         throw std::runtime_error("Covariance type unsupported");            \

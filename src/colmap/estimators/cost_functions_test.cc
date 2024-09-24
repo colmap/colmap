@@ -256,7 +256,7 @@ TEST(PoseGraphOptimization, AbsolutePose) {
   EigenMatrix6d covariance_cam = EigenMatrix6d::Identity();
   covariance_cam(5, 5) = 4;
   std::unique_ptr<ceres::CostFunction> cost_function(
-      AbsolutePoseErrorCostFunction<CovarianceType::GENERAL>::Create(
+      AbsolutePoseErrorCostFunction<CovarianceType::DENSE>::Create(
           mes_cam_from_world, covariance_cam));
 
   double cam_from_world_rotation[4] = {0, 0, 0, 1};
@@ -303,7 +303,7 @@ TEST(PoseGraphOptimization, RelativePose) {
   EigenMatrix6d covariance_j = EigenMatrix6d::Identity();
   covariance_j(5, 5) = 4;
   std::unique_ptr<ceres::CostFunction> cost_function(
-      MetricRelativePoseErrorCostFunction<CovarianceType::GENERAL>::Create(
+      MetricRelativePoseErrorCostFunction<CovarianceType::DENSE>::Create(
           i_from_j, covariance_j));
 
   double i_from_world_rotation[4] = {0, 0, 0, 1};
@@ -365,7 +365,7 @@ TEST(PoseGraphOptimization, Point3dAlignment) {
   Eigen::Matrix3d covariance_point = Eigen::Matrix3d::Identity();
   covariance_point(2, 2) = 4.;
   std::unique_ptr<ceres::CostFunction> cost_function(
-      Point3dAlignmentCostFunction<CovarianceType::GENERAL>::Create(
+      Point3dAlignmentCostFunction<CovarianceType::DENSE>::Create(
           ref_point, covariance_point));
   Eigen::Vector3d point(0., 0., 0.);
   const double* parameters[4] = {point.data(),
