@@ -142,6 +142,25 @@ TEST(SynthesizeDataset, WithNoise) {
   EXPECT_NEAR(reconstruction.ComputeMeanTrackLength(), options.num_images, 0.1);
 }
 
+TEST(SynthesizeDataset, WithPriors) {
+  Database database(Database::kInMemoryDatabasePath);
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions options;
+  options.use_prior_position = true;
+  options.prior_position_stddev = 0.;
+  SynthesizeDataset(options, &reconstruction, &database);
+
+  for (const auto image : reconstruction.Images()) {
+    if (database.ExistsPosePrior(image.first)) {
+      EXPECT_NEAR((image.second.ProjectionCenter() -
+                   database.ReadPosePrior(image.first).position)
+                      .norm(),
+                  0.,
+                  1e-9);
+    }
+  }
+}
+
 TEST(SynthesizeDataset, MultiReconstruction) {
   Database database(Database::kInMemoryDatabasePath);
   Reconstruction reconstruction1;
