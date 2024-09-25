@@ -592,6 +592,8 @@ class IsotropicNoiseCostFunctionWrapper {
   }
 };
 
+// Copied from
+// https://stackoverflow.com/questions/61321031/get-last-element-of-parameter-pack-in-c17-c20
 template <typename... Args>
 auto LastValueParameterPack(Args&&... args) {
   return std::get<sizeof...(Args) - 1>(std::forward_as_tuple(args...));
