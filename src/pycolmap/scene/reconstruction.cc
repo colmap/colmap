@@ -183,6 +183,7 @@ void BindReconstruction(py::module& m) {
            "other"_a,
            "Find images that are both present in this and the given "
            "reconstruction.")
+      .def("update_point_3d_errors", &Reconstruction::UpdatePoint3DErrors)
       .def("compute_num_observations", &Reconstruction::ComputeNumObservations)
       .def("compute_mean_track_length", &Reconstruction::ComputeMeanTrackLength)
       .def("compute_mean_observations_per_reg_image",
