@@ -105,7 +105,7 @@ inline void ApplySqrtInformation(
 template <typename CameraModel, CovarianceType CTYPE = CovarianceType::IDENTITY>
 class ReprojErrorCostFunction {
  public:
-  ReprojErrorCostFunction(
+  explicit ReprojErrorCostFunction(
       const Eigen::Vector2d& point2D,
       const Eigen::Matrix2d& point2D_covar = Eigen::Matrix2d::Identity())
       : observed_x_(point2D(0)),
@@ -260,7 +260,7 @@ class ReprojErrorConstantPoint3DCostFunction
 template <typename CameraModel, CovarianceType CTYPE = CovarianceType::IDENTITY>
 class RigReprojErrorCostFunction {
  public:
-  RigReprojErrorCostFunction(
+  explicit RigReprojErrorCostFunction(
       const Eigen::Vector2d& point2D,
       const Eigen::Matrix2d& point2D_covar = Eigen::Matrix2d::Identity())
       : observed_x_(point2D(0)),
