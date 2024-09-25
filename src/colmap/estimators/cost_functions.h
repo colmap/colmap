@@ -66,7 +66,7 @@ struct DiagonalCovariance : public Eigen::Matrix<T, N, 1> {
   DiagonalCovariance()
       : Eigen::Matrix<T, N, 1>(Eigen::Matrix<T, N, 1>::Ones()) {}
 
-  DiagonalCovariance(const Eigen::Matrix<T, N, 1>& object)
+  explicit DiagonalCovariance(const Eigen::Matrix<T, N, 1>& object)
       : Eigen::Matrix<T, N, 1>(object) {}
 
   static DiagonalCovariance FromDenseMatrix(
@@ -80,7 +80,7 @@ struct DenseCovariance : public Eigen::Matrix<T, N, N> {
   DenseCovariance()
       : Eigen::Matrix<T, N, N>(Eigen::Matrix<T, N, N>::Identity()) {}
 
-  DenseCovariance(const Eigen::Matrix<T, N, N>& object)
+  explicit DenseCovariance(const Eigen::Matrix<T, N, N>& object)
       : Eigen::Matrix<T, N, N>(object) {}
 
   static DenseCovariance FromDenseMatrix(const Eigen::Matrix<T, N, N>& covar) {
