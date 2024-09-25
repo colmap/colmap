@@ -150,7 +150,7 @@ TEST(SynthesizeDataset, WithPriors) {
   options.prior_position_stddev = 0.;
   SynthesizeDataset(options, &reconstruction, &database);
 
-  for (const auto image : reconstruction.Images()) {
+  for (const auto& image : reconstruction.Images()) {
     if (database.ExistsPosePrior(image.first)) {
       EXPECT_NEAR((image.second.ProjectionCenter() -
                    database.ReadPosePrior(image.first).position)
