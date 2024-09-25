@@ -607,7 +607,7 @@ class NoiseCostFunctionWrapper {
   typedef Eigen::Matrix<double, kNumResiduals, kNumResiduals> MatrixNd;
 
   template <typename... Args>
-  NoiseCostFunctionWrapper(const MatrixNd& covariance, Args&&... args)
+  explicit NoiseCostFunctionWrapper(const MatrixNd& covariance, Args&&... args)
       : sqrt_information_(SqrtInformation(covariance)),
         functor_(std::forward<Args>(args)...) {}
 
