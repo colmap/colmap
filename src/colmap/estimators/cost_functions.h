@@ -817,7 +817,7 @@ struct PositionPriorErrorCostFunction {
     residuals = world_from_cam_position_prior_.cast<T>() +
                 EigenQuaternionMap<T>(cam_from_world_q).inverse() *
                     EigenVector3Map<T>(cam_from_world_t);
-    ApplySqrtInformation<T, 3, CTYPE>(residuals_ptr, sqrt_info_point3D_);
+    ApplySqrtInformation<T, 3, CTYPE>(residuals_ptr, sqrt_info_prior_);
     return true;
   }
 
