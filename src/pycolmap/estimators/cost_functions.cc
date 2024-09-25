@@ -138,17 +138,23 @@ void BindCostFunctions(py::module& m_parent) {
         "Sampson error for two-view geometry.");
 
   m.def("AbsolutePoseErrorCost",
-        &AbsolutePoseErrorCostFunction<CovarianceType::DENSE>::Create,
+        static_cast<ceres::CostFunction* (*)(const Rigid3d&,
+                                             const EigenMatrix6d&)>(
+            AbsolutePoseErrorCostFunction<CovarianceType::DENSE>::Create),
         "cam_from_world"_a,
         "covariance_cam"_a,
         "6-DoF error on the absolute pose.");
   m.def("MetricRelativePoseErrorCost",
-        &MetricRelativePoseErrorCostFunction<CovarianceType::DENSE>::Create,
+        static_cast<ceres::CostFunction* (*)(const Rigid3d&,
+                                             const EigenMatrix6d&)>(
+            MetricRelativePoseErrorCostFunction<CovarianceType::DENSE>::Create),
         "i_from_j"_a,
         "covariance_j"_a,
         "6-DoF error between two absolute poses based on their relative pose.");
   m.def("Point3dAlignmentCost",
-        &Point3dAlignmentCostFunction<CovarianceType::DENSE>::Create,
+        static_cast<ceres::CostFunction* (*)(const Eigen::Vector3d&,
+                                             const Eigen::Matrix3d&)>(
+            Point3dAlignmentCostFunction<CovarianceType::DENSE>::Create),
         "ref_point"_a,
         "covariance_point"_a,
         "Error between 3D points transformed by a similarity transform.");

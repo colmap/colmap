@@ -53,46 +53,74 @@ enum class CovarianceType {
   DENSE = 3,
 };
 
-template <CovarianceType CTYPE = CovarianceType::DENSE>
-inline Eigen::MatrixXd SqrtInformation(const Eigen::MatrixXd& covariance) {
+template <typename T, int N>
+struct IdentityCovariance {
+  static IdentityCovariance FromDenseMatrix(
+      const Eigen::Matrix<T, N, N>& covar) {
+    return IdentityCovariance();
+  }
+};
+
+template <typename T, int N>
+struct DiagonalCovariance : public Eigen::Matrix<T, N, 1> {
+  DiagonalCovariance()
+      : Eigen::Matrix<T, N, 1>(Eigen::Matrix<T, N, 1>::Ones()) {}
+
+  DiagonalCovariance(const Eigen::Matrix<T, N, 1>& object)
+      : Eigen::Matrix<T, N, 1>(object) {}
+
+  static DiagonalCovariance FromDenseMatrix(
+      const Eigen::Matrix<T, N, N>& covar) {
+    return static_cast<DiagonalCovariance<T, N>>(covar.diagonal());
+  }
+};
+
+template <typename T, int N>
+struct DenseCovariance : public Eigen::Matrix<T, N, N> {
+  DenseCovariance()
+      : Eigen::Matrix<T, N, N>(Eigen::Matrix<T, N, N>::Identity()) {}
+
+  DenseCovariance(const Eigen::Matrix<T, N, N>& object)
+      : Eigen::Matrix<T, N, N>(object) {}
+
+  static DenseCovariance FromDenseMatrix(const Eigen::Matrix<T, N, N>& covar) {
+    return static_cast<DenseCovariance<T, N>>(covar);
+  }
+};
+
+template <typename T, int N, CovarianceType CTYPE = CovarianceType::DENSE>
+using CovarianceDataType =
+    std::conditional_t<CTYPE == CovarianceType::IDENTITY,
+                       IdentityCovariance<T, N>,
+                       std::conditional_t<CTYPE == CovarianceType::DIAGONAL,
+                                          DiagonalCovariance<T, N>,
+                                          DenseCovariance<T, N>>>;
+
+template <typename T, int N, CovarianceType CTYPE = CovarianceType::DENSE>
+using SqrtInfoDataType = CovarianceDataType<T, N, CTYPE>;
+
+template <int N, CovarianceType CTYPE = CovarianceType::DENSE>
+inline SqrtInfoDataType<double, N, CTYPE> SqrtInformation(
+    const CovarianceDataType<double, N, CTYPE>& covariance) {
   if constexpr (CTYPE == CovarianceType::IDENTITY) {
     return covariance;
-  } else {
-    return covariance.inverse().llt().matrixL().transpose();
-  }
-}
-
-inline CovarianceType GetCovarianceType(const Eigen::MatrixXd& covariance) {
-  if (covariance.isDiagonal()) {
-    if (covariance.isIdentity()) {
-      return CovarianceType::IDENTITY;
-    } else {
-      return CovarianceType::DIAGONAL;
-    }
-  } else {
-    return CovarianceType::DENSE;
-  }
-}
-
-template <CovarianceType CTYPE>
-inline bool CheckCovarianceByType(const Eigen::MatrixXd& covariance) {
-  if constexpr (CTYPE == CovarianceType::IDENTITY) {
-    return covariance.isIdentity();
   } else if constexpr (CTYPE == CovarianceType::DIAGONAL) {
-    return covariance.isDiagonal();
-  } else {
-    return true;
+    return static_cast<DiagonalCovariance<double, N>>(
+        covariance.cwiseInverse());
+  } else {  // CTYPE == CovarianceType::DENSE
+    return static_cast<DenseCovariance<double, N>>(
+        covariance.inverse().llt().matrixL().transpose());
   }
 }
 
 template <typename T, int N, CovarianceType CTYPE = CovarianceType::IDENTITY>
 inline void ApplySqrtInformation(
-    T* residuals, const Eigen::Matrix<double, N, N>& sqrt_information) {
+    T* residuals, const SqrtInfoDataType<double, N, CTYPE>& sqrt_information) {
   if constexpr (CTYPE == CovarianceType::IDENTITY) {
     return;
   } else if constexpr (CTYPE == CovarianceType::DIAGONAL) {
-    for (int i = 0; i < sqrt_information.rows(); ++i) {
-      residuals[i] *= sqrt_information(i, i);
+    for (int i = 0; i < N; ++i) {
+      residuals[i] *= T(sqrt_information(i));
     }
   } else if constexpr (CTYPE == CovarianceType::DENSE) {
     Eigen::Map<Eigen::Matrix<T, N, 1>> residuals_map(residuals);
@@ -110,13 +138,33 @@ class ReprojErrorCostFunction {
       const Eigen::Matrix2d& point2D_covar = Eigen::Matrix2d::Identity())
       : observed_x_(point2D(0)),
         observed_y_(point2D(1)),
-        sqrt_info_point2D_(SqrtInformation<CTYPE>(point2D_covar)) {
-    THROW_CHECK(CheckCovarianceByType<CTYPE>(point2D_covar));
-  }
+        sqrt_info_point2D_(SqrtInformation<2, CTYPE>(
+            CovarianceDataType<double, 2, CTYPE>::FromDenseMatrix(
+                point2D_covar))) {}
+
+  explicit ReprojErrorCostFunction(
+      const Eigen::Vector2d& point2D,
+      const CovarianceDataType<double, 2, CTYPE>& point2D_covar)
+      : observed_x_(point2D(0)),
+        observed_y_(point2D(1)),
+        sqrt_info_point2D_(SqrtInformation<2, CTYPE>(point2D_covar)) {}
 
   static ceres::CostFunction* Create(
       const Eigen::Vector2d& point2D,
       const Eigen::Matrix2d& point2D_covar = Eigen::Matrix2d::Identity()) {
+    return (new ceres::AutoDiffCostFunction<
+            ReprojErrorCostFunction<CameraModel, CTYPE>,
+            2,
+            4,
+            3,
+            3,
+            CameraModel::num_params>(
+        new ReprojErrorCostFunction(point2D, point2D_covar)));
+  }
+
+  static ceres::CostFunction* Create(
+      const Eigen::Vector2d& point2D,
+      const CovarianceDataType<double, 2, CTYPE>& point2D_covar) {
     return (new ceres::AutoDiffCostFunction<
             ReprojErrorCostFunction<CameraModel, CTYPE>,
             2,
@@ -152,7 +200,7 @@ class ReprojErrorCostFunction {
  private:
   const double observed_x_;
   const double observed_y_;
-  const Eigen::Matrix2d sqrt_info_point2D_;
+  const SqrtInfoDataType<double, 2, CTYPE> sqrt_info_point2D_;
 };
 
 // Bundle adjustment cost function for variable
@@ -169,10 +217,28 @@ class ReprojErrorConstantPoseCostFunction
       const Eigen::Matrix2d& point2D_covar = Eigen::Matrix2d::Identity())
       : Parent(point2D, point2D_covar), cam_from_world_(cam_from_world) {}
 
+  ReprojErrorConstantPoseCostFunction(
+      const Rigid3d& cam_from_world,
+      const Eigen::Vector2d& point2D,
+      const CovarianceDataType<double, 2, CTYPE>& point2D_covar)
+      : Parent(point2D, point2D_covar), cam_from_world_(cam_from_world) {}
+
   static ceres::CostFunction* Create(
       const Rigid3d& cam_from_world,
       const Eigen::Vector2d& point2D,
       const Eigen::Matrix2d& point2D_covar = Eigen::Matrix2d::Identity()) {
+    return (new ceres::AutoDiffCostFunction<
+            ReprojErrorConstantPoseCostFunction<CameraModel, CTYPE>,
+            2,
+            3,
+            CameraModel::num_params>(new ReprojErrorConstantPoseCostFunction(
+        cam_from_world, point2D, point2D_covar)));
+  }
+
+  static ceres::CostFunction* Create(
+      const Rigid3d& cam_from_world,
+      const Eigen::Vector2d& point2D,
+      const CovarianceDataType<double, 2, CTYPE>& point2D_covar) {
     return (new ceres::AutoDiffCostFunction<
             ReprojErrorConstantPoseCostFunction<CameraModel, CTYPE>,
             2,
@@ -217,10 +283,32 @@ class ReprojErrorConstantPoint3DCostFunction
         point3D_y_(point3D(1)),
         point3D_z_(point3D(2)) {}
 
+  ReprojErrorConstantPoint3DCostFunction(
+      const Eigen::Vector2d& point2D,
+      const Eigen::Vector3d& point3D,
+      const CovarianceDataType<double, 2, CTYPE>& point2D_covar)
+      : Parent(point2D, point2D_covar),
+        point3D_x_(point3D(0)),
+        point3D_y_(point3D(1)),
+        point3D_z_(point3D(2)) {}
+
   static ceres::CostFunction* Create(
       const Eigen::Vector2d& point2D,
       const Eigen::Vector3d& point3D,
       const Eigen::Matrix2d& point2D_covar = Eigen::Matrix2d::Identity()) {
+    return (new ceres::AutoDiffCostFunction<
+            ReprojErrorConstantPoint3DCostFunction<CameraModel, CTYPE>,
+            2,
+            4,
+            3,
+            CameraModel::num_params>(new ReprojErrorConstantPoint3DCostFunction(
+        point2D, point3D, point2D_covar)));
+  }
+
+  static ceres::CostFunction* Create(
+      const Eigen::Vector2d& point2D,
+      const Eigen::Vector3d& point3D,
+      const CovarianceDataType<double, 2, CTYPE>& point2D_covar) {
     return (new ceres::AutoDiffCostFunction<
             ReprojErrorConstantPoint3DCostFunction<CameraModel, CTYPE>,
             2,
@@ -263,13 +351,35 @@ class RigReprojErrorCostFunction {
       const Eigen::Matrix2d& point2D_covar = Eigen::Matrix2d::Identity())
       : observed_x_(point2D(0)),
         observed_y_(point2D(1)),
-        sqrt_info_point2D_(SqrtInformation<CTYPE>(point2D_covar)) {
-    THROW_CHECK(CheckCovarianceByType<CTYPE>(point2D_covar));
-  }
+        sqrt_info_point2D_(SqrtInformation<2, CTYPE>(
+            CovarianceDataType<double, 2, CTYPE>::FromDenseMatrix(
+                point2D_covar))) {}
+
+  explicit RigReprojErrorCostFunction(
+      const Eigen::Vector2d& point2D,
+      const CovarianceDataType<double, 2, CTYPE>& point2D_covar)
+      : observed_x_(point2D(0)),
+        observed_y_(point2D(1)),
+        sqrt_info_point2D_(SqrtInformation<2, CTYPE>(point2D_covar)) {}
 
   static ceres::CostFunction* Create(
       const Eigen::Vector2d& point2D,
       const Eigen::Matrix2d& point2D_covar = Eigen::Matrix2d::Identity()) {
+    return (new ceres::AutoDiffCostFunction<
+            RigReprojErrorCostFunction<CameraModel, CTYPE>,
+            2,
+            4,
+            3,
+            4,
+            3,
+            3,
+            CameraModel::num_params>(
+        new RigReprojErrorCostFunction(point2D, point2D_covar)));
+  }
+
+  static ceres::CostFunction* Create(
+      const Eigen::Vector2d& point2D,
+      const CovarianceDataType<double, 2, CTYPE>& point2D_covar) {
     return (new ceres::AutoDiffCostFunction<
             RigReprojErrorCostFunction<CameraModel, CTYPE>,
             2,
@@ -311,7 +421,7 @@ class RigReprojErrorCostFunction {
  private:
   const double observed_x_;
   const double observed_y_;
-  const Eigen::Matrix2d sqrt_info_point2D_;
+  const SqrtInfoDataType<double, 2, CTYPE> sqrt_info_point2D_;
 };
 
 // Rig bundle adjustment cost function for variable camera pose and camera
@@ -328,10 +438,30 @@ class RigReprojErrorConstantRigCostFunction
       const Eigen::Matrix2d& point2D_covar = Eigen::Matrix2d::Identity())
       : Parent(point2D, point2D_covar), cam_from_rig_(cam_from_rig) {}
 
+  RigReprojErrorConstantRigCostFunction(
+      const Rigid3d& cam_from_rig,
+      const Eigen::Vector2d& point2D,
+      const CovarianceDataType<double, 2, CTYPE>& point2D_covar)
+      : Parent(point2D, point2D_covar), cam_from_rig_(cam_from_rig) {}
+
   static ceres::CostFunction* Create(
       const Rigid3d& cam_from_rig,
       const Eigen::Vector2d& point2D,
       const Eigen::Matrix2d& point2D_covar = Eigen::Matrix2d::Identity()) {
+    return (new ceres::AutoDiffCostFunction<
+            RigReprojErrorConstantRigCostFunction<CameraModel, CTYPE>,
+            2,
+            4,
+            3,
+            3,
+            CameraModel::num_params>(new RigReprojErrorConstantRigCostFunction(
+        cam_from_rig, point2D, point2D_covar)));
+  }
+
+  static ceres::CostFunction* Create(
+      const Rigid3d& cam_from_rig,
+      const Eigen::Vector2d& point2D,
+      const CovarianceDataType<double, 2, CTYPE>& point2D_covar) {
     return (new ceres::AutoDiffCostFunction<
             RigReprojErrorConstantRigCostFunction<CameraModel, CTYPE>,
             2,
@@ -441,12 +571,28 @@ struct AbsolutePoseErrorCostFunction {
   AbsolutePoseErrorCostFunction(const Rigid3d& cam_from_world,
                                 const EigenMatrix6d& covariance_cam)
       : world_from_cam_(Inverse(cam_from_world)),
-        sqrt_info_cam_(SqrtInformation<CTYPE>(covariance_cam)) {
-    THROW_CHECK(CheckCovarianceByType<CTYPE>(covariance_cam));
-  }
+        sqrt_info_cam_(SqrtInformation<6, CTYPE>(
+            CovarianceDataType<double, 6, CTYPE>::FromDenseMatrix(
+                covariance_cam))) {}
+
+  AbsolutePoseErrorCostFunction(
+      const Rigid3d& cam_from_world,
+      const CovarianceDataType<double, 6, CTYPE>& covariance_cam)
+      : world_from_cam_(Inverse(cam_from_world)),
+        sqrt_info_cam_(SqrtInformation<6, CTYPE>(covariance_cam)) {}
 
   static ceres::CostFunction* Create(const Rigid3d& cam_from_world,
                                      const EigenMatrix6d& covariance_cam) {
+    return (
+        new ceres::
+            AutoDiffCostFunction<AbsolutePoseErrorCostFunction<CTYPE>, 6, 4, 3>(
+                new AbsolutePoseErrorCostFunction<CTYPE>(cam_from_world,
+                                                         covariance_cam)));
+  }
+
+  static ceres::CostFunction* Create(
+      const Rigid3d& cam_from_world,
+      const CovarianceDataType<double, 6, CTYPE>& covariance_cam) {
     return (
         new ceres::
             AutoDiffCostFunction<AbsolutePoseErrorCostFunction<CTYPE>, 6, 4, 3>(
@@ -475,7 +621,7 @@ struct AbsolutePoseErrorCostFunction {
 
  private:
   const Rigid3d world_from_cam_;
-  const EigenMatrix6d sqrt_info_cam_;
+  const SqrtInfoDataType<double, 6, CTYPE> sqrt_info_cam_;
 };
 
 // 6-DoF error between two absolute poses based on a measurement that is their
@@ -496,12 +642,31 @@ struct MetricRelativePoseErrorCostFunction {
   MetricRelativePoseErrorCostFunction(const Rigid3d& i_from_j,
                                       const EigenMatrix6d& covariance_j)
       : i_from_j_(i_from_j),
-        sqrt_info_j_(SqrtInformation<CTYPE>(covariance_j)) {
-    THROW_CHECK(CheckCovarianceByType<CTYPE>(covariance_j));
-  }
+        sqrt_info_j_(SqrtInformation<6, CTYPE>(
+            CovarianceDataType<double, 6, CTYPE>::FromDenseMatrix(
+                covariance_j))) {}
+
+  MetricRelativePoseErrorCostFunction(
+      const Rigid3d& i_from_j,
+      const CovarianceDataType<double, 6, CTYPE>& covariance_j)
+      : i_from_j_(i_from_j),
+        sqrt_info_j_(SqrtInformation<6, CTYPE>(covariance_j)) {}
 
   static ceres::CostFunction* Create(const Rigid3d& i_from_j,
                                      const EigenMatrix6d& covariance_j) {
+    return (new ceres::AutoDiffCostFunction<
+            MetricRelativePoseErrorCostFunction<CTYPE>,
+            6,
+            4,
+            3,
+            4,
+            3>(new MetricRelativePoseErrorCostFunction<CTYPE>(i_from_j,
+                                                              covariance_j)));
+  }
+
+  static ceres::CostFunction* Create(
+      const Rigid3d& i_from_j,
+      const CovarianceDataType<double, 6, CTYPE>& covariance_j) {
     return (new ceres::AutoDiffCostFunction<
             MetricRelativePoseErrorCostFunction<CTYPE>,
             6,
@@ -538,7 +703,7 @@ struct MetricRelativePoseErrorCostFunction {
 
  private:
   const Rigid3d& i_from_j_;
-  const EigenMatrix6d sqrt_info_j_;
+  const SqrtInfoDataType<double, 6, CTYPE> sqrt_info_j_;
 };
 
 // Cost function for aligning one 3D point with a reference 3D point with
@@ -549,21 +714,42 @@ template <CovarianceType CTYPE = CovarianceType::DENSE>
 struct Point3dAlignmentCostFunction {
  public:
   Point3dAlignmentCostFunction(const Eigen::Vector3d& ref_point,
-                               const Eigen::Matrix3d& covariance_point)
+                               const Eigen::Matrix3d& covariance_point3D)
       : ref_point_(ref_point),
-        sqrt_info_point3D_(SqrtInformation<CTYPE>(covariance_point)) {
-    THROW_CHECK(CheckCovarianceByType<CTYPE>(covariance_point));
-  }
+        sqrt_info_point3D_(SqrtInformation<3, CTYPE>(
+            CovarianceDataType<double, 3, CTYPE>::FromDenseMatrix(
+                covariance_point3D))) {}
 
-  static ceres::CostFunction* Create(const Eigen::Vector3d& ref_point,
-                                     const Eigen::Matrix3d& covariance_point) {
+  Point3dAlignmentCostFunction(
+      const Eigen::Vector3d& ref_point,
+      const CovarianceDataType<double, 3, CTYPE>& covariance_point3D)
+      : ref_point_(ref_point),
+        sqrt_info_point3D_(SqrtInformation<3, CTYPE>(covariance_point3D)) {}
+
+  static ceres::CostFunction* Create(
+      const Eigen::Vector3d& ref_point,
+      const Eigen::Matrix3d& covariance_point3D) {
     return (new ceres::AutoDiffCostFunction<Point3dAlignmentCostFunction<CTYPE>,
                                             3,
                                             3,
                                             4,
                                             3,
                                             1>(
-        new Point3dAlignmentCostFunction<CTYPE>(ref_point, covariance_point)));
+        new Point3dAlignmentCostFunction<CTYPE>(ref_point,
+                                                covariance_point3D)));
+  }
+
+  static ceres::CostFunction* Create(
+      const Eigen::Vector3d& ref_point,
+      const CovarianceDataType<double, 3, CTYPE>& covariance_point3D) {
+    return (new ceres::AutoDiffCostFunction<Point3dAlignmentCostFunction<CTYPE>,
+                                            3,
+                                            3,
+                                            4,
+                                            3,
+                                            1>(
+        new Point3dAlignmentCostFunction<CTYPE>(ref_point,
+                                                covariance_point3D)));
   }
 
   template <typename T>
@@ -585,7 +771,7 @@ struct Point3dAlignmentCostFunction {
 
  private:
   const Eigen::Vector3d ref_point_;
-  const Eigen::Matrix3d sqrt_info_point3D_;
+  const SqrtInfoDataType<double, 3, CTYPE> sqrt_info_point3D_;
 };
 
 template <template <typename, CovarianceType> class CostFunction,
