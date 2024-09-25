@@ -803,7 +803,7 @@ struct PositionPriorErrorCostFunction {
 
   static ceres::CostFunction* Create(
       const Eigen::Vector3d& world_from_cam_position_prior,
-      const CovarianceDataType<double, 3>& covariance) {
+      const CovarianceDataType<double, 3, CTYPE>& covariance) {
     return (new ceres::
                 AutoDiffCostFunction<PositionPriorErrorCostFunction, 3, 4, 3>(
                     new PositionPriorErrorCostFunction(
