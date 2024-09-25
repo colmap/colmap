@@ -151,6 +151,7 @@ void BindReconstruction(py::module& m) {
            "Check if image is registered.")
       .def("normalize",
            &Reconstruction::Normalize,
+           "fixed_scale"_a = false,
            "extent"_a = 10.0,
            "p0"_a = 0.1,
            "p1"_a = 0.9,

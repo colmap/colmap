@@ -106,7 +106,7 @@ class OverlappingImagesWidget : public QWidget {
 };
 
 ////////////////////////////////////////////////////////////////////////////////
-// Images, Cameras
+// Images, Cameras, PosePriors
 ////////////////////////////////////////////////////////////////////////////////
 
 class CameraTab : public QWidget {
@@ -162,6 +162,22 @@ class ImageTab : public QWidget {
   FeatureImageViewerWidget* image_viewer_widget_;
 };
 
+class PosePriorsTab : public QWidget {
+ public:
+  PosePriorsTab(QWidget* parent, Database* database);
+
+  void Reload();
+  void Clear();
+
+ private:
+  void itemChanged(QTableWidgetItem* item);
+
+  Database* database_;
+
+  QTableWidget* table_widget_;
+  QLabel* info_label_;
+};
+
 class DatabaseManagementWidget : public QWidget {
  public:
   DatabaseManagementWidget(QWidget* parent, OptionManager* options);
@@ -181,6 +197,7 @@ class DatabaseManagementWidget : public QWidget {
   QTabWidget* tab_widget_;
   ImageTab* image_tab_;
   CameraTab* camera_tab_;
+  PosePriorsTab* pose_prior_tab_;
 };
 
 }  // namespace colmap

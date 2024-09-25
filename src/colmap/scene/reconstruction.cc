@@ -269,32 +269,35 @@ void Reconstruction::DeRegisterImage(const image_t image_id) {
       reg_image_ids_.end());
 }
 
-void Reconstruction::Normalize(const double extent,
-                               const double p0,
-                               const double p1,
-                               const bool use_images) {
+Sim3d Reconstruction::Normalize(const bool fixed_scale,
+                                const double extent,
+                                const double p0,
+                                const double p1,
+                                const bool use_images) {
   THROW_CHECK_GT(extent, 0);
 
   if ((use_images && reg_image_ids_.size() < 2) ||
       (!use_images && points3D_.size() < 2)) {
-    return;
+    return Sim3d();
   }
 
   auto bound = ComputeBoundsAndCentroid(p0, p1, use_images);
 
   // Calculate scale and translation, such that
   // translation is applied before scaling.
-  const double old_extent = (std::get<1>(bound) - std::get<0>(bound)).norm();
-  double scale;
-  if (old_extent < std::numeric_limits<double>::epsilon()) {
-    scale = 1;
-  } else {
-    scale = extent / old_extent;
+  double scale = 1.;
+  if (!fixed_scale) {
+    const double old_extent = (std::get<1>(bound) - std::get<0>(bound)).norm();
+    if (old_extent >= std::numeric_limits<double>::epsilon()) {
+      scale = extent / old_extent;
+    }
   }
 
   Sim3d tform(
       scale, Eigen::Quaterniond::Identity(), -scale * std::get<2>(bound));
   Transform(tform);
+
+  return tform;
 }
 
 Eigen::Vector3d Reconstruction::ComputeCentroid(const double p0,
