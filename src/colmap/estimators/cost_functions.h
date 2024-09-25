@@ -105,7 +105,7 @@ inline void ApplySqrtInformation(
 template <typename CameraModel, CovarianceType CTYPE = CovarianceType::IDENTITY>
 class ReprojErrorCostFunction {
  public:
-  explicit ReprojErrorCostFunction(
+  ReprojErrorCostFunction(
       const Eigen::Vector2d& point2D,
       const Eigen::Matrix2d& point2D_covar = Eigen::Matrix2d::Identity())
       : observed_x_(point2D(0)),
@@ -260,7 +260,7 @@ class ReprojErrorConstantPoint3DCostFunction
 template <typename CameraModel, CovarianceType CTYPE = CovarianceType::IDENTITY>
 class RigReprojErrorCostFunction {
  public:
-  explicit RigReprojErrorCostFunction(
+  RigReprojErrorCostFunction(
       const Eigen::Vector2d& point2D,
       const Eigen::Matrix2d& point2D_covar = Eigen::Matrix2d::Identity())
       : observed_x_(point2D(0)),
@@ -326,7 +326,7 @@ class RigReprojErrorConstantRigCostFunction
   using Parent = RigReprojErrorCostFunction<CameraModel, CTYPE>;
 
  public:
-  explicit RigReprojErrorConstantRigCostFunction(
+  RigReprojErrorConstantRigCostFunction(
       const Rigid3d& cam_from_rig,
       const Eigen::Vector2d& point2D,
       const Eigen::Matrix2d& point2D_covar = Eigen::Matrix2d::Identity())
@@ -445,7 +445,7 @@ struct AbsolutePoseErrorCostFunction {
   AbsolutePoseErrorCostFunction(const Rigid3d& cam_from_world,
                                 const EigenMatrix6d& covariance_cam)
       : world_from_cam_(Inverse(cam_from_world)),
-        sqrt_information_cam_(SqrtInformation<CTYPE>(covariance_cam)) {
+        sqrt_info_cam_(SqrtInformation<CTYPE>(covariance_cam)) {
     THROW_CHECK(CheckCovarianceByType<CTYPE>(covariance_cam));
   }
 
@@ -474,14 +474,14 @@ struct AbsolutePoseErrorCostFunction {
                                 world_from_cam_.translation.cast<T>();
 
     if constexpr (CTYPE != CovarianceType::IDENTITY) {
-      ApplySqrtInformation<T, 6, CTYPE>(residuals, sqrt_information_cam_);
+      ApplySqrtInformation<T, 6, CTYPE>(residuals, sqrt_info_cam_);
     }
     return true;
   }
 
  private:
   const Rigid3d world_from_cam_;
-  const EigenMatrix6d sqrt_information_cam_;
+  const EigenMatrix6d sqrt_info_cam_;
 };
 
 // 6-DoF error between two absolute poses based on a measurement that is their
@@ -502,7 +502,7 @@ struct MetricRelativePoseErrorCostFunction {
   MetricRelativePoseErrorCostFunction(const Rigid3d& i_from_j,
                                       const EigenMatrix6d& covariance_j)
       : i_from_j_(i_from_j),
-        sqrt_information_j_(SqrtInformation<CTYPE>(covariance_j)) {
+        sqrt_info_j_(SqrtInformation<CTYPE>(covariance_j)) {
     THROW_CHECK(CheckCovarianceByType<CTYPE>(covariance_j));
   }
 
@@ -539,14 +539,14 @@ struct MetricRelativePoseErrorCostFunction {
         EigenVector3Map<T>(j_from_world_t) + j_from_i_q * i_from_jw_t;
 
     if constexpr (CTYPE != CovarianceType::IDENTITY) {
-      ApplySqrtInformation<T, 6, CTYPE>(residuals, sqrt_information_j_);
+      ApplySqrtInformation<T, 6, CTYPE>(residuals, sqrt_info_j_);
     }
     return true;
   }
 
  private:
   const Rigid3d& i_from_j_;
-  const EigenMatrix6d sqrt_information_j_;
+  const EigenMatrix6d sqrt_info_j_;
 };
 
 // Cost function for aligning one 3D point with a reference 3D point with
@@ -559,7 +559,7 @@ struct Point3dAlignmentCostFunction {
   Point3dAlignmentCostFunction(const Eigen::Vector3d& ref_point,
                                const Eigen::Matrix3d& covariance_point)
       : ref_point_(ref_point),
-        sqrt_information_point_(SqrtInformation<CTYPE>(covariance_point)) {
+        sqrt_info_point3D_(SqrtInformation<CTYPE>(covariance_point)) {
     THROW_CHECK(CheckCovarianceByType<CTYPE>(covariance_point));
   }
 
@@ -588,14 +588,14 @@ struct Point3dAlignmentCostFunction {
       residuals[i] = transform_point[i] - T(ref_point_[i]);
     }
     if constexpr (CTYPE != CovarianceType::IDENTITY) {
-      ApplySqrtInformation<T, 3, CTYPE>(residuals, sqrt_information_point_);
+      ApplySqrtInformation<T, 3, CTYPE>(residuals, sqrt_info_point3D_);
     }
     return true;
   }
 
  private:
   const Eigen::Vector3d ref_point_;
-  const Eigen::Matrix3d sqrt_information_point_;
+  const Eigen::Matrix3d sqrt_info_point3D_;
 };
 
 template <template <typename, CovarianceType> class CostFunction,
