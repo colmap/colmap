@@ -557,6 +557,11 @@ class IsotropicNoiseCostFunctionWrapper {
   }
 };
 
+template <typename... Args>
+auto LastValueParameterPack(Args&&... args) {
+  return std::get<sizeof...(Args) - 1>(std::forward_as_tuple(args...));
+}
+
 template <class CostFunctor>
 class WeightedCostFunction {
  public:
@@ -564,21 +569,21 @@ class WeightedCostFunction {
   typedef typename CostFunctor::Parameters Parameters;
   typedef Eigen::Matrix<double, kNumResiduals, kNumResiduals> MatrixNd;
 
-  WeightedCostFunction(const MatrixNd& weight, const CostFunctor* functor)
-      : weight_(weight), functor_(functor) {}
+  template <typename... Args>
+  WeightedCostFunction(const MatrixNd& weight, Args&&... args)
+      : weight_(weight), functor_(std::forward<Args>(args)...) {}
 
   template <typename... Args>
   static ceres::CostFunction* Create(const MatrixNd& weight, Args&&... args) {
-    const CostFunctor* cost_function =
-        new CostFunctor(std::forward<Args>(args)...);
-    return CreateAutoDiffCostFunction(
-        new WeightedCostFunction<CostFunctor>(weight, cost_function));
+    return CreateAutoDiffCostFunction(new WeightedCostFunction<CostFunctor>(
+        weight, std::forward<Args>(args)...));
   }
 
-  template <typename T, typename... Args>
-  bool operator()(Args&&... args, T* residuals_ptr) {
-    const bool ret =
-        functor_->operator()(std::forward<Args>(args)..., residuals_ptr);
+  template <typename... Args>
+  bool operator()(Args... args) const {
+    const bool ret = functor_(args...);
+    auto residuals_ptr = LastValueParameterPack(args...);
+    typedef typename std::remove_reference<decltype(*residuals_ptr)>::type T;
     Eigen::Map<Eigen::Matrix<T, kNumResiduals, 1>> residuals(residuals_ptr);
     residuals.applyOnTheLeft(weight_.template cast<T>());
     return ret;
@@ -586,7 +591,7 @@ class WeightedCostFunction {
 
  private:
   const MatrixNd weight_;
-  std::unique_ptr<const CostFunctor> functor_;
+  const CostFunctor functor_;
 };
 
 template <template <typename> class CostFunction, typename... Args>

@@ -43,12 +43,8 @@ namespace {
 
 TEST(BundleAdjustment, AbsolutePose) {
   using CostFunction = ReprojErrorCostFunction<SimplePinholeCameraModel>;
-  // std::unique_ptr<ceres::CostFunction> cost_function(
-  // CostFunction::Create(Eigen::Vector2d::Zero()));
-  Eigen::Matrix2d weight = Eigen::Matrix2d::Identity();
   std::unique_ptr<ceres::CostFunction> cost_function(
-      WeightedCostFunction<CostFunction>::Create(weight,
-                                                 Eigen::Vector2d::Zero()));
+      CostFunction::Create(Eigen::Vector2d::Zero()));
   double cam_from_world_rotation[4] = {0, 0, 0, 1};
   double cam_from_world_translation[3] = {0, 0, 0};
   double point3D[3] = {0, 0, 1};
@@ -84,6 +80,15 @@ TEST(BundleAdjustment, AbsolutePose) {
       cost_function_with_noise->Evaluate(parameters, residuals, nullptr));
   EXPECT_EQ(residuals[0], -1);
   EXPECT_EQ(residuals[1], 1);
+
+  Eigen::Matrix2d weight{{2, 0}, {0, 4}};
+  std::unique_ptr<ceres::CostFunction> cost_function_with_noise_2(
+      WeightedCostFunction<CostFunction>::Create(weight,
+                                                 Eigen::Vector2d::Zero()));
+  EXPECT_TRUE(
+      cost_function_with_noise_2->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], -4);
+  EXPECT_EQ(residuals[1], 8);
 }
 
 TEST(BundleAdjustment, ConstantPoseAbsolutePose) {
