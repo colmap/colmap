@@ -782,7 +782,7 @@ struct PositionPriorErrorCostFunction {
       const Eigen::Vector3d& world_from_cam_position_prior,
       const Eigen::Matrix3d& covariance)
       : world_from_cam_position_prior_(world_from_cam_position_prior),
-        sqrt_info_prior_(SqrtInformation(
+        sqrt_info_prior_(SqrtInformation<3, CTYPE>(
             CovarianceDataType<double, 3, CTYPE>::FromDenseMatrix(
                 covariance))) {}
 
@@ -790,7 +790,7 @@ struct PositionPriorErrorCostFunction {
       const Eigen::Vector3d& world_from_cam_position_prior,
       const CovarianceDataType<double, 3, CTYPE>& covariance)
       : world_from_cam_position_prior_(world_from_cam_position_prior),
-        sqrt_info_prior_(SqrtInformation(covariance)) {}
+        sqrt_info_prior_(SqrtInformation<3, CTYPE>(covariance)) {}
 
   static ceres::CostFunction* Create(
       const Eigen::Vector3d& world_from_cam_position_prior,
@@ -824,7 +824,7 @@ struct PositionPriorErrorCostFunction {
 
  private:
   const Eigen::Vector3d world_from_cam_position_prior_;
-  const CovarianceDataType<double, 3, CTYPE> sqrt_info_prior_;
+  const SqrtInfoDataType<double, 3, CTYPE> sqrt_info_prior_;
 };
 
 template <template <typename, CovarianceType> class CostFunction,
