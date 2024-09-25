@@ -780,16 +780,30 @@ std::vector<Eigen::Matrix3d> EstimatePointCovariance(
   BundleAdjuster bundle_adjuster(BundleAdjustmentOptions(), ba_config);
   bundle_adjuster.SetUpProblem(reconstruction, /*loss_function=*/nullptr);
 
+  ceres::Covariance::Options options;
+  ceres::Covariance covariance_computer(options);
+
   std::vector<Eigen::Matrix3d> covs;
   covs.reserve(point3D_ids.size());
+
+  std::vector<std::pair<const double*, const double*>> cov_param_pairs;
+  cov_param_pairs.reserve(point3D_ids.size());
+  for (const point3D_t point3D_id : point3D_ids) {
+    const Point3D& point3D = reconstruction->Point3D(point3D_id);
+    cov_param_pairs.emplace_back(point3D.xyz.data(), point3D.xyz.data());
+  }
+
+  if (!covariance_computer.Compute(cov_param_pairs,
+                                   bundle_adjuster.Problem().get())) {
+    LOG(ERROR)
+        << "Failed to compute covariance, falling back to identity covariance";
+    covs.resize(point3D_ids.size(), Eigen::Matrix3d::Identity());
+    return covs;
+  }
+
   for (const point3D_t point3D_id : point3D_ids) {
     const Point3D& point3D = reconstruction->Point3D(point3D_id);
     Eigen::Matrix<double, 3, 3, Eigen::RowMajor> cov;
-    ceres::Covariance::Options options;
-    ceres::Covariance covariance_computer(options);
-    if (!covariance_computer.Compute({point3D.xyz.data()},
-                                     bundle_adjuster.Problem().get())) {
-    }
     covariance_computer.GetCovarianceMatrixInTangentSpace({point3D.xyz.data()},
                                                           cov.data());
     covs.push_back(cov);
