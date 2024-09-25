@@ -190,12 +190,24 @@ TEST(Database, PosePrior) {
   PosePrior pose_prior(Eigen::Vector3d(0.1, 0.2, 0.3),
                        PosePrior::CoordinateSystem::CARTESIAN);
   EXPECT_TRUE(pose_prior.IsValid());
+  EXPECT_FALSE(pose_prior.IsCovarianceValid());
   database.WritePosePrior(image.ImageId(), pose_prior);
   EXPECT_EQ(database.NumPosePriors(), 1);
   auto read_pose_prior = database.ReadPosePrior(image.ImageId());
   EXPECT_EQ(read_pose_prior.position, pose_prior.position);
   EXPECT_EQ(read_pose_prior.coordinate_system, pose_prior.coordinate_system);
   EXPECT_TRUE(read_pose_prior.IsValid());
+  EXPECT_FALSE(read_pose_prior.IsCovarianceValid());
+  pose_prior.position_covariance = Eigen::Matrix3d::Identity();
+  EXPECT_TRUE(pose_prior.IsCovarianceValid());
+  database.UpdatePosePrior(image.ImageId(), pose_prior);
+  read_pose_prior = database.ReadPosePrior(image.ImageId());
+  EXPECT_EQ(read_pose_prior.position, pose_prior.position);
+  EXPECT_EQ(read_pose_prior.position_covariance,
+            pose_prior.position_covariance);
+  EXPECT_EQ(read_pose_prior.coordinate_system, pose_prior.coordinate_system);
+  EXPECT_TRUE(read_pose_prior.IsValid());
+  EXPECT_TRUE(read_pose_prior.IsCovarianceValid());
   database.ClearPosePriors();
   EXPECT_EQ(database.NumPosePriors(), 0);
 }
