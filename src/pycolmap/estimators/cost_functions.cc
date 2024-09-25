@@ -162,7 +162,7 @@ void BindCostFunctions(py::module& m_parent) {
   m.def("PositionPriorErrorCost",
         static_cast<ceres::CostFunction* (*)(const Eigen::Vector3d&,
                                              const Eigen::Matrix3d&)>(
-            &PositionPriorErrorCostFunction::Create),
+            &PositionPriorErrorCostFunction<CovarianceType::DENSE>::Create),
         "world_from_cam_position_prior"_a,
         "covariance"_a);
 }
