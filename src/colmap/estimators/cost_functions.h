@@ -145,9 +145,7 @@ class ReprojErrorCostFunction {
                             &residuals[1]);
     residuals[0] -= T(observed_x_);
     residuals[1] -= T(observed_y_);
-    if constexpr (CTYPE != CovarianceType::IDENTITY) {
-      ApplySqrtInformation<T, 2, CTYPE>(residuals, sqrt_info_point2D_);
-    }
+    ApplySqrtInformation<T, 2, CTYPE>(residuals, sqrt_info_point2D_);
     return true;
   }
 
@@ -306,9 +304,7 @@ class RigReprojErrorCostFunction {
                             &residuals[1]);
     residuals[0] -= T(observed_x_);
     residuals[1] -= T(observed_y_);
-    if constexpr (CTYPE != CovarianceType::IDENTITY) {
-      ApplySqrtInformation<T, 2, CTYPE>(residuals, sqrt_info_point2D_);
-    }
+    ApplySqrtInformation<T, 2, CTYPE>(residuals, sqrt_info_point2D_);
     return true;
   }
 
@@ -473,9 +469,7 @@ struct AbsolutePoseErrorCostFunction {
                             EigenQuaternionMap<T>(cam_from_world_q) *
                                 world_from_cam_.translation.cast<T>();
 
-    if constexpr (CTYPE != CovarianceType::IDENTITY) {
-      ApplySqrtInformation<T, 6, CTYPE>(residuals, sqrt_info_cam_);
-    }
+    ApplySqrtInformation<T, 6, CTYPE>(residuals, sqrt_info_cam_);
     return true;
   }
 
@@ -538,9 +532,7 @@ struct MetricRelativePoseErrorCostFunction {
     param_from_measured_t =
         EigenVector3Map<T>(j_from_world_t) + j_from_i_q * i_from_jw_t;
 
-    if constexpr (CTYPE != CovarianceType::IDENTITY) {
-      ApplySqrtInformation<T, 6, CTYPE>(residuals, sqrt_info_j_);
-    }
+    ApplySqrtInformation<T, 6, CTYPE>(residuals, sqrt_info_j_);
     return true;
   }
 
@@ -587,9 +579,7 @@ struct Point3dAlignmentCostFunction {
     for (size_t i = 0; i < 3; ++i) {
       residuals[i] = transform_point[i] - T(ref_point_[i]);
     }
-    if constexpr (CTYPE != CovarianceType::IDENTITY) {
-      ApplySqrtInformation<T, 3, CTYPE>(residuals, sqrt_info_point3D_);
-    }
+    ApplySqrtInformation<T, 3, CTYPE>(residuals, sqrt_info_point3D_);
     return true;
   }
 
