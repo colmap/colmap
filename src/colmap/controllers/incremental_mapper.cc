@@ -85,6 +85,9 @@ IncrementalMapper::Options IncrementalPipelineOptions::Mapper() const {
   options.num_threads = num_threads;
   options.local_ba_num_images = ba_local_num_images;
   options.fix_existing_images = fix_existing_images;
+  options.use_prior_position = use_prior_position;
+  options.use_robust_loss_on_prior_position = use_robust_loss_on_prior_position;
+  options.prior_position_loss_scale = prior_position_loss_scale;
   return options;
 }
 
@@ -176,6 +179,7 @@ bool IncrementalPipelineOptions::Check() const {
   CHECK_OPTION_GT(ba_global_max_refinements, 0);
   CHECK_OPTION_GE(ba_global_max_refinement_change, 0);
   CHECK_OPTION_GE(snapshot_images_freq, 0);
+  CHECK_OPTION_GT(prior_position_loss_scale, 0.);
   CHECK_OPTION(Mapper().Check());
   CHECK_OPTION(Triangulation().Check());
   return true;
@@ -253,6 +257,12 @@ bool IncrementalPipeline::LoadDatabase() {
   if (database_cache_->NumImages() == 0) {
     LOG(WARNING) << "No images with matches found in the database";
     return false;
+  }
+
+  // If prior positions are to be used and setup from the database, convert
+  // geographic coords. to cartesian ones
+  if (options_->use_prior_position) {
+    return database_cache_->SetupPosePriors();
   }
 
   return true;
