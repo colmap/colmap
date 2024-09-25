@@ -14,5 +14,5 @@ FILES="$OUTPUT/pycolmap-stubs/*.pyi"
 perl -i -pe's/: ceres::([a-zA-Z]|::)+//g' $FILES
 perl -i -pe's/ -> ceres::([a-zA-Z]|::)+:$/:/g' $FILES
 
-$PYTHON_EXEC -m black --line-length 80 $FILES
-$PYTHON_EXEC -m isort --profile=black $FILES
+COLMAP_DIR=$(dirname $( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd ))
+$PYTHON_EXEC -m ruff format --config ${COLMAP_DIR}/ruff.toml ${FILES}
