@@ -34,11 +34,11 @@ Some features, such as cost functions, require that `PyCeres
 <https://github.com/cvg/pyceres>`_ is installed in the same manner as PyCOLMAP,
 so either from PyPI or from source.
 
-Usage
+API
 -----
 
 .. toctree::
    :maxdepth: 2
 
-   api
+   pycolmap
    cost_functions
