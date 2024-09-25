@@ -15,4 +15,4 @@ perl -i -pe's/: ceres::([a-zA-Z]|::)+//g' $FILES
 perl -i -pe's/ -> ceres::([a-zA-Z]|::)+:$/:/g' $FILES
 
 COLMAP_DIR=$(dirname $( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd ))
-$PYTHON_EXEC -m ruff format --config ${COLMAP_DIR}/ruff.toml ${FILES}
+ruff format --config ${COLMAP_DIR}/ruff.toml ${FILES}
