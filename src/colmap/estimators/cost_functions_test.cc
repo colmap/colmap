@@ -81,7 +81,8 @@ TEST(BundleAdjustment, AbsolutePose) {
   EXPECT_EQ(residuals[0], -1);
   EXPECT_EQ(residuals[1], 1);
 
-  const Eigen::Matrix2d covariance{{4, 0}, {0, 16}};
+  Eigen::Matrix2d covariance;
+  covariance << 4, 0, 0, 16;
   std::unique_ptr<ceres::CostFunction> cost_function_with_noise_covar(
       NoiseCostFunctionWrapper<CostFunction>::Create(covariance,
                                                      Eigen::Vector2d::Zero()));
