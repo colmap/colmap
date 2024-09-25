@@ -953,7 +953,7 @@ void PosePriorBundleAdjuster::AddPosePriorToProblem(
       image.CamFromWorld().rotation.coeffs().data();
 
   problem_->AddResidualBlock(
-      PositionPriorErrorCostFunction::Create(
+      PositionPriorErrorCostFunction<CovarianceType::DENSE>::Create(
           normalized_from_metric_ * prior.position, prior.position_covariance),
       prior_loss_function,
       cam_from_world_rotation,
