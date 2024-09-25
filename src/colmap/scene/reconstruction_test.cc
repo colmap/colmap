@@ -233,29 +233,50 @@ TEST(Reconstruction, Normalize) {
   reconstruction.DeRegisterImage(1);
   reconstruction.DeRegisterImage(2);
   reconstruction.DeRegisterImage(3);
-  reconstruction.Normalize();
+  reconstruction.Normalize(/*fixed_scale=*/false);
   EXPECT_NEAR(
       reconstruction.Image(1).CamFromWorld().translation.z(), -10, 1e-6);
   EXPECT_NEAR(reconstruction.Image(2).CamFromWorld().translation.z(), 0, 1e-6);
   EXPECT_NEAR(reconstruction.Image(3).CamFromWorld().translation.z(), 10, 1e-6);
+  reconstruction.Image(1).CamFromWorld().translation.z() = -20.0;
+  reconstruction.Image(2).CamFromWorld().translation.z() = -10.0;
+  reconstruction.Image(3).CamFromWorld().translation.z() = 0.0;
   reconstruction.RegisterImage(1);
   reconstruction.RegisterImage(2);
   reconstruction.RegisterImage(3);
-  reconstruction.Normalize();
+  reconstruction.Normalize(/*fixed_scale=*/true);
+  EXPECT_NEAR(
+      reconstruction.Image(1).CamFromWorld().translation.z(), -10, 1e-6);
+  EXPECT_NEAR(reconstruction.Image(2).CamFromWorld().translation.z(), 0, 1e-6);
+  EXPECT_NEAR(reconstruction.Image(3).CamFromWorld().translation.z(), 10, 1e-6);
+  reconstruction.Normalize(/*fixed_scale=*/false);
   EXPECT_NEAR(reconstruction.Image(1).CamFromWorld().translation.z(), -5, 1e-6);
   EXPECT_NEAR(reconstruction.Image(2).CamFromWorld().translation.z(), 0, 1e-6);
   EXPECT_NEAR(reconstruction.Image(3).CamFromWorld().translation.z(), 5, 1e-6);
-  reconstruction.Normalize(5);
+  reconstruction.Normalize(/*fixed_scale=*/false, 5);
   EXPECT_NEAR(
       reconstruction.Image(1).CamFromWorld().translation.z(), -2.5, 1e-6);
   EXPECT_NEAR(reconstruction.Image(2).CamFromWorld().translation.z(), 0, 1e-6);
   EXPECT_NEAR(
       reconstruction.Image(3).CamFromWorld().translation.z(), 2.5, 1e-6);
-  reconstruction.Normalize(10, 0.0, 1.0);
+  reconstruction.Normalize(/*fixed_scale=*/false, 10, 0.0, 1.0);
   EXPECT_NEAR(reconstruction.Image(1).CamFromWorld().translation.z(), -5, 1e-6);
   EXPECT_NEAR(reconstruction.Image(2).CamFromWorld().translation.z(), 0, 1e-6);
   EXPECT_NEAR(reconstruction.Image(3).CamFromWorld().translation.z(), 5, 1e-6);
-  reconstruction.Normalize(20);
+  const Sim3d tform = reconstruction.Normalize(/*fixed_scale=*/false, 20);
+  EXPECT_NEAR(
+      reconstruction.Image(1).CamFromWorld().translation.z(), -10, 1e-6);
+  EXPECT_NEAR(reconstruction.Image(2).CamFromWorld().translation.z(), 0, 1e-6);
+  EXPECT_NEAR(reconstruction.Image(3).CamFromWorld().translation.z(), 10, 1e-6);
+  reconstruction.Transform(Inverse(tform));
+  EXPECT_NEAR(reconstruction.Image(1).CamFromWorld().translation.z(), -5, 1e-6);
+  EXPECT_NEAR(reconstruction.Image(2).CamFromWorld().translation.z(), 0, 1e-6);
+  EXPECT_NEAR(reconstruction.Image(3).CamFromWorld().translation.z(), 5, 1e-6);
+  reconstruction.Transform(tform);
+  EXPECT_NEAR(
+      reconstruction.Image(1).CamFromWorld().translation.z(), -10, 1e-6);
+  EXPECT_NEAR(reconstruction.Image(2).CamFromWorld().translation.z(), 0, 1e-6);
+  EXPECT_NEAR(reconstruction.Image(3).CamFromWorld().translation.z(), 10, 1e-6);
   Image image;
   image.SetCameraId(reconstruction.Image(1).CameraId());
   image.SetImageId(4);
@@ -275,7 +296,7 @@ TEST(Reconstruction, Normalize) {
   reconstruction.Image(6).CamFromWorld().translation.z() = 5.0;
   reconstruction.Image(7).CamFromWorld().translation.z() = 7.5;
   reconstruction.RegisterImage(7);
-  reconstruction.Normalize(10, 0.0, 1.0);
+  reconstruction.Normalize(/*fixed_scale=*/false, 10, 0.0, 1.0);
   EXPECT_NEAR(reconstruction.Image(1).CamFromWorld().translation.z(), -5, 1e-6);
   EXPECT_NEAR(reconstruction.Image(2).CamFromWorld().translation.z(), 0, 1e-6);
   EXPECT_NEAR(reconstruction.Image(3).CamFromWorld().translation.z(), 5, 1e-6);

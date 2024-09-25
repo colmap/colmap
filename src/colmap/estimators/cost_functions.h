@@ -774,6 +774,58 @@ struct Point3dAlignmentCostFunction {
   const SqrtInfoDataType<double, 3, CTYPE> sqrt_info_point3D_;
 };
 
+// 3-DoF error on the cam to world position.
+template <CovarianceType CTYPE = CovarianceType::DENSE>
+struct PositionPriorErrorCostFunction {
+ public:
+  PositionPriorErrorCostFunction(
+      const Eigen::Vector3d& world_from_cam_position_prior,
+      const Eigen::Matrix3d& covariance)
+      : world_from_cam_position_prior_(world_from_cam_position_prior),
+        sqrt_info_prior_(SqrtInformation(
+            CovarianceDataType<double, 3>::FromDenseMatrix(covariance))) {}
+
+  PositionPriorErrorCostFunction(
+      const Eigen::Vector3d& world_from_cam_position_prior,
+      const CovarianceDataType<double, 3>& covariance)
+      : world_from_cam_position_prior_(world_from_cam_position_prior),
+        sqrt_info_prior_(SqrtInformation(covariance)) {}
+
+  static ceres::CostFunction* Create(
+      const Eigen::Vector3d& world_from_cam_position_prior,
+      const Eigen::Matrix3d& covariance) {
+    return (new ceres::
+                AutoDiffCostFunction<PositionPriorErrorCostFunction, 3, 4, 3>(
+                    new PositionPriorErrorCostFunction(
+                        world_from_cam_position_prior, covariance)));
+  }
+
+  static ceres::CostFunction* Create(
+      const Eigen::Vector3d& world_from_cam_position_prior,
+      const CovarianceDataType<double, 3>& covariance) {
+    return (new ceres::
+                AutoDiffCostFunction<PositionPriorErrorCostFunction, 3, 4, 3>(
+                    new PositionPriorErrorCostFunction(
+                        world_from_cam_position_prior, covariance)));
+  }
+
+  template <typename T>
+  bool operator()(const T* const cam_from_world_q,
+                  const T* const cam_from_world_t,
+                  T* residuals_ptr) const {
+    Eigen::Map<Eigen::Matrix<T, 3, 1>> residuals(residuals_ptr);
+    residuals = world_from_cam_position_prior_.cast<T>() +
+                EigenQuaternionMap<T>(cam_from_world_q).inverse() *
+                    EigenVector3Map<T>(cam_from_world_t);
+    ApplySqrtInformation<T, 3, CTYPE>(residuals_ptr, sqrt_info_point3D_);
+    return true;
+  }
+
+ private:
+  const Eigen::Vector3d world_from_cam_position_prior_;
+  const CovarianceDataType<double, 3> sqrt_info_prior_;
+};
+
 template <template <typename, CovarianceType> class CostFunction,
           typename... Args>
 ceres::CostFunction* CameraCostFunction(const CameraModelId camera_model_id,

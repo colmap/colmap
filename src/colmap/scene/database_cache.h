@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/geometry/gps.h"
 #include "colmap/scene/camera.h"
 #include "colmap/scene/correspondence_graph.h"
 #include "colmap/scene/database.h"
@@ -68,20 +69,26 @@ class DatabaseCache {
   // Get number of objects.
   inline size_t NumCameras() const;
   inline size_t NumImages() const;
+  inline size_t NumPosePriors() const;
 
   // Get specific objects.
   inline struct Camera& Camera(camera_t camera_id);
   inline const struct Camera& Camera(camera_t camera_id) const;
   inline class Image& Image(image_t image_id);
   inline const class Image& Image(image_t image_id) const;
+  inline struct PosePrior& PosePrior(image_t image_id);
+  inline const struct PosePrior& PosePrior(image_t image_id) const;
 
   // Get all objects.
   inline const std::unordered_map<camera_t, struct Camera>& Cameras() const;
   inline const std::unordered_map<image_t, class Image>& Images() const;
+  inline const std::unordered_map<image_t, struct PosePrior>& PosePriors()
+      const;
 
   // Check whether specific object exists.
   inline bool ExistsCamera(camera_t camera_id) const;
   inline bool ExistsImage(image_t image_id) const;
+  inline bool ExistsPosePrior(image_t image_id) const;
 
   // Get reference to const correspondence graph.
   inline std::shared_ptr<const class CorrespondenceGraph> CorrespondenceGraph()
@@ -90,11 +97,15 @@ class DatabaseCache {
   // Find specific image by name. Note that this uses linear search.
   const class Image* FindImageWithName(const std::string& name) const;
 
+  // Setup PosePriors for PosePriorBundleAdjustment
+  bool SetupPosePriors();
+
  private:
   std::shared_ptr<class CorrespondenceGraph> correspondence_graph_;
 
   std::unordered_map<camera_t, struct Camera> cameras_;
   std::unordered_map<image_t, class Image> images_;
+  std::unordered_map<image_t, struct PosePrior> pose_priors_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -103,6 +114,7 @@ class DatabaseCache {
 
 size_t DatabaseCache::NumCameras() const { return cameras_.size(); }
 size_t DatabaseCache::NumImages() const { return images_.size(); }
+size_t DatabaseCache::NumPosePriors() const { return pose_priors_.size(); }
 
 struct Camera& DatabaseCache::Camera(const camera_t camera_id) {
   return cameras_.at(camera_id);
@@ -120,6 +132,14 @@ const class Image& DatabaseCache::Image(const image_t image_id) const {
   return images_.at(image_id);
 }
 
+struct PosePrior& DatabaseCache::PosePrior(image_t image_id) {
+  return pose_priors_.at(image_id);
+}
+
+const struct PosePrior& DatabaseCache::PosePrior(image_t image_id) const {
+  return pose_priors_.at(image_id);
+}
+
 const std::unordered_map<camera_t, struct Camera>& DatabaseCache::Cameras()
     const {
   return cameras_;
@@ -129,12 +149,21 @@ const std::unordered_map<image_t, class Image>& DatabaseCache::Images() const {
   return images_;
 }
 
+const std::unordered_map<image_t, struct PosePrior>& DatabaseCache::PosePriors()
+    const {
+  return pose_priors_;
+}
+
 bool DatabaseCache::ExistsCamera(const camera_t camera_id) const {
   return cameras_.find(camera_id) != cameras_.end();
 }
 
 bool DatabaseCache::ExistsImage(const image_t image_id) const {
   return images_.find(image_id) != images_.end();
+}
+
+bool DatabaseCache::ExistsPosePrior(const image_t image_id) const {
+  return pose_priors_.find(image_id) != pose_priors_.end();
 }
 
 std::shared_ptr<const class CorrespondenceGraph>

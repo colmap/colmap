@@ -453,6 +453,8 @@ PosePrior Database::ReadPosePrior(const image_t image_id) const {
         ReadStaticMatrixBlob<Eigen::Vector3d>(sql_stmt_read_pose_prior_, rc, 1);
     prior.coordinate_system = static_cast<PosePrior::CoordinateSystem>(
         sqlite3_column_int64(sql_stmt_read_pose_prior_, 2));
+    prior.position_covariance =
+        ReadStaticMatrixBlob<Eigen::Matrix3d>(sql_stmt_read_pose_prior_, rc, 3);
   }
   SQLITE3_CALL(sqlite3_reset(sql_stmt_read_pose_prior_));
   return prior;
@@ -697,6 +699,8 @@ void Database::WritePosePrior(const image_t image_id,
       sql_stmt_write_pose_prior_,
       3,
       static_cast<sqlite3_int64>(pose_prior.coordinate_system)));
+  WriteStaticMatrixBlob(
+      sql_stmt_write_pose_prior_, pose_prior.position_covariance, 4);
   SQLITE3_CALL(sqlite3_step(sql_stmt_write_pose_prior_));
   SQLITE3_CALL(sqlite3_reset(sql_stmt_write_pose_prior_));
 }
@@ -849,6 +853,21 @@ void Database::UpdateImage(const Image& image) const {
 
   SQLITE3_CALL(sqlite3_step(sql_stmt_update_image_));
   SQLITE3_CALL(sqlite3_reset(sql_stmt_update_image_));
+}
+
+void Database::UpdatePosePrior(image_t image_id,
+                               const PosePrior& pose_prior) const {
+  WriteStaticMatrixBlob(sql_stmt_update_pose_prior_, pose_prior.position, 1);
+  SQLITE3_CALL(sqlite3_bind_int64(
+      sql_stmt_update_pose_prior_,
+      2,
+      static_cast<sqlite3_int64>(pose_prior.coordinate_system)));
+  WriteStaticMatrixBlob(
+      sql_stmt_update_pose_prior_, pose_prior.position_covariance, 3);
+  SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_update_pose_prior_, 4, image_id));
+
+  SQLITE3_CALL(sqlite3_step(sql_stmt_update_pose_prior_));
+  SQLITE3_CALL(sqlite3_reset(sql_stmt_update_pose_prior_));
 }
 
 void Database::DeleteMatches(const image_t image_id1,
@@ -1135,6 +1154,13 @@ void Database::PrepareSQLStatements() {
       database_, sql.c_str(), -1, &sql_stmt_update_image_, 0));
   sql_stmts_.push_back(sql_stmt_update_image_);
 
+  sql =
+      "UPDATE pose_priors SET position=?, coordinate_system=?, "
+      "position_covariance=? WHERE image_id=?;";
+  SQLITE3_CALL(sqlite3_prepare_v2(
+      database_, sql.c_str(), -1, &sql_stmt_update_pose_prior_, 0));
+  sql_stmts_.push_back(sql_stmt_update_pose_prior_);
+
   //////////////////////////////////////////////////////////////////////////////
   // read_*
   //////////////////////////////////////////////////////////////////////////////
@@ -1212,8 +1238,8 @@ void Database::PrepareSQLStatements() {
   // write_*
   //////////////////////////////////////////////////////////////////////////////
   sql =
-      "INSERT INTO pose_priors(image_id, position, coordinate_system) "
-      "VALUES(?, ?, ?);";
+      "INSERT INTO pose_priors(image_id, position, coordinate_system, "
+      "position_covariance) VALUES(?, ?, ?, ?);";
   SQLITE3_CALL(sqlite3_prepare_v2(
       database_, sql.c_str(), -1, &sql_stmt_write_pose_prior_, 0));
   sql_stmts_.push_back(sql_stmt_write_pose_prior_);
@@ -1339,9 +1365,10 @@ void Database::CreateImageTable() const {
 void Database::CreatePosePriorTable() const {
   const std::string sql =
       "CREATE TABLE IF NOT EXISTS pose_priors"
-      "   (image_id          INTEGER  PRIMARY KEY  NOT NULL,"
-      "    position          BLOB,"
-      "    coordinate_system INTEGER               NOT NULL,"
+      "   (image_id                   INTEGER  PRIMARY KEY  NOT NULL,"
+      "    position                   BLOB,"
+      "    coordinate_system          INTEGER               NOT NULL,"
+      "    position_covariance        BLOB,"
       "FOREIGN KEY(image_id) REFERENCES images(image_id) ON DELETE CASCADE);";
 
   SQLITE3_EXEC(database_, sql.c_str(), nullptr);
@@ -1433,6 +1460,24 @@ void Database::UpdateSchema() const {
     SQLITE3_EXEC(database_,
                  "ALTER TABLE two_view_geometries ADD COLUMN tvec BLOB;",
                  nullptr);
+  }
+
+  if (!ExistsColumn("pose_priors", "position_covariance")) {
+    // Create position_covariance matrix column
+    SQLITE3_EXEC(database_,
+                 "ALTER TABLE pose_priors ADD COLUMN position_covariance BLOB "
+                 "DEFAULT NULL;",
+                 nullptr);
+
+    // Set position_covariance column to NaN matrices
+    const std::string update_sql =
+        "UPDATE pose_priors SET position_covariance = ?;";
+    sqlite3_stmt* update_stmt;
+    SQLITE3_CALL(
+        sqlite3_prepare_v2(database_, update_sql.c_str(), -1, &update_stmt, 0));
+    WriteStaticMatrixBlob(update_stmt, PosePrior().position_covariance, 1);
+    SQLITE3_CALL(sqlite3_step(update_stmt));
+    SQLITE3_CALL(sqlite3_finalize(update_stmt));
   }
 
   // Update user version number.
