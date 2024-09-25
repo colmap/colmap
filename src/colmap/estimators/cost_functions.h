@@ -598,20 +598,21 @@ auto LastValueParameterPack(Args&&... args) {
 }
 
 template <class CostFunctor>
-class WeightedCostFunction {
+class NoiseCostFunctionWrapper {
  public:
   static const int kNumResiduals = CostFunctor::kNumResiduals;
   typedef typename CostFunctor::Parameters Parameters;
   typedef Eigen::Matrix<double, kNumResiduals, kNumResiduals> MatrixNd;
 
   template <typename... Args>
-  WeightedCostFunction(const MatrixNd& weight, Args&&... args)
-      : weight_(weight), functor_(std::forward<Args>(args)...) {}
+  NoiseCostFunctionWrapper(const MatrixNd& covariance, Args&&... args)
+      : sqrt_information_(SqrtInformation(covariance)),
+        functor_(std::forward<Args>(args)...) {}
 
   template <typename... Args>
-  static ceres::CostFunction* Create(const MatrixNd& weight, Args&&... args) {
-    return CreateAutoDiffCostFunction(new WeightedCostFunction<CostFunctor>(
-        weight, std::forward<Args>(args)...));
+  static ceres::CostFunction* Create(Args&&... args) {
+    return CreateAutoDiffCostFunction(
+        new NoiseCostFunctionWrapper<CostFunctor>(std::forward<Args>(args)...));
   }
 
   template <typename... Args>
@@ -620,12 +621,12 @@ class WeightedCostFunction {
     auto residuals_ptr = LastValueParameterPack(args...);
     typedef typename std::remove_reference<decltype(*residuals_ptr)>::type T;
     Eigen::Map<Eigen::Matrix<T, kNumResiduals, 1>> residuals(residuals_ptr);
-    residuals.applyOnTheLeft(weight_.template cast<T>());
+    residuals.applyOnTheLeft(sqrt_information_.template cast<T>());
     return ret;
   }
 
  private:
-  const MatrixNd weight_;
+  const MatrixNd sqrt_information_;
   const CostFunctor functor_;
 };
 

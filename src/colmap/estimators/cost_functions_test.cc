@@ -81,14 +81,14 @@ TEST(BundleAdjustment, AbsolutePose) {
   EXPECT_EQ(residuals[0], -1);
   EXPECT_EQ(residuals[1], 1);
 
-  Eigen::Matrix2d weight{{2, 0}, {0, 4}};
-  std::unique_ptr<ceres::CostFunction> cost_function_with_noise_2(
-      WeightedCostFunction<CostFunction>::Create(weight,
-                                                 Eigen::Vector2d::Zero()));
+  const Eigen::Matrix2d covariance{{4, 0}, {0, 16}};
+  std::unique_ptr<ceres::CostFunction> cost_function_with_noise_covar(
+      NoiseCostFunctionWrapper<CostFunction>::Create(covariance,
+                                                     Eigen::Vector2d::Zero()));
   EXPECT_TRUE(
-      cost_function_with_noise_2->Evaluate(parameters, residuals, nullptr));
-  EXPECT_EQ(residuals[0], -4);
-  EXPECT_EQ(residuals[1], 8);
+      cost_function_with_noise_covar->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], -1);
+  EXPECT_EQ(residuals[1], 0.5);
 }
 
 TEST(BundleAdjustment, ConstantPoseAbsolutePose) {
