@@ -258,7 +258,7 @@ def main_incremental_mapper(controller):
     init_mapper_options = controller.options.get_mapper()
     reconstruct(controller, init_mapper_options)
 
-    for i in range(2):  # number of relaxations
+    for _ in range(2):  # number of relaxations
         if controller.reconstruction_manager.size() > 0:
             break
         logging.info("=> Relaxing the initialization constraints")
@@ -278,9 +278,11 @@ def main(
     database_path,
     image_path,
     output_path,
-    options=pycolmap.IncrementalPipelineOptions(),
+    options=None,
     input_path=None,
 ):
+    if options is None:
+        options = pycolmap.IncrementalPipelineOptions()
     if not database_path.exists():
         logging.fatal(f"Database path does not exist: {database_path}")
     if not image_path.exists():

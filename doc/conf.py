@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-#
 # COLMAP documentation build configuration file, created by
 # sphinx-quickstart on Wed Jan 28 09:31:25 2015.
 #

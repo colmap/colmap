@@ -10,7 +10,7 @@ from pycolmap import logging
 import copy
 
 
-class PyBundleAdjuster(object):
+class PyBundleAdjuster:
     # Python implementation of COLMAP bundle adjuster with pyceres
     def __init__(
         self,
@@ -267,7 +267,7 @@ def iterative_global_refinement(
     logging.verbose(
         1, f"=> Retriangulated observations: {num_retriangulated_observations}"
     )
-    for i in range(max_num_refinements):
+    for _ in range(max_num_refinements):
         num_observations = reconstruction.compute_num_observations()
         # mapper.adjust_global_bundle(mapper_options, ba_options)
         adjust_global_bundle(mapper, mapper_options, ba_options)
@@ -398,7 +398,7 @@ def iterative_local_refinement(
 ):
     """Equivalent to mapper.iterative_local_refinement(...)"""
     ba_options_tmp = copy.deepcopy(ba_options)
-    for i in range(max_num_refinements):
+    for _ in range(max_num_refinements):
         # report = mapper.adjust_local_bundle(mapper_options, ba_options_tmp, tri_options, image_id, mapper.get_modified_points3D())
         report = adjust_local_bundle(
             mapper,
