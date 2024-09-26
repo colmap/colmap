@@ -3,7 +3,7 @@ line-length = 80
 [lint]
 select = [
     # pycodestyle
-    #"E",
+    "E",
     # Pyflakes
     "F",
     # pyupgrade
