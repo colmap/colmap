@@ -280,3 +280,23 @@ texinfo_documents = [
 autodoc_member_order = "bysource"
 autodoc_typehints = "both"
 python_maximum_signature_line_length = 120
+
+
+def process_doc(app, what, name, obj, options, lines):
+    for i in range(len(lines)):
+        lines[i] = lines[i].replace("pycolmap._core", "pycolmap")
+
+
+def process_sig(app, what, name, obj, options, signature, return_annotation):
+    signature = signature.replace("pycolmap._core", "pycolmap")
+    if isinstance(return_annotation, str):
+        return_annotation = return_annotation.replace(
+            "pycolmap._core", "pycolmap"
+        )
+    return signature, return_annotation
+
+
+def setup(app):
+    # Remap types from the C++ module pycolmap._core to the Python namespace.
+    app.connect("autodoc-process-docstring", process_doc)
+    app.connect("autodoc-process-signature", process_sig)
