@@ -54,7 +54,7 @@ _data_type_reverse = dict((b, a) for (a, b) in _data_type_relation)
 
 _types_list = []
 _types_set = set()
-for (_a, _b) in _data_type_relation:
+for _a, _b in _data_type_relation:
     if _a not in _types_set:
         _types_list.append(_a)
         _types_set.add(_a)
@@ -117,7 +117,6 @@ def make2d(array, cols=None, dtype=None):
 
 
 class PlyParseError(Exception):
-
     """
     Raised when a PLY file cannot be parsed.
 
@@ -153,7 +152,6 @@ class PlyParseError(Exception):
 
 
 class PlyData(object):
-
     """
     PLY file header and data.
 
@@ -378,7 +376,6 @@ class PlyData(object):
 
 
 class PlyElement(object):
-
     """
     PLY file element.
 
@@ -731,7 +728,6 @@ class PlyElement(object):
 
 
 class PlyProperty(object):
-
     """
     PLY property description.  This class is pure metadata; the data
     itself is contained in PlyElement instances.
@@ -830,7 +826,6 @@ class PlyProperty(object):
 
 
 class PlyListProperty(PlyProperty):
-
     """
     PLY list property description.
 

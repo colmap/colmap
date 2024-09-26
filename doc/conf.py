@@ -47,8 +47,8 @@ source_suffix = ".rst"
 master_doc = "index"
 
 # General information about the project.
-project = u"COLMAP"
-copyright = u"2024, Johannes L. Schoenberger"
+project = "COLMAP"
+copyright = "2024, Johannes L. Schoenberger"
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -202,8 +202,8 @@ latex_documents = [
     (
         "index",
         "COLMAP.tex",
-        u"COLMAP Documentation",
-        u"Johannes L. Schoenberger",
+        "COLMAP Documentation",
+        "Johannes L. Schoenberger",
         "manual",
     ),
 ]
@@ -237,8 +237,8 @@ man_pages = [
     (
         "index",
         "colmap",
-        u"COLMAP Documentation",
-        [u"Johannes L. Schoenberger"],
+        "COLMAP Documentation",
+        ["Johannes L. Schoenberger"],
         1,
     )
 ]
@@ -256,8 +256,8 @@ texinfo_documents = [
     (
         "index",
         "COLMAP",
-        u"COLMAP Documentation",
-        u"Johannes L. Schoenberger",
+        "COLMAP Documentation",
+        "Johannes L. Schoenberger",
         "COLMAP",
         "Structure-from-Motion and Multi-View Stereo.",
         "Miscellaneous",
