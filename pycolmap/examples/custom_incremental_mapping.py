@@ -145,7 +145,7 @@ def reconstruct_sub_model(controller, mapper, mapper_options, reconstruction):
                 break
         if reg_next_success:
             mapper.triangulate_image(options.get_triangulation(), next_image_id)
-            # The following is equivalent to mapper.iterative_local_refinement(...)
+            # This is equivalent to mapper.iterative_local_refinement(...)
             custom_bundle_adjustment.iterative_local_refinement(
                 mapper,
                 options.ba_local_max_refinements,
@@ -197,7 +197,8 @@ def reconstruct(controller, mapper_options):
     initial_reconstruction_given = reconstruction_manager.size() > 0
     if reconstruction_manager.size() > 1:
         logging.fatal(
-            "Can only resume from a single reconstruction, but multiple are given"
+            "Can only resume from a single reconstruction, "
+            "but multiple are given"
         )
     for num_trials in range(options.init_num_trials):
         if (not initial_reconstruction_given) or num_trials > 0:
