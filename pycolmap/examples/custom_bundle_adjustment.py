@@ -1,16 +1,19 @@
 """
-Python reimplementation of the bundle adjustment for the incremental mapper of C++ with equivalent logic.
-As a result, one can add customized residuals on top of the exposed ceres problem from conventional bundle adjustment.
+Python reimplementation of the bundle adjustment for the incremental mapper of
+C++ with equivalent logic. As a result, one can add customized residuals on top
+of the exposed ceres problem from conventional bundle adjustment.
 pyceres is needed as a dependency for this file.
 """
 
-import pyceres
-import pycolmap
-from pycolmap import logging
 import copy
 
+import pyceres
 
-class PyBundleAdjuster(object):
+import pycolmap
+from pycolmap import logging
+
+
+class PyBundleAdjuster:
     # Python implementation of COLMAP bundle adjuster with pyceres
     def __init__(
         self,
@@ -153,7 +156,7 @@ class PyBundleAdjuster(object):
         constant_camera = (
             (not self.options.refine_focal_length)
             and (not self.options.refine_principal_point)
-            and (not options.refine_extra_params)
+            and (not self.options.refine_extra_params)
         )
         for camera_id in self.camera_ids:
             camera = reconstruction.cameras[camera_id]
@@ -211,9 +214,7 @@ def adjust_global_bundle(mapper, mapper_options, ba_options):
     assert reconstruction is not None
     reg_image_ids = reconstruction.reg_image_ids()
     if len(reg_image_ids) < 2:
-        logging.fatal(
-            "At least two images must be registered for global bundle-adjustment"
-        )
+        logging.fatal("At least two images must be registered for global BA")
     ba_options_tmp = copy.deepcopy(ba_options)
 
     # Use stricter convergence criteria for first registered images
@@ -267,7 +268,7 @@ def iterative_global_refinement(
     logging.verbose(
         1, f"=> Retriangulated observations: {num_retriangulated_observations}"
     )
-    for i in range(max_num_refinements):
+    for _ in range(max_num_refinements):
         num_observations = reconstruction.compute_num_observations()
         # mapper.adjust_global_bundle(mapper_options, ba_options)
         adjust_global_bundle(mapper, mapper_options, ba_options)
@@ -309,7 +310,8 @@ def adjust_local_bundle(
                 if local_image_id in mapper.existing_image_ids:
                     ba_config.set_constant_cam_pose(local_image_id)
 
-        # Determine which cameras to fix, when not all the registered images are within the current local bundle.
+        # Determine which cameras to fix, when not all the registered images
+        # are within the current local bundle.
         num_images_per_camera = {}
         for image_id in ba_config.image_ids:
             image = reconstruction.images[image_id]
@@ -320,7 +322,7 @@ def adjust_local_bundle(
             if num_images_local < mapper.num_reg_images_per_camera[camera_id]:
                 ba_config.set_constant_cam_intrinsics(camera_id)
 
-        # Fix 7 DOF to avoid scale/rotation/translation drift in bundle adjustment
+        # Fix 7 DOF to avoid scale/rotation/translation drift in BA.
         if len(local_bundle) == 1:
             ba_config.set_constant_cam_pose(local_bundle[0])
             ba_config.set_constant_cam_positions(image_id, [0])
@@ -334,9 +336,9 @@ def adjust_local_bundle(
 
         # Make sure, we refine all new and short-track 3D points, no matter if
         # they are fully contained in the local image set or not. Do not include
-        # long track 3D points as they are usually already very stable and adding
-        # to them to bundle adjustment and track merging/completion would slow
-        # down the local bundle adjustment significantly.
+        # long track 3D points as they are usually already very stable and
+        # adding to them to bundle adjustment and track merging/completion would
+        # slow down the local bundle adjustment significantly.
         variable_point3D_ids = set()
         for point3D_id in list(point3D_ids):
             point3D = reconstruction.point3D(point3D_id)
@@ -360,8 +362,9 @@ def adjust_local_bundle(
             tri_options, variable_point3D_ids
         )
         # Complete tracks that may have failed to triangulate before refinement
-        # of camera pose and calibration in bundle adjustment. This may avoid that
-        # some points are filtered and it helps for subsequent image registrations
+        # of camera pose and calibration in bundle adjustment. This may avoid
+        # that some points are filtered and helps for subsequent image
+        # registrations.
         report.num_completed_observations = mapper.triangulator.complete_tracks(
             tri_options, variable_point3D_ids
         )
@@ -398,8 +401,14 @@ def iterative_local_refinement(
 ):
     """Equivalent to mapper.iterative_local_refinement(...)"""
     ba_options_tmp = copy.deepcopy(ba_options)
-    for i in range(max_num_refinements):
-        # report = mapper.adjust_local_bundle(mapper_options, ba_options_tmp, tri_options, image_id, mapper.get_modified_points3D())
+    for _ in range(max_num_refinements):
+        # report = mapper.adjust_local_bundle(
+        #     mapper_options,
+        #     ba_options_tmp,
+        #     tri_options,
+        #     image_id,
+        #     mapper.get_modified_points3D(),
+        # )
         report = adjust_local_bundle(
             mapper,
             mapper_options,
