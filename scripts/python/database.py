@@ -423,15 +423,6 @@ def example_usage():
 
     # Read and check matches.
 
-    pair_ids = [
-        image_ids_to_pair_id(*pair)
-        for pair in (
-            (image_id1, image_id2),
-            (image_id2, image_id3),
-            (image_id3, image_id4),
-        )
-    ]
-
     matches = dict(
         (pair_id_to_image_ids(pair_id), blob_to_array(data, np.uint32, (-1, 2)))
         for pair_id, data in db.execute("SELECT pair_id, data FROM matches")

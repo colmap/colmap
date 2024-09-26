@@ -48,7 +48,7 @@ def request_trial(func, *args, **kwargs):
     for i in range(MAX_REQUEST_TRIALS):
         try:
             response = func(*args, **kwargs)
-        except:
+        except:  # noqa E722
             continue
         else:
             return response

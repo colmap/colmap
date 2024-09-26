@@ -62,7 +62,7 @@ def main():
 
     try:
         os.makedirs(args.output_path)
-    except:
+    except:  # noqa E722
         pass
 
     cameras = {}

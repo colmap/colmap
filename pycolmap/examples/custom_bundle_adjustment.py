@@ -153,7 +153,7 @@ class PyBundleAdjuster(object):
         constant_camera = (
             (not self.options.refine_focal_length)
             and (not self.options.refine_principal_point)
-            and (not options.refine_extra_params)
+            and (not self.options.refine_extra_params)
         )
         for camera_id in self.camera_ids:
             camera = reconstruction.cameras[camera_id]
