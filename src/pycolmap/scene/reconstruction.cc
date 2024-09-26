@@ -151,6 +151,7 @@ void BindReconstruction(py::module& m) {
            "Check if image is registered.")
       .def("normalize",
            &Reconstruction::Normalize,
+           "fixed_scale"_a = false,
            "extent"_a = 10.0,
            "p0"_a = 0.1,
            "p1"_a = 0.9,
@@ -182,6 +183,7 @@ void BindReconstruction(py::module& m) {
            "other"_a,
            "Find images that are both present in this and the given "
            "reconstruction.")
+      .def("update_point_3d_errors", &Reconstruction::UpdatePoint3DErrors)
       .def("compute_num_observations", &Reconstruction::ComputeNumObservations)
       .def("compute_mean_track_length", &Reconstruction::ComputeMeanTrackLength)
       .def("compute_mean_observations_per_reg_image",

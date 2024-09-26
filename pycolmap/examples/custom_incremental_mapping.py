@@ -5,11 +5,11 @@ Python reimplementation of the C++ incremental mapper with equivalent logic.
 import time
 from pathlib import Path
 
+import custom_bundle_adjustment
 import enlighten
 
 import pycolmap
 from pycolmap import logging
-import custom_bundle_adjustment
 
 
 def extract_colors(image_path, image_id, reconstruction):
@@ -145,7 +145,7 @@ def reconstruct_sub_model(controller, mapper, mapper_options, reconstruction):
                 break
         if reg_next_success:
             mapper.triangulate_image(options.get_triangulation(), next_image_id)
-            # The following is equivalent to mapper.iterative_local_refinement(...)
+            # This is equivalent to mapper.iterative_local_refinement(...)
             custom_bundle_adjustment.iterative_local_refinement(
                 mapper,
                 options.ba_local_max_refinements,
@@ -197,7 +197,8 @@ def reconstruct(controller, mapper_options):
     initial_reconstruction_given = reconstruction_manager.size() > 0
     if reconstruction_manager.size() > 1:
         logging.fatal(
-            "Can only resume from a single reconstruction, but multiple are given"
+            "Can only resume from a single reconstruction, "
+            "but multiple are given"
         )
     for num_trials in range(options.init_num_trials):
         if (not initial_reconstruction_given) or num_trials > 0:
@@ -258,7 +259,7 @@ def main_incremental_mapper(controller):
     init_mapper_options = controller.options.get_mapper()
     reconstruct(controller, init_mapper_options)
 
-    for i in range(2):  # number of relaxations
+    for _ in range(2):  # number of relaxations
         if controller.reconstruction_manager.size() > 0:
             break
         logging.info("=> Relaxing the initialization constraints")
@@ -278,9 +279,11 @@ def main(
     database_path,
     image_path,
     output_path,
-    options=pycolmap.IncrementalPipelineOptions(),
+    options=None,
     input_path=None,
 ):
+    if options is None:
+        options = pycolmap.IncrementalPipelineOptions()
     if not database_path.exists():
         logging.fatal(f"Database path does not exist: {database_path}")
     if not image_path.exists():

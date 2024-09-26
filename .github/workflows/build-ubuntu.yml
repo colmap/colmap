@@ -116,9 +116,10 @@ jobs:
             exit 0
           fi
           set +x -euo pipefail
-          sudo apt-get update && sudo apt-get install -y clang-format-14 black
+          sudo apt-get update && sudo apt-get install -y clang-format-14
+          python -m pip install ruff==0.6.7
           ./scripts/format/clang_format.sh
-          ./scripts/format/black.sh
+          ./scripts/format/python.sh
           git diff --name-only
           git diff --exit-code || (echo "Code formatting failed" && exit 1)
 
