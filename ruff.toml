@@ -13,7 +13,7 @@ select = [
     # flake8-simplify
     "SIM",
     # isort
-    #"I",
+    "I",
 ]
 ignore = ["SIM117"]
 
