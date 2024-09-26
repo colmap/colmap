@@ -30,11 +30,12 @@
 
 # This script exports a COLMAP database to the file structure to run VisualSfM.
 
-import os
 import argparse
-import sqlite3
+import os
 import shutil
+import sqlite3
 import struct
+
 import numpy as np
 
 

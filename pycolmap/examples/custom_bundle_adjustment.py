@@ -4,10 +4,12 @@ As a result, one can add customized residuals on top of the exposed ceres proble
 pyceres is needed as a dependency for this file.
 """
 
+import copy
+
 import pyceres
+
 import pycolmap
 from pycolmap import logging
-import copy
 
 
 class PyBundleAdjuster:

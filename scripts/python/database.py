@@ -30,10 +30,10 @@
 
 # This script is based on an original implementation by True Price.
 
-import sys
 import sqlite3
-import numpy as np
+import sys
 
+import numpy as np
 
 IS_PYTHON3 = sys.version_info[0] >= 3
 
@@ -296,8 +296,8 @@ class COLMAPDatabase(sqlite3.Connection):
 
 
 def example_usage():
-    import os
     import argparse
+    import os
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--database_path", default="database.db")

@@ -5,11 +5,11 @@ Python reimplementation of the C++ incremental mapper with equivalent logic.
 import time
 from pathlib import Path
 
+import custom_bundle_adjustment
 import enlighten
 
 import pycolmap
 from pycolmap import logging
-import custom_bundle_adjustment
 
 
 def extract_colors(image_path, image_id, reconstruction):

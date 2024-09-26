@@ -28,11 +28,11 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 
-import re
 import argparse
+import re
+
 import requests
 from lxml.html import soupparser
-
 
 MAX_REQUEST_TRIALS = 10
 
