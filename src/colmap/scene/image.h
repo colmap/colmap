@@ -33,6 +33,7 @@
 #include "colmap/geometry/rigid3.h"
 #include "colmap/math/math.h"
 #include "colmap/scene/camera.h"
+#include "colmap/scene/frame.h"
 #include "colmap/scene/point2d.h"
 #include "colmap/scene/visibility_pyramid.h"
 #include "colmap/util/eigen_alignment.h"
@@ -87,8 +88,23 @@ class Image {
   // are part of a 3D point track.
   inline point2D_t NumPoints3D() const;
 
+  // [Optional] The corresponding frame of the image
+  inline frame_t FrameId() const;
+  inline void SetFrameId(frame_t frame_id);
+  inline const std::shared_ptr<class Frame> Frame() const;
+  inline void SetFrame(std::shared_ptr<class Frame> frame);
+  inline bool HasFrame() const;
+  // Check if the cam_from_world needs to be composited with rig calibration.
+  inline bool HasNonTrivialFrame() const;
+
   // World to camera pose.
+  // Access cam_from_world transformation with a constant reference. While
+  // calling this method, the cam_from_world will also be synced from the
+  // transformations in the frame (rig) if needed
   inline const Rigid3d& CamFromWorld() const;
+  // Access cam_from_world as a reference to do in-place update and
+  // optimization. Will throw an error if the image has a non trivial frame
+  // (rig) attached to it.
   inline Rigid3d& CamFromWorld();
 
   // Access the coordinates of image points.
@@ -138,8 +154,13 @@ class Image {
   // where `point3D_id != kInvalidPoint3DId`.
   point2D_t num_points3D_;
 
+  // [Optional] The corresponding frame (rig) of the image
+  frame_t frame_id_;
+  std::shared_ptr<class Frame> frame_ = nullptr;
+
   // The pose of the image, defined as the transformation from world to camera.
-  Rigid3d cam_from_world_;
+  // Only useful when the corresponding frame (rig) does not exist.
+  mutable Rigid3d cam_from_world_;
 
   // All image points, including points that are not part of a 3D point track.
   std::vector<struct Point2D> points2D_;
@@ -201,9 +222,46 @@ point2D_t Image::NumPoints2D() const {
 
 point2D_t Image::NumPoints3D() const { return num_points3D_; }
 
-const Rigid3d& Image::CamFromWorld() const { return cam_from_world_; }
+frame_t Image::FrameId() const { return frame_id_; }
 
-Rigid3d& Image::CamFromWorld() { return cam_from_world_; }
+void Image::SetFrameId(frame_t frame_id) { frame_id_ = frame_id; }
+
+const std::shared_ptr<class Frame> Image::Frame() const { return frame_; }
+
+void Image::SetFrame(std::shared_ptr<class Frame> frame) {
+  frame_ = std::move(frame);
+}
+
+bool Image::HasFrame() const { return frame_ != nullptr; }
+
+bool Image::HasNonTrivialFrame() const {
+  return HasFrame() && frame_->HasRigCalibration() &&
+         !frame_->RigCalibration()->IsReference(
+             std::make_pair(SensorType::Camera, CameraId()));
+}
+
+const Rigid3d& Image::CamFromWorld() const {
+  if (HasNonTrivialFrame()) {
+    // sync cam from world
+    sensor_t sensor_id = std::make_pair(SensorType::Camera, CameraId());
+    cam_from_world_ = frame_->SensorFromWorld(sensor_id);
+    return cam_from_world_;
+  } else if (HasFrame()) {
+    return frame_->SensorFromWorld();
+  } else
+    return cam_from_world_;
+}
+
+Rigid3d& Image::CamFromWorld() {
+  if (HasNonTrivialFrame())
+    LOG(FATAL_THROW)
+        << "No reference available for cam_from_world transformation, since "
+           "composition with rig calibration is needed";
+  if (HasFrame()) {
+    return frame_->SensorFromWorld();
+  } else
+    return cam_from_world_;
+}
 
 const struct Point2D& Image::Point2D(const point2D_t point2D_idx) const {
   return points2D_.at(point2D_idx);
