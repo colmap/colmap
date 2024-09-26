@@ -121,19 +121,24 @@ TEST(Covariance, Compute) {
   BundleAdjustmentCovarianceEstimator estimator(problem.get(), &reconstruction);
   ASSERT_TRUE(estimator.Compute());
 
+  const auto cov = EstimateCeresBACovariance(reconstruction, problem.get());
+  EXPECT_EQ(cov.image_covs.size(), reconstruction.NumImages() - 1);
+  EXPECT_EQ(cov.point_covs.size(), reconstruction.NumPoints3D());
+
   // covariance for each image
   std::vector<image_t> image_ids;
   for (const auto& image : reconstruction.Images()) {
     image_ids.push_back(image.first);
   }
   Eigen::MatrixXd covar, covar_ceres;
-  size_t n_images = image_ids.size();
+  const size_t n_images = image_ids.size();
   for (size_t i = 0; i < n_images; ++i) {
-    image_t image_id = image_ids[i];
+    const image_t image_id = image_ids[i];
     if (!estimator.HasPose(image_id)) continue;
     covar = estimator.GetPoseCovariance(image_id);
     covar_ceres = estimator_ceres.GetPoseCovariance(image_id);
     ExpectNearEigenMatrixXd(covar, covar_ceres, 1e-6);
+    ExpectNearEigenMatrixXd(covar, cov.image_covs.at(image_id), 1e-6);
   }
 
   // cross image covariance

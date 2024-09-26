@@ -31,6 +31,7 @@
 
 #include "colmap/estimators/manifold.h"
 
+#include <tuple>
 #include <unordered_set>
 
 #include <ceres/crs_matrix.h>
@@ -745,6 +746,140 @@ bool EstimatePoseCovarianceCeresBackend(
     image_id_to_covar.emplace(image_id, estimator.GetPoseCovariance(image_id));
   }
   return true;
+}
+
+namespace {
+
+struct ImageParam {
+  image_t image_id = kInvalidImageId;
+  const double* qvec = nullptr;
+  const double* tvec = nullptr;
+};
+
+std::vector<ImageParam> GetImageParams(const Reconstruction& reconstruction,
+                                       const ceres::Problem& problem) {
+  std::vector<ImageParam> params;
+  params.reserve(reconstruction.NumImages());
+  for (const auto& image : reconstruction.Images()) {
+    const double* qvec = image.second.CamFromWorld().rotation.coeffs().data();
+    if (!problem.HasParameterBlock(qvec) ||
+        problem.IsParameterBlockConstant(qvec)) {
+      qvec = nullptr;
+    }
+
+    const double* tvec = image.second.CamFromWorld().translation.data();
+    if (!problem.HasParameterBlock(tvec) ||
+        problem.IsParameterBlockConstant(tvec)) {
+      tvec = nullptr;
+    }
+
+    if (qvec != nullptr || tvec != nullptr) {
+      params.push_back({image.first, qvec, tvec});
+    }
+  }
+  return params;
+}
+
+struct PointParam {
+  point3D_t point3D_id = kInvalidPoint3DId;
+  const double* xyz = nullptr;
+};
+
+std::vector<PointParam> GetPointParams(const Reconstruction& reconstruction,
+                                       const ceres::Problem& problem) {
+  std::vector<PointParam> params;
+  params.reserve(reconstruction.NumPoints3D());
+  for (const auto& point3D : reconstruction.Points3D()) {
+    const double* xyz = point3D.second.xyz.data();
+    if (problem.HasParameterBlock(xyz) &&
+        !problem.IsParameterBlockConstant(xyz)) {
+      params.push_back({point3D.first, xyz});
+    }
+  }
+  return params;
+}
+
+}  // namespace
+
+BACovariance EstimateCeresBACovariance(const Reconstruction& reconstruction,
+                                       ceres::Problem* problem,
+                                       BACovarianceType type) {
+  const bool compute_image_covs = type == BACovarianceType::kOnlyImages ||
+                                  type == BACovarianceType::kImagesAndPoints;
+  const bool compute_point_covs = type == BACovarianceType::kOnlyPoints ||
+                                  type == BACovarianceType::kImagesAndPoints;
+
+  const std::vector<ImageParam> images =
+      compute_image_covs ? GetImageParams(reconstruction, *problem)
+                         : std::vector<ImageParam>{};
+  const std::vector<PointParam> points =
+      compute_point_covs ? GetPointParams(reconstruction, *problem)
+                         : std::vector<PointParam>{};
+
+  std::vector<std::pair<const double*, const double*>> cov_param_pairs;
+  cov_param_pairs.reserve(images.size() * 3 + points.size());
+  if (compute_image_covs) {
+    for (const auto& image : images) {
+      if (image.qvec != nullptr) {
+        cov_param_pairs.emplace_back(image.qvec, image.qvec);
+      }
+      if (image.tvec != nullptr) {
+        cov_param_pairs.emplace_back(image.tvec, image.tvec);
+      }
+      if (image.qvec != nullptr && image.tvec != nullptr) {
+        cov_param_pairs.emplace_back(image.qvec, image.tvec);
+      }
+    }
+  }
+  if (compute_point_covs) {
+    for (const auto& point : points) {
+      cov_param_pairs.emplace_back(point.xyz, point.xyz);
+    }
+  }
+
+  BACovariance covariance;
+  ceres::Covariance::Options options;
+  ceres::Covariance covariance_computer(options);
+  if (!covariance_computer.Compute(cov_param_pairs, problem)) {
+    return covariance;
+  }
+
+  if (compute_image_covs) {
+    std::vector<const double*> param_blocks;
+    for (const auto& image : images) {
+      Eigen::MatrixXd& cov = covariance.image_covs[image.image_id];
+      int tangent_size = 0;
+      param_blocks.clear();
+      if (image.qvec != nullptr) {
+        tangent_size += ParameterBlockTangentSize(*problem, image.qvec);
+        param_blocks.push_back(image.qvec);
+      }
+      if (image.tvec != nullptr) {
+        tangent_size += ParameterBlockTangentSize(*problem, image.tvec);
+        param_blocks.push_back(image.tvec);
+      }
+
+      cov.resize(tangent_size, tangent_size);
+      covariance_computer.GetCovarianceMatrixInTangentSpace(param_blocks,
+                                                            cov.data());
+    }
+  }
+
+  if (compute_point_covs) {
+    for (const auto& point : points) {
+      covariance_computer.GetCovarianceBlockInTangentSpace(
+          point.xyz, point.xyz, covariance.point_covs[point.point3D_id].data());
+    }
+  }
+
+  return covariance;
+}
+
+BACovariance EstimateSchurBACovariance(const Reconstruction& reconstruction,
+                                       ceres::Problem* problem,
+                                       BACovarianceType type) {
+  BundleAdjustmentCovarianceEstimator estimator(
+      problem, reconstruction, lambda);
 }
 
 bool EstimatePoseCovariance(

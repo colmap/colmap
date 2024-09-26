@@ -181,7 +181,8 @@ bool BundleAdjustmentConfig::HasConstantCamPose(const image_t image_id) const {
 void BundleAdjustmentConfig::SetConstantCamPositions(
     const image_t image_id, const std::vector<int>& idxs) {
   THROW_CHECK_GT(idxs.size(), 0);
-  THROW_CHECK_LE(idxs.size(), 3);
+  THROW_CHECK_LT(idxs.size(), 3)
+      << "Set the entire parameter block as constant instead";
   THROW_CHECK(HasImage(image_id));
   THROW_CHECK(!HasConstantCamPose(image_id));
   THROW_CHECK(!VectorContainsDuplicateValues(idxs))

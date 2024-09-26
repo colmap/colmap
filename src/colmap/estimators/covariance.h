@@ -41,6 +41,29 @@
 
 namespace colmap {
 
+struct BACovariance {
+  // Tangent space covariance in the order [rotation, translation].
+  // If some parameters are kept constant, they are omitted.
+  std::unordered_map<image_t, Eigen::MatrixXd> image_covs;
+  std::unordered_map<point3D_t, Eigen::Matrix3d> point_covs;
+};
+
+enum class BACovarianceType {
+  kOnlyImages,
+  kOnlyPoints,
+  kImagesAndPoints,
+};
+
+BACovariance EstimateCeresBACovariance(
+    const Reconstruction& reconstruction,
+    ceres::Problem* problem,
+    BACovarianceType type = BACovarianceType::kImagesAndPoints);
+
+BACovariance EstimateSchurBACovariance(
+    const Reconstruction& reconstruction,
+    ceres::Problem* problem,
+    BACovarianceType type = BACovarianceType::kImagesAndPoints);
+
 class BundleAdjustmentCovarianceEstimatorBase {
  public:
   // Construct with a COLMAP reconstruction for all image poses.
