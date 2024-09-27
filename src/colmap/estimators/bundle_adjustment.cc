@@ -921,11 +921,9 @@ void PosePriorBundleAdjuster::SetUpProblem(
   BundleAdjuster::SetUpProblem(reconstruction, loss_function_.get());
 
   if (use_prior_position_) {
-    for (const auto& id_and_prior : image_id_to_pose_prior_) {
-      AddPosePriorToProblem(id_and_prior.first,
-                            id_and_prior.second,
-                            reconstruction,
-                            prior_loss_function_.get());
+    for (const auto& [image_id, pose_prior] : image_id_to_pose_prior_) {
+      AddPosePriorToProblem(
+          image_id, pose_prior, reconstruction, prior_loss_function_.get());
     }
   }
 }
@@ -969,12 +967,11 @@ bool PosePriorBundleAdjuster::Sim3DAlignment(Reconstruction* reconstruction) {
   v_src.reserve(NumPosePriors());
   v_tgt.reserve(NumPosePriors());
 
-  for (const auto& id_and_prior : image_id_to_pose_prior_) {
-    const PosePrior& prior = id_and_prior.second;
-    if (prior.IsValid()) {
-      const auto& image = reconstruction->Image(id_and_prior.first);
+  for (const auto& [image_id, pose_prior] : image_id_to_pose_prior_) {
+    if (pose_prior.IsValid()) {
+      const auto& image = reconstruction->Image(image_id);
       v_src.push_back(image.ProjectionCenter());
-      v_tgt.push_back(prior.position);
+      v_tgt.push_back(pose_prior.position);
       vini_err2_wrt_prior.push_back(
           (v_src.back() - v_tgt.back()).squaredNorm());
     }
@@ -1018,12 +1015,11 @@ bool PosePriorBundleAdjuster::Sim3DAlignment(Reconstruction* reconstruction) {
 
     std::vector<double> verr2_wrt_prior;
     verr2_wrt_prior.reserve(vini_err2_wrt_prior.size());
-    for (const auto& id_and_prior : image_id_to_pose_prior_) {
-      const PosePrior& prior = id_and_prior.second;
-      if (prior.IsValid()) {
-        const auto& image = reconstruction->Image(id_and_prior.first);
+    for (const auto& [image_id, pose_prior] : image_id_to_pose_prior_) {
+      if (pose_prior.IsValid()) {
+        const auto& image = reconstruction->Image(image_id);
         verr2_wrt_prior.push_back(
-            (image.ProjectionCenter() - prior.position).squaredNorm());
+            (image.ProjectionCenter() - pose_prior.position).squaredNorm());
       }
     }
 
@@ -1044,10 +1040,9 @@ bool PosePriorBundleAdjuster::Sim3DAlignment(Reconstruction* reconstruction) {
 void PosePriorBundleAdjuster::SetRansacMaxErrorFromPriorsCovariance() {
   std::size_t nb_cov = 0;
   Eigen::Vector3d avg_cov = Eigen::Vector3d::Zero();
-  for (const auto& id_and_prior : image_id_to_pose_prior_) {
-    const PosePrior& prior = id_and_prior.second;
-    if (prior.IsCovarianceValid()) {
-      avg_cov += prior.position_covariance.diagonal();
+  for (const auto& [_, pose_prior] : image_id_to_pose_prior_) {
+    if (pose_prior.IsCovarianceValid()) {
+      avg_cov += pose_prior.position_covariance.diagonal();
       ++nb_cov;
     }
   }

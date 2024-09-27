@@ -28,10 +28,10 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 
-import os
-import glob
-import shutil
 import argparse
+import glob
+import os
+import shutil
 
 
 def parse_args():

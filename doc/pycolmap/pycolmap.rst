@@ -1,6 +1,6 @@
-.. _pycolmap/api:
+.. _pycolmap/pycolmap:
 
-API
+pycolmap
 ============
 
 .. automodule:: pycolmap

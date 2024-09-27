@@ -30,14 +30,14 @@
 
 # This script is based on an original implementation by True Price.
 
-import sys
 import sqlite3
-import numpy as np
+import sys
 
+import numpy as np
 
 IS_PYTHON3 = sys.version_info[0] >= 3
 
-MAX_IMAGE_ID = 2 ** 31 - 1
+MAX_IMAGE_ID = 2**31 - 1
 
 CREATE_CAMERAS_TABLE = """CREATE TABLE IF NOT EXISTS cameras (
     camera_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -60,9 +60,7 @@ CREATE_IMAGES_TABLE = """CREATE TABLE IF NOT EXISTS images (
     camera_id INTEGER NOT NULL,
     CONSTRAINT image_id_check CHECK(image_id >= 0 and image_id < {}),
     FOREIGN KEY(camera_id) REFERENCES cameras(camera_id))
-""".format(
-    MAX_IMAGE_ID
-)
+""".format(MAX_IMAGE_ID)
 
 CREATE_POSE_PRIORS_TABLE = """CREATE TABLE IF NOT EXISTS pose_priors (
     image_id INTEGER PRIMARY KEY NOT NULL,
@@ -298,8 +296,8 @@ class COLMAPDatabase(sqlite3.Connection):
 
 
 def example_usage():
-    import os
     import argparse
+    import os
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--database_path", default="database.db")
@@ -424,15 +422,6 @@ def example_usage():
     assert np.allclose(keypoints[image_id4], keypoints4)
 
     # Read and check matches.
-
-    pair_ids = [
-        image_ids_to_pair_id(*pair)
-        for pair in (
-            (image_id1, image_id2),
-            (image_id2, image_id3),
-            (image_id3, image_id4),
-        )
-    ]
 
     matches = dict(
         (pair_id_to_image_ids(pair_id), blob_to_array(data, np.uint32, (-1, 2)))
