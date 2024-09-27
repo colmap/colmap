@@ -3,7 +3,10 @@
 # This script applies clang-format to the whole repository.
 
 # Find clang-format
-tools='clang-format'
+tools='
+  clang-format-8
+  clang-format
+'
 
 clang_format=''
 for tool in ${tools}; do
@@ -20,14 +23,14 @@ fi
 echo "Found clang-format: $(which  ${clang_format})"
 
 # Check version
-# version_string=$($clang_format --version | sed -E 's/^.*(\d+\.\d+\.\d+-.*).*$/\1/')
-# expected_version_string='14.0.0'
-# if [[ "$version_string" =~ "$expected_version_string" ]]; then
-#     echo "clang-format version '$version_string' matches '$expected_version_string'"
-# else
-#     echo "clang-format version '$version_string' doesn't match '$expected_version_string'"
-#     exit 1
-# fi
+version_string=$($clang_format --version | sed -E 's/^.*(\d+\.\d+\.\d+-.*).*$/\1/')
+expected_version_string='14.0.0'
+if [[ "$version_string" =~ "$expected_version_string" ]]; then
+    echo "clang-format version '$version_string' matches '$expected_version_string'"
+else
+    echo "clang-format version '$version_string' doesn't match '$expected_version_string'"
+    exit 1
+fi
 
 # Get all C++ files checked into the repo, excluding submodules
 root_folder=$(git rev-parse --show-toplevel)
