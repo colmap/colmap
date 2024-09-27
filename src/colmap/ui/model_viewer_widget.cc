@@ -528,7 +528,7 @@ void ModelViewerWidget::ReloadReconstruction() {
       }
     }
     const std::vector<Eigen::Matrix3d> covs =
-        EstimatePointCovariance(reconstruction.get(), point3D_ids);
+        EstimateSchurPointCovariance(reconstruction.get(), point3D_ids);
     points3D_cov.resize(covs.size());
     for (size_t cov_idx = 0; cov_idx < covs.size(); ++cov_idx) {
       points3D_cov[cov_idx] =
