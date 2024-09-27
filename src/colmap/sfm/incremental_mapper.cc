@@ -612,11 +612,11 @@ IncrementalMapper::AdjustLocalBundle(
       num_images_per_camera[image.CameraId()] += 1;
     }
 
-    for (const auto& camera_id_and_num_images_pair : num_images_per_camera) {
+    for (const auto& [camera_id, num_images] : num_images_per_camera) {
       const size_t num_reg_images_for_camera =
-          num_reg_images_per_camera_.at(camera_id_and_num_images_pair.first);
-      if (camera_id_and_num_images_pair.second < num_reg_images_for_camera) {
-        ba_config.SetConstantCamIntrinsics(camera_id_and_num_images_pair.first);
+          num_reg_images_per_camera_.at(camera_id);
+      if (num_images < num_reg_images_for_camera) {
+        ba_config.SetConstantCamIntrinsics(camera_id);
       }
     }
 

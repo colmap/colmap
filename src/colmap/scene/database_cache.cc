@@ -169,10 +169,9 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
   {
     cache->pose_priors_.reserve(database.NumPosePriors());
 
-    for (const auto& id_and_image : cache->images_) {
-      if (database.ExistsPosePrior(id_and_image.first)) {
-        cache->pose_priors_.emplace(id_and_image.first,
-                                    database.ReadPosePrior(id_and_image.first));
+    for (const auto& [image_id, _] : cache->images_) {
+      if (database.ExistsPosePrior(image_id)) {
+        cache->pose_priors_.emplace(image_id, database.ReadPosePrior(image_id));
       }
     }
 
@@ -246,8 +245,8 @@ bool DatabaseCache::SetupPosePriors() {
 
   // Get sorted image ids for GPS to cartesian conversion
   std::set<image_t> image_ids_with_prior;
-  for (const auto& id_and_prior : pose_priors_) {
-    image_ids_with_prior.insert(id_and_prior.first);
+  for (const auto& [image_id, _] : pose_priors_) {
+    image_ids_with_prior.insert(image_id);
   }
 
   // Get GPS priors
