@@ -244,4 +244,24 @@ TEST(Covariance, RankDeficientPoints) {
   ASSERT_TRUE(estimator.Compute());
 }
 
+TEST(EstimatePointCovariance, Nominal) {
+  Reconstruction reconstruction;
+  GenerateReconstruction(&reconstruction);
+
+  std::vector<point3D_t> point3D_ids;
+  for (const auto& [point3D_id, _] : reconstruction.Points3D()) {
+    point3D_ids.push_back(point3D_id);
+  }
+
+  const std::vector<Eigen::Matrix3d> covs_ceres =
+      EstimateCeresPointCovariance(&reconstruction, point3D_ids);
+  const std::vector<Eigen::Matrix3d> covs_schur =
+      EstimateSchurPointCovariance(&reconstruction, point3D_ids);
+  ASSERT_EQ(covs_ceres.size(), covs_schur.size());
+
+  for (size_t i = 0; i < covs_ceres.size(); ++i) {
+    ExpectNearEigenMatrixXd(covs_ceres[i], covs_schur[i], 1e-6);
+  }
+}
+
 }  // namespace colmap
