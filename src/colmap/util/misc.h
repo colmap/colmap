@@ -33,12 +33,11 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/string.h"
 
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <string>
 #include <vector>
-
-#include <boost/filesystem.hpp>
 
 #define THROW_CHECK_FILE_EXISTS(path) \
   THROW_CHECK(ExistsFile(path)) << "File " << (path) << " does not exist."
@@ -166,8 +165,8 @@ void RemoveCommandLineArgument(const std::string& arg, int* argc, char** argv);
 
 template <typename... T>
 std::string JoinPaths(T const&... paths) {
-  boost::filesystem::path result;
-  int unpack[]{0, (result = result / boost::filesystem::path(paths), 0)...};
+  std::filesystem::path result;
+  int unpack[]{0, (result = result / std::filesystem::path(paths), 0)...};
   static_cast<void>(unpack);
   return result.string();
 }

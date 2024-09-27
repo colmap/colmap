@@ -49,7 +49,6 @@ COLMAP_ADD_LIBRARY(
         types.h
         version.h version.cc
     PUBLIC_LINK_LIBS
-        Boost::filesystem
         Eigen3::Eigen
         glog::glog
         SQLite::SQLite3

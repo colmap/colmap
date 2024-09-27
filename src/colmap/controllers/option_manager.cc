@@ -44,7 +44,6 @@
 #include "colmap/util/misc.h"
 #include "colmap/util/version.h"
 
-#include <boost/filesystem/operations.hpp>
 #include <boost/property_tree/ini_parser.hpp>
 
 namespace config = boost::program_options;
