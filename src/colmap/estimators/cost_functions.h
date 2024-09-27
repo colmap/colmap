@@ -51,23 +51,39 @@ inline Eigen::MatrixXd SqrtInformation(const Eigen::MatrixXd& covariance) {
   return covariance.inverse().llt().matrixL().transpose();
 }
 
+template <typename CostFunctor, int kNumResiduals, int... Parameters>
+ceres::CostFunction* CreateAutoDiffCostFunctionFull(
+    CostFunctor* functor, std::integer_sequence<int, Parameters...>) {
+  return new ceres::
+      AutoDiffCostFunction<CostFunctor, kNumResiduals, Parameters...>(functor);
+}
+
+template <typename CostFunctor>
+ceres::CostFunction* CreateAutoDiffCostFunction(CostFunctor* functor) {
+  return CreateAutoDiffCostFunctionFull<CostFunctor,
+                                        CostFunctor::kNumResiduals>(
+      functor, typename CostFunctor::Parameters{});
+}
+
+template <int kNumRes, int... Params>
+class BaseCostFunction {
+ public:
+  static const int kNumResiduals = kNumRes;
+  typedef std::integer_sequence<int, Params...> Parameters;
+};
+
 // Standard bundle adjustment cost function for variable
 // camera pose, calibration, and point parameters.
 template <typename CameraModel>
-class ReprojErrorCostFunction {
+class ReprojErrorCostFunction
+    : public BaseCostFunction<2, 4, 3, 3, CameraModel::num_params> {
  public:
   explicit ReprojErrorCostFunction(const Eigen::Vector2d& point2D)
       : observed_x_(point2D(0)), observed_y_(point2D(1)) {}
 
   static ceres::CostFunction* Create(const Eigen::Vector2d& point2D) {
-    return (
-        new ceres::AutoDiffCostFunction<ReprojErrorCostFunction<CameraModel>,
-                                        2,
-                                        4,
-                                        3,
-                                        3,
-                                        CameraModel::num_params>(
-            new ReprojErrorCostFunction(point2D)));
+    return CreateAutoDiffCostFunction(
+        new ReprojErrorCostFunction<CameraModel>(point2D));
   }
 
   template <typename T>
@@ -574,6 +590,46 @@ class IsotropicNoiseCostFunctionWrapper {
     return new ceres::ConditionedCostFunction(
         cost_function, conditioners, ceres::TAKE_OWNERSHIP);
   }
+};
+
+// Copied from
+// https://stackoverflow.com/questions/61321031/get-last-element-of-parameter-pack-in-c17-c20
+template <typename... Args>
+auto LastValueParameterPack(Args&&... args) {
+  return std::get<sizeof...(Args) - 1>(std::forward_as_tuple(args...));
+}
+
+template <class CostFunctor>
+class NoiseCostFunctionWrapper {
+ public:
+  static const int kNumResiduals = CostFunctor::kNumResiduals;
+  typedef typename CostFunctor::Parameters Parameters;
+  typedef Eigen::Matrix<double, kNumResiduals, kNumResiduals> MatrixNd;
+
+  template <typename... Args>
+  explicit NoiseCostFunctionWrapper(const MatrixNd& covariance, Args&&... args)
+      : sqrt_information_(SqrtInformation(covariance)),
+        functor_(std::forward<Args>(args)...) {}
+
+  template <typename... Args>
+  static ceres::CostFunction* Create(Args&&... args) {
+    return CreateAutoDiffCostFunction(
+        new NoiseCostFunctionWrapper<CostFunctor>(std::forward<Args>(args)...));
+  }
+
+  template <typename... Args>
+  bool operator()(Args... args) const {
+    const bool ret = functor_(args...);
+    auto residuals_ptr = LastValueParameterPack(args...);
+    typedef typename std::remove_reference<decltype(*residuals_ptr)>::type T;
+    Eigen::Map<Eigen::Matrix<T, kNumResiduals, 1>> residuals(residuals_ptr);
+    residuals.applyOnTheLeft(sqrt_information_.template cast<T>());
+    return ret;
+  }
+
+ private:
+  const MatrixNd sqrt_information_;
+  const CostFunctor functor_;
 };
 
 template <template <typename> class CostFunction, typename... Args>
