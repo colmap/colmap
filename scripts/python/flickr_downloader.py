@@ -28,16 +28,17 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 
-import os
-import time
+import argparse
 import datetime
+import multiprocessing
+import os
+import socket
+import time
 import urllib
+import xml.etree.ElementTree as ElementTree
+
 import urllib2
 import urlparse
-import socket
-import argparse
-import multiprocessing
-import xml.etree.ElementTree as ElementTree
 
 PER_PAGE = 500
 SORT = "date-posted-desc"

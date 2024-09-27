@@ -164,7 +164,8 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
   THROW_CHECK_LE(options.num_cameras, options.num_images);
   THROW_CHECK_GE(options.num_points3D, 0);
   THROW_CHECK_GE(options.num_points2D_without_point3D, 0);
-  THROW_CHECK_GE(options.point2D_stddev, 0);
+  THROW_CHECK_GE(options.point2D_stddev, 0.);
+  THROW_CHECK_GE(options.prior_position_stddev, 0.);
 
   // Synthesize cameras.
   std::vector<camera_t> camera_ids(options.num_cameras);
@@ -275,6 +276,38 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
         auto& point3D = reconstruction->Point3D(point2D.point3D_id);
         point3D.track.AddElement(image_id, point2D_idx);
       }
+    }
+
+    if (options.use_prior_position) {
+      const Eigen::Vector3d noise(
+          RandomGaussian<double>(0, options.prior_position_stddev),
+          RandomGaussian<double>(0, options.prior_position_stddev),
+          RandomGaussian<double>(0, options.prior_position_stddev));
+
+      PosePrior noisy_prior(proj_center + noise,
+                            PosePrior::CoordinateSystem::CARTESIAN);
+
+      if (options.prior_position_stddev > 0.) {
+        noisy_prior.position_covariance = options.prior_position_stddev *
+                                          options.prior_position_stddev *
+                                          Eigen::Matrix3d::Identity();
+      } else {
+        noisy_prior.position_covariance = Eigen::Matrix3d::Identity();
+      }
+
+      if (options.use_geographic_coords_prior) {
+        static const GPSTransform gps_trans;
+
+        static const double lat0 = 47.37851943807808;
+        static const double lon0 = 8.549099927632087;
+        static const double alt0 = 451.5;
+
+        noisy_prior.position =
+            gps_trans.ENUToEll({noisy_prior.position}, lat0, lon0, alt0)[0];
+        noisy_prior.coordinate_system = PosePrior::CoordinateSystem::WGS84;
+      }
+
+      database->WritePosePrior(image_id, noisy_prior);
     }
 
     image.SetImageId(image_id);

@@ -3,7 +3,7 @@ project(${SKBUILD_PROJECT_NAME} VERSION ${SKBUILD_PROJECT_VERSION})
 option(GENERATE_STUBS "Whether to generate stubs" ON)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CUDA_STANDARD 14)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
@@ -30,24 +30,24 @@ find_package(Python REQUIRED COMPONENTS Interpreter ${DEV_MODULE} REQUIRED)
 find_package(pybind11 2.13.0 REQUIRED)
 
 file(GLOB_RECURSE SOURCE_FILES "${PROJECT_SOURCE_DIR}/../src/pycolmap/*.cc")
-pybind11_add_module(pycolmap ${SOURCE_FILES})
-target_include_directories(pycolmap PRIVATE ${PROJECT_SOURCE_DIR}/../src/)
-target_link_libraries(pycolmap PRIVATE colmap::colmap glog::glog Ceres::ceres)
-target_compile_definitions(pycolmap PRIVATE VERSION_INFO="${PROJECT_VERSION}")
-install(TARGETS pycolmap LIBRARY DESTINATION .)
+pybind11_add_module(_core ${SOURCE_FILES})
+target_include_directories(_core PRIVATE ${PROJECT_SOURCE_DIR}/../src/)
+target_link_libraries(_core PRIVATE colmap::colmap glog::glog Ceres::ceres)
+target_compile_definitions(_core PRIVATE VERSION_INFO="${PROJECT_VERSION}")
+install(TARGETS _core LIBRARY DESTINATION pycolmap)
 
 if(GENERATE_STUBS AND UNIX)
     message(STATUS "Enabling stubs generation")
-    set(STUBGEN_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/pycolmap-stubs")
+    set(STUBGEN_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/_core")
     add_custom_command(
-        TARGET pycolmap POST_BUILD
+        TARGET _core POST_BUILD
         COMMAND
           "${CMAKE_COMMAND}" -E env
-          "PYTHONPATH=$<TARGET_FILE_DIR:pycolmap>:$ENV{PYTHONPATH}"
+          "PYTHONPATH=$<TARGET_FILE_DIR:_core>:$ENV{PYTHONPATH}"
           bash ${PROJECT_SOURCE_DIR}/generate_stubs.sh "${Python_EXECUTABLE}" "${CMAKE_CURRENT_BINARY_DIR}"
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
         COMMENT "Generating pybind11 stubs"
         VERBATIM
     )
-    install(DIRECTORY ${STUBGEN_OUTPUT_DIR} DESTINATION .)
+    install(DIRECTORY ${STUBGEN_OUTPUT_DIR} DESTINATION pycolmap)
 endif()

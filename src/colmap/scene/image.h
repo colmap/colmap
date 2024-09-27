@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/geometry/gps.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/math/math.h"
 #include "colmap/scene/camera.h"

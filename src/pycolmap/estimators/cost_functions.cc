@@ -142,4 +142,8 @@ void BindCostFunctions(py::module& m_parent) {
         "ref_point"_a,
         "covariance_point"_a,
         "Error between 3D points transformed by a similarity transform.");
+  m.def("PositionPriorErrorCost",
+        &PositionPriorErrorCostFunction::Create,
+        "world_from_cam_position_prior"_a,
+        "covariance"_a);
 }

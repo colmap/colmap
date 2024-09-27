@@ -30,8 +30,8 @@
 
 # This script exports inlier image pairs from a COLMAP database to a text file.
 
-import sqlite3
 import argparse
+import sqlite3
 
 
 def parse_args():
