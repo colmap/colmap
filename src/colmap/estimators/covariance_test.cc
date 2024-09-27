@@ -296,4 +296,33 @@ INSTANTIATE_TEST_SUITE_P(
         }()));
 
 }  // namespace
+
+TEST(EstimatePointCovariance, Nominal) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 7;
+  synthetic_dataset_options.num_points3D = 200;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 0.01;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+
+  std::vector<point3D_t> point3D_ids;
+  for (const auto& [point3D_id, _] : reconstruction.Points3D()) {
+    point3D_ids.push_back(point3D_id);
+  }
+
+  const std::vector<Eigen::Matrix3d> covs_ceres =
+      EstimateCeresPointCovariance(&reconstruction, point3D_ids);
+  const std::vector<Eigen::Matrix3d> covs_schur =
+      EstimateSchurPointCovariance(&reconstruction, point3D_ids);
+  ASSERT_EQ(covs_ceres.size(), covs_schur.size());
+
+  for (size_t i = 0; i < covs_ceres.size(); ++i) {
+    ExpectNearEigenMatrixXd(covs_ceres[i], covs_schur[i], 1e-6);
+  }
+}
+
 }  // namespace colmap
