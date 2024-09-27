@@ -200,8 +200,6 @@ BACovariance EstimateSchurBACovariance(const Reconstruction& reconstruction,
                                   type == BACovarianceType::kPosesAndPoints;
   const bool estimate_point_covs = type == BACovarianceType::kOnlyPoints ||
                                    type == BACovarianceType::kPosesAndPoints;
-  LOG_IF(FATAL, estimate_point_covs)
-      << "Estimation of point covariances not implemented";
 
   BACovariance ba_cov;
 
@@ -280,6 +278,10 @@ BACovariance EstimateSchurBACovariance(const Reconstruction& reconstruction,
         H_pp_inv.coeffRef(point_param_idx + i, point_param_idx + j) =
             H_pp_idx_inv(i, j);
       }
+    }
+    // TODO: Only works with constant poses.
+    if (estimate_point_covs) {
+      ba_cov.point_covs[point.point3D_id] = H_pp_idx_inv;
     }
     point_param_idx += 3;
   }
