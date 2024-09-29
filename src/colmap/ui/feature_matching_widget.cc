@@ -32,6 +32,7 @@
 #include "colmap/controllers/feature_matching.h"
 #include "colmap/ui/options_widget.h"
 #include "colmap/ui/thread_control_widget.h"
+#include "colmap/util/file.h"
 
 namespace colmap {
 

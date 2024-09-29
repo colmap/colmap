@@ -42,6 +42,7 @@
 #include "colmap/math/random.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/endian.h"
+#include "colmap/util/file.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/ply.h"

@@ -33,6 +33,7 @@
 #include "colmap/geometry/gps.h"
 #include "colmap/scene/database.h"
 #include "colmap/util/cuda.h"
+#include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/opengl_utils.h"
 #include "colmap/util/timer.h"
