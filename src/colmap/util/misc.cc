@@ -29,7 +29,10 @@
 
 #include "colmap/util/misc.h"
 
+#include "colmap/util/logging.h"
+
 #include <cstdarg>
+#include <sstream>
 
 namespace colmap {
 

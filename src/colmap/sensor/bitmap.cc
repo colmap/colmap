@@ -31,9 +31,9 @@
 
 #include "colmap/math/math.h"
 #include "colmap/sensor/database.h"
+#include "colmap/util/file.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
-#include "colmap/util/file.h"
 
 #include "thirdparty/VLFeat/imopv.h"
 

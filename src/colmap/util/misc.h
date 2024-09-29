@@ -29,36 +29,9 @@
 
 #pragma once
 
-#include "colmap/util/endian.h"
-#include "colmap/util/logging.h"
-#include "colmap/util/string.h"
-
-#include <filesystem>
-#include <fstream>
 #include <iostream>
 #include <string>
 #include <vector>
-
-#define THROW_CHECK_FILE_EXISTS(path) \
-  THROW_CHECK(ExistsFile(path)) << "File " << (path) << " does not exist."
-
-#define THROW_CHECK_DIR_EXISTS(path) \
-  THROW_CHECK(ExistsDir(path)) << "Directory " << (path) << " does not exist."
-
-#define THROW_CHECK_PATH_OPEN(path)                           \
-  THROW_CHECK(std::ofstream(path, std::ios::trunc).is_open()) \
-      << "Could not open " << (path)                          \
-      << ". Is the path a directory or does the parent dir not exist?"
-
-#define THROW_CHECK_FILE_OPEN(file, path) \
-  THROW_CHECK((file).is_open())           \
-      << "Could not open " << (path)      \
-      << ". Is the path a directory or does the parent dir not exist?"
-
-#define THROW_CHECK_HAS_FILE_EXTENSION(path, ext)                        \
-  THROW_CHECK(HasFileExtension(path, ext))                               \
-      << "Path " << (path) << " does not match file extension " << (ext) \
-      << "."
 
 namespace colmap {
 

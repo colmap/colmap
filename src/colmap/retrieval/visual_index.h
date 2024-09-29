@@ -36,6 +36,7 @@
 #include "colmap/retrieval/vote_and_verify.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/endian.h"
+#include "colmap/util/file.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 

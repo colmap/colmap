@@ -29,8 +29,9 @@
 
 #include "colmap/mvs/consistency_graph.h"
 
+#include "colmap/util/endian.h"
+#include "colmap/util/file.h"
 #include "colmap/util/logging.h"
-#include "colmap/util/misc.h"
 
 #include <fstream>
 #include <numeric>
