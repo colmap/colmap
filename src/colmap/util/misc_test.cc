@@ -108,7 +108,7 @@ TEST(GetParentDir, Nominal) {
   EXPECT_EQ(GetParentDir(""), "");
   EXPECT_EQ(GetParentDir("test"), "");
   EXPECT_EQ(GetParentDir("/test"), "/");
-  EXPECT_EQ(GetParentDir("/"), "");
+  EXPECT_EQ(GetParentDir("/"), "/");
   EXPECT_EQ(GetParentDir("test/test"), "test");
 }
 
@@ -131,10 +131,10 @@ TEST(JoinPaths, Nominal) {
   EXPECT_EQ(JoinPaths("test1", "test2"), "test1/test2");
   EXPECT_EQ(JoinPaths("/test1", "test2"), "/test1/test2");
 #endif
-  EXPECT_EQ(JoinPaths("/test1", "/test2"), "/test1/test2");
-  EXPECT_EQ(JoinPaths("/test1", "/test2/"), "/test1/test2/");
+  EXPECT_EQ(JoinPaths("/test1", "/test2"), "/test2");
+  EXPECT_EQ(JoinPaths("/test1", "/test2/"), "/test2/");
   EXPECT_EQ(JoinPaths("/test1", "/test2/", "test3.ext"),
-            "/test1/test2/test3.ext");
+            "/test2/test3.ext");
 }
 
 TEST(VectorContainsValue, Nominal) {
