@@ -52,6 +52,8 @@
 #include <array>
 #include <fstream>
 #include <memory>
+#include <mutex>
+#include <map>
 
 #include <Eigen/Geometry>
 
