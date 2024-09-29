@@ -133,8 +133,7 @@ TEST(JoinPaths, Nominal) {
 #endif
   EXPECT_EQ(JoinPaths("/test1", "/test2"), "/test2");
   EXPECT_EQ(JoinPaths("/test1", "/test2/"), "/test2/");
-  EXPECT_EQ(JoinPaths("/test1", "/test2/", "test3.ext"),
-            "/test2/test3.ext");
+  EXPECT_EQ(JoinPaths("/test1", "/test2/", "test3.ext"), "/test2/test3.ext");
 }
 
 TEST(VectorContainsValue, Nominal) {
