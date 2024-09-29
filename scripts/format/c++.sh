@@ -2,29 +2,9 @@
 
 # This script applies clang-format to the whole repository.
 
-# Find clang-format
-tools='
-  clang-format-8
-  clang-format
-'
-
-clang_format=''
-for tool in ${tools}; do
-    if type -p "${tool}" > /dev/null; then
-        clang_format=$tool
-        break
-    fi
-done
-
-if [ -z "$clang_format" ]; then
-    echo "Could not locate clang-format"
-    exit 1
-fi
-echo "Found clang-format: $(which  ${clang_format})"
-
 # Check version
-version_string=$($clang_format --version | sed -E 's/^.*(\d+\.\d+\.\d+-.*).*$/\1/')
-expected_version_string='14.0.0'
+version_string=$(clang-format --version | sed -E 's/^.*(\d+\.\d+\.\d+-.*).*$/\1/')
+expected_version_string='19.1.0'
 if [[ "$version_string" =~ "$expected_version_string" ]]; then
     echo "clang-format version '$version_string' matches '$expected_version_string'"
 else
@@ -41,5 +21,4 @@ all_files=$( \
 num_files=$(echo $all_files | wc -w)
 echo "Formatting ${num_files} files"
 
-# Run clang-format
-${clang_format} -i $all_files
+clang-format -i $all_files

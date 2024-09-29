@@ -104,10 +104,14 @@
   }
 
 #define CheckVariablePoint(point, orig_point) \
-  { EXPECT_NE((point).xyz, (orig_point).xyz); }
+  {                                           \
+    EXPECT_NE((point).xyz, (orig_point).xyz); \
+  }
 
 #define CheckConstantPoint(point, orig_point) \
-  { EXPECT_EQ((point).xyz, (orig_point).xyz); }
+  {                                           \
+    EXPECT_EQ((point).xyz, (orig_point).xyz); \
+  }
 
 namespace colmap {
 namespace {
