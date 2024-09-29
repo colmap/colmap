@@ -530,8 +530,8 @@ struct PositionPriorErrorCostFunctor {
 // A cost function that wraps another one and whiten its residuals with an
 // isotropic covariance, i.e. assuming that the variance is identical in and
 // independent between each dimension of the residual.
-template <class CostFunction>
-class IsotropicNoiseCostFunctionWrapper {
+template <class CostFunctor>
+class IsotropicNoiseCostFunctorWrapper {
   class LinearCostFunction : public ceres::CostFunction {
    public:
     explicit LinearCostFunction(const double s) : s_(s) {
@@ -558,7 +558,7 @@ class IsotropicNoiseCostFunctionWrapper {
   static ceres::CostFunction* Create(const double stddev, Args&&... args) {
     THROW_CHECK_GT(stddev, 0.0);
     ceres::CostFunction* cost_function =
-        CostFunction::Create(std::forward<Args>(args)...);
+        CostFunctor::Create(std::forward<Args>(args)...);
     const double scale = 1.0 / stddev;
     std::vector<ceres::CostFunction*> conditioners(
 #if CERES_VERSION_MAJOR < 2
@@ -575,13 +575,13 @@ class IsotropicNoiseCostFunctionWrapper {
   }
 };
 
-template <template <typename> class CostFunction, typename... Args>
+template <template <typename> class CostFunctor, typename... Args>
 ceres::CostFunction* CameraCostFunction(const CameraModelId camera_model_id,
                                         Args&&... args) {
   switch (camera_model_id) {
-#define CAMERA_MODEL_CASE(CameraModel)                                     \
-  case CameraModel::model_id:                                              \
-    return CostFunction<CameraModel>::Create(std::forward<Args>(args)...); \
+#define CAMERA_MODEL_CASE(CameraModel)                                    \
+  case CameraModel::model_id:                                             \
+    return CostFunctor<CameraModel>::Create(std::forward<Args>(args)...); \
     break;
 
     CAMERA_MODEL_SWITCH_CASES
