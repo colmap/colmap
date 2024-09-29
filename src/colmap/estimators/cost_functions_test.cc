@@ -42,9 +42,9 @@ namespace colmap {
 namespace {
 
 TEST(BundleAdjustment, AbsolutePose) {
-  using CostFunction = ReprojErrorCostFunctor<SimplePinholeCameraModel>;
+  using CostFunctor = ReprojErrorCostFunctor<SimplePinholeCameraModel>;
   std::unique_ptr<ceres::CostFunction> cost_function(
-      CostFunction::Create(Eigen::Vector2d::Zero()));
+      CostFunctor::Create(Eigen::Vector2d::Zero()));
   double cam_from_world_rotation[4] = {0, 0, 0, 1};
   double cam_from_world_translation[3] = {0, 0, 0};
   double point3D[3] = {0, 0, 1};
@@ -74,7 +74,7 @@ TEST(BundleAdjustment, AbsolutePose) {
   EXPECT_EQ(residuals[1], 2);
 
   std::unique_ptr<ceres::CostFunction> cost_function_with_noise(
-      IsotropicNoiseCostFunctionWrapper<CostFunction>::Create(
+      IsotropicNoiseCostFunctorWrapper<CostFunctor>::Create(
           2.0, Eigen::Vector2d::Zero()));
   EXPECT_TRUE(
       cost_function_with_noise->Evaluate(parameters, residuals, nullptr));
