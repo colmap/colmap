@@ -30,6 +30,7 @@
 #include "colmap/util/misc.h"
 
 #include <cstdarg>
+#include <filesystem>
 
 namespace colmap {
 
