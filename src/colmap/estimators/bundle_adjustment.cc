@@ -436,13 +436,13 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
 
     if (constant_cam_pose) {
       problem_->AddResidualBlock(
-          CameraCostFunction<ReprojErrorConstantPoseCostFunction>(
+          CameraCostFunction<ReprojErrorConstantPoseCostFunctor>(
               camera.model_id, image.CamFromWorld(), point2D.xy),
           loss_function,
           point3D.xyz.data(),
           camera_params);
     } else {
-      problem_->AddResidualBlock(CameraCostFunction<ReprojErrorCostFunction>(
+      problem_->AddResidualBlock(CameraCostFunction<ReprojErrorCostFunctor>(
                                      camera.model_id, point2D.xy),
                                  loss_function,
                                  cam_from_world_rotation,
@@ -505,7 +505,7 @@ void BundleAdjuster::AddPointToProblem(const point3D_t point3D_id,
       config_.SetConstantCamIntrinsics(image.CameraId());
     }
     problem_->AddResidualBlock(
-        CameraCostFunction<ReprojErrorConstantPoseCostFunction>(
+        CameraCostFunction<ReprojErrorConstantPoseCostFunctor>(
             camera.model_id, image.CamFromWorld(), point2D.xy),
         loss_function,
         point3D.xyz.data(),
@@ -730,13 +730,13 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
     if (camera_rig == nullptr) {
       if (constant_cam_pose) {
         problem_->AddResidualBlock(
-            CameraCostFunction<ReprojErrorConstantPoseCostFunction>(
+            CameraCostFunction<ReprojErrorConstantPoseCostFunctor>(
                 camera.model_id, image.CamFromWorld(), point2D.xy),
             loss_function,
             point3D.xyz.data(),
             camera_params);
       } else {
-        problem_->AddResidualBlock(CameraCostFunction<ReprojErrorCostFunction>(
+        problem_->AddResidualBlock(CameraCostFunction<ReprojErrorCostFunctor>(
                                        camera.model_id, point2D.xy),
                                    loss_function,
                                    cam_from_rig_rotation,     // rig == world
@@ -745,7 +745,7 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
                                    camera_params);
       }
     } else {
-      problem_->AddResidualBlock(CameraCostFunction<RigReprojErrorCostFunction>(
+      problem_->AddResidualBlock(CameraCostFunction<RigReprojErrorCostFunctor>(
                                      camera.model_id, point2D.xy),
                                  loss_function,
                                  cam_from_rig_rotation,
@@ -816,7 +816,7 @@ void RigBundleAdjuster::AddPointToProblem(const point3D_t point3D_id,
     }
 
     problem_->AddResidualBlock(
-        CameraCostFunction<ReprojErrorConstantPoseCostFunction>(
+        CameraCostFunction<ReprojErrorConstantPoseCostFunctor>(
             camera.model_id, image.CamFromWorld(), point2D.xy),
         loss_function,
         point3D.xyz.data(),
@@ -951,7 +951,7 @@ void PosePriorBundleAdjuster::AddPosePriorToProblem(
       image.CamFromWorld().rotation.coeffs().data();
 
   problem_->AddResidualBlock(
-      PositionPriorErrorCostFunction::Create(
+      PositionPriorErrorCostFunctor::Create(
           normalized_from_metric_ * prior.position, prior.position_covariance),
       prior_loss_function,
       cam_from_world_rotation,
