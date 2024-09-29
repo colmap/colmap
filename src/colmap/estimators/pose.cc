@@ -226,7 +226,7 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
       continue;
     }
     problem.AddResidualBlock(
-        CameraCostFunction<ReprojErrorConstantPoint3DCostFunction>(
+        CameraCostFunction<ReprojErrorConstantPoint3DCostFunctor>(
             camera->model_id, points2D[i], points3D[i]),
         loss_function.get(),
         rig_from_world_rotation,
@@ -330,7 +330,7 @@ bool RefineRelativePose(const ceres::Solver::Options& options,
 
   for (size_t i = 0; i < points1.size(); ++i) {
     ceres::CostFunction* cost_function =
-        SampsonErrorCostFunction::Create(points1[i], points2[i]);
+        SampsonErrorCostFunctor::Create(points1[i], points2[i]);
     problem.AddResidualBlock(cost_function,
                              loss_function,
                              cam2_from_cam1_rotation,
