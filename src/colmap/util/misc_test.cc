@@ -29,6 +29,8 @@
 
 #include "colmap/util/misc.h"
 
+#include <cstring>
+
 #include <gtest/gtest.h>
 
 namespace colmap {
