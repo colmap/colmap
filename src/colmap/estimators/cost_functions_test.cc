@@ -259,6 +259,36 @@ TEST(BundleAdjustment, RelativePose) {
   EXPECT_EQ(residuals[0], 0.5);
 }
 
+TEST(BundleAdjustment, PositionPrior) {
+  std::unique_ptr<ceres::CostFunction> cost_function(
+      PositionPriorErrorCostFunctor::Create(Eigen::Vector3d(0, 0, 0),
+                                            Eigen::Matrix3d::Identity()));
+
+  double cam_from_world_rotation[4] = {0, 0, 0, 1};
+  double cam_from_world_translation[3] = {0, 0, 0};
+
+  double residuals[3];
+  const double* parameters[2] = {cam_from_world_rotation,
+                                 cam_from_world_translation};
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], 0);
+  EXPECT_EQ(residuals[2], 0);
+
+  const Rigid3d cam_from_world(Eigen::Quaterniond::UnitRandom(),
+                               Eigen::Vector3d::Random());
+  const Rigid3d world_from_cam = Inverse(cam_from_world);
+
+  cost_function.reset(PositionPriorErrorCostFunctor::Create(
+      world_from_cam.translation, Eigen::Matrix3d::Identity()));
+  parameters[0] = cam_from_world.rotation.coeffs().data();
+  parameters[1] = cam_from_world.translation.data();
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], 0);
+  EXPECT_EQ(residuals[2], 0);
+}
+
 TEST(PoseGraphOptimization, AbsolutePose) {
   const Rigid3d mes_cam_from_world;
   EigenMatrix6d covariance_cam = EigenMatrix6d::Identity();
