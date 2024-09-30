@@ -3,6 +3,7 @@
 #include "colmap/scene/correspondence_graph.h"
 #include "colmap/scene/reconstruction_io.h"
 #include "colmap/sensor/models.h"
+#include "colmap/util/file.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/ply.h"
