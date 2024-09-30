@@ -36,6 +36,7 @@
 #include "colmap/util/cuda.h"
 #include "colmap/util/cudacc.h"
 #include "colmap/util/endian.h"
+#include "colmap/util/logging.h"
 
 #include <fstream>
 #include <iterator>
