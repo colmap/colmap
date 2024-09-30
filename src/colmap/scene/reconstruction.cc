@@ -36,7 +36,7 @@
 #include "colmap/scene/projection.h"
 #include "colmap/scene/reconstruction_io.h"
 #include "colmap/sensor/bitmap.h"
-#include "colmap/util/misc.h"
+#include "colmap/util/file.h"
 #include "colmap/util/ply.h"
 
 namespace colmap {

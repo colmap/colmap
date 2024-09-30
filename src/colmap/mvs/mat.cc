@@ -27,41 +27,42 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/util/testing.h"
+#include "colmap/mvs/mat.h"
 
-#include "colmap/util/logging.h"
+#include "colmap/util/file.h"
 
-#include <filesystem>
-#include <mutex>
-#include <set>
-
-#include <gtest/gtest.h>
+#include <fstream>
+#include <string>
+#include <vector>
 
 namespace colmap {
+namespace mvs {
 
-std::string CreateTestDir() {
-  const testing::TestInfo* test_info = THROW_CHECK_NOTNULL(
-      testing::UnitTest::GetInstance()->current_test_info());
-  std::ostringstream test_name_stream;
-  test_name_stream << test_info->test_suite_name() << "." << test_info->name();
-  const std::string test_name = test_name_stream.str();
+template <>
+void Mat<float>::Read(const std::string& path) {
+  std::ifstream file(path, std::ios::binary);
+  THROW_CHECK_FILE_OPEN(file, path);
 
-  const std::filesystem::path test_dir =
-      std::filesystem::path("colmap_test_tmp_test_data") / test_name;
+  char unused_char;
+  file >> width_ >> unused_char >> height_ >> unused_char >> depth_ >>
+      unused_char;
+  THROW_CHECK_GT(width_, 0) << path;
+  THROW_CHECK_GT(height_, 0) << path;
+  THROW_CHECK_GT(depth_, 0) << path;
+  data_.resize(width_ * height_ * depth_);
 
-  // Create directory once. Cleanup artifacts from previous test runs.
-  static std::mutex mutex;
-  std::lock_guard<std::mutex> lock(mutex);
-  static std::set<std::string> existing_test_names;
-  if (existing_test_names.count(test_name) == 0) {
-    if (std::filesystem::is_directory(test_dir)) {
-      std::filesystem::remove_all(test_dir);
-    }
-    std::filesystem::create_directories(test_dir);
-  }
-  existing_test_names.insert(test_name);
-
-  return test_dir.string();
+  ReadBinaryLittleEndian<float>(&file, &data_);
+  file.close();
 }
 
+template <>
+void Mat<float>::Write(const std::string& path) const {
+  std::ofstream file(path, std::ios::binary);
+  THROW_CHECK_FILE_OPEN(file, path);
+  file << width_ << "&" << height_ << "&" << depth_ << "&";
+  WriteBinaryLittleEndian<float>(&file, data_);
+  file.close();
+}
+
+}  // namespace mvs
 }  // namespace colmap

@@ -6,6 +6,7 @@
 #include "colmap/scene/camera.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/base_controller.h"
+#include "colmap/util/file.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 

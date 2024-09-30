@@ -36,6 +36,7 @@
 #include "colmap/scene/point3d.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/track.h"
+#include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/ply.h"
 #include "colmap/util/types.h"

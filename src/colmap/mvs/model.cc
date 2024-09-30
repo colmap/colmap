@@ -34,7 +34,7 @@
 #include "colmap/scene/projection.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sensor/models.h"
-#include "colmap/util/misc.h"
+#include "colmap/util/file.h"
 
 namespace colmap {
 namespace mvs {

@@ -129,7 +129,6 @@ jobs:
             cmake \
             ninja-build \
             libboost-program-options-dev \
-            libboost-filesystem-dev \
             libboost-graph-dev \
             libboost-system-dev \
             libeigen3-dev \

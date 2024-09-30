@@ -78,7 +78,6 @@ Dependencies from the default Ubuntu repositories::
         ninja-build \
         build-essential \
         libboost-program-options-dev \
-        libboost-filesystem-dev \
         libboost-graph-dev \
         libboost-system-dev \
         libeigen3-dev \

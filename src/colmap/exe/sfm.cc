@@ -37,6 +37,7 @@
 #include "colmap/exe/gui.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sfm/observation_manager.h"
+#include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/opengl_utils.h"
 

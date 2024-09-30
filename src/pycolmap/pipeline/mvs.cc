@@ -1,5 +1,6 @@
 #include "colmap/mvs/fusion.h"
 #include "colmap/scene/reconstruction.h"
+#include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 
 #ifdef COLMAP_CUDA_ENABLED

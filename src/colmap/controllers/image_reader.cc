@@ -30,6 +30,7 @@
 #include "colmap/controllers/image_reader.h"
 
 #include "colmap/sensor/models.h"
+#include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 
 namespace colmap {

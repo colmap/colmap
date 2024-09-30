@@ -31,7 +31,7 @@
 
 #include "colmap/geometry/triangulation.h"
 #include "colmap/scene/projection.h"
-#include "colmap/util/misc.h"
+#include "colmap/util/file.h"
 #include "colmap/util/testing.h"
 
 #include <gtest/gtest.h>
