@@ -71,21 +71,24 @@ void BindReconstruction(py::module& m) {
       .def("image",
            py::overload_cast<image_t>(&Reconstruction::Image),
            "image_id"_a,
-           "Direct accessor for an image.")
+           "Direct accessor for an image.",
+           py::return_value_policy::reference_internal)
       .def_property_readonly("cameras",
                              &Reconstruction::Cameras,
                              py::return_value_policy::reference_internal)
       .def("camera",
            py::overload_cast<camera_t>(&Reconstruction::Camera),
            "camera_id"_a,
-           "Direct accessor for a camera.")
+           "Direct accessor for a camera.",
+           py::return_value_policy::reference_internal)
       .def_property_readonly("points3D",
                              &Reconstruction::Points3D,
                              py::return_value_policy::reference_internal)
       .def("point3D",
            py::overload_cast<point3D_t>(&Reconstruction::Point3D),
            "point3D_id"_a,
-           "Direct accessor for a Point3D.")
+           "Direct accessor for a Point3D.",
+           py::return_value_policy::reference_internal)
       .def("point3D_ids", &Reconstruction::Point3DIds)
       .def("reg_image_ids", &Reconstruction::RegImageIds)
       .def("exists_camera", &Reconstruction::ExistsCamera, "camera_id"_a)
