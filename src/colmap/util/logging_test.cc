@@ -52,17 +52,19 @@ TEST(ExceptionLogging, Nominal) {
   EXPECT_THROW(ThrowCheckEqual(0), std::invalid_argument);
   EXPECT_THROW(THROW_CHECK_NOTNULL(nullptr), std::invalid_argument);
   EXPECT_THROW({ LOG(FATAL_THROW) << "Error!"; }, std::invalid_argument);
-  EXPECT_THROW({ LOG_FATAL_THROW(std::logic_error) << "Error!"; },
-               std::logic_error);
+  EXPECT_THROW(
+      { LOG_FATAL_THROW(std::logic_error) << "Error!"; }, std::logic_error);
 }
 
 TEST(ExceptionLogging, Nested) {
   EXPECT_NO_THROW(PrintingFn("message"));
   EXPECT_THROW(PrintingFn(""), std::invalid_argument);
-  EXPECT_THROW({ LOG(FATAL_THROW) << "Error: " << PrintingFn("message"); },
-               std::invalid_argument);
-  EXPECT_THROW({ LOG(FATAL_THROW) << "Error: " << PrintingFn(""); },
-               std::invalid_argument);
+  EXPECT_THROW(
+      { LOG(FATAL_THROW) << "Error: " << PrintingFn("message"); },
+      std::invalid_argument);
+  EXPECT_THROW(
+      { LOG(FATAL_THROW) << "Error: " << PrintingFn(""); },
+      std::invalid_argument);
 }
 
 }  // namespace

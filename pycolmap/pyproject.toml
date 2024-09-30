@@ -5,6 +5,7 @@ requires = [
     "pybind11_stubgen @ git+https://github.com/sarlinpe/pybind11-stubgen@sarlinpe/fix-2024-08",
     "numpy",
     "ruff==0.6.7",
+    "clang-format==19.1.0",
 ]
 build-backend = "scikit_build_core.build"
 
