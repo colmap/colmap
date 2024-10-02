@@ -39,7 +39,7 @@
 
 namespace colmap {
 
-struct GeneralizedCameraObservation {
+struct GRNPObservation {
   Rigid3d cam_from_rig;
   Eigen::Vector3d ray_in_cam;
 };
@@ -47,8 +47,8 @@ struct GeneralizedCameraObservation {
 // Minimal generalized relative pose estimator based on poselib.
 class GR6PEstimator {
  public:
-  typedef GeneralizedCameraObservation X_t;
-  typedef GeneralizedCameraObservation Y_t;
+  typedef GRNPObservation X_t;
+  typedef GRNPObservation Y_t;
   // The estimated rig2_from_rig1 relative pose between the generalized cameras.
   typedef Rigid3d M_t;
 
@@ -83,8 +83,8 @@ class GR6PEstimator {
 // implementation in OpenGV licensed under the BSD license.
 class GR8PEstimator {
  public:
-  typedef GeneralizedCameraObservation X_t;
-  typedef GeneralizedCameraObservation Y_t;
+  typedef GRNPObservation X_t;
+  typedef GRNPObservation Y_t;
   // The estimated rig2_from_rig1 relative pose between the generalized cameras.
   typedef Rigid3d M_t;
 
