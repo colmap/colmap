@@ -77,8 +77,8 @@ TEST(GeneralizedRelativePose, Nominal) {
       }
 
       // Project points to cameras.
-      std::vector<GR6PEstimator::X_t> points1;
-      std::vector<GR6PEstimator::Y_t> points2;
+      std::vector<GR8PEstimator::X_t> points1;
+      std::vector<GR8PEstimator::Y_t> points2;
       for (size_t i = 0; i < points3D.size(); ++i) {
         const size_t cam_idx1 = i % kNumCams;
         const size_t cam_idx2 = (i + 1) % 1;
@@ -101,7 +101,7 @@ TEST(GeneralizedRelativePose, Nominal) {
 
       RANSACOptions options;
       options.max_error = 1e-3;
-      LORANSAC<GR6PEstimator, GR6PEstimator> ransac(options);
+      LORANSAC<GR8PEstimator, GR8PEstimator> ransac(options);
       const auto report = ransac.Estimate(points1, points2);
 
       EXPECT_TRUE(report.success);
@@ -109,7 +109,7 @@ TEST(GeneralizedRelativePose, Nominal) {
                 1e-2);
 
       std::vector<double> residuals;
-      GR6PEstimator::Residuals(points1, points2, report.model, &residuals);
+      GR8PEstimator::Residuals(points1, points2, report.model, &residuals);
       for (size_t i = 0; i < residuals.size(); ++i) {
         EXPECT_LE(residuals[i], options.max_error);
       }

@@ -50,7 +50,7 @@ namespace colmap {
 //
 // The implementation is a modified and improved version of Kneip's original
 // implementation in OpenGV licensed under the BSD license.
-class GR6PEstimator {
+class GR8PEstimator {
  public:
   // The generalized image observations of the left camera, which is composed of
   // the relative pose of a camera in the generalized camera and a ray in the

@@ -418,7 +418,7 @@ Eigen::Vector3d ComputeJacobian(const Eigen::Matrix3d& xxF,
 
 }  // namespace
 
-void GR6PEstimator::Estimate(const std::vector<X_t>& points1,
+void GR8PEstimator::Estimate(const std::vector<X_t>& points1,
                              const std::vector<Y_t>& points2,
                              std::vector<M_t>* models) {
   THROW_CHECK_GE(points1.size(), 6);
@@ -717,7 +717,7 @@ void GR6PEstimator::Estimate(const std::vector<X_t>& points1,
   }
 }
 
-void GR6PEstimator::Residuals(const std::vector<X_t>& points1,
+void GR8PEstimator::Residuals(const std::vector<X_t>& points1,
                               const std::vector<Y_t>& points2,
                               const M_t& rig2_from_rig1,
                               std::vector<double>* residuals) {
