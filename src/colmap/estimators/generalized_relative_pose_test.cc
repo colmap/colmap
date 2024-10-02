@@ -81,7 +81,7 @@ TEST(GeneralizedRelativePose, Nominal) {
       std::vector<GR8PEstimator::Y_t> points2;
       for (size_t i = 0; i < points3D.size(); ++i) {
         const size_t cam_idx1 = i % kNumCams;
-        const size_t cam_idx2 = (i + 1) % 1;
+        const size_t cam_idx2 = (i + 1) % kNumCams;
         const Eigen::Vector3d point3D_camera1 =
             cams_from_world[cam_idx1] * points3D[i];
         const Eigen::Vector3d point3D_camera2 =
