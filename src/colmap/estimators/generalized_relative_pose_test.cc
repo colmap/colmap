@@ -76,42 +76,44 @@ TEST(GR6PEstimator, Nominal) {
         cams_from_rig2[i] = cams_from_rig1[i] * Inverse(rig2_from_rig1);
       }
 
-      // Project points to cameras.
-      std::vector<GR6PEstimator::X_t> points1;
-      std::vector<GR6PEstimator::Y_t> points2;
-      for (size_t i = 0; i < points3D.size(); ++i) {
-        const size_t cam_idx1 = i % kNumCams;
-        const size_t cam_idx2 = (i + 1) % 1;
-        const Eigen::Vector3d point3D_camera1 =
-            cams_from_world[cam_idx1] * points3D[i];
-        const Eigen::Vector3d point3D_camera2 =
-            cams_from_world[cam_idx2] * points3D[i];
-        if (point3D_camera1.norm() < 1e-8 || point3D_camera2.norm() < 1e-8) {
-          continue;
+      for (int num_cams2 = 1; num_cams2 <= kNumCams; ++num_cams2) {
+        // Project points to cameras.
+        std::vector<GR6PEstimator::X_t> points1;
+        std::vector<GR6PEstimator::Y_t> points2;
+        for (size_t i = 0; i < points3D.size(); ++i) {
+          const size_t cam_idx1 = i % kNumCams;
+          const size_t cam_idx2 = (i + 1) % num_cams2;
+          const Eigen::Vector3d point3D_camera1 =
+              cams_from_world[cam_idx1] * points3D[i];
+          const Eigen::Vector3d point3D_camera2 =
+              cams_from_world[cam_idx2] * points3D[i];
+          if (point3D_camera1.norm() < 1e-8 || point3D_camera2.norm() < 1e-8) {
+            continue;
+          }
+
+          points1.emplace_back();
+          points1.back().cam_from_rig = cams_from_rig1[cam_idx1];
+          points1.back().ray_in_cam = point3D_camera1.normalized();
+
+          points2.emplace_back();
+          points2.back().cam_from_rig = cams_from_rig2[cam_idx2];
+          points2.back().ray_in_cam = point3D_camera2.normalized();
         }
 
-        points1.emplace_back();
-        points1.back().cam_from_rig = cams_from_rig1[cam_idx1];
-        points1.back().ray_in_cam = point3D_camera1.normalized();
+        RANSACOptions options;
+        options.max_error = 1e-3;
+        RANSAC<GR6PEstimator> ransac(options);
+        const auto report = ransac.Estimate(points1, points2);
 
-        points2.emplace_back();
-        points2.back().cam_from_rig = cams_from_rig2[cam_idx2];
-        points2.back().ray_in_cam = point3D_camera2.normalized();
-      }
+        EXPECT_TRUE(report.success);
+        EXPECT_LT((rig2_from_rig1.ToMatrix() - report.model.ToMatrix()).norm(),
+                  1e-2);
 
-      RANSACOptions options;
-      options.max_error = 1e-3;
-      LORANSAC<GR6PEstimator, GR8PEstimator> ransac(options);
-      const auto report = ransac.Estimate(points1, points2);
-
-      EXPECT_TRUE(report.success);
-      EXPECT_LT((rig2_from_rig1.ToMatrix() - report.model.ToMatrix()).norm(),
-                1e-2);
-
-      std::vector<double> residuals;
-      GR6PEstimator::Residuals(points1, points2, report.model, &residuals);
-      for (size_t i = 0; i < residuals.size(); ++i) {
-        EXPECT_LE(residuals[i], options.max_error);
+        std::vector<double> residuals;
+        GR6PEstimator::Residuals(points1, points2, report.model, &residuals);
+        for (size_t i = 0; i < residuals.size(); ++i) {
+          EXPECT_LE(residuals[i], options.max_error);
+        }
       }
     }
   }
