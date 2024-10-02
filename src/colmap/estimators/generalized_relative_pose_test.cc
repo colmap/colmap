@@ -40,7 +40,7 @@
 namespace colmap {
 namespace {
 
-TEST(GeneralizedRelativePose, Estimate) {
+TEST(GeneralizedRelativePose, Nominal) {
   const size_t kNumPoints = 100;
 
   std::vector<Eigen::Vector3d> points3D;
@@ -64,30 +64,38 @@ TEST(GeneralizedRelativePose, Estimate) {
                   Eigen::Vector3d(tx, 0.3, 0)),
       }};
 
-      std::array<Rigid3d, kNumCams> cams_from_rig;
+      const Rigid3d rig2_from_rig1(
+          Eigen::Quaterniond(1, qx + 0.2, 0, 0).normalized(),
+          Eigen::Vector3d(tx, 2, 3));
+
+      std::array<Rigid3d, kNumCams> cams_from_rig1;
+      std::array<Rigid3d, kNumCams> cams_from_rig2;
       for (size_t i = 0; i < kNumCams; ++i) {
-        cams_from_rig[i] =
+        cams_from_rig1[i] =
             cams_from_world[i] * Inverse(cams_from_world[kRefCamIdx]);
+        cams_from_rig2[i] = cams_from_rig1[i] * Inverse(rig2_from_rig1);
       }
 
       // Project points to cameras.
       std::vector<GR6PEstimator::X_t> points1;
       std::vector<GR6PEstimator::Y_t> points2;
       for (size_t i = 0; i < points3D.size(); ++i) {
+        const size_t cam_idx1 = i % kNumCams;
+        const size_t cam_idx2 = (i + 1) % 1;
         const Eigen::Vector3d point3D_camera1 =
-            cams_from_rig[i % kNumCams] * points3D[i];
+            cams_from_world[cam_idx1] * points3D[i];
         const Eigen::Vector3d point3D_camera2 =
-            cams_from_world[(i + 1) % kNumCams] * points3D[i];
-        if (point3D_camera1.z() < 0 || point3D_camera2.z() < 0) {
+            cams_from_world[cam_idx2] * points3D[i];
+        if (point3D_camera1.norm() < 1e-8 || point3D_camera2.norm() < 1e-8) {
           continue;
         }
 
         points1.emplace_back();
-        points1.back().cam_from_rig = cams_from_rig[i % kNumCams];
+        points1.back().cam_from_rig = cams_from_rig1[cam_idx1];
         points1.back().ray_in_cam = point3D_camera1.normalized();
 
         points2.emplace_back();
-        points2.back().cam_from_rig = cams_from_rig[(i + 1) % kNumCams];
+        points2.back().cam_from_rig = cams_from_rig2[cam_idx2];
         points2.back().ray_in_cam = point3D_camera2.normalized();
       }
 
@@ -97,10 +105,8 @@ TEST(GeneralizedRelativePose, Estimate) {
       const auto report = ransac.Estimate(points1, points2);
 
       EXPECT_TRUE(report.success);
-      EXPECT_LT(
-          (cams_from_world[kRefCamIdx].ToMatrix() - report.model.ToMatrix())
-              .norm(),
-          1e-2);
+      EXPECT_LT((rig2_from_rig1.ToMatrix() - report.model.ToMatrix()).norm(),
+                1e-2);
 
       std::vector<double> residuals;
       GR6PEstimator::Residuals(points1, points2, report.model, &residuals);

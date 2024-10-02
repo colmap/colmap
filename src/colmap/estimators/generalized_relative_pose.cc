@@ -390,10 +390,10 @@ Eigen::Vector3d ComputeJacobian(const Eigen::Matrix3d& xxF,
                                 const double current_cost,
                                 const int step) {
   Eigen::Vector3d jacobian;
-  const double kEpsilon = 0.00000001;
+  constexpr double kStepSize = 1e-8;
   for (int j = 0; j < 3; j++) {
     Eigen::Vector3d cayley_j = rotation;
-    cayley_j[j] += kEpsilon;
+    cayley_j[j] += kStepSize;
     const double cost_j = ComputeCost(xxF,
                                       yyF,
                                       zzF,
