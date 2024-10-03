@@ -360,8 +360,6 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
 
   num_reg_trials_[image_id] += 1;
 
-  // return RegisterNextImageFallback(options, image_id);
-
   // Check if enough 2D-3D correspondences.
   if (obs_manager_->NumVisiblePoints3D(image_id) <
       static_cast<size_t>(options.abs_pose_min_num_inliers)) {
@@ -427,7 +425,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   // hence we skip some of the 2D-3D correspondences.
   if (tri_points2D.size() <
       static_cast<size_t>(options.abs_pose_min_num_inliers)) {
-    return false;
+    return RegisterNextImageFallback(options, image_id);
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -494,11 +492,11 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
                             &camera,
                             &num_inliers,
                             &inlier_mask)) {
-    return false;
+    return RegisterNextImageFallback(options, image_id);
   }
 
   if (num_inliers < static_cast<size_t>(options.abs_pose_min_num_inliers)) {
-    return false;
+    return RegisterNextImageFallback(options, image_id);
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -511,7 +509,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
                           tri_points3D,
                           &image.CamFromWorld(),
                           &camera)) {
-    return false;
+    return RegisterNextImageFallback(options, image_id);
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -1388,6 +1386,8 @@ bool IncrementalMapper::RegisterNextImageFallback(const Options& options,
     const point3D_t point3D_id = obs_manager_->AddPoint3D(tri_xyz, track);
     triangulator_->AddModifiedPoint3D(point3D_id);
   }
+
+  LOG(INFO) << "=> Registered image using structure-less fallback";
 
   return true;
 }
