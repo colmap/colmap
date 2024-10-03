@@ -50,9 +50,12 @@ include(FetchContent)
 FetchContent_Declare(PoseLib
   GIT_REPOSITORY    https://github.com/PoseLib/PoseLib.git
   GIT_TAG           ef7033624b5eb43b81b1e9c751bcbf58f6cc7859
+  EXCLUDE_FROM_ALL
 )
 message(STATUS "Configuring PoseLib...")
 FetchContent_MakeAvailable(PoseLib)
 message(STATUS "Configuring PoseLib... done")
+# Rename output name to avoid clashes with other PoseLib installations.
+set_target_properties(PoseLib PROPERTIES OUTPUT_NAME "colmap_poselib")
 
 set(CLANG_TIDY_EXE ${CLANG_TIDY_EXE_TEMP})

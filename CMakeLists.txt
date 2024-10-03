@@ -332,6 +332,7 @@ set(COLMAP_EXPORT_LIBS
     # Third-party.
     colmap_poisson_recon
     colmap_vlfeat
+    PoseLib
 )
 if(LSD_ENABLED)
     list(APPEND COLMAP_EXPORT_LIBS
