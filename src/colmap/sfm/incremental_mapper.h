@@ -299,6 +299,9 @@ class IncrementalMapper {
   std::vector<image_t> FindSecondInitialImage(const Options& options,
                                               image_t image_id1) const;
 
+  // Attempts to register image using structure-less resectioning.
+  bool RegisterNextImageFallback(const Options& options, image_t image_id);
+
   // Register / De-register image in current reconstruction and update
   // the number of shared images between all reconstructions.
   void RegisterImageEvent(image_t image_id);

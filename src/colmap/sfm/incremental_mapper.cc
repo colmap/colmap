@@ -29,7 +29,9 @@
 
 #include "colmap/sfm/incremental_mapper.h"
 
+#include "colmap/estimators/generalized_relative_pose.h"
 #include "colmap/estimators/pose.h"
+#include "colmap/estimators/triangulation.h"
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/geometry/triangulation.h"
 #include "colmap/scene/projection.h"
@@ -38,6 +40,7 @@
 
 #include <array>
 #include <fstream>
+#include <optional>
 
 namespace colmap {
 namespace {
@@ -357,10 +360,12 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
 
   num_reg_trials_[image_id] += 1;
 
+  // return RegisterNextImageFallback(options, image_id);
+
   // Check if enough 2D-3D correspondences.
   if (obs_manager_->NumVisiblePoints3D(image_id) <
       static_cast<size_t>(options.abs_pose_min_num_inliers)) {
-    return false;
+    return RegisterNextImageFallback(options, image_id);
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -536,7 +541,7 @@ size_t IncrementalMapper::TriangulateImage(
     const IncrementalTriangulator::Options& tri_options,
     const image_t image_id) {
   THROW_CHECK_NOTNULL(reconstruction_);
-  VLOG(1) << "=> Continued observations: "
+  VLOG(1) << "=> Existing observations: "
           << reconstruction_->Image(image_id).NumPoints3D();
   const size_t num_tris =
       triangulator_->TriangulateImage(tri_options, image_id);
@@ -1211,6 +1216,180 @@ std::vector<image_t> IncrementalMapper::FindLocalBundle(
   }
 
   return local_bundle_image_ids;
+}
+
+bool IncrementalMapper::RegisterNextImageFallback(const Options& options,
+                                                  const image_t image_id) {
+  Image& image = reconstruction_->Image(image_id);
+  Camera& camera = *image.CameraPtr();
+
+  //////////////////////////////////////////////////////////////////////////////
+  // Search for structure-less correspondences
+  //////////////////////////////////////////////////////////////////////////////
+
+  const std::shared_ptr<const CorrespondenceGraph> correspondence_graph =
+      database_cache_->CorrespondenceGraph();
+
+  std::vector<GRNPObservation> observations;
+  std::vector<GRNPObservation> corr_observations;
+  std::vector<point2D_t> point2D_idxs;
+  std::vector<CorrespondenceGraph::Correspondence> corrs;
+
+  for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
+       ++point2D_idx) {
+    const Point2D& point2D = image.Point2D(point2D_idx);
+
+    GRNPObservation observation;
+    observation.cam_from_rig = Rigid3d();
+    observation.ray_in_cam =
+        camera.CamFromImg(point2D.xy).homogeneous().normalized();
+
+    const auto corr_range =
+        correspondence_graph->FindCorrespondences(image_id, point2D_idx);
+    for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
+      const Image& corr_image = reconstruction_->Image(corr->image_id);
+      if (!corr_image.IsRegistered()) {
+        continue;
+      }
+
+      const Camera& corr_camera = *corr_image.CameraPtr();
+
+      // Avoid correspondences to images with bogus camera parameters.
+      if (corr_camera.HasBogusParams(options.min_focal_length_ratio,
+                                     options.max_focal_length_ratio,
+                                     options.max_extra_param)) {
+        continue;
+      }
+
+      const Point2D& corr_point2D = corr_image.Point2D(corr->point2D_idx);
+
+      GRNPObservation corr_observation;
+      corr_observation.cam_from_rig = corr_image.CamFromWorld();
+      corr_observation.ray_in_cam =
+          corr_camera.CamFromImg(corr_point2D.xy).homogeneous().normalized();
+
+      observations.push_back(observation);
+      corr_observations.push_back(corr_observation);
+      point2D_idxs.push_back(point2D_idx);
+      corrs.push_back(*corr);
+    }
+  }
+
+  THROW_CHECK_EQ(observations.size(), corr_observations.size());
+
+  // TODO(jsch): Potentially add a new parameter for this.
+  if (observations.size() <
+      static_cast<size_t>(options.abs_pose_min_num_inliers)) {
+    return false;
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+  // Structure-less resectioning
+  //////////////////////////////////////////////////////////////////////////////
+
+  RANSACOptions ransac_options;
+  ransac_options.max_error = camera.CamFromImgThreshold(options.init_max_error);
+  RANSAC<GR6PEstimator> ransac(ransac_options);
+
+  const auto report = ransac.Estimate(corr_observations, observations);
+  if (!report.success ||
+      report.support.num_inliers < options.abs_pose_min_num_inliers) {
+    return false;
+  }
+
+  image.CamFromWorld() = report.model;
+
+  //////////////////////////////////////////////////////////////////////////////
+  // Continue tracks
+  //////////////////////////////////////////////////////////////////////////////
+
+  reconstruction_->RegisterImage(image_id);
+  RegisterImageEvent(image_id);
+
+  std::vector<std::vector<CorrespondenceGraph::Correspondence>> inlier_corrs(
+      image.NumPoints2D());
+
+  THROW_CHECK_EQ(point2D_idxs.size(), corrs.size());
+  THROW_CHECK_EQ(point2D_idxs.size(), report.inlier_mask.size());
+  for (size_t i = 0; i < report.inlier_mask.size(); ++i) {
+    if (report.inlier_mask[i]) {
+      inlier_corrs[point2D_idxs[i]].push_back(corrs[i]);
+    }
+  }
+
+  std::vector<Eigen::Vector2d> tri_points;
+  std::vector<Rigid3d const*> tri_cams_from_world;
+  std::vector<const Camera*> tri_cameras;
+  std::vector<char> tri_inlier_mask;
+  for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
+       ++point2D_idx) {
+    if (inlier_corrs[point2D_idx].empty()) {
+      continue;
+    }
+
+    // Check if any of the corresponding inlier points is already triangulated.
+    // Simply add the current 2D point to the first track we find.
+    bool continued_track = false;
+    for (const auto& corr : inlier_corrs[point2D_idx]) {
+      const auto& corr_image = reconstruction_->Image(corr.image_id);
+      const auto& corr_point2D = corr_image.Point2D(corr.point2D_idx);
+      if (corr_point2D.HasPoint3D()) {
+        obs_manager_->AddObservation(corr_point2D.point3D_id,
+                                     TrackElement(image_id, point2D_idx));
+        triangulator_->AddModifiedPoint3D(corr_point2D.point3D_id);
+        continued_track = true;
+        break;
+      }
+    }
+
+    if (continued_track) {
+      continue;
+    }
+
+    tri_points.clear();
+    tri_cams_from_world.clear();
+    tri_cameras.clear();
+    for (const auto& corr : inlier_corrs[point2D_idx]) {
+      const auto& corr_image = reconstruction_->Image(corr.image_id);
+      const auto& corr_camera = reconstruction_->Camera(corr_image.CameraId());
+      tri_points.push_back(corr_image.Point2D(corr.point2D_idx).xy);
+      tri_cams_from_world.push_back(&corr_image.CamFromWorld());
+      tri_cameras.push_back(&corr_camera);
+    }
+
+    tri_points.push_back(image.Point2D(point2D_idx).xy);
+    tri_cams_from_world.push_back(&image.CamFromWorld());
+    tri_cameras.push_back(&camera);
+
+    Eigen::Vector3d tri_xyz;
+    EstimateTriangulationOptions tri_options;
+    tri_options.ransac_options.max_error = ransac_options.max_error;
+    if (!EstimateTriangulation(tri_options,
+                               tri_points,
+                               tri_cams_from_world,
+                               tri_cameras,
+                               &tri_inlier_mask,
+                               &tri_xyz) ||
+        !tri_inlier_mask.back()) {
+      // Skip this 2D point, if we failed to triangulate and if it is itself not
+      // in the inlier set.
+      continue;
+    }
+
+    Track track;
+    track.AddElement(image_id, point2D_idx);
+    for (size_t i = 0; i < tri_inlier_mask.size() - 1; ++i) {
+      if (tri_inlier_mask[i]) {
+        const auto& inlier_corr = inlier_corrs[point2D_idx][i];
+        track.AddElement(inlier_corr.image_id, inlier_corr.point2D_idx);
+      }
+    }
+
+    const point3D_t point3D_id = obs_manager_->AddPoint3D(tri_xyz, track);
+    triangulator_->AddModifiedPoint3D(point3D_id);
+  }
+
+  return true;
 }
 
 void IncrementalMapper::RegisterImageEvent(const image_t image_id) {
