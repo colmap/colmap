@@ -61,9 +61,7 @@ struct AbsolutePoseEstimationOptions {
     ransac_options.confidence = 0.99999;
   }
 
-  void Check() const {
-    ransac_options.Check();
-  }
+  void Check() const { ransac_options.Check(); }
 };
 
 struct AbsolutePoseRefinementOptions {
