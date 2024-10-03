@@ -49,6 +49,8 @@ struct SyntheticDatasetOptions {
   int num_points2D_without_point3D = 10;
   double point2D_stddev = 0.0;
 
+  double inlier_match_ratio = 1.0;
+
   enum class MatchConfig {
     // Exhaustive matches between all pairs of observations of a 3D point.
     EXHAUSTIVE = 1,
@@ -56,6 +58,10 @@ struct SyntheticDatasetOptions {
     CHAINED = 2,
   };
   MatchConfig match_config = MatchConfig::EXHAUSTIVE;
+
+  bool use_prior_position = false;
+  bool use_geographic_coords_prior = false;
+  double prior_position_stddev = 1.5;
 };
 
 void SynthesizeDataset(const SyntheticDatasetOptions& options,

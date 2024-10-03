@@ -36,6 +36,8 @@
 #include "colmap/geometry/pose.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/scene/reconstruction_io.h"
+#include "colmap/sfm/observation_manager.h"
+#include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
 
@@ -92,7 +94,7 @@ void WriteBoundingBox(const std::string& reconstruction_path,
     std::ofstream file(path, std::ios::trunc);
     THROW_CHECK_FILE_OPEN(file, path);
 
-    // Ensure that we don't loose any precision by storing in text.
+    // Ensure that we don't lose any precision by storing in text.
     file.precision(17);
     file << bounds.first.transpose() << "\n";
     file << bounds.second.transpose() << "\n";
@@ -104,7 +106,7 @@ void WriteBoundingBox(const std::string& reconstruction_path,
     std::ofstream file(path, std::ios::trunc);
     THROW_CHECK_FILE_OPEN(file, path);
 
-    // Ensure that we don't loose any precision by storing in text.
+    // Ensure that we don't lose any precision by storing in text.
     file.precision(17);
     const Eigen::Vector3d center = (bounds.first + bounds.second) * 0.5;
     file << center.transpose() << "\n\n";
@@ -162,9 +164,14 @@ void ReadDatabaseCameraLocations(const std::string& database_path,
                                  std::vector<Eigen::Vector3d>* ref_locations) {
   Database database(database_path);
   for (const auto& image : database.ReadAllImages()) {
-    if (image.CamFromWorldPrior().translation.array().isFinite().all()) {
+    if (database.ExistsPosePrior(image.ImageId())) {
       ref_image_names->push_back(image.Name());
-      ref_locations->push_back(image.CamFromWorldPrior().translation);
+      const auto pose_prior = database.ReadPosePrior(image.ImageId());
+      if (ref_is_gps) {
+        THROW_CHECK_EQ(static_cast<int>(pose_prior.coordinate_system),
+                       static_cast<int>(PosePrior::CoordinateSystem::WGS84));
+      }
+      ref_locations->push_back(pose_prior.position);
     }
   }
 
@@ -237,7 +244,7 @@ void PrintComparisonSummary(std::ostream& out,
 // images (WARNING: provide only one of the above)
 // - ref_is_gps: if true the prior positions are converted from GPS
 // (lat/lon/alt) to ECEF or ENU
-// - merge_image_and_ref_origins: if true the reconstuction will be shifted so
+// - merge_image_and_ref_origins: if true the reconstruction will be shifted so
 // that the first prior position is used for its camera position
 // - transform_path: path to store the Sim3 transformation used for the
 // alignment
@@ -256,10 +263,7 @@ void PrintComparisonSummary(std::ostream& out,
 // the estimate an alignment
 // - estimate_scale: if true apply the computed scale when aligning the
 // reconstruction
-// - robust_alignment: if true use a ransac-based estimation for robust
-// alignment
-// - robust_alignment_max_error: ransac error to use if robust alignment is
-// enabled
+// - alignment_max_error: ransac error to use
 int RunModelAligner(int argc, char** argv) {
   std::string input_path;
   std::string output_path;
@@ -729,8 +733,8 @@ int RunModelMerger(int argc, char** argv) {
   LOG(INFO) << StringPrintf("Points: %d", reconstruction2.NumPoints3D());
 
   PrintHeading2("Merging reconstructions");
-  if (MergeReconstructions(
-          max_reproj_error, reconstruction1, &reconstruction2)) {
+  if (MergeAndFilterReconstructions(
+          max_reproj_error, reconstruction1, reconstruction2)) {
     LOG(INFO) << "=> Merge succeeded";
     PrintHeading2("Merged reconstruction");
     LOG(INFO) << StringPrintf("Images: %d", reconstruction2.NumRegImages());
@@ -747,7 +751,11 @@ int RunModelMerger(int argc, char** argv) {
 int RunModelOrientationAligner(int argc, char** argv) {
   std::string input_path;
   std::string output_path;
+#ifdef COLMAP_LSD_ENABLED
   std::string method = "MANHATTAN-WORLD";
+#else
+  std::string method = "IMAGE-ORIENTATION";
+#endif
 
   ManhattanWorldFrameEstimationOptions frame_estimation_options;
 
@@ -755,18 +763,30 @@ int RunModelOrientationAligner(int argc, char** argv) {
   options.AddImageOptions();
   options.AddRequiredOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
+#ifdef COLMAP_LSD_ENABLED
   options.AddDefaultOption(
       "method", &method, "{MANHATTAN-WORLD, IMAGE-ORIENTATION}");
+#else
+  options.AddDefaultOption("method", &method, "{IMAGE-ORIENTATION}");
+#endif
   options.AddDefaultOption("max_image_size",
                            &frame_estimation_options.max_image_size);
   options.Parse(argc, argv);
 
   StringToLower(&method);
+#ifdef COLMAP_LSD_ENABLED
   if (method != "manhattan-world" && method != "image-orientation") {
     LOG(ERROR) << "Invalid `method` - supported values are "
                   "'MANHATTAN-WORLD' or 'IMAGE-ORIENTATION'.";
     return EXIT_FAILURE;
   }
+#else
+  if (method != "image-orientation") {
+    LOG(ERROR) << "Invalid `method` - supported values are "
+                  "'IMAGE-ORIENTATION'.";
+    return EXIT_FAILURE;
+  }
+#endif
 
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
@@ -775,6 +795,7 @@ int RunModelOrientationAligner(int argc, char** argv) {
 
   Sim3d new_from_old_world;
 
+#ifdef COLMAP_LSD_ENABLED
   if (method == "manhattan-world") {
     const Eigen::Matrix3d frame = EstimateManhattanWorldFrame(
         frame_estimation_options, reconstruction, *options.image_path);
@@ -792,10 +813,14 @@ int RunModelOrientationAligner(int argc, char** argv) {
       LOG(INFO) << "Aligning horizontal and vertical axes";
     }
   } else if (method == "image-orientation") {
+#else
+  if (method == "image-orientation") {
+#endif
     const Eigen::Vector3d gravity_axis =
         EstimateGravityVectorFromImageOrientation(reconstruction);
     new_from_old_world.rotation = Eigen::Quaterniond::FromTwoVectors(
         gravity_axis, Eigen::Vector3d(0, 1, 0));
+
   } else {
     LOG(FATAL_THROW) << "Alignment method not supported";
   }

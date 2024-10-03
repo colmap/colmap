@@ -245,7 +245,7 @@ bool COLMAPUndistorter::Undistort(const image_t image_id) const {
 
   Bitmap distorted_bitmap;
   Bitmap undistorted_bitmap;
-  const Camera& camera = reconstruction_.Camera(image.CameraId());
+  const Camera& camera = *image.CameraPtr();
   Camera undistorted_camera;
 
   const std::string input_image_path = JoinPaths(image_path_, image.Name());
@@ -380,7 +380,7 @@ bool PMVSUndistorter::Undistort(const size_t reg_image_idx) const {
 
   const image_t image_id = reconstruction_.RegImageIds().at(reg_image_idx);
   const Image& image = reconstruction_.Image(image_id);
-  const Camera& camera = reconstruction_.Camera(image.CameraId());
+  const Camera& camera = *image.CameraPtr();
 
   Bitmap distorted_bitmap;
   const std::string input_image_path = JoinPaths(image_path_, image.Name());
@@ -589,7 +589,7 @@ bool CMPMVSUndistorter::Undistort(const size_t reg_image_idx) const {
 
   const image_t image_id = reconstruction_.RegImageIds().at(reg_image_idx);
   const Image& image = reconstruction_.Image(image_id);
-  const Camera& camera = reconstruction_.Camera(image.CameraId());
+  const Camera& camera = *image.CameraPtr();
 
   Bitmap distorted_bitmap;
   const std::string input_image_path = JoinPaths(image_path_, image.Name());
@@ -964,20 +964,19 @@ void UndistortImage(const UndistortCameraOptions& options,
   THROW_CHECK_EQ(distorted_camera.height, distorted_bitmap.Height());
 
   *undistorted_camera = UndistortCamera(options, distorted_camera);
-  undistorted_bitmap->Allocate(static_cast<int>(undistorted_camera->width),
-                               static_cast<int>(undistorted_camera->height),
-                               distorted_bitmap.IsRGB());
-  distorted_bitmap.CloneMetadata(undistorted_bitmap);
 
   WarpImageBetweenCameras(distorted_camera,
                           *undistorted_camera,
                           distorted_bitmap,
                           undistorted_bitmap);
+
+  distorted_bitmap.CloneMetadata(undistorted_bitmap);
 }
 
 void UndistortReconstruction(const UndistortCameraOptions& options,
                              Reconstruction* reconstruction) {
-  const auto distorted_cameras = reconstruction->Cameras();
+  const std::unordered_map<camera_t, Camera> distorted_cameras =
+      reconstruction->Cameras();
   for (const auto& camera : distorted_cameras) {
     if (camera.second.IsUndistorted()) {
       continue;
@@ -987,9 +986,9 @@ void UndistortReconstruction(const UndistortCameraOptions& options,
   }
 
   for (const auto& distorted_image : reconstruction->Images()) {
-    auto& image = reconstruction->Image(distorted_image.first);
-    const auto& distorted_camera = distorted_cameras.at(image.CameraId());
-    const auto& undistorted_camera = reconstruction->Camera(image.CameraId());
+    Image& image = reconstruction->Image(distorted_image.first);
+    const Camera& distorted_camera = distorted_cameras.at(image.CameraId());
+    const Camera& undistorted_camera = *image.CameraPtr();
     for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
          ++point2D_idx) {
       auto& point2D = image.Point2D(point2D_idx);

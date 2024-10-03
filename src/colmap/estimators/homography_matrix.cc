@@ -50,8 +50,7 @@ void HomographyMatrixEstimator::Estimate(const std::vector<X_t>& points1,
   const size_t num_points = points1.size();
 
   // Setup constraint matrix.
-  Eigen::Matrix<double, Eigen::Dynamic, 9> A =
-      Eigen::MatrixXd::Zero(2 * num_points, 9);
+  Eigen::Matrix<double, Eigen::Dynamic, 9> A(2 * num_points, 9);
   for (size_t i = 0; i < num_points; ++i) {
     A.block<1, 3>(2 * i, 0) = points1[i].transpose().homogeneous();
     A.block<1, 3>(2 * i, 3).setZero();
@@ -77,6 +76,9 @@ void HomographyMatrixEstimator::Estimate(const std::vector<X_t>& points1,
     // Solve for the nullspace of the constraint matrix.
     Eigen::JacobiSVD<Eigen::Matrix<double, Eigen::Dynamic, 9>> svd(
         A, Eigen::ComputeFullV);
+    if (svd.rank() < 8) {
+      return;
+    }
     const Eigen::VectorXd nullspace = svd.matrixV().col(8);
     H = Eigen::Map<const Eigen::Matrix3d>(nullspace.data()).transpose();
   }

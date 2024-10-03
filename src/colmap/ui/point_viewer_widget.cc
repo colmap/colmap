@@ -30,7 +30,7 @@
 #include "colmap/ui/point_viewer_widget.h"
 
 #include "colmap/ui/model_viewer_widget.h"
-#include "colmap/util/misc.h"
+#include "colmap/util/file.h"
 
 namespace colmap {
 

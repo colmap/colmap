@@ -31,6 +31,7 @@
 
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/reconstruction.h"
+#include "colmap/sfm/observation_manager.h"
 
 #include <memory>
 
@@ -89,7 +90,8 @@ class IncrementalTriangulator {
   // graph and the reconstruction objects must live as long as the triangulator.
   IncrementalTriangulator(
       std::shared_ptr<const CorrespondenceGraph> correspondence_graph,
-      std::shared_ptr<Reconstruction> reconstruction);
+      Reconstruction& reconstruction,
+      std::shared_ptr<ObservationManager> obs_manager = nullptr);
 
   // Triangulate observations of image.
   //
@@ -188,7 +190,10 @@ class IncrementalTriangulator {
   const std::shared_ptr<const CorrespondenceGraph> correspondence_graph_;
 
   // Reconstruction of the model. Modified when triangulating new points.
-  std::shared_ptr<Reconstruction> reconstruction_;
+  Reconstruction& reconstruction_;
+
+  // Class that is responsible for keeping track of 3D point statistics.
+  std::shared_ptr<ObservationManager> obs_manager_;
 
   // Cache for cameras with bogus parameters.
   std::unordered_map<camera_t, bool> camera_has_bogus_params_;

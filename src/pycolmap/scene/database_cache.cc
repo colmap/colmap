@@ -2,6 +2,7 @@
 
 #include "pycolmap/pybind11_extension.h"
 
+#include <pybind11/eigen.h>
 #include <pybind11/pybind11.h>
 
 using namespace colmap;
@@ -26,5 +27,5 @@ void BindDatabaseCache(py::module& m) {
       .def_property_readonly("images", &DatabaseCache::Images)
       .def_property_readonly("correspondence_graph",
                              &DatabaseCache::CorrespondenceGraph)
-      .def("find_image_with_name", &DatabaseCache::FindImageWithName);
+      .def("find_image_with_name", &DatabaseCache::FindImageWithName, "name"_a);
 }

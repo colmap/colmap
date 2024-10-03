@@ -29,7 +29,7 @@
 
 #include "colmap/scene/reconstruction_manager.h"
 
-#include "colmap/util/misc.h"
+#include "colmap/util/file.h"
 
 namespace colmap {
 

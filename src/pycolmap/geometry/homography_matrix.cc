@@ -19,13 +19,15 @@ py::dict PyPoseFromHomographyMatrix(
     const std::vector<Eigen::Vector2d>& points1,
     const std::vector<Eigen::Vector2d>& points2) {
   py::gil_scoped_release release;
-  Eigen::Matrix3d R;
-  Eigen::Vector3d t;
-  Eigen::Vector3d n;
+  Rigid3d cam2_from_cam1;
+  Eigen::Vector3d normal;
   std::vector<Eigen::Vector3d> points3D;
-  PoseFromHomographyMatrix(H, K1, K2, points1, points2, &R, &t, &n, &points3D);
+  PoseFromHomographyMatrix(
+      H, K1, K2, points1, points2, &cam2_from_cam1, &normal, &points3D);
   py::gil_scoped_acquire acquire;
-  return py::dict("R"_a = R, "t"_a = t, "n"_a = n, "points3D"_a = points3D);
+  return py::dict("cam2_from_cam1"_a = cam2_from_cam1,
+                  "normal"_a = normal,
+                  "points3D"_a = points3D);
 }
 
 void BindHomographyGeometry(py::module& m) {

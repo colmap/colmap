@@ -87,14 +87,15 @@ TEST(PoseFromEssentialMatrix, Nominal) {
 
   points3D.clear();
 
-  Eigen::Matrix3d R;
-  Eigen::Vector3d t;
-  PoseFromEssentialMatrix(E, points1, points2, &R, &t, &points3D);
+  Rigid3d cam2_from_cam1_est;
+  PoseFromEssentialMatrix(E, points1, points2, &cam2_from_cam1_est, &points3D);
 
   EXPECT_EQ(points3D.size(), 4);
 
-  EXPECT_TRUE(R.isApprox(cam2_from_cam1.rotation.toRotationMatrix()));
-  EXPECT_TRUE(t.isApprox(cam2_from_cam1.translation));
+  EXPECT_TRUE(cam2_from_cam1_est.rotation.toRotationMatrix().isApprox(
+      cam2_from_cam1.rotation.toRotationMatrix()));
+  EXPECT_TRUE(
+      cam2_from_cam1_est.translation.isApprox(cam2_from_cam1.translation));
 }
 
 TEST(FindOptimalImageObservations, Nominal) {
@@ -146,6 +147,19 @@ TEST(InvertEssentialMatrix, Nominal) {
         InvertEssentialMatrix(InvertEssentialMatrix(E));
     EXPECT_TRUE(E.isApprox(inv_inv_E));
   }
+}
+
+TEST(FundamentalFromEssentialMatrix, Nominal) {
+  const Eigen::Matrix3d E = EssentialMatrixFromPose(
+      Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random()));
+  const Eigen::Matrix3d K1 =
+      (Eigen::Matrix3d() << 2, 0, 1, 0, 3, 2, 0, 0, 1).finished();
+  const Eigen::Matrix3d K2 =
+      (Eigen::Matrix3d() << 3, 0, 2, 0, 4, 1, 0, 0, 1).finished();
+  const Eigen::Matrix3d F = FundamentalFromEssentialMatrix(K2, E, K1);
+  const Eigen::Vector3d x(3, 2, 1);
+  EXPECT_TRUE((K2.transpose().inverse() * E * x).isApprox(F * K1 * x));
+  EXPECT_TRUE((E * K1.inverse() * x).isApprox(K2.transpose() * F * x));
 }
 
 }  // namespace

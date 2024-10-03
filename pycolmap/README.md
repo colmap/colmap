@@ -1,14 +1,12 @@
 # Python bindings for COLMAP
 
-PyCOLMAP exposes to Python most capabilities of
-[COLMAP](https://colmap.github.io/) for Structure-from-Motion and
-Multiview-stereo, such as reconstruction pipelines & objects and geometric
-estimators.
+PyCOLMAP exposes to Python most capabilities of the
+[COLMAP](https://colmap.github.io/) Structure-from-Motion (SfM) and Multi-View
+Stereo (MVS) pipeline.
 
 ## Installation
 
-Pre-built wheels for Python 3.8/3.9/3.10 on Linux, macOS 10/11/12 (both Intel
-and Apple Silicon), and Windows can be installed using pip:
+Pre-built wheels for Linux, macOS, and Windows can be installed using pip:
 ```bash
 pip install pycolmap
 ```
@@ -25,10 +23,12 @@ not built with CUDA support, which requires building from source.
 3. Build PyCOLMAP:
   - On Linux and macOS:
 ```bash
+cd pycolmap
 python -m pip install .
 ```
   - On Windows, after installing COLMAP [via VCPKG](https://colmap.github.io/install.html#id3), run in powershell:
 ```powershell
+cd pycolmap
 python -m pip install . `
     --cmake.define.CMAKE_TOOLCHAIN_FILE="$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
     --cmake.define.VCPKG_TARGET_TRIPLET="x64-windows"

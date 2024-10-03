@@ -100,10 +100,14 @@ AutomaticReconstructionController::AutomaticReconstructionController(
 
   option_manager_.sift_extraction->use_gpu = options_.use_gpu;
   option_manager_.sift_matching->use_gpu = options_.use_gpu;
+  option_manager_.mapper->ba_use_gpu = options_.use_gpu;
+  option_manager_.bundle_adjustment->use_gpu = options_.use_gpu;
 
   option_manager_.sift_extraction->gpu_index = options_.gpu_index;
   option_manager_.sift_matching->gpu_index = options_.gpu_index;
   option_manager_.patch_match_stereo->gpu_index = options_.gpu_index;
+  option_manager_.mapper->ba_gpu_index = options_.gpu_index;
+  option_manager_.bundle_adjustment->gpu_index = options_.gpu_index;
 
   feature_extractor_ = CreateFeatureExtractorController(
       reader_options, *option_manager_.sift_extraction);
@@ -223,10 +227,10 @@ void AutomaticReconstructionController::RunSparseMapper() {
     }
   }
 
-  IncrementalMapperController mapper(option_manager_.mapper,
-                                     *option_manager_.image_path,
-                                     *option_manager_.database_path,
-                                     reconstruction_manager_);
+  IncrementalPipeline mapper(option_manager_.mapper,
+                             *option_manager_.image_path,
+                             *option_manager_.database_path,
+                             reconstruction_manager_);
   mapper.SetCheckIfStoppedFunc([&]() { return IsStopped(); });
   mapper.Run();
 

@@ -101,6 +101,7 @@ third-party tooling, and community support.
    datasets
    gui
    cli
+   pycolmap/index
    faq
    changelog
    contribution

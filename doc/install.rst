@@ -4,16 +4,17 @@ Installation
 ============
 
 You can either download one of the pre-built binaries or build the source code
-manually. Executables for Windows and Mac and other resources can be downloaded
-from https://demuc.de/colmap/. Executables for Linux/Unix/BSD are available at
-https://repology.org/metapackage/colmap/versions. Note that the COLMAP packages
-in the default repositories for Linux/Unix/BSD do not come with CUDA support,
-which requires manual compilation but is relatively easy on these platforms.
+manually. Pre-built binaries and other resources can be downloaded from
+https://demuc.de/colmap/. An overview of system packages for Linux/Unix/BSD
+distributions are available at https://repology.org/metapackage/colmap/versions.
+Note that the COLMAP packages in the default repositories for Linux/Unix/BSD do
+not come with CUDA support, which requires a manual build from source.
 
 COLMAP can be used as an independent application through the command-line or
 graphical user interface. Alternatively, COLMAP is also built as a reusable
-library, i.e., you can include and link COLMAP against your own source code,
-as described further below.
+library, i.e., you can include and link COLMAP against your own C++ source code,
+as described further below. Furthermore, you can use most of COLMAP's
+functionality with :ref:`PyCOLMAP <pycolmap/index>` in Python.
 
 ------------------
 Pre-built Binaries
@@ -28,13 +29,17 @@ double-click  the ``COLMAP.bat`` batch script or alternatively run it from the
 Windows command shell or Powershell. The command-line interface is also
 accessible through this batch script, which automatically sets the necessary
 library paths. To list the available COLMAP commands, run ``COLMAP.bat -h`` in
-the command shell ``cmd.exe`` or in Powershell.
+the command shell ``cmd.exe`` or in Powershell. The first time you run COLMAP,
+Windows defender may prompt you with a security warning, because the binaries
+are not officially signed. The provided COLMAP binaries are automatically built
+from GitHub Actions CI machines. If you do not trust them, you can build from
+source as described below.
 
 Mac
 ---
 
 The pre-built application package for Mac contains both the GUI and command-line
-version of COLMAP. To open the GUI, simply open the application and note that
+version of COLMAP. To open the GUI, simply open the application. Note that
 COLMAP is shipped as an unsigned application, i.e., when your first open the
 application, you have to right-click the application and select *Open* and then
 accept to trust the application. In the future, you can then simply double-click
@@ -52,15 +57,16 @@ First, checkout the latest source code::
 
     git clone https://github.com/colmap/colmap
 
-On Linux and Mac it is generally recommended to follow the installation
-instructions below, which use the system package managers to install the
-required dependencies. Alternatively, there is a Python build script that builds
-COLMAP and its dependencies locally. This script is useful under Windows and on
-a (cluster) system if you do not have root access under Linux or Mac.
+Under Linux and Mac, it is generally recommended to follow the installation
+instructions below, which use the respective system package managers to install
+the required dependencies. Alternatively, the instructions for VCPKG can be used
+to compile the required dependencies from scratch on more exotic systems with
+limited system packages. The VCPKG approach is also the method of choice under
+Windows, compute clusters, or if you do not have root access under Linux or Mac.
 
 
-Linux
------
+Debian/Ubuntu
+-------------
 
 *Recommended dependencies:* CUDA (at least version 7.X)
 
@@ -72,7 +78,6 @@ Dependencies from the default Ubuntu repositories::
         ninja-build \
         build-essential \
         libboost-program-options-dev \
-        libboost-filesystem-dev \
         libboost-graph-dev \
         libboost-system-dev \
         libeigen3-dev \
@@ -81,12 +86,24 @@ Dependencies from the default Ubuntu repositories::
         libmetis-dev \
         libgoogle-glog-dev \
         libgtest-dev \
+        libgmock-dev \
         libsqlite3-dev \
         libglew-dev \
         qtbase5-dev \
         libqt5opengl5-dev \
         libcgal-dev \
         libceres-dev
+
+To compile with **CUDA support**, also install Ubuntu's default CUDA package::
+
+    sudo apt-get install -y \
+        nvidia-cuda-toolkit \
+        nvidia-cuda-toolkit-gcc
+
+Or, manually install the latest CUDA from NVIDIA's homepage. During CMake
+configuration, specify `-DCMAKE_CUDA_ARCHITECTURES=native`, if you want to run
+COLMAP only on your current machine (default), "all"/"all-major" to be able to
+distribute to other machines, or a specific CUDA architecture like "75", etc.
 
 Configure and compile COLMAP::
 
@@ -103,24 +120,13 @@ Run COLMAP::
     colmap -h
     colmap gui
 
-To compile with **CUDA support**, also install Ubuntu's default CUDA package::
-
-    sudo apt-get install -y \
-        nvidia-cuda-toolkit \
-        nvidia-cuda-toolkit-gcc
-
-Or, manually install the latest CUDA from NVIDIA's homepage. During CMake configuration
-specify `CMAKE_CUDA_ARCHITECTURES` as "native", if you want to run COLMAP on your
-current machine only (default), "all"/"all-major" to be able to distribute to other
-machines, or a specific CUDA architecture like "75", etc.
-
 Under **Ubuntu 18.04**, the CMake configuration scripts of CGAL are broken and
 you must also install the CGAL Qt5 package::
 
     sudo apt-get install libcgal-qt5-dev
 
-Under **Ubuntu 22.04**, there is a problem when compiling with Ubuntu's default CUDA
-package and GCC, and you must compile against GCC 10::
+Under **Ubuntu 22.04**, there is a problem when compiling with Ubuntu's default
+CUDA package and GCC, and you must compile against GCC 10::
 
     sudo apt-get install gcc-10 g++-10
     export CC=/usr/bin/gcc-10
@@ -153,10 +159,9 @@ Configure and compile COLMAP::
 
     git clone https://github.com/colmap/colmap.git
     cd colmap
-    export PATH="/usr/local/opt/qt@5/bin:$PATH"
     mkdir build
     cd build
-    cmake ..  -GNinja -DQt5_DIR=/usr/local/opt/qt/lib/cmake/Qt5
+    cmake .. -GNinja -DCMAKE_PREFIX_PATH="$(brew --prefix qt@5)"
     ninja
     sudo ninja install
 
@@ -164,7 +169,7 @@ If you have Qt 6 installed on your system as well, you might have to temporarily
 link your Qt 5 installation while configuring CMake::
 
     brew link qt5
-    cmake configuration (from previous code block)
+    cmake ... (from previous code block)
     brew unlink qt5
 
 Run COLMAP::
@@ -178,7 +183,7 @@ Windows
 
 *Recommended dependencies:* CUDA (at least version 7.X), Visual Studio 2019
 
-On Windows, the recommended way is to build COLMAP using vcpkg::
+On Windows, the recommended way is to build COLMAP using VCPKG::
 
     git clone https://github.com/microsoft/vcpkg
     cd vcpkg
@@ -191,14 +196,11 @@ To compile CUDA for multiple compute architectures, please use::
 
 Please refer to the next section for more details.
 
-**Visual Studio 2022**  has some known compiler bugs that crash when
-compiling COLMAP's source code.
-
 
 VCPKG
 -----
 
-COLMAP ships as part of the vcpkg distribution. This enables to conveniently
+COLMAP ships as part of the VCPKG distribution. This enables to conveniently
 build COLMAP and all of its dependencies from scratch under different platforms.
 Note that VCPKG requires you to install CUDA manually in the standard way on
 your platform. To compile COLMAP using VCPKG, you run::

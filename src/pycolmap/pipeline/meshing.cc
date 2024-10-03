@@ -1,5 +1,6 @@
 #include "colmap/mvs/meshing.h"
 
+#include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 
 #include "pycolmap/helpers.h"
@@ -7,7 +8,6 @@
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
-#include <pybind11/stl_bind.h>
 
 using namespace colmap;
 using namespace pybind11::literals;
@@ -58,7 +58,6 @@ void BindMeshing(py::module& m) {
               &PoissonMOpts::num_threads,
               "The number of threads used for the Poisson reconstruction.");
   MakeDataclass(PyPoissonMeshingOptions);
-  auto poisson_options = PyPoissonMeshingOptions().cast<PoissonMOpts>();
 
   using DMOpts = mvs::DelaunayMeshingOptions;
   auto PyDelaunayMeshingOptions =
@@ -116,37 +115,45 @@ void BindMeshing(py::module& m) {
                          "The number of threads to use for reconstruction. "
                          "Default is all threads.");
   MakeDataclass(PyDelaunayMeshingOptions);
-  auto delaunay_options = PyDelaunayMeshingOptions().cast<DMOpts>();
 
   m.def(
       "poisson_meshing",
       [](const std::string& input_path,
          const std::string& output_path,
          const PoissonMOpts& options) -> void {
-        THROW_CHECK_HAS_FILE_EXTENSION(input_path, ".ply");
-        THROW_CHECK_FILE_EXISTS(input_path);
-        THROW_CHECK_HAS_FILE_EXTENSION(output_path, ".ply");
-        THROW_CHECK_PATH_OPEN(output_path);
         mvs::PoissonMeshing(options, input_path, output_path);
       },
       "input_path"_a,
       "output_path"_a,
-      "options"_a = poisson_options,
+      py::arg_v(
+          "options", mvs::PoissonMeshingOptions(), "PoissonMeshingOptions()"),
       "Perform Poisson surface reconstruction and return true if successful.");
 
 #ifdef COLMAP_CGAL_ENABLED
-  m.def("sparse_delaunay_meshing",
-        &mvs::SparseDelaunayMeshing,
-        "input_path"_a,
-        "output_path"_a,
-        "options"_a = delaunay_options,
-        "Delaunay meshing of sparse COLMAP reconstructions.");
+  m.def(
+      "sparse_delaunay_meshing",
+      [](const std::string& input_path,
+         const std::string& output_path,
+         const DMOpts& options) -> void {
+        mvs::SparseDelaunayMeshing(options, input_path, output_path);
+      },
+      "input_path"_a,
+      "output_path"_a,
+      py::arg_v(
+          "options", mvs::DelaunayMeshingOptions(), "DelaunayMeshingOptions()"),
+      "Delaunay meshing of sparse COLMAP reconstructions.");
 
-  m.def("dense_delaunay_meshing",
-        &mvs::DenseDelaunayMeshing,
-        "input_path"_a,
-        "output_path"_a,
-        "options"_a = delaunay_options,
-        "Delaunay meshing of dense COLMAP reconstructions.");
+  m.def(
+      "dense_delaunay_meshing",
+      [](const std::string& input_path,
+         const std::string& output_path,
+         const DMOpts& options) -> void {
+        mvs::DenseDelaunayMeshing(options, input_path, output_path);
+      },
+      "input_path"_a,
+      "output_path"_a,
+      py::arg_v(
+          "options", mvs::DelaunayMeshingOptions(), "DelaunayMeshingOptions()"),
+      "Delaunay meshing of dense COLMAP reconstructions.");
 #endif
 };

@@ -7,6 +7,7 @@
 #include "pycolmap/timer.h"
 #include "pycolmap/utils.h"
 
+#include <ceres/version.h>
 #include <pybind11/iostream.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -22,13 +23,14 @@ void BindScene(py::module& m);
 void BindSfMObjects(py::module& m);
 void BindSift(py::module& m);
 
-PYBIND11_MODULE(pycolmap, m) {
+PYBIND11_MODULE(_core, m) {
   m.doc() = "COLMAP plugin";
 #ifdef VERSION_INFO
   m.attr("__version__") = py::str(VERSION_INFO);
 #else
   m.attr("__version__") = py::str("dev");
 #endif
+  m.attr("__ceres_version__") = py::str(CERES_VERSION_STRING);
   m.attr("has_cuda") = IsGPU(Device::AUTO);
   m.attr("COLMAP_version") = py::str(GetVersionInfo());
   m.attr("COLMAP_build") = py::str(GetBuildInfo());
@@ -51,6 +53,7 @@ PYBIND11_MODULE(pycolmap, m) {
 
   m.def("set_random_seed",
         &SetPRNGSeed,
+        "seed"_a,
         "Initialize the PRNG with the given seed.");
 
   py::add_ostream_redirect(m, "ostream");

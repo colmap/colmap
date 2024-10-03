@@ -31,20 +31,41 @@
 set(FOLDER_NAME "feature")
 
 COLMAP_ADD_LIBRARY(
+    NAME colmap_feature_types
+    SRCS
+        types.h types.cc
+    PUBLIC_LINK_LIBS
+        colmap_util
+        Eigen3::Eigen
+)
+
+COLMAP_ADD_TEST(
+    NAME types_test
+    SRCS types_test.cc
+    LINK_LIBS colmap_feature_types
+)
+
+COLMAP_ADD_LIBRARY(
     NAME colmap_feature
     SRCS
         extractor.h
-        matcher.h
+        index.h index.cc
+        matcher.h matcher.cc
+        pairing.h pairing.cc
         sift.h sift.cc
         types.h types.cc
         utils.h utils.cc
     PUBLIC_LINK_LIBS
-        Eigen3::Eigen
-    PRIVATE_LINK_LIBS
+        colmap_feature_types
+        colmap_geometry
+        colmap_retrieval
+        colmap_scene
         colmap_util
+    PRIVATE_LINK_LIBS
         colmap_math
         colmap_sensor
         colmap_vlfeat
+        Eigen3::Eigen
         flann
         lz4
 )
@@ -56,9 +77,21 @@ if(GPU_ENABLED)
 endif()
 
 COLMAP_ADD_TEST(
-    NAME feature_utils_test
+    NAME index_test
+    SRCS index_test.cc
+    LINK_LIBS colmap_feature
+)
+COLMAP_ADD_TEST(
+    NAME utils_test
     SRCS utils_test.cc
     LINK_LIBS colmap_feature
+)
+COLMAP_ADD_TEST(
+    NAME pairing_test
+    SRCS pairing_test.cc
+    LINK_LIBS
+        colmap_feature
+        colmap_scene
 )
 COLMAP_ADD_TEST(
     NAME sift_test
@@ -69,8 +102,3 @@ COLMAP_ADD_TEST(
 if(TESTS_ENABLED AND GUI_ENABLED)
     target_link_libraries(colmap_feature_sift_test Qt5::Widgets)
 endif()
-COLMAP_ADD_TEST(
-    NAME types_test
-    SRCS types_test.cc
-    LINK_LIBS colmap_feature
-)

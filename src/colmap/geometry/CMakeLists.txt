@@ -47,7 +47,7 @@ COLMAP_ADD_LIBRARY(
 )
 
 COLMAP_ADD_TEST(
-    NAME essential_matrix_utils_test
+    NAME essential_matrix_test
     SRCS essential_matrix_test.cc
     LINK_LIBS colmap_geometry
 )

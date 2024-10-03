@@ -8,6 +8,7 @@
 
 #include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
+#include "pycolmap/scene/types.h"
 
 #include <memory>
 #include <sstream>
@@ -20,9 +21,6 @@
 using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
-
-using CameraMap = std::unordered_map<camera_t, Camera>;
-PYBIND11_MAKE_OPAQUE(CameraMap);
 
 std::string PrintCamera(const Camera& camera) {
   const bool valid_model = ExistsCameraModelWithId(camera.model_id);
@@ -49,22 +47,6 @@ void BindCamera(py::module& m) {
 #undef CAMERA_MODEL_CASE
   AddStringToEnumConstructor(PyCameraModelId);
   py::implicitly_convertible<int, CameraModelId>();
-
-  py::bind_map<CameraMap>(m, "MapCameraIdToCamera")
-      .def("__repr__", [](const CameraMap& self) {
-        std::stringstream ss;
-        ss << "{";
-        bool is_first = true;
-        for (const auto& pair : self) {
-          if (!is_first) {
-            ss << ",\n ";
-          }
-          is_first = false;
-          ss << pair.first << ": " << PrintCamera(pair.second);
-        }
-        ss << "}";
-        return ss.str();
-      });
 
   py::class_<Camera, std::shared_ptr<Camera>> PyCamera(m, "Camera");
   PyCamera.def(py::init<>())
@@ -151,7 +133,7 @@ void BindCamera(py::module& m) {
           "Project list of points in image plane to world / infinity.")
       .def(
           "cam_from_img",
-          [](const Camera& self, const std::vector<Point2D>& image_points) {
+          [](const Camera& self, const Point2DVector& image_points) {
             std::vector<Eigen::Vector2d> world_points(image_points.size());
             for (size_t idx = 0; idx < image_points.size(); ++idx) {
               world_points[idx] = self.CamFromImg(image_points[idx].xy);
@@ -186,7 +168,7 @@ void BindCamera(py::module& m) {
           "Project list of points from world / infinity to image plane.")
       .def(
           "img_from_cam",
-          [](const Camera& self, const std::vector<Point2D>& world_points) {
+          [](const Camera& self, const Point2DVector& world_points) {
             std::vector<Eigen::Vector2d> image_points(world_points.size());
             for (size_t idx = 0; idx < world_points.size(); ++idx) {
               image_points[idx] = self.ImgFromCam(world_points[idx].xy);
@@ -212,4 +194,20 @@ void BindCamera(py::module& m) {
                  "height",
                  "params",
                  "has_prior_focal_length"});
+
+  py::bind_map<CameraMap>(m, "MapCameraIdToCamera")
+      .def("__repr__", [](const CameraMap& self) {
+        std::stringstream ss;
+        ss << "{";
+        bool is_first = true;
+        for (const auto& pair : self) {
+          if (!is_first) {
+            ss << ",\n ";
+          }
+          is_first = false;
+          ss << pair.first << ": " << PrintCamera(pair.second);
+        }
+        ss << "}";
+        return ss.str();
+      });
 }

@@ -30,6 +30,7 @@
 #include "colmap/controllers/image_reader.h"
 
 #include "colmap/sensor/models.h"
+#include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 
 namespace colmap {
@@ -87,6 +88,7 @@ ImageReader::ImageReader(const ImageReaderOptions& options, Database* database)
 
 ImageReader::Status ImageReader::Next(Camera* camera,
                                       Image* image,
+                                      PosePrior* pose_prior,
                                       Bitmap* bitmap,
                                       Bitmap* mask) {
   THROW_CHECK_NOTNULL(camera);
@@ -145,8 +147,7 @@ ImageReader::Status ImageReader::Next(Camera* camera,
     const std::string mask_path =
         JoinPaths(options_.mask_path, image->Name() + ".png");
     if (ExistsFile(mask_path) && !mask->Read(mask_path, false)) {
-      // NOTE: Maybe introduce a separate error type MASK_ERROR?
-      return Status::BITMAP_ERROR;
+      return Status::MASK_ERROR;
     }
   }
 
@@ -249,11 +250,12 @@ ImageReader::Status ImageReader::Next(Camera* camera,
     // Extract GPS data.
     //////////////////////////////////////////////////////////////////////////////
 
-    Eigen::Vector3d& translation_prior = image->CamFromWorldPrior().translation;
-    if (!bitmap->ExifLatitude(&translation_prior.x()) ||
-        !bitmap->ExifLongitude(&translation_prior.y()) ||
-        !bitmap->ExifAltitude(&translation_prior.z())) {
-      translation_prior.setConstant(std::numeric_limits<double>::quiet_NaN());
+    Eigen::Vector3d position_prior;
+    if (bitmap->ExifLatitude(&position_prior.x()) &&
+        bitmap->ExifLongitude(&position_prior.y()) &&
+        bitmap->ExifAltitude(&position_prior.z())) {
+      pose_prior->position = position_prior;
+      pose_prior->coordinate_system = PosePrior::CoordinateSystem::WGS84;
     }
   }
 
@@ -268,5 +270,30 @@ ImageReader::Status ImageReader::Next(Camera* camera,
 size_t ImageReader::NextIndex() const { return image_index_; }
 
 size_t ImageReader::NumImages() const { return options_.image_list.size(); }
+
+std::string ImageReader::StatusToString(const ImageReader::Status status) {
+  switch (status) {
+    case ImageReader::Status::SUCCESS:
+      return "SUCCESS";
+    case ImageReader::Status::FAILURE:
+      return "FAILURE: Failed to process the image.";
+    case ImageReader::Status::IMAGE_EXISTS:
+      return "IMAGE_EXISTS: Features for image were already extracted.";
+    case ImageReader::Status::BITMAP_ERROR:
+      return "BITMAP_ERROR: Failed to read the image file format.";
+    case ImageReader::Status::MASK_ERROR:
+      return "MASK_ERROR: Failed to read the mask file.";
+    case ImageReader::Status::CAMERA_SINGLE_DIM_ERROR:
+      return "CAMERA_SINGLE_DIM_ERROR: Single camera specified, but images "
+             "have different dimensions.";
+    case ImageReader::Status::CAMERA_EXIST_DIM_ERROR:
+      return "CAMERA_EXIST_DIM_ERROR: Image previously processed, but current "
+             "image has different dimensions.";
+    case ImageReader::Status::CAMERA_PARAM_ERROR:
+      return "CAMERA_PARAM_ERROR: Camera has invalid parameters.";
+    default:
+      return "Unknown";
+  }
+}
 
 }  // namespace colmap

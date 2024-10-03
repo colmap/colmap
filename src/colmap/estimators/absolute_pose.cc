@@ -42,10 +42,10 @@ namespace colmap {
 
 void P3PEstimator::Estimate(const std::vector<X_t>& points2D,
                             const std::vector<Y_t>& points3D,
-                            std::vector<M_t>* models) {
+                            std::vector<M_t>* cams_from_world) {
   THROW_CHECK_EQ(points2D.size(), 3);
   THROW_CHECK_EQ(points3D.size(), 3);
-  THROW_CHECK(models != nullptr);
+  THROW_CHECK(cams_from_world != nullptr);
 
   thread_local static std::vector<Eigen::Vector3d> rays(3);
   for (int i = 0; i < 3; ++i) {
@@ -55,9 +55,9 @@ void P3PEstimator::Estimate(const std::vector<X_t>& points2D,
   std::vector<poselib::CameraPose> poses;
   const int num_poses = poselib::p3p(rays, points3D, &poses);
 
-  models->resize(num_poses);
+  cams_from_world->resize(num_poses);
   for (int i = 0; i < num_poses; ++i) {
-    (*models)[i] = poses[i].Rt();
+    (*cams_from_world)[i] = poses[i].Rt();
   }
 }
 
@@ -113,12 +113,12 @@ void P4PFEstimator::Residuals(const std::vector<X_t>& points2D,
 
 void EPNPEstimator::Estimate(const std::vector<X_t>& points2D,
                              const std::vector<Y_t>& points3D,
-                             std::vector<M_t>* models) {
+                             std::vector<M_t>* cams_from_world) {
   THROW_CHECK_GE(points2D.size(), 4);
   THROW_CHECK_EQ(points2D.size(), points3D.size());
-  THROW_CHECK(models != nullptr);
+  THROW_CHECK(cams_from_world != nullptr);
 
-  models->clear();
+  cams_from_world->clear();
 
   EPNPEstimator epnp;
   M_t cam_from_world;
@@ -126,8 +126,8 @@ void EPNPEstimator::Estimate(const std::vector<X_t>& points2D,
     return;
   }
 
-  models->resize(1);
-  (*models)[0] = cam_from_world;
+  cams_from_world->resize(1);
+  (*cams_from_world)[0] = cam_from_world;
 }
 
 void EPNPEstimator::Residuals(const std::vector<X_t>& points2D,

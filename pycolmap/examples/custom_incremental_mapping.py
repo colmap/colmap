@@ -2,12 +2,10 @@
 Python reimplementation of the C++ incremental mapper with equivalent logic.
 """
 
-import shutil
 import time
-import urllib.request
-import zipfile
 from pathlib import Path
 
+import custom_bundle_adjustment
 import enlighten
 
 import pycolmap
@@ -24,13 +22,15 @@ def write_snapshot(reconstruction, snapshot_path):
     timestamp = time.time() * 1000
     path = snapshot_path / f"{timestamp:010d}"
     path.mkdir(exist_ok=True, parents=True)
-    logging.verbose(f"=> Writing to {path}")
+    logging.verbose(1, f"=> Writing to {path}")
     reconstruction.write(path)
 
 
 def iterative_global_refinement(options, mapper_options, mapper):
     logging.info("Retriangulation and Global bundle adjustment")
-    mapper.iterative_global_refinement(
+    # The following is equivalent to mapper.iterative_global_refinement(...)
+    custom_bundle_adjustment.iterative_global_refinement(
+        mapper,
         options.ba_global_max_refinements,
         options.ba_global_max_refinement_change,
         mapper_options,
@@ -43,7 +43,7 @@ def iterative_global_refinement(options, mapper_options, mapper):
 def initialize_reconstruction(
     controller, mapper, mapper_options, reconstruction
 ):
-    """Equivalent to IncrementalMapperController.initialize_reconstruction(...)"""
+    """Equivalent to IncrementalPipeline.initialize_reconstruction(...)"""
     options = controller.options
     init_pair = (options.init_image_id1, options.init_image_id2)
 
@@ -70,8 +70,9 @@ def initialize_reconstruction(
         mapper_options, two_view_geometry, *init_pair
     )
     logging.info("Global bundle adjustment")
-    mapper.adjust_global_bundle(
-        mapper_options, options.get_global_bundle_adjustment()
+    # The following is equivalent to: mapper.adjust_global_bundle(...)
+    custom_bundle_adjustment.adjust_global_bundle(
+        mapper, mapper_options, options.get_global_bundle_adjustment()
     )
     reconstruction.normalize()
     mapper.filter_points(mapper_options)
@@ -89,7 +90,7 @@ def initialize_reconstruction(
 
 
 def reconstruct_sub_model(controller, mapper, mapper_options, reconstruction):
-    """Equivalent to IncrementalMapperController.reconstruct_sub_model(...)"""
+    """Equivalent to IncrementalPipeline.reconstruct_sub_model(...)"""
     # register initial pair
     mapper.begin_reconstruction(reconstruction)
     if reconstruction.num_reg_images() == 0:
@@ -118,15 +119,15 @@ def reconstruct_sub_model(controller, mapper, mapper_options, reconstruction):
             break
         for reg_trial in range(len(next_images)):
             next_image_id = next_images[reg_trial]
-            next_image = reconstruction.images[next_image_id]
             logging.info(
                 f"Registering image #{next_image_id} "
                 f"({reconstruction.num_reg_images() + 1})"
             )
-            logging.info(
-                f"=> Image sees {next_image.num_visible_points3D()} "
-                f"/ {next_image.num_observations} points"
+            num_vis = mapper.observation_manager.num_visible_points3D(
+                next_image_id
             )
+            num_obs = mapper.observation_manager.num_observations(next_image_id)
+            logging.info(f"=> Image sees {num_vis} / {num_obs} points")
             reg_next_success = mapper.register_next_image(
                 mapper_options, next_image_id
             )
@@ -144,7 +145,9 @@ def reconstruct_sub_model(controller, mapper, mapper_options, reconstruction):
                 break
         if reg_next_success:
             mapper.triangulate_image(options.get_triangulation(), next_image_id)
-            mapper.iterative_local_refinement(
+            # This is equivalent to mapper.iterative_local_refinement(...)
+            custom_bundle_adjustment.iterative_local_refinement(
+                mapper,
                 options.ba_local_max_refinements,
                 options.ba_local_max_refinement_change,
                 mapper_options,
@@ -186,7 +189,7 @@ def reconstruct_sub_model(controller, mapper, mapper_options, reconstruction):
 
 
 def reconstruct(controller, mapper_options):
-    """Equivalent to IncrementalMapperController.reconstruct(...)"""
+    """Equivalent to IncrementalPipeline.reconstruct(...)"""
     options = controller.options
     reconstruction_manager = controller.reconstruction_manager
     database_cache = controller.database_cache
@@ -194,7 +197,8 @@ def reconstruct(controller, mapper_options):
     initial_reconstruction_given = reconstruction_manager.size() > 0
     if reconstruction_manager.size() > 1:
         logging.fatal(
-            "Can only resume from a single reconstruction, but multiple are given"
+            "Can only resume from a single reconstruction, "
+            "but multiple are given"
         )
     for num_trials in range(options.init_num_trials):
         if (not initial_reconstruction_given) or num_trials > 0:
@@ -237,7 +241,7 @@ def reconstruct(controller, mapper_options):
             )
             if (
                 initial_reconstruction_given
-                or options.multiple_models
+                or (not options.multiple_models)
                 or reconstruction_manager.size() >= options.max_num_models
                 or total_num_reg_images >= database_cache.num_images() - 1
             ):
@@ -247,7 +251,7 @@ def reconstruct(controller, mapper_options):
 
 
 def main_incremental_mapper(controller):
-    """Equivalent to IncrementalMapperController.run()"""
+    """Equivalent to IncrementalPipeline.run()"""
     timer = pycolmap.Timer()
     timer.start()
     if not controller.load_database():
@@ -255,11 +259,13 @@ def main_incremental_mapper(controller):
     init_mapper_options = controller.options.get_mapper()
     reconstruct(controller, init_mapper_options)
 
-    for i in range(2):  # number of relaxations
+    for _ in range(2):  # number of relaxations
         if controller.reconstruction_manager.size() > 0:
             break
         logging.info("=> Relaxing the initialization constraints")
-        init_mapper_options.init_min_num_inliers /= 2
+        init_mapper_options.init_min_num_inliers = int(
+            init_mapper_options.init_min_num_inliers / 2
+        )
         reconstruct(controller, init_mapper_options)
         if controller.reconstruction_manager.size() > 0:
             break
@@ -273,9 +279,11 @@ def main(
     database_path,
     image_path,
     output_path,
-    options=pycolmap.IncrementalPipelineOptions(),
+    options=None,
     input_path=None,
 ):
+    if options is None:
+        options = pycolmap.IncrementalPipelineOptions()
     if not database_path.exists():
         logging.fatal(f"Database path does not exist: {database_path}")
     if not image_path.exists():
@@ -284,7 +292,7 @@ def main(
     reconstruction_manager = pycolmap.ReconstructionManager()
     if input_path is not None and input_path != "":
         reconstruction_manager.read(input_path)
-    mapper = pycolmap.IncrementalMapperController(
+    mapper = pycolmap.IncrementalPipeline(
         options, image_path, database_path, reconstruction_manager
     )
 

@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - release/*
   pull_request:
     types: [ assigned, opened, synchronize, reopened ]
   release:
@@ -17,8 +18,8 @@ jobs:
       matrix:
         config: [
           {
-            os: macos-13,
-            arch: x86_64,
+            os: macos-14,
+            arch: arm64,
             cmakeBuildType: Release,
           },
         ]
@@ -70,19 +71,14 @@ jobs:
             -GNinja \
             -DCMAKE_BUILD_TYPE=${{ matrix.config.cmakeBuildType }} \
             -DTESTS_ENABLED=ON \
-            -DQt5_DIR=/usr/local/opt/qt/lib/cmake/Qt5
+            -DCMAKE_PREFIX_PATH="$(brew --prefix qt@5)"
           ninja
 
       - name: Run tests
         run: |
           cd build
-          ctest
-          tests_pass=$?
-          if [ $tests_pass -ne 0 ]; then
-              echo "\n\n\nTests failed, rerunning with verbose output"
-              ctest --rerun-failed --output-on-failure
-          fi
-          exit $tests_pass
+          set +e
+          ctest --output-on-failure
 
       - name: Cleanup compiler cache
         run: |

@@ -63,10 +63,12 @@ Eigen::Vector3d EstimateGravityVectorFromImageOrientation(
 // matrix. If one axis could not be determined, the respective column will be
 // zero. The axes are specified in the world coordinate system in the order
 // rightward, downward, forward.
+#ifdef COLMAP_LSD_ENABLED
 Eigen::Matrix3d EstimateManhattanWorldFrame(
     const ManhattanWorldFrameEstimationOptions& options,
     const Reconstruction& reconstruction,
     const std::string& image_path);
+#endif
 
 // Aligns the reconstruction to the plane defined by running PCA on the 3D
 // points. The model centroid is at the origin of the new coordinate system

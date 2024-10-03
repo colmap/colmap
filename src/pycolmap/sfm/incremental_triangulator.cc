@@ -10,6 +10,7 @@
 #include <pybind11/stl_bind.h>
 
 using namespace colmap;
+using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindIncrementalTriangulator(py::module& m) {
@@ -76,18 +77,42 @@ void BindIncrementalTriangulator(py::module& m) {
   // HasCameraBogusParams once they become public.
   py::class_<IncrementalTriangulator, std::shared_ptr<IncrementalTriangulator>>(
       m, "IncrementalTriangulator")
-      .def(py::init<std::shared_ptr<CorrespondenceGraph>,
-                    std::shared_ptr<Reconstruction>>())
-      .def("triangulate_image", &IncrementalTriangulator::TriangulateImage)
-      .def("complete_image", &IncrementalTriangulator::CompleteImage)
-      .def("complete_all_tracks", &IncrementalTriangulator::CompleteAllTracks)
-      .def("merge_all_tracks", &IncrementalTriangulator::MergeAllTracks)
-      .def("retriangulate", &IncrementalTriangulator::Retriangulate)
-      .def("add_modified_point3D", &IncrementalTriangulator::AddModifiedPoint3D)
+      .def(py::init<std::shared_ptr<const CorrespondenceGraph>,
+                    Reconstruction&,
+                    std::shared_ptr<ObservationManager>>(),
+           "correspondence_graph"_a,
+           "reconstruction"_a,
+           "observation_manager"_a = py::none(),
+           py::keep_alive<1, 3>())
+      .def("triangulate_image",
+           &IncrementalTriangulator::TriangulateImage,
+           "options"_a,
+           "image_id"_a)
+      .def("complete_image",
+           &IncrementalTriangulator::CompleteImage,
+           "options"_a,
+           "image_id"_a)
+      .def("complete_all_tracks",
+           &IncrementalTriangulator::CompleteAllTracks,
+           "options"_a)
+      .def("merge_all_tracks",
+           &IncrementalTriangulator::MergeAllTracks,
+           "options"_a)
+      .def(
+          "retriangulate", &IncrementalTriangulator::Retriangulate, "options"_a)
+      .def("add_modified_point3D",
+           &IncrementalTriangulator::AddModifiedPoint3D,
+           "point3D_id"_a)
       .def("clear_modified_points3D",
            &IncrementalTriangulator::ClearModifiedPoints3D)
-      .def("merge_tracks", &IncrementalTriangulator::MergeTracks)
-      .def("complete_tracks", &IncrementalTriangulator::CompleteTracks)
+      .def("merge_tracks",
+           &IncrementalTriangulator::MergeTracks,
+           "options"_a,
+           "point3D_ids"_a)
+      .def("complete_tracks",
+           &IncrementalTriangulator::CompleteTracks,
+           "options"_a,
+           "point3D_ids"_a)
       .def("__copy__",
            [](const IncrementalTriangulator& self) {
              return IncrementalTriangulator(self);

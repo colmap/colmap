@@ -21,7 +21,6 @@ RUN apt-get update && \
         ninja-build \
         build-essential \
         libboost-program-options-dev \
-        libboost-filesystem-dev \
         libboost-graph-dev \
         libboost-system-dev \
         libeigen3-dev \
@@ -30,6 +29,7 @@ RUN apt-get update && \
         libmetis-dev \
         libgoogle-glog-dev \
         libgtest-dev \
+        libgmock-dev \
         libsqlite3-dev \
         libglew-dev \
         qtbase5-dev \
@@ -58,7 +58,6 @@ FROM nvidia/cuda:${NVIDIA_CUDA_VERSION}-runtime-ubuntu${UBUNTU_VERSION} as runti
 # build dependencies are not needed.
 RUN apt-get update && \
     apt-get install -y --no-install-recommends --no-install-suggests \
-        libboost-filesystem1.74.0 \
         libboost-program-options1.74.0 \
         libc6 \
         libceres2 \

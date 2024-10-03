@@ -37,13 +37,15 @@ COLMAP_ADD_LIBRARY(
         undistortion.h undistortion.cc
         warp.h warp.cc
     PUBLIC_LINK_LIBS
+        colmap_scene
         Eigen3::Eigen
     PRIVATE_LINK_LIBS
         colmap_util
         colmap_sensor
-        colmap_scene
-        colmap_lsd
 )
+if(LSD_ENABLED)
+    target_link_libraries(colmap_image PRIVATE colmap_lsd)
+endif()
 
 COLMAP_ADD_TEST(
     NAME line_test

@@ -131,7 +131,6 @@ class DatabaseImageViewerWidget : public FeatureImageViewerWidget {
   QTableWidgetItem* dimensions_item_;
   QTableWidgetItem* num_points2D_item_;
   QTableWidgetItem* num_points3D_item_;
-  QTableWidgetItem* num_obs_item_;
   QTableWidgetItem* name_item_;
 };
 

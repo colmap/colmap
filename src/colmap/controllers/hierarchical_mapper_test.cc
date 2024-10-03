@@ -64,7 +64,7 @@ void ExpectEqualReconstructions(const Reconstruction& gt,
   }
 }
 
-TEST(HierarchicalMapperController, WithoutNoise) {
+TEST(HierarchicalPipeline, WithoutNoise) {
   const std::string database_path = CreateTestDir() + "/database.db";
 
   Database database(database_path);
@@ -77,11 +77,11 @@ TEST(HierarchicalMapperController, WithoutNoise) {
   SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction, &database);
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
-  HierarchicalMapperController::Options mapper_options;
+  HierarchicalPipeline::Options mapper_options;
   mapper_options.database_path = database_path;
   mapper_options.clustering_options.leaf_max_num_images = 5;
   mapper_options.clustering_options.image_overlap = 3;
-  HierarchicalMapperController mapper(mapper_options, reconstruction_manager);
+  HierarchicalPipeline mapper(mapper_options, reconstruction_manager);
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
@@ -92,7 +92,7 @@ TEST(HierarchicalMapperController, WithoutNoise) {
                              /*num_obs_tolerance=*/0);
 }
 
-TEST(HierarchicalMapperController, MultiReconstruction) {
+TEST(HierarchicalPipeline, MultiReconstruction) {
   const std::string database_path = CreateTestDir() + "/database.db";
 
   Database database(database_path);
@@ -108,11 +108,11 @@ TEST(HierarchicalMapperController, MultiReconstruction) {
   SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction2, &database);
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
-  HierarchicalMapperController::Options mapper_options;
+  HierarchicalPipeline::Options mapper_options;
   mapper_options.database_path = database_path;
   mapper_options.clustering_options.leaf_max_num_images = 5;
   mapper_options.clustering_options.image_overlap = 3;
-  HierarchicalMapperController mapper(mapper_options, reconstruction_manager);
+  HierarchicalPipeline mapper(mapper_options, reconstruction_manager);
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 2);

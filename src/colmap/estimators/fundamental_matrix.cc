@@ -54,14 +54,63 @@ void FundamentalMatrixSevenPointEstimator::Estimate(
 
   models->clear();
 
-  thread_local static std::vector<Eigen::Vector3d> points1_h(7);
-  thread_local static std::vector<Eigen::Vector3d> points2_h(7);
-  for (int i = 0; i < 7; ++i) {
-    points1_h[i] = points1[i].homogeneous();
-    points2_h[i] = points2[i].homogeneous();
+  // Setup system of equations: [points2(i,:), 1]' * F * [points1(i,:), 1]'.
+  Eigen::Matrix<double, 9, 7> A;
+  for (size_t i = 0; i < 7; ++i) {
+    A.col(i) << points1[i].x() * points2[i].homogeneous(),
+        points1[i].y() * points2[i].homogeneous(), points2[i].homogeneous();
   }
 
-  poselib::relpose_7pt(points1_h, points2_h, models);
+  // 9 unknowns with 7 equations, so we have 2D null space.
+  Eigen::Matrix<double, 9, 9> Q = A.fullPivHouseholderQr().matrixQ();
+
+  // Normalize, such that lambda + mu = 1
+  // and add constraint det(F) = det(lambda * f1 + (1 - lambda) * f2).
+
+  auto f1 = Q.col(7);
+  auto f2 = Q.col(8);
+  f1 -= f2;
+
+  const double t0 = f1(4) * f1(8) - f1(5) * f1(7);
+  const double t1 = f1(3) * f1(8) - f1(5) * f1(6);
+  const double t2 = f1(3) * f1(7) - f1(4) * f1(6);
+  const double t3 = f2(4) * f2(8) - f2(5) * f2(7);
+  const double t4 = f2(3) * f2(8) - f2(5) * f2(6);
+  const double t5 = f2(3) * f2(7) - f2(4) * f2(6);
+
+  Eigen::Vector4d coeffs;
+  coeffs(0) = f1(0) * t0 - f1(1) * t1 + f1(2) * t2;
+  if (std::abs(coeffs(0)) < 1e-16) {
+    return;
+  }
+
+  coeffs(1) = f2(0) * t0 - f2(1) * t1 + f2(2) * t2 -
+              f2(3) * (f1(1) * f1(8) - f1(2) * f1(7)) +
+              f2(4) * (f1(0) * f1(8) - f1(2) * f1(6)) -
+              f2(5) * (f1(0) * f1(7) - f1(1) * f1(6)) +
+              f2(6) * (f1(1) * f1(5) - f1(2) * f1(4)) -
+              f2(7) * (f1(0) * f1(5) - f1(2) * f1(3)) +
+              f2(8) * (f1(0) * f1(4) - f1(1) * f1(3));
+  coeffs(2) = f1(0) * t3 - f1(1) * t4 + f1(2) * t5 -
+              f1(3) * (f2(1) * f2(8) - f2(2) * f2(7)) +
+              f1(4) * (f2(0) * f2(8) - f2(2) * f2(6)) -
+              f1(5) * (f2(0) * f2(7) - f2(1) * f2(6)) +
+              f1(6) * (f2(1) * f2(5) - f2(2) * f2(4)) -
+              f1(7) * (f2(0) * f2(5) - f2(2) * f2(3)) +
+              f1(8) * (f2(0) * f2(4) - f2(1) * f2(3));
+  coeffs(3) = f2(0) * t3 - f2(1) * t4 + f2(2) * t5;
+
+  coeffs.tail<3>() /= coeffs(0);
+
+  Eigen::Vector3d roots;
+  const int num_roots =
+      FindCubicPolynomialRoots(coeffs(1), coeffs(2), coeffs(3), &roots);
+
+  models->reserve(num_roots);
+  for (int i = 0; i < num_roots; ++i) {
+    const Eigen::Matrix<double, 9, 1> F = (f1 * roots[i] + f2).normalized();
+    models->push_back(Eigen::Map<const Eigen::Matrix3d>(F.data()));
+  }
 }
 
 void FundamentalMatrixSevenPointEstimator::Residuals(
@@ -77,6 +126,7 @@ void FundamentalMatrixEightPointEstimator::Estimate(
     const std::vector<Y_t>& points2,
     std::vector<M_t>* models) {
   THROW_CHECK_EQ(points1.size(), points2.size());
+  THROW_CHECK_GE(points1.size(), 8);
   THROW_CHECK(models != nullptr);
 
   models->clear();
@@ -90,30 +140,36 @@ void FundamentalMatrixEightPointEstimator::Estimate(
   CenterAndNormalizeImagePoints(points2, &normed_points2, &normed_from_orig2);
 
   // Setup homogeneous linear equation as x2' * F * x1 = 0.
-  Eigen::Matrix<double, Eigen::Dynamic, 9> cmatrix(points1.size(), 9);
+  Eigen::Matrix<double, Eigen::Dynamic, 9> A(points1.size(), 9);
   for (size_t i = 0; i < points1.size(); ++i) {
-    cmatrix.block<1, 3>(i, 0) = normed_points1[i].homogeneous();
-    cmatrix.block<1, 3>(i, 0) *= normed_points2[i].x();
-    cmatrix.block<1, 3>(i, 3) = normed_points1[i].homogeneous();
-    cmatrix.block<1, 3>(i, 3) *= normed_points2[i].y();
-    cmatrix.block<1, 3>(i, 6) = normed_points1[i].homogeneous();
+    A.row(i) << normed_points2[i].x() *
+                    normed_points1[i].transpose().homogeneous(),
+        normed_points2[i].y() * normed_points1[i].transpose().homogeneous(),
+        normed_points1[i].transpose().homogeneous();
   }
 
   // Solve for the nullspace of the constraint matrix.
-  Eigen::JacobiSVD<Eigen::Matrix<double, Eigen::Dynamic, 9>> cmatrix_svd(
-      cmatrix, Eigen::ComputeFullV);
-  const Eigen::VectorXd cmatrix_nullspace = cmatrix_svd.matrixV().col(8);
-  const Eigen::Map<const Eigen::Matrix3d> ematrix_t(cmatrix_nullspace.data());
+  Eigen::Matrix3d Q;
+  if (points1.size() == 8) {
+    Eigen::Matrix<double, 9, 9> QQ =
+        A.transpose().householderQr().householderQ();
+    Q = Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(
+        QQ.col(8).data());
+  } else {
+    Eigen::JacobiSVD<Eigen::Matrix<double, Eigen::Dynamic, 9>> svd(
+        A, Eigen::ComputeFullV);
+    Q = Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(
+        svd.matrixV().col(8).data());
+  }
 
   // Enforcing the internal constraint that two singular values must non-zero
   // and one must be zero.
-  Eigen::JacobiSVD<Eigen::Matrix3d> fmatrix_svd(
-      ematrix_t.transpose(), Eigen::ComputeFullU | Eigen::ComputeFullV);
-  Eigen::Vector3d singular_values = fmatrix_svd.singularValues();
+  Eigen::JacobiSVD<Eigen::Matrix3d> svd(
+      Q, Eigen::ComputeFullU | Eigen::ComputeFullV);
+  Eigen::Vector3d singular_values = svd.singularValues();
   singular_values(2) = 0.0;
-  const Eigen::Matrix3d F = fmatrix_svd.matrixU() *
-                            singular_values.asDiagonal() *
-                            fmatrix_svd.matrixV().transpose();
+  const Eigen::Matrix3d F =
+      svd.matrixU() * singular_values.asDiagonal() * svd.matrixV().transpose();
 
   models->resize(1);
   (*models)[0] = normed_from_orig2.transpose() * F * normed_from_orig1;

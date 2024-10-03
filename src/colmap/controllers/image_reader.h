@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/geometry/gps.h"
 #include "colmap/scene/database.h"
 #include "colmap/sensor/bitmap.h"
 #include "colmap/util/threading.h"
@@ -100,6 +101,7 @@ class ImageReader {
     SUCCESS,
     IMAGE_EXISTS,
     BITMAP_ERROR,
+    MASK_ERROR,
     CAMERA_SINGLE_DIM_ERROR,
     CAMERA_EXIST_DIM_ERROR,
     CAMERA_PARAM_ERROR
@@ -107,9 +109,15 @@ class ImageReader {
 
   ImageReader(const ImageReaderOptions& options, Database* database);
 
-  Status Next(Camera* camera, Image* image, Bitmap* bitmap, Bitmap* mask);
+  Status Next(Camera* camera,
+              Image* image,
+              PosePrior* pose_prior,
+              Bitmap* bitmap,
+              Bitmap* mask);
   size_t NextIndex() const;
   size_t NumImages() const;
+
+  static std::string StatusToString(Status status);
 
  private:
   // Image reader options.

@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - release/*
   pull_request:
     types: [ assigned, opened, synchronize, reopened ]
   release:
@@ -18,7 +19,7 @@ jobs:
         config: [
               {os: ubuntu-latest},
               {os: macos-13, arch: x86_64},
-              {os: macos-13, arch: arm64},
+              {os: macos-14, arch: arm64},
               {os: windows-latest},
         ]
     env:
@@ -26,6 +27,7 @@ jobs:
       COMPILER_CACHE_DIR: ${{ github.workspace }}/compiler-cache
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
+      MACOSX_DEPLOYMENT_TARGET: 10.15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/cache@v4
@@ -38,7 +40,7 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           if [[ ${{ matrix.config.arch }} == "x86_64" ]]; then
-            VCPKG_TARGET_TRIPLET="x64-osx"
+            VCPKG_TARGET_TRIPLET="x64-osx-release"
           elif [[ ${{ matrix.config.arch }} == "arm64" ]]; then
             VCPKG_TARGET_TRIPLET="arm64-osx-release"
           else
@@ -52,6 +54,7 @@ jobs:
           echo "VCPKG_INSTALLATION_ROOT=${VCPKG_INSTALLATION_ROOT}" >> "$GITHUB_ENV"
           echo "CMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}" >> "$GITHUB_ENV"
           echo "CMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES}" >> "$GITHUB_ENV"
+          echo "ARCHFLAGS=-arch ${CMAKE_OSX_ARCHITECTURES}" >> "$GITHUB_ENV"
 
           # Fix: cibuildhweel cannot interpolate env variables.
           CONFIG_SETTINGS="cmake.define.CMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}"
@@ -72,7 +75,7 @@ jobs:
           echo "VCPKG_INSTALLATION_ROOT=${VCPKG_INSTALLATION_ROOT}" >> "${env:GITHUB_ENV}"
           $CMAKE_TOOLCHAIN_FILE = "${VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake"
           echo "CMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}" >> "${env:GITHUB_ENV}"
-          $VCPKG_TARGET_TRIPLET = "x64-windows"
+          $VCPKG_TARGET_TRIPLET = "x64-windows-release"
           echo "VCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET}" >> "${env:GITHUB_ENV}"
 
           # Fix: cibuildhweel cannot interpolate env variables.
@@ -90,7 +93,7 @@ jobs:
           $VCPKG_CACHE_DIR = "${env:COMPILER_CACHE_DIR}/vcpkg"
           $VCPKG_BINARY_SOURCES = "clear;files,${VCPKG_CACHE_DIR},readwrite"
           echo "VCPKG_BINARY_SOURCES=${VCPKG_BINARY_SOURCES}" >> "${env:GITHUB_ENV}"
-      - name: Set env (Ubuntu)
+      - name: Set env (Linux)
         if: runner.os == 'Linux'
         run: |
           VCPKG_TARGET_TRIPLET="x64-linux-release"
@@ -122,8 +125,18 @@ jobs:
 
           CIBW_ENVIRONMENT_PASS_LINUX="VCPKG_TARGET_TRIPLET VCPKG_INSTALLATION_ROOT CMAKE_TOOLCHAIN_FILE VCPKG_BINARY_SOURCES CONTAINER_COMPILER_CACHE_DIR CCACHE_DIR CCACHE_BASEDIR"
           echo "CIBW_ENVIRONMENT_PASS_LINUX=${CIBW_ENVIRONMENT_PASS_LINUX}" >> "$GITHUB_ENV"
+
+          CIBW_MANYLINUX_X86_64_IMAGE="quay.io/pypa/manylinux_2_28_x86_64"
+          echo "CIBW_MANYLINUX_X86_64_IMAGE=${CIBW_MANYLINUX_X86_64_IMAGE}" >> "$GITHUB_ENV"
+
+      # See https://cibuildwheel.pypa.io/en/stable/faq/#macos-building-cpython-38-wheels-on-arm64
+      - name: Install ARM64 Python 3.8
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.8
+        if: runner.os == 'macOS' && runner.arch == 'ARM64' && ${{ matrix.config.arch }} == "arm64"
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.16.5
+        uses: pypa/cibuildwheel@v2.19.2
         with:
           package-dir: ./pycolmap/
         env:

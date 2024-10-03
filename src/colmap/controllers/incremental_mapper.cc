@@ -29,13 +29,14 @@
 
 #include "colmap/controllers/incremental_mapper.h"
 
+#include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
 
 namespace colmap {
 namespace {
 
-void IterativeGlobalRefinement(const IncrementalMapperOptions& options,
+void IterativeGlobalRefinement(const IncrementalPipelineOptions& options,
                                const IncrementalMapper::Options& mapper_options,
                                IncrementalMapper& mapper) {
   LOG(INFO) << "Retriangulation and Global bundle adjustment";
@@ -75,7 +76,7 @@ void WriteSnapshot(const Reconstruction& reconstruction,
 
 }  // namespace
 
-IncrementalMapper::Options IncrementalMapperOptions::Mapper() const {
+IncrementalMapper::Options IncrementalPipelineOptions::Mapper() const {
   IncrementalMapper::Options options = mapper;
   options.abs_pose_refine_focal_length = ba_refine_focal_length;
   options.abs_pose_refine_extra_params = ba_refine_extra_params;
@@ -85,10 +86,13 @@ IncrementalMapper::Options IncrementalMapperOptions::Mapper() const {
   options.num_threads = num_threads;
   options.local_ba_num_images = ba_local_num_images;
   options.fix_existing_images = fix_existing_images;
+  options.use_prior_position = use_prior_position;
+  options.use_robust_loss_on_prior_position = use_robust_loss_on_prior_position;
+  options.prior_position_loss_scale = prior_position_loss_scale;
   return options;
 }
 
-IncrementalTriangulator::Options IncrementalMapperOptions::Triangulation()
+IncrementalTriangulator::Options IncrementalPipelineOptions::Triangulation()
     const {
   IncrementalTriangulator::Options options = triangulation;
   options.min_focal_length_ratio = min_focal_length_ratio;
@@ -97,7 +101,7 @@ IncrementalTriangulator::Options IncrementalMapperOptions::Triangulation()
   return options;
 }
 
-BundleAdjustmentOptions IncrementalMapperOptions::LocalBundleAdjustment()
+BundleAdjustmentOptions IncrementalPipelineOptions::LocalBundleAdjustment()
     const {
   BundleAdjustmentOptions options;
   options.solver_options.function_tolerance = ba_local_function_tolerance;
@@ -114,15 +118,17 @@ BundleAdjustmentOptions IncrementalMapperOptions::LocalBundleAdjustment()
   options.refine_focal_length = ba_refine_focal_length;
   options.refine_principal_point = ba_refine_principal_point;
   options.refine_extra_params = ba_refine_extra_params;
-  options.min_num_residuals_for_multi_threading =
-      ba_min_num_residuals_for_multi_threading;
+  options.min_num_residuals_for_cpu_multi_threading =
+      ba_min_num_residuals_for_cpu_multi_threading;
   options.loss_function_scale = 1.0;
   options.loss_function_type =
       BundleAdjustmentOptions::LossFunctionType::SOFT_L1;
+  options.use_gpu = ba_use_gpu;
+  options.gpu_index = ba_gpu_index;
   return options;
 }
 
-BundleAdjustmentOptions IncrementalMapperOptions::GlobalBundleAdjustment()
+BundleAdjustmentOptions IncrementalPipelineOptions::GlobalBundleAdjustment()
     const {
   BundleAdjustmentOptions options;
   options.solver_options.function_tolerance = ba_global_function_tolerance;
@@ -130,9 +136,12 @@ BundleAdjustmentOptions IncrementalMapperOptions::GlobalBundleAdjustment()
   options.solver_options.parameter_tolerance = 0.0;
   options.solver_options.max_num_iterations = ba_global_max_num_iterations;
   options.solver_options.max_linear_solver_iterations = 100;
-  options.solver_options.logging_type =
-      ceres::LoggingType::PER_MINIMIZER_ITERATION;
-  options.solver_options.minimizer_progress_to_stdout = false;
+  options.solver_options.logging_type = ceres::LoggingType::SILENT;
+  if (VLOG_IS_ON(2)) {
+    options.solver_options.minimizer_progress_to_stdout = true;
+    options.solver_options.logging_type =
+        ceres::LoggingType::PER_MINIMIZER_ITERATION;
+  }
   options.solver_options.num_threads = num_threads;
 #if CERES_VERSION_MAJOR < 2
   options.solver_options.num_linear_solver_threads = num_threads;
@@ -141,14 +150,16 @@ BundleAdjustmentOptions IncrementalMapperOptions::GlobalBundleAdjustment()
   options.refine_focal_length = ba_refine_focal_length;
   options.refine_principal_point = ba_refine_principal_point;
   options.refine_extra_params = ba_refine_extra_params;
-  options.min_num_residuals_for_multi_threading =
-      ba_min_num_residuals_for_multi_threading;
+  options.min_num_residuals_for_cpu_multi_threading =
+      ba_min_num_residuals_for_cpu_multi_threading;
   options.loss_function_type =
       BundleAdjustmentOptions::LossFunctionType::TRIVIAL;
+  options.use_gpu = ba_use_gpu;
+  options.gpu_index = ba_gpu_index;
   return options;
 }
 
-bool IncrementalMapperOptions::Check() const {
+bool IncrementalPipelineOptions::Check() const {
   CHECK_OPTION_GT(min_num_matches, 0);
   CHECK_OPTION_GT(max_num_models, 0);
   CHECK_OPTION_GT(max_model_overlap, 0);
@@ -169,13 +180,14 @@ bool IncrementalMapperOptions::Check() const {
   CHECK_OPTION_GT(ba_global_max_refinements, 0);
   CHECK_OPTION_GE(ba_global_max_refinement_change, 0);
   CHECK_OPTION_GE(snapshot_images_freq, 0);
+  CHECK_OPTION_GT(prior_position_loss_scale, 0.);
   CHECK_OPTION(Mapper().Check());
   CHECK_OPTION(Triangulation().Check());
   return true;
 }
 
-IncrementalMapperController::IncrementalMapperController(
-    std::shared_ptr<const IncrementalMapperOptions> options,
+IncrementalPipeline::IncrementalPipeline(
+    std::shared_ptr<const IncrementalPipelineOptions> options,
     const std::string& image_path,
     const std::string& database_path,
     std::shared_ptr<class ReconstructionManager> reconstruction_manager)
@@ -189,7 +201,7 @@ IncrementalMapperController::IncrementalMapperController(
   RegisterCallback(LAST_IMAGE_REG_CALLBACK);
 }
 
-void IncrementalMapperController::Run() {
+void IncrementalPipeline::Run() {
   Timer run_timer;
   run_timer.Start();
   if (!LoadDatabase()) {
@@ -221,7 +233,7 @@ void IncrementalMapperController::Run() {
   run_timer.PrintMinutes();
 }
 
-bool IncrementalMapperController::LoadDatabase() {
+bool IncrementalPipeline::LoadDatabase() {
   LOG(INFO) << "Loading database";
 
   // Make sure images of the given reconstruction are also included when
@@ -248,11 +260,16 @@ bool IncrementalMapperController::LoadDatabase() {
     return false;
   }
 
+  // If prior positions are to be used and setup from the database, convert
+  // geographic coords. to cartesian ones
+  if (options_->use_prior_position) {
+    return database_cache_->SetupPosePriors();
+  }
+
   return true;
 }
 
-IncrementalMapperController::Status
-IncrementalMapperController::InitializeReconstruction(
+IncrementalPipeline::Status IncrementalPipeline::InitializeReconstruction(
     IncrementalMapper& mapper,
     const IncrementalMapper::Options& mapper_options,
     Reconstruction& reconstruction) {
@@ -308,7 +325,7 @@ IncrementalMapperController::InitializeReconstruction(
   return Status::SUCCESS;
 }
 
-bool IncrementalMapperController::CheckRunGlobalRefinement(
+bool IncrementalPipeline::CheckRunGlobalRefinement(
     const Reconstruction& reconstruction,
     const size_t ba_prev_num_reg_images,
     const size_t ba_prev_num_points) {
@@ -322,8 +339,7 @@ bool IncrementalMapperController::CheckRunGlobalRefinement(
              options_->ba_global_points_freq + ba_prev_num_points;
 }
 
-IncrementalMapperController::Status
-IncrementalMapperController::ReconstructSubModel(
+IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
     IncrementalMapper& mapper,
     const IncrementalMapper::Options& mapper_options,
     const std::shared_ptr<Reconstruction>& reconstruction) {
@@ -334,9 +350,8 @@ IncrementalMapperController::ReconstructSubModel(
   ////////////////////////////////////////////////////////////////////////////
 
   if (reconstruction->NumRegImages() == 0) {
-    const Status init_status =
-        IncrementalMapperController::InitializeReconstruction(
-            mapper, mapper_options, *reconstruction);
+    const Status init_status = IncrementalPipeline::InitializeReconstruction(
+        mapper, mapper_options, *reconstruction);
     if (init_status != Status::SUCCESS) {
       return init_status;
     }
@@ -371,14 +386,14 @@ IncrementalMapperController::ReconstructSubModel(
     image_t next_image_id;
     for (size_t reg_trial = 0; reg_trial < next_images.size(); ++reg_trial) {
       next_image_id = next_images[reg_trial];
-      const Image& next_image = reconstruction->Image(next_image_id);
 
       LOG(INFO) << StringPrintf("Registering image #%d (%d)",
                                 next_image_id,
                                 reconstruction->NumRegImages() + 1);
-      LOG(INFO) << StringPrintf("=> Image sees %d / %d points",
-                                next_image.NumVisiblePoints3D(),
-                                next_image.NumObservations());
+      LOG(INFO) << StringPrintf(
+          "=> Image sees %d / %d points",
+          mapper.ObservationManager().NumVisiblePoints3D(next_image_id),
+          mapper.ObservationManager().NumObservations(next_image_id));
 
       reg_next_success =
           mapper.RegisterNextImage(mapper_options, next_image_id);
@@ -456,7 +471,7 @@ IncrementalMapperController::ReconstructSubModel(
   return Status::SUCCESS;
 }
 
-void IncrementalMapperController::Reconstruct(
+void IncrementalPipeline::Reconstruct(
     const IncrementalMapper::Options& mapper_options) {
   IncrementalMapper mapper(database_cache_);
 
@@ -485,12 +500,13 @@ void IncrementalMapperController::Reconstruct(
     const Status status =
         ReconstructSubModel(mapper, mapper_options, reconstruction);
     switch (status) {
-      case Status::INTERRUPTED:
+      case Status::INTERRUPTED: {
         mapper.EndReconstruction(/*discard=*/false);
         return;
+      }
 
       case Status::NO_INITIAL_PAIR:
-      case Status::BAD_INITIAL_PAIR:
+      case Status::BAD_INITIAL_PAIR: {
         mapper.EndReconstruction(/*discard=*/true);
         reconstruction_manager_->Delete(reconstruction_idx);
         // If both initial images are manually specified, there is no need for
@@ -499,6 +515,7 @@ void IncrementalMapperController::Reconstruct(
           return;
         }
         break;
+      }
 
       case Status::SUCCESS: {
         // Remember the total number of registered images before potentially
@@ -529,7 +546,9 @@ void IncrementalMapperController::Reconstruct(
             total_num_reg_images >= database_cache_->NumImages() - 1) {
           return;
         }
-      } break;
+
+        break;
+      }
 
       default:
         LOG(FATAL_THROW) << "Unknown reconstruction status.";
@@ -537,7 +556,7 @@ void IncrementalMapperController::Reconstruct(
   }
 }
 
-void IncrementalMapperController::TriangulateReconstruction(
+void IncrementalPipeline::TriangulateReconstruction(
     const std::shared_ptr<Reconstruction>& reconstruction) {
   THROW_CHECK(LoadDatabase());
   IncrementalMapper mapper(database_cache_);
@@ -552,7 +571,8 @@ void IncrementalMapperController::TriangulateReconstruction(
     LOG(INFO) << StringPrintf("Triangulating image #%d (%d)", image_id, i);
     const size_t num_existing_points3D = image.NumPoints3D();
     LOG(INFO) << "=> Image sees " << num_existing_points3D << " / "
-              << image.NumObservations() << " points";
+              << mapper.ObservationManager().NumObservations(image_id)
+              << " points";
 
     mapper.TriangulateImage(options_->Triangulation(), image_id);
     VLOG(1) << "=> Triangulated "

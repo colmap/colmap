@@ -2,6 +2,7 @@
 
 #include "pycolmap/pybind11_extension.h"
 
+#include <pybind11/eigen.h>
 #include <pybind11/pybind11.h>
 
 using namespace colmap;
@@ -25,13 +26,28 @@ class DatabaseTransactionWrapper {
 };
 
 void BindDatabase(py::module& m) {
-  py::class_<Database> PyDatabase(m, "Database");
+  py::class_<Database, std::shared_ptr<Database>> PyDatabase(m, "Database");
   PyDatabase.def(py::init<>())
       .def(py::init<const std::string&>(), "path"_a)
       .def("open", &Database::Open, "path"_a)
       .def("close", &Database::Close)
+      .def("exists_camera", &Database::ExistsCamera, "camera_id"_a)
+      .def("exists_image", &Database::ExistsImage, "image_id"_a)
+      .def("exists_image", &Database::ExistsImageWithName, "name"_a)
+      .def("exists_pose_prior", &Database::ExistsPosePrior, "image_id"_a)
+      .def("exists_keypoints", &Database::ExistsKeypoints, "image_id"_a)
+      .def("exists_descriptors", &Database::ExistsDescriptors, "image_id"_a)
+      .def("exists_matches",
+           &Database::ExistsMatches,
+           "image_id1"_a,
+           "image_id2"_a)
+      .def("exists_inlier_matches",
+           &Database::ExistsInlierMatches,
+           "image_id1"_a,
+           "image_id2"_a)
       .def_property_readonly("num_cameras", &Database::NumCameras)
       .def_property_readonly("num_images", &Database::NumImages)
+      .def_property_readonly("num_pose_priors", &Database::NumPosePriors)
       .def_property_readonly("num_keypoints", &Database::NumKeypoints)
       .def("num_keypoints_for_image",
            &Database::NumKeypointsForImage,
@@ -61,6 +77,7 @@ void BindDatabase(py::module& m) {
       .def("read_image", &Database::ReadImage, "image_id"_a)
       .def("read_image", &Database::ReadImageWithName, "name"_a)
       .def("read_all_images", &Database::ReadAllImages)
+      .def("read_pose_prior", &Database::ReadPosePrior, "image_id"_a)
       .def("read_keypoints", &Database::ReadKeypointsBlob, "image_id"_a)
       .def("read_descriptors", &Database::ReadDescriptors, "image_id"_a)
       .def("read_matches",
@@ -94,6 +111,10 @@ void BindDatabase(py::module& m) {
            &Database::WriteImage,
            "image"_a,
            "use_image_id"_a = false)
+      .def("write_pose_prior",
+           &Database::WritePosePrior,
+           "image_id"_a,
+           "pose_prior"_a)
       .def("write_keypoints",
            py::overload_cast<image_t, const FeatureKeypointsBlob&>(
                &Database::WriteKeypoints, py::const_),
@@ -127,6 +148,7 @@ void BindDatabase(py::module& m) {
       .def("clear_all_tables", &Database::ClearAllTables)
       .def("clear_cameras", &Database::ClearCameras)
       .def("clear_images", &Database::ClearImages)
+      .def("clear_pose_priors", &Database::ClearPosePriors)
       .def("clear_descriptors", &Database::ClearDescriptors)
       .def("clear_keypoints", &Database::ClearKeypoints)
       .def("clear_matches", &Database::ClearMatches)

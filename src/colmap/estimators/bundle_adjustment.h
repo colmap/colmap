@@ -64,17 +64,34 @@ struct BundleAdjustmentOptions {
   // Whether to print a final summary.
   bool print_summary = true;
 
-  // Minimum number of residuals to enable multi-threading. Note that
-  // single-threaded is typically better for small bundle adjustment problems
-  // due to the overhead of threading.
-  int min_num_residuals_for_multi_threading = 50000;
+  // Whether to use Ceres' CUDA linear algebra library, if available.
+  bool use_gpu = false;
+  std::string gpu_index = "-1";
+
+  // Heuristic threshold to switch from CPU to GPU based solvers.
+  // Typically, the GPU is faster for large problems but the overhead of
+  // transferring memory from the CPU to the GPU leads to better CPU performance
+  // for small problems. This depends on the specific problem and hardware.
+  int min_num_images_gpu_solver = 50;
+
+  // Heuristic threshold on the minimum number of residuals to enable
+  // multi-threading. Note that single-threaded is typically better for small
+  // bundle adjustment problems due to the overhead of threading.
+  int min_num_residuals_for_cpu_multi_threading = 50000;
+
+  // Heuristic thresholds to switch between direct, sparse, and iterative
+  // solvers. These thresholds may not be optimal for all types of problems.
+  int max_num_images_direct_dense_cpu_solver = 50;
+  int max_num_images_direct_sparse_cpu_solver = 1000;
+  int max_num_images_direct_dense_gpu_solver = 200;
+  int max_num_images_direct_sparse_gpu_solver = 4000;
 
   // Ceres-Solver options.
   ceres::Solver::Options solver_options;
 
   BundleAdjustmentOptions() {
     solver_options.function_tolerance = 0.0;
-    solver_options.gradient_tolerance = 0.0;
+    solver_options.gradient_tolerance = 1e-4;
     solver_options.parameter_tolerance = 0.0;
     solver_options.logging_type = ceres::LoggingType::SILENT;
     solver_options.max_num_iterations = 100;
@@ -147,9 +164,11 @@ class BundleAdjustmentConfig {
   void RemoveConstantPoint(point3D_t point3D_id);
 
   // Access configuration data.
+  const std::unordered_set<camera_t> ConstantIntrinsics() const;
   const std::unordered_set<image_t>& Images() const;
   const std::unordered_set<point3D_t>& VariablePoints() const;
   const std::unordered_set<point3D_t>& ConstantPoints() const;
+  const std::unordered_set<image_t>& ConstantCamPoses() const;
   const std::vector<int>& ConstantCamPositions(image_t image_id) const;
 
  private:
@@ -170,14 +189,22 @@ class BundleAdjuster {
 
   bool Solve(Reconstruction* reconstruction);
 
-  // Get the Ceres solver summary for the last call to `Solve`.
+  // Set up the problem
+  void SetUpProblem(Reconstruction* reconstruction,
+                    ceres::LossFunction* loss_function);
+  ceres::Solver::Options SetUpSolverOptions(
+      const ceres::Problem& problem,
+      const ceres::Solver::Options& input_solver_options) const;
+
+  // Getter functions below
+  const BundleAdjustmentOptions& Options() const;
+  const BundleAdjustmentConfig& Config() const;
+  // Get the Ceres problem after the last call to "set_up"
+  std::shared_ptr<ceres::Problem> Problem();
+  // Get the Ceres solver summary after the last call to `Solve`.
   const ceres::Solver::Summary& Summary() const;
 
- private:
-  void SetUp(Reconstruction* reconstruction,
-             ceres::LossFunction* loss_function);
-  void TearDown(Reconstruction* reconstruction);
-
+ protected:
   void AddImageToProblem(image_t image_id,
                          Reconstruction* reconstruction,
                          ceres::LossFunction* loss_function);
@@ -186,16 +213,18 @@ class BundleAdjuster {
                          Reconstruction* reconstruction,
                          ceres::LossFunction* loss_function);
 
- protected:
   void ParameterizeCameras(Reconstruction* reconstruction);
   void ParameterizePoints(Reconstruction* reconstruction);
 
   const BundleAdjustmentOptions options_;
   BundleAdjustmentConfig config_;
-  std::unique_ptr<ceres::Problem> problem_;
+  std::shared_ptr<ceres::Problem> problem_;
   ceres::Solver::Summary summary_;
   std::unordered_set<camera_t> camera_ids_;
   std::unordered_map<point3D_t, size_t> point3D_num_observations_;
+
+  // Hold the life of loss function for Solve()
+  std::unique_ptr<ceres::LossFunction> loss_function_;
 };
 
 class RigBundleAdjuster : public BundleAdjuster {
@@ -219,13 +248,14 @@ class RigBundleAdjuster : public BundleAdjuster {
   bool Solve(Reconstruction* reconstruction,
              std::vector<CameraRig>* camera_rigs);
 
- private:
-  void SetUp(Reconstruction* reconstruction,
-             std::vector<CameraRig>* camera_rigs,
-             ceres::LossFunction* loss_function);
+  void SetUpProblem(Reconstruction* reconstruction,
+                    std::vector<CameraRig>* camera_rigs,
+                    ceres::LossFunction* loss_function);
+
   void TearDown(Reconstruction* reconstruction,
                 const std::vector<CameraRig>& camera_rigs);
 
+ private:
   void AddImageToProblem(image_t image_id,
                          Reconstruction* reconstruction,
                          std::vector<CameraRig>* camera_rigs,
@@ -254,6 +284,61 @@ class RigBundleAdjuster : public BundleAdjuster {
   // The Quaternions added to the problem, used to set the local
   // parameterization once after setting up the problem.
   std::unordered_set<double*> parameterized_quats_;
+};
+
+class PosePriorBundleAdjuster : public BundleAdjuster {
+ public:
+  struct Options {
+    Options(bool use_robust_loss_on_prior_position,
+            double prior_position_loss_scale)
+        : use_robust_loss_on_prior_position(use_robust_loss_on_prior_position),
+          prior_position_loss_scale(prior_position_loss_scale) {}
+
+    // Whether to use a robust loss on prior locations
+    bool use_robust_loss_on_prior_position = false;
+
+    // Threshold on the residual for the robust loss
+    // (chi2 for 3DOF at 95% = 7.815)
+    double prior_position_loss_scale = 7.815;
+
+    // Maximum RANSAC error for Sim3D alignment
+    double ransac_max_error = 0.;
+  };
+
+  PosePriorBundleAdjuster(
+      const BundleAdjustmentOptions& options,
+      const Options& prior_options,
+      const BundleAdjustmentConfig& config,
+      const std::unordered_map<image_t, PosePrior>& image_id_to_pose_prior);
+
+  bool Solve(Reconstruction* reconstruction);
+
+  void SetUpProblem(Reconstruction* reconstruction,
+                    ceres::LossFunction* loss_function,
+                    ceres::LossFunction* prior_loss_function);
+
+ private:
+  size_t NumPosePriors() const { return image_id_to_pose_prior_.size(); };
+
+  void AddPosePriorToProblem(image_t image_id,
+                             const PosePrior& prior,
+                             Reconstruction* reconstruction,
+                             ceres::LossFunction* prior_loss_function);
+
+  bool Sim3DAlignment(Reconstruction* reconstruction);
+
+  void SetRansacMaxErrorFromPriorsCovariance();
+
+  Options prior_options_;
+  std::unique_ptr<ceres::LossFunction> prior_loss_function_;
+
+  const std::unordered_map<image_t, PosePrior>& image_id_to_pose_prior_;
+
+  // Whether to use prior camera positions
+  bool use_prior_position_ = true;
+
+  // Sim3d transformation that project reconstruction's centroid to (0.,0.,0.)
+  Sim3d normalized_from_metric_;
 };
 
 void PrintSolverSummary(const ceres::Solver::Summary& summary,

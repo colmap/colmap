@@ -15,7 +15,7 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
-py::object PyEstimateHomographyMatrix(
+py::typing::Optional<py::dict> PyEstimateHomographyMatrix(
     const std::vector<Eigen::Vector2d>& points2D1,
     const std::vector<Eigen::Vector2d>& points2D2,
     const RANSACOptions& options) {
@@ -41,6 +41,6 @@ void BindHomographyMatrixEstimator(py::module& m) {
         &PyEstimateHomographyMatrix,
         "points2D1"_a,
         "points2D2"_a,
-        "estimation_options"_a = est_options,
+        py::arg_v("estimation_options", est_options, "RANSACOptions()"),
         "LORANSAC + 4-point DLT algorithm.");
 }

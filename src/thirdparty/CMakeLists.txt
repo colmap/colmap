@@ -37,8 +37,9 @@ endif()
 
 set(CLANG_TIDY_EXE_TEMP ${CLANG_TIDY_EXE})
 set(CLANG_TIDY_EXE "")
-
-add_subdirectory(LSD)
+if(LSD_ENABLED)
+    add_subdirectory(LSD)
+endif()
 add_subdirectory(PoissonRecon)
 if(GPU_ENABLED)
     add_subdirectory(SiftGPU)
@@ -48,7 +49,7 @@ add_subdirectory(VLFeat)
 include(FetchContent)
 FetchContent_Declare(PoseLib
   GIT_REPOSITORY    https://github.com/PoseLib/PoseLib.git
-  GIT_TAG           b3691b791bcedccd5451621b2275a1df0d9dcdeb
+  GIT_TAG           0439b2d361125915b8821043fca9376e6cc575b9
 )
 message(STATUS "Configuring PoseLib...")
 FetchContent_MakeAvailable(PoseLib)

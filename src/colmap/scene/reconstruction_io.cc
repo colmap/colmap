@@ -36,6 +36,7 @@
 #include "colmap/scene/point3d.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/track.h"
+#include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/ply.h"
 #include "colmap/util/types.h"
@@ -180,7 +181,6 @@ void ReadImagesText(Reconstruction& reconstruction, const std::string& path) {
       }
     }
 
-    image.SetUp(reconstruction.Camera(image.CameraId()));
     image.SetPoints2D(points2D);
 
     for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
@@ -326,7 +326,6 @@ void ReadImagesBinary(Reconstruction& reconstruction, const std::string& path) {
       point3D_ids.push_back(ReadBinaryLittleEndian<point3D_t>(&file));
     }
 
-    image.SetUp(reconstruction.Camera(image.CameraId()));
     image.SetPoints2D(points2D);
 
     for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();

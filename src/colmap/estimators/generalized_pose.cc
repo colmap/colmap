@@ -32,6 +32,7 @@
 #include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/estimators/cost_functions.h"
 #include "colmap/estimators/generalized_absolute_pose.h"
+#include "colmap/estimators/manifold.h"
 #include "colmap/estimators/pose.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/math/matrix.h"
@@ -199,7 +200,7 @@ bool RefineGeneralizedAbsolutePose(const AbsolutePoseRefinementOptions& options,
     camera_counts[camera_idx] += 1;
 
     problem.AddResidualBlock(
-        CameraCostFunction<RigReprojErrorCostFunction>(
+        CameraCostFunction<RigReprojErrorCostFunctor>(
             cameras->at(camera_idx).model_id, points2D[i]),
         loss_function.get(),
         cams_from_rig_copy[camera_idx].rotation.coeffs().data(),

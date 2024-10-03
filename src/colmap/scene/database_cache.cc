@@ -29,13 +29,25 @@
 
 #include "colmap/scene/database_cache.h"
 
-#include "colmap/feature/utils.h"
 #include "colmap/util/string.h"
 #include "colmap/util/timer.h"
 
+#include <set>
 #include <unordered_set>
 
 namespace colmap {
+namespace {
+
+std::vector<Eigen::Vector2d> FeatureKeypointsToPointsVector(
+    const FeatureKeypoints& keypoints) {
+  std::vector<Eigen::Vector2d> points(keypoints.size());
+  for (size_t i = 0; i < keypoints.size(); ++i) {
+    points[i] = Eigen::Vector2d(keypoints[i].x, keypoints[i].y);
+  }
+  return points;
+}
+
+}  // namespace
 
 std::shared_ptr<DatabaseCache> DatabaseCache::Create(
     const Database& database,
@@ -148,6 +160,26 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
   }
 
   //////////////////////////////////////////////////////////////////////////////
+  // Load pose priors
+  //////////////////////////////////////////////////////////////////////////////
+
+  timer.Restart();
+  LOG(INFO) << "Loading pose priors...";
+
+  {
+    cache->pose_priors_.reserve(database.NumPosePriors());
+
+    for (const auto& [image_id, _] : cache->images_) {
+      if (database.ExistsPosePrior(image_id)) {
+        cache->pose_priors_.emplace(image_id, database.ReadPosePrior(image_id));
+      }
+    }
+
+    LOG(INFO) << StringPrintf(
+        " %d in %.3fs", cache->pose_priors_.size(), timer.ElapsedSeconds());
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
   // Build correspondence graph
   //////////////////////////////////////////////////////////////////////////////
 
@@ -181,14 +213,6 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
 
   cache->correspondence_graph_->Finalize();
 
-  // Set number of observations and correspondences per image.
-  for (auto& image : cache->images_) {
-    image.second.SetNumObservations(
-        cache->correspondence_graph_->NumObservationsForImage(image.first));
-    image.second.SetNumCorrespondences(
-        cache->correspondence_graph_->NumCorrespondencesForImage(image.first));
-  }
-
   LOG(INFO) << StringPrintf(" in %.3fs (ignored %d)",
                             timer.ElapsedSeconds(),
                             num_ignored_image_pairs);
@@ -204,6 +228,68 @@ const class Image* DatabaseCache::FindImageWithName(
     }
   }
   return nullptr;
+}
+
+bool DatabaseCache::SetupPosePriors() {
+  LOG(INFO) << "Setting up prior positions...";
+
+  Timer timer;
+  timer.Start();
+
+  if (NumPosePriors() == 0) {
+    LOG(ERROR) << "No pose priors in database...";
+    return false;
+  }
+
+  bool prior_is_gps = true;
+
+  // Get sorted image ids for GPS to cartesian conversion
+  std::set<image_t> image_ids_with_prior;
+  for (const auto& [image_id, _] : pose_priors_) {
+    image_ids_with_prior.insert(image_id);
+  }
+
+  // Get GPS priors
+  std::vector<Eigen::Vector3d> v_gps_prior;
+  v_gps_prior.reserve(NumPosePriors());
+
+  for (const auto& image_id : image_ids_with_prior) {
+    const struct PosePrior& pose_prior = PosePrior(image_id);
+    if (pose_prior.coordinate_system != PosePrior::CoordinateSystem::WGS84) {
+      prior_is_gps = false;
+    } else {
+      // Image with the lowest id is to be used as the origin for prior
+      // position conversion
+      v_gps_prior.push_back(pose_prior.position);
+    }
+  }
+
+  // Convert geographic to cartesian
+  if (prior_is_gps) {
+    // GPS reference to be used for EllToENU conversion
+    const double ref_lat = v_gps_prior[0][0];
+    const double ref_lon = v_gps_prior[0][1];
+
+    const GPSTransform gps_transform(GPSTransform::WGS84);
+    const std::vector<Eigen::Vector3d> v_xyz_prior =
+        gps_transform.EllToENU(v_gps_prior, ref_lat, ref_lon);
+
+    auto xyz_prior_it = v_xyz_prior.begin();
+    for (const auto& image_id : image_ids_with_prior) {
+      struct PosePrior& pose_prior = PosePrior(image_id);
+      pose_prior.position = *xyz_prior_it;
+      pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
+      xyz_prior_it++;
+    }
+  } else if (!prior_is_gps && !v_gps_prior.empty()) {
+    LOG(ERROR)
+        << "Database is mixing GPS & non-GPS prior positions... Aborting";
+    return false;
+  }
+
+  timer.PrintMinutes();
+
+  return true;
 }
 
 }  // namespace colmap

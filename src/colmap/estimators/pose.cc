@@ -33,6 +33,7 @@
 #include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/estimators/cost_functions.h"
 #include "colmap/estimators/essential_matrix.h"
+#include "colmap/estimators/manifold.h"
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/math/matrix.h"
@@ -117,16 +118,9 @@ size_t EstimateRelativePose(const RANSACOptions& ransac_options,
     }
   }
 
-  Eigen::Matrix3d cam2_from_cam1_rot_mat;
   std::vector<Eigen::Vector3d> points3D;
-  PoseFromEssentialMatrix(report.model,
-                          inliers1,
-                          inliers2,
-                          &cam2_from_cam1_rot_mat,
-                          &cam2_from_cam1->translation,
-                          &points3D);
-
-  cam2_from_cam1->rotation = Eigen::Quaterniond(cam2_from_cam1_rot_mat);
+  PoseFromEssentialMatrix(
+      report.model, inliers1, inliers2, cam2_from_cam1, &points3D);
 
   if (cam2_from_cam1->rotation.coeffs().array().isNaN().any() ||
       cam2_from_cam1->translation.array().isNaN().any()) {
@@ -164,7 +158,7 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
       continue;
     }
     problem.AddResidualBlock(
-        CameraCostFunction<ReprojErrorConstantPoint3DCostFunction>(
+        CameraCostFunction<ReprojErrorConstantPoint3DCostFunctor>(
             camera->model_id, points2D[i], points3D[i]),
         loss_function.get(),
         rig_from_world_rotation,
@@ -268,7 +262,7 @@ bool RefineRelativePose(const ceres::Solver::Options& options,
 
   for (size_t i = 0; i < points1.size(); ++i) {
     ceres::CostFunction* cost_function =
-        SampsonErrorCostFunction::Create(points1[i], points2[i]);
+        SampsonErrorCostFunctor::Create(points1[i], points2[i]);
     problem.AddResidualBlock(cost_function,
                              loss_function,
                              cam2_from_cam1_rotation,
@@ -314,17 +308,10 @@ bool RefineEssentialMatrix(const ceres::Solver::Options& options,
   }
 
   // Extract relative pose from essential matrix.
-
   Rigid3d cam2_from_cam1;
-  Eigen::Matrix3d cam2_from_cam1_rot_mat;
   std::vector<Eigen::Vector3d> points3D;
-  PoseFromEssentialMatrix(*E,
-                          inlier_points1,
-                          inlier_points2,
-                          &cam2_from_cam1_rot_mat,
-                          &cam2_from_cam1.translation,
-                          &points3D);
-  cam2_from_cam1.rotation = Eigen::Quaterniond(cam2_from_cam1_rot_mat);
+  PoseFromEssentialMatrix(
+      *E, inlier_points1, inlier_points2, &cam2_from_cam1, &points3D);
 
   if (points3D.size() == 0) {
     return false;

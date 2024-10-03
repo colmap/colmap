@@ -82,3 +82,6 @@ include(${PACKAGE_PREFIX_DIR}/lib/cmake/PoseLib/PoseLibTargets.cmake)
 include(${PACKAGE_PREFIX_DIR}/share/colmap/colmap-targets.cmake)
 include(${PACKAGE_PREFIX_DIR}/share/colmap/cmake/FindDependencies.cmake)
 check_required_components(colmap)
+
+# Reset to previous value
+set(CMAKE_MODULE_PATH ${TEMP_CMAKE_MODULE_PATH})

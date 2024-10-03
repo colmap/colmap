@@ -18,7 +18,7 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
-py::object PyEstimateAndDecomposeEssentialMatrix(
+py::typing::Optional<py::dict> PyEstimateAndDecomposeEssentialMatrix(
     const std::vector<Eigen::Vector2d>& points2D1,
     const std::vector<Eigen::Vector2d>& points2D2,
     Camera& camera1,
@@ -69,15 +69,12 @@ py::object PyEstimateAndDecomposeEssentialMatrix(
   }
 
   Rigid3d cam2_from_cam1;
-  Eigen::Matrix3d cam2_from_cam1_rot_mat;
   std::vector<Eigen::Vector3d> points3D;
   PoseFromEssentialMatrix(E,
                           inlier_world_points2D1,
                           inlier_world_points2D2,
-                          &cam2_from_cam1_rot_mat,
-                          &cam2_from_cam1.translation,
+                          &cam2_from_cam1,
                           &points3D);
-  cam2_from_cam1.rotation = Eigen::Quaterniond(cam2_from_cam1_rot_mat);
 
   py::gil_scoped_acquire acquire;
   return py::dict("E"_a = E,
@@ -95,6 +92,6 @@ void BindEssentialMatrixEstimator(py::module& m) {
         "points2D2"_a,
         "camera1"_a,
         "camera2"_a,
-        "estimation_options"_a = est_options,
+        py::arg_v("estimation_options", est_options, "RANSACOptions()"),
         "LORANSAC + 5-point algorithm.");
 }

@@ -36,7 +36,7 @@
 #include "colmap/optim/random_sampler.h"
 #include "colmap/retrieval/visual_index.h"
 #include "colmap/scene/database.h"
-#include "colmap/util/misc.h"
+#include "colmap/util/file.h"
 #include "colmap/util/opengl_utils.h"
 
 #include <numeric>

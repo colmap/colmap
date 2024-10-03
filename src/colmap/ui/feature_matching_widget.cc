@@ -32,6 +32,7 @@
 #include "colmap/controllers/feature_matching.h"
 #include "colmap/ui/options_widget.h"
 #include "colmap/ui/thread_control_widget.h"
+#include "colmap/util/file.h"
 
 namespace colmap {
 
@@ -264,7 +265,6 @@ void VocabTreeMatchingTab::Run() {
 
 SpatialMatchingTab::SpatialMatchingTab(QWidget* parent, OptionManager* options)
     : FeatureMatchingTab(parent, options) {
-  options_widget_->AddOptionBool(&options_->spatial_matching->is_gps, "is_gps");
   options_widget_->AddOptionBool(&options_->spatial_matching->ignore_z,
                                  "ignore_z");
   options_widget_->AddOptionInt(&options_->spatial_matching->max_num_neighbors,

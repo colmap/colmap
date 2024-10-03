@@ -34,6 +34,7 @@
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sfm/incremental_triangulator.h"
+#include "colmap/sfm/observation_manager.h"
 
 namespace colmap {
 
@@ -116,6 +117,16 @@ class IncrementalMapper {
 
     // If reconstruction is provided as input, fix the existing image poses.
     bool fix_existing_images = false;
+
+    // Whether to use prior camera positions
+    bool use_prior_position = false;
+
+    // Whether to use a robust loss on prior locations
+    bool use_robust_loss_on_prior_position = false;
+
+    // Threshold on the residual for the robust loss
+    // (chi2 for 3DOF at 95% = 7.815)
+    double prior_position_loss_scale = 7.815;
 
     // Number of threads.
     int num_threads = -1;
@@ -242,7 +253,13 @@ class IncrementalMapper {
   size_t FilterImages(const Options& options);
   size_t FilterPoints(const Options& options);
 
-  const Reconstruction& GetReconstruction() const;
+  // Getter functions
+  std::shared_ptr<class Reconstruction> Reconstruction() const;
+  class ObservationManager& ObservationManager() const;
+  IncrementalTriangulator& Triangulator() const;
+  const std::unordered_set<image_t>& FilteredImages() const;
+  const std::unordered_set<image_t>& ExistingImageIds() const;
+  const std::unordered_map<camera_t, size_t>& NumRegImagesPerCamera() const;
 
   // Number of images that are registered in at least on reconstruction.
   size_t NumTotalRegImages() const;
@@ -263,6 +280,12 @@ class IncrementalMapper {
                                       image_t image_id1,
                                       image_t image_id2);
 
+  // Find local bundle for given image in the reconstruction. The local bundle
+  // is defined as the images that are most connected, i.e. maximum number of
+  // shared 3D points, to the given image.
+  std::vector<image_t> FindLocalBundle(const Options& options,
+                                       image_t image_id) const;
+
  private:
   // Find seed images for incremental reconstruction. Suitable seed images have
   // a large number of correspondences and have camera calibration priors. The
@@ -276,12 +299,6 @@ class IncrementalMapper {
   std::vector<image_t> FindSecondInitialImage(const Options& options,
                                               image_t image_id1) const;
 
-  // Find local bundle for given image in the reconstruction. The local bundle
-  // is defined as the images that are most connected, i.e. maximum number of
-  // shared 3D points, to the given image.
-  std::vector<image_t> FindLocalBundle(const Options& options,
-                                       image_t image_id) const;
-
   // Register / De-register image in current reconstruction and update
   // the number of shared images between all reconstructions.
   void RegisterImageEvent(image_t image_id);
@@ -291,10 +308,13 @@ class IncrementalMapper {
   const std::shared_ptr<const DatabaseCache> database_cache_;
 
   // Class that holds data of the reconstruction.
-  std::shared_ptr<Reconstruction> reconstruction_;
+  std::shared_ptr<class Reconstruction> reconstruction_;
+
+  // Class that is responsible for keeping track of 3D point statistics.
+  std::shared_ptr<class ObservationManager> obs_manager_;
 
   // Class that is responsible for incremental triangulation.
-  std::unique_ptr<IncrementalTriangulator> triangulator_;
+  std::shared_ptr<IncrementalTriangulator> triangulator_;
 
   // Number of images that are registered in at least on reconstruction.
   size_t num_total_reg_images_;

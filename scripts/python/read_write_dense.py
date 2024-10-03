@@ -31,9 +31,10 @@
 
 
 import argparse
-import numpy as np
 import os
 import struct
+
+import numpy as np
 
 
 def read_array(path):
@@ -119,7 +120,7 @@ def main():
     if args.min_depth_percentile > args.max_depth_percentile:
         raise ValueError(
             "min_depth_percentile should be less than or equal "
-            "to the max_depth_perceintile."
+            "to the max_depth_percentile."
         )
 
     # Read depth and normal maps corresponding to the same image.

@@ -34,7 +34,7 @@
 #include "colmap/scene/projection.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sensor/models.h"
-#include "colmap/util/misc.h"
+#include "colmap/util/file.h"
 
 namespace colmap {
 namespace mvs {
@@ -62,7 +62,7 @@ void Model::ReadFromCOLMAP(const std::string& path,
   for (size_t i = 0; i < reconstruction.NumRegImages(); ++i) {
     const auto image_id = reconstruction.RegImageIds()[i];
     const auto& image = reconstruction.Image(image_id);
-    const auto& camera = reconstruction.Camera(image.CameraId());
+    const auto& camera = *image.CameraPtr();
 
     const std::string image_path = JoinPaths(path, images_path, image.Name());
     const Eigen::Matrix<float, 3, 3, Eigen::RowMajor> K =

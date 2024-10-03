@@ -105,15 +105,13 @@ struct ReconstructionAlignmentEstimator {
     residuals->resize(src_images.size());
 
     for (size_t i = 0; i < src_images.size(); ++i) {
-      const auto& src_image = *src_images[i];
-      const auto& tgt_image = *tgt_images[i];
+      const Image& src_image = *src_images[i];
+      const Image& tgt_image = *tgt_images[i];
 
       THROW_CHECK_EQ(src_image.ImageId(), tgt_image.ImageId());
 
-      const auto& src_camera =
-          src_reconstruction_->Camera(src_image.CameraId());
-      const auto& tgt_camera =
-          tgt_reconstruction_->Camera(tgt_image.CameraId());
+      const Camera& src_camera = *src_image.CameraPtr();
+      const Camera& tgt_camera = *tgt_image.CameraPtr();
 
       const Eigen::Matrix3x4d src_cam_from_world =
           src_image.CamFromWorld().ToMatrix();
@@ -410,10 +408,10 @@ bool AlignReconstructionsViaPoints(const Reconstruction& src_reconstruction,
 
 bool MergeReconstructions(const double max_reproj_error,
                           const Reconstruction& src_reconstruction,
-                          Reconstruction* tgt_reconstruction) {
+                          Reconstruction& tgt_reconstruction) {
   Sim3d tgt_from_src;
   if (!AlignReconstructionsViaReprojections(src_reconstruction,
-                                            *tgt_reconstruction,
+                                            tgt_reconstruction,
                                             /*min_inlier_observations=*/0.3,
                                             max_reproj_error,
                                             &tgt_from_src)) {
@@ -426,7 +424,7 @@ bool MergeReconstructions(const double max_reproj_error,
   std::unordered_set<image_t> missing_image_ids;
   missing_image_ids.reserve(src_reconstruction.NumRegImages());
   for (const auto& image_id : src_reconstruction.RegImageIds()) {
-    if (tgt_reconstruction->ExistsImage(image_id)) {
+    if (tgt_reconstruction.ExistsImage(image_id)) {
       common_image_ids.insert(image_id);
     } else {
       missing_image_ids.insert(image_id);
@@ -436,15 +434,16 @@ bool MergeReconstructions(const double max_reproj_error,
   // Register the missing images in this src_reconstruction.
   for (const auto image_id : missing_image_ids) {
     auto src_image = src_reconstruction.Image(image_id);
+    src_image.ResetCameraPtr();
     src_image.SetRegistered(false);
     src_image.CamFromWorld() =
         TransformCameraWorld(tgt_from_src, src_image.CamFromWorld());
-    tgt_reconstruction->AddImage(src_image);
-    tgt_reconstruction->RegisterImage(image_id);
-    if (!tgt_reconstruction->ExistsCamera(src_image.CameraId())) {
-      tgt_reconstruction->AddCamera(
+    if (!tgt_reconstruction.ExistsCamera(src_image.CameraId())) {
+      tgt_reconstruction.AddCamera(
           src_reconstruction.Camera(src_image.CameraId()));
     }
+    tgt_reconstruction.AddImage(src_image);
+    tgt_reconstruction.RegisterImage(image_id);
   }
 
   // Merge the two point clouds using the following two rules:
@@ -461,7 +460,7 @@ bool MergeReconstructions(const double max_reproj_error,
     std::unordered_set<point3D_t> old_point3D_ids;
     for (const auto& track_el : point3D.second.track.Elements()) {
       if (common_image_ids.count(track_el.image_id) > 0) {
-        const auto& point2D = tgt_reconstruction->Image(track_el.image_id)
+        const auto& point2D = tgt_reconstruction.Image(track_el.image_id)
                                   .Point2D(track_el.point2D_idx);
         if (point2D.HasPoint3D()) {
           old_track.AddElement(track_el);
@@ -470,7 +469,7 @@ bool MergeReconstructions(const double max_reproj_error,
           new_track.AddElement(track_el);
         }
       } else if (missing_image_ids.count(track_el.image_id) > 0) {
-        tgt_reconstruction->Image(track_el.image_id)
+        tgt_reconstruction.Image(track_el.image_id)
             .ResetPoint3DForPoint2D(track_el.point2D_idx);
         new_track.AddElement(track_el);
       }
@@ -483,15 +482,12 @@ bool MergeReconstructions(const double max_reproj_error,
     if (create_new_point || merge_new_and_old_point) {
       const Eigen::Vector3d xyz = tgt_from_src * point3D.second.xyz;
       const auto point3D_id =
-          tgt_reconstruction->AddPoint3D(xyz, new_track, point3D.second.color);
+          tgt_reconstruction.AddPoint3D(xyz, new_track, point3D.second.color);
       if (old_point3D_ids.size() == 1) {
-        tgt_reconstruction->MergePoints3D(point3D_id, *old_point3D_ids.begin());
+        tgt_reconstruction.MergePoints3D(point3D_id, *old_point3D_ids.begin());
       }
     }
   }
-
-  tgt_reconstruction->FilterAllPoints3D(max_reproj_error, /*min_tri_angle=*/0);
-
   return true;
 }
 

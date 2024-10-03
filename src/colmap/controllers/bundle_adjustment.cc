@@ -30,6 +30,7 @@
 #include "colmap/controllers/bundle_adjustment.h"
 
 #include "colmap/estimators/bundle_adjustment.h"
+#include "colmap/sfm/observation_manager.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
 
@@ -80,7 +81,7 @@ void BundleAdjustmentController::Run() {
   }
 
   // Avoid degeneracies in bundle adjustment.
-  reconstruction_->FilterObservationsWithNegativeDepth();
+  ObservationManager(*reconstruction_).FilterObservationsWithNegativeDepth();
 
   BundleAdjustmentOptions ba_options = *options_.bundle_adjustment;
 

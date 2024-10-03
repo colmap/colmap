@@ -59,17 +59,20 @@ void SortAndAppendNextImages(std::vector<std::pair<image_t, float>> image_ranks,
   image_ranks.clear();
 }
 
-float RankNextImageMaxVisiblePointsNum(const Image& image) {
-  return static_cast<float>(image.NumVisiblePoints3D());
+float RankNextImageMaxVisiblePointsNum(
+    const image_t image_id, const class ObservationManager& obs_manager) {
+  return static_cast<float>(obs_manager.NumVisiblePoints3D(image_id));
 }
 
-float RankNextImageMaxVisiblePointsRatio(const Image& image) {
-  return static_cast<float>(image.NumVisiblePoints3D()) /
-         static_cast<float>(image.NumObservations());
+float RankNextImageMaxVisiblePointsRatio(
+    const image_t image_id, const class ObservationManager& obs_manager) {
+  return static_cast<float>(obs_manager.NumVisiblePoints3D(image_id)) /
+         static_cast<float>(obs_manager.NumObservations(image_id));
 }
 
-float RankNextImageMinUncertainty(const Image& image) {
-  return static_cast<float>(image.Point3DVisibilityScore());
+float RankNextImageMinUncertainty(const image_t image_id,
+                                  const class ObservationManager& obs_manager) {
+  return static_cast<float>(obs_manager.Point3DVisibilityScore(image_id));
 }
 
 }  // namespace
@@ -100,18 +103,20 @@ IncrementalMapper::IncrementalMapper(
     std::shared_ptr<const DatabaseCache> database_cache)
     : database_cache_(std::move(database_cache)),
       reconstruction_(nullptr),
+      obs_manager_(nullptr),
       triangulator_(nullptr),
       num_total_reg_images_(0),
       num_shared_reg_images_(0) {}
 
 void IncrementalMapper::BeginReconstruction(
-    const std::shared_ptr<Reconstruction>& reconstruction) {
+    const std::shared_ptr<class Reconstruction>& reconstruction) {
   THROW_CHECK(reconstruction_ == nullptr);
   reconstruction_ = reconstruction;
   reconstruction_->Load(*database_cache_);
-  reconstruction_->SetUp(database_cache_->CorrespondenceGraph());
-  triangulator_ = std::make_unique<IncrementalTriangulator>(
-      database_cache_->CorrespondenceGraph(), reconstruction);
+  obs_manager_ = std::make_shared<class ObservationManager>(
+      *reconstruction_, database_cache_->CorrespondenceGraph());
+  triangulator_ = std::make_shared<IncrementalTriangulator>(
+      database_cache_->CorrespondenceGraph(), *reconstruction_, obs_manager_);
 
   num_shared_reg_images_ = 0;
   num_reg_images_per_camera_.clear();
@@ -138,6 +143,7 @@ void IncrementalMapper::EndReconstruction(const bool discard) {
 
   reconstruction_->TearDown();
   reconstruction_ = nullptr;
+  obs_manager_.reset();
   triangulator_.reset();
 }
 
@@ -203,7 +209,8 @@ std::vector<image_t> IncrementalMapper::FindNextImages(const Options& options) {
   THROW_CHECK_NOTNULL(reconstruction_);
   THROW_CHECK(options.Check());
 
-  std::function<float(const Image&)> rank_image_func;
+  std::function<float(image_t, const class ObservationManager&)>
+      rank_image_func;
   switch (options.image_selection_method) {
     case Options::ImageSelectionMethod::MAX_VISIBLE_POINTS_NUM:
       rank_image_func = RankNextImageMaxVisiblePointsNum;
@@ -227,7 +234,7 @@ std::vector<image_t> IncrementalMapper::FindNextImages(const Options& options) {
     }
 
     // Only consider images with a sufficient number of visible points.
-    if (image.second.NumVisiblePoints3D() <
+    if (obs_manager_->NumVisiblePoints3D(image.first) <
         static_cast<size_t>(options.abs_pose_min_num_inliers)) {
       continue;
     }
@@ -240,7 +247,7 @@ std::vector<image_t> IncrementalMapper::FindNextImages(const Options& options) {
 
     // If image has been filtered or failed to register, place it in the
     // second bucket and prefer images that have not been tried before.
-    const float rank = rank_image_func(image.second);
+    const float rank = rank_image_func(image.first, *obs_manager_);
     if (filtered_images_.count(image.first) == 0 && num_reg_trials == 0) {
       image_ranks.emplace_back(image.first, rank);
     } else {
@@ -261,6 +268,7 @@ void IncrementalMapper::RegisterInitialImagePair(
     const image_t image_id1,
     const image_t image_id2) {
   THROW_CHECK_NOTNULL(reconstruction_);
+  THROW_CHECK_NOTNULL(obs_manager_);
   THROW_CHECK_EQ(reconstruction_->NumRegImages(), 0);
 
   THROW_CHECK(options.Check());
@@ -275,10 +283,10 @@ void IncrementalMapper::RegisterInitialImagePair(
   init_image_pairs_.insert(pair_id);
 
   Image& image1 = reconstruction_->Image(image_id1);
-  const Camera& camera1 = reconstruction_->Camera(image1.CameraId());
+  const Camera& camera1 = *image1.CameraPtr();
 
   Image& image2 = reconstruction_->Image(image_id2);
-  const Camera& camera2 = reconstruction_->Camera(image2.CameraId());
+  const Camera& camera2 = *image2.CameraPtr();
 
   //////////////////////////////////////////////////////////////////////////////
   // Estimate two-view geometry
@@ -328,7 +336,7 @@ void IncrementalMapper::RegisterInitialImagePair(
         HasPointPositiveDepth(cam_from_world2, xyz)) {
       track.Element(0).point2D_idx = corr.point2D_idx1;
       track.Element(1).point2D_idx = corr.point2D_idx2;
-      reconstruction_->AddPoint3D(xyz, track);
+      obs_manager_->AddPoint3D(xyz, track);
     }
   }
 }
@@ -336,12 +344,13 @@ void IncrementalMapper::RegisterInitialImagePair(
 bool IncrementalMapper::RegisterNextImage(const Options& options,
                                           const image_t image_id) {
   THROW_CHECK_NOTNULL(reconstruction_);
+  THROW_CHECK_NOTNULL(obs_manager_);
   THROW_CHECK_GE(reconstruction_->NumRegImages(), 2);
 
   THROW_CHECK(options.Check());
 
   Image& image = reconstruction_->Image(image_id);
-  Camera& camera = reconstruction_->Camera(image.CameraId());
+  Camera& camera = *image.CameraPtr();
 
   THROW_CHECK(!image.IsRegistered())
       << "Image cannot be registered multiple times";
@@ -349,7 +358,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   num_reg_trials_[image_id] += 1;
 
   // Check if enough 2D-3D correspondences.
-  if (image.NumVisiblePoints3D() <
+  if (obs_manager_->NumVisiblePoints3D(image_id) <
       static_cast<size_t>(options.abs_pose_min_num_inliers)) {
     return false;
   }
@@ -389,8 +398,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
         continue;
       }
 
-      const Camera& corr_camera =
-          reconstruction_->Camera(corr_image.CameraId());
+      const Camera& corr_camera = *corr_image.CameraPtr();
 
       // Avoid correspondences to images with bogus camera parameters.
       if (corr_camera.HasBogusParams(options.min_focal_length_ratio,
@@ -430,11 +438,6 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   abs_pose_options.ransac_options.max_error = options.abs_pose_max_error;
   abs_pose_options.ransac_options.min_inlier_ratio =
       options.abs_pose_min_inlier_ratio;
-  // Use high confidence to avoid preemptive termination of P3P RANSAC
-  // - too early termination may lead to bad registration.
-  abs_pose_options.ransac_options.min_num_trials = 100;
-  abs_pose_options.ransac_options.max_num_trials = 10000;
-  abs_pose_options.ransac_options.confidence = 0.99999;
 
   AbsolutePoseRefinementOptions abs_pose_refinement_options;
   if (num_reg_images_per_camera_[image.CameraId()] > 0) {
@@ -516,7 +519,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
       if (!point2D.HasPoint3D()) {
         const point3D_t point3D_id = tri_corrs[i].second;
         const TrackElement track_el(image_id, point2D_idx);
-        reconstruction_->AddObservation(point3D_id, track_el);
+        obs_manager_->AddObservation(point3D_id, track_el);
         triangulator_->AddModifiedPoint3D(point3D_id);
       }
     }
@@ -572,6 +575,7 @@ IncrementalMapper::AdjustLocalBundle(
     const image_t image_id,
     const std::unordered_set<point3D_t>& point3D_ids) {
   THROW_CHECK_NOTNULL(reconstruction_);
+  THROW_CHECK_NOTNULL(obs_manager_);
   THROW_CHECK(options.Check());
 
   LocalBundleAdjustmentReport report;
@@ -604,11 +608,11 @@ IncrementalMapper::AdjustLocalBundle(
       num_images_per_camera[image.CameraId()] += 1;
     }
 
-    for (const auto& camera_id_and_num_images_pair : num_images_per_camera) {
+    for (const auto& [camera_id, num_images] : num_images_per_camera) {
       const size_t num_reg_images_for_camera =
-          num_reg_images_per_camera_.at(camera_id_and_num_images_pair.first);
-      if (camera_id_and_num_images_pair.second < num_reg_images_for_camera) {
-        ba_config.SetConstantCamIntrinsics(camera_id_and_num_images_pair.first);
+          num_reg_images_per_camera_.at(camera_id);
+      if (num_images < num_reg_images_for_camera) {
+        ba_config.SetConstantCamIntrinsics(camera_id);
       }
     }
 
@@ -669,13 +673,13 @@ IncrementalMapper::AdjustLocalBundle(
   filter_image_ids.insert(image_id);
   filter_image_ids.insert(local_bundle.begin(), local_bundle.end());
   report.num_filtered_observations =
-      reconstruction_->FilterPoints3DInImages(options.filter_max_reproj_error,
-                                              options.filter_min_tri_angle,
-                                              filter_image_ids);
+      obs_manager_->FilterPoints3DInImages(options.filter_max_reproj_error,
+                                           options.filter_min_tri_angle,
+                                           filter_image_ids);
   report.num_filtered_observations +=
-      reconstruction_->FilterPoints3D(options.filter_max_reproj_error,
-                                      options.filter_min_tri_angle,
-                                      point3D_ids);
+      obs_manager_->FilterPoints3D(options.filter_max_reproj_error,
+                                   options.filter_min_tri_angle,
+                                   point3D_ids);
 
   return report;
 }
@@ -683,6 +687,7 @@ IncrementalMapper::AdjustLocalBundle(
 bool IncrementalMapper::AdjustGlobalBundle(
     const Options& options, const BundleAdjustmentOptions& ba_options) {
   THROW_CHECK_NOTNULL(reconstruction_);
+  THROW_CHECK_NOTNULL(obs_manager_);
 
   const std::vector<image_t>& reg_image_ids = reconstruction_->RegImageIds();
 
@@ -702,7 +707,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
   }
 
   // Avoid degeneracies in bundle adjustment.
-  reconstruction_->FilterObservationsWithNegativeDepth();
+  obs_manager_->FilterObservationsWithNegativeDepth();
 
   // Configure bundle adjustment.
   BundleAdjustmentConfig ba_config;
@@ -719,16 +724,31 @@ bool IncrementalMapper::AdjustGlobalBundle(
     }
   }
 
-  // Fix 7-DOFs of the bundle adjustment problem.
-  ba_config.SetConstantCamPose(reg_image_ids[0]);
-  if (!options.fix_existing_images ||
-      !existing_image_ids_.count(reg_image_ids[1])) {
-    ba_config.SetConstantCamPositions(reg_image_ids[1], {0});
-  }
+  // Only use prior pose if at least 3 images have been registered.
+  const bool use_prior_position =
+      options.use_prior_position && reg_image_ids.size() > 2;
 
-  // Run bundle adjustment.
-  BundleAdjuster bundle_adjuster(ba_options_tmp, ba_config);
-  return bundle_adjuster.Solve(reconstruction_.get());
+  if (!use_prior_position) {
+    // Fix 7-DOFs of the bundle adjustment problem.
+    ba_config.SetConstantCamPose(reg_image_ids[0]);
+    if (!options.fix_existing_images ||
+        !existing_image_ids_.count(reg_image_ids[1])) {
+      ba_config.SetConstantCamPositions(reg_image_ids[1], {0});
+    }
+
+    // Run bundle adjustment.
+    BundleAdjuster bundle_adjuster(ba_options_tmp, ba_config);
+    return bundle_adjuster.Solve(reconstruction_.get());
+  } else {
+    PosePriorBundleAdjuster prior_bundle_adjuster(
+        ba_options_tmp,
+        PosePriorBundleAdjuster::Options(
+            options.use_robust_loss_on_prior_position,
+            options.prior_position_loss_scale),
+        ba_config,
+        database_cache_->PosePriors());
+    return prior_bundle_adjuster.Solve(reconstruction_.get());
+  }
 }
 
 void IncrementalMapper::IterativeLocalRefinement(
@@ -776,7 +796,7 @@ void IncrementalMapper::IterativeGlobalRefinement(
   for (int i = 0; i < max_num_refinements; ++i) {
     const size_t num_observations = reconstruction_->ComputeNumObservations();
     AdjustGlobalBundle(options, ba_options);
-    if (normalize_reconstruction) {
+    if (normalize_reconstruction && !options.use_prior_position) {
       // Normalize scene for numerical stability and
       // to avoid large scale changes in the viewer.
       reconstruction_->Normalize();
@@ -792,10 +812,12 @@ void IncrementalMapper::IterativeGlobalRefinement(
       break;
     }
   }
+  ClearModifiedPoints3D();
 }
 
 size_t IncrementalMapper::FilterImages(const Options& options) {
   THROW_CHECK_NOTNULL(reconstruction_);
+  THROW_CHECK_NOTNULL(obs_manager_);
   THROW_CHECK(options.Check());
 
   // Do not filter images in the early stage of the reconstruction, since the
@@ -807,9 +829,9 @@ size_t IncrementalMapper::FilterImages(const Options& options) {
   }
 
   const std::vector<image_t> image_ids =
-      reconstruction_->FilterImages(options.min_focal_length_ratio,
-                                    options.max_focal_length_ratio,
-                                    options.max_extra_param);
+      obs_manager_->FilterImages(options.min_focal_length_ratio,
+                                 options.max_focal_length_ratio,
+                                 options.max_extra_param);
 
   for (const image_t image_id : image_ids) {
     DeRegisterImageEvent(image_id);
@@ -822,17 +844,40 @@ size_t IncrementalMapper::FilterImages(const Options& options) {
 }
 
 size_t IncrementalMapper::FilterPoints(const Options& options) {
-  THROW_CHECK_NOTNULL(reconstruction_);
+  THROW_CHECK_NOTNULL(obs_manager_);
   THROW_CHECK(options.Check());
-  const size_t num_filtered_observations = reconstruction_->FilterAllPoints3D(
+  const size_t num_filtered_observations = obs_manager_->FilterAllPoints3D(
       options.filter_max_reproj_error, options.filter_min_tri_angle);
   VLOG(1) << "=> Filtered observations: " << num_filtered_observations;
   return num_filtered_observations;
 }
 
-const Reconstruction& IncrementalMapper::GetReconstruction() const {
-  THROW_CHECK_NOTNULL(reconstruction_);
-  return *reconstruction_;
+std::shared_ptr<class Reconstruction> IncrementalMapper::Reconstruction()
+    const {
+  return reconstruction_;
+}
+
+class ObservationManager& IncrementalMapper::ObservationManager() const {
+  THROW_CHECK_NOTNULL(obs_manager_);
+  return *obs_manager_;
+}
+
+IncrementalTriangulator& IncrementalMapper::Triangulator() const {
+  THROW_CHECK_NOTNULL(triangulator_);
+  return *triangulator_;
+}
+
+const std::unordered_set<image_t>& IncrementalMapper::FilteredImages() const {
+  return filtered_images_;
+}
+
+const std::unordered_set<image_t>& IncrementalMapper::ExistingImageIds() const {
+  return existing_image_ids_;
+}
+
+const std::unordered_map<camera_t, size_t>&
+IncrementalMapper::NumRegImagesPerCamera() const {
+  return num_reg_images_per_camera_;
 }
 
 size_t IncrementalMapper::NumTotalRegImages() const {
@@ -869,7 +914,7 @@ std::vector<image_t> IncrementalMapper::FindFirstInitialImage(
   image_infos.reserve(reconstruction_->NumImages());
   for (const auto& image : reconstruction_->Images()) {
     // Only images with correspondences can be registered.
-    if (image.second.NumCorrespondences() == 0) {
+    if (obs_manager_->NumCorrespondences(image.first) == 0) {
       continue;
     }
 
@@ -886,12 +931,12 @@ std::vector<image_t> IncrementalMapper::FindFirstInitialImage(
       continue;
     }
 
-    const struct Camera& camera =
-        reconstruction_->Camera(image.second.CameraId());
+    const Camera& camera = *image.second.CameraPtr();
     ImageInfo image_info;
     image_info.image_id = image.first;
     image_info.prior_focal_length = camera.has_prior_focal_length;
-    image_info.num_correspondences = image.second.NumCorrespondences();
+    image_info.num_correspondences =
+        obs_manager_->NumCorrespondences(image.first);
     image_infos.push_back(image_info);
   }
 
@@ -957,8 +1002,8 @@ std::vector<image_t> IncrementalMapper::FindSecondInitialImage(
   image_infos.reserve(reconstruction_->NumImages());
   for (const auto elem : num_correspondences) {
     if (elem.second >= init_min_num_inliers) {
-      const class Image& image = reconstruction_->Image(elem.first);
-      const struct Camera& camera = reconstruction_->Camera(image.CameraId());
+      const Image& image = reconstruction_->Image(elem.first);
+      const Camera& camera = *image.CameraPtr();
       ImageInfo image_info;
       image_info.image_id = elem.first;
       image_info.prior_focal_length = camera.has_prior_focal_length;
