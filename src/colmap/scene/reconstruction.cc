@@ -125,11 +125,10 @@ void Reconstruction::AddImage(class Image image) {
     image.SetCameraPtr(&camera);
   }
   const image_t image_id = image.ImageId();
-  const bool is_registered = image.IsRegistered();
   THROW_CHECK(images_.emplace(image_id, std::move(image)).second);
-  if (is_registered) {
+  if (image.IsRegistered()) {
     THROW_CHECK_NE(image_id, kInvalidImageId);
-    reg_image_ids_.push_back(image_id);
+    RegisterImage(image_id);
   }
 }
 
@@ -238,18 +237,14 @@ void Reconstruction::DeleteAllPoints2DAndPoints3D() {
     new_image.SetName(image.second.Name());
     new_image.SetCameraId(image.second.CameraId());
     new_image.SetCameraPtr(image.second.CameraPtr());
-    new_image.SetRegistered(image.second.IsRegistered());
-    new_image.CamFromWorld() = image.second.CamFromWorld();
+    new_image.SetCamFromWorld(image.second.MaybeCamFromWorld());
     image.second = std::move(new_image);
   }
 }
 
 void Reconstruction::RegisterImage(const image_t image_id) {
-  class Image& image = Image(image_id);
-  if (!image.IsRegistered()) {
-    image.SetRegistered(true);
-    reg_image_ids_.push_back(image_id);
-  }
+  THROW_CHECK(Image(image_id).IsRegistered());
+  reg_image_ids_.insert(image_id);
 }
 
 void Reconstruction::DeRegisterImage(const image_t image_id) {
@@ -262,11 +257,8 @@ void Reconstruction::DeRegisterImage(const image_t image_id) {
     }
   }
 
-  image.SetRegistered(false);
-
-  reg_image_ids_.erase(
-      std::remove(reg_image_ids_.begin(), reg_image_ids_.end(), image_id),
-      reg_image_ids_.end());
+  image.DeRegister();
+  reg_image_ids_.erase(image_id);
 }
 
 Sim3d Reconstruction::Normalize(const bool fixed_scale,
@@ -380,9 +372,11 @@ Reconstruction::ComputeBoundsAndCentroid(const double p0,
 }
 
 void Reconstruction::Transform(const Sim3d& new_from_old_world) {
-  for (auto& image : images_) {
-    image.second.CamFromWorld() =
-        TransformCameraWorld(new_from_old_world, image.second.CamFromWorld());
+  for (auto& [_, image] : images_) {
+    if (image.IsRegistered()) {
+      image.SetCamFromWorld(
+          TransformCameraWorld(new_from_old_world, image.CamFromWorld()));
+    }
   }
   for (auto& point3D : points3D_) {
     point3D.second.xyz = new_from_old_world * point3D.second.xyz;
@@ -397,7 +391,6 @@ Reconstruction Reconstruction::Crop(
   }
   for (const auto& image : images_) {
     auto new_image = image.second;
-    new_image.SetRegistered(false);
     new_image.ResetCameraPtr();
     const auto num_points2D = new_image.NumPoints2D();
     for (point2D_t point2D_idx = 0; point2D_idx < num_points2D; ++point2D_idx) {
@@ -410,13 +403,15 @@ Reconstruction Reconstruction::Crop(
     if ((point3D.second.xyz.array() >= bbox.first.array()).all() &&
         (point3D.second.xyz.array() <= bbox.second.array()).all()) {
       for (const auto& track_el : point3D.second.track.Elements()) {
-        if (registered_image_ids.count(track_el.image_id) == 0) {
-          cropped_reconstruction.RegisterImage(track_el.image_id);
-          registered_image_ids.insert(track_el.image_id);
-        }
+        registered_image_ids.insert(track_el.image_id);
       }
       cropped_reconstruction.AddPoint3D(
           point3D.second.xyz, point3D.second.track, point3D.second.color);
+    }
+  }
+  for (const auto& [image_id, _] : cropped_reconstruction.Images()) {
+    if (registered_image_ids.count(image_id) == 0) {
+      cropped_reconstruction.DeRegisterImage(image_id);
     }
   }
   return cropped_reconstruction;
@@ -495,7 +490,7 @@ double Reconstruction::ComputeMeanTrackLength() const {
 }
 
 double Reconstruction::ComputeMeanObservationsPerRegImage() const {
-  if (reg_image_ids_.empty()) {
+  if (NumRegImages() == 0) {
     return 0.0;
   } else {
     return ComputeNumObservations() /
@@ -661,8 +656,8 @@ void Reconstruction::ExtractColorsForAllImages(const std::string& path) {
   std::unordered_map<point3D_t, Eigen::Vector3d> color_sums;
   std::unordered_map<point3D_t, size_t> color_counts;
 
-  for (size_t i = 0; i < reg_image_ids_.size(); ++i) {
-    const class Image& image = Image(reg_image_ids_[i]);
+  for (const auto& image_id : RegImageIds()) {
+    const class Image& image = Image(image_id);
     const std::string image_path = JoinPaths(path, image.Name());
 
     Bitmap bitmap;

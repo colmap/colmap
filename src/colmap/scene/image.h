@@ -39,6 +39,7 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/types.h"
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -78,7 +79,7 @@ class Image {
 
   // Check if image is registered.
   inline bool IsRegistered() const;
-  inline void SetRegistered(bool registered);
+  inline void DeRegister();
 
   // Get the number of image points.
   inline point2D_t NumPoints2D() const;
@@ -90,6 +91,9 @@ class Image {
   // World to camera pose.
   inline const Rigid3d& CamFromWorld() const;
   inline Rigid3d& CamFromWorld();
+  inline std::optional<Rigid3d>& MaybeCamFromWorld();
+  inline void SetCamFromWorld(const Rigid3d& cam_from_world);
+  inline void SetCamFromWorld(const std::optional<Rigid3d>& cam_from_world);
 
   // Access the coordinates of image points.
   inline const struct Point2D& Point2D(point2D_t point2D_idx) const;
@@ -131,15 +135,12 @@ class Image {
   camera_t camera_id_;
   struct Camera* camera_ptr_;
 
-  // Whether the image is successfully registered in the reconstruction.
-  bool registered_;
-
   // The number of 3D points the image observes, i.e. the sum of its `points2D`
   // where `point3D_id != kInvalidPoint3DId`.
   point2D_t num_points3D_;
 
   // The pose of the image, defined as the transformation from world to camera.
-  Rigid3d cam_from_world_;
+  std::optional<Rigid3d> cam_from_world_;
 
   // All image points, including points that are not part of a 3D point track.
   std::vector<struct Point2D> points2D_;
@@ -187,13 +188,13 @@ inline void Image::SetCameraPtr(struct Camera* camera) {
   }
 }
 
-inline void Image::ResetCameraPtr() { camera_ptr_ = nullptr; }
+void Image::ResetCameraPtr() { camera_ptr_ = nullptr; }
 
-inline bool Image::HasCameraPtr() const { return camera_ptr_ != nullptr; }
+bool Image::HasCameraPtr() const { return camera_ptr_ != nullptr; }
 
-bool Image::IsRegistered() const { return registered_; }
+bool Image::IsRegistered() const { return cam_from_world_.has_value(); }
 
-void Image::SetRegistered(const bool registered) { registered_ = registered; }
+void Image::DeRegister() { cam_from_world_.reset(); }
 
 point2D_t Image::NumPoints2D() const {
   return static_cast<point2D_t>(points2D_.size());
@@ -201,9 +202,25 @@ point2D_t Image::NumPoints2D() const {
 
 point2D_t Image::NumPoints3D() const { return num_points3D_; }
 
-const Rigid3d& Image::CamFromWorld() const { return cam_from_world_; }
+const Rigid3d& Image::CamFromWorld() const {
+  THROW_CHECK(cam_from_world_) << "Image needs to be registered first.";
+  return cam_from_world_.value();
+}
 
-Rigid3d& Image::CamFromWorld() { return cam_from_world_; }
+Rigid3d& Image::CamFromWorld() {
+  THROW_CHECK(cam_from_world_) << "Image needs to be registered first.";
+  return cam_from_world_.value();
+}
+
+std::optional<Rigid3d>& Image::MaybeCamFromWorld() { return cam_from_world_; }
+
+void Image::SetCamFromWorld(const Rigid3d& cam_from_world) {
+  cam_from_world_ = cam_from_world;
+}
+
+void Image::SetCamFromWorld(const std::optional<Rigid3d>& cam_from_world) {
+  cam_from_world_ = cam_from_world;
+}
 
 const struct Point2D& Image::Point2D(const point2D_t point2D_idx) const {
   return points2D_.at(point2D_idx);
