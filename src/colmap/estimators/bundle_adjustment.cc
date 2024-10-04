@@ -1021,7 +1021,11 @@ bool PosePriorBundleAdjuster::Sim3DAlignment(Reconstruction* reconstruction) {
 
   if (success) {
     reconstruction->Transform(sim3_tform);
+  } else {
+    LOG(WARNING) << "Sim3 alignment w.r.t. prior position failed!";
+  }
 
+  if (VLOG_IS_ON(2) && success) {
     std::vector<double> verr2_wrt_prior;
     verr2_wrt_prior.reserve(vini_err2_wrt_prior.size());
     for (const image_t& image_id : reconstruction->RegImageIds()) {
@@ -1042,8 +1046,6 @@ bool PosePriorBundleAdjuster::Sim3DAlignment(Reconstruction* reconstruction) {
     VLOG(2) << "Sim3 alignment error w.r.t. prior position:\n"
             << "  - rmse:   " << std::sqrt(Mean(verr2_wrt_prior)) << " m\n"
             << "  - median: " << std::sqrt(Median(verr2_wrt_prior)) << " m\n";
-  } else {
-    LOG(WARNING) << "Sim3 alignment w.r.t. prior position failed!";
   }
 
   return success;
