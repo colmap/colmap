@@ -114,8 +114,7 @@ void ReadImagesText(Reconstruction& reconstruction, const std::string& path) {
     class Image image;
     image.SetImageId(image_id);
 
-    image.SetRegistered(true);
-
+    image.SetCamFromWorld(Rigid3d());
     Rigid3d& cam_from_world = image.CamFromWorld();
 
     std::getline(line_stream1, item, ' ');
@@ -293,6 +292,7 @@ void ReadImagesBinary(Reconstruction& reconstruction, const std::string& path) {
 
     image.SetImageId(ReadBinaryLittleEndian<image_t>(&file));
 
+    image.SetCamFromWorld(Rigid3d());
     Rigid3d& cam_from_world = image.CamFromWorld();
     cam_from_world.rotation.w() = ReadBinaryLittleEndian<double>(&file);
     cam_from_world.rotation.x() = ReadBinaryLittleEndian<double>(&file);
@@ -335,7 +335,6 @@ void ReadImagesBinary(Reconstruction& reconstruction, const std::string& path) {
       }
     }
 
-    image.SetRegistered(true);
     reconstruction.AddImage(std::move(image));
   }
 }

@@ -353,17 +353,22 @@ void DatabaseImageViewerWidget::ShowImageWithId(const image_t image_id) {
   camera_id_item_->setText(QString::number(image.CameraId()));
   camera_model_item_->setText(QString::fromStdString(camera.ModelName()));
   camera_params_item_->setText(QString::fromStdString(camera.ParamsToString()));
-  rotation_item_->setText(
-      QString::number(image.CamFromWorld().rotation.w()) + ", " +
-      QString::number(image.CamFromWorld().rotation.x()) + ", " +
-      QString::number(image.CamFromWorld().rotation.y()) + ", " +
-      QString::number(image.CamFromWorld().rotation.z()));
-  translation_item_->setText(
-      QString::number(image.CamFromWorld().translation.x()) + ", " +
-      QString::number(image.CamFromWorld().translation.y()) + ", " +
-      QString::number(image.CamFromWorld().translation.z()));
-  dimensions_item_->setText(QString::number(camera.width) + "x" +
-                            QString::number(camera.height));
+  if (image.IsRegistered()) {
+    rotation_item_->setText(
+        QString::number(image.CamFromWorld().rotation.w()) + ", " +
+        QString::number(image.CamFromWorld().rotation.x()) + ", " +
+        QString::number(image.CamFromWorld().rotation.y()) + ", " +
+        QString::number(image.CamFromWorld().rotation.z()));
+    translation_item_->setText(
+        QString::number(image.CamFromWorld().translation.x()) + ", " +
+        QString::number(image.CamFromWorld().translation.y()) + ", " +
+        QString::number(image.CamFromWorld().translation.z()));
+    dimensions_item_->setText(QString::number(camera.width) + "x" +
+                              QString::number(camera.height));
+  } else {
+    rotation_item_->setText("undefined");
+    translation_item_->setText("undefined");
+  }
   num_points2D_item_->setText(QString::number(image.NumPoints2D()));
 
   std::vector<char> tri_mask(image.NumPoints2D());

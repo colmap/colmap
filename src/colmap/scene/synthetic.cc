@@ -203,6 +203,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
     // centered at origin.
     const Eigen::Vector3d view_dir = -Eigen::Vector3d::Random().normalized();
     const Eigen::Vector3d proj_center = -5 * view_dir;
+    image.SetCamFromWorld(Rigid3d());
     image.CamFromWorld().rotation =
         Eigen::Quaterniond::FromTwoVectors(view_dir, Eigen::Vector3d(0, 0, 1));
     image.CamFromWorld().translation =

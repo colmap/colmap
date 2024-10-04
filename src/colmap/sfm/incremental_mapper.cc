@@ -292,8 +292,8 @@ void IncrementalMapper::RegisterInitialImagePair(
   // Estimate two-view geometry
   //////////////////////////////////////////////////////////////////////////////
 
-  image1.CamFromWorld() = Rigid3d();
-  image2.CamFromWorld() = two_view_geometry.cam2_from_cam1;
+  image1.SetCamFromWorld(Rigid3d());
+  image2.SetCamFromWorld(two_view_geometry.cam2_from_cam1);
 
   const Eigen::Matrix3x4d cam_from_world1 = image1.CamFromWorld().ToMatrix();
   const Eigen::Matrix3x4d cam_from_world2 = image2.CamFromWorld().ToMatrix();
@@ -482,10 +482,11 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   size_t num_inliers;
   std::vector<char> inlier_mask;
 
+  Rigid3d cam_from_world;
   if (!EstimateAbsolutePose(abs_pose_options,
                             tri_points2D,
                             tri_points3D,
-                            &image.CamFromWorld(),
+                            &cam_from_world,
                             &camera,
                             &num_inliers,
                             &inlier_mask)) {
@@ -504,7 +505,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
                           inlier_mask,
                           tri_points2D,
                           tri_points3D,
-                          &image.CamFromWorld(),
+                          &cam_from_world,
                           &camera)) {
     return false;
   }
@@ -513,6 +514,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   // Continue tracks
   //////////////////////////////////////////////////////////////////////////////
 
+  image.SetCamFromWorld(cam_from_world);
   reconstruction_->RegisterImage(image_id);
   RegisterImageEvent(image_id);
 
