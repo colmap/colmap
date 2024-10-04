@@ -268,7 +268,7 @@ Sim3d Reconstruction::Normalize(const bool fixed_scale,
                                 const bool use_images) {
   THROW_CHECK_GT(extent, 0);
 
-  if ((use_images && reg_image_ids_.size() < 2) ||
+  if ((use_images && NumRegImages() < 2) ||
       (!use_images && points3D_.size() < 2)) {
     return Sim3d();
   }
@@ -313,8 +313,7 @@ Reconstruction::ComputeBoundsAndCentroid(const double p0,
   THROW_CHECK_LE(p1, 1);
   THROW_CHECK_LE(p0, p1);
 
-  const size_t num_elements =
-      use_images ? reg_image_ids_.size() : points3D_.size();
+  const size_t num_elements = use_images ? NumRegImages() : points3D_.size();
   if (num_elements == 0) {
     return std::make_tuple(Eigen::Vector3d(0, 0, 0),
                            Eigen::Vector3d(0, 0, 0),
@@ -326,10 +325,10 @@ Reconstruction::ComputeBoundsAndCentroid(const double p0,
   std::vector<float> coords_y;
   std::vector<float> coords_z;
   if (use_images) {
-    coords_x.reserve(reg_image_ids_.size());
-    coords_y.reserve(reg_image_ids_.size());
-    coords_z.reserve(reg_image_ids_.size());
-    for (const image_t im_id : reg_image_ids_) {
+    coords_x.reserve(NumRegImages());
+    coords_y.reserve(NumRegImages());
+    coords_z.reserve(NumRegImages());
+    for (const image_t im_id : RegImageIds()) {
       const Eigen::Vector3d proj_center = Image(im_id).ProjectionCenter();
       coords_x.push_back(static_cast<float>(proj_center(0)));
       coords_y.push_back(static_cast<float>(proj_center(1)));
@@ -430,7 +429,7 @@ const class Image* Reconstruction::FindImageWithName(
 std::vector<std::pair<image_t, image_t>> Reconstruction::FindCommonRegImageIds(
     const Reconstruction& other) const {
   std::vector<std::pair<image_t, image_t>> common_reg_image_ids;
-  for (const auto image_id : reg_image_ids_) {
+  for (const auto image_id : RegImageIds()) {
     const auto& image = Image(image_id);
     const auto* other_image = other.FindImageWithName(image.Name());
     if (other_image != nullptr && other_image->IsRegistered()) {
@@ -462,9 +461,11 @@ void Reconstruction::TranscribeImageIdsToDatabase(const Database& database) {
 
   images_ = std::move(new_images);
 
-  for (auto& image_id : reg_image_ids_) {
-    image_id = old_to_new_image_ids.at(image_id);
+  std::set<image_t> new_reg_image_ids;
+  for (const image_t& image_id : RegImageIds()) {
+    new_reg_image_ids.insert(old_to_new_image_ids.at(image_id));
   }
+  reg_image_ids_ = new_reg_image_ids;
 
   for (auto& point3D : points3D_) {
     for (auto& track_el : point3D.second.track.Elements()) {
@@ -475,7 +476,7 @@ void Reconstruction::TranscribeImageIdsToDatabase(const Database& database) {
 
 size_t Reconstruction::ComputeNumObservations() const {
   size_t num_obs = 0;
-  for (const image_t image_id : reg_image_ids_) {
+  for (const image_t image_id : RegImageIds()) {
     num_obs += Image(image_id).NumPoints3D();
   }
   return num_obs;
@@ -493,8 +494,7 @@ double Reconstruction::ComputeMeanObservationsPerRegImage() const {
   if (NumRegImages() == 0) {
     return 0.0;
   } else {
-    return ComputeNumObservations() /
-           static_cast<double>(reg_image_ids_.size());
+    return ComputeNumObservations() / static_cast<double>(NumRegImages());
   }
 }
 
