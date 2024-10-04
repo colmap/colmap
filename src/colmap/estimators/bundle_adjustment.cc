@@ -352,8 +352,9 @@ ceres::Solver::Options BundleAdjuster::SetUpSolverOptions(
       options_.max_num_images_direct_sparse_cpu_solver;
 
 #ifdef COLMAP_CUDA_ENABLED
-#if (CERES_VERSION_MAJOR >= 3 || \
-     (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 2))
+#if (CERES_VERSION_MAJOR >= 3 ||                                \
+     (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 2)) && \
+    !defined(CERES_NO_CUDA)
   if (options_.use_gpu && num_images >= options_.min_num_images_gpu_solver) {
     const std::vector<int> gpu_indices = CSVToVector<int>(options_.gpu_index);
     THROW_CHECK_GT(gpu_indices.size(), 0);
