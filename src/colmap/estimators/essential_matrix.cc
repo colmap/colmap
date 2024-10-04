@@ -40,7 +40,6 @@
 #include <Eigen/Geometry>
 #include <Eigen/LU>
 #include <Eigen/SVD>
-#include <PoseLib/solvers/relpose_5pt.h>
 
 namespace colmap {
 
@@ -53,19 +52,6 @@ void EssentialMatrixFivePointEstimator::Estimate(
   THROW_CHECK(models != nullptr);
 
   models->clear();
-
-  // Poselib implements the same algorithm but special-cased only for 5 points.
-  // It is a little faster in this case than the generic implementation below.
-  if (points1.size() == 5) {
-    thread_local static std::vector<Eigen::Vector3d> points1_h(5);
-    thread_local static std::vector<Eigen::Vector3d> points2_h(5);
-    for (int i = 0; i < 5; ++i) {
-      points1_h[i] = points1[i].homogeneous();
-      points2_h[i] = points2[i].homogeneous();
-    }
-    poselib::relpose_5pt(points1_h, points2_h, models);
-    return;
-  }
 
   // Setup system of equations: [points2(i,:), 1]' * E * [points1(i,:), 1]'.
 
