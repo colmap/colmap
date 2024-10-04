@@ -39,8 +39,8 @@
 #include <vector>
 
 #include <Eigen/Geometry>
+#include <Eigen/LU>
 #include <Eigen/SVD>
-#include <PoseLib/solvers/relpose_7pt.h>
 
 namespace colmap {
 

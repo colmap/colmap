@@ -29,17 +29,14 @@
 
 #include "colmap/estimators/pose.h"
 
-#include "colmap/estimators/absolute_pose.h"
 #include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/estimators/cost_functions.h"
 #include "colmap/estimators/essential_matrix.h"
 #include "colmap/estimators/manifold.h"
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/pose.h"
-#include "colmap/math/matrix.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/logging.h"
-#include "colmap/util/threading.h"
 
 #include <PoseLib/robust.h>
 
