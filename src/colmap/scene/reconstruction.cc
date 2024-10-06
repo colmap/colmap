@@ -125,8 +125,9 @@ void Reconstruction::AddImage(class Image image) {
     image.SetCameraPtr(&camera);
   }
   const image_t image_id = image.ImageId();
+  const bool is_registered = image.IsRegistered();
   THROW_CHECK(images_.emplace(image_id, std::move(image)).second);
-  if (image.IsRegistered()) {
+  if (is_registered) {
     THROW_CHECK_NE(image_id, kInvalidImageId);
     RegisterImage(image_id);
   }
