@@ -695,7 +695,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
   THROW_CHECK_NOTNULL(reconstruction_);
   THROW_CHECK_NOTNULL(obs_manager_);
 
-  const std::vector<image_t>& reg_image_ids = reconstruction_->RegImageIds();
+  const std::set<image_t>& reg_image_ids = reconstruction_->RegImageIds();
 
   THROW_CHECK_GE(reg_image_ids.size(), 2) << "At least two images must be "
                                              "registered for global "
@@ -736,10 +736,11 @@ bool IncrementalMapper::AdjustGlobalBundle(
 
   if (!use_prior_position) {
     // Fix 7-DOFs of the bundle adjustment problem.
-    ba_config.SetConstantCamPose(reg_image_ids[0]);
+    auto it_reg_image_ids = reg_image_ids.begin();
+    ba_config.SetConstantCamPose(*(it_reg_image_ids++));  // 1st image
     if (!options.fix_existing_images ||
-        !existing_image_ids_.count(reg_image_ids[1])) {
-      ba_config.SetConstantCamPositions(reg_image_ids[1], {0});
+        !existing_image_ids_.count(*it_reg_image_ids)) {
+      ba_config.SetConstantCamPositions(*it_reg_image_ids, {0});  // 2nd image
     }
 
     // Run bundle adjustment.

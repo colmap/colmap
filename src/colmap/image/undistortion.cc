@@ -190,11 +190,12 @@ void COLMAPUndistorter::Run() {
   ThreadPool thread_pool;
   std::vector<std::future<bool>> futures;
   futures.reserve(reconstruction_.NumRegImages());
+  std::vector<image_t> image_ids;
   if (image_ids_.empty()) {
-    for (size_t i = 0; i < reconstruction_.NumRegImages(); ++i) {
-      const image_t image_id = reconstruction_.RegImageIds().at(i);
+    for (const image_t& image_id : reconstruction_.RegImageIds()) {
       futures.push_back(
           thread_pool.AddTask(&COLMAPUndistorter::Undistort, this, image_id));
+      image_ids.push_back(image_id);
     }
   } else {
     for (const image_t image_id : image_ids_) {
@@ -215,12 +216,9 @@ void COLMAPUndistorter::Run() {
         "Undistorting image [%d/%d]", i + 1, futures.size());
 
     if (futures[i].get()) {
-      if (image_ids_.empty()) {
-        const image_t image_id = reconstruction_.RegImageIds().at(i);
-        image_names_.push_back(reconstruction_.Image(image_id).Name());
-      } else {
-        image_names_.push_back(reconstruction_.Image(image_ids_[i]).Name());
-      }
+      const image_t image_id =
+          (image_ids_.empty() ? image_ids : image_ids_).at(i);
+      image_names_.push_back(reconstruction_.Image(image_id).Name());
     }
   }
 
@@ -378,7 +376,8 @@ bool PMVSUndistorter::Undistort(const size_t reg_image_idx) const {
   const std::string proj_matrix_path =
       JoinPaths(output_path_, StringPrintf("pmvs/txt/%08d.txt", reg_image_idx));
 
-  const image_t image_id = reconstruction_.RegImageIds().at(reg_image_idx);
+  const image_t image_id =
+      *std::next(reconstruction_.RegImageIds().begin(), reg_image_idx);
   const Image& image = reconstruction_.Image(image_id);
   const Camera& camera = *image.CameraPtr();
 
@@ -409,10 +408,8 @@ void PMVSUndistorter::WriteVisibilityData() const {
   file << "VISDATA" << std::endl;
   file << reconstruction_.NumRegImages() << std::endl;
 
-  const std::vector<image_t>& reg_image_ids = reconstruction_.RegImageIds();
-
-  for (size_t i = 0; i < reg_image_ids.size(); ++i) {
-    const image_t image_id = reg_image_ids[i];
+  size_t image_idx = 0;
+  for (const image_t& image_id : reconstruction_.RegImageIds()) {
     const Image& image = reconstruction_.Image(image_id);
     std::unordered_set<image_t> visible_image_ids;
     for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
@@ -432,7 +429,7 @@ void PMVSUndistorter::WriteVisibilityData() const {
                                                   visible_image_ids.end());
     std::sort(sorted_visible_image_ids.begin(), sorted_visible_image_ids.end());
 
-    file << i << " " << visible_image_ids.size();
+    file << image_idx++ << " " << visible_image_ids.size();
     for (const image_t visible_image_id : sorted_visible_image_ids) {
       file << " " << visible_image_id;
     }
@@ -587,7 +584,8 @@ bool CMPMVSUndistorter::Undistort(const size_t reg_image_idx) const {
   const std::string proj_matrix_path =
       JoinPaths(output_path_, StringPrintf("%05d_P.txt", reg_image_idx + 1));
 
-  const image_t image_id = reconstruction_.RegImageIds().at(reg_image_idx);
+  const image_t image_id =
+      *std::next(reconstruction_.RegImageIds().begin(), reg_image_idx);
   const Image& image = reconstruction_.Image(image_id);
   const Camera& camera = *image.CameraPtr();
 

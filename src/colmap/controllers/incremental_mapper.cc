@@ -563,12 +563,12 @@ void IncrementalPipeline::TriangulateReconstruction(
   mapper.BeginReconstruction(reconstruction);
 
   LOG(INFO) << "Iterative triangulation";
-  const std::vector<image_t>& reg_image_ids = reconstruction->RegImageIds();
-  for (size_t i = 0; i < reg_image_ids.size(); ++i) {
-    const image_t image_id = reg_image_ids[i];
+  size_t image_idx = 0;
+  for (const image_t& image_id : reconstruction->RegImageIds()) {
     const auto& image = reconstruction->Image(image_id);
 
-    LOG(INFO) << StringPrintf("Triangulating image #%d (%d)", image_id, i);
+    LOG(INFO) << StringPrintf(
+        "Triangulating image #%d (%d)", image_id, image_idx++);
     const size_t num_existing_points3D = image.NumPoints3D();
     LOG(INFO) << "=> Image sees " << num_existing_points3D << " / "
               << mapper.ObservationManager().NumObservations(image_id)

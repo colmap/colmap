@@ -59,8 +59,8 @@ void Model::ReadFromCOLMAP(const std::string& path,
 
   images.reserve(reconstruction.NumRegImages());
   std::unordered_map<image_t, size_t> image_id_to_idx;
-  for (size_t i = 0; i < reconstruction.NumRegImages(); ++i) {
-    const auto image_id = reconstruction.RegImageIds()[i];
+  size_t image_idx = 0;
+  for (const image_t& image_id : reconstruction.RegImageIds()) {
     const auto& image = reconstruction.Image(image_id);
     const auto& camera = *image.CameraPtr();
 
@@ -73,9 +73,10 @@ void Model::ReadFromCOLMAP(const std::string& path,
 
     images.emplace_back(
         image_path, camera.width, camera.height, K.data(), R.data(), T.data());
-    image_id_to_idx.emplace(image_id, i);
+    image_id_to_idx.emplace(image_id, image_idx);
     image_names_.push_back(image.Name());
-    image_name_to_idx_.emplace(image.Name(), i);
+    image_name_to_idx_.emplace(image.Name(), image_idx);
+    ++image_idx;
   }
 
   points.reserve(reconstruction.NumPoints3D());

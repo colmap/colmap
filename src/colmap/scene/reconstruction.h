@@ -79,7 +79,7 @@ class Reconstruction {
   // Get reference to all objects.
   inline const std::unordered_map<camera_t, struct Camera>& Cameras() const;
   inline const std::unordered_map<image_t, class Image>& Images() const;
-  inline std::vector<image_t> RegImageIds() const;
+  inline const std::set<image_t>& RegImageIds() const;
   inline const std::unordered_map<point3D_t, struct Point3D>& Points3D() const;
 
   // Identifiers of all 3D points.
@@ -299,8 +299,8 @@ const std::unordered_map<image_t, class Image>& Reconstruction::Images() const {
   return images_;
 }
 
-std::vector<image_t> Reconstruction::RegImageIds() const {
-  return std::vector<image_t>(reg_image_ids_.begin(), reg_image_ids_.end());
+const std::set<image_t>& Reconstruction::RegImageIds() const {
+  return reg_image_ids_;
 }
 
 const std::unordered_map<point3D_t, Point3D>& Reconstruction::Points3D() const {
