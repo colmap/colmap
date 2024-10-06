@@ -294,7 +294,7 @@ const struct Point3D& Reconstruction::Point3D(
 }
 
 struct Camera& Reconstruction::Camera(const camera_t camera_id) {
-  return const_cast<class Camera&>(
+  return const_cast<struct Camera&>(
       const_cast<const Reconstruction*>(this)->Camera(camera_id));
 }
 
@@ -304,7 +304,7 @@ class Image& Reconstruction::Image(const image_t image_id) {
 }
 
 struct Point3D& Reconstruction::Point3D(const point3D_t point3D_id) {
-  return const_cast<class Point3D&>(
+  return const_cast<struct Point3D&>(
       const_cast<const Reconstruction*>(this)->Point3D(point3D_id));
 }
 
