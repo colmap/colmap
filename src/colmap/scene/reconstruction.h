@@ -267,28 +267,58 @@ size_t Reconstruction::NumRegImages() const { return reg_image_ids_.size(); }
 size_t Reconstruction::NumPoints3D() const { return points3D_.size(); }
 
 const struct Camera& Reconstruction::Camera(const camera_t camera_id) const {
-  return cameras_.at(camera_id);
+  try {
+    return cameras_.at(camera_id);
+  } catch (const std::out_of_range& e) {
+    throw std::out_of_range(
+        StringPrintf("Camera with ID %d does not exist", camera_id));
+  }
 }
 
 const class Image& Reconstruction::Image(const image_t image_id) const {
-  return images_.at(image_id);
+  try {
+    return images_.at(image_id);
+  } catch (const std::out_of_range& e) {
+    throw std::out_of_range(
+        StringPrintf("Image with ID %d does not exist", image_id));
+  }
 }
 
 const struct Point3D& Reconstruction::Point3D(
     const point3D_t point3D_id) const {
-  return points3D_.at(point3D_id);
+  try {
+    return points3D_.at(point3D_id);
+  } catch (const std::out_of_range& e) {
+    throw std::out_of_range(
+        StringPrintf("Point3D with ID %d does not exist", point3D_id));
+  }
 }
 
 struct Camera& Reconstruction::Camera(const camera_t camera_id) {
-  return cameras_.at(camera_id);
+  try {
+    return cameras_.at(camera_id);
+  } catch (const std::out_of_range& e) {
+    throw std::out_of_range(
+        StringPrintf("Camera with ID %d does not exist", camera_id));
+  }
 }
 
 class Image& Reconstruction::Image(const image_t image_id) {
-  return images_.at(image_id);
+  try {
+    return images_.at(image_id);
+  } catch (const std::out_of_range& e) {
+    throw std::out_of_range(
+        StringPrintf("Image with ID %d does not exist", image_id));
+  }
 }
 
 struct Point3D& Reconstruction::Point3D(const point3D_t point3D_id) {
-  return points3D_.at(point3D_id);
+  try {
+    return points3D_.at(point3D_id);
+  } catch (const std::out_of_range& e) {
+    throw std::out_of_range(
+        StringPrintf("Point3D with ID %d does not exist", point3D_id));
+  }
 }
 
 const std::unordered_map<camera_t, Camera>& Reconstruction::Cameras() const {
