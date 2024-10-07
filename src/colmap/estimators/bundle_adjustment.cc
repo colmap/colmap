@@ -974,7 +974,7 @@ bool PosePriorBundleAdjuster::Sim3DAlignment(Reconstruction* reconstruction) {
   v_src.reserve(NumPosePriors());
   v_tgt.reserve(NumPosePriors());
 
-  for (const image_t& image_id : reconstruction->RegImageIds()) {
+  for (const image_t image_id : reconstruction->RegImageIds()) {
     const auto pose_prior_it = image_id_to_pose_prior_.find(image_id);
     if (pose_prior_it != image_id_to_pose_prior_.end() &&
         pose_prior_it->second.IsValid()) {
@@ -1028,7 +1028,7 @@ bool PosePriorBundleAdjuster::Sim3DAlignment(Reconstruction* reconstruction) {
   if (VLOG_IS_ON(2) && success) {
     std::vector<double> verr2_wrt_prior;
     verr2_wrt_prior.reserve(vini_err2_wrt_prior.size());
-    for (const image_t& image_id : reconstruction->RegImageIds()) {
+    for (const image_t image_id : reconstruction->RegImageIds()) {
       const auto pose_prior_it = image_id_to_pose_prior_.find(image_id);
       if (pose_prior_it != image_id_to_pose_prior_.end() &&
           pose_prior_it->second.IsValid()) {

@@ -60,7 +60,7 @@ void Model::ReadFromCOLMAP(const std::string& path,
   images.reserve(reconstruction.NumRegImages());
   std::unordered_map<image_t, size_t> image_id_to_idx;
   size_t image_idx = 0;
-  for (const image_t& image_id : reconstruction.RegImageIds()) {
+  for (const image_t image_id : reconstruction.RegImageIds()) {
     const auto& image = reconstruction.Image(image_id);
     const auto& camera = *image.CameraPtr();
 

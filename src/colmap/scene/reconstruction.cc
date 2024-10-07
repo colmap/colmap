@@ -463,7 +463,7 @@ void Reconstruction::TranscribeImageIdsToDatabase(const Database& database) {
   images_ = std::move(new_images);
 
   std::set<image_t> new_reg_image_ids;
-  for (const image_t& image_id : RegImageIds()) {
+  for (const image_t image_id : RegImageIds()) {
     new_reg_image_ids.insert(old_to_new_image_ids.at(image_id));
   }
   reg_image_ids_ = new_reg_image_ids;

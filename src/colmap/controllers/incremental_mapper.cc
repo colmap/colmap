@@ -564,7 +564,7 @@ void IncrementalPipeline::TriangulateReconstruction(
 
   LOG(INFO) << "Iterative triangulation";
   size_t image_idx = 0;
-  for (const image_t& image_id : reconstruction->RegImageIds()) {
+  for (const image_t image_id : reconstruction->RegImageIds()) {
     const auto& image = reconstruction->Image(image_id);
 
     LOG(INFO) << StringPrintf(

@@ -56,11 +56,11 @@ void AddOutlierMatches(double inlier_ratio,
 void SynthesizeExhaustiveMatches(double inlier_match_ratio,
                                  Reconstruction* reconstruction,
                                  Database* database) {
-  for (const image_t& image_id1 : reconstruction->RegImageIds()) {
+  for (const image_t image_id1 : reconstruction->RegImageIds()) {
     const auto& image1 = reconstruction->Image(image_id1);
     const Eigen::Matrix3d K1 = image1.CameraPtr()->CalibrationMatrix();
     const auto num_points2D1 = image1.NumPoints2D();
-    for (const image_t& image_id2 : reconstruction->RegImageIds()) {
+    for (const image_t image_id2 : reconstruction->RegImageIds()) {
       if (image_id1 == image_id2) {
         break;
       }

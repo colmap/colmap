@@ -165,7 +165,7 @@ Eigen::Matrix3d EstimateManhattanWorldFrame(
   std::vector<Eigen::Vector3d> rightward_axes;
   std::vector<Eigen::Vector3d> downward_axes;
   size_t image_idx = 0;
-  for (const image_t& image_id : reconstruction.RegImageIds()) {
+  for (const image_t image_id : reconstruction.RegImageIds()) {
     const auto& image = reconstruction.Image(image_id);
     const auto& camera = *image.CameraPtr();
 

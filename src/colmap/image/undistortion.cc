@@ -192,7 +192,7 @@ void COLMAPUndistorter::Run() {
   futures.reserve(reconstruction_.NumRegImages());
   std::vector<image_t> image_ids;
   if (image_ids_.empty()) {
-    for (const image_t& image_id : reconstruction_.RegImageIds()) {
+    for (const image_t image_id : reconstruction_.RegImageIds()) {
       futures.push_back(
           thread_pool.AddTask(&COLMAPUndistorter::Undistort, this, image_id));
       image_ids.push_back(image_id);
@@ -409,7 +409,7 @@ void PMVSUndistorter::WriteVisibilityData() const {
   file << reconstruction_.NumRegImages() << std::endl;
 
   size_t image_idx = 0;
-  for (const image_t& image_id : reconstruction_.RegImageIds()) {
+  for (const image_t image_id : reconstruction_.RegImageIds()) {
     const Image& image = reconstruction_.Image(image_id);
     std::unordered_set<image_t> visible_image_ids;
     for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
