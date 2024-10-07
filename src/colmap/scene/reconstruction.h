@@ -294,18 +294,30 @@ const struct Point3D& Reconstruction::Point3D(
 }
 
 struct Camera& Reconstruction::Camera(const camera_t camera_id) {
-  return const_cast<struct Camera&>(
-      const_cast<const Reconstruction*>(this)->Camera(camera_id));
+  try {
+    return cameras_.at(camera_id);
+  } catch (const std::out_of_range& e) {
+    throw std::out_of_range(
+        StringPrintf("Camera with ID %d does not exist", camera_id));
+  }
 }
 
 class Image& Reconstruction::Image(const image_t image_id) {
-  return const_cast<class Image&>(
-      const_cast<const Reconstruction*>(this)->Image(image_id));
+  try {
+    return images_.at(image_id);
+  } catch (const std::out_of_range& e) {
+    throw std::out_of_range(
+        StringPrintf("Image with ID %d does not exist", image_id));
+  }
 }
 
 struct Point3D& Reconstruction::Point3D(const point3D_t point3D_id) {
-  return const_cast<struct Point3D&>(
-      const_cast<const Reconstruction*>(this)->Point3D(point3D_id));
+  try {
+    return points3D_.at(point3D_id);
+  } catch (const std::out_of_range& e) {
+    throw std::out_of_range(
+        StringPrintf("Point3D with ID %d does not exist", point3D_id));
+  }
 }
 
 const std::unordered_map<camera_t, Camera>& Reconstruction::Cameras() const {
