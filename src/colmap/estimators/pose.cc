@@ -29,6 +29,7 @@
 
 #include "colmap/estimators/pose.h"
 
+#include "colmap/estimators/absolute_pose.h"
 #include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/estimators/cost_functions.h"
 #include "colmap/estimators/essential_matrix.h"
@@ -37,8 +38,6 @@
 #include "colmap/geometry/pose.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/logging.h"
-
-#include <PoseLib/robust.h>
 
 namespace colmap {
 
@@ -55,58 +54,38 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
   *num_inliers = 0;
   inlier_mask->clear();
 
-  poselib::RansacOptions poselib_ransac_opt;
-  poselib_ransac_opt.min_iterations = options.ransac_options.min_num_trials;
-  poselib_ransac_opt.max_iterations = options.ransac_options.max_num_trials;
-  poselib_ransac_opt.success_prob = options.ransac_options.confidence;
-  poselib::BundleOptions poselib_bundle_opt;
-  poselib_bundle_opt.loss_type = poselib::BundleOptions::TRIVIAL;
+  std::vector<Eigen::Vector2d> points2D_normalized(points2D.size());
+  for (size_t i = 0; i < points2D.size(); ++i) {
+    points2D_normalized[i] = camera->CamFromImg(points2D[i]);
+  }
+
+  auto custom_ransac_options = options.ransac_options;
+  custom_ransac_options.max_error =
+      camera->CamFromImgThreshold(options.ransac_options.max_error);
 
   if (options.estimate_focal_length) {
-    poselib_ransac_opt.max_reproj_error =
-        camera->CamFromImgThreshold(options.ransac_options.max_error);
-
-    std::vector<Eigen::Vector2d> points2D_normalized(points2D.size());
-    for (size_t i = 0; i < points2D.size(); ++i) {
-      points2D_normalized[i] = camera->CamFromImg(points2D[i]);
-    }
-
-    poselib::Image poselib_image;
-    const poselib::RansacStats stats =
-        poselib::estimate_absolute_pose_focal(points2D_normalized,
-                                              points3D,
-                                              poselib_ransac_opt,
-                                              poselib_bundle_opt,
-                                              &poselib_image,
-                                              inlier_mask);
-
-    if (stats.num_inliers > 0) {
-      *cam_from_world = Rigid3d(Eigen::Quaterniond(poselib_image.pose.R()),
-                                poselib_image.pose.t);
+    // TODO(joschonb): Implement non-minimal solver for LORANSAC refinement.
+    RANSAC<P4PFEstimator> ransac(custom_ransac_options);
+    auto report = ransac.Estimate(points2D_normalized, points3D);
+    if (report.success) {
+      *cam_from_world =
+          Rigid3d(Eigen::Quaterniond(report.model.cam_from_world.leftCols<3>()),
+                  report.model.cam_from_world.col(3));
       for (const size_t idx : camera->FocalLengthIdxs()) {
-        camera->params[idx] *= poselib_image.camera.params[0];
+        camera->params[idx] *= report.model.focal_length;
       }
-      *num_inliers = stats.num_inliers;
+      *num_inliers = report.support.num_inliers;
+      *inlier_mask = std::move(report.inlier_mask);
       return true;
     }
   } else {
-    poselib_ransac_opt.max_reproj_error = options.ransac_options.max_error;
-
-    poselib::CameraPose poselib_pose;
-    const poselib::RansacStats stats = poselib::estimate_absolute_pose(
-        points2D,
-        points3D,
-        poselib::Camera(
-            camera->ModelName(), camera->params, camera->width, camera->height),
-        poselib_ransac_opt,
-        poselib_bundle_opt,
-        &poselib_pose,
-        inlier_mask);
-
-    if (stats.num_inliers > 0) {
-      *cam_from_world =
-          Rigid3d(Eigen::Quaterniond(poselib_pose.R()), poselib_pose.t);
-      *num_inliers = stats.num_inliers;
+    LORANSAC<P3PEstimator, EPNPEstimator> ransac(custom_ransac_options);
+    auto report = ransac.Estimate(points2D_normalized, points3D);
+    if (report.success) {
+      *cam_from_world = Rigid3d(Eigen::Quaterniond(report.model.leftCols<3>()),
+                                report.model.col(3));
+      *num_inliers = report.support.num_inliers;
+      *inlier_mask = std::move(report.inlier_mask);
       return true;
     }
   }
@@ -244,6 +223,10 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
     PrintSolverSummary(summary, "Pose refinement report");
   }
 
+  if (!summary.IsSolutionUsable()) {
+    return false;
+  }
+
   if (problem.NumResiduals() > 0 && cam_from_world_cov != nullptr) {
     ceres::Covariance::Options options;
     ceres::Covariance covariance(options);
@@ -259,7 +242,7 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
                                                  cam_from_world_cov->data());
   }
 
-  return summary.IsSolutionUsable();
+  return true;
 }
 
 bool RefineRelativePose(const ceres::Solver::Options& options,

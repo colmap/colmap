@@ -77,6 +77,7 @@ class P3PEstimator {
                         std::vector<double>* residuals);
 };
 
+// Estimates 6-DOF pose and focal length.
 class P4PFEstimator {
  public:
   // The 2D image feature observations.
@@ -88,7 +89,7 @@ class P4PFEstimator {
     // The transformation from the world to the camera frame.
     Eigen::Matrix3x4d cam_from_world;
     // The focal length of the camera.
-    double focal_length;
+    double focal_length = 0.;
   };
 
   static const int kMinNumSamples = 4;
@@ -99,7 +100,7 @@ class P4PFEstimator {
 
   static void Residuals(const std::vector<X_t>& points2D,
                         const std::vector<Y_t>& points3D,
-                        const M_t& cam_from_world,
+                        const M_t& model,
                         std::vector<double>* residuals);
 };
 
@@ -146,7 +147,7 @@ class EPNPEstimator {
   // @param residuals       Output vector of residuals.
   static void Residuals(const std::vector<X_t>& points2D,
                         const std::vector<Y_t>& points3D,
-                        const M_t& model,
+                        const M_t& cam_from_world,
                         std::vector<double>* residuals);
 
  private:
