@@ -736,11 +736,11 @@ bool IncrementalMapper::AdjustGlobalBundle(
 
   if (!use_prior_position) {
     // Fix 7-DOFs of the bundle adjustment problem.
-    auto it_reg_image_ids = reg_image_ids.begin();
-    ba_config.SetConstantCamPose(*(it_reg_image_ids++));  // 1st image
+    auto reg_image_ids_it = reg_image_ids.begin();
+    ba_config.SetConstantCamPose(*(reg_image_ids_it++));  // 1st image
     if (!options.fix_existing_images ||
-        !existing_image_ids_.count(*it_reg_image_ids)) {
-      ba_config.SetConstantCamPositions(*it_reg_image_ids, {0});  // 2nd image
+        !existing_image_ids_.count(*reg_image_ids_it)) {
+      ba_config.SetConstantCamPositions(*reg_image_ids_it, {0});  // 2nd image
     }
 
     // Run bundle adjustment.

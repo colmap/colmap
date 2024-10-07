@@ -91,9 +91,9 @@ void BundleAdjustmentController::Run() {
   for (const image_t image_id : reconstruction_->RegImageIds()) {
     ba_config.AddImage(image_id);
   }
-  auto it_reg_image_ids = reconstruction_->RegImageIds().begin();
-  ba_config.SetConstantCamPose(*it_reg_image_ids);                // 1st image
-  ba_config.SetConstantCamPositions(*(++it_reg_image_ids), {0});  // 2nd image
+  auto reg_image_ids_it = reconstruction_->RegImageIds().begin();
+  ba_config.SetConstantCamPose(*reg_image_ids_it);                // 1st image
+  ba_config.SetConstantCamPositions(*(++reg_image_ids_it), {0});  // 2nd image
 
   // Run bundle adjustment.
   BundleAdjuster bundle_adjuster(ba_options, ba_config);

@@ -882,9 +882,9 @@ bool PosePriorBundleAdjuster::Solve(Reconstruction* reconstruction) {
 
   // Fix 7-DOFs of BA problem if not enough valid pose priors
   if (!use_prior_position_) {
-    auto it_reg_image_ids = reconstruction->RegImageIds().begin();
-    config_.SetConstantCamPose(*it_reg_image_ids);
-    config_.SetConstantCamPositions(*(++it_reg_image_ids), {0});
+    auto reg_image_ids_it = reconstruction->RegImageIds().begin();
+    config_.SetConstantCamPose(*reg_image_ids_it);
+    config_.SetConstantCamPositions(*(++reg_image_ids_it), {0});
   }
 
   // Normalize the reconstruction to avoid any numerical instability BUT do not
