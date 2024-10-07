@@ -269,7 +269,7 @@ const struct Camera& Reconstruction::Camera(const camera_t camera_id) const {
   try {
     return cameras_.at(camera_id);
   } catch (const std::out_of_range& e) {
-    throw std::invalid_argument(
+    throw std::out_of_range(
         StringPrintf("Camera with ID %d does not exist", camera_id));
   }
 }
@@ -278,7 +278,7 @@ const class Image& Reconstruction::Image(const image_t image_id) const {
   try {
     return images_.at(image_id);
   } catch (const std::out_of_range& e) {
-    throw std::invalid_argument(
+    throw std::out_of_range(
         StringPrintf("Image with ID %d does not exist", image_id));
   }
 }
@@ -288,7 +288,7 @@ const struct Point3D& Reconstruction::Point3D(
   try {
     return points3D_.at(point3D_id);
   } catch (const std::out_of_range& e) {
-    throw std::invalid_argument(
+    throw std::out_of_range(
         StringPrintf("Point3D with ID %d does not exist", point3D_id));
   }
 }
