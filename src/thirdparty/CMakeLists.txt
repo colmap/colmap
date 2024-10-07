@@ -46,16 +46,20 @@ if(GPU_ENABLED)
 endif()
 add_subdirectory(VLFeat)
 
-include(FetchContent)
-FetchContent_Declare(PoseLib
-  GIT_REPOSITORY    https://github.com/PoseLib/PoseLib.git
-  GIT_TAG           0439b2d361125915b8821043fca9376e6cc575b9
-  EXCLUDE_FROM_ALL
-)
-message(STATUS "Configuring PoseLib...")
-FetchContent_MakeAvailable(PoseLib)
-message(STATUS "Configuring PoseLib... done")
-# Rename output name to avoid clashes with other PoseLib installations.
-set_target_properties(PoseLib PROPERTIES OUTPUT_NAME "colmap_poselib")
+if(FETCH_POSELIB)
+    include(FetchContent)
+    FetchContent_Declare(PoseLib
+    GIT_REPOSITORY    https://github.com/PoseLib/PoseLib.git
+    GIT_TAG           0439b2d361125915b8821043fca9376e6cc575b9
+    EXCLUDE_FROM_ALL
+    )
+    message(STATUS "Configuring PoseLib...")
+    FetchContent_MakeAvailable(PoseLib)
+    message(STATUS "Configuring PoseLib... done")
+    # Rename output name to avoid clashes with other PoseLib installations.
+    set_target_properties(PoseLib PROPERTIES OUTPUT_NAME "colmap_poselib")
+else()
+    find_package(PoseLib REQUIRED)
+endif()
 
 set(CLANG_TIDY_EXE ${CLANG_TIDY_EXE_TEMP})

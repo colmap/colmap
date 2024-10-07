@@ -47,6 +47,7 @@ option(CCACHE_ENABLED "Whether to enable compiler caching, if available" ON)
 option(CGAL_ENABLED "Whether to enable the CGAL library" ON)
 option(LSD_ENABLED "Whether to enable the LSD library" ON)
 option(UNINSTALL_ENABLED "Whether to create a target to 'uninstall' colmap" ON)
+option(FETCH_POSELIB "Whether to consume PoseLib using FetchContent or find_package" ON)
 
 # Propagate options to vcpkg manifest.
 if(TESTS_ENABLED)
