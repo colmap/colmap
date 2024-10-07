@@ -204,12 +204,12 @@ point2D_t Image::NumPoints3D() const { return num_points3D_; }
 
 const Rigid3d& Image::CamFromWorld() const {
   THROW_CHECK(cam_from_world_) << "Image needs to be registered first.";
-  return cam_from_world_.value();
+  return *cam_from_world_;
 }
 
 Rigid3d& Image::CamFromWorld() {
   THROW_CHECK(cam_from_world_) << "Image needs to be registered first.";
-  return cam_from_world_.value();
+  return *cam_from_world_;
 }
 
 std::optional<Rigid3d>& Image::MaybeCamFromWorld() { return cam_from_world_; }
