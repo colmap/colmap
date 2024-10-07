@@ -197,12 +197,12 @@ point2D_t Image::NumPoints2D() const {
 point2D_t Image::NumPoints3D() const { return num_points3D_; }
 
 const Rigid3d& Image::CamFromWorld() const {
-  THROW_CHECK(cam_from_world_) << "Image needs to be registered first.";
+  THROW_CHECK(cam_from_world_) << "Image does not have a valid pose.";
   return *cam_from_world_;
 }
 
 Rigid3d& Image::CamFromWorld() {
-  THROW_CHECK(cam_from_world_) << "Image needs to be registered first.";
+  THROW_CHECK(cam_from_world_) << "Image does not have a valid pose.";
   return *cam_from_world_;
 }
 
