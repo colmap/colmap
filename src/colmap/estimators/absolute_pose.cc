@@ -47,7 +47,7 @@ void P3PEstimator::Estimate(const std::vector<X_t>& points2D,
   THROW_CHECK_EQ(points3D.size(), 3);
   THROW_CHECK(cams_from_world != nullptr);
 
-  thread_local static std::vector<Eigen::Vector3d> rays(3);
+  thread_local std::vector<Eigen::Vector3d> rays(3);
   for (int i = 0; i < 3; ++i) {
     rays[i] = points2D[i].homogeneous().normalized();
   }
