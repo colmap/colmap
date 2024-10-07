@@ -353,7 +353,7 @@ void DatabaseImageViewerWidget::ShowImageWithId(const image_t image_id) {
   camera_id_item_->setText(QString::number(image.CameraId()));
   camera_model_item_->setText(QString::fromStdString(camera.ModelName()));
   camera_params_item_->setText(QString::fromStdString(camera.ParamsToString()));
-  if (image.IsRegistered()) {
+  if (image.HasPose()) {
     rotation_item_->setText(
         QString::number(image.CamFromWorld().rotation.w()) + ", " +
         QString::number(image.CamFromWorld().rotation.x()) + ", " +

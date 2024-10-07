@@ -102,6 +102,9 @@ void BindImage(py::module& m) {
               &Image::SetCamFromWorld),
           "The pose of the image, defined as the transformation from world to "
           "camera space. None if the image is not registered.")
+      .def_property_readonly(
+          "has_pose", &Image::HasPose, "Whether the image has a valid pose.")
+      .def("reset_pose", &Image::ResetPose, "Invalidate the pose of the image.")
       .def_property(
           "points2D",
           py::overload_cast<>(&Image::Points2D),
@@ -152,11 +155,6 @@ void BindImage(py::module& m) {
       .def("reset_camera_ptr",
            &Image::ResetCameraPtr,
            "Make the camera pointer a nullptr.")
-      .def_property_readonly(
-          "registered",
-          &Image::IsRegistered,
-          "Whether the image is registered and has a valid pose.")
-      .def("deregister", &Image::DeRegister, "De-registers the image.")
       .def("num_points2D",
            &Image::NumPoints2D,
            "Get the number of image points (keypoints).")

@@ -104,7 +104,7 @@ TEST(Reconstruction, AddImage) {
   reconstruction.AddImage(image);
   EXPECT_TRUE(reconstruction.ExistsImage(1));
   EXPECT_EQ(reconstruction.Image(1).ImageId(), 1);
-  EXPECT_FALSE(reconstruction.Image(1).IsRegistered());
+  EXPECT_FALSE(reconstruction.Image(1).HasPose());
   EXPECT_EQ(reconstruction.Images().count(1), 1);
   EXPECT_EQ(reconstruction.Images().size(), 1);
   EXPECT_EQ(reconstruction.NumCameras(), 1);
@@ -212,15 +212,15 @@ TEST(Reconstruction, RegisterImage) {
   Reconstruction reconstruction;
   GenerateReconstruction(1, &reconstruction);
   EXPECT_EQ(reconstruction.NumRegImages(), 1);
-  EXPECT_TRUE(reconstruction.Image(1).IsRegistered());
+  EXPECT_TRUE(reconstruction.Image(1).HasPose());
   EXPECT_TRUE(reconstruction.IsImageRegistered(1));
   reconstruction.RegisterImage(1);
   EXPECT_EQ(reconstruction.NumRegImages(), 1);
-  EXPECT_TRUE(reconstruction.Image(1).IsRegistered());
+  EXPECT_TRUE(reconstruction.Image(1).HasPose());
   EXPECT_TRUE(reconstruction.IsImageRegistered(1));
   reconstruction.DeRegisterImage(1);
   EXPECT_EQ(reconstruction.NumRegImages(), 0);
-  EXPECT_FALSE(reconstruction.Image(1).IsRegistered());
+  EXPECT_FALSE(reconstruction.Image(1).HasPose());
   EXPECT_FALSE(reconstruction.IsImageRegistered(1));
 }
 

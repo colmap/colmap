@@ -295,7 +295,7 @@ bool AlignReconstructionsViaProjCenters(
   std::vector<std::string> ref_image_names;
   std::vector<Eigen::Vector3d> ref_proj_centers;
   for (const auto& image : tgt_reconstruction.Images()) {
-    if (image.second.IsRegistered()) {
+    if (image.second.HasPose()) {
       ref_image_names.push_back(image.second.Name());
       ref_proj_centers.push_back(image.second.ProjectionCenter());
     }

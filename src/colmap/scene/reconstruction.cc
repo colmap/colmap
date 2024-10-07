@@ -87,7 +87,7 @@ void Reconstruction::TearDown() {
   // Remove all not yet registered images.
   std::unordered_set<camera_t> keep_camera_ids;
   for (auto it = images_.begin(); it != images_.end();) {
-    if (it->second.IsRegistered()) {
+    if (it->second.HasPose()) {
       keep_camera_ids.insert(it->second.CameraId());
       ++it;
     } else {
@@ -125,7 +125,7 @@ void Reconstruction::AddImage(class Image image) {
     image.SetCameraPtr(&camera);
   }
   const image_t image_id = image.ImageId();
-  const bool is_registered = image.IsRegistered();
+  const bool is_registered = image.HasPose();
   THROW_CHECK(images_.emplace(image_id, std::move(image)).second);
   if (is_registered) {
     THROW_CHECK_NE(image_id, kInvalidImageId);
@@ -244,7 +244,7 @@ void Reconstruction::DeleteAllPoints2DAndPoints3D() {
 }
 
 void Reconstruction::RegisterImage(const image_t image_id) {
-  THROW_CHECK(Image(image_id).IsRegistered());
+  THROW_CHECK(Image(image_id).HasPose());
   reg_image_ids_.insert(image_id);
 }
 
@@ -258,7 +258,7 @@ void Reconstruction::DeRegisterImage(const image_t image_id) {
     }
   }
 
-  image.DeRegister();
+  image.ResetPose();
   reg_image_ids_.erase(image_id);
 }
 
@@ -373,7 +373,7 @@ Reconstruction::ComputeBoundsAndCentroid(const double p0,
 
 void Reconstruction::Transform(const Sim3d& new_from_old_world) {
   for (auto& [_, image] : images_) {
-    if (image.IsRegistered()) {
+    if (image.HasPose()) {
       image.SetCamFromWorld(
           TransformCameraWorld(new_from_old_world, image.CamFromWorld()));
     }
@@ -433,7 +433,7 @@ std::vector<std::pair<image_t, image_t>> Reconstruction::FindCommonRegImageIds(
   for (const auto image_id : RegImageIds()) {
     const auto& image = Image(image_id);
     const auto* other_image = other.FindImageWithName(image.Name());
-    if (other_image != nullptr && other_image->IsRegistered()) {
+    if (other_image != nullptr && other_image->HasPose()) {
       common_reg_image_ids.emplace_back(image_id, other_image->ImageId());
     }
   }

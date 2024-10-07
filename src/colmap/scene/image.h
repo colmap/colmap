@@ -77,10 +77,6 @@ class Image {
   inline void ResetCameraPtr();
   inline bool HasCameraPtr() const;
 
-  // Check if image is registered.
-  inline bool IsRegistered() const;
-  inline void DeRegister();
-
   // Get the number of image points.
   inline point2D_t NumPoints2D() const;
 
@@ -94,6 +90,8 @@ class Image {
   inline std::optional<Rigid3d>& MaybeCamFromWorld();
   inline void SetCamFromWorld(const Rigid3d& cam_from_world);
   inline void SetCamFromWorld(const std::optional<Rigid3d>& cam_from_world);
+  inline bool HasPose() const;
+  inline void ResetPose();
 
   // Access the coordinates of image points.
   inline const struct Point2D& Point2D(point2D_t point2D_idx) const;
@@ -192,10 +190,6 @@ void Image::ResetCameraPtr() { camera_ptr_ = nullptr; }
 
 bool Image::HasCameraPtr() const { return camera_ptr_ != nullptr; }
 
-bool Image::IsRegistered() const { return cam_from_world_.has_value(); }
-
-void Image::DeRegister() { cam_from_world_.reset(); }
-
 point2D_t Image::NumPoints2D() const {
   return static_cast<point2D_t>(points2D_.size());
 }
@@ -221,6 +215,10 @@ void Image::SetCamFromWorld(const Rigid3d& cam_from_world) {
 void Image::SetCamFromWorld(const std::optional<Rigid3d>& cam_from_world) {
   cam_from_world_ = cam_from_world;
 }
+
+bool Image::HasPose() const { return cam_from_world_.has_value(); }
+
+void Image::ResetPose() { cam_from_world_.reset(); }
 
 const struct Point2D& Image::Point2D(const point2D_t point2D_idx) const {
   return points2D_.at(point2D_idx);

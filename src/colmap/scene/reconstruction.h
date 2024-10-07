@@ -320,7 +320,7 @@ bool Reconstruction::ExistsPoint3D(const point3D_t point3D_id) const {
 }
 
 bool Reconstruction::IsImageRegistered(const image_t image_id) const {
-  return Image(image_id).IsRegistered();
+  return Image(image_id).HasPose();
 }
 
 }  // namespace colmap

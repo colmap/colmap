@@ -229,7 +229,7 @@ std::vector<image_t> IncrementalMapper::FindNextImages(const Options& options) {
   // Append images that have not failed to register before.
   for (const auto& image : reconstruction_->Images()) {
     // Skip images that are already registered.
-    if (image.second.IsRegistered()) {
+    if (image.second.HasPose()) {
       continue;
     }
 
@@ -352,8 +352,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   Image& image = reconstruction_->Image(image_id);
   Camera& camera = *image.CameraPtr();
 
-  THROW_CHECK(!image.IsRegistered())
-      << "Image cannot be registered multiple times";
+  THROW_CHECK(!image.HasPose()) << "Image cannot be registered multiple times";
 
   num_reg_trials_[image_id] += 1;
 
@@ -384,7 +383,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
         correspondence_graph->FindCorrespondences(image_id, point2D_idx);
     for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
       const Image& corr_image = reconstruction_->Image(corr->image_id);
-      if (!corr_image.IsRegistered()) {
+      if (!corr_image.HasPose()) {
         continue;
       }
 
@@ -1051,7 +1050,7 @@ std::vector<image_t> IncrementalMapper::FindLocalBundle(
   THROW_CHECK(options.Check());
 
   const Image& image = reconstruction_->Image(image_id);
-  THROW_CHECK(image.IsRegistered());
+  THROW_CHECK(image.HasPose());
 
   // Extract all images that have at least one 3D point with the query image
   // in common, and simultaneously count the number of common 3D points.

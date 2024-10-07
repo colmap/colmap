@@ -420,7 +420,7 @@ void WriteImagesText(const Reconstruction& reconstruction,
        << reconstruction.ComputeMeanObservationsPerRegImage() << std::endl;
 
   for (const auto& image : reconstruction.Images()) {
-    if (!image.second.IsRegistered()) {
+    if (!image.second.HasPose()) {
       continue;
     }
 
@@ -532,7 +532,7 @@ void WriteImagesBinary(const Reconstruction& reconstruction,
   WriteBinaryLittleEndian<uint64_t>(&file, reconstruction.NumRegImages());
 
   for (const auto& image : reconstruction.Images()) {
-    if (!image.second.IsRegistered()) {
+    if (!image.second.HasPose()) {
       continue;
     }
 
@@ -987,7 +987,7 @@ void ExportVRML(const Reconstruction& reconstruction,
   points.emplace_back(-six / 3.0, +siy / 3.0, six * 1.0 * 2.0);
 
   for (const auto& image : reconstruction.Images()) {
-    if (!image.second.IsRegistered()) {
+    if (!image.second.HasPose()) {
       continue;
     }
 

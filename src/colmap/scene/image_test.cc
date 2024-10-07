@@ -41,7 +41,7 @@ TEST(Image, Default) {
   EXPECT_EQ(image.CameraId(), kInvalidCameraId);
   EXPECT_FALSE(image.HasCameraId());
   EXPECT_FALSE(image.HasCameraPtr());
-  EXPECT_FALSE(image.IsRegistered());
+  EXPECT_FALSE(image.HasPose());
   EXPECT_EQ(image.NumPoints2D(), 0);
   EXPECT_EQ(image.NumPoints3D(), 0);
   EXPECT_EQ(image.Points2D().size(), 0);
@@ -88,17 +88,17 @@ TEST(Image, CameraPtr) {
   EXPECT_ANY_THROW(image.CameraPtr());
 }
 
-TEST(Image, Registered) {
+TEST(Image, SetResetPose) {
   Image image;
-  EXPECT_FALSE(image.IsRegistered());
+  EXPECT_FALSE(image.HasPose());
   EXPECT_ANY_THROW(image.CamFromWorld());
   image.SetCamFromWorld(Rigid3d());
-  EXPECT_TRUE(image.IsRegistered());
+  EXPECT_TRUE(image.HasPose());
   EXPECT_EQ(image.CamFromWorld().rotation.coeffs(),
             Eigen::Quaterniond::Identity().coeffs());
   EXPECT_EQ(image.CamFromWorld().translation, Eigen::Vector3d::Zero());
-  image.DeRegister();
-  EXPECT_FALSE(image.IsRegistered());
+  image.ResetPose();
+  EXPECT_FALSE(image.HasPose());
   EXPECT_ANY_THROW(image.CamFromWorld());
 }
 

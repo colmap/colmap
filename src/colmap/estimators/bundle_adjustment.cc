@@ -412,7 +412,7 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
   Camera& camera = *image.CameraPtr();
 
   // CostFunction assumes unit quaternions.
-  THROW_CHECK(image.IsRegistered());
+  THROW_CHECK(image.HasPose());
   image.CamFromWorld().rotation.normalize();
 
   double* cam_from_world_rotation =
@@ -945,7 +945,7 @@ void PosePriorBundleAdjuster::AddPosePriorToProblem(
     return;
   }
   Image& image = reconstruction->Image(image_id);
-  THROW_CHECK(image.IsRegistered());
+  THROW_CHECK(image.HasPose());
   double* cam_from_world_translation = image.CamFromWorld().translation.data();
 
   // If image has not been added to the problem do not use it
