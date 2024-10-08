@@ -45,7 +45,7 @@ RUN cd colmap && \
     mkdir build && \
     cd build && \
     cmake .. -GNinja -DCMAKE_CUDA_ARCHITECTURES=${CUDA_ARCHITECTURES} \
-        -DCMAKE_INSTALL_PREFIX=/colmap_installed && \
+        -DCMAKE_INSTALL_PREFIX=/colmap-install && \
     ninja install
 
 #
@@ -70,10 +70,10 @@ RUN apt-get update && \
         libqt5gui5 \
         libqt5widgets5
 
-# Copy all files from /colmap_installed/ in the builder stage to /usr/local/ in
+# Copy all files from /colmap-install/ in the builder stage to /usr/local/ in
 # the runtime stage. This simulates installing COLMAP in the default location
 # (/usr/local/), which simplifies environment variables. It also allows the user
 # of this Docker image to use it as a base image for compiling against COLMAP as
 # a library. For instance, CMake will be able to find COLMAP easily with the
 # command: find_package(COLMAP REQUIRED).
-COPY --from=builder /colmap_installed/ /usr/local/
+COPY --from=builder /colmap-install/ /usr/local/
