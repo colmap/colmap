@@ -50,7 +50,7 @@ if(FETCH_POSELIB)
     include(FetchContent)
     FetchContent_Declare(PoseLib
     GIT_REPOSITORY    https://github.com/PoseLib/PoseLib.git
-    GIT_TAG           0439b2d361125915b8821043fca9376e6cc575b9
+    GIT_TAG           8028473d92c9347794a0e3d3541863b5cbb15743
     EXCLUDE_FROM_ALL
     )
     message(STATUS "Configuring PoseLib...")
