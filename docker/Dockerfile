@@ -37,8 +37,6 @@ RUN apt-get update && \
         libcgal-dev \
         libceres-dev
 
-RUN cmake --version
-
 # Build and install COLMAP.
 RUN git clone https://github.com/colmap/colmap.git
 RUN cd colmap && \

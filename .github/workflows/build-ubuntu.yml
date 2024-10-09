@@ -185,6 +185,7 @@ jobs:
           cmake --version
           mkdir build
           cd build
+          cmake --version
           cmake .. \
             -GNinja \
             -DCMAKE_BUILD_TYPE=${{ matrix.config.cmakeBuildType }} \
