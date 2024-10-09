@@ -41,10 +41,13 @@ jobs:
           else
             cuda_archs="50"
           fi
+          if [ "$GITHUB_EVENT_NAME" == "pull_request" ]; then
+            GITHUB_SHA=$(cat $GITHUB_EVENT_PATH | jq -r .pull_request.head.sha)
+          fi
           docker build . \
             --file docker/Dockerfile \
             --tag colmap/colmap:$dockertag \
-            --build-arg COLMAP_GIT_COMMIT="${{ github.event.pull_request.head.sha }}" \
+            --build-arg COLMAP_GIT_COMMIT=""$GITHUB_SHA"" \
             --build-arg CUDA_ARCHITECTURES="$cuda_archs"
           if [[ "${{ env.IS_RELEASE }}" == "true" ]]; then
             docker tag colmap/colmap:$dockertag colmap/colmap:latest
