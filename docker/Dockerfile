@@ -1,12 +1,10 @@
 ARG UBUNTU_VERSION=22.04
 ARG NVIDIA_CUDA_VERSION=12.3.1
 
-#
 # Docker builder stage.
-#
 FROM nvidia/cuda:${NVIDIA_CUDA_VERSION}-devel-ubuntu${UBUNTU_VERSION} as builder
 
-ARG COLMAP_GIT_COMMIT=main
+ARG COLMAP_GIT_COMMIT=unset
 ARG CUDA_ARCHITECTURES=native
 ENV QT_XCB_GL_INTEGRATION=xcb_egl
 
@@ -37,11 +35,13 @@ RUN apt-get update && \
         libcgal-dev \
         libceres-dev
 
-# Build and install COLMAP.
-RUN git clone https://github.com/colmap/colmap.git
-RUN cd colmap && \
-    git fetch https://github.com/colmap/colmap.git ${COLMAP_GIT_COMMIT} && \
-    git checkout FETCH_HEAD && \
+# Build and install COLMAP, Dynamically determine COLMAP_GIT_COMMIT if not set by user, log the commit being built, and build COLMAP.
+RUN git clone https://github.com/colmap/colmap.git && \
+    cd colmap && \
+    git fetch --tags && \
+    COLMAP_GIT_COMMIT=$(if [ "$COLMAP_GIT_COMMIT" = "unset" ]; then git describe --tags `git rev-list --tags --max-count=1`; else echo $COLMAP_GIT_COMMIT; fi) && \
+    echo "Building COLMAP at commit/tag: $COLMAP_GIT_COMMIT" && \
+    git checkout $COLMAP_GIT_COMMIT && \
     mkdir build && \
     cd build && \
     cmake .. -GNinja -DCMAKE_CUDA_ARCHITECTURES=${CUDA_ARCHITECTURES} \
