@@ -57,8 +57,6 @@ if(FETCH_POSELIB)
     message(STATUS "Configuring PoseLib...")
     FetchContent_MakeAvailable(PoseLib)
     message(STATUS "Configuring PoseLib... done")
-    # Rename output name to avoid clashes with other PoseLib installations.
-    set_target_properties(PoseLib PROPERTIES OUTPUT_NAME "colmap_poselib")
 else()
     find_package(PoseLib REQUIRED)
 endif()
