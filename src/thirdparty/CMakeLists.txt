@@ -48,21 +48,13 @@ add_subdirectory(VLFeat)
 
 if(FETCH_POSELIB)
     include(FetchContent)
-    FetchContent_Declare(PoseLib
+    FetchContent_Declare(poselib
         GIT_REPOSITORY https://github.com/PoseLib/PoseLib.git
         GIT_TAG 8028473d92c9347794a0e3d3541863b5cbb15743
         SYSTEM EXCLUDE_FROM_ALL
     )
     message(STATUS "Configuring PoseLib...")
-    if(CMAKE_VERSION VERSION_LESS "3.28.0")
-        FetchContent_GetProperties(PoseLib)
-        if(NOT PoseLib_POPULATED)
-            FetchContent_Populate(PoseLib)
-            add_subdirectory(${PoseLib_SOURCE_DIR} ${PoseLib_BINARY_DIR} SYSTEM EXCLUDE_FROM_ALL)
-        endif()
-    else()
-        FetchContent_MakeAvailable(PoseLib)
-    endif()
+    FetchContent_MakeAvailable(poselib)
     message(STATUS "Configuring PoseLib... done")
 else()
     find_package(PoseLib REQUIRED)
