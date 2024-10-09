@@ -49,13 +49,16 @@ add_subdirectory(VLFeat)
 if(FETCH_POSELIB)
     include(FetchContent)
     # Avoid warning about DOWNLOAD_EXTRACT_TIMESTAMP in CMake 3.24:
- 	if (CMAKE_VERSION VERSION_GREATER_EQUAL "3.24.0")
+ 	if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24.0")
         cmake_policy(SET CMP0135 NEW)
+    endif()
+    if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.28")
+        set(_fetch_content_declare_args "SYSTEM" "EXCLUDE_FROM_ALL")
     endif()
     FetchContent_Declare(poselib
         URL https://github.com/PoseLib/PoseLib/archive/8028473d92c9347794a0e3d3541863b5cbb15743.zip
         URL_HASH SHA256=20ff75d14c839dcab3d38fb51503c47088898f394b812472a758ec17720a54c2
-        SYSTEM EXCLUDE_FROM_ALL
+        ${_fetch_content_declare_args}
     )
     message(STATUS "Configuring PoseLib...")
     FetchContent_MakeAvailable(poselib)
