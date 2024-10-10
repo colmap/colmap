@@ -47,7 +47,7 @@ jobs:
           docker build . \
             --file docker/Dockerfile \
             --tag colmap/colmap:$dockertag \
-            --build-arg COLMAP_GIT_COMMIT=""$GITHUB_SHA"" \
+            --build-arg COLMAP_GIT_COMMIT="$GITHUB_SHA" \
             --build-arg CUDA_ARCHITECTURES="$cuda_archs"
           if [[ "${{ env.IS_RELEASE }}" == "true" ]]; then
             docker tag colmap/colmap:$dockertag colmap/colmap:latest

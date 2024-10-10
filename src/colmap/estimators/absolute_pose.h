@@ -42,7 +42,7 @@ namespace colmap {
 class P3PEstimator {
  public:
   // The 2D image feature observations.
-  // TODO(joschonb): Change to 3D ray directions and express residuals as
+  // TODO(jsch): Possibly change to 3D ray directions and express residuals as
   // angular errors. Needs some evaluation.
   typedef Eigen::Vector2d X_t;
   // The observed 3D features in the world frame.
