@@ -77,7 +77,7 @@ class P3PEstimator {
                         std::vector<double>* residuals);
 };
 
-// Estimates 6-DOF pose and focal length.
+// Minimal solver for 6-DOF pose and focal length.
 class P4PFEstimator {
  public:
   // The 2D image feature observations.
