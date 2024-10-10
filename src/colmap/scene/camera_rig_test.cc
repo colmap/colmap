@@ -174,11 +174,13 @@ TEST(CameraRig, ComputeRigFromWorldScale) {
   Image image1;
   image1.SetImageId(0);
   image1.SetCameraId(camera1.camera_id);
+  image1.SetCamFromWorld(Rigid3d());
   reconstruction.AddImage(image1);
 
   Image image2;
   image2.SetImageId(1);
   image2.SetCameraId(camera2.camera_id);
+  image2.SetCamFromWorld(Rigid3d());
   image2.CamFromWorld().translation = Eigen::Vector3d(1, 2, 3);
   reconstruction.AddImage(image2);
 
@@ -211,11 +213,13 @@ TEST(CameraRig, ComputeCamsFromRigs) {
   Image image1;
   image1.SetImageId(0);
   image1.SetCameraId(camera1.camera_id);
+  image1.SetCamFromWorld(Rigid3d());
   reconstruction.AddImage(image1);
 
   Image image2;
   image2.SetImageId(1);
   image2.SetCameraId(camera2.camera_id);
+  image2.SetCamFromWorld(Rigid3d());
   image2.CamFromWorld().translation = Eigen::Vector3d(1, 2, 3);
   reconstruction.AddImage(image2);
 
@@ -235,11 +239,13 @@ TEST(CameraRig, ComputeCamsFromRigs) {
   Image image3;
   image3.SetImageId(2);
   image3.SetCameraId(camera1.camera_id);
+  image3.SetCamFromWorld(Rigid3d());
   reconstruction.AddImage(image3);
 
   Image image4;
   image4.SetImageId(3);
   image4.SetCameraId(camera2.camera_id);
+  image4.SetCamFromWorld(Rigid3d());
   image4.CamFromWorld().translation = Eigen::Vector3d(2, 4, 6);
   reconstruction.AddImage(image4);
 
@@ -258,6 +264,7 @@ TEST(CameraRig, ComputeCamsFromRigs) {
   Image image5;
   image5.SetImageId(4);
   image5.SetCameraId(camera1.camera_id);
+  image5.SetCamFromWorld(Rigid3d());
   reconstruction.AddImage(image5);
 
   camera_rig.Check(reconstruction);
@@ -290,11 +297,13 @@ TEST(CameraRig, ComputeRigFromWorld) {
   Image image1;
   image1.SetImageId(0);
   image1.SetCameraId(camera1.camera_id);
+  image1.SetCamFromWorld(Rigid3d());
   reconstruction.AddImage(image1);
 
   Image image2;
   image2.SetImageId(1);
   image2.SetCameraId(camera2.camera_id);
+  image2.SetCamFromWorld(Rigid3d());
   image2.CamFromWorld().translation = Eigen::Vector3d(3, 3, 3);
   reconstruction.AddImage(image2);
 

@@ -56,13 +56,15 @@ void AddOutlierMatches(double inlier_ratio,
 void SynthesizeExhaustiveMatches(double inlier_match_ratio,
                                  Reconstruction* reconstruction,
                                  Database* database) {
-  const std::vector<image_t>& reg_image_ids = reconstruction->RegImageIds();
-  for (size_t image_idx1 = 0; image_idx1 < reg_image_ids.size(); ++image_idx1) {
-    const auto& image1 = reconstruction->Image(reg_image_ids[image_idx1]);
+  for (const image_t image_id1 : reconstruction->RegImageIds()) {
+    const auto& image1 = reconstruction->Image(image_id1);
     const Eigen::Matrix3d K1 = image1.CameraPtr()->CalibrationMatrix();
     const auto num_points2D1 = image1.NumPoints2D();
-    for (size_t image_idx2 = 0; image_idx2 < image_idx1; ++image_idx2) {
-      const auto& image2 = reconstruction->Image(reg_image_ids[image_idx2]);
+    for (const image_t image_id2 : reconstruction->RegImageIds()) {
+      if (image_id1 == image_id2) {
+        break;
+      }
+      const auto& image2 = reconstruction->Image(image_id2);
       const Eigen::Matrix3d K2 = image2.CameraPtr()->CalibrationMatrix();
       const auto num_points2D2 = image2.NumPoints2D();
 
@@ -203,6 +205,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
     // centered at origin.
     const Eigen::Vector3d view_dir = -Eigen::Vector3d::Random().normalized();
     const Eigen::Vector3d proj_center = -5 * view_dir;
+    image.SetCamFromWorld(Rigid3d());
     image.CamFromWorld().rotation =
         Eigen::Quaterniond::FromTwoVectors(view_dir, Eigen::Vector3d(0, 0, 1));
     image.CamFromWorld().translation =

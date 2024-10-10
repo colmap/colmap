@@ -202,6 +202,7 @@ TEST(UndistortReconstruction, Nominal) {
     image.SetName("image" + std::to_string(image_id));
     image.SetPoints2D(
         std::vector<Eigen::Vector2d>(kNumPoints2D, Eigen::Vector2d::Ones()));
+    image.SetCamFromWorld(Rigid3d());
     reconstruction.AddImage(image);
     reconstruction.RegisterImage(image_id);
   }

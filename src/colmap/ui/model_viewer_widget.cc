@@ -31,6 +31,8 @@
 
 #include "colmap/ui/main_window.h"
 
+#include <set>
+
 #define SELECTION_BUFFER_IMAGE_IDX 0
 #define SELECTION_BUFFER_POINT_IDX 1
 
@@ -374,7 +376,9 @@ void ModelViewerWidget::ReloadReconstruction() {
 
   cameras = reconstruction->Cameras();
   points3D = reconstruction->Points3D();
-  reg_image_ids = reconstruction->RegImageIds();
+  const std::set<image_t> reg_image_ids_set = reconstruction->RegImageIds();
+  reg_image_ids =
+      std::vector<image_t>(reg_image_ids_set.begin(), reg_image_ids_set.end());
 
   images.clear();
   for (const image_t image_id : reg_image_ids) {

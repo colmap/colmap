@@ -39,7 +39,6 @@ Image::Image()
       name_(""),
       camera_id_(kInvalidCameraId),
       camera_ptr_(nullptr),
-      registered_(false),
       num_points3D_(0) {}
 
 void Image::SetPoints2D(const std::vector<Eigen::Vector2d>& points) {
@@ -88,17 +87,17 @@ bool Image::HasPoint3D(const point3D_t point3D_id) const {
 }
 
 Eigen::Vector3d Image::ProjectionCenter() const {
-  return cam_from_world_.rotation.inverse() * -cam_from_world_.translation;
+  return CamFromWorld().rotation.inverse() * -CamFromWorld().translation;
 }
 
 Eigen::Vector3d Image::ViewingDirection() const {
-  return cam_from_world_.rotation.toRotationMatrix().row(2);
+  return CamFromWorld().rotation.toRotationMatrix().row(2);
 }
 
 std::pair<bool, Eigen::Vector2d> Image::ProjectPoint(
     const Eigen::Vector3d& point3D) const {
   THROW_CHECK(HasCameraPtr());
-  const Eigen::Vector3d point3D_in_cam = cam_from_world_ * point3D;
+  const Eigen::Vector3d point3D_in_cam = CamFromWorld() * point3D;
   if (point3D_in_cam.z() < std::numeric_limits<double>::epsilon()) {
     return {false, Eigen::Vector2d()};
   }
