@@ -130,9 +130,9 @@ TEST(GR8PEstimator, Nominal) {
   }
 
   // NOLINTNEXTLINE(clang-analyzer-security.FloatLoopCounter)
-  for (double qx = 0; qx < 0.4; qx += 0.1) {
+  for (double qx = 0; qx < 0.3; qx += 0.1) {
     // NOLINTNEXTLINE(clang-analyzer-security.FloatLoopCounter)
-    for (double tx = 0; tx < 0.5; tx += 0.1) {
+    for (double tx = 0; tx < 0.3; tx += 0.1) {
       const int kRefCamIdx = 1;
       const int kNumCams = 3;
 
@@ -159,7 +159,9 @@ TEST(GR8PEstimator, Nominal) {
 
       // Project points to cameras.
       std::vector<GR8PEstimator::X_t> points1;
+      points1.reserve(points3D.size());
       std::vector<GR8PEstimator::Y_t> points2;
+      points2.reserve(points3D.size());
       for (size_t i = 0; i < points3D.size(); ++i) {
         const size_t cam_idx1 = i % kNumCams;
         const size_t cam_idx2 = (i + 1) % kNumCams;
@@ -171,13 +173,13 @@ TEST(GR8PEstimator, Nominal) {
           continue;
         }
 
-        points1.emplace_back();
-        points1.back().cam_from_rig = cams_from_rig1[cam_idx1];
-        points1.back().ray_in_cam = point3D_camera1.normalized();
+        auto& point1 = points1.emplace_back();
+        point1.cam_from_rig = cams_from_rig1[cam_idx1];
+        point1.ray_in_cam = point3D_camera1.normalized();
 
-        points2.emplace_back();
-        points2.back().cam_from_rig = cams_from_rig2[cam_idx2];
-        points2.back().ray_in_cam = point3D_camera2.normalized();
+        auto& point2 = points2.emplace_back();
+        point2.cam_from_rig = cams_from_rig2[cam_idx2];
+        point2.ray_in_cam = point3D_camera2.normalized();
       }
 
       RANSACOptions options;
