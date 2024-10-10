@@ -87,7 +87,7 @@ void Reconstruction::TearDown() {
   // Remove all not yet registered images.
   std::unordered_set<camera_t> keep_camera_ids;
   for (auto it = images_.begin(); it != images_.end();) {
-    if (it->second.HasPose()) {
+    if (IsImageRegistered(it->first)) {
       keep_camera_ids.insert(it->second.CameraId());
       ++it;
     } else {
@@ -433,7 +433,8 @@ std::vector<std::pair<image_t, image_t>> Reconstruction::FindCommonRegImageIds(
   for (const auto image_id : RegImageIds()) {
     const auto& image = Image(image_id);
     const auto* other_image = other.FindImageWithName(image.Name());
-    if (other_image != nullptr && other_image->HasPose()) {
+    if (other_image != nullptr &&
+        other.IsImageRegistered(other_image->ImageId())) {
       common_reg_image_ids.emplace_back(image_id, other_image->ImageId());
     }
   }
