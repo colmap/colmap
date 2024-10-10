@@ -50,10 +50,10 @@ void GR6PEstimator::Estimate(const std::vector<X_t>& points1,
 
   rigs2_from_rigs1->clear();
 
-  thread_local std::vector<Eigen::Vector3d> proj_centers1(6);
-  thread_local std::vector<Eigen::Vector3d> proj_centers2(6);
-  thread_local std::vector<Eigen::Vector3d> rays1(6);
-  thread_local std::vector<Eigen::Vector3d> rays2(6);
+  std::vector<Eigen::Vector3d> proj_centers1(6);
+  std::vector<Eigen::Vector3d> proj_centers2(6);
+  std::vector<Eigen::Vector3d> rays1(6);
+  std::vector<Eigen::Vector3d> rays2(6);
   for (int i = 0; i < 6; ++i) {
     proj_centers1[i] = points1[i].cam_from_rig.rotation.inverse() *
                        -points1[i].cam_from_rig.translation;
@@ -65,7 +65,7 @@ void GR6PEstimator::Estimate(const std::vector<X_t>& points1,
         points2[i].cam_from_rig.rotation.inverse() * points2[i].ray_in_cam;
   }
 
-  thread_local std::vector<poselib::CameraPose> poses;
+  std::vector<poselib::CameraPose> poses;
   poselib::gen_relpose_6pt(proj_centers1, rays1, proj_centers2, rays2, &poses);
 
   rigs2_from_rigs1->reserve(poses.size());
