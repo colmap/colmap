@@ -73,9 +73,7 @@ void BundleAdjustmentController::Run() {
   Timer run_timer;
   run_timer.Start();
 
-  const std::vector<image_t>& reg_image_ids = reconstruction_->RegImageIds();
-
-  if (reg_image_ids.size() < 2) {
+  if (reconstruction_->NumRegImages() < 2) {
     LOG(ERROR) << "Need at least two views.";
     return;
   }
@@ -90,11 +88,12 @@ void BundleAdjustmentController::Run() {
 
   // Configure bundle adjustment.
   BundleAdjustmentConfig ba_config;
-  for (const image_t image_id : reg_image_ids) {
+  for (const image_t image_id : reconstruction_->RegImageIds()) {
     ba_config.AddImage(image_id);
   }
-  ba_config.SetConstantCamPose(reg_image_ids[0]);
-  ba_config.SetConstantCamPositions(reg_image_ids[1], {0});
+  auto reg_image_ids_it = reconstruction_->RegImageIds().begin();
+  ba_config.SetConstantCamPose(*reg_image_ids_it);                // 1st image
+  ba_config.SetConstantCamPositions(*(++reg_image_ids_it), {0});  // 2nd image
 
   // Run bundle adjustment.
   BundleAdjuster bundle_adjuster(ba_options, ba_config);

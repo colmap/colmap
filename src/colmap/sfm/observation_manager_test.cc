@@ -50,7 +50,7 @@ void GenerateReconstruction(const image_t num_images,
     image.SetName("image" + std::to_string(image_id));
     image.SetPoints2D(
         std::vector<Eigen::Vector2d>(kNumPoints2D, Eigen::Vector2d::Zero()));
-    image.SetRegistered(true);
+    image.SetCamFromWorld(Rigid3d());
     reconstruction.AddImage(std::move(image));
   }
 }

@@ -232,7 +232,7 @@ void BindReconstruction(py::module& m) {
                 THROW_CHECK(self.ExistsImage(image_id)) << image_id;
                 THROW_CHECK(self.IsImageRegistered(image_id)) << image_id;
                 const Image& image = self.Image(image_id);
-                THROW_CHECK(image.IsRegistered());
+                THROW_CHECK(image.HasPose());
                 THROW_CHECK_EQ(image.Point2D(point2D_idx).point3D_id, p3Did);
               }
             }
