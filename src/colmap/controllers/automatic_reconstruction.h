@@ -76,6 +76,12 @@ class AutomaticReconstructionController : public Thread {
     // Initial camera params for all images.
     std::string camera_params;
 
+    // Whether to perform feature extraction.
+    bool extraction = true;
+
+    // Whether to perform feature matching.
+    bool matching = true;
+
     // Whether to perform sparse mapping.
     bool sparse = true;
 
