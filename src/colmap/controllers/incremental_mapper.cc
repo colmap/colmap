@@ -376,41 +376,60 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
     prev_reg_next_success = reg_next_success;
     reg_next_success = false;
 
-    const std::vector<image_t> next_images =
-        mapper.FindNextImages(mapper_options);
+    const auto obs_manager = mapper.ObservationManager();
 
-    if (next_images.empty()) {
-      break;
-    }
+    image_t next_image_id = kInvalidImageId;
+    for (const bool fallback : {false, true}) {
+      const std::vector<image_t> next_images =
+          mapper.FindNextImages(mapper_options, /*fallback=*/fallback);
 
-    image_t next_image_id;
-    for (size_t reg_trial = 0; reg_trial < next_images.size(); ++reg_trial) {
-      next_image_id = next_images[reg_trial];
+      if (next_images.empty()) {
+        break;
+      }
 
-      LOG(INFO) << StringPrintf("Registering image #%d (%d)",
-                                next_image_id,
-                                reconstruction->NumRegImages() + 1);
-      LOG(INFO) << StringPrintf(
-          "=> Image sees %d / %d points",
-          mapper.ObservationManager().NumVisiblePoints3D(next_image_id),
-          mapper.ObservationManager().NumObservations(next_image_id));
+      for (size_t reg_trial = 0; reg_trial < next_images.size(); ++reg_trial) {
+        next_image_id = next_images[reg_trial];
 
-      reg_next_success =
-          mapper.RegisterNextImage(mapper_options, next_image_id);
+        if (fallback) {
+          LOG(INFO) << StringPrintf(
+              "Registering image with structure-less fallback #%d (%d)",
+              next_image_id,
+              reconstruction->NumRegImages() + 1);
+          LOG(INFO) << StringPrintf(
+              "=> Image sees %d correspondences",
+              obs_manager.NumVisibleCorrespondences(next_image_id));
+          reg_next_success =
+              mapper.RegisterNextImageFallback(mapper_options, next_image_id);
+        } else {
+          LOG(INFO) << StringPrintf("Registering image #%d (%d)",
+                                    next_image_id,
+                                    reconstruction->NumRegImages() + 1);
+          LOG(INFO) << StringPrintf(
+              "=> Image sees %d / %d points",
+              obs_manager.NumVisiblePoints3D(next_image_id),
+              obs_manager.NumObservations(next_image_id));
+          reg_next_success =
+              mapper.RegisterNextImage(mapper_options, next_image_id);
+        }
+
+        if (reg_next_success) {
+          break;
+        } else {
+          LOG(INFO) << "=> Failed to register, trying another image.";
+
+          // If initial pair fails to continue for some time, abort and try
+          // different initial pair. This ensures we don't get stuck endlessly
+          // extending degenerate small models.
+          constexpr size_t kMinNumInitialRegTrials = 30;
+          if (reg_trial >= kMinNumInitialRegTrials &&
+              reconstruction->NumRegImages() < options_->min_model_size) {
+            break;
+          }
+        }
+      }
 
       if (reg_next_success) {
         break;
-      } else {
-        LOG(INFO) << "=> Could not register, trying another image.";
-
-        // If initial pair fails to continue for some time,
-        // abort and try different initial pair.
-        const size_t kMinNumInitialRegTrials = 30;
-        if (reg_trial >= kMinNumInitialRegTrials &&
-            reconstruction->NumRegImages() <
-                static_cast<size_t>(options_->min_model_size)) {
-          break;
-        }
       }
     }
 
