@@ -50,8 +50,6 @@ bool MergeAndFilterReconstructions(const double max_reproj_error,
   return true;
 }
 
-const int ObservationManager::kNumPoint3DVisibilityPyramidLevels = 6;
-
 ObservationManager::ObservationManager(
     Reconstruction& reconstruction,
     std::shared_ptr<const CorrespondenceGraph> correspondence_graph)
@@ -75,6 +73,7 @@ ObservationManager::ObservationManager(
     ImageStat image_stat;
     image_stat.point3D_visibility_pyramid = VisibilityPyramid(
         kNumPoint3DVisibilityPyramidLevels, camera.width, camera.height);
+    image_stat.num_visible_correspondences = 0;
     image_stat.num_correspondences_have_point3D.resize(image.NumPoints2D(), 0);
     image_stat.num_visible_points3D = 0;
     if (correspondence_graph_ && correspondence_graph_->ExistsImage(image_id)) {
@@ -114,7 +113,7 @@ void ObservationManager::IncrementCorrespondenceHasPoint3D(
 
   stats.point3D_visibility_pyramid.SetPoint(point2D.xy(0), point2D.xy(1));
 
-  assert(stats.num_visible_points3D <= stats.num_observations);
+  THROW_CHECK_LE(stats.num_visible_points3D, stats.num_observations);
 }
 
 void ObservationManager::DecrementCorrespondenceHasPoint3D(
@@ -130,7 +129,7 @@ void ObservationManager::DecrementCorrespondenceHasPoint3D(
 
   stats.point3D_visibility_pyramid.ResetPoint(point2D.xy(0), point2D.xy(1));
 
-  assert(stats.num_visible_points3D <= stats.num_observations);
+  THROW_CHECK_LE(stats.num_visible_points3D, stats.num_observations);
 }
 
 void ObservationManager::SetObservationAsTriangulated(
@@ -264,7 +263,7 @@ point3D_t ObservationManager::MergePoints3D(const point3D_t point3D_id1,
         track_el.image_id, track_el.point2D_idx, kIsDeletedPoint3D);
   }
 
-  point3D_t merged_point3D_id =
+  const point3D_t merged_point3D_id =
       reconstruction_.MergePoints3D(point3D_id1, point3D_id2);
 
   const Track track = reconstruction_.Point3D(merged_point3D_id).track;
@@ -455,10 +454,28 @@ size_t ObservationManager::FilterPoints3DWithLargeReprojectionError(
   return num_filtered;
 }
 
+void ObservationManager::RegisterImage(const image_t image_id) {
+  Image& image = reconstruction_.Image(image_id);
+  const point2D_t num_points2D = image.NumPoints2D();
+  for (point2D_t point2D_idx = 0; point2D_idx < num_points2D; ++point2D_idx) {
+    const auto corr_range =
+        correspondence_graph_->FindCorrespondences(image_id, point2D_idx);
+    for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
+      image_stats_[corr->image_id].num_visible_correspondences += 1;
+    }
+  }
+  reconstruction_.RegisterImage(image_id);
+}
+
 void ObservationManager::DeRegisterImage(const image_t image_id) {
   Image& image = reconstruction_.Image(image_id);
-  const auto num_points2D = image.NumPoints2D();
+  const point2D_t num_points2D = image.NumPoints2D();
   for (point2D_t point2D_idx = 0; point2D_idx < num_points2D; ++point2D_idx) {
+    const auto corr_range =
+        correspondence_graph_->FindCorrespondences(image_id, point2D_idx);
+    for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
+      image_stats_[corr->image_id].num_visible_correspondences -= 1;
+    }
     if (image.Point2D(point2D_idx).HasPoint3D()) {
       DeleteObservation(image_id, point2D_idx);
     }
