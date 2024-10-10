@@ -49,20 +49,6 @@ struct AbsolutePoseEstimationOptions {
   // Whether to estimate the focal length.
   bool estimate_focal_length = false;
 
-  // Number of discrete samples for focal length estimation.
-  size_t num_focal_length_samples = 30;
-
-  // Minimum focal length ratio for discrete focal length sampling
-  // around focal length of given camera.
-  double min_focal_length_ratio = 0.2;
-
-  // Maximum focal length ratio for discrete focal length sampling
-  // around focal length of given camera.
-  double max_focal_length_ratio = 5;
-
-  // Number of threads for parallel estimation of focal length.
-  int num_threads = ThreadPool::kMaxNumThreads;
-
   // Options used for P3P RANSAC.
   RANSACOptions ransac_options;
 
@@ -75,13 +61,7 @@ struct AbsolutePoseEstimationOptions {
     ransac_options.confidence = 0.99999;
   }
 
-  void Check() const {
-    THROW_CHECK_GT(num_focal_length_samples, 0);
-    THROW_CHECK_GT(min_focal_length_ratio, 0);
-    THROW_CHECK_GT(max_focal_length_ratio, 0);
-    THROW_CHECK_LT(min_focal_length_ratio, max_focal_length_ratio);
-    ransac_options.Check();
-  }
+  void Check() const { ransac_options.Check(); }
 };
 
 struct AbsolutePoseRefinementOptions {

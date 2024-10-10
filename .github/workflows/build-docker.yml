@@ -41,6 +41,9 @@ jobs:
           else
             cuda_archs="50"
           fi
+          if [ "$GITHUB_EVENT_NAME" == "pull_request" ]; then
+            GITHUB_SHA=$(cat $GITHUB_EVENT_PATH | jq -r .pull_request.head.sha)
+          fi
           docker build . \
             --file docker/Dockerfile \
             --tag colmap/colmap:$dockertag \
