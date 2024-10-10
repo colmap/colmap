@@ -39,6 +39,37 @@
 
 namespace colmap {
 
+struct GRNPObservation {
+  Rigid3d cam_from_rig;
+  Eigen::Vector3d ray_in_cam;
+};
+
+// Minimal generalized relative pose estimator based on poselib.
+class GR6PEstimator {
+ public:
+  typedef GRNPObservation X_t;
+  typedef GRNPObservation Y_t;
+  // The estimated rig2_from_rig1 relative pose between the generalized cameras.
+  typedef Rigid3d M_t;
+
+  // The minimum number of samples needed to estimate a model. Note that in
+  // theory the minimum required number of samples is 6 but Laurent Kneip showed
+  // in his paper that using 8 samples is more stable.
+  static const int kMinNumSamples = 6;
+
+  // Estimate the most probable solution of the GR6P problem from a set of
+  // six 2D-2D point correspondences.
+  static void Estimate(const std::vector<X_t>& points1,
+                       const std::vector<Y_t>& points2,
+                       std::vector<M_t>* rigs2_from_rigs1);
+
+  // Calculate the squared Sampson error between corresponding points.
+  static void Residuals(const std::vector<X_t>& points1,
+                        const std::vector<Y_t>& points2,
+                        const M_t& rig2_from_rig1,
+                        std::vector<double>* residuals);
+};
+
 // Solver for the Generalized Relative Pose problem using a minimal of 8 2D-2D
 // correspondences. This implementation is based on:
 //
@@ -50,18 +81,10 @@ namespace colmap {
 //
 // The implementation is a modified and improved version of Kneip's original
 // implementation in OpenGV licensed under the BSD license.
-class GR6PEstimator {
+class GR8PEstimator {
  public:
-  // The generalized image observations of the left camera, which is composed of
-  // the relative pose of a camera in the generalized camera and a ray in the
-  // camera frame.
-  struct X_t {
-    Rigid3d cam_from_rig;
-    Eigen::Vector3d ray_in_cam;
-  };
-
-  // The normalized image feature points in the right camera.
-  typedef X_t Y_t;
+  typedef GRNPObservation X_t;
+  typedef GRNPObservation Y_t;
   // The estimated rig2_from_rig1 relative pose between the generalized cameras.
   typedef Rigid3d M_t;
 
@@ -74,7 +97,7 @@ class GR6PEstimator {
   // six 2D-2D point correspondences.
   static void Estimate(const std::vector<X_t>& points1,
                        const std::vector<Y_t>& points2,
-                       std::vector<M_t>* models);
+                       std::vector<M_t>* rigs2_from_rigs1);
 
   // Calculate the squared Sampson error between corresponding points.
   static void Residuals(const std::vector<X_t>& points1,
