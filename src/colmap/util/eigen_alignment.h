@@ -40,9 +40,7 @@
 #define CPP_VERSION __cplusplus
 #endif
 
-// Only enable custom Eigen alignment allocators for non-ASan builds to avoid
-// mis-matching alloc-dealloc errors.
-#if (!EIGEN_VERSION_AT_LEAST(3, 4, 0) || CPP_VERSION < 201703L)
+#if !EIGEN_VERSION_AT_LEAST(3, 4, 0) || CPP_VERSION < 201703L
 
 #include <initializer_list>
 #include <memory>
