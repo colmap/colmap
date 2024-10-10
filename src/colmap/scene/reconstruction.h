@@ -40,6 +40,7 @@
 #include "colmap/util/types.h"
 
 #include <memory>
+#include <set>
 #include <tuple>
 #include <unordered_map>
 #include <unordered_set>
@@ -78,7 +79,7 @@ class Reconstruction {
   // Get reference to all objects.
   inline const std::unordered_map<camera_t, struct Camera>& Cameras() const;
   inline const std::unordered_map<image_t, class Image>& Images() const;
-  inline const std::vector<image_t>& RegImageIds() const;
+  inline const std::set<image_t>& RegImageIds() const;
   inline const std::unordered_map<point3D_t, struct Point3D>& Points3D() const;
 
   // Identifiers of all 3D points.
@@ -247,7 +248,7 @@ class Reconstruction {
   std::unordered_map<point3D_t, struct Point3D> points3D_;
 
   // { image_id, ... } where `images_.at(image_id).registered == true`.
-  std::vector<image_t> reg_image_ids_;
+  std::set<image_t> reg_image_ids_;
 
   // Total number of added 3D points, used to generate unique identifiers.
   point3D_t max_point3D_id_;
@@ -328,7 +329,7 @@ const std::unordered_map<image_t, class Image>& Reconstruction::Images() const {
   return images_;
 }
 
-const std::vector<image_t>& Reconstruction::RegImageIds() const {
+const std::set<image_t>& Reconstruction::RegImageIds() const {
   return reg_image_ids_;
 }
 
@@ -349,7 +350,7 @@ bool Reconstruction::ExistsPoint3D(const point3D_t point3D_id) const {
 }
 
 bool Reconstruction::IsImageRegistered(const image_t image_id) const {
-  return Image(image_id).IsRegistered();
+  return reg_image_ids_.find(image_id) != reg_image_ids_.end();
 }
 
 }  // namespace colmap

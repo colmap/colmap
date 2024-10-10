@@ -104,7 +104,7 @@ size_t IncrementalTriangulator::TriangulateImage(const Options& options,
   ClearCaches();
 
   const Image& image = reconstruction_.Image(image_id);
-  if (!image.IsRegistered()) {
+  if (!image.HasPose()) {
     return num_tris;
   }
 
@@ -164,7 +164,7 @@ size_t IncrementalTriangulator::CompleteImage(const Options& options,
   ClearCaches();
 
   const Image& image = reconstruction_.Image(image_id);
-  if (!image.IsRegistered()) {
+  if (!image.HasPose()) {
     return num_tris;
   }
 
@@ -329,12 +329,12 @@ size_t IncrementalTriangulator::Retriangulate(const Options& options) {
         Database::PairIdToImagePair(image_pair.first);
 
     const Image& image1 = reconstruction_.Image(image_id1);
-    if (!image1.IsRegistered()) {
+    if (!image1.HasPose()) {
       continue;
     }
 
     const Image& image2 = reconstruction_.Image(image_id2);
-    if (!image2.IsRegistered()) {
+    if (!image2.HasPose()) {
       continue;
     }
 
@@ -449,7 +449,7 @@ size_t IncrementalTriangulator::Find(const Options& options,
 
   for (const auto& corr : found_corrs_) {
     const Image& corr_image = reconstruction_.Image(corr.image_id);
-    if (!corr_image.IsRegistered()) {
+    if (!corr_image.HasPose()) {
       continue;
     }
 
@@ -597,7 +597,7 @@ size_t IncrementalTriangulator::Merge(const Options& options,
         track_el.image_id, track_el.point2D_idx);
     for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
       const auto& image = reconstruction_.Image(corr->image_id);
-      if (!image.IsRegistered()) {
+      if (!image.HasPose()) {
         continue;
       }
 
@@ -696,7 +696,7 @@ size_t IncrementalTriangulator::Complete(const Options& options,
           queue_elem.image_id, queue_elem.point2D_idx);
       for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
         const Image& image = reconstruction_.Image(corr->image_id);
-        if (!image.IsRegistered()) {
+        if (!image.HasPose()) {
           continue;
         }
 

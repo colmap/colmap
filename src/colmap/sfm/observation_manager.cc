@@ -141,7 +141,7 @@ void ObservationManager::SetObservationAsTriangulated(
     return;
   }
   const Image& image = reconstruction_.Image(image_id);
-  THROW_CHECK(image.IsRegistered());
+  THROW_CHECK(image.HasPose());
 
   const Point2D& point2D = image.Point2D(point2D_idx);
   THROW_CHECK(point2D.HasPoint3D());
@@ -174,7 +174,7 @@ void ObservationManager::ResetTriObservations(const image_t image_id,
     return;
   }
   const Image& image = reconstruction_.Image(image_id);
-  THROW_CHECK(image.IsRegistered());
+  THROW_CHECK(image.HasPose());
   const Point2D& point2D = image.Point2D(point2D_idx);
   THROW_CHECK(point2D.HasPoint3D());
 
