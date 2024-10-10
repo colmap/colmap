@@ -45,7 +45,7 @@ void P3PEstimator::Estimate(const std::vector<X_t>& points2D,
                             std::vector<M_t>* cams_from_world) {
   THROW_CHECK_EQ(points2D.size(), 3);
   THROW_CHECK_EQ(points3D.size(), 3);
-  THROW_CHECK(cams_from_world != nullptr);
+  THROW_CHECK_NOTNULL(cams_from_world);
 
   thread_local std::vector<Eigen::Vector3d> rays(3);
   for (int i = 0; i < 3; ++i) {
@@ -72,9 +72,9 @@ void P3PEstimator::Residuals(const std::vector<X_t>& points2D,
 void P4PFEstimator::Estimate(const std::vector<X_t>& points2D,
                              const std::vector<Y_t>& points3D,
                              std::vector<M_t>* models) {
-  CHECK_EQ(points2D.size(), 4);
-  CHECK_EQ(points3D.size(), 4);
-  CHECK(models != nullptr);
+  THROW_CHECK_EQ(points2D.size(), 4);
+  THROW_CHECK_EQ(points3D.size(), 4);
+  THROW_CHECK_NOTNULL(models);
 
   thread_local std::vector<poselib::CameraPose> poses;
   thread_local std::vector<double> focals;
@@ -116,7 +116,7 @@ void EPNPEstimator::Estimate(const std::vector<X_t>& points2D,
                              std::vector<M_t>* cams_from_world) {
   THROW_CHECK_GE(points2D.size(), 4);
   THROW_CHECK_EQ(points2D.size(), points3D.size());
-  THROW_CHECK(cams_from_world != nullptr);
+  THROW_CHECK_NOTNULL(cams_from_world);
 
   cams_from_world->clear();
 
