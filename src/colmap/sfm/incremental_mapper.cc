@@ -435,10 +435,6 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   // parameters)
 
   AbsolutePoseEstimationOptions abs_pose_options;
-  abs_pose_options.num_threads = options.num_threads;
-  abs_pose_options.num_focal_length_samples = 30;
-  abs_pose_options.min_focal_length_ratio = options.min_focal_length_ratio;
-  abs_pose_options.max_focal_length_ratio = options.max_focal_length_ratio;
   abs_pose_options.ransac_options.max_error = options.abs_pose_max_error;
   abs_pose_options.ransac_options.min_inlier_ratio =
       options.abs_pose_min_inlier_ratio;

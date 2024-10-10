@@ -126,8 +126,8 @@ TEST(Alignment, MergeReconstructions) {
   Reconstruction tgt_reconstruction = src_reconstruction;
 
   // Remove the camera of the first image from the target reconstruction
-  const std::vector<image_t>& image_ids = tgt_reconstruction.RegImageIds();
-  camera_t camera_id = tgt_reconstruction.Image(image_ids[0]).CameraId();
+  const std::vector<image_t> image_ids = tgt_reconstruction.RegImageIds();
+  const camera_t camera_id = tgt_reconstruction.Image(image_ids[0]).CameraId();
   for (const auto& image_id : image_ids) {
     if (tgt_reconstruction.Image(image_id).CameraId() == camera_id) {
       tgt_reconstruction.DeRegisterImage(image_id);
