@@ -64,7 +64,9 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
       camera->CamFromImgThreshold(options.ransac_options.max_error);
 
   if (options.estimate_focal_length) {
-    // TODO(joschonb): Implement non-minimal solver for LORANSAC refinement.
+    // TODO(jsch): Implement non-minimal solver for LORANSAC refinement.
+    // Experiments showed marginal difference between RANSAC/LORANSAC for PNPF
+    // after refining the estimates of this function using RefineAbsolutePose.
     RANSAC<P4PFEstimator> ransac(custom_ransac_options);
     auto report = ransac.Estimate(points2D_normalized, points3D);
     if (report.success) {
