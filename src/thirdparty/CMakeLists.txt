@@ -61,7 +61,7 @@ if(FETCH_POSELIB)
         ${_fetch_content_declare_args}
     )
     message(STATUS "Configuring PoseLib...")
-    set(MARCH_NATIVE OFF)
+    set(MARCH_NATIVE OFF CACHE BOOL "")
     FetchContent_MakeAvailable(poselib)
     message(STATUS "Configuring PoseLib... done")
 else()
