@@ -190,13 +190,13 @@ bool IncrementalMapper::FindInitialImagePair(const Options& options,
   return false;
 }
 
-std::vector<image_t> IncrementalMapper::FindNextImages(const Options& options,
-                                                       bool fallback) {
+std::vector<image_t> IncrementalMapper::FindNextImages(
+    const Options& options, bool structureLessFallback) {
   THROW_CHECK_NOTNULL(reconstruction_);
   THROW_CHECK(options.Check());
 
   std::function<float(image_t)> rank_image_func;
-  if (fallback) {
+  if (structureLessFallback) {
     rank_image_func = [this](image_t image_id) {
       return static_cast<float>(
           obs_manager_->NumVisibleCorrespondences(image_id));
@@ -534,8 +534,8 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   return true;
 }
 
-bool IncrementalMapper::RegisterNextImageFallback(const Options& options,
-                                                  const image_t image_id) {
+bool IncrementalMapper::RegisterNextImageStructureLessFallback(
+    const Options& options, const image_t image_id) {
   THROW_CHECK_NOTNULL(reconstruction_);
   THROW_CHECK_NOTNULL(obs_manager_);
   THROW_CHECK_GE(reconstruction_->NumRegImages(), 2);
@@ -563,8 +563,8 @@ bool IncrementalMapper::RegisterNextImageFallback(const Options& options,
 
   std::vector<point2D_t> point2D_idxs;
   std::vector<CorrespondenceGraph::Correspondence> corrs;
-  std::vector<GRNPObservation> observations;
-  std::vector<GRNPObservation> corr_observations;
+  std::vector<GRNPObservation> points_world;
+  std::vector<GRNPObservation> points_cam;
   std::unordered_set<image_t> corr_image_ids;
 
   const point2D_t num_points2D = image.NumPoints2D();
@@ -602,8 +602,8 @@ bool IncrementalMapper::RegisterNextImageFallback(const Options& options,
 
       point2D_idxs.push_back(point2D_idx);
       corrs.push_back(*corr);
-      observations.push_back(observation);
-      corr_observations.push_back(corr_observation);
+      points_world.push_back(corr_observation);
+      points_cam.push_back(observation);
       corr_image_ids.insert(corr->image_id);
     }
   }
@@ -615,7 +615,7 @@ bool IncrementalMapper::RegisterNextImageFallback(const Options& options,
   // and ignores other types of degeneracies, where the projection centers of
   // all registered images coincide, etc. We let the RANSAC and subsequent
   // filtering deal with these.
-  if (observations.size() <
+  if (points_cam.size() <
           static_cast<size_t>(options.abs_pose_min_num_inliers) ||
       corr_image_ids.size() < 2) {
     return false;
@@ -625,20 +625,59 @@ bool IncrementalMapper::RegisterNextImageFallback(const Options& options,
   // Structure-less resectioning
   //////////////////////////////////////////////////////////////////////////////
 
-  RANSACOptions ransac_options;
-  // The error is computed as the Sampson error in the second image, i.e., the
-  // image to be registered.
-  ransac_options.max_error =
-      camera.CamFromImgThreshold(options.abs_pose_max_error);
-  RANSAC<GR6PEstimator> ransac(ransac_options);
+  StructureLessAbsolutePoseEstimationOptions abs_pose_options;
+  abs_pose_options.ransac_options.max_error = options.abs_pose_max_error;
+  abs_pose_options.ransac_options.min_inlier_ratio =
+      options.abs_pose_min_inlier_ratio;
 
-  const auto report = ransac.Estimate(corr_observations, observations);
-  if (!report.success ||
-      report.support.num_inliers < options.abs_pose_min_num_inliers) {
+  BundleAdjustmentOptions abs_pose_refinement_options;
+  if (num_reg_images_per_camera_[image.CameraId()] > 0) {
+    // Camera already refined from another image with the same camera.
+    if (camera.HasBogusParams(options.min_focal_length_ratio,
+                              options.max_focal_length_ratio,
+                              options.max_extra_param)) {
+      // Previously refined camera has bogus parameters,
+      // so reset parameters and try to re-estimage.
+      camera.params = database_cache_->Camera(image.CameraId()).params;
+      abs_pose_refinement_options.refine_focal_length = true;
+      abs_pose_refinement_options.refine_extra_params = true;
+    } else {
+      abs_pose_refinement_options.refine_focal_length = false;
+      abs_pose_refinement_options.refine_extra_params = false;
+    }
+  } else {
+    // Camera not refined before. Note that the camera parameters might have
+    // been changed before but the image was filtered, so we explicitly reset
+    // the camera parameters and try to re-estimate them.
+    camera.params = database_cache_->Camera(image.CameraId()).params;
+    abs_pose_refinement_options.refine_focal_length = true;
+    abs_pose_refinement_options.refine_extra_params = true;
+  }
+
+  if (!options.abs_pose_refine_focal_length) {
+    abs_pose_refinement_options.refine_focal_length = false;
+  }
+
+  if (!options.abs_pose_refine_extra_params) {
+    abs_pose_refinement_options.refine_extra_params = false;
+  }
+
+  size_t num_inliers;
+  std::vector<char> inlier_mask;
+
+  if (!EstimateStructureLessAbsolutePose(abs_pose_options,
+                                         points_world,
+                                         points_cam,
+                                         &image.CamFromWorld(),
+                                         &camera,
+                                         &num_inliers,
+                                         &inlier_mask)) {
     return false;
   }
 
-  image.CamFromWorld() = report.model;
+  if (num_inliers < static_cast<size_t>(options.abs_pose_min_num_inliers)) {
+    return false;
+  }
 
   //////////////////////////////////////////////////////////////////////////////
   // Continue tracks
@@ -651,12 +690,15 @@ bool IncrementalMapper::RegisterNextImageFallback(const Options& options,
       num_points2D);
 
   THROW_CHECK_EQ(point2D_idxs.size(), corrs.size());
-  THROW_CHECK_EQ(point2D_idxs.size(), report.inlier_mask.size());
-  for (size_t i = 0; i < report.inlier_mask.size(); ++i) {
-    if (report.inlier_mask[i]) {
+  THROW_CHECK_EQ(point2D_idxs.size(), inlier_mask.size());
+  for (size_t i = 0; i < inlier_mask.size(); ++i) {
+    if (inlier_mask[i]) {
       inlier_corrs[point2D_idxs[i]].push_back(corrs[i]);
     }
   }
+
+  BundleAdjustmentConfig abs_pose_refinement_config;
+  abs_pose_refinement_config.AddImage(image_id);
 
   std::vector<Eigen::Vector2d> tri_points;
   std::vector<Rigid3d const*> tri_cams_from_world;
@@ -691,7 +733,8 @@ bool IncrementalMapper::RegisterNextImageFallback(const Options& options,
     tri_cameras.clear();
     for (const auto& corr : inlier_corrs[point2D_idx]) {
       const Image& corr_image = reconstruction_->Image(corr.image_id);
-      const Camera& corr_camera = reconstruction_->Camera(corr_image.CameraId());
+      const Camera& corr_camera =
+          reconstruction_->Camera(corr_image.CameraId());
       tri_points.push_back(corr_image.Point2D(corr.point2D_idx).xy);
       tri_cams_from_world.push_back(&corr_image.CamFromWorld());
       tri_cameras.push_back(&corr_camera);
@@ -703,7 +746,8 @@ bool IncrementalMapper::RegisterNextImageFallback(const Options& options,
 
     Eigen::Vector3d tri_xyz;
     EstimateTriangulationOptions tri_options;
-    tri_options.ransac_options.max_error = ransac_options.max_error;
+    tri_options.min_tri_angle = options.filter_min_tri_angle;
+    tri_options.ransac_options.max_error = options.abs_pose_max_error;
     if (!EstimateTriangulation(tri_options,
                                tri_points,
                                tri_cams_from_world,
@@ -727,6 +771,13 @@ bool IncrementalMapper::RegisterNextImageFallback(const Options& options,
 
     const point3D_t point3D_id = obs_manager_->AddPoint3D(tri_xyz, track);
     triangulator_->AddModifiedPoint3D(point3D_id);
+    abs_pose_refinement_config.AddVariablePoint(point3D_id);
+  }
+
+  BundleAdjuster abs_pose_refinement(abs_pose_refinement_options,
+                                     abs_pose_refinement_config);
+  if (!abs_pose_refinement.Solve(reconstruction_.get())) {
+    return false;
   }
 
   return true;

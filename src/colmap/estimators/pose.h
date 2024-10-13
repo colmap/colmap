@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/estimators/generalized_relative_pose.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/optim/loransac.h"
 #include "colmap/scene/camera.h"
@@ -53,6 +54,27 @@ struct AbsolutePoseEstimationOptions {
   RANSACOptions ransac_options;
 
   AbsolutePoseEstimationOptions() {
+    ransac_options.max_error = 12.0;
+    // Use high confidence to avoid preemptive termination of P3P RANSAC
+    // - too early termination may lead to bad registration.
+    ransac_options.min_num_trials = 100;
+    ransac_options.max_num_trials = 10000;
+    ransac_options.confidence = 0.99999;
+  }
+
+  void Check() const { ransac_options.Check(); }
+};
+
+struct StructureLessAbsolutePoseEstimationOptions {
+  // The minimum scale between the estimated translation and any of the inlier
+  // world camera baselines. Note that the scale can only be reliably estimated
+  // when the world cameras do not coincide.
+  double min_translation_baseline_scale = 0.1;
+
+  // Options used for P3P RANSAC.
+  RANSACOptions ransac_options;
+
+  StructureLessAbsolutePoseEstimationOptions() {
     ransac_options.max_error = 12.0;
     // Use high confidence to avoid preemptive termination of P3P RANSAC
     // - too early termination may lead to bad registration.
@@ -113,6 +135,15 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
                           Camera* camera,
                           size_t* num_inliers,
                           std::vector<char>* inlier_mask);
+
+bool EstimateStructureLessAbsolutePose(
+    const StructureLessAbsolutePoseEstimationOptions& options,
+    const std::vector<GRNPObservation>& points_world,
+    const std::vector<GRNPObservation>& points_cam,
+    Rigid3d* cam_from_world,
+    Camera* camera,
+    size_t* num_inliers,
+    std::vector<char>* inlier_mask);
 
 // Estimate relative from 2D-2D correspondences.
 //

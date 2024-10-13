@@ -36,6 +36,7 @@
 #include "colmap/estimators/manifold.h"
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/pose.h"
+#include "colmap/geometry/triangulation.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/logging.h"
 
@@ -95,6 +96,65 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
   return false;
 }
 
+bool EstimateStructureLessAbsolutePose(
+    const StructureLessAbsolutePoseEstimationOptions& options,
+    const std::vector<GRNPObservation>& points_world,
+    const std::vector<GRNPObservation>& points_cam,
+    Rigid3d* cam_from_world,
+    Camera* camera,
+    size_t* num_inliers,
+    std::vector<char>* inlier_mask) {
+  THROW_CHECK_EQ(points_world.size(), points_cam.size());
+  options.Check();
+
+  auto custom_ransac_options = options.ransac_options;
+  custom_ransac_options.max_error =
+      camera->CamFromImgThreshold(options.ransac_options.max_error);
+  RANSAC<GR6PEstimator> ransac(custom_ransac_options);
+  auto report = ransac.Estimate(points_world, points_cam);
+  if (!report.success) {
+    return false;
+  }
+
+  const size_t num_points = points_world.size();
+  const double scaled_translation =
+      options.min_translation_baseline_scale * report.model.translation.norm();
+  bool translation_scale_constrained = false;
+  for (size_t i = 0; i < num_points; ++i) {
+    if (!report.inlier_mask[i]) {
+      continue;
+    }
+    for (size_t j = 0; j < num_points; ++j) {
+      if (!report.inlier_mask[j]) {
+        continue;
+      }
+      const double baseline = (points_world[i].cam_from_rig.translation -
+                               points_world[j].cam_from_rig.translation)
+                                  .norm();
+      if (baseline >= scaled_translation) {
+        LOG(INFO) << baseline << " "
+                  << scaled_translation /
+                         options.min_translation_baseline_scale;
+        translation_scale_constrained = true;
+        break;
+      }
+    }
+    if (translation_scale_constrained) {
+      break;
+    }
+  }
+
+  if (!translation_scale_constrained) {
+    return false;
+  }
+
+  *cam_from_world = report.model;
+  *num_inliers = report.support.num_inliers;
+  *inlier_mask = std::move(report.inlier_mask);
+
+  return true;
+}
+
 size_t EstimateRelativePose(const RANSACOptions& ransac_options,
                             const std::vector<Eigen::Vector2d>& points1,
                             const std::vector<Eigen::Vector2d>& points2,
@@ -145,8 +205,11 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
       std::make_unique<ceres::CauchyLoss>(options.loss_function_scale);
 
   double* camera_params = camera->params.data();
-  double* rig_from_world_rotation = cam_from_world->rotation.coeffs().data();
-  double* rig_from_world_translation = cam_from_world->translation.data();
+  double* cam_from_world_rotation = cam_from_world->rotation.coeffs().data();
+  double* cam_from_world_translation = cam_from_world->translation.data();
+
+  // CostFunction assumes unit quaternions.
+  cam_from_world->rotation.normalize();
 
   ceres::Problem::Options problem_options;
   problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
@@ -161,13 +224,13 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
         CameraCostFunction<ReprojErrorConstantPoint3DCostFunctor>(
             camera->model_id, points2D[i], points3D[i]),
         loss_function.get(),
-        rig_from_world_rotation,
-        rig_from_world_translation,
+        cam_from_world_rotation,
+        cam_from_world_translation,
         camera_params);
   }
 
   if (problem.NumResiduals() > 0) {
-    SetQuaternionManifold(&problem, rig_from_world_rotation);
+    SetQuaternionManifold(&problem, cam_from_world_rotation);
 
     // Camera parameterization.
     if (!options.refine_focal_length && !options.refine_extra_params) {
@@ -232,8 +295,8 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
   if (problem.NumResiduals() > 0 && cam_from_world_cov != nullptr) {
     ceres::Covariance::Options options;
     ceres::Covariance covariance(options);
-    std::vector<const double*> parameter_blocks = {rig_from_world_rotation,
-                                                   rig_from_world_translation};
+    std::vector<const double*> parameter_blocks = {cam_from_world_rotation,
+                                                   cam_from_world_translation};
     if (!covariance.Compute(parameter_blocks, &problem)) {
       return false;
     }

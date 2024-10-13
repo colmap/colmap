@@ -325,7 +325,7 @@ IncrementalPipeline::Status IncrementalPipeline::InitializeReconstruction(
   return Status::SUCCESS;
 }
 
-bool IncrementalPipeline::CheckRunGlobalRefinement(
+bool IncrementalPipeline::ShouldRunGlobalRefinement(
     const Reconstruction& reconstruction,
     const size_t ba_prev_num_reg_images,
     const size_t ba_prev_num_points) {
@@ -379,9 +379,9 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
     const auto obs_manager = mapper.ObservationManager();
 
     image_t next_image_id = kInvalidImageId;
-    for (const bool fallback : {false, true}) {
-      const std::vector<image_t> next_images =
-          mapper.FindNextImages(mapper_options, /*fallback=*/fallback);
+    for (const bool structureLessFallback : {false, true}) {
+      const std::vector<image_t> next_images = mapper.FindNextImages(
+          mapper_options, /*structureLessFallback=*/structureLessFallback);
 
       if (next_images.empty()) {
         break;
@@ -390,7 +390,7 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
       for (size_t reg_trial = 0; reg_trial < next_images.size(); ++reg_trial) {
         next_image_id = next_images[reg_trial];
 
-        if (fallback) {
+        if (structureLessFallback) {
           LOG(INFO) << StringPrintf(
               "Registering image with structure-less fallback #%d (%d)",
               next_image_id,
@@ -398,8 +398,8 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
           LOG(INFO) << StringPrintf(
               "=> Image sees %d correspondences",
               obs_manager.NumVisibleCorrespondences(next_image_id));
-          reg_next_success =
-              mapper.RegisterNextImageFallback(mapper_options, next_image_id);
+          reg_next_success = mapper.RegisterNextImageStructureLessFallback(
+              mapper_options, next_image_id);
         } else {
           LOG(INFO) << StringPrintf("Registering image #%d (%d)",
                                     next_image_id,
@@ -442,7 +442,7 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
                                       options_->Triangulation(),
                                       next_image_id);
 
-      if (CheckRunGlobalRefinement(
+      if (ShouldRunGlobalRefinement(
               *reconstruction, ba_prev_num_reg_images, ba_prev_num_points)) {
         IterativeGlobalRefinement(*options_, mapper_options, mapper);
         ba_prev_num_points = reconstruction->NumPoints3D();
