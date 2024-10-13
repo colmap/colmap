@@ -174,15 +174,23 @@ bool CheckCheirality(const Rigid3d& cam2_from_cam1,
   const double max_depth = 1000.0 * cam2_from_cam1.translation.norm();
   points3D->clear();
   for (size_t i = 0; i < points1.size(); ++i) {
-    const Eigen::Vector3d point3D = TriangulatePoint(
-        cam1_from_world, cam2_from_world, points1[i], points2[i]);
-    const double depth1 = CalculateDepth(cam1_from_world, point3D);
-    if (depth1 > kMinDepth && depth1 < max_depth) {
-      const double depth2 = CalculateDepth(cam2_from_world, point3D);
-      if (depth2 > kMinDepth && depth2 < max_depth) {
-        points3D->push_back(point3D);
-      }
+    Eigen::Vector3d point3D;
+    if (!TriangulatePoint(cam1_from_world,
+                          cam2_from_world,
+                          points1[i],
+                          points2[i],
+                          &point3D)) {
+      continue;
     }
+    const double depth1 = CalculateDepth(cam1_from_world, point3D);
+    if (depth1 < kMinDepth || depth1 > max_depth) {
+      continue;
+    }
+    const double depth2 = CalculateDepth(cam2_from_world, point3D);
+    if (depth2 < kMinDepth || depth2 > max_depth) {
+      continue;
+    }
+    points3D->push_back(point3D);
   }
   return !points3D->empty();
 }
