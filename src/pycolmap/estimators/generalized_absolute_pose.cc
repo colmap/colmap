@@ -17,7 +17,7 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
-py::object PyEstimateAndRefineGeneralizedAbsolutePose(
+py::typing::Optional<py::dict> PyEstimateAndRefineGeneralizedAbsolutePose(
     const std::vector<Eigen::Vector2d>& points2D,
     const std::vector<Eigen::Vector3d>& points3D,
     const std::vector<size_t>& camera_idxs,
@@ -67,10 +67,6 @@ py::object PyEstimateAndRefineGeneralizedAbsolutePose(
 }
 
 void BindGeneralizedAbsolutePoseEstimator(py::module& m) {
-  auto est_options = m.attr("RANSACOptions")().cast<RANSACOptions>();
-  auto ref_options = m.attr("AbsolutePoseRefinementOptions")()
-                         .cast<AbsolutePoseRefinementOptions>();
-
   m.def(
       "rig_absolute_pose_estimation",
       &PyEstimateAndRefineGeneralizedAbsolutePose,
@@ -79,8 +75,12 @@ void BindGeneralizedAbsolutePoseEstimator(py::module& m) {
       "camera_idxs"_a,
       "cams_from_rig"_a,
       "cameras"_a,
-      "estimation_options"_a = est_options,
-      "refinement_options"_a = ref_options,
+      py::arg_v("estimation_options",
+                AbsolutePoseEstimationOptions().ransac_options,
+                "AbsolutePoseEstimationOptions().ransac"),
+      py::arg_v("refinement_options",
+                AbsolutePoseRefinementOptions(),
+                "AbsolutePoseRefinementOptions()"),
       "return_covariance"_a = false,
       "Absolute pose estimation with non-linear refinement for a multi-camera "
       "rig.");

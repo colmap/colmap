@@ -43,7 +43,7 @@ namespace colmap {
 // mapping, and finally merges them all into a globally consistent
 // reconstruction. This is especially useful for larger-scale scenes, since
 // incremental mapping becomes slow with an increasing number of images.
-class HierarchicalMapperController : public BaseController {
+class HierarchicalPipeline : public BaseController {
  public:
   struct Options {
     // The path to the image folder which are used as input.
@@ -62,12 +62,12 @@ class HierarchicalMapperController : public BaseController {
     SceneClustering::Options clustering_options;
 
     // Options used to reconstruction each cluster individually.
-    IncrementalMapperOptions incremental_options;
+    IncrementalPipelineOptions incremental_options;
 
     bool Check() const;
   };
 
-  HierarchicalMapperController(
+  HierarchicalPipeline(
       const Options& options,
       std::shared_ptr<ReconstructionManager> reconstruction_manager);
 

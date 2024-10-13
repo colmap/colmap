@@ -34,7 +34,7 @@
 #include "colmap/scene/projection.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sensor/models.h"
-#include "colmap/util/misc.h"
+#include "colmap/util/file.h"
 
 namespace colmap {
 namespace mvs {
@@ -59,10 +59,10 @@ void Model::ReadFromCOLMAP(const std::string& path,
 
   images.reserve(reconstruction.NumRegImages());
   std::unordered_map<image_t, size_t> image_id_to_idx;
-  for (size_t i = 0; i < reconstruction.NumRegImages(); ++i) {
-    const auto image_id = reconstruction.RegImageIds()[i];
+  size_t image_idx = 0;
+  for (const image_t image_id : reconstruction.RegImageIds()) {
     const auto& image = reconstruction.Image(image_id);
-    const auto& camera = reconstruction.Camera(image.CameraId());
+    const auto& camera = *image.CameraPtr();
 
     const std::string image_path = JoinPaths(path, images_path, image.Name());
     const Eigen::Matrix<float, 3, 3, Eigen::RowMajor> K =
@@ -73,9 +73,10 @@ void Model::ReadFromCOLMAP(const std::string& path,
 
     images.emplace_back(
         image_path, camera.width, camera.height, K.data(), R.data(), T.data());
-    image_id_to_idx.emplace(image_id, i);
+    image_id_to_idx.emplace(image_id, image_idx);
     image_names_.push_back(image.Name());
-    image_name_to_idx_.emplace(image.Name(), i);
+    image_name_to_idx_.emplace(image.Name(), image_idx);
+    ++image_idx;
   }
 
   points.reserve(reconstruction.NumPoints3D());

@@ -178,10 +178,9 @@ int RunImageFilterer(int argc, char** argv) {
           min_focal_length_ratio, max_focal_length_ratio, max_extra_param);
 
   std::vector<image_t> filtered_image_ids;
-  for (const auto& image : reconstruction.Images()) {
-    if (image.second.IsRegistered() &&
-        image.second.NumPoints3D() < min_num_observations) {
-      filtered_image_ids.push_back(image.first);
+  for (const auto& [image_id, image] : reconstruction.Images()) {
+    if (image.HasPose() && image.NumPoints3D() < min_num_observations) {
+      filtered_image_ids.push_back(image_id);
     }
   }
 
@@ -283,7 +282,7 @@ int RunImageRegistrator(int argc, char** argv) {
   const auto mapper_options = options.mapper->Mapper();
 
   for (const auto& image : reconstruction->Images()) {
-    if (image.second.IsRegistered()) {
+    if (image.second.HasPose()) {
       continue;
     }
 

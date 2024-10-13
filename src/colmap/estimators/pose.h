@@ -49,30 +49,19 @@ struct AbsolutePoseEstimationOptions {
   // Whether to estimate the focal length.
   bool estimate_focal_length = false;
 
-  // Number of discrete samples for focal length estimation.
-  size_t num_focal_length_samples = 30;
-
-  // Minimum focal length ratio for discrete focal length sampling
-  // around focal length of given camera.
-  double min_focal_length_ratio = 0.2;
-
-  // Maximum focal length ratio for discrete focal length sampling
-  // around focal length of given camera.
-  double max_focal_length_ratio = 5;
-
-  // Number of threads for parallel estimation of focal length.
-  int num_threads = ThreadPool::kMaxNumThreads;
-
   // Options used for P3P RANSAC.
   RANSACOptions ransac_options;
 
-  void Check() const {
-    THROW_CHECK_GT(num_focal_length_samples, 0);
-    THROW_CHECK_GT(min_focal_length_ratio, 0);
-    THROW_CHECK_GT(max_focal_length_ratio, 0);
-    THROW_CHECK_LT(min_focal_length_ratio, max_focal_length_ratio);
-    ransac_options.Check();
+  AbsolutePoseEstimationOptions() {
+    ransac_options.max_error = 12.0;
+    // Use high confidence to avoid preemptive termination of P3P RANSAC
+    // - too early termination may lead to bad registration.
+    ransac_options.min_num_trials = 100;
+    ransac_options.max_num_trials = 10000;
+    ransac_options.confidence = 0.99999;
   }
+
+  void Check() const { ransac_options.Check(); }
 };
 
 struct AbsolutePoseRefinementOptions {
@@ -86,10 +75,10 @@ struct AbsolutePoseRefinementOptions {
   double loss_function_scale = 1.0;
 
   // Whether to refine the focal length parameter group.
-  bool refine_focal_length = true;
+  bool refine_focal_length = false;
 
   // Whether to refine the extra parameter group.
-  bool refine_extra_params = true;
+  bool refine_extra_params = false;
 
   // Whether to print final summary.
   bool print_summary = false;

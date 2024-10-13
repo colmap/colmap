@@ -35,6 +35,8 @@
 
 namespace colmap {
 
+// Note that cameras must be read before images.
+
 void ReadCamerasText(Reconstruction& reconstruction, const std::string& path);
 
 void ReadImagesText(Reconstruction& reconstruction, const std::string& path);

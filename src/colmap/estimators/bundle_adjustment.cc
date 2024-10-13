@@ -29,10 +29,14 @@
 
 #include "colmap/estimators/bundle_adjustment.h"
 
+#include "colmap/estimators/alignment.h"
 #include "colmap/estimators/cost_functions.h"
 #include "colmap/estimators/manifold.h"
+#include "colmap/estimators/similarity_transform.h"
+#include "colmap/optim/loransac.h"
 #include "colmap/scene/projection.h"
 #include "colmap/sensor/models.h"
+#include "colmap/util/cuda.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
 #include "colmap/util/timer.h"
@@ -64,6 +68,10 @@ ceres::LossFunction* BundleAdjustmentOptions::CreateLossFunction() const {
 
 bool BundleAdjustmentOptions::Check() const {
   CHECK_OPTION_GE(loss_function_scale, 0);
+  CHECK_OPTION_LT(max_num_images_direct_dense_cpu_solver,
+                  max_num_images_direct_sparse_cpu_solver);
+  CHECK_OPTION_LT(max_num_images_direct_dense_gpu_solver,
+                  max_num_images_direct_sparse_gpu_solver);
   return true;
 }
 
@@ -329,23 +337,56 @@ ceres::Solver::Options BundleAdjuster::SetUpSolverOptions(
     const ceres::Problem& problem,
     const ceres::Solver::Options& input_solver_options) const {
   ceres::Solver::Options solver_options = input_solver_options;
+  if (VLOG_IS_ON(2)) {
+    solver_options.minimizer_progress_to_stdout = true;
+    solver_options.logging_type = ceres::LoggingType::PER_MINIMIZER_ITERATION;
+  }
+
+  const int num_images = config_.NumImages();
   const bool has_sparse =
       solver_options.sparse_linear_algebra_library_type != ceres::NO_SPARSE;
 
-  // Empirical choice.
-  const size_t kMaxNumImagesDirectDenseSolver = 50;
-  const size_t kMaxNumImagesDirectSparseSolver = 1000;
-  const size_t num_images = config_.NumImages();
-  if (num_images <= kMaxNumImagesDirectDenseSolver) {
+  int max_num_images_direct_dense_solver =
+      options_.max_num_images_direct_dense_cpu_solver;
+  int max_num_images_direct_sparse_solver =
+      options_.max_num_images_direct_sparse_cpu_solver;
+
+#ifdef COLMAP_CUDA_ENABLED
+#if (CERES_VERSION_MAJOR >= 3 ||                                \
+     (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 2)) && \
+    !defined(CERES_NO_CUDA)
+  if (options_.use_gpu && num_images >= options_.min_num_images_gpu_solver) {
+    const std::vector<int> gpu_indices = CSVToVector<int>(options_.gpu_index);
+    THROW_CHECK_GT(gpu_indices.size(), 0);
+    SetBestCudaDevice(gpu_indices[0]);
+    solver_options.dense_linear_algebra_library_type = ceres::CUDA;
+    max_num_images_direct_dense_solver =
+        options_.max_num_images_direct_dense_gpu_solver;
+  }
+#endif
+
+#if (CERES_VERSION_MAJOR >= 3 ||                                \
+     (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 3)) && \
+    !defined(CERES_NO_CUDSS)
+  if (options_.use_gpu && num_images >= options_.min_num_images_gpu_solver) {
+    solver_options.sparse_linear_algebra_library_type = ceres::CUDA_SPARSE;
+    max_num_images_direct_sparse_solver =
+        options_.max_num_images_direct_sparse_gpu_solver;
+  }
+#endif
+#endif
+
+  if (num_images <= max_num_images_direct_dense_solver) {
     solver_options.linear_solver_type = ceres::DENSE_SCHUR;
-  } else if (num_images <= kMaxNumImagesDirectSparseSolver && has_sparse) {
+  } else if (has_sparse && num_images <= max_num_images_direct_sparse_solver) {
     solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
   } else {  // Indirect sparse (preconditioned CG) solver.
     solver_options.linear_solver_type = ceres::ITERATIVE_SCHUR;
     solver_options.preconditioner_type = ceres::SCHUR_JACOBI;
   }
 
-  if (problem.NumResiduals() < options_.min_num_residuals_for_multi_threading) {
+  if (problem.NumResiduals() <
+      options_.min_num_residuals_for_cpu_multi_threading) {
     solver_options.num_threads = 1;
 #if CERES_VERSION_MAJOR < 2
     solver_options.num_linear_solver_threads = 1;
@@ -368,9 +409,10 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
                                        Reconstruction* reconstruction,
                                        ceres::LossFunction* loss_function) {
   Image& image = reconstruction->Image(image_id);
-  Camera& camera = reconstruction->Camera(image.CameraId());
+  Camera& camera = *image.CameraPtr();
 
   // CostFunction assumes unit quaternions.
+  THROW_CHECK(image.HasPose());
   image.CamFromWorld().rotation.normalize();
 
   double* cam_from_world_rotation =
@@ -396,13 +438,13 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
 
     if (constant_cam_pose) {
       problem_->AddResidualBlock(
-          CameraCostFunction<ReprojErrorConstantPoseCostFunction>(
+          CameraCostFunction<ReprojErrorConstantPoseCostFunctor>(
               camera.model_id, image.CamFromWorld(), point2D.xy),
           loss_function,
           point3D.xyz.data(),
           camera_params);
     } else {
-      problem_->AddResidualBlock(CameraCostFunction<ReprojErrorCostFunction>(
+      problem_->AddResidualBlock(CameraCostFunction<ReprojErrorCostFunctor>(
                                      camera.model_id, point2D.xy),
                                  loss_function,
                                  cam_from_world_rotation,
@@ -451,7 +493,7 @@ void BundleAdjuster::AddPointToProblem(const point3D_t point3D_id,
     point3D_num_observations_[point3D_id] += 1;
 
     Image& image = reconstruction->Image(track_el.image_id);
-    Camera& camera = reconstruction->Camera(image.CameraId());
+    Camera& camera = *image.CameraPtr();
     const Point2D& point2D = image.Point2D(track_el.point2D_idx);
 
     // CostFunction assumes unit quaternions.
@@ -465,7 +507,7 @@ void BundleAdjuster::AddPointToProblem(const point3D_t point3D_id,
       config_.SetConstantCamIntrinsics(image.CameraId());
     }
     problem_->AddResidualBlock(
-        CameraCostFunction<ReprojErrorConstantPoseCostFunction>(
+        CameraCostFunction<ReprojErrorConstantPoseCostFunctor>(
             camera.model_id, image.CamFromWorld(), point2D.xy),
         loss_function,
         point3D.xyz.data(),
@@ -628,7 +670,7 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
       rig_options_.max_reproj_error * rig_options_.max_reproj_error;
 
   Image& image = reconstruction->Image(image_id);
-  Camera& camera = reconstruction->Camera(image.CameraId());
+  Camera& camera = *image.CameraPtr();
 
   const bool constant_cam_pose = config_.HasConstantCamPose(image_id);
   const bool constant_cam_position = config_.HasConstantCamPositions(image_id);
@@ -662,7 +704,7 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
   }
 
   // Collect cameras for final parameterization.
-  THROW_CHECK(image.HasCamera());
+  THROW_CHECK(image.HasCameraId());
   camera_ids_.insert(image.CameraId());
 
   // The number of added observations for the current image.
@@ -690,13 +732,13 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
     if (camera_rig == nullptr) {
       if (constant_cam_pose) {
         problem_->AddResidualBlock(
-            CameraCostFunction<ReprojErrorConstantPoseCostFunction>(
+            CameraCostFunction<ReprojErrorConstantPoseCostFunctor>(
                 camera.model_id, image.CamFromWorld(), point2D.xy),
             loss_function,
             point3D.xyz.data(),
             camera_params);
       } else {
-        problem_->AddResidualBlock(CameraCostFunction<ReprojErrorCostFunction>(
+        problem_->AddResidualBlock(CameraCostFunction<ReprojErrorCostFunctor>(
                                        camera.model_id, point2D.xy),
                                    loss_function,
                                    cam_from_rig_rotation,     // rig == world
@@ -705,7 +747,7 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
                                    camera_params);
       }
     } else {
-      problem_->AddResidualBlock(CameraCostFunction<RigReprojErrorCostFunction>(
+      problem_->AddResidualBlock(CameraCostFunction<RigReprojErrorCostFunctor>(
                                      camera.model_id, point2D.xy),
                                  loss_function,
                                  cam_from_rig_rotation,
@@ -764,7 +806,7 @@ void RigBundleAdjuster::AddPointToProblem(const point3D_t point3D_id,
     point3D_num_observations_[point3D_id] += 1;
 
     Image& image = reconstruction->Image(track_el.image_id);
-    Camera& camera = reconstruction->Camera(image.CameraId());
+    Camera& camera = *image.CameraPtr();
     const Point2D& point2D = image.Point2D(track_el.point2D_idx);
 
     // We do not want to refine the camera of images that are not
@@ -776,7 +818,7 @@ void RigBundleAdjuster::AddPointToProblem(const point3D_t point3D_id,
     }
 
     problem_->AddResidualBlock(
-        CameraCostFunction<ReprojErrorConstantPoseCostFunction>(
+        CameraCostFunction<ReprojErrorConstantPoseCostFunctor>(
             camera.model_id, image.CamFromWorld(), point2D.xy),
         loss_function,
         point3D.xyz.data(),
@@ -811,10 +853,227 @@ void RigBundleAdjuster::ParameterizeCameraRigs(Reconstruction* reconstruction) {
   }
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// PosePriorBundleAdjuster
+////////////////////////////////////////////////////////////////////////////////
+
+PosePriorBundleAdjuster::PosePriorBundleAdjuster(
+    const BundleAdjustmentOptions& options,
+    const Options& prior_options,
+    const BundleAdjustmentConfig& config,
+    const std::unordered_map<image_t, PosePrior>& image_id_to_pose_prior)
+    : BundleAdjuster(options, config),
+      prior_options_(prior_options),
+      image_id_to_pose_prior_(image_id_to_pose_prior) {
+  SetRansacMaxErrorFromPriorsCovariance();
+}
+
+bool PosePriorBundleAdjuster::Solve(Reconstruction* reconstruction) {
+  loss_function_ =
+      std::unique_ptr<ceres::LossFunction>(options_.CreateLossFunction());
+
+  if (prior_options_.use_robust_loss_on_prior_position) {
+    prior_loss_function_ = std::make_unique<ceres::CauchyLoss>(
+        prior_options_.prior_position_loss_scale);
+  }
+
+  // Initialize images' position w.r.t. priors with a rigid sim3D alignment
+  use_prior_position_ = Sim3DAlignment(reconstruction);
+
+  // Fix 7-DOFs of BA problem if not enough valid pose priors
+  if (!use_prior_position_) {
+    auto reg_image_ids_it = reconstruction->RegImageIds().begin();
+    config_.SetConstantCamPose(*reg_image_ids_it);
+    config_.SetConstantCamPositions(*(++reg_image_ids_it), {0});
+  }
+
+  // Normalize the reconstruction to avoid any numerical instability BUT do not
+  // transform priors as they will be transformed when added to ceres::Problem
+  normalized_from_metric_ = reconstruction->Normalize(/*fixed_scale=*/true);
+
+  SetUpProblem(
+      reconstruction, loss_function_.get(), prior_loss_function_.get());
+
+  if (problem_->NumResiduals() == 0) {
+    return false;
+  }
+
+  ceres::Solver::Options solver_options =
+      SetUpSolverOptions(*problem_, options_.solver_options);
+
+  ceres::Solve(solver_options, problem_.get(), &summary_);
+
+  // Transform back the reconstruction to its coordinate system state
+  reconstruction->Transform(Inverse(normalized_from_metric_));
+
+  if (options_.print_summary || VLOG_IS_ON(1)) {
+    PrintSolverSummary(summary_, "Pose Prior Bundle adjustment report");
+  }
+
+  return true;
+}
+
+void PosePriorBundleAdjuster::SetUpProblem(
+    Reconstruction* reconstruction,
+    ceres::LossFunction* loss_function,
+    ceres::LossFunction* prior_loss_function) {
+  // Set up problem
+  // Warning: SetUpProblem must be called before AddPosePriorToProblem()
+  // Do not change order of instructions!
+  BundleAdjuster::SetUpProblem(reconstruction, loss_function_.get());
+
+  if (use_prior_position_) {
+    for (const image_t image_id : config_.Images()) {
+      const auto pose_prior_it = image_id_to_pose_prior_.find(image_id);
+      if (pose_prior_it != image_id_to_pose_prior_.end()) {
+        AddPosePriorToProblem(image_id,
+                              pose_prior_it->second,
+                              reconstruction,
+                              prior_loss_function_.get());
+      }
+    }
+  }
+}
+
+void PosePriorBundleAdjuster::AddPosePriorToProblem(
+    image_t image_id,
+    const PosePrior& prior,
+    Reconstruction* reconstruction,
+    ceres::LossFunction* prior_loss_function) {
+  if (!prior.IsValid() || !prior.IsCovarianceValid()) {
+    LOG(ERROR) << "Could not add prior for image #" << image_id;
+    return;
+  }
+  Image& image = reconstruction->Image(image_id);
+  THROW_CHECK(image.HasPose());
+  double* cam_from_world_translation = image.CamFromWorld().translation.data();
+
+  // If image has not been added to the problem do not use it
+  if (!problem_->HasParameterBlock(cam_from_world_translation)) {
+    return;
+  }
+
+  // image.CamFromWorld().rotation is already normalized in AddImageToProblem()
+  double* cam_from_world_rotation =
+      image.CamFromWorld().rotation.coeffs().data();
+
+  problem_->AddResidualBlock(
+      PositionPriorErrorCostFunctor::Create(
+          normalized_from_metric_ * prior.position, prior.position_covariance),
+      prior_loss_function,
+      cam_from_world_rotation,
+      cam_from_world_translation);
+}
+
+bool PosePriorBundleAdjuster::Sim3DAlignment(Reconstruction* reconstruction) {
+  // Compute initial squared error between position priors & current images
+  // projection center and prepare data for RANSAC-based sim3 alignment
+  std::vector<double> vini_err2_wrt_prior;
+  std::vector<Eigen::Vector3d> v_src, v_tgt;
+  vini_err2_wrt_prior.reserve(NumPosePriors());
+  v_src.reserve(NumPosePriors());
+  v_tgt.reserve(NumPosePriors());
+
+  for (const image_t image_id : reconstruction->RegImageIds()) {
+    const auto pose_prior_it = image_id_to_pose_prior_.find(image_id);
+    if (pose_prior_it != image_id_to_pose_prior_.end() &&
+        pose_prior_it->second.IsValid()) {
+      const auto& image = reconstruction->Image(image_id);
+      v_src.push_back(image.ProjectionCenter());
+      v_tgt.push_back(pose_prior_it->second.position);
+      vini_err2_wrt_prior.push_back(
+          (v_src.back() - v_tgt.back()).squaredNorm());
+    }
+  }
+
+  if (v_src.size() < 3) {
+    LOG(WARNING)
+        << "Not enough valid pose priors for PosePrior based alignment!";
+    return false;
+  }
+
+  VLOG(2) << "Initial alignment error w.r.t. prior position:\n"
+          << "  - rmse:   " << std::sqrt(Mean(vini_err2_wrt_prior)) << " m\n"
+          << "  - median: " << std::sqrt(Median(vini_err2_wrt_prior)) << " m\n";
+
+  Sim3d sim3_tform;
+  bool success = false;
+
+  // Apply RANSAC-based Sim3 Alignment if ransac_max_error is set
+  if (prior_options_.ransac_max_error > 0.) {
+    RANSACOptions ransac_options;
+    ransac_options.max_error = prior_options_.ransac_max_error;
+
+    LORANSAC<SimilarityTransformEstimator<3, true>,
+             SimilarityTransformEstimator<3, true>>
+        ransac(ransac_options);
+
+    const auto report = ransac.Estimate(v_src, v_tgt);
+
+    if (report.success) {
+      // Apply sim3 transform
+      sim3_tform = Sim3d::FromMatrix(report.model);
+      success = true;
+    }
+  } else {
+    success = EstimateSim3d(v_src, v_tgt, sim3_tform);
+  }
+
+  if (success) {
+    reconstruction->Transform(sim3_tform);
+  } else {
+    LOG(WARNING) << "Sim3 alignment w.r.t. prior position failed!";
+  }
+
+  if (VLOG_IS_ON(2) && success) {
+    std::vector<double> verr2_wrt_prior;
+    verr2_wrt_prior.reserve(vini_err2_wrt_prior.size());
+    for (const image_t image_id : reconstruction->RegImageIds()) {
+      const auto pose_prior_it = image_id_to_pose_prior_.find(image_id);
+      if (pose_prior_it != image_id_to_pose_prior_.end() &&
+          pose_prior_it->second.IsValid()) {
+        const auto& image = reconstruction->Image(image_id);
+        verr2_wrt_prior.push_back(
+            (image.ProjectionCenter() - pose_prior_it->second.position)
+                .squaredNorm());
+      }
+    }
+
+    VLOG(2) << "Rigid Sim3 alignment w.r.t. prior position:\n"
+            << "  - scale : " << sim3_tform.scale << "\n"
+            << "  - trans : " << sim3_tform.translation.transpose() << "\n";
+
+    VLOG(2) << "Sim3 alignment error w.r.t. prior position:\n"
+            << "  - rmse:   " << std::sqrt(Mean(verr2_wrt_prior)) << " m\n"
+            << "  - median: " << std::sqrt(Median(verr2_wrt_prior)) << " m\n";
+  }
+
+  return success;
+}
+
+void PosePriorBundleAdjuster::SetRansacMaxErrorFromPriorsCovariance() {
+  std::size_t nb_cov = 0;
+  Eigen::Vector3d avg_cov = Eigen::Vector3d::Zero();
+  for (const auto& [_, pose_prior] : image_id_to_pose_prior_) {
+    if (pose_prior.IsCovarianceValid()) {
+      avg_cov += pose_prior.position_covariance.diagonal();
+      ++nb_cov;
+    }
+  }
+  if (!avg_cov.isZero()) {
+    prior_options_.ransac_max_error =
+        (3. * (avg_cov / nb_cov).cwiseSqrt()).norm();
+  }
+}
+
 void PrintSolverSummary(const ceres::Solver::Summary& summary,
                         const std::string& header) {
+  if (VLOG_IS_ON(3)) {
+    LOG(INFO) << summary.FullReport();
+  }
+
   std::ostringstream log;
-  log << "\n" << header << ":\n";
+  log << header << "\n";
   log << std::right << std::setw(16) << "Residuals : ";
   log << std::left << summary.num_residuals_reduced << "\n";
 

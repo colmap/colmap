@@ -72,6 +72,9 @@ void SetBestCudaDevice(const int gpu_index) {
     }
     std::sort(all_devices.begin(), all_devices.end(), CompareCudaDevice);
     CUDA_SAFE_CALL(cudaChooseDevice(&selected_gpu_index, all_devices.data()));
+    VLOG(2) << "Found " << num_cuda_devices << " CUDA device(s), "
+            << "selected device " << selected_gpu_index << " with name "
+            << all_devices[selected_gpu_index].name;
   }
 
   THROW_CHECK_GE(selected_gpu_index, 0);

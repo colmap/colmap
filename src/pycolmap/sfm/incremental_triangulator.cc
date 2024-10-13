@@ -84,16 +84,35 @@ void BindIncrementalTriangulator(py::module& m) {
            "reconstruction"_a,
            "observation_manager"_a = py::none(),
            py::keep_alive<1, 3>())
-      .def("triangulate_image", &IncrementalTriangulator::TriangulateImage)
-      .def("complete_image", &IncrementalTriangulator::CompleteImage)
-      .def("complete_all_tracks", &IncrementalTriangulator::CompleteAllTracks)
-      .def("merge_all_tracks", &IncrementalTriangulator::MergeAllTracks)
-      .def("retriangulate", &IncrementalTriangulator::Retriangulate)
-      .def("add_modified_point3D", &IncrementalTriangulator::AddModifiedPoint3D)
+      .def("triangulate_image",
+           &IncrementalTriangulator::TriangulateImage,
+           "options"_a,
+           "image_id"_a)
+      .def("complete_image",
+           &IncrementalTriangulator::CompleteImage,
+           "options"_a,
+           "image_id"_a)
+      .def("complete_all_tracks",
+           &IncrementalTriangulator::CompleteAllTracks,
+           "options"_a)
+      .def("merge_all_tracks",
+           &IncrementalTriangulator::MergeAllTracks,
+           "options"_a)
+      .def(
+          "retriangulate", &IncrementalTriangulator::Retriangulate, "options"_a)
+      .def("add_modified_point3D",
+           &IncrementalTriangulator::AddModifiedPoint3D,
+           "point3D_id"_a)
       .def("clear_modified_points3D",
            &IncrementalTriangulator::ClearModifiedPoints3D)
-      .def("merge_tracks", &IncrementalTriangulator::MergeTracks)
-      .def("complete_tracks", &IncrementalTriangulator::CompleteTracks)
+      .def("merge_tracks",
+           &IncrementalTriangulator::MergeTracks,
+           "options"_a,
+           "point3D_ids"_a)
+      .def("complete_tracks",
+           &IncrementalTriangulator::CompleteTracks,
+           "options"_a,
+           "point3D_ids"_a)
       .def("__copy__",
            [](const IncrementalTriangulator& self) {
              return IncrementalTriangulator(self);

@@ -35,6 +35,7 @@
 #include "colmap/mvs/normal_map.h"
 #ifndef __CUDACC__
 #include "colmap/util/base_controller.h"
+#include "colmap/util/logging.h"
 #include "colmap/util/threading.h"
 #endif
 

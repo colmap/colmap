@@ -105,15 +105,13 @@ struct ReconstructionAlignmentEstimator {
     residuals->resize(src_images.size());
 
     for (size_t i = 0; i < src_images.size(); ++i) {
-      const auto& src_image = *src_images[i];
-      const auto& tgt_image = *tgt_images[i];
+      const Image& src_image = *src_images[i];
+      const Image& tgt_image = *tgt_images[i];
 
       THROW_CHECK_EQ(src_image.ImageId(), tgt_image.ImageId());
 
-      const auto& src_camera =
-          src_reconstruction_->Camera(src_image.CameraId());
-      const auto& tgt_camera =
-          tgt_reconstruction_->Camera(tgt_image.CameraId());
+      const Camera& src_camera = *src_image.CameraPtr();
+      const Camera& tgt_camera = *tgt_image.CameraPtr();
 
       const Eigen::Matrix3x4d src_cam_from_world =
           src_image.CamFromWorld().ToMatrix();
@@ -297,7 +295,7 @@ bool AlignReconstructionsViaProjCenters(
   std::vector<std::string> ref_image_names;
   std::vector<Eigen::Vector3d> ref_proj_centers;
   for (const auto& image : tgt_reconstruction.Images()) {
-    if (image.second.IsRegistered()) {
+    if (image.second.HasPose()) {
       ref_image_names.push_back(image.second.Name());
       ref_proj_centers.push_back(image.second.ProjectionCenter());
     }
@@ -436,15 +434,15 @@ bool MergeReconstructions(const double max_reproj_error,
   // Register the missing images in this src_reconstruction.
   for (const auto image_id : missing_image_ids) {
     auto src_image = src_reconstruction.Image(image_id);
-    src_image.SetRegistered(false);
-    src_image.CamFromWorld() =
-        TransformCameraWorld(tgt_from_src, src_image.CamFromWorld());
-    tgt_reconstruction.AddImage(src_image);
-    tgt_reconstruction.RegisterImage(image_id);
+    src_image.ResetCameraPtr();
+    src_image.SetCamFromWorld(
+        TransformCameraWorld(tgt_from_src, src_image.CamFromWorld()));
     if (!tgt_reconstruction.ExistsCamera(src_image.CameraId())) {
       tgt_reconstruction.AddCamera(
           src_reconstruction.Camera(src_image.CameraId()));
     }
+    tgt_reconstruction.AddImage(src_image);
+    tgt_reconstruction.RegisterImage(image_id);
   }
 
   // Merge the two point clouds using the following two rules:

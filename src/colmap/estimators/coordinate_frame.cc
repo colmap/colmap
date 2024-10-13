@@ -164,14 +164,14 @@ Eigen::Matrix3d EstimateManhattanWorldFrame(
     const std::string& image_path) {
   std::vector<Eigen::Vector3d> rightward_axes;
   std::vector<Eigen::Vector3d> downward_axes;
-  for (size_t i = 0; i < reconstruction.NumRegImages(); ++i) {
-    const auto image_id = reconstruction.RegImageIds()[i];
+  size_t image_idx = 0;
+  for (const image_t image_id : reconstruction.RegImageIds()) {
     const auto& image = reconstruction.Image(image_id);
-    const auto& camera = reconstruction.Camera(image.CameraId());
+    const auto& camera = *image.CameraPtr();
 
     PrintHeading1(StringPrintf("Processing image %s (%d / %d)",
                                image.Name().c_str(),
-                               i + 1,
+                               ++image_idx,
                                reconstruction.NumRegImages()));
 
     LOG(INFO) << "Reading image...";
@@ -327,7 +327,8 @@ void AlignToPrincipalPlane(Reconstruction* reconstruction, Sim3d* tform) {
   // If camera plane ends up below ground then flip basis vectors.
   const Rigid3d cam0_from_aligned_world = TransformCameraWorld(
       *tform,
-      reconstruction->Image(reconstruction->RegImageIds()[0]).CamFromWorld());
+      reconstruction->Image(*reconstruction->RegImageIds().begin())
+          .CamFromWorld());
   if (Inverse(cam0_from_aligned_world).translation.z() < 0.0) {
     rot_mat << basis.col(0), -basis.col(1), basis.col(0).cross(-basis.col(1));
     rot_mat.transposeInPlace();

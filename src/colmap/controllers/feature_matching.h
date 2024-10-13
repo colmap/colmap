@@ -108,9 +108,9 @@ std::unique_ptr<Thread> CreateSpatialFeatureMatcher(
     const std::string& database_path);
 
 // Match transitive image pairs in a database with existing feature matches.
-// This matcher transitively closes loops. For example, if image pairs A-B and
-// B-C match but A-C has not been matched, then this matcher attempts to match
-// A-C. This procedure is performed for multiple iterations.
+// This matcher transitively closes loops/triplets. For example, if image pairs
+// A-B and B-C match but A-C has not been matched, then this matcher attempts to
+// match A-C. This procedure is performed for multiple iterations.
 std::unique_ptr<Thread> CreateTransitiveFeatureMatcher(
     const TransitiveMatchingOptions& options,
     const SiftMatchingOptions& matching_options,

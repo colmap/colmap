@@ -16,7 +16,7 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
-py::object PyEstimateAndRefineAbsolutePose(
+py::typing::Optional<py::dict> PyEstimateAndRefineAbsolutePose(
     const std::vector<Eigen::Vector2d>& points2D,
     const std::vector<Eigen::Vector3d>& points3D,
     Camera& camera,
@@ -58,7 +58,7 @@ py::object PyEstimateAndRefineAbsolutePose(
   return success_dict;
 }
 
-py::object PyRefineAbsolutePose(
+py::typing::Optional<py::dict> PyRefineAbsolutePose(
     const Rigid3d& init_cam_from_world,
     const std::vector<Eigen::Vector2d>& points2D,
     const std::vector<Eigen::Vector3d>& points3D,
@@ -87,37 +87,15 @@ void BindAbsolutePoseEstimator(py::module& m) {
   auto PyRANSACOptions = m.attr("RANSACOptions");
   py::class_<AbsolutePoseEstimationOptions> PyEstimationOptions(
       m, "AbsolutePoseEstimationOptions");
-  PyEstimationOptions
-      .def(py::init<>([PyRANSACOptions]() {
-        AbsolutePoseEstimationOptions options;
-        options.estimate_focal_length = false;
-        // init through Python to obtain the new defaults defined in __init__
-        options.ransac_options = PyRANSACOptions().cast<RANSACOptions>();
-        options.ransac_options.max_error = 12.0;
-        return options;
-      }))
+  PyEstimationOptions.def(py::init<>())
       .def_readwrite("estimate_focal_length",
                      &AbsolutePoseEstimationOptions::estimate_focal_length)
-      .def_readwrite("num_focal_length_samples",
-                     &AbsolutePoseEstimationOptions::num_focal_length_samples)
-      .def_readwrite("min_focal_length_ratio",
-                     &AbsolutePoseEstimationOptions::min_focal_length_ratio)
-      .def_readwrite("max_focal_length_ratio",
-                     &AbsolutePoseEstimationOptions::max_focal_length_ratio)
       .def_readwrite("ransac", &AbsolutePoseEstimationOptions::ransac_options);
   MakeDataclass(PyEstimationOptions);
-  auto est_options =
-      PyEstimationOptions().cast<AbsolutePoseEstimationOptions>();
 
   py::class_<AbsolutePoseRefinementOptions> PyRefinementOptions(
       m, "AbsolutePoseRefinementOptions");
-  PyRefinementOptions
-      .def(py::init<>([]() {
-        AbsolutePoseRefinementOptions options;
-        options.refine_focal_length = false;
-        options.refine_extra_params = false;
-        return options;
-      }))
+  PyRefinementOptions.def(py::init<>())
       .def_readwrite("gradient_tolerance",
                      &AbsolutePoseRefinementOptions::gradient_tolerance)
       .def_readwrite("max_num_iterations",
@@ -131,16 +109,18 @@ void BindAbsolutePoseEstimator(py::module& m) {
       .def_readwrite("print_summary",
                      &AbsolutePoseRefinementOptions::print_summary);
   MakeDataclass(PyRefinementOptions);
-  auto ref_options =
-      PyRefinementOptions().cast<AbsolutePoseRefinementOptions>();
 
   m.def("absolute_pose_estimation",
         &PyEstimateAndRefineAbsolutePose,
         "points2D"_a,
         "points3D"_a,
         "camera"_a,
-        "estimation_options"_a = est_options,
-        "refinement_options"_a = ref_options,
+        py::arg_v("estimation_options",
+                  AbsolutePoseEstimationOptions(),
+                  "AbsolutePoseEstimationOptions()"),
+        py::arg_v("refinement_options",
+                  AbsolutePoseRefinementOptions(),
+                  "AbsolutePoseRefinementOptions()"),
         "return_covariance"_a = false,
         "Absolute pose estimation with non-linear refinement.");
 
@@ -151,6 +131,8 @@ void BindAbsolutePoseEstimator(py::module& m) {
         "points3D"_a,
         "inlier_mask"_a,
         "camera"_a,
-        "refinement_options"_a = ref_options,
+        py::arg_v("refinement_options",
+                  AbsolutePoseRefinementOptions(),
+                  "AbsolutePoseRefinementOptions()"),
         "Non-linear refinement of absolute pose.");
 }

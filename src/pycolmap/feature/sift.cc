@@ -84,15 +84,93 @@ class Sift {
 };
 
 void BindSift(py::module& m) {
+  using Opts = SiftExtractionOptions;
+  auto PyNormalization =
+      py::enum_<Opts::Normalization>(m, "Normalization")
+          .value("L1_ROOT",
+                 Opts::Normalization::L1_ROOT,
+                 "L1-normalizes each descriptor followed by element-wise "
+                 "square rooting. This normalization is usually better than "
+                 "standard "
+                 "L2-normalization. See 'Three things everyone should know "
+                 "to improve object retrieval', Relja Arandjelovic and "
+                 "Andrew Zisserman, CVPR 2012.")
+          .value(
+              "L2", Opts::Normalization::L2, "Each vector is L2-normalized.");
+  AddStringToEnumConstructor(PyNormalization);
+
+  auto PySiftExtractionOptions =
+      py::class_<Opts>(m, "SiftExtractionOptions")
+          .def(py::init<>())
+          .def_readwrite("num_threads",
+                         &Opts::num_threads,
+                         "Number of threads for feature matching and "
+                         "geometric verification.")
+          .def_readwrite("gpu_index",
+                         &Opts::gpu_index,
+                         "Index of the GPU used for feature matching. For "
+                         "multi-GPU matching, you should separate multiple "
+                         "GPU indices by comma, e.g., '0,1,2,3'.")
+          .def_readwrite(
+              "max_image_size",
+              &Opts::max_image_size,
+              "Maximum image size, otherwise image will be down-scaled.")
+          .def_readwrite("max_num_features",
+                         &Opts::max_num_features,
+                         "Maximum number of features to detect, keeping "
+                         "larger-scale features.")
+          .def_readwrite("first_octave",
+                         &Opts::first_octave,
+                         "First octave in the pyramid, i.e. -1 upsamples the "
+                         "image by one level.")
+          .def_readwrite("num_octaves", &Opts::num_octaves)
+          .def_readwrite("octave_resolution",
+                         &Opts::octave_resolution,
+                         "Number of levels per octave.")
+          .def_readwrite("peak_threshold",
+                         &Opts::peak_threshold,
+                         "Peak threshold for detection.")
+          .def_readwrite("edge_threshold",
+                         &Opts::edge_threshold,
+                         "Edge threshold for detection.")
+          .def_readwrite("estimate_affine_shape",
+                         &Opts::estimate_affine_shape,
+                         "Estimate affine shape of SIFT features in the form "
+                         "of oriented ellipses as opposed to original SIFT "
+                         "which estimates oriented disks.")
+          .def_readwrite("max_num_orientations",
+                         &Opts::max_num_orientations,
+                         "Maximum number of orientations per keypoint if not "
+                         "estimate_affine_shape.")
+          .def_readwrite("upright",
+                         &Opts::upright,
+                         "Fix the orientation to 0 for upright features")
+          .def_readwrite("darkness_adaptivity",
+                         &Opts::darkness_adaptivity,
+                         "Whether to adapt the feature detection depending "
+                         "on the image darkness. only available on GPU.")
+          .def_readwrite(
+              "domain_size_pooling",
+              &Opts::domain_size_pooling,
+              "\"Domain-Size Pooling in Local Descriptors and Network"
+              "Architectures\", J. Dong and S. Soatto, CVPR 2015")
+          .def_readwrite("dsp_min_scale", &Opts::dsp_min_scale)
+          .def_readwrite("dsp_max_scale", &Opts::dsp_max_scale)
+          .def_readwrite("dsp_num_scales", &Opts::dsp_num_scales)
+          .def_readwrite("normalization",
+                         &Opts::normalization,
+                         "L1_ROOT or L2 descriptor normalization");
+  MakeDataclass(PySiftExtractionOptions);
+
   // For backwards consistency
-  py::dict sift_options;
-  sift_options["peak_threshold"] = 0.01;
-  sift_options["first_octave"] = 0;
-  sift_options["max_image_size"] = 7000;
+  SiftExtractionOptions options;
+  options.peak_threshold = 0.01;
+  options.first_octave = 0;
+  options.max_image_size = 7000;
 
   py::class_<Sift>(m, "Sift")
       .def(py::init<SiftExtractionOptions, Device>(),
-           "options"_a = sift_options,
+           "options"_a = options,
            "device"_a = Device::AUTO)
       .def("extract",
            py::overload_cast<const Eigen::Ref<const pyimage_t<uint8_t>>&>(

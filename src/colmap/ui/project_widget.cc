@@ -30,6 +30,7 @@
 #include "colmap/ui/project_widget.h"
 
 #include "colmap/scene/database.h"
+#include "colmap/util/file.h"
 
 namespace colmap {
 

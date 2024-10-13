@@ -37,6 +37,8 @@ COLMAP_ADD_LIBRARY(
         cache.h
         controller_thread.h
         eigen_alignment.h
+        endian.h endian.cc
+        file.h file.cc
         logging.h logging.cc
         misc.h misc.cc
         opengl_utils.h opengl_utils.cc
@@ -48,12 +50,12 @@ COLMAP_ADD_LIBRARY(
         types.h
         version.h version.cc
     PUBLIC_LINK_LIBS
-        Boost::filesystem
         Eigen3::Eigen
         glog::glog
         SQLite::SQLite3
     PRIVATE_LINK_LIBS
         Boost::boost
+        "$<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:-lstdc++fs>"
 )
 if(TESTS_ENABLED)
     target_sources(
@@ -87,6 +89,11 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME endian_test
     SRCS endian_test.cc
+    LINK_LIBS colmap_util
+)
+COLMAP_ADD_TEST(
+    NAME file_test
+    SRCS file_test.cc
     LINK_LIBS colmap_util
 )
 COLMAP_ADD_TEST(

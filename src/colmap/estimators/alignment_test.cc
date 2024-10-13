@@ -55,8 +55,6 @@ void ExpectEqualSim3d(const Sim3d& gt_tgt_from_src, const Sim3d& tgt_from_src) {
 }
 
 Reconstruction GenerateReconstructionForAlignment() {
-  // const std::string database_path = CreateTestDir() + "/database.db";
-  // Database database(database_path);
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_cameras = 2;
@@ -114,6 +112,39 @@ TEST(Alignment, AlignReconstructionsViaPoints) {
                                             /*min_inlier_ratio=*/0.9,
                                             &tgt_from_src));
   ExpectEqualSim3d(gt_tgt_from_src, tgt_from_src);
+}
+
+TEST(Alignment, MergeReconstructions) {
+  // Synthesize a reconstruction which has at least two cameras
+  Reconstruction src_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_cameras = 2;
+  synthetic_dataset_options.num_images = 20;
+  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.point2D_stddev = 0;
+  SynthesizeDataset(synthetic_dataset_options, &src_reconstruction);
+  Reconstruction tgt_reconstruction = src_reconstruction;
+
+  // Remove the camera of the first image from the target reconstruction
+  const std::set<image_t> image_ids = tgt_reconstruction.RegImageIds();
+  const camera_t camera_id =
+      tgt_reconstruction.Image(*image_ids.begin()).CameraId();
+  for (const auto& image_id : image_ids) {
+    if (tgt_reconstruction.Image(image_id).CameraId() == camera_id) {
+      tgt_reconstruction.DeRegisterImage(image_id);
+    }
+  }
+  tgt_reconstruction.TearDown();
+  EXPECT_EQ(tgt_reconstruction.NumCameras(), 1);
+  EXPECT_EQ(tgt_reconstruction.NumImages(), 10);
+
+  // Merge reconstructions
+  MergeReconstructions(0.01, src_reconstruction, tgt_reconstruction);
+  EXPECT_EQ(tgt_reconstruction.NumCameras(), 2);
+  EXPECT_EQ(tgt_reconstruction.NumImages(), 20);
+  EXPECT_EQ(tgt_reconstruction.NumPoints3D(), 50);
+  EXPECT_EQ(tgt_reconstruction.ComputeNumObservations(),
+            src_reconstruction.ComputeNumObservations());
 }
 
 }  // namespace colmap

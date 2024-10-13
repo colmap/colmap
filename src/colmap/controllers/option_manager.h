@@ -48,7 +48,7 @@ struct SpatialMatchingOptions;
 struct TransitiveMatchingOptions;
 struct ImagePairsMatchingOptions;
 struct BundleAdjustmentOptions;
-struct IncrementalMapperOptions;
+struct IncrementalPipelineOptions;
 struct RenderOptions;
 
 namespace mvs {
@@ -134,7 +134,7 @@ class OptionManager {
   std::shared_ptr<ImagePairsMatchingOptions> image_pairs_matching;
 
   std::shared_ptr<BundleAdjustmentOptions> bundle_adjustment;
-  std::shared_ptr<IncrementalMapperOptions> mapper;
+  std::shared_ptr<IncrementalPipelineOptions> mapper;
 
   std::shared_ptr<mvs::PatchMatchOptions> patch_match_stereo;
   std::shared_ptr<mvs::StereoFusionOptions> stereo_fusion;

@@ -235,7 +235,7 @@ RANSAC<Estimator, SupportMeasurer, Sampler>::Estimate(
       const auto support = support_measurer.Evaluate(residuals, max_residual);
 
       // Save as best subset if better than all previous subsets.
-      if (support_measurer.Compare(support, best_support)) {
+      if (support_measurer.IsLeftBetter(support, best_support)) {
         best_support = support;
         best_model = sample_model;
 

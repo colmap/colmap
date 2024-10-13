@@ -39,16 +39,11 @@
 
 namespace colmap {
 
-// Analytic solver for the P3P (Perspective-Three-Point) problem.
-//
-// The algorithm is based on the following paper:
-//
-//    X.S. Gao, X.-R. Hou, J. Tang, H.-F. Chang. Complete Solution
-//    Classification for the Perspective-Three-Point Problem.
-//    http://www.mmrc.iss.ac.cn/~xgao/paper/ieee.pdf
 class P3PEstimator {
  public:
   // The 2D image feature observations.
+  // TODO(jsch): Possibly change to 3D ray directions and express residuals as
+  // angular errors. Needs some evaluation.
   typedef Eigen::Vector2d X_t;
   // The observed 3D features in the world frame.
   typedef Eigen::Vector3d Y_t;
@@ -67,18 +62,45 @@ class P3PEstimator {
   // @return           Most probable pose as length-1 vector of a 3x4 matrix.
   static void Estimate(const std::vector<X_t>& points2D,
                        const std::vector<Y_t>& points3D,
-                       std::vector<M_t>* models);
+                       std::vector<M_t>* cams_from_world);
 
   // Calculate the squared reprojection error given a set of 2D-3D point
   // correspondences and a projection matrix.
   //
-  // @param points2D     Normalized 2D image points as Nx2 matrix.
-  // @param points3D     3D world points as Nx3 matrix.
-  // @param proj_matrix  3x4 projection matrix.
-  // @param residuals    Output vector of residuals.
+  // @param points2D        Normalized 2D image points as Nx2 matrix.
+  // @param points3D        3D world points as Nx3 matrix.
+  // @param cam_from_world  3x4 projection matrix.
+  // @param residuals       Output vector of residuals.
   static void Residuals(const std::vector<X_t>& points2D,
                         const std::vector<Y_t>& points3D,
-                        const M_t& proj_matrix,
+                        const M_t& cam_from_world,
+                        std::vector<double>* residuals);
+};
+
+// Minimal solver for 6-DOF pose and focal length.
+class P4PFEstimator {
+ public:
+  // The 2D image feature observations.
+  // Expected to be normalized by the principal point.
+  typedef Eigen::Vector2d X_t;
+  // The observed 3D features in the world frame.
+  typedef Eigen::Vector3d Y_t;
+  struct M_t {
+    // The transformation from the world to the camera frame.
+    Eigen::Matrix3x4d cam_from_world;
+    // The focal length of the camera.
+    double focal_length = 0.;
+  };
+
+  static const int kMinNumSamples = 4;
+
+  static void Estimate(const std::vector<X_t>& points2D,
+                       const std::vector<Y_t>& points3D,
+                       std::vector<M_t>* models);
+
+  static void Residuals(const std::vector<X_t>& points2D,
+                        const std::vector<Y_t>& points3D,
+                        const M_t& model,
                         std::vector<double>* residuals);
 };
 
@@ -114,24 +136,24 @@ class EPNPEstimator {
   // @return           Most probable pose as length-1 vector of a 3x4 matrix.
   static void Estimate(const std::vector<X_t>& points2D,
                        const std::vector<Y_t>& points3D,
-                       std::vector<M_t>* models);
+                       std::vector<M_t>* cams_from_world);
 
   // Calculate the squared reprojection error given a set of 2D-3D point
   // correspondences and a projection matrix.
   //
-  // @param points2D     Normalized 2D image points as Nx2 matrix.
-  // @param points3D     3D world points as Nx3 matrix.
-  // @param proj_matrix  3x4 projection matrix.
-  // @param residuals    Output vector of residuals.
+  // @param points2D        Normalized 2D image points as Nx2 matrix.
+  // @param points3D        3D world points as Nx3 matrix.
+  // @param cam_from_world  3x4 projection matrix.
+  // @param residuals       Output vector of residuals.
   static void Residuals(const std::vector<X_t>& points2D,
                         const std::vector<Y_t>& points3D,
-                        const M_t& proj_matrix,
+                        const M_t& cam_from_world,
                         std::vector<double>* residuals);
 
  private:
   bool ComputePose(const std::vector<Eigen::Vector2d>& points2D,
                    const std::vector<Eigen::Vector3d>& points3D,
-                   Eigen::Matrix3x4d* proj_matrix);
+                   Eigen::Matrix3x4d* cam_from_world);
 
   void ChooseControlPoints();
   bool ComputeBarycentricCoordinates();
