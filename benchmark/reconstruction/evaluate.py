@@ -227,8 +227,12 @@ def evaluate_eth3d(args):
                 continue
 
             scene = scene_path.name
-            workspace_path = args.run_path / args.run_name / "eth3d" / category / scene
-            sparse_gt_path = list(scene_path.glob("*_calibration_undistorted"))[0]
+            workspace_path = (
+                args.run_path / args.run_name / "eth3d" / category / scene
+            )
+            sparse_gt_path = list(scene_path.glob("*_calibration_undistorted"))[
+                0
+            ]
 
             print(f"Processing ETH3D: category={category}, scene={scene}")
 
@@ -268,7 +272,9 @@ def evaluate_eth3d(args):
                 dts, args.thresholds, min_error=0.001
             )
 
-        results[category]["__all__"] = compute_auc(all_dts, args.thresholds, min_error=0.02)
+        results[category]["__all__"] = compute_auc(
+            all_dts, args.thresholds, min_error=0.02
+        )
 
     return results
 
@@ -276,7 +282,9 @@ def evaluate_eth3d(args):
 def evaluate_imc(args, year):
     folder_name = f"imc{year}"
     results = {}
-    for category_path in Path(args.data_path / f"{folder_name}/train").iterdir():
+    for category_path in Path(
+        args.data_path / f"{folder_name}/train"
+    ).iterdir():
         if not category_path.is_dir() or (
             args.categories and category_path.name not in args.categories
         ):
@@ -284,7 +292,7 @@ def evaluate_imc(args, year):
 
         category = category_path.name
         results[category] = {}
-        
+
         all_dts = []
 
         for scene_path in category_path.iterdir():
@@ -324,21 +332,35 @@ def evaluate_imc(args, year):
             all_dts.extend(dts)
 
             # The ground truth poses are deemed accurate only up to 2cm.
-            results[category][scene] = compute_auc(dts, args.thresholds, min_error=0.02)
+            results[category][scene] = compute_auc(
+                dts, args.thresholds, min_error=0.02
+            )
 
-        results[category]["__all__"] = compute_auc(all_dts, args.thresholds, min_error=0.02)
+        results[category]["__all__"] = compute_auc(
+            all_dts, args.thresholds, min_error=0.02
+        )
 
     return results
 
 
 def format_results(results, thresholds):
     column = "scenes"
-    size1 = max(len(column) + 2, max(len(s) for d in results.values() for c in d.values() for s in c.keys()))
+    size1 = max(
+        len(column) + 2,
+        max(
+            len(s)
+            for d in results.values()
+            for c in d.values()
+            for s in c.keys()
+        ),
+    )
     metric = "AUC @ X cm (%)"
     size2 = max(len(metric) + 2, len(thresholds) * 7 - 1)
     header = f"{column:=^{size1}} {metric:=^{size2}}"
     header += "\n" + " " * (size1 + 1)
-    header += " ".join(f'{str(t*100).rstrip("0").rstrip("."):^6}' for t in thresholds)
+    header += " ".join(
+        f'{str(t*100).rstrip("0").rstrip("."):^6}' for t in thresholds
+    )
     text = [header]
     for dataset, category_results in results.items():
         for category, scene_results in category_results.items():
@@ -372,11 +394,15 @@ def parse_args():
         "--run_name",
         default=datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"),
     )
-    parser.add_argument("--overwrite_database", default=False, action="store_true")
+    parser.add_argument(
+        "--overwrite_database", default=False, action="store_true"
+    )
     parser.add_argument(
         "--overwrite_reconstruction", default=False, action="store_true"
     )
-    parser.add_argument("--overwrite_alignment", default=False, action="store_true")
+    parser.add_argument(
+        "--overwrite_alignment", default=False, action="store_true"
+    )
     parser.add_argument("--colmap_path", required=True)
     parser.add_argument("--use_gpu", default=True, action="store_true")
     parser.add_argument("--use_cpu", dest="use_gpu", action="store_false")
