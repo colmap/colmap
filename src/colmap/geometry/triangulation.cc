@@ -51,7 +51,13 @@ bool TriangulatePoint(const Eigen::Matrix3x4d& cam1_from_world,
   A.row(3) = point2(1) * cam2_from_world.row(2) - cam2_from_world.row(1);
 
   const Eigen::JacobiSVD<Eigen::Matrix4d> svd(A, Eigen::ComputeFullV);
-  if (svd.info() != Eigen::Success || svd.matrixV()(3, 3) == 0) {
+#if EIGEN_VERSION_AT_LEAST(3, 4, 0)
+  if (svd.info() != Eigen::Success) {
+    return false;
+  }
+#endif
+
+  if (svd.matrixV()(3, 3) == 0) {
     return false;
   }
 
