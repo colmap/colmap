@@ -90,12 +90,6 @@ void BindAbsolutePoseEstimator(py::module& m) {
   PyEstimationOptions.def(py::init<>())
       .def_readwrite("estimate_focal_length",
                      &AbsolutePoseEstimationOptions::estimate_focal_length)
-      .def_readwrite("num_focal_length_samples",
-                     &AbsolutePoseEstimationOptions::num_focal_length_samples)
-      .def_readwrite("min_focal_length_ratio",
-                     &AbsolutePoseEstimationOptions::min_focal_length_ratio)
-      .def_readwrite("max_focal_length_ratio",
-                     &AbsolutePoseEstimationOptions::max_focal_length_ratio)
       .def_readwrite("ransac", &AbsolutePoseEstimationOptions::ransac_options);
   MakeDataclass(PyEstimationOptions);
 

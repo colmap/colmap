@@ -30,6 +30,7 @@
 #include "colmap/ui/database_management_widget.h"
 
 #include "colmap/sensor/models.h"
+#include "colmap/util/file.h"
 
 namespace colmap {
 

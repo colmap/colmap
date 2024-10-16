@@ -66,6 +66,8 @@ COLMAP_ADD_LIBRARY(
         colmap_optim
         Eigen3::Eigen
         Ceres::ceres
+    PRIVATE_LINK_LIBS
+        PoseLib::PoseLib
 )
 
 if(CUDA_ENABLED)

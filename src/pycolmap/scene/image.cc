@@ -11,6 +11,7 @@
 #include "pycolmap/scene/types.h"
 
 #include <memory>
+#include <optional>
 #include <sstream>
 
 #include <pybind11/eigen.h>
@@ -43,13 +44,13 @@ std::string PrintImage(const Image& image) {
 template <typename T>
 std::shared_ptr<Image> MakeImage(const std::string& name,
                                  const std::vector<T>& points2D,
-                                 const Rigid3d& cam_from_world,
+                                 const std::optional<Rigid3d>& cam_from_world,
                                  size_t camera_id,
                                  image_t image_id) {
   auto image = std::make_shared<Image>();
   image->SetName(name);
   image->SetPoints2D(points2D);
-  image->CamFromWorld() = cam_from_world;
+  image->SetCamFromWorld(cam_from_world);
   if (camera_id != kInvalidCameraId) {
     image->SetCameraId(camera_id);
   }
@@ -63,7 +64,7 @@ void BindImage(py::module& m) {
       .def(py::init(&MakeImage<Point2D>),
            "name"_a = "",
            py::arg_v("points2D", Point2DVector(), "ListPoint2D()"),
-           "cam_from_world"_a = Rigid3d(),
+           "cam_from_world"_a = py::none(),
            "camera_id"_a = kInvalidCameraId,
            "id"_a = kInvalidImageId)
       .def(py::init(&MakeImage<Eigen::Vector2d>),
@@ -96,12 +97,14 @@ void BindImage(py::module& m) {
                     "Name of the image.")
       .def_property(
           "cam_from_world",
-          py::overload_cast<>(&Image::CamFromWorld),
-          [](Image& self, const Rigid3d& cam_from_world) {
-            self.CamFromWorld() = cam_from_world;
-          },
+          &Image::MaybeCamFromWorld,
+          py::overload_cast<const std::optional<Rigid3d>&>(
+              &Image::SetCamFromWorld),
           "The pose of the image, defined as the transformation from world to "
-          "camera space.")
+          "camera space. None if the image is not registered.")
+      .def_property_readonly(
+          "has_pose", &Image::HasPose, "Whether the image has a valid pose.")
+      .def("reset_pose", &Image::ResetPose, "Invalidate the pose of the image.")
       .def_property(
           "points2D",
           py::overload_cast<>(&Image::Points2D),
@@ -152,10 +155,6 @@ void BindImage(py::module& m) {
       .def("reset_camera_ptr",
            &Image::ResetCameraPtr,
            "Make the camera pointer a nullptr.")
-      .def_property("registered",
-                    &Image::IsRegistered,
-                    &Image::SetRegistered,
-                    "Whether image is registered in the reconstruction.")
       .def("num_points2D",
            &Image::NumPoints2D,
            "Get the number of image points (keypoints).")

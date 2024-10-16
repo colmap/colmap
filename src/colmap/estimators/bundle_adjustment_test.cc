@@ -104,10 +104,14 @@
   }
 
 #define CheckVariablePoint(point, orig_point) \
-  { EXPECT_NE((point).xyz, (orig_point).xyz); }
+  {                                           \
+    EXPECT_NE((point).xyz, (orig_point).xyz); \
+  }
 
 #define CheckConstantPoint(point, orig_point) \
-  { EXPECT_EQ((point).xyz, (orig_point).xyz); }
+  {                                           \
+    EXPECT_EQ((point).xyz, (orig_point).xyz); \
+  }
 
 namespace colmap {
 namespace {
@@ -154,11 +158,10 @@ void GenerateReconstruction(const size_t num_images,
     image.SetImageId(image_id);
     image.SetCameraId(camera_id);
     image.SetName(std::to_string(i));
-    image.CamFromWorld() = Rigid3d(
+    image.SetCamFromWorld(Rigid3d(
         Eigen::Quaterniond::Identity(),
         Eigen::Vector3d(
-            RandomUniformReal(-1.0, 1.0), RandomUniformReal(-1.0, 1.0), 10));
-    image.SetRegistered(true);
+            RandomUniformReal(-1.0, 1.0), RandomUniformReal(-1.0, 1.0), 10)));
     reconstruction->AddImage(image);
 
     const Eigen::Matrix3x4d cam_from_world_matrix =

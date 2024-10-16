@@ -29,6 +29,7 @@
 
 #include "colmap/mvs/workspace.h"
 
+#include "colmap/util/file.h"
 #include "colmap/util/threading.h"
 
 #include <numeric>

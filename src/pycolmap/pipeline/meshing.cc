@@ -1,5 +1,6 @@
 #include "colmap/mvs/meshing.h"
 
+#include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 
 #include "pycolmap/helpers.h"

@@ -36,6 +36,7 @@
 #include "colmap/scene/point3d.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/track.h"
+#include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/ply.h"
 #include "colmap/util/types.h"
@@ -113,8 +114,7 @@ void ReadImagesText(Reconstruction& reconstruction, const std::string& path) {
     class Image image;
     image.SetImageId(image_id);
 
-    image.SetRegistered(true);
-
+    image.SetCamFromWorld(Rigid3d());
     Rigid3d& cam_from_world = image.CamFromWorld();
 
     std::getline(line_stream1, item, ' ');
@@ -292,6 +292,7 @@ void ReadImagesBinary(Reconstruction& reconstruction, const std::string& path) {
 
     image.SetImageId(ReadBinaryLittleEndian<image_t>(&file));
 
+    image.SetCamFromWorld(Rigid3d());
     Rigid3d& cam_from_world = image.CamFromWorld();
     cam_from_world.rotation.w() = ReadBinaryLittleEndian<double>(&file);
     cam_from_world.rotation.x() = ReadBinaryLittleEndian<double>(&file);
@@ -334,7 +335,6 @@ void ReadImagesBinary(Reconstruction& reconstruction, const std::string& path) {
       }
     }
 
-    image.SetRegistered(true);
     reconstruction.AddImage(std::move(image));
   }
 }
@@ -419,8 +419,8 @@ void WriteImagesText(const Reconstruction& reconstruction,
        << ", mean observations per image: "
        << reconstruction.ComputeMeanObservationsPerRegImage() << std::endl;
 
-  for (const auto& image : reconstruction.Images()) {
-    if (!image.second.IsRegistered()) {
+  for (const auto& [image_id, image] : reconstruction.Images()) {
+    if (!reconstruction.IsImageRegistered(image_id)) {
       continue;
     }
 
@@ -429,9 +429,9 @@ void WriteImagesText(const Reconstruction& reconstruction,
 
     std::string line_string;
 
-    line << image.first << " ";
+    line << image_id << " ";
 
-    const Rigid3d& cam_from_world = image.second.CamFromWorld();
+    const Rigid3d& cam_from_world = image.CamFromWorld();
     line << cam_from_world.rotation.w() << " ";
     line << cam_from_world.rotation.x() << " ";
     line << cam_from_world.rotation.y() << " ";
@@ -440,16 +440,16 @@ void WriteImagesText(const Reconstruction& reconstruction,
     line << cam_from_world.translation.y() << " ";
     line << cam_from_world.translation.z() << " ";
 
-    line << image.second.CameraId() << " ";
+    line << image.CameraId() << " ";
 
-    line << image.second.Name();
+    line << image.Name();
 
     file << line.str() << std::endl;
 
     line.str("");
     line.clear();
 
-    for (const Point2D& point2D : image.second.Points2D()) {
+    for (const Point2D& point2D : image.Points2D()) {
       line << point2D.xy(0) << " ";
       line << point2D.xy(1) << " ";
       if (point2D.HasPoint3D()) {
@@ -531,14 +531,14 @@ void WriteImagesBinary(const Reconstruction& reconstruction,
 
   WriteBinaryLittleEndian<uint64_t>(&file, reconstruction.NumRegImages());
 
-  for (const auto& image : reconstruction.Images()) {
-    if (!image.second.IsRegistered()) {
+  for (const auto& [image_id, image] : reconstruction.Images()) {
+    if (!reconstruction.IsImageRegistered(image_id)) {
       continue;
     }
 
-    WriteBinaryLittleEndian<image_t>(&file, image.first);
+    WriteBinaryLittleEndian<image_t>(&file, image_id);
 
-    const Rigid3d& cam_from_world = image.second.CamFromWorld();
+    const Rigid3d& cam_from_world = image.CamFromWorld();
     WriteBinaryLittleEndian<double>(&file, cam_from_world.rotation.w());
     WriteBinaryLittleEndian<double>(&file, cam_from_world.rotation.x());
     WriteBinaryLittleEndian<double>(&file, cam_from_world.rotation.y());
@@ -547,13 +547,13 @@ void WriteImagesBinary(const Reconstruction& reconstruction,
     WriteBinaryLittleEndian<double>(&file, cam_from_world.translation.y());
     WriteBinaryLittleEndian<double>(&file, cam_from_world.translation.z());
 
-    WriteBinaryLittleEndian<camera_t>(&file, image.second.CameraId());
+    WriteBinaryLittleEndian<camera_t>(&file, image.CameraId());
 
-    const std::string name = image.second.Name() + '\0';
+    const std::string name = image.Name() + '\0';
     file.write(name.c_str(), name.size());
 
-    WriteBinaryLittleEndian<uint64_t>(&file, image.second.NumPoints2D());
-    for (const Point2D& point2D : image.second.Points2D()) {
+    WriteBinaryLittleEndian<uint64_t>(&file, image.NumPoints2D());
+    for (const Point2D& point2D : image.Points2D()) {
       WriteBinaryLittleEndian<double>(&file, point2D.xy(0));
       WriteBinaryLittleEndian<double>(&file, point2D.xy(1));
       WriteBinaryLittleEndian<point3D_t>(&file, point2D.point3D_id);
@@ -986,8 +986,8 @@ void ExportVRML(const Reconstruction& reconstruction,
   points.emplace_back(+six / 3.0, +siy / 3.0, six * 1.0 * 2.0);
   points.emplace_back(-six / 3.0, +siy / 3.0, six * 1.0 * 2.0);
 
-  for (const auto& image : reconstruction.Images()) {
-    if (!image.second.IsRegistered()) {
+  for (const auto& [image_id, image] : reconstruction.Images()) {
+    if (!reconstruction.IsImageRegistered(image_id)) {
       continue;
     }
 
@@ -1009,7 +1009,7 @@ void ExportVRML(const Reconstruction& reconstruction,
 
     // Move camera base model to camera pose.
     const Eigen::Matrix3x4d world_from_cam =
-        Inverse(image.second.CamFromWorld()).ToMatrix();
+        Inverse(image.CamFromWorld()).ToMatrix();
     for (size_t i = 0; i < points.size(); i++) {
       const Eigen::Vector3d point = world_from_cam * points[i].homogeneous();
       images_file << point(0) << " " << point(1) << " " << point(2) << "\n";

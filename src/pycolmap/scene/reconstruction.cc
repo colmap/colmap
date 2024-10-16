@@ -3,6 +3,7 @@
 #include "colmap/scene/correspondence_graph.h"
 #include "colmap/scene/reconstruction_io.h"
 #include "colmap/sensor/models.h"
+#include "colmap/util/file.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/ply.h"
@@ -71,21 +72,24 @@ void BindReconstruction(py::module& m) {
       .def("image",
            py::overload_cast<image_t>(&Reconstruction::Image),
            "image_id"_a,
-           "Direct accessor for an image.")
+           "Direct accessor for an image.",
+           py::return_value_policy::reference_internal)
       .def_property_readonly("cameras",
                              &Reconstruction::Cameras,
                              py::return_value_policy::reference_internal)
       .def("camera",
            py::overload_cast<camera_t>(&Reconstruction::Camera),
            "camera_id"_a,
-           "Direct accessor for a camera.")
+           "Direct accessor for a camera.",
+           py::return_value_policy::reference_internal)
       .def_property_readonly("points3D",
                              &Reconstruction::Points3D,
                              py::return_value_policy::reference_internal)
       .def("point3D",
            py::overload_cast<point3D_t>(&Reconstruction::Point3D),
            "point3D_id"_a,
-           "Direct accessor for a Point3D.")
+           "Direct accessor for a Point3D.",
+           py::return_value_policy::reference_internal)
       .def("point3D_ids", &Reconstruction::Point3DIds)
       .def("reg_image_ids", &Reconstruction::RegImageIds)
       .def("exists_camera", &Reconstruction::ExistsCamera, "camera_id"_a)
@@ -228,7 +232,7 @@ void BindReconstruction(py::module& m) {
                 THROW_CHECK(self.ExistsImage(image_id)) << image_id;
                 THROW_CHECK(self.IsImageRegistered(image_id)) << image_id;
                 const Image& image = self.Image(image_id);
-                THROW_CHECK(image.IsRegistered());
+                THROW_CHECK(image.HasPose());
                 THROW_CHECK_EQ(image.Point2D(point2D_idx).point3D_id, p3Did);
               }
             }

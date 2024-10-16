@@ -6,7 +6,6 @@
     "supports": "(linux | (windows & !static) | osx) & (x86 | x64 | arm64)",
     "dependencies": [
         "boost-algorithm",
-        "boost-filesystem",
         "boost-graph",
         "boost-heap",
         "boost-program-options",

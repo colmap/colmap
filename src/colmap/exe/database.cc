@@ -31,6 +31,7 @@
 
 #include "colmap/controllers/option_manager.h"
 #include "colmap/scene/database.h"
+#include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 
 namespace colmap {

@@ -30,8 +30,9 @@
 #include "colmap/util/ply.h"
 
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/endian.h"
+#include "colmap/util/file.h"
 #include "colmap/util/logging.h"
-#include "colmap/util/misc.h"
 
 #include <fstream>
 
