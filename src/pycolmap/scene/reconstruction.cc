@@ -44,6 +44,7 @@ void BindReconstruction(py::module& m) {
   py::class_<Reconstruction, std::shared_ptr<Reconstruction>>(m,
                                                               "Reconstruction")
       .def(py::init<>())
+      .def(py::init<const Reconstruction&>())
       .def(py::init([](const std::string& path) {
              auto reconstruction = std::make_shared<Reconstruction>();
              reconstruction->Read(path);
@@ -248,6 +249,10 @@ void BindReconstruction(py::module& m) {
       .def("__deepcopy__",
            [](const Reconstruction& self, const py::dict&) {
              return Reconstruction(self);
+           })
+      .def("__assign__",
+           [](Reconstruction& self, const Reconstruction& recon) {
+             return self = recon;
            })
       .def("__repr__",
            [](const Reconstruction& self) {
