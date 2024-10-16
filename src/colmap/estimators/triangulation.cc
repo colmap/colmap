@@ -63,12 +63,13 @@ void TriangulationEstimator::Estimate(const std::vector<X_t>& point_data,
   if (point_data.size() == 2) {
     // Two-view triangulation.
 
-    const M_t xyz = TriangulatePoint(pose_data[0].cam_from_world,
-                                     pose_data[1].cam_from_world,
-                                     point_data[0].point_normalized,
-                                     point_data[1].point_normalized);
-
-    if (HasPointPositiveDepth(pose_data[0].cam_from_world, xyz) &&
+    M_t xyz;
+    if (TriangulatePoint(pose_data[0].cam_from_world,
+                         pose_data[1].cam_from_world,
+                         point_data[0].point_normalized,
+                         point_data[1].point_normalized,
+                         &xyz) &&
+        HasPointPositiveDepth(pose_data[0].cam_from_world, xyz) &&
         HasPointPositiveDepth(pose_data[1].cam_from_world, xyz) &&
         CalculateTriangulationAngle(pose_data[0].proj_center,
                                     pose_data[1].proj_center,
@@ -89,7 +90,10 @@ void TriangulationEstimator::Estimate(const std::vector<X_t>& point_data,
       points.push_back(point_data[i].point_normalized);
     }
 
-    const M_t xyz = TriangulateMultiViewPoint(proj_matrices, points);
+    M_t xyz;
+    if (!TriangulateMultiViewPoint(proj_matrices, points, &xyz)) {
+      return;
+    }
 
     // Check for cheirality constraint.
     for (const auto& pose : pose_data) {
