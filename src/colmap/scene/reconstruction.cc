@@ -55,6 +55,21 @@ Reconstruction::Reconstruction(const Reconstruction& recon)
   }
 }
 
+Reconstruction& Reconstruction::operator=(const Reconstruction& recon) {
+  if (this != &recon) {
+    cameras_ = recon.cameras_;
+    images_ = recon.images_;
+    points3D_ = recon.points3D_;
+    reg_image_ids_ = recon.reg_image_ids_;
+    max_point3D_id_ = recon.max_point3D_id_;
+    for (const auto& [image_id, image] : Images()) {
+      Image(image_id).ResetCameraPtr();
+      Image(image_id).SetCameraPtr(&Camera(image.CameraId()));
+    }
+  }
+  return *this;
+}
+
 std::unordered_set<point3D_t> Reconstruction::Point3DIds() const {
   std::unordered_set<point3D_t> point3D_ids;
   point3D_ids.reserve(points3D_.size());

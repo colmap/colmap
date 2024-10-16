@@ -61,6 +61,7 @@ class Reconstruction {
   Reconstruction();
   // Update the camera pointers for each image at copy constructor.
   Reconstruction(const Reconstruction& recon);
+  Reconstruction& operator=(const Reconstruction& recon);
 
   // Get number of objects.
   inline size_t NumCameras() const;
