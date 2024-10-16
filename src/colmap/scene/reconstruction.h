@@ -60,7 +60,7 @@ class Reconstruction {
  public:
   Reconstruction();
   // Update the camera pointers for each image at copy constructor.
-  inline Reconstruction(const Reconstruction& recon);
+  Reconstruction(const Reconstruction& recon);
 
   // Get number of objects.
   inline size_t NumCameras() const;
@@ -259,18 +259,6 @@ class Reconstruction {
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////
-
-Reconstruction::Reconstruction(const Reconstruction& recon)
-    : cameras_(recon.cameras_),
-      images_(recon.images_),
-      points3D_(recon.points3D_),
-      reg_image_ids_(recon.reg_image_ids_),
-      max_point3D_id_(recon.max_point3D_id_) {
-  for (const auto& [image_id, image] : Images()) {
-    Image(image_id).ResetCameraPtr();
-    Image(image_id).SetCameraPtr(&Camera(image.CameraId()));
-  }
-}
 
 size_t Reconstruction::NumCameras() const { return cameras_.size(); }
 
