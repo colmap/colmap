@@ -35,40 +35,40 @@
 #include <unordered_map>
 
 #include <Eigen/Core>
-#include <Eigen/Dense>
-#include <Eigen/Sparse>
 #include <ceres/ceres.h>
 
 namespace colmap {
 
-struct BACovariance {
-  // Indicates whether the covariances were estimated successfully.
-  bool success = false;
-
-  // Tangent space covariance in the order [rotation, translation]. If some
-  // parameters are kept constant, the respective rows/columns are omitted.
-  // The full pose covariance matrix has dimension 6x6.
-  std::unordered_map<image_t, Eigen::MatrixXd> pose_covs;
-
-  // Tangent space covariance for 3D points.
-  std::unordered_map<point3D_t, Eigen::Matrix3d> point_covs;
-};
-
-enum class BACovarianceType {
-  kOnlyPoses,
-  kOnlyPoints,
-  kPosesAndPoints,
-};
-
-BACovariance EstimateCeresBACovariance(
+// Computes pose covariances, given fixed camera extrinsics and intrinsics.
+std::unordered_map<image_t, Eigen::MatrixXd> EstimatePoseCovariances(
     const Reconstruction& reconstruction,
-    ceres::Problem* problem,
-    BACovarianceType type = BACovarianceType::kOnlyPoses);
-
-BACovariance EstimateSchurBACovariance(
-    const Reconstruction& reconstruction,
-    ceres::Problem* problem,
-    BACovarianceType type = BACovarianceType::kOnlyPoses,
+    ceres::Problem& problem,
     double damping = 1e-8);
 
+// Computes point covariances, given fixed camera extrinsics and intrinsics.
+std::unordered_map<point3D_t, Eigen::Matrix3d> EstimatePointCovariances(
+    const Reconstruction& reconstruction,
+    ceres::Problem& problem,
+    double damping = 1e-8);
+
+namespace detail {
+
+struct PoseParam {
+  image_t image_id = kInvalidImageId;
+  const double* qvec = nullptr;
+  const double* tvec = nullptr;
+};
+
+std::vector<PoseParam> GetPoseParams(const Reconstruction& reconstruction,
+                                     const ceres::Problem& problem);
+
+struct PointParam {
+  point3D_t point3D_id = kInvalidPoint3DId;
+  const double* xyz = nullptr;
+};
+
+std::vector<PointParam> GetPointParams(const Reconstruction& reconstruction,
+                                       const ceres::Problem& problem);
+
+}  // namespace detail
 }  // namespace colmap
