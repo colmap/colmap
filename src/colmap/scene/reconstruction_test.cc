@@ -138,7 +138,7 @@ TEST(Reconstruction, CopyConstructor) {
   const std::string test_dir = CreateTestDir();
   Reconstruction reconstruction;
   GenerateReconstruction(10, &reconstruction);
-  reconstruction_new = Reconstruction(reconstruction);
+  Reconstruction reconstruction_new = reconstruction;
   EXPECT_TRUE(
       CompareReconstructions(test_dir, reconstruction, reconstruction_new));
 }
