@@ -38,8 +38,8 @@
 #include <fstream>
 #include <iostream>
 
-#include "util/file.h"
-#include "util/testing.h"
+#include "colmap/util/file.h"
+#include "colmap/util/testing.h"
 #include <gtest/gtest.h>
 
 namespace colmap {
