@@ -98,11 +98,11 @@ bool CompareReconstructions(const std::string& test_dir,
   CreateDirIfNotExists(dir2);
   recon2.WriteBinary(dir2);
 
-  if (!CompareBinaryFiles(JoinPaths(dir1, "cameras.bin"), JoinPaths(dir2, "cameras.bin"))
+  if (!CompareBinaryFiles(JoinPaths(dir1, "cameras.bin"), JoinPaths(dir2, "cameras.bin")))
     return false;
-  if (!CompareBinaryFiles(JoinPaths(dir1, "images.bin"), JoinPaths(dir2, "images.bin"))
+  if (!CompareBinaryFiles(JoinPaths(dir1, "images.bin"), JoinPaths(dir2, "images.bin")))
     return false;
-  if (!CompareBinaryFiles(JoinPaths(dir1, "points3D.bin"), JoinPaths(dir2, "points3D.bin"))
+  if (!CompareBinaryFiles(JoinPaths(dir1, "points3D.bin"), JoinPaths(dir2, "points3D.bin")))
     return false;
   return true;
 }
