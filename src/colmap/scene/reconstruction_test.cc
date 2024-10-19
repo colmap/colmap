@@ -34,12 +34,12 @@
 #include "colmap/scene/reconstruction_io.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/sensor/models.h"
+#include "colmap/util/file.h"
+#include "colmap/util/testing.h"
 
 #include <fstream>
 #include <iostream>
 
-#include "colmap/util/file.h"
-#include "colmap/util/testing.h"
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -98,11 +98,14 @@ bool CompareReconstructions(const std::string& test_dir,
   CreateDirIfNotExists(dir2);
   recon2.WriteBinary(dir2);
 
-  if (!CompareBinaryFiles(JoinPaths(dir1, "cameras.bin"), JoinPaths(dir2, "cameras.bin")))
+  if (!CompareBinaryFiles(JoinPaths(dir1, "cameras.bin"),
+                          JoinPaths(dir2, "cameras.bin")))
     return false;
-  if (!CompareBinaryFiles(JoinPaths(dir1, "images.bin"), JoinPaths(dir2, "images.bin")))
+  if (!CompareBinaryFiles(JoinPaths(dir1, "images.bin"),
+                          JoinPaths(dir2, "images.bin")))
     return false;
-  if (!CompareBinaryFiles(JoinPaths(dir1, "points3D.bin"), JoinPaths(dir2, "points3D.bin")))
+  if (!CompareBinaryFiles(JoinPaths(dir1, "points3D.bin"),
+                          JoinPaths(dir2, "points3D.bin")))
     return false;
   return true;
 }
