@@ -56,7 +56,9 @@ TEST(Point3D, Equals) {
 TEST(Point3D, Print) {
   Point3D point3D;
   point3D.xyz = Eigen::Vector3d(1, 2, 3);
-  EXPECT_EQ((std::ostringstream() << point3D).str(),
+  std::ostringstream stream;
+  stream << point3D;
+  EXPECT_EQ(stream.str(),
             "Point3D(xyz=[1, 2, 3], track_len=0)");
 }
 

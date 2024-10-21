@@ -52,8 +52,9 @@ TEST(TrackElement, Equals) {
 
 TEST(TrackElement, Print) {
   TrackElement track_el(1, 2);
-  EXPECT_EQ((std::ostringstream() << track_el).str(),
-            "TrackElement(image_id=1, point2D_idx=2)");
+  std::ostringstream stream;
+  stream << track_el;
+  EXPECT_EQ(stream.str(), "TrackElement(image_id=1, point2D_idx=2)");
 }
 
 TEST(Track, Default) {
@@ -76,7 +77,9 @@ TEST(Track, Print) {
   Track track;
   track.AddElement(1, 2);
   track.AddElement(2, 3);
-  EXPECT_EQ((std::ostringstream() << track).str(),
+  std::ostringstream stream;
+  stream << track;
+  EXPECT_EQ(stream.str(),
             "Track(elements=[TrackElement(image_id=1, point2D_idx=2), "
             "TrackElement(image_id=2, point2D_idx=3)])");
 }

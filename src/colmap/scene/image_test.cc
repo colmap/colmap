@@ -62,7 +62,9 @@ TEST(Image, Print) {
   image.SetImageId(1);
   image.SetCameraId(2);
   image.SetName("test");
-  EXPECT_EQ((std::ostringstream() << image).str(),
+  std::ostringstream stream;
+  stream << image;
+  EXPECT_EQ(stream.str(),
             "Image(image_id=1, camera_id=2, name=\"test\", "
             "has_pose=0, triangulated=0/0)");
 }

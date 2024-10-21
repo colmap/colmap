@@ -42,12 +42,12 @@ void BindPoint2D(py::module& m) {
       .def("__repr__", [](const Point2DVector& self) {
         std::string repr = "[";
         bool is_first = true;
-        for (auto& p2D : self) {
+        for (auto& point2D : self) {
           if (!is_first) {
             repr += ", ";
           }
           is_first = false;
-          repr += Point2DRepr(p2D);
+          repr += Point2DRepr(point2D);
         }
         repr += "]";
         return repr;
