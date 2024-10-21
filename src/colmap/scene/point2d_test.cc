@@ -51,6 +51,13 @@ TEST(Point2D, Equals) {
   EXPECT_EQ(point2D, other);
 }
 
+TEST(Point2D, Print) {
+  Point2D point2D;
+  point2D.xy = Eigen::Vector2d(1, 2);
+  EXPECT_EQ((std::ostringstream() << point2D).str(),
+            "Point2D(xy=[1, 2], point3D_id=-1)");
+}
+
 TEST(Point2D, Point3DId) {
   Point2D point2D;
   EXPECT_EQ(point2D.point3D_id, kInvalidPoint3DId);

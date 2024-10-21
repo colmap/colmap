@@ -63,6 +63,14 @@ TEST(Camera, Equals) {
   EXPECT_EQ(camera, other);
 }
 
+TEST(Camera, Print) {
+  Camera camera = Camera::CreateFromModelId(
+      1, SimplePinholeCameraModel::model_id, 1.0, 1, 1);
+  EXPECT_EQ((std::ostringstream() << camera).str(),
+            "Camera(camera_id=1, model=SIMPLE_PINHOLE, width=1, height=1, "
+            "params=[1.000000, 0.500000, 0.500000] (f, cx, cy))");
+}
+
 TEST(Camera, CameraId) {
   Camera camera;
   EXPECT_EQ(camera.camera_id, kInvalidCameraId);

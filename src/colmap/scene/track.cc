@@ -57,14 +57,14 @@ std::ostream& operator<<(std::ostream& stream, const TrackElement& track_el) {
 }
 
 std::ostream& operator<<(std::ostream& stream, const Track& track) {
-  stream << "Track(";
+  stream << "Track(elements=[";
   for (const auto& track_el : track.Elements()) {
-    stream << "[" << track_el.image_id << ", " << track_el.point2D_idx << "], ";
+    stream << track_el << ", ";
   }
   if (track.Length() > 0) {
-    stream.seekp(-1, std::ios_base::end);
+    stream.seekp(-2, std::ios_base::end);
   }
-  stream << ")";
+  stream << "])";
   return stream;
 }
 

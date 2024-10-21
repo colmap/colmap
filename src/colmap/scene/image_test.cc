@@ -57,6 +57,16 @@ TEST(Image, Equals) {
   EXPECT_EQ(image, other);
 }
 
+TEST(Image, Print) {
+  Image image;
+  image.SetImageId(1);
+  image.SetCameraId(2);
+  image.SetName("test");
+  EXPECT_EQ((std::ostringstream() << image).str(),
+            "Image(image_id=1, camera_id=2, name=\"test\", "
+            "has_pose=0, triangulated=0/0)");
+}
+
 TEST(Image, ImageId) {
   Image image;
   EXPECT_EQ(image.ImageId(), kInvalidImageId);

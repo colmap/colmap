@@ -50,6 +50,12 @@ TEST(TrackElement, Equals) {
   EXPECT_EQ(track_el, other);
 }
 
+TEST(TrackElement, Print) {
+  TrackElement track_el(1, 2);
+  EXPECT_EQ((std::ostringstream() << track_el).str(),
+            "TrackElement(image_id=1, point2D_idx=2)");
+}
+
 TEST(Track, Default) {
   Track track;
   EXPECT_EQ(track.Length(), 0);
@@ -64,6 +70,15 @@ TEST(Track, Equals) {
   EXPECT_NE(track, other);
   other.AddElement(0, 1);
   EXPECT_EQ(track, other);
+}
+
+TEST(Track, Print) {
+  Track track;
+  track.AddElement(1, 2);
+  track.AddElement(2, 3);
+  EXPECT_EQ((std::ostringstream() << track).str(),
+            "Track(elements=[TrackElement(image_id=1, point2D_idx=2), "
+            "TrackElement(image_id=2, point2D_idx=3)])");
 }
 
 TEST(Track, SetElements) {
