@@ -111,7 +111,7 @@ inline Rigid3d operator*(const Rigid3d& c_from_b, const Rigid3d& b_from_a) {
 }
 
 inline bool operator==(const Rigid3d& left, const Rigid3d& right) {
-  return left.rotation == right.rotation &&
+  return left.rotation.coeffs() == right.rotation.coeffs() &&
          left.translation == right.translation;
 }
 
