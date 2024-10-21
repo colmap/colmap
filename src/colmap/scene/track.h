@@ -44,6 +44,10 @@ struct TrackElement {
   image_t image_id;
   // The point in the image that the track element is observed.
   point2D_t point2D_idx;
+
+  inline bool operator==(const TrackElement& other) const {
+    return image_id == other.image_id && point2D_idx == other.point2D_idx;
+  }
 };
 
 class Track {
@@ -79,9 +83,16 @@ class Track {
   // Shrink the capacity of track vector to fit its size to save memory.
   inline void Compress();
 
+  inline bool operator==(const Track& other) const {
+    return elements_ == other.elements_;
+  }
+
  private:
   std::vector<TrackElement> elements_;
 };
+
+std::ostream& operator<<(std::ostream& stream, const TrackElement& track_el);
+std::ostream& operator<<(std::ostream& stream, const Track& track);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation

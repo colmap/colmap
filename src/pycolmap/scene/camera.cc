@@ -22,17 +22,9 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
-std::string PrintCamera(const Camera& camera) {
-  const bool valid_model = ExistsCameraModelWithId(camera.model_id);
-  const std::string params_info = valid_model ? camera.ParamsInfo() : "?";
-  const std::string model_name = valid_model ? camera.ModelName() : "Invalid";
-  std::stringstream ss;
-  ss << "Camera(camera_id="
-     << (camera.camera_id != kInvalidCameraId ? std::to_string(camera.camera_id)
-                                              : "Invalid")
-     << ", model=" << model_name << ", width=" << camera.width
-     << ", height=" << camera.height << ", params=[" << camera.ParamsToString()
-     << "] (" << params_info << "))";
+std::string CameraRepr(const Camera& camera) {
+  std::ostringstream ss;
+  ss << camera;
   return ss.str();
 }
 
@@ -186,7 +178,7 @@ void BindCamera(py::module& m) {
            "Rescale camera dimensions by given factor and accordingly the "
            "focal length and\n"
            "and the principal point.")
-      .def("__repr__", &PrintCamera);
+      .def("__repr__", &CameraRepr);
   MakeDataclass(PyCamera,
                 {"camera_id",
                  "model",
@@ -205,7 +197,7 @@ void BindCamera(py::module& m) {
             ss << ",\n ";
           }
           is_first = false;
-          ss << pair.first << ": " << PrintCamera(pair.second);
+          ss << pair.first << ": " << CameraRepr(pair.second);
         }
         ss << "}";
         return ss.str();

@@ -26,10 +26,8 @@ void BindPoint3D(py::module& m) {
       .def_readwrite("error", &Point3D::error)
       .def_readwrite("track", &Point3D::track)
       .def("__repr__", [](const Point3D& self) {
-        std::stringstream ss;
-        ss << "Point3D(xyz=[" << self.xyz.format(vec_fmt) << "], color=["
-           << self.color.format(vec_fmt) << "], error=" << self.error
-           << ", track=Track(length=" << self.track.Length() << "))";
+        std::ostringstream ss;
+        ss << self;
         return ss.str();
       });
   MakeDataclass(PyPoint3D);

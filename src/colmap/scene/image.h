@@ -121,6 +121,8 @@ class Image {
   std::pair<bool, Eigen::Vector2d> ProjectPoint(
       const Eigen::Vector3d& point3D) const;
 
+  inline bool operator==(const Image& other) const;
+
  private:
   // Identifier of the image, if not specified `kInvalidImageId`.
   image_t image_id_;
@@ -143,6 +145,8 @@ class Image {
   // All image points, including points that are not part of a 3D point track.
   std::vector<struct Point2D> points2D_;
 };
+
+std::ostream& operator<<(std::ostream&, const Image& image);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
@@ -231,5 +235,15 @@ struct Point2D& Image::Point2D(const point2D_t point2D_idx) {
 const std::vector<struct Point2D>& Image::Points2D() const { return points2D_; }
 
 std::vector<struct Point2D>& Image::Points2D() { return points2D_; }
+
+bool Image::operator==(const Image& other) const {
+  return image_id_ == other.image_id_ && camera_id_ == other.camera_id_ &&
+         name_ == other.name_ && num_points3D_ == other.num_points3D_ &&
+         cam_from_world_.has_value() == other.cam_from_world_.has_value() &&
+         (cam_from_world_.has_value()
+              ? *cam_from_world_ == *other.cam_from_world_
+              : true) &&
+         points2D_ == other.points2D_;
+}
 
 }  // namespace colmap

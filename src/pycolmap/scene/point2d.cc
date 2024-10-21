@@ -20,10 +20,9 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
-std::string PrintPoint2D(const Point2D& p2D) {
-  std::stringstream ss;
-  ss << "Point2D(xy=[" << p2D.xy.format(vec_fmt) << "], point3D_id="
-     << (p2D.HasPoint3D() ? std::to_string(p2D.point3D_id) : "Invalid") << ")";
+std::string Point2DRepr(const Point2D& point2D) {
+  std::ostringstream ss;
+  ss << point2D;
   return ss.str();
 }
 
@@ -36,7 +35,7 @@ void BindPoint2D(py::module& m) {
       .def_readwrite("xy", &Point2D::xy)
       .def_readwrite("point3D_id", &Point2D::point3D_id)
       .def("has_point3D", &Point2D::HasPoint3D)
-      .def("__repr__", &PrintPoint2D);
+      .def("__repr__", &Point2DRepr);
   MakeDataclass(PyPoint2D);
 
   py::bind_vector<Point2DVector>(m, "ListPoint2D")
@@ -48,7 +47,7 @@ void BindPoint2D(py::module& m) {
             repr += ", ";
           }
           is_first = false;
-          repr += PrintPoint2D(p2D);
+          repr += Point2DRepr(p2D);
         }
         repr += "]";
         return repr;

@@ -137,7 +137,11 @@ struct Camera {
   // and the principal point.
   void Rescale(double scale);
   void Rescale(size_t new_width, size_t new_height);
+
+  inline bool operator==(const Camera& other) const;
 };
+
+std::ostream& operator<<(std::ostream& stream, const Camera& camera);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
@@ -248,6 +252,13 @@ double Camera::CamFromImgThreshold(const double threshold) const {
 
 Eigen::Vector2d Camera::ImgFromCam(const Eigen::Vector2d& cam_point) const {
   return CameraModelImgFromCam(model_id, params, cam_point.homogeneous());
+}
+
+bool Camera::operator==(const Camera& other) const {
+  return camera_id == other.camera_id && model_id == other.model_id &&
+         width == other.width && height == other.height &&
+         params == other.params &&
+         has_prior_focal_length == other.has_prior_focal_length;
 }
 
 }  // namespace colmap

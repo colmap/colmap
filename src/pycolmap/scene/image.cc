@@ -23,21 +23,9 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
-std::string PrintImage(const Image& image) {
-  std::stringstream ss;
-  ss << "Image(image_id="
-     << (image.ImageId() != kInvalidImageId ? std::to_string(image.ImageId())
-                                            : "Invalid");
-  if (!image.HasCameraPtr()) {
-    ss << ", camera_id="
-       << (image.HasCameraId() ? std::to_string(image.CameraId()) : "Invalid");
-  } else {
-    ss << ", camera=Camera(camera_id=" << std::to_string(image.CameraId())
-       << ")";
-  }
-  ss << ", name=\"" << image.Name() << "\""
-     << ", triangulated=" << image.NumPoints3D() << "/" << image.NumPoints2D()
-     << ")";
+std::string ImageRepr(const Image& image) {
+  std::ostringstream ss;
+  ss << image;
   return ss.str();
 }
 
@@ -189,7 +177,7 @@ void BindImage(py::module& m) {
 
              return valid_points2D;
            })
-      .def("__repr__", &PrintImage);
+      .def("__repr__", &ImageRepr);
   MakeDataclass(PyImage);
 
   py::bind_map<ImageMap>(m, "MapImageIdToImage")
@@ -202,7 +190,7 @@ void BindImage(py::module& m) {
             ss << ",\n ";
           }
           is_first = false;
-          ss << pair.first << ": " << PrintImage(pair.second);
+          ss << pair.first << ": " << ImageRepr(pair.second);
         }
         ss << "}";
         return ss.str();
