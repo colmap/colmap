@@ -40,16 +40,15 @@ void BindPoint2D(py::module& m) {
 
   py::bind_vector<Point2DVector>(m, "ListPoint2D")
       .def("__repr__", [](const Point2DVector& self) {
-        std::string repr = "[";
-        bool is_first = true;
-        for (auto& point2D : self) {
-          if (!is_first) {
-            repr += ", ";
-          }
-          is_first = false;
-          repr += Point2DRepr(point2D);
+        std::ostringstream stream;
+        stream << "[";
+        for (const auto& point2D : self) {
+          stream << point2D << ", ";
         }
-        repr += "]";
-        return repr;
+        if (!self.empty()) {
+          stream.seekp(-2, std::ios_base::end);
+        }
+        stream << "]";
+        return stream.str();
       });
 }
