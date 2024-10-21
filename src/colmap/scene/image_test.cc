@@ -47,6 +47,16 @@ TEST(Image, Default) {
   EXPECT_EQ(image.Points2D().size(), 0);
 }
 
+TEST(Image, Equals) {
+  Image image;
+  Image other = image;
+  EXPECT_EQ(image, other);
+  image.SetName("test");
+  EXPECT_NE(image, other);
+  other.SetName("test");
+  EXPECT_EQ(image, other);
+}
+
 TEST(Image, ImageId) {
   Image image;
   EXPECT_EQ(image.ImageId(), kInvalidImageId);

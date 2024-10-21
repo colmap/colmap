@@ -52,6 +52,17 @@ TEST(Camera, Empty) {
   EXPECT_EQ(camera.params.data(), camera.params.data());
 }
 
+TEST(Camera, Equals) {
+  Camera camera = Camera::CreateFromModelId(
+      1, SimplePinholeCameraModel::model_id, 1.0, 1, 1);
+  Camera other = camera;
+  EXPECT_EQ(camera, other);
+  camera.SetFocalLength(2.);
+  EXPECT_NE(camera, other);
+  other.SetFocalLength(2.);
+  EXPECT_EQ(camera, other);
+}
+
 TEST(Camera, CameraId) {
   Camera camera;
   EXPECT_EQ(camera.camera_id, kInvalidCameraId);

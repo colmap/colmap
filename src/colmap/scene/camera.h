@@ -139,6 +139,7 @@ struct Camera {
   void Rescale(size_t new_width, size_t new_height);
 
   inline bool operator==(const Camera& other) const;
+  inline bool operator!=(const Camera& other) const;
 };
 
 std::ostream& operator<<(std::ostream& stream, const Camera& camera);
@@ -260,5 +261,7 @@ bool Camera::operator==(const Camera& other) const {
          params == other.params &&
          has_prior_focal_length == other.has_prior_focal_length;
 }
+
+bool Camera::operator!=(const Camera& other) const { return !(*this == other); }
 
 }  // namespace colmap

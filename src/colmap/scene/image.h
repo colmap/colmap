@@ -122,6 +122,7 @@ class Image {
       const Eigen::Vector3d& point3D) const;
 
   inline bool operator==(const Image& other) const;
+  inline bool operator!=(const Image& other) const;
 
  private:
   // Identifier of the image, if not specified `kInvalidImageId`.
@@ -239,11 +240,10 @@ std::vector<struct Point2D>& Image::Points2D() { return points2D_; }
 bool Image::operator==(const Image& other) const {
   return image_id_ == other.image_id_ && camera_id_ == other.camera_id_ &&
          name_ == other.name_ && num_points3D_ == other.num_points3D_ &&
-         cam_from_world_.has_value() == other.cam_from_world_.has_value() &&
-         (cam_from_world_.has_value()
-              ? *cam_from_world_ == *other.cam_from_world_
-              : true) &&
+         cam_from_world_ == other.cam_from_world_ &&
          points2D_ == other.points2D_;
 }
+
+bool Image::operator!=(const Image& other) const { return !(*this == other); }
 
 }  // namespace colmap
