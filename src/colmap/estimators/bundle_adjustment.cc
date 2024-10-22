@@ -353,6 +353,7 @@ ceres::Solver::Options BundleAdjuster::SetUpSolverOptions(
 
 #ifdef COLMAP_CUDA_ENABLED
   bool cuda_solver_enabled = false;
+
 #if (CERES_VERSION_MAJOR >= 3 ||                                \
      (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 2)) && \
     !defined(CERES_NO_CUDA)
@@ -380,7 +381,7 @@ ceres::Solver::Options BundleAdjuster::SetUpSolverOptions(
     THROW_CHECK_GT(gpu_indices.size(), 0);
     SetBestCudaDevice(gpu_indices[0]);
   }
-#endif
+#endif  // COLMAP_CUDA_ENABLED
 
   if (num_images <= max_num_images_direct_dense_solver) {
     solver_options.linear_solver_type = ceres::DENSE_SCHUR;
