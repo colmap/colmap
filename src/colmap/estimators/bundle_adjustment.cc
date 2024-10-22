@@ -363,6 +363,12 @@ ceres::Solver::Options BundleAdjuster::SetUpSolverOptions(
     max_num_images_direct_dense_solver =
         options_.max_num_images_direct_dense_gpu_solver;
   }
+#else
+  if (options_.use_gpu) {
+    LOG_FIRST_N(WARNING, 1)
+        << "Requested to use GPU for bundle adjustment, but Ceres was "
+           "compiled without CUDA support. Falling back to CPU-based solvers.";
+  }
 #endif
 
 #if (CERES_VERSION_MAJOR >= 3 ||                                \
@@ -374,12 +380,24 @@ ceres::Solver::Options BundleAdjuster::SetUpSolverOptions(
     max_num_images_direct_sparse_solver =
         options_.max_num_images_direct_sparse_gpu_solver;
   }
+#else
+  if (options_.use_gpu) {
+    LOG_FIRST_N(WARNING, 1)
+        << "Requested to use GPU for bundle adjustment, but Ceres was "
+           "compiled without cuDSS support. Falling back to CPU-based solvers.";
+  }
 #endif
 
   if (cuda_solver_enabled) {
     const std::vector<int> gpu_indices = CSVToVector<int>(options_.gpu_index);
     THROW_CHECK_GT(gpu_indices.size(), 0);
     SetBestCudaDevice(gpu_indices[0]);
+  }
+#else
+  if (options_.use_gpu) {
+    LOG_FIRST_N(WARNING, 1)
+        << "Requested to use GPU for bundle adjustment, but COLMAP was "
+           "compiled without CUDA support. Falling back to CPU-based solvers.";
   }
 #endif  // COLMAP_CUDA_ENABLED
 
