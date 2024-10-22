@@ -132,9 +132,6 @@ bool EstimateStructureLessAbsolutePose(
                                points_world[j].cam_from_rig.translation)
                                   .norm();
       if (baseline >= scaled_translation) {
-        LOG(INFO) << baseline << " "
-                  << scaled_translation /
-                         options.min_translation_baseline_scale;
         translation_scale_constrained = true;
         break;
       }

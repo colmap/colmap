@@ -208,7 +208,7 @@ class IncrementalPipeline : public BaseController {
       const IncrementalMapper::Options& mapper_options,
       Reconstruction& reconstruction);
 
-  bool CheckRunGlobalRefinement(const Reconstruction& reconstruction,
+  bool ShouldRunGlobalRefinement(const Reconstruction& reconstruction,
                                 size_t ba_prev_num_reg_images,
                                 size_t ba_prev_num_points);
 
