@@ -70,7 +70,7 @@ TEST(Camera, Print) {
   stream << camera;
   EXPECT_EQ(stream.str(),
             "Camera(camera_id=1, model=SIMPLE_PINHOLE, width=1, height=1, "
-            "params=[1.000000, 0.500000, 0.500000] (f, cx, cy))");
+            "params=[1, 0.5, 0.5] (f, cx, cy))");
 }
 
 TEST(Camera, CameraId) {
@@ -145,16 +145,16 @@ TEST(Camera, ParamsInfo) {
 TEST(Camera, ParamsToString) {
   Camera camera = Camera::CreateFromModelId(
       1, SimplePinholeCameraModel::model_id, 1.0, 1, 1);
-  EXPECT_EQ(camera.ParamsToString(), "1.000000, 0.500000, 0.500000");
+  EXPECT_EQ(camera.ParamsToString(), "1, 0.5, 0.5");
 }
 
 TEST(Camera, ParamsFromString) {
   Camera camera;
   camera.model_id = SimplePinholeCameraModel::model_id;
-  EXPECT_TRUE(camera.SetParamsFromString("1.000000, 0.500000, 0.500000"));
+  EXPECT_TRUE(camera.SetParamsFromString("1, 0.5, 0.5"));
   const std::vector<double> params{1.0, 0.5, 0.5};
   EXPECT_EQ(camera.params, params);
-  EXPECT_FALSE(camera.SetParamsFromString("1.000000, 0.500000"));
+  EXPECT_FALSE(camera.SetParamsFromString("1, 0.5"));
   EXPECT_EQ(camera.params, params);
 }
 
@@ -226,7 +226,7 @@ TEST(Camera, CreateFromModelId) {
   EXPECT_EQ(camera.PrincipalPointIdxs().size(), 2);
   EXPECT_EQ(camera.ExtraParamsIdxs().size(), 0);
   EXPECT_EQ(camera.ParamsInfo(), "f, cx, cy");
-  EXPECT_EQ(camera.ParamsToString(), "1.000000, 0.500000, 0.500000");
+  EXPECT_EQ(camera.ParamsToString(), "1, 0.5, 0.5");
   EXPECT_EQ(camera.FocalLength(), 1.0);
   EXPECT_EQ(camera.PrincipalPointX(), 0.5);
   EXPECT_EQ(camera.PrincipalPointY(), 0.5);
@@ -251,7 +251,7 @@ TEST(Camera, CreateFromModelName) {
   EXPECT_EQ(camera.PrincipalPointIdxs().size(), 2);
   EXPECT_EQ(camera.ExtraParamsIdxs().size(), 0);
   EXPECT_EQ(camera.ParamsInfo(), "f, cx, cy");
-  EXPECT_EQ(camera.ParamsToString(), "1.000000, 0.500000, 0.500000");
+  EXPECT_EQ(camera.ParamsToString(), "1, 0.5, 0.5");
   EXPECT_EQ(camera.FocalLength(), 1.0);
   EXPECT_EQ(camera.PrincipalPointX(), 0.5);
   EXPECT_EQ(camera.PrincipalPointY(), 0.5);
