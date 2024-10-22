@@ -140,7 +140,7 @@ std::string ReadFileAsString(const std::string& path) {
 }
 
 struct ReaderWriterFileStream : public ReaderWriter {
-  ReaderWriterFileStream(const std::string& ext)
+  explicit ReaderWriterFileStream(const std::string& ext)
       : test_dir_(CreateTestDir()),
         cameras_path_((test_dir_ / ("cameras." + ext)).string()),
         images_path_((test_dir_ / ("images." + ext)).string()),
