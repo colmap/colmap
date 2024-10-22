@@ -385,7 +385,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   std::unordered_set<point3D_t> corr_point3D_ids;
   std::vector<CorrespondenceGraph::Correspondence> corrs;
   int transitivity = 1;
-  while (tri_corrs.size() < 100 && transitivity <= 1) {
+  while (tri_corrs.size() < 100 && transitivity <= 3) {
     LOG_IF(INFO, transitivity > 1)
         << "============ Extracting more correspondences " << tri_corrs.size();
 
