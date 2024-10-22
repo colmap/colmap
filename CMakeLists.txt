@@ -49,6 +49,10 @@ option(LSD_ENABLED "Whether to enable the LSD library" ON)
 option(UNINSTALL_ENABLED "Whether to create a target to 'uninstall' colmap" ON)
 option(FETCH_POSELIB "Whether to consume PoseLib using FetchContent or find_package" ON)
 
+if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.30)
+    cmake_policy(SET CMP0167 NEW)
+endif()
+
 # Propagate options to vcpkg manifest.
 if(TESTS_ENABLED)
   enable_testing()
