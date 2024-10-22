@@ -374,46 +374,58 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
       database_cache_->CorrespondenceGraph();
 
   std::unordered_set<point3D_t> corr_point3D_ids;
-  for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
-       ++point2D_idx) {
-    const Point2D& point2D = image.Point2D(point2D_idx);
+  std::vector<CorrespondenceGraph::Correspondence> corrs;
+  int transitivity = 1;
+  while (tri_corrs.size() < 100 && transitivity <= 3) {
+    LOG_IF(INFO, transitivity > 1)
+        << "============ Extracting more correspondences " << tri_corrs.size();
 
-    corr_point3D_ids.clear();
-    const auto corr_range =
-        correspondence_graph->FindCorrespondences(image_id, point2D_idx);
-    for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
-      const Image& corr_image = reconstruction_->Image(corr->image_id);
-      if (!corr_image.HasPose()) {
-        continue;
+    for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
+         ++point2D_idx) {
+      const Point2D& point2D = image.Point2D(point2D_idx);
+
+      corr_point3D_ids.clear();
+      correspondence_graph->ExtractTransitiveCorrespondences(
+          image_id, point2D_idx, transitivity, &corrs);
+      for (const auto& corr : corrs) {
+        const Image& corr_image = reconstruction_->Image(corr.image_id);
+        if (!corr_image.HasPose()) {
+          continue;
+        }
+
+        const Point2D& corr_point2D = corr_image.Point2D(corr.point2D_idx);
+        if (!corr_point2D.HasPoint3D()) {
+          continue;
+        }
+
+        // Avoid duplicate correspondences.
+        if (corr_point3D_ids.count(corr_point2D.point3D_id) > 0) {
+          continue;
+        }
+
+        const Camera& corr_camera = *corr_image.CameraPtr();
+
+        // Avoid correspondences to images with bogus camera parameters.
+        if (corr_camera.HasBogusParams(options.min_focal_length_ratio,
+                                       options.max_focal_length_ratio,
+                                       options.max_extra_param)) {
+          continue;
+        }
+
+        const Point3D& point3D =
+            reconstruction_->Point3D(corr_point2D.point3D_id);
+
+        tri_corrs.emplace_back(point2D_idx, corr_point2D.point3D_id);
+        corr_point3D_ids.insert(corr_point2D.point3D_id);
+        tri_points2D.push_back(point2D.xy);
+        tri_points3D.push_back(point3D.xyz);
       }
-
-      const Point2D& corr_point2D = corr_image.Point2D(corr->point2D_idx);
-      if (!corr_point2D.HasPoint3D()) {
-        continue;
-      }
-
-      // Avoid duplicate correspondences.
-      if (corr_point3D_ids.count(corr_point2D.point3D_id) > 0) {
-        continue;
-      }
-
-      const Camera& corr_camera = *corr_image.CameraPtr();
-
-      // Avoid correspondences to images with bogus camera parameters.
-      if (corr_camera.HasBogusParams(options.min_focal_length_ratio,
-                                     options.max_focal_length_ratio,
-                                     options.max_extra_param)) {
-        continue;
-      }
-
-      const Point3D& point3D =
-          reconstruction_->Point3D(corr_point2D.point3D_id);
-
-      tri_corrs.emplace_back(point2D_idx, corr_point2D.point3D_id);
-      corr_point3D_ids.insert(corr_point2D.point3D_id);
-      tri_points2D.push_back(point2D.xy);
-      tri_points3D.push_back(point3D.xyz);
     }
+
+    LOG_IF(INFO, transitivity > 1)
+        << "============ Extracted " << tri_corrs.size();
+
+    ++transitivity;
   }
 
   // The size of `next_image.num_tri_obs` and `tri_corrs_point2D_idxs.size()`
