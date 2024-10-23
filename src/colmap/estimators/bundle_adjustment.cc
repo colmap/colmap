@@ -367,7 +367,8 @@ ceres::Solver::Options BundleAdjuster::SetUpSolverOptions(
   if (options_.use_gpu) {
     LOG_FIRST_N(WARNING, 1)
         << "Requested to use GPU for bundle adjustment, but Ceres was "
-           "compiled without CUDA support. Falling back to CPU-based solvers.";
+           "compiled without CUDA support. Falling back to CPU-based dense "
+           "solvers.";
   }
 #endif
 
@@ -384,7 +385,8 @@ ceres::Solver::Options BundleAdjuster::SetUpSolverOptions(
   if (options_.use_gpu) {
     LOG_FIRST_N(WARNING, 1)
         << "Requested to use GPU for bundle adjustment, but Ceres was "
-           "compiled without cuDSS support. Falling back to CPU-based solvers.";
+           "compiled without cuDSS support. Falling back to CPU-based sparse "
+           "solvers.";
   }
 #endif
 
