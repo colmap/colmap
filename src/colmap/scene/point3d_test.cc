@@ -43,6 +43,24 @@ TEST(Point3D, Default) {
   EXPECT_EQ(point3D.track.Length(), 0);
 }
 
+TEST(Point3D, Equals) {
+  Point3D point3D;
+  Point3D other = point3D;
+  EXPECT_EQ(point3D, other);
+  point3D.xyz(0) += 1;
+  EXPECT_NE(point3D, other);
+  other.xyz(0) += 1;
+  EXPECT_EQ(point3D, other);
+}
+
+TEST(Point3D, Print) {
+  Point3D point3D;
+  point3D.xyz = Eigen::Vector3d(1, 2, 3);
+  std::ostringstream stream;
+  stream << point3D;
+  EXPECT_EQ(stream.str(), "Point3D(xyz=[1, 2, 3], track_len=0)");
+}
+
 TEST(Point3D, Error) {
   Point3D point3D;
   EXPECT_EQ(point3D.error, -1.0);

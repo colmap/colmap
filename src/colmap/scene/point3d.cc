@@ -27,49 +27,14 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/scene/point2d.h"
-
-#include <gtest/gtest.h>
+#include "colmap/scene/point3d.h"
 
 namespace colmap {
-namespace {
 
-TEST(Point2D, Default) {
-  Point2D point2D;
-  EXPECT_EQ(point2D.xy, Eigen::Vector2d::Zero());
-  EXPECT_EQ(point2D.point3D_id, kInvalidPoint3DId);
-  EXPECT_FALSE(point2D.HasPoint3D());
+std::ostream& operator<<(std::ostream& stream, const Point3D& point3D) {
+  stream << "Point3D(xyz=[" << point3D.xyz(0) << ", " << point3D.xyz(1) << ", "
+         << point3D.xyz(2) << "], track_len=" << point3D.track.Length() << ")";
+  return stream;
 }
 
-TEST(Point2D, Equals) {
-  Point2D point2D;
-  Point2D other = point2D;
-  EXPECT_EQ(point2D, other);
-  point2D.xy(0) += 1;
-  EXPECT_NE(point2D, other);
-  other.xy(0) += 1;
-  EXPECT_EQ(point2D, other);
-}
-
-TEST(Point2D, Print) {
-  Point2D point2D;
-  point2D.xy = Eigen::Vector2d(1, 2);
-  std::ostringstream stream;
-  stream << point2D;
-  EXPECT_EQ(stream.str(), "Point2D(xy=[1, 2], point3D_id=-1)");
-}
-
-TEST(Point2D, Point3DId) {
-  Point2D point2D;
-  EXPECT_EQ(point2D.point3D_id, kInvalidPoint3DId);
-  EXPECT_FALSE(point2D.HasPoint3D());
-  point2D.point3D_id = 1;
-  EXPECT_EQ(point2D.point3D_id, 1);
-  EXPECT_TRUE(point2D.HasPoint3D());
-  point2D.point3D_id = kInvalidPoint3DId;
-  EXPECT_EQ(point2D.point3D_id, kInvalidPoint3DId);
-  EXPECT_FALSE(point2D.HasPoint3D());
-}
-
-}  // namespace
 }  // namespace colmap
