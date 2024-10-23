@@ -32,9 +32,5 @@ void BindPoint3D(py::module& m) {
       });
   MakeDataclass(PyPoint3D);
 
-  py::bind_map<Point3DMap>(m, "MapPoint3DIdToPoint3D")
-      .def("__repr__", [](const Point3DMap& self) {
-        return "MapPoint3DIdToPoint3D(num_points3D=" +
-               std::to_string(self.size()) + ")";
-      });
+  py::bind_map<Point3DMap>(m, "MapPoint3DIdToPoint3D");
 }

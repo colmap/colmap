@@ -38,17 +38,5 @@ void BindPoint2D(py::module& m) {
       .def("__repr__", &Point2DRepr);
   MakeDataclass(PyPoint2D);
 
-  py::bind_vector<Point2DVector>(m, "ListPoint2D")
-      .def("__repr__", [](const Point2DVector& self) {
-        std::ostringstream stream;
-        stream << "[";
-        for (const auto& point2D : self) {
-          stream << point2D << ", ";
-        }
-        if (!self.empty()) {
-          stream.seekp(-2, std::ios_base::end);
-        }
-        stream << "]";
-        return stream.str();
-      });
+  py::bind_vector<Point2DVector>(m, "ListPoint2D");
 }

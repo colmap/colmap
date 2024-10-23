@@ -187,19 +187,5 @@ void BindCamera(py::module& m) {
                  "params",
                  "has_prior_focal_length"});
 
-  py::bind_map<CameraMap>(m, "MapCameraIdToCamera")
-      .def("__repr__", [](const CameraMap& self) {
-        std::stringstream ss;
-        ss << "{";
-        bool is_first = true;
-        for (const auto& pair : self) {
-          if (!is_first) {
-            ss << ",\n ";
-          }
-          is_first = false;
-          ss << pair.first << ": " << CameraRepr(pair.second);
-        }
-        ss << "}";
-        return ss.str();
-      });
+  py::bind_map<CameraMap>(m, "MapCameraIdToCamera");
 }

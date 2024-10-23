@@ -180,19 +180,5 @@ void BindImage(py::module& m) {
       .def("__repr__", &ImageRepr);
   MakeDataclass(PyImage);
 
-  py::bind_map<ImageMap>(m, "MapImageIdToImage")
-      .def("__repr__", [](const ImageMap& self) {
-        std::stringstream ss;
-        ss << "{";
-        bool is_first = true;
-        for (const auto& pair : self) {
-          if (!is_first) {
-            ss << ",\n ";
-          }
-          is_first = false;
-          ss << pair.first << ": " << ImageRepr(pair.second);
-        }
-        ss << "}";
-        return ss.str();
-      });
+  py::bind_map<ImageMap>(m, "MapImageIdToImage");
 }
