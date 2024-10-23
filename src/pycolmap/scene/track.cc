@@ -35,12 +35,7 @@ void BindTrack(py::module& m) {
   PyTrackElement.def(py::init<>())
       .def(py::init<image_t, point2D_t>())
       .def_readwrite("image_id", &TrackElement::image_id)
-      .def_readwrite("point2D_idx", &TrackElement::point2D_idx)
-      .def("__repr__", [](const TrackElement& self) {
-        std::ostringstream ss;
-        ss << self;
-        return ss.str();
-      });
+      .def_readwrite("point2D_idx", &TrackElement::point2D_idx);
   MakeDataclass(PyTrackElement);
 
   py::class_<Track, std::shared_ptr<Track>> PyTrack(m, "Track");
@@ -80,11 +75,6 @@ void BindTrack(py::module& m) {
                &Track::DeleteElement),
            "image_id"_a,
            "point2D_idx"_a,
-           "Remove TrackElement with (image_id, point2D_idx).")
-      .def("__repr__", [](const Track& self) {
-        std::ostringstream ss;
-        ss << self;
-        return ss.str();
-      });
+           "Remove TrackElement with (image_id, point2D_idx).");
   MakeDataclass(PyTrack);
 }

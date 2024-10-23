@@ -177,8 +177,7 @@ void BindCamera(py::module& m) {
            py::overload_cast<double>(&Camera::Rescale),
            "Rescale camera dimensions by given factor and accordingly the "
            "focal length and\n"
-           "and the principal point.")
-      .def("__repr__", &CameraRepr);
+           "and the principal point.");
   MakeDataclass(PyCamera,
                 {"camera_id",
                  "model",

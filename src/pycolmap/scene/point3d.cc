@@ -24,12 +24,7 @@ void BindPoint3D(py::module& m) {
       .def_readwrite("xyz", &Point3D::xyz)
       .def_readwrite("color", &Point3D::color)
       .def_readwrite("error", &Point3D::error)
-      .def_readwrite("track", &Point3D::track)
-      .def("__repr__", [](const Point3D& self) {
-        std::ostringstream ss;
-        ss << self;
-        return ss.str();
-      });
+      .def_readwrite("track", &Point3D::track);
   MakeDataclass(PyPoint3D);
 
   py::bind_map<Point3DMap>(m, "MapPoint3DIdToPoint3D");

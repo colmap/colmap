@@ -23,12 +23,6 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
-std::string ImageRepr(const Image& image) {
-  std::ostringstream ss;
-  ss << image;
-  return ss.str();
-}
-
 template <typename T>
 std::shared_ptr<Image> MakeImage(const std::string& name,
                                  const std::vector<T>& points2D,
@@ -176,8 +170,7 @@ void BindImage(py::module& m) {
              }
 
              return valid_points2D;
-           })
-      .def("__repr__", &ImageRepr);
+           });
   MakeDataclass(PyImage);
 
   py::bind_map<ImageMap>(m, "MapImageIdToImage");
