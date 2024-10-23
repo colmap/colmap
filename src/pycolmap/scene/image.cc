@@ -23,24 +23,6 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
-std::string PrintImage(const Image& image) {
-  std::stringstream ss;
-  ss << "Image(image_id="
-     << (image.ImageId() != kInvalidImageId ? std::to_string(image.ImageId())
-                                            : "Invalid");
-  if (!image.HasCameraPtr()) {
-    ss << ", camera_id="
-       << (image.HasCameraId() ? std::to_string(image.CameraId()) : "Invalid");
-  } else {
-    ss << ", camera=Camera(camera_id=" << std::to_string(image.CameraId())
-       << ")";
-  }
-  ss << ", name=\"" << image.Name() << "\""
-     << ", triangulated=" << image.NumPoints3D() << "/" << image.NumPoints2D()
-     << ")";
-  return ss.str();
-}
-
 template <typename T>
 std::shared_ptr<Image> MakeImage(const std::string& name,
                                  const std::vector<T>& points2D,
@@ -176,35 +158,18 @@ void BindImage(py::module& m) {
 
              return valid_point2D_ids;
            })
-      .def("get_valid_points2D",
-           [](const Image& self) {
-             Point2DVector valid_points2D;
+      .def("get_valid_points2D", [](const Image& self) {
+        Point2DVector valid_points2D;
+        for (point2D_t point2D_idx = 0; point2D_idx < self.NumPoints2D();
+             ++point2D_idx) {
+          if (self.Point2D(point2D_idx).HasPoint3D()) {
+            valid_points2D.push_back(self.Point2D(point2D_idx));
+          }
+        }
 
-             for (point2D_t point2D_idx = 0; point2D_idx < self.NumPoints2D();
-                  ++point2D_idx) {
-               if (self.Point2D(point2D_idx).HasPoint3D()) {
-                 valid_points2D.push_back(self.Point2D(point2D_idx));
-               }
-             }
-
-             return valid_points2D;
-           })
-      .def("__repr__", &PrintImage);
+        return valid_points2D;
+      });
   MakeDataclass(PyImage);
 
-  py::bind_map<ImageMap>(m, "MapImageIdToImage")
-      .def("__repr__", [](const ImageMap& self) {
-        std::stringstream ss;
-        ss << "{";
-        bool is_first = true;
-        for (const auto& pair : self) {
-          if (!is_first) {
-            ss << ",\n ";
-          }
-          is_first = false;
-          ss << pair.first << ": " << PrintImage(pair.second);
-        }
-        ss << "}";
-        return ss.str();
-      });
+  py::bind_map<ImageMap>(m, "MapImageIdToImage");
 }

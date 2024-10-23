@@ -17,17 +17,25 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
+std::string TrackElementRepr(const Track& track) {
+  std::ostringstream ss;
+  ss << track;
+  return ss.str();
+}
+
+std::string TrackRepr(const Track& track) {
+  std::ostringstream ss;
+  ss << track;
+  return ss.str();
+}
+
 void BindTrack(py::module& m) {
   py::class_<TrackElement, std::shared_ptr<TrackElement>> PyTrackElement(
       m, "TrackElement");
   PyTrackElement.def(py::init<>())
       .def(py::init<image_t, point2D_t>())
       .def_readwrite("image_id", &TrackElement::image_id)
-      .def_readwrite("point2D_idx", &TrackElement::point2D_idx)
-      .def("__repr__", [](const TrackElement& self) {
-        return "TrackElement(image_id=" + std::to_string(self.image_id) +
-               ", point2D_idx=" + std::to_string(self.point2D_idx) + ")";
-      });
+      .def_readwrite("point2D_idx", &TrackElement::point2D_idx);
   MakeDataclass(PyTrackElement);
 
   py::class_<Track, std::shared_ptr<Track>> PyTrack(m, "Track");
@@ -67,9 +75,6 @@ void BindTrack(py::module& m) {
                &Track::DeleteElement),
            "image_id"_a,
            "point2D_idx"_a,
-           "Remove TrackElement with (image_id, point2D_idx).")
-      .def("__repr__", [](const Track& self) {
-        return "Track(length=" + std::to_string(self.Length()) + ")";
-      });
+           "Remove TrackElement with (image_id, point2D_idx).");
   MakeDataclass(PyTrack);
 }
