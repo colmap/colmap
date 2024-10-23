@@ -158,19 +158,17 @@ void BindImage(py::module& m) {
 
              return valid_point2D_ids;
            })
-      .def("get_valid_points2D",
-           [](const Image& self) {
-             Point2DVector valid_points2D;
+      .def("get_valid_points2D", [](const Image& self) {
+        Point2DVector valid_points2D;
+        for (point2D_t point2D_idx = 0; point2D_idx < self.NumPoints2D();
+             ++point2D_idx) {
+          if (self.Point2D(point2D_idx).HasPoint3D()) {
+            valid_points2D.push_back(self.Point2D(point2D_idx));
+          }
+        }
 
-             for (point2D_t point2D_idx = 0; point2D_idx < self.NumPoints2D();
-                  ++point2D_idx) {
-               if (self.Point2D(point2D_idx).HasPoint3D()) {
-                 valid_points2D.push_back(self.Point2D(point2D_idx));
-               }
-             }
-
-             return valid_points2D;
-           });
+        return valid_points2D;
+      });
   MakeDataclass(PyImage);
 
   py::bind_map<ImageMap>(m, "MapImageIdToImage");
