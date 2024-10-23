@@ -104,4 +104,24 @@ std::pair<bool, Eigen::Vector2d> Image::ProjectPoint(
   return {true, camera_ptr_->ImgFromCam(point3D_in_cam.hnormalized())};
 }
 
+std::ostream& operator<<(std::ostream& stream, const Image& image) {
+  stream << "Image(image_id="
+         << (image.ImageId() != kInvalidImageId
+                 ? std::to_string(image.ImageId())
+                 : "Invalid");
+  if (!image.HasCameraPtr()) {
+    stream << ", camera_id="
+           << (image.HasCameraId() ? std::to_string(image.CameraId())
+                                   : "Invalid");
+  } else {
+    stream << ", camera=Camera(camera_id=" << std::to_string(image.CameraId())
+           << ")";
+  }
+  stream << ", name=\"" << image.Name() << "\""
+         << ", has_pose=" << image.HasPose()
+         << ", triangulated=" << image.NumPoints3D() << "/"
+         << image.NumPoints2D() << ")";
+  return stream;
+}
+
 }  // namespace colmap
