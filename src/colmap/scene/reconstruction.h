@@ -60,6 +60,10 @@ class Reconstruction {
  public:
   Reconstruction();
 
+  // Copy construct/assign. Updates camera pointers.
+  Reconstruction(const Reconstruction& other);
+  Reconstruction& operator=(const Reconstruction& other);
+
   // Get number of objects.
   inline size_t NumCameras() const;
   inline size_t NumImages() const;
