@@ -72,10 +72,10 @@ bool CompareReconstructions(const Reconstruction& recon1,
   if (stream1_images.str() != stream2_images.str()) return false;
 
   // compare point3ds
-  std::stringstream stream1_point3Ds, stream2_point3Ds;
-  WritePoint3DsText(recon1, stream1_point3Ds);
-  WritePoint3DsText(recon2, stream2_point3Ds);
-  if (stream1_point3Ds.str() != stream2_point3Ds.str()) return false;
+  std::stringstream stream1_points3D, stream2_points3D;
+  WritePoints3DText(recon1, stream1_points3D);
+  WritePoints3DText(recon2, stream2_points3D);
+  if (stream1_points3D.str() != stream2_points3D.str()) return false;
 
   // success
   return true;
@@ -109,22 +109,18 @@ TEST(Reconstruction, Empty) {
 }
 
 TEST(Reconstruction, CopyConstructor) {
-  const std::string test_dir = CreateTestDir();
   Reconstruction reconstruction;
   GenerateReconstruction(10, &reconstruction);
   Reconstruction reconstruction_new = reconstruction;
-  EXPECT_TRUE(
-      CompareReconstructions(test_dir, reconstruction, reconstruction_new));
+  EXPECT_TRUE(CompareReconstructions(reconstruction, reconstruction_new));
 }
 
 TEST(Reconstruction, CopyAssignment) {
-  const std::string test_dir = CreateTestDir();
   Reconstruction reconstruction;
   GenerateReconstruction(10, &reconstruction);
   Reconstruction reconstruction_new;
   reconstruction_new = reconstruction;
-  EXPECT_TRUE(
-      CompareReconstructions(test_dir, reconstruction, reconstruction_new));
+  EXPECT_TRUE(CompareReconstructions(reconstruction, reconstruction_new));
 }
 
 TEST(Reconstruction, AddCamera) {
