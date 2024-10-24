@@ -14,11 +14,11 @@ class DatabaseTransactionWrapper {
   explicit DatabaseTransactionWrapper(Database* database)
       : database_(database) {}
 
-  void enter() {
+  void Enter() {
     transaction_ = std::make_unique<DatabaseTransaction>(database_);
   }
 
-  void exit(const py::args&) { transaction_.reset(); }
+  void Exit(const py::args&) { transaction_.reset(); }
 
  private:
   Database* database_;
@@ -31,6 +31,8 @@ void BindDatabase(py::module& m) {
       .def(py::init<const std::string&>(), "path"_a)
       .def("open", &Database::Open, "path"_a)
       .def("close", &Database::Close)
+      .def("__enter__", [](Database& self) { return &self; })
+      .def("__exit__", [](Database& self, const py::args&) { self.Close(); })
       .def("exists_camera", &Database::ExistsCamera, "camera_id"_a)
       .def("exists_image", &Database::ExistsImage, "image_id"_a)
       .def("exists_image", &Database::ExistsImageWithName, "name"_a)
@@ -84,25 +86,59 @@ void BindDatabase(py::module& m) {
            &Database::ReadMatchesBlob,
            "image_id1"_a,
            "image_id2"_a)
-      // TODO: ReadAllMatches
+      .def("read_all_matches",
+           [](const Database& self) {
+             std::vector<std::pair<image_pair_t, FeatureMatchesBlob>>
+                 pair_ids_and_matches = self.ReadAllMatchesBlob();
+             std::vector<image_pair_t> all_pair_ids;
+             all_pair_ids.reserve(pair_ids_and_matches.size());
+             std::vector<FeatureMatchesBlob> all_matches;
+             all_matches.reserve(pair_ids_and_matches.size());
+             for (auto& [pair_id, matches] : pair_ids_and_matches) {
+               all_pair_ids.push_back(pair_id);
+               all_matches.push_back(std::move(matches));
+             }
+             return std::make_pair(std::move(all_pair_ids),
+                                   std::move(all_matches));
+           })
       .def("read_two_view_geometry",
            &Database::ReadTwoViewGeometry,
            "image_id1"_a,
            "image_id2"_a)
       .def("read_two_view_geometries",
            [](const Database& self) {
-             std::vector<image_pair_t> image_pair_ids;
-             std::vector<TwoViewGeometry> two_view_geometries;
-             self.ReadTwoViewGeometries(&image_pair_ids, &two_view_geometries);
-             return std::make_pair(image_pair_ids, two_view_geometries);
+             std::vector<std::pair<image_pair_t, TwoViewGeometry>>
+                 pair_ids_and_two_view_geometries =
+                     self.ReadTwoViewGeometries();
+             std::vector<image_pair_t> all_pair_ids;
+             all_pair_ids.reserve(pair_ids_and_two_view_geometries.size());
+             std::vector<TwoViewGeometry> all_two_view_geometries;
+             all_two_view_geometries.reserve(
+                 pair_ids_and_two_view_geometries.size());
+             for (auto& [pair_id, two_view_geometry] :
+                  pair_ids_and_two_view_geometries) {
+               all_pair_ids.push_back(pair_id);
+               all_two_view_geometries.push_back(two_view_geometry);
+             }
+             return std::make_pair(std::move(all_pair_ids),
+                                   std::move(all_two_view_geometries));
            })
-      .def("read_two_view_geometry_num_inliers",
-           [](const Database& self) {
-             std::vector<std::pair<image_t, image_t>> image_pair_ids;
-             std::vector<int> num_inliers;
-             self.ReadTwoViewGeometryNumInliers(&image_pair_ids, &num_inliers);
-             return std::make_pair(image_pair_ids, num_inliers);
-           })
+      .def(
+          "read_two_view_geometry_num_inliers",
+          [](const Database& self) {
+            std::vector<std::pair<image_pair_t, int>> pair_ids_and_num_inliers =
+                self.ReadTwoViewGeometryNumInliers();
+            std::vector<image_pair_t> all_pair_ids;
+            all_pair_ids.reserve(pair_ids_and_num_inliers.size());
+            std::vector<int> all_num_inliers;
+            all_num_inliers.reserve(pair_ids_and_num_inliers.size());
+            for (auto& [pair_id, num_inliers] : pair_ids_and_num_inliers) {
+              all_pair_ids.push_back(pair_id);
+              all_num_inliers.push_back(num_inliers);
+            }
+            return std::make_pair(std::move(all_pair_ids),
+                                  std::move(all_num_inliers));
+          })
       .def("write_camera",
            &Database::WriteCamera,
            "camera"_a,
@@ -161,6 +197,6 @@ void BindDatabase(py::module& m) {
 
   py::class_<DatabaseTransactionWrapper>(m, "DatabaseTransaction")
       .def(py::init<Database*>(), "database"_a)
-      .def("__enter__", &DatabaseTransactionWrapper::enter)
-      .def("__exit__", &DatabaseTransactionWrapper::exit);
+      .def("__enter__", &DatabaseTransactionWrapper::Enter)
+      .def("__exit__", &DatabaseTransactionWrapper::Exit);
 }

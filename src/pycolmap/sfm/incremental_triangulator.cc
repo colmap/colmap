@@ -113,14 +113,6 @@ void BindIncrementalTriangulator(py::module& m) {
            &IncrementalTriangulator::CompleteTracks,
            "options"_a,
            "point3D_ids"_a)
-      .def("__copy__",
-           [](const IncrementalTriangulator& self) {
-             return IncrementalTriangulator(self);
-           })
-      .def("__deepcopy__",
-           [](const IncrementalTriangulator& self, const py::dict&) {
-             return IncrementalTriangulator(self);
-           })
       .def("__repr__", [](const IncrementalTriangulator& self) {
         // TODO: Print reconstruction and correspondence_graph once public.
         return "IncrementalTriangulator()";

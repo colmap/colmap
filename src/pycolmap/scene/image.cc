@@ -58,7 +58,7 @@ void BindImage(py::module& m) {
       .def_property("image_id",
                     &Image::ImageId,
                     &Image::SetImageId,
-                    "Unique identifier of image.")
+                    "Unique identifier of the image.")
       .def_property("camera_id",
                     &Image::CameraId,
                     &Image::SetCameraId,
@@ -66,10 +66,11 @@ void BindImage(py::module& m) {
       .def_property(
           "camera",
           [](Image& self) -> py::typing::Optional<Camera> {
-            if (self.HasCameraPtr())
+            if (self.HasCameraPtr()) {
               return py::cast(*self.CameraPtr());
-            else
+            } else {
               return py::none();
+            }
           },
           &Image::SetCameraPtr,
           "The address of the camera")
@@ -122,10 +123,11 @@ void BindImage(py::module& m) {
           [](const Image& self, const Eigen::Vector3d& point3D)
               -> py::typing::Optional<Eigen::Vector2d> {
             auto result = self.ProjectPoint(point3D);
-            if (result.first)
+            if (result.first) {
               return py::cast(result.second);
-            else
+            } else {
               return py::none();
+            }
           },
           "Project 3D point onto the image")
       .def("has_camera_id",
@@ -145,30 +147,31 @@ void BindImage(py::module& m) {
           &Image::NumPoints3D,
           "Get the number of triangulations, i.e. the number of points that\n"
           "are part of a 3D point track.")
-      .def("get_valid_point2D_ids",
-           [](const Image& self) {
-             std::vector<point2D_t> valid_point2D_ids;
-
-             for (point2D_t point2D_idx = 0; point2D_idx < self.NumPoints2D();
-                  ++point2D_idx) {
-               if (self.Point2D(point2D_idx).HasPoint3D()) {
-                 valid_point2D_ids.push_back(point2D_idx);
-               }
-             }
-
-             return valid_point2D_ids;
-           })
-      .def("get_valid_points2D", [](const Image& self) {
-        Point2DVector valid_points2D;
-        for (point2D_t point2D_idx = 0; point2D_idx < self.NumPoints2D();
-             ++point2D_idx) {
-          if (self.Point2D(point2D_idx).HasPoint3D()) {
-            valid_points2D.push_back(self.Point2D(point2D_idx));
-          }
-        }
-
-        return valid_points2D;
-      });
+      .def(
+          "get_observation_point2D_idxs",
+          [](const Image& self) {
+            std::vector<point2D_t> point2D_idxs;
+            for (point2D_t point2D_idx = 0; point2D_idx < self.NumPoints2D();
+                 ++point2D_idx) {
+              if (self.Point2D(point2D_idx).HasPoint3D()) {
+                point2D_idxs.push_back(point2D_idx);
+              }
+            }
+            return point2D_idxs;
+          },
+          "Get the indices of 2D points that observe a 3D point.")
+      .def(
+          "get_observation_points2D",
+          [](const Image& self) {
+            Point2DVector points2D;
+            for (const auto& point2D : self.Points2D()) {
+              if (point2D.HasPoint3D()) {
+                points2D.push_back(point2D);
+              }
+            }
+            return points2D;
+          },
+          "Get the 2D points that observe a 3D point.");
   MakeDataclass(PyImage);
 
   py::bind_map<ImageMap>(m, "MapImageIdToImage");
