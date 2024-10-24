@@ -121,7 +121,7 @@ TEST(Reconstruction, AssignCopy) {
   synthetic_dataset_options.num_points3D = 21;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
   Reconstruction reconstruction_copy;
-  reconstruction_copy= reconstruction;
+  reconstruction_copy = reconstruction;
   ExpectEqualReconstructions(reconstruction, reconstruction_copy);
 }
 
