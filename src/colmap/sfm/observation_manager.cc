@@ -489,4 +489,17 @@ std::vector<image_t> ObservationManager::FilterImages(
   return filtered_image_ids;
 }
 
+std::ostream& operator<<(std::ostream& stream,
+                         const ObservationManager& obs_manager) {
+  stream << "ObservationManager(reconstruction=" << obs_manager.reconstruction_
+         << ", correspondence_graph=";
+  if (obs_manager.correspondence_graph_ == nullptr) {
+    stream << "null";
+  } else {
+    stream << obs_manager.correspondence_graph_;
+  }
+  stream << ")";
+  return stream;
+}
+
 }  // namespace colmap

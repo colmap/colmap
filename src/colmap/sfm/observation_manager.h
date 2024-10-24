@@ -148,6 +148,9 @@ class ObservationManager {
                                          point2D_t point2D_idx);
 
  private:
+  friend std::ostream& operator<<(std::ostream& stream,
+                                  const ObservationManager& obs_manager);
+
   void SetObservationAsTriangulated(image_t image_id,
                                     point2D_t point2D_idx,
                                     bool is_continued_point3D);
@@ -181,6 +184,9 @@ class ObservationManager {
   std::unordered_map<image_pair_t, ImagePairStat> image_pair_stats_;
   std::unordered_map<image_t, ImageStat> image_stats_;
 };
+
+std::ostream& operator<<(std::ostream& stream,
+                         const ObservationManager& obs_manager);
 
 const std::unordered_map<image_pair_t, ObservationManager::ImagePairStat>&
 ObservationManager::ImagePairs() const {

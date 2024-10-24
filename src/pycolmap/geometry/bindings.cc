@@ -68,7 +68,7 @@ void BindGeometry(py::module& m) {
           "other"_a)
       .def("inverse", &Eigen::Quaterniond::inverse)
       .def("__repr__", [](const Eigen::Quaterniond& self) {
-        std::stringstream ss;
+        std::ostringstream ss;
         ss << "Rotation3d(quat_xyzw=[" << self.coeffs().format(vec_fmt) << "])";
         return ss.str();
       });
@@ -108,7 +108,7 @@ void BindGeometry(py::module& m) {
                   "cam_from_world2"_a,
                   "t"_a)
       .def("__repr__", [](const Rigid3d& self) {
-        std::stringstream ss;
+        std::ostringstream ss;
         ss << "Rigid3d("
            << "quat_xyzw=[" << self.rotation.coeffs().format(vec_fmt) << "], "
            << "t=[" << self.translation.format(vec_fmt) << "])";
@@ -145,7 +145,7 @@ void BindGeometry(py::module& m) {
       .def("transform_camera_world", &TransformCameraWorld, "cam_from_world"_a)
       .def("inverse", static_cast<Sim3d (*)(const Sim3d&)>(&Inverse))
       .def("__repr__", [](const Sim3d& self) {
-        std::stringstream ss;
+        std::ostringstream ss;
         ss << "Sim3d("
            << "scale=" << self.scale << ", "
            << "quat_xyzw=[" << self.rotation.coeffs().format(vec_fmt) << "], "
@@ -177,7 +177,7 @@ void BindGeometry(py::module& m) {
       .def("is_valid", &PosePrior::IsValid)
       .def("is_covariance_valid", &PosePrior::IsCovarianceValid)
       .def("__repr__", [](const PosePrior& self) {
-        std::stringstream ss;
+        std::ostringstream ss;
         ss << "PosePrior("
            << "position=[" << self.position.format(vec_fmt) << "], "
            << "position_covariance=["

@@ -147,7 +147,7 @@ class Image {
   std::vector<struct Point2D> points2D_;
 };
 
-std::ostream& operator<<(std::ostream&, const Image& image);
+std::ostream& operator<<(std::ostream& stream, const Image& image);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation

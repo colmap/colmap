@@ -44,11 +44,29 @@ int CountNumTransitiveCorrespondences(const CorrespondenceGraph& graph,
   return corrs.size();
 }
 
+TEST(Correspondence, Print) {
+  CorrespondenceGraph::Correspondence correspondence(1, 2);
+  std::ostringstream stream;
+  stream << correspondence;
+  EXPECT_EQ(stream.str(), "Correspondence(image_id=1, point2D_idx=2)");
+}
+
 TEST(CorrespondenceGraph, Empty) {
   CorrespondenceGraph correspondence_graph;
   EXPECT_EQ(correspondence_graph.NumImages(), 0);
   EXPECT_EQ(correspondence_graph.NumImagePairs(), 0);
   EXPECT_EQ(correspondence_graph.NumCorrespondencesBetweenImages().size(), 0);
+}
+
+TEST(CorrespondenceGraph, Print) {
+  CorrespondenceGraph correspondence_graph;
+  correspondence_graph.AddImage(0, 10);
+  correspondence_graph.AddImage(1, 10);
+  correspondence_graph.AddCorrespondences(0, 1, {});
+  std::ostringstream stream;
+  stream << correspondence_graph;
+  EXPECT_EQ(stream.str(),
+            "CorrespondenceGraph(num_images=2, num_image_pairs=1)");
 }
 
 TEST(CorrespondenceGraph, TwoView) {

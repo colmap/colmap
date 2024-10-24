@@ -125,6 +125,20 @@ TEST(Reconstruction, AssignCopy) {
   ExpectEqualReconstructions(reconstruction, reconstruction_copy);
 }
 
+TEST(Reconstruction, Print) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_cameras = 1;
+  synthetic_dataset_options.num_images = 2;
+  synthetic_dataset_options.num_points3D = 3;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  std::ostringstream stream;
+  stream << reconstruction;
+  EXPECT_EQ(stream.str(),
+            "Reconstruction(num_cameras=1, num_images=2, num_reg_images=2, "
+            "num_points3D=3)");
+}
+
 TEST(Reconstruction, AddCamera) {
   Reconstruction reconstruction;
   Camera camera =

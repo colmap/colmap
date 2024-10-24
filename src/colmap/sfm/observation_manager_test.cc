@@ -55,6 +55,18 @@ void GenerateReconstruction(const image_t num_images,
   }
 }
 
+TEST(Reconstruction, Print) {
+  Reconstruction reconstruction;
+  GenerateReconstruction(2, reconstruction);
+  ObservationManager obs_manager(reconstruction);
+  std::ostringstream stream;
+  stream << obs_manager;
+  EXPECT_EQ(stream.str(),
+            "ObservationManager(reconstruction=Reconstruction(num_cameras=1, "
+            "num_images=2, num_reg_images=2, num_points3D=0), "
+            "correspondence_graph=null)");
+}
+
 TEST(ObservationManager, FilterPoints3D) {
   Reconstruction reconstruction;
   GenerateReconstruction(2, reconstruction);

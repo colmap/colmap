@@ -22,12 +22,6 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
-std::string CameraRepr(const Camera& camera) {
-  std::ostringstream ss;
-  ss << camera;
-  return ss.str();
-}
-
 void BindCamera(py::module& m) {
   py::enum_<CameraModelId> PyCameraModelId(m, "CameraModelId");
   PyCameraModelId.value("INVALID", CameraModelId::kInvalid);

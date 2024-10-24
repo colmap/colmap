@@ -313,13 +313,21 @@ std::vector<const SceneClustering::Cluster*> SceneClustering::GetLeafClusters()
 SceneClustering SceneClustering::Create(const Options& options,
                                         const Database& database) {
   LOG(INFO) << "Reading scene graph...";
-  std::vector<std::pair<image_t, image_t>> image_pairs;
-  std::vector<int> num_inliers;
-  database.ReadTwoViewGeometryNumInliers(&image_pairs, &num_inliers);
+  const std::vector<std::pair<image_pair_t, int>> pair_ids_and_num_inliers =
+      database.ReadTwoViewGeometryNumInliers();
+
+  std::vector<std::pair<image_t, image_t>> all_image_pairs;
+  all_image_pairs.reserve(pair_ids_and_num_inliers.size());
+  std::vector<int> all_num_inliers;
+  all_num_inliers.reserve(pair_ids_and_num_inliers.size());
+  for (const auto& [pair_id, num_inliers] : pair_ids_and_num_inliers) {
+    all_image_pairs.push_back(Database::PairIdToImagePair(pair_id));
+    all_num_inliers.push_back(num_inliers);
+  }
 
   LOG(INFO) << "Partitioning scene graph...";
   SceneClustering scene_clustering(options);
-  scene_clustering.Partition(image_pairs, num_inliers);
+  scene_clustering.Partition(all_image_pairs, all_num_inliers);
   return scene_clustering;
 }
 

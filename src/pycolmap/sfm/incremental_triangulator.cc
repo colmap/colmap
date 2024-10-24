@@ -122,7 +122,8 @@ void BindIncrementalTriangulator(py::module& m) {
              return IncrementalTriangulator(self);
            })
       .def("__repr__", [](const IncrementalTriangulator& self) {
-        // TODO: Print reconstruction and correspondence_graph once public.
-        return "IncrementalTriangulator()";
+        std::ostringstream ss;
+        ss << self;
+        return ss.str();
       });
 }
