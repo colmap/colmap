@@ -46,39 +46,33 @@
 namespace colmap {
 namespace {
 
-// Check if all camera pointers are correctly set
-bool CheckReconstruction(const Reconstruction& reconstruction) {
+void ExpectValidCameraPtrs(const Reconstruction& reconstruction) {
   for (const auto& image : reconstruction.Images()) {
-    if (!image.second.HasCameraPtr()) return false;
+    EXPECT_TRUE(image.second.HasCameraPtr());
     auto& camera = reconstruction.Camera(image.second.CameraId());
-    if (image.second.CameraPtr() != &camera) return false;
+    EXPECT_EQ(image.second.CameraPtr(), &camera);
   }
-  return true;
 }
 
-// Compare two reconstructions
-bool CompareReconstructions(const Reconstruction& recon1,
-                            const Reconstruction& recon2) {
+void ExpectEqualReconstructions(const Reconstruction& reconstruction1,
+                                const Reconstruction& reconstruction2) {
   // compare cameras
   std::stringstream stream1_cameras, stream2_cameras;
-  WriteCamerasText(recon1, stream1_cameras);
-  WriteCamerasText(recon2, stream2_cameras);
-  if (stream1_cameras.str() != stream2_cameras.str()) return false;
+  WriteCamerasText(reconstruction1, stream1_cameras);
+  WriteCamerasText(reconstruction2, stream2_cameras);
+  EXPECT_EQ(stream1_cameras.str(), stream2_cameras.str());
 
   // compare images
   std::stringstream stream1_images, stream2_images;
-  WriteImagesText(recon1, stream1_images);
-  WriteImagesText(recon2, stream2_images);
-  if (stream1_images.str() != stream2_images.str()) return false;
+  WriteImagesText(reconstruction1, stream1_images);
+  WriteImagesText(reconstruction2, stream2_images);
+  EXPECT_EQ(stream1_images.str(), stream2_images.str());
 
   // compare point3ds
   std::stringstream stream1_points3D, stream2_points3D;
-  WritePoints3DText(recon1, stream1_points3D);
-  WritePoints3DText(recon2, stream2_points3D);
-  if (stream1_points3D.str() != stream2_points3D.str()) return false;
-
-  // success
-  return true;
+  WritePoints3DText(reconstruction1, stream1_points3D);
+  WritePoints3DText(reconstruction2, stream2_points3D);
+  EXPECT_EQ(stream1_points3D.str(), stream2_points3D.str());
 }
 
 void GenerateReconstruction(const image_t num_images,
@@ -108,19 +102,27 @@ TEST(Reconstruction, Empty) {
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
 }
 
-TEST(Reconstruction, CopyConstructor) {
+TEST(Reconstruction, ConstructCopy) {
   Reconstruction reconstruction;
-  GenerateReconstruction(10, &reconstruction);
-  Reconstruction reconstruction_new = reconstruction;
-  EXPECT_TRUE(CompareReconstructions(reconstruction, reconstruction_new));
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_cameras = 2;
+  synthetic_dataset_options.num_images = 5;
+  synthetic_dataset_options.num_points3D = 21;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  const Reconstruction reconstruction_copy(reconstruction);
+  ExpectEqualReconstructions(reconstruction, reconstruction_copy);
 }
 
-TEST(Reconstruction, CopyAssignment) {
+TEST(Reconstruction, AssignCopy) {
   Reconstruction reconstruction;
-  GenerateReconstruction(10, &reconstruction);
-  Reconstruction reconstruction_new;
-  reconstruction_new = reconstruction;
-  EXPECT_TRUE(CompareReconstructions(reconstruction, reconstruction_new));
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_cameras = 2;
+  synthetic_dataset_options.num_images = 5;
+  synthetic_dataset_options.num_points3D = 21;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  Reconstruction reconstruction_copy;
+  reconstruction_copy= reconstruction;
+  ExpectEqualReconstructions(reconstruction, reconstruction_copy);
 }
 
 TEST(Reconstruction, AddCamera) {
@@ -158,7 +160,7 @@ TEST(Reconstruction, AddImage) {
   EXPECT_EQ(reconstruction.NumImages(), 1);
   EXPECT_EQ(reconstruction.NumRegImages(), 0);
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
-  EXPECT_TRUE(CheckReconstruction(reconstruction));
+  ExpectValidCameraPtrs(reconstruction);
 }
 
 TEST(Reconstruction, AddPoint3D) {
@@ -428,14 +430,14 @@ TEST(Reconstruction, Crop) {
   // Test reconstruction with contents after cropping
   bbox.first = Eigen::Vector3d(0.0, 0.0, 0.0);
   bbox.second = Eigen::Vector3d(0.75, 0.75, 0.75);
-  Reconstruction recon2 = reconstruction.Crop(bbox);
-  EXPECT_EQ(recon2.NumCameras(), 1);
-  EXPECT_EQ(recon2.NumImages(), 3);
-  EXPECT_EQ(recon2.NumRegImages(), 2);
-  EXPECT_EQ(recon2.NumPoints3D(), 3);
-  EXPECT_TRUE(recon2.IsImageRegistered(1));
-  EXPECT_TRUE(recon2.IsImageRegistered(2));
-  EXPECT_FALSE(recon2.IsImageRegistered(3));
+  Reconstruction reconstruction2 = reconstruction.Crop(bbox);
+  EXPECT_EQ(reconstruction2.NumCameras(), 1);
+  EXPECT_EQ(reconstruction2.NumImages(), 3);
+  EXPECT_EQ(reconstruction2.NumRegImages(), 2);
+  EXPECT_EQ(reconstruction2.NumPoints3D(), 3);
+  EXPECT_TRUE(reconstruction2.IsImageRegistered(1));
+  EXPECT_TRUE(reconstruction2.IsImageRegistered(2));
+  EXPECT_FALSE(reconstruction2.IsImageRegistered(3));
 }
 
 TEST(Reconstruction, Transform) {
@@ -566,7 +568,7 @@ TEST(Reconstruction, DeleteAllPoints2DAndPoints3D) {
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
   reconstruction.DeleteAllPoints2DAndPoints3D();
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
-  EXPECT_TRUE(CheckReconstruction(reconstruction));
+  ExpectValidCameraPtrs(reconstruction);
 }
 
 }  // namespace

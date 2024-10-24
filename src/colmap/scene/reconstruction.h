@@ -59,9 +59,10 @@ class DatabaseCache;
 class Reconstruction {
  public:
   Reconstruction();
-  // Update the camera pointers for each image at copy constructor.
-  Reconstruction(const Reconstruction& recon);
-  Reconstruction& operator=(const Reconstruction& recon);
+
+  // Copy construct/assign. Updates camera pointers.
+  Reconstruction(const Reconstruction& other);
+  Reconstruction& operator=(const Reconstruction& other);
 
   // Get number of objects.
   inline size_t NumCameras() const;

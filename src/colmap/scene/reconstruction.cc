@@ -43,28 +43,28 @@ namespace colmap {
 
 Reconstruction::Reconstruction() : max_point3D_id_(0) {}
 
-Reconstruction::Reconstruction(const Reconstruction& recon)
-    : cameras_(recon.cameras_),
-      images_(recon.images_),
-      points3D_(recon.points3D_),
-      reg_image_ids_(recon.reg_image_ids_),
-      max_point3D_id_(recon.max_point3D_id_) {
-  for (const auto& [image_id, image] : Images()) {
-    Image(image_id).ResetCameraPtr();
-    Image(image_id).SetCameraPtr(&Camera(image.CameraId()));
+Reconstruction::Reconstruction(const Reconstruction& other)
+    : cameras_(other.cameras_),
+      images_(other.images_),
+      points3D_(other.points3D_),
+      reg_image_ids_(other.reg_image_ids_),
+      max_point3D_id_(other.max_point3D_id_) {
+  for (auto& [_, image] : images_) {
+    image.ResetCameraPtr();
+    image.SetCameraPtr(&Camera(image.CameraId()));
   }
 }
 
-Reconstruction& Reconstruction::operator=(const Reconstruction& recon) {
-  if (this != &recon) {
-    cameras_ = recon.cameras_;
-    images_ = recon.images_;
-    points3D_ = recon.points3D_;
-    reg_image_ids_ = recon.reg_image_ids_;
-    max_point3D_id_ = recon.max_point3D_id_;
-    for (const auto& [image_id, image] : Images()) {
-      Image(image_id).ResetCameraPtr();
-      Image(image_id).SetCameraPtr(&Camera(image.CameraId()));
+Reconstruction& Reconstruction::operator=(const Reconstruction& other) {
+  if (this != &other) {
+    cameras_ = other.cameras_;
+    images_ = other.images_;
+    points3D_ = other.points3D_;
+    reg_image_ids_ = other.reg_image_ids_;
+    max_point3D_id_ = other.max_point3D_id_;
+    for (auto& [_, image] : images_) {
+      image.ResetCameraPtr();
+      image.SetCameraPtr(&Camera(image.CameraId()));
     }
   }
   return *this;
