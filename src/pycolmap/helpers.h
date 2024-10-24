@@ -210,7 +210,7 @@ std::string CreateSummary(const T& self, bool write_type) {
   return ss.str();
 }
 
-template <typename T, typename... options>
+template <typename T>
 std::string CreateRepresentation(const T& self) {
   std::stringstream ss;
   auto pyself = py::cast(self);
@@ -241,6 +241,15 @@ std::string CreateRepresentation(const T& self) {
     }
   }
   ss << ")";
+  return ss.str();
+}
+
+template <typename T,
+          typename = std::void_t<decltype(std::declval<std::ostream&>()
+                                          << std::declval<T>())>>
+std::string CreateRepresentation(const T& self) {
+  std::stringstream ss;
+  ss << self;
   return ss.str();
 }
 
