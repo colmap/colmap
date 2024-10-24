@@ -39,6 +39,7 @@
 
 #include <fstream>
 #include <iostream>
+#include <sstream>
 
 #include <gtest/gtest.h>
 
@@ -59,19 +60,19 @@ bool CheckReconstruction(const Reconstruction& reconstruction) {
 bool CompareReconstructions(const Reconstruction& recon1,
                             const Reconstruction& recon2) {
   // compare cameras
-  std::ostream stream1_cameras, stream2_cameras;
+  std::stringstream stream1_cameras, stream2_cameras;
   WriteCamerasText(recon1, stream1_cameras);
   WriteCamerasText(recon2, stream2_cameras);
   if (stream1_cameras.str() != stream2_cameras.str()) return false;
 
   // compare images
-  std::ostream stream1_images, stream2_images;
+  std::stringstream stream1_images, stream2_images;
   WriteImagesText(recon1, stream1_images);
   WriteImagesText(recon2, stream2_images);
   if (stream1_images.str() != stream2_images.str()) return false;
 
   // compare point3ds
-  std::ostream stream1_point3Ds, stream2_point3Ds;
+  std::stringstream stream1_point3Ds, stream2_point3Ds;
   WritePoint3DsText(recon1, stream1_point3Ds);
   WritePoint3DsText(recon2, stream2_point3Ds);
   if (stream1_point3Ds.str() != stream2_point3Ds.str()) return false;
