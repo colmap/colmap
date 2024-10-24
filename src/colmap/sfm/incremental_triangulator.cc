@@ -753,4 +753,12 @@ bool IncrementalTriangulator::HasCameraBogusParams(const Options& options,
   }
 }
 
+std::ostream& operator<<(std::ostream& stream,
+                         const IncrementalTriangulator& triangulator) {
+  stream << "IncrementalTriangulator(reconstruction="
+         << triangulator.reconstruction_ << ", correspondence_graph="
+         << *THROW_CHECK_NOTNULL(triangulator.correspondence_graph_) << ")";
+  return stream;
+}
+
 }  // namespace colmap

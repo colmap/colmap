@@ -244,14 +244,20 @@ void BindReconstruction(py::module& m) {
             }
           },
           "Check if current reconstruction is well formed.")
+      .def("__copy__",
+           [](const Reconstruction& self) { return Reconstruction(self); })
+      .def("__deepcopy__",
+           [](const Reconstruction& self, const py::dict&) {
+             return Reconstruction(self);
+           })
       .def("__repr__",
            [](const Reconstruction& self) {
-             std::stringstream ss;
+             std::ostringstream ss;
              ss << self;
              return ss.str();
            })
       .def("summary", [](const Reconstruction& self) {
-        std::stringstream ss;
+        std::ostringstream ss;
         ss << "Reconstruction:"
            << "\n\tnum_cameras = " << self.NumCameras()
            << "\n\tnum_images = " << self.NumImages()

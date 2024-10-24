@@ -258,7 +258,8 @@ class Reconstruction {
   point3D_t max_point3D_id_;
 };
 
-std::ostream& operator<<(std::ostream&, const Reconstruction& reconstruction);
+std::ostream& operator<<(std::ostream& stream,
+                         const Reconstruction& reconstruction);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation

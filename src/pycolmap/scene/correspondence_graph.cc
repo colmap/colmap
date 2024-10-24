@@ -27,7 +27,12 @@ void BindCorrespondenceGraph(py::module& m) {
       .def(py::init<image_t, point2D_t>(), "image_id"_a, "point2D_idx"_a)
       .def_readwrite("image_id", &CorrespondenceGraph::Correspondence::image_id)
       .def_readwrite("point2D_idx",
-                     &CorrespondenceGraph::Correspondence::point2D_idx);
+                     &CorrespondenceGraph::Correspondence::point2D_idx)
+      .def("__repr__", [](const CorrespondenceGraph::Correspondence& self) {
+        std::ostringstream ss;
+        ss << self;
+        return ss.str();
+      });
   MakeDataclass(PyCorrespondence);
 
   py::class_<CorrespondenceGraph, std::shared_ptr<CorrespondenceGraph>>(
@@ -114,10 +119,17 @@ void BindCorrespondenceGraph(py::module& m) {
            &CorrespondenceGraph::IsTwoViewObservation,
            "image_id"_a,
            "point2D_idx"_a)
+      .def("__copy__",
+           [](const CorrespondenceGraph& self) {
+             return CorrespondenceGraph(self);
+           })
+      .def("__deepcopy__",
+           [](const CorrespondenceGraph& self, const py::dict&) {
+             return CorrespondenceGraph(self);
+           })
       .def("__repr__", [](const CorrespondenceGraph& self) {
-        std::stringstream ss;
-        ss << "CorrespondenceGraph(num_images=" << self.NumImages()
-           << ", num_image_pairs=" << self.NumImagePairs() << ")";
+        std::ostringstream ss;
+        ss << self;
         return ss.str();
       });
 }

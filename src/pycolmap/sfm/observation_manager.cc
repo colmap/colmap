@@ -134,6 +134,8 @@ void BindObservationManager(py::module& m) {
            "that `IncrementCorrespondenceHasPoint3D` was called for the same"
            "image point and correspondence before.")
       .def("__repr__", [](const ObservationManager& self) {
-        return "ObservationManager()";
+        std::ostringstream ss;
+        ss << self;
+        return ss.str();
       });
 }
