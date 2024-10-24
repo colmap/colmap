@@ -311,7 +311,7 @@ bool CorrespondenceGraph::IsTwoViewObservation(
 std::ostream& operator<<(
     std::ostream& stream,
     const CorrespondenceGraph::Correspondence& correspondence) {
-  stream << "Correspondence(" << correspondence.image_id
+  stream << "Correspondence(image_id=" << correspondence.image_id
          << ", point2D_idx=" << correspondence.point2D_idx << ")";
   return stream;
 }
