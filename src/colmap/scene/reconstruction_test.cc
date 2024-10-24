@@ -55,58 +55,28 @@ bool CheckReconstruction(const Reconstruction& reconstruction) {
   return true;
 }
 
-// Check if two binary files are the same
-bool CompareBinaryFiles(const std::string& file1, const std::string& file2) {
-  std::ifstream f1(file1, std::ios::binary);
-  std::ifstream f2(file2, std::ios::binary);
-
-  if (!f1.is_open() || !f2.is_open()) {
-    LOG(ERROR) << "Error opening one of the files";
-    return false;
-  }
-
-  // Compare file sizes
-  f1.seekg(0, std::ios::end);
-  f2.seekg(0, std::ios::end);
-  std::streampos size1 = f1.tellg();
-  std::streampos size2 = f2.tellg();
-  if (size1 != size2) {
-    return false;
-  }
-
-  // Compare files byte by byte
-  f1.seekg(0, std::ios::beg);
-  f2.seekg(0, std::ios::beg);
-  char byte1, byte2;
-  while (f1.read(&byte1, 1) && f2.read(&byte2, 1)) {
-    if (byte1 != byte2) {
-      return false;  // Files are different
-    }
-  }
-  return true;
-}
-
 // Compare two reconstructions
-// The binary files are compared after serialized to disk
-bool CompareReconstructions(const std::string& test_dir,
-                            const Reconstruction& recon1,
+bool CompareReconstructions(const Reconstruction& recon1,
                             const Reconstruction& recon2) {
-  const std::string& dir1 = JoinPaths(test_dir, "sparse1");
-  CreateDirIfNotExists(dir1);
-  recon1.WriteBinary(dir1);
-  const std::string& dir2 = JoinPaths(test_dir, "sparse2");
-  CreateDirIfNotExists(dir2);
-  recon2.WriteBinary(dir2);
+  // compare cameras
+  std::ostream stream1_cameras, stream2_cameras;
+  WriteCamerasText(recon1, stream1_cameras);
+  WriteCamerasText(recon2, stream2_cameras);
+  if (stream1_cameras.str() != stream2_cameras.str()) return false;
 
-  if (!CompareBinaryFiles(JoinPaths(dir1, "cameras.bin"),
-                          JoinPaths(dir2, "cameras.bin")))
-    return false;
-  if (!CompareBinaryFiles(JoinPaths(dir1, "images.bin"),
-                          JoinPaths(dir2, "images.bin")))
-    return false;
-  if (!CompareBinaryFiles(JoinPaths(dir1, "points3D.bin"),
-                          JoinPaths(dir2, "points3D.bin")))
-    return false;
+  // compare images
+  std::ostream stream1_images, stream2_images;
+  WriteImagesText(recon1, stream1_images);
+  WriteImagesText(recon2, stream2_images);
+  if (stream1_images.str() != stream2_images.str()) return false;
+
+  // compare point3ds
+  std::ostream stream1_point3Ds, stream2_point3Ds;
+  WritePoint3DsText(recon1, stream1_point3Ds);
+  WritePoint3DsText(recon2, stream2_point3Ds);
+  if (stream1_point3Ds.str() != stream2_point3Ds.str()) return false;
+
+  // success
   return true;
 }
 

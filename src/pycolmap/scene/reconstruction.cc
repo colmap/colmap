@@ -250,10 +250,6 @@ void BindReconstruction(py::module& m) {
            [](const Reconstruction& self, const py::dict&) {
              return Reconstruction(self);
            })
-      .def("__assign__",
-           [](Reconstruction& self, const Reconstruction& recon) {
-             return self = recon;
-           })
       .def("__repr__",
            [](const Reconstruction& self) {
              std::stringstream ss;
