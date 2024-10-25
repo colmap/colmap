@@ -41,7 +41,10 @@ TEST(IncrementalTriangulator, Print) {
   std::ostringstream stream;
   stream << triangulator;
   EXPECT_EQ(stream.str(),
-            "IncrementalTriangulator(reconstruction=Reconstruction(num_cameras=0, num_images=0, num_reg_images=0, num_points3D=0), correspondence_graph=CorrespondenceGraph(num_images=0, num_image_pairs=0))");
+            "IncrementalTriangulator(reconstruction=Reconstruction(num_cameras="
+            "0, num_images=0, num_reg_images=0, num_points3D=0), "
+            "correspondence_graph=CorrespondenceGraph(num_images=0, "
+            "num_image_pairs=0))");
 }
 
 }  // namespace
