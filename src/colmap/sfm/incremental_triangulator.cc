@@ -757,7 +757,7 @@ std::ostream& operator<<(std::ostream& stream,
                          const IncrementalTriangulator& triangulator) {
   stream << "IncrementalTriangulator(reconstruction="
          << triangulator.reconstruction_ << ", correspondence_graph=";
-  if (correspondence_graph == nullptr) {
+  if (triangulator.correspondence_graph_ == nullptr) {
     stream << "null";
   } else {
     stream << *triangulator.correspondence_graph_;
