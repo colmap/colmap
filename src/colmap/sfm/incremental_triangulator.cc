@@ -756,8 +756,13 @@ bool IncrementalTriangulator::HasCameraBogusParams(const Options& options,
 std::ostream& operator<<(std::ostream& stream,
                          const IncrementalTriangulator& triangulator) {
   stream << "IncrementalTriangulator(reconstruction="
-         << triangulator.reconstruction_ << ", correspondence_graph="
-         << *THROW_CHECK_NOTNULL(triangulator.correspondence_graph_) << ")";
+         << triangulator.reconstruction_ << ", correspondence_graph=";
+  if (correspondence_graph == nullptr) {
+    stream << "null";
+  } else {
+    stream << *triangulator.correspondence_graph_;
+  }
+  stream << ")";
   return stream;
 }
 

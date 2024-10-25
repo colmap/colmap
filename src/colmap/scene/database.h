@@ -175,7 +175,7 @@ class Database {
   std::vector<std::pair<image_pair_t, TwoViewGeometry>> ReadTwoViewGeometries()
       const;
 
-  // Read all image pairs that have an entry in the `two_view_eg`
+  // Read all image pairs that have an entry in the `two_view_geometry`
   // table with at least one inlier match and their number of inlier matches.
   std::vector<std::pair<image_pair_t, int>> ReadTwoViewGeometryNumInliers()
       const;

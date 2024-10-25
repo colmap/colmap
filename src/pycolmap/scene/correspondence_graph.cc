@@ -28,11 +28,8 @@ void BindCorrespondenceGraph(py::module& m) {
       .def_readwrite("image_id", &CorrespondenceGraph::Correspondence::image_id)
       .def_readwrite("point2D_idx",
                      &CorrespondenceGraph::Correspondence::point2D_idx)
-      .def("__repr__", [](const CorrespondenceGraph::Correspondence& self) {
-        std::ostringstream ss;
-        ss << self;
-        return ss.str();
-      });
+      .def("__repr__",
+           &CreateRepresentation<CorrespondenceGraph::Correspondence>);
   MakeDataclass(PyCorrespondence);
 
   py::class_<CorrespondenceGraph, std::shared_ptr<CorrespondenceGraph>>(
@@ -127,9 +124,5 @@ void BindCorrespondenceGraph(py::module& m) {
            [](const CorrespondenceGraph& self, const py::dict&) {
              return CorrespondenceGraph(self);
            })
-      .def("__repr__", [](const CorrespondenceGraph& self) {
-        std::ostringstream ss;
-        ss << self;
-        return ss.str();
-      });
+      .def("__repr__", &CreateRepresentation<CorrespondenceGraph>);
 }

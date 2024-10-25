@@ -121,9 +121,5 @@ void BindIncrementalTriangulator(py::module& m) {
            [](const IncrementalTriangulator& self, const py::dict&) {
              return IncrementalTriangulator(self);
            })
-      .def("__repr__", [](const IncrementalTriangulator& self) {
-        std::ostringstream ss;
-        ss << self;
-        return ss.str();
-      });
+      .def("__repr__", &CreateRepresentation<IncrementalTriangulator>);
 }
