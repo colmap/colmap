@@ -27,9 +27,7 @@ void BindCorrespondenceGraph(py::module& m) {
       .def(py::init<image_t, point2D_t>(), "image_id"_a, "point2D_idx"_a)
       .def_readwrite("image_id", &CorrespondenceGraph::Correspondence::image_id)
       .def_readwrite("point2D_idx",
-                     &CorrespondenceGraph::Correspondence::point2D_idx)
-      .def("__repr__",
-           &CreateRepresentation<CorrespondenceGraph::Correspondence>);
+                     &CorrespondenceGraph::Correspondence::point2D_idx);
   MakeDataclass(PyCorrespondence);
 
   py::class_<CorrespondenceGraph, std::shared_ptr<CorrespondenceGraph>>(
