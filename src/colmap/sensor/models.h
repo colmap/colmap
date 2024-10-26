@@ -686,7 +686,7 @@ void BaseCameraModel<CameraModel>::IterativeUndistortion(const double* params,
     CameraModel::Distortion(
         params_jet, x_jet[0], x_jet[1], &dx_jet[0], &dx_jet[1]);
     dx[0] = dx_jet[0].a;
-    dx[1] = dx_jet[0].a;
+    dx[1] = dx_jet[1].a;
     J(0, 0) = dx_jet[0].v[0];
     J(0, 1) = dx_jet[0].v[1];
     J(1, 0) = dx_jet[1].v[0];
