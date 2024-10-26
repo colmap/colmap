@@ -157,6 +157,9 @@ class IncrementalTriangulator {
   };
 
  private:
+  friend std::ostream& operator<<(std::ostream& stream,
+                                  const IncrementalTriangulator& triangulator);
+
   // Clear cache of bogus camera parameters and merge trials.
   void ClearCaches();
 
@@ -211,5 +214,8 @@ class IncrementalTriangulator {
   // deleted, merged, etc.). Cleared once `ModifiedPoints3D` is called.
   std::unordered_set<point3D_t> modified_point3D_ids_;
 };
+
+std::ostream& operator<<(std::ostream& stream,
+                         const IncrementalTriangulator& triangulator);
 
 }  // namespace colmap

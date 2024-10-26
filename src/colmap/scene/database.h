@@ -166,19 +166,19 @@ class Database {
   FeatureMatchesBlob ReadMatchesBlob(image_t image_id1,
                                      image_t image_id2) const;
   FeatureMatches ReadMatches(image_t image_id1, image_t image_id2) const;
+  std::vector<std::pair<image_pair_t, FeatureMatchesBlob>> ReadAllMatchesBlob()
+      const;
   std::vector<std::pair<image_pair_t, FeatureMatches>> ReadAllMatches() const;
 
   TwoViewGeometry ReadTwoViewGeometry(image_t image_id1,
                                       image_t image_id2) const;
-  void ReadTwoViewGeometries(
-      std::vector<image_pair_t>* image_pair_ids,
-      std::vector<TwoViewGeometry>* two_view_geometries) const;
+  std::vector<std::pair<image_pair_t, TwoViewGeometry>> ReadTwoViewGeometries()
+      const;
 
-  // Read all image pairs that have an entry in the `NumVerifiedImagePairs`
+  // Read all image pairs that have an entry in the `two_view_geometry`
   // table with at least one inlier match and their number of inlier matches.
-  void ReadTwoViewGeometryNumInliers(
-      std::vector<std::pair<image_t, image_t>>* image_pairs,
-      std::vector<int>* num_inliers) const;
+  std::vector<std::pair<image_pair_t, int>> ReadTwoViewGeometryNumInliers()
+      const;
 
   // Add new camera and return its database identifier. If `use_camera_id`
   // is false a new identifier is automatically generated.

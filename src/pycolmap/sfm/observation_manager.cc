@@ -133,7 +133,5 @@ void BindObservationManager(py::module& m) {
            "any more and has a correspondence to this image point. This assumes"
            "that `IncrementCorrespondenceHasPoint3D` was called for the same"
            "image point and correspondence before.")
-      .def("__repr__", [](const ObservationManager& self) {
-        return "ObservationManager()";
-      });
+      .def("__repr__", &CreateRepresentation<ObservationManager>);
 }

@@ -509,6 +509,25 @@ FeatureMatches Database::ReadMatches(image_t image_id1,
   return FeatureMatchesFromBlob(ReadMatchesBlob(image_id1, image_id2));
 }
 
+std::vector<std::pair<image_pair_t, FeatureMatchesBlob>>
+Database::ReadAllMatchesBlob() const {
+  std::vector<std::pair<image_pair_t, FeatureMatchesBlob>> all_matches;
+
+  int rc;
+  while ((rc = SQLITE3_CALL(sqlite3_step(sql_stmt_read_matches_all_))) ==
+         SQLITE_ROW) {
+    const image_pair_t pair_id = static_cast<image_pair_t>(
+        sqlite3_column_int64(sql_stmt_read_matches_all_, 0));
+    all_matches.emplace_back(pair_id,
+                             ReadDynamicMatrixBlob<FeatureMatchesBlob>(
+                                 sql_stmt_read_matches_all_, rc, 1));
+  }
+
+  SQLITE3_CALL(sqlite3_reset(sql_stmt_read_matches_all_));
+
+  return all_matches;
+}
+
 std::vector<std::pair<image_pair_t, FeatureMatches>> Database::ReadAllMatches()
     const {
   std::vector<std::pair<image_pair_t, FeatureMatches>> all_matches;
@@ -572,15 +591,15 @@ TwoViewGeometry Database::ReadTwoViewGeometry(const image_t image_id1,
   return two_view_geometry;
 }
 
-void Database::ReadTwoViewGeometries(
-    std::vector<image_pair_t>* image_pair_ids,
-    std::vector<TwoViewGeometry>* two_view_geometries) const {
+std::vector<std::pair<image_pair_t, TwoViewGeometry>>
+Database::ReadTwoViewGeometries() const {
+  std::vector<std::pair<image_pair_t, TwoViewGeometry>> all_two_view_geometries;
+
   int rc;
   while ((rc = SQLITE3_CALL(sqlite3_step(
               sql_stmt_read_two_view_geometries_))) == SQLITE_ROW) {
     const image_pair_t pair_id = static_cast<image_pair_t>(
         sqlite3_column_int64(sql_stmt_read_two_view_geometries_, 0));
-    image_pair_ids->push_back(pair_id);
 
     TwoViewGeometry two_view_geometry;
 
@@ -609,32 +628,30 @@ void Database::ReadTwoViewGeometries(
     two_view_geometry.E.transposeInPlace();
     two_view_geometry.H.transposeInPlace();
 
-    two_view_geometries->push_back(two_view_geometry);
+    all_two_view_geometries.emplace_back(pair_id, std::move(two_view_geometry));
   }
 
   SQLITE3_CALL(sqlite3_reset(sql_stmt_read_two_view_geometries_));
+
+  return all_two_view_geometries;
 }
 
-void Database::ReadTwoViewGeometryNumInliers(
-    std::vector<std::pair<image_t, image_t>>* image_pairs,
-    std::vector<int>* num_inliers) const {
-  const auto num_inlier_matches = NumInlierMatches();
-  image_pairs->reserve(num_inlier_matches);
-  num_inliers->reserve(num_inlier_matches);
-
+std::vector<std::pair<image_pair_t, int>>
+Database::ReadTwoViewGeometryNumInliers() const {
+  std::vector<std::pair<image_pair_t, int>> num_inliers;
   while (SQLITE3_CALL(sqlite3_step(
              sql_stmt_read_two_view_geometry_num_inliers_)) == SQLITE_ROW) {
     const image_pair_t pair_id = static_cast<image_pair_t>(
         sqlite3_column_int64(sql_stmt_read_two_view_geometry_num_inliers_, 0));
-    const auto image_pair = PairIdToImagePair(pair_id);
-    image_pairs->emplace_back(image_pair.first, image_pair.second);
 
     const int rows = static_cast<int>(
         sqlite3_column_int64(sql_stmt_read_two_view_geometry_num_inliers_, 1));
-    num_inliers->push_back(rows);
+    num_inliers.emplace_back(pair_id, rows);
   }
 
   SQLITE3_CALL(sqlite3_reset(sql_stmt_read_two_view_geometry_num_inliers_));
+
+  return num_inliers;
 }
 
 camera_t Database::WriteCamera(const Camera& camera,
@@ -1022,36 +1039,26 @@ void Database::Merge(const Database& database1,
 
   // Merge the two-view geometries.
 
-  {
-    std::vector<image_pair_t> image_pair_ids;
-    std::vector<TwoViewGeometry> two_view_geometries;
-    database1.ReadTwoViewGeometries(&image_pair_ids, &two_view_geometries);
+  for (const auto& [pair_id, two_view_geometry] :
+       database1.ReadTwoViewGeometries()) {
+    const auto image_pair = Database::PairIdToImagePair(pair_id);
 
-    for (size_t i = 0; i < two_view_geometries.size(); ++i) {
-      const auto image_pair = Database::PairIdToImagePair(image_pair_ids[i]);
+    const image_t new_image_id1 = new_image_ids1.at(image_pair.first);
+    const image_t new_image_id2 = new_image_ids1.at(image_pair.second);
 
-      const image_t new_image_id1 = new_image_ids1.at(image_pair.first);
-      const image_t new_image_id2 = new_image_ids1.at(image_pair.second);
-
-      merged_database->WriteTwoViewGeometry(
-          new_image_id1, new_image_id2, two_view_geometries[i]);
-    }
+    merged_database->WriteTwoViewGeometry(
+        new_image_id1, new_image_id2, two_view_geometry);
   }
 
-  {
-    std::vector<image_pair_t> image_pair_ids;
-    std::vector<TwoViewGeometry> two_view_geometries;
-    database2.ReadTwoViewGeometries(&image_pair_ids, &two_view_geometries);
+  for (const auto& [pair_id, two_view_geometry] :
+       database2.ReadTwoViewGeometries()) {
+    const auto image_pair = Database::PairIdToImagePair(pair_id);
 
-    for (size_t i = 0; i < two_view_geometries.size(); ++i) {
-      const auto image_pair = Database::PairIdToImagePair(image_pair_ids[i]);
+    const image_t new_image_id1 = new_image_ids2.at(image_pair.first);
+    const image_t new_image_id2 = new_image_ids2.at(image_pair.second);
 
-      const image_t new_image_id1 = new_image_ids2.at(image_pair.first);
-      const image_t new_image_id2 = new_image_ids2.at(image_pair.second);
-
-      merged_database->WriteTwoViewGeometry(
-          new_image_id1, new_image_id2, two_view_geometries[i]);
-    }
+    merged_database->WriteTwoViewGeometry(
+        new_image_id1, new_image_id2, two_view_geometry);
   }
 }
 

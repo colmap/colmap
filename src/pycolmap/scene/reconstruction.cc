@@ -9,6 +9,7 @@
 #include "colmap/util/ply.h"
 #include "colmap/util/types.h"
 
+#include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
 #include "pycolmap/scene/types.h"
 
@@ -50,10 +51,10 @@ void BindReconstruction(py::module& m) {
              reconstruction->Read(path);
              return reconstruction;
            }),
-           "sfm_dir"_a)
+           "path"_a)
       .def("read",
            &Reconstruction::Read,
-           "sfm_dir"_a,
+           "path"_a,
            "Read reconstruction in COLMAP format. Prefer binary.")
       .def("write",
            &Reconstruction::Write,
@@ -63,8 +64,8 @@ void BindReconstruction(py::module& m) {
       .def("read_binary", &Reconstruction::ReadBinary, "path"_a)
       .def("write_text", &Reconstruction::WriteText, "path"_a)
       .def("write_binary", &Reconstruction::WriteBinary, "path"_a)
-      .def("num_images", &Reconstruction::NumImages)
       .def("num_cameras", &Reconstruction::NumCameras)
+      .def("num_images", &Reconstruction::NumImages)
       .def("num_reg_images", &Reconstruction::NumRegImages)
       .def("num_points3D", &Reconstruction::NumPoints3D)
       .def_property_readonly("images",
@@ -250,21 +251,13 @@ void BindReconstruction(py::module& m) {
            [](const Reconstruction& self, const py::dict&) {
              return Reconstruction(self);
            })
-      .def("__repr__",
-           [](const Reconstruction& self) {
-             std::stringstream ss;
-             ss << "Reconstruction(num_reg_images=" << self.NumRegImages()
-                << ", num_cameras=" << self.NumCameras()
-                << ", num_points3D=" << self.NumPoints3D()
-                << ", num_observations=" << self.ComputeNumObservations()
-                << ")";
-             return ss.str();
-           })
+      .def("__repr__", &CreateRepresentation<Reconstruction>)
       .def("summary", [](const Reconstruction& self) {
-        std::stringstream ss;
+        std::ostringstream ss;
         ss << "Reconstruction:"
-           << "\n\tnum_reg_images = " << self.NumRegImages()
            << "\n\tnum_cameras = " << self.NumCameras()
+           << "\n\tnum_images = " << self.NumImages()
+           << "\n\tnum_reg_images = " << self.NumRegImages()
            << "\n\tnum_points3D = " << self.NumPoints3D()
            << "\n\tnum_observations = " << self.ComputeNumObservations()
            << "\n\tmean_track_length = " << self.ComputeMeanTrackLength()

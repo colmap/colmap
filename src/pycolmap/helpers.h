@@ -79,7 +79,7 @@ inline void UpdateFromDict(py::object& self, const py::dict& dict) {
         if (success_on_base) {
           continue;
         }
-        std::stringstream ss;
+        std::ostringstream ss;
         ss << self.attr("__class__")
                   .attr("__name__")
                   .template cast<std::string>()
@@ -99,7 +99,7 @@ inline void UpdateFromDict(py::object& self, const py::dict& dict) {
       } else if (ex.matches(PyExc_AttributeError) &&
                  py::str(ex.value()).cast<std::string>() ==
                      std::string("can't set attribute")) {
-        std::stringstream ss;
+        std::ostringstream ss;
         ss << self.attr("__class__")
                   .attr("__name__")
                   .template cast<std::string>()
@@ -160,7 +160,7 @@ py::dict ConvertToDict(const T& self,
 
 template <typename T, typename... options>
 std::string CreateSummary(const T& self, bool write_type) {
-  std::stringstream ss;
+  std::ostringstream ss;
   auto pyself = py::cast(self);
   const std::string prefix = "    ";
   bool after_subsummary = false;
@@ -212,7 +212,7 @@ std::string CreateSummary(const T& self, bool write_type) {
 
 template <typename T>
 std::string CreateRepresentationFromAttributes(const T& self) {
-  std::stringstream ss;
+  std::ostringstream ss;
   auto pyself = py::cast(self);
   ss << pyself.attr("__class__").attr("__name__").template cast<std::string>()
      << "(";
@@ -256,7 +256,7 @@ struct IsOstreamable<
 template <typename T>
 std::string CreateRepresentation(const T& self) {
   if constexpr (IsOstreamable<T>::value) {
-    std::stringstream ss;
+    std::ostringstream ss;
     ss << self;
     return ss.str();
   } else {

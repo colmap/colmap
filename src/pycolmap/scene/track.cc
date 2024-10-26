@@ -17,18 +17,6 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
-std::string TrackElementRepr(const Track& track) {
-  std::ostringstream ss;
-  ss << track;
-  return ss.str();
-}
-
-std::string TrackRepr(const Track& track) {
-  std::ostringstream ss;
-  ss << track;
-  return ss.str();
-}
-
 void BindTrack(py::module& m) {
   py::class_<TrackElement, std::shared_ptr<TrackElement>> PyTrackElement(
       m, "TrackElement");
@@ -54,6 +42,9 @@ void BindTrack(py::module& m) {
            "image_id"_a,
            "point2D_idx"_a,
            "Add an observation to the track.")
+      .def("add_element",
+           py::overload_cast<const TrackElement&>(&Track::AddElement),
+           "element"_a)
       .def("add_elements",
            &Track::AddElements,
            "elements"_a,
@@ -63,18 +54,9 @@ void BindTrack(py::module& m) {
            "image_id"_a,
            "point2D_idx"_a,
            "Delete observation from track.")
-      .def("append",
-           py::overload_cast<const TrackElement&>(&Track::AddElement),
-           "element"_a)
-      .def("remove",
+      .def("delete_element",
            py::overload_cast<size_t>(&Track::DeleteElement),
            "index"_a,
-           "Remove TrackElement at index.")
-      .def("remove",
-           py::overload_cast<const image_t, const point2D_t>(
-               &Track::DeleteElement),
-           "image_id"_a,
-           "point2D_idx"_a,
-           "Remove TrackElement with (image_id, point2D_idx).");
+           "Remove TrackElement at index.");
   MakeDataclass(PyTrack);
 }
