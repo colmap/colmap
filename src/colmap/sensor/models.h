@@ -667,20 +667,28 @@ void BaseCameraModel<CameraModel>::IterativeUndistortion(const T* params,
   Eigen::Vector2d dx_1b;
   Eigen::Vector2d dx_1f;
 
+  ceres::Jet<double, 2> params_jet[CameraModel::num_extra_params];
+  for (size_t i = 0; i < CameraModel::num_extra_params; ++i) {
+    params_jet[i] = ceres::Jet<double, 2>(params[i], 0., 0.);
+  }
   for (size_t i = 0; i < kNumIterations; ++i) {
     const double step0 = std::max(std::numeric_limits<double>::epsilon(),
                                   std::abs(kRelStepSize * x(0)));
     const double step1 = std::max(std::numeric_limits<double>::epsilon(),
                                   std::abs(kRelStepSize * x(1)));
+    // Get Jacobian
     CameraModel::Distortion(params, x(0), x(1), &dx(0), &dx(1));
-    CameraModel::Distortion(params, x(0) - step0, x(1), &dx_0b(0), &dx_0b(1));
-    CameraModel::Distortion(params, x(0) + step0, x(1), &dx_0f(0), &dx_0f(1));
-    CameraModel::Distortion(params, x(0), x(1) - step1, &dx_1b(0), &dx_1b(1));
-    CameraModel::Distortion(params, x(0), x(1) + step1, &dx_1f(0), &dx_1f(1));
-    J(0, 0) = 1 + (dx_0f(0) - dx_0b(0)) / (2 * step0);
-    J(0, 1) = (dx_1f(0) - dx_1b(0)) / (2 * step1);
-    J(1, 0) = (dx_0f(1) - dx_0b(1)) / (2 * step0);
-    J(1, 1) = 1 + (dx_1f(1) - dx_1b(1)) / (2 * step1);
+    ceres::Jet<double, 2> x_jet[2];
+    x_jet[0] = ceres::Jet<double, 2>(x(0), 1.0, 0.0);
+    x_jet[1] = ceres::Jet<double, 2>(x(0), 0.0, 1.0);
+    ceres::Jet<double, 2> dx_jet[2];
+    CameraModel::Distortion(params_jet, x_jet(0), x_jet(1), &dx_jet(0), &dx_jet(1));
+    dx(0) = dx_jet(0).a;
+    dx(1) = dx_jet(0).a;
+    J(0, 0) = dx_jet(0).v[0];
+    J(0, 1) = dx_jet(0).v[1];
+    J(1, 0) = dx_jet(1).v[0];
+    J(1, 1) = dx_jet(1).v[1];
     const Eigen::Vector2d step_x = J.partialPivLu().solve(x + dx - x0);
     x -= step_x;
     if (step_x.squaredNorm() < kMaxStepNorm) {
