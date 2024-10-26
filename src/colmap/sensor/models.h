@@ -214,8 +214,9 @@ struct BaseCameraModel {
   template <typename T>
   static inline T CamFromImgThreshold(const T* params, T threshold);
 
-  template <typename T>
-  static inline void IterativeUndistortion(const T* params, T* u, T* v);
+  static inline void IterativeUndistortion(const double* params,
+                                           double* u,
+                                           double* v);
 };
 
 // Base model for Fisheye camera models
@@ -651,16 +652,14 @@ T BaseCameraModel<CameraModel>::CamFromImgThreshold(const T* params,
 }
 
 template <typename CameraModel>
-template <typename T>
-void BaseCameraModel<CameraModel>::IterativeUndistortion(const T* params,
-                                                         T* u,
-                                                         T* v) {
+void BaseCameraModel<CameraModel>::IterativeUndistortion(const double* params,
+                                                         double* u,
+                                                         double* v) {
   // Parameters for Newton iteration using numerical differentiation with
   // central differences, 100 iterations should be enough even for complex
   // camera models with higher order terms.
   const size_t kNumIterations = 100;
   const double kMaxStepNorm = 1e-10;
-  const double kRelStepSize = 1e-6;
 
   Eigen::Matrix2d J;
   const Eigen::Vector2d x0(*u, *v);
@@ -673,26 +672,27 @@ void BaseCameraModel<CameraModel>::IterativeUndistortion(const T* params,
 
   ceres::Jet<double, 2> params_jet[CameraModel::num_extra_params];
   for (size_t i = 0; i < CameraModel::num_extra_params; ++i) {
-    params_jet[i] = ceres::Jet<double, 2>(params[i], 0., 0.);
+    params_jet[i] = ceres::Jet<double, 2>(params[i]);
   }
   for (size_t i = 0; i < kNumIterations; ++i) {
-    const double step0 = std::max(std::numeric_limits<double>::epsilon(),
-                                  std::abs(kRelStepSize * x(0)));
-    const double step1 = std::max(std::numeric_limits<double>::epsilon(),
-                                  std::abs(kRelStepSize * x(1)));
     // Get Jacobian
     CameraModel::Distortion(params, x(0), x(1), &dx(0), &dx(1));
     ceres::Jet<double, 2> x_jet[2];
-    x_jet[0] = ceres::Jet<double, 2>(x(0), 1.0, 0.0);
-    x_jet[1] = ceres::Jet<double, 2>(x(0), 0.0, 1.0);
+    x_jet[0] = ceres::Jet<double, 2>(x(0));
+    x_jet[1] = ceres::Jet<double, 2>(x(0));
+    x_jet[0].v[0] = 1.0;
+    x_jet[1].v[1] = 1.0;
     ceres::Jet<double, 2> dx_jet[2];
-    CameraModel::Distortion(params_jet, x_jet(0), x_jet(1), &dx_jet(0), &dx_jet(1));
-    dx(0) = dx_jet(0).a;
-    dx(1) = dx_jet(0).a;
-    J(0, 0) = dx_jet(0).v[0];
-    J(0, 1) = dx_jet(0).v[1];
-    J(1, 0) = dx_jet(1).v[0];
-    J(1, 1) = dx_jet(1).v[1];
+    CameraModel::Distortion(
+        params_jet, x_jet[0], x_jet[1], &dx_jet[0], &dx_jet[1]);
+    dx[0] = dx_jet[0].a;
+    dx[1] = dx_jet[0].a;
+    J(0, 0) = dx_jet[0].v[0];
+    J(0, 1) = dx_jet[0].v[1];
+    J(1, 0) = dx_jet[1].v[0];
+    J(1, 1) = dx_jet[1].v[1];
+
+    // Update
     const Eigen::Vector2d step_x = J.partialPivLu().solve(x + dx - x0);
     x -= step_x;
     if (step_x.squaredNorm() < kMaxStepNorm) {
