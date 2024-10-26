@@ -9,6 +9,7 @@
 #include "colmap/util/ply.h"
 #include "colmap/util/types.h"
 
+#include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
 #include "pycolmap/scene/types.h"
 
@@ -250,12 +251,7 @@ void BindReconstruction(py::module& m) {
            [](const Reconstruction& self, const py::dict&) {
              return Reconstruction(self);
            })
-      .def("__repr__",
-           [](const Reconstruction& self) {
-             std::ostringstream ss;
-             ss << self;
-             return ss.str();
-           })
+      .def("__repr__", &CreateRepresentation<Reconstruction>)
       .def("summary", [](const Reconstruction& self) {
         std::ostringstream ss;
         ss << "Reconstruction:"
