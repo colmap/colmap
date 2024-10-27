@@ -655,11 +655,13 @@ template <typename CameraModel>
 void BaseCameraModel<CameraModel>::IterativeUndistortion(const double* params,
                                                          double* u,
                                                          double* v) {
-  // Parameters for Newton iteration using numerical differentiation with
-  // central differences, 100 iterations should be enough even for complex
-  // camera models with higher order terms.
+  // Parameters for Newton iteration. 100 iterations should be enough for
+  // complex camera models with higher order terms.
   const size_t kNumIterations = 100;
   const double kMaxStepNorm = 1e-10;
+  // Trust region: step_x.norm() <= max(x.norm() * kRelStepRadius, kStepRadius)
+  const double kRelStepRadius = 0.1;
+  const double kStepRadius = 0.1;
 
   Eigen::Matrix2d J;
   const Eigen::Vector2d x0(*u, *v);
@@ -688,7 +690,11 @@ void BaseCameraModel<CameraModel>::IterativeUndistortion(const double* params,
     J(1, 1) = dx_jet[1].v[1] + 1;
 
     // Update
-    const Eigen::Vector2d step_x = J.partialPivLu().solve(x + dx - x0);
+    Eigen::Vector2d step_x = J.partialPivLu().solve(x + dx - x0);
+    double radius = std::max(x.norm() * kRelStepRadius, kStepRadius);
+    if (step_x.norm() > radius) {
+      step_x *= (radius / step_x.norm());
+    }
     x -= step_x;
     if (step_x.squaredNorm() < kMaxStepNorm) {
       break;
