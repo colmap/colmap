@@ -691,7 +691,7 @@ void BaseCameraModel<CameraModel>::IterativeUndistortion(const double* params,
 
     // Update
     Eigen::Vector2d step_x = J.partialPivLu().solve(x + dx - x0);
-    double radius = std::max(x.norm() * kRelStepRadius, kStepRadius);
+    const double radius = std::max(x.norm() * kRelStepRadius, kStepRadius);
     if (step_x.norm() > radius) {
       step_x *= (radius / step_x.norm());
     }
