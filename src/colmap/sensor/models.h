@@ -657,11 +657,11 @@ void BaseCameraModel<CameraModel>::IterativeUndistortion(const double* params,
                                                          double* v) {
   // Parameters for Newton iteration. 100 iterations should be enough for
   // complex camera models with higher order terms.
-  const size_t kNumIterations = 100;
-  const double kMaxStepNorm = 1e-10;
+  constexpr size_t kNumIterations = 100;
+  constexpr double kMaxStepNorm = 1e-10;
   // Trust region: step_x.norm() <= max(x.norm() * kRelStepRadius, kStepRadius)
-  const double kRelStepRadius = 0.1;
-  const double kStepRadius = 0.1;
+  constexpr double kRelStepRadius = 0.1;
+  constexpr double kStepRadius = 0.1;
 
   Eigen::Matrix2d J;
   const Eigen::Vector2d x0(*u, *v);
@@ -691,9 +691,12 @@ void BaseCameraModel<CameraModel>::IterativeUndistortion(const double* params,
 
     // Update
     Eigen::Vector2d step_x = J.partialPivLu().solve(x + dx - x0);
-    const double radius = std::max(x.norm() * kRelStepRadius, kStepRadius);
-    if (step_x.norm() > radius) {
-      step_x *= (radius / step_x.norm());
+    const double radius_sqr =
+        std::max(x.squaredNorm() * kRelStepRadius * kRelStepRadius,
+                 kStepRadius * kStepRadius);
+    const double step_x_norm_sqr = step_x.squaredNorm();
+    if (step_x_norm_sqr > radius_sqr) {
+      step_x *= std::sqrt(radius_sqr / step_x_norm_sqr);
     }
     x -= step_x;
     if (step_x.squaredNorm() < kMaxStepNorm) {
