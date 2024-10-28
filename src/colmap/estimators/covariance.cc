@@ -563,7 +563,7 @@ bool BundleAdjustmentCovarianceEstimator::FactorizeFull() {
   Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> ldltOfS(S_matrix_);
   int rank = 0;
   for (int i = 0; i < S_matrix_.rows(); ++i) {
-    if (ldltOfS.vectorD().coeff(i) != 0.0) rank++;
+    if (ldltOfS.vectorD().coeff(i) > 0.0) rank++;
   }
   if (rank < S_matrix_.rows()) {
     LOG(INFO) << StringPrintf(
@@ -577,14 +577,13 @@ bool BundleAdjustmentCovarianceEstimator::FactorizeFull() {
   LOG(INFO) << "Finish sparse Cholesky decomposition.";
   // construct the inverse of the L_matrix
   Eigen::SparseMatrix<double> L = ldltOfS.matrixL();
-  for (int i = 0; i < S_matrix_.rows(); ++i) {
-    for (int k = L.outerIndexPtr()[i]; k < L.outerIndexPtr()[i + 1]; ++k) {
-      L.valuePtr()[i] *= sqrt(std::max(ldltOfS.vectorD().coeff(i), 0.));
-    }
-  }
   Eigen::MatrixXd L_dense = L;
   L_matrix_variables_inv_ = L_dense.triangularView<Eigen::Lower>().solve(
       Eigen::MatrixXd::Identity(L_dense.rows(), L_dense.cols()));
+  for (int i = 0; i < S_matrix_.rows(); ++i) {
+    double sqrt_invd = 1.0 / std::max(sqrt(std::max(ldlfOfS.vectorD().coeff(i), 0.0)), 1e-12);
+    L_matrix_variables_inv_.col(i) = L_matrix_variables_inv_.col(i).array() * sqrt_invd;
+  }
   LOG(INFO) << "Finish factorization by having the lower triangular matrix L "
                "inverted.";
   return true;
@@ -603,7 +602,7 @@ bool BundleAdjustmentCovarianceEstimator::ComputeFull() {
   Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> ldltOfS(S_matrix_);
   int rank = 0;
   for (int i = 0; i < S_matrix_.rows(); ++i) {
-    if (ldltOfS.vectorD().coeff(i) != 0.0) rank++;
+    if (ldltOfS.vectorD().coeff(i) > 0.0) rank++;
   }
   if (rank < S_matrix_.rows()) {
     LOG(INFO) << StringPrintf(
@@ -655,7 +654,7 @@ bool BundleAdjustmentCovarianceEstimator::Factorize() {
   Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> ldltOfS_poses(S_poses);
   int rank = 0;
   for (int i = 0; i < S_poses.rows(); ++i) {
-    if (ldltOfS_poses.vectorD().coeff(i) != 0.0) rank++;
+    if (ldltOfS_poses.vectorD().coeff(i) > 0.0) rank++;
   }
   if (rank < S_poses.rows()) {
     LOG(INFO) << StringPrintf(
@@ -669,16 +668,13 @@ bool BundleAdjustmentCovarianceEstimator::Factorize() {
   LOG(INFO) << "Finish sparse Cholesky decomposition.";
   // construct the inverse of the L_matrix
   Eigen::SparseMatrix<double> L_poses = ldltOfS_poses.matrixL();
-  for (int i = 0; i < L_poses.rows(); ++i) {
-    for (int k = L_poses.outerIndexPtr()[i]; k < L_poses.outerIndexPtr()[i + 1];
-         ++k) {
-      L_poses.valuePtr()[k] *=
-          sqrt(std::max(ldltOfS_poses.vectorD().coeff(i), 0.));
-    }
-  }
   Eigen::MatrixXd L_poses_dense = L_poses;
   L_matrix_poses_inv_ = L_poses_dense.triangularView<Eigen::Lower>().solve(
       Eigen::MatrixXd::Identity(L_poses_dense.rows(), L_poses_dense.cols()));
+  for (int i = 0; i < S_poses_.rows(); ++i) {
+    double sqrt_invd = 1.0 / std::max(sqrt(std::max(ldlfOfS_poses.vectorD().coeff(i), 0.0)), 1e-12);
+    L_matrix_poses_inv_.col(i) = L_matrix_poses_inv_.col(i).array() * sqrt_invd;
+  }
   LOG(INFO) << "Finish factorization by having the lower triangular matrix L "
                "inverted.";
   return true;
@@ -717,7 +713,7 @@ bool BundleAdjustmentCovarianceEstimator::Compute() {
   Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> ldltOfS_poses(S_poses);
   int rank = 0;
   for (int i = 0; i < S_poses.rows(); ++i) {
-    if (ldltOfS_poses.vectorD().coeff(i) != 0.0) rank++;
+    if (ldltOfS_poses.vectorD().coeff(i) > 0.0) rank++;
   }
   if (rank < S_poses.rows()) {
     LOG(INFO) << StringPrintf(
