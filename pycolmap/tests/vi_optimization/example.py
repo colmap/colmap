@@ -1,16 +1,16 @@
 """
-Example test for iterative visual-inertial optimization with IMU preintegration factors from pycolmap.
+An example for iterative VI optimization with IMU preintegration factors.
 Data was initialized and rectified with online MPS service from Project Aria.
 """
 
-import shutil
-import wget
+import os
 import zipfile
 from pathlib import Path
 
-import os
 import numpy as np
 import pyceres
+import wget
+
 import pycolmap
 from pycolmap import logging
 
@@ -62,7 +62,7 @@ def add_imu_residuals(
         prob.set_parameter_block_constant(variables["imu_from_cam"].translation)
     if not optimize_bias:
         constant_idxs = np.arange(3, 9)
-        for image_id, state in variables["imu_states"].items():
+        for image_id, _ in variables["imu_states"].items():
             prob.set_manifold(
                 variables["imu_states"][image_id].data,
                 pyceres.SubsetManifold(9, constant_idxs),
@@ -134,7 +134,7 @@ def run_iterative(
     logging.verbose(
         1, f"=> Retriangulated observations: {num_retriangulated_observations}"
     )
-    for i in range(max_num_refinements):
+    for _ in range(max_num_refinements):
         num_observations = reconstruction.compute_num_observations()
         adjust_global_bundle(
             mapper,
@@ -297,7 +297,6 @@ def run():
     )
 
     # Eval
-    recon_optimized = pycolmap.Reconstruction(output_path)
     imu_from_cam = variables["imu_from_cam"]
     gravity = variables["gravity"]
     log_scale = variables["log_scale"]
