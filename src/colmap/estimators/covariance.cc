@@ -582,7 +582,7 @@ bool BundleAdjustmentCovarianceEstimator::FactorizeFull() {
       Eigen::MatrixXd::Identity(L_dense.rows(), L_dense.cols()));
   for (int i = 0; i < S_matrix_.rows(); ++i) {
     double sqrt_invd =
-        1.0 / std::max(sqrt(std::max(ldlfOfS.vectorD().coeff(i), 0.)), 1e-12);
+        1.0 / std::max(sqrt(std::max(ldltOfS.vectorD().coeff(i), 0.)), 1e-12);
     L_matrix_variables_inv_.col(i) =
         L_matrix_variables_inv_.col(i).array() * sqrt_invd;
   }
@@ -673,10 +673,10 @@ bool BundleAdjustmentCovarianceEstimator::Factorize() {
   Eigen::MatrixXd L_poses_dense = L_poses;
   L_matrix_poses_inv_ = L_poses_dense.triangularView<Eigen::Lower>().solve(
       Eigen::MatrixXd::Identity(L_poses_dense.rows(), L_poses_dense.cols()));
-  for (int i = 0; i < S_poses_.rows(); ++i) {
+  for (int i = 0; i < S_poses.rows(); ++i) {
     double sqrt_invd =
         1.0 /
-        std::max(sqrt(std::max(ldlfOfS_poses.vectorD().coeff(i), 0.)), 1e-12);
+        std::max(sqrt(std::max(ldltOfS_poses.vectorD().coeff(i), 0.)), 1e-12);
     L_matrix_poses_inv_.col(i) = L_matrix_poses_inv_.col(i).array() * sqrt_invd;
   }
   LOG(INFO) << "Finish factorization by having the lower triangular matrix L "
