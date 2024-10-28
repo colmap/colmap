@@ -675,10 +675,8 @@ void BaseCameraModel<CameraModel>::IterativeUndistortion(const double* params,
   for (size_t i = 0; i < kNumIterations; ++i) {
     // Get Jacobian
     ceres::Jet<double, 2> x_jet[2];
-    x_jet[0] = ceres::Jet<double, 2>(x(0));
-    x_jet[1] = ceres::Jet<double, 2>(x(1));
-    x_jet[0].v[0] = 1.0;
-    x_jet[1].v[1] = 1.0;
+    x_jet[0] = ceres::Jet<double, 2>(x(0), 0);
+    x_jet[1] = ceres::Jet<double, 2>(x(1), 1);
     ceres::Jet<double, 2> dx_jet[2];
     CameraModel::Distortion(
         params_jet, x_jet[0], x_jet[1], &dx_jet[0], &dx_jet[1]);
