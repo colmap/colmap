@@ -563,7 +563,7 @@ bool BundleAdjustmentCovarianceEstimator::FactorizeFull() {
   Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> ldltOfS(S_matrix_);
   int rank = 0;
   for (int i = 0; i < S_matrix_.rows(); ++i) {
-    if (ldltOfS.vectorD().coeff(i) > 0.0) rank++;
+    if (ldltOfS.vectorD().coeff(i) != 0.0) rank++;
   }
   if (rank < S_matrix_.rows()) {
     LOG(INFO) << StringPrintf(
@@ -604,7 +604,7 @@ bool BundleAdjustmentCovarianceEstimator::ComputeFull() {
   Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> ldltOfS(S_matrix_);
   int rank = 0;
   for (int i = 0; i < S_matrix_.rows(); ++i) {
-    if (ldltOfS.vectorD().coeff(i) > 0.0) rank++;
+    if (ldltOfS.vectorD().coeff(i) != 0.0) rank++;
   }
   if (rank < S_matrix_.rows()) {
     LOG(INFO) << StringPrintf(
@@ -656,7 +656,7 @@ bool BundleAdjustmentCovarianceEstimator::Factorize() {
   Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> ldltOfS_poses(S_poses);
   int rank = 0;
   for (int i = 0; i < S_poses.rows(); ++i) {
-    if (ldltOfS_poses.vectorD().coeff(i) > 0.0) rank++;
+    if (ldltOfS_poses.vectorD().coeff(i) != 0.0) rank++;
   }
   if (rank < S_poses.rows()) {
     LOG(INFO) << StringPrintf(
@@ -716,7 +716,7 @@ bool BundleAdjustmentCovarianceEstimator::Compute() {
   Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> ldltOfS_poses(S_poses);
   int rank = 0;
   for (int i = 0; i < S_poses.rows(); ++i) {
-    if (ldltOfS_poses.vectorD().coeff(i) > 0.0) rank++;
+    if (ldltOfS_poses.vectorD().coeff(i) != 0.0) rank++;
   }
   if (rank < S_poses.rows()) {
     LOG(INFO) << StringPrintf(
