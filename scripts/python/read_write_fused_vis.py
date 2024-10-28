@@ -30,14 +30,13 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 
-import os
 import collections
+import os
+
 import numpy as np
 import pandas as pd
 from pyntcloud import PyntCloud
-
 from read_write_model import read_next_bytes, write_next_bytes
-
 
 MeshPoint = collections.namedtuple(
     "MeshingPoint",

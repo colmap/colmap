@@ -41,13 +41,32 @@ TEST(Image, Default) {
   EXPECT_EQ(image.CameraId(), kInvalidCameraId);
   EXPECT_FALSE(image.HasCameraId());
   EXPECT_FALSE(image.HasCameraPtr());
-  EXPECT_FALSE(image.IsRegistered());
+  EXPECT_FALSE(image.HasPose());
   EXPECT_EQ(image.NumPoints2D(), 0);
   EXPECT_EQ(image.NumPoints3D(), 0);
-  EXPECT_EQ(image.CamFromWorld().rotation.coeffs(),
-            Eigen::Quaterniond::Identity().coeffs());
-  EXPECT_EQ(image.CamFromWorld().translation, Eigen::Vector3d::Zero());
   EXPECT_EQ(image.Points2D().size(), 0);
+}
+
+TEST(Image, Equals) {
+  Image image;
+  Image other = image;
+  EXPECT_EQ(image, other);
+  image.SetName("test");
+  EXPECT_NE(image, other);
+  other.SetName("test");
+  EXPECT_EQ(image, other);
+}
+
+TEST(Image, Print) {
+  Image image;
+  image.SetImageId(1);
+  image.SetCameraId(2);
+  image.SetName("test");
+  std::ostringstream stream;
+  stream << image;
+  EXPECT_EQ(stream.str(),
+            "Image(image_id=1, camera_id=2, name=\"test\", "
+            "has_pose=0, triangulated=0/0)");
 }
 
 TEST(Image, ImageId) {
@@ -91,13 +110,18 @@ TEST(Image, CameraPtr) {
   EXPECT_ANY_THROW(image.CameraPtr());
 }
 
-TEST(Image, Registered) {
+TEST(Image, SetResetPose) {
   Image image;
-  EXPECT_FALSE(image.IsRegistered());
-  image.SetRegistered(true);
-  EXPECT_TRUE(image.IsRegistered());
-  image.SetRegistered(false);
-  EXPECT_FALSE(image.IsRegistered());
+  EXPECT_FALSE(image.HasPose());
+  EXPECT_ANY_THROW(image.CamFromWorld());
+  image.SetCamFromWorld(Rigid3d());
+  EXPECT_TRUE(image.HasPose());
+  EXPECT_EQ(image.CamFromWorld().rotation.coeffs(),
+            Eigen::Quaterniond::Identity().coeffs());
+  EXPECT_EQ(image.CamFromWorld().translation, Eigen::Vector3d::Zero());
+  image.ResetPose();
+  EXPECT_FALSE(image.HasPose());
+  EXPECT_ANY_THROW(image.CamFromWorld());
 }
 
 TEST(Image, NumPoints2D) {
@@ -188,16 +212,19 @@ TEST(Image, Points3D) {
 
 TEST(Image, ProjectionCenter) {
   Image image;
+  image.SetCamFromWorld(Rigid3d());
   EXPECT_EQ(image.ProjectionCenter(), Eigen::Vector3d::Zero());
 }
 
 TEST(Image, ViewingDirection) {
   Image image;
+  image.SetCamFromWorld(Rigid3d());
   EXPECT_EQ(image.ViewingDirection(), Eigen::Vector3d(0, 0, 1));
 }
 
 TEST(Image, ProjectPoint) {
   Image image;
+  image.SetCamFromWorld(Rigid3d());
   Camera camera =
       Camera::CreateFromModelId(1, CameraModelId::kSimplePinhole, 1, 1, 1);
   image.SetCameraId(camera.camera_id);

@@ -40,8 +40,8 @@ COLMAP_ADD_LIBRARY(
         database_cache.h database_cache.cc
         image.h image.cc
         imu.h
-        point2d.h
-        point3d.h
+        point2d.h point2d.cc
+        point3d.h point3d.cc
         projection.h projection.cc
         reconstruction.h reconstruction.cc
         reconstruction_io.h reconstruction_io.cc
@@ -108,6 +108,11 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME reconstruction_test
     SRCS reconstruction_test.cc
+    LINK_LIBS colmap_scene
+)
+COLMAP_ADD_TEST(
+    NAME reconstruction_io_test
+    SRCS reconstruction_io_test.cc
     LINK_LIBS colmap_scene
 )
 COLMAP_ADD_TEST(

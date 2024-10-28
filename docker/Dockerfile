@@ -1,5 +1,5 @@
 ARG UBUNTU_VERSION=22.04
-ARG NVIDIA_CUDA_VERSION=12.3.1
+ARG NVIDIA_CUDA_VERSION=12.6.1
 
 #
 # Docker builder stage.
@@ -21,7 +21,6 @@ RUN apt-get update && \
         ninja-build \
         build-essential \
         libboost-program-options-dev \
-        libboost-filesystem-dev \
         libboost-graph-dev \
         libboost-system-dev \
         libeigen3-dev \
@@ -46,7 +45,7 @@ RUN cd colmap && \
     mkdir build && \
     cd build && \
     cmake .. -GNinja -DCMAKE_CUDA_ARCHITECTURES=${CUDA_ARCHITECTURES} \
-        -DCMAKE_INSTALL_PREFIX=/colmap_installed && \
+        -DCMAKE_INSTALL_PREFIX=/colmap-install && \
     ninja install
 
 #
@@ -59,7 +58,6 @@ FROM nvidia/cuda:${NVIDIA_CUDA_VERSION}-runtime-ubuntu${UBUNTU_VERSION} as runti
 # build dependencies are not needed.
 RUN apt-get update && \
     apt-get install -y --no-install-recommends --no-install-suggests \
-        libboost-filesystem1.74.0 \
         libboost-program-options1.74.0 \
         libc6 \
         libceres2 \
@@ -72,10 +70,10 @@ RUN apt-get update && \
         libqt5gui5 \
         libqt5widgets5
 
-# Copy all files from /colmap_installed/ in the builder stage to /usr/local/ in
+# Copy all files from /colmap-install/ in the builder stage to /usr/local/ in
 # the runtime stage. This simulates installing COLMAP in the default location
 # (/usr/local/), which simplifies environment variables. It also allows the user
 # of this Docker image to use it as a base image for compiling against COLMAP as
 # a library. For instance, CMake will be able to find COLMAP easily with the
 # command: find_package(COLMAP REQUIRED).
-COPY --from=builder /colmap_installed/ /usr/local/
+COPY --from=builder /colmap-install/ /usr/local/

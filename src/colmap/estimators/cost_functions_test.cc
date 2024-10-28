@@ -42,9 +42,9 @@ namespace colmap {
 namespace {
 
 TEST(BundleAdjustment, AbsolutePose) {
-  using CostFunction = ReprojErrorCostFunction<SimplePinholeCameraModel>;
+  using CostFunctor = ReprojErrorCostFunctor<SimplePinholeCameraModel>;
   std::unique_ptr<ceres::CostFunction> cost_function(
-      CostFunction::Create(Eigen::Vector2d::Zero()));
+      CostFunctor::Create(Eigen::Vector2d::Zero()));
   double cam_from_world_rotation[4] = {0, 0, 0, 1};
   double cam_from_world_translation[3] = {0, 0, 0};
   double point3D[3] = {0, 0, 1};
@@ -74,7 +74,7 @@ TEST(BundleAdjustment, AbsolutePose) {
   EXPECT_EQ(residuals[1], 2);
 
   std::unique_ptr<ceres::CostFunction> cost_function_with_noise(
-      IsotropicNoiseCostFunctionWrapper<CostFunction>::Create(
+      IsotropicNoiseCostFunctorWrapper<CostFunctor>::Create(
           2.0, Eigen::Vector2d::Zero()));
   EXPECT_TRUE(
       cost_function_with_noise->Evaluate(parameters, residuals, nullptr));
@@ -85,7 +85,7 @@ TEST(BundleAdjustment, AbsolutePose) {
 TEST(BundleAdjustment, ConstantPoseAbsolutePose) {
   Rigid3d cam_from_world;
   std::unique_ptr<ceres::CostFunction> cost_function(
-      ReprojErrorConstantPoseCostFunction<SimplePinholeCameraModel>::Create(
+      ReprojErrorConstantPoseCostFunctor<SimplePinholeCameraModel>::Create(
           cam_from_world, Eigen::Vector2d::Zero()));
   double point3D[3] = {0, 0, 1};
   double camera_params[3] = {1, 0, 0};
@@ -125,8 +125,8 @@ TEST(BundleAdjustment, ConstantPoint3DAbsolutePose) {
 
   {
     std::unique_ptr<ceres::CostFunction> cost_function(
-        ReprojErrorConstantPoint3DCostFunction<
-            SimplePinholeCameraModel>::Create(point2D, point3D));
+        ReprojErrorConstantPoint3DCostFunctor<SimplePinholeCameraModel>::Create(
+            point2D, point3D));
     EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
     EXPECT_EQ(residuals[0], 0);
     EXPECT_EQ(residuals[1], 0);
@@ -135,8 +135,8 @@ TEST(BundleAdjustment, ConstantPoint3DAbsolutePose) {
   {
     point3D[1] = 1;
     std::unique_ptr<ceres::CostFunction> cost_function(
-        ReprojErrorConstantPoint3DCostFunction<
-            SimplePinholeCameraModel>::Create(point2D, point3D));
+        ReprojErrorConstantPoint3DCostFunctor<SimplePinholeCameraModel>::Create(
+            point2D, point3D));
     EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
     EXPECT_EQ(residuals[0], 0);
     EXPECT_EQ(residuals[1], 1);
@@ -145,8 +145,8 @@ TEST(BundleAdjustment, ConstantPoint3DAbsolutePose) {
   {
     camera_params[0] = 2;
     std::unique_ptr<ceres::CostFunction> cost_function(
-        ReprojErrorConstantPoint3DCostFunction<
-            SimplePinholeCameraModel>::Create(point2D, point3D));
+        ReprojErrorConstantPoint3DCostFunctor<SimplePinholeCameraModel>::Create(
+            point2D, point3D));
     EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
     EXPECT_EQ(residuals[0], 0);
     EXPECT_EQ(residuals[1], 2);
@@ -155,8 +155,8 @@ TEST(BundleAdjustment, ConstantPoint3DAbsolutePose) {
   {
     point3D[0] = -1;
     std::unique_ptr<ceres::CostFunction> cost_function(
-        ReprojErrorConstantPoint3DCostFunction<
-            SimplePinholeCameraModel>::Create(point2D, point3D));
+        ReprojErrorConstantPoint3DCostFunctor<SimplePinholeCameraModel>::Create(
+            point2D, point3D));
     EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
     EXPECT_EQ(residuals[0], -2);
     EXPECT_EQ(residuals[1], 2);
@@ -165,7 +165,7 @@ TEST(BundleAdjustment, ConstantPoint3DAbsolutePose) {
 
 TEST(BundleAdjustment, Rig) {
   std::unique_ptr<ceres::CostFunction> cost_function(
-      RigReprojErrorCostFunction<SimplePinholeCameraModel>::Create(
+      RigReprojErrorCostFunctor<SimplePinholeCameraModel>::Create(
           Eigen::Vector2d::Zero()));
   double cam_from_rig_rotation[4] = {0, 0, 0, 1};
   double cam_from_rig_translation[3] = {0, 0, -1};
@@ -204,7 +204,7 @@ TEST(BundleAdjustment, ConstantRig) {
   Rigid3d cam_from_rig;
   cam_from_rig.translation << 0, 0, -1;
   std::unique_ptr<ceres::CostFunction> cost_function(
-      RigReprojErrorConstantRigCostFunction<SimplePinholeCameraModel>::Create(
+      RigReprojErrorConstantRigCostFunctor<SimplePinholeCameraModel>::Create(
           cam_from_rig, Eigen::Vector2d::Zero()));
 
   double rig_from_world_rotation[4] = {0, 0, 0, 1};
@@ -238,8 +238,8 @@ TEST(BundleAdjustment, ConstantRig) {
 
 TEST(BundleAdjustment, RelativePose) {
   std::unique_ptr<ceres::CostFunction> cost_function(
-      SampsonErrorCostFunction::Create(Eigen::Vector2d(0, 0),
-                                       Eigen::Vector2d(0, 0)));
+      SampsonErrorCostFunctor::Create(Eigen::Vector2d(0, 0),
+                                      Eigen::Vector2d(0, 0)));
   double cam_from_world_rotation[4] = {1, 0, 0, 0};
   double cam_from_world_translation[3] = {0, 1, 0};
   double residuals[1];
@@ -248,15 +248,45 @@ TEST(BundleAdjustment, RelativePose) {
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
   EXPECT_EQ(residuals[0], 0);
 
-  cost_function.reset(SampsonErrorCostFunction::Create(Eigen::Vector2d(0, 0),
-                                                       Eigen::Vector2d(1, 0)));
+  cost_function.reset(SampsonErrorCostFunctor::Create(Eigen::Vector2d(0, 0),
+                                                      Eigen::Vector2d(1, 0)));
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
   EXPECT_EQ(residuals[0], 0.5);
 
-  cost_function.reset(SampsonErrorCostFunction::Create(Eigen::Vector2d(0, 0),
-                                                       Eigen::Vector2d(1, 1)));
+  cost_function.reset(SampsonErrorCostFunctor::Create(Eigen::Vector2d(0, 0),
+                                                      Eigen::Vector2d(1, 1)));
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
   EXPECT_EQ(residuals[0], 0.5);
+}
+
+TEST(BundleAdjustment, PositionPrior) {
+  std::unique_ptr<ceres::CostFunction> cost_function(
+      PositionPriorErrorCostFunctor::Create(Eigen::Vector3d(0, 0, 0),
+                                            Eigen::Matrix3d::Identity()));
+
+  double cam_from_world_rotation[4] = {0, 0, 0, 1};
+  double cam_from_world_translation[3] = {0, 0, 0};
+
+  double residuals[3];
+  const double* parameters[2] = {cam_from_world_rotation,
+                                 cam_from_world_translation};
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], 0);
+  EXPECT_EQ(residuals[2], 0);
+
+  const Rigid3d cam_from_world(Eigen::Quaterniond::UnitRandom(),
+                               Eigen::Vector3d::Random());
+  const Rigid3d world_from_cam = Inverse(cam_from_world);
+
+  cost_function.reset(PositionPriorErrorCostFunctor::Create(
+      world_from_cam.translation, Eigen::Matrix3d::Identity()));
+  parameters[0] = cam_from_world.rotation.coeffs().data();
+  parameters[1] = cam_from_world.translation.data();
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], 0);
+  EXPECT_EQ(residuals[2], 0);
 }
 
 TEST(PoseGraphOptimization, AbsolutePose) {
@@ -264,8 +294,7 @@ TEST(PoseGraphOptimization, AbsolutePose) {
   EigenMatrix6d covariance_cam = EigenMatrix6d::Identity();
   covariance_cam(5, 5) = 4;
   std::unique_ptr<ceres::CostFunction> cost_function(
-      AbsolutePoseErrorCostFunction::Create(mes_cam_from_world,
-                                            covariance_cam));
+      AbsolutePoseErrorCostFunctor::Create(mes_cam_from_world, covariance_cam));
 
   double cam_from_world_rotation[4] = {0, 0, 0, 1};
   double cam_from_world_translation[3] = {0, 0, 0};
@@ -311,7 +340,7 @@ TEST(PoseGraphOptimization, RelativePose) {
   EigenMatrix6d covariance_j = EigenMatrix6d::Identity();
   covariance_j(5, 5) = 4;
   std::unique_ptr<ceres::CostFunction> cost_function(
-      MetricRelativePoseErrorCostFunction::Create(i_from_j, covariance_j));
+      MetricRelativePoseErrorCostFunctor::Create(i_from_j, covariance_j));
 
   double i_from_world_rotation[4] = {0, 0, 0, 1};
   double i_from_world_translation[3] = {0, 0, 0};
@@ -372,7 +401,7 @@ TEST(PoseGraphOptimization, Point3dAlignment) {
   Eigen::Matrix3d covariance_point = Eigen::Matrix3d::Identity();
   covariance_point(2, 2) = 4.;
   std::unique_ptr<ceres::CostFunction> cost_function(
-      Point3dAlignmentCostFunction::Create(ref_point, covariance_point));
+      Point3dAlignmentCostFunctor::Create(ref_point, covariance_point));
   Eigen::Vector3d point(0., 0., 0.);
   const double* parameters[4] = {point.data(),
                                  tform.rotation.coeffs().data(),

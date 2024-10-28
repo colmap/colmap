@@ -1,5 +1,5 @@
 """
-An example for running incremental SfM on a set of images with pycolmap interfaces.
+An example for running incremental SfM on images with the pycolmap interface.
 """
 
 import shutil
@@ -62,7 +62,9 @@ def run():
     recs = incremental_mapping_with_pbar(database_path, image_path, sfm_path)
     # alternatively, use:
     # import custom_incremental_mapping
-    # recs = custom_incremental_mapping.main(database_path, image_path, sfm_path)
+    # recs = custom_incremental_mapping.main(
+    #     database_path, image_path, sfm_path
+    # )
     for idx, rec in recs.items():
         logging.info(f"#{idx} {rec.summary()}")
 

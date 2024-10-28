@@ -36,7 +36,8 @@ If you use the image retrieval / vocabulary tree engine, please also cite:
 The latest source code is available at https://github.com/colmap/colmap. COLMAP
 builds on top of existing works and when using specific algorithms within
 COLMAP, please also cite the original authors, as specified in the source code,
-and consider citing relevant third-party dependencies.
+and consider citing relevant third-party dependencies (most notably
+ceres-solver, poselib, sift-gpu, vlfeat).
 
 
 Download
@@ -135,4 +136,3 @@ dependencies may affect the resulting COLMAP license.
     CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
     ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
     POSSIBILITY OF SUCH DAMAGE.
-

@@ -23,7 +23,7 @@ void BindScene(py::module& m);
 void BindSfMObjects(py::module& m);
 void BindSift(py::module& m);
 
-PYBIND11_MODULE(pycolmap, m) {
+PYBIND11_MODULE(_core, m) {
   m.doc() = "COLMAP plugin";
 #ifdef VERSION_INFO
   m.attr("__version__") = py::str(VERSION_INFO);

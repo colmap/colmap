@@ -28,11 +28,11 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 
-import re
 import argparse
+import re
+
 import requests
 from lxml.html import soupparser
-
 
 MAX_REQUEST_TRIALS = 10
 
@@ -48,7 +48,7 @@ def request_trial(func, *args, **kwargs):
     for i in range(MAX_REQUEST_TRIALS):
         try:
             response = func(*args, **kwargs)
-        except:
+        except:  # noqa E722
             continue
         else:
             return response

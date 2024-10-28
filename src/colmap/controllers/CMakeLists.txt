@@ -56,7 +56,6 @@ COLMAP_ADD_LIBRARY(
         colmap_mvs
         colmap_sfm
         Ceres::ceres
-        Boost::filesystem
         Boost::boost
 )
 

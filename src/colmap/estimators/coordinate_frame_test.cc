@@ -65,9 +65,8 @@ TEST(CoordinateFrame, AlignToPrincipalPlane) {
   Image image;
   image.SetCameraId(camera.camera_id);
   image.SetImageId(1);
-  image.SetRegistered(true);
-  image.CamFromWorld() =
-      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(-1, 0, 0));
+  image.SetCamFromWorld(
+      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(-1, 0, 0)));
   reconstruction.AddImage(image);
   // Setup 4 points on the Y-Z plane
   const point3D_t p1 =

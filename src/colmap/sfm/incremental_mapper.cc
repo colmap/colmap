@@ -229,7 +229,7 @@ std::vector<image_t> IncrementalMapper::FindNextImages(const Options& options) {
   // Append images that have not failed to register before.
   for (const auto& image : reconstruction_->Images()) {
     // Skip images that are already registered.
-    if (image.second.IsRegistered()) {
+    if (image.second.HasPose()) {
       continue;
     }
 
@@ -292,8 +292,8 @@ void IncrementalMapper::RegisterInitialImagePair(
   // Estimate two-view geometry
   //////////////////////////////////////////////////////////////////////////////
 
-  image1.CamFromWorld() = Rigid3d();
-  image2.CamFromWorld() = two_view_geometry.cam2_from_cam1;
+  image1.SetCamFromWorld(Rigid3d());
+  image2.SetCamFromWorld(two_view_geometry.cam2_from_cam1);
 
   const Eigen::Matrix3x4d cam_from_world1 = image1.CamFromWorld().ToMatrix();
   const Eigen::Matrix3x4d cam_from_world2 = image2.CamFromWorld().ToMatrix();
@@ -327,11 +327,11 @@ void IncrementalMapper::RegisterInitialImagePair(
         camera1.CamFromImg(image1.Point2D(corr.point2D_idx1).xy);
     const Eigen::Vector2d point2D2 =
         camera2.CamFromImg(image2.Point2D(corr.point2D_idx2).xy);
-    const Eigen::Vector3d& xyz =
-        TriangulatePoint(cam_from_world1, cam_from_world2, point2D1, point2D2);
-    const double tri_angle =
-        CalculateTriangulationAngle(proj_center1, proj_center2, xyz);
-    if (tri_angle >= min_tri_angle_rad &&
+    Eigen::Vector3d xyz;
+    if (TriangulatePoint(
+            cam_from_world1, cam_from_world2, point2D1, point2D2, &xyz) &&
+        CalculateTriangulationAngle(proj_center1, proj_center2, xyz) >=
+            min_tri_angle_rad &&
         HasPointPositiveDepth(cam_from_world1, xyz) &&
         HasPointPositiveDepth(cam_from_world2, xyz)) {
       track.Element(0).point2D_idx = corr.point2D_idx1;
@@ -352,8 +352,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   Image& image = reconstruction_->Image(image_id);
   Camera& camera = *image.CameraPtr();
 
-  THROW_CHECK(!image.IsRegistered())
-      << "Image cannot be registered multiple times";
+  THROW_CHECK(!image.HasPose()) << "Image cannot be registered multiple times";
 
   num_reg_trials_[image_id] += 1;
 
@@ -384,7 +383,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
         correspondence_graph->FindCorrespondences(image_id, point2D_idx);
     for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
       const Image& corr_image = reconstruction_->Image(corr->image_id);
-      if (!corr_image.IsRegistered()) {
+      if (!corr_image.HasPose()) {
         continue;
       }
 
@@ -435,10 +434,6 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   // parameters)
 
   AbsolutePoseEstimationOptions abs_pose_options;
-  abs_pose_options.num_threads = options.num_threads;
-  abs_pose_options.num_focal_length_samples = 30;
-  abs_pose_options.min_focal_length_ratio = options.min_focal_length_ratio;
-  abs_pose_options.max_focal_length_ratio = options.max_focal_length_ratio;
   abs_pose_options.ransac_options.max_error = options.abs_pose_max_error;
   abs_pose_options.ransac_options.min_inlier_ratio =
       options.abs_pose_min_inlier_ratio;
@@ -482,10 +477,11 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   size_t num_inliers;
   std::vector<char> inlier_mask;
 
+  Rigid3d cam_from_world;
   if (!EstimateAbsolutePose(abs_pose_options,
                             tri_points2D,
                             tri_points3D,
-                            &image.CamFromWorld(),
+                            &cam_from_world,
                             &camera,
                             &num_inliers,
                             &inlier_mask)) {
@@ -504,7 +500,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
                           inlier_mask,
                           tri_points2D,
                           tri_points3D,
-                          &image.CamFromWorld(),
+                          &cam_from_world,
                           &camera)) {
     return false;
   }
@@ -513,6 +509,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   // Continue tracks
   //////////////////////////////////////////////////////////////////////////////
 
+  image.SetCamFromWorld(cam_from_world);
   reconstruction_->RegisterImage(image_id);
   RegisterImageEvent(image_id);
 
@@ -612,11 +609,11 @@ IncrementalMapper::AdjustLocalBundle(
       num_images_per_camera[image.CameraId()] += 1;
     }
 
-    for (const auto& camera_id_and_num_images_pair : num_images_per_camera) {
+    for (const auto& [camera_id, num_images] : num_images_per_camera) {
       const size_t num_reg_images_for_camera =
-          num_reg_images_per_camera_.at(camera_id_and_num_images_pair.first);
-      if (camera_id_and_num_images_pair.second < num_reg_images_for_camera) {
-        ba_config.SetConstantCamIntrinsics(camera_id_and_num_images_pair.first);
+          num_reg_images_per_camera_.at(camera_id);
+      if (num_images < num_reg_images_for_camera) {
+        ba_config.SetConstantCamIntrinsics(camera_id);
       }
     }
 
@@ -693,7 +690,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
   THROW_CHECK_NOTNULL(reconstruction_);
   THROW_CHECK_NOTNULL(obs_manager_);
 
-  const std::vector<image_t>& reg_image_ids = reconstruction_->RegImageIds();
+  const std::set<image_t>& reg_image_ids = reconstruction_->RegImageIds();
 
   THROW_CHECK_GE(reg_image_ids.size(), 2) << "At least two images must be "
                                              "registered for global "
@@ -728,16 +725,32 @@ bool IncrementalMapper::AdjustGlobalBundle(
     }
   }
 
-  // Fix 7-DOFs of the bundle adjustment problem.
-  ba_config.SetConstantCamPose(reg_image_ids[0]);
-  if (!options.fix_existing_images ||
-      !existing_image_ids_.count(reg_image_ids[1])) {
-    ba_config.SetConstantCamPositions(reg_image_ids[1], {0});
-  }
+  // Only use prior pose if at least 3 images have been registered.
+  const bool use_prior_position =
+      options.use_prior_position && reg_image_ids.size() > 2;
 
-  // Run bundle adjustment.
-  BundleAdjuster bundle_adjuster(ba_options_tmp, ba_config);
-  return bundle_adjuster.Solve(reconstruction_.get());
+  if (!use_prior_position) {
+    // Fix 7-DOFs of the bundle adjustment problem.
+    auto reg_image_ids_it = reg_image_ids.begin();
+    ba_config.SetConstantCamPose(*(reg_image_ids_it++));  // 1st image
+    if (!options.fix_existing_images ||
+        !existing_image_ids_.count(*reg_image_ids_it)) {
+      ba_config.SetConstantCamPositions(*reg_image_ids_it, {0});  // 2nd image
+    }
+
+    // Run bundle adjustment.
+    BundleAdjuster bundle_adjuster(ba_options_tmp, ba_config);
+    return bundle_adjuster.Solve(reconstruction_.get());
+  } else {
+    PosePriorBundleAdjuster prior_bundle_adjuster(
+        ba_options_tmp,
+        PosePriorBundleAdjuster::Options(
+            options.use_robust_loss_on_prior_position,
+            options.prior_position_loss_scale),
+        ba_config,
+        database_cache_->PosePriors());
+    return prior_bundle_adjuster.Solve(reconstruction_.get());
+  }
 }
 
 void IncrementalMapper::IterativeLocalRefinement(
@@ -785,7 +798,7 @@ void IncrementalMapper::IterativeGlobalRefinement(
   for (int i = 0; i < max_num_refinements; ++i) {
     const size_t num_observations = reconstruction_->ComputeNumObservations();
     AdjustGlobalBundle(options, ba_options);
-    if (normalize_reconstruction) {
+    if (normalize_reconstruction && !options.use_prior_position) {
       // Normalize scene for numerical stability and
       // to avoid large scale changes in the viewer.
       reconstruction_->Normalize();
@@ -1033,7 +1046,7 @@ std::vector<image_t> IncrementalMapper::FindLocalBundle(
   THROW_CHECK(options.Check());
 
   const Image& image = reconstruction_->Image(image_id);
-  THROW_CHECK(image.IsRegistered());
+  THROW_CHECK(image.HasPose());
 
   // Extract all images that have at least one 3D point with the query image
   // in common, and simultaneously count the number of common 3D points.

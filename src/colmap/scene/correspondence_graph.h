@@ -171,6 +171,12 @@ class CorrespondenceGraph {
   std::unordered_map<image_pair_t, ImagePair> image_pairs_;
 };
 
+std::ostream& operator<<(
+    std::ostream& stream,
+    const CorrespondenceGraph::Correspondence& correspondence);
+std::ostream& operator<<(std::ostream& stream,
+                         const CorrespondenceGraph& correspondence_graph);
+
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////
