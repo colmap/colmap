@@ -41,6 +41,8 @@
 #include <Eigen/Core>
 #include <Eigen/LU>
 #include <ceres/jet.h>
+#include <ceres/tiny_solver.h>
+#include <ceres/tiny_solver_autodiff_function.h>
 
 namespace colmap {
 
@@ -647,46 +649,51 @@ T BaseCameraModel<CameraModel>::CamFromImgThreshold(const T* params,
 }
 
 template <typename CameraModel>
+struct DistortionCostFunctor {
+  explicit DistortionCostFunctor(double u, double v, const double* extra_params)
+      : u(u), v(v), extra_params(extra_params) {}
+
+  template <typename T>
+  bool operator()(const T* const parameters, T* residuals) const {
+    T extra_params_t[CameraModel::num_extra_params];
+    for (size_t i = 0; i < CameraModel::num_extra_params; ++i) {
+      extra_params_t[i] = T(extra_params[i]);
+    }
+    T du, dv;
+    CameraModel::Distortion(
+        extra_params_t, parameters[0], parameters[1], &du, &dv);
+    residuals[0] = parameters[0] + du - u;
+    residuals[1] = parameters[1] + dv - v;
+    return true;
+  }
+
+  const double u;
+  const double v;
+  const double* extra_params;
+};
+
+template <typename CameraModel>
 template <typename T>
 void BaseCameraModel<CameraModel>::IterativeUndistortion(const T* params,
                                                          T* u,
                                                          T* v) {
-  // Parameters for Newton iteration using numerical differentiation with
-  // central differences, 100 iterations should be enough even for complex
-  // camera models with higher order terms.
-  const size_t kNumIterations = 100;
-  const double kMaxStepNorm = 1e-10;
-  const double kRelStepSize = 1e-6;
+  typedef ceres::
+      TinySolverAutoDiffFunction<DistortionCostFunctor<CameraModel>, 2, 2>
+          AutoDiffFunction;
 
-  Eigen::Matrix2d J;
-  const Eigen::Vector2d x0(*u, *v);
+  DistortionCostFunctor<CameraModel> cost_functor(*u, *v, params);
+  AutoDiffFunction cost_function(cost_functor);
+
   Eigen::Vector2d x(*u, *v);
-  Eigen::Vector2d dx;
-  Eigen::Vector2d dx_0b;
-  Eigen::Vector2d dx_0f;
-  Eigen::Vector2d dx_1b;
-  Eigen::Vector2d dx_1f;
+  ceres::TinySolver<AutoDiffFunction> solver;
+  solver.options.gradient_tolerance = 0;
+  solver.options.parameter_tolerance = 0;
+  solver.options.function_tolerance = 0;
+  solver.options.max_num_iterations = 1000;
+  solver.Solve(cost_function, &x);
 
-  for (size_t i = 0; i < kNumIterations; ++i) {
-    const double step0 = std::max(std::numeric_limits<double>::epsilon(),
-                                  std::abs(kRelStepSize * x(0)));
-    const double step1 = std::max(std::numeric_limits<double>::epsilon(),
-                                  std::abs(kRelStepSize * x(1)));
-    CameraModel::Distortion(params, x(0), x(1), &dx(0), &dx(1));
-    CameraModel::Distortion(params, x(0) - step0, x(1), &dx_0b(0), &dx_0b(1));
-    CameraModel::Distortion(params, x(0) + step0, x(1), &dx_0f(0), &dx_0f(1));
-    CameraModel::Distortion(params, x(0), x(1) - step1, &dx_1b(0), &dx_1b(1));
-    CameraModel::Distortion(params, x(0), x(1) + step1, &dx_1f(0), &dx_1f(1));
-    J(0, 0) = 1 + (dx_0f(0) - dx_0b(0)) / (2 * step0);
-    J(0, 1) = (dx_1f(0) - dx_1b(0)) / (2 * step1);
-    J(1, 0) = (dx_0f(1) - dx_0b(1)) / (2 * step0);
-    J(1, 1) = 1 + (dx_1f(1) - dx_1b(1)) / (2 * step1);
-    const Eigen::Vector2d step_x = J.partialPivLu().solve(x + dx - x0);
-    x -= step_x;
-    if (step_x.squaredNorm() < kMaxStepNorm) {
-      break;
-    }
-  }
+  LOG(INFO) << "ITERATIONS: " << solver.summary.iterations
+            << ", STATUS: " << solver.summary.status;
 
   *u = x(0);
   *v = x(1);

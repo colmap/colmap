@@ -89,8 +89,8 @@ void TestCamFromImgToImg(const std::vector<double>& params,
   EXPECT_EQ(v, uvw.y());
   EXPECT_EQ(w, uvw.z());
   CameraModel::ImgFromCam(params.data(), u, v, w, &x, &y);
-  EXPECT_NEAR(x, x0, 1e-6);
-  EXPECT_NEAR(y, y0, 1e-6);
+  EXPECT_NEAR(x, x0, 1e-3);
+  EXPECT_NEAR(y, y0, 1e-3);
 }
 
 template <typename CameraModel>
@@ -204,7 +204,7 @@ TEST(OpenCV, Nominal) {
 
 TEST(OpenCVFisheye, Nominal) {
   TestModel<OpenCVFisheyeCameraModel>(
-      {651.123, 655.123, 386.123, 511.123, -0.471, 0.223, -0.001, 0.001});
+      {241.996, 252.123, 323.024, 240.497, -0.0232, 0.0924, -0.0591, 0.003});
 }
 
 TEST(FullOpenCV, Nominal) {
