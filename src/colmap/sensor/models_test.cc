@@ -82,7 +82,7 @@ void TestCamFromImgToImg(const std::vector<double>& params,
                          const double x0,
                          const double y0) {
   double u, v, w, x, y;
-  CameraModel::CamFromImg(params.data(), x0, y0, &u, &v, &w);
+  EXPECT_TRUE(CameraModel::CamFromImg(params.data(), x0, y0, &u, &v, &w));
   const std::optional<Eigen::Vector3d> uvw = CameraModelCamFromImg(
       CameraModel::model_id, params, Eigen::Vector2d(x0, y0));
   ASSERT_TRUE(uvw.has_value());
