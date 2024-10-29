@@ -55,9 +55,21 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
   inlier_mask->clear();
 
   std::vector<Eigen::Vector2d> points2D_normalized(points2D.size());
+  size_t num_invalid_points2D = 0;
   for (size_t i = 0; i < points2D.size(); ++i) {
-    points2D_normalized[i] = camera->CamFromImg(points2D[i]);
+    if (const std::optional<Eigen::Vector2d> point_in_cam =
+            camera->CamFromImg(points2D[i])) {
+      points2D_normalized[i] = *point_in_cam;
+    } else {
+      // Let RANSAC deal with the rare case when undistortion fails.
+      points2D_normalized[i].setConstant(1e6);
+      ++num_invalid_points2D;
+    }
   }
+
+  VLOG_IF(2, num_invalid_points2D > 0)
+      << "Encountered " << num_invalid_points2D << " / " << points2D.size()
+      << " invalid points";
 
   auto custom_ransac_options = options.ransac_options;
   custom_ransac_options.max_error =

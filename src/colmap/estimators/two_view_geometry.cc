@@ -339,16 +339,28 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
   }
 
   // Extract normalized inlier points.
+  const size_t num_inlier_matches = geometry->inlier_matches.size();
   std::vector<Eigen::Vector2d> inlier_points1_normalized;
-  inlier_points1_normalized.reserve(geometry->inlier_matches.size());
+  inlier_points1_normalized.reserve(num_inlier_matches);
   std::vector<Eigen::Vector2d> inlier_points2_normalized;
-  inlier_points2_normalized.reserve(geometry->inlier_matches.size());
+  inlier_points2_normalized.reserve(num_inlier_matches);
+  size_t num_invalid_inlier_matches = 0;
   for (const auto& match : geometry->inlier_matches) {
-    inlier_points1_normalized.push_back(
-        camera1.CamFromImg(points1[match.point2D_idx1]));
-    inlier_points2_normalized.push_back(
-        camera2.CamFromImg(points2[match.point2D_idx2]));
+    const std::optional<Eigen::Vector2d> point1_normalized =
+        camera1.CamFromImg(points1[match.point2D_idx1]);
+    const std::optional<Eigen::Vector2d> point2_normalized =
+        camera2.CamFromImg(points2[match.point2D_idx2]);
+    if (point1_normalized && point2_normalized) {
+      inlier_points1_normalized.push_back(*point1_normalized);
+      inlier_points2_normalized.push_back(*point2_normalized);
+    } else {
+      ++num_invalid_inlier_matches;
+    }
   }
+
+  VLOG_IF(2, num_invalid_inlier_matches > 0)
+      << "Encountered " << num_invalid_inlier_matches << " / "
+      << num_inlier_matches << " invalid inlier matches";
 
   std::vector<Eigen::Vector3d> points3D;
 
@@ -426,14 +438,30 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
   std::vector<Eigen::Vector2d> matched_points2(matches.size());
   std::vector<Eigen::Vector2d> matched_points1_normalized(matches.size());
   std::vector<Eigen::Vector2d> matched_points2_normalized(matches.size());
+  size_t num_invalid_normalized_matches = 0;
   for (size_t i = 0; i < matches.size(); ++i) {
     const point2D_t idx1 = matches[i].point2D_idx1;
     const point2D_t idx2 = matches[i].point2D_idx2;
     matched_points1[i] = points1[idx1];
     matched_points2[i] = points2[idx2];
-    matched_points1_normalized[i] = camera1.CamFromImg(points1[idx1]);
-    matched_points2_normalized[i] = camera2.CamFromImg(points2[idx2]);
+    const std::optional<Eigen::Vector2d> point1_normalized =
+        camera1.CamFromImg(points1[idx1]);
+    const std::optional<Eigen::Vector2d> point2_normalized =
+        camera2.CamFromImg(points2[idx2]);
+    if (point1_normalized && point2_normalized) {
+      matched_points1_normalized[i] = *point1_normalized;
+      matched_points2_normalized[i] = *point2_normalized;
+    } else {
+      // Let RANSAC deal with the rare case when undistortion fails.
+      matched_points1_normalized[i].setConstant(1e6);
+      matched_points2_normalized[i].setConstant(1e6);
+      ++num_invalid_normalized_matches;
+    }
   }
+
+  VLOG_IF(2, num_invalid_normalized_matches > 0)
+      << "Encountered " << num_invalid_normalized_matches << " / "
+      << matches.size() << " invalid normalized matches";
 
   // Estimate epipolar models.
 

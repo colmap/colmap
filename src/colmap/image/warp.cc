@@ -79,18 +79,22 @@ void WarpImageBetweenCameras(const Camera& source_camera,
     for (int x = 0; x < target_image->Width(); ++x) {
       image_point.x() = x + 0.5;
 
-      // Camera models assume that the upper left pixel center is (0.5, 0.5).
-      const Eigen::Vector2d cam_point =
-          scaled_target_camera.CamFromImg(image_point);
-      const Eigen::Vector2d source_point = source_camera.ImgFromCam(cam_point);
+      BitmapColor<uint8_t> target_color = BitmapColor<uint8_t>(0);
 
-      BitmapColor<float> color;
-      if (source_image.InterpolateBilinear(
-              source_point.x() - 0.5, source_point.y() - 0.5, &color)) {
-        target_image->SetPixel(x, y, color.Cast<uint8_t>());
-      } else {
-        target_image->SetPixel(x, y, BitmapColor<uint8_t>(0));
+      if (const std::optional<Eigen::Vector2d> cam_point =
+              scaled_target_camera.CamFromImg(image_point)) {
+        const Eigen::Vector2d source_point =
+            source_camera.ImgFromCam(*cam_point);
+        BitmapColor<float> source_color;
+        // Camera models assume that the upper left pixel center is (0.5, 0.5).
+        if (source_image.InterpolateBilinear(source_point.x() - 0.5,
+                                             source_point.y() - 0.5,
+                                             &source_color)) {
+          target_color = source_color.Cast<uint8_t>();
+        }
       }
+
+      target_image->SetPixel(x, y, target_color);
     }
   }
 
@@ -154,19 +158,22 @@ void WarpImageWithHomographyBetweenCameras(const Eigen::Matrix3d& H,
     for (int x = 0; x < target_image->Width(); ++x) {
       image_point.x() = x + 0.5;
 
-      // Camera models assume that the upper left pixel center is (0.5, 0.5).
-      const Eigen::Vector3d warped_point = H * image_point;
-      const Eigen::Vector2d cam_point =
-          target_camera.CamFromImg(warped_point.hnormalized());
-      const Eigen::Vector2d source_point = source_camera.ImgFromCam(cam_point);
+      BitmapColor<uint8_t> target_color = BitmapColor<uint8_t>(0);
 
-      BitmapColor<float> color;
-      if (source_image.InterpolateBilinear(
-              source_point.x() - 0.5, source_point.y() - 0.5, &color)) {
-        target_image->SetPixel(x, y, color.Cast<uint8_t>());
-      } else {
-        target_image->SetPixel(x, y, BitmapColor<uint8_t>(0));
+      if (const std::optional<Eigen::Vector2d> cam_point =
+              target_camera.CamFromImg((H * image_point).hnormalized())) {
+        const Eigen::Vector2d source_point =
+            source_camera.ImgFromCam(*cam_point);
+        BitmapColor<float> source_color;
+        // Camera models assume that the upper left pixel center is (0.5, 0.5).
+        if (source_image.InterpolateBilinear(source_point.x() - 0.5,
+                                             source_point.y() - 0.5,
+                                             &source_color)) {
+          target_color = source_color.Cast<uint8_t>();
+        }
       }
+
+      target_image->SetPixel(x, y, target_color);
     }
   }
 

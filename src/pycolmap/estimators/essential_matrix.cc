@@ -26,13 +26,20 @@ py::typing::Optional<py::dict> PyEstimateAndDecomposeEssentialMatrix(
     const RANSACOptions& options) {
   py::gil_scoped_release release;
   THROW_CHECK_EQ(points2D1.size(), points2D2.size());
+
   std::vector<Eigen::Vector2d> world_points2D1;
-  for (size_t idx = 0; idx < points2D1.size(); ++idx) {
-    world_points2D1.push_back(camera1.CamFromImg(points2D1[idx]));
-  }
-  std::vector<Eigen::Vector2d> world_points2D2;
-  for (size_t idx = 0; idx < points2D2.size(); ++idx) {
-    world_points2D2.push_back(camera2.CamFromImg(points2D2[idx]));
+  points2D1_normalized.reserve(points2D1.size());
+  std::vector<Eigen::Vector2d> points2D2_normalized;
+  points2D2_normalized.reserve(points2D2.size());
+  for (size_t i = 0; i < points2D1.size(); ++i) {
+    const std::optional<Eigen::Vector2d> point2D1_normalized =
+        camera1.CamFromImg(points2D1[i]);
+    const std::optional<Eigen::Vector2d> point2D2_normalized =
+        camera2.CamFromImg(points2D2[i]);
+    if (point2D1_normalized && point2D2_normalized) {
+      points2D1_normalized.push_back(*point2D1_normalized);
+      points2D2_normalized.push_back(*point2D2_normalized);
+    }
   }
 
   const double max_error_px = options.max_error;
@@ -45,7 +52,8 @@ py::typing::Optional<py::dict> PyEstimateAndDecomposeEssentialMatrix(
       ransac(ransac_options);
 
   // Essential matrix estimation.
-  const auto report = ransac.Estimate(world_points2D1, world_points2D2);
+  const auto report =
+      ransac.Estimate(points2D1_normalized, points2D2_normalized);
 
   if (!report.success) {
     py::gil_scoped_acquire acquire;
@@ -55,32 +63,32 @@ py::typing::Optional<py::dict> PyEstimateAndDecomposeEssentialMatrix(
   // Recover data from report.
   const Eigen::Matrix3d E = report.model;
   const size_t num_inliers = report.support.num_inliers;
-  const auto& inlier_mask = report.inlier_mask;
 
   // Pose from essential matrix.
-  std::vector<Eigen::Vector2d> inlier_world_points2D1;
-  std::vector<Eigen::Vector2d> inlier_world_points2D2;
-
-  for (size_t idx = 0; idx < inlier_mask.size(); ++idx) {
-    if (inlier_mask[idx]) {
-      inlier_world_points2D1.push_back(world_points2D1[idx]);
-      inlier_world_points2D2.push_back(world_points2D2[idx]);
+  std::vector<Eigen::Vector2d> inlier_points2D1_normalized;
+  inlier_points2D1_normalized.reserve(report.support.num_inliers);
+  std::vector<Eigen::Vector2d> inlier_points2D2_normalized;
+  inlier_points2D1_normalized.reserve(report.support.num_inliers);
+  for (size_t i = 0; i < report.inlier_mask.size(); ++i) {
+    if (report.inlier_mask[i]) {
+      inlier_points2D1_normalized.push_back(points2D1_normalized[i]);
+      inlier_points2D2_normalized.push_back(points2D2_normalized[i]);
     }
   }
 
   Rigid3d cam2_from_cam1;
   std::vector<Eigen::Vector3d> points3D;
-  PoseFromEssentialMatrix(E,
+  PoseFromEssentialMatrix(report.model,
                           inlier_world_points2D1,
                           inlier_world_points2D2,
                           &cam2_from_cam1,
                           &points3D);
 
   py::gil_scoped_acquire acquire;
-  return py::dict("E"_a = E,
+  return py::dict("E"_a = report.model,
                   "cam2_from_cam1"_a = cam2_from_cam1,
-                  "num_inliers"_a = num_inliers,
-                  "inliers"_a = ToPythonMask(inlier_mask));
+                  "num_inliers"_a = report.support.num_inliers,
+                  "inliers"_a = ToPythonMask(report.inlier_mask));
 }
 
 void BindEssentialMatrixEstimator(py::module& m) {

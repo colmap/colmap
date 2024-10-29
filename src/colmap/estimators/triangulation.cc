@@ -157,14 +157,27 @@ bool EstimateTriangulation(const EstimateTriangulationOptions& options,
   point_data.resize(points.size());
   std::vector<TriangulationEstimator::PoseData> pose_data;
   pose_data.resize(points.size());
+  size_t num_invalid_points = 0;
   for (size_t i = 0; i < points.size(); ++i) {
+    if (const std::optional<Eigen::Vector2d> point_normalized =
+            cameras[i]->CamFromImg(points[i])) {
+      point_data[i].point_normalized = *point_normalized;
+    } else {
+      // Let RANSAC deal with the rare case when undistortion fails.
+      point_data[i].point_normalized.setConstant(1e6);
+      ++num_invalid_points;
+    }
+
     point_data[i].point = points[i];
-    point_data[i].point_normalized = cameras[i]->CamFromImg(points[i]);
     pose_data[i].cam_from_world = cams_from_world[i]->ToMatrix();
     pose_data[i].proj_center = cams_from_world[i]->rotation.inverse() *
                                -cams_from_world[i]->translation;
     pose_data[i].camera = cameras[i];
   }
+
+  VLOG_IF(2, num_invalid_points > 0)
+      << "Encountered " << num_invalid_points << " / " << points.size()
+      << " invalid points";
 
   // Robustly estimate track using LORANSAC.
   LORANSAC<TriangulationEstimator,
@@ -176,12 +189,12 @@ bool EstimateTriangulation(const EstimateTriangulationOptions& options,
   ransac.estimator.SetResidualType(options.residual_type);
   ransac.local_estimator.SetMinTriAngle(options.min_tri_angle);
   ransac.local_estimator.SetResidualType(options.residual_type);
-  const auto report = ransac.Estimate(point_data, pose_data);
+  auto report = ransac.Estimate(point_data, pose_data);
   if (!report.success) {
     return false;
   }
 
-  *inlier_mask = report.inlier_mask;
+  *inlier_mask = std::move(report.inlier_mask);
   *xyz = report.model;
 
   return report.success;

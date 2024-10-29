@@ -121,12 +121,25 @@ bool EstimateGeneralizedAbsolutePose(
   }
 
   std::vector<GP3PEstimator::X_t> rig_points2D(points2D.size());
+  size_t num_invalid_rig_points2D = 0;
   for (size_t i = 0; i < points2D.size(); i++) {
     const size_t camera_idx = camera_idxs[i];
-    rig_points2D[i].ray_in_cam =
-        cameras[camera_idx].CamFromImg(points2D[i]).homogeneous().normalized();
-    rig_points2D[i].cam_from_rig = cams_from_rig[camera_idx];
+    if (const std::optional<Eigen::Vector2d> point_in_cam =
+            cameras[camera_idx].CamFromImg(points2D[i])) {
+      rig_points2D[i].ray_in_cam = point_in_cam->homogeneous().normalized();
+      rig_points2D[i].cam_from_rig = cams_from_rig[camera_idx];
+    } else {
+      // Let RANSAC deal with the rare case when undistortion fails.
+      rig_points2D[i].ray_in_cam.setConstant(1e6);
+      rig_points2D[i].cam_from_rig = Rigid3d(Eigen::Quaterniond::Identity(),
+                                             Eigen::Vector3d(1e6, 1e6, 1e6));
+      ++num_invalid_rig_points2D;
+    }
   }
+
+  VLOG_IF(2, num_invalid_rig_points2D > 0)
+      << "Encountered " << num_invalid_rig_points2D << " / " << points2D.size()
+      << " invalid rig points";
 
   // Associate unique ids to each 3D point.
   // Needed for UniqueInlierSupportMeasurer to avoid counting the same
@@ -145,13 +158,14 @@ bool EstimateGeneralizedAbsolutePose(
   ransac.support_measurer.SetUniqueSampleIds(unique_point3D_ids);
   ransac.estimator.residual_type =
       GP3PEstimator::ResidualType::ReprojectionError;
-  const auto report = ransac.Estimate(rig_points2D, points3D);
+  auto report = ransac.Estimate(rig_points2D, points3D);
   if (!report.success) {
     return false;
   }
+
   *rig_from_world = report.model;
   *num_inliers = report.support.num_unique_inliers;
-  *inlier_mask = report.inlier_mask;
+  *inlier_mask = std::move(report.inlier_mask);
   return true;
 }
 
