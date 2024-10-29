@@ -105,34 +105,46 @@ void BindCamera(py::module& m) {
            "Check whether camera has bogus parameters.")
       .def("cam_from_img",
            &Camera::CamFromImg,
-           "Project point in image plane to world / infinity.")
+           "Project point in image to normalized camera plane.")
       .def(
           "cam_from_img",
           [](const Camera& self,
              const py::EigenDRef<const Eigen::MatrixX2d>& image_points) {
-            std::vector<Eigen::Vector2d> world_points(image_points.rows());
+            std::vector<Eigen::Vector2d> cam_points(image_points.rows());
             for (size_t idx = 0; idx < image_points.rows(); ++idx) {
-              world_points[idx] = self.CamFromImg(image_points.row(idx));
+              if (const std::optional<Eigen::Vector2d> cam_point =
+                      self.CamFromImg(image_points.row(idx))) {
+                cam_points[idx] = *cam_point;
+              } else {
+                cam_points[idx].setConstant(
+                    std::numeric_limits<double>::quiet_NaN());
+              }
             }
-            return world_points;
+            return cam_points;
           },
-          "Project list of points in image plane to world / infinity.")
+          "Project list of points in image to normalized camera plane.")
       .def(
           "cam_from_img",
           [](const Camera& self, const Point2DVector& image_points) {
-            std::vector<Eigen::Vector2d> world_points(image_points.size());
+            std::vector<Eigen::Vector2d> cam_points(image_points.size());
             for (size_t idx = 0; idx < image_points.size(); ++idx) {
-              world_points[idx] = self.CamFromImg(image_points[idx].xy);
+              if (const std::optional<Eigen::Vector2d> cam_point =
+                      self.CamFromImg(image_points[idx].xy)) {
+                cam_points[idx] = *cam_point;
+              } else {
+                cam_points[idx].setConstant(
+                    std::numeric_limits<double>::quiet_NaN());
+              }
             }
-            return world_points;
+            return cam_points;
           },
-          "Project list of points in image plane to world / infinity.")
+          "Project list of points in image to normalized camera plane.")
       .def("cam_from_img_threshold",
            &Camera::CamFromImgThreshold,
            "Convert pixel threshold in image plane to world space.")
       .def("img_from_cam",
            &Camera::ImgFromCam,
-           "Project point from world / infinity to image plane.")
+           "Project from normalized camera to image plane.")
       .def(
           "img_from_cam",
           [](const Camera& self,
@@ -143,7 +155,7 @@ void BindCamera(py::module& m) {
             }
             return image_points;
           },
-          "Project list of points from world / infinity to image plane.")
+          "Project list of from normalized camera to image plane.")
       .def(
           "img_from_cam",
           [](const Camera& self,
@@ -151,7 +163,7 @@ void BindCamera(py::module& m) {
             return py::cast(self).attr("img_from_cam")(
                 world_points.rowwise().hnormalized());
           },
-          "Project list of points from world / infinity to image plane.")
+          "Project list of from normalized camera to image plane.")
       .def(
           "img_from_cam",
           [](const Camera& self, const Point2DVector& world_points) {
@@ -161,7 +173,7 @@ void BindCamera(py::module& m) {
             }
             return image_points;
           },
-          "Project list of points from world / infinity to image plane.")
+          "Project list of from normalized camera to image plane.")
       .def("rescale",
            py::overload_cast<size_t, size_t>(&Camera::Rescale),
            "Rescale camera dimensions to (width_height) and accordingly the "

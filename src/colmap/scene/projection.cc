@@ -75,16 +75,26 @@ double CalculateAngularError(const Eigen::Vector2d& point2D,
                              const Eigen::Vector3d& point3D,
                              const Rigid3d& cam_from_world,
                              const Camera& camera) {
-  return CalculateNormalizedAngularError(
-      camera.CamFromImg(point2D), point3D, cam_from_world);
+  if (const std::optional<Eigen::Vector2d> point2D_normalized =
+          camera.CamFromImg(point2D)) {
+    return CalculateNormalizedAngularError(
+        *point2D_normalized, point3D, cam_from_world);
+  } else {
+    return M_PI;
+  }
 }
 
 double CalculateAngularError(const Eigen::Vector2d& point2D,
                              const Eigen::Vector3d& point3D,
                              const Eigen::Matrix3x4d& cam_from_world,
                              const Camera& camera) {
-  return CalculateNormalizedAngularError(
-      camera.CamFromImg(point2D), point3D, cam_from_world);
+  if (const std::optional<Eigen::Vector2d> point2D_normalized =
+          camera.CamFromImg(point2D)) {
+    return CalculateNormalizedAngularError(
+        *point2D_normalized, point3D, cam_from_world);
+  } else {
+    return M_PI;
+  }
 }
 
 double CalculateNormalizedAngularError(const Eigen::Vector2d& point2D,
