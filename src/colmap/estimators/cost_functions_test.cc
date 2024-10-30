@@ -366,16 +366,16 @@ TEST(RelativePosePriorCostFunctor, Nominal) {
   EXPECT_EQ(residuals[2], 0);
   EXPECT_EQ(residuals[3], 0);
   EXPECT_EQ(residuals[4], 0);
-  EXPECT_EQ(residuals[5], -2);
+  EXPECT_EQ(residuals[5], 2);
 
   j_from_world_translation[0] = 2;
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
   EXPECT_EQ(residuals[0], 0);
   EXPECT_EQ(residuals[1], 0);
   EXPECT_EQ(residuals[2], 0);
-  EXPECT_EQ(residuals[3], 2);
+  EXPECT_EQ(residuals[3], -2);
   EXPECT_EQ(residuals[4], 0);
-  EXPECT_EQ(residuals[5], -2);
+  EXPECT_EQ(residuals[5], 2);
 
   // Rotation by 90 degrees around the Y axis.
   Eigen::Matrix3d rotation_matrix;
@@ -384,11 +384,11 @@ TEST(RelativePosePriorCostFunctor, Nominal) {
       rotation_matrix;
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
   EXPECT_NEAR(residuals[0], 0, 1e-6);
-  EXPECT_NEAR(residuals[1], DegToRad(90.0), 1e-6);
+  EXPECT_NEAR(residuals[1], DegToRad(-90.0), 1e-6);
   EXPECT_NEAR(residuals[2], 0, 1e-6);
-  EXPECT_NEAR(residuals[3], -3, 1e-6);
+  EXPECT_NEAR(residuals[3], 0, 1e-6);
   EXPECT_NEAR(residuals[4], 0, 1e-6);
-  EXPECT_NEAR(residuals[5], 0.5, 1e-6);
+  EXPECT_NEAR(residuals[5], 1, 1e-6);
 }
 
 TEST(Point3DAlignmentCostFunctor, Nominal) {

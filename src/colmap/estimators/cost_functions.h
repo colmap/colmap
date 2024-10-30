@@ -436,9 +436,9 @@ struct AbsolutePosePositionPriorCostFunctor {
   const Eigen::Matrix3d position_prior_in_world_sqrt_info_;
 };
 
-// 6-DoF error between two absolute camera poses based on a measurement that is
-// their relative pose, with identical scale for the translation. The covariance
-// is defined in the reference frame of the camera j. Its first and last three
+// 6-DoF error between two absolute camera poses based on a prior on their
+// relative pose, with identical scale for the translation. The covariance is
+// defined in the reference frame of the camera i. Its first and last three
 // components correspond to the rotation and translation errors, respectively.
 //
 // Derivation:
@@ -451,7 +451,7 @@ struct RelativePosePriorCostFunctor {
  public:
   RelativePosePriorCostFunctor(const Rigid3d& i_from_j_prior,
                                const Eigen::Matrix6d& i_from_j_prior_cov)
-      : i_from_j_prior_(i_from_j_prior),
+      : j_from_i_prior_(Inverse(i_from_j_prior)),
         i_from_j_prior_sqrt_info_(SqrtInformation(i_from_j_prior_cov)) {}
 
   static ceres::CostFunction* Create(
@@ -470,22 +470,22 @@ struct RelativePosePriorCostFunctor {
                   const T* const j_from_world_rotation,
                   const T* const j_from_world_translation,
                   T* residuals_ptr) const {
-    const Eigen::Quaternion<T> j_from_i_rotation =
-        EigenQuaternionMap<T>(j_from_world_rotation) *
-        EigenQuaternionMap<T>(i_from_world_rotation).inverse();
+    const Eigen::Quaternion<T> i_from_j_rotation =
+        EigenQuaternionMap<T>(i_from_world_rotation) *
+        EigenQuaternionMap<T>(j_from_world_rotation).inverse();
     const Eigen::Quaternion<T> param_from_prior_rotation =
-        j_from_i_rotation * i_from_j_prior_.rotation.cast<T>();
+        i_from_j_rotation * j_from_i_prior_.rotation.cast<T>();
     EigenQuaternionToAngleAxis(param_from_prior_rotation.coeffs().data(),
                                residuals_ptr);
 
-    const Eigen::Matrix<T, 3, 1> i_from_j_prior_translation =
-        i_from_j_prior_.translation.cast<T>() -
-        EigenVector3Map<T>(i_from_world_translation);
+    const Eigen::Matrix<T, 3, 1> j_from_i_prior_translation =
+        j_from_i_prior_.translation.cast<T>() -
+        EigenVector3Map<T>(j_from_world_translation);
     Eigen::Map<Eigen::Matrix<T, 3, 1>> param_from_prior_translation(
         residuals_ptr + 3);
     param_from_prior_translation =
-        EigenVector3Map<T>(j_from_world_translation) +
-        j_from_i_rotation * i_from_j_prior_translation;
+        EigenVector3Map<T>(i_from_world_translation) +
+        i_from_j_rotation * j_from_i_prior_translation;
 
     Eigen::Map<Eigen::Matrix<T, 6, 1>> residuals(residuals_ptr);
     residuals.applyOnTheLeft(i_from_j_prior_sqrt_info_.template cast<T>());
@@ -493,7 +493,7 @@ struct RelativePosePriorCostFunctor {
   }
 
  private:
-  const Rigid3d i_from_j_prior_;
+  const Rigid3d j_from_i_prior_;
   const Eigen::Matrix6d i_from_j_prior_sqrt_info_;
 };
 
