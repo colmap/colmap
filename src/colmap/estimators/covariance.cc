@@ -577,14 +577,15 @@ bool BundleAdjustmentCovarianceEstimator::FactorizeFull() {
   LOG(INFO) << "Finish sparse Cholesky decomposition.";
   // construct the inverse of the L_matrix
   Eigen::SparseMatrix<double> L = ldltOfS.matrixL();
-  for (int i = 0; i < S_matrix_.rows(); ++i) {
-    for (int k = L.outerIndexPtr()[i]; k < L.outerIndexPtr()[i + 1]; ++k) {
-      L.valuePtr()[i] *= sqrt(std::max(ldltOfS.vectorD().coeff(i), 0.));
-    }
-  }
   Eigen::MatrixXd L_dense = L;
   L_matrix_variables_inv_ = L_dense.triangularView<Eigen::Lower>().solve(
       Eigen::MatrixXd::Identity(L_dense.rows(), L_dense.cols()));
+  for (int i = 0; i < S_matrix_.rows(); ++i) {
+    double sqrt_d =
+        std::max(sqrt(std::max(ldltOfS.vectorD().coeff(i), 0.)), DBL_MIN);
+    L_matrix_variables_inv_.row(i) =
+        L_matrix_variables_inv_.row(i).array() / sqrt_d;
+  }
   LOG(INFO) << "Finish factorization by having the lower triangular matrix L "
                "inverted.";
   return true;
@@ -669,16 +670,14 @@ bool BundleAdjustmentCovarianceEstimator::Factorize() {
   LOG(INFO) << "Finish sparse Cholesky decomposition.";
   // construct the inverse of the L_matrix
   Eigen::SparseMatrix<double> L_poses = ldltOfS_poses.matrixL();
-  for (int i = 0; i < L_poses.rows(); ++i) {
-    for (int k = L_poses.outerIndexPtr()[i]; k < L_poses.outerIndexPtr()[i + 1];
-         ++k) {
-      L_poses.valuePtr()[k] *=
-          sqrt(std::max(ldltOfS_poses.vectorD().coeff(i), 0.));
-    }
-  }
   Eigen::MatrixXd L_poses_dense = L_poses;
   L_matrix_poses_inv_ = L_poses_dense.triangularView<Eigen::Lower>().solve(
       Eigen::MatrixXd::Identity(L_poses_dense.rows(), L_poses_dense.cols()));
+  for (int i = 0; i < S_poses.rows(); ++i) {
+    double sqrt_d =
+        std::max(sqrt(std::max(ldltOfS_poses.vectorD().coeff(i), 0.)), DBL_MIN);
+    L_matrix_poses_inv_.row(i) = L_matrix_poses_inv_.row(i).array() / sqrt_d;
+  }
   LOG(INFO) << "Finish factorization by having the lower triangular matrix L "
                "inverted.";
   return true;

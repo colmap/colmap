@@ -121,8 +121,5 @@ void BindIncrementalTriangulator(py::module& m) {
            [](const IncrementalTriangulator& self, const py::dict&) {
              return IncrementalTriangulator(self);
            })
-      .def("__repr__", [](const IncrementalTriangulator& self) {
-        // TODO: Print reconstruction and correspondence_graph once public.
-        return "IncrementalTriangulator()";
-      });
+      .def("__repr__", &CreateRepresentation<IncrementalTriangulator>);
 }

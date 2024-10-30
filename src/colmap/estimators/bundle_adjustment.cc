@@ -352,16 +352,23 @@ ceres::Solver::Options BundleAdjuster::SetUpSolverOptions(
       options_.max_num_images_direct_sparse_cpu_solver;
 
 #ifdef COLMAP_CUDA_ENABLED
+  bool cuda_solver_enabled = false;
+
 #if (CERES_VERSION_MAJOR >= 3 ||                                \
      (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 2)) && \
     !defined(CERES_NO_CUDA)
   if (options_.use_gpu && num_images >= options_.min_num_images_gpu_solver) {
-    const std::vector<int> gpu_indices = CSVToVector<int>(options_.gpu_index);
-    THROW_CHECK_GT(gpu_indices.size(), 0);
-    SetBestCudaDevice(gpu_indices[0]);
+    cuda_solver_enabled = true;
     solver_options.dense_linear_algebra_library_type = ceres::CUDA;
     max_num_images_direct_dense_solver =
         options_.max_num_images_direct_dense_gpu_solver;
+  }
+#else
+  if (options_.use_gpu) {
+    LOG_FIRST_N(WARNING, 1)
+        << "Requested to use GPU for bundle adjustment, but Ceres was "
+           "compiled without CUDA support. Falling back to CPU-based dense "
+           "solvers.";
   }
 #endif
 
@@ -369,12 +376,32 @@ ceres::Solver::Options BundleAdjuster::SetUpSolverOptions(
      (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 3)) && \
     !defined(CERES_NO_CUDSS)
   if (options_.use_gpu && num_images >= options_.min_num_images_gpu_solver) {
+    cuda_solver_enabled = true;
     solver_options.sparse_linear_algebra_library_type = ceres::CUDA_SPARSE;
     max_num_images_direct_sparse_solver =
         options_.max_num_images_direct_sparse_gpu_solver;
   }
+#else
+  if (options_.use_gpu) {
+    LOG_FIRST_N(WARNING, 1)
+        << "Requested to use GPU for bundle adjustment, but Ceres was "
+           "compiled without cuDSS support. Falling back to CPU-based sparse "
+           "solvers.";
+  }
 #endif
-#endif
+
+  if (cuda_solver_enabled) {
+    const std::vector<int> gpu_indices = CSVToVector<int>(options_.gpu_index);
+    THROW_CHECK_GT(gpu_indices.size(), 0);
+    SetBestCudaDevice(gpu_indices[0]);
+  }
+#else
+  if (options_.use_gpu) {
+    LOG_FIRST_N(WARNING, 1)
+        << "Requested to use GPU for bundle adjustment, but COLMAP was "
+           "compiled without CUDA support. Falling back to CPU-based solvers.";
+  }
+#endif  // COLMAP_CUDA_ENABLED
 
   if (num_images <= max_num_images_direct_dense_solver) {
     solver_options.linear_solver_type = ceres::DENSE_SCHUR;

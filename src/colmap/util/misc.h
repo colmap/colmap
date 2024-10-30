@@ -31,6 +31,7 @@
 
 #include <algorithm>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -85,11 +86,17 @@ bool VectorContainsDuplicateValues(const std::vector<T>& vector) {
 
 template <typename T>
 std::string VectorToCSV(const std::vector<T>& values) {
-  std::string string;
-  for (const T value : values) {
-    string += std::to_string(value) + ", ";
+  if (values.empty()) {
+    return "";
   }
-  return string.substr(0, string.length() - 2);
+
+  std::ostringstream stream;
+  for (const T& value : values) {
+    stream << value << ", ";
+  }
+  std::string buf = stream.str();
+  buf.resize(buf.size() - 2);
+  return buf;
 }
 
 }  // namespace colmap

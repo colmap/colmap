@@ -328,6 +328,9 @@ TEST(Database, Matches) {
   database.WriteMatches(image_id2, image_id1, matches21);
   expectValidMatches();
 
+  EXPECT_EQ(database.ReadAllMatchesBlob().size(), 1);
+  EXPECT_EQ(database.ReadAllMatchesBlob()[0].first,
+            Database::ImagePairToPairId(image_id1, image_id2));
   EXPECT_EQ(database.ReadAllMatches().size(), 1);
   EXPECT_EQ(database.ReadAllMatches()[0].first,
             Database::ImagePairToPairId(image_id1, image_id2));
@@ -395,31 +398,28 @@ TEST(Database, TwoViewGeometry) {
   EXPECT_TRUE(two_view_geometry_read_inv.cam2_from_cam1.translation.isApprox(
       Inverse(two_view_geometry_read.cam2_from_cam1).translation));
 
-  std::vector<image_pair_t> image_pair_ids;
-  std::vector<TwoViewGeometry> two_view_geometries;
-  database.ReadTwoViewGeometries(&image_pair_ids, &two_view_geometries);
-  EXPECT_EQ(image_pair_ids.size(), 1);
+  const std::vector<std::pair<image_pair_t, TwoViewGeometry>>
+      two_view_geometries = database.ReadTwoViewGeometries();
   EXPECT_EQ(two_view_geometries.size(), 1);
-  EXPECT_EQ(image_pair_ids[0],
+  EXPECT_EQ(two_view_geometries[0].first,
             Database::ImagePairToPairId(image_id1, image_id2));
-  EXPECT_EQ(two_view_geometry.config, two_view_geometries[0].config);
-  EXPECT_EQ(two_view_geometry.F, two_view_geometries[0].F);
-  EXPECT_EQ(two_view_geometry.E, two_view_geometries[0].E);
-  EXPECT_EQ(two_view_geometry.H, two_view_geometries[0].H);
+  EXPECT_EQ(two_view_geometry.config, two_view_geometries[0].second.config);
+  EXPECT_EQ(two_view_geometry.F, two_view_geometries[0].second.F);
+  EXPECT_EQ(two_view_geometry.E, two_view_geometries[0].second.E);
+  EXPECT_EQ(two_view_geometry.H, two_view_geometries[0].second.H);
   EXPECT_EQ(two_view_geometry.cam2_from_cam1.rotation.coeffs(),
-            two_view_geometries[0].cam2_from_cam1.rotation.coeffs());
+            two_view_geometries[0].second.cam2_from_cam1.rotation.coeffs());
   EXPECT_EQ(two_view_geometry.cam2_from_cam1.translation,
-            two_view_geometries[0].cam2_from_cam1.translation);
+            two_view_geometries[0].second.cam2_from_cam1.translation);
   EXPECT_EQ(two_view_geometry.inlier_matches.size(),
-            two_view_geometries[0].inlier_matches.size());
-  std::vector<std::pair<image_t, image_t>> image_pairs;
-  std::vector<int> num_inliers;
-  database.ReadTwoViewGeometryNumInliers(&image_pairs, &num_inliers);
-  EXPECT_EQ(image_pairs.size(), 1);
-  EXPECT_EQ(num_inliers.size(), 1);
-  EXPECT_EQ(image_pairs[0].first, image_id1);
-  EXPECT_EQ(image_pairs[0].second, image_id2);
-  EXPECT_EQ(num_inliers[0], two_view_geometry.inlier_matches.size());
+            two_view_geometries[0].second.inlier_matches.size());
+  const std::vector<std::pair<image_pair_t, int>> pair_ids_and_num_inliers =
+      database.ReadTwoViewGeometryNumInliers();
+  EXPECT_EQ(pair_ids_and_num_inliers.size(), 1);
+  EXPECT_EQ(pair_ids_and_num_inliers[0].first,
+            Database::ImagePairToPairId(image_id1, image_id2));
+  EXPECT_EQ(pair_ids_and_num_inliers[0].second,
+            two_view_geometry.inlier_matches.size());
   EXPECT_EQ(database.NumInlierMatches(), 1000);
   database.DeleteInlierMatches(image_id1, image_id2);
   EXPECT_EQ(database.NumInlierMatches(), 0);

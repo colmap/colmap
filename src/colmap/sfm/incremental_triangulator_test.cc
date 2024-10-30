@@ -27,48 +27,24 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/scene/point2d.h"
+#include "colmap/sfm/incremental_triangulator.h"
 
 #include <gtest/gtest.h>
 
 namespace colmap {
 namespace {
 
-TEST(Point2D, Default) {
-  Point2D point2D;
-  EXPECT_EQ(point2D.xy, Eigen::Vector2d::Zero());
-  EXPECT_EQ(point2D.point3D_id, kInvalidPoint3DId);
-  EXPECT_FALSE(point2D.HasPoint3D());
-}
-
-TEST(Point2D, Equals) {
-  Point2D point2D;
-  Point2D other = point2D;
-  EXPECT_EQ(point2D, other);
-  point2D.xy(0) += 1;
-  EXPECT_NE(point2D, other);
-  other.xy(0) += 1;
-  EXPECT_EQ(point2D, other);
-}
-
-TEST(Point2D, Print) {
-  Point2D point2D;
-  point2D.xy = Eigen::Vector2d(1, 2);
+TEST(IncrementalTriangulator, Print) {
+  auto correspondence_graph = std::make_shared<CorrespondenceGraph>();
+  Reconstruction reconstruction;
+  IncrementalTriangulator triangulator(correspondence_graph, reconstruction);
   std::ostringstream stream;
-  stream << point2D;
-  EXPECT_EQ(stream.str(), "Point2D(xy=[1, 2], point3D_id=-1)");
-}
-
-TEST(Point2D, Point3DId) {
-  Point2D point2D;
-  EXPECT_EQ(point2D.point3D_id, kInvalidPoint3DId);
-  EXPECT_FALSE(point2D.HasPoint3D());
-  point2D.point3D_id = 1;
-  EXPECT_EQ(point2D.point3D_id, 1);
-  EXPECT_TRUE(point2D.HasPoint3D());
-  point2D.point3D_id = kInvalidPoint3DId;
-  EXPECT_EQ(point2D.point3D_id, kInvalidPoint3DId);
-  EXPECT_FALSE(point2D.HasPoint3D());
+  stream << triangulator;
+  EXPECT_EQ(stream.str(),
+            "IncrementalTriangulator(reconstruction=Reconstruction(num_cameras="
+            "0, num_images=0, num_reg_images=0, num_points3D=0), "
+            "correspondence_graph=CorrespondenceGraph(num_images=0, "
+            "num_image_pairs=0))");
 }
 
 }  // namespace
