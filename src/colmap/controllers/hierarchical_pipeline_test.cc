@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/controllers/hierarchical_mapper.h"
+#include "colmap/controllers/hierarchical_pipeline.h"
 
 #include "colmap/estimators/alignment.h"
 #include "colmap/scene/synthetic.h"
