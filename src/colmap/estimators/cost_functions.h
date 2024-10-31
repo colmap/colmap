@@ -544,7 +544,7 @@ template <class CostFunctor>
 class IsotropicNoiseCostFunctorWrapper {
   class LinearCostFunction : public ceres::CostFunction {
    public:
-    explicit LinearCostFunction(const double s) : s_(s) {
+    explicit LinearCostFunction(const double stddev) : stddev_(stddev) {
       set_num_residuals(1);
       mutable_parameter_block_sizes()->push_back(1);
     }
@@ -552,15 +552,15 @@ class IsotropicNoiseCostFunctorWrapper {
     bool Evaluate(double const* const* parameters,
                   double* residuals,
                   double** jacobians) const final {
-      *residuals = **parameters * s_;
+      *residuals = **parameters * stddev_;
       if (jacobians && *jacobians) {
-        **jacobians = s_;
+        **jacobians = stddev_;
       }
       return true;
     }
 
    private:
-    const double s_;
+    const double stddev_;
   };
 
  public:
