@@ -146,7 +146,7 @@ void BindCostFunctions(py::module& m_parent) {
         "i_cov_from_j_prior"_a,
         "6-DoF error between two absolute camera poses based on a prior "
         "relative pose.");
-  m.def("Point3dAlignmentCost",
+  m.def("Point3DAlignmentCost",
         &Point3DAlignmentCostFunctor::Create,
         "point_in_b_prior"_a,
         "point_cov_in_b_prior"_a,
