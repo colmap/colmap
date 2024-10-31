@@ -8,7 +8,10 @@ export PATH="/usr/bin"
 # Install toolchain under AlmaLinux 8,
 # see https://almalinux.pkgs.org/8/almalinux-appstream-x86_64/
 yum install -y \
-    gcc-toolset-10 \
+    gcc-toolset-10-gcc \
+    gcc-toolset-10-gcc-c++ \
+    gcc-toolset-10-gcc-gfortran \
+    scl-utils \
     git \
     cmake3 \
     ninja-build \
@@ -16,6 +19,8 @@ yum install -y \
     zip \
     unzip \
     tar
+
+scl enable devtoolset-10 bash
 
 # ccache shipped by CentOS is too old so we download and cache it.
 COMPILER_TOOLS_DIR="${CONTAINER_COMPILER_CACHE_DIR}/bin"
