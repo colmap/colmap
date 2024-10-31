@@ -1,0 +1,4 @@
+# Note that pyceres must have the same version as the libceres-dev apt package for the 
+# C++ build from source, otherwise there may be pybind issues for the used ceres types.
+pyceres
+enlighten
