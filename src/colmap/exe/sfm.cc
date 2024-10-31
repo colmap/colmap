@@ -202,6 +202,66 @@ int RunColorExtractor(int argc, char** argv) {
   return EXIT_SUCCESS;
 }
 
+int RunIncrementalModelRefiner(int argc, char** argv) {
+  std::string input_path;
+  std::string output_path;
+  std::string image_list_path;
+
+  OptionManager options;
+  options.AddDatabaseOptions();
+  options.AddImageOptions();
+  options.AddRequiredOption("input_path", &input_path);
+  options.AddRequiredOption("output_path", &output_path);
+  options.AddDefaultOption("image_list_path", &image_list_path);
+  options.AddMapperOptions();
+  options.Parse(argc, argv);
+
+  options.mapper->fix_existing_images = true;
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  if (input_path != "") {
+    if (!ExistsDir(input_path)) {
+      LOG(ERROR) << "`input_path` is not a directory.";
+      return EXIT_FAILURE;
+    }
+    reconstruction_manager->Read(input_path);
+  }
+
+  if (!ExistsDir(output_path)) {
+    LOG(ERROR) << "`output_path` is not a directory.";
+    return EXIT_FAILURE;
+  }
+
+  if (!image_list_path.empty()) {
+    const auto image_names = ReadTextFileLines(image_list_path);
+    options.mapper->image_names =
+        std::unordered_set<std::string>(image_names.begin(), image_names.end());
+  }
+
+  // Loads the list of images for which the camera pose will be fixed.
+  auto reconstruction = reconstruction_manager->Get(0);
+  std::unordered_set<image_t> fixed_image_ids;
+  if (!image_list_path.empty()) {
+    const auto image_names = ReadTextFileLines(image_list_path);
+    for (const std::string& image_name : image_names) {
+      const Image* image = reconstruction->FindImageWithName(image_name);
+      if (image != nullptr) {
+        fixed_image_ids.insert(image->ImageId());
+      }
+    }
+  }
+
+  IncrementalMapperController mapper(options.mapper,
+                                     *options.image_path,
+                                     *options.database_path,
+                                     reconstruction_manager);
+  mapper.TriangulateReconstruction(reconstruction, fixed_image_ids);
+
+  reconstruction->Write(output_path);
+
+  return EXIT_SUCCESS;
+}
+
 int RunMapper(int argc, char** argv) {
   std::string input_path;
   std::string output_path;

@@ -268,6 +268,10 @@ class IncrementalMapper {
   // previous reconstructions.
   size_t NumSharedRegImages() const;
 
+  // Set existing_image_ids_ to a custom list of images
+  // This will be used at the beginning of TriangulateReconstruction
+  void SetExistingImageIds(const std::unordered_set<image_t>& image_ids);
+
   // Get changed 3D points, since the last call to `ClearModifiedPoints3D`.
   const std::unordered_set<point3D_t>& GetModifiedPoints3D();
 
