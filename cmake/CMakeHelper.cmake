@@ -133,8 +133,6 @@ macro(COLMAP_ADD_TEST)
         endif()
         target_link_libraries(${COLMAP_ADD_TEST_NAME}
             ${COLMAP_ADD_TEST_LINK_LIBS}
-            GTest::gtest
-            GTest::gmock
             GTest::gmock_main)
         add_test("${FOLDER_NAME}/${COLMAP_ADD_TEST_NAME}" ${COLMAP_ADD_TEST_NAME})
         if(IS_MSVC)
