@@ -1,4 +1,4 @@
-#include "colmap/controllers/incremental_mapper.h"
+#include "colmap/controllers/incremental_pipeline.h"
 
 #include "colmap/sfm/incremental_mapper.h"
 
