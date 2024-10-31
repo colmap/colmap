@@ -133,22 +133,22 @@ void BindCostFunctions(py::module& m_parent) {
   m.def("AbsolutePosePriorCost",
         &AbsolutePosePriorCostFunctor::Create,
         "cam_from_world_prior"_a,
-        "cam_from_world_prior_cov"_a,
+        "cam_cov_from_world_prior"_a,
         "6-DoF error on the absolute camera pose.");
   m.def("AbsolutePosePositionPriorCost",
         &AbsolutePosePositionPriorCostFunctor::Create,
-        "position_prior_in_world"_a,
-        "position_prior_in_world_cov"_a,
+        "position_in_world_prior"_a,
+        "position_cov_in_world_prior"_a,
         "3-DoF error on the absolute camera pose's position.");
   m.def("RelativePosePriorCost",
         &RelativePosePriorCostFunctor::Create,
         "i_from_j_prior"_a,
-        "i_from_j_prior_cov"_a,
+        "i_cov_from_j_prior"_a,
         "6-DoF error between two absolute camera poses based on a prior "
         "relative pose.");
   m.def("Point3dAlignmentCost",
         &Point3DAlignmentCostFunctor::Create,
         "point_in_b_prior"_a,
-        "point_in_b_prior_cov"_a,
+        "point_cov_in_b_prior"_a,
         "Error between 3D points transformed by a 3D similarity transform.");
 }
