@@ -17,7 +17,7 @@ yum install -y \
     unzip \
     tar
 
-scl enable gcc-toolset-12 bash
+source scl_source enable gcc-toolset-12
 
 # ccache shipped by CentOS is too old so we download and cache it.
 COMPILER_TOOLS_DIR="${CONTAINER_COMPILER_CACHE_DIR}/bin"
