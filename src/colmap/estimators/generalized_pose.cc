@@ -145,13 +145,15 @@ bool EstimateGeneralizedAbsolutePose(
   ransac.support_measurer.SetUniqueSampleIds(unique_point3D_ids);
   ransac.estimator.residual_type =
       GP3PEstimator::ResidualType::ReprojectionError;
-  const auto report = ransac.Estimate(rig_points2D, points3D);
+  auto report = ransac.Estimate(rig_points2D, points3D);
   if (!report.success) {
     return false;
   }
+
   *rig_from_world = report.model;
   *num_inliers = report.support.num_unique_inliers;
-  *inlier_mask = report.inlier_mask;
+  *inlier_mask = std::move(report.inlier_mask);
+
   return true;
 }
 

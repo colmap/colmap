@@ -15,5 +15,11 @@ perl -i -pe's/\b_core\b/pycolmap/g' $FILES
 perl -i -pe's/: ceres::([a-zA-Z]|::)+//g' $FILES
 perl -i -pe's/ -> ceres::([a-zA-Z]|::)+:$/:/g' $FILES
 
+# pybind issue, will not be fixed: https://github.com/pybind/pybind11/pull/2277
+perl -i -pe's/(?<=\b__(eq|ne)__\(self, )arg0: [a-zA-Z0-9_]+\)/other: object)/g' $FILES
+
+# mypy bug: https://github.com/python/mypy/issues/4266
+perl -i -pe's/(__hash__:? .*= None)$/\1  # type: ignore/g' $FILES
+
 COLMAP_DIR=$(dirname $( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd ))
 ruff format --config ${COLMAP_DIR}/ruff.toml ${FILES}

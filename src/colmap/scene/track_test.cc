@@ -40,10 +40,48 @@ TEST(TrackElement, Empty) {
   EXPECT_EQ(track_el.point2D_idx, kInvalidPoint2DIdx);
 }
 
+TEST(TrackElement, Equals) {
+  TrackElement track_el;
+  TrackElement other = track_el;
+  EXPECT_EQ(track_el, other);
+  track_el.image_id = 1;
+  EXPECT_NE(track_el, other);
+  other.image_id = 1;
+  EXPECT_EQ(track_el, other);
+}
+
+TEST(TrackElement, Print) {
+  TrackElement track_el(1, 2);
+  std::ostringstream stream;
+  stream << track_el;
+  EXPECT_EQ(stream.str(), "TrackElement(image_id=1, point2D_idx=2)");
+}
+
 TEST(Track, Default) {
   Track track;
   EXPECT_EQ(track.Length(), 0);
   EXPECT_EQ(track.Elements().size(), track.Length());
+}
+
+TEST(Track, Equals) {
+  Track track;
+  Track other = track;
+  EXPECT_EQ(track, other);
+  track.AddElement(0, 1);
+  EXPECT_NE(track, other);
+  other.AddElement(0, 1);
+  EXPECT_EQ(track, other);
+}
+
+TEST(Track, Print) {
+  Track track;
+  track.AddElement(1, 2);
+  track.AddElement(2, 3);
+  std::ostringstream stream;
+  stream << track;
+  EXPECT_EQ(stream.str(),
+            "Track(elements=[TrackElement(image_id=1, point2D_idx=2), "
+            "TrackElement(image_id=2, point2D_idx=3)])");
 }
 
 TEST(Track, SetElements) {

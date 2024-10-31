@@ -60,16 +60,28 @@ TEST(TriangulatePoint, Nominal) {
         const Eigen::Vector3d point2D1 = cam_from_world1 * point3D;
         const Eigen::Vector3d point2D2 = cam_from_world2 * point3D;
 
-        const Eigen::Vector3d tri_point3D =
-            TriangulatePoint(cam_from_world1.ToMatrix(),
-                             cam_from_world2.ToMatrix(),
-                             point2D1.hnormalized(),
-                             point2D2.hnormalized());
+        Eigen::Vector3d tri_point3D;
+        EXPECT_TRUE(TriangulatePoint(cam_from_world1.ToMatrix(),
+                                     cam_from_world2.ToMatrix(),
+                                     point2D1.hnormalized(),
+                                     point2D2.hnormalized(),
+                                     &tri_point3D));
 
         EXPECT_TRUE((point3D - tri_point3D).norm() < 1e-10);
       }
     }
   }
+}
+
+TEST(TriangulatePoint, ParallelRays) {
+  Eigen::Vector3d xyz;
+  EXPECT_FALSE(TriangulatePoint(
+      Rigid3d().ToMatrix(),
+      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(1, 0, 0))
+          .ToMatrix(),
+      Eigen::Vector2d(0, 0),
+      Eigen::Vector2d(0, 0),
+      &xyz));
 }
 
 TEST(CalculateTriangulationAngle, Nominal) {

@@ -327,11 +327,11 @@ void IncrementalMapper::RegisterInitialImagePair(
         camera1.CamFromImg(image1.Point2D(corr.point2D_idx1).xy);
     const Eigen::Vector2d point2D2 =
         camera2.CamFromImg(image2.Point2D(corr.point2D_idx2).xy);
-    const Eigen::Vector3d& xyz =
-        TriangulatePoint(cam_from_world1, cam_from_world2, point2D1, point2D2);
-    const double tri_angle =
-        CalculateTriangulationAngle(proj_center1, proj_center2, xyz);
-    if (tri_angle >= min_tri_angle_rad &&
+    Eigen::Vector3d xyz;
+    if (TriangulatePoint(
+            cam_from_world1, cam_from_world2, point2D1, point2D2, &xyz) &&
+        CalculateTriangulationAngle(proj_center1, proj_center2, xyz) >=
+            min_tri_angle_rad &&
         HasPointPositiveDepth(cam_from_world1, xyz) &&
         HasPointPositiveDepth(cam_from_world2, xyz)) {
       track.Element(0).point2D_idx = corr.point2D_idx1;

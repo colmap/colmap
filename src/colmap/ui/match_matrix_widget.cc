@@ -62,18 +62,23 @@ void MatchMatrixWidget::Show() {
     image_id_to_idx.emplace(images[idx].ImageId(), idx);
   }
 
-  std::vector<std::pair<image_t, image_t>> image_pairs;
-  std::vector<int> num_inliers;
-  database.ReadTwoViewGeometryNumInliers(&image_pairs, &num_inliers);
+  const std::vector<std::pair<image_pair_t, int>> pair_ids_and_num_inliers =
+      database.ReadTwoViewGeometryNumInliers();
 
   // Fill the match matrix.
-  if (!num_inliers.empty()) {
+  if (!pair_ids_and_num_inliers.empty()) {
     const double max_value =
-        std::log1p(*std::max_element(num_inliers.begin(), num_inliers.end()));
-    for (size_t i = 0; i < image_pairs.size(); ++i) {
-      const double value = std::log1p(num_inliers[i]) / max_value;
-      const size_t idx1 = image_id_to_idx.at(image_pairs[i].first);
-      const size_t idx2 = image_id_to_idx.at(image_pairs[i].second);
+        std::log1p(std::max_element(pair_ids_and_num_inliers.begin(),
+                                    pair_ids_and_num_inliers.end(),
+                                    [](const auto& left, const auto& right) {
+                                      return left.second < right.second;
+                                    })
+                       ->second);
+    for (const auto& [pair_id, num_inliers] : pair_ids_and_num_inliers) {
+      const double value = std::log1p(num_inliers) / max_value;
+      const auto [image_id1, image_id2] = Database::PairIdToImagePair(pair_id);
+      const size_t idx1 = image_id_to_idx.at(image_id1);
+      const size_t idx2 = image_id_to_idx.at(image_id2);
       const BitmapColor<float> color(255 * JetColormap::Red(value),
                                      255 * JetColormap::Green(value),
                                      255 * JetColormap::Blue(value));

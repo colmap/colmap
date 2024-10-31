@@ -47,6 +47,28 @@ TEST(Image, Default) {
   EXPECT_EQ(image.Points2D().size(), 0);
 }
 
+TEST(Image, Equals) {
+  Image image;
+  Image other = image;
+  EXPECT_EQ(image, other);
+  image.SetName("test");
+  EXPECT_NE(image, other);
+  other.SetName("test");
+  EXPECT_EQ(image, other);
+}
+
+TEST(Image, Print) {
+  Image image;
+  image.SetImageId(1);
+  image.SetCameraId(2);
+  image.SetName("test");
+  std::ostringstream stream;
+  stream << image;
+  EXPECT_EQ(stream.str(),
+            "Image(image_id=1, camera_id=2, name=\"test\", "
+            "has_pose=0, triangulated=0/0)");
+}
+
 TEST(Image, ImageId) {
   Image image;
   EXPECT_EQ(image.ImageId(), kInvalidImageId);

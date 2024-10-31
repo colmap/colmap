@@ -145,8 +145,8 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
       std::make_unique<ceres::CauchyLoss>(options.loss_function_scale);
 
   double* camera_params = camera->params.data();
-  double* rig_from_world_rotation = cam_from_world->rotation.coeffs().data();
-  double* rig_from_world_translation = cam_from_world->translation.data();
+  double* cam_from_world_rotation = cam_from_world->rotation.coeffs().data();
+  double* cam_from_world_translation = cam_from_world->translation.data();
 
   ceres::Problem::Options problem_options;
   problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
@@ -161,13 +161,13 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
         CameraCostFunction<ReprojErrorConstantPoint3DCostFunctor>(
             camera->model_id, points2D[i], points3D[i]),
         loss_function.get(),
-        rig_from_world_rotation,
-        rig_from_world_translation,
+        cam_from_world_rotation,
+        cam_from_world_translation,
         camera_params);
   }
 
   if (problem.NumResiduals() > 0) {
-    SetQuaternionManifold(&problem, rig_from_world_rotation);
+    SetQuaternionManifold(&problem, cam_from_world_rotation);
 
     // Camera parameterization.
     if (!options.refine_focal_length && !options.refine_extra_params) {
@@ -232,8 +232,8 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
   if (problem.NumResiduals() > 0 && cam_from_world_cov != nullptr) {
     ceres::Covariance::Options options;
     ceres::Covariance covariance(options);
-    std::vector<const double*> parameter_blocks = {rig_from_world_rotation,
-                                                   rig_from_world_translation};
+    std::vector<const double*> parameter_blocks = {cam_from_world_rotation,
+                                                   cam_from_world_translation};
     if (!covariance.Compute(parameter_blocks, &problem)) {
       return false;
     }

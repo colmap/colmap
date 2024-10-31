@@ -60,6 +60,10 @@ class Reconstruction {
  public:
   Reconstruction();
 
+  // Copy construct/assign. Updates camera pointers.
+  Reconstruction(const Reconstruction& other);
+  Reconstruction& operator=(const Reconstruction& other);
+
   // Get number of objects.
   inline size_t NumCameras() const;
   inline size_t NumImages() const;
@@ -253,6 +257,9 @@ class Reconstruction {
   // Total number of added 3D points, used to generate unique identifiers.
   point3D_t max_point3D_id_;
 };
+
+std::ostream& operator<<(std::ostream& stream,
+                         const Reconstruction& reconstruction);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
