@@ -280,9 +280,26 @@ TEST(AbsolutePosePositionPriorCostFunctor, Nominal) {
   const Rigid3d world_from_cam = Inverse(cam_from_world);
 
   cost_function.reset(AbsolutePosePositionPriorCostFunctor::Create(
-      world_from_cam.translation, Eigen::Matrix3d::Identity()));
+      Eigen::Vector3d::Zero(), Eigen::Matrix3d::Identity()));
   parameters[0] = cam_from_world.rotation.coeffs().data();
   parameters[1] = cam_from_world.translation.data();
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_NEAR(residuals[0], -world_from_cam.translation[0], 1e-6);
+  EXPECT_NEAR(residuals[1], -world_from_cam.translation[1], 1e-6);
+  EXPECT_NEAR(residuals[2], -world_from_cam.translation[2], 1e-6);
+
+  cost_function.reset(AbsolutePosePositionPriorCostFunctor::Create(
+      Eigen::Vector3d::Zero(), 2 * Eigen::Matrix3d::Identity()));
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_NEAR(
+      residuals[0], -0.5 * std::sqrt(2) * world_from_cam.translation[0], 1e-6);
+  EXPECT_NEAR(
+      residuals[1], -0.5 * std::sqrt(2) * world_from_cam.translation[1], 1e-6);
+  EXPECT_NEAR(
+      residuals[2], -0.5 * std::sqrt(2) * world_from_cam.translation[2], 1e-6);
+
+  cost_function.reset(AbsolutePosePositionPriorCostFunctor::Create(
+      world_from_cam.translation, Eigen::Matrix3d::Identity()));
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
   EXPECT_EQ(residuals[0], 0);
   EXPECT_EQ(residuals[1], 0);
@@ -290,11 +307,12 @@ TEST(AbsolutePosePositionPriorCostFunctor, Nominal) {
 }
 
 TEST(AbsolutePosePriorCostFunctor, Nominal) {
-  const Rigid3d mes_cam_from_world;
-  Eigen::Matrix6d covariance_cam = Eigen::Matrix6d::Identity();
-  covariance_cam(5, 5) = 4;
+  const Rigid3d cam_from_world_prior;
+  Eigen::Matrix6d cam_cov_from_world_prior = Eigen::Matrix6d::Identity();
+  cam_cov_from_world_prior(5, 5) = 4;
   std::unique_ptr<ceres::CostFunction> cost_function(
-      AbsolutePosePriorCostFunctor::Create(mes_cam_from_world, covariance_cam));
+      AbsolutePosePriorCostFunctor::Create(cam_from_world_prior,
+                                           cam_cov_from_world_prior));
 
   double cam_from_world_rotation[4] = {0, 0, 0, 1};
   double cam_from_world_translation[3] = {0, 0, 0};
@@ -335,12 +353,12 @@ TEST(AbsolutePosePriorCostFunctor, Nominal) {
 }
 
 TEST(RelativePosePriorCostFunctor, Nominal) {
-  Rigid3d i_from_j;
-  i_from_j.translation << 0, 0, -1;
-  Eigen::Matrix6d covariance_j = Eigen::Matrix6d::Identity();
-  covariance_j(5, 5) = 4;
+  Rigid3d i_from_j_prior;
+  i_from_j_prior.translation << 0, 0, -1;
+  Eigen::Matrix6d i_cov_from_j_prior = Eigen::Matrix6d::Identity();
+  i_cov_from_j_prior(5, 5) = 4;
   std::unique_ptr<ceres::CostFunction> cost_function(
-      RelativePosePriorCostFunctor::Create(i_from_j, covariance_j));
+      RelativePosePriorCostFunctor::Create(i_from_j_prior, i_cov_from_j_prior));
 
   double i_from_world_rotation[4] = {0, 0, 0, 1};
   double i_from_world_translation[3] = {0, 0, 0};

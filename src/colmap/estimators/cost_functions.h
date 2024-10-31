@@ -356,18 +356,18 @@ inline void EigenQuaternionToAngleAxis(const T* eigen_quaternion,
 struct AbsolutePosePriorCostFunctor {
  public:
   AbsolutePosePriorCostFunctor(const Rigid3d& cam_from_world_prior,
-                               const Eigen::Matrix6d& cam_from_world_prior_cov)
+                               const Eigen::Matrix6d& cam_cov_from_world_prior)
       : world_from_cam_prior_(Inverse(cam_from_world_prior)),
-        cam_from_world_prior_sqrt_info_(
-            SqrtInformation(cam_from_world_prior_cov)) {}
+        cam_sqrt_info_from_world_prior_(
+            SqrtInformation(cam_cov_from_world_prior)) {}
 
   static ceres::CostFunction* Create(
       const Rigid3d& cam_from_world_prior,
-      const Eigen::Matrix6d& cam_from_world_prior_cov) {
+      const Eigen::Matrix6d& cam_cov_from_world_prior) {
     return (
         new ceres::AutoDiffCostFunction<AbsolutePosePriorCostFunctor, 6, 4, 3>(
             new AbsolutePosePriorCostFunctor(cam_from_world_prior,
-                                             cam_from_world_prior_cov)));
+                                             cam_cov_from_world_prior)));
   }
 
   template <typename T>
@@ -389,33 +389,33 @@ struct AbsolutePosePriorCostFunctor {
 
     Eigen::Map<Eigen::Matrix<T, 6, 1>> residuals(residuals_ptr);
     residuals.applyOnTheLeft(
-        cam_from_world_prior_sqrt_info_.template cast<T>());
+        cam_sqrt_info_from_world_prior_.template cast<T>());
     return true;
   }
 
  private:
   const Rigid3d world_from_cam_prior_;
-  const Eigen::Matrix6d cam_from_world_prior_sqrt_info_;
+  const Eigen::Matrix6d cam_sqrt_info_from_world_prior_;
 };
 
 // 3-DoF error on the camera position in the world coordinate frame.
 struct AbsolutePosePositionPriorCostFunctor {
  public:
   AbsolutePosePositionPriorCostFunctor(
-      const Eigen::Vector3d& position_prior_in_world,
-      const Eigen::Matrix3d& position_prior_in_world_cov)
-      : position_prior_in_world_(position_prior_in_world),
-        position_prior_in_world_sqrt_info_(
-            SqrtInformation(position_prior_in_world_cov)) {}
+      const Eigen::Vector3d& position_in_world_prior,
+      const Eigen::Matrix3d& position_cov_in_world_prior)
+      : position_in_world_prior_(position_in_world_prior),
+        position_sqrt_info_in_world_prior_(
+            SqrtInformation(position_cov_in_world_prior)) {}
 
   static ceres::CostFunction* Create(
-      const Eigen::Vector3d& position_prior_in_world,
-      const Eigen::Matrix3d& position_prior_in_world_cov) {
+      const Eigen::Vector3d& position_in_world_prior,
+      const Eigen::Matrix3d& position_cov_in_world_prior) {
     return (
         new ceres::
             AutoDiffCostFunction<AbsolutePosePositionPriorCostFunctor, 3, 4, 3>(
                 new AbsolutePosePositionPriorCostFunctor(
-                    position_prior_in_world, position_prior_in_world_cov)));
+                    position_in_world_prior, position_cov_in_world_prior)));
   }
 
   template <typename T>
@@ -423,17 +423,17 @@ struct AbsolutePosePositionPriorCostFunctor {
                   const T* const cam_from_world_translation,
                   T* residuals_ptr) const {
     Eigen::Map<Eigen::Matrix<T, 3, 1>> residuals(residuals_ptr);
-    residuals = position_prior_in_world_.cast<T>() +
+    residuals = position_in_world_prior_.cast<T>() +
                 EigenQuaternionMap<T>(cam_from_world_rotation).inverse() *
                     EigenVector3Map<T>(cam_from_world_translation);
     residuals.applyOnTheLeft(
-        position_prior_in_world_sqrt_info_.template cast<T>());
+        position_sqrt_info_in_world_prior_.template cast<T>());
     return true;
   }
 
  private:
-  const Eigen::Vector3d position_prior_in_world_;
-  const Eigen::Matrix3d position_prior_in_world_sqrt_info_;
+  const Eigen::Vector3d position_in_world_prior_;
+  const Eigen::Matrix3d position_sqrt_info_in_world_prior_;
 };
 
 // 6-DoF error between two absolute camera poses based on a prior on their
@@ -442,26 +442,26 @@ struct AbsolutePosePositionPriorCostFunctor {
 // components correspond to the rotation and translation errors, respectively.
 //
 // Derivation:
-//    j_T_w = ΔT_j·j_T_i·i_T_w
-//    where ΔT_j = exp(η_j) is the residual in SE(3) and η_j in tangent space.
-//    Thus η_j = log(j_T_w·i_T_w⁻¹·i_T_j)
-//    Rotation term: ΔR = log(j_R_w·i_R_w⁻¹·i_R_j)
-//    Translation term: Δt = j_t_w + j_R_w·i_R_w⁻¹·(i_t_j -i_t_w)
+//    i_T_w = ΔT_i·i_T_j·j_T_w
+//    where ΔT_i = exp(η_i) is the resjdual in SE(3) and η_i in tangent space.
+//    Thus η_i = log(i_T_w·j_T_w⁻¹·j_T_i)
+//    Rotation term: ΔR = log(i_R_w·j_R_w⁻¹·j_R_i)
+//    Translation term: Δt = i_t_w + i_R_w·j_R_w⁻¹·(j_t_i -j_t_w)
 struct RelativePosePriorCostFunctor {
  public:
   RelativePosePriorCostFunctor(const Rigid3d& i_from_j_prior,
-                               const Eigen::Matrix6d& i_from_j_prior_cov)
+                               const Eigen::Matrix6d& i_cov_from_j_prior)
       : j_from_i_prior_(Inverse(i_from_j_prior)),
-        i_from_j_prior_sqrt_info_(SqrtInformation(i_from_j_prior_cov)) {}
+        i_sqrt_info_from_j_prior_(SqrtInformation(i_cov_from_j_prior)) {}
 
   static ceres::CostFunction* Create(
       const Rigid3d& i_from_j_prior,
-      const Eigen::Matrix6d& i_from_j_prior_cov) {
+      const Eigen::Matrix6d& i_cov_from_j_prior) {
     return (
         new ceres::
             AutoDiffCostFunction<RelativePosePriorCostFunctor, 6, 4, 3, 4, 3>(
                 new RelativePosePriorCostFunctor(i_from_j_prior,
-                                                 i_from_j_prior_cov)));
+                                                 i_cov_from_j_prior)));
   }
 
   template <typename T>
@@ -488,32 +488,32 @@ struct RelativePosePriorCostFunctor {
         i_from_j_rotation * j_from_i_prior_translation;
 
     Eigen::Map<Eigen::Matrix<T, 6, 1>> residuals(residuals_ptr);
-    residuals.applyOnTheLeft(i_from_j_prior_sqrt_info_.template cast<T>());
+    residuals.applyOnTheLeft(i_sqrt_info_from_j_prior_.template cast<T>());
     return true;
   }
 
  private:
   const Rigid3d j_from_i_prior_;
-  const Eigen::Matrix6d i_from_j_prior_sqrt_info_;
+  const Eigen::Matrix6d i_sqrt_info_from_j_prior_;
 };
 
 // Cost function for aligning one 3D point with a reference 3D point with
 // covariance. Convention is equivalent to colmap::Sim3d.
 struct Point3DAlignmentCostFunctor {
  public:
-  Point3DAlignmentCostFunctor(const Eigen::Vector3d& point_prior_in_b,
-                              const Eigen::Matrix3d& point_prior_in_b_cov)
-      : point_prior_in_b_(point_prior_in_b),
-        point_prior_in_b_sqrt_info_(SqrtInformation(point_prior_in_b_cov)) {}
+  Point3DAlignmentCostFunctor(const Eigen::Vector3d& point_in_b_prior,
+                              const Eigen::Matrix3d& point_cov_in_b_prior)
+      : point_in_b_prior_(point_in_b_prior),
+        point_sqrt_info_in_b_prior_(SqrtInformation(point_cov_in_b_prior)) {}
 
   static ceres::CostFunction* Create(
-      const Eigen::Vector3d& point_prior_in_b,
-      const Eigen::Matrix3d& point_prior_in_b_cov) {
+      const Eigen::Vector3d& point_in_b_prior,
+      const Eigen::Matrix3d& point_cov_in_b_prior) {
     return (
         new ceres::
             AutoDiffCostFunction<Point3DAlignmentCostFunctor, 3, 3, 4, 3, 1>(
-                new Point3DAlignmentCostFunctor(point_prior_in_b,
-                                                point_prior_in_b_cov)));
+                new Point3DAlignmentCostFunctor(point_in_b_prior,
+                                                point_cov_in_b_prior)));
   }
 
   template <typename T>
@@ -527,14 +527,14 @@ struct Point3DAlignmentCostFunctor {
             EigenVector3Map<T>(point_in_a) * b_from_a_scale[0] +
         EigenVector3Map<T>(b_from_a_translation);
     Eigen::Map<Eigen::Matrix<T, 3, 1>> residuals(residuals_ptr);
-    residuals = point_in_b - point_prior_in_b_.cast<T>();
-    residuals.applyOnTheLeft(point_prior_in_b_sqrt_info_.template cast<T>());
+    residuals = point_in_b - point_in_b_prior_.cast<T>();
+    residuals.applyOnTheLeft(point_sqrt_info_in_b_prior_.template cast<T>());
     return true;
   }
 
  private:
-  const Eigen::Vector3d point_prior_in_b_;
-  const Eigen::Matrix3d point_prior_in_b_sqrt_info_;
+  const Eigen::Vector3d point_in_b_prior_;
+  const Eigen::Matrix3d point_sqrt_info_in_b_prior_;
 };
 
 // A cost function that wraps another one and whiten its residuals with an
