@@ -86,7 +86,8 @@ void BindBundleAdjuster(py::module& m) {
           .def_readwrite("solver_options",
                          &BAOpts::solver_options,
                          "Options for the Ceres solver. Using this member "
-                         "requires having PyCeres installed.");
+                         "requires having PyCeres installed in the same "
+                         "version as libceres-dev.");
   MakeDataclass(PyBundleAdjustmentOptions);
 
   using BACfg = BundleAdjustmentConfig;
