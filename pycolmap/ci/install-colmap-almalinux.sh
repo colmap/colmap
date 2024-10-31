@@ -8,9 +8,7 @@ export PATH="/usr/bin"
 # Install toolchain under AlmaLinux 8,
 # see https://almalinux.pkgs.org/8/almalinux-appstream-x86_64/
 yum install -y \
-    gcc \
-    gcc-c++ \
-    gcc-gfortran \
+    gcc-toolset-10 \
     git \
     cmake3 \
     ninja-build \
