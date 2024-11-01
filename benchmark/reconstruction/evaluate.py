@@ -204,29 +204,35 @@ def compute_rel_errors(sparse_gt_path, sparse_path, min_proj_center_dist):
     sparse = pycolmap.Reconstruction()
     sparse.read(sparse_path)
 
-    images_gt = {}
-    for image in sparse_gt.images.values():
-        images_gt[image.name] = image
-
-    reg_image_ids = list(sparse.reg_image_ids())
+    images = {}
+    for image in sparse.images.values():
+        images[image.name] = image
 
     dts = []
     dRs = []
-    for i in range(len(reg_image_ids)):
-        this_image = sparse.images[reg_image_ids[i]]
-        this_image_gt = images_gt[this_image.name]
+    for this_image_gt in sparse_gt.images.values():
+        if this_image_gt.name not in images:
+            for _ in range(sparse_gt.num_images() - 1):
+                dts.append(np.inf)
+                dRs.append(180)
+            continue
 
-        for j in range(i + 1, len(reg_image_ids)):
-            other_image = sparse.images[reg_image_ids[j]]
-            if this_image.image_id == other_image.image_id:
+        this_image = images[this_image_gt.name]
+
+        for other_image_gt in sparse_gt.images.values():
+            if this_image_gt.image_id == other_image_gt.image_id:
                 continue
 
-            other_image_gt = images_gt[other_image.name]
+            if other_image_gt.name not in images:
+                dts.append(np.inf)
+                dRs.append(180)
+                continue
+
+            other_image = images[other_image_gt.name]
 
             this_from_other = (
                 this_image.cam_from_world * other_image.cam_from_world.inverse()
             )
-
             this_from_other_gt = (
                 this_image_gt.cam_from_world
                 * other_image_gt.cam_from_world.inverse()
@@ -365,6 +371,9 @@ def evaluate_eth3d(args, gt_position_accuracy=0.001):
                 continue
 
             scene = scene_path.name
+            if args.scenes and scene not in args.scenes:
+                continue
+
             workspace_path = (
                 args.run_path / args.run_name / "eth3d" / category / scene
             )
@@ -453,6 +462,9 @@ def evaluate_imc(args, year, gt_position_accuracy=0.02):
                 continue
 
             scene = scene_path.name
+            if args.scenes and scene not in args.scenes:
+                continue
+
             workspace_path = (
                 args.run_path / args.run_name / folder_name / category / scene
             )
@@ -563,6 +575,12 @@ def parse_args():
         nargs="+",
         default=[],
         help="Categories to evaluate, if empty all categories are evaluated.",
+    )
+    parser.add_argument(
+        "--scenes",
+        nargs="+",
+        default=[],
+        help="Scenes to evaluate, if empty all scenes are evaluated.",
     )
     parser.add_argument("--run_path", default=Path(__file__).parent / "runs")
     parser.add_argument(
