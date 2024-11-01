@@ -193,7 +193,20 @@ def get_error_thresholds(args):
 
 
 def compute_rel_errors(sparse_gt_path, sparse_path, min_proj_center_dist):
-    """Computes angular relative pose errors between all"""
+    """Computes angular relative pose errors across all image pairs.
+    
+    Notice that this approach leads to a super-linear decrease in the AUC scores
+    when multiple images fails to register. Consider that we have N images in
+    total in a dataset and M images are registered in the evaluated
+    reconstruction. In this case, we can compute "finite" errors for (N-M)^2
+    pairs while the dataset has a total of N^2 pairs. In case of many
+    unregistered images, the AUC score will drop much more than the
+    (intuitively) expected (N-M) / N ratio. One could appropriately normalize by
+    computing a single score per image through a suitable normalization of all
+    pairwise errors per image. However, this becomes difficult when multiple
+    sub-components are incorrectly stitched together in the same reconstruction
+    (e.g., in the case of symmetry issues).
+    """
     sparse_gt = pycolmap.Reconstruction()
     sparse_gt.read(sparse_gt_path)
 

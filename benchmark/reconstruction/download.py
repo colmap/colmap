@@ -82,6 +82,9 @@ def parse_args():
     parser.add_argument(
         "--data_path", type=Path, default=Path(__file__).parent / "data"
     )
+    parser.add_argument(
+        "--datasets", nargs="+", default=["eth3d", "imc2023", "imc2024"]
+    )
     return parser.parse_args()
 
 
@@ -89,9 +92,12 @@ def main():
     args = parse_args()
 
     download_vocab_tree(args.data_path)
-    download_eth3d(args.data_path / "eth3d")
-    download_imc2023(args.data_path / "imc2023")
-    download_imc2024(args.data_path / "imc2024")
+    if "eth3d" in args.datasets:
+        download_eth3d(args.data_path / "eth3d")
+    if "imc2023" in args.datasets:
+        download_imc2023(args.data_path / "imc2023")
+    if "imc2024" in args.datasets:
+        download_imc2024(args.data_path / "imc2024")
 
 
 if __name__ == "__main__":
