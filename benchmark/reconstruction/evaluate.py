@@ -139,7 +139,83 @@ def colmap_alignment(
         )
 
 
-def compute_errors(sparse_gt_path, sparse_path):
+def normalize_vec(vec, eps=1e-10):
+    return vec / max(eps, np.linalg.norm(vec))
+
+
+def rot_mat_angular_dist_deg(rot_mat1, rot_mat2):
+    cos_dist = np.clip(((np.trace(rot_mat1 @ rot_mat2.T)) - 1) / 2, -1, 1)
+    return np.rad2deg(np.acos(cos_dist))
+
+
+def vec_angular_dist_deg(vec1, vec2):
+    cos_dist = np.clip(np.dot(normalize_vec(vec1), normalize_vec(vec2)), -1, 1)
+    return np.rad2deg(np.acos(cos_dist))
+
+
+def compute_rel_errors(sparse_gt_path, sparse_path, min_proj_center_dist):
+    """Computes angular relative pose errors between all"""
+    sparse_gt = pycolmap.Reconstruction()
+    sparse_gt.read(sparse_gt_path)
+
+    if not (sparse_path / "images.bin").exists():
+        print("Reconstruction failed")
+        return len(sparse_gt.images) * [np.inf], len(sparse_gt.images) * [180]
+
+    sparse = pycolmap.Reconstruction()
+    sparse.read(sparse_path)
+
+    images_gt = {}
+    for image in sparse_gt.images.values():
+        images_gt[image.name] = image
+
+    dts = []
+    dRs = []
+    for this_image in sparse.images.values():
+        this_image_gt = images_gt[this_image.name]
+
+        for other_image in sparse.images.values():
+            if this_image.image_id == other_image.image_id:
+                continue
+
+            other_image_gt = images_gt[other_image.name]
+
+            this_from_other = (
+                this_image.cam_from_world * other_image.cam_from_world.inverse()
+            )
+
+            this_from_other_gt = (
+                this_image_gt.cam_from_world
+                * other_image_gt.cam_from_world.inverse()
+            )
+
+            proj_center_dist_gt = np.linalg.norm(
+                this_image_gt.projection_center()
+                - other_image_gt.projection_center()
+            )
+            if proj_center_dist_gt < min_proj_center_dist:
+                # If the cameras almost coincide, then the angular direction
+                # distance is unstable, because a small position change can
+                # cause a large rotational error. In this case, we only measure
+                # rotational relative pose error.
+                dt = 0
+            else:
+                dt = vec_angular_dist_deg(
+                    this_from_other.translation, this_from_other_gt.translation
+                )
+
+            dR = rot_mat_angular_dist_deg(
+                this_from_other.rotation.matrix(),
+                this_from_other_gt.rotation.matrix(),
+            )
+
+            dts.append(dt)
+            dRs.append(dR)
+
+    return dts, dRs
+
+
+def compute_abs_errors(sparse_gt_path, sparse_path):
     sparse_gt = pycolmap.Reconstruction()
     sparse_gt.read(sparse_gt_path)
 
@@ -162,16 +238,15 @@ def compute_errors(sparse_gt_path, sparse_path):
             dRs.append(180)
             continue
 
-        R_w2c_gt = image_gt.cam_from_world.rotation.matrix()
-        t_c2w_gt = image_gt.projection_center()
-
         image = images[image_gt.name]
-        R_w2c = image.cam_from_world.rotation.matrix()
-        t_c2w = image.projection_center()
 
-        dt = np.linalg.norm(t_c2w_gt - t_c2w)
-        cos = np.clip(((np.trace(R_w2c_gt @ R_w2c.T)) - 1) / 2, -1, 1)
-        dR = np.rad2deg(np.abs(np.arccos(cos)))
+        dt = np.linalg.norm(
+            image_gt.projection_center() - image.projection_center()
+        )
+        dR = rot_mat_angular_dist_deg(
+            image_gt.cam_from_world.rotation.matrix(),
+            image.cam_from_world.rotation.matrix(),
+        )
 
         dts.append(dt)
         dRs.append(dR)
@@ -188,6 +263,9 @@ def compute_recall(errors):
 
 
 def compute_auc(errors, thresholds, min_error=None):
+    if len(errors) == 0:
+        raise ValueError("No errors to evaluate")
+
     errors, recall = compute_recall(errors)
 
     if min_error is not None:
@@ -209,7 +287,22 @@ def compute_auc(errors, thresholds, min_error=None):
     return aucs
 
 
-def evaluate_eth3d(args):
+def compute_avg_auc(scene_aucs):
+    auc_sum = None
+    num_scenes = 0
+    for scene, aucs in scene_aucs.items():
+        if scene.startswith("__") and scene.endswith("__"):
+            continue
+        num_scenes += 1
+        if auc_sum is None:
+            auc_sum = aucs
+        else:
+            for i in range(len(auc_sum)):
+                auc_sum[i] += aucs[i]
+    return [auc / num_scenes for auc in auc_sum]
+
+
+def evaluate_eth3d(args, gt_position_accuracy=0.001):
     results = {}
     for category_path in (args.data_path / "eth3d").iterdir():
         if not category_path.is_dir() or (
@@ -220,9 +313,9 @@ def evaluate_eth3d(args):
         category = category_path.name
         results[category] = {}
 
-        all_dts = []
+        errors = []
 
-        for scene_path in category_path.iterdir():
+        for scene_path in sorted(category_path.iterdir()):
             if not scene_path.is_dir():
                 continue
 
@@ -251,35 +344,43 @@ def evaluate_eth3d(args):
             )
 
             sparse_path = workspace_path / "sparse/0"
-            sparse_aligned_path = workspace_path / "sparse_aligned"
-            colmap_alignment(
-                args=args,
-                sparse_path=sparse_path,
-                sparse_gt_path=sparse_gt_path,
-                sparse_aligned_path=sparse_aligned_path,
-                max_ref_model_error=0.1,
-            )
+            if args.error_type == "relative":
+                dts, dRs = compute_rel_errors(
+                    sparse_gt_path=sparse_gt_path,
+                    sparse_path=sparse_path,
+                    min_proj_center_dist=gt_position_accuracy,
+                )
+                errors.extend([max(dt, dR) for dt, dR in zip(dts, dRs)])
+            elif args.error_type == "absolute":
+                sparse_aligned_path = workspace_path / "sparse_aligned"
+                colmap_alignment(
+                    args=args,
+                    sparse_path=sparse_path,
+                    sparse_gt_path=sparse_gt_path,
+                    sparse_aligned_path=sparse_aligned_path,
+                    max_ref_model_error=gt_position_accuracy,
+                )
+                dts, dRs = compute_abs_errors(
+                    sparse_gt_path=sparse_gt_path,
+                    sparse_path=sparse_aligned_path,
+                )
+                errors.extend(dts)
+            else:
+                raise ValueError(f"Invalid error type: {args.error_type}")
 
-            dts, dRs = compute_errors(
-                sparse_gt_path=sparse_gt_path,
-                sparse_path=sparse_aligned_path,
-            )
-
-            all_dts.extend(dts)
-
-            # The ground truth poses are deemed accurate only up to 1mm.
             results[category][scene] = compute_auc(
-                dts, args.thresholds, min_error=0.001
+                dts, args.abs_error_thresholds, min_error=gt_position_accuracy
             )
 
         results[category]["__all__"] = compute_auc(
-            all_dts, args.thresholds, min_error=0.02
+            errors, args.abs_error_thresholds, min_error=gt_position_accuracy
         )
+        results[category]["__avg__"] = compute_avg_auc(results[category])
 
     return results
 
 
-def evaluate_imc(args, year):
+def evaluate_imc(args, year, gt_position_accuracy=0.02):
     folder_name = f"imc{year}"
     results = {}
     for category_path in Path(
@@ -293,7 +394,7 @@ def evaluate_imc(args, year):
         category = category_path.name
         results[category] = {}
 
-        all_dts = []
+        errors = []
 
         for scene_path in category_path.iterdir():
             if not scene_path.is_dir():
@@ -315,35 +416,52 @@ def evaluate_imc(args, year):
             )
 
             sparse_path = workspace_path / "sparse/0"
-            sparse_aligned_path = workspace_path / "sparse_aligned"
-            colmap_alignment(
-                args=args,
-                sparse_path=sparse_path,
-                sparse_gt_path=sparse_gt_path,
-                sparse_aligned_path=sparse_aligned_path,
-                max_ref_model_error=0.2,
-            )
+            if args.error_type == "relative":
+                dts, dRs = compute_rel_errors(
+                    sparse_gt_path=sparse_gt_path,
+                    sparse_path=sparse_path,
+                    min_proj_center_dist=gt_position_accuracy,
+                )
+                errors.extend([max(dt, dR) for dt, dR in zip(dts, dRs)])
+            elif args.error_type == "absolute":
+                sparse_aligned_path = workspace_path / "sparse_aligned"
+                colmap_alignment(
+                    args=args,
+                    sparse_path=sparse_path,
+                    sparse_gt_path=sparse_gt_path,
+                    sparse_aligned_path=sparse_aligned_path,
+                    max_ref_model_error=gt_position_accuracy,
+                )
+                dts, dRs = compute_abs_errors(
+                    sparse_gt_path=sparse_gt_path,
+                    sparse_path=sparse_aligned_path,
+                )
+                errors.extend(dts)
+            else:
+                raise ValueError(f"Invalid error type: {args.error_type}")
 
-            dts, dRs = compute_errors(
-                sparse_gt_path=sparse_gt_path,
-                sparse_path=sparse_aligned_path,
-            )
-
-            all_dts.extend(dts)
-
-            # The ground truth poses are deemed accurate only up to 2cm.
             results[category][scene] = compute_auc(
-                dts, args.thresholds, min_error=0.02
+                dts, args.abs_error_thresholds, min_error=gt_position_accuracy
             )
 
         results[category]["__all__"] = compute_auc(
-            all_dts, args.thresholds, min_error=0.02
+            errors, args.abs_error_thresholds, min_error=gt_position_accuracy
         )
+        results[category]["__avg__"] = compute_avg_auc(results[category])
 
     return results
 
 
-def format_results(results, thresholds):
+def format_results(args, results):
+    if args.error_type == "relative":
+        metric = "AUC @ X deg (%)"
+        thresholds = args.rel_error_thresholds
+    elif args.error_type == "absolute":
+        metric = "AUC @ X cm (%)"
+        thresholds = [100 * t for t in args.abs_error_thresholds]
+    else:
+        raise ValueError(f"Invalid error type: {args.error_type}")
+
     column = "scenes"
     size1 = max(
         len(column) + 2,
@@ -354,13 +472,10 @@ def format_results(results, thresholds):
             for s in c.keys()
         ),
     )
-    metric = "AUC @ X cm (%)"
     size2 = max(len(metric) + 2, len(thresholds) * 7 - 1)
     header = f"{column:=^{size1}} {metric:=^{size2}}"
     header += "\n" + " " * (size1 + 1)
-    header += " ".join(
-        f'{str(t*100).rstrip("0").rstrip("."):^6}' for t in thresholds
-    )
+    header += " ".join(f'{str(t).rstrip("."):^6}' for t in thresholds)
     text = [header]
     for dataset, category_results in results.items():
         for category, scene_results in category_results.items():
@@ -368,8 +483,11 @@ def format_results(results, thresholds):
             for scene, aucs in scene_results.items():
                 assert len(aucs) == len(thresholds)
                 row = ""
+                if scene == "__avg__":
+                    scene = "average"
+                    row += "-" * (size1 + size2 + 1) + "\n"
                 if scene == "__all__":
-                    scene = ""
+                    scene = "overall"
                     row += "-" * (size1 + size2 + 1) + "\n"
                 row += f"{scene:<{size1}} "
                 row += " ".join(f"{auc:>6.2f}" for auc in aucs)
@@ -387,7 +505,7 @@ def parse_args():
         "--categories",
         nargs="+",
         default=[],
-        help="Only evaluate specific categories, if empty all categories are evaluated.",
+        help="Categories to evaluate, if empty all categories are evaluated.",
     )
     parser.add_argument("--run_path", default=Path(__file__).parent / "runs")
     parser.add_argument(
@@ -409,7 +527,21 @@ def parse_args():
     parser.add_argument("--num_threads", type=int, default=-1)
     parser.add_argument("--quality", default="high")
     parser.add_argument(
-        "--thresholds",
+        "--error_type",
+        default="relative",
+        choices=["relative", "absolute"],
+        help="Whether to evaluate relative pairwise pose errors in angular "
+        "distance or absolute pose errors through GT alignment.",
+    )
+    parser.add_argument(
+        "--rel_error_thresholds",
+        type=float,
+        nargs="+",
+        default=[1, 2, 5, 10],
+        help="Evaluation thresholds in degrees.",
+    )
+    parser.add_argument(
+        "--abs_error_thresholds",
         type=float,
         nargs="+",
         default=[0.05, 0.1, 0.2, 0.5],
@@ -438,7 +570,7 @@ def main():
         results["imc2024"] = evaluate_imc(args, year=2024)
 
     print("\nResults\n")
-    print(format_results(results, args.thresholds))
+    print(format_results(args, results))
 
 
 if __name__ == "__main__":
