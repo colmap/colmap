@@ -473,15 +473,26 @@ def evaluate_imc(args, year, gt_position_accuracy=0.02):
             workspace_path = (
                 args.run_path / args.run_name / folder_name / category / scene
             )
+            image_path = scene_path / "images"
+            train_image_names = set(
+                image.name for image in image_path.iterdir()
+            )
             sparse_gt_path = scene_path / "sfm"
             sparse_gt = pycolmap.Reconstruction(sparse_gt_path)
+            hold_out_image_ids = [
+                image.image_id
+                for image in sparse_gt.images.values()
+                if image.name not in train_image_names
+            ]
+            for image_id in hold_out_image_ids:
+                del sparse_gt.images[image_id]
 
             print(f"Processing IMC {year}: category={category}, scene={scene}")
 
             colmap_reconstruction(
                 args=args,
                 workspace_path=workspace_path,
-                image_path=scene_path / "images",
+                image_path=image_path,
                 camera_prior_sparse_gt=sparse_gt,
             )
 
