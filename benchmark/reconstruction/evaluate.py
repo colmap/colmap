@@ -401,14 +401,18 @@ def evaluate_eth3d(args, gt_position_accuracy=0.001):
                 errors = dts
             else:
                 raise ValueError(f"Invalid error type: {args.error_type}")
-            
+
             all_errors.extend(errors)
             results[category][scene] = compute_auc(
-                errors, args.abs_error_thresholds, min_error=gt_position_accuracy
+                errors,
+                args.abs_error_thresholds,
+                min_error=gt_position_accuracy,
             )
 
         results[category]["__all__"] = compute_auc(
-            all_errors, args.abs_error_thresholds, min_error=gt_position_accuracy
+            all_errors,
+            args.abs_error_thresholds,
+            min_error=gt_position_accuracy,
         )
         results[category]["__avg__"] = compute_avg_auc(results[category])
 
@@ -474,14 +478,18 @@ def evaluate_imc(args, year, gt_position_accuracy=0.02):
                 errors = dts
             else:
                 raise ValueError(f"Invalid error type: {args.error_type}")
-            
+
             all_errors.extend(errors)
             results[category][scene] = compute_auc(
-                errors, args.abs_error_thresholds, min_error=gt_position_accuracy
+                errors,
+                args.abs_error_thresholds,
+                min_error=gt_position_accuracy,
             )
 
         results[category]["__all__"] = compute_auc(
-            all_errors, args.abs_error_thresholds, min_error=gt_position_accuracy
+            all_errors,
+            args.abs_error_thresholds,
+            min_error=gt_position_accuracy,
         )
         results[category]["__avg__"] = compute_avg_auc(results[category])
 
