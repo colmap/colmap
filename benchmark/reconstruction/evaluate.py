@@ -42,7 +42,7 @@ def colmap_reconstruction(
     args,
     workspace_path,
     image_path,
-    camera_prior_sparse_gt_path=None,
+    camera_prior_sparse_gt=None,
     extra_args=[],
 ):
     workspace_path.mkdir(parents=True, exist_ok=True)
@@ -92,23 +92,20 @@ def colmap_reconstruction(
         cwd=workspace_path,
     )
 
-    if camera_prior_sparse_gt_path is not None:
+    if camera_prior_sparse_gt is not None:
         print("Setting prior cameras from GT")
-
-        sparse_gt = pycolmap.Reconstruction()
-        sparse_gt.read(camera_prior_sparse_gt_path)
 
         database = pycolmap.Database()
         database.open(database_path)
 
         camera_id_gt_to_camera_id = {}
-        for camera_id_gt, camera_gt in sparse_gt.cameras.items():
+        for camera_id_gt, camera_gt in camera_prior_sparse_gt.cameras.items():
             camera_gt.has_prior_focal_length = True
             camera_id = database.write_camera(camera_gt)
             camera_id_gt_to_camera_id[camera_id_gt] = camera_id
 
         images_gt_by_name = {}
-        for image_gt in sparse_gt.images.values():
+        for image_gt in camera_prior_sparse_gt.images.values():
             images_gt_by_name[image_gt.name] = image_gt
 
         for image in database.read_all_images():
@@ -192,9 +189,9 @@ def get_error_thresholds(args):
         raise ValueError(f"Invalid error type: {args.error_type}")
 
 
-def compute_rel_errors(sparse_gt_path, sparse_path, min_proj_center_dist):
+def compute_rel_errors(sparse_gt, sparse, min_proj_center_dist):
     """Computes angular relative pose errors across all image pairs.
-    
+
     Notice that this approach leads to a super-linear decrease in the AUC scores
     when multiple images fails to register. Consider that we have N images in
     total in a dataset and M images are registered in the evaluated
@@ -207,15 +204,10 @@ def compute_rel_errors(sparse_gt_path, sparse_path, min_proj_center_dist):
     sub-components are incorrectly stitched together in the same reconstruction
     (e.g., in the case of symmetry issues).
     """
-    sparse_gt = pycolmap.Reconstruction()
-    sparse_gt.read(sparse_gt_path)
 
-    if not (sparse_path / "images.bin").exists():
+    if sparse is None:
         print("Reconstruction failed")
         return len(sparse_gt.images) * [np.inf], len(sparse_gt.images) * [180]
-
-    sparse = pycolmap.Reconstruction()
-    sparse.read(sparse_path)
 
     images = {}
     for image in sparse.images.values():
@@ -277,16 +269,10 @@ def compute_rel_errors(sparse_gt_path, sparse_path, min_proj_center_dist):
     return dts, dRs
 
 
-def compute_abs_errors(sparse_gt_path, sparse_path):
-    sparse_gt = pycolmap.Reconstruction()
-    sparse_gt.read(sparse_gt_path)
-
-    if not (sparse_path / "images.bin").exists():
+def compute_abs_errors(sparse_gt, sparse):
+    if sparse is None:
         print("Reconstruction or alignment failed")
         return len(sparse_gt.images) * [np.inf], len(sparse_gt.images) * [180]
-
-    sparse = pycolmap.Reconstruction()
-    sparse.read(sparse_path)
 
     images = {}
     for image in sparse.images.values():
@@ -393,6 +379,7 @@ def evaluate_eth3d(args, gt_position_accuracy=0.001):
             sparse_gt_path = list(scene_path.glob("*_calibration_undistorted"))[
                 0
             ]
+            sparse_gt = pycolmap.Reconstruction(sparse_gt_path)
 
             print(f"Processing ETH3D: category={category}, scene={scene}")
 
@@ -406,15 +393,15 @@ def evaluate_eth3d(args, gt_position_accuracy=0.001):
                 args=args,
                 workspace_path=workspace_path,
                 image_path=scene_path / "images",
-                camera_prior_sparse_gt_path=sparse_gt_path,
+                camera_prior_sparse_gt=sparse_gt,
                 extra_args=extra_args,
             )
 
             sparse_path = workspace_path / "sparse/0"
             if args.error_type == "relative":
                 dts, dRs = compute_rel_errors(
-                    sparse_gt_path=sparse_gt_path,
-                    sparse_path=sparse_path,
+                    sparse_gt=sparse_gt,
+                    sparse=pycolmap.Reconstruction(sparse_path),
                     min_proj_center_dist=gt_position_accuracy,
                 )
                 errors = [max(dt, dR) for dt, dR in zip(dts, dRs)]
@@ -427,9 +414,14 @@ def evaluate_eth3d(args, gt_position_accuracy=0.001):
                     sparse_aligned_path=sparse_aligned_path,
                     max_ref_model_error=gt_position_accuracy,
                 )
+                sparse_aligned = (
+                    pycolmap.Reconstruction(sparse_aligned_path)
+                    if (sparse_aligned_path / "images.bin").exists()
+                    else None
+                )
                 dts, dRs = compute_abs_errors(
-                    sparse_gt_path=sparse_gt_path,
-                    sparse_path=sparse_aligned_path,
+                    sparse_gt=sparse_gt,
+                    sparse=sparse_aligned,
                 )
                 errors = dts
             else:
@@ -482,6 +474,7 @@ def evaluate_imc(args, year, gt_position_accuracy=0.02):
                 args.run_path / args.run_name / folder_name / category / scene
             )
             sparse_gt_path = scene_path / "sfm"
+            sparse_gt = pycolmap.Reconstruction(sparse_gt_path)
 
             print(f"Processing IMC {year}: category={category}, scene={scene}")
 
@@ -489,14 +482,14 @@ def evaluate_imc(args, year, gt_position_accuracy=0.02):
                 args=args,
                 workspace_path=workspace_path,
                 image_path=scene_path / "images",
-                camera_prior_sparse_gt_path=sparse_gt_path,
+                camera_prior_sparse_gt=sparse_gt,
             )
 
             sparse_path = workspace_path / "sparse/0"
             if args.error_type == "relative":
                 dts, dRs = compute_rel_errors(
-                    sparse_gt_path=sparse_gt_path,
-                    sparse_path=sparse_path,
+                    sparse_gt=sparse_gt,
+                    sparse=pycolmap.Reconstruction(sparse_path),
                     min_proj_center_dist=gt_position_accuracy,
                 )
                 errors = [max(dt, dR) for dt, dR in zip(dts, dRs)]
@@ -509,9 +502,14 @@ def evaluate_imc(args, year, gt_position_accuracy=0.02):
                     sparse_aligned_path=sparse_aligned_path,
                     max_ref_model_error=gt_position_accuracy,
                 )
+                sparse_aligned = (
+                    pycolmap.Reconstruction(sparse_aligned_path)
+                    if (sparse_aligned_path / "images.bin").exists()
+                    else None
+                )
                 dts, dRs = compute_abs_errors(
-                    sparse_gt_path=sparse_gt_path,
-                    sparse_path=sparse_aligned_path,
+                    sparse_gt=sparse_gt,
+                    sparse=sparse_aligned,
                 )
                 errors = dts
             else:
@@ -632,7 +630,7 @@ def parse_args():
         "--abs_error_thresholds",
         type=float,
         nargs="+",
-        default=[0.05, 0.1, 0.2, 0.5],
+        default=[0.02, 0.05, 0.2, 0.5],
         help="Evaluation thresholds in meters.",
     )
     args = parser.parse_args()
