@@ -183,6 +183,15 @@ def vec_angular_dist_deg(vec1, vec2):
     return np.rad2deg(np.acos(cos_dist))
 
 
+def get_error_thresholds(args):
+    if args.error_type == "relative":
+        return args.rel_error_thresholds
+    elif args.error_type == "absolute":
+        return [100 * t for t in args.abs_error_thresholds]
+    else:
+        raise ValueError(f"Invalid error type: {args.error_type}")
+
+
 def compute_rel_errors(sparse_gt_path, sparse_path, min_proj_center_dist):
     """Computes angular relative pose errors between all"""
     sparse_gt = pycolmap.Reconstruction()
@@ -337,6 +346,8 @@ def compute_avg_auc(scene_aucs):
 
 
 def evaluate_eth3d(args, gt_position_accuracy=0.001):
+    error_thresholds = get_error_thresholds(args)
+
     results = {}
     for category_path in (args.data_path / "eth3d").iterdir():
         if not category_path.is_dir() or (
@@ -405,13 +416,13 @@ def evaluate_eth3d(args, gt_position_accuracy=0.001):
             all_errors.extend(errors)
             results[category][scene] = compute_auc(
                 errors,
-                args.abs_error_thresholds,
+                error_thresholds,
                 min_error=gt_position_accuracy,
             )
 
         results[category]["__all__"] = compute_auc(
             all_errors,
-            args.abs_error_thresholds,
+            error_thresholds,
             min_error=gt_position_accuracy,
         )
         results[category]["__avg__"] = compute_avg_auc(results[category])
@@ -420,6 +431,8 @@ def evaluate_eth3d(args, gt_position_accuracy=0.001):
 
 
 def evaluate_imc(args, year, gt_position_accuracy=0.02):
+    error_thresholds = get_error_thresholds(args)
+
     folder_name = f"imc{year}"
     results = {}
     for category_path in Path(
@@ -482,13 +495,13 @@ def evaluate_imc(args, year, gt_position_accuracy=0.02):
             all_errors.extend(errors)
             results[category][scene] = compute_auc(
                 errors,
-                args.abs_error_thresholds,
+                error_thresholds,
                 min_error=gt_position_accuracy,
             )
 
         results[category]["__all__"] = compute_auc(
             all_errors,
-            args.abs_error_thresholds,
+            error_thresholds,
             min_error=gt_position_accuracy,
         )
         results[category]["__avg__"] = compute_avg_auc(results[category])
@@ -581,7 +594,7 @@ def parse_args():
         "--rel_error_thresholds",
         type=float,
         nargs="+",
-        default=[1, 2, 5, 10],
+        default=[0.5, 1, 5, 10],
         help="Evaluation thresholds in degrees.",
     )
     parser.add_argument(
