@@ -169,12 +169,16 @@ def compute_rel_errors(sparse_gt_path, sparse_path, min_proj_center_dist):
     for image in sparse_gt.images.values():
         images_gt[image.name] = image
 
+    reg_image_ids = list(sparse.reg_image_ids())
+
     dts = []
     dRs = []
-    for this_image in sparse.images.values():
+    for i in range(len(reg_image_ids)):
+        this_image = sparse.images[reg_image_ids[i]]
         this_image_gt = images_gt[this_image.name]
 
-        for other_image in sparse.images.values():
+        for j in range(i + 1, len(reg_image_ids)):
+            other_image = sparse.images[reg_image_ids[j]]
             if this_image.image_id == other_image.image_id:
                 continue
 
