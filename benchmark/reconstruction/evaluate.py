@@ -1,3 +1,33 @@
+# Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+#     * Redistributions of source code must retain the above copyright
+#       notice, this list of conditions and the following disclaimer.
+#
+#     * Redistributions in binary form must reproduce the above copyright
+#       notice, this list of conditions and the following disclaimer in the
+#       documentation and/or other materials provided with the distribution.
+#
+#     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
+#       its contributors may be used to endorse or promote products derived
+#       from this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+
+import copy
 import argparse
 import subprocess
 import datetime
@@ -299,7 +329,7 @@ def compute_avg_auc(scene_aucs):
             continue
         num_scenes += 1
         if auc_sum is None:
-            auc_sum = aucs
+            auc_sum = copy.copy(aucs)
         else:
             for i in range(len(auc_sum)):
                 auc_sum[i] += aucs[i]
@@ -317,7 +347,7 @@ def evaluate_eth3d(args, gt_position_accuracy=0.001):
         category = category_path.name
         results[category] = {}
 
-        errors = []
+        all_errors = []
 
         for scene_path in sorted(category_path.iterdir()):
             if not scene_path.is_dir():
@@ -354,7 +384,7 @@ def evaluate_eth3d(args, gt_position_accuracy=0.001):
                     sparse_path=sparse_path,
                     min_proj_center_dist=gt_position_accuracy,
                 )
-                errors.extend([max(dt, dR) for dt, dR in zip(dts, dRs)])
+                errors = [max(dt, dR) for dt, dR in zip(dts, dRs)]
             elif args.error_type == "absolute":
                 sparse_aligned_path = workspace_path / "sparse_aligned"
                 colmap_alignment(
@@ -368,16 +398,17 @@ def evaluate_eth3d(args, gt_position_accuracy=0.001):
                     sparse_gt_path=sparse_gt_path,
                     sparse_path=sparse_aligned_path,
                 )
-                errors.extend(dts)
+                errors = dts
             else:
                 raise ValueError(f"Invalid error type: {args.error_type}")
-
+            
+            all_errors.extend(errors)
             results[category][scene] = compute_auc(
-                dts, args.abs_error_thresholds, min_error=gt_position_accuracy
+                errors, args.abs_error_thresholds, min_error=gt_position_accuracy
             )
 
         results[category]["__all__"] = compute_auc(
-            errors, args.abs_error_thresholds, min_error=gt_position_accuracy
+            all_errors, args.abs_error_thresholds, min_error=gt_position_accuracy
         )
         results[category]["__avg__"] = compute_avg_auc(results[category])
 
@@ -398,7 +429,7 @@ def evaluate_imc(args, year, gt_position_accuracy=0.02):
         category = category_path.name
         results[category] = {}
 
-        errors = []
+        all_errors = []
 
         for scene_path in category_path.iterdir():
             if not scene_path.is_dir():
@@ -426,7 +457,7 @@ def evaluate_imc(args, year, gt_position_accuracy=0.02):
                     sparse_path=sparse_path,
                     min_proj_center_dist=gt_position_accuracy,
                 )
-                errors.extend([max(dt, dR) for dt, dR in zip(dts, dRs)])
+                errors = [max(dt, dR) for dt, dR in zip(dts, dRs)]
             elif args.error_type == "absolute":
                 sparse_aligned_path = workspace_path / "sparse_aligned"
                 colmap_alignment(
@@ -440,16 +471,17 @@ def evaluate_imc(args, year, gt_position_accuracy=0.02):
                     sparse_gt_path=sparse_gt_path,
                     sparse_path=sparse_aligned_path,
                 )
-                errors.extend(dts)
+                errors = dts
             else:
                 raise ValueError(f"Invalid error type: {args.error_type}")
-
+            
+            all_errors.extend(errors)
             results[category][scene] = compute_auc(
-                dts, args.abs_error_thresholds, min_error=gt_position_accuracy
+                errors, args.abs_error_thresholds, min_error=gt_position_accuracy
             )
 
         results[category]["__all__"] = compute_auc(
-            errors, args.abs_error_thresholds, min_error=gt_position_accuracy
+            all_errors, args.abs_error_thresholds, min_error=gt_position_accuracy
         )
         results[category]["__avg__"] = compute_avg_auc(results[category])
 
