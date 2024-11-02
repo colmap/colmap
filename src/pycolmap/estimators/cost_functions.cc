@@ -138,7 +138,7 @@ void BindCostFunctions(py::module& m_parent) {
         "cam_cov_from_world_prior"_a,
         "6-DoF error on the absolute camera pose.");
   m.def("AbsolutePosePositionPriorCost",
-        &AbsolutePosePositionPriorCostFunctor::Create<const Eigen::Vector3d&&,
+        &AbsolutePosePositionPriorCostFunctor::Create<const Eigen::Vector3d&,
                                                       const Eigen::Matrix3d&>,
         "position_in_world_prior"_a,
         "position_cov_in_world_prior"_a,
@@ -151,7 +151,7 @@ void BindCostFunctions(py::module& m_parent) {
         "6-DoF error between two absolute camera poses based on a prior "
         "relative pose.");
   m.def("Point3DAlignmentCost",
-        &Point3DAlignmentCostFunctor::Create<const Eigen::Vector3d&&,
+        &Point3DAlignmentCostFunctor::Create<const Eigen::Vector3d&,
                                              const Eigen::Matrix3d&>,
         "point_in_b_prior"_a,
         "point_cov_in_b_prior"_a,
