@@ -1,5 +1,5 @@
-import shutil
 import argparse
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -41,13 +41,13 @@ def download_imc2023(data_path: Path):
             "competitions",
             "download",
             "-c",
-            f"image-matching-challenge-2023",
+            "image-matching-challenge-2023",
             "-p",
             str(data_path),
         ],
     )
     subprocess.check_call(
-        ["unzip", f"image-matching-challenge-2023.zip"], cwd=data_path
+        ["unzip", "image-matching-challenge-2023.zip"], cwd=data_path
     )
 
 
@@ -60,13 +60,13 @@ def download_imc2024(data_path: Path):
             "competitions",
             "download",
             "-c",
-            f"image-matching-challenge-2024",
+            "image-matching-challenge-2024",
             "-p",
             str(data_path),
         ],
     )
     subprocess.check_call(
-        ["unzip", f"image-matching-challenge-2024.zip"], cwd=data_path
+        ["unzip", "image-matching-challenge-2024.zip"], cwd=data_path
     )
     # Move all scenes to the "all" category sub-folder.
     category_path = data_path / "train/all"

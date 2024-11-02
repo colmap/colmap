@@ -27,15 +27,16 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-import copy
 import argparse
-import subprocess
+import copy
 import datetime
 import shutil
+import subprocess
 from pathlib import Path
 
-import pycolmap
 import numpy as np
+
+import pycolmap
 
 
 def colmap_reconstruction(
@@ -43,7 +44,7 @@ def colmap_reconstruction(
     workspace_path,
     image_path,
     camera_prior_sparse_gt=None,
-    extra_args=[],
+    extra_args=None,
 ):
     workspace_path.mkdir(parents=True, exist_ok=True)
 
@@ -77,8 +78,9 @@ def colmap_reconstruction(
     ]
 
     subprocess.check_call(
-        args
-        + extra_args
+        args + extra_args
+        if extra_args
+        else []
         + [
             "--extraction",
             "1",
@@ -556,12 +558,7 @@ def format_results(args, results):
     column = "scenes"
     size1 = max(
         len(column) + 2,
-        max(
-            len(s)
-            for d in results.values()
-            for c in d.values()
-            for s in c.keys()
-        ),
+        max(len(s) for d in results.values() for c in d.values() for s in c),
     )
     size2 = max(len(metric) + 2, len(thresholds) * 7 - 1)
     header = f"{column:=^{size1}} {metric:=^{size2}}"
