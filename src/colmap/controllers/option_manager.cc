@@ -31,7 +31,7 @@
 
 #include "colmap/controllers/feature_extraction.h"
 #include "colmap/controllers/image_reader.h"
-#include "colmap/controllers/incremental_mapper.h"
+#include "colmap/controllers/incremental_pipeline.h"
 #include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/feature/pairing.h"
