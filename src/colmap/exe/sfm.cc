@@ -84,8 +84,12 @@ int RunAutomaticReconstructor(int argc, char** argv) {
                            &reconstruction_options.camera_model);
   options.AddDefaultOption("single_camera",
                            &reconstruction_options.single_camera);
+  options.AddDefaultOption("single_camera_per_folder",
+                           &reconstruction_options.single_camera_per_folder);
   options.AddDefaultOption("camera_params",
                            &reconstruction_options.camera_params);
+  options.AddDefaultOption("extraction", &reconstruction_options.extraction);
+  options.AddDefaultOption("matching", &reconstruction_options.matching);
   options.AddDefaultOption("sparse", &reconstruction_options.sparse);
   options.AddDefaultOption("dense", &reconstruction_options.dense);
   options.AddDefaultOption("mesher", &mesher, "{poisson, delaunay}");
