@@ -78,9 +78,8 @@ def colmap_reconstruction(
     ]
 
     subprocess.check_call(
-        args + extra_args
-        if extra_args
-        else []
+        args
+        + (extra_args or [])
         + [
             "--extraction",
             "1",
@@ -126,7 +125,7 @@ def colmap_reconstruction(
 
     subprocess.check_call(
         args
-        + extra_args
+        + (extra_args or [])
         + [
             "--extraction",
             "0",
