@@ -364,7 +364,7 @@ inline void EigenAngleAxisToQuaternion(const T* angle_axis,
 // splitting SE(3) into SO(3) x R^3. The 6x6 covariance matrix is defined in the
 // reference frame of the camera. Its first and last three components correspond
 // to the rotation and translation errors, respectively.
-struct AbsolutePoseErrorCostFunctor {
+struct AbsolutePosePriorCostFunctor {
  public:
   AbsolutePosePriorCostFunctor(const Rigid3d& cam_from_world_prior,
                                const Eigen::Matrix6d& cam_cov_from_world_prior)
