@@ -692,7 +692,7 @@ std::vector<std::pair<image_t, image_t>> TransitivePairGenerator::Next() {
 
   std::vector<std::pair<image_pair_t, int>> existing_pair_ids_and_num_inliers;
   cache_->AccessDatabase(
-      [&existing_pair_ids_and_num_inliers](const Database& database) {
+      [&existing_pair_ids_and_num_inliers](Database& database) {
         existing_pair_ids_and_num_inliers =
             database.ReadTwoViewGeometryNumInliers();
       });
