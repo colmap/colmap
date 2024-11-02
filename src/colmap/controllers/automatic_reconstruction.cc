@@ -153,13 +153,17 @@ void AutomaticReconstructionController::Run() {
     return;
   }
 
-  RunFeatureExtraction();
+  if (options_.extraction) {
+    RunFeatureExtraction();
+  }
 
   if (IsStopped()) {
     return;
   }
 
-  RunFeatureMatching();
+  if (options_.matching) {
+    RunFeatureMatching();
+  }
 
   if (IsStopped()) {
     return;
