@@ -158,7 +158,7 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
       continue;
     }
     problem.AddResidualBlock(
-        CameraCostFunction<ReprojErrorConstantPoint3DCostFunctor>(
+        CreateCameraCostFunction<ReprojErrorConstantPoint3DCostFunctor>(
             camera->model_id, points2D[i], points3D[i]),
         loss_function.get(),
         cam_from_world_rotation,

@@ -31,7 +31,7 @@
 
 #include "colmap/controllers/automatic_reconstruction.h"
 #include "colmap/controllers/bundle_adjustment.h"
-#include "colmap/controllers/hierarchical_mapper.h"
+#include "colmap/controllers/hierarchical_pipeline.h"
 #include "colmap/controllers/option_manager.h"
 #include "colmap/estimators/similarity_transform.h"
 #include "colmap/exe/gui.h"

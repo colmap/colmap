@@ -1,6 +1,6 @@
-#include "colmap/controllers/incremental_mapper.h"
-
 #include "colmap/sfm/incremental_mapper.h"
+
+#include "colmap/controllers/incremental_pipeline.h"
 
 #include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
