@@ -51,23 +51,31 @@ inline MatrixType SqrtInformation(const MatrixType& covariance) {
   return covariance.inverse().llt().matrixL().transpose();
 }
 
+template <typename DerivedCostFunctor, int kNumResiduals, int... kParameterDims>
+class AutoDiffCostFunctor {
+ public:
+  template <typename... Args>
+  static ceres::CostFunction* Create(Args&&... args) {
+    return new ceres::AutoDiffCostFunction<DerivedCostFunctor,
+                                           kNumResiduals,
+                                           kParameterDims...>(
+        new DerivedCostFunctor(std::forward<Args>(args)...));
+  }
+};
+
 // Standard bundle adjustment cost function for variable
 // camera pose, calibration, and point parameters.
 template <typename CameraModel>
-class ReprojErrorCostFunctor {
+class ReprojErrorCostFunctor
+    : public AutoDiffCostFunctor<ReprojErrorCostFunctor<CameraModel>,
+                                 2,
+                                 4,
+                                 3,
+                                 3,
+                                 CameraModel::num_params> {
  public:
   explicit ReprojErrorCostFunctor(const Eigen::Vector2d& point2D)
       : observed_x_(point2D(0)), observed_y_(point2D(1)) {}
-
-  static ceres::CostFunction* Create(const Eigen::Vector2d& point2D) {
-    return (new ceres::AutoDiffCostFunction<ReprojErrorCostFunctor<CameraModel>,
-                                            2,
-                                            4,
-                                            3,
-                                            3,
-                                            CameraModel::num_params>(
-        new ReprojErrorCostFunctor(point2D)));
-  }
 
   template <typename T>
   bool operator()(const T* const cam_from_world_rotation,
@@ -99,23 +107,15 @@ class ReprojErrorCostFunctor {
 // camera calibration and point parameters, and fixed camera pose.
 template <typename CameraModel>
 class ReprojErrorConstantPoseCostFunctor
-    : public ReprojErrorCostFunctor<CameraModel> {
-  using Parent = ReprojErrorCostFunctor<CameraModel>;
-
+    : public AutoDiffCostFunctor<
+          ReprojErrorConstantPoseCostFunctor<CameraModel>,
+          2,
+          3,
+          CameraModel::num_params> {
  public:
   ReprojErrorConstantPoseCostFunctor(const Rigid3d& cam_from_world,
                                      const Eigen::Vector2d& point2D)
-      : Parent(point2D), cam_from_world_(cam_from_world) {}
-
-  static ceres::CostFunction* Create(const Rigid3d& cam_from_world,
-                                     const Eigen::Vector2d& point2D) {
-    return (new ceres::AutoDiffCostFunction<
-            ReprojErrorConstantPoseCostFunctor<CameraModel>,
-            2,
-            3,
-            CameraModel::num_params>(
-        new ReprojErrorConstantPoseCostFunctor(cam_from_world, point2D)));
-  }
+      : cam_from_world_(cam_from_world), reproj_cost_(point2D) {}
 
   template <typename T>
   bool operator()(const T* const point3D,
@@ -125,60 +125,49 @@ class ReprojErrorConstantPoseCostFunctor
         cam_from_world_.rotation.cast<T>();
     const Eigen::Matrix<T, 3, 1> cam_from_world_translation =
         cam_from_world_.translation.cast<T>();
-    return Parent::operator()(cam_from_world_rotation.coeffs().data(),
-                              cam_from_world_translation.data(),
-                              point3D,
-                              camera_params,
-                              residuals);
+    return reproj_cost_(cam_from_world_rotation.coeffs().data(),
+                        cam_from_world_translation.data(),
+                        point3D,
+                        camera_params,
+                        residuals);
   }
 
  private:
-  const Rigid3d& cam_from_world_;
+  const Rigid3d cam_from_world_;
+  const ReprojErrorCostFunctor<CameraModel> reproj_cost_;
 };
 
 // Bundle adjustment cost function for variable
 // camera pose and calibration parameters, and fixed point.
 template <typename CameraModel>
 class ReprojErrorConstantPoint3DCostFunctor
-    : public ReprojErrorCostFunctor<CameraModel> {
-  using Parent = ReprojErrorCostFunctor<CameraModel>;
-
+    : public AutoDiffCostFunctor<
+          ReprojErrorConstantPoint3DCostFunctor<CameraModel>,
+          2,
+          4,
+          3,
+          CameraModel::num_params> {
  public:
   ReprojErrorConstantPoint3DCostFunctor(const Eigen::Vector2d& point2D,
                                         const Eigen::Vector3d& point3D)
-      : Parent(point2D),
-        point3D_x_(point3D(0)),
-        point3D_y_(point3D(1)),
-        point3D_z_(point3D(2)) {}
-
-  static ceres::CostFunction* Create(const Eigen::Vector2d& point2D,
-                                     const Eigen::Vector3d& point3D) {
-    return (new ceres::AutoDiffCostFunction<
-            ReprojErrorConstantPoint3DCostFunctor<CameraModel>,
-            2,
-            4,
-            3,
-            CameraModel::num_params>(
-        new ReprojErrorConstantPoint3DCostFunctor(point2D, point3D)));
-  }
+      : point3D_(point3D), reproj_cost_(point2D) {}
 
   template <typename T>
   bool operator()(const T* const cam_from_world_rotation,
                   const T* const cam_from_world_translation,
                   const T* const camera_params,
                   T* residuals) const {
-    const T point3D[3] = {T(point3D_x_), T(point3D_y_), T(point3D_z_)};
-    return Parent::operator()(cam_from_world_rotation,
-                              cam_from_world_translation,
-                              point3D,
-                              camera_params,
-                              residuals);
+    const Eigen::Matrix<T, 3, 1> point3D = point3D_.cast<T>();
+    return reproj_cost_(cam_from_world_rotation,
+                        cam_from_world_translation,
+                        point3D.data(),
+                        camera_params,
+                        residuals);
   }
 
  private:
-  const double point3D_x_;
-  const double point3D_y_;
-  const double point3D_z_;
+  const Eigen::Vector3d point3D_;
+  const ReprojErrorCostFunctor<CameraModel> reproj_cost_;
 };
 
 // Rig bundle adjustment cost function for variable camera pose and calibration
@@ -188,23 +177,18 @@ class ReprojErrorConstantPoint3DCostFunctor
 // the local system of the camera rig and then into the local system of the
 // camera within the rig.
 template <typename CameraModel>
-class RigReprojErrorCostFunctor {
+class RigReprojErrorCostFunctor
+    : public AutoDiffCostFunctor<RigReprojErrorCostFunctor<CameraModel>,
+                                 2,
+                                 4,
+                                 3,
+                                 4,
+                                 3,
+                                 3,
+                                 CameraModel::num_params> {
  public:
   explicit RigReprojErrorCostFunctor(const Eigen::Vector2d& point2D)
       : observed_x_(point2D(0)), observed_y_(point2D(1)) {}
-
-  static ceres::CostFunction* Create(const Eigen::Vector2d& point2D) {
-    return (
-        new ceres::AutoDiffCostFunction<RigReprojErrorCostFunctor<CameraModel>,
-                                        2,
-                                        4,
-                                        3,
-                                        4,
-                                        3,
-                                        3,
-                                        CameraModel::num_params>(
-            new RigReprojErrorCostFunctor(point2D)));
-  }
 
   template <typename T>
   bool operator()(const T* const cam_from_rig_rotation,
@@ -240,25 +224,17 @@ class RigReprojErrorCostFunctor {
 // calibration and point parameters but fixed rig extrinsic poses.
 template <typename CameraModel>
 class RigReprojErrorConstantRigCostFunctor
-    : public RigReprojErrorCostFunctor<CameraModel> {
-  using Parent = RigReprojErrorCostFunctor<CameraModel>;
-
+    : public AutoDiffCostFunctor<
+          RigReprojErrorConstantRigCostFunctor<CameraModel>,
+          2,
+          4,
+          3,
+          3,
+          CameraModel::num_params> {
  public:
-  explicit RigReprojErrorConstantRigCostFunctor(const Rigid3d& cam_from_rig,
-                                                const Eigen::Vector2d& point2D)
-      : Parent(point2D), cam_from_rig_(cam_from_rig) {}
-
-  static ceres::CostFunction* Create(const Rigid3d& cam_from_rig,
-                                     const Eigen::Vector2d& point2D) {
-    return (new ceres::AutoDiffCostFunction<
-            RigReprojErrorConstantRigCostFunctor<CameraModel>,
-            2,
-            4,
-            3,
-            3,
-            CameraModel::num_params>(
-        new RigReprojErrorConstantRigCostFunctor(cam_from_rig, point2D)));
-  }
+  RigReprojErrorConstantRigCostFunctor(const Rigid3d& cam_from_rig,
+                                       const Eigen::Vector2d& point2D)
+      : cam_from_rig_(cam_from_rig), reproj_cost_(point2D) {}
 
   template <typename T>
   bool operator()(const T* const rig_from_world_rotation,
@@ -270,17 +246,18 @@ class RigReprojErrorConstantRigCostFunctor
         cam_from_rig_.rotation.cast<T>();
     const Eigen::Matrix<T, 3, 1> cam_from_rig_translation =
         cam_from_rig_.translation.cast<T>();
-    return Parent::operator()(cam_from_rig_rotation.coeffs().data(),
-                              cam_from_rig_translation.data(),
-                              rig_from_world_rotation,
-                              rig_from_world_translation,
-                              point3D,
-                              camera_params,
-                              residuals);
+    return reproj_cost_(cam_from_rig_rotation.coeffs().data(),
+                        cam_from_rig_translation.data(),
+                        rig_from_world_rotation,
+                        rig_from_world_translation,
+                        point3D,
+                        camera_params,
+                        residuals);
   }
 
  private:
-  const Rigid3d& cam_from_rig_;
+  const Rigid3d cam_from_rig_;
+  const RigReprojErrorCostFunctor<CameraModel> reproj_cost_;
 };
 
 // Cost function for refining two-view geometry based on the Sampson-Error.
@@ -290,16 +267,11 @@ class RigReprojErrorConstantRigCostFunctor
 // pose of the second camera is parameterized by a 3D rotation and a
 // 3D translation with unit norm. `tvec` is therefore over-parameterized as is
 // and should be down-projected using `SphereManifold`.
-class SampsonErrorCostFunctor {
+class SampsonErrorCostFunctor
+    : public AutoDiffCostFunctor<SampsonErrorCostFunctor, 1, 4, 3> {
  public:
   SampsonErrorCostFunctor(const Eigen::Vector2d& x1, const Eigen::Vector2d& x2)
       : x1_(x1(0)), y1_(x1(1)), x2_(x2(0)), y2_(x2(1)) {}
-
-  static ceres::CostFunction* Create(const Eigen::Vector2d& x1,
-                                     const Eigen::Vector2d& x2) {
-    return (new ceres::AutoDiffCostFunction<SampsonErrorCostFunctor, 1, 4, 3>(
-        new SampsonErrorCostFunctor(x1, x2)));
-  }
 
   template <typename T>
   bool operator()(const T* const cam2_from_cam1_rotation,
@@ -353,22 +325,14 @@ inline void EigenQuaternionToAngleAxis(const T* eigen_quaternion,
 // pose, splitting SE(3) into SO(3) x R^3. The 6x6 covariance matrix is defined
 // in the reference frame of the camera. Its first and last three components
 // correspond to the rotation and translation errors, respectively.
-struct AbsolutePosePriorCostFunctor {
+struct AbsolutePosePriorCostFunctor
+    : public AutoDiffCostFunctor<AbsolutePosePriorCostFunctor, 6, 4, 3> {
  public:
   AbsolutePosePriorCostFunctor(const Rigid3d& cam_from_world_prior,
                                const Eigen::Matrix6d& cam_cov_from_world_prior)
       : world_from_cam_prior_(Inverse(cam_from_world_prior)),
         cam_sqrt_info_from_world_prior_(
             SqrtInformation(cam_cov_from_world_prior)) {}
-
-  static ceres::CostFunction* Create(
-      const Rigid3d& cam_from_world_prior,
-      const Eigen::Matrix6d& cam_cov_from_world_prior) {
-    return (
-        new ceres::AutoDiffCostFunction<AbsolutePosePriorCostFunctor, 6, 4, 3>(
-            new AbsolutePosePriorCostFunctor(cam_from_world_prior,
-                                             cam_cov_from_world_prior)));
-  }
 
   template <typename T>
   bool operator()(const T* const cam_from_world_rotation,
@@ -399,7 +363,11 @@ struct AbsolutePosePriorCostFunctor {
 };
 
 // 3-DoF error on the camera position in the world coordinate frame.
-struct AbsolutePosePositionPriorCostFunctor {
+struct AbsolutePosePositionPriorCostFunctor
+    : public AutoDiffCostFunctor<AbsolutePosePositionPriorCostFunctor,
+                                 3,
+                                 4,
+                                 3> {
  public:
   AbsolutePosePositionPriorCostFunctor(
       const Eigen::Vector3d& position_in_world_prior,
@@ -407,16 +375,6 @@ struct AbsolutePosePositionPriorCostFunctor {
       : position_in_world_prior_(position_in_world_prior),
         position_sqrt_info_in_world_prior_(
             SqrtInformation(position_cov_in_world_prior)) {}
-
-  static ceres::CostFunction* Create(
-      const Eigen::Vector3d& position_in_world_prior,
-      const Eigen::Matrix3d& position_cov_in_world_prior) {
-    return (
-        new ceres::
-            AutoDiffCostFunction<AbsolutePosePositionPriorCostFunctor, 3, 4, 3>(
-                new AbsolutePosePositionPriorCostFunctor(
-                    position_in_world_prior, position_cov_in_world_prior)));
-  }
 
   template <typename T>
   bool operator()(const T* const cam_from_world_rotation,
@@ -447,22 +405,13 @@ struct AbsolutePosePositionPriorCostFunctor {
 //    Thus η_i = log(i_T_w·j_T_w⁻¹·j_T_i)
 //    Rotation term: ΔR = log(i_R_w·j_R_w⁻¹·j_R_i)
 //    Translation term: Δt = i_t_w + i_R_w·j_R_w⁻¹·(j_t_i -j_t_w)
-struct RelativePosePriorCostFunctor {
+struct RelativePosePriorCostFunctor
+    : public AutoDiffCostFunctor<RelativePosePriorCostFunctor, 6, 4, 3, 4, 3> {
  public:
   RelativePosePriorCostFunctor(const Rigid3d& i_from_j_prior,
                                const Eigen::Matrix6d& i_cov_from_j_prior)
       : j_from_i_prior_(Inverse(i_from_j_prior)),
         i_sqrt_info_from_j_prior_(SqrtInformation(i_cov_from_j_prior)) {}
-
-  static ceres::CostFunction* Create(
-      const Rigid3d& i_from_j_prior,
-      const Eigen::Matrix6d& i_cov_from_j_prior) {
-    return (
-        new ceres::
-            AutoDiffCostFunction<RelativePosePriorCostFunctor, 6, 4, 3, 4, 3>(
-                new RelativePosePriorCostFunctor(i_from_j_prior,
-                                                 i_cov_from_j_prior)));
-  }
 
   template <typename T>
   bool operator()(const T* const i_from_world_rotation,
@@ -499,22 +448,13 @@ struct RelativePosePriorCostFunctor {
 
 // Cost function for aligning one 3D point with a reference 3D point with
 // covariance. Convention is equivalent to colmap::Sim3d.
-struct Point3DAlignmentCostFunctor {
+struct Point3DAlignmentCostFunctor
+    : public AutoDiffCostFunctor<Point3DAlignmentCostFunctor, 3, 3, 4, 3, 1> {
  public:
   Point3DAlignmentCostFunctor(const Eigen::Vector3d& point_in_b_prior,
                               const Eigen::Matrix3d& point_cov_in_b_prior)
       : point_in_b_prior_(point_in_b_prior),
         point_sqrt_info_in_b_prior_(SqrtInformation(point_cov_in_b_prior)) {}
-
-  static ceres::CostFunction* Create(
-      const Eigen::Vector3d& point_in_b_prior,
-      const Eigen::Matrix3d& point_cov_in_b_prior) {
-    return (
-        new ceres::
-            AutoDiffCostFunction<Point3DAlignmentCostFunctor, 3, 3, 4, 3, 1>(
-                new Point3DAlignmentCostFunctor(point_in_b_prior,
-                                                point_cov_in_b_prior)));
-  }
 
   template <typename T>
   bool operator()(const T* const point_in_a,

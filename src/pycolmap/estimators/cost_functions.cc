@@ -125,29 +125,34 @@ void BindCostFunctions(py::module& m_parent) {
         "2D detection noise.");
 
   m.def("SampsonErrorCost",
-        &SampsonErrorCostFunctor::Create,
+        &SampsonErrorCostFunctor::Create<const Eigen::Vector2d&,
+                                         const Eigen::Vector2d&>,
         "point2D1"_a,
         "point2D2"_a,
         "Sampson error for two-view geometry.");
 
   m.def("AbsolutePosePriorCost",
-        &AbsolutePosePriorCostFunctor::Create,
+        &AbsolutePosePriorCostFunctor::Create<const Rigid3d&,
+                                              const Eigen::Matrix6d&>,
         "cam_from_world_prior"_a,
         "cam_cov_from_world_prior"_a,
         "6-DoF error on the absolute camera pose.");
   m.def("AbsolutePosePositionPriorCost",
-        &AbsolutePosePositionPriorCostFunctor::Create,
+        &AbsolutePosePositionPriorCostFunctor::Create<const Eigen::Vector3d&,
+                                                      const Eigen::Matrix3d&>,
         "position_in_world_prior"_a,
         "position_cov_in_world_prior"_a,
         "3-DoF error on the absolute camera pose's position.");
   m.def("RelativePosePriorCost",
-        &RelativePosePriorCostFunctor::Create,
+        &RelativePosePriorCostFunctor::Create<const Rigid3d&,
+                                              const Eigen::Matrix6d&>,
         "i_from_j_prior"_a,
         "i_cov_from_j_prior"_a,
         "6-DoF error between two absolute camera poses based on a prior "
         "relative pose.");
   m.def("Point3DAlignmentCost",
-        &Point3DAlignmentCostFunctor::Create,
+        &Point3DAlignmentCostFunctor::Create<const Eigen::Vector3d&,
+                                             const Eigen::Matrix3d&>,
         "point_in_b_prior"_a,
         "point_cov_in_b_prior"_a,
         "Error between 3D points transformed by a 3D similarity transform.");
