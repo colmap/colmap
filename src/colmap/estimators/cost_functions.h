@@ -337,7 +337,7 @@ inline void EigenQuaternionToAngleAxis(const T* eigen_quaternion,
 struct AbsolutePosePriorCostFunctor
     : public AutoDiffCostFunctor<AbsolutePosePriorCostFunctor, 6, 4, 3> {
  public:
-  AbsolutePosePriorCostFunctor(const Rigid3d& cam_from_world_prior)
+  explicit AbsolutePosePriorCostFunctor(const Rigid3d& cam_from_world_prior)
       : world_from_cam_prior_(Inverse(cam_from_world_prior)) {}
 
   template <typename T>
@@ -371,7 +371,7 @@ struct AbsolutePosePositionPriorCostFunctor
                                  4,
                                  3> {
  public:
-  AbsolutePosePositionPriorCostFunctor(
+  explicit AbsolutePosePositionPriorCostFunctor(
       const Eigen::Vector3d& position_in_world_prior)
       : position_in_world_prior_(position_in_world_prior) {}
 
@@ -404,7 +404,7 @@ struct AbsolutePosePositionPriorCostFunctor
 struct RelativePosePriorCostFunctor
     : public AutoDiffCostFunctor<RelativePosePriorCostFunctor, 6, 4, 3, 4, 3> {
  public:
-  RelativePosePriorCostFunctor(const Rigid3d& i_from_j_prior)
+  explicit RelativePosePriorCostFunctor(const Rigid3d& i_from_j_prior)
       : j_from_i_prior_(Inverse(i_from_j_prior)) {}
 
   template <typename T>
@@ -442,7 +442,7 @@ struct RelativePosePriorCostFunctor
 struct Point3DAlignmentCostFunctor
     : public AutoDiffCostFunctor<Point3DAlignmentCostFunctor, 3, 3, 4, 3, 1> {
  public:
-  Point3DAlignmentCostFunctor(const Eigen::Vector3d& point_in_b_prior)
+  explicit Point3DAlignmentCostFunctor(const Eigen::Vector3d& point_in_b_prior)
       : point_in_b_prior_(point_in_b_prior) {}
 
   template <typename T>
