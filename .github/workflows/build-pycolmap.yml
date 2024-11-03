@@ -41,11 +41,11 @@ jobs:
       - name: Select Python
         if: github.event_name == 'pull_request'
         run: |
-          echo 'CIBW_BUILD="cp312-{macosx,manylinux,win}*"' >> "$GITHUB_ENV"
+          echo 'CIBW_BUILD=cp312-{macosx,manylinux,win}*' >> "$GITHUB_ENV"
       - name: Select Python
         if: github.event_name != 'pull_request'
         run: |
-          echo 'CIBW_BUILD="cp3{8,9,10,11,12}-{macosx,manylinux,win}*"' >> "$GITHUB_ENV"
+          echo 'CIBW_BUILD=cp3{8,9,10,11,12}-{macosx,manylinux,win}*' >> "$GITHUB_ENV"
 
       - name: Set env (macOS)
         if: runner.os == 'macOS'
