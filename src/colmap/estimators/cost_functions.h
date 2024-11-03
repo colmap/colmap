@@ -472,8 +472,8 @@ auto LastValueParameterPack(Args&&... args) {
 }
 
 // A cost function that wraps another one and whitens its residuals with a given
-// left covariance. For example, to weight the reprojection error with a
-// image measurement covariance, one can wrap it as:
+// covariance. For example, to weight the reprojection error with a image
+// measurement covariance, one can wrap it as:
 //
 //    using ReprojCostFunctor = ReprojErrorCostFunctor<PinholeCameraModel>;
 //    ceres::CostFunction* cost_function =
