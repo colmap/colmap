@@ -332,8 +332,9 @@ inline void EigenQuaternionToAngleAxis(const T* eigen_quaternion,
 }
 
 // 6-DoF error on the absolute camera pose. The residual is the log of the error
-// pose, splitting SE(3) into SO(3) x R^3. Its first and last three components
-// correspond to the rotation and translation errors, respectively.
+// pose, splitting SE(3) into SO(3) x R^3. The residual is computed in the
+// camera frame. Its first and last three components correspond to the rotation
+// and translation errors, respectively.
 struct AbsolutePosePriorCostFunctor
     : public AutoDiffCostFunctor<AbsolutePosePriorCostFunctor, 6, 4, 3> {
  public:
@@ -391,9 +392,9 @@ struct AbsolutePosePositionPriorCostFunctor
 };
 
 // 6-DoF error between two absolute camera poses based on a prior on their
-// relative pose, with identical scale for the translation. Its first and last
-// three components correspond to the rotation and translation errors,
-// respectively.
+// relative pose, with identical scale for the translation. The residual is
+// computed in the frame of camera i. Its first and last three components
+// correspond to the rotation and translation errors, respectively.
 //
 // Derivation:
 //    i_T_w = ΔT_i·i_T_j·j_T_w
@@ -438,7 +439,8 @@ struct RelativePosePriorCostFunctor
 };
 
 // Cost function for aligning one 3D point with a reference 3D point with
-// covariance. Convention is equivalent to colmap::Sim3d.
+// covariance. The Residual is computed in frame b. Coordinate transformation
+// convention is equivalent to colmap::Sim3d.
 struct Point3DAlignmentCostFunctor
     : public AutoDiffCostFunctor<Point3DAlignmentCostFunctor, 3, 3, 4, 3, 1> {
  public:
@@ -487,15 +489,15 @@ class CovarianceWeightedCostFunctor {
   using CovMat = Eigen::Matrix<double, kNumResiduals, kNumResiduals>;
 
   template <typename... Args>
-  explicit CovarianceWeightedCostFunctor(const CovMat& left_cov, Args&&... args)
-      : left_sqrt_info_(SqrtInformation(left_cov)),
+  explicit CovarianceWeightedCostFunctor(const CovMat& cov, Args&&... args)
+      : left_sqrt_info_(LeftSqrtInformation(cov)),
         cost_(std::forward<Args>(args)...) {}
 
   template <typename... Args>
-  static ceres::CostFunction* Create(const CovMat& left_cov, Args&&... args) {
+  static ceres::CostFunction* Create(const CovMat& cov, Args&&... args) {
     return CreateAutoDiffCostFunction(
         new CovarianceWeightedCostFunctor<CostFunctor>(
-            left_cov, std::forward<Args>(args)...));
+            cov, std::forward<Args>(args)...));
   }
 
   template <typename... Args>
@@ -512,8 +514,8 @@ class CovarianceWeightedCostFunctor {
   }
 
  private:
-  CovMat SqrtInformation(const CovMat& left_cov) {
-    return left_cov.inverse().llt().matrixL().transpose();
+  CovMat LeftSqrtInformation(const CovMat& cov) {
+    return cov.inverse().llt().matrixL().transpose();
   }
 
   const CovMat left_sqrt_info_;
