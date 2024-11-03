@@ -36,6 +36,13 @@ jobs:
           key: pycolmap-v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ github.run_id }}-${{ github.run_number }}
           restore-keys: pycolmap-v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}
           path: ${{ env.COMPILER_CACHE_DIR }}
+
+      # For faster builds in PRs, skip all but the latest Python versions.
+      - name: Select Python
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "CIBW_BUILD=cp312-*" >> "$GITHUB_ENV"
+
       - name: Set env (macOS)
         if: runner.os == 'macOS'
         run: |
@@ -67,6 +74,7 @@ jobs:
           VCPKG_CACHE_DIR="${COMPILER_CACHE_DIR}/vcpkg"
           VCPKG_BINARY_SOURCES="clear;files,${VCPKG_CACHE_DIR},readwrite"
           echo "VCPKG_BINARY_SOURCES=${VCPKG_BINARY_SOURCES}" >> "$GITHUB_ENV"
+
       - name: Set env (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -93,6 +101,7 @@ jobs:
           $VCPKG_CACHE_DIR = "${env:COMPILER_CACHE_DIR}/vcpkg"
           $VCPKG_BINARY_SOURCES = "clear;files,${VCPKG_CACHE_DIR},readwrite"
           echo "VCPKG_BINARY_SOURCES=${VCPKG_BINARY_SOURCES}" >> "${env:GITHUB_ENV}"
+
       - name: Set env (Linux)
         if: runner.os == 'Linux'
         run: |
