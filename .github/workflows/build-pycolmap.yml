@@ -28,6 +28,7 @@ jobs:
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
       MACOSX_DEPLOYMENT_TARGET: 10.15
+      CIBW_BUILD: cp312-{macosx,manylinux,win}*
     steps:
       - uses: actions/checkout@v4
       - uses: actions/cache@v4
@@ -39,9 +40,14 @@ jobs:
 
       # For faster builds in PRs, skip all but the latest Python versions.
       - name: Select Python
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && runner.os != 'Windows'
         run: |
-          echo "CIBW_BUILD=cp312-{macosx,manylinux,win}*" >> "$GITHUB_ENV"
+          echo "CIBW_BUILD=${CIBW_BUILD}" >> "$GITHUB_ENV"
+      - name: Select Python
+        if: github.event_name == 'pull_request' && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          echo "CIBW_BUILD=${CIBW_BUILD}" >> "${env:GITHUB_ENV}"
 
       - name: Set env (macOS)
         if: runner.os == 'macOS'
