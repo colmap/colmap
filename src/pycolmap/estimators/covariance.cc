@@ -65,6 +65,14 @@ void BindCovarianceEstimator(py::module& m) {
             return self.SetPoseBlocks(blocks);
           },
           py::arg("pose_blocks"))
+      .def(
+          "use_subproblem_from_subset_pose_blocks",
+          [](EstimatorBase& self, std::vector<py::array_t<double>>& pyarrays) {
+            std::vector<const double*> blocks =
+                ConvertListOfPyArraysToConstPointers(pyarrays);
+            return self.UseSubproblemFromSubsetPoseBlocks(blocks);
+          },
+          py::arg("subset_pose_blocks"))
       .def("has_block", &EstimatorBase::HasBlock, py::arg("parameter_block"))
       .def("has_pose_block",
            &EstimatorBase::HasPoseBlock,
