@@ -201,7 +201,7 @@ void ProblemPartitioner::GetBlocksForSubproblem(
   }
 
   // Customizd BFS: Traverse all residuals from the subset pose blocks while
-  // stopping at residuals containing the complement set.
+  // stopping at residuals containing elements from the complement set.
   std::queue<double*> bfs_queue;
   std::unordered_set<ceres::ResidualBlockId> residuals_set;
   for (const double* param : subset_pose_blocks) {
