@@ -44,7 +44,7 @@ jobs:
         run: |
           echo "CIBW_BUILD=${CIBW_BUILD}" >> "$GITHUB_ENV"
       - name: Select Python
-        if: github.event_name == 'pull_request' && runner.os == 'Windows'
+        if: ${{ github.event_name == 'pull_request' && runner.os == 'Windows' }}
         shell: pwsh
         run: |
           echo "CIBW_BUILD=${CIBW_BUILD}" >> "${env:GITHUB_ENV}"
