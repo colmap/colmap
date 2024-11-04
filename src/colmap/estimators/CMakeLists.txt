@@ -49,6 +49,7 @@ COLMAP_ADD_LIBRARY(
         generalized_relative_pose.h generalized_relative_pose.cc
         homography_matrix.h homography_matrix.cc
         pose.h pose.cc
+        problem_partitioner.h problem_partitioner.cc
         generalized_pose.h generalized_pose.cc
         similarity_transform.h
         translation_transform.h

@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/estimators/problem_partitioner.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/scene/reconstruction.h"
 
@@ -56,7 +57,7 @@ class BundleAdjustmentCovarianceEstimatorBase {
       const std::vector<const double*>& point_blocks);
   virtual ~BundleAdjustmentCovarianceEstimatorBase() = default;
 
-  // Manually set pose blocks that are interested
+  // Manually set pose blocks that are interested while keeping the point blocks unchanged
   void SetPoseBlocks(const std::vector<const double*>& pose_blocks);
 
   // Compute covariance for all parameters (except for 3D points).
@@ -131,8 +132,6 @@ class BundleAdjustmentCovarianceEstimatorBase {
 
   int GetBlockIndex(const double* params) const;
   int GetBlockTangentSize(const double* params) const;
-  int GetPoseIndex(image_t image_id) const;
-  int GetPoseTangentSize(image_t image_id) const;
 
   // covariance for all parameters (except for 3D points)
   Eigen::MatrixXd cov_variables_;
@@ -147,8 +146,9 @@ class BundleAdjustmentCovarianceEstimatorBase {
   Reconstruction* reconstruction_ = nullptr;
 
  private:
-  // set up parameter blocks
-  void SetUpOtherVariablesBlocks();
+  std::unique_ptr<ProblemPartitioner> partitioner_;
+  // Set up block sizes and number of parameters for the existing parameter blocks
+  void SetUpBlockSizes();
 };
 
 class BundleAdjustmentCovarianceEstimatorCeresBackend
