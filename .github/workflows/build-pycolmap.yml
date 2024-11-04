@@ -28,6 +28,8 @@ jobs:
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
       MACOSX_DEPLOYMENT_TARGET: 10.15
+      # For faster builds in PRs, skip all but the latest Python versions.
+      PULL_REQUEST_CIBW_BUILD: cp312-{macosx,manylinux,win}*
     steps:
       - uses: actions/checkout@v4
       - uses: actions/cache@v4
@@ -36,6 +38,17 @@ jobs:
           key: pycolmap-v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ github.run_id }}-${{ github.run_number }}
           restore-keys: pycolmap-v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}
           path: ${{ env.COMPILER_CACHE_DIR }}
+
+      - name: Select Python
+        if: github.event_name == 'pull_request' && runner.os != 'Windows'
+        run: |
+          echo "CIBW_BUILD=${PULL_REQUEST_CIBW_BUILD}" >> "$GITHUB_ENV"
+      - name: Select Python
+        if: ${{ github.event_name == 'pull_request' && runner.os == 'Windows' }}
+        shell: pwsh
+        run: |
+          echo "CIBW_BUILD=${env:PULL_REQUEST_CIBW_BUILD}" >> "${env:GITHUB_ENV}"
+
       - name: Set env (macOS)
         if: runner.os == 'macOS'
         run: |
@@ -67,6 +80,7 @@ jobs:
           VCPKG_CACHE_DIR="${COMPILER_CACHE_DIR}/vcpkg"
           VCPKG_BINARY_SOURCES="clear;files,${VCPKG_CACHE_DIR},readwrite"
           echo "VCPKG_BINARY_SOURCES=${VCPKG_BINARY_SOURCES}" >> "$GITHUB_ENV"
+
       - name: Set env (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -93,6 +107,7 @@ jobs:
           $VCPKG_CACHE_DIR = "${env:COMPILER_CACHE_DIR}/vcpkg"
           $VCPKG_BINARY_SOURCES = "clear;files,${VCPKG_CACHE_DIR},readwrite"
           echo "VCPKG_BINARY_SOURCES=${VCPKG_BINARY_SOURCES}" >> "${env:GITHUB_ENV}"
+
       - name: Set env (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -164,7 +179,7 @@ jobs:
       - name: Publish package
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          skip_existing: true
+          skip-existing: true
           user: __token__
           password: ${{ secrets.PYPI_API_TOKEN }}
-          packages_dir: ./wheelhouse/
+          packages-dir: ./wheelhouse/
