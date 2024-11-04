@@ -48,6 +48,9 @@ jobs:
         shell: pwsh
         run: |
           echo "CIBW_BUILD=${CIBW_BUILD}" >> "${env:GITHUB_ENV}"
+          echo ${env:GITHUB_ENV}
+          echo "CIBW_BUILD=`"${CIBW_BUILD}`"" >> "${env:GITHUB_ENV}"
+          echo ${env:GITHUB_ENV}
 
       - name: Set env (macOS)
         if: runner.os == 'macOS'
