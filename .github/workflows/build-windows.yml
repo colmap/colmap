@@ -79,11 +79,11 @@ jobs:
           .github/workflows/install-ccache.ps1 -Destination "${{ env.COMPILER_CACHE_DIR }}/bin"
 
       - name: Install CUDA
-        uses: Jimver/cuda-toolkit@v0.2.16
+        uses: Jimver/cuda-toolkit@v0.2.18
         if: matrix.config.cudaEnabled
         id: cuda-toolkit
         with:
-          cuda: '12.5.0'
+          cuda: '12.6.2'
           sub-packages: '["nvcc", "nvtx", "cudart", "curand", "curand_dev", "nvrtc_dev"]'
           method: 'network'
 
