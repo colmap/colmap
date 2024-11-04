@@ -349,8 +349,9 @@ TEST(Covariance, Subproblem) {
     if (estimator.HasBlock(const_cast<double*>(tvec)))
       parameter_blocks.push_back(const_cast<double*>(tvec));
   }
-  Eigen::MatrixXd covar = estimator.GetCovariance(parameter_blocks);
-  Eigen::MatrixXd covar_ceres = estimator_ceres.GetCovariance(parameter_blocks);
+  Eigen::MatrixXd covar = estimator.GetPoseCovariance(parameter_blocks);
+  Eigen::MatrixXd covar_ceres =
+      estimator_ceres.GetPoseCovariance(parameter_blocks);
   ExpectNearEigenMatrixXd(covar, covar_ceres, 1e-6);
 }
 
