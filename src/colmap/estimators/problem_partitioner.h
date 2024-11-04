@@ -58,8 +58,10 @@ class ProblemPartitioner {
 
   // Get parameter blocks and residual blocks for a subproblem with a subset of
   // the original pose blocks. The subproblem include all constraints that
-  // connects with the subset pose blocks without passing the complementary set
-  // w.r.t. the full pose blocks. This is particularly useful for covariance
+  // connects with the subset pose blocks without passing the residuals
+  // containing poses from the complementary set of the subset pose blocks
+  // w.r.t. the full pose blocks. This is equivalent to set all pose blocks in
+  // the complementary set constant, and is particularly useful for covariance
   // estimation for very large-scale bundle adjustment problem, e.g., > 10k
   // images.
   void GetBlocksForSubproblem(

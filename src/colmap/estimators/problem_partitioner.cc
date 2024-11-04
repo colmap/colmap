@@ -187,8 +187,21 @@ void ProblemPartitioner::GetBlocksForSubproblem(
   subproblem_point_blocks->clear();
   residual_block_ids->clear();
 
-  // Customizd BFS: Traverse all residuals from the relevant pose blocks but
-  // stop at irrelevant pose blocks
+  // Get boundary pose blocks
+  std::unordered_set<double*> subset_pose_blocks_set;
+  for (const double* param_block : subset_pose_blocks) {
+    subset_pose_blocks_set.insert(const_cast<double*>(param_block));
+  }
+  std::unordered_set<double*> boundary_pose_blocks;
+  for (double* param_block : pose_blocks_) {
+    if (subset_pose_blocks_set.find(param_block) !=
+        subset_pose_blocks_set.end())
+      continue;
+    boundary_pose_blocks.insert(param_block);
+  }
+
+  // Customizd BFS: Traverse all residuals from the subset pose blocks while
+  // stopping at residuals containing the complement set.
   std::queue<double*> bfs_queue;
   std::unordered_set<ceres::ResidualBlockId> residuals_set;
   for (const double* param : subset_pose_blocks) {
@@ -197,7 +210,7 @@ void ProblemPartitioner::GetBlocksForSubproblem(
         !problem_->IsParameterBlockConstant(const_cast<double*>(param)));
     bfs_queue.push(const_cast<double*>(param));
   }
-  // stop whenever we hit a pose block
+  // visited parameters for BFS
   std::unordered_set<double*> param_visited;
   for (double* param : pose_blocks_) {
     param_visited.insert(param);
@@ -211,18 +224,29 @@ void ProblemPartitioner::GetBlocksForSubproblem(
         continue;
       residuals_set.insert(residual_block_id);
 
-      // traverse
-      for (auto& param_block : graph_->GetParameterBlocks(residual_block_id)) {
+      // add parameters
+      bool hit_boundary_pose_blocks =
+          false;  // whether an boundary pose block is hit
+      for (double* param_block :
+           graph_->GetParameterBlocks(residual_block_id)) {
         if (param_visited.find(param_block) != param_visited.end()) continue;
-
-        // non-pose parameter update subproblem parameter blocks
-        param_visited.insert(param_block);
-        bfs_queue.push(param_block);
         if (point_blocks_.find(param_block) != point_blocks_.end()) {
           subproblem_point_blocks->push_back(param_block);
         } else {
           subproblem_other_variables_blocks->push_back(param_block);
         }
+        if (boundary_pose_blocks.find(param_block) !=
+            boundary_pose_blocks.end())
+          hit_boundary_pose_blocks = true;
+      }
+
+      // If hitting boundary pose blocks, stop traversing
+      if (hit_boundary_pose_blocks) continue;
+      for (double* param_block :
+           graph_->GetParameterBlocks(residual_block_id)) {
+        if (param_visited.find(param_block) != param_visited.end()) continue;
+        param_visited.insert(param_block);
+        bfs_queue.push(param_block);
       }
     }
   }
