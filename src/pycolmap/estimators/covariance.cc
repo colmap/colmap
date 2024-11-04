@@ -194,14 +194,15 @@ void BindCovarianceEstimator(py::module& m) {
            py::arg("damping") = 1e-8)
       .def(
           "use_subproblem_from_subset_pose_blocks",
-          [](EstimatorBase& self, std::vector<py::array_t<double>>& pyarrays) {
+          [](BundleAdjustmentCovarianceEstimator& self,
+             std::vector<py::array_t<double>>& pyarrays) {
             std::vector<const double*> blocks =
                 ConvertListOfPyArraysToConstPointers(pyarrays);
             return self.UseSubproblemFromSubsetPoseBlocks(blocks);
           },
           py::arg("subset_pose_blocks"))
       .def("use_subproblem_from_subset_images",
-           &EstimatorBase::UseSubproblemFromSubsetImages,
+           &BundleAdjustmentCovarianceEstimator::UseSubproblemFromSubsetImages,
            py::arg("subset_image_ids"))
       .def("factorize_full",
            &BundleAdjustmentCovarianceEstimator::FactorizeFull)
