@@ -58,7 +58,8 @@ class BundleAdjustmentCovarianceEstimatorBase {
   virtual ~BundleAdjustmentCovarianceEstimatorBase() = default;
 
   // Manually set pose blocks that are interested while keeping the point blocks
-  // unchanged
+  // unchanged. Needed for the cases where the poses does not fully come from
+  // reconstruction. e.g., the rig setup.
   void SetPoseBlocks(const std::vector<const double*>& pose_blocks);
 
   // Compute covariance for all parameters (except for 3D points).

@@ -187,28 +187,19 @@ void ProblemPartitioner::GetBlocksForSubproblem(
   subproblem_point_blocks->clear();
   residual_block_ids->clear();
 
-  // Construct irrelevant pose blocks
-  std::unordered_set<double*> relevant_pose_blocks;
-  for (const auto& param : subproblem_pose_blocks) {
-    THROW_CHECK(problem_->HasParameterBlock(param));
-    THROW_CHECK(
-        !problem_->IsParameterBlockConstant(const_cast<double*>(param)));
-    relevant_pose_blocks.insert(const_cast<double*>(param));
-  }
-  std::unordered_set<double*> irrelevant_pose_blocks;
-  for (double* param : pose_blocks_) {
-    if (relevant_pose_blocks.find(param) != relevant_pose_blocks.end())
-      continue;
-    irrelevant_pose_blocks.insert(param);
-  }
-
   // Customizd BFS: Traverse all residuals from the relevant pose blocks but
   // stop at irrelevant pose blocks
   std::queue<double*> bfs_queue;
-  std::unordered_set<double*> param_visited;
-  for (const auto& param : subproblem_pose_blocks) {
+  for (const double* param : subproblem_pose_blocks) {
+    THROW_CHECK(problem_->HasParameterBlock(param));
+    THROW_CHECK(
+        !problem_->IsParameterBlockConstant(const_cast<double*>(param)));
     bfs_queue.push(const_cast<double*>(param));
-    param_visited.insert(const_cast<double*>(param));
+  }
+  // stop whenever we hit a pose block
+  std::unordered_set<double*> param_visited;
+  for (double* param : pose_blocks_) {
+    param_visited.insert(param);
   }
   while (!bfs_queue.empty()) {
     double* current_param = bfs_queue.front();
@@ -218,24 +209,15 @@ void ProblemPartitioner::GetBlocksForSubproblem(
       if (residual_block_ids->find(residual_block_id) !=
           residual_block_ids->end())
         continue;
-      // skip if the residual block links to irrelevant poses
-      bool flag = true;
-      for (auto& param_block : graph_->GetParameterBlocks(residual_block_id)) {
-        if (irrelevant_pose_blocks.find(param_block) !=
-            irrelevant_pose_blocks.end()) {
-          flag = false;
-          break;
-        }
-      }
-      if (!flag) continue;
-      // insert residual blocks
       residual_block_ids->insert(residual_block_id);
+
+      // traverse
       for (auto& param_block : graph_->GetParameterBlocks(residual_block_id)) {
-        // check if visited
         if (param_visited.find(param_block) != param_visited.end()) continue;
-        // non-pose parameter update bfs and subproblem parameter blocks
-        bfs_queue.push(param_block);
+
+        // non-pose parameter update subproblem parameter blocks
         param_visited.insert(param_block);
+        bfs_queue.push(param_block);
         if (point_blocks_.find(param_block) != point_blocks_.end()) {
           subproblem_point_blocks->push_back(param_block);
         } else {

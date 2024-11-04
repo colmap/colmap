@@ -48,7 +48,8 @@ class ProblemPartitioner {
                      const std::vector<const double*>& pose_blocks,
                      const std::vector<const double*>& point_blocks);
   // Manually set pose blocks that are interested while keeping the point blocks
-  // unchanged
+  // unchanged. Needed for the cases where the poses does not fully come from
+  // reconstruction. e.g., the rig setup.
   void SetPoseBlocks(const std::vector<const double*>& pose_blocks);
 
   void GetBlocks(std::vector<const double*>* pose_blocks,
