@@ -41,7 +41,7 @@ ProblemPartitioner::BipartiteGraph::BipartiteGraph(ceres::Problem* problem) {
   for (const auto& residual_block_id : residual_block_ids) {
     std::vector<double*> param_blocks;
     problem->GetParameterBlocksForResidualBlock(residual_block_id,
-                                                 &param_blocks);
+                                                &param_blocks);
 
     for (auto& param_block : param_blocks) {
       AddEdge(param_block, residual_block_id);
@@ -49,13 +49,14 @@ ProblemPartitioner::BipartiteGraph::BipartiteGraph(ceres::Problem* problem) {
   }
 }
 
-void ProblemPartitioner::BipartiteGraph::AddEdge(double* param_block,
-             ceres::ResidualBlockId residual_block_id) {
+void ProblemPartitioner::BipartiteGraph::AddEdge(
+    double* param_block, ceres::ResidualBlockId residual_block_id) {
   param_to_residual[param_block].push_back(residual_block_id);
   residual_to_param[residual_block_id].push_back(param_block);
 }
 
-std::vector<ceres::ResidualBlockId> ProblemPartitioner::BipartiteGraph::GetResidualBlocks(
+std::vector<ceres::ResidualBlockId>
+ProblemPartitioner::BipartiteGraph::GetResidualBlocks(
     double* param_block) const {
   return param_to_residual.at(param_block);
 }
@@ -73,7 +74,7 @@ ProblemPartitioner::ProblemPartitioner(ceres::Problem* problem,
   graph_ = std::make_unique<BipartiteGraph>(problem);
 
   // Parse parameter blocks for poses
-  for (const auto& [image_id, image]: reconstruction->Images()) {
+  for (const auto& [image_id, image] : reconstruction->Images()) {
     const double* qvec = image.CamFromWorld().rotation.coeffs().data();
     if (problem_->HasParameterBlock(qvec) &&
         !problem_->IsParameterBlockConstant(const_cast<double*>(qvec))) {
@@ -87,20 +88,21 @@ ProblemPartitioner::ProblemPartitioner(ceres::Problem* problem,
   }
 
   // Parse parameter blocks for 3D points
-  for (const auto& [point3D_id, point3D]: reconstruction->Points3D()) {
+  for (const auto& [point3D_id, point3D] : reconstruction->Points3D()) {
     const double* point3D_ptr = point3D.xyz.data();
     if (problem_->HasParameterBlock(point3D_ptr) &&
         !problem_->IsParameterBlockConstant(const_cast<double*>(point3D_ptr))) {
       point_blocks_.insert(const_cast<double*>(point3D_ptr));
     }
-  } 
+  }
   // Parse parameter blocks for other variables
   SetUpOtherVariablesBlocks();
 }
 
-
 ProblemPartitioner::ProblemPartitioner(
-    ceres::Problem* problem, const std::vector<const double*>& pose_blocks, const std::vector<const double*>& point_blocks) {
+    ceres::Problem* problem,
+    const std::vector<const double*>& pose_blocks,
+    const std::vector<const double*>& point_blocks) {
   problem_ = problem;
   graph_ = std::make_unique<BipartiteGraph>(problem);
 
@@ -112,9 +114,8 @@ ProblemPartitioner::ProblemPartitioner(
     }
   }
 
-  // Set parameter blocks for 3D Points 
-  for (auto it = point_blocks.begin(); it != point_blocks.end(); ++it)
-  {
+  // Set parameter blocks for 3D Points
+  for (auto it = point_blocks.begin(); it != point_blocks.end(); ++it) {
     if (problem->HasParameterBlock(*it) &&
         !problem->IsParameterBlockConstant(const_cast<double*>(*it))) {
       point_blocks_.insert(const_cast<double*>(*it));
@@ -124,7 +125,6 @@ ProblemPartitioner::ProblemPartitioner(
   // Parse parameter blocks for other variables
   SetUpOtherVariablesBlocks();
 }
-
 
 void ProblemPartitioner::SetPoseBlocks(
     const std::vector<const double*>& pose_blocks) {
@@ -140,7 +140,6 @@ void ProblemPartitioner::SetPoseBlocks(
   // Parse parameter blocks for other variables
   SetUpOtherVariablesBlocks();
 }
-
 
 void ProblemPartitioner::SetUpOtherVariablesBlocks() {
   // Parse parameter blocks for other variables
@@ -160,23 +159,23 @@ void ProblemPartitioner::SetUpOtherVariablesBlocks() {
   }
 }
 
-void ProblemPartitioner::GetBlocks(std::vector<const double*>* pose_blocks, 
+void ProblemPartitioner::GetBlocks(
+    std::vector<const double*>* pose_blocks,
     std::vector<const double*>* other_variables_blocks,
     std::vector<const double*>* point_blocks) const {
   pose_blocks->clear();
-  for (double* block: pose_blocks_) {
+  for (double* block : pose_blocks_) {
     pose_blocks->push_back(block);
   }
   other_variables_blocks->clear();
-  for (double* block: other_variables_blocks_) {
+  for (double* block : other_variables_blocks_) {
     other_variables_blocks->push_back(block);
   }
   point_blocks->clear();
-  for (double* block: point_blocks_) {
+  for (double* block : point_blocks_) {
     point_blocks->push_back(block);
   }
 }
-
 
 void ProblemPartitioner::GetBlocksForSubproblem(
     const std::vector<const double*>& subproblem_pose_blocks,
@@ -192,17 +191,19 @@ void ProblemPartitioner::GetBlocksForSubproblem(
   std::unordered_set<double*> relevant_pose_blocks;
   for (const auto& param : subproblem_pose_blocks) {
     THROW_CHECK(problem_->HasParameterBlock(param));
-    THROW_CHECK(!problem_->IsParameterBlockConstant(const_cast<double*>(param)));
+    THROW_CHECK(
+        !problem_->IsParameterBlockConstant(const_cast<double*>(param)));
     relevant_pose_blocks.insert(const_cast<double*>(param));
   }
   std::unordered_set<double*> irrelevant_pose_blocks;
-  for (double* param: pose_blocks_) {
+  for (double* param : pose_blocks_) {
     if (relevant_pose_blocks.find(param) != relevant_pose_blocks.end())
       continue;
     irrelevant_pose_blocks.insert(param);
   }
 
-  // Customizd BFS: Traverse all residuals from the relevant pose blocks but stop at irrelevant pose blocks
+  // Customizd BFS: Traverse all residuals from the relevant pose blocks but
+  // stop at irrelevant pose blocks
   std::queue<double*> bfs_queue;
   std::unordered_set<double*> param_visited;
   for (const auto& param : subproblem_pose_blocks) {
@@ -237,8 +238,7 @@ void ProblemPartitioner::GetBlocksForSubproblem(
         param_visited.insert(param_block);
         if (point_blocks_.find(param_block) != point_blocks_.end()) {
           subproblem_point_blocks->push_back(param_block);
-        }
-        else {
+        } else {
           subproblem_other_variables_blocks->push_back(param_block);
         }
       }

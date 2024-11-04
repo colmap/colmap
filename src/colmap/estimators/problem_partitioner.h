@@ -30,13 +30,16 @@
 #pragma once
 
 #include "colmap/scene/reconstruction.h"
+
 #include <ceres/ceres.h>
 
 namespace colmap {
 
-// Problem partitioner for bundle adjustment (or extended) problem, useful for covariance estimation.
-// The ceres problem is partitioned into three blocks: pose blocks, point blocks (can be used for Schur elimination), and other variable blocks. 
-// One can also get parameter and residual blocks for a subproblem of the original problem with a subset of the original pose blocks.
+// Problem partitioner for bundle adjustment (or extended) problem, useful for
+// covariance estimation. The ceres problem is partitioned into three blocks:
+// pose blocks, point blocks (can be used for Schur elimination), and other
+// variable blocks. One can also get parameter and residual blocks for a
+// subproblem of the original problem with a subset of the original pose blocks.
 class ProblemPartitioner {
  public:
   ProblemPartitioner();
@@ -44,15 +47,21 @@ class ProblemPartitioner {
   ProblemPartitioner(ceres::Problem* problem,
                      const std::vector<const double*>& pose_blocks,
                      const std::vector<const double*>& point_blocks);
-  // Manually set pose blocks that are interested while keeping the point blocks unchanged
+  // Manually set pose blocks that are interested while keeping the point blocks
+  // unchanged
   void SetPoseBlocks(const std::vector<const double*>& pose_blocks);
 
   void GetBlocks(std::vector<const double*>* pose_blocks,
-      std::vector<const double*>* other_variables_blocks,
-      std::vector<const double*>* point_blocks) const;
+                 std::vector<const double*>* other_variables_blocks,
+                 std::vector<const double*>* point_blocks) const;
 
-  // Get parameter blocks and residual blocks for a subproblem with a subset of the original pose blocks. The subproblem include all constraints that connects with the subset pose blocks without passing the complementary set. This is particularly useful for covariance estimation for very large-scale bundle adjustment problem with > 10k images.
-  void GetBlocksForSubproblem(const std::vector<const double*>& subproblem_pose_blocks,
+  // Get parameter blocks and residual blocks for a subproblem with a subset of
+  // the original pose blocks. The subproblem include all constraints that
+  // connects with the subset pose blocks without passing the complementary set.
+  // This is particularly useful for covariance estimation for very large-scale
+  // bundle adjustment problem with > 10k images.
+  void GetBlocksForSubproblem(
+      const std::vector<const double*>& subproblem_pose_blocks,
       std::vector<const double*>* subproblem_other_variables_blocks,
       std::vector<const double*>* subproblem_point_blocks,
       std::unordered_set<ceres::ResidualBlockId>* residual_block_ids) const;
@@ -62,15 +71,14 @@ class ProblemPartitioner {
     BipartiteGraph();
     BipartiteGraph(ceres::Problem* problem);
 
-    void AddEdge(double* param_block,
-                 ceres::ResidualBlockId residual_block_id);
-    
+    void AddEdge(double* param_block, ceres::ResidualBlockId residual_block_id);
+
     std::vector<ceres::ResidualBlockId> GetResidualBlocks(
         double* param_block) const;
 
     std::vector<double*> GetParameterBlocks(
         ceres::ResidualBlockId residual_block_id) const;
-   
+
     std::unordered_map<double*, std::vector<ceres::ResidualBlockId>>
         param_to_residual;
     std::unordered_map<ceres::ResidualBlockId, std::vector<double*>>
@@ -82,7 +90,7 @@ class ProblemPartitioner {
 
   // The bipartite between param blocks and residuals
   std::unique_ptr<BipartiteGraph> graph_;
-  
+
   // All the parameter blocks
   std::unordered_set<double*> pose_blocks_;
   std::unordered_set<double*> other_variables_blocks_;

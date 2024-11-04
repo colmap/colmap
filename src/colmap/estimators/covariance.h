@@ -57,7 +57,8 @@ class BundleAdjustmentCovarianceEstimatorBase {
       const std::vector<const double*>& point_blocks);
   virtual ~BundleAdjustmentCovarianceEstimatorBase() = default;
 
-  // Manually set pose blocks that are interested while keeping the point blocks unchanged
+  // Manually set pose blocks that are interested while keeping the point blocks
+  // unchanged
   void SetPoseBlocks(const std::vector<const double*>& pose_blocks);
 
   // Compute covariance for all parameters (except for 3D points).
@@ -147,7 +148,8 @@ class BundleAdjustmentCovarianceEstimatorBase {
 
  private:
   std::unique_ptr<ProblemPartitioner> partitioner_;
-  // Set up block sizes and number of parameters for the existing parameter blocks
+  // Set up block sizes and number of parameters for the existing parameter
+  // blocks
   void SetUpBlockSizes();
 };
 
