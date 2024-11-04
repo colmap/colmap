@@ -215,8 +215,6 @@ TEST(Covariance, Factorize) {
   ExpectNearEigenMatrixXd(covar, covar_ceres, 1e-6);
 }
 
-
-
 TEST(Covariance, ComputeFull) {
   Reconstruction reconstruction;
   GenerateReconstruction(&reconstruction);
@@ -313,22 +311,23 @@ TEST(Covariance, Subproblem) {
 
   // covariance using subproblem support
   BundleAdjustmentCovarianceEstimator estimator(problem.get(), &reconstruction);
-  estimator.UseSubproblemFromImages(subset_image_ids);
+  estimator.UseSubproblemFromSubsetImages(subset_image_ids);
   ASSERT_TRUE(estimator.Factorize());
 
   // ceres covariance with fixed boundary poses
   for (const auto& [image_id, image] : reconstruction.Images()) {
-    if (std::find(subset_image_ids.begin(), subset_image_ids.end(), image_id) != subset_image_ids.end())
+    if (std::find(subset_image_ids.begin(), subset_image_ids.end(), image_id) !=
+        subset_image_ids.end())
       continue;
     const double* qvec = image.CamFromWorld().rotation.coeffs().data();
     if (problem->HasParameterBlock(qvec) &&
         !problem->IsParameterBlockConstant(const_cast<double*>(qvec))) {
-      problem->SetParameterBlockConstant(qvec);
+      problem->SetParameterBlockConstant(const_cast<double*>(qvec));
     }
     const double* tvec = image.CamFromWorld().translation.data();
     if (problem->HasParameterBlock(tvec) &&
         !problem->IsParameterBlockConstant(const_cast<double*>(tvec))) {
-      problem->SetParameterBlockConstant(tvec);
+      problem->SetParameterBlockConstant(const_cast<double*>(tvec));
     }
   }
 
@@ -341,7 +340,7 @@ TEST(Covariance, Subproblem) {
 
   // check equality
   std::vector<double*> parameter_blocks;
-  for (const image_t& image_id: subset_image_ids) {
+  for (const image_t& image_id : subset_image_ids) {
     auto& image = reconstruction.Image(image_id);
     const double* qvec = image.CamFromWorld().rotation.coeffs().data();
     if (estimator.HasBlock(const_cast<double*>(qvec)))
