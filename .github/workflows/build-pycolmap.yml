@@ -28,7 +28,8 @@ jobs:
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
       MACOSX_DEPLOYMENT_TARGET: 10.15
-      CIBW_BUILD: cp312-{macosx,manylinux,win}*
+      # For faster builds in PRs, skip all but the latest Python versions.
+      PULL_REQUEST_CIBW_BUILD: cp312-{macosx,manylinux,win}*
     steps:
       - uses: actions/checkout@v4
       - uses: actions/cache@v4
@@ -38,16 +39,15 @@ jobs:
           restore-keys: pycolmap-v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}
           path: ${{ env.COMPILER_CACHE_DIR }}
 
-      # For faster builds in PRs, skip all but the latest Python versions.
       - name: Select Python
         if: github.event_name == 'pull_request' && runner.os != 'Windows'
         run: |
-          echo "CIBW_BUILD=${CIBW_BUILD}" >> "$GITHUB_ENV"
+          echo "CIBW_BUILD=${PULL_REQUEST_CIBW_BUILD}" >> "$GITHUB_ENV"
       - name: Select Python
         if: ${{ github.event_name == 'pull_request' && runner.os == 'Windows' }}
         shell: pwsh
         run: |
-          echo "CIBW_BUILD=${env:CIBW_BUILD}" >> "${env:GITHUB_ENV}"
+          echo "CIBW_BUILD=${env:PULL_REQUEST_CIBW_BUILD}" >> "${env:GITHUB_ENV}"
 
       - name: Set env (macOS)
         if: runner.os == 'macOS'
