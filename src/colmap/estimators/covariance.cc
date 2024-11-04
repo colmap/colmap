@@ -77,6 +77,30 @@ void BundleAdjustmentCovarianceEstimatorBase::UseSubproblemFromSubsetPoseBlocks(
   SetUpBlockSizes();
 }
 
+void BundleAdjustmentCovarianceEstimatorBase::UseSubproblemFromSubsetImages(
+    const std::vector<image_t>& subset_image_ids) {
+  THROW_CHECK(HasReconstruction());
+  std::vector<const double*> blocks;
+  for (const auto& image_id : subset_image_ids) {
+    const double* qvec = reconstruction_->Image(image_id)
+                             .CamFromWorld()
+                             .rotation.coeffs()
+                             .data();
+    if (problem_->HasParameterBlock(qvec) &&
+        !problem_->IsParameterBlockConstant(const_cast<double*>(qvec))) {
+      blocks.push_back(qvec);
+    }
+
+    const double* tvec =
+        reconstruction_->Image(image_id).CamFromWorld().translation.data();
+    if (problem_->HasParameterBlock(tvec) &&
+        !problem_->IsParameterBlockConstant(const_cast<double*>(tvec))) {
+      blocks.push_back(tvec);
+    }
+  }
+  UseSubproblemFromSubsetPoseBlocks(blocks);
+}
+
 void BundleAdjustmentCovarianceEstimatorBase::SetUpBlockSizes() {
   num_params_poses_ = 0;
   num_params_other_variables_ = 0;

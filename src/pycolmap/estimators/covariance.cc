@@ -73,6 +73,9 @@ void BindCovarianceEstimator(py::module& m) {
             return self.UseSubproblemFromSubsetPoseBlocks(blocks);
           },
           py::arg("subset_pose_blocks"))
+      .def("use_subproblem_from_subset_images",
+           &EstimatorBase::UseSubproblemFromSubsetImages,
+           py::arg("subset_image_ids"))
       .def("has_block", &EstimatorBase::HasBlock, py::arg("parameter_block"))
       .def("has_pose_block",
            &EstimatorBase::HasPoseBlock,

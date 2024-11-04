@@ -62,14 +62,16 @@ class BundleAdjustmentCovarianceEstimatorBase {
   // reconstruction. e.g., the rig setup.
   void SetPoseBlocks(const std::vector<const double*>& pose_blocks);
 
-  // Focus on a subproblem described by a subset of
-  // the original pose blocks. The subproblem include all constraints that
-  // connects with the subset pose blocks without passing the complementary set
-  // w.r.t the full pose blocks, with the boundary fixed. This is particularly
-  // useful for covariance estimation for very large-scale bundle adjustment
-  // problem, e.g., > 10k images.
+  // Focus on a subproblem described by a subset of the original pose blocks (or
+  // image ids). The subproblem include all constraints that connects with the
+  // subset pose blocks without passing the complementary set w.r.t the full
+  // pose blocks, with the boundary fixed. This is particularly useful for
+  // covariance estimation for very large-scale bundle adjustment problem, e.g.,
+  // > 10k images.
   void UseSubproblemFromSubsetPoseBlocks(
       const std::vector<const double*>& subset_pose_blocks);
+  void UseSubproblemFromSubsetImages(
+      const std::vector<image_t>& subset_image_ids);
 
   // Compute covariance for all parameters (except for 3D points).
   // Store the full matrix at cov_variables_ and the subblock copy at
