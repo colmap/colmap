@@ -466,7 +466,7 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
     if (constant_cam_pose) {
       problem_->AddResidualBlock(
           CreateCameraCostFunction<ReprojErrorConstantPoseCostFunctor>(
-              camera.model_id, image.CamFromWorld(), point2D.xy),
+              camera.model_id, point2D.xy, image.CamFromWorld()),
           loss_function,
           point3D.xyz.data(),
           camera_params);
@@ -536,7 +536,7 @@ void BundleAdjuster::AddPointToProblem(const point3D_t point3D_id,
     }
     problem_->AddResidualBlock(
         CreateCameraCostFunction<ReprojErrorConstantPoseCostFunctor>(
-            camera.model_id, image.CamFromWorld(), point2D.xy),
+            camera.model_id, point2D.xy, image.CamFromWorld()),
         loss_function,
         point3D.xyz.data(),
         camera.params.data());
@@ -761,7 +761,7 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
       if (constant_cam_pose) {
         problem_->AddResidualBlock(
             CreateCameraCostFunction<ReprojErrorConstantPoseCostFunctor>(
-                camera.model_id, image.CamFromWorld(), point2D.xy),
+                camera.model_id, point2D.xy, image.CamFromWorld()),
             loss_function,
             point3D.xyz.data(),
             camera_params);
@@ -849,7 +849,7 @@ void RigBundleAdjuster::AddPointToProblem(const point3D_t point3D_id,
 
     problem_->AddResidualBlock(
         CreateCameraCostFunction<ReprojErrorConstantPoseCostFunctor>(
-            camera.model_id, image.CamFromWorld(), point2D.xy),
+            camera.model_id, point2D.xy, image.CamFromWorld()),
         loss_function,
         point3D.xyz.data(),
         camera.params.data());
@@ -988,8 +988,9 @@ void PosePriorBundleAdjuster::AddPosePriorToProblem(
       image.CamFromWorld().rotation.coeffs().data();
 
   problem_->AddResidualBlock(
-      AbsolutePosePositionPriorCostFunctor::Create(
-          normalized_from_metric_ * prior.position, prior.position_covariance),
+      CovarianceWeightedCostFunctor<AbsolutePosePositionPriorCostFunctor>::
+          Create(prior.position_covariance,
+                 normalized_from_metric_ * prior.position),
       prior_loss_function,
       cam_from_world_rotation,
       cam_from_world_translation);

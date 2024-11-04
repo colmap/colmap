@@ -259,7 +259,7 @@ void PreintegratedImuMeasurement::Finish() {
   covs_ += Eigen::Matrix<double, 15, 15>::Identity() * 1e-18;
 
   // Factorize
-  sqrt_information_ = colmap::SqrtInformation(covs_);
+  sqrt_information_ = covs_.inverse().llt().matrixL().transpose();
 
   // Set flag
   has_finished_ = true;
