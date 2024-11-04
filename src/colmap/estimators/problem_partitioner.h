@@ -71,7 +71,7 @@ class ProblemPartitioner {
  private:
   struct BipartiteGraph {
     BipartiteGraph();
-    BipartiteGraph(ceres::Problem* problem);
+    explicit BipartiteGraph(ceres::Problem* problem);
 
     void AddEdge(double* param_block, ceres::ResidualBlockId residual_block_id);
 
