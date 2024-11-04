@@ -277,7 +277,7 @@ Feature Matching and Geometric Verification
 In the second step, feature matching and geometric verification finds
 correspondences between the feature points in different images.
 
-Please, choose ``Processing > Match features`` and select one of the provided
+Please, choose ``Processing > Feature matching`` and select one of the provided
 matching modes, that are intended for different input scenarios:
 
 - **Exhaustive Matching**: If the number of images in your dataset is
