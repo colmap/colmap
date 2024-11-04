@@ -67,6 +67,16 @@ void BundleAdjustmentCovarianceEstimatorBase::SetPoseBlocks(
   SetUpBlockSizes();
 }
 
+void BundleAdjustmentCovarianceEstimatorBase::UseSubproblemFromSubsetPoseBlocks(
+    const std::vector<const double*>& subset_pose_blocks) {
+  pose_blocks_ = subset_pose_blocks;
+  partitioner_->GetBlocksForSubproblem(subset_pose_blocks,
+                                       &other_variables_blocks_,
+                                       &point_blocks_,
+                                       &residual_block_ids_);
+  SetUpBlockSizes();
+}
+
 void BundleAdjustmentCovarianceEstimatorBase::SetUpBlockSizes() {
   num_params_poses_ = 0;
   num_params_other_variables_ = 0;
@@ -379,6 +389,10 @@ void BundleAdjustmentCovarianceEstimator::ComputeSchurComplement() {
   for (const double* block : point_blocks_) {
     eval_options.parameter_blocks.push_back(const_cast<double*>(block));
   }
+  if (!residual_block_ids_.empty())
+    eval_options.residual_blocks.insert(eval_options.residual_blocks.end(),
+                                        residual_block_ids_.begin(),
+                                        residual_block_ids_.end());
   ceres::CRSMatrix J_full_crs;
   problem_->Evaluate(eval_options, nullptr, nullptr, nullptr, &J_full_crs);
   int num_residuals = J_full_crs.num_rows;

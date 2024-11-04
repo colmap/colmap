@@ -49,7 +49,7 @@ class ProblemPartitioner {
                      const std::vector<const double*>& point_blocks);
   // Manually set pose blocks that are interested while keeping the point blocks
   // unchanged. Needed for the cases where the poses does not fully come from
-  // reconstruction. e.g., the rig setup.
+  // reconstruction, e.g., the rig setup.
   void SetPoseBlocks(const std::vector<const double*>& pose_blocks);
 
   void GetBlocks(std::vector<const double*>* pose_blocks,
@@ -58,14 +58,15 @@ class ProblemPartitioner {
 
   // Get parameter blocks and residual blocks for a subproblem with a subset of
   // the original pose blocks. The subproblem include all constraints that
-  // connects with the subset pose blocks without passing the complementary set.
-  // This is particularly useful for covariance estimation for very large-scale
-  // bundle adjustment problem with > 10k images.
+  // connects with the subset pose blocks without passing the complementary set
+  // w.r.t. the full pose blocks. This is particularly useful for covariance
+  // estimation for very large-scale bundle adjustment problem, e.g., > 10k
+  // images.
   void GetBlocksForSubproblem(
-      const std::vector<const double*>& subproblem_pose_blocks,
+      const std::vector<const double*>& subset_pose_blocks,
       std::vector<const double*>* subproblem_other_variables_blocks,
       std::vector<const double*>* subproblem_point_blocks,
-      std::unordered_set<ceres::ResidualBlockId>* residual_block_ids) const;
+      std::vector<ceres::ResidualBlockId>* residual_block_ids) const;
 
  private:
   struct BipartiteGraph {

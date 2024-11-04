@@ -178,10 +178,10 @@ void ProblemPartitioner::GetBlocks(
 }
 
 void ProblemPartitioner::GetBlocksForSubproblem(
-    const std::vector<const double*>& subproblem_pose_blocks,
+    const std::vector<const double*>& subset_pose_blocks,
     std::vector<const double*>* subproblem_other_variables_blocks,
     std::vector<const double*>* subproblem_point_blocks,
-    std::unordered_set<ceres::ResidualBlockId>* residual_block_ids) const {
+    std::vector<ceres::ResidualBlockId>* residual_block_ids) const {
   // Reset
   subproblem_other_variables_blocks->clear();
   subproblem_point_blocks->clear();
@@ -190,7 +190,8 @@ void ProblemPartitioner::GetBlocksForSubproblem(
   // Customizd BFS: Traverse all residuals from the relevant pose blocks but
   // stop at irrelevant pose blocks
   std::queue<double*> bfs_queue;
-  for (const double* param : subproblem_pose_blocks) {
+  std::unordered_set<ceres::ResidualBlockId> residuals_set;
+  for (const double* param : subset_pose_blocks) {
     THROW_CHECK(problem_->HasParameterBlock(param));
     THROW_CHECK(
         !problem_->IsParameterBlockConstant(const_cast<double*>(param)));
@@ -206,10 +207,9 @@ void ProblemPartitioner::GetBlocksForSubproblem(
     bfs_queue.pop();
     for (auto& residual_block_id : graph_->GetResidualBlocks(current_param)) {
       // check if the residual block exists
-      if (residual_block_ids->find(residual_block_id) !=
-          residual_block_ids->end())
+      if (residuals_set.find(residual_block_id) != residuals_set.end())
         continue;
-      residual_block_ids->insert(residual_block_id);
+      residuals_set.insert(residual_block_id);
 
       // traverse
       for (auto& param_block : graph_->GetParameterBlocks(residual_block_id)) {
@@ -225,6 +225,9 @@ void ProblemPartitioner::GetBlocksForSubproblem(
         }
       }
     }
+  }
+  for (const auto& residual_block_id : residuals_set) {
+    residual_block_ids->push_back(residual_block_id);
   }
 }
 

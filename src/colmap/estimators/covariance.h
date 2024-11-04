@@ -62,6 +62,15 @@ class BundleAdjustmentCovarianceEstimatorBase {
   // reconstruction. e.g., the rig setup.
   void SetPoseBlocks(const std::vector<const double*>& pose_blocks);
 
+  // Focus on a subproblem described by a subset of
+  // the original pose blocks. The subproblem include all constraints that
+  // connects with the subset pose blocks without passing the complementary set
+  // w.r.t the full pose blocks, with the boundary fixed. This is particularly
+  // useful for covariance estimation for very large-scale bundle adjustment
+  // problem, e.g., > 10k images.
+  void UseSubproblemFromSubsetPoseBlocks(
+      const std::vector<const double*>& subset_pose_blocks);
+
   // Compute covariance for all parameters (except for 3D points).
   // Store the full matrix at cov_variables_ and the subblock copy at
   // cov_poses_;
@@ -131,6 +140,9 @@ class BundleAdjustmentCovarianceEstimatorBase {
   // get the starting index of the parameter block in the matrix
   // orders: [pose_blocks, other_variables_blocks, point_blocks]
   std::map<const double*, int> map_block_to_index_;
+
+  // residual block ids used in the subproblem. If empty, use all the residuals
+  std::vector<ceres::ResidualBlockId> residual_block_ids_;
 
   int GetBlockIndex(const double* params) const;
   int GetBlockTangentSize(const double* params) const;
