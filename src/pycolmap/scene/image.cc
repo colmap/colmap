@@ -80,7 +80,7 @@ void BindImage(py::module& m) {
                     "Name of the image.")
       .def_property(
           "cam_from_world",
-          &Image::MaybeCamFromWorld,
+          py::overload_cast<>(&Image::MaybeCamFromWorld),
           py::overload_cast<const std::optional<Rigid3d>&>(
               &Image::SetCamFromWorld),
           "The pose of the image, defined as the transformation from world to "
