@@ -48,7 +48,7 @@ option(CGAL_ENABLED "Whether to enable the CGAL library" ON)
 option(LSD_ENABLED "Whether to enable the LSD library" ON)
 option(UNINSTALL_ENABLED "Whether to create a target to 'uninstall' colmap" ON)
 option(FETCH_POSELIB "Whether to consume PoseLib using FetchContent or find_package" ON)
-option(ALL_SOURCE_TARGET "Whether to create a target for all source files" OFF)
+option(ALL_SOURCE_TARGET "Whether to create a target for all source files (for Visual Studio / XCode development)" OFF)
 
 # Propagate options to vcpkg manifest.
 if(TESTS_ENABLED)
