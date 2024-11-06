@@ -367,11 +367,11 @@ bool BundleAdjustmentCovarianceEstimatorCeresBackend::Compute() {
 
 void BundleAdjustmentCovarianceEstimator::UseSubproblemFromSubsetPoseBlocks(
     const std::vector<const double*>& subset_pose_blocks) {
-  pose_blocks_ = subset_pose_blocks;
   partitioner_->GetBlocksForSubproblem(subset_pose_blocks,
                                        &other_variables_blocks_,
                                        &point_blocks_,
                                        &residual_block_ids_);
+  pose_blocks_ = subset_pose_blocks;
   SetUpBlockSizes();
 }
 

@@ -182,6 +182,13 @@ void ProblemPartitioner::GetBlocksForSubproblem(
     std::vector<const double*>* subproblem_other_variables_blocks,
     std::vector<const double*>* subproblem_point_blocks,
     std::vector<ceres::ResidualBlockId>* residual_block_ids) const {
+  // Check
+  for (const double* param_block : subset_pose_blocks) {
+    if (pose_blocks_.find(const_cast<double*>(param_block)) ==
+        pose_blocks_.end())
+      LOG(FATAL_THROW) << "Error! The parameter block from subset_pose_blocks "
+                          "was not in the pose blocks.";
+  }
   // Reset
   subproblem_other_variables_blocks->clear();
   subproblem_point_blocks->clear();
