@@ -80,7 +80,7 @@ void BuildImageModel(const Image& image,
   // be in a partial, incorrect state. In rare circumstances, an image may be
   // registered but not yet have a pose. Instead of crashing the viewer, we
   // simply skip the visualization of these images and warn the user.
-  const std::optional<Rigid3d> cam_from_world = image.MaybeCamFromWorld();
+  const std::optional<Rigid3d>& cam_from_world = image.MaybeCamFromWorld();
   if (!cam_from_world) {
     LOG(WARNING) << "Failed to render image " << image.Name()
                  << " but it has no pose.";
