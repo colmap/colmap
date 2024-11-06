@@ -44,8 +44,7 @@ ProblemPartitioner::BipartiteGraph::BipartiteGraph(ceres::Problem* problem) {
                                                 &param_blocks);
 
     for (auto& param_block : param_blocks) {
-      if (problem->IsParameterBlockConstant(param_block))
-        continue;
+      if (problem->IsParameterBlockConstant(param_block)) continue;
       AddEdge(param_block, residual_block_id);
     }
   }
@@ -233,29 +232,32 @@ void ProblemPartitioner::GetBlocksForSubproblem(
         continue;
       residuals_set.insert(residual_block_id);
 
-      // add parameters
+      // check if the boundary is hit
       bool hit_boundary_pose_blocks =
           false;  // whether an boundary pose block is hit
       for (double* param_block :
            graph_->GetParameterBlocks(residual_block_id)) {
+        if (boundary_pose_blocks.find(param_block) !=
+            boundary_pose_blocks.end()) {
+          hit_boundary_pose_blocks = true;
+          break;
+        }
+      }
+
+      // add parameters
+      for (double* param_block :
+           graph_->GetParameterBlocks(residual_block_id)) {
         if (param_visited.find(param_block) != param_visited.end()) continue;
+        param_visited.insert(param_block);
         if (point_blocks_.find(param_block) != point_blocks_.end()) {
           subproblem_point_blocks->push_back(param_block);
         } else {
           subproblem_other_variables_blocks->push_back(param_block);
         }
-        if (boundary_pose_blocks.find(param_block) !=
-            boundary_pose_blocks.end())
-          hit_boundary_pose_blocks = true;
-      }
-
-      // If hitting boundary pose blocks, stop traversing
-      if (hit_boundary_pose_blocks) continue;
-      for (double* param_block :
-           graph_->GetParameterBlocks(residual_block_id)) {
-        if (param_visited.find(param_block) != param_visited.end()) continue;
-        param_visited.insert(param_block);
-        bfs_queue.push(param_block);
+        // push to the queue only if the boundary is not hit
+        if (!hit_boundary_pose_blocks) {
+          bfs_queue.push(param_block);
+        }
       }
     }
   }
