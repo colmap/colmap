@@ -44,6 +44,8 @@ ProblemPartitioner::BipartiteGraph::BipartiteGraph(ceres::Problem* problem) {
                                                 &param_blocks);
 
     for (auto& param_block : param_blocks) {
+      if (problem->IsParameterBlockConstant(param_block))
+        continue;
       AddEdge(param_block, residual_block_id);
     }
   }
