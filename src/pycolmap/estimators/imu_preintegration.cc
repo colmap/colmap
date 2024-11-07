@@ -17,6 +17,10 @@ void BindImuPreintegration(py::module& m) {
   py::class_<ImuPreITGOpt> PyImuPreintegrationOptions(
       m, "ImuPreintegrationOptions");
   PyImuPreintegrationOptions.def(py::init<>())
+      .def_readwrite("use_integration_noise",
+                     &ImuPreITGOpt::use_integration_noise)
+      .def_readwrite("integration_noise_density",
+                     &ImuPreITGOpt::integration_noise_density)
       .def_readwrite("reintegrate_vel_norm_thres",
                      &ImuPreITGOpt::reintegrate_vel_norm_thres)
       .def_readwrite("reintegrate_angle_norm_thres",

@@ -154,6 +154,9 @@ void PreintegratedImuMeasurement::integrate(const Eigen::Vector3d& acc_true,
   double vars_v = pow(acc_noise_density, 2) * dt;
   double vars_omega = pow(gyro_noise_density, 2) * dt;
   double vars_p = 0.5 * vars_v * dt * dt;
+  if (options_.use_integration_noise) {
+    vars_p += pow(options_.integration_noise_density, 2) * dt;
+  }
   double vars_ba = pow(calib_.acc_bias_random_walk_sigma, 2) * dt;
   double vars_bg = pow(calib_.gyro_bias_random_walk_sigma, 2) * dt;
   covs_.block<3, 3>(0, 0) +=

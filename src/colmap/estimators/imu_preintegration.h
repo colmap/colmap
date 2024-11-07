@@ -43,6 +43,10 @@
 namespace colmap {
 
 struct ImuPreintegrationOptions {
+  // integration noise density
+  bool use_integration_noise = false;
+  double integration_noise_density = 0.2;  // [m/s*1/sqrt(Hz)]
+
   // check whether to reintegrate
   double reintegrate_vel_norm_thres = 0.0001;
   double reintegrate_angle_norm_thres = 0.0001;
