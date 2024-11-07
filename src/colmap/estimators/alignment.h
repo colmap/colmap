@@ -43,6 +43,7 @@ bool AlignReconstructionToLocations(
     const RANSACOptions& ransac_options,
     Sim3d* tgt_from_src);
 
+// TODO: Needs a unit test.
 bool AlignReconstructionToPosePriors(
     const Reconstruction& src_reconstruction,
     const std::unordered_map<image_t, PosePrior>& tgt_pose_priors,
