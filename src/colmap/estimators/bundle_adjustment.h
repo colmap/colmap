@@ -111,6 +111,30 @@ struct BundleAdjustmentOptions {
   bool Check() const;
 };
 
+struct RigBundleAdjustmentOptions {
+  // Whether to optimize the relative poses of the camera rigs.
+  bool refine_relative_poses = true;
+
+  // The maximum allowed reprojection error for an observation to be
+  // considered in the bundle adjustment. Some observations might have large
+  // reprojection errors due to the concatenation of the absolute and relative
+  // rig poses, which might be different from the absolute pose of the image
+  // in the reconstruction.
+  double max_reproj_error = 1000.0;
+};
+
+struct PosePriorBundleAdjustmentOptions {
+  // Whether to use a robust loss on prior locations.
+  bool use_robust_loss_on_prior_position = false;
+
+  // Threshold on the residual for the robust loss
+  // (chi2 for 3DOF at 95% = 7.815).
+  double prior_position_loss_scale = 7.815;
+
+  // Maximum RANSAC error for Sim3 alignment.
+  double ransac_max_error = 0.;
+};
+
 // Configuration container to setup bundle adjustment problems.
 class BundleAdjustmentConfig {
  public:
@@ -180,166 +204,41 @@ class BundleAdjustmentConfig {
   std::unordered_map<image_t, std::vector<int>> constant_cam_positions_;
 };
 
-// Bundle adjustment based on Ceres-Solver. Enables most flexible configurations
-// and provides best solution quality.
 class BundleAdjuster {
  public:
-  BundleAdjuster(const BundleAdjustmentOptions& options,
-                 const BundleAdjustmentConfig& config);
+  BundleAdjuster(BundleAdjustmentOptions options,
+                 BundleAdjustmentConfig config);
+  virtual ~BundleAdjuster() = default;
 
-  bool Solve(Reconstruction* reconstruction);
+  virtual ceres::Solver::Summary Solve() = 0;
+  virtual std::shared_ptr<ceres::Problem>& Problem() = 0;
 
-  // Set up the problem
-  void SetUpProblem(Reconstruction* reconstruction,
-                    ceres::LossFunction* loss_function);
-  ceres::Solver::Options SetUpSolverOptions(
-      const ceres::Problem& problem,
-      const ceres::Solver::Options& input_solver_options) const;
-
-  // Getter functions below
   const BundleAdjustmentOptions& Options() const;
   const BundleAdjustmentConfig& Config() const;
-  // Get the Ceres problem after the last call to "set_up"
-  std::shared_ptr<ceres::Problem> Problem();
-  // Get the Ceres solver summary after the last call to `Solve`.
-  const ceres::Solver::Summary& Summary() const;
 
  protected:
-  void AddImageToProblem(image_t image_id,
-                         Reconstruction* reconstruction,
-                         ceres::LossFunction* loss_function);
-
-  void AddPointToProblem(point3D_t point3D_id,
-                         Reconstruction* reconstruction,
-                         ceres::LossFunction* loss_function);
-
-  void ParameterizeCameras(Reconstruction* reconstruction);
-  void ParameterizePoints(Reconstruction* reconstruction);
-
-  const BundleAdjustmentOptions options_;
+  BundleAdjustmentOptions options_;
   BundleAdjustmentConfig config_;
-  std::shared_ptr<ceres::Problem> problem_;
-  ceres::Solver::Summary summary_;
-  std::unordered_set<camera_t> camera_ids_;
-  std::unordered_map<point3D_t, size_t> point3D_num_observations_;
-
-  // Hold the life of loss function for Solve()
-  std::unique_ptr<ceres::LossFunction> loss_function_;
 };
 
-class RigBundleAdjuster : public BundleAdjuster {
- public:
-  struct Options {
-    // Whether to optimize the relative poses of the camera rigs.
-    bool refine_relative_poses = true;
+std::unique_ptr<BundleAdjuster> CreateDefaultBundleAdjuster(
+    BundleAdjustmentOptions options,
+    BundleAdjustmentConfig config,
+    Reconstruction& reconstruction);
 
-    // The maximum allowed reprojection error for an observation to be
-    // considered in the bundle adjustment. Some observations might have large
-    // reprojection errors due to the concatenation of the absolute and relative
-    // rig poses, which might be different from the absolute pose of the image
-    // in the reconstruction.
-    double max_reproj_error = 1000.0;
-  };
+std::unique_ptr<BundleAdjuster> CreateRigBundleAdjuster(
+    BundleAdjustmentOptions options,
+    RigBundleAdjustmentOptions rig_options,
+    BundleAdjustmentConfig config,
+    Reconstruction& reconstruction,
+    std::vector<CameraRig>& camera_rigs);
 
-  RigBundleAdjuster(const BundleAdjustmentOptions& options,
-                    const Options& rig_options,
-                    const BundleAdjustmentConfig& config);
-
-  bool Solve(Reconstruction* reconstruction,
-             std::vector<CameraRig>* camera_rigs);
-
-  void SetUpProblem(Reconstruction* reconstruction,
-                    std::vector<CameraRig>* camera_rigs,
-                    ceres::LossFunction* loss_function);
-
-  void TearDown(Reconstruction* reconstruction,
-                const std::vector<CameraRig>& camera_rigs);
-
- private:
-  void AddImageToProblem(image_t image_id,
-                         Reconstruction* reconstruction,
-                         std::vector<CameraRig>* camera_rigs,
-                         ceres::LossFunction* loss_function);
-
-  void AddPointToProblem(point3D_t point3D_id,
-                         Reconstruction* reconstruction,
-                         ceres::LossFunction* loss_function);
-
-  void ComputeCameraRigPoses(const Reconstruction& reconstruction,
-                             const std::vector<CameraRig>& camera_rigs);
-
-  void ParameterizeCameraRigs(Reconstruction* reconstruction);
-
-  const Options rig_options_;
-
-  // Mapping from images to camera rigs.
-  std::unordered_map<image_t, CameraRig*> image_id_to_camera_rig_;
-
-  // Mapping from images to the absolute camera rig poses.
-  std::unordered_map<image_t, Rigid3d*> image_id_to_rig_from_world_;
-
-  // For each camera rig, the absolute camera rig poses for all snapshots.
-  std::vector<std::vector<Rigid3d>> rigs_from_world_;
-
-  // The Quaternions added to the problem, used to set the local
-  // parameterization once after setting up the problem.
-  std::unordered_set<double*> parameterized_quats_;
-};
-
-class PosePriorBundleAdjuster : public BundleAdjuster {
- public:
-  struct Options {
-    Options(bool use_robust_loss_on_prior_position,
-            double prior_position_loss_scale)
-        : use_robust_loss_on_prior_position(use_robust_loss_on_prior_position),
-          prior_position_loss_scale(prior_position_loss_scale) {}
-
-    // Whether to use a robust loss on prior locations
-    bool use_robust_loss_on_prior_position = false;
-
-    // Threshold on the residual for the robust loss
-    // (chi2 for 3DOF at 95% = 7.815)
-    double prior_position_loss_scale = 7.815;
-
-    // Maximum RANSAC error for Sim3D alignment
-    double ransac_max_error = 0.;
-  };
-
-  PosePriorBundleAdjuster(
-      const BundleAdjustmentOptions& options,
-      const Options& prior_options,
-      const BundleAdjustmentConfig& config,
-      const std::unordered_map<image_t, PosePrior>& image_id_to_pose_prior);
-
-  bool Solve(Reconstruction* reconstruction);
-
-  void SetUpProblem(Reconstruction* reconstruction,
-                    ceres::LossFunction* loss_function,
-                    ceres::LossFunction* prior_loss_function);
-
- private:
-  size_t NumPosePriors() const { return image_id_to_pose_prior_.size(); };
-
-  void AddPosePriorToProblem(image_t image_id,
-                             const PosePrior& prior,
-                             Reconstruction* reconstruction,
-                             ceres::LossFunction* prior_loss_function);
-
-  bool Sim3DAlignment(Reconstruction* reconstruction);
-
-  void SetRansacMaxErrorFromPriorsCovariance();
-
-  Options prior_options_;
-  std::unique_ptr<ceres::LossFunction> prior_loss_function_;
-
-  const std::unordered_map<image_t, PosePrior>& image_id_to_pose_prior_;
-
-  // Whether to use prior camera positions
-  bool use_prior_position_ = true;
-
-  // Sim3d transformation that project reconstruction's centroid to (0.,0.,0.)
-  Sim3d normalized_from_metric_;
-};
+std::unique_ptr<BundleAdjuster> CreatePosePriorBundleAdjuster(
+    BundleAdjustmentOptions options,
+    PosePriorBundleAdjustmentOptions prior_options,
+    BundleAdjustmentConfig config,
+    std::unordered_map<image_t, PosePrior> pose_priors,
+    Reconstruction& reconstruction);
 
 void PrintSolverSummary(const ceres::Solver::Summary& summary,
                         const std::string& header);
