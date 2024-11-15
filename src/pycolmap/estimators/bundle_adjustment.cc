@@ -89,6 +89,22 @@ void BindBundleAdjuster(py::module& m) {
                          "requires having PyCeres installed.");
   MakeDataclass(PyBundleAdjustmentOptions);
 
+  using PosePriorBAOpts = PosePriorBundleAdjustmentOptions;
+  auto PyPosePriorBundleAdjustmentOptions =
+      py::class_<PosePriorBAOpts>(m, "PosePriorBundleAdjustmentOptions")
+          .def(py::init<>())
+          .def_readwrite("use_robust_loss_on_prior_position",
+                         &PosePriorBAOpts::use_robust_loss_on_prior_position,
+                         "Whether to use a robust loss on prior locations.")
+          .def_readwrite("prior_position_loss_scale",
+                         &PosePriorBAOpts::prior_position_loss_scale,
+                         "Threshold on the residual for the robust loss (chi2 "
+                         "for 3DOF at 95% = 7.815).")
+          .def_readwrite("ransac_max_error",
+                         &PosePriorBAOpts::ransac_max_error,
+                         "Maximum RANSAC error for Sim3 alignment.");
+  MakeDataclass(PyPosePriorBundleAdjustmentOptions);
+
   using BACfg = BundleAdjustmentConfig;
   py::class_<BACfg> PyBundleAdjustmentConfig(m, "BundleAdjustmentConfig");
   PyBundleAdjustmentConfig.def(py::init<>())
@@ -141,25 +157,42 @@ void BindBundleAdjuster(py::module& m) {
           "constant_cam_positions", &BACfg::ConstantCamPositions, "image_id"_a);
   MakeDataclass(PyBundleAdjustmentConfig);
 
-  py::class_<BundleAdjuster>(m, "BundleAdjuster")
-      .def(py::init<const BundleAdjustmentOptions&,
-                    const BundleAdjustmentConfig&>(),
+  class PyBundleAdjuster : public BundleAdjuster {
+   public:
+    PyBundleAdjuster(BundleAdjustmentOptions options,
+                     BundleAdjustmentConfig config)
+        : BundleAdjuster(std::move(options), std::move(config)) {}
+
+    ceres::Solver::Summary Solve() override {
+      PYBIND11_OVERRIDE_PURE(ceres::Solver::Summary, BundleAdjuster, Solve);
+    }
+
+    std::shared_ptr<ceres::Problem>& Problem() override {
+      PYBIND11_OVERRIDE_PURE(
+          std::shared_ptr<ceres::Problem>&, BundleAdjuster, Problem);
+    }
+  };
+
+  py::class_<BundleAdjuster, PyBundleAdjuster>(m, "BundleAdjuster")
+      .def(py::init<BundleAdjustmentOptions, BundleAdjustmentConfig>(),
            "options"_a,
            "config"_a)
-      .def("solve", &BundleAdjuster::Solve, "reconstruction"_a)
-      .def("set_up_problem",
-           &BundleAdjuster::SetUpProblem,
-           "reconstruction"_a,
-           "loss_function"_a,
-           py::keep_alive<1, 3>())
-      .def("set_up_solver_options",
-           &BundleAdjuster::SetUpSolverOptions,
-           "problem"_a,
-           "input_solver_options"_a)
+      .def("solve", &BundleAdjuster::Solve)
       .def_property_readonly("problem", &BundleAdjuster::Problem)
       .def_property_readonly("options", &BundleAdjuster::Options)
-      .def_property_readonly("config", &BundleAdjuster::Config)
-      .def_property_readonly("summary",
-                             &BundleAdjuster::Summary,
-                             py::return_value_policy::reference_internal);
+      .def_property_readonly("config", &BundleAdjuster::Config);
+
+  m.def("create_default_bundle_adjuster",
+        CreateDefaultBundleAdjuster,
+        "options"_a,
+        "config"_a,
+        "reconstruction"_a);
+
+  m.def("create_pose_prior_bundle_adjuster",
+        CreatePosePriorBundleAdjuster,
+        "options"_a,
+        "prior_options"_a,
+        "config"_a,
+        "pose_priors"_a,
+        "reconstruction"_a);
 }
