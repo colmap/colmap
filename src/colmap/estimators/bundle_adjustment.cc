@@ -935,10 +935,6 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
       normalized_from_metric_ = reconstruction_.Normalize(/*fixed_scale=*/true);
 
       if (prior_options_.use_robust_loss_on_prior_position) {
-        THROW_CHECK_EQ(default_bundle_adjuster_->Problem()
-                           ->options()
-                           .loss_function_ownership,
-                       ceres::DO_NOT_TAKE_OWNERSHIP);
         prior_loss_function_ = std::make_unique<ceres::CauchyLoss>(
             prior_options_.prior_position_loss_scale);
       }
