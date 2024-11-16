@@ -421,7 +421,7 @@ void ParameterizeCameras(const BundleAdjustmentOptions& options,
 
 void ParameterizePoints(
     const BundleAdjustmentConfig& config,
-    const std::unordered_map<point3D_t, size_t> point3D_num_observations,
+    const std::unordered_map<point3D_t, size_t>& point3D_num_observations,
     Reconstruction& reconstruction,
     ceres::Problem& problem) {
   for (const auto& [point3D_id, num_observations] : point3D_num_observations) {
@@ -1084,7 +1084,7 @@ std::unique_ptr<BundleAdjuster> CreateRigBundleAdjuster(
     Reconstruction& reconstruction,
     std::vector<CameraRig>& camera_rigs) {
   return std::make_unique<RigBundleAdjuster>(std::move(options),
-                                             std::move(rig_options),
+                                             rig_options,
                                              std::move(config),
                                              reconstruction,
                                              camera_rigs);
@@ -1097,7 +1097,7 @@ std::unique_ptr<BundleAdjuster> CreatePosePriorBundleAdjuster(
     std::unordered_map<image_t, PosePrior> pose_priors,
     Reconstruction& reconstruction) {
   return std::make_unique<PosePriorBundleAdjuster>(std::move(options),
-                                                   std::move(prior_options),
+                                                   prior_options,
                                                    std::move(config),
                                                    std::move(pose_priors),
                                                    reconstruction);
