@@ -649,7 +649,7 @@ IncrementalMapper::AdjustLocalBundle(
     // Adjust the local bundle.
     std::unique_ptr<BundleAdjuster> bundle_adjuster =
         CreateDefaultBundleAdjuster(
-            std::move(ba_options), std::move(ba_config), *reconstruction_);
+            ba_options, std::move(ba_config), *reconstruction_);
     const ceres::Solver::Summary summary = bundle_adjuster->Solve();
 
     report.num_adjusted_observations = summary.num_residuals / 2;
@@ -749,7 +749,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
     prior_options.prior_position_loss_scale = options.prior_position_loss_scale;
     bundle_adjuster =
         CreatePosePriorBundleAdjuster(std::move(custom_ba_options),
-                                      std::move(prior_options),
+                                      prior_options,
                                       std::move(ba_config),
                                       database_cache_->PosePriors(),
                                       *reconstruction_);
