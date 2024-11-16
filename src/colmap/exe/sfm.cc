@@ -835,7 +835,7 @@ int RunRigBundleAdjuster(int argc, char** argv) {
 
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
       CreateRigBundleAdjuster(std::move(ba_options),
-                              std::move(rig_ba_options),
+                              rig_ba_options,
                               std::move(config),
                               reconstruction,
                               camera_rigs);
