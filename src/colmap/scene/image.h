@@ -87,6 +87,7 @@ class Image {
   // World to camera pose.
   inline const Rigid3d& CamFromWorld() const;
   inline Rigid3d& CamFromWorld();
+  inline const std::optional<Rigid3d>& MaybeCamFromWorld() const;
   inline std::optional<Rigid3d>& MaybeCamFromWorld();
   inline void SetCamFromWorld(const Rigid3d& cam_from_world);
   inline void SetCamFromWorld(const std::optional<Rigid3d>& cam_from_world);
@@ -209,6 +210,10 @@ const Rigid3d& Image::CamFromWorld() const {
 Rigid3d& Image::CamFromWorld() {
   THROW_CHECK(cam_from_world_) << "Image does not have a valid pose.";
   return *cam_from_world_;
+}
+
+const std::optional<Rigid3d>& Image::MaybeCamFromWorld() const {
+  return cam_from_world_;
 }
 
 std::optional<Rigid3d>& Image::MaybeCamFromWorld() { return cam_from_world_; }
