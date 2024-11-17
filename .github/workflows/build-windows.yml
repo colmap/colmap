@@ -17,13 +17,13 @@ jobs:
     strategy:
       matrix:
         config: [
-          {
-            os: windows-2019,
-            cmakeBuildType: Release,
-            cudaEnabled: false,
-            testsEnabled: true,
-            exportPackage: false,
-          },
+          # {
+          #   os: windows-2019,
+          #   cmakeBuildType: Release,
+          #   cudaEnabled: false,
+          #   testsEnabled: true,
+          #   exportPackage: false,
+          # },
           {
             os: windows-2022,
             cmakeBuildType: Release,
