@@ -22,5 +22,5 @@ num_files=$(echo $all_files | wc -w)
 echo "Formatting ${num_files} files"
 
 # shellcheck disable=SC2086
-ruff format --config ${root_folder}/ruff.toml ${all_files} --fix
+ruff format --config ${root_folder}/ruff.toml ${all_files}
 ruff check --config ${root_folder}/ruff.toml ${all_files}
