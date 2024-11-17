@@ -197,4 +197,15 @@ std::vector<Eigen::Vector3d> GPSTransform::ENUToXYZ(
   return xyz;
 }
 
+std::ostream& operator<<(std::ostream& stream, const PosePrior& prior) {
+  const static Eigen::IOFormat vec_fmt(
+      Eigen::StreamPrecision, Eigen::DontAlignCols, ", ", ", ");
+  stream << "PosePrior(position=[" << prior.position.format(vec_fmt)
+         << "], position_covariance=["
+         << prior.position_covariance.format(vec_fmt)
+         << "], coordinate_system=" << static_cast<int>(prior.coordinate_system)
+         << ")";
+  return stream;
+}
+
 }  // namespace colmap
