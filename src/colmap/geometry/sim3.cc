@@ -61,11 +61,11 @@ Sim3d Sim3d::FromFile(const std::string& path) {
 }
 
 std::ostream& operator<<(std::ostream& stream, const Sim3d& tform) {
-  const static Eigen::IOFormat vec_fmt(
+  const static Eigen::IOFormat kVecFmt(
       Eigen::StreamPrecision, Eigen::DontAlignCols, ", ", ", ");
   stream << "Sim3d(scale=" << tform.scale << ", rotation_xyzw=["
-         << tform.rotation.coeffs().format(vec_fmt) << "], translation=["
-         << tform.translation.format(vec_fmt) << "])";
+         << tform.rotation.coeffs().format(kVecFmt) << "], translation=["
+         << tform.translation.format(kVecFmt) << "])";
   return stream;
 }
 
