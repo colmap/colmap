@@ -44,36 +44,6 @@
 namespace colmap {
 
 ////////////////////////////////////////////////////////////////////////////////
-// BundleAdjustmentOptions
-////////////////////////////////////////////////////////////////////////////////
-
-ceres::LossFunction* BundleAdjustmentOptions::CreateLossFunction() const {
-  ceres::LossFunction* loss_function = nullptr;
-  switch (loss_function_type) {
-    case LossFunctionType::TRIVIAL:
-      loss_function = new ceres::TrivialLoss();
-      break;
-    case LossFunctionType::SOFT_L1:
-      loss_function = new ceres::SoftLOneLoss(loss_function_scale);
-      break;
-    case LossFunctionType::CAUCHY:
-      loss_function = new ceres::CauchyLoss(loss_function_scale);
-      break;
-  }
-  THROW_CHECK_NOTNULL(loss_function);
-  return loss_function;
-}
-
-bool BundleAdjustmentOptions::Check() const {
-  CHECK_OPTION_GE(loss_function_scale, 0);
-  CHECK_OPTION_LT(max_num_images_direct_dense_cpu_solver,
-                  max_num_images_direct_sparse_cpu_solver);
-  CHECK_OPTION_LT(max_num_images_direct_dense_gpu_solver,
-                  max_num_images_direct_sparse_gpu_solver);
-  return true;
-}
-
-////////////////////////////////////////////////////////////////////////////////
 // BundleAdjustmentConfig
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -274,26 +244,45 @@ const BundleAdjustmentOptions& BundleAdjuster::Options() const {
 
 const BundleAdjustmentConfig& BundleAdjuster::Config() const { return config_; }
 
-namespace {
+////////////////////////////////////////////////////////////////////////////////
+// BundleAdjustmentOptions
+////////////////////////////////////////////////////////////////////////////////
 
-ceres::Solver::Options CreateSolverOptions(
-    const BundleAdjustmentOptions& options,
-    const BundleAdjustmentConfig& config,
-    const ceres::Problem& problem) {
-  ceres::Solver::Options solver_options = options.solver_options;
+ceres::LossFunction* BundleAdjustmentOptions::CreateLossFunction() const {
+  ceres::LossFunction* loss_function = nullptr;
+  switch (loss_function_type) {
+    case LossFunctionType::TRIVIAL:
+      loss_function = new ceres::TrivialLoss();
+      break;
+    case LossFunctionType::SOFT_L1:
+      loss_function = new ceres::SoftLOneLoss(loss_function_scale);
+      break;
+    case LossFunctionType::CAUCHY:
+      loss_function = new ceres::CauchyLoss(loss_function_scale);
+      break;
+  }
+  THROW_CHECK_NOTNULL(loss_function);
+  return loss_function;
+}
+
+ceres::Solver::Options BundleAdjustmentOptions::CreateSolverOptions(
+    const BundleAdjustmentConfig& config, const ceres::Problem& problem) const {
+  ceres::Solver::Options custom_solver_options = solver_options;
   if (VLOG_IS_ON(2)) {
-    solver_options.minimizer_progress_to_stdout = true;
-    solver_options.logging_type = ceres::LoggingType::PER_MINIMIZER_ITERATION;
+    custom_solver_options.minimizer_progress_to_stdout = true;
+    custom_solver_options.logging_type =
+        ceres::LoggingType::PER_MINIMIZER_ITERATION;
   }
 
   const int num_images = config.NumImages();
   const bool has_sparse =
-      solver_options.sparse_linear_algebra_library_type != ceres::NO_SPARSE;
+      custom_solver_options.sparse_linear_algebra_library_type !=
+      ceres::NO_SPARSE;
 
   int max_num_images_direct_dense_solver =
-      options.max_num_images_direct_dense_cpu_solver;
+      max_num_images_direct_dense_cpu_solver;
   int max_num_images_direct_sparse_solver =
-      options.max_num_images_direct_sparse_cpu_solver;
+      max_num_images_direct_sparse_cpu_solver;
 
 #ifdef COLMAP_CUDA_ENABLED
   bool cuda_solver_enabled = false;
@@ -301,11 +290,10 @@ ceres::Solver::Options CreateSolverOptions(
 #if (CERES_VERSION_MAJOR >= 3 ||                                \
      (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 2)) && \
     !defined(CERES_NO_CUDA)
-  if (options.use_gpu && num_images >= options.min_num_images_gpu_solver) {
+  if (options.use_gpu && num_images >= min_num_images_gpu_solver) {
     cuda_solver_enabled = true;
-    solver_options.dense_linear_algebra_library_type = ceres::CUDA;
-    max_num_images_direct_dense_solver =
-        options.max_num_images_direct_dense_gpu_solver;
+    custom_solver_options.dense_linear_algebra_library_type = ceres::CUDA;
+    max_num_images_direct_dense_solver = max_num_images_direct_dense_gpu_solver;
   }
 #else
   if (options.use_gpu) {
@@ -319,11 +307,12 @@ ceres::Solver::Options CreateSolverOptions(
 #if (CERES_VERSION_MAJOR >= 3 ||                                \
      (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 3)) && \
     !defined(CERES_NO_CUDSS)
-  if (options.use_gpu && num_images >= options.min_num_images_gpu_solver) {
+  if (options.use_gpu && num_images >= min_num_images_gpu_solver) {
     cuda_solver_enabled = true;
-    solver_options.sparse_linear_algebra_library_type = ceres::CUDA_SPARSE;
+    custom_solver_options.sparse_linear_algebra_library_type =
+        ceres::CUDA_SPARSE;
     max_num_images_direct_sparse_solver =
-        options.max_num_images_direct_sparse_gpu_solver;
+        max_num_images_direct_sparse_gpu_solver;
   }
 #else
   if (options.use_gpu) {
@@ -340,7 +329,7 @@ ceres::Solver::Options CreateSolverOptions(
     SetBestCudaDevice(gpu_indices[0]);
   }
 #else
-  if (options.use_gpu) {
+  if (use_gpu) {
     LOG_FIRST_N(WARNING, 1)
         << "Requested to use GPU for bundle adjustment, but COLMAP was "
            "compiled without CUDA support. Falling back to CPU-based "
@@ -349,33 +338,43 @@ ceres::Solver::Options CreateSolverOptions(
 #endif  // COLMAP_CUDA_ENABLED
 
   if (num_images <= max_num_images_direct_dense_solver) {
-    solver_options.linear_solver_type = ceres::DENSE_SCHUR;
+    custom_solver_options.linear_solver_type = ceres::DENSE_SCHUR;
   } else if (has_sparse && num_images <= max_num_images_direct_sparse_solver) {
-    solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
+    custom_solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
   } else {  // Indirect sparse (preconditioned CG) solver.
-    solver_options.linear_solver_type = ceres::ITERATIVE_SCHUR;
-    solver_options.preconditioner_type = ceres::SCHUR_JACOBI;
+    custom_solver_options.linear_solver_type = ceres::ITERATIVE_SCHUR;
+    custom_solver_options.preconditioner_type = ceres::SCHUR_JACOBI;
   }
 
-  if (problem.NumResiduals() <
-      options.min_num_residuals_for_cpu_multi_threading) {
-    solver_options.num_threads = 1;
+  if (problem.NumResiduals() < min_num_residuals_for_cpu_multi_threading) {
+    custom_solver_options.num_threads = 1;
 #if CERES_VERSION_MAJOR < 2
-    solver_options.num_linear_solver_threads = 1;
+    custom_solver_options.num_linear_solver_threads = 1;
 #endif  // CERES_VERSION_MAJOR
   } else {
-    solver_options.num_threads =
-        GetEffectiveNumThreads(solver_options.num_threads);
+    custom_solver_options.num_threads =
+        GetEffectiveNumThreads(custom_solver_options.num_threads);
 #if CERES_VERSION_MAJOR < 2
-    solver_options.num_linear_solver_threads =
-        GetEffectiveNumThreads(solver_options.num_linear_solver_threads);
+    custom_solver_options.num_linear_solver_threads =
+        GetEffectiveNumThreads(custom_solver_options.num_linear_solver_threads);
 #endif  // CERES_VERSION_MAJOR
   }
 
   std::string solver_error;
-  THROW_CHECK(solver_options.IsValid(&solver_error)) << solver_error;
-  return solver_options;
+  THROW_CHECK(custom_solver_options.IsValid(&solver_error)) << solver_error;
+  return custom_solver_options;
 }
+
+bool BundleAdjustmentOptions::Check() const {
+  CHECK_OPTION_GE(loss_function_scale, 0);
+  CHECK_OPTION_LT(max_num_images_direct_dense_cpu_solver,
+                  max_num_images_direct_sparse_cpu_solver);
+  CHECK_OPTION_LT(max_num_images_direct_dense_gpu_solver,
+                  max_num_images_direct_sparse_gpu_solver);
+  return true;
+}
+
+namespace {
 
 void ParameterizeCameras(const BundleAdjustmentOptions& options,
                          const BundleAdjustmentConfig& config,
@@ -475,7 +474,7 @@ class DefaultBundleAdjuster : public BundleAdjuster {
     }
 
     const ceres::Solver::Options solver_options =
-        CreateSolverOptions(options_, config_, *problem_);
+        options_.CreateSolverOptions(config_, *problem_);
 
     ceres::Solve(solver_options, problem_.get(), &summary);
 
@@ -666,7 +665,7 @@ class RigBundleAdjuster : public BundleAdjuster {
     }
 
     const ceres::Solver::Options solver_options =
-        CreateSolverOptions(options_, config_, *problem_);
+        options_.CreateSolverOptions(config_, *problem_);
 
     ceres::Solve(solver_options, problem_.get(), &summary);
 
@@ -958,7 +957,7 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
     }
 
     const ceres::Solver::Options solver_options =
-        CreateSolverOptions(options_, config_, *problem);
+        options_.CreateSolverOptions(config_, *problem);
 
     ceres::Solve(solver_options, problem.get(), &summary);
 
