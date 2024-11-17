@@ -241,6 +241,50 @@ bool AlignReconstructionToLocations(
   return true;
 }
 
+bool AlignReconstructionToPosePriors(
+    const Reconstruction& src_reconstruction,
+    const std::unordered_map<image_t, PosePrior>& tgt_pose_priors,
+    const RANSACOptions& ransac_options,
+    Sim3d* tgt_from_src) {
+  std::vector<Eigen::Vector3d> src;
+  std::vector<Eigen::Vector3d> tgt;
+  src.reserve(tgt_pose_priors.size());
+  tgt.reserve(tgt_pose_priors.size());
+
+  for (const image_t image_id : src_reconstruction.RegImageIds()) {
+    const auto pose_prior_it = tgt_pose_priors.find(image_id);
+    if (pose_prior_it != tgt_pose_priors.end() &&
+        pose_prior_it->second.IsValid()) {
+      const auto& image = src_reconstruction.Image(image_id);
+      src.push_back(image.ProjectionCenter());
+      tgt.push_back(pose_prior_it->second.position);
+    }
+  }
+
+  if (src.size() < 3) {
+    LOG(WARNING)
+        << "Not enough valid pose priors for PosePrior based alignment!";
+    return false;
+  }
+
+  if (ransac_options.max_error > 0) {
+    LORANSAC<SimilarityTransformEstimator<3, true>,
+             SimilarityTransformEstimator<3, true>>
+        ransac(ransac_options);
+
+    const auto report = ransac.Estimate(src, tgt);
+
+    if (report.success) {
+      *tgt_from_src = Sim3d::FromMatrix(report.model);
+      return true;
+    }
+  } else {
+    return EstimateSim3d(src, tgt, *tgt_from_src);
+  }
+
+  return false;
+}
+
 bool AlignReconstructionsViaReprojections(
     const Reconstruction& src_reconstruction,
     const Reconstruction& tgt_reconstruction,

@@ -7,204 +7,23 @@ pyceres is needed as a dependency for this file.
 
 import copy
 
-import pyceres
+import pyceres  # noqa F401
 
 import pycolmap
 from pycolmap import logging
 
 
-class PyBundleAdjuster:
-    # Python implementation of COLMAP bundle adjuster with pyceres
-    def __init__(
-        self,
-        options: pycolmap.BundleAdjustmentOptions,
-        config: pycolmap.BundleAdjustmentConfig,
-    ):
-        self.options = options
-        self.config = config
-        self.problem = pyceres.Problem()
-        self.summary = pyceres.SolverSummary()
-        self.camera_ids = set()
-        self.point3D_num_observations = dict()
-
-    def solve(self, reconstruction: pycolmap.Reconstruction):
-        loss = self.options.create_loss_function()
-        self.set_up_problem(reconstruction, loss)
-        if self.problem.num_residuals() == 0:
-            return False
-        solver_options = self.set_up_solver_options(
-            self.problem, self.options.solver_options
-        )
-        pyceres.solve(solver_options, self.problem, self.summary)
-        return True
-
-    def set_up_problem(
-        self,
-        reconstruction: pycolmap.Reconstruction,
-        loss: pyceres.LossFunction,
-    ):
-        assert reconstruction is not None
-        self.problem = pyceres.Problem()
-        for image_id in self.config.image_ids:
-            self.add_image_to_problem(image_id, reconstruction, loss)
-        for point3D_id in self.config.variable_point3D_ids:
-            self.add_point_to_problem(point3D_id, reconstruction, loss)
-        for point3D_id in self.config.constant_point3D_ids:
-            self.add_point_to_problem(point3D_id, reconstruction, loss)
-        self.parameterize_cameras(reconstruction)
-        self.parameterize_points(reconstruction)
-        return self.problem
-
-    def set_up_solver_options(
-        self, problem: pyceres.Problem, solver_options: pyceres.SolverOptions
-    ):
-        bundle_adjuster = pycolmap.BundleAdjuster(self.options, self.config)
-        return bundle_adjuster.set_up_solver_options(problem, solver_options)
-
-    def add_image_to_problem(
-        self,
-        image_id: int,
-        reconstruction: pycolmap.Reconstruction,
-        loss: pyceres.LossFunction,
-    ):
-        image = reconstruction.images[image_id]
-        pose = image.cam_from_world
-        camera = reconstruction.cameras[image.camera_id]
-        constant_cam_pose = (
-            not self.options.refine_extrinsics
-        ) or self.config.has_constant_cam_pose(image.image_id)
-        num_observations = 0
-        for point2D in image.points2D:
-            if not point2D.has_point3D():
-                continue
-            num_observations += 1
-            if point2D.point3D_id not in self.point3D_num_observations:
-                self.point3D_num_observations[point2D.point3D_id] = 0
-            self.point3D_num_observations[point2D.point3D_id] += 1
-            point3D = reconstruction.points3D[point2D.point3D_id]
-            assert point3D.track.length() > 1
-            if constant_cam_pose:
-                cost = pycolmap.cost_functions.ReprojErrorCost(
-                    camera.model, pose, point2D.xy
-                )
-                self.problem.add_residual_block(
-                    cost, loss, [point3D.xyz, camera.params]
-                )
-            else:
-                cost = pycolmap.cost_functions.ReprojErrorCost(
-                    camera.model, point2D.xy
-                )
-                self.problem.add_residual_block(
-                    cost,
-                    loss,
-                    [
-                        pose.rotation.quat,
-                        pose.translation,
-                        point3D.xyz,
-                        camera.params,
-                    ],
-                )
-        if num_observations > 0:
-            self.camera_ids.add(image.camera_id)
-            # Set pose parameterization
-            if not constant_cam_pose:
-                self.problem.set_manifold(
-                    pose.rotation.quat, pyceres.QuaternionManifold()
-                )
-                if self.config.has_constant_cam_positions(image_id):
-                    constant_position_idxs = self.config.constant_cam_positions(
-                        image_id
-                    )
-                    self.problem.set_manifold(
-                        pose.translation,
-                        pyceres.SubsetManifold(3, constant_position_idxs),
-                    )
-
-    def add_point_to_problem(
-        self,
-        point3D_id: int,
-        reconstruction: pycolmap.Reconstruction,
-        loss: pyceres.LossFunction,
-    ):
-        point3D = reconstruction.points3D[point3D_id]
-        if point3D_id in self.point3D_num_observations:
-            if (
-                self.point3D_num_observations[point3D_id]
-                == point3D.track.length()
-            ):
-                return
-        else:
-            self.point3D_num_observations[point3D_id] = 0
-        for track_el in point3D.track.elements:
-            if self.config.has_image(track_el.image_id):
-                continue
-            self.point3D_num_observations[point3D_id] += 1
-            image = reconstruction.images[track_el.image_id]
-            camera = reconstruction.cameras[image.camera_id]
-            point2D = image.point2D(track_el.point2D_idx)
-            if image.camera_id not in self.camera_ids:
-                self.camera_ids.add(image.camera_id)
-                self.config.set_constant_cam_intrinsics(image.camera_id)
-            cost = pycolmap.cost_functions.ReprojErrorCost(
-                camera.model, image.cam_from_world, point2D.xy
-            )
-            self.problem.add_residual_block(
-                cost, loss, [point3D.xyz, camera.params]
-            )
-
-    def parameterize_cameras(self, reconstruction: pycolmap.Reconstruction):
-        constant_camera = (
-            (not self.options.refine_focal_length)
-            and (not self.options.refine_principal_point)
-            and (not self.options.refine_extra_params)
-        )
-        for camera_id in self.camera_ids:
-            camera = reconstruction.cameras[camera_id]
-            if constant_camera or self.config.has_constant_cam_intrinsics(
-                camera_id
-            ):
-                self.problem.set_parameter_block_constant(camera.params)
-                continue
-            const_camera_params = []
-            if not self.options.refine_focal_length:
-                const_camera_params.extend(camera.focal_length_idxs())
-            if not self.options.refine_principal_point:
-                const_camera_params.extend(camera.principal_point_idxs())
-            if not self.options.refine_extra_params:
-                const_camera_params.extend(camera.extra_point_idxs())
-            if len(const_camera_params) > 0:
-                self.problem.set_manifold(
-                    camera.params,
-                    pyceres.SubsetManifold(
-                        len(camera.params), const_camera_params
-                    ),
-                )
-
-    def parameterize_points(self, reconstruction: pycolmap.Reconstruction):
-        for (
-            point3D_id,
-            num_observations,
-        ) in self.point3D_num_observations.items():
-            point3D = reconstruction.points3D[point3D_id]
-            if point3D.track.length() > num_observations:
-                self.problem.set_parameter_block_constant(point3D.xyz)
-        for point3D_id in self.config.constant_point3D_ids:
-            point3D = reconstruction.points3D[point3D_id]
-            self.problem.set_parameter_block_constant(point3D.xyz)
-
-
 def solve_bundle_adjustment(reconstruction, ba_options, ba_config):
-    bundle_adjuster = pycolmap.BundleAdjuster(ba_options, ba_config)
-    # alternative equivalent python-based bundle adjustment (slower):
-    # bundle_adjuster = PyBundleAdjuster(ba_options, ba_config)
-    bundle_adjuster.set_up_problem(
-        reconstruction, ba_options.create_loss_function()
+    bundle_adjuster = pycolmap.create_default_bundle_adjuster(
+        ba_options, ba_config, reconstruction
     )
-    solver_options = bundle_adjuster.set_up_solver_options(
-        bundle_adjuster.problem, ba_options.solver_options
-    )
-    summary = pyceres.SolverSummary()
-    pyceres.solve(solver_options, bundle_adjuster.problem, summary)
+    summary = bundle_adjuster.solve()
+    # Alternatively, you can customize the existing problem or options as:
+    # solver_options = ba_options.create_solver_options(
+    #     ba_config, bundle_adjuster.problem
+    # )
+    # summary = pyceres.SolverSummary()
+    # pyceres.solve(solver_options, bundle_adjuster.problem, summary)
     return summary
 
 
@@ -240,11 +59,14 @@ def adjust_global_bundle(mapper, mapper_options, ba_options):
                 ba_config.set_constant_cam_pose(image_id)
 
     # Fix 7-DOFs of the bundle adjustment problem
-    ba_config.set_constant_cam_pose(reg_image_ids[0])
+    reg_image_ids_it = iter(reg_image_ids)
+    first_reg_image_id = next(reg_image_ids_it)
+    second_reg_image_id = next(reg_image_ids_it)
+    ba_config.set_constant_cam_pose(first_reg_image_id)
     if (not mapper_options.fix_existing_images) or (
-        reg_image_ids[1] not in mapper.existing_image_ids
+        second_reg_image_id not in mapper.existing_image_ids
     ):
-        ba_config.set_constant_cam_positions(reg_image_ids[1], [0])
+        ba_config.set_constant_cam_positions(second_reg_image_id, [0])
 
     # Run bundle adjustment
     summary = solve_bundle_adjustment(reconstruction, ba_options_tmp, ba_config)

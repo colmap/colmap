@@ -647,11 +647,12 @@ IncrementalMapper::AdjustLocalBundle(
     }
 
     // Adjust the local bundle.
-    BundleAdjuster bundle_adjuster(ba_options, ba_config);
-    bundle_adjuster.Solve(reconstruction_.get());
+    std::unique_ptr<BundleAdjuster> bundle_adjuster =
+        CreateDefaultBundleAdjuster(
+            ba_options, std::move(ba_config), *reconstruction_);
+    const ceres::Solver::Summary summary = bundle_adjuster->Solve();
 
-    report.num_adjusted_observations =
-        bundle_adjuster.Summary().num_residuals / 2;
+    report.num_adjusted_observations = summary.num_residuals / 2;
 
     // Merge refined tracks with other existing points.
     report.num_merged_observations =
@@ -696,15 +697,15 @@ bool IncrementalMapper::AdjustGlobalBundle(
                                              "registered for global "
                                              "bundle-adjustment";
 
-  BundleAdjustmentOptions ba_options_tmp = ba_options;
+  BundleAdjustmentOptions custom_ba_options = ba_options;
   // Use stricter convergence criteria for first registered images.
   const size_t kMinNumRegImagesForFastBA = 10;
   if (reg_image_ids.size() < kMinNumRegImagesForFastBA) {
-    ba_options_tmp.solver_options.function_tolerance /= 10;
-    ba_options_tmp.solver_options.gradient_tolerance /= 10;
-    ba_options_tmp.solver_options.parameter_tolerance /= 10;
-    ba_options_tmp.solver_options.max_num_iterations *= 2;
-    ba_options_tmp.solver_options.max_linear_solver_iterations = 200;
+    custom_ba_options.solver_options.function_tolerance /= 10;
+    custom_ba_options.solver_options.gradient_tolerance /= 10;
+    custom_ba_options.solver_options.parameter_tolerance /= 10;
+    custom_ba_options.solver_options.max_num_iterations *= 2;
+    custom_ba_options.solver_options.max_linear_solver_iterations = 200;
   }
 
   // Avoid degeneracies in bundle adjustment.
@@ -729,6 +730,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
   const bool use_prior_position =
       options.use_prior_position && reg_image_ids.size() > 2;
 
+  std::unique_ptr<BundleAdjuster> bundle_adjuster;
   if (!use_prior_position) {
     // Fix 7-DOFs of the bundle adjustment problem.
     auto reg_image_ids_it = reg_image_ids.begin();
@@ -738,19 +740,22 @@ bool IncrementalMapper::AdjustGlobalBundle(
       ba_config.SetConstantCamPositions(*reg_image_ids_it, {0});  // 2nd image
     }
 
-    // Run bundle adjustment.
-    BundleAdjuster bundle_adjuster(ba_options_tmp, ba_config);
-    return bundle_adjuster.Solve(reconstruction_.get());
+    bundle_adjuster = CreateDefaultBundleAdjuster(
+        std::move(custom_ba_options), std::move(ba_config), *reconstruction_);
   } else {
-    PosePriorBundleAdjuster prior_bundle_adjuster(
-        ba_options_tmp,
-        PosePriorBundleAdjuster::Options(
-            options.use_robust_loss_on_prior_position,
-            options.prior_position_loss_scale),
-        ba_config,
-        database_cache_->PosePriors());
-    return prior_bundle_adjuster.Solve(reconstruction_.get());
+    PosePriorBundleAdjustmentOptions prior_options;
+    prior_options.use_robust_loss_on_prior_position =
+        options.use_robust_loss_on_prior_position;
+    prior_options.prior_position_loss_scale = options.prior_position_loss_scale;
+    bundle_adjuster =
+        CreatePosePriorBundleAdjuster(std::move(custom_ba_options),
+                                      prior_options,
+                                      std::move(ba_config),
+                                      database_cache_->PosePriors(),
+                                      *reconstruction_);
   }
+
+  return bundle_adjuster->Solve().termination_type != ceres::FAILURE;
 }
 
 void IncrementalMapper::IterativeLocalRefinement(
@@ -760,10 +765,13 @@ void IncrementalMapper::IterativeLocalRefinement(
     const BundleAdjustmentOptions& ba_options,
     const IncrementalTriangulator::Options& tri_options,
     const image_t image_id) {
-  BundleAdjustmentOptions ba_options_tmp = ba_options;
+  BundleAdjustmentOptions custom_ba_options = ba_options;
   for (int i = 0; i < max_num_refinements; ++i) {
-    const auto report = AdjustLocalBundle(
-        options, ba_options_tmp, tri_options, image_id, GetModifiedPoints3D());
+    const auto report = AdjustLocalBundle(options,
+                                          custom_ba_options,
+                                          tri_options,
+                                          image_id,
+                                          GetModifiedPoints3D());
     VLOG(1) << "=> Merged observations: " << report.num_merged_observations;
     VLOG(1) << "=> Completed observations: "
             << report.num_completed_observations;
@@ -780,7 +788,7 @@ void IncrementalMapper::IterativeLocalRefinement(
       break;
     }
     // Only use robust cost function for first iteration.
-    ba_options_tmp.loss_function_type =
+    custom_ba_options.loss_function_type =
         BundleAdjustmentOptions::LossFunctionType::TRIVIAL;
   }
   ClearModifiedPoints3D();
