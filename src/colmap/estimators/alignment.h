@@ -35,6 +35,7 @@
 
 namespace colmap {
 
+// Robustly align reconstruction to given image locations (projection centers).
 bool AlignReconstructionToLocations(
     const Reconstruction& src_reconstruction,
     const std::vector<std::string>& tgt_image_names,
@@ -43,7 +44,7 @@ bool AlignReconstructionToLocations(
     const RANSACOptions& ransac_options,
     Sim3d* tgt_from_src);
 
-// TODO: Needs a unit test.
+// Robustly align reconstruction to given pose priors.
 bool AlignReconstructionToPosePriors(
     const Reconstruction& src_reconstruction,
     const std::unordered_map<image_t, PosePrior>& tgt_pose_priors,
