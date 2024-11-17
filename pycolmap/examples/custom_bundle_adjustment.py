@@ -7,8 +7,6 @@ pyceres is needed as a dependency for this file.
 
 import copy
 
-import pyceres
-
 import pycolmap
 from pycolmap import logging
 
