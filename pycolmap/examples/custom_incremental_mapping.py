@@ -2,8 +2,8 @@
 Python reimplementation of the C++ incremental mapper with equivalent logic.
 """
 
-import time
 import argparse
+import time
 from pathlib import Path
 
 import enlighten
