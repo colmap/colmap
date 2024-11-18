@@ -51,7 +51,7 @@ namespace colmap {
 
 #define DEFINE_ENUM_TO_STRING(name, start_idx, ...)                 \
   std::shared_ptr<const std::map<int, std::string>> name##Strings = \
-      std::make_shared<std::map<int, std::string>>(                 \
+      std::make_shared<const std::map<int, std::string>>(           \
           std::initializer_list<std::pair<const int, std::string>>{ \
               BOOST_PP_SEQ_FOR_EACH_I(                              \
                   ENUM_TO_STRING_PROCESS_ELEMENT,                   \
