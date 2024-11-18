@@ -30,6 +30,7 @@
 #pragma once
 
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/enum_to_string.h"
 #include "colmap/util/types.h"
 
 #include <vector>
@@ -42,7 +43,7 @@ namespace colmap {
 // representation and vice versa.
 class GPSTransform {
  public:
-  enum ELLIPSOID { GRS80, WGS84 };
+  MAGIC_MAKE_ENUM(ELLPSOID, GRS80, WGS84);
 
   explicit GPSTransform(int ellipsoid = GRS80);
 

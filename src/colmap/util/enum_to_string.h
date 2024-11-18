@@ -50,11 +50,15 @@ namespace colmap {
   }
 
 #define MAGIC_MAKE_ENUM(name, ...) \
-  enum class name { __VA_ARGS__ }; \
+  enum name { __VA_ARGS__ };       \
+  DEFINE_ENUM_TO_STRING(name, __VA_ARGS__)
+
+#define MAGIC_MAKE_ENUM_CLASS(name, ...) \
+  enum class name { __VA_ARGS__ };       \
   DEFINE_ENUM_TO_STRING(name, __VA_ARGS__)
 
 // Note: this only works for non-nested enum classes.
-#define MAGIC_MAKE_ENUM_OVERLOAD_STREAM(name, ...)                \
+#define MAGIC_MAKE_ENUM_CLASS_OVERLOAD_STREAM(name, ...)          \
   MAGIC_MAKE_ENUM(name, __VA_ARGS__);                             \
   inline std::ostream& operator<<(std::ostream& os, name value) { \
     return os << name##ToString(static_cast<int>(value));         \
