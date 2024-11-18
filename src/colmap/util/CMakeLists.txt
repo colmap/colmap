@@ -38,6 +38,7 @@ COLMAP_ADD_LIBRARY(
         controller_thread.h
         eigen_alignment.h
         endian.h endian.cc
+        enum_to_string.h
         file.h file.cc
         logging.h logging.cc
         misc.h misc.cc
