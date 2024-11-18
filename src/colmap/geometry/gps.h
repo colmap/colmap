@@ -43,7 +43,7 @@ namespace colmap {
 // representation and vice versa.
 class GPSTransform {
  public:
-  MAGIC_MAKE_ENUM(ELLPSOID, 0, GRS80, WGS84);
+  MAKE_ENUM(ELLPSOID, 0, GRS80, WGS84);
 
   explicit GPSTransform(int ellipsoid = GRS80);
 
@@ -86,11 +86,11 @@ class GPSTransform {
 
 struct PosePrior {
  public:
-  MAGIC_MAKE_ENUM_CLASS(CoordinateSystem,
-                        -1,
-                        UNDEFINED,  // = -1
-                        WGS84,      // = 0
-                        CARTESIAN   // = 1
+  MAKE_ENUM_CLASS(CoordinateSystem,
+                  -1,
+                  UNDEFINED,  // = -1
+                  WGS84,      // = 0
+                  CARTESIAN   // = 1
   );
 
   Eigen::Vector3d position =

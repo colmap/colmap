@@ -44,13 +44,13 @@ namespace colmap {
 // [Reference]: enum class MyEnum {C1, C2, C3};
 //
 // [New code]:
-// MAGIC_MAKE_ENUM_CLASS(MyEnum, 0, C1, C2, C3);
+// MAKE_ENUM_CLASS(MyEnum, 0, C1, C2, C3);
 
 #define ENUM_TO_STRING_PROCESS_ELEMENT(r, start_idx, idx, elem) \
   BOOST_PP_COMMA_IF(idx) { idx + start_idx, BOOST_PP_STRINGIZE(elem) }
 
 #define DEFINE_ENUM_TO_STRING(name, start_idx, ...)                 \
-  const std::shared_ptr<std::map<int, std::string>> name##Strings = \
+  std::shared_ptr<const std::map<int, std::string>> name##Strings = \
       std::make_shared<std::map<int, std::string>>(                 \
           std::initializer_list<std::pair<const int, std::string>>{ \
               BOOST_PP_SEQ_FOR_EACH_I(                              \
@@ -68,19 +68,19 @@ namespace colmap {
   BOOST_PP_SEQ_FOR_EACH_I(          \
       ENUM_PROCESS_ELEMENT, start_idx, BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))
 
-#define MAGIC_MAKE_ENUM(name, start_idx, ...)        \
+#define MAKE_ENUM(name, start_idx, ...)              \
   enum name { ENUM_VALUES(start_idx, __VA_ARGS__) }; \
   DEFINE_ENUM_TO_STRING(name, start_idx, __VA_ARGS__)
 
-#define MAGIC_MAKE_ENUM_CLASS(name, start_idx, ...)        \
+#define MAKE_ENUM_CLASS(name, start_idx, ...)              \
   enum class name { ENUM_VALUES(start_idx, __VA_ARGS__) }; \
   DEFINE_ENUM_TO_STRING(name, start_idx, __VA_ARGS__)
 
 // This only works for non-nested enum classes.
-#define MAGIC_MAKE_ENUM_CLASS_OVERLOAD_STREAM(name, start_idx, ...) \
-  MAGIC_MAKE_ENUM_CLASS(name, start_idx, __VA_ARGS__);              \
-  inline std::ostream& operator<<(std::ostream& os, name value) {   \
-    return os << name##ToString(static_cast<int>(value));           \
+#define MAKE_ENUM_CLASS_OVERLOAD_STREAM(name, start_idx, ...)     \
+  MAKE_ENUM_CLASS(name, start_idx, __VA_ARGS__);                  \
+  inline std::ostream& operator<<(std::ostream& os, name value) { \
+    return os << name##ToString(static_cast<int>(value));         \
   }
 
 }  // namespace colmap

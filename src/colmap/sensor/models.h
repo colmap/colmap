@@ -80,21 +80,21 @@ namespace colmap {
 // the upper left pixel center has coordinate (0.5, 0.5) and the lower right
 // pixel center has the coordinate (width - 0.5, height - 0.5).
 
-MAGIC_MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
-                                      -1,
-                                      kInvalid,                // = -1
-                                      kSimplePinhole,          // = 0
-                                      kPinhole,                // = 1
-                                      kSimpleRadial,           // = 2
-                                      kRadial,                 // = 3
-                                      kOpenCV,                 // = 4
-                                      kOpenCVFisheye,          // = 5
-                                      kFullOpenCV,             // = 6
-                                      kFOV,                    // = 7
-                                      kSimpleRadialFisheye,    // = 8
-                                      kRadialFisheye,          // = 9
-                                      kThinPrismFisheye,       // = 10
-                                      kRadTanThinPrismFisheye  // = 11
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
+                                -1,
+                                kInvalid,                // = -1
+                                kSimplePinhole,          // = 0
+                                kPinhole,                // = 1
+                                kSimpleRadial,           // = 2
+                                kRadial,                 // = 3
+                                kOpenCV,                 // = 4
+                                kOpenCVFisheye,          // = 5
+                                kFullOpenCV,             // = 6
+                                kFOV,                    // = 7
+                                kSimpleRadialFisheye,    // = 8
+                                kRadialFisheye,          // = 9
+                                kThinPrismFisheye,       // = 10
+                                kRadTanThinPrismFisheye  // = 11
 );
 
 #ifndef CAMERA_MODEL_DEFINITIONS
