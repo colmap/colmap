@@ -52,7 +52,7 @@ namespace colmap {
 
 #define DEFINE_ENUM_TO_STRING(name, start_idx, ...)                   \
   template <typename T>                                               \
-  constexpr std::string name##ToString(T value) {                     \
+  constexpr const char* name##ToString(T value) {                     \
     switch (static_cast<int>(value)) {                                \
       BOOST_PP_SEQ_FOR_EACH_I(ENUM_TO_STRING_PROCESS_ELEMENT,         \
                               start_idx,                              \
