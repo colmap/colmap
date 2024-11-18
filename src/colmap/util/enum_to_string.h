@@ -48,7 +48,7 @@ namespace colmap {
 // MAKE_ENUM_CLASS(MyEnum, 0, C1, C2, C3);
 
 #define ENUM_TO_STRING_PROCESS_ELEMENT(r, start_idx, idx, elem) \
-  case (idx + start_idx):                                       \
+  case ((idx) + (start_idx)):                                   \
     return BOOST_PP_STRINGIZE(elem);
 
 #define DEFINE_ENUM_TO_STRING(name, start_idx, ...)                   \
@@ -63,7 +63,8 @@ namespace colmap {
     }                                                                 \
   }
 
-#define ENUM_PROCESS_ELEMENT(r, start_idx, idx, elem) elem = idx + start_idx,
+#define ENUM_PROCESS_ELEMENT(r, start_idx, idx, elem) \
+  elem = (idx) + (start_idx),
 
 #define ENUM_VALUES(start_idx, ...) \
   BOOST_PP_SEQ_FOR_EACH_I(          \
