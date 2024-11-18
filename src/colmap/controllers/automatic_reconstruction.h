@@ -41,9 +41,9 @@ namespace colmap {
 
 class AutomaticReconstructionController : public Thread {
  public:
-  MAGIC_MAKE_ENUM_CLASS(DataType, INDIVIDUAL, VIDEO, INTERNET);
-  MAGIC_MAKE_ENUM_CLASS(Quality, LOW, MEDIUM, HIGH, EXTREME);
-  MAGIC_MAKE_ENUM_CLASS(Mesher, POISSON, DELAUNAY);
+  MAGIC_MAKE_ENUM_CLASS(DataType, 0, INDIVIDUAL, VIDEO, INTERNET);
+  MAGIC_MAKE_ENUM_CLASS(Quality, 0, LOW, MEDIUM, HIGH, EXTREME);
+  MAGIC_MAKE_ENUM_CLASS(Mesher, 0, POISSON, DELAUNAY);
 
   struct Options {
     // The path to the workspace folder in which all results are stored.

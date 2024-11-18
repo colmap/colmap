@@ -30,38 +30,53 @@
 #pragma once
 
 #include <iostream>
-#include <vector>
+#include <map>
 
 #include <boost/preprocessor.hpp>
 
 namespace colmap {
 
-#define ENUM_TO_STRING_PROCESS_ELEMENT(r, unused, idx, elem) \
-  BOOST_PP_COMMA_IF(idx) BOOST_PP_STRINGIZE(elem)
+// Custom macro for enum to string support. Only enum structs / classes with
+// consecutive indexes are supported
+//
+// Example:
+// [Reference]: enum class A {D1, D2, D3};
+//
+// [New code]:
+// MAGIC_MAKE_ENUM_CLASS(A, 0, D1, D2, D3);
 
-#define DEFINE_ENUM_TO_STRING(name, ...)                                 \
-  const std::vector<std::string> name##Strings = {                       \
-      BOOST_PP_SEQ_FOR_EACH_I(ENUM_TO_STRING_PROCESS_ELEMENT,            \
-                              % %                                        \
-                              , BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))}; \
-  template <typename T>                                                  \
-  constexpr const std::string& name##ToString(T value) {                 \
-    return name##Strings[static_cast<int>(value)];                       \
+#define ENUM_TO_STRING_PROCESS_ELEMENT(r, start_idx, idx, elem) \
+  BOOST_PP_COMMA_IF(idx) { idx + start_idx, BOOST_PP_STRINGIZE(elem) }
+
+#define DEFINE_ENUM_TO_STRING(name, start_idx, ...)                    \
+  const std::map<int, std::string> name##Strings = {                   \
+      BOOST_PP_SEQ_FOR_EACH_I(ENUM_TO_STRING_PROCESS_ELEMENT,          \
+                              start_idx,                               \
+                              BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))}; \
+  template <typename T>                                                \
+  constexpr const std::string& name##ToString(T value) {               \
+    return name##Strings.at(static_cast<int>(value));                  \
   }
 
-#define MAGIC_MAKE_ENUM(name, ...) \
-  enum name { __VA_ARGS__ };       \
-  DEFINE_ENUM_TO_STRING(name, __VA_ARGS__)
+#define ENUM_PROCESS_ELEMENT(r, start_idx, idx, elem) elem = idx + start_idx,
 
-#define MAGIC_MAKE_ENUM_CLASS(name, ...) \
-  enum class name { __VA_ARGS__ };       \
-  DEFINE_ENUM_TO_STRING(name, __VA_ARGS__)
+#define ENUM_VALUES(start_idx, ...) \
+  BOOST_PP_SEQ_FOR_EACH_I(          \
+      ENUM_PROCESS_ELEMENT, start_idx, BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))
 
-// Note: this only works for non-nested enum classes.
-#define MAGIC_MAKE_ENUM_CLASS_OVERLOAD_STREAM(name, ...)          \
-  MAGIC_MAKE_ENUM(name, __VA_ARGS__);                             \
-  inline std::ostream& operator<<(std::ostream& os, name value) { \
-    return os << name##ToString(static_cast<int>(value));         \
+#define MAGIC_MAKE_ENUM(name, start_idx, ...)        \
+  enum name { ENUM_VALUES(start_idx, __VA_ARGS__) }; \
+  DEFINE_ENUM_TO_STRING(name, start_idx, __VA_ARGS__)
+
+#define MAGIC_MAKE_ENUM_CLASS(name, start_idx, ...)        \
+  enum class name { ENUM_VALUES(start_idx, __VA_ARGS__) }; \
+  DEFINE_ENUM_TO_STRING(name, start_idx, __VA_ARGS__)
+
+// This only works for non-nested enum classes.
+#define MAGIC_MAKE_ENUM_CLASS_OVERLOAD_STREAM(name, start_idx, ...) \
+  MAGIC_MAKE_ENUM_CLASS(name, start_idx, __VA_ARGS__);              \
+  inline std::ostream& operator<<(std::ostream& os, name value) {   \
+    return os << name##ToString(static_cast<int>(value));           \
   }
 
 }  // namespace colmap
