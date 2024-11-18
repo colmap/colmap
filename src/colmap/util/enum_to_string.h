@@ -29,6 +29,8 @@
 
 #pragma once
 
+#include "colmap/util/logging.h"
+
 #include <iostream>
 #include <memory>
 
@@ -50,14 +52,14 @@ namespace colmap {
     return BOOST_PP_STRINGIZE(elem);
 
 #define DEFINE_ENUM_TO_STRING(name, start_idx, ...)                   \
-  constexpr const char* name##ToString(int value) {                   \
+  static std::string name##ToString(int value) {                      \
     switch (value) {                                                  \
       BOOST_PP_SEQ_FOR_EACH_I(ENUM_TO_STRING_PROCESS_ELEMENT,         \
                               start_idx,                              \
                               BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__)); \
       default:                                                        \
-        throw std::runtime_error("Invalid input value: " +            \
-                                 std::to_string(value));              \
+        LOG(FATAL_THROW) << "Invalid input value: " << value;         \
+        return "None";                                                \
     }                                                                 \
   }
 

@@ -40,8 +40,8 @@ TEST(MakeEnum, Nominal) {
   MAKE_ENUM(MyEnum, 0, ClassA, ClassB);
   EXPECT_EQ(ClassA, 0);
   EXPECT_EQ(ClassB, 1);
-  EXPECT_EQ(std::string(MyEnumToString(ClassA)), "ClassA");
-  EXPECT_EQ(std::string(MyEnumToString(ClassB)), "ClassB");
+  EXPECT_EQ(MyEnumToString(ClassA), "ClassA");
+  EXPECT_EQ(MyEnumToString(ClassB), "ClassB");
 }
 
 TEST(MakeEnumClass, Nominal) {
@@ -49,9 +49,9 @@ TEST(MakeEnumClass, Nominal) {
   EXPECT_EQ(static_cast<int>(MyEnum::UNDEFINED), -1);
   EXPECT_EQ(static_cast<int>(MyEnum::ClassA), 0);
   EXPECT_EQ(static_cast<int>(MyEnum::ClassB), 1);
-  EXPECT_EQ(std::string(MyEnumToString(MyEnum::UNDEFINED)), "UNDEFINED");
-  EXPECT_EQ(std::string(MyEnumToString(MyEnum::ClassA)), "ClassA");
-  EXPECT_EQ(std::string(MyEnumToString(MyEnum::ClassB)), "ClassB");
+  EXPECT_EQ(MyEnumToString(MyEnum::UNDEFINED), "UNDEFINED");
+  EXPECT_EQ(MyEnumToString(MyEnum::ClassA), "ClassA");
+  EXPECT_EQ(MyEnumToString(MyEnum::ClassB), "ClassB");
 }
 
 TEST(MakeEnumClass, Print) {
