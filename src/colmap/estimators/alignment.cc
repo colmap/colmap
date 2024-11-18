@@ -266,21 +266,9 @@ bool AlignReconstructionToPosePriors(
   }
 
   if (ransac_options.max_error > 0) {
-    LORANSAC<SimilarityTransformEstimator<3, true>,
-             SimilarityTransformEstimator<3, true>>
-        ransac(ransac_options);
-
-    const auto report = ransac.Estimate(src, tgt);
-
-    if (report.success) {
-      *tgt_from_src = Sim3d::FromMatrix(report.model);
-      return true;
-    }
-  } else {
-    return EstimateSim3d(src, tgt, *tgt_from_src);
+    return EstimateSim3dRobust(src, tgt, ransac_options, *tgt_from_src).success;
   }
-
-  return false;
+  return EstimateSim3d(src, tgt, *tgt_from_src);
 }
 
 bool AlignReconstructionsViaReprojections(
