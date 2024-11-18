@@ -115,7 +115,7 @@ EstimateSim3dRobust(const std::vector<Eigen::Vector3d>& src,
   LORANSAC<SimilarityTransformEstimator<3, kEstimateScale>,
            SimilarityTransformEstimator<3, kEstimateScale>>
       ransac(options);
-  const auto report = ransac.Estimate(src, tgt);
+  auto report = ransac.Estimate(src, tgt);
   if (report.success) {
     tgt_from_src = Sim3d::FromMatrix(report.model);
   }
