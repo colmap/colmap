@@ -56,7 +56,8 @@ namespace colmap {
                               start_idx,                              \
                               BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__)); \
       default:                                                        \
-        throw std::runtime_error("Invalid input value");              \
+        throw std::runtime_error("Invalid input value: " +            \
+                                 std::to_string(value));              \
     }                                                                 \
   }
 
