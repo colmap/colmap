@@ -31,6 +31,7 @@
 
 #include <iostream>
 #include <map>
+#include <memory>
 
 #include <boost/preprocessor.hpp>
 
@@ -48,14 +49,17 @@ namespace colmap {
 #define ENUM_TO_STRING_PROCESS_ELEMENT(r, start_idx, idx, elem) \
   BOOST_PP_COMMA_IF(idx) { idx + start_idx, BOOST_PP_STRINGIZE(elem) }
 
-#define DEFINE_ENUM_TO_STRING(name, start_idx, ...)                    \
-  const std::map<int, std::string> name##Strings = {                   \
-      BOOST_PP_SEQ_FOR_EACH_I(ENUM_TO_STRING_PROCESS_ELEMENT,          \
-                              start_idx,                               \
-                              BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))}; \
-  template <typename T>                                                \
-  constexpr const std::string& name##ToString(T value) {               \
-    return name##Strings.at(static_cast<int>(value));                  \
+#define DEFINE_ENUM_TO_STRING(name, start_idx, ...)                 \
+  const std::shared_ptr<std::map<int, std::string>> name##Strings = \
+      std::make_shared<std::map<int, std::string>>(                 \
+          std::initializer_list<std::pair<const int, std::string>>{ \
+              BOOST_PP_SEQ_FOR_EACH_I(                              \
+                  ENUM_TO_STRING_PROCESS_ELEMENT,                   \
+                  start_idx,                                        \
+                  BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))});         \
+  template <typename T>                                             \
+  constexpr const std::string& name##ToString(T value) {            \
+    return name##Strings->at(static_cast<int>(value));              \
   }
 
 #define ENUM_PROCESS_ELEMENT(r, start_idx, idx, elem) elem = idx + start_idx,
