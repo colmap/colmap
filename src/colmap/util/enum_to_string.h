@@ -37,7 +37,7 @@
 namespace colmap {
 
 // Custom macro for enum to string support. Only enum structs / classes with
-// consecutive indexes are supported
+// consecutive indexes are supported.
 //
 // Example:
 // [Reference]: enum class MyEnum {C1, C2, C3};
@@ -50,9 +50,8 @@ namespace colmap {
     return BOOST_PP_STRINGIZE(elem);
 
 #define DEFINE_ENUM_TO_STRING(name, start_idx, ...)                   \
-  template <typename T>                                               \
-  constexpr const char* name##ToString(T value) {                     \
-    switch (static_cast<int>(value)) {                                \
+  constexpr const char* name##ToString(int value) {                   \
+    switch (value) {                                                  \
       BOOST_PP_SEQ_FOR_EACH_I(ENUM_TO_STRING_PROCESS_ELEMENT,         \
                               start_idx,                              \
                               BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__)); \
