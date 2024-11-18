@@ -42,7 +42,7 @@ namespace colmap {
 // representation and vice versa.
 class GPSTransform {
  public:
-  enum ELLIPSOID { GRS80, WGS84 };
+  MAGIC_MAKE_ENUM(ELLIPSOID, GRS80, WGS84);
 
   explicit GPSTransform(int ellipsoid = GRS80);
 
