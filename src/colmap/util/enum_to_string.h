@@ -47,19 +47,19 @@ namespace colmap {
 // MAKE_ENUM_CLASS(MyEnum, 0, C1, C2, C3);
 
 #define ENUM_TO_STRING_PROCESS_ELEMENT(r, start_idx, idx, elem) \
-  BOOST_PP_COMMA_IF(idx) { idx + start_idx, BOOST_PP_STRINGIZE(elem) }
+  case (idx + start_idx):                                       \
+    return BOOST_PP_STRINGIZE(elem);
 
-#define DEFINE_ENUM_TO_STRING(name, start_idx, ...)                 \
-  std::shared_ptr<const std::map<int, std::string>> name##Strings = \
-      std::make_shared<const std::map<int, std::string>>(           \
-          std::initializer_list<std::pair<const int, std::string>>{ \
-              BOOST_PP_SEQ_FOR_EACH_I(                              \
-                  ENUM_TO_STRING_PROCESS_ELEMENT,                   \
-                  start_idx,                                        \
-                  BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))});         \
-  template <typename T>                                             \
-  constexpr const std::string& name##ToString(T value) {            \
-    return name##Strings->at(static_cast<int>(value));              \
+#define DEFINE_ENUM_TO_STRING(name, start_idx, ...)                   \
+  template <typename T>                                               \
+  constexpr const std::string name##ToString(T value) {               \
+    switch (static_cast<int>(value)) {                                \
+      BOOST_PP_SEQ_FOR_EACH_I(ENUM_TO_STRING_PROCESS_ELEMENT,         \
+                              start_idx,                              \
+                              BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__)); \
+      default:                                                        \
+        throw std::runtime_error("Invalid input value");              \
+    }                                                                 \
   }
 
 #define ENUM_PROCESS_ELEMENT(r, start_idx, idx, elem) elem = idx + start_idx,
