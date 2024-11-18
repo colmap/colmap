@@ -50,9 +50,9 @@ TEST(MakeEnumClass, Nominal) {
   EXPECT_EQ(static_cast<int>(MyEnumClass::UNDEFINED), -1);
   EXPECT_EQ(static_cast<int>(MyEnumClass::ClassA), 0);
   EXPECT_EQ(static_cast<int>(MyEnumClass::ClassB), 1);
-  EXPECT_EQ(MyEnumClassToString(MyEnumClass::UNDEFINED), "UNDEFINED");
-  EXPECT_EQ(MyEnumClassToString(MyEnumClass::ClassA), "ClassA");
-  EXPECT_EQ(MyEnumClassToString(MyEnumClass::ClassB), "ClassB");
+  EXPECT_EQ(MyEnumClassToString(-1), "UNDEFINED");
+  EXPECT_EQ(MyEnumClassToString(0), "ClassA");
+  EXPECT_EQ(MyEnumClassToString(1), "ClassB");
   std::ostringstream stream;
   stream << MyEnumClass::ClassA;
   EXPECT_EQ(stream.str(), "ClassA");
