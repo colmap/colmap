@@ -31,27 +31,33 @@
 
 #include <iostream>
 #include <vector>
+
 #include <boost/preprocessor.hpp>
 
 namespace colmap {
 
 #define ENUM_TO_STRING_PROCESS_ELEMENT(r, unused, idx, elem) \
-    BOOST_PP_COMMA_IF(idx) BOOST_PP_STRINGIZE(elem)
-   
-#define DEFINE_ENUM_TO_STRING(name, ...)\
-    const std::vector<std::string> name##Strings = { BOOST_PP_SEQ_FOR_EACH_I(ENUM_TO_STRING_PROCESS_ELEMENT, %%, BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))  };\
-    template<typename T>\
-    constexpr const std::string& name##ToString(T value) { return name##Strings[static_cast<int>(value)]; }
+  BOOST_PP_COMMA_IF(idx) BOOST_PP_STRINGIZE(elem)
 
-#define MAGIC_MAKE_ENUM(name, ...)\
-    enum class name { __VA_ARGS__  };\
-    DEFINE_ENUM_TO_STRING(name, __VA_ARGS__)
+#define DEFINE_ENUM_TO_STRING(name, ...)                                 \
+  const std::vector<std::string> name##Strings = {                       \
+      BOOST_PP_SEQ_FOR_EACH_I(ENUM_TO_STRING_PROCESS_ELEMENT,            \
+                              % %                                        \
+                              , BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))}; \
+  template <typename T>                                                  \
+  constexpr const std::string& name##ToString(T value) {                 \
+    return name##Strings[static_cast<int>(value)];                       \
+  }
+
+#define MAGIC_MAKE_ENUM(name, ...) \
+  enum class name { __VA_ARGS__ }; \
+  DEFINE_ENUM_TO_STRING(name, __VA_ARGS__)
 
 // Note: this only works for non-nested enum classes.
-#define MAGIC_MAKE_ENUM_OVERLOAD_STREAM(name, ...)\
-    MAGIC_MAKE_ENUM(name, __VA_ARGS__);\
-    inline std::ostream& operator<<(std::ostream& os, name value) {\
-      return os << name##ToString(static_cast<int>(value));\
-    }
+#define MAGIC_MAKE_ENUM_OVERLOAD_STREAM(name, ...)                \
+  MAGIC_MAKE_ENUM(name, __VA_ARGS__);                             \
+  inline std::ostream& operator<<(std::ostream& os, name value) { \
+    return os << name##ToString(static_cast<int>(value));         \
+  }
 
 }  // namespace colmap
