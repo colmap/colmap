@@ -40,10 +40,10 @@ namespace colmap {
 // consecutive indexes are supported
 //
 // Example:
-// [Reference]: enum class A {D1, D2, D3};
+// [Reference]: enum class MyEnum {C1, C2, C3};
 //
 // [New code]:
-// MAGIC_MAKE_ENUM_CLASS(A, 0, D1, D2, D3);
+// MAGIC_MAKE_ENUM_CLASS(MyEnum, 0, C1, C2, C3);
 
 #define ENUM_TO_STRING_PROCESS_ELEMENT(r, start_idx, idx, elem) \
   BOOST_PP_COMMA_IF(idx) { idx + start_idx, BOOST_PP_STRINGIZE(elem) }
