@@ -30,7 +30,6 @@
 #pragma once
 
 #include <iostream>
-#include <map>
 #include <memory>
 
 #include <boost/preprocessor.hpp>
