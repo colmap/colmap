@@ -36,8 +36,10 @@
 namespace colmap {
 namespace {
 
+MAKE_ENUM(MyEnum, 0, ClassA, ClassB);
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(MyEnumClass, -1, UNDEFINED, ClassA, ClassB);
+
 TEST(MakeEnum, Nominal) {
-  MAKE_ENUM(MyEnum, 0, ClassA, ClassB);
   EXPECT_EQ(ClassA, 0);
   EXPECT_EQ(ClassB, 1);
   EXPECT_EQ(MyEnumToString(ClassA), "ClassA");
@@ -45,19 +47,14 @@ TEST(MakeEnum, Nominal) {
 }
 
 TEST(MakeEnumClass, Nominal) {
-  MAKE_ENUM_CLASS(MyEnum, -1, UNDEFINED, ClassA, ClassB);
-  EXPECT_EQ(static_cast<int>(MyEnum::UNDEFINED), -1);
-  EXPECT_EQ(static_cast<int>(MyEnum::ClassA), 0);
-  EXPECT_EQ(static_cast<int>(MyEnum::ClassB), 1);
-  EXPECT_EQ(MyEnumToString(MyEnum::UNDEFINED), "UNDEFINED");
-  EXPECT_EQ(MyEnumToString(MyEnum::ClassA), "ClassA");
-  EXPECT_EQ(MyEnumToString(MyEnum::ClassB), "ClassB");
-}
-
-TEST(MakeEnumClass, Print) {
-  MAKE_ENUM_CLASS_OVERLOAD_STREAM(MyEnum, -1, UNDEFINED, ClassA, ClassB);
+  EXPECT_EQ(static_cast<int>(MyEnumClass::UNDEFINED), -1);
+  EXPECT_EQ(static_cast<int>(MyEnumClass::ClassA), 0);
+  EXPECT_EQ(static_cast<int>(MyEnumClass::ClassB), 1);
+  EXPECT_EQ(MyEnumClassToString(MyEnumClass::UNDEFINED), "UNDEFINED");
+  EXPECT_EQ(MyEnumClassToString(MyEnumClass::ClassA), "ClassA");
+  EXPECT_EQ(MyEnumClassToString(MyEnumClass::ClassB), "ClassB");
   std::ostringstream stream;
-  stream << MyEnum::ClassA;
+  stream << MyEnumClass::ClassA;
   EXPECT_EQ(stream.str(), "ClassA");
 }
 
