@@ -96,8 +96,9 @@ void BundleAdjustmentController::Run() {
   ba_config.SetConstantCamPositions(*(++reg_image_ids_it), {0});  // 2nd image
 
   // Run bundle adjustment.
-  BundleAdjuster bundle_adjuster(ba_options, ba_config);
-  bundle_adjuster.Solve(reconstruction_.get());
+  std::unique_ptr<BundleAdjuster> bundle_adjuster = CreateDefaultBundleAdjuster(
+      std::move(ba_options), std::move(ba_config), *reconstruction_);
+  bundle_adjuster->Solve();
 
   run_timer.PrintMinutes();
 }
