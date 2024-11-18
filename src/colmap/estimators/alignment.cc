@@ -224,18 +224,16 @@ bool AlignReconstructionToLocations(
     return false;
   }
 
-  LORANSAC<SimilarityTransformEstimator<3, true>,
-           SimilarityTransformEstimator<3, true>>
-      ransac(ransac_options);
-
-  const auto report = ransac.Estimate(src, dst);
+  Sim3d tgt_from_src_;
+  const auto report =
+      EstimateSim3dRobust(src, dst, ransac_options, tgt_from_src_);
 
   if (report.support.num_inliers < static_cast<size_t>(min_common_images)) {
     return false;
   }
 
   if (tgt_from_src != nullptr) {
-    *tgt_from_src = Sim3d::FromMatrix(report.model);
+    *tgt_from_src = tgt_from_src_;
   }
 
   return true;
@@ -396,13 +394,8 @@ bool AlignReconstructionsViaPoints(const Reconstruction& src_reconstruction,
   RANSACOptions ransac_options;
   ransac_options.max_error = max_error;
   ransac_options.min_inlier_ratio = min_inlier_ratio;
-  LORANSAC<SimilarityTransformEstimator<3, true>,
-           SimilarityTransformEstimator<3, true>>
-      ransac(ransac_options);
-  const auto report = ransac.Estimate(src_xyz, tgt_xyz);
-  if (report.success) {
-    *tgt_from_src = Sim3d::FromMatrix(report.model);
-  }
+  const auto report =
+      EstimateSim3dRobust(src_xyz, tgt_xyz, ransac_options, *tgt_from_src);
   return report.success;
 }
 

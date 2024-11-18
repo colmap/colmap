@@ -1035,17 +1035,8 @@ bool PosePriorBundleAdjuster::Sim3DAlignment(Reconstruction* reconstruction) {
     RANSACOptions ransac_options;
     ransac_options.max_error = prior_options_.ransac_max_error;
 
-    LORANSAC<SimilarityTransformEstimator<3, true>,
-             SimilarityTransformEstimator<3, true>>
-        ransac(ransac_options);
-
-    const auto report = ransac.Estimate(v_src, v_tgt);
-
-    if (report.success) {
-      // Apply sim3 transform
-      sim3_tform = Sim3d::FromMatrix(report.model);
-      success = true;
-    }
+    success =
+        EstimateSim3dRobust(v_src, v_tgt, ransac_options, sim3_tform).success;
   } else {
     success = EstimateSim3d(v_src, v_tgt, sim3_tform);
   }
