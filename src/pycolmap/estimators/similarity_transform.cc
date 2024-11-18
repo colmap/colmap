@@ -15,26 +15,6 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
-py::typing::Optional<py::dict> PyEstimateSim3dRobust(
-    const std::vector<Eigen::Vector3d>& src,
-    const std::vector<Eigen::Vector3d>& tgt,
-    const RANSACOptions& options) {
-  THROW_CHECK_EQ(src.size(), tgt.size());
-  py::gil_scoped_release release;
-  LORANSAC<SimilarityTransformEstimator<3, true>,
-           SimilarityTransformEstimator<3, true>>
-      ransac(options);
-
-  const auto report = ransac.Estimate(src, tgt);
-  py::gil_scoped_acquire acquire;
-  if (!report.success) {
-    return py::none();
-  }
-  return py::dict("tgt_from_src"_a = Sim3d::FromMatrix(report.model),
-                  "num_inliers"_a = report.support.num_inliers,
-                  "inliers"_a = ToPythonMask(report.inlier_mask));
-}
-
 void BindSimilarityTransformEstimator(py::module& m) {
   auto est_options = m.attr("RANSACOptions")().cast<RANSACOptions>();
 
@@ -57,10 +37,25 @@ void BindSimilarityTransformEstimator(py::module& m) {
       "points3D_tgt"_a,
       "Estimate the 3D similarity transform tgt_T_src.");
 
-  m.def("estimate_sim3d_robust",
-        &PyEstimateSim3dRobust,
-        "points3D_src"_a,
-        "points3D_tgt"_a,
-        py::arg_v("estimation_options", est_options, "RANSACOptions()"),
-        "Estimate the 3D similarity transform in a robust way with LORANSAC.");
+  m.def(
+      "estimate_sim3d_robust",
+      [](const std::vector<Eigen::Vector3d>& src,
+         const std::vector<Eigen::Vector3d>& tgt,
+         const RANSACOptions& options) -> py::typing::Optional<Sim3d> {
+        py::gil_scoped_release release;
+        Sim3d tgt_from_src;
+        const auto report =
+            EstimateSim3dRobust(src, tgt, options, tgt_from_src);
+        py::gil_scoped_acquire acquire;
+        if (!report.success) {
+          return py::none();
+        }
+        return py::dict("tgt_from_src"_a = Sim3d::FromMatrix(report.model),
+                        "num_inliers"_a = report.support.num_inliers,
+                        "inliers"_a = ToPythonMask(report.inlier_mask));
+      },
+      "points3D_src"_a,
+      "points3D_tgt"_a,
+      py::arg_v("estimation_options", est_options, "RANSACOptions()"),
+      "Estimate the 3D similarity transform in a robust way with LORANSAC.");
 }
