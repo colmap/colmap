@@ -93,6 +93,11 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_util
 )
 COLMAP_ADD_TEST(
+    NAME enum_to_string_test
+    SRCS enum_to_string_test.cc
+    LINK_LIBS colmap_util
+)
+COLMAP_ADD_TEST(
     NAME file_test
     SRCS file_test.cc
     LINK_LIBS colmap_util
