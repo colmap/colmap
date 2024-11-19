@@ -42,6 +42,7 @@ TEST(CoordinateFrame, EstimateGravityVectorFromImageOrientation) {
             Eigen::Vector3d::Zero());
 }
 
+#ifdef COLMAP_LSD_ENABLED
 TEST(CoordinateFrame, EstimateManhattanWorldFrame) {
   Reconstruction reconstruction;
   std::string image_path;
@@ -50,6 +51,7 @@ TEST(CoordinateFrame, EstimateManhattanWorldFrame) {
           ManhattanWorldFrameEstimationOptions(), reconstruction, image_path),
       Eigen::Matrix3d::Zero());
 }
+#endif
 
 TEST(CoordinateFrame, AlignToPrincipalPlane) {
   // Start with reconstruction containing points on the Y-Z plane and cameras

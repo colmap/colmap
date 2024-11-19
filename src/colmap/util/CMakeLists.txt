@@ -38,6 +38,7 @@ COLMAP_ADD_LIBRARY(
         controller_thread.h
         eigen_alignment.h
         endian.h endian.cc
+        enum_to_string.h
         file.h file.cc
         logging.h logging.cc
         misc.h misc.cc
@@ -100,6 +101,11 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME endian_test
     SRCS endian_test.cc
+    LINK_LIBS colmap_util
+)
+COLMAP_ADD_TEST(
+    NAME enum_to_string_test
+    SRCS enum_to_string_test.cc
     LINK_LIBS colmap_util
 )
 COLMAP_ADD_TEST(
