@@ -70,7 +70,7 @@ set(VLFEAT_SOURCE_FILES
     vlad.h)
 
 if(SIMD_ENABLED AND IS_X86)
-    if (MSVC)
+    if(MSVC)
         # https://github.com/vlfeat/vlfeat/commit/4f0098fd47e9
         add_definitions("-DVL_DISABLE_AVX")
     else()
@@ -87,7 +87,7 @@ if(SIMD_ENABLED AND IS_X86)
 
     list(APPEND VLFEAT_SOURCE_FILES ${AVX_SOURCES} ${SSE2_SOURCES})
 
-    if (MSVC)
+    if(MSVC)
         set_source_files_properties(${AVX_SOURCES}
             PROPERTIES COMPILE_FLAGS "/arch:AVX")
         set_source_files_properties(${SSE2_SOURCES}
