@@ -33,6 +33,7 @@
 #include "colmap/util/enum_to_string.h"
 #include "colmap/util/types.h"
 
+#include <ostream>
 #include <vector>
 
 #include <Eigen/Core>
@@ -116,6 +117,21 @@ struct PosePrior {
   inline bool IsCovarianceValid() const {
     return position_covariance.allFinite();
   }
+
+  inline bool operator==(const PosePrior& other) const;
+  inline bool operator!=(const PosePrior& other) const;
 };
+
+std::ostream& operator<<(std::ostream& stream, const PosePrior& prior);
+
+bool PosePrior::operator==(const PosePrior& other) const {
+  return coordinate_system == other.coordinate_system &&
+         position == other.position &&
+         position_covariance == other.position_covariance;
+}
+
+bool PosePrior::operator!=(const PosePrior& other) const {
+  return !(*this == other);
+}
 
 }  // namespace colmap
