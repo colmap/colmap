@@ -52,7 +52,7 @@ namespace colmap {
     return BOOST_PP_STRINGIZE(elem);
 
 #define DEFINE_ENUM_TO_STRING(name, start_idx, ...)                   \
-  static std::string name##ToString(int value) {                      \
+  static std::string_view name##ToString(int value) {                 \
     switch (value) {                                                  \
       BOOST_PP_SEQ_FOR_EACH_I(ENUM_TO_STRING_PROCESS_ELEMENT,         \
                               start_idx,                              \
@@ -61,6 +61,9 @@ namespace colmap {
         LOG(FATAL_THROW) << "Invalid input value: " << value;         \
         return "None";                                                \
     }                                                                 \
+  }                                                                   \
+  static std::string_view name##ToString(name value) {                \
+    return name##ToString(static_cast<int>(value));                   \
   }
 
 #define ENUM_PROCESS_ELEMENT(r, start_idx, idx, elem) \
@@ -82,7 +85,7 @@ namespace colmap {
 #define MAKE_ENUM_CLASS_OVERLOAD_STREAM(name, start_idx, ...)     \
   MAKE_ENUM_CLASS(name, start_idx, __VA_ARGS__);                  \
   inline std::ostream& operator<<(std::ostream& os, name value) { \
-    return os << name##ToString(static_cast<int>(value));         \
+    return os << name##ToString(value);                           \
   }
 
 }  // namespace colmap

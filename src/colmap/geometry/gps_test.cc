@@ -312,7 +312,7 @@ TEST(PosePrior, Print) {
   stream << prior;
   EXPECT_EQ(stream.str(),
             "PosePrior(position=[0, 0, 0], position_covariance=[1, 0, 0, 0, 1, "
-            "0, 0, 0, 1], coordinate_system=1)");
+            "0, 0, 0, 1], coordinate_system=CARTESIAN)");
 }
 
 }  // namespace
