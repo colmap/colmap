@@ -247,7 +247,7 @@ bool DatabaseCache::SetupPosePriors() {
   std::vector<Eigen::Vector3d> v_gps_prior;
   v_gps_prior.reserve(NumPosePriors());
 
-  for (const auto& image_id : image_ids_with_prior) {
+  for (const image_t image_id : image_ids_with_prior) {
     const struct PosePrior& pose_prior = PosePrior(image_id);
     if (pose_prior.coordinate_system != PosePrior::CoordinateSystem::WGS84) {
       prior_is_gps = false;
@@ -273,7 +273,7 @@ bool DatabaseCache::SetupPosePriors() {
       struct PosePrior& pose_prior = PosePrior(image_id);
       pose_prior.position = *xyz_prior_it;
       pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
-      xyz_prior_it++;
+      ++xyz_prior_it;
     }
   } else if (!prior_is_gps && !v_gps_prior.empty()) {
     LOG(ERROR)

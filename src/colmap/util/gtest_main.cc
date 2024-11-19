@@ -27,30 +27,11 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/optim/loransac.h"
+#include <glog/logging.h>
+#include <gmock/gmock.h>
 
-#include "colmap/estimators/similarity_transform.h"
-#include "colmap/geometry/pose.h"
-#include "colmap/geometry/sim3.h"
-#include "colmap/math/random.h"
-#include "colmap/util/eigen_alignment.h"
-
-#include <Eigen/Core>
-#include <Eigen/Geometry>
-#include <gtest/gtest.h>
-
-namespace colmap {
-namespace {
-
-TEST(LORANSAC, Report) {
-  LORANSAC<SimilarityTransformEstimator<3>,
-           SimilarityTransformEstimator<3>>::Report report;
-  EXPECT_FALSE(report.success);
-  EXPECT_EQ(report.num_trials, 0);
-  EXPECT_EQ(report.support.num_inliers, 0);
-  EXPECT_EQ(report.support.residual_sum, std::numeric_limits<double>::max());
-  EXPECT_EQ(report.inlier_mask.size(), 0);
+int main(int argc, char** argv) {
+  google::InitGoogleLogging(argv[0]);
+  testing::InitGoogleMock(&argc, argv);
+  return RUN_ALL_TESTS();
 }
-
-}  // namespace
-}  // namespace colmap

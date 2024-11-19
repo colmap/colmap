@@ -27,29 +27,35 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/optim/loransac.h"
+#include "colmap/util/enum_to_string.h"
 
-#include "colmap/estimators/similarity_transform.h"
-#include "colmap/geometry/pose.h"
-#include "colmap/geometry/sim3.h"
-#include "colmap/math/random.h"
-#include "colmap/util/eigen_alignment.h"
+#include <string>
 
-#include <Eigen/Core>
-#include <Eigen/Geometry>
 #include <gtest/gtest.h>
 
 namespace colmap {
 namespace {
 
-TEST(LORANSAC, Report) {
-  LORANSAC<SimilarityTransformEstimator<3>,
-           SimilarityTransformEstimator<3>>::Report report;
-  EXPECT_FALSE(report.success);
-  EXPECT_EQ(report.num_trials, 0);
-  EXPECT_EQ(report.support.num_inliers, 0);
-  EXPECT_EQ(report.support.residual_sum, std::numeric_limits<double>::max());
-  EXPECT_EQ(report.inlier_mask.size(), 0);
+MAKE_ENUM(MyEnum, 0, ClassA, ClassB);
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(MyEnumClass, -1, UNDEFINED, ClassA, ClassB);
+
+TEST(MakeEnum, Nominal) {
+  EXPECT_EQ(ClassA, 0);
+  EXPECT_EQ(ClassB, 1);
+  EXPECT_EQ(MyEnumToString(ClassA), "ClassA");
+  EXPECT_EQ(MyEnumToString(ClassB), "ClassB");
+}
+
+TEST(MakeEnumClass, Nominal) {
+  EXPECT_EQ(static_cast<int>(MyEnumClass::UNDEFINED), -1);
+  EXPECT_EQ(static_cast<int>(MyEnumClass::ClassA), 0);
+  EXPECT_EQ(static_cast<int>(MyEnumClass::ClassB), 1);
+  EXPECT_EQ(MyEnumClassToString(-1), "UNDEFINED");
+  EXPECT_EQ(MyEnumClassToString(0), "ClassA");
+  EXPECT_EQ(MyEnumClassToString(1), "ClassB");
+  std::ostringstream stream;
+  stream << MyEnumClass::ClassA;
+  EXPECT_EQ(stream.str(), "ClassA");
 }
 
 }  // namespace
