@@ -6,6 +6,7 @@
 #include "colmap/scene/camera.h"
 #include "colmap/util/logging.h"
 
+#include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
 #include "pycolmap/utils.h"
 
@@ -61,27 +62,29 @@ py::typing::Optional<py::dict> PyEstimateAndRefineGeneralizedAbsolutePose(
   py::gil_scoped_acquire acquire;
   py::dict success_dict("rig_from_world"_a = rig_from_world,
                         "num_inliers"_a = num_inliers,
-                        "inliers"_a = ToPythonMask(inlier_mask));
+                        "inlier_mask"_a = ToPythonMask(inlier_mask));
   if (return_covariance) success_dict["covariance"] = covariance;
   return success_dict;
 }
 
 void BindGeneralizedAbsolutePoseEstimator(py::module& m) {
-  m.def(
-      "rig_absolute_pose_estimation",
-      &PyEstimateAndRefineGeneralizedAbsolutePose,
-      "points2D"_a,
-      "points3D"_a,
-      "camera_idxs"_a,
-      "cams_from_rig"_a,
-      "cameras"_a,
-      py::arg_v("estimation_options",
-                AbsolutePoseEstimationOptions().ransac_options,
-                "AbsolutePoseEstimationOptions().ransac"),
-      py::arg_v("refinement_options",
-                AbsolutePoseRefinementOptions(),
-                "AbsolutePoseRefinementOptions()"),
-      "return_covariance"_a = false,
-      "Absolute pose estimation with non-linear refinement for a multi-camera "
-      "rig.");
+  m.def("estimate_and_refine_generalized_absolute_pose",
+        &PyEstimateAndRefineGeneralizedAbsolutePose,
+        "points2D"_a,
+        "points3D"_a,
+        "camera_idxs"_a,
+        "cams_from_rig"_a,
+        "cameras"_a,
+        py::arg_v("estimation_options",
+                  AbsolutePoseEstimationOptions().ransac_options,
+                  "AbsolutePoseEstimationOptions().ransac"),
+        py::arg_v("refinement_options",
+                  AbsolutePoseRefinementOptions(),
+                  "AbsolutePoseRefinementOptions()"),
+        "return_covariance"_a = false,
+        "Robustly estimate generalized absolute pose using LO-RANSAC"
+        "followed by non-linear refinement.");
+  DefDeprecation(m,
+                 "rig_absolute_pose_estimation",
+                 "estimate_and_refine_generalized_absolute_pose");
 }

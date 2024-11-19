@@ -5,6 +5,7 @@
 #include "colmap/util/threading.h"
 
 #include <exception>
+#include <optional>
 #include <regex>
 #include <sstream>
 #include <string>
@@ -408,16 +409,26 @@ inline bool IsPyceresAvailable() {
 }
 
 template <typename Parent>
-inline void DefDeprecation(Parent& parent,
-                           const std::string& old_name,
-                           const std::string& new_name) {
-  parent.def(old_name.c_str(),
-             [parent, old_name, new_name](const py::args& args,
-                                          const py::kwargs& kwargs) {
-               std::ostringstream warning;
-               warning << old_name << "() is deprecated, use " << new_name
-                       << "() instead.";
-               PyErr_WarnEx(PyExc_DeprecationWarning, warning.str().c_str(), 1);
-               return parent.attr(new_name.c_str())(*args, **kwargs);
-             });
+inline void DefDeprecation(
+    Parent& parent,
+    std::string old_name,
+    std::string new_name,
+    std::optional<std::string> custom_warning = std::nullopt) {
+  parent.def(
+      old_name.c_str(),
+      [parent,
+       old_name = std::move(old_name),
+       new_name = std::move(new_name),
+       custom_warning = std::move(custom_warning)](const py::args& args,
+                                                   const py::kwargs& kwargs) {
+        if (custom_warning) {
+          PyErr_WarnEx(PyExc_DeprecationWarning, custom_warning->c_str(), 1);
+        } else {
+          std::ostringstream warning;
+          warning << old_name << "() is deprecated, use " << new_name
+                  << "() instead.";
+          PyErr_WarnEx(PyExc_DeprecationWarning, warning.str().c_str(), 1);
+        }
+        return parent.attr(new_name.c_str())(*args, **kwargs);
+      });
 }
