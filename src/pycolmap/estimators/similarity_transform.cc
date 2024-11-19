@@ -52,7 +52,7 @@ void BindSimilarityTransformEstimator(py::module& m) {
         }
         return py::dict("tgt_from_src"_a = Sim3d::FromMatrix(report.model),
                         "num_inliers"_a = report.support.num_inliers,
-                        "inliers"_a = ToPythonMask(report.inlier_mask));
+                        "inlier_mask"_a = ToPythonMask(report.inlier_mask));
       },
       "src"_a,
       "tgt"_a,
