@@ -5,6 +5,7 @@
 #include "colmap/util/threading.h"
 
 #include <exception>
+#include <optional>
 #include <regex>
 #include <sstream>
 #include <string>
@@ -28,7 +29,7 @@ const Eigen::IOFormat vec_fmt(Eigen::StreamPrecision,
                               ", ");
 
 template <typename T>
-T pyStringToEnum(const py::enum_<T>& enm, const std::string& value) {
+T PyStringToEnum(const py::enum_<T>& enm, const std::string& value) {
   const auto values = enm.attr("__members__").template cast<py::dict>();
   const auto str_val = py::str(value);
   if (!values.contains(str_val)) {
@@ -41,7 +42,7 @@ T pyStringToEnum(const py::enum_<T>& enm, const std::string& value) {
 template <typename T>
 void AddStringToEnumConstructor(py::enum_<T>& enm) {
   enm.def(py::init([enm](const std::string& value) {
-    return pyStringToEnum(enm, py::str(value));  // str constructor
+    return PyStringToEnum(enm, py::str(value));  // str constructor
   }));
   py::implicitly_convertible<std::string, T>();
 }
@@ -405,4 +406,29 @@ inline bool IsPyceresAvailable() {
     return false;
   }
   return true;
+}
+
+template <typename Parent>
+inline void DefDeprecation(
+    Parent& parent,
+    std::string old_name,
+    std::string new_name,
+    std::optional<std::string> custom_warning = std::nullopt) {
+  parent.def(
+      old_name.c_str(),
+      [parent,
+       old_name = std::move(old_name),
+       new_name = std::move(new_name),
+       custom_warning = std::move(custom_warning)](const py::args& args,
+                                                   const py::kwargs& kwargs) {
+        if (custom_warning) {
+          PyErr_WarnEx(PyExc_DeprecationWarning, custom_warning->c_str(), 1);
+        } else {
+          std::ostringstream warning;
+          warning << old_name << "() is deprecated, use " << new_name
+                  << "() instead.";
+          PyErr_WarnEx(PyExc_DeprecationWarning, warning.str().c_str(), 1);
+        }
+        return parent.attr(new_name.c_str())(*args, **kwargs);
+      });
 }

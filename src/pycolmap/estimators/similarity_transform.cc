@@ -16,7 +16,7 @@ using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindSimilarityTransformEstimator(py::module& m) {
-  auto est_options = m.attr("RANSACOptions")().cast<RANSACOptions>();
+  auto ransac_options = m.attr("RANSACOptions")().cast<RANSACOptions>();
 
   m.def(
       "estimate_sim3d",
@@ -33,9 +33,9 @@ void BindSimilarityTransformEstimator(py::module& m) {
           return py::none();
         }
       },
-      "points3D_src"_a,
-      "points3D_tgt"_a,
-      "Estimate the 3D similarity transform tgt_T_src.");
+      "src"_a,
+      "tgt"_a,
+      "Estimate the 3D similarity transform tgt_from_src.");
 
   m.def(
       "estimate_sim3d_robust",
@@ -52,10 +52,11 @@ void BindSimilarityTransformEstimator(py::module& m) {
         }
         return py::dict("tgt_from_src"_a = Sim3d::FromMatrix(report.model),
                         "num_inliers"_a = report.support.num_inliers,
-                        "inliers"_a = ToPythonMask(report.inlier_mask));
+                        "inlier_mask"_a = ToPythonMask(report.inlier_mask));
       },
-      "points3D_src"_a,
-      "points3D_tgt"_a,
-      py::arg_v("estimation_options", est_options, "RANSACOptions()"),
-      "Estimate the 3D similarity transform in a robust way with LORANSAC.");
+      "src"_a,
+      "tgt"_a,
+      py::arg_v("estimation_options", ransac_options, "RANSACOptions()"),
+      "Robustly estimate the 3D similarity transform tgt_from_src using "
+      "LO-RANSAC.");
 }
