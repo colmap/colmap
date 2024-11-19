@@ -579,6 +579,10 @@ bool Bitmap::Read(const std::string& path, const bool as_rgb) {
     FIBITMAP* converted_bitmap = FreeImage_ConvertTo24Bits(handle_.ptr);
     handle_ = FreeImageHandle(converted_bitmap);
   } else if (!IsPtrGrey(handle_.ptr) && !as_rgb) {
+    if (FreeImage_GetBPP(handle_.ptr) != 24) {
+      FIBITMAP* converted_bitmap_24 = FreeImage_ConvertTo24Bits(handle_.ptr);
+      handle_ = FreeImageHandle(converted_bitmap_24);
+    }
     FIBITMAP* converted_bitmap = FreeImage_ConvertToGreyscale(handle_.ptr);
     handle_ = FreeImageHandle(converted_bitmap);
   }
