@@ -82,6 +82,17 @@ if(CUDA_ENABLED)
     )
 endif()
 
+if(TESTS_ENABLED)
+    COLMAP_ADD_LIBRARY(
+        NAME colmap_gtest_main
+        SRCS
+            gtest_main.cc
+        PUBLIC_LINK_LIBS
+            glog::glog
+            GTest::gmock_main
+    )
+endif()
+
 COLMAP_ADD_TEST(
     NAME cache_test
     SRCS cache_test.cc
