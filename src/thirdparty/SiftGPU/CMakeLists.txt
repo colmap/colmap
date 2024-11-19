@@ -1,5 +1,12 @@
 add_definitions("-DSIFTGPU_NO_DEVIL")
 
+if(SIMD_ENABLED AND IS_X86)
+    add_definitions("-DUSE_SSE_FOR_SIFTGPU")
+    if(MSVC)
+        add_definitions("-D__SSE__")
+    endif()
+endif()
+
 set(OPTIONAL_CUDA_SRCS)
 set(OPTIONAL_CUDA_LINK_LIBS)
 if(CUDA_ENABLED)
