@@ -79,7 +79,7 @@ def _lookup_type(type_str):
             type_str = _data_types[type_str]
         except KeyError:
             raise ValueError(
-                "field type %r not in %r" % (type_str, _types_list)
+                f"field type {type_str!r} not in {_types_list!r}"
             )
 
     return _data_type_reverse[type_str]
@@ -132,18 +132,18 @@ class PlyParseError(Exception):
 
         s = ""
         if self.element:
-            s += "element %r: " % self.element.name
+            s += f"element {self.element.name!r}: "
         if self.row is not None:
             s += "row %d: " % self.row
         if self.prop:
-            s += "property %r: " % self.prop.name
+            s += f"property {self.prop.name!r}: "
         s += self.message
 
         Exception.__init__(self, s)
 
     def __repr__(self):
         return (
-            "PlyParseError(%r, element=%r, row=%r, prop=%r)" % self.message,
+            "PlyParseError({!r}, element={!r}, row={!r}, prop={!r})".format(*self.message),
             self.element,
             self.row,
             self.prop,
@@ -162,7 +162,7 @@ class PlyData:
     """
 
     def __init__(
-        self, elements=[], text=False, byte_order="=", comments=[], obj_info=[]
+        self, elements=None, text=False, byte_order="=", comments=None, obj_info=None
     ):
         """
         elements: sequence of PlyElement instances.
@@ -180,6 +180,12 @@ class PlyData:
             "obj_info ..." instead of "comment ...".
 
         """
+        if obj_info is None:
+            obj_info = []
+        if comments is None:
+            comments = []
+        if elements is None:
+            elements = []
         if byte_order == "=" and not text:
             byte_order = _native_byte_order
 
@@ -256,7 +262,7 @@ class PlyData:
         fmt = lines[a][1]
 
         if fmt not in _byte_order_map:
-            raise PlyParseError("don't understand format %r" % fmt)
+            raise PlyParseError(f"don't understand format {fmt!r}")
 
         byte_order = _byte_order_map[fmt]
         text = fmt == "ascii"
@@ -362,15 +368,8 @@ class PlyData:
 
     def __repr__(self):
         return (
-            "PlyData(%r, text=%r, byte_order=%r, "
-            "comments=%r, obj_info=%r)"
-            % (
-                self.elements,
-                self.text,
-                self.byte_order,
-                self.comments,
-                self.obj_info,
-            )
+            f"PlyData({self.elements!r}, text={self.text!r}, byte_order={self.byte_order!r}, "
+            f"comments={self.comments!r}, obj_info={self.obj_info!r})"
         )
 
 
@@ -388,7 +387,7 @@ class PlyElement:
 
     """
 
-    def __init__(self, name, properties, count, comments=[]):
+    def __init__(self, name, properties, count, comments=None):
         """
         This is not part of the public interface.  The preferred methods
         of obtaining PlyElement instances are PlyData.read (to read from
@@ -396,6 +395,8 @@ class PlyElement:
         array).
 
         """
+        if comments is None:
+            comments = []
         self._name = str(name)
         self._check_name()
         self._count = count
@@ -426,7 +427,7 @@ class PlyElement:
     def _check_sanity(self):
         for prop in self.properties:
             if prop.name not in self._data.dtype.fields:
-                raise ValueError("dangling property %r" % prop.name)
+                raise ValueError(f"dangling property {prop.name!r}")
 
     def _get_properties(self):
         return self._properties
@@ -454,7 +455,7 @@ class PlyElement:
 
     def _check_name(self):
         if any(c.isspace() for c in self._name):
-            msg = "element name %r contains spaces" % self._name
+            msg = f"element name {self._name!r} contains spaces"
             raise ValueError(msg)
 
     def dtype(self, byte_order="="):
@@ -516,7 +517,7 @@ class PlyElement:
         return (PlyElement(name, properties, count, comments), lines[a:])
 
     @staticmethod
-    def describe(data, name, len_types={}, val_types={}, comments=[]):
+    def describe(data, name, len_types=None, val_types=None, comments=None):
         """
         Construct a PlyElement from an array's metadata.
 
@@ -528,6 +529,12 @@ class PlyElement:
         types default to 'i4' (32-bit integer).
 
         """
+        if comments is None:
+            comments = []
+        if val_types is None:
+            val_types = {}
+        if len_types is None:
+            len_types = {}
         if not isinstance(data, _np.ndarray):
             raise TypeError("only numpy arrays are supported")
 
@@ -550,11 +557,10 @@ class PlyElement:
                 # non-scalar field, which corresponds to a list
                 # property in PLY.
 
-                if t[1][1] == "O":
-                    if len(t) != 2:
-                        raise ValueError(
-                            "non-scalar object fields not " "supported"
-                        )
+                if t[1][1] == "O" and len(t) != 2:
+                    raise ValueError(
+                        "non-scalar object fields not " "supported"
+                    )
 
                 len_str = _data_type_reverse[len_types.get(t[0], "u1")]
                 if t[1][1] == "O":
@@ -752,7 +758,7 @@ class PlyProperty:
 
     def _check_name(self):
         if any(c.isspace() for c in self._name):
-            msg = "Error: property name %r contains spaces" % self._name
+            msg = f"Error: property name {self._name!r} contains spaces"
             raise RuntimeError(msg)
 
     @staticmethod
@@ -818,10 +824,10 @@ class PlyProperty:
 
     def __str__(self):
         val_str = _data_type_reverse[self.val_dtype]
-        return "property %s %s" % (val_str, self.name)
+        return f"property {val_str} {self.name}"
 
     def __repr__(self):
-        return "PlyProperty(%r, %r)" % (self.name, _lookup_type(self.val_dtype))
+        return f"PlyProperty({self.name!r}, {_lookup_type(self.val_dtype)!r})"
 
 
 class PlyListProperty(PlyProperty):
@@ -880,8 +886,7 @@ class PlyListProperty(PlyProperty):
         data = _np.asarray(data, dtype=val_t).ravel()
 
         yield _np.dtype(len_t).type(data.size)
-        for x in data:
-            yield x
+        yield from data
 
     def _read_bin(self, stream, byte_order):
         (len_t, val_t) = self.list_dtype(byte_order)
@@ -912,11 +917,7 @@ class PlyListProperty(PlyProperty):
     def __str__(self):
         len_str = _data_type_reverse[self.len_dtype]
         val_str = _data_type_reverse[self.val_dtype]
-        return "property list %s %s %s" % (len_str, val_str, self.name)
+        return f"property list {len_str} {val_str} {self.name}"
 
     def __repr__(self):
-        return "PlyListProperty(%r, %r, %r)" % (
-            self.name,
-            _lookup_type(self.len_dtype),
-            _lookup_type(self.val_dtype),
-        )
+        return f"PlyListProperty({self.name!r}, {_lookup_type(self.len_dtype)!r}, {_lookup_type(self.val_dtype)!r})"

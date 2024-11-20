@@ -147,7 +147,7 @@ class COLMAPDatabase(sqlite3.Connection):
         return sqlite3.connect(database_path, factory=COLMAPDatabase)
 
     def __init__(self, *args, **kwargs):
-        super(COLMAPDatabase, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.create_tables = lambda: self.executescript(CREATE_ALL)
         self.create_cameras_table = lambda: self.executescript(
