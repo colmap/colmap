@@ -31,6 +31,7 @@
 import argparse
 
 import numpy as np
+
 from pycolmap.utils.database import COLMAPDatabase
 
 if __name__ == "__main__":

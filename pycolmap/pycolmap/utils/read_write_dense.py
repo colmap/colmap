@@ -125,10 +125,10 @@ def main():
 
     # Read depth and normal maps corresponding to the same image.
     if not os.path.exists(args.depth_map):
-        raise FileNotFoundError("File not found: {}".format(args.depth_map))
+        raise FileNotFoundError(f"File not found: {args.depth_map}")
 
     if not os.path.exists(args.normal_map):
-        raise FileNotFoundError("File not found: {}".format(args.normal_map))
+        raise FileNotFoundError(f"File not found: {args.normal_map}")
 
     depth_map = read_array(args.depth_map)
     normal_map = read_array(args.normal_map)

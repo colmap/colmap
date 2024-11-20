@@ -31,6 +31,7 @@
 from tempfile import mkdtemp
 
 import numpy as np
+
 from .read_write_model import read_model, write_model
 
 

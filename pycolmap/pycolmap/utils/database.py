@@ -54,13 +54,13 @@ CREATE_DESCRIPTORS_TABLE = """CREATE TABLE IF NOT EXISTS descriptors (
     data BLOB,
     FOREIGN KEY(image_id) REFERENCES images(image_id) ON DELETE CASCADE)"""
 
-CREATE_IMAGES_TABLE = """CREATE TABLE IF NOT EXISTS images (
+CREATE_IMAGES_TABLE = f"""CREATE TABLE IF NOT EXISTS images (
     image_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     name TEXT NOT NULL UNIQUE,
     camera_id INTEGER NOT NULL,
-    CONSTRAINT image_id_check CHECK(image_id >= 0 and image_id < {}),
+    CONSTRAINT image_id_check CHECK(image_id >= 0 and image_id < {MAX_IMAGE_ID}),
     FOREIGN KEY(camera_id) REFERENCES cameras(camera_id))
-""".format(MAX_IMAGE_ID)
+"""
 
 CREATE_POSE_PRIORS_TABLE = """CREATE TABLE IF NOT EXISTS pose_priors (
     image_id INTEGER PRIMARY KEY NOT NULL,

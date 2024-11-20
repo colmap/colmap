@@ -150,7 +150,7 @@ class PlyParseError(Exception):
         )
 
 
-class PlyData(object):
+class PlyData:
     """
     PLY file header and data.
 
@@ -230,7 +230,7 @@ class PlyData(object):
             if fields[0] == "end_header":
                 break
 
-            elif fields[0] in comments.keys():
+            elif fields[0] in comments:
                 lines.append(fields)
             else:
                 lines.append(line.split())
@@ -240,7 +240,7 @@ class PlyData(object):
             raise PlyParseError("expected 'ply'")
 
         a += 1
-        while lines[a][0] in comments.keys():
+        while lines[a][0] in comments:
             comments[lines[a][0]].append(lines[a][1])
             a += 1
 
@@ -262,7 +262,7 @@ class PlyData(object):
         text = fmt == "ascii"
 
         a += 1
-        while a < len(lines) and lines[a][0] in comments.keys():
+        while a < len(lines) and lines[a][0] in comments:
             comments[lines[a][0]].append(lines[a][1])
             a += 1
 
@@ -374,7 +374,7 @@ class PlyData(object):
         )
 
 
-class PlyElement(object):
+class PlyElement:
     """
     PLY file element.
 
@@ -726,7 +726,7 @@ class PlyElement(object):
         )
 
 
-class PlyProperty(object):
+class PlyProperty:
     """
     PLY property description.  This class is pure metadata; the data
     itself is contained in PlyElement instances.

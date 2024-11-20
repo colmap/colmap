@@ -110,7 +110,7 @@ def read_cameras_text(path):
         void Reconstruction::ReadCamerasText(const std::string& path)
     """
     cameras = {}
-    with open(path, "r") as fid:
+    with open(path) as fid:
         while True:
             line = fid.readline()
             if not line:
@@ -177,7 +177,7 @@ def write_cameras_text(cameras, path):
     HEADER = (
         "# Camera list with one line of data per camera:\n"
         + "#   CAMERA_ID, MODEL, WIDTH, HEIGHT, PARAMS[]\n"
-        + "# Number of cameras: {}\n".format(len(cameras))
+        + f"# Number of cameras: {len(cameras)}\n"
     )
     with open(path, "w") as fid:
         fid.write(HEADER)
@@ -211,7 +211,7 @@ def read_images_text(path):
         void Reconstruction::WriteImagesText(const std::string& path)
     """
     images = {}
-    with open(path, "r") as fid:
+    with open(path) as fid:
         while True:
             line = fid.readline()
             if not line:
@@ -310,9 +310,7 @@ def write_images_text(images, path):
         "# Image list with two lines of data per image:\n"
         + "#   IMAGE_ID, QW, QX, QY, QZ, TX, TY, TZ, CAMERA_ID, NAME\n"
         + "#   POINTS2D[] as (X, Y, POINT3D_ID)\n"
-        + "# Number of images: {}, mean observations per image: {}\n".format(
-            len(images), mean_observations
-        )
+        + f"# Number of images: {len(images)}, mean observations per image: {mean_observations}\n"
     )
 
     with open(path, "w") as fid:
@@ -362,7 +360,7 @@ def read_points3D_text(path):
         void Reconstruction::WritePoints3DText(const std::string& path)
     """
     points3D = {}
-    with open(path, "r") as fid:
+    with open(path) as fid:
         while True:
             line = fid.readline()
             if not line:
@@ -440,9 +438,7 @@ def write_points3D_text(points3D, path):
     HEADER = (
         "# 3D point list with one line of data per point:\n"
         + "#   POINT3D_ID, X, Y, Z, R, G, B, ERROR, TRACK[] as (IMAGE_ID, POINT2D_IDX)\n"
-        + "# Number of points: {}, mean track length: {}\n".format(
-            len(points3D), mean_track_length
-        )
+        + f"# Number of points: {len(points3D)}, mean track length: {mean_track_length}\n"
     )
 
     with open(path, "w") as fid:

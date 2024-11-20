@@ -34,6 +34,7 @@ import argparse
 import os
 
 import numpy as np
+
 from pycolmap.utils import plyfile as plyfile
 
 
