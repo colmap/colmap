@@ -58,7 +58,8 @@ CREATE_IMAGES_TABLE = f"""CREATE TABLE IF NOT EXISTS images (
     image_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     name TEXT NOT NULL UNIQUE,
     camera_id INTEGER NOT NULL,
-    CONSTRAINT image_id_check CHECK(image_id >= 0 and image_id < {MAX_IMAGE_ID}),
+    CONSTRAINT image_id_check \
+    CHECK(image_id >= 0 and image_id < {MAX_IMAGE_ID}),
     FOREIGN KEY(camera_id) REFERENCES cameras(camera_id))
 """
 
@@ -259,13 +260,25 @@ class COLMAPDatabase(sqlite3.Connection):
         image_id1,
         image_id2,
         matches,
-        F=np.eye(3),
-        E=np.eye(3),
-        H=np.eye(3),
-        qvec=np.array([1.0, 0.0, 0.0, 0.0]),
-        tvec=np.zeros(3),
+        F=None,
+        E=None,
+        H=None,
+        qvec=None,
+        tvec=None,
         config=2,
     ):
+        # set default
+        if F is None:
+            F = np.eye(3)
+        if E is None:
+            E = np.eye(3)
+        if H is None:
+            H = np.eye(3)
+        if qvec is None:
+            qvec = np.array([1.0, 0.0, 0.0, 0.0])
+        if tvec is None:
+            tvec = np.zeros(3)
+
         assert len(matches.shape) == 2
         assert matches.shape[1] == 2
 
@@ -280,7 +293,8 @@ class COLMAPDatabase(sqlite3.Connection):
         qvec = np.asarray(qvec, dtype=np.float64)
         tvec = np.asarray(tvec, dtype=np.float64)
         self.execute(
-            "INSERT INTO two_view_geometries VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO two_view_geometries VALUES \
+             (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (pair_id,)
             + matches.shape
             + (

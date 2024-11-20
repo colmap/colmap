@@ -77,10 +77,10 @@ def _lookup_type(type_str):
     if type_str not in _data_type_reverse:
         try:
             type_str = _data_types[type_str]
-        except KeyError:
+        except KeyError as err:
             raise ValueError(
                 f"field type {type_str!r} not in {_types_list!r}"
-            )
+            ) from err
 
     return _data_type_reverse[type_str]
 
@@ -143,7 +143,9 @@ class PlyParseError(Exception):
 
     def __repr__(self):
         return (
-            "PlyParseError({!r}, element={!r}, row={!r}, prop={!r})".format(*self.message),
+            "PlyParseError({!r}, element={!r}, row={!r}, prop={!r})".format(
+                *self.message
+            ),
             self.element,
             self.row,
             self.prop,
@@ -162,7 +164,12 @@ class PlyData:
     """
 
     def __init__(
-        self, elements=None, text=False, byte_order="=", comments=None, obj_info=None
+        self,
+        elements=None,
+        text=False,
+        byte_order="=",
+        comments=None,
+        obj_info=None,
     ):
         """
         elements: sequence of PlyElement instances.
@@ -286,21 +293,11 @@ class PlyData:
         Read PLY data from a readable file-like object or filename.
 
         """
-        must_close = False
-        try:
-            if isinstance(stream, str):
-                stream = open(stream, "rb")
-                must_close = True
-
-            data = PlyData._parse_header(stream)
-
-            for elt in data:
-                elt._read(stream, data.text, data.byte_order)
-
-        finally:
-            if must_close:
-                stream.close()
-
+        if isinstance(stream, str):
+            with open(stream, "rb") as f_stream:
+                data = PlyData._parse_header(f_stream)
+                for elt in data:
+                    elt._read(f_stream, data.text, data.byte_order)
         return data
 
     def write(self, stream):
@@ -308,21 +305,12 @@ class PlyData:
         Write PLY data to a writeable file-like object or filename.
 
         """
-        must_close = False
-        try:
-            if isinstance(stream, str):
-                stream = open(stream, "wb")
-                must_close = True
-
-            stream.write(self.header.encode("ascii"))
-            stream.write(b"\r\n")
-
-            for elt in self:
-                elt._write(stream, self.text, self.byte_order)
-
-        finally:
-            if must_close:
-                stream.close()
+        if isinstance(stream, str):
+            with open(stream, "wb") as f_stream:
+                f_stream.write(self.header.encode("ascii"))
+                f_stream.write(b"\r\n")
+                for elt in self:
+                    elt._write(f_stream, self.text, self.byte_order)
 
     @property
     def header(self):
@@ -368,7 +356,9 @@ class PlyData:
 
     def __repr__(self):
         return (
-            f"PlyData({self.elements!r}, text={self.text!r}, byte_order={self.byte_order!r}, "
+            f"PlyData({self.elements!r}, \
+              text={self.text!r}, \
+              byte_order={self.byte_order!r}, "
             f"comments={self.comments!r}, obj_info={self.obj_info!r})"
         )
 
@@ -640,10 +630,14 @@ class PlyElement:
             for prop in self.properties:
                 try:
                     self._data[prop.name][k] = prop._from_fields(fields)
-                except StopIteration:
-                    raise PlyParseError("early end-of-line", self, k, prop)
-                except ValueError:
-                    raise PlyParseError("malformed input", self, k, prop)
+                except StopIteration as err:
+                    raise PlyParseError(
+                        "early end-of-line", self, k, prop
+                    ) from err
+                except ValueError as err:
+                    raise PlyParseError(
+                        "malformed input", self, k, prop
+                    ) from err
             try:
                 next(fields)
             except StopIteration:
@@ -683,8 +677,10 @@ class PlyElement:
                     self._data[prop.name][k] = prop._read_bin(
                         stream, byte_order
                     )
-                except StopIteration:
-                    raise PlyParseError("early end-of-file", self, k, prop)
+                except StopIteration as err:
+                    raise PlyParseError(
+                        "early end-of-file", self, k, prop
+                    ) from err
 
     def _write_bin(self, stream, byte_order):
         """
@@ -812,8 +808,8 @@ class PlyProperty:
         """
         try:
             return _np.fromfile(stream, self.dtype(byte_order), 1)[0]
-        except IndexError:
-            raise StopIteration
+        except IndexError as err:
+            raise StopIteration from err
 
     def _write_bin(self, data, stream, byte_order):
         """
@@ -893,12 +889,12 @@ class PlyListProperty(PlyProperty):
 
         try:
             n = _np.fromfile(stream, len_t, 1)[0]
-        except IndexError:
-            raise StopIteration
+        except IndexError as err:
+            raise StopIteration from err
 
         data = _np.fromfile(stream, val_t, n)
         if len(data) < n:
-            raise StopIteration
+            raise StopIteration from None
 
         return data
 
@@ -920,4 +916,6 @@ class PlyListProperty(PlyProperty):
         return f"property list {len_str} {val_str} {self.name}"
 
     def __repr__(self):
-        return f"PlyListProperty({self.name!r}, {_lookup_type(self.len_dtype)!r}, {_lookup_type(self.val_dtype)!r})"
+        return f"PlyListProperty({self.name!r}, \
+                 {_lookup_type(self.len_dtype)!r}, \
+                 {_lookup_type(self.val_dtype)!r})"

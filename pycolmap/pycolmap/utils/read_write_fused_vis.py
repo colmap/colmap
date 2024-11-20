@@ -114,7 +114,8 @@ def write_fused_ply(mesh_points, path_to_fused_ply):
 def write_fused_ply_vis(mesh_points, path_to_fused_ply_vis):
     """
     see: src/mvs/fusion.cc
-        void WritePointsVisibility(const std::string& path, const std::vector<std::vector<int>>& points_visibility)
+        void WritePointsVisibility(const std::string& path, \
+            const std::vector<std::vector<int>>& points_visibility)
     """
     with open(path_to_fused_ply_vis, "wb") as fid:
         write_next_bytes(fid, len(mesh_points), "Q")

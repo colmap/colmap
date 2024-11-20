@@ -45,7 +45,8 @@ def main():
         return
 
     print(
-        "Checking consistency of reading and writing fused.ply and fused.ply.vis files ..."
+        "Checking consistency of reading and writing fused.ply \
+         and fused.ply.vis files ..."
     )
 
     path_to_fused_ply_input = sys.argv[1]
