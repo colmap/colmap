@@ -4,6 +4,8 @@ requires = [
     "pybind11==2.13.0",
     "pybind11_stubgen @ git+https://github.com/sarlinpe/pybind11-stubgen@sarlinpe/fix-2024-08",
     "numpy",
+    "argparse",
+    "pyntcloud",
     "ruff==0.6.7",
     "clang-format==19.1.0",
 ]

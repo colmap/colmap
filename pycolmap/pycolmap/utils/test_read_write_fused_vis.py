@@ -30,7 +30,7 @@
 
 import filecmp
 
-from read_write_fused_vis import read_fused, write_fused
+from .read_write_fused_vis import read_fused, write_fused
 
 
 def main():

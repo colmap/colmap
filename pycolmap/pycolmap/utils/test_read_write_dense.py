@@ -29,7 +29,7 @@
 
 
 import numpy as np
-from read_write_dense import read_array, write_array
+from .read_write_dense import read_array, write_array
 
 
 def main():

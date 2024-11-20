@@ -34,7 +34,7 @@ import argparse
 import os
 
 import numpy as np
-import plyfile
+from pycolmap.utils import plyfile as plyfile
 
 
 def parse_args():

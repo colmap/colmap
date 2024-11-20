@@ -31,7 +31,7 @@
 import argparse
 
 import numpy as np
-from database import COLMAPDatabase
+from pycolmap.utils.database import COLMAPDatabase
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

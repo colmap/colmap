@@ -31,7 +31,7 @@
 from tempfile import mkdtemp
 
 import numpy as np
-from read_write_model import read_model, write_model
+from .read_write_model import read_model, write_model
 
 
 def compare_cameras(cameras1, cameras2):

@@ -31,7 +31,7 @@ import argparse
 
 import numpy as np
 import open3d
-from read_write_model import qvec2rotmat, read_model
+from pycolmap.utils.read_write_model import qvec2rotmat, read_model
 
 
 class Model:
