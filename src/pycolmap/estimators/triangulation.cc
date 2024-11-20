@@ -66,5 +66,5 @@ void BindTriangulationEstimator(py::module& m) {
                   EstimateTriangulationOptions(),
                   "EstimateTriangulationOptions()"),
         "Robustly estimate 3D point from observations in multiple views using "
-        "RANSAC");
+        "LO-RANSAC");
 }
