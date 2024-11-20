@@ -175,6 +175,8 @@ if(GUI_ENABLED)
             endif()
         endif()
 
+        add_compile_definitions(QT_DISABLE_DEPRECATED_UP_TO=0x050F00)
+
         # Enable automatic compilation of Qt resource files.
         set(CMAKE_AUTORCC ON)
     endif()
