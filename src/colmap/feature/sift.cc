@@ -363,12 +363,12 @@ class CovariantSiftCPUFeatureExtractor : public FeatureExtractor {
 
     vl_covdet_detect(covdet.get(), options_.max_num_features);
 
+    if (options_.estimate_affine_shape) {
+      vl_covdet_extract_affine_shape(covdet.get());
+    }
+
     if (!options_.upright) {
-      if (options_.estimate_affine_shape) {
-        vl_covdet_extract_affine_shape(covdet.get());
-      } else {
-        vl_covdet_extract_orientations(covdet.get());
-      }
+      vl_covdet_extract_orientations(covdet.get());
     }
 
     const int num_features = vl_covdet_get_num_features(covdet.get());
