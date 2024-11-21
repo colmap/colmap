@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/scene/reconstruction.h"
 
@@ -54,21 +55,49 @@ struct BACovariance {
   std::unordered_map<point3D_t, Eigen::Matrix3d> point_covs;
 };
 
-enum class BACovarianceType {
-  kOnlyPoses,
-  kOnlyPoints,
-  kPosesAndPoints,
+struct BACovarianceOptions {
+  enum class Params {
+    kOnlyPoses,
+    kOnlyPoints,
+    kPosesAndPoints,
+    kAll,  // + Others
+  };
+
+  // For which variables to compute the covariance.
+  Params params = Params::kAll;
+
+  // Damping factor for the Hessian in the Schur complement solver.
+  // Enables to robustly deal with poorly conditioned points.
+  double damping = 1e-8;
 };
 
-BACovariance EstimateCeresBACovariance(
-    const Reconstruction& reconstruction,
-    ceres::Problem* problem,
-    BACovarianceType type = BACovarianceType::kOnlyPoses);
+BACovariance EstimateBACovariance(const BACovarianceOptions& options,
+                                  const Reconstruction& reconstruction,
+                                  BundleAdjuster& bundle_adjuster);
 
-BACovariance EstimateSchurBACovariance(
-    const Reconstruction& reconstruction,
-    ceres::Problem* problem,
-    BACovarianceType type = BACovarianceType::kOnlyPoses,
-    double damping = 1e-8);
+namespace detail {
 
+struct PoseParam {
+  image_t image_id = kInvalidImageId;
+  const double* qvec = nullptr;
+  const double* tvec = nullptr;
+};
+
+std::vector<PoseParam> GetPoseParams(const Reconstruction& reconstruction,
+                                     const ceres::Problem& problem);
+
+struct PointParam {
+  point3D_t point3D_id = kInvalidPoint3DId;
+  const double* xyz = nullptr;
+};
+
+std::vector<PointParam> GetPointParams(const Reconstruction& reconstruction,
+                                       const ceres::Problem& problem);
+
+std::vector<const double*> GetOtherParams(
+    const ceres::Problem& problem,
+    const std::vector<PoseParam>& poses,
+    const std::vector<PointParam>& points);
+
+}  // namespace detail
 }  // namespace colmap
