@@ -1,4 +1,5 @@
-from .._core.cost_functions import *  # noqa
-from .._core import cost_functions as _core
+from .. import _core
+from ..utils import import_module_symbols
 
-__all__ = [n for n in _core.__dict__ if not n.startswith("_")]
+__all__ = import_module_symbols(globals(), _core.cost_functions)
+del _core
