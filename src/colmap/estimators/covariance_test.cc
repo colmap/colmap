@@ -72,12 +72,12 @@ TEST(EstimateBACovariance, CompareWithCeres) {
   for (const auto& [point3D_id, _] : reconstruction.Points3D()) {
     config.AddConstantPoint(point3D_id);
   }
-  BundleAdjuster bundle_adjuster(BundleAdjustmentOptions(), config);
-  bundle_adjuster.Solve(&reconstruction);
-  std::shared_ptr<ceres::Problem> problem = bundle_adjuster.Problem();
+  auto bundle_adjuster = CreateDefaultBundleAdjuster(
+      BundleAdjustmentOptions(), std::move(config), reconstruction);
+  auto problem = bundle_adjuster->Problem();
 
   const BACovariance ba_cov = EstimateBACovariance(
-      BACovarianceOptions(), reconstruction, bundle_adjuster);
+      BACovarianceOptions(), reconstruction, *bundle_adjuster);
   ASSERT_TRUE(ba_cov.success);
 
   const std::vector<detail::PoseParam> poses =
@@ -159,7 +159,8 @@ TEST(EstimateBACovariance, CompareWithCeres) {
 //     covariance_computer.GetCovarianceMatrixInTangentSpace({point.xyz},
 //                                                           ceres_cov.data());
 
-//     ExpectNearEigenMatrixXd(ceres_cov, covs.at(point.point3D_id), /*tol=*/1e-8);
+//     ExpectNearEigenMatrixXd(ceres_cov, covs.at(point.point3D_id),
+//     /*tol=*/1e-8);
 //   }
 // }
 
@@ -181,8 +182,8 @@ TEST(EstimateBACovariance, CompareWithCeres) {
 //     const Eigen::Vector3d point_xyz2 =
 //         Inverse(image2.CamFromWorld()).translation;
 //     for (const double& val : {0.2, 0.4, 0.6, 0.8}) {
-//       const Eigen::Vector3d point = val * point_xyz1 + (1 - val) * point_xyz2;
-//       Track track;
+//       const Eigen::Vector3d point = val * point_xyz1 + (1 - val) *
+//       point_xyz2; Track track;
 
 //       Point2D point2D1;
 //       point2D1.xy =
@@ -219,12 +220,13 @@ TEST(EstimateBACovariance, CompareWithCeres) {
 //   bundle_adjuster.Solve(&reconstruction);
 //   std::shared_ptr<ceres::Problem> problem = bundle_adjuster.Problem();
 
-//   EXPECT_EQ(EstimatePointCovariances(reconstruction, *problem, /*damping=*/1e-8)
+//   EXPECT_EQ(EstimatePointCovariances(reconstruction, *problem,
+//   /*damping=*/1e-8)
 //                 .size(),
 //             reconstruction.NumPoints3D());
 //   EXPECT_LT(
-//       EstimatePointCovariances(reconstruction, *problem, /*damping=*/0).size(),
-//       reconstruction.NumPoints3D());
+//       EstimatePointCovariances(reconstruction, *problem,
+//       /*damping=*/0).size(), reconstruction.NumPoints3D());
 // }
 
 }  // namespace

@@ -152,4 +152,18 @@ void Camera::Rescale(const size_t new_width, const size_t new_height) {
   }
 }
 
+std::ostream& operator<<(std::ostream& stream, const Camera& camera) {
+  const bool valid_model = ExistsCameraModelWithId(camera.model_id);
+  const std::string camera_id_str = camera.camera_id != kInvalidCameraId
+                                        ? std::to_string(camera.camera_id)
+                                        : "Invalid";
+  const std::string params_info = valid_model ? camera.ParamsInfo() : "?";
+  const std::string model_name = valid_model ? camera.ModelName() : "Invalid";
+  stream << "Camera(camera_id=" << camera_id_str << ", model=" << model_name
+         << ", width=" << camera.width << ", height=" << camera.height
+         << ", params=[" << camera.ParamsToString() << "] (" << params_info
+         << "))";
+  return stream;
+}
+
 }  // namespace colmap

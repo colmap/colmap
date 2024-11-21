@@ -83,12 +83,11 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
   timer.Restart();
   LOG(INFO) << "Loading matches...";
 
-  std::vector<image_pair_t> image_pair_ids;
-  std::vector<TwoViewGeometry> two_view_geometries;
-  database.ReadTwoViewGeometries(&image_pair_ids, &two_view_geometries);
+  const std::vector<std::pair<image_pair_t, TwoViewGeometry>>
+      two_view_geometries = database.ReadTwoViewGeometries();
 
   LOG(INFO) << StringPrintf(
-      " %d in %.3fs", image_pair_ids.size(), timer.ElapsedSeconds());
+      " %d in %.3fs", two_view_geometries.size(), timer.ElapsedSeconds());
 
   auto UseInlierMatchesCheck = [min_num_matches, ignore_watermarks](
                                    const TwoViewGeometry& two_view_geometry) {
@@ -127,12 +126,10 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
     // Collect all images that are connected in the correspondence graph.
     std::unordered_set<image_t> connected_image_ids;
     connected_image_ids.reserve(image_ids.size());
-    for (size_t i = 0; i < image_pair_ids.size(); ++i) {
-      if (UseInlierMatchesCheck(two_view_geometries[i])) {
-        image_t image_id1;
-        image_t image_id2;
-        std::tie(image_id1, image_id2) =
-            Database::PairIdToImagePair(image_pair_ids[i]);
+    for (const auto& [pair_id, two_view_geometry] : two_view_geometries) {
+      if (UseInlierMatchesCheck(two_view_geometry)) {
+        const auto [image_id1, image_id2] =
+            Database::PairIdToImagePair(pair_id);
         if (image_ids.count(image_id1) > 0 && image_ids.count(image_id2) > 0) {
           connected_image_ids.insert(image_id1);
           connected_image_ids.insert(image_id2);
@@ -194,15 +191,12 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
   }
 
   size_t num_ignored_image_pairs = 0;
-  for (size_t i = 0; i < image_pair_ids.size(); ++i) {
-    if (UseInlierMatchesCheck(two_view_geometries[i])) {
-      image_t image_id1;
-      image_t image_id2;
-      std::tie(image_id1, image_id2) =
-          Database::PairIdToImagePair(image_pair_ids[i]);
+  for (const auto& [pair_id, two_view_geometry] : two_view_geometries) {
+    if (UseInlierMatchesCheck(two_view_geometry)) {
+      const auto [image_id1, image_id2] = Database::PairIdToImagePair(pair_id);
       if (image_ids.count(image_id1) > 0 && image_ids.count(image_id2) > 0) {
         cache->correspondence_graph_->AddCorrespondences(
-            image_id1, image_id2, two_view_geometries[i].inlier_matches);
+            image_id1, image_id2, two_view_geometry.inlier_matches);
       } else {
         num_ignored_image_pairs += 1;
       }
@@ -253,7 +247,7 @@ bool DatabaseCache::SetupPosePriors() {
   std::vector<Eigen::Vector3d> v_gps_prior;
   v_gps_prior.reserve(NumPosePriors());
 
-  for (const auto& image_id : image_ids_with_prior) {
+  for (const image_t image_id : image_ids_with_prior) {
     const struct PosePrior& pose_prior = PosePrior(image_id);
     if (pose_prior.coordinate_system != PosePrior::CoordinateSystem::WGS84) {
       prior_is_gps = false;
@@ -279,7 +273,7 @@ bool DatabaseCache::SetupPosePriors() {
       struct PosePrior& pose_prior = PosePrior(image_id);
       pose_prior.position = *xyz_prior_it;
       pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
-      xyz_prior_it++;
+      ++xyz_prior_it;
     }
   } else if (!prior_is_gps && !v_gps_prior.empty()) {
     LOG(ERROR)

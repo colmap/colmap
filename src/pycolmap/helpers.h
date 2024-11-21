@@ -5,6 +5,7 @@
 #include "colmap/util/threading.h"
 
 #include <exception>
+#include <optional>
 #include <regex>
 #include <sstream>
 #include <string>
@@ -28,7 +29,7 @@ const Eigen::IOFormat vec_fmt(Eigen::StreamPrecision,
                               ", ");
 
 template <typename T>
-T pyStringToEnum(const py::enum_<T>& enm, const std::string& value) {
+T PyStringToEnum(const py::enum_<T>& enm, const std::string& value) {
   const auto values = enm.attr("__members__").template cast<py::dict>();
   const auto str_val = py::str(value);
   if (!values.contains(str_val)) {
@@ -41,7 +42,7 @@ T pyStringToEnum(const py::enum_<T>& enm, const std::string& value) {
 template <typename T>
 void AddStringToEnumConstructor(py::enum_<T>& enm) {
   enm.def(py::init([enm](const std::string& value) {
-    return pyStringToEnum(enm, py::str(value));  // str constructor
+    return PyStringToEnum(enm, py::str(value));  // str constructor
   }));
   py::implicitly_convertible<std::string, T>();
 }
@@ -79,7 +80,7 @@ inline void UpdateFromDict(py::object& self, const py::dict& dict) {
         if (success_on_base) {
           continue;
         }
-        std::stringstream ss;
+        std::ostringstream ss;
         ss << self.attr("__class__")
                   .attr("__name__")
                   .template cast<std::string>()
@@ -99,7 +100,7 @@ inline void UpdateFromDict(py::object& self, const py::dict& dict) {
       } else if (ex.matches(PyExc_AttributeError) &&
                  py::str(ex.value()).cast<std::string>() ==
                      std::string("can't set attribute")) {
-        std::stringstream ss;
+        std::ostringstream ss;
         ss << self.attr("__class__")
                   .attr("__name__")
                   .template cast<std::string>()
@@ -160,7 +161,7 @@ py::dict ConvertToDict(const T& self,
 
 template <typename T, typename... options>
 std::string CreateSummary(const T& self, bool write_type) {
-  std::stringstream ss;
+  std::ostringstream ss;
   auto pyself = py::cast(self);
   const std::string prefix = "    ";
   bool after_subsummary = false;
@@ -210,9 +211,9 @@ std::string CreateSummary(const T& self, bool write_type) {
   return ss.str();
 }
 
-template <typename T, typename... options>
-std::string CreateRepresentation(const T& self) {
-  std::stringstream ss;
+template <typename T>
+std::string CreateRepresentationFromAttributes(const T& self) {
+  std::ostringstream ss;
   auto pyself = py::cast(self);
   ss << pyself.attr("__class__").attr("__name__").template cast<std::string>()
      << "(";
@@ -242,6 +243,26 @@ std::string CreateRepresentation(const T& self) {
   }
   ss << ")";
   return ss.str();
+}
+
+template <typename T, typename = void>
+struct IsOstreamable : std::false_type {};
+
+template <typename T>
+struct IsOstreamable<
+    T,
+    std::void_t<decltype(std::declval<std::ostream&>() << std::declval<T>())>>
+    : std::true_type {};
+
+template <typename T>
+std::string CreateRepresentation(const T& self) {
+  if constexpr (IsOstreamable<T>::value) {
+    std::ostringstream ss;
+    ss << self;
+    return ss.str();
+  } else {
+    return CreateRepresentationFromAttributes<T>(self);
+  }
 }
 
 template <typename T, typename... options>
@@ -385,4 +406,29 @@ inline bool IsPyceresAvailable() {
     return false;
   }
   return true;
+}
+
+template <typename Parent>
+inline void DefDeprecation(
+    Parent& parent,
+    std::string old_name,
+    std::string new_name,
+    std::optional<std::string> custom_warning = std::nullopt) {
+  parent.def(
+      old_name.c_str(),
+      [parent,
+       old_name = std::move(old_name),
+       new_name = std::move(new_name),
+       custom_warning = std::move(custom_warning)](const py::args& args,
+                                                   const py::kwargs& kwargs) {
+        if (custom_warning) {
+          PyErr_WarnEx(PyExc_DeprecationWarning, custom_warning->c_str(), 1);
+        } else {
+          std::ostringstream warning;
+          warning << old_name << "() is deprecated, use " << new_name
+                  << "() instead.";
+          PyErr_WarnEx(PyExc_DeprecationWarning, warning.str().c_str(), 1);
+        }
+        return parent.attr(new_name.c_str())(*args, **kwargs);
+      });
 }

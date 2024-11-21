@@ -30,6 +30,8 @@
 #pragma once
 
 #include "colmap/geometry/sim3.h"
+#include "colmap/optim/loransac.h"
+#include "colmap/optim/ransac.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/types.h"
@@ -102,6 +104,22 @@ inline bool EstimateSim3d(const std::vector<Eigen::Vector3d>& src,
   THROW_CHECK_EQ(models.size(), 1);
   tgt_from_src = Sim3d::FromMatrix(models[0]);
   return true;
+}
+
+template <bool kEstimateScale = true>
+inline typename RANSAC<SimilarityTransformEstimator<3, kEstimateScale>>::Report
+EstimateSim3dRobust(const std::vector<Eigen::Vector3d>& src,
+                    const std::vector<Eigen::Vector3d>& tgt,
+                    const RANSACOptions& options,
+                    Sim3d& tgt_from_src) {
+  LORANSAC<SimilarityTransformEstimator<3, kEstimateScale>,
+           SimilarityTransformEstimator<3, kEstimateScale>>
+      ransac(options);
+  auto report = ransac.Estimate(src, tgt);
+  if (report.success) {
+    tgt_from_src = Sim3d::FromMatrix(report.model);
+  }
+  return report;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

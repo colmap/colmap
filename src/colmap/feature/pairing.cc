@@ -690,20 +690,19 @@ std::vector<std::pair<image_t, image_t>> TransitivePairGenerator::Next() {
   LOG(INFO) << StringPrintf(
       "Iteration [%d/%d]", current_iteration_, options_.num_iterations);
 
-  std::vector<std::pair<image_t, image_t>> existing_image_pairs;
-  std::vector<int> existing_num_inliers;
+  std::vector<std::pair<image_pair_t, int>> existing_pair_ids_and_num_inliers;
   cache_->AccessDatabase(
-      [&existing_image_pairs, &existing_num_inliers](const Database& database) {
-        database.ReadTwoViewGeometryNumInliers(&existing_image_pairs,
-                                               &existing_num_inliers);
+      [&existing_pair_ids_and_num_inliers](Database& database) {
+        existing_pair_ids_and_num_inliers =
+            database.ReadTwoViewGeometryNumInliers();
       });
 
-  std::unordered_map<image_t, std::vector<image_t>> adjacency;
-  for (const auto& image_pair : existing_image_pairs) {
-    adjacency[image_pair.first].push_back(image_pair.second);
-    adjacency[image_pair.second].push_back(image_pair.first);
-    image_pair_ids_.insert(
-        Database::ImagePairToPairId(image_pair.first, image_pair.second));
+  std::map<image_t, std::vector<image_t>> adjacency;
+  for (const auto& [pair_id, _] : existing_pair_ids_and_num_inliers) {
+    const auto [image_id1, image_id2] = Database::PairIdToImagePair(pair_id);
+    adjacency[image_id1].push_back(image_id2);
+    adjacency[image_id2].push_back(image_id1);
+    image_pair_ids_.insert(pair_id);
   }
 
   for (const auto& image : adjacency) {
@@ -722,7 +721,7 @@ std::vector<std::pair<image_t, image_t>> TransitivePairGenerator::Next() {
         if (image_pair_ids_.count(image_pair_id) != 0) {
           continue;
         }
-        image_pairs_.emplace_back(image_id1, image_id3);
+        image_pairs_.emplace_back(std::minmax(image_id1, image_id3));
         image_pair_ids_.insert(image_pair_id);
       }
     }
