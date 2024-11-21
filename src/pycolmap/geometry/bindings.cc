@@ -1,4 +1,3 @@
-#include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/gps.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/geometry/rigid3.h"
@@ -19,11 +18,10 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
-void BindHomographyGeometry(py::module& m);
+void BindHomographyMatrixGeometry(py::module& m);
+void BindEssentialMatrixGeometry(py::module& m);
 
 void BindGeometry(py::module& m) {
-  BindHomographyGeometry(m);
-
   py::class_ext_<Eigen::Quaterniond> PyRotation3d(m, "Rotation3d");
   PyRotation3d.def(py::init([]() { return Eigen::Quaterniond::Identity(); }))
       .def(py::init<const Eigen::Vector4d&>(),
@@ -85,7 +83,6 @@ void BindGeometry(py::module& m) {
       .def_readwrite("translation", &Rigid3d::translation)
       .def("matrix", &Rigid3d::ToMatrix)
       .def("adjoint", &Rigid3d::Adjoint)
-      .def("essential_matrix", &EssentialMatrixFromPose)
       .def(py::self * Rigid3d())
       .def(py::self * Eigen::Vector3d())
       .def("__mul__",
@@ -162,4 +159,7 @@ void BindGeometry(py::module& m) {
       .def("is_valid", &PosePrior::IsValid)
       .def("is_covariance_valid", &PosePrior::IsCovarianceValid);
   MakeDataclass(PyPosePrior);
+
+  BindHomographyMatrixGeometry(m);
+  BindEssentialMatrixGeometry(m);
 }

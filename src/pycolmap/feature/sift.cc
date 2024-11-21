@@ -31,9 +31,24 @@ static std::map<int, std::unique_ptr<std::mutex>> sift_gpu_mutexes;
 
 class Sift {
  public:
-  Sift(SiftExtractionOptions options, Device device)
-      : options_(std::move(options)), use_gpu_(IsGPU(device)) {
+  Sift(std::optional<SiftExtractionOptions> options, Device device)
+      : use_gpu_(IsGPU(device)) {
     VerifyGPUParams(use_gpu_);
+    if (options) {
+      options_ = std::move(*options);
+    } else {
+      // For backwards compatibility.
+      PyErr_WarnEx(PyExc_DeprecationWarning,
+                   "No SIFT extraction options specified. Setting them to "
+                   "peak_threshold=0.01, first_octave=0, max_image_size=7000 "
+                   "for backwards compatibility. If you want to keep the "
+                   "settings, explicitly specify them, because the defaults "
+                   "will change in the next major release.",
+                   1);
+      options_.peak_threshold = 0.01;
+      options_.first_octave = 0;
+      options_.max_image_size = 7000;
+    }
     options_.use_gpu = use_gpu_;
     extractor_ = THROW_CHECK_NOTNULL(CreateSiftFeatureExtractor(options_));
   }
@@ -162,15 +177,9 @@ void BindSift(py::module& m) {
                          "L1_ROOT or L2 descriptor normalization");
   MakeDataclass(PySiftExtractionOptions);
 
-  // For backwards consistency
-  SiftExtractionOptions options;
-  options.peak_threshold = 0.01;
-  options.first_octave = 0;
-  options.max_image_size = 7000;
-
   py::class_<Sift>(m, "Sift")
-      .def(py::init<SiftExtractionOptions, Device>(),
-           "options"_a = options,
+      .def(py::init<std::optional<SiftExtractionOptions>, Device>(),
+           "options"_a = std::nullopt,
            "device"_a = Device::AUTO)
       .def("extract",
            py::overload_cast<const Eigen::Ref<const pyimage_t<uint8_t>>&>(
@@ -182,4 +191,34 @@ void BindSift(py::module& m) {
            "image"_a.noconvert())
       .def_property_readonly("options", &Sift::Options)
       .def_property_readonly("device", &Sift::GetDevice);
+
+  using SMOpts = SiftMatchingOptions;
+  auto PySiftMatchingOptions =
+      py::class_<SMOpts>(m, "SiftMatchingOptions")
+          .def(py::init<>())
+          .def_readwrite("num_threads", &SMOpts::num_threads)
+          .def_readwrite("gpu_index",
+                         &SMOpts::gpu_index,
+                         "Index of the GPU used for feature matching. For "
+                         "multi-GPU matching, "
+                         "you should separate multiple GPU indices by comma, "
+                         "e.g., \"0,1,2,3\".")
+          .def_readwrite(
+              "max_ratio",
+              &SMOpts::max_ratio,
+              "Maximum distance ratio between first and second best match.")
+          .def_readwrite("max_distance",
+                         &SMOpts::max_distance,
+                         "Maximum distance to best match.")
+          .def_readwrite("cross_check",
+                         &SMOpts::cross_check,
+                         "Whether to enable cross checking in matching.")
+          .def_readwrite("max_num_matches",
+                         &SMOpts::max_num_matches,
+                         "Maximum number of matches.")
+          .def_readwrite("guided_matching",
+                         &SMOpts::guided_matching,
+                         "Whether to perform guided matching, if geometric "
+                         "verification succeeds.");
+  MakeDataclass(PySiftMatchingOptions);
 }
