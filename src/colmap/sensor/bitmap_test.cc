@@ -551,5 +551,52 @@ TEST(Bitmap, ReadWriteAsGrey) {
             bitmap.ConvertToRowMajorArray());
 }
 
+TEST(Bitmap, ReadRGB16AsGrey) {
+  Bitmap bitmap;
+  bitmap.Allocate(2, 3, true);
+  bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(0, 0, 0));
+  bitmap.SetPixel(0, 1, BitmapColor<uint8_t>(1, 0, 0));
+  bitmap.SetPixel(1, 0, BitmapColor<uint8_t>(2, 0, 0));
+  bitmap.SetPixel(1, 1, BitmapColor<uint8_t>(3, 0, 0));
+  bitmap.SetPixel(0, 2, BitmapColor<uint8_t>(4, 2, 0));
+  bitmap.SetPixel(1, 2, BitmapColor<uint8_t>(5, 2, 1));
+
+  const std::string test_dir = CreateTestDir();
+  const std::string filename = test_dir + "/bitmap.png";
+
+  // Bitmap class does not support 16 bit color depth
+  FIBITMAP* converted_rgb16 = FreeImage_ConvertToType(bitmap.Data(), FIT_RGB16);
+  EXPECT_TRUE(converted_rgb16);
+  EXPECT_TRUE(FreeImage_Save(FIF_PNG, converted_rgb16, filename.c_str()));
+  FreeImage_Unload(converted_rgb16);
+
+  // Assert the file was written correctly with 16 bit color depth
+  FIBITMAP* written_image = FreeImage_Load(FIF_PNG, filename.c_str());
+  EXPECT_TRUE(written_image);
+  EXPECT_EQ(FreeImage_GetBPP(written_image), 48);
+  FreeImage_Unload(written_image);
+
+  Bitmap read_bitmap;
+
+  // Allocate bitmap with different size to test read overwrites existing data.
+  read_bitmap.Allocate(bitmap.Width() + 1, bitmap.Height() + 2, true);
+
+  EXPECT_TRUE(read_bitmap.Read(filename));
+  EXPECT_EQ(read_bitmap.Width(), bitmap.Width());
+  EXPECT_EQ(read_bitmap.Height(), bitmap.Height());
+  EXPECT_EQ(read_bitmap.Channels(), 3);
+  EXPECT_EQ(read_bitmap.BitsPerPixel(), 24);
+  EXPECT_EQ(read_bitmap.ConvertToRowMajorArray(),
+            bitmap.ConvertToRowMajorArray());
+
+  EXPECT_TRUE(read_bitmap.Read(filename, /*as_rgb=*/false));
+  EXPECT_EQ(read_bitmap.Width(), bitmap.Width());
+  EXPECT_EQ(read_bitmap.Height(), bitmap.Height());
+  EXPECT_EQ(read_bitmap.Channels(), 1);
+  EXPECT_EQ(read_bitmap.BitsPerPixel(), 8);
+  EXPECT_EQ(read_bitmap.ConvertToRowMajorArray(),
+            bitmap.CloneAsGrey().ConvertToRowMajorArray());
+}
+
 }  // namespace
 }  // namespace colmap
