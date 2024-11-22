@@ -40,15 +40,6 @@
 namespace colmap {
 namespace {
 
-void GenerateReconstruction(Reconstruction* reconstruction) {
-  SyntheticDatasetOptions synthetic_dataset_options;
-  synthetic_dataset_options.num_cameras = 3;
-  synthetic_dataset_options.num_images = 8;
-  synthetic_dataset_options.num_points3D = 1000;
-  synthetic_dataset_options.point2D_stddev = 0.01;
-  SynthesizeDataset(synthetic_dataset_options, reconstruction);
-}
-
 void ExpectNearEigenMatrixXd(const Eigen::MatrixXd& mat1,
                              const Eigen::MatrixXd& mat2,
                              double tol) {
@@ -88,7 +79,13 @@ TEST_P(ParameterizedBACovarianceTests, CompareWithCeres) {
       options.params == BACovarianceOptions::Params::kAll;
 
   Reconstruction reconstruction;
-  GenerateReconstruction(&reconstruction);
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_cameras = 3;
+  synthetic_dataset_options.num_images = 8;
+  synthetic_dataset_options.num_points3D = 1000;
+  synthetic_dataset_options.point2D_stddev = 0.01;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+
   BundleAdjustmentConfig config;
   for (const auto& [image_id, image] : reconstruction.Images()) {
     config.AddImage(image_id);
@@ -289,72 +286,57 @@ INSTANTIATE_TEST_SUITE_P(
           return std::make_pair(options, test_options);
         }()));
 
-// TODO
+TEST(EstimatePointCovariances, RankDeficientPoints) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_cameras = 1;
+  synthetic_dataset_options.num_images = 2;
+  synthetic_dataset_options.num_points3D = 10;
+  synthetic_dataset_options.point2D_stddev = 0;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
 
-// TEST(EstimatePointCovariances, RankDeficientPoints) {
-//   Reconstruction reconstruction;
-//   GenerateReconstruction(&reconstruction);
+  const image_t image_id1 = reconstruction.Images().begin()->first;
+  const image_t image_id2 = std::next(reconstruction.Images().begin())->first;
+  Image& image1 = reconstruction.Image(image_id1);
+  image1.SetCamFromWorld(Rigid3d());
+  Image& image2 = reconstruction.Image(image_id2);
+  image2.SetCamFromWorld(
+      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(0, 1, 0)));
 
-//   // Add poorly conditioned points to the reconstruction.
-//   const std::set<image_t> reg_image_ids = reconstruction.RegImageIds();
-//   for (auto it = ++reg_image_ids.begin(); it != reg_image_ids.end(); ++it) {
-//     const image_t image_id1 = *std::prev(it);
-//     Image& image1 = reconstruction.Image(image_id1);
-//     const Camera& camera1 = reconstruction.Camera(image1.CameraId());
-//     const Eigen::Vector3d point_xyz1 =
-//         Inverse(image1.CamFromWorld()).translation;
-//     const image_t image_id2 = *it;
-//     Image& image2 = reconstruction.Image(image_id2);
-//     const Camera& camera2 = reconstruction.Camera(image1.CameraId());
-//     const Eigen::Vector3d point_xyz2 =
-//         Inverse(image2.CamFromWorld()).translation;
-//     for (const double& val : {0.2, 0.4, 0.6, 0.8}) {
-//       const Eigen::Vector3d point = val * point_xyz1 + (1 - val) *
-//       point_xyz2; Track track;
+  double distance = 1;
+  double x = 0.1;
+  double y = 0;
+  for (const point3D_t point3D_id : reconstruction.Point3DIds()) {
+    Point3D& point3D = reconstruction.Point3D(point3D_id);
+    point3D.xyz = Eigen::AngleAxisd(EIGEN_PI / 2, Eigen::Vector3d::UnitZ()) *
+                  Eigen::Vector3d(x, y, distance);
+    x = point3D.xyz.x();
+    y = point3D.xyz.y();
+    distance *= 10;
+    for (const auto& track_el : point3D.track.Elements()) {
+      reconstruction.Image(track_el.image_id).Point2D(track_el.point2D_idx).xy =
+          image1.ProjectPoint(point3D.xyz).second;
+    }
+  }
 
-//       Point2D point2D1;
-//       point2D1.xy =
-//           camera1.ImgFromCam((image1.CamFromWorld() * point).hnormalized());
-//       const point2D_t point2D_idx1 = image1.NumPoints2D();
-//       image1.Points2D().push_back(point2D1);
-//       track.AddElement(image_id1, point2D_idx1);
+  BundleAdjustmentConfig config;
+  config.AddImage(image_id1);
+  config.AddImage(image_id2);
+  config.SetConstantCamPose(image_id1);
+  config.SetConstantCamPositions(image_id2, {0});
+  config.SetConstantCamIntrinsics(image1.CameraId());
+  config.SetConstantCamIntrinsics(image2.CameraId());
 
-//       Point2D point2D2;
-//       point2D2.xy =
-//           camera2.ImgFromCam((image2.CamFromWorld() * point).hnormalized());
-//       const point2D_t point2D_idx2 = image2.NumPoints2D();
-//       image2.Points2D().push_back(point2D2);
-//       track.AddElement(image_id2, point2D_idx2);
+  auto bundle_adjuster = CreateDefaultBundleAdjuster(
+      BundleAdjustmentOptions(), std::move(config), reconstruction);
 
-//       const point3D_t point3D_id = reconstruction.AddPoint3D(point, track);
-//       image1.SetPoint3DForPoint2D(point2D_idx1, point3D_id);
-//       image2.SetPoint3DForPoint2D(point2D_idx2, point3D_id);
-//     }
-//   }
-
-//   BundleAdjustmentConfig config;
-//   for (const auto& [image_id, image] : reconstruction.Images()) {
-//     config.AddImage(image_id);
-//     config.SetConstantCamPose(image_id);
-//     config.SetConstantCamIntrinsics(image.CameraId());
-//   }
-//   for (const auto& [point3D_id, _] : reconstruction.Points3D()) {
-//     config.AddVariablePoint(point3D_id);
-//   }
-//   BundleAdjustmentOptions options;
-//   options.solver_options.max_num_iterations = 0;
-//   BundleAdjuster bundle_adjuster(options, config);
-//   bundle_adjuster.Solve(&reconstruction);
-//   std::shared_ptr<ceres::Problem> problem = bundle_adjuster.Problem();
-
-//   EXPECT_EQ(EstimatePointCovariances(reconstruction, *problem,
-//   /*damping=*/1e-8)
-//                 .size(),
-//             reconstruction.NumPoints3D());
-//   EXPECT_LT(
-//       EstimatePointCovariances(reconstruction, *problem,
-//       /*damping=*/0).size(), reconstruction.NumPoints3D());
-// }
+  BACovarianceOptions options;
+  ASSERT_TRUE(EstimateBACovariance(options, reconstruction, *bundle_adjuster)
+                  .has_value());
+  options.damping = 0;
+  ASSERT_FALSE(EstimateBACovariance(options, reconstruction, *bundle_adjuster)
+                   .has_value());
+}
 
 }  // namespace
 }  // namespace colmap
