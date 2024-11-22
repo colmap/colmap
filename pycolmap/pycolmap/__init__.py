@@ -1,4 +1,5 @@
 import textwrap
+from typing import TYPE_CHECKING
 
 from .utils import import_module_symbols
 
@@ -12,6 +13,12 @@ except ImportError as e:
           $ python -m pip install pycolmap/
         """)
     ) from e
+
+# Type checkers cannot deal with dynamic manipulation of globals.
+# Instead, we use the same workaround as PyTorch.
+if TYPE_CHECKING:
+    from ._core import *  # noqa F403
+    del cost_functions, manifold  # noqa F821
 
 __all__ = import_module_symbols(
     globals(), _core, exclude={"cost_functions", "manifold"}
