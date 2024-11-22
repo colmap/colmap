@@ -33,7 +33,9 @@
 #include "colmap/geometry/rigid3.h"
 #include "colmap/scene/reconstruction.h"
 
+#include <optional>
 #include <unordered_map>
+#include <vector>
 
 #include <Eigen/Core>
 #include <Eigen/Dense>
