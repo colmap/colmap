@@ -38,9 +38,6 @@
 namespace colmap {
 namespace {
 
-using SparseJacobianMatrix =
-    Eigen::Map<const Eigen::SparseMatrix<double, Eigen::RowMajor>>;
-
 bool ComputeSchurComplement(
     bool estimate_point_covs,
     bool estimate_pose_covs,
@@ -81,12 +78,13 @@ bool ComputeSchurComplement(
     return false;
   }
 
-  const SparseJacobianMatrix J_full(J_full_crs.num_rows,
-                                    J_full_crs.num_cols,
-                                    J_full_crs.values.size(),
-                                    J_full_crs.rows.data(),
-                                    J_full_crs.cols.data(),
-                                    J_full_crs.values.data());
+  const Eigen::Map<const Eigen::SparseMatrix<double, Eigen::RowMajor>> J_full(
+      J_full_crs.num_rows,
+      J_full_crs.num_cols,
+      J_full_crs.values.size(),
+      J_full_crs.rows.data(),
+      J_full_crs.cols.data(),
+      J_full_crs.values.data());
 
   if (point_num_params == 0) {
     S = J_full.transpose() * J_full;
