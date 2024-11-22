@@ -179,14 +179,19 @@ bool ComputeLInverse(const Eigen::SparseMatrix<double>& S,
     return false;
   }
 
-  const Eigen::SparseMatrix<double> L_sparse = ldlt_S.matrixL();
-  const Eigen::MatrixXd L_dense = L_sparse;
-  L_inv = L_dense.triangularView<Eigen::Lower>().solve(
-      Eigen::MatrixXd::Identity(L_dense.rows(), L_dense.cols()));
-  for (int i = 0; i < S.rows(); ++i) {
-    L_inv.row(i) *= 1.0 / std::max(std::sqrt(std::max(D_dense(i), 0.)),
-                                   std::numeric_limits<double>::min());
-  }
+  // const Eigen::SparseMatrix<double> L_sparse = ldlt_S.matrixL();
+  // const Eigen::MatrixXd L_dense = L_sparse;
+  // L_inv = L_dense.triangularView<Eigen::Lower>().solve(
+  //     Eigen::MatrixXd::Identity(L_dense.rows(), L_dense.cols()));
+  // for (int i = 0; i < S.rows(); ++i) {
+  //   L_inv.row(i) *= 1.0 / std::max(std::sqrt(std::max(D_dense(i), 0.)),
+  //                                  std::numeric_limits<double>::min());
+  // }
+
+  Eigen::SparseMatrix<double> I(S.rows(), S.cols());
+  I.setIdentity();
+  Eigen::SparseMatrix<double> S_inv = ldlt_S.solve(I);
+  L_inv = S_inv;  // convert to dense matrix
 
   return true;
 }
@@ -196,8 +201,9 @@ Eigen::MatrixXd ExtractCovFromLInverse(const Eigen::MatrixXd& L_inv,
                                        int col_start,
                                        int row_block_size,
                                        int col_block_size) {
-  return L_inv.block(0, row_start, L_inv.rows(), row_block_size).transpose() *
-         L_inv.block(0, col_start, L_inv.cols(), col_block_size);
+  // return L_inv.block(0, row_start, L_inv.rows(), row_block_size).transpose() *
+  //        L_inv.block(0, col_start, L_inv.cols(), col_block_size);
+  return L_inv.block(row_start, col_start, row_block_size, col_block_size);
 }
 
 }  // namespace
