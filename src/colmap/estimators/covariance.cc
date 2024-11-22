@@ -88,11 +88,16 @@ bool ComputeSchurComplement(
                                     J_full_crs.cols.data(),
                                     J_full_crs.values.data());
 
+  if (point_num_params == 0) {
+    S = J_full.transpose() * J_full;
+    return true;
+  }
+
   if (estimate_point_covs) {
     point_covs.reserve(points.size());
   }
 
-  VLOG(2) << "Schur elimination on point parameters";
+  VLOG(2) << "Schur elimination of point parameters";
 
   // Notice that here "a" refers to the block of pose + other parameters.
   const Eigen::SparseMatrix<double> J_a =
@@ -118,13 +123,13 @@ bool ComputeSchurComplement(
       }
     }
     if (estimate_point_covs) {
-      // Point covariance conditioned on fixed other variables.
-      point_covs[point.point3D_id] = H_pp_idx_inv;
+      // Point covariance conditioned on fixed pose/other parameters.
+      point_covs.emplace(point.point3D_id, H_pp_idx_inv);
     }
     point_param_idx += 3;
   }
 
-  if (!estimate_pose_covs && !estimate_point_covs) {
+  if (!estimate_pose_covs && !estimate_other_covs) {
     return true;
   }
 
@@ -139,7 +144,7 @@ Eigen::SparseMatrix<double> SchurEliminateOtherParams(
     const Eigen::SparseMatrix<double>& S_a,
     int pose_num_params,
     int other_num_params) {
-  VLOG(2) << "Schur elimination on other parameters";
+  VLOG(2) << "Schur elimination of other parameters";
 
   const Eigen::SparseMatrix<double> S_cc =
       S_a.block(0, 0, pose_num_params, pose_num_params);
@@ -239,7 +244,7 @@ std::optional<Eigen::MatrixXd> BACovariance::GetCamFromWorldCov(
   return ExtractCovFromLInverse(L_inv_, start, start, size, size);
 }
 
-std::optional<Eigen::MatrixXd> BACovariance::GetCam2FromCam1Cov(
+std::optional<Eigen::MatrixXd> BACovariance::GetCam1FromCam2Cov(
     image_t image_id1, image_t image_id2) const {
   const auto it1 = pose_L_start_size_.find(image_id1);
   const auto it2 = pose_L_start_size_.find(image_id2);
@@ -248,7 +253,7 @@ std::optional<Eigen::MatrixXd> BACovariance::GetCam2FromCam1Cov(
   }
   const auto [start1, size1] = it1->second;
   const auto [start2, size2] = it2->second;
-  return ExtractCovFromLInverse(L_inv_, start2, start1, size2, size1);
+  return ExtractCovFromLInverse(L_inv_, start1, start2, size1, size2);
 }
 
 std::optional<Eigen::MatrixXd> BACovariance::GetOtherParamsCov(

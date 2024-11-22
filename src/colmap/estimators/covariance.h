@@ -58,7 +58,7 @@ struct BACovariance {
   // The full pose covariance matrix has dimension 6x6.
   // Returns null if image not a variable in the problem.
   std::optional<Eigen::MatrixXd> GetCamFromWorldCov(image_t image_id) const;
-  std::optional<Eigen::MatrixXd> GetCam2FromCam1Cov(image_t image_id1,
+  std::optional<Eigen::MatrixXd> GetCam1FromCam2Cov(image_t image_id1,
                                                     image_t image_id2) const;
 
   // Tangent space covariance for any variable parameter block in the problem.
