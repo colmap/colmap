@@ -40,7 +40,7 @@ py::typing::Optional<py::dict> PyEstimateFundamentalMatrix(
 void BindFundamentalMatrixEstimator(py::module& m) {
   auto ransac_options = m.attr("RANSACOptions")().cast<RANSACOptions>();
 
-  m.def("fundamental_matrix_estimation",
+  m.def("estimate_fundamental_matrix",
         &PyEstimateFundamentalMatrix,
         "points2D1"_a,
         "points2D2"_a,
