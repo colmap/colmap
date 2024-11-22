@@ -414,6 +414,8 @@ inline void DefDeprecation(
     std::string old_name,
     std::string new_name,
     std::optional<std::string> custom_warning = std::nullopt) {
+  const std::string doc =
+      StringPrintf("Deprecated, use ``%s`` instead.", new_name.c_str());
   parent.def(
       old_name.c_str(),
       [parent,
@@ -430,5 +432,6 @@ inline void DefDeprecation(
           PyErr_WarnEx(PyExc_DeprecationWarning, warning.str().c_str(), 1);
         }
         return parent.attr(new_name.c_str())(*args, **kwargs);
-      });
+      },
+      doc.c_str());
 }
