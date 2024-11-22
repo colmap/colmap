@@ -18,6 +18,7 @@ except ImportError as e:
 # Instead, we use the same workaround as PyTorch.
 if TYPE_CHECKING:
     from ._core import *  # noqa F403
+
     del cost_functions, manifold  # noqa F821
 
 __all__ = import_module_symbols(
