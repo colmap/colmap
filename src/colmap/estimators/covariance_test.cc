@@ -314,8 +314,9 @@ TEST(EstimatePointCovariances, RankDeficientPoints) {
     y = point3D.xyz.y();
     distance *= 10;
     for (const auto& track_el : point3D.track.Elements()) {
-      reconstruction.Image(track_el.image_id).Point2D(track_el.point2D_idx).xy =
-          image1.ProjectPoint(point3D.xyz).second;
+      Image& image = reconstruction.Image(track_el.image_id);
+      image.Point2D(track_el.point2D_idx).xy =
+          image.ProjectPoint(point3D.xyz).second;
     }
   }
 
