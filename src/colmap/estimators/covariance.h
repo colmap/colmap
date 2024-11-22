@@ -43,16 +43,34 @@
 namespace colmap {
 
 struct BACovariance {
-  // Indicates whether the covariances were estimated successfully.
-  bool success = false;
+  explicit BACovariance(
+      std::unordered_map<point3D_t, Eigen::Matrix3d> point_covs,
+      std::unordered_map<image_t, std::pair<int, int>> pose_L_start_size,
+      std::unordered_map<const double*, std::pair<int, int>> other_L_start_size,
+      Eigen::MatrixXd L_inv);
+
+  // Tangent space covariance for 3D points.
+  // Returns null if 3D point not a variable in the problem.
+  std::optional<Eigen::Matrix3d> GetPointCov(point3D_t point3D_id) const;
 
   // Tangent space covariance in the order [rotation, translation]. If some
   // parameters are kept constant, the respective rows/columns are omitted.
   // The full pose covariance matrix has dimension 6x6.
-  std::unordered_map<image_t, Eigen::MatrixXd> pose_covs;
+  // Returns null if image not a variable in the problem.
+  std::optional<Eigen::MatrixXd> GetCamFromWorldCov(image_t image_id) const;
+  std::optional<Eigen::MatrixXd> GetCam2FromCam1Cov(image_t image_id1,
+                                                    image_t image_id2) const;
 
-  // Tangent space covariance for 3D points.
-  std::unordered_map<point3D_t, Eigen::Matrix3d> point_covs;
+  // Tangent space covariance for any variable parameter block in the problem.
+  // Returns null if parameter block not a variable in the problem.
+  std::optional<Eigen::MatrixXd> GetOtherParamsCov(const double* params) const;
+
+ private:
+  const std::unordered_map<point3D_t, Eigen::Matrix3d> point_covs_;
+  const std::unordered_map<image_t, std::pair<int, int>> pose_L_start_size_;
+  const std::unordered_map<const double*, std::pair<int, int>>
+      other_L_start_size_;
+  const Eigen::MatrixXd L_inv_;
 };
 
 struct BACovarianceOptions {
@@ -71,9 +89,11 @@ struct BACovarianceOptions {
   double damping = 1e-8;
 };
 
-BACovariance EstimateBACovariance(const BACovarianceOptions& options,
-                                  const Reconstruction& reconstruction,
-                                  BundleAdjuster& bundle_adjuster);
+// Returns null if the estimation was not successful.
+std::optional<BACovariance> EstimateBACovariance(
+    const BACovarianceOptions& options,
+    const Reconstruction& reconstruction,
+    BundleAdjuster& bundle_adjuster);
 
 namespace detail {
 

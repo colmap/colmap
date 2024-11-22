@@ -56,7 +56,7 @@ void ExpectNearEigenMatrixXd(const Eigen::MatrixXd& mat1,
   ASSERT_EQ(mat1.cols(), mat2.cols());
   for (int i = 0; i < mat1.rows(); ++i) {
     for (int j = 0; j < mat1.cols(); ++j) {
-      EXPECT_NEAR(mat1(i, j), mat2(i, j), tol);
+      ASSERT_NEAR(mat1(i, j), mat2(i, j), tol);
     }
   }
 }
@@ -67,18 +67,22 @@ TEST(EstimateBACovariance, CompareWithCeres) {
   BundleAdjustmentConfig config;
   for (const auto& [image_id, image] : reconstruction.Images()) {
     config.AddImage(image_id);
-    config.SetConstantCamIntrinsics(image.CameraId());
+    // config.SetConstantCamIntrinsics(image.CameraId());
   }
+  int num_constant_points = 0;
   for (const auto& [point3D_id, _] : reconstruction.Points3D()) {
     config.AddConstantPoint(point3D_id);
+    if (++num_constant_points >= 3) {
+      break;
+    }
   }
   auto bundle_adjuster = CreateDefaultBundleAdjuster(
       BundleAdjustmentOptions(), std::move(config), reconstruction);
   auto problem = bundle_adjuster->Problem();
 
-  const BACovariance ba_cov = EstimateBACovariance(
+  const std::optional<BACovariance> ba_cov = EstimateBACovariance(
       BACovarianceOptions(), reconstruction, *bundle_adjuster);
-  ASSERT_TRUE(ba_cov.success);
+  ASSERT_TRUE(ba_cov.has_value());
 
   const std::vector<detail::PoseParam> poses =
       detail::GetPoseParams(reconstruction, *problem);
@@ -117,8 +121,10 @@ TEST(EstimateBACovariance, CompareWithCeres) {
     covariance_computer.GetCovarianceMatrixInTangentSpace(param_blocks,
                                                           ceres_cov.data());
 
-    ExpectNearEigenMatrixXd(
-        ceres_cov, ba_cov.pose_covs.at(pose.image_id), /*tol=*/1e-8);
+    const std::optional<Eigen::MatrixXd> cov =
+        ba_cov->GetCamFromWorldCov(pose.image_id);
+    ASSERT_TRUE(cov.has_value());
+    ExpectNearEigenMatrixXd(ceres_cov, *cov, /*tol=*/1e-8);
   }
 }
 

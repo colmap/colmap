@@ -36,80 +36,69 @@
 #include <ceres/crs_matrix.h>
 
 namespace colmap {
+namespace {
 
-BACovariance EstimateBACovariance(const BACovarianceOptions& options,
-                                  const Reconstruction& reconstruction,
-                                  BundleAdjuster& bundle_adjuster) {
-  ceres::Problem& problem = *THROW_CHECK_NOTNULL(bundle_adjuster.Problem());
-  const bool estimate_pose_covs =
-      options.params == BACovarianceOptions::Params::kOnlyPoses ||
-      options.params == BACovarianceOptions::Params::kPosesAndPoints ||
-      options.params == BACovarianceOptions::Params::kAll;
-  const bool estimate_point_covs =
-      options.params == BACovarianceOptions::Params::kOnlyPoints ||
-      options.params == BACovarianceOptions::Params::kPosesAndPoints ||
-      options.params == BACovarianceOptions::Params::kAll;
+using SparseJacobianMatrix =
+    Eigen::Map<const Eigen::SparseMatrix<double, Eigen::RowMajor>>;
 
-  BACovariance ba_cov;
-
-  const std::vector<detail::PoseParam> poses =
-      detail::GetPoseParams(reconstruction, problem);
-  const std::vector<detail::PointParam> points =
-      detail::GetPointParams(reconstruction, problem);
-  const std::vector<const double*> others =
-      GetOtherParams(problem, poses, points);
-
+bool ComputeSchurComplement(
+    bool estimate_point_covs,
+    bool estimate_pose_covs,
+    bool estimate_other_covs,
+    double damping,
+    int point_num_params,
+    const std::vector<detail::PointParam>& points,
+    const std::vector<detail::PoseParam>& poses,
+    const std::vector<const double*>& others,
+    ceres::Problem& problem,
+    std::unordered_map<point3D_t, Eigen::Matrix3d>& point_covs,
+    Eigen::SparseMatrix<double>& S) {
   VLOG(2) << "Evaluating the Jacobian for Schur elimination";
 
   ceres::Problem::EvaluateOptions eval_options;
   eval_options.parameter_blocks.reserve(2 * poses.size() + points.size() +
                                         others.size());
-  int pose_num_params = 0;
-  int point_num_params = 0;
-  int other_num_params = 0;
-  for (const auto& pose : poses) {
-    if (pose.qvec != nullptr) {
-      eval_options.parameter_blocks.push_back(const_cast<double*>(pose.qvec));
-      pose_num_params += ParameterBlockTangentSize(problem, pose.qvec);
+  if (estimate_pose_covs || estimate_other_covs) {
+    for (const auto& pose : poses) {
+      if (pose.qvec != nullptr) {
+        eval_options.parameter_blocks.push_back(const_cast<double*>(pose.qvec));
+      }
+      if (pose.tvec != nullptr) {
+        eval_options.parameter_blocks.push_back(const_cast<double*>(pose.tvec));
+      }
     }
-    if (pose.tvec != nullptr) {
-      eval_options.parameter_blocks.push_back(const_cast<double*>(pose.tvec));
-      pose_num_params += ParameterBlockTangentSize(problem, pose.tvec);
+    for (const double* other : others) {
+      eval_options.parameter_blocks.push_back(const_cast<double*>(other));
     }
-  }
-  for (const double* other : others) {
-    eval_options.parameter_blocks.push_back(const_cast<double*>(other));
-    other_num_params += ParameterBlockTangentSize(problem, other);
   }
   for (const auto& point : points) {
     eval_options.parameter_blocks.push_back(const_cast<double*>(point.xyz));
-    point_num_params += ParameterBlockTangentSize(problem, point.xyz);
   }
 
   ceres::CRSMatrix J_full_crs;
   if (!problem.Evaluate(eval_options, nullptr, nullptr, nullptr, &J_full_crs)) {
     LOG(WARNING) << "Failed to evaluate Jacobian";
-    ba_cov.success = false;
-    return ba_cov;
+    return false;
   }
 
-  const int num_residuals = J_full_crs.num_rows;
-  const int num_params = J_full_crs.num_cols;
-  const Eigen::Map<const Eigen::SparseMatrix<double, Eigen::RowMajor>> J_full(
-      J_full_crs.num_rows,
-      J_full_crs.num_cols,
-      J_full_crs.values.size(),
-      J_full_crs.rows.data(),
-      J_full_crs.cols.data(),
-      J_full_crs.values.data());
+  const SparseJacobianMatrix J_full(J_full_crs.num_rows,
+                                    J_full_crs.num_cols,
+                                    J_full_crs.values.size(),
+                                    J_full_crs.rows.data(),
+                                    J_full_crs.cols.data(),
+                                    J_full_crs.values.data());
+
+  if (estimate_point_covs) {
+    point_covs.reserve(points.size());
+  }
 
   VLOG(2) << "Schur elimination on point parameters";
 
   // Notice that here "a" refers to the block of pose + other parameters.
   const Eigen::SparseMatrix<double> J_a =
-      J_full.block(0, 0, num_residuals, num_params - point_num_params);
+      J_full.block(0, 0, J_full.rows(), J_full.cols() - point_num_params);
   const Eigen::SparseMatrix<double> J_p = J_full.block(
-      0, num_params - point_num_params, num_residuals, point_num_params);
+      0, J_full.cols() - point_num_params, J_full.rows(), point_num_params);
   const Eigen::SparseMatrix<double> H_aa = J_a.transpose() * J_a;
   const Eigen::SparseMatrix<double> H_ap = J_a.transpose() * J_p;
   const Eigen::SparseMatrix<double> H_pa = H_ap.transpose();
@@ -117,10 +106,10 @@ BACovariance EstimateBACovariance(const BACovarianceOptions& options,
   // In-place computation of H_pp_inv.
   Eigen::SparseMatrix<double>& H_pp_inv = H_pp;
   int point_param_idx = 0;
-  for (const auto& point : points) {
+  for (const detail::PointParam& point : points) {
     const Eigen::Matrix3d H_pp_idx =
         H_pp.block(point_param_idx, point_param_idx, 3, 3) +
-        options.damping * Eigen::Matrix3d::Identity();
+        damping * Eigen::Matrix3d::Identity();
     const Eigen::Matrix3d H_pp_idx_inv = H_pp_idx.inverse();
     for (int i = 0; i < 3; ++i) {
       for (int j = 0; j < 3; ++j) {
@@ -130,19 +119,26 @@ BACovariance EstimateBACovariance(const BACovarianceOptions& options,
     }
     if (estimate_point_covs) {
       // Point covariance conditioned on fixed other variables.
-      ba_cov.point_covs[point.point3D_id] = H_pp_idx_inv;
+      point_covs[point.point3D_id] = H_pp_idx_inv;
     }
     point_param_idx += 3;
   }
 
-  if (!estimate_pose_covs) {
-    ba_cov.success = true;
-    return ba_cov;
+  if (!estimate_pose_covs && !estimate_point_covs) {
+    return true;
   }
 
   H_pp_inv.makeCompressed();
-  const Eigen::SparseMatrix<double> S_a = H_aa - H_ap * H_pp_inv * H_pa;
+  S = H_aa - H_ap * H_pp_inv * H_pa;
 
+  return true;
+}
+
+Eigen::SparseMatrix<double> SchurEliminateOtherParams(
+    const BACovarianceOptions& options,
+    const Eigen::SparseMatrix<double>& S_a,
+    int pose_num_params,
+    int other_num_params) {
   VLOG(2) << "Schur elimination on other parameters";
 
   const Eigen::SparseMatrix<double> S_cc =
@@ -160,47 +156,206 @@ BACovariance EstimateBACovariance(const BACovarianceOptions& options,
     }
   }
   Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> llt_S_oo(S_oo);
-  const Eigen::SparseMatrix<double> S_c = S_cc - S_co * llt_S_oo.solve(S_oc);
+  return S_cc - S_co * llt_S_oo.solve(S_oc);
+}
 
-  LOG(INFO) << "Schur elimination on pose parameters";
-
-  Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> ldlt_S_c(S_c);
+bool ComputeLInverse(const Eigen::SparseMatrix<double>& S,
+                     Eigen::MatrixXd& L_inv) {
+  Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> ldlt_S(S);
   int rank = 0;
-  for (int i = 0; i < S_c.rows(); ++i) {
-    if (ldlt_S_c.vectorD().coeff(i) != 0.0) {
+  for (int i = 0; i < S.rows(); ++i) {
+    if (ldlt_S.vectorD().coeff(i) != 0.0) {
       rank++;
     }
   }
-  if (rank < S_c.rows()) {
+  if (rank < S.rows()) {
     LOG(WARNING) << StringPrintf(
-        "Unable to compute bundle adjustment covariance. The Schur complement "
-        "on pose parameters is rank deficient. Number of columns: %d, rank: "
-        "%d. This is likely due to the poses being underconstrained with Gauge "
-        "ambiguity.",
-        S_c.rows(),
+        "Unable to compute covariance. The Schur complement on pose/other "
+        "parameters is rank deficient. Number of columns: %d, rank: %d. This "
+        "is likely due to the pose/other parameters being underconstrained "
+        "with Gauge ambiguity or other degeneracies.",
+        S.rows(),
         rank);
-    ba_cov.success = false;
-    return ba_cov;
+    return false;
   }
 
-  Eigen::SparseMatrix<double> I(S_c.rows(), S_c.cols());
-  I.setIdentity();
-  const Eigen::SparseMatrix<double> S_c_inv = ldlt_S_c.solve(I);
-
-  int pose_param_idx = 0;
-  for (const auto& pose : poses) {
-    const int pose_tangent_size =
-        (pose.qvec == nullptr ? 0
-                              : ParameterBlockTangentSize(problem, pose.qvec)) +
-        (pose.tvec == nullptr ? 0
-                              : ParameterBlockTangentSize(problem, pose.tvec));
-    ba_cov.pose_covs[pose.image_id] = S_c_inv.block(
-        pose_param_idx, pose_param_idx, pose_tangent_size, pose_tangent_size);
-    pose_param_idx += pose_tangent_size;
+  const Eigen::SparseMatrix<double> L_sparse = ldlt_S.matrixL();
+  const Eigen::MatrixXd L_dense = L_sparse;
+  L_inv = L_dense.triangularView<Eigen::Lower>().solve(
+      Eigen::MatrixXd::Identity(L_dense.rows(), L_dense.cols()));
+  for (int i = 0; i < S.rows(); ++i) {
+    const double inv_sqrt_d =
+        1.0 / std::max(std::sqrt(std::max(ldlt_S.vectorD().coeff(i), 0.)),
+                       std::numeric_limits<double>::min());
+    L_inv.row(i) = inv_sqrt_d * L_inv.row(i).array();
   }
 
-  ba_cov.success = true;
-  return ba_cov;
+  return true;
+}
+
+Eigen::MatrixXd ExtractCovFromLInverse(const Eigen::MatrixXd& L_inv,
+                                       int row_start,
+                                       int col_start,
+                                       int row_block_size,
+                                       int col_block_size) {
+  Eigen::MatrixXd cov(row_block_size, col_block_size);
+  for (int row = 0; row < row_block_size; ++row) {
+    for (int col = 0; col < col_block_size; ++col) {
+      cov(row, col) =
+          L_inv.col(row_start + row).dot(L_inv.col(col_start + col));
+    }
+  }
+  return cov;
+}
+
+}  // namespace
+
+BACovariance::BACovariance(
+    std::unordered_map<point3D_t, Eigen::Matrix3d> point_covs,
+    std::unordered_map<image_t, std::pair<int, int>> pose_L_start_size,
+    std::unordered_map<const double*, std::pair<int, int>> other_L_start_size,
+    Eigen::MatrixXd L_inv)
+    : point_covs_(std::move(point_covs)),
+      pose_L_start_size_(std::move(pose_L_start_size)),
+      other_L_start_size_(std::move(other_L_start_size)),
+      L_inv_(std::move(L_inv)) {}
+
+std::optional<Eigen::Matrix3d> BACovariance::GetPointCov(
+    point3D_t point3D_id) const {
+  const auto it = point_covs_.find(point3D_id);
+  if (it == point_covs_.end()) {
+    return std::nullopt;
+  }
+  return it->second;
+}
+
+std::optional<Eigen::MatrixXd> BACovariance::GetCamFromWorldCov(
+    image_t image_id) const {
+  const auto it = pose_L_start_size_.find(image_id);
+  if (it == pose_L_start_size_.end()) {
+    return std::nullopt;
+  }
+  const auto [start, size] = it->second;
+  return ExtractCovFromLInverse(L_inv_, start, start, size, size);
+}
+
+std::optional<Eigen::MatrixXd> BACovariance::GetCam2FromCam1Cov(
+    image_t image_id1, image_t image_id2) const {
+  const auto it1 = pose_L_start_size_.find(image_id1);
+  const auto it2 = pose_L_start_size_.find(image_id2);
+  if (it1 == pose_L_start_size_.end() || it2 == pose_L_start_size_.end()) {
+    return std::nullopt;
+  }
+  const auto [start1, size1] = it1->second;
+  const auto [start2, size2] = it2->second;
+  return ExtractCovFromLInverse(L_inv_, start2, start1, size2, size1);
+}
+
+std::optional<Eigen::MatrixXd> BACovariance::GetOtherParamsCov(
+    const double* params) const {
+  const auto it = other_L_start_size_.find(params);
+  if (it == other_L_start_size_.end()) {
+    return std::nullopt;
+  }
+  const auto [start, size] = it->second;
+  return ExtractCovFromLInverse(L_inv_, start, start, size, size);
+}
+
+std::optional<BACovariance> EstimateBACovariance(
+    const BACovarianceOptions& options,
+    const Reconstruction& reconstruction,
+    BundleAdjuster& bundle_adjuster) {
+  ceres::Problem& problem = *THROW_CHECK_NOTNULL(bundle_adjuster.Problem());
+  const bool estimate_point_covs =
+      options.params == BACovarianceOptions::Params::kOnlyPoints ||
+      options.params == BACovarianceOptions::Params::kPosesAndPoints ||
+      options.params == BACovarianceOptions::Params::kAll;
+  const bool estimate_pose_covs =
+      options.params == BACovarianceOptions::Params::kOnlyPoses ||
+      options.params == BACovarianceOptions::Params::kPosesAndPoints ||
+      options.params == BACovarianceOptions::Params::kAll;
+  const bool estimate_other_covs =
+      options.params == BACovarianceOptions::Params::kAll;
+
+  const std::vector<detail::PointParam> points =
+      detail::GetPointParams(reconstruction, problem);
+  const std::vector<detail::PoseParam> poses =
+      detail::GetPoseParams(reconstruction, problem);
+  const std::vector<const double*> others =
+      GetOtherParams(problem, poses, points);
+
+  int point_num_params = 0;
+  int pose_num_params = 0;
+  int other_num_params = 0;
+  std::unordered_map<image_t, std::pair<int, int>> pose_L_start_size;
+  std::unordered_map<const double*, std::pair<int, int>> other_L_start_size;
+  for (const auto& point : points) {
+    point_num_params += ParameterBlockTangentSize(problem, point.xyz);
+  }
+  if (estimate_pose_covs || estimate_other_covs) {
+    pose_L_start_size.reserve(poses.size());
+    for (const auto& pose : poses) {
+      int num_params = 0;
+      if (pose.qvec != nullptr) {
+        num_params += ParameterBlockTangentSize(problem, pose.qvec);
+      }
+      if (pose.tvec != nullptr) {
+        num_params += ParameterBlockTangentSize(problem, pose.tvec);
+      }
+      pose_L_start_size.emplace(pose.image_id,
+                                std::make_pair(pose_num_params, num_params));
+      pose_num_params += num_params;
+    }
+
+    other_L_start_size.reserve(poses.size());
+    for (const double* other : others) {
+      const int num_params = ParameterBlockTangentSize(problem, other);
+      other_L_start_size.emplace(
+          other,
+          std::make_pair(pose_num_params + other_num_params, num_params));
+      other_num_params += num_params;
+    }
+  }
+
+  std::unordered_map<point3D_t, Eigen::Matrix3d> point_covs;
+  Eigen::SparseMatrix<double> S;
+  if (!ComputeSchurComplement(estimate_point_covs,
+                              estimate_pose_covs,
+                              estimate_other_covs,
+                              options.damping,
+                              point_num_params,
+                              points,
+                              poses,
+                              others,
+                              problem,
+                              point_covs,
+                              S)) {
+    return std::nullopt;
+  }
+
+  if (!estimate_pose_covs && !estimate_other_covs) {
+    return BACovariance(std::move(point_covs),
+                        /*pose_L_start_size=*/{},
+                        /*other_L_start_size=*/{},
+                        /*L_inv=*/Eigen::MatrixXd());
+  }
+
+  if (!estimate_other_covs) {
+    S = SchurEliminateOtherParams(
+        options, S, pose_num_params, other_num_params);
+  }
+
+  VLOG(2) << "Computing L inverse";
+
+  Eigen::MatrixXd L_inv;
+  if (!ComputeLInverse(S, L_inv)) {
+    return std::nullopt;
+  }
+
+  return BACovariance(std::move(point_covs),
+                      std::move(pose_L_start_size),
+                      std::move(other_L_start_size),
+                      std::move(L_inv));
 }
 
 namespace detail {
