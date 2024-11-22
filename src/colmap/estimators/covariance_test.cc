@@ -106,9 +106,9 @@ TEST_P(ParameterizedBACovarianceTests, CompareWithCeres) {
     }
   }
 
-  auto bundle_adjuster = CreateDefaultBundleAdjuster(
+  std::unique_ptr<BundleAdjuster> bundle_adjuster = CreateDefaultBundleAdjuster(
       BundleAdjustmentOptions(), std::move(config), reconstruction);
-  auto problem = bundle_adjuster->Problem();
+  std::shared_ptr<ceres::Problem> problem = bundle_adjuster->Problem();
 
   const std::optional<BACovariance> ba_cov =
       EstimateBACovariance(options, reconstruction, *bundle_adjuster);
@@ -199,6 +199,7 @@ TEST_P(ParameterizedBACovarianceTests, CompareWithCeres) {
   if (!test_options.fixed_points && estimate_point_covs) {
     LOG(INFO) << "Comparing point covariances";
 
+    // Set all pose/other parameters as constant.
     for (const auto& pose : poses) {
       if (pose.qvec != nullptr) {
         problem->SetParameterBlockConstant(pose.qvec);

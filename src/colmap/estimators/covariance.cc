@@ -86,7 +86,7 @@ bool ComputeSchurComplement(
       J_full_crs.cols.data(),
       J_full_crs.values.data());
 
-  if (point_num_params == 0) {
+  if (points.empty()) {
     S = J_full.transpose() * J_full;
     return true;
   }
@@ -165,12 +165,9 @@ Eigen::SparseMatrix<double> SchurEliminateOtherParams(
 bool ComputeLInverse(const Eigen::SparseMatrix<double>& S,
                      Eigen::MatrixXd& L_inv) {
   Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> ldlt_S(S);
-  int rank = 0;
-  for (int i = 0; i < S.rows(); ++i) {
-    if (ldlt_S.vectorD().coeff(i) != 0.0) {
-      rank++;
-    }
-  }
+  const Eigen::VectorXd D_dense = ldlt_S.vectorD();
+
+  const int rank = D_dense.nonZeros();
   if (rank < S.rows()) {
     LOG(WARNING) << StringPrintf(
         "Unable to compute covariance. The Schur complement on pose/other "
@@ -187,10 +184,8 @@ bool ComputeLInverse(const Eigen::SparseMatrix<double>& S,
   L_inv = L_dense.triangularView<Eigen::Lower>().solve(
       Eigen::MatrixXd::Identity(L_dense.rows(), L_dense.cols()));
   for (int i = 0; i < S.rows(); ++i) {
-    const double inv_sqrt_d =
-        1.0 / std::max(std::sqrt(std::max(ldlt_S.vectorD().coeff(i), 0.)),
-                       std::numeric_limits<double>::min());
-    L_inv.row(i) = inv_sqrt_d * L_inv.row(i).array();
+    L_inv.row(i) *= 1.0 / std::max(std::sqrt(std::max(D_dense(i), 0.)),
+                                   std::numeric_limits<double>::min());
   }
 
   return true;
@@ -201,14 +196,8 @@ Eigen::MatrixXd ExtractCovFromLInverse(const Eigen::MatrixXd& L_inv,
                                        int col_start,
                                        int row_block_size,
                                        int col_block_size) {
-  Eigen::MatrixXd cov(row_block_size, col_block_size);
-  for (int row = 0; row < row_block_size; ++row) {
-    for (int col = 0; col < col_block_size; ++col) {
-      cov(row, col) =
-          L_inv.col(row_start + row).dot(L_inv.col(col_start + col));
-    }
-  }
-  return cov;
+  return L_inv.block(0, row_start, L_inv.rows(), row_block_size).transpose() *
+         L_inv.block(0, col_start, L_inv.cols(), col_block_size);
 }
 
 }  // namespace
@@ -367,21 +356,21 @@ std::vector<PoseParam> GetPoseParams(const Reconstruction& reconstruction,
                                      const ceres::Problem& problem) {
   std::vector<PoseParam> params;
   params.reserve(reconstruction.NumImages());
-  for (const auto& image : reconstruction.Images()) {
-    const double* qvec = image.second.CamFromWorld().rotation.coeffs().data();
+  for (const auto& [image_id, image] : reconstruction.Images()) {
+    const double* qvec = image.CamFromWorld().rotation.coeffs().data();
     if (!problem.HasParameterBlock(qvec) ||
         problem.IsParameterBlockConstant(qvec)) {
       qvec = nullptr;
     }
 
-    const double* tvec = image.second.CamFromWorld().translation.data();
+    const double* tvec = image.CamFromWorld().translation.data();
     if (!problem.HasParameterBlock(tvec) ||
         problem.IsParameterBlockConstant(tvec)) {
       tvec = nullptr;
     }
 
     if (qvec != nullptr || tvec != nullptr) {
-      params.push_back({image.first, qvec, tvec});
+      params.push_back({image_id, qvec, tvec});
     }
   }
   return params;
@@ -391,11 +380,11 @@ std::vector<PointParam> GetPointParams(const Reconstruction& reconstruction,
                                        const ceres::Problem& problem) {
   std::vector<PointParam> params;
   params.reserve(reconstruction.NumPoints3D());
-  for (const auto& point3D : reconstruction.Points3D()) {
-    const double* xyz = point3D.second.xyz.data();
+  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
+    const double* xyz = point3D.xyz.data();
     if (problem.HasParameterBlock(xyz) &&
         !problem.IsParameterBlockConstant(xyz)) {
-      params.push_back({point3D.first, xyz});
+      params.push_back({point3D_id, xyz});
     }
   }
   return params;
