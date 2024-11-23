@@ -19,8 +19,6 @@ except ImportError as e:
 if TYPE_CHECKING:
     from ._core import *  # noqa F403
 
-    # del cost_functions, manifold  # noqa F821
-
 __all__ = import_module_symbols(
     globals(), _core, exclude={"cost_functions", "manifold"}
 )
