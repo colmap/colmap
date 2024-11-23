@@ -193,14 +193,13 @@ bool ComputeLInverse(Eigen::SparseMatrix<double>& S, Eigen::MatrixXd& L_inv) {
   }
 
   const Eigen::SparseMatrix<double> L_sparse = ldlt_S.matrixL();
-  const Eigen::MatrixXd L_dense = L_sparse;
-  L_inv = Eigen::MatrixXd::Identity(L_dense.rows(), L_dense.cols());
-  L_dense.triangularView<Eigen::Lower>().solveInPlace(L_inv);
+  L_inv = Eigen::MatrixXd::Identity(L_sparse.rows(), L_sparse.cols());
+  L_sparse.triangularView<Eigen::Lower>().solveInPlace(L_inv);
   for (int i = 0; i < S.rows(); ++i) {
     L_inv.row(i) *= 1.0 / std::max(std::sqrt(std::max(D_dense(i), 0.)),
                                    std::numeric_limits<double>::min());
   }
-
+  L_inv *= ldlt_S.permutationP();
   return true;
 }
 
