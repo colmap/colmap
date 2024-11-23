@@ -202,15 +202,15 @@ TEST_P(ParameterizedBACovarianceTests, CompareWithCeres) {
     // Set all pose/other parameters as constant.
     for (const auto& pose : poses) {
       if (pose.qvec != nullptr) {
-        problem->SetParameterBlockConstant(pose.qvec);
+        problem->SetParameterBlockConstant(const_cast<double*>(pose.qvec));
       }
       if (pose.tvec != nullptr) {
-        problem->SetParameterBlockConstant(pose.tvec);
+        problem->SetParameterBlockConstant(const_cast<double*>(pose.tvec));
       }
     }
     for (const double* other : others) {
       if (other != nullptr) {
-        problem->SetParameterBlockConstant(other);
+        problem->SetParameterBlockConstant(const_cast<double*>(other));
       }
     }
 

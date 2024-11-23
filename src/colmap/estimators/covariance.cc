@@ -373,13 +373,13 @@ std::vector<PoseParam> GetPoseParams(const Reconstruction& reconstruction,
   for (const auto& [image_id, image] : reconstruction.Images()) {
     const double* qvec = image.CamFromWorld().rotation.coeffs().data();
     if (!problem.HasParameterBlock(qvec) ||
-        problem.IsParameterBlockConstant(qvec)) {
+        problem.IsParameterBlockConstant(const_cast<double*>(qvec))) {
       qvec = nullptr;
     }
 
     const double* tvec = image.CamFromWorld().translation.data();
     if (!problem.HasParameterBlock(tvec) ||
-        problem.IsParameterBlockConstant(tvec)) {
+        problem.IsParameterBlockConstant(const_cast<double*>(tvec))) {
       tvec = nullptr;
     }
 
@@ -397,7 +397,7 @@ std::vector<PointParam> GetPointParams(const Reconstruction& reconstruction,
   for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
     const double* xyz = point3D.xyz.data();
     if (problem.HasParameterBlock(xyz) &&
-        !problem.IsParameterBlockConstant(xyz)) {
+        !problem.IsParameterBlockConstant(const_cast<double*>(xyz))) {
       params.push_back({point3D_id, xyz});
     }
   }
@@ -421,7 +421,7 @@ std::vector<const double*> GetOtherParams(
   std::vector<double*> all_params;
   problem.GetParameterBlocks(&all_params);
   for (const double* param : all_params) {
-    if (!problem.IsParameterBlockConstant(param) &&
+    if (!problem.IsParameterBlockConstant(const_cast<double*>(param)) &&
         image_and_point_params.count(param) == 0) {
       params.push_back(param);
     }
