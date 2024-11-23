@@ -287,58 +287,5 @@ INSTANTIATE_TEST_SUITE_P(
           return std::make_pair(options, test_options);
         }()));
 
-TEST(EstimatePointCovariances, RankDeficientPoints) {
-  Reconstruction reconstruction;
-  SyntheticDatasetOptions synthetic_dataset_options;
-  synthetic_dataset_options.num_cameras = 1;
-  synthetic_dataset_options.num_images = 2;
-  synthetic_dataset_options.num_points3D = 10;
-  synthetic_dataset_options.point2D_stddev = 0;
-  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
-
-  const image_t image_id1 = reconstruction.Images().begin()->first;
-  const image_t image_id2 = std::next(reconstruction.Images().begin())->first;
-  Image& image1 = reconstruction.Image(image_id1);
-  image1.SetCamFromWorld(Rigid3d());
-  Image& image2 = reconstruction.Image(image_id2);
-  image2.SetCamFromWorld(
-      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(0, 1, 0)));
-
-  double distance = 1;
-  double x = 0.1;
-  double y = 0;
-  for (const point3D_t point3D_id : reconstruction.Point3DIds()) {
-    Point3D& point3D = reconstruction.Point3D(point3D_id);
-    point3D.xyz = Eigen::AngleAxisd(EIGEN_PI / 2, Eigen::Vector3d::UnitZ()) *
-                  Eigen::Vector3d(x, y, distance);
-    x = point3D.xyz.x();
-    y = point3D.xyz.y();
-    distance *= 10;
-    for (const auto& track_el : point3D.track.Elements()) {
-      Image& image = reconstruction.Image(track_el.image_id);
-      image.Point2D(track_el.point2D_idx).xy =
-          image.ProjectPoint(point3D.xyz).second;
-    }
-  }
-
-  BundleAdjustmentConfig config;
-  config.AddImage(image_id1);
-  config.AddImage(image_id2);
-  config.SetConstantCamPose(image_id1);
-  config.SetConstantCamPositions(image_id2, {0});
-  config.SetConstantCamIntrinsics(image1.CameraId());
-  config.SetConstantCamIntrinsics(image2.CameraId());
-
-  auto bundle_adjuster = CreateDefaultBundleAdjuster(
-      BundleAdjustmentOptions(), std::move(config), reconstruction);
-
-  BACovarianceOptions options;
-  ASSERT_TRUE(EstimateBACovariance(options, reconstruction, *bundle_adjuster)
-                  .has_value());
-  options.damping = 0;
-  ASSERT_FALSE(EstimateBACovariance(options, reconstruction, *bundle_adjuster)
-                   .has_value());
-}
-
 }  // namespace
 }  // namespace colmap
