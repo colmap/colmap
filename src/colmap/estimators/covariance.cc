@@ -48,7 +48,7 @@ bool ComputeSchurComplement(
     const std::vector<detail::PoseParam>& poses,
     const std::vector<const double*>& others,
     ceres::Problem& problem,
-    std::unordered_map<point3D_t, Eigen::Matrix3d>& point_covs,
+    std::unordered_map<point3D_t, Eigen::MatrixXd>& point_covs,
     Eigen::SparseMatrix<double>& S) {
   VLOG(2) << "Evaluating the Jacobian for Schur elimination";
 
@@ -110,12 +110,14 @@ bool ComputeSchurComplement(
   Eigen::SparseMatrix<double>& H_pp_inv = H_pp;
   int point_param_idx = 0;
   for (const detail::PointParam& point : points) {
-    const Eigen::Matrix3d H_pp_idx =
-        H_pp.block(point_param_idx, point_param_idx, 3, 3) +
-        damping * Eigen::Matrix3d::Identity();
-    const Eigen::Matrix3d H_pp_idx_inv = H_pp_idx.inverse();
-    for (int i = 0; i < 3; ++i) {
-      for (int j = 0; j < 3; ++j) {
+    const int tangent_size = ParameterBlockTangentSize(problem, point.xyz);
+    const Eigen::MatrixXd H_pp_idx =
+        H_pp.block(
+            point_param_idx, point_param_idx, tangent_size, tangent_size) +
+        damping * Eigen::MatrixXd::Identity(tangent_size, tangent_size);
+    const Eigen::MatrixXd H_pp_idx_inv = H_pp_idx.inverse();
+    for (int i = 0; i < tangent_size; ++i) {
+      for (int j = 0; j < tangent_size; ++j) {
         H_pp_inv.coeffRef(point_param_idx + i, point_param_idx + j) =
             H_pp_idx_inv(i, j);
       }
@@ -215,7 +217,7 @@ Eigen::MatrixXd ExtractCovFromLInverse(const Eigen::MatrixXd& L_inv,
 }  // namespace
 
 BACovariance::BACovariance(
-    std::unordered_map<point3D_t, Eigen::Matrix3d> point_covs,
+    std::unordered_map<point3D_t, Eigen::MatrixXd> point_covs,
     std::unordered_map<image_t, std::pair<int, int>> pose_L_start_size,
     std::unordered_map<const double*, std::pair<int, int>> other_L_start_size,
     Eigen::MatrixXd L_inv)
@@ -224,7 +226,7 @@ BACovariance::BACovariance(
       other_L_start_size_(std::move(other_L_start_size)),
       L_inv_(std::move(L_inv)) {}
 
-std::optional<Eigen::Matrix3d> BACovariance::GetPointCov(
+std::optional<Eigen::MatrixXd> BACovariance::GetPointCov(
     point3D_t point3D_id) const {
   const auto it = point_covs_.find(point3D_id);
   if (it == point_covs_.end()) {
@@ -321,7 +323,7 @@ std::optional<BACovariance> EstimateBACovariance(
     }
   }
 
-  std::unordered_map<point3D_t, Eigen::Matrix3d> point_covs;
+  std::unordered_map<point3D_t, Eigen::MatrixXd> point_covs;
   Eigen::SparseMatrix<double> S;
   if (!ComputeSchurComplement(estimate_point_covs,
                               estimate_pose_covs,

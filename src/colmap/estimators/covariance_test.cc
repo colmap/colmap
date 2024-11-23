@@ -232,7 +232,7 @@ TEST_P(ParameterizedBACovarianceTests, CompareWithCeres) {
       ceres_cov_computer.GetCovarianceMatrixInTangentSpace({point.xyz},
                                                            ceres_cov.data());
 
-      const std::optional<Eigen::Matrix3d> cov =
+      const std::optional<Eigen::MatrixXd> cov =
           ba_cov->GetPointCov(point.point3D_id);
       ASSERT_TRUE(cov.has_value());
       ExpectNearEigenMatrixXd(ceres_cov, *cov, /*tol=*/1e-8);

@@ -46,14 +46,14 @@ namespace colmap {
 
 struct BACovariance {
   explicit BACovariance(
-      std::unordered_map<point3D_t, Eigen::Matrix3d> point_covs,
+      std::unordered_map<point3D_t, Eigen::MatrixXd> point_covs,
       std::unordered_map<image_t, std::pair<int, int>> pose_L_start_size,
       std::unordered_map<const double*, std::pair<int, int>> other_L_start_size,
       Eigen::MatrixXd L_inv);
 
   // Tangent space covariance for 3D points.
   // Returns null if 3D point not a variable in the problem.
-  std::optional<Eigen::Matrix3d> GetPointCov(point3D_t point3D_id) const;
+  std::optional<Eigen::MatrixXd> GetPointCov(point3D_t point3D_id) const;
 
   // Tangent space covariance in the order [rotation, translation]. If some
   // parameters are kept constant, the respective rows/columns are omitted.
@@ -68,7 +68,7 @@ struct BACovariance {
   std::optional<Eigen::MatrixXd> GetOtherParamsCov(const double* params) const;
 
  private:
-  const std::unordered_map<point3D_t, Eigen::Matrix3d> point_covs_;
+  const std::unordered_map<point3D_t, Eigen::MatrixXd> point_covs_;
   const std::unordered_map<image_t, std::pair<int, int>> pose_L_start_size_;
   const std::unordered_map<const double*, std::pair<int, int>>
       other_L_start_size_;
