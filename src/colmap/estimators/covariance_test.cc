@@ -108,6 +108,9 @@ TEST_P(ParameterizedBACovarianceTests, CompareWithCeres) {
 
   std::unique_ptr<BundleAdjuster> bundle_adjuster = CreateDefaultBundleAdjuster(
       BundleAdjustmentOptions(), std::move(config), reconstruction);
+  const auto summary = bundle_adjuster->Solve();
+  ASSERT_TRUE(summary.IsSolutionUsable());
+
   std::shared_ptr<ceres::Problem> problem = bundle_adjuster->Problem();
 
   const std::optional<BACovariance> ba_cov =
