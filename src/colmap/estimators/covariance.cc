@@ -97,7 +97,7 @@ bool ComputeSchurComplement(
 
   VLOG(2) << "Schur elimination of point parameters";
 
-  // Notice that here "a" refers to the block of pose + other parameters.
+  // Notice that here "a" refers to pose/other and "p" to point parameters.
   const Eigen::SparseMatrix<double> J_a =
       J_full.block(0, 0, J_full.rows(), J_full.cols() - point_num_params);
   const Eigen::SparseMatrix<double> J_p = J_full.block(
@@ -137,34 +137,47 @@ bool ComputeSchurComplement(
   return true;
 }
 
-Eigen::SparseMatrix<double> SchurEliminateOtherParams(
-    const BACovarianceOptions& options,
-    const Eigen::SparseMatrix<double>& S_a,
-    int pose_num_params,
-    int other_num_params) {
+bool SchurEliminateOtherParams(double damping,
+                               int pose_num_params,
+                               int other_num_params,
+                               Eigen::SparseMatrix<double>& S) {
   VLOG(2) << "Schur elimination of other parameters";
 
+  // Notice that here "c" refers to pose and "o" to other parameters.
   const Eigen::SparseMatrix<double> S_cc =
-      S_a.block(0, 0, pose_num_params, pose_num_params);
+      S.block(0, 0, pose_num_params, pose_num_params);
   const Eigen::SparseMatrix<double> S_co =
-      S_a.block(0, pose_num_params, pose_num_params, other_num_params);
+      S.block(0, pose_num_params, pose_num_params, other_num_params);
   const Eigen::SparseMatrix<double> S_oc = S_co.transpose();
-  Eigen::SparseMatrix<double> S_oo = S_a.block(
+  Eigen::SparseMatrix<double> S_oo = S.block(
       pose_num_params, pose_num_params, other_num_params, other_num_params);
   for (int i = 0; i < other_num_params; ++i) {
     if (S_oo.coeff(i, i) == 0.0) {
-      S_oo.coeffRef(i, i) = options.damping;
+      S_oo.coeffRef(i, i) = damping;
     } else {
-      S_oo.coeffRef(i, i) += options.damping;
+      S_oo.coeffRef(i, i) += damping;
     }
   }
+
   Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> llt_S_oo(S_oo);
-  return S_cc - S_co * llt_S_oo.solve(S_oc);
+  if (llt_S_oo.info() != Eigen::Success) {
+    LOG(WARNING)
+        << "Simplicial LLT for Schur elimination of other parameters failed";
+    return false;
+  }
+
+  S = S_cc - S_co * llt_S_oo.solve(S_oc);
+
+  return true;
 }
 
-bool ComputeLInverse(const Eigen::SparseMatrix<double>& S,
-                     Eigen::MatrixXd& L_inv) {
+bool ComputeLInverse(Eigen::SparseMatrix<double>& S, Eigen::MatrixXd& L_inv) {
   Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> ldlt_S(S);
+  if (ldlt_S.info() != Eigen::Success) {
+    LOG(WARNING) << "Simplicial LDLT for computing L_inv failed";
+    return false;
+  }
+
   const Eigen::VectorXd D_dense = ldlt_S.vectorD();
 
   const int rank = D_dense.nonZeros();
@@ -181,8 +194,8 @@ bool ComputeLInverse(const Eigen::SparseMatrix<double>& S,
 
   const Eigen::SparseMatrix<double> L_sparse = ldlt_S.matrixL();
   const Eigen::MatrixXd L_dense = L_sparse;
-  L_inv = L_dense.triangularView<Eigen::Lower>().solve(
-      Eigen::MatrixXd::Identity(L_dense.rows(), L_dense.cols()));
+  L_inv = Eigen::MatrixXd::Identity(L_dense.rows(), L_dense.cols());
+  L_dense.triangularView<Eigen::Lower>().solveInPlace(L_inv);
   for (int i = 0; i < S.rows(); ++i) {
     L_inv.row(i) *= 1.0 / std::max(std::sqrt(std::max(D_dense(i), 0.)),
                                    std::numeric_limits<double>::min());
@@ -333,8 +346,10 @@ std::optional<BACovariance> EstimateBACovariance(
   }
 
   if (!estimate_other_covs) {
-    S = SchurEliminateOtherParams(
-        options, S, pose_num_params, other_num_params);
+    if (!SchurEliminateOtherParams(
+            options.damping, pose_num_params, other_num_params, S)) {
+      return std::nullopt;
+    }
   }
 
   VLOG(2) << "Computing L inverse";
