@@ -81,8 +81,8 @@ TEST_P(ParameterizedBACovarianceTests, CompareWithCeres) {
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_cameras = 3;
-  synthetic_dataset_options.num_images = 8;
-  synthetic_dataset_options.num_points3D = 1000;
+  synthetic_dataset_options.num_images = 7;
+  synthetic_dataset_options.num_points3D = 200;
   synthetic_dataset_options.point2D_stddev = 0.01;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
 
@@ -117,26 +117,48 @@ TEST_P(ParameterizedBACovarianceTests, CompareWithCeres) {
       EstimateBACovariance(options, reconstruction, *bundle_adjuster);
   ASSERT_TRUE(ba_cov.has_value());
 
-  const std::vector<detail::PointParam> points =
-      detail::GetPointParams(reconstruction, *problem);
-  const std::vector<detail::PoseParam> poses =
-      detail::GetPoseParams(reconstruction, *problem);
+  const std::vector<internal::PointParam> points =
+      internal::GetPointParams(reconstruction, *problem);
+  if (test_options.fixed_points) {
+    ASSERT_TRUE(points.empty());
+  } else {
+    ASSERT_EQ(points.size(), synthetic_dataset_options.num_points3D - 3);
+  }
+
+  const std::vector<internal::PoseParam> poses =
+      internal::GetPoseParams(reconstruction, *problem);
+  if (test_options.fixed_cam_poses) {
+    ASSERT_TRUE(poses.empty());
+  } else {
+    ASSERT_EQ(poses.size(), synthetic_dataset_options.num_images);
+  }
+
   const std::vector<const double*> others =
       GetOtherParams(*problem, poses, points);
+  if (test_options.fixed_cam_intrinsics) {
+    ASSERT_TRUE(others.empty());
+  } else {
+    ASSERT_EQ(others.size(), synthetic_dataset_options.num_cameras);
+  }
 
   if (!test_options.fixed_cam_poses && estimate_pose_covs) {
     LOG(INFO) << "Comparing pose covariances";
 
     std::vector<std::pair<const double*, const double*>> cov_param_pairs;
-    for (const auto& pose : poses) {
-      if (pose.qvec != nullptr) {
-        cov_param_pairs.emplace_back(pose.qvec, pose.qvec);
-      }
-      if (pose.tvec != nullptr) {
-        cov_param_pairs.emplace_back(pose.tvec, pose.tvec);
-      }
-      if (pose.qvec != nullptr && pose.tvec != nullptr) {
-        cov_param_pairs.emplace_back(pose.qvec, pose.tvec);
+    for (const auto& pose1 : poses) {
+      for (const auto& pose2 : poses) {
+        if (pose1.qvec != nullptr && pose2.qvec != nullptr) {
+          cov_param_pairs.emplace_back(pose1.qvec, pose2.qvec);
+        }
+        if (pose1.tvec != nullptr && pose2.tvec != nullptr) {
+          cov_param_pairs.emplace_back(pose1.tvec, pose2.tvec);
+        }
+        if (pose1.qvec != nullptr && pose2.tvec != nullptr) {
+          cov_param_pairs.emplace_back(pose1.qvec, pose2.tvec);
+        }
+        if (pose1.tvec != nullptr && pose2.qvec != nullptr) {
+          cov_param_pairs.emplace_back(pose1.tvec, pose2.qvec);
+        }
       }
     }
 
@@ -144,29 +166,59 @@ TEST_P(ParameterizedBACovarianceTests, CompareWithCeres) {
     ceres::Covariance ceres_cov_computer(ceres_cov_options);
     ASSERT_TRUE(ceres_cov_computer.Compute(cov_param_pairs, problem.get()));
 
-    for (const auto& pose : poses) {
-      int tangent_size = 0;
-      std::vector<const double*> param_blocks;
-      if (pose.qvec != nullptr) {
-        tangent_size += ParameterBlockTangentSize(*problem, pose.qvec);
-        param_blocks.push_back(pose.qvec);
-      }
-      if (pose.tvec != nullptr) {
-        tangent_size += ParameterBlockTangentSize(*problem, pose.tvec);
-        param_blocks.push_back(pose.tvec);
-      }
+    for (const auto& pose1 : poses) {
+      for (const auto& pose2 : poses) {
+        std::vector<const double*> param_blocks;
 
-      Eigen::MatrixXd ceres_cov(tangent_size, tangent_size);
-      ceres_cov_computer.GetCovarianceMatrixInTangentSpace(param_blocks,
-                                                           ceres_cov.data());
+        int tangent_size1 = 0;
+        if (pose1.qvec != nullptr) {
+          tangent_size1 += ParameterBlockTangentSize(*problem, pose1.qvec);
+          param_blocks.push_back(pose1.qvec);
+        }
+        if (pose1.tvec != nullptr) {
+          tangent_size1 += ParameterBlockTangentSize(*problem, pose1.tvec);
+          param_blocks.push_back(pose1.tvec);
+        }
 
-      const std::optional<Eigen::MatrixXd> cov =
-          ba_cov->GetCamFromWorldCov(pose.image_id);
-      ASSERT_TRUE(cov.has_value());
-      ExpectNearEigenMatrixXd(ceres_cov, *cov, /*tol=*/1e-8);
+        int tangent_size2 = 0;
+        if (pose1.image_id != pose2.image_id) {
+          if (pose2.qvec != nullptr) {
+            tangent_size2 += ParameterBlockTangentSize(*problem, pose2.qvec);
+            param_blocks.push_back(pose2.qvec);
+          }
+          if (pose2.tvec != nullptr) {
+            tangent_size2 += ParameterBlockTangentSize(*problem, pose2.tvec);
+            param_blocks.push_back(pose2.tvec);
+          }
+        }
+
+        Eigen::MatrixXd ceres_cov(tangent_size1 + tangent_size2,
+                                  tangent_size1 + tangent_size2);
+        ceres_cov_computer.GetCovarianceMatrixInTangentSpace(param_blocks,
+                                                             ceres_cov.data());
+
+        if (pose1.image_id == pose2.image_id) {
+          const std::optional<Eigen::MatrixXd> cov =
+              ba_cov->GetCamFromWorldCov(pose1.image_id);
+          ASSERT_TRUE(cov.has_value());
+          ExpectNearEigenMatrixXd(ceres_cov, *cov, /*tol=*/1e-8);
+        } else {
+          const std::optional<Eigen::MatrixXd> cov =
+              ba_cov->GetCam1FromCam2Cov(pose1.image_id, pose2.image_id);
+          ASSERT_TRUE(cov.has_value());
+          ExpectNearEigenMatrixXd(
+              ceres_cov.block(0, tangent_size1, tangent_size1, tangent_size2),
+              *cov,
+              /*tol=*/1e-8);
+        }
+      }
     }
 
     ASSERT_FALSE(ba_cov->GetCamFromWorldCov(kInvalidImageId).has_value());
+    ASSERT_FALSE(ba_cov->GetCam1FromCam2Cov(kInvalidImageId, poses[0].image_id)
+                     .has_value());
+    ASSERT_FALSE(ba_cov->GetCam1FromCam2Cov(poses[0].image_id, kInvalidImageId)
+                     .has_value());
   }
 
   if (!test_options.fixed_cam_intrinsics && estimate_other_covs) {

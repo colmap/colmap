@@ -44,8 +44,8 @@ bool ComputeSchurComplement(
     bool estimate_other_covs,
     double damping,
     int point_num_params,
-    const std::vector<detail::PointParam>& points,
-    const std::vector<detail::PoseParam>& poses,
+    const std::vector<internal::PointParam>& points,
+    const std::vector<internal::PoseParam>& poses,
     const std::vector<const double*>& others,
     ceres::Problem& problem,
     std::unordered_map<point3D_t, Eigen::MatrixXd>& point_covs,
@@ -109,7 +109,7 @@ bool ComputeSchurComplement(
   // In-place computation of H_pp_inv.
   Eigen::SparseMatrix<double>& H_pp_inv = H_pp;
   int point_param_idx = 0;
-  for (const detail::PointParam& point : points) {
+  for (const internal::PointParam& point : points) {
     const int tangent_size = ParameterBlockTangentSize(problem, point.xyz);
     const Eigen::MatrixXd H_pp_idx =
         H_pp.block(
@@ -283,10 +283,10 @@ std::optional<BACovariance> EstimateBACovariance(
   const bool estimate_other_covs =
       options.params == BACovarianceOptions::Params::kAll;
 
-  const std::vector<detail::PointParam> points =
-      detail::GetPointParams(reconstruction, problem);
-  const std::vector<detail::PoseParam> poses =
-      detail::GetPoseParams(reconstruction, problem);
+  const std::vector<internal::PointParam> points =
+      internal::GetPointParams(reconstruction, problem);
+  const std::vector<internal::PoseParam> poses =
+      internal::GetPoseParams(reconstruction, problem);
   const std::vector<const double*> others =
       GetOtherParams(problem, poses, points);
 
@@ -366,7 +366,7 @@ std::optional<BACovariance> EstimateBACovariance(
                       std::move(L_inv));
 }
 
-namespace detail {
+namespace internal {
 
 std::vector<PoseParam> GetPoseParams(const Reconstruction& reconstruction,
                                      const ceres::Problem& problem) {
@@ -431,5 +431,5 @@ std::vector<const double*> GetOtherParams(
   return params;
 }
 
-}  // namespace detail
+}  // namespace internal
 }  // namespace colmap

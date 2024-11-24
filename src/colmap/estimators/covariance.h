@@ -40,7 +40,7 @@
 #include <Eigen/Core>
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
-#include <ceres/ceres.h>
+#include <ceres/problem.h>
 
 namespace colmap {
 
@@ -51,20 +51,21 @@ struct BACovariance {
       std::unordered_map<const double*, std::pair<int, int>> other_L_start_size,
       Eigen::MatrixXd L_inv);
 
-  // Tangent space covariance for 3D points.
-  // Returns null if 3D point not a variable in the problem.
+  // Covariance for 3D points, conditioned on all other variables set constant.
+  // If some dimensions are kept constant, the respective rows/columns are
+  // omitted. Returns null if 3D point not a variable in the problem.
   std::optional<Eigen::MatrixXd> GetPointCov(point3D_t point3D_id) const;
 
   // Tangent space covariance in the order [rotation, translation]. If some
-  // parameters are kept constant, the respective rows/columns are omitted.
-  // The full pose covariance matrix has dimension 6x6.
+  // dimensions are kept constant, the respective rows/columns are omitted.
   // Returns null if image not a variable in the problem.
   std::optional<Eigen::MatrixXd> GetCamFromWorldCov(image_t image_id) const;
   std::optional<Eigen::MatrixXd> GetCam1FromCam2Cov(image_t image_id1,
                                                     image_t image_id2) const;
 
   // Tangent space covariance for any variable parameter block in the problem.
-  // Returns null if parameter block not a variable in the problem.
+  // If some dimensions are kept constant, the respective rows/columns are
+  // omitted. Returns null if parameter block not a variable in the problem.
   std::optional<Eigen::MatrixXd> GetOtherParamsCov(const double* params) const;
 
  private:
@@ -97,7 +98,7 @@ std::optional<BACovariance> EstimateBACovariance(
     const Reconstruction& reconstruction,
     BundleAdjuster& bundle_adjuster);
 
-namespace detail {
+namespace internal {
 
 struct PoseParam {
   image_t image_id = kInvalidImageId;
@@ -121,5 +122,5 @@ std::vector<const double*> GetOtherParams(
     const std::vector<PoseParam>& poses,
     const std::vector<PointParam>& points);
 
-}  // namespace detail
+}  // namespace internal
 }  // namespace colmap
