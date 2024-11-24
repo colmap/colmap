@@ -15,6 +15,7 @@ void BindManifold(py::module& m);
 void BindSimilarityTransformEstimator(py::module& m);
 void BindTriangulationEstimator(py::module& m);
 void BindTwoViewGeometryEstimator(py::module& m);
+void BindImuPreintegration(py::module& m);
 
 void BindEstimators(py::module& m) {
   BindAbsolutePoseEstimator(m);
@@ -30,4 +31,5 @@ void BindEstimators(py::module& m) {
   BindSimilarityTransformEstimator(m);
   BindTriangulationEstimator(m);
   BindTwoViewGeometryEstimator(m);
+  BindImuPreintegration(m);
 }
