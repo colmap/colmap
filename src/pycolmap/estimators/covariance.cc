@@ -37,6 +37,14 @@ void BindCovarianceEstimator(py::module& m) {
           .value("ALL", BACovarianceOptions::Params::ALL);
   AddStringToEnumConstructor(PyBACovarianceOptionsParams);
 
+  py::class_<internal::PoseParam> PyExperimentalPoseParam(
+      m, "ExperimentalPoseParam");
+  PyExperimentalPoseParam.def(py::init<>())
+      .def_readwrite("image_id", &internal::PoseParam::image_id)
+      .def_readwrite("qvec", &internal::PoseParam::qvec)
+      .def_readwrite("tvec", &internal::PoseParam::tvec);
+  MakeDataclass(PyExperimentalPoseParam);
+
   py::class_<BACovarianceOptions> PyBACovarianceOptions(m,
                                                         "BACovarianceOptions");
   PyBACovarianceOptions.def(py::init<>())
@@ -47,7 +55,16 @@ void BindCovarianceEstimator(py::module& m) {
           "damping",
           &BACovarianceOptions::damping,
           "Damping factor for the Hessian in the Schur complement solver. "
-          "Enables to robustly deal with poorly conditioned parameters.");
+          "Enables to robustly deal with poorly conditioned parameters.")
+      .def_readwrite(
+          "experimental_custom_poses",
+          &BACovarianceOptions::experimental_custom_poses,
+          "WARNING: This option will be removed in a future release, use at "
+          "your own risk. For custom bundle adjustment problems, this enables "
+          "to specify a custom set of pose parameter blocks to consider. Note "
+          "that these pose blocks must not necessarily be part of the "
+          "reconstruction but they must follow the standard requirement for "
+          "applying the Schur complement trick.");
   MakeDataclass(PyBACovarianceOptions);
 
   py::class_<BACovariance>(m, "BACovariance")

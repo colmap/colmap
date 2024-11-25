@@ -286,9 +286,9 @@ std::optional<BACovariance> EstimateBACovariance(
   const std::vector<internal::PointParam> points =
       internal::GetPointParams(reconstruction, problem);
   const std::vector<internal::PoseParam>& poses =
-      options.custom_poses.empty()
+      options.experimental_custom_poses.empty()
           ? internal::GetPoseParams(reconstruction, problem)
-          : options.custom_poses;
+          : options.experimental_custom_poses;
   const std::vector<const double*> others =
       GetOtherParams(problem, poses, points);
 
