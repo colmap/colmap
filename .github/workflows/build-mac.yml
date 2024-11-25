@@ -43,7 +43,8 @@ jobs:
         run: |
           # Fix `brew link` error.
           find /usr/local/bin -lname '*/Library/Frameworks/Python.framework/*' -delete
-
+          
+          brew unlink pkgconf
           brew install \
             cmake \
             ninja \
