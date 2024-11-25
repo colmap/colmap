@@ -77,8 +77,7 @@ jobs:
           echo "CIBW_CONFIG_SETTINGS_MACOS=${CONFIG_SETTINGS}" >> "$GITHUB_ENV"
 
           # vcpkg binary caching
-          VCPKG_CACHE_DIR="${COMPILER_CACHE_DIR}/vcpkg"
-          VCPKG_BINARY_SOURCES="clear;files,${VCPKG_CACHE_DIR},readwrite"
+          VCPKG_BINARY_SOURCES="clear;x-gha,readwrite"
           echo "VCPKG_BINARY_SOURCES=${VCPKG_BINARY_SOURCES}" >> "$GITHUB_ENV"
 
       - name: Set env (Windows)
@@ -104,8 +103,7 @@ jobs:
           echo "CIBW_REPAIR_WHEEL_COMMAND_WINDOWS=${CIBW_REPAIR_WHEEL_COMMAND}" >> "${env:GITHUB_ENV}"
 
           # vcpkg binary caching
-          $VCPKG_CACHE_DIR = "${env:COMPILER_CACHE_DIR}/vcpkg"
-          $VCPKG_BINARY_SOURCES = "clear;files,${VCPKG_CACHE_DIR},readwrite"
+          $VCPKG_BINARY_SOURCES = "clear;x-gha,readwrite"
           echo "VCPKG_BINARY_SOURCES=${VCPKG_BINARY_SOURCES}" >> "${env:GITHUB_ENV}"
 
       - name: Set env (Linux)
@@ -134,8 +132,7 @@ jobs:
           echo "CCACHE_BASEDIR=/project" >> "$GITHUB_ENV"
 
           # vcpkg binary caching
-          VCPKG_CACHE_DIR="${CONTAINER_COMPILER_CACHE_DIR}/vcpkg"
-          VCPKG_BINARY_SOURCES="clear;files,${VCPKG_CACHE_DIR},readwrite"
+          VCPKG_BINARY_SOURCES="clear;x-gha,readwrite"
           echo "VCPKG_BINARY_SOURCES=${VCPKG_BINARY_SOURCES}" >> "$GITHUB_ENV"
 
           CIBW_ENVIRONMENT_PASS_LINUX="VCPKG_TARGET_TRIPLET VCPKG_INSTALLATION_ROOT CMAKE_TOOLCHAIN_FILE VCPKG_BINARY_SOURCES CONTAINER_COMPILER_CACHE_DIR CCACHE_DIR CCACHE_BASEDIR"
