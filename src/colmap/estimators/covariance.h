@@ -63,9 +63,9 @@ struct BACovariance {
   std::optional<Eigen::MatrixXd> GetCam1FromCam2Cov(image_t image_id1,
                                                     image_t image_id2) const;
 
-  // Tangent space covariance for any variable parameter block in the problem.
-  // If some dimensions are kept constant, the respective rows/columns are
-  // omitted. Returns null if parameter block not a variable in the problem.
+  // Tangent space covariance for any other variable parameter block in the
+  // problem. If some dimensions are kept constant, the respective rows/columns
+  // are omitted. Returns null if parameter block not a variable in the problem.
   std::optional<Eigen::MatrixXd> GetOtherParamsCov(const double* params) const;
 
  private:
@@ -78,20 +78,25 @@ struct BACovariance {
 
 struct BACovarianceOptions {
   enum class Params {
-    kOnlyPoses,
-    kOnlyPoints,
-    kPosesAndPoints,
-    kAll,  // + Others
+    POSES,
+    POINTS,
+    POSES_AND_POINTS,
+    ALL,  // + Others
   };
 
-  // For which variables to compute the covariance.
-  Params params = Params::kAll;
+  // For which parameters to compute the covariance.
+  Params params = Params::ALL;
 
   // Damping factor for the Hessian in the Schur complement solver.
-  // Enables to robustly deal with poorly conditioned points.
+  // Enables to robustly deal with poorly conditioned parameters.
   double damping = 1e-8;
 };
 
+// Computes covariances for the parameters in a bundle adjustment problem. It is
+// important that the problem has a structure suitable for solving using the
+// Schur complement trick. This is the case for the standard configuration of
+// bundle adjustment problems, but be careful if you modify the underlying
+// problem with custom residuals.
 // Returns null if the estimation was not successful.
 std::optional<BACovariance> EstimateBACovariance(
     const BACovarianceOptions& options,

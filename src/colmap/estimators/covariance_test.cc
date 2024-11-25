@@ -68,15 +68,15 @@ TEST_P(ParameterizedBACovarianceTests, CompareWithCeres) {
   const auto [options, test_options] = GetParam();
 
   const bool estimate_point_covs =
-      options.params == BACovarianceOptions::Params::kOnlyPoints ||
-      options.params == BACovarianceOptions::Params::kPosesAndPoints ||
-      options.params == BACovarianceOptions::Params::kAll;
+      options.params == BACovarianceOptions::Params::POINTS ||
+      options.params == BACovarianceOptions::Params::POSES_AND_POINTS ||
+      options.params == BACovarianceOptions::Params::ALL;
   const bool estimate_pose_covs =
-      options.params == BACovarianceOptions::Params::kOnlyPoses ||
-      options.params == BACovarianceOptions::Params::kPosesAndPoints ||
-      options.params == BACovarianceOptions::Params::kAll;
+      options.params == BACovarianceOptions::Params::POSES ||
+      options.params == BACovarianceOptions::Params::POSES_AND_POINTS ||
+      options.params == BACovarianceOptions::Params::ALL;
   const bool estimate_other_covs =
-      options.params == BACovarianceOptions::Params::kAll;
+      options.params == BACovarianceOptions::Params::ALL;
 
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
@@ -304,40 +304,40 @@ INSTANTIATE_TEST_SUITE_P(
         std::make_pair(BACovarianceOptions(), BACovarianceTestOptions()),
         []() {
           BACovarianceOptions options;
-          options.params = BACovarianceOptions::Params::kAll;
+          options.params = BACovarianceOptions::Params::ALL;
           BACovarianceTestOptions test_options;
           test_options.fixed_points = true;
           return std::make_pair(options, test_options);
         }(),
         []() {
           BACovarianceOptions options;
-          options.params = BACovarianceOptions::Params::kAll;
+          options.params = BACovarianceOptions::Params::ALL;
           BACovarianceTestOptions test_options;
           test_options.fixed_cam_intrinsics = true;
           return std::make_pair(options, test_options);
         }(),
         []() {
           BACovarianceOptions options;
-          options.params = BACovarianceOptions::Params::kAll;
+          options.params = BACovarianceOptions::Params::ALL;
           BACovarianceTestOptions test_options;
           test_options.fixed_cam_poses = true;
           return std::make_pair(options, test_options);
         }(),
         []() {
           BACovarianceOptions options;
-          options.params = BACovarianceOptions::Params::kOnlyPoints;
+          options.params = BACovarianceOptions::Params::POINTS;
           BACovarianceTestOptions test_options;
           return std::make_pair(options, test_options);
         }(),
         []() {
           BACovarianceOptions options;
-          options.params = BACovarianceOptions::Params::kOnlyPoses;
+          options.params = BACovarianceOptions::Params::POSES;
           BACovarianceTestOptions test_options;
           return std::make_pair(options, test_options);
         }(),
         []() {
           BACovarianceOptions options;
-          options.params = BACovarianceOptions::Params::kPosesAndPoints;
+          options.params = BACovarianceOptions::Params::POSES_AND_POINTS;
           BACovarianceTestOptions test_options;
           return std::make_pair(options, test_options);
         }()));

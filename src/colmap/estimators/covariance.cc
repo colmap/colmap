@@ -273,15 +273,15 @@ std::optional<BACovariance> EstimateBACovariance(
     BundleAdjuster& bundle_adjuster) {
   ceres::Problem& problem = *THROW_CHECK_NOTNULL(bundle_adjuster.Problem());
   const bool estimate_point_covs =
-      options.params == BACovarianceOptions::Params::kOnlyPoints ||
-      options.params == BACovarianceOptions::Params::kPosesAndPoints ||
-      options.params == BACovarianceOptions::Params::kAll;
+      options.params == BACovarianceOptions::Params::POINTS ||
+      options.params == BACovarianceOptions::Params::POSES_AND_POINTS ||
+      options.params == BACovarianceOptions::Params::ALL;
   const bool estimate_pose_covs =
-      options.params == BACovarianceOptions::Params::kOnlyPoses ||
-      options.params == BACovarianceOptions::Params::kPosesAndPoints ||
-      options.params == BACovarianceOptions::Params::kAll;
+      options.params == BACovarianceOptions::Params::POSES ||
+      options.params == BACovarianceOptions::Params::POSES_AND_POINTS ||
+      options.params == BACovarianceOptions::Params::ALL;
   const bool estimate_other_covs =
-      options.params == BACovarianceOptions::Params::kAll;
+      options.params == BACovarianceOptions::Params::ALL;
 
   const std::vector<internal::PointParam> points =
       internal::GetPointParams(reconstruction, problem);
