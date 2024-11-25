@@ -37,6 +37,7 @@ COLMAP_ADD_LIBRARY(
         cache.h
         controller_thread.h
         eigen_alignment.h
+        eigen_matchers.h
         endian.h endian.cc
         enum_to_string.h
         file.h file.cc
@@ -96,6 +97,11 @@ endif()
 COLMAP_ADD_TEST(
     NAME cache_test
     SRCS cache_test.cc
+    LINK_LIBS colmap_util
+)
+COLMAP_ADD_TEST(
+    NAME eigen_matchers_test
+    SRCS eigen_matchers_test.cc
     LINK_LIBS colmap_util
 )
 COLMAP_ADD_TEST(
