@@ -65,7 +65,7 @@ jobs:
             ccache
 
           # Temporary fix for: https://github.com/ceres-solver/ceres-solver/issues/1118
-          sed -i 's/find_package(Eigen3 ${CERES_EIGEN_VERSION} QUIET)/find_package(Eigen3 ${CERES_EIGEN_VERSION} CONFIG QUIET)/' /opt/homebrew/lib/cmake/Ceres/CeresConfig.cmake
+          sed -i '' 's/find_package(Eigen3 ${CERES_EIGEN_VERSION} QUIET)/find_package(Eigen3 ${CERES_EIGEN_VERSION} CONFIG QUIET)/' /opt/homebrew/lib/cmake/Ceres/CeresConfig.cmake
 
       - name: Configure and build
         run: |
