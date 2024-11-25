@@ -273,6 +273,7 @@ texinfo_documents = [
 # texinfo_no_detailmenu = False
 
 # Configure how Python API docs are displayed.
+autoclass_content = "both"
 autodoc_member_order = "bysource"
 autodoc_typehints = "both"
 python_maximum_signature_line_length = 120
