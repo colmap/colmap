@@ -43,8 +43,11 @@ jobs:
         run: |
           # Fix `brew link` error.
           find /usr/local/bin -lname '*/Library/Frameworks/Python.framework/*' -delete          
+
+          # Temporary fix, see: https://github.com/actions/runner-images/issues/10984#issuecomment-2483288223
           brew update
           brew upgrade
+          brew install pkgconf
 
           brew install \
             cmake \
