@@ -79,15 +79,16 @@ void BindCovarianceEstimator(py::module& m) {
            "rows/columns are omitted. Returns null if parameter block not a "
            "variable in the problem.");
 
-  m.def("estimate_ba_covariance",
-        &EstimateBACovariance,
-        "options"_a,
-        "reconstruction"_a,
-        "bundle_adjuster"_a,
-        "Computes covariances for the parameters in a bundle adjustment "
-        "problem. It is important that the problem has a structure suitable for "
-        "solving using the Schur complement trick. This is the case for the "
-        "standard configuration of bundle adjustment problems, but be careful "
-        "if you modify the underlying problem with custom residuals. Returns "
-        "null if the estimation was not successful.");
+  m.def(
+      "estimate_ba_covariance",
+      &EstimateBACovariance,
+      "options"_a,
+      "reconstruction"_a,
+      "bundle_adjuster"_a,
+      "Computes covariances for the parameters in a bundle adjustment "
+      "problem. It is important that the problem has a structure suitable for "
+      "solving using the Schur complement trick. This is the case for the "
+      "standard configuration of bundle adjustment problems, but be careful "
+      "if you modify the underlying problem with custom residuals. Returns "
+      "null if the estimation was not successful.");
 }
