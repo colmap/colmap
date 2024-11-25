@@ -35,6 +35,14 @@
 namespace colmap {
 namespace {
 
+struct TestClass {
+  virtual void TestMethod(const Eigen::MatrixXd&) const {}
+};
+
+struct MockTestClass : public TestClass {
+  MOCK_METHOD(void, TestMethod, (const Eigen::MatrixXd&), (const, override));
+};
+
 TEST(EigenMatrix, Eq) {
   Eigen::MatrixXd x(2, 3);
   x << 1, 2, 3, 4, 5, 6;
@@ -44,6 +52,12 @@ TEST(EigenMatrix, Eq) {
   EXPECT_THAT(x, testing::Not(EigenMatrixEq(y)));
   y = x.block(0, 0, 2, 2);
   EXPECT_THAT(x, testing::Not(EigenMatrixEq(y)));
+
+  testing::StrictMock<MockTestClass> mock;
+  EXPECT_CALL(mock, TestMethod(EigenMatrixEq(x))).Times(1);
+  EXPECT_CALL(mock, TestMethod(EigenMatrixEq(y))).Times(1);
+  mock.TestMethod(x);
+  mock.TestMethod(y);
 }
 
 TEST(EigenMatrix, Near) {
@@ -55,7 +69,13 @@ TEST(EigenMatrix, Near) {
   y(0, 0) += 1e-7;
   EXPECT_THAT(x, testing::Not(EigenMatrixNear(y, 1e-8)));
   y = x.block(0, 0, 2, 2);
-  EXPECT_THAT(x, testing::Not(EigenMatrixEq(y)));
+  EXPECT_THAT(x, testing::Not(EigenMatrixNear(y)));
+
+  testing::StrictMock<MockTestClass> mock;
+  EXPECT_CALL(mock, TestMethod(EigenMatrixNear(x))).Times(1);
+  EXPECT_CALL(mock, TestMethod(EigenMatrixNear(y))).Times(1);
+  mock.TestMethod(x);
+  mock.TestMethod(y);
 }
 
 }  // namespace
