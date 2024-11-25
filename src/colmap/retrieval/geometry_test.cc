@@ -27,8 +27,6 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#define BOOST_TEST_MAIN
-#define BOOST_TEST_MODULE "retrieval/geometry"
 #include "colmap/retrieval/geometry.h"
 
 #include "colmap/util/eigen_alignment.h"
