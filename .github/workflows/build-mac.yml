@@ -42,7 +42,10 @@ jobs:
       - name: Setup Mac
         run: |
           # Fix `brew link` error.
-          find /usr/local/bin -lname '*/Library/Frameworks/Python.framework/*' -delete
+          find /usr/local/bin -lname '*/Library/Frameworks/Python.framework/*' -delete          
+
+          # Temporary fix, see: https://github.com/actions/runner-images/issues/10984
+          brew uninstall --ignore-dependencies --force pkg-config@0.29.2
 
           brew install \
             cmake \
@@ -60,6 +63,9 @@ jobs:
             cgal \
             sqlite3 \
             ccache
+
+          # Temporary fix for: https://github.com/ceres-solver/ceres-solver/issues/1118
+          sed -i '' 's/find_package(Eigen3 ${CERES_EIGEN_VERSION} QUIET)/find_package(Eigen3 ${CERES_EIGEN_VERSION} CONFIG QUIET)/' /opt/homebrew/lib/cmake/Ceres/CeresConfig.cmake
 
       - name: Configure and build
         run: |
