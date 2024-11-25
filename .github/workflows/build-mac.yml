@@ -44,13 +44,8 @@ jobs:
           # Fix `brew link` error.
           find /usr/local/bin -lname '*/Library/Frameworks/Python.framework/*' -delete          
 
-          # Temporary fix, see: https://github.com/actions/runner-images/issues/10984#issuecomment-2483288223
-          if brew list pkg-config &>/dev/null; then
-            pkg_conf_linked_keg=$(brew info --json pkg-config | jq '.[0]["linked_keg"]')
-            if [[ "$pkg_conf_linked_keg" ==  \"0.29.2\" ]]; then
-              brew unlink pkg-config@0.29.2
-            fi
-          fi
+          # Temporary fix, see: https://github.com/actions/runner-images/issues/10984
+          brew uninstall --ignore-dependencies --force pkg-config@0.29.2
 
           brew install \
             cmake \
