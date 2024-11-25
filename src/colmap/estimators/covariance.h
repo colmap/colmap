@@ -43,6 +43,9 @@
 #include <ceres/problem.h>
 
 namespace colmap {
+namespace internal {
+struct PoseParam;
+}
 
 struct BACovariance {
   explicit BACovariance(
@@ -90,6 +93,15 @@ struct BACovarianceOptions {
   // Damping factor for the Hessian in the Schur complement solver.
   // Enables to robustly deal with poorly conditioned parameters.
   double damping = 1e-8;
+
+  // For custom bundle adjustment problems, this enables to specify a custom set
+  // of pose parameter blocks to consider. Note that these pose blocks must not
+  // necessarily be part of the reconstruction but they must follow the standard
+  // requirement for applying the Schur complement trick.
+  // TODO: This is a temporary option to enable extraction of pose covariances
+  // for custom rig bundle adjustment problems. To be removed when proper rig
+  // support is enabled in colmap natively.
+  std::vector<internal::PoseParam> custom_poses;
 };
 
 // Computes covariances for the parameters in a bundle adjustment problem. It is
