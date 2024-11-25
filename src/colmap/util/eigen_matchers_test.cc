@@ -36,6 +36,7 @@ namespace colmap {
 namespace {
 
 struct TestClass {
+  virtual ~TestClass() = default;
   virtual void TestMethod(const Eigen::MatrixXd&) const {}
 };
 
