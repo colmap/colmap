@@ -29,220 +29,116 @@
 
 #pragma once
 
+#include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/scene/reconstruction.h"
+
+#include <optional>
+#include <unordered_map>
+#include <vector>
 
 #include <Eigen/Core>
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
-#include <ceres/ceres.h>
+#include <ceres/problem.h>
 
 namespace colmap {
+namespace internal {
+struct PoseParam;
+}
 
-// Covariance estimation for bundle adjustment (or extended) problem.
-// The interface is applicable to all ceres problem extended on top of bundle
-// adjustment. The Schur complement is computed explicitly to eliminate the
-// hessian block for all the 3D points, which is essential to avoid Jacobian
-// rank deficiency for large-scale reconstruction
-class BundleAdjustmentCovarianceEstimatorBase {
- public:
-  // Construct with a COLMAP reconstruction
-  BundleAdjustmentCovarianceEstimatorBase(ceres::Problem* problem,
-                                          Reconstruction* reconstruction);
-  // Construct by specifying pose blocks and point blocks
-  BundleAdjustmentCovarianceEstimatorBase(
-      ceres::Problem* problem,
-      const std::vector<const double*>& pose_blocks,
-      const std::vector<const double*>& point_blocks);
-  virtual ~BundleAdjustmentCovarianceEstimatorBase() = default;
+struct BACovariance {
+  explicit BACovariance(
+      std::unordered_map<point3D_t, Eigen::MatrixXd> point_covs,
+      std::unordered_map<image_t, std::pair<int, int>> pose_L_start_size,
+      std::unordered_map<const double*, std::pair<int, int>> other_L_start_size,
+      Eigen::MatrixXd L_inv);
 
-  // Manually set pose blocks that are interested
-  void SetPoseBlocks(const std::vector<const double*>& pose_blocks);
+  // Covariance for 3D points, conditioned on all other variables set constant.
+  // If some dimensions are kept constant, the respective rows/columns are
+  // omitted. Returns null if 3D point not a variable in the problem.
+  std::optional<Eigen::MatrixXd> GetPointCov(point3D_t point3D_id) const;
 
-  // Compute covariance for all parameters (except for 3D points).
-  // Store the full matrix at cov_variables_ and the subblock copy at
-  // cov_poses_;
-  virtual bool ComputeFull() = 0;
+  // Tangent space covariance in the order [rotation, translation]. If some
+  // dimensions are kept constant, the respective rows/columns are omitted.
+  // Returns null if image not a variable in the problem.
+  std::optional<Eigen::MatrixXd> GetCamFromWorldCov(image_t image_id) const;
+  std::optional<Eigen::MatrixXd> GetCam1FromCam2Cov(image_t image_id1,
+                                                    image_t image_id2) const;
 
-  // Compute covariance for pose paramters.
-  // Stored at cov_poses_;
-  virtual bool Compute() = 0;
-
-  // Interfaces
-  // test if the block corresponds to any parameter in the problem except for 3D
-  // points
-  bool HasBlock(const double* params) const;
-  // test if the block corresponds to any parameter in the pose_blocks
-  bool HasPoseBlock(const double* params) const;
-  // test if the estimator is constructed with a COLMAP reconstruction
-  bool HasReconstruction() const;
-  // test if the pose is inside the problem as non-constant variables
-  bool HasPose(image_t image_id) const;
-
-  // pose parameters
-  Eigen::MatrixXd GetPoseCovariance() const;
-  Eigen::MatrixXd GetPoseCovariance(image_t image_id) const;
-  Eigen::MatrixXd GetPoseCovariance(
-      const std::vector<image_t>& image_ids) const;
-  Eigen::MatrixXd GetPoseCovariance(image_t image_id1, image_t image_id2) const;
-  Eigen::MatrixXd GetPoseCovariance(double* parameter_block) const;
-  Eigen::MatrixXd GetPoseCovariance(
-      const std::vector<double*>& parameter_blocks) const;
-  Eigen::MatrixXd GetPoseCovariance(double* parameter_block1,
-                                    double* parameter_block2) const;
-
-  // all parameters (except for 3D points)
-  Eigen::MatrixXd GetCovariance(double* parameter_block) const;
-  Eigen::MatrixXd GetCovariance(
-      const std::vector<double*>& parameter_blocks) const;
-  Eigen::MatrixXd GetCovariance(double* parameter_block1,
-                                double* parameter_block2) const;
-
-  // test if either ``ComputeFull()`` or ``Compute()`` has been called
-  bool HasValidPoseCovariance() const;
-  // test if ``ComputeFull()`` has been called
-  bool HasValidFullCovariance() const;
-
- protected:
-  // indexing the covariance matrix
-  virtual double GetCovarianceByIndex(int row, int col) const;
-  virtual Eigen::MatrixXd GetCovarianceBlockOperation(int row_start,
-                                                      int col_start,
-                                                      int row_block_size,
-                                                      int col_block_size) const;
-  virtual double GetPoseCovarianceByIndex(int row, int col) const;
-  virtual Eigen::MatrixXd GetPoseCovarianceBlockOperation(
-      int row_start,
-      int col_start,
-      int row_block_size,
-      int col_block_size) const;
-
-  // blocks parsed from reconstruction (initialized at construction)
-  std::vector<const double*> pose_blocks_;
-  int num_params_poses_ = 0;
-  std::vector<const double*> other_variables_blocks_;
-  int num_params_other_variables_ = 0;
-  std::vector<const double*> point_blocks_;
-  int num_params_points_ = 0;
-
-  // get the starting index of the parameter block in the matrix
-  // orders: [pose_blocks, other_variables_blocks, point_blocks]
-  std::map<const double*, int> map_block_to_index_;
-
-  int GetBlockIndex(const double* params) const;
-  int GetBlockTangentSize(const double* params) const;
-  int GetPoseIndex(image_t image_id) const;
-  int GetPoseTangentSize(image_t image_id) const;
-
-  // covariance for all parameters (except for 3D points)
-  Eigen::MatrixXd cov_variables_;
-
-  // covariance for pose parameters
-  Eigen::MatrixXd cov_poses_;
-
-  // ceres problem
-  ceres::Problem* problem_;
-
-  // reconstruction
-  Reconstruction* reconstruction_ = nullptr;
+  // Tangent space covariance for any other variable parameter block in the
+  // problem. If some dimensions are kept constant, the respective rows/columns
+  // are omitted. Returns null if parameter block not a variable in the problem.
+  std::optional<Eigen::MatrixXd> GetOtherParamsCov(const double* params) const;
 
  private:
-  // set up parameter blocks
-  void SetUpOtherVariablesBlocks();
+  const std::unordered_map<point3D_t, Eigen::MatrixXd> point_covs_;
+  const std::unordered_map<image_t, std::pair<int, int>> pose_L_start_size_;
+  const std::unordered_map<const double*, std::pair<int, int>>
+      other_L_start_size_;
+  const Eigen::MatrixXd L_inv_;
 };
 
-class BundleAdjustmentCovarianceEstimatorCeresBackend
-    : public BundleAdjustmentCovarianceEstimatorBase {
- public:
-  BundleAdjustmentCovarianceEstimatorCeresBackend(
-      ceres::Problem* problem, Reconstruction* reconstruction)
-      : BundleAdjustmentCovarianceEstimatorBase(problem, reconstruction) {}
+struct BACovarianceOptions {
+  enum class Params {
+    POSES,
+    POINTS,
+    POSES_AND_POINTS,
+    ALL,  // + Others
+  };
 
-  BundleAdjustmentCovarianceEstimatorCeresBackend(
-      ceres::Problem* problem,
-      const std::vector<const double*>& pose_blocks,
-      const std::vector<const double*>& point_blocks)
-      : BundleAdjustmentCovarianceEstimatorBase(
-            problem, pose_blocks, point_blocks) {}
+  // For which parameters to compute the covariance.
+  Params params = Params::ALL;
 
-  bool ComputeFull() override;
-  bool Compute() override;
+  // Damping factor for the Hessian in the Schur complement solver.
+  // Enables to robustly deal with poorly conditioned parameters.
+  double damping = 1e-8;
+
+  // WARNING: This option will be removed in a future release, use at your own
+  // risk. For custom bundle adjustment problems, this enables to specify a
+  // custom set of pose parameter blocks to consider. Note that these pose
+  // blocks must not necessarily be part of the reconstruction but they must
+  // follow the standard requirement for applying the Schur complement trick.
+  // TODO: This is a temporary option to enable extraction of pose covariances
+  // for custom rig bundle adjustment problems. To be removed when proper rig
+  // support is enabled in colmap natively.
+  std::vector<internal::PoseParam> experimental_custom_poses;
 };
 
-class BundleAdjustmentCovarianceEstimator
-    : public BundleAdjustmentCovarianceEstimatorBase {
- public:
-  BundleAdjustmentCovarianceEstimator(ceres::Problem* problem,
-                                      Reconstruction* reconstruction,
-                                      double lambda = 1e-8)
-      : BundleAdjustmentCovarianceEstimatorBase(problem, reconstruction),
-        lambda_(lambda) {}
-  BundleAdjustmentCovarianceEstimator(
-      ceres::Problem* problem,
-      const std::vector<const double*>& pose_blocks,
-      const std::vector<const double*>& point_blocks,
-      double lambda = 1e-8)
-      : BundleAdjustmentCovarianceEstimatorBase(
-            problem, pose_blocks, point_blocks),
-        lambda_(lambda) {}
+// Computes covariances for the parameters in a bundle adjustment problem. It is
+// important that the problem has a structure suitable for solving using the
+// Schur complement trick. This is the case for the standard configuration of
+// bundle adjustment problems, but be careful if you modify the underlying
+// problem with custom residuals.
+// Returns null if the estimation was not successful.
+std::optional<BACovariance> EstimateBACovariance(
+    const BACovarianceOptions& options,
+    const Reconstruction& reconstruction,
+    BundleAdjuster& bundle_adjuster);
 
-  bool ComputeFull() override;
-  bool Compute() override;
+namespace internal {
 
-  // factorization
-  bool FactorizeFull();
-  bool Factorize();
-  bool HasValidFullFactorization() const;
-  bool HasValidPoseFactorization() const;
-
- private:
-  // indexing the covariance matrix
-  double GetCovarianceByIndex(int row, int col) const override;
-  Eigen::MatrixXd GetCovarianceBlockOperation(
-      int row_start,
-      int col_start,
-      int row_block_size,
-      int col_block_size) const override;
-  double GetPoseCovarianceByIndex(int row, int col) const override;
-  Eigen::MatrixXd GetPoseCovarianceBlockOperation(
-      int row_start,
-      int col_start,
-      int row_block_size,
-      int col_block_size) const override;
-
-  // The Schur complement for all parameters (except for 3D points) after Schur
-  // elimination
-  Eigen::SparseMatrix<double> S_matrix_;
-
-  // The damping factor to avoid rank deficiency
-  const double lambda_ = 1e-8;
-
-  // Compute the Schur complement for poses and other variables by eliminating
-  // 3D points
-  void ComputeSchurComplement();
-  bool HasValidSchurComplement() const;
-
-  // The inverse of L matrix after Cholesky factorization
-  Eigen::MatrixXd L_matrix_variables_inv_;
-  Eigen::MatrixXd L_matrix_poses_inv_;
+struct PoseParam {
+  image_t image_id = kInvalidImageId;
+  const double* qvec = nullptr;
+  const double* tvec = nullptr;
 };
 
-// The covariance for each image is in the order [R, t] with both of them
-// potentially on manifold (R is always at least parameterized with
-// ceres::QuaternionManifold on Lie Algebra). As a result, the covariance is
-// only computed on the non-constant part for each variable. If the full parts
-// of both the rotation and translation are in the problem, the covariance
-// matrix will be 6x6.
-bool EstimatePoseCovarianceCeresBackend(
-    ceres::Problem* problem,
-    Reconstruction* reconstruction,
-    std::map<image_t, Eigen::MatrixXd>& image_id_to_covar);
+std::vector<PoseParam> GetPoseParams(const Reconstruction& reconstruction,
+                                     const ceres::Problem& problem);
 
-// Similar to the convention above for ``EstimatePoseCovarianceCeresBackend``.
-bool EstimatePoseCovariance(
-    ceres::Problem* problem,
-    Reconstruction* reconstruction,
-    std::map<image_t, Eigen::MatrixXd>& image_id_to_covar,
-    double lambda = 1e-8);
+struct PointParam {
+  point3D_t point3D_id = kInvalidPoint3DId;
+  const double* xyz = nullptr;
+};
 
+std::vector<PointParam> GetPointParams(const Reconstruction& reconstruction,
+                                       const ceres::Problem& problem);
+
+std::vector<const double*> GetOtherParams(
+    const ceres::Problem& problem,
+    const std::vector<PoseParam>& poses,
+    const std::vector<PointParam>& points);
+
+}  // namespace internal
 }  // namespace colmap
