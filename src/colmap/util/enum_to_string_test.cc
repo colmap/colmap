@@ -27,34 +27,36 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#pragma once
+#include "colmap/util/enum_to_string.h"
 
-#include "colmap/sensor/bitmap.h"
-#include "colmap/util/eigen_alignment.h"
+#include <string>
 
-#include <Eigen/Core>
+#include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
-struct LineSegment {
-  Eigen::Vector2d start;
-  Eigen::Vector2d end;
-};
+MAKE_ENUM(MyEnum, 0, ClassA, ClassB);
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(MyEnumClass, -1, UNDEFINED, ClassA, ClassB);
 
-enum class LineSegmentOrientation {
-  HORIZONTAL = 1,
-  VERTICAL = -1,
-  UNDEFINED = 0,
-};
+TEST(MakeEnum, Nominal) {
+  EXPECT_EQ(ClassA, 0);
+  EXPECT_EQ(ClassB, 1);
+  EXPECT_EQ(MyEnumToString(ClassA), "ClassA");
+  EXPECT_EQ(MyEnumToString(ClassB), "ClassB");
+}
 
-#ifdef COLMAP_LSD_ENABLED
-// Detect line segments in the given bitmap image.
-std::vector<LineSegment> DetectLineSegments(const Bitmap& bitmap,
-                                            double min_length = 3);
-#endif
+TEST(MakeEnumClass, Nominal) {
+  EXPECT_EQ(static_cast<int>(MyEnumClass::UNDEFINED), -1);
+  EXPECT_EQ(static_cast<int>(MyEnumClass::ClassA), 0);
+  EXPECT_EQ(static_cast<int>(MyEnumClass::ClassB), 1);
+  EXPECT_EQ(MyEnumClassToString(-1), "UNDEFINED");
+  EXPECT_EQ(MyEnumClassToString(0), "ClassA");
+  EXPECT_EQ(MyEnumClassToString(1), "ClassB");
+  std::ostringstream stream;
+  stream << MyEnumClass::ClassA;
+  EXPECT_EQ(stream.str(), "ClassA");
+}
 
-// Classify line segments into horizontal/vertical.
-std::vector<LineSegmentOrientation> ClassifyLineSegmentOrientations(
-    const std::vector<LineSegment>& segments, double tolerance = 0.25);
-
+}  // namespace
 }  // namespace colmap

@@ -276,7 +276,7 @@ size_t Reconstruction::NumPoints3D() const { return points3D_.size(); }
 const struct Camera& Reconstruction::Camera(const camera_t camera_id) const {
   try {
     return cameras_.at(camera_id);
-  } catch (const std::out_of_range& e) {
+  } catch (const std::out_of_range&) {
     throw std::out_of_range(
         StringPrintf("Camera with ID %d does not exist", camera_id));
   }
@@ -285,7 +285,7 @@ const struct Camera& Reconstruction::Camera(const camera_t camera_id) const {
 const class Image& Reconstruction::Image(const image_t image_id) const {
   try {
     return images_.at(image_id);
-  } catch (const std::out_of_range& e) {
+  } catch (const std::out_of_range&) {
     throw std::out_of_range(
         StringPrintf("Image with ID %d does not exist", image_id));
   }
@@ -295,7 +295,7 @@ const struct Point3D& Reconstruction::Point3D(
     const point3D_t point3D_id) const {
   try {
     return points3D_.at(point3D_id);
-  } catch (const std::out_of_range& e) {
+  } catch (const std::out_of_range&) {
     throw std::out_of_range(
         StringPrintf("Point3D with ID %d does not exist", point3D_id));
   }
@@ -304,7 +304,7 @@ const struct Point3D& Reconstruction::Point3D(
 struct Camera& Reconstruction::Camera(const camera_t camera_id) {
   try {
     return cameras_.at(camera_id);
-  } catch (const std::out_of_range& e) {
+  } catch (const std::out_of_range&) {
     throw std::out_of_range(
         StringPrintf("Camera with ID %d does not exist", camera_id));
   }
@@ -313,7 +313,7 @@ struct Camera& Reconstruction::Camera(const camera_t camera_id) {
 class Image& Reconstruction::Image(const image_t image_id) {
   try {
     return images_.at(image_id);
-  } catch (const std::out_of_range& e) {
+  } catch (const std::out_of_range&) {
     throw std::out_of_range(
         StringPrintf("Image with ID %d does not exist", image_id));
   }
@@ -322,7 +322,7 @@ class Image& Reconstruction::Image(const image_t image_id) {
 struct Point3D& Reconstruction::Point3D(const point3D_t point3D_id) {
   try {
     return points3D_.at(point3D_id);
-  } catch (const std::out_of_range& e) {
+  } catch (const std::out_of_range&) {
     throw std::out_of_range(
         StringPrintf("Point3D with ID %d does not exist", point3D_id));
   }

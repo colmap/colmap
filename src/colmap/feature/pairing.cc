@@ -697,7 +697,7 @@ std::vector<std::pair<image_t, image_t>> TransitivePairGenerator::Next() {
             database.ReadTwoViewGeometryNumInliers();
       });
 
-  std::unordered_map<image_t, std::vector<image_t>> adjacency;
+  std::map<image_t, std::vector<image_t>> adjacency;
   for (const auto& [pair_id, _] : existing_pair_ids_and_num_inliers) {
     const auto [image_id1, image_id2] = Database::PairIdToImagePair(pair_id);
     adjacency[image_id1].push_back(image_id2);
@@ -721,7 +721,7 @@ std::vector<std::pair<image_t, image_t>> TransitivePairGenerator::Next() {
         if (image_pair_ids_.count(image_pair_id) != 0) {
           continue;
         }
-        image_pairs_.emplace_back(image_id1, image_id3);
+        image_pairs_.emplace_back(std::minmax(image_id1, image_id3));
         image_pair_ids_.insert(image_pair_id);
       }
     }

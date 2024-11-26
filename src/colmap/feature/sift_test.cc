@@ -135,6 +135,39 @@ TEST(ExtractCovariantAffineSiftFeaturesCPU, Nominal) {
   FeatureDescriptors descriptors;
   EXPECT_TRUE(extractor->Extract(bitmap, &keypoints, &descriptors));
 
+  EXPECT_EQ(keypoints.size(), 22);
+  for (size_t i = 0; i < keypoints.size(); ++i) {
+    EXPECT_GE(keypoints[i].x, 0);
+    EXPECT_GE(keypoints[i].y, 0);
+    EXPECT_LE(keypoints[i].x, bitmap.Width());
+    EXPECT_LE(keypoints[i].y, bitmap.Height());
+    EXPECT_GT(keypoints[i].ComputeScale(), 0);
+    EXPECT_GT(keypoints[i].ComputeOrientation(), -M_PI);
+    EXPECT_LT(keypoints[i].ComputeOrientation(), M_PI);
+  }
+
+  EXPECT_EQ(descriptors.rows(), 22);
+  for (FeatureDescriptors::Index i = 0; i < descriptors.rows(); ++i) {
+    EXPECT_LT(std::abs(descriptors.row(i).cast<float>().norm() - 512), 1);
+  }
+}
+
+TEST(ExtractCovariantAffineSiftFeaturesCPU, Upright) {
+  Bitmap bitmap;
+  CreateImageWithSquare(256, &bitmap);
+
+  SiftExtractionOptions options;
+  options.use_gpu = false;
+  options.estimate_affine_shape = true;
+  options.upright = true;
+  options.domain_size_pooling = false;
+  options.force_covariant_extractor = false;
+  auto extractor = CreateSiftFeatureExtractor(options);
+
+  FeatureKeypoints keypoints;
+  FeatureDescriptors descriptors;
+  EXPECT_TRUE(extractor->Extract(bitmap, &keypoints, &descriptors));
+
   EXPECT_EQ(keypoints.size(), 10);
   for (size_t i = 0; i < keypoints.size(); ++i) {
     EXPECT_GE(keypoints[i].x, 0);
@@ -199,7 +232,7 @@ TEST(ExtractCovariantAffineDSPSiftFeaturesCPU, Nominal) {
   FeatureDescriptors descriptors;
   EXPECT_TRUE(extractor->Extract(bitmap, &keypoints, &descriptors));
 
-  EXPECT_EQ(keypoints.size(), 10);
+  EXPECT_EQ(keypoints.size(), 22);
   for (size_t i = 0; i < keypoints.size(); ++i) {
     EXPECT_GE(keypoints[i].x, 0);
     EXPECT_GE(keypoints[i].y, 0);
@@ -210,7 +243,7 @@ TEST(ExtractCovariantAffineDSPSiftFeaturesCPU, Nominal) {
     EXPECT_LT(keypoints[i].ComputeOrientation(), M_PI);
   }
 
-  EXPECT_EQ(descriptors.rows(), 10);
+  EXPECT_EQ(descriptors.rows(), 22);
   for (FeatureDescriptors::Index i = 0; i < descriptors.rows(); ++i) {
     EXPECT_LT(std::abs(descriptors.row(i).cast<float>().norm() - 512), 1);
   }

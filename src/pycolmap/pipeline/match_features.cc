@@ -70,36 +70,6 @@ void verify_matches(const std::string& database_path,
 }
 
 void BindMatchFeatures(py::module& m) {
-  using SMOpts = SiftMatchingOptions;
-  auto PySiftMatchingOptions =
-      py::class_<SMOpts>(m, "SiftMatchingOptions")
-          .def(py::init<>())
-          .def_readwrite("num_threads", &SMOpts::num_threads)
-          .def_readwrite("gpu_index",
-                         &SMOpts::gpu_index,
-                         "Index of the GPU used for feature matching. For "
-                         "multi-GPU matching, "
-                         "you should separate multiple GPU indices by comma, "
-                         "e.g., \"0,1,2,3\".")
-          .def_readwrite(
-              "max_ratio",
-              &SMOpts::max_ratio,
-              "Maximum distance ratio between first and second best match.")
-          .def_readwrite("max_distance",
-                         &SMOpts::max_distance,
-                         "Maximum distance to best match.")
-          .def_readwrite("cross_check",
-                         &SMOpts::cross_check,
-                         "Whether to enable cross checking in matching.")
-          .def_readwrite("max_num_matches",
-                         &SMOpts::max_num_matches,
-                         "Maximum number of matches.")
-          .def_readwrite("guided_matching",
-                         &SMOpts::guided_matching,
-                         "Whether to perform guided matching, if geometric "
-                         "verification succeeds.");
-  MakeDataclass(PySiftMatchingOptions);
-
   using EMOpts = ExhaustiveMatchingOptions;
   auto PyExhaustiveMatchingOptions =
       py::class_<ExhaustiveMatchingOptions>(m, "ExhaustiveMatchingOptions")

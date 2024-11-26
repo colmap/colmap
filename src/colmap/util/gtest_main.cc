@@ -27,34 +27,11 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#pragma once
+#include <glog/logging.h>
+#include <gmock/gmock.h>
 
-#include "colmap/sensor/bitmap.h"
-#include "colmap/util/eigen_alignment.h"
-
-#include <Eigen/Core>
-
-namespace colmap {
-
-struct LineSegment {
-  Eigen::Vector2d start;
-  Eigen::Vector2d end;
-};
-
-enum class LineSegmentOrientation {
-  HORIZONTAL = 1,
-  VERTICAL = -1,
-  UNDEFINED = 0,
-};
-
-#ifdef COLMAP_LSD_ENABLED
-// Detect line segments in the given bitmap image.
-std::vector<LineSegment> DetectLineSegments(const Bitmap& bitmap,
-                                            double min_length = 3);
-#endif
-
-// Classify line segments into horizontal/vertical.
-std::vector<LineSegmentOrientation> ClassifyLineSegmentOrientations(
-    const std::vector<LineSegment>& segments, double tolerance = 0.25);
-
-}  // namespace colmap
+int main(int argc, char** argv) {
+  google::InitGoogleLogging(argv[0]);
+  testing::InitGoogleMock(&argc, argv);
+  return RUN_ALL_TESTS();
+}

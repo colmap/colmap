@@ -203,7 +203,7 @@ TEST(IncrementalPipeline, PriorBasedSfMNoNoise) {
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_cameras = 2;
-  synthetic_dataset_options.num_images = 7;
+  synthetic_dataset_options.num_images = 10;
   synthetic_dataset_options.num_points3D = 100;
   synthetic_dataset_options.point2D_stddev = 0.5;
 
@@ -213,7 +213,6 @@ TEST(IncrementalPipeline, PriorBasedSfMNoNoise) {
 
   std::shared_ptr<IncrementalPipelineOptions> mapper_options =
       std::make_shared<IncrementalPipelineOptions>();
-
   mapper_options->use_prior_position = true;
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
@@ -279,8 +278,8 @@ TEST(IncrementalPipeline, GPSPriorBasedSfMWithNoise) {
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_cameras = 2;
-  synthetic_dataset_options.num_images = 17;
-  synthetic_dataset_options.num_points3D = 500;
+  synthetic_dataset_options.num_images = 10;
+  synthetic_dataset_options.num_points3D = 100;
   synthetic_dataset_options.point2D_stddev = 0.5;
 
   synthetic_dataset_options.use_prior_position = true;

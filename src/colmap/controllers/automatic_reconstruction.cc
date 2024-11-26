@@ -153,13 +153,17 @@ void AutomaticReconstructionController::Run() {
     return;
   }
 
-  RunFeatureExtraction();
+  if (options_.extraction) {
+    RunFeatureExtraction();
+  }
 
   if (IsStopped()) {
     return;
   }
 
-  RunFeatureMatching();
+  if (options_.matching) {
+    RunFeatureMatching();
+  }
 
   if (IsStopped()) {
     return;
@@ -314,7 +318,8 @@ void AutomaticReconstructionController::RunDenseMapper() {
           dense_path,
           "COLMAP",
           "",
-          options_.quality == Quality::HIGH ? "geometric" : "photometric");
+          option_manager_.patch_match_stereo->geom_consistency ? "geometric"
+                                                               : "photometric");
       fuser.SetCheckIfStoppedFunc([&]() { return IsStopped(); });
       fuser.Run();
 

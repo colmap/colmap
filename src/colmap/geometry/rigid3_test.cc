@@ -46,6 +46,24 @@ TEST(Rigid3d, Default) {
   EXPECT_EQ(tform.translation, Eigen::Vector3d::Zero());
 }
 
+TEST(Rigid3d, Equals) {
+  Rigid3d tform;
+  Rigid3d other = tform;
+  EXPECT_EQ(tform, other);
+  tform.translation.x() = 1;
+  EXPECT_NE(tform, other);
+  other.translation.x() = 1;
+  EXPECT_EQ(tform, other);
+}
+
+TEST(Rigid3d, Print) {
+  Rigid3d tform;
+  std::ostringstream stream;
+  stream << tform;
+  EXPECT_EQ(stream.str(),
+            "Rigid3d(rotation_xyzw=[0, 0, 0, 1], translation=[0, 0, 0])");
+}
+
 TEST(Rigid3d, Inverse) {
   const Rigid3d b_from_a = TestRigid3d();
   const Rigid3d a_from_b = Inverse(b_from_a);

@@ -5,6 +5,7 @@
 #include "colmap/scene/camera.h"
 #include "colmap/util/logging.h"
 
+#include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
 #include "pycolmap/utils.h"
 
@@ -31,19 +32,20 @@ py::typing::Optional<py::dict> PyEstimateFundamentalMatrix(
     return py::none();
   }
 
-  const Eigen::Matrix3d F = report.model;
-  return py::dict("F"_a = F,
+  return py::dict("F"_a = report.model,
                   "num_inliers"_a = report.support.num_inliers,
-                  "inliers"_a = ToPythonMask(report.inlier_mask));
+                  "inlier_mask"_a = ToPythonMask(report.inlier_mask));
 }
 
 void BindFundamentalMatrixEstimator(py::module& m) {
-  auto est_options = m.attr("RANSACOptions")().cast<RANSACOptions>();
+  auto ransac_options = m.attr("RANSACOptions")().cast<RANSACOptions>();
 
-  m.def("fundamental_matrix_estimation",
+  m.def("estimate_fundamental_matrix",
         &PyEstimateFundamentalMatrix,
         "points2D1"_a,
         "points2D2"_a,
-        py::arg_v("estimation_options", est_options, "RANSACOptions()"),
-        "LORANSAC + 7-point algorithm.");
+        py::arg_v("estimation_options", ransac_options, "RANSACOptions()"),
+        "Robustly estimate fundamental matrix with LO-RANSAC.");
+  DefDeprecation(
+      m, "fundamental_matrix_estimation", "estimate_fundamental_matrix");
 }

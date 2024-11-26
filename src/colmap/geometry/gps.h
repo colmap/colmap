@@ -30,8 +30,10 @@
 #pragma once
 
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/enum_to_string.h"
 #include "colmap/util/types.h"
 
+#include <ostream>
 #include <vector>
 
 #include <Eigen/Core>
@@ -42,7 +44,7 @@ namespace colmap {
 // representation and vice versa.
 class GPSTransform {
  public:
-  enum ELLIPSOID { GRS80, WGS84 };
+  MAKE_ENUM(ELLPSOID, 0, GRS80, WGS84);
 
   explicit GPSTransform(int ellipsoid = GRS80);
 
@@ -85,11 +87,12 @@ class GPSTransform {
 
 struct PosePrior {
  public:
-  enum class CoordinateSystem {
-    UNDEFINED = -1,
-    WGS84 = 0,
-    CARTESIAN = 1,
-  };
+  MAKE_ENUM_CLASS(CoordinateSystem,
+                  -1,
+                  UNDEFINED,  // = -1
+                  WGS84,      // = 0
+                  CARTESIAN   // = 1
+  );
 
   Eigen::Vector3d position =
       Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
@@ -114,6 +117,21 @@ struct PosePrior {
   inline bool IsCovarianceValid() const {
     return position_covariance.allFinite();
   }
+
+  inline bool operator==(const PosePrior& other) const;
+  inline bool operator!=(const PosePrior& other) const;
 };
+
+std::ostream& operator<<(std::ostream& stream, const PosePrior& prior);
+
+bool PosePrior::operator==(const PosePrior& other) const {
+  return coordinate_system == other.coordinate_system &&
+         position == other.position &&
+         position_covariance == other.position_covariance;
+}
+
+bool PosePrior::operator!=(const PosePrior& other) const {
+  return !(*this == other);
+}
 
 }  // namespace colmap

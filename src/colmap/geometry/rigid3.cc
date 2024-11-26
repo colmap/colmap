@@ -27,34 +27,18 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#pragma once
+#include "colmap/geometry/rigid3.h"
 
-#include "colmap/sensor/bitmap.h"
-#include "colmap/util/eigen_alignment.h"
-
-#include <Eigen/Core>
+#include "colmap/util/logging.h"
 
 namespace colmap {
 
-struct LineSegment {
-  Eigen::Vector2d start;
-  Eigen::Vector2d end;
-};
-
-enum class LineSegmentOrientation {
-  HORIZONTAL = 1,
-  VERTICAL = -1,
-  UNDEFINED = 0,
-};
-
-#ifdef COLMAP_LSD_ENABLED
-// Detect line segments in the given bitmap image.
-std::vector<LineSegment> DetectLineSegments(const Bitmap& bitmap,
-                                            double min_length = 3);
-#endif
-
-// Classify line segments into horizontal/vertical.
-std::vector<LineSegmentOrientation> ClassifyLineSegmentOrientations(
-    const std::vector<LineSegment>& segments, double tolerance = 0.25);
+std::ostream& operator<<(std::ostream& stream, const Rigid3d& tform) {
+  const static Eigen::IOFormat kVecFmt(
+      Eigen::StreamPrecision, Eigen::DontAlignCols, ", ", ", ");
+  stream << "Rigid3d(rotation_xyzw=[" << tform.rotation.coeffs().format(kVecFmt)
+         << "], translation=[" << tform.translation.format(kVecFmt) << "])";
+  return stream;
+}
 
 }  // namespace colmap

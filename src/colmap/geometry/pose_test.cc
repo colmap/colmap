@@ -31,6 +31,7 @@
 
 #include "colmap/math/math.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/eigen_matchers.h"
 
 #include <Eigen/Core>
 #include <gtest/gtest.h>
@@ -56,9 +57,10 @@ TEST(DecomposeProjectionMatrix, Nominal) {
     Eigen::Matrix3d R;
     Eigen::Vector3d T;
     DecomposeProjectionMatrix(P, &K, &R, &T);
-    EXPECT_TRUE(ref_K.isApprox(K, 1e-6));
-    EXPECT_TRUE(cam_from_world.rotation.toRotationMatrix().isApprox(R, 1e-6));
-    EXPECT_TRUE(cam_from_world.translation.isApprox(T, 1e-6));
+    EXPECT_THAT(ref_K, EigenMatrixNear(K, 1e-6));
+    EXPECT_THAT(cam_from_world.rotation.toRotationMatrix(),
+                EigenMatrixNear(R, 1e-6));
+    EXPECT_THAT(cam_from_world.translation, EigenMatrixNear(T, 1e-6));
   }
 }
 
@@ -157,14 +159,15 @@ TEST(AverageQuaternions, Nominal) {
 
   quats = {Eigen::Quaterniond::Identity(), Eigen::Quaterniond(1, 1, 0, 0)};
   weights = {1.0, 1.0};
-  EXPECT_TRUE(AverageQuaternions(quats, weights)
-                  .isApprox(Eigen::Quaterniond(0.92388, 0.382683, 0, 0), 1e-6));
+  EXPECT_THAT(AverageQuaternions(quats, weights).coeffs(),
+              EigenMatrixNear(
+                  Eigen::Quaterniond(0.92388, 0.382683, 0, 0).coeffs(), 1e-6));
 
   quats = {Eigen::Quaterniond::Identity(), Eigen::Quaterniond(1, 1, 0, 0)};
   weights = {1.0, 2.0};
-  EXPECT_TRUE(
-      AverageQuaternions(quats, weights)
-          .isApprox(Eigen::Quaterniond(0.850651, 0.525731, 0, 0), 1e-6));
+  EXPECT_THAT(AverageQuaternions(quats, weights).coeffs(),
+              EigenMatrixNear(
+                  Eigen::Quaterniond(0.850651, 0.525731, 0, 0).coeffs(), 1e-6));
 }
 
 TEST(InterpolateCameraPoses, Nominal) {
@@ -175,18 +178,20 @@ TEST(InterpolateCameraPoses, Nominal) {
 
   const Rigid3d interp_cam_from_world1 =
       InterpolateCameraPoses(cam_from_world1, cam_from_world2, 0);
-  EXPECT_TRUE(
-      interp_cam_from_world1.translation.isApprox(cam_from_world1.translation));
+  EXPECT_THAT(interp_cam_from_world1.translation,
+              EigenMatrixNear(cam_from_world1.translation));
 
   const Rigid3d interp_cam_from_world2 =
       InterpolateCameraPoses(cam_from_world1, cam_from_world2, 1);
-  EXPECT_TRUE(
-      interp_cam_from_world2.translation.isApprox(cam_from_world2.translation));
+  EXPECT_THAT(interp_cam_from_world2.translation,
+              EigenMatrixNear(cam_from_world2.translation));
 
   const Rigid3d interp_cam_from_world3 =
       InterpolateCameraPoses(cam_from_world1, cam_from_world2, 0.5);
-  EXPECT_TRUE(interp_cam_from_world3.translation.isApprox(
-      (cam_from_world1.translation + cam_from_world2.translation) / 2));
+  EXPECT_THAT(
+      interp_cam_from_world3.translation,
+      EigenMatrixNear(Eigen::Vector3d(
+          (cam_from_world1.translation + cam_from_world2.translation) / 2)));
 }
 
 TEST(CheckCheirality, Nominal) {

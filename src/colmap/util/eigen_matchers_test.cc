@@ -27,34 +27,57 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#pragma once
+#include "colmap/util/eigen_matchers.h"
 
-#include "colmap/sensor/bitmap.h"
-#include "colmap/util/eigen_alignment.h"
-
-#include <Eigen/Core>
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
-struct LineSegment {
-  Eigen::Vector2d start;
-  Eigen::Vector2d end;
+struct TestClass {
+  virtual ~TestClass() = default;
+  virtual void TestMethod(const Eigen::MatrixXd&) const {}
 };
 
-enum class LineSegmentOrientation {
-  HORIZONTAL = 1,
-  VERTICAL = -1,
-  UNDEFINED = 0,
+struct MockTestClass : public TestClass {
+  MOCK_METHOD(void, TestMethod, (const Eigen::MatrixXd&), (const, override));
 };
 
-#ifdef COLMAP_LSD_ENABLED
-// Detect line segments in the given bitmap image.
-std::vector<LineSegment> DetectLineSegments(const Bitmap& bitmap,
-                                            double min_length = 3);
-#endif
+TEST(EigenMatrix, Eq) {
+  Eigen::MatrixXd x(2, 3);
+  x << 1, 2, 3, 4, 5, 6;
+  Eigen::MatrixXd y = x;
+  EXPECT_THAT(x, EigenMatrixEq(y));
+  y(0, 0) += 1;
+  EXPECT_THAT(x, testing::Not(EigenMatrixEq(y)));
+  y = x.block(0, 0, 2, 2);
+  EXPECT_THAT(x, testing::Not(EigenMatrixEq(y)));
 
-// Classify line segments into horizontal/vertical.
-std::vector<LineSegmentOrientation> ClassifyLineSegmentOrientations(
-    const std::vector<LineSegment>& segments, double tolerance = 0.25);
+  testing::StrictMock<MockTestClass> mock;
+  EXPECT_CALL(mock, TestMethod(EigenMatrixEq(x))).Times(1);
+  EXPECT_CALL(mock, TestMethod(EigenMatrixEq(y))).Times(1);
+  mock.TestMethod(x);
+  mock.TestMethod(y);
+}
 
+TEST(EigenMatrix, Near) {
+  Eigen::MatrixXd x(2, 3);
+  x << 1, 2, 3, 4, 5, 6;
+  Eigen::MatrixXd y = x;
+  y(0, 0) += 1e-16;
+  EXPECT_THAT(x, EigenMatrixNear(y, 1e-8));
+  y(0, 0) += 1e-7;
+  EXPECT_THAT(x, testing::Not(EigenMatrixNear(y, 1e-8)));
+  y = x.block(0, 0, 2, 2);
+  EXPECT_THAT(x, testing::Not(EigenMatrixNear(y)));
+
+  testing::StrictMock<MockTestClass> mock;
+  EXPECT_CALL(mock, TestMethod(EigenMatrixNear(x))).Times(1);
+  EXPECT_CALL(mock, TestMethod(EigenMatrixNear(y))).Times(1);
+  mock.TestMethod(x);
+  mock.TestMethod(y);
+}
+
+}  // namespace
 }  // namespace colmap
