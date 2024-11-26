@@ -67,7 +67,7 @@ install_name_tool -change @rpath/libtbb.dylib $(brew --prefix tbb)/lib/libtbb.dy
 install_name_tool -change @rpath/libtbbmalloc.dylib $(brew --prefix tbb)/lib/libtbbmalloc.dylib $BASE_PATH/COLMAP.app/Contents/MacOS/COLMAP
 
 echo "Linking dynamic libraries"
-"$(brew --prefix qt5)/bin/macdeployqt" "$BASE_PATH/COLMAP.app"
+"$(brew --prefix qt@5)/bin/macdeployqt" "$BASE_PATH/COLMAP.app"
 
 echo "Wrapping binary"
 cat <<EOM >"$BASE_PATH/COLMAP.app/Contents/MacOS/colmap_gui.sh"
