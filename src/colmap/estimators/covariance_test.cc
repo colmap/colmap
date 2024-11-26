@@ -159,6 +159,62 @@ TEST(Covariance, Compute) {
   ExpectNearEigenMatrixXd(covar, covar_ceres, 1e-6);
 }
 
+TEST(Covariance, Factorize) {
+  Reconstruction reconstruction;
+  GenerateReconstruction(&reconstruction);
+  std::shared_ptr<BundleAdjuster> bundle_adjuster =
+      BuildBundleAdjuster(&reconstruction);
+  bundle_adjuster->Solve(&reconstruction);
+  std::shared_ptr<ceres::Problem> problem = bundle_adjuster->Problem();
+
+  BundleAdjustmentCovarianceEstimatorCeresBackend estimator_ceres(
+      problem.get(), &reconstruction);
+  if (!estimator_ceres.Compute()) {
+    LOG(INFO) << "Skipping due to failure of ceres covariance computation.";
+    return;
+  }
+  BundleAdjustmentCovarianceEstimator estimator(problem.get(), &reconstruction);
+  ASSERT_TRUE(estimator.Factorize());
+
+  // covariance for each image
+  std::vector<image_t> image_ids;
+  for (const auto& image : reconstruction.Images()) {
+    image_ids.push_back(image.first);
+  }
+  Eigen::MatrixXd covar, covar_ceres;
+  size_t n_images = image_ids.size();
+  for (size_t i = 0; i < n_images; ++i) {
+    image_t image_id = image_ids[i];
+    if (!estimator.HasPose(image_id)) continue;
+    covar = estimator.GetPoseCovariance(image_id);
+    covar_ceres = estimator_ceres.GetPoseCovariance(image_id);
+    ExpectNearEigenMatrixXd(covar, covar_ceres, 1e-6);
+  }
+
+  // cross image covariance
+  for (size_t i = 0; i < n_images - 1; ++i) {
+    image_t image_id1 = image_ids[i];
+    image_t image_id2 = image_ids[i + 1];
+    if (!estimator.HasPose(image_id1) || !estimator.HasPose(image_id2))
+      continue;
+    covar = estimator.GetPoseCovariance(image_id1, image_id2);
+    covar_ceres = estimator_ceres.GetPoseCovariance(image_id1, image_id2);
+    ExpectNearEigenMatrixXd(covar, covar_ceres, 1e-6);
+  }
+
+  // multiple images
+  std::vector<image_t> test_image_ids;
+  for (size_t i = 0; i < n_images; ++i) {
+    if (i % 2 != 0) continue;
+    image_t image_id = image_ids[i];
+    if (!estimator.HasPose(image_id)) continue;
+    test_image_ids.push_back(image_id);
+  }
+  covar = estimator.GetPoseCovariance(test_image_ids);
+  covar_ceres = estimator_ceres.GetPoseCovariance(test_image_ids);
+  ExpectNearEigenMatrixXd(covar, covar_ceres, 1e-6);
+}
+
 TEST(Covariance, ComputeFull) {
   Reconstruction reconstruction;
   GenerateReconstruction(&reconstruction);
@@ -242,6 +298,61 @@ TEST(Covariance, RankDeficientPoints) {
   // covariance computation
   BundleAdjustmentCovarianceEstimator estimator(problem.get(), &reconstruction);
   ASSERT_TRUE(estimator.Compute());
+}
+
+TEST(Covariance, Subproblem) {
+  Reconstruction reconstruction;
+  GenerateReconstruction(&reconstruction);
+  std::shared_ptr<BundleAdjuster> bundle_adjuster =
+      BuildBundleAdjuster(&reconstruction);
+  bundle_adjuster->Solve(&reconstruction);
+  std::shared_ptr<ceres::Problem> problem = bundle_adjuster->Problem();
+  std::vector<image_t> subset_image_ids = {1, 2, 3, 4};
+
+  // covariance using subproblem support
+  BundleAdjustmentCovarianceEstimator estimator(problem.get(), &reconstruction);
+  estimator.UseSubproblemFromSubsetImages(subset_image_ids);
+  ASSERT_TRUE(estimator.Factorize());
+
+  // ceres covariance with fixed boundary poses
+  for (const auto& [image_id, image] : reconstruction.Images()) {
+    if (std::find(subset_image_ids.begin(), subset_image_ids.end(), image_id) !=
+        subset_image_ids.end())
+      continue;
+    const double* qvec = image.CamFromWorld().rotation.coeffs().data();
+    if (problem->HasParameterBlock(qvec) &&
+        !problem->IsParameterBlockConstant(const_cast<double*>(qvec))) {
+      problem->SetParameterBlockConstant(const_cast<double*>(qvec));
+    }
+    const double* tvec = image.CamFromWorld().translation.data();
+    if (problem->HasParameterBlock(tvec) &&
+        !problem->IsParameterBlockConstant(const_cast<double*>(tvec))) {
+      problem->SetParameterBlockConstant(const_cast<double*>(tvec));
+    }
+  }
+
+  BundleAdjustmentCovarianceEstimatorCeresBackend estimator_ceres(
+      problem.get(), &reconstruction);
+  if (!estimator_ceres.Compute()) {
+    LOG(INFO) << "Skipping due to failure of ceres covariance computation.";
+    return;
+  }
+
+  // check equality
+  std::vector<double*> parameter_blocks;
+  for (const image_t& image_id : subset_image_ids) {
+    auto& image = reconstruction.Image(image_id);
+    const double* qvec = image.CamFromWorld().rotation.coeffs().data();
+    if (estimator.HasBlock(const_cast<double*>(qvec)))
+      parameter_blocks.push_back(const_cast<double*>(qvec));
+    const double* tvec = image.CamFromWorld().translation.data();
+    if (estimator.HasBlock(const_cast<double*>(tvec)))
+      parameter_blocks.push_back(const_cast<double*>(tvec));
+  }
+  Eigen::MatrixXd covar = estimator.GetPoseCovariance(parameter_blocks);
+  Eigen::MatrixXd covar_ceres =
+      estimator_ceres.GetPoseCovariance(parameter_blocks);
+  ExpectNearEigenMatrixXd(covar, covar_ceres, 1e-6);
 }
 
 }  // namespace colmap

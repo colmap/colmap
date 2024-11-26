@@ -40,44 +40,10 @@ BundleAdjustmentCovarianceEstimatorBase::
                                             Reconstruction* reconstruction)
     : problem_(THROW_CHECK_NOTNULL(problem)),
       reconstruction_(THROW_CHECK_NOTNULL(reconstruction)) {
-  // Parse parameter blocks for poses
-  pose_blocks_.clear();
-  num_params_poses_ = 0;
-  for (const auto& image : reconstruction_->Images()) {
-    const double* qvec = image.second.CamFromWorld().rotation.coeffs().data();
-    if (problem_->HasParameterBlock(qvec) &&
-        !problem_->IsParameterBlockConstant(const_cast<double*>(qvec))) {
-      int num_params_qvec = ParameterBlockTangentSize(problem_, qvec);
-      pose_blocks_.push_back(qvec);
-      map_block_to_index_.emplace(qvec, num_params_poses_);
-      num_params_poses_ += num_params_qvec;
-    }
-
-    const double* tvec = image.second.CamFromWorld().translation.data();
-    if (problem_->HasParameterBlock(tvec) &&
-        !problem_->IsParameterBlockConstant(const_cast<double*>(tvec))) {
-      int num_params_tvec = ParameterBlockTangentSize(problem_, tvec);
-      pose_blocks_.push_back(tvec);
-      map_block_to_index_.emplace(tvec, num_params_poses_);
-      num_params_poses_ += num_params_tvec;
-    }
-  }
-
-  // Parse parameter blocks for 3D points
-  point_blocks_.clear();
-  num_params_points_ = 0;
-  for (const auto& point3D : reconstruction_->Points3D()) {
-    const double* point3D_ptr = point3D.second.xyz.data();
-    if (problem_->HasParameterBlock(point3D_ptr) &&
-        !problem_->IsParameterBlockConstant(const_cast<double*>(point3D_ptr))) {
-      int num_params_point = ParameterBlockTangentSize(problem_, point3D_ptr);
-      point_blocks_.push_back(point3D_ptr);
-      num_params_points_ += num_params_point;
-    }
-  }
-
-  // Parse parameter blocks for other variables
-  SetUpOtherVariablesBlocks();
+  partitioner_ = std::make_unique<ProblemPartitioner>(problem, reconstruction);
+  partitioner_->GetBlocks(
+      &pose_blocks_, &other_variables_blocks_, &point_blocks_);
+  SetUpBlockSizes();
 }
 
 BundleAdjustmentCovarianceEstimatorBase::
@@ -86,71 +52,40 @@ BundleAdjustmentCovarianceEstimatorBase::
         const std::vector<const double*>& pose_blocks,
         const std::vector<const double*>& point_blocks)
     : problem_(THROW_CHECK_NOTNULL(problem)) {
-  // Parse parameter blocks for 3D points
-  point_blocks_.clear();
-  num_params_points_ = 0;
-  for (const double* block : point_blocks) {
-    THROW_CHECK(
-        problem_->HasParameterBlock(block) &&
-        !problem_->IsParameterBlockConstant(const_cast<double*>(block)));
-    int num_params_point = ParameterBlockTangentSize(problem_, block);
-    point_blocks_.push_back(block);
-    num_params_points_ += num_params_point;
-  }
-
-  // Parse parameter blocks for poses
-  SetPoseBlocks(pose_blocks);
+  partitioner_ =
+      std::make_unique<ProblemPartitioner>(problem, pose_blocks, point_blocks);
+  partitioner_->GetBlocks(
+      &pose_blocks_, &other_variables_blocks_, &point_blocks_);
+  SetUpBlockSizes();
 }
 
 void BundleAdjustmentCovarianceEstimatorBase::SetPoseBlocks(
     const std::vector<const double*>& pose_blocks) {
-  // Reset block indexing map
-  map_block_to_index_.clear();
-
-  // Parse parameter blocks for poses
-  pose_blocks_.clear();
-  num_params_poses_ = 0;
-  for (const double* block : pose_blocks) {
-    THROW_CHECK(
-        problem_->HasParameterBlock(block) &&
-        !problem_->IsParameterBlockConstant(const_cast<double*>(block)));
-
-    int num_params_block = ParameterBlockTangentSize(problem_, block);
-    pose_blocks_.push_back(block);
-    map_block_to_index_.emplace(block, num_params_poses_);
-    num_params_poses_ += num_params_block;
-  }
-
-  // Parse parameter blocks for other variables
-  SetUpOtherVariablesBlocks();
+  partitioner_->SetPoseBlocks(pose_blocks);
+  partitioner_->GetBlocks(
+      &pose_blocks_, &other_variables_blocks_, &point_blocks_);
+  SetUpBlockSizes();
 }
 
-void BundleAdjustmentCovarianceEstimatorBase::SetUpOtherVariablesBlocks() {
-  // Construct a set for excluding pose and point parameter blocks
-  std::set<const double*> pose_and_point_parameter_blocks;
-  for (const double* block : pose_blocks_)
-    pose_and_point_parameter_blocks.insert(block);
-  for (const double* block : point_blocks_)
-    pose_and_point_parameter_blocks.insert(block);
-
-  // Parse parameter blocks for other variables
-  other_variables_blocks_.clear();
+void BundleAdjustmentCovarianceEstimatorBase::SetUpBlockSizes() {
+  num_params_poses_ = 0;
   num_params_other_variables_ = 0;
-  std::vector<double*> all_parameter_blocks;
-  problem_->GetParameterBlocks(&all_parameter_blocks);
-  for (double* block : all_parameter_blocks) {
-    if (problem_->IsParameterBlockConstant(block)) continue;
-    // check if the current parameter block is in either the pose or point
-    // parameter blocks
-    if (pose_and_point_parameter_blocks.find(block) !=
-        pose_and_point_parameter_blocks.end()) {
-      continue;
-    }
-    other_variables_blocks_.push_back(block);
+  num_params_points_ = 0;
+  map_block_to_index_.clear();
+  for (const double* block : pose_blocks_) {
+    int block_size = ParameterBlockTangentSize(problem_, block);
+    map_block_to_index_.emplace(block, num_params_poses_);
+    num_params_poses_ += block_size;
+  }
+  for (const double* block : other_variables_blocks_) {
+    int block_size = ParameterBlockTangentSize(problem_, block);
     map_block_to_index_.emplace(
         block, num_params_poses_ + num_params_other_variables_);
-    int num_params_block = ParameterBlockTangentSize(problem_, block);
-    num_params_other_variables_ += num_params_block;
+    num_params_other_variables_ += block_size;
+  }
+  for (const double* block : point_blocks_) {
+    int block_size = ParameterBlockTangentSize(problem_, block);
+    num_params_points_ += block_size;
   }
 }
 
@@ -189,25 +124,6 @@ int BundleAdjustmentCovarianceEstimatorBase::GetBlockTangentSize(
     const double* params) const {
   THROW_CHECK(HasBlock(params));
   return ParameterBlockTangentSize(problem_, params);
-}
-
-int BundleAdjustmentCovarianceEstimatorBase::GetPoseIndex(
-    image_t image_id) const {
-  THROW_CHECK(HasReconstruction());
-  const double* qvec =
-      reconstruction_->Image(image_id).CamFromWorld().rotation.coeffs().data();
-  return GetBlockIndex(qvec);
-}
-
-int BundleAdjustmentCovarianceEstimatorBase::GetPoseTangentSize(
-    image_t image_id) const {
-  THROW_CHECK(HasReconstruction());
-  THROW_CHECK(HasPose(image_id));
-  const double* qvec =
-      reconstruction_->Image(image_id).CamFromWorld().rotation.coeffs().data();
-  const double* tvec =
-      reconstruction_->Image(image_id).CamFromWorld().translation.data();
-  return GetBlockTangentSize(qvec) + GetBlockTangentSize(tvec);
 }
 
 bool BundleAdjustmentCovarianceEstimatorBase::HasValidPoseCovariance() const {
@@ -261,45 +177,78 @@ Eigen::MatrixXd BundleAdjustmentCovarianceEstimatorBase::GetPoseCovariance(
     image_t image_id) const {
   THROW_CHECK(HasReconstruction());
   THROW_CHECK(HasPose(image_id));
-  int index = GetPoseIndex(image_id);
-  int num_params_pose = GetPoseTangentSize(image_id);
-  return GetPoseCovarianceBlockOperation(
-      index, index, num_params_pose, num_params_pose);
+  std::vector<double*> blocks;
+  const double* qvec =
+      reconstruction_->Image(image_id).CamFromWorld().rotation.coeffs().data();
+  blocks.push_back(const_cast<double*>(qvec));
+  const double* tvec =
+      reconstruction_->Image(image_id).CamFromWorld().translation.data();
+  blocks.push_back(const_cast<double*>(tvec));
+  return GetPoseCovariance(blocks);
 }
 
 Eigen::MatrixXd BundleAdjustmentCovarianceEstimatorBase::GetPoseCovariance(
     const std::vector<image_t>& image_ids) const {
   THROW_CHECK(HasReconstruction());
-  std::vector<int> indices;
+  std::vector<double*> blocks;
   for (const auto& image_id : image_ids) {
     THROW_CHECK(HasPose(image_id));
-    int index = GetPoseIndex(image_id);
-    int num_params_pose = GetPoseTangentSize(image_id);
-    for (int i = 0; i < num_params_pose; ++i) {
-      indices.push_back(index + i);
-    }
+    const double* qvec = reconstruction_->Image(image_id)
+                             .CamFromWorld()
+                             .rotation.coeffs()
+                             .data();
+    blocks.push_back(const_cast<double*>(qvec));
+    const double* tvec =
+        reconstruction_->Image(image_id).CamFromWorld().translation.data();
+    blocks.push_back(const_cast<double*>(tvec));
   }
-  size_t n_indices = indices.size();
-  Eigen::MatrixXd output(n_indices, n_indices);
-  for (size_t i = 0; i < n_indices; ++i) {
-    for (size_t j = 0; j < n_indices; ++j) {
-      output(i, j) = GetPoseCovarianceByIndex(indices[i], indices[j]);
-    }
-  }
-  return output;
+  return GetPoseCovariance(blocks);
 }
 
 Eigen::MatrixXd BundleAdjustmentCovarianceEstimatorBase::GetPoseCovariance(
     image_t image_id1, image_t image_id2) const {
   THROW_CHECK(HasReconstruction());
+  std::vector<double*> blocks1, blocks2;
+  std::vector<int> indices1, indices2;
+
+  // image_id1
   THROW_CHECK(HasPose(image_id1));
+  const double* qvec_1 =
+      reconstruction_->Image(image_id1).CamFromWorld().rotation.coeffs().data();
+  blocks1.push_back(const_cast<double*>(qvec_1));
+  const double* tvec_1 =
+      reconstruction_->Image(image_id1).CamFromWorld().translation.data();
+  blocks1.push_back(const_cast<double*>(tvec_1));
+  for (const double* block : blocks1) {
+    int index = GetBlockIndex(block);
+    int num_params_pose = GetBlockTangentSize(block);
+    for (int i = 0; i < num_params_pose; ++i) {
+      indices1.push_back(index + i);
+    }
+  }
+
+  // image_id2
   THROW_CHECK(HasPose(image_id2));
-  int index1 = GetPoseIndex(image_id1);
-  int num_params_pose1 = GetPoseTangentSize(image_id1);
-  int index2 = GetPoseIndex(image_id2);
-  int num_params_pose2 = GetPoseTangentSize(image_id2);
-  return GetPoseCovarianceBlockOperation(
-      index1, index2, num_params_pose1, num_params_pose2);
+  const double* qvec_2 =
+      reconstruction_->Image(image_id2).CamFromWorld().rotation.coeffs().data();
+  blocks2.push_back(const_cast<double*>(qvec_2));
+  const double* tvec_2 =
+      reconstruction_->Image(image_id2).CamFromWorld().translation.data();
+  blocks2.push_back(const_cast<double*>(tvec_2));
+  for (const double* block : blocks2) {
+    int index = GetBlockIndex(block);
+    int num_params_pose = GetBlockTangentSize(block);
+    for (int i = 0; i < num_params_pose; ++i) {
+      indices2.push_back(index + i);
+    }
+  }
+  Eigen::MatrixXd output(indices1.size(), indices2.size());
+  for (size_t i = 0; i < indices1.size(); ++i) {
+    for (size_t j = 0; j < indices2.size(); ++j) {
+      output(i, j) = GetPoseCovarianceByIndex(indices1[i], indices2[j]);
+    }
+  }
+  return output;
 }
 
 Eigen::MatrixXd BundleAdjustmentCovarianceEstimatorBase::GetPoseCovariance(
@@ -416,6 +365,40 @@ bool BundleAdjustmentCovarianceEstimatorCeresBackend::Compute() {
   return true;
 }
 
+void BundleAdjustmentCovarianceEstimator::UseSubproblemFromSubsetPoseBlocks(
+    const std::vector<const double*>& subset_pose_blocks) {
+  partitioner_->GetBlocksForSubproblem(subset_pose_blocks,
+                                       &other_variables_blocks_,
+                                       &point_blocks_,
+                                       &residual_block_ids_);
+  pose_blocks_ = subset_pose_blocks;
+  SetUpBlockSizes();
+}
+
+void BundleAdjustmentCovarianceEstimator::UseSubproblemFromSubsetImages(
+    const std::vector<image_t>& subset_image_ids) {
+  THROW_CHECK(HasReconstruction());
+  std::vector<const double*> blocks;
+  for (const auto& image_id : subset_image_ids) {
+    const double* qvec = reconstruction_->Image(image_id)
+                             .CamFromWorld()
+                             .rotation.coeffs()
+                             .data();
+    if (problem_->HasParameterBlock(qvec) &&
+        !problem_->IsParameterBlockConstant(const_cast<double*>(qvec))) {
+      blocks.push_back(qvec);
+    }
+
+    const double* tvec =
+        reconstruction_->Image(image_id).CamFromWorld().translation.data();
+    if (problem_->HasParameterBlock(tvec) &&
+        !problem_->IsParameterBlockConstant(const_cast<double*>(tvec))) {
+      blocks.push_back(tvec);
+    }
+  }
+  UseSubproblemFromSubsetPoseBlocks(blocks);
+}
+
 void BundleAdjustmentCovarianceEstimator::ComputeSchurComplement() {
   // Evaluate jacobian
   LOG(INFO) << "Evaluate jacobian matrix";
@@ -430,6 +413,10 @@ void BundleAdjustmentCovarianceEstimator::ComputeSchurComplement() {
   for (const double* block : point_blocks_) {
     eval_options.parameter_blocks.push_back(const_cast<double*>(block));
   }
+  if (!residual_block_ids_.empty())
+    eval_options.residual_blocks.insert(eval_options.residual_blocks.end(),
+                                        residual_block_ids_.begin(),
+                                        residual_block_ids_.end());
   ceres::CRSMatrix J_full_crs;
   problem_->Evaluate(eval_options, nullptr, nullptr, nullptr, &J_full_crs);
   int num_residuals = J_full_crs.num_rows;

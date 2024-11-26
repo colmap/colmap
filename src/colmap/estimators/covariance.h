@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/estimators/problem_partitioner.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/scene/reconstruction.h"
 
@@ -56,7 +57,9 @@ class BundleAdjustmentCovarianceEstimatorBase {
       const std::vector<const double*>& point_blocks);
   virtual ~BundleAdjustmentCovarianceEstimatorBase() = default;
 
-  // Manually set pose blocks that are interested
+  // Manually set pose blocks that are interested while keeping the point blocks
+  // unchanged. Needed for the cases where the poses does not fully come from
+  // reconstruction. e.g., the rig setup.
   void SetPoseBlocks(const std::vector<const double*>& pose_blocks);
 
   // Compute covariance for all parameters (except for 3D points).
@@ -129,10 +132,11 @@ class BundleAdjustmentCovarianceEstimatorBase {
   // orders: [pose_blocks, other_variables_blocks, point_blocks]
   std::map<const double*, int> map_block_to_index_;
 
+  // residual block ids used in the subproblem. If empty, use all the residuals
+  std::vector<ceres::ResidualBlockId> residual_block_ids_;
+
   int GetBlockIndex(const double* params) const;
   int GetBlockTangentSize(const double* params) const;
-  int GetPoseIndex(image_t image_id) const;
-  int GetPoseTangentSize(image_t image_id) const;
 
   // covariance for all parameters (except for 3D points)
   Eigen::MatrixXd cov_variables_;
@@ -146,9 +150,12 @@ class BundleAdjustmentCovarianceEstimatorBase {
   // reconstruction
   Reconstruction* reconstruction_ = nullptr;
 
- private:
-  // set up parameter blocks
-  void SetUpOtherVariablesBlocks();
+  // For paritioning pose blocks, other variable blocks, and point blocks
+  std::unique_ptr<ProblemPartitioner> partitioner_;
+
+  // Set up block sizes and number of parameters for the existing parameter
+  // blocks
+  void SetUpBlockSizes();
 };
 
 class BundleAdjustmentCovarianceEstimatorCeresBackend
@@ -186,10 +193,23 @@ class BundleAdjustmentCovarianceEstimator
             problem, pose_blocks, point_blocks),
         lambda_(lambda) {}
 
+  // Focus on a subproblem described by a subset of the original pose blocks (or
+  // image ids). The subproblem include all constraints that connects with the
+  // subset pose blocks without passing the residuals containing poses from the
+  // complementary set of the subset pose blocks. w.r.t. the full pose blocks.
+  // This is equivalent to set all pose blocks in the complementary set
+  // constant, and is particularly useful for covariance estimation for very
+  // large-scale bundle adjustment problem, e.g., > 10k images.
+  void UseSubproblemFromSubsetPoseBlocks(
+      const std::vector<const double*>& subset_pose_blocks);
+  void UseSubproblemFromSubsetImages(
+      const std::vector<image_t>& subset_image_ids);
+
+  // Compute covariance directly
   bool ComputeFull() override;
   bool Compute() override;
 
-  // factorization
+  // Factorization
   bool FactorizeFull();
   bool Factorize();
   bool HasValidFullFactorization() const;
