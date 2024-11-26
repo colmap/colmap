@@ -1,8 +1,9 @@
 # Equivalent tests to src/colmap/controllers/incremental_pipeline_test.cc
 
-import pytest
-import pycolmap
 import custom_incremental_pipeline
+import pytest
+
+import pycolmap
 
 
 def expect_equal_reconstructions(
