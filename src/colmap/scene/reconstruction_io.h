@@ -31,38 +31,60 @@
 
 #include "colmap/scene/reconstruction.h"
 
+#include <iostream>
+
 #include <Eigen/Core>
 
 namespace colmap {
 
+// Note that cameras must be read before images.
+
+void ReadCamerasText(Reconstruction& reconstruction, std::istream& stream);
 void ReadCamerasText(Reconstruction& reconstruction, const std::string& path);
 
+void ReadImagesText(Reconstruction& reconstruction, std::istream& stream);
 void ReadImagesText(Reconstruction& reconstruction, const std::string& path);
 
+void ReadPoints3DText(Reconstruction& reconstruction, std::istream& stream);
 void ReadPoints3DText(Reconstruction& reconstruction, const std::string& path);
 
+void ReadCamerasBinary(Reconstruction& reconstruction, std::istream& stream);
 void ReadCamerasBinary(Reconstruction& reconstruction, const std::string& path);
 
+void ReadImagesBinary(Reconstruction& reconstruction, std::istream& stream);
 void ReadImagesBinary(Reconstruction& reconstruction, const std::string& path);
 
+void ReadPoints3DBinary(Reconstruction& reconstruction, std::istream& stream);
 void ReadPoints3DBinary(Reconstruction& reconstruction,
                         const std::string& path);
 
 void WriteCamerasText(const Reconstruction& reconstruction,
+                      std::ostream& stream);
+void WriteCamerasText(const Reconstruction& reconstruction,
                       const std::string& path);
 
+void WriteImagesText(const Reconstruction& reconstruction,
+                     std::ostream& stream);
 void WriteImagesText(const Reconstruction& reconstruction,
                      const std::string& path);
 
 void WritePoints3DText(const Reconstruction& reconstruction,
+                       std::ostream& stream);
+void WritePoints3DText(const Reconstruction& reconstruction,
                        const std::string& path);
 
+void WriteCamerasBinary(const Reconstruction& reconstruction,
+                        std::ostream& stream);
 void WriteCamerasBinary(const Reconstruction& reconstruction,
                         const std::string& path);
 
 void WriteImagesBinary(const Reconstruction& reconstruction,
+                       std::ostream& stream);
+void WriteImagesBinary(const Reconstruction& reconstruction,
                        const std::string& path);
 
+void WritePoints3DBinary(const Reconstruction& reconstruction,
+                         std::ostream& stream);
 void WritePoints3DBinary(const Reconstruction& reconstruction,
                          const std::string& path);
 

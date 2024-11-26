@@ -28,10 +28,10 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import argparse
+
 import numpy as np
 import open3d
-
-from read_write_model import read_model, write_model, qvec2rotmat, rotmat2qvec
+from read_write_model import qvec2rotmat, read_model
 
 
 class Model:

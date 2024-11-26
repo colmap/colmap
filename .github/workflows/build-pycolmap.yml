@@ -18,7 +18,7 @@ jobs:
       matrix:
         config: [
               {os: ubuntu-latest},
-              {os: macos-14, arch: x86_64},
+              {os: macos-13, arch: x86_64},
               {os: macos-14, arch: arm64},
               {os: windows-latest},
         ]
@@ -27,18 +27,42 @@ jobs:
       COMPILER_CACHE_DIR: ${{ github.workspace }}/compiler-cache
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
-      MACOSX_DEPLOYMENT_TARGET: 10.12
+      MACOSX_DEPLOYMENT_TARGET: 10.15
+      # For faster builds in PRs, skip all but the latest Python versions.
+      PULL_REQUEST_CIBW_BUILD: cp38-{macosx,manylinux,win}*
     steps:
       - uses: actions/checkout@v4
+
+      - name: Export GitHub Actions cache env
+        uses: actions/github-script@v7
+        with:
+          script: |
+            core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+
       - uses: actions/cache@v4
         id: cache-builds
         with:
           key: pycolmap-v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ github.run_id }}-${{ github.run_number }}
           restore-keys: pycolmap-v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}
           path: ${{ env.COMPILER_CACHE_DIR }}
+
+      - name: Select Python
+        if: github.event_name == 'pull_request' && runner.os != 'Windows'
+        run: |
+          echo "CIBW_BUILD=${PULL_REQUEST_CIBW_BUILD}" >> "$GITHUB_ENV"
+      - name: Select Python
+        if: ${{ github.event_name == 'pull_request' && runner.os == 'Windows' }}
+        shell: pwsh
+        run: |
+          echo "CIBW_BUILD=${env:PULL_REQUEST_CIBW_BUILD}" >> "${env:GITHUB_ENV}"
+
       - name: Set env (macOS)
         if: runner.os == 'macOS'
         run: |
+          echo "ACTIONS_RUNTIME_TOKEN=${ACTIONS_RUNTIME_TOKEN}" >> "$GITHUB_ENV"
+          echo "ACTIONS_CACHE_URL=${ACTIONS_CACHE_URL}" >> "$GITHUB_ENV"
+
           if [[ ${{ matrix.config.arch }} == "x86_64" ]]; then
             VCPKG_TARGET_TRIPLET="x64-osx-release"
           elif [[ ${{ matrix.config.arch }} == "arm64" ]]; then
@@ -54,6 +78,7 @@ jobs:
           echo "VCPKG_INSTALLATION_ROOT=${VCPKG_INSTALLATION_ROOT}" >> "$GITHUB_ENV"
           echo "CMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}" >> "$GITHUB_ENV"
           echo "CMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES}" >> "$GITHUB_ENV"
+          echo "ARCHFLAGS=-arch ${CMAKE_OSX_ARCHITECTURES}" >> "$GITHUB_ENV"
 
           # Fix: cibuildhweel cannot interpolate env variables.
           CONFIG_SETTINGS="cmake.define.CMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}"
@@ -63,13 +88,16 @@ jobs:
           echo "CIBW_CONFIG_SETTINGS_MACOS=${CONFIG_SETTINGS}" >> "$GITHUB_ENV"
 
           # vcpkg binary caching
-          VCPKG_CACHE_DIR="${COMPILER_CACHE_DIR}/vcpkg"
-          VCPKG_BINARY_SOURCES="clear;files,${VCPKG_CACHE_DIR},readwrite"
+          VCPKG_BINARY_SOURCES="clear;x-gha,readwrite"
           echo "VCPKG_BINARY_SOURCES=${VCPKG_BINARY_SOURCES}" >> "$GITHUB_ENV"
+
       - name: Set env (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
+          echo "ACTIONS_RUNTIME_TOKEN=${env:ACTIONS_RUNTIME_TOKEN}" >> "${env:GITHUB_ENV}"
+          echo "ACTIONS_CACHE_URL=${env:ACTIONS_CACHE_URL}" >> "${env:GITHUB_ENV}"
+
           $VCPKG_INSTALLATION_ROOT = "${{ github.workspace }}/vcpkg"
           echo "VCPKG_INSTALLATION_ROOT=${VCPKG_INSTALLATION_ROOT}" >> "${env:GITHUB_ENV}"
           $CMAKE_TOOLCHAIN_FILE = "${VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake"
@@ -89,12 +117,15 @@ jobs:
           echo "CIBW_REPAIR_WHEEL_COMMAND_WINDOWS=${CIBW_REPAIR_WHEEL_COMMAND}" >> "${env:GITHUB_ENV}"
 
           # vcpkg binary caching
-          $VCPKG_CACHE_DIR = "${env:COMPILER_CACHE_DIR}/vcpkg"
-          $VCPKG_BINARY_SOURCES = "clear;files,${VCPKG_CACHE_DIR},readwrite"
+          $VCPKG_BINARY_SOURCES = "clear;x-gha,readwrite"
           echo "VCPKG_BINARY_SOURCES=${VCPKG_BINARY_SOURCES}" >> "${env:GITHUB_ENV}"
+
       - name: Set env (Linux)
         if: runner.os == 'Linux'
         run: |
+          echo "ACTIONS_RUNTIME_TOKEN=${ACTIONS_RUNTIME_TOKEN}" >> "$GITHUB_ENV"
+          echo "ACTIONS_CACHE_URL=${ACTIONS_CACHE_URL}" >> "$GITHUB_ENV"
+
           VCPKG_TARGET_TRIPLET="x64-linux-release"
           echo "VCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET}" >> "$GITHUB_ENV"
 
@@ -118,18 +149,23 @@ jobs:
           echo "CCACHE_BASEDIR=/project" >> "$GITHUB_ENV"
 
           # vcpkg binary caching
-          VCPKG_CACHE_DIR="${CONTAINER_COMPILER_CACHE_DIR}/vcpkg"
-          VCPKG_BINARY_SOURCES="clear;files,${VCPKG_CACHE_DIR},readwrite"
+          VCPKG_BINARY_SOURCES="clear;x-gha,readwrite"
           echo "VCPKG_BINARY_SOURCES=${VCPKG_BINARY_SOURCES}" >> "$GITHUB_ENV"
 
-          CIBW_ENVIRONMENT_PASS_LINUX="VCPKG_TARGET_TRIPLET VCPKG_INSTALLATION_ROOT CMAKE_TOOLCHAIN_FILE VCPKG_BINARY_SOURCES CONTAINER_COMPILER_CACHE_DIR CCACHE_DIR CCACHE_BASEDIR"
+          CIBW_ENVIRONMENT_PASS_LINUX="ACTIONS_RUNTIME_TOKEN ACTIONS_CACHE_URL VCPKG_TARGET_TRIPLET VCPKG_INSTALLATION_ROOT CMAKE_TOOLCHAIN_FILE VCPKG_BINARY_SOURCES CONTAINER_COMPILER_CACHE_DIR CCACHE_DIR CCACHE_BASEDIR"
           echo "CIBW_ENVIRONMENT_PASS_LINUX=${CIBW_ENVIRONMENT_PASS_LINUX}" >> "$GITHUB_ENV"
 
           CIBW_MANYLINUX_X86_64_IMAGE="quay.io/pypa/manylinux_2_28_x86_64"
           echo "CIBW_MANYLINUX_X86_64_IMAGE=${CIBW_MANYLINUX_X86_64_IMAGE}" >> "$GITHUB_ENV"
 
+      # See https://cibuildwheel.pypa.io/en/stable/faq/#macos-building-cpython-38-wheels-on-arm64
+      - name: Install ARM64 Python 3.8
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.8
+        if: runner.os == 'macOS' && runner.arch == 'ARM64' && ${{ matrix.config.arch }} == "arm64"
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.19.2
+        uses: pypa/cibuildwheel@v2.21.3
         with:
           package-dir: ./pycolmap/
         env:
@@ -157,7 +193,7 @@ jobs:
       - name: Publish package
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          skip_existing: true
+          skip-existing: true
           user: __token__
           password: ${{ secrets.PYPI_API_TOKEN }}
-          packages_dir: ./wheelhouse/
+          packages-dir: ./wheelhouse/

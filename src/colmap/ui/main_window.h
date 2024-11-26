@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include "colmap/controllers/incremental_mapper.h"
+#include "colmap/controllers/incremental_pipeline.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sensor/bitmap.h"
 #include "colmap/ui/automatic_reconstruction_widget.h"
@@ -146,8 +146,7 @@ class MainWindow : public QMainWindow {
   OptionManager options_;
 
   std::shared_ptr<ReconstructionManager> reconstruction_manager_;
-  std::unique_ptr<ControllerThread<IncrementalMapperController>>
-      mapper_controller_;
+  std::unique_ptr<ControllerThread<IncrementalPipeline>> mapper_controller_;
 
   Timer timer_;
 

@@ -57,7 +57,7 @@ class FeatureMatcherWorker : public Thread {
 
   FeatureMatcherWorker(const SiftMatchingOptions& matching_options,
                        const TwoViewGeometryOptions& geometry_options,
-                       FeatureMatcherCache* cache,
+                       const std::shared_ptr<FeatureMatcherCache>& cache,
                        JobQueue<Input>* input_queue,
                        JobQueue<Output>* output_queue);
 
@@ -66,23 +66,13 @@ class FeatureMatcherWorker : public Thread {
  private:
   void Run() override;
 
-  std::shared_ptr<FeatureKeypoints> GetKeypointsPtr(int index,
-                                                    image_t image_id);
-  std::shared_ptr<FeatureDescriptors> GetDescriptorsPtr(int index,
-                                                        image_t image_id);
-
   SiftMatchingOptions matching_options_;
   TwoViewGeometryOptions geometry_options_;
-  FeatureMatcherCache* cache_;
+  std::shared_ptr<FeatureMatcherCache> cache_;
   JobQueue<Input>* input_queue_;
   JobQueue<Output>* output_queue_;
 
   std::unique_ptr<OpenGLContextManager> opengl_context_;
-
-  std::array<image_t, 2> prev_keypoints_image_ids_;
-  std::array<std::shared_ptr<FeatureKeypoints>, 2> prev_keypoints_;
-  std::array<image_t, 2> prev_descriptors_image_ids_;
-  std::array<std::shared_ptr<FeatureDescriptors>, 2> prev_descriptors_;
 };
 
 // Multi-threaded and multi-GPU SIFT feature matcher, which writes the computed
@@ -95,8 +85,7 @@ class FeatureMatcherController {
   FeatureMatcherController(
       const SiftMatchingOptions& matching_options,
       const TwoViewGeometryOptions& two_view_geometry_options,
-      Database* database,
-      FeatureMatcherCache* cache);
+      std::shared_ptr<FeatureMatcherCache> cache);
 
   ~FeatureMatcherController();
 
@@ -109,8 +98,7 @@ class FeatureMatcherController {
  private:
   SiftMatchingOptions matching_options_;
   TwoViewGeometryOptions geometry_options_;
-  Database* database_;
-  FeatureMatcherCache* cache_;
+  std::shared_ptr<FeatureMatcherCache> cache_;
 
   bool is_setup_;
 

@@ -30,7 +30,7 @@
 
 #include "colmap/util/version.h"
 
-#include "colmap/util/misc.h"
+#include "colmap/util/string.h"
 
 namespace colmap {
 namespace {

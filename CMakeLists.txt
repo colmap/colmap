@@ -47,6 +47,8 @@ option(CCACHE_ENABLED "Whether to enable compiler caching, if available" ON)
 option(CGAL_ENABLED "Whether to enable the CGAL library" ON)
 option(LSD_ENABLED "Whether to enable the LSD library" ON)
 option(UNINSTALL_ENABLED "Whether to create a target to 'uninstall' colmap" ON)
+option(FETCH_POSELIB "Whether to consume PoseLib using FetchContent or find_package" ON)
+option(ALL_SOURCE_TARGET "Whether to create a target for all source files (for Visual Studio / XCode development)" OFF)
 
 # Propagate options to vcpkg manifest.
 if(TESTS_ENABLED)
@@ -74,7 +76,7 @@ project(COLMAP LANGUAGES C CXX)
 
 set(COLMAP_VERSION "3.11.0.dev0")
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CUDA_STANDARD 14)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
@@ -245,45 +247,46 @@ COLMAP_ADD_SOURCE_DIR(src/thirdparty/VLFeat THIRDPARTY_VLFEAT_SRCS *.h *.c *.tc)
 # Add all of the source files to a regular library target, as using a custom
 # target does not allow us to set its C++ include directories (and thus
 # intellisense can't find any of the included files).
-set(ALL_SRCS
-    ${CONTROLLERS_SRCS}
-    ${ESTIMATORS_SRCS}
-    ${EXE_SRCS}
-    ${FEATURE_SRCS}
-    ${GEOMETRY_SRCS}
-    ${IMAGE_SRCS}
-    ${MATH_SRCS}
-    ${MVS_SRCS}
-    ${OPTIM_SRCS}
-    ${RETRIEVAL_SRCS}
-    ${SCENE_SRCS}
-    ${SENSOR_SRCS}
-    ${SFM_SRCS}
-    ${TOOLS_SRCS}
-    ${UI_SRCS}
-    ${UTIL_SRCS}
-    ${THIRDPARTY_POISSON_RECON_SRCS}
-    ${THIRDPARTY_SIFT_GPU_SRCS}
-    ${THIRDPARTY_VLFEAT_SRCS}
-)
-
-if(LSD_ENABLED)
-    list(APPEND ALL_SRCS
-        ${THIRDPARTY_LSD_SRCS}
+if(ALL_SOURCE_TARGET)
+    set(ALL_SRCS
+        ${CONTROLLERS_SRCS}
+        ${ESTIMATORS_SRCS}
+        ${EXE_SRCS}
+        ${FEATURE_SRCS}
+        ${GEOMETRY_SRCS}
+        ${IMAGE_SRCS}
+        ${MATH_SRCS}
+        ${MVS_SRCS}
+        ${OPTIM_SRCS}
+        ${RETRIEVAL_SRCS}
+        ${SCENE_SRCS}
+        ${SENSOR_SRCS}
+        ${SFM_SRCS}
+        ${TOOLS_SRCS}
+        ${UI_SRCS}
+        ${UTIL_SRCS}
+        ${THIRDPARTY_POISSON_RECON_SRCS}
+        ${THIRDPARTY_SIFT_GPU_SRCS}
+        ${THIRDPARTY_VLFEAT_SRCS}
     )
+
+    if(LSD_ENABLED)
+        list(APPEND ALL_SRCS
+            ${THIRDPARTY_LSD_SRCS}
+        )
+    endif()
+
+    add_library(
+        ${COLMAP_SRC_ROOT_FOLDER}
+        ${ALL_SRCS}
+    )
+
+    # Prevent the library from being compiled automatically.
+    set_target_properties(
+        ${COLMAP_SRC_ROOT_FOLDER} PROPERTIES
+        EXCLUDE_FROM_ALL 1
+        EXCLUDE_FROM_DEFAULT_BUILD 1)
 endif()
-
-add_library(
-    ${COLMAP_SRC_ROOT_FOLDER}
-    ${ALL_SRCS}
-)
-
-# Prevent the library from being compiled automatically.
-set_target_properties(
-    ${COLMAP_SRC_ROOT_FOLDER} PROPERTIES
-    EXCLUDE_FROM_ALL 1
-    EXCLUDE_FROM_DEFAULT_BUILD 1)
-
 
 ################################################################################
 # Install and uninstall scripts
@@ -331,6 +334,7 @@ set(COLMAP_EXPORT_LIBS
     # Third-party.
     colmap_poisson_recon
     colmap_vlfeat
+    PoseLib
 )
 if(LSD_ENABLED)
     list(APPEND COLMAP_EXPORT_LIBS

@@ -1,5 +1,12 @@
 [build-system]
-requires = ["scikit-build-core>=0.3.3", "pybind11==2.12.0"]
+requires = [
+    "scikit-build-core>=0.3.3",
+    "pybind11==2.13.0",
+    "pybind11_stubgen @ git+https://github.com/sarlinpe/pybind11-stubgen@sarlinpe/fix-2024-11",
+    "numpy",
+    "ruff==0.6.7",
+    "clang-format==19.1.0",
+]
 build-backend = "scikit_build_core.build"
 
 [project]
@@ -32,17 +39,17 @@ wheel.expand-macos-universal-tags = true
 [tool.cibuildwheel]
 build = "cp3{8,9,10,11,12}-{macosx,manylinux,win}*"
 archs = ["auto64"]
+test-requires = "mypy==1.12.1"
+test-command = "python -c \"import pycolmap; print(pycolmap.__version__)\" &&  python -m mypy --package pycolmap --implicit-optional"
 
 [tool.cibuildwheel.environment]
-VCPKG_COMMIT_ID = "e01906b2ba7e645a76ee021a19de616edc98d29f"
+VCPKG_COMMIT_ID = "10b7a178346f3f0abef60cecd5130e295afd8da4"
 
 [tool.cibuildwheel.linux]
-before-all = "{package}/ci/install-colmap-centos.sh"
-test-command = "python -c \"import pycolmap; print(pycolmap.__version__)\""
+before-all = "{package}/ci/install-colmap-almalinux.sh"
 
 [tool.cibuildwheel.macos]
 before-all = "{package}/ci/install-colmap-macos.sh"
-test-command = "python -c \"import pycolmap; print(pycolmap.__version__)\""
 
 [tool.cibuildwheel.windows]
 before-all = "powershell -File {package}/ci/install-colmap-windows.ps1"

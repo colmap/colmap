@@ -4,10 +4,10 @@ param (
     [string] $Destination
 )
 
-$version = "4.8"
-$folder = "ccache-$version-windows-x86_64"
+$version = "4.10.2"
+$folder="ccache-$version-windows-x86_64"
 $url = "https://github.com/ccache/ccache/releases/download/v$version/$folder.zip"
-$expectedSha256 = "A2B3BAB4BB8318FFC5B3E4074DC25636258BC7E4B51261F7D9BEF8127FDA8309"
+$expectedSha256 = "6252F081876A9A9F700FAE13A5AEC5D0D486B28261D7F1F72AC11C7AD9DF4DA9"
 
 $ErrorActionPreference = "Stop"
 

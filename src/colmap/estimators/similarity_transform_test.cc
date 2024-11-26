@@ -70,5 +70,55 @@ TEST(Sim3d, EstimateDegenerate) {
   EXPECT_FALSE(EstimateSim3d(invalid_src_dst, invalid_src_dst, tgt_from_src));
 }
 
+TEST(Sim3d, EstimateRobust) {
+  SetPRNGSeed(0);
+
+  const size_t num_samples = 1000;
+  const size_t num_outliers = 400;
+
+  // Create some arbitrary transformation.
+  const Sim3d expectedTgtFromSrc(
+      2, Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d(100, 10, 10));
+
+  // Generate exact data
+  std::vector<Eigen::Vector3d> src;
+  std::vector<Eigen::Vector3d> tgt;
+  for (size_t i = 0; i < num_samples; ++i) {
+    src.emplace_back(i, std::sqrt(i) + 2, std::sqrt(2 * i + 2));
+    tgt.push_back(expectedTgtFromSrc * src.back());
+  }
+
+  // Add some faulty data.
+  for (size_t i = 0; i < num_outliers; ++i) {
+    tgt[i] = Eigen::Vector3d(RandomUniformReal(-3000.0, -2000.0),
+                             RandomUniformReal(-4000.0, -3000.0),
+                             RandomUniformReal(-5000.0, -4000.0));
+  }
+
+  // Robustly estimate transformation using RANSAC.
+  RANSACOptions options;
+  options.max_error = 10;
+  Sim3d tgt_from_src;
+  const auto report = EstimateSim3dRobust(src, tgt, options, tgt_from_src);
+
+  EXPECT_TRUE(report.success);
+  EXPECT_GT(report.num_trials, 0);
+
+  // Make sure outliers were detected correctly.
+  EXPECT_EQ(report.support.num_inliers, num_samples - num_outliers);
+  for (size_t i = 0; i < num_samples; ++i) {
+    if (i < num_outliers) {
+      EXPECT_FALSE(report.inlier_mask[i]);
+    } else {
+      EXPECT_TRUE(report.inlier_mask[i]);
+    }
+  }
+
+  // Make sure original transformation is estimated correctly.
+  const double matrix_diff =
+      (expectedTgtFromSrc.ToMatrix() - tgt_from_src.ToMatrix()).norm();
+  EXPECT_LT(matrix_diff, 1e-6);
+}
+
 }  // namespace
 }  // namespace colmap

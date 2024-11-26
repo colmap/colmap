@@ -48,18 +48,18 @@ void GenerateReconstruction(Reconstruction* reconstruction) {
   SynthesizeDataset(synthetic_dataset_options, reconstruction);
 }
 
-std::shared_ptr<BundleAdjuster> BuildBundleAdjuster(
-    Reconstruction* reconstruction) {
+std::unique_ptr<BundleAdjuster> BuildBundleAdjuster(
+    Reconstruction& reconstruction) {
   BundleAdjustmentConfig config;
   std::vector<image_t> image_ids;
-  for (const auto& image : reconstruction->Images()) {
+  for (const auto& image : reconstruction.Images()) {
     image_ids.push_back(image.first);
     config.AddImage(image.first);
   }
   config.SetConstantCamPose(image_ids[0]);
   config.SetConstantCamPositions(image_ids[1], {0});
-  BundleAdjustmentOptions options;
-  return std::make_shared<BundleAdjuster>(options, config);
+  return CreateDefaultBundleAdjuster(
+      BundleAdjustmentOptions(), std::move(config), reconstruction);
 }
 
 void ExpectNearEigenMatrixXd(const Eigen::MatrixXd& mat1,
@@ -79,9 +79,9 @@ void ExpectNearEigenMatrixXd(const Eigen::MatrixXd& mat1,
 TEST(Covariance, PoseCovarianceInterface) {
   Reconstruction reconstruction;
   GenerateReconstruction(&reconstruction);
-  std::shared_ptr<BundleAdjuster> bundle_adjuster =
-      BuildBundleAdjuster(&reconstruction);
-  bundle_adjuster->Solve(&reconstruction);
+  std::unique_ptr<BundleAdjuster> bundle_adjuster =
+      BuildBundleAdjuster(reconstruction);
+  bundle_adjuster->Solve();
   std::shared_ptr<ceres::Problem> problem = bundle_adjuster->Problem();
 
   std::map<image_t, Eigen::MatrixXd> image_id_to_covar_ceres;
@@ -106,9 +106,9 @@ TEST(Covariance, PoseCovarianceInterface) {
 TEST(Covariance, Compute) {
   Reconstruction reconstruction;
   GenerateReconstruction(&reconstruction);
-  std::shared_ptr<BundleAdjuster> bundle_adjuster =
-      BuildBundleAdjuster(&reconstruction);
-  bundle_adjuster->Solve(&reconstruction);
+  std::unique_ptr<BundleAdjuster> bundle_adjuster =
+      BuildBundleAdjuster(reconstruction);
+  bundle_adjuster->Solve();
   std::shared_ptr<ceres::Problem> problem = bundle_adjuster->Problem();
 
   BundleAdjustmentCovarianceEstimatorCeresBackend estimator_ceres(
@@ -162,9 +162,9 @@ TEST(Covariance, Compute) {
 TEST(Covariance, ComputeFull) {
   Reconstruction reconstruction;
   GenerateReconstruction(&reconstruction);
-  std::shared_ptr<BundleAdjuster> bundle_adjuster =
-      BuildBundleAdjuster(&reconstruction);
-  bundle_adjuster->Solve(&reconstruction);
+  std::unique_ptr<BundleAdjuster> bundle_adjuster =
+      BuildBundleAdjuster(reconstruction);
+  bundle_adjuster->Solve();
   std::shared_ptr<ceres::Problem> problem = bundle_adjuster->Problem();
 
   BundleAdjustmentCovarianceEstimatorCeresBackend estimator_ceres(
@@ -234,9 +234,9 @@ TEST(Covariance, RankDeficientPoints) {
   }
 
   // bundle adjustment
-  std::shared_ptr<BundleAdjuster> bundle_adjuster =
-      BuildBundleAdjuster(&reconstruction);
-  bundle_adjuster->Solve(&reconstruction);
+  std::unique_ptr<BundleAdjuster> bundle_adjuster =
+      BuildBundleAdjuster(reconstruction);
+  bundle_adjuster->Solve();
   std::shared_ptr<ceres::Problem> problem = bundle_adjuster->Problem();
 
   // covariance computation

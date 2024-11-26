@@ -39,12 +39,11 @@ using namespace std;
 #include "PyramidGL.h"
 #include "FrameBufferObject.h"
 
-
-#if defined(__SSE__) || _MSC_VER > 1200
-#define USE_SSE_FOR_SIFTGPU
+#ifdef USE_SSE_FOR_SIFTGPU
+#ifndef __SSE__
+#error Compiling SSE functions but SSE is not supported by the compiler.
+#endif
 #include <xmmintrin.h>
-#else
-//#pragma message( "SSE optimization off!\n" )
 #endif
 
 

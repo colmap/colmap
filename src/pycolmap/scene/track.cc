@@ -23,11 +23,7 @@ void BindTrack(py::module& m) {
   PyTrackElement.def(py::init<>())
       .def(py::init<image_t, point2D_t>())
       .def_readwrite("image_id", &TrackElement::image_id)
-      .def_readwrite("point2D_idx", &TrackElement::point2D_idx)
-      .def("__repr__", [](const TrackElement& self) {
-        return "TrackElement(image_id=" + std::to_string(self.image_id) +
-               ", point2D_idx=" + std::to_string(self.point2D_idx) + ")";
-      });
+      .def_readwrite("point2D_idx", &TrackElement::point2D_idx);
   MakeDataclass(PyTrackElement);
 
   py::class_<Track, std::shared_ptr<Track>> PyTrack(m, "Track");
@@ -43,27 +39,24 @@ void BindTrack(py::module& m) {
       .def("length", &Track::Length, "Track Length.")
       .def("add_element",
            py::overload_cast<image_t, point2D_t>(&Track::AddElement),
-           "Add observation (image_id, point2D_idx) to track.")
-      .def("delete_element",
-           py::overload_cast<image_t, point2D_t>(&Track::DeleteElement),
-           "Delete observation (image_id, point2D_idx) from track.")
-      .def("append", py::overload_cast<const TrackElement&>(&Track::AddElement))
-      .def(
-          "add_element",
-          py::overload_cast<const image_t, const point2D_t>(&Track::AddElement))
-      .def("add_elements", &Track::AddElements, "Add TrackElement list.")
-      .def("remove",
-           py::overload_cast<size_t>(&Track::DeleteElement),
-           "index"_a,
-           "Remove TrackElement at index.")
-      .def("remove",
-           py::overload_cast<const image_t, const point2D_t>(
-               &Track::DeleteElement),
            "image_id"_a,
            "point2D_idx"_a,
-           "Remove TrackElement with (image_id, point2D_idx).")
-      .def("__repr__", [](const Track& self) {
-        return "Track(length=" + std::to_string(self.Length()) + ")";
-      });
+           "Add an observation to the track.")
+      .def("add_element",
+           py::overload_cast<const TrackElement&>(&Track::AddElement),
+           "element"_a)
+      .def("add_elements",
+           &Track::AddElements,
+           "elements"_a,
+           "Add multiple elements.")
+      .def("delete_element",
+           py::overload_cast<image_t, point2D_t>(&Track::DeleteElement),
+           "image_id"_a,
+           "point2D_idx"_a,
+           "Delete observation from track.")
+      .def("delete_element",
+           py::overload_cast<size_t>(&Track::DeleteElement),
+           "index"_a,
+           "Remove TrackElement at index.");
   MakeDataclass(PyTrack);
 }

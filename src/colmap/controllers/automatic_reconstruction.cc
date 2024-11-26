@@ -31,7 +31,7 @@
 
 #include "colmap/controllers/feature_extraction.h"
 #include "colmap/controllers/feature_matching.h"
-#include "colmap/controllers/incremental_mapper.h"
+#include "colmap/controllers/incremental_pipeline.h"
 #include "colmap/controllers/option_manager.h"
 #include "colmap/image/undistortion.h"
 #include "colmap/mvs/fusion.h"
@@ -100,10 +100,14 @@ AutomaticReconstructionController::AutomaticReconstructionController(
 
   option_manager_.sift_extraction->use_gpu = options_.use_gpu;
   option_manager_.sift_matching->use_gpu = options_.use_gpu;
+  option_manager_.mapper->ba_use_gpu = options_.use_gpu;
+  option_manager_.bundle_adjustment->use_gpu = options_.use_gpu;
 
   option_manager_.sift_extraction->gpu_index = options_.gpu_index;
   option_manager_.sift_matching->gpu_index = options_.gpu_index;
   option_manager_.patch_match_stereo->gpu_index = options_.gpu_index;
+  option_manager_.mapper->ba_gpu_index = options_.gpu_index;
+  option_manager_.bundle_adjustment->gpu_index = options_.gpu_index;
 
   feature_extractor_ = CreateFeatureExtractorController(
       reader_options, *option_manager_.sift_extraction);
@@ -149,13 +153,17 @@ void AutomaticReconstructionController::Run() {
     return;
   }
 
-  RunFeatureExtraction();
+  if (options_.extraction) {
+    RunFeatureExtraction();
+  }
 
   if (IsStopped()) {
     return;
   }
 
-  RunFeatureMatching();
+  if (options_.matching) {
+    RunFeatureMatching();
+  }
 
   if (IsStopped()) {
     return;
@@ -223,10 +231,10 @@ void AutomaticReconstructionController::RunSparseMapper() {
     }
   }
 
-  IncrementalMapperController mapper(option_manager_.mapper,
-                                     *option_manager_.image_path,
-                                     *option_manager_.database_path,
-                                     reconstruction_manager_);
+  IncrementalPipeline mapper(option_manager_.mapper,
+                             *option_manager_.image_path,
+                             *option_manager_.database_path,
+                             reconstruction_manager_);
   mapper.SetCheckIfStoppedFunc([&]() { return IsStopped(); });
   mapper.Run();
 
@@ -310,7 +318,8 @@ void AutomaticReconstructionController::RunDenseMapper() {
           dense_path,
           "COLMAP",
           "",
-          options_.quality == Quality::HIGH ? "geometric" : "photometric");
+          option_manager_.patch_match_stereo->geom_consistency ? "geometric"
+                                                               : "photometric");
       fuser.SetCheckIfStoppedFunc([&]() { return IsStopped(); });
       fuser.Run();
 

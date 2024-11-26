@@ -104,10 +104,14 @@
   }
 
 #define CheckVariablePoint(point, orig_point) \
-  { EXPECT_NE((point).xyz, (orig_point).xyz); }
+  {                                           \
+    EXPECT_NE((point).xyz, (orig_point).xyz); \
+  }
 
 #define CheckConstantPoint(point, orig_point) \
-  { EXPECT_EQ((point).xyz, (orig_point).xyz); }
+  {                                           \
+    EXPECT_EQ((point).xyz, (orig_point).xyz); \
+  }
 
 namespace colmap {
 namespace {
@@ -154,11 +158,10 @@ void GenerateReconstruction(const size_t num_images,
     image.SetImageId(image_id);
     image.SetCameraId(camera_id);
     image.SetName(std::to_string(i));
-    image.CamFromWorld() = Rigid3d(
+    image.SetCamFromWorld(Rigid3d(
         Eigen::Quaterniond::Identity(),
         Eigen::Vector3d(
-            RandomUniformReal(-1.0, 1.0), RandomUniformReal(-1.0, 1.0), 10));
-    image.SetRegistered(true);
+            RandomUniformReal(-1.0, 1.0), RandomUniformReal(-1.0, 1.0), 10)));
     reconstruction->AddImage(image);
 
     const Eigen::Matrix3x4d cam_from_world_matrix =
@@ -192,7 +195,7 @@ void GenerateReconstruction(const size_t num_images,
   }
 }
 
-TEST(BundleAdjustment, ConfigNumObservations) {
+TEST(DefaultBundleAdjuster, ConfigNumObservations) {
   Reconstruction reconstruction;
   GenerateReconstruction(4, 100, &reconstruction);
 
@@ -215,7 +218,7 @@ TEST(BundleAdjustment, ConfigNumObservations) {
   EXPECT_EQ(config.NumResiduals(reconstruction), 800);
 }
 
-TEST(BundleAdjustment, TwoView) {
+TEST(DefaultBundleAdjuster, TwoView) {
   Reconstruction reconstruction;
   GenerateReconstruction(2, 100, &reconstruction);
   const auto orig_reconstruction = reconstruction;
@@ -227,10 +230,10 @@ TEST(BundleAdjustment, TwoView) {
   config.SetConstantCamPositions(1, {0});
 
   BundleAdjustmentOptions options;
-  BundleAdjuster bundle_adjuster(options, config);
-  ASSERT_TRUE(bundle_adjuster.Solve(&reconstruction));
-
-  const auto summary = bundle_adjuster.Summary();
+  std::unique_ptr<BundleAdjuster> bundle_adjuster =
+      CreateDefaultBundleAdjuster(options, config, reconstruction);
+  const auto summary = bundle_adjuster->Solve();
+  ASSERT_NE(summary.termination_type, ceres::FAILURE);
 
   // 100 points, 2 images, 2 residuals per point per image
   EXPECT_EQ(summary.num_residuals_reduced, 400);
@@ -251,7 +254,7 @@ TEST(BundleAdjustment, TwoView) {
   }
 }
 
-TEST(BundleAdjustment, TwoViewConstantCamera) {
+TEST(DefaultBundleAdjuster, TwoViewConstantCamera) {
   Reconstruction reconstruction;
   GenerateReconstruction(2, 100, &reconstruction);
   const auto orig_reconstruction = reconstruction;
@@ -264,10 +267,10 @@ TEST(BundleAdjustment, TwoViewConstantCamera) {
   config.SetConstantCamIntrinsics(0);
 
   BundleAdjustmentOptions options;
-  BundleAdjuster bundle_adjuster(options, config);
-  ASSERT_TRUE(bundle_adjuster.Solve(&reconstruction));
-
-  const auto summary = bundle_adjuster.Summary();
+  std::unique_ptr<BundleAdjuster> bundle_adjuster =
+      CreateDefaultBundleAdjuster(options, config, reconstruction);
+  const auto summary = bundle_adjuster->Solve();
+  ASSERT_NE(summary.termination_type, ceres::FAILURE);
 
   // 100 points, 2 images, 2 residuals per point per image
   EXPECT_EQ(summary.num_residuals_reduced, 400);
@@ -287,7 +290,7 @@ TEST(BundleAdjustment, TwoViewConstantCamera) {
   }
 }
 
-TEST(BundleAdjustment, PartiallyContainedTracks) {
+TEST(DefaultBundleAdjuster, PartiallyContainedTracks) {
   Reconstruction reconstruction;
   GenerateReconstruction(3, 100, &reconstruction);
   const auto variable_point3D_id =
@@ -303,10 +306,10 @@ TEST(BundleAdjustment, PartiallyContainedTracks) {
   config.SetConstantCamPose(1);
 
   BundleAdjustmentOptions options;
-  BundleAdjuster bundle_adjuster(options, config);
-  ASSERT_TRUE(bundle_adjuster.Solve(&reconstruction));
-
-  const auto summary = bundle_adjuster.Summary();
+  std::unique_ptr<BundleAdjuster> bundle_adjuster =
+      CreateDefaultBundleAdjuster(options, config, reconstruction);
+  const auto summary = bundle_adjuster->Solve();
+  ASSERT_NE(summary.termination_type, ceres::FAILURE);
 
   // 100 points, 2 images, 2 residuals per point per image
   EXPECT_EQ(summary.num_residuals_reduced, 400);
@@ -334,7 +337,7 @@ TEST(BundleAdjustment, PartiallyContainedTracks) {
   }
 }
 
-TEST(BundleAdjustment, PartiallyContainedTracksForceToOptimizePoint) {
+TEST(DefaultBundleAdjuster, PartiallyContainedTracksForceToOptimizePoint) {
   Reconstruction reconstruction;
   GenerateReconstruction(3, 100, &reconstruction);
   const point3D_t variable_point3D_id =
@@ -356,10 +359,10 @@ TEST(BundleAdjustment, PartiallyContainedTracksForceToOptimizePoint) {
   config.AddConstantPoint(add_constant_point3D_id);
 
   BundleAdjustmentOptions options;
-  BundleAdjuster bundle_adjuster(options, config);
-  ASSERT_TRUE(bundle_adjuster.Solve(&reconstruction));
-
-  const auto summary = bundle_adjuster.Summary();
+  std::unique_ptr<BundleAdjuster> bundle_adjuster =
+      CreateDefaultBundleAdjuster(options, config, reconstruction);
+  const auto summary = bundle_adjuster->Solve();
+  ASSERT_NE(summary.termination_type, ceres::FAILURE);
 
   // 100 points, 2 images, 2 residuals per point per image
   // + 2 residuals in 3rd image for added variable 3D point
@@ -391,7 +394,7 @@ TEST(BundleAdjustment, PartiallyContainedTracksForceToOptimizePoint) {
   }
 }
 
-TEST(BundleAdjustment, ConstantPoints) {
+TEST(DefaultBundleAdjuster, ConstantPoints) {
   Reconstruction reconstruction;
   GenerateReconstruction(2, 100, &reconstruction);
   const auto orig_reconstruction = reconstruction;
@@ -408,10 +411,10 @@ TEST(BundleAdjustment, ConstantPoints) {
   config.AddConstantPoint(constant_point3D_id2);
 
   BundleAdjustmentOptions options;
-  BundleAdjuster bundle_adjuster(options, config);
-  ASSERT_TRUE(bundle_adjuster.Solve(&reconstruction));
-
-  const auto summary = bundle_adjuster.Summary();
+  std::unique_ptr<BundleAdjuster> bundle_adjuster =
+      CreateDefaultBundleAdjuster(options, config, reconstruction);
+  const auto summary = bundle_adjuster->Solve();
+  ASSERT_NE(summary.termination_type, ceres::FAILURE);
 
   // 100 points, 2 images, 2 residuals per point per image
   EXPECT_EQ(summary.num_residuals_reduced, 400);
@@ -437,7 +440,7 @@ TEST(BundleAdjustment, ConstantPoints) {
   }
 }
 
-TEST(BundleAdjustment, VariableImage) {
+TEST(DefaultBundleAdjuster, VariableImage) {
   Reconstruction reconstruction;
   GenerateReconstruction(3, 100, &reconstruction);
   const auto orig_reconstruction = reconstruction;
@@ -450,10 +453,10 @@ TEST(BundleAdjustment, VariableImage) {
   config.SetConstantCamPositions(1, {0});
 
   BundleAdjustmentOptions options;
-  BundleAdjuster bundle_adjuster(options, config);
-  ASSERT_TRUE(bundle_adjuster.Solve(&reconstruction));
-
-  const auto summary = bundle_adjuster.Summary();
+  std::unique_ptr<BundleAdjuster> bundle_adjuster =
+      CreateDefaultBundleAdjuster(options, config, reconstruction);
+  const auto summary = bundle_adjuster->Solve();
+  ASSERT_NE(summary.termination_type, ceres::FAILURE);
 
   // 100 points, 3 images, 2 residuals per point per image
   EXPECT_EQ(summary.num_residuals_reduced, 600);
@@ -478,7 +481,7 @@ TEST(BundleAdjustment, VariableImage) {
   }
 }
 
-TEST(BundleAdjustment, ConstantFocalLength) {
+TEST(DefaultBundleAdjuster, ConstantFocalLength) {
   Reconstruction reconstruction;
   GenerateReconstruction(2, 100, &reconstruction);
   const auto orig_reconstruction = reconstruction;
@@ -491,10 +494,10 @@ TEST(BundleAdjustment, ConstantFocalLength) {
 
   BundleAdjustmentOptions options;
   options.refine_focal_length = false;
-  BundleAdjuster bundle_adjuster(options, config);
-  ASSERT_TRUE(bundle_adjuster.Solve(&reconstruction));
-
-  const auto summary = bundle_adjuster.Summary();
+  std::unique_ptr<BundleAdjuster> bundle_adjuster =
+      CreateDefaultBundleAdjuster(options, config, reconstruction);
+  const auto summary = bundle_adjuster->Solve();
+  ASSERT_NE(summary.termination_type, ceres::FAILURE);
 
   // 100 points, 3 images, 2 residuals per point per image
   EXPECT_EQ(summary.num_residuals_reduced, 400);
@@ -529,7 +532,7 @@ TEST(BundleAdjustment, ConstantFocalLength) {
   }
 }
 
-TEST(BundleAdjustment, VariablePrincipalPoint) {
+TEST(DefaultBundleAdjuster, VariablePrincipalPoint) {
   Reconstruction reconstruction;
   GenerateReconstruction(2, 100, &reconstruction);
   const auto orig_reconstruction = reconstruction;
@@ -542,10 +545,10 @@ TEST(BundleAdjustment, VariablePrincipalPoint) {
 
   BundleAdjustmentOptions options;
   options.refine_principal_point = true;
-  BundleAdjuster bundle_adjuster(options, config);
-  ASSERT_TRUE(bundle_adjuster.Solve(&reconstruction));
-
-  const auto summary = bundle_adjuster.Summary();
+  std::unique_ptr<BundleAdjuster> bundle_adjuster =
+      CreateDefaultBundleAdjuster(options, config, reconstruction);
+  const auto summary = bundle_adjuster->Solve();
+  ASSERT_NE(summary.termination_type, ceres::FAILURE);
 
   // 100 points, 3 images, 2 residuals per point per image
   EXPECT_EQ(summary.num_residuals_reduced, 400);
@@ -592,7 +595,7 @@ TEST(BundleAdjustment, VariablePrincipalPoint) {
   }
 }
 
-TEST(BundleAdjustment, ConstantExtraParam) {
+TEST(DefaultBundleAdjuster, ConstantExtraParam) {
   Reconstruction reconstruction;
   GenerateReconstruction(2, 100, &reconstruction);
   const auto orig_reconstruction = reconstruction;
@@ -605,10 +608,10 @@ TEST(BundleAdjustment, ConstantExtraParam) {
 
   BundleAdjustmentOptions options;
   options.refine_extra_params = false;
-  BundleAdjuster bundle_adjuster(options, config);
-  ASSERT_TRUE(bundle_adjuster.Solve(&reconstruction));
-
-  const auto summary = bundle_adjuster.Summary();
+  std::unique_ptr<BundleAdjuster> bundle_adjuster =
+      CreateDefaultBundleAdjuster(options, config, reconstruction);
+  const auto summary = bundle_adjuster->Solve();
+  ASSERT_NE(summary.termination_type, ceres::FAILURE);
 
   // 100 points, 3 images, 2 residuals per point per image
   EXPECT_EQ(summary.num_residuals_reduced, 400);
@@ -643,7 +646,7 @@ TEST(BundleAdjustment, ConstantExtraParam) {
   }
 }
 
-TEST(BundleAdjustment, RigTwoView) {
+TEST(RigBundleAdjuster, TwoView) {
   Reconstruction reconstruction;
   GenerateReconstruction(2, 100, &reconstruction);
   const auto orig_reconstruction = reconstruction;
@@ -661,11 +664,11 @@ TEST(BundleAdjustment, RigTwoView) {
   const auto orig_camera_rigs = camera_rigs;
 
   BundleAdjustmentOptions options;
-  RigBundleAdjuster::Options rig_options;
-  RigBundleAdjuster bundle_adjuster(options, rig_options, config);
-  ASSERT_TRUE(bundle_adjuster.Solve(&reconstruction, &camera_rigs));
-
-  const auto summary = bundle_adjuster.Summary();
+  RigBundleAdjustmentOptions rig_options;
+  std::unique_ptr<BundleAdjuster> bundle_adjuster = CreateRigBundleAdjuster(
+      options, rig_options, config, reconstruction, camera_rigs);
+  const auto summary = bundle_adjuster->Solve();
+  ASSERT_NE(summary.termination_type, ceres::FAILURE);
 
   // 100 points, 2 images, 2 residuals per point per image
   EXPECT_EQ(summary.num_residuals_reduced, 400);
@@ -690,11 +693,15 @@ TEST(BundleAdjustment, RigTwoView) {
   }
 }
 
-TEST(BundleAdjustment, RigFourView) {
+TEST(RigBundleAdjuster, FourView) {
   Reconstruction reconstruction;
   GenerateReconstruction(4, 100, &reconstruction);
+  reconstruction.Image(2).ResetCameraPtr();
   reconstruction.Image(2).SetCameraId(0);
+  reconstruction.Image(2).SetCameraPtr(&reconstruction.Camera(0));
+  reconstruction.Image(3).ResetCameraPtr();
   reconstruction.Image(3).SetCameraId(1);
+  reconstruction.Image(3).SetCameraPtr(&reconstruction.Camera(1));
   const auto orig_reconstruction = reconstruction;
 
   BundleAdjustmentConfig config;
@@ -713,11 +720,11 @@ TEST(BundleAdjustment, RigFourView) {
   const auto orig_camera_rigs = camera_rigs;
 
   BundleAdjustmentOptions options;
-  RigBundleAdjuster::Options rig_options;
-  RigBundleAdjuster bundle_adjuster(options, rig_options, config);
-  ASSERT_TRUE(bundle_adjuster.Solve(&reconstruction, &camera_rigs));
-
-  const auto summary = bundle_adjuster.Summary();
+  RigBundleAdjustmentOptions rig_options;
+  std::unique_ptr<BundleAdjuster> bundle_adjuster = CreateRigBundleAdjuster(
+      options, rig_options, config, reconstruction, camera_rigs);
+  const auto summary = bundle_adjuster->Solve();
+  ASSERT_NE(summary.termination_type, ceres::FAILURE);
 
   // 100 points, 2 images, 2 residuals per point per image
   EXPECT_EQ(summary.num_residuals_reduced, 800);
@@ -742,11 +749,15 @@ TEST(BundleAdjustment, RigFourView) {
   }
 }
 
-TEST(BundleAdjustment, ConstantRigFourView) {
+TEST(RigBundleAdjuster, ConstantFourView) {
   Reconstruction reconstruction;
   GenerateReconstruction(4, 100, &reconstruction);
+  reconstruction.Image(2).ResetCameraPtr();
   reconstruction.Image(2).SetCameraId(0);
+  reconstruction.Image(2).SetCameraPtr(&reconstruction.Camera(0));
+  reconstruction.Image(3).ResetCameraPtr();
   reconstruction.Image(3).SetCameraId(1);
+  reconstruction.Image(3).SetCameraPtr(&reconstruction.Camera(1));
   const auto orig_reconstruction = reconstruction;
 
   BundleAdjustmentConfig config;
@@ -765,12 +776,12 @@ TEST(BundleAdjustment, ConstantRigFourView) {
   const auto orig_camera_rigs = camera_rigs;
 
   BundleAdjustmentOptions options;
-  RigBundleAdjuster::Options rig_options;
+  RigBundleAdjustmentOptions rig_options;
   rig_options.refine_relative_poses = false;
-  RigBundleAdjuster bundle_adjuster(options, rig_options, config);
-  ASSERT_TRUE(bundle_adjuster.Solve(&reconstruction, &camera_rigs));
-
-  const auto summary = bundle_adjuster.Summary();
+  std::unique_ptr<BundleAdjuster> bundle_adjuster = CreateRigBundleAdjuster(
+      options, rig_options, config, reconstruction, camera_rigs);
+  const auto summary = bundle_adjuster->Solve();
+  ASSERT_NE(summary.termination_type, ceres::FAILURE);
 
   // 100 points, 2 images, 2 residuals per point per image
   EXPECT_EQ(summary.num_residuals_reduced, 800);
@@ -794,11 +805,15 @@ TEST(BundleAdjustment, ConstantRigFourView) {
   }
 }
 
-TEST(BundleAdjustment, RigFourViewPartial) {
+TEST(RigBundleAdjuster, FourViewPartial) {
   Reconstruction reconstruction;
   GenerateReconstruction(4, 100, &reconstruction);
+  reconstruction.Image(2).ResetCameraPtr();
   reconstruction.Image(2).SetCameraId(0);
+  reconstruction.Image(2).SetCameraPtr(&reconstruction.Camera(0));
+  reconstruction.Image(3).ResetCameraPtr();
   reconstruction.Image(3).SetCameraId(1);
+  reconstruction.Image(3).SetCameraPtr(&reconstruction.Camera(1));
   const auto orig_reconstruction = reconstruction;
 
   BundleAdjustmentConfig config;
@@ -817,11 +832,11 @@ TEST(BundleAdjustment, RigFourViewPartial) {
   const auto orig_camera_rigs = camera_rigs;
 
   BundleAdjustmentOptions options;
-  RigBundleAdjuster::Options rig_options;
-  RigBundleAdjuster bundle_adjuster(options, rig_options, config);
-  ASSERT_TRUE(bundle_adjuster.Solve(&reconstruction, &camera_rigs));
-
-  const auto summary = bundle_adjuster.Summary();
+  RigBundleAdjustmentOptions rig_options;
+  std::unique_ptr<BundleAdjuster> bundle_adjuster = CreateRigBundleAdjuster(
+      options, rig_options, config, reconstruction, camera_rigs);
+  const auto summary = bundle_adjuster->Solve();
+  ASSERT_NE(summary.termination_type, ceres::FAILURE);
 
   // 100 points, 2 images, 2 residuals per point per image
   EXPECT_EQ(summary.num_residuals_reduced, 800);

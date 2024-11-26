@@ -2,14 +2,15 @@
 Python reimplementation of the C++ incremental mapper with equivalent logic.
 """
 
+import argparse
 import time
 from pathlib import Path
 
+import custom_bundle_adjustment
 import enlighten
 
 import pycolmap
 from pycolmap import logging
-import custom_bundle_adjustment
 
 
 def extract_colors(image_path, image_id, reconstruction):
@@ -43,7 +44,7 @@ def iterative_global_refinement(options, mapper_options, mapper):
 def initialize_reconstruction(
     controller, mapper, mapper_options, reconstruction
 ):
-    """Equivalent to IncrementalMapperController.initialize_reconstruction(...)"""
+    """Equivalent to IncrementalPipeline.initialize_reconstruction(...)"""
     options = controller.options
     init_pair = (options.init_image_id1, options.init_image_id2)
 
@@ -90,7 +91,7 @@ def initialize_reconstruction(
 
 
 def reconstruct_sub_model(controller, mapper, mapper_options, reconstruction):
-    """Equivalent to IncrementalMapperController.reconstruct_sub_model(...)"""
+    """Equivalent to IncrementalPipeline.reconstruct_sub_model(...)"""
     # register initial pair
     mapper.begin_reconstruction(reconstruction)
     if reconstruction.num_reg_images() == 0:
@@ -145,7 +146,7 @@ def reconstruct_sub_model(controller, mapper, mapper_options, reconstruction):
                 break
         if reg_next_success:
             mapper.triangulate_image(options.get_triangulation(), next_image_id)
-            # The following is equivalent to mapper.iterative_local_refinement(...)
+            # This is equivalent to mapper.iterative_local_refinement(...)
             custom_bundle_adjustment.iterative_local_refinement(
                 mapper,
                 options.ba_local_max_refinements,
@@ -189,7 +190,7 @@ def reconstruct_sub_model(controller, mapper, mapper_options, reconstruction):
 
 
 def reconstruct(controller, mapper_options):
-    """Equivalent to IncrementalMapperController.reconstruct(...)"""
+    """Equivalent to IncrementalPipeline.reconstruct(...)"""
     options = controller.options
     reconstruction_manager = controller.reconstruction_manager
     database_cache = controller.database_cache
@@ -197,7 +198,8 @@ def reconstruct(controller, mapper_options):
     initial_reconstruction_given = reconstruction_manager.size() > 0
     if reconstruction_manager.size() > 1:
         logging.fatal(
-            "Can only resume from a single reconstruction, but multiple are given"
+            "Can only resume from a single reconstruction, "
+            "but multiple are given"
         )
     for num_trials in range(options.init_num_trials):
         if (not initial_reconstruction_given) or num_trials > 0:
@@ -250,7 +252,7 @@ def reconstruct(controller, mapper_options):
 
 
 def main_incremental_mapper(controller):
-    """Equivalent to IncrementalMapperController.run()"""
+    """Equivalent to IncrementalPipeline.run()"""
     timer = pycolmap.Timer()
     timer.start()
     if not controller.load_database():
@@ -258,7 +260,7 @@ def main_incremental_mapper(controller):
     init_mapper_options = controller.options.get_mapper()
     reconstruct(controller, init_mapper_options)
 
-    for i in range(2):  # number of relaxations
+    for _ in range(2):  # number of relaxations
         if controller.reconstruction_manager.size() > 0:
             break
         logging.info("=> Relaxing the initialization constraints")
@@ -278,9 +280,11 @@ def main(
     database_path,
     image_path,
     output_path,
-    options=pycolmap.IncrementalPipelineOptions(),
+    options=None,
     input_path=None,
 ):
+    if options is None:
+        options = pycolmap.IncrementalPipelineOptions()
     if not database_path.exists():
         logging.fatal(f"Database path does not exist: {database_path}")
     if not image_path.exists():
@@ -289,7 +293,7 @@ def main(
     reconstruction_manager = pycolmap.ReconstructionManager()
     if input_path is not None and input_path != "":
         reconstruction_manager.read(input_path)
-    mapper = pycolmap.IncrementalMapperController(
+    mapper = pycolmap.IncrementalPipeline(
         options, image_path, database_path, reconstruction_manager
     )
 
@@ -316,3 +320,22 @@ def main(
     for i in range(reconstruction_manager.size()):
         reconstructions[i] = reconstruction_manager.get(i)
     return reconstructions
+
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--database_path", required=True)
+    parser.add_argument("--image_path", required=True)
+    parser.add_argument("--input_path", default=None)
+    parser.add_argument("--output_path", required=True)
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    args = parse_args()
+    main(
+        database_path=Path(args.database_path),
+        image_path=Path(args.image_path),
+        input_path=Path(args.input_path) if args.input_path else None,
+        output_path=Path(args.output_path),
+    )

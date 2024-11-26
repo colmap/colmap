@@ -30,6 +30,7 @@
 #include "colmap/ui/database_management_widget.h"
 
 #include "colmap/sensor/models.h"
+#include "colmap/util/file.h"
 
 namespace colmap {
 
@@ -709,6 +710,123 @@ void ImageTab::SplitCamera() {
   camera_tab_->Reload();
 }
 
+PosePriorsTab::PosePriorsTab(QWidget* parent, Database* database)
+    : QWidget(parent), database_(database) {
+  QGridLayout* grid = new QGridLayout(this);
+
+  info_label_ = new QLabel(this);
+  grid->addWidget(info_label_, 0, 0);
+
+  table_widget_ = new QTableWidget(this);
+  table_widget_->setColumnCount(11);
+
+  QStringList table_header;
+  table_header << "image_id"
+               << "name"
+               << "x"
+               << "y"
+               << "z"
+               << "cov_xx"
+               << "cov_yy"
+               << "cov_zz"
+               << "cov_xy"
+               << "cov_xz"
+               << "cov_yz";
+  table_widget_->setHorizontalHeaderLabels(table_header);
+
+  table_widget_->setShowGrid(true);
+  table_widget_->setSelectionBehavior(QAbstractItemView::SelectRows);
+  table_widget_->horizontalHeader()->setStretchLastSection(true);
+  table_widget_->verticalHeader()->setVisible(false);
+  table_widget_->verticalHeader()->setDefaultSectionSize(20);
+
+  // Disable selection & edition of pose priors items for now...
+  // But we could allow editing priors / covariance here
+  table_widget_->setEditTriggers(QAbstractItemView::NoEditTriggers);
+  table_widget_->setSelectionMode(QAbstractItemView::NoSelection);
+
+  connect(table_widget_,
+          &QTableWidget::itemChanged,
+          this,
+          &PosePriorsTab::itemChanged);
+
+  grid->addWidget(table_widget_, 1, 0, 1, 5);
+
+  grid->setColumnStretch(0, 3);
+}
+
+void PosePriorsTab::Reload() {
+  QString info;
+  info += QString("Images: ") + QString::number(database_->NumImages());
+  info += QString("\n");
+  info += QString("PosePriors: ") + QString::number(database_->NumPosePriors());
+  info_label_->setText(info);
+
+  // Make sure, itemChanged is not invoked, while setting up the table
+  table_widget_->blockSignals(true);
+
+  table_widget_->clearContents();
+  table_widget_->setRowCount(database_->NumImages());
+
+  int row_idx = 0;
+
+  for (const auto& image : database_->ReadAllImages()) {
+    const PosePrior prior = database_->ExistsPosePrior(image.ImageId())
+                                ? database_->ReadPosePrior(image.ImageId())
+                                : PosePrior();
+
+    QTableWidgetItem* id_item =
+        new QTableWidgetItem(QString::number(image.ImageId()));
+    id_item->setFlags(Qt::ItemIsSelectable);
+    table_widget_->setItem(row_idx, 0, id_item);
+    table_widget_->setItem(
+        row_idx, 1, new QTableWidgetItem(QString::fromStdString(image.Name())));
+
+    table_widget_->setItem(
+        row_idx, 2, new QTableWidgetItem(QString::number(prior.position[0])));
+    table_widget_->setItem(
+        row_idx, 3, new QTableWidgetItem(QString::number(prior.position[1])));
+    table_widget_->setItem(
+        row_idx, 4, new QTableWidgetItem(QString::number(prior.position[2])));
+
+    table_widget_->setItem(
+        row_idx,
+        5,
+        new QTableWidgetItem(QString::number(prior.position_covariance(0, 0))));
+    table_widget_->setItem(
+        row_idx,
+        6,
+        new QTableWidgetItem(QString::number(prior.position_covariance(1, 1))));
+    table_widget_->setItem(
+        row_idx,
+        7,
+        new QTableWidgetItem(QString::number(prior.position_covariance(2, 2))));
+    table_widget_->setItem(
+        row_idx,
+        8,
+        new QTableWidgetItem(QString::number(prior.position_covariance(0, 1))));
+    table_widget_->setItem(
+        row_idx,
+        9,
+        new QTableWidgetItem(QString::number(prior.position_covariance(0, 2))));
+    table_widget_->setItem(
+        row_idx,
+        10,
+        new QTableWidgetItem(QString::number(prior.position_covariance(1, 2))));
+    ++row_idx;
+  }
+  table_widget_->resizeColumnsToContents();
+
+  table_widget_->blockSignals(false);
+}
+
+void PosePriorsTab::Clear() { table_widget_->clearContents(); }
+
+void PosePriorsTab::itemChanged(QTableWidgetItem* item) {
+  // Don't do anything
+  return;
+}
+
 DatabaseManagementWidget::DatabaseManagementWidget(QWidget* parent,
                                                    OptionManager* options)
     : parent_(parent), options_(options) {
@@ -722,9 +840,11 @@ DatabaseManagementWidget::DatabaseManagementWidget(QWidget* parent,
 
   camera_tab_ = new CameraTab(this, &database_);
   image_tab_ = new ImageTab(this, camera_tab_, options_, &database_);
+  pose_prior_tab_ = new PosePriorsTab(this, &database_);
 
   tab_widget_->addTab(image_tab_, tr("Images"));
   tab_widget_->addTab(camera_tab_, tr("Cameras"));
+  tab_widget_->addTab(pose_prior_tab_, tr("Pose Priors"));
 
   grid->addWidget(tab_widget_, 0, 0, 1, 4);
 
@@ -754,6 +874,7 @@ void DatabaseManagementWidget::showEvent(QShowEvent*) {
 
   image_tab_->Reload();
   camera_tab_->Reload();
+  pose_prior_tab_->Reload();
 }
 
 void DatabaseManagementWidget::hideEvent(QHideEvent*) {
@@ -761,6 +882,7 @@ void DatabaseManagementWidget::hideEvent(QHideEvent*) {
 
   image_tab_->Clear();
   camera_tab_->Clear();
+  pose_prior_tab_->Clear();
 
   database_.Close();
 }

@@ -350,7 +350,6 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
         camera2.CamFromImg(points2[match.point2D_idx2]));
   }
 
-  Eigen::Matrix3d cam2_from_cam1_rot_mat;
   std::vector<Eigen::Vector3d> points3D;
 
   if (geometry->config == TwoViewGeometry::ConfigurationType::CALIBRATED ||
@@ -362,8 +361,7 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
     PoseFromEssentialMatrix(geometry->E,
                             inlier_points1_normalized,
                             inlier_points2_normalized,
-                            &cam2_from_cam1_rot_mat,
-                            &geometry->cam2_from_cam1.translation,
+                            &geometry->cam2_from_cam1,
                             &points3D);
   } else if (geometry->config == TwoViewGeometry::ConfigurationType::PLANAR ||
              geometry->config ==
@@ -376,25 +374,21 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
                              camera2.CalibrationMatrix(),
                              inlier_points1_normalized,
                              inlier_points2_normalized,
-                             &cam2_from_cam1_rot_mat,
-                             &geometry->cam2_from_cam1.translation,
+                             &geometry->cam2_from_cam1,
                              &normal,
                              &points3D);
   } else {
     return false;
   }
 
-  geometry->cam2_from_cam1.rotation =
-      Eigen::Quaterniond(cam2_from_cam1_rot_mat);
-
   if (points3D.empty()) {
     geometry->tri_angle = 0;
   } else {
+    const Eigen::Vector3d proj_center1 = Eigen::Vector3d::Zero();
+    const Eigen::Vector3d proj_center2 = geometry->cam2_from_cam1.rotation *
+                                         -geometry->cam2_from_cam1.translation;
     geometry->tri_angle = Median(
-        CalculateTriangulationAngles(Eigen::Vector3d::Zero(),
-                                     -cam2_from_cam1_rot_mat.transpose() *
-                                         geometry->cam2_from_cam1.translation,
-                                     points3D));
+        CalculateTriangulationAngles(proj_center1, proj_center2, points3D));
   }
 
   if (geometry->config ==

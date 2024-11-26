@@ -51,13 +51,13 @@ InlierSupportMeasurer::Support InlierSupportMeasurer::Evaluate(
   return support;
 }
 
-bool InlierSupportMeasurer::Compare(const Support& support1,
-                                    const Support& support2) {
-  if (support1.num_inliers > support2.num_inliers) {
+bool InlierSupportMeasurer::IsLeftBetter(const Support& left,
+                                         const Support& right) {
+  if (left.num_inliers > right.num_inliers) {
     return true;
   } else {
-    return support1.num_inliers == support2.num_inliers &&
-           support1.residual_sum < support2.residual_sum;
+    return left.num_inliers == right.num_inliers &&
+           left.residual_sum < right.residual_sum;
   }
 }
 
@@ -81,16 +81,16 @@ UniqueInlierSupportMeasurer::Support UniqueInlierSupportMeasurer::Evaluate(
   return support;
 }
 
-bool UniqueInlierSupportMeasurer::Compare(const Support& support1,
-                                          const Support& support2) {
-  if (support1.num_unique_inliers > support2.num_unique_inliers) {
+bool UniqueInlierSupportMeasurer::IsLeftBetter(const Support& left,
+                                               const Support& right) {
+  if (left.num_unique_inliers > right.num_unique_inliers) {
     return true;
-  } else if (support1.num_unique_inliers == support2.num_unique_inliers) {
-    if (support1.num_inliers > support2.num_inliers) {
+  } else if (left.num_unique_inliers == right.num_unique_inliers) {
+    if (left.num_inliers > right.num_inliers) {
       return true;
     } else {
-      return support1.num_inliers == support2.num_inliers &&
-             support1.residual_sum < support2.residual_sum;
+      return left.num_inliers == right.num_inliers &&
+             left.residual_sum < right.residual_sum;
     }
   } else {
     return false;
@@ -115,9 +115,9 @@ MEstimatorSupportMeasurer::Support MEstimatorSupportMeasurer::Evaluate(
   return support;
 }
 
-bool MEstimatorSupportMeasurer::Compare(const Support& support1,
-                                        const Support& support2) {
-  return support1.score < support2.score;
+bool MEstimatorSupportMeasurer::IsLeftBetter(const Support& left,
+                                             const Support& right) {
+  return left.score < right.score;
 }
 
 }  // namespace colmap

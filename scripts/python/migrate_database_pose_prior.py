@@ -28,10 +28,10 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 
-import numpy as np
 import argparse
-from database import COLMAPDatabase
 
+import numpy as np
+from database import COLMAPDatabase
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
