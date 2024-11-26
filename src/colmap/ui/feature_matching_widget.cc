@@ -360,7 +360,8 @@ FeatureMatchingWidget::FeatureMatchingWidget(QWidget* parent,
     : parent_(parent) {
   // Do not change flag, to make sure feature database is not accessed from
   // multiple threads
-  setWindowFlags(Qt::Window);
+  setWindowFlags(Qt::Dialog);
+  setWindowModality(Qt::ApplicationModal);
   setWindowTitle("Feature matching");
 
   QGridLayout* grid = new QGridLayout(this);
