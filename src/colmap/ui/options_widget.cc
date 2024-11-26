@@ -32,8 +32,6 @@
 namespace colmap {
 
 OptionsWidget::OptionsWidget(QWidget* parent) : QWidget(parent) {
-  setWindowFlags(Qt::Dialog);
-
   QFont font;
   font.setPointSize(10);
   setFont(font);
