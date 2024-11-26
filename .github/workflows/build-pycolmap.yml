@@ -29,7 +29,7 @@ jobs:
       CCACHE_BASEDIR: ${{ github.workspace }}
       MACOSX_DEPLOYMENT_TARGET: 10.15
       # For faster builds in PRs, skip all but the latest Python versions.
-      PULL_REQUEST_CIBW_BUILD: cp312-{macosx,manylinux,win}*
+      PULL_REQUEST_CIBW_BUILD: cp38-{macosx,manylinux,win}*
     steps:
       - uses: actions/checkout@v4
 
