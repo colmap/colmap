@@ -1,14 +1,27 @@
-from ._core import *  # noqa F403
+import textwrap
+from typing import TYPE_CHECKING
 
-# This is unfortunately needed otherwise the C++ modules will shadow the
-# equivalent python modules, which already import them. We can remove this
-# once pycolmap._core has few declarations such that they can be explicitly
-# imported.
-del cost_functions, manifold  # noqa F821
+from .utils import import_module_symbols
 
-from . import _core  # noqa E402
+try:
+    from . import _core
+except ImportError as e:
+    raise RuntimeError(
+        textwrap.dedent("""
+        Cannot import the C++ backend pycolmap._core.
+        Make sure that you successfully install the package with
+          $ python -m pip install pycolmap/
+        """)
+    ) from e
 
-__all__ = [n for n in _core.__dict__ if not n.startswith("_")]
+# Type checkers cannot deal with dynamic manipulation of globals.
+# Instead, we use the same workaround as PyTorch.
+if TYPE_CHECKING:
+    from ._core import *  # noqa F403
+
+__all__ = import_module_symbols(
+    globals(), _core, exclude={"cost_functions", "manifold"}
+)
 __all__.extend(["__version__", "__ceres_version__"])
 
 __version__ = _core.__version__
