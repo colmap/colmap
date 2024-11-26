@@ -38,6 +38,8 @@ AutomaticReconstructionWidget::AutomaticReconstructionWidget(
     : OptionsWidget(main_window),
       main_window_(main_window),
       thread_control_widget_(new ThreadControlWidget(this)) {
+  setWindowFlags(Qt::Dialog);
+  setWindowModality(Qt::ApplicationModal);
   setWindowTitle("Automatic reconstruction");
 
   AddOptionDirPath(&options_.workspace_path, "Workspace folder");
