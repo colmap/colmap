@@ -91,6 +91,7 @@ COLMAP_ADD_TEST(
     SRCS pairing_test.cc
     LINK_LIBS
         colmap_feature
+        colmap_scene
 )
 COLMAP_ADD_TEST(
     NAME sift_test

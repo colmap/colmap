@@ -155,6 +155,11 @@ if(IS_GNU)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-maybe-uninitialized")
 endif()
 
+if(IS_MACOS)
+    # Mitigate CMake limitation, see: https://discourse.cmake.org/t/avoid-duplicate-linking-to-avoid-xcode-15-warnings/9084/10
+    add_link_options(LINKER:-no_warn_duplicate_libraries)
+endif()
+
 if(IS_DEBUG)
     add_definitions("-DEIGEN_INITIALIZE_MATRICES_BY_NAN")
 endif()
