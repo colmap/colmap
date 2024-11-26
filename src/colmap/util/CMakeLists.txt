@@ -63,6 +63,7 @@ if(TESTS_ENABLED)
         colmap_util
         PRIVATE
             testing.h testing.cc
+            eigen_matchers.h
     )
 endif()
 
@@ -96,6 +97,11 @@ endif()
 COLMAP_ADD_TEST(
     NAME cache_test
     SRCS cache_test.cc
+    LINK_LIBS colmap_util
+)
+COLMAP_ADD_TEST(
+    NAME eigen_matchers_test
+    SRCS eigen_matchers_test.cc
     LINK_LIBS colmap_util
 )
 COLMAP_ADD_TEST(
