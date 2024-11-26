@@ -1,7 +1,6 @@
 # Equivalent tests to src/colmap/controllers/incremental_pipeline_test.cc
 
 import custom_incremental_pipeline
-import pytest
 
 import pycolmap
 
@@ -96,9 +95,6 @@ def test_with_noise(tmp_path):
     )
 
 
-@pytest.mark.skip(
-    reason="This test currently fails as only one reconstruction is produced."
-)
 def test_multi_reconstruction(tmp_path):
     database_path = tmp_path / "database.db"
     image_path = tmp_path / "images"
@@ -120,10 +116,13 @@ def test_multi_reconstruction(tmp_path):
             synthetic_dataset_options, database
         )
 
+    options = pycolmap.IncrementalPipelineOptions()
+    options.min_model_size = 4
     custom_incremental_pipeline.main(
         database_path=database_path,
         image_path=image_path,
         output_path=output_path,
+        options=options,
     )
 
     assert len(list(output_path.iterdir())) == 2
