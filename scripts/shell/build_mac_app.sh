@@ -31,16 +31,18 @@
 # This script creates a deployable package of COLMAP for Mac OS.
 # It takes the path of the main colmap executable.
 
+set -e
 BASE_PATH=$(dirname $1)
+APP_PATH="${BASE_PATH}/COLMAP.app"
 
 echo "Creating bundle directory"
-mkdir -p "$BASE_PATH/COLMAP.app/Contents/MacOS"
+mkdir -p "${APP_PATH}/Contents/MacOS"
 
 echo "Copying binary"
-cp "$BASE_PATH/colmap" "$BASE_PATH/COLMAP.app/Contents/MacOS/colmap"
+cp "$BASE_PATH/colmap" "${APP_PATH}/Contents/MacOS/colmap"
 
 echo "Writing Info.plist"
-cat <<EOM >"$BASE_PATH/COLMAP.app/Contents/Info.plist"
+cat <<EOM >"${APP_PATH}/Contents/Info.plist"
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -63,21 +65,22 @@ cat <<EOM >"$BASE_PATH/COLMAP.app/Contents/Info.plist"
 </plist>
 EOM
 
-install_name_tool -change @rpath/libtbb.dylib $(brew --prefix tbb)/lib/libtbb.dylib $BASE_PATH/COLMAP.app/Contents/MacOS/COLMAP
-install_name_tool -change @rpath/libtbbmalloc.dylib $(brew --prefix tbb)/lib/libtbbmalloc.dylib $BASE_PATH/COLMAP.app/Contents/MacOS/COLMAP
+# install_name_tool -change @rpath/libtbb.dylib $(brew --prefix tbb)/lib/libtbb.dylib $BASE_PATH/COLMAP.app/Contents/MacOS/COLMAP
+# install_name_tool -change @rpath/libtbbmalloc.dylib $(brew --prefix tbb)/lib/libtbbmalloc.dylib $BASE_PATH/COLMAP.app/Contents/MacOS/COLMAP
 
 echo "Linking dynamic libraries"
-"$(brew --prefix qt@5)/bin/macdeployqt" "$BASE_PATH/COLMAP.app"
+"$(brew --prefix qt@5)/bin/macdeployqt" "${APP_PATH}"
 
 echo "Wrapping binary"
-cat <<EOM >"$BASE_PATH/COLMAP.app/Contents/MacOS/colmap_gui.sh"
+cat <<EOM >"$APP_PATH/Contents/MacOS/colmap_gui.sh"
 #!/bin/bash
 script_path="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
+for f in \$(ls \${script_path}/../Frameworks/Qt*.framework/Versions/5/Qt*) \$(find \${script_path}/.. -type f -name '*.dylib'); do codesign -s - -f \$f; done
 \$script_path/colmap gui
 EOM
-chmod +x $BASE_PATH/COLMAP.app/Contents/MacOS/colmap_gui.sh
-sed -i '' 's#<string>colmap</string>#<string>colmap_gui.sh</string>#g' $BASE_PATH/COLMAP.app/Contents/Info.plist
+chmod +x ${APP_PATH}/Contents/MacOS/colmap_gui.sh
+sed -i '' 's#<string>colmap</string>#<string>colmap_gui.sh</string>#g' ${APP_PATH}/Contents/Info.plist
 
-echo "Compressing application"
-cd "$BASE_PATH"
-zip -r "COLMAP.zip" "COLMAP.app"
+# echo "Compressing application"
+# cd "$BASE_PATH"
+# # zip -r "COLMAP.zip" "COLMAP.app"
