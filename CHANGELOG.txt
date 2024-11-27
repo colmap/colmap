@@ -18,7 +18,7 @@ Bug Fixes
 ---------
 * Fixed non-deterministic behavior of CUDA SIFT feature extractor. Broken since 3.10 release.
 * Fixed orientation detection of covariant/affine SIFT feature extractor. Broken since initial release.
-* Fixed point triangulator crashing due to bug in copy of reconstruction. Broken since 3.10 release.
+* Fixed point triangulator crashing due to bug in observation manager. Broken since 3.10 release.
 * Fixed sequential feature matcher overlap missing the farthest image. Broken since initial release.
 * Fixed rare deadlock during matching due to concurrent database access. Broken since 3.10 release.
 * Fixed little/big endian detection. Broken since 3.1 release.
