@@ -75,12 +75,14 @@ echo "Wrapping binary"
 cat <<EOM >"$APP_PATH/Contents/MacOS/colmap_gui.sh"
 #!/bin/bash
 script_path="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
-for f in \$(ls \${script_path}/../Frameworks/Qt*.framework/Versions/5/Qt*) \$(find \${script_path}/.. -type f -name '*.dylib'); do codesign -s - -f \$f; done
+if [[ \$(uname -m) == arm64 ]]; then
+  for f in \$(ls \${script_path}/../Frameworks/Qt*.framework/Versions/5/Qt*) \$(find \${script_path}/.. -type f -name '*.dylib'); do codesign -s - -f \$f; done
+fi
 \$script_path/colmap gui
 EOM
 chmod +x ${APP_PATH}/Contents/MacOS/colmap_gui.sh
 sed -i '' 's#<string>colmap</string>#<string>colmap_gui.sh</string>#g' ${APP_PATH}/Contents/Info.plist
 
-# echo "Compressing application"
-# cd "$BASE_PATH"
-# # zip -r "COLMAP.zip" "COLMAP.app"
+echo "Compressing application"
+cd "$BASE_PATH"
+zip -r "COLMAP.zip" "COLMAP.app"
