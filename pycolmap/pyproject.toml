@@ -1,7 +1,7 @@
 [build-system]
 requires = [
     "scikit-build-core>=0.3.3",
-    "pybind11==2.13.0",
+    "pybind11==2.13.6",
     "pybind11_stubgen @ git+https://github.com/sarlinpe/pybind11-stubgen@sarlinpe/fix-2024-11",
     "numpy",
     "ruff==0.6.7",
@@ -26,7 +26,7 @@ authors = [
 ]
 license = {text = "BSD-3-Clause"}
 urls = {Repository = "https://github.com/colmap/colmap"}
-requires-python = ">=3.7"
+requires-python = ">=3.8"
 dependencies = ["numpy"]
 classifiers = [
   "License :: OSI Approved :: BSD License",
