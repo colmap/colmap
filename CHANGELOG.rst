@@ -28,26 +28,27 @@ Breaking Changes
 ----------------
 * Dropped official support for Ubuntu 18.04, Visual Studio 2019.
 * Upgrade to C++17 standard in C++ and C++14 in CUDA source code.
-* New "pose_priors" table in database in support of pose prior based mapper.
+* New ``pose_priors`` table in database in support of pose prior based mapper.
 * PyCOLMAP API:
-   * ``align_reconstrution_to_locations`` is renamed to ``align_reconstruction_to_locations`` (typo).
-   * ``pycomap.cost_functions`` becomes a module and should be explicitly imported as ``import pycolmap.cost_functions``.
-   * Replaced ``Image.registered`` by ``Image.{has_pose,reset_pose}``.
-   * Replaced ``Image.{get_valid_point2D_ids,get_valid_points2D}`` by ``Image.{get_observation_point2D_idxs,get_observation_points2D}``.
-   * Replaced ``Track.{append,remove}`` by ``Track.{add_element,delete_element}``.
-   * ``AbsolutePoseErrorCost`` becomes ``AbsolutePosePriorCost``.
-   * ``MetricRelativePoseErrorCost`` becomes ``RelativePosePriorCost``.
-   * The signature of ``ReprojErrorCost`` and related cost functions was changed: arguments are reordered, the detection uncertainty is now a 2x2 covariance matrix.
-   * ``BundleAdjuster`` becomes virtual and should be created with ``pycolmap.create_default_bundle_adjuster()``.
-   * ``absolute_pose_estimation`` becomes ``estimate_and_refine_absolute_pose``.
-   * ``pose_refinement`` becomes ``refine_absolute_pose``.
-   * ``essential_matrix_estimation`` becomes ``estimate_essential_matrix``.
-   * ``fundamental_matrix_estimation`` becomes ``estimate_fundamental_matrix``.
-   * ``rig_absolute_pose_estimation`` becomes ``estimate_and_refine_generalized_absolute_pose``.
-   * ``homography_matrix_estimation`` becomes ``estimate_homography_matrix``.
-   * ``squared_sampson_error`` becomes ``compute_squared_sampson_error``.
-   * ``homography_decomposition`` becomes ``pose_from_homography_matrix``.
-   * ``Rigid3d.essential_matrix`` becomes ``pycolmap.essential_matrix_from_pose``.
+
+  * ``align_reconstrution_to_locations`` is renamed to ``align_reconstruction_to_locations`` (typo).
+  * ``pycomap.cost_functions`` becomes a module and should be explicitly imported as ``import pycolmap.cost_functions``.
+  * Replaced ``Image.registered`` by ``Image.{has_pose,reset_pose}``.
+  * Replaced ``Image.{get_valid_point2D_ids,get_valid_points2D}`` by ``Image.{get_observation_point2D_idxs,get_observation_points2D}``.
+  * Replaced ``Track.{append,remove}`` by ``Track.{add_element,delete_element}``.
+  * ``AbsolutePoseErrorCost`` becomes ``AbsolutePosePriorCost``.
+  * ``MetricRelativePoseErrorCost`` becomes ``RelativePosePriorCost``.
+  * The signature of ``ReprojErrorCost`` and related cost functions was changed: arguments are reordered, the detection uncertainty is now a 2x2 covariance matrix.
+  * ``BundleAdjuster`` becomes virtual and should be created with ``pycolmap.create_default_bundle_adjuster()``.
+  * ``absolute_pose_estimation`` becomes ``estimate_and_refine_absolute_pose``.
+  * ``pose_refinement`` becomes ``refine_absolute_pose``.
+  * ``essential_matrix_estimation`` becomes ``estimate_essential_matrix``.
+  * ``fundamental_matrix_estimation`` becomes ``estimate_fundamental_matrix``.
+  * ``rig_absolute_pose_estimation`` becomes ``estimate_and_refine_generalized_absolute_pose``.
+  * ``homography_matrix_estimation`` becomes ``estimate_homography_matrix``.
+  * ``squared_sampson_error`` becomes ``compute_squared_sampson_error``.
+  * ``homography_decomposition`` becomes ``pose_from_homography_matrix``.
+  * ``Rigid3d.essential_matrix`` becomes ``pycolmap.essential_matrix_from_pose``.
 
 Full Change List (sorted temporally)
 ------------------------------------
