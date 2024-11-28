@@ -33,6 +33,7 @@
 #include "colmap/mvs/consistency_graph.h"
 #include "colmap/mvs/patch_match_cuda.h"
 #include "colmap/mvs/workspace.h"
+#include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 
 #include <numeric>

@@ -31,6 +31,7 @@
 # This script converts a Bundler reconstruction file to a PLY point cloud.
 
 import argparse
+
 import numpy as np
 
 

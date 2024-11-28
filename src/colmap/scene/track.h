@@ -44,6 +44,9 @@ struct TrackElement {
   image_t image_id;
   // The point in the image that the track element is observed.
   point2D_t point2D_idx;
+
+  inline bool operator==(const TrackElement& other) const;
+  inline bool operator!=(const TrackElement& other) const;
 };
 
 class Track {
@@ -79,13 +82,27 @@ class Track {
   // Shrink the capacity of track vector to fit its size to save memory.
   inline void Compress();
 
+  inline bool operator==(const Track& other) const;
+  inline bool operator!=(const Track& other) const;
+
  private:
   std::vector<TrackElement> elements_;
 };
 
+std::ostream& operator<<(std::ostream& stream, const TrackElement& track_el);
+std::ostream& operator<<(std::ostream& stream, const Track& track);
+
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////
+
+bool TrackElement::operator==(const TrackElement& other) const {
+  return image_id == other.image_id && point2D_idx == other.point2D_idx;
+}
+
+bool TrackElement::operator!=(const TrackElement& other) const {
+  return !(*this == other);
+}
 
 size_t Track::Length() const { return elements_.size(); }
 
@@ -130,5 +147,11 @@ void Track::Reserve(const size_t num_elements) {
 }
 
 void Track::Compress() { elements_.shrink_to_fit(); }
+
+bool Track::operator==(const Track& other) const {
+  return elements_ == other.elements_;
+}
+
+bool Track::operator!=(const Track& other) const { return !(*this == other); }
 
 }  // namespace colmap

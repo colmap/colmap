@@ -34,6 +34,33 @@
 namespace colmap {
 namespace {
 
+bool FisheyeCameraModelIsValidPixel(const CameraModelId model_id,
+                                    const std::vector<double>& params,
+                                    const Eigen::Vector2d& xy) {
+  switch (model_id) {
+#define CAMERA_MODEL_CASE(CameraModel)                                    \
+  case CameraModel::model_id: {                                           \
+    double uu, vv;                                                        \
+    CameraModel::FisheyeFromImg(params.data(), xy.x(), xy.y(), &uu, &vv); \
+    const double theta = std::sqrt(uu * uu + vv * vv);                    \
+    if (theta < M_PI / 2.0) {                                             \
+      return true;                                                        \
+    } else {                                                              \
+      return false;                                                       \
+    }                                                                     \
+  }
+
+    FISHEYE_CAMERA_MODEL_CASES
+    default:
+      throw std::domain_error(
+          "Camera model does not exist or is not a fisheye camera");
+
+#undef CAMERA_MODEL_CASE
+  }
+
+  return false;
+}
+
 template <typename CameraModel>
 void TestCamToCamFromImg(const std::vector<double>& params,
                          const double u0,
@@ -136,6 +163,11 @@ void TestModel(const std::vector<double>& params) {
 
   for (int x = 0; x <= 800; x += 50) {
     for (int y = 0; y <= 800; y += 50) {
+      if (CameraModelIsFisheye(CameraModel::model_id) &&
+          !FisheyeCameraModelIsValidPixel(
+              CameraModel::model_id, params, Eigen::Vector2d(x, y))) {
+        continue;
+      }
       TestCamFromImgToImg<CameraModel>(params, x, y);
     }
   }
@@ -226,6 +258,27 @@ TEST(ThinPrismFisheye, Nominal) {
                                           0.02,
                                           -0.02,
                                           0.001});
+}
+
+TEST(RadTanThinPrismFisheye, Nominal) {
+  std::vector<double> params = {651.123,
+                                655.123,
+                                386.123,
+                                511.123,
+                                -0.0232,
+                                0.0924,
+                                -0.0591,
+                                0.003,
+                                0.0048,
+                                -0.0009,
+                                0.0002,
+                                0.0005,
+                                -0.0009,
+                                -0.0001,
+                                0.00007,
+                                -0.00017};
+
+  TestModel<RadTanThinPrismFisheyeModel>(params);
 }
 
 }  // namespace

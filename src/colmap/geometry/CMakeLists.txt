@@ -37,7 +37,7 @@ COLMAP_ADD_LIBRARY(
         gps.h gps.cc
         homography_matrix.h homography_matrix.cc
         pose.h pose.cc
-        rigid3.h
+        rigid3.h rigid3.cc
         sim3.h sim3.cc
         triangulation.h triangulation.cc
     PUBLIC_LINK_LIBS

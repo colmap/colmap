@@ -31,6 +31,8 @@
 
 #include "colmap/ui/main_window.h"
 
+#include <set>
+
 #define SELECTION_BUFFER_IMAGE_IDX 0
 #define SELECTION_BUFFER_POINT_IDX 1
 
@@ -73,6 +75,18 @@ void BuildImageModel(const Image& image,
                      const Eigen::Vector4f& frame_color,
                      std::vector<TrianglePainter::Data>* triangle_data,
                      std::vector<LinePainter::Data>* line_data) {
+  // Updating the reconstruction in the viewer (e.g., deleting an image or a
+  // point) is not thread-safe when the mapper is running, where some images may
+  // be in a partial, incorrect state. In rare circumstances, an image may be
+  // registered but not yet have a pose. Instead of crashing the viewer, we
+  // simply skip the visualization of these images and warn the user.
+  const std::optional<Rigid3d>& cam_from_world = image.MaybeCamFromWorld();
+  if (!cam_from_world) {
+    LOG(WARNING) << "Failed to render image " << image.Name()
+                 << " but it has no pose.";
+    return;
+  }
+
   // Generate camera dimensions in OpenGL (world) coordinate space.
   const float kBaseCameraWidth = 1024.0f;
   const float image_width = image_size * camera.width / kBaseCameraWidth;
@@ -84,23 +98,23 @@ void BuildImageModel(const Image& image,
       static_cast<float>(camera.CamFromImgThreshold(camera_extent));
   const float focal_length = 2.0f * image_extent / camera_extent_normalized;
 
-  const Eigen::Matrix<float, 3, 4> inv_proj_matrix =
-      Inverse(image.CamFromWorld()).ToMatrix().cast<float>();
+  const Eigen::Matrix<float, 3, 4> world_from_cam =
+      Inverse(*cam_from_world).ToMatrix().cast<float>();
 
   // Projection center, top-left, top-right, bottom-right, bottom-left corners.
 
-  const Eigen::Vector3f pc = inv_proj_matrix.rightCols<1>();
+  const Eigen::Vector3f pc = world_from_cam.rightCols<1>();
   const Eigen::Vector3f tl =
-      inv_proj_matrix *
+      world_from_cam *
       Eigen::Vector4f(-image_width, image_height, focal_length, 1);
   const Eigen::Vector3f tr =
-      inv_proj_matrix *
+      world_from_cam *
       Eigen::Vector4f(image_width, image_height, focal_length, 1);
   const Eigen::Vector3f br =
-      inv_proj_matrix *
+      world_from_cam *
       Eigen::Vector4f(image_width, -image_height, focal_length, 1);
   const Eigen::Vector3f bl =
-      inv_proj_matrix *
+      world_from_cam *
       Eigen::Vector4f(-image_width, -image_height, focal_length, 1);
 
   // Image plane as two triangles.
@@ -374,7 +388,9 @@ void ModelViewerWidget::ReloadReconstruction() {
 
   cameras = reconstruction->Cameras();
   points3D = reconstruction->Points3D();
-  reg_image_ids = reconstruction->RegImageIds();
+  const std::set<image_t> reg_image_ids_set = reconstruction->RegImageIds();
+  reg_image_ids =
+      std::vector<image_t>(reg_image_ids_set.begin(), reg_image_ids_set.end());
 
   images.clear();
   for (const image_t image_id : reg_image_ids) {

@@ -1,0 +1,14 @@
+/* Fixes https://github.com/readthedocs/sphinx_rtd_theme/issues/1301#issuecomment-1876120817 */
+.py.property {
+    display: block !important;
+}
+
+/* Better display of multi-line signatures. */
+
+dt.sig > dl > dd {
+    margin-bottom: 0px;
+}
+
+dt.sig > dl {
+    margin-bottom: 0px;
+}

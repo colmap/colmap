@@ -35,12 +35,12 @@ COLMAP_ADD_LIBRARY(
     SRCS
         automatic_reconstruction.h automatic_reconstruction.cc
         bundle_adjustment.h bundle_adjustment.cc
-        hierarchical_mapper.h hierarchical_mapper.cc
+        hierarchical_pipeline.h hierarchical_pipeline.cc
         feature_extraction.h feature_extraction.cc
         feature_matching.h feature_matching.cc
         feature_matching_utils.h feature_matching_utils.cc
         image_reader.h image_reader.cc
-        incremental_mapper.h incremental_mapper.cc
+        incremental_pipeline.h incremental_pipeline.cc
         option_manager.h option_manager.cc
     PUBLIC_LINK_LIBS
         colmap_estimators
@@ -56,17 +56,16 @@ COLMAP_ADD_LIBRARY(
         colmap_mvs
         colmap_sfm
         Ceres::ceres
-        Boost::filesystem
         Boost::boost
 )
 
 COLMAP_ADD_TEST(
-    NAME hierarchical_mapper_test
-    SRCS hierarchical_mapper_test.cc
+    NAME hierarchical_pipeline_test
+    SRCS hierarchical_pipeline_test.cc
     LINK_LIBS colmap_controllers
 )
 COLMAP_ADD_TEST(
-    NAME incremental_mapper_test
-    SRCS incremental_mapper_test.cc
+    NAME incremental_pipeline_test
+    SRCS incremental_pipeline_test.cc
     LINK_LIBS colmap_controllers
 )

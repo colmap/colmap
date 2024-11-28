@@ -27,11 +27,10 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#define BOOST_TEST_MAIN
-#define BOOST_TEST_MODULE "retrieval/geometry"
 #include "colmap/retrieval/geometry.h"
 
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/eigen_matchers.h"
 
 #include <iostream>
 
@@ -59,8 +58,9 @@ TEST(FeatureGeometry, Identity) {
           feature2.orientation = orientation;
           const auto tform_matrix =
               FeatureGeometry::TransformMatrixFromMatch(feature1, feature2);
-          EXPECT_TRUE(
-              tform_matrix.isApprox(Eigen::Matrix<float, 2, 3>::Identity()));
+          EXPECT_THAT(tform_matrix,
+                      EigenMatrixNear(Eigen::Matrix<float, 2, 3>(
+                          Eigen::Matrix<float, 2, 3>::Identity())));
           const auto tform =
               FeatureGeometry::TransformFromMatch(feature1, feature2);
           EXPECT_NEAR(tform.scale, 1, 1e-6);
@@ -85,9 +85,11 @@ TEST(FeatureGeometry, Translation) {
       feature2.orientation = 0;
       const auto tform_matrix =
           FeatureGeometry::TransformMatrixFromMatch(feature1, feature2);
-      EXPECT_TRUE(
-          tform_matrix.leftCols<2>().isApprox(Eigen::Matrix2f::Identity()));
-      EXPECT_TRUE(tform_matrix.rightCols<1>().isApprox(Eigen::Vector2f(x, y)));
+      EXPECT_THAT(
+          tform_matrix.leftCols<2>(),
+          EigenMatrixNear<Eigen::Matrix2f>(Eigen::Matrix2f::Identity()));
+      EXPECT_THAT(tform_matrix.rightCols<1>(),
+                  EigenMatrixNear(Eigen::Vector2f(x, y)));
       const auto tform =
           FeatureGeometry::TransformFromMatch(feature1, feature2);
       EXPECT_NEAR(tform.scale, 1, 1e-6);
@@ -107,9 +109,11 @@ TEST(FeatureGeometry, Scale) {
     feature2.orientation = 0;
     const auto tform_matrix =
         FeatureGeometry::TransformMatrixFromMatch(feature1, feature2);
-    EXPECT_TRUE(tform_matrix.leftCols<2>().isApprox(
-        scale * Eigen::Matrix2f::Identity()));
-    EXPECT_TRUE(tform_matrix.rightCols<1>().isApprox(Eigen::Vector2f(0, 0)));
+    EXPECT_THAT(
+        tform_matrix.leftCols<2>(),
+        EigenMatrixNear<Eigen::Matrix2f>(scale * Eigen::Matrix2f::Identity()));
+    EXPECT_THAT(tform_matrix.rightCols<1>(),
+                EigenMatrixNear(Eigen::Vector2f(0, 0)));
     const auto tform = FeatureGeometry::TransformFromMatch(feature1, feature2);
     EXPECT_NEAR(tform.scale, scale, 1e-6);
     EXPECT_NEAR(tform.angle, 0, 1e-6);
@@ -129,7 +133,8 @@ TEST(FeatureGeometry, Orientation) {
     const auto tform_matrix =
         FeatureGeometry::TransformMatrixFromMatch(feature1, feature2);
     EXPECT_NEAR(tform_matrix.leftCols<2>().determinant(), 1, 1e-5);
-    EXPECT_TRUE(tform_matrix.rightCols<1>().isApprox(Eigen::Vector2f(0, 0)));
+    EXPECT_THAT(tform_matrix.rightCols<1>(),
+                EigenMatrixNear(Eigen::Vector2f(0, 0)));
     const auto tform = FeatureGeometry::TransformFromMatch(feature1, feature2);
     EXPECT_NEAR(tform.scale, 1, 1e-6);
     EXPECT_NEAR(tform.angle, orientation, 1e-6);

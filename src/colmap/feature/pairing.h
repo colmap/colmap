@@ -42,6 +42,8 @@ struct ExhaustiveMatchingOptions {
   int block_size = 50;
 
   bool Check() const;
+
+  inline size_t CacheSize() const { return block_size; }
 };
 
 struct VocabTreeMatchingOptions {
@@ -72,6 +74,8 @@ struct VocabTreeMatchingOptions {
   int num_threads = -1;
 
   bool Check() const;
+
+  inline size_t CacheSize() const { return 5 * num_images; }
 };
 
 struct SequentialMatchingOptions {
@@ -111,6 +115,10 @@ struct SequentialMatchingOptions {
   bool Check() const;
 
   VocabTreeMatchingOptions VocabTreeOptions() const;
+
+  inline size_t CacheSize() const {
+    return std::max(5 * loop_detection_num_images, 5 * overlap);
+  }
 };
 
 struct SpatialMatchingOptions {
@@ -128,6 +136,8 @@ struct SpatialMatchingOptions {
   int num_threads = -1;
 
   bool Check() const;
+
+  inline size_t CacheSize() const { return 5 * max_num_neighbors; }
 };
 
 struct TransitiveMatchingOptions {
@@ -138,6 +148,8 @@ struct TransitiveMatchingOptions {
   int num_iterations = 3;
 
   bool Check() const;
+
+  inline size_t CacheSize() const { return 2 * batch_size; }
 };
 
 struct ImagePairsMatchingOptions {
@@ -148,6 +160,8 @@ struct ImagePairsMatchingOptions {
   std::string match_list_path = "";
 
   bool Check() const;
+
+  inline size_t CacheSize() const { return block_size; }
 };
 
 struct FeaturePairsMatchingOptions {
@@ -176,9 +190,6 @@ class PairGenerator {
 class ExhaustivePairGenerator : public PairGenerator {
  public:
   using PairOptions = ExhaustiveMatchingOptions;
-  static size_t CacheSize(const ExhaustiveMatchingOptions& options) {
-    return 5 * options.block_size;
-  }
 
   ExhaustivePairGenerator(const ExhaustiveMatchingOptions& options,
                           const std::shared_ptr<FeatureMatcherCache>& cache);
@@ -205,12 +216,9 @@ class ExhaustivePairGenerator : public PairGenerator {
 class VocabTreePairGenerator : public PairGenerator {
  public:
   using PairOptions = VocabTreeMatchingOptions;
-  static size_t CacheSize(const VocabTreeMatchingOptions& options) {
-    return 5 * options.num_images;
-  }
 
   VocabTreePairGenerator(const VocabTreeMatchingOptions& options,
-                         std::shared_ptr<FeatureMatcherCache> cache,
+                         const std::shared_ptr<FeatureMatcherCache>& cache,
                          const std::vector<image_t>& query_image_ids = {});
 
   VocabTreePairGenerator(const VocabTreeMatchingOptions& options,
@@ -248,12 +256,9 @@ class VocabTreePairGenerator : public PairGenerator {
 class SequentialPairGenerator : public PairGenerator {
  public:
   using PairOptions = SequentialMatchingOptions;
-  static size_t CacheSize(const SequentialMatchingOptions& options) {
-    return std::max(5 * options.loop_detection_num_images, 5 * options.overlap);
-  }
 
   SequentialPairGenerator(const SequentialMatchingOptions& options,
-                          std::shared_ptr<FeatureMatcherCache> cache);
+                          const std::shared_ptr<FeatureMatcherCache>& cache);
 
   SequentialPairGenerator(const SequentialMatchingOptions& options,
                           const std::shared_ptr<Database>& database);
@@ -278,9 +283,6 @@ class SequentialPairGenerator : public PairGenerator {
 class SpatialPairGenerator : public PairGenerator {
  public:
   using PairOptions = SpatialMatchingOptions;
-  static size_t CacheSize(const SpatialMatchingOptions& options) {
-    return 5 * options.max_num_neighbors;
-  }
 
   SpatialPairGenerator(const SpatialMatchingOptions& options,
                        const std::shared_ptr<FeatureMatcherCache>& cache);
@@ -295,8 +297,8 @@ class SpatialPairGenerator : public PairGenerator {
   std::vector<std::pair<image_t, image_t>> Next() override;
 
  private:
-  Eigen::Matrix<float, Eigen::Dynamic, 3, Eigen::RowMajor> ReadLocationData(
-      const FeatureMatcherCache& cache);
+  Eigen::Matrix<float, Eigen::Dynamic, 3, Eigen::RowMajor>
+  ReadPositionPriorData(FeatureMatcherCache& cache);
 
   const SpatialMatchingOptions options_;
   std::vector<std::pair<image_t, image_t>> image_pairs_;
@@ -305,16 +307,40 @@ class SpatialPairGenerator : public PairGenerator {
   Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
       distance_matrix_;
   std::vector<image_t> image_ids_;
-  std::vector<size_t> location_idxs_;
+  std::vector<size_t> position_idxs_;
   size_t current_idx_ = 0;
+  int knn_ = 0;
+};
+
+class TransitivePairGenerator : public PairGenerator {
+ public:
+  using PairOptions = TransitiveMatchingOptions;
+
+  TransitivePairGenerator(const TransitiveMatchingOptions& options,
+                          const std::shared_ptr<FeatureMatcherCache>& cache);
+
+  TransitivePairGenerator(const TransitiveMatchingOptions& options,
+                          const std::shared_ptr<Database>& database);
+
+  void Reset() override;
+
+  bool HasFinished() const override;
+
+  std::vector<std::pair<image_t, image_t>> Next() override;
+
+ private:
+  const TransitiveMatchingOptions options_;
+  const std::shared_ptr<FeatureMatcherCache> cache_;
+  int current_iteration_ = 0;
+  int current_batch_idx_ = 0;
+  int current_num_batches_ = 0;
+  std::vector<std::pair<image_t, image_t>> image_pairs_;
+  std::unordered_set<image_pair_t> image_pair_ids_;
 };
 
 class ImportedPairGenerator : public PairGenerator {
  public:
   using PairOptions = ImagePairsMatchingOptions;
-  static size_t CacheSize(const ImagePairsMatchingOptions& options) {
-    return options.block_size;
-  }
 
   ImportedPairGenerator(const ImagePairsMatchingOptions& options,
                         const std::shared_ptr<FeatureMatcherCache>& cache);

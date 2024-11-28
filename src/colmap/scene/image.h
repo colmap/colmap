@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/geometry/gps.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/math/math.h"
 #include "colmap/scene/camera.h"
@@ -38,6 +39,7 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/types.h"
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -66,11 +68,14 @@ class Image {
   inline camera_t CameraId() const;
   inline void SetCameraId(camera_t camera_id);
   // Check whether identifier of camera has been set.
-  inline bool HasCamera() const;
+  inline bool HasCameraId() const;
 
-  // Check if image is registered.
-  inline bool IsRegistered() const;
-  inline void SetRegistered(bool registered);
+  // Access to the underlying, shared camera object.
+  // This is typically only set when the image was added to a reconstruction.
+  inline struct Camera* CameraPtr() const;
+  inline void SetCameraPtr(struct Camera* camera);
+  inline void ResetCameraPtr();
+  inline bool HasCameraPtr() const;
 
   // Get the number of image points.
   inline point2D_t NumPoints2D() const;
@@ -82,6 +87,12 @@ class Image {
   // World to camera pose.
   inline const Rigid3d& CamFromWorld() const;
   inline Rigid3d& CamFromWorld();
+  inline const std::optional<Rigid3d>& MaybeCamFromWorld() const;
+  inline std::optional<Rigid3d>& MaybeCamFromWorld();
+  inline void SetCamFromWorld(const Rigid3d& cam_from_world);
+  inline void SetCamFromWorld(const std::optional<Rigid3d>& cam_from_world);
+  inline bool HasPose() const;
+  inline void ResetPose();
 
   // Access the coordinates of image points.
   inline const struct Point2D& Point2D(point2D_t point2D_idx) const;
@@ -106,6 +117,14 @@ class Image {
   // Extract the viewing direction of the image.
   Eigen::Vector3d ViewingDirection() const;
 
+  // Reproject the 3D point onto the image in pixels (throws if the camera
+  // object was not set). Return false if the 3D point is behind the camera.
+  std::pair<bool, Eigen::Vector2d> ProjectPoint(
+      const Eigen::Vector3d& point3D) const;
+
+  inline bool operator==(const Image& other) const;
+  inline bool operator!=(const Image& other) const;
+
  private:
   // Identifier of the image, if not specified `kInvalidImageId`.
   image_t image_id_;
@@ -116,20 +135,20 @@ class Image {
   // The identifier of the associated camera. Note that multiple images might
   // share the same camera. If not specified `kInvalidCameraId`.
   camera_t camera_id_;
-
-  // Whether the image is successfully registered in the reconstruction.
-  bool registered_;
+  struct Camera* camera_ptr_;
 
   // The number of 3D points the image observes, i.e. the sum of its `points2D`
   // where `point3D_id != kInvalidPoint3DId`.
   point2D_t num_points3D_;
 
   // The pose of the image, defined as the transformation from world to camera.
-  Rigid3d cam_from_world_;
+  std::optional<Rigid3d> cam_from_world_;
 
   // All image points, including points that are not part of a 3D point track.
   std::vector<struct Point2D> points2D_;
 };
+
+std::ostream& operator<<(std::ostream& stream, const Image& image);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
@@ -149,14 +168,33 @@ inline camera_t Image::CameraId() const { return camera_id_; }
 
 inline void Image::SetCameraId(const camera_t camera_id) {
   THROW_CHECK_NE(camera_id, kInvalidCameraId);
+  THROW_CHECK(!HasCameraPtr());
   camera_id_ = camera_id;
 }
 
-inline bool Image::HasCamera() const { return camera_id_ != kInvalidCameraId; }
+inline bool Image::HasCameraId() const {
+  return camera_id_ != kInvalidCameraId;
+}
 
-bool Image::IsRegistered() const { return registered_; }
+inline struct Camera* Image::CameraPtr() const {
+  return THROW_CHECK_NOTNULL(camera_ptr_);
+}
 
-void Image::SetRegistered(const bool registered) { registered_ = registered; }
+inline void Image::SetCameraPtr(struct Camera* camera) {
+  THROW_CHECK_NOTNULL(camera);
+  THROW_CHECK_NE(camera->camera_id, kInvalidCameraId);
+  if (!HasCameraPtr()) {
+    THROW_CHECK_EQ(camera->camera_id, camera_id_);
+    camera_ptr_ = camera;
+  } else {  // switch to new camera
+    camera_id_ = camera->camera_id;
+    camera_ptr_ = camera;
+  }
+}
+
+void Image::ResetCameraPtr() { camera_ptr_ = nullptr; }
+
+bool Image::HasCameraPtr() const { return camera_ptr_ != nullptr; }
 
 point2D_t Image::NumPoints2D() const {
   return static_cast<point2D_t>(points2D_.size());
@@ -164,9 +202,33 @@ point2D_t Image::NumPoints2D() const {
 
 point2D_t Image::NumPoints3D() const { return num_points3D_; }
 
-const Rigid3d& Image::CamFromWorld() const { return cam_from_world_; }
+const Rigid3d& Image::CamFromWorld() const {
+  THROW_CHECK(cam_from_world_) << "Image does not have a valid pose.";
+  return *cam_from_world_;
+}
 
-Rigid3d& Image::CamFromWorld() { return cam_from_world_; }
+Rigid3d& Image::CamFromWorld() {
+  THROW_CHECK(cam_from_world_) << "Image does not have a valid pose.";
+  return *cam_from_world_;
+}
+
+const std::optional<Rigid3d>& Image::MaybeCamFromWorld() const {
+  return cam_from_world_;
+}
+
+std::optional<Rigid3d>& Image::MaybeCamFromWorld() { return cam_from_world_; }
+
+void Image::SetCamFromWorld(const Rigid3d& cam_from_world) {
+  cam_from_world_ = cam_from_world;
+}
+
+void Image::SetCamFromWorld(const std::optional<Rigid3d>& cam_from_world) {
+  cam_from_world_ = cam_from_world;
+}
+
+bool Image::HasPose() const { return cam_from_world_.has_value(); }
+
+void Image::ResetPose() { cam_from_world_.reset(); }
 
 const struct Point2D& Image::Point2D(const point2D_t point2D_idx) const {
   return points2D_.at(point2D_idx);
@@ -179,5 +241,14 @@ struct Point2D& Image::Point2D(const point2D_t point2D_idx) {
 const std::vector<struct Point2D>& Image::Points2D() const { return points2D_; }
 
 std::vector<struct Point2D>& Image::Points2D() { return points2D_; }
+
+bool Image::operator==(const Image& other) const {
+  return image_id_ == other.image_id_ && camera_id_ == other.camera_id_ &&
+         name_ == other.name_ && num_points3D_ == other.num_points3D_ &&
+         cam_from_world_ == other.cam_from_world_ &&
+         points2D_ == other.points2D_;
+}
+
+bool Image::operator!=(const Image& other) const { return !(*this == other); }
 
 }  // namespace colmap

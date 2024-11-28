@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - release/*
   pull_request:
     types: [ assigned, opened, synchronize, reopened ]
   release:
@@ -39,6 +40,9 @@ jobs:
             cuda_archs="50;60;70;75;90"
           else
             cuda_archs="50"
+          fi
+          if [ "$GITHUB_EVENT_NAME" == "pull_request" ]; then
+            GITHUB_SHA=$(cat $GITHUB_EVENT_PATH | jq -r .pull_request.head.sha)
           fi
           docker build . \
             --file docker/Dockerfile \

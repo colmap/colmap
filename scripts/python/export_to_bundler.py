@@ -30,11 +30,12 @@
 
 # This script exports a COLMAP database to the file structure to run Bundler.
 
-import os
 import argparse
-import sqlite3
-import shutil
 import gzip
+import os
+import shutil
+import sqlite3
+
 import numpy as np
 
 
@@ -62,7 +63,7 @@ def main():
 
     try:
         os.makedirs(args.output_path)
-    except:
+    except:  # noqa E722
         pass
 
     cameras = {}

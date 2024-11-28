@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/controllers/incremental_mapper.h"
+#include "colmap/controllers/incremental_pipeline.h"
 
 #include "colmap/estimators/alignment.h"
 #include "colmap/scene/synthetic.h"
@@ -42,7 +42,8 @@ void ExpectEqualReconstructions(const Reconstruction& gt,
                                 const Reconstruction& computed,
                                 const double max_rotation_error_deg,
                                 const double max_proj_center_error,
-                                const double num_obs_tolerance) {
+                                const double num_obs_tolerance,
+                                const bool align = true) {
   EXPECT_EQ(computed.NumCameras(), gt.NumCameras());
   EXPECT_EQ(computed.NumImages(), gt.NumImages());
   EXPECT_EQ(computed.NumRegImages(), gt.NumRegImages());
@@ -50,10 +51,12 @@ void ExpectEqualReconstructions(const Reconstruction& gt,
             (1 - num_obs_tolerance) * gt.ComputeNumObservations());
 
   Sim3d gtFromComputed;
-  AlignReconstructionsViaProjCenters(computed,
-                                     gt,
-                                     /*max_proj_center_error=*/0.1,
-                                     &gtFromComputed);
+  if (align) {
+    AlignReconstructionsViaProjCenters(computed,
+                                       gt,
+                                       /*max_proj_center_error=*/0.1,
+                                       &gtFromComputed);
+  }
 
   const std::vector<ImageAlignmentError> errors =
       ComputeImageAlignmentError(computed, gt, gtFromComputed);
@@ -64,7 +67,7 @@ void ExpectEqualReconstructions(const Reconstruction& gt,
   }
 }
 
-TEST(IncrementalMapperController, WithoutNoise) {
+TEST(IncrementalPipeline, WithoutNoise) {
   const std::string database_path = CreateTestDir() + "/database.db";
 
   Database database(database_path);
@@ -77,11 +80,10 @@ TEST(IncrementalMapperController, WithoutNoise) {
   SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction, &database);
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
-  IncrementalMapperController mapper(
-      std::make_shared<IncrementalMapperOptions>(),
-      /*image_path=*/"",
-      database_path,
-      reconstruction_manager);
+  IncrementalPipeline mapper(std::make_shared<IncrementalPipelineOptions>(),
+                             /*image_path=*/"",
+                             database_path,
+                             reconstruction_manager);
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
@@ -92,7 +94,7 @@ TEST(IncrementalMapperController, WithoutNoise) {
                              /*num_obs_tolerance=*/0);
 }
 
-TEST(IncrementalMapperController, WithNoise) {
+TEST(IncrementalPipeline, WithNoise) {
   const std::string database_path = CreateTestDir() + "/database.db";
 
   Database database(database_path);
@@ -105,11 +107,10 @@ TEST(IncrementalMapperController, WithNoise) {
   SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction, &database);
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
-  IncrementalMapperController mapper(
-      std::make_shared<IncrementalMapperOptions>(),
-      /*image_path=*/"",
-      database_path,
-      reconstruction_manager);
+  IncrementalPipeline mapper(std::make_shared<IncrementalPipelineOptions>(),
+                             /*image_path=*/"",
+                             database_path,
+                             reconstruction_manager);
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
@@ -120,7 +121,7 @@ TEST(IncrementalMapperController, WithNoise) {
                              /*num_obs_tolerance=*/0.02);
 }
 
-TEST(IncrementalMapperController, MultiReconstruction) {
+TEST(IncrementalPipeline, MultiReconstruction) {
   const std::string database_path = CreateTestDir() + "/database.db";
 
   Database database(database_path);
@@ -136,12 +137,12 @@ TEST(IncrementalMapperController, MultiReconstruction) {
   SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction2, &database);
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
-  auto mapper_options = std::make_shared<IncrementalMapperOptions>();
+  auto mapper_options = std::make_shared<IncrementalPipelineOptions>();
   mapper_options->min_model_size = 4;
-  IncrementalMapperController mapper(mapper_options,
-                                     /*image_path=*/"",
-                                     database_path,
-                                     reconstruction_manager);
+  IncrementalPipeline mapper(mapper_options,
+                             /*image_path=*/"",
+                             database_path,
+                             reconstruction_manager);
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 2);
@@ -166,7 +167,7 @@ TEST(IncrementalMapperController, MultiReconstruction) {
                              /*num_obs_tolerance=*/0);
 }
 
-TEST(IncrementalMapperController, ChainedMatches) {
+TEST(IncrementalPipeline, ChainedMatches) {
   const std::string database_path = CreateTestDir() + "/database.db";
 
   Database database(database_path);
@@ -181,11 +182,10 @@ TEST(IncrementalMapperController, ChainedMatches) {
   SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction, &database);
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
-  IncrementalMapperController mapper(
-      std::make_shared<IncrementalMapperOptions>(),
-      /*image_path=*/"",
-      database_path,
-      reconstruction_manager);
+  IncrementalPipeline mapper(std::make_shared<IncrementalPipelineOptions>(),
+                             /*image_path=*/"",
+                             database_path,
+                             reconstruction_manager);
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
@@ -194,6 +194,119 @@ TEST(IncrementalMapperController, ChainedMatches) {
                              /*max_rotation_error_deg=*/1e-2,
                              /*max_proj_center_error=*/1e-4,
                              /*num_obs_tolerance=*/0);
+}
+
+TEST(IncrementalPipeline, PriorBasedSfMNoNoise) {
+  const std::string database_path = CreateTestDir() + "/database.db";
+
+  Database database(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_cameras = 2;
+  synthetic_dataset_options.num_images = 10;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.point2D_stddev = 0.5;
+
+  synthetic_dataset_options.use_prior_position = true;
+  synthetic_dataset_options.prior_position_stddev = 0.0;
+  SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction, &database);
+
+  std::shared_ptr<IncrementalPipelineOptions> mapper_options =
+      std::make_shared<IncrementalPipelineOptions>();
+  mapper_options->use_prior_position = true;
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  IncrementalPipeline mapper(mapper_options,
+                             /*image_path=*/"",
+                             database_path,
+                             reconstruction_manager);
+  mapper.Run();
+
+  ASSERT_EQ(reconstruction_manager->Size(), 1);
+
+  // No noise on prior so do not align gt & computed (expected to be aligned
+  // from PositionPriorBundleAdjustment)
+  ExpectEqualReconstructions(gt_reconstruction,
+                             *reconstruction_manager->Get(0),
+                             /*max_rotation_error_deg=*/1e-1,
+                             /*max_proj_center_error=*/1e-1,
+                             /*num_obs_tolerance=*/0.02,
+                             /*align=*/false);
+}
+
+TEST(IncrementalPipeline, PriorBasedSfMWithNoise) {
+  const std::string database_path = CreateTestDir() + "/database.db";
+
+  Database database(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_cameras = 2;
+  synthetic_dataset_options.num_images = 7;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.point2D_stddev = 0.5;
+
+  synthetic_dataset_options.use_prior_position = true;
+  synthetic_dataset_options.prior_position_stddev = 1.5;
+  SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction, &database);
+
+  std::shared_ptr<IncrementalPipelineOptions> mapper_options =
+      std::make_shared<IncrementalPipelineOptions>();
+
+  mapper_options->use_prior_position = true;
+  mapper_options->use_robust_loss_on_prior_position = true;
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  IncrementalPipeline mapper(mapper_options,
+                             /*image_path=*/"",
+                             database_path,
+                             reconstruction_manager);
+  mapper.Run();
+
+  ASSERT_EQ(reconstruction_manager->Size(), 1);
+  ExpectEqualReconstructions(gt_reconstruction,
+                             *reconstruction_manager->Get(0),
+                             /*max_rotation_error_deg=*/1e-1,
+                             /*max_proj_center_error=*/1e-1,
+                             /*num_obs_tolerance=*/0.02,
+                             /*align=*/true);
+}
+
+TEST(IncrementalPipeline, GPSPriorBasedSfMWithNoise) {
+  const std::string database_path = CreateTestDir() + "/database.db";
+
+  Database database(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_cameras = 2;
+  synthetic_dataset_options.num_images = 10;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.point2D_stddev = 0.5;
+
+  synthetic_dataset_options.use_prior_position = true;
+  synthetic_dataset_options.use_geographic_coords_prior = true;
+  synthetic_dataset_options.prior_position_stddev = 1.5;
+  SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction, &database);
+
+  std::shared_ptr<IncrementalPipelineOptions> mapper_options =
+      std::make_shared<IncrementalPipelineOptions>();
+
+  mapper_options->use_prior_position = true;
+  mapper_options->use_robust_loss_on_prior_position = true;
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  IncrementalPipeline mapper(mapper_options,
+                             /*image_path=*/"",
+                             database_path,
+                             reconstruction_manager);
+  mapper.Run();
+
+  ASSERT_EQ(reconstruction_manager->Size(), 1);
+  ExpectEqualReconstructions(gt_reconstruction,
+                             *reconstruction_manager->Get(0),
+                             /*max_rotation_error_deg=*/1e-1,
+                             /*max_proj_center_error=*/1e-1,
+                             /*num_obs_tolerance=*/0.02,
+                             /*align=*/true);
 }
 
 }  // namespace

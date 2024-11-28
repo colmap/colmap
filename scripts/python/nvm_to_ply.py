@@ -30,8 +30,8 @@
 
 # This script converts a VisualSfM reconstruction file to a PLY point cloud.
 
-import os
 import argparse
+
 import numpy as np
 
 
@@ -51,8 +51,8 @@ def main():
     args = parse_args()
 
     with open(args.nvm_path, "r") as fid:
-        line = fid.readline()
-        line = fid.readline()
+        fid.readline()
+        fid.readline()
         num_images = int(fid.readline())
 
         for i in range(num_images + 1):

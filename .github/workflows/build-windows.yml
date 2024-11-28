@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - release/*
   pull_request:
     types: [ assigned, opened, synchronize, reopened ]
   release:
@@ -11,18 +12,24 @@ on:
 
 jobs:
   build:
-    name: ${{ matrix.config.os }} ${{ matrix.config.cmakeBuildType }}
+    name: ${{ matrix.config.os }} ${{ matrix.config.cmakeBuildType }} ${{ matrix.config.cudaEnabled && 'CUDA' || '' }}
     runs-on: ${{ matrix.config.os }}
     strategy:
       matrix:
         config: [
           {
-            os: windows-2019,
+            os: windows-2022,
             cmakeBuildType: Release,
+            cudaEnabled: true,
+            testsEnabled: true,
+            exportPackage: true,
           },
           {
             os: windows-2022,
             cmakeBuildType: Release,
+            cudaEnabled: false,
+            testsEnabled: true,
+            exportPackage: true,
           },
         ]
 
@@ -31,7 +38,7 @@ jobs:
       COMPILER_CACHE_DIR: ${{ github.workspace }}/compiler-cache
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
-      VCPKG_COMMIT_ID: e01906b2ba7e645a76ee021a19de616edc98d29f
+      VCPKG_COMMIT_ID: 10b7a178346f3f0abef60cecd5130e295afd8da4
       VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
 
     steps:
@@ -64,6 +71,15 @@ jobs:
 
           .github/workflows/install-ccache.ps1 -Destination "${{ env.COMPILER_CACHE_DIR }}/bin"
 
+      - name: Install CUDA
+        uses: Jimver/cuda-toolkit@v0.2.18
+        if: matrix.config.cudaEnabled
+        id: cuda-toolkit
+        with:
+          cuda: '12.6.2'
+          sub-packages: '["nvcc", "nvtx", "cudart", "curand", "curand_dev", "nvrtc_dev"]'
+          method: 'network'
+
       - name: Install CMake and Ninja
         uses: lukka/get-cmake@latest
 
@@ -89,11 +105,14 @@ jobs:
             -GNinja `
             -DCMAKE_MAKE_PROGRAM=ninja `
             -DCMAKE_BUILD_TYPE=Release `
-            -DTESTS_ENABLED=ON `
+            -DTESTS_ENABLED=${{ matrix.config.testsEnabled }} `
             -DGUI_ENABLED=ON `
-            -DCUDA_ENABLED=OFF `
-            -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake `
-            -DVCPKG_TARGET_TRIPLET=x64-windows-release
+            -DCUDA_ENABLED=${{ matrix.config.cudaEnabled }} `
+            -DCMAKE_CUDA_ARCHITECTURES=all-major `
+            -DCUDAToolkit_ROOT="${{ steps.cuda-toolkit.outputs.CUDA_PATH }}" `
+            -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake" `
+            -DVCPKG_TARGET_TRIPLET=x64-windows-release `
+            -DCMAKE_INSTALL_PREFIX=install
           ninja
 
       - name: Run tests
@@ -103,6 +122,45 @@ jobs:
           cd build
           $EXCLUDED_TESTS = "(feature/colmap_feature_sift_test)|(util/colmap_util_opengl_utils_test)|(mvs/colmap_mvs_gpu_mat_test)"
           ctest -E ${EXCLUDED_TESTS} --output-on-failure
+
+      - name: Export package
+        if: matrix.config.exportPackage
+        shell: pwsh
+        run: |
+          ./vcpkg/vcpkg.exe integrate install
+
+          cd build
+          ninja install
+
+          ../vcpkg/vcpkg.exe install `
+              --triplet=x64-windows-release `
+              --x-feature=gui `
+              --x-feature=cgal `
+              $(if ($${{ matrix.config.testsEnabled }}) { echo "--x-feature=tests" }) `
+              $(if ($${{ matrix.config.cudaEnabled }}) { echo "--x-feature=cuda" })
+          ../vcpkg/vcpkg.exe export --raw --output-dir vcpkg_export --output colmap
+          cp vcpkg_export/colmap/installed/x64-windows/bin/*.dll install/bin
+          cp vcpkg_export/colmap/installed/x64-windows-release/bin/*.dll install/bin
+          cp -r vcpkg_export/colmap/installed/x64-windows/plugins install
+          if ($${{ matrix.config.cudaEnabled }}) {
+              cp "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/bin/cudart64_*.dll" install/bin
+              cp "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/bin/curand64_*.dll" install/bin
+          }
+          Remove-Item -Recurse -Force install/include,install/lib,install/share
+
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        if: ${{ matrix.config.exportPackage && matrix.config.cudaEnabled }}
+        with:
+          name: colmap-x64-windows-cuda
+          path: build/install
+
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        if: ${{ matrix.config.exportPackage && !matrix.config.cudaEnabled }}
+        with:
+          name: colmap-x64-windows-nocuda
+          path: build/install
 
       - name: Cleanup compiler cache
         shell: pwsh

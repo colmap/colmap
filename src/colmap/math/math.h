@@ -101,7 +101,7 @@ template <typename T>
 T ScaleSigmoid(T x, T alpha = 1, T x0 = 10);
 
 // Binomial coefficient or all combinations, defined as n! / ((n - k)! k!).
-size_t NChooseK(size_t n, size_t k);
+uint64_t NChooseK(uint64_t n, uint64_t k);
 
 // Cast value from one type to another and truncate instead of overflow, if the
 // input value is out of range of the output data type.

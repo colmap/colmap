@@ -4,8 +4,11 @@ else()
     set(COLMAP_FIND_TYPE REQUIRED)
 endif()
 
+if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.30")
+    cmake_policy(SET CMP0167 NEW)
+endif()
+
 find_package(Boost ${COLMAP_FIND_TYPE} COMPONENTS
-             filesystem
              graph
              program_options
              system)
@@ -115,12 +118,16 @@ if(CUDA_ENABLED)
             
             set(CUDAToolkit_VERSION "${CUDA_VERSION_STRING}")
             set(CUDAToolkit_BIN_DIR "${CUDA_TOOLKIT_ROOT_DIR}/bin")
+        else()
+            message(STATUS "CUDA not found")
         endif()
     else()
         find_package(CUDAToolkit QUIET)
         if(CUDAToolkit_FOUND)
             set(CUDA_FOUND ON)
             enable_language(CUDA)
+        else()
+            message(STATUS "CUDA not found")
         endif()
     endif()
 endif()
@@ -196,6 +203,6 @@ endif()
 set(GPU_ENABLED OFF)
 if(OPENGL_ENABLED OR CUDA_ENABLED)
     add_definitions("-DCOLMAP_GPU_ENABLED")
-    message(STATUS "Enabling GPU support")
+    message(STATUS "Enabling GPU support (OpenGL: ${OPENGL_ENABLED}, CUDA: ${CUDA_ENABLED})")
     set(GPU_ENABLED ON)
 endif()
