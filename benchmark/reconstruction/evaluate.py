@@ -136,6 +136,26 @@ def colmap_reconstruction(
             "--matching",
             "1",
             "--sparse",
+            "0",
+            "--dense",
+            "0",
+        ],
+        cwd=workspace_path,
+    )
+
+    # Decouple matching from sparse reconstruction, because matching will
+    # initialize an OpenGL context and Mac on Apple silicon tends to assign GUI
+    # applications to the low efficiency cores but we want to use the
+    # performance cores.
+    subprocess.check_call(
+        args
+        + (extra_args or [])
+        + [
+            "--extraction",
+            "0",
+            "--matching",
+            "0",
+            "--sparse",
             "1",
             "--dense",
             "0",
