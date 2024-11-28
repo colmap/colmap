@@ -48,6 +48,7 @@ def colmap_reconstruction(
     image_path,
     camera_prior_sparse_gt=None,
     extra_args=None,
+    num_threads=1,
 ):
     workspace_path.mkdir(parents=True, exist_ok=True)
 
@@ -75,7 +76,7 @@ def colmap_reconstruction(
         "--use_gpu",
         "1" if args.use_gpu else "0",
         "--num_threads",
-        str(args.num_threads),
+        str(num_threads),
         "--quality",
         args.quality,
     ]
@@ -184,7 +185,7 @@ SceneInfo = collections.namedtuple(
 )
 
 
-def reconstruct_scene(args, scene_info):
+def reconstruct_scene(args, scene_info, num_threads):
     sparse_gt = pycolmap.Reconstruction(scene_info.sparse_gt_path)
 
     colmap_reconstruction(
@@ -192,6 +193,7 @@ def reconstruct_scene(args, scene_info):
         workspace_path=scene_info.workspace_path,
         image_path=scene_info.image_path,
         camera_prior_sparse_gt=sparse_gt,
+        num_threads=num_threads,
         extra_args=scene_info.colmap_extra_args,
     )
 
@@ -229,8 +231,14 @@ def reconstruct_scene(args, scene_info):
 
 
 def process_scenes(args, scene_infos, error_thresholds, position_accuracy_gt):
-    with multiprocessing.Pool(processes=1) as p:
-        results = p.map(functools.partial(reconstruct_scene, args), scene_infos)
+    num_threads = min(
+        args.parallelism, 2 * max(1, int(args.parallelism / len(scene_infos)))
+    )
+    with multiprocessing.Pool(processes=args.parallelism) as p:
+        results = p.map(
+            functools.partial(reconstruct_scene, args, num_threads=num_threads),
+            scene_infos,
+        )
 
     metrics = collections.defaultdict(dict)
     errors_by_category = collections.defaultdict(list)
@@ -633,7 +641,12 @@ def parse_args():
     parser.add_argument("--colmap_path", required=True)
     parser.add_argument("--use_gpu", default=True, action="store_true")
     parser.add_argument("--use_cpu", dest="use_gpu", action="store_false")
-    parser.add_argument("--num_threads", type=int, default=-1)
+    parser.add_argument(
+        "--parallelism",
+        type=int,
+        default=multiprocessing.cpu_count(),
+        help="Number of processes for parallel reconstruction.",
+    )
     parser.add_argument("--quality", default="high")
     parser.add_argument(
         "--error_type",
