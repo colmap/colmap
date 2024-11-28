@@ -18,6 +18,15 @@ jobs:
       matrix:
         config: [
           {
+            os: ubuntu-24.04,
+            cmakeBuildType: Release,
+            asanEnabled: false,
+            guiEnabled: true,
+            cudaEnabled: false,
+            e2eTests: false,
+            checkCodeFormat: true,
+          },
+          {
             os: ubuntu-22.04,
             cmakeBuildType: Release,
             asanEnabled: false,
