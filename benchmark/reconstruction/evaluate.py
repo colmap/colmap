@@ -28,6 +28,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import argparse
+import collections
 import copy
 import datetime
 import shutil
@@ -165,6 +166,88 @@ def colmap_alignment(
                 str(max_ref_model_error),
             ]
         )
+
+
+SceneInfo = collections.namedtuple(
+    "SceneInfo",
+    [
+        "category",
+        "scene",
+        "workspace_path",
+        "image_path",
+        "sparse_gt_path",
+        "sparse_gt",
+        "position_accuracy_gt",
+        "colmap_extra_args",
+    ],
+)
+
+
+def reconstruct_scene(args, scene_info):
+    colmap_reconstruction(
+        args=args,
+        workspace_path=scene_info.workspace_path,
+        image_path=scene_info.image_path,
+        camera_prior_sparse_gt=scene_info.sparse_gt,
+        extra_args=scene_info.colmap_extra_args,
+    )
+
+    sparse_path = scene_info.workspace_path / "sparse/0"
+    if args.error_type == "relative":
+        dts, dRs = compute_rel_errors(
+            sparse_gt=scene_info.sparse_gt,
+            sparse=pycolmap.Reconstruction(sparse_path),
+            min_proj_center_dist=scene_info.position_accuracy_gt,
+        )
+        errors = [max(dt, dR) for dt, dR in zip(dts, dRs)]
+    elif args.error_type == "absolute":
+        sparse_aligned_path = scene_info.workspace_path / "sparse_aligned"
+        colmap_alignment(
+            args=args,
+            sparse_path=sparse_path,
+            sparse_gt_path=scene_info.sparse_gt_path,
+            sparse_aligned_path=sparse_aligned_path,
+            max_ref_model_error=scene_info.position_accuracy_gt,
+        )
+        sparse_aligned = (
+            pycolmap.Reconstruction(sparse_aligned_path)
+            if (sparse_aligned_path / "images.bin").exists()
+            else None
+        )
+        dts, dRs = compute_abs_errors(
+            sparse_gt=scene_info.sparse_gt,
+            sparse=sparse_aligned,
+        )
+        errors = dts
+    else:
+        raise ValueError(f"Invalid error type: {args.error_type}")
+
+    return errors
+
+
+def process_scenes(args, scene_infos, error_thresholds, position_accuracy_gt):
+    results = collections.defaultdict(dict)
+    errors_by_category = collections.defaultdict(list)
+
+    for scene_info in scene_infos:
+        errors = reconstruct_scene(args, scene_info)
+
+        errors_by_category[scene_info.category].extend(errors)
+        results[scene_info.category][scene_info.scene] = compute_auc(
+            errors,
+            error_thresholds,
+            min_error=position_accuracy_gt,
+        )
+
+    for category, errors in errors_by_category.items():
+        results[category]["__all__"] = compute_auc(
+            errors,
+            error_thresholds,
+            min_error=position_accuracy_gt,
+        )
+        results[category]["__avg__"] = compute_avg_auc(results[category])
+
+    return results
 
 
 def normalize_vec(vec, eps=1e-10):
@@ -305,8 +388,7 @@ def compute_abs_errors(sparse_gt, sparse):
 
 def compute_recall(errors):
     num_elements = len(errors)
-    sort_idx = np.argsort(errors)
-    errors = np.array(errors.copy())[sort_idx]
+    errors = np.sort(errors)
     recall = (np.arange(num_elements) + 1) / num_elements
     return errors, recall
 
@@ -351,10 +433,10 @@ def compute_avg_auc(scene_aucs):
     return [auc / num_scenes for auc in auc_sum]
 
 
-def evaluate_eth3d(args, gt_position_accuracy=0.001):
+def evaluate_eth3d(args, position_accuracy_gt=0.001):
     error_thresholds = get_error_thresholds(args)
 
-    results = {}
+    scene_infos = []
     for category_path in (args.data_path / "eth3d").iterdir():
         if not category_path.is_dir() or (
             args.categories and category_path.name not in args.categories
@@ -362,9 +444,6 @@ def evaluate_eth3d(args, gt_position_accuracy=0.001):
             continue
 
         category = category_path.name
-        results[category] = {}
-
-        all_errors = []
 
         for scene_path in sorted(category_path.iterdir()):
             if not scene_path.is_dir():
@@ -377,6 +456,7 @@ def evaluate_eth3d(args, gt_position_accuracy=0.001):
             workspace_path = (
                 args.run_path / args.run_name / "eth3d" / category / scene
             )
+            image_path = scene_path / "images"
             sparse_gt_path = list(scene_path.glob("*_calibration_undistorted"))[
                 0
             ]
@@ -384,72 +464,38 @@ def evaluate_eth3d(args, gt_position_accuracy=0.001):
 
             print(f"Processing ETH3D: category={category}, scene={scene}")
 
-            extra_args = []
+            colmap_extra_args = []
             if category == "dslr":
-                extra_args.extend(["--data_type", "individual"])
+                colmap_extra_args.extend(["--data_type", "individual"])
             elif category == "rig":
-                extra_args.extend(["--data_type", "video"])
+                colmap_extra_args.extend(["--data_type", "video"])
 
-            colmap_reconstruction(
-                args=args,
+            scene_info = SceneInfo(
+                category=category,
+                scene=scene,
                 workspace_path=workspace_path,
-                image_path=scene_path / "images",
-                camera_prior_sparse_gt=sparse_gt,
-                extra_args=extra_args,
+                image_path=image_path,
+                sparse_gt_path=sparse_gt_path,
+                sparse_gt=sparse_gt,
+                position_accuracy_gt=position_accuracy_gt,
+                colmap_extra_args=colmap_extra_args,
             )
 
-            sparse_path = workspace_path / "sparse/0"
-            if args.error_type == "relative":
-                dts, dRs = compute_rel_errors(
-                    sparse_gt=sparse_gt,
-                    sparse=pycolmap.Reconstruction(sparse_path),
-                    min_proj_center_dist=gt_position_accuracy,
-                )
-                errors = [max(dt, dR) for dt, dR in zip(dts, dRs)]
-            elif args.error_type == "absolute":
-                sparse_aligned_path = workspace_path / "sparse_aligned"
-                colmap_alignment(
-                    args=args,
-                    sparse_path=sparse_path,
-                    sparse_gt_path=sparse_gt_path,
-                    sparse_aligned_path=sparse_aligned_path,
-                    max_ref_model_error=gt_position_accuracy,
-                )
-                sparse_aligned = (
-                    pycolmap.Reconstruction(sparse_aligned_path)
-                    if (sparse_aligned_path / "images.bin").exists()
-                    else None
-                )
-                dts, dRs = compute_abs_errors(
-                    sparse_gt=sparse_gt,
-                    sparse=sparse_aligned,
-                )
-                errors = dts
-            else:
-                raise ValueError(f"Invalid error type: {args.error_type}")
+            scene_infos.append(scene_info)
 
-            all_errors.extend(errors)
-            results[category][scene] = compute_auc(
-                errors,
-                error_thresholds,
-                min_error=gt_position_accuracy,
-            )
-
-        results[category]["__all__"] = compute_auc(
-            all_errors,
-            error_thresholds,
-            min_error=gt_position_accuracy,
-        )
-        results[category]["__avg__"] = compute_avg_auc(results[category])
+    results = process_scenes(
+        args, scene_infos, error_thresholds, position_accuracy_gt
+    )
 
     return results
 
 
-def evaluate_imc(args, year, gt_position_accuracy=0.02):
+def evaluate_imc(args, year, position_accuracy_gt=0.02):
+    folder_name = f"imc{year}"
+
     error_thresholds = get_error_thresholds(args)
 
-    folder_name = f"imc{year}"
-    results = {}
+    scene_infos = []
     for category_path in Path(
         args.data_path / f"{folder_name}/train"
     ).iterdir():
@@ -459,9 +505,6 @@ def evaluate_imc(args, year, gt_position_accuracy=0.02):
             continue
 
         category = category_path.name
-        results[category] = {}
-
-        all_errors = []
 
         for scene_path in category_path.iterdir():
             if not scene_path.is_dir():
@@ -490,56 +533,22 @@ def evaluate_imc(args, year, gt_position_accuracy=0.02):
 
             print(f"Processing IMC {year}: category={category}, scene={scene}")
 
-            colmap_reconstruction(
-                args=args,
+            scene_info = SceneInfo(
+                category=category,
+                scene=scene,
                 workspace_path=workspace_path,
                 image_path=image_path,
-                camera_prior_sparse_gt=sparse_gt,
+                sparse_gt_path=sparse_gt_path,
+                sparse_gt=sparse_gt,
+                position_accuracy_gt=position_accuracy_gt,
+                colmap_extra_args=None,
             )
 
-            sparse_path = workspace_path / "sparse/0"
-            if args.error_type == "relative":
-                dts, dRs = compute_rel_errors(
-                    sparse_gt=sparse_gt,
-                    sparse=pycolmap.Reconstruction(sparse_path),
-                    min_proj_center_dist=gt_position_accuracy,
-                )
-                errors = [max(dt, dR) for dt, dR in zip(dts, dRs)]
-            elif args.error_type == "absolute":
-                sparse_aligned_path = workspace_path / "sparse_aligned"
-                colmap_alignment(
-                    args=args,
-                    sparse_path=sparse_path,
-                    sparse_gt_path=sparse_gt_path,
-                    sparse_aligned_path=sparse_aligned_path,
-                    max_ref_model_error=gt_position_accuracy,
-                )
-                sparse_aligned = (
-                    pycolmap.Reconstruction(sparse_aligned_path)
-                    if (sparse_aligned_path / "images.bin").exists()
-                    else None
-                )
-                dts, dRs = compute_abs_errors(
-                    sparse_gt=sparse_gt,
-                    sparse=sparse_aligned,
-                )
-                errors = dts
-            else:
-                raise ValueError(f"Invalid error type: {args.error_type}")
+            scene_infos.append(scene_info)
 
-            all_errors.extend(errors)
-            results[category][scene] = compute_auc(
-                errors,
-                error_thresholds,
-                min_error=gt_position_accuracy,
-            )
-
-        results[category]["__all__"] = compute_auc(
-            all_errors,
-            error_thresholds,
-            min_error=gt_position_accuracy,
-        )
-        results[category]["__avg__"] = compute_avg_auc(results[category])
+    results = process_scenes(
+        args, scene_infos, error_thresholds, position_accuracy_gt
+    )
 
     return results
 
@@ -584,7 +593,9 @@ def format_results(args, results):
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data_path", default=Path(__file__).parent / "data")
+    parser.add_argument(
+        "--data_path", default=Path(__file__).parent / "data", type=Path
+    )
     parser.add_argument(
         "--datasets", nargs="+", default=["eth3d", "imc2023", "imc2024"]
     )
@@ -600,7 +611,9 @@ def parse_args():
         default=[],
         help="Scenes to evaluate, if empty all scenes are evaluated.",
     )
-    parser.add_argument("--run_path", default=Path(__file__).parent / "runs")
+    parser.add_argument(
+        "--run_path", default=Path(__file__).parent / "runs", type=Path
+    )
     parser.add_argument(
         "--run_name",
         default=datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"),
