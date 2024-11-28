@@ -1,5 +1,5 @@
 
-COLMAP 3.11 (11/27/2024)
+COLMAP 3.11 (11/28/2024)
 ========================
 
 New Features
@@ -30,7 +30,6 @@ Breaking Changes
 * Upgrade to C++17 standard in C++ and C++14 in CUDA source code.
 * New ``pose_priors`` table in database in support of pose prior based mapper.
 * PyCOLMAP API:
-
   * ``align_reconstrution_to_locations`` is renamed to ``align_reconstruction_to_locations`` (typo).
   * ``pycomap.cost_functions`` becomes a module and should be explicitly imported as ``import pycolmap.cost_functions``.
   * Replaced ``Image.registered`` by ``Image.{has_pose,reset_pose}``.
@@ -161,7 +160,7 @@ Full Change List (sorted temporally)
 * Initialize glog in custom gmock main function by @ahojnnes in https://github.com/colmap/colmap/pull/2916
 * Update ccache for faster windows CI builds by @ahojnnes in https://github.com/colmap/colmap/pull/2922
 * Fixes for Windows ARM64 support by @ahojnnes in https://github.com/colmap/colmap/pull/2921
-* Move geometry implementation of __repr__, __eq__ overloads to C++ side by @ahojnnes in https://github.com/colmap/colmap/pull/2915
+* Move geometry implementation of ``__repr__``, ``__eq__`` overloads to C++ side by @ahojnnes in https://github.com/colmap/colmap/pull/2915
 * Consistent interface and various improvements for pycolmap/estimators by @ahojnnes in https://github.com/colmap/colmap/pull/2923
 * Exclude DetectLineSegments if LSD is disabled by @sarlinpe in https://github.com/colmap/colmap/pull/2927
 * Enable reading 16bit/channel (png) images to grayscale by @Ediolot in https://github.com/colmap/colmap/pull/2924
@@ -184,6 +183,8 @@ Full Change List (sorted temporally)
 * Add helper script for incremental pycolmap build by @ahojnnes in https://github.com/colmap/colmap/pull/2947
 * Fix and consistently define Qt window flags by @ahojnnes in https://github.com/colmap/colmap/pull/2949
 * Cross platform usage of monospace font by @ahojnnes in https://github.com/colmap/colmap/pull/2950
+* Update to latest pybind11 version by @ahojnnes in https://github.com/colmap/colmap/pull/2952
+* Update install instructions for Mac using homebrew by @ahojnnes in https://github.com/colmap/colmap/pull/2953
 
 COLMAP 3.10 (07/23/2024)
 ========================
