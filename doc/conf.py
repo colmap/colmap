@@ -51,7 +51,7 @@ copyright = "2024, Johannes L. Schoenberger"
 # built documents.
 #
 # The short MAJOR.MINOR.PATCH version.
-version = "3.11.0.dev0"
+version = "3.11.0"
 # The full version, including alpha/beta/rc tags.
 release = version
 
