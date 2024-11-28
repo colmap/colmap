@@ -31,6 +31,7 @@
 
 #include "colmap/controllers/option_manager.h"
 #include "colmap/scene/reconstruction_manager.h"
+#include "colmap/util/enum_to_string.h"
 #include "colmap/util/threading.h"
 
 #include <memory>
@@ -40,9 +41,9 @@ namespace colmap {
 
 class AutomaticReconstructionController : public Thread {
  public:
-  enum class DataType { INDIVIDUAL, VIDEO, INTERNET };
-  enum class Quality { LOW, MEDIUM, HIGH, EXTREME };
-  enum class Mesher { POISSON, DELAUNAY };
+  MAKE_ENUM_CLASS(DataType, 0, INDIVIDUAL, VIDEO, INTERNET);
+  MAKE_ENUM_CLASS(Quality, 0, LOW, MEDIUM, HIGH, EXTREME);
+  MAKE_ENUM_CLASS(Mesher, 0, POISSON, DELAUNAY);
 
   struct Options {
     // The path to the workspace folder in which all results are stored.

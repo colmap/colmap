@@ -1,3 +1,5 @@
+#!/bin/bash
+
 set -e
 PYTHON_EXEC=$1
 OUTPUT=$2

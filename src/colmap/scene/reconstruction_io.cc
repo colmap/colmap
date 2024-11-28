@@ -318,7 +318,7 @@ void ReadCamerasBinary(Reconstruction& reconstruction, std::istream& stream) {
 
 void ReadCamerasBinary(Reconstruction& reconstruction,
                        const std::string& path) {
-  std::ifstream file(path);
+  std::ifstream file(path, std::ios::binary);
   THROW_CHECK_FILE_OPEN(file, path);
   ReadCamerasBinary(reconstruction, file);
 }
@@ -382,7 +382,7 @@ void ReadImagesBinary(Reconstruction& reconstruction, std::istream& stream) {
 }
 
 void ReadImagesBinary(Reconstruction& reconstruction, const std::string& path) {
-  std::ifstream file(path);
+  std::ifstream file(path, std::ios::binary);
   THROW_CHECK_FILE_OPEN(file, path);
   ReadImagesBinary(reconstruction, file);
 }
@@ -418,7 +418,7 @@ void ReadPoints3DBinary(Reconstruction& reconstruction, std::istream& stream) {
 
 void ReadPoints3DBinary(Reconstruction& reconstruction,
                         const std::string& path) {
-  std::ifstream file(path);
+  std::ifstream file(path, std::ios::binary);
   THROW_CHECK_FILE_OPEN(file, path);
   ReadPoints3DBinary(reconstruction, file);
 }

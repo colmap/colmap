@@ -13,6 +13,7 @@ void BindPoint2D(py::module& m);
 void BindPoint3D(py::module& m);
 void BindReconstruction(py::module& m);
 void BindReconstructionManager(py::module& m);
+void BindSynthetic(py::module& m);
 void BindTrack(py::module& m);
 void BindTwoViewGeometryScene(py::module& m);
 
@@ -28,6 +29,7 @@ void BindScene(py::module& m) {
   BindTwoViewGeometryScene(m);
   BindDatabase(m);
   BindDatabaseCache(m);
+  BindSynthetic(m);
 
   py::implicitly_convertible<py::iterable, Point2DVector>();
 }

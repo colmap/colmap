@@ -29,6 +29,8 @@
 
 #include "colmap/math/matrix.h"
 
+#include "colmap/util/eigen_matchers.h"
+
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -44,7 +46,7 @@ TEST(DecomposeMatrixRQ, Nominal) {
     EXPECT_TRUE(R.bottomRows(4).isUpperTriangular());
     EXPECT_TRUE(Q.isUnitary());
     EXPECT_NEAR(Q.determinant(), 1.0, 1e-6);
-    EXPECT_TRUE(A.isApprox(R * Q, 1e-6));
+    EXPECT_THAT(A, EigenMatrixNear(Eigen::Matrix4d(R * Q), 1e-6));
   }
 }
 

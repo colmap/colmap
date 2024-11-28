@@ -29,6 +29,8 @@
 
 #include "colmap/geometry/gps.h"
 
+#include "colmap/util/eigen_matchers.h"
+
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -53,7 +55,7 @@ TEST(GPS, EllToXYZGRS80) {
   const auto xyz = gps_tform.EllToXYZ(ell);
 
   for (size_t i = 0; i < ell.size(); ++i) {
-    EXPECT_TRUE(xyz[i].isApprox(ref_xyz[i], 1e-8));
+    EXPECT_THAT(xyz[i], EigenMatrixNear(ref_xyz[i], 1e-8));
   }
 }
 
@@ -76,7 +78,7 @@ TEST(GPS, EllToXYZWGS84) {
   const auto xyz = gps_tform.EllToXYZ(ell);
 
   for (size_t i = 0; i < ell.size(); ++i) {
-    EXPECT_TRUE(xyz[i].isApprox(ref_xyz[i], 1e-8));
+    EXPECT_THAT(xyz[i], EigenMatrixNear(ref_xyz[i], 1e-8));
   }
 }
 
@@ -99,7 +101,7 @@ TEST(GPS, XYZToEll_GRS80) {
   const auto ell = gps_tform.XYZToEll(xyz);
 
   for (size_t i = 0; i < xyz.size(); ++i) {
-    EXPECT_TRUE(ell[i].isApprox(ref_ell[i], 1e-5));
+    EXPECT_THAT(ell[i], EigenMatrixNear(ref_ell[i], 1e-5));
   }
 }
 
@@ -122,7 +124,7 @@ TEST(GPS, XYZToEll_WGS84) {
   const auto ell = gps_tform.XYZToEll(xyz);
 
   for (size_t i = 0; i < xyz.size(); ++i) {
-    EXPECT_TRUE(ell[i].isApprox(ref_ell[i], 1e-5));
+    EXPECT_THAT(ell[i], EigenMatrixNear(ref_ell[i], 1e-5));
   }
 }
 
@@ -139,7 +141,7 @@ TEST(GPS, XYZToEllToXYZ_GRS80) {
   const auto xyz2 = gps_tform.EllToXYZ(ell);
 
   for (size_t i = 0; i < xyz.size(); ++i) {
-    EXPECT_TRUE(xyz[i].isApprox(xyz2[i], 1e-5));
+    EXPECT_THAT(xyz[i], EigenMatrixNear(xyz2[i], 1e-5));
   }
 }
 
@@ -156,7 +158,7 @@ TEST(GPS, XYZToEllToXYZ_WGS84) {
   const auto xyz2 = gps_tform.EllToXYZ(ell);
 
   for (size_t i = 0; i < xyz.size(); ++i) {
-    EXPECT_TRUE(xyz[i].isApprox(xyz2[i], 1e-5));
+    EXPECT_THAT(xyz[i], EigenMatrixNear(xyz2[i], 1e-5));
   }
 }
 
@@ -186,7 +188,7 @@ TEST(GPS, EllToENUWGS84) {
   const auto enu = gps_tform.EllToENU(ell, ori_ell(0), ori_ell(1));
 
   for (size_t i = 0; i < ell.size(); ++i) {
-    EXPECT_TRUE(enu[i].isApprox(ref_enu[i], 1e-8));
+    EXPECT_THAT(enu[i], EigenMatrixNear(ref_enu[i], 1e-8));
   }
 }
 
@@ -218,7 +220,7 @@ TEST(GPS, XYZToENU) {
   const auto enu = gps_tform.XYZToENU(xyz, ori_ell(0), ori_ell(1));
 
   for (size_t i = 0; i < ell.size(); ++i) {
-    EXPECT_TRUE(enu[i].isApprox(ref_enu[i], 1e-8));
+    EXPECT_THAT(enu[i], EigenMatrixNear(ref_enu[i], 1e-8));
   }
 }
 
@@ -254,7 +256,7 @@ TEST(GPS, ENUToEllWGS84) {
   const auto ell = gps_tform.ENUToEll(enu, lat0, lon0, alt0);
 
   for (size_t i = 0; i < ell.size(); ++i) {
-    EXPECT_TRUE(ell[i].isApprox(ref_ell[i], 1e-5));
+    EXPECT_THAT(ell[i], EigenMatrixNear(ref_ell[i], 1e-5));
   }
 }
 
@@ -286,8 +288,33 @@ TEST(GPS, ENUToXYZ) {
   const auto xyz = gps_tform.ENUToXYZ(enu, lat0, lon0, alt0);
 
   for (size_t i = 0; i < ell.size(); ++i) {
-    EXPECT_TRUE(xyz[i].isApprox(ref_xyz[i], 1e-8));
+    EXPECT_THAT(xyz[i], EigenMatrixNear(ref_xyz[i], 1e-8));
   }
+}
+
+TEST(PosePrior, Equals) {
+  PosePrior prior;
+  prior.position = Eigen::Vector3d::Zero();
+  prior.position_covariance = Eigen::Matrix3d::Identity();
+  prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
+  PosePrior other = prior;
+  EXPECT_EQ(prior, other);
+  prior.position.x() = 1;
+  EXPECT_NE(prior, other);
+  other.position.x() = 1;
+  EXPECT_EQ(prior, other);
+}
+
+TEST(PosePrior, Print) {
+  PosePrior prior;
+  prior.position = Eigen::Vector3d::Zero();
+  prior.position_covariance = Eigen::Matrix3d::Identity();
+  prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
+  std::ostringstream stream;
+  stream << prior;
+  EXPECT_EQ(stream.str(),
+            "PosePrior(position=[0, 0, 0], position_covariance=[1, 0, 0, 0, 1, "
+            "0, 0, 0, 1], coordinate_system=CARTESIAN)");
 }
 
 }  // namespace

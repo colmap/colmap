@@ -294,14 +294,14 @@ TEST(TransitivePairGenerator, Nominal) {
   const auto pairs1 = generator.Next();
   EXPECT_THAT(pairs1,
               testing::UnorderedElementsAre(
-                  std::make_pair(images[2].ImageId(), images[1].ImageId()),
-                  std::make_pair(images[3].ImageId(), images[0].ImageId())));
+                  std::make_pair(images[1].ImageId(), images[2].ImageId()),
+                  std::make_pair(images[0].ImageId(), images[3].ImageId())));
   for (const auto& pair : pairs1) {
     database->WriteTwoViewGeometry(pair.first, pair.second, two_view_geometry);
   }
   EXPECT_THAT(generator.Next(),
               testing::ElementsAre(
-                  std::make_pair(images[3].ImageId(), images[2].ImageId())));
+                  std::make_pair(images[2].ImageId(), images[3].ImageId())));
   EXPECT_TRUE(generator.Next().empty());
   EXPECT_TRUE(generator.HasFinished());
 }

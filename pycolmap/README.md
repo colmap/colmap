@@ -88,7 +88,7 @@ To list available options and their default parameters:
 help(pycolmap.SiftExtractionOptions)
 ```
 
-For another example of usage, see [`example.py`](./example.py) or
+For another example of usage, see [`example.py`](./examples/example.py) or
 [`hloc/reconstruction.py`](https://github.com/cvg/Hierarchical-Localization/blob/master/hloc/reconstruction.py).
 
 ## Reconstruction object

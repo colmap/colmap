@@ -31,6 +31,7 @@
 
 #include "colmap/math/random.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/eigen_matchers.h"
 
 #include <Eigen/Dense>
 #include <gtest/gtest.h>
@@ -58,8 +59,7 @@ TEST(SolveLeastAbsoluteDeviations, OverDetermined) {
   EXPECT_TRUE(SolveLeastAbsoluteDeviations(options, A, b, &x));
 
   // Reference solution obtained with Boyd's Matlab implementation.
-  const Eigen::Vector3d x_ref(0, 0, 1 / 3.0);
-  EXPECT_TRUE(x.isApprox(x_ref));
+  EXPECT_THAT(x, EigenMatrixNear(Eigen::Vector3d(0, 0, 1 / 3.0)));
 
   const Eigen::VectorXd residual = A * x - b;
   EXPECT_LE(residual.norm(), 1e-6);
@@ -85,8 +85,7 @@ TEST(SolveLeastAbsoluteDeviations, WellDetermined) {
   EXPECT_TRUE(SolveLeastAbsoluteDeviations(options, A, b, &x));
 
   // Reference solution obtained with Boyd's Matlab implementation.
-  const Eigen::Vector3d x_ref(0, 0, 1 / 3.0);
-  EXPECT_TRUE(x.isApprox(x_ref));
+  EXPECT_THAT(x, EigenMatrixNear(Eigen::Vector3d(0, 0, 1 / 3.0)));
 
   const Eigen::VectorXd residual = A * x - b;
   EXPECT_LE(residual.norm(), 1e-6);

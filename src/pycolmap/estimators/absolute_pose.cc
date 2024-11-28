@@ -16,6 +16,62 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
+py::typing::Optional<py::dict> PyEstimateAbsolutePose(
+    const std::vector<Eigen::Vector2d>& points2D,
+    const std::vector<Eigen::Vector3d>& points3D,
+    Camera& camera,
+    const AbsolutePoseEstimationOptions& estimation_options) {
+  py::gil_scoped_release release;
+  Rigid3d cam_from_world;
+  size_t num_inliers;
+  std::vector<char> inlier_mask;
+  if (!EstimateAbsolutePose(estimation_options,
+                            points2D,
+                            points3D,
+                            &cam_from_world,
+                            &camera,
+                            &num_inliers,
+                            &inlier_mask)) {
+    py::gil_scoped_acquire acquire;
+    return py::none();
+  }
+
+  py::gil_scoped_acquire acquire;
+  return py::dict("cam_from_world"_a = cam_from_world,
+                  "num_inliers"_a = num_inliers,
+                  "inlier_mask"_a = ToPythonMask(inlier_mask));
+}
+
+py::typing::Optional<py::dict> PyRefineAbsolutePose(
+    const Rigid3d& init_cam_from_world,
+    const std::vector<Eigen::Vector2d>& points2D,
+    const std::vector<Eigen::Vector3d>& points3D,
+    const PyInlierMask& inlier_mask,
+    Camera& camera,
+    const AbsolutePoseRefinementOptions& refinement_options,
+    const bool return_covariance) {
+  py::gil_scoped_release release;
+  Rigid3d refined_cam_from_world = init_cam_from_world;
+  std::vector<char> inlier_mask_char(inlier_mask.size());
+  Eigen::Map<Eigen::Matrix<char, Eigen::Dynamic, 1>>(
+      inlier_mask_char.data(), inlier_mask.size()) = inlier_mask.cast<char>();
+  Eigen::Matrix<double, 6, 6> covariance;
+  if (!RefineAbsolutePose(refinement_options,
+                          inlier_mask_char,
+                          points2D,
+                          points3D,
+                          &refined_cam_from_world,
+                          &camera,
+                          return_covariance ? &covariance : nullptr)) {
+    py::gil_scoped_acquire acquire;
+    return py::none();
+  }
+  py::gil_scoped_acquire acquire;
+  py::dict result("cam_from_world"_a = refined_cam_from_world);
+  if (return_covariance) result["covariance"] = covariance;
+  return result;
+}
+
 py::typing::Optional<py::dict> PyEstimateAndRefineAbsolutePose(
     const std::vector<Eigen::Vector2d>& points2D,
     const std::vector<Eigen::Vector3d>& points3D,
@@ -51,36 +107,11 @@ py::typing::Optional<py::dict> PyEstimateAndRefineAbsolutePose(
   }
 
   py::gil_scoped_acquire acquire;
-  py::dict success_dict("cam_from_world"_a = cam_from_world,
-                        "num_inliers"_a = num_inliers,
-                        "inliers"_a = ToPythonMask(inlier_mask));
-  if (return_covariance) success_dict["covariance"] = covariance;
-  return success_dict;
-}
-
-py::typing::Optional<py::dict> PyRefineAbsolutePose(
-    const Rigid3d& init_cam_from_world,
-    const std::vector<Eigen::Vector2d>& points2D,
-    const std::vector<Eigen::Vector3d>& points3D,
-    const PyInlierMask& inlier_mask,
-    Camera& camera,
-    const AbsolutePoseRefinementOptions& refinement_options) {
-  py::gil_scoped_release release;
-  Rigid3d refined_cam_from_world = init_cam_from_world;
-  std::vector<char> inlier_mask_char(inlier_mask.size());
-  Eigen::Map<Eigen::Matrix<char, Eigen::Dynamic, 1>>(
-      inlier_mask_char.data(), inlier_mask.size()) = inlier_mask.cast<char>();
-  if (!RefineAbsolutePose(refinement_options,
-                          inlier_mask_char,
-                          points2D,
-                          points3D,
-                          &refined_cam_from_world,
-                          &camera)) {
-    py::gil_scoped_acquire acquire;
-    return py::none();
-  }
-  py::gil_scoped_acquire acquire;
-  return py::dict("cam_from_world"_a = refined_cam_from_world);
+  py::dict result("cam_from_world"_a = cam_from_world,
+                  "num_inliers"_a = num_inliers,
+                  "inlier_mask"_a = ToPythonMask(inlier_mask));
+  if (return_covariance) result["covariance"] = covariance;
+  return result;
 }
 
 void BindAbsolutePoseEstimator(py::module& m) {
@@ -110,7 +141,31 @@ void BindAbsolutePoseEstimator(py::module& m) {
                      &AbsolutePoseRefinementOptions::print_summary);
   MakeDataclass(PyRefinementOptions);
 
-  m.def("absolute_pose_estimation",
+  m.def("estimate_absolute_pose",
+        &PyEstimateAbsolutePose,
+        "points2D"_a,
+        "points3D"_a,
+        "camera"_a,
+        py::arg_v("estimation_options",
+                  AbsolutePoseEstimationOptions(),
+                  "AbsolutePoseEstimationOptions()"),
+        "Robustly estimate absolute pose using LO-RANSAC "
+        "without non-linear refinement.");
+
+  m.def("refine_absolute_pose",
+        &PyRefineAbsolutePose,
+        "cam_from_world"_a,
+        "points2D"_a,
+        "points3D"_a,
+        "inlier_mask"_a,
+        "camera"_a,
+        py::arg_v("refinement_options",
+                  AbsolutePoseRefinementOptions(),
+                  "AbsolutePoseRefinementOptions()"),
+        "return_covariance"_a = false,
+        "Non-linear refinement of absolute pose.");
+
+  m.def("estimate_and_refine_absolute_pose",
         &PyEstimateAndRefineAbsolutePose,
         "points2D"_a,
         "points3D"_a,
@@ -122,17 +177,8 @@ void BindAbsolutePoseEstimator(py::module& m) {
                   AbsolutePoseRefinementOptions(),
                   "AbsolutePoseRefinementOptions()"),
         "return_covariance"_a = false,
-        "Absolute pose estimation with non-linear refinement.");
-
-  m.def("pose_refinement",
-        &PyRefineAbsolutePose,
-        "cam_from_world"_a,
-        "points2D"_a,
-        "points3D"_a,
-        "inlier_mask"_a,
-        "camera"_a,
-        py::arg_v("refinement_options",
-                  AbsolutePoseRefinementOptions(),
-                  "AbsolutePoseRefinementOptions()"),
-        "Non-linear refinement of absolute pose.");
+        "Robust absolute pose estimation with LO-RANSAC "
+        "followed by non-linear refinement.");
+  DefDeprecation(
+      m, "absolute_pose_estimation", "estimate_and_refine_absolute_pose");
 }
