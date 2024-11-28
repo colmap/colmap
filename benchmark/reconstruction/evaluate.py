@@ -31,6 +31,8 @@ import argparse
 import collections
 import copy
 import datetime
+import functools
+import multiprocessing
 import shutil
 import subprocess
 from pathlib import Path
@@ -176,7 +178,6 @@ SceneInfo = collections.namedtuple(
         "workspace_path",
         "image_path",
         "sparse_gt_path",
-        "sparse_gt",
         "position_accuracy_gt",
         "colmap_extra_args",
     ],
@@ -184,18 +185,20 @@ SceneInfo = collections.namedtuple(
 
 
 def reconstruct_scene(args, scene_info):
+    sparse_gt = pycolmap.Reconstruction(scene_info.sparse_gt_path)
+
     colmap_reconstruction(
         args=args,
         workspace_path=scene_info.workspace_path,
         image_path=scene_info.image_path,
-        camera_prior_sparse_gt=scene_info.sparse_gt,
+        camera_prior_sparse_gt=sparse_gt,
         extra_args=scene_info.colmap_extra_args,
     )
 
     sparse_path = scene_info.workspace_path / "sparse/0"
     if args.error_type == "relative":
         dts, dRs = compute_rel_errors(
-            sparse_gt=scene_info.sparse_gt,
+            sparse_gt=sparse_gt,
             sparse=pycolmap.Reconstruction(sparse_path),
             min_proj_center_dist=scene_info.position_accuracy_gt,
         )
@@ -215,39 +218,39 @@ def reconstruct_scene(args, scene_info):
             else None
         )
         dts, dRs = compute_abs_errors(
-            sparse_gt=scene_info.sparse_gt,
+            sparse_gt=sparse_gt,
             sparse=sparse_aligned,
         )
         errors = dts
     else:
         raise ValueError(f"Invalid error type: {args.error_type}")
 
-    return errors
+    return scene_info, errors
 
 
 def process_scenes(args, scene_infos, error_thresholds, position_accuracy_gt):
-    results = collections.defaultdict(dict)
+    with multiprocessing.Pool(processes=1) as p:
+        results = p.map(functools.partial(reconstruct_scene, args), scene_infos)
+
+    metrics = collections.defaultdict(dict)
     errors_by_category = collections.defaultdict(list)
-
-    for scene_info in scene_infos:
-        errors = reconstruct_scene(args, scene_info)
-
+    for scene_info, errors in results:
         errors_by_category[scene_info.category].extend(errors)
-        results[scene_info.category][scene_info.scene] = compute_auc(
+        metrics[scene_info.category][scene_info.scene] = compute_auc(
             errors,
             error_thresholds,
             min_error=position_accuracy_gt,
         )
 
     for category, errors in errors_by_category.items():
-        results[category]["__all__"] = compute_auc(
+        metrics[category]["__all__"] = compute_auc(
             errors,
             error_thresholds,
             min_error=position_accuracy_gt,
         )
-        results[category]["__avg__"] = compute_avg_auc(results[category])
+        metrics[category]["__avg__"] = compute_avg_auc(metrics[category])
 
-    return results
+    return metrics
 
 
 def normalize_vec(vec, eps=1e-10):
@@ -476,7 +479,6 @@ def evaluate_eth3d(args, position_accuracy_gt=0.001):
                 workspace_path=workspace_path,
                 image_path=image_path,
                 sparse_gt_path=sparse_gt_path,
-                sparse_gt=sparse_gt,
                 position_accuracy_gt=position_accuracy_gt,
                 colmap_extra_args=colmap_extra_args,
             )
@@ -521,8 +523,7 @@ def evaluate_imc(args, year, position_accuracy_gt=0.02):
             train_image_names = set(
                 image.name for image in image_path.iterdir()
             )
-            sparse_gt_path = scene_path / "sfm"
-            sparse_gt = pycolmap.Reconstruction(sparse_gt_path)
+            sparse_gt = pycolmap.Reconstruction(scene_path / "sfm")
             hold_out_image_ids = [
                 image.image_id
                 for image in sparse_gt.images.values()
@@ -530,6 +531,9 @@ def evaluate_imc(args, year, position_accuracy_gt=0.02):
             ]
             for image_id in hold_out_image_ids:
                 del sparse_gt.images[image_id]
+            sparse_gt_path = scene_path / "sparse_gt"
+            sparse_gt_path.mkdir()
+            sparse_gt.write(sparse_gt_path)
 
             print(f"Processing IMC {year}: category={category}, scene={scene}")
 
@@ -539,7 +543,6 @@ def evaluate_imc(args, year, position_accuracy_gt=0.02):
                 workspace_path=workspace_path,
                 image_path=image_path,
                 sparse_gt_path=sparse_gt_path,
-                sparse_gt=sparse_gt,
                 position_accuracy_gt=position_accuracy_gt,
                 colmap_extra_args=None,
             )
