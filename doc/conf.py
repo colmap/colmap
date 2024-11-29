@@ -10,6 +10,7 @@
 # All configuration values have a default; values that are commented out
 # serve to show the default.
 
+import re
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -188,7 +189,7 @@ latex_elements = {
     # The font size ('10pt', '11pt' or '12pt').
     # 'pointsize': '10pt',
     # Additional stuff for the LaTeX preamble.
-    #'preamble': '',
+    # 'preamble': '',
 }
 
 # Grouping the document tree into LaTeX files. List of tuples
@@ -280,8 +281,15 @@ python_maximum_signature_line_length = 120
 
 
 def process_doc(app, what, name, obj, options, lines):
+    if not lines:
+        return
+    has_overload = lines[0] == "Overloaded function."
     for i in range(len(lines)):
         lines[i] = lines[i].replace("pycolmap._core", "pycolmap")
+        if has_overload and re.search(r"^\d+\. ", lines[i]):
+            index, signature = lines[i].split(". ", 1)
+            signature = "``" + signature.replace("->", "→") + "``"
+            lines[i] = ". ".join([index, signature])
 
 
 def process_sig(app, what, name, obj, options, signature, return_annotation):
