@@ -419,7 +419,7 @@ inline void DefDeprecation(
   parent.def(
       old_name.c_str(),
       [parent,
-       old_name = std::move(old_name),
+       old_name,
        new_name = std::move(new_name),
        custom_warning = std::move(custom_warning)](const py::args& args,
                                                    const py::kwargs& kwargs) {
