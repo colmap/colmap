@@ -110,7 +110,7 @@ void BindAlignmentEstimator(py::module& m) {
       "src"_a,
       "tgt_image_names"_a,
       "tgt_locations"_a,
-      "min_common_points"_a,
+      "min_common_images"_a,
       "ransac_options"_a);
 
   m.def(
