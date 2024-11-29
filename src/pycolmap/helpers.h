@@ -44,7 +44,8 @@ void AddStringToEnumConstructor(py::enum_<T>& enm) {
   enm.def(py::init([enm](const std::string& value) {
             return PyStringToEnum(enm, py::str(value));  // str constructor
           }),
-          "value"_a);
+          "name"_a);
+  enm.attr("__repr__") = enm.attr("__str__");
   py::implicitly_convertible<std::string, T>();
 }
 
