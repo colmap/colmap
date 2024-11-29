@@ -28,7 +28,7 @@ void BindGeometry(py::module& m) {
            "xyzw"_a,
            "Quaternion in [x,y,z,w] format.")
       .def(py::init<const Eigen::Matrix3d&>(),
-           "rotmat"_a,
+           "matrix"_a,
            "3x3 rotation matrix.")
       .def(py::init([](const Eigen::Vector3d& vec) {
              return Eigen::Quaterniond(
@@ -75,10 +75,15 @@ void BindGeometry(py::module& m) {
 
   py::class_ext_<Rigid3d> PyRigid3d(m, "Rigid3d");
   PyRigid3d.def(py::init<>())
-      .def(py::init<const Eigen::Quaterniond&, const Eigen::Vector3d&>())
+      .def(py::init<const Eigen::Quaterniond&, const Eigen::Vector3d&>(),
+           "rotation"_a,
+           "translation"_a)
       .def(py::init([](const Eigen::Matrix3x4d& matrix) {
-        return Rigid3d(Eigen::Quaterniond(matrix.leftCols<3>()), matrix.col(3));
-      }))
+             return Rigid3d(Eigen::Quaterniond(matrix.leftCols<3>()),
+                            matrix.col(3));
+           }),
+           "matrix"_a,
+           "3x4 transformation matrix.")
       .def_readwrite("rotation", &Rigid3d::rotation)
       .def_readwrite("translation", &Rigid3d::translation)
       .def("matrix", &Rigid3d::ToMatrix)
@@ -110,8 +115,13 @@ void BindGeometry(py::module& m) {
   py::class_ext_<Sim3d> PySim3d(m, "Sim3d");
   PySim3d.def(py::init<>())
       .def(
-          py::init<double, const Eigen::Quaterniond&, const Eigen::Vector3d&>())
-      .def(py::init(&Sim3d::FromMatrix))
+          py::init<double, const Eigen::Quaterniond&, const Eigen::Vector3d&>(),
+          "scale"_a,
+          "rotation"_a,
+          "translation"_a)
+      .def(py::init(&Sim3d::FromMatrix),
+           "matrix"_a,
+           "3x4 transformation matrix.")
       .def_property(
           "scale",
           [](Sim3d& self) {
@@ -147,12 +157,19 @@ void BindGeometry(py::module& m) {
 
   py::class_ext_<PosePrior> PyPosePrior(m, "PosePrior");
   PyPosePrior.def(py::init<>())
-      .def(py::init<const Eigen::Vector3d&>())
-      .def(py::init<const Eigen::Vector3d&, const PPCoordinateSystem>())
-      .def(py::init<const Eigen::Vector3d&, const Eigen::Matrix3d&>())
+      .def(py::init<const Eigen::Vector3d&>(), "position"_a)
+      .def(py::init<const Eigen::Vector3d&, const PPCoordinateSystem>(),
+           "position"_a,
+           "coordinate_system"_a)
+      .def(py::init<const Eigen::Vector3d&, const Eigen::Matrix3d&>(),
+           "position"_a,
+           "position_covariance"_a)
       .def(py::init<const Eigen::Vector3d&,
                     const Eigen::Matrix3d&,
-                    const PPCoordinateSystem>())
+                    const PPCoordinateSystem>(),
+           "position"_a,
+           "position_covariance"_a,
+           "coordinate_system"_a)
       .def_readwrite("position", &PosePrior::position)
       .def_readwrite("position_covariance", &PosePrior::position_covariance)
       .def_readwrite("coordinate_system", &PosePrior::coordinate_system)
