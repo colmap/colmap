@@ -3,4 +3,4 @@
 Changelog
 =========
 
-.. include:: ../CHANGELOG.txt
+.. include:: ../CHANGELOG.rst
