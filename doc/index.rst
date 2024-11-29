@@ -82,10 +82,10 @@ for bug reports, feature requests/additions, etc.
 Acknowledgments
 ---------------
 
-COLMAP was originally written by `Johannes Schönberger <https://demuc.de/>`_ with
+COLMAP was originally written by `Johannes Schönberger <https://demuc.de/>`__ with
 funding provided by his PhD advisors Jan-Michael Frahm and Marc Pollefeys.
 The team of core project maintainers currently includes
-`Johannes Schönberger <https://github.com/ahojnnes>`_,
+`Johannes Schönberger <https://github.com/ahojnnes>`__,
 `Paul-Edouard Sarlin <https://github.com/sarlinpe>`_, and
 `Shaohui Liu <https://github.com/B1ueber2y>`_.
 
