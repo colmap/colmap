@@ -38,6 +38,7 @@ import subprocess
 from pathlib import Path
 
 import numpy as np
+from PIL import Image
 
 import pycolmap
 
@@ -520,6 +521,115 @@ def evaluate_eth3d(args, position_accuracy_gt=0.001):
     return results
 
 
+def evaluate_blended_mvs(args, position_accuracy_gt=0.001):
+    error_thresholds = get_error_thresholds(args)
+
+    scene_infos = []
+    for category_path in (args.data_path / "blended-mvs").iterdir():
+        if not category_path.is_dir() or (
+            args.categories and category_path.name not in args.categories
+        ):
+            continue
+
+        category = category_path.name
+
+        for scene_path in sorted(category_path.iterdir()):
+            if not scene_path.is_dir():
+                continue
+
+            scene = scene_path.name
+            if args.scenes and scene not in args.scenes:
+                continue
+
+            workspace_path = (
+                args.run_path / args.run_name / "blended-mvs" / category / scene
+            )
+            image_path = scene_path / "blended_images"
+            image_list_path = scene_path / "images.txt"
+            with open(image_list_path, "w") as fid:
+                for filepath in sorted(image_path.iterdir()):
+                    image_name = str(filepath.name)
+                    if (
+                        image_name.endswith(".jpg")
+                        and "masked" not in image_name
+                    ):
+                        fid.write(image_name + "\n")
+            
+            sparse_gt_path = scene_path / "sparse_gt"
+            if not sparse_gt_path.exists():
+                sparse_gt = pycolmap.Reconstruction()
+                for i, filepath in enumerate(
+                    sorted((scene_path / "cams").iterdir())
+                ):
+                    filename = str(filepath.name)
+                    if not filename.endswith("_cam.txt"):
+                        continue
+                    image_name = filename[:-8] + ".jpg"
+                    width, height = Image.open(
+                        scene_path / "blended_images" / image_name
+                    ).size[:2]
+                    with open(filepath, encoding="ascii") as fid:
+                        lines = list(map(lambda b: b.strip(), fid.readlines()))
+                        extrinsic = np.fromstring(
+                            " ".join(lines[1:4]),
+                            count=12,
+                            sep=" ",
+                        ).reshape(3, 4)
+                        intrinsic = np.fromstring(
+                            " ".join(lines[7:10]),
+                            count=9,
+                            sep=" ",
+                        ).reshape(3, 3)
+                    camera = pycolmap.Camera()
+                    camera.camera_id = i
+                    camera.model = pycolmap.CameraModelId.PINHOLE
+                    camera.width = width
+                    camera.height = height
+                    camera.params = [
+                        intrinsic[0, 0],
+                        intrinsic[1, 1],
+                        intrinsic[0, 2],
+                        intrinsic[1, 2],
+                    ]
+                    image = pycolmap.Image()
+                    image.image_id = i
+                    image.camera_id = i
+                    image.name = image_name
+                    image.cam_from_world = pycolmap.Rigid3d()
+                    image.cam_from_world.rotation = pycolmap.Rotation3d(
+                        rotmat=extrinsic[:, :3]
+                    )
+                    image.cam_from_world.translation = extrinsic[:, 3]
+                    sparse_gt.add_camera(camera)
+                    sparse_gt.add_image(image)
+                
+                
+                sparse_gt_path.mkdir()
+                sparse_gt.write(sparse_gt_path)
+
+            print(f"Processing BlendedMVS: category={category}, scene={scene}")
+
+            colmap_extra_args = ["--image_list_path", image_list_path]
+
+            scene_info = SceneInfo(
+                category=category,
+                scene=scene,
+                workspace_path=workspace_path,
+                image_path=image_path,
+                sparse_gt_path=sparse_gt_path,
+                position_accuracy_gt=position_accuracy_gt,
+                colmap_extra_args=colmap_extra_args,
+            )
+
+            scene_infos.append(scene_info)
+
+    results = process_scenes(
+        args, scene_infos, error_thresholds, position_accuracy_gt
+    )
+
+    return results
+
+
 def evaluate_imc(args, year, position_accuracy_gt=0.02):
     folder_name = f"imc{year}"
 
@@ -628,7 +738,9 @@ def parse_args():
         "--data_path", default=Path(__file__).parent / "data", type=Path
     )
     parser.add_argument(
-        "--datasets", nargs="+", default=["eth3d", "imc2023", "imc2024"]
+        "--datasets",
+        nargs="+",
+        default=["eth3d", "blended-mvs", "imc2023", "imc2024"],
     )
     parser.add_argument(
         "--categories",
@@ -706,6 +818,8 @@ def main():
     results = {}
     if "eth3d" in args.datasets:
         results["eth3d"] = evaluate_eth3d(args)
+    if "blended-mvs" in args.datasets:
+        results["blended-mvs"] = evaluate_blended_mvs(args)
     if "imc2023" in args.datasets:
         results["imc2023"] = evaluate_imc(args, year=2023)
     if "imc2024" in args.datasets:
