@@ -47,8 +47,8 @@ def colmap_reconstruction(
     args,
     workspace_path,
     image_path,
-    camera_prior_sparse_gt=None,
-    extra_args=None,
+    camera_priors_sparse_gt=None,
+    colmap_extra_args=None,
     num_threads=1,
 ):
     workspace_path.mkdir(parents=True, exist_ok=True)
@@ -65,7 +65,7 @@ def colmap_reconstruction(
         print("Skipping reconstruction, as it already exists")
         return
 
-    args = [
+    colmap_args = [
         args.colmap_path,
         "automatic_reconstructor",
         "--image_path",
@@ -83,8 +83,8 @@ def colmap_reconstruction(
     ]
 
     subprocess.check_call(
-        args
-        + (extra_args or [])
+        colmap_args
+        + (colmap_extra_args or [])
         + [
             "--extraction",
             "1",
@@ -98,20 +98,20 @@ def colmap_reconstruction(
         cwd=workspace_path,
     )
 
-    if camera_prior_sparse_gt is not None:
+    if camera_priors_sparse_gt is not None:
         print("Setting prior cameras from GT")
 
         database = pycolmap.Database()
         database.open(database_path)
 
         camera_id_gt_to_camera_id = {}
-        for camera_id_gt, camera_gt in camera_prior_sparse_gt.cameras.items():
+        for camera_id_gt, camera_gt in camera_priors_sparse_gt.cameras.items():
             camera_gt.has_prior_focal_length = True
             camera_id = database.write_camera(camera_gt)
             camera_id_gt_to_camera_id[camera_id_gt] = camera_id
 
         images_gt_by_name = {}
-        for image_gt in camera_prior_sparse_gt.images.values():
+        for image_gt in camera_priors_sparse_gt.images.values():
             images_gt_by_name[image_gt.name] = image_gt
 
         for image in database.read_all_images():
@@ -129,8 +129,8 @@ def colmap_reconstruction(
         database.close()
 
     subprocess.check_call(
-        args
-        + (extra_args or [])
+        colmap_args
+        + (colmap_extra_args or [])
         + [
             "--extraction",
             "0",
@@ -149,8 +149,8 @@ def colmap_reconstruction(
     # applications to the low efficiency cores but we want to use the
     # performance cores.
     subprocess.check_call(
-        args
-        + (extra_args or [])
+        colmap_args
+        + (colmap_extra_args or [])
         + [
             "--extraction",
             "0",
@@ -200,6 +200,7 @@ SceneInfo = collections.namedtuple(
         "workspace_path",
         "image_path",
         "sparse_gt_path",
+        "camera_priors_from_sparse_gt",
         "position_accuracy_gt",
         "colmap_extra_args",
     ],
@@ -213,7 +214,9 @@ def reconstruct_scene(args, scene_info, num_threads):
         args=args,
         workspace_path=scene_info.workspace_path,
         image_path=scene_info.image_path,
-        camera_prior_sparse_gt=sparse_gt,
+        camera_priors_sparse_gt=(
+            sparse_gt if scene_info.camera_priors_from_sparse_gt else None
+        ),
         num_threads=num_threads,
         extra_args=scene_info.colmap_extra_args,
     )
@@ -386,6 +389,11 @@ def compute_rel_errors(sparse_gt, sparse, min_proj_center_dist):
 
 
 def compute_abs_errors(sparse_gt, sparse):
+    """Computes rotational and translational absolute pose errors.
+
+    Assumes that the input reconstructions are aligned in the same coordinate
+    system. Computes one error per ground-truth image.
+    """
     if sparse is None:
         print("Reconstruction or alignment failed")
         return len(sparse_gt.images) * [np.inf], len(sparse_gt.images) * [180]
@@ -508,6 +516,7 @@ def evaluate_eth3d(args, position_accuracy_gt=0.001):
                 workspace_path=workspace_path,
                 image_path=image_path,
                 sparse_gt_path=sparse_gt_path,
+                camera_priors_from_sparse_gt=True,
                 position_accuracy_gt=position_accuracy_gt,
                 colmap_extra_args=colmap_extra_args,
             )
@@ -554,7 +563,7 @@ def evaluate_blended_mvs(args, position_accuracy_gt=0.001):
                         and "masked" not in image_name
                     ):
                         fid.write(image_name + "\n")
-            
+
             sparse_gt_path = scene_path / "sparse_gt"
             if not sparse_gt_path.exists():
                 sparse_gt = pycolmap.Reconstruction()
@@ -602,8 +611,7 @@ def evaluate_blended_mvs(args, position_accuracy_gt=0.001):
                     image.cam_from_world.translation = extrinsic[:, 3]
                     sparse_gt.add_camera(camera)
                     sparse_gt.add_image(image)
-                
-                
+
                 sparse_gt_path.mkdir()
                 sparse_gt.write(sparse_gt_path)
 
@@ -617,6 +625,7 @@ def evaluate_blended_mvs(args, position_accuracy_gt=0.001):
                 workspace_path=workspace_path,
                 image_path=image_path,
                 sparse_gt_path=sparse_gt_path,
+                camera_priors_from_sparse_gt=True,
                 position_accuracy_gt=position_accuracy_gt,
                 colmap_extra_args=colmap_extra_args,
             )
@@ -681,6 +690,7 @@ def evaluate_imc(args, year, position_accuracy_gt=0.02):
                 workspace_path=workspace_path,
                 image_path=image_path,
                 sparse_gt_path=sparse_gt_path,
+                camera_priors_from_sparse_gt=False,
                 position_accuracy_gt=position_accuracy_gt,
                 colmap_extra_args=None,
             )
