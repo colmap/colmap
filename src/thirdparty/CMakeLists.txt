@@ -64,8 +64,6 @@ if(FETCH_POSELIB)
     set(MARCH_NATIVE OFF CACHE BOOL "")
     FetchContent_MakeAvailable(poselib)
     message(STATUS "Configuring PoseLib... done")
-else()
-    find_package(PoseLib REQUIRED)
 endif()
 
 set(CLANG_TIDY_EXE ${CLANG_TIDY_EXE_TEMP})

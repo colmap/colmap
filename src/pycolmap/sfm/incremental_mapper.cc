@@ -340,7 +340,7 @@ void BindIncrementalMapperImpl(py::module& m) {
   // TODO: migrate comments. improve formatting
   py::class_<IncrementalMapper, std::shared_ptr<IncrementalMapper>>(
       m, "IncrementalMapper")
-      .def(py::init<std::shared_ptr<const DatabaseCache>>())
+      .def(py::init<std::shared_ptr<const DatabaseCache>>(), "database_cache"_a)
       .def("begin_reconstruction",
            &IncrementalMapper::BeginReconstruction,
            "reconstruction"_a)
