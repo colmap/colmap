@@ -70,8 +70,6 @@ COLMAP_ADD_LIBRARY(
         Eigen3::Eigen
         Ceres::ceres
         PoseLib::PoseLib
-    PRIVATE_LINK_LIBS
-        PoseLib::PoseLib
 )
 
 if(CUDA_ENABLED)
