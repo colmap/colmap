@@ -87,6 +87,10 @@ if(CGAL_FOUND)
     list(APPEND COLMAP_LINK_DIRS ${CGAL_LIBRARIES_DIR})
 endif()
 
+if(NOT FETCH_POSELIB)
+    find_package(PoseLib ${COLMAP_FIND_TYPE})
+endif()
+
 set(COLMAP_LINK_DIRS ${Boost_LIBRARY_DIRS})
 
 set(CUDA_MIN_VERSION "7.0")

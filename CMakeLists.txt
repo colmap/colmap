@@ -339,7 +339,6 @@ set(COLMAP_EXPORT_LIBS
     # Third-party.
     colmap_poisson_recon
     colmap_vlfeat
-    PoseLib
 )
 if(LSD_ENABLED)
     list(APPEND COLMAP_EXPORT_LIBS
@@ -362,6 +361,9 @@ if(GPU_ENABLED)
     list(APPEND COLMAP_EXPORT_LIBS
          colmap_sift_gpu
     )
+endif()
+if(FETCH_POSELIB)
+    list(APPEND COLMAP_EXPORT_LIBS PoseLib)
 endif()
 
 # Add unified interface library target to export.
