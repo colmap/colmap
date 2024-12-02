@@ -78,7 +78,6 @@ if(FETCH_LIBTORCH)
         URL_HASH SHA256=0822824c1df267159a649ad4701518217c60b8f75de056a26ab43958d8ab1622
     )
     FetchContent_MakeAvailable(libtorch)
-    set(Torch_DIR ${libtorch_SOURCE_DIR})
     list(APPEND CMAKE_PREFIX_PATH "${libtorch_SOURCE_DIR}")
     find_package(Torch REQUIRED)
     add_library(Torch INTERFACE)
