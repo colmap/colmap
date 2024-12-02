@@ -27,6 +27,9 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+if(NOT FETCH_POSELIB)
+    find_package(PoseLib REQUIRED)
+endif()
 
 set(FOLDER_NAME "estimators")
 
@@ -66,6 +69,7 @@ COLMAP_ADD_LIBRARY(
         colmap_optim
         Eigen3::Eigen
         Ceres::ceres
+        PoseLib::PoseLib
     PRIVATE_LINK_LIBS
         PoseLib::PoseLib
 )
