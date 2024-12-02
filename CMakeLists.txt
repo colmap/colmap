@@ -362,6 +362,9 @@ if(GPU_ENABLED)
          colmap_sift_gpu
     )
 endif()
+if(FETCH_POSELIB)
+    list(APPEND COLMAP_EXPORT_LIBS PoseLib)
+endif()
 
 # Add unified interface library target to export.
 add_library(colmap INTERFACE)
