@@ -206,6 +206,25 @@ SceneInfo = collections.namedtuple(
     ],
 )
 
+SceneResult = collections.namedtuple(
+    "SceneResult",
+    [
+        "scene_info",
+        "errors",
+        "num_images",
+        "num_reg_images",
+    ],
+)
+
+SceneMetrics = collections.namedtuple(
+    "ScenSceneMetricsResult",
+    [
+        "aucs",
+        "num_images",
+        "num_reg_images",
+    ],
+)
+
 
 def reconstruct_scene(args, scene_info, num_threads):
     sparse_gt = pycolmap.Reconstruction(scene_info.sparse_gt_path)
@@ -218,14 +237,16 @@ def reconstruct_scene(args, scene_info, num_threads):
             sparse_gt if scene_info.camera_priors_from_sparse_gt else None
         ),
         num_threads=num_threads,
-        extra_args=scene_info.colmap_extra_args,
+        colmap_extra_args=scene_info.colmap_extra_args,
     )
 
+    # TODO: Compute error over all sub-models combined.
     sparse_path = scene_info.workspace_path / "sparse/0"
+    sparse = pycolmap.Reconstruction(sparse_path)
     if args.error_type == "relative":
         dts, dRs = compute_rel_errors(
             sparse_gt=sparse_gt,
-            sparse=pycolmap.Reconstruction(sparse_path),
+            sparse=sparse,
             min_proj_center_dist=scene_info.position_accuracy_gt,
         )
         errors = [max(dt, dR) for dt, dR in zip(dts, dRs)]
@@ -238,20 +259,25 @@ def reconstruct_scene(args, scene_info, num_threads):
             sparse_aligned_path=sparse_aligned_path,
             max_ref_model_error=scene_info.position_accuracy_gt,
         )
-        sparse_aligned = (
+        sparse = (
             pycolmap.Reconstruction(sparse_aligned_path)
             if (sparse_aligned_path / "images.bin").exists()
             else None
         )
         dts, dRs = compute_abs_errors(
             sparse_gt=sparse_gt,
-            sparse=sparse_aligned,
+            sparse=sparse,
         )
         errors = dts
     else:
         raise ValueError(f"Invalid error type: {args.error_type}")
 
-    return scene_info, errors
+    return SceneResult(
+        scene_info=scene_info,
+        errors=errors,
+        num_images=sparse_gt.num_images(),
+        num_reg_images=sparse.num_images(),
+    )
 
 
 def process_scenes(args, scene_infos, error_thresholds, position_accuracy_gt):
@@ -266,21 +292,40 @@ def process_scenes(args, scene_infos, error_thresholds, position_accuracy_gt):
 
     metrics = collections.defaultdict(dict)
     errors_by_category = collections.defaultdict(list)
-    for scene_info, errors in results:
-        errors_by_category[scene_info.category].extend(errors)
-        metrics[scene_info.category][scene_info.scene] = compute_auc(
-            errors,
-            error_thresholds,
-            min_error=position_accuracy_gt,
+    total_num_images = 0
+    total_num_reg_images = 0
+    num_scenes = len(results)
+    for result in results:
+        errors_by_category[result.scene_info.category].extend(result.errors)
+        total_num_images += result.num_images
+        total_num_reg_images += result.num_reg_images
+        metrics[result.scene_info.category][result.scene_info.scene] = (
+            SceneMetrics(
+                aucs=compute_auc(
+                    result.errors,
+                    error_thresholds,
+                    min_error=position_accuracy_gt,
+                ),
+                num_images=result.num_images,
+                num_reg_images=result.num_reg_images,
+            )
         )
 
     for category, errors in errors_by_category.items():
-        metrics[category]["__all__"] = compute_auc(
-            errors,
-            error_thresholds,
-            min_error=position_accuracy_gt,
+        metrics[category]["__all__"] = SceneMetrics(
+            aucs=compute_auc(
+                errors,
+                error_thresholds,
+                min_error=position_accuracy_gt,
+            ),
+            num_images=total_num_images,
+            num_reg_images=total_num_reg_images,
         )
-        metrics[category]["__avg__"] = compute_avg_auc(metrics[category])
+        metrics[category]["__avg__"] = SceneMetrics(
+            aucs=compute_avg_auc(metrics[category]),
+            num_images=int(round(total_num_images / num_scenes)),
+            num_reg_images=int(round(total_num_reg_images / num_scenes)),
+        )
 
     return metrics
 
@@ -458,18 +503,18 @@ def compute_auc(errors, thresholds, min_error=None):
     return aucs
 
 
-def compute_avg_auc(scene_aucs):
+def compute_avg_auc(scene_metrics):
     auc_sum = None
     num_scenes = 0
-    for scene, aucs in scene_aucs.items():
+    for scene, metrics in scene_metrics.items():
         if scene.startswith("__") and scene.endswith("__"):
             continue
         num_scenes += 1
         if auc_sum is None:
-            auc_sum = copy.copy(aucs)
+            auc_sum = copy.copy(metrics.aucs)
         else:
             for i in range(len(auc_sum)):
-                auc_sum[i] += aucs[i]
+                auc_sum[i] += metrics.aucs[i]
     return [auc / num_scenes for auc in auc_sum]
 
 
@@ -704,7 +749,7 @@ def evaluate_imc(args, year, position_accuracy_gt=0.02):
     return results
 
 
-def format_results(args, results):
+def format_results(args, metrics):
     if args.error_type == "relative":
         metric = "AUC @ X deg (%)"
         thresholds = args.rel_error_thresholds
@@ -715,29 +760,33 @@ def format_results(args, results):
         raise ValueError(f"Invalid error type: {args.error_type}")
 
     column = "scenes"
-    size1 = max(
+    size_scenes = max(
         len(column) + 2,
-        max(len(s) for d in results.values() for c in d.values() for s in c),
+        max(len(s) for d in metrics.values() for c in d.values() for s in c),
     )
-    size2 = max(len(metric) + 2, len(thresholds) * 7 - 1)
-    header = f"{column:=^{size1}} {metric:=^{size2}}"
-    header += "\n" + " " * (size1 + 1)
+    size_aucs = max(len(metric) + 2, len(thresholds) * 7 - 1)
+    size_imgs = 10
+    size_sep = size_scenes + size_aucs + size_imgs + 2
+    header = f"{column:=^{size_scenes}} {metric:=^{size_aucs}} {"images":=^{size_imgs}}"
+    header += "\n" + " " * (size_scenes + 1)
     header += " ".join(f'{str(t).rstrip("."):^6}' for t in thresholds)
+    header += "   reg  all"
     text = [header]
-    for dataset, category_results in results.items():
-        for category, scene_results in category_results.items():
-            text.append(f"\n{dataset + '=' + category:=^{size1 + size2 + 1}}")
-            for scene, aucs in scene_results.items():
-                assert len(aucs) == len(thresholds)
+    for dataset, category_metrics in metrics.items():
+        for category, scene_metrics in category_metrics.items():
+            text.append(f"\n{dataset + '=' + category:=^{size_sep}}")
+            for scene, metrics in scene_metrics.items():
+                assert len(metrics.aucs) == len(thresholds)
                 row = ""
                 if scene == "__avg__":
                     scene = "average"
-                    row += "-" * (size1 + size2 + 1) + "\n"
+                    row += "-" * size_sep + "\n"
                 if scene == "__all__":
                     scene = "overall"
-                    row += "-" * (size1 + size2 + 1) + "\n"
-                row += f"{scene:<{size1}} "
-                row += " ".join(f"{auc:>6.2f}" for auc in aucs)
+                    row += "-" * size_sep + "\n"
+                row += f"{scene:<{size_scenes}} "
+                row += " ".join(f"{auc:>6.2f}" for auc in metrics.aucs)
+                row += f" {metrics.num_reg_images:5d}{metrics.num_images:5d}"
                 text.append(row)
     return "\n".join(text)
 
