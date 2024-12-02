@@ -66,4 +66,26 @@ if(FETCH_POSELIB)
     message(STATUS "Configuring PoseLib... done")
 endif()
 
+if(FETCH_LIBTORCH)
+    include(FetchContent)
+    # Avoid warning about DOWNLOAD_EXTRACT_TIMESTAMP in CMake 3.24:
+    if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24.0")
+        cmake_policy(SET CMP0135 NEW)
+    endif()
+    # TODO: Specialize for different platforms.
+    FetchContent_Declare(libtorch
+        URL https://download.pytorch.org/libtorch/cpu/libtorch-macos-arm64-2.5.1.zip
+        URL_HASH SHA256=0822824c1df267159a649ad4701518217c60b8f75de056a26ab43958d8ab1622
+    )
+    FetchContent_MakeAvailable(libtorch)
+    set(Torch_DIR ${libtorch_SOURCE_DIR})
+    list(APPEND CMAKE_PREFIX_PATH "${libtorch_SOURCE_DIR}")
+    find_package(Torch REQUIRED)
+    add_library(Torch INTERFACE)
+    target_include_directories(Torch INTERFACE ${TORCH_INCLUDE_DIRS})
+    target_link_libraries(Torch INTERFACE ${TORCH_LIBRARIES})
+    target_compile_options(Torch PUBLIC ${TORCH_CXX_FLAGS})
+    add_library(Torch::Torch ALIAS Torch)
+endif()
+
 set(CLANG_TIDY_EXE ${CLANG_TIDY_EXE_TEMP})
