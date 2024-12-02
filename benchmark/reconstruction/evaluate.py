@@ -765,12 +765,12 @@ def format_results(args, metrics):
         max(len(s) for d in metrics.values() for c in d.values() for s in c),
     )
     size_aucs = max(len(metric) + 2, len(thresholds) * 7 - 1)
-    size_imgs = 10
+    size_imgs = 12
     size_sep = size_scenes + size_aucs + size_imgs + 2
     header = f"{column:=^{size_scenes}} {metric:=^{size_aucs}} {"images":=^{size_imgs}}"
     header += "\n" + " " * (size_scenes + 1)
     header += " ".join(f'{str(t).rstrip("."):^6}' for t in thresholds)
-    header += "   reg  all"
+    header += "    reg   all"
     text = [header]
     for dataset, category_metrics in metrics.items():
         for category, scene_metrics in category_metrics.items():
@@ -786,7 +786,7 @@ def format_results(args, metrics):
                     row += "-" * size_sep + "\n"
                 row += f"{scene:<{size_scenes}} "
                 row += " ".join(f"{auc:>6.2f}" for auc in metrics.aucs)
-                row += f" {metrics.num_reg_images:5d}{metrics.num_images:5d}"
+                row += f" {metrics.num_reg_images:6d}{metrics.num_images:6d}"
                 text.append(row)
     return "\n".join(text)
 
