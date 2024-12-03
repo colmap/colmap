@@ -190,8 +190,9 @@ std::string CreateSummary(const T& self, bool write_type) {
       std::string summ = attribute.attr("summary")
                              .attr("__call__")(write_type)
                              .template cast<std::string>();
+      static const std::regex newline_regex("\n");
       // NOLINTNEXTLINE(performance-inefficient-string-concatenation)
-      summ = std::regex_replace(summ, std::regex("\n"), "\n" + prefix);
+      summ = std::regex_replace(summ, newline_regex, "\n" + prefix);
       ss << ": " << summ;
     } else {
       if (write_type) {
