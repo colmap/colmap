@@ -76,17 +76,17 @@ if(FETCH_LIBTORCH)
     set(LIBTORCH_VERSION "2.5.1")
     if(IS_MSVC)
         FetchContent_Declare(libtorch
-            URL https://download.pytorch.org/libtorch/cpu/libtorch-win-shared-with-deps-$LIBTORCH_VERSION%2Bcpu.zip
+            URL https://download.pytorch.org/libtorch/cpu/libtorch-win-shared-with-deps-${LIBTORCH_VERSION}%2Bcpu.zip
             URL_HASH SHA256=176f3c501e50694cec2f23ca512ca36c0c268f523e90d91c8fca57bed56a6a65
         )
     elseif(IS_MACOS)
         FetchContent_Declare(libtorch
-            URL https://download.pytorch.org/libtorch/cpu/libtorch-macos-arm64-$LIBTORCH_VERSION.zip
+            URL https://download.pytorch.org/libtorch/cpu/libtorch-macos-arm64-${LIBTORCH_VERSION}.zip
             URL_HASH SHA256=0822824c1df267159a649ad4701518217c60b8f75de056a26ab43958d8ab1622
         )
     elseif(IS_LINUX)
         FetchContent_Declare(libtorch
-            URL https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-$LIBTORCH_VERSION%2Bcpu.zip
+            URL https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-${LIBTORCH_VERSION}%2Bcpu.zip
             URL_HASH SHA256=618ca54eef82a1dca46ff1993d5807d9c0deb0bae147da4974166a147cb562fa
         )
     endif()
