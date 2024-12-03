@@ -236,6 +236,9 @@ if(FETCH_LIBTORCH)
     # find_package(GLOBAL) option and move this logic to the thirdparty folder.
     FetchContent_MakeAvailable(libtorch)
     find_package(Torch REQUIRED PATHS "${libtorch_SOURCE_DIR}" NO_DEFAULT_PATH)
+    if(IS_LINUX)
+        find_package(MKL REQUIRED)
+    endif()
 endif()
 
 add_subdirectory(src/colmap)
