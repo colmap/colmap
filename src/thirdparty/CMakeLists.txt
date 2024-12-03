@@ -95,6 +95,8 @@ if(FETCH_LIBTORCH)
     find_package(Torch REQUIRED)
     add_library(Torch INTERFACE)
     target_include_directories(Torch INTERFACE ${TORCH_INCLUDE_DIRS})
+    # Bugfix for broken torch cmake config.
+    string(REPLACE "FALSE" "" TORCH_LIBRARIES "${TORCH_LIBRARIES}")
     target_link_libraries(Torch INTERFACE ${TORCH_LIBRARIES})
     target_compile_options(Torch INTERFACE ${TORCH_CXX_FLAGS})
     add_library(Torch::Torch ALIAS Torch)
