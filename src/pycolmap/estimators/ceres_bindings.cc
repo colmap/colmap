@@ -4,8 +4,11 @@
 #include <pybind11/eigen.h>
 #include <pybind11/pybind11.h>
 
-// Some important ceres bindings for using crucial pycolmap features (e.g. bundle adjustment) without pyceres
-// Branched from https://github.com/cvg/pyceres/blob/main/_pyceres/core/solver.h
+// Some important ceres bindings for using crucial pycolmap features (e.g.
+// bundle adjustment) without pyceres.
+//
+// Branched from
+// https://github.com/cvg/pyceres/blob/main/_pyceres/core/solver.h
 void BindCeres(py::module& m_parent) {
   py::module_ m = m_parent.def_submodule("pyceres");
 
