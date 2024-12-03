@@ -30,6 +30,8 @@
 
 set(FOLDER_NAME "util")
 
+find_package(Torch REQUIRED)
+
 COLMAP_ADD_LIBRARY(
     NAME colmap_util
     SRCS
@@ -150,7 +152,7 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME torch_test
     SRCS torch_test.cc
-    LINK_LIBS Torch::Torch
+    LINK_LIBS torch
 )
 COLMAP_ADD_TEST(
     NAME types_test
