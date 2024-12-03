@@ -27,9 +27,9 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+import numpy as np
 from database import COLMAPDatabase, array_to_blob
 
-import numpy as np
 
 def update_pose_prior_from_image_name(
     colmap_db: COLMAPDatabase,
@@ -67,7 +67,9 @@ def update_pose_prior_from_image_name(
         position_covariance = np.full((3, 3), np.nan, dtype=np.float64)
 
     # Check if the pose prior already exists
-    cursor = colmap_db.execute("SELECT COUNT(*) FROM pose_priors WHERE image_id = ?", (image_id,))
+    cursor = colmap_db.execute(
+        "SELECT COUNT(*) FROM pose_priors WHERE image_id = ?", (image_id,)
+    )
     exists = cursor.fetchone()[0] > 0
 
     if exists:
@@ -137,12 +139,14 @@ def write_pose_priors_to_database():
         "--coordinate_system",
         type=int,
         default=0,
-        help="(-1: unknwon, 0: WGS84, 1: Cartesian)")
+        help="(-1: unknwon, 0: WGS84, 1: Cartesian)",
+    )
     parser.add_argument(
         "--use_covariance_from_pose_priors_file",
         type=bool,
         default=False,
-        help="If False, use prior_position_std options to set a common covariance to the priors.")
+        help="If False, use prior_position_std options to set a common covariance to the priors.",
+    )
     parser.add_argument("--prior_position_std_x", type=float, default=1.0)
     parser.add_argument("--prior_position_std_y", type=float, default=1.0)
     parser.add_argument("--prior_position_std_z", type=float, default=1.0)
