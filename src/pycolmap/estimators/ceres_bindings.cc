@@ -255,4 +255,3 @@ void BindCeres(py::module& m_parent) {
       .def_readonly("cumulative_time_in_seconds",
                     &IterSummary::cumulative_time_in_seconds);
 }
-}
