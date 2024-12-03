@@ -153,18 +153,6 @@ void BindCeresSolver(py::module& m) {
   py::class_<Options> PyOptions(m, "SolverOptions");
   PyOptions.def(py::init<>())
       .def("IsValid", &Options::IsValid)
-      .def_property(
-          "callbacks",
-          [](const Options& self) { return self.callbacks; },
-          py::cpp_function(
-              [](Options& self, py::list list) {
-                std::vector<ceres::IterationCallback*> callbacks;
-                for (auto& handle : list) {
-                  self.callbacks.push_back(
-                      handle.cast<ceres::IterationCallback*>());
-                }
-              },
-              py::keep_alive<1, 2>()))
       .def_readwrite("minimizer_type", &Options::minimizer_type)
       .def_readwrite("line_search_direction_type",
                      &Options::line_search_direction_type)
