@@ -92,6 +92,13 @@ void BindCeresTypes(py::module& m) {
           .value("CLUSTER_TRIDIAGONAL",
                  ceres::PreconditionerType::CLUSTER_TRIDIAGONAL);
   AddStringToEnumConstructor(prt);
+  auto vct =
+      py::enum_<ceres::VisibilityClusteringType>(m, "VisibilityClusteringType")
+          .value("CANONICAL_VIEWS",
+                 ceres::VisibilityClusteringType::CANONICAL_VIEWS)
+          .value("SINGLE_LINKAGE",
+                 ceres::VisibilityClusteringType::SINGLE_LINKAGE);
+  AddStringToEnumConstructor(vct);
 
   auto dlalt =
       py::enum_<ceres::DenseLinearAlgebraLibraryType>(
@@ -126,6 +133,10 @@ void BindCeresTypes(py::module& m) {
           .value("SOLVER_TERMINATE_SUCCESSFULLY",
                  ceres::CallbackReturnType::SOLVER_TERMINATE_SUCCESSFULLY);
   AddStringToEnumConstructor(cbrt);
+  auto dft = py::enum_<ceres::DumpFormatType>(m, "DumpFormatType")
+                 .value("CONSOLE", ceres::DumpFormatType::CONSOLE)
+                 .value("TEXTFILE", ceres::DumpFormatType::TEXTFILE);
+  AddStringToEnumConstructor(dft);
 
   auto termt =
       py::enum_<ceres::TerminationType>(m, "TerminationType")
