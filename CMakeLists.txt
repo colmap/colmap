@@ -228,8 +228,18 @@ include(GenerateVersionDefinitions)
 include_directories(src)
 link_directories(${COLMAP_LINK_DIRS})
 
-add_subdirectory(src/colmap)
 add_subdirectory(src/thirdparty)
+
+if(FETCH_LIBTORCH)
+    # find_package() targets are only visible in the current folder, so we need
+    # to call it here. Once we require CMake 3.24, we can use the
+    # find_package(GLOBAL) option and move this logic to the thirdparty folder.
+    FetchContent_MakeAvailable(libtorch)
+    list(APPEND CMAKE_PREFIX_PATH "${libtorch_SOURCE_DIR}")
+    find_package(Torch REQUIRED)
+endif()
+
+add_subdirectory(src/colmap)
 
 ################################################################################
 # Generate source groups for Visual Studio, XCode, etc.

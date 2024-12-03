@@ -30,8 +30,6 @@
 
 set(FOLDER_NAME "util")
 
-find_package(Torch REQUIRED)
-
 COLMAP_ADD_LIBRARY(
     NAME colmap_util
     SRCS

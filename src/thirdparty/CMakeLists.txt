@@ -90,8 +90,6 @@ if(FETCH_LIBTORCH)
             URL_HASH SHA256=618ca54eef82a1dca46ff1993d5807d9c0deb0bae147da4974166a147cb562fa
         )
     endif()
-    FetchContent_MakeAvailable(libtorch)
-    list(APPEND CMAKE_PREFIX_PATH "${libtorch_SOURCE_DIR}")
 endif()
 
 set(CLANG_TIDY_EXE ${CLANG_TIDY_EXE_TEMP})
