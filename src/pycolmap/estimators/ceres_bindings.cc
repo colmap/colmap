@@ -11,25 +11,28 @@
 // https://github.com/cvg/pyceres/blob/main/_pyceres/core/types.h
 // https://github.com/cvg/pyceres/blob/main/_pyceres/core/solver.h
 void BindCeresTypes(py::module& m) {
-  auto ownt = py::enum_<ceres::Ownership>(m, "Ownership")
+  auto ownt = py::enum_<ceres::Ownership>(m, "Ownership", py::module_local())
                   .value("DO_NOT_TAKE_OWNERSHIP",
                          ceres::Ownership::DO_NOT_TAKE_OWNERSHIP)
                   .value("TAKE_OWNERSHIP", ceres::Ownership::TAKE_OWNERSHIP)
                   .export_values();
   AddStringToEnumConstructor(ownt);
 
-  auto mt = py::enum_<ceres::MinimizerType>(m, "MinimizerType")
-                .value("LINE_SEARCH", ceres::MinimizerType::LINE_SEARCH)
-                .value("TRUST_REGION", ceres::MinimizerType::TRUST_REGION);
+  auto mt =
+      py::enum_<ceres::MinimizerType>(m, "MinimizerType", py::module_local())
+          .value("LINE_SEARCH", ceres::MinimizerType::LINE_SEARCH)
+          .value("TRUST_REGION", ceres::MinimizerType::TRUST_REGION);
   AddStringToEnumConstructor(mt);
 
-  auto linesearcht = py::enum_<ceres::LineSearchType>(m, "LineSearchType")
-                         .value("ARMIJO", ceres::LineSearchType::ARMIJO)
-                         .value("WOLFE", ceres::LineSearchType::WOLFE);
+  auto linesearcht =
+      py::enum_<ceres::LineSearchType>(m, "LineSearchType", py::module_local())
+          .value("ARMIJO", ceres::LineSearchType::ARMIJO)
+          .value("WOLFE", ceres::LineSearchType::WOLFE);
   AddStringToEnumConstructor(linesearcht);
 
   auto lsdt =
-      py::enum_<ceres::LineSearchDirectionType>(m, "LineSearchDirectionType")
+      py::enum_<ceres::LineSearchDirectionType>(
+          m, "LineSearchDirectionType", py::module_local())
           .value("BFGS", ceres::LineSearchDirectionType::BFGS)
           .value("LBFGS", ceres::LineSearchDirectionType::LBFGS)
           .value("NONLINEAR_CONJUGATE_GRADIENT",
@@ -40,7 +43,7 @@ void BindCeresTypes(py::module& m) {
 
   auto lsit =
       py::enum_<ceres::LineSearchInterpolationType>(
-          m, "LineSearchInterpolationType")
+          m, "LineSearchInterpolationType", py::module_local())
           .value("BISECTION", ceres::LineSearchInterpolationType::BISECTION)
           .value("CUBIC", ceres::LineSearchInterpolationType::CUBIC)
           .value("QUADRATIC", ceres::LineSearchInterpolationType::QUADRATIC);
@@ -48,7 +51,7 @@ void BindCeresTypes(py::module& m) {
 
   auto ncgt =
       py::enum_<ceres::NonlinearConjugateGradientType>(
-          m, "NonlinearConjugateGradientType")
+          m, "NonlinearConjugateGradientType", py::module_local())
           .value("FLETCHER_REEVES",
                  ceres::NonlinearConjugateGradientType::FLETCHER_REEVES)
           .value("HESTENES_STIEFEL",
@@ -58,7 +61,8 @@ void BindCeresTypes(py::module& m) {
   AddStringToEnumConstructor(ncgt);
 
   auto linsolt =
-      py::enum_<ceres::LinearSolverType>(m, "LinearSolverType")
+      py::enum_<ceres::LinearSolverType>(
+          m, "LinearSolverType", py::module_local())
           .value("DENSE_NORMAL_CHOLESKY",
                  ceres::LinearSolverType::DENSE_NORMAL_CHOLESKY)
           .value("DENSE_QR", ceres::LinearSolverType::DENSE_QR)
@@ -71,20 +75,21 @@ void BindCeresTypes(py::module& m) {
   AddStringToEnumConstructor(linsolt);
 
   auto dogt =
-      py::enum_<ceres::DoglegType>(m, "DoglegType")
+      py::enum_<ceres::DoglegType>(m, "DoglegType", py::module_local())
           .value("TRADITIONAL_DOGLEG", ceres::DoglegType::TRADITIONAL_DOGLEG)
           .value("SUBSPACE_DOGLEG", ceres::DoglegType::SUBSPACE_DOGLEG);
   AddStringToEnumConstructor(dogt);
 
-  auto trst =
-      py::enum_<ceres::TrustRegionStrategyType>(m, "TrustRegionStrategyType")
-          .value("LEVENBERG_MARQUARDT",
-                 ceres::TrustRegionStrategyType::LEVENBERG_MARQUARDT)
-          .value("DOGLEG", ceres::TrustRegionStrategyType::DOGLEG);
+  auto trst = py::enum_<ceres::TrustRegionStrategyType>(
+                  m, "TrustRegionStrategyType", py::module_local())
+                  .value("LEVENBERG_MARQUARDT",
+                         ceres::TrustRegionStrategyType::LEVENBERG_MARQUARDT)
+                  .value("DOGLEG", ceres::TrustRegionStrategyType::DOGLEG);
   AddStringToEnumConstructor(trst);
 
   auto prt =
-      py::enum_<ceres::PreconditionerType>(m, "PreconditionerType")
+      py::enum_<ceres::PreconditionerType>(
+          m, "PreconditionerType", py::module_local())
           .value("IDENTITY", ceres::PreconditionerType::IDENTITY)
           .value("JACOBI", ceres::PreconditionerType::JACOBI)
           .value("SCHUR_JACOBI", ceres::PreconditionerType::SCHUR_JACOBI)
@@ -92,17 +97,18 @@ void BindCeresTypes(py::module& m) {
           .value("CLUSTER_TRIDIAGONAL",
                  ceres::PreconditionerType::CLUSTER_TRIDIAGONAL);
   AddStringToEnumConstructor(prt);
-  auto vct =
-      py::enum_<ceres::VisibilityClusteringType>(m, "VisibilityClusteringType")
-          .value("CANONICAL_VIEWS",
-                 ceres::VisibilityClusteringType::CANONICAL_VIEWS)
-          .value("SINGLE_LINKAGE",
-                 ceres::VisibilityClusteringType::SINGLE_LINKAGE);
+
+  auto vct = py::enum_<ceres::VisibilityClusteringType>(
+                 m, "VisibilityClusteringType", py::module_local())
+                 .value("CANONICAL_VIEWS",
+                        ceres::VisibilityClusteringType::CANONICAL_VIEWS)
+                 .value("SINGLE_LINKAGE",
+                        ceres::VisibilityClusteringType::SINGLE_LINKAGE);
   AddStringToEnumConstructor(vct);
 
   auto dlalt =
       py::enum_<ceres::DenseLinearAlgebraLibraryType>(
-          m, "DenseLinearAlgebraLibraryType")
+          m, "DenseLinearAlgebraLibraryType", py::module_local())
           .value("EIGEN", ceres::DenseLinearAlgebraLibraryType::EIGEN)
           .value("LAPACK", ceres::DenseLinearAlgebraLibraryType::LAPACK)
           .value("CUDA", ceres::DenseLinearAlgebraLibraryType::CUDA);
@@ -110,7 +116,7 @@ void BindCeresTypes(py::module& m) {
 
   auto slalt =
       py::enum_<ceres::SparseLinearAlgebraLibraryType>(
-          m, "SparseLinearAlgebraLibraryType")
+          m, "SparseLinearAlgebraLibraryType", py::module_local())
           .value("SUITE_SPARSE",
                  ceres::SparseLinearAlgebraLibraryType::SUITE_SPARSE)
           .value("EIGEN_SPARSE",
@@ -120,26 +126,31 @@ void BindCeresTypes(py::module& m) {
           .value("NO_SPARSE", ceres::SparseLinearAlgebraLibraryType::NO_SPARSE);
   AddStringToEnumConstructor(slalt);
 
-  auto logt = py::enum_<ceres::LoggingType>(m, "LoggingType")
-                  .value("SILENT", ceres::LoggingType::SILENT)
-                  .value("PER_MINIMIZER_ITERATION",
-                         ceres::LoggingType::PER_MINIMIZER_ITERATION);
+  auto logt =
+      py::enum_<ceres::LoggingType>(m, "LoggingType", py::module_local())
+          .value("SILENT", ceres::LoggingType::SILENT)
+          .value("PER_MINIMIZER_ITERATION",
+                 ceres::LoggingType::PER_MINIMIZER_ITERATION);
   AddStringToEnumConstructor(logt);
 
   auto cbrt =
-      py::enum_<ceres::CallbackReturnType>(m, "CallbackReturnType")
+      py::enum_<ceres::CallbackReturnType>(
+          m, "CallbackReturnType", py::module_local())
           .value("SOLVER_CONTINUE", ceres::CallbackReturnType::SOLVER_CONTINUE)
           .value("SOLVER_ABORT", ceres::CallbackReturnType::SOLVER_ABORT)
           .value("SOLVER_TERMINATE_SUCCESSFULLY",
                  ceres::CallbackReturnType::SOLVER_TERMINATE_SUCCESSFULLY);
   AddStringToEnumConstructor(cbrt);
-  auto dft = py::enum_<ceres::DumpFormatType>(m, "DumpFormatType")
-                 .value("CONSOLE", ceres::DumpFormatType::CONSOLE)
-                 .value("TEXTFILE", ceres::DumpFormatType::TEXTFILE);
+
+  auto dft =
+      py::enum_<ceres::DumpFormatType>(m, "DumpFormatType", py::module_local())
+          .value("CONSOLE", ceres::DumpFormatType::CONSOLE)
+          .value("TEXTFILE", ceres::DumpFormatType::TEXTFILE);
   AddStringToEnumConstructor(dft);
 
   auto termt =
-      py::enum_<ceres::TerminationType>(m, "TerminationType")
+      py::enum_<ceres::TerminationType>(
+          m, "TerminationType", py::module_local())
           .value("CONVERGENCE", ceres::TerminationType::CONVERGENCE)
           .value("NO_CONVERGENCE", ceres::TerminationType::NO_CONVERGENCE)
           .value("FAILURE", ceres::TerminationType::FAILURE)
@@ -150,7 +161,7 @@ void BindCeresTypes(py::module& m) {
 
 void BindCeresSolver(py::module& m) {
   using Options = ceres::Solver::Options;
-  py::class_<Options> PyOptions(m, "SolverOptions");
+  py::class_<Options> PyOptions(m, "SolverOptions", py::module_local());
   PyOptions.def(py::init<>())
       .def("IsValid", &Options::IsValid)
       .def_readwrite("minimizer_type", &Options::minimizer_type)
@@ -251,7 +262,7 @@ void BindCeresSolver(py::module& m) {
   MakeDataclass(PyOptions);
 
   using Summary = ceres::Solver::Summary;
-  py::class_<Summary> PySummary(m, "SolverSummary");
+  py::class_<Summary> PySummary(m, "SolverSummary", py::module_local());
   PySummary.def(py::init<>())
       .def("BriefReport", &Summary::BriefReport)
       .def("FullReport", &Summary::FullReport)
@@ -351,7 +362,8 @@ void BindCeresSolver(py::module& m) {
   MakeDataclass(PySummary);
 
   using IterSummary = ceres::IterationSummary;
-  py::class_<IterSummary> PyIterSummary(m, "IterationSummary");
+  py::class_<IterSummary> PyIterSummary(
+      m, "IterationSummary", py::module_local());
   PyIterSummary.def(py::init<>())
       .def_readonly("iteration", &IterSummary::iteration)
       .def_readonly("step_is_valid", &IterSummary::step_is_valid)
