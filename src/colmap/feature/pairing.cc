@@ -341,6 +341,11 @@ std::vector<std::pair<image_t, image_t>> VocabTreePairGenerator::Next() {
 void VocabTreePairGenerator::IndexImages(
     const std::vector<image_t>& image_ids) {
   retrieval::VisualIndex<>::IndexOptions index_options;
+  // We only assign each feature to a single visual word in the indexing phase.
+  // During the query phase, we check for overlap in possibly multiple nearest
+  // neighbor visual words. We could do it symmetrically but experiments showed
+  // only marginal improvements that do not justify the memory/compute increase.
+  index_options.num_neighbors = 1;
   index_options.num_threads = options_.num_threads;
   index_options.num_checks = options_.num_checks;
 
