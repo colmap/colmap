@@ -72,11 +72,23 @@ if(FETCH_LIBTORCH)
     if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24.0")
         cmake_policy(SET CMP0135 NEW)
     endif()
-    # TODO: Specialize for different platforms.
-    FetchContent_Declare(libtorch
-        URL https://download.pytorch.org/libtorch/cpu/libtorch-macos-arm64-2.5.1.zip
-        URL_HASH SHA256=0822824c1df267159a649ad4701518217c60b8f75de056a26ab43958d8ab1622
-    )
+    # TODO: Specialize for CUDA vs. non-CUDA and for x86 vs. ARM.
+    if(IS_MSVC)
+        FetchContent_Declare(libtorch
+            URL https://download.pytorch.org/libtorch/cpu/libtorch-win-shared-with-deps-2.5.1%2Bcpu.zip
+            URL_HASH SHA256=176f3c501e50694cec2f23ca512ca36c0c268f523e90d91c8fca57bed56a6a65
+        )
+    elseif(IS_MACOS)
+        FetchContent_Declare(libtorch
+            URL https://download.pytorch.org/libtorch/cpu/libtorch-macos-arm64-2.5.1.zip
+            URL_HASH SHA256=0822824c1df267159a649ad4701518217c60b8f75de056a26ab43958d8ab1622
+        )
+    elseif(IS_LINUX)
+        FetchContent_Declare(libtorch
+            URL https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-2.5.1%2Bcpu.zip
+            URL_HASH SHA256=618ca54eef82a1dca46ff1993d5807d9c0deb0bae147da4974166a147cb562fa
+        )
+    endif()
     FetchContent_MakeAvailable(libtorch)
     list(APPEND CMAKE_PREFIX_PATH "${libtorch_SOURCE_DIR}")
     find_package(Torch REQUIRED)
