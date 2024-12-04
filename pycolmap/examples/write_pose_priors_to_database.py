@@ -114,14 +114,12 @@ def write_pose_priors_to_database():
     pose_priors_path = Path(args.pose_priors_path)
 
     if not database_path.exists():
-        print("ERROR: database path does not exist.")
+        logging.error("ERROR: database path does not exist.")
         return
 
     if not pose_priors_path.exists():
-        print("ERROR: pose priors path already does not exist.")
+        logging.error("ERROR: pose priors path already does not exist.")
         return
-
-    colmap_db = pycolmap.Database(database_path)
 
     # Setup covariance matrix if required
     position_covariance = None
@@ -135,21 +133,19 @@ def write_pose_priors_to_database():
         )
 
     # Add pose priors from file.
-    with open(args.pose_priors_path) as pose_prior_file:
-        for line in pose_prior_file:
-            if line[0] == "#":
-                continue
-            pose_prior = get_pose_prior_from_line(
-                line,
-                args.pose_priors_delimiter,
-                args.coordinate_system,
-                position_covariance,
-            )
-            if pose_prior is not None:
-                update_pose_prior_from_image_name(colmap_db, *pose_prior)
-
-    # Close database.
-    colmap_db.close()
+    with pycolmap.Database(database_path) as colmap_db:
+        with open(args.pose_priors_path) as pose_prior_file:
+            for line in pose_prior_file:
+                if line[0] == "#":
+                    continue
+                pose_prior = get_pose_prior_from_line(
+                    line,
+                    args.pose_priors_delimiter,
+                    args.coordinate_system,
+                    position_covariance,
+                )
+                if pose_prior is not None:
+                    update_pose_prior_from_image_name(colmap_db, *pose_prior)
 
 
 if __name__ == "__main__":
