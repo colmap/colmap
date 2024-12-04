@@ -32,8 +32,10 @@ def get_pose_prior_from_line(
         position = np.array([float(els[1]), float(els[2]), float(els[3])])
         return (image_name, position, coordinate_system, position_covariance)
     else:
-        print("ERROR: Pose priors file lines should contain 4 or 13 elements.")
-        print("Current line contains: {0}: #{1} elements".format(els, len(els)))
+        logging.error(
+            "ERROR: Pose priors file lines should contain 4 or 13 elements."
+        )
+        logging.error(f"Current line contains: {els}: # {len(els)} elements")
 
     return None
 
@@ -54,25 +56,38 @@ def update_pose_prior_from_image_name(
         image_name (str): name of the image to update.
         position (np.array): Position as a 3-element array (x, y, z).
         coordinate_system (int): Coordinate system index (default: -1).
-        position_covariance (np.array): 3x3 position covariance matrix (default: None).
+        position_covariance (np.array): 3x3 position covariance matrix
+                                        (default: None).
     """
     # Get image_id from image_name
     if colmap_db.exists_image(image_name):
-        position = np.asarray(position, dtype=np.float64)
+        position = np.asarray(position, dtype=np.float64).reshape(3, 1)
         if position_covariance is None:
             position_covariance = np.full((3, 3), np.nan, dtype=np.float64)
         image = colmap_db.read_image(image_name)
         if colmap_db.exists_pose_prior(image.image_id):
-            colmap_db.update_pose_prior(image.image_id, pycolmap.PosePrior(position, position_covariance, coordinate_system))
+            colmap_db.update_pose_prior(
+                image.image_id,
+                pycolmap.PosePrior(
+                    position,
+                    position_covariance,
+                    pycolmap.PosePriorCoordinateSystem(coordinate_system),
+                ),
+            )
         else:
-            colmap_db.write_pose_prior(image.image_id, pycolmap.PosePrior(position, position_covariance, coordinate_system))
+            colmap_db.write_pose_prior(
+                image.image_id,
+                pycolmap.PosePrior(
+                    position,
+                    position_covariance,
+                    pycolmap.PosePriorCoordinateSystem(coordinate_system),
+                ),
+            )
     else:
         logging.warning(f"Image at path {image_name} not found in database.")
 
 
 def write_pose_priors_to_database():
-    import os
-
     parser = argparse.ArgumentParser()
     parser.add_argument("--database_path", type=str, required=True)
     parser.add_argument("--pose_priors_path", type=str, required=True)
@@ -87,7 +102,8 @@ def write_pose_priors_to_database():
         "--use_covariance_from_pose_priors_file",
         type=bool,
         default=False,
-        help="If False, use prior_position_std options to set a common covariance to the priors.",
+        help="If False, use prior_position_std options to set a \
+            common covariance to the priors.",
     )
     parser.add_argument("--prior_position_std_x", type=float, default=1.0)
     parser.add_argument("--prior_position_std_y", type=float, default=1.0)
@@ -119,18 +135,18 @@ def write_pose_priors_to_database():
         )
 
     # Add pose priors from file.
-    pose_prior_file = open(args.pose_priors_path, "r")
-    for line in pose_prior_file:
-        if line[0] == "#":
-            continue
-        pose_prior = get_pose_prior_from_line(
-            line,
-            args.pose_priors_delimiter,
-            args.coordinate_system,
-            position_covariance,
-        )
-        if pose_prior is not None:
-            update_pose_prior_from_image_name(colmap_db, *pose_prior)
+    with open(args.pose_priors_path) as pose_prior_file:
+        for line in pose_prior_file:
+            if line[0] == "#":
+                continue
+            pose_prior = get_pose_prior_from_line(
+                line,
+                args.pose_priors_delimiter,
+                args.coordinate_system,
+                position_covariance,
+            )
+            if pose_prior is not None:
+                update_pose_prior_from_image_name(colmap_db, *pose_prior)
 
     # Close database.
     colmap_db.close()
