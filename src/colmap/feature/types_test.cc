@@ -54,9 +54,10 @@ TEST(FeatureKeypoints, Nominal) {
   EXPECT_EQ(keypoints[0].a21, 0.0f);
   EXPECT_EQ(keypoints[0].a22, 1.0f);
 
-  keypoint = FeatureKeypoint(1, 2);
+  keypoint = FeatureKeypoint(1, 2, 3);
   EXPECT_EQ(keypoint.x, 1.0f);
   EXPECT_EQ(keypoint.y, 2.0f);
+  EXPECT_EQ(keypoint.weight, 3.0f);
   EXPECT_EQ(keypoint.a11, 1.0f);
   EXPECT_EQ(keypoint.a12, 0.0f);
   EXPECT_EQ(keypoint.a21, 0.0f);
@@ -67,17 +68,19 @@ TEST(FeatureKeypoints, Nominal) {
   EXPECT_NEAR(keypoint.ComputeOrientation(), 0.0f, 1e-6);
   EXPECT_NEAR(keypoint.ComputeShear(), 0.0f, 1e-6);
 
-  keypoint = FeatureKeypoint(1, 2, 0, 0);
+  keypoint = FeatureKeypoint(1, 2, 3, 0, 0);
   EXPECT_EQ(keypoint.x, 1.0f);
   EXPECT_EQ(keypoint.y, 2.0f);
+  EXPECT_EQ(keypoint.weight, 3.0f);
   EXPECT_EQ(keypoint.a11, 0.0f);
   EXPECT_EQ(keypoint.a12, 0.0f);
   EXPECT_EQ(keypoint.a21, 0.0f);
   EXPECT_EQ(keypoint.a22, 0.0f);
 
-  keypoint = FeatureKeypoint(1, 2, 1, 0);
+  keypoint = FeatureKeypoint(1, 2, 3, 0, 0);
   EXPECT_EQ(keypoint.x, 1.0f);
   EXPECT_EQ(keypoint.y, 2.0f);
+  EXPECT_EQ(keypoint.weight, 3.0f);
   EXPECT_EQ(keypoint.a11, 1.0f);
   EXPECT_EQ(keypoint.a12, 0.0f);
   EXPECT_EQ(keypoint.a21, 0.0f);
@@ -88,9 +91,10 @@ TEST(FeatureKeypoints, Nominal) {
   EXPECT_NEAR(keypoint.ComputeOrientation(), 0.0f, 1e-6);
   EXPECT_NEAR(keypoint.ComputeShear(), 0.0f, 1e-6);
 
-  keypoint = FeatureKeypoint(1, 2, 1, M_PI / 2);
+  keypoint = FeatureKeypoint(1, 2, 3, 1, M_PI / 2);
   EXPECT_EQ(keypoint.x, 1.0f);
   EXPECT_EQ(keypoint.y, 2.0f);
+  EXPECT_EQ(keypoint.weight, 3.0f);
   EXPECT_NEAR(keypoint.a11, 0.0f, 1e-6);
   EXPECT_NEAR(keypoint.a12, -1.0f, 1e-6);
   EXPECT_NEAR(keypoint.a21, 1.0f, 1e-6);
@@ -101,9 +105,10 @@ TEST(FeatureKeypoints, Nominal) {
   EXPECT_NEAR(keypoint.ComputeOrientation(), M_PI / 2, 1e-6);
   EXPECT_NEAR(keypoint.ComputeShear(), 0.0f, 1e-6);
 
-  keypoint = FeatureKeypoint(1, 2, 2, M_PI / 2);
+  keypoint = FeatureKeypoint(1, 2, 3, M_PI / 2);
   EXPECT_EQ(keypoint.x, 1.0f);
   EXPECT_EQ(keypoint.y, 2.0f);
+  EXPECT_EQ(keypoint.weight, 3.0f);
   EXPECT_NEAR(keypoint.a11, 0.0f, 1e-6);
   EXPECT_NEAR(keypoint.a12, -2.0f, 1e-6);
   EXPECT_NEAR(keypoint.a21, 2.0f, 1e-6);
@@ -114,9 +119,10 @@ TEST(FeatureKeypoints, Nominal) {
   EXPECT_NEAR(keypoint.ComputeOrientation(), M_PI / 2, 1e-6);
   EXPECT_NEAR(keypoint.ComputeShear(), 0.0f, 1e-6);
 
-  keypoint = FeatureKeypoint(1, 2, 2, M_PI);
+  keypoint = FeatureKeypoint(1, 2, 3, M_PI);
   EXPECT_EQ(keypoint.x, 1.0f);
   EXPECT_EQ(keypoint.y, 2.0f);
+  EXPECT_EQ(keypoint.weight, 3.0f);
   EXPECT_NEAR(keypoint.a11, -2.0f, 1e-6);
   EXPECT_NEAR(keypoint.a12, 0.0f, 1e-6);
   EXPECT_NEAR(keypoint.a21, 0.0, 1e-6);
@@ -128,9 +134,10 @@ TEST(FeatureKeypoints, Nominal) {
               std::abs(keypoint.ComputeOrientation() + M_PI) < 1e-6);
   EXPECT_NEAR(keypoint.ComputeShear(), 0.0f, 1e-6);
 
-  keypoint = FeatureKeypoint::FromShapeParameters(1, 2, 2, 2, M_PI, 0);
+  keypoint = FeatureKeypoint::FromShapeParameters(1, 2, 2, 2, M_PI, 0, 3);
   EXPECT_EQ(keypoint.x, 1.0f);
   EXPECT_EQ(keypoint.y, 2.0f);
+  EXPECT_EQ(keypoint.weight, 3.0f);
   EXPECT_NEAR(keypoint.a11, -2.0f, 1e-6);
   EXPECT_NEAR(keypoint.a12, 0.0f, 1e-6);
   EXPECT_NEAR(keypoint.a21, 0.0, 1e-6);
@@ -142,9 +149,10 @@ TEST(FeatureKeypoints, Nominal) {
               std::abs(keypoint.ComputeOrientation() + M_PI) < 1e-6);
   EXPECT_NEAR(keypoint.ComputeShear(), 0.0f, 1e-6);
 
-  keypoint = FeatureKeypoint::FromShapeParameters(1, 2, 2, 3, M_PI, 0);
+  keypoint = FeatureKeypoint::FromShapeParameters(1, 2, 2, 3, M_PI, 0, 3);
   EXPECT_EQ(keypoint.x, 1.0f);
   EXPECT_EQ(keypoint.y, 2.0f);
+  EXPECT_EQ(keypoint.weight, 3.0f);
   EXPECT_NEAR(keypoint.a11, -2.0f, 1e-6);
   EXPECT_NEAR(keypoint.a12, 0.0f, 1e-6);
   EXPECT_NEAR(keypoint.a21, 0.0, 1e-6);
@@ -157,9 +165,10 @@ TEST(FeatureKeypoints, Nominal) {
   EXPECT_NEAR(keypoint.ComputeShear(), 0.0f, 1e-6);
 
   keypoint =
-      FeatureKeypoint::FromShapeParameters(1, 2, 2, 3, -M_PI / 2, M_PI / 4);
+      FeatureKeypoint::FromShapeParameters(1, 2, 2, 3, -M_PI / 2, M_PI / 4, 3);
   EXPECT_EQ(keypoint.x, 1.0f);
   EXPECT_EQ(keypoint.y, 2.0f);
+  EXPECT_EQ(keypoint.weight, 3.0f);
   EXPECT_NEAR(keypoint.a11, 0.0f, 1e-6);
   EXPECT_NEAR(keypoint.a12, 2.12132025f, 1e-6);
   EXPECT_NEAR(keypoint.a21, -2.0f, 1e-6);
@@ -171,9 +180,10 @@ TEST(FeatureKeypoints, Nominal) {
   EXPECT_NEAR(keypoint.ComputeShear(), M_PI / 4, 1e-6);
 
   keypoint =
-      FeatureKeypoint::FromShapeParameters(1, 2, 2, 3, M_PI / 2, M_PI / 4);
+      FeatureKeypoint::FromShapeParameters(1, 2, 2, 3, M_PI / 2, M_PI / 4, 3);
   EXPECT_EQ(keypoint.x, 1.0f);
   EXPECT_EQ(keypoint.y, 2.0f);
+  EXPECT_EQ(keypoint.weight, 3.0f);
   EXPECT_NEAR(keypoint.a11, 0.0f, 1e-6);
   EXPECT_NEAR(keypoint.a12, -2.12132025f, 1e-6);
   EXPECT_NEAR(keypoint.a21, 2.0f, 1e-6);
@@ -187,6 +197,7 @@ TEST(FeatureKeypoints, Nominal) {
   keypoint.Rescale(2, 2);
   EXPECT_EQ(keypoint.x, 2.0f);
   EXPECT_EQ(keypoint.y, 4.0f);
+  EXPECT_EQ(keypoint.weight, 3.0f);
   EXPECT_NEAR(keypoint.a11, 2 * 0.0f, 1e-6);
   EXPECT_NEAR(keypoint.a12, 2 * -2.12132025f, 1e-6);
   EXPECT_NEAR(keypoint.a21, 2 * 2.0f, 1e-6);
@@ -200,6 +211,7 @@ TEST(FeatureKeypoints, Nominal) {
   keypoint.Rescale(1, 0.5);
   EXPECT_EQ(keypoint.x, 2.0f);
   EXPECT_EQ(keypoint.y, 2.0f);
+  EXPECT_EQ(keypoint.weight, 3.0f);
   EXPECT_NEAR(keypoint.a11, 0.0f, 1e-6);
   EXPECT_NEAR(keypoint.a12, -2.12132025f, 1e-6);
   EXPECT_NEAR(keypoint.a21, 4.0f, 1e-6);

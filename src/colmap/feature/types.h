@@ -40,12 +40,20 @@ namespace colmap {
 
 struct FeatureKeypoint {
   FeatureKeypoint();
-  FeatureKeypoint(float x, float y);
-  FeatureKeypoint(float x, float y, float scale, float orientation);
-  FeatureKeypoint(float x, float y, float a11, float a12, float a21, float a22);
+  FeatureKeypoint(float x, float y, float weight);
+  FeatureKeypoint(
+      float x, float y, float weight, float scale, float orientation);
+  FeatureKeypoint(float x,
+                  float y,
+                  float weight,
+                  float a11,
+                  float a12,
+                  float a21,
+                  float a22);
 
   static FeatureKeypoint FromShapeParameters(float x,
                                              float y,
+                                             float weight,
                                              float scale_x,
                                              float scale_y,
                                              float orientation,
@@ -66,6 +74,10 @@ struct FeatureKeypoint {
   // i.e. the upper left pixel has the coordinate (0.5, 0.5).
   float x;
   float y;
+
+  // Weight of the feature.
+  // Will be used to weight the track's residual term in Bundle Adjustment.
+  float weight;
 
   // Affine shape of the feature.
   float a11;

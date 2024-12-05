@@ -400,7 +400,8 @@ void Reconstruction::DeleteObservation(const image_t image_id,
 void Reconstruction::DeleteAllPoints2DAndPoints3D() {
   points3D_.clear();
   for (auto& image : images_) {
-    image.second.SetPoints2D(std::vector<Eigen::Vector2d>(0));
+    image.second.SetPoints2D(std::vector<Eigen::Vector2d>(0),
+                             std::vector<float>(0));
   }
 }
 

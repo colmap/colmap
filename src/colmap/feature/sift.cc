@@ -230,6 +230,7 @@ class SiftCPUFeatureExtractor : public FeatureExtractor {
           level_keypoints.back()[level_idx] =
               FeatureKeypoint(vl_keypoints[i].x + 0.5f,
                               vl_keypoints[i].y + 0.5f,
+                              1.0,
                               vl_keypoints[i].sigma,
                               angles[o]);
           if (descriptors != nullptr) {
@@ -679,6 +680,7 @@ class SiftGPUFeatureExtractor : public FeatureExtractor {
     for (size_t i = 0; i < num_features; ++i) {
       (*keypoints)[i] = FeatureKeypoint(keypoints_buffer_[i].x,
                                         keypoints_buffer_[i].y,
+                                        1.0,
                                         keypoints_buffer_[i].s,
                                         keypoints_buffer_[i].o);
     }
@@ -1313,7 +1315,7 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
                   "Invalid keypoint format");
     static_assert(offsetof(FeatureKeypoint, y) == 1 * sizeof(float),
                   "Invalid keypoint format");
-    static_assert(sizeof(FeatureKeypoint) == 6 * sizeof(float),
+    static_assert(sizeof(FeatureKeypoint) == 7 * sizeof(float),
                   "Invalid keypoint format");
 
     THROW_CHECK_NOTNULL(two_view_geometry);
@@ -1496,7 +1498,7 @@ void LoadSiftFeaturesFromTextFile(const std::string& path,
     std::getline(feature_line_stream >> std::ws, item, ' ');
     const float orientation = std::stold(item);
 
-    (*keypoints)[i] = FeatureKeypoint(x, y, scale, orientation);
+    (*keypoints)[i] = FeatureKeypoint(x, y, 1.0, scale, orientation);
 
     // Descriptor
     for (size_t j = 0; j < dim; ++j) {

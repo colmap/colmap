@@ -33,15 +33,18 @@
 
 namespace colmap {
 
-FeatureKeypoint::FeatureKeypoint() : FeatureKeypoint(0, 0) {}
+FeatureKeypoint::FeatureKeypoint() : FeatureKeypoint(0, 0, 1) {}
 
-FeatureKeypoint::FeatureKeypoint(const float x, const float y)
-    : FeatureKeypoint(x, y, 1, 0, 0, 1) {}
+FeatureKeypoint::FeatureKeypoint(const float x,
+                                 const float y,
+                                 const float weight_)
+    : FeatureKeypoint(x, y, weight_, 1, 0, 0, 1) {}
 
 FeatureKeypoint::FeatureKeypoint(const float x_,
                                  const float y_,
                                  const float scale,
-                                 const float orientation)
+                                 const float orientation,
+                                 const float weight_)
     : x(x_), y(y_) {
   THROW_CHECK_GE(scale, 0.0);
   const float scale_cos_orientation = scale * std::cos(orientation);
@@ -50,26 +53,36 @@ FeatureKeypoint::FeatureKeypoint(const float x_,
   a12 = -scale_sin_orientation;
   a21 = scale_sin_orientation;
   a22 = scale_cos_orientation;
+  weight = weight_;
 }
 
 FeatureKeypoint::FeatureKeypoint(const float x_,
                                  const float y_,
+                                 const float weight_,
                                  const float a11_,
                                  const float a12_,
                                  const float a21_,
                                  const float a22_)
-    : x(x_), y(y_), a11(a11_), a12(a12_), a21(a21_), a22(a22_) {}
+    : x(x_),
+      y(y_),
+      weight(weight_),
+      a11(a11_),
+      a12(a12_),
+      a21(a21_),
+      a22(a22_) {}
 
 FeatureKeypoint FeatureKeypoint::FromShapeParameters(const float x,
                                                      const float y,
                                                      const float scale_x,
                                                      const float scale_y,
                                                      const float orientation,
-                                                     const float shear) {
+                                                     const float shear,
+                                                     const float weight) {
   THROW_CHECK_GE(scale_x, 0.0);
   THROW_CHECK_GE(scale_y, 0.0);
   return FeatureKeypoint(x,
                          y,
+                         weight,
                          scale_x * std::cos(orientation),
                          -scale_y * std::sin(orientation + shear),
                          scale_x * std::sin(orientation),

@@ -37,6 +37,10 @@ namespace colmap {
 std::vector<Eigen::Vector2d> FeatureKeypointsToPointsVector(
     const FeatureKeypoints& keypoints);
 
+// Convert feature keypoints to vector of weights.
+std::vector<float> FeatureKeypointsToWeightsVector(
+    const FeatureKeypoints& keypoints);
+
 // L2-normalize feature descriptor, where each row represents one feature.
 void L2NormalizeFeatureDescriptors(FeatureDescriptorsFloat* descriptors);
 

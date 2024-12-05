@@ -351,7 +351,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
           for (point2D_t point2D_idx = 0; point2D_idx < points2D.size();
                ++point2D_idx) {
             const auto& point2D = points2D[point2D_idx];
-            keypoints.emplace_back(point2D.xy(0), point2D.xy(1));
+            keypoints.emplace_back(point2D.xy(0), point2D.xy(1), 1.0f);
             // Generate a unique descriptor for each 3D point. If the 2D point
             // does not observe a 3D point, generate a random unique descriptor.
             std::mt19937 feature_generator(point2D.HasPoint3D()

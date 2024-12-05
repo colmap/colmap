@@ -187,7 +187,9 @@ class FeatureMatcherThread : public Thread {
                 Image& image = images[data_id.id];
                 image = cache_->GetImage(data_id.id);
                 image.SetPoints2D(FeatureKeypointsToPointsVector(
-                    *cache_->GetKeypoints(data_id.id)));
+                                      *cache_->GetKeypoints(data_id.id)),
+                                  FeatureKeypointsToWeightsVector(
+                                      *cache_->GetKeypoints(data_id.id)));
                 cameras[image.CameraId()] = cache_->GetCamera(image.CameraId());
               }
             };

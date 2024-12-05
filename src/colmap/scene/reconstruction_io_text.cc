@@ -342,6 +342,7 @@ void ReadImagesText(Reconstruction& reconstruction, std::istream& stream) {
 
     points2D.clear();
     point3D_ids.clear();
+    std::vector<float> weights;
 
     if (!line.empty()) {
       while (!line_stream2.eof()) {
@@ -353,7 +354,11 @@ void ReadImagesText(Reconstruction& reconstruction, std::istream& stream) {
         std::getline(line_stream2, item, ' ');
         point.y() = std::stold(item);
 
+        std::getline(line_stream2, item, ' ');
+        float weight = std::stof(item);
+
         points2D.push_back(point);
+        weights.push_back(weight);
 
         std::getline(line_stream2, item, ' ');
         if (item == "-1") {
@@ -364,7 +369,7 @@ void ReadImagesText(Reconstruction& reconstruction, std::istream& stream) {
       }
     }
 
-    image.SetPoints2D(points2D);
+    image.SetPoints2D(points2D, weights);
 
     for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
          ++point2D_idx) {
@@ -618,7 +623,7 @@ void WriteImagesText(const Reconstruction& reconstruction,
   stream << "# Image list with two lines of data per image:\n";
   stream << "#   IMAGE_ID, QW, QX, QY, QZ, TX, TY, TZ, CAMERA_ID, "
             "NAME\n";
-  stream << "#   POINTS2D[] as (X, Y, POINT3D_ID)\n";
+  stream << "#   POINTS2D[] as (X, Y, WEIGHT, POINT3D_ID)\n";
   stream << "# Number of images: " << reconstruction.NumRegImages()
          << ", mean observations per image: "
          << reconstruction.ComputeMeanObservationsPerRegImage() << '\n';
@@ -655,6 +660,7 @@ void WriteImagesText(const Reconstruction& reconstruction,
     for (const Point2D& point2D : image.Points2D()) {
       line << point2D.xy(0) << " ";
       line << point2D.xy(1) << " ";
+      line << point2D.weight << " ";
       if (point2D.HasPoint3D()) {
         line << point2D.point3D_id << " ";
       } else {

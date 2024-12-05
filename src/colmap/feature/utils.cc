@@ -42,6 +42,15 @@ std::vector<Eigen::Vector2d> FeatureKeypointsToPointsVector(
   return points;
 }
 
+std::vector<float> FeatureKeypointsToWeightsVector(
+    const FeatureKeypoints& keypoints) {
+  std::vector<float> weights(keypoints.size());
+  for (size_t i = 0; i < keypoints.size(); ++i) {
+    weights[i] = keypoints[i].weight;
+  }
+  return weights;
+}
+
 void L2NormalizeFeatureDescriptors(FeatureDescriptorsFloat* descriptors) {
   descriptors->rowwise().normalize();
 }
