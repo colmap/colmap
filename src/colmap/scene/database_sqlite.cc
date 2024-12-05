@@ -49,7 +49,7 @@ void SwapFeatureMatchesBlob(FeatureMatchesBlob* matches) {
 }
 
 FeatureKeypointsBlob FeatureKeypointsToBlob(const FeatureKeypoints& keypoints) {
-  const FeatureKeypointsBlob::Index kNumCols = 6;
+  const FeatureKeypointsBlob::Index kNumCols = 7;
   FeatureKeypointsBlob blob(keypoints.size(), kNumCols);
   for (size_t i = 0; i < keypoints.size(); ++i) {
     blob(i, 0) = keypoints[i].x;
