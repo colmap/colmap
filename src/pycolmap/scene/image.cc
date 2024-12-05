@@ -23,12 +23,12 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
-template <typename T>
-std::shared_ptr<Image> MakeImage(const std::string& name,
-                                 const std::vector<T>& points2D,
-                                 const std::optional<Rigid3d>& cam_from_world,
-                                 size_t camera_id,
-                                 image_t image_id) {
+std::shared_ptr<Image> MakeImageFromPoint2D(
+    const std::string& name,
+    const std::vector<Point2D>& points2D,
+    const std::optional<Rigid3d>& cam_from_world,
+    size_t camera_id,
+    image_t image_id) {
   auto image = std::make_shared<Image>();
   image->SetName(name);
   image->SetPoints2D(points2D);
@@ -40,18 +40,51 @@ std::shared_ptr<Image> MakeImage(const std::string& name,
   return image;
 }
 
+std::shared_ptr<Image> MakeImageFromKeypoints(
+    const std::string& name,
+    const std::vector<Eigen::Vector2d>& points,
+    const std::vector<float>& weights,
+    const std::optional<Rigid3d>& cam_from_world,
+    size_t camera_id,
+    image_t image_id) {
+  auto image = std::make_shared<Image>();
+  image->SetName(name);
+  image->SetPoints2D(points, weights);
+  image->SetCamFromWorld(cam_from_world);
+  if (camera_id != kInvalidCameraId) {
+    image->SetCameraId(camera_id);
+  }
+  image->SetImageId(image_id);
+  return image;
+}
+
 void BindImage(py::module& m) {
   py::class_<Image, std::shared_ptr<Image>> PyImage(m, "Image");
   PyImage.def(py::init<>())
-      .def(py::init(&MakeImage<Point2D>),
+      .def(py::init(&MakeImageFromPoint2D),
            "name"_a = "",
            py::arg_v("points2D", Point2DVector(), "ListPoint2D()"),
            "cam_from_world"_a = py::none(),
            "camera_id"_a = kInvalidCameraId,
            "id"_a = kInvalidImageId)
-      .def(py::init(&MakeImage<Eigen::Vector2d>),
+      .def(py::init([](const std::string& name,
+                       const std::vector<Eigen::Vector2d>& points,
+                       const std::optional<Rigid3d>& cam_from_world,
+                       size_t camera_id,
+                       image_t image_id) {
+             std::vector<float> weights(points.size(), 1.0f);
+             return MakeImageFromKeypoints(
+                 name, points, weights, cam_from_world, camera_id, image_id);
+           }),
            "name"_a = "",
            "keypoints"_a = std::vector<Eigen::Vector2d>(),
+           "cam_from_world"_a = Rigid3d(),
+           "camera_id"_a = kInvalidCameraId,
+           "id"_a = kInvalidImageId)
+      .def(py::init(&MakeImageFromKeypoints),
+           "name"_a = "",
+           "keypoints"_a = std::vector<Eigen::Vector2d>(),
+           "weights"_a = std::vector<float>(),
            "cam_from_world"_a = Rigid3d(),
            "camera_id"_a = kInvalidCameraId,
            "id"_a = kInvalidImageId)
@@ -172,7 +205,17 @@ void BindImage(py::module& m) {
             }
             return points2D;
           },
-          "Get the 2D points that observe a 3D point.");
+          "Get the 2D points that observe a 3D point.")
+      .def("set_points2D",
+           py::overload_cast<const std::vector<Eigen::Vector2d>&,
+                             const std::vector<float>&>(&Image::SetPoints2D),
+           "points"_a,
+           "weights"_a,
+           "Set 2D points with weights")
+      .def("set_points2D",
+           py::overload_cast<const std::vector<Point2D>&>(&Image::SetPoints2D),
+           "points"_a,
+           "Set 2D points from Point2D objects");
   MakeDataclass(PyImage);
 
   py::bind_map<ImageMap>(m, "MapImageIdToImage");
