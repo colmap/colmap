@@ -32,7 +32,12 @@ Point2D MakePoint2D(const Eigen::Vector2d& xy,
 
 void BindPoint2D(py::module& m) {
   py::class_ext_<Point2D, std::shared_ptr<Point2D>> PyPoint2D(m, "Point2D");
-  PyPoint2D.def(py::init<>())
+  PyPoint2D
+      .def(py::init([]() {
+        Point2D point;
+        point.weight = 1.0f;
+        return point;
+      }))
       .def(py::init(&MakePoint2D),
            "xy"_a,
            "point3D_id"_a = kInvalidPoint3DId,
