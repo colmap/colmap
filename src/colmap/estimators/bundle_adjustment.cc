@@ -1026,7 +1026,8 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
         LOG(WARNING) << "No pose priors with valid covariance found.";
         return false;
       }
-      ransac_options.max_error = (3. * (avg_cov / num_covs).cwiseSqrt()).norm();
+      // Set max error at the 3 sigma confidence interval. Assumes no outliers.
+      ransac_options.max_error = 3 * std::sqrt((avg_cov / num_covs).sum());
     }
 
     Sim3d metric_from_orig;
