@@ -235,11 +235,10 @@ if(FETCH_LIBTORCH)
     # to call it here. Once we require CMake 3.24, we can use the
     # find_package(GLOBAL) option and move this logic to the thirdparty folder.
     FetchContent_MakeAvailable(libtorch)
-    find_package(Torch REQUIRED PATHS "${libtorch_SOURCE_DIR}" NO_DEFAULT_PATH)
-    if(IS_LINUX)
-        set(MKLROOT "/opt/intel/mkl")
-        find_package(MKL REQUIRED)
+    if(IS_LINUX AND NOT DEFINED MKL_ROOT)
+       set(MKL_ROOT "/opt/intel/mkl")
     endif()
+    find_package(Torch REQUIRED PATHS "${libtorch_SOURCE_DIR}" NO_DEFAULT_PATH)
 endif()
 
 add_subdirectory(src/colmap)
