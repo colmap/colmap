@@ -66,24 +66,6 @@ jobs:
             e2eTests: false,
             checkCodeFormat: false,
           },
-          {
-            os: ubuntu-20.04,
-            cmakeBuildType: Release,
-            asanEnabled: false,
-            guiEnabled: true,
-            cudaEnabled: false,
-            e2eTests: false,
-            checkCodeFormat: false,
-          },
-          {
-            os: ubuntu-20.04,
-            cmakeBuildType: Release,
-            asanEnabled: false,
-            guiEnabled: false,
-            cudaEnabled: true,
-            e2eTests: false,
-            checkCodeFormat: false,
-          },
         ]
 
     env:
