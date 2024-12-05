@@ -86,6 +86,7 @@
             "dependencies": [
                 {
                     "name": "libtorch",
+                    "default-features": false,
                     "features": [
                         "zstd"
                     ]
@@ -97,6 +98,7 @@
             "dependencies": [
                 {
                     "name": "libtorch",
+                    "default-features": false,
                     "features": [
                         "cuda",
                         "zstd"
