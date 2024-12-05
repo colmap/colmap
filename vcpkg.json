@@ -80,6 +80,12 @@
                     ]
                 }
             ]
+        },
+        "libtorch": {
+            "description": "Build with libtorch.",
+            "dependencies": [
+                "libtorch"
+            ]
         }
     }
 }
