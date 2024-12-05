@@ -1018,7 +1018,7 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
       size_t num_valid_covs = 0;
       for (const auto& [_, pose_prior] : pose_priors_) {
         if (pose_prior.IsCovarianceValid()) {
-          const Eigen::Vector3d max_stddev =
+          const double max_stddev =
               std::sqrt(Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d>(
                             pose_prior.position_covariance)
                             .eigenvalues()
