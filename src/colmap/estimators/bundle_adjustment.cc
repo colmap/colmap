@@ -805,14 +805,16 @@ class DefaultBundleAdjuster : public BundleAdjuster {
         problem_->AddResidualBlock(
             CreateCameraCostFunction<ReprojErrorConstantPoseCostFunctor>(
                 camera.model_id, point2D.xy, cam_from_world),
-            loss_function_.get(),
+            new ceres::ScaledLoss(
+                loss_function_.get(), point2D.weight, ceres::TAKE_OWNERSHIP),
             point3D.xyz.data(),
             camera.params.data());
       } else {
         problem_->AddResidualBlock(
             CreateCameraCostFunction<ReprojErrorCostFunctor>(camera.model_id,
                                                              point2D.xy),
-            loss_function_.get(),
+            new ceres::ScaledLoss(
+                loss_function_.get(), point2D.weight, ceres::TAKE_OWNERSHIP),
             cam_from_world.rotation.coeffs().data(),
             cam_from_world.translation.data(),
             point3D.xyz.data(),
@@ -862,14 +864,16 @@ class DefaultBundleAdjuster : public BundleAdjuster {
         problem_->AddResidualBlock(
             CreateCameraCostFunction<ReprojErrorConstantPoseCostFunctor>(
                 camera.model_id, point2D.xy, cam_from_rig * rig_from_world),
-            loss_function_.get(),
+            new ceres::ScaledLoss(
+                loss_function_.get(), point2D.weight, ceres::TAKE_OWNERSHIP),
             point3D.xyz.data(),
             camera.params.data());
       } else if (!constant_rig_from_world && constant_sensor_from_rig) {
         problem_->AddResidualBlock(
             CreateCameraCostFunction<RigReprojErrorConstantRigCostFunctor>(
                 camera.model_id, point2D.xy, cam_from_rig),
-            loss_function_.get(),
+            new ceres::ScaledLoss(
+                loss_function_.get(), point2D.weight, ceres::TAKE_OWNERSHIP),
             rig_from_world.rotation.coeffs().data(),
             rig_from_world.translation.data(),
             point3D.xyz.data(),
@@ -878,7 +882,8 @@ class DefaultBundleAdjuster : public BundleAdjuster {
         problem_->AddResidualBlock(
             CreateCameraCostFunction<RigReprojErrorCostFunctor>(camera.model_id,
                                                                 point2D.xy),
-            loss_function_.get(),
+            new ceres::ScaledLoss(
+                loss_function_.get(), point2D.weight, ceres::TAKE_OWNERSHIP),
             cam_from_rig.rotation.coeffs().data(),
             cam_from_rig.translation.data(),
             rig_from_world.rotation.coeffs().data(),
@@ -926,7 +931,8 @@ class DefaultBundleAdjuster : public BundleAdjuster {
         problem_->AddResidualBlock(
             CreateCameraCostFunction<ReprojErrorConstantPoseCostFunctor>(
                 camera.model_id, point2D.xy, cam_from_world),
-            loss_function_.get(),
+            new ceres::ScaledLoss(
+                loss_function_.get(), point2D.weight, ceres::TAKE_OWNERSHIP),
             point3D.xyz.data(),
             camera.params.data());
       } else {
@@ -937,7 +943,8 @@ class DefaultBundleAdjuster : public BundleAdjuster {
         problem_->AddResidualBlock(
             CreateCameraCostFunction<ReprojErrorConstantPoseCostFunctor>(
                 camera.model_id, point2D.xy, cam_from_rig * rig_from_world),
-            loss_function_.get(),
+            new ceres::ScaledLoss(
+                loss_function_.get(), point2D.weight, ceres::TAKE_OWNERSHIP),
             point3D.xyz.data(),
             camera.params.data());
       }
