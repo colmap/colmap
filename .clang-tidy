@@ -12,7 +12,7 @@ Checks: >
   -performance-enum-size,
   cppcoreguidelines-virtual-class-destructor,
   google-explicit-constructor,
-  google-build-using-namespace,
+  -google-build-using-namespace,
   readability-avoid-const-params-in-decls,
   clang-analyzer-core*,
   clang-analyzer-cplusplus*,

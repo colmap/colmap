@@ -21,6 +21,7 @@
 
 using namespace colmap;
 using namespace pybind11::literals;
+
 namespace py = pybind11;
 
 template <typename T>
@@ -105,6 +106,11 @@ void BindSceneImage(py::module& m) {
           py::overload_cast<>(&Image::Points2D),
           py::overload_cast<const Point2DVector&>(&Image::SetPoints2D),
           "Array of Points2D (=keypoints).")
+      .def("set_points2D",
+           py::overload_cast<const std::vector<Eigen::Vector2d>&>(
+               &Image::SetPoints2D),
+           "points2D"_a,
+           "Set Points2D from a list of Vector2d.")
       .def("point2D",
            py::overload_cast<camera_t>(&Image::Point2D),
            "point2D_idx"_a,
