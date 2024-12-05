@@ -52,6 +52,6 @@ before-all = "{package}/ci/install-colmap-almalinux.sh"
 before-all = "{package}/ci/install-colmap-macos.sh"
 
 [tool.cibuildwheel.windows]
-before-all = "powershell -File {package}/ci/install-colmap-windows.ps1"
+before-all = "pwsh -File {package}/ci/install-colmap-windows.ps1"
 before-build = "pip install delvewheel"
-test-command = "powershell -File {package}/ci/test-colmap-windows.ps1"
+test-command = "pwsh -File {package}/ci/test-colmap-windows.ps1"
