@@ -128,7 +128,6 @@ jobs:
             -DTESTS_ENABLED=${{ matrix.config.testsEnabled }} `
             -DGUI_ENABLED=ON `
             -DCUDA_ENABLED=${{ matrix.config.cudaEnabled }} `
-            -DFETCH_LIBTORCH=OFF `
             -DCMAKE_CUDA_ARCHITECTURES=all-major `
             -DCUDAToolkit_ROOT="${{ steps.cuda-toolkit.outputs.CUDA_PATH }}" `
             -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake" `
