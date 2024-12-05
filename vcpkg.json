@@ -83,7 +83,6 @@
         },
         "libtorch": {
             "description": "Build with libtorch.",
-            "default-features": false,
             "dependencies": [
                 {
                     "name": "libtorch",
@@ -95,7 +94,6 @@
         },
         "libtorch_cuda": {
             "description": "Build with libtorch and CUDA support.",
-            "default-features": false,
             "dependencies": [
                 {
                     "name": "libtorch",
