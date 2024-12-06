@@ -90,7 +90,7 @@ jobs:
       - name: Install CMake and Ninja
         uses: lukka/get-cmake@latest
         with:
-          cmakeVersion: 3.31.2
+          cmakeVersion: 3.31.1
           ninjaVersion: 1.12.1
 
       - name: Configure and build
