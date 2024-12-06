@@ -77,9 +77,6 @@ jobs:
           sub-packages: '["nvcc", "nvtx", "cudart", "curand", "curand_dev", "nvrtc_dev"]'
           method: 'network'
 
-      - name: Install CMake and Ninja
-        uses: lukka/get-cmake@latest
-
       - name: Setup vcpkg
         shell: pwsh
         run: |
