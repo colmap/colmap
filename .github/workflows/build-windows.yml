@@ -43,7 +43,7 @@ jobs:
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
       VCPKG_COMMIT_ID: 10b7a178346f3f0abef60cecd5130e295afd8da4
-      VCPKG_BINARY_SOURCES: "clear;x-azblob,${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_URL }},${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_SAS }},rw"
+      VCPKG_BINARY_SOURCES: "clear;x-azblob,${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_URL }},${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_SAS }},readwrite"
 
     steps:
       - uses: actions/checkout@v4
