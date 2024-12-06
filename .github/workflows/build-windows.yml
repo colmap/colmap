@@ -87,6 +87,12 @@ jobs:
           git reset --hard ${{ env.VCPKG_COMMIT_ID }}
           ./bootstrap-vcpkg.bat
 
+      - name: Install CMake and Ninja
+        uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: 3.31.2
+          ninjaVersion: 1.12.1
+
       - name: Configure and build
         shell: pwsh
         run: |
