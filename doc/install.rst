@@ -5,10 +5,16 @@ Installation
 
 You can either download one of the pre-built binaries or build the source code
 manually. Pre-built binaries and other resources can be downloaded from
-https://demuc.de/colmap/. An overview of system packages for Linux/Unix/BSD
-distributions are available at https://repology.org/metapackage/colmap/versions.
-Note that the COLMAP packages in the default repositories for Linux/Unix/BSD do
-not come with CUDA support, which requires a manual build from source.
+https://demuc.de/colmap/.
+
+An overview of system packages for Linux/Unix/BSD distributions are available at
+https://repology.org/metapackage/colmap/versions. Note that the COLMAP packages
+in the default repositories for Linux/Unix/BSD do not come with CUDA support,
+which requires a manual build from source, as explained further below.
+
+For Mac users, `Homebrew <https://brew.sh>`__ provides a formula for COLMAP with
+pre-compiled binaries or the option to build from source. After installing
+homebrew, installing COLMAP is as easy as running `brew install colmap`.
 
 COLMAP can be used as an independent application through the command-line or
 graphical user interface. Alternatively, COLMAP is also built as a reusable
@@ -34,18 +40,6 @@ Windows defender may prompt you with a security warning, because the binaries
 are not officially signed. The provided COLMAP binaries are automatically built
 from GitHub Actions CI machines. If you do not trust them, you can build from
 source as described below.
-
-Mac
----
-
-The pre-built application package for Mac contains both the GUI and command-line
-version of COLMAP. To open the GUI, simply open the application. Note that
-COLMAP is shipped as an unsigned application, i.e., when your first open the
-application, you have to right-click the application and select *Open* and then
-accept to trust the application. In the future, you can then simply double-click
-the application to open COLMAP. The command-line interface is accessible by
-running the packaged binary ``COLMAP.app/Contents/MacOS/colmap``. To list the
-available COLMAP commands, run ``COLMAP.app/Contents/MacOS/colmap -h``.
 
 
 -----------------
@@ -137,7 +131,7 @@ CUDA package and GCC, and you must compile against GCC 10::
 Mac
 ---
 
-Dependencies from `Homebrew <http://brew.sh/>`_::
+Dependencies from `Homebrew <http://brew.sh/>`__::
 
     brew install \
         cmake \

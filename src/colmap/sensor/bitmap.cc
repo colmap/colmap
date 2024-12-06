@@ -411,7 +411,7 @@ bool Bitmap::ExifFocalLength(double* focal_length) const {
                   FIMD_EXIF_EXIF,
                   "FocalLengthIn35mmFilm",
                   &focal_length_35mm_str)) {
-    const std::regex regex(".*?([0-9.]+).*?mm.*?");
+    static const std::regex regex(".*?([0-9.]+).*?mm.*?");
     std::cmatch result;
     if (std::regex_search(focal_length_35mm_str.c_str(), result, regex)) {
       const double focal_length_35 = std::stold(result[1]);
@@ -501,7 +501,7 @@ bool Bitmap::ExifLatitude(double* latitude) const {
     }
   }
   if (ReadExifTag(handle_.ptr, FIMD_EXIF_GPS, "GPSLatitude", &str)) {
-    const std::regex regex(".*?([0-9.]+):([0-9.]+):([0-9.]+).*?");
+    static const std::regex regex(".*?([0-9.]+):([0-9.]+):([0-9.]+).*?");
     std::cmatch result;
     if (std::regex_search(str.c_str(), result, regex)) {
       const double hours = std::stold(result[1]);
@@ -529,7 +529,7 @@ bool Bitmap::ExifLongitude(double* longitude) const {
     }
   }
   if (ReadExifTag(handle_.ptr, FIMD_EXIF_GPS, "GPSLongitude", &str)) {
-    const std::regex regex(".*?([0-9.]+):([0-9.]+):([0-9.]+).*?");
+    static const std::regex regex(".*?([0-9.]+):([0-9.]+):([0-9.]+).*?");
     std::cmatch result;
     if (std::regex_search(str.c_str(), result, regex)) {
       const double hours = std::stold(result[1]);
@@ -549,7 +549,7 @@ bool Bitmap::ExifLongitude(double* longitude) const {
 bool Bitmap::ExifAltitude(double* altitude) const {
   std::string str;
   if (ReadExifTag(handle_.ptr, FIMD_EXIF_GPS, "GPSAltitude", &str)) {
-    const std::regex regex(".*?([0-9.]+).*?/.*?([0-9.]+).*?");
+    static const std::regex regex(".*?([0-9.]+).*?/.*?([0-9.]+).*?");
     std::cmatch result;
     if (std::regex_search(str.c_str(), result, regex)) {
       *altitude = std::stold(result[1]) / std::stold(result[2]);

@@ -1011,17 +1011,28 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
 
   bool AlignReconstruction() {
     RANSACOptions ransac_options;
-    ransac_options.max_error = -1;
-    size_t num_covs = 0;
-    Eigen::Vector3d avg_cov = Eigen::Vector3d::Zero();
-    for (const auto& [_, pose_prior] : pose_priors_) {
-      if (pose_prior.IsCovarianceValid()) {
-        avg_cov += pose_prior.position_covariance.diagonal();
-        ++num_covs;
+    if (prior_options_.ransac_max_error > 0) {
+      ransac_options.max_error = prior_options_.ransac_max_error;
+    } else {
+      double max_stddev_sum = 0;
+      size_t num_valid_covs = 0;
+      for (const auto& [_, pose_prior] : pose_priors_) {
+        if (pose_prior.IsCovarianceValid()) {
+          const double max_stddev =
+              std::sqrt(Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d>(
+                            pose_prior.position_covariance)
+                            .eigenvalues()
+                            .maxCoeff());
+          max_stddev_sum += max_stddev;
+          ++num_valid_covs;
+        }
       }
-    }
-    if (num_covs > 0) {
-      ransac_options.max_error = (3. * (avg_cov / num_covs).cwiseSqrt()).norm();
+      if (num_valid_covs == 0) {
+        LOG(WARNING) << "No pose priors with valid covariance found.";
+        return false;
+      }
+      // Set max error at the 3 sigma confidence interval. Assumes no outliers.
+      ransac_options.max_error = 3 * max_stddev_sum / num_valid_covs;
     }
 
     Sim3d metric_from_orig;

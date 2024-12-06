@@ -36,6 +36,7 @@
 #include "colmap/estimators/manifold.h"
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/pose.h"
+#include "colmap/geometry/triangulation.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/logging.h"
 
@@ -147,6 +148,9 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
   double* camera_params = camera->params.data();
   double* cam_from_world_rotation = cam_from_world->rotation.coeffs().data();
   double* cam_from_world_translation = cam_from_world->translation.data();
+
+  // CostFunction assumes unit quaternions.
+  cam_from_world->rotation.normalize();
 
   ceres::Problem::Options problem_options;
   problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
