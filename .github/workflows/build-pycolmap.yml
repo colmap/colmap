@@ -57,9 +57,6 @@ jobs:
       - name: Set env (macOS)
         if: runner.os == 'macOS'
         run: |
-          echo "ACTIONS_RUNTIME_TOKEN=${ACTIONS_RUNTIME_TOKEN}" >> "$GITHUB_ENV"
-          echo "ACTIONS_CACHE_URL=${ACTIONS_CACHE_URL}" >> "$GITHUB_ENV"
-
           if [[ ${{ matrix.config.arch }} == "x86_64" ]]; then
             VCPKG_TARGET_TRIPLET="x64-osx-release"
           elif [[ ${{ matrix.config.arch }} == "arm64" ]]; then
@@ -92,9 +89,6 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          echo "ACTIONS_RUNTIME_TOKEN=${env:ACTIONS_RUNTIME_TOKEN}" >> "${env:GITHUB_ENV}"
-          echo "ACTIONS_CACHE_URL=${env:ACTIONS_CACHE_URL}" >> "${env:GITHUB_ENV}"
-
           $VCPKG_INSTALLATION_ROOT = "${{ github.workspace }}/vcpkg"
           echo "VCPKG_INSTALLATION_ROOT=${VCPKG_INSTALLATION_ROOT}" >> "${env:GITHUB_ENV}"
           $CMAKE_TOOLCHAIN_FILE = "${VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake"
@@ -120,9 +114,6 @@ jobs:
       - name: Set env (Linux)
         if: runner.os == 'Linux'
         run: |
-          echo "ACTIONS_RUNTIME_TOKEN=${ACTIONS_RUNTIME_TOKEN}" >> "$GITHUB_ENV"
-          echo "ACTIONS_CACHE_URL=${ACTIONS_CACHE_URL}" >> "$GITHUB_ENV"
-
           VCPKG_TARGET_TRIPLET="x64-linux-release"
           echo "VCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET}" >> "$GITHUB_ENV"
 
@@ -149,7 +140,7 @@ jobs:
           VCPKG_BINARY_SOURCES="clear;x-azblob,${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_URL }},${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_SAS }},readwrite"
           echo "VCPKG_BINARY_SOURCES=${VCPKG_BINARY_SOURCES}" >> "$GITHUB_ENV"
 
-          CIBW_ENVIRONMENT_PASS_LINUX="ACTIONS_RUNTIME_TOKEN ACTIONS_CACHE_URL VCPKG_TARGET_TRIPLET VCPKG_INSTALLATION_ROOT CMAKE_TOOLCHAIN_FILE VCPKG_BINARY_SOURCES CONTAINER_COMPILER_CACHE_DIR CCACHE_DIR CCACHE_BASEDIR"
+          CIBW_ENVIRONMENT_PASS_LINUX="VCPKG_TARGET_TRIPLET VCPKG_INSTALLATION_ROOT CMAKE_TOOLCHAIN_FILE VCPKG_BINARY_SOURCES CONTAINER_COMPILER_CACHE_DIR CCACHE_DIR CCACHE_BASEDIR"
           echo "CIBW_ENVIRONMENT_PASS_LINUX=${CIBW_ENVIRONMENT_PASS_LINUX}" >> "$GITHUB_ENV"
 
           CIBW_MANYLINUX_X86_64_IMAGE="quay.io/pypa/manylinux_2_28_x86_64"
