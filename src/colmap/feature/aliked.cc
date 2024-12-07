@@ -1,6 +1,7 @@
 #include "colmap/feature/aliked.h"
 
 #include "thirdparty/ALIKED/aliked.hpp"
+#include "thirdparty/LightGlue/matcher.hpp"
 
 #include <memory>
 
@@ -35,7 +36,7 @@ class ALIKEDFeatureExtractor : public FeatureExtractor {
       scaled_rgb_bitmap.Rescale(scale * width, scale * height);
     }
 
-    at::Tensor torch_image = at::empty(
+    torch::Tensor torch_image = torch::empty(
         {1, 3, scaled_rgb_bitmap.Height(), scaled_rgb_bitmap.Width()});
     for (int y = 0; y < scaled_rgb_bitmap.Height(); ++y) {
       for (int x = 0; x < scaled_rgb_bitmap.Width(); ++x) {
@@ -48,11 +49,10 @@ class ALIKEDFeatureExtractor : public FeatureExtractor {
       }
     }
 
-    torch::Dict<std::string, torch::Tensor> outputs =
+    const torch::Dict<std::string, torch::Tensor> outputs =
         aliked_.forward(torch_image);
 
     const auto& torch_keypoints = outputs.at("keypoints");
-    const auto& torch_descriptors = outputs.at("descriptors");
     const int num_keypoints = torch_keypoints.size(0);
 
     keypoints->resize(num_keypoints);
@@ -63,69 +63,15 @@ class ALIKEDFeatureExtractor : public FeatureExtractor {
           0.5f * height * (torch_keypoints[i][1].item<float>() + 1.f);
     }
 
-    descriptors->resize(num_keypoints, 128);
-    for (int i = 0; i < num_keypoints; ++i) {
-      for (int j = 0; j < 128; ++j) {
-        (*descriptors)(i, j) = std::min(
-            std::max(255.f * torch_descriptors[i][j].item<float>(), 0.f),
-            255.f);
-      }
-    }
-
-    // torch::Dict<std::string, torch::Tensor>
-    // ALIKED::run(cv::Mat& img_rgb) {
-    //     cv::Mat float_img;
-    //     img_rgb.convertTo(float_img, CV_32F, 1.0 / 255.0);
-
-    //     std::vector<cv::Mat> channels(3);
-    //     cv::split(float_img, channels);
-
-    //     auto options = torch::TensorOptions()
-    //                        .dtype(torch::kFloat32)
-    //                        .device(device_);
-
-    //     std::vector<torch::Tensor> tensor_channels;
-    //     tensor_channels.reserve(3);
-
-    //     for (const auto& channel : channels)
-    //     {
-    //         auto host_tensor = torch::from_blob(
-    //             channel.data,
-    //             {channel.rows, channel.cols},
-    //             torch::TensorOptions().dtype(torch::kFloat32));
-    //         tensor_channels.push_back(std::move(host_tensor).to(device_));
-    //     }
-
-    //     auto img_tensor = torch::stack(std::move(tensor_channels), 0)
-    //                           .unsqueeze(0)
-    //                           .to(device_);
-
-    //     // Forward pass with move semantics
-    //     auto pred = std::move(*this).forward(std::move(img_tensor));
-
-    //     // Convert keypoints from normalized coordinates to image coordinates
-    //     auto kpts = pred.at("keypoints");
-    //     const auto h = static_cast<float>(float_img.rows);
-    //     const auto w = static_cast<float>(float_img.cols);
-    //     const auto wh = torch::tensor({w - 1.0f, h - 1.0f}, kpts.options());
-    //     kpts = wh * (kpts + 1) / 2;
-
-    //     pred.insert("keypoints", std::move(kpts));
-    //     return pred;
-    // }
-
-    // auto torch_keypoints_access = output.accessor<float, 0>();
-    // auto torch_descriptors_access = output.accessor<float, 1>();
-
-    // const int num_keypoints = torch_keypoints_access.size(0);
-
-    // descriptors->resize(num_keypoints, 128);
-    // for (int i = 0; i < num_keypoints; ++i) {
-    //   for (int j = 0; j < 128; ++j) {
-    //     (*descriptors)(i, j) = std::min(
-    //         std::max(255.f * torch_descriptors_access[i][j], 0.f), 255.f);
-    //   }
-    // }
+    const auto& torch_descriptors = outputs.at("descriptors");
+    const int num_descriptors = torch_descriptors.size(0);
+    THROW_CHECK_EQ(num_descriptors, num_keypoints);
+    const int descriptor_dim = torch_descriptors.size(1);
+    descriptors->resize(num_descriptors, descriptor_dim * sizeof(float));
+    torch::from_blob(reinterpret_cast<float*>(descriptors->data()),
+                     {num_descriptors, descriptor_dim},
+                     torch::TensorOptions().dtype(torch::kFloat32)) =
+        outputs.at("descriptors");
 
     return true;
   }
@@ -135,11 +81,97 @@ class ALIKEDFeatureExtractor : public FeatureExtractor {
   ALIKED aliked_;
 };
 
+class ALIKEDLightGlueFeatureMatcher : public FeatureMatcher {
+ public:
+  void Match(const Image& image1,
+             const Image& image2,
+             FeatureMatches* matches) override {
+    THROW_CHECK_NOTNULL(matches);
+
+    // TODO: Cache the torch tensors if the same image is passed.
+
+    const torch::Dict<std::string, torch::Tensor> features1 =
+        FeaturesFromImage(image1);
+    const torch::Dict<std::string, torch::Tensor> features2 =
+        FeaturesFromImage(image2);
+
+    const torch::Dict<std::string, torch::Tensor> outputs =
+        lightglue_.forward(features1, features2);
+
+    const auto& torch_matches0 = outputs.at("matches0");
+    THROW_CHECK_EQ(torch_matches0.size(0), 1);
+    const int num_matches = torch_matches0.size(1);
+    const int num_keypoints1 = image1.keypoints->size();
+    const int num_keypoints2 = image2.keypoints->size();
+    THROW_CHECK_EQ(num_matches, num_keypoints1);
+    matches->reserve(num_matches);
+    for (int i = 0; i < num_keypoints1; ++i) {
+      const int64_t j = torch_matches0[0][i].item<int64_t>();
+      if (j >= 0) {
+        FeatureMatch match;
+        match.point2D_idx1 = i;
+        match.point2D_idx2 = j;
+        THROW_CHECK_LT(match.point2D_idx2, num_keypoints2);
+        matches->push_back(match);
+      }
+    }
+  }
+
+  void MatchGuided(double max_error,
+                   const Image& image1,
+                   const Image& image2,
+                   TwoViewGeometry* two_view_geometry) override {
+    THROW_CHECK_GE(max_error, 0);
+    Match(image1, image2, &two_view_geometry->inlier_matches);
+  }
+
+ private:
+  torch::Dict<std::string, torch::Tensor> FeaturesFromImage(
+      const Image& image) {
+    THROW_CHECK_NE(image.image_id, kInvalidImageId);
+    THROW_CHECK_NOTNULL(image.descriptors);
+    THROW_CHECK_NOTNULL(image.keypoints);
+    THROW_CHECK_EQ(image.descriptors->rows(), image.keypoints->size());
+
+    const int num_keypoints = image.keypoints->size();
+    THROW_CHECK_EQ(image.descriptors->cols() % sizeof(float), 0);
+    const int descriptor_dim = image.descriptors->cols() / sizeof(float);
+
+    torch::Dict<std::string, torch::Tensor> features;
+    features.insert("image_size",
+                    torch::tensor({static_cast<float>(image.camera_width),
+                                   static_cast<float>(image.camera_height)},
+                                  torch::kFloat32)
+                        .unsqueeze(0));
+    torch::Tensor torch_keypoints = torch::empty({num_keypoints, 2});
+    for (int i = 0; i < num_keypoints; ++i) {
+      const FeatureKeypoint& keypoint = (*image.keypoints)[i];
+      torch_keypoints[i][0] = 2.f * keypoint.x / image.camera_width - 1.f;
+      torch_keypoints[i][1] = 2.f * keypoint.y / image.camera_height - 1.f;
+    }
+    features.insert("keypoints", std::move(torch_keypoints));
+    // TODO: The const_cast here is a little evil.
+    features.insert(
+        "descriptors",
+        torch::from_blob(const_cast<uint8_t*>(image.descriptors->data()),
+                         {num_keypoints, descriptor_dim},
+                         torch::TensorOptions().dtype(torch::kFloat32)));
+
+    return features;
+  }
+
+  matcher::LightGlue lightglue_;
+};
+
 }  // namespace
 
 std::unique_ptr<FeatureExtractor> CreateALIKEDFeatureExtractor(
     const ALIKEDFeatureOptions& options) {
   return std::make_unique<ALIKEDFeatureExtractor>(options);
+}
+
+std::unique_ptr<FeatureMatcher> CreateALIKEDLightGlueFeatureMatcher() {
+  return std::make_unique<ALIKEDLightGlueFeatureMatcher>();
 }
 
 }  // namespace colmap

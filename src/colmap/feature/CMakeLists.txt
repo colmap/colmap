@@ -66,6 +66,7 @@ COLMAP_ADD_LIBRARY(
         colmap_math
         colmap_sensor
         colmap_aliked
+        colmap_lightglue
         colmap_vlfeat
         Eigen3::Eigen
         flann

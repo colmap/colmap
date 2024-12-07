@@ -406,6 +406,7 @@ set(COLMAP_EXPORT_LIBS
     colmap_util
     # Third-party.
     colmap_aliked
+    colmap_lightglue
     colmap_poisson_recon
     colmap_vlfeat
 )

@@ -53,6 +53,9 @@ class FeatureMatcher {
     // Unique identifier for the image. Allows a matcher to cache some
     // computations per image in consecutive calls to matching.
     image_t image_id = kInvalidImageId;
+    // Sensor dimension in pixels of the image's camera.
+    int camera_width = 0;
+    int camera_height = 0;
     // Used for both normal and guided matching.
     std::shared_ptr<const FeatureDescriptors> descriptors;
     // Only used for guided matching.

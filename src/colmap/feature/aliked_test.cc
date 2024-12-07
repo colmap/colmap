@@ -23,11 +23,22 @@ void CreateImageWithSquare(const int size, Bitmap* bitmap) {
 TEST(ALIKED, NOMINAL) {
   Bitmap image;
   CreateImageWithSquare(200, &image);
-  auto extractor = CreateALIKEDFeatureExtractor(ALIKEDFeatureOptions());
 
-  FeatureKeypoints keypoints;
-  FeatureDescriptors descriptors;
-  ASSERT_TRUE(extractor->Extract(image, &keypoints, &descriptors));
+  auto extractor = CreateALIKEDFeatureExtractor(ALIKEDFeatureOptions());
+  auto keypoints = std::make_shared<FeatureKeypoints>();
+  auto descriptors = std::make_shared<FeatureDescriptors>();
+  ASSERT_TRUE(extractor->Extract(image, keypoints.get(), descriptors.get()));
+
+  LOG(INFO) << descriptors->rows() << " " << descriptors->cols();
+
+  auto matcher = CreateALIKEDLightGlueFeatureMatcher();
+  FeatureMatches matches;
+  matcher->Match(
+      {/*image_id=*/1, image.Width(), image.Height(), descriptors, keypoints},
+      {/*image_id=*/2, image.Width(), image.Height(), descriptors, keypoints},
+      &matches);
+
+  LOG(INFO) << matches.size();
 }
 
 }  // namespace

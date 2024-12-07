@@ -45,6 +45,7 @@ if(GPU_ENABLED)
     add_subdirectory(SiftGPU)
 endif()
 add_subdirectory(ALIKED)
+add_subdirectory(LightGlue)
 add_subdirectory(VLFeat)
 
 if(FETCH_POSELIB)

@@ -33,6 +33,7 @@
 #define COLMAP_SRC_FEATURE_TORCH_H_
 
 #include "colmap/feature/extractor.h"
+#include "colmap/feature/matcher.h"
 
 namespace colmap {
 
@@ -42,6 +43,8 @@ struct ALIKEDFeatureOptions {
 
 std::unique_ptr<FeatureExtractor> CreateALIKEDFeatureExtractor(
     const ALIKEDFeatureOptions& options);
+
+std::unique_ptr<FeatureMatcher> CreateALIKEDLightGlueFeatureMatcher();
 
 }  // namespace colmap
 
