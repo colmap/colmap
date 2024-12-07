@@ -117,11 +117,11 @@ SDDH::forward(torch::Tensor x, std::vector<torch::Tensor>& keypoints) && {
         if (kernel_size_ > 1)
         {
             // Ensure inputs to get_patches_forward are contiguous
-            auto kptsi_wh_long = kptsi_wh.to(torch::kLong).contiguous();
+            auto kptsi_wh_long = kptsi_wh.to(torch::kInt).contiguous();
             patch = custom_ops::get_patches_forward(xi.contiguous(), kptsi_wh_long, kernel_size_);
         } else
         {
-            auto kptsi_wh_long = kptsi_wh.to(torch::kLong).contiguous();
+            auto kptsi_wh_long = kptsi_wh.to(torch::kInt).contiguous();
             patch = xi.index({Slice(),
                               kptsi_wh_long.index({Slice(), 1}),
                               kptsi_wh_long.index({Slice(), 0})})

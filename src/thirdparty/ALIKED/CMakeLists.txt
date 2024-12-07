@@ -20,5 +20,6 @@ COLMAP_ADD_LIBRARY(
         ${OPTIONAL_CUDA_SRCS}
     PUBLIC_LINK_LIBS
         torch
+        glog::glog
 )
-target_compile_definitions(colmap_aliked PRIVATE ALIKED_MODELS_DIR="DUMMY")
+target_compile_definitions(colmap_aliked PRIVATE ALIKED_MODELS_DIR="/Users/jsch/Downloads/ALIKED_CPP-master/models/")
