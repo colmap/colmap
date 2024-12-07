@@ -64,6 +64,7 @@ COLMAP_ADD_LIBRARY(
     PRIVATE_LINK_LIBS
         colmap_math
         colmap_sensor
+        colmap_aliked
         colmap_vlfeat
         Eigen3::Eigen
         flann
