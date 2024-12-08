@@ -1,5 +1,5 @@
 <!DOCTYPE RCC><RCC version="1.0">
 <qresource>
-    <file>shaders/points.v.glsl</file>
+    <file>models/aliked-n32.pt</file>
 </qresource>
 </RCC>

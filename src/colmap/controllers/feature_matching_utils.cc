@@ -113,15 +113,15 @@ void FeatureMatcherWorker::Run() {
                                  data.image_id1,
                                  static_cast<int>(camera1.width),
                                  static_cast<int>(camera1.height),
-                                 cache_->GetDescriptors(data.image_id1),
                                  cache_->GetKeypoints(data.image_id1),
+                                 cache_->GetDescriptors(data.image_id1),
                              },
                              {
                                  data.image_id2,
                                  static_cast<int>(camera2.width),
                                  static_cast<int>(camera2.height),
-                                 cache_->GetDescriptors(data.image_id2),
                                  cache_->GetKeypoints(data.image_id2),
+                                 cache_->GetDescriptors(data.image_id2),
                              },
                              &data.two_view_geometry);
       } else {
@@ -132,15 +132,15 @@ void FeatureMatcherWorker::Run() {
                 data.image_id1,
                 static_cast<int>(camera1.width),
                 static_cast<int>(camera1.height),
-                cache_->GetDescriptors(data.image_id1),
                 cache_->GetKeypoints(data.image_id1),
+                cache_->GetDescriptors(data.image_id1),
             },
             {
                 data.image_id2,
                 static_cast<int>(camera2.width),
                 static_cast<int>(camera2.height),
-                cache_->GetDescriptors(data.image_id2),
                 cache_->GetKeypoints(data.image_id2),
+                cache_->GetDescriptors(data.image_id2),
             },
             &data.matches);
       }

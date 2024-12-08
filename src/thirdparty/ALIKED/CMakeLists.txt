@@ -17,9 +17,10 @@ COLMAP_ADD_LIBRARY(
         get_patches.hpp get_patches.cpp
         input_padder.hpp input_padder.cpp
         sddh.hpp sddh.cpp
+        resources.qrc
         ${OPTIONAL_CUDA_SRCS}
     PUBLIC_LINK_LIBS
         torch
         glog::glog
+        Qt5::Core
 )
-target_compile_definitions(colmap_aliked PRIVATE ALIKED_MODELS_DIR="/Users/jsch/Downloads/ALIKED_CPP-master/models/")

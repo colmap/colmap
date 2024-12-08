@@ -33,10 +33,17 @@ TEST(ALIKED, NOMINAL) {
 
   auto matcher = CreateALIKEDLightGlueFeatureMatcher();
   FeatureMatches matches;
-  matcher->Match(
-      {/*image_id=*/1, image.Width(), image.Height(), descriptors, keypoints},
-      {/*image_id=*/2, image.Width(), image.Height(), descriptors, keypoints},
-      &matches);
+  matcher->Match({/*image_id=*/1,
+                  /*image_width=*/image.Width(),
+                  /*image_height=*/image.Height(),
+                  keypoints,
+                  descriptors},
+                 {/*image_id=*/2,
+                  /*image_width=*/image.Width(),
+                  /*image_height=*/image.Height(),
+                  keypoints,
+                  descriptors},
+                 &matches);
 
   LOG(INFO) << matches.size();
 }

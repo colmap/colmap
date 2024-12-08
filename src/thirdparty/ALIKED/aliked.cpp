@@ -7,6 +7,9 @@
 #include <filesystem>
 #include <fstream>
 
+#include <QFile>
+#include <QDataStream>
+
 namespace fs = std::filesystem;
 
 ALIKED::ALIKED(std::string_view model_name,
@@ -200,39 +203,38 @@ void ALIKED::init_layers(std::string_view model_name) {
 }
 
 void ALIKED::load_weights(std::string_view model_name) {
-    std::vector<std::filesystem::path> search_paths = {
-            std::filesystem::path(ALIKED_MODELS_DIR) / (std::string(model_name) + ".pt"),
-            std::filesystem::current_path() / "models" / (std::string(model_name) + ".pt"),
-            std::filesystem::current_path() / (std::string(model_name) + ".pt")
-    };
+    Q_INIT_RESOURCE(resources);
 
-    std::filesystem::path model_path;
-    bool found = false;
+    const std::string model_path = std::string(":/models/").append(model_name).append(".pt");
 
-    for (const auto& path : search_paths) {
-        if (std::filesystem::exists(path)) {
-            model_path = path;
-            found = true;
+    QFile file(model_path.c_str());
+    if (!file.open(QFile::ReadOnly)) {
+        throw std::runtime_error("Failed to open weights file for model: " + std::string(model_name));
+    }
+    QDataStream stream(&file);
+
+    // Pre-allocate vector
+    std::vector<char> buffer;
+    buffer.reserve(file.size());
+
+    // Read file in chunks for better performance
+    constexpr size_t CHUNK_SIZE = 8192;
+    char chunk[CHUNK_SIZE];
+
+    while (true)
+    {
+        const int num_read_bytes = stream.readRawData(chunk, CHUNK_SIZE);
+        if (num_read_bytes == 0) {
             break;
         }
+        buffer.insert(buffer.end(), chunk, chunk + num_read_bytes);
     }
 
-    if (!found) {
-        std::string error_msg = "Cannot find pretrained model. Searched in:\n";
-        for (const auto& path : search_paths) {
-            error_msg += "  " + path.string() + "\n";
-        }
-        error_msg += "Please place the model file in one of these locations.";
-        throw std::runtime_error(error_msg);
-    }
-
-    std::cout << "Loading model from: " << model_path << std::endl;
-    load_parameters(model_path.string());
+    load_parameters(buffer);
 }
 
-void ALIKED::load_parameters(std::string_view pt_pth) {
-    auto f = get_the_bytes(pt_pth);
-    auto weights = torch::pickle_load(f).toGenericDict();
+void ALIKED::load_parameters(const std::vector<char>& data) {
+    auto weights = torch::pickle_load(data).toGenericDict();
 
     // Use unordered_maps for O(1) lookup
     std::unordered_map<std::string, torch::Tensor> param_map;
@@ -300,38 +302,4 @@ void ALIKED::load_parameters(std::string_view pt_pth) {
         std::cerr << "Warning: " << name
                   << " not found in model parameters or buffers\n";
     }
-}
-
-std::vector<char> ALIKED::get_the_bytes(std::string_view filename) {
-    // Use RAII file handling
-    std::ifstream file(std::string(filename), std::ios::binary);
-    if (!file)
-    {
-        throw std::runtime_error(
-            "Failed to open file: " + std::string(filename));
-    }
-
-    // Get file size
-    file.seekg(0, std::ios::end);
-    const auto size = file.tellg();
-    file.seekg(0, std::ios::beg);
-
-    // Pre-allocate vector
-    std::vector<char> buffer;
-    buffer.reserve(size);
-
-    // Read file in chunks for better performance
-    constexpr size_t CHUNK_SIZE = 8192;
-    char chunk[CHUNK_SIZE];
-
-    while (file.read(chunk, CHUNK_SIZE))
-    {
-        buffer.insert(buffer.end(), chunk, chunk + file.gcount());
-    }
-    if (file.gcount() > 0)
-    {
-        buffer.insert(buffer.end(), chunk, chunk + file.gcount());
-    }
-
-    return buffer;
 }

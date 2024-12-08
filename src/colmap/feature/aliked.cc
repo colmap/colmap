@@ -139,15 +139,15 @@ class ALIKEDLightGlueFeatureMatcher : public FeatureMatcher {
 
     torch::Dict<std::string, torch::Tensor> features;
     features.insert("image_size",
-                    torch::tensor({static_cast<float>(image.camera_width),
-                                   static_cast<float>(image.camera_height)},
+                    torch::tensor({static_cast<float>(image.width),
+                                   static_cast<float>(image.height)},
                                   torch::kFloat32)
                         .unsqueeze(0));
     torch::Tensor torch_keypoints = torch::empty({num_keypoints, 2});
     for (int i = 0; i < num_keypoints; ++i) {
       const FeatureKeypoint& keypoint = (*image.keypoints)[i];
-      torch_keypoints[i][0] = 2.f * keypoint.x / image.camera_width - 1.f;
-      torch_keypoints[i][1] = 2.f * keypoint.y / image.camera_height - 1.f;
+      torch_keypoints[i][0] = 2.f * keypoint.x / image.width - 1.f;
+      torch_keypoints[i][1] = 2.f * keypoint.y / image.height - 1.f;
     }
     features.insert("keypoints", std::move(torch_keypoints));
     // TODO: The const_cast here is a little evil.
