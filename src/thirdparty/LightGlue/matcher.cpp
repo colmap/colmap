@@ -427,7 +427,7 @@ namespace matcher {
         desc0 = desc0.index({torch::indexing::Slice(), torch::indexing::Slice(0, m), torch::indexing::Slice()});
         desc1 = desc1.index({torch::indexing::Slice(), torch::indexing::Slice(0, n), torch::indexing::Slice()});
 
-        auto scores = log_assignment_[i]->forward(desc0, desc1);
+        auto scores = log_assignment_[std::min(i, config_.n_layers - 1)]->forward(desc0, desc1);
         auto [m0, m1, mscores0, mscores1] = matcher::utils::filter_matches(scores, config_.filter_threshold);
         torch::Tensor m_indices_0, m_indices_1;
 
