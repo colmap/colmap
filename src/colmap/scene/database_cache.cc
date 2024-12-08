@@ -47,6 +47,15 @@ std::vector<Eigen::Vector2d> FeatureKeypointsToPointsVector(
   return points;
 }
 
+std::vector<float> FeatureKeypointsToWeightsVector(
+    const FeatureKeypoints& keypoints) {
+  std::vector<float> weights(keypoints.size());
+  for (size_t i = 0; i < keypoints.size(); ++i) {
+    weights[i] = keypoints[i].weight;
+  }
+  return weights;
+}
+
 }  // namespace
 
 std::shared_ptr<DatabaseCache> DatabaseCache::Create(
@@ -145,7 +154,8 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
       if (image_ids.count(image_id) > 0 &&
           connected_image_ids.count(image_id) > 0) {
         image.SetPoints2D(
-            FeatureKeypointsToPointsVector(database.ReadKeypoints(image_id)));
+            FeatureKeypointsToPointsVector(database.ReadKeypoints(image_id)),
+            FeatureKeypointsToWeightsVector(database.ReadKeypoints(image_id)));
         cache->images_.emplace(image_id, std::move(image));
       }
     }

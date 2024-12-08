@@ -44,41 +44,45 @@ void SwapFeatureMatchesBlob(FeatureMatchesBlob* matches) {
 }
 
 FeatureKeypointsBlob FeatureKeypointsToBlob(const FeatureKeypoints& keypoints) {
-  const FeatureKeypointsBlob::Index kNumCols = 6;
+  const FeatureKeypointsBlob::Index kNumCols = 7;
   FeatureKeypointsBlob blob(keypoints.size(), kNumCols);
   for (size_t i = 0; i < keypoints.size(); ++i) {
     blob(i, 0) = keypoints[i].x;
     blob(i, 1) = keypoints[i].y;
-    blob(i, 2) = keypoints[i].a11;
-    blob(i, 3) = keypoints[i].a12;
-    blob(i, 4) = keypoints[i].a21;
-    blob(i, 5) = keypoints[i].a22;
+    blob(i, 2) = keypoints[i].weight;
+    blob(i, 3) = keypoints[i].a11;
+    blob(i, 4) = keypoints[i].a12;
+    blob(i, 5) = keypoints[i].a21;
+    blob(i, 6) = keypoints[i].a22;
   }
   return blob;
 }
 
 FeatureKeypoints FeatureKeypointsFromBlob(const FeatureKeypointsBlob& blob) {
   FeatureKeypoints keypoints(static_cast<size_t>(blob.rows()));
-  if (blob.cols() == 2) {
+  if (blob.cols() == 3) {
     for (FeatureKeypointsBlob::Index i = 0; i < blob.rows(); ++i) {
-      keypoints[i] = FeatureKeypoint(blob(i, 0), blob(i, 1));
+      keypoints[i] = FeatureKeypoint(blob(i, 0), blob(i, 1), blob(i, 2));
     }
-  } else if (blob.cols() == 4) {
+  } else if (blob.cols() == 5) {
     for (FeatureKeypointsBlob::Index i = 0; i < blob.rows(); ++i) {
-      keypoints[i] =
-          FeatureKeypoint(blob(i, 0), blob(i, 1), blob(i, 2), blob(i, 3));
+      keypoints[i] = FeatureKeypoint(
+          blob(i, 0), blob(i, 1), blob(i, 2), blob(i, 3), blob(i, 4));
     }
-  } else if (blob.cols() == 6) {
+  } else if (blob.cols() == 7) {
     for (FeatureKeypointsBlob::Index i = 0; i < blob.rows(); ++i) {
       keypoints[i] = FeatureKeypoint(blob(i, 0),
                                      blob(i, 1),
                                      blob(i, 2),
                                      blob(i, 3),
                                      blob(i, 4),
-                                     blob(i, 5));
+                                     blob(i, 5),
+                                     blob(i, 6));
     }
   } else {
-    LOG(FATAL_THROW) << "Keypoint format not supported";
+    LOG(FATAL_THROW)
+        << "Keypoint format not supported. Number of parameters detected: "
+        << blob.cols() << ". Expected 3, 5, or 7.";
   }
   return keypoints;
 }
