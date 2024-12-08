@@ -16,4 +16,3 @@ COLMAP_ADD_LIBRARY(
         torch
         Qt5::Core
 )
-target_compile_definitions(colmap_lightglue PRIVATE LIGHTGLUE_MODELS_DIR="/Users/jsch/Downloads/Light_Glue_CPP-master/models/")
