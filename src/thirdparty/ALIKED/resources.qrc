@@ -1,0 +1,5 @@
+<!DOCTYPE RCC><RCC version="1.0">
+<qresource>
+    <file>shaders/points.v.glsl</file>
+</qresource>
+</RCC>
