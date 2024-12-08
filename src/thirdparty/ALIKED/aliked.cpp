@@ -12,6 +12,10 @@
 
 namespace fs = std::filesystem;
 
+void InitALIKEDResources() {
+    Q_INIT_RESOURCE(aliked_resources);
+}
+
 ALIKED::ALIKED(std::string_view model_name,
                std::string_view device,
                int top_k,
@@ -203,7 +207,7 @@ void ALIKED::init_layers(std::string_view model_name) {
 }
 
 void ALIKED::load_weights(std::string_view model_name) {
-    Q_INIT_RESOURCE(resources);
+    InitALIKEDResources();
 
     const std::string model_path = std::string(":/models/").append(model_name).append(".pt");
 

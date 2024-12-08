@@ -19,7 +19,6 @@ namespace matcher {
         float depth_confidence{DEFAULT_DEPTH_CONFIDENCE};
         float width_confidence{DEFAULT_WIDTH_CONFIDENCE};
         float filter_threshold{DEFAULT_FILTER_THRESHOLD};
-        std::string weights;
     };
 }
 

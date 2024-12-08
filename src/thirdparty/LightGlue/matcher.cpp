@@ -10,6 +10,13 @@
 #include <string>
 #include <unordered_map>
 
+#include <QFile>
+#include <QDataStream>
+
+void InitLightGlueResources() {
+    Q_INIT_RESOURCE(lightglue_resources);
+}
+
 namespace {
     std::string map_python_to_cpp(const std::string& python_name) {
         std::string cpp_name = python_name;
@@ -116,23 +123,21 @@ namespace matcher {
         {"flash", 1536}};
 
     // Feature configurations
-    static const std::unordered_map<std::string, std::pair<std::string, int>> FEATURES = {
-        {"aliked", {"aliked_lightglue", 128}}};
+    static const std::unordered_map<std::string, int> INPUT_DIMS = {
+        {"aliked-lightglue", 128}};
 
-
-    LightGlue::LightGlue(const std::string& feature_type, const LightGlueConfig& config)
+    LightGlue::LightGlue(const std::string& model_name, const LightGlueConfig& config)
         : config_(config),
           device_(torch::kCPU) {
 
         // Configure based on feature type
-        auto it = FEATURES.find(feature_type);
-        if (it == FEATURES.end())
+        auto it = INPUT_DIMS.find(model_name);
+        if (it == INPUT_DIMS.end())
         {
-            throw std::runtime_error("Unsupported feature type: " + feature_type);
+            throw std::runtime_error("Unsupported model: " + model_name);
         }
 
-        config_.weights = it->second.first;
-        config_.input_dim = it->second.second;
+        config_.input_dim = it->second;
 
         // Initialize input projection if needed
         if (config_.input_dim != config_.descriptor_dim)
@@ -189,11 +194,7 @@ namespace matcher {
             confidence_thresholds_.push_back(confidence_threshold(i, config.n_layers));
         }
 
-        // Load weights if specified
-        if (!config_.weights.empty())
-        {
-            load_weights(config_.weights);
-        }
+        load_weights(model_name);
 
         // Move to device if CUDA is available
         if (torch::cuda::is_available())
@@ -497,43 +498,39 @@ namespace matcher {
         return output;
     }
 
-    void LightGlue::load_weights(const std::string& feature_type) {
-        std::vector<std::filesystem::path> search_paths = {
-            std::filesystem::path(LIGHTGLUE_MODELS_DIR) / (std::string(feature_type) + ".pt"),
-            std::filesystem::current_path() / "models" / (std::string(feature_type) + ".pt"),
-            std::filesystem::current_path() / (std::string(feature_type) + ".pt")};
+    void LightGlue::load_weights(const std::string& model_name) {
+        InitLightGlueResources();
 
-        std::filesystem::path model_path;
-        bool found = false;
+        const std::string model_path = std::string(":/models/").append(model_name).append(".pt");
 
-        for (const auto& path : search_paths)
+        QFile file(model_path.c_str());
+        if (!file.open(QFile::ReadOnly)) {
+            throw std::runtime_error("Failed to open weights file for model: " + std::string(model_name));
+        }
+        QDataStream stream(&file);
+
+        // Pre-allocate vector
+        std::vector<char> buffer;
+        buffer.reserve(file.size());
+
+        // Read file in chunks for better performance
+        constexpr size_t CHUNK_SIZE = 8192;
+        char chunk[CHUNK_SIZE];
+
+        while (true)
         {
-            if (std::filesystem::exists(path))
-            {
-                model_path = path;
-                found = true;
+            const int num_read_bytes = stream.readRawData(chunk, CHUNK_SIZE);
+            if (num_read_bytes == 0) {
                 break;
             }
+            buffer.insert(buffer.end(), chunk, chunk + num_read_bytes);
         }
 
-        if (!found)
-        {
-            std::string error_msg = "Cannot find pretrained model. Searched in:\n";
-            for (const auto& path : search_paths)
-            {
-                error_msg += "  " + path.string() + "\n";
-            }
-            error_msg += "Please place the model file in one of these locations.";
-            throw std::runtime_error(error_msg);
-        }
-
-        std::cout << "Loading model from: " << model_path << std::endl;
-        load_parameters(model_path.string());
+        load_parameters(buffer);
     }
 
-    void LightGlue::load_parameters(const std::string& pt_path) {
-        auto f = get_the_bytes(pt_path);
-        auto weights = torch::pickle_load(f).toGenericDict();
+    void LightGlue::load_parameters(const std::vector<char>& data) {
+        auto weights = torch::pickle_load(data).toGenericDict();
 
         // Use unordered_maps for O(1) lookup
         std::unordered_map<std::string, torch::Tensor> param_map;
@@ -602,39 +599,5 @@ namespace matcher {
             std::cerr << "Warning: " << name
                       << " not found in model parameters or buffers\n";
         }
-    }
-
-    std::vector<char> LightGlue::get_the_bytes(const std::string& filename) {
-        // Use RAII file handling
-        std::ifstream file(std::string(filename), std::ios::binary);
-        if (!file)
-        {
-            throw std::runtime_error(
-                "Failed to open file: " + std::string(filename));
-        }
-
-        // Get file size
-        file.seekg(0, std::ios::end);
-        const auto size = file.tellg();
-        file.seekg(0, std::ios::beg);
-
-        // Pre-allocate vector
-        std::vector<char> buffer;
-        buffer.reserve(size);
-
-        // Read file in chunks for better performance
-        constexpr size_t CHUNK_SIZE = 8192;
-        char chunk[CHUNK_SIZE];
-
-        while (file.read(chunk, CHUNK_SIZE))
-        {
-            buffer.insert(buffer.end(), chunk, chunk + file.gcount());
-        }
-        if (file.gcount() > 0)
-        {
-            buffer.insert(buffer.end(), chunk, chunk + file.gcount());
-        }
-
-        return buffer;
     }
 }
