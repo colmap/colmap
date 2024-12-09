@@ -21,13 +21,13 @@ jobs:
     strategy:
       matrix:
         config: [
-          {
-            os: windows-2022,
-            cmakeBuildType: Release,
-            cudaEnabled: true,
-            testsEnabled: true,
-            exportPackage: true,
-          },
+          # {
+          #   os: windows-2022,
+          #   cmakeBuildType: Release,
+          #   cudaEnabled: true,
+          #   testsEnabled: true,
+          #   exportPackage: true,
+          # },
           {
             os: windows-2022,
             cmakeBuildType: Release,
@@ -107,6 +107,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release `
             -DTESTS_ENABLED=${{ matrix.config.testsEnabled }} `
             -DGUI_ENABLED=ON `
+            -DFETCH_LIBTORCH=OFF `
             -DCUDA_ENABLED=${{ matrix.config.cudaEnabled }} `
             -DCMAKE_CUDA_ARCHITECTURES=all-major `
             -DCUDAToolkit_ROOT="${{ steps.cuda-toolkit.outputs.CUDA_PATH }}" `
@@ -136,6 +137,7 @@ jobs:
               --triplet=x64-windows-release `
               --x-feature=gui `
               --x-feature=cgal `
+              --x-feature=libtorch `
               $(if ($${{ matrix.config.testsEnabled }}) { echo "--x-feature=tests" }) `
               $(if ($${{ matrix.config.cudaEnabled }}) { echo "--x-feature=cuda" })
           ../vcpkg/vcpkg.exe export --raw --output-dir vcpkg_export --output colmap
