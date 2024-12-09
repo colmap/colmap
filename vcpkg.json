@@ -65,6 +65,12 @@
             "dependencies": [
                 "cgal"
             ]
+        },
+        "http": {
+            "description": "Build with HTTP.",
+            "dependencies": [
+                "openssl"
+            ]
         }
     }
 }

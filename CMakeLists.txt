@@ -46,6 +46,7 @@ option(PROFILING_ENABLED "Whether to enable google-perftools linker flags" OFF)
 option(CCACHE_ENABLED "Whether to enable compiler caching, if available" ON)
 option(CGAL_ENABLED "Whether to enable the CGAL library" ON)
 option(LSD_ENABLED "Whether to enable the LSD library" ON)
+option(HTTP_ENABLED "Whether to enable HTTP for automatic download of resources (requires OpenSSL)" ON)
 option(UNINSTALL_ENABLED "Whether to create a target to 'uninstall' colmap" ON)
 option(FETCH_POSELIB "Whether to consume PoseLib using FetchContent or find_package" ON)
 option(ALL_SOURCE_TARGET "Whether to create a target for all source files (for Visual Studio / XCode development)" OFF)
@@ -70,6 +71,10 @@ if(LSD_ENABLED)
     add_definitions("-DCOLMAP_LSD_ENABLED")
 else()
     message(STATUS "Disabling LSD support")
+endif()
+
+if(HTTP_ENABLED)
+    list(APPEND VCPKG_MANIFEST_FEATURES "http")
 endif()
 
 project(COLMAP LANGUAGES C CXX)
@@ -337,6 +342,7 @@ set(COLMAP_EXPORT_LIBS
     colmap_sfm
     colmap_util
     # Third-party.
+    colmap_httplib
     colmap_poisson_recon
     colmap_vlfeat
 )

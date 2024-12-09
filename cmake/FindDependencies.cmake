@@ -87,6 +87,11 @@ if(CGAL_FOUND)
     list(APPEND COLMAP_LINK_DIRS ${CGAL_LIBRARIES_DIR})
 endif()
 
+if(HTTP_ENABLED)
+    find_package(OpenSSL COMPONENTS Crypto SSL REQUIRED)
+    add_definitions("-DCOLMAP_HTTP_ENABLED")
+endif()
+
 if(NOT FETCH_POSELIB)
     find_package(PoseLib ${COLMAP_FIND_TYPE})
 endif()
