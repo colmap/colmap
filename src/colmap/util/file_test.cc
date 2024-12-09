@@ -29,7 +29,10 @@
 
 #include "colmap/util/file.h"
 
+#include "thirdparty/httplib/httplib.h"
+
 #include <cstring>
+#include <thread>
 
 #include <gtest/gtest.h>
 
@@ -137,6 +140,40 @@ TEST(JoinPaths, Nominal) {
   EXPECT_EQ(JoinPaths("/test1", "/test2/"), "/test2/");
   EXPECT_EQ(JoinPaths("/test1", "/test2/", "test3.ext"), "/test2/test3.ext");
 }
+
+#ifdef COLMAP_HTTP_ENABLED
+
+TEST(DownloadFile, Nominal) {
+  const std::string kHost = "localhost";
+  const std::string kExpectedResponse = "Hello World";
+
+  httplib::Server server;
+  server.Get("/",
+             [&kExpectedResponse](const httplib::Request& request,
+                                  httplib::Response& response) {
+               response.set_content(kExpectedResponse, "text/plain");
+             });
+
+  int port = -1;
+  for (int i = 0; i < 3; ++i) {
+    port = server.bind_to_any_port(kHost);
+  }
+
+  ASSERT_NE(port, -1);
+  std::thread thread([&server, &kHost, &port] { server.listen(kHost, port); });
+
+  std::ostringstream host;
+  host << "http://" << kHost << ":" << port;
+
+  const std::optional<std::string> data = DownloadFile(host.str(), "/");
+  ASSERT_TRUE(data.has_value());
+  EXPECT_EQ(*data, kExpectedResponse);
+
+  server.stop();
+  thread.join();
+}
+
+#endif
 
 }  // namespace
 }  // namespace colmap

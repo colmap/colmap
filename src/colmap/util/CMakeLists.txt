@@ -55,6 +55,7 @@ COLMAP_ADD_LIBRARY(
         glog::glog
         SQLite::SQLite3
     PRIVATE_LINK_LIBS
+        colmap_httplib
         Boost::boost
         "$<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:-lstdc++fs>"
 )
@@ -117,7 +118,9 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME file_test
     SRCS file_test.cc
-    LINK_LIBS colmap_util
+    LINK_LIBS
+        colmap_util
+        colmap_httplib
 )
 COLMAP_ADD_TEST(
     NAME logging_test

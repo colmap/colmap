@@ -29,6 +29,10 @@
 
 #include "colmap/util/file.h"
 
+#include "colmap/util/logging.h"
+
+#include "thirdparty/httplib/httplib.h"
+
 namespace colmap {
 
 std::string EnsureTrailingSlash(const std::string& str) {
@@ -205,6 +209,21 @@ std::vector<std::string> ReadTextFileLines(const std::string& path) {
   }
 
   return lines;
+}
+
+std::optional<std::string> DownloadFile(const std::string& host,
+                                        const std::string& path) {
+#ifdef COLMAP_HTTP_ENABLED
+  httplib::Client client(host);
+  httplib::Result result = client.Get(path);
+  if (result->status != 200) {
+    return std::nullopt;
+  }
+  return result->body;
+#else
+  LOG(ERROR) << "COLMAP was compiled without HTTP support.";
+  return std::nullopt;
+#endif
 }
 
 }  // namespace colmap
