@@ -122,6 +122,20 @@ class Image {
   std::pair<bool, Eigen::Vector2d> ProjectPoint(
       const Eigen::Vector3d& point3D) const;
 
+  // Opaque abstract extension container allows users to extend the image class
+  // with custom additional information.
+  struct Extension {
+    virtual ~Extension() = default;
+  };
+
+  inline void SetExtension(std::shared_ptr<Extension> extension);
+  inline bool HasExtension() const;
+
+  template <typename T>
+  inline T& GetExtension();
+  template <typename T>
+  inline const T& GetExtension() const;
+
   inline bool operator==(const Image& other) const;
   inline bool operator!=(const Image& other) const;
 
@@ -146,6 +160,9 @@ class Image {
 
   // All image points, including points that are not part of a 3D point track.
   std::vector<struct Point2D> points2D_;
+
+  // Optional extension that allows users to store additional information.
+  std::shared_ptr<Extension> extension_;
 };
 
 std::ostream& operator<<(std::ostream& stream, const Image& image);
@@ -241,6 +258,22 @@ struct Point2D& Image::Point2D(const point2D_t point2D_idx) {
 const std::vector<struct Point2D>& Image::Points2D() const { return points2D_; }
 
 std::vector<struct Point2D>& Image::Points2D() { return points2D_; }
+
+void Image::SetExtension(std::shared_ptr<Extension> extension) {
+  extension_ = std::move(extension);
+}
+
+bool Image::HasExtension() const { return extension_ != nullptr; }
+
+template <typename T>
+T& Image::GetExtension() {
+  return *static_cast<T*>(extension_.get());
+}
+
+template <typename T>
+const T& Image::GetExtension() const {
+  return *static_cast<const T*>(extension_.get());
+}
 
 bool Image::operator==(const Image& other) const {
   return image_id_ == other.image_id_ && camera_id_ == other.camera_id_ &&

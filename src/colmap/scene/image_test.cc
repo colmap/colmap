@@ -236,5 +236,16 @@ TEST(Image, ProjectPoint) {
   EXPECT_FALSE(image.ProjectPoint(Eigen::Vector3d(2, 0, -1)).first);
 }
 
+TEST(Image, Extension) {
+  struct TestExtension : public Image::Extension {
+    int test_field = 42;
+  };
+  Image image;
+  ASSERT_FALSE(image.HasExtension());
+  image.SetExtension(std::make_shared<TestExtension>());
+  ASSERT_TRUE(image.HasExtension());
+  EXPECT_EQ(image.GetExtension<TestExtension>().test_field, 42);
+}
+
 }  // namespace
 }  // namespace colmap
