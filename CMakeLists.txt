@@ -73,6 +73,10 @@ else()
     message(STATUS "Disabling LSD support")
 endif()
 
+if(HTTP_ENABLED)
+    list(APPEND VCPKG_MANIFEST_FEATURES "http")
+endif()
+
 project(COLMAP LANGUAGES C CXX)
 
 set(COLMAP_VERSION "3.12.0.dev0")
