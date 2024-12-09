@@ -27,7 +27,6 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-
 set(FOLDER_NAME "estimators")
 
 COLMAP_ADD_LIBRARY(
@@ -66,7 +65,6 @@ COLMAP_ADD_LIBRARY(
         colmap_optim
         Eigen3::Eigen
         Ceres::ceres
-    PRIVATE_LINK_LIBS
         PoseLib::PoseLib
 )
 

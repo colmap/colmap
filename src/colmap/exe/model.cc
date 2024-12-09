@@ -122,18 +122,18 @@ std::vector<Eigen::Vector3d> ConvertCameraLocations(
   if (ref_is_gps) {
     const GPSTransform gps_transform(GPSTransform::WGS84);
     if (alignment_type != "enu") {
-      LOG(INFO) << "\nConverting Alignment Coordinates from GPS (lat/lon/alt) "
-                   "to ECEF.\n";
+      LOG(INFO) << "Converting Alignment Coordinates from GPS (lat/lon/alt) "
+                   "to ECEF.";
       return gps_transform.EllToXYZ(ref_locations);
     } else {
-      LOG(INFO) << "\nConverting Alignment Coordinates from GPS (lat/lon/alt) "
-                   "to ENU.\n";
+      LOG(INFO) << "Converting Alignment Coordinates from GPS (lat/lon/alt) "
+                   "to ENU.";
       return gps_transform.EllToENU(
           ref_locations, ref_locations[0](0), ref_locations[0](1));
     }
   } else {
-    LOG(INFO) << "\nCartesian Alignment Coordinates extracted (MUST NOT BE "
-                 "GPS coords!).\n";
+    LOG(INFO) << "Cartesian Alignment Coordinates extracted (MUST NOT BE "
+                 "GPS coords!).";
     return ref_locations;
   }
 }

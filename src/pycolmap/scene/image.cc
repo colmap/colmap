@@ -129,7 +129,8 @@ void BindImage(py::module& m) {
               return py::none();
             }
           },
-          "Project 3D point onto the image")
+          "Project 3D point onto the image",
+          "point3D"_a)
       .def("has_camera_id",
            &Image::HasCameraId,
            "Check whether identifier of camera has been set.")

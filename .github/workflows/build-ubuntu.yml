@@ -1,5 +1,9 @@
 name: COLMAP (Ubuntu)
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches:
@@ -17,6 +21,15 @@ jobs:
     strategy:
       matrix:
         config: [
+          {
+            os: ubuntu-24.04,
+            cmakeBuildType: Release,
+            asanEnabled: false,
+            guiEnabled: true,
+            cudaEnabled: false,
+            e2eTests: false,
+            checkCodeFormat: true,
+          },
           {
             os: ubuntu-22.04,
             cmakeBuildType: Release,

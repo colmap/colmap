@@ -12,7 +12,7 @@ https://repology.org/metapackage/colmap/versions. Note that the COLMAP packages
 in the default repositories for Linux/Unix/BSD do not come with CUDA support,
 which requires a manual build from source, as explained further below.
 
-For Mac users, [Homebrew](https://brew.sh) provides a formula for COLMAP with
+For Mac users, `Homebrew <https://brew.sh>`__ provides a formula for COLMAP with
 pre-compiled binaries or the option to build from source. After installing
 homebrew, installing COLMAP is as easy as running `brew install colmap`.
 
@@ -131,7 +131,7 @@ CUDA package and GCC, and you must compile against GCC 10::
 Mac
 ---
 
-Dependencies from `Homebrew <http://brew.sh/>`_::
+Dependencies from `Homebrew <http://brew.sh/>`__::
 
     brew install \
         cmake \

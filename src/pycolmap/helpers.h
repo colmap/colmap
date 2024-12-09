@@ -42,8 +42,10 @@ T PyStringToEnum(const py::enum_<T>& enm, const std::string& value) {
 template <typename T>
 void AddStringToEnumConstructor(py::enum_<T>& enm) {
   enm.def(py::init([enm](const std::string& value) {
-    return PyStringToEnum(enm, py::str(value));  // str constructor
-  }));
+            return PyStringToEnum(enm, py::str(value));  // str constructor
+          }),
+          "name"_a);
+  enm.attr("__repr__") = enm.attr("__str__");
   py::implicitly_convertible<std::string, T>();
 }
 
@@ -188,8 +190,9 @@ std::string CreateSummary(const T& self, bool write_type) {
       std::string summ = attribute.attr("summary")
                              .attr("__call__")(write_type)
                              .template cast<std::string>();
+      static const std::regex newline_regex("\n");
       // NOLINTNEXTLINE(performance-inefficient-string-concatenation)
-      summ = std::regex_replace(summ, std::regex("\n"), "\n" + prefix);
+      summ = std::regex_replace(summ, newline_regex, "\n" + prefix);
       ss << ": " << summ;
     } else {
       if (write_type) {
@@ -301,7 +304,7 @@ void MakeDataclass(py::class_<T, options...> cls,
   if (!cls.attr("__dict__").contains("__repr__")) {
     cls.def("__repr__", &CreateRepresentation<T>);
   }
-  cls.def("mergedict", &UpdateFromDict);
+  cls.def("mergedict", &UpdateFromDict, "kwargs"_a);
   cls.def(
       "todict",
       [attributes](const T& self, const bool recursive) {
@@ -310,10 +313,11 @@ void MakeDataclass(py::class_<T, options...> cls,
       "recursive"_a = true);
 
   cls.def(py::init([cls](const py::dict& dict) {
-    py::object self = cls();
-    self.attr("mergedict").attr("__call__")(dict);
-    return self.cast<T>();
-  }));
+            py::object self = cls();
+            self.attr("mergedict").attr("__call__")(dict);
+            return self.cast<T>();
+          }),
+          "kwargs"_a);
   cls.def(py::init([cls](const py::kwargs& kwargs) {
     py::dict dict = kwargs.cast<py::dict>();
     return cls(dict).template cast<T>();
@@ -419,7 +423,7 @@ inline void DefDeprecation(
   parent.def(
       old_name.c_str(),
       [parent,
-       old_name = std::move(old_name),
+       old_name,
        new_name = std::move(new_name),
        custom_warning = std::move(custom_warning)](const py::args& args,
                                                    const py::kwargs& kwargs) {

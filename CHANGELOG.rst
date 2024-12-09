@@ -1,3 +1,196 @@
+Changelog
+=========
+
+------------------------
+COLMAP 3.11 (11/28/2024)
+------------------------
+
+New Features
+------------
+* New pose prior based incremental mapper that can leverage absolute pose priors from e.g. GPS measurements.
+* New bundle adjustment covariance estimation functionality. Significantly faster and more robust than Ceres.
+* API documentation with auto-generated stubs for pycolmap.
+* Use PoseLib's minimal solvers for faster performance and improved robustness.
+* Experimental support for CUDA-based bundle adjustment through Ceres (disabled by default).
+* Support for reading 16-bit PNG grayscale images.
+* New RAD_TAN_THIN_PRISM_FISHEYE camera model in support of Meta's Project Aria devices.
+* Replace numerical with analytical Jacobian in image undistortion for better convergence.
+* Many more performance optimizations and other improvements. See full list of changes below.
+
+Bug Fixes
+---------
+* Fixed non-deterministic behavior of CUDA SIFT feature extractor. Broken since 3.10 release.
+* Fixed orientation detection of covariant/affine SIFT feature extractor. Broken since initial release.
+* Fixed point triangulator crashing due to bug in observation manager. Broken since 3.10 release.
+* Fixed sequential feature matcher overlap missing the farthest image. Broken since initial release.
+* Fixed rare deadlock during matching due to concurrent database access. Broken since 3.10 release.
+* Fixed little/big endian detection. Broken since 3.1 release.
+* For other bug fixes, see full list of changes below.
+
+Breaking Changes
+----------------
+* Dropped official support for Ubuntu 18.04, Visual Studio 2019.
+* Upgrade to C++17 standard in C++ and C++14 in CUDA source code.
+* New ``pose_priors`` table in database in support of pose prior based mapper.
+* PyCOLMAP API:
+
+  * ``align_reconstrution_to_locations`` is renamed to ``align_reconstruction_to_locations`` (typo).
+  * ``pycomap.cost_functions`` becomes a module and should be explicitly imported as ``import pycolmap.cost_functions``.
+  * Replaced ``Image.registered`` by ``Image.{has_pose,reset_pose}``.
+  * Replaced ``Image.{get_valid_point2D_ids,get_valid_points2D}`` by ``Image.{get_observation_point2D_idxs,get_observation_points2D}``.
+  * Replaced ``Track.{append,remove}`` by ``Track.{add_element,delete_element}``.
+  * ``AbsolutePoseErrorCost`` becomes ``AbsolutePosePriorCost``.
+  * ``MetricRelativePoseErrorCost`` becomes ``RelativePosePriorCost``.
+  * The signature of ``ReprojErrorCost`` and related cost functions was changed: arguments are reordered, the detection uncertainty is now a 2x2 covariance matrix.
+  * ``BundleAdjuster`` becomes virtual and should be created with ``pycolmap.create_default_bundle_adjuster()``.
+  * ``absolute_pose_estimation`` becomes ``estimate_and_refine_absolute_pose``.
+  * ``pose_refinement`` becomes ``refine_absolute_pose``.
+  * ``essential_matrix_estimation`` becomes ``estimate_essential_matrix``.
+  * ``fundamental_matrix_estimation`` becomes ``estimate_fundamental_matrix``.
+  * ``rig_absolute_pose_estimation`` becomes ``estimate_and_refine_generalized_absolute_pose``.
+  * ``homography_matrix_estimation`` becomes ``estimate_homography_matrix``.
+  * ``squared_sampson_error`` becomes ``compute_squared_sampson_error``.
+  * ``homography_decomposition`` becomes ``pose_from_homography_matrix``.
+  * ``Rigid3d.essential_matrix`` becomes ``pycolmap.essential_matrix_from_pose``.
+
+Full Change List (sorted temporally)
+------------------------------------
+* Updates for pycolmap by @ahojnnes in https://github.com/colmap/colmap/pull/2672
+* Trigger CI on release/* branches by @ahojnnes in https://github.com/colmap/colmap/pull/2673
+* Use consistent versioning scheme between C++/Python by @ahojnnes in https://github.com/colmap/colmap/pull/2674
+* Add cost function for 3D alignment (with covariance) by @B1ueber2y in https://github.com/colmap/colmap/pull/2621
+* Numpy 2 compatibility by @sarlinpe in https://github.com/colmap/colmap/pull/2682
+* Add fix for specifying the correct pycolmap CMake python development … by @fulkast in https://github.com/colmap/colmap/pull/2683
+* Remove non existant flags of model_aligner from docs by @TamirCohen in https://github.com/colmap/colmap/pull/2696
+* Reset CMAKE_MODULE_PATH to previous value by @mvieth in https://github.com/colmap/colmap/pull/2699
+* Robustify nchoosek against overflow by @ahojnnes in https://github.com/colmap/colmap/pull/2706
+* Observation manager needs to check if image_id exists before query operations by @bo-rc in https://github.com/colmap/colmap/pull/2704
+* Remove pose prior from database.py:add_image by @sarlinpe in https://github.com/colmap/colmap/pull/2707
+* Fix: sequential matcher overlap number should be inclusive by @flm8620 in https://github.com/colmap/colmap/pull/2701
+* Fix table mangled by clang-format by @sweber1 in https://github.com/colmap/colmap/pull/2710
+* Write out options to ini in full precision, relax bundle adjuster convergence by @ahojnnes in https://github.com/colmap/colmap/pull/2713
+* Tests for pairing library in feature matching by @ahojnnes in https://github.com/colmap/colmap/pull/2711
+* Rename IncrementalMapperOptions to IncrementalPipelineOptions by @B1ueber2y in https://github.com/colmap/colmap/pull/2708
+* Add support for CUDA sparse BA solver by @ahojnnes in https://github.com/colmap/colmap/pull/2717
+* Rename HierarchicalMapperController to HierarchicalPipeline by @ahojnnes in https://github.com/colmap/colmap/pull/2718
+* Make VisualIndex::Quantize const to improve readability by @IshitaTakeshi in https://github.com/colmap/colmap/pull/2723
+* Fix CUDA_ENABLED macro in new bundle adjustment code by @drkoller in https://github.com/colmap/colmap/pull/2725
+* Automatically generate stub files by @sarlinpe in https://github.com/colmap/colmap/pull/2721
+* Add CUDA-based dense BA solver by @ahojnnes in https://github.com/colmap/colmap/pull/2732
+* Improved and simplified caching in feature matching by @ahojnnes in https://github.com/colmap/colmap/pull/2731
+* Fix colmap namespace in the macro support of logging. by @B1ueber2y in https://github.com/colmap/colmap/pull/2733
+* Add callbacks by move by @ahojnnes in https://github.com/colmap/colmap/pull/2734
+* Implement transitive matcher with pair generator + tests by @ahojnnes in https://github.com/colmap/colmap/pull/2735
+* Provide reasonable defaults for some estimator options by @sarlinpe in https://github.com/colmap/colmap/pull/2745
+* Fix mismatched Delaunay meshing options by @sarlinpe in https://github.com/colmap/colmap/pull/2748
+* PyCOLMAP API documentation by @sarlinpe in https://github.com/colmap/colmap/pull/2749
+* Improved pycolmap coverage and docs by @sarlinpe in https://github.com/colmap/colmap/pull/2752
+* Follow-up fixes in pycolmap by @sarlinpe in https://github.com/colmap/colmap/pull/2755
+* Report errors in import_images by @sarlinpe in https://github.com/colmap/colmap/pull/2750
+* Further simplification of feature matcher code by @ahojnnes in https://github.com/colmap/colmap/pull/2744
+* Add missing ClearModifiedPoints3D by @sarlinpe in https://github.com/colmap/colmap/pull/2761
+* Store shared camera ptr for reconstruction images by @ahojnnes in https://github.com/colmap/colmap/pull/2762
+* Avoid unnecessary copy of queue in IncrementalTriangulator::Complete() by @ahojnnes in https://github.com/colmap/colmap/pull/2764
+* Branch prediction for THROW_CHECK_NOTNULL by @ahojnnes in https://github.com/colmap/colmap/pull/2765
+* Use shared camera pointer in more places by @ahojnnes in https://github.com/colmap/colmap/pull/2763
+* Support switching camera directly with camera pointer by @B1ueber2y in https://github.com/colmap/colmap/pull/2767
+* Add test for MergeReconstructions by @B1ueber2y in https://github.com/colmap/colmap/pull/2766
+* Fix little/big endian detection by @ahojnnes in https://github.com/colmap/colmap/pull/2768
+* Fix options for CUDA sparse BA solver by @whuaegeanse in https://github.com/colmap/colmap/pull/2758
+* Rename SupperMeasurer::Compare for improved readability by @ahojnnes in https://github.com/colmap/colmap/pull/2774
+* Improvements for install docs by @ahojnnes in https://github.com/colmap/colmap/pull/2773
+* fixed typo of align_reconstrution_to_locations to align_reconstructio… by @TamirCohen in https://github.com/colmap/colmap/pull/2776
+* Fix missing camera ptr for Reconstruction.DeleteAllPoints2DAndPoints3D() by @B1ueber2y in https://github.com/colmap/colmap/pull/2779
+* Rename remaining proj_matrix instances to cam_from_world by @ahojnnes in https://github.com/colmap/colmap/pull/2780
+* Relative pose decomposition uses Rigid3d by @ahojnnes in https://github.com/colmap/colmap/pull/2781
+* Minor renaming on pycolmap point2d and point3d filenames by @B1ueber2y in https://github.com/colmap/colmap/pull/2784
+* Add validity check for pixel coordinate in the Fisheye camera. Fix tests.  by @B1ueber2y in https://github.com/colmap/colmap/pull/2790
+* Use branch prediction in PRNG functions by @ahojnnes in https://github.com/colmap/colmap/pull/2796
+* Implementation of Aria Fisheye camera model by @nushakrishnan in https://github.com/colmap/colmap/pull/2786
+* Upgrade to C++ 17 by @B1ueber2y in https://github.com/colmap/colmap/pull/2801
+* Pose Prior based Incremental Mapper by @ferreram in https://github.com/colmap/colmap/pull/2660
+* Expose UpdatePoint3DErrors to pycolmap by @theartful in https://github.com/colmap/colmap/pull/2805
+* Switch to the Ruff Python formatter by @sarlinpe in https://github.com/colmap/colmap/pull/2803
+* Add mixed Python-C++ PyCOLMAP package by @sarlinpe in https://github.com/colmap/colmap/pull/2747
+* Enable Ruff linter for Python by @sarlinpe in https://github.com/colmap/colmap/pull/2806
+* Use C++17 structured bindings in some places by @ahojnnes in https://github.com/colmap/colmap/pull/2808
+* Add RAD_TAN_THIN_PRISM_FISHEYE to camera docs by @ahojnnes in https://github.com/colmap/colmap/pull/2810
+* Customized cost functions should be functors instead by @B1ueber2y in https://github.com/colmap/colmap/pull/2811
+* Install and use newer clang-format from pypi by @ahojnnes in https://github.com/colmap/colmap/pull/2812
+* Return a reference in Reconstruction.image/camera/point3D by @sarlinpe in https://github.com/colmap/colmap/pull/2814
+* Add test for PositionPriorErrorCostFunctor. by @ferreram in https://github.com/colmap/colmap/pull/2815
+* Replace boost/filesystem with standard library by @ahojnnes in https://github.com/colmap/colmap/pull/2809
+* Fix selection of BA solver type when there is no cuda by @ahojnnes in https://github.com/colmap/colmap/pull/2822
+* More informative exception if invalid access of image/camera/point3D by @sarlinpe in https://github.com/colmap/colmap/pull/2825
+* Use minimal solvers from poselib by @ahojnnes in https://github.com/colmap/colmap/pull/2288
+* Disable -march=native flags in poselib by @ahojnnes in https://github.com/colmap/colmap/pull/2828
+* Make ``Image::cam_from_world_`` optional by @sarlinpe in https://github.com/colmap/colmap/pull/2824
+* Remove warning in configure step by @sarlinpe in https://github.com/colmap/colmap/pull/2830
+* Fix coordinate notation in EstimateAbsolutePose by @ahojnnes in https://github.com/colmap/colmap/pull/2833
+* Return success status in low-level triangulation functions by @ahojnnes in https://github.com/colmap/colmap/pull/2834
+* Pin mypy version for tests by @ahojnnes in https://github.com/colmap/colmap/pull/2849
+* Suppress CMP0167 warning for FindBoost under CMake 3.30 or newer by @ahojnnes in https://github.com/colmap/colmap/pull/2853
+* Reconstruction reader/writer tests and scene class repr by @ahojnnes in https://github.com/colmap/colmap/pull/2842
+* Select CUDA device when bundle adjustment uses GPU by @ahojnnes in https://github.com/colmap/colmap/pull/2846
+* Fix copying behaviors of Reconstruction regarding camera pointers by @B1ueber2y in https://github.com/colmap/colmap/pull/2841
+* Use the C++ string representation for Python dataclass objects by @sarlinpe in https://github.com/colmap/colmap/pull/2855
+* Various improvements for pycolmap bindings by @ahojnnes in https://github.com/colmap/colmap/pull/2854
+* Use analytical Jacobian in IterativeUndistortion. Add trust region by @B1ueber2y in https://github.com/colmap/colmap/pull/2857
+* Improve the conditioning of covariance estimation by @B1ueber2y in https://github.com/colmap/colmap/pull/2860
+* Avoid unnecessary copy of RANSAC inlier masks by @ahojnnes in https://github.com/colmap/colmap/pull/2863
+* Various improvements for cost functors by @ahojnnes in https://github.com/colmap/colmap/pull/2867
+* Rename ``*_mapper`` to ``*_pipeline`` files by @ahojnnes in https://github.com/colmap/colmap/pull/2870
+* Update the manylinux CI to GCC 10 by @sarlinpe in https://github.com/colmap/colmap/pull/2873
+* Fix rare deadlock during matching due to concurrent database access by @ahojnnes in https://github.com/colmap/colmap/pull/2876
+* Add new and missing options to automatic reconstructor by @ahojnnes in https://github.com/colmap/colmap/pull/2877
+* Shared auto diff cost function creation by @ahojnnes in https://github.com/colmap/colmap/pull/2878
+* Enable model alignment to reference model by @ahojnnes in https://github.com/colmap/colmap/pull/2879
+* Add covariance weighted cost functor by @ahojnnes in https://github.com/colmap/colmap/pull/2880
+* Fix unused variable warnings under MSVC by @ahojnnes in https://github.com/colmap/colmap/pull/2884
+* Skip all but latest Python version in PR builds by @ahojnnes in https://github.com/colmap/colmap/pull/2881
+* [doc] Fix path to example in README.md by @kielnino in https://github.com/colmap/colmap/pull/2886
+* Update Github actions versions by @ahojnnes in https://github.com/colmap/colmap/pull/2887
+* [doc] Fix typo for gui menu item by @kielnino in https://github.com/colmap/colmap/pull/2885
+* Fix input type for automatic stereo fusion on extreme quality setting by @ahojnnes in https://github.com/colmap/colmap/pull/2893
+* Make target with all sources optional by @HernandoR in https://github.com/colmap/colmap/pull/2889
+* Gracefully handle missing image pose in viewer by @ahojnnes in https://github.com/colmap/colmap/pull/2894
+* Update to latest vcpkg release 2024.10.21 by @ahojnnes in https://github.com/colmap/colmap/pull/2908
+* Fix conversion from CUDA texture references to objects in SIFT feature extraction by @ahojnnes in https://github.com/colmap/colmap/pull/2911
+* Modernized bundle adjustment interface by @ahojnnes in https://github.com/colmap/colmap/pull/2896
+* Add missing unit tests for reconstruction alignment functions by @ahojnnes in https://github.com/colmap/colmap/pull/2913
+* Do not test EstimateManhattanWorldFrame if LSD is disabled by @sarlinpe in https://github.com/colmap/colmap/pull/2920
+* Custom macro for enum to string support by @B1ueber2y in https://github.com/colmap/colmap/pull/2918
+* Bind the estimation of Sim3d by @sarlinpe in https://github.com/colmap/colmap/pull/2903
+* Initialize glog in custom gmock main function by @ahojnnes in https://github.com/colmap/colmap/pull/2916
+* Update ccache for faster windows CI builds by @ahojnnes in https://github.com/colmap/colmap/pull/2922
+* Fixes for Windows ARM64 support by @ahojnnes in https://github.com/colmap/colmap/pull/2921
+* Move geometry implementation of ``__repr__``, ``__eq__`` overloads to C++ side by @ahojnnes in https://github.com/colmap/colmap/pull/2915
+* Consistent interface and various improvements for pycolmap/estimators by @ahojnnes in https://github.com/colmap/colmap/pull/2923
+* Exclude DetectLineSegments if LSD is disabled by @sarlinpe in https://github.com/colmap/colmap/pull/2927
+* Enable reading 16bit/channel (png) images to grayscale by @Ediolot in https://github.com/colmap/colmap/pull/2924
+* Cleanup of remaining pycolmap interfaces by @ahojnnes in https://github.com/colmap/colmap/pull/2925
+* Fix affine SIFT feature orientation detection by @ahojnnes in https://github.com/colmap/colmap/pull/2929
+* Improvements to deprecated pycolmap members by @sarlinpe in https://github.com/colmap/colmap/pull/2932
+* Fix pkgconf installation in Mac CI by @ahojnnes in https://github.com/colmap/colmap/pull/2936
+* Make sphinx show the pycolmap constructors by @sarlinpe in https://github.com/colmap/colmap/pull/2935
+* Bind synthetic dataset functionality in pycolmap by @ahojnnes in https://github.com/colmap/colmap/pull/2938
+* Cleaner import of C++ symbols by @sarlinpe in https://github.com/colmap/colmap/pull/2933
+* Fix pycolmap breakage for Python 3.8 by @sarlinpe in https://github.com/colmap/colmap/pull/2941
+* Remove legacy boost test macro by @ahojnnes in https://github.com/colmap/colmap/pull/2940
+* Drop support for VS 2019 CI checks by @ahojnnes in https://github.com/colmap/colmap/pull/2943
+* Fix CI cache thrashing by inconsistent vcpkg binary caching by @ahojnnes in https://github.com/colmap/colmap/pull/2942
+* Introduce gmock Eigen matrix matchers by @ahojnnes in https://github.com/colmap/colmap/pull/2939
+* Prevent double initialization of glog for <=0.5 by @sarlinpe in https://github.com/colmap/colmap/pull/2945
+* Fixes and refactoring for bundle adjustment covariance estimation by @ahojnnes in https://github.com/colmap/colmap/pull/2788
+* Fix duplicate library warnings in linking stage by @ahojnnes in https://github.com/colmap/colmap/pull/2871
+* Add test for Python mapping pipeline by @ahojnnes in https://github.com/colmap/colmap/pull/2946
+* Add helper script for incremental pycolmap build by @ahojnnes in https://github.com/colmap/colmap/pull/2947
+* Fix and consistently define Qt window flags by @ahojnnes in https://github.com/colmap/colmap/pull/2949
+* Cross platform usage of monospace font by @ahojnnes in https://github.com/colmap/colmap/pull/2950
+* Update to latest pybind11 version by @ahojnnes in https://github.com/colmap/colmap/pull/2952
+* Update install instructions for Mac using homebrew by @ahojnnes in https://github.com/colmap/colmap/pull/2953
+
+------------------------
 COLMAP 3.10 (07/23/2024)
 ------------------------
 * Add missing "include <memory>" needed for unique_ptr by @Tobias-Fischer in https://github.com/colmap/colmap/pull/2338
@@ -88,11 +281,13 @@ COLMAP 3.10 (07/23/2024)
 * Add CI build for Windows CUDA by @ahojnnes in https://github.com/colmap/colmap/pull/2651
 * Publish windows binaries from CI by @ahojnnes in https://github.com/colmap/colmap/pull/2663
 
+-------------------------
 COLMAP 3.9.1 (01/08/2024)
 -------------------------
 * Version 3.9 changelog by @ahojnnes in https://github.com/colmap/colmap/pull/2325
 * Fully encapsulate freeimage in bitmap library (#2332) by @ahojnnes in https://github.com/colmap/colmap/pull/2334
 
+-----------------------
 COLMAP 3.9 (01/06/2024)
 -----------------------
 * clang format all code and require clang-format-14 by @ahojnnes in https://github.com/colmap/colmap/pull/1785
@@ -264,6 +459,7 @@ COLMAP 3.9 (01/06/2024)
 * Fix typo by @whuaegeanse in https://github.com/colmap/colmap/pull/2317
 * Stable version 3.9 release by @ahojnnes in https://github.com/colmap/colmap/pull/2319
 
+-----------------------
 COLMAP 3.8 (01/31/2023)
 -----------------------
 * Updating geo-registration doc. by @ferreram in https://github.com/colmap/colmap/pull/1410
@@ -330,6 +526,7 @@ COLMAP 3.8 (01/31/2023)
 * Option to store relative pose between two cameras in database by @yanxke in https://github.com/colmap/colmap/pull/1774
 * Depend on system installed SQLite3 by @ahojnnes in https://github.com/colmap/colmap/pull/1783
 
+-----------------------
 COLMAP 3.7 (01/26/2022)
 -----------------------
 * Allow to save fused point cloud in colmap format when using command line by @boitumeloruf in https://github.com/colmap/colmap/pull/799
@@ -424,54 +621,54 @@ COLMAP 3.7 (01/26/2022)
 * Add ccache option by @ahojnnes in https://github.com/colmap/colmap/pull/1395
 * Update ModelAligner to handle GPS and custom coords. and more by @ferreram in https://github.com/colmap/colmap/pull/1371
 
-
+-----------------------
 COLMAP 3.6 (07/24/2020)
 -----------------------
-- Improved robustness and faster incremental reconstruction process
-- Add ``image_deleter`` command to remove images from sparse model
-- Add ``image_filter`` command to filter bad registrations from sparse model
-- Add ``point_filtering`` command to filter sparse model point clouds
-- Add ``database_merger`` command to merge two databases, which is
+* Improved robustness and faster incremental reconstruction process
+* Add ``image_deleter`` command to remove images from sparse model
+* Add ``image_filter`` command to filter bad registrations from sparse model
+* Add ``point_filtering`` command to filter sparse model point clouds
+* Add ``database_merger`` command to merge two databases, which is
   useful to parallelize matching across different machines
-- Add ``image_undistorter_standalone`` to enable undistorting images
+* Add ``image_undistorter_standalone`` to enable undistorting images
   without a pre-existing full sparse model
-- Improved undistortion for fisheye cameras and FOV camera model
-- Support for masking input images in feature extraction stage
-- Improved HiDPI support in GUI for high-resolution monitors
-- Import sparse model when launching GUI from CLI
-- Faster CPU-based matching using approximate NN search
-- Support for bundle adjustment with fixed extrinsics
-- Support for fixing existing images when continuing reconstruction
-- Camera model colors in viewer can be customized
-- Support for latest GPU architectures in CUDA build
-- Support for writing sparse models in Python scripts
-- Scripts for building and running COLMAP in Docker
-- Many more bug fixes and improvements to code and documentation
+* Improved undistortion for fisheye cameras and FOV camera model
+* Support for masking input images in feature extraction stage
+* Improved HiDPI support in GUI for high-resolution monitors
+* Import sparse model when launching GUI from CLI
+* Faster CPU-based matching using approximate NN search
+* Support for bundle adjustment with fixed extrinsics
+* Support for fixing existing images when continuing reconstruction
+* Camera model colors in viewer can be customized
+* Support for latest GPU architectures in CUDA build
+* Support for writing sparse models in Python scripts
+* Scripts for building and running COLMAP in Docker
+* Many more bug fixes and improvements to code and documentation
 
-
+-----------------------
 COLMAP 3.5 (08/22/2018)
 -----------------------
-- COLMAP is now released under the BSD license instead of the GPL
-- COLMAP is now installed as a library, whose headers can be included and
+* COLMAP is now released under the BSD license instead of the GPL
+* COLMAP is now installed as a library, whose headers can be included and
   libraries linked against from other C/C++ code
-- Add hierarchical mapper for parallelized reconstruction or large scenes
-- Add sparse and dense Delaunay meshing algorithms, which reconstruct a
+* Add hierarchical mapper for parallelized reconstruction or large scenes
+* Add sparse and dense Delaunay meshing algorithms, which reconstruct a
   watertight surface using a graph cut on the Delaunay triangulation of the
   reconstructed sparse or dense point cloud
-- Improved robustness when merging different models
-- Improved pre-trained vocabulary trees available for download
-- Add COLMAP as a software entry under Linux desktop systems
-- Add support to compile COLMAP on ARM platforms
-- Add example Python script to read/write COLMAP database
-- Add region of interest (ROI) cropping in image undistortion
-- Several import bug fixes for spatial verification in image retrieval
-- Add more extensive continuous integration across more compilation scenarios
-- Many more bug fixes and improvements to code and documentation
+* Improved robustness when merging different models
+* Improved pre-trained vocabulary trees available for download
+* Add COLMAP as a software entry under Linux desktop systems
+* Add support to compile COLMAP on ARM platforms
+* Add example Python script to read/write COLMAP database
+* Add region of interest (ROI) cropping in image undistortion
+* Several import bug fixes for spatial verification in image retrieval
+* Add more extensive continuous integration across more compilation scenarios
+* Many more bug fixes and improvements to code and documentation
 
-
+-----------------------
 COLMAP 3.4 (01/29/2018)
 -----------------------
-- Unified command-line interface: The functionality of previous executables have
+* Unified command-line interface: The functionality of previous executables have
   been merged into the ``src/exe/colmap.cc`` executable. The GUI can now be
   started using the command ``colmap gui`` and other commands are available
   as ``colmap [command]``. For example, the feature extractor is now available
@@ -479,131 +676,131 @@ COLMAP 3.4 (01/29/2018)
   the same as before. This should result in much faster project compile times
   and smaller disk space usage of the program. More details about the new
   interface are documented at https://colmap.github.io/cli.html
-- More complete depth and normal maps with larger patch sizes
-- Faster dense stereo computation by skipping rows/columns in patch match,
+* More complete depth and normal maps with larger patch sizes
+* Faster dense stereo computation by skipping rows/columns in patch match,
   improved random sampling in patch match, and faster bilateral NCC
-- Better high DPI screen support for the graphical user interface
-- Improved model viewer under Windows, which now requires Qt 5.4
-- Save computed two-view geometries in database
-- Images (keypoint/matches visualization, depth and normal maps) can now be
+* Better high DPI screen support for the graphical user interface
+* Improved model viewer under Windows, which now requires Qt 5.4
+* Save computed two-view geometries in database
+* Images (keypoint/matches visualization, depth and normal maps) can now be
   saved from the graphical user interface
-- Support for PMVS format without sparse bundler file
-- Faster covariant feature detection
-- Many more bug fixes and improvements
+* Support for PMVS format without sparse bundler file
+* Faster covariant feature detection
+* Many more bug fixes and improvements
 
-
+-----------------------
 COLMAP 3.3 (11/21/2017)
 -----------------------
-- Add DSP (Domain Size Pooling) SIFT implementation. DSP-SIFT outperforms
+* Add DSP (Domain Size Pooling) SIFT implementation. DSP-SIFT outperforms
   standard SIFT in most cases, as shown in "Comparative Evaluation of
   Hand-Crafted and Learned Local Features", Schoenberger et al., CVPR 2017
-- Improved parameters dense reconstruction of smaller models
-- Improved compile times due to various code optimizations
-- Add option to specify camera model in automatic reconstruction
-- Add new model orientation alignment based on upright image assumption
-- Improved numerical stability for generalized absolute pose solver
-- Support for image range specification in PMVS dense reconstruction format
-- Support for older Python versions in automatic build script
-- Fix OpenCV Fisheye camera model to exactly match OpenCV specifications
+* Improved parameters dense reconstruction of smaller models
+* Improved compile times due to various code optimizations
+* Add option to specify camera model in automatic reconstruction
+* Add new model orientation alignment based on upright image assumption
+* Improved numerical stability for generalized absolute pose solver
+* Support for image range specification in PMVS dense reconstruction format
+* Support for older Python versions in automatic build script
+* Fix OpenCV Fisheye camera model to exactly match OpenCV specifications
 
-
+---------------------
 COLMAP 3.2 (9/2/2017)
+---------------------
+* Fully automatic cross-platform build script (Windows, Mac, Linux)
+* Add multi-GPU feature extraction if multiple CUDA devices are available
+* Configurable dimension and data type for vocabulary tree implementation
+* Add new sequential matching mode for image sequences with high frame-rate
+* Add generalized relative pose solver for multi-camera systems
+* Add sparse least absolute deviation solver
+* Add CPU/GPU options to automatic reconstruction tool
+* Add continuous integration system under Windows, Mac, Linux through Github
+* Many more bug fixes and improvements
+
 ----------------------
-- Fully automatic cross-platform build script (Windows, Mac, Linux)
-- Add multi-GPU feature extraction if multiple CUDA devices are available
-- Configurable dimension and data type for vocabulary tree implementation
-- Add new sequential matching mode for image sequences with high frame-rate
-- Add generalized relative pose solver for multi-camera systems
-- Add sparse least absolute deviation solver
-- Add CPU/GPU options to automatic reconstruction tool
-- Add continuous integration system under Windows, Mac, Linux through Github
-- Many more bug fixes and improvements
-
-
 COLMAP 3.1 (6/15/2017)
 ----------------------
-- Add fast spatial verification to image retrieval module
-- Add binary file format for sparse models by default. Old text format still
+* Add fast spatial verification to image retrieval module
+* Add binary file format for sparse models by default. Old text format still
   fully compatible and possible conversion in GUI and CLI
-- Add cross-platform little endian binary file reading and writing
-- Faster and less memory hungry stereo fusion by computing consistency on demand
+* Add cross-platform little endian binary file reading and writing
+* Faster and less memory hungry stereo fusion by computing consistency on demand
   and possible limitation of image size in fusion
-- Simpler geometric stereo processing interface.
+* Simpler geometric stereo processing interface.
   Now geometric stereo output can be computed using a single pass
-- Faster and multi-architecture CUDA compilation
-- Add medium quality option in automatic reconstructor
-- Many more bug fixes and improvements
+* Faster and multi-architecture CUDA compilation
+* Add medium quality option in automatic reconstructor
+* Many more bug fixes and improvements
 
-
+----------------------
 COLMAP 3.0 (5/22/2017)
 ----------------------
-- Add automatic end-to-end reconstruction tool that automatically performs
+* Add automatic end-to-end reconstruction tool that automatically performs
   sparse and dense reconstruction on a given set of images
-- Add multi-GPU dense stereo if multiple CUDA devices are available
-- Add multi-GPU feature matching if multiple CUDA devices are available
-- Add Manhattan-world / gravity alignment using line detection
-- Add CUDA-based feature extraction useful for usage on clusters
-- Add CPU-based feature matching for machines without GPU
-- Add new THIN_PRISM_FISHEYE camera model with tangential/radial correction
-- Add binary to triangulate existing/empty sparse reconstruction
-- Add binary to print summary statistics about sparse reconstruction
-- Add transitive feature matching to transitively complete match graph
-- Improved scalability of dense reconstruction by using caching
-- More stable GPU-based feature matching with informative warnings
-- Faster vocabulary tree matching using dynamic scheduling in FLANN
-- Faster spatial feature matching using linear index instead of kd-tree
-- More stable camera undistortion using numerical Newton iteration
-- Improved option parsing with some backwards incompatible option renaming
-- Faster compile times by optimizing includes and CUDA flags
-- More stable view selection for small baseline scenario in dense reconstruction
-- Many more bug fixes and improvements
+* Add multi-GPU dense stereo if multiple CUDA devices are available
+* Add multi-GPU feature matching if multiple CUDA devices are available
+* Add Manhattan-world / gravity alignment using line detection
+* Add CUDA-based feature extraction useful for usage on clusters
+* Add CPU-based feature matching for machines without GPU
+* Add new THIN_PRISM_FISHEYE camera model with tangential/radial correction
+* Add binary to triangulate existing/empty sparse reconstruction
+* Add binary to print summary statistics about sparse reconstruction
+* Add transitive feature matching to transitively complete match graph
+* Improved scalability of dense reconstruction by using caching
+* More stable GPU-based feature matching with informative warnings
+* Faster vocabulary tree matching using dynamic scheduling in FLANN
+* Faster spatial feature matching using linear index instead of kd-tree
+* More stable camera undistortion using numerical Newton iteration
+* Improved option parsing with some backwards incompatible option renaming
+* Faster compile times by optimizing includes and CUDA flags
+* More stable view selection for small baseline scenario in dense reconstruction
+* Many more bug fixes and improvements
 
-
+----------------------
 COLMAP 2.1 (12/7/2016)
 ----------------------
-- Support to only index and match specific images in vocabulary tree matching
-- Support to perform image retrieval using vocabulary tree
-- Several bug fixes and improvements for multi-view stereo module
-- Improved Structure-from-Motion initialization strategy
-- Support to only reconstruct the scene using specific images in the database
-- Add support to merge two models using overlapping registered images
-- Add support to geo-register/align models using known camera locations
-- Support to only extract specific images in feature extraction module
-- Support for snapshot model export during reconstruction
-- Skip already undistorted images if they exist in output directory
-- Support to limit the number of features in image retrieval for improved speed
-- Miscellaneous bug fixes and improvements
+* Support to only index and match specific images in vocabulary tree matching
+* Support to perform image retrieval using vocabulary tree
+* Several bug fixes and improvements for multi-view stereo module
+* Improved Structure-from-Motion initialization strategy
+* Support to only reconstruct the scene using specific images in the database
+* Add support to merge two models using overlapping registered images
+* Add support to geo-register/align models using known camera locations
+* Support to only extract specific images in feature extraction module
+* Support for snapshot model export during reconstruction
+* Skip already undistorted images if they exist in output directory
+* Support to limit the number of features in image retrieval for improved speed
+* Miscellaneous bug fixes and improvements
 
-
+---------------------
 COLMAP 2.0 (9/8/2016)
 ---------------------
-- Implementation of dense reconstruction pipeline
-- Improved feature matching performance
-- New bundle adjuster for rigidly mounted multi-camera systems
-- New generalized absolute pose solver for multi-camera systems
-- New executable to extract colors from all images
-- Boost can now be linked in shared and static mode
-- Various bug fixes and performance improvements
+* Implementation of dense reconstruction pipeline
+* Improved feature matching performance
+* New bundle adjuster for rigidly mounted multi-camera systems
+* New generalized absolute pose solver for multi-camera systems
+* New executable to extract colors from all images
+* Boost can now be linked in shared and static mode
+* Various bug fixes and performance improvements
 
-
+----------------------
 COLMAP 1.1 (5/19/2016)
 ----------------------
-- Implementation of state-of-the-art image retrieval system using Hamming
+* Implementation of state-of-the-art image retrieval system using Hamming
   embedding for vocabulary tree matching. This should lead to much improved
   matching results as compared to the previous implementation.
-- Guided matching as an optional functionality.
-- New demo datasets for download.
-- Automatically switch to PBA if supported by the project.
-- Implementation of EPNP solver for local pose optimization in RANSAC.
-- Add option to extract upright SIFT features.
-- Saving JPEGs in superb quality by default in export.
-- Add option to clear matches and inlier matches in the project.
-- New fisheye camera models, including the FOV camera model used by Google
+* Guided matching as an optional functionality.
+* New demo datasets for download.
+* Automatically switch to PBA if supported by the project.
+* Implementation of EPNP solver for local pose optimization in RANSAC.
+* Add option to extract upright SIFT features.
+* Saving JPEGs in superb quality by default in export.
+* Add option to clear matches and inlier matches in the project.
+* New fisheye camera models, including the FOV camera model used by Google
   Project Tango (Thomas Schoeps).
-- Extended documentation based on user feedback.
-- Fixed typo in documentation (Thomas Schoeps).
+* Extended documentation based on user feedback.
+* Fixed typo in documentation (Thomas Schoeps).
 
-
+---------------------
 COLMAP 1.0 (4/4/2016)
 ---------------------
-- Initial release of COLMAP.
+* Initial release of COLMAP.
