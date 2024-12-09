@@ -43,17 +43,10 @@ jobs:
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
       VCPKG_COMMIT_ID: 10b7a178346f3f0abef60cecd5130e295afd8da4
-      VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
+      VCPKG_BINARY_SOURCES: "clear;x-azblob,${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_URL }},${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_SAS }},readwrite"
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Export GitHub Actions cache env
-        uses: actions/github-script@v7
-        with:
-          script: |
-            core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
-            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
 
       - name: Compiler cache
         uses: actions/cache@v4
@@ -84,9 +77,6 @@ jobs:
           sub-packages: '["nvcc", "nvtx", "cudart", "curand", "curand_dev", "nvrtc_dev"]'
           method: 'network'
 
-      - name: Install CMake and Ninja
-        uses: lukka/get-cmake@latest
-
       - name: Setup vcpkg
         shell: pwsh
         run: |
@@ -96,6 +86,12 @@ jobs:
           cd vcpkg
           git reset --hard ${{ env.VCPKG_COMMIT_ID }}
           ./bootstrap-vcpkg.bat
+
+      - name: Install CMake and Ninja
+        uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: "3.31.0"
+          ninjaVersion: "1.12.1"
 
       - name: Configure and build
         shell: pwsh
