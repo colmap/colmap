@@ -55,9 +55,9 @@ COLMAP_ADD_LIBRARY(
         glog::glog
         SQLite::SQLite3
     PRIVATE_LINK_LIBS
-        colmap_httplib
         Boost::boost
-        "$<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:-lstdc++fs>"
+        $<$<BOOL:${HTTP_ENABLED}>:colmap_httplib>
+        $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:-lstdc++fs>
 )
 if(TESTS_ENABLED)
     target_sources(
