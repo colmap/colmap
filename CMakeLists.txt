@@ -342,7 +342,6 @@ set(COLMAP_EXPORT_LIBS
     colmap_sfm
     colmap_util
     # Third-party.
-    colmap_httplib
     colmap_poisson_recon
     colmap_vlfeat
 )
@@ -350,6 +349,12 @@ if(LSD_ENABLED)
     list(APPEND COLMAP_EXPORT_LIBS
          # Third-party.
          colmap_lsd
+    )
+endif()
+if(HTTP_ENABLED)
+    list(APPEND COLMAP_EXPORT_LIBS
+         # Third-party.
+         colmap_httplib
     )
 endif()
 if(GUI_ENABLED)
