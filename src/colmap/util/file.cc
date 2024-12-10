@@ -31,7 +31,7 @@
 
 #include "colmap/util/logging.h"
 
-#include "thirdparty/httplib/httplib.h"
+#include <httplib.h>
 
 namespace colmap {
 

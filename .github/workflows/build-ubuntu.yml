@@ -160,7 +160,7 @@ jobs:
             libcgal-qt5-dev \
             libgl1-mesa-dri \
             libunwind-dev \
-            libssl-dev \
+            libcpp-httplib-dev \
             xvfb
 
           if [ "${{ matrix.config.cudaEnabled }}" == "true" ]; then

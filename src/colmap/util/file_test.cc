@@ -29,12 +29,11 @@
 
 #include "colmap/util/file.h"
 
-#include "thirdparty/httplib/httplib.h"
-
 #include <cstring>
 #include <thread>
 
 #include <gtest/gtest.h>
+#include <httplib.h>
 
 namespace colmap {
 namespace {

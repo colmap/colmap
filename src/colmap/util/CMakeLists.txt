@@ -68,7 +68,7 @@ if(TESTS_ENABLED)
 endif()
 
 if(HTTP_ENABLED)
-    target_link_libraries(colmap_util PRIVATE colmap_httplib)
+    target_link_libraries(colmap_util PRIVATE httplib::httplib)
 endif()
 if(GUI_ENABLED)
     target_link_libraries(colmap_util PUBLIC Qt5::Core Qt5::OpenGL OpenGL::GL)
@@ -122,8 +122,11 @@ COLMAP_ADD_TEST(
     SRCS file_test.cc
     LINK_LIBS
         colmap_util
-        $<$<BOOL:${HTTP_ENABLED}>:colmap_httplib>
+        httplib::httplib
 )
+if(TESTS_ENABLED AND HTTP_ENABLED)
+    target_link_libraries(colmap_util_file_test httplib::httplib)
+endif()
 COLMAP_ADD_TEST(
     NAME logging_test
     SRCS logging_test.cc
