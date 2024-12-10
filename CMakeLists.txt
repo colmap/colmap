@@ -48,6 +48,7 @@ option(CGAL_ENABLED "Whether to enable the CGAL library" ON)
 option(LSD_ENABLED "Whether to enable the LSD library" ON)
 option(UNINSTALL_ENABLED "Whether to create a target to 'uninstall' colmap" ON)
 option(FETCH_POSELIB "Whether to consume PoseLib using FetchContent or find_package" ON)
+option(FETCH_LIBTORCH "Whether to consume libtorch using FetchContent or find_package" ON)
 option(ALL_SOURCE_TARGET "Whether to create a target for all source files (for Visual Studio / XCode development)" OFF)
 
 # Propagate options to vcpkg manifest.
@@ -63,6 +64,13 @@ if(GUI_ENABLED)
 endif()
 if(CGAL_ENABLED)
     list(APPEND VCPKG_MANIFEST_FEATURES "cgal")
+endif()
+if(NOT FETCH_LIBTORCH)
+    if(CUDA_ENABLED)
+        list(APPEND VCPKG_MANIFEST_FEATURES "libtorch-cuda")
+    else()
+        list(APPEND VCPKG_MANIFEST_FEATURES "libtorch")
+    endif()
 endif()
 
 if(LSD_ENABLED)
@@ -218,8 +226,59 @@ include(GenerateVersionDefinitions)
 include_directories(src)
 link_directories(${COLMAP_LINK_DIRS})
 
-add_subdirectory(src/colmap)
+if(FETCH_LIBTORCH)
+    include(FetchContent)
+    # Avoid warning about DOWNLOAD_EXTRACT_TIMESTAMP in CMake 3.24:
+    if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24.0")
+        cmake_policy(SET CMP0135 NEW)
+    endif()
+    # TODO: Specialize for CUDA vs. non-CUDA and for x86 vs. ARM.
+    set(LIBTORCH_VERSION "2.5.1")
+    if(IS_MSVC)
+        FetchContent_Declare(libtorch
+            URL https://download.pytorch.org/libtorch/cpu/libtorch-win-shared-with-deps-${LIBTORCH_VERSION}%2Bcpu.zip
+            URL_HASH SHA256=176f3c501e50694cec2f23ca512ca36c0c268f523e90d91c8fca57bed56a6a65
+        )
+    elseif(IS_MACOS)
+        FetchContent_Declare(libtorch
+            URL https://download.pytorch.org/libtorch/cpu/libtorch-macos-arm64-${LIBTORCH_VERSION}.zip
+            URL_HASH SHA256=0822824c1df267159a649ad4701518217c60b8f75de056a26ab43958d8ab1622
+        )
+    elseif(IS_LINUX)
+        FetchContent_Declare(libtorch
+            URL https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-${LIBTORCH_VERSION}%2Bcpu.zip
+            URL_HASH SHA256=618ca54eef82a1dca46ff1993d5807d9c0deb0bae147da4974166a147cb562fa
+        )
+    endif()
+    # find_package() targets are only visible in the current folder, so we need
+    # to call it here. Once we require CMake 3.24, we can use the
+    # find_package(GLOBAL) option and move this logic to the thirdparty folder.
+    FetchContent_MakeAvailable(libtorch)
+    if(NOT DEFINED MKL_ROOT)
+        cmake_policy(SET CMP0074 NEW)
+        if(IS_LINUX)
+            set(DEBIAN_DEFAULT_MKL_LIB_PATH "/usr/lib/x86_64-linux-gnu/libmkl_core.so")
+            if(EXISTS "${DEBIAN_DEFAULT_MKL_LIB_PATH}")
+                set(MKL_INCLUDE_DIR "/usr/include")
+                set(MKL_LIBRARIES "${DEBIAN_DEFAULT_MKL_LIB_PATH}")
+            else()
+                set(MKL_ROOT "/opt/intel/mkl")
+            endif()
+        elseif(IS_MSVC)
+            set(DEFAULT_MKL_LIB_PATH "C:/Program Files (x86)/IntelSWTools/compilers_and_libraries/windows/mkl/lib/intel64/mkl_core_dll.lib")
+            if(EXISTS "${DEFAULT_MKL_LIB_PATH}")
+                set(MKL_INCLUDE_DIR "C:/Program Files (x86)/IntelSWTools/compilers_and_libraries/windows/mkl/include")
+                set(MKL_LIBRARIES "${DEFAULT_MKL_LIB_PATH}")
+            endif()
+        endif()
+    endif()
+    find_package(Torch REQUIRED PATHS "${libtorch_SOURCE_DIR}" NO_DEFAULT_PATH)
+else()
+    find_package(Torch REQUIRED)
+endif()
+
 add_subdirectory(src/thirdparty)
+add_subdirectory(src/colmap)
 
 ################################################################################
 # Generate source groups for Visual Studio, XCode, etc.
@@ -337,6 +396,8 @@ set(COLMAP_EXPORT_LIBS
     colmap_sfm
     colmap_util
     # Third-party.
+    colmap_aliked
+    colmap_lightglue
     colmap_poisson_recon
     colmap_vlfeat
 )

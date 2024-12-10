@@ -1,0 +1,45 @@
+<!DOCTYPE RCC><RCC version="1.0">
+<qresource>
+    <file>shaders/points.v.glsl</file>
+    <file>shaders/points.f.glsl</file>
+    <file>shaders/lines.v.glsl</file>
+    <file>shaders/lines.g.glsl</file>
+    <file>shaders/lines.f.glsl</file>
+    <file>shaders/triangles.v.glsl</file>
+    <file>shaders/triangles.f.glsl</file>
+
+    <file>media/project-new.png</file>
+    <file>media/project-open.png</file>
+    <file>media/project-edit.png</file>
+    <file>media/project-save.png</file>
+    <file>media/project-save-as.png</file>
+    <file>media/import.png</file>
+    <file>media/import-from.png</file>
+    <file>media/export.png</file>
+    <file>media/export-all.png</file>
+    <file>media/export-as.png</file>
+    <file>media/export-as-text.png</file>
+    <file>media/feature-extraction.png</file>
+    <file>media/feature-matching.png</file>
+    <file>media/database-management.png</file>
+    <file>media/automatic-reconstruction.png</file>
+    <file>media/reconstruction-start.png</file>
+    <file>media/reconstruction-pause.png</file>
+    <file>media/reconstruction-step.png</file>
+    <file>media/reconstruction-reset.png</file>
+    <file>media/reconstruction-normalize.png</file>
+    <file>media/reconstruction-options.png</file>
+    <file>media/reconstruction-stats.png</file>
+    <file>media/bundle-adjustment.png</file>
+    <file>media/dense-reconstruction.png</file>
+    <file>media/render-enabled.png</file>
+    <file>media/render-disabled.png</file>
+    <file>media/render-reset-view.png</file>
+    <file>media/render-options.png</file>
+    <file>media/match-matrix.png</file>
+    <file>media/log.png</file>
+    <file>media/grab-image.png</file>
+    <file>media/grab-movie.png</file>
+    <file>media/undistort.png</file>
+</qresource>
+</RCC>
