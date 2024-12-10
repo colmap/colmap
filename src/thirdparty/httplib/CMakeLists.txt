@@ -7,3 +7,6 @@ COLMAP_ADD_LIBRARY(
         OpenSSL::Crypto
 )
 target_compile_definitions(colmap_httplib PUBLIC CPPHTTPLIB_OPENSSL_SUPPORT)
+if(IS_MSVC)
+    target_compile_definitions(colmap_httplib PUBLIC WIN32_LEAN_AND_MEAN)
+endif()

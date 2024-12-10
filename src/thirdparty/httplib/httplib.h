@@ -5,6 +5,8 @@
 //  MIT License
 //
 
+// NOLINTBEGIN(clang-analyzer-optin.performance.Padding,google-explicit-constructor)
+
 #ifndef CPPHTTPLIB_HTTPLIB_H
 #define CPPHTTPLIB_HTTPLIB_H
 
@@ -2516,3 +2518,5 @@ private:
 #endif
 
 #endif // CPPHTTPLIB_HTTPLIB_H
+
+// NOLINTEND(clang-analyzer-optin.performance.Padding,google-explicit-constructor)
