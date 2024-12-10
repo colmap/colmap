@@ -122,7 +122,6 @@ COLMAP_ADD_TEST(
     SRCS file_test.cc
     LINK_LIBS
         colmap_util
-        httplib::httplib
 )
 if(TESTS_ENABLED AND HTTP_ENABLED)
     target_link_libraries(colmap_util_file_test httplib::httplib)
