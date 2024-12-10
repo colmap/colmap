@@ -162,6 +162,12 @@ jobs:
             libunwind-dev \
             libcpp-httplib-dev \
             xvfb
+          
+          # Package libcpp-httplib-dev is available in 22.04 or newer.
+          if [ "${{ matrix.config.os }}" != "ubuntu-20.04" ]; then
+            sudo apt-get install -y \
+              libcpp-httplib-dev
+          fi
 
           if [ "${{ matrix.config.cudaEnabled }}" == "true" ]; then
             if [ "${{ matrix.config.os }}" == "ubuntu-20.04" ]; then
