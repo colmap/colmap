@@ -19,7 +19,8 @@ yum install -y \
     curl \
     zip \
     unzip \
-    tar
+    tar \
+    perl-IPC-Cmd
 
 source scl_source enable gcc-toolset-12
 
