@@ -88,7 +88,7 @@ if(CGAL_FOUND)
 endif()
 
 if(HTTP_ENABLED)
-    find_package(httplib ${COLMAP_FIND_TYPE})
+    find_package(httplib QUIET)
     if(HTTPLIB_FOUND)
         message(STATUS "Enabling HTTP support")
     else()
