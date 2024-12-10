@@ -82,7 +82,11 @@ jobs:
           echo "CIBW_CONFIG_SETTINGS_MACOS=${CONFIG_SETTINGS}" >> "$GITHUB_ENV"
 
           # vcpkg binary caching
-          VCPKG_BINARY_SOURCES="clear;x-azblob,${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_URL }},${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_SAS }},readwrite"
+          VCPKG_BINARY_SOURCES = "clear;x-azblob,${{ vars.VCPKG_BINARY_CACHE_AZBLOB_URL_READ }},${{ vars.VCPKG_BINARY_CACHE_AZBLOB_SAS_READ }},read"
+          if [ -z "${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_URL }}" ]; then
+            # The secrets are only accessible in runs triggered from within the target repository and not forks.
+            VCPKG_BINARY_SOURCES += ";x-azblob,${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_URL }},${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_SAS }},write"
+          fi
           echo "VCPKG_BINARY_SOURCES=${VCPKG_BINARY_SOURCES}" >> "$GITHUB_ENV"
 
       - name: Set env (Windows)
@@ -108,7 +112,11 @@ jobs:
           echo "CIBW_REPAIR_WHEEL_COMMAND_WINDOWS=${CIBW_REPAIR_WHEEL_COMMAND}" >> "${env:GITHUB_ENV}"
 
           # vcpkg binary caching
-          $VCPKG_BINARY_SOURCES = "clear;x-azblob,${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_URL }},${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_SAS }},readwrite"
+          $VCPKG_BINARY_SOURCES = "clear;x-azblob,${{ vars.VCPKG_BINARY_CACHE_AZBLOB_URL_READ }},${{ vars.VCPKG_BINARY_CACHE_AZBLOB_SAS_READ }},read"
+          if ("${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_URL }}") {
+            # The secrets are only accessible in runs triggered from within the target repository and not forks.
+            $VCPKG_BINARY_SOURCES += ";x-azblob,${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_URL }},${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_SAS }},write"
+          }
           echo "VCPKG_BINARY_SOURCES=${VCPKG_BINARY_SOURCES}" >> "${env:GITHUB_ENV}"
 
       - name: Set env (Linux)
@@ -137,7 +145,11 @@ jobs:
           echo "CCACHE_BASEDIR=/project" >> "$GITHUB_ENV"
 
           # vcpkg binary caching
-          VCPKG_BINARY_SOURCES="clear;x-azblob,${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_URL }},${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_SAS }},readwrite"
+          VCPKG_BINARY_SOURCES = "clear;x-azblob,${{ vars.VCPKG_BINARY_CACHE_AZBLOB_URL_READ }},${{ vars.VCPKG_BINARY_CACHE_AZBLOB_SAS_READ }},read"
+          if [ -z "${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_URL }}" ]; then
+            # The secrets are only accessible in runs triggered from within the target repository and not forks.
+            VCPKG_BINARY_SOURCES += ";x-azblob,${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_URL }},${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_SAS }},write"
+          fi
           echo "VCPKG_BINARY_SOURCES=${VCPKG_BINARY_SOURCES}" >> "$GITHUB_ENV"
 
           CIBW_ENVIRONMENT_PASS_LINUX="VCPKG_TARGET_TRIPLET VCPKG_INSTALLATION_ROOT CMAKE_TOOLCHAIN_FILE VCPKG_BINARY_SOURCES CONTAINER_COMPILER_CACHE_DIR CCACHE_DIR CCACHE_BASEDIR"
