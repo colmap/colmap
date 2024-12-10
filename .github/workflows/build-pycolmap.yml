@@ -82,7 +82,8 @@ jobs:
           echo "CIBW_CONFIG_SETTINGS_MACOS=${CONFIG_SETTINGS}" >> "$GITHUB_ENV"
 
           # vcpkg binary caching
-          VCPKG_BINARY_SOURCES="clear;x-azblob,${{ vars.VCPKG_BINARY_CACHE_AZBLOB_URL_READ }},${{ vars.VCPKG_BINARY_CACHE_AZBLOB_SAS_READ }},read"
+          # !!!PLEASE!!! be nice and don't use this cache for your own purposes. This is only meant for CI purposes in this repository.
+          VCPKG_BINARY_SOURCES="clear;x-azblob,https://colmap.blob.core.windows.net/github-actions-cache,sp=r&st=2024-12-10T17:29:32Z&se=2030-12-31T01:29:32Z&spr=https&sv=2022-11-02&sr=c&sig=bWydkilTMjRn3LHKTxLgdWrFpV4h%2Finzoe9QCOcPpYQ%3D,read"
           if [ -z "${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_URL }}" ]; then
             # The secrets are only accessible in runs triggered from within the target repository and not forks.
             VCPKG_BINARY_SOURCES="${VCPKG_BINARY_SOURCES};x-azblob,${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_URL }},${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_SAS }},write"
@@ -112,7 +113,8 @@ jobs:
           echo "CIBW_REPAIR_WHEEL_COMMAND_WINDOWS=${CIBW_REPAIR_WHEEL_COMMAND}" >> "${env:GITHUB_ENV}"
 
           # vcpkg binary caching
-          $VCPKG_BINARY_SOURCES = "clear;x-azblob,${{ vars.VCPKG_BINARY_CACHE_AZBLOB_URL_READ }},${{ vars.VCPKG_BINARY_CACHE_AZBLOB_SAS_READ }},read"
+          # !!!PLEASE!!! be nice and don't use this cache for your own purposes. This is only meant for CI purposes in this repository.
+          $VCPKG_BINARY_SOURCES = "clear;x-azblob,https://colmap.blob.core.windows.net/github-actions-cache,sp=r&st=2024-12-10T17:29:32Z&se=2030-12-31T01:29:32Z&spr=https&sv=2022-11-02&sr=c&sig=bWydkilTMjRn3LHKTxLgdWrFpV4h%2Finzoe9QCOcPpYQ%3D,read"
           if ("${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_URL }}") {
             # The secrets are only accessible in runs triggered from within the target repository and not forks.
             $VCPKG_BINARY_SOURCES += ";x-azblob,${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_URL }},${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_SAS }},write"
@@ -145,7 +147,8 @@ jobs:
           echo "CCACHE_BASEDIR=/project" >> "$GITHUB_ENV"
 
           # vcpkg binary caching
-          VCPKG_BINARY_SOURCES="clear;x-azblob,${{ vars.VCPKG_BINARY_CACHE_AZBLOB_URL_READ }},${{ vars.VCPKG_BINARY_CACHE_AZBLOB_SAS_READ }},read"
+          # !!!PLEASE!!! be nice and don't use this cache for your own purposes. This is only meant for CI purposes in this repository.
+          VCPKG_BINARY_SOURCES="clear;x-azblob,https://colmap.blob.core.windows.net/github-actions-cache,sp=r&st=2024-12-10T17:29:32Z&se=2030-12-31T01:29:32Z&spr=https&sv=2022-11-02&sr=c&sig=bWydkilTMjRn3LHKTxLgdWrFpV4h%2Finzoe9QCOcPpYQ%3D,read"
           if [ -z "${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_URL }}" ]; then
             # The secrets are only accessible in runs triggered from within the target repository and not forks.
             VCPKG_BINARY_SOURCES="${VCPKG_BINARY_SOURCES};x-azblob,${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_URL }},${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_SAS }},write"
