@@ -53,7 +53,7 @@ jobs:
       #   read by pull requests from forks.
       # * Write sources are defined as action secret variables. These cannot be
       #   read by pull requests from forks but only from pull requests from
-      #   within the target repository (i.e., created buy a repository owner).
+      #   within the target repository (i.e., created by a repository owner).
       # This protects us from malicious actors accessing our secrets and gaining
       # write access to our binary cache. For more information, see:
       # https://securitylab.github.com/resources/github-actions-preventing-pwn-requests/
