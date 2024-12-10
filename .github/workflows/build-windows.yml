@@ -43,10 +43,29 @@ jobs:
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
       VCPKG_COMMIT_ID: 10b7a178346f3f0abef60cecd5130e295afd8da4
-      VCPKG_BINARY_SOURCES: "clear;x-azblob,${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_URL }},${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_SAS }},readwrite"
 
     steps:
       - uses: actions/checkout@v4
+      
+      # We define the vcpkg binary sources using separate variables for read and
+      # write operations:
+      # * Read sources are defined as action environment variables. These can be
+      #   read by pull requests from forks.
+      # * Write sources are defined as action secret variables. These cannot be
+      #   read by pull requests from forks but only from pull requests from
+      #   within the target repository (i.e., created by a repository owner).
+      # This protects us from malicious actors accessing our secrets and gaining
+      # write access to our binary cache. For more information, see:
+      # https://securitylab.github.com/resources/github-actions-preventing-pwn-requests/
+      - name: Setup vcpkg binary cache
+        shell: pwsh
+        run: |
+          $VCPKG_BINARY_SOURCES = "clear;x-azblob,${{ vars.VCPKG_BINARY_CACHE_AZBLOB_URL_READ }},${{ vars.VCPKG_BINARY_CACHE_AZBLOB_SAS_READ }},read"
+          if ("${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_URL }}") {
+            # The secrets are only accessible in runs triggered from within the target repository and not forks.
+            $VCPKG_BINARY_SOURCES += ";x-azblob,${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_URL }},${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_SAS }},write"
+          }
+          echo "VCPKG_BINARY_SOURCES=${VCPKG_BINARY_SOURCES}" >> "${env:GITHUB_ENV}"
 
       - name: Compiler cache
         uses: actions/cache@v4
@@ -61,11 +80,9 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path "${{ env.CCACHE_DIR }}"
           echo "${{ env.COMPILER_CACHE_DIR }}/bin" | Out-File -Encoding utf8 -Append -FilePath $env:GITHUB_PATH
-
           if (Test-Path -PathType Leaf "${{ env.COMPILER_CACHE_DIR }}/bin/ccache.exe") {
             exit
           }
-
           .github/workflows/install-ccache.ps1 -Destination "${{ env.COMPILER_CACHE_DIR }}/bin"
 
       - name: Install CUDA
