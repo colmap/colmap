@@ -145,10 +145,11 @@ TEST(JoinPaths, Nominal) {
 
 TEST(DownloadFile, Nominal) {
   const std::string kHost = "localhost";
+  const std::string kPath = "/hello";
   const std::string kExpectedResponse = "Hello World";
 
   httplib::Server server;
-  server.Get("/",
+  server.Get(kPath,
              [&kExpectedResponse](const httplib::Request& request,
                                   httplib::Response& response) {
                response.set_content(kExpectedResponse, "text/plain");
@@ -158,6 +159,7 @@ TEST(DownloadFile, Nominal) {
   for (int i = 0; i < 3; ++i) {
     port = server.bind_to_any_port(kHost);
   }
+  LOG(INFO) << "Binding server to port " << port;
 
   ASSERT_NE(port, -1);
   std::thread thread([&server, &kHost, &port] { server.listen(kHost, port); });
@@ -165,7 +167,7 @@ TEST(DownloadFile, Nominal) {
   std::ostringstream host;
   host << "http://" << kHost << ":" << port;
 
-  const std::optional<std::string> data = DownloadFile(host.str(), "/");
+  const std::optional<std::string> data = DownloadFile(host.str(), kPath);
   ASSERT_TRUE(data.has_value());
   EXPECT_EQ(*data, kExpectedResponse);
 
