@@ -52,7 +52,7 @@ jobs:
         shell: pwsh
         run: |
           $VCPKG_BINARY_SOURCES = "VCPKG_BINARY_SOURCES=clear;x-azblob,${{ vars.VCPKG_BINARY_CACHE_AZBLOB_URL_READ }},${{ vars.VCPKG_BINARY_CACHE_AZBLOB_SAS_READ }},read"
-          if ("${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_URL }}" != "") {
+          if ("${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_URL }}") {
             $VCPKG_BINARY_SOURCES += ";x-azblob,${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_URL }},${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_SAS }},write"
           }
           echo "${VCPKG_BINARY_SOURCES}"
