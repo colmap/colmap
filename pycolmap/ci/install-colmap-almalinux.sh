@@ -11,6 +11,7 @@ yum install -y \
     gcc-toolset-12-gcc \
     gcc-toolset-12-gcc-c++ \
     gcc-toolset-12-gcc-gfortran \
+    kernel-devel-$(uname -r) \
     scl-utils \
     git \
     cmake3 \
