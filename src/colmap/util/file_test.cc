@@ -172,7 +172,9 @@ TEST(DownloadFile, Nominal) {
   EXPECT_EQ(*data, kExpectedResponse);
 
   server.stop();
-  thread.join();
+  if (thread.joinable()) {
+    thread.join();
+  }
 }
 
 #endif
