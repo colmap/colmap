@@ -160,7 +160,6 @@ jobs:
             libcgal-qt5-dev \
             libgl1-mesa-dri \
             libunwind-dev \
-            libcpp-httplib-dev \
             xvfb
           
           # Package libcpp-httplib-dev is available in 22.04 or newer.
