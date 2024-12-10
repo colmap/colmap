@@ -369,7 +369,7 @@ endif()
 # Add unified interface library target to export.
 add_library(colmap INTERFACE)
 target_link_libraries(colmap INTERFACE ${COLMAP_EXPORT_LIBS})
-set(INSTALL_INCLUDE_DIR "${CMAKE_INSTALL_PREFIX}/include")
+set(INSTALL_INCLUDE_DIR "include")
 target_include_directories(
     colmap
     INTERFACE
