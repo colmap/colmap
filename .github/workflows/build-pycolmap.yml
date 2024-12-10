@@ -85,7 +85,7 @@ jobs:
           VCPKG_BINARY_SOURCES = "clear;x-azblob,${{ vars.VCPKG_BINARY_CACHE_AZBLOB_URL_READ }},${{ vars.VCPKG_BINARY_CACHE_AZBLOB_SAS_READ }},read"
           if [ -z "${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_URL }}" ]; then
             # The secrets are only accessible in runs triggered from within the target repository and not forks.
-            VCPKG_BINARY_SOURCES += ";x-azblob,${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_URL }},${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_SAS }},write"
+            VCPKG_BINARY_SOURCES="${VCPKG_BINARY_SOURCES};x-azblob,${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_URL }},${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_SAS }},write"
           fi
           echo "VCPKG_BINARY_SOURCES=${VCPKG_BINARY_SOURCES}" >> "$GITHUB_ENV"
 
@@ -148,7 +148,7 @@ jobs:
           VCPKG_BINARY_SOURCES = "clear;x-azblob,${{ vars.VCPKG_BINARY_CACHE_AZBLOB_URL_READ }},${{ vars.VCPKG_BINARY_CACHE_AZBLOB_SAS_READ }},read"
           if [ -z "${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_URL }}" ]; then
             # The secrets are only accessible in runs triggered from within the target repository and not forks.
-            VCPKG_BINARY_SOURCES += ";x-azblob,${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_URL }},${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_SAS }},write"
+            VCPKG_BINARY_SOURCES="${VCPKG_BINARY_SOURCES};x-azblob,${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_URL }},${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_SAS }},write"
           fi
           echo "VCPKG_BINARY_SOURCES=${VCPKG_BINARY_SOURCES}" >> "$GITHUB_ENV"
 
