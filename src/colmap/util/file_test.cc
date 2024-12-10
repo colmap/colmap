@@ -33,7 +33,10 @@
 #include <thread>
 
 #include <gtest/gtest.h>
+
+#ifdef COLMAP_HTTP_ENABLED
 #include <httplib.h>
+#endif
 
 namespace colmap {
 namespace {
