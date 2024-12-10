@@ -123,11 +123,8 @@ COLMAP_ADD_TEST(
     SRCS file_test.cc
     LINK_LIBS
         colmap_util
-        colmap_httplib
+        $<$<BOOL:${HTTP_ENABLED}>:colmap_httplib>
 )
-if(HTTP_ENABLED)
-    target_link_libraries(file_test PRIVATE colmap_httplib)
-endif()
 COLMAP_ADD_TEST(
     NAME logging_test
     SRCS logging_test.cc
