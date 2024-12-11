@@ -164,10 +164,7 @@ TEST(DownloadFile, Nominal) {
                response.status = 301;
              });
 
-  int port = -1;
-  for (int i = 0; i < 3; ++i) {
-    port = server.bind_to_any_port(kHost);
-  }
+  const int port = server.bind_to_any_port(kHost);
   LOG(INFO) << "Binding server to port " << port;
 
   ASSERT_NE(port, -1);
