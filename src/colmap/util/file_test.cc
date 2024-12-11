@@ -173,6 +173,8 @@ TEST(DownloadFile, Nominal) {
   ASSERT_TRUE(data.has_value());
   EXPECT_EQ(*data, kExpectedResponse);
 
+  EXPECT_FALSE(DownloadFile(host.str(), kPath + "/not_found").has_value());
+
   server.stop();
   if (thread.joinable()) {
     thread.join();
