@@ -257,9 +257,9 @@ std::vector<Eigen::Vector3d> GPSTransform::ENUToXYZ(
   return xyz;
 }
 
-std::vector<Eigen::Vector3d> GPSTransform::EllToUTM(
-    const std::vector<Eigen::Vector3d>& ell, int* output_zone) const {
-  // The following implementation is based on the formulas from: 
+std::pair<std::vector<Eigen::Vector3d>, int> GPSTransform::EllToUTM(
+    const std::vector<Eigen::Vector3d>& ell) const {
+  // The following implementation is based on the formulas from:
   // https://en.wikipedia.org/wiki/Universal_Transverse_Mercator_coordinate_system
 
   const UTMParams params(a_ / 1000.0, f_);  // converts to kilometers
@@ -315,16 +315,12 @@ std::vector<Eigen::Vector3d> GPSTransform::EllToUTM(
     utm.emplace_back(E * 1000, N * 1000, lla[2]);  // converts back to meters
   }
 
-  // returns zone number if needed
-  if (output_zone != nullptr) {
-    *output_zone = zone;
-  }
-  return utm;
+  return std::make_pair(utm, zone);
 }
 
 std::vector<Eigen::Vector3d> GPSTransform::UTMToEll(
-    const std::vector<Eigen::Vector3d>& utm, int zone, bool hemi) const {
-  // The following implementation is based on the formulas from: 
+    const std::vector<Eigen::Vector3d>& utm, int zone, bool is_north) const {
+  // The following implementation is based on the formulas from:
   // https://en.wikipedia.org/wiki/Universal_Transverse_Mercator_coordinate_system
 
   THROW_CHECK_GE(zone, 1);
@@ -339,7 +335,7 @@ std::vector<Eigen::Vector3d> GPSTransform::UTMToEll(
 
   for (const Eigen::Vector3d& ena : utm) {
     const double xi =
-        (ena[1] / 1000.0 - params.N0(hemi)) / (params.k0 * params.A);
+        (ena[1] / 1000.0 - params.N0(is_north)) / (params.k0 * params.A);
     const double eta = (ena[0] / 1000.0 - params.E0) / (params.k0 * params.A);
 
     double xi_prime = 0.0, eta_prime = 0.0;

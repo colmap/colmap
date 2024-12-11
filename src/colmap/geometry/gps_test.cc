@@ -323,8 +323,7 @@ TEST(GPS, EllToUTMWGS84) {
       2.65520501819149e5 + east_offset, 5.338903134602814e6, 561.1509);
 
   GPSTransform gps_tform(GPSTransform::WGS84);
-  int zone = 0;
-  const auto utm = gps_tform.EllToUTM(ell, &zone);
+  const auto [utm, zone] = gps_tform.EllToUTM(ell);
 
   double tolerance = 1e-8;  // 10nm
   for (size_t i = 0; i < ell.size(); ++i) {
@@ -367,8 +366,7 @@ TEST(GPS, EllToUTMGRS80) {
       2.65520501821572e5 + east_offset, 5.338903134480723e6, 561.1509);
 
   GPSTransform gps_tform(GPSTransform::GRS80);
-  int zone = 0;
-  const auto utm = gps_tform.EllToUTM(ell, &zone);
+  const auto [utm, zone] = gps_tform.EllToUTM(ell);
 
   double tolerance = 1e-8;  // 10nm
   for (size_t i = 0; i < ell.size(); ++i) {
