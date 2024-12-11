@@ -32,34 +32,36 @@
 #include "colmap/math/math.h"
 
 namespace colmap {
-namespace utm {
-struct Params {
+namespace {
+struct UTMParams {
   // The order of the series expansion, determining the precision.
-  static constexpr int order = 4;
+  static constexpr int kOrder = 4;
+
+  // The following notations come from:
+  // https://en.wikipedia.org/wiki/Universal_Transverse_Mercator_coordinate_system
 
   // Powers of mathematical sign $n$, n[i] means $n^i$
-  std::array<double, order + 1> n;
+  std::array<double, kOrder + 1> n;
   // Alpha coefficients for the series expansion
-  std::array<double, order> alpha;
+  std::array<double, kOrder> alpha;
   // Beta coefficients for the series expansion
-  std::array<double, order> beta;
+  std::array<double, kOrder> beta;
   // Delta coefficients for the series expansion
-  std::array<double, order> delta;
+  std::array<double, kOrder> delta;
 
   // Multiplicative factor
   double A;
   // UTM scale factor at the central meridian, typically 0.9996
-  const double k0 = 0.9996;
+  static constexpr double k0 = 0.9996;
   // Easting of the origin, typically 500 km
-  const double E0 = 500;
+  static constexpr double E0 = 500;
   // Northing of the origin
-  double N0(double lat_or_hemi) const { return lat_or_hemi > 0 ? 0 : 1e4; }
+  static double N0(double lat_or_hemi) { return lat_or_hemi > 0 ? 0 : 1e4; }
 
-  Params() = delete;
-  Params(double a, double f) {
+  UTMParams(double a, double f) {
     n[0] = 1;
     n[1] = f / (2.0 - f);
-    for (size_t i = 2; i < order + 1; ++i) {
+    for (size_t i = 2; i < kOrder + 1; ++i) {
       n[i] = n[1] * n[i - 1];
     }
 
@@ -82,14 +84,14 @@ struct Params {
 
     A = a / (1.0 + n[1]) * (1.0 + n[2] / 4.0 + n[4] / 64.0);
   };
+
+  static double ZoneToCentralMeridian(int zone) { return 6 * zone - 183; }
+
+  static int MeridianToZone(double meridian) {
+    return static_cast<int>(std::floor((meridian + 180) / 6)) + 1;
+  }
 };
-
-double ZoneToCentralMeridian(int zone) { return 6 * zone - 183; }
-
-int MeridianToZone(double meridian) {
-  return static_cast<int>(floor((meridian + 180) / 6)) + 1;
-}
-}  // namespace utm
+}  // namespace
 
 GPSTransform::GPSTransform(const int ellipsoid) {
   switch (ellipsoid) {
@@ -257,21 +259,22 @@ std::vector<Eigen::Vector3d> GPSTransform::ENUToXYZ(
 
 std::vector<Eigen::Vector3d> GPSTransform::EllToUTM(
     const std::vector<Eigen::Vector3d>& ell, int* output_zone) const {
+  // The following implementation is based on the formulas from: 
   // https://en.wikipedia.org/wiki/Universal_Transverse_Mercator_coordinate_system
 
-  utm::Params params(a_ / 1000.0, f_);  // converts to kilometers
+  const UTMParams params(a_ / 1000.0, f_);  // converts to kilometers
 
   // For cases where points span different zones, we select the predominant zone
   // as the reference frame.
-  std::vector<int> zone_counts(60, 0);
+  std::array<int, 60> zone_counts{};
   for (const Eigen::Vector3d& lla : ell) {
-    CHECK(lla[0] >= -90 && lla[0] <= 90)
-        << "Latitude must be between -90 and 90 degrees.";
-    CHECK(lla[1] >= -180 && lla[1] <= 180)
-        << "Longitude must be between -180 and 180 degrees.";
+    THROW_CHECK_GE(lla[0], -90);
+    THROW_CHECK_LE(lla[0], 90);
+    THROW_CHECK_GE(lla[1], -180);
+    THROW_CHECK_LE(lla[1], 180);
 
     const size_t z_index =
-        static_cast<std::size_t>(utm::MeridianToZone(lla[1])) - 1;
+        static_cast<std::size_t>(UTMParams::MeridianToZone(lla[1])) - 1;
     ++zone_counts[z_index];
   }
   const int zone =
@@ -279,7 +282,7 @@ std::vector<Eigen::Vector3d> GPSTransform::EllToUTM(
           zone_counts.begin(),
           std::max_element(zone_counts.begin(), zone_counts.end()))) +
       1;
-  const double lambda0 = DegToRad(utm::ZoneToCentralMeridian(zone));
+  const double lambda0 = DegToRad(UTMParams::ZoneToCentralMeridian(zone));
 
   // Converts lla to utm
   std::vector<Eigen::Vector3d> utm;
@@ -298,7 +301,7 @@ std::vector<Eigen::Vector3d> GPSTransform::EllToUTM(
         std::atanh(std::sin(lambda - lambda0) / std::sqrt(1 + t * t));
 
     double E = eta, N = xi;
-    for (size_t i = 0; i < params.order; ++i) {
+    for (size_t i = 0; i < params.kOrder; ++i) {
       double doubled_index = 2.0 * static_cast<double>(i + 1);
       E += params.alpha[i] * std::cos(doubled_index * xi) *
            std::sinh(doubled_index * eta);
@@ -309,11 +312,11 @@ std::vector<Eigen::Vector3d> GPSTransform::EllToUTM(
     E = params.E0 + params.k0 * params.A * E;
     N = params.N0(lla[0]) + params.k0 * params.A * N;
 
-    utm.push_back({E * 1000, N * 1000, lla[2]});  // converts back to meters
+    utm.emplace_back(E * 1000, N * 1000, lla[2]);  // converts back to meters
   }
 
   // returns zone number if needed
-  if (output_zone) {
+  if (output_zone != nullptr) {
     *output_zone = zone;
   }
   return utm;
@@ -321,10 +324,14 @@ std::vector<Eigen::Vector3d> GPSTransform::EllToUTM(
 
 std::vector<Eigen::Vector3d> GPSTransform::UTMToEll(
     const std::vector<Eigen::Vector3d>& utm, int zone, bool hemi) const {
-  CHECK(zone >= 1 && zone <= 60) << "Zone number must be between 1 and 60.";
+  // The following implementation is based on the formulas from: 
+  // https://en.wikipedia.org/wiki/Universal_Transverse_Mercator_coordinate_system
+
+  THROW_CHECK_GE(zone, 1);
+  THROW_CHECK_LE(zone, 60);
 
   // Setup params
-  utm::Params params(a_ / 1000.0, f_);  // converts to kilometers
+  const UTMParams params(a_ / 1000.0, f_);  // converts to kilometers
 
   // Converts utm to ell
   std::vector<Eigen::Vector3d> ell;
@@ -336,7 +343,7 @@ std::vector<Eigen::Vector3d> GPSTransform::UTMToEll(
     const double eta = (ena[0] / 1000.0 - params.E0) / (params.k0 * params.A);
 
     double xi_prime = 0.0, eta_prime = 0.0;
-    for (size_t i = 0; i < params.order; ++i) {
+    for (size_t i = 0; i < params.kOrder; ++i) {
       double doubled_index = 2.0 * static_cast<double>(i + 1);
       xi_prime += params.beta[i] * std::sin(doubled_index * xi) *
                   std::cosh(doubled_index * eta);
@@ -348,17 +355,17 @@ std::vector<Eigen::Vector3d> GPSTransform::UTMToEll(
     const double chi = std::asin(std::sin(xi_prime) / std::cosh(eta_prime));
 
     double phi = chi;
-    for (size_t i = 0; i < params.order; ++i) {
+    for (size_t i = 0; i < params.kOrder; ++i) {
       double doubled_index = 2.0 * static_cast<double>(i + 1);
       phi += params.delta[i] * std::sin(doubled_index * chi);
     }
 
     const double lat = RadToDeg(phi);
     const double lon =
-        utm::ZoneToCentralMeridian(zone) +
+        UTMParams::ZoneToCentralMeridian(zone) +
         RadToDeg(std::atan(std::sinh(eta_prime) / std::cos(xi_prime)));
 
-    ell.push_back({lat, lon, ena[2]});
+    ell.emplace_back(lat, lon, ena[2]);
   }
 
   return ell;

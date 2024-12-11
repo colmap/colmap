@@ -74,7 +74,7 @@ class GPSTransform {
                                         double lon0,
                                         double alt0) const;
 
-  // Convert GPS (lat / lon / alt) to UTM coords.
+  // Converts GPS (lat / lon / alt) to UTM coords.
   // Returns the zone number for the converted coordinates if a pointer to an
   // integer is provided. If the points span multiple zones, the zone with the
   // most points is chosen as the reference frame.
