@@ -33,6 +33,7 @@
 
 #ifdef COLMAP_HTTP_ENABLED
 #include <httplib.h>
+#include <openssl/md5.h>
 #endif
 
 namespace colmap {
@@ -225,6 +226,31 @@ std::optional<std::string> DownloadFile(const std::string& host,
 #else
   LOG(ERROR) << "COLMAP was compiled without HTTP support.";
   return std::nullopt;
+#endif
+}
+
+std::string ComputeSHA256(const std::string& data) {
+#ifdef COLMAP_HTTP_ENABLED
+  return httplib::detail::SHA_256(data);
+#else
+  throw std::runtime_error("COLMAP was compiled without HTTP/OpenSSL support.");
+#endif
+}
+
+std::optional<std::filesystem::path> HomeDir() {
+#ifdef _MSC_VER
+  const char* homedrive = std::getenv("HOMEDRIVE");
+  const char* homepath = std::getenv("HOMEPATH");
+  if (homedrive == nullptr || homepath == nullptr) {
+    return std::nullopt;
+  }
+  return std::filesystem::path(homedrive) / std::filesystem::path(homepath);
+#else
+  const char* home = std::getenv("HOME");
+  if (home == nullptr) {
+    return std::nullopt;
+  }
+  return home;
 #endif
 }
 

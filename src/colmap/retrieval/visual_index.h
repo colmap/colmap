@@ -117,6 +117,15 @@ class VisualIndex {
     int num_threads = kMaxNumThreads;
   };
 
+  struct ReadOptions {
+    std::string cache_path = "$HOME/.cache/colmap";
+    std::string server_host = "https://demuc.de";
+    std::string server_base_path = "/colmap/";
+    std::string vocab_tree_name = "vocab_tree_flickr100K_words256K.bin";
+    std::string vocab_tree_sha256 =
+        "d2055600452a531b5b0a62aa5943e1a07195273dc4eeebcf23d3a924d881d53a";
+  };
+
   VisualIndex();
   ~VisualIndex();
 
@@ -151,7 +160,7 @@ class VisualIndex {
 
   // Read and write the visual index. This can be done for an index with and
   // without indexed images.
-  void Read(const std::string& path);
+  void Read(const std::string& path, const ReadOptions& options = {});
   void Write(const std::string& path);
 
  private:
@@ -561,7 +570,42 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Build(
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
 void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Read(
-    const std::string& path) {
+    const std::string& path, const ReadOptions& options) {
+  std::string resolved_path;
+  if (path == "__auto_download__") {
+    std::string vocab_tree_base_path = options.cache_path;
+    if (StringContains(vocab_tree_base_path, "$HOME")) {
+      const std::optional<std::filesystem::path> home_dir = HomeDir();
+      THROW_CHECK(home_dir.has_value()) << "Failed to resolve home directory";
+      vocab_tree_base_path =
+          StringReplace(vocab_tree_base_path, "$HOME", home_dir->string());
+    }
+
+    const std::filesystem::path vocab_tree_path =
+        std::filesystem::path(vocab_tree_base_path) / options.vocab_tree_name;
+    if (!std::filesystem::exists(vocab_tree_path)) {
+      const std::string server_path =
+          options.server_base_path + options.vocab_tree_name;
+      LOG(INFO) << "Downloading vocabulary tree from: " << options.server_host
+                << server_path;
+      const std::optional<std::string> vocab_tree_data =
+          DownloadFile(options.server_host, server_path);
+      THROW_CHECK(vocab_tree_data.has_value())
+          << "Failed to download vocabulary tree";
+      THROW_CHECK_EQ(ComputeSHA256(*vocab_tree_data),
+                     options.vocab_tree_sha256);
+      LOG(INFO) << "Caching vocabulary tree with " << vocab_tree_data->size()
+                << " bytes at: " << vocab_tree_path;
+      CreateDirIfNotExists(vocab_tree_base_path);
+      WriteBinaryBlob(
+          vocab_tree_path,
+          std::vector<char>{vocab_tree_data->begin(), vocab_tree_data->end()});
+    } else {
+      LOG(INFO) << "Using cached vocabulary tree at: " << vocab_tree_path;
+    }
+    resolved_path = vocab_tree_path.string();
+  }
+
   long int file_offset = 0;
 
   // Read the visual words.
@@ -571,8 +615,8 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Read(
       delete[] visual_words_.ptr();
     }
 
-    std::ifstream file(path, std::ios::binary);
-    THROW_CHECK_FILE_OPEN(file, path);
+    std::ifstream file(resolved_path, std::ios::binary);
+    THROW_CHECK_FILE_OPEN(file, resolved_path);
     const uint64_t rows = ReadBinaryLittleEndian<uint64_t>(&file);
     const uint64_t cols = ReadBinaryLittleEndian<uint64_t>(&file);
     kDescType* visual_words_data = new kDescType[rows * cols];
@@ -591,9 +635,9 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Read(
   {
     FILE* fin = nullptr;
 #ifdef _MSC_VER
-    THROW_CHECK_EQ(fopen_s(&fin, path.c_str(), "rb"), 0);
+    THROW_CHECK_EQ(fopen_s(&fin, resolved_path.c_str(), "rb"), 0);
 #else
-    fin = fopen(path.c_str(), "rb");
+    fin = fopen(resolved_path.c_str(), "rb");
 #endif
     THROW_CHECK_NOTNULL(fin);
     fseek(fin, file_offset, SEEK_SET);
@@ -605,8 +649,8 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Read(
   // Read the inverted index.
 
   {
-    std::ifstream file(path, std::ios::binary);
-    THROW_CHECK_FILE_OPEN(file, path);
+    std::ifstream file(resolved_path, std::ios::binary);
+    THROW_CHECK_FILE_OPEN(file, resolved_path);
     file.seekg(file_offset, std::ios::beg);
     inverted_index_.Read(&file);
   }

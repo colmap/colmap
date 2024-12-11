@@ -135,6 +135,12 @@ std::vector<std::string> ReadTextFileLines(const std::string& path);
 std::optional<std::string> DownloadFile(const std::string& host,
                                         const std::string& path);
 
+std::string ComputeSHA256(const std::string& data);
+
+// Gets current user's home directory from environment variables.
+// Returns null if it cannot be resolved.
+std::optional<std::filesystem::path> HomeDir();
+
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////

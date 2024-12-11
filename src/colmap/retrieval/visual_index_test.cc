@@ -29,7 +29,10 @@
 
 #include "colmap/retrieval/visual_index.h"
 
+#include "colmap/util/testing.h"
+
 #include <gtest/gtest.h>
+#include <httplib.h>
 
 namespace colmap {
 namespace retrieval {
@@ -131,6 +134,72 @@ TEST(VisualIndex, double_32_16) {
   // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
   TestVocabTreeType<double, 32, 16>();
 }
+
+#ifdef COLMAP_HTTP_ENABLED
+
+TEST(VisualIndex, AutoDownload) {
+  const std::string kServerHostName = "localhost";
+  const std::string kServerBasePath = "/colmap/";
+  const std::string kVocabTreeName = "test_vocab_tree.bin";
+  const std::string test_dir = CreateTestDir();
+  const std::string vocab_tree_path = test_dir + "/" + kVocabTreeName;
+
+  typedef VisualIndex<uint8_t, 16, 8> VisualIndexType;
+  typename VisualIndexType::DescType descriptors =
+      VisualIndexType::DescType::Random(50, 16);
+  VisualIndexType visual_index;
+  typename VisualIndexType::BuildOptions build_options;
+  build_options.num_visual_words = 5;
+  build_options.branching = 5;
+  visual_index.Build(build_options, descriptors);
+  visual_index.Write(vocab_tree_path);
+  LOG(INFO) << "Wrote test vocabulary tree at: " << vocab_tree_path;
+
+  httplib::Server server;
+  server.Get(kServerBasePath + kVocabTreeName,
+             [&](const httplib::Request& request, httplib::Response& response) {
+               response.status = 200;
+               response.set_file_content(vocab_tree_path,
+                                         "application/octet-stream");
+             });
+
+  const int port = server.bind_to_any_port(kServerHostName);
+  LOG(INFO) << "Binding server to port " << port;
+
+  ASSERT_NE(port, -1);
+  std::thread thread([&server, &kServerHostName, &port] {
+    server.listen(kServerHostName, port);
+  });
+
+  while (!server.is_running()) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+  }
+
+  std::ostringstream host;
+  host << "http://" << kServerHostName << ":" << port;
+
+  VisualIndexType downloaded_visual_index;
+  VisualIndexType::ReadOptions options;
+  options.cache_path = test_dir + "/cache";
+  options.server_host = host.str();
+  options.server_base_path = kServerBasePath;
+  options.vocab_tree_name = kVocabTreeName;
+  std::vector<char> vocab_tree_data;
+  ReadBinaryBlob(vocab_tree_path, &vocab_tree_data);
+  options.vocab_tree_sha256 =
+      ComputeSHA256({vocab_tree_data.begin(), vocab_tree_data.end()});
+  downloaded_visual_index.Read("__auto_download__", options);
+
+  EXPECT_EQ(downloaded_visual_index.NumVisualWords(),
+            visual_index.NumVisualWords());
+
+  server.stop();
+  if (thread.joinable()) {
+    thread.join();
+  }
+}
+
+#endif
 
 }  // namespace
 }  // namespace retrieval

@@ -69,6 +69,9 @@ COLMAP_ADD_TEST(
     SRCS visual_index_test.cc
     LINK_LIBS colmap_retrieval
 )
+if(TESTS_ENABLED AND HTTP_ENABLED)
+    target_link_libraries(colmap_retrieval_visual_index_test httplib::httplib)
+endif()
 COLMAP_ADD_TEST(
     NAME vote_and_verify_test
     SRCS vote_and_verify_test.cc

@@ -191,7 +191,23 @@ TEST(DownloadFile, Nominal) {
   }
 }
 
+TEST(ComputeSHA256, Nominal) {
+  EXPECT_EQ(ComputeSHA256(""),
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+  EXPECT_EQ(ComputeSHA256("hello world"),
+            "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9");
+}
+
 #endif
+
+TEST(HomeDir, Nominal) {
+  // Just test that it doesn't crash, since there is no guarantee that it
+  // resolves successfully on a particular machine.
+  const auto home_dir = HomeDir();
+  if (home_dir) {
+    LOG(INFO) << *home_dir;
+  }
+}
 
 }  // namespace
 }  // namespace colmap
