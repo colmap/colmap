@@ -11,7 +11,6 @@ yum install -y \
     gcc-toolset-12-gcc \
     gcc-toolset-12-gcc-c++ \
     gcc-toolset-12-gcc-gfortran \
-    kernel-headers \
     scl-utils \
     git \
     cmake3 \
@@ -19,8 +18,7 @@ yum install -y \
     curl \
     zip \
     unzip \
-    tar \
-    perl-IPC-Cmd
+    tar
 
 source scl_source enable gcc-toolset-12
 
