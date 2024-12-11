@@ -43,7 +43,7 @@ struct Params {
   std::array<double, order> alpha;
   // Beta coefficients for the series expansion
   std::array<double, order> beta;
-  // Dekta coefficients for the series expansion
+  // Delta coefficients for the series expansion
   std::array<double, order> delta;
 
   // Multiplicative factor
