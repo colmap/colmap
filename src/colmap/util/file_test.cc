@@ -160,8 +160,9 @@ TEST(DownloadFile, Nominal) {
                response.set_content(kExpectedResponse, "text/plain");
              });
   server.Get(kRedirectPath,
-             [](const httplib::Request& request, httplib::Response& response) {
-               response.status = 301;
+             [&kSuccessPath](const httplib::Request& request,
+                             httplib::Response& response) {
+               response.set_redirect(kSuccessPath);
              });
 
   const int port = server.bind_to_any_port(kHost);
@@ -177,12 +178,16 @@ TEST(DownloadFile, Nominal) {
   std::ostringstream host;
   host << "http://" << kHost << ":" << port;
 
-  const std::optional<std::string> data =
+  const std::optional<std::string> data1 =
       DownloadFile(host.str(), kSuccessPath);
-  ASSERT_TRUE(data.has_value());
-  EXPECT_EQ(*data, kExpectedResponse);
+  ASSERT_TRUE(data1.has_value());
+  EXPECT_EQ(*data1, kExpectedResponse);
 
-  EXPECT_FALSE(DownloadFile(host.str(), kRedirectPath).has_value());
+  const std::optional<std::string> data2 =
+      DownloadFile(host.str(), kRedirectPath);
+  ASSERT_TRUE(data2.has_value());
+  EXPECT_EQ(*data2, kExpectedResponse);
+
   EXPECT_FALSE(DownloadFile(host.str(), kNotFoundPath).has_value());
 
   server.stop();

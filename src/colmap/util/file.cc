@@ -217,6 +217,7 @@ std::optional<std::string> DownloadFile(const std::string& host,
                                         const std::string& path) {
 #ifdef COLMAP_HTTP_ENABLED
   httplib::Client client(host);
+  client.set_follow_location(true);
   httplib::Result result = client.Get(path);
   if (result->status != 200) {
     return std::nullopt;
