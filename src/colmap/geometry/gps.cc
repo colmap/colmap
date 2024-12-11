@@ -315,7 +315,7 @@ std::pair<std::vector<Eigen::Vector3d>, int> GPSTransform::EllToUTM(
     utm.emplace_back(E * 1000, N * 1000, lla[2]);  // converts back to meters
   }
 
-  return std::make_pair(utm, zone);
+  return std::make_pair(std::move(utm), zone);
 }
 
 std::vector<Eigen::Vector3d> GPSTransform::UTMToEll(
