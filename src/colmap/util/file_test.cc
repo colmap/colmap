@@ -170,6 +170,10 @@ TEST(DownloadFile, Nominal) {
   ASSERT_NE(port, -1);
   std::thread thread([&server, &kHost, &port] { server.listen(kHost, port); });
 
+  while (!server.is_running()) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+  }
+
   std::ostringstream host;
   host << "http://" << kHost << ":" << port;
 
