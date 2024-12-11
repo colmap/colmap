@@ -1,3 +1,0 @@
-CompileFlags:
-  Add: [-ID:\Fork_FILE\colmap\build\vcpkg_installed\x64-windows\include,
-        -ID:\Fork_FILE\colmap\build\_deps\poselib-src]
