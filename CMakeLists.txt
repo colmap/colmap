@@ -90,6 +90,7 @@ set_property(GLOBAL PROPERTY GLOBAL_DEPENDS_NO_CYCLES ON)
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 include(CheckCXXCompilerFlag)
+include(GNUInstallDirs)
 
 # Include helper macros and commands, and allow the included file to override
 # the CMake policies in this file
@@ -307,7 +308,7 @@ endif()
 
 # Install application meny entry under Linux/Unix.
 if(UNIX AND NOT APPLE)
-    install(FILES "doc/COLMAP.desktop" DESTINATION "share/applications")
+    install(FILES "doc/COLMAP.desktop" DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/applications")
 endif()
 
 # Configure the uninstallation script.
@@ -369,11 +370,10 @@ endif()
 # Add unified interface library target to export.
 add_library(colmap INTERFACE)
 target_link_libraries(colmap INTERFACE ${COLMAP_EXPORT_LIBS})
-set(INSTALL_INCLUDE_DIR "${CMAKE_INSTALL_PREFIX}/include")
 target_include_directories(
     colmap
     INTERFACE
-        $<INSTALL_INTERFACE:${INSTALL_INCLUDE_DIR}>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>)
 
 install(
@@ -384,7 +384,7 @@ install(
 # Generate config and version.
 include(CMakePackageConfigHelpers)
 set(PACKAGE_CONFIG_FILE "${CMAKE_CURRENT_BINARY_DIR}/colmap-config.cmake")
-set(INSTALL_CONFIG_DIR "share/colmap")
+set(INSTALL_CONFIG_DIR "${CMAKE_INSTALL_DATAROOTDIR}/colmap")
 configure_package_config_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/cmake/colmap-config.cmake.in ${PACKAGE_CONFIG_FILE}
     INSTALL_DESTINATION ${INSTALL_CONFIG_DIR})
@@ -393,7 +393,7 @@ install(FILES ${PACKAGE_CONFIG_FILE} DESTINATION ${INSTALL_CONFIG_DIR})
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/colmap-config-version.cmake.in"
                 "${CMAKE_CURRENT_BINARY_DIR}/colmap-config-version.cmake" @ONLY)
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/colmap-config-version.cmake"
-        DESTINATION "share/colmap")
+        DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/colmap")
 
 # Install targets.
 install(
@@ -405,15 +405,15 @@ install(
 # Install header files.
 install(
     DIRECTORY src/colmap
-    DESTINATION include
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
     FILES_MATCHING PATTERN "*.h")
 install(
     DIRECTORY src/thirdparty
-    DESTINATION include/colmap
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/colmap
     FILES_MATCHING REGEX ".*[.]h|.*[.]hpp|.*[.]inl")
 
 # Install find_package scripts for dependencies.
 install(
     DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/cmake
-    DESTINATION share/colmap
+    DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/colmap
     FILES_MATCHING PATTERN "Find*.cmake")
