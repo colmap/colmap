@@ -74,6 +74,22 @@ class GPSTransform {
                                         double lon0,
                                         double alt0) const;
 
+  // Convert GPS (lat / lon / alt) to UTM coords.
+  // Returns the zone number for the converted coordinates if a pointer to an
+  // integer is provided. If the points span multiple zones, the zone with the
+  // most points is chosen as the reference frame.
+  //
+  // The conversion utilizes a 4th-order expansion formula. Easting offset
+  // is 500 km, and northing offset is 10,000 km for the Southern Hemisphere.
+  std::vector<Eigen::Vector3d> EllToUTM(const std::vector<Eigen::Vector3d>& ell,
+                                        int* zone = nullptr) const;
+
+  // Converts UTM coords to GPS (lat / lon / alt).
+  // Requires the zone number and hemisphere (true for north, false for south).
+  std::vector<Eigen::Vector3d> UTMToEll(const std::vector<Eigen::Vector3d>& utm,
+                                        int zone,
+                                        bool hemi) const;
+
  private:
   // Semimajor axis.
   double a_;
