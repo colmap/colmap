@@ -147,14 +147,21 @@ TEST(JoinPaths, Nominal) {
 
 TEST(DownloadFile, Nominal) {
   const std::string kHost = "localhost";
-  const std::string kPath = "/hello";
+  const std::string kSuccessPath = "/success";
+  const std::string kRedirectPath = "/redirect";
+  const std::string kNotFoundPath = "/not_found";
   const std::string kExpectedResponse = "Hello World";
 
   httplib::Server server;
-  server.Get(kPath,
+  server.Get(kSuccessPath,
              [&kExpectedResponse](const httplib::Request& request,
                                   httplib::Response& response) {
+               response.status = 200;
                response.set_content(kExpectedResponse, "text/plain");
+             });
+  server.Get(kRedirectPath,
+             [](const httplib::Request& request, httplib::Response& response) {
+               response.status = 301;
              });
 
   int port = -1;
@@ -169,11 +176,13 @@ TEST(DownloadFile, Nominal) {
   std::ostringstream host;
   host << "http://" << kHost << ":" << port;
 
-  const std::optional<std::string> data = DownloadFile(host.str(), kPath);
+  const std::optional<std::string> data =
+      DownloadFile(host.str(), kSuccessPath);
   ASSERT_TRUE(data.has_value());
   EXPECT_EQ(*data, kExpectedResponse);
 
-  EXPECT_FALSE(DownloadFile(host.str(), kPath + "/not_found").has_value());
+  EXPECT_FALSE(DownloadFile(host.str(), kRedirectPath).has_value());
+  EXPECT_FALSE(DownloadFile(host.str(), kNotFoundPath).has_value());
 
   server.stop();
   if (thread.joinable()) {
