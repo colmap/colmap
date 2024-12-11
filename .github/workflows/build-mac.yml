@@ -58,6 +58,7 @@ jobs:
             eigen \
             flann \
             freeimage \
+            cpp-httplib \
             metis \
             glog \
             googletest \

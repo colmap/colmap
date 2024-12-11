@@ -30,8 +30,13 @@
 #include "colmap/util/file.h"
 
 #include <cstring>
+#include <thread>
 
 #include <gtest/gtest.h>
+
+#ifdef COLMAP_HTTP_ENABLED
+#include <httplib.h>
+#endif
 
 namespace colmap {
 namespace {
@@ -137,6 +142,52 @@ TEST(JoinPaths, Nominal) {
   EXPECT_EQ(JoinPaths("/test1", "/test2/"), "/test2/");
   EXPECT_EQ(JoinPaths("/test1", "/test2/", "test3.ext"), "/test2/test3.ext");
 }
+
+#ifdef COLMAP_HTTP_ENABLED
+
+TEST(DownloadFile, Nominal) {
+  const std::string kHost = "localhost";
+  const std::string kSuccessPath = "/success";
+  const std::string kRedirectPath = "/redirect";
+  const std::string kNotFoundPath = "/not_found";
+  const std::string kExpectedResponse = "Hello World";
+
+  httplib::Server server;
+  server.Get(kSuccessPath,
+             [&kExpectedResponse](const httplib::Request& request,
+                                  httplib::Response& response) {
+               response.status = 200;
+               response.set_content(kExpectedResponse, "text/plain");
+             });
+  server.Get(kRedirectPath,
+             [](const httplib::Request& request, httplib::Response& response) {
+               response.status = 301;
+             });
+
+  const int port = server.bind_to_any_port(kHost);
+  LOG(INFO) << "Binding server to port " << port;
+
+  ASSERT_NE(port, -1);
+  std::thread thread([&server, &kHost, &port] { server.listen(kHost, port); });
+
+  std::ostringstream host;
+  host << "http://" << kHost << ":" << port;
+
+  const std::optional<std::string> data =
+      DownloadFile(host.str(), kSuccessPath);
+  ASSERT_TRUE(data.has_value());
+  EXPECT_EQ(*data, kExpectedResponse);
+
+  EXPECT_FALSE(DownloadFile(host.str(), kRedirectPath).has_value());
+  EXPECT_FALSE(DownloadFile(host.str(), kNotFoundPath).has_value());
+
+  server.stop();
+  if (thread.joinable()) {
+    thread.join();
+  }
+}
+
+#endif
 
 }  // namespace
 }  // namespace colmap

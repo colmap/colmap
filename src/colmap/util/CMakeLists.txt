@@ -56,7 +56,7 @@ COLMAP_ADD_LIBRARY(
         SQLite::SQLite3
     PRIVATE_LINK_LIBS
         Boost::boost
-        "$<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:-lstdc++fs>"
+        $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:-lstdc++fs>
 )
 if(TESTS_ENABLED)
     target_sources(
@@ -67,6 +67,9 @@ if(TESTS_ENABLED)
     )
 endif()
 
+if(HTTP_ENABLED)
+    target_link_libraries(colmap_util PRIVATE httplib::httplib)
+endif()
 if(GUI_ENABLED)
     target_link_libraries(colmap_util PUBLIC Qt5::Core Qt5::OpenGL OpenGL::GL)
 endif()
@@ -117,8 +120,12 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME file_test
     SRCS file_test.cc
-    LINK_LIBS colmap_util
+    LINK_LIBS
+        colmap_util
 )
+if(TESTS_ENABLED AND HTTP_ENABLED)
+    target_link_libraries(colmap_util_file_test httplib::httplib)
+endif()
 COLMAP_ADD_TEST(
     NAME logging_test
     SRCS logging_test.cc
