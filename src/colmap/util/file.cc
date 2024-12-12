@@ -217,9 +217,13 @@ std::optional<std::string> DownloadFile(const std::string& host,
                                         const std::string& path) {
 #ifdef COLMAP_HTTP_ENABLED
   httplib::Client client(host);
+  THROW_CHECK(client.is_valid());
   client.set_follow_location(true);
   httplib::Result result = client.Get(path);
-  if (result->status != 200) {
+  if (result.error() != httplib::Error::Success || result->status < 200 ||
+      result->status >= 300) {
+    VLOG(2) << "HTTP request failed with status: " << result->status
+            << " (" << result->reason << ")";
     return std::nullopt;
   }
   return result->body;
