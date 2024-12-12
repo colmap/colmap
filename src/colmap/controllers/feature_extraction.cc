@@ -279,6 +279,11 @@ class FeatureWriterThread : public Thread {
             image_data.camera.has_prior_focal_length ? " (Prior)" : "");
         LOG(INFO) << StringPrintf("  Features:        %d",
                                   image_data.keypoints.size());
+        if (image_data.mask.Data()) {
+          LOG(INFO) << "  Mask Used:       Yes";
+        } else {
+          LOG(INFO) << "  Mask Used:       No";
+        }
 
         DatabaseTransaction database_transaction(database_);
 
