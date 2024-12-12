@@ -87,7 +87,7 @@ Dependencies from the default Ubuntu repositories::
         libqt5opengl5-dev \
         libcgal-dev \
         libceres-dev \
-        libcurl-dev
+        libcurl4-openssl-dev
 
 To compile with **CUDA support**, also install Ubuntu's default CUDA package::
 

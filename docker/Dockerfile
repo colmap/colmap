@@ -36,7 +36,7 @@ RUN apt-get update && \
         libqt5opengl5-dev \
         libcgal-dev \
         libceres-dev \
-        libcurl-dev
+        libcurl4-openssl-dev
 
 # Build and install COLMAP.
 RUN git clone https://github.com/colmap/colmap.git
