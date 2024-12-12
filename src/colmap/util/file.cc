@@ -264,7 +264,7 @@ std::optional<std::string> DownloadFile(const std::string& url) {
   VLOG(2) << "Downloading file from: " << url;
 
   CurlHandle handle;
-  THROW_CHECK_NOTNULL(handle.ptr) << "Failed to initialize Curl";
+  THROW_CHECK_NOTNULL(handle.ptr);
 
   curl_easy_setopt(handle.ptr, CURLOPT_URL, url.c_str());
   curl_easy_setopt(handle.ptr, CURLOPT_FOLLOWLOCATION, 1L);
