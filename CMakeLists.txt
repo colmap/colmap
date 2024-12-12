@@ -74,7 +74,7 @@ else()
 endif()
 
 if(AUTO_DOWNLOAD_ENABLED)
-    list(APPEND VCPKG_MANIFEST_FEATURES "auto_download")
+    list(APPEND VCPKG_MANIFEST_FEATURES "auto-download")
 endif()
 
 project(COLMAP LANGUAGES C CXX)
