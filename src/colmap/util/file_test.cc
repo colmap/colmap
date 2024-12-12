@@ -32,7 +32,6 @@
 #include "colmap/util/testing.h"
 
 #include <cstring>
-#include <thread>
 
 #include <gtest/gtest.h>
 
@@ -157,7 +156,7 @@ TEST(ReadWriteBinaryBlob, Nominal) {
   EXPECT_EQ(read_data, data);
 }
 
-#ifdef COLMAP_CURL_ENABLED
+#ifdef COLMAP_AUTO_DOWNLOAD_ENABLED
 
 TEST(DownloadFile, Nominal) {
   const std::string file_path = CreateTestDir() + "/test.bin";

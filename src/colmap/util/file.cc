@@ -35,7 +35,7 @@
 #include <sstream>
 #include <string_view>
 
-#ifdef COLMAP_CURL_ENABLED
+#ifdef COLMAP_AUTO_DOWNLOAD_ENABLED
 #include <curl/curl.h>
 #endif
 
@@ -260,7 +260,7 @@ struct CurlHandle {
 }  // namespace
 
 std::optional<std::string> DownloadFile(const std::string& url) {
-#ifdef COLMAP_CURL_ENABLED
+#ifdef COLMAP_AUTO_DOWNLOAD_ENABLED
   VLOG(2) << "Downloading file from: " << url;
 
   CurlHandle handle;
