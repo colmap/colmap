@@ -145,6 +145,12 @@ TEST(JoinPaths, Nominal) {
 
 #ifdef COLMAP_HTTP_ENABLED
 
+TEST(DownloadFile, Debug) {
+  const std::optional<std::string> data =
+      DownloadFile("https://google.com", "/");
+  ASSERT_TRUE(data.has_value());
+}
+
 TEST(DownloadFile, Nominal) {
   const std::string kHost = "localhost";
   const std::string kSuccessPath = "/success";
