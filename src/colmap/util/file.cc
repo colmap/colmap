@@ -233,6 +233,8 @@ std::vector<std::string> ReadTextFileLines(const std::string& path) {
   return lines;
 }
 
+namespace {
+
 size_t WriteCurlData(char* buf,
                      size_t size,
                      size_t nmemb,
@@ -254,6 +256,8 @@ struct CurlHandle {
 
   CURL* ptr;
 };
+
+}  // namespace
 
 std::optional<std::string> DownloadFile(const std::string& url) {
 #ifdef COLMAP_HTTP_ENABLED
