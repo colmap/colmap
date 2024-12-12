@@ -67,7 +67,7 @@ if(TESTS_ENABLED)
     )
 endif()
 
-if(AUTO_DOWNLOAD_ENABLED)
+if(DOWNLOAD_ENABLED)
     target_link_libraries(colmap_util PRIVATE CURL::libcurl)
 endif()
 if(GUI_ENABLED)

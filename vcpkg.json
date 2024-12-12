@@ -66,8 +66,8 @@
                 "cgal"
             ]
         },
-        "auto-download": {
-            "description": "Build with auto-download support.",
+        "download": {
+            "description": "Build with download support.",
             "dependencies": [
                 {
                     "name": "curl",
