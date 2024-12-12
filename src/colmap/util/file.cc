@@ -199,6 +199,36 @@ size_t GetFileSize(const std::string& path) {
   return file.tellg();
 }
 
+std::optional<std::filesystem::path> HomeDir() {
+#ifdef _MSC_VER
+  const char* homedrive = std::getenv("HOMEDRIVE");
+  const char* homepath = std::getenv("HOMEPATH");
+  if (homedrive == nullptr || homepath == nullptr) {
+    return std::nullopt;
+  }
+  return std::filesystem::path(homedrive) / std::filesystem::path(homepath);
+#else
+  const char* home = std::getenv("HOME");
+  if (home == nullptr) {
+    return std::nullopt;
+  }
+  return home;
+#endif
+}
+
+std::string SetPathHomeDir(std::string path) {
+  if (StringContains(path, "$HOME")) {
+    const std::optional<std::filesystem::path> home_dir = HomeDir();
+    if (home_dir) {
+      path = StringReplace(path, "$HOME", home_dir->string());
+    } else {
+      LOG(WARNING)
+          << "Failed to resolve home directory from environment variables";
+    }
+  }
+  return path;
+}
+
 void ReadBinaryBlob(const std::string& path, std::vector<char>* data) {
   std::ifstream file(path, std::ios::binary | std::ios::ate);
   THROW_CHECK_FILE_OPEN(file, path);
@@ -234,6 +264,8 @@ std::vector<std::string> ReadTextFileLines(const std::string& path) {
   return lines;
 }
 
+#ifdef COLMAP_DOWNLOAD_ENABLED
+
 namespace {
 
 size_t WriteCurlData(char* buf,
@@ -259,8 +291,6 @@ struct CurlHandle {
 };
 
 }  // namespace
-
-#ifdef COLMAP_DOWNLOAD_ENABLED
 
 std::optional<std::string> DownloadFile(const std::string& url) {
   VLOG(2) << "Downloading file from: " << url;
@@ -310,6 +340,28 @@ std::string ComputeSHA256(const std::string_view& str) {
            << static_cast<unsigned int>(hash[i]);
   }
   return digest.str();
+}
+
+bool DownloadCachedFile(const std::string& url,
+                        const std::string& sha256,
+                        const std::filesystem::path& path) {
+  if (std::filesystem::exists(path)) {
+    VLOG(2) << "File already downloaded. Skipping download.";
+    std::vector<char> blob;
+    ReadBinaryBlob(path, &blob);
+    THROW_CHECK_EQ(ComputeSHA256({blob.data(), blob.size()}), sha256)
+        << "The cached file does not match the expected SHA256";
+    return false;
+  } else {
+    LOG(INFO) << "Downloading file from: " << url;
+    const std::optional<std::string> blob = DownloadFile(url);
+    THROW_CHECK(blob.has_value()) << "Failed to download file";
+    THROW_CHECK_EQ(ComputeSHA256({blob->data(), blob->size()}), sha256)
+        << "The downloaded file does not match the expected SHA256";
+    LOG(INFO) << "Caching file at: " << path;
+    WriteBinaryBlob(path, {blob->data(), blob->size()});
+    return true;
+  }
 }
 
 #endif  // COLMAP_DOWNLOAD_ENABLED

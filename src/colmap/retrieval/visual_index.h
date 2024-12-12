@@ -117,6 +117,15 @@ class VisualIndex {
     int num_threads = kMaxNumThreads;
   };
 
+  struct ReadOptions {
+    std::string vocab_tree_cache_path =
+        "$HOME/.cache/colmap/vocab_tree_flickr100K_words256K.bin";
+    std::string vocab_tree_url =
+        "https://demuc.de/colmap/vocab_tree_flickr100K_words256K.bin";
+    std::string vocab_tree_sha256 =
+        "d2055600452a531b5b0a62aa5943e1a07195273dc4eeebcf23d3a924d881d53a";
+  };
+
   VisualIndex();
   ~VisualIndex();
 
@@ -151,7 +160,8 @@ class VisualIndex {
 
   // Read and write the visual index. This can be done for an index with and
   // without indexed images.
-  void Read(const std::string& path);
+  void Read(const std::string& vocab_tree_path,
+            const ReadOptions& options = {});
   void Write(const std::string& path);
 
  private:
@@ -561,7 +571,20 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Build(
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
 void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Read(
-    const std::string& path) {
+    const std::string& vocab_tree_path, const ReadOptions& options) {
+  std::string resolved_path;
+  if (vocab_tree_path == "__download__") {
+#ifdef COLMAP_DOWNLOAD_ENABLED
+    resolved_path = SetPathHomeDir(options.vocab_tree_cache_path);
+    DownloadCachedFile(
+        options.vocab_tree_url, options.vocab_tree_sha256, resolved_path);
+#else
+    throw std::invalid_argument("COLMAP was compiled without download support");
+#endif
+  } else {
+    resolved_path = vocab_tree_path;
+  }
+
   long int file_offset = 0;
 
   // Read the visual words.
@@ -571,8 +594,8 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Read(
       delete[] visual_words_.ptr();
     }
 
-    std::ifstream file(path, std::ios::binary);
-    THROW_CHECK_FILE_OPEN(file, path);
+    std::ifstream file(resolved_path, std::ios::binary);
+    THROW_CHECK_FILE_OPEN(file, resolved_path);
     const uint64_t rows = ReadBinaryLittleEndian<uint64_t>(&file);
     const uint64_t cols = ReadBinaryLittleEndian<uint64_t>(&file);
     kDescType* visual_words_data = new kDescType[rows * cols];
@@ -591,9 +614,9 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Read(
   {
     FILE* fin = nullptr;
 #ifdef _MSC_VER
-    THROW_CHECK_EQ(fopen_s(&fin, path.c_str(), "rb"), 0);
+    THROW_CHECK_EQ(fopen_s(&fin, resolved_path.c_str(), "rb"), 0);
 #else
-    fin = fopen(path.c_str(), "rb");
+    fin = fopen(resolved_path.c_str(), "rb");
 #endif
     THROW_CHECK_NOTNULL(fin);
     fseek(fin, file_offset, SEEK_SET);
@@ -605,8 +628,8 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Read(
   // Read the inverted index.
 
   {
-    std::ifstream file(path, std::ios::binary);
-    THROW_CHECK_FILE_OPEN(file, path);
+    std::ifstream file(resolved_path, std::ios::binary);
+    THROW_CHECK_FILE_OPEN(file, resolved_path);
     file.seekg(file_offset, std::ios::beg);
     inverted_index_.Read(&file);
   }

@@ -29,6 +29,9 @@
 
 #include "colmap/retrieval/visual_index.h"
 
+#include "colmap/util/file.h"
+#include "colmap/util/testing.h"
+
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -131,6 +134,39 @@ TEST(VisualIndex, double_32_16) {
   // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
   TestVocabTreeType<double, 32, 16>();
 }
+
+#ifdef COLMAP_DOWNLOAD_ENABLED
+
+TEST(VisualIndex, Download) {
+  const std::string test_dir = CreateTestDir();
+  const std::string vocab_tree_path = test_dir + "/server_vocab_tree.bin";
+
+  typedef VisualIndex<uint8_t, 16, 8> VisualIndexType;
+  typename VisualIndexType::DescType descriptors =
+      VisualIndexType::DescType::Random(50, 16);
+  VisualIndexType visual_index;
+  typename VisualIndexType::BuildOptions build_options;
+  build_options.num_visual_words = 5;
+  build_options.branching = 5;
+  visual_index.Build(build_options, descriptors);
+  visual_index.Write(vocab_tree_path);
+
+  VisualIndexType downloaded_visual_index;
+  VisualIndexType::ReadOptions options;
+  options.vocab_tree_cache_path = test_dir + "/cached_vocab_tree.bin";
+  options.vocab_tree_url =
+      "file://" + std::filesystem::absolute(vocab_tree_path).string();
+  std::vector<char> vocab_tree_data;
+  ReadBinaryBlob(vocab_tree_path, &vocab_tree_data);
+  options.vocab_tree_sha256 =
+      ComputeSHA256({vocab_tree_data.data(), vocab_tree_data.size()});
+  downloaded_visual_index.Read("__download__", options);
+
+  EXPECT_EQ(downloaded_visual_index.NumVisualWords(),
+            visual_index.NumVisualWords());
+}
+
+#endif
 
 }  // namespace
 }  // namespace retrieval

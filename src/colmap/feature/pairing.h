@@ -65,7 +65,7 @@ struct VocabTreeMatchingOptions {
   int max_num_features = -1;
 
   // Path to the vocabulary tree.
-  std::string vocab_tree_path = "";
+  std::string vocab_tree_path = "__download__";
 
   // Optional path to file with specific image names to match.
   std::string match_list_path = "";
@@ -110,7 +110,7 @@ struct SequentialMatchingOptions {
   int loop_detection_max_num_features = -1;
 
   // Path to the vocabulary tree.
-  std::string vocab_tree_path = "";
+  std::string vocab_tree_path = "__download__";
 
   bool Check() const;
 

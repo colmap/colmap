@@ -119,6 +119,14 @@ std::vector<std::string> GetRecursiveDirList(const std::string& path);
 // Get the size in bytes of a file.
 size_t GetFileSize(const std::string& path);
 
+// Gets current user's home directory from environment variables.
+// Returns null if it cannot be resolved.
+std::optional<std::filesystem::path> HomeDir();
+
+// Replaces $HOME with the home directory, if it can be resolved from
+// the environment variables. Otherwise leaves the path untouched.
+std::string SetPathHomeDir(std::string path);
+
 // Read contiguous binary blob from file.
 void ReadBinaryBlob(const std::string& path, std::vector<char>* data);
 
@@ -137,6 +145,13 @@ std::optional<std::string> DownloadFile(const std::string& url);
 
 // Computes SHA256 digest for given string.
 std::string ComputeSHA256(const std::string_view& str);
+
+// Downloads file from given URL, if it is not yet cached locally. In both
+// cases, checks the SHA256 digest of the downloaded or cached file. Throws
+// exception if the digest does not match. Returns true in case of download.
+bool DownloadCachedFile(const std::string& url,
+                        const std::string& sha256,
+                        const std::filesystem::path& path);
 
 #endif  // COLMAP_DOWNLOAD_ENABLED
 
