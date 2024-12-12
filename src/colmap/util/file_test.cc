@@ -156,5 +156,29 @@ TEST(ReadWriteBinaryBlob, Nominal) {
   EXPECT_EQ(read_data, data);
 }
 
+#ifdef COLMAP_DOWNLOAD_ENABLED
+
+TEST(DownloadFile, Nominal) {
+  const std::string file_path = CreateTestDir() + "/test.bin";
+  const int kNumBytes = 123;
+  std::string data(kNumBytes, '0');
+  for (int i = 0; i < kNumBytes; ++i) {
+    data[i] = (i * 100 + 4 + i) % 256;
+  }
+  WriteBinaryBlob(file_path, {data.data(), data.size()});
+
+  const std::optional<std::string> downloaded_data =
+      DownloadFile("file://" + std::filesystem::absolute(file_path).string());
+  ASSERT_TRUE(downloaded_data.has_value());
+  EXPECT_EQ(*downloaded_data, data);
+
+  ASSERT_FALSE(DownloadFile("file://" +
+                            std::filesystem::absolute(file_path).string() +
+                            "_not_found")
+                   .has_value());
+}
+
+#endif
+
 }  // namespace
 }  // namespace colmap

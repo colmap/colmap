@@ -29,6 +29,16 @@
 
 #include "colmap/util/file.h"
 
+#include "colmap/util/logging.h"
+
+#include <mutex>
+#include <sstream>
+#include <string_view>
+
+#ifdef COLMAP_DOWNLOAD_ENABLED
+#include <curl/curl.h>
+#endif
+
 namespace colmap {
 
 std::string EnsureTrailingSlash(const std::string& str) {
@@ -221,6 +231,68 @@ std::vector<std::string> ReadTextFileLines(const std::string& path) {
   }
 
   return lines;
+}
+
+namespace {
+
+size_t WriteCurlData(char* buf,
+                     size_t size,
+                     size_t nmemb,
+                     std::ostringstream* data_stream) {
+  *data_stream << std::string_view(buf, size * nmemb);
+  return size * nmemb;
+}
+
+struct CurlHandle {
+  CurlHandle() {
+    static std::once_flag global_curl_init;
+    std::call_once(global_curl_init,
+                   []() { curl_global_init(CURL_GLOBAL_ALL); });
+
+    ptr = curl_easy_init();
+  }
+
+  ~CurlHandle() { curl_easy_cleanup(ptr); }
+
+  CURL* ptr;
+};
+
+}  // namespace
+
+std::optional<std::string> DownloadFile(const std::string& url) {
+#ifdef COLMAP_DOWNLOAD_ENABLED
+  VLOG(2) << "Downloading file from: " << url;
+
+  CurlHandle handle;
+  THROW_CHECK_NOTNULL(handle.ptr);
+
+  curl_easy_setopt(handle.ptr, CURLOPT_URL, url.c_str());
+  curl_easy_setopt(handle.ptr, CURLOPT_FOLLOWLOCATION, 1L);
+  curl_easy_setopt(handle.ptr, CURLOPT_WRITEFUNCTION, &WriteCurlData);
+  std::ostringstream data_stream;
+  curl_easy_setopt(handle.ptr, CURLOPT_WRITEDATA, &data_stream);
+
+  const CURLcode code = curl_easy_perform(handle.ptr);
+  if (code != CURLE_OK) {
+    VLOG(2) << "Curl failed to perform request with code: " << code;
+    return std::nullopt;
+  }
+
+  long response_code = 0;
+  curl_easy_getinfo(handle.ptr, CURLINFO_RESPONSE_CODE, &response_code);
+  if (response_code != 0 && (response_code < 200 || response_code >= 300)) {
+    VLOG(2) << "Request failed with status: " << response_code;
+    return std::nullopt;
+  }
+
+  std::string data_str = data_stream.str();
+  VLOG(2) << "Downloaded " << data_str.size() << " bytes";
+
+  return data_str;
+#else
+  LOG(ERROR) << "COLMAP was compiled without download support.";
+  return std::nullopt;
+#endif
 }
 
 }  // namespace colmap
