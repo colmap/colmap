@@ -32,6 +32,8 @@
 #include "colmap/util/logging.h"
 
 #include <mutex>
+#include <sstream>
+#include <string_view>
 
 #ifdef COLMAP_HTTP_ENABLED
 #include <curl/curl.h>
