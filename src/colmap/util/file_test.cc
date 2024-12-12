@@ -172,6 +172,11 @@ TEST(DownloadFile, Nominal) {
       DownloadFile("file://" + std::filesystem::absolute(file_path).string());
   ASSERT_TRUE(downloaded_data.has_value());
   EXPECT_EQ(*downloaded_data, data);
+
+  ASSERT_FALSE(DownloadFile("file://" +
+                            std::filesystem::absolute(file_path).string() +
+                            "_not_found")
+                   .has_value());
 }
 
 #endif
