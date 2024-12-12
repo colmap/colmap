@@ -120,8 +120,7 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME file_test
     SRCS file_test.cc
-    LINK_LIBS
-        colmap_util
+    LINK_LIBS colmap_util
 )
 COLMAP_ADD_TEST(
     NAME logging_test
