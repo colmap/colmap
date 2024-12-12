@@ -35,6 +35,7 @@
 
 #include <filesystem>
 #include <fstream>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -126,6 +127,10 @@ void WriteBinaryBlob(const std::string& path, const span<const char>& data);
 // Read each line of a text file into a separate element. Empty lines are
 // ignored and leading/trailing whitespace is removed.
 std::vector<std::string> ReadTextFileLines(const std::string& path);
+
+// Download file from server. Supports any protocol suppported by Curl.
+// Automatically follows redirects. Returns null in case of failure.
+std::optional<std::string> DownloadFile(const std::string& url);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
