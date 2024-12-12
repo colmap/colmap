@@ -35,7 +35,7 @@
 #include <mutex>
 #include <sstream>
 
-#ifdef COLMAP_AUTO_DOWNLOAD_ENABLED
+#ifdef COLMAP_DOWNLOAD_ENABLED
 #include <curl/curl.h>
 #include <openssl/evp.h>
 #endif
@@ -260,8 +260,10 @@ struct CurlHandle {
 
 }  // namespace
 
+#ifdef COLMAP_DOWNLOAD_ENABLED
+
 std::optional<std::string> DownloadFile(const std::string& url) {
-#ifdef COLMAP_AUTO_DOWNLOAD_ENABLED
+
   VLOG(2) << "Downloading file from: " << url;
 
   CurlHandle handle;
@@ -290,10 +292,6 @@ std::optional<std::string> DownloadFile(const std::string& url) {
   VLOG(2) << "Downloaded " << data_str.size() << " bytes";
 
   return data_str;
-#else
-  LOG(ERROR) << "COLMAP was compiled without Curl support.";
-  return std::nullopt;
-#endif
 }
 
 std::string ComputeSHA256(const std::string_view& str) {
@@ -314,5 +312,7 @@ std::string ComputeSHA256(const std::string_view& str) {
   }
   return digest.str();
 }
+
+#endif  // COLMAP_DOWNLOAD_ENABLED
 
 }  // namespace colmap

@@ -66,11 +66,15 @@
                 "cgal"
             ]
         },
-        "auto_download": {
-            "description": "Build with auto-download support.",
+        "download": {
+            "description": "Build with download support.",
             "dependencies": [
-                "curl",
-                "openssl"
+                {
+                    "name": "curl",
+                    "features": [
+                        "openssl"
+                    ]
+                }
             ]
         }
     }
