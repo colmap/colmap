@@ -264,10 +264,7 @@ std::optional<std::string> DownloadFile(const std::string& url) {
   VLOG(2) << "Downloading file from: " << url;
 
   CurlHandle handle;
-  if (handle.ptr == nullptr) {
-    VLOG(2) << "Failed to initialize Curl";
-    return std::nullopt;
-  }
+  THROW_CHECK_NOTNULL(handle.ptr) << "Failed to initialize Curl";
 
   curl_easy_setopt(handle.ptr, CURLOPT_URL, url.c_str());
   curl_easy_setopt(handle.ptr, CURLOPT_FOLLOWLOCATION, 1L);
