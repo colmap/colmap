@@ -157,7 +157,7 @@ TEST(ReadWriteBinaryBlob, Nominal) {
   EXPECT_EQ(read_data, data);
 }
 
-#ifdef COLMAP_HTTP_ENABLED
+#ifdef COLMAP_CURL_ENABLED
 
 TEST(DownloadFile, Nominal) {
   const std::string file_path = CreateTestDir() + "/test.bin";
