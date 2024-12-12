@@ -55,7 +55,7 @@ ImageReader::ImageReader(const ImageReaderOptions& options, Database* database)
       EnsureTrailingSlash(StringReplace(options_.image_path, "\\", "/"));
   if (options._mask_path) {
     options_.mask_path =
-      EnsureTrailingSlash(StringReplace(options_.mask_path, "\\", "/"));
+        EnsureTrailingSlash(StringReplace(options_.mask_path, "\\", "/"));
   }
 
   // Get a list of all files in the image path, sorted by image name.
