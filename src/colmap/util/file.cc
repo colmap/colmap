@@ -263,7 +263,6 @@ struct CurlHandle {
 #ifdef COLMAP_DOWNLOAD_ENABLED
 
 std::optional<std::string> DownloadFile(const std::string& url) {
-
   VLOG(2) << "Downloading file from: " << url;
 
   CurlHandle handle;
