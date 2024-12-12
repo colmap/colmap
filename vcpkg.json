@@ -69,8 +69,12 @@
         "auto-download": {
             "description": "Build with auto-download support.",
             "dependencies": [
-                "curl",
-                "openssl"
+                {
+                    "name": "curl",
+                    "features": [
+                        "openssl"
+                    ]
+                }
             ]
         }
     }
