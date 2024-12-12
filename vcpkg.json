@@ -47,29 +47,30 @@
             ]
         },
         "cuda": {
-            "description": "Build with CUDA.",
+            "description": "Build with CUDA support.",
             "dependencies": [
                 "glew",
                 "cuda"
             ]
         },
         "gui": {
-            "description": "Build the GUI.",
+            "description": "Build the GUI support.",
             "dependencies": [
                 "glew",
                 "qt5-base"
             ]
         },
         "cgal": {
-            "description": "Build with CGAL.",
+            "description": "Build with CGAL support.",
             "dependencies": [
                 "cgal"
             ]
         },
-        "http": {
-            "description": "Build with HTTP.",
+        "auto_download": {
+            "description": "Build with auto-download support.",
             "dependencies": [
-                "curl"
+                "curl",
+                "openssl"
             ]
         }
     }

@@ -67,7 +67,7 @@ if(TESTS_ENABLED)
     )
 endif()
 
-if(CURL_ENABLED)
+if(AUTO_DOWNLOAD_ENABLED)
     target_link_libraries(colmap_util PRIVATE CURL::libcurl OpenSSL::Crypto)
 endif()
 if(GUI_ENABLED)
