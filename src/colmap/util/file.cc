@@ -231,8 +231,11 @@ std::vector<std::string> ReadTextFileLines(const std::string& path) {
   return lines;
 }
 
-size_t WriteCurlData(char* buf, size_t size, size_t nmemb, std::string* data) {
-  data->append(buf, size * nmemb);
+size_t WriteCurlData(char* buf,
+                     size_t size,
+                     size_t nmemb,
+                     std::ostringstream* data_stream) {
+  *data_stream << std::string_view(buf, size * nmemb);
   return size * nmemb;
 }
 
@@ -263,8 +266,8 @@ std::optional<std::string> DownloadFile(const std::string& url) {
   curl_easy_setopt(handle.ptr, CURLOPT_URL, url.c_str());
   curl_easy_setopt(handle.ptr, CURLOPT_FOLLOWLOCATION, 1L);
   curl_easy_setopt(handle.ptr, CURLOPT_WRITEFUNCTION, &WriteCurlData);
-  std::string data;
-  curl_easy_setopt(handle.ptr, CURLOPT_WRITEDATA, &data);
+  std::ostringstream data_stream;
+  curl_easy_setopt(handle.ptr, CURLOPT_WRITEDATA, &data_stream);
 
   const CURLcode code = curl_easy_perform(handle.ptr);
   if (code != CURLE_OK) {
@@ -279,9 +282,10 @@ std::optional<std::string> DownloadFile(const std::string& url) {
     return std::nullopt;
   }
 
-  VLOG(2) << "Downloaded " << data.size() << " bytes";
+  std::string data_str = data_stream.str();
+  VLOG(2) << "Downloaded " << data_str.size() << " bytes";
 
-  return data;
+  return data_str;
 #else
   LOG(ERROR) << "COLMAP was compiled without HTTP support.";
   return std::nullopt;
