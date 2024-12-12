@@ -68,7 +68,7 @@ if(TESTS_ENABLED)
 endif()
 
 if(CURL_ENABLED)
-    target_link_libraries(colmap_util PRIVATE CURL::libcurl)
+    target_link_libraries(colmap_util PRIVATE CURL::libcurl OpenSSL::Crypto)
 endif()
 if(GUI_ENABLED)
     target_link_libraries(colmap_util PUBLIC Qt5::Core Qt5::OpenGL OpenGL::GL)

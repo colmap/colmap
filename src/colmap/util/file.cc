@@ -37,6 +37,7 @@
 
 #ifdef COLMAP_CURL_ENABLED
 #include <curl/curl.h>
+#include <openssl/evp.h>
 #endif
 
 namespace colmap {
@@ -293,6 +294,25 @@ std::optional<std::string> DownloadFile(const std::string& url) {
   LOG(ERROR) << "COLMAP was compiled without Curl support.";
   return std::nullopt;
 #endif
+}
+
+std::string ComputeSHA256(const std::string_view& str) {
+  auto context = std::unique_ptr<EVP_MD_CTX, decltype(&EVP_MD_CTX_free)>(
+      EVP_MD_CTX_new(), EVP_MD_CTX_free);
+
+  unsigned int hash_length = 0;
+  unsigned char hash[EVP_MAX_MD_SIZE];
+
+  EVP_DigestInit_ex(context.get(), EVP_sha256(), nullptr);
+  EVP_DigestUpdate(context.get(), str.data(), str.size());
+  EVP_DigestFinal_ex(context.get(), hash, &hash_length);
+
+  std::ostringstream digest;
+  for (unsigned int i = 0; i < hash_length; ++i) {
+    digest << std::hex << std::setw(2) << std::setfill('0')
+           << static_cast<unsigned int>(hash[i]);
+  }
+  return digest.str();
 }
 
 }  // namespace colmap

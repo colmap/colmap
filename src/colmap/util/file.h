@@ -132,6 +132,9 @@ std::vector<std::string> ReadTextFileLines(const std::string& path);
 // Automatically follows redirects. Returns null in case of failure.
 std::optional<std::string> DownloadFile(const std::string& url);
 
+// Computes SHA256 digest for given string.
+std::string ComputeSHA256(const std::string_view& str);
+
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////
