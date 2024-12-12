@@ -31,6 +31,7 @@
 
 #include "colmap/util/endian.h"
 #include "colmap/util/logging.h"
+#include "colmap/util/types.h"
 
 #include <filesystem>
 #include <fstream>
@@ -118,12 +119,10 @@ std::vector<std::string> GetRecursiveDirList(const std::string& path);
 size_t GetFileSize(const std::string& path);
 
 // Read contiguous binary blob from file.
-template <typename T>
-void ReadBinaryBlob(const std::string& path, std::vector<T>* data);
+void ReadBinaryBlob(const std::string& path, std::vector<char>* data);
 
 // Write contiguous binary blob to file.
-template <typename T>
-void WriteBinaryBlob(const std::string& path, const std::vector<T>& data);
+void WriteBinaryBlob(const std::string& path, const span<const char>& data);
 
 // Read each line of a text file into a separate element. Empty lines are
 // ignored and leading/trailing whitespace is removed.
@@ -144,25 +143,6 @@ std::string JoinPaths(T const&... paths) {
   int unpack[]{0, (result = result / std::filesystem::path(paths), 0)...};
   static_cast<void>(unpack);
   return result.string();
-}
-
-template <typename T>
-void ReadBinaryBlob(const std::string& path, std::vector<T>* data) {
-  std::ifstream file(path, std::ios::binary | std::ios::ate);
-  THROW_CHECK_FILE_OPEN(file, path);
-  file.seekg(0, std::ios::end);
-  const size_t num_bytes = file.tellg();
-  THROW_CHECK_EQ(num_bytes % sizeof(T), 0);
-  data->resize(num_bytes / sizeof(T));
-  file.seekg(0, std::ios::beg);
-  ReadBinaryLittleEndian<T>(&file, data);
-}
-
-template <typename T>
-void WriteBinaryBlob(const std::string& path, const std::vector<T>& data) {
-  std::ofstream file(path, std::ios::binary);
-  THROW_CHECK_FILE_OPEN(file, path);
-  WriteBinaryLittleEndian<T>(&file, data);
 }
 
 }  // namespace colmap

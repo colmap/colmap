@@ -29,6 +29,8 @@
 
 #pragma once
 
+#include "colmap/util/types.h"
+
 #include <algorithm>
 #include <iostream>
 #include <vector>
@@ -65,7 +67,7 @@ void ReadBinaryLittleEndian(std::istream* stream, std::vector<T>* data);
 template <typename T>
 void WriteBinaryLittleEndian(std::ostream* stream, const T& data);
 template <typename T>
-void WriteBinaryLittleEndian(std::ostream* stream, const std::vector<T>& data);
+void WriteBinaryLittleEndian(std::ostream* stream, const span<const T>& data);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
@@ -136,7 +138,7 @@ void WriteBinaryLittleEndian(std::ostream* stream, const T& data) {
 }
 
 template <typename T>
-void WriteBinaryLittleEndian(std::ostream* stream, const std::vector<T>& data) {
+void WriteBinaryLittleEndian(std::ostream* stream, const span<const T>& data) {
   for (const auto& elem : data) {
     WriteBinaryLittleEndian<T>(stream, elem);
   }
