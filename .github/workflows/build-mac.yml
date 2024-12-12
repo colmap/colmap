@@ -58,6 +58,7 @@ jobs:
             eigen \
             flann \
             freeimage \
+            curl \
             metis \
             glog \
             googletest \

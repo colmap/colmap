@@ -29,6 +29,8 @@
 
 #include "colmap/util/file.h"
 
+#include "colmap/util/testing.h"
+
 #include <cstring>
 
 #include <gtest/gtest.h>
@@ -137,6 +139,53 @@ TEST(JoinPaths, Nominal) {
   EXPECT_EQ(JoinPaths("/test1", "/test2/"), "/test2/");
   EXPECT_EQ(JoinPaths("/test1", "/test2/", "test3.ext"), "/test2/test3.ext");
 }
+
+TEST(ReadWriteBinaryBlob, Nominal) {
+  const std::string file_path = CreateTestDir() + "/test.bin";
+  const int kNumBytes = 123;
+  std::vector<char> data(kNumBytes);
+  for (int i = 0; i < kNumBytes; ++i) {
+    data[i] = (i * 100 + 4 + i) % 256;
+  }
+
+  WriteBinaryBlob(file_path, {data.data(), data.size()});
+
+  std::vector<char> read_data;
+  ReadBinaryBlob(file_path, &read_data);
+
+  EXPECT_EQ(read_data, data);
+}
+
+#ifdef COLMAP_DOWNLOAD_ENABLED
+
+TEST(DownloadFile, Nominal) {
+  const std::string file_path = CreateTestDir() + "/test.bin";
+  const int kNumBytes = 123;
+  std::string data(kNumBytes, '0');
+  for (int i = 0; i < kNumBytes; ++i) {
+    data[i] = (i * 100 + 4 + i) % 256;
+  }
+  WriteBinaryBlob(file_path, {data.data(), data.size()});
+
+  const std::optional<std::string> downloaded_data =
+      DownloadFile("file://" + std::filesystem::absolute(file_path).string());
+  ASSERT_TRUE(downloaded_data.has_value());
+  EXPECT_EQ(*downloaded_data, data);
+
+  ASSERT_FALSE(DownloadFile("file://" +
+                            std::filesystem::absolute(file_path).string() +
+                            "_not_found")
+                   .has_value());
+}
+
+TEST(ComputeSHA256, Nominal) {
+  EXPECT_EQ(ComputeSHA256(""),
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+  EXPECT_EQ(ComputeSHA256("hello world"),
+            "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9");
+}
+
+#endif
 
 }  // namespace
 }  // namespace colmap

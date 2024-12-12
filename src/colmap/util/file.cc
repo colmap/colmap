@@ -29,6 +29,17 @@
 
 #include "colmap/util/file.h"
 
+#include "colmap/util/logging.h"
+
+#include <iomanip>
+#include <mutex>
+#include <sstream>
+
+#ifdef COLMAP_DOWNLOAD_ENABLED
+#include <curl/curl.h>
+#include <openssl/evp.h>
+#endif
+
 namespace colmap {
 
 std::string EnsureTrailingSlash(const std::string& str) {
@@ -188,6 +199,22 @@ size_t GetFileSize(const std::string& path) {
   return file.tellg();
 }
 
+void ReadBinaryBlob(const std::string& path, std::vector<char>* data) {
+  std::ifstream file(path, std::ios::binary | std::ios::ate);
+  THROW_CHECK_FILE_OPEN(file, path);
+  file.seekg(0, std::ios::end);
+  const size_t num_bytes = file.tellg();
+  data->resize(num_bytes);
+  file.seekg(0, std::ios::beg);
+  file.read(data->data(), num_bytes);
+}
+
+void WriteBinaryBlob(const std::string& path, const span<const char>& data) {
+  std::ofstream file(path, std::ios::binary);
+  THROW_CHECK_FILE_OPEN(file, path);
+  file.write(data.begin(), data.size());
+}
+
 std::vector<std::string> ReadTextFileLines(const std::string& path) {
   std::ifstream file(path);
   THROW_CHECK_FILE_OPEN(file, path);
@@ -206,5 +233,85 @@ std::vector<std::string> ReadTextFileLines(const std::string& path) {
 
   return lines;
 }
+
+namespace {
+
+size_t WriteCurlData(char* buf,
+                     size_t size,
+                     size_t nmemb,
+                     std::ostringstream* data_stream) {
+  *data_stream << std::string_view(buf, size * nmemb);
+  return size * nmemb;
+}
+
+struct CurlHandle {
+  CurlHandle() {
+    static std::once_flag global_curl_init;
+    std::call_once(global_curl_init,
+                   []() { curl_global_init(CURL_GLOBAL_ALL); });
+
+    ptr = curl_easy_init();
+  }
+
+  ~CurlHandle() { curl_easy_cleanup(ptr); }
+
+  CURL* ptr;
+};
+
+}  // namespace
+
+#ifdef COLMAP_DOWNLOAD_ENABLED
+
+std::optional<std::string> DownloadFile(const std::string& url) {
+  VLOG(2) << "Downloading file from: " << url;
+
+  CurlHandle handle;
+  THROW_CHECK_NOTNULL(handle.ptr);
+
+  curl_easy_setopt(handle.ptr, CURLOPT_URL, url.c_str());
+  curl_easy_setopt(handle.ptr, CURLOPT_FOLLOWLOCATION, 1L);
+  curl_easy_setopt(handle.ptr, CURLOPT_WRITEFUNCTION, &WriteCurlData);
+  std::ostringstream data_stream;
+  curl_easy_setopt(handle.ptr, CURLOPT_WRITEDATA, &data_stream);
+
+  const CURLcode code = curl_easy_perform(handle.ptr);
+  if (code != CURLE_OK) {
+    VLOG(2) << "Curl failed to perform request with code: " << code;
+    return std::nullopt;
+  }
+
+  long response_code = 0;
+  curl_easy_getinfo(handle.ptr, CURLINFO_RESPONSE_CODE, &response_code);
+  if (response_code != 0 && (response_code < 200 || response_code >= 300)) {
+    VLOG(2) << "Request failed with status: " << response_code;
+    return std::nullopt;
+  }
+
+  std::string data_str = data_stream.str();
+  VLOG(2) << "Downloaded " << data_str.size() << " bytes";
+
+  return data_str;
+}
+
+std::string ComputeSHA256(const std::string_view& str) {
+  auto context = std::unique_ptr<EVP_MD_CTX, decltype(&EVP_MD_CTX_free)>(
+      EVP_MD_CTX_new(), EVP_MD_CTX_free);
+
+  unsigned int hash_length = 0;
+  unsigned char hash[EVP_MAX_MD_SIZE];
+
+  EVP_DigestInit_ex(context.get(), EVP_sha256(), nullptr);
+  EVP_DigestUpdate(context.get(), str.data(), str.size());
+  EVP_DigestFinal_ex(context.get(), hash, &hash_length);
+
+  std::ostringstream digest;
+  for (unsigned int i = 0; i < hash_length; ++i) {
+    digest << std::hex << std::setw(2) << std::setfill('0')
+           << static_cast<unsigned int>(hash[i]);
+  }
+  return digest.str();
+}
+
+#endif  // COLMAP_DOWNLOAD_ENABLED
 
 }  // namespace colmap
