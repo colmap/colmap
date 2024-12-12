@@ -250,9 +250,11 @@ struct CurlHandle {
 
 std::optional<std::string> DownloadFile(const std::string& url) {
 #ifdef COLMAP_HTTP_ENABLED
+  VLOG(2) << "Downloading file from: " << url;
+
   CurlHandle handle;
   if (handle.ptr == nullptr) {
-    VLOG(2) << "Failed to initialize curl";
+    VLOG(2) << "Failed to initialize Curl";
     return std::nullopt;
   }
 
@@ -264,16 +266,18 @@ std::optional<std::string> DownloadFile(const std::string& url) {
 
   const CURLcode code = curl_easy_perform(handle.ptr);
   if (code != CURLE_OK) {
-    VLOG(2) << "curl failed to perform request with code: " << code;
+    VLOG(2) << "Curl failed to perform request with code: " << code;
     return std::nullopt;
   }
 
-  long http_code = 0;
-  curl_easy_getinfo(handle.ptr, CURLINFO_RESPONSE_CODE, &http_code);
-  if (http_code < 200 || http_code >= 300) {
-    VLOG(2) << "HTTP request failed with status: " << http_code;
+  long response_code = 0;
+  curl_easy_getinfo(handle.ptr, CURLINFO_RESPONSE_CODE, &response_code);
+  if (response_code != 0 && (response_code < 200 || response_code >= 300)) {
+    VLOG(2) << "Request failed with status: " << response_code;
     return std::nullopt;
   }
+
+  VLOG(2) << "Downloaded " << data.size() << " bytes";
 
   return data;
 #else

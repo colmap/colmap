@@ -160,7 +160,18 @@ TEST(ReadWriteBinaryBlob, Nominal) {
 #ifdef COLMAP_HTTP_ENABLED
 
 TEST(DownloadFile, Nominal) {
-  
+  const std::string file_path = CreateTestDir() + "/test.bin";
+  const int kNumBytes = 123;
+  std::string data(kNumBytes, '0');
+  for (int i = 0; i < kNumBytes; ++i) {
+    data[i] = (i * 100 + 4 + i) % 256;
+  }
+  WriteBinaryBlob(file_path, {data.data(), data.size()});
+
+  const std::optional<std::string> downloaded_data =
+      DownloadFile("file://" + std::filesystem::absolute(file_path).string());
+  ASSERT_TRUE(downloaded_data.has_value());
+  EXPECT_EQ(*downloaded_data, data);
 }
 
 #endif
