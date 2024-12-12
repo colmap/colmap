@@ -128,9 +128,8 @@ void WriteBinaryBlob(const std::string& path, const span<const char>& data);
 // ignored and leading/trailing whitespace is removed.
 std::vector<std::string> ReadTextFileLines(const std::string& path);
 
-// Download file from http/https server.
-// Malformed host/path result in undefined behavior.
-// Any http response status other than 200 returns null.
+// Download file from server. Supports any protocol suppported by Curl.
+// Automatically follows redirects. Returns null in case of failure.
 std::optional<std::string> DownloadFile(const std::string& url);
 
 ////////////////////////////////////////////////////////////////////////////////
