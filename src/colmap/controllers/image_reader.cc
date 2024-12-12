@@ -53,8 +53,10 @@ ImageReader::ImageReader(const ImageReaderOptions& options, Database* database)
   // Ensure trailing slash, so that we can build the correct image name.
   options_.image_path =
       EnsureTrailingSlash(StringReplace(options_.image_path, "\\", "/"));
-  options_.mask_path =
+  if (options._mask_path) {
+    options_.mask_path =
       EnsureTrailingSlash(StringReplace(options_.mask_path, "\\", "/"));
+  }
 
   // Get a list of all files in the image path, sorted by image name.
   if (options_.image_list.empty()) {
