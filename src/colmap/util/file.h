@@ -132,8 +132,7 @@ std::vector<std::string> ReadTextFileLines(const std::string& path);
 // Download file from http/https server.
 // Malformed host/path result in undefined behavior.
 // Any http response status other than 200 returns null.
-std::optional<std::string> DownloadFile(const std::string& host,
-                                        const std::string& path);
+std::optional<std::string> DownloadFile(const std::string& url);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation

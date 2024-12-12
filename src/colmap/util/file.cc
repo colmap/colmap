@@ -32,7 +32,7 @@
 #include "colmap/util/logging.h"
 
 #ifdef COLMAP_HTTP_ENABLED
-#include <httplib.h>
+#include <curl/curl.h>
 #endif
 
 namespace colmap {
@@ -213,20 +213,53 @@ std::vector<std::string> ReadTextFileLines(const std::string& path) {
   return lines;
 }
 
-std::optional<std::string> DownloadFile(const std::string& host,
-                                        const std::string& path) {
+size_t WriteCurlData(char* buf, size_t size, size_t nmemb, std::string* data) {
+  data->append(buf, size * nmemb);
+  return size * nmemb;
+}
+
+struct CurlHandle {
+  CurlHandle() {
+    static std::once_flag global_curl_init;
+    std::call_once(global_curl_init,
+                   []() { curl_global_init(CURL_GLOBAL_ALL); });
+
+    ptr = curl_easy_init();
+  }
+
+  ~CurlHandle() { curl_easy_cleanup(ptr); }
+
+  CURL* ptr;
+};
+
+std::optional<std::string> DownloadFile(const std::string& url) {
 #ifdef COLMAP_HTTP_ENABLED
-  httplib::Client client(host);
-  THROW_CHECK(client.is_valid());
-  client.set_follow_location(true);
-  httplib::Result result = client.Get(path);
-  if (result.error() != httplib::Error::Success || result->status < 200 ||
-      result->status >= 300) {
-    VLOG(2) << "HTTP request failed with status: " << result->status
-            << " (" << result->reason << ")";
+  CurlHandle handle;
+  if (handle.ptr == nullptr) {
+    VLOG(2) << "Failed to initialize curl";
     return std::nullopt;
   }
-  return result->body;
+
+  curl_easy_setopt(handle.ptr, CURLOPT_URL, url.c_str());
+  curl_easy_setopt(handle.ptr, CURLOPT_FOLLOWLOCATION, 1L);
+  curl_easy_setopt(handle.ptr, CURLOPT_WRITEFUNCTION, &WriteCurlData);
+  std::string data;
+  curl_easy_setopt(handle.ptr, CURLOPT_WRITEDATA, &data);
+
+  const CURLcode code = curl_easy_perform(handle.ptr);
+  if (code != CURLE_OK) {
+    VLOG(2) << "curl failed to perform request with code: " << code;
+    return std::nullopt;
+  }
+
+  long http_code = 0;
+  curl_easy_getinfo(handle.ptr, CURLINFO_RESPONSE_CODE, &http_code);
+  if (http_code < 200 || http_code >= 300) {
+    VLOG(2) << "HTTP request failed with status: " << http_code;
+    return std::nullopt;
+  }
+
+  return data;
 #else
   LOG(ERROR) << "COLMAP was compiled without HTTP support.";
   return std::nullopt;

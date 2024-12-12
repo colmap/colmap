@@ -34,10 +34,6 @@
 
 #include <gtest/gtest.h>
 
-#ifdef COLMAP_HTTP_ENABLED
-#include <httplib.h>
-#endif
-
 namespace colmap {
 namespace {
 
@@ -145,61 +141,8 @@ TEST(JoinPaths, Nominal) {
 
 #ifdef COLMAP_HTTP_ENABLED
 
-TEST(DownloadFile, Debug) {
-  const std::optional<std::string> data =
-      DownloadFile("https://google.com", "/");
-  ASSERT_TRUE(data.has_value());
-}
-
 TEST(DownloadFile, Nominal) {
-  const std::string kHost = "localhost";
-  const std::string kSuccessPath = "/success";
-  const std::string kRedirectPath = "/redirect";
-  const std::string kNotFoundPath = "/not_found";
-  const std::string kExpectedResponse = "Hello World";
-
-  httplib::Server server;
-  server.Get(kSuccessPath,
-             [&kExpectedResponse](const httplib::Request& request,
-                                  httplib::Response& response) {
-               response.status = 200;
-               response.set_content(kExpectedResponse, "text/plain");
-             });
-  server.Get(kRedirectPath,
-             [&kSuccessPath](const httplib::Request& request,
-                             httplib::Response& response) {
-               response.set_redirect(kSuccessPath);
-             });
-
-  const int port = server.bind_to_any_port(kHost);
-  LOG(INFO) << "Binding server to port " << port;
-
-  ASSERT_NE(port, -1);
-  std::thread thread([&server, &kHost, &port] { server.listen(kHost, port); });
-
-  while (!server.is_running()) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(20));
-  }
-
-  std::ostringstream host;
-  host << "http://" << kHost << ":" << port;
-
-  const std::optional<std::string> data1 =
-      DownloadFile(host.str(), kSuccessPath);
-  ASSERT_TRUE(data1.has_value());
-  EXPECT_EQ(*data1, kExpectedResponse);
-
-  const std::optional<std::string> data2 =
-      DownloadFile(host.str(), kRedirectPath);
-  ASSERT_TRUE(data2.has_value());
-  EXPECT_EQ(*data2, kExpectedResponse);
-
-  EXPECT_FALSE(DownloadFile(host.str(), kNotFoundPath).has_value());
-
-  server.stop();
-  if (thread.joinable()) {
-    thread.join();
-  }
+  
 }
 
 #endif

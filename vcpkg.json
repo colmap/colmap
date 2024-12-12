@@ -69,7 +69,7 @@
         "http": {
             "description": "Build with HTTP.",
             "dependencies": [
-                "cpp-httplib"
+                "curl"
             ]
         }
     }

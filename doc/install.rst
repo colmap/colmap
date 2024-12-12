@@ -87,7 +87,7 @@ Dependencies from the default Ubuntu repositories::
         libqt5opengl5-dev \
         libcgal-dev \
         libceres-dev \
-        libcpp-httplib-dev
+        libcurl-dev
 
 To compile with **CUDA support**, also install Ubuntu's default CUDA package::
 
@@ -141,7 +141,7 @@ Dependencies from `Homebrew <http://brew.sh/>`__::
         eigen \
         flann \
         freeimage \
-        cpp-httplib \
+        curl \
         metis \
         glog \
         googletest \
