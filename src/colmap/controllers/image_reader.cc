@@ -147,9 +147,11 @@ ImageReader::Status ImageReader::Next(Camera* camera,
     const std::string mask_path =
         JoinPaths(options_.mask_path, image->Name() + ".png");
     if (!ExistsFile(mask_path)) {
-      LOG(ERROR) << StringPrintf("Mask Path %s does not exist!", mask_path.c_str());
+      LOG(ERROR) << "Mask at " << mask_path << " does not exist.";
+      return Status::MASK_ERROR;
     }
-    if (ExistsFile(mask_path) && !mask->Read(mask_path, false)) {
+    if (!mask->Read(mask_path, false)) {
+      LOG(ERROR) << "Failed to read invalid mask file at: " << mask_path;
       return Status::MASK_ERROR;
     }
   }
