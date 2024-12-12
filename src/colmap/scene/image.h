@@ -279,7 +279,7 @@ bool Image::operator==(const Image& other) const {
   return image_id_ == other.image_id_ && camera_id_ == other.camera_id_ &&
          name_ == other.name_ && num_points3D_ == other.num_points3D_ &&
          cam_from_world_ == other.cam_from_world_ &&
-         points2D_ == other.points2D_;
+         points2D_ == other.points2D_ && HasExtension() == other.HasExtension();
 }
 
 bool Image::operator!=(const Image& other) const { return !(*this == other); }
