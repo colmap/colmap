@@ -194,6 +194,22 @@ size_t GetFileSize(const std::string& path) {
   return file.tellg();
 }
 
+void ReadBinaryBlob(const std::string& path, std::vector<char>* data) {
+  std::ifstream file(path, std::ios::binary | std::ios::ate);
+  THROW_CHECK_FILE_OPEN(file, path);
+  file.seekg(0, std::ios::end);
+  const size_t num_bytes = file.tellg();
+  data->resize(num_bytes);
+  file.seekg(0, std::ios::beg);
+  file.read(data->data(), num_bytes);
+}
+
+void WriteBinaryBlob(const std::string& path, const span<const char>& data) {
+  std::ofstream file(path, std::ios::binary);
+  THROW_CHECK_FILE_OPEN(file, path);
+  file.write(data.begin(), data.size());
+}
+
 std::vector<std::string> ReadTextFileLines(const std::string& path) {
   std::ifstream file(path);
   THROW_CHECK_FILE_OPEN(file, path);

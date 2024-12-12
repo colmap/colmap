@@ -29,6 +29,8 @@
 
 #include "colmap/util/file.h"
 
+#include "colmap/util/testing.h"
+
 #include <cstring>
 #include <thread>
 
@@ -141,6 +143,22 @@ TEST(JoinPaths, Nominal) {
   EXPECT_EQ(JoinPaths("/test1", "/test2"), "/test2");
   EXPECT_EQ(JoinPaths("/test1", "/test2/"), "/test2/");
   EXPECT_EQ(JoinPaths("/test1", "/test2/", "test3.ext"), "/test2/test3.ext");
+}
+
+TEST(ReadWriteBinaryBlob, Nominal) {
+  const std::string file_path = CreateTestDir() + "/test.bin";
+  const int kNumBytes = 123;
+  std::vector<char> data(kNumBytes);
+  for (int i = 0; i < kNumBytes; ++i) {
+    data[i] = (i * 100 + 4 + i) % 256;
+  }
+
+  WriteBinaryBlob(file_path, {data.data(), data.size()});
+
+  std::vector<char> read_data;
+  ReadBinaryBlob(file_path, &read_data);
+
+  EXPECT_EQ(read_data, data);
 }
 
 #ifdef COLMAP_HTTP_ENABLED
