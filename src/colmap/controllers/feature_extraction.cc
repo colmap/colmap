@@ -280,9 +280,7 @@ class FeatureWriterThread : public Thread {
         LOG(INFO) << StringPrintf("  Features:        %d",
                                   image_data.keypoints.size());
         if (image_data.mask.Data()) {
-          LOG(INFO) << "  Mask Used:       Yes";
-        } else {
-          LOG(INFO) << "  Mask Used:       No";
+          LOG(INFO) << "  Mask:            Yes";
         }
 
         DatabaseTransaction database_transaction(database_);
