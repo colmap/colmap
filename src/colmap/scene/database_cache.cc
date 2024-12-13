@@ -224,7 +224,9 @@ const class Image* DatabaseCache::FindImageWithName(
   return nullptr;
 }
 
-bool DatabaseCache::SetupPosePriors() {
+bool DatabaseCache::SetupPosePriors(
+    GPSTransform::CartesianFrame cartesian_frame_from_lla,
+    bool use_mean_shift_to_prior_positions) {
   LOG(INFO) << "Setting up prior positions...";
 
   Timer timer;
@@ -260,21 +262,43 @@ bool DatabaseCache::SetupPosePriors() {
 
   // Convert geographic to cartesian
   if (prior_is_gps) {
-    // GPS reference to be used for EllToENU conversion
-    const double ref_lat = v_gps_prior[0][0];
-    const double ref_lon = v_gps_prior[0][1];
-
+    // GPS reference to be used for cartesian conversion
     const GPSTransform gps_transform(GPSTransform::WGS84);
-    const std::vector<Eigen::Vector3d> v_xyz_prior =
-        gps_transform.EllToENU(v_gps_prior, ref_lat, ref_lon);
+    std::vector<Eigen::Vector3d> v_xyz_prior;
+    switch (cartesian_frame_from_lla) {
+      case GPSTransform::CartesianFrame::ECEF: {
+        v_xyz_prior = gps_transform.EllToXYZ(v_gps_prior);
+        break;
+      }
+      case GPSTransform::CartesianFrame::UTM: {
+        auto [utm, _] = gps_transform.EllToUTM(v_gps_prior);
+        v_xyz_prior = std::move(utm);
+        break;
+      }
+      case GPSTransform::CartesianFrame::ENU:
+      default: {
+        const double ref_lat = v_gps_prior[0][0];
+        const double ref_lon = v_gps_prior[0][1];
+        v_xyz_prior = gps_transform.EllToENU(v_gps_prior, ref_lat, ref_lon);
+      }
+    }
+
+    Eigen::Vector3d offset = Eigen::Vector3d::Zero();
+    if (use_mean_shift_to_prior_positions) {
+      for (const auto& v : v_xyz_prior) {
+        offset += v;
+      }
+      offset = -offset / static_cast<double>(v_xyz_prior.size());
+    }
 
     auto xyz_prior_it = v_xyz_prior.begin();
     for (const auto& image_id : image_ids_with_prior) {
       struct PosePrior& pose_prior = PosePrior(image_id);
-      pose_prior.position = *xyz_prior_it;
+      pose_prior.position = *xyz_prior_it + offset;
       pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
       ++xyz_prior_it;
     }
+    PosePrior::position_offset = offset;
   } else if (!prior_is_gps && !v_gps_prior.empty()) {
     LOG(ERROR)
         << "Database is mixing GPS & non-GPS prior positions... Aborting";

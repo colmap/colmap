@@ -367,6 +367,9 @@ std::vector<Eigen::Vector3d> GPSTransform::UTMToEll(
   return ell;
 }
 
+Eigen::Vector3d PosePrior::position_offset = Eigen::Vector3d::Zero();
+Eigen::Vector3d PosePrior::Offset() { return position_offset; }
+
 std::ostream& operator<<(std::ostream& stream, const PosePrior& prior) {
   const static Eigen::IOFormat kVecFmt(
       Eigen::StreamPrecision, Eigen::DontAlignCols, ", ", ", ");
