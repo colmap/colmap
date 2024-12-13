@@ -148,6 +148,7 @@ TEST(VisualIndex, Download) {
   typename VisualIndexType::BuildOptions build_options;
   build_options.num_visual_words = 5;
   build_options.branching = 5;
+  // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
   visual_index.Build(build_options, descriptors);
   visual_index.Write(vocab_tree_path);
 
