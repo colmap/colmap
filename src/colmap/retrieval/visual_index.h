@@ -117,15 +117,6 @@ class VisualIndex {
     int num_threads = kMaxNumThreads;
   };
 
-  struct DownloadOptions {
-    std::string vocab_tree_cache_path =
-        "$HOME/.cache/colmap/vocab_tree_flickr100K_words256K.bin";
-    std::string vocab_tree_url =
-        "https://demuc.de/colmap/vocab_tree_flickr100K_words256K.bin";
-    std::string vocab_tree_sha256 =
-        "d2055600452a531b5b0a62aa5943e1a07195273dc4eeebcf23d3a924d881d53a";
-  };
-
   VisualIndex();
   ~VisualIndex();
 
@@ -160,8 +151,7 @@ class VisualIndex {
 
   // Read and write the visual index. This can be done for an index with and
   // without indexed images.
-  void Read(const std::string& vocab_tree_path,
-            const DownloadOptions& options = {});
+  void Read(const std::string& vocab_tree_path);
   void Write(const std::string& path);
 
  private:
@@ -571,19 +561,8 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Build(
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
 void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Read(
-    const std::string& vocab_tree_path, const DownloadOptions& options) {
-  std::string resolved_path;
-  if (vocab_tree_path == "__download__") {
-#ifdef COLMAP_DOWNLOAD_ENABLED
-    resolved_path = SetPathHomeDir(options.vocab_tree_cache_path);
-    DownloadCachedFile(
-        options.vocab_tree_url, options.vocab_tree_sha256, resolved_path);
-#else
-    throw std::invalid_argument("COLMAP was compiled without download support");
-#endif
-  } else {
-    resolved_path = vocab_tree_path;
-  }
+    const std::string& vocab_tree_path) {
+  const std::string resolved_path = MaybeDownloadAndCacheFile(vocab_tree_path);
 
   long int file_offset = 0;
 

@@ -382,16 +382,52 @@ std::string ComputeSHA256(const std::string_view& str) {
   return digest.str();
 }
 
-bool DownloadCachedFile(const std::string& url,
-                        const std::string& sha256,
-                        const std::filesystem::path& path) {
+#endif  // COLMAP_DOWNLOAD_ENABLED
+
+namespace {
+
+static std::optional<std::filesystem::path> cache_dir_overwrite;
+
+}
+
+std::string MaybeDownloadAndCacheFile(std::string uri) {
+  if (!StringStartsWith(uri, "http://") && !StringStartsWith(uri, "https://") &&
+      !StringStartsWith(uri, "file://")) {
+    return uri;
+  }
+
+#ifndef COLMAP_DOWNLOAD_ENABLED
+  throw std::invalid_argument("COLMAP was compiled without download support");
+#endif
+
+  const std::vector<std::string> parts = StringSplit(uri, ";");
+  THROW_CHECK_EQ(parts.size(), 3)
+      << "Invalid URI format. Expected: <url>;<name>;<sha256>";
+
+  const std::string& url = parts[0];
+  THROW_CHECK(!url.empty());
+  const std::string& name = parts[1];
+  THROW_CHECK(!name.empty());
+  const std::string& sha256 = parts[2];
+  THROW_CHECK_EQ(sha256.size(), 64);
+
+  std::filesystem::path cache_dir;
+  if (cache_dir_overwrite.has_value()) {
+    cache_dir = *cache_dir_overwrite;
+  } else {
+    const std::optional<std::filesystem::path> home_dir = HomeDir();
+    THROW_CHECK(home_dir.has_value());
+    cache_dir = *home_dir / ".cache/colmap";
+  }
+
+  const std::filesystem::path path = cache_dir / (sha256 + "-" + name);
+
   if (std::filesystem::exists(path)) {
     VLOG(2) << "File already downloaded. Skipping download.";
     std::vector<char> blob;
     ReadBinaryBlob(path.string(), &blob);
     THROW_CHECK_EQ(ComputeSHA256({blob.data(), blob.size()}), sha256)
         << "The cached file does not match the expected SHA256";
-    return false;
   } else {
     LOG(INFO) << "Downloading file from: " << url;
     const std::optional<std::string> blob = DownloadFile(url);
@@ -400,10 +436,13 @@ bool DownloadCachedFile(const std::string& url,
         << "The downloaded file does not match the expected SHA256";
     LOG(INFO) << "Caching file at: " << path;
     WriteBinaryBlob(path.string(), {blob->data(), blob->size()});
-    return true;
   }
+
+  return path.string();
 }
 
-#endif  // COLMAP_DOWNLOAD_ENABLED
+void OverwriteCacheDir(std::filesystem::path path) {
+  cache_dir_overwrite = std::move(path);
+}
 
 }  // namespace colmap

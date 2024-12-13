@@ -140,6 +140,7 @@ TEST(VisualIndex, double_32_16) {
 TEST(VisualIndex, Download) {
   const std::string test_dir = CreateTestDir();
   const std::string vocab_tree_path = test_dir + "/server_vocab_tree.bin";
+  OverwriteCacheDir(test_dir);
 
   typedef VisualIndex<uint8_t, 16, 8> VisualIndexType;
   typename VisualIndexType::DescType descriptors =
@@ -153,15 +154,13 @@ TEST(VisualIndex, Download) {
   visual_index.Write(vocab_tree_path);
 
   VisualIndexType downloaded_visual_index;
-  VisualIndexType::DownloadOptions options;
-  options.vocab_tree_cache_path = test_dir + "/cached_vocab_tree.bin";
-  options.vocab_tree_url =
-      "file://" + std::filesystem::absolute(vocab_tree_path).string();
   std::vector<char> vocab_tree_data;
   ReadBinaryBlob(vocab_tree_path, &vocab_tree_data);
-  options.vocab_tree_sha256 =
+  const std::string vocab_tree_uri =
+      "file://" + std::filesystem::absolute(vocab_tree_path).string() +
+      ";vocab_tree.bin;" +
       ComputeSHA256({vocab_tree_data.data(), vocab_tree_data.size()});
-  downloaded_visual_index.Read("__download__", options);
+  downloaded_visual_index.Read(vocab_tree_uri);
 
   EXPECT_EQ(downloaded_visual_index.NumVisualWords(),
             visual_index.NumVisualWords());

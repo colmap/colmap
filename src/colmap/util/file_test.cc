@@ -202,22 +202,25 @@ TEST(ComputeSHA256, Nominal) {
             "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9");
 }
 
-TEST(DownloadCachedFile, Nominal) {
+TEST(MaybeDownloadAndCacheFile, Nominal) {
   const std::string test_dir = CreateTestDir();
-  const std::string server_file_path = test_dir + "/server.bin";
-  const std::string cached_file_path = test_dir + "/cached.bin";
+  OverwriteCacheDir(test_dir);
 
-  std::string data = "123asd<>?";
+  const std::string data = "123asd<>?";
+  const std::string name = "cached.bin";
+  const std::string sha256 =
+      "2915068022d460a622fb078147aee8d590c0a1bb1907d35fd27cb2f7bdb991dd";
+  const std::string server_file_path = test_dir + "/server.bin";
+  const std::string cached_file_path = test_dir + "/" + sha256 + "-" + name;
   WriteBinaryBlob(server_file_path, {data.data(), data.size()});
 
-  EXPECT_TRUE(DownloadCachedFile(
-      "file://" + std::filesystem::absolute(server_file_path).string(),
-      "2915068022d460a622fb078147aee8d590c0a1bb1907d35fd27cb2f7bdb991dd",
-      cached_file_path));
-  EXPECT_FALSE(DownloadCachedFile(
-      "file://" + std::filesystem::absolute(server_file_path).string(),
-      "2915068022d460a622fb078147aee8d590c0a1bb1907d35fd27cb2f7bdb991dd",
-      cached_file_path));
+  const std::string uri = "file://" +
+                          std::filesystem::absolute(server_file_path).string() +
+                          ";" + name + ";" + sha256;
+
+  EXPECT_EQ(MaybeDownloadAndCacheFile(uri), cached_file_path);
+  EXPECT_EQ(MaybeDownloadAndCacheFile(uri), cached_file_path);
+  EXPECT_EQ(MaybeDownloadAndCacheFile(cached_file_path), cached_file_path);
 }
 
 #endif

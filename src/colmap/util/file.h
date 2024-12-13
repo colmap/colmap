@@ -146,14 +146,16 @@ std::optional<std::string> DownloadFile(const std::string& url);
 // Computes SHA256 digest for given string.
 std::string ComputeSHA256(const std::string_view& str);
 
-// Downloads file from given URL, if it is not yet cached locally. In both
-// cases, checks the SHA256 digest of the downloaded or cached file. Throws
-// exception if the digest does not match. Returns true in case of download.
-bool DownloadCachedFile(const std::string& url,
-                        const std::string& sha256,
-                        const std::filesystem::path& path);
-
 #endif  // COLMAP_DOWNLOAD_ENABLED
+
+// Downloads file from given URI with the format. The URI can either be a
+// filesystem path or take the format "<url>;<name>;<sha256>" for remotely
+// stored files. In the latter case, the file will be cached under
+// $HOME/.cache/colmap/<sha256>-<name>. File integretiy is checked against the
+// provided SHA256 digest. Throws exception if the digest does not match.
+// Returns the path to the original or the cached file.
+std::string MaybeDownloadAndCacheFile(std::string uri);
+void OverwriteCacheDir(std::filesystem::path path);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
