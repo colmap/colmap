@@ -42,7 +42,7 @@ jobs:
       COMPILER_CACHE_DIR: ${{ github.workspace }}/compiler-cache
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
-      VCPKG_COMMIT_ID: 10b7a178346f3f0abef60cecd5130e295afd8da4
+      VCPKG_COMMIT_ID: 3b57fb2e1ff55613db14d2aaf0a30529289c7050
 
     steps:
       - uses: actions/checkout@v4
