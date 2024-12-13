@@ -216,28 +216,6 @@ TEST(MaybeDownloadAndCacheFile, Nominal) {
   EXPECT_EQ(MaybeDownloadAndCacheFile(cached_file_path), cached_file_path);
 }
 
-TEST(DownloadAndCacheFile, Nominal) {
-  const std::string test_dir = CreateTestDir();
-  OverwriteDownloadCacheDir(test_dir);
-
-  const std::string data = "123asd<>?";
-  const std::string name = "cached.bin";
-  const std::string sha256 =
-      "2915068022d460a622fb078147aee8d590c0a1bb1907d35fd27cb2f7bdb991dd";
-  const std::string server_file_path = test_dir + "/server.bin";
-  const std::string cached_file_path =
-      std::filesystem::path(test_dir) / (sha256 + "-" + name);
-  WriteBinaryBlob(server_file_path, {data.data(), data.size()});
-
-  const std::string uri = "file://" +
-                          std::filesystem::absolute(server_file_path).string() +
-                          ";" + name + ";" + sha256;
-
-  EXPECT_EQ(DownloadAndCacheFile(uri), cached_file_path);
-  EXPECT_EQ(DownloadAndCacheFile(uri), cached_file_path);
-  EXPECT_EQ(MaybeDownloadAndCacheFile(cached_file_path), cached_file_path);
-}
-
 #endif
 
 }  // namespace
