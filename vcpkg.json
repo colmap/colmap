@@ -39,6 +39,10 @@
             "host": true
         }
     ],
+    "default-features": [
+        "gui",
+        "download"
+    ],
     "features": {
         "tests": {
             "description": "Build all tests.",
@@ -54,7 +58,7 @@
             ]
         },
         "gui": {
-            "description": "Build the GUI support.",
+            "description": "Build with GUI support.",
             "dependencies": [
                 "glew",
                 "qt5-base"
