@@ -204,7 +204,7 @@ TEST(MaybeDownloadAndCacheFile, Nominal) {
       "2915068022d460a622fb078147aee8d590c0a1bb1907d35fd27cb2f7bdb991dd";
   const std::string server_file_path = test_dir + "/server.bin";
   const std::string cached_file_path =
-      std::filesystem::path(test_dir) / (sha256 + "-" + name);
+      (std::filesystem::path(test_dir) / (sha256 + "-" + name)).string();
   WriteBinaryBlob(server_file_path, {data.data(), data.size()});
 
   const std::string uri = "file://" +
