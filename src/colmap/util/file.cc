@@ -31,6 +31,7 @@
 
 #include "colmap/util/logging.h"
 
+#include <cstdlib>
 #include <iomanip>
 #include <mutex>
 #include <sstream>
@@ -39,6 +40,10 @@
 #include <curl/curl.h>
 #include <openssl/evp.h>
 #endif
+
+extern "C" {
+extern char** environ;
+}
 
 namespace colmap {
 
@@ -199,20 +204,42 @@ size_t GetFileSize(const std::string& path) {
   return file.tellg();
 }
 
+namespace {
+
+// Safe cross-platform replacement for std::getenv. The safe variant
+// std::getenv_s is not available on all platforms, unfortunately.
+std::optional<std::string> GetEnvSafe(std::string key) {
+  // Stores environment variables as: "key1=value1", "key2=value2", ..., null
+  char** env = environ;
+
+  key += "=";
+  for (; *env; ++env) {
+    const std::string key_value(*env);
+    if (key.size() <= key_value.size() &&
+        key_value.substr(0, key.size()) == key) {
+      return key_value.substr(key.size(), key_value.size() - key.size());
+    }
+  }
+
+  return std::nullopt;
+}
+
+}  // namespace
+
 std::optional<std::filesystem::path> HomeDir() {
 #ifdef _MSC_VER
-  const char* homedrive = std::getenv("HOMEDRIVE");
-  const char* homepath = std::getenv("HOMEPATH");
-  if (homedrive == nullptr || homepath == nullptr) {
+  const std::optional<string> homedrive = GetEnvSafe("HOMEDRIVE");
+  const std::optional<string> homepath = GetEnvSafe("HOMEPATH");
+  if (!homedrive.has_value() || !homepath.has_value()) {
     return std::nullopt;
   }
-  return std::filesystem::path(homedrive) / std::filesystem::path(homepath);
+  return std::filesystem::path(*homedrive) / std::filesystem::path(*homepath);
 #else
-  const char* home = std::getenv("HOME");
-  if (home == nullptr) {
+  const std::optional<std::string> home = GetEnvSafe("HOME");
+  if (!home.has_value()) {
     return std::nullopt;
   }
-  return home;
+  return *home;
 #endif
 }
 
