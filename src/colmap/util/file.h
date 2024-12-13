@@ -119,6 +119,10 @@ std::vector<std::string> GetRecursiveDirList(const std::string& path);
 // Get the size in bytes of a file.
 size_t GetFileSize(const std::string& path);
 
+// Gets current user's home directory from environment variables.
+// Returns null if it cannot be resolved.
+std::optional<std::filesystem::path> HomeDir();
+
 // Read contiguous binary blob from file.
 void ReadBinaryBlob(const std::string& path, std::vector<char>* data);
 
@@ -139,6 +143,20 @@ std::optional<std::string> DownloadFile(const std::string& url);
 std::string ComputeSHA256(const std::string_view& str);
 
 #endif  // COLMAP_DOWNLOAD_ENABLED
+
+// Downloads and caches file from given URI. The URI must take the format
+// "<url>;<name>;<sha256>". The file will be cached under
+// $HOME/.cache/colmap/<sha256>-<name>. File integrity is checked against the
+// provided SHA256 digest. Throws exception if the digest does not match.
+// Returns the path to the cached file.
+std::string DownloadAndCacheFile(const std::string& uri);
+
+// If the given URI is a local filesystem path, returns the input path. If the
+// URI matches the "<url>;<name>;<sha256>" format, calls DownloadAndCacheFile().
+std::string MaybeDownloadAndCacheFile(const std::string& uri);
+
+// Overwrites the default download cache directory at $HOME/.cache/colmap/.
+void OverwriteDownloadCacheDir(std::filesystem::path path);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation

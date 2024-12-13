@@ -34,6 +34,7 @@
 #include "colmap/feature/sift.h"
 #include "colmap/feature/utils.h"
 #include "colmap/optim/random_sampler.h"
+#include "colmap/retrieval/resources.h"
 #include "colmap/retrieval/visual_index.h"
 #include "colmap/scene/database.h"
 #include "colmap/util/file.h"
@@ -117,7 +118,7 @@ std::vector<Image> ReadVocabTreeRetrievalImageList(const std::string& path,
 }  // namespace
 
 int RunVocabTreeBuilder(int argc, char** argv) {
-  std::string vocab_tree_path;
+  std::string vocab_tree_path = kDefaultVocabTreeUri;
   retrieval::VisualIndex<>::BuildOptions build_options;
   int max_num_images = -1;
 
@@ -152,7 +153,7 @@ int RunVocabTreeBuilder(int argc, char** argv) {
 }
 
 int RunVocabTreeRetriever(int argc, char** argv) {
-  std::string vocab_tree_path;
+  std::string vocab_tree_path = kDefaultVocabTreeUri;
   std::string database_image_list_path;
   std::string query_image_list_path;
   std::string output_index_path;
