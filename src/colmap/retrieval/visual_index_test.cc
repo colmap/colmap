@@ -152,7 +152,7 @@ TEST(VisualIndex, Download) {
   visual_index.Write(vocab_tree_path);
 
   VisualIndexType downloaded_visual_index;
-  VisualIndexType::ReadOptions options;
+  VisualIndexType::DownloadOptions options;
   options.vocab_tree_cache_path = test_dir + "/cached_vocab_tree.bin";
   options.vocab_tree_url =
       "file://" + std::filesystem::absolute(vocab_tree_path).string();
