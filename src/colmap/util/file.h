@@ -149,11 +149,11 @@ std::string ComputeSHA256(const std::string_view& str);
 // $HOME/.cache/colmap/<sha256>-<name>. File integrity is checked against the
 // provided SHA256 digest. Throws exception if the digest does not match.
 // Returns the path to the cached file.
-std::string DownloadAndCacheFile(std::string uri);
+std::string DownloadAndCacheFile(const std::string& uri);
 
 // If the given URI is a local filesystem path, returns the input path. If the
 // URI matches the "<url>;<name>;<sha256>" format, calls DownloadAndCacheFile().
-std::string MaybeDownloadAndCacheFile(std::string uri);
+std::string MaybeDownloadAndCacheFile(const std::string& uri);
 
 // Overwrites the default download cache directory at $HOME/.cache/colmap/.
 void OverwriteDownloadCacheDir(std::filesystem::path path);

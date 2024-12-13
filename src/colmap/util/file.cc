@@ -377,7 +377,7 @@ std::optional<std::filesystem::path> download_cache_dir_overwrite;
 
 }
 
-std::string DownloadAndCacheFile(std::string uri) {
+std::string DownloadAndCacheFile(const std::string& uri) {
 #ifndef COLMAP_DOWNLOAD_ENABLED
   throw std::invalid_argument("COLMAP was compiled without download support");
 #endif
@@ -423,13 +423,13 @@ std::string DownloadAndCacheFile(std::string uri) {
   return path.string();
 }
 
-std::string MaybeDownloadAndCacheFile(std::string uri) {
+std::string MaybeDownloadAndCacheFile(const std::string& uri) {
   if (!StringStartsWith(uri, "http://") && !StringStartsWith(uri, "https://") &&
       !StringStartsWith(uri, "file://")) {
     return uri;
   }
 
-  return DownloadAndCacheFile(std::move(uri));
+  return DownloadAndCacheFile(uri);
 }
 
 void OverwriteDownloadCacheDir(std::filesystem::path path) {
