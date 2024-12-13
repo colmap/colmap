@@ -117,7 +117,7 @@ class VisualIndex {
     int num_threads = kMaxNumThreads;
   };
 
-  struct ReadOptions {
+  struct DownloadOptions {
     std::string vocab_tree_cache_path =
         "$HOME/.cache/colmap/vocab_tree_flickr100K_words256K.bin";
     std::string vocab_tree_url =
@@ -161,7 +161,7 @@ class VisualIndex {
   // Read and write the visual index. This can be done for an index with and
   // without indexed images.
   void Read(const std::string& vocab_tree_path,
-            const ReadOptions& options = {});
+            const DownloadOptions& options = {});
   void Write(const std::string& path);
 
  private:
@@ -571,7 +571,7 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Build(
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
 void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Read(
-    const std::string& vocab_tree_path, const ReadOptions& options) {
+    const std::string& vocab_tree_path, const DownloadOptions& options) {
   std::string resolved_path;
   if (vocab_tree_path == "__download__") {
 #ifdef COLMAP_DOWNLOAD_ENABLED

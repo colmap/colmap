@@ -208,7 +208,7 @@ size_t GetFileSize(const std::string& path) {
 
 namespace {
 
-std::optional<std::string> GetEnvSafe(const std::string_view key) {
+std::optional<std::string> GetEnvSafe(const char* key) {
 #ifdef _MSC_VER
   size_t size = 0;
   std::getenv_s(&size, nullptr, 0, key);
@@ -223,13 +223,14 @@ std::optional<std::string> GetEnvSafe(const std::string_view key) {
   // std::getenv_s is not available on all platforms, unfortunately.
   // Stores environment variables as: "key1=value1", "key2=value2", ..., null
   char** env = environ;
+  const std::string_view key_sv(key);
   for (; *env; ++env) {
     const std::string_view key_value(*env);
-    if (key.size() < key_value.size() &&
-        key_value.substr(0, key.size()) == key &&
-        key_value[key.size()] == '=') {
-      return std::string(
-          key_value.substr(key.size() + 1, key_value.size() - key.size() - 1));
+    if (key_sv.size() < key_value.size() &&
+        key_value.substr(0, key_sv.size()) == key_sv &&
+        key_value[key_sv.size()] == '=') {
+      return std::string(key_value.substr(
+          key_sv.size() + 1, key_value.size() - key_sv.size() - 1));
     }
   }
   return std::nullopt;
