@@ -41,9 +41,11 @@
 #include <openssl/evp.h>
 #endif
 
+#ifndef _MSC_VER
 extern "C" {
 extern char** environ;
 }
+#endif
 
 namespace colmap {
 
@@ -206,12 +208,21 @@ size_t GetFileSize(const std::string& path) {
 
 namespace {
 
-// Safe cross-platform replacement for std::getenv. The safe variant
-// std::getenv_s is not available on all platforms, unfortunately.
 std::optional<std::string> GetEnvSafe(const std::string_view key) {
+#ifdef _MSC_VER
+  size_t size = 0;
+  std::getenv_s(&size, nullptr, 0, key);
+  if (size == 0) {
+    return std::nullopt;
+  }
+  std::string value(size, ' ');
+  std::getenv_s(&size, value.data(), size, key);
+  return value;
+#else
+  // Non-MSVC replacement for std::getenv_s. The safe variant
+  // std::getenv_s is not available on all platforms, unfortunately.
   // Stores environment variables as: "key1=value1", "key2=value2", ..., null
   char** env = environ;
-
   for (; *env; ++env) {
     const std::string_view key_value(*env);
     if (key.size() < key_value.size() &&
@@ -221,8 +232,8 @@ std::optional<std::string> GetEnvSafe(const std::string_view key) {
           key_value.substr(key.size() + 1, key_value.size() - key.size() - 1));
     }
   }
-
   return std::nullopt;
+#endif
 }
 
 }  // namespace
