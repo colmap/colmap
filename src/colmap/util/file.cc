@@ -211,12 +211,12 @@ namespace {
 std::optional<std::string> GetEnvSafe(const char* key) {
 #ifdef _MSC_VER
   size_t size = 0;
-  std::getenv_s(&size, nullptr, 0, key);
+  getenv_s(&size, nullptr, 0, key);
   if (size == 0) {
     return std::nullopt;
   }
   std::string value(size, ' ');
-  std::getenv_s(&size, value.data(), size, key);
+  getenv_s(&size, value.data(), size, key);
   return value;
 #else
   // Non-MSVC replacement for std::getenv_s. The safe variant
