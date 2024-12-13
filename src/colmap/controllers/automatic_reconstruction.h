@@ -30,6 +30,7 @@
 #pragma once
 
 #include "colmap/controllers/option_manager.h"
+#include "colmap/retrieval/resources.h"
 #include "colmap/scene/reconstruction_manager.h"
 #include "colmap/util/enum_to_string.h"
 #include "colmap/util/threading.h"
@@ -56,7 +57,7 @@ class AutomaticReconstructionController : public Thread {
     std::string mask_path;
 
     // The path to the vocabulary tree for feature matching.
-    std::string vocab_tree_path;
+    std::string vocab_tree_path = kDefaultVocabTreeUri;
 
     // The type of input data used to choose optimal mapper settings.
     DataType data_type = DataType::INDIVIDUAL;
