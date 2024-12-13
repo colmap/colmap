@@ -290,7 +290,6 @@ new images within this reconstruction, you can follow these steps::
 
     colmap vocab_tree_matcher \
         --database_path $PROJECT_PATH/database.db \
-        --VocabTreeMatching.vocab_tree_path /path/to/vocab-tree.bin \
         --VocabTreeMatching.match_list_path /path/to/image-list.txt
 
     colmap image_registrator \
