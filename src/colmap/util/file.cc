@@ -208,16 +208,17 @@ namespace {
 
 // Safe cross-platform replacement for std::getenv. The safe variant
 // std::getenv_s is not available on all platforms, unfortunately.
-std::optional<std::string> GetEnvSafe(std::string key) {
+std::optional<std::string> GetEnvSafe(const std::string_view key) {
   // Stores environment variables as: "key1=value1", "key2=value2", ..., null
   char** env = environ;
 
-  key += "=";
   for (; *env; ++env) {
-    const std::string key_value(*env);
-    if (key.size() <= key_value.size() &&
-        key_value.substr(0, key.size()) == key) {
-      return key_value.substr(key.size(), key_value.size() - key.size());
+    const std::string_view key_value(*env);
+    if (key.size() < key_value.size() &&
+        key_value.substr(0, key.size()) == key &&
+        key_value[key.size()] == '=') {
+      return std::string(
+          key_value.substr(key.size() + 1, key_value.size() - key.size() - 1));
     }
   }
 
@@ -228,14 +229,14 @@ std::optional<std::string> GetEnvSafe(std::string key) {
 
 std::optional<std::filesystem::path> HomeDir() {
 #ifdef _MSC_VER
-  const std::optional<string> homedrive = GetEnvSafe("HOMEDRIVE");
-  const std::optional<string> homepath = GetEnvSafe("HOMEPATH");
+  const std::optional<std::string> homedrive = GetEnvSafe("HOMEDRIVE");
+  const std::optional<std::string> homepath = GetEnvSafe("HOMEPATH");
   if (!homedrive.has_value() || !homepath.has_value()) {
     return std::nullopt;
   }
   return std::filesystem::path(*homedrive) / std::filesystem::path(*homepath);
 #else
-  const std::optional<std::string> home = GetEnvSafe("HOME");
+  std::optional<std::string> home = GetEnvSafe("HOME");
   if (!home.has_value()) {
     return std::nullopt;
   }
