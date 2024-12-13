@@ -123,10 +123,6 @@ size_t GetFileSize(const std::string& path);
 // Returns null if it cannot be resolved.
 std::optional<std::filesystem::path> HomeDir();
 
-// Replaces $HOME with the home directory, if it can be resolved from
-// the environment variables. Otherwise leaves the path untouched.
-std::string SetPathHomeDir(std::string path);
-
 // Read contiguous binary blob from file.
 void ReadBinaryBlob(const std::string& path, std::vector<char>* data);
 
@@ -148,14 +144,19 @@ std::string ComputeSHA256(const std::string_view& str);
 
 #endif  // COLMAP_DOWNLOAD_ENABLED
 
-// Downloads file from given URI with the format. The URI can either be a
-// filesystem path or take the format "<url>;<name>;<sha256>" for remotely
-// stored files. In the latter case, the file will be cached under
-// $HOME/.cache/colmap/<sha256>-<name>. File integretiy is checked against the
+// Downloads and caches file from given URI. The URI must take the format
+// "<url>;<name>;<sha256>". The file will be cached under
+// $HOME/.cache/colmap/<sha256>-<name>. File integrity is checked against the
 // provided SHA256 digest. Throws exception if the digest does not match.
-// Returns the path to the original or the cached file.
+// Returns the path to the cached file.
+std::string DownloadAndCacheFile(std::string uri);
+
+// If the given URI is a local filesystem path, returns the input path. If the
+// URI matches the "<url>;<name>;<sha256>" format, calls DownloadAndCacheFile().
 std::string MaybeDownloadAndCacheFile(std::string uri);
-void OverwriteCacheDir(std::filesystem::path path);
+
+// Overwrites the default download cache directory at $HOME/.cache/colmap/.
+void OverwriteDownloadCacheDir(std::filesystem::path path);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation

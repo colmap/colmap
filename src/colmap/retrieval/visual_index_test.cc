@@ -140,7 +140,7 @@ TEST(VisualIndex, double_32_16) {
 TEST(VisualIndex, Download) {
   const std::string test_dir = CreateTestDir();
   const std::string vocab_tree_path = test_dir + "/server_vocab_tree.bin";
-  OverwriteCacheDir(test_dir);
+  OverwriteDownloadCacheDir(test_dir);
 
   typedef VisualIndex<uint8_t, 16, 8> VisualIndexType;
   typename VisualIndexType::DescType descriptors =

@@ -256,19 +256,6 @@ std::optional<std::filesystem::path> HomeDir() {
 #endif
 }
 
-std::string SetPathHomeDir(std::string path) {
-  if (StringContains(path, "$HOME")) {
-    const std::optional<std::filesystem::path> home_dir = HomeDir();
-    if (home_dir) {
-      path = StringReplace(path, "$HOME", home_dir->string());
-    } else {
-      LOG(WARNING)
-          << "Failed to resolve home directory from environment variables";
-    }
-  }
-  return path;
-}
-
 void ReadBinaryBlob(const std::string& path, std::vector<char>* data) {
   std::ifstream file(path, std::ios::binary | std::ios::ate);
   THROW_CHECK_FILE_OPEN(file, path);
@@ -386,16 +373,11 @@ std::string ComputeSHA256(const std::string_view& str) {
 
 namespace {
 
-static std::optional<std::filesystem::path> cache_dir_overwrite;
+std::optional<std::filesystem::path> download_cache_dir_overwrite;
 
 }
 
-std::string MaybeDownloadAndCacheFile(std::string uri) {
-  if (!StringStartsWith(uri, "http://") && !StringStartsWith(uri, "https://") &&
-      !StringStartsWith(uri, "file://")) {
-    return uri;
-  }
-
+std::string DownloadAndCacheFile(std::string uri) {
 #ifndef COLMAP_DOWNLOAD_ENABLED
   throw std::invalid_argument("COLMAP was compiled without download support");
 #endif
@@ -411,16 +393,16 @@ std::string MaybeDownloadAndCacheFile(std::string uri) {
   const std::string& sha256 = parts[2];
   THROW_CHECK_EQ(sha256.size(), 64);
 
-  std::filesystem::path cache_dir;
-  if (cache_dir_overwrite.has_value()) {
-    cache_dir = *cache_dir_overwrite;
+  std::filesystem::path download_cache_dir;
+  if (download_cache_dir_overwrite.has_value()) {
+    download_cache_dir = *download_cache_dir_overwrite;
   } else {
     const std::optional<std::filesystem::path> home_dir = HomeDir();
     THROW_CHECK(home_dir.has_value());
-    cache_dir = *home_dir / ".cache/colmap";
+    download_cache_dir = *home_dir / ".cache/colmap";
   }
 
-  const std::filesystem::path path = cache_dir / (sha256 + "-" + name);
+  const std::filesystem::path path = download_cache_dir / (sha256 + "-" + name);
 
   if (std::filesystem::exists(path)) {
     VLOG(2) << "File already downloaded. Skipping download.";
@@ -441,8 +423,17 @@ std::string MaybeDownloadAndCacheFile(std::string uri) {
   return path.string();
 }
 
-void OverwriteCacheDir(std::filesystem::path path) {
-  cache_dir_overwrite = std::move(path);
+std::string MaybeDownloadAndCacheFile(std::string uri) {
+  if (!StringStartsWith(uri, "http://") && !StringStartsWith(uri, "https://") &&
+      !StringStartsWith(uri, "file://")) {
+    return uri;
+  }
+
+  return DownloadAndCacheFile(std::move(uri));
+}
+
+void OverwriteDownloadCacheDir(std::filesystem::path path) {
+  download_cache_dir_overwrite = std::move(path);
 }
 
 }  // namespace colmap

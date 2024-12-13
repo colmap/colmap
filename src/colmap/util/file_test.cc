@@ -149,14 +149,6 @@ TEST(HomeDir, Nominal) {
   }
 }
 
-TEST(SetPathHomeDir, Nominal) {
-  EXPECT_EQ(SetPathHomeDir(""), "");
-  EXPECT_EQ(SetPathHomeDir("test"), "test");
-  EXPECT_EQ(SetPathHomeDir("test/test"), "test/test");
-  EXPECT_NE(SetPathHomeDir("$HOME/test/test"), "$HOME/test/test");
-  EXPECT_NE(SetPathHomeDir("test/$HOME/test/test"), "test/$HOME/test/test");
-}
-
 TEST(ReadWriteBinaryBlob, Nominal) {
   const std::string file_path = CreateTestDir() + "/test.bin";
   const int kNumBytes = 123;
@@ -204,14 +196,15 @@ TEST(ComputeSHA256, Nominal) {
 
 TEST(MaybeDownloadAndCacheFile, Nominal) {
   const std::string test_dir = CreateTestDir();
-  OverwriteCacheDir(test_dir);
+  OverwriteDownloadCacheDir(test_dir);
 
   const std::string data = "123asd<>?";
   const std::string name = "cached.bin";
   const std::string sha256 =
       "2915068022d460a622fb078147aee8d590c0a1bb1907d35fd27cb2f7bdb991dd";
   const std::string server_file_path = test_dir + "/server.bin";
-  const std::string cached_file_path = test_dir + "/" + sha256 + "-" + name;
+  const std::string cached_file_path =
+      std::filesystem::path(test_dir) / (sha256 + "-" + name);
   WriteBinaryBlob(server_file_path, {data.data(), data.size()});
 
   const std::string uri = "file://" +
@@ -220,6 +213,28 @@ TEST(MaybeDownloadAndCacheFile, Nominal) {
 
   EXPECT_EQ(MaybeDownloadAndCacheFile(uri), cached_file_path);
   EXPECT_EQ(MaybeDownloadAndCacheFile(uri), cached_file_path);
+  EXPECT_EQ(MaybeDownloadAndCacheFile(cached_file_path), cached_file_path);
+}
+
+TEST(DownloadAndCacheFile, Nominal) {
+  const std::string test_dir = CreateTestDir();
+  OverwriteDownloadCacheDir(test_dir);
+
+  const std::string data = "123asd<>?";
+  const std::string name = "cached.bin";
+  const std::string sha256 =
+      "2915068022d460a622fb078147aee8d590c0a1bb1907d35fd27cb2f7bdb991dd";
+  const std::string server_file_path = test_dir + "/server.bin";
+  const std::string cached_file_path =
+      std::filesystem::path(test_dir) / (sha256 + "-" + name);
+  WriteBinaryBlob(server_file_path, {data.data(), data.size()});
+
+  const std::string uri = "file://" +
+                          std::filesystem::absolute(server_file_path).string() +
+                          ";" + name + ";" + sha256;
+
+  EXPECT_EQ(DownloadAndCacheFile(uri), cached_file_path);
+  EXPECT_EQ(DownloadAndCacheFile(uri), cached_file_path);
   EXPECT_EQ(MaybeDownloadAndCacheFile(cached_file_path), cached_file_path);
 }
 
