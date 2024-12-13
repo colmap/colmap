@@ -367,6 +367,37 @@ int RunPosePriorMapper(int argc, char** argv) {
                            &options.mapper->use_robust_loss_on_prior_position);
   options.AddDefaultOption("prior_position_loss_scale",
                            &options.mapper->prior_position_loss_scale);
+
+  std::string cartesian_frame_from_lla = "enu";
+  options.AddDefaultOption(
+      "cartesian_frame_from_lla",
+      &cartesian_frame_from_lla,
+      "Specifies the Cartesian coordinate frame for converting from latitude, "
+      "longitude, and altitude (LLA). Possible values are 'ENU', "
+      "'ECEF', and 'UTM'.");
+
+  StringToLower(&cartesian_frame_from_lla);
+  if (cartesian_frame_from_lla == "enu") {
+    options.mapper->cartesian_frame_from_lla =
+        GPSTransform::CartesianFrame::ENU;
+  } else if (cartesian_frame_from_lla == "ecef") {
+    options.mapper->cartesian_frame_from_lla =
+        GPSTransform::CartesianFrame::ECEF;
+  } else if (cartesian_frame_from_lla == "utm") {
+    options.mapper->cartesian_frame_from_lla =
+        GPSTransform::CartesianFrame::UTM;
+  } else {
+    LOG(FATAL_THROW) << "Invalid Cartesian coordinate frame provided.";
+  }
+
+  options.AddDefaultOption("use_mean_shift_to_prior_positions",
+                           &options.mapper->use_mean_shift_to_prior_positions,
+                           "Flag to determine whether to apply a mean shift "
+                           "(offset) to prior positions. "
+                           "When enabled (true), the coordinate system's "
+                           "origin is shifted to the average prior position "
+                           "of all images");
+
   options.Parse(argc, argv);
 
   if (!ExistsDir(output_path)) {

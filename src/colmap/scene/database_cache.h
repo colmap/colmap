@@ -98,7 +98,8 @@ class DatabaseCache {
   const class Image* FindImageWithName(const std::string& name) const;
 
   // Setup PosePriors for PosePriorBundleAdjustment
-  bool SetupPosePriors();
+  bool SetupPosePriors(GPSTransform::CartesianFrame cartesian_frame_from_lla,
+                       bool use_mean_shift_to_prior_positions);
 
  private:
   std::shared_ptr<class CorrespondenceGraph> correspondence_graph_;
