@@ -376,7 +376,7 @@ bool DownloadCachedFile(const std::string& url,
   if (std::filesystem::exists(path)) {
     VLOG(2) << "File already downloaded. Skipping download.";
     std::vector<char> blob;
-    ReadBinaryBlob(path, &blob);
+    ReadBinaryBlob(path.string(), &blob);
     THROW_CHECK_EQ(ComputeSHA256({blob.data(), blob.size()}), sha256)
         << "The cached file does not match the expected SHA256";
     return false;
@@ -387,7 +387,7 @@ bool DownloadCachedFile(const std::string& url,
     THROW_CHECK_EQ(ComputeSHA256({blob->data(), blob->size()}), sha256)
         << "The downloaded file does not match the expected SHA256";
     LOG(INFO) << "Caching file at: " << path;
-    WriteBinaryBlob(path, {blob->data(), blob->size()});
+    WriteBinaryBlob(path.string(), {blob->data(), blob->size()});
     return true;
   }
 }
