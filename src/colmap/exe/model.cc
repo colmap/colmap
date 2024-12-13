@@ -372,7 +372,7 @@ int RunModelAligner(int argc, char** argv) {
 
   if (alignment_type == "unoffset") {
     PrintHeading2("Aligning reconstruction via unoffset.");
-    Sim3d tform(1, Eigen::Quaterniond::Identity(),PosePrior::Offset());
+    Sim3d tform(1, Eigen::Quaterniond::Identity(), PosePrior::Offset());
     reconstruction.Transform(tform);
   } else if (alignment_type == "plane") {
     PrintHeading2("Aligning reconstruction to principal plane");
