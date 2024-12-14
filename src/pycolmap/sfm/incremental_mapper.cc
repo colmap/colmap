@@ -379,7 +379,7 @@ void BindIncrementalMapperImpl(py::module& m) {
              const image_t image_id2) -> py::typing::Optional<TwoViewGeometry> {
             TwoViewGeometry two_view_geometry;
             const bool success = self.EstimateInitialTwoViewGeometry(
-                options, two_view_geometry, image_id1, image_id2);
+                options, image_id1, image_id2, two_view_geometry);
             if (success)
               return py::cast(two_view_geometry);
             else
