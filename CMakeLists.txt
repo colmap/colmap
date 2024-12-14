@@ -51,6 +51,9 @@ option(UNINSTALL_ENABLED "Whether to create a target to 'uninstall' colmap" ON)
 option(FETCH_POSELIB "Whether to consume PoseLib using FetchContent or find_package" ON)
 option(ALL_SOURCE_TARGET "Whether to create a target for all source files (for Visual Studio / XCode development)" OFF)
 
+# Disables default features, as we specify each required feature manually below.
+list(APPEND VCPKG_MANIFEST_FEATURES "core")
+
 # Propagate options to vcpkg manifest.
 if(TESTS_ENABLED)
   enable_testing()
