@@ -79,8 +79,8 @@ class IncrementalMapperImpl {
       const IncrementalMapper::Options& options,
       const std::shared_ptr<class Reconstruction>& reconstruction,
       const std::shared_ptr<class ObservationManager>& obs_manager,
-      const std::unordered_map<image_t, size_t>& m_num_reg_trials,
-      const std::unordered_set<image_t>& filtered_images);
+      const std::unordered_set<image_t>& filtered_images,
+      std::unordered_map<image_t, size_t>& m_num_reg_trials);
 
   // Implement IncrementalMapper::FindLocalBundle
   static std::vector<image_t> FindLocalBundle(

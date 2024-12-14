@@ -131,8 +131,8 @@ std::vector<image_t> IncrementalMapper::FindNextImages(const Options& options) {
   return IncrementalMapperImpl::FindNextImages(options,
                                                reconstruction_,
                                                obs_manager_,
-                                               reg_stats_.num_reg_trials,
-                                               filtered_images_);
+                                               filtered_images_,
+                                               reg_stats_.num_reg_trials);
 }
 
 void IncrementalMapper::RegisterInitialImagePair(
