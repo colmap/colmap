@@ -278,9 +278,9 @@ bool IncrementalMapperImpl::FindInitialImagePair(
       if (IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
               options,
               database_cache,
-              two_view_geometry,
               image_id1,
-              image_id2)) {
+              image_id2,
+              two_view_geometry)) {
         return true;
       }
     }
@@ -535,9 +535,9 @@ template <typename DatabaseCacheClass>
 bool IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
     const IncrementalMapper::Options& options,
     const std::shared_ptr<const DatabaseCacheClass>& database_cache,
-    TwoViewGeometry& two_view_geometry,
     const image_t image_id1,
-    const image_t image_id2) {
+    const image_t image_id2,
+    TwoViewGeometry& two_view_geometry) {
   const Image& image1 = database_cache->Image(image_id1);
   const Camera& camera1 = database_cache->Camera(image1.CameraId());
 

@@ -107,9 +107,9 @@ class IncrementalMapperImpl {
   static bool EstimateInitialTwoViewGeometry(
       const IncrementalMapper::Options& options,
       const std::shared_ptr<const DatabaseCacheClass>& database_cache,
-      TwoViewGeometry& two_view_geometry,
       image_t image_id1,
-      image_t image_id2);
+      image_t image_id2,
+      TwoViewGeometry& two_view_geometry);
 };
 
 #include "incremental_mapper_impl.tcc"  // Include implementation at the end of the header
