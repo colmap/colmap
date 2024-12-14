@@ -153,7 +153,7 @@ std::vector<image_t> IncrementalMapperImpl::FindFirstInitialImage(
 
 std::vector<image_t> IncrementalMapperImpl::FindSecondInitialImage(
     const IncrementalMapper::Options& options,
-    const image_t image_id1,
+    image_t image_id1,
     const std::shared_ptr<const DatabaseCache>& database_cache,
     const std::shared_ptr<class Reconstruction>& reconstruction,
     const std::unordered_map<image_t, size_t>& num_registrations) {
@@ -371,7 +371,7 @@ std::vector<image_t> IncrementalMapperImpl::FindNextImages(
 
 std::vector<image_t> IncrementalMapperImpl::FindLocalBundle(
     const IncrementalMapper::Options& options,
-    const image_t image_id,
+    image_t image_id,
     const std::shared_ptr<class Reconstruction>& reconstruction) {
   THROW_CHECK(options.Check());
 
