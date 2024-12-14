@@ -818,11 +818,11 @@ void IncrementalMapper::DeRegisterImageEvent(const image_t image_id) {
 
 bool IncrementalMapper::EstimateInitialTwoViewGeometry(
     const IncrementalMapper::Options& options,
-    TwoViewGeometry& two_view_geometry,
     const image_t image_id1,
-    const image_t image_id2) {
+    const image_t image_id2,
+    TwoViewGeometry& two_view_geometry) {
   return IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
-      options, database_cache_, two_view_geometry, image_id1, image_id2);
+      options, database_cache_, image_id1, image_id2, two_view_geometry);
 }
 
 }  // namespace colmap

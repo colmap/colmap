@@ -303,9 +303,9 @@ class IncrementalMapper {
 
   // Estimate two view geometry and checks if it is suitable for initialization.
   bool EstimateInitialTwoViewGeometry(const Options& options,
-                                      TwoViewGeometry& two_view_geometry,
                                       image_t image_id1,
-                                      image_t image_id2);
+                                      image_t image_id2,
+                                      TwoViewGeometry& two_view_geometry);
 
   // Find local bundle for given image in the reconstruction. The local bundle
   // is defined as the images that are most connected, i.e. maximum number of

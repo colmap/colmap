@@ -92,9 +92,9 @@ class IncrementalMapperImpl {
   static bool EstimateInitialTwoViewGeometry(
       const IncrementalMapper::Options& options,
       const std::shared_ptr<const DatabaseCache>& database_cache,
-      TwoViewGeometry& two_view_geometry,
       image_t image_id1,
-      image_t image_id2);
+      image_t image_id2,
+      TwoViewGeometry& two_view_geometry);
 };
 
 }  // namespace colmap

@@ -296,7 +296,7 @@ IncrementalPipeline::Status IncrementalPipeline::InitializeReconstruction(
       return Status::BAD_INITIAL_PAIR;
     }
     const bool provided_init_success = mapper.EstimateInitialTwoViewGeometry(
-        mapper_options, two_view_geometry, image_id1, image_id2);
+        mapper_options, image_id1, image_id2, two_view_geometry);
     if (!provided_init_success) {
       LOG(INFO) << "Provided pair is insuitable for intialization.";
       return Status::BAD_INITIAL_PAIR;
