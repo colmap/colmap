@@ -61,7 +61,7 @@ inline double DegToRad(double deg);
 inline float RadToDeg(float rad);
 inline double RadToDeg(double rad);
 
-// Determine median value in vector. Returns NaN for empty vectors.
+// Determine median value. Reorderes elements in-place.
 template <typename T>
 double Median(std::vector<T>& elems);
 template <typename T>
