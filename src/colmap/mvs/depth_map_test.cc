@@ -84,7 +84,7 @@ TEST(DepthMap, ToBitmap) {
   EXPECT_TRUE(bitmap.IsRGB());
   BitmapColor<uint8_t> color;
   EXPECT_TRUE(bitmap.GetPixel(0, 0, &color));
-  EXPECT_EQ(color, BitmapColor<uint8_t>(0, 0, 128));
+  EXPECT_EQ(color, BitmapColor<uint8_t>(0, 0, 0));
   EXPECT_TRUE(bitmap.GetPixel(0, 1, &color));
   EXPECT_EQ(color, BitmapColor<uint8_t>(128, 0, 0));
   EXPECT_TRUE(bitmap.GetPixel(1, 0, &color));
