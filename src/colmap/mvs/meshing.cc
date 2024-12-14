@@ -994,7 +994,7 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
 
   const float max_facet_side_length =
       options.max_side_length_factor *
-      Percentile(surface_facet_side_lengths,
+      Percentile(std::vector<float>(surface_facet_side_lengths),
                  options.max_side_length_percentile);
 
   mesh.faces.reserve(surface_facets.size());
