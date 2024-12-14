@@ -71,7 +71,9 @@ class IncrementalMapperImpl {
       const std::unordered_map<image_t, size_t>& num_registrations);
 
   // Implement IncrementalMapper::FindInitialImagePair
-  template <typename DatabaseCacheClass, typename ReconstructionClass, typename ObservationManagerClass>
+  template <typename DatabaseCacheClass,
+            typename ReconstructionClass,
+            typename ObservationManagerClass>
   static bool FindInitialImagePair(
       const IncrementalMapper::Options& options,
       const std::shared_ptr<const DatabaseCacheClass>& database_cache,
@@ -110,6 +112,6 @@ class IncrementalMapperImpl {
       image_t image_id2);
 };
 
-#include "incremental_mapper_impl.tcc" // Include implementation at the end of the header
+#include "incremental_mapper_impl.tcc"  // Include implementation at the end of the header
 
 }  // namespace colmap

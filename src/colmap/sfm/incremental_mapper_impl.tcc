@@ -306,10 +306,12 @@ std::vector<image_t> IncrementalMapperImpl::FindNextImages(
   std::function<float(image_t, const class ObservationManager&)>
       rank_image_func;
   switch (options.image_selection_method) {
-    case IncrementalMapper::Options::ImageSelectionMethod::MAX_VISIBLE_POINTS_NUM:
+    case IncrementalMapper::Options::ImageSelectionMethod::
+        MAX_VISIBLE_POINTS_NUM:
       rank_image_func = RankNextImageMaxVisiblePointsNum;
       break;
-    case IncrementalMapper::Options::ImageSelectionMethod::MAX_VISIBLE_POINTS_RATIO:
+    case IncrementalMapper::Options::ImageSelectionMethod::
+        MAX_VISIBLE_POINTS_RATIO:
       rank_image_func = RankNextImageMaxVisiblePointsRatio;
       break;
     case IncrementalMapper::Options::ImageSelectionMethod::MIN_UNCERTAINTY:
