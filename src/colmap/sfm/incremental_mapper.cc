@@ -28,13 +28,13 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 #include "colmap/sfm/incremental_mapper.h"
-#include "colmap/sfm/incremental_mapper_impl.h"
 
 #include "colmap/estimators/pose.h"
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/geometry/triangulation.h"
 #include "colmap/scene/projection.h"
 #include "colmap/sensor/bitmap.h"
+#include "colmap/sfm/incremental_mapper_impl.h"
 #include "colmap/util/misc.h"
 
 #include <array>
@@ -116,11 +116,20 @@ bool IncrementalMapper::FindInitialImagePair(const Options& options,
                                              TwoViewGeometry& two_view_geometry,
                                              image_t& image_id1,
                                              image_t& image_id2) {
-  return IncrementalMapperImpl::FindInitialImagePair(options, database_cache_, reconstruction_, obs_manager_, init_num_reg_trials_, num_registrations_, two_view_geometry, image_id1, image_id2);
+  return IncrementalMapperImpl::FindInitialImagePair(options,
+                                                     database_cache_,
+                                                     reconstruction_,
+                                                     obs_manager_,
+                                                     init_num_reg_trials_,
+                                                     num_registrations_,
+                                                     two_view_geometry,
+                                                     image_id1,
+                                                     image_id2);
 }
 
 std::vector<image_t> IncrementalMapper::FindNextImages(const Options& options) {
-  return IncrementalMapperImpl::FindNextImages(options, reconstruction_, obs_manager_, num_reg_trials_);
+  return IncrementalMapperImpl::FindNextImages(
+      options, reconstruction_, obs_manager_, num_reg_trials_);
 }
 
 void IncrementalMapper::RegisterInitialImagePair(
@@ -769,7 +778,8 @@ void IncrementalMapper::ClearModifiedPoints3D() {
 
 std::vector<image_t> IncrementalMapper::FindLocalBundle(
     const Options& options, const image_t image_id) const {
-  return IncrementalMapperImpl::FindLocalBundle(options, image_id, reconstruction_);
+  return IncrementalMapperImpl::FindLocalBundle(
+      options, image_id, reconstruction_);
 }
 
 void IncrementalMapper::RegisterImageEvent(const image_t image_id) {
@@ -808,8 +818,8 @@ bool IncrementalMapper::EstimateInitialTwoViewGeometry(
     TwoViewGeometry& two_view_geometry,
     const image_t image_id1,
     const image_t image_id2) {
-  return IncrementalMapperImpl::EstimateInitialTwoViewGeometry(options, two_view_geometry, image_id1, image_id2);
+  return IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
+      options, two_view_geometry, image_id1, image_id2);
 }
-
 
 }  // namespace colmap

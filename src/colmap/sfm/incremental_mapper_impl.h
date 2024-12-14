@@ -29,69 +29,69 @@
 
 #pragma once
 
-#include "colmap/sfm/incremental_mapper.h"
-
 #include "colmap/scene/database.h"
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/reconstruction.h"
+#include "colmap/sfm/incremental_mapper.h"
 #include "colmap/sfm/observation_manager.h"
 
 namespace colmap {
 
 // Algorithm class for incremental mapper to make it easier to extend
 class IncrementalMapperImpl {
-public:
+ public:
   // Find seed images for incremental reconstruction. Suitable seed images have
   // a large number of correspondences and have camera calibration priors. The
   // returned list is ordered such that most suitable images are in the front.
   static std::vector<image_t> FindFirstInitialImage(
-    const IncrementalMapper::Options& options,
-    const std::shared_ptr<class Reconstruction>& reconstruction,
-    const std::shared_ptr<class ObservationManager>& obs_manager,
-    const std::unordered_map<image_t, size_t>& init_num_reg_trials,
-    const std::unordered_map<image_t, size_t>& num_registrations);
+      const IncrementalMapper::Options& options,
+      const std::shared_ptr<class Reconstruction>& reconstruction,
+      const std::shared_ptr<class ObservationManager>& obs_manager,
+      const std::unordered_map<image_t, size_t>& init_num_reg_trials,
+      const std::unordered_map<image_t, size_t>& num_registrations);
 
   // For a given first seed image, find other images that are connected to the
   // first image. Suitable second images have a large number of correspondences
   // to the first image and have camera calibration priors. The returned list is
   // ordered such that most suitable images are in the front.
   static std::vector<image_t> FindSecondInitialImage(
-    const IncrementalMapper::Options& options, const image_t image_id1,
-    const std::shared_ptr<const DatabaseCache>& database_cache,
-    const std::shared_ptr<class Reconstruction>& reconstruction);
+      const IncrementalMapper::Options& options,
+      const image_t image_id1,
+      const std::shared_ptr<const DatabaseCache>& database_cache,
+      const std::shared_ptr<class Reconstruction>& reconstruction);
 
   // Implement IncrementalMapper::FindInitialImagePair
   static bool FindInitialImagePair(
-    const IncrementalMapper::Options& options,
-const std::shared_ptr<const DatabaseCache>& database_cache,
-const std::shared_ptr<class Reconstruction>& reconstruction,
-const std::shared_ptr<class ObservationManager>& obs_manager,
-const std::unordered_map<image_t, size_t>& init_num_reg_trials,
-const std::unordered_map<image_t, size_t>& num_registrations,
-                                             TwoViewGeometry& two_view_geometry,
-                                             image_t& image_id1,
-                                             image_t& image_id2);
+      const IncrementalMapper::Options& options,
+      const std::shared_ptr<const DatabaseCache>& database_cache,
+      const std::shared_ptr<class Reconstruction>& reconstruction,
+      const std::shared_ptr<class ObservationManager>& obs_manager,
+      const std::unordered_map<image_t, size_t>& init_num_reg_trials,
+      const std::unordered_map<image_t, size_t>& num_registrations,
+      TwoViewGeometry& two_view_geometry,
+      image_t& image_id1,
+      image_t& image_id2);
 
   // Implement IncrementalMapper::FindNextImages
   static std::vector<image_t> FindNextImages(
-    const IncrementalMapper::Options& options,
-    const std::shared_ptr<class Reconstruction>& reconstruction,
-    const std::shared_ptr<class ObservationManager>& obs_manager,
-    const std::unordered_map<image_t, size_t>& num_reg_trials,
-    );
+      const IncrementalMapper::Options& options,
+      const std::shared_ptr<class Reconstruction>& reconstruction,
+      const std::shared_ptr<class ObservationManager>& obs_manager,
+      const std::unordered_map<image_t, size_t>& num_reg_trials, );
 
   // Implement IncrementalMapper::FindLocalBundle
   std::vector<image_t> FindLocalBundle(
-    const IncrementalMapper::Options& options, const image_t image_id,
-    std::shared_ptr<class Reconstruction>& reconstruction);
+      const IncrementalMapper::Options& options,
+      const image_t image_id,
+      std::shared_ptr<class Reconstruction>& reconstruction);
 
   // Implement IncrementalMapper::EstimateInitialTwoViewGeometry
   static bool EstimateInitialTwoViewGeometry(
-                            const std::shared_ptr<const DatabaseCache> &database_cache,
-                            const Options& options,
-                            TwoViewGeometry& two_view_geometry,
-                            image_t image_id1,
-                            image_t image_id2);
+      const std::shared_ptr<const DatabaseCache>& database_cache,
+      const Options& options,
+      TwoViewGeometry& two_view_geometry,
+      image_t image_id1,
+      image_t image_id2);
 };
 
 }  // namespace colmap

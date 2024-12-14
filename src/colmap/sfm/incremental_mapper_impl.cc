@@ -80,8 +80,7 @@ std::vector<image_t> IncrementalMapperImpl::FindFirstInitialImage(
     const std::shared_ptr<class Reconstruction>& reconstruction,
     const std::shared_ptr<class ObservationManager>& obs_manager,
     const std::unordered_map<image_t, size_t>& init_num_reg_trials,
-    const std::unordered_map<image_t, size_t>& num_registrations)
-{
+    const std::unordered_map<image_t, size_t>& num_registrations) {
   // Struct to hold meta-data for ranking images.
   struct ImageInfo {
     image_t image_id;
@@ -152,7 +151,8 @@ std::vector<image_t> IncrementalMapperImpl::FindFirstInitialImage(
 }
 
 std::vector<image_t> IncrementalMapperImpl::FindSecondInitialImage(
-    const IncrementalMapper::Options& options, const image_t image_id1,
+    const IncrementalMapper::Options& options,
+    const image_t image_id1,
     const std::shared_ptr<const DatabaseCache>& database_cache,
     const std::shared_ptr<class Reconstruction>& reconstruction) {
   const std::shared_ptr<const CorrespondenceGraph> correspondence_graph =
@@ -227,14 +227,14 @@ std::vector<image_t> IncrementalMapperImpl::FindSecondInitialImage(
 
 bool IncrementalMapperImpl::FindInitialImagePair(
     const IncrementalMapper::Options& options,
-const std::shared_ptr<const DatabaseCache>& database_cache,
-const std::shared_ptr<class Reconstruction>& reconstruction,
-const std::shared_ptr<class ObservationManager>& obs_manager,
-const std::unordered_map<image_t, size_t>& init_num_reg_trials,
-const std::unordered_map<image_t, size_t>& num_registrations,
-                                             TwoViewGeometry& two_view_geometry,
-                                             image_t& image_id1,
-                                             image_t& image_id2) {
+    const std::shared_ptr<const DatabaseCache>& database_cache,
+    const std::shared_ptr<class Reconstruction>& reconstruction,
+    const std::shared_ptr<class ObservationManager>& obs_manager,
+    const std::unordered_map<image_t, size_t>& init_num_reg_trials,
+    const std::unordered_map<image_t, size_t>& num_registrations,
+    TwoViewGeometry& two_view_geometry,
+    image_t& image_id1,
+    image_t& image_id2) {
   THROW_CHECK(options.Check());
 
   std::vector<image_t> image_ids1;
@@ -252,7 +252,12 @@ const std::unordered_map<image_t, size_t>& num_registrations,
     image_ids1.push_back(image_id2);
   } else {
     // No initial seed image provided.
-    image_ids1 = IncrementalMapperImpl::FindFirstInitialImage(options, reconstruction, obs_manager, init_num_reg_trials, num_registrations);
+    image_ids1 =
+        IncrementalMapperImpl::FindFirstInitialImage(options,
+                                                     reconstruction,
+                                                     obs_manager,
+                                                     init_num_reg_trials,
+                                                     num_registrations);
   }
 
   // Try to find good initial pair.
@@ -260,7 +265,8 @@ const std::unordered_map<image_t, size_t>& num_registrations,
     image_id1 = image_ids1[i1];
 
     const std::vector<image_t> image_ids2 =
-        IncrementalMapperImpl::FindSecondInitialImage(options, image_id1, database_cache, reconstruction);
+        IncrementalMapperImpl::FindSecondInitialImage(
+            options, image_id1, database_cache, reconstruction);
 
     for (size_t i2 = 0; i2 < image_ids2.size(); ++i2) {
       image_id2 = image_ids2[i2];
@@ -276,7 +282,11 @@ const std::unordered_map<image_t, size_t>& num_registrations,
       init_image_pairs_.insert(pair_id);
 
       if (IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
-              options, database_cache, two_view_geometry, image_id1, image_id2)) {
+              options,
+              database_cache,
+              two_view_geometry,
+              image_id1,
+              image_id2)) {
         return true;
       }
     }
@@ -293,8 +303,7 @@ std::vector<image_t> IncrementalMapperImpl::FindNextImages(
     const IncrementalMapper::Options& options,
     const std::shared_ptr<class Reconstruction>& reconstruction,
     const std::shared_ptr<class ObservationManager>& obs_manager,
-    const std::unordered_map<image_t, size_t>& num_reg_trials,
-    ) {
+    const std::unordered_map<image_t, size_t>& num_reg_trials, ) {
   THROW_CHECK_NOTNULL(reconstruction);
   THROW_CHECK(options.Check());
 
@@ -351,10 +360,9 @@ std::vector<image_t> IncrementalMapperImpl::FindNextImages(
   return ranked_images_ids;
 }
 
-
-
 std::vector<image_t> IncrementalMapperImpl::FindLocalBundle(
-    const IncrementalMapper::Options& options, const image_t image_id,
+    const IncrementalMapper::Options& options,
+    const image_t image_id,
     std::shared_ptr<class Reconstruction>& reconstruction) {
   THROW_CHECK(options.Check());
 
@@ -526,7 +534,7 @@ std::vector<image_t> IncrementalMapperImpl::FindLocalBundle(
 
 bool IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
     const IncrementalMapper::Options& options,
-    const std::shared_ptr<const DatabaseCache> &database_cache,
+    const std::shared_ptr<const DatabaseCache>& database_cache,
     TwoViewGeometry& two_view_geometry,
     const image_t image_id1,
     const image_t image_id2) {
@@ -573,7 +581,5 @@ bool IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
 
   return false;
 }
-
-
 
 }  // namespace colmap
