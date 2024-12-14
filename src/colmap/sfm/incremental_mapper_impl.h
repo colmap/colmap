@@ -58,7 +58,8 @@ class IncrementalMapperImpl {
       const IncrementalMapper::Options& options,
       const image_t image_id1,
       const std::shared_ptr<const DatabaseCache>& database_cache,
-      const std::shared_ptr<class Reconstruction>& reconstruction);
+      const std::shared_ptr<class Reconstruction>& reconstruction,
+      const std::unordered_map<image_t, size_t>& num_registrations);
 
   // Implement IncrementalMapper::FindInitialImagePair
   static bool FindInitialImagePair(
@@ -68,6 +69,7 @@ class IncrementalMapperImpl {
       const std::shared_ptr<class ObservationManager>& obs_manager,
       const std::unordered_map<image_t, size_t>& init_num_reg_trials,
       const std::unordered_map<image_t, size_t>& num_registrations,
+      std::unordered_set<image_pair_t>& init_image_pairs,
       TwoViewGeometry& two_view_geometry,
       image_t& image_id1,
       image_t& image_id2);
@@ -77,18 +79,19 @@ class IncrementalMapperImpl {
       const IncrementalMapper::Options& options,
       const std::shared_ptr<class Reconstruction>& reconstruction,
       const std::shared_ptr<class ObservationManager>& obs_manager,
-      const std::unordered_map<image_t, size_t>& num_reg_trials, );
+      const std::unordered_map<image_t, size_t>& m_num_reg_trials,
+      const std::unordered_set<image_t>& filtered_images);
 
   // Implement IncrementalMapper::FindLocalBundle
-  std::vector<image_t> FindLocalBundle(
+  static std::vector<image_t> FindLocalBundle(
       const IncrementalMapper::Options& options,
       const image_t image_id,
-      std::shared_ptr<class Reconstruction>& reconstruction);
+      const std::shared_ptr<class Reconstruction>& reconstruction);
 
   // Implement IncrementalMapper::EstimateInitialTwoViewGeometry
   static bool EstimateInitialTwoViewGeometry(
+      const IncrementalMapper::Options& options,
       const std::shared_ptr<const DatabaseCache>& database_cache,
-      const Options& options,
       TwoViewGeometry& two_view_geometry,
       image_t image_id1,
       image_t image_id2);

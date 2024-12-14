@@ -69,9 +69,7 @@ IncrementalMapper::IncrementalMapper(
     : database_cache_(std::move(database_cache)),
       reconstruction_(nullptr),
       obs_manager_(nullptr),
-      triangulator_(nullptr),
-      num_total_reg_images_(0),
-      num_shared_reg_images_(0) {}
+      triangulator_(nullptr) {}
 
 void IncrementalMapper::BeginReconstruction(
     const std::shared_ptr<class Reconstruction>& reconstruction) {
@@ -83,8 +81,8 @@ void IncrementalMapper::BeginReconstruction(
   triangulator_ = std::make_shared<IncrementalTriangulator>(
       database_cache_->CorrespondenceGraph(), *reconstruction_, obs_manager_);
 
-  num_shared_reg_images_ = 0;
-  num_reg_images_per_camera_.clear();
+  reg_stats_.num_shared_reg_images = 0;
+  reg_stats_.num_reg_images_per_camera.clear();
   for (const image_t image_id : reconstruction_->RegImageIds()) {
     RegisterImageEvent(image_id);
   }
@@ -94,7 +92,7 @@ void IncrementalMapper::BeginReconstruction(
                                   reconstruction->RegImageIds().end());
 
   filtered_images_.clear();
-  num_reg_trials_.clear();
+  reg_stats_.num_reg_trials.clear();
 }
 
 void IncrementalMapper::EndReconstruction(const bool discard) {
@@ -120,8 +118,9 @@ bool IncrementalMapper::FindInitialImagePair(const Options& options,
                                                      database_cache_,
                                                      reconstruction_,
                                                      obs_manager_,
-                                                     init_num_reg_trials_,
-                                                     num_registrations_,
+                                                     reg_stats_.init_num_reg_trials,
+                                                     reg_stats_.num_registrations,
+                                                     reg_stats_.init_image_pairs,
                                                      two_view_geometry,
                                                      image_id1,
                                                      image_id2);
@@ -129,7 +128,7 @@ bool IncrementalMapper::FindInitialImagePair(const Options& options,
 
 std::vector<image_t> IncrementalMapper::FindNextImages(const Options& options) {
   return IncrementalMapperImpl::FindNextImages(
-      options, reconstruction_, obs_manager_, num_reg_trials_);
+      options, reconstruction_, obs_manager_, reg_stats_.num_reg_trials, filtered_images_);
 }
 
 void IncrementalMapper::RegisterInitialImagePair(
@@ -143,14 +142,14 @@ void IncrementalMapper::RegisterInitialImagePair(
 
   THROW_CHECK(options.Check());
 
-  init_num_reg_trials_[image_id1] += 1;
-  init_num_reg_trials_[image_id2] += 1;
-  num_reg_trials_[image_id1] += 1;
-  num_reg_trials_[image_id2] += 1;
+  reg_stats_.init_num_reg_trials[image_id1] += 1;
+  reg_stats_.init_num_reg_trials[image_id2] += 1;
+  reg_stats_.num_reg_trials[image_id1] += 1;
+  reg_stats_.num_reg_trials[image_id2] += 1;
 
   const image_pair_t pair_id =
       Database::ImagePairToPairId(image_id1, image_id2);
-  init_image_pairs_.insert(pair_id);
+  reg_stats_.init_image_pairs.insert(pair_id);
 
   Image& image1 = reconstruction_->Image(image_id1);
   const Camera& camera1 = *image1.CameraPtr();
@@ -224,7 +223,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
 
   THROW_CHECK(!image.HasPose()) << "Image cannot be registered multiple times";
 
-  num_reg_trials_[image_id] += 1;
+  reg_stats_.num_reg_trials[image_id] += 1;
 
   // Check if enough 2D-3D correspondences.
   if (obs_manager_->NumVisiblePoints3D(image_id) <
@@ -309,7 +308,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
       options.abs_pose_min_inlier_ratio;
 
   AbsolutePoseRefinementOptions abs_pose_refinement_options;
-  if (num_reg_images_per_camera_[image.CameraId()] > 0) {
+  if (reg_stats_.num_reg_images_per_camera[image.CameraId()] > 0) {
     // Camera already refined from another image with the same camera.
     if (camera.HasBogusParams(options.min_focal_length_ratio,
                               options.max_focal_length_ratio,
@@ -481,7 +480,7 @@ IncrementalMapper::AdjustLocalBundle(
 
     for (const auto& [camera_id, num_images] : num_images_per_camera) {
       const size_t num_reg_images_for_camera =
-          num_reg_images_per_camera_.at(camera_id);
+          reg_stats_.num_reg_images_per_camera.at(camera_id);
       if (num_images < num_reg_images_for_camera) {
         ba_config.SetConstantCamIntrinsics(camera_id);
       }
@@ -757,15 +756,15 @@ const std::unordered_set<image_t>& IncrementalMapper::ExistingImageIds() const {
 
 const std::unordered_map<camera_t, size_t>&
 IncrementalMapper::NumRegImagesPerCamera() const {
-  return num_reg_images_per_camera_;
+  return reg_stats_.num_reg_images_per_camera;
 }
 
 size_t IncrementalMapper::NumTotalRegImages() const {
-  return num_total_reg_images_;
+  return reg_stats_.num_total_reg_images;
 }
 
 size_t IncrementalMapper::NumSharedRegImages() const {
-  return num_shared_reg_images_;
+  return reg_stats_.num_shared_reg_images;
 }
 
 const std::unordered_set<point3D_t>& IncrementalMapper::GetModifiedPoints3D() {
@@ -785,31 +784,31 @@ std::vector<image_t> IncrementalMapper::FindLocalBundle(
 void IncrementalMapper::RegisterImageEvent(const image_t image_id) {
   const Image& image = reconstruction_->Image(image_id);
   size_t& num_reg_images_for_camera =
-      num_reg_images_per_camera_[image.CameraId()];
+      reg_stats_.num_reg_images_per_camera[image.CameraId()];
   num_reg_images_for_camera += 1;
 
-  size_t& num_regs_for_image = num_registrations_[image_id];
+  size_t& num_regs_for_image = reg_stats_.num_registrations[image_id];
   num_regs_for_image += 1;
   if (num_regs_for_image == 1) {
-    num_total_reg_images_ += 1;
+    reg_stats_.num_total_reg_images += 1;
   } else if (num_regs_for_image > 1) {
-    num_shared_reg_images_ += 1;
+    reg_stats_.num_shared_reg_images += 1;
   }
 }
 
 void IncrementalMapper::DeRegisterImageEvent(const image_t image_id) {
   const Image& image = reconstruction_->Image(image_id);
   size_t& num_reg_images_for_camera =
-      num_reg_images_per_camera_.at(image.CameraId());
+      reg_stats_.num_reg_images_per_camera.at(image.CameraId());
   THROW_CHECK_GT(num_reg_images_for_camera, 0);
   num_reg_images_for_camera -= 1;
 
-  size_t& num_regs_for_image = num_registrations_[image_id];
+  size_t& num_regs_for_image = reg_stats_.num_registrations[image_id];
   num_regs_for_image -= 1;
   if (num_regs_for_image == 0) {
-    num_total_reg_images_ -= 1;
+    reg_stats_.num_total_reg_images -= 1;
   } else if (num_regs_for_image > 0) {
-    num_shared_reg_images_ -= 1;
+    reg_stats_.num_shared_reg_images -= 1;
   }
 }
 
@@ -819,7 +818,7 @@ bool IncrementalMapper::EstimateInitialTwoViewGeometry(
     const image_t image_id1,
     const image_t image_id2) {
   return IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
-      options, two_view_geometry, image_id1, image_id2);
+      options, database_cache_, two_view_geometry, image_id1, image_id2);
 }
 
 }  // namespace colmap
