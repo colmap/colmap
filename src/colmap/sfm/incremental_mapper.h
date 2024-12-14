@@ -165,8 +165,8 @@ class IncrementalMapper {
 
     // The number of registered images per camera. This information is used
     // to avoid duplicate refinement of camera parameters and degradation of
-    // already refined camera parameters in local bundle adjustment when multiple
-    // images share intrinsics.
+    // already refined camera parameters in local bundle adjustment when
+    // multiple images share intrinsics.
     std::unordered_map<camera_t, size_t> num_reg_images_per_camera;
 
     // The number of reconstructions in which images are registered.

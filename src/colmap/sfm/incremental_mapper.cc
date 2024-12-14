@@ -114,21 +114,25 @@ bool IncrementalMapper::FindInitialImagePair(const Options& options,
                                              TwoViewGeometry& two_view_geometry,
                                              image_t& image_id1,
                                              image_t& image_id2) {
-  return IncrementalMapperImpl::FindInitialImagePair(options,
-                                                     database_cache_,
-                                                     reconstruction_,
-                                                     obs_manager_,
-                                                     reg_stats_.init_num_reg_trials,
-                                                     reg_stats_.num_registrations,
-                                                     reg_stats_.init_image_pairs,
-                                                     two_view_geometry,
-                                                     image_id1,
-                                                     image_id2);
+  return IncrementalMapperImpl::FindInitialImagePair(
+      options,
+      database_cache_,
+      reconstruction_,
+      obs_manager_,
+      reg_stats_.init_num_reg_trials,
+      reg_stats_.num_registrations,
+      reg_stats_.init_image_pairs,
+      two_view_geometry,
+      image_id1,
+      image_id2);
 }
 
 std::vector<image_t> IncrementalMapper::FindNextImages(const Options& options) {
-  return IncrementalMapperImpl::FindNextImages(
-      options, reconstruction_, obs_manager_, reg_stats_.num_reg_trials, filtered_images_);
+  return IncrementalMapperImpl::FindNextImages(options,
+                                               reconstruction_,
+                                               obs_manager_,
+                                               reg_stats_.num_reg_trials,
+                                               filtered_images_);
 }
 
 void IncrementalMapper::RegisterInitialImagePair(

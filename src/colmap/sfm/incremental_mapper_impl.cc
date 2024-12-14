@@ -268,8 +268,11 @@ bool IncrementalMapperImpl::FindInitialImagePair(
     image_id1 = image_ids1[i1];
 
     const std::vector<image_t> image_ids2 =
-        IncrementalMapperImpl::FindSecondInitialImage(
-            options, image_id1, database_cache, reconstruction, num_registrations);
+        IncrementalMapperImpl::FindSecondInitialImage(options,
+                                                      image_id1,
+                                                      database_cache,
+                                                      reconstruction,
+                                                      num_registrations);
 
     for (size_t i2 = 0; i2 < image_ids2.size(); ++i2) {
       image_id2 = image_ids2[i2];
@@ -314,10 +317,12 @@ std::vector<image_t> IncrementalMapperImpl::FindNextImages(
   std::function<float(image_t, const class ObservationManager&)>
       rank_image_func;
   switch (options.image_selection_method) {
-    case IncrementalMapper::Options::ImageSelectionMethod::MAX_VISIBLE_POINTS_NUM:
+    case IncrementalMapper::Options::ImageSelectionMethod::
+        MAX_VISIBLE_POINTS_NUM:
       rank_image_func = RankNextImageMaxVisiblePointsNum;
       break;
-    case IncrementalMapper::Options::ImageSelectionMethod::MAX_VISIBLE_POINTS_RATIO:
+    case IncrementalMapper::Options::ImageSelectionMethod::
+        MAX_VISIBLE_POINTS_RATIO:
       rank_image_func = RankNextImageMaxVisiblePointsRatio;
       break;
     case IncrementalMapper::Options::ImageSelectionMethod::MIN_UNCERTAINTY:
