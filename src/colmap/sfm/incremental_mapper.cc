@@ -114,7 +114,7 @@ bool IncrementalMapper::FindInitialImagePair(const Options& options,
                                              TwoViewGeometry& two_view_geometry,
                                              image_t& image_id1,
                                              image_t& image_id2) {
-  return IncrementalMapperImpl::FindInitialImagePair(options,
+  return IncrementalMapperImpl::FindInitialImagePair<DatabaseCache, class Reconstruction, class ObservationManager>(options,
                                                      database_cache_,
                                                      reconstruction_,
                                                      obs_manager_,
@@ -127,7 +127,7 @@ bool IncrementalMapper::FindInitialImagePair(const Options& options,
 }
 
 std::vector<image_t> IncrementalMapper::FindNextImages(const Options& options) {
-  return IncrementalMapperImpl::FindNextImages(
+  return IncrementalMapperImpl::FindNextImages<class Reconstruction, class ObservationManager>(
       options, reconstruction_, obs_manager_, reg_stats_.num_reg_trials, filtered_images_);
 }
 
@@ -777,7 +777,7 @@ void IncrementalMapper::ClearModifiedPoints3D() {
 
 std::vector<image_t> IncrementalMapper::FindLocalBundle(
     const Options& options, const image_t image_id) const {
-  return IncrementalMapperImpl::FindLocalBundle(
+  return IncrementalMapperImpl::FindLocalBundle<class Reconstruction>(
       options, image_id, reconstruction_);
 }
 
@@ -817,7 +817,7 @@ bool IncrementalMapper::EstimateInitialTwoViewGeometry(
     TwoViewGeometry& two_view_geometry,
     const image_t image_id1,
     const image_t image_id2) {
-  return IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
+  return IncrementalMapperImpl::EstimateInitialTwoViewGeometry<DatabaseCache>(
       options, database_cache_, two_view_geometry, image_id1, image_id2);
 }
 
