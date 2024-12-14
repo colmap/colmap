@@ -287,18 +287,6 @@ class IncrementalMapper {
                                        image_t image_id) const;
 
  private:
-  // Find seed images for incremental reconstruction. Suitable seed images have
-  // a large number of correspondences and have camera calibration priors. The
-  // returned list is ordered such that most suitable images are in the front.
-  std::vector<image_t> FindFirstInitialImage(const Options& options) const;
-
-  // For a given first seed image, find other images that are connected to the
-  // first image. Suitable second images have a large number of correspondences
-  // to the first image and have camera calibration priors. The returned list is
-  // ordered such that most suitable images are in the front.
-  std::vector<image_t> FindSecondInitialImage(const Options& options,
-                                              image_t image_id1) const;
-
   // Register / De-register image in current reconstruction and update
   // the number of shared images between all reconstructions.
   void RegisterImageEvent(image_t image_id);
