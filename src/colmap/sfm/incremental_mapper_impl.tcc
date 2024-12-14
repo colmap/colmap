@@ -296,10 +296,10 @@ bool IncrementalMapperImpl::FindInitialImagePair(
 template <typename ReconstructionClass, typename ObservationManagerClass>
 std::vector<image_t> IncrementalMapperImpl::FindNextImages(
     const IncrementalMapper::Options& options,
-    const std::shared_ptr<ReconstructionClass>& reconstruction,
-    const std::shared_ptr<ObservationManagerClass>& obs_manager,
-    const std::unordered_map<image_t, size_t>& m_num_reg_trials,
-    const std::unordered_set<image_t>& filtered_images) {
+    const std::shared_ptr<class Reconstruction>& reconstruction,
+    const std::shared_ptr<class ObservationManager>& obs_manager,
+    const std::unordered_set<image_t>& filtered_images,
+    std::unordered_map<image_t, size_t>& m_num_reg_trials) {
   THROW_CHECK_NOTNULL(reconstruction);
   THROW_CHECK(options.Check());
 
@@ -336,7 +336,7 @@ std::vector<image_t> IncrementalMapperImpl::FindNextImages(
     }
 
     // Only try registration for a certain maximum number of times.
-    const size_t num_reg_trials = m_num_reg_trials.at(image.first);
+    const size_t num_reg_trials = m_num_reg_trials[image.first];
     if (num_reg_trials >= static_cast<size_t>(options.max_reg_trials)) {
       continue;
     }

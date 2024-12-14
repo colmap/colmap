@@ -65,9 +65,9 @@ class IncrementalMapperImpl {
   template <typename DatabaseCacheClass, typename ReconstructionClass>
   static std::vector<image_t> FindSecondInitialImage(
       const IncrementalMapper::Options& options,
-      const image_t image_id1,
-      const std::shared_ptr<const DatabaseCacheClass>& database_cache,
-      const std::shared_ptr<ReconstructionClass>& reconstruction,
+      image_t image_id1,
+      const std::shared_ptr<const DatabaseCache>& database_cache,
+      const std::shared_ptr<class Reconstruction>& reconstruction,
       const std::unordered_map<image_t, size_t>& num_registrations);
 
   // Implement IncrementalMapper::FindInitialImagePair
@@ -90,17 +90,17 @@ class IncrementalMapperImpl {
   template <typename ReconstructionClass, typename ObservationManagerClass>
   static std::vector<image_t> FindNextImages(
       const IncrementalMapper::Options& options,
-      const std::shared_ptr<ReconstructionClass>& reconstruction,
-      const std::shared_ptr<ObservationManagerClass>& obs_manager,
-      const std::unordered_map<image_t, size_t>& m_num_reg_trials,
-      const std::unordered_set<image_t>& filtered_images);
+      const std::shared_ptr<class Reconstruction>& reconstruction,
+      const std::shared_ptr<class ObservationManager>& obs_manager,
+      const std::unordered_set<image_t>& filtered_images,
+      std::unordered_map<image_t, size_t>& m_num_reg_trials);
 
   // Implement IncrementalMapper::FindLocalBundle
   template <typename ReconstructionClass>
   static std::vector<image_t> FindLocalBundle(
       const IncrementalMapper::Options& options,
-      const image_t image_id,
-      const std::shared_ptr<ReconstructionClass>& reconstruction);
+      image_t image_id,
+      const std::shared_ptr<class Reconstruction>& reconstruction);
 
   // Implement IncrementalMapper::EstimateInitialTwoViewGeometry
   template <typename DatabaseCacheClass>
