@@ -143,9 +143,9 @@ std::vector<image_t> IncrementalMapperImpl::FindFirstInitialImage(
 template <typename DatabaseCacheClass, typename ReconstructionClass>
 std::vector<image_t> IncrementalMapperImpl::FindSecondInitialImage(
     const IncrementalMapper::Options& options,
-    const image_t image_id1,
-    const std::shared_ptr<const DatabaseCacheClass>& database_cache,
-    const std::shared_ptr<ReconstructionClass>& reconstruction,
+    image_t image_id1,
+    const std::shared_ptr<const DatabaseCache>& database_cache,
+    const std::shared_ptr<class Reconstruction>& reconstruction,
     const std::unordered_map<image_t, size_t>& num_registrations) {
   const std::shared_ptr<const CorrespondenceGraph> correspondence_graph =
       database_cache->CorrespondenceGraph();
@@ -361,8 +361,8 @@ std::vector<image_t> IncrementalMapperImpl::FindNextImages(
 template <typename ReconstructionClass>
 std::vector<image_t> IncrementalMapperImpl::FindLocalBundle(
     const IncrementalMapper::Options& options,
-    const image_t image_id,
-    const std::shared_ptr<ReconstructionClass>& reconstruction) {
+    image_t image_id,
+    const std::shared_ptr<class Reconstruction>& reconstruction) {
   THROW_CHECK(options.Check());
 
   const Image& image = reconstruction->Image(image_id);
