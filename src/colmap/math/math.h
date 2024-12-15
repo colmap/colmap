@@ -61,9 +61,11 @@ inline double DegToRad(double deg);
 inline float RadToDeg(float rad);
 inline double RadToDeg(double rad);
 
-// Determine median value in vector. Returns NaN for empty vectors.
+// Determine median value. Reorderes elements in-place.
 template <typename T>
-double Median(const std::vector<T>& elems);
+double Median(std::vector<T>& elems);
+template <typename T>
+double Median(std::vector<T>&& elems);
 
 // Determine mean value in a vector.
 template <typename T>
@@ -108,9 +110,11 @@ uint64_t NChooseK(uint64_t n, uint64_t k);
 template <typename T1, typename T2>
 T2 TruncateCast(T1 value);
 
-// Compute the n-th percentile in the given sequence.
+// Compute the n-th percentile. Reorders elements in-place.
 template <typename T>
-T Percentile(const std::vector<T>& elems, double p);
+T Percentile(std::vector<T>& elems, double p);
+template <typename T>
+T Percentile(std::vector<T>&& elems, double p);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
@@ -186,42 +190,40 @@ double RadToDeg(const double rad) {
 }
 
 template <typename T>
-double Median(const std::vector<T>& elems) {
+double Median(std::vector<T>& elems) {
   THROW_CHECK(!elems.empty());
-
   const size_t mid_idx = elems.size() / 2;
-
-  std::vector<T> ordered_elems = elems;
-  std::nth_element(ordered_elems.begin(),
-                   ordered_elems.begin() + mid_idx,
-                   ordered_elems.end());
-
+  std::nth_element(elems.begin(), elems.begin() + mid_idx, elems.end());
   if (elems.size() % 2 == 0) {
-    const T mid_element1 = ordered_elems[mid_idx];
-    const T mid_element2 = *std::max_element(ordered_elems.begin(),
-                                             ordered_elems.begin() + mid_idx);
+    const T mid_element1 = elems[mid_idx];
+    const T mid_element2 =
+        *std::max_element(elems.begin(), elems.begin() + mid_idx);
     return 0.5 * mid_element1 + 0.5 * mid_element2;
   } else {
-    return ordered_elems[mid_idx];
+    return elems[mid_idx];
   }
 }
 
 template <typename T>
-T Percentile(const std::vector<T>& elems, const double p) {
+double Median(std::vector<T>&& elems) {
+  return Median(elems);
+}
+
+template <typename T>
+T Percentile(std::vector<T>& elems, const double p) {
   THROW_CHECK(!elems.empty());
   THROW_CHECK_GE(p, 0);
   THROW_CHECK_LE(p, 100);
-
   const int idx = static_cast<int>(std::round(p / 100 * (elems.size() - 1)));
   const size_t percentile_idx =
       std::max(0, std::min(static_cast<int>(elems.size() - 1), idx));
+  std::nth_element(elems.begin(), elems.begin() + percentile_idx, elems.end());
+  return elems[percentile_idx];
+}
 
-  std::vector<T> ordered_elems = elems;
-  std::nth_element(ordered_elems.begin(),
-                   ordered_elems.begin() + percentile_idx,
-                   ordered_elems.end());
-
-  return ordered_elems.at(percentile_idx);
+template <typename T>
+T Percentile(std::vector<T>&& elems, const double p) {
+  return Percentile(elems, p);
 }
 
 template <typename T>

@@ -199,13 +199,12 @@ void PrintErrorStats(std::ostream& out, std::vector<double>& vals) {
     out << "Cannot extract error statistics from empty input\n";
     return;
   }
-  std::sort(vals.begin(), vals.end());
-  out << "Min:    " << vals.front() << "\n";
-  out << "Max:    " << vals.back() << "\n";
+  out << "Min:    " << Percentile(vals, 0) << "\n";
+  out << "Max:    " << Percentile(vals, 100) << "\n";
   out << "Mean:   " << Mean(vals) << "\n";
   out << "Median: " << Median(vals) << "\n";
-  out << "P90:    " << vals[size_t(0.9 * len)] << "\n";
-  out << "P99:    " << vals[size_t(0.99 * len)] << "\n";
+  out << "P90:    " << Percentile(vals, 90) << "\n";
+  out << "P99:    " << Percentile(vals, 99) << "\n";
 }
 
 void PrintComparisonSummary(std::ostream& out,

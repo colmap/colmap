@@ -144,8 +144,8 @@ template <typename DatabaseCacheClass, typename ReconstructionClass>
 std::vector<image_t> IncrementalMapperImpl::FindSecondInitialImage(
     const IncrementalMapper::Options& options,
     image_t image_id1,
-    const std::shared_ptr<const DatabaseCache>& database_cache,
-    const std::shared_ptr<class Reconstruction>& reconstruction,
+    const std::shared_ptr<const DatabaseCacheClass>& database_cache,
+    const std::shared_ptr<ReconstructionClass>& reconstruction,
     const std::unordered_map<image_t, size_t>& num_registrations) {
   const std::shared_ptr<const CorrespondenceGraph> correspondence_graph =
       database_cache->CorrespondenceGraph();
@@ -296,8 +296,8 @@ bool IncrementalMapperImpl::FindInitialImagePair(
 template <typename ReconstructionClass, typename ObservationManagerClass>
 std::vector<image_t> IncrementalMapperImpl::FindNextImages(
     const IncrementalMapper::Options& options,
-    const std::shared_ptr<class Reconstruction>& reconstruction,
-    const std::shared_ptr<class ObservationManager>& obs_manager,
+    const std::shared_ptr<ReconstructionClass>& reconstruction,
+    const std::shared_ptr<ObservationManagerClass>& obs_manager,
     const std::unordered_set<image_t>& filtered_images,
     std::unordered_map<image_t, size_t>& m_num_reg_trials) {
   THROW_CHECK_NOTNULL(reconstruction);
@@ -362,7 +362,7 @@ template <typename ReconstructionClass>
 std::vector<image_t> IncrementalMapperImpl::FindLocalBundle(
     const IncrementalMapper::Options& options,
     image_t image_id,
-    const std::shared_ptr<class Reconstruction>& reconstruction) {
+    const std::shared_ptr<ReconstructionClass>& reconstruction) {
   THROW_CHECK(options.Check());
 
   const Image& image = reconstruction->Image(image_id);
