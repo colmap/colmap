@@ -192,16 +192,6 @@ double RadToDeg(const double rad) {
 }
 
 template <typename T>
-double Median(std::vector<T>& elems) {
-  return Percentile(elems, 50);
-}
-
-template <typename T>
-double Median(std::vector<T>&& elems) {
-  return Median(elems);
-}
-
-template <typename T>
 double Percentile(std::vector<T>& elems, const double p) {
   THROW_CHECK(!elems.empty());
   THROW_CHECK_GE(p, 0);
@@ -226,6 +216,16 @@ double Percentile(std::vector<T>& elems, const double p) {
 template <typename T>
 double Percentile(std::vector<T>&& elems, const double p) {
   return Percentile(elems, p);
+}
+
+template <typename T>
+double Median(std::vector<T>& elems) {
+  return Percentile(elems, 50);
+}
+
+template <typename T>
+double Median(std::vector<T>&& elems) {
+  return Median(elems);
 }
 
 template <typename T>
