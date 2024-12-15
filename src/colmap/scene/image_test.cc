@@ -244,7 +244,7 @@ TEST(Image, Extension) {
   ASSERT_FALSE(image.HasExtension());
   image.SetExtension(std::make_shared<TestExtension>());
   ASSERT_TRUE(image.HasExtension());
-  EXPECT_EQ(image.GetExtension<TestExtension>().test_field, 42);
+  EXPECT_EQ(image.GetExtensionRef<TestExtension>().test_field, 42);
 }
 
 }  // namespace

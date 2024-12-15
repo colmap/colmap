@@ -131,10 +131,11 @@ class Image {
   inline void SetExtension(std::shared_ptr<Extension> extension);
   inline bool HasExtension() const;
 
+  inline std::shared_ptr<Extension> GetExtension() const;
   template <typename T>
-  inline T& GetExtension();
+  inline T& GetExtensionRef();
   template <typename T>
-  inline const T& GetExtension() const;
+  inline const T& GetExtensionRef() const;
 
   inline bool operator==(const Image& other) const;
   inline bool operator!=(const Image& other) const;
@@ -265,13 +266,17 @@ void Image::SetExtension(std::shared_ptr<Extension> extension) {
 
 bool Image::HasExtension() const { return extension_ != nullptr; }
 
+std::shared_ptr<Image::Extension> Image::GetExtension() const {
+  return extension_;
+}
+
 template <typename T>
-T& Image::GetExtension() {
+T& Image::GetExtensionRef() {
   return *static_cast<T*>(extension_.get());
 }
 
 template <typename T>
-const T& Image::GetExtension() const {
+const T& Image::GetExtensionRef() const {
   return *static_cast<const T*>(extension_.get());
 }
 
