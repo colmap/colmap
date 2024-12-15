@@ -41,6 +41,9 @@ std::shared_ptr<Image> MakeImage(const std::string& name,
 }
 
 void BindImage(py::module& m) {
+  py::class_<Image::Extension, std::shared_ptr<Image::Extension>>(
+      m, "ImageExtension");
+
   py::class_<Image, std::shared_ptr<Image>> PyImage(m, "Image");
   PyImage.def(py::init<>())
       .def(py::init(&MakeImage<Point2D>),
@@ -172,7 +175,9 @@ void BindImage(py::module& m) {
             }
             return points2D;
           },
-          "Get the 2D points that observe a 3D point.");
+          "Get the 2D points that observe a 3D point.")
+      .def("set_extension", &Image::SetExtension, "Set extension field")
+      .def("get_extension", &Image::GetExtension, "Get extension field");
   MakeDataclass(PyImage);
 
   py::bind_map<ImageMap>(m, "MapImageIdToImage");
