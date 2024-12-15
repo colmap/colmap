@@ -27,18 +27,6 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/sfm/incremental_mapper_impl.h"
-
-#include "colmap/estimators/pose.h"
-#include "colmap/estimators/two_view_geometry.h"
-#include "colmap/geometry/triangulation.h"
-#include "colmap/scene/projection.h"
-#include "colmap/util/misc.h"
-
-#include <array>
-#include <fstream>
-
-namespace colmap {
 namespace {
 
 void SortAndAppendNextImages(std::vector<std::pair<image_t, float>> image_ranks,
@@ -76,10 +64,11 @@ float RankNextImageMinUncertainty(const image_t image_id,
 
 }  // namespace
 
+template <typename CorrespondenceGraphClass, typename ReconstructionClass>
 std::vector<image_t> IncrementalMapperImpl::FindFirstInitialImage(
     const IncrementalMapper::Options& options,
-    const CorrespondenceGraph& correspondence_graph,
-    const Reconstruction& reconstruction,
+    const CorrespondenceGraphClass& correspondence_graph,
+    const ReconstructionClass& reconstruction,
     const std::unordered_map<image_t, size_t>& init_num_reg_trials,
     const std::unordered_map<image_t, size_t>& num_registrations) {
   // Struct to hold meta-data for ranking images.
@@ -151,11 +140,12 @@ std::vector<image_t> IncrementalMapperImpl::FindFirstInitialImage(
   return image_ids;
 }
 
+template <typename CorrespondenceGraphClass, typename ReconstructionClass>
 std::vector<image_t> IncrementalMapperImpl::FindSecondInitialImage(
     const IncrementalMapper::Options& options,
     image_t image_id1,
-    const CorrespondenceGraph& correspondence_graph,
-    const Reconstruction& reconstruction,
+    const CorrespondenceGraphClass& correspondence_graph,
+    const ReconstructionClass& reconstruction,
     const std::unordered_map<image_t, size_t>& num_registrations) {
   // Collect images that are connected to the first seed image and have
   // not been registered before in other reconstructions.
@@ -225,10 +215,11 @@ std::vector<image_t> IncrementalMapperImpl::FindSecondInitialImage(
   return image_ids;
 }
 
+template <typename DatabaseCacheClass, typename ReconstructionClass>
 bool IncrementalMapperImpl::FindInitialImagePair(
     const IncrementalMapper::Options& options,
-    const DatabaseCache& database_cache,
-    const Reconstruction& reconstruction,
+    const DatabaseCacheClass& database_cache,
+    const ReconstructionClass& reconstruction,
     const std::unordered_map<image_t, size_t>& init_num_reg_trials,
     const std::unordered_map<image_t, size_t>& num_registrations,
     std::unordered_set<image_pair_t>& init_image_pairs,
@@ -303,9 +294,10 @@ bool IncrementalMapperImpl::FindInitialImagePair(
   return false;
 }
 
+template <typename ObservationManagerClass>
 std::vector<image_t> IncrementalMapperImpl::FindNextImages(
     const IncrementalMapper::Options& options,
-    const ObservationManager& obs_manager,
+    const ObservationManagerClass& obs_manager,
     const std::unordered_set<image_t>& filtered_images,
     std::unordered_map<image_t, size_t>& m_num_reg_trials) {
   THROW_CHECK(options.Check());
@@ -366,10 +358,11 @@ std::vector<image_t> IncrementalMapperImpl::FindNextImages(
   return ranked_images_ids;
 }
 
+template <typename ReconstructionClass>
 std::vector<image_t> IncrementalMapperImpl::FindLocalBundle(
     const IncrementalMapper::Options& options,
     image_t image_id,
-    const Reconstruction& reconstruction) {
+    const ReconstructionClass& reconstruction) {
   THROW_CHECK(options.Check());
 
   const Image& image = reconstruction.Image(image_id);
@@ -538,9 +531,10 @@ std::vector<image_t> IncrementalMapperImpl::FindLocalBundle(
   return local_bundle_image_ids;
 }
 
+template <typename DatabaseCacheClass>
 bool IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
     const IncrementalMapper::Options& options,
-    const DatabaseCache& database_cache,
+    const DatabaseCacheClass& database_cache,
     const image_t image_id1,
     const image_t image_id2,
     TwoViewGeometry& two_view_geometry) {
@@ -587,5 +581,3 @@ bool IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
 
   return false;
 }
-
-}  // namespace colmap

@@ -35,6 +35,13 @@
 #include "colmap/sfm/incremental_mapper.h"
 #include "colmap/sfm/observation_manager.h"
 
+// for .tcc implementation
+#include "colmap/estimators/pose.h"
+#include "colmap/estimators/two_view_geometry.h"
+#include "colmap/geometry/triangulation.h"
+#include "colmap/scene/projection.h"
+#include "colmap/util/misc.h"
+
 namespace colmap {
 
 // Algorithm class for incremental mapper to make it easier to extend
@@ -43,10 +50,11 @@ class IncrementalMapperImpl {
   // Find seed images for incremental reconstruction. Suitable seed images have
   // a large number of correspondences and have camera calibration priors. The
   // returned list is ordered such that most suitable images are in the front.
+  template <typename CorrespondenceGraphClass, typename ReconstructionClass>
   static std::vector<image_t> FindFirstInitialImage(
       const IncrementalMapper::Options& options,
-      const CorrespondenceGraph& correspondence_graph,
-      const Reconstruction& reconstruction,
+      const CorrespondenceGraphClass& correspondence_graph,
+      const ReconstructionClass& reconstruction,
       const std::unordered_map<image_t, size_t>& init_num_reg_trials,
       const std::unordered_map<image_t, size_t>& num_registrations);
 
@@ -54,18 +62,20 @@ class IncrementalMapperImpl {
   // first image. Suitable second images have a large number of correspondences
   // to the first image and have camera calibration priors. The returned list is
   // ordered such that most suitable images are in the front.
+  template <typename CorrespondenceGraphClass, typename ReconstructionClass>
   static std::vector<image_t> FindSecondInitialImage(
       const IncrementalMapper::Options& options,
       image_t image_id1,
-      const CorrespondenceGraph& correspondence_graph,
-      const Reconstruction& reconstruction,
+      const CorrespondenceGraphClass& correspondence_graph,
+      const ReconstructionClass& reconstruction,
       const std::unordered_map<image_t, size_t>& num_registrations);
 
   // Implement IncrementalMapper::FindInitialImagePair
+  template <typename DatabaseCacheClass, typename ReconstructionClass>
   static bool FindInitialImagePair(
       const IncrementalMapper::Options& options,
-      const DatabaseCache& database_cache,
-      const Reconstruction& reconstruction,
+      const DatabaseCacheClass& database_cache,
+      const ReconstructionClass& reconstruction,
       const std::unordered_map<image_t, size_t>& init_num_reg_trials,
       const std::unordered_map<image_t, size_t>& num_registrations,
       std::unordered_set<image_pair_t>& init_image_pairs,
@@ -74,25 +84,30 @@ class IncrementalMapperImpl {
       image_t& image_id2);
 
   // Implement IncrementalMapper::FindNextImages
+  template <typename ObservationManagerClass>
   static std::vector<image_t> FindNextImages(
       const IncrementalMapper::Options& options,
-      const ObservationManager& obs_manager,
+      const ObservationManagerClass& obs_manager,
       const std::unordered_set<image_t>& filtered_images,
       std::unordered_map<image_t, size_t>& m_num_reg_trials);
 
   // Implement IncrementalMapper::FindLocalBundle
+  template <typename ReconstructionClass>
   static std::vector<image_t> FindLocalBundle(
       const IncrementalMapper::Options& options,
       image_t image_id,
-      const Reconstruction& reconstruction);
+      const ReconstructionClass& reconstruction);
 
   // Implement IncrementalMapper::EstimateInitialTwoViewGeometry
+  template <typename DatabaseCacheClass>
   static bool EstimateInitialTwoViewGeometry(
       const IncrementalMapper::Options& options,
-      const DatabaseCache& database_cache,
+      const DatabaseCacheClass& database_cache,
       image_t image_id1,
       image_t image_id2,
       TwoViewGeometry& two_view_geometry);
 };
+
+#include "incremental_mapper_impl.tcc"  // Include template implementation
 
 }  // namespace colmap
