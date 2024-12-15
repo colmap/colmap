@@ -46,6 +46,7 @@ COLMAP_ADD_LIBRARY(
         colmap_util
         colmap_scene
     PRIVATE_LINK_LIBS
+        colmap_math
         colmap_sensor
         colmap_image
         colmap_poisson_recon
