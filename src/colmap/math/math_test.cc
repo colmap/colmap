@@ -83,16 +83,22 @@ TEST(Percentile, Nominal) {
   EXPECT_EQ((Percentile(std::vector<int>{0}, 50)), 0);
   EXPECT_EQ((Percentile(std::vector<int>{0}, 100)), 0);
   EXPECT_EQ((Percentile(std::vector<int>{0, 1}, 0)), 0);
-  EXPECT_EQ((Percentile(std::vector<int>{0, 1}, 50)), 1);
+  EXPECT_EQ((Percentile(std::vector<int>{0, 1}, 50)), 0.5);
   EXPECT_EQ((Percentile(std::vector<int>{0, 1}, 100)), 1);
   EXPECT_EQ((Percentile(std::vector<int>{0, 1, 2}, 0)), 0);
   EXPECT_EQ((Percentile(std::vector<int>{0, 1, 2}, 50)), 1);
   EXPECT_EQ((Percentile(std::vector<int>{0, 1, 2}, 100)), 2);
   EXPECT_EQ((Percentile(std::vector<int>{0, 1, 1, 2}, 0)), 0);
-  EXPECT_EQ((Percentile(std::vector<int>{0, 1, 1, 2}, 33)), 1);
+  EXPECT_EQ((Percentile(std::vector<int>{0, 1, 1, 2}, 100. / 3.)), 1);
   EXPECT_EQ((Percentile(std::vector<int>{0, 1, 1, 2}, 50)), 1);
-  EXPECT_EQ((Percentile(std::vector<int>{0, 1, 1, 2}, 66)), 1);
+  EXPECT_EQ((Percentile(std::vector<int>{0, 1, 1, 2}, 100 / 3. * 2.)), 1);
   EXPECT_EQ((Percentile(std::vector<int>{0, 1, 1, 2}, 100)), 2);
+  EXPECT_EQ((Percentile(std::vector<int>{0, 100}, 1)), 1);
+  EXPECT_EQ((Percentile(std::vector<int>{0, 100}, 99)), 99);
+  EXPECT_EQ((Percentile(std::vector<int>{0, 1, 2, 3}, 1)), 0.03);
+  EXPECT_EQ((Percentile(std::vector<int>{0, 1, 2, 3}, 2)), 0.06);
+  EXPECT_EQ((Percentile(std::vector<int>{0, 1, 2, 3}, 33)), 0.99);
+  EXPECT_EQ((Percentile(std::vector<int>{0, 1, 2, 3}, 34)), 1.02);
 }
 
 TEST(Mean, Nominal) {
