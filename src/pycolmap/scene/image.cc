@@ -77,6 +77,10 @@ void BindImage(py::module& m) {
           },
           &Image::SetCameraPtr,
           "The address of the camera")
+      .def_property("extension",
+                    &Image::GetExtension,
+                    &Image::SetExtension,
+                    "Extension field")
       .def_property("name",
                     py::overload_cast<>(&Image::Name),
                     &Image::SetName,
@@ -175,9 +179,7 @@ void BindImage(py::module& m) {
             }
             return points2D;
           },
-          "Get the 2D points that observe a 3D point.")
-      .def("set_extension", &Image::SetExtension, "Set extension field")
-      .def("get_extension", &Image::GetExtension, "Get extension field");
+          "Get the 2D points that observe a 3D point.");
   MakeDataclass(PyImage);
 
   py::bind_map<ImageMap>(m, "MapImageIdToImage");
