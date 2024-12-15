@@ -201,7 +201,7 @@ double Percentile(std::vector<T>& elems, const double p) {
   const size_t left_idx = static_cast<size_t>(left_idx_double);
   const double right_idx_double = std::ceil(idx_double);
   const size_t right_idx = static_cast<size_t>(right_idx_double);
-  std::nth_element(elems.begin(), elems.begin() + right_idx + 1, elems.end());
+  std::nth_element(elems.begin(), elems.begin() + right_idx, elems.end());
   const double right = elems[right_idx];
   if (left_idx == right_idx) {
     return right;
