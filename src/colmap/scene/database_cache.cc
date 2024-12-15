@@ -183,7 +183,8 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
   timer.Restart();
   LOG(INFO) << "Building correspondence graph...";
 
-  cache->correspondence_graph_ = std::make_shared<CorrespondenceGraphClass>();
+  cache->correspondence_graph_ =
+      std::make_shared<DatabaseCache::CorrespondenceGraphClass>();
 
   for (const auto& image : cache->images_) {
     cache->correspondence_graph_->AddImage(image.first,
