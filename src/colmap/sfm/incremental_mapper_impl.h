@@ -108,6 +108,7 @@ class IncrementalMapperImpl {
       TwoViewGeometry& two_view_geometry);
 };
 
-#include "incremental_mapper_impl.tcc"  // Include template implementation
+// Include implementation of the template methods
+#include "incremental_mapper_impl.tcc"
 
 }  // namespace colmap
