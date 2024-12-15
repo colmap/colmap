@@ -73,6 +73,8 @@ void BuildImageModel(const Image& image,
                      const float image_size,
                      const Eigen::Vector4f& plane_color,
                      const Eigen::Vector4f& frame_color,
+                     const Eigen::Vector3d& model_origin,
+                     const double model_scale,
                      std::vector<TrianglePainter::Data>* triangle_data,
                      std::vector<LinePainter::Data>* line_data) {
   // Updating the reconstruction in the viewer (e.g., deleting an image or a
@@ -98,23 +100,27 @@ void BuildImageModel(const Image& image,
       static_cast<float>(camera.CamFromImgThreshold(camera_extent));
   const float focal_length = 2.0f * image_extent / camera_extent_normalized;
 
-  const Eigen::Matrix<float, 3, 4> world_from_cam =
-      Inverse(*cam_from_world).ToMatrix().cast<float>();
+  Rigid3d world_from_cam = Inverse(*cam_from_world);
+  world_from_cam.translation += model_origin;
+  world_from_cam.translation *= model_scale;
+
+  Eigen::Matrix<float, 3, 4> world_from_cam_mat =
+      world_from_cam.ToMatrix().cast<float>();
 
   // Projection center, top-left, top-right, bottom-right, bottom-left corners.
 
-  const Eigen::Vector3f pc = world_from_cam.rightCols<1>();
+  const Eigen::Vector3f pc = world_from_cam_mat.rightCols<1>();
   const Eigen::Vector3f tl =
-      world_from_cam *
+      world_from_cam_mat *
       Eigen::Vector4f(-image_width, image_height, focal_length, 1);
   const Eigen::Vector3f tr =
-      world_from_cam *
+      world_from_cam_mat *
       Eigen::Vector4f(image_width, image_height, focal_length, 1);
   const Eigen::Vector3f br =
-      world_from_cam *
+      world_from_cam_mat *
       Eigen::Vector4f(image_width, -image_height, focal_length, 1);
   const Eigen::Vector3f bl =
-      world_from_cam *
+      world_from_cam_mat *
       Eigen::Vector4f(-image_width, -image_height, focal_length, 1);
 
   // Image plane as two triangles.
@@ -816,11 +822,41 @@ void ModelViewerWidget::SetupView() {
   model_view_matrix_.rotate(-45, 0, 1, 0);
 }
 
+void ModelViewerWidget::ComputeModelOriginAndScale() {
+  if (reg_image_ids.empty()) {
+    model_origin_.setZero();
+    model_scale_ = 1;
+    return;
+  }
+
+  const size_t num_reg_images = reg_image_ids.size();
+  std::vector<double> x_coords(num_reg_images);
+  std::vector<double> y_coords(num_reg_images);
+  std::vector<double> z_coords(num_reg_images);
+  for (size_t i = 0; i < num_reg_images; ++i) {
+    const Image& image = images[reg_image_ids[i]];
+    const Eigen::Vector3d proj_center = image.ProjectionCenter();
+    x_coords[i] = proj_center.x();
+    y_coords[i] = proj_center.y();
+    z_coords[i] = proj_center.z();
+  }
+
+  model_origin_ =
+      -Eigen::Vector3d(Median(x_coords), Median(y_coords), Median(z_coords));
+  model_scale_ =
+      1. / std::max({Percentile(x_coords, 95) - Percentile(x_coords, 5),
+                     Percentile(y_coords, 95) - Percentile(y_coords, 5),
+                     Percentile(z_coords, 95) - Percentile(z_coords, 5),
+                     1e-6});
+}
+
 void ModelViewerWidget::Upload() {
   point_colormap_->Prepare(cameras, images, points3D, reg_image_ids);
   image_colormap_->Prepare(cameras, images, points3D, reg_image_ids);
 
   ComposeProjectionMatrix();
+
+  ComputeModelOriginAndScale();
 
   UploadPointData();
   UploadImageData();
@@ -839,46 +875,46 @@ void ModelViewerWidget::UploadCoordinateGridData() {
   // View center grid.
   std::vector<LinePainter::Data> grid_data(3);
 
-  grid_data[0].point1 = PointPainter::Data(-20 * scale,
-                                           0,
-                                           0,
+  grid_data[0].point1 = PointPainter::Data(model_origin_(0) - 20 * scale,
+                                           model_origin_(1),
+                                           model_origin_(2),
                                            kGridColor(0),
                                            kGridColor(1),
                                            kGridColor(2),
                                            kGridColor(3));
-  grid_data[0].point2 = PointPainter::Data(20 * scale,
-                                           0,
-                                           0,
-                                           kGridColor(0),
-                                           kGridColor(1),
-                                           kGridColor(2),
-                                           kGridColor(3));
-
-  grid_data[1].point1 = PointPainter::Data(0,
-                                           -20 * scale,
-                                           0,
-                                           kGridColor(0),
-                                           kGridColor(1),
-                                           kGridColor(2),
-                                           kGridColor(3));
-  grid_data[1].point2 = PointPainter::Data(0,
-                                           20 * scale,
-                                           0,
+  grid_data[0].point2 = PointPainter::Data(model_origin_(0) + 20 * scale,
+                                           model_origin_(1),
+                                           model_origin_(2),
                                            kGridColor(0),
                                            kGridColor(1),
                                            kGridColor(2),
                                            kGridColor(3));
 
-  grid_data[2].point1 = PointPainter::Data(0,
-                                           0,
-                                           -20 * scale,
+  grid_data[1].point1 = PointPainter::Data(model_origin_(0),
+                                           model_origin_(1) - 20 * scale,
+                                           model_origin_(2),
                                            kGridColor(0),
                                            kGridColor(1),
                                            kGridColor(2),
                                            kGridColor(3));
-  grid_data[2].point2 = PointPainter::Data(0,
-                                           0,
-                                           20 * scale,
+  grid_data[1].point2 = PointPainter::Data(model_origin_(0),
+                                           model_origin_(1) + 20 * scale,
+                                           model_origin_(2),
+                                           kGridColor(0),
+                                           kGridColor(1),
+                                           kGridColor(2),
+                                           kGridColor(3));
+
+  grid_data[2].point1 = PointPainter::Data(model_origin_(0),
+                                           model_origin_(1),
+                                           model_origin_(2) - 20 * scale,
+                                           kGridColor(0),
+                                           kGridColor(1),
+                                           kGridColor(2),
+                                           kGridColor(3));
+  grid_data[2].point2 = PointPainter::Data(model_origin_(0),
+                                           model_origin_(1),
+                                           model_origin_(2) + 20 * scale,
                                            kGridColor(0),
                                            kGridColor(1),
                                            kGridColor(2),
@@ -889,31 +925,46 @@ void ModelViewerWidget::UploadCoordinateGridData() {
   // Coordinate axes.
   std::vector<LinePainter::Data> axes_data(3);
 
-  axes_data[0].point1 = PointPainter::Data(
-      0, 0, 0, kXAxisColor(0), kXAxisColor(1), kXAxisColor(2), kXAxisColor(3));
-  axes_data[0].point2 = PointPainter::Data(50 * scale,
-                                           0,
-                                           0,
+  axes_data[0].point1 = PointPainter::Data(model_origin_(0),
+                                           model_origin_(1),
+                                           model_origin_(2),
+                                           kXAxisColor(0),
+                                           kXAxisColor(1),
+                                           kXAxisColor(2),
+                                           kXAxisColor(3));
+  axes_data[0].point2 = PointPainter::Data(model_origin_(0) + 50 * scale,
+                                           model_origin_(1),
+                                           model_origin_(2),
                                            kXAxisColor(0),
                                            kXAxisColor(1),
                                            kXAxisColor(2),
                                            kXAxisColor(3));
 
-  axes_data[1].point1 = PointPainter::Data(
-      0, 0, 0, kYAxisColor(0), kYAxisColor(1), kYAxisColor(2), kYAxisColor(3));
-  axes_data[1].point2 = PointPainter::Data(0,
-                                           50 * scale,
-                                           0,
+  axes_data[1].point1 = PointPainter::Data(model_origin_(0),
+                                           model_origin_(1),
+                                           model_origin_(2),
+                                           kYAxisColor(0),
+                                           kYAxisColor(1),
+                                           kYAxisColor(2),
+                                           kYAxisColor(3));
+  axes_data[1].point2 = PointPainter::Data(model_origin_(0),
+                                           model_origin_(1) + 50 * scale,
+                                           model_origin_(2),
                                            kYAxisColor(0),
                                            kYAxisColor(1),
                                            kYAxisColor(2),
                                            kYAxisColor(3));
 
-  axes_data[2].point1 = PointPainter::Data(
-      0, 0, 0, kZAxisColor(0), kZAxisColor(1), kZAxisColor(2), kZAxisColor(3));
-  axes_data[2].point2 = PointPainter::Data(0,
-                                           0,
-                                           50 * scale,
+  axes_data[2].point1 = PointPainter::Data(model_origin_(0),
+                                           model_origin_(1),
+                                           model_origin_(2),
+                                           kZAxisColor(0),
+                                           kZAxisColor(1),
+                                           kZAxisColor(2),
+                                           kZAxisColor(3));
+  axes_data[2].point2 = PointPainter::Data(model_origin_(0),
+                                           model_origin_(1),
+                                           model_origin_(2) + 50 * scale,
                                            kZAxisColor(0),
                                            kZAxisColor(1),
                                            kZAxisColor(2),
@@ -940,9 +991,12 @@ void ModelViewerWidget::UploadPointData(const bool selection_mode) {
           point3D.second.track.Length() >= min_track_len) {
         PointPainter::Data painter_point;
 
-        painter_point.x = static_cast<float>(point3D.second.xyz(0));
-        painter_point.y = static_cast<float>(point3D.second.xyz(1));
-        painter_point.z = static_cast<float>(point3D.second.xyz(2));
+        painter_point.x =
+            model_scale_ * (point3D.second.xyz(0) + model_origin_(0));
+        painter_point.y =
+            model_scale_ * (point3D.second.xyz(1) + model_origin_(1));
+        painter_point.z =
+            model_scale_ * (point3D.second.xyz(2) + model_origin_(2));
 
         Eigen::Vector4f color;
         if (selection_mode) {
@@ -972,9 +1026,12 @@ void ModelViewerWidget::UploadPointData(const bool selection_mode) {
           point3D.second.track.Length() >= min_track_len) {
         PointPainter::Data painter_point;
 
-        painter_point.x = static_cast<float>(point3D.second.xyz(0));
-        painter_point.y = static_cast<float>(point3D.second.xyz(1));
-        painter_point.z = static_cast<float>(point3D.second.xyz(2));
+        painter_point.x =
+            model_scale_ * (point3D.second.xyz(0) + model_origin_(0));
+        painter_point.y =
+            model_scale_ * (point3D.second.xyz(1) + model_origin_(1));
+        painter_point.z =
+            model_scale_ * (point3D.second.xyz(2) + model_origin_(2));
 
         Eigen::Vector4f color;
         if (selection_mode) {
@@ -1015,12 +1072,14 @@ void ModelViewerWidget::UploadPointConnectionData() {
   }
 
   const auto& point3D = points3D[selected_point3D_id_];
+  const Eigen::Vector3d point3D_xyz =
+      model_scale_ * (point3D.xyz + model_origin_);
 
   // 3D point position.
   LinePainter::Data line;
-  line.point1 = PointPainter::Data(static_cast<float>(point3D.xyz(0)),
-                                   static_cast<float>(point3D.xyz(1)),
-                                   static_cast<float>(point3D.xyz(2)),
+  line.point1 = PointPainter::Data(static_cast<float>(point3D_xyz(0)),
+                                   static_cast<float>(point3D_xyz(1)),
+                                   static_cast<float>(point3D_xyz(2)),
                                    kSelectedPointColor(0),
                                    kSelectedPointColor(1),
                                    kSelectedPointColor(2),
@@ -1030,7 +1089,8 @@ void ModelViewerWidget::UploadPointConnectionData() {
   for (const auto& track_el : point3D.track.Elements()) {
     const Image& conn_image = images[track_el.image_id];
     const Eigen::Vector3f conn_proj_center =
-        conn_image.ProjectionCenter().cast<float>();
+        (model_scale_ * (conn_image.ProjectionCenter() + model_origin_))
+            .cast<float>();
     line.point2 = PointPainter::Data(conn_proj_center(0),
                                      conn_proj_center(1),
                                      conn_proj_center(2),
@@ -1080,6 +1140,8 @@ void ModelViewerWidget::UploadImageData(const bool selection_mode) {
                     image_size_,
                     plane_color,
                     frame_color,
+                    model_origin_,
+                    model_scale_,
                     &triangle_data,
                     selection_mode ? nullptr : &line_data);
   }
@@ -1108,7 +1170,9 @@ void ModelViewerWidget::UploadImageConnectionData() {
   for (const image_t image_id : image_ids) {
     const Image& image = images.at(image_id);
 
-    const Eigen::Vector3f proj_center = image.ProjectionCenter().cast<float>();
+    const Eigen::Vector3f proj_center =
+        (model_scale_ * (image.ProjectionCenter() + model_origin_))
+            .cast<float>();
 
     // Collect all connected images
     std::unordered_set<image_t> conn_image_ids;
@@ -1136,7 +1200,8 @@ void ModelViewerWidget::UploadImageConnectionData() {
     for (const image_t conn_image_id : conn_image_ids) {
       const Image& conn_image = images[conn_image_id];
       const Eigen::Vector3f conn_proj_center =
-          conn_image.ProjectionCenter().cast<float>();
+          (model_scale_ * (conn_image.ProjectionCenter() + model_origin_))
+              .cast<float>();
       line.point2 = PointPainter::Data(conn_proj_center(0),
                                        conn_proj_center(1),
                                        conn_proj_center(2),
@@ -1220,6 +1285,8 @@ void ModelViewerWidget::UploadMovieGrabberData() {
                       image_size_,
                       plane_color,
                       frame_color,
+                      /*model_origin=*/Eigen::Vector3d::Zero(),
+                      /*model_scale=*/1.,
                       &triangle_data,
                       &line_data);
     }

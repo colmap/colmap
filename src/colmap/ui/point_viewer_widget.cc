@@ -149,9 +149,9 @@ void PointViewerWidget::Show(const point3D_t point3D_id) {
 
   const auto& point3D = model_viewer_widget_->points3D[point3D_id];
 
-  xyz_item_->setText(QString::number(point3D.xyz(0)) + ", " +
-                     QString::number(point3D.xyz(1)) + ", " +
-                     QString::number(point3D.xyz(2)));
+  xyz_item_->setText(QString::number(point3D.xyz(0), 'f', 10) + ", " +
+                     QString::number(point3D.xyz(1), 'f', 10) + ", " +
+                     QString::number(point3D.xyz(2), 'f', 10));
   rgb_item_->setText(QString::number(point3D.color(0)) + ", " +
                      QString::number(point3D.color(1)) + ", " +
                      QString::number(point3D.color(2)));
