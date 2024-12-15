@@ -94,6 +94,8 @@ TEST(Percentile, Nominal) {
   EXPECT_EQ((Percentile(std::vector<int>{0, 1, 1, 2}, 100 / 3. * 2.)), 1);
   EXPECT_EQ((Percentile(std::vector<int>{0, 1, 1, 2}, 100)), 2);
   EXPECT_EQ((Percentile(std::vector<int>{0, 100}, 1)), 1);
+  EXPECT_EQ((Percentile(std::vector<int>{0, 100}, 50)), 50);
+  EXPECT_EQ((Percentile(std::vector<int>{0, 100}, 50.1)), 50.1);
   EXPECT_EQ((Percentile(std::vector<int>{0, 100}, 99)), 99);
   EXPECT_EQ((Percentile(std::vector<int>{0, 1, 2, 3}, 1)), 0.03);
   EXPECT_EQ((Percentile(std::vector<int>{0, 1, 2, 3}, 2)), 0.06);
