@@ -45,8 +45,8 @@ class IncrementalMapperImpl {
   // returned list is ordered such that most suitable images are in the front.
   static std::vector<image_t> FindFirstInitialImage(
       const IncrementalMapper::Options& options,
+      const CorrespondenceGraph& correspondence_graph,
       const Reconstruction& reconstruction,
-      const ObservationManager& obs_manager,
       const std::unordered_map<image_t, size_t>& init_num_reg_trials,
       const std::unordered_map<image_t, size_t>& num_registrations);
 
@@ -57,7 +57,7 @@ class IncrementalMapperImpl {
   static std::vector<image_t> FindSecondInitialImage(
       const IncrementalMapper::Options& options,
       image_t image_id1,
-      const DatabaseCache& database_cache,
+      const CorrespondenceGraph& correspondence_graph,
       const Reconstruction& reconstruction,
       const std::unordered_map<image_t, size_t>& num_registrations);
 
@@ -66,7 +66,6 @@ class IncrementalMapperImpl {
       const IncrementalMapper::Options& options,
       const DatabaseCache& database_cache,
       const Reconstruction& reconstruction,
-      const ObservationManager& obs_manager,
       const std::unordered_map<image_t, size_t>& init_num_reg_trials,
       const std::unordered_map<image_t, size_t>& num_registrations,
       std::unordered_set<image_pair_t>& init_image_pairs,
@@ -77,7 +76,6 @@ class IncrementalMapperImpl {
   // Implement IncrementalMapper::FindNextImages
   static std::vector<image_t> FindNextImages(
       const IncrementalMapper::Options& options,
-      const Reconstruction& reconstruction,
       const ObservationManager& obs_manager,
       const std::unordered_set<image_t>& filtered_images,
       std::unordered_map<image_t, size_t>& m_num_reg_trials);

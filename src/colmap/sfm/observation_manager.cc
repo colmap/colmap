@@ -53,7 +53,7 @@ bool MergeAndFilterReconstructions(const double max_reproj_error,
 const int ObservationManager::kNumPoint3DVisibilityPyramidLevels = 6;
 
 ObservationManager::ObservationManager(
-    Reconstruction& reconstruction,
+    class Reconstruction& reconstruction,
     std::shared_ptr<const CorrespondenceGraph> correspondence_graph)
     : reconstruction_(reconstruction),
       correspondence_graph_(std::move(correspondence_graph)) {

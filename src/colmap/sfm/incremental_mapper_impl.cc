@@ -78,8 +78,8 @@ float RankNextImageMinUncertainty(const image_t image_id,
 
 std::vector<image_t> IncrementalMapperImpl::FindFirstInitialImage(
     const IncrementalMapper::Options& options,
+    const CorrespondenceGraph& correspondence_graph,
     const Reconstruction& reconstruction,
-    const ObservationManager& obs_manager,
     const std::unordered_map<image_t, size_t>& init_num_reg_trials,
     const std::unordered_map<image_t, size_t>& num_registrations) {
   // Struct to hold meta-data for ranking images.
@@ -98,7 +98,7 @@ std::vector<image_t> IncrementalMapperImpl::FindFirstInitialImage(
   image_infos.reserve(reconstruction.NumImages());
   for (const auto& image : reconstruction.Images()) {
     // Only images with correspondences can be registered.
-    if (obs_manager.NumCorrespondences(image.first) == 0) {
+    if (correspondence_graph.NumCorrespondencesForImage(image.first) == 0) {
       continue;
     }
 
@@ -120,7 +120,7 @@ std::vector<image_t> IncrementalMapperImpl::FindFirstInitialImage(
     image_info.image_id = image.first;
     image_info.prior_focal_length = camera.has_prior_focal_length;
     image_info.num_correspondences =
-        obs_manager.NumCorrespondences(image.first);
+        correspondence_graph.NumCorrespondencesForImage(image.first);
     image_infos.push_back(image_info);
   }
 
@@ -154,11 +154,9 @@ std::vector<image_t> IncrementalMapperImpl::FindFirstInitialImage(
 std::vector<image_t> IncrementalMapperImpl::FindSecondInitialImage(
     const IncrementalMapper::Options& options,
     image_t image_id1,
-    const DatabaseCache& database_cache,
+    const CorrespondenceGraph& correspondence_graph,
     const Reconstruction& reconstruction,
     const std::unordered_map<image_t, size_t>& num_registrations) {
-  const std::shared_ptr<const CorrespondenceGraph> correspondence_graph =
-      database_cache.CorrespondenceGraph();
   // Collect images that are connected to the first seed image and have
   // not been registered before in other reconstructions.
   const class Image& image1 = reconstruction.Image(image_id1);
@@ -166,7 +164,7 @@ std::vector<image_t> IncrementalMapperImpl::FindSecondInitialImage(
   for (point2D_t point2D_idx = 0; point2D_idx < image1.NumPoints2D();
        ++point2D_idx) {
     const auto corr_range =
-        correspondence_graph->FindCorrespondences(image_id1, point2D_idx);
+        correspondence_graph.FindCorrespondences(image_id1, point2D_idx);
     for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
       if (num_registrations.count(corr->image_id) == 0 ||
           num_registrations.at(corr->image_id) == 0) {
@@ -231,7 +229,6 @@ bool IncrementalMapperImpl::FindInitialImagePair(
     const IncrementalMapper::Options& options,
     const DatabaseCache& database_cache,
     const Reconstruction& reconstruction,
-    const ObservationManager& obs_manager,
     const std::unordered_map<image_t, size_t>& init_num_reg_trials,
     const std::unordered_map<image_t, size_t>& num_registrations,
     std::unordered_set<image_pair_t>& init_image_pairs,
@@ -255,12 +252,12 @@ bool IncrementalMapperImpl::FindInitialImagePair(
     image_ids1.push_back(image_id2);
   } else {
     // No initial seed image provided.
-    image_ids1 =
-        IncrementalMapperImpl::FindFirstInitialImage(options,
-                                                     reconstruction,
-                                                     obs_manager,
-                                                     init_num_reg_trials,
-                                                     num_registrations);
+    image_ids1 = IncrementalMapperImpl::FindFirstInitialImage(
+        options,
+        *database_cache.CorrespondenceGraph(),
+        reconstruction,
+        init_num_reg_trials,
+        num_registrations);
   }
 
   // Try to find good initial pair.
@@ -268,11 +265,12 @@ bool IncrementalMapperImpl::FindInitialImagePair(
     image_id1 = image_ids1[i1];
 
     const std::vector<image_t> image_ids2 =
-        IncrementalMapperImpl::FindSecondInitialImage(options,
-                                                      image_id1,
-                                                      database_cache,
-                                                      reconstruction,
-                                                      num_registrations);
+        IncrementalMapperImpl::FindSecondInitialImage(
+            options,
+            image_id1,
+            *database_cache.CorrespondenceGraph(),
+            reconstruction,
+            num_registrations);
 
     for (size_t i2 = 0; i2 < image_ids2.size(); ++i2) {
       image_id2 = image_ids2[i2];
@@ -307,11 +305,11 @@ bool IncrementalMapperImpl::FindInitialImagePair(
 
 std::vector<image_t> IncrementalMapperImpl::FindNextImages(
     const IncrementalMapper::Options& options,
-    const Reconstruction& reconstruction,
     const ObservationManager& obs_manager,
     const std::unordered_set<image_t>& filtered_images,
     std::unordered_map<image_t, size_t>& m_num_reg_trials) {
   THROW_CHECK(options.Check());
+  const Reconstruction& reconstruction = obs_manager.Reconstruction();
 
   std::function<float(image_t, const class ObservationManager&)>
       rank_image_func;
