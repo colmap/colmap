@@ -114,9 +114,7 @@ bool IncrementalMapper::FindInitialImagePair(const Options& options,
                                              TwoViewGeometry& two_view_geometry,
                                              image_t& image_id1,
                                              image_t& image_id2) {
-  return IncrementalMapperImpl::FindInitialImagePair<DatabaseCache,
-                                                     class Reconstruction,
-                                                     class ObservationManager>(
+  return IncrementalMapperImpl::FindInitialImagePair(
       options,
       database_cache_,
       reconstruction_,
@@ -130,13 +128,11 @@ bool IncrementalMapper::FindInitialImagePair(const Options& options,
 }
 
 std::vector<image_t> IncrementalMapper::FindNextImages(const Options& options) {
-  return IncrementalMapperImpl::FindNextImages<class Reconstruction,
-                                               class ObservationManager>(
-      options,
-      reconstruction_,
-      obs_manager_,
-      filtered_images_,
-      reg_stats_.num_reg_trials);
+  return IncrementalMapperImpl::FindNextImages(options,
+                                               reconstruction_,
+                                               obs_manager_,
+                                               filtered_images_,
+                                               reg_stats_.num_reg_trials);
 }
 
 void IncrementalMapper::RegisterInitialImagePair(
@@ -785,7 +781,7 @@ void IncrementalMapper::ClearModifiedPoints3D() {
 
 std::vector<image_t> IncrementalMapper::FindLocalBundle(
     const Options& options, const image_t image_id) const {
-  return IncrementalMapperImpl::FindLocalBundle<class Reconstruction>(
+  return IncrementalMapperImpl::FindLocalBundle(
       options, image_id, reconstruction_);
 }
 
@@ -825,7 +821,7 @@ bool IncrementalMapper::EstimateInitialTwoViewGeometry(
     const image_t image_id1,
     const image_t image_id2,
     TwoViewGeometry& two_view_geometry) {
-  return IncrementalMapperImpl::EstimateInitialTwoViewGeometry<DatabaseCache>(
+  return IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
       options, database_cache_, image_id1, image_id2, two_view_geometry);
 }
 

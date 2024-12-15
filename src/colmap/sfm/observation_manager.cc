@@ -53,8 +53,8 @@ bool MergeAndFilterReconstructions(const double max_reproj_error,
 const int ObservationManager::kNumPoint3DVisibilityPyramidLevels = 6;
 
 ObservationManager::ObservationManager(
-    Reconstruction& reconstruction,
-    std::shared_ptr<const CorrespondenceGraph> correspondence_graph)
+    ReconstructionClass& reconstruction,
+    std::shared_ptr<const CorrespondenceGraphClass> correspondence_graph)
     : reconstruction_(reconstruction),
       correspondence_graph_(std::move(correspondence_graph)) {
   // Add image pairs.

@@ -43,6 +43,9 @@ bool MergeAndFilterReconstructions(double max_reproj_error,
 
 class ObservationManager {
  public:
+  using ReconstructionClass = Reconstruction;
+  using CorrespondenceGraphClass = CorrespondenceGraph;
+
   struct ImagePairStat {
     // The number of triangulated correspondences between two images.
     size_t num_tri_corrs = 0;
@@ -50,8 +53,8 @@ class ObservationManager {
     size_t num_total_corrs = 0;
   };
 
-  explicit ObservationManager(Reconstruction& reconstruction,
-                              std::shared_ptr<const CorrespondenceGraph>
+  explicit ObservationManager(ReconstructionClass& reconstruction,
+                              std::shared_ptr<const CorrespondenceGraphClass>
                                   correspondence_graph = nullptr);
 
   inline const std::unordered_map<image_pair_t, ImagePairStat>& ImagePairs()
@@ -179,8 +182,8 @@ class ObservationManager {
     VisibilityPyramid point3D_visibility_pyramid;
   };
 
-  Reconstruction& reconstruction_;
-  const std::shared_ptr<const CorrespondenceGraph> correspondence_graph_;
+  ReconstructionClass& reconstruction_;
+  const std::shared_ptr<const CorrespondenceGraphClass> correspondence_graph_;
   std::unordered_map<image_pair_t, ImagePairStat> image_pair_stats_;
   std::unordered_map<image_t, ImageStat> image_stats_;
 };

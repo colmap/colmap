@@ -52,6 +52,8 @@ namespace colmap {
 // create new reconstruction instances when multiple models are reconstructed.
 class DatabaseCache {
  public:
+  using CorrespondenceGraphClass = class CorrespondenceGraph;
+
   // Load cameras, images, features, and matches from database.
   //
   // @param database              Source database from which to load data.
@@ -91,7 +93,7 @@ class DatabaseCache {
   inline bool ExistsPosePrior(image_t image_id) const;
 
   // Get reference to const correspondence graph.
-  inline std::shared_ptr<const class CorrespondenceGraph> CorrespondenceGraph()
+  inline std::shared_ptr<const CorrespondenceGraphClass> CorrespondenceGraph()
       const;
 
   // Find specific image by name. Note that this uses linear search.
@@ -101,7 +103,7 @@ class DatabaseCache {
   bool SetupPosePriors();
 
  private:
-  std::shared_ptr<class CorrespondenceGraph> correspondence_graph_;
+  std::shared_ptr<CorrespondenceGraphClass> correspondence_graph_;
 
   std::unordered_map<camera_t, struct Camera> cameras_;
   std::unordered_map<image_t, class Image> images_;
@@ -166,7 +168,7 @@ bool DatabaseCache::ExistsPosePrior(const image_t image_id) const {
   return pose_priors_.find(image_id) != pose_priors_.end();
 }
 
-std::shared_ptr<const class CorrespondenceGraph>
+std::shared_ptr<const DatabaseCache::CorrespondenceGraphClass>
 DatabaseCache::CorrespondenceGraph() const {
   return correspondence_graph_;
 }

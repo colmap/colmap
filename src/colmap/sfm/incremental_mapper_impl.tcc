@@ -71,6 +71,9 @@ std::vector<image_t> IncrementalMapperImpl::FindFirstInitialImage(
     const std::shared_ptr<ObservationManagerClass>& obs_manager,
     const std::unordered_map<image_t, size_t>& init_num_reg_trials,
     const std::unordered_map<image_t, size_t>& num_registrations) {
+  static_assert(std::is_same<ReconstructionClass, typename ObservationManagerClass::ReconstructionClass>::value,
+                        "ReconstructionClass and ObservationManager::ReconstructionClass must be the same type!");
+
   // Struct to hold meta-data for ranking images.
   struct ImageInfo {
     image_t image_id;
@@ -229,6 +232,11 @@ bool IncrementalMapperImpl::FindInitialImagePair(
     TwoViewGeometry& two_view_geometry,
     image_t& image_id1,
     image_t& image_id2) {
+  static_assert(std::is_same<ReconstructionClass, typename ObservationManagerClass::ReconstructionClass>::value,
+                        "ReconstructionClass and ObservationManager::ReconstructionClass must be the same type!");
+  static_assert(std::is_same<typename DatabaseCacheClass::CorrespondenceGraphClass, typename ObservationManagerClass::CorrespondenceGraphClass>::value,
+                        "DatabaseCacheClass::CorrespondenceGraphClass and ObservationManager::CorrespondenceGraphClass must be the same type!");
+
   THROW_CHECK(options.Check());
 
   std::vector<image_t> image_ids1;
@@ -247,7 +255,7 @@ bool IncrementalMapperImpl::FindInitialImagePair(
   } else {
     // No initial seed image provided.
     image_ids1 =
-        IncrementalMapperImpl::FindFirstInitialImage<ReconstructionClass, ObservationManagerClass>(options,
+        IncrementalMapperImpl::FindFirstInitialImage(options,
                                                      reconstruction,
                                                      obs_manager,
                                                      init_num_reg_trials,
@@ -259,8 +267,7 @@ bool IncrementalMapperImpl::FindInitialImagePair(
     image_id1 = image_ids1[i1];
 
     const std::vector<image_t> image_ids2 =
-        IncrementalMapperImpl::FindSecondInitialImage<const DatabaseCacheClass, ReconstructionClass>(
-            options, image_id1, database_cache, reconstruction, num_registrations);
+        IncrementalMapperImpl::FindSecondInitialImage(options, image_id1, database_cache, reconstruction, num_registrations);
 
     for (size_t i2 = 0; i2 < image_ids2.size(); ++i2) {
       image_id2 = image_ids2[i2];
@@ -300,6 +307,9 @@ std::vector<image_t> IncrementalMapperImpl::FindNextImages(
     const std::shared_ptr<ObservationManagerClass>& obs_manager,
     const std::unordered_set<image_t>& filtered_images,
     std::unordered_map<image_t, size_t>& m_num_reg_trials) {
+  static_assert(std::is_same<ReconstructionClass, typename ObservationManagerClass::ReconstructionClass>::value,
+                        "ReconstructionClass and ObservationManager::ReconstructionClass must be the same type!");
+
   THROW_CHECK_NOTNULL(reconstruction);
   THROW_CHECK(options.Check());
 
