@@ -45,8 +45,8 @@ class IncrementalMapperImpl {
   // returned list is ordered such that most suitable images are in the front.
   static std::vector<image_t> FindFirstInitialImage(
       const IncrementalMapper::Options& options,
-      const std::shared_ptr<class Reconstruction>& reconstruction,
-      const std::shared_ptr<class ObservationManager>& obs_manager,
+      const CorrespondenceGraph& correspondence_graph,
+      const Reconstruction& reconstruction,
       const std::unordered_map<image_t, size_t>& init_num_reg_trials,
       const std::unordered_map<image_t, size_t>& num_registrations);
 
@@ -57,16 +57,15 @@ class IncrementalMapperImpl {
   static std::vector<image_t> FindSecondInitialImage(
       const IncrementalMapper::Options& options,
       image_t image_id1,
-      const std::shared_ptr<const DatabaseCache>& database_cache,
-      const std::shared_ptr<class Reconstruction>& reconstruction,
+      const CorrespondenceGraph& correspondence_graph,
+      const Reconstruction& reconstruction,
       const std::unordered_map<image_t, size_t>& num_registrations);
 
   // Implement IncrementalMapper::FindInitialImagePair
   static bool FindInitialImagePair(
       const IncrementalMapper::Options& options,
-      const std::shared_ptr<const DatabaseCache>& database_cache,
-      const std::shared_ptr<class Reconstruction>& reconstruction,
-      const std::shared_ptr<class ObservationManager>& obs_manager,
+      const DatabaseCache& database_cache,
+      const Reconstruction& reconstruction,
       const std::unordered_map<image_t, size_t>& init_num_reg_trials,
       const std::unordered_map<image_t, size_t>& num_registrations,
       std::unordered_set<image_pair_t>& init_image_pairs,
@@ -77,8 +76,7 @@ class IncrementalMapperImpl {
   // Implement IncrementalMapper::FindNextImages
   static std::vector<image_t> FindNextImages(
       const IncrementalMapper::Options& options,
-      const std::shared_ptr<class Reconstruction>& reconstruction,
-      const std::shared_ptr<class ObservationManager>& obs_manager,
+      const ObservationManager& obs_manager,
       const std::unordered_set<image_t>& filtered_images,
       std::unordered_map<image_t, size_t>& m_num_reg_trials);
 
@@ -86,12 +84,12 @@ class IncrementalMapperImpl {
   static std::vector<image_t> FindLocalBundle(
       const IncrementalMapper::Options& options,
       image_t image_id,
-      const std::shared_ptr<class Reconstruction>& reconstruction);
+      const Reconstruction& reconstruction);
 
   // Implement IncrementalMapper::EstimateInitialTwoViewGeometry
   static bool EstimateInitialTwoViewGeometry(
       const IncrementalMapper::Options& options,
-      const std::shared_ptr<const DatabaseCache>& database_cache,
+      const DatabaseCache& database_cache,
       image_t image_id1,
       image_t image_id2,
       TwoViewGeometry& two_view_geometry);
