@@ -43,8 +43,8 @@ bool MergeAndFilterReconstructions(double max_reproj_error,
 
 class ObservationManager {
  public:
-  using ReconstructionClass = Reconstruction;
-  using CorrespondenceGraphClass = CorrespondenceGraph;
+  using ReconstructionClass = colmap::Reconstruction;
+  using CorrespondenceGraphClass = colmap::CorrespondenceGraph;
 
   struct ImagePairStat {
     // The number of triangulated correspondences between two images.

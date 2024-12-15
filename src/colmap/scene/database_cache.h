@@ -52,7 +52,7 @@ namespace colmap {
 // create new reconstruction instances when multiple models are reconstructed.
 class DatabaseCache {
  public:
-  using CorrespondenceGraphClass = class CorrespondenceGraph;
+  using CorrespondenceGraphClass = colmap::CorrespondenceGraph;
 
   // Load cameras, images, features, and matches from database.
   //
