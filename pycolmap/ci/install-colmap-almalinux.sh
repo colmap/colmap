@@ -11,6 +11,8 @@ yum install -y \
     gcc-toolset-12-gcc \
     gcc-toolset-12-gcc-c++ \
     gcc-toolset-12-gcc-gfortran \
+    kernel-headers \
+    perl-IPC-Cmd \
     scl-utils \
     git \
     cmake3 \
