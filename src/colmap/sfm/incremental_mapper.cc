@@ -116,9 +116,9 @@ bool IncrementalMapper::FindInitialImagePair(const Options& options,
                                              image_t& image_id2) {
   return IncrementalMapperImpl::FindInitialImagePair(
       options,
-      database_cache_,
-      reconstruction_,
-      obs_manager_,
+      *database_cache_,
+      *reconstruction_,
+      *obs_manager_,
       reg_stats_.init_num_reg_trials,
       reg_stats_.num_registrations,
       reg_stats_.init_image_pairs,
@@ -129,8 +129,8 @@ bool IncrementalMapper::FindInitialImagePair(const Options& options,
 
 std::vector<image_t> IncrementalMapper::FindNextImages(const Options& options) {
   return IncrementalMapperImpl::FindNextImages(options,
-                                               reconstruction_,
-                                               obs_manager_,
+                                               *reconstruction_,
+                                               *obs_manager_,
                                                filtered_images_,
                                                reg_stats_.num_reg_trials);
 }
@@ -782,7 +782,7 @@ void IncrementalMapper::ClearModifiedPoints3D() {
 std::vector<image_t> IncrementalMapper::FindLocalBundle(
     const Options& options, const image_t image_id) const {
   return IncrementalMapperImpl::FindLocalBundle(
-      options, image_id, reconstruction_);
+      options, image_id, *reconstruction_);
 }
 
 void IncrementalMapper::RegisterImageEvent(const image_t image_id) {
@@ -822,7 +822,7 @@ bool IncrementalMapper::EstimateInitialTwoViewGeometry(
     const image_t image_id2,
     TwoViewGeometry& two_view_geometry) {
   return IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
-      options, database_cache_, image_id1, image_id2, two_view_geometry);
+      options, *database_cache_, image_id1, image_id2, two_view_geometry);
 }
 
 }  // namespace colmap
