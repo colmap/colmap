@@ -195,16 +195,15 @@ void BindGeometry(py::module& m) {
       .def("diagonal", &Eigen::AlignedBox3d::diagonal)
       .def(
           "contains_point",
-          [](const Eigen::AlignedBox3d& self, const Eigen::Vector3d& x) {
-            return self.contains(x);
+          [](const Eigen::AlignedBox3d& self, const Eigen::Vector3d& point) {
+            return self.contains(point);
           },
-          "x"_a)
+          "point"_a)
       .def(
           "contains_bbox",
-          [](const Eigen::AlignedBox3d& self, const Eigen::AlignedBox3d& bbox) {
-            return self.contains(bbox);
-          },
-          "x"_a)
+          [](const Eigen::AlignedBox3d& self,
+             const Eigen::AlignedBox3d& other) { return self.contains(other); },
+          "other"_a)
       .def("__repr__", [](const Eigen::AlignedBox3d& self) {
         std::ostringstream ss;
         ss << "AlignedBox3d(min=[" << self.min().format(vec_fmt) << "], max=["
