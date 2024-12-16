@@ -303,7 +303,7 @@ Sim3d Reconstruction::Normalize(const bool fixed_scale,
   }
 
   const auto [bbox, centroid] =
-      ComputeBoundingBoxAndCentroid(min_percentile, max_percentile, use_images);
+      ComputeBBBoxAndCentroid(min_percentile, max_percentile, use_images);
 
   // Calculate scale and translation, such that
   // translation is applied before scaling.
@@ -324,8 +324,7 @@ Sim3d Reconstruction::Normalize(const bool fixed_scale,
 Eigen::Vector3d Reconstruction::ComputeCentroid(const double min_percentile,
                                                 const double max_percentile,
                                                 bool use_images) const {
-  return ComputeBoundingBoxAndCentroid(
-             min_percentile, max_percentile, use_images)
+  return ComputeBBBoxAndCentroid(min_percentile, max_percentile, use_images)
       .second;
 }
 
@@ -333,15 +332,14 @@ Eigen::AlignedBox3d Reconstruction::ComputeBoundingBox(
     const double min_percentile,
     const double max_percentile,
     bool use_images) const {
-  return ComputeBoundingBoxAndCentroid(
-             min_percentile, max_percentile, use_images)
+  return ComputeBBBoxAndCentroid(min_percentile, max_percentile, use_images)
       .first;
 }
 
 std::pair<Eigen::AlignedBox3d, Eigen::Vector3d>
-Reconstruction::ComputeBoundingBoxAndCentroid(const double min_percentile,
-                                              const double max_percentile,
-                                              const bool use_images) const {
+Reconstruction::ComputeBBBoxAndCentroid(const double min_percentile,
+                                        const double max_percentile,
+                                        const bool use_images) const {
   const size_t num_elements = use_images ? NumRegImages() : points3D_.size();
   if (num_elements == 0) {
     return std::make_pair(
@@ -371,11 +369,11 @@ Reconstruction::ComputeBoundingBoxAndCentroid(const double min_percentile,
     }
   }
 
-  return ::colmap::ComputeBoundingBoxAndCentroid(min_percentile,
-                                                 max_percentile,
-                                                 std::move(coords_x),
-                                                 std::move(coords_y),
-                                                 std::move(coords_z));
+  return ComputeBoundingBoxAndCentroid(min_percentile,
+                                 max_percentile,
+                                 std::move(coords_x),
+                                 std::move(coords_y),
+                                 std::move(coords_z));
 }
 
 void Reconstruction::Transform(const Sim3d& new_from_old_world) {

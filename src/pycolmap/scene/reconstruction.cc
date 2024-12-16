@@ -175,10 +175,16 @@ void BindReconstruction(py::module& m) {
            &Reconstruction::Transform,
            "new_from_old_world"_a,
            "Apply the 3D similarity transformation to all images and points.")
+      .def("compute_centroid",
+           &Reconstruction::ComputeCentroid,
+           "min_percentile"_a = 0.0,
+           "max_percentile"_a = 1.0,
+           "use_images"_a = false)
       .def("compute_bounding_box",
            &Reconstruction::ComputeBoundingBox,
            "min_percentile"_a = 0.0,
-           "max_percentile"_a = 1.0)
+           "max_percentile"_a = 1.0,
+           "use_images"_a = false)
       .def("crop", &Reconstruction::Crop, "bbox"_a)
       .def("find_image_with_name",
            &Reconstruction::FindImageWithName,
