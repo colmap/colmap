@@ -370,10 +370,10 @@ Reconstruction::ComputeBBBoxAndCentroid(const double min_percentile,
   }
 
   return ComputeBoundingBoxAndCentroid(min_percentile,
-                                 max_percentile,
-                                 std::move(coords_x),
-                                 std::move(coords_y),
-                                 std::move(coords_z));
+                                       max_percentile,
+                                       std::move(coords_x),
+                                       std::move(coords_y),
+                                       std::move(coords_z));
 }
 
 void Reconstruction::Transform(const Sim3d& new_from_old_world) {

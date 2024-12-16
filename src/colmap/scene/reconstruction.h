@@ -246,7 +246,7 @@ class Reconstruction {
   void CreateImageDirs(const std::string& path) const;
 
  private:
-  std::pair<Eigen::AlignedBox3d, Eigen::Vector3d> ComputeBoundingBoxAndCentroid(
+  std::pair<Eigen::AlignedBox3d, Eigen::Vector3d> ComputeBBBoxAndCentroid(
       double min_percentile, double max_percentile, bool use_images) const;
 
   std::unordered_map<camera_t, struct Camera> cameras_;
