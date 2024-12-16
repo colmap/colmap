@@ -30,6 +30,7 @@
 #include "colmap/estimators/affine_transform.h"
 
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/logging.h"
 
 #include <Eigen/Geometry>
 #include <gtest/gtest.h>
@@ -37,18 +38,18 @@
 namespace colmap {
 namespace {
 
-TEST(AffineTransform, Nominal) {
+TEST(AffineTransform, Minimal) {
   for (int x = 0; x < 10; ++x) {
     Eigen::Matrix<double, 2, 3> A;
     A << x / 10.0, 0.2, 0.3, 30, 0.2, 0.1;
 
     std::vector<Eigen::Vector2d> src;
-    src.emplace_back(x, 0);
+    src.emplace_back(x, 10);
     src.emplace_back(1, 0);
     src.emplace_back(2, 1);
 
     std::vector<Eigen::Vector2d> dst;
-    for (size_t i = 0; i < 3; ++i) {
+    for (size_t i = 0; i < src.size(); ++i) {
       dst.push_back(A * src[i].homogeneous());
     }
 
@@ -61,11 +62,92 @@ TEST(AffineTransform, Nominal) {
     std::vector<double> residuals;
     estimator.Residuals(src, dst, models[0], &residuals);
 
-    EXPECT_EQ(residuals.size(), 3);
+    EXPECT_EQ(residuals.size(), src.size());
 
-    for (size_t i = 0; i < 3; ++i) {
+    for (size_t i = 0; i < src.size(); ++i) {
       EXPECT_LT(residuals[i], 1e-6);
     }
+  }
+}
+
+TEST(AffineTransform, NonMinimal) {
+  for (int x = 0; x < 10; ++x) {
+    Eigen::Matrix<double, 2, 3> A;
+    A << x / 10.0, 0.2, 0.3, 30, 0.2, 0.1;
+
+    std::vector<Eigen::Vector2d> src;
+    src.emplace_back(x, 10);
+    src.emplace_back(1, 0);
+    src.emplace_back(2, 1);
+    src.emplace_back(-10, 10);
+    src.emplace_back(-2, 5);
+
+    std::vector<Eigen::Vector2d> dst;
+    for (size_t i = 0; i < src.size(); ++i) {
+      dst.push_back(A * src[i].homogeneous());
+    }
+
+    AffineTransformEstimator estimator;
+    std::vector<Eigen::Matrix<double, 2, 3>> models;
+    estimator.Estimate(src, dst, &models);
+
+    ASSERT_EQ(models.size(), 1);
+
+    std::vector<double> residuals;
+    estimator.Residuals(src, dst, models[0], &residuals);
+
+    EXPECT_EQ(residuals.size(), src.size());
+
+    for (size_t i = 0; i < src.size(); ++i) {
+      EXPECT_LT(residuals[i], 1e-6);
+    }
+  }
+}
+
+TEST(AffineTransform, MinimalDegenerate) {
+  for (int x = 0; x < 10; ++x) {
+    Eigen::Matrix<double, 2, 3> A;
+    A << x / 10.0, 0.2, 0.3, 30, 0.2, 0.1;
+
+    std::vector<Eigen::Vector2d> src;
+    src.emplace_back(0, 0);
+    src.emplace_back(0, 0);
+    src.emplace_back(2, 1);
+
+    std::vector<Eigen::Vector2d> dst;
+    for (size_t i = 0; i < src.size(); ++i) {
+      dst.push_back(A * src[i].homogeneous());
+    }
+
+    AffineTransformEstimator estimator;
+    std::vector<Eigen::Matrix<double, 2, 3>> models;
+    estimator.Estimate(src, dst, &models);
+
+    ASSERT_TRUE(models.empty());
+  }
+}
+
+TEST(AffineTransform, NonMinimalDegenerate) {
+  for (int x = 0; x < 10; ++x) {
+    Eigen::Matrix<double, 2, 3> A;
+    A << x / 10.0, 0.2, 0.3, 30, 0.2, 0.1;
+
+    std::vector<Eigen::Vector2d> src;
+    src.emplace_back(0, 0);
+    src.emplace_back(0, 0);
+    src.emplace_back(2, 1);
+    src.emplace_back(2, 1);
+
+    std::vector<Eigen::Vector2d> dst;
+    for (size_t i = 0; i < src.size(); ++i) {
+      dst.push_back(A * src[i].homogeneous());
+    }
+
+    AffineTransformEstimator estimator;
+    std::vector<Eigen::Matrix<double, 2, 3>> models;
+    estimator.Estimate(src, dst, &models);
+
+    ASSERT_TRUE(models.empty());
   }
 }
 
