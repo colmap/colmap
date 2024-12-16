@@ -170,10 +170,9 @@ class Reconstruction {
                                   bool use_images = false) const;
 
   // Compute the bounding box corners of camera centers or 3D points.
-  Eigen::AlignedBox3d ComputeBoundingBox(
-      double min_percentile = 0.0,
-      double max_percentile = 1.0,
-      bool use_images = false) const;
+  Eigen::AlignedBox3d ComputeBoundingBox(double min_percentile = 0.0,
+                                         double max_percentile = 1.0,
+                                         bool use_images = false) const;
 
   // Apply the 3D similarity transformation to all images and points.
   void Transform(const Sim3d& new_from_old_world);
@@ -182,8 +181,7 @@ class Reconstruction {
   // of the bounding box containing the included 3D points of the new
   // reconstruction. Only the cameras and images of the included points are
   // registered.
-  Reconstruction Crop(
-      const Eigen::AlignedBox3d& bbox) const;
+  Reconstruction Crop(const Eigen::AlignedBox3d& bbox) const;
 
   // Find specific image by name. Note that this uses linear search.
   const class Image* FindImageWithName(const std::string& name) const;
