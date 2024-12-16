@@ -870,9 +870,11 @@ void ModelViewerWidget::Upload() {
 void ModelViewerWidget::UploadCoordinateGridData() {
   makeCurrent();
 
-  const float scale = ZoomScale();
+  const float zoom_scale = ZoomScale();
+  const Eigen::Vector3d scaled_origin = model_scale_ * model_origin_;
 
   // View center grid.
+  constexpr double kCenterGridSize = 20;
   std::vector<LinePainter::Data> grid_data(3);
 
   grid_data[0].point1 = PointPainter::Data(model_origin_(0) - 20 * scale,
@@ -923,6 +925,7 @@ void ModelViewerWidget::UploadCoordinateGridData() {
   coordinate_grid_painter_.Upload(grid_data);
 
   // Coordinate axes.
+  constexpr double kCoordAxesSize = 50;
   std::vector<LinePainter::Data> axes_data(3);
 
   axes_data[0].point1 = PointPainter::Data(model_origin_(0),
@@ -939,6 +942,14 @@ void ModelViewerWidget::UploadCoordinateGridData() {
                                            kXAxisColor(1),
                                            kXAxisColor(2),
                                            kXAxisColor(3));
+  axes_data[0].point2 =
+      PointPainter::Data(scaled_origin(0) + kCoordAxesSize * zoom_scale,
+                         scaled_origin(1),
+                         scaled_origin(2),
+                         kXAxisColor(0),
+                         kXAxisColor(1),
+                         kXAxisColor(2),
+                         kXAxisColor(3));
 
   axes_data[1].point1 = PointPainter::Data(model_origin_(0),
                                            model_origin_(1),
@@ -954,6 +965,14 @@ void ModelViewerWidget::UploadCoordinateGridData() {
                                            kYAxisColor(1),
                                            kYAxisColor(2),
                                            kYAxisColor(3));
+  axes_data[1].point2 =
+      PointPainter::Data(scaled_origin(0),
+                         scaled_origin(1) + kCoordAxesSize * zoom_scale,
+                         scaled_origin(2),
+                         kYAxisColor(0),
+                         kYAxisColor(1),
+                         kYAxisColor(2),
+                         kYAxisColor(3));
 
   axes_data[2].point1 = PointPainter::Data(model_origin_(0),
                                            model_origin_(1),
@@ -969,6 +988,14 @@ void ModelViewerWidget::UploadCoordinateGridData() {
                                            kZAxisColor(1),
                                            kZAxisColor(2),
                                            kZAxisColor(3));
+  axes_data[2].point2 =
+      PointPainter::Data(scaled_origin(0),
+                         scaled_origin(1),
+                         scaled_origin(2) + kCoordAxesSize * zoom_scale,
+                         kZAxisColor(0),
+                         kZAxisColor(1),
+                         kZAxisColor(2),
+                         kZAxisColor(3));
 
   coordinate_axes_painter_.Upload(axes_data);
 }
