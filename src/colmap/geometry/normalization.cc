@@ -50,11 +50,11 @@ std::pair<Eigen::AlignedBox3d, Eigen::Vector3d> ComputeBoundingBoxAndCentroid(
   THROW_CHECK_LE(max_percentile, 1);
   THROW_CHECK_LE(min_percentile, max_percentile);
 
-  const size_t end_idx = coords_x.size() - 1;
-  const size_t min_idx = std::min<size_t>(
-      end_idx, static_cast<size_t>(std::floor(min_percentile * end_idx)));
-  const size_t max_idx = std::min<size_t>(
-      end_idx, static_cast<size_t>(std::ceil(max_percentile * end_idx)));
+  const int end_idx = coords_x.size() - 1;
+  const int min_idx = std::min<int>(
+      end_idx, static_cast<int>(std::floor(min_percentile * end_idx)));
+  const int max_idx = std::min<int>(
+      end_idx, static_cast<int>(std::ceil(max_percentile * end_idx)));
 
   std::nth_element(
       coords_x.begin(), coords_x.begin() + min_idx, coords_x.end());
@@ -76,7 +76,7 @@ std::pair<Eigen::AlignedBox3d, Eigen::Vector3d> ComputeBoundingBoxAndCentroid(
 
   Eigen::Vector3d centroid(0, 0, 0);
   const double normalization = 1.0 / (max_idx - min_idx + 1);
-  for (size_t i = min_idx; i <= max_idx; ++i) {
+  for (int i = min_idx; i <= max_idx; ++i) {
     centroid(0) += normalization * coords_x[i];
     centroid(1) += normalization * coords_y[i];
     centroid(2) += normalization * coords_z[i];
