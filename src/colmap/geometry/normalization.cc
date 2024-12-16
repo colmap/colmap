@@ -58,16 +58,19 @@ std::pair<Eigen::AlignedBox3d, Eigen::Vector3d> ComputeBoundingBoxAndCentroid(
 
   std::nth_element(
       coords_x.begin(), coords_x.begin() + min_idx, coords_x.end());
-  std::nth_element(
-      coords_x.begin() + min_idx, coords_x.begin() + max_idx, coords_x.end());
+  std::nth_element(coords_x.begin() + min_idx + 1,
+                   coords_x.begin() + max_idx,
+                   coords_x.end());
   std::nth_element(
       coords_y.begin(), coords_y.begin() + min_idx, coords_y.end());
-  std::nth_element(
-      coords_y.begin() + min_idx, coords_y.begin() + max_idx, coords_y.end());
+  std::nth_element(coords_y.begin() + min_idx + 1,
+                   coords_y.begin() + max_idx,
+                   coords_y.end());
   std::nth_element(
       coords_z.begin(), coords_z.begin() + min_idx, coords_z.end());
-  std::nth_element(
-      coords_z.begin() + min_idx, coords_z.begin() + max_idx, coords_z.end());
+  std::nth_element(coords_z.begin() + min_idx + 1,
+                   coords_z.begin() + max_idx,
+                   coords_z.end());
 
   const Eigen::Vector3d bbox_min(
       coords_x[min_idx], coords_y[min_idx], coords_z[min_idx]);
