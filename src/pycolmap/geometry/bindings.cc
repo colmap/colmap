@@ -177,6 +177,42 @@ void BindGeometry(py::module& m) {
       .def("is_covariance_valid", &PosePrior::IsCovarianceValid);
   MakeDataclass(PyPosePrior);
 
+  py::class_ext_<Eigen::AlignedBox3d> PyAlignedBox3d(m, "AlignedBox3d");
+  PyAlignedBox3d.def(py::init<>())
+      .def(py::init<const Eigen::Vector3d&, const Eigen::Vector3d&>(),
+           "min"_a,
+           "max"_a)
+      .def_property("min",
+                    py::overload_cast<>(&Eigen::AlignedBox3d::min),
+                    [](Eigen::AlignedBox3d& self, const Eigen::Vector3d& min) {
+                      self.min() = min;
+                    })
+      .def_property("max",
+                    py::overload_cast<>(&Eigen::AlignedBox3d::max),
+                    [](Eigen::AlignedBox3d& self, const Eigen::Vector3d& max) {
+                      self.max() = max;
+                    })
+      .def("diagonal", &Eigen::AlignedBox3d::diagonal)
+      .def(
+          "contains_point",
+          [](const Eigen::AlignedBox3d& self, const Eigen::Vector3d& x) {
+            return self.contains(x);
+          },
+          "x"_a)
+      .def(
+          "contains_bbox",
+          [](const Eigen::AlignedBox3d& self, const Eigen::AlignedBox3d& bbox) {
+            return self.contains(bbox);
+          },
+          "x"_a)
+      .def("__repr__", [](const Eigen::AlignedBox3d& self) {
+        std::ostringstream ss;
+        ss << "AlignedBox3d(min=[" << self.min().format(vec_fmt) << "], max=["
+           << self.max().format(vec_fmt) << "])";
+        return ss.str();
+      });
+  MakeDataclass(PyAlignedBox3d);
+
   BindHomographyMatrixGeometry(m);
   BindEssentialMatrixGeometry(m);
 }
