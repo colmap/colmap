@@ -32,6 +32,7 @@
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 
+#include <Eigen/Geometry>
 #include <Eigen/SVD>
 
 namespace colmap {
@@ -39,40 +40,44 @@ namespace colmap {
 void AffineTransformEstimator::Estimate(const std::vector<X_t>& points1,
                                         const std::vector<Y_t>& points2,
                                         std::vector<M_t>* models) {
-  THROW_CHECK_EQ(points1.size(), points2.size());
-  THROW_CHECK_GE(points1.size(), 3);
+  const size_t num_points = points1.size();
+  THROW_CHECK_EQ(num_points, points2.size());
+  THROW_CHECK_GE(num_points, 3);
   THROW_CHECK(models != nullptr);
 
   models->clear();
 
   // Sets up the linear system that we solve to obtain a least squared solution
   // for the affine transformation.
-  Eigen::MatrixXd C(2 * points1.size(), 6);
-  C.setZero();
-  Eigen::VectorXd b(2 * points1.size(), 1);
-
-  for (size_t i = 0; i < points1.size(); ++i) {
-    const Eigen::Vector2d& x1 = points1[i];
-    const Eigen::Vector2d& x2 = points2[i];
-
-    C(2 * i, 0) = x1(0);
-    C(2 * i, 1) = x1(1);
-    C(2 * i, 2) = 1.0f;
-    b(2 * i) = x2(0);
-
-    C(2 * i + 1, 3) = x1(0);
-    C(2 * i + 1, 4) = x1(1);
-    C(2 * i + 1, 5) = 1.0f;
-    b(2 * i + 1) = x2(1);
+  Eigen::Matrix<double, Eigen::Dynamic, 6> A(2 * num_points, 6);
+  Eigen::VectorXd b(2 * num_points, 1);
+  for (size_t i = 0; i < num_points; ++i) {
+    A.block<1, 3>(2 * i, 0) = points1[i].transpose().homogeneous();
+    A.block<1, 3>(2 * i, 3).setZero();
+    b(2 * i) = points2[i].x();
+    A.block<1, 3>(2 * i + 1, 0).setZero();
+    A.block<1, 3>(2 * i + 1, 3) = points1[i].transpose().homogeneous();
+    b(2 * i + 1) = points2[i].y();
   }
 
-  const Eigen::VectorXd nullspace =
-      C.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(b);
-
-  Eigen::Map<const Eigen::Matrix<double, 3, 2>> A_t(nullspace.data());
+  Eigen::Vector6d sol;
+  if (num_points == 3) {
+    sol = A.partialPivLu().solve(b);
+    if (sol.hasNaN()) {
+      return;
+    }
+  } else {
+    Eigen::JacobiSVD<Eigen::Matrix<double, Eigen::Dynamic, 6>> svd(
+        A, Eigen::ComputeThinU | Eigen::ComputeThinV);
+    if (svd.rank() < 6) {
+      return;
+    }
+    sol = svd.solve(b);
+  }
 
   models->resize(1);
-  (*models)[0] = A_t.transpose();
+  (*models)[0] =
+      Eigen::Map<const Eigen::Matrix<double, 3, 2>>(sol.data()).transpose();
 }
 
 void AffineTransformEstimator::Residuals(const std::vector<X_t>& points1,
