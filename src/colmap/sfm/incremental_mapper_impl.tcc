@@ -71,6 +71,15 @@ std::vector<image_t> IncrementalMapperImpl::FindFirstInitialImage(
     const ReconstructionClass& reconstruction,
     const std::unordered_map<image_t, size_t>& init_num_reg_trials,
     const std::unordered_map<image_t, size_t>& num_registrations) {
+  // Type check
+  static_assert(
+      std::is_base_of<CorrespondenceGraph, CorrespondenceGraphClass>::value,
+      "CorrespondenceGraphClass must be the same or derived from class "
+      "colmap::CorrespondenceGraph");
+  static_assert(std::is_base_of<Reconstruction, ReconstructionClass>::value,
+                "ReconstructionClass must be the same or derived from "
+                "colmap::Reconstruction");
+
   // Struct to hold meta-data for ranking images.
   struct ImageInfo {
     image_t image_id;
@@ -147,6 +156,15 @@ std::vector<image_t> IncrementalMapperImpl::FindSecondInitialImage(
     const CorrespondenceGraphClass& correspondence_graph,
     const ReconstructionClass& reconstruction,
     const std::unordered_map<image_t, size_t>& num_registrations) {
+  // Type check
+  static_assert(
+      std::is_base_of<CorrespondenceGraph, CorrespondenceGraphClass>::value,
+      "CorrespondenceGraphClass must be the same or derived from class "
+      "colmap::CorrespondenceGraph");
+  static_assert(std::is_base_of<Reconstruction, ReconstructionClass>::value,
+                "ReconstructionClass must be the same or derived from "
+                "colmap::Reconstruction");
+
   // Collect images that are connected to the first seed image and have
   // not been registered before in other reconstructions.
   const class Image& image1 = reconstruction.Image(image_id1);
@@ -226,6 +244,14 @@ bool IncrementalMapperImpl::FindInitialImagePair(
     TwoViewGeometry& two_view_geometry,
     image_t& image_id1,
     image_t& image_id2) {
+  // Type check
+  static_assert(std::is_base_of<DatabaseCache, DatabaseCacheClass>::value,
+                "DatabaseCacheClass must be the same or derived from "
+                "colmap::DatabaseCache");
+  static_assert(std::is_base_of<Reconstruction, ReconstructionClass>::value,
+                "ReconstructionClass must be the same or derived from "
+                "colmap::Reconstruction");
+
   THROW_CHECK(options.Check());
 
   std::vector<image_t> image_ids1;
@@ -300,6 +326,12 @@ std::vector<image_t> IncrementalMapperImpl::FindNextImages(
     const ObservationManagerClass& obs_manager,
     const std::unordered_set<image_t>& filtered_images,
     std::unordered_map<image_t, size_t>& m_num_reg_trials) {
+  // Type check
+  static_assert(
+      std::is_base_of<ObservationManager, ObservationManagerClass>::value,
+      "ObservationManagerClass must be the same or derived from "
+      "colmap::ObservationManager");
+
   THROW_CHECK(options.Check());
   const Reconstruction& reconstruction = obs_manager.Reconstruction();
 
@@ -363,6 +395,10 @@ std::vector<image_t> IncrementalMapperImpl::FindLocalBundle(
     const IncrementalMapper::Options& options,
     image_t image_id,
     const ReconstructionClass& reconstruction) {
+  // Type check
+  static_assert(std::is_base_of<Reconstruction, ReconstructionClass>::value,
+                "ReconstructionClass must be the same or derived from "
+                "colmap::Reconstruction");
   THROW_CHECK(options.Check());
 
   const Image& image = reconstruction.Image(image_id);
@@ -538,6 +574,10 @@ bool IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
     const image_t image_id1,
     const image_t image_id2,
     TwoViewGeometry& two_view_geometry) {
+  // Type check
+  static_assert(std::is_base_of<DatabaseCache, DatabaseCacheClass>::value,
+                "DatabaseCacheClass must be the same or derived from "
+                "colmap::DatabaseCache");
   const Image& image1 = database_cache.Image(image_id1);
   const Camera& camera1 = database_cache.Camera(image1.CameraId());
 
