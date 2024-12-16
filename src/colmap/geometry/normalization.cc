@@ -51,9 +51,9 @@ std::pair<Eigen::AlignedBox3d, Eigen::Vector3d> ComputeBoundingBoxAndCentroid(
   THROW_CHECK_LE(min_percentile, max_percentile);
 
   const size_t end_idx = coords_x.size() - 1;
-  const size_t min_idx =
-      std::max(0lu, static_cast<size_t>(std::floor(min_percentile * end_idx)));
-  const size_t max_idx = std::min(
+  const size_t min_idx = std::min<size_t>(
+      end_idx, static_cast<size_t>(std::floor(min_percentile * end_idx)));
+  const size_t max_idx = std::min<size_t>(
       end_idx, static_cast<size_t>(std::ceil(max_percentile * end_idx)));
 
   std::nth_element(
