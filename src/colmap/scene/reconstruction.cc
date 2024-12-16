@@ -344,7 +344,7 @@ Reconstruction::ComputeBoundingBoxAndCentroid(const double min_percentile,
                                               const bool use_images) const {
   const size_t num_elements = use_images ? NumRegImages() : points3D_.size();
   if (num_elements == 0) {
-    return std::make_tuple(
+    return std::make_pair(
         Eigen::AlignedBox3d(Eigen::Vector3d(0, 0, 0), Eigen::Vector3d(0, 0, 0)),
         Eigen::Vector3d(0, 0, 0));
   }
