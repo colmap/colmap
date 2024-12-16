@@ -58,8 +58,13 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_geometry
 )
 COLMAP_ADD_TEST(
-    NAME homography_matrix_utils_test
+    NAME homography_matrix_test
     SRCS homography_matrix_test.cc
+    LINK_LIBS colmap_geometry
+)
+COLMAP_ADD_TEST(
+    NAME normalization_test
+    SRCS normalization_test.cc
     LINK_LIBS colmap_geometry
 )
 COLMAP_ADD_TEST(
