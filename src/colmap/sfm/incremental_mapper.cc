@@ -104,10 +104,10 @@ void IncrementalMapper::EndReconstruction(const bool discard) {
     }
   }
 
+  triangulator_.reset();
+  obs_manager_.reset();
   reconstruction_->TearDown();
   reconstruction_ = nullptr;
-  obs_manager_.reset();
-  triangulator_.reset();
 }
 
 bool IncrementalMapper::FindInitialImagePair(const Options& options,
