@@ -78,8 +78,8 @@ float RankNextImageMinUncertainty(const image_t image_id,
 
 std::vector<image_t> IncrementalMapperImpl::FindFirstInitialImage(
     const IncrementalMapper::Options& options,
-    const std::shared_ptr<class Reconstruction>& reconstruction,
-    const std::shared_ptr<class ObservationManager>& obs_manager,
+    const CorrespondenceGraph& correspondence_graph,
+    const Reconstruction& reconstruction,
     const std::unordered_map<image_t, size_t>& init_num_reg_trials,
     const std::unordered_map<image_t, size_t>& num_registrations) {
   // Struct to hold meta-data for ranking images.
@@ -95,10 +95,10 @@ std::vector<image_t> IncrementalMapperImpl::FindFirstInitialImage(
   // Collect information of all not yet registered images with
   // correspondences.
   std::vector<ImageInfo> image_infos;
-  image_infos.reserve(reconstruction->NumImages());
-  for (const auto& image : reconstruction->Images()) {
+  image_infos.reserve(reconstruction.NumImages());
+  for (const auto& image : reconstruction.Images()) {
     // Only images with correspondences can be registered.
-    if (obs_manager->NumCorrespondences(image.first) == 0) {
+    if (correspondence_graph.NumCorrespondencesForImage(image.first) == 0) {
       continue;
     }
 
@@ -120,7 +120,7 @@ std::vector<image_t> IncrementalMapperImpl::FindFirstInitialImage(
     image_info.image_id = image.first;
     image_info.prior_focal_length = camera.has_prior_focal_length;
     image_info.num_correspondences =
-        obs_manager->NumCorrespondences(image.first);
+        correspondence_graph.NumCorrespondencesForImage(image.first);
     image_infos.push_back(image_info);
   }
 
@@ -154,19 +154,17 @@ std::vector<image_t> IncrementalMapperImpl::FindFirstInitialImage(
 std::vector<image_t> IncrementalMapperImpl::FindSecondInitialImage(
     const IncrementalMapper::Options& options,
     image_t image_id1,
-    const std::shared_ptr<const DatabaseCache>& database_cache,
-    const std::shared_ptr<class Reconstruction>& reconstruction,
+    const CorrespondenceGraph& correspondence_graph,
+    const Reconstruction& reconstruction,
     const std::unordered_map<image_t, size_t>& num_registrations) {
-  const std::shared_ptr<const CorrespondenceGraph> correspondence_graph =
-      database_cache->CorrespondenceGraph();
   // Collect images that are connected to the first seed image and have
   // not been registered before in other reconstructions.
-  const class Image& image1 = reconstruction->Image(image_id1);
+  const class Image& image1 = reconstruction.Image(image_id1);
   std::unordered_map<image_t, point2D_t> num_correspondences;
   for (point2D_t point2D_idx = 0; point2D_idx < image1.NumPoints2D();
        ++point2D_idx) {
     const auto corr_range =
-        correspondence_graph->FindCorrespondences(image_id1, point2D_idx);
+        correspondence_graph.FindCorrespondences(image_id1, point2D_idx);
     for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
       if (num_registrations.count(corr->image_id) == 0 ||
           num_registrations.at(corr->image_id) == 0) {
@@ -187,10 +185,10 @@ std::vector<image_t> IncrementalMapperImpl::FindSecondInitialImage(
 
   // Compose image information in a compact form for sorting.
   std::vector<ImageInfo> image_infos;
-  image_infos.reserve(reconstruction->NumImages());
+  image_infos.reserve(reconstruction.NumImages());
   for (const auto elem : num_correspondences) {
     if (elem.second >= init_min_num_inliers) {
-      const Image& image = reconstruction->Image(elem.first);
+      const Image& image = reconstruction.Image(elem.first);
       const Camera& camera = *image.CameraPtr();
       ImageInfo image_info;
       image_info.image_id = elem.first;
@@ -229,9 +227,8 @@ std::vector<image_t> IncrementalMapperImpl::FindSecondInitialImage(
 
 bool IncrementalMapperImpl::FindInitialImagePair(
     const IncrementalMapper::Options& options,
-    const std::shared_ptr<const DatabaseCache>& database_cache,
-    const std::shared_ptr<class Reconstruction>& reconstruction,
-    const std::shared_ptr<class ObservationManager>& obs_manager,
+    const DatabaseCache& database_cache,
+    const Reconstruction& reconstruction,
     const std::unordered_map<image_t, size_t>& init_num_reg_trials,
     const std::unordered_map<image_t, size_t>& num_registrations,
     std::unordered_set<image_pair_t>& init_image_pairs,
@@ -243,24 +240,24 @@ bool IncrementalMapperImpl::FindInitialImagePair(
   std::vector<image_t> image_ids1;
   if (image_id1 != kInvalidImageId && image_id2 == kInvalidImageId) {
     // Only image_id1 provided.
-    if (!database_cache->ExistsImage(image_id1)) {
+    if (!database_cache.ExistsImage(image_id1)) {
       return false;
     }
     image_ids1.push_back(image_id1);
   } else if (image_id1 == kInvalidImageId && image_id2 != kInvalidImageId) {
     // Only image_id2 provided.
-    if (!database_cache->ExistsImage(image_id2)) {
+    if (!database_cache.ExistsImage(image_id2)) {
       return false;
     }
     image_ids1.push_back(image_id2);
   } else {
     // No initial seed image provided.
-    image_ids1 =
-        IncrementalMapperImpl::FindFirstInitialImage(options,
-                                                     reconstruction,
-                                                     obs_manager,
-                                                     init_num_reg_trials,
-                                                     num_registrations);
+    image_ids1 = IncrementalMapperImpl::FindFirstInitialImage(
+        options,
+        *database_cache.CorrespondenceGraph(),
+        reconstruction,
+        init_num_reg_trials,
+        num_registrations);
   }
 
   // Try to find good initial pair.
@@ -268,11 +265,12 @@ bool IncrementalMapperImpl::FindInitialImagePair(
     image_id1 = image_ids1[i1];
 
     const std::vector<image_t> image_ids2 =
-        IncrementalMapperImpl::FindSecondInitialImage(options,
-                                                      image_id1,
-                                                      database_cache,
-                                                      reconstruction,
-                                                      num_registrations);
+        IncrementalMapperImpl::FindSecondInitialImage(
+            options,
+            image_id1,
+            *database_cache.CorrespondenceGraph(),
+            reconstruction,
+            num_registrations);
 
     for (size_t i2 = 0; i2 < image_ids2.size(); ++i2) {
       image_id2 = image_ids2[i2];
@@ -307,12 +305,11 @@ bool IncrementalMapperImpl::FindInitialImagePair(
 
 std::vector<image_t> IncrementalMapperImpl::FindNextImages(
     const IncrementalMapper::Options& options,
-    const std::shared_ptr<class Reconstruction>& reconstruction,
-    const std::shared_ptr<class ObservationManager>& obs_manager,
+    const ObservationManager& obs_manager,
     const std::unordered_set<image_t>& filtered_images,
     std::unordered_map<image_t, size_t>& m_num_reg_trials) {
-  THROW_CHECK_NOTNULL(reconstruction);
   THROW_CHECK(options.Check());
+  const Reconstruction& reconstruction = obs_manager.Reconstruction();
 
   std::function<float(image_t, const class ObservationManager&)>
       rank_image_func;
@@ -334,14 +331,14 @@ std::vector<image_t> IncrementalMapperImpl::FindNextImages(
   std::vector<std::pair<image_t, float>> other_image_ranks;
 
   // Append images that have not failed to register before.
-  for (const auto& image : reconstruction->Images()) {
+  for (const auto& image : reconstruction.Images()) {
     // Skip images that are already registered.
     if (image.second.HasPose()) {
       continue;
     }
 
     // Only consider images with a sufficient number of visible points.
-    if (obs_manager->NumVisiblePoints3D(image.first) <
+    if (obs_manager.NumVisiblePoints3D(image.first) <
         static_cast<size_t>(options.abs_pose_min_num_inliers)) {
       continue;
     }
@@ -354,7 +351,7 @@ std::vector<image_t> IncrementalMapperImpl::FindNextImages(
 
     // If image has been filtered or failed to register, place it in the
     // second bucket and prefer images that have not been tried before.
-    const float rank = rank_image_func(image.first, *obs_manager);
+    const float rank = rank_image_func(image.first, obs_manager);
     if (filtered_images.count(image.first) == 0 && num_reg_trials == 0) {
       image_ranks.emplace_back(image.first, rank);
     } else {
@@ -372,10 +369,10 @@ std::vector<image_t> IncrementalMapperImpl::FindNextImages(
 std::vector<image_t> IncrementalMapperImpl::FindLocalBundle(
     const IncrementalMapper::Options& options,
     image_t image_id,
-    const std::shared_ptr<class Reconstruction>& reconstruction) {
+    const Reconstruction& reconstruction) {
   THROW_CHECK(options.Check());
 
-  const Image& image = reconstruction->Image(image_id);
+  const Image& image = reconstruction.Image(image_id);
   THROW_CHECK(image.HasPose());
 
   // Extract all images that have at least one 3D point with the query image
@@ -389,7 +386,7 @@ std::vector<image_t> IncrementalMapperImpl::FindLocalBundle(
   for (const Point2D& point2D : image.Points2D()) {
     if (point2D.HasPoint3D()) {
       point3D_ids.insert(point2D.point3D_id);
-      const Point3D& point3D = reconstruction->Point3D(point2D.point3D_id);
+      const Point3D& point3D = reconstruction.Point3D(point2D.point3D_id);
       for (const TrackElement& track_el : point3D.track.Elements()) {
         if (track_el.image_id != image_id) {
           shared_observations[track_el.image_id] += 1;
@@ -474,8 +471,8 @@ std::vector<image_t> IncrementalMapperImpl::FindLocalBundle(
         continue;
       }
 
-      const auto& overlapping_image = reconstruction->Image(
-          overlapping_images[overlapping_image_idx].first);
+      const auto& overlapping_image =
+          reconstruction.Image(overlapping_images[overlapping_image_idx].first);
       const Eigen::Vector3d overlapping_proj_center =
           overlapping_image.ProjectionCenter();
 
@@ -488,7 +485,7 @@ std::vector<image_t> IncrementalMapperImpl::FindLocalBundle(
         for (const Point2D& point2D : overlapping_image.Points2D()) {
           if (point2D.HasPoint3D() && point3D_ids.count(point2D.point3D_id)) {
             shared_points3D.push_back(
-                reconstruction->Point3D(point2D.point3D_id).xyz);
+                reconstruction.Point3D(point2D.point3D_id).xyz);
           }
         }
 
@@ -543,18 +540,18 @@ std::vector<image_t> IncrementalMapperImpl::FindLocalBundle(
 
 bool IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
     const IncrementalMapper::Options& options,
-    const std::shared_ptr<const DatabaseCache>& database_cache,
+    const DatabaseCache& database_cache,
     const image_t image_id1,
     const image_t image_id2,
     TwoViewGeometry& two_view_geometry) {
-  const Image& image1 = database_cache->Image(image_id1);
-  const Camera& camera1 = database_cache->Camera(image1.CameraId());
+  const Image& image1 = database_cache.Image(image_id1);
+  const Camera& camera1 = database_cache.Camera(image1.CameraId());
 
-  const Image& image2 = database_cache->Image(image_id2);
-  const Camera& camera2 = database_cache->Camera(image2.CameraId());
+  const Image& image2 = database_cache.Image(image_id2);
+  const Camera& camera2 = database_cache.Camera(image2.CameraId());
 
   const FeatureMatches matches =
-      database_cache->CorrespondenceGraph()->FindCorrespondencesBetweenImages(
+      database_cache.CorrespondenceGraph()->FindCorrespondencesBetweenImages(
           image_id1, image_id2);
 
   std::vector<Eigen::Vector2d> points1;
