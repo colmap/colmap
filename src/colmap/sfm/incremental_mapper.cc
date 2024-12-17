@@ -191,6 +191,9 @@ bool IncrementalMapper::FindInitialImagePair(const Options& options,
 
       init_image_pairs_.insert(pair_id);
 
+      LOG(INFO) << "Estimating initial two-view geometry for image pair "
+                << image_id1 << " and " << image_id2;
+
       if (EstimateInitialTwoViewGeometry(
               options, two_view_geometry, image_id1, image_id2)) {
         return true;
