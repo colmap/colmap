@@ -47,9 +47,11 @@ enum class LineSegmentOrientation {
   UNDEFINED = 0,
 };
 
+#ifdef COLMAP_LSD_ENABLED
 // Detect line segments in the given bitmap image.
 std::vector<LineSegment> DetectLineSegments(const Bitmap& bitmap,
                                             double min_length = 3);
+#endif
 
 // Classify line segments into horizontal/vertical.
 std::vector<LineSegmentOrientation> ClassifyLineSegmentOrientations(

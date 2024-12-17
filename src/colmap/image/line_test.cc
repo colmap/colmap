@@ -34,6 +34,7 @@
 namespace colmap {
 namespace {
 
+#ifdef COLMAP_LSD_ENABLED
 TEST(DetectLineSegments, Nominal) {
   Bitmap bitmap;
   bitmap.Allocate(100, 100, false);
@@ -77,6 +78,7 @@ TEST(ClassifyLineSegmentOrientations, Nominal) {
   EXPECT_TRUE(orientations[4] == LineSegmentOrientation::UNDEFINED);
   EXPECT_TRUE(orientations[5] == LineSegmentOrientation::UNDEFINED);
 }
+#endif
 
 }  // namespace
 }  // namespace colmap

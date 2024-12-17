@@ -92,14 +92,14 @@ void BindAlignmentEstimator(py::module& m) {
   m.def(
       "align_reconstruction_to_locations",
       [](const Reconstruction& src,
-         const std::vector<std::string>& image_names,
-         const std::vector<Eigen::Vector3d>& locations,
+         const std::vector<std::string>& tgt_image_names,
+         const std::vector<Eigen::Vector3d>& tgt_locations,
          const int min_common_images,
          const RANSACOptions& ransac_options) -> py::typing::Optional<Sim3d> {
         Sim3d locations_from_src;
         if (!AlignReconstructionToLocations(src,
-                                            image_names,
-                                            locations,
+                                            tgt_image_names,
+                                            tgt_locations,
                                             min_common_images,
                                             ransac_options,
                                             &locations_from_src)) {
@@ -108,9 +108,9 @@ void BindAlignmentEstimator(py::module& m) {
         return py::cast(locations_from_src);
       },
       "src"_a,
-      "image_names"_a,
-      "locations"_a,
-      "min_common_points"_a,
+      "tgt_image_names"_a,
+      "tgt_locations"_a,
+      "min_common_images"_a,
       "ransac_options"_a);
 
   m.def(

@@ -30,8 +30,10 @@
 #pragma once
 
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/enum_to_string.h"
 #include "colmap/util/types.h"
 
+#include <ostream>
 #include <vector>
 
 #include <Eigen/Core>
@@ -42,7 +44,7 @@ namespace colmap {
 // representation and vice versa.
 class GPSTransform {
  public:
-  enum ELLIPSOID { GRS80, WGS84 };
+  MAKE_ENUM(ELLPSOID, 0, GRS80, WGS84);
 
   explicit GPSTransform(int ellipsoid = GRS80);
 
@@ -72,6 +74,22 @@ class GPSTransform {
                                         double lon0,
                                         double alt0) const;
 
+  // Converts GPS (lat / lon / alt) to UTM coordinates.
+  // Returns a pair of the converted coordinates and the zone number.
+  // If the points span multiple zones, the zone with the most points
+  // is chosen as the reference frame.
+  //
+  // The conversion uses a 4th-order expansion formula. The easting offset is
+  // 500 km, and the northing offset is 10,000 km for the Southern Hemisphere.
+  std::pair<std::vector<Eigen::Vector3d>, int> EllToUTM(
+      const std::vector<Eigen::Vector3d>& ell) const;
+
+  // Converts UTM coords to GPS (lat / lon / alt).
+  // Requires the zone number and hemisphere (true for north, false for south).
+  std::vector<Eigen::Vector3d> UTMToEll(const std::vector<Eigen::Vector3d>& utm,
+                                        int zone,
+                                        bool is_north) const;
+
  private:
   // Semimajor axis.
   double a_;
@@ -85,11 +103,12 @@ class GPSTransform {
 
 struct PosePrior {
  public:
-  enum class CoordinateSystem {
-    UNDEFINED = -1,
-    WGS84 = 0,
-    CARTESIAN = 1,
-  };
+  MAKE_ENUM_CLASS(CoordinateSystem,
+                  -1,
+                  UNDEFINED,  // = -1
+                  WGS84,      // = 0
+                  CARTESIAN   // = 1
+  );
 
   Eigen::Vector3d position =
       Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
@@ -114,6 +133,21 @@ struct PosePrior {
   inline bool IsCovarianceValid() const {
     return position_covariance.allFinite();
   }
+
+  inline bool operator==(const PosePrior& other) const;
+  inline bool operator!=(const PosePrior& other) const;
 };
+
+std::ostream& operator<<(std::ostream& stream, const PosePrior& prior);
+
+bool PosePrior::operator==(const PosePrior& other) const {
+  return coordinate_system == other.coordinate_system &&
+         position == other.position &&
+         position_covariance == other.position_covariance;
+}
+
+bool PosePrior::operator!=(const PosePrior& other) const {
+  return !(*this == other);
+}
 
 }  // namespace colmap

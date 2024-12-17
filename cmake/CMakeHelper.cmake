@@ -107,7 +107,7 @@ macro(COLMAP_ADD_EXECUTABLE)
     if(VCPKG_BUILD)
         install(TARGETS ${COLMAP_ADD_EXECUTABLE_NAME} DESTINATION tools/)
     else()
-        install(TARGETS ${COLMAP_ADD_EXECUTABLE_NAME} DESTINATION bin/)
+        install(TARGETS ${COLMAP_ADD_EXECUTABLE_NAME} DESTINATION ${CMAKE_INSTALL_BINDIR})
     endif()
     if(CLANG_TIDY_EXE)
         set_target_properties(${COLMAP_ADD_EXECUTABLE_NAME}
@@ -133,12 +133,10 @@ macro(COLMAP_ADD_TEST)
         endif()
         target_link_libraries(${COLMAP_ADD_TEST_NAME}
             ${COLMAP_ADD_TEST_LINK_LIBS}
-            GTest::gtest
-            GTest::gmock
-            GTest::gmock_main)
+            colmap_gtest_main)
         add_test("${FOLDER_NAME}/${COLMAP_ADD_TEST_NAME}" ${COLMAP_ADD_TEST_NAME})
         if(IS_MSVC)
-            install(TARGETS ${COLMAP_ADD_TEST_NAME} DESTINATION bin/)
+            install(TARGETS ${COLMAP_ADD_TEST_NAME} DESTINATION ${CMAKE_INSTALL_BINDIR})
         endif()
     endif()
 endmacro(COLMAP_ADD_TEST)

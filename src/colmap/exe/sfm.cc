@@ -795,7 +795,7 @@ int RunRigBundleAdjuster(int argc, char** argv) {
   std::string rig_config_path;
   bool estimate_rig_relative_poses = true;
 
-  RigBundleAdjuster::Options rig_ba_options;
+  RigBundleAdjustmentOptions rig_ba_options;
 
   OptionManager options;
   options.AddRequiredOption("input_path", &input_path);
@@ -832,8 +832,14 @@ int RunRigBundleAdjuster(int argc, char** argv) {
   PrintHeading1("Rig bundle adjustment");
 
   BundleAdjustmentOptions ba_options = *options.bundle_adjustment;
-  RigBundleAdjuster bundle_adjuster(ba_options, rig_ba_options, config);
-  THROW_CHECK(bundle_adjuster.Solve(&reconstruction, &camera_rigs));
+
+  std::unique_ptr<BundleAdjuster> bundle_adjuster =
+      CreateRigBundleAdjuster(std::move(ba_options),
+                              rig_ba_options,
+                              std::move(config),
+                              reconstruction,
+                              camera_rigs);
+  THROW_CHECK_NE(bundle_adjuster->Solve().termination_type, ceres::FAILURE);
 
   reconstruction.Write(output_path);
 

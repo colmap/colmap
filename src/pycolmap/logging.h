@@ -101,6 +101,8 @@ void BindLogging(py::module& m) {
 #if defined(GLOG_VERSION_MAJOR) && \
     (GLOG_VERSION_MAJOR > 0 || GLOG_VERSION_MINOR >= 6)
   if (!google::IsGoogleLoggingInitialized())
+#else
+  if (!py::module_::import("sys").attr("modules").contains("pyceres"))
 #endif
   {
     google::InitGoogleLogging("");

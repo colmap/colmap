@@ -2,6 +2,7 @@
 Python reimplementation of the C++ incremental mapper with equivalent logic.
 """
 
+import argparse
 import time
 from pathlib import Path
 
@@ -319,3 +320,22 @@ def main(
     for i in range(reconstruction_manager.size()):
         reconstructions[i] = reconstruction_manager.get(i)
     return reconstructions
+
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--database_path", required=True)
+    parser.add_argument("--image_path", required=True)
+    parser.add_argument("--input_path", default=None)
+    parser.add_argument("--output_path", required=True)
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    args = parse_args()
+    main(
+        database_path=Path(args.database_path),
+        image_path=Path(args.image_path),
+        input_path=Path(args.input_path) if args.input_path else None,
+        output_path=Path(args.output_path),
+    )

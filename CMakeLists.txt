@@ -46,9 +46,13 @@ option(PROFILING_ENABLED "Whether to enable google-perftools linker flags" OFF)
 option(CCACHE_ENABLED "Whether to enable compiler caching, if available" ON)
 option(CGAL_ENABLED "Whether to enable the CGAL library" ON)
 option(LSD_ENABLED "Whether to enable the LSD library" ON)
+option(DOWNLOAD_ENABLED "Whether to enable (automatic) download of resources (requires Curl/OpenSSL)" ON)
 option(UNINSTALL_ENABLED "Whether to create a target to 'uninstall' colmap" ON)
 option(FETCH_POSELIB "Whether to consume PoseLib using FetchContent or find_package" ON)
 option(ALL_SOURCE_TARGET "Whether to create a target for all source files (for Visual Studio / XCode development)" OFF)
+
+# Disables default features, as we specify each required feature manually below.
+list(APPEND VCPKG_MANIFEST_FEATURES "core")
 
 # Propagate options to vcpkg manifest.
 if(TESTS_ENABLED)
@@ -72,9 +76,13 @@ else()
     message(STATUS "Disabling LSD support")
 endif()
 
+if(DOWNLOAD_ENABLED)
+    list(APPEND VCPKG_MANIFEST_FEATURES "download")
+endif()
+
 project(COLMAP LANGUAGES C CXX)
 
-set(COLMAP_VERSION "3.11.0.dev0")
+set(COLMAP_VERSION "3.12.0.dev0")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -90,6 +98,7 @@ set_property(GLOBAL PROPERTY GLOBAL_DEPENDS_NO_CYCLES ON)
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 include(CheckCXXCompilerFlag)
+include(GNUInstallDirs)
 
 # Include helper macros and commands, and allow the included file to override
 # the CMake policies in this file
@@ -153,6 +162,11 @@ if(IS_GNU)
     # Hide incorrect warnings for uninitialized Eigen variables under GCC.
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-maybe-uninitialized")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-maybe-uninitialized")
+endif()
+
+if(IS_MACOS)
+    # Mitigate CMake limitation, see: https://discourse.cmake.org/t/avoid-duplicate-linking-to-avoid-xcode-15-warnings/9084/10
+    add_link_options(LINKER:-no_warn_duplicate_libraries)
 endif()
 
 if(IS_DEBUG)
@@ -302,7 +316,7 @@ endif()
 
 # Install application meny entry under Linux/Unix.
 if(UNIX AND NOT APPLE)
-    install(FILES "doc/COLMAP.desktop" DESTINATION "share/applications")
+    install(FILES "doc/COLMAP.desktop" DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/applications")
 endif()
 
 # Configure the uninstallation script.
@@ -334,7 +348,6 @@ set(COLMAP_EXPORT_LIBS
     # Third-party.
     colmap_poisson_recon
     colmap_vlfeat
-    PoseLib
 )
 if(LSD_ENABLED)
     list(APPEND COLMAP_EXPORT_LIBS
@@ -358,15 +371,17 @@ if(GPU_ENABLED)
          colmap_sift_gpu
     )
 endif()
+if(FETCH_POSELIB)
+    list(APPEND COLMAP_EXPORT_LIBS PoseLib)
+endif()
 
 # Add unified interface library target to export.
 add_library(colmap INTERFACE)
 target_link_libraries(colmap INTERFACE ${COLMAP_EXPORT_LIBS})
-set(INSTALL_INCLUDE_DIR "${CMAKE_INSTALL_PREFIX}/include")
 target_include_directories(
     colmap
     INTERFACE
-        $<INSTALL_INTERFACE:${INSTALL_INCLUDE_DIR}>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>)
 
 install(
@@ -377,7 +392,7 @@ install(
 # Generate config and version.
 include(CMakePackageConfigHelpers)
 set(PACKAGE_CONFIG_FILE "${CMAKE_CURRENT_BINARY_DIR}/colmap-config.cmake")
-set(INSTALL_CONFIG_DIR "share/colmap")
+set(INSTALL_CONFIG_DIR "${CMAKE_INSTALL_DATAROOTDIR}/colmap")
 configure_package_config_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/cmake/colmap-config.cmake.in ${PACKAGE_CONFIG_FILE}
     INSTALL_DESTINATION ${INSTALL_CONFIG_DIR})
@@ -386,7 +401,7 @@ install(FILES ${PACKAGE_CONFIG_FILE} DESTINATION ${INSTALL_CONFIG_DIR})
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/colmap-config-version.cmake.in"
                 "${CMAKE_CURRENT_BINARY_DIR}/colmap-config-version.cmake" @ONLY)
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/colmap-config-version.cmake"
-        DESTINATION "share/colmap")
+        DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/colmap")
 
 # Install targets.
 install(
@@ -398,15 +413,15 @@ install(
 # Install header files.
 install(
     DIRECTORY src/colmap
-    DESTINATION include
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
     FILES_MATCHING PATTERN "*.h")
 install(
     DIRECTORY src/thirdparty
-    DESTINATION include/colmap
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/colmap
     FILES_MATCHING REGEX ".*[.]h|.*[.]hpp|.*[.]inl")
 
 # Install find_package scripts for dependencies.
 install(
     DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/cmake
-    DESTINATION share/colmap
+    DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/colmap
     FILES_MATCHING PATTERN "Find*.cmake")

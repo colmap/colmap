@@ -36,8 +36,9 @@ COLMAP_ADD_LIBRARY(
         essential_matrix.h essential_matrix.cc
         gps.h gps.cc
         homography_matrix.h homography_matrix.cc
+        normalization.h normalization.cc
         pose.h pose.cc
-        rigid3.h
+        rigid3.h rigid3.cc
         sim3.h sim3.cc
         triangulation.h triangulation.cc
     PUBLIC_LINK_LIBS
@@ -57,8 +58,13 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_geometry
 )
 COLMAP_ADD_TEST(
-    NAME homography_matrix_utils_test
+    NAME homography_matrix_test
     SRCS homography_matrix_test.cc
+    LINK_LIBS colmap_geometry
+)
+COLMAP_ADD_TEST(
+    NAME normalization_test
+    SRCS normalization_test.cc
     LINK_LIBS colmap_geometry
 )
 COLMAP_ADD_TEST(

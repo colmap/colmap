@@ -10,6 +10,9 @@
 # All configuration values have a default; values that are commented out
 # serve to show the default.
 
+import re
+
+from sphinx.ext import autodoc
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -51,7 +54,7 @@ copyright = "2024, Johannes L. Schoenberger"
 # built documents.
 #
 # The short MAJOR.MINOR.PATCH version.
-version = "3.11.0.dev0"
+version = "3.12.0.dev0"
 # The full version, including alpha/beta/rc tags.
 release = version
 
@@ -188,7 +191,7 @@ latex_elements = {
     # The font size ('10pt', '11pt' or '12pt').
     # 'pointsize': '10pt',
     # Additional stuff for the LaTeX preamble.
-    #'preamble': '',
+    # 'preamble': '',
 }
 
 # Grouping the document tree into LaTeX files. List of tuples
@@ -273,14 +276,46 @@ texinfo_documents = [
 # texinfo_no_detailmenu = False
 
 # Configure how Python API docs are displayed.
+autoclass_content = "both"
 autodoc_member_order = "bysource"
 autodoc_typehints = "both"
 python_maximum_signature_line_length = 120
 
 
+class MyClassDocumenter(autodoc.ClassDocumenter):
+    def sort_members(
+        self, documenters: list[tuple[autodoc.Documenter, bool]], order: str
+    ) -> list[tuple[autodoc.Documenter, bool]]:
+        """Order the members by their definition order."""
+        class_names = list(self.object.__dict__)
+
+        def keyfunc(entry: tuple[autodoc.Documenter, bool]) -> int:
+            name = entry[0].name.split("::")[1].split(".")[1]
+            if name in class_names:
+                return class_names.index(name)
+            else:
+                return len(class_names)
+
+        documenters.sort(key=keyfunc)
+        return documenters
+
+
+# autodoc_member_order=bysource does not work for C++-defined classes since they
+# cannot be introspected and do not have an __all__ list. Instead,
+# we extract the definition order from object.__dict__.
+autodoc.ClassDocumenter = MyClassDocumenter
+
+
 def process_doc(app, what, name, obj, options, lines):
+    if not lines:
+        return
+    has_overload = lines[0] == "Overloaded function."
     for i in range(len(lines)):
         lines[i] = lines[i].replace("pycolmap._core", "pycolmap")
+        if has_overload and re.search(r"^\d+\. ", lines[i]):
+            index, signature = lines[i].split(". ", 1)
+            signature = "``" + signature.replace("->", "→") + "``"
+            lines[i] = ". ".join([index, signature])
 
 
 def process_sig(app, what, name, obj, options, signature, return_annotation):

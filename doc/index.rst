@@ -82,11 +82,21 @@ for bug reports, feature requests/additions, etc.
 Acknowledgments
 ---------------
 
-The library was originally written by `Johannes L. Schönberger
-<https://demuc.de/>`_ with funding provided by his PhD advisors Jan-Michael
-Frahm and Marc Pollefeys. Since then the project has benefited from countless
-community contributions, including bug fixes, improvements, new features,
-third-party tooling, and community support.
+COLMAP was originally written by `Johannes Schönberger <https://demuc.de/>`__ with
+funding provided by his PhD advisors Jan-Michael Frahm and Marc Pollefeys.
+The team of core project maintainers currently includes
+`Johannes Schönberger <https://github.com/ahojnnes>`__,
+`Paul-Edouard Sarlin <https://github.com/sarlinpe>`_, and
+`Shaohui Liu <https://github.com/B1ueber2y>`_.
+
+The Python bindings in PyCOLMAP were originally added by
+`Mihai Dusmanu <https://github.com/mihaidusmanu>`_,
+`Philipp Lindenberger <https://github.com/Phil26AT>`_, and
+`Paul-Edouard Sarlin <https://github.com/sarlinpe>`_.
+
+The project has also benefitted from countless community contributions, including
+bug fixes, improvements, new features, third-party tooling, and community
+support (special credits to `Torsten Sattler <https://tsattler.github.io>`_).
 
 
 .. toctree::

@@ -30,7 +30,9 @@
 #pragma once
 
 #include "colmap/controllers/option_manager.h"
+#include "colmap/retrieval/resources.h"
 #include "colmap/scene/reconstruction_manager.h"
+#include "colmap/util/enum_to_string.h"
 #include "colmap/util/threading.h"
 
 #include <memory>
@@ -40,9 +42,9 @@ namespace colmap {
 
 class AutomaticReconstructionController : public Thread {
  public:
-  enum class DataType { INDIVIDUAL, VIDEO, INTERNET };
-  enum class Quality { LOW, MEDIUM, HIGH, EXTREME };
-  enum class Mesher { POISSON, DELAUNAY };
+  MAKE_ENUM_CLASS(DataType, 0, INDIVIDUAL, VIDEO, INTERNET);
+  MAKE_ENUM_CLASS(Quality, 0, LOW, MEDIUM, HIGH, EXTREME);
+  MAKE_ENUM_CLASS(Mesher, 0, POISSON, DELAUNAY);
 
   struct Options {
     // The path to the workspace folder in which all results are stored.
@@ -55,7 +57,7 @@ class AutomaticReconstructionController : public Thread {
     std::string mask_path;
 
     // The path to the vocabulary tree for feature matching.
-    std::string vocab_tree_path;
+    std::string vocab_tree_path = kDefaultVocabTreeUri;
 
     // The type of input data used to choose optimal mapper settings.
     DataType data_type = DataType::INDIVIDUAL;

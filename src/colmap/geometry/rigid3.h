@@ -32,6 +32,8 @@
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/types.h"
 
+#include <ostream>
+
 #include <Eigen/Geometry>
 
 namespace colmap {
@@ -53,6 +55,13 @@ struct Rigid3d {
     matrix.leftCols<3>() = rotation.toRotationMatrix();
     matrix.col(3) = translation;
     return matrix;
+  }
+
+  static inline Rigid3d FromMatrix(const Eigen::Matrix3x4d& matrix) {
+    Rigid3d t;
+    t.rotation = Eigen::Quaterniond(matrix.leftCols<3>()).normalized();
+    t.translation = matrix.rightCols<1>();
+    return t;
   }
 
   // Adjoint matrix to propagate uncertainty on Rigid3d
@@ -114,5 +123,10 @@ inline bool operator==(const Rigid3d& left, const Rigid3d& right) {
   return left.rotation.coeffs() == right.rotation.coeffs() &&
          left.translation == right.translation;
 }
+inline bool operator!=(const Rigid3d& left, const Rigid3d& right) {
+  return !(left == right);
+}
+
+std::ostream& operator<<(std::ostream& stream, const Rigid3d& tform);
 
 }  // namespace colmap

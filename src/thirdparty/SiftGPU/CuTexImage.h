@@ -49,6 +49,7 @@ public:
 
 	virtual void SetImageSize(int width, int height);
 	virtual bool InitTexture(int width, int height, int nchannel = 1);
+	void InitTexture2D();
 	CuTexObj BindTexture(const cudaTextureDesc& textureDesc,
 											 const cudaChannelFormatDesc& channelFmtDesc);
 	CuTexObj BindTexture2D(const cudaTextureDesc& textureDesc,
@@ -56,6 +57,7 @@ public:
 	void CopyToHost(void* buf);
 	void CopyToHost(void* buf, int stream);
 	void CopyFromHost(const void* buf);
+	void CopyToTexture2D();
 	int  CopyToPBO(GLuint pbo);
 	void CopyFromPBO(int width, int height, GLuint pbo);
 public:
@@ -74,4 +76,3 @@ public:
 //transfer OpenGL Texture to PBO, then to CUDA vector
 //#endif
 #endif // !defined(CU_TEX_IMAGE_H)
-
