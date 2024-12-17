@@ -390,14 +390,6 @@ int RunPosePriorMapper(int argc, char** argv) {
     LOG(FATAL_THROW) << "Invalid Cartesian coordinate frame provided.";
   }
 
-  options.AddDefaultOption("use_mean_shift_to_prior_positions",
-                           &options.mapper->use_mean_shift_to_prior_positions,
-                           "Flag to determine whether to apply a mean shift "
-                           "(offset) to prior positions. "
-                           "When enabled (true), the coordinate system's "
-                           "origin is shifted to the average prior position "
-                           "of all images");
-
   options.Parse(argc, argv);
 
   if (!ExistsDir(output_path)) {

@@ -176,7 +176,7 @@ void ReadDatabaseCameraLocations(const std::string& database_path,
         THROW_CHECK_EQ(static_cast<int>(pose_prior.coordinate_system),
                        static_cast<int>(PosePrior::CoordinateSystem::WGS84));
       }
-      ref_locations->push_back(pose_prior.UnoffsetPosition());
+      ref_locations->push_back(pose_prior.position);
     }
   }
 
@@ -264,10 +264,6 @@ void PrintComparisonSummary(std::ostream& out,
 //    scale when aligning the reconstruction
 //    > utm: align with utm coords. (requires gps coords. or user provided utm
 //    coords.)
-//    > unoffset: Align with the original GPS coordinates by removing any
-//    previously applied offset. This restores the coordinates to their original
-//    values before any shifts were applied (such as shifting the origin to the
-//    image center). (requires prior positions)
 //    > custom: align to provided coords.
 // - min_common_images: minimum number of images with prior positions to perform
 // the estimate an alignment
@@ -299,7 +295,7 @@ int RunModelAligner(int argc, char** argv) {
   options.AddDefaultOption("alignment_type",
                            &alignment_type,
                            "{plane, ecef, enu, enu-plane, enu-plane-unscaled, "
-                           "utm, unoffset, custom}");
+                           "utm, custom}");
   options.AddDefaultOption("min_common_images", &min_common_images);
   options.AddDefaultOption("alignment_max_error", &ransac_options.max_error);
   options.Parse(argc, argv);
@@ -311,13 +307,12 @@ int RunModelAligner(int argc, char** argv) {
                                                           "enu-plane",
                                                           "enu-plane-unscaled",
                                                           "utm",
-                                                          "unoffset",
                                                           "custom"};
   if (alignment_options.count(alignment_type) == 0) {
     LOG(ERROR)
         << "Invalid `alignment_type` - supported values are "
            "{'plane', 'ecef', 'enu', 'enu-plane', 'enu-plane-unscaled', 'utm', "
-           "'unoffset', 'custom'}";
+           "'custom'}";
     return EXIT_FAILURE;
   }
 
@@ -370,11 +365,7 @@ int RunModelAligner(int argc, char** argv) {
   reconstruction.Read(input_path);
   Sim3d tform;
 
-  if (alignment_type == "unoffset") {
-    PrintHeading2("Aligning reconstruction via unoffset.");
-    Sim3d tform(1, Eigen::Quaterniond::Identity(), PosePrior::Offset());
-    reconstruction.Transform(tform);
-  } else if (alignment_type == "plane") {
+  if (alignment_type == "plane") {
     PrintHeading2("Aligning reconstruction to principal plane");
     AlignToPrincipalPlane(&reconstruction, &tform);
   } else {
