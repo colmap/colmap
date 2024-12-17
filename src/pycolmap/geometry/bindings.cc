@@ -78,10 +78,7 @@ void BindGeometry(py::module& m) {
       .def(py::init<const Eigen::Quaterniond&, const Eigen::Vector3d&>(),
            "rotation"_a,
            "translation"_a)
-      .def(py::init([](const Eigen::Matrix3x4d& matrix) {
-             return Rigid3d(Eigen::Quaterniond(matrix.leftCols<3>()),
-                            matrix.col(3));
-           }),
+      .def(py::init(&Rigid3d::FromMatrix),
            "matrix"_a,
            "3x4 transformation matrix.")
       .def_readwrite("rotation", &Rigid3d::rotation)
