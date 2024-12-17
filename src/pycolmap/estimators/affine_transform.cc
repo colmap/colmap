@@ -17,16 +17,16 @@ using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindAffineTransformEstimator(py::module& m) {
-  auto est_options = m.attr("RANSACOptions")().cast<RANSACOptions>();
+  auto ransac_options = m.attr("RANSACOptions")().cast<RANSACOptions>();
 
   m.def(
       "estimate_affine2d",
-      [](const std::vector<Eigen::Vector3d>& src,
-         const std::vector<Eigen::Vector3d>& tgt)
+      [](const std::vector<Eigen::Vector2d>& src,
+         const std::vector<Eigen::Vector2d>& tgt)
           -> py::typing::Optional<Eigen::Matrix2x3d> {
         py::gil_scoped_release release;
         Eigen::Matrix2x3d tgt_from_src;
-        const bool success = EstimateSim3d(src, tgt, tgt_from_src);
+        const bool success = EstimateAffine2d(src, tgt, tgt_from_src);
         py::gil_scoped_acquire acquire;
         if (success) {
           return py::cast(tgt_from_src);
@@ -40,20 +40,20 @@ void BindAffineTransformEstimator(py::module& m) {
 
   m.def(
       "estimate_affine2d_robust",
-      [](const std::vector<Eigen::Vector3d>& src,
-         const std::vector<Eigen::Vector3d>& tgt,
+      [](const std::vector<Eigen::Vector2d>& src,
+         const std::vector<Eigen::Vector2d>& tgt,
          const RANSACOptions& options)
           -> py::typing::Optional<Eigen::Matrix2x3d> {
         py::gil_scoped_release release;
         Eigen::Matrix2x3d tgt_from_src;
         const auto report =
-            EstimateSim3dRobust(src, tgt, options, tgt_from_src);
+            EstimateAffine2dRobust(src, tgt, options, tgt_from_src);
         py::gil_scoped_acquire acquire;
         if (!report.success) {
           return py::none();
         }
         return py::dict(
-            "tgt_from_src"_a = Eigen::Matrix2x3d::FromMatrix(report.model),
+            "tgt_from_src"_a = tgt_from_src,
             "num_inliers"_a = report.support.num_inliers,
             "inlier_mask"_a = ToPythonMask(report.inlier_mask));
       },

@@ -102,6 +102,7 @@ bool EstimateAffine2d(const std::vector<Eigen::Vector2d>& src,
   if (models.empty()) {
     return false;
   }
+  THROW_CHECK_EQ(models.size(), 1);
   tgt_from_src = models[0];
   return true;
 }
