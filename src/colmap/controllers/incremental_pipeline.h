@@ -134,11 +134,6 @@ struct IncrementalPipelineOptions {
   GPSTransform::CartesianFrame cartesian_frame_from_lla =
       GPSTransform::CartesianFrame::ENU;
 
-  // Whether to apply a mean shift (offset) to prior positions.
-  // When set to true, this flag will shift the coordinate system's origin to
-  // the average position of all images' pose priors.
-  bool use_mean_shift_to_prior_positions = false;
-
   // bool shift_origin_to_avereage_gps = false;
   // Path to a folder with reconstruction snapshots during incremental
   // reconstruction. Snapshots will be saved according to the specified

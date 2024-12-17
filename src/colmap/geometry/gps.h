@@ -44,7 +44,7 @@ namespace colmap {
 // representation and vice versa.
 class GPSTransform {
  public:
-  MAKE_ENUM(ELLPSOID, 0, GRS80, WGS84);
+  MAKE_ENUM(Ellpsoid, 0, GRS80, WGS84);
   MAKE_ENUM(CartesianFrame, 0, ECEF, ENU, UTM);
 
   explicit GPSTransform(int ellipsoid = GRS80);
@@ -137,28 +137,9 @@ struct PosePrior {
 
   inline bool operator==(const PosePrior& other) const;
   inline bool operator!=(const PosePrior& other) const;
-
-  // Returns the offset applied to the original GPS position.
-  static Eigen::Vector3d Offset();
-  // Returns the "unoffset" position, i.e., the position after removing the
-  // offset.
-  inline Eigen::Vector3d UnoffsetPosition() const;
-
- private:
-  friend class DatabaseCache;
-  // The offset applied to the original GPS position to shift it relative to the
-  // image center. This offset can only be modified by the friend class
-  // `DatabaseCache`.
-  static Eigen::Vector3d position_offset;
 };
 
 std::ostream& operator<<(std::ostream& stream, const PosePrior& prior);
-
-Eigen::Vector3d PosePrior::UnoffsetPosition() const {
-  return coordinate_system == CoordinateSystem::CARTESIAN
-             ? position - position_offset
-             : position;
-};
 
 bool PosePrior::operator==(const PosePrior& other) const {
   return coordinate_system == other.coordinate_system &&

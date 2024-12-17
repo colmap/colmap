@@ -225,8 +225,7 @@ const class Image* DatabaseCache::FindImageWithName(
 }
 
 bool DatabaseCache::SetupPosePriors(
-    GPSTransform::CartesianFrame cartesian_frame_from_lla,
-    bool use_mean_shift_to_prior_positions) {
+    GPSTransform::CartesianFrame cartesian_frame_from_lla) {
   LOG(INFO) << "Setting up prior positions...";
 
   Timer timer;
@@ -283,22 +282,13 @@ bool DatabaseCache::SetupPosePriors(
       }
     }
 
-    Eigen::Vector3d offset = Eigen::Vector3d::Zero();
-    if (use_mean_shift_to_prior_positions) {
-      for (const auto& v : v_xyz_prior) {
-        offset += v;
-      }
-      offset = -offset / static_cast<double>(v_xyz_prior.size());
-    }
-
     auto xyz_prior_it = v_xyz_prior.begin();
     for (const auto& image_id : image_ids_with_prior) {
       struct PosePrior& pose_prior = PosePrior(image_id);
-      pose_prior.position = *xyz_prior_it + offset;
+      pose_prior.position = *xyz_prior_it;
       pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
       ++xyz_prior_it;
     }
-    PosePrior::position_offset = offset;
   } else if (!prior_is_gps && !v_gps_prior.empty()) {
     LOG(ERROR)
         << "Database is mixing GPS & non-GPS prior positions... Aborting";
