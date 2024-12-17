@@ -130,9 +130,9 @@ void SimilarityTransformEstimator<kDim, kEstimateScale>::Estimate(
   models->clear();
 
   using MatrixType = Eigen::Matrix<double, kDim, Eigen::Dynamic>;
-  const Eigen::Map<const MatrixType> src_mat(
+  const Eigen::Map<const MatrixType, Eigen::Aligned16> src_mat(
       reinterpret_cast<const double*>(src.data()), 2, src.size());
-  const Eigen::Map<const MatrixType> tgt_mat(
+  const Eigen::Map<const MatrixType, Eigen::Aligned16> tgt_mat(
       reinterpret_cast<const double*>(tgt.data()), 2, tgt.size());
 
   if (Eigen::FullPivLU<MatrixType>(src_mat).rank() < kMinNumSamples ||
