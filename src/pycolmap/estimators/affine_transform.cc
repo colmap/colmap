@@ -52,10 +52,9 @@ void BindAffineTransformEstimator(py::module& m) {
         if (!report.success) {
           return py::none();
         }
-        return py::dict(
-            "tgt_from_src"_a = tgt_from_src,
-            "num_inliers"_a = report.support.num_inliers,
-            "inlier_mask"_a = ToPythonMask(report.inlier_mask));
+        return py::dict("tgt_from_src"_a = tgt_from_src,
+                        "num_inliers"_a = report.support.num_inliers,
+                        "inlier_mask"_a = ToPythonMask(report.inlier_mask));
       },
       "src"_a,
       "tgt"_a,
