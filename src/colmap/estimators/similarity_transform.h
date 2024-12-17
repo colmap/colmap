@@ -124,18 +124,23 @@ void SimilarityTransformEstimator<kDim, kEstimateScale>::Estimate(
     const std::vector<Y_t>& tgt,
     std::vector<M_t>* models) {
   THROW_CHECK_EQ(src.size(), tgt.size());
+  THROW_CHECK_GE(src.size(), kMinNumSamples);
   THROW_CHECK(models != nullptr);
 
   models->clear();
 
-  Eigen::Matrix<double, kDim, Eigen::Dynamic> src_mat(kDim, src.size());
-  Eigen::Matrix<double, kDim, Eigen::Dynamic> dst_mat(kDim, tgt.size());
-  for (size_t i = 0; i < src.size(); ++i) {
-    src_mat.col(i) = src[i];
-    dst_mat.col(i) = tgt[i];
+  using MatrixType = Eigen::Matrix<double, kDim, Eigen::Dynamic>;
+  const Eigen::Map<const MatrixType> src_mat(
+      reinterpret_cast<const double*>(src.data()), 2, src.size());
+  const Eigen::Map<const MatrixType> tgt_mat(
+      reinterpret_cast<const double*>(tgt.data()), 2, tgt.size());
+
+  if (Eigen::FullPivLU<MatrixType>(src_mat).rank() < kMinNumSamples ||
+      Eigen::FullPivLU<MatrixType>(tgt_mat).rank() < kMinNumSamples) {
+    return;
   }
 
-  const M_t sol = Eigen::umeyama(src_mat, dst_mat, kEstimateScale)
+  const M_t sol = Eigen::umeyama(src_mat, tgt_mat, kEstimateScale)
                       .template topLeftCorner<kDim, kDim + 1>();
 
   if (sol.hasNaN()) {

@@ -55,8 +55,7 @@ GenerateData(size_t num_inliers,
 
   // Add some faulty data.
   for (size_t i = 0; i < num_outliers; ++i) {
-    src.emplace_back(RandomUniformReal(-3000.0, -2000.0),
-                     RandomUniformReal(-4000.0, -3000.0));
+    src.emplace_back(i, std::sqrt(i) + 2);
     tgt.emplace_back(RandomUniformReal(-3000.0, -2000.0),
                      RandomUniformReal(-4000.0, -3000.0));
   }
@@ -83,17 +82,17 @@ TEST(Affine2d, EstimateOverDetermined) {
 }
 
 TEST(Affine2d, EstimateMinimalDegenerate) {
-  std::vector<Eigen::Vector2d> invalid_src_dst(3, Eigen::Vector2d::Zero());
+  std::vector<Eigen::Vector2d> degenerate_src_tgt(3, Eigen::Vector2d::Zero());
   Eigen::Matrix2x3d tgt_from_src;
   EXPECT_FALSE(
-      EstimateAffine2d(invalid_src_dst, invalid_src_dst, tgt_from_src));
+      EstimateAffine2d(degenerate_src_tgt, degenerate_src_tgt, tgt_from_src));
 }
 
 TEST(Affine2d, EstimateNonMinimalDegenerate) {
-  std::vector<Eigen::Vector2d> invalid_src_dst(5, Eigen::Vector2d::Zero());
+  std::vector<Eigen::Vector2d> degenerate_src_tgt(5, Eigen::Vector2d::Zero());
   Eigen::Matrix2x3d tgt_from_src;
   EXPECT_FALSE(
-      EstimateAffine2d(invalid_src_dst, invalid_src_dst, tgt_from_src));
+      EstimateAffine2d(degenerate_src_tgt, degenerate_src_tgt, tgt_from_src));
 }
 
 TEST(Affine2d, EstimateRobust) {

@@ -55,9 +55,7 @@ GenerateData(size_t num_inliers,
 
   // Add some faulty data.
   for (size_t i = 0; i < num_outliers; ++i) {
-    src.emplace_back(RandomUniformReal(-3000.0, -2000.0),
-                     RandomUniformReal(-4000.0, -3000.0),
-                     RandomUniformReal(-5000.0, -4000.0));
+    src.emplace_back(i, std::sqrt(i) + 2, std::sqrt(2 * i + 2));
     tgt.emplace_back(RandomUniformReal(-3000.0, -2000.0),
                      RandomUniformReal(-4000.0, -3000.0),
                      RandomUniformReal(-5000.0, -4000.0));
@@ -66,38 +64,38 @@ GenerateData(size_t num_inliers,
   return {std::move(src), std::move(tgt)};
 }
 
-void TestEstimateSim3dWithNumCoords(const size_t num_coords) {
-  const Sim3d gt_tgt_from_src(RandomUniformReal<double>(0.1, 10),
-                              Eigen::Quaterniond::UnitRandom(),
-                              Eigen::Vector3d::Random());
+void TestEstimateRigid3dWithNumCoords(const size_t num_coords) {
+  const Rigid3d gt_tgt_from_src(Eigen::Quaterniond::UnitRandom(),
+                                Eigen::Vector3d::Random());
   const auto [src, tgt] = GenerateData(
       /*num_inliers=*/num_coords,
       /*num_outliers=*/0,
       gt_tgt_from_src.ToMatrix());
 
-  Sim3d tgt_from_src;
-  EXPECT_TRUE(EstimateSim3d(src, tgt, tgt_from_src));
-  EXPECT_NEAR(gt_tgt_from_src.scale, tgt_from_src.scale, 1e-6);
+  Rigid3d tgt_from_src;
+  EXPECT_TRUE(EstimateRigid3d(src, tgt, tgt_from_src));
   EXPECT_LT(gt_tgt_from_src.rotation.angularDistance(tgt_from_src.rotation),
             1e-6);
   EXPECT_LT((gt_tgt_from_src.translation - tgt_from_src.translation).norm(),
             1e-6);
 }
 
-TEST(Sim3d, EstimateMinimal) { TestEstimateSim3dWithNumCoords(3); }
+TEST(Rigid3d, EstimateMinimal) { TestEstimateRigid3dWithNumCoords(3); }
 
-TEST(Sim3d, EstimateOverDetermined) { TestEstimateSim3dWithNumCoords(100); }
+TEST(Rigid3d, EstimateOverDetermined) { TestEstimateRigid3dWithNumCoords(100); }
 
-TEST(Sim3d, EstimateMinimalDegenerate) {
-  std::vector<Eigen::Vector3d> invalid_src_dst(3, Eigen::Vector3d::Zero());
-  Sim3d tgt_from_src;
-  EXPECT_FALSE(EstimateSim3d(invalid_src_dst, invalid_src_dst, tgt_from_src));
+TEST(Rigid3d, EstimateMinimalDegenerate) {
+  std::vector<Eigen::Vector3d> degenerate_src_tgt(3, Eigen::Vector3d::Zero());
+  Rigid3d tgt_from_src;
+  EXPECT_FALSE(
+      EstimateRigid3d(degenerate_src_tgt, degenerate_src_tgt, tgt_from_src));
 }
 
-TEST(Sim3d, EstimateNonMinimalDegenerate) {
-  std::vector<Eigen::Vector3d> invalid_src_dst(5, Eigen::Vector3d::Zero());
-  Sim3d tgt_from_src;
-  EXPECT_FALSE(EstimateSim3d(invalid_src_dst, invalid_src_dst, tgt_from_src));
+TEST(Rigid3d, EstimateNonMinimalDegenerate) {
+  std::vector<Eigen::Vector3d> degenerate_src_tgt(5, Eigen::Vector3d::Zero());
+  Rigid3d tgt_from_src;
+  EXPECT_FALSE(
+      EstimateRigid3d(degenerate_src_tgt, degenerate_src_tgt, tgt_from_src));
 }
 
 TEST(Rigid3d, EstimateRobust) {
@@ -134,6 +132,42 @@ TEST(Rigid3d, EstimateRobust) {
 
   EXPECT_THAT(tgt_from_src.ToMatrix(),
               EigenMatrixNear(gt_tgt_from_src.ToMatrix(), 1e-6));
+}
+
+void TestEstimateSim3dWithNumCoords(const size_t num_coords) {
+  const Sim3d gt_tgt_from_src(RandomUniformReal<double>(0.1, 10),
+                              Eigen::Quaterniond::UnitRandom(),
+                              Eigen::Vector3d::Random());
+  const auto [src, tgt] = GenerateData(
+      /*num_inliers=*/num_coords,
+      /*num_outliers=*/0,
+      gt_tgt_from_src.ToMatrix());
+
+  Sim3d tgt_from_src;
+  EXPECT_TRUE(EstimateSim3d(src, tgt, tgt_from_src));
+  EXPECT_NEAR(gt_tgt_from_src.scale, tgt_from_src.scale, 1e-6);
+  EXPECT_LT(gt_tgt_from_src.rotation.angularDistance(tgt_from_src.rotation),
+            1e-6);
+  EXPECT_LT((gt_tgt_from_src.translation - tgt_from_src.translation).norm(),
+            1e-6);
+}
+
+TEST(Sim3d, EstimateMinimal) { TestEstimateSim3dWithNumCoords(3); }
+
+TEST(Sim3d, EstimateOverDetermined) { TestEstimateSim3dWithNumCoords(100); }
+
+TEST(Sim3d, EstimateMinimalDegenerate) {
+  std::vector<Eigen::Vector3d> degenerate_src_tgt(3, Eigen::Vector3d::Zero());
+  Sim3d tgt_from_src;
+  EXPECT_FALSE(
+      EstimateSim3d(degenerate_src_tgt, degenerate_src_tgt, tgt_from_src));
+}
+
+TEST(Sim3d, EstimateNonMinimalDegenerate) {
+  std::vector<Eigen::Vector3d> degenerate_src_tgt(5, Eigen::Vector3d::Zero());
+  Sim3d tgt_from_src;
+  EXPECT_FALSE(
+      EstimateSim3d(degenerate_src_tgt, degenerate_src_tgt, tgt_from_src));
 }
 
 TEST(Sim3d, EstimateRobust) {
