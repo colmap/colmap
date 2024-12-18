@@ -53,3 +53,4 @@ vcpkg_installed/
 # backup files
 *~
 *.orig
+/venv
