@@ -53,6 +53,7 @@ COLMAP_ADD_LIBRARY(
         index.h index.cc
         matcher.h matcher.cc
         pairing.h pairing.cc
+        resources.h
         sift.h sift.cc
         types.h types.cc
         utils.h utils.cc

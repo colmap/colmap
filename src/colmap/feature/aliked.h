@@ -34,20 +34,21 @@
 
 #include "colmap/feature/extractor.h"
 #include "colmap/feature/matcher.h"
+#include "colmap/feature/resources.h"
 
 namespace colmap {
 
 struct ALIKEDFeatureExtractionOptions {
   int max_image_size = 1024;
   std::string model_name = "aliked-n32";
-  std::string model_path;
+  std::string model_path = kDefaultAlikedUri;
 };
 
 std::unique_ptr<FeatureExtractor> CreateALIKEDFeatureExtractor(
     const ALIKEDFeatureExtractionOptions& options);
 
 struct ALIKEDFeatureMatchingOptions {
-  std::string model_path;
+  std::string model_path = kDefaultAlikedLightGlueUri;
 };
 
 std::unique_ptr<FeatureMatcher> CreateALIKEDLightGlueFeatureMatcher(

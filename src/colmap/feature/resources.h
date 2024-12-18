@@ -27,53 +27,30 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/feature/aliked.h"
+#pragma once
 
-#include "colmap/sensor/bitmap.h"
-
-#include <iostream>
-
-#include <glog/logging.h>
-#include <gtest/gtest.h>
+#include <string>
 
 namespace colmap {
-namespace {
 
-void CreateImageWithSquare(const int size, Bitmap* bitmap) {
-  bitmap->Allocate(size, size, false);
-  bitmap->Fill(BitmapColor<uint8_t>(0, 0, 0));
-  for (int r = size / 2 - size / 8; r < size / 2 + size / 8; ++r) {
-    for (int c = size / 2 - size / 8; c < size / 2 + size / 8; ++c) {
-      bitmap->SetPixel(r, c, BitmapColor<uint8_t>(255));
-    }
-  }
-}
+#ifdef COLMAP_DOWNLOAD_ENABLED
+const static std::string kDefaultAlikedUri =
+    "https://github.com/MrNeRF/Light_Glue_CPP/raw/refs/heads/master/models/"
+    "aliked-n32.pt;"
+    "aliked-n32.pt;"
+    "bc64763cfa2dc7b3356bb03053d2b2b277498c64e89786001dd391daa577a7d6";
+#else
+const static std::string kDefaultAlikedUri = "";
+#endif
 
-TEST(ALIKED, NOMINAL) {
-  Bitmap image;
-  CreateImageWithSquare(200, &image);
+#ifdef COLMAP_DOWNLOAD_ENABLED
+const static std::string kDefaultAlikedLightGlueUri =
+    "https://github.com/MrNeRF/Light_Glue_CPP/raw/refs/heads/master/models/"
+    "aliked_lightglue.pt;"
+    "aliked_lightglue.pt;"
+    "01ce35141db9d91e0e4fe39ede3435b1f8dd61929f9d32ae609e95172e2fa402";
+#else
+const static std::string kDefaultAlikedLightGlueUri = "";
+#endif
 
-  auto extractor =
-      CreateALIKEDFeatureExtractor(ALIKEDFeatureExtractionOptions());
-  auto keypoints = std::make_shared<FeatureKeypoints>();
-  auto descriptors = std::make_shared<FeatureDescriptors>();
-  ASSERT_TRUE(extractor->Extract(image, keypoints.get(), descriptors.get()));
-
-  auto matcher =
-      CreateALIKEDLightGlueFeatureMatcher(ALIKEDFeatureMatchingOptions());
-  FeatureMatches matches;
-  matcher->Match({/*image_id=*/1,
-                  /*image_width=*/image.Width(),
-                  /*image_height=*/image.Height(),
-                  keypoints,
-                  descriptors},
-                 {/*image_id=*/2,
-                  /*image_width=*/image.Width(),
-                  /*image_height=*/image.Height(),
-                  keypoints,
-                  descriptors},
-                 &matches);
-}
-
-}  // namespace
 }  // namespace colmap
