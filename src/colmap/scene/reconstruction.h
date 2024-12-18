@@ -64,6 +64,10 @@ class Reconstruction {
   Reconstruction(const Reconstruction& other);
   Reconstruction& operator=(const Reconstruction& other);
 
+  // The (optional) gauge defines the metric_from_scene transformation.
+  std::optional<Sim3d> Gauge() const;
+  void SetGauge(const Sim3d& metric_from_scene);
+
   // Get number of objects.
   inline size_t NumCameras() const;
   inline size_t NumImages() const;
@@ -248,6 +252,10 @@ class Reconstruction {
  private:
   std::pair<Eigen::AlignedBox3d, Eigen::Vector3d> ComputeBBBoxAndCentroid(
       double min_percentile, double max_percentile, bool use_images) const;
+
+  // Defines the metric_from_normalized transformation.
+  std::optional<Sim3d> metric_from_scene_;
+  std::optional<Sim3d> scene_from_normalized_;
 
   std::unordered_map<camera_t, struct Camera> cameras_;
   std::unordered_map<image_t, class Image> images_;
