@@ -88,13 +88,17 @@ void BindCovarianceEstimator(py::module& m) {
            "Tangent space covariance in the order [rotation, translation]. If "
            "some dimensions are kept constant, the respective rows/columns are "
            "omitted. Returns null if image not a variable in the problem.")
-      .def("get_other_params_cov",
-           &BACovariance::GetOtherParamsCov,
-           "param"_a,
-           "Tangent space covariance for any variable parameter block in the "
-           "problem. If some dimensions are kept constant, the respective "
-           "rows/columns are omitted. Returns null if parameter block not a "
-           "variable in the problem.");
+      .def(
+          "get_other_params_cov",
+          [](BACovariance& self, py::array_t<double>& pyarray) {
+            py::buffer_info info = pyarray.request();
+            return self.GetOtherParamsCov((double*)info.ptr);
+          },
+          "param"_a,
+          "Tangent space covariance for any variable parameter block in the "
+          "problem. If some dimensions are kept constant, the respective "
+          "rows/columns are omitted. Returns null if parameter block not a "
+          "variable in the problem.");
 
   m.def(
       "estimate_ba_covariance_from_problem",
