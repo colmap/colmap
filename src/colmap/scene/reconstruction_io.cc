@@ -521,7 +521,8 @@ void WriteImagesText(const Reconstruction& reconstruction,
     for (const Point2D& point2D : image.Points2D()) {
       line << point2D.xy(0) << " ";
       line << point2D.xy(1) << " ";
-      line << point2D.weight << " ";
+      // No need to have this info on the output
+      // line << point2D.weight << " ";
       if (point2D.HasPoint3D()) {
         line << point2D.point3D_id << " ";
       } else {
@@ -646,7 +647,8 @@ void WriteImagesBinary(const Reconstruction& reconstruction,
     for (const Point2D& point2D : image.Points2D()) {
       WriteBinaryLittleEndian<double>(&stream, point2D.xy(0));
       WriteBinaryLittleEndian<double>(&stream, point2D.xy(1));
-      WriteBinaryLittleEndian<float>(&stream, point2D.weight);
+      // No need to have this info on the output
+      // WriteBinaryLittleEndian<float>(&stream, point2D.weight);
       WriteBinaryLittleEndian<point3D_t>(&stream, point2D.point3D_id);
     }
   }
