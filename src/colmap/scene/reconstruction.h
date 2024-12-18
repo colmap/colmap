@@ -65,6 +65,8 @@ class Reconstruction {
   Reconstruction& operator=(const Reconstruction& other);
 
   // The (optional) gauge defines the metric_from_scene transformation.
+  // If the reconstruction was normalized, the returned value is defined as the
+  // metric_from_normalized transformation.
   std::optional<Sim3d> Gauge() const;
   void SetGauge(const Sim3d& metric_from_scene);
 
@@ -253,7 +255,10 @@ class Reconstruction {
   std::pair<Eigen::AlignedBox3d, Eigen::Vector3d> ComputeBBBoxAndCentroid(
       double min_percentile, double max_percentile, bool use_images) const;
 
-  // Defines the metric_from_normalized transformation.
+  // Defines the optional gauge transformation. Note that we accumulate the
+  // normalizations in a separate transformation, because the metric_from_scene
+  // transformation may contain large numerical values and we prefer to
+  // accumulate small numerical values to avoid compounding numerical errors.
   std::optional<Sim3d> metric_from_scene_;
   std::optional<Sim3d> scene_from_normalized_;
 
