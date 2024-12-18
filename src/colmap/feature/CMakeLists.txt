@@ -66,8 +66,6 @@ COLMAP_ADD_LIBRARY(
     PRIVATE_LINK_LIBS
         colmap_math
         colmap_sensor
-        colmap_aliked
-        colmap_lightglue
         colmap_vlfeat
         Eigen3::Eigen
         flann
@@ -80,11 +78,20 @@ if(GPU_ENABLED)
     endif()
 endif()
 
-COLMAP_ADD_TEST(
-    NAME aliked_test
-    SRCS aliked_test.cc
-    LINK_LIBS colmap_feature
-)
+if(TORCH_ENABLED)
+    target_link_libraries(
+        colmap_feature
+        PRIVATE
+            colmap_aliked
+            colmap_lightglue
+    )
+    COLMAP_ADD_TEST(
+        NAME aliked_test
+        SRCS aliked_test.cc
+        LINK_LIBS colmap_feature
+    )
+endif()
+
 COLMAP_ADD_TEST(
     NAME index_test
     SRCS index_test.cc

@@ -31,20 +31,26 @@
 
 #include "colmap/util/file.h"
 
+#include <memory>
+
+#ifdef COLMAP_TORCH_ENABLED
 #include "thirdparty/ALIKED/aliked.hpp"
 #include "thirdparty/LightGlue/matcher.hpp"
 
-#include <memory>
+#include <torch/torch.h>
+#endif
 
 namespace colmap {
 namespace {
 
+#ifdef COLMAP_TORCH_ENABLED
+
 std::string_view GetDeviceName() {
-#ifdef COLMAP_CUDA_ENABLED
-  return "cuda";
-#else
-  return "cpu";
-#endif
+  if (torch::cuda::is_available()) {
+    return "cuda";
+  } else {
+    return "cpu";
+  }
 }
 
 class ALIKEDFeatureExtractor : public FeatureExtractor {
@@ -200,16 +206,28 @@ class ALIKEDLightGlueFeatureMatcher : public FeatureMatcher {
   matcher::LightGlue lightglue_;
 };
 
+#endif
+
 }  // namespace
 
 std::unique_ptr<FeatureExtractor> CreateALIKEDFeatureExtractor(
     const ALIKEDFeatureExtractionOptions& options) {
+#ifdef COLMAP_TORCH_ENABLED
   return std::make_unique<ALIKEDFeatureExtractor>(options);
+#else
+  throw std::runtime_error(
+      "ALIKED feature extraction requires libtorch support.");
+#endif
 }
 
 std::unique_ptr<FeatureMatcher> CreateALIKEDLightGlueFeatureMatcher(
     const ALIKEDFeatureMatchingOptions& options) {
+#ifdef COLMAP_TORCH_ENABLED
   return std::make_unique<ALIKEDLightGlueFeatureMatcher>(options);
+#else
+  throw std::runtime_error(
+      "ALIKED feature matching requires libtorch support.");
+#endif
 }
 
 }  // namespace colmap

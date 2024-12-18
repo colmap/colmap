@@ -21,13 +21,13 @@ jobs:
     strategy:
       matrix:
         config: [
-          # {
-          #   os: windows-2022,
-          #   cmakeBuildType: Release,
-          #   cudaEnabled: true,
-          #   testsEnabled: true,
-          #   exportPackage: true,
-          # },
+          {
+            os: windows-2022,
+            cmakeBuildType: Release,
+            cudaEnabled: true,
+            testsEnabled: true,
+            exportPackage: true,
+          },
           {
             os: windows-2022,
             cmakeBuildType: Release,
@@ -127,6 +127,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release `
             -DTESTS_ENABLED=${{ matrix.config.testsEnabled }} `
             -DGUI_ENABLED=ON `
+            -DTORCH_ENABLED=ON `
             -DFETCH_LIBTORCH=OFF `
             -DCUDA_ENABLED=${{ matrix.config.cudaEnabled }} `
             -DCMAKE_CUDA_ARCHITECTURES=all-major `

@@ -190,6 +190,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=${{ matrix.config.cmakeBuildType }} \
             -DCMAKE_INSTALL_PREFIX=./install \
             -DCMAKE_CUDA_ARCHITECTURES=50 \
+            -DTORCH_ENABLED=ON \
             -DTESTS_ENABLED=ON \
             -DCUDA_ENABLED=${{ matrix.config.cudaEnabled }} \
             -DGUI_ENABLED=${{ matrix.config.guiEnabled }} \
