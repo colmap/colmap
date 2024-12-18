@@ -105,7 +105,7 @@ void FindOptimalImageObservations(const Eigen::Matrix3d& E,
   const Eigen::Vector3d& point1_homogeneous = point1.homogeneous();
   const Eigen::Vector3d& point2_homogeneous = point2.homogeneous();
 
-  Eigen::Matrix<double, 2, 3> S;
+  Eigen::Matrix2x3d S;
   S << 1, 0, 0, 0, 1, 0;
 
   // Epipolar lines.

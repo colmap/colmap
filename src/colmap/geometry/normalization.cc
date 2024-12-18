@@ -79,7 +79,7 @@ std::pair<Eigen::AlignedBox3d, Eigen::Vector3d> ComputeBoundingBoxAndCentroid(
 
   Eigen::Vector3d centroid(0, 0, 0);
   const double normalization = 1.0 / (max_idx - min_idx + 1);
-  for (int i = min_idx; i <= max_idx; ++i) {
+  for (size_t i = min_idx; i <= max_idx; ++i) {
     centroid(0) += normalization * coords_x[i];
     centroid(1) += normalization * coords_y[i];
     centroid(2) += normalization * coords_z[i];

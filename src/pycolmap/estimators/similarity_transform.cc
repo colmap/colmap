@@ -19,6 +19,47 @@ void BindSimilarityTransformEstimator(py::module& m) {
   auto ransac_options = m.attr("RANSACOptions")().cast<RANSACOptions>();
 
   m.def(
+      "estimate_rigid3d",
+      [](const std::vector<Eigen::Vector3d>& src,
+         const std::vector<Eigen::Vector3d>& tgt)
+          -> py::typing::Optional<Rigid3d> {
+        py::gil_scoped_release release;
+        Rigid3d tgt_from_src;
+        const bool success = EstimateRigid3d(src, tgt, tgt_from_src);
+        py::gil_scoped_acquire acquire;
+        if (success) {
+          return py::cast(tgt_from_src);
+        } else {
+          return py::none();
+        }
+      },
+      "src"_a,
+      "tgt"_a,
+      "Estimate the 3D rigid transform tgt_from_src.");
+
+  m.def(
+      "estimate_rigid3d_robust",
+      [](const std::vector<Eigen::Vector3d>& src,
+         const std::vector<Eigen::Vector3d>& tgt,
+         const RANSACOptions& options) -> py::typing::Optional<Rigid3d> {
+        py::gil_scoped_release release;
+        Rigid3d tgt_from_src;
+        const auto report =
+            EstimateRigid3dRobust(src, tgt, options, tgt_from_src);
+        py::gil_scoped_acquire acquire;
+        if (!report.success) {
+          return py::none();
+        }
+        return py::dict("tgt_from_src"_a = Rigid3d::FromMatrix(report.model),
+                        "num_inliers"_a = report.support.num_inliers,
+                        "inlier_mask"_a = ToPythonMask(report.inlier_mask));
+      },
+      "src"_a,
+      "tgt"_a,
+      py::arg_v("estimation_options", ransac_options, "RANSACOptions()"),
+      "Robustly estimate the 3D rigid transform tgt_from_src using LO-RANSAC.");
+
+  m.def(
       "estimate_sim3d",
       [](const std::vector<Eigen::Vector3d>& src,
          const std::vector<Eigen::Vector3d>& tgt)

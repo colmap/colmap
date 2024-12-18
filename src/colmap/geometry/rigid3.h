@@ -57,6 +57,13 @@ struct Rigid3d {
     return matrix;
   }
 
+  static inline Rigid3d FromMatrix(const Eigen::Matrix3x4d& matrix) {
+    Rigid3d t;
+    t.rotation = Eigen::Quaterniond(matrix.leftCols<3>()).normalized();
+    t.translation = matrix.rightCols<1>();
+    return t;
+  }
+
   // Adjoint matrix to propagate uncertainty on Rigid3d
   // [Reference] https://gtsam.org/2021/02/23/uncertainties-part3.html
   inline Eigen::Matrix6d Adjoint() const {

@@ -142,8 +142,6 @@ std::optional<std::string> DownloadFile(const std::string& url);
 // Computes SHA256 digest for given string.
 std::string ComputeSHA256(const std::string_view& str);
 
-#endif  // COLMAP_DOWNLOAD_ENABLED
-
 // Downloads and caches file from given URI. The URI must take the format
 // "<url>;<name>;<sha256>". The file will be cached under
 // $HOME/.cache/colmap/<sha256>-<name>. File integrity is checked against the
@@ -151,12 +149,15 @@ std::string ComputeSHA256(const std::string_view& str);
 // Returns the path to the cached file.
 std::string DownloadAndCacheFile(const std::string& uri);
 
-// If the given URI is a local filesystem path, returns the input path. If the
-// URI matches the "<url>;<name>;<sha256>" format, calls DownloadAndCacheFile().
-std::string MaybeDownloadAndCacheFile(const std::string& uri);
-
 // Overwrites the default download cache directory at $HOME/.cache/colmap/.
 void OverwriteDownloadCacheDir(std::filesystem::path path);
+
+#endif  // COLMAP_DOWNLOAD_ENABLED
+
+// If the given URI is a local filesystem path, returns the input path. If the
+// URI matches the "<url>;<name>;<sha256>" format, calls DownloadAndCacheFile().
+// Throws runtime exception if download is not supported.
+std::string MaybeDownloadAndCacheFile(const std::string& uri);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
