@@ -148,11 +148,6 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_util
 )
 COLMAP_ADD_TEST(
-    NAME torch_test
-    SRCS torch_test.cc
-    LINK_LIBS torch
-)
-COLMAP_ADD_TEST(
     NAME types_test
     SRCS types_test.cc
     LINK_LIBS colmap_util
