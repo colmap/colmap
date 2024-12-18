@@ -183,7 +183,7 @@ void ReadImagesText(Reconstruction& reconstruction, std::istream& stream) {
 
     points2D.clear();
     point3D_ids.clear();
-    std::vector<float> weights;
+    // std::vector<float> weights;
 
     if (!line.empty()) {
       while (!line_stream2.eof()) {
@@ -196,10 +196,10 @@ void ReadImagesText(Reconstruction& reconstruction, std::istream& stream) {
         point.y() = std::stold(item);
 
         std::getline(line_stream2, item, ' ');
-        float weight = std::stof(item);
+        // float weight = std::stof(item);
 
         points2D.push_back(point);
-        weights.push_back(weight);
+        // weights.push_back(weight);
 
         std::getline(line_stream2, item, ' ');
         if (item == "-1") {
@@ -210,7 +210,7 @@ void ReadImagesText(Reconstruction& reconstruction, std::istream& stream) {
       }
     }
 
-    image.SetPoints2D(points2D, weights);
+    image.SetPoints2D(points2D);
 
     for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
          ++point2D_idx) {
@@ -366,19 +366,19 @@ void ReadImagesBinary(Reconstruction& reconstruction, std::istream& stream) {
     points2D.reserve(num_points2D);
     point3D_ids.clear();
     point3D_ids.reserve(num_points2D);
-    std::vector<float> weights;
-    weights.reserve(num_points2D);
+    // std::vector<float> weights;
+    // weights.reserve(num_points2D);
 
     for (size_t j = 0; j < num_points2D; ++j) {
       const double x = ReadBinaryLittleEndian<double>(&stream);
       const double y = ReadBinaryLittleEndian<double>(&stream);
-      const float weight = ReadBinaryLittleEndian<float>(&stream);
+      // const float weight = ReadBinaryLittleEndian<float>(&stream);
       points2D.emplace_back(x, y);
-      weights.push_back(weight);
+      // weights.push_back(weight);
       point3D_ids.push_back(ReadBinaryLittleEndian<point3D_t>(&stream));
     }
 
-    image.SetPoints2D(points2D, weights);
+    image.SetPoints2D(points2D);
 
     for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
          ++point2D_idx) {
