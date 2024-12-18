@@ -34,6 +34,8 @@
 
 #include <clocale>
 
+static void InitUiResources() { Q_INIT_RESOURCE(resources); }
+
 namespace colmap {
 
 MainWindow::MainWindow(const OptionManager& options)
@@ -41,6 +43,8 @@ MainWindow::MainWindow(const OptionManager& options)
       reconstruction_manager_(std::make_shared<ReconstructionManager>()),
       thread_control_widget_(new ThreadControlWidget(this)),
       window_closed_(false) {
+  InitUiResources();
+
   // NOLINTNEXTLINE(concurrency-mt-unsafe)
   std::setlocale(LC_NUMERIC, "C");
 
