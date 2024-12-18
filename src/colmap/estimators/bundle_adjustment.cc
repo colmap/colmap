@@ -740,7 +740,7 @@ class RigBundleAdjuster : public BundleAdjuster {
       Point3D& point3D = reconstruction.Point3D(point2D.point3D_id);
       assert(point3D.track.Length() > 1);
 
-      if (camera_rig != nullptr &
+      if (camera_rig != nullptr &&
           CalculateSquaredReprojectionError(
               point2D.xy, point3D.xyz, cam_from_world_mat, camera) >
               max_squared_reproj_error) {
