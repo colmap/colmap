@@ -1339,7 +1339,8 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
           *sift_opengl_mutexes_.at(sift_match_gpu_.gpu_index));
     }
 
-    constexpr size_t kFeatureShapeNumElems = 4;
+    constexpr size_t kFeatureShapeNumElems =
+        sizeof(FeatureKeypoint) / sizeof(float) - 2;
 
     if (prev_image_id1_ == kInvalidImageId || !prev_is_guided_ ||
         prev_image_id1_ != image1.image_id) {
