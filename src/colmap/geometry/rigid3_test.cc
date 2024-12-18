@@ -74,13 +74,22 @@ TEST(Rigid3d, Inverse) {
   }
 }
 
-TEST(Rigid3d, Matrix) {
+TEST(Rigid3d, ToMatrix) {
   const Rigid3d b_from_a = TestRigid3d();
   const Eigen::Matrix3x4d b_from_a_mat = b_from_a.ToMatrix();
   for (int i = 0; i < 100; ++i) {
     const Eigen::Vector3d x_in_a = Eigen::Vector3d::Random();
     EXPECT_LT((b_from_a * x_in_a - b_from_a_mat * x_in_a.homogeneous()).norm(),
               1e-6);
+  }
+}
+
+TEST(Rigid3d, FromMatrix) {
+  const Rigid3d b1_from_a = TestRigid3d();
+  const Rigid3d b2_from_a = Rigid3d::FromMatrix(b1_from_a.ToMatrix());
+  for (int i = 0; i < 100; ++i) {
+    const Eigen::Vector3d x_in_a = Eigen::Vector3d::Random();
+    EXPECT_LT((b1_from_a * x_in_a - b2_from_a * x_in_a).norm(), 1e-6);
   }
 }
 

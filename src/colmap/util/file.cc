@@ -369,8 +369,6 @@ std::string ComputeSHA256(const std::string_view& str) {
   return digest.str();
 }
 
-#endif  // COLMAP_DOWNLOAD_ENABLED
-
 namespace {
 
 std::optional<std::filesystem::path> download_cache_dir_overwrite;
@@ -378,10 +376,6 @@ std::optional<std::filesystem::path> download_cache_dir_overwrite;
 }
 
 std::string DownloadAndCacheFile(const std::string& uri) {
-#ifndef COLMAP_DOWNLOAD_ENABLED
-  throw std::invalid_argument("COLMAP was compiled without download support");
-#endif
-
   const std::vector<std::string> parts = StringSplit(uri, ";");
   THROW_CHECK_EQ(parts.size(), 3)
       << "Invalid URI format. Expected: <url>;<name>;<sha256>";
@@ -423,17 +417,22 @@ std::string DownloadAndCacheFile(const std::string& uri) {
   return path.string();
 }
 
+void OverwriteDownloadCacheDir(std::filesystem::path path) {
+  download_cache_dir_overwrite = std::move(path);
+}
+
+#endif  // COLMAP_DOWNLOAD_ENABLED
+
 std::string MaybeDownloadAndCacheFile(const std::string& uri) {
   if (!StringStartsWith(uri, "http://") && !StringStartsWith(uri, "https://") &&
       !StringStartsWith(uri, "file://")) {
     return uri;
   }
-
+#ifdef COLMAP_DOWNLOAD_ENABLED
   return DownloadAndCacheFile(uri);
-}
-
-void OverwriteDownloadCacheDir(std::filesystem::path path) {
-  download_cache_dir_overwrite = std::move(path);
+#else
+  throw std::runtime_error("COLMAP was compiled without download support");
+#endif
 }
 
 }  // namespace colmap

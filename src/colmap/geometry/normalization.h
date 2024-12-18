@@ -29,45 +29,20 @@
 
 #pragma once
 
-#include "colmap/optim/ransac.h"
-#include "colmap/util/eigen_alignment.h"
-#include "colmap/util/types.h"
-
 #include <vector>
 
 #include <Eigen/Core>
+#include <Eigen/Geometry>
 
 namespace colmap {
 
-class AffineTransformEstimator {
- public:
-  typedef Eigen::Vector2d X_t;
-  typedef Eigen::Vector2d Y_t;
-  typedef Eigen::Matrix2x3d M_t;
-
-  // The minimum number of samples needed to estimate a model.
-  static const int kMinNumSamples = 3;
-
-  // Estimate the affine transformation from at least 3 correspondences.
-  static void Estimate(const std::vector<X_t>& src,
-                       const std::vector<Y_t>& tgt,
-                       std::vector<M_t>* tgt_from_src);
-
-  // Compute the squared transformation error.
-  static void Residuals(const std::vector<X_t>& src,
-                        const std::vector<Y_t>& tgt,
-                        const M_t& tgt_from_src,
-                        std::vector<double>* residuals);
-};
-
-bool EstimateAffine2d(const std::vector<Eigen::Vector2d>& src,
-                      const std::vector<Eigen::Vector2d>& tgt,
-                      Eigen::Matrix2x3d& tgt_from_src);
-
-typename RANSAC<AffineTransformEstimator>::Report EstimateAffine2dRobust(
-    const std::vector<Eigen::Vector2d>& src,
-    const std::vector<Eigen::Vector2d>& tgt,
-    const RANSACOptions& options,
-    Eigen::Matrix2x3d& tgt_from_src);
+// Computes axis aligned bounding box for coordinates within the given
+// percentile range. Computes the centroid as the mean within the box.
+std::pair<Eigen::AlignedBox3d, Eigen::Vector3d> ComputeBoundingBoxAndCentroid(
+    double min_percentile,
+    double max_percentile,
+    std::vector<double> coords_x,
+    std::vector<double> coords_y,
+    std::vector<double> coords_z);
 
 }  // namespace colmap
