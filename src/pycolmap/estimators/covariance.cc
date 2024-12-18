@@ -69,7 +69,7 @@ void BindCovarianceEstimator(py::module& m) {
 
   py::class_<BACovariance>(m, "BACovariance")
       .def("get_point_cov",
-           &BACovariance::GetCamFromWorldCov,
+           &BACovariance::GetPointCov,
            "image_id"_a,
            "Covariance for 3D points, conditioned on all other variables set "
            "constant. If some dimensions are kept constant, the respective "
