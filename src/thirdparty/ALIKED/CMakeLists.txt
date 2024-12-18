@@ -17,7 +17,6 @@ COLMAP_ADD_LIBRARY(
         get_patches.hpp get_patches.cpp
         input_padder.hpp input_padder.cpp
         sddh.hpp sddh.cpp
-        aliked_resources.qrc
         ${OPTIONAL_CUDA_SRCS}
     PUBLIC_LINK_LIBS
         torch

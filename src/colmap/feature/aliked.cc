@@ -18,8 +18,9 @@ std::string_view GetDeviceName() {
 
 class ALIKEDFeatureExtractor : public FeatureExtractor {
  public:
-  explicit ALIKEDFeatureExtractor(const ALIKEDFeatureOptions& options)
-      : options_(options), aliked_("aliked-n32", GetDeviceName()) {}
+  explicit ALIKEDFeatureExtractor(const ALIKEDFeatureExtractionOptions& options)
+      : options_(options),
+        aliked_(options.model_name, options.model_path, GetDeviceName()) {}
 
   bool Extract(const Bitmap& bitmap,
                FeatureKeypoints* keypoints,
@@ -77,12 +78,15 @@ class ALIKEDFeatureExtractor : public FeatureExtractor {
   }
 
  private:
-  const ALIKEDFeatureOptions options_;
+  const ALIKEDFeatureExtractionOptions options_;
   ALIKED aliked_;
 };
 
 class ALIKEDLightGlueFeatureMatcher : public FeatureMatcher {
  public:
+  ALIKEDLightGlueFeatureMatcher(const ALIKEDFeatureMatchingOptions& options)
+      : lightglue_("aliked", options.model_path) {}
+
   void Match(const Image& image1,
              const Image& image2,
              FeatureMatches* matches) override {
@@ -166,12 +170,13 @@ class ALIKEDLightGlueFeatureMatcher : public FeatureMatcher {
 }  // namespace
 
 std::unique_ptr<FeatureExtractor> CreateALIKEDFeatureExtractor(
-    const ALIKEDFeatureOptions& options) {
+    const ALIKEDFeatureExtractionOptions& options) {
   return std::make_unique<ALIKEDFeatureExtractor>(options);
 }
 
-std::unique_ptr<FeatureMatcher> CreateALIKEDLightGlueFeatureMatcher() {
-  return std::make_unique<ALIKEDLightGlueFeatureMatcher>();
+std::unique_ptr<FeatureMatcher> CreateALIKEDLightGlueFeatureMatcher(
+    const ALIKEDFeatureMatchingOptions& options) {
+  return std::make_unique<ALIKEDLightGlueFeatureMatcher>(options);
 }
 
 }  // namespace colmap

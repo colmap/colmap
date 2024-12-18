@@ -7,16 +7,10 @@
 #include <filesystem>
 #include <fstream>
 
-#include <QFile>
-#include <QDataStream>
-
 namespace fs = std::filesystem;
 
-void InitALIKEDResources() {
-    Q_INIT_RESOURCE(aliked_resources);
-}
-
 ALIKED::ALIKED(std::string_view model_name,
+               std::string_view model_path,
                std::string_view device,
                int top_k,
                float scores_th,
@@ -33,7 +27,7 @@ ALIKED::ALIKED(std::string_view model_name,
     init_layers(model_name);
 
     // Load weights first
-    load_weights(model_name);
+    load_parameters(model_path);
 
     // Move everything to the specified device
     this->to(device_);
@@ -106,12 +100,6 @@ ALIKED::extract_dense_map(torch::Tensor image) && {
     score_map = std::move(padder).unpad(std::move(score_map));
 
     return std::make_tuple(std::move(feature_map), std::move(score_map));
-}
-
-std::tuple<torch::Tensor, torch::Tensor>
-ALIKED::extract_dense_map(const torch::Tensor& image) & {
-    auto image_copy = image.clone();
-    return std::move(*this).extract_dense_map(std::move(image_copy));
 }
 
 torch::Dict<std::string, torch::Tensor>
@@ -206,39 +194,9 @@ void ALIKED::init_layers(std::string_view model_name) {
     register_module("dkd", dkd_);
 }
 
-void ALIKED::load_weights(std::string_view model_name) {
-    InitALIKEDResources();
-
-    const std::string model_path = std::string(":/models/").append(model_name).append(".pt");
-
-    QFile file(model_path.c_str());
-    if (!file.open(QFile::ReadOnly)) {
-        throw std::runtime_error("Failed to open weights file for model: " + std::string(model_name));
-    }
-    QDataStream stream(&file);
-
-    // Pre-allocate vector
-    std::vector<char> buffer;
-    buffer.reserve(file.size());
-
-    // Read file in chunks for better performance
-    constexpr size_t CHUNK_SIZE = 8192;
-    char chunk[CHUNK_SIZE];
-
-    while (true)
-    {
-        const int num_read_bytes = stream.readRawData(chunk, CHUNK_SIZE);
-        if (num_read_bytes == 0) {
-            break;
-        }
-        buffer.insert(buffer.end(), chunk, chunk + num_read_bytes);
-    }
-
-    load_parameters(buffer);
-}
-
-void ALIKED::load_parameters(const std::vector<char>& data) {
-    auto weights = torch::pickle_load(data).toGenericDict();
+void ALIKED::load_parameters(std::string_view model_path) {
+    auto f = get_the_bytes(model_path);
+    auto weights = torch::pickle_load(f).toGenericDict();
 
     // Use unordered_maps for O(1) lookup
     std::unordered_map<std::string, torch::Tensor> param_map;
@@ -306,4 +264,38 @@ void ALIKED::load_parameters(const std::vector<char>& data) {
         std::cerr << "Warning: " << name
                   << " not found in model parameters or buffers\n";
     }
+}
+
+std::vector<char> ALIKED::get_the_bytes(std::string_view filename) {
+    // Use RAII file handling
+    std::ifstream file(std::string(filename), std::ios::binary);
+    if (!file)
+    {
+        throw std::runtime_error(
+            "Failed to open file: " + std::string(filename));
+    }
+
+    // Get file size
+    file.seekg(0, std::ios::end);
+    const auto size = file.tellg();
+    file.seekg(0, std::ios::beg);
+
+    // Pre-allocate vector
+    std::vector<char> buffer;
+    buffer.reserve(size);
+
+    // Read file in chunks for better performance
+    constexpr size_t CHUNK_SIZE = 8192;
+    char chunk[CHUNK_SIZE];
+
+    while (file.read(chunk, CHUNK_SIZE))
+    {
+        buffer.insert(buffer.end(), chunk, chunk + file.gcount());
+    }
+    if (file.gcount() > 0)
+    {
+        buffer.insert(buffer.end(), chunk, chunk + file.gcount());
+    }
+
+    return buffer;
 }

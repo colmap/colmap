@@ -37,14 +37,21 @@
 
 namespace colmap {
 
-struct ALIKEDFeatureOptions {
+struct ALIKEDFeatureExtractionOptions {
   int max_image_size = 1024;
+  std::string model_name = "aliked-n32";
+  std::string model_path;
 };
 
 std::unique_ptr<FeatureExtractor> CreateALIKEDFeatureExtractor(
-    const ALIKEDFeatureOptions& options);
+    const ALIKEDFeatureExtractionOptions& options);
 
-std::unique_ptr<FeatureMatcher> CreateALIKEDLightGlueFeatureMatcher();
+struct ALIKEDFeatureMatchingOptions {
+  std::string model_path;
+};
+
+std::unique_ptr<FeatureMatcher> CreateALIKEDLightGlueFeatureMatcher(
+    const ALIKEDFeatureMatchingOptions& options);
 
 }  // namespace colmap
 

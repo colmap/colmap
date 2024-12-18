@@ -2,6 +2,7 @@
 
 #include "blocks.hpp"
 #include "input_padder.hpp"
+
 #include <torch/torch.h>
 
 #include <memory>
@@ -25,18 +26,16 @@ inline const std::unordered_map<std::string_view, AlikedConfig> ALIKED_CFGS = {
 
 class ALIKED : public torch::nn::Module {
 public:
-    explicit ALIKED(std::string_view model_name = "aliked-n32",
+    explicit ALIKED(std::string_view model_name,
+                    std::string_view model_path,
                     std::string_view device = "cuda",
                     int top_k = -1,
                     float scores_th = 0.2,
-                    int n_limit = 5000);
+                    int n_limit = 20000);
 
     // Move semantics for tensor operations
     std::tuple<torch::Tensor, torch::Tensor>
     extract_dense_map(torch::Tensor image) &&;
-
-    std::tuple<torch::Tensor, torch::Tensor>
-    extract_dense_map(const torch::Tensor& image) &;
 
     torch::Dict<std::string, torch::Tensor>
     forward(torch::Tensor image) &&;
@@ -46,8 +45,9 @@ public:
 
 private:
     void init_layers(std::string_view model_name);
-    void load_weights(std::string_view model_name);
-    void load_parameters(const std::vector<char>& data);
+    void load_parameters(std::string_view model_path);
+
+    static std::vector<char> get_the_bytes(std::string_view filename);
 
     torch::nn::AvgPool2d pool2_{nullptr}, pool4_{nullptr};
     std::shared_ptr<ConvBlock> block1_;

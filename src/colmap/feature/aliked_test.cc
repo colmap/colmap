@@ -24,14 +24,16 @@ TEST(ALIKED, NOMINAL) {
   Bitmap image;
   CreateImageWithSquare(200, &image);
 
-  auto extractor = CreateALIKEDFeatureExtractor(ALIKEDFeatureOptions());
+  auto extractor =
+      CreateALIKEDFeatureExtractor(ALIKEDFeatureExtractionOptions());
   auto keypoints = std::make_shared<FeatureKeypoints>();
   auto descriptors = std::make_shared<FeatureDescriptors>();
   ASSERT_TRUE(extractor->Extract(image, keypoints.get(), descriptors.get()));
 
   LOG(INFO) << descriptors->rows() << " " << descriptors->cols();
 
-  auto matcher = CreateALIKEDLightGlueFeatureMatcher();
+  auto matcher =
+      CreateALIKEDLightGlueFeatureMatcher(ALIKEDFeatureMatchingOptions());
   FeatureMatches matches;
   matcher->Match({/*image_id=*/1,
                   /*image_width=*/image.Width(),

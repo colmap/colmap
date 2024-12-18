@@ -78,7 +78,7 @@ void FeatureMatcherWorker::Run() {
   THROW_CHECK_NOTNULL(matching_options_.cpu_descriptor_index_cache);
 
   std::unique_ptr<FeatureMatcher> matcher =
-      CreateALIKEDLightGlueFeatureMatcher();
+      CreateALIKEDLightGlueFeatureMatcher(ALIKEDFeatureMatchingOptions());
   if (matcher == nullptr) {
     LOG(ERROR) << "Failed to create feature matcher.";
     SignalInvalidSetup();

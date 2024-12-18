@@ -33,7 +33,8 @@ namespace matcher {
 
     class LightGlue : public torch::nn::Module {
     public:
-        explicit LightGlue(const std::string& model_name = "aliked-lightglue",
+        explicit LightGlue(std::string_view feature_type,
+                           std::string_view model_path,
                            const LightGlueConfig& config = LightGlueConfig());
 
         // Main forward function to process features and find matches
@@ -56,8 +57,6 @@ namespace matcher {
             int layer_index,
             int num_points);
 
-        void load_weights(const std::string& model_name);
-
     private:
         LightGlueConfig config_;
         torch::Device device_;
@@ -71,6 +70,8 @@ namespace matcher {
         std::vector<float> confidence_thresholds_;
 
         static const std::unordered_map<std::string, int> pruning_keypoint_thresholds_;
-        void load_parameters(const std::vector<char>& data);
+        void load_parameters(std::string_view model_path);
+        
+        static std::vector<char> get_the_bytes(std::string_view filename);
     };
 }

@@ -61,7 +61,7 @@ COLMAP_ADD_LIBRARY(
         thread_control_widget.h thread_control_widget.cc
         triangle_painter.h triangle_painter.cc
         undistortion_widget.h undistortion_widget.cc
-        ui_resources.qrc
+        resources.qrc
     PUBLIC_LINK_LIBS
         colmap_util
         colmap_image

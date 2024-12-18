@@ -11,7 +11,6 @@ COLMAP_ADD_LIBRARY(
         matcher.hpp
         transformer.cpp
         transformer.hpp
-        lightglue_resources.qrc
     PUBLIC_LINK_LIBS
         torch
         Qt5::Core
