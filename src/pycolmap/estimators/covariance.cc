@@ -97,8 +97,21 @@ void BindCovarianceEstimator(py::module& m) {
            "variable in the problem.");
 
   m.def(
+      "estimate_ba_covariance_from_problem",
+      py::overload_cast<const BACovarianceOptions&, const Reconstruction&, ceres::Problem&>(&EstimateBACovariance),
+      "options"_a,
+      "reconstruction"_a,
+      "problem"_a,
+      "Computes covariances for the parameters in a bundle adjustment "
+      "problem. It is important that the problem has a structure suitable for "
+      "solving using the Schur complement trick. This is the case for the "
+      "standard configuration of bundle adjustment problems, but be careful "
+      "if you modify the underlying problem with custom residuals. Returns "
+      "null if the estimation was not successful.");
+
+  m.def(
       "estimate_ba_covariance",
-      &EstimateBACovariance,
+      py::overload_cast<const BACovarianceOptions&, const Reconstruction&, BundleAdjuster&>(&EstimateBACovariance),
       "options"_a,
       "reconstruction"_a,
       "bundle_adjuster"_a,

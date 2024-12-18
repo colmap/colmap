@@ -272,6 +272,13 @@ std::optional<BACovariance> EstimateBACovariance(
     const Reconstruction& reconstruction,
     BundleAdjuster& bundle_adjuster) {
   ceres::Problem& problem = *THROW_CHECK_NOTNULL(bundle_adjuster.Problem());
+  return EstimateBACovariance(options, reconstruction, problem);
+}
+
+std::optional<BACovariance> EstimateBACovariance(
+    const BACovarianceOptions& options,
+    const Reconstruction& reconstruction,
+    ceres::Problem& problem) {
   const bool estimate_point_covs =
       options.params == BACovarianceOptions::Params::POINTS ||
       options.params == BACovarianceOptions::Params::POSES_AND_POINTS ||
