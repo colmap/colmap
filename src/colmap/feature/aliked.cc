@@ -64,24 +64,32 @@ class ALIKEDFeatureExtractor : public FeatureExtractor {
   bool Extract(const Bitmap& bitmap,
                FeatureKeypoints* keypoints,
                FeatureDescriptors* descriptors) override {
-    // TODO: Avoid unnecessary cloning when not downscaling.
-    Bitmap scaled_rgb_bitmap = bitmap.CloneAsRGB();
+    const int orig_width = bitmap.Width();
+    const int orig_height = bitmap.Height();
+    const int image_size = std::max(orig_width, orig_height);
+    const bool needs_rescale = image_size > options_.max_image_size;
 
-    const int width = bitmap.Width();
-    const int height = bitmap.Height();
-    const int max_size = std::max(width, height);
-    if (max_size > 1000) {
-      const double scale =
-          static_cast<double>(1000) / static_cast<double>(max_size);
-      scaled_rgb_bitmap.Rescale(scale * width, scale * height);
+    // Only copy bitmap if we need to rescale or convert to RGB.
+    const Bitmap* bitmap_ptr = &bitmap;
+    std::unique_ptr<Bitmap> maybe_bitmap_copy;
+    if (!bitmap.IsRGB() || needs_rescale) {
+      maybe_bitmap_copy = std::make_unique<Bitmap>(bitmap.CloneAsRGB());
+      bitmap_ptr = maybe_bitmap_copy.get();
     }
 
-    torch::Tensor torch_image = torch::empty(
-        {1, 3, scaled_rgb_bitmap.Height(), scaled_rgb_bitmap.Width()});
-    for (int y = 0; y < scaled_rgb_bitmap.Height(); ++y) {
-      for (int x = 0; x < scaled_rgb_bitmap.Width(); ++x) {
+    if (needs_rescale) {
+      const double scale = static_cast<double>(options_.max_image_size) /
+                           static_cast<double>(image_size);
+      maybe_bitmap_copy->Rescale(scale * orig_width, scale * orig_height);
+    }
+
+    const int width = bitmap_ptr->Width();
+    const int height = bitmap_ptr->Height();
+    torch::Tensor torch_image = torch::empty({1, 3, height, width});
+    for (int y = 0; y < height; ++y) {
+      for (int x = 0; x < width; ++x) {
         BitmapColor<uint8_t> color;
-        CHECK(scaled_rgb_bitmap.GetPixel(x, y, &color));
+        CHECK(bitmap_ptr->GetPixel(x, y, &color));
         constexpr float kNorm = 1.f / 255.f;
         torch_image[0][0][y][x] = kNorm * color.r;
         torch_image[0][1][y][x] = kNorm * color.g;

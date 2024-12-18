@@ -64,6 +64,8 @@ COLMAP_ADD_LIBRARY(
         colmap_scene
         colmap_util
     PRIVATE_LINK_LIBS
+        $<$<BOOL:${TORCH_ENABLED}>:colmap_aliked>
+        $<$<BOOL:${TORCH_ENABLED}>:colmap_lightglue>
         colmap_math
         colmap_sensor
         colmap_vlfeat
@@ -79,12 +81,6 @@ if(GPU_ENABLED)
 endif()
 
 if(TORCH_ENABLED)
-    target_link_libraries(
-        colmap_feature
-        PRIVATE
-            colmap_aliked
-            colmap_lightglue
-    )
     COLMAP_ADD_TEST(
         NAME aliked_test
         SRCS aliked_test.cc
