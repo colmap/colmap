@@ -41,8 +41,36 @@ void BindCovarianceEstimator(py::module& m) {
       m, "ExperimentalPoseParam");
   PyExperimentalPoseParam.def(py::init<>())
       .def_readwrite("image_id", &internal::PoseParam::image_id)
-      .def_readwrite("qvec", &internal::PoseParam::qvec)
-      .def_readwrite("tvec", &internal::PoseParam::tvec);
+      .def_property(
+          "qvec",
+          [](internal::PoseParam& self)
+              -> py::typing::Optional<py::array_t<double>> {
+            if (!self.qvec)
+              return py::none();
+            else
+              return py::array_t<double>({4}, self.qvec);
+          },
+          [](internal::PoseParam& self, py::array_t<double> pyarray) {
+            THROW_CHECK_EQ(pyarray.ndim(), 1);
+            THROW_CHECK_EQ(pyarray.size(), 4);
+            py::buffer_info info = pyarray.request();
+            self.qvec = (double*)info.ptr;
+          })
+      .def_property(
+          "tvec",
+          [](internal::PoseParam& self)
+              -> py::typing::Optional<py::array_t<double>> {
+            if (!self.tvec)
+              return py::none();
+            else
+              return py::array_t<double>({3}, self.tvec);
+          },
+          [](internal::PoseParam& self, py::array_t<double> pyarray) {
+            THROW_CHECK_EQ(pyarray.ndim(), 1);
+            THROW_CHECK_EQ(pyarray.size(), 3);
+            py::buffer_info info = pyarray.request();
+            self.tvec = (double*)info.ptr;
+          });
   MakeDataclass(PyExperimentalPoseParam);
 
   py::class_<BACovarianceOptions> PyBACovarianceOptions(m,
@@ -91,6 +119,7 @@ void BindCovarianceEstimator(py::module& m) {
       .def(
           "get_other_params_cov",
           [](BACovariance& self, py::array_t<double>& pyarray) {
+            THROW_CHECK_EQ(pyarray.ndim(), 1);
             py::buffer_info info = pyarray.request();
             return self.GetOtherParamsCov((double*)info.ptr);
           },
