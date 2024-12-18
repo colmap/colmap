@@ -98,7 +98,7 @@ void BindCovarianceEstimator(py::module& m) {
 
   m.def(
       "estimate_ba_covariance_from_problem",
-      py::overload_cast<const BACovarianceOptions&, const Reconstruction&, ceres::Problem&>(&EstimateBACovariance),
+      &EstimateBACovarianceFromProblem,
       "options"_a,
       "reconstruction"_a,
       "problem"_a,
@@ -111,7 +111,7 @@ void BindCovarianceEstimator(py::module& m) {
 
   m.def(
       "estimate_ba_covariance",
-      py::overload_cast<const BACovarianceOptions&, const Reconstruction&, BundleAdjuster&>(&EstimateBACovariance),
+      &EstimateBACovariance,
       "options"_a,
       "reconstruction"_a,
       "bundle_adjuster"_a,
