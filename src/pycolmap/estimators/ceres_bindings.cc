@@ -370,7 +370,6 @@ void BindCeresSolver(py::module& m) {
       m, "IterationSummary", py::module_local());
   PyIterSummary.def(py::init<>())
       .def(py::init<const IterSummary&>())
-      .def("cast_to_pointer", [](IterSummary& self) { return &self; })
       .def_readonly("iteration", &IterSummary::iteration)
       .def_readonly("step_is_valid", &IterSummary::step_is_valid)
       .def_readonly("step_is_nonmonotonic", &IterSummary::step_is_nonmonotonic)
