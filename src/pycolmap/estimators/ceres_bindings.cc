@@ -161,8 +161,10 @@ void BindCeresTypes(py::module& m) {
 
 void BindCeresSolver(py::module& m) {
   using Options = ceres::Solver::Options;
-  py::class_<Options> PyOptions(m, "SolverOptions", py::module_local());
+  py::class_<Options, std::shared_ptr<Options>> PyOptions(
+      m, "SolverOptions", py::module_local());
   PyOptions.def(py::init<>())
+      .def(py::init<const Options&>())
       .def("IsValid", &Options::IsValid)
       .def_readwrite("minimizer_type", &Options::minimizer_type)
       .def_readwrite("line_search_direction_type",
@@ -262,8 +264,10 @@ void BindCeresSolver(py::module& m) {
   MakeDataclass(PyOptions);
 
   using Summary = ceres::Solver::Summary;
-  py::class_<Summary> PySummary(m, "SolverSummary", py::module_local());
+  py::class_<Summary, std::shared_ptr<Summary>> PySummary(
+      m, "SolverSummary", py::module_local());
   PySummary.def(py::init<>())
+      .def(py::init<const Summary&>())
       .def("BriefReport", &Summary::BriefReport)
       .def("FullReport", &Summary::FullReport)
       .def("IsSolutionUsable", &Summary::IsSolutionUsable)
@@ -362,9 +366,11 @@ void BindCeresSolver(py::module& m) {
   MakeDataclass(PySummary);
 
   using IterSummary = ceres::IterationSummary;
-  py::class_<IterSummary> PyIterSummary(
+  py::class_<IterSummary, std::shared_ptr<IterSummary>> PyIterSummary(
       m, "IterationSummary", py::module_local());
   PyIterSummary.def(py::init<>())
+      .def(py::init<const IterSummary&>())
+      .def("cast_to_pointer", [](IterSummary& self) { return &self; })
       .def_readonly("iteration", &IterSummary::iteration)
       .def_readonly("step_is_valid", &IterSummary::step_is_valid)
       .def_readonly("step_is_nonmonotonic", &IterSummary::step_is_nonmonotonic)
