@@ -50,7 +50,7 @@ option(DOWNLOAD_ENABLED "Whether to enable (automatic) download of resources (re
 option(UNINSTALL_ENABLED "Whether to create a target to 'uninstall' colmap" ON)
 option(FETCH_POSELIB "Whether to consume PoseLib using FetchContent or find_package" ON)
 option(TORCH_ENABLED "Whether to enable the libtorch library" OFF)
-option(FETCH_LIBTORCH "Whether to consume libtorch using FetchContent or find_package" ON)
+option(FETCH_TORCH "Whether to consume libtorch using FetchContent or find_package" ON)
 option(ALL_SOURCE_TARGET "Whether to create a target for all source files (for Visual Studio / XCode development)" OFF)
 
 # Disables default features, as we specify each required feature manually below.
@@ -70,7 +70,7 @@ endif()
 if(CGAL_ENABLED)
     list(APPEND VCPKG_MANIFEST_FEATURES "cgal")
 endif()
-if(NOT FETCH_LIBTORCH)
+if(NOT FETCH_TORCH)
     if(CUDA_ENABLED)
         list(APPEND VCPKG_MANIFEST_FEATURES "libtorch-cuda")
     else()
@@ -122,6 +122,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 ################################################################################
 
 set(COLMAP_FIND_QUIETLY FALSE)
+set(FIND_TORCH TRUE)
 include(cmake/FindDependencies.cmake)
 
 ################################################################################
@@ -235,11 +236,6 @@ include(GenerateVersionDefinitions)
 
 include_directories(src)
 link_directories(${COLMAP_LINK_DIRS})
-
-if(TORCH_ENABLED)
-    include(cmake/FindLibTorch.cmake)
-    add_definitions("-DCOLMAP_TORCH_ENABLED")
-endif()
 
 add_subdirectory(src/thirdparty)
 add_subdirectory(src/colmap)
@@ -387,6 +383,7 @@ if(GPU_ENABLED)
 endif()
 if(TORCH_ENABLED)
     list(APPEND COLMAP_EXPORT_LIBS
+         colmap_feature_torch
          colmap_aliked
          colmap_lightglue
     )

@@ -128,7 +128,7 @@ jobs:
             -DTESTS_ENABLED=${{ matrix.config.testsEnabled }} `
             -DGUI_ENABLED=ON `
             -DTORCH_ENABLED=ON `
-            -DFETCH_LIBTORCH=OFF `
+            -DFETCH_TORCH=OFF `
             -DCUDA_ENABLED=${{ matrix.config.cudaEnabled }} `
             -DCMAKE_CUDA_ARCHITECTURES=all-major `
             -DCUDAToolkit_ROOT="${{ steps.cuda-toolkit.outputs.CUDA_PATH }}" `

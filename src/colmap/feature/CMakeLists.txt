@@ -48,7 +48,6 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_LIBRARY(
     NAME colmap_feature
     SRCS
-        aliked.h aliked.cc
         extractor.h
         index.h index.cc
         matcher.h matcher.cc
@@ -64,8 +63,6 @@ COLMAP_ADD_LIBRARY(
         colmap_scene
         colmap_util
     PRIVATE_LINK_LIBS
-        $<$<BOOL:${TORCH_ENABLED}>:colmap_aliked>
-        $<$<BOOL:${TORCH_ENABLED}>:colmap_lightglue>
         colmap_math
         colmap_sensor
         colmap_vlfeat
@@ -81,10 +78,20 @@ if(GPU_ENABLED)
 endif()
 
 if(TORCH_ENABLED)
+    COLMAP_ADD_LIBRARY(
+        NAME colmap_feature_torch
+        SRCS
+            aliked.h aliked.cc
+        PUBLIC_LINK_LIBS
+            colmap_feature
+        PRIVATE_LINK_LIBS
+            colmap_aliked
+            colmap_lightglue
+    )
     COLMAP_ADD_TEST(
         NAME aliked_test
         SRCS aliked_test.cc
-        LINK_LIBS colmap_feature
+        LINK_LIBS colmap_feature_torch
     )
 endif()
 
