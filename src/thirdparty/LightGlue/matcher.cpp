@@ -498,6 +498,7 @@ void LightGlue::load_parameters(std::string_view model_path) {
 
   for (const auto& w : weights) {
     const auto name = map_python_to_cpp(w.key().toStringRef());
+
     const auto& param = w.value().toTensor();
 
     // Try parameters first
@@ -526,6 +527,11 @@ void LightGlue::load_parameters(std::string_view model_path) {
             " Expected: " + std::to_string(it->second.numel()) +
             " Got: " + std::to_string(param.numel()));
       }
+      continue;
+    }
+
+    if (name == "confidence_thresholds") {
+      // Confidence thresholds are not in the parameters but hard-coded above.
       continue;
     }
 

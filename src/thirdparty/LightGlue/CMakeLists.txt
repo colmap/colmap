@@ -13,5 +13,4 @@ COLMAP_ADD_LIBRARY(
         transformer.hpp
     PUBLIC_LINK_LIBS
         torch
-        Qt5::Core
 )
