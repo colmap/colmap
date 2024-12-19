@@ -1,10 +1,10 @@
 [CmdletBinding()]
 param (
     [Parameter(Mandatory = $true)]
-    [string] $CudaMajorVersion
+    [string] $CudaMajorVersion,
 
     [Parameter(Mandatory = $true)]
-    [string] $CudaMinoVersion
+    [string] $CudaMinoVersion,
 )
 
 $version = "9.6.0.74"
