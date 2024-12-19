@@ -115,6 +115,10 @@ std::optional<BACovariance> EstimateBACovariance(
     const BACovarianceOptions& options,
     const Reconstruction& reconstruction,
     BundleAdjuster& bundle_adjuster);
+std::optional<BACovariance> EstimateBACovarianceFromProblem(
+    const BACovarianceOptions& options,
+    const Reconstruction& reconstruction,
+    ceres::Problem& problem);
 
 namespace internal {
 
