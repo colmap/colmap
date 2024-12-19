@@ -34,11 +34,10 @@ try {
     $directories = Get-ChildItem -Path $sourceFolder -Directory
     foreach ($directory in $directories) {
         $sourcePath = $directory.FullName
-        Move-Item -Path "$sourcePath/*" -Destination $targetFolder -Force
+        Move-Item -Path "$sourcePath/*" -Destination "$targetFolder" -Force
 
         # TODO: Remove debug output.
-        Write-Host "$sourcePath -> $targetPath"
-        Get-ChildItem -Path $targetPath
+        Get-ChildItem -Path "$targetFolder"
     }
 }
 catch {
