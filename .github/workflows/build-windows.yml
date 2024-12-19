@@ -43,6 +43,9 @@ jobs:
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
       VCPKG_COMMIT_ID: 3b57fb2e1ff55613db14d2aaf0a30529289c7050
+      CUDA_MAJOR_VERSION: 12
+      CUDA_MINOR_VERSION: 6
+      CUDA_PATCH_VERSION: 2
 
     steps:
       - uses: actions/checkout@v4
@@ -88,26 +91,21 @@ jobs:
           }
           .github/workflows/install-ccache.ps1 -Destination "${{ env.COMPILER_CACHE_DIR }}/bin"
 
-      # - name: Install CUDA
-      #   uses: Jimver/cuda-toolkit@v0.2.18
-      #   if: matrix.config.cudaEnabled
-      #   id: cuda-toolkit
-      #   with:
-      #     cuda: '12.6.2'
-      #     sub-packages: '["nvcc", "nvtx", "cudart", "curand", "curand_dev", "nvrtc_dev"]'
-      #     method: 'network'
+      - name: Install CUDA
+        uses: Jimver/cuda-toolkit@v0.2.18
+        if: matrix.config.cudaEnabled
+        id: cuda-toolkit
+        with:
+          cuda: '${{ env.CUDA_MAJOR_VERSION }}.${{ env.CUDA_MINOR_VERSION }}.${{ env.CUDA_PATCH_VERSION }}'
+          sub-packages: '["nvcc", "nvtx", "cudart", "curand", "curand_dev", "nvrtc_dev"]'
+          method: 'network'
 
       - name: Install cuDNN
         shell: pwsh
         run: |
-          pip install --upgrade setuptools pip wheel
-          pip install nvidia-pyindex 
-          pip install `
-              nvidia-cuda-runtime-cu12 `
-              nvidia-cuda-nvcc-cu12 `
-              nvidia-cuda-nvrtc-cu12 `
-              nvidia-curand-cu12 `
-              nvidia-cudnn-cu12
+          .github/workflows/install-cudnn.ps1 `
+              -CudaMajorVersion ${{ env.CUDA_MAJOR_VERSION }} `
+              -CudaMinorVersion ${{ env.CUDA_MINOR_VERSION }}
 
       - name: Setup vcpkg
         shell: pwsh
