@@ -266,13 +266,12 @@ void ALIKED::load_parameters(std::string_view model_path) {
     }
 }
 
-std::vector<char> ALIKED::get_the_bytes(std::string_view filename) {
+std::vector<char> ALIKED::get_the_bytes(const std::string& filename) {
     // Use RAII file handling
-    std::ifstream file(std::string(filename), std::ios::binary);
+    std::ifstream file(filename, std::ios::binary);
     if (!file)
     {
-        throw std::runtime_error(
-            "Failed to open file: " + std::string(filename));
+        throw std::runtime_error("Failed to open file: " + filename);
     }
 
     // Get file size

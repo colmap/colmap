@@ -47,7 +47,7 @@ private:
     void init_layers(std::string_view model_name);
     void load_parameters(std::string_view model_path);
 
-    static std::vector<char> get_the_bytes(std::string_view filename);
+    static std::vector<char> get_the_bytes(const std::string& filename);
 
     torch::nn::AvgPool2d pool2_{nullptr}, pool4_{nullptr};
     std::shared_ptr<ConvBlock> block1_;

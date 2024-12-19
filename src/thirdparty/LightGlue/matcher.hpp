@@ -72,6 +72,6 @@ namespace matcher {
         static const std::unordered_map<std::string, int> pruning_keypoint_thresholds_;
         void load_parameters(std::string_view model_path);
         
-        static std::vector<char> get_the_bytes(std::string_view filename);
+        static std::vector<char> get_the_bytes(const std::string& filename);
     };
 }
