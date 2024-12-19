@@ -101,6 +101,7 @@ jobs:
           method: 'network'
 
       - name: Install cuDNN
+        if: matrix.config.cudaEnabled
         shell: pwsh
         run: |
           .github/workflows/install-cudnn.ps1 `
