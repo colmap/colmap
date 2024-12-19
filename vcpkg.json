@@ -80,6 +80,31 @@
                     ]
                 }
             ]
+        },
+        "libtorch": {
+            "description": "Build with libtorch.",
+            "dependencies": [
+                {
+                    "name": "libtorch",
+                    "default-features": false,
+                    "features": [
+                        "zstd"
+                    ]
+                }
+            ]
+        },
+        "libtorch-cuda": {
+            "description": "Build with libtorch and CUDA support.",
+            "dependencies": [
+                {
+                    "name": "libtorch",
+                    "default-features": false,
+                    "features": [
+                        "cuda",
+                        "zstd"
+                    ]
+                }
+            ]
         }
     }
 }
