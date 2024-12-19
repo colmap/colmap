@@ -49,7 +49,7 @@ void CreateImageWithSquare(const int size, Bitmap* bitmap) {
   }
 }
 
-TEST(ALIKED, NOMINAL) {
+TEST(ALIKED, Nominal) {
   Bitmap image;
   CreateImageWithSquare(200, &image);
 
