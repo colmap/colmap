@@ -74,8 +74,8 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_geometry
 )
 COLMAP_ADD_TEST(
-    NAME pose_prior
-    SRCS pose_prior.cc
+    NAME pose_prior_test
+    SRCS pose_prior_test.cc
     LINK_LIBS colmap_geometry
 )
 COLMAP_ADD_TEST(
