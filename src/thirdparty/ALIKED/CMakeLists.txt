@@ -21,5 +21,4 @@ COLMAP_ADD_LIBRARY(
     PUBLIC_LINK_LIBS
         torch
         glog::glog
-        Qt5::Core
 )
