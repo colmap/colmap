@@ -85,6 +85,7 @@ if(TORCH_ENABLED)
         PUBLIC_LINK_LIBS
             colmap_feature
         PRIVATE_LINK_LIBS
+            colmap_util
             colmap_aliked
             colmap_lightglue
     )
@@ -93,7 +94,6 @@ if(TORCH_ENABLED)
         SRCS aliked_test.cc
         LINK_LIBS
             colmap_feature_torch
-            colmap_util
     )
 endif()
 
