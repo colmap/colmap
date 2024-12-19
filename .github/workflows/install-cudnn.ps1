@@ -38,9 +38,9 @@ try {
         Move-Item -Path $sourcePath -Destination $targetPath -Force
 
         # TODO: Remove debug output.
-        List-ChildItem -Path $targetPath
+        Get-ChildItem -Path $targetPath
         Write-Host "===="
-        List-ChildItem -Path $targetPath
+        Get-ChildItem -Path $targetPath
     }
 }
 catch {
