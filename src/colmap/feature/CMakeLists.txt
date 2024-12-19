@@ -88,6 +88,7 @@ if(TORCH_ENABLED)
             colmap_util
             colmap_aliked
             colmap_lightglue
+            glog::glog
     )
     COLMAP_ADD_TEST(
         NAME aliked_test
