@@ -4,7 +4,7 @@ param (
     [string] $CudaMajorVersion,
 
     [Parameter(Mandatory = $true)]
-    [string] $CudaMinoVersion,
+    [string] $CudaMinorVersion
 )
 
 $version = "9.6.0.74"
@@ -31,7 +31,7 @@ try {
     
      Write-Host "Move cuDNN"
     $sourceFolder = "$env:TEMP/$folder"
-    $targetFolder = "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v${CudaMajorVersion}.${CudaMinoVersion}"
+    $targetFolder = "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v${CudaMajorVersion}.${CudaMinorVersion}"
 
     $directories = Get-ChildItem -Path $sourceFolder -Directory
     foreach ($directory in $directories) {
