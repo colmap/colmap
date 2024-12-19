@@ -38,7 +38,8 @@ try {
         Move-Item -Path $sourcePath -Destination $targetPath -Force
 
         # TODO: Remove debug output.
-        Get-ChildItem -Path $targetPath
+        Write-Host "$sourcePath -> $targetPath"
+        Get-ChildItem -Path $sourcePath
         Write-Host "===="
         Get-ChildItem -Path $targetPath
     }
