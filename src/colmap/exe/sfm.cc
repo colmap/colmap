@@ -392,6 +392,26 @@ int RunPosePriorMapper(int argc, char** argv) {
                            &options.mapper->use_robust_loss_on_prior_position);
   options.AddDefaultOption("prior_position_loss_scale",
                            &options.mapper->prior_position_loss_scale);
+
+  std::string cartesian_frame = "enu";
+  options.AddDefaultOption(
+      "cartesian_frame",
+      &cartesian_frame,
+      "Specifies the Cartesian coordinate frame for converting from latitude, "
+      "longitude, and altitude (LLA). Possible values are 'ENU', "
+      "'ECEF', and 'UTM'.");
+
+  StringToLower(&cartesian_frame);
+  if (cartesian_frame == "enu") {
+    options.mapper->cartesian_frame = GPSTransform::CartesianFrame::ENU;
+  } else if (cartesian_frame == "ecef") {
+    options.mapper->cartesian_frame = GPSTransform::CartesianFrame::ECEF;
+  } else if (cartesian_frame == "utm") {
+    options.mapper->cartesian_frame = GPSTransform::CartesianFrame::UTM;
+  } else {
+    LOG(FATAL_THROW) << "Invalid Cartesian coordinate frame provided.";
+  }
+
   options.Parse(argc, argv);
 
   if (!ExistsDir(output_path)) {
