@@ -36,6 +36,11 @@ try {
         $sourcePath = $directory.FullName
         $targetPath = Join-Path -Path $targetFolder -ChildPath $directory.Name
         Move-Item -Path $sourcePath -Destination $targetPath -Force
+
+        # TODO: Remove debug output.
+        List-ChildItem -Path $targetPath
+        Write-Host "===="
+        List-ChildItem -Path $targetPath
     }
 }
 catch {
