@@ -6,12 +6,21 @@
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <string_view>
+#include <unordered_map>
 
 namespace fs = std::filesystem;
 
-ALIKED::ALIKED(std::string_view model_name,
-               std::string_view model_path,
-               std::string_view device,
+// Static configuration map
+inline const std::unordered_map<std::string, AlikedConfig> ALIKED_CFGS = {
+    {"aliked-t16", {8, 16, 32, 64, 64, 3, 16}},
+    {"aliked-n16", {16, 32, 64, 128, 128, 3, 16}},
+    {"aliked-n16rot", {16, 32, 64, 128, 128, 3, 16}},
+    {"aliked-n32", {16, 32, 64, 128, 128, 3, 32}}};
+
+ALIKED::ALIKED(const std::string& model_name,
+               const std::string& model_path,
+               const std::string& device,
                int top_k,
                float scores_th,
                int n_limit)
@@ -112,7 +121,7 @@ ALIKED::forward(torch::Tensor image) && {
     auto [descriptors, offsets] = std::move(*desc_head_).forward(feature_map, keypoints);
 
     auto end_time = std::chrono::high_resolution_clock::now();
-    auto duration = duration_cast<std::chrono::milliseconds>(end_time - start_time).count() / 1000.0f;
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count() / 1000.0f;
 
     torch::Dict<std::string, torch::Tensor> output;
     output.insert("keypoints", std::move(keypoints[0]));
@@ -131,7 +140,7 @@ ALIKED::forward(const torch::Tensor& image) & {
     return std::move(*this).forward(std::move(image_copy));
 }
 
-void ALIKED::init_layers(std::string_view model_name) {
+void ALIKED::init_layers(const std::string& model_name) {
     const auto& config = ALIKED_CFGS.at(std::string(model_name));
     dim_ = config.dim;
 
@@ -194,7 +203,7 @@ void ALIKED::init_layers(std::string_view model_name) {
     register_module("dkd", dkd_);
 }
 
-void ALIKED::load_parameters(std::string_view model_path) {
+void ALIKED::load_parameters(const std::string& model_path) {
     auto f = get_the_bytes(model_path);
     auto weights = torch::pickle_load(f).toGenericDict();
 

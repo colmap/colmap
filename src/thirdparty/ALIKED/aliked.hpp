@@ -6,9 +6,6 @@
 #include <torch/torch.h>
 
 #include <memory>
-#include <span>
-#include <string_view>
-#include <unordered_map>
 
 struct AlikedConfig {
     int c1, c2, c3, c4, dim, K, M;
@@ -17,18 +14,11 @@ struct AlikedConfig {
 class DKD;
 class SDDH;
 
-// Static configuration map
-inline const std::unordered_map<std::string_view, AlikedConfig> ALIKED_CFGS = {
-    {"aliked-t16", {8, 16, 32, 64, 64, 3, 16}},
-    {"aliked-n16", {16, 32, 64, 128, 128, 3, 16}},
-    {"aliked-n16rot", {16, 32, 64, 128, 128, 3, 16}},
-    {"aliked-n32", {16, 32, 64, 128, 128, 3, 32}}};
-
 class ALIKED : public torch::nn::Module {
 public:
-    explicit ALIKED(std::string_view model_name,
-                    std::string_view model_path,
-                    std::string_view device = "cuda",
+    explicit ALIKED(const std::string& model_name,
+                    const std::string& model_path,
+                    const std::string& device = "cuda",
                     int top_k = -1,
                     float scores_th = 0.2,
                     int n_limit = 20000);
@@ -44,8 +34,8 @@ public:
     forward(const torch::Tensor& image) &;
 
 private:
-    void init_layers(std::string_view model_name);
-    void load_parameters(std::string_view model_path);
+    void init_layers(const std::string& model_name);
+    void load_parameters(const std::string& model_path);
 
     static std::vector<char> get_the_bytes(const std::string& filename);
 

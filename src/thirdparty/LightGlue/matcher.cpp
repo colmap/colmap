@@ -109,18 +109,17 @@ const std::unordered_map<std::string, int>
         {"cpu", -1}, {"mps", -1}, {"cuda", 1024}, {"flash", 1536}};
 
 // Feature configurations
-static const std::unordered_map<std::string_view, int> INPUT_DIMS = {
+static const std::unordered_map<std::string, int> INPUT_DIMS = {
     {"aliked", 128}};
 
-LightGlue::LightGlue(std::string_view feature_type,
-                     std::string_view model_path,
+LightGlue::LightGlue(const std::string& feature_type,
+                     const std::string& model_path,
                      const LightGlueConfig& config)
     : config_(config), device_(torch::kCPU) {
   // Configure based on feature type
   auto it = INPUT_DIMS.find(feature_type);
   if (it == INPUT_DIMS.end()) {
-    throw std::runtime_error("Unsupported feature type: " +
-                             std::string(feature_type));
+    throw std::runtime_error("Unsupported feature type: " + feature_type);
   }
 
   config_.input_dim = it->second;
@@ -469,7 +468,7 @@ torch::Dict<std::string, torch::Tensor> LightGlue::forward(
   return output;
 }
 
-void LightGlue::load_parameters(std::string_view model_path) {
+void LightGlue::load_parameters(const std::string& model_path) {
   auto f = get_the_bytes(model_path);
   auto weights = torch::pickle_load(f).toGenericDict();
 

@@ -45,7 +45,7 @@ namespace {
 
 #ifdef COLMAP_TORCH_ENABLED
 
-std::string_view GetDeviceName() {
+std::string GetDeviceName() {
   if (torch::cuda::is_available()) {
     return "cuda";
   } else {
