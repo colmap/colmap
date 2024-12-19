@@ -396,6 +396,11 @@ std::string DownloadAndCacheFile(const std::string& uri) {
     download_cache_dir = *home_dir / ".cache/colmap";
   }
 
+  if (!std::filesystem::exists(download_cache_dir)) {
+    VLOG(2) << "Creating download cache directory: " << download_cache_dir;
+    THROW_CHECK(std::filesystem::create_directories(download_cache_dir));
+  }
+
   const std::filesystem::path path = download_cache_dir / (sha256 + "-" + name);
 
   if (std::filesystem::exists(path)) {
