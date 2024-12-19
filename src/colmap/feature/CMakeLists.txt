@@ -94,6 +94,7 @@ if(TORCH_ENABLED)
         SRCS aliked_test.cc
         LINK_LIBS
             colmap_feature_torch
+            colmap_util
     )
 endif()
 
