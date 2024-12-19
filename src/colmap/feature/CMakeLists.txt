@@ -91,7 +91,9 @@ if(TORCH_ENABLED)
     COLMAP_ADD_TEST(
         NAME aliked_test
         SRCS aliked_test.cc
-        LINK_LIBS colmap_feature_torch
+        LINK_LIBS
+            colmap_feature_torch
+            colmap_util
     )
 endif()
 
