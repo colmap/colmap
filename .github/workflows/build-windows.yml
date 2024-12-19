@@ -104,8 +104,8 @@ jobs:
         shell: pwsh
         run: |
           .github/workflows/install-cudnn.ps1 `
-              -CudaMajorVersion ${{ env.CUDA_MAJOR_VERSION }} `
-              -CudaMinorVersion ${{ env.CUDA_MINOR_VERSION }}
+              -CudaMajorVersion "${{ env.CUDA_MAJOR_VERSION }}" `
+              -CudaMinorVersion "${{ env.CUDA_MINOR_VERSION }}"
 
       - name: Setup vcpkg
         shell: pwsh

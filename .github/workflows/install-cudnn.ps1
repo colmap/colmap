@@ -15,8 +15,6 @@ $expectedSha256 = "65CA0F2D77A46DE1DEF35E289780B8D8729EF2FA39CF8DD0C8448E381DD29
 $ErrorActionPreference = "Stop"
 
 try {
-    New-Item -Path "$Destination" -ItemType Container -ErrorAction SilentlyContinue
-
     Write-Host "Download cuDNN"
     $zipFilePath = Join-Path "$env:TEMP" "$folder.zip"
     Invoke-WebRequest -Uri $url -UseBasicParsing -OutFile "$zipFilePath" -MaximumRetryCount 3
