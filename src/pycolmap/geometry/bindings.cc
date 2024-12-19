@@ -1,5 +1,5 @@
-#include "colmap/geometry/gps.h"
 #include "colmap/geometry/pose.h"
+#include "colmap/geometry/pose_prior.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/geometry/sim3.h"
 
