@@ -88,14 +88,25 @@ jobs:
           }
           .github/workflows/install-ccache.ps1 -Destination "${{ env.COMPILER_CACHE_DIR }}/bin"
 
-      - name: Install CUDA
-        uses: Jimver/cuda-toolkit@v0.2.18
-        if: matrix.config.cudaEnabled
-        id: cuda-toolkit
-        with:
-          cuda: '12.6.2'
-          sub-packages: '["nvcc", "nvtx", "cudart", "curand", "curand_dev", "nvrtc_dev"]'
-          method: 'network'
+      # - name: Install CUDA
+      #   uses: Jimver/cuda-toolkit@v0.2.18
+      #   if: matrix.config.cudaEnabled
+      #   id: cuda-toolkit
+      #   with:
+      #     cuda: '12.6.2'
+      #     sub-packages: '["nvcc", "nvtx", "cudart", "curand", "curand_dev", "nvrtc_dev"]'
+      #     method: 'network'
+
+      - name: Install cuDNN
+        shell: pwsh
+        run: |
+          pip install nvidia-pyindex 
+          pip install `
+              nvidia-cuda-runtime-cu12 `
+              nvidia-cuda-nvcc-cu12 `
+              nvidia-cuda-nvrtc-cu12 `
+              nvidia-curand-cu12 `
+              nvidia-cudnn-cu12
 
       - name: Setup vcpkg
         shell: pwsh
