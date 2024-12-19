@@ -225,7 +225,7 @@ const class Image* DatabaseCache::FindImageWithName(
 }
 
 bool DatabaseCache::SetupPosePriors(
-    GPSTransform::CartesianFrame cartesian_frame_from_lla) {
+    GPSTransform::CartesianFrame cartesian_frame) {
   LOG(INFO) << "Setting up prior positions...";
 
   Timer timer;
@@ -264,7 +264,7 @@ bool DatabaseCache::SetupPosePriors(
     // GPS reference to be used for cartesian conversion
     const GPSTransform gps_transform(GPSTransform::WGS84);
     std::vector<Eigen::Vector3d> v_xyz_prior;
-    switch (cartesian_frame_from_lla) {
+    switch (cartesian_frame) {
       case GPSTransform::CartesianFrame::ECEF: {
         v_xyz_prior = gps_transform.EllToXYZ(v_gps_prior);
         break;

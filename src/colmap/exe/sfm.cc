@@ -368,24 +368,21 @@ int RunPosePriorMapper(int argc, char** argv) {
   options.AddDefaultOption("prior_position_loss_scale",
                            &options.mapper->prior_position_loss_scale);
 
-  std::string cartesian_frame_from_lla = "enu";
+  std::string cartesian_frame = "enu";
   options.AddDefaultOption(
-      "cartesian_frame_from_lla",
-      &cartesian_frame_from_lla,
+      "cartesian_frame",
+      &cartesian_frame,
       "Specifies the Cartesian coordinate frame for converting from latitude, "
       "longitude, and altitude (LLA). Possible values are 'ENU', "
       "'ECEF', and 'UTM'.");
 
-  StringToLower(&cartesian_frame_from_lla);
-  if (cartesian_frame_from_lla == "enu") {
-    options.mapper->cartesian_frame_from_lla =
-        GPSTransform::CartesianFrame::ENU;
-  } else if (cartesian_frame_from_lla == "ecef") {
-    options.mapper->cartesian_frame_from_lla =
-        GPSTransform::CartesianFrame::ECEF;
-  } else if (cartesian_frame_from_lla == "utm") {
-    options.mapper->cartesian_frame_from_lla =
-        GPSTransform::CartesianFrame::UTM;
+  StringToLower(&cartesian_frame);
+  if (cartesian_frame == "enu") {
+    options.mapper->cartesian_frame = GPSTransform::CartesianFrame::ENU;
+  } else if (cartesian_frame == "ecef") {
+    options.mapper->cartesian_frame = GPSTransform::CartesianFrame::ECEF;
+  } else if (cartesian_frame == "utm") {
+    options.mapper->cartesian_frame = GPSTransform::CartesianFrame::UTM;
   } else {
     LOG(FATAL_THROW) << "Invalid Cartesian coordinate frame provided.";
   }

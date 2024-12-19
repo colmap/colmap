@@ -267,7 +267,7 @@ std::pair<std::vector<Eigen::Vector3d>, int> GPSTransform::EllToUTM(
 
   // For cases where points span different zones, we select the predominant zone
   // as the reference frame.
-  // FUTURE: implement a more accurate method for merging UTM zones.
+  // TODO: Implement a more accurate method for merging UTM zones.
   std::array<int, 60> zone_counts{};
   for (const Eigen::Vector3d& lla : ell) {
     THROW_CHECK_GE(lla[0], -90);
