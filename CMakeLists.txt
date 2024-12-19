@@ -95,7 +95,12 @@ set(COLMAP_VERSION "3.12.0.dev0")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CUDA_STANDARD 14)
+if(TORCH_ENABLED)
+    # Torch requires C++17, which excludes Ubuntu 20.04's default compiler.
+    set(CMAKE_CUDA_STANDARD 17)
+else()
+    set(CMAKE_CUDA_STANDARD 14)
+endif()
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 
 set_property(GLOBAL PROPERTY GLOBAL_DEPENDS_NO_CYCLES ON)
