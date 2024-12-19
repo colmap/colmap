@@ -94,7 +94,7 @@ jobs:
         id: cuda-toolkit
         with:
           cuda: '12.6.2'
-          sub-packages: '["nvcc", "nvtx", "cudart", "curand", "curand_dev", "nvrtc_dev", "cudnn"]'
+          sub-packages: '["nvcc", "nvtx", "cudart", "curand", "curand_dev", "nvrtc_dev"]'
           method: 'network'
 
       - name: Setup vcpkg
