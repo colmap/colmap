@@ -134,7 +134,6 @@ struct IncrementalPipelineOptions {
   GPSTransform::CartesianFrame cartesian_frame =
       GPSTransform::CartesianFrame::ENU;
 
-  // bool shift_origin_to_avereage_gps = false;
   // Path to a folder with reconstruction snapshots during incremental
   // reconstruction. Snapshots will be saved according to the specified
   // frequency of registered images.
