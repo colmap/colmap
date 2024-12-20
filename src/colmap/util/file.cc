@@ -217,7 +217,10 @@ std::optional<std::string> GetEnvSafe(const char* key) {
   }
   std::string value(size, ' ');
   getenv_s(&size, value.data(), size, key);
-  return value;
+  // getenv_s returns a null-terminated string, so we need to remove the
+  // trailing null character in our std::string.
+  THROW_CHECK_EQ(value.back(), '\0');
+  return value.substr(0, size - 1);
 #else
   // Non-MSVC replacement for std::getenv_s. The safe variant
   // std::getenv_s is not available on all platforms, unfortunately.
@@ -241,6 +244,10 @@ std::optional<std::string> GetEnvSafe(const char* key) {
 
 std::optional<std::filesystem::path> HomeDir() {
 #ifdef _MSC_VER
+  std::optional<std::string> userprofile = GetEnvSafe("USERPROFILE");
+  if (userprofile.has_value()) {
+    return *userprofile;
+  }
   const std::optional<std::string> homedrive = GetEnvSafe("HOMEDRIVE");
   const std::optional<std::string> homepath = GetEnvSafe("HOMEPATH");
   if (!homedrive.has_value() || !homepath.has_value()) {
@@ -393,7 +400,12 @@ std::string DownloadAndCacheFile(const std::string& uri) {
   } else {
     const std::optional<std::filesystem::path> home_dir = HomeDir();
     THROW_CHECK(home_dir.has_value());
-    download_cache_dir = *home_dir / ".cache/colmap";
+    download_cache_dir = *home_dir / ".cache" / "colmap";
+  }
+
+  if (!std::filesystem::exists(download_cache_dir)) {
+    VLOG(2) << "Creating download cache directory: " << download_cache_dir;
+    THROW_CHECK(std::filesystem::create_directories(download_cache_dir));
   }
 
   const std::filesystem::path path = download_cache_dir / (sha256 + "-" + name);
