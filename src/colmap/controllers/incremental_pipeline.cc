@@ -262,7 +262,7 @@ bool IncrementalPipeline::LoadDatabase() {
   }
 
   // If prior positions are to be used and setup from the database, convert
-  // geographic coords to cartesian ones
+  // geographic coordinates to cartesian ones.
   if (options_->use_prior_position) {
     return database_cache_->SetupPosePriors(options_->cartesian_frame);
   }
