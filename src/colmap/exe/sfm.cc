@@ -377,12 +377,15 @@ int RunPosePriorMapper(int argc, char** argv) {
       "'ECEF', and 'UTM'.");
 
   StringToLower(&cartesian_frame);
-  if (cartesian_frame == "enu") {
-    options.mapper->cartesian_frame = GPSTransform::CartesianFrame::ENU;
-  } else if (cartesian_frame == "ecef") {
-    options.mapper->cartesian_frame = GPSTransform::CartesianFrame::ECEF;
-  } else if (cartesian_frame == "utm") {
-    options.mapper->cartesian_frame = GPSTransform::CartesianFrame::UTM;
+  if (cartesian_frame ==
+      GPSTransform::CartesianFrameToString(GPSTransform::ENU)) {
+    options.mapper->cartesian_frame = GPSTransform::ENU;
+  } else if (cartesian_frame ==
+             GPSTransform::CartesianFrameToString(GPSTransform::ECEF)) {
+    options.mapper->cartesian_frame = GPSTransform::ECEF;
+  } else if (cartesian_frame ==
+             GPSTransform::CartesianFrameToString(GPSTransform::UTM)) {
+    options.mapper->cartesian_frame = GPSTransform::UTM;
   } else {
     LOG(FATAL_THROW) << "Invalid Cartesian coordinate frame provided.";
   }
