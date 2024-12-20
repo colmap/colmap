@@ -246,7 +246,6 @@ std::optional<std::filesystem::path> HomeDir() {
 #ifdef _MSC_VER
   std::optional<std::string> userprofile = GetEnvSafe("USERPROFILE");
   if (userprofile.has_value()) {
-    StringTrim(&userprofile.value());
     return *userprofile;
   }
   const std::optional<std::string> homedrive = GetEnvSafe("HOMEDRIVE");
