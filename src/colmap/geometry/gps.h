@@ -43,7 +43,7 @@ namespace colmap {
 // representation and vice versa.
 class GPSTransform {
  public:
-  MAKE_ENUM(Ellpsoid, 0, GRS80, WGS84);
+  MAKE_ENUM(Ellipsoid, 0, GRS80, WGS84);
   MAKE_ENUM(CartesianFrame, 0, ECEF, ENU, UTM);
 
   explicit GPSTransform(int ellipsoid = GRS80);
