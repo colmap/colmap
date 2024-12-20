@@ -2,7 +2,6 @@
 #include <torch/torch.h>
 
 #include <memory>
-#include <span>
 
 class DeformableConv2d : public torch::nn::Module {
 public:
