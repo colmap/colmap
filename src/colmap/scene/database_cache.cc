@@ -224,7 +224,8 @@ const class Image* DatabaseCache::FindImageWithName(
   return nullptr;
 }
 
-bool DatabaseCache::SetupPosePriors() {
+bool DatabaseCache::SetupPosePriors(
+    GPSTransform::CartesianFrame cartesian_frame) {
   LOG(INFO) << "Setting up prior positions...";
 
   Timer timer;
@@ -260,13 +261,26 @@ bool DatabaseCache::SetupPosePriors() {
 
   // Convert geographic to cartesian
   if (prior_is_gps) {
-    // GPS reference to be used for EllToENU conversion
-    const double ref_lat = v_gps_prior[0][0];
-    const double ref_lon = v_gps_prior[0][1];
-
+    // GPS reference to be used for cartesian conversion
     const GPSTransform gps_transform(GPSTransform::WGS84);
-    const std::vector<Eigen::Vector3d> v_xyz_prior =
-        gps_transform.EllToENU(v_gps_prior, ref_lat, ref_lon);
+    std::vector<Eigen::Vector3d> v_xyz_prior;
+    switch (cartesian_frame) {
+      case GPSTransform::CartesianFrame::ECEF: {
+        v_xyz_prior = gps_transform.EllToXYZ(v_gps_prior);
+        break;
+      }
+      case GPSTransform::CartesianFrame::UTM: {
+        auto [utm, _] = gps_transform.EllToUTM(v_gps_prior);
+        v_xyz_prior = std::move(utm);
+        break;
+      }
+      case GPSTransform::CartesianFrame::ENU:
+      default: {
+        const double ref_lat = v_gps_prior[0][0];
+        const double ref_lon = v_gps_prior[0][1];
+        v_xyz_prior = gps_transform.EllToENU(v_gps_prior, ref_lat, ref_lon);
+      }
+    }
 
     auto xyz_prior_it = v_xyz_prior.begin();
     for (const auto& image_id : image_ids_with_prior) {
