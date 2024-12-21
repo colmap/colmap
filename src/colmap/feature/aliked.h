@@ -38,7 +38,8 @@
 namespace colmap {
 
 struct ALIKEDFeatureExtractionOptions {
-  int max_image_size = 1024;
+  int max_image_size = 2048;
+  int max_num_features = 4096;
   std::string model_name = "aliked-n32";
   std::string model_path = kDefaultAlikedUri;
 };

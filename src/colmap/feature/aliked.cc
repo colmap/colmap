@@ -59,7 +59,8 @@ class ALIKEDFeatureExtractor : public FeatureExtractor {
       : options_(options),
         aliked_(options.model_name,
                 MaybeDownloadAndCacheFile(options.model_path),
-                GetDeviceName()) {}
+                GetDeviceName(),
+                options.max_num_features) {}
 
   bool Extract(const Bitmap& bitmap,
                FeatureKeypoints* keypoints,
