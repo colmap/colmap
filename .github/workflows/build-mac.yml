@@ -82,6 +82,7 @@ jobs:
             -GNinja \
             -DCMAKE_BUILD_TYPE=${{ matrix.config.cmakeBuildType }} \
             -DTESTS_ENABLED=ON \
+            -DTORCH_ENABLED=ON \
             -DCMAKE_PREFIX_PATH="$(brew --prefix qt@5)"
           ninja
 
