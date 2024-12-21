@@ -76,8 +76,20 @@
                 {
                     "name": "curl",
                     "features": [
+                        "schannel"  // Use Windows native SSL/TLS, OpenSSL seems broken.
+                    ],
+                    "platform": "windows"
+                },
+                {
+                    "name": "openssl",
+                    "platform": "windows"
+                },
+                {
+                    "name": "curl",
+                    "features": [
                         "openssl"
-                    ]
+                    ],
+                    "platform": "windows"
                 }
             ]
         },
