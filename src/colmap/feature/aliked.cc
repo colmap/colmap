@@ -132,7 +132,8 @@ class ALIKEDFeatureExtractor : public FeatureExtractor {
 
 class ALIKEDLightGlueFeatureMatcher : public FeatureMatcher {
  public:
-  ALIKEDLightGlueFeatureMatcher(const ALIKEDFeatureMatchingOptions& options)
+  explicit ALIKEDLightGlueFeatureMatcher(
+      const ALIKEDFeatureMatchingOptions& options)
       : lightglue_("aliked", MaybeDownloadAndCacheFile(options.model_path)) {}
 
   void Match(const Image& image1,
