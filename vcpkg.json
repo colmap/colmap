@@ -89,7 +89,7 @@
                     "features": [
                         "openssl"
                     ],
-                    "platform": "windows"
+                    "platform": "!windows"
                 }
             ]
         },
