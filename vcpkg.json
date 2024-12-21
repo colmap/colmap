@@ -92,7 +92,7 @@
                     "platform": "windows & arm64"
                 },
                 {
-                    "name": "cryptopp",
+                    "name": "openssl",
                     "platform": "!(windows & arm64)"
                 }
             ]
