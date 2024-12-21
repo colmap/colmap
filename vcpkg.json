@@ -81,15 +81,19 @@
                     "platform": "windows"
                 },
                 {
-                    "name": "openssl",
-                    "platform": "windows"
-                },
-                {
                     "name": "curl",
                     "features": [
                         "openssl"
                     ],
                     "platform": "!windows"
+                },
+                {
+                    "name": "cryptopp",
+                    "platform": "windows & arm64"
+                },
+                {
+                    "name": "cryptopp",
+                    "platform": "!(windows & arm64)"
                 }
             ]
         },

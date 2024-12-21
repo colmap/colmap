@@ -20,8 +20,8 @@ endif()
 # Determine project architecture.
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "[ix].?86|amd64|AMD64")
     set(IS_X86 TRUE)
-elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch|arm|ARM")
-    set(IS_ARM TRUE)
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|ARM64")
+    set(IS_ARM64 TRUE)
 endif()
 
 # Determine project operating system.

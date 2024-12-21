@@ -41,7 +41,7 @@
 #ifdef _MSC_VER
 #include <cryptopp/sha.h>
 #else
-#include <openssl/evp.h>
+#include <openssl/sha.h>
 #endif
 #endif
 
@@ -388,17 +388,10 @@ std::string ComputeSHA256(const std::string_view& str) {
 #else
 
 std::string ComputeSHA256(const std::string_view& str) {
-  auto context = std::unique_ptr<EVP_MD_CTX, decltype(&EVP_MD_CTX_free)>(
-      EVP_MD_CTX_new(), EVP_MD_CTX_free);
-
-  unsigned int digest_size = 0;
-  unsigned char digest[EVP_MAX_MD_SIZE];
-
-  EVP_DigestInit_ex(context.get(), EVP_sha256(), nullptr);
-  EVP_DigestUpdate(context.get(), str.data(), str.size());
-  EVP_DigestFinal_ex(context.get(), digest, &digest_size);
-
-  return SHA256DigestToHex({digest, digest_size});
+  unsigned char digest[SHA256_DIGEST_LENGTH];
+  SHA256(
+      reinterpret_cast<const unsigned char*>(str.data()), str.size(), digest);
+  return SHA256DigestToHex({digest, SHA256_DIGEST_LENGTH});
 }
 
 #endif

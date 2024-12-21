@@ -88,14 +88,15 @@ if(CGAL_FOUND)
 endif()
 
 if(DOWNLOAD_ENABLED)
+    # The OpenSSL package in vcpkg seems broken under Windows and leads to
+    # missing certificate verification when connecting to SSL servers. We
+    # therefore use curl[schannel] (i.e., native Windows SSL/TLS) under Windows
+    # and curl[openssl] otherwise.
     find_package(CURL QUIET)
     set(CRYPTO_FOUND FALSE)
-    if(IS_MSVC)
-        # The OpenSSL package in vcpkg seems broken under Windows and leads to
-        # missing certificate verification when connecting to SSL servers. We
-        # therefore use curl[schannel] (i.e., native Windows SSL/TLS) and resort
-        # to CryptoPP as a lightweight alternative for SHA256 computation. On
-        # other platforms, we use OpenSSL for both SSL/TLS and SHA256.
+    if(IS_MSVC AND IS_ARM64)
+        # OpenSSL crashes for ARM64 under Windows. We therefore fall back to
+        # CryptoPP as an alternative to OpenSSL for SHA256 computation.
         find_package(CryptoPP QUIET)
         if(CryptoPP_FOUND)
             set(CRYPTO_FOUND TRUE)
@@ -268,7 +269,7 @@ if(TORCH_ENABLED)
                 )
             endif()
         elseif(IS_MACOS)
-            if(NOT IS_ARM)
+            if(NOT IS_ARM64)
                 message(FATAL_ERROR "libtorch only supported with ARM-based Macs")
             endif()
             FetchContent_Declare(libtorch
