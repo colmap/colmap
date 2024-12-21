@@ -76,7 +76,7 @@
                 {
                     "name": "curl",
                     "features": [
-                        "schannel"  // Use Windows native SSL/TLS, OpenSSL seems broken.
+                        "schannel"
                     ],
                     "platform": "windows"
                 },
