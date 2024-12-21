@@ -33,7 +33,6 @@
 #include "colmap/util/enum_to_string.h"
 #include "colmap/util/types.h"
 
-#include <ostream>
 #include <vector>
 
 #include <Eigen/Core>
@@ -100,54 +99,5 @@ class GPSTransform {
   // Numerical eccentricity.
   double e2_;
 };
-
-struct PosePrior {
- public:
-  MAKE_ENUM_CLASS(CoordinateSystem,
-                  -1,
-                  UNDEFINED,  // = -1
-                  WGS84,      // = 0
-                  CARTESIAN   // = 1
-  );
-
-  Eigen::Vector3d position =
-      Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
-  Eigen::Matrix3d position_covariance =
-      Eigen::Matrix3d::Constant(std::numeric_limits<double>::quiet_NaN());
-  CoordinateSystem coordinate_system = CoordinateSystem::UNDEFINED;
-
-  PosePrior() = default;
-  explicit PosePrior(const Eigen::Vector3d& position) : position(position) {}
-  PosePrior(const Eigen::Vector3d& position, const CoordinateSystem system)
-      : position(position), coordinate_system(system) {}
-  PosePrior(const Eigen::Vector3d& position, const Eigen::Matrix3d& covariance)
-      : position(position), position_covariance(covariance) {}
-  PosePrior(const Eigen::Vector3d& position,
-            const Eigen::Matrix3d& covariance,
-            const CoordinateSystem system)
-      : position(position),
-        position_covariance(covariance),
-        coordinate_system(system) {}
-
-  inline bool IsValid() const { return position.allFinite(); }
-  inline bool IsCovarianceValid() const {
-    return position_covariance.allFinite();
-  }
-
-  inline bool operator==(const PosePrior& other) const;
-  inline bool operator!=(const PosePrior& other) const;
-};
-
-std::ostream& operator<<(std::ostream& stream, const PosePrior& prior);
-
-bool PosePrior::operator==(const PosePrior& other) const {
-  return coordinate_system == other.coordinate_system &&
-         position == other.position &&
-         position_covariance == other.position_covariance;
-}
-
-bool PosePrior::operator!=(const PosePrior& other) const {
-  return !(*this == other);
-}
 
 }  // namespace colmap
