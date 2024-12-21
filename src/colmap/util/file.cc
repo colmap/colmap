@@ -38,10 +38,12 @@
 
 #ifdef COLMAP_DOWNLOAD_ENABLED
 #include <curl/curl.h>
-#ifdef _MSC_VER
+#if defined(COLMAP_USE_CRYPTOPP)
 #include <cryptopp/sha.h>
-#else
+#elif defined(COLMAP_USE_OPENSSL)
 #include <openssl/sha.h>
+#else
+#error "No crypto library defined"
 #endif
 #endif
 
@@ -376,7 +378,7 @@ std::string SHA256DigestToHex(span<unsigned char> digest) {
 
 }  // namespace
 
-#ifdef _MSC_VER
+#if defined(COLMAP_USE_CRYPTOPP)
 
 std::string ComputeSHA256(const std::string_view& str) {
   CryptoPP::byte digest[CryptoPP::SHA256::DIGESTSIZE];
@@ -385,7 +387,7 @@ std::string ComputeSHA256(const std::string_view& str) {
   return SHA256DigestToHex({digest, CryptoPP::SHA256::DIGESTSIZE});
 }
 
-#else
+#elif defined(COLMAP_USE_OPENSSL)
 
 std::string ComputeSHA256(const std::string_view& str) {
   unsigned char digest[SHA256_DIGEST_LENGTH];
@@ -394,6 +396,8 @@ std::string ComputeSHA256(const std::string_view& str) {
   return SHA256DigestToHex({digest, SHA256_DIGEST_LENGTH});
 }
 
+#else
+#error "No crypto library defined"
 #endif
 
 namespace {
