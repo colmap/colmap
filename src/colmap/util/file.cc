@@ -38,7 +38,11 @@
 
 #ifdef COLMAP_DOWNLOAD_ENABLED
 #include <curl/curl.h>
+#ifdef _MSC_VER
+#include <cryptopp/sha.h>
+#else
 #include <openssl/evp.h>
+#endif
 #endif
 
 #ifndef _MSC_VER
@@ -359,24 +363,45 @@ std::optional<std::string> DownloadFile(const std::string& url) {
   return data_str;
 }
 
+namespace {
+
+std::string SHA256DigestToHex(span<unsigned char> digest) {
+  std::ostringstream hex;
+  for (int i = 0; i < digest.size(); ++i) {
+    hex << std::hex << std::setw(2) << std::setfill('0')
+        << static_cast<unsigned int>(digest[i]);
+  }
+  return hex.str();
+}
+
+}  // namespace
+
+#ifdef _MSC_VER
+
+std::string ComputeSHA256(const std::string_view& str) {
+  CryptoPP::byte digest[CryptoPP::SHA256::DIGESTSIZE];
+  CryptoPP::SHA256().CalculateDigest(
+      digest, reinterpret_cast<const CryptoPP::byte*>(str.data()), str.size());
+  return SHA256DigestToHex({digest, CryptoPP::SHA256::DIGESTSIZE});
+}
+
+#else
+
 std::string ComputeSHA256(const std::string_view& str) {
   auto context = std::unique_ptr<EVP_MD_CTX, decltype(&EVP_MD_CTX_free)>(
       EVP_MD_CTX_new(), EVP_MD_CTX_free);
 
-  unsigned int hash_length = 0;
-  unsigned char hash[EVP_MAX_MD_SIZE];
+  unsigned int digest_size = 0;
+  unsigned char digest[EVP_MAX_MD_SIZE];
 
   EVP_DigestInit_ex(context.get(), EVP_sha256(), nullptr);
   EVP_DigestUpdate(context.get(), str.data(), str.size());
-  EVP_DigestFinal_ex(context.get(), hash, &hash_length);
+  EVP_DigestFinal_ex(context.get(), digest, &digest_size);
 
-  std::ostringstream digest;
-  for (unsigned int i = 0; i < hash_length; ++i) {
-    digest << std::hex << std::setw(2) << std::setfill('0')
-           << static_cast<unsigned int>(hash[i]);
-  }
-  return digest.str();
+  return SHA256DigestToHex({digest, digest_size});
 }
+
+#endif
 
 namespace {
 
