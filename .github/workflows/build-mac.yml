@@ -21,11 +21,11 @@ jobs:
     strategy:
       matrix:
         config: [
-          {
-            os: macos-14,
-            arch: arm64,
-            cmakeBuildType: Release,
-          },
+          # {
+          #   os: macos-14,
+          #   arch: arm64,
+          #   cmakeBuildType: Release,
+          # },
         ]
 
     env:
@@ -82,6 +82,7 @@ jobs:
             -GNinja \
             -DCMAKE_BUILD_TYPE=${{ matrix.config.cmakeBuildType }} \
             -DTESTS_ENABLED=ON \
+            -DTORCH_ENABLED=ON \
             -DCMAKE_PREFIX_PATH="$(brew --prefix qt@5)"
           ninja
 

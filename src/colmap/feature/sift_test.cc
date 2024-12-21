@@ -376,12 +376,22 @@ struct FeatureDescriptorIndexCacheHelper {
 
 TEST(SiftCPUFeatureMatcher, Nominal) {
   const FeatureMatcher::Image image0 = {
-      0, std::make_shared<FeatureDescriptors>(0, 128)};
+      /*image_id=*/0,
+      /*width=*/100,
+      /*height=*/200,
+      /*keypoints=*/nullptr,
+      std::make_shared<FeatureDescriptors>(0, 128)};
   const FeatureMatcher::Image image1 = {
-      1,
+      /*image_id=*/1,
+      /*width=*/100,
+      /*height=*/200,
+      /*keypoints=*/nullptr,
       std::make_shared<FeatureDescriptors>(CreateRandomFeatureDescriptors(2))};
   const FeatureMatcher::Image image2 = {
-      2,
+      /*image_id=*/2,
+      /*width=*/100,
+      /*height=*/200,
+      /*keypoints=*/nullptr,
       std::make_shared<FeatureDescriptors>(
           image1.descriptors->colwise().reverse())};
 
@@ -425,11 +435,23 @@ TEST(SiftCPUFeatureMatcherFlannVsBruteForce, Nominal) {
                                   const FeatureDescriptors& descriptors1,
                                   const FeatureDescriptors& descriptors2) {
     const FeatureMatcher::Image image0 = {
-        0, std::make_shared<FeatureDescriptors>(0, 128)};
+        /*image_id=*/0,
+        /*width=*/100,
+        /*height=*/200,
+        /*keypoints=*/nullptr,
+        std::make_shared<FeatureDescriptors>(0, 128)};
     const FeatureMatcher::Image image1 = {
-        1, std::make_shared<FeatureDescriptors>(descriptors1)};
+        /*image_id=*/1,
+        /*width=*/100,
+        /*height=*/200,
+        /*keypoints=*/nullptr,
+        std::make_shared<FeatureDescriptors>(descriptors1)};
     const FeatureMatcher::Image image2 = {
-        2, std::make_shared<FeatureDescriptors>(descriptors2)};
+        /*image_id=*/2,
+        /*width=*/100,
+        /*height=*/200,
+        /*keypoints=*/nullptr,
+        std::make_shared<FeatureDescriptors>(descriptors2)};
 
     FeatureDescriptorIndexCacheHelper index_cache_helper(
         {image0, image1, image2});
@@ -533,25 +555,33 @@ TEST(SiftCPUFeatureMatcherFlannVsBruteForce, Nominal) {
 
 TEST(MatchGuidedSiftFeaturesCPU, Nominal) {
   const FeatureMatcher::Image image0 = {
-      0,
-      std::make_shared<FeatureDescriptors>(0, 128),
-      std::make_shared<FeatureKeypoints>(0)};
+      /*image_id=*/0,
+      /*width=*/100,
+      /*height=*/200,
+      std::make_shared<FeatureKeypoints>(0),
+      std::make_shared<FeatureDescriptors>(0, 128)};
   const FeatureMatcher::Image image1 = {
-      1,
-      std::make_shared<FeatureDescriptors>(CreateRandomFeatureDescriptors(2)),
+      /*image_id=*/1,
+      /*width=*/100,
+      /*height=*/200,
       std::make_shared<FeatureKeypoints>(
-          std::vector<FeatureKeypoint>{{1, 0}, {2, 0}})};
+          std::vector<FeatureKeypoint>{{1, 0}, {2, 0}}),
+      std::make_shared<FeatureDescriptors>(CreateRandomFeatureDescriptors(2))};
   const FeatureMatcher::Image image2 = {
-      2,
+      /*image_id=*/2,
+      /*width=*/100,
+      /*height=*/200,
+      std::make_shared<FeatureKeypoints>(
+          std::vector<FeatureKeypoint>{{2, 0}, {1, 0}}),
       std::make_shared<FeatureDescriptors>(
-          image1.descriptors->colwise().reverse()),
-      std::make_shared<FeatureKeypoints>(
-          std::vector<FeatureKeypoint>{{2, 0}, {1, 0}})};
+          image1.descriptors->colwise().reverse())};
   const FeatureMatcher::Image image3 = {
-      3,
-      std::make_shared<FeatureDescriptors>(CreateRandomFeatureDescriptors(2)),
+      /*image_id=*/3,
+      /*width=*/100,
+      /*height=*/200,
       std::make_shared<FeatureKeypoints>(
-          std::vector<FeatureKeypoint>{{100, 0}, {2, 0}})};
+          std::vector<FeatureKeypoint>{{100, 0}, {2, 0}}),
+      std::make_shared<FeatureDescriptors>(CreateRandomFeatureDescriptors(2))};
 
   FeatureDescriptorIndexCacheHelper index_cache_helper(
       {image0, image1, image2, image3});
@@ -603,13 +633,23 @@ TEST(MatchSiftFeaturesGPU, Nominal) {
       auto matcher = THROW_CHECK_NOTNULL(CreateSiftFeatureMatcher(options));
 
       const FeatureMatcher::Image image0 = {
-          0, std::make_shared<FeatureDescriptors>(0, 128)};
+          /*image_id=*/0,
+          /*width=*/100,
+          /*height=*/200,
+          /*keypoints=*/nullptr,
+          std::make_shared<FeatureDescriptors>(0, 128)};
       const FeatureMatcher::Image image1 = {
-          1,
+          /*image_id=*/1,
+          /*width=*/100,
+          /*height=*/200,
+          /*keypoints=*/nullptr,
           std::make_shared<FeatureDescriptors>(
               CreateRandomFeatureDescriptors(2))};
       const FeatureMatcher::Image image2 = {
-          2,
+          /*image_id=*/2,
+          /*width=*/100,
+          /*height=*/200,
+          /*keypoints=*/nullptr,
           std::make_shared<FeatureDescriptors>(
               image1.descriptors->colwise().reverse())};
 
@@ -658,11 +698,23 @@ TEST(MatchSiftFeaturesCPUvsGPU, Nominal) {
                              const FeatureDescriptors& descriptors1,
                              const FeatureDescriptors& descriptors2) {
         const FeatureMatcher::Image image0 = {
-            0, std::make_shared<FeatureDescriptors>(0, 128)};
+            /*image_id=*/0,
+            /*width=*/100,
+            /*height=*/200,
+            /*keypoints=*/nullptr,
+            std::make_shared<FeatureDescriptors>(0, 128)};
         const FeatureMatcher::Image image1 = {
-            1, std::make_shared<FeatureDescriptors>(descriptors1)};
+            /*image_id=*/1,
+            /*width=*/100,
+            /*height=*/200,
+            /*keypoints=*/nullptr,
+            std::make_shared<FeatureDescriptors>(descriptors1)};
         const FeatureMatcher::Image image2 = {
-            2, std::make_shared<FeatureDescriptors>(descriptors2)};
+            /*image_id=*/2,
+            /*width=*/100,
+            /*height=*/200,
+            /*keypoints=*/nullptr,
+            std::make_shared<FeatureDescriptors>(descriptors2)};
 
         FeatureDescriptorIndexCacheHelper index_cache_helper(
             {image0, image1, image2});
@@ -786,27 +838,35 @@ TEST(MatchGuidedSiftFeaturesGPU, Nominal) {
    private:
     void Run() {
       const FeatureMatcher::Image image0 = {
-          0,
-          std::make_shared<FeatureDescriptors>(0, 128),
-          std::make_shared<FeatureKeypoints>(0)};
+          /*image_id=*/0,
+          /*width=*/100,
+          /*height=*/200,
+          std::make_shared<FeatureKeypoints>(0),
+          std::make_shared<FeatureDescriptors>(0, 128)};
       const FeatureMatcher::Image image1 = {
-          1,
-          std::make_shared<FeatureDescriptors>(
-              CreateRandomFeatureDescriptors(2)),
+          /*image_id=*/1,
+          /*width=*/100,
+          /*height=*/200,
           std::make_shared<FeatureKeypoints>(
-              std::vector<FeatureKeypoint>{{1, 0}, {2, 0}})};
+              std::vector<FeatureKeypoint>{{1, 0}, {2, 0}}),
+          std::make_shared<FeatureDescriptors>(
+              CreateRandomFeatureDescriptors(2))};
       const FeatureMatcher::Image image2 = {
-          2,
-          std::make_shared<FeatureDescriptors>(
-              image1.descriptors->colwise().reverse()),
+          /*image_id=*/2,
+          /*width=*/100,
+          /*height=*/200,
           std::make_shared<FeatureKeypoints>(
-              std::vector<FeatureKeypoint>{{2, 0}, {1, 0}})};
+              std::vector<FeatureKeypoint>{{2, 0}, {1, 0}}),
+          std::make_shared<FeatureDescriptors>(
+              image1.descriptors->colwise().reverse())};
       const FeatureMatcher::Image image3 = {
-          3,
-          std::make_shared<FeatureDescriptors>(
-              CreateRandomFeatureDescriptors(2)),
+          /*image_id=*/3,
+          /*width=*/100,
+          /*height=*/200,
           std::make_shared<FeatureKeypoints>(
-              std::vector<FeatureKeypoint>{{100, 0}, {1, 0}})};
+              std::vector<FeatureKeypoint>{{100, 0}, {1, 0}}),
+          std::make_shared<FeatureDescriptors>(
+              CreateRandomFeatureDescriptors(2))};
 
       opengl_context_.MakeCurrent();
       SiftMatchingOptions options;

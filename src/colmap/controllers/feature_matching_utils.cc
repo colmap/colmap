@@ -30,6 +30,7 @@
 #include "colmap/controllers/feature_matching_utils.h"
 
 #include "colmap/estimators/two_view_geometry.h"
+#include "colmap/feature/aliked.h"
 #include "colmap/feature/utils.h"
 #include "colmap/util/cuda.h"
 #include "colmap/util/misc.h"
@@ -77,7 +78,7 @@ void FeatureMatcherWorker::Run() {
   THROW_CHECK_NOTNULL(matching_options_.cpu_descriptor_index_cache);
 
   std::unique_ptr<FeatureMatcher> matcher =
-      CreateSiftFeatureMatcher(matching_options_);
+      CreateALIKEDLightGlueFeatureMatcher(ALIKEDFeatureMatchingOptions());
   if (matcher == nullptr) {
     LOG(ERROR) << "Failed to create feature matcher.";
     SignalInvalidSetup();
@@ -101,27 +102,44 @@ void FeatureMatcherWorker::Run() {
         continue;
       }
 
+      const auto& camera1 =
+          cache_->GetCamera(cache_->GetImage(data.image_id1).CameraId());
+      const auto& camera2 =
+          cache_->GetCamera(cache_->GetImage(data.image_id2).CameraId());
+
       if (matching_options_.guided_matching) {
         matcher->MatchGuided(geometry_options_.ransac_options.max_error,
                              {
                                  data.image_id1,
-                                 cache_->GetDescriptors(data.image_id1),
+                                 static_cast<int>(camera1.width),
+                                 static_cast<int>(camera1.height),
                                  cache_->GetKeypoints(data.image_id1),
+                                 cache_->GetDescriptors(data.image_id1),
                              },
                              {
                                  data.image_id2,
-                                 cache_->GetDescriptors(data.image_id2),
+                                 static_cast<int>(camera2.width),
+                                 static_cast<int>(camera2.height),
                                  cache_->GetKeypoints(data.image_id2),
+                                 cache_->GetDescriptors(data.image_id2),
                              },
                              &data.two_view_geometry);
       } else {
+        // TODO: SIFT doesn't need the keypoints here. Probably, expose
+        // something like matcher->NeedsKeypointsForMatching() or similar.
         matcher->Match(
             {
                 data.image_id1,
+                static_cast<int>(camera1.width),
+                static_cast<int>(camera1.height),
+                cache_->GetKeypoints(data.image_id1),
                 cache_->GetDescriptors(data.image_id1),
             },
             {
                 data.image_id2,
+                static_cast<int>(camera2.width),
+                static_cast<int>(camera2.height),
+                cache_->GetKeypoints(data.image_id2),
                 cache_->GetDescriptors(data.image_id2),
             },
             &data.matches);

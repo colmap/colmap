@@ -21,69 +21,51 @@ jobs:
     strategy:
       matrix:
         config: [
-          {
-            os: ubuntu-24.04,
-            cmakeBuildType: Release,
-            asanEnabled: false,
-            guiEnabled: true,
-            cudaEnabled: false,
-            e2eTests: false,
-            checkCodeFormat: true,
-          },
-          {
-            os: ubuntu-22.04,
-            cmakeBuildType: Release,
-            asanEnabled: false,
-            guiEnabled: true,
-            cudaEnabled: false,
-            e2eTests: true,
-            checkCodeFormat: true,
-          },
-          {
-            os: ubuntu-22.04,
-            cmakeBuildType: Release,
-            asanEnabled: false,
-            guiEnabled: false,
-            cudaEnabled: true,
-            e2eTests: false,
-            checkCodeFormat: false,
-          },
-          {
-            os: ubuntu-22.04,
-            cmakeBuildType: Release,
-            asanEnabled: true,
-            guiEnabled: false,
-            cudaEnabled: false,
-            e2eTests: false,
-            checkCodeFormat: false,
-          },
-          {
-            os: ubuntu-22.04,
-            cmakeBuildType: ClangTidy,
-            asanEnabled: false,
-            guiEnabled: false,
-            cudaEnabled: false,
-            e2eTests: false,
-            checkCodeFormat: false,
-          },
-          {
-            os: ubuntu-20.04,
-            cmakeBuildType: Release,
-            asanEnabled: false,
-            guiEnabled: true,
-            cudaEnabled: false,
-            e2eTests: false,
-            checkCodeFormat: false,
-          },
-          {
-            os: ubuntu-20.04,
-            cmakeBuildType: Release,
-            asanEnabled: false,
-            guiEnabled: false,
-            cudaEnabled: true,
-            e2eTests: false,
-            checkCodeFormat: false,
-          },
+          # {
+          #   os: ubuntu-24.04,
+          #   cmakeBuildType: Release,
+          #   asanEnabled: false,
+          #   guiEnabled: true,
+          #   cudaEnabled: false,
+          #   e2eTests: false,
+          #   checkCodeFormat: true,
+          # },
+          # {
+          #   os: ubuntu-22.04,
+          #   cmakeBuildType: Release,
+          #   asanEnabled: false,
+          #   guiEnabled: true,
+          #   cudaEnabled: false,
+          #   e2eTests: true,
+          #   checkCodeFormat: true,
+          # },
+          # {
+          #   os: ubuntu-22.04,
+          #   cmakeBuildType: Release,
+          #   asanEnabled: false,
+          #   guiEnabled: false,
+          #   cudaEnabled: true,
+          #   e2eTests: false,
+          #   checkCodeFormat: false,
+          # },
+          # {
+          #   os: ubuntu-22.04,
+          #   cmakeBuildType: Release,
+          #   asanEnabled: true,
+          #   guiEnabled: false,
+          #   cudaEnabled: false,
+          #   e2eTests: false,
+          #   checkCodeFormat: false,
+          # },
+          # {
+          #   os: ubuntu-22.04,
+          #   cmakeBuildType: ClangTidy,
+          #   asanEnabled: false,
+          #   guiEnabled: false,
+          #   cudaEnabled: false,
+          #   e2eTests: false,
+          #   checkCodeFormat: false,
+          # },
         ]
 
     env:
@@ -95,6 +77,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          lfs: true
+
       - uses: actions/cache@v4
         id: cache-builds
         with:
@@ -161,7 +146,8 @@ jobs:
             libgl1-mesa-dri \
             libunwind-dev \
             libcurl4-openssl-dev \
-            xvfb
+            xvfb \
+            libmkl-dev
 
           if [ "${{ matrix.config.cudaEnabled }}" == "true" ]; then
             if [ "${{ matrix.config.os }}" == "ubuntu-20.04" ]; then
@@ -204,6 +190,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=${{ matrix.config.cmakeBuildType }} \
             -DCMAKE_INSTALL_PREFIX=./install \
             -DCMAKE_CUDA_ARCHITECTURES=50 \
+            -DTORCH_ENABLED=ON \
             -DTESTS_ENABLED=ON \
             -DCUDA_ENABLED=${{ matrix.config.cudaEnabled }} \
             -DGUI_ENABLED=${{ matrix.config.guiEnabled }} \

@@ -52,6 +52,7 @@ COLMAP_ADD_LIBRARY(
         index.h index.cc
         matcher.h matcher.cc
         pairing.h pairing.cc
+        resources.h
         sift.h sift.cc
         types.h types.cc
         utils.h utils.cc
@@ -74,6 +75,28 @@ if(GPU_ENABLED)
     if(NOT GUI_ENABLED)
         target_link_libraries(colmap_feature PRIVATE GLEW::GLEW)
     endif()
+endif()
+
+if(TORCH_ENABLED)
+    COLMAP_ADD_LIBRARY(
+        NAME colmap_feature_torch
+        SRCS
+            aliked.h aliked.cc
+        PUBLIC_LINK_LIBS
+            colmap_feature
+        PRIVATE_LINK_LIBS
+            colmap_util
+            colmap_aliked
+            colmap_lightglue
+            glog::glog
+    )
+    COLMAP_ADD_TEST(
+        NAME aliked_test
+        SRCS aliked_test.cc
+        LINK_LIBS
+            colmap_feature_torch
+            colmap_util
+    )
 endif()
 
 COLMAP_ADD_TEST(

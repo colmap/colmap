@@ -29,6 +29,7 @@
 
 #include "colmap/controllers/feature_extraction.h"
 
+#include "colmap/feature/aliked.h"
 #include "colmap/feature/sift.h"
 #include "colmap/geometry/gps.h"
 #include "colmap/scene/database.h"
@@ -174,8 +175,9 @@ class SiftFeatureExtractorThread : public Thread {
 #endif
     }
 
+    // TODO: Customize options.
     std::unique_ptr<FeatureExtractor> extractor =
-        CreateSiftFeatureExtractor(sift_options_);
+        CreateALIKEDFeatureExtractor(ALIKEDFeatureExtractionOptions());
     if (extractor == nullptr) {
       LOG(ERROR) << "Failed to create feature extractor.";
       SignalInvalidSetup();

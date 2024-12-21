@@ -49,6 +49,8 @@ option(LSD_ENABLED "Whether to enable the LSD library" ON)
 option(DOWNLOAD_ENABLED "Whether to enable (automatic) download of resources (requires Curl/OpenSSL)" ON)
 option(UNINSTALL_ENABLED "Whether to create a target to 'uninstall' colmap" ON)
 option(FETCH_POSELIB "Whether to consume PoseLib using FetchContent or find_package" ON)
+option(TORCH_ENABLED "Whether to enable the libtorch library" OFF)
+option(FETCH_TORCH "Whether to consume libtorch using FetchContent or find_package" ON)
 option(ALL_SOURCE_TARGET "Whether to create a target for all source files (for Visual Studio / XCode development)" OFF)
 
 # Disables default features, as we specify each required feature manually below.
@@ -68,6 +70,13 @@ endif()
 if(CGAL_ENABLED)
     list(APPEND VCPKG_MANIFEST_FEATURES "cgal")
 endif()
+if(NOT FETCH_TORCH)
+    if(CUDA_ENABLED)
+        list(APPEND VCPKG_MANIFEST_FEATURES "libtorch-cuda")
+    else()
+        list(APPEND VCPKG_MANIFEST_FEATURES "libtorch")
+    endif()
+endif()
 
 if(LSD_ENABLED)
     message(STATUS "Enabling LSD support")
@@ -86,7 +95,12 @@ set(COLMAP_VERSION "3.12.0.dev0")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CUDA_STANDARD 14)
+if(TORCH_ENABLED)
+    # Torch requires C++17, which excludes Ubuntu 20.04's default compiler.
+    set(CMAKE_CUDA_STANDARD 17)
+else()
+    set(CMAKE_CUDA_STANDARD 14)
+endif()
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 
 set_property(GLOBAL PROPERTY GLOBAL_DEPENDS_NO_CYCLES ON)
@@ -113,6 +127,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 ################################################################################
 
 set(COLMAP_FIND_QUIETLY FALSE)
+set(FIND_TORCH TRUE)
 include(cmake/FindDependencies.cmake)
 
 ################################################################################
@@ -227,8 +242,8 @@ include(GenerateVersionDefinitions)
 include_directories(src)
 link_directories(${COLMAP_LINK_DIRS})
 
-add_subdirectory(src/colmap)
 add_subdirectory(src/thirdparty)
+add_subdirectory(src/colmap)
 
 ################################################################################
 # Generate source groups for Visual Studio, XCode, etc.
@@ -369,6 +384,13 @@ endif()
 if(GPU_ENABLED)
     list(APPEND COLMAP_EXPORT_LIBS
          colmap_sift_gpu
+    )
+endif()
+if(TORCH_ENABLED)
+    list(APPEND COLMAP_EXPORT_LIBS
+         colmap_feature_torch
+         colmap_aliked
+         colmap_lightglue
     )
 endif()
 if(FETCH_POSELIB)
