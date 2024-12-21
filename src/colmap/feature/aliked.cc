@@ -60,7 +60,9 @@ class ALIKEDFeatureExtractor : public FeatureExtractor {
         aliked_(options.model_name,
                 MaybeDownloadAndCacheFile(options.model_path),
                 GetDeviceName(),
-                options.max_num_features) {}
+                /*top_k=*/options.top_k,
+                /*scores_th=*/options.score_threshold,
+                /*n_limit=*/options.max_num_features) {}
 
   bool Extract(const Bitmap& bitmap,
                FeatureKeypoints* keypoints,
@@ -107,9 +109,9 @@ class ALIKEDFeatureExtractor : public FeatureExtractor {
     keypoints->resize(num_keypoints);
     for (int i = 0; i < num_keypoints; ++i) {
       (*keypoints)[i].x =
-          0.5f * width * (torch_keypoints[i][0].item<float>() + 1.f);
+          0.5f * orig_width * (torch_keypoints[i][0].item<float>() + 1.f);
       (*keypoints)[i].y =
-          0.5f * height * (torch_keypoints[i][1].item<float>() + 1.f);
+          0.5f * orig_height * (torch_keypoints[i][1].item<float>() + 1.f);
     }
 
     const auto& torch_descriptors = outputs.at("descriptors");
@@ -219,6 +221,14 @@ class ALIKEDLightGlueFeatureMatcher : public FeatureMatcher {
 #endif
 
 }  // namespace
+
+bool ALIKEDFeatureExtractionOptions::Check() const {
+  CHECK_OPTION_GT(max_image_size, 0);
+  CHECK_OPTION_GT(max_num_features, 0);
+  CHECK_OPTION_GT(score_threshold, 0);
+  CHECK_OPTION_GE(top_k, -1);
+  return true;
+}
 
 std::unique_ptr<FeatureExtractor> CreateALIKEDFeatureExtractor(
     const ALIKEDFeatureExtractionOptions& options) {
