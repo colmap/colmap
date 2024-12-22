@@ -2,7 +2,7 @@ name: COLMAP (Ubuntu)
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 on:
   push:
@@ -160,6 +160,7 @@ jobs:
             libcgal-qt5-dev \
             libgl1-mesa-dri \
             libunwind-dev \
+            libcurl4-openssl-dev \
             xvfb
 
           if [ "${{ matrix.config.cudaEnabled }}" == "true" ]; then

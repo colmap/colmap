@@ -39,6 +39,10 @@
             "host": true
         }
     ],
+    "default-features": [
+        "gui",
+        "download"
+    ],
     "features": {
         "tests": {
             "description": "Build all tests.",
@@ -47,23 +51,34 @@
             ]
         },
         "cuda": {
-            "description": "Build with CUDA.",
+            "description": "Build with CUDA support.",
             "dependencies": [
                 "glew",
                 "cuda"
             ]
         },
         "gui": {
-            "description": "Build the GUI.",
+            "description": "Build with GUI support.",
             "dependencies": [
                 "glew",
                 "qt5-base"
             ]
         },
         "cgal": {
-            "description": "Build with CGAL.",
+            "description": "Build with CGAL support.",
             "dependencies": [
                 "cgal"
+            ]
+        },
+        "download": {
+            "description": "Build with download support.",
+            "dependencies": [
+                {
+                    "name": "curl",
+                    "features": [
+                        "openssl"
+                    ]
+                }
             ]
         }
     }

@@ -88,9 +88,6 @@ int ShowHelp(
 
 int main(int argc, char** argv) {
   colmap::InitializeGlog(argv);
-#if defined(COLMAP_GUI_ENABLED)
-  Q_INIT_RESOURCE(resources);
-#endif
 
   std::vector<std::pair<std::string, command_func_t>> commands;
   commands.emplace_back("gui", &colmap::RunGraphicalUserInterface);

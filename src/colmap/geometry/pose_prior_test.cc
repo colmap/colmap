@@ -27,42 +27,37 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/mvs/mat.h"
+#include "colmap/geometry/pose_prior.h"
 
-#include "colmap/util/file.h"
-
-#include <fstream>
-#include <string>
-#include <vector>
+#include <gtest/gtest.h>
 
 namespace colmap {
-namespace mvs {
+namespace {
 
-template <>
-void Mat<float>::Read(const std::string& path) {
-  std::ifstream file(path, std::ios::binary);
-  THROW_CHECK_FILE_OPEN(file, path);
-
-  char unused_char;
-  file >> width_ >> unused_char >> height_ >> unused_char >> depth_ >>
-      unused_char;
-  THROW_CHECK_GT(width_, 0) << path;
-  THROW_CHECK_GT(height_, 0) << path;
-  THROW_CHECK_GT(depth_, 0) << path;
-  data_.resize(width_ * height_ * depth_);
-
-  ReadBinaryLittleEndian<float>(&file, &data_);
-  file.close();
+TEST(PosePrior, Equals) {
+  PosePrior prior;
+  prior.position = Eigen::Vector3d::Zero();
+  prior.position_covariance = Eigen::Matrix3d::Identity();
+  prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
+  PosePrior other = prior;
+  EXPECT_EQ(prior, other);
+  prior.position.x() = 1;
+  EXPECT_NE(prior, other);
+  other.position.x() = 1;
+  EXPECT_EQ(prior, other);
 }
 
-template <>
-void Mat<float>::Write(const std::string& path) const {
-  std::ofstream file(path, std::ios::binary);
-  THROW_CHECK_FILE_OPEN(file, path);
-  file << width_ << "&" << height_ << "&" << depth_ << "&";
-  WriteBinaryLittleEndian<float>(&file, {data_.data(), data_.size()});
-  file.close();
+TEST(PosePrior, Print) {
+  PosePrior prior;
+  prior.position = Eigen::Vector3d::Zero();
+  prior.position_covariance = Eigen::Matrix3d::Identity();
+  prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
+  std::ostringstream stream;
+  stream << prior;
+  EXPECT_EQ(stream.str(),
+            "PosePrior(position=[0, 0, 0], position_covariance=[1, 0, 0, 0, 1, "
+            "0, 0, 0, 1], coordinate_system=CARTESIAN)");
 }
 
-}  // namespace mvs
+}  // namespace
 }  // namespace colmap
