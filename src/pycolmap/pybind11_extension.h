@@ -13,9 +13,52 @@
 #include <pybind11/stl_bind.h>
 
 using namespace colmap;
+namespace py = pybind11;
 
 namespace PYBIND11_NAMESPACE {
 namespace detail {
+
+#include <limits>
+#include <stdexcept>
+
+#include <pybind11/pybind11.h>
+#include <pybind11/pytypes.h>
+
+// Custom type_caster from int to C++ uint types to support -1 as input.
+// Necessary for pycolmap id types that use -1 as the invalid value.
+#define TYPE_CASTER_UINT_T(DTYPE)                                           \
+  template <>                                                               \
+  struct type_caster<DTYPE> {                                               \
+   public:                                                                  \
+    PYBIND11_TYPE_CASTER(DTYPE, _(#DTYPE));                                 \
+    bool load(handle src, bool) {                                           \
+      if (!py::isinstance<py::int_>(src)) {                                 \
+        return false;                                                       \
+      }                                                                     \
+      int64_t val = py::cast<int64_t>(src);                                 \
+      if (val == -1) {                                                      \
+        value = std::numeric_limits<DTYPE>::max();                          \
+        return true;                                                        \
+      }                                                                     \
+      if (val < 0 || val > std::numeric_limits<DTYPE>::max()) {             \
+        LOG(WARNING) << "Value is out of range for uint types. Only -1 or " \
+                        "positive values are supported";                    \
+        return false;                                                       \
+      }                                                                     \
+      value = static_cast<DTYPE>(val);                                      \
+      return true;                                                          \
+    }                                                                       \
+    static handle cast(const DTYPE& src, return_value_policy, handle) {     \
+      return py::int_(src).release();                                       \
+    }                                                                       \
+  };
+
+TYPE_CASTER_UINT_T(uint8_t);
+TYPE_CASTER_UINT_T(uint16_t);
+TYPE_CASTER_UINT_T(uint32_t);
+TYPE_CASTER_UINT_T(uint64_t);
+
+#undef TYPE_CASTER_UINT_T
 
 // Bind COLMAP's backport implementation of std::span. This copies the content
 // into a list. We could instead create a view with an Eigen::Map but the cast
