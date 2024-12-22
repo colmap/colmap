@@ -762,6 +762,8 @@ def evaluate_imc(
             if args.scenes and scene not in args.scenes:
                 continue
 
+            print(f"Processing IMC {year}: category={category}, scene={scene}")
+
             workspace_path = (
                 args.run_path / args.run_name / folder_name / category / scene
             )
@@ -769,19 +771,21 @@ def evaluate_imc(
             train_image_names = set(
                 image.name for image in image_path.iterdir()
             )
-            sparse_gt = pycolmap.Reconstruction(scene_path / "sfm")
-            hold_out_image_ids = [
-                image.image_id
-                for image in sparse_gt.images.values()
-                if image.name not in train_image_names
-            ]
-            for image_id in hold_out_image_ids:
-                del sparse_gt.images[image_id]
+            sfm_path = scene_path / "sfm"
+            if not sfm_path.exists():
+                continue
+            sparse_sfm = pycolmap.Reconstruction(scene_path / "sfm")
+            sparse_gt = pycolmap.Reconstruction()
+            for image in sparse_sfm.images.values():
+                if image.name not in train_image_names:
+                    continue
+                if image.camera_id not in sparse_gt.cameras:
+                    sparse_gt.add_camera(image.camera)
+                image.reset_camera_ptr()
+                sparse_gt.add_image(image)
             sparse_gt_path = scene_path / "sparse_gt"
-            sparse_gt_path.mkdir()
+            sparse_gt_path.mkdir(exist_ok=True)
             sparse_gt.write(sparse_gt_path)
-
-            print(f"Processing IMC {year}: category={category}, scene={scene}")
 
             scene_info = SceneInfo(
                 category=category,
