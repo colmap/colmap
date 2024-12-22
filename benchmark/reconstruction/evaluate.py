@@ -64,6 +64,7 @@ SceneResult = collections.namedtuple(
         "errors",
         "num_images",
         "num_reg_images",
+        "num_components",
     ],
 )
 
@@ -73,6 +74,7 @@ SceneMetrics = collections.namedtuple(
         "aucs",
         "num_images",
         "num_reg_images",
+        "num_components",
     ],
 )
 
@@ -261,9 +263,11 @@ def reconstruct_scene(
     # correctly aligned with other sub-models and the error is therefore
     # underestimated. However, this is very unlikely to happen.
     sparse_merged = pycolmap.Reconstruction()
+    num_components = 0
     for sparse_path in (scene_info.workspace_path / "sparse").iterdir():
         if not sparse_path.is_dir():
             continue
+        num_components += 1
         sparse = None
         if args.error_type == "relative":
             sparse = pycolmap.Reconstruction(sparse_path)
@@ -311,6 +315,7 @@ def reconstruct_scene(
         errors=errors,
         num_images=sparse_gt.num_images(),
         num_reg_images=sparse_merged.num_images(),
+        num_components=num_components,
     )
 
 
@@ -333,11 +338,13 @@ def process_scenes(
     errors_by_category = collections.defaultdict(list)
     total_num_images = 0
     total_num_reg_images = 0
+    total_num_components = 0
     num_scenes = len(results)
     for result in results:
         errors_by_category[result.scene_info.category].extend(result.errors)
         total_num_images += result.num_images
         total_num_reg_images += result.num_reg_images
+        total_num_components += result.num_components
         metrics[result.scene_info.category][result.scene_info.scene] = (
             SceneMetrics(
                 aucs=compute_auc(
@@ -347,6 +354,7 @@ def process_scenes(
                 ),
                 num_images=result.num_images,
                 num_reg_images=result.num_reg_images,
+                num_components=result.num_components,
             )
         )
 
@@ -359,11 +367,13 @@ def process_scenes(
             ),
             num_images=total_num_images,
             num_reg_images=total_num_reg_images,
+            num_components=total_num_components,
         )
         metrics[category]["__avg__"] = SceneMetrics(
             aucs=compute_avg_auc(metrics[category]),
             num_images=int(round(total_num_images / num_scenes)),
             num_reg_images=int(round(total_num_reg_images / num_scenes)),
+            num_components=int(round(total_num_components / num_scenes)),
         )
 
     return metrics
@@ -826,8 +836,9 @@ def format_results(
     )
     size_aucs = max(len(metric) + 2, len(thresholds) * 7 - 1)
     size_imgs = 12
-    size_sep = size_scenes + size_aucs + size_imgs + 2
-    header = f"{column:=^{size_scenes}} {metric:=^{size_aucs}} {"images":=^{size_imgs}}"
+    size_comp = 6
+    size_sep = size_scenes + size_aucs + size_imgs + size_comp + 3
+    header = f"{column:=^{size_scenes}} {metric:=^{size_aucs}} {"images":=^{size_imgs}} {"comp":=^{size_comp}}"
     header += "\n" + " " * (size_scenes + 1)
     header += " ".join(f'{str(t).rstrip("."):^6}' for t in thresholds)
     header += "    reg   all"
@@ -847,6 +858,7 @@ def format_results(
                 row += f"{scene:<{size_scenes}} "
                 row += " ".join(f"{auc:>6.2f}" for auc in metrics.aucs)
                 row += f" {metrics.num_reg_images:6d}{metrics.num_images:6d}"
+                row += f" {metrics.num_components:5d}"
                 text.append(row)
     return "\n".join(text)
 
