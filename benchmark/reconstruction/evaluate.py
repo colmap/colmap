@@ -43,14 +43,81 @@ from PIL import Image
 import pycolmap
 
 
+SceneInfo = collections.namedtuple(
+    "SceneInfo",
+    [
+        "category",
+        "scene",
+        "workspace_path",
+        "image_path",
+        "sparse_gt_path",
+        "camera_priors_from_sparse_gt",
+        "position_accuracy_gt",
+        "colmap_extra_args",
+    ],
+)
+
+SceneResult = collections.namedtuple(
+    "SceneResult",
+    [
+        "scene_info",
+        "errors",
+        "num_images",
+        "num_reg_images",
+    ],
+)
+
+SceneMetrics = collections.namedtuple(
+    "ScenSceneMetricsResult",
+    [
+        "aucs",
+        "num_images",
+        "num_reg_images",
+    ],
+)
+
+
+def update_camera_priors_from_sparse_gt(
+    database_path: Path, camera_priors_sparse_gt: pycolmap.Reconstruction
+) -> None:
+    print("Setting prior cameras from GT")
+
+    database = pycolmap.Database()
+    database.open(database_path)
+
+    camera_id_gt_to_camera_id = {}
+    for camera_id_gt, camera_gt in camera_priors_sparse_gt.cameras.items():
+        camera_gt.has_prior_focal_length = True
+        camera_id = database.write_camera(camera_gt)
+        camera_id_gt_to_camera_id[camera_id_gt] = camera_id
+
+    images_gt_by_name = {}
+    for image_gt in camera_priors_sparse_gt.images.values():
+        images_gt_by_name[image_gt.name] = image_gt
+
+    for image in database.read_all_images():
+        if image.name not in images_gt_by_name:
+            print(
+                f"Not setting prior camera for image {image.name}, "
+                "because it does not exist in GT"
+            )
+            continue
+        image_gt = images_gt_by_name[image.name]
+        camera_id = camera_id_gt_to_camera_id[image_gt.camera_id]
+        image.camera_id = camera_id
+        database.update_image(image)
+
+    database.close()
+
+
 def colmap_reconstruction(
-    args,
-    workspace_path,
-    image_path,
-    camera_priors_sparse_gt=None,
-    colmap_extra_args=None,
-    num_threads=1,
-):
+    args: argparse.Namespace,
+    workspace_path: Path,
+    image_path: Path,
+    camera_priors_sparse_gt: pycolmap.Reconstruction = None,
+    colmap_extra_args: list = None,
+    num_threads: int = 1,
+) -> None:
     workspace_path.mkdir(parents=True, exist_ok=True)
 
     database_path = workspace_path / "database.db"
@@ -99,34 +166,9 @@ def colmap_reconstruction(
     )
 
     if camera_priors_sparse_gt is not None:
-        print("Setting prior cameras from GT")
-
-        database = pycolmap.Database()
-        database.open(database_path)
-
-        camera_id_gt_to_camera_id = {}
-        for camera_id_gt, camera_gt in camera_priors_sparse_gt.cameras.items():
-            camera_gt.has_prior_focal_length = True
-            camera_id = database.write_camera(camera_gt)
-            camera_id_gt_to_camera_id[camera_id_gt] = camera_id
-
-        images_gt_by_name = {}
-        for image_gt in camera_priors_sparse_gt.images.values():
-            images_gt_by_name[image_gt.name] = image_gt
-
-        for image in database.read_all_images():
-            if image.name not in images_gt_by_name:
-                print(
-                    f"Not setting prior camera for image {image.name}, "
-                    "because it does not exist in GT"
-                )
-                continue
-            image_gt = images_gt_by_name[image.name]
-            camera_id = camera_id_gt_to_camera_id[image_gt.camera_id]
-            image.camera_id = camera_id
-            database.update_image(image)
-
-        database.close()
+        update_camera_priors_from_sparse_gt(
+            database_path, camera_priors_sparse_gt
+        )
 
     subprocess.check_call(
         colmap_args
@@ -166,8 +208,12 @@ def colmap_reconstruction(
 
 
 def colmap_alignment(
-    args, sparse_path, sparse_gt_path, sparse_aligned_path, max_ref_model_error
-):
+    args: argparse.Namespace,
+    sparse_path: Path,
+    sparse_gt_path: Path,
+    sparse_aligned_path: Path,
+    max_ref_model_error: float,
+) -> None:
     if args.overwrite_alignment and sparse_aligned_path.exists():
         shutil.rmtree(sparse_aligned_path)
     if sparse_aligned_path.exists():
@@ -192,41 +238,9 @@ def colmap_alignment(
         )
 
 
-SceneInfo = collections.namedtuple(
-    "SceneInfo",
-    [
-        "category",
-        "scene",
-        "workspace_path",
-        "image_path",
-        "sparse_gt_path",
-        "camera_priors_from_sparse_gt",
-        "position_accuracy_gt",
-        "colmap_extra_args",
-    ],
-)
-
-SceneResult = collections.namedtuple(
-    "SceneResult",
-    [
-        "scene_info",
-        "errors",
-        "num_images",
-        "num_reg_images",
-    ],
-)
-
-SceneMetrics = collections.namedtuple(
-    "ScenSceneMetricsResult",
-    [
-        "aucs",
-        "num_images",
-        "num_reg_images",
-    ],
-)
-
-
-def reconstruct_scene(args, scene_info, num_threads):
+def reconstruct_scene(
+    args: argparse.Namespace, scene_info: SceneInfo, num_threads: int
+) -> SceneResult:
     sparse_gt = pycolmap.Reconstruction(scene_info.sparse_gt_path)
 
     colmap_reconstruction(
@@ -280,7 +294,12 @@ def reconstruct_scene(args, scene_info, num_threads):
     )
 
 
-def process_scenes(args, scene_infos, error_thresholds, position_accuracy_gt):
+def process_scenes(
+    args: argparse.Namespace,
+    scene_infos: list[SceneInfo],
+    error_thresholds: list[float],
+    position_accuracy_gt: float,
+) -> dict[str, dict[str, SceneMetrics]]:
     num_threads = min(
         args.parallelism, 2 * max(1, int(args.parallelism / len(scene_infos)))
     )
@@ -330,21 +349,23 @@ def process_scenes(args, scene_infos, error_thresholds, position_accuracy_gt):
     return metrics
 
 
-def normalize_vec(vec, eps=1e-10):
+def normalize_vec(vec: np.ndarray, eps: float = 1e-10) -> np.ndarray:
     return vec / max(eps, np.linalg.norm(vec))
 
 
-def rot_mat_angular_dist_deg(rot_mat1, rot_mat2):
+def rot_mat_angular_dist_deg(
+    rot_mat1: np.ndarray, rot_mat2: np.ndarray
+) -> float:
     cos_dist = np.clip(((np.trace(rot_mat1 @ rot_mat2.T)) - 1) / 2, -1, 1)
     return np.rad2deg(np.acos(cos_dist))
 
 
-def vec_angular_dist_deg(vec1, vec2):
+def vec_angular_dist_deg(vec1: np.ndarray, vec2: np.ndarray) -> float:
     cos_dist = np.clip(np.dot(normalize_vec(vec1), normalize_vec(vec2)), -1, 1)
     return np.rad2deg(np.acos(cos_dist))
 
 
-def get_error_thresholds(args):
+def get_error_thresholds(args: argparse.Namespace) -> list[float]:
     if args.error_type == "relative":
         return args.rel_error_thresholds
     elif args.error_type == "absolute":
@@ -353,7 +374,11 @@ def get_error_thresholds(args):
         raise ValueError(f"Invalid error type: {args.error_type}")
 
 
-def compute_rel_errors(sparse_gt, sparse, min_proj_center_dist):
+def compute_rel_errors(
+    sparse_gt: pycolmap.Reconstruction,
+    sparse: pycolmap.Reconstruction,
+    min_proj_center_dist: float,
+) -> tuple[list[float], list[float]]:
     """Computes angular relative pose errors across all image pairs.
 
     Notice that this approach leads to a super-linear decrease in the AUC scores
@@ -433,7 +458,9 @@ def compute_rel_errors(sparse_gt, sparse, min_proj_center_dist):
     return dts, dRs
 
 
-def compute_abs_errors(sparse_gt, sparse):
+def compute_abs_errors(
+    sparse_gt: pycolmap.Reconstruction, sparse: pycolmap.Reconstruction
+) -> tuple[list[float], list[float]]:
     """Computes rotational and translational absolute pose errors.
 
     Assumes that the input reconstructions are aligned in the same coordinate
@@ -471,20 +498,22 @@ def compute_abs_errors(sparse_gt, sparse):
     return dts, dRs
 
 
-def compute_recall(errors):
+def compute_recall(errors: np.ndarray):
     num_elements = len(errors)
     errors = np.sort(errors)
     recall = (np.arange(num_elements) + 1) / num_elements
     return errors, recall
 
 
-def compute_auc(errors, thresholds, min_error=None):
+def compute_auc(
+    errors: np.ndarray, thresholds: list[float], min_error: float = 0
+) -> list[float]:
     if len(errors) == 0:
         raise ValueError("No errors to evaluate")
 
     errors, recall = compute_recall(errors)
 
-    if min_error is not None:
+    if min_error > 0:
         min_index = np.searchsorted(errors, min_error, side="right")
         min_score = min_index / len(errors)
         recall = np.r_[min_score, min_score, recall[min_index:]]
@@ -503,7 +532,7 @@ def compute_auc(errors, thresholds, min_error=None):
     return aucs
 
 
-def compute_avg_auc(scene_metrics):
+def compute_avg_auc(scene_metrics: dict[str, SceneMetrics]) -> list[float]:
     auc_sum = None
     num_scenes = 0
     for scene, metrics in scene_metrics.items():
@@ -518,7 +547,9 @@ def compute_avg_auc(scene_metrics):
     return [auc / num_scenes for auc in auc_sum]
 
 
-def evaluate_eth3d(args, position_accuracy_gt=0.001):
+def evaluate_eth3d(
+    args: argparse.Namespace, position_accuracy_gt: float = 0.001
+) -> dict[str, dict[str, SceneMetrics]]:
     error_thresholds = get_error_thresholds(args)
 
     scene_infos = []
@@ -575,7 +606,9 @@ def evaluate_eth3d(args, position_accuracy_gt=0.001):
     return results
 
 
-def evaluate_blended_mvs(args, position_accuracy_gt=0.001):
+def evaluate_blended_mvs(
+    args: argparse.Namespace, position_accuracy_gt: float = 0.001
+) -> dict[str, dict[str, SceneMetrics]]:
     error_thresholds = get_error_thresholds(args)
 
     scene_infos = []
@@ -684,7 +717,9 @@ def evaluate_blended_mvs(args, position_accuracy_gt=0.001):
     return results
 
 
-def evaluate_imc(args, year, position_accuracy_gt=0.02):
+def evaluate_imc(
+    args: argparse.Namespace, year: int, position_accuracy_gt: float = 0.02
+) -> dict[str, dict[str, SceneMetrics]]:
     folder_name = f"imc{year}"
 
     error_thresholds = get_error_thresholds(args)
@@ -749,7 +784,9 @@ def evaluate_imc(args, year, position_accuracy_gt=0.02):
     return results
 
 
-def format_results(args, metrics):
+def format_results(
+    args: argparse.Namespace, metrics: dict[str, dict[str, SceneMetrics]]
+) -> str:
     if args.error_type == "relative":
         metric = "AUC @ X deg (%)"
         thresholds = args.rel_error_thresholds
@@ -791,7 +828,7 @@ def format_results(args, metrics):
     return "\n".join(text)
 
 
-def parse_args():
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--data_path", default=Path(__file__).parent / "data", type=Path
@@ -871,7 +908,7 @@ def parse_args():
     return args
 
 
-def main():
+def main() -> None:
     args = parse_args()
 
     results = {}
