@@ -1,6 +1,7 @@
 #include "colmap/sfm/incremental_triangulator.h"
 
 #include "pycolmap/helpers.h"
+#include "pycolmap/pybind11_extension.h"
 
 #include <memory>
 
