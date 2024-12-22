@@ -42,7 +42,7 @@ namespace detail {
       }                                                                   \
       if (val < 0 || val > std::numeric_limits<DTYPE>::max()) {           \
         LOG(WARNING) << "Error! Only positive values and -1 (as invalid)" \
-                        "are supported for uint types.";                  \
+                        " are supported for uint types.";                 \
         return false;                                                     \
       }                                                                   \
       value = static_cast<DTYPE>(val);                                    \
