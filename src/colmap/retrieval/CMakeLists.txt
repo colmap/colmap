@@ -37,6 +37,7 @@ COLMAP_ADD_LIBRARY(
         inverted_file.h
         inverted_file_entry.h
         inverted_index.h
+        resources.h
         utils.h
         visual_index.h
         vote_and_verify.h vote_and_verify.cc
@@ -50,6 +51,9 @@ COLMAP_ADD_LIBRARY(
         colmap_estimators
         colmap_optim
 )
+if(OPENMP_FOUND)
+    target_link_libraries(colmap_retrieval PUBLIC OpenMP::OpenMP_CXX)
+endif()
 
 COLMAP_ADD_TEST(
     NAME geometry_test

@@ -159,25 +159,32 @@ void BindReconstruction(py::module& m) {
            &Reconstruction::Normalize,
            "fixed_scale"_a = false,
            "extent"_a = 10.0,
-           "p0"_a = 0.1,
-           "p1"_a = 0.9,
+           "min_percentile"_a = 0.1,
+           "max_percentile"_a = 0.9,
            "use_images"_a = true,
            "Normalize scene by scaling and translation to avoid degenerate"
            "visualization after bundle adjustment and to improve numerical"
            "stability of algorithms.\n\n"
            "Translates scene such that the mean of the camera centers or point"
-           "locations are at the origin of the coordinate system.\n\n"
-           "Scales scene such that the minimum and maximum camera centers are "
-           "at the given `extent`, whereas `p0` and `p1` determine the minimum "
-           "and maximum percentiles of the camera centers considered.")
+           "locations are at the origin of the coordinate system.\n\n Scales "
+           "scene such that the minimum and maximum camera centers (or points) "
+           "are  at the given `extent`, whereas `min_percentile` and  "
+           "`max_percentile` determine the minimum  and maximum percentiles of "
+           "the camera centers (or points) considered.")
       .def("transform",
            &Reconstruction::Transform,
            "new_from_old_world"_a,
            "Apply the 3D similarity transformation to all images and points.")
+      .def("compute_centroid",
+           &Reconstruction::ComputeCentroid,
+           "min_percentile"_a = 0.0,
+           "max_percentile"_a = 1.0,
+           "use_images"_a = false)
       .def("compute_bounding_box",
            &Reconstruction::ComputeBoundingBox,
-           "p0"_a = 0.0,
-           "p1"_a = 1.0)
+           "min_percentile"_a = 0.0,
+           "max_percentile"_a = 1.0,
+           "use_images"_a = false)
       .def("crop", &Reconstruction::Crop, "bbox"_a)
       .def("find_image_with_name",
            &Reconstruction::FindImageWithName,

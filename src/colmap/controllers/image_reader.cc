@@ -53,8 +53,10 @@ ImageReader::ImageReader(const ImageReaderOptions& options, Database* database)
   // Ensure trailing slash, so that we can build the correct image name.
   options_.image_path =
       EnsureTrailingSlash(StringReplace(options_.image_path, "\\", "/"));
-  options_.mask_path =
-      EnsureTrailingSlash(StringReplace(options_.mask_path, "\\", "/"));
+  if (!options_.mask_path.empty()) {
+    options_.mask_path =
+        EnsureTrailingSlash(StringReplace(options_.mask_path, "\\", "/"));
+  }
 
   // Get a list of all files in the image path, sorted by image name.
   if (options_.image_list.empty()) {
@@ -146,7 +148,12 @@ ImageReader::Status ImageReader::Next(Camera* camera,
   if (mask && !options_.mask_path.empty()) {
     const std::string mask_path =
         JoinPaths(options_.mask_path, image->Name() + ".png");
-    if (ExistsFile(mask_path) && !mask->Read(mask_path, false)) {
+    if (!ExistsFile(mask_path)) {
+      LOG(ERROR) << "Mask at " << mask_path << " does not exist.";
+      return Status::MASK_ERROR;
+    }
+    if (!mask->Read(mask_path, false)) {
+      LOG(ERROR) << "Failed to read invalid mask file at: " << mask_path;
       return Status::MASK_ERROR;
     }
   }

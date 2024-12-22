@@ -43,7 +43,7 @@ test-requires = "mypy==1.12.1"
 test-command = "python -c \"import pycolmap; print(pycolmap.__version__)\" &&  python -m mypy --package pycolmap --implicit-optional"
 
 [tool.cibuildwheel.environment]
-VCPKG_COMMIT_ID = "10b7a178346f3f0abef60cecd5130e295afd8da4"
+VCPKG_COMMIT_ID = "3b57fb2e1ff55613db14d2aaf0a30529289c7050"
 
 [tool.cibuildwheel.linux]
 before-all = "{package}/ci/install-colmap-almalinux.sh"
@@ -52,6 +52,6 @@ before-all = "{package}/ci/install-colmap-almalinux.sh"
 before-all = "{package}/ci/install-colmap-macos.sh"
 
 [tool.cibuildwheel.windows]
-before-all = "powershell -File {package}/ci/install-colmap-windows.ps1"
+before-all = "pwsh -File {package}/ci/install-colmap-windows.ps1"
 before-build = "pip install delvewheel"
-test-command = "powershell -File {package}/ci/test-colmap-windows.ps1"
+test-command = "pwsh -File {package}/ci/test-colmap-windows.ps1"

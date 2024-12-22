@@ -27,42 +27,20 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/mvs/mat.h"
+#pragma once
 
-#include "colmap/util/file.h"
-
-#include <fstream>
 #include <string>
-#include <vector>
 
 namespace colmap {
-namespace mvs {
 
-template <>
-void Mat<float>::Read(const std::string& path) {
-  std::ifstream file(path, std::ios::binary);
-  THROW_CHECK_FILE_OPEN(file, path);
+#ifdef COLMAP_DOWNLOAD_ENABLED
+const static std::string kDefaultVocabTreeUri =
+    "https://github.com/colmap/colmap/releases/download/3.11.1/"
+    "vocab_tree_flickr100K_words256K.bin;"
+    "vocab_tree_flickr100K_words256K.bin;"
+    "d2055600452a531b5b0a62aa5943e1a07195273dc4eeebcf23d3a924d881d53a";
+#else
+const static std::string kDefaultVocabTreeUri = "";
+#endif
 
-  char unused_char;
-  file >> width_ >> unused_char >> height_ >> unused_char >> depth_ >>
-      unused_char;
-  THROW_CHECK_GT(width_, 0) << path;
-  THROW_CHECK_GT(height_, 0) << path;
-  THROW_CHECK_GT(depth_, 0) << path;
-  data_.resize(width_ * height_ * depth_);
-
-  ReadBinaryLittleEndian<float>(&file, &data_);
-  file.close();
-}
-
-template <>
-void Mat<float>::Write(const std::string& path) const {
-  std::ofstream file(path, std::ios::binary);
-  THROW_CHECK_FILE_OPEN(file, path);
-  file << width_ << "&" << height_ << "&" << depth_ << "&";
-  WriteBinaryLittleEndian<float>(&file, {data_.data(), data_.size()});
-  file.close();
-}
-
-}  // namespace mvs
 }  // namespace colmap

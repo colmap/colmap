@@ -56,7 +56,7 @@ COLMAP_ADD_LIBRARY(
         SQLite::SQLite3
     PRIVATE_LINK_LIBS
         Boost::boost
-        "$<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:-lstdc++fs>"
+        $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:-lstdc++fs>
 )
 if(TESTS_ENABLED)
     target_sources(
@@ -67,6 +67,9 @@ if(TESTS_ENABLED)
     )
 endif()
 
+if(DOWNLOAD_ENABLED)
+    target_link_libraries(colmap_util PRIVATE CURL::libcurl OpenSSL::Crypto)
+endif()
 if(GUI_ENABLED)
     target_link_libraries(colmap_util PUBLIC Qt5::Core Qt5::OpenGL OpenGL::GL)
 endif()

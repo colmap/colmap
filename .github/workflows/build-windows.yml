@@ -1,5 +1,9 @@
 name: COLMAP (Windows)
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 on:
   push:
     branches:
@@ -38,18 +42,33 @@ jobs:
       COMPILER_CACHE_DIR: ${{ github.workspace }}/compiler-cache
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
-      VCPKG_COMMIT_ID: 10b7a178346f3f0abef60cecd5130e295afd8da4
-      VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
+      VCPKG_COMMIT_ID: 3b57fb2e1ff55613db14d2aaf0a30529289c7050
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Export GitHub Actions cache env
-        uses: actions/github-script@v7
-        with:
-          script: |
-            core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
-            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+      
+      # We define the vcpkg binary sources using separate variables for read and
+      # write operations:
+      # * Read sources are defined as inline. These can be read by anyone and,
+      #   in particular, pull requests from forks. Unfortunately, we cannot
+      #   define these as action environment variables. See:
+      #   https://github.com/orgs/community/discussions/44322
+      # * Write sources are defined as action secret variables. These cannot be
+      #   read by pull requests from forks but only from pull requests from
+      #   within the target repository (i.e., created by a repository owner).
+      #   This protects us from malicious actors accessing our secrets and
+      #   gaining write access to our binary cache. For more information, see:
+      #   https://securitylab.github.com/resources/github-actions-preventing-pwn-requests/
+      - name: Setup vcpkg binary cache
+        shell: pwsh
+        run: |
+          # !!!PLEASE!!! be nice and don't use this cache for your own purposes. This is only meant for CI purposes in this repository.
+          $VCPKG_BINARY_SOURCES = "clear;x-azblob,https://colmap.blob.core.windows.net/github-actions-cache,sp=r&st=2024-12-10T17:29:32Z&se=2030-12-31T01:29:32Z&spr=https&sv=2022-11-02&sr=c&sig=bWydkilTMjRn3LHKTxLgdWrFpV4h%2Finzoe9QCOcPpYQ%3D,read"
+          if ("${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_URL }}") {
+            # The secrets are only accessible in runs triggered from within the target repository and not forks.
+            $VCPKG_BINARY_SOURCES += ";x-azblob,${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_URL }},${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_SAS }},write"
+          }
+          echo "VCPKG_BINARY_SOURCES=${VCPKG_BINARY_SOURCES}" >> "${env:GITHUB_ENV}"
 
       - name: Compiler cache
         uses: actions/cache@v4
@@ -64,11 +83,9 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path "${{ env.CCACHE_DIR }}"
           echo "${{ env.COMPILER_CACHE_DIR }}/bin" | Out-File -Encoding utf8 -Append -FilePath $env:GITHUB_PATH
-
           if (Test-Path -PathType Leaf "${{ env.COMPILER_CACHE_DIR }}/bin/ccache.exe") {
             exit
           }
-
           .github/workflows/install-ccache.ps1 -Destination "${{ env.COMPILER_CACHE_DIR }}/bin"
 
       - name: Install CUDA
@@ -80,9 +97,6 @@ jobs:
           sub-packages: '["nvcc", "nvtx", "cudart", "curand", "curand_dev", "nvrtc_dev"]'
           method: 'network'
 
-      - name: Install CMake and Ninja
-        uses: lukka/get-cmake@latest
-
       - name: Setup vcpkg
         shell: pwsh
         run: |
@@ -92,6 +106,12 @@ jobs:
           cd vcpkg
           git reset --hard ${{ env.VCPKG_COMMIT_ID }}
           ./bootstrap-vcpkg.bat
+
+      - name: Install CMake and Ninja
+        uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: "3.31.0"
+          ninjaVersion: "1.12.1"
 
       - name: Configure and build
         shell: pwsh

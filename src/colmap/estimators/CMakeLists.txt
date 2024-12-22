@@ -49,7 +49,7 @@ COLMAP_ADD_LIBRARY(
         homography_matrix.h homography_matrix.cc
         pose.h pose.cc
         generalized_pose.h generalized_pose.cc
-        similarity_transform.h
+        similarity_transform.h similarity_transform.cc
         translation_transform.h
         triangulation.h triangulation.cc
         two_view_geometry.h two_view_geometry.cc
