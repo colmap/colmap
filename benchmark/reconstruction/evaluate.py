@@ -254,33 +254,54 @@ def reconstruct_scene(
         colmap_extra_args=scene_info.colmap_extra_args,
     )
 
-    # TODO: Compute error over all sub-models combined.
-    sparse_path = scene_info.workspace_path / "sparse/0"
-    sparse = pycolmap.Reconstruction(sparse_path)
+    # Merge all sub-models into a single reconstruction. Each sub-model will be
+    # "randomly" aligned to the other sub-models. We then compute the overall
+    # error over the merged reconstruction. With this simple appraoch, there is
+    # a small chance that the randomly aligned images in one sub-model are
+    # correctly aligned with other sub-models and the error is therefore
+    # underestimated. However, this is very unlikely to happen.
+    sparse_merged = None
+    for sparse_path in (scene_info.workspace_path / "sparse").iterdir():
+        if not sparse_path.is_dir():
+            continue
+        sparse = None
+        if args.error_type == "relative":
+            sparse = pycolmap.Reconstruction(sparse_path)
+        elif args.error_type == "absolute":
+            sparse_aligned_path = scene_info.workspace_path / "sparse_aligned"
+            colmap_alignment(
+                args=args,
+                sparse_path=sparse_path,
+                sparse_gt_path=scene_info.sparse_gt_path,
+                sparse_aligned_path=sparse_aligned_path,
+                max_ref_model_error=scene_info.position_accuracy_gt,
+            )
+            if (sparse_aligned_path / "images.bin").exists():
+                sparse = pycolmap.Reconstruction(sparse_aligned_path)
+        else:
+            raise ValueError(f"Invalid error type: {args.error_type}")
+        
+        if sparse is not None:
+            if sparse_merged is None:
+                sparse_merged = pycolmap.Reconstruction()
+                for camera in sparse.cameras.values():
+                    sparse_merged.add_camera(camera)
+            for image in sparse.images.values():
+                if image.image_id not in sparse_merged.images:
+                    image.reset_camera_ptr()
+                    sparse_merged.add_image(image)
+
     if args.error_type == "relative":
         dts, dRs = compute_rel_errors(
             sparse_gt=sparse_gt,
-            sparse=sparse,
+            sparse=sparse_merged,
             min_proj_center_dist=scene_info.position_accuracy_gt,
         )
         errors = [max(dt, dR) for dt, dR in zip(dts, dRs)]
     elif args.error_type == "absolute":
-        sparse_aligned_path = scene_info.workspace_path / "sparse_aligned"
-        colmap_alignment(
-            args=args,
-            sparse_path=sparse_path,
-            sparse_gt_path=scene_info.sparse_gt_path,
-            sparse_aligned_path=sparse_aligned_path,
-            max_ref_model_error=scene_info.position_accuracy_gt,
-        )
-        sparse = (
-            pycolmap.Reconstruction(sparse_aligned_path)
-            if (sparse_aligned_path / "images.bin").exists()
-            else None
-        )
         dts, dRs = compute_abs_errors(
             sparse_gt=sparse_gt,
-            sparse=sparse,
+            sparse=sparse_merged,
         )
         errors = dts
     else:
@@ -290,7 +311,7 @@ def reconstruct_scene(
         scene_info=scene_info,
         errors=errors,
         num_images=sparse_gt.num_images(),
-        num_reg_images=sparse.num_images(),
+        num_reg_images=sparse_merged.num_images(),
     )
 
 
