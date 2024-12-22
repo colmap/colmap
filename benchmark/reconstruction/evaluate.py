@@ -65,6 +65,7 @@ SceneResult = collections.namedtuple(
         "num_images",
         "num_reg_images",
         "num_components",
+        "largest_component",
     ],
 )
 
@@ -75,6 +76,7 @@ SceneMetrics = collections.namedtuple(
         "num_images",
         "num_reg_images",
         "num_components",
+        "largest_component",
     ],
 )
 
@@ -264,6 +266,7 @@ def reconstruct_scene(
     # underestimated. However, this is very unlikely to happen.
     sparse_merged = pycolmap.Reconstruction()
     num_components = 0
+    largest_component = 0
     for sparse_path in (scene_info.workspace_path / "sparse").iterdir():
         if not sparse_path.is_dir():
             continue
@@ -284,8 +287,9 @@ def reconstruct_scene(
                 sparse = pycolmap.Reconstruction(sparse_aligned_path)
         else:
             raise ValueError(f"Invalid error type: {args.error_type}")
-        
+
         if sparse is not None:
+            largest_component = max(largest_component, sparse.num_images())
             for image in sparse.images.values():
                 if image.image_id in sparse_merged.images:
                     continue
@@ -316,6 +320,7 @@ def reconstruct_scene(
         num_images=sparse_gt.num_images(),
         num_reg_images=sparse_merged.num_images(),
         num_components=num_components,
+        largest_component=largest_component,
     )
 
 
@@ -339,12 +344,14 @@ def process_scenes(
     total_num_images = 0
     total_num_reg_images = 0
     total_num_components = 0
+    total_largest_components = 0
     num_scenes = len(results)
     for result in results:
         errors_by_category[result.scene_info.category].extend(result.errors)
         total_num_images += result.num_images
         total_num_reg_images += result.num_reg_images
         total_num_components += result.num_components
+        total_largest_components += result.largest_component
         metrics[result.scene_info.category][result.scene_info.scene] = (
             SceneMetrics(
                 aucs=compute_auc(
@@ -355,6 +362,7 @@ def process_scenes(
                 num_images=result.num_images,
                 num_reg_images=result.num_reg_images,
                 num_components=result.num_components,
+                largest_component=result.largest_component,
             )
         )
 
@@ -368,12 +376,14 @@ def process_scenes(
             num_images=total_num_images,
             num_reg_images=total_num_reg_images,
             num_components=total_num_components,
+            largest_component=total_largest_components,
         )
         metrics[category]["__avg__"] = SceneMetrics(
             aucs=compute_avg_auc(metrics[category]),
             num_images=int(round(total_num_images / num_scenes)),
             num_reg_images=int(round(total_num_reg_images / num_scenes)),
             num_components=int(round(total_num_components / num_scenes)),
+            largest_component=int(round(total_largest_components / num_scenes)),
         )
 
     return metrics
@@ -836,12 +846,12 @@ def format_results(
     )
     size_aucs = max(len(metric) + 2, len(thresholds) * 7 - 1)
     size_imgs = 12
-    size_comp = 6
-    size_sep = size_scenes + size_aucs + size_imgs + size_comp + 3
-    header = f"{column:=^{size_scenes}} {metric:=^{size_aucs}} {"images":=^{size_imgs}} {"comp":=^{size_comp}}"
+    size_comps = 12
+    size_sep = size_scenes + size_aucs + size_imgs + size_comps + 3
+    header = f"{column:=^{size_scenes}} {metric:=^{size_aucs}} {"images":=^{size_imgs}} {"components":=^{size_comps}}"
     header += "\n" + " " * (size_scenes + 1)
     header += " ".join(f'{str(t).rstrip("."):^6}' for t in thresholds)
-    header += "    reg   all"
+    header += "    reg   all  num largest"
     text = [header]
     for dataset, category_metrics in metrics.items():
         for category, scene_metrics in category_metrics.items():
@@ -858,7 +868,7 @@ def format_results(
                 row += f"{scene:<{size_scenes}} "
                 row += " ".join(f"{auc:>6.2f}" for auc in metrics.aucs)
                 row += f" {metrics.num_reg_images:6d}{metrics.num_images:6d}"
-                row += f" {metrics.num_components:5d}"
+                row += f" {metrics.num_components:4d}{metrics.largest_component:8d}"
                 text.append(row)
     return "\n".join(text)
 
