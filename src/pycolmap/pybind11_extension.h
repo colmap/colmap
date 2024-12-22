@@ -26,31 +26,31 @@ namespace detail {
 
 // Custom type_caster from int to C++ uint types to support -1 as input.
 // Necessary for pycolmap id types that use -1 as the invalid value.
-#define TYPE_CASTER_UINT_T(DTYPE)                                           \
-  template <>                                                               \
-  struct type_caster<DTYPE> {                                               \
-   public:                                                                  \
-    PYBIND11_TYPE_CASTER(DTYPE, _(#DTYPE));                                 \
-    bool load(handle src, bool) {                                           \
-      if (!py::isinstance<py::int_>(src)) {                                 \
-        return false;                                                       \
-      }                                                                     \
-      int64_t val = py::cast<int64_t>(src);                                 \
-      if (val == -1) {                                                      \
-        value = std::numeric_limits<DTYPE>::max();                          \
-        return true;                                                        \
-      }                                                                     \
-      if (val < 0 || val > std::numeric_limits<DTYPE>::max()) {             \
-        LOG(WARNING) << "Value is out of range for uint types. Only -1 or " \
-                        "positive values are supported";                    \
-        return false;                                                       \
-      }                                                                     \
-      value = static_cast<DTYPE>(val);                                      \
-      return true;                                                          \
-    }                                                                       \
-    static handle cast(const DTYPE& src, return_value_policy, handle) {     \
-      return py::int_(src).release();                                       \
-    }                                                                       \
+#define TYPE_CASTER_UINT_T(DTYPE)                                         \
+  template <>                                                             \
+  struct type_caster<DTYPE> {                                             \
+   public:                                                                \
+    PYBIND11_TYPE_CASTER(DTYPE, _(#DTYPE));                               \
+    bool load(handle src, bool) {                                         \
+      if (!py::isinstance<py::int_>(src)) {                               \
+        return false;                                                     \
+      }                                                                   \
+      int64_t val = py::cast<int64_t>(src);                               \
+      if (val == -1) {                                                    \
+        value = std::numeric_limits<DTYPE>::max();                        \
+        return true;                                                      \
+      }                                                                   \
+      if (val < 0 || val > std::numeric_limits<DTYPE>::max()) {           \
+        LOG(WARNING) << "Error! Only positive values and -1 (as invalid)" \
+                        "are supported for uint types.";                  \
+        return false;                                                     \
+      }                                                                   \
+      value = static_cast<DTYPE>(val);                                    \
+      return true;                                                        \
+    }                                                                     \
+    static handle cast(const DTYPE& src, return_value_policy, handle) {   \
+      return py::int_(src).release();                                     \
+    }                                                                     \
   };
 
 TYPE_CASTER_UINT_T(uint8_t);
