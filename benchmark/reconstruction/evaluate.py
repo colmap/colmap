@@ -260,7 +260,7 @@ def reconstruct_scene(
     # a small chance that the randomly aligned images in one sub-model are
     # correctly aligned with other sub-models and the error is therefore
     # underestimated. However, this is very unlikely to happen.
-    sparse_merged = None
+    sparse_merged = pycolmap.Reconstruction()
     for sparse_path in (scene_info.workspace_path / "sparse").iterdir():
         if not sparse_path.is_dir():
             continue
@@ -282,14 +282,13 @@ def reconstruct_scene(
             raise ValueError(f"Invalid error type: {args.error_type}")
         
         if sparse is not None:
-            if sparse_merged is None:
-                sparse_merged = pycolmap.Reconstruction()
-                for camera in sparse.cameras.values():
-                    sparse_merged.add_camera(camera)
             for image in sparse.images.values():
-                if image.image_id not in sparse_merged.images:
-                    image.reset_camera_ptr()
-                    sparse_merged.add_image(image)
+                if image.image_id in sparse_merged.images:
+                    continue
+                if image.camera_id not in sparse_merged.cameras:
+                    sparse_merged.add_camera(image.camera)
+                image.reset_camera_ptr()
+                sparse_merged.add_image(image)
 
     if args.error_type == "relative":
         dts, dRs = compute_rel_errors(
@@ -597,7 +596,6 @@ def evaluate_eth3d(
             sparse_gt_path = list(scene_path.glob("*_calibration_undistorted"))[
                 0
             ]
-            sparse_gt = pycolmap.Reconstruction(sparse_gt_path)
 
             print(f"Processing ETH3D: category={category}, scene={scene}")
 
