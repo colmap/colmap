@@ -1,0 +1,2 @@
+CompileFlags:
+  Add: [-ID:\Fork_FILE\colmap\build\vcpkg_installed\x64-windows\include]

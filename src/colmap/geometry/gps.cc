@@ -303,6 +303,7 @@ std::pair<std::vector<Eigen::Vector3d>, int> GPSTransform::EllToUTM(
   std::vector<Eigen::Vector3d> utm;
   utm.reserve(ell.size());
 
+  int north_count = 0;
   for (const Eigen::Vector3d& lla : ell) {
     const double phi = DegToRad(lla[0]);
     const double lambda = DegToRad(lla[1]);
@@ -328,22 +329,36 @@ std::pair<std::vector<Eigen::Vector3d>, int> GPSTransform::EllToUTM(
     N = params.N0(lla[0]) + params.k0 * params.A * N;
 
     utm.emplace_back(E * 1000, N * 1000, lla[2]);  // converts back to meters
+
+    if (lla[0] > 0) {
+      ++north_count;
+    }
+  }
+
+  // Assign a negative sign to the zone if all points are in the southern
+  // hemisphere. If points are across both hemispheres, log an error.
+  if (north_count == 0) {
+    zone *= -1;
+  } else if (north_count != ell.size()) {
+    LOG(ERROR) << "Points span across different hemispheres, aborting...";
   }
 
   return std::make_pair(std::move(utm), zone);
 }
 
 std::vector<Eigen::Vector3d> GPSTransform::UTMToEll(
-    const std::vector<Eigen::Vector3d>& utm, int zone, bool is_north) const {
+    const std::vector<Eigen::Vector3d>& utm, int zone) const {
   // The following implementation is based on the formulas from:
   // https://en.wikipedia.org/wiki/Universal_Transverse_Mercator_coordinate_system
 
-  THROW_CHECK_GE(zone, 1);
+  THROW_CHECK_GE(zone, -60);
   THROW_CHECK_LE(zone, 60);
+  THROW_CHECK_NE(zone, 0);
 
   // Setup params
   const UTMParams params(a_ / 1000.0, f_);  // converts to kilometers
-
+  bool is_north = zone > 0;
+  
   // Converts utm to ell
   std::vector<Eigen::Vector3d> ell;
   ell.reserve(utm.size());

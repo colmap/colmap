@@ -405,7 +405,7 @@ TEST(GPS, UTMToEllWGS84) {
                        12 + 34. / 60 + 11.77179 / 3600,
                        561.1509);
   GPSTransform gps_tform(GPSTransform::WGS84);
-  const auto ell = gps_tform.UTMToEll(utm, 32, true);
+  const auto ell = gps_tform.UTMToEll(utm, 32);
 
   double tolerance = 1e-8;
   for (size_t i = 0; i < ell.size(); ++i) {
@@ -446,7 +446,7 @@ TEST(GPS, UTMToEllGRS80) {
                        12 + 34. / 60 + 11.77179 / 3600,
                        561.1509);
   GPSTransform gps_tform(GPSTransform::WGS84);
-  const auto ell = gps_tform.UTMToEll(utm, 32, true);
+  const auto ell = gps_tform.UTMToEll(utm, 32);
 
   double tolerance = 1e-8;
   for (size_t i = 0; i < ell.size(); ++i) {

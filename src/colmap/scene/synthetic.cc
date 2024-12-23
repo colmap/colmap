@@ -287,8 +287,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
           RandomGaussian<double>(0, options.prior_position_stddev),
           RandomGaussian<double>(0, options.prior_position_stddev));
 
-      PosePrior noisy_prior(proj_center + noise,
-                            PosePrior::CoordinateSystem::CARTESIAN);
+      PosePrior noisy_prior(proj_center + noise, options.coordinate_system);
 
       if (options.prior_position_stddev > 0.) {
         noisy_prior.position_covariance = options.prior_position_stddev *
