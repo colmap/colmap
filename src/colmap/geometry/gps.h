@@ -58,11 +58,13 @@ class GPSTransform {
   // defining the origin of the ENU frame
   std::vector<Eigen::Vector3d> EllToENU(const std::vector<Eigen::Vector3d>& ell,
                                         double lat0,
-                                        double lon0) const;
+                                        double lon0,
+                                        double alt0) const;
 
   std::vector<Eigen::Vector3d> XYZToENU(const std::vector<Eigen::Vector3d>& xyz,
                                         double lat0,
-                                        double lon0) const;
+                                        double lon0,
+                                        double alt0) const;
 
   std::vector<Eigen::Vector3d> ENUToEll(const std::vector<Eigen::Vector3d>& enu,
                                         double lat0,
