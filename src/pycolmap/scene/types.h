@@ -24,10 +24,4 @@ PYBIND11_MAKE_OPAQUE(CameraMap);
 using Point3DMap = std::unordered_map<point3D_t, Point3D>;
 PYBIND11_MAKE_OPAQUE(Point3DMap);
 
-void BindConstants(py::module& m) {
-  m.attr("invalid_camera_id") = colmap::kInvalidCameraId;
-  m.attr("invalid_image_id") = colmap::kInvalidImageId;
-  m.attr("invalid_image_pair_id") = colmap::kInvalidImagePairId;
-  m.attr("invalid_point2D_id") = colmap::kInvalidPoint2DIdx;
-  m.attr("invalid_point3D_id") = colmap::kInvalidPoint3DId;
-}
+
