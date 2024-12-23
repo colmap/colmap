@@ -33,7 +33,6 @@
 
 #include <gtest/gtest.h>
 
-
 namespace colmap {
 namespace {
 
@@ -180,7 +179,7 @@ TEST(GPS, EllToENUWGS84) {
   GPSTransform gps_tform(GPSTransform::WGS84);
 
   // Get lat0, lon0 origin from ref
-  const auto ori_ell = gps_tform.XYZToEll({ref_xyz[0]})[0];
+  const auto ori_ell = gps_tform.XYZToEll(ref_xyz[0]);
 
   // Get ENU ref from ECEF ref
   const auto ref_enu =
@@ -213,7 +212,7 @@ TEST(GPS, XYZToENU) {
   const auto xyz = gps_tform.EllToXYZ(ell);
 
   // Get lat0, lon0 origin from ref
-  const auto ori_ell = gps_tform.XYZToEll({ref_xyz[0]})[0];
+  const auto ori_ell = gps_tform.XYZToEll(ref_xyz[0]);
 
   // Get ENU from ECEF ref
   const auto ref_enu =
