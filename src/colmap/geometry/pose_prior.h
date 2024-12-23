@@ -45,8 +45,13 @@ struct PosePrior {
                   -1,
                   UNDEFINED,  // = -1
                   WGS84,      // = 0
-                  CARTESIAN   // = 1
+                  ECEF,       // = 1
+                  GRS80,      // = 2
+                  ENU,        // = 3
+                  UTM         // = 4
   );
+
+  inline bool IsCartesian(CoordinateSystem system) const;
 
   Eigen::Vector3d position =
       Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
@@ -77,6 +82,10 @@ struct PosePrior {
 };
 
 std::ostream& operator<<(std::ostream& stream, const PosePrior& prior);
+
+bool PosePrior::IsCartesian(CoordinateSystem system) const {
+  return system != CoordinateSystem::WGS84 && system != CoordinateSystem::GRS80;
+}
 
 bool PosePrior::operator==(const PosePrior& other) const {
   return coordinate_system == other.coordinate_system &&
