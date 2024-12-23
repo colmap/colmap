@@ -212,8 +212,7 @@ std::vector<Eigen::Vector3d> GPSTransform::XYZToENU(
       cos_lat0, cos_lat0 * cos_lon0, cos_lat0 * sin_lon0, sin_lat0;
 
   // Convert ECEF to ENU coordinates.
-  const Eigen::Vector3d xyz_ref =
-      EllToXYZ({Eigen::Vector3d(lat0, lon0, alt0)}).front();
+  const Eigen::Vector3d xyz_ref = EllToXYZ(Eigen::Vector3d(lat0, lon0, alt0));
   for (size_t i = 0; i < xyz.size(); ++i) {
     enu[i] = R * (xyz[i] - xyz_ref);
   }
@@ -237,8 +236,7 @@ std::vector<Eigen::Vector3d> GPSTransform::ENUToXYZ(
   std::vector<Eigen::Vector3d> xyz(enu.size());
 
   // ECEF ref (origin)
-  const Eigen::Vector3d xyz_ref =
-      EllToXYZ({Eigen::Vector3d(lat0, lon0, alt0)})[0];
+  const Eigen::Vector3d xyz_ref = EllToXYZ(Eigen::Vector3d(lat0, lon0, alt0));
 
   // ENU to ECEF Rot :
   const double cos_lat0 = std::cos(DegToRad(lat0));
@@ -399,6 +397,55 @@ std::vector<Eigen::Vector3d> GPSTransform::UTMToEll(
   }
 
   return ell;
+}
+
+// TODO: Refactor to avoid unnecessary allocation of a vector for a single
+// coordinate.
+Eigen::Vector3d GPSTransform::EllToXYZ(const Eigen::Vector3d& ell) const {
+  return EllToXYZ(std::vector<Eigen::Vector3d>{ell}).front();
+}
+
+Eigen::Vector3d GPSTransform::XYZToEll(const Eigen::Vector3d& xyz) const {
+  return XYZToEll(std::vector<Eigen::Vector3d>{xyz}).front();
+}
+
+Eigen::Vector3d GPSTransform::EllToENU(const Eigen::Vector3d& ell,
+                                       double lat0,
+                                       double lon0,
+                                       double alt0) const {
+  return EllToENU(std::vector<Eigen::Vector3d>{ell}, lat0, lon0, alt0).front();
+}
+
+Eigen::Vector3d GPSTransform::XYZToENU(const Eigen::Vector3d& xyz,
+                                       double lat0,
+                                       double lon0,
+                                       double alt0) const {
+  return XYZToENU(std::vector<Eigen::Vector3d>{xyz}, lat0, lon0, alt0).front();
+}
+
+Eigen::Vector3d GPSTransform::ENUToEll(const Eigen::Vector3d& enu,
+                                       double lat0,
+                                       double lon0,
+                                       double alt0) const {
+  return ENUToEll(std::vector<Eigen::Vector3d>{enu}, lat0, lon0, alt0).front();
+}
+
+Eigen::Vector3d GPSTransform::ENUToXYZ(const Eigen::Vector3d& enu,
+                                       double lat0,
+                                       double lon0,
+                                       double alt0) const {
+  return ENUToXYZ(std::vector<Eigen::Vector3d>{enu}, lat0, lon0, alt0).front();
+}
+
+std::pair<Eigen::Vector3d, int> GPSTransform::EllToUTM(
+    const Eigen::Vector3d& ell) const {
+  auto [utm, zone] = EllToUTM(std::vector<Eigen::Vector3d>{ell});
+  return std::make_pair(std::move(utm.front()), zone);
+}
+
+Eigen::Vector3d GPSTransform::UTMToEll(const Eigen::Vector3d& utm,
+                                       int zone) const {
+  return UTMToEll(std::vector<Eigen::Vector3d>{utm}, zone).front();
 }
 
 }  // namespace colmap

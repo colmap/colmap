@@ -309,7 +309,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
         static const double alt0 = 451.5;
 
         noisy_prior.position =
-            gps_trans.ENUToEll({noisy_prior.position}, lat0, lon0, alt0)[0];
+            gps_trans.ENUToEll(noisy_prior.position, lat0, lon0, alt0);
         noisy_prior.coordinate_system = PosePrior::CoordinateSystem::WGS84;
       }
 

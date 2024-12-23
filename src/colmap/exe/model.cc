@@ -77,7 +77,7 @@ Eigen::Vector3d TransformLatLonAltToModelCoords(const Sim3d& tform,
   // ENU frame.
   Eigen::Vector3d xyz =
       tform * GPSTransform(GPSTransform::WGS84)
-                  .EllToXYZ({Eigen::Vector3d(lat, lon, 0.0)})[0];
+                  .EllToXYZ(Eigen::Vector3d(lat, lon, 0.0));
   xyz(2) = tform.scale * alt;
   return xyz;
 }

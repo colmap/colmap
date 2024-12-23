@@ -100,6 +100,35 @@ class GPSTransform {
   std::vector<Eigen::Vector3d> UTMToEll(const std::vector<Eigen::Vector3d>& utm,
                                         int zone) const;
 
+  // Single point conversion functions
+  Eigen::Vector3d EllToXYZ(const Eigen::Vector3d& ell) const;
+
+  Eigen::Vector3d XYZToEll(const Eigen::Vector3d& xyz) const;
+
+  Eigen::Vector3d EllToENU(const Eigen::Vector3d& ell,
+                           double lat0,
+                           double lon0,
+                           double alt0) const;
+
+  Eigen::Vector3d XYZToENU(const Eigen::Vector3d& xyz,
+                           double lat0,
+                           double lon0,
+                           double alt0) const;
+
+  Eigen::Vector3d ENUToEll(const Eigen::Vector3d& enu,
+                           double lat0,
+                           double lon0,
+                           double alt0) const;
+
+  Eigen::Vector3d ENUToXYZ(const Eigen::Vector3d& enu,
+                           double lat0,
+                           double lon0,
+                           double alt0) const;
+
+  std::pair<Eigen::Vector3d, int> EllToUTM(const Eigen::Vector3d& ell) const;
+
+  Eigen::Vector3d UTMToEll(const Eigen::Vector3d& utm, int zone) const;
+
  private:
   // Semimajor axis.
   double a_;
