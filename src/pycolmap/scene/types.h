@@ -23,5 +23,3 @@ PYBIND11_MAKE_OPAQUE(CameraMap);
 
 using Point3DMap = std::unordered_map<point3D_t, Point3D>;
 PYBIND11_MAKE_OPAQUE(Point3DMap);
-
-
