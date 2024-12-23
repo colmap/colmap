@@ -38,7 +38,7 @@ TEST(PosePrior, Equals) {
   PosePrior prior;
   prior.position = Eigen::Vector3d::Zero();
   prior.position_covariance = Eigen::Matrix3d::Identity();
-  prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
+  prior.coordinate_system = PosePrior::CoordinateSystem::ECEF;
   PosePrior other = prior;
   EXPECT_EQ(prior, other);
   prior.position.x() = 1;
@@ -51,7 +51,7 @@ TEST(PosePrior, Print) {
   PosePrior prior;
   prior.position = Eigen::Vector3d::Zero();
   prior.position_covariance = Eigen::Matrix3d::Identity();
-  prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
+  prior.coordinate_system = PosePrior::CoordinateSystem::ECEF;
   std::ostringstream stream;
   stream << prior;
   EXPECT_EQ(stream.str(),

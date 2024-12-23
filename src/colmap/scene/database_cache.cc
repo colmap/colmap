@@ -264,14 +264,18 @@ bool DatabaseCache::SetupPosePriors(
     // GPS reference to be used for cartesian conversion
     const GPSTransform gps_transform(GPSTransform::WGS84);
     std::vector<Eigen::Vector3d> v_xyz_prior;
+    PosePrior::CoordinateSystem coordinate_system =
+        PosePrior::CoordinateSystem::UNDEFINED;
     switch (cartesian_frame) {
       case GPSTransform::CartesianFrame::ECEF: {
         v_xyz_prior = gps_transform.EllToXYZ(v_gps_prior);
+        coordinate_system = PosePrior::CoordinateSystem::ECEF;
         break;
       }
       case GPSTransform::CartesianFrame::UTM: {
         auto [utm, _] = gps_transform.EllToUTM(v_gps_prior);
         v_xyz_prior = std::move(utm);
+        coordinate_system = PosePrior::CoordinateSystem::UTM;
         break;
       }
       case GPSTransform::CartesianFrame::ENU:
@@ -279,6 +283,7 @@ bool DatabaseCache::SetupPosePriors(
         const double ref_lat = v_gps_prior[0][0];
         const double ref_lon = v_gps_prior[0][1];
         v_xyz_prior = gps_transform.EllToENU(v_gps_prior, ref_lat, ref_lon);
+        coordinate_system = PosePrior::CoordinateSystem::ENU;
       }
     }
 
@@ -286,7 +291,7 @@ bool DatabaseCache::SetupPosePriors(
     for (const auto& image_id : image_ids_with_prior) {
       struct PosePrior& pose_prior = PosePrior(image_id);
       pose_prior.position = *xyz_prior_it;
-      pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
+      pose_prior.coordinate_system = coordinate_system;
       ++xyz_prior_it;
     }
   } else if (!prior_is_gps && !v_gps_prior.empty()) {

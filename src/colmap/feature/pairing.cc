@@ -630,7 +630,7 @@ SpatialPairGenerator::ReadPositionPriorData(FeatureMatcherCache& cache) {
       default:
         LOG(WARNING) << "Unknown coordinate system for image " << image_ids_[i]
                      << ", assuming cartesian.";
-      case PosePrior::CoordinateSystem::CARTESIAN:
+      case PosePrior::CoordinateSystem::ECEF:
         position_matrix(num_positions, 0) =
             static_cast<float>(position_prior(0));
         position_matrix(num_positions, 1) =
