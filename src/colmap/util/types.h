@@ -99,7 +99,7 @@ const camera_t kInvalidCameraId = std::numeric_limits<camera_t>::max();
 const image_t kInvalidImageId = std::numeric_limits<image_t>::max();
 const image_pair_t kInvalidImagePairId =
     std::numeric_limits<image_pair_t>::max();
-const point2D_t kInvalidPoint2DId = std::numeric_limits<point2D_t>::max();
+const point2D_t kInvalidPoint2DIdx = std::numeric_limits<point2D_t>::max();
 const point3D_t kInvalidPoint3DId = std::numeric_limits<point3D_t>::max();
 
 // Simple implementation of C++20's std::span, as Ubuntu 20.04's default GCC

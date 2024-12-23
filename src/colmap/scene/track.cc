@@ -34,7 +34,7 @@ namespace colmap {
 Track::Track() {}
 
 TrackElement::TrackElement()
-    : image_id(kInvalidImageId), point2D_idx(kInvalidPoint2DId) {}
+    : image_id(kInvalidImageId), point2D_idx(kInvalidPoint2DIdx) {}
 
 TrackElement::TrackElement(const image_t image_id, const point2D_t point2D_idx)
     : image_id(image_id), point2D_idx(point2D_idx) {}
