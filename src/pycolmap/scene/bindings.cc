@@ -5,6 +5,7 @@
 namespace py = pybind11;
 
 void BindCamera(py::module& m);
+void BindConstants(py::module& m);
 void BindCorrespondenceGraph(py::module& m);
 void BindDatabase(py::module& m);
 void BindDatabaseCache(py::module& m);
@@ -18,6 +19,7 @@ void BindTrack(py::module& m);
 void BindTwoViewGeometryScene(py::module& m);
 
 void BindScene(py::module& m) {
+  BindConstants(m);
   BindPoint2D(m);
   BindCamera(m);
   BindImage(m);
