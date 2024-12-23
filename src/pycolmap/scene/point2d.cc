@@ -25,7 +25,7 @@ void BindPoint2D(py::module& m) {
   PyPoint2D.def(py::init<>())
       .def(py::init<const Eigen::Vector2d&, size_t>(),
            "xy"_a,
-           "point3D_id"_a = kInvalidPoint3DId)
+           py::arg_v("point3D_id", kInvalidPoint3DId, "pycolmap.INVALID_POINT3D_ID"))
       .def_readwrite("xy", &Point2D::xy)
       .def_readwrite("point3D_id", &Point2D::point3D_id)
       .def("has_point3D", &Point2D::HasPoint3D);
