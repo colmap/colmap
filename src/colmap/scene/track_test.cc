@@ -37,7 +37,7 @@ namespace {
 TEST(TrackElement, Empty) {
   TrackElement track_el;
   EXPECT_EQ(track_el.image_id, kInvalidImageId);
-  EXPECT_EQ(track_el.point2D_idx, kInvalidPoint2DIdx);
+  EXPECT_EQ(track_el.point2D_idx, kInvalidPoint2DId);
 }
 
 TEST(TrackElement, Equals) {

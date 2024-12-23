@@ -43,7 +43,7 @@ class CorrespondenceGraph {
  public:
   struct Correspondence {
     Correspondence()
-        : image_id(kInvalidImageId), point2D_idx(kInvalidPoint2DIdx) {}
+        : image_id(kInvalidImageId), point2D_idx(kInvalidPoint2DId) {}
     Correspondence(const image_t image_id, const point2D_t point2D_idx)
         : image_id(image_id), point2D_idx(point2D_idx) {}
 

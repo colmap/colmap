@@ -84,15 +84,15 @@ typedef Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
 
 struct FeatureMatch {
   FeatureMatch()
-      : point2D_idx1(kInvalidPoint2DIdx), point2D_idx2(kInvalidPoint2DIdx) {}
+      : point2D_idx1(kInvalidPoint2DId), point2D_idx2(kInvalidPoint2DId) {}
   FeatureMatch(const point2D_t point2D_idx1, const point2D_t point2D_idx2)
       : point2D_idx1(point2D_idx1), point2D_idx2(point2D_idx2) {}
 
   // Feature index in first image.
-  point2D_t point2D_idx1 = kInvalidPoint2DIdx;
+  point2D_t point2D_idx1 = kInvalidPoint2DId;
 
   // Feature index in second image.
-  point2D_t point2D_idx2 = kInvalidPoint2DIdx;
+  point2D_t point2D_idx2 = kInvalidPoint2DId;
 };
 
 typedef std::vector<FeatureMatch> FeatureMatches;

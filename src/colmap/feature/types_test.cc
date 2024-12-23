@@ -225,12 +225,12 @@ TEST(FeatureDescriptors, Nominal) {
 
 TEST(FeatureMatches, Nominal) {
   FeatureMatch match;
-  EXPECT_EQ(match.point2D_idx1, kInvalidPoint2DIdx);
-  EXPECT_EQ(match.point2D_idx2, kInvalidPoint2DIdx);
+  EXPECT_EQ(match.point2D_idx1, kInvalidPoint2DId);
+  EXPECT_EQ(match.point2D_idx2, kInvalidPoint2DId);
   FeatureMatches matches(1);
   EXPECT_EQ(matches.size(), 1);
-  EXPECT_EQ(matches[0].point2D_idx1, kInvalidPoint2DIdx);
-  EXPECT_EQ(matches[0].point2D_idx2, kInvalidPoint2DIdx);
+  EXPECT_EQ(matches[0].point2D_idx1, kInvalidPoint2DId);
+  EXPECT_EQ(matches[0].point2D_idx2, kInvalidPoint2DId);
 }
 
 }  // namespace
