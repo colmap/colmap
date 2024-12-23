@@ -282,7 +282,9 @@ bool DatabaseCache::SetupPosePriors(
       default: {
         const double ref_lat = v_gps_prior[0][0];
         const double ref_lon = v_gps_prior[0][1];
-        v_xyz_prior = gps_transform.EllToENU(v_gps_prior, ref_lat, ref_lon);
+        const double ref_alt = v_gps_prior[0][2];
+        v_xyz_prior =
+            gps_transform.EllToENU(v_gps_prior, ref_lat, ref_lon, ref_alt);
         coordinate_system = PosePrior::CoordinateSystem::ENU;
       }
     }

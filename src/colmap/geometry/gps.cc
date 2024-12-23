@@ -183,17 +183,19 @@ std::vector<Eigen::Vector3d> GPSTransform::XYZToEll(
 std::vector<Eigen::Vector3d> GPSTransform::EllToENU(
     const std::vector<Eigen::Vector3d>& ell,
     const double lat0,
-    const double lon0) const {
+    const double lon0,
+    const double alt0) const {
   // Convert GPS (lat / lon / alt) to ECEF
   std::vector<Eigen::Vector3d> xyz = EllToXYZ(ell);
 
-  return XYZToENU(xyz, lat0, lon0);
+  return XYZToENU(xyz, lat0, lon0, alt0);
 }
 
 std::vector<Eigen::Vector3d> GPSTransform::XYZToENU(
     const std::vector<Eigen::Vector3d>& xyz,
     const double lat0,
-    const double lon0) const {
+    const double lon0,
+    const double alt0) const {
   std::vector<Eigen::Vector3d> enu(xyz.size());
 
   // https://en.wikipedia.org/wiki/Geographic_coordinate_conversion#From_ECEF_to_ENU
@@ -209,9 +211,11 @@ std::vector<Eigen::Vector3d> GPSTransform::XYZToENU(
   R << -sin_lon0, cos_lon0, 0., -sin_lat0 * cos_lon0, -sin_lat0 * sin_lon0,
       cos_lat0, cos_lat0 * cos_lon0, cos_lat0 * sin_lon0, sin_lat0;
 
-  // Convert ECEF to ENU coords. (w.r.t. ECEF ref == xyz[0])
+  // Convert ECEF to ENU coordinates.
+  const Eigen::Vector3d xyz_ref =
+      EllToXYZ({Eigen::Vector3d(lat0, lon0, alt0)}).front();
   for (size_t i = 0; i < xyz.size(); ++i) {
-    enu[i] = R * (xyz[i] - xyz[0]);
+    enu[i] = R * (xyz[i] - xyz_ref);
   }
 
   return enu;
@@ -358,7 +362,7 @@ std::vector<Eigen::Vector3d> GPSTransform::UTMToEll(
   // Setup params
   const UTMParams params(a_ / 1000.0, f_);  // converts to kilometers
   bool is_north = zone > 0;
-  
+
   // Converts utm to ell
   std::vector<Eigen::Vector3d> ell;
   ell.reserve(utm.size());

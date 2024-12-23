@@ -33,6 +33,7 @@
 
 #include <gtest/gtest.h>
 
+
 namespace colmap {
 namespace {
 
@@ -182,13 +183,14 @@ TEST(GPS, EllToENUWGS84) {
   const auto ori_ell = gps_tform.XYZToEll({ref_xyz[0]})[0];
 
   // Get ENU ref from ECEF ref
-  const auto ref_enu = gps_tform.XYZToENU(ref_xyz, ori_ell(0), ori_ell(1));
+  const auto ref_enu =
+      gps_tform.XYZToENU(ref_xyz, ori_ell(0), ori_ell(1), ori_ell(2));
 
   // Get ENU from Ell
-  const auto enu = gps_tform.EllToENU(ell, ori_ell(0), ori_ell(1));
+  const auto enu = gps_tform.EllToENU(ell, ell[0](0), ell[0](1), ell[0](2));
 
   for (size_t i = 0; i < ell.size(); ++i) {
-    EXPECT_THAT(enu[i], EigenMatrixNear(ref_enu[i], 1e-8));
+    EXPECT_THAT(enu[i], EigenMatrixNear(ref_enu[i], 1e-5));
   }
 }
 
@@ -214,10 +216,11 @@ TEST(GPS, XYZToENU) {
   const auto ori_ell = gps_tform.XYZToEll({ref_xyz[0]})[0];
 
   // Get ENU from ECEF ref
-  const auto ref_enu = gps_tform.XYZToENU(ref_xyz, ori_ell(0), ori_ell(1));
+  const auto ref_enu =
+      gps_tform.XYZToENU(ref_xyz, ori_ell(0), ori_ell(1), ori_ell(2));
 
   // Get ENU from ECEF
-  const auto enu = gps_tform.XYZToENU(xyz, ori_ell(0), ori_ell(1));
+  const auto enu = gps_tform.XYZToENU(xyz, ell[0](0), ell[0](1), ell[0](2));
 
   for (size_t i = 0; i < ell.size(); ++i) {
     EXPECT_THAT(enu[i], EigenMatrixNear(ref_enu[i], 1e-8));
@@ -248,7 +251,7 @@ TEST(GPS, ENUToEllWGS84) {
   const double alt0 = ori_ell[0](2);
 
   // Get ENU from ECEF
-  const auto enu = gps_tform.XYZToENU(xyz, lat0, lon0);
+  const auto enu = gps_tform.XYZToENU(xyz, lat0, lon0, alt0);
 
   const auto xyz_enu = gps_tform.ENUToXYZ(enu, lat0, lon0, alt0);
 
@@ -256,7 +259,7 @@ TEST(GPS, ENUToEllWGS84) {
   const auto ell = gps_tform.ENUToEll(enu, lat0, lon0, alt0);
 
   for (size_t i = 0; i < ell.size(); ++i) {
-    EXPECT_THAT(ell[i], EigenMatrixNear(ref_ell[i], 1e-5));
+    EXPECT_THAT(ell[i], EigenMatrixNear(ref_ell[i], 1e-8));
   }
 }
 
@@ -282,7 +285,7 @@ TEST(GPS, ENUToXYZ) {
   const double alt0 = ell[0](2);
 
   // Get ENU from Ell
-  const auto enu = gps_tform.EllToENU(ell, lat0, lon0);
+  const auto enu = gps_tform.EllToENU(ell, lat0, lon0, alt0);
 
   // Get XYZ from ENU
   const auto xyz = gps_tform.ENUToXYZ(enu, lat0, lon0, alt0);

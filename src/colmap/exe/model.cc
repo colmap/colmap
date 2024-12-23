@@ -127,8 +127,10 @@ std::vector<Eigen::Vector3d> ConvertCameraLocations(
     } else if (alignment_type == "enu") {
       LOG(INFO) << "Converting Alignment Coordinates from GPS (lat/lon/alt) "
                    "to ENU.";
-      return gps_transform.EllToENU(
-          ref_locations, ref_locations[0](0), ref_locations[0](1));
+      return gps_transform.EllToENU(ref_locations,
+                                    ref_locations[0](0),
+                                    ref_locations[0](1),
+                                    ref_locations[0](2));
     } else if (alignment_type == "utm") {
       LOG(INFO) << "Converting Alignment Coordinates from GPS (lat/lon/alt) "
                    "to UTM.";
