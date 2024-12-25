@@ -137,7 +137,7 @@ struct IncrementalPipelineOptions {
 
   // Optional list of image names to reconstruct. If no images are specified,
   // all images will be reconstructed by default.
-  std::vector<std::string> image_list;
+  std::vector<std::string> image_names;
 
   // If reconstruction is provided as input, fix the existing image poses.
   bool fix_existing_images = false;

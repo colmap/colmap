@@ -55,7 +55,7 @@ class AutomaticReconstructionController : public Thread {
 
     // Optional list of image names to reconstruct. The list must contain the
     // relative path of the images with respect to the image_path.
-    std::vector<std::string> image_list;
+    std::vector<std::string> image_names;
 
     // The path to the mask folder which are used as input.
     std::string mask_path;

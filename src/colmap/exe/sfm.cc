@@ -101,7 +101,7 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   options.Parse(argc, argv);
 
   if (!image_list_path.empty()) {
-    reconstruction_options.image_list = ReadTextFileLines(image_list_path);
+    reconstruction_options.image_names = ReadTextFileLines(image_list_path);
   }
 
   StringToLower(&data_type);
@@ -232,7 +232,7 @@ int RunMapper(int argc, char** argv) {
   }
 
   if (!image_list_path.empty()) {
-    options.mapper->image_list = ReadTextFileLines(image_list_path);
+    options.mapper->image_names = ReadTextFileLines(image_list_path);
   }
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
