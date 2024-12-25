@@ -538,7 +538,7 @@ def compute_abs_errors(
     return dts, dRs
 
 
-def compute_recall(errors: np.ndarray):
+def compute_recall(errors: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     num_elements = len(errors)
     errors = np.sort(errors)
     recall = (np.arange(num_elements) + 1) / num_elements
