@@ -1,22 +1,39 @@
+# Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+#     * Redistributions of source code must retain the above copyright
+#       notice, this list of conditions and the following disclaimer.
+#
+#     * Redistributions in binary form must reproduce the above copyright
+#       notice, this list of conditions and the following disclaimer in the
+#       documentation and/or other materials provided with the distribution.
+#
+#     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
+#       its contributors may be used to endorse or promote products derived
+#       from this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+
 import argparse
 import shutil
 import subprocess
 from pathlib import Path
 
 
-def download_vocab_tree(data_path: Path):
-    data_path.mkdir(parents=True, exist_ok=True)
-    subprocess.check_call(
-        [
-            "wget",
-            "-c",
-            "https://demuc.de/colmap/vocab_tree_flickr100K_words256K.bin",
-        ],
-        cwd=data_path,
-    )
-
-
-def download_eth3d(data_path: Path):
+def download_eth3d(data_path: Path) -> None:
     for filename, category in [
         ("multi_view_training_dslr_undistorted.7z", "dslr"),
         ("multi_view_test_dslr_undistorted.7z", "dslr"),
@@ -32,7 +49,7 @@ def download_eth3d(data_path: Path):
         subprocess.check_call(["7zz", "x", filename], cwd=target_folder)
 
 
-def download_imc2023(data_path: Path):
+def download_imc2023(data_path: Path) -> None:
     data_path.mkdir(parents=True, exist_ok=True)
 
     subprocess.check_call(
@@ -51,7 +68,7 @@ def download_imc2023(data_path: Path):
     )
 
 
-def download_imc2024(data_path: Path):
+def download_imc2024(data_path: Path) -> None:
     data_path.mkdir(parents=True, exist_ok=True)
 
     subprocess.check_call(
@@ -77,7 +94,7 @@ def download_imc2024(data_path: Path):
         shutil.move(scene, data_path / category_path)
 
 
-def parse_args():
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--data_path", type=Path, default=Path(__file__).parent / "data"
@@ -88,10 +105,9 @@ def parse_args():
     return parser.parse_args()
 
 
-def main():
+def main() -> None:
     args = parse_args()
 
-    download_vocab_tree(args.data_path)
     if "eth3d" in args.datasets:
         download_eth3d(args.data_path / "eth3d")
     if "imc2023" in args.datasets:
