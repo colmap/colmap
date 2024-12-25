@@ -232,9 +232,7 @@ int RunMapper(int argc, char** argv) {
   }
 
   if (!image_list_path.empty()) {
-    std::vector<std::string> image_names = ReadTextFileLines(image_list_path);
-    options.mapper->image_names = {std::make_move_iterator(image_names.begin()),
-                                   std::make_move_iterator(image_names.end())};
+    options.mapper->image_list = ReadTextFileLines(image_list_path);
   }
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();

@@ -56,6 +56,8 @@ AutomaticReconstructionController::AutomaticReconstructionController(
 
   *option_manager_.image_path = options_.image_path;
   option_manager_.image_reader->image_list = options_.image_list;
+  option_manager_.mapper->image_list = {options_.image_list.begin(),
+                                        options_.image_list.end()};
   *option_manager_.database_path =
       JoinPaths(options_.workspace_path, "database.db");
 

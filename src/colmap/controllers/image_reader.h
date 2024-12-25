@@ -34,7 +34,9 @@
 #include "colmap/sensor/bitmap.h"
 #include "colmap/util/threading.h"
 
+#include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 namespace colmap {
 

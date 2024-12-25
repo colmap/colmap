@@ -123,9 +123,7 @@ int RunImageDeleter(int argc, char** argv) {
   }
 
   if (!image_names_path.empty()) {
-    const auto image_names = ReadTextFileLines(image_names_path);
-
-    for (const auto& image_name : image_names) {
+    for (const std::string& image_name : ReadTextFileLines(image_names_path)) {
       if (image_name.empty()) {
         continue;
       }
@@ -266,10 +264,11 @@ int RunImageRegistrator(int argc, char** argv) {
     timer.Start();
     const size_t min_num_matches =
         static_cast<size_t>(options.mapper->min_num_matches);
-    database_cache = DatabaseCache::Create(Database(*options.database_path),
-                                           min_num_matches,
-                                           options.mapper->ignore_watermarks,
-                                           options.mapper->image_names);
+    database_cache = DatabaseCache::Create(
+        Database(*options.database_path),
+        min_num_matches,
+        options.mapper->ignore_watermarks,
+        {options.mapper->image_list.begin(), options.mapper->image_list.end()});
     timer.PrintMinutes();
   }
 
@@ -350,8 +349,7 @@ int RunImageUndistorter(int argc, char** argv) {
 
   std::vector<image_t> image_ids;
   if (!image_list_path.empty()) {
-    const auto& image_names = ReadTextFileLines(image_list_path);
-    for (const auto& image_name : image_names) {
+    for (const std::string& image_name : ReadTextFileLines(image_list_path)) {
       const Image* image = reconstruction.FindImageWithName(image_name);
       if (image != nullptr) {
         image_ids.push_back(image->ImageId());
