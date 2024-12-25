@@ -150,10 +150,11 @@ void BindIncrementalPipeline(py::module& m) {
                      &Opts::snapshot_images_freq,
                      "Frequency of registered images according to which "
                      "reconstruction snapshots will be saved.")
-      .def_readwrite("image_names",
-                     &Opts::image_names,
-                     "Which images to reconstruct. If no images are specified, "
-                     "all images will be reconstructed by default.")
+      .def_readwrite(
+          "image_list",
+          &Opts::image_list,
+          "Optional list of image names to reconstruct. If no images are "
+          "specified, all images will be reconstructed by default.")
       .def_readwrite("fix_existing_images",
                      &Opts::fix_existing_images,
                      "If reconstruction is provided as input, fix the existing "
