@@ -120,7 +120,7 @@ def process_dataset(args, dataset_name):
             "--num_threads",
             str(args.num_threads),
             "--quality",
-            "low",
+            args.quality,
             "--camera_model",
             "PINHOLE",
             "--camera_params",
