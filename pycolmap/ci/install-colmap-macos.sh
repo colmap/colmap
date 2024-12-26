@@ -22,6 +22,7 @@ git checkout ${VCPKG_COMMIT_ID}
 
 # Build COLMAP
 cd ${CURRDIR}
+ccache --clear --verbose
 "$(brew --prefix cmake)/bin/cmake" \
     -S . -B build/ \
     -GNinja \
