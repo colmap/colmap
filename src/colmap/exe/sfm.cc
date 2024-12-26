@@ -148,7 +148,8 @@ int RunAutomaticReconstructor(int argc, char** argv) {
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
 
-  if (reconstruction_options.use_gpu && kUseOpenGL) {
+  if (reconstruction_options.use_gpu && kUseOpenGL &&
+      (reconstruction_options.extraction || reconstruction_options.matching)) {
     QApplication app(argc, argv);
     AutomaticReconstructionController controller(reconstruction_options,
                                                  reconstruction_manager);

@@ -112,35 +112,39 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   option_manager_.mapper->ba_gpu_index = options_.gpu_index;
   option_manager_.bundle_adjustment->gpu_index = options_.gpu_index;
 
-  feature_extractor_ = CreateFeatureExtractorController(
-      reader_options, *option_manager_.sift_extraction);
-
-  exhaustive_matcher_ =
-      CreateExhaustiveFeatureMatcher(*option_manager_.exhaustive_matching,
-                                     *option_manager_.sift_matching,
-                                     *option_manager_.two_view_geometry,
-                                     *option_manager_.database_path);
-
-  if (!options_.vocab_tree_path.empty()) {
-    option_manager_.sequential_matching->loop_detection = true;
-    option_manager_.sequential_matching->vocab_tree_path =
-        options_.vocab_tree_path;
+  if (options_.extraction) {
+    feature_extractor_ = CreateFeatureExtractorController(
+        reader_options, *option_manager_.sift_extraction);
   }
 
-  sequential_matcher_ =
-      CreateSequentialFeatureMatcher(*option_manager_.sequential_matching,
-                                     *option_manager_.sift_matching,
-                                     *option_manager_.two_view_geometry,
-                                     *option_manager_.database_path);
+  if (options_.matching) {
+    exhaustive_matcher_ =
+        CreateExhaustiveFeatureMatcher(*option_manager_.exhaustive_matching,
+                                       *option_manager_.sift_matching,
+                                       *option_manager_.two_view_geometry,
+                                       *option_manager_.database_path);
 
-  if (!options_.vocab_tree_path.empty()) {
-    option_manager_.vocab_tree_matching->vocab_tree_path =
-        options_.vocab_tree_path;
-    vocab_tree_matcher_ =
-        CreateVocabTreeFeatureMatcher(*option_manager_.vocab_tree_matching,
-                                      *option_manager_.sift_matching,
-                                      *option_manager_.two_view_geometry,
-                                      *option_manager_.database_path);
+    if (!options_.vocab_tree_path.empty()) {
+      option_manager_.sequential_matching->loop_detection = true;
+      option_manager_.sequential_matching->vocab_tree_path =
+          options_.vocab_tree_path;
+    }
+
+    sequential_matcher_ =
+        CreateSequentialFeatureMatcher(*option_manager_.sequential_matching,
+                                       *option_manager_.sift_matching,
+                                       *option_manager_.two_view_geometry,
+                                       *option_manager_.database_path);
+
+    if (!options_.vocab_tree_path.empty()) {
+      option_manager_.vocab_tree_matching->vocab_tree_path =
+          options_.vocab_tree_path;
+      vocab_tree_matcher_ =
+          CreateVocabTreeFeatureMatcher(*option_manager_.vocab_tree_matching,
+                                        *option_manager_.sift_matching,
+                                        *option_manager_.two_view_geometry,
+                                        *option_manager_.database_path);
+    }
   }
 }
 
