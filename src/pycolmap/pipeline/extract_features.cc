@@ -22,7 +22,7 @@ namespace py = pybind11;
 
 void ExtractFeatures(const std::string& database_path,
                      const std::string& image_path,
-                     const std::vector<std::string>& image_list,
+                     const std::vector<std::string>& image_names,
                      const CameraMode camera_mode,
                      const std::string& camera_model,
                      ImageReaderOptions reader_options,
@@ -37,8 +37,8 @@ void ExtractFeatures(const std::string& database_path,
   reader_options.database_path = database_path;
   reader_options.image_path = image_path;
 
-  if (!image_list.empty()) {
-    reader_options.image_list = image_list;
+  if (!image_names.empty()) {
+    reader_options.image_names = image_names;
   }
 
   THROW_CHECK(ExistsCameraModelWithName(reader_options.camera_model));
@@ -59,7 +59,7 @@ void BindExtractFeatures(py::module& m) {
       &ExtractFeatures,
       "database_path"_a,
       "image_path"_a,
-      "image_list"_a = std::vector<std::string>(),
+      "image_names"_a = std::vector<std::string>(),
       "camera_mode"_a = CameraMode::AUTO,
       "camera_model"_a = "SIMPLE_RADIAL",
       py::arg_v("reader_options", ImageReaderOptions(), "ImageReaderOptions()"),

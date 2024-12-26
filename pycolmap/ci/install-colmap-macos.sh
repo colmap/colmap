@@ -22,22 +22,22 @@ git checkout ${VCPKG_COMMIT_ID}
 
 # Build COLMAP
 cd ${CURRDIR}
-mkdir build && cd build
-"$(brew --prefix cmake)/bin/cmake" .. -GNinja \
+"$(brew --prefix cmake)/bin/cmake" \
+    -S . -B build/ \
+    -GNinja \
     -DCUDA_ENABLED=OFF \
     -DGUI_ENABLED=OFF \
     -DCGAL_ENABLED=OFF \
     -DLSD_ENABLED=OFF \
-    -DCCACHE_ENABLED=ON \
+    -DCCACHE_ENABLED=OFF \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_MAKE_PROGRAM="$(brew --prefix ninja)/bin/ninja" \
     -DCMAKE_TOOLCHAIN_FILE="${CMAKE_TOOLCHAIN_FILE}" \
     -DVCPKG_TARGET_TRIPLET="${VCPKG_TARGET_TRIPLET}" \
     -DCMAKE_OSX_ARCHITECTURES="${CMAKE_OSX_ARCHITECTURES}" \
     `if [[ ${CIBW_ARCHS_MACOS} == "arm64" ]]; then echo "-DSIMD_ENABLED=OFF"; fi`
-ninja
-sudo ninja install
+sudo cmake --build build/ --target install
 
-ccache --show-stats --verbose
-ccache --evict-older-than 1d
-ccache --show-stats --verbose
+# ccache --show-stats --verbose
+# ccache --evict-older-than 1d
+# ccahe --show-stats --verbose
