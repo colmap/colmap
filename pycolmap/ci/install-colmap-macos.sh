@@ -28,7 +28,7 @@ cd ${CURRDIR}
     -DGUI_ENABLED=OFF \
     -DCGAL_ENABLED=OFF \
     -DLSD_ENABLED=OFF \
-    -DCCACHE_ENABLED=ON \
+    -DCCACHE_ENABLED=OFF \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_TOOLCHAIN_FILE="${CMAKE_TOOLCHAIN_FILE}" \
     -DVCPKG_TARGET_TRIPLET="${VCPKG_TARGET_TRIPLET}" \
@@ -36,6 +36,6 @@ cd ${CURRDIR}
     `if [[ ${CIBW_ARCHS_MACOS} == "arm64" ]]; then echo "-DSIMD_ENABLED=OFF"; fi`
 sudo cmake --build build --target install -v
 
-ccache --show-stats --verbose
-ccache --evict-older-than 1d
-ccache --show-stats --verbose
+# ccache --show-stats --verbose
+# ccache --evict-older-than 1d
+# ccahe --show-stats --verbose
