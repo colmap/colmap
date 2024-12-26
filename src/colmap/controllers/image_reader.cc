@@ -59,15 +59,15 @@ ImageReader::ImageReader(const ImageReaderOptions& options, Database* database)
   }
 
   // Get a list of all files in the image path, sorted by image name.
-  if (options_.image_list.empty()) {
-    options_.image_list = GetRecursiveFileList(options_.image_path);
-    std::sort(options_.image_list.begin(), options_.image_list.end());
+  if (options_.image_names.empty()) {
+    options_.image_names = GetRecursiveFileList(options_.image_path);
+    std::sort(options_.image_names.begin(), options_.image_names.end());
   } else {
-    if (!std::is_sorted(options_.image_list.begin(),
-                        options_.image_list.end())) {
-      std::sort(options_.image_list.begin(), options_.image_list.end());
+    if (!std::is_sorted(options_.image_names.begin(),
+                        options_.image_names.end())) {
+      std::sort(options_.image_names.begin(), options_.image_names.end());
     }
-    for (auto& image_name : options_.image_list) {
+    for (auto& image_name : options_.image_names) {
       image_name = JoinPaths(options_.image_path, image_name);
     }
   }
@@ -98,9 +98,9 @@ ImageReader::Status ImageReader::Next(Camera* camera,
   THROW_CHECK_NOTNULL(bitmap);
 
   image_index_ += 1;
-  THROW_CHECK_LE(image_index_, options_.image_list.size());
+  THROW_CHECK_LE(image_index_, options_.image_names.size());
 
-  const std::string image_path = options_.image_list.at(image_index_ - 1);
+  const std::string image_path = options_.image_names.at(image_index_ - 1);
 
   DatabaseTransaction database_transaction(database_);
 
@@ -276,7 +276,7 @@ ImageReader::Status ImageReader::Next(Camera* camera,
 
 size_t ImageReader::NextIndex() const { return image_index_; }
 
-size_t ImageReader::NumImages() const { return options_.image_list.size(); }
+size_t ImageReader::NumImages() const { return options_.image_names.size(); }
 
 std::string ImageReader::StatusToString(const ImageReader::Status status) {
   switch (status) {

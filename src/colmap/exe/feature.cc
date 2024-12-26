@@ -134,8 +134,8 @@ int RunFeatureExtractor(int argc, char** argv) {
   }
 
   if (!image_list_path.empty()) {
-    reader_options.image_list = ReadTextFileLines(image_list_path);
-    if (reader_options.image_list.empty()) {
+    reader_options.image_names = ReadTextFileLines(image_list_path);
+    if (reader_options.image_names.empty()) {
       return EXIT_SUCCESS;
     }
   }
@@ -195,8 +195,8 @@ int RunFeatureImporter(int argc, char** argv) {
   }
 
   if (!image_list_path.empty()) {
-    reader_options.image_list = ReadTextFileLines(image_list_path);
-    if (reader_options.image_list.empty()) {
+    reader_options.image_names = ReadTextFileLines(image_list_path);
+    if (reader_options.image_names.empty()) {
       return EXIT_SUCCESS;
     }
   }
