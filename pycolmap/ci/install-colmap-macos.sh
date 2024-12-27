@@ -29,7 +29,7 @@ cd ${CURRDIR}
     -DGUI_ENABLED=OFF \
     -DCGAL_ENABLED=OFF \
     -DLSD_ENABLED=OFF \
-    -DCCACHE_ENABLED=OFF \
+    -DCCACHE_ENABLED=ON \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_MAKE_PROGRAM="$(brew --prefix ninja)/bin/ninja" \
     -DCMAKE_TOOLCHAIN_FILE="${CMAKE_TOOLCHAIN_FILE}" \
@@ -38,6 +38,6 @@ cd ${CURRDIR}
     `if [[ ${CIBW_ARCHS_MACOS} == "arm64" ]]; then echo "-DSIMD_ENABLED=OFF"; fi`
 sudo cmake --build build/ --target install
 
-# ccache --show-stats --verbose
-# ccache --evict-older-than 1d
-# ccahe --show-stats --verbose
+ccache --show-stats --verbose
+ccache --evict-older-than 1d
+ccahe --show-stats --verbose
