@@ -238,7 +238,8 @@ bool IncrementalPipeline::LoadDatabase() {
 
   // Make sure images of the given reconstruction are also included when
   // manually specifying images for the reconstruction procedure.
-  std::unordered_set<std::string> image_names = options_->image_names;
+  std::unordered_set<std::string> image_names = {options_->image_names.begin(),
+                                                 options_->image_names.end()};
   if (reconstruction_manager_->Size() == 1 && !options_->image_names.empty()) {
     const auto& reconstruction = reconstruction_manager_->Get(0);
     for (const image_t image_id : reconstruction->RegImageIds()) {
