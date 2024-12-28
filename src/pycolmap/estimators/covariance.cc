@@ -48,7 +48,7 @@ void BindCovarianceEstimator(py::module& m) {
             if (!self.qvec)
               return py::none();
             else
-              return py::array_t<double>({4}, self.qvec);
+              return py::array_t<double>(4, self.qvec);
           },
           [](internal::PoseParam& self, py::array_t<double> pyarray) {
             THROW_CHECK_EQ(pyarray.ndim(), 1);
@@ -63,7 +63,7 @@ void BindCovarianceEstimator(py::module& m) {
             if (!self.tvec)
               return py::none();
             else
-              return py::array_t<double>({3}, self.tvec);
+              return py::array_t<double>(3, self.tvec);
           },
           [](internal::PoseParam& self, py::array_t<double> pyarray) {
             THROW_CHECK_EQ(pyarray.ndim(), 1);
