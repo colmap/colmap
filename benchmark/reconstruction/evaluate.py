@@ -95,7 +95,7 @@ def update_camera_priors_from_sparse_gt(
 
     for image in database.read_all_images():
         if image.name not in images_gt_by_name:
-            pycolmap.logging.info(
+            pycolmap.logging.warning(
                 f"Not setting prior camera for image {image.name}, "
                 "because it does not exist in GT"
             )
@@ -425,7 +425,7 @@ def compute_rel_errors(
     """
 
     if sparse is None:
-        pycolmap.logging.info("Reconstruction failed")
+        pycolmap.logging.error("Reconstruction failed")
         return len(sparse_gt.images) * [np.inf], len(sparse_gt.images) * [180]
 
     images = {}
@@ -499,7 +499,7 @@ def compute_abs_errors(
     dRs = np.full(len(sparse_gt.images), fill_value=180, dtype=np.float64)
 
     if sparse is None:
-        pycolmap.logging.info("Reconstruction or alignment failed")
+        pycolmap.logging.error("Reconstruction or alignment failed")
         return dts, dRs
 
     images = {}
