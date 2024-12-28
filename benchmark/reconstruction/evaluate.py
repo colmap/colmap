@@ -30,6 +30,7 @@
 import argparse
 import collections
 import copy
+import dataclasses
 import datetime
 import functools
 import multiprocessing
@@ -43,48 +44,41 @@ from PIL import Image
 import pycolmap
 
 
-SceneInfo = collections.namedtuple(
-    "SceneInfo",
-    [
-        "category",
-        "scene",
-        "workspace_path",
-        "image_path",
-        "sparse_gt_path",
-        "camera_priors_from_sparse_gt",
-        "position_accuracy_gt",
-        "colmap_extra_args",
-    ],
-)
+@dataclasses.dataclass(kw_only=True)
+class SceneInfo:
+    category: str
+    scene: str
+    workspace_path: Path
+    image_path: Path
+    sparse_gt_path: Path
+    camera_priors_from_sparse_gt: bool
+    position_accuracy_gt: float
+    colmap_extra_args: list[str]
 
-SceneResult = collections.namedtuple(
-    "SceneResult",
-    [
-        "scene_info",
-        "errors",
-        "num_images",
-        "num_reg_images",
-        "num_components",
-        "largest_component",
-    ],
-)
 
-SceneMetrics = collections.namedtuple(
-    "ScenSceneMetricsResult",
-    [
-        "aucs",
-        "num_images",
-        "num_reg_images",
-        "num_components",
-        "largest_component",
-    ],
-)
+@dataclasses.dataclass(kw_only=True)
+class SceneResult:
+    scene_info: SceneInfo
+    errors: np.ndarray
+    num_images: int
+    num_reg_images: int
+    num_components: int
+    largest_component: int
+
+
+@dataclasses.dataclass(kw_only=True)
+class SceneMetrics:
+    aucs: np.ndarray
+    num_images: int
+    num_reg_images: int
+    num_components: int
+    largest_component: int
 
 
 def update_camera_priors_from_sparse_gt(
     database_path: Path, camera_priors_sparse_gt: pycolmap.Reconstruction
 ) -> None:
-    print("Setting prior cameras from GT")
+    pycolmap.logging.info("Setting prior cameras from GT")
 
     database = pycolmap.Database()
     database.open(database_path)
@@ -101,7 +95,7 @@ def update_camera_priors_from_sparse_gt(
 
     for image in database.read_all_images():
         if image.name not in images_gt_by_name:
-            print(
+            pycolmap.logging.info(
                 f"Not setting prior camera for image {image.name}, "
                 "because it does not exist in GT"
             )
@@ -133,9 +127,12 @@ def colmap_reconstruction(
         shutil.rmtree(sparse_path)
 
     if sparse_path.exists():
-        print("Skipping reconstruction, as it already exists")
+        pycolmap.logging.info("Skipping reconstruction, as it already exists")
         return
 
+    # TODO: Expose automatic reconstruction through pycolmap bindings instead
+    # of using the command line interface. One blocker for this is that we
+    # currently do not produce CUDA enabled pycolmap packages.
     colmap_args = [
         args.colmap_path,
         "automatic_reconstructor",
@@ -221,7 +218,7 @@ def colmap_alignment(
     if args.overwrite_alignment and sparse_aligned_path.exists():
         shutil.rmtree(sparse_aligned_path)
     if sparse_aligned_path.exists():
-        print("Skipping alignment, as it already exists")
+        pycolmap.logging.info("Skipping alignment, as it already exists")
         return
 
     if sparse_path.exists():
@@ -304,7 +301,7 @@ def reconstruct_scene(
             sparse=sparse_merged,
             min_proj_center_dist=scene_info.position_accuracy_gt,
         )
-        errors = [max(dt, dR) for dt, dR in zip(dts, dRs)]
+        errors = np.maximum(dts, dRs)
     elif args.error_type == "absolute":
         dts, dRs = compute_abs_errors(
             sparse_gt=sparse_gt,
@@ -393,13 +390,6 @@ def normalize_vec(vec: np.ndarray, eps: float = 1e-10) -> np.ndarray:
     return vec / max(eps, np.linalg.norm(vec))
 
 
-def rot_mat_angular_dist_deg(
-    rot_mat1: np.ndarray, rot_mat2: np.ndarray
-) -> float:
-    cos_dist = np.clip(((np.trace(rot_mat1 @ rot_mat2.T)) - 1) / 2, -1, 1)
-    return np.rad2deg(np.acos(cos_dist))
-
-
 def vec_angular_dist_deg(vec1: np.ndarray, vec2: np.ndarray) -> float:
     cos_dist = np.clip(np.dot(normalize_vec(vec1), normalize_vec(vec2)), -1, 1)
     return np.rad2deg(np.acos(cos_dist))
@@ -418,7 +408,7 @@ def compute_rel_errors(
     sparse_gt: pycolmap.Reconstruction,
     sparse: pycolmap.Reconstruction,
     min_proj_center_dist: float,
-) -> tuple[list[float], list[float]]:
+) -> tuple[np.ndarray, np.ndarray]:
     """Computes angular relative pose errors across all image pairs.
 
     Notice that this approach leads to a super-linear decrease in the AUC scores
@@ -435,7 +425,7 @@ def compute_rel_errors(
     """
 
     if sparse is None:
-        print("Reconstruction failed")
+        pycolmap.logging.info("Reconstruction failed")
         return len(sparse_gt.images) * [np.inf], len(sparse_gt.images) * [180]
 
     images = {}
@@ -464,19 +454,20 @@ def compute_rel_errors(
 
             other_image = images[other_image_gt.name]
 
-            this_from_other = (
-                this_image.cam_from_world * other_image.cam_from_world.inverse()
+            other_from_this = (
+                other_image.cam_from_world * this_image.cam_from_world.inverse()
             )
-            this_from_other_gt = (
-                this_image_gt.cam_from_world
-                * other_image_gt.cam_from_world.inverse()
+            other_from_this_gt = (
+                other_image_gt.cam_from_world
+                * this_image_gt.cam_from_world.inverse()
             )
 
-            proj_center_dist_gt = np.linalg.norm(
-                this_image_gt.projection_center()
-                - other_image_gt.projection_center()
-            )
-            if proj_center_dist_gt < min_proj_center_dist:
+            estimated_from_gt = other_from_this.inverse() * other_from_this_gt
+
+            if (
+                np.linalg.norm(other_from_this_gt.translation)
+                < min_proj_center_dist
+            ):
                 # If the cameras almost coincide, then the angular direction
                 # distance is unstable, because a small position change can
                 # cause a large rotational error. In this case, we only measure
@@ -484,56 +475,51 @@ def compute_rel_errors(
                 dt = 0
             else:
                 dt = vec_angular_dist_deg(
-                    this_from_other.translation, this_from_other_gt.translation
+                    other_from_this.translation, other_from_this_gt.translation
                 )
 
-            dR = rot_mat_angular_dist_deg(
-                this_from_other.rotation.matrix(),
-                this_from_other_gt.rotation.matrix(),
-            )
+            dR = np.rad2deg(estimated_from_gt.rotation.angle())
 
             dts.append(dt)
             dRs.append(dR)
 
-    return dts, dRs
+    return np.array(dts), np.array(dRs)
 
 
 def compute_abs_errors(
     sparse_gt: pycolmap.Reconstruction, sparse: pycolmap.Reconstruction
-) -> tuple[list[float], list[float]]:
+) -> tuple[np.ndarray, np.ndarray]:
     """Computes rotational and translational absolute pose errors.
 
     Assumes that the input reconstructions are aligned in the same coordinate
     system. Computes one error per ground-truth image.
     """
+
+    dts = np.full(len(sparse_gt.images), fill_value=np.inf, dtype=np.float64)
+    dRs = np.full(len(sparse_gt.images), fill_value=180, dtype=np.float64)
+
     if sparse is None:
-        print("Reconstruction or alignment failed")
-        return len(sparse_gt.images) * [np.inf], len(sparse_gt.images) * [180]
+        pycolmap.logging.info("Reconstruction or alignment failed")
+        return dts, dRs
 
     images = {}
     for image in sparse.images.values():
         images[image.name] = image
 
-    dts = []
-    dRs = []
-    for image_gt in sparse_gt.images.values():
+    dts = np.full(len(sparse_gt.images), fill_value=np.inf, dtype=np.float64)
+    dRs = np.full(len(sparse_gt.images), fill_value=180, dtype=np.float64)
+    for i, image_gt in enumerate(sparse_gt.images.values()):
         if image_gt.name not in images:
-            dts.append(np.inf)
-            dRs.append(180)
             continue
 
         image = images[image_gt.name]
 
-        dt = np.linalg.norm(
-            image_gt.projection_center() - image.projection_center()
-        )
-        dR = rot_mat_angular_dist_deg(
-            image_gt.cam_from_world.rotation.matrix(),
-            image.cam_from_world.rotation.matrix(),
+        estimated_from_gt = (
+            image.cam_from_world * image_gt.cam_from_world.inverse()
         )
 
-        dts.append(dt)
-        dRs.append(dR)
+        dts[i] = np.linalg.norm(estimated_from_gt.translation)
+        dRs[i] = np.rad2deg(estimated_from_gt.rotation.angle())
 
     return dts, dRs
 
@@ -562,13 +548,13 @@ def compute_auc(
         recall = np.r_[0, recall]
         errors = np.r_[0, errors]
 
-    aucs = []
-    for t in thresholds:
+    aucs = np.zeros(len(thresholds), dtype=np.float64)
+    for i, t in enumerate(thresholds):
         last_index = np.searchsorted(errors, t, side="right")
         r = np.r_[recall[:last_index], recall[last_index - 1]]
         e = np.r_[errors[:last_index], t]
         auc = np.trapezoid(r, x=e) / t
-        aucs.append(auc * 100)
+        aucs[i] = auc * 100
     return aucs
 
 
@@ -584,7 +570,7 @@ def compute_avg_auc(scene_metrics: dict[str, SceneMetrics]) -> list[float]:
         else:
             for i in range(len(auc_sum)):
                 auc_sum[i] += metrics.aucs[i]
-    return [auc / num_scenes for auc in auc_sum]
+    return np.array([auc / num_scenes for auc in auc_sum])
 
 
 def evaluate_eth3d(
@@ -617,7 +603,9 @@ def evaluate_eth3d(
                 0
             ]
 
-            print(f"Processing ETH3D: category={category}, scene={scene}")
+            pycolmap.logging.info(
+                f"Processing ETH3D: category={category}, scene={scene}"
+            )
 
             colmap_extra_args = []
             if category == "dslr":
@@ -643,6 +631,53 @@ def evaluate_eth3d(
     )
 
     return results
+
+
+def extract_blended_mvs_sparse_gt(
+    scene_path: Path, sparse_gt_path: Path
+) -> None:
+    if sparse_gt_path.exists():
+        return
+
+    sparse_gt = pycolmap.Reconstruction()
+    for i, filepath in enumerate(sorted((scene_path / "cams").iterdir())):
+        filename = str(filepath.name)
+        if not filename.endswith("_cam.txt"):
+            continue
+        image_name = filename[:-8] + ".jpg"
+        width, height = Image.open(
+            scene_path / "blended_images" / image_name
+        ).size[:2]
+        with open(filepath, encoding="ascii") as fid:
+            lines = list(map(lambda b: b.strip(), fid.readlines()))
+            extrinsic = np.fromstring(
+                " ".join(lines[1:4]),
+                count=12,
+                sep=" ",
+            ).reshape(3, 4)
+            intrinsic = np.fromstring(
+                " ".join(lines[7:10]),
+                count=9,
+                sep=" ",
+            ).reshape(3, 3)
+        camera = pycolmap.Camera(
+            camera_id=i,
+            model=pycolmap.CameraModelId.PINHOLE,
+            width=width,
+            height=height,
+            params=intrinsic[(0, 1, 0, 1), (0, 1, 2, 2)],
+        )
+        image = pycolmap.Image(
+            image_id=i,
+            camera_id=i,
+            name=image_name,
+            cam_from_world=pycolmap.Rigid3d(extrinsic),
+        )
+        sparse_gt.add_camera(camera)
+        sparse_gt.add_image(image)
+
+    sparse_gt_path.mkdir()
+    sparse_gt.write(sparse_gt_path)
 
 
 def evaluate_blended_mvs(
@@ -682,57 +717,11 @@ def evaluate_blended_mvs(
                         fid.write(image_name + "\n")
 
             sparse_gt_path = scene_path / "sparse_gt"
-            if not sparse_gt_path.exists():
-                sparse_gt = pycolmap.Reconstruction()
-                for i, filepath in enumerate(
-                    sorted((scene_path / "cams").iterdir())
-                ):
-                    filename = str(filepath.name)
-                    if not filename.endswith("_cam.txt"):
-                        continue
-                    image_name = filename[:-8] + ".jpg"
-                    width, height = Image.open(
-                        scene_path / "blended_images" / image_name
-                    ).size[:2]
-                    with open(filepath, encoding="ascii") as fid:
-                        lines = list(map(lambda b: b.strip(), fid.readlines()))
-                        extrinsic = np.fromstring(
-                            " ".join(lines[1:4]),
-                            count=12,
-                            sep=" ",
-                        ).reshape(3, 4)
-                        intrinsic = np.fromstring(
-                            " ".join(lines[7:10]),
-                            count=9,
-                            sep=" ",
-                        ).reshape(3, 3)
-                    camera = pycolmap.Camera()
-                    camera.camera_id = i
-                    camera.model = pycolmap.CameraModelId.PINHOLE
-                    camera.width = width
-                    camera.height = height
-                    camera.params = [
-                        intrinsic[0, 0],
-                        intrinsic[1, 1],
-                        intrinsic[0, 2],
-                        intrinsic[1, 2],
-                    ]
-                    image = pycolmap.Image()
-                    image.image_id = i
-                    image.camera_id = i
-                    image.name = image_name
-                    image.cam_from_world = pycolmap.Rigid3d()
-                    image.cam_from_world.rotation = pycolmap.Rotation3d(
-                        rotmat=extrinsic[:, :3]
-                    )
-                    image.cam_from_world.translation = extrinsic[:, 3]
-                    sparse_gt.add_camera(camera)
-                    sparse_gt.add_image(image)
+            extract_blended_mvs_sparse_gt(scene_path, sparse_gt_path)
 
-                sparse_gt_path.mkdir()
-                sparse_gt.write(sparse_gt_path)
-
-            print(f"Processing BlendedMVS: category={category}, scene={scene}")
+            pycolmap.logging.info(
+                f"Processing BlendedMVS: category={category}, scene={scene}"
+            )
 
             colmap_extra_args = ["--image_list_path", image_list_path]
 
@@ -754,6 +743,26 @@ def evaluate_blended_mvs(
     )
 
     return results
+
+
+def extract_imc_sparse_gt(
+    image_path: Path, sfm_path: Path, sparse_gt_path: Path
+) -> None:
+    if sparse_gt_path.exists():
+        return
+
+    train_image_names = set(image.name for image in image_path.iterdir())
+    sparse_sfm = pycolmap.Reconstruction(sfm_path)
+    sparse_gt = pycolmap.Reconstruction()
+    for image in sparse_sfm.images.values():
+        if image.name not in train_image_names:
+            continue
+        if image.camera_id not in sparse_gt.cameras:
+            sparse_gt.add_camera(image.camera)
+        image.reset_camera_ptr()
+        sparse_gt.add_image(image)
+    sparse_gt_path.mkdir(exist_ok=True)
+    sparse_gt.write(sparse_gt_path)
 
 
 def evaluate_imc(
@@ -782,30 +791,24 @@ def evaluate_imc(
             if args.scenes and scene not in args.scenes:
                 continue
 
-            print(f"Processing IMC {year}: category={category}, scene={scene}")
+            sfm_path = scene_path / "sfm"
+            if not sfm_path.exists():
+                pycolmap.logging.warning(
+                    f"Skipping IMC {year}: category={category}, scene={scene}, "
+                    "because the GT reconstruction is missing"
+                )
+                continue
+
+            pycolmap.logging.info(
+                f"Processing IMC {year}: category={category}, scene={scene}"
+            )
 
             workspace_path = (
                 args.run_path / args.run_name / folder_name / category / scene
             )
             image_path = scene_path / "images"
-            train_image_names = set(
-                image.name for image in image_path.iterdir()
-            )
-            sfm_path = scene_path / "sfm"
-            if not sfm_path.exists():
-                continue
-            sparse_sfm = pycolmap.Reconstruction(scene_path / "sfm")
-            sparse_gt = pycolmap.Reconstruction()
-            for image in sparse_sfm.images.values():
-                if image.name not in train_image_names:
-                    continue
-                if image.camera_id not in sparse_gt.cameras:
-                    sparse_gt.add_camera(image.camera)
-                image.reset_camera_ptr()
-                sparse_gt.add_image(image)
             sparse_gt_path = scene_path / "sparse_gt"
-            sparse_gt_path.mkdir(exist_ok=True)
-            sparse_gt.write(sparse_gt_path)
+            extract_imc_sparse_gt(image_path, sfm_path, sparse_gt_path)
 
             scene_info = SceneInfo(
                 category=category,
@@ -945,10 +948,14 @@ def parse_args() -> argparse.Namespace:
     args = parser.parse_args()
     args.colmap_path = Path(args.colmap_path).resolve()
     if args.overwrite_database:
-        print("Overwriting database also overwrites reconstruction")
+        pycolmap.logging.info(
+            "Overwriting database also overwrites reconstruction"
+        )
         args.overwrite_reconstruction = True
     if args.overwrite_reconstruction:
-        print("Overwriting reconstruction also overwrites alignment")
+        pycolmap.logging.info(
+            "Overwriting reconstruction also overwrites alignment"
+        )
         args.overwrite_alignment = True
     return args
 
@@ -966,8 +973,7 @@ def main() -> None:
     if "imc2024" in args.datasets:
         results["imc2024"] = evaluate_imc(args, year=2024)
 
-    print("\nResults\n")
-    print(format_results(args, results))
+    pycolmap.logging.info("Results:\n" + format_results(args, results))
 
 
 if __name__ == "__main__":
