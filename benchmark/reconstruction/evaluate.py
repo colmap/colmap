@@ -412,7 +412,7 @@ def compute_rel_errors(
     """Computes angular relative pose errors across all image pairs.
 
     Notice that this approach leads to a super-linear decrease in the AUC scores
-    when multiple images fails to register. Consider that we have N images in
+    when multiple images fail to register. Consider that we have N images in
     total in a dataset and M images are registered in the evaluated
     reconstruction. In this case, we can compute "finite" errors for (N-M)^2
     pairs while the dataset has a total of N^2 pairs. In case of many
@@ -570,7 +570,7 @@ def compute_avg_auc(scene_metrics: dict[str, SceneMetrics]) -> list[float]:
         else:
             for i in range(len(auc_sum)):
                 auc_sum[i] += metrics.aucs[i]
-    return np.array([auc / num_scenes for auc in auc_sum])
+    return np.array(auc_sum) / num_scenes
 
 
 def evaluate_eth3d(
