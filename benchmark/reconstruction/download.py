@@ -28,9 +28,24 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import argparse
+import requests
 import shutil
 import subprocess
+import zipfile
 from pathlib import Path
+
+import pycolmap
+import py7zr
+
+
+def download_file(url: str, target_folder: Path) -> None:
+    filename = url.split("/")[-1]
+    with requests.get(url, stream=True) as req:
+        req.raise_for_status()
+        with open(target_folder / filename, "wb") as f:
+            for chunk in req.iter_content(chunk_size=8192):
+                f.write(chunk)
+    return filename
 
 
 def download_eth3d(data_path: Path) -> None:
@@ -42,16 +57,23 @@ def download_eth3d(data_path: Path) -> None:
     ]:
         target_folder = data_path / category
         target_folder.mkdir(parents=True, exist_ok=True)
-        subprocess.check_call(
-            ["wget", "-c", "https://www.eth3d.net/data/" + filename],
-            cwd=target_folder,
+
+        pycolmap.logging.info(
+            f"Downloading ETH3D category={category}, filename={filename}"
         )
-        subprocess.check_call(["7zz", "x", filename], cwd=target_folder)
+        download_file("https://www.eth3d.net/data/" + filename, target_folder)
+
+        pycolmap.logging.info(
+            f"Extracting ETH3D category={category}, filename={filename}"
+        )
+        with py7zr.SevenZipFile(target_folder / filename, mode="r") as archive:
+            archive.extractall(path=target_folder)
 
 
 def download_imc2023(data_path: Path) -> None:
     data_path.mkdir(parents=True, exist_ok=True)
 
+    pycolmap.logging.info(f"Downloading IMC2023")
     subprocess.check_call(
         [
             "kaggle",
@@ -63,14 +85,18 @@ def download_imc2023(data_path: Path) -> None:
             str(data_path),
         ],
     )
-    subprocess.check_call(
-        ["unzip", "image-matching-challenge-2023.zip"], cwd=data_path
-    )
+
+    pycolmap.logging.info(f"Extracting IMC2023")
+    with zipfile.ZipFile(
+        data_path / "image-matching-challenge-2023.zip", mode="r"
+    ) as archive:
+        archive.extractall(path=data_path)
 
 
 def download_imc2024(data_path: Path) -> None:
     data_path.mkdir(parents=True, exist_ok=True)
 
+    pycolmap.logging.info(f"Downloading IMC2024")
     subprocess.check_call(
         [
             "kaggle",
@@ -82,9 +108,13 @@ def download_imc2024(data_path: Path) -> None:
             str(data_path),
         ],
     )
-    subprocess.check_call(
-        ["unzip", "image-matching-challenge-2024.zip"], cwd=data_path
-    )
+
+    pycolmap.logging.info(f"Extracting IMC2024")
+    with zipfile.ZipFile(
+        data_path / "image-matching-challenge-2024.zip", mode="r"
+    ) as archive:
+        archive.extractall(path=data_path)
+
     # Move all scenes to the "all" category sub-folder.
     category_path = data_path / "train/all"
     category_path.mkdir(parents=True, exist_ok=True)
@@ -94,13 +124,44 @@ def download_imc2024(data_path: Path) -> None:
         shutil.move(scene, data_path / category_path)
 
 
+# TODO: BlendedMVS+ and BlendedMVS++.
+def download_blended_mvs(data_path: Path) -> None:
+    target_folder = data_path / "BlendedMVS"
+    target_folder.mkdir(parents=True, exist_ok=True)
+
+    pycolmap.logging.info(f"Downloading BlendedMVS")
+    for filename in [
+        "BlendedMVS.zip",
+    ] + ["BlendedMVS.z{:02d}".format(i) for i in range(1, 16)]:
+        download_file(
+            "https://github.com/YoYo000/BlendedMVS/releases/download/v1.0.0/"
+            + filename,
+            target_folder,
+        )
+
+    pycolmap.logging.info(f"Extracting BlendedMVS")
+    with zipfile.ZipFile(target_folder / "BlendedMVS.zip", mode="r") as archive:
+        archive.extractall(path=data_path)
+
+
+DOWNLOADERS = {
+    "eth3d": download_eth3d,
+    "imc2023": download_imc2023,
+    "imc2024": download_imc2024,
+    "blended-mvs": download_blended_mvs,
+}
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--data_path", type=Path, default=Path(__file__).parent / "data"
     )
     parser.add_argument(
-        "--datasets", nargs="+", default=["eth3d", "imc2023", "imc2024"]
+        "--datasets",
+        nargs="+",
+        default=DOWNLOADERS.keys(),
+        choices=DOWNLOADERS.keys(),
     )
     return parser.parse_args()
 
@@ -108,12 +169,8 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
 
-    if "eth3d" in args.datasets:
-        download_eth3d(args.data_path / "eth3d")
-    if "imc2023" in args.datasets:
-        download_imc2023(args.data_path / "imc2023")
-    if "imc2024" in args.datasets:
-        download_imc2024(args.data_path / "imc2024")
+    for dataset in args.datasets:
+        DOWNLOADERS[dataset](args.data_path / dataset)
 
 
 if __name__ == "__main__":
