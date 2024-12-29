@@ -29,7 +29,7 @@
 
 from pathlib import Path
 
-from .evaluation.utils import Dataset, SceneInfo
+from .utils import Dataset, SceneInfo
 
 
 class DatasetETH3D(Dataset):

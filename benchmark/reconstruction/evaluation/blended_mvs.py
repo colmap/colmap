@@ -35,7 +35,7 @@ from PIL import Image
 
 import pycolmap
 
-from .evaluation.utils import Dataset, SceneInfo
+from .utils import Dataset, SceneInfo
 
 
 class DatasetBlendedMVS(Dataset):

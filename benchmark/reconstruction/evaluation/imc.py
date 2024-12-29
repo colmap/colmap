@@ -31,7 +31,7 @@ from pathlib import Path
 
 import pycolmap
 
-from .evaluation.utils import Dataset, SceneInfo
+from .utils import Dataset, SceneInfo
 
 
 class _DatasetIMC(Dataset):
