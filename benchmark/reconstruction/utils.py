@@ -757,7 +757,9 @@ def create_result_table(
                     row += "-" * size_sep + "\n"
                 row += f"{scene:<{size_scenes}} "
                 row += " ".join(f"{auc:>6.2f}" for auc in metrics.aucs)
-                row += f" {metrics.num_reg_images:6d}{metrics.num_images:6d}"
-                row += f" {metrics.num_components:4d}{metrics.largest_component:8d}"
+                row += f" {metrics.num_reg_images:6d}"
+                row += f"{metrics.num_images:6d}"
+                row += f" {metrics.num_components:4d}"
+                row += f"{metrics.largest_component:8d}"
                 text.append(row)
     return "\n".join(text)

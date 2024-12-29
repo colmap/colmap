@@ -56,7 +56,7 @@ def main() -> None:
         if dataset_name not in datasets:
             pycolmap.logging.error(f"Unknown dataset: {dataset_name}")
             return
-        
+
         pycolmap.logging.info(f"Evaluating dataset: {dataset_name}")
 
         dataset = datasets[dataset_name](

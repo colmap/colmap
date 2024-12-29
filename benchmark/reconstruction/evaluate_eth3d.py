@@ -33,7 +33,6 @@ from .utils import Dataset, SceneInfo
 
 
 class DatasetETH3D(Dataset):
-
     def __init__(
         self,
         data_path: Path,

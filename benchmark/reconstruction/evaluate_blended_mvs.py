@@ -39,7 +39,6 @@ from .utils import Dataset, SceneInfo
 
 
 class DatasetBlendedMVS(Dataset):
-
     def __init__(
         self,
         data_path: Path,

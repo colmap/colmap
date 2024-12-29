@@ -35,7 +35,6 @@ from .utils import Dataset, SceneInfo
 
 
 class _DatasetIMC(Dataset):
-
     def __init__(
         self,
         data_path: Path,
@@ -135,7 +134,6 @@ class _DatasetIMC(Dataset):
 
 
 class DatasetIMC2023(_DatasetIMC):
-
     def __init__(
         self,
         data_path: Path,
@@ -155,7 +153,6 @@ class DatasetIMC2023(_DatasetIMC):
 
 
 class DatasetIMC2024(_DatasetIMC):
-
     def __init__(
         self,
         data_path: Path,
