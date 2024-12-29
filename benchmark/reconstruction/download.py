@@ -28,14 +28,15 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import argparse
-import requests
 import shutil
 import subprocess
 import zipfile
 from pathlib import Path
 
-import pycolmap
 import py7zr
+import requests
+
+import pycolmap
 
 
 def download_file(url: str, target_folder: Path) -> None:
@@ -73,7 +74,7 @@ def download_eth3d(data_path: Path) -> None:
 def download_imc2023(data_path: Path) -> None:
     data_path.mkdir(parents=True, exist_ok=True)
 
-    pycolmap.logging.info(f"Downloading IMC2023")
+    pycolmap.logging.info("Downloading IMC2023")
     subprocess.check_call(
         [
             "kaggle",
@@ -86,7 +87,7 @@ def download_imc2023(data_path: Path) -> None:
         ],
     )
 
-    pycolmap.logging.info(f"Extracting IMC2023")
+    pycolmap.logging.info("Extracting IMC2023")
     with zipfile.ZipFile(
         data_path / "image-matching-challenge-2023.zip", mode="r"
     ) as archive:
@@ -96,7 +97,7 @@ def download_imc2023(data_path: Path) -> None:
 def download_imc2024(data_path: Path) -> None:
     data_path.mkdir(parents=True, exist_ok=True)
 
-    pycolmap.logging.info(f"Downloading IMC2024")
+    pycolmap.logging.info("Downloading IMC2024")
     subprocess.check_call(
         [
             "kaggle",
@@ -109,7 +110,7 @@ def download_imc2024(data_path: Path) -> None:
         ],
     )
 
-    pycolmap.logging.info(f"Extracting IMC2024")
+    pycolmap.logging.info("Extracting IMC2024")
     with zipfile.ZipFile(
         data_path / "image-matching-challenge-2024.zip", mode="r"
     ) as archive:
@@ -129,17 +130,17 @@ def download_blended_mvs(data_path: Path) -> None:
     target_folder = data_path / "BlendedMVS"
     target_folder.mkdir(parents=True, exist_ok=True)
 
-    pycolmap.logging.info(f"Downloading BlendedMVS")
+    pycolmap.logging.info("Downloading BlendedMVS")
     for filename in [
         "BlendedMVS.zip",
-    ] + ["BlendedMVS.z{:02d}".format(i) for i in range(1, 16)]:
+    ] + [f"BlendedMVS.z{i:02d}" for i in range(1, 16)]:
         download_file(
             "https://github.com/YoYo000/BlendedMVS/releases/download/v1.0.0/"
             + filename,
             target_folder,
         )
 
-    pycolmap.logging.info(f"Extracting BlendedMVS")
+    pycolmap.logging.info("Extracting BlendedMVS")
     with zipfile.ZipFile(target_folder / "BlendedMVS.zip", mode="r") as archive:
         archive.extractall(path=data_path)
 

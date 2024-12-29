@@ -27,18 +27,12 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-
 from pathlib import Path
 
-import numpy as np
-from PIL import Image
-
-import pycolmap
-
-from .utils import Dataset, SceneInfo
+from .evaluation.utils import Dataset, SceneInfo
 
 
-class DatasetBlendedMVS(Dataset):
+class DatasetETH3D(Dataset):
     def __init__(
         self,
         data_path: Path,
@@ -60,7 +54,7 @@ class DatasetBlendedMVS(Dataset):
 
     def list_scenes(self):
         scene_infos = []
-        for category_path in (self.data_path / "blended-mvs").iterdir():
+        for category_path in (self.data_path / "eth3d").iterdir():
             if not category_path.is_dir() or (
                 self.categories and category_path.name not in self.categories
             ):
@@ -77,28 +71,21 @@ class DatasetBlendedMVS(Dataset):
                     continue
 
                 workspace_path = (
-                    self.run_path
-                    / self.run_name
-                    / "blended-mvs"
-                    / category
-                    / scene
+                    self.run_path / self.run_name / "eth3d" / category / scene
                 )
-                image_path = scene_path / "blended_images"
-                image_list_path = scene_path / "images.txt"
-                with open(image_list_path, "w") as fid:
-                    for filepath in sorted(image_path.iterdir()):
-                        image_name = str(filepath.name)
-                        if (
-                            image_name.endswith(".jpg")
-                            and "masked" not in image_name
-                        ):
-                            fid.write(image_name + "\n")
+                image_path = scene_path / "images"
+                sparse_gt_path = list(
+                    scene_path.glob("*_calibration_undistorted")
+                )[0]
 
-                sparse_gt_path = scene_path / "sparse_gt"
-                colmap_extra_args = ["--image_list_path", image_list_path]
+                colmap_extra_args = []
+                if category == "dslr":
+                    colmap_extra_args.extend(["--data_type", "individual"])
+                elif category == "rig":
+                    colmap_extra_args.extend(["--data_type", "video"])
 
                 scene_info = SceneInfo(
-                    dataset="blended-mvs",
+                    dataset="eth3d",
                     category=category,
                     scene=scene,
                     workspace_path=workspace_path,
@@ -113,47 +100,5 @@ class DatasetBlendedMVS(Dataset):
         return scene_infos
 
     def prepare_scene(self, scene_info):
-        if scene_info.sparse_gt_path.exists():
-            return
-
-        scene_path = scene_info.image_path.parent
-
-        sparse_gt = pycolmap.Reconstruction()
-        for i, filepath in enumerate(sorted((scene_path / "cams").iterdir())):
-            filename = str(filepath.name)
-            if not filename.endswith("_cam.txt"):
-                continue
-            image_name = filename[:-8] + ".jpg"
-            width, height = Image.open(
-                scene_path / "blended_images" / image_name
-            ).size[:2]
-            with open(filepath, encoding="ascii") as fid:
-                lines = list(map(lambda b: b.strip(), fid.readlines()))
-                extrinsic = np.fromstring(
-                    " ".join(lines[1:4]),
-                    count=12,
-                    sep=" ",
-                ).reshape(3, 4)
-                intrinsic = np.fromstring(
-                    " ".join(lines[7:10]),
-                    count=9,
-                    sep=" ",
-                ).reshape(3, 3)
-            camera = pycolmap.Camera(
-                camera_id=i,
-                model=pycolmap.CameraModelId.PINHOLE,
-                width=width,
-                height=height,
-                params=intrinsic[(0, 1, 0, 1), (0, 1, 2, 2)],
-            )
-            image = pycolmap.Image(
-                image_id=i,
-                camera_id=i,
-                name=image_name,
-                cam_from_world=pycolmap.Rigid3d(extrinsic),
-            )
-            sparse_gt.add_camera(camera)
-            sparse_gt.add_image(image)
-
-        scene_info.sparse_gt_path.mkdir(exist_ok=True)
-        sparse_gt.write(scene_info.sparse_gt_path)
+        # Nothing to prepare for ETH3D.
+        pass

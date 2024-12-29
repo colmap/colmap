@@ -31,7 +31,7 @@ from pathlib import Path
 
 import pycolmap
 
-from .utils import Dataset, SceneInfo
+from .evaluation.utils import Dataset, SceneInfo
 
 
 class _DatasetIMC(Dataset):
@@ -81,7 +81,8 @@ class _DatasetIMC(Dataset):
                 sfm_path = scene_path / "sfm"
                 if not sfm_path.exists():
                     pycolmap.logging.warning(
-                        f"Skipping dataset=IMC{self.year}, category={category}, scene={scene}, "
+                        f"Skipping dataset=IMC{self.year}, "
+                        f"category={category}, scene={scene}, "
                         "because the GT reconstruction is missing"
                     )
                     continue

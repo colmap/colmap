@@ -27,18 +27,12 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-import sys
-import os
+from evaluation.blended_mvs import DatasetBlendedMVS
+from evaluation.eth3d import DatasetETH3D
+from evaluation.imc import DatasetIMC2023, DatasetIMC2024
+from evaluation.utils import create_result_table, parse_args, process_scenes
 
 import pycolmap
-
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(os.path.dirname(SCRIPT_DIR))
-
-from reconstruction.utils import parse_args, process_scenes, create_result_table
-from reconstruction.evaluate_eth3d import DatasetETH3D
-from reconstruction.evaluate_blended_mvs import DatasetBlendedMVS
-from reconstruction.evaluate_imc import DatasetIMC2023, DatasetIMC2024
 
 
 def main() -> None:

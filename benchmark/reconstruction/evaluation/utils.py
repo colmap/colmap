@@ -36,8 +36,8 @@ import functools
 import multiprocessing
 import shutil
 import subprocess
-from pathlib import Path
 from abc import ABC, abstractmethod
+from pathlib import Path
 
 import numpy as np
 
