@@ -40,4 +40,4 @@ sudo cmake --build build/ --target install
 
 ccache --show-stats --verbose
 ccache --evict-older-than 1d
-ccahe --show-stats --verbose
+ccache --show-stats --verbose
