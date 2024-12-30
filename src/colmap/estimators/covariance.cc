@@ -95,7 +95,8 @@ bool ComputeSchurComplement(
     point_covs.reserve(points.size());
   }
 
-  VLOG(2) << "Schur elimination of point parameters";
+  VLOG(2) << StringPrintf("Schur elimination of point parameters (n = %d)",
+                          point_num_params);
 
   // Notice that here "a" refers to pose/other and "p" to point parameters.
   const Eigen::SparseMatrix<double> J_a =
@@ -143,7 +144,8 @@ bool SchurEliminateOtherParams(double damping,
                                int pose_num_params,
                                int other_num_params,
                                Eigen::SparseMatrix<double>& S) {
-  VLOG(2) << "Schur elimination of other parameters";
+  VLOG(2) << StringPrintf("Schur elimination of other parameters (n = %d)",
+                          other_num_params);
 
   // Notice that here "c" refers to pose and "o" to other parameters.
   const Eigen::SparseMatrix<double> S_cc =
@@ -174,6 +176,8 @@ bool SchurEliminateOtherParams(double damping,
 }
 
 bool ComputeLInverse(Eigen::SparseMatrix<double>& S, Eigen::MatrixXd& L_inv) {
+  VLOG(2) << StringPrintf("Start sparse Cholesky decomposition (n = %d)",
+                          S.rows());
   Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> ldlt_S(S);
   if (ldlt_S.info() != Eigen::Success) {
     LOG(WARNING) << "Simplicial LDLT for computing L_inv failed";
@@ -193,6 +197,7 @@ bool ComputeLInverse(Eigen::SparseMatrix<double>& S, Eigen::MatrixXd& L_inv) {
         rank);
     return false;
   }
+  VLOG(2) << "Finish sparse Cholesky decomposition.";
 
   const Eigen::SparseMatrix<double> L_sparse = ldlt_S.matrixL();
   L_inv = Eigen::MatrixXd::Identity(L_sparse.rows(), L_sparse.cols());
@@ -202,6 +207,7 @@ bool ComputeLInverse(Eigen::SparseMatrix<double>& S, Eigen::MatrixXd& L_inv) {
                                    std::numeric_limits<double>::min());
   }
   L_inv *= ldlt_S.permutationP();
+  VLOG(2) << "Finish factorization.";
   return true;
 }
 
