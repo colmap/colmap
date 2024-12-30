@@ -27,61 +27,37 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+import argparse
 import pickle
+from pathlib import Path
 
-from evaluation.blended_mvs import DatasetBlendedMVS
-from evaluation.eth3d import DatasetETH3D
-from evaluation.imc import DatasetIMC2023, DatasetIMC2024
-from evaluation.utils import create_result_table, parse_args, process_scenes
+from evaluation.utils import create_result_table, diff_metrics
 
 import pycolmap
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--report_a_path", type=Path, required=True)
+    parser.add_argument("--report_b_path", type=Path, required=True)
+    return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
 
-    datasets = {
-        "eth3d": DatasetETH3D,
-        "blended-mvs": DatasetBlendedMVS,
-        "imc2023": DatasetIMC2023,
-        "imc2024": DatasetIMC2024,
-    }
+    with open(args.report_a_path, "rb") as report_file:
+        metrics_a = pickle.load(report_file)
+    with open(args.report_b_path, "rb") as report_file:
+        metrics_b = pickle.load(report_file)
 
-    metrics = {}
-    for dataset_name in args.datasets:
-        if dataset_name not in datasets:
-            pycolmap.logging.error(f"Unknown dataset: {dataset_name}")
-            return
+    metrics_diff = diff_metrics(metrics_a, metrics_b)
 
-        pycolmap.logging.info(f"Evaluating dataset: {dataset_name}")
-
-        dataset = datasets[dataset_name](
-            data_path=args.data_path,
-            categories=args.categories,
-            scenes=args.scenes,
-            run_path=args.run_path,
-            run_name=args.run_name,
-        )
-
-        scene_infos = dataset.list_scenes()
-
-        if not scene_infos:
-            pycolmap.logging.warning("No scenes found")
-            return
-
-        metrics[dataset_name] = process_scenes(
-            args=args,
-            scene_infos=scene_infos,
-            prepare_scene=dataset.prepare_scene,
-            position_accuracy_gt=dataset.position_accuracy_gt,
-        )
-
-    pycolmap.logging.info("Results:\n" + create_result_table(metrics))
-
-    report_path = args.run_path / args.run_name / (args.report_name + ".pkl")
-    pycolmap.logging.info(f"Saving report to: {report_path}")
-    with open(report_path, "wb") as report_file:
-        pickle.dump(metrics, report_file)
+    pycolmap.logging.info("Results A:\n" + create_result_table(metrics_a))
+    pycolmap.logging.info("Results B:\n" + create_result_table(metrics_b))
+    pycolmap.logging.info(
+        "Results A - B:\n" + create_result_table(metrics_diff)
+    )
 
 
 if __name__ == "__main__":

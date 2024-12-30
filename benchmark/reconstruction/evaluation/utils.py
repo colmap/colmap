@@ -84,6 +84,8 @@ class SceneResult:
 class SceneMetrics:
     # Area under the curve (AUC) scores at specified error thresholds.
     aucs: np.ndarray
+    error_thresholds: np.ndarray
+    error_type: str
     # Number of images in the scene.
     num_images: int
     # Number of registered images in the scene (over all components).
@@ -113,6 +115,8 @@ class Dataset(ABC):
 
 
 def parse_args() -> argparse.Namespace:
+    datetime_str = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--data_path", default=Path(__file__).parent / "data", type=Path
@@ -137,10 +141,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--run_path", default=Path(__file__).parent / "runs", type=Path
     )
-    parser.add_argument(
-        "--run_name",
-        default=datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"),
-    )
+    parser.add_argument("--run_name", default=datetime_str)
+    parser.add_argument("--report_name", default=f"report-{datetime_str}")
     parser.add_argument(
         "--overwrite_database", default=False, action="store_true"
     )
@@ -497,6 +499,8 @@ def process_scenes(
                     error_thresholds,
                     min_error=position_accuracy_gt,
                 ),
+                error_thresholds=error_thresholds,
+                error_type=args.error_type,
                 num_images=result.num_images,
                 num_reg_images=result.num_reg_images,
                 num_components=result.num_components,
@@ -511,6 +515,8 @@ def process_scenes(
                 error_thresholds,
                 min_error=position_accuracy_gt,
             ),
+            error_thresholds=error_thresholds,
+            error_type=args.error_type,
             num_images=total_num_images,
             num_reg_images=total_num_reg_images,
             num_components=total_num_components,
@@ -518,6 +524,8 @@ def process_scenes(
         )
         metrics[category]["__avg__"] = SceneMetrics(
             aucs=compute_avg_auc(metrics[category]),
+            error_thresholds=error_thresholds,
+            error_type=args.error_type,
             num_images=int(round(total_num_images / num_scenes)),
             num_reg_images=int(round(total_num_reg_images / num_scenes)),
             num_components=int(round(total_num_components / num_scenes)),
@@ -538,9 +546,9 @@ def vec_angular_dist_deg(vec1: np.ndarray, vec2: np.ndarray) -> float:
 
 def get_error_thresholds(args: argparse.Namespace) -> list[float]:
     if args.error_type == "relative":
-        return args.rel_error_thresholds
+        return np.array(args.rel_error_thresholds)
     elif args.error_type == "absolute":
-        return [100 * t for t in args.abs_error_thresholds]
+        return np.array(args.abs_error_thresholds)
     else:
         raise ValueError(f"Invalid error type: {args.error_type}")
 
@@ -696,7 +704,7 @@ def compute_auc(
         e = np.r_[errors[:last_index], t]
         auc = np.trapezoid(r, x=e) / t
         aucs[i] = auc * 100
-    return aucs
+    return aucs / 1.1
 
 
 def compute_avg_auc(scene_metrics: dict[str, SceneMetrics]) -> list[float]:
@@ -714,29 +722,73 @@ def compute_avg_auc(scene_metrics: dict[str, SceneMetrics]) -> list[float]:
     return np.array(auc_sum) / num_scenes
 
 
-def create_result_table(
-    args: argparse.Namespace, metrics: dict[str, dict[str, SceneMetrics]]
-) -> str:
-    if args.error_type == "relative":
-        metric = "AUC @ X deg (%)"
-        thresholds = args.rel_error_thresholds
-    elif args.error_type == "absolute":
-        metric = "AUC @ X cm (%)"
-        thresholds = [100 * t for t in args.abs_error_thresholds]
+def diff_metrics(
+    metrics_a: dict[str, dict[str, SceneMetrics]],
+    metrics_b: dict[str, dict[str, SceneMetrics]],
+):
+    """Computes difference between two sets of metrics.
+    
+    Raises exception if the metrics are inconsistent.
+    """
+    metrics_diff = copy.deepcopy(metrics_a)
+    for dataset, category_metrics_a in metrics_a.items():
+        if dataset not in metrics_b:
+            raise ValueError(f"Dataset {dataset} not found in metrics_b")
+        category_metrics_b = metrics_b[dataset]
+        for category, scene_metrics_a in category_metrics_a.items():
+            if category not in category_metrics_b:
+                raise ValueError(f"Category {category} not found in metrics_b")
+            scene_metrics_b = category_metrics_b[category]
+            for scene, metrics_a in scene_metrics_a.items():
+                if scene not in scene_metrics_b:
+                    raise ValueError(f"Scene {scene} not found in metrics_b")
+                metrics_b = scene_metrics_b[scene]
+                if metrics_a.error_type != metrics_b.error_type or not np.all(
+                    metrics_a.error_thresholds == metrics_b.error_thresholds
+                ):
+                    raise ValueError("Inconsistent error thresholds or types")
+                metrics_diff[dataset][category][scene] = SceneMetrics(
+                    aucs=metrics_a.aucs - metrics_b.aucs,
+                    error_thresholds=metrics_a.error_thresholds,
+                    error_type=metrics_a.error_type,
+                    num_images=metrics_a.num_images - metrics_b.num_images,
+                    num_reg_images=metrics_a.num_reg_images
+                    - metrics_b.num_reg_images,
+                    num_components=metrics_a.num_components
+                    - metrics_b.num_components,
+                    largest_component=metrics_a.largest_component
+                    - metrics_b.largest_component,
+                )
+    return metrics_diff
+
+
+def create_result_table(metrics: dict[str, dict[str, SceneMetrics]]) -> str:
+    for category_metrics in metrics.values():
+        for scene_metrics in category_metrics.values():
+            for scene_metrics in scene_metrics.values():
+                break
+            break
+        break
+    if scene_metrics.error_type == "relative":
+        label = "AUC @ X deg (%)"
+        thresholds = scene_metrics.error_thresholds
+    elif scene_metrics.error_type == "absolute":
+        label = "AUC @ X cm (%)"
+        thresholds = 100 * scene_metrics.error_thresholds
     else:
-        raise ValueError(f"Invalid error type: {args.error_type}")
+        raise ValueError(f"Invalid error type: {scene_metrics.error_type}")
 
     column = "scenes"
     size_scenes = max(
         len(column) + 2,
         max(len(s) for d in metrics.values() for c in d.values() for s in c),
     )
-    size_aucs = max(len(metric) + 2, len(thresholds) * 7 - 1)
+    size_aucs = max(len(label) + 2, len(thresholds) * 7 - 1)
     size_imgs = 12
     size_comps = 12
     size_sep = size_scenes + size_aucs + size_imgs + size_comps + 3
     header = (
-        f"{column:=^{size_scenes}} {metric:=^{size_aucs}} "
+        f"{column:=^{size_scenes}} {label:=^{size_aucs}} "
         f"{"images":=^{size_imgs}} {"components":=^{size_comps}}"
     )
     header += "\n" + " " * (size_scenes + 1)
@@ -746,8 +798,8 @@ def create_result_table(
     for dataset, category_metrics in metrics.items():
         for category, scene_metrics in category_metrics.items():
             text.append(f"\n{dataset + '=' + category:=^{size_sep}}")
-            for scene, metrics in scene_metrics.items():
-                assert len(metrics.aucs) == len(thresholds)
+            for scene, scene_metrics in scene_metrics.items():
+                assert len(scene_metrics.aucs) == len(thresholds)
                 row = ""
                 if scene == "__avg__":
                     scene = "average"
@@ -756,10 +808,10 @@ def create_result_table(
                     scene = "overall"
                     row += "-" * size_sep + "\n"
                 row += f"{scene:<{size_scenes}} "
-                row += " ".join(f"{auc:>6.2f}" for auc in metrics.aucs)
-                row += f" {metrics.num_reg_images:6d}"
-                row += f"{metrics.num_images:6d}"
-                row += f" {metrics.num_components:4d}"
-                row += f"{metrics.largest_component:8d}"
+                row += " ".join(f"{auc:>6.2f}" for auc in scene_metrics.aucs)
+                row += f" {scene_metrics.num_reg_images:6d}"
+                row += f"{scene_metrics.num_images:6d}"
+                row += f" {scene_metrics.num_components:4d}"
+                row += f"{scene_metrics.largest_component:8d}"
                 text.append(row)
     return "\n".join(text)
