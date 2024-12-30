@@ -762,26 +762,30 @@ def diff_metrics(
     return metrics_diff
 
 
-def create_result_table(metrics: dict[str, dict[str, SceneMetrics]]) -> str:
-    for category_metrics in metrics.values():
-        for scene_metrics in category_metrics.values():
-            for scene_metrics in scene_metrics.values():
-                break
-            break
-        break
-    if scene_metrics.error_type == "relative":
+def create_result_table(
+    dataset_metrics: dict[str, dict[str, SceneMetrics]],
+) -> str:
+    first_metrics = next(
+        iter(next(iter(next(iter(dataset_metrics.values())).values())).values())
+    )
+    if first_metrics.error_type == "relative":
         label = "AUC @ X deg (%)"
-        thresholds = scene_metrics.error_thresholds
-    elif scene_metrics.error_type == "absolute":
+        thresholds = first_metrics.error_thresholds
+    elif first_metrics.error_type == "absolute":
         label = "AUC @ X cm (%)"
-        thresholds = 100 * scene_metrics.error_thresholds
+        thresholds = 100 * first_metrics.error_thresholds
     else:
-        raise ValueError(f"Invalid error type: {scene_metrics.error_type}")
+        raise ValueError(f"Invalid error type: {first_metrics.error_type}")
 
     column = "scenes"
     size_scenes = max(
         len(column) + 2,
-        max(len(s) for d in metrics.values() for c in d.values() for s in c),
+        max(
+            len(s)
+            for d in dataset_metrics.values()
+            for c in d.values()
+            for s in c
+        ),
     )
     size_aucs = max(len(label) + 2, len(thresholds) * 7 - 1)
     size_imgs = 12
@@ -795,11 +799,11 @@ def create_result_table(metrics: dict[str, dict[str, SceneMetrics]]) -> str:
     header += " ".join(f'{str(t).rstrip("."):^6}' for t in thresholds)
     header += "    reg   all  num largest"
     text = [header]
-    for dataset, category_metrics in metrics.items():
+    for dataset, category_metrics in dataset_metrics.items():
         for category, scene_metrics in category_metrics.items():
             text.append(f"\n{dataset + '=' + category:=^{size_sep}}")
-            for scene, scene_metrics in scene_metrics.items():
-                assert len(scene_metrics.aucs) == len(thresholds)
+            for scene, metrics in scene_metrics.items():
+                assert len(metrics.aucs) == len(thresholds)
                 row = ""
                 if scene == "__avg__":
                     scene = "average"
@@ -808,10 +812,10 @@ def create_result_table(metrics: dict[str, dict[str, SceneMetrics]]) -> str:
                     scene = "overall"
                     row += "-" * size_sep + "\n"
                 row += f"{scene:<{size_scenes}} "
-                row += " ".join(f"{auc:>6.2f}" for auc in scene_metrics.aucs)
-                row += f" {scene_metrics.num_reg_images:6d}"
-                row += f"{scene_metrics.num_images:6d}"
-                row += f" {scene_metrics.num_components:4d}"
-                row += f"{scene_metrics.largest_component:8d}"
+                row += " ".join(f"{auc:>6.2f}" for auc in metrics.aucs)
+                row += f" {metrics.num_reg_images:6d}"
+                row += f"{metrics.num_images:6d}"
+                row += f" {metrics.num_components:4d}"
+                row += f"{metrics.largest_component:8d}"
                 text.append(row)
     return "\n".join(text)
