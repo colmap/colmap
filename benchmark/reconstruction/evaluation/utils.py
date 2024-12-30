@@ -727,7 +727,7 @@ def diff_metrics(
     metrics_b: dict[str, dict[str, SceneMetrics]],
 ):
     """Computes difference between two sets of metrics.
-    
+
     Raises exception if the metrics are inconsistent.
     """
     metrics_diff = copy.deepcopy(metrics_a)
