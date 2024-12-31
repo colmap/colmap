@@ -38,7 +38,13 @@
 
 #ifdef COLMAP_DOWNLOAD_ENABLED
 #include <curl/curl.h>
-#include <openssl/evp.h>
+#if defined(COLMAP_USE_CRYPTOPP)
+#include <cryptopp/sha.h>
+#elif defined(COLMAP_USE_OPENSSL)
+#include <openssl/sha.h>
+#else
+#error "No crypto library defined"
+#endif
 #endif
 
 #ifndef _MSC_VER
@@ -337,6 +343,8 @@ std::optional<std::string> DownloadFile(const std::string& url) {
   curl_easy_setopt(handle.ptr, CURLOPT_WRITEFUNCTION, &WriteCurlData);
   std::ostringstream data_stream;
   curl_easy_setopt(handle.ptr, CURLOPT_WRITEDATA, &data_stream);
+  // TODO: Remove debug verbose output.
+  curl_easy_setopt(handle.ptr, CURLOPT_VERBOSE, 1L);
 
   const CURLcode code = curl_easy_perform(handle.ptr);
   if (code != CURLE_OK) {
@@ -357,24 +365,40 @@ std::optional<std::string> DownloadFile(const std::string& url) {
   return data_str;
 }
 
-std::string ComputeSHA256(const std::string_view& str) {
-  auto context = std::unique_ptr<EVP_MD_CTX, decltype(&EVP_MD_CTX_free)>(
-      EVP_MD_CTX_new(), EVP_MD_CTX_free);
+namespace {
 
-  unsigned int hash_length = 0;
-  unsigned char hash[EVP_MAX_MD_SIZE];
-
-  EVP_DigestInit_ex(context.get(), EVP_sha256(), nullptr);
-  EVP_DigestUpdate(context.get(), str.data(), str.size());
-  EVP_DigestFinal_ex(context.get(), hash, &hash_length);
-
-  std::ostringstream digest;
-  for (unsigned int i = 0; i < hash_length; ++i) {
-    digest << std::hex << std::setw(2) << std::setfill('0')
-           << static_cast<unsigned int>(hash[i]);
+std::string SHA256DigestToHex(span<unsigned char> digest) {
+  std::ostringstream hex;
+  for (int i = 0; i < digest.size(); ++i) {
+    hex << std::hex << std::setw(2) << std::setfill('0')
+        << static_cast<unsigned int>(digest[i]);
   }
-  return digest.str();
+  return hex.str();
 }
+
+}  // namespace
+
+#if defined(COLMAP_USE_CRYPTOPP)
+
+std::string ComputeSHA256(const std::string_view& str) {
+  CryptoPP::byte digest[CryptoPP::SHA256::DIGESTSIZE];
+  CryptoPP::SHA256().CalculateDigest(
+      digest, reinterpret_cast<const CryptoPP::byte*>(str.data()), str.size());
+  return SHA256DigestToHex({digest, CryptoPP::SHA256::DIGESTSIZE});
+}
+
+#elif defined(COLMAP_USE_OPENSSL)
+
+std::string ComputeSHA256(const std::string_view& str) {
+  unsigned char digest[SHA256_DIGEST_LENGTH];
+  SHA256(
+      reinterpret_cast<const unsigned char*>(str.data()), str.size(), digest);
+  return SHA256DigestToHex({digest, SHA256_DIGEST_LENGTH});
+}
+
+#else
+#error "No crypto library defined"
+#endif
 
 namespace {
 
