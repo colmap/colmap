@@ -183,17 +183,19 @@ std::vector<Eigen::Vector3d> GPSTransform::XYZToEll(
 std::vector<Eigen::Vector3d> GPSTransform::EllToENU(
     const std::vector<Eigen::Vector3d>& ell,
     const double lat0,
-    const double lon0) const {
+    const double lon0,
+    const double alt0) const {
   // Convert GPS (lat / lon / alt) to ECEF
   std::vector<Eigen::Vector3d> xyz = EllToXYZ(ell);
 
-  return XYZToENU(xyz, lat0, lon0);
+  return XYZToENU(xyz, lat0, lon0, alt0);
 }
 
 std::vector<Eigen::Vector3d> GPSTransform::XYZToENU(
     const std::vector<Eigen::Vector3d>& xyz,
     const double lat0,
-    const double lon0) const {
+    const double lon0,
+    const double alt0) const {
   std::vector<Eigen::Vector3d> enu(xyz.size());
 
   // https://en.wikipedia.org/wiki/Geographic_coordinate_conversion#From_ECEF_to_ENU
@@ -209,9 +211,10 @@ std::vector<Eigen::Vector3d> GPSTransform::XYZToENU(
   R << -sin_lon0, cos_lon0, 0., -sin_lat0 * cos_lon0, -sin_lat0 * sin_lon0,
       cos_lat0, cos_lat0 * cos_lon0, cos_lat0 * sin_lon0, sin_lat0;
 
-  // Convert ECEF to ENU coords. (w.r.t. ECEF ref == xyz[0])
+  // Convert ECEF to ENU coordinates.
+  const Eigen::Vector3d xyz_ref = EllToXYZ(Eigen::Vector3d(lat0, lon0, alt0));
   for (size_t i = 0; i < xyz.size(); ++i) {
-    enu[i] = R * (xyz[i] - xyz[0]);
+    enu[i] = R * (xyz[i] - xyz_ref);
   }
 
   return enu;
@@ -233,8 +236,7 @@ std::vector<Eigen::Vector3d> GPSTransform::ENUToXYZ(
   std::vector<Eigen::Vector3d> xyz(enu.size());
 
   // ECEF ref (origin)
-  const Eigen::Vector3d xyz_ref =
-      EllToXYZ({Eigen::Vector3d(lat0, lon0, alt0)})[0];
+  const Eigen::Vector3d xyz_ref = EllToXYZ(Eigen::Vector3d(lat0, lon0, alt0));
 
   // ENU to ECEF Rot :
   const double cos_lat0 = std::cos(DegToRad(lat0));
@@ -267,6 +269,7 @@ std::pair<std::vector<Eigen::Vector3d>, int> GPSTransform::EllToUTM(
 
   // For cases where points span different zones, we select the predominant zone
   // as the reference frame.
+  // TODO: Implement a more accurate method for merging UTM zones.
   std::array<int, 60> zone_counts{};
   for (const Eigen::Vector3d& lla : ell) {
     THROW_CHECK_GE(lla[0], -90);
@@ -278,17 +281,31 @@ std::pair<std::vector<Eigen::Vector3d>, int> GPSTransform::EllToUTM(
         static_cast<std::size_t>(UTMParams::MeridianToZone(lla[1])) - 1;
     ++zone_counts[z_index];
   }
-  const int zone =
-      static_cast<int>(std::distance(
-          zone_counts.begin(),
-          std::max_element(zone_counts.begin(), zone_counts.end()))) +
-      1;
+
+  int zone = -1;
+  bool span_different_zones = std::count_if(zone_counts.begin(),
+                                            zone_counts.end(),
+                                            [](int x) { return x > 0; }) > 1;
+  if (!span_different_zones) {
+    zone = UTMParams::MeridianToZone(ell.front()[1]);
+  } else {
+    zone = static_cast<int>(std::distance(
+               zone_counts.begin(),
+               std::max_element(zone_counts.begin(), zone_counts.end()))) +
+           1;
+    LOG(WARNING) << "Points span multiple UTM zones. Using the zone with the "
+                    "most points as the reference frame, which may result in "
+                    "some loss of precision, zone: "
+                 << zone;
+  }
+
   const double lambda0 = DegToRad(UTMParams::ZoneToCentralMeridian(zone));
 
   // Converts lla to utm
   std::vector<Eigen::Vector3d> utm;
   utm.reserve(ell.size());
 
+  int north_count = 0;
   for (const Eigen::Vector3d& lla : ell) {
     const double phi = DegToRad(lla[0]);
     const double lambda = DegToRad(lla[1]);
@@ -314,21 +331,35 @@ std::pair<std::vector<Eigen::Vector3d>, int> GPSTransform::EllToUTM(
     N = params.N0(lla[0]) + params.k0 * params.A * N;
 
     utm.emplace_back(E * 1000, N * 1000, lla[2]);  // converts back to meters
+
+    if (lla[0] > 0) {
+      ++north_count;
+    }
+  }
+
+  // Assign a negative sign to the zone if all points are in the southern
+  // hemisphere. If points are across both hemispheres, log an error.
+  if (north_count == 0) {
+    zone *= -1;
+  } else if (north_count != ell.size()) {
+    LOG(ERROR) << "Points span across different hemispheres, aborting...";
   }
 
   return std::make_pair(std::move(utm), zone);
 }
 
 std::vector<Eigen::Vector3d> GPSTransform::UTMToEll(
-    const std::vector<Eigen::Vector3d>& utm, int zone, bool is_north) const {
+    const std::vector<Eigen::Vector3d>& utm, int zone) const {
   // The following implementation is based on the formulas from:
   // https://en.wikipedia.org/wiki/Universal_Transverse_Mercator_coordinate_system
 
-  THROW_CHECK_GE(zone, 1);
+  THROW_CHECK_GE(zone, -60);
   THROW_CHECK_LE(zone, 60);
+  THROW_CHECK_NE(zone, 0);
 
   // Setup params
   const UTMParams params(a_ / 1000.0, f_);  // converts to kilometers
+  bool is_north = zone > 0;
 
   // Converts utm to ell
   std::vector<Eigen::Vector3d> ell;
@@ -366,6 +397,55 @@ std::vector<Eigen::Vector3d> GPSTransform::UTMToEll(
   }
 
   return ell;
+}
+
+// TODO: Refactor to avoid unnecessary allocation of a vector for a single
+// coordinate.
+Eigen::Vector3d GPSTransform::EllToXYZ(const Eigen::Vector3d& ell) const {
+  return EllToXYZ(std::vector<Eigen::Vector3d>{ell}).front();
+}
+
+Eigen::Vector3d GPSTransform::XYZToEll(const Eigen::Vector3d& xyz) const {
+  return XYZToEll(std::vector<Eigen::Vector3d>{xyz}).front();
+}
+
+Eigen::Vector3d GPSTransform::EllToENU(const Eigen::Vector3d& ell,
+                                       double lat0,
+                                       double lon0,
+                                       double alt0) const {
+  return EllToENU(std::vector<Eigen::Vector3d>{ell}, lat0, lon0, alt0).front();
+}
+
+Eigen::Vector3d GPSTransform::XYZToENU(const Eigen::Vector3d& xyz,
+                                       double lat0,
+                                       double lon0,
+                                       double alt0) const {
+  return XYZToENU(std::vector<Eigen::Vector3d>{xyz}, lat0, lon0, alt0).front();
+}
+
+Eigen::Vector3d GPSTransform::ENUToEll(const Eigen::Vector3d& enu,
+                                       double lat0,
+                                       double lon0,
+                                       double alt0) const {
+  return ENUToEll(std::vector<Eigen::Vector3d>{enu}, lat0, lon0, alt0).front();
+}
+
+Eigen::Vector3d GPSTransform::ENUToXYZ(const Eigen::Vector3d& enu,
+                                       double lat0,
+                                       double lon0,
+                                       double alt0) const {
+  return ENUToXYZ(std::vector<Eigen::Vector3d>{enu}, lat0, lon0, alt0).front();
+}
+
+std::pair<Eigen::Vector3d, int> GPSTransform::EllToUTM(
+    const Eigen::Vector3d& ell) const {
+  auto [utm, zone] = EllToUTM(std::vector<Eigen::Vector3d>{ell});
+  return std::make_pair(std::move(utm.front()), zone);
+}
+
+Eigen::Vector3d GPSTransform::UTMToEll(const Eigen::Vector3d& utm,
+                                       int zone) const {
+  return UTMToEll(std::vector<Eigen::Vector3d>{utm}, zone).front();
 }
 
 }  // namespace colmap

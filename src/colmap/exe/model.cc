@@ -77,7 +77,7 @@ Eigen::Vector3d TransformLatLonAltToModelCoords(const Sim3d& tform,
   // ENU frame.
   Eigen::Vector3d xyz =
       tform * GPSTransform(GPSTransform::WGS84)
-                  .EllToXYZ({Eigen::Vector3d(lat, lon, 0.0)})[0];
+                  .EllToXYZ(Eigen::Vector3d(lat, lon, 0.0));
   xyz(2) = tform.scale * alt;
   return xyz;
 }
@@ -120,21 +120,29 @@ std::vector<Eigen::Vector3d> ConvertCameraLocations(
     const std::vector<Eigen::Vector3d>& ref_locations) {
   if (ref_is_gps) {
     const GPSTransform gps_transform(GPSTransform::WGS84);
-    if (alignment_type != "enu") {
+    if (alignment_type != "enu" && alignment_type != "utm") {
       LOG(INFO) << "Converting Alignment Coordinates from GPS (lat/lon/alt) "
                    "to ECEF.";
       return gps_transform.EllToXYZ(ref_locations);
-    } else {
+    } else if (alignment_type == "enu") {
       LOG(INFO) << "Converting Alignment Coordinates from GPS (lat/lon/alt) "
                    "to ENU.";
-      return gps_transform.EllToENU(
-          ref_locations, ref_locations[0](0), ref_locations[0](1));
+      return gps_transform.EllToENU(ref_locations,
+                                    ref_locations[0](0),
+                                    ref_locations[0](1),
+                                    ref_locations[0](2));
+    } else if (alignment_type == "utm") {
+      LOG(INFO) << "Converting Alignment Coordinates from GPS (lat/lon/alt) "
+                   "to UTM.";
+      const auto [utm, _] = gps_transform.EllToUTM(ref_locations);
+      return utm;
     }
   } else {
     LOG(INFO) << "Cartesian Alignment Coordinates extracted (MUST NOT BE "
                  "GPS coords!).";
     return ref_locations;
   }
+  return ref_locations;
 }
 
 void ReadFileCameraLocations(const std::string& ref_images_path,
@@ -241,7 +249,7 @@ void PrintComparisonSummary(std::ostream& out,
 // - ref_images_path: path to txt file with prior positions for reconstruction
 // images (WARNING: provide only one of the above)
 // - ref_is_gps: if true the prior positions are converted from GPS
-// (lat/lon/alt) to ECEF or ENU
+// (lat/lon/alt) to ECEF, ENU or UTM
 // - merge_image_and_ref_origins: if true the reconstruction will be shifted so
 // that the first prior position is used for its camera position
 // - transform_path: path to store the Sim3 transformation used for the
@@ -256,6 +264,8 @@ void PrintComparisonSummary(std::ostream& out,
 //    coords. or user provided ecef coords.)
 //    > enu-plane-unscaled: same as above but do not apply the computed
 //    scale when aligning the reconstruction
+//    > utm: align with utm coords. (requires gps coords. or user provided utm
+//    coords.)
 //    > custom: align to provided coords.
 // - min_common_images: minimum number of images with prior positions to perform
 // the estimate an alignment
@@ -284,21 +294,27 @@ int RunModelAligner(int argc, char** argv) {
   options.AddDefaultOption("ref_is_gps", &ref_is_gps);
   options.AddDefaultOption("merge_image_and_ref_origins", &merge_origins);
   options.AddDefaultOption("transform_path", &transform_path);
-  options.AddDefaultOption(
-      "alignment_type",
-      &alignment_type,
-      "{plane, ecef, enu, enu-plane, enu-plane-unscaled, custom}");
+  options.AddDefaultOption("alignment_type",
+                           &alignment_type,
+                           "{plane, ecef, enu, enu-plane, enu-plane-unscaled, "
+                           "utm, custom}");
   options.AddDefaultOption("min_common_images", &min_common_images);
   options.AddDefaultOption("alignment_max_error", &ransac_options.max_error);
   options.Parse(argc, argv);
 
   StringToLower(&alignment_type);
-  const std::unordered_set<std::string> alignment_options{
-      "plane", "ecef", "enu", "enu-plane", "enu-plane-unscaled", "custom"};
+  const std::unordered_set<std::string> alignment_options{"plane",
+                                                          "ecef",
+                                                          "enu",
+                                                          "enu-plane",
+                                                          "enu-plane-unscaled",
+                                                          "utm",
+                                                          "custom"};
   if (alignment_options.count(alignment_type) == 0) {
-    LOG(ERROR) << "Invalid `alignment_type` - supported values are "
-                  "{'plane', 'ecef', 'enu', 'enu-plane', 'enu-plane-unscaled', "
-                  "'custom'}";
+    LOG(ERROR)
+        << "Invalid `alignment_type` - supported values are "
+           "{'plane', 'ecef', 'enu', 'enu-plane', 'enu-plane-unscaled', 'utm', "
+           "'custom'}";
     return EXIT_FAILURE;
   }
 
