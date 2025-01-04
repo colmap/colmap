@@ -66,6 +66,7 @@ void UpdateDatabasePosePriorsCovariance(const std::string& database_path,
 
 int RunAutomaticReconstructor(int argc, char** argv) {
   AutomaticReconstructionController::Options reconstruction_options;
+  std::string image_list_path;
   std::string data_type = "individual";
   std::string quality = "high";
   std::string mesher = "poisson";
@@ -74,6 +75,7 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   options.AddRequiredOption("workspace_path",
                             &reconstruction_options.workspace_path);
   options.AddRequiredOption("image_path", &reconstruction_options.image_path);
+  options.AddDefaultOption("image_list_path", &image_list_path);
   options.AddDefaultOption("mask_path", &reconstruction_options.mask_path);
   options.AddDefaultOption("vocab_tree_path",
                            &reconstruction_options.vocab_tree_path);
@@ -97,6 +99,10 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   options.AddDefaultOption("use_gpu", &reconstruction_options.use_gpu);
   options.AddDefaultOption("gpu_index", &reconstruction_options.gpu_index);
   options.Parse(argc, argv);
+
+  if (!image_list_path.empty()) {
+    reconstruction_options.image_names = ReadTextFileLines(image_list_path);
+  }
 
   StringToLower(&data_type);
   if (data_type == "individual") {
@@ -142,7 +148,8 @@ int RunAutomaticReconstructor(int argc, char** argv) {
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
 
-  if (reconstruction_options.use_gpu && kUseOpenGL) {
+  if (reconstruction_options.use_gpu && kUseOpenGL &&
+      (reconstruction_options.extraction || reconstruction_options.matching)) {
     QApplication app(argc, argv);
     AutomaticReconstructionController controller(reconstruction_options,
                                                  reconstruction_manager);
@@ -226,9 +233,7 @@ int RunMapper(int argc, char** argv) {
   }
 
   if (!image_list_path.empty()) {
-    const auto image_names = ReadTextFileLines(image_list_path);
-    options.mapper->image_names =
-        std::unordered_set<std::string>(image_names.begin(), image_names.end());
+    options.mapper->image_names = ReadTextFileLines(image_list_path);
   }
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
