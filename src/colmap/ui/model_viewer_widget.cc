@@ -388,7 +388,7 @@ void ModelViewerWidget::ReloadReconstruction() {
 
   cameras = reconstruction->Cameras();
   points3D = reconstruction->Points3D();
-  const std::set<image_t> reg_image_ids_set = reconstruction->RegImageIds();
+  const std::set<image_t>& reg_image_ids_set = reconstruction->RegImageIds();
   reg_image_ids =
       std::vector<image_t>(reg_image_ids_set.begin(), reg_image_ids_set.end());
 
