@@ -343,8 +343,6 @@ std::optional<std::string> DownloadFile(const std::string& url) {
   curl_easy_setopt(handle.ptr, CURLOPT_WRITEFUNCTION, &WriteCurlData);
   std::ostringstream data_stream;
   curl_easy_setopt(handle.ptr, CURLOPT_WRITEDATA, &data_stream);
-  // TODO: Remove debug verbose output.
-  curl_easy_setopt(handle.ptr, CURLOPT_VERBOSE, 1L);
 
   const CURLcode code = curl_easy_perform(handle.ptr);
   if (code != CURLE_OK) {
