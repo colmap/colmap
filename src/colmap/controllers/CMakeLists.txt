@@ -58,6 +58,9 @@ COLMAP_ADD_LIBRARY(
         Ceres::ceres
         Boost::boost
 )
+if(TORCH_ENABLED)
+    target_link_libraries(colmap_controllers PRIVATE colmap_feature_torch)
+endif()
 
 COLMAP_ADD_TEST(
     NAME hierarchical_pipeline_test
