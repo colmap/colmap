@@ -397,6 +397,16 @@ void ModelViewerWidget::ReloadReconstruction() {
     images[image_id] = reconstruction->Image(image_id);
   }
 
+  if (selected_point3D_id_ != kInvalidPoint3DId &&
+      points3D.count(selected_point3D_id_) == 0) {
+    selected_point3D_id_ = kInvalidPoint3DId;
+  }
+
+  if (selected_image_id_ != kInvalidImageId &&
+      reg_image_ids_set.count(selected_image_id_) == 0) {
+    selected_image_id_ = kInvalidImageId;
+  }
+
   statusbar_status_label->setText(
       QString().asprintf("%d Images - %d Points",
                          static_cast<int>(reg_image_ids.size()),
