@@ -88,14 +88,35 @@ if(CGAL_FOUND)
 endif()
 
 if(DOWNLOAD_ENABLED)
+    # The OpenSSL package in vcpkg seems broken under Windows and leads to
+    # missing certificate verification when connecting to SSL servers. We
+    # therefore use curl[schannel] (i.e., native Windows SSL/TLS) under Windows
+    # and curl[openssl] otherwise.
     find_package(CURL QUIET)
-    find_package(OpenSSL QUIET)
-    if(CURL_FOUND AND OpenSSL_FOUND)
+    set(CRYPTO_FOUND FALSE)
+    if(IS_MSVC AND IS_ARM64)
+        # OpenSSL crashes for ARM64 under Windows. We therefore fall back to
+        # CryptoPP as an alternative to OpenSSL for SHA256 computation.
+        find_package(CryptoPP QUIET)
+        if(CryptoPP_FOUND)
+            set(CRYPTO_FOUND TRUE)
+        else()
+            message(STATUS "CryptoPP not found")
+        endif()
+    else()
+        find_package(OpenSSL QUIET COMPONENTS Crypto)
+        if(OpenSSL_FOUND)
+            set(CRYPTO_FOUND TRUE)
+        else()
+            message(STATUS "OpenSSL::Crypto not found")
+        endif()
+    endif()
+    if(CURL_FOUND AND CRYPTO_FOUND)
         message(STATUS "Enabling download support")
         add_definitions("-DCOLMAP_DOWNLOAD_ENABLED")
     else()
         set(DOWNLOAD_ENABLED OFF)
-        message(STATUS "Disabling download support (Curl/OpenSSL not found)")
+        message(STATUS "Disabling download support (Curl/Crypto not found)")
     endif()
 else()
     message(STATUS "Disabling download support")
