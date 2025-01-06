@@ -95,7 +95,8 @@ bool ComputeSchurComplement(
     point_covs.reserve(points.size());
   }
 
-  VLOG(2) << "Schur elimination of point parameters (n = " << point_num_params << ")";
+  VLOG(2) << "Schur elimination of point parameters (n = " << point_num_params
+          << ")";
 
   // Notice that here "a" refers to pose/other and "p" to point parameters.
   const Eigen::SparseMatrix<double> J_a =
@@ -143,7 +144,8 @@ bool SchurEliminateOtherParams(double damping,
                                int pose_num_params,
                                int other_num_params,
                                Eigen::SparseMatrix<double>& S) {
-  VLOG(2) << "Schur elimination of other parameters (n = " << other_num_params << ")";
+  VLOG(2) << "Schur elimination of other parameters (n = " << other_num_params
+          << ")";
 
   // Notice that here "c" refers to pose and "o" to other parameters.
   const Eigen::SparseMatrix<double> S_cc =
