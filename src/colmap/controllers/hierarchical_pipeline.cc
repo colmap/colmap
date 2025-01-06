@@ -187,7 +187,7 @@ void HierarchicalPipeline::Run() {
         }
 
         for (const auto image_id : cluster.image_ids) {
-          incremental_options->image_names.insert(
+          incremental_options->image_names.push_back(
               image_id_to_name.at(image_id));
         }
 

@@ -313,6 +313,7 @@ void PointViewerWidget::Delete() {
     }
     model_viewer_widget_->ReloadReconstruction();
   }
+  hide();
 }
 
 }  // namespace colmap

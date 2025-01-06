@@ -27,75 +27,38 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+import argparse
+import pickle
+from pathlib import Path
 
-set(FOLDER_NAME "mvs")
+from evaluation.utils import create_result_table, diff_metrics
 
-COLMAP_ADD_LIBRARY(
-    NAME colmap_mvs
-    SRCS
-        consistency_graph.h consistency_graph.cc
-        depth_map.h depth_map.cc
-        fusion.h fusion.cc
-        image.h image.cc
-        mat.h mat.cc
-        meshing.h meshing.cc
-        model.h model.cc
-        normal_map.h normal_map.cc
-        patch_match_options.h patch_match_options.cc
-        workspace.h workspace.cc
-    PUBLIC_LINK_LIBS
-        colmap_util
-        colmap_scene
-    PRIVATE_LINK_LIBS
-        colmap_math
-        colmap_sensor
-        colmap_image
-        colmap_poisson_recon
-        Eigen3::Eigen
-)
-if(CGAL_ENABLED)
-    target_link_libraries(colmap_mvs PRIVATE CGAL)
-endif()
+import pycolmap
 
-COLMAP_ADD_TEST(
-    NAME consistency_graph_test
-    SRCS consistency_graph_test.cc
-    LINK_LIBS colmap_mvs
-)
-COLMAP_ADD_TEST(
-    NAME depth_map_test
-    SRCS depth_map_test.cc
-    LINK_LIBS colmap_mvs
-)
-COLMAP_ADD_TEST(
-    NAME mat_test
-    SRCS mat_test.cc
-    LINK_LIBS colmap_mvs
-)
-COLMAP_ADD_TEST(
-    NAME normal_map_test
-    SRCS normal_map_test.cc
-    LINK_LIBS colmap_mvs
-)
 
-if(CUDA_ENABLED)
-    COLMAP_ADD_LIBRARY(
-        NAME colmap_mvs_cuda
-        SRCS
-            gpu_mat_prng.h gpu_mat_prng.cu
-            gpu_mat_ref_image.h gpu_mat_ref_image.cu
-            patch_match.h patch_match.cc
-            patch_match_cuda.h patch_match_cuda.cu
-        PUBLIC_LINK_LIBS
-            colmap_mvs
-            colmap_util_cuda
-            CUDA::cudart
-            CUDA::curand
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--report_a_path", type=Path, required=True)
+    parser.add_argument("--report_b_path", type=Path, required=True)
+    return parser.parse_args()
+
+
+def main() -> None:
+    args = parse_args()
+
+    with open(args.report_a_path, "rb") as report_file:
+        metrics_a = pickle.load(report_file)
+    with open(args.report_b_path, "rb") as report_file:
+        metrics_b = pickle.load(report_file)
+
+    metrics_diff = diff_metrics(metrics_a, metrics_b)
+
+    pycolmap.logging.info("Results A:\n" + create_result_table(metrics_a))
+    pycolmap.logging.info("Results B:\n" + create_result_table(metrics_b))
+    pycolmap.logging.info(
+        "Results A - B:\n" + create_result_table(metrics_diff)
     )
 
-    COLMAP_ADD_TEST(
-        NAME gpu_mat_test
-        SRCS gpu_mat_test.cu
-        LINK_LIBS colmap_mvs_cuda
-    )
-endif()
+
+if __name__ == "__main__":
+    main()

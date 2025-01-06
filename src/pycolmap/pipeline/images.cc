@@ -26,7 +26,7 @@ namespace py = pybind11;
 void ImportImages(const std::string& database_path,
                   const std::string& image_path,
                   const CameraMode camera_mode,
-                  const std::vector<std::string>& image_list,
+                  const std::vector<std::string>& image_names,
                   const ImageReaderOptions& options_) {
   THROW_CHECK_FILE_EXISTS(database_path);
   THROW_CHECK_DIR_EXISTS(image_path);
@@ -34,7 +34,7 @@ void ImportImages(const std::string& database_path,
   ImageReaderOptions options(options_);
   options.database_path = database_path;
   options.image_path = image_path;
-  options.image_list = image_list;
+  options.image_names = image_names;
   UpdateImageReaderOptionsFromCameraMode(options, camera_mode);
 
   Database database(options.database_path);
@@ -94,7 +94,7 @@ Camera InferCameraFromImage(const std::string& image_path,
 void UndistortImages(const std::string& output_path,
                      const std::string& input_path,
                      const std::string& image_path,
-                     const std::vector<std::string>& image_list,
+                     const std::vector<std::string>& image_names,
                      const std::string& output_type,
                      const CopyType copy_type,
                      const int num_patch_match_src_images,
@@ -108,7 +108,7 @@ void UndistortImages(const std::string& output_path,
                             reconstruction.NumPoints3D());
 
   std::vector<image_t> image_ids;
-  for (const auto& image_name : image_list) {
+  for (const auto& image_name : image_names) {
     const Image* image = reconstruction.FindImageWithName(image_name);
     if (image != nullptr) {
       image_ids.push_back(image->ImageId());
@@ -230,7 +230,7 @@ void BindImages(py::module& m) {
         "database_path"_a,
         "image_path"_a,
         "camera_mode"_a = CameraMode::AUTO,
-        "image_list"_a = std::vector<std::string>(),
+        "image_names"_a = std::vector<std::string>(),
         py::arg_v("options", ImageReaderOptions(), "ImageReaderOptions()"),
         "Import images into a database");
 
@@ -245,7 +245,7 @@ void BindImages(py::module& m) {
         "output_path"_a,
         "input_path"_a,
         "image_path"_a,
-        "image_list"_a = std::vector<std::string>(),
+        "image_names"_a = std::vector<std::string>(),
         "output_type"_a = "COLMAP",
         "copy_policy"_a = CopyType::COPY,
         "num_patch_match_src_images"_a = 20,

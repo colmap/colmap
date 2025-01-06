@@ -388,13 +388,23 @@ void ModelViewerWidget::ReloadReconstruction() {
 
   cameras = reconstruction->Cameras();
   points3D = reconstruction->Points3D();
-  const std::set<image_t> reg_image_ids_set = reconstruction->RegImageIds();
+  const std::set<image_t>& reg_image_ids_set = reconstruction->RegImageIds();
   reg_image_ids =
       std::vector<image_t>(reg_image_ids_set.begin(), reg_image_ids_set.end());
 
   images.clear();
   for (const image_t image_id : reg_image_ids) {
     images[image_id] = reconstruction->Image(image_id);
+  }
+
+  if (selected_point3D_id_ != kInvalidPoint3DId &&
+      points3D.count(selected_point3D_id_) == 0) {
+    selected_point3D_id_ = kInvalidPoint3DId;
+  }
+
+  if (selected_image_id_ != kInvalidImageId &&
+      reg_image_ids_set.count(selected_image_id_) == 0) {
+    selected_image_id_ = kInvalidImageId;
   }
 
   statusbar_status_label->setText(
