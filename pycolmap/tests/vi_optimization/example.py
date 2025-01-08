@@ -48,7 +48,8 @@ def add_imu_residuals(
         )
     prob.set_manifold(variables["gravity"], pyceres.SphereManifold(3))
     prob.set_manifold(
-        variables["imu_from_cam"].rotation.quat, pyceres.EigenQuaternionManifold()
+        variables["imu_from_cam"].rotation.quat,
+        pyceres.EigenQuaternionManifold(),
     )
     # [Optional] fix variables
     if not optimize_scale:
@@ -73,7 +74,9 @@ def add_imu_residuals(
 def solve_bundle_adjustment(
     reconstruction, ba_options, ba_config, preintegrated_measurements, variables
 ):
-    bundle_adjuster = pycolmap.create_default_bundle_adjuster(ba_options, ba_config, reconstruction)
+    bundle_adjuster = pycolmap.create_default_bundle_adjuster(
+        ba_options, ba_config, reconstruction
+    )
     problem = bundle_adjuster.problem
     problem = add_imu_residuals(
         problem, reconstruction, preintegrated_measurements, variables
