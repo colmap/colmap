@@ -57,6 +57,7 @@ COLMAP_ADD_LIBRARY(
         colmap_util
         Eigen3::Eigen
         SQLite::SQLite3
+        ${CMAKE_DL_LIBS}
 )
 
 COLMAP_ADD_TEST(
