@@ -33,6 +33,7 @@
 #include "colmap/geometry/rigid3.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/eigen_matchers.h"
 
 #include <array>
 
@@ -96,10 +97,8 @@ TEST(GeneralizedAbsolutePose, Estimate) {
       const auto report = ransac.Estimate(points2D, points3D);
 
       EXPECT_TRUE(report.success);
-      EXPECT_LT((rig_from_world.ToMatrix() - report.model.ToMatrix()).norm(),
-                1e-2)
-          << report.model.ToMatrix() << "\n\n"
-          << rig_from_world.ToMatrix();
+      EXPECT_THAT(rig_from_world.ToMatrix(),
+                  EigenMatrixNear(report.model.ToMatrix(), 1e-3));
 
       // Test residuals of exact points.
       std::vector<double> residuals;
@@ -112,7 +111,7 @@ TEST(GeneralizedAbsolutePose, Estimate) {
       ransac.estimator.Residuals(
           points2D, points3D_faulty, report.model, &residuals);
       for (size_t i = 0; i < residuals.size(); ++i) {
-        EXPECT_GT(residuals[i], 1e-10);
+        EXPECT_GT(residuals[i], 1e-2);
       }
     }
   }
