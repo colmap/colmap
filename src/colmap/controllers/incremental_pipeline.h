@@ -119,14 +119,14 @@ struct IncrementalPipelineOptions {
   bool ba_use_gpu = false;
   std::string ba_gpu_index = "-1";
 
-  // Whether to use prior camera positions
+  // Whether to use priors on the camera positions.
   bool use_prior_position = false;
 
-  // Whether to use a robust loss on prior locations
+  // Whether to use a robust loss on prior camera positions.
   bool use_robust_loss_on_prior_position = false;
 
-  // Threshold on the residual for the robust loss
-  // (chi2 for 3DOF at 95% = 7.815)
+  // Threshold on the residual for the robust position prior loss
+  // (chi2 for 3DOF at 95% = 7.815).
   double prior_position_loss_scale = 7.815;
 
   // Path to a folder with reconstruction snapshots during incremental
