@@ -62,7 +62,7 @@ TEST_P(ParameterizedGeneralizedAbsolutePoseTests, Estimate) {
 
     std::vector<Rigid3d> cams_from_world(kNumCams);
     std::vector<Rigid3d> cams_from_rig(kNumCams);
-    for (size_t i = 0; i < kNumCams; ++i) {
+    for (int i = 0; i < kNumCams; ++i) {
       cams_from_world[i] =
           Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
       cams_from_rig[i] = cams_from_world[i] * world_from_fig;
@@ -71,7 +71,7 @@ TEST_P(ParameterizedGeneralizedAbsolutePoseTests, Estimate) {
     std::vector<GP3PEstimator::X_t> points2D;
     std::vector<GP3PEstimator::Y_t> points3D;
     std::vector<GP3PEstimator::Y_t> points3D_outlier;
-    for (size_t i = 0; i < kNumPoints; ++i) {
+    for (int i = 0; i < kNumPoints; ++i) {
       points2D.emplace_back();
       points2D.back().cam_from_rig = cams_from_rig[i % kNumCams];
       points2D.back().ray_in_cam =
@@ -106,6 +106,7 @@ TEST_P(ParameterizedGeneralizedAbsolutePoseTests, Estimate) {
       // Test residuals of inlier points.
       std::vector<double> residuals;
       ransac.estimator.Residuals(points2D, points3D, report.model, &residuals);
+      EXPECT_EQ(residuals.size(), points2D.size());
       for (size_t i = 0; i < residuals.size(); ++i) {
         EXPECT_LT(residuals[i], 1e-10);
       }
@@ -114,6 +115,7 @@ TEST_P(ParameterizedGeneralizedAbsolutePoseTests, Estimate) {
       std::vector<double> residuals_outlier;
       ransac.estimator.Residuals(
           points2D, points3D_outlier, report.model, &residuals_outlier);
+      EXPECT_EQ(residuals_outlier.size(), points2D.size());
       for (size_t i = 0; i < residuals_outlier.size(); ++i) {
         EXPECT_GT(residuals_outlier[i], 1e-2);
       }
