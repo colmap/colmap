@@ -282,7 +282,7 @@ jobs:
           name: code-coverage
           path: build/coverage-html
 
-      - name: Report coverage to GitHub
+      - name: Generate Github code coverage report
         if: matrix.config.coverageEnabled
         uses: irongut/CodeCoverageSummary@v1.3.0
         with:
@@ -296,7 +296,7 @@ jobs:
           output: both
           thresholds: '60 80'
       
-      - name: Add Coverage PR Comment
+      - name: Add Github PR code coverage comment
         uses: marocchino/sticky-pull-request-comment@v2
         if: ${{ matrix.config.coverageEnabled && github.event_name == 'pull_request' }}
         with:
