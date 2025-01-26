@@ -131,10 +131,8 @@ jobs:
           mv ctcache-${ctcache_commit_id}/clang-tidy* "$COMPILER_CACHE_DIR/bin"
 
       - name: Check code format
+        if: matrix.config.checkCodeFormat
         run: |
-          if [ "${{ matrix.config.checkCodeFormat }}" != "true" ]; then
-            exit 0
-          fi
           set +x -euo pipefail
           python -m pip install ruff==0.6.7 clang-format==19.1.0
           ./scripts/format/c++.sh
@@ -223,12 +221,8 @@ jobs:
           ninja -k 10000
 
       - name: Install and build sample
+        if: ${{ matrix.config.cmakeBuildType != 'ClangTidy' && matrix.config.asanEnabled != 'true' && matrix.config.coverageEnabled != 'true' }}
         run: |
-          if [ "${{ matrix.config.asanEnabled }}" == "true" ] ||
-             [ "${{ matrix.config.cmakeBuildType }}" == "ClangTidy" ]; then
-            exit 0
-          fi
-
           set -x
           cd build
           ninja install
@@ -243,11 +237,8 @@ jobs:
           ./hello_world --message "world"
 
       - name: Run tests
+        if: ${{ matrix.config.cmakeBuildType != 'ClangTidy' }}
         run: |
-          if [ "${{ matrix.config.cmakeBuildType }}" == "ClangTidy" ]; then
-            exit 0
-          fi
-
           if [ "${{ matrix.config.cudaEnabled }}" == "true" ]; then
             ctestExclusions="(feature/colmap_feature_sift_test)|(mvs/colmap_mvs_gpu_mat_test)"
           fi
@@ -260,11 +251,8 @@ jobs:
           ctest -E "$ctestExclusions" --output-on-failure
 
       - name: Run E2E tests
+        if: matrix.config.e2eTests
         run: |
-          if [ "${{ matrix.config.e2eTests }}" != "true" ]; then
-            exit 0
-          fi
-
           export DISPLAY=":99.0"
           export QT_QPA_PLATFORM="offscreen"
           Xvfb :99 &
