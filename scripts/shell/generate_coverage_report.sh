@@ -37,23 +37,23 @@
 #       -DTESTS_ENABLED=ON \
 #       -DCOVERAGE_ENABLED=ON \
 #       -DCMAKE_BUILD_TYPE=RelWithDebInfo|Debug
-# and tests have been executed using:
-#   ctest -T Test -T Coverage
+#   ninja
+#   ctest -j$(nproc)
 
 colmap_root_dir=$(git rev-parse --show-toplevel)
 
-lcov \
-    --directory "$colmap_root_dir" \
-    --capture \
-    --output-file coverage.info \
-    --ignore-errors inconsistent \
-    --ignore-errors format \
-    --ignore-errors mismatch,mismatch \
-    --ignore-errors gcov,gcov \
-    --no-external \
-    --exclude "$colmap_root_dir/src/thirdparty/*" \
-    --exclude "$(pwd)/_deps/*"
+if [ ! -f "CMakeCache.txt" ]; then
+    echo "Please run this script from the build directory."
+    exit 1
+fi
 
-genhtml \
-    --demangle-cpp -o coverage coverage.info \
-    --ignore-errors inconsistent,category,mismatch
+rm -rf coverage-html
+mkdir -p coverage-html
+gcovr \
+    --root "$colmap_root_dir" \
+    --exclude "$colmap_root_dir/src/thirdparty/*" \
+    --exclude "$(pwd)/_deps/*" \
+    --cobertura coverage-cobertura.xml \
+    --cobertura-pretty \
+    --html-nested coverage-html/index.html \
+    --html-theme github.blue
