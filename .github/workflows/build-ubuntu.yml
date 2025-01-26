@@ -23,7 +23,7 @@ jobs:
         config: [
           {
             os: ubuntu-24.04,
-            cmakeBuildType: Release,
+            cmakeBuildType: RelWithDebInfo,
             asanEnabled: false,
             guiEnabled: true,
             cudaEnabled: false,
