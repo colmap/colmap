@@ -294,14 +294,18 @@ jobs:
           hide_complexity: true
           indicators: true
           output: both
-          thresholds: '60 80'
+          thresholds: '75 90'
       
-      - name: Add Github PR code coverage comment
-        uses: marocchino/sticky-pull-request-comment@v2
-        if: ${{ matrix.config.coverageEnabled && github.event_name == 'pull_request' }}
-        with:
-          recreate: true
-          path: code-coverage-results.md
+      # TODO: Add code coverage comment to PR. Currently, this action reports
+      # coverage for the entire repository, not just the changed files in the PR.
+      # We could manually filter the coverage report to only include the changed
+      # files in the PR, but this is non-trivial and may not be worth the effort.
+      # - name: Add Github PR code coverage comment
+      #   uses: marocchino/sticky-pull-request-comment@v2
+      #   if: ${{ matrix.config.coverageEnabled && github.event_name == 'pull_request' }}
+      #   with:
+      #     recreate: true
+      #     path: code-coverage-results.md
 
       - name: Cleanup compiler cache
         run: |
