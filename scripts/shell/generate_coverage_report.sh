@@ -1,3 +1,4 @@
+#!/bin/bash
 # Copyright (c), ETH Zurich and UNC Chapel Hill.
 # All rights reserved.
 #
@@ -27,49 +28,30 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+# Script to generate a coverage report for the COLMAP code base. Must be
+# executed from the build directory. The generated HTML report will be available
+# in the coverage/ directory.
 
-if(IS_MSVC)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /W3")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W3")
-    # Avoid pulling in too many header files through <windows.h>
-    add_definitions("-DWIN32_LEAN_AND_MEAN")
-elseif(IS_GNU OR IS_CLANG)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
-endif()
+# The script assumes that the codebase has been compiled with CMake options:
+#   cmake ...
+#       -DTESTS_ENABLED=ON \
+#       -DCOVERAGE_ENABLED=ON \
+#       -DCMAKE_BUILD_TYPE=RelWithDebInfo|Debug
+# and tests have been executed using:
+#   ctest -T Test -T Coverage
 
-if(CUDA_ENABLED)
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --use_fast_math")
+colmap_root_dir=$(git rev-parse --show-toplevel)
 
-    # Use a separate stream per thread to allow for concurrent kernel execution
-    # between multiple threads on the same device.
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --default-stream per-thread")
+lcov \
+    --parallel $(nproc) \
+    --directory "$colmap_root_dir" \
+    --capture \
+    --output-file coverage.info \
+    --ignore-errors inconsistent,format \
+    --no-external \
+    --exclude "$colmap_root_dir/src/thirdparty/*" \
+    --exclude "$(pwd)/_deps/*"
 
-    # Suppress warnings:
-    # ptxas warning : Stack size for entry function X cannot be statically determined.
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xptxas=-suppress-stack-size-warning")
-endif()
-
-if(COVERAGE_ENABLED)
-    add_compile_options("-coverage")
-    add_link_options("-coverage")
-endif()
-
-add_subdirectory(controllers)
-add_subdirectory(estimators)
-add_subdirectory(exe)
-add_subdirectory(feature)
-add_subdirectory(geometry)
-add_subdirectory(image)
-add_subdirectory(math)
-add_subdirectory(mvs)
-add_subdirectory(optim)
-add_subdirectory(retrieval)
-add_subdirectory(scene)
-add_subdirectory(sensor)
-add_subdirectory(sfm)
-add_subdirectory(tools)
-add_subdirectory(util)
-if (GUI_ENABLED)
-    add_subdirectory(ui)
-endif()
+genhtml \
+    --demangle-cpp -o coverage coverage.info \
+    --ignore-errors inconsistent,category
