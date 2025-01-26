@@ -54,4 +54,4 @@ lcov \
 
 genhtml \
     --demangle-cpp -o coverage coverage.info \
-    --ignore-errors inconsistent,category
+    --ignore-errors inconsistent,category,mismatch
