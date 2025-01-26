@@ -221,7 +221,7 @@ jobs:
           ninja -k 10000
 
       - name: Install and build sample
-        if: ${{ matrix.config.cmakeBuildType != 'ClangTidy' && matrix.config.asanEnabled != 'true' && matrix.config.coverageEnabled != 'true' }}
+        if: ${{ matrix.config.cmakeBuildType != 'ClangTidy' && !matrix.config.asanEnabled && !matrix.config.coverageEnabled }}
         run: |
           set -x
           cd build
