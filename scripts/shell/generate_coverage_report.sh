@@ -43,7 +43,6 @@
 colmap_root_dir=$(git rev-parse --show-toplevel)
 
 lcov \
-    --parallel $(nproc) \
     --directory "$colmap_root_dir" \
     --capture \
     --output-file coverage.info \
