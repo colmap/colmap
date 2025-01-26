@@ -201,9 +201,7 @@ jobs:
           fi
 
           if [ "${{ matrix.config.coverageEnabled }}" == "true" ]; then
-            sudo apt-get install -y clang-15 clang-tidy-15 libomp-15-dev
-            echo "CC=/usr/bin/clang-15" >> $GITHUB_ENV
-            echo "CXX=/usr/bin/clang++-15" >> $GITHUB_ENV
+            sudo apt-get install -y lcov
           fi
 
       - name: Configure and build
