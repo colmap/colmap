@@ -51,8 +51,8 @@ if(CUDA_ENABLED)
 endif()
 
 if(COVERAGE_ENABLED)
-    add_compile_options("-coverage")
-    add_link_options("-coverage")
+    add_compile_options(-coverage -fprofile-update=atomic)
+    add_link_options(-coverage)
 endif()
 
 add_subdirectory(controllers)

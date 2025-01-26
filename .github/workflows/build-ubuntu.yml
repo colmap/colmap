@@ -271,6 +271,7 @@ jobs:
       - name: Generate coverage report
         if: matrix.config.coverageEnabled
         run: |
+          set -x
           cd build
           ../scripts/shell/generate_coverage_report.sh
 

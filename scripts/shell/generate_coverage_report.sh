@@ -46,7 +46,10 @@ lcov \
     --directory "$colmap_root_dir" \
     --capture \
     --output-file coverage.info \
-    --ignore-errors inconsistent,format,mismatch \
+    --ignore-errors inconsistent \
+    --ignore-errors format \
+    --ignore-errors mismatch,mismatch \
+    --ignore-errors gcov,gcov \
     --no-external \
     --exclude "$colmap_root_dir/src/thirdparty/*" \
     --exclude "$(pwd)/_deps/*"
