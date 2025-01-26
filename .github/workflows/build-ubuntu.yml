@@ -283,6 +283,7 @@ jobs:
           path: build/coverage-html
 
       - name: Report coverage to GitHub
+        if: matrix.config.coverageEnabled
         uses: irongut/CodeCoverageSummary@v1.3.0
         with:
           filename: build/coverage-cobertura.xml
