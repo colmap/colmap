@@ -278,7 +278,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: matrix.config.coverageEnabled
         with:
-          name: colmap-x64-windows-nocuda
+          name: code-coverage
           path: build/coverage
 
       - name: Cleanup compiler cache
