@@ -295,6 +295,13 @@ jobs:
           indicators: true
           output: both
           thresholds: '60 80'
+      
+      - name: Add Coverage PR Comment
+        uses: marocchino/sticky-pull-request-comment@v2
+        if: ${{ matrix.config.coverageEnabled && github.event_name == 'pull_request' }}
+        with:
+          recreate: true
+          path: code-coverage-results.md
 
       - name: Cleanup compiler cache
         run: |
