@@ -44,7 +44,6 @@ COLMAP_ADD_LIBRARY(
         euclidean_transform.h
         fundamental_matrix.h fundamental_matrix.cc
         generalized_absolute_pose.h generalized_absolute_pose.cc
-        generalized_absolute_pose_coeffs.h generalized_absolute_pose_coeffs.cc
         generalized_relative_pose.h generalized_relative_pose.cc
         homography_matrix.h homography_matrix.cc
         pose.h pose.cc
