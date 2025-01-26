@@ -69,7 +69,8 @@ RUN apt-get update && \
         libgoogle-glog0v5 \
         libqt5core5a \
         libqt5gui5 \
-        libqt5widgets5
+        libqt5widgets5 \
+        libcurl4
 
 # Copy all files from /colmap-install/ in the builder stage to /usr/local/ in
 # the runtime stage. This simulates installing COLMAP in the default location

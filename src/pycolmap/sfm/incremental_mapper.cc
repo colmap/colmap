@@ -142,6 +142,16 @@ void BindIncrementalPipeline(py::module& m) {
           "ba_global_max_refinement_change",
           &Opts::ba_global_max_refinement_change,
           "The thresholds for iterative bundle adjustment refinements.")
+      .def_readwrite("use_prior_position",
+                     &Opts::use_prior_position,
+                     "Whether to use priors on the camera positions.")
+      .def_readwrite("use_robust_loss_on_prior_position",
+                     &Opts::use_robust_loss_on_prior_position,
+                     "Whether to use a robust loss on prior camera positions.")
+      .def_readwrite("prior_position_loss_scale",
+                     &Opts::prior_position_loss_scale,
+                     "Threshold on the residual for the robust position prior "
+                     "loss (chi2 for 3DOF at 95% = 7.815).")
       .def_readwrite("snapshot_path",
                      &Opts::snapshot_path,
                      "Path to a folder in which reconstruction snapshots will "
