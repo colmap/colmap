@@ -53,6 +53,7 @@ gcovr \
     --root "$colmap_root_dir" \
     --exclude "$colmap_root_dir/src/thirdparty/*" \
     --exclude "$(pwd)/_deps/*" \
+    --exclude "$(pwd)/src/colmap/ui/colmap_ui_autogen/*" \
     --cobertura coverage-cobertura.xml \
     --cobertura-pretty \
     --html-nested coverage-html/index.html \
