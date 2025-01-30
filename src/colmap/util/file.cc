@@ -369,9 +369,9 @@ namespace {
 
 std::string SHA256DigestToHex(span<unsigned char> digest) {
   std::ostringstream hex;
-  for (int i = 0; i < digest.size(); ++i) {
+  for (const auto c : digest) {
     hex << std::hex << std::setw(2) << std::setfill('0')
-        << static_cast<unsigned int>(digest[i]);
+        << static_cast<unsigned int>(c);
   }
   return hex.str();
 }
