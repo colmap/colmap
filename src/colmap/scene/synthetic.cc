@@ -282,15 +282,14 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
     }
 
     if (options.use_prior_position) {
-      const Eigen::Vector3d noise(
-          RandomGaussian<double>(0, options.prior_position_stddev),
-          RandomGaussian<double>(0, options.prior_position_stddev),
-          RandomGaussian<double>(0, options.prior_position_stddev));
-
-      PosePrior noisy_prior(proj_center + noise,
+      PosePrior noisy_prior(proj_center,
                             PosePrior::CoordinateSystem::CARTESIAN);
 
       if (options.prior_position_stddev > 0.) {
+        noisy_prior.position += Eigen::Vector3d(
+            RandomGaussian<double>(0, options.prior_position_stddev),
+            RandomGaussian<double>(0, options.prior_position_stddev),
+            RandomGaussian<double>(0, options.prior_position_stddev));
         noisy_prior.position_covariance = options.prior_position_stddev *
                                           options.prior_position_stddev *
                                           Eigen::Matrix3d::Identity();
