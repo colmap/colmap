@@ -2,7 +2,6 @@
 Python reimplementation of the bundle adjustment for the incremental mapper of
 C++ with equivalent logic. As a result, one can add customized residuals on top
 of the exposed ceres problem from conventional bundle adjustment.
-pyceres is needed as a dependency for this file.
 """
 
 import copy
