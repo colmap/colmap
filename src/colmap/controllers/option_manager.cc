@@ -57,7 +57,9 @@ OptionManager::OptionManager(bool add_project_options) {
   image_path = std::make_shared<std::string>();
 
   image_reader = std::make_shared<ImageReaderOptions>();
-  sift_extraction = std::make_shared<SiftExtractionOptions>();
+  feature_extraction_type_ =
+      FeatureExtractorTypeToString(feature_extraction->type);
+  feature_extraction = std::make_shared<FeatureExtractionOptions>();
   feature_matching = std::make_shared<FeatureMatchingOptions>();
   feature_matching_type_ = FeatureMatcherTypeToString(feature_matching->type);
   two_view_geometry = std::make_shared<TwoViewGeometryOptions>();
@@ -110,8 +112,9 @@ void OptionManager::ModifyForInternetData() {
 }
 
 void OptionManager::ModifyForLowQuality() {
-  sift_extraction->max_image_size = 1000;
-  sift_extraction->max_num_features = 2048;
+  feature_extraction->max_image_size = 1000;
+  feature_extraction->sift->max_num_features = 2048;
+  feature_extraction->aliked->max_num_features = 1024;
   sequential_matching->loop_detection_num_images /= 2;
   vocab_tree_matching->max_num_features = 256;
   vocab_tree_matching->num_images /= 2;
@@ -131,8 +134,9 @@ void OptionManager::ModifyForLowQuality() {
 }
 
 void OptionManager::ModifyForMediumQuality() {
-  sift_extraction->max_image_size = 1600;
-  sift_extraction->max_num_features = 4096;
+  feature_extraction->max_image_size = 1600;
+  feature_extraction->sift->max_num_features = 4096;
+  feature_extraction->aliked->max_num_features = 2048;
   sequential_matching->loop_detection_num_images /= 1.5;
   vocab_tree_matching->max_num_features = 1024;
   vocab_tree_matching->num_images /= 1.5;
@@ -152,9 +156,10 @@ void OptionManager::ModifyForMediumQuality() {
 }
 
 void OptionManager::ModifyForHighQuality() {
-  sift_extraction->estimate_affine_shape = true;
-  sift_extraction->max_image_size = 2400;
-  sift_extraction->max_num_features = 8192;
+  feature_extraction->sift->estimate_affine_shape = true;
+  feature_extraction->max_image_size = 2400;
+  feature_extraction->sift->max_num_features = 8192;
+  feature_extraction->aliked->max_num_features = 4096;
   feature_matching->guided_matching = true;
   vocab_tree_matching->max_num_features = 4096;
   mapper->ba_local_max_num_iterations = 30;
@@ -166,8 +171,8 @@ void OptionManager::ModifyForHighQuality() {
 
 void OptionManager::ModifyForExtremeQuality() {
   // Most of the options are set to extreme quality by default.
-  sift_extraction->estimate_affine_shape = true;
-  sift_extraction->domain_size_pooling = true;
+  feature_extraction->sift->estimate_affine_shape = true;
+  feature_extraction->sift->domain_size_pooling = true;
   feature_matching->guided_matching = true;
   mapper->ba_local_max_num_iterations = 40;
   mapper->ba_local_max_refinements = 3;
@@ -258,40 +263,54 @@ void OptionManager::AddExtractionOptions() {
   AddAndRegisterDefaultOption("ImageReader.camera_mask_path",
                               &image_reader->camera_mask_path);
 
-  AddAndRegisterDefaultOption("SiftExtraction.num_threads",
-                              &sift_extraction->num_threads);
-  AddAndRegisterDefaultOption("SiftExtraction.use_gpu",
-                              &sift_extraction->use_gpu);
-  AddAndRegisterDefaultOption("SiftExtraction.gpu_index",
-                              &sift_extraction->gpu_index);
-  AddAndRegisterDefaultOption("SiftExtraction.max_image_size",
-                              &sift_extraction->max_image_size);
+  AddAndRegisterDefaultOption("FeatureExtraction.type",
+                              &feature_extraction_type_);
+  AddAndRegisterDefaultOption("FeatureExtraction.num_threads",
+                              &feature_extraction->num_threads);
+  AddAndRegisterDefaultOption("FeatureExtraction.use_gpu",
+                              &feature_extraction->use_gpu);
+  AddAndRegisterDefaultOption("FeatureExtraction.gpu_index",
+                              &feature_extraction->gpu_index);
+  AddAndRegisterDefaultOption("FeatureExtraction.max_image_size",
+                              &feature_extraction->max_image_size);
+
   AddAndRegisterDefaultOption("SiftExtraction.max_num_features",
-                              &sift_extraction->max_num_features);
+                              &feature_extraction->sift->max_num_features);
   AddAndRegisterDefaultOption("SiftExtraction.first_octave",
-                              &sift_extraction->first_octave);
+                              &feature_extraction->sift->first_octave);
   AddAndRegisterDefaultOption("SiftExtraction.num_octaves",
-                              &sift_extraction->num_octaves);
+                              &feature_extraction->sift->num_octaves);
   AddAndRegisterDefaultOption("SiftExtraction.octave_resolution",
-                              &sift_extraction->octave_resolution);
+                              &feature_extraction->sift->octave_resolution);
   AddAndRegisterDefaultOption("SiftExtraction.peak_threshold",
-                              &sift_extraction->peak_threshold);
+                              &feature_extraction->sift->peak_threshold);
   AddAndRegisterDefaultOption("SiftExtraction.edge_threshold",
-                              &sift_extraction->edge_threshold);
+                              &feature_extraction->sift->edge_threshold);
   AddAndRegisterDefaultOption("SiftExtraction.estimate_affine_shape",
-                              &sift_extraction->estimate_affine_shape);
+                              &feature_extraction->sift->estimate_affine_shape);
   AddAndRegisterDefaultOption("SiftExtraction.max_num_orientations",
-                              &sift_extraction->max_num_orientations);
+                              &feature_extraction->sift->max_num_orientations);
   AddAndRegisterDefaultOption("SiftExtraction.upright",
-                              &sift_extraction->upright);
+                              &feature_extraction->sift->upright);
   AddAndRegisterDefaultOption("SiftExtraction.domain_size_pooling",
-                              &sift_extraction->domain_size_pooling);
+                              &feature_extraction->sift->domain_size_pooling);
   AddAndRegisterDefaultOption("SiftExtraction.dsp_min_scale",
-                              &sift_extraction->dsp_min_scale);
+                              &feature_extraction->sift->dsp_min_scale);
   AddAndRegisterDefaultOption("SiftExtraction.dsp_max_scale",
-                              &sift_extraction->dsp_max_scale);
+                              &feature_extraction->sift->dsp_max_scale);
   AddAndRegisterDefaultOption("SiftExtraction.dsp_num_scales",
-                              &sift_extraction->dsp_num_scales);
+                              &feature_extraction->sift->dsp_num_scales);
+
+  AddAndRegisterDefaultOption("ALIKEDExtraction.max_num_features",
+                              &feature_extraction->aliked->max_num_features);
+  AddAndRegisterDefaultOption("ALIKEDExtraction.score_threshold",
+                              &feature_extraction->aliked->score_threshold);
+  AddAndRegisterDefaultOption("ALIKEDExtraction.top_k",
+                              &feature_extraction->aliked->top_k);
+  AddAndRegisterDefaultOption("ALIKEDExtraction.model_name",
+                              &feature_extraction->aliked->model_name);
+  AddAndRegisterDefaultOption("ALIKEDExtraction.model_path",
+                              &feature_extraction->aliked->model_path);
 }
 
 void OptionManager::AddMatchingOptions() {
@@ -816,7 +835,7 @@ void OptionManager::ResetOptions(const bool reset_paths) {
     *image_path = "";
   }
   *image_reader = ImageReaderOptions();
-  *sift_extraction = SiftExtractionOptions();
+  *feature_extraction = FeatureExtractionOptions();
   *feature_matching = FeatureMatchingOptions();
   *exhaustive_matching = ExhaustiveMatchingOptions();
   *sequential_matching = SequentialMatchingOptions();
@@ -847,7 +866,7 @@ bool OptionManager::Check() {
     success = success && CHECK_OPTION_IMPL(ExistsDir(*image_path));
 
   if (image_reader) success = success && image_reader->Check();
-  if (sift_extraction) success = success && sift_extraction->Check();
+  if (feature_extraction) success = success && feature_extraction->Check();
 
   if (feature_matching) success = success && feature_matching->Check();
   if (two_view_geometry) success = success && two_view_geometry->Check();
@@ -900,6 +919,8 @@ void OptionManager::Parse(const int argc, char** argv) {
       vmap.notify();
     }
 
+    feature_extraction->type =
+        FeatureExtractorTypeFromString(feature_extraction_type_);
     feature_matching->type =
         FeatureMatcherTypeFromString(feature_matching_type_);
   } catch (std::exception& exc) {
@@ -932,6 +953,8 @@ bool OptionManager::Read(const std::string& path) {
     THROW_CHECK_FILE_OPEN(file, path);
     config::store(config::parse_config_file(file, *desc_), vmap);
     vmap.notify();
+    feature_extraction->type =
+        FeatureExtractorTypeFromString(feature_extraction_type_);
     feature_matching->type =
         FeatureMatcherTypeFromString(feature_matching_type_);
   } catch (std::exception& e) {

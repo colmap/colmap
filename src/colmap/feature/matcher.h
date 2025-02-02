@@ -51,7 +51,8 @@ struct SiftMatchingOptions;
 struct ALIKEDMatchingOptions;
 
 struct FeatureMatchingOptions {
-  FeatureMatchingOptions(FeatureMatcherType type = FeatureMatcherType::SIFT);
+  explicit FeatureMatchingOptions(
+      FeatureMatcherType type = FeatureMatcherType::SIFT);
 
   FeatureMatcherType type = FeatureMatcherType::SIFT;
 

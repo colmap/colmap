@@ -60,11 +60,11 @@ TEST(ExtractSiftFeaturesCPU, Nominal) {
   Bitmap bitmap;
   CreateImageWithSquare(256, &bitmap);
 
-  SiftExtractionOptions options;
+  FeatureExtractionOptions options(FeatureExtractorType::SIFT);
   options.use_gpu = false;
-  options.estimate_affine_shape = false;
-  options.domain_size_pooling = false;
-  options.force_covariant_extractor = false;
+  options.sift->estimate_affine_shape = false;
+  options.sift->domain_size_pooling = false;
+  options.sift->force_covariant_extractor = false;
   auto extractor = CreateSiftFeatureExtractor(options);
 
   FeatureKeypoints keypoints;
@@ -92,11 +92,11 @@ TEST(ExtractCovariantSiftFeaturesCPU, Nominal) {
   Bitmap bitmap;
   CreateImageWithSquare(256, &bitmap);
 
-  SiftExtractionOptions options;
+  FeatureExtractionOptions options(FeatureExtractorType::SIFT);
   options.use_gpu = false;
-  options.estimate_affine_shape = false;
-  options.domain_size_pooling = false;
-  options.force_covariant_extractor = true;
+  options.sift->estimate_affine_shape = false;
+  options.sift->domain_size_pooling = false;
+  options.sift->force_covariant_extractor = true;
   auto extractor = CreateSiftFeatureExtractor(options);
 
   FeatureKeypoints keypoints;
@@ -124,11 +124,11 @@ TEST(ExtractCovariantAffineSiftFeaturesCPU, Nominal) {
   Bitmap bitmap;
   CreateImageWithSquare(256, &bitmap);
 
-  SiftExtractionOptions options;
+  FeatureExtractionOptions options(FeatureExtractorType::SIFT);
   options.use_gpu = false;
-  options.estimate_affine_shape = true;
-  options.domain_size_pooling = false;
-  options.force_covariant_extractor = false;
+  options.sift->estimate_affine_shape = true;
+  options.sift->domain_size_pooling = false;
+  options.sift->force_covariant_extractor = false;
   auto extractor = CreateSiftFeatureExtractor(options);
 
   FeatureKeypoints keypoints;
@@ -156,12 +156,12 @@ TEST(ExtractCovariantAffineSiftFeaturesCPU, Upright) {
   Bitmap bitmap;
   CreateImageWithSquare(256, &bitmap);
 
-  SiftExtractionOptions options;
+  FeatureExtractionOptions options(FeatureExtractorType::SIFT);
   options.use_gpu = false;
-  options.estimate_affine_shape = true;
-  options.upright = true;
-  options.domain_size_pooling = false;
-  options.force_covariant_extractor = false;
+  options.sift->estimate_affine_shape = true;
+  options.sift->upright = true;
+  options.sift->domain_size_pooling = false;
+  options.sift->force_covariant_extractor = false;
   auto extractor = CreateSiftFeatureExtractor(options);
 
   FeatureKeypoints keypoints;
@@ -189,11 +189,11 @@ TEST(ExtractCovariantDSPSiftFeaturesCPU, Nominal) {
   Bitmap bitmap;
   CreateImageWithSquare(256, &bitmap);
 
-  SiftExtractionOptions options;
+  FeatureExtractionOptions options(FeatureExtractorType::SIFT);
   options.use_gpu = false;
-  options.estimate_affine_shape = false;
-  options.domain_size_pooling = true;
-  options.force_covariant_extractor = false;
+  options.sift->estimate_affine_shape = false;
+  options.sift->domain_size_pooling = true;
+  options.sift->force_covariant_extractor = false;
   auto extractor = CreateSiftFeatureExtractor(options);
 
   FeatureKeypoints keypoints;
@@ -221,11 +221,11 @@ TEST(ExtractCovariantAffineDSPSiftFeaturesCPU, Nominal) {
   Bitmap bitmap;
   CreateImageWithSquare(256, &bitmap);
 
-  SiftExtractionOptions options;
+  FeatureExtractionOptions options(FeatureExtractorType::SIFT);
   options.use_gpu = false;
-  options.estimate_affine_shape = true;
-  options.domain_size_pooling = true;
-  options.force_covariant_extractor = false;
+  options.sift->estimate_affine_shape = true;
+  options.sift->domain_size_pooling = true;
+  options.sift->force_covariant_extractor = false;
   auto extractor = CreateSiftFeatureExtractor(options);
 
   FeatureKeypoints keypoints;
@@ -263,11 +263,11 @@ TEST(ExtractSiftFeaturesGPU, Nominal) {
       Bitmap bitmap;
       CreateImageWithSquare(256, &bitmap);
 
-      SiftExtractionOptions options;
+      FeatureExtractionOptions options(FeatureExtractorType::SIFT);
       options.use_gpu = true;
-      options.estimate_affine_shape = false;
-      options.domain_size_pooling = false;
-      options.force_covariant_extractor = false;
+      options.sift->estimate_affine_shape = false;
+      options.sift->domain_size_pooling = false;
+      options.sift->force_covariant_extractor = false;
       auto extractor = CreateSiftFeatureExtractor(options);
 
       FeatureKeypoints keypoints;

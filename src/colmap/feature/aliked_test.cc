@@ -53,7 +53,8 @@ TEST(ALIKED, Nominal) {
   Bitmap image;
   CreateImageWithSquare(200, &image);
 
-  auto extractor = CreateALIKEDFeatureExtractor(ALIKEDExtractionOptions());
+  FeatureExtractionOptions extraction_options(FeatureExtractorType::ALIKED);
+  auto extractor = CreateALIKEDFeatureExtractor(extraction_options);
   auto keypoints = std::make_shared<FeatureKeypoints>();
   auto descriptors = std::make_shared<FeatureDescriptors>();
   ASSERT_TRUE(extractor->Extract(image, keypoints.get(), descriptors.get()));

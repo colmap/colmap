@@ -115,12 +115,16 @@ void FeatureMatchingTab::CreateGeneralOptions() {
                                 "max_num_matches");
   options_widget_->AddOptionBool(&options_->feature_matching->guided_matching,
                                  "guided_matching");
+
   options_widget_->AddOptionDouble(&options_->feature_matching->sift->max_ratio,
                                    "sift.max_ratio");
   options_widget_->AddOptionDouble(
       &options_->feature_matching->sift->max_distance, "sift.max_distance");
   options_widget_->AddOptionBool(&options_->feature_matching->sift->cross_check,
-                                 "sift,cross_check");
+                                 "sift.cross_check");
+
+  // TODO(jsch): Add ALIKED options.
+
   options_widget_->AddOptionDouble(
       &options_->two_view_geometry->ransac_options.max_error, "max_error");
   options_widget_->AddOptionDouble(

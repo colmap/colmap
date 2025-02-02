@@ -109,17 +109,9 @@ int RunFeatureExtractor(int argc, char** argv) {
                                            (CameraMode)camera_mode);
   }
 
-  StringToLower(&descriptor_normalization);
-  if (descriptor_normalization == "l1_root") {
-    options.sift_extraction->normalization =
-        SiftExtractionOptions::Normalization::L1_ROOT;
-  } else if (descriptor_normalization == "l2") {
-    options.sift_extraction->normalization =
-        SiftExtractionOptions::Normalization::L2;
-  } else {
-    LOG(ERROR) << "Invalid `descriptor_normalization`";
-    return EXIT_FAILURE;
-  }
+  StringToUpper(&descriptor_normalization);
+  options.feature_extraction->sift->normalization =
+      SiftExtractionOptions::NormalizationFromString(descriptor_normalization);
 
   if (!image_list_path.empty()) {
     reader_options.image_names = ReadTextFileLines(image_list_path);
@@ -138,14 +130,14 @@ int RunFeatureExtractor(int argc, char** argv) {
   }
 
   std::unique_ptr<QApplication> app;
-  if (options.sift_extraction->use_gpu && kUseOpenGL) {
+  if (options.feature_extraction->use_gpu && kUseOpenGL) {
     app.reset(new QApplication(argc, argv));
   }
 
   auto feature_extractor = CreateFeatureExtractorController(
-      reader_options, *options.sift_extraction);
+      reader_options, *options.feature_extraction);
 
-  if (options.sift_extraction->use_gpu && kUseOpenGL) {
+  if (options.feature_extraction->use_gpu && kUseOpenGL) {
     RunThreadWithOpenGLContext(feature_extractor.get());
   } else {
     feature_extractor->Start();

@@ -35,19 +35,6 @@
 namespace colmap {
 
 struct SiftExtractionOptions {
-  // Number of threads for feature extraction.
-  int num_threads = -1;
-
-  // Whether to use the GPU for feature extraction.
-  bool use_gpu = true;
-
-  // Index of the GPU used for feature extraction. For multi-GPU extraction,
-  // you should separate multiple GPU indices by comma, e.g., "0,1,2,3".
-  std::string gpu_index = "-1";
-
-  // Maximum image size, otherwise image will be down-scaled.
-  int max_image_size = 3200;
-
   // Maximum number of features to detect, keeping larger-scale features.
   int max_num_features = 8192;
 
@@ -98,15 +85,12 @@ struct SiftExtractionOptions {
   // Sift implementation is faster.
   bool force_covariant_extractor = false;
 
-  enum class Normalization {
-    // L1-normalizes each descriptor followed by element-wise square rooting.
-    // This normalization is usually better than standard L2-normalization.
-    // See "Three things everyone should know to improve object retrieval",
-    // Relja Arandjelovic and Andrew Zisserman, CVPR 2012.
-    L1_ROOT,
-    // Each vector is L2-normalized.
-    L2,
-  };
+  // L1_ROOT: L1-normalizes each descriptor followed by element-wise square
+  // rooting. This normalization is usually better than standard
+  // L2-normalization. See "Three things everyone should know to improve object
+  // retrieval", Relja Arandjelovic and Andrew Zisserman, CVPR 2012. L2: Each
+  // vector is L2-normalized.
+  MAKE_ENUM_CLASS(Normalization, 0, L1_ROOT, L2);
   Normalization normalization = Normalization::L1_ROOT;
 
   bool Check() const;
@@ -119,7 +103,7 @@ struct SiftExtractionOptions {
 // not -1, the CUDA version of SiftGPU is used, which produces slightly
 // different results than the OpenGL implementation.
 std::unique_ptr<FeatureExtractor> CreateSiftFeatureExtractor(
-    const SiftExtractionOptions& options);
+    const FeatureExtractionOptions& options);
 
 struct SiftMatchingOptions {
   // Maximum distance ratio between first and second best match.

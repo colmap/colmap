@@ -149,18 +149,18 @@ class ImageResizerThread : public Thread {
 
 class SiftFeatureExtractorThread : public Thread {
  public:
-  SiftFeatureExtractorThread(const SiftExtractionOptions& sift_options,
+  SiftFeatureExtractorThread(const FeatureExtractionOptions& extraction_options,
                              const std::shared_ptr<Bitmap>& camera_mask,
                              JobQueue<ImageData>* input_queue,
                              JobQueue<ImageData>* output_queue)
-      : sift_options_(sift_options),
+      : extraction_options_(extraction_options),
         camera_mask_(camera_mask),
         input_queue_(input_queue),
         output_queue_(output_queue) {
-    THROW_CHECK(sift_options_.Check());
+    THROW_CHECK(extraction_options_.Check());
 
 #if !defined(COLMAP_CUDA_ENABLED)
-    if (sift_options_.use_gpu) {
+    if (extraction_options_.use_gpu) {
       opengl_context_ = std::make_unique<OpenGLContextManager>();
     }
 #endif
@@ -168,16 +168,15 @@ class SiftFeatureExtractorThread : public Thread {
 
  private:
   void Run() override {
-    if (sift_options_.use_gpu) {
+    if (extraction_options_.use_gpu) {
 #if !defined(COLMAP_CUDA_ENABLED)
       THROW_CHECK_NOTNULL(opengl_context_);
       THROW_CHECK(opengl_context_->MakeCurrent());
 #endif
     }
 
-    // TODO: Customize options.
     std::unique_ptr<FeatureExtractor> extractor =
-        CreateALIKEDFeatureExtractor(ALIKEDExtractionOptions());
+        FeatureExtractor::Create(extraction_options_);
     if (extractor == nullptr) {
       LOG(ERROR) << "Failed to create feature extractor.";
       SignalInvalidSetup();
@@ -225,7 +224,7 @@ class SiftFeatureExtractorThread : public Thread {
     }
   }
 
-  const SiftExtractionOptions sift_options_;
+  const FeatureExtractionOptions extraction_options_;
   std::shared_ptr<Bitmap> camera_mask_;
 
   std::unique_ptr<OpenGLContextManager> opengl_context_;
@@ -324,13 +323,13 @@ class FeatureWriterThread : public Thread {
 class FeatureExtractorController : public Thread {
  public:
   FeatureExtractorController(const ImageReaderOptions& reader_options,
-                             const SiftExtractionOptions& sift_options)
+                             const FeatureExtractionOptions& extraction_options)
       : reader_options_(reader_options),
-        sift_options_(sift_options),
+        extraction_options_(extraction_options),
         database_(reader_options_.database_path),
         image_reader_(reader_options_, &database_) {
     THROW_CHECK(reader_options_.Check());
-    THROW_CHECK(sift_options_.Check());
+    THROW_CHECK(extraction_options_.Check());
 
     std::shared_ptr<Bitmap> camera_mask;
     if (!reader_options_.camera_mask_path.empty()) {
@@ -349,7 +348,8 @@ class FeatureExtractorController : public Thread {
       }
     }
 
-    const int num_threads = GetEffectiveNumThreads(sift_options_.num_threads);
+    const int num_threads =
+        GetEffectiveNumThreads(extraction_options_.num_threads);
     THROW_CHECK_GT(num_threads, 0);
 
     // Make sure that we only have limited number of objects in the queue to
@@ -360,18 +360,20 @@ class FeatureExtractorController : public Thread {
     extractor_queue_ = std::make_unique<JobQueue<ImageData>>(kQueueSize);
     writer_queue_ = std::make_unique<JobQueue<ImageData>>(kQueueSize);
 
-    if (sift_options_.max_image_size > 0) {
+    if (extraction_options_.max_image_size > 0) {
       for (int i = 0; i < num_threads; ++i) {
-        resizers_.emplace_back(
-            std::make_unique<ImageResizerThread>(sift_options_.max_image_size,
-                                                 resizer_queue_.get(),
-                                                 extractor_queue_.get()));
+        resizers_.emplace_back(std::make_unique<ImageResizerThread>(
+            extraction_options_.max_image_size,
+            resizer_queue_.get(),
+            extractor_queue_.get()));
       }
     }
 
-    if (!sift_options_.domain_size_pooling &&
-        !sift_options_.estimate_affine_shape && sift_options_.use_gpu) {
-      std::vector<int> gpu_indices = CSVToVector<int>(sift_options_.gpu_index);
+    if (!extraction_options_.sift->domain_size_pooling &&
+        !extraction_options_.sift->estimate_affine_shape &&
+        extraction_options_.use_gpu) {
+      std::vector<int> gpu_indices =
+          CSVToVector<int>(extraction_options_.gpu_index);
       THROW_CHECK_GT(gpu_indices.size(), 0);
 
 #if defined(COLMAP_CUDA_ENABLED)
@@ -383,7 +385,7 @@ class FeatureExtractorController : public Thread {
       }
 #endif  // COLMAP_CUDA_ENABLED
 
-      auto sift_gpu_options = sift_options_;
+      auto sift_gpu_options = extraction_options_;
       for (const auto& gpu_index : gpu_indices) {
         sift_gpu_options.gpu_index = std::to_string(gpu_index);
         extractors_.emplace_back(
@@ -393,10 +395,12 @@ class FeatureExtractorController : public Thread {
                                                          writer_queue_.get()));
       }
     } else {
-      if (sift_options_.num_threads == -1 &&
-          sift_options_.max_image_size ==
-              SiftExtractionOptions().max_image_size &&
-          sift_options_.first_octave == SiftExtractionOptions().first_octave) {
+      const static FeatureExtractionOptions kDefaultExtractionOptions;
+      if (extraction_options_.num_threads == -1 &&
+          extraction_options_.max_image_size ==
+              kDefaultExtractionOptions.max_image_size &&
+          extraction_options_.sift->first_octave ==
+              kDefaultExtractionOptions.sift->first_octave) {
         LOG(WARNING)
             << "Your current options use the maximum number of "
                "threads on the machine to extract features. Extracting SIFT "
@@ -407,7 +411,7 @@ class FeatureExtractorController : public Thread {
                "memory for the current settings.";
       }
 
-      auto custom_sift_options = sift_options_;
+      auto custom_sift_options = extraction_options_;
       custom_sift_options.use_gpu = false;
       for (int i = 0; i < num_threads; ++i) {
         extractors_.emplace_back(
@@ -464,7 +468,7 @@ class FeatureExtractorController : public Thread {
         image_data.bitmap.Deallocate();
       }
 
-      if (sift_options_.max_image_size > 0) {
+      if (extraction_options_.max_image_size > 0) {
         THROW_CHECK(resizer_queue_->Push(std::move(image_data)));
       } else {
         THROW_CHECK(extractor_queue_->Push(std::move(image_data)));
@@ -491,7 +495,7 @@ class FeatureExtractorController : public Thread {
   }
 
   const ImageReaderOptions reader_options_;
-  const SiftExtractionOptions sift_options_;
+  const FeatureExtractionOptions extraction_options_;
 
   Database database_;
   ImageReader image_reader_;
@@ -587,9 +591,9 @@ class FeatureImporterController : public Thread {
 
 std::unique_ptr<Thread> CreateFeatureExtractorController(
     const ImageReaderOptions& reader_options,
-    const SiftExtractionOptions& sift_options) {
+    const FeatureExtractionOptions& extraction_options) {
   return std::make_unique<FeatureExtractorController>(reader_options,
-                                                      sift_options);
+                                                      extraction_options);
 }
 
 std::unique_ptr<Thread> CreateFeatureImporterController(

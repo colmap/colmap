@@ -53,7 +53,7 @@ COLMAP_ADD_LIBRARY(
     NAME colmap_feature
     SRCS
         aliked.h aliked.cc
-        extractor.h
+        extractor.h extractor.cc
         index.h index.cc
         matcher.h matcher.cc
         pairing.h pairing.cc

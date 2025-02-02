@@ -38,9 +38,6 @@
 namespace colmap {
 
 struct ALIKEDExtractionOptions {
-  // Maximum image size for feature extraction.
-  int max_image_size = 2048;
-
   // Maximum number of features to detect (in combination with score threshold).
   int max_num_features = 4096;
 
@@ -61,7 +58,7 @@ struct ALIKEDExtractionOptions {
 };
 
 std::unique_ptr<FeatureExtractor> CreateALIKEDFeatureExtractor(
-    const ALIKEDExtractionOptions& options);
+    const FeatureExtractionOptions& options);
 
 struct ALIKEDMatchingOptions {
   // Path to .pt ALIKED model file in torch model format.

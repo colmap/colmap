@@ -55,14 +55,14 @@ std::string GetDeviceName() {
 
 class ALIKEDFeatureExtractor : public FeatureExtractor {
  public:
-  explicit ALIKEDFeatureExtractor(const ALIKEDExtractionOptions& options)
+  explicit ALIKEDFeatureExtractor(const FeatureExtractionOptions& options)
       : options_(options),
-        aliked_(options.model_name,
-                MaybeDownloadAndCacheFile(options.model_path),
+        aliked_(options.aliked->model_name,
+                MaybeDownloadAndCacheFile(options.aliked->model_path),
                 GetDeviceName(),
-                /*top_k=*/options.top_k,
-                /*scores_th=*/options.score_threshold,
-                /*n_limit=*/options.max_num_features) {}
+                /*top_k=*/options.aliked->top_k,
+                /*scores_th=*/options.aliked->score_threshold,
+                /*n_limit=*/options.aliked->max_num_features) {}
 
   bool Extract(const Bitmap& bitmap,
                FeatureKeypoints* keypoints,
@@ -128,7 +128,7 @@ class ALIKEDFeatureExtractor : public FeatureExtractor {
   }
 
  private:
-  const ALIKEDExtractionOptions options_;
+  const FeatureExtractionOptions options_;
   ALIKED aliked_;
 };
 
@@ -227,7 +227,6 @@ class ALIKEDLightGlueFeatureMatcher : public FeatureMatcher {
 }  // namespace
 
 bool ALIKEDExtractionOptions::Check() const {
-  CHECK_OPTION_GT(max_image_size, 0);
   CHECK_OPTION_GT(max_num_features, 0);
   CHECK_OPTION_GT(score_threshold, 0);
   CHECK_OPTION_GE(top_k, -1);
@@ -235,7 +234,7 @@ bool ALIKEDExtractionOptions::Check() const {
 }
 
 std::unique_ptr<FeatureExtractor> CreateALIKEDFeatureExtractor(
-    const ALIKEDExtractionOptions& options) {
+    const FeatureExtractionOptions& options) {
 #ifdef COLMAP_TORCH_ENABLED
   return std::make_unique<ALIKEDFeatureExtractor>(options);
 #else
