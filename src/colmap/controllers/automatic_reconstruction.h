@@ -32,7 +32,7 @@
 #include "colmap/controllers/option_manager.h"
 #include "colmap/retrieval/resources.h"
 #include "colmap/scene/reconstruction_manager.h"
-#include "colmap/util/enum_to_string.h"
+#include "colmap/util/enum_utils.h"
 #include "colmap/util/threading.h"
 
 #include <memory>
