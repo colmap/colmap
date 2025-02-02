@@ -1410,7 +1410,7 @@ class SqliteDatabase : public Database {
     database_entry_deleted_ = true;
   }
 
-  void ClearConstrainingPoints() const override {
+  void ClearConstrainingPoints() override {
     Sqlite3StmtContext context(sql_stmt_clear_constraining_points_);
     SQLITE3_CALL(sqlite3_step(sql_stmt_clear_constraining_points_));
     database_entry_deleted_ = true;

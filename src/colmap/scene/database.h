@@ -189,10 +189,7 @@ class Database {
   ReadTwoViewGeometryNumInliers() const = 0;
 
   // Functions for managing constraining points
-  virtual void WriteConstrainingPoints(
-      const std::vector<Eigen::Vector3d>& points) const = 0;
   virtual std::vector<Eigen::Vector3d> ReadConstrainingPoints() const = 0;
-  virtual void ClearConstrainingPoints() const = 0;
 
   // Add new rig and return its database identifier. If `use_rig_id`
   // is false a new identifier is automatically generated.
@@ -232,6 +229,10 @@ class Database {
       image_t image_id1,
       image_t image_id2,
       const TwoViewGeometry& two_view_geometry) = 0;
+
+  // Write constraining points to the database.
+  virtual void WriteConstrainingPoints(
+      const std::vector<Eigen::Vector3d>& points) const = 0;
 
   // Update an existing rig in the database. The user is responsible for
   // making sure that the entry already exists.
@@ -296,6 +297,9 @@ class Database {
 
   // Clear the entire inlier matches table.
   virtual void ClearTwoViewGeometries() = 0;
+
+  // Clear the entire constraining points table.
+  virtual void ClearConstrainingPoints() = 0;
 
   // Merge two databases into a single, new database.
   static void Merge(const Database& database1,
