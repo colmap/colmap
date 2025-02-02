@@ -81,6 +81,7 @@ void BindDatabase(py::module& m) {
       .def("read_all_images", &Database::ReadAllImages)
       .def("read_pose_prior", &Database::ReadPosePrior, "image_id"_a)
       .def("read_keypoints", &Database::ReadKeypointsBlob, "image_id"_a)
+      .def("read_constraining_points", &Database::ReadConstrainingPoints)
       .def("read_descriptors", &Database::ReadDescriptors, "image_id"_a)
       .def("read_matches",
            &Database::ReadMatchesBlob,
@@ -151,6 +152,10 @@ void BindDatabase(py::module& m) {
            &Database::WritePosePrior,
            "image_id"_a,
            "pose_prior"_a)
+      .def("write_constraining_points",
+           py::overload_cast<const std::vector<Eigen::Vector3d>&>(
+               &Database::WriteConstrainingPoints, py::const_),
+           "keypoints"_a)
       .def("write_keypoints",
            py::overload_cast<image_t, const FeatureKeypointsBlob&>(
                &Database::WriteKeypoints, py::const_),
@@ -188,6 +193,7 @@ void BindDatabase(py::module& m) {
       .def("clear_descriptors", &Database::ClearDescriptors)
       .def("clear_keypoints", &Database::ClearKeypoints)
       .def("clear_matches", &Database::ClearMatches)
+      .def("clear_constraining_points", &Database::ClearConstrainingPoints)
       .def("clear_two_view_geometries", &Database::ClearTwoViewGeometries)
       .def_static("merge",
                   &Database::Merge,

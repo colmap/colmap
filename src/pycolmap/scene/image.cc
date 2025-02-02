@@ -208,9 +208,10 @@ void BindImage(py::module& m) {
           "Get the 2D points that observe a 3D point.")
       .def("set_points2D",
            py::overload_cast<const std::vector<Eigen::Vector2d>&,
-                             const std::vector<float>&>(&Image::SetPoints2D),
+                             const std::vector<float>&, const std::vector<int>&>(&Image::SetPoints2D),
            "points"_a,
            "weights"_a,
+           "constraint_point_id"_a,
            "Set 2D points with weights")
       .def("set_points2D",
            py::overload_cast<const std::vector<Point2D>&>(&Image::SetPoints2D),
