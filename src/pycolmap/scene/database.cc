@@ -73,6 +73,10 @@ class PyDatabaseImpl : public Database, py::trampoline_self_life_support {
         bool, Database, ExistsInlierMatches, image_id1, image_id2);
   }
 
+  bool ExistsConstrainingPoint(point3D_t point3D_id) const override {
+    PYBIND11_OVERRIDE_PURE(bool, Database, ExistsConstrainingPoint, point3D_id);
+  }
+
   size_t NumRigs() const override {
     PYBIND11_OVERRIDE_PURE(size_t, Database, NumRigs);
   }
@@ -91,6 +95,10 @@ class PyDatabaseImpl : public Database, py::trampoline_self_life_support {
 
   size_t NumPosePriors() const override {
     PYBIND11_OVERRIDE_PURE(size_t, Database, NumPosePriors);
+  }
+
+  size_t NumConstrainingPoints() const override {
+    PYBIND11_OVERRIDE_PURE(size_t, Database, NumConstrainingPoints);
   }
 
   size_t NumKeypoints() const override {
@@ -160,6 +168,11 @@ class PyDatabaseImpl : public Database, py::trampoline_self_life_support {
 
   std::vector<Frame> ReadAllFrames() const override {
     PYBIND11_OVERRIDE_PURE(std::vector<Frame>, Database, ReadAllFrames);
+  }
+
+  std::vector<Eigen::Vector3d> ReadConstrainingPoints() const override {
+    PYBIND11_OVERRIDE_PURE(
+        std::vector<Eigen::Vector3d>, Database, ReadConstrainingPoints);
   }
 
   Image ReadImage(image_t image_id) const override {
@@ -237,6 +250,11 @@ class PyDatabaseImpl : public Database, py::trampoline_self_life_support {
       const override {
     using ReturnType = std::vector<std::pair<image_pair_t, int>>;
     PYBIND11_OVERRIDE_PURE(ReturnType, Database, ReadTwoViewGeometryNumInliers);
+  }
+
+  void WriteConstrainingPoints(
+      const std::vector<Eigen::Vector3d>& points) const override {
+    PYBIND11_OVERRIDE_PURE(void, Database, WriteConstrainingPoints, points);
   }
 
   rig_t WriteRig(const Rig& rig, bool use_rig_id = false) override {
@@ -384,6 +402,10 @@ class PyDatabaseImpl : public Database, py::trampoline_self_life_support {
     PYBIND11_OVERRIDE_PURE(void, Database, ClearTwoViewGeometries);
   }
 
+  void ClearConstrainingPoints() const override {
+    PYBIND11_OVERRIDE_PURE(void, Database, ClearConstrainingPoints);
+  }
+
   void BeginTransaction() const override {
     PYBIND11_OVERRIDE_PURE(void, Database, BeginTransaction);
   }
@@ -447,6 +469,7 @@ void BindDatabase(py::module& m) {
       .def("read_all_images", &Database::ReadAllImages)
       .def("read_pose_prior", &Database::ReadPosePrior, "image_id"_a)
       .def("read_keypoints", &Database::ReadKeypointsBlob, "image_id"_a)
+      .def("read_constraining_points", &Database::ReadConstrainingPoints)
       .def("read_descriptors", &Database::ReadDescriptors, "image_id"_a)
       .def("read_matches",
            &Database::ReadMatchesBlob,
@@ -538,6 +561,10 @@ void BindDatabase(py::module& m) {
            &Database::WritePosePrior,
            "image_id"_a,
            "pose_prior"_a)
+      .def("write_constraining_points",
+           py::overload_cast<const std::vector<Eigen::Vector3d>&>(
+               &Database::WriteConstrainingPoints, py::const_),
+           "keypoints"_a)
       .def("write_keypoints",
            py::overload_cast<image_t, const FeatureKeypointsBlob&>(
                &Database::WriteKeypoints),
@@ -588,6 +615,7 @@ void BindDatabase(py::module& m) {
       .def("clear_descriptors", &Database::ClearDescriptors)
       .def("clear_keypoints", &Database::ClearKeypoints)
       .def("clear_matches", &Database::ClearMatches)
+      .def("clear_constraining_points", &Database::ClearConstrainingPoints)
       .def("clear_two_view_geometries", &Database::ClearTwoViewGeometries)
       .def_static("merge",
                   &Database::Merge,
