@@ -92,6 +92,7 @@ void BindImage(py::module& m) {
            "name"_a = "",
            "keypoints"_a = std::vector<Eigen::Vector2d>(),
            "weights"_a = std::vector<float>(),
+           "constraint_point_idxs"_a = std::vector<int>(),
            "cam_from_world"_a = Rigid3d(),
            "camera_id"_a = kInvalidCameraId,
            "id"_a = kInvalidImageId)
