@@ -405,7 +405,6 @@ if(GPU_ENABLED)
 endif()
 if(TORCH_ENABLED)
     list(APPEND COLMAP_EXPORT_LIBS
-         colmap_feature_torch
          colmap_aliked
          colmap_lightglue
     )

@@ -121,16 +121,9 @@ struct SiftExtractionOptions {
 std::unique_ptr<FeatureExtractor> CreateSiftFeatureExtractor(
     const SiftExtractionOptions& options);
 
-struct SiftMatchingOptions {
-  // Number of threads for feature matching and geometric verification.
-  int num_threads = -1;
-
-  // Whether to use the GPU for feature matching.
-  bool use_gpu = true;
-
-  // Index of the GPU used for feature matching. For multi-GPU matching,
-  // you should separate multiple GPU indices by comma, e.g., "0,1,2,3".
-  std::string gpu_index = "-1";
+struct SiftMatchingOptions : public FeatureMatchingOptions {
+  SiftMatchingOptions()
+      : FeatureMatchingOptions(FeatureMatcherType::SIFT) {}
 
   // Maximum distance ratio between first and second best match.
   double max_ratio = 0.8;
@@ -141,12 +134,6 @@ struct SiftMatchingOptions {
   // Whether to enable cross checking in matching.
   bool cross_check = true;
 
-  // Maximum number of matches.
-  int max_num_matches = 32768;
-
-  // Whether to perform guided matching, if geometric verification succeeds.
-  bool guided_matching = false;
-
   // Whether to use brute-force instead of FLANN based CPU matching.
   bool cpu_brute_force_matcher = false;
 
@@ -154,7 +141,7 @@ struct SiftMatchingOptions {
   ThreadSafeLRUCache<image_t, FeatureDescriptorIndex>*
       cpu_descriptor_index_cache = nullptr;
 
-  bool Check() const;
+  bool Check() const override;
 };
 
 std::unique_ptr<FeatureMatcher> CreateSiftFeatureMatcher(

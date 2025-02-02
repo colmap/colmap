@@ -45,9 +45,14 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_feature_types
 )
 
+if(TORCH_ENABLED)
+    set(OPTIONAL_TORCH_FEATURE_LIBS colmap_aliked colmap_lightglue)
+endif()
+
 COLMAP_ADD_LIBRARY(
     NAME colmap_feature
     SRCS
+        aliked.h aliked.cc
         extractor.h
         index.h index.cc
         matcher.h matcher.cc
@@ -63,6 +68,7 @@ COLMAP_ADD_LIBRARY(
         colmap_scene
         colmap_util
     PRIVATE_LINK_LIBS
+        ${OPTIONAL_TORCH_FEATURE_LIBS}
         colmap_math
         colmap_sensor
         colmap_vlfeat
@@ -70,33 +76,22 @@ COLMAP_ADD_LIBRARY(
         flann
         lz4
 )
+
+if(TORCH_ENABLED)
+    COLMAP_ADD_TEST(
+        NAME aliked_test
+        SRCS aliked_test.cc
+        LINK_LIBS
+            colmap_feature
+            colmap_util
+    )
+endif()
+
 if(GPU_ENABLED)
     target_link_libraries(colmap_feature PRIVATE colmap_sift_gpu)
     if(NOT GUI_ENABLED)
         target_link_libraries(colmap_feature PRIVATE GLEW::GLEW)
     endif()
-endif()
-
-if(TORCH_ENABLED)
-    COLMAP_ADD_LIBRARY(
-        NAME colmap_feature_torch
-        SRCS
-            aliked.h aliked.cc
-        PUBLIC_LINK_LIBS
-            colmap_feature
-        PRIVATE_LINK_LIBS
-            colmap_util
-            colmap_aliked
-            colmap_lightglue
-            glog::glog
-    )
-    COLMAP_ADD_TEST(
-        NAME aliked_test
-        SRCS aliked_test.cc
-        LINK_LIBS
-            colmap_feature_torch
-            colmap_util
-    )
 endif()
 
 COLMAP_ADD_TEST(

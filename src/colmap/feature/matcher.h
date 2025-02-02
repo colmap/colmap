@@ -45,6 +45,35 @@
 
 namespace colmap {
 
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(FeatureMatcherType, 0, UNDEFINED, SIFT, ALIKED);
+
+struct FeatureMatchingOptions {
+  explicit FeatureMatchingOptions(
+      const FeatureMatcherType& type = FeatureMatcherType::SIFT)
+      : type(type) {}
+  virtual ~FeatureMatchingOptions() = default;
+
+  FeatureMatcherType type = FeatureMatcherType::UNDEFINED;
+
+  // Number of threads for feature matching and geometric verification.
+  int num_threads = -1;
+
+  // Whether to use the GPU for feature matching.
+  bool use_gpu = true;
+
+  // Index of the GPU used for feature matching. For multi-GPU matching,
+  // you should separate multiple GPU indices by comma, e.g., "0,1,2,3".
+  std::string gpu_index = "-1";
+
+  // Maximum number of matches.
+  int max_num_matches = 32768;
+
+  // Whether to perform guided matching.
+  bool guided_matching = false;
+
+  virtual bool Check() const;
+};
+
 class FeatureMatcher {
  public:
   virtual ~FeatureMatcher() = default;
@@ -59,6 +88,9 @@ class FeatureMatcher {
     std::shared_ptr<const FeatureKeypoints> keypoints;
     std::shared_ptr<const FeatureDescriptors> descriptors;
   };
+
+  static std::unique_ptr<FeatureMatcher> Create(
+      const FeatureMatchingOptions& options);
 
   virtual void Match(const Image& image1,
                      const Image& image2,

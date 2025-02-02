@@ -29,7 +29,35 @@
 
 #include "colmap/feature/matcher.h"
 
+#include "colmap/feature/aliked.h"
+#include "colmap/feature/sift.h"
+#include "colmap/util/misc.h"
+
 namespace colmap {
+
+bool FeatureMatchingOptions::Check() const {
+  if (use_gpu) {
+    CHECK_OPTION_GT(CSVToVector<int>(gpu_index).size(), 0);
+  }
+  CHECK_OPTION_GT(max_num_matches, 0);
+  return true;
+}
+
+std::unique_ptr<FeatureMatcher> FeatureMatcher::Create(
+    const FeatureMatchingOptions& options) {
+  switch (options.type) {
+    case FeatureMatcherType::SIFT:
+      return CreateSiftFeatureMatcher(
+          reinterpret_cast<const SiftMatchingOptions&>(options));
+    case FeatureMatcherType::ALIKED:
+      return CreateALIKEDFeatureMatcher(
+          reinterpret_cast<const ALIKEDMatchingOptions&>(options));
+    default:
+      std::ostringstream error;
+      error << "Unknown feature matcher type: " << options.type;
+      throw std::runtime_error(error.str());
+  }
+}
 
 FeatureMatcherCache::FeatureMatcherCache(
     const size_t cache_size, const std::shared_ptr<Database>& database)

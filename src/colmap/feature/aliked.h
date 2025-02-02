@@ -37,7 +37,7 @@
 
 namespace colmap {
 
-struct ALIKEDFeatureExtractionOptions {
+struct ALIKEDExtractionOptions {
   // Maximum image size for feature extraction.
   int max_image_size = 2048;
 
@@ -61,13 +61,16 @@ struct ALIKEDFeatureExtractionOptions {
 };
 
 std::unique_ptr<FeatureExtractor> CreateALIKEDFeatureExtractor(
-    const ALIKEDFeatureExtractionOptions& options);
+    const ALIKEDExtractionOptions& options);
 
-struct ALIKEDFeatureMatchingOptions {
+struct ALIKEDMatchingOptions : public FeatureMatchingOptions {
+  ALIKEDMatchingOptions()
+      : FeatureMatchingOptions(FeatureMatcherType::ALIKED) {}
+
   std::string model_path = kDefaultAlikedLightGlueUri;
 };
 
-std::unique_ptr<FeatureMatcher> CreateALIKEDLightGlueFeatureMatcher(
-    const ALIKEDFeatureMatchingOptions& options);
+std::unique_ptr<FeatureMatcher> CreateALIKEDFeatureMatcher(
+    const ALIKEDMatchingOptions& options);
 
 }  // namespace colmap

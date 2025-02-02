@@ -34,6 +34,7 @@
 #include "colmap/controllers/incremental_pipeline.h"
 #include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/estimators/two_view_geometry.h"
+#include "colmap/feature/aliked.h"
 #include "colmap/feature/pairing.h"
 #include "colmap/feature/sift.h"
 #include "colmap/math/random.h"
@@ -57,7 +58,9 @@ OptionManager::OptionManager(bool add_project_options) {
 
   image_reader = std::make_shared<ImageReaderOptions>();
   sift_extraction = std::make_shared<SiftExtractionOptions>();
+  feature_matching = std::make_shared<FeatureMatchingOptions>();
   sift_matching = std::make_shared<SiftMatchingOptions>();
+  aliked_matching = std::make_shared<ALIKEDMatchingOptions>();
   two_view_geometry = std::make_shared<TwoViewGeometryOptions>();
   exhaustive_matching = std::make_shared<ExhaustiveMatchingOptions>();
   sequential_matching = std::make_shared<SequentialMatchingOptions>();
@@ -298,21 +301,30 @@ void OptionManager::AddMatchingOptions() {
   }
   added_match_options_ = true;
 
-  AddAndRegisterDefaultOption("SiftMatching.num_threads",
-                              &sift_matching->num_threads);
-  AddAndRegisterDefaultOption("SiftMatching.use_gpu", &sift_matching->use_gpu);
-  AddAndRegisterDefaultOption("SiftMatching.gpu_index",
-                              &sift_matching->gpu_index);
+  AddAndRegisterDefaultOption("FeatureMatching.type", &feature_matching->type);
+  AddAndRegisterDefaultOption("FeatureMatching.num_threads",
+                              &feature_matching->num_threads);
+  AddAndRegisterDefaultOption("FeatureMatching.use_gpu",
+                              &feature_matching->use_gpu);
+  AddAndRegisterDefaultOption("FeatureMatching.gpu_index",
+                              &feature_matching->gpu_index);
+  AddAndRegisterDefaultOption("FeatureMatching.guided_matching",
+                              &feature_matching->guided_matching);
+  AddAndRegisterDefaultOption("FeatureMatching.max_num_matches",
+                              &feature_matching->max_num_matches);
+
   AddAndRegisterDefaultOption("SiftMatching.max_ratio",
                               &sift_matching->max_ratio);
   AddAndRegisterDefaultOption("SiftMatching.max_distance",
                               &sift_matching->max_distance);
   AddAndRegisterDefaultOption("SiftMatching.cross_check",
                               &sift_matching->cross_check);
-  AddAndRegisterDefaultOption("SiftMatching.guided_matching",
-                              &sift_matching->guided_matching);
-  AddAndRegisterDefaultOption("SiftMatching.max_num_matches",
-                              &sift_matching->max_num_matches);
+  AddAndRegisterDefaultOption("SiftMatching.cpu_brute_force_matcher",
+                              &sift_matching->cpu_brute_force_matcher);
+
+  AddAndRegisterDefaultOption("ALIKEDMatching.model_path",
+                              &aliked_matching->model_path);
+
   AddAndRegisterDefaultOption("TwoViewGeometry.min_num_inliers",
                               &two_view_geometry->min_num_inliers);
   AddAndRegisterDefaultOption("TwoViewGeometry.multiple_models",
@@ -806,7 +818,9 @@ void OptionManager::ResetOptions(const bool reset_paths) {
   }
   *image_reader = ImageReaderOptions();
   *sift_extraction = SiftExtractionOptions();
+  *feature_matching = FeatureMatchingOptions();
   *sift_matching = SiftMatchingOptions();
+  *aliked_matching = ALIKEDMatchingOptions();
   *exhaustive_matching = ExhaustiveMatchingOptions();
   *sequential_matching = SequentialMatchingOptions();
   *vocab_tree_matching = VocabTreeMatchingOptions();
@@ -838,7 +852,9 @@ bool OptionManager::Check() {
   if (image_reader) success = success && image_reader->Check();
   if (sift_extraction) success = success && sift_extraction->Check();
 
+  if (feature_matching) success = success && feature_matching->Check();
   if (sift_matching) success = success && sift_matching->Check();
+  if (aliked_matching) success = success && aliked_matching->Check();
   if (two_view_geometry) success = success && two_view_geometry->Check();
   if (exhaustive_matching) success = success && exhaustive_matching->Check();
   if (sequential_matching) success = success && sequential_matching->Check();

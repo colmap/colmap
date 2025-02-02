@@ -55,7 +55,7 @@ std::string GetDeviceName() {
 
 class ALIKEDFeatureExtractor : public FeatureExtractor {
  public:
-  explicit ALIKEDFeatureExtractor(const ALIKEDFeatureExtractionOptions& options)
+  explicit ALIKEDFeatureExtractor(const ALIKEDExtractionOptions& options)
       : options_(options),
         aliked_(options.model_name,
                 MaybeDownloadAndCacheFile(options.model_path),
@@ -128,14 +128,13 @@ class ALIKEDFeatureExtractor : public FeatureExtractor {
   }
 
  private:
-  const ALIKEDFeatureExtractionOptions options_;
+  const ALIKEDExtractionOptions options_;
   ALIKED aliked_;
 };
 
 class ALIKEDLightGlueFeatureMatcher : public FeatureMatcher {
  public:
-  explicit ALIKEDLightGlueFeatureMatcher(
-      const ALIKEDFeatureMatchingOptions& options)
+  explicit ALIKEDLightGlueFeatureMatcher(const ALIKEDMatchingOptions& options)
       : lightglue_("aliked", MaybeDownloadAndCacheFile(options.model_path)) {}
 
   void Match(const Image& image1,
@@ -222,7 +221,7 @@ class ALIKEDLightGlueFeatureMatcher : public FeatureMatcher {
 
 }  // namespace
 
-bool ALIKEDFeatureExtractionOptions::Check() const {
+bool ALIKEDExtractionOptions::Check() const {
   CHECK_OPTION_GT(max_image_size, 0);
   CHECK_OPTION_GT(max_num_features, 0);
   CHECK_OPTION_GT(score_threshold, 0);
@@ -231,7 +230,7 @@ bool ALIKEDFeatureExtractionOptions::Check() const {
 }
 
 std::unique_ptr<FeatureExtractor> CreateALIKEDFeatureExtractor(
-    const ALIKEDFeatureExtractionOptions& options) {
+    const ALIKEDExtractionOptions& options) {
 #ifdef COLMAP_TORCH_ENABLED
   return std::make_unique<ALIKEDFeatureExtractor>(options);
 #else
@@ -240,8 +239,8 @@ std::unique_ptr<FeatureExtractor> CreateALIKEDFeatureExtractor(
 #endif
 }
 
-std::unique_ptr<FeatureMatcher> CreateALIKEDLightGlueFeatureMatcher(
-    const ALIKEDFeatureMatchingOptions& options) {
+std::unique_ptr<FeatureMatcher> CreateALIKEDFeatureMatcher(
+    const ALIKEDMatchingOptions& options) {
 #ifdef COLMAP_TORCH_ENABLED
   return std::make_unique<ALIKEDLightGlueFeatureMatcher>(options);
 #else

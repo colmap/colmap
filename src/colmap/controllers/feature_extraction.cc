@@ -177,7 +177,7 @@ class SiftFeatureExtractorThread : public Thread {
 
     // TODO: Customize options.
     std::unique_ptr<FeatureExtractor> extractor =
-        CreateALIKEDFeatureExtractor(ALIKEDFeatureExtractionOptions());
+        CreateALIKEDFeatureExtractor(ALIKEDExtractionOptions());
     if (extractor == nullptr) {
       LOG(ERROR) << "Failed to create feature extractor.";
       SignalInvalidSetup();
