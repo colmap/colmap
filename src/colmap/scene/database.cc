@@ -44,16 +44,17 @@ void SwapFeatureMatchesBlob(FeatureMatchesBlob* matches) {
 }
 
 FeatureKeypointsBlob FeatureKeypointsToBlob(const FeatureKeypoints& keypoints) {
-  const FeatureKeypointsBlob::Index kNumCols = 7;
+  const FeatureKeypointsBlob::Index kNumCols = 8;
   FeatureKeypointsBlob blob(keypoints.size(), kNumCols);
   for (size_t i = 0; i < keypoints.size(); ++i) {
     blob(i, 0) = keypoints[i].x;
     blob(i, 1) = keypoints[i].y;
     blob(i, 2) = keypoints[i].weight;
-    blob(i, 3) = keypoints[i].a11;
-    blob(i, 4) = keypoints[i].a12;
-    blob(i, 5) = keypoints[i].a21;
-    blob(i, 6) = keypoints[i].a22;
+    blob(i, 3) = float(keypoints[i].constraint_point_id);
+    blob(i, 4) = keypoints[i].a11;
+    blob(i, 5) = keypoints[i].a12;
+    blob(i, 6) = keypoints[i].a21;
+    blob(i, 7) = keypoints[i].a22;
   }
   return blob;
 }
@@ -64,20 +65,30 @@ FeatureKeypoints FeatureKeypointsFromBlob(const FeatureKeypointsBlob& blob) {
     for (FeatureKeypointsBlob::Index i = 0; i < blob.rows(); ++i) {
       keypoints[i] = FeatureKeypoint(blob(i, 0), blob(i, 1), blob(i, 2));
     }
-  } else if (blob.cols() == 5) {
+  } else if (blob.cols() == 4) {
     for (FeatureKeypointsBlob::Index i = 0; i < blob.rows(); ++i) {
-      keypoints[i] = FeatureKeypoint(
-          blob(i, 0), blob(i, 1), blob(i, 2), blob(i, 3), blob(i, 4));
+      keypoints[i] =
+          FeatureKeypoint(blob(i, 0), blob(i, 1), blob(i, 2), int(blob(i, 3)));
     }
-  } else if (blob.cols() == 7) {
+  } else if (blob.cols() == 6) {
     for (FeatureKeypointsBlob::Index i = 0; i < blob.rows(); ++i) {
       keypoints[i] = FeatureKeypoint(blob(i, 0),
                                      blob(i, 1),
                                      blob(i, 2),
-                                     blob(i, 3),
+                                     int(blob(i, 3)),
+                                     blob(i, 4),
+                                     blob(i, 5));
+    }
+  } else if (blob.cols() == 8) {
+    for (FeatureKeypointsBlob::Index i = 0; i < blob.rows(); ++i) {
+      keypoints[i] = FeatureKeypoint(blob(i, 0),
+                                     blob(i, 1),
+                                     blob(i, 2),
+                                     int(blob(i, 3)),
                                      blob(i, 4),
                                      blob(i, 5),
-                                     blob(i, 6));
+                                     blob(i, 6),
+                                     blob(i, 7));
     }
   } else {
     LOG(FATAL_THROW)
@@ -334,6 +345,10 @@ bool Database::ExistsInlierMatches(const image_t image_id1,
                      ImagePairToPairId(image_id1, image_id2));
 }
 
+bool Database::ExistsConstrainingPoint(const point3D_t point3D_id) const {
+  return ExistsRowId(sql_stmt_exists_constraining_point_, point3D_id);
+}
+
 size_t Database::NumCameras() const { return CountRows("cameras"); }
 
 size_t Database::NumImages() const { return CountRows("images"); }
@@ -372,6 +387,10 @@ size_t Database::NumMatchedImagePairs() const { return CountRows("matches"); }
 
 size_t Database::NumVerifiedImagePairs() const {
   return CountRows("two_view_geometries");
+}
+
+size_t Database::NumConstrainingPoints() const {
+  return CountRows("constraining_points");
 }
 
 Camera Database::ReadCamera(const camera_t camera_id) const {
@@ -920,6 +939,7 @@ void Database::ClearAllTables() const {
   ClearPosePriors();
   ClearImages();
   ClearCameras();
+  ClearConstrainingPoints();
 }
 
 void Database::ClearCameras() const {
@@ -1135,6 +1155,11 @@ void Database::PrepareSQLStatements() {
       database_, sql.c_str(), -1, &sql_stmt_exists_two_view_geometry_, 0));
   sql_stmts_.push_back(sql_stmt_exists_two_view_geometry_);
 
+  sql = "SELECT 1 FROM constraining_points WHERE point_id = ?;";
+  SQLITE3_CALL(sqlite3_prepare_v2(
+      database_, sql.c_str(), -1, &sql_stmt_exists_constraining_point_, 0));
+  sql_stmts_.push_back(sql_stmt_exists_constraining_point_);
+
   //////////////////////////////////////////////////////////////////////////////
   // add_*
   //////////////////////////////////////////////////////////////////////////////
@@ -1344,6 +1369,7 @@ void Database::CreateTables() const {
   CreateDescriptorsTable();
   CreateMatchesTable();
   CreateTwoViewGeometriesTable();
+  CreateConstrainingPointsTable();
 }
 
 void Database::CreateCameraTable() const {
@@ -1440,6 +1466,17 @@ void Database::CreateTwoViewGeometriesTable() const {
         "    tvec     BLOB);";
     SQLITE3_EXEC(database_, sql.c_str(), nullptr);
   }
+}
+
+void Database::CreateConstrainingPointsTable() const {
+  const std::string sql =
+      "CREATE TABLE IF NOT EXISTS constraining_points"
+      "   (point_id  INTEGER  PRIMARY KEY AUTOINCREMENT  NOT NULL,"
+      "    x         REAL                                NOT NULL,"
+      "    y         REAL                                NOT NULL,"
+      "    z         REAL                                NOT NULL);";
+
+  SQLITE3_EXEC(database_, sql.c_str(), nullptr);
 }
 
 void Database::UpdateSchema() const {
@@ -1646,5 +1683,56 @@ DatabaseTransaction::DatabaseTransaction(Database* database)
 }
 
 DatabaseTransaction::~DatabaseTransaction() { database_->EndTransaction(); }
+
+void Database::WriteConstrainingPoints(
+    const std::vector<Eigen::Vector3d>& points) const {
+  // Clear existing points first
+  ClearConstrainingPoints();
+
+  // Begin transaction for faster insertion
+  BeginTransaction();
+
+  const std::string sql =
+      "INSERT INTO constraining_points(x, y, z) VALUES (?, ?, ?);";
+
+  sqlite3_stmt* sql_stmt;
+  SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1, &sql_stmt, 0));
+
+  for (const auto& point : points) {
+    SQLITE3_CALL(sqlite3_bind_double(sql_stmt, 1, point.x()));
+    SQLITE3_CALL(sqlite3_bind_double(sql_stmt, 2, point.y()));
+    SQLITE3_CALL(sqlite3_bind_double(sql_stmt, 3, point.z()));
+    SQLITE3_CALL(sqlite3_step(sql_stmt));
+    SQLITE3_CALL(sqlite3_reset(sql_stmt));
+  }
+
+  SQLITE3_CALL(sqlite3_finalize(sql_stmt));
+
+  EndTransaction();
+}
+
+std::vector<Eigen::Vector3d> Database::ReadConstrainingPoints() const {
+  const std::string sql = "SELECT x, y, z FROM constraining_points;";
+
+  sqlite3_stmt* sql_stmt;
+  SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1, &sql_stmt, 0));
+
+  std::vector<Eigen::Vector3d> points;
+  while (SQLITE3_CALL(sqlite3_step(sql_stmt)) == SQLITE_ROW) {
+    points.emplace_back(sqlite3_column_double(sql_stmt, 0),
+                        sqlite3_column_double(sql_stmt, 1),
+                        sqlite3_column_double(sql_stmt, 2));
+  }
+
+  SQLITE3_CALL(sqlite3_finalize(sql_stmt));
+
+  return points;
+}
+
+void Database::ClearConstrainingPoints() const {
+  const std::string sql = "DELETE FROM constraining_points;";
+  SQLITE3_EXEC(database_, sql.c_str(), nullptr);
+  database_cleared_ = true;
+}
 
 }  // namespace colmap

@@ -35,6 +35,8 @@
 #include <set>
 #include <unordered_set>
 
+#include "constraining_point3d.h"
+
 namespace colmap {
 namespace {
 
@@ -54,6 +56,15 @@ std::vector<float> FeatureKeypointsToWeightsVector(
     weights[i] = keypoints[i].weight;
   }
   return weights;
+}
+
+std::vector<int> FeatureKeypointsToConstraintIndicesVector(
+    const FeatureKeypoints& keypoints) {
+  std::vector<int> constraint_point_indices(keypoints.size());
+  for (size_t i = 0; i < keypoints.size(); ++i) {
+    constraint_point_indices[i] = keypoints[i].constraint_point_id;
+  }
+  return constraint_point_indices;
 }
 
 }  // namespace
@@ -153,9 +164,11 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
       const image_t image_id = image.ImageId();
       if (image_ids.count(image_id) > 0 &&
           connected_image_ids.count(image_id) > 0) {
+        FeatureKeypoints image_keypoints = database.ReadKeypoints(image_id);
         image.SetPoints2D(
-            FeatureKeypointsToPointsVector(database.ReadKeypoints(image_id)),
-            FeatureKeypointsToWeightsVector(database.ReadKeypoints(image_id)));
+            FeatureKeypointsToPointsVector(image_keypoints),
+            FeatureKeypointsToWeightsVector(image_keypoints),
+            FeatureKeypointsToConstraintIndicesVector(image_keypoints));
         cache->images_.emplace(image_id, std::move(image));
       }
     }
@@ -184,6 +197,25 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
 
     LOG(INFO) << StringPrintf(
         " %d in %.3fs", cache->pose_priors_.size(), timer.ElapsedSeconds());
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+  // Load constraining points
+  //////////////////////////////////////////////////////////////////////////////
+
+  timer.Restart();
+  LOG(INFO) << "Loading constraining points...";
+
+  {
+    cache->constraining_points_.reserve(database.NumConstrainingPoints());
+
+    std::vector<Eigen::Vector3d> points = database.ReadConstrainingPoints();
+    for (size_t i = 0; i < points.size(); ++i) {
+      cache->constraining_points_[i] = ConstrainingPoint3D(points[i]);
+    }
+
+    LOG(INFO) << StringPrintf(
+        " %d in %.3fs", cache->constraining_points_.size(), timer.ElapsedSeconds());
   }
 
   //////////////////////////////////////////////////////////////////////////////

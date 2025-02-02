@@ -90,6 +90,7 @@ class Database {
   bool ExistsDescriptors(image_t image_id) const;
   bool ExistsMatches(image_t image_id1, image_t image_id2) const;
   bool ExistsInlierMatches(image_t image_id1, image_t image_id2) const;
+  bool ExistsConstrainingPoint(point3D_t point3D_id) const;
 
   // Number of rows in `cameras` table.
   size_t NumCameras() const;
@@ -99,6 +100,9 @@ class Database {
 
   //  Number of rows in `pose_priors` table.
   size_t NumPosePriors() const;
+
+  // Number of rows in `constraining_points` table.
+  size_t NumConstrainingPoints() const;
 
   // Sum of `rows` column in `keypoints` table, i.e. number of total keypoints.
   size_t NumKeypoints() const;
@@ -254,6 +258,12 @@ class Database {
                     const Database& database2,
                     Database* merged_database);
 
+  // Functions for managing constraining points
+  void WriteConstrainingPoints(
+      const std::vector<Eigen::Vector3d>& points) const;
+  std::vector<Eigen::Vector3d> ReadConstrainingPoints() const;
+  void ClearConstrainingPoints() const;
+
  private:
   friend class DatabaseTransaction;
 
@@ -279,6 +289,7 @@ class Database {
   void CreateDescriptorsTable() const;
   void CreateMatchesTable() const;
   void CreateTwoViewGeometriesTable() const;
+  void CreateConstrainingPointsTable() const;
 
   void UpdateSchema() const;
 
@@ -327,6 +338,7 @@ class Database {
   sqlite3_stmt* sql_stmt_exists_descriptors_ = nullptr;
   sqlite3_stmt* sql_stmt_exists_matches_ = nullptr;
   sqlite3_stmt* sql_stmt_exists_two_view_geometry_ = nullptr;
+  sqlite3_stmt* sql_stmt_exists_constraining_point_ = nullptr;
 
   // add_*
   sqlite3_stmt* sql_stmt_add_camera_ = nullptr;

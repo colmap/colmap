@@ -210,6 +210,8 @@ void ReadImagesText(Reconstruction& reconstruction, std::istream& stream) {
       }
     }
 
+    // We're not adding weights / constraint_point_id's to reconstruction_io
+    // Because we need to be compatible with OpenMVS & other software that takes in the Colmap reconstruction folder
     image.SetPoints2D(points2D);
 
     for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();

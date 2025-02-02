@@ -526,6 +526,13 @@ class DefaultBundleAdjuster : public BundleAdjuster {
                 loss_function_.get(), point2D.weight, ceres::TAKE_OWNERSHIP),
             point3D.xyz.data(),
             camera_params);
+
+        if (point2D.constraint_point_id > 0) {
+          LOG(ERROR) << "Constraint points are not supported with constant "
+                        "camera poses. "
+                     << "Skipping constraint for point "
+                     << point2D.constraint_point_id << " in image " << image_id;
+        }
       } else {
         problem_->AddResidualBlock(
             CreateCameraCostFunction<ReprojErrorCostFunctor>(camera.model_id,
@@ -536,6 +543,26 @@ class DefaultBundleAdjuster : public BundleAdjuster {
             cam_from_world_translation,
             point3D.xyz.data(),
             camera_params);
+
+        if (point2D.constraint_point_id > 0) {
+          if (!reconstruction.ExistsConstrainingPoint3D(
+                  point2D.constraint_point_id)) {
+            LOG(ERROR) << "Constraint point " << point2D.constraint_point_id
+                       << " does not exist in reconstruction object.";
+          } else {
+            ConstrainingPoint3D constraining_point_3d =
+                reconstruction.ConstrainingPoint3D(point2D.constraint_point_id);
+            problem_->AddResidualBlock(
+                CreateCameraCostFunction<ConstraintReprojErrorCostFunctor>(
+                    camera.model_id, point2D.xy, constraining_point_3d.xyz),
+                new ceres::ScaledLoss(loss_function_.get(),
+                                      point2D.weight,
+                                      ceres::TAKE_OWNERSHIP),
+                cam_from_world_rotation,
+                cam_from_world_translation,
+                camera_params);
+          }
+        }
       }
     }
 
@@ -597,6 +624,14 @@ class DefaultBundleAdjuster : public BundleAdjuster {
               loss_function_.get(), point2D.weight, ceres::TAKE_OWNERSHIP),
           point3D.xyz.data(),
           camera.params.data());
+
+      if (point2D.constraint_point_id > 0) {
+        LOG(ERROR) << "Constraint points are not supported with constant "
+                      "camera poses. "
+                   << "Skipping constraint for point "
+                   << point2D.constraint_point_id << " in image "
+                   << track_el.image_id;
+      }
     }
   }
 
@@ -759,6 +794,14 @@ class RigBundleAdjuster : public BundleAdjuster {
                   loss_function_.get(), point2D.weight, ceres::TAKE_OWNERSHIP),
               point3D.xyz.data(),
               camera_params);
+
+          if (point2D.constraint_point_id > 0) {
+            LOG(ERROR) << "Constraint points are not supported with constant "
+                          "camera poses. "
+                       << "Skipping constraint for point "
+                       << point2D.constraint_point_id << " in image "
+                       << image_id;
+          }
         } else {
           problem_->AddResidualBlock(
               CreateCameraCostFunction<ReprojErrorCostFunctor>(camera.model_id,
@@ -769,6 +812,27 @@ class RigBundleAdjuster : public BundleAdjuster {
               cam_from_rig_translation,  // rig == world
               point3D.xyz.data(),
               camera_params);
+
+          if (point2D.constraint_point_id > 0) {
+            if (!reconstruction.ExistsConstrainingPoint3D(
+                    point2D.constraint_point_id)) {
+              LOG(ERROR) << "Constraint point " << point2D.constraint_point_id
+                         << " does not exist in reconstruction object.";
+            } else {
+              ConstrainingPoint3D constraining_point_3d =
+                  reconstruction.ConstrainingPoint3D(
+                      point2D.constraint_point_id);
+              problem_->AddResidualBlock(
+                  CreateCameraCostFunction<ConstraintReprojErrorCostFunctor>(
+                      camera.model_id, point2D.xy, constraining_point_3d.xyz),
+                  new ceres::ScaledLoss(loss_function_.get(),
+                                        point2D.weight,
+                                        ceres::TAKE_OWNERSHIP),
+                  cam_from_rig_rotation,     // rig == world
+                  cam_from_rig_translation,  // rig == world
+                  camera_params);
+            }
+          }
         }
       } else {
         problem_->AddResidualBlock(
@@ -782,6 +846,28 @@ class RigBundleAdjuster : public BundleAdjuster {
             rig_from_world_translation,
             point3D.xyz.data(),
             camera_params);
+
+        if (point2D.constraint_point_id > 0) {
+          if (!reconstruction.ExistsConstrainingPoint3D(
+                  point2D.constraint_point_id)) {
+            LOG(ERROR) << "Constraint point " << point2D.constraint_point_id
+                       << " does not exist in reconstruction object.";
+          } else {
+            ConstrainingPoint3D constraining_point_3d =
+                reconstruction.ConstrainingPoint3D(point2D.constraint_point_id);
+            problem_->AddResidualBlock(
+                CreateCameraCostFunction<ConstraintReprojErrorCostFunctor>(
+                    camera.model_id, point2D.xy, constraining_point_3d.xyz),
+                new ceres::ScaledLoss(loss_function_.get(),
+                                      point2D.weight,
+                                      ceres::TAKE_OWNERSHIP),
+                cam_from_rig_rotation,
+                cam_from_rig_translation,
+                rig_from_world_rotation,
+                rig_from_world_translation,
+                camera_params);
+          }
+        }
       }
     }
 
@@ -793,7 +879,7 @@ class RigBundleAdjuster : public BundleAdjuster {
 
         // Set the relative pose of the camera constant if relative pose
         // refinement is disabled or if it is the reference camera to avoid
-        // over- parameterization of the camera pose.
+        // over-parameterization of the camera pose.
         if (!rig_options_.refine_relative_poses ||
             image.CameraId() == camera_rig->RefCameraId()) {
           problem_->SetParameterBlockConstant(cam_from_rig_rotation);
@@ -844,13 +930,41 @@ class RigBundleAdjuster : public BundleAdjuster {
         config_.SetConstantCamIntrinsics(image.CameraId());
       }
 
-      problem_->AddResidualBlock(
-          CreateCameraCostFunction<ReprojErrorConstantPoseCostFunctor>(
-              camera.model_id, point2D.xy, image.CamFromWorld()),
-          new ceres::ScaledLoss(
-              loss_function_.get(), point2D.weight, ceres::TAKE_OWNERSHIP),
-          point3D.xyz.data(),
-          camera.params.data());
+      if (image_id_to_camera_rig_.count(track_el.image_id) > 0) {
+        CameraRig* camera_rig = image_id_to_camera_rig_.at(track_el.image_id);
+        const Rigid3d& cam_from_rig = camera_rig->CamFromRig(image.CameraId());
+        problem_->AddResidualBlock(
+            CreateCameraCostFunction<RigReprojErrorConstantRigCostFunctor>(
+                camera.model_id, point2D.xy, cam_from_rig),
+            new ceres::ScaledLoss(
+                loss_function_.get(), point2D.weight, ceres::TAKE_OWNERSHIP),
+            point3D.xyz.data(),
+            camera.params.data());
+
+        if (point2D.constraint_point_id > 0) {
+          LOG(ERROR) << "Constraint points are not supported with constant "
+                        "camera poses. "
+                     << "Skipping constraint for point "
+                     << point2D.constraint_point_id << " in image "
+                     << track_el.image_id;
+        }
+      } else {
+        problem_->AddResidualBlock(
+            CreateCameraCostFunction<ReprojErrorConstantPoseCostFunctor>(
+                camera.model_id, point2D.xy, image.CamFromWorld()),
+            new ceres::ScaledLoss(
+                loss_function_.get(), point2D.weight, ceres::TAKE_OWNERSHIP),
+            point3D.xyz.data(),
+            camera.params.data());
+
+        if (point2D.constraint_point_id > 0) {
+          LOG(ERROR) << "Constraint points are not supported with constant "
+                        "camera poses. "
+                     << "Skipping constraint for point "
+                     << point2D.constraint_point_id << " in image "
+                     << track_el.image_id;
+        }
+      }
     }
   }
 

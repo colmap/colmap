@@ -35,6 +35,7 @@
 #include "colmap/scene/image.h"
 #include "colmap/scene/point2d.h"
 #include "colmap/scene/point3d.h"
+#include "colmap/scene/constraining_point3d.h"
 #include "colmap/scene/track.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/types.h"
@@ -69,30 +70,38 @@ class Reconstruction {
   inline size_t NumImages() const;
   inline size_t NumRegImages() const;
   inline size_t NumPoints3D() const;
+  inline size_t NumConstrainingPoints3D() const;
+
 
   // Get const objects.
   inline const struct Camera& Camera(camera_t camera_id) const;
   inline const class Image& Image(image_t image_id) const;
   inline const struct Point3D& Point3D(point3D_t point3D_id) const;
+  inline const struct ConstrainingPoint3D& ConstrainingPoint3D(point3D_t constraining_point3D_id) const;
 
   // Get mutable objects.
   inline struct Camera& Camera(camera_t camera_id);
   inline class Image& Image(image_t image_id);
   inline struct Point3D& Point3D(point3D_t point3D_id);
+  inline struct ConstrainingPoint3D& ConstrainingPoint3D(point3D_t constraining_point3D_id);
+
 
   // Get reference to all objects.
   inline const std::unordered_map<camera_t, struct Camera>& Cameras() const;
   inline const std::unordered_map<image_t, class Image>& Images() const;
   inline const std::set<image_t>& RegImageIds() const;
   inline const std::unordered_map<point3D_t, struct Point3D>& Points3D() const;
+  inline const std::unordered_map<point3D_t, struct ConstrainingPoint3D>& ConstrainingPoints3D() const;
 
   // Identifiers of all 3D points.
   std::unordered_set<point3D_t> Point3DIds() const;
+  std::unordered_set<point3D_t> ConstrainingPoint3DIds() const;
 
   // Check whether specific object exists.
   inline bool ExistsCamera(camera_t camera_id) const;
   inline bool ExistsImage(image_t image_id) const;
   inline bool ExistsPoint3D(point3D_t point3D_id) const;
+  inline bool ExistsConstrainingPoint3D(point3D_t point3D_id) const;
 
   // Load data from given `DatabaseCache`.
   void Load(const DatabaseCache& database_cache);
@@ -113,12 +122,16 @@ class Reconstruction {
 
   // Add new 3D point with known ID.
   void AddPoint3D(point3D_t point3D_id, struct Point3D point3D);
+  void AddConstrainingPoint3D(point3D_t point3D_id, struct ConstrainingPoint3D point3D);
 
   // Add new 3D object, and return its unique ID.
   point3D_t AddPoint3D(
       const Eigen::Vector3d& xyz,
       Track track,
       const Eigen::Vector3ub& color = Eigen::Vector3ub::Zero());
+
+  point3D_t AddConstrainingPoint3D(const Eigen::Vector3d& xyz);
+
 
   // Add observation to existing 3D point.
   void AddObservation(point3D_t point3D_id, const TrackElement& track_el);
@@ -250,12 +263,14 @@ class Reconstruction {
   std::unordered_map<camera_t, struct Camera> cameras_;
   std::unordered_map<image_t, class Image> images_;
   std::unordered_map<point3D_t, struct Point3D> points3D_;
+  std::unordered_map<point3D_t, struct ConstrainingPoint3D> constrainingPoints3D_;
 
   // { image_id, ... } where `images_.at(image_id).registered == true`.
   std::set<image_t> reg_image_ids_;
 
   // Total number of added 3D points, used to generate unique identifiers.
   point3D_t max_point3D_id_;
+  point3D_t max_constraining_point3D_id_;
 };
 
 std::ostream& operator<<(std::ostream& stream,
@@ -272,6 +287,8 @@ size_t Reconstruction::NumImages() const { return images_.size(); }
 size_t Reconstruction::NumRegImages() const { return reg_image_ids_.size(); }
 
 size_t Reconstruction::NumPoints3D() const { return points3D_.size(); }
+
+size_t Reconstruction::NumConstrainingPoints3D() const { return constrainingPoints3D_.size(); }
 
 const struct Camera& Reconstruction::Camera(const camera_t camera_id) const {
   try {
@@ -301,6 +318,16 @@ const struct Point3D& Reconstruction::Point3D(
   }
 }
 
+const struct ConstrainingPoint3D& Reconstruction::ConstrainingPoint3D(
+    const point3D_t point3D_id) const {
+  try {
+    return constrainingPoints3D_.at(point3D_id);
+  } catch (const std::out_of_range&) {
+    throw std::out_of_range(
+        StringPrintf("ConstrainingPoint3D with ID %d does not exist", point3D_id));
+  }
+}
+
 struct Camera& Reconstruction::Camera(const camera_t camera_id) {
   try {
     return cameras_.at(camera_id);
@@ -327,6 +354,14 @@ struct Point3D& Reconstruction::Point3D(const point3D_t point3D_id) {
         StringPrintf("Point3D with ID %d does not exist", point3D_id));
   }
 }
+struct ConstrainingPoint3D& Reconstruction::ConstrainingPoint3D(const point3D_t point3D_id) {
+  try {
+    return constrainingPoints3D_.at(point3D_id);
+  } catch (const std::out_of_range&) {
+    throw std::out_of_range(
+        StringPrintf("ConstrainingPoint3D with ID %d does not exist", point3D_id));
+  }
+}
 
 const std::unordered_map<camera_t, Camera>& Reconstruction::Cameras() const {
   return cameras_;
@@ -344,6 +379,10 @@ const std::unordered_map<point3D_t, Point3D>& Reconstruction::Points3D() const {
   return points3D_;
 }
 
+const std::unordered_map<point3D_t, ConstrainingPoint3D>& Reconstruction::ConstrainingPoints3D() const {
+  return constrainingPoints3D_;
+}
+
 bool Reconstruction::ExistsCamera(const camera_t camera_id) const {
   return cameras_.find(camera_id) != cameras_.end();
 }
@@ -354,6 +393,10 @@ bool Reconstruction::ExistsImage(const image_t image_id) const {
 
 bool Reconstruction::ExistsPoint3D(const point3D_t point3D_id) const {
   return points3D_.find(point3D_id) != points3D_.end();
+}
+
+bool Reconstruction::ExistsConstrainingPoint3D(const point3D_t point3D_id) const {
+  return constrainingPoints3D_.find(point3D_id) != constrainingPoints3D_.end();
 }
 
 bool Reconstruction::IsImageRegistered(const image_t image_id) const {

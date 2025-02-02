@@ -41,11 +41,18 @@ namespace colmap {
 struct FeatureKeypoint {
   FeatureKeypoint();
   FeatureKeypoint(float x, float y, float weight);
-  FeatureKeypoint(
-      float x, float y, float weight, float scale, float orientation);
+  FeatureKeypoint(float x, float y, float weight, int constraint_point_id_);
+
   FeatureKeypoint(float x,
                   float y,
                   float weight,
+                  int constraint_point_id_,
+                  float scale,
+                  float orientation);
+  FeatureKeypoint(float x,
+                  float y,
+                  float weight,
+                  int constraint_point_id_,
                   float a11,
                   float a12,
                   float a21,
@@ -54,6 +61,7 @@ struct FeatureKeypoint {
   static FeatureKeypoint FromShapeParameters(float x,
                                              float y,
                                              float weight,
+                                             int constraint_point_id_,
                                              float scale_x,
                                              float scale_y,
                                              float orientation,
@@ -79,11 +87,16 @@ struct FeatureKeypoint {
   // Will be used to weight the track's residual term in Bundle Adjustment.
   float weight;
 
+  // ID of the constraint point, -1 if not constrained
+  int constraint_point_id = -1;
+
   // Affine shape of the feature.
   float a11;
   float a12;
   float a21;
   float a22;
+
+
 };
 
 typedef Eigen::Matrix<uint8_t, 1, Eigen::Dynamic, Eigen::RowMajor>
