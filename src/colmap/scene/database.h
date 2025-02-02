@@ -178,12 +178,12 @@ class Database {
                                       image_t image_id2) const;
   std::vector<std::pair<image_pair_t, TwoViewGeometry>> ReadTwoViewGeometries()
       const;
-  std::vector<Eigen::Vector3d> ReadConstrainingPoints() const;
 
   // Read all image pairs that have an entry in the `two_view_geometry`
   // table with at least one inlier match and their number of inlier matches.
   std::vector<std::pair<image_pair_t, int>> ReadTwoViewGeometryNumInliers()
       const;
+  std::vector<Eigen::Vector3d> ReadConstrainingPoints() const;
 
   // Add new camera and return its database identifier. If `use_camera_id`
   // is false a new identifier is automatically generated.
