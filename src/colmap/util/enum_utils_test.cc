@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/util/enum_to_string.h"
+#include "colmap/util/enum_utils.h"
 
 #include <string>
 
@@ -36,26 +36,37 @@
 namespace colmap {
 namespace {
 
-MAKE_ENUM(MyEnum, 0, ClassA, ClassB);
-MAKE_ENUM_CLASS_OVERLOAD_STREAM(MyEnumClass, -1, UNDEFINED, ClassA, ClassB);
+MAKE_ENUM(MyEnum, 0, VAL_A, VAL_B);
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(MyEnumClass, -1, Undefined, VAL_A, VAL_B);
 
 TEST(MakeEnum, Nominal) {
-  EXPECT_EQ(ClassA, 0);
-  EXPECT_EQ(ClassB, 1);
-  EXPECT_EQ(MyEnumToString(ClassA), "ClassA");
-  EXPECT_EQ(MyEnumToString(ClassB), "ClassB");
+  EXPECT_EQ(VAL_A, 0);
+  EXPECT_EQ(VAL_B, 1);
+  EXPECT_EQ(MyEnumToString(VAL_A), "VAL_A");
+  EXPECT_EQ(MyEnumToString(VAL_B), "VAL_B");
+  EXPECT_EQ(MyEnumFromString("VAL_A"), VAL_A);
+  EXPECT_EQ(MyEnumFromString("VAL_B"), VAL_B);
+  std::ostringstream stream;
+  stream << VAL_A;
+  EXPECT_EQ(stream.str(), "0");
 }
 
 TEST(MakeEnumClass, Nominal) {
-  EXPECT_EQ(static_cast<int>(MyEnumClass::UNDEFINED), -1);
-  EXPECT_EQ(static_cast<int>(MyEnumClass::ClassA), 0);
-  EXPECT_EQ(static_cast<int>(MyEnumClass::ClassB), 1);
-  EXPECT_EQ(MyEnumClassToString(-1), "UNDEFINED");
-  EXPECT_EQ(MyEnumClassToString(0), "ClassA");
-  EXPECT_EQ(MyEnumClassToString(1), "ClassB");
+  EXPECT_EQ(static_cast<int>(MyEnumClass::Undefined), -1);
+  EXPECT_EQ(static_cast<int>(MyEnumClass::VAL_A), 0);
+  EXPECT_EQ(static_cast<int>(MyEnumClass::VAL_B), 1);
+  EXPECT_EQ(MyEnumClassToString(-1), "Undefined");
+  EXPECT_EQ(MyEnumClassToString(0), "VAL_A");
+  EXPECT_EQ(MyEnumClassToString(1), "VAL_B");
+  EXPECT_EQ(MyEnumClassToString(MyEnumClass::Undefined), "Undefined");
+  EXPECT_EQ(MyEnumClassToString(MyEnumClass::VAL_A), "VAL_A");
+  EXPECT_EQ(MyEnumClassToString(MyEnumClass::VAL_B), "VAL_B");
+  EXPECT_EQ(MyEnumClassFromString("Undefined"), MyEnumClass::Undefined);
+  EXPECT_EQ(MyEnumClassFromString("VAL_A"), MyEnumClass::VAL_A);
+  EXPECT_EQ(MyEnumClassFromString("VAL_B"), MyEnumClass::VAL_B);
   std::ostringstream stream;
-  stream << MyEnumClass::ClassA;
-  EXPECT_EQ(stream.str(), "ClassA");
+  stream << MyEnumClass::VAL_A;
+  EXPECT_EQ(stream.str(), "VAL_A");
 }
 
 }  // namespace
