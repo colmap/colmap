@@ -119,7 +119,7 @@ class Image {
   inline std::vector<struct Point2D>& Points2D();
   void SetPoints2D(const std::vector<Eigen::Vector2d>& points);
   void SetPoints2D(const std::vector<Eigen::Vector2d>& points,
-                   const std::vector<float>& weights);
+                   const std::vector<float>& weights, const std::vector<int>& constraint_point_id);
   void SetPoints2D(const std::vector<struct Point2D>& points);
 
   // Set the point as triangulated, i.e. it is part of a 3D point track.

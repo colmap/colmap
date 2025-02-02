@@ -91,6 +91,7 @@ class Database {
   virtual bool ExistsMatches(image_t image_id1, image_t image_id2) const = 0;
   virtual bool ExistsInlierMatches(image_t image_id1,
                                    image_t image_id2) const = 0;
+  virtual bool ExistsConstrainingPoint(point3D_t point3D_id) const = 0;
 
   // Number of rows in `rigs` table.
   virtual size_t NumRigs() const = 0;
@@ -106,6 +107,9 @@ class Database {
 
   //  Number of rows in `pose_priors` table.
   virtual size_t NumPosePriors() const = 0;
+
+  // Number of rows in `constraining_points` table.
+  virtual size_t NumConstrainingPoints() const = 0;
 
   // Sum of `rows` column in `keypoints` table, i.e. number of total keypoints.
   virtual size_t NumKeypoints() const = 0;
@@ -183,6 +187,12 @@ class Database {
   // table with at least one inlier match and their number of inlier matches.
   virtual std::vector<std::pair<image_pair_t, int>>
   ReadTwoViewGeometryNumInliers() const = 0;
+
+  // Functions for managing constraining points
+  virtual void WriteConstrainingPoints(
+      const std::vector<Eigen::Vector3d>& points) const = 0;
+  virtual std::vector<Eigen::Vector3d> ReadConstrainingPoints() const = 0;
+  virtual void ClearConstrainingPoints() const = 0;
 
   // Add new rig and return its database identifier. If `use_rig_id`
   // is false a new identifier is automatically generated.

@@ -809,6 +809,13 @@ class DefaultBundleAdjuster : public BundleAdjuster {
                 loss_function_.get(), point2D.weight, ceres::TAKE_OWNERSHIP),
             point3D.xyz.data(),
             camera.params.data());
+        if (point2D.constraint_point_id > 0) {
+          LOG(ERROR) << "Constraint points are not supported with constant "
+                        "camera poses. "
+                     << "Skipping constraint for point "
+                     << point2D.constraint_point_id << " in image "
+                     << image.ImageId();
+        }
       } else {
         problem_->AddResidualBlock(
             CreateCameraCostFunction<ReprojErrorCostFunctor>(camera.model_id,
@@ -819,6 +826,25 @@ class DefaultBundleAdjuster : public BundleAdjuster {
             cam_from_world.translation.data(),
             point3D.xyz.data(),
             camera.params.data());
+        if (point2D.constraint_point_id > 0) {
+          if (!reconstruction.ExistsConstrainingPoint3D(
+                  point2D.constraint_point_id)) {
+            LOG(ERROR) << "Constraint point " << point2D.constraint_point_id
+                       << " does not exist in reconstruction object.";
+          } else {
+            ConstrainingPoint3D constraining_point_3d =
+                reconstruction.ConstrainingPoint3D(point2D.constraint_point_id);
+            problem_->AddResidualBlock(
+                CreateCameraCostFunction<ConstraintReprojErrorCostFunctor>(
+                    camera.model_id, point2D.xy, constraining_point_3d.xyz),
+                new ceres::ScaledLoss(loss_function_.get(),
+                                      point2D.weight,
+                                      ceres::TAKE_OWNERSHIP),
+                cam_from_world.rotation.coeffs().data(),
+                cam_from_world.translation.data(),
+                camera.params.data());
+          }
+        }
       }
     }
 

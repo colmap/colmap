@@ -1,4 +1,4 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -27,15 +27,14 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/scene/point2d.h"
+#include "colmap/scene/constraining_point3d.h"
 
 namespace colmap {
 
-std::ostream& operator<<(std::ostream& stream, const Point2D& point2D) {
-  stream << "Point2D(xy=[" << point2D.xy(0) << ", " << point2D.xy(1)
-         << "], point3D_id="
-         << (point2D.HasPoint3D() ? std::to_string(point2D.point3D_id) : "-1")
-         << ", weight=" << point2D.weight << ")" << ", constraint_point_id=" << point2D.constraint_point_id;
+std::ostream& operator<<(std::ostream& stream,
+                         const ConstrainingPoint3D& point3D) {
+  stream << "ConstrainingPoint3D(xyz=[" << point3D.xyz(0) << ", "
+         << point3D.xyz(1) << ", " << point3D.xyz(2) << "])";
   return stream;
 }
 

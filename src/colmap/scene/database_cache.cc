@@ -33,6 +33,11 @@
 #include "colmap/util/string.h"
 #include "colmap/util/timer.h"
 
+#include <set>
+#include <unordered_set>
+
+#include "constraining_point3d.h"
+
 namespace colmap {
 namespace {
 
@@ -52,6 +57,15 @@ std::vector<float> FeatureKeypointsToWeightsVector(
     weights[i] = keypoints[i].weight;
   }
   return weights;
+}
+
+std::vector<int> FeatureKeypointsToConstraintIndicesVector(
+    const FeatureKeypoints& keypoints) {
+  std::vector<int> constraint_point_indices(keypoints.size());
+  for (size_t i = 0; i < keypoints.size(); ++i) {
+    constraint_point_indices[i] = keypoints[i].constraint_point_id;
+  }
+  return constraint_point_indices;
 }
 
 }  // namespace
@@ -238,8 +252,9 @@ void DatabaseCache::Load(const Database& database,
       const image_t image_id = image.ImageId();
       image.SetPoints2D(
           FeatureKeypointsToPointsVector(database.ReadKeypoints(image_id)),
-          FeatureKeypointsToWeightsVector(database.ReadKeypoints(image_id))
-      );
+          FeatureKeypointsToWeightsVector(database.ReadKeypoints(image_id)),
+          FeatureKeypointsToConstraintIndicesVector(
+              database.ReadKeypoints(image_id)));
       images_.emplace(image_id, std::move(image));
 
       if (database.ExistsPosePrior(image_id)) {
@@ -251,6 +266,25 @@ void DatabaseCache::Load(const Database& database,
                               num_images,
                               timer.ElapsedSeconds(),
                               images_.size());
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+  // Load constraining points
+  //////////////////////////////////////////////////////////////////////////////
+
+  timer.Restart();
+  LOG(INFO) << "Loading constraining points...";
+
+  {
+    constraining_points_.reserve(database.NumConstrainingPoints());
+
+    std::vector<Eigen::Vector3d> points = database.ReadConstrainingPoints();
+    for (size_t i = 0; i < points.size(); ++i) {
+      constraining_points_[i] = ConstrainingPoint3D(points[i]);
+    }
+
+    LOG(INFO) << StringPrintf(
+        " %d in %.3fs", constraining_points_.size(), timer.ElapsedSeconds());
   }
 
   //////////////////////////////////////////////////////////////////////////////

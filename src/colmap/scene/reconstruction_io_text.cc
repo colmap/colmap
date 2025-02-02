@@ -343,6 +343,7 @@ void ReadImagesText(Reconstruction& reconstruction, std::istream& stream) {
     points2D.clear();
     point3D_ids.clear();
     std::vector<float> weights;
+    std::vector<int> constraint_point_ids;
 
     if (!line.empty()) {
       while (!line_stream2.eof()) {
@@ -357,8 +358,12 @@ void ReadImagesText(Reconstruction& reconstruction, std::istream& stream) {
         std::getline(line_stream2, item, ' ');
         float weight = std::stof(item);
 
+        std::getline(line_stream2, item, ' ');
+        int constraint_point_id = std::stoi(item);
+
         points2D.push_back(point);
         weights.push_back(weight);
+        constraint_point_ids.push_back(constraint_point_id);
 
         std::getline(line_stream2, item, ' ');
         if (item == "-1") {
@@ -369,7 +374,7 @@ void ReadImagesText(Reconstruction& reconstruction, std::istream& stream) {
       }
     }
 
-    image.SetPoints2D(points2D, weights);
+    image.SetPoints2D(points2D, weights, constraint_point_ids);
 
     for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
          ++point2D_idx) {

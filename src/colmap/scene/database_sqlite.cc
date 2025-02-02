@@ -49,40 +49,47 @@ void SwapFeatureMatchesBlob(FeatureMatchesBlob* matches) {
 }
 
 FeatureKeypointsBlob FeatureKeypointsToBlob(const FeatureKeypoints& keypoints) {
-  const FeatureKeypointsBlob::Index kNumCols = 7;
+  const FeatureKeypointsBlob::Index kNumCols = 8;
   FeatureKeypointsBlob blob(keypoints.size(), kNumCols);
   for (size_t i = 0; i < keypoints.size(); ++i) {
     blob(i, 0) = keypoints[i].x;
     blob(i, 1) = keypoints[i].y;
     blob(i, 2) = keypoints[i].weight;
-    blob(i, 3) = keypoints[i].a11;
-    blob(i, 4) = keypoints[i].a12;
-    blob(i, 5) = keypoints[i].a21;
-    blob(i, 6) = keypoints[i].a22;
+    blob(i, 3) = keypoints[i].constraint_point_id;
+    blob(i, 4) = keypoints[i].a11;
+    blob(i, 5) = keypoints[i].a12;
+    blob(i, 6) = keypoints[i].a21;
+    blob(i, 7) = keypoints[i].a22;
   }
   return blob;
 }
 
 FeatureKeypoints FeatureKeypointsFromBlob(const FeatureKeypointsBlob& blob) {
   FeatureKeypoints keypoints(static_cast<size_t>(blob.rows()));
-  if (blob.cols() == 3) {
+  if (blob.cols() == 4) {
     for (FeatureKeypointsBlob::Index i = 0; i < blob.rows(); ++i) {
-      keypoints[i] = FeatureKeypoint(blob(i, 0), blob(i, 1), blob(i, 2));
+      keypoints[i] =
+          FeatureKeypoint(blob(i, 0), blob(i, 1), blob(i, 2), int(blob(i, 3)));
     }
-  } else if (blob.cols() == 5) {
-    for (FeatureKeypointsBlob::Index i = 0; i < blob.rows(); ++i) {
-      keypoints[i] = FeatureKeypoint(
-          blob(i, 0), blob(i, 1), blob(i, 2), blob(i, 3), blob(i, 4));
-    }
-  } else if (blob.cols() == 7) {
+  } else if (blob.cols() == 6) {
     for (FeatureKeypointsBlob::Index i = 0; i < blob.rows(); ++i) {
       keypoints[i] = FeatureKeypoint(blob(i, 0),
                                      blob(i, 1),
                                      blob(i, 2),
-                                     blob(i, 3),
+                                     int(blob(i, 3)),
+                                     blob(i, 4),
+                                     blob(i, 5));
+    }
+  } else if (blob.cols() == 8) {
+    for (FeatureKeypointsBlob::Index i = 0; i < blob.rows(); ++i) {
+      keypoints[i] = FeatureKeypoint(blob(i, 0),
+                                     blob(i, 1),
+                                     blob(i, 2),
+                                     int(blob(i, 3)),
                                      blob(i, 4),
                                      blob(i, 5),
-                                     blob(i, 6));
+                                     blob(i, 6),
+                                     blob(i, 7));
     }
   } else {
     LOG(FATAL_THROW) << "Keypoint format not supported";
@@ -313,6 +320,12 @@ Camera ReadCameraRow(sqlite3_stmt* sql_stmt) {
   return camera;
 }
 
+Eigen::Vector3d ReadConstrainingPointRow(sqlite3_stmt* sql_stmt) {
+  return Eigen::Vector3d(sqlite3_column_double(sql_stmt, 0),
+                         sqlite3_column_double(sql_stmt, 1),
+                         sqlite3_column_double(sql_stmt, 2));
+}
+
 void ReadFrameRows(sqlite3_stmt* sql_stmt,
                    const std::function<void(Frame)>& new_frame_callback) {
   Frame frame;
@@ -489,6 +502,10 @@ class SqliteDatabase : public Database {
     return ExistsRowId(sql_stmt_exists_image_id_, image_id);
   }
 
+  bool ExistsConstrainingPoint(const point3D_t point3D_id) const override {
+    return ExistsRowId(sql_stmt_exists_constraining_point_, point3D_id);
+  }
+
   bool ExistsImageWithName(const std::string& name) const override {
     return ExistsRowString(sql_stmt_exists_image_name_, name);
   }
@@ -524,6 +541,10 @@ class SqliteDatabase : public Database {
   size_t NumFrames() const override { return CountRows("frames"); }
 
   size_t NumImages() const override { return CountRows("images"); }
+
+  size_t NumConstrainingPoints() const override {
+    return CountRows("constraining_points");
+  }
 
   size_t NumPosePriors() const override { return CountRows("pose_priors"); }
 
@@ -640,6 +661,17 @@ class SqliteDatabase : public Database {
     }
 
     return cameras;
+  }
+
+  std::vector<Eigen::Vector3d> ReadConstrainingPoints() const override {
+    Sqlite3StmtContext context(sql_stmt_read_constraining_points_);
+    std::vector<Eigen::Vector3d> points;
+    while (SQLITE3_CALL(sqlite3_step(sql_stmt_read_constraining_points_)) ==
+           SQLITE_ROW) {
+      points.push_back(
+          ReadConstrainingPointRow(sql_stmt_read_constraining_points_));
+    }
+    return points;
   }
 
   Frame ReadFrame(const frame_t frame_id) const override {
@@ -1191,6 +1223,20 @@ class SqliteDatabase : public Database {
     SQLITE3_CALL(sqlite3_step(sql_stmt_write_two_view_geometry_));
   }
 
+  void WriteConstrainingPoints(
+      const std::vector<Eigen::Vector3d>& points) const override {
+    Sqlite3StmtContext context(sql_stmt_write_constraining_points_);
+    for (const auto& point : points) {
+      SQLITE3_CALL(sqlite3_bind_int64(
+          sql_stmt_write_constraining_points_, 1, point.x()));
+      SQLITE3_CALL(sqlite3_bind_int64(
+          sql_stmt_write_constraining_points_, 2, point.y()));
+      SQLITE3_CALL(sqlite3_bind_int64(
+          sql_stmt_write_constraining_points_, 3, point.z()));
+      SQLITE3_CALL(sqlite3_step(sql_stmt_write_constraining_points_));
+    }
+  }
+
   void UpdateRig(const Rig& rig) override {
     // Update rig.
     {
@@ -1349,6 +1395,7 @@ class SqliteDatabase : public Database {
     ClearImages();
     ClearRigs();
     ClearCameras();
+    ClearConstrainingPoints();
   }
 
   void ClearRigs() override {
@@ -1360,6 +1407,12 @@ class SqliteDatabase : public Database {
   void ClearCameras() override {
     Sqlite3StmtContext context(sql_stmt_clear_cameras_);
     SQLITE3_CALL(sqlite3_step(sql_stmt_clear_cameras_));
+    database_entry_deleted_ = true;
+  }
+
+  void ClearConstrainingPoints() const override {
+    Sqlite3StmtContext context(sql_stmt_clear_constraining_points_);
+    SQLITE3_CALL(sqlite3_step(sql_stmt_clear_constraining_points_));
     database_entry_deleted_ = true;
   }
 
@@ -1633,6 +1686,8 @@ class SqliteDatabase : public Database {
                      &sql_stmt_exists_matches_);
     prepare_sql_stmt("SELECT 1 FROM two_view_geometries WHERE pair_id = ?;",
                      &sql_stmt_exists_two_view_geometry_);
+    prepare_sql_stmt("SELECT 1 FROM constraining_points WHERE point3D_id = ?;",
+                     &sql_stmt_exists_constraining_point_);
 
     //////////////////////////////////////////////////////////////////////////////
     // add_*
@@ -1752,6 +1807,8 @@ class SqliteDatabase : public Database {
     prepare_sql_stmt(
         "SELECT pair_id, rows FROM two_view_geometries WHERE rows > 0;",
         &sql_stmt_read_two_view_geometry_num_inliers_);
+    prepare_sql_stmt("SELECT point3D_id, x, y, z FROM constraining_points;",
+                     &sql_stmt_read_constraining_points_);
 
     //////////////////////////////////////////////////////////////////////////////
     // write_*
@@ -1775,6 +1832,9 @@ class SqliteDatabase : public Database {
         "INSERT INTO two_view_geometries(pair_id, rows, cols, data, config, F, "
         "E, H, qvec, tvec) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
         &sql_stmt_write_two_view_geometry_);
+    prepare_sql_stmt(
+        "INSERT INTO constraining_points(x, y, z) VALUES(?, ?, ?);",
+        &sql_stmt_write_constraining_points_);
 
     //////////////////////////////////////////////////////////////////////////////
     // delete_*
@@ -1803,6 +1863,8 @@ class SqliteDatabase : public Database {
     prepare_sql_stmt("DELETE FROM matches;", &sql_stmt_clear_matches_);
     prepare_sql_stmt("DELETE FROM two_view_geometries;",
                      &sql_stmt_clear_two_view_geometries_);
+    prepare_sql_stmt("DELETE FROM constraining_points;",
+                     &sql_stmt_clear_constraining_points_);
   }
 
   void FinalizeSQLStatements() {
@@ -1824,6 +1886,7 @@ class SqliteDatabase : public Database {
     CreateDescriptorsTable();
     CreateMatchesTable();
     CreateTwoViewGeometriesTable();
+    CreateConstrainingPointsTable();
   }
 
   void CreateRigTable() const {
@@ -1976,6 +2039,16 @@ class SqliteDatabase : public Database {
           "    tvec     BLOB);";
       SQLITE3_EXEC(database_, sql.c_str(), nullptr);
     }
+  }
+
+  void CreateConstrainingPointsTable() const {
+    const std::string sql =
+        "CREATE TABLE IF NOT EXISTS constraining_points"
+        "   (point3D_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,"
+        "    x DOUBLE NOT NULL,"
+        "    y DOUBLE NOT NULL,"
+        "    z DOUBLE NOT NULL);";
+    SQLITE3_EXEC(database_, sql.c_str(), nullptr);
   }
 
   void UpdateSchema() const {
@@ -2197,6 +2270,7 @@ class SqliteDatabase : public Database {
   sqlite3_stmt* sql_stmt_exists_descriptors_ = nullptr;
   sqlite3_stmt* sql_stmt_exists_matches_ = nullptr;
   sqlite3_stmt* sql_stmt_exists_two_view_geometry_ = nullptr;
+  sqlite3_stmt* sql_stmt_exists_constraining_point_ = nullptr;
 
   // add_*
   sqlite3_stmt* sql_stmt_add_rig_ = nullptr;
@@ -2235,6 +2309,7 @@ class SqliteDatabase : public Database {
   sqlite3_stmt* sql_stmt_read_two_view_geometry_ = nullptr;
   sqlite3_stmt* sql_stmt_read_two_view_geometries_ = nullptr;
   sqlite3_stmt* sql_stmt_read_two_view_geometry_num_inliers_ = nullptr;
+  sqlite3_stmt* sql_stmt_read_constraining_points_ = nullptr;
 
   // write_*
   sqlite3_stmt* sql_stmt_write_pose_prior_ = nullptr;
@@ -2242,7 +2317,7 @@ class SqliteDatabase : public Database {
   sqlite3_stmt* sql_stmt_write_descriptors_ = nullptr;
   sqlite3_stmt* sql_stmt_write_matches_ = nullptr;
   sqlite3_stmt* sql_stmt_write_two_view_geometry_ = nullptr;
-
+  sqlite3_stmt* sql_stmt_write_constraining_points_ = nullptr;
   // delete_*
   sqlite3_stmt* sql_stmt_delete_rig_sensors_ = nullptr;
   sqlite3_stmt* sql_stmt_delete_frame_data_ = nullptr;
@@ -2259,6 +2334,7 @@ class SqliteDatabase : public Database {
   sqlite3_stmt* sql_stmt_clear_keypoints_ = nullptr;
   sqlite3_stmt* sql_stmt_clear_matches_ = nullptr;
   sqlite3_stmt* sql_stmt_clear_two_view_geometries_ = nullptr;
+  sqlite3_stmt* sql_stmt_clear_constraining_points_ = nullptr;
 };
 
 std::mutex SqliteDatabase::update_schema_mutex_;

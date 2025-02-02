@@ -51,6 +51,15 @@ std::vector<float> FeatureKeypointsToWeightsVector(
   return weights;
 }
 
+std::vector<int> FeatureKeypointsToConstraintIndicesVector(
+    const FeatureKeypoints& keypoints) {
+  std::vector<int> constraint_point_indices(keypoints.size());
+  for (size_t i = 0; i < keypoints.size(); ++i) {
+    constraint_point_indices[i] = keypoints[i].constraint_point_id;
+  }
+  return constraint_point_indices;
+}
+
 void L2NormalizeFeatureDescriptors(FeatureDescriptorsFloat* descriptors) {
   descriptors->rowwise().normalize();
 }

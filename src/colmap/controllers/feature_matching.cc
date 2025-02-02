@@ -189,6 +189,8 @@ class FeatureMatcherThread : public Thread {
                 image.SetPoints2D(FeatureKeypointsToPointsVector(
                                       *cache_->GetKeypoints(data_id.id)),
                                   FeatureKeypointsToWeightsVector(
+                                      *cache_->GetKeypoints(data_id.id)),
+                                  FeatureKeypointsToConstraintIndicesVector(
                                       *cache_->GetKeypoints(data_id.id)));
                 cameras[image.CameraId()] = cache_->GetCamera(image.CameraId());
               }

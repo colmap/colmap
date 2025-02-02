@@ -226,17 +226,22 @@ void ReadImagesBinary(Reconstruction& reconstruction, std::istream& stream) {
     point3D_ids.reserve(num_points2D);
     std::vector<float> weights;
     weights.reserve(num_points2D);
+    std::vector<int> constraint_point_ids;
+    constraint_point_ids.reserve(num_points2D);
 
     for (size_t j = 0; j < num_points2D; ++j) {
       const double x = ReadBinaryLittleEndian<double>(&stream);
       const double y = ReadBinaryLittleEndian<double>(&stream);
       const float weight = ReadBinaryLittleEndian<float>(&stream);
+      const int constraint_point_id = ReadBinaryLittleEndian<int>(&stream);
+      const point3D_t point3D_id = ReadBinaryLittleEndian<point3D_t>(&stream);
       points2D.emplace_back(x, y);
       weights.push_back(weight);
-      point3D_ids.push_back(ReadBinaryLittleEndian<point3D_t>(&stream));
+      constraint_point_ids.push_back(constraint_point_id);
+      point3D_ids.push_back(point3D_id);
     }
 
-    image.SetPoints2D(points2D, weights);
+    image.SetPoints2D(points2D, weights, constraint_point_ids);
 
     for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
          ++point2D_idx) {
