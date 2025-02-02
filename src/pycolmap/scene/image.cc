@@ -44,12 +44,13 @@ std::shared_ptr<Image> MakeImageFromKeypoints(
     const std::string& name,
     const std::vector<Eigen::Vector2d>& points,
     const std::vector<float>& weights,
+    const std::vector<int>& constraint_point_idxs,
     const std::optional<Rigid3d>& cam_from_world,
     size_t camera_id,
     image_t image_id) {
   auto image = std::make_shared<Image>();
   image->SetName(name);
-  image->SetPoints2D(points, weights);
+  image->SetPoints2D(points, weights, constraint_point_idxs);
   image->SetCamFromWorld(cam_from_world);
   if (camera_id != kInvalidCameraId) {
     image->SetCameraId(camera_id);
@@ -73,8 +74,14 @@ void BindImage(py::module& m) {
                        size_t camera_id,
                        image_t image_id) {
              std::vector<float> weights(points.size(), 1.0f);
-             return MakeImageFromKeypoints(
-                 name, points, weights, cam_from_world, camera_id, image_id);
+             std::vector<int> constraint_point_idxs(points.size(), -1);
+             return MakeImageFromKeypoints(name,
+                                           points,
+                                           weights,
+                                           constraint_point_idxs,
+                                           cam_from_world,
+                                           camera_id,
+                                           image_id);
            }),
            "name"_a = "",
            "keypoints"_a = std::vector<Eigen::Vector2d>(),
@@ -208,7 +215,8 @@ void BindImage(py::module& m) {
           "Get the 2D points that observe a 3D point.")
       .def("set_points2D",
            py::overload_cast<const std::vector<Eigen::Vector2d>&,
-                             const std::vector<float>&, const std::vector<int>&>(&Image::SetPoints2D),
+                             const std::vector<float>&,
+                             const std::vector<int>&>(&Image::SetPoints2D),
            "points"_a,
            "weights"_a,
            "constraint_point_id"_a,
