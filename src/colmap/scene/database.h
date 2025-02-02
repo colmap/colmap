@@ -178,6 +178,7 @@ class Database {
                                       image_t image_id2) const;
   std::vector<std::pair<image_pair_t, TwoViewGeometry>> ReadTwoViewGeometries()
       const;
+  std::vector<Eigen::Vector3d> ReadConstrainingPoints() const;
 
   // Read all image pairs that have an entry in the `two_view_geometry`
   // table with at least one inlier match and their number of inlier matches.
@@ -210,6 +211,8 @@ class Database {
   void WriteTwoViewGeometry(image_t image_id1,
                             image_t image_id2,
                             const TwoViewGeometry& two_view_geometry) const;
+  void WriteConstrainingPoints(
+      const std::vector<Eigen::Vector3d>& points) const;
 
   // Update an existing camera in the database. The user is responsible for
   // making sure that the entry already exists.
@@ -253,16 +256,13 @@ class Database {
   // Clear the entire inlier matches table.
   void ClearTwoViewGeometries() const;
 
+  // Clear the entire constraining points table.
+  void ClearConstrainingPoints() const;
+
   // Merge two databases into a single, new database.
   static void Merge(const Database& database1,
                     const Database& database2,
                     Database* merged_database);
-
-  // Functions for managing constraining points
-  void WriteConstrainingPoints(
-      const std::vector<Eigen::Vector3d>& points) const;
-  std::vector<Eigen::Vector3d> ReadConstrainingPoints() const;
-  void ClearConstrainingPoints() const;
 
  private:
   friend class DatabaseTransaction;
