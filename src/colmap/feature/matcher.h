@@ -45,15 +45,15 @@
 
 namespace colmap {
 
-MAKE_ENUM_CLASS_OVERLOAD_STREAM(FeatureMatcherType, 0, UNDEFINED, SIFT, ALIKED);
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(FeatureMatcherType, 0, SIFT, ALIKED);
+
+struct SiftMatchingOptions;
+struct ALIKEDMatchingOptions;
 
 struct FeatureMatchingOptions {
-  explicit FeatureMatchingOptions(
-      const FeatureMatcherType& type = FeatureMatcherType::SIFT)
-      : type(type) {}
-  virtual ~FeatureMatchingOptions() = default;
+  FeatureMatchingOptions(FeatureMatcherType type = FeatureMatcherType::SIFT);
 
-  FeatureMatcherType type = FeatureMatcherType::UNDEFINED;
+  FeatureMatcherType type = FeatureMatcherType::SIFT;
 
   // Number of threads for feature matching and geometric verification.
   int num_threads = -1;
@@ -71,7 +71,10 @@ struct FeatureMatchingOptions {
   // Whether to perform guided matching.
   bool guided_matching = false;
 
-  virtual bool Check() const;
+  std::shared_ptr<SiftMatchingOptions> sift;
+  std::shared_ptr<ALIKEDMatchingOptions> aliked;
+
+  bool Check() const;
 };
 
 class FeatureMatcher {

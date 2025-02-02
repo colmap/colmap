@@ -125,10 +125,7 @@ class OptionManager {
 
   std::shared_ptr<ImageReaderOptions> image_reader;
   std::shared_ptr<SiftExtractionOptions> sift_extraction;
-
   std::shared_ptr<FeatureMatchingOptions> feature_matching;
-  std::shared_ptr<SiftMatchingOptions> sift_matching;
-  std::shared_ptr<ALIKEDMatchingOptions> aliked_matching;
   std::shared_ptr<TwoViewGeometryOptions> two_view_geometry;
   std::shared_ptr<ExhaustiveMatchingOptions> exhaustive_matching;
   std::shared_ptr<SequentialMatchingOptions> sequential_matching;
@@ -171,8 +168,8 @@ class OptionManager {
   std::vector<std::pair<std::string, const int*>> options_int_;
   std::vector<std::pair<std::string, const double*>> options_double_;
   std::vector<std::pair<std::string, const std::string*>> options_string_;
-  std::unordered_map<std::string, std::string> options_enum_;
-  
+
+  std::string feature_matching_type_;
 
   bool added_log_options_;
   bool added_random_options_;
@@ -232,17 +229,6 @@ template <typename T>
 void OptionManager::AddAndRegisterDefaultOption(const std::string& name,
                                                 T* option,
                                                 const std::string& help_text) {
-  desc_->add_options()(
-      name.c_str(),
-      boost::program_options::value<T>(option)->default_value(*option),
-      help_text.c_str());
-  RegisterOption(name, option);
-}
-
-template <typename T>
-void OptionManager::AddAndRegisterDefaultEnumOption(
-    const std::string& name, T* option, const std::string& help_text) {
-  std::string option_str = *option;
   desc_->add_options()(
       name.c_str(),
       boost::program_options::value<T>(option)->default_value(*option),

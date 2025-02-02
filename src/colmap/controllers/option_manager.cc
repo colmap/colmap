@@ -59,8 +59,7 @@ OptionManager::OptionManager(bool add_project_options) {
   image_reader = std::make_shared<ImageReaderOptions>();
   sift_extraction = std::make_shared<SiftExtractionOptions>();
   feature_matching = std::make_shared<FeatureMatchingOptions>();
-  sift_matching = std::make_shared<SiftMatchingOptions>();
-  aliked_matching = std::make_shared<ALIKEDMatchingOptions>();
+  feature_matching_type_ = FeatureMatcherTypeToString(feature_matching->type);
   two_view_geometry = std::make_shared<TwoViewGeometryOptions>();
   exhaustive_matching = std::make_shared<ExhaustiveMatchingOptions>();
   sequential_matching = std::make_shared<SequentialMatchingOptions>();
@@ -156,7 +155,7 @@ void OptionManager::ModifyForHighQuality() {
   sift_extraction->estimate_affine_shape = true;
   sift_extraction->max_image_size = 2400;
   sift_extraction->max_num_features = 8192;
-  sift_matching->guided_matching = true;
+  feature_matching->guided_matching = true;
   vocab_tree_matching->max_num_features = 4096;
   mapper->ba_local_max_num_iterations = 30;
   mapper->ba_local_max_refinements = 3;
@@ -169,7 +168,7 @@ void OptionManager::ModifyForExtremeQuality() {
   // Most of the options are set to extreme quality by default.
   sift_extraction->estimate_affine_shape = true;
   sift_extraction->domain_size_pooling = true;
-  sift_matching->guided_matching = true;
+  feature_matching->guided_matching = true;
   mapper->ba_local_max_num_iterations = 40;
   mapper->ba_local_max_refinements = 3;
   mapper->ba_global_max_num_iterations = 100;
@@ -301,7 +300,7 @@ void OptionManager::AddMatchingOptions() {
   }
   added_match_options_ = true;
 
-  AddAndRegisterDefaultOption("FeatureMatching.type", &feature_matching->type);
+  AddAndRegisterDefaultOption("FeatureMatching.type", &feature_matching_type_);
   AddAndRegisterDefaultOption("FeatureMatching.num_threads",
                               &feature_matching->num_threads);
   AddAndRegisterDefaultOption("FeatureMatching.use_gpu",
@@ -314,16 +313,16 @@ void OptionManager::AddMatchingOptions() {
                               &feature_matching->max_num_matches);
 
   AddAndRegisterDefaultOption("SiftMatching.max_ratio",
-                              &sift_matching->max_ratio);
+                              &feature_matching->sift->max_ratio);
   AddAndRegisterDefaultOption("SiftMatching.max_distance",
-                              &sift_matching->max_distance);
+                              &feature_matching->sift->max_distance);
   AddAndRegisterDefaultOption("SiftMatching.cross_check",
-                              &sift_matching->cross_check);
+                              &feature_matching->sift->cross_check);
   AddAndRegisterDefaultOption("SiftMatching.cpu_brute_force_matcher",
-                              &sift_matching->cpu_brute_force_matcher);
+                              &feature_matching->sift->cpu_brute_force_matcher);
 
   AddAndRegisterDefaultOption("ALIKEDMatching.model_path",
-                              &aliked_matching->model_path);
+                              &feature_matching->aliked->model_path);
 
   AddAndRegisterDefaultOption("TwoViewGeometry.min_num_inliers",
                               &two_view_geometry->min_num_inliers);
@@ -819,8 +818,6 @@ void OptionManager::ResetOptions(const bool reset_paths) {
   *image_reader = ImageReaderOptions();
   *sift_extraction = SiftExtractionOptions();
   *feature_matching = FeatureMatchingOptions();
-  *sift_matching = SiftMatchingOptions();
-  *aliked_matching = ALIKEDMatchingOptions();
   *exhaustive_matching = ExhaustiveMatchingOptions();
   *sequential_matching = SequentialMatchingOptions();
   *vocab_tree_matching = VocabTreeMatchingOptions();
@@ -853,8 +850,6 @@ bool OptionManager::Check() {
   if (sift_extraction) success = success && sift_extraction->Check();
 
   if (feature_matching) success = success && feature_matching->Check();
-  if (sift_matching) success = success && sift_matching->Check();
-  if (aliked_matching) success = success && aliked_matching->Check();
   if (two_view_geometry) success = success && two_view_geometry->Check();
   if (exhaustive_matching) success = success && exhaustive_matching->Check();
   if (sequential_matching) success = success && sequential_matching->Check();
@@ -904,6 +899,9 @@ void OptionManager::Parse(const int argc, char** argv) {
     } else {
       vmap.notify();
     }
+
+    feature_matching->type =
+        FeatureMatcherTypeFromString(feature_matching_type_);
   } catch (std::exception& exc) {
     LOG(ERROR) << "Failed to parse options - " << exc.what() << ".";
     // NOLINTNEXTLINE(concurrency-mt-unsafe)
@@ -934,6 +932,8 @@ bool OptionManager::Read(const std::string& path) {
     THROW_CHECK_FILE_OPEN(file, path);
     config::store(config::parse_config_file(file, *desc_), vmap);
     vmap.notify();
+    feature_matching->type =
+        FeatureMatcherTypeFromString(feature_matching_type_);
   } catch (std::exception& e) {
     LOG(ERROR) << "Failed to parse options " << e.what() << ".";
     return false;

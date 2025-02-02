@@ -63,14 +63,14 @@ struct ALIKEDExtractionOptions {
 std::unique_ptr<FeatureExtractor> CreateALIKEDFeatureExtractor(
     const ALIKEDExtractionOptions& options);
 
-struct ALIKEDMatchingOptions : public FeatureMatchingOptions {
-  ALIKEDMatchingOptions()
-      : FeatureMatchingOptions(FeatureMatcherType::ALIKED) {}
-
+struct ALIKEDMatchingOptions {
+  // Path to .pt ALIKED model file in torch model format.
   std::string model_path = kDefaultAlikedLightGlueUri;
+
+  bool Check() const;
 };
 
 std::unique_ptr<FeatureMatcher> CreateALIKEDFeatureMatcher(
-    const ALIKEDMatchingOptions& options);
+    const FeatureMatchingOptions& options);
 
 }  // namespace colmap

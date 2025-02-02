@@ -121,10 +121,7 @@ struct SiftExtractionOptions {
 std::unique_ptr<FeatureExtractor> CreateSiftFeatureExtractor(
     const SiftExtractionOptions& options);
 
-struct SiftMatchingOptions : public FeatureMatchingOptions {
-  SiftMatchingOptions()
-      : FeatureMatchingOptions(FeatureMatcherType::SIFT) {}
-
+struct SiftMatchingOptions {
   // Maximum distance ratio between first and second best match.
   double max_ratio = 0.8;
 
@@ -141,11 +138,11 @@ struct SiftMatchingOptions : public FeatureMatchingOptions {
   ThreadSafeLRUCache<image_t, FeatureDescriptorIndex>*
       cpu_descriptor_index_cache = nullptr;
 
-  bool Check() const override;
+  bool Check() const;
 };
 
 std::unique_ptr<FeatureMatcher> CreateSiftFeatureMatcher(
-    const SiftMatchingOptions& options);
+    const FeatureMatchingOptions& options);
 
 // Load keypoints and descriptors from text file in the following format:
 //

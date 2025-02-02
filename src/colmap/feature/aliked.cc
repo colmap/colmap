@@ -134,8 +134,13 @@ class ALIKEDFeatureExtractor : public FeatureExtractor {
 
 class ALIKEDLightGlueFeatureMatcher : public FeatureMatcher {
  public:
-  explicit ALIKEDLightGlueFeatureMatcher(const ALIKEDMatchingOptions& options)
-      : lightglue_("aliked", MaybeDownloadAndCacheFile(options.model_path)) {}
+  explicit ALIKEDLightGlueFeatureMatcher(const FeatureMatchingOptions& options)
+      : lightglue_("aliked",
+                   MaybeDownloadAndCacheFile(options.aliked->model_path)) {
+    if (!options.Check()) {
+      throw std::runtime_error("Invalid ALIKED matching options.");
+    }
+  }
 
   void Match(const Image& image1,
              const Image& image2,
@@ -239,8 +244,13 @@ std::unique_ptr<FeatureExtractor> CreateALIKEDFeatureExtractor(
 #endif
 }
 
+bool ALIKEDMatchingOptions::Check() const {
+  CHECK_OPTION(!model_path.empty());
+  return true;
+}
+
 std::unique_ptr<FeatureMatcher> CreateALIKEDFeatureMatcher(
-    const ALIKEDMatchingOptions& options) {
+    const FeatureMatchingOptions& options) {
 #ifdef COLMAP_TORCH_ENABLED
   return std::make_unique<ALIKEDLightGlueFeatureMatcher>(options);
 #else

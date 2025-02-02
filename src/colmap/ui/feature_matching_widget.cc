@@ -30,6 +30,7 @@
 #include "colmap/ui/feature_matching_widget.h"
 
 #include "colmap/controllers/feature_matching.h"
+#include "colmap/feature/sift.h"
 #include "colmap/ui/options_widget.h"
 #include "colmap/ui/thread_control_widget.h"
 #include "colmap/util/file.h"
@@ -105,20 +106,21 @@ void FeatureMatchingTab::CreateGeneralOptions() {
   options_widget_->AddSpacer();
 
   options_widget_->AddOptionInt(
-      &options_->sift_matching->num_threads, "num_threads", -1);
-  options_widget_->AddOptionBool(&options_->sift_matching->use_gpu, "use_gpu");
-  options_widget_->AddOptionText(&options_->sift_matching->gpu_index,
+      &options_->feature_matching->num_threads, "num_threads", -1);
+  options_widget_->AddOptionBool(&options_->feature_matching->use_gpu,
+                                 "use_gpu");
+  options_widget_->AddOptionText(&options_->feature_matching->gpu_index,
                                  "gpu_index");
-  options_widget_->AddOptionDouble(&options_->sift_matching->max_ratio,
-                                   "max_ratio");
-  options_widget_->AddOptionDouble(&options_->sift_matching->max_distance,
-                                   "max_distance");
-  options_widget_->AddOptionBool(&options_->sift_matching->cross_check,
-                                 "cross_check");
-  options_widget_->AddOptionInt(&options_->sift_matching->max_num_matches,
+  options_widget_->AddOptionInt(&options_->feature_matching->max_num_matches,
                                 "max_num_matches");
-  options_widget_->AddOptionBool(&options_->sift_matching->guided_matching,
+  options_widget_->AddOptionBool(&options_->feature_matching->guided_matching,
                                  "guided_matching");
+  options_widget_->AddOptionDouble(&options_->feature_matching->sift->max_ratio,
+                                   "sift.max_ratio");
+  options_widget_->AddOptionDouble(
+      &options_->feature_matching->sift->max_distance, "sift.max_distance");
+  options_widget_->AddOptionBool(&options_->feature_matching->sift->cross_check,
+                                 "sift,cross_check");
   options_widget_->AddOptionDouble(
       &options_->two_view_geometry->ransac_options.max_error, "max_error");
   options_widget_->AddOptionDouble(
@@ -167,7 +169,7 @@ void ExhaustiveMatchingTab::Run() {
   options_widget_->WriteOptions();
 
   auto matcher = CreateExhaustiveFeatureMatcher(*options_->exhaustive_matching,
-                                                *options_->sift_matching,
+                                                *options_->feature_matching,
                                                 *options_->two_view_geometry,
                                                 *options_->database_path);
   thread_control_widget_->StartThread("Matching...", true, std::move(matcher));
@@ -220,7 +222,7 @@ void SequentialMatchingTab::Run() {
   }
 
   auto matcher = CreateSequentialFeatureMatcher(*options_->sequential_matching,
-                                                *options_->sift_matching,
+                                                *options_->feature_matching,
                                                 *options_->two_view_geometry,
                                                 *options_->database_path);
   thread_control_widget_->StartThread("Matching...", true, std::move(matcher));
@@ -257,7 +259,7 @@ void VocabTreeMatchingTab::Run() {
   }
 
   auto matcher = CreateVocabTreeFeatureMatcher(*options_->vocab_tree_matching,
-                                               *options_->sift_matching,
+                                               *options_->feature_matching,
                                                *options_->two_view_geometry,
                                                *options_->database_path);
   thread_control_widget_->StartThread("Matching...", true, std::move(matcher));
@@ -279,7 +281,7 @@ void SpatialMatchingTab::Run() {
   options_widget_->WriteOptions();
 
   auto matcher = CreateSpatialFeatureMatcher(*options_->spatial_matching,
-                                             *options_->sift_matching,
+                                             *options_->feature_matching,
                                              *options_->two_view_geometry,
                                              *options_->database_path);
   thread_control_widget_->StartThread("Matching...", true, std::move(matcher));
@@ -300,7 +302,7 @@ void TransitiveMatchingTab::Run() {
   options_widget_->WriteOptions();
 
   auto matcher = CreateTransitiveFeatureMatcher(*options_->transitive_matching,
-                                                *options_->sift_matching,
+                                                *options_->feature_matching,
                                                 *options_->two_view_geometry,
                                                 *options_->database_path);
   thread_control_widget_->StartThread("Matching...", true, std::move(matcher));
@@ -334,7 +336,7 @@ void CustomMatchingTab::Run() {
     ImagePairsMatchingOptions matcher_options;
     matcher_options.match_list_path = match_list_path_;
     matcher = CreateImagePairsFeatureMatcher(matcher_options,
-                                             *options_->sift_matching,
+                                             *options_->feature_matching,
                                              *options_->two_view_geometry,
                                              *options_->database_path);
   } else {
@@ -347,7 +349,7 @@ void CustomMatchingTab::Run() {
     }
 
     matcher = CreateFeaturePairsFeatureMatcher(matcher_options,
-                                               *options_->sift_matching,
+                                               *options_->feature_matching,
                                                *options_->two_view_geometry,
                                                *options_->database_path);
   }

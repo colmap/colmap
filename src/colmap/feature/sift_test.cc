@@ -332,7 +332,7 @@ TEST(CreateSiftGPUMatcherOpenGL, Nominal) {
    private:
     void Run() {
       opengl_context_.MakeCurrent();
-      SiftMatchingOptions options;
+      FeatureMatchingOptions options(FeatureMatcherType::SIFT);
       options.use_gpu = true;
       options.max_num_matches = 1000;
       EXPECT_NE(CreateSiftFeatureMatcher(options), nullptr);
@@ -346,7 +346,7 @@ TEST(CreateSiftGPUMatcherOpenGL, Nominal) {
 
 TEST(CreateSiftGPUMatcherCUDA, Nominal) {
 #if defined(COLMAP_CUDA_ENABLED)
-  SiftMatchingOptions options;
+  FeatureMatchingOptions options(FeatureMatcherType::SIFT);
   options.use_gpu = true;
   options.gpu_index = "0";
   options.max_num_matches = 1000;
@@ -398,10 +398,10 @@ TEST(SiftCPUFeatureMatcher, Nominal) {
   FeatureDescriptorIndexCacheHelper index_cache_helper(
       {image0, image1, image2});
 
-  SiftMatchingOptions options;
+  FeatureMatchingOptions options(FeatureMatcherType::SIFT);
   options.use_gpu = false;
-  options.cpu_brute_force_matcher = false;
-  options.cpu_descriptor_index_cache = &index_cache_helper.index_cache;
+  options.sift->cpu_brute_force_matcher = false;
+  options.sift->cpu_descriptor_index_cache = &index_cache_helper.index_cache;
   auto matcher = CreateSiftFeatureMatcher(options);
 
   FeatureMatches matches;
@@ -428,10 +428,10 @@ TEST(SiftCPUFeatureMatcher, Nominal) {
 }
 
 TEST(SiftCPUFeatureMatcherFlannVsBruteForce, Nominal) {
-  SiftMatchingOptions match_options;
+  FeatureMatchingOptions match_options;
   match_options.max_num_matches = 1000;
 
-  auto TestFlannVsBruteForce = [](const SiftMatchingOptions& options,
+  auto TestFlannVsBruteForce = [](const FeatureMatchingOptions& options,
                                   const FeatureDescriptors& descriptors1,
                                   const FeatureDescriptors& descriptors2) {
     const FeatureMatcher::Image image0 = {
@@ -459,12 +459,13 @@ TEST(SiftCPUFeatureMatcherFlannVsBruteForce, Nominal) {
     FeatureMatches matches_bf;
     FeatureMatches matches_flann;
 
-    SiftMatchingOptions custom_options = options;
+    FeatureMatchingOptions custom_options = options;
     custom_options.use_gpu = false;
-    custom_options.cpu_brute_force_matcher = true;
+    custom_options.sift->cpu_brute_force_matcher = true;
     auto bf_matcher = CreateSiftFeatureMatcher(custom_options);
-    custom_options.cpu_brute_force_matcher = false;
-    custom_options.cpu_descriptor_index_cache = &index_cache_helper.index_cache;
+    custom_options.sift->cpu_brute_force_matcher = false;
+    custom_options.sift->cpu_descriptor_index_cache =
+        &index_cache_helper.index_cache;
     auto flann_matcher = CreateSiftFeatureMatcher(custom_options);
 
     bf_matcher->Match(image1, image2, &matches_bf);
@@ -491,14 +492,14 @@ TEST(SiftCPUFeatureMatcherFlannVsBruteForce, Nominal) {
   {
     const FeatureDescriptors descriptors1 = CreateRandomFeatureDescriptors(50);
     const FeatureDescriptors descriptors2 = CreateRandomFeatureDescriptors(50);
-    SiftMatchingOptions match_options;
+    FeatureMatchingOptions match_options;
     TestFlannVsBruteForce(match_options, descriptors1, descriptors2);
   }
 
   {
     const FeatureDescriptors descriptors1 = CreateRandomFeatureDescriptors(50);
     const FeatureDescriptors descriptors2 = descriptors1.colwise().reverse();
-    SiftMatchingOptions match_options;
+    FeatureMatchingOptions match_options;
     const size_t num_matches =
         TestFlannVsBruteForce(match_options, descriptors1, descriptors2);
     EXPECT_EQ(num_matches, 50);
@@ -509,7 +510,7 @@ TEST(SiftCPUFeatureMatcherFlannVsBruteForce, Nominal) {
     FeatureDescriptors descriptors1 = CreateRandomFeatureDescriptors(50);
     FeatureDescriptors descriptors2 = descriptors1;
 
-    SiftMatchingOptions match_options;
+    FeatureMatchingOptions match_options;
     const size_t num_matches1 =
         TestFlannVsBruteForce(match_options, descriptors1, descriptors2);
     EXPECT_EQ(num_matches1, 50);
@@ -522,12 +523,12 @@ TEST(SiftCPUFeatureMatcherFlannVsBruteForce, Nominal) {
     descriptors2.row(49) = FeatureDescriptorsToUnsignedByte(
         descriptors2.row(49).cast<float>().normalized());
 
-    match_options.max_ratio = 0.4;
+    match_options.sift->max_ratio = 0.4;
     const size_t num_matches2 = TestFlannVsBruteForce(
         match_options, descriptors1.topRows(49), descriptors2);
     EXPECT_EQ(num_matches2, 48);
 
-    match_options.max_ratio = 0.6;
+    match_options.sift->max_ratio = 0.6;
     const size_t num_matches3 =
         TestFlannVsBruteForce(match_options, descriptors1, descriptors2);
     EXPECT_EQ(num_matches3, 49);
@@ -539,14 +540,14 @@ TEST(SiftCPUFeatureMatcherFlannVsBruteForce, Nominal) {
     FeatureDescriptors descriptors2 = descriptors1;
     descriptors1.row(0) = descriptors1.row(1);
 
-    SiftMatchingOptions match_options;
+    FeatureMatchingOptions match_options;
 
-    match_options.cross_check = false;
+    match_options.sift->cross_check = false;
     const size_t num_matches1 =
         TestFlannVsBruteForce(match_options, descriptors1, descriptors2);
     EXPECT_EQ(num_matches1, 50);
 
-    match_options.cross_check = true;
+    match_options.sift->cross_check = true;
     const size_t num_matches2 =
         TestFlannVsBruteForce(match_options, descriptors1, descriptors2);
     EXPECT_EQ(num_matches2, 48);
@@ -590,9 +591,9 @@ TEST(MatchGuidedSiftFeaturesCPU, Nominal) {
   two_view_geometry.config = TwoViewGeometry::PLANAR_OR_PANORAMIC;
   two_view_geometry.H = Eigen::Matrix3d::Identity();
 
-  SiftMatchingOptions options;
+  FeatureMatchingOptions options(FeatureMatcherType::SIFT);
   options.use_gpu = false;
-  options.cpu_descriptor_index_cache = &index_cache_helper.index_cache;
+  options.sift->cpu_descriptor_index_cache = &index_cache_helper.index_cache;
   auto matcher = CreateSiftFeatureMatcher(options);
 
   constexpr double kMaxError = 4.0;
@@ -627,7 +628,7 @@ TEST(MatchSiftFeaturesGPU, Nominal) {
    private:
     void Run() {
       opengl_context_.MakeCurrent();
-      SiftMatchingOptions options;
+      FeatureMatchingOptions options(FeatureMatcherType::SIFT);
       options.use_gpu = true;
       options.max_num_matches = 1000;
       auto matcher = THROW_CHECK_NOTNULL(CreateSiftFeatureMatcher(options));
@@ -694,7 +695,7 @@ TEST(MatchSiftFeaturesCPUvsGPU, Nominal) {
     void Run() {
       opengl_context_.MakeCurrent();
 
-      auto TestCPUvsGPU = [](const SiftMatchingOptions& options,
+      auto TestCPUvsGPU = [](const FeatureMatchingOptions& options,
                              const FeatureDescriptors& descriptors1,
                              const FeatureDescriptors& descriptors2) {
         const FeatureMatcher::Image image0 = {
@@ -719,13 +720,13 @@ TEST(MatchSiftFeaturesCPUvsGPU, Nominal) {
         FeatureDescriptorIndexCacheHelper index_cache_helper(
             {image0, image1, image2});
 
-        SiftMatchingOptions custom_options = options;
+        FeatureMatchingOptions custom_options = options;
         custom_options.use_gpu = true;
         custom_options.max_num_matches = 1000;
         auto gpu_matcher =
             THROW_CHECK_NOTNULL(CreateSiftFeatureMatcher(custom_options));
         custom_options.use_gpu = false;
-        custom_options.cpu_descriptor_index_cache =
+        custom_options.sift->cpu_descriptor_index_cache =
             &index_cache_helper.index_cache;
         auto cpu_matcher = CreateSiftFeatureMatcher(custom_options);
 
@@ -758,7 +759,7 @@ TEST(MatchSiftFeaturesCPUvsGPU, Nominal) {
             CreateRandomFeatureDescriptors(50);
         const FeatureDescriptors descriptors2 =
             CreateRandomFeatureDescriptors(50);
-        SiftMatchingOptions match_options;
+        FeatureMatchingOptions match_options;
         TestCPUvsGPU(match_options, descriptors1, descriptors2);
       }
 
@@ -767,7 +768,7 @@ TEST(MatchSiftFeaturesCPUvsGPU, Nominal) {
             CreateRandomFeatureDescriptors(50);
         const FeatureDescriptors descriptors2 =
             descriptors1.colwise().reverse();
-        SiftMatchingOptions match_options;
+        FeatureMatchingOptions match_options;
         const size_t num_matches =
             TestCPUvsGPU(match_options, descriptors1, descriptors2);
         EXPECT_EQ(num_matches, 50);
@@ -778,7 +779,7 @@ TEST(MatchSiftFeaturesCPUvsGPU, Nominal) {
         FeatureDescriptors descriptors1 = CreateRandomFeatureDescriptors(50);
         FeatureDescriptors descriptors2 = descriptors1;
 
-        SiftMatchingOptions match_options;
+        FeatureMatchingOptions match_options;
         const size_t num_matches1 =
             TestCPUvsGPU(match_options, descriptors1, descriptors2);
         EXPECT_EQ(num_matches1, 50);
@@ -791,12 +792,12 @@ TEST(MatchSiftFeaturesCPUvsGPU, Nominal) {
         descriptors2.row(49) = FeatureDescriptorsToUnsignedByte(
             descriptors2.row(49).cast<float>().normalized());
 
-        match_options.max_ratio = 0.4;
+        match_options.sift->max_ratio = 0.4;
         const size_t num_matches2 =
             TestCPUvsGPU(match_options, descriptors1.topRows(49), descriptors2);
         EXPECT_EQ(num_matches2, 48);
 
-        match_options.max_ratio = 0.6;
+        match_options.sift->max_ratio = 0.6;
         const size_t num_matches3 =
             TestCPUvsGPU(match_options, descriptors1, descriptors2);
         EXPECT_EQ(num_matches3, 49);
@@ -808,14 +809,14 @@ TEST(MatchSiftFeaturesCPUvsGPU, Nominal) {
         FeatureDescriptors descriptors2 = descriptors1;
         descriptors1.row(0) = descriptors1.row(1);
 
-        SiftMatchingOptions match_options;
+        FeatureMatchingOptions match_options;
 
-        match_options.cross_check = false;
+        match_options.sift->cross_check = false;
         const size_t num_matches1 =
             TestCPUvsGPU(match_options, descriptors1, descriptors2);
         EXPECT_EQ(num_matches1, 50);
 
-        match_options.cross_check = true;
+        match_options.sift->cross_check = true;
         const size_t num_matches2 =
             TestCPUvsGPU(match_options, descriptors1, descriptors2);
         EXPECT_EQ(num_matches2, 48);
@@ -869,7 +870,7 @@ TEST(MatchGuidedSiftFeaturesGPU, Nominal) {
               CreateRandomFeatureDescriptors(2))};
 
       opengl_context_.MakeCurrent();
-      SiftMatchingOptions options;
+      FeatureMatchingOptions options(FeatureMatcherType::SIFT);
       options.use_gpu = true;
       options.max_num_matches = 1000;
       auto matcher = THROW_CHECK_NOTNULL(CreateSiftFeatureMatcher(options));

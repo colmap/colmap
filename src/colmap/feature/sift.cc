@@ -65,6 +65,11 @@ constexpr int kSqSiftDescriptorNorm = 512 * 512;
 bool SiftExtractionOptions::Check() const {
   if (use_gpu) {
     CHECK_OPTION_GT(CSVToVector<int>(gpu_index).size(), 0);
+#ifndef COLMAP_GPU_ENABLED
+    LOG(ERROR) << "Cannot use GPU feature extraction without CUDA or OpenGL "
+                  "support. Set use_gpu or use_gpu to false.";
+    return false;
+#endif
   }
   CHECK_OPTION_GT(max_image_size, 0);
   CHECK_OPTION_GT(max_num_features, 0);
@@ -83,7 +88,7 @@ bool SiftExtractionOptions::Check() const {
 bool SiftMatchingOptions::Check() const {
   CHECK_OPTION_GT(max_ratio, 0.0);
   CHECK_OPTION_GT(max_distance, 0.0);
-  return FeatureMatchingOptions::Check();
+  return true;
 }
 
 namespace {
@@ -970,13 +975,13 @@ Eigen::RowMajorMatrixXi ComputeSiftDistanceMatrix(
 
 class SiftCPUFeatureMatcher : public FeatureMatcher {
  public:
-  explicit SiftCPUFeatureMatcher(const SiftMatchingOptions& options)
+  explicit SiftCPUFeatureMatcher(const FeatureMatchingOptions& options)
       : options_(options) {
     THROW_CHECK(options_.Check());
   }
 
   static std::unique_ptr<FeatureMatcher> Create(
-      const SiftMatchingOptions& options) {
+      const FeatureMatchingOptions& options) {
     return std::make_unique<SiftCPUFeatureMatcher>(options);
   }
 
@@ -993,17 +998,17 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
 
     matches->clear();
 
-    if (!options_.cpu_brute_force_matcher &&
+    if (!options_.sift->cpu_brute_force_matcher &&
         (prev_image_id1_ == kInvalidImageId ||
          prev_image_id1_ != image1.image_id)) {
-      index1_ = options_.cpu_descriptor_index_cache->Get(image1.image_id);
+      index1_ = options_.sift->cpu_descriptor_index_cache->Get(image1.image_id);
       prev_image_id1_ = image1.image_id;
     }
 
-    if (!options_.cpu_brute_force_matcher &&
+    if (!options_.sift->cpu_brute_force_matcher &&
         (prev_image_id2_ == kInvalidImageId ||
          prev_image_id2_ != image2.image_id)) {
-      index2_ = options_.cpu_descriptor_index_cache->Get(image2.image_id);
+      index2_ = options_.sift->cpu_descriptor_index_cache->Get(image2.image_id);
       prev_image_id2_ = image2.image_id;
     }
 
@@ -1011,7 +1016,7 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
       return;
     }
 
-    if (options_.cpu_brute_force_matcher) {
+    if (options_.sift->cpu_brute_force_matcher) {
       const Eigen::RowMajorMatrixXi dot_products =
           ComputeSiftDistanceMatrix(DistanceType::DOT_PRODUCT,
                                     nullptr,
@@ -1020,9 +1025,9 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
                                     *image2.descriptors,
                                     nullptr);
       FindBestMatchesBruteForce(dot_products,
-                                options_.max_ratio,
-                                options_.max_distance,
-                                options_.cross_check,
+                                options_.sift->max_ratio,
+                                options_.sift->max_distance,
+                                options_.sift->cross_check,
                                 matches);
       return;
     }
@@ -1033,7 +1038,7 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
     Eigen::RowMajorMatrixXi l2_dists_2to1;
     index2_->Search(
         /*num_neighbors=*/2, *image1.descriptors, indices_1to2, l2_dists_1to2);
-    if (options_.cross_check) {
+    if (options_.sift->cross_check) {
       index1_->Search(/*num_neighbors=*/2,
                       *image2.descriptors,
                       indices_2to1,
@@ -1044,9 +1049,9 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
                          l2_dists_1to2,
                          indices_2to1,
                          l2_dists_2to1,
-                         options_.max_ratio,
-                         options_.max_distance,
-                         options_.cross_check,
+                         options_.sift->max_ratio,
+                         options_.sift->max_distance,
+                         options_.sift->cross_check,
                          matches);
   }
 
@@ -1068,17 +1073,17 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
 
     two_view_geometry->inlier_matches.clear();
 
-    if (!options_.cpu_brute_force_matcher &&
+    if (!options_.sift->cpu_brute_force_matcher &&
         (prev_image_id1_ == kInvalidImageId ||
          prev_image_id1_ != image1.image_id)) {
-      index1_ = options_.cpu_descriptor_index_cache->Get(image1.image_id);
+      index1_ = options_.sift->cpu_descriptor_index_cache->Get(image1.image_id);
       prev_image_id1_ = image1.image_id;
     }
 
-    if (!options_.cpu_brute_force_matcher &&
+    if (!options_.sift->cpu_brute_force_matcher &&
         (prev_image_id2_ == kInvalidImageId ||
          prev_image_id2_ != image2.image_id)) {
-      index2_ = options_.cpu_descriptor_index_cache->Get(image2.image_id);
+      index2_ = options_.sift->cpu_descriptor_index_cache->Get(image2.image_id);
       prev_image_id2_ = image2.image_id;
     }
 
@@ -1144,14 +1149,14 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
                          l2_dists_1to2,
                          indices_2to1,
                          l2_dists_2to1,
-                         options_.max_ratio,
-                         options_.max_distance,
-                         options_.cross_check,
+                         options_.sift->max_ratio,
+                         options_.sift->max_distance,
+                         options_.sift->cross_check,
                          &two_view_geometry->inlier_matches);
   }
 
  private:
-  const SiftMatchingOptions options_;
+  const FeatureMatchingOptions options_;
   image_t prev_image_id1_ = kInvalidImageId;
   image_t prev_image_id2_ = kInvalidImageId;
   std::shared_ptr<FeatureDescriptorIndex> index1_;
@@ -1165,13 +1170,13 @@ static std::map<int, std::unique_ptr<std::mutex>> sift_match_gpu_mutexes_;
 
 class SiftGPUFeatureMatcher : public FeatureMatcher {
  public:
-  explicit SiftGPUFeatureMatcher(const SiftMatchingOptions& options)
+  explicit SiftGPUFeatureMatcher(const FeatureMatchingOptions& options)
       : options_(options) {
-    THROW_CHECK(options_.Check());
+    THROW_CHECK(options_.sift->Check());
   }
 
   static std::unique_ptr<FeatureMatcher> Create(
-      const SiftMatchingOptions& options) {
+      const FeatureMatchingOptions& options) {
     // SiftGPU uses many global static state variables and the initialization
     // must be thread-safe in order to work correctly. This is enforced here.
     static std::mutex mutex;
@@ -1207,7 +1212,7 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
     }
 
     if (!matcher->sift_match_gpu_.Allocate(options.max_num_matches,
-                                           options.cross_check)) {
+                                           options.sift->cross_check)) {
       LOG(ERROR) << StringPrintf(
           "Not enough GPU memory to match %d features. "
           "Reduce the maximum number of matches.",
@@ -1273,9 +1278,9 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
     const int num_matches = sift_match_gpu_.GetSiftMatch(
         options_.max_num_matches,
         reinterpret_cast<uint32_t(*)[2]>(matches->data()),
-        static_cast<float>(options_.max_distance),
-        static_cast<float>(options_.max_ratio),
-        options_.cross_check);
+        static_cast<float>(options_.sift->max_distance),
+        static_cast<float>(options_.sift->max_ratio),
+        options_.sift->cross_check);
 
     if (num_matches < 0) {
       LOG(ERROR) << "Feature matching failed. This is probably caused by "
@@ -1377,11 +1382,11 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
             two_view_geometry->inlier_matches.data()),
         H_ptr,
         F_ptr,
-        static_cast<float>(options_.max_distance),
-        static_cast<float>(options_.max_ratio),
+        static_cast<float>(options_.sift->max_distance),
+        static_cast<float>(options_.sift->max_ratio),
         max_residual,
         max_residual,
-        options_.cross_check);
+        options_.sift->cross_check);
 
     if (num_matches < 0) {
       LOG(ERROR) << "Feature matching failed. This is probably caused by "
@@ -1405,7 +1410,7 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
     }
   }
 
-  const SiftMatchingOptions options_;
+  const FeatureMatchingOptions options_;
   SiftMatchGPU sift_match_gpu_;
   bool prev_is_guided_ = false;
   image_t prev_image_id1_ = kInvalidImageId;
@@ -1416,7 +1421,8 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
 }  // namespace
 
 std::unique_ptr<FeatureMatcher> CreateSiftFeatureMatcher(
-    const SiftMatchingOptions& options) {
+    const FeatureMatchingOptions& options) {
+  THROW_CHECK_NOTNULL(options.sift);
   if (options.use_gpu) {
 #if defined(COLMAP_GPU_ENABLED)
     LOG(INFO) << "Creating SIFT GPU feature matcher";

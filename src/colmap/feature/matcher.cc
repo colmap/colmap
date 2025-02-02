@@ -35,11 +35,29 @@
 
 namespace colmap {
 
+FeatureMatchingOptions::FeatureMatchingOptions(FeatureMatcherType type)
+    : type(type),
+      sift(std::make_shared<SiftMatchingOptions>()),
+      aliked(std::make_shared<ALIKEDMatchingOptions>()) {}
+
 bool FeatureMatchingOptions::Check() const {
   if (use_gpu) {
     CHECK_OPTION_GT(CSVToVector<int>(gpu_index).size(), 0);
+#ifndef COLMAP_GPU_ENABLED
+    LOG(ERROR) << "Cannot use GPU feature matching without CUDA or OpenGL "
+                  "support. Set use_gpu or use_gpu to false.";
+    return false;
+#endif
   }
-  CHECK_OPTION_GT(max_num_matches, 0);
+  CHECK_OPTION_GE(max_num_matches, 0);
+  if (type == FeatureMatcherType::SIFT) {
+    return THROW_CHECK_NOTNULL(sift)->Check();
+  } else if (type == FeatureMatcherType::ALIKED) {
+    return THROW_CHECK_NOTNULL(aliked)->Check();
+  } else {
+    LOG(ERROR) << "Unknown feature matcher type: " << type;
+    return false;
+  }
   return true;
 }
 
@@ -47,11 +65,9 @@ std::unique_ptr<FeatureMatcher> FeatureMatcher::Create(
     const FeatureMatchingOptions& options) {
   switch (options.type) {
     case FeatureMatcherType::SIFT:
-      return CreateSiftFeatureMatcher(
-          reinterpret_cast<const SiftMatchingOptions&>(options));
+      return CreateSiftFeatureMatcher(options);
     case FeatureMatcherType::ALIKED:
-      return CreateALIKEDFeatureMatcher(
-          reinterpret_cast<const ALIKEDMatchingOptions&>(options));
+      return CreateALIKEDFeatureMatcher(options);
     default:
       std::ostringstream error;
       error << "Unknown feature matcher type: " << options.type;
