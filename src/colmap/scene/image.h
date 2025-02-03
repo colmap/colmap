@@ -240,12 +240,12 @@ bool Image::HasFrame() const { return frame_ != nullptr; }
 bool Image::HasNonTrivialFrame() const {
   return HasFrame() && frame_->HasRigCalibration() &&
          !frame_->RigCalibration()->IsReference(
-             std::make_pair(SensorType::CAMERA, CameraId()));
+             sensor_t(SensorType::CAMERA, CameraId()));
 }
 
 Rigid3d Image::CamFromWorldValue() const {
   if (HasFrame()) {
-    sensor_t sensor_id = std::make_pair(SensorType::CAMERA, CameraId());
+    sensor_t sensor_id = sensor_t(SensorType::CAMERA, CameraId());
     return frame_->SensorFromWorld(sensor_id);
   } else {
     THROW_CHECK(cam_from_world_) << "Image does not have a valid pose.";

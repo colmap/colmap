@@ -33,10 +33,13 @@
 #include "colmap/util/enum_utils.h"
 #include "colmap/util/types.h"
 
+#include <cstdint>
+#include <functional>
 #include <map>
 #include <memory>
 #include <optional>
 #include <set>
+#include <tuple>
 #include <vector>
 
 namespace colmap {
@@ -49,11 +52,32 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(SensorType,
                                 LOCATION  // include GNSS, radios, compass, etc.
 );
 
-// Unique identifier of the sensor
-typedef std::pair<SensorType, uint32_t> sensor_t;
+struct sensor_t {
+  SensorType type;
+  uint32_t id;
+  sensor_t(const SensorType& type, uint32_t id) : type(type), id(id) {}
 
-// Unique identifier of the data point from a sensor
-typedef std::pair<sensor_t, uint64_t> data_t;
+  bool operator<(const sensor_t& other) const {
+    return std::tie(type, id) < std::tie(other.type, other.id);
+  }
+  bool operator==(const sensor_t& other) const {
+    return type == other.type && id == other.id;
+  }
+};
+
+struct data_t {
+  sensor_t sensor_id;
+  uint64_t id;
+  data_t(const sensor_t& sensor_id, uint64_t id)
+      : sensor_id(sensor_id), id(id) {}
+
+  bool operator<(const data_t& other) const {
+    return std::tie(sensor_id, id) < std::tie(other.sensor_id, other.id);
+  }
+  bool operator==(const data_t& other) const {
+    return sensor_id == other.sensor_id && id == other.id;
+  }
+};
 
 // Rig calibration storing the sensor from rig transformation.
 // The reference sensor shares identity poses with the device.
@@ -181,8 +205,8 @@ void RigCalibration::AddSensor(sensor_t sensor_id,
   else {
     THROW_CHECK(!HasSensor(sensor_id))
         << StringPrintf("Sensor id (%d, %d) is inserted twice into the rig",
-                        sensor_id.first,
-                        sensor_id.second);
+                        sensor_id.type,
+                        sensor_id.id);
     sensors_from_rig_.emplace(sensor_id, sensor_from_rig);
     sensor_ids_.insert(sensor_id);
   }
@@ -199,8 +223,8 @@ Rigid3d& RigCalibration::SensorFromRig(sensor_t sensor_id) {
   if (sensors_from_rig_.find(sensor_id) == sensors_from_rig_.end())
     LOG(FATAL_THROW) << StringPrintf(
         "Sensor id (%d, %d) not found in the rig calibration",
-        sensor_id.first,
-        sensor_id.second);
+        sensor_id.type,
+        sensor_id.id);
   return sensors_from_rig_.at(sensor_id);
 }
 
@@ -210,8 +234,8 @@ const Rigid3d& RigCalibration::SensorFromRig(sensor_t sensor_id) const {
   if (it == sensors_from_rig_.end())
     LOG(FATAL_THROW) << StringPrintf(
         "Sensor id (%d, %d) not found in the rig calibration",
-        sensor_id.first,
-        sensor_id.second);
+        sensor_id.type,
+        sensor_id.id);
   return sensors_from_rig_.at(sensor_id);
 }
 
@@ -288,3 +312,26 @@ Rigid3d Frame::SensorFromWorld(sensor_t sensor_id) const {
 }
 
 }  // namespace colmap
+
+namespace std {
+template <>
+struct hash<colmap::sensor_t> {
+  std::size_t operator()(const colmap::sensor_t& s) const noexcept {
+    return std::hash<std::pair<uint32_t, uint32_t>>{}(
+        std::make_pair(static_cast<uint32_t>(s.type), s.id));
+  }
+};
+
+// [Reference]
+// https://stackoverflow.com/questions/26705751/why-is-the-magic-number-in-boosthash-combine-specified-in-hex
+template <>
+struct hash<colmap::data_t> {
+  std::size_t operator()(const colmap::data_t& d) const noexcept {
+    size_t h1 =
+        std::hash<uint64_t>{}(std::hash<colmap::sensor_t>{}(d.sensor_id));
+    size_t h2 = std::hash<uint64_t>{}(d.id);
+    return h1 ^ (h2 + 0x9e3779b9 + (h1 << 6) + (h1 >> 2));
+  }
+};
+
+}  // namespace std
