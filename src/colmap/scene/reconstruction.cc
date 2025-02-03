@@ -1042,4 +1042,36 @@ std::ostream& operator<<(std::ostream& stream,
   return stream;
 }
 
+void Reconstruction::ReadTextLegacy(const std::string& path) {
+  cameras_.clear();
+  images_.clear();
+  points3D_.clear();
+  ReadCamerasText(*this, JoinPaths(path, "cameras.txt"));
+  ReadImagesTextLegacy(*this, JoinPaths(path, "images.txt"));
+  ReadPoints3DText(*this, JoinPaths(path, "points3D.txt"));
+}
+
+void Reconstruction::ReadBinaryLegacy(const std::string& path) {
+  cameras_.clear();
+  images_.clear();
+  points3D_.clear();
+  ReadCamerasBinary(*this, JoinPaths(path, "cameras.bin"));
+  ReadImagesBinaryLegacy(*this, JoinPaths(path, "images.bin"));
+  ReadPoints3DBinary(*this, JoinPaths(path, "points3D.bin"));
+}
+
+void Reconstruction::WriteTextLegacy(const std::string& path) const {
+  THROW_CHECK_DIR_EXISTS(path);
+  WriteCamerasText(*this, JoinPaths(path, "cameras.txt"));
+  WriteImagesTextLegacy(*this, JoinPaths(path, "images.txt"));
+  WritePoints3DText(*this, JoinPaths(path, "points3D.txt"));
+}
+
+void Reconstruction::WriteBinaryLegacy(const std::string& path) const {
+  THROW_CHECK_DIR_EXISTS(path);
+  WriteCamerasBinary(*this, JoinPaths(path, "cameras.bin"));
+  WriteImagesBinaryLegacy(*this, JoinPaths(path, "images.bin"));
+  WritePoints3DBinary(*this, JoinPaths(path, "points3D.bin"));
+}
+
 }  // namespace colmap
