@@ -393,6 +393,135 @@ void ReadImagesText(Reconstruction& reconstruction, const std::string& path) {
   ReadImagesText(reconstruction, file);
 }
 
+void ReadImagesTextLegacy(Reconstruction& reconstruction,
+                          std::istream& stream) {
+  THROW_CHECK(stream.good());
+
+  // Handle backwards-compatibility for when we didn't have rigs and frames.
+  const bool is_legacy_reconstruction =
+      reconstruction.NumRigs() == 0 && reconstruction.NumFrames() == 0;
+  if (is_legacy_reconstruction) {
+    CreateOneRigPerCamera(reconstruction);
+  }
+
+  const std::unordered_map<image_t, Frame*> image_to_frame =
+      ExtractImageToFramePtr(reconstruction);
+
+  std::string line;
+  std::string item;
+
+  std::vector<Eigen::Vector2d> points2D;
+  std::vector<point3D_t> point3D_ids;
+
+  while (std::getline(stream, line)) {
+    StringTrim(&line);
+
+    if (line.empty() || line[0] == '#') {
+      continue;
+    }
+
+    std::stringstream line_stream1(line);
+
+    // ID
+    std::getline(line_stream1, item, ' ');
+    const image_t image_id = std::stoul(item);
+
+    class Image image;
+    image.SetImageId(image_id);
+
+    Rigid3d cam_from_world;
+
+    std::getline(line_stream1, item, ' ');
+    cam_from_world.rotation.w() = std::stold(item);
+
+    std::getline(line_stream1, item, ' ');
+    cam_from_world.rotation.x() = std::stold(item);
+
+    std::getline(line_stream1, item, ' ');
+    cam_from_world.rotation.y() = std::stold(item);
+
+    std::getline(line_stream1, item, ' ');
+    cam_from_world.rotation.z() = std::stold(item);
+
+    std::getline(line_stream1, item, ' ');
+    cam_from_world.translation.x() = std::stold(item);
+
+    std::getline(line_stream1, item, ' ');
+    cam_from_world.translation.y() = std::stold(item);
+
+    std::getline(line_stream1, item, ' ');
+    cam_from_world.translation.z() = std::stold(item);
+
+    // CAMERA_ID
+    std::getline(line_stream1, item, ' ');
+    image.SetCameraId(std::stoul(item));
+
+    if (is_legacy_reconstruction) {
+      CreateFrameForImage(image, cam_from_world, reconstruction);
+      image.SetFrameId(image.ImageId());
+      image.SetFramePtr(&reconstruction.Frame(image.ImageId()));
+    } else {
+      Frame* frame = image_to_frame.at(image.ImageId());
+      image.SetFrameId(frame->FrameId());
+      image.SetFramePtr(frame);
+    }
+
+    // NAME
+    std::getline(line_stream1, item, ' ');
+    image.SetName(item);
+
+    // POINTS2D
+    if (!std::getline(stream, line)) {
+      break;
+    }
+
+    StringTrim(&line);
+    std::stringstream line_stream2(line);
+
+    points2D.clear();
+    point3D_ids.clear();
+
+    if (!line.empty()) {
+      while (!line_stream2.eof()) {
+        Eigen::Vector2d point;
+
+        std::getline(line_stream2, item, ' ');
+        point.x() = std::stold(item);
+
+        std::getline(line_stream2, item, ' ');
+        point.y() = std::stold(item);
+
+        points2D.push_back(point);
+
+        std::getline(line_stream2, item, ' ');
+        if (item == "-1") {
+          point3D_ids.push_back(kInvalidPoint3DId);
+        } else {
+          point3D_ids.push_back(std::stoll(item));
+        }
+      }
+    }
+
+    image.SetPoints2D(points2D);
+
+    for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
+         ++point2D_idx) {
+      if (point3D_ids[point2D_idx] != kInvalidPoint3DId) {
+        image.SetPoint3DForPoint2D(point2D_idx, point3D_ids[point2D_idx]);
+      }
+    }
+
+    reconstruction.AddImage(std::move(image));
+  }
+}
+
+void ReadImagesTextLegacy(Reconstruction& reconstruction,
+                          const std::string& path) {
+  std::ifstream file(path);
+  THROW_CHECK_FILE_OPEN(file, path);
+  ReadImagesTextLegacy(reconstruction, file);
+}
+
 void ReadPoints3DText(Reconstruction& reconstruction, std::istream& stream) {
   THROW_CHECK(stream.good());
 
@@ -666,6 +795,7 @@ void WriteImagesText(const Reconstruction& reconstruction,
       line << point2D.xy(0) << " ";
       line << point2D.xy(1) << " ";
       line << point2D.weight << " ";
+      line << point2D.constraint_point_id << " ";
       if (point2D.HasPoint3D()) {
         line << point2D.point3D_id << " ";
       } else {
@@ -684,6 +814,73 @@ void WriteImagesText(const Reconstruction& reconstruction,
   std::ofstream file(path, std::ios::trunc);
   THROW_CHECK_FILE_OPEN(file, path);
   WriteImagesText(reconstruction, file);
+}
+
+void WriteImagesTextLegacy(const Reconstruction& reconstruction,
+                           std::ostream& stream) {
+  THROW_CHECK(stream.good());
+
+  // Ensure that we don't loose any precision by storing in text.
+  stream.precision(17);
+
+  stream << "# Image list with two lines of data per image:\n";
+  stream << "#   IMAGE_ID, QW, QX, QY, QZ, TX, TY, TZ, CAMERA_ID, "
+            "NAME\n";
+  stream << "#   POINTS2D[] as (X, Y, WEIGHT, POINT3D_ID)\n";
+  stream << "# Number of images: " << reconstruction.NumRegImages()
+         << ", mean observations per image: "
+         << reconstruction.ComputeMeanObservationsPerRegImage() << '\n';
+
+  std::ostringstream line;
+  line.precision(17);
+
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    const Image& image = reconstruction.Image(image_id);
+
+    line.str("");
+    line.clear();
+
+    line << image_id << " ";
+
+    const Rigid3d& cam_from_world = image.CamFromWorld();
+    line << cam_from_world.rotation.w() << " ";
+    line << cam_from_world.rotation.x() << " ";
+    line << cam_from_world.rotation.y() << " ";
+    line << cam_from_world.rotation.z() << " ";
+    line << cam_from_world.translation.x() << " ";
+    line << cam_from_world.translation.y() << " ";
+    line << cam_from_world.translation.z() << " ";
+
+    line << image.CameraId() << " ";
+
+    line << image.Name();
+
+    stream << line.str() << '\n';
+
+    line.str("");
+    line.clear();
+
+    for (const Point2D& point2D : image.Points2D()) {
+      line << point2D.xy(0) << " ";
+      line << point2D.xy(1) << " ";
+      if (point2D.HasPoint3D()) {
+        line << point2D.point3D_id << " ";
+      } else {
+        line << -1 << " ";
+      }
+    }
+    if (image.NumPoints2D() > 0) {
+      line.seekp(-1, std::ios_base::end);
+    }
+    stream << line.str() << '\n';
+  }
+}
+
+void WriteImagesTextLegacy(const Reconstruction& reconstruction,
+                           const std::string& path) {
+  std::ofstream file(path, std::ios::trunc);
+  THROW_CHECK_FILE_OPEN(file, path);
+  WriteImagesTextLegacy(reconstruction, file);
 }
 
 void WritePoints3DText(const Reconstruction& reconstruction,

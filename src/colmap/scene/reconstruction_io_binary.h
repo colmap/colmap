@@ -49,6 +49,11 @@ void ReadFramesBinary(Reconstruction& reconstruction, const std::string& path);
 void ReadImagesBinary(Reconstruction& reconstruction, std::istream& stream);
 void ReadImagesBinary(Reconstruction& reconstruction, const std::string& path);
 
+void ReadImagesBinaryLegacy(Reconstruction& reconstruction,
+                            std::istream& stream);
+void ReadImagesBinaryLegacy(Reconstruction& reconstruction,
+                            const std::string& path);
+
 void ReadPoints3DBinary(Reconstruction& reconstruction, std::istream& stream);
 void ReadPoints3DBinary(Reconstruction& reconstruction,
                         const std::string& path);
@@ -72,6 +77,11 @@ void WriteImagesBinary(const Reconstruction& reconstruction,
                        std::ostream& stream);
 void WriteImagesBinary(const Reconstruction& reconstruction,
                        const std::string& path);
+
+void WriteImagesBinaryLegacy(const Reconstruction& reconstruction,
+                             std::ostream& stream);
+void WriteImagesBinaryLegacy(const Reconstruction& reconstruction,
+                             const std::string& path);
 
 void WritePoints3DBinary(const Reconstruction& reconstruction,
                          std::ostream& stream);

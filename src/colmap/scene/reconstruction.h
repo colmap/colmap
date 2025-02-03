@@ -245,9 +245,17 @@ class Reconstruction {
   void ReadText(const std::string& path);
   void ReadBinary(const std::string& path);
 
+  // Read data from binary/text file (legacy).
+  void ReadTextLegacy(const std::string& path);
+  void ReadBinaryLegacy(const std::string& path);
+
   // Write data from binary/text file.
   void WriteText(const std::string& path) const;
   void WriteBinary(const std::string& path) const;
+
+  // Write data from binary/text file (legacy).
+  void WriteTextLegacy(const std::string& path) const;
+  void WriteBinaryLegacy(const std::string& path) const;
 
   // Convert 3D points in reconstruction to PLY point cloud.
   std::vector<PlyPoint> ConvertToPLY() const;

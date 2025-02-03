@@ -798,6 +798,25 @@ void Reconstruction::ReadText(const std::string& path) {
   ReadPoints3DText(*this, JoinPaths(path, "points3D.txt"));
 }
 
+void Reconstruction::ReadTextLegacy(const std::string& path) {
+  cameras_.clear();
+  rigs_.clear();
+  frames_.clear();
+  images_.clear();
+  points3D_.clear();
+  ReadCamerasText(*this, JoinPaths(path, "cameras.txt"));
+  const std::string rigs_path = JoinPaths(path, "rigs.txt");
+  if (ExistsFile(rigs_path)) {
+    ReadRigsText(*this, rigs_path);
+  }
+  const std::string frames_path = JoinPaths(path, "frames.txt");
+  if (ExistsFile(frames_path)) {
+    ReadFramesText(*this, frames_path);
+  }
+  ReadImagesTextLegacy(*this, JoinPaths(path, "images.txt"));
+  ReadPoints3DText(*this, JoinPaths(path, "points3D.txt"));
+}
+
 void Reconstruction::ReadBinary(const std::string& path) {
   cameras_.clear();
   rigs_.clear();
@@ -817,6 +836,25 @@ void Reconstruction::ReadBinary(const std::string& path) {
   ReadPoints3DBinary(*this, JoinPaths(path, "points3D.bin"));
 }
 
+void Reconstruction::ReadBinaryLegacy(const std::string& path) {
+  cameras_.clear();
+  rigs_.clear();
+  frames_.clear();
+  images_.clear();
+  points3D_.clear();
+  ReadCamerasBinary(*this, JoinPaths(path, "cameras.bin"));
+  const std::string rigs_path = JoinPaths(path, "rigs.bin");
+  if (ExistsFile(rigs_path)) {
+    ReadRigsBinary(*this, rigs_path);
+  }
+  const std::string frames_path = JoinPaths(path, "frames.bin");
+  if (ExistsFile(frames_path)) {
+    ReadFramesBinary(*this, frames_path);
+  }
+  ReadImagesBinaryLegacy(*this, JoinPaths(path, "images.bin"));
+  ReadPoints3DBinary(*this, JoinPaths(path, "points3D.bin"));
+}
+
 void Reconstruction::WriteText(const std::string& path) const {
   THROW_CHECK_DIR_EXISTS(path);
   WriteRigsText(*this, JoinPaths(path, "rigs.txt"));
@@ -826,12 +864,30 @@ void Reconstruction::WriteText(const std::string& path) const {
   WritePoints3DText(*this, JoinPaths(path, "points3D.txt"));
 }
 
+void Reconstruction::WriteTextLegacy(const std::string& path) const {
+  THROW_CHECK_DIR_EXISTS(path);
+  WriteRigsText(*this, JoinPaths(path, "rigs.txt"));
+  WriteCamerasText(*this, JoinPaths(path, "cameras.txt"));
+  WriteFramesText(*this, JoinPaths(path, "frames.txt"));
+  WriteImagesTextLegacy(*this, JoinPaths(path, "images.txt"));
+  WritePoints3DText(*this, JoinPaths(path, "points3D.txt"));
+}
+
 void Reconstruction::WriteBinary(const std::string& path) const {
   THROW_CHECK_DIR_EXISTS(path);
   WriteRigsBinary(*this, JoinPaths(path, "rigs.bin"));
   WriteCamerasBinary(*this, JoinPaths(path, "cameras.bin"));
   WriteFramesBinary(*this, JoinPaths(path, "frames.bin"));
   WriteImagesBinary(*this, JoinPaths(path, "images.bin"));
+  WritePoints3DBinary(*this, JoinPaths(path, "points3D.bin"));
+}
+
+void Reconstruction::WriteBinaryLegacy(const std::string& path) const {
+  THROW_CHECK_DIR_EXISTS(path);
+  WriteRigsBinary(*this, JoinPaths(path, "rigs.bin"));
+  WriteCamerasBinary(*this, JoinPaths(path, "cameras.bin"));
+  WriteFramesBinary(*this, JoinPaths(path, "frames.bin"));
+  WriteImagesBinaryLegacy(*this, JoinPaths(path, "images.bin"));
   WritePoints3DBinary(*this, JoinPaths(path, "points3D.bin"));
 }
 

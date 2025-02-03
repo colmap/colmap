@@ -49,6 +49,10 @@ void ReadFramesText(Reconstruction& reconstruction, const std::string& path);
 void ReadImagesText(Reconstruction& reconstruction, std::istream& stream);
 void ReadImagesText(Reconstruction& reconstruction, const std::string& path);
 
+void ReadImagesTextLegacy(Reconstruction& reconstruction, std::istream& stream);
+void ReadImagesTextLegacy(Reconstruction& reconstruction,
+                          const std::string& path);
+
 void ReadPoints3DText(Reconstruction& reconstruction, std::istream& stream);
 void ReadPoints3DText(Reconstruction& reconstruction, const std::string& path);
 
@@ -70,6 +74,11 @@ void WriteImagesText(const Reconstruction& reconstruction,
                      std::ostream& stream);
 void WriteImagesText(const Reconstruction& reconstruction,
                      const std::string& path);
+
+void WriteImagesTextLegacy(const Reconstruction& reconstruction,
+                           std::ostream& stream);
+void WriteImagesTextLegacy(const Reconstruction& reconstruction,
+                           const std::string& path);
 
 void WritePoints3DText(const Reconstruction& reconstruction,
                        std::ostream& stream);
