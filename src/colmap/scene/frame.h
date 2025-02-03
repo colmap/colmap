@@ -33,6 +33,7 @@
 #include "colmap/util/types.h"
 
 #include <map>
+#include <memory>
 #include <set>
 #include <vector>
 
@@ -69,7 +70,7 @@ class RigCalibration {
   // operation
   inline void AddReferenceSensor(sensor_t ref_sensor_id);
   inline void AddSensor(sensor_t sensor_id,
-                        const Rigid3d& sensor_from_rig = Rigid3d(),
+                        const Rigid3d& sensor_from_rig,
                         bool is_fixed = false);
 
   // Check whether the sensor exists in the rig
@@ -99,7 +100,7 @@ class RigCalibration {
   std::set<sensor_t> sensor_ids_;
 
   // sensor_from_rig transformation.
-  std::map<sensor_t, Rigid3d> map_sensor_from_rig_;
+  std::map<sensor_t, Rigid3d> sensors_from_rig_;
   std::map<sensor_t, bool> is_fixed_sensor_from_rig_;  // for optimization
 };
 
@@ -122,7 +123,7 @@ class Frame {
   inline void SetRigId(rig_t rig_id);
 
   // Check if the frame has a non-trivial rig calibration
-  inline const std::shared_ptr<class RigCalibration> RigCalibration() const;
+  inline const std::shared_ptr<class RigCalibration>& RigCalibration() const;
   inline void SetRigCalibration(
       std::shared_ptr<class RigCalibration> rig_calibration);
   inline bool HasRigCalibration() const;
@@ -175,12 +176,11 @@ void RigCalibration::AddSensor(sensor_t sensor_id,
     LOG(FATAL_THROW) << "The reference sensor needs to added first before any "
                         "sensor being added.";
   else {
-    if (HasSensor(sensor_id))
-      LOG(FATAL_THROW) << StringPrintf(
-          "Sensor id (%d, %d) is inserted twice into the rig",
-          sensor_id.first,
-          sensor_id.second);
-    map_sensor_from_rig_.emplace(sensor_id, sensor_from_rig);
+    THROW_CHECK(!HasSensor(sensor_id))
+        << StringPrintf("Sensor id (%d, %d) is inserted twice into the rig",
+                        sensor_id.first,
+                        sensor_id.second);
+    sensors_from_rig_.emplace(sensor_id, sensor_from_rig);
     is_fixed_sensor_from_rig_.emplace(sensor_id, is_fixed);
     sensor_ids_.insert(sensor_id);
   }
@@ -194,23 +194,23 @@ bool RigCalibration::IsReference(sensor_t sensor_id) const {
 
 Rigid3d& RigCalibration::SensorFromRig(sensor_t sensor_id) {
   THROW_CHECK(!IsReference(sensor_id));
-  if (map_sensor_from_rig_.find(sensor_id) == map_sensor_from_rig_.end())
+  if (sensors_from_rig_.find(sensor_id) == sensors_from_rig_.end())
     LOG(FATAL_THROW) << StringPrintf(
         "Sensor id (%d, %d) not found in the rig calibration",
         sensor_id.first,
         sensor_id.second);
-  return map_sensor_from_rig_.at(sensor_id);
+  return sensors_from_rig_.at(sensor_id);
 }
 
 const Rigid3d& RigCalibration::SensorFromRig(sensor_t sensor_id) const {
   THROW_CHECK(!IsReference(sensor_id));
-  auto it = map_sensor_from_rig_.find(sensor_id);
-  if (it == map_sensor_from_rig_.end())
+  auto it = sensors_from_rig_.find(sensor_id);
+  if (it == sensors_from_rig_.end())
     LOG(FATAL_THROW) << StringPrintf(
         "Sensor id (%d, %d) not found in the rig calibration",
         sensor_id.first,
         sensor_id.second);
-  return map_sensor_from_rig_.at(sensor_id);
+  return sensors_from_rig_.at(sensor_id);
 }
 
 frame_t Frame::FrameId() const { return frame_id_; }
@@ -231,7 +231,7 @@ rig_t Frame::RigId() const { return rig_id_; }
 
 void Frame::SetRigId(rig_t rig_id) { rig_id_ = rig_id; }
 
-const std::shared_ptr<class RigCalibration> Frame::RigCalibration() const {
+const std::shared_ptr<class RigCalibration>& Frame::RigCalibration() const {
   return rig_calibration_;
 }
 

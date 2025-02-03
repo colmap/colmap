@@ -83,7 +83,7 @@ typedef uint32_t camera_t;
 typedef uint32_t image_t;
 
 // Unique identifier for frames.
-typedef uint64_t frame_t;
+typedef uint32_t frame_t;
 
 // Unique identifier for rigs.
 typedef uint32_t rig_t;
