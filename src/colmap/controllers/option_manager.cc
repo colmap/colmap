@@ -521,6 +521,8 @@ void OptionManager::AddBundleAdjustmentOptions() {
                               &bundle_adjustment->refine_rig_from_world);
   AddAndRegisterDefaultOption("BundleAdjustment.refine_sensor_from_rig",
                               &bundle_adjustment->refine_sensor_from_rig);
+  AddAndRegisterDefaultOption("BundleAdjustment.apply_constraints",
+                              &bundle_adjustment->apply_constraints);
   AddAndRegisterDefaultOption("BundleAdjustment.use_gpu",
                               &bundle_adjustment->use_gpu);
   AddAndRegisterDefaultOption("BundleAdjustment.gpu_index",
@@ -581,6 +583,8 @@ void OptionManager::AddMapperOptions() {
                               &mapper->ba_refine_extra_params);
   AddAndRegisterDefaultOption("Mapper.ba_refine_sensor_from_rig",
                               &mapper->ba_refine_sensor_from_rig);
+  AddAndRegisterDefaultOption("Mapper.ba_apply_constraints",
+                              &mapper->ba_apply_constraints);
   AddAndRegisterDefaultOption("Mapper.ba_local_function_tolerance",
                               &mapper->ba_local_function_tolerance);
   AddAndRegisterDefaultOption("Mapper.ba_local_max_num_iterations",

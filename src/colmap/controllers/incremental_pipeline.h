@@ -93,6 +93,7 @@ struct IncrementalPipelineOptions {
   bool ba_refine_focal_length = true;
   bool ba_refine_principal_point = false;
   bool ba_refine_extra_params = true;
+  bool ba_apply_constraints = true;
 
   // Whether to optimize rig poses during the reconstruction.
   bool ba_refine_sensor_from_rig = true;

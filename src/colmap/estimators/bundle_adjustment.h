@@ -143,6 +143,9 @@ struct BundleAdjustmentOptions {
   bool refine_sensor_from_rig = true;
   bool refine_rig_from_world = true;
 
+  // Disable constraints
+  bool apply_constraints = true;
+
   // Whether to print a final summary.
   bool print_summary = true;
 

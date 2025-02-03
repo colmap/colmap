@@ -123,6 +123,7 @@ BundleAdjustmentOptions IncrementalPipelineOptions::LocalBundleAdjustment()
   options.refine_principal_point = ba_refine_principal_point;
   options.refine_extra_params = ba_refine_extra_params;
   options.refine_sensor_from_rig = ba_refine_sensor_from_rig;
+  options.apply_constraints = ba_apply_constraints;
   options.min_num_residuals_for_cpu_multi_threading =
       ba_min_num_residuals_for_cpu_multi_threading;
   options.loss_function_scale = 1.0;
