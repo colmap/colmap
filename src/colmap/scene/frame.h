@@ -30,6 +30,7 @@
 #pragma once
 
 #include "colmap/geometry/rigid3.h"
+#include "colmap/util/enum_utils.h"
 #include "colmap/util/types.h"
 
 #include <map>
@@ -40,11 +41,11 @@
 namespace colmap {
 
 // Sensor type
-MAKE_ENUM_CLASS(SensorType,
-                0,
-                CAMERA,
-                IMU,
-                LOCATION  // include GNSS, radios, compass, etc.
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(SensorType,
+                                0,
+                                CAMERA,
+                                IMU,
+                                LOCATION  // include GNSS, radios, compass, etc.
 );
 
 // Unique identifier of the sensor
