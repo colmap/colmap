@@ -130,8 +130,12 @@ class Frame {
   // Access the frame from world transformation
   inline const Rigid3d& FrameFromWorld() const;
   inline Rigid3d& FrameFromWorld();
-  inline const Rigid3d& SensorFromWorld() const;
-  inline Rigid3d& SensorFromWorld();
+  inline const std::optional<Rigid3d>& MaybeFrameFromWorld() const;
+  inline std::optional<Rigid3d>& MaybeFrameFromWorld();
+  inline void SetFrameFromWorld(const Rigid3d& frame_from_world);
+  inline void SetFrameFromWorld(const std::optional<Rigid3d>& frame_from_world);
+  inline bool HasPose() const;
+  inline void ResetPose();
 
   // Get the sensor from world transformation
   inline Rigid3d SensorFromWorld(sensor_t sensor_id) const;
@@ -143,7 +147,7 @@ class Frame {
   // Store the frame_from_world transformation and an optional rig calibration.
   // If the rig calibration is a nullptr, the frame becomes a single sensor
   // case, where rig modeling is no longer needed.
-  Rigid3d frame_from_world_;
+  std::optional<Rigid3d> frame_from_world_;
   rig_t rig_id_ = kInvalidRigId;
   std::shared_ptr<class RigCalibration> rig_calibration_ = nullptr;
 };
@@ -244,24 +248,42 @@ bool Frame::HasRigCalibration() const {
     return rig_calibration_->NumSensors() > 1;
 }
 
-const Rigid3d& Frame::FrameFromWorld() const { return frame_from_world_; }
-Rigid3d& Frame::FrameFromWorld() { return frame_from_world_; }
+const Rigid3d& Frame::FrameFromWorld() const {
+  THROW_CHECK(frame_from_world_) << "Frame does not have a valid pose.";
+  return *frame_from_world_;
+}
 
-const Rigid3d& Frame::SensorFromWorld() const {
-  THROW_CHECK(!HasRigCalibration());
-  return FrameFromWorld();
+Rigid3d& Frame::FrameFromWorld() {
+  THROW_CHECK(frame_from_world_) << "Frame does not have a valid pose.";
+  return *frame_from_world_;
 }
-Rigid3d& Frame::SensorFromWorld() {
-  THROW_CHECK(!HasRigCalibration());
-  return FrameFromWorld();
+
+const std::optional<Rigid3d>& Frame::MaybeFrameFromWorld() const {
+  return frame_from_world_;
 }
+
+std::optional<Rigid3d>& Frame::MaybeFrameFromWorld() {
+  return frame_from_world_;
+}
+
+void Frame::SetFrameFromWorld(const Rigid3d& frame_from_world) {
+  frame_from_world_ = frame_from_world;
+}
+
+void Frame::SetFrameFromWorld(const std::optional<Rigid3d>& frame_from_world) {
+  frame_from_world_ = frame_from_world;
+}
+
+bool Frame::HasPose() const { return frame_from_world_.has_value(); }
+
+void Frame::ResetPose() { frame_from_world_.reset(); }
 
 Rigid3d Frame::SensorFromWorld(sensor_t sensor_id) const {
   if (!HasRigCalibration() || rig_calibration_->IsReference(sensor_id)) {
-    return SensorFromWorld();
+    return FrameFromWorld();
   }
   THROW_CHECK(rig_calibration_->HasSensor(sensor_id));
-  return rig_calibration_->SensorFromRig(sensor_id) * frame_from_world_;
+  return rig_calibration_->SensorFromRig(sensor_id) * FrameFromWorld();
 }
 
 }  // namespace colmap
