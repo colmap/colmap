@@ -90,7 +90,7 @@ class Image {
   // [Optional] The corresponding frame of the image
   inline frame_t FrameId() const;
   inline void SetFrameId(frame_t frame_id);
-  inline const std::shared_ptr<class Frame> Frame() const;
+  inline const std::shared_ptr<class Frame>& Frame() const;
   inline void SetFrame(std::shared_ptr<class Frame> frame);
   inline bool HasFrame() const;
   // Check if the cam_from_world needs to be composited with rig calibration.
@@ -225,7 +225,7 @@ frame_t Image::FrameId() const { return frame_id_; }
 
 void Image::SetFrameId(frame_t frame_id) { frame_id_ = frame_id; }
 
-const std::shared_ptr<class Frame> Image::Frame() const { return frame_; }
+const std::shared_ptr<class Frame>& Image::Frame() const { return frame_; }
 
 void Image::SetFrame(std::shared_ptr<class Frame> frame) {
   frame_ = std::move(frame);
