@@ -130,6 +130,9 @@ struct BundleAdjustmentOptions {
   // Whether to refine the extrinsic parameter group.
   bool refine_extrinsics = true;
 
+  // Disable constraints
+  bool apply_constraints = true;
+
   // Whether to print a final summary.
   bool print_summary = true;
 

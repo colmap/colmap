@@ -508,7 +508,7 @@ class DefaultBundleAdjuster : public BundleAdjuster {
     // Add residuals to bundle adjustment problem.
     size_t num_observations = 0;
     for (const Point2D& point2D : image.Points2D()) {
-      if (point2D.constraint_point_id >= 0) {
+      if (point2D.constraint_point_id >= 0 && options_.apply_constraints) {
         if (constant_cam_pose) {
           LOG(ERROR) << "Constraint points are not supported with constant "
                         "camera poses. "
@@ -771,7 +771,7 @@ class RigBundleAdjuster : public BundleAdjuster {
 
     // Add residuals to bundle adjustment problem.
     for (const Point2D& point2D : image.Points2D()) {
-      if (point2D.constraint_point_id >= 0) {
+      if (point2D.constraint_point_id >= 0 && options_.apply_constraints) {
         if (constant_cam_pose) {
           LOG(ERROR) << "Constraint points are not supported with constant "
                         "camera poses. "
