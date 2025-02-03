@@ -71,9 +71,7 @@ class RigCalibration {
   // ``AddReferenceSensor`` needs to called first before all the ``AddSensor``
   // operation
   inline void AddReferenceSensor(sensor_t ref_sensor_id);
-  inline void AddSensor(sensor_t sensor_id,
-                        const Rigid3d& sensor_from_rig,
-                        bool is_fixed = false);
+  inline void AddSensor(sensor_t sensor_id, const Rigid3d& sensor_from_rig);
 
   // Check whether the sensor exists in the rig
   inline bool HasSensor(sensor_t sensor_id) const;
@@ -103,7 +101,6 @@ class RigCalibration {
 
   // sensor_from_rig transformation.
   std::map<sensor_t, Rigid3d> sensors_from_rig_;
-  std::map<sensor_t, bool> is_fixed_sensor_from_rig_;  // for optimization
 };
 
 class Frame {
@@ -172,8 +169,7 @@ void RigCalibration::AddReferenceSensor(sensor_t ref_sensor_id) {
 }
 
 void RigCalibration::AddSensor(sensor_t sensor_id,
-                               const Rigid3d& sensor_from_rig,
-                               bool is_fixed) {
+                               const Rigid3d& sensor_from_rig) {
   if (NumSensors() == 0)
     LOG(FATAL_THROW) << "The reference sensor needs to added first before any "
                         "sensor being added.";
@@ -183,7 +179,6 @@ void RigCalibration::AddSensor(sensor_t sensor_id,
                         sensor_id.first,
                         sensor_id.second);
     sensors_from_rig_.emplace(sensor_id, sensor_from_rig);
-    is_fixed_sensor_from_rig_.emplace(sensor_id, is_fixed);
     sensor_ids_.insert(sensor_id);
   }
 }
