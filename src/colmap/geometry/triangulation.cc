@@ -133,7 +133,8 @@ double CalculateTriangulationAngle(const Eigen::Vector3d& proj_center1,
   }
   const double nominator =
       ray_length_squared1 + ray_length_squared2 - baseline_length_squared;
-  const double angle = std::abs(std::acos(nominator / denominator));
+  const double angle =
+      std::abs(std::acos(std::clamp(nominator / denominator, -1.0, 1.0)));
 
   // Triangulation is unstable for acute angles (far away points) and
   // obtuse angles (close points), so always compute the minimum angle
