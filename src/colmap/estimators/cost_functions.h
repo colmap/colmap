@@ -273,8 +273,8 @@ class RigReprojErrorConstantRigCostFunctor
 template <typename CameraModel>
 class ConstraintReprojErrorCostFunctor
     : public AutoDiffCostFunctor<ConstraintReprojErrorCostFunctor<CameraModel>,
+                                 2,
                                  4,
-                                 3,
                                  3,
                                  CameraModel::num_params> {
  public:
@@ -287,8 +287,13 @@ class ConstraintReprojErrorCostFunctor
                   const T* const cam_from_world_translation,
                   const T* const camera_params,
                   T* residuals) const {
-    const Eigen::Matrix<T, 3, 1> constraining_point3D = constrainingPoint3D_.cast<T>();
-    return reproj_cost_(cam_from_world_rotation, cam_from_world_translation, constraining_point3D.data(), camera_params, residuals);
+    const Eigen::Matrix<T, 3, 1> constraining_point3D =
+        constrainingPoint3D_.cast<T>();
+    return reproj_cost_(cam_from_world_rotation,
+                        cam_from_world_translation,
+                        constraining_point3D.data(),
+                        camera_params,
+                        residuals);
   }
 
  private:

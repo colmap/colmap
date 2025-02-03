@@ -93,7 +93,7 @@ FeatureKeypoints FeatureKeypointsFromBlob(const FeatureKeypointsBlob& blob) {
   } else {
     LOG(FATAL_THROW)
         << "Keypoint format not supported. Number of parameters detected: "
-        << blob.cols() << ". Expected 3, 5, or 7.";
+        << blob.cols() << ". Expected 3, 4, 6, or 8.";
   }
   return keypoints;
 }
