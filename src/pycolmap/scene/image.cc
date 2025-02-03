@@ -86,7 +86,14 @@ void BindImage(py::module& m) {
           py::overload_cast<const std::optional<Rigid3d>&>(
               &Image::SetCamFromWorld),
           "The pose of the image, defined as the transformation from world to "
-          "camera space. None if the image is not registered.")
+          "camera space. None if the image is not registered. Will throw an "
+          "error if a non-trivial frame (rig) is present.")
+      .def_property_readonly(
+          "cam_from_world_value",
+          &Image::CamFromWorldValue,
+          "The pose of the image, defined as the transformation from world to "
+          "camera space. This method is read-only and support non-trivial "
+          "frame (rig).")
       .def_property_readonly(
           "has_pose", &Image::HasPose, "Whether the image has a valid pose.")
       .def("reset_pose", &Image::ResetPose, "Invalidate the pose of the image.")
