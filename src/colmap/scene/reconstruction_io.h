@@ -42,6 +42,9 @@ namespace colmap {
 void ReadCamerasText(Reconstruction& reconstruction, std::istream& stream);
 void ReadCamerasText(Reconstruction& reconstruction, const std::string& path);
 
+void ReadImagesTextLegacy(Reconstruction& reconstruction, std::istream& stream);
+void ReadImagesTextLegacy(Reconstruction& reconstruction,
+                          const std::string& path);
 void ReadImagesText(Reconstruction& reconstruction, std::istream& stream);
 void ReadImagesText(Reconstruction& reconstruction, const std::string& path);
 
@@ -51,6 +54,10 @@ void ReadPoints3DText(Reconstruction& reconstruction, const std::string& path);
 void ReadCamerasBinary(Reconstruction& reconstruction, std::istream& stream);
 void ReadCamerasBinary(Reconstruction& reconstruction, const std::string& path);
 
+void ReadImagesBinaryLegacy(Reconstruction& reconstruction,
+                            std::istream& stream);
+void ReadImagesBinaryLegacy(Reconstruction& reconstruction,
+                            const std::string& path);
 void ReadImagesBinary(Reconstruction& reconstruction, std::istream& stream);
 void ReadImagesBinary(Reconstruction& reconstruction, const std::string& path);
 
@@ -63,6 +70,10 @@ void WriteCamerasText(const Reconstruction& reconstruction,
 void WriteCamerasText(const Reconstruction& reconstruction,
                       const std::string& path);
 
+void WriteImagesTextLegacy(const Reconstruction& reconstruction,
+                           std::ostream& stream);
+void WriteImagesTextLegacy(const Reconstruction& reconstruction,
+                           const std::string& path);
 void WriteImagesText(const Reconstruction& reconstruction,
                      std::ostream& stream);
 void WriteImagesText(const Reconstruction& reconstruction,
@@ -78,6 +89,10 @@ void WriteCamerasBinary(const Reconstruction& reconstruction,
 void WriteCamerasBinary(const Reconstruction& reconstruction,
                         const std::string& path);
 
+void WriteImagesBinaryLegacy(const Reconstruction& reconstruction,
+                             std::ostream& stream);
+void WriteImagesBinaryLegacy(const Reconstruction& reconstruction,
+                             const std::string& path);
 void WriteImagesBinary(const Reconstruction& reconstruction,
                        std::ostream& stream);
 void WriteImagesBinary(const Reconstruction& reconstruction,
