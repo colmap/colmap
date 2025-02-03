@@ -238,14 +238,14 @@ bool Image::HasFrame() const { return frame_ != nullptr; }
 bool Image::HasNonTrivialFrame() const {
   return HasFrame() && frame_->HasRigCalibration() &&
          !frame_->RigCalibration()->IsReference(
-             std::make_pair(SensorType::Camera, CameraId()));
+             std::make_pair(SensorType::CAMERA, CameraId()));
 }
 
 const Rigid3d& Image::CamFromWorld() const {
   if (HasNonTrivialFrame()) {
     // TODO: fix this
     // sync cam from world
-    sensor_t sensor_id = std::make_pair(SensorType::Camera, CameraId());
+    sensor_t sensor_id = std::make_pair(SensorType::CAMERA, CameraId());
     cam_from_world_ = frame_->SensorFromWorld(sensor_id);
     return *cam_from_world_;
   } else if (HasFrame()) {

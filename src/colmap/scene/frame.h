@@ -40,11 +40,12 @@
 namespace colmap {
 
 // Sensor type
-enum class SensorType {
-  Camera = 0,
-  IMU = 1,
-  Location = 2,  // include GNSS, radios, compass, etc.
-};
+MAKE_ENUM_CLASS(SensorType,
+                0,
+                CAMERA,
+                IMU,
+                LOCATION  // include GNSS, radios, compass, etc.
+);
 
 // Unique identifier of the sensor
 typedef std::pair<SensorType, uint32_t> sensor_t;
