@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -50,8 +50,8 @@ struct InlierSupportMeasurer {
   // Compute the support of the residuals.
   Support Evaluate(const std::vector<double>& residuals, double max_residual);
 
-  // Compare the two supports and return the better support.
-  bool Compare(const Support& support1, const Support& support2);
+  // Compare the two supports.
+  bool IsLeftBetter(const Support& left, const Support& right);
 };
 
 // Measure the support of a model by counting the number of unique inliers
@@ -79,8 +79,8 @@ struct UniqueInlierSupportMeasurer {
   // Compute the support of the residuals.
   Support Evaluate(const std::vector<double>& residuals, double max_residual);
 
-  // Compare the two supports and return the better support.
-  bool Compare(const Support& support1, const Support& support2);
+  // Compare the two supports.
+  bool IsLeftBetter(const Support& left, const Support& right);
 
  private:
   std::vector<size_t> unique_sample_ids_;
@@ -100,8 +100,8 @@ struct MEstimatorSupportMeasurer {
   // Compute the support of the residuals.
   Support Evaluate(const std::vector<double>& residuals, double max_residual);
 
-  // Compare the two supports and return the better support.
-  bool Compare(const Support& support1, const Support& support2);
+  // Compare the two supports.
+  bool IsLeftBetter(const Support& left, const Support& right);
 };
 
 }  // namespace colmap

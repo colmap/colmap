@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -115,7 +115,9 @@ LogWidget::LogWidget(QWidget* parent, const int max_num_blocks) {
   text_box_->setReadOnly(true);
   text_box_->setMaximumBlockCount(max_num_blocks);
   text_box_->setWordWrapMode(QTextOption::NoWrap);
-  text_box_->setFont(QFont("Courier", 10));
+  QFont font = QFontDatabase::systemFont(QFontDatabase::FixedFont);
+  font.setPointSize(10);
+  text_box_->setFont(font);
   grid->addWidget(text_box_, 1, 0, 1, 2);
 }
 

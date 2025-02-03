@@ -1,8 +1,8 @@
-import os
-import sys
 import argparse
-import urllib.request
+import os
 import subprocess
+import sys
+import urllib.request
 
 
 def download_file(url, file_path, max_retries=3):
@@ -120,7 +120,7 @@ def process_dataset(args, dataset_name):
             "--num_threads",
             str(args.num_threads),
             "--quality",
-            "low",
+            args.quality,
             "--camera_model",
             "PINHOLE",
             "--camera_params",

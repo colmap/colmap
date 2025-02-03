@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -30,6 +30,7 @@
 #pragma once
 
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/enum_utils.h"
 #include "colmap/util/types.h"
 
 #include <vector>
@@ -42,7 +43,7 @@ namespace colmap {
 // representation and vice versa.
 class GPSTransform {
  public:
-  enum ELLIPSOID { GRS80, WGS84 };
+  MAKE_ENUM(ELLPSOID, 0, GRS80, WGS84);
 
   explicit GPSTransform(int ellipsoid = GRS80);
 
@@ -72,6 +73,22 @@ class GPSTransform {
                                         double lon0,
                                         double alt0) const;
 
+  // Converts GPS (lat / lon / alt) to UTM coordinates.
+  // Returns a pair of the converted coordinates and the zone number.
+  // If the points span multiple zones, the zone with the most points
+  // is chosen as the reference frame.
+  //
+  // The conversion uses a 4th-order expansion formula. The easting offset is
+  // 500 km, and the northing offset is 10,000 km for the Southern Hemisphere.
+  std::pair<std::vector<Eigen::Vector3d>, int> EllToUTM(
+      const std::vector<Eigen::Vector3d>& ell) const;
+
+  // Converts UTM coords to GPS (lat / lon / alt).
+  // Requires the zone number and hemisphere (true for north, false for south).
+  std::vector<Eigen::Vector3d> UTMToEll(const std::vector<Eigen::Vector3d>& utm,
+                                        int zone,
+                                        bool is_north) const;
+
  private:
   // Semimajor axis.
   double a_;
@@ -81,26 +98,6 @@ class GPSTransform {
   double f_;
   // Numerical eccentricity.
   double e2_;
-};
-
-struct PosePrior {
- public:
-  enum class CoordinateSystem {
-    UNDEFINED = -1,
-    WGS84 = 0,
-    CARTESIAN = 1,
-  };
-
-  Eigen::Vector3d position =
-      Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
-  CoordinateSystem coordinate_system = CoordinateSystem::UNDEFINED;
-
-  PosePrior() = default;
-  explicit PosePrior(const Eigen::Vector3d& position) : position(position) {}
-  PosePrior(const Eigen::Vector3d& position, const CoordinateSystem system)
-      : position(position), coordinate_system(system) {}
-
-  inline bool IsValid() const { return position.array().isFinite().any(); }
 };
 
 }  // namespace colmap

@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -31,10 +31,10 @@
 
 #include "colmap/util/logging.h"
 
+#include <filesystem>
 #include <mutex>
 #include <set>
 
-#include <boost/filesystem.hpp>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -46,18 +46,19 @@ std::string CreateTestDir() {
   test_name_stream << test_info->test_suite_name() << "." << test_info->name();
   const std::string test_name = test_name_stream.str();
 
-  const boost::filesystem::path test_dir =
-      boost::filesystem::path("colmap_test_tmp_test_data") / test_name;
+  const std::filesystem::path test_dir =
+      std::filesystem::temp_directory_path() / "colmap_test_data" / test_name;
+  LOG(INFO) << "Creating test directory: " << test_dir.string();
 
   // Create directory once. Cleanup artifacts from previous test runs.
   static std::mutex mutex;
   std::lock_guard<std::mutex> lock(mutex);
   static std::set<std::string> existing_test_names;
   if (existing_test_names.count(test_name) == 0) {
-    if (boost::filesystem::is_directory(test_dir)) {
-      boost::filesystem::remove_all(test_dir);
+    if (std::filesystem::is_directory(test_dir)) {
+      std::filesystem::remove_all(test_dir);
     }
-    boost::filesystem::create_directories(test_dir);
+    std::filesystem::create_directories(test_dir);
   }
   existing_test_names.insert(test_name);
 

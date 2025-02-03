@@ -5,6 +5,7 @@
 #include "colmap/util/threading.h"
 
 #include <exception>
+#include <optional>
 #include <regex>
 #include <sstream>
 #include <string>
@@ -28,7 +29,7 @@ const Eigen::IOFormat vec_fmt(Eigen::StreamPrecision,
                               ", ");
 
 template <typename T>
-T pyStringToEnum(const py::enum_<T>& enm, const std::string& value) {
+T PyStringToEnum(const py::enum_<T>& enm, const std::string& value) {
   const auto values = enm.attr("__members__").template cast<py::dict>();
   const auto str_val = py::str(value);
   if (!values.contains(str_val)) {
@@ -41,8 +42,10 @@ T pyStringToEnum(const py::enum_<T>& enm, const std::string& value) {
 template <typename T>
 void AddStringToEnumConstructor(py::enum_<T>& enm) {
   enm.def(py::init([enm](const std::string& value) {
-    return pyStringToEnum(enm, py::str(value));  // str constructor
-  }));
+            return PyStringToEnum(enm, py::str(value));  // str constructor
+          }),
+          "name"_a);
+  enm.attr("__repr__") = enm.attr("__str__");
   py::implicitly_convertible<std::string, T>();
 }
 
@@ -79,7 +82,7 @@ inline void UpdateFromDict(py::object& self, const py::dict& dict) {
         if (success_on_base) {
           continue;
         }
-        std::stringstream ss;
+        std::ostringstream ss;
         ss << self.attr("__class__")
                   .attr("__name__")
                   .template cast<std::string>()
@@ -99,7 +102,7 @@ inline void UpdateFromDict(py::object& self, const py::dict& dict) {
       } else if (ex.matches(PyExc_AttributeError) &&
                  py::str(ex.value()).cast<std::string>() ==
                      std::string("can't set attribute")) {
-        std::stringstream ss;
+        std::ostringstream ss;
         ss << self.attr("__class__")
                   .attr("__name__")
                   .template cast<std::string>()
@@ -160,7 +163,7 @@ py::dict ConvertToDict(const T& self,
 
 template <typename T, typename... options>
 std::string CreateSummary(const T& self, bool write_type) {
-  std::stringstream ss;
+  std::ostringstream ss;
   auto pyself = py::cast(self);
   const std::string prefix = "    ";
   bool after_subsummary = false;
@@ -187,8 +190,9 @@ std::string CreateSummary(const T& self, bool write_type) {
       std::string summ = attribute.attr("summary")
                              .attr("__call__")(write_type)
                              .template cast<std::string>();
+      static const std::regex newline_regex("\n");
       // NOLINTNEXTLINE(performance-inefficient-string-concatenation)
-      summ = std::regex_replace(summ, std::regex("\n"), "\n" + prefix);
+      summ = std::regex_replace(summ, newline_regex, "\n" + prefix);
       ss << ": " << summ;
     } else {
       if (write_type) {
@@ -210,9 +214,9 @@ std::string CreateSummary(const T& self, bool write_type) {
   return ss.str();
 }
 
-template <typename T, typename... options>
-std::string CreateRepresentation(const T& self) {
-  std::stringstream ss;
+template <typename T>
+std::string CreateRepresentationFromAttributes(const T& self) {
+  std::ostringstream ss;
   auto pyself = py::cast(self);
   ss << pyself.attr("__class__").attr("__name__").template cast<std::string>()
      << "(";
@@ -242,6 +246,26 @@ std::string CreateRepresentation(const T& self) {
   }
   ss << ")";
   return ss.str();
+}
+
+template <typename T, typename = void>
+struct IsOstreamable : std::false_type {};
+
+template <typename T>
+struct IsOstreamable<
+    T,
+    std::void_t<decltype(std::declval<std::ostream&>() << std::declval<T>())>>
+    : std::true_type {};
+
+template <typename T>
+std::string CreateRepresentation(const T& self) {
+  if constexpr (IsOstreamable<T>::value) {
+    std::ostringstream ss;
+    ss << self;
+    return ss.str();
+  } else {
+    return CreateRepresentationFromAttributes<T>(self);
+  }
 }
 
 template <typename T, typename... options>
@@ -280,7 +304,7 @@ void MakeDataclass(py::class_<T, options...> cls,
   if (!cls.attr("__dict__").contains("__repr__")) {
     cls.def("__repr__", &CreateRepresentation<T>);
   }
-  cls.def("mergedict", &UpdateFromDict);
+  cls.def("mergedict", &UpdateFromDict, "kwargs"_a);
   cls.def(
       "todict",
       [attributes](const T& self, const bool recursive) {
@@ -289,10 +313,11 @@ void MakeDataclass(py::class_<T, options...> cls,
       "recursive"_a = true);
 
   cls.def(py::init([cls](const py::dict& dict) {
-    py::object self = cls();
-    self.attr("mergedict").attr("__call__")(dict);
-    return self.cast<T>();
-  }));
+            py::object self = cls();
+            self.attr("mergedict").attr("__call__")(dict);
+            return self.cast<T>();
+          }),
+          "kwargs"_a);
   cls.def(py::init([cls](const py::kwargs& kwargs) {
     py::dict dict = kwargs.cast<py::dict>();
     return cls(dict).template cast<T>();
@@ -385,4 +410,32 @@ inline bool IsPyceresAvailable() {
     return false;
   }
   return true;
+}
+
+template <typename Parent>
+inline void DefDeprecation(
+    Parent& parent,
+    std::string old_name,
+    std::string new_name,
+    std::optional<std::string> custom_warning = std::nullopt) {
+  const std::string doc =
+      StringPrintf("Deprecated, use ``%s`` instead.", new_name.c_str());
+  parent.def(
+      old_name.c_str(),
+      [parent,
+       old_name,
+       new_name = std::move(new_name),
+       custom_warning = std::move(custom_warning)](const py::args& args,
+                                                   const py::kwargs& kwargs) {
+        if (custom_warning) {
+          PyErr_WarnEx(PyExc_DeprecationWarning, custom_warning->c_str(), 1);
+        } else {
+          std::ostringstream warning;
+          warning << old_name << "() is deprecated, use " << new_name
+                  << "() instead.";
+          PyErr_WarnEx(PyExc_DeprecationWarning, warning.str().c_str(), 1);
+        }
+        return parent.attr(new_name.c_str())(*args, **kwargs);
+      },
+      doc.c_str());
 }

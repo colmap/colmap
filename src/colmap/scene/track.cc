@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -48,6 +48,24 @@ void Track::DeleteElement(const image_t image_id, const point2D_t point2D_idx) {
                               element.point2D_idx == point2D_idx;
                      }),
       elements_.end());
+}
+
+std::ostream& operator<<(std::ostream& stream, const TrackElement& track_el) {
+  stream << "TrackElement(image_id=" << track_el.image_id
+         << ", point2D_idx=" << track_el.point2D_idx << ")";
+  return stream;
+}
+
+std::ostream& operator<<(std::ostream& stream, const Track& track) {
+  stream << "Track(elements=[";
+  for (const auto& track_el : track.Elements()) {
+    stream << track_el << ", ";
+  }
+  if (track.Length() > 0) {
+    stream.seekp(-2, std::ios_base::end);
+  }
+  stream << "])";
+  return stream;
 }
 
 }  // namespace colmap

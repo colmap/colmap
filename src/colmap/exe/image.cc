@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -29,7 +29,7 @@
 
 #include "colmap/exe/image.h"
 
-#include "colmap/controllers/incremental_mapper.h"
+#include "colmap/controllers/incremental_pipeline.h"
 #include "colmap/controllers/option_manager.h"
 #include "colmap/image/undistortion.h"
 #include "colmap/scene/reconstruction.h"
@@ -123,9 +123,7 @@ int RunImageDeleter(int argc, char** argv) {
   }
 
   if (!image_names_path.empty()) {
-    const auto image_names = ReadTextFileLines(image_names_path);
-
-    for (const auto& image_name : image_names) {
+    for (const std::string& image_name : ReadTextFileLines(image_names_path)) {
       if (image_name.empty()) {
         continue;
       }
@@ -178,10 +176,9 @@ int RunImageFilterer(int argc, char** argv) {
           min_focal_length_ratio, max_focal_length_ratio, max_extra_param);
 
   std::vector<image_t> filtered_image_ids;
-  for (const auto& image : reconstruction.Images()) {
-    if (image.second.IsRegistered() &&
-        image.second.NumPoints3D() < min_num_observations) {
-      filtered_image_ids.push_back(image.first);
+  for (const auto& [image_id, image] : reconstruction.Images()) {
+    if (image.HasPose() && image.NumPoints3D() < min_num_observations) {
+      filtered_image_ids.push_back(image_id);
     }
   }
 
@@ -270,7 +267,8 @@ int RunImageRegistrator(int argc, char** argv) {
     database_cache = DatabaseCache::Create(Database(*options.database_path),
                                            min_num_matches,
                                            options.mapper->ignore_watermarks,
-                                           options.mapper->image_names);
+                                           {options.mapper->image_names.begin(),
+                                            options.mapper->image_names.end()});
     timer.PrintMinutes();
   }
 
@@ -283,7 +281,7 @@ int RunImageRegistrator(int argc, char** argv) {
   const auto mapper_options = options.mapper->Mapper();
 
   for (const auto& image : reconstruction->Images()) {
-    if (image.second.IsRegistered()) {
+    if (image.second.HasPose()) {
       continue;
     }
 
@@ -351,8 +349,7 @@ int RunImageUndistorter(int argc, char** argv) {
 
   std::vector<image_t> image_ids;
   if (!image_list_path.empty()) {
-    const auto& image_names = ReadTextFileLines(image_list_path);
-    for (const auto& image_name : image_names) {
+    for (const std::string& image_name : ReadTextFileLines(image_list_path)) {
       const Image* image = reconstruction.FindImageWithName(image_name);
       if (image != nullptr) {
         image_ids.push_back(image->ImageId());

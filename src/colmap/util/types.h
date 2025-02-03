@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -62,6 +62,7 @@ namespace Eigen {
 
 using Matrix3x4f = Matrix<float, 3, 4>;
 using Matrix3x4d = Matrix<double, 3, 4>;
+using Matrix2x3d = Matrix<double, 2, 3>;
 using Matrix6d = Matrix<double, 6, 6>;
 using Vector3ub = Matrix<uint8_t, 3, 1>;
 using Vector4ub = Matrix<uint8_t, 4, 1>;

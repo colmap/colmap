@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -35,7 +35,6 @@
 #include "colmap/mvs/normal_map.h"
 #include "colmap/sensor/bitmap.h"
 #include "colmap/util/cache.h"
-#include "colmap/util/misc.h"
 
 #include <memory>
 

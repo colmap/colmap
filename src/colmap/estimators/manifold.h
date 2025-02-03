@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -183,13 +183,13 @@ inline void SetPositiveExponentialManifold(ceres::Problem* problem,
 #endif
 }
 
-inline int ParameterBlockTangentSize(ceres::Problem* problem,
+inline int ParameterBlockTangentSize(const ceres::Problem& problem,
                                      const double* param) {
 #if CERES_VERSION_MAJOR >= 3 || \
     (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 1)
-  return problem->ParameterBlockTangentSize(param);
+  return problem.ParameterBlockTangentSize(param);
 #else
-  return problem->ParameterBlockLocalSize(param);
+  return problem.ParameterBlockLocalSize(param);
 #endif
 }
 

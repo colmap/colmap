@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -29,7 +29,10 @@
 
 #include "colmap/estimators/affine_transform.h"
 
+#include "colmap/math/random.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/eigen_matchers.h"
+#include "colmap/util/logging.h"
 
 #include <Eigen/Geometry>
 #include <gtest/gtest.h>
@@ -37,36 +40,93 @@
 namespace colmap {
 namespace {
 
-TEST(AffineTransform, Nominal) {
-  for (int x = 0; x < 10; ++x) {
-    Eigen::Matrix<double, 2, 3> A;
-    A << x / 10.0, 0.2, 0.3, 30, 0.2, 0.1;
+std::pair<std::vector<Eigen::Vector2d>, std::vector<Eigen::Vector2d>>
+GenerateData(size_t num_inliers,
+             size_t num_outliers,
+             const Eigen::Matrix2x3d& tgt_from_src) {
+  std::vector<Eigen::Vector2d> src;
+  std::vector<Eigen::Vector2d> tgt;
 
-    std::vector<Eigen::Vector2d> src;
-    src.emplace_back(x, 0);
-    src.emplace_back(1, 0);
-    src.emplace_back(2, 1);
+  // Generate inlier data.
+  for (size_t i = 0; i < num_inliers; ++i) {
+    src.emplace_back(i, std::sqrt(i) + 2);
+    tgt.push_back(tgt_from_src * src.back().homogeneous());
+  }
 
-    std::vector<Eigen::Vector2d> dst;
-    for (size_t i = 0; i < 3; ++i) {
-      dst.push_back(A * src[i].homogeneous());
-    }
+  // Add some faulty data.
+  for (size_t i = 0; i < num_outliers; ++i) {
+    src.emplace_back(i, std::sqrt(i) + 2);
+    tgt.emplace_back(RandomUniformReal(-3000.0, -2000.0),
+                     RandomUniformReal(-4000.0, -3000.0));
+  }
 
-    AffineTransformEstimator estimator;
-    std::vector<Eigen::Matrix<double, 2, 3>> models;
-    estimator.Estimate(src, dst, &models);
+  return {std::move(src), std::move(tgt)};
+}
 
-    ASSERT_EQ(models.size(), 1);
+void TestEstimateAffine2dWithNumCoords(const size_t num_coords) {
+  const Eigen::Matrix2x3d gt_tgt_from_src = Eigen::Matrix2x3d::Random();
+  const auto [src, tgt] = GenerateData(
+      /*num_inliers=*/num_coords,
+      /*num_outliers=*/0,
+      gt_tgt_from_src);
 
-    std::vector<double> residuals;
-    estimator.Residuals(src, dst, models[0], &residuals);
+  Eigen::Matrix2x3d tgt_from_src;
+  EXPECT_TRUE(EstimateAffine2d(src, tgt, tgt_from_src));
+  EXPECT_THAT(tgt_from_src, EigenMatrixNear(gt_tgt_from_src, 1e-6));
+}
 
-    EXPECT_EQ(residuals.size(), 3);
+TEST(Affine2d, EstimateMinimal) { TestEstimateAffine2dWithNumCoords(3); }
 
-    for (size_t i = 0; i < 3; ++i) {
-      EXPECT_LT(residuals[i], 1e-6);
+TEST(Affine2d, EstimateOverDetermined) {
+  TestEstimateAffine2dWithNumCoords(100);
+}
+
+TEST(Affine2d, EstimateMinimalDegenerate) {
+  std::vector<Eigen::Vector2d> degenerate_src_tgt(3, Eigen::Vector2d::Zero());
+  Eigen::Matrix2x3d tgt_from_src;
+  EXPECT_FALSE(
+      EstimateAffine2d(degenerate_src_tgt, degenerate_src_tgt, tgt_from_src));
+}
+
+TEST(Affine2d, EstimateNonMinimalDegenerate) {
+  std::vector<Eigen::Vector2d> degenerate_src_tgt(5, Eigen::Vector2d::Zero());
+  Eigen::Matrix2x3d tgt_from_src;
+  EXPECT_FALSE(
+      EstimateAffine2d(degenerate_src_tgt, degenerate_src_tgt, tgt_from_src));
+}
+
+TEST(Affine2d, EstimateRobust) {
+  SetPRNGSeed(0);
+
+  const size_t num_inliers = 1000;
+  const size_t num_outliers = 400;
+
+  const Eigen::Matrix2x3d gt_tgt_from_src = Eigen::Matrix2x3d::Random();
+  const auto [src, tgt] = GenerateData(
+      /*num_inliers=*/num_inliers,
+      /*num_outliers=*/num_outliers,
+      gt_tgt_from_src);
+
+  // Robustly estimate transformation using RANSAC.
+  RANSACOptions options;
+  options.max_error = 10;
+  Eigen::Matrix2x3d tgt_from_src;
+  const auto report = EstimateAffine2dRobust(src, tgt, options, tgt_from_src);
+
+  EXPECT_TRUE(report.success);
+  EXPECT_GT(report.num_trials, 0);
+
+  // Make sure outliers were detected correctly.
+  EXPECT_EQ(report.support.num_inliers, num_inliers);
+  for (size_t i = 0; i < num_inliers + num_outliers; ++i) {
+    if (i >= num_inliers) {
+      EXPECT_FALSE(report.inlier_mask[i]);
+    } else {
+      EXPECT_TRUE(report.inlier_mask[i]);
     }
   }
+
+  EXPECT_THAT(tgt_from_src, EigenMatrixNear(gt_tgt_from_src, 1e-6));
 }
 
 }  // namespace

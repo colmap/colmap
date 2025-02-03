@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -38,6 +38,8 @@ AutomaticReconstructionWidget::AutomaticReconstructionWidget(
     : OptionsWidget(main_window),
       main_window_(main_window),
       thread_control_widget_(new ThreadControlWidget(this)) {
+  setWindowFlags(Qt::Dialog);
+  setWindowModality(Qt::ApplicationModal);
   setWindowTitle("Automatic reconstruction");
 
   AddOptionDirPath(&options_.workspace_path, "Workspace folder");

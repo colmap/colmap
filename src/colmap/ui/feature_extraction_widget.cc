@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -34,6 +34,7 @@
 #include "colmap/ui/options_widget.h"
 #include "colmap/ui/qt_utils.h"
 #include "colmap/ui/thread_control_widget.h"
+#include "colmap/util/file.h"
 
 namespace colmap {
 
@@ -155,9 +156,8 @@ void ImportFeaturesWidget::Run() {
 FeatureExtractionWidget::FeatureExtractionWidget(QWidget* parent,
                                                  OptionManager* options)
     : parent_(parent), options_(options) {
-  // Do not change flag, to make sure feature database is not accessed from
-  // multiple threads
-  setWindowFlags(Qt::Window);
+  setWindowFlags(Qt::Dialog);
+  setWindowModality(Qt::ApplicationModal);
   setWindowTitle("Feature extraction");
 
   QGridLayout* grid = new QGridLayout(this);

@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -32,6 +32,7 @@
 #include "colmap/feature/utils.h"
 #include "colmap/math/math.h"
 #include "colmap/util/cuda.h"
+#include "colmap/util/file.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/opengl_utils.h"
@@ -50,7 +51,9 @@
 
 #include <array>
 #include <fstream>
+#include <map>
 #include <memory>
+#include <mutex>
 
 #include <Eigen/Geometry>
 
@@ -360,12 +363,12 @@ class CovariantSiftCPUFeatureExtractor : public FeatureExtractor {
 
     vl_covdet_detect(covdet.get(), options_.max_num_features);
 
+    if (options_.estimate_affine_shape) {
+      vl_covdet_extract_affine_shape(covdet.get());
+    }
+
     if (!options_.upright) {
-      if (options_.estimate_affine_shape) {
-        vl_covdet_extract_affine_shape(covdet.get());
-      } else {
-        vl_covdet_extract_orientations(covdet.get());
-      }
+      vl_covdet_extract_orientations(covdet.get());
     }
 
     const int num_features = vl_covdet_get_num_features(covdet.get());

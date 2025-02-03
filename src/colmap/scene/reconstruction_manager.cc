@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -29,7 +29,7 @@
 
 #include "colmap/scene/reconstruction_manager.h"
 
-#include "colmap/util/misc.h"
+#include "colmap/util/file.h"
 
 namespace colmap {
 

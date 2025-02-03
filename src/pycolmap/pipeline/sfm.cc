@@ -1,9 +1,10 @@
 #include "colmap/exe/sfm.h"
 
 #include "colmap/controllers/bundle_adjustment.h"
-#include "colmap/controllers/incremental_mapper.h"
+#include "colmap/controllers/incremental_pipeline.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sensor/models.h"
+#include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 
 #include "pycolmap/helpers.h"

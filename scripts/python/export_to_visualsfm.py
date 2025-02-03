@@ -1,4 +1,4 @@
-# Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+# Copyright (c), ETH Zurich and UNC Chapel Hill.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -30,12 +30,12 @@
 
 # This script exports a COLMAP database to the file structure to run VisualSfM.
 
-import os
-import sys
 import argparse
-import sqlite3
+import os
 import shutil
-import gzip
+import sqlite3
+import struct
+
 import numpy as np
 
 
@@ -64,7 +64,7 @@ def main():
 
     try:
         os.makedirs(args.output_path)
-    except:
+    except:  # noqa E722
         pass
 
     cameras = {}

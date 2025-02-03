@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -73,7 +73,7 @@ FeatureMatcherCache::FeatureMatcherCache(
 }
 
 void FeatureMatcherCache::AccessDatabase(
-    const std::function<void(const Database& database)>& func) {
+    const std::function<void(Database& database)>& func) {
   std::lock_guard<std::mutex> lock(database_mutex_);
   func(*database_);
 }

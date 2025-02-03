@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -406,15 +406,14 @@ int VoteAndVerify(const VoteAndVerifyOptions& options,
     }
 
     // Local optimization on matching inlier points.
-    std::vector<Eigen::Matrix<double, 2, 3>> models;
+    std::vector<Eigen::Matrix2x3d> models;
     AffineTransformEstimator::Estimate(
         best_inlier_points1, best_inlier_points2, &models);
     THROW_CHECK_EQ(models.size(), 1);
-    const Eigen::Matrix<double, 2, 3>& A = models[0];
+    const Eigen::Matrix2x3d& A = models[0];
     Eigen::Matrix3d A_homogeneous = Eigen::Matrix3d::Identity();
     A_homogeneous.topRows<2>() = A;
-    const Eigen::Matrix<double, 2, 3> inv_A =
-        A_homogeneous.inverse().topRows<2>();
+    const Eigen::Matrix2x3d inv_A = A_homogeneous.inverse().topRows<2>();
 
     TwoWayTransform local_tform;
     local_tform.A12 = A.leftCols<2>().cast<float>();

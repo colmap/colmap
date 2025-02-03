@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -36,6 +36,7 @@
 #include "colmap/retrieval/vote_and_verify.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/endian.h"
+#include "colmap/util/file.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 
@@ -150,7 +151,7 @@ class VisualIndex {
 
   // Read and write the visual index. This can be done for an index with and
   // without indexed images.
-  void Read(const std::string& path);
+  void Read(const std::string& vocab_tree_path);
   void Write(const std::string& path);
 
  private:
@@ -560,7 +561,9 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Build(
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
 void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Read(
-    const std::string& path) {
+    const std::string& vocab_tree_path) {
+  const std::string resolved_path = MaybeDownloadAndCacheFile(vocab_tree_path);
+
   long int file_offset = 0;
 
   // Read the visual words.
@@ -570,8 +573,8 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Read(
       delete[] visual_words_.ptr();
     }
 
-    std::ifstream file(path, std::ios::binary);
-    THROW_CHECK_FILE_OPEN(file, path);
+    std::ifstream file(resolved_path, std::ios::binary);
+    THROW_CHECK_FILE_OPEN(file, resolved_path);
     const uint64_t rows = ReadBinaryLittleEndian<uint64_t>(&file);
     const uint64_t cols = ReadBinaryLittleEndian<uint64_t>(&file);
     kDescType* visual_words_data = new kDescType[rows * cols];
@@ -590,9 +593,9 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Read(
   {
     FILE* fin = nullptr;
 #ifdef _MSC_VER
-    THROW_CHECK_EQ(fopen_s(&fin, path.c_str(), "rb"), 0);
+    THROW_CHECK_EQ(fopen_s(&fin, resolved_path.c_str(), "rb"), 0);
 #else
-    fin = fopen(path.c_str(), "rb");
+    fin = fopen(resolved_path.c_str(), "rb");
 #endif
     THROW_CHECK_NOTNULL(fin);
     fseek(fin, file_offset, SEEK_SET);
@@ -604,8 +607,8 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Read(
   // Read the inverted index.
 
   {
-    std::ifstream file(path, std::ios::binary);
-    THROW_CHECK_FILE_OPEN(file, path);
+    std::ifstream file(resolved_path, std::ios::binary);
+    THROW_CHECK_FILE_OPEN(file, resolved_path);
     file.seekg(file_offset, std::ios::beg);
     inverted_index_.Read(&file);
   }

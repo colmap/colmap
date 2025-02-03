@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include "colmap/controllers/incremental_mapper.h"
+#include "colmap/controllers/incremental_pipeline.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sensor/bitmap.h"
 #include "colmap/ui/automatic_reconstruction_widget.h"

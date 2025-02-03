@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -341,6 +341,11 @@ std::vector<std::pair<image_t, image_t>> VocabTreePairGenerator::Next() {
 void VocabTreePairGenerator::IndexImages(
     const std::vector<image_t>& image_ids) {
   retrieval::VisualIndex<>::IndexOptions index_options;
+  // We only assign each feature to a single visual word in the indexing phase.
+  // During the query phase, we check for overlap in possibly multiple nearest
+  // neighbor visual words. We could do it symmetrically but experiments showed
+  // only marginal improvements that do not justify the memory/compute increase.
+  index_options.num_neighbors = 1;
   index_options.num_threads = options_.num_threads;
   index_options.num_checks = options_.num_checks;
 
@@ -690,20 +695,19 @@ std::vector<std::pair<image_t, image_t>> TransitivePairGenerator::Next() {
   LOG(INFO) << StringPrintf(
       "Iteration [%d/%d]", current_iteration_, options_.num_iterations);
 
-  std::vector<std::pair<image_t, image_t>> existing_image_pairs;
-  std::vector<int> existing_num_inliers;
+  std::vector<std::pair<image_pair_t, int>> existing_pair_ids_and_num_inliers;
   cache_->AccessDatabase(
-      [&existing_image_pairs, &existing_num_inliers](const Database& database) {
-        database.ReadTwoViewGeometryNumInliers(&existing_image_pairs,
-                                               &existing_num_inliers);
+      [&existing_pair_ids_and_num_inliers](Database& database) {
+        existing_pair_ids_and_num_inliers =
+            database.ReadTwoViewGeometryNumInliers();
       });
 
-  std::unordered_map<image_t, std::vector<image_t>> adjacency;
-  for (const auto& image_pair : existing_image_pairs) {
-    adjacency[image_pair.first].push_back(image_pair.second);
-    adjacency[image_pair.second].push_back(image_pair.first);
-    image_pair_ids_.insert(
-        Database::ImagePairToPairId(image_pair.first, image_pair.second));
+  std::map<image_t, std::vector<image_t>> adjacency;
+  for (const auto& [pair_id, _] : existing_pair_ids_and_num_inliers) {
+    const auto [image_id1, image_id2] = Database::PairIdToImagePair(pair_id);
+    adjacency[image_id1].push_back(image_id2);
+    adjacency[image_id2].push_back(image_id1);
+    image_pair_ids_.insert(pair_id);
   }
 
   for (const auto& image : adjacency) {
@@ -722,7 +726,7 @@ std::vector<std::pair<image_t, image_t>> TransitivePairGenerator::Next() {
         if (image_pair_ids_.count(image_pair_id) != 0) {
           continue;
         }
-        image_pairs_.emplace_back(image_id1, image_id3);
+        image_pairs_.emplace_back(std::minmax(image_id1, image_id3));
         image_pair_ids_.insert(image_pair_id);
       }
     }

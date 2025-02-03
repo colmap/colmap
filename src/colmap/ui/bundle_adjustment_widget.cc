@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -42,6 +42,8 @@ BundleAdjustmentWidget::BundleAdjustmentWidget(MainWindow* main_window,
       options_(options),
       reconstruction_(nullptr),
       thread_control_widget_(new ThreadControlWidget(this)) {
+  setWindowFlags(Qt::Dialog);
+  setWindowModality(Qt::ApplicationModal);
   setWindowTitle("Bundle adjustment");
 
   AddOptionInt(&options->bundle_adjustment->solver_options.max_num_iterations,

@@ -22,20 +22,6 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
-std::string PrintCamera(const Camera& camera) {
-  const bool valid_model = ExistsCameraModelWithId(camera.model_id);
-  const std::string params_info = valid_model ? camera.ParamsInfo() : "?";
-  const std::string model_name = valid_model ? camera.ModelName() : "Invalid";
-  std::stringstream ss;
-  ss << "Camera(camera_id="
-     << (camera.camera_id != kInvalidCameraId ? std::to_string(camera.camera_id)
-                                              : "Invalid")
-     << ", model=" << model_name << ", width=" << camera.width
-     << ", height=" << camera.height << ", params=[" << camera.ParamsToString()
-     << "] (" << params_info << "))";
-  return ss.str();
-}
-
 void BindCamera(py::module& m) {
   py::enum_<CameraModelId> PyCameraModelId(m, "CameraModelId");
   PyCameraModelId.value("INVALID", CameraModelId::kInvalid);
@@ -109,16 +95,21 @@ void BindCamera(py::module& m) {
            "Concatenate parameters as comma-separated list.")
       .def("set_params_from_string",
            &Camera::SetParamsFromString,
+           "params"_a,
            "Set camera parameters from comma-separated list.")
       .def("verify_params",
            &Camera::VerifyParams,
            "Check whether parameters are valid, i.e. the parameter vector has"
-           "\nthe correct dimensions that match the specified camera model.")
+           " the correct dimensions that match the specified camera model.")
       .def("has_bogus_params",
            &Camera::HasBogusParams,
+           "min_focal_length_ratio"_a,
+           "max_focal_length_ratio"_a,
+           "max_extra_param"_a,
            "Check whether camera has bogus parameters.")
       .def("cam_from_img",
            &Camera::CamFromImg,
+           "image_point"_a,
            "Project point in image plane to world / infinity.")
       .def(
           "cam_from_img",
@@ -130,6 +121,7 @@ void BindCamera(py::module& m) {
             }
             return world_points;
           },
+          "image_points"_a,
           "Project list of points in image plane to world / infinity.")
       .def(
           "cam_from_img",
@@ -140,12 +132,15 @@ void BindCamera(py::module& m) {
             }
             return world_points;
           },
+          "image_points"_a,
           "Project list of points in image plane to world / infinity.")
       .def("cam_from_img_threshold",
            &Camera::CamFromImgThreshold,
+           "threshold"_a,
            "Convert pixel threshold in image plane to world space.")
       .def("img_from_cam",
            &Camera::ImgFromCam,
+           "cam_point"_a,
            "Project point from world / infinity to image plane.")
       .def(
           "img_from_cam",
@@ -157,6 +152,7 @@ void BindCamera(py::module& m) {
             }
             return image_points;
           },
+          "cam_points"_a,
           "Project list of points from world / infinity to image plane.")
       .def(
           "img_from_cam",
@@ -165,6 +161,7 @@ void BindCamera(py::module& m) {
             return py::cast(self).attr("img_from_cam")(
                 world_points.rowwise().hnormalized());
           },
+          "cam_points"_a,
           "Project list of points from world / infinity to image plane.")
       .def(
           "img_from_cam",
@@ -175,18 +172,19 @@ void BindCamera(py::module& m) {
             }
             return image_points;
           },
+          "cam_points"_a,
           "Project list of points from world / infinity to image plane.")
       .def("rescale",
            py::overload_cast<size_t, size_t>(&Camera::Rescale),
-           "Rescale camera dimensions to (width_height) and accordingly the "
-           "focal length and\n"
-           "and the principal point.")
+           "new_width"_a,
+           "new_height"_a,
+           "Rescale the camera dimensions and accordingly the "
+           "focal length and the principal point.")
       .def("rescale",
            py::overload_cast<double>(&Camera::Rescale),
-           "Rescale camera dimensions by given factor and accordingly the "
-           "focal length and\n"
-           "and the principal point.")
-      .def("__repr__", &PrintCamera);
+           "scale"_a,
+           "Rescale the camera dimensions and accordingly the "
+           "focal length and the principal point.");
   MakeDataclass(PyCamera,
                 {"camera_id",
                  "model",
@@ -195,19 +193,5 @@ void BindCamera(py::module& m) {
                  "params",
                  "has_prior_focal_length"});
 
-  py::bind_map<CameraMap>(m, "MapCameraIdToCamera")
-      .def("__repr__", [](const CameraMap& self) {
-        std::stringstream ss;
-        ss << "{";
-        bool is_first = true;
-        for (const auto& pair : self) {
-          if (!is_first) {
-            ss << ",\n ";
-          }
-          is_first = false;
-          ss << pair.first << ": " << PrintCamera(pair.second);
-        }
-        ss << "}";
-        return ss.str();
-      });
+  py::bind_map<CameraMap>(m, "MapCameraIdToCamera");
 }

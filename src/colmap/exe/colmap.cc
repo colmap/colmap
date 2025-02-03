@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -88,9 +88,6 @@ int ShowHelp(
 
 int main(int argc, char** argv) {
   colmap::InitializeGlog(argv);
-#if defined(COLMAP_GUI_ENABLED)
-  Q_INIT_RESOURCE(resources);
-#endif
 
   std::vector<std::pair<std::string, command_func_t>> commands;
   commands.emplace_back("gui", &colmap::RunGraphicalUserInterface);
@@ -128,6 +125,7 @@ int main(int argc, char** argv) {
   commands.emplace_back("patch_match_stereo", &colmap::RunPatchMatchStereo);
   commands.emplace_back("point_filtering", &colmap::RunPointFiltering);
   commands.emplace_back("point_triangulator", &colmap::RunPointTriangulator);
+  commands.emplace_back("pose_prior_mapper", &colmap::RunPosePriorMapper);
   commands.emplace_back("poisson_mesher", &colmap::RunPoissonMesher);
   commands.emplace_back("project_generator", &colmap::RunProjectGenerator);
   commands.emplace_back("rig_bundle_adjuster", &colmap::RunRigBundleAdjuster);

@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -153,7 +153,8 @@ void TestIntReadWriteBinaryLittleEndian() {
     std::generate(orig_vector.begin(), orig_vector.end(), [&]() {
       return distribution(prng);
     });
-    WriteBinaryLittleEndian<T>(&file_vector, orig_vector);
+    WriteBinaryLittleEndian<T>(&file_vector,
+                               {orig_vector.data(), orig_vector.size()});
     std::vector<T> read_vector(orig_vector.size());
     ReadBinaryLittleEndian<T>(&file_vector, &read_vector);
     for (size_t i = 0; i < orig_vector.size(); ++i) {
@@ -179,7 +180,8 @@ void TestFloatReadWriteBinaryLittleEndian() {
     std::generate(orig_vector.begin(), orig_vector.end(), [&]() {
       return distribution(prng);
     });
-    WriteBinaryLittleEndian<T>(&file_vector, orig_vector);
+    WriteBinaryLittleEndian<T>(&file_vector,
+                               {orig_vector.data(), orig_vector.size()});
     std::vector<T> read_vector(orig_vector.size());
     ReadBinaryLittleEndian<T>(&file_vector, &read_vector);
     for (size_t i = 0; i < orig_vector.size(); ++i) {

@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -31,12 +31,13 @@
 
 #include "colmap/controllers/automatic_reconstruction.h"
 #include "colmap/controllers/bundle_adjustment.h"
-#include "colmap/controllers/hierarchical_mapper.h"
+#include "colmap/controllers/hierarchical_pipeline.h"
 #include "colmap/controllers/option_manager.h"
 #include "colmap/estimators/similarity_transform.h"
 #include "colmap/exe/gui.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sfm/observation_manager.h"
+#include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/opengl_utils.h"
 
@@ -45,8 +46,27 @@
 
 namespace colmap {
 
+void UpdateDatabasePosePriorsCovariance(const std::string& database_path,
+                                        const Eigen::Matrix3d& covariance) {
+  Database database(database_path);
+  DatabaseTransaction database_transaction(&database);
+
+  LOG(INFO)
+      << "Setting up database pose priors with the same covariance matrix: \n"
+      << covariance << "\n";
+
+  for (const auto& image : database.ReadAllImages()) {
+    if (database.ExistsPosePrior(image.ImageId())) {
+      PosePrior prior = database.ReadPosePrior(image.ImageId());
+      prior.position_covariance = covariance;
+      database.UpdatePosePrior(image.ImageId(), prior);
+    }
+  }
+}
+
 int RunAutomaticReconstructor(int argc, char** argv) {
   AutomaticReconstructionController::Options reconstruction_options;
+  std::string image_list_path;
   std::string data_type = "individual";
   std::string quality = "high";
   std::string mesher = "poisson";
@@ -55,6 +75,7 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   options.AddRequiredOption("workspace_path",
                             &reconstruction_options.workspace_path);
   options.AddRequiredOption("image_path", &reconstruction_options.image_path);
+  options.AddDefaultOption("image_list_path", &image_list_path);
   options.AddDefaultOption("mask_path", &reconstruction_options.mask_path);
   options.AddDefaultOption("vocab_tree_path",
                            &reconstruction_options.vocab_tree_path);
@@ -65,8 +86,12 @@ int RunAutomaticReconstructor(int argc, char** argv) {
                            &reconstruction_options.camera_model);
   options.AddDefaultOption("single_camera",
                            &reconstruction_options.single_camera);
+  options.AddDefaultOption("single_camera_per_folder",
+                           &reconstruction_options.single_camera_per_folder);
   options.AddDefaultOption("camera_params",
                            &reconstruction_options.camera_params);
+  options.AddDefaultOption("extraction", &reconstruction_options.extraction);
+  options.AddDefaultOption("matching", &reconstruction_options.matching);
   options.AddDefaultOption("sparse", &reconstruction_options.sparse);
   options.AddDefaultOption("dense", &reconstruction_options.dense);
   options.AddDefaultOption("mesher", &mesher, "{poisson, delaunay}");
@@ -75,51 +100,26 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   options.AddDefaultOption("gpu_index", &reconstruction_options.gpu_index);
   options.Parse(argc, argv);
 
-  StringToLower(&data_type);
-  if (data_type == "individual") {
-    reconstruction_options.data_type =
-        AutomaticReconstructionController::DataType::INDIVIDUAL;
-  } else if (data_type == "video") {
-    reconstruction_options.data_type =
-        AutomaticReconstructionController::DataType::VIDEO;
-  } else if (data_type == "internet") {
-    reconstruction_options.data_type =
-        AutomaticReconstructionController::DataType::INTERNET;
-  } else {
-    LOG(FATAL_THROW) << "Invalid data type provided";
+  if (!image_list_path.empty()) {
+    reconstruction_options.image_names = ReadTextFileLines(image_list_path);
   }
 
-  StringToLower(&quality);
-  if (quality == "low") {
-    reconstruction_options.quality =
-        AutomaticReconstructionController::Quality::LOW;
-  } else if (quality == "medium") {
-    reconstruction_options.quality =
-        AutomaticReconstructionController::Quality::MEDIUM;
-  } else if (quality == "high") {
-    reconstruction_options.quality =
-        AutomaticReconstructionController::Quality::HIGH;
-  } else if (quality == "extreme") {
-    reconstruction_options.quality =
-        AutomaticReconstructionController::Quality::EXTREME;
-  } else {
-    LOG(FATAL_THROW) << "Invalid quality provided";
-  }
+  StringToUpper(&data_type);
+  reconstruction_options.data_type =
+      AutomaticReconstructionController::DataTypeFromString(data_type);
 
-  StringToLower(&mesher);
-  if (mesher == "poisson") {
-    reconstruction_options.mesher =
-        AutomaticReconstructionController::Mesher::POISSON;
-  } else if (mesher == "delaunay") {
-    reconstruction_options.mesher =
-        AutomaticReconstructionController::Mesher::DELAUNAY;
-  } else {
-    LOG(FATAL_THROW) << "Invalid mesher provided";
-  }
+  StringToUpper(&quality);
+  reconstruction_options.quality =
+      AutomaticReconstructionController::QualityFromString(quality);
+
+  StringToUpper(&mesher);
+  reconstruction_options.mesher =
+      AutomaticReconstructionController::MesherFromString(mesher);
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
 
-  if (reconstruction_options.use_gpu && kUseOpenGL) {
+  if (reconstruction_options.use_gpu && kUseOpenGL &&
+      (reconstruction_options.extraction || reconstruction_options.matching)) {
     QApplication app(argc, argv);
     AutomaticReconstructionController controller(reconstruction_options,
                                                  reconstruction_manager);
@@ -203,9 +203,7 @@ int RunMapper(int argc, char** argv) {
   }
 
   if (!image_list_path.empty()) {
-    const auto image_names = ReadTextFileLines(image_list_path);
-    options.mapper->image_names =
-        std::unordered_set<std::string>(image_names.begin(), image_names.end());
+    options.mapper->image_names = ReadTextFileLines(image_list_path);
   }
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
@@ -222,7 +220,7 @@ int RunMapper(int argc, char** argv) {
   // frame, as the reconstruction is normalized multiple times for numerical
   // stability.
   std::vector<Eigen::Vector3d> orig_fixed_image_positions;
-  std::vector<image_t> fixed_image_ids;
+  std::set<image_t> fixed_image_ids;
   if (options.mapper->fix_existing_images &&
       reconstruction_manager->Size() > 0) {
     const auto& reconstruction = reconstruction_manager->Get(0);
@@ -335,6 +333,144 @@ int RunHierarchicalMapper(int argc, char** argv) {
 
   reconstruction_manager->Write(output_path);
   options.Write(JoinPaths(output_path, "project.ini"));
+
+  return EXIT_SUCCESS;
+}
+
+int RunPosePriorMapper(int argc, char** argv) {
+  std::string input_path;
+  std::string output_path;
+
+  bool overwrite_priors_covariance = false;
+  double prior_position_std_x = 1.;
+  double prior_position_std_y = 1.;
+  double prior_position_std_z = 1.;
+
+  OptionManager options;
+  options.AddDatabaseOptions();
+  options.AddImageOptions();
+  options.AddDefaultOption("input_path", &input_path);
+  options.AddRequiredOption("output_path", &output_path);
+  options.AddMapperOptions();
+
+  options.mapper->use_prior_position = true;
+
+  options.AddDefaultOption(
+      "overwrite_priors_covariance",
+      &overwrite_priors_covariance,
+      "Priors covariance read from database. If true, overwrite the priors "
+      "covariance using the follwoing prior_position_std_... options");
+  options.AddDefaultOption("prior_position_std_x", &prior_position_std_x);
+  options.AddDefaultOption("prior_position_std_y", &prior_position_std_y);
+  options.AddDefaultOption("prior_position_std_z", &prior_position_std_z);
+  options.AddDefaultOption("use_robust_loss_on_prior_position",
+                           &options.mapper->use_robust_loss_on_prior_position);
+  options.AddDefaultOption("prior_position_loss_scale",
+                           &options.mapper->prior_position_loss_scale);
+  options.Parse(argc, argv);
+
+  if (!ExistsDir(output_path)) {
+    LOG(ERROR) << "`output_path` is not a directory.";
+    return EXIT_FAILURE;
+  }
+
+  if (overwrite_priors_covariance) {
+    const Eigen::Matrix3d covariance =
+        Eigen::Vector3d(
+            prior_position_std_x, prior_position_std_y, prior_position_std_z)
+            .cwiseAbs2()
+            .asDiagonal();
+    UpdateDatabasePosePriorsCovariance(*options.database_path, covariance);
+  }
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  if (input_path != "") {
+    if (!ExistsDir(input_path)) {
+      LOG(ERROR) << "`input_path` is not a directory.";
+      return EXIT_FAILURE;
+    }
+    reconstruction_manager->Read(input_path);
+  }
+
+  // If fix_existing_images is enabled, we store the initial positions of
+  // existing images in order to transform them back to the original coordinate
+  // frame, as the reconstruction is normalized multiple times for numerical
+  // stability.
+  std::vector<Eigen::Vector3d> orig_fixed_image_positions;
+  std::set<image_t> fixed_image_ids;
+  if (options.mapper->fix_existing_images &&
+      reconstruction_manager->Size() > 0) {
+    const auto& reconstruction = reconstruction_manager->Get(0);
+    fixed_image_ids = reconstruction->RegImageIds();
+    orig_fixed_image_positions.reserve(fixed_image_ids.size());
+    for (const image_t image_id : fixed_image_ids) {
+      orig_fixed_image_positions.push_back(
+          reconstruction->Image(image_id).ProjectionCenter());
+    }
+  }
+
+  IncrementalPipeline mapper(options.mapper,
+                             *options.image_path,
+                             *options.database_path,
+                             reconstruction_manager);
+
+  // In case a new reconstruction is started, write results of individual sub-
+  // models to as their reconstruction finishes instead of writing all results
+  // after all reconstructions finished.
+  size_t prev_num_reconstructions = 0;
+  if (input_path == "") {
+    mapper.AddCallback(IncrementalPipeline::LAST_IMAGE_REG_CALLBACK, [&]() {
+      // If the number of reconstructions has not changed, the last model
+      // was discarded for some reason.
+      if (reconstruction_manager->Size() > prev_num_reconstructions) {
+        const std::string reconstruction_path =
+            JoinPaths(output_path, std::to_string(prev_num_reconstructions));
+        CreateDirIfNotExists(reconstruction_path);
+        reconstruction_manager->Get(prev_num_reconstructions)
+            ->Write(reconstruction_path);
+        options.Write(JoinPaths(reconstruction_path, "project.ini"));
+        prev_num_reconstructions = reconstruction_manager->Size();
+      }
+    });
+  }
+
+  mapper.Run();
+
+  if (reconstruction_manager->Size() == 0) {
+    LOG(ERROR) << "failed to create sparse model";
+    return EXIT_FAILURE;
+  }
+
+  // In case the reconstruction is continued from an existing reconstruction, do
+  // not create sub-folders but directly write the results.
+  if (input_path != "") {
+    const auto& reconstruction = reconstruction_manager->Get(0);
+
+    // Transform the final reconstruction back to the original coordinate frame.
+    if (options.mapper->fix_existing_images) {
+      if (fixed_image_ids.size() < 3) {
+        LOG(WARNING) << "Too few images to transform the reconstruction.";
+      } else {
+        std::vector<Eigen::Vector3d> new_fixed_image_positions;
+        new_fixed_image_positions.reserve(fixed_image_ids.size());
+        for (const image_t image_id : fixed_image_ids) {
+          new_fixed_image_positions.push_back(
+              reconstruction->Image(image_id).ProjectionCenter());
+        }
+        Sim3d orig_from_new;
+        if (EstimateSim3d(new_fixed_image_positions,
+                          orig_fixed_image_positions,
+                          orig_from_new)) {
+          reconstruction->Transform(orig_from_new);
+        } else {
+          LOG(WARNING) << "Failed to transform the reconstruction back "
+                          "to the input coordinate frame.";
+        }
+      }
+    }
+
+    reconstruction->Write(output_path);
+  }
 
   return EXIT_SUCCESS;
 }
@@ -634,7 +770,7 @@ int RunRigBundleAdjuster(int argc, char** argv) {
   std::string rig_config_path;
   bool estimate_rig_relative_poses = true;
 
-  RigBundleAdjuster::Options rig_ba_options;
+  RigBundleAdjustmentOptions rig_ba_options;
 
   OptionManager options;
   options.AddRequiredOption("input_path", &input_path);
@@ -671,8 +807,14 @@ int RunRigBundleAdjuster(int argc, char** argv) {
   PrintHeading1("Rig bundle adjustment");
 
   BundleAdjustmentOptions ba_options = *options.bundle_adjustment;
-  RigBundleAdjuster bundle_adjuster(ba_options, rig_ba_options, config);
-  THROW_CHECK(bundle_adjuster.Solve(&reconstruction, &camera_rigs));
+
+  std::unique_ptr<BundleAdjuster> bundle_adjuster =
+      CreateRigBundleAdjuster(std::move(ba_options),
+                              rig_ba_options,
+                              std::move(config),
+                              reconstruction,
+                              camera_rigs);
+  THROW_CHECK_NE(bundle_adjuster->Solve().termination_type, ceres::FAILURE);
 
   reconstruction.Write(output_path);
 

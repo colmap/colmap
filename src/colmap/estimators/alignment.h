@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -35,13 +35,21 @@
 
 namespace colmap {
 
+// Robustly align reconstruction to given image locations (projection centers).
 bool AlignReconstructionToLocations(
-    const Reconstruction& reconstruction,
-    const std::vector<std::string>& image_names,
-    const std::vector<Eigen::Vector3d>& locations,
+    const Reconstruction& src_reconstruction,
+    const std::vector<std::string>& tgt_image_names,
+    const std::vector<Eigen::Vector3d>& tgt_image_locations,
     int min_common_images,
     const RANSACOptions& ransac_options,
-    Sim3d* tform);
+    Sim3d* tgt_from_src);
+
+// Robustly align reconstruction to given pose priors.
+bool AlignReconstructionToPosePriors(
+    const Reconstruction& src_reconstruction,
+    const std::unordered_map<image_t, PosePrior>& tgt_pose_priors,
+    const RANSACOptions& ransac_options,
+    Sim3d* tgt_from_src);
 
 // Robustly compute alignment between reconstructions by finding images that
 // are registered in both reconstructions. The alignment is then estimated

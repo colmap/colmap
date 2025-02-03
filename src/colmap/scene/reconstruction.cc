@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -30,18 +30,46 @@
 #include "colmap/scene/reconstruction.h"
 
 #include "colmap/geometry/gps.h"
+#include "colmap/geometry/normalization.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/geometry/triangulation.h"
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/projection.h"
 #include "colmap/scene/reconstruction_io.h"
 #include "colmap/sensor/bitmap.h"
-#include "colmap/util/misc.h"
+#include "colmap/util/file.h"
 #include "colmap/util/ply.h"
 
 namespace colmap {
 
 Reconstruction::Reconstruction() : max_point3D_id_(0) {}
+
+Reconstruction::Reconstruction(const Reconstruction& other)
+    : cameras_(other.cameras_),
+      images_(other.images_),
+      points3D_(other.points3D_),
+      reg_image_ids_(other.reg_image_ids_),
+      max_point3D_id_(other.max_point3D_id_) {
+  for (auto& [_, image] : images_) {
+    image.ResetCameraPtr();
+    image.SetCameraPtr(&Camera(image.CameraId()));
+  }
+}
+
+Reconstruction& Reconstruction::operator=(const Reconstruction& other) {
+  if (this != &other) {
+    cameras_ = other.cameras_;
+    images_ = other.images_;
+    points3D_ = other.points3D_;
+    reg_image_ids_ = other.reg_image_ids_;
+    max_point3D_id_ = other.max_point3D_id_;
+    for (auto& [_, image] : images_) {
+      image.ResetCameraPtr();
+      image.SetCameraPtr(&Camera(image.CameraId()));
+    }
+  }
+  return *this;
+}
 
 std::unordered_set<point3D_t> Reconstruction::Point3DIds() const {
   std::unordered_set<point3D_t> point3D_ids;
@@ -87,7 +115,7 @@ void Reconstruction::TearDown() {
   // Remove all not yet registered images.
   std::unordered_set<camera_t> keep_camera_ids;
   for (auto it = images_.begin(); it != images_.end();) {
-    if (it->second.IsRegistered()) {
+    if (IsImageRegistered(it->first)) {
       keep_camera_ids.insert(it->second.CameraId());
       ++it;
     } else {
@@ -125,11 +153,11 @@ void Reconstruction::AddImage(class Image image) {
     image.SetCameraPtr(&camera);
   }
   const image_t image_id = image.ImageId();
-  const bool is_registered = image.IsRegistered();
+  const bool is_registered = image.HasPose();
   THROW_CHECK(images_.emplace(image_id, std::move(image)).second);
   if (is_registered) {
     THROW_CHECK_NE(image_id, kInvalidImageId);
-    reg_image_ids_.push_back(image_id);
+    RegisterImage(image_id);
   }
 }
 
@@ -237,18 +265,15 @@ void Reconstruction::DeleteAllPoints2DAndPoints3D() {
     new_image.SetImageId(image.second.ImageId());
     new_image.SetName(image.second.Name());
     new_image.SetCameraId(image.second.CameraId());
-    new_image.SetRegistered(image.second.IsRegistered());
-    new_image.CamFromWorld() = image.second.CamFromWorld();
+    new_image.SetCameraPtr(image.second.CameraPtr());
+    new_image.SetCamFromWorld(image.second.MaybeCamFromWorld());
     image.second = std::move(new_image);
   }
 }
 
 void Reconstruction::RegisterImage(const image_t image_id) {
-  class Image& image = Image(image_id);
-  if (!image.IsRegistered()) {
-    image.SetRegistered(true);
-    reg_image_ids_.push_back(image_id);
-  }
+  THROW_CHECK(Image(image_id).HasPose());
+  reg_image_ids_.insert(image_id);
 }
 
 void Reconstruction::DeRegisterImage(const image_t image_id) {
@@ -261,139 +286,115 @@ void Reconstruction::DeRegisterImage(const image_t image_id) {
     }
   }
 
-  image.SetRegistered(false);
-
-  reg_image_ids_.erase(
-      std::remove(reg_image_ids_.begin(), reg_image_ids_.end(), image_id),
-      reg_image_ids_.end());
+  image.ResetPose();
+  reg_image_ids_.erase(image_id);
 }
 
-void Reconstruction::Normalize(const double extent,
-                               const double p0,
-                               const double p1,
-                               const bool use_images) {
+Sim3d Reconstruction::Normalize(const bool fixed_scale,
+                                const double extent,
+                                const double min_percentile,
+                                const double max_percentile,
+                                const bool use_images) {
   THROW_CHECK_GT(extent, 0);
 
-  if ((use_images && reg_image_ids_.size() < 2) ||
+  if ((use_images && NumRegImages() < 2) ||
       (!use_images && points3D_.size() < 2)) {
-    return;
+    return Sim3d();
   }
 
-  auto bound = ComputeBoundsAndCentroid(p0, p1, use_images);
+  const auto [bbox, centroid] =
+      ComputeBBBoxAndCentroid(min_percentile, max_percentile, use_images);
 
   // Calculate scale and translation, such that
   // translation is applied before scaling.
-  const double old_extent = (std::get<1>(bound) - std::get<0>(bound)).norm();
-  double scale;
-  if (old_extent < std::numeric_limits<double>::epsilon()) {
-    scale = 1;
-  } else {
-    scale = extent / old_extent;
+  double scale = 1.;
+  if (!fixed_scale) {
+    const double old_extent = bbox.diagonal().norm();
+    if (old_extent >= std::numeric_limits<double>::epsilon()) {
+      scale = extent / old_extent;
+    }
   }
 
-  Sim3d tform(
-      scale, Eigen::Quaterniond::Identity(), -scale * std::get<2>(bound));
+  Sim3d tform(scale, Eigen::Quaterniond::Identity(), -scale * centroid);
   Transform(tform);
+
+  return tform;
 }
 
-Eigen::Vector3d Reconstruction::ComputeCentroid(const double p0,
-                                                const double p1) const {
-  return std::get<2>(ComputeBoundsAndCentroid(p0, p1, false));
+Eigen::Vector3d Reconstruction::ComputeCentroid(const double min_percentile,
+                                                const double max_percentile,
+                                                bool use_images) const {
+  return ComputeBBBoxAndCentroid(min_percentile, max_percentile, use_images)
+      .second;
 }
 
-std::pair<Eigen::Vector3d, Eigen::Vector3d> Reconstruction::ComputeBoundingBox(
-    const double p0, const double p1) const {
-  auto bound = ComputeBoundsAndCentroid(p0, p1, false);
-  return std::make_pair(std::get<0>(bound), std::get<1>(bound));
+Eigen::AlignedBox3d Reconstruction::ComputeBoundingBox(
+    const double min_percentile,
+    const double max_percentile,
+    bool use_images) const {
+  return ComputeBBBoxAndCentroid(min_percentile, max_percentile, use_images)
+      .first;
 }
 
-std::tuple<Eigen::Vector3d, Eigen::Vector3d, Eigen::Vector3d>
-Reconstruction::ComputeBoundsAndCentroid(const double p0,
-                                         const double p1,
-                                         const bool use_images) const {
-  THROW_CHECK_GE(p0, 0);
-  THROW_CHECK_LE(p0, 1);
-  THROW_CHECK_GE(p1, 0);
-  THROW_CHECK_LE(p1, 1);
-  THROW_CHECK_LE(p0, p1);
-
-  const size_t num_elements =
-      use_images ? reg_image_ids_.size() : points3D_.size();
+std::pair<Eigen::AlignedBox3d, Eigen::Vector3d>
+Reconstruction::ComputeBBBoxAndCentroid(const double min_percentile,
+                                        const double max_percentile,
+                                        const bool use_images) const {
+  const size_t num_elements = use_images ? NumRegImages() : points3D_.size();
   if (num_elements == 0) {
-    return std::make_tuple(Eigen::Vector3d(0, 0, 0),
-                           Eigen::Vector3d(0, 0, 0),
-                           Eigen::Vector3d(0, 0, 0));
+    return std::make_pair(
+        Eigen::AlignedBox3d(Eigen::Vector3d(0, 0, 0), Eigen::Vector3d(0, 0, 0)),
+        Eigen::Vector3d(0, 0, 0));
   }
 
   // Coordinates of image centers or point locations.
-  std::vector<float> coords_x;
-  std::vector<float> coords_y;
-  std::vector<float> coords_z;
+  std::vector<double> coords_x;
+  std::vector<double> coords_y;
+  std::vector<double> coords_z;
+  coords_x.reserve(num_elements);
+  coords_y.reserve(num_elements);
+  coords_z.reserve(num_elements);
   if (use_images) {
-    coords_x.reserve(reg_image_ids_.size());
-    coords_y.reserve(reg_image_ids_.size());
-    coords_z.reserve(reg_image_ids_.size());
-    for (const image_t im_id : reg_image_ids_) {
-      const Eigen::Vector3d proj_center = Image(im_id).ProjectionCenter();
-      coords_x.push_back(static_cast<float>(proj_center(0)));
-      coords_y.push_back(static_cast<float>(proj_center(1)));
-      coords_z.push_back(static_cast<float>(proj_center(2)));
+    for (const image_t image_id : RegImageIds()) {
+      const Eigen::Vector3d proj_center = Image(image_id).ProjectionCenter();
+      coords_x.push_back(proj_center(0));
+      coords_y.push_back(proj_center(1));
+      coords_z.push_back(proj_center(2));
     }
   } else {
-    coords_x.reserve(points3D_.size());
-    coords_y.reserve(points3D_.size());
-    coords_z.reserve(points3D_.size());
     for (const auto& point3D : points3D_) {
-      coords_x.push_back(static_cast<float>(point3D.second.xyz(0)));
-      coords_y.push_back(static_cast<float>(point3D.second.xyz(1)));
-      coords_z.push_back(static_cast<float>(point3D.second.xyz(2)));
+      coords_x.push_back(point3D.second.xyz(0));
+      coords_y.push_back(point3D.second.xyz(1));
+      coords_z.push_back(point3D.second.xyz(2));
     }
   }
 
-  // Determine robust bounding box and mean.
-
-  std::sort(coords_x.begin(), coords_x.end());
-  std::sort(coords_y.begin(), coords_y.end());
-  std::sort(coords_z.begin(), coords_z.end());
-
-  const size_t P0 = static_cast<size_t>(
-      (coords_x.size() > 3) ? p0 * (coords_x.size() - 1) : 0);
-  const size_t P1 = static_cast<size_t>(
-      (coords_x.size() > 3) ? p1 * (coords_x.size() - 1) : coords_x.size() - 1);
-
-  const Eigen::Vector3d bbox_min(coords_x[P0], coords_y[P0], coords_z[P0]);
-  const Eigen::Vector3d bbox_max(coords_x[P1], coords_y[P1], coords_z[P1]);
-
-  Eigen::Vector3d mean_coord(0, 0, 0);
-  for (size_t i = P0; i <= P1; ++i) {
-    mean_coord(0) += coords_x[i];
-    mean_coord(1) += coords_y[i];
-    mean_coord(2) += coords_z[i];
-  }
-  mean_coord /= P1 - P0 + 1;
-
-  return std::make_tuple(bbox_min, bbox_max, mean_coord);
+  return ComputeBoundingBoxAndCentroid(min_percentile,
+                                       max_percentile,
+                                       std::move(coords_x),
+                                       std::move(coords_y),
+                                       std::move(coords_z));
 }
 
 void Reconstruction::Transform(const Sim3d& new_from_old_world) {
-  for (auto& image : images_) {
-    image.second.CamFromWorld() =
-        TransformCameraWorld(new_from_old_world, image.second.CamFromWorld());
+  for (auto& [_, image] : images_) {
+    if (image.HasPose()) {
+      image.SetCamFromWorld(
+          TransformCameraWorld(new_from_old_world, image.CamFromWorld()));
+    }
   }
   for (auto& point3D : points3D_) {
     point3D.second.xyz = new_from_old_world * point3D.second.xyz;
   }
 }
 
-Reconstruction Reconstruction::Crop(
-    const std::pair<Eigen::Vector3d, Eigen::Vector3d>& bbox) const {
+Reconstruction Reconstruction::Crop(const Eigen::AlignedBox3d& bbox) const {
   Reconstruction cropped_reconstruction;
   for (const auto& camera : cameras_) {
     cropped_reconstruction.AddCamera(camera.second);
   }
   for (const auto& image : images_) {
     auto new_image = image.second;
-    new_image.SetRegistered(false);
     new_image.ResetCameraPtr();
     const auto num_points2D = new_image.NumPoints2D();
     for (point2D_t point2D_idx = 0; point2D_idx < num_points2D; ++point2D_idx) {
@@ -403,16 +404,17 @@ Reconstruction Reconstruction::Crop(
   }
   std::unordered_set<image_t> registered_image_ids;
   for (const auto& point3D : points3D_) {
-    if ((point3D.second.xyz.array() >= bbox.first.array()).all() &&
-        (point3D.second.xyz.array() <= bbox.second.array()).all()) {
+    if (bbox.contains(point3D.second.xyz)) {
       for (const auto& track_el : point3D.second.track.Elements()) {
-        if (registered_image_ids.count(track_el.image_id) == 0) {
-          cropped_reconstruction.RegisterImage(track_el.image_id);
-          registered_image_ids.insert(track_el.image_id);
-        }
+        registered_image_ids.insert(track_el.image_id);
       }
       cropped_reconstruction.AddPoint3D(
           point3D.second.xyz, point3D.second.track, point3D.second.color);
+    }
+  }
+  for (const auto& [image_id, _] : cropped_reconstruction.Images()) {
+    if (registered_image_ids.count(image_id) == 0) {
+      cropped_reconstruction.DeRegisterImage(image_id);
     }
   }
   return cropped_reconstruction;
@@ -431,10 +433,11 @@ const class Image* Reconstruction::FindImageWithName(
 std::vector<std::pair<image_t, image_t>> Reconstruction::FindCommonRegImageIds(
     const Reconstruction& other) const {
   std::vector<std::pair<image_t, image_t>> common_reg_image_ids;
-  for (const auto image_id : reg_image_ids_) {
+  for (const auto image_id : RegImageIds()) {
     const auto& image = Image(image_id);
     const auto* other_image = other.FindImageWithName(image.Name());
-    if (other_image != nullptr && other_image->IsRegistered()) {
+    if (other_image != nullptr &&
+        other.IsImageRegistered(other_image->ImageId())) {
       common_reg_image_ids.emplace_back(image_id, other_image->ImageId());
     }
   }
@@ -463,9 +466,11 @@ void Reconstruction::TranscribeImageIdsToDatabase(const Database& database) {
 
   images_ = std::move(new_images);
 
-  for (auto& image_id : reg_image_ids_) {
-    image_id = old_to_new_image_ids.at(image_id);
+  std::set<image_t> new_reg_image_ids;
+  for (const image_t image_id : RegImageIds()) {
+    new_reg_image_ids.insert(old_to_new_image_ids.at(image_id));
   }
+  reg_image_ids_ = new_reg_image_ids;
 
   for (auto& point3D : points3D_) {
     for (auto& track_el : point3D.second.track.Elements()) {
@@ -476,7 +481,7 @@ void Reconstruction::TranscribeImageIdsToDatabase(const Database& database) {
 
 size_t Reconstruction::ComputeNumObservations() const {
   size_t num_obs = 0;
-  for (const image_t image_id : reg_image_ids_) {
+  for (const image_t image_id : RegImageIds()) {
     num_obs += Image(image_id).NumPoints3D();
   }
   return num_obs;
@@ -491,11 +496,10 @@ double Reconstruction::ComputeMeanTrackLength() const {
 }
 
 double Reconstruction::ComputeMeanObservationsPerRegImage() const {
-  if (reg_image_ids_.empty()) {
+  if (NumRegImages() == 0) {
     return 0.0;
   } else {
-    return ComputeNumObservations() /
-           static_cast<double>(reg_image_ids_.size());
+    return ComputeNumObservations() / static_cast<double>(NumRegImages());
   }
 }
 
@@ -657,8 +661,8 @@ void Reconstruction::ExtractColorsForAllImages(const std::string& path) {
   std::unordered_map<point3D_t, Eigen::Vector3d> color_sums;
   std::unordered_map<point3D_t, size_t> color_counts;
 
-  for (size_t i = 0; i < reg_image_ids_.size(); ++i) {
-    const class Image& image = Image(reg_image_ids_[i]);
+  for (const auto& image_id : RegImageIds()) {
+    const class Image& image = Image(image_id);
     const std::string image_path = JoinPaths(path, image.Name());
 
     Bitmap bitmap;
@@ -723,6 +727,15 @@ void Reconstruction::CreateImageDirs(const std::string& path) const {
   for (const auto& dir : image_dirs) {
     CreateDirIfNotExists(dir, /*recursive=*/true);
   }
+}
+
+std::ostream& operator<<(std::ostream& stream,
+                         const Reconstruction& reconstruction) {
+  stream << "Reconstruction(num_cameras=" << reconstruction.NumCameras()
+         << ", num_images=" << reconstruction.NumImages()
+         << ", num_reg_images=" << reconstruction.NumRegImages()
+         << ", num_points3D=" << reconstruction.NumPoints3D() << ")";
+  return stream;
 }
 
 }  // namespace colmap

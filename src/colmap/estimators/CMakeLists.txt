@@ -1,4 +1,4 @@
-# Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+# Copyright (c), ETH Zurich and UNC Chapel Hill.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -27,7 +27,6 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-
 set(FOLDER_NAME "estimators")
 
 COLMAP_ADD_LIBRARY(
@@ -45,12 +44,11 @@ COLMAP_ADD_LIBRARY(
         euclidean_transform.h
         fundamental_matrix.h fundamental_matrix.cc
         generalized_absolute_pose.h generalized_absolute_pose.cc
-        generalized_absolute_pose_coeffs.h generalized_absolute_pose_coeffs.cc
         generalized_relative_pose.h generalized_relative_pose.cc
         homography_matrix.h homography_matrix.cc
         pose.h pose.cc
         generalized_pose.h generalized_pose.cc
-        similarity_transform.h
+        similarity_transform.h similarity_transform.cc
         translation_transform.h
         triangulation.h triangulation.cc
         two_view_geometry.h two_view_geometry.cc
@@ -66,6 +64,7 @@ COLMAP_ADD_LIBRARY(
         colmap_optim
         Eigen3::Eigen
         Ceres::ceres
+        PoseLib::PoseLib
 )
 
 if(CUDA_ENABLED)

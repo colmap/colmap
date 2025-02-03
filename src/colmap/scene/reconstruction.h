@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -40,6 +40,7 @@
 #include "colmap/util/types.h"
 
 #include <memory>
+#include <set>
 #include <tuple>
 #include <unordered_map>
 #include <unordered_set>
@@ -58,6 +59,10 @@ class DatabaseCache;
 class Reconstruction {
  public:
   Reconstruction();
+
+  // Copy construct/assign. Updates camera pointers.
+  Reconstruction(const Reconstruction& other);
+  Reconstruction& operator=(const Reconstruction& other);
 
   // Get number of objects.
   inline size_t NumCameras() const;
@@ -78,7 +83,7 @@ class Reconstruction {
   // Get reference to all objects.
   inline const std::unordered_map<camera_t, struct Camera>& Cameras() const;
   inline const std::unordered_map<image_t, class Image>& Images() const;
-  inline const std::vector<image_t>& RegImageIds() const;
+  inline const std::set<image_t>& RegImageIds() const;
   inline const std::unordered_map<point3D_t, struct Point3D>& Points3D() const;
 
   // Identifiers of all 3D points.
@@ -143,27 +148,31 @@ class Reconstruction {
   // Check if image is registered.
   inline bool IsImageRegistered(image_t image_id) const;
 
-  // Normalize scene by scaling and translation to avoid degenerate
-  // visualization after bundle adjustment and to improve numerical
-  // stability of algorithms.
+  // Normalize scene by scaling and translation to improve numerical stability
+  // of algorithms.
   //
   // Translates scene such that the mean of the camera centers or point
   // locations are at the origin of the coordinate system.
   //
-  // Scales scene such that the minimum and maximum camera centers are at the
-  // given `extent`, whereas `p0` and `p1` determine the minimum and
-  // maximum percentiles of the camera centers considered.
-  void Normalize(double extent = 10.0,
-                 double p0 = 0.1,
-                 double p1 = 0.9,
-                 bool use_images = true);
+  // Scales scene such that the minimum and maximum camera centers (or points)
+  // are at the given `extent`, whereas `min_percentile` and `max_percentile`
+  // determine the minimum and maximum percentiles of the camera centers (or
+  // points) considered.
+  Sim3d Normalize(bool fixed_scale = false,
+                  double extent = 10.0,
+                  double min_percentile = 0.1,
+                  double max_percentile = 0.9,
+                  bool use_images = true);
 
-  // Compute the centroid of the 3D points
-  Eigen::Vector3d ComputeCentroid(double p0 = 0.1, double p1 = 0.9) const;
+  // Compute the centroid of camera centers or 3D points.
+  Eigen::Vector3d ComputeCentroid(double min_percentile = 0.1,
+                                  double max_percentile = 0.9,
+                                  bool use_images = false) const;
 
-  // Compute the bounding box corners of the 3D points
-  std::pair<Eigen::Vector3d, Eigen::Vector3d> ComputeBoundingBox(
-      double p0 = 0.0, double p1 = 1.0) const;
+  // Compute the bounding box corners of camera centers or 3D points.
+  Eigen::AlignedBox3d ComputeBoundingBox(double min_percentile = 0.0,
+                                         double max_percentile = 1.0,
+                                         bool use_images = false) const;
 
   // Apply the 3D similarity transformation to all images and points.
   void Transform(const Sim3d& new_from_old_world);
@@ -172,8 +181,7 @@ class Reconstruction {
   // of the bounding box containing the included 3D points of the new
   // reconstruction. Only the cameras and images of the included points are
   // registered.
-  Reconstruction Crop(
-      const std::pair<Eigen::Vector3d, Eigen::Vector3d>& bbox) const;
+  Reconstruction Crop(const Eigen::AlignedBox3d& bbox) const;
 
   // Find specific image by name. Note that this uses linear search.
   const class Image* FindImageWithName(const std::string& name) const;
@@ -238,19 +246,22 @@ class Reconstruction {
   void CreateImageDirs(const std::string& path) const;
 
  private:
-  std::tuple<Eigen::Vector3d, Eigen::Vector3d, Eigen::Vector3d>
-  ComputeBoundsAndCentroid(double p0, double p1, bool use_images) const;
+  std::pair<Eigen::AlignedBox3d, Eigen::Vector3d> ComputeBBBoxAndCentroid(
+      double min_percentile, double max_percentile, bool use_images) const;
 
   std::unordered_map<camera_t, struct Camera> cameras_;
   std::unordered_map<image_t, class Image> images_;
   std::unordered_map<point3D_t, struct Point3D> points3D_;
 
   // { image_id, ... } where `images_.at(image_id).registered == true`.
-  std::vector<image_t> reg_image_ids_;
+  std::set<image_t> reg_image_ids_;
 
   // Total number of added 3D points, used to generate unique identifiers.
   point3D_t max_point3D_id_;
 };
+
+std::ostream& operator<<(std::ostream& stream,
+                         const Reconstruction& reconstruction);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
@@ -265,28 +276,58 @@ size_t Reconstruction::NumRegImages() const { return reg_image_ids_.size(); }
 size_t Reconstruction::NumPoints3D() const { return points3D_.size(); }
 
 const struct Camera& Reconstruction::Camera(const camera_t camera_id) const {
-  return cameras_.at(camera_id);
+  try {
+    return cameras_.at(camera_id);
+  } catch (const std::out_of_range&) {
+    throw std::out_of_range(
+        StringPrintf("Camera with ID %d does not exist", camera_id));
+  }
 }
 
 const class Image& Reconstruction::Image(const image_t image_id) const {
-  return images_.at(image_id);
+  try {
+    return images_.at(image_id);
+  } catch (const std::out_of_range&) {
+    throw std::out_of_range(
+        StringPrintf("Image with ID %d does not exist", image_id));
+  }
 }
 
 const struct Point3D& Reconstruction::Point3D(
     const point3D_t point3D_id) const {
-  return points3D_.at(point3D_id);
+  try {
+    return points3D_.at(point3D_id);
+  } catch (const std::out_of_range&) {
+    throw std::out_of_range(
+        StringPrintf("Point3D with ID %d does not exist", point3D_id));
+  }
 }
 
 struct Camera& Reconstruction::Camera(const camera_t camera_id) {
-  return cameras_.at(camera_id);
+  try {
+    return cameras_.at(camera_id);
+  } catch (const std::out_of_range&) {
+    throw std::out_of_range(
+        StringPrintf("Camera with ID %d does not exist", camera_id));
+  }
 }
 
 class Image& Reconstruction::Image(const image_t image_id) {
-  return images_.at(image_id);
+  try {
+    return images_.at(image_id);
+  } catch (const std::out_of_range&) {
+    throw std::out_of_range(
+        StringPrintf("Image with ID %d does not exist", image_id));
+  }
 }
 
 struct Point3D& Reconstruction::Point3D(const point3D_t point3D_id) {
-  return points3D_.at(point3D_id);
+  try {
+    return points3D_.at(point3D_id);
+  } catch (const std::out_of_range&) {
+    throw std::out_of_range(
+        StringPrintf("Point3D with ID %d does not exist", point3D_id));
+  }
 }
 
 const std::unordered_map<camera_t, Camera>& Reconstruction::Cameras() const {
@@ -297,7 +338,7 @@ const std::unordered_map<image_t, class Image>& Reconstruction::Images() const {
   return images_;
 }
 
-const std::vector<image_t>& Reconstruction::RegImageIds() const {
+const std::set<image_t>& Reconstruction::RegImageIds() const {
   return reg_image_ids_;
 }
 
@@ -318,7 +359,7 @@ bool Reconstruction::ExistsPoint3D(const point3D_t point3D_id) const {
 }
 
 bool Reconstruction::IsImageRegistered(const image_t image_id) const {
-  return Image(image_id).IsRegistered();
+  return reg_image_ids_.find(image_id) != reg_image_ids_.end();
 }
 
 }  // namespace colmap

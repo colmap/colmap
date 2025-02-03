@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -39,13 +39,7 @@
 
 namespace colmap {
 
-// Solver for the Generalized P3P problem (NP3P or GP3P), based on:
-//
-//      Lee, Gim Hee, et al. "Minimal solutions for pose estimation of a
-//      multi-camera system." Robotics Research. Springer International
-//      Publishing, 2016. 521-538.
-//
-// This class is based on an original implementation by Federico Camposeco.
+// Solver for the Generalized P3P problem.
 class GP3PEstimator {
  public:
   // The generalized image observations, which is composed of the relative pose

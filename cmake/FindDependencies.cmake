@@ -4,8 +4,11 @@ else()
     set(COLMAP_FIND_TYPE REQUIRED)
 endif()
 
+if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.30")
+    cmake_policy(SET CMP0167 NEW)
+endif()
+
 find_package(Boost ${COLMAP_FIND_TYPE} COMPONENTS
-             filesystem
              graph
              program_options
              system)
@@ -49,7 +52,7 @@ if(TESTS_ENABLED)
     find_package(GTest ${COLMAP_FIND_TYPE})
 endif()
 
-if(OPENMP_ENABLED)
+if(OPENMP_ENABLED AND NOT "${CMAKE_BUILD_TYPE}" STREQUAL "ClangTidy")
     find_package(OpenMP QUIET)
 endif()
 
@@ -82,6 +85,45 @@ if(CGAL_FOUND)
             CGAL INTERFACE ${CGAL_LIBRARY} ${GMP_LIBRARIES})
     endif()
     list(APPEND COLMAP_LINK_DIRS ${CGAL_LIBRARIES_DIR})
+endif()
+
+if(DOWNLOAD_ENABLED)
+    # The OpenSSL package in vcpkg seems broken under Windows and leads to
+    # missing certificate verification when connecting to SSL servers. We
+    # therefore use curl[schannel] (i.e., native Windows SSL/TLS) under Windows
+    # and curl[openssl] otherwise.
+    find_package(CURL QUIET)
+    set(CRYPTO_FOUND FALSE)
+    if(IS_MSVC AND IS_ARM64)
+        # OpenSSL crashes for ARM64 under Windows. We therefore fall back to
+        # CryptoPP as an alternative to OpenSSL for SHA256 computation.
+        find_package(CryptoPP QUIET)
+        if(CryptoPP_FOUND)
+            set(CRYPTO_FOUND TRUE)
+        else()
+            message(STATUS "CryptoPP not found")
+        endif()
+    else()
+        find_package(OpenSSL QUIET COMPONENTS Crypto)
+        if(OpenSSL_FOUND)
+            set(CRYPTO_FOUND TRUE)
+        else()
+            message(STATUS "OpenSSL::Crypto not found")
+        endif()
+    endif()
+    if(CURL_FOUND AND CRYPTO_FOUND)
+        message(STATUS "Enabling download support")
+        add_definitions("-DCOLMAP_DOWNLOAD_ENABLED")
+    else()
+        set(DOWNLOAD_ENABLED OFF)
+        message(STATUS "Disabling download support (Curl/Crypto not found)")
+    endif()
+else()
+    message(STATUS "Disabling download support")
+endif()
+
+if(NOT FETCH_POSELIB)
+    find_package(PoseLib ${COLMAP_FIND_TYPE})
 endif()
 
 set(COLMAP_LINK_DIRS ${Boost_LIBRARY_DIRS})

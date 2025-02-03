@@ -1,5 +1,9 @@
 name: COLMAP (Mac)
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 on:
   push:
     branches:
@@ -42,7 +46,7 @@ jobs:
       - name: Setup Mac
         run: |
           # Fix `brew link` error.
-          find /usr/local/bin -lname '*/Library/Frameworks/Python.framework/*' -delete
+          find /usr/local/bin -lname '*/Library/Frameworks/Python.framework/*' -delete          
 
           brew install \
             cmake \
@@ -51,6 +55,7 @@ jobs:
             eigen \
             flann \
             freeimage \
+            curl \
             metis \
             glog \
             googletest \
@@ -71,7 +76,7 @@ jobs:
             -GNinja \
             -DCMAKE_BUILD_TYPE=${{ matrix.config.cmakeBuildType }} \
             -DTESTS_ENABLED=ON \
-            -DCMAKE_PREFIX_PATH="/opt/homebrew/opt/flann;/opt/homebrew/opt/metis;/opt/homebrew/opt/suite-sparse;/opt/homebrew/opt/qt@5;/opt/homebrew/opt/freeimage"
+            -DCMAKE_PREFIX_PATH="$(brew --prefix qt@5)"
           ninja
 
       - name: Run tests

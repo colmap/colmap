@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/geometry/gps.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/math/math.h"
 #include "colmap/scene/camera.h"
@@ -39,6 +40,7 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/types.h"
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -76,10 +78,6 @@ class Image {
   inline void ResetCameraPtr();
   inline bool HasCameraPtr() const;
 
-  // Check if image is registered.
-  inline bool IsRegistered() const;
-  inline void SetRegistered(bool registered);
-
   // Get the number of image points.
   inline point2D_t NumPoints2D() const;
 
@@ -105,6 +103,12 @@ class Image {
   // optimization. Will throw an error if the image has a non trivial frame
   // (rig) attached to it.
   inline Rigid3d& CamFromWorld();
+  inline const std::optional<Rigid3d>& MaybeCamFromWorld() const;
+  inline std::optional<Rigid3d>& MaybeCamFromWorld();
+  inline void SetCamFromWorld(const Rigid3d& cam_from_world);
+  inline void SetCamFromWorld(const std::optional<Rigid3d>& cam_from_world);
+  inline bool HasPose() const;
+  inline void ResetPose();
 
   // Access the coordinates of image points.
   inline const struct Point2D& Point2D(point2D_t point2D_idx) const;
@@ -134,6 +138,9 @@ class Image {
   std::pair<bool, Eigen::Vector2d> ProjectPoint(
       const Eigen::Vector3d& point3D) const;
 
+  inline bool operator==(const Image& other) const;
+  inline bool operator!=(const Image& other) const;
+
  private:
   // Identifier of the image, if not specified `kInvalidImageId`.
   image_t image_id_;
@@ -146,9 +153,6 @@ class Image {
   camera_t camera_id_;
   struct Camera* camera_ptr_;
 
-  // Whether the image is successfully registered in the reconstruction.
-  bool registered_;
-
   // The number of 3D points the image observes, i.e. the sum of its `points2D`
   // where `point3D_id != kInvalidPoint3DId`.
   point2D_t num_points3D_;
@@ -159,11 +163,13 @@ class Image {
 
   // The pose of the image, defined as the transformation from world to camera.
   // Only useful when the corresponding frame (rig) does not exist.
-  mutable Rigid3d cam_from_world_;
+  mutable std::optional<Rigid3d> cam_from_world_;
 
   // All image points, including points that are not part of a 3D point track.
   std::vector<struct Point2D> points2D_;
 };
+
+std::ostream& operator<<(std::ostream& stream, const Image& image);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
@@ -207,13 +213,9 @@ inline void Image::SetCameraPtr(struct Camera* camera) {
   }
 }
 
-inline void Image::ResetCameraPtr() { camera_ptr_ = nullptr; }
+void Image::ResetCameraPtr() { camera_ptr_ = nullptr; }
 
-inline bool Image::HasCameraPtr() const { return camera_ptr_ != nullptr; }
-
-bool Image::IsRegistered() const { return registered_; }
-
-void Image::SetRegistered(const bool registered) { registered_ = registered; }
+bool Image::HasCameraPtr() const { return camera_ptr_ != nullptr; }
 
 point2D_t Image::NumPoints2D() const {
   return static_cast<point2D_t>(points2D_.size());
@@ -241,14 +243,17 @@ bool Image::HasNonTrivialFrame() const {
 
 const Rigid3d& Image::CamFromWorld() const {
   if (HasNonTrivialFrame()) {
+    // TODO: fix this
     // sync cam from world
     sensor_t sensor_id = std::make_pair(SensorType::Camera, CameraId());
     cam_from_world_ = frame_->SensorFromWorld(sensor_id);
-    return cam_from_world_;
+    return *cam_from_world_;
   } else if (HasFrame()) {
     return frame_->SensorFromWorld();
-  } else
-    return cam_from_world_;
+  } else {
+    THROW_CHECK(cam_from_world_) << "Image does not have a valid pose.";
+    return *cam_from_world_;
+  }
 }
 
 Rigid3d& Image::CamFromWorld() {
@@ -258,8 +263,34 @@ Rigid3d& Image::CamFromWorld() {
            "composition with rig calibration is needed";
   if (HasFrame()) {
     return frame_->SensorFromWorld();
-  } else
-    return cam_from_world_;
+  } else {
+    THROW_CHECK(cam_from_world_) << "Image does not have a valid pose.";
+    return *cam_from_world_;
+  }
+}
+
+const std::optional<Rigid3d>& Image::MaybeCamFromWorld() const {
+  return cam_from_world_;
+}
+
+std::optional<Rigid3d>& Image::MaybeCamFromWorld() { return cam_from_world_; }
+
+void Image::SetCamFromWorld(const Rigid3d& cam_from_world) {
+  cam_from_world_ = cam_from_world;
+}
+
+void Image::SetCamFromWorld(const std::optional<Rigid3d>& cam_from_world) {
+  cam_from_world_ = cam_from_world;
+}
+
+bool Image::HasPose() const {
+  // TODO: fix this function
+  return cam_from_world_.has_value();
+}
+
+void Image::ResetPose() {
+  // TODO: fix this function
+  cam_from_world_.reset();
 }
 
 const struct Point2D& Image::Point2D(const point2D_t point2D_idx) const {
@@ -273,5 +304,14 @@ struct Point2D& Image::Point2D(const point2D_t point2D_idx) {
 const std::vector<struct Point2D>& Image::Points2D() const { return points2D_; }
 
 std::vector<struct Point2D>& Image::Points2D() { return points2D_; }
+
+bool Image::operator==(const Image& other) const {
+  return image_id_ == other.image_id_ && camera_id_ == other.camera_id_ &&
+         name_ == other.name_ && num_points3D_ == other.num_points3D_ &&
+         cam_from_world_ == other.cam_from_world_ &&
+         points2D_ == other.points2D_;
+}
+
+bool Image::operator!=(const Image& other) const { return !(*this == other); }
 
 }  // namespace colmap

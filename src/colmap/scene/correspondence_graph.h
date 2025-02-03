@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -170,6 +170,12 @@ class CorrespondenceGraph {
   std::unordered_map<image_t, Image> images_;
   std::unordered_map<image_pair_t, ImagePair> image_pairs_;
 };
+
+std::ostream& operator<<(
+    std::ostream& stream,
+    const CorrespondenceGraph::Correspondence& correspondence);
+std::ostream& operator<<(std::ostream& stream,
+                         const CorrespondenceGraph& correspondence_graph);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation

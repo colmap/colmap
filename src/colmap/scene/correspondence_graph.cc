@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -306,6 +306,22 @@ bool CorrespondenceGraph::IsTwoViewObservation(
   const CorrespondenceRange other_range =
       FindCorrespondences(range.beg->image_id, range.beg->point2D_idx);
   return (other_range.end - other_range.beg) == 1;
+}
+
+std::ostream& operator<<(
+    std::ostream& stream,
+    const CorrespondenceGraph::Correspondence& correspondence) {
+  stream << "Correspondence(image_id=" << correspondence.image_id
+         << ", point2D_idx=" << correspondence.point2D_idx << ")";
+  return stream;
+}
+
+std::ostream& operator<<(std::ostream& stream,
+                         const CorrespondenceGraph& correspondence_graph) {
+  stream << "CorrespondenceGraph(num_images="
+         << correspondence_graph.NumImages()
+         << ", num_image_pairs=" << correspondence_graph.NumImagePairs() << ")";
+  return stream;
 }
 
 }  // namespace colmap

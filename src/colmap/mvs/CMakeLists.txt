@@ -1,4 +1,4 @@
-# Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+# Copyright (c), ETH Zurich and UNC Chapel Hill.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -37,14 +37,17 @@ COLMAP_ADD_LIBRARY(
         depth_map.h depth_map.cc
         fusion.h fusion.cc
         image.h image.cc
+        mat.h mat.cc
         meshing.h meshing.cc
         model.h model.cc
         normal_map.h normal_map.cc
+        patch_match_options.h patch_match_options.cc
         workspace.h workspace.cc
     PUBLIC_LINK_LIBS
         colmap_util
         colmap_scene
     PRIVATE_LINK_LIBS
+        colmap_math
         colmap_sensor
         colmap_image
         colmap_poisson_recon
