@@ -41,7 +41,8 @@
 
 namespace colmap {
 
-Reconstruction::Reconstruction() : max_point3D_id_(0), max_constraining_point3D_id_(0) {}
+Reconstruction::Reconstruction()
+    : max_point3D_id_(0), max_constraining_point3D_id_(0) {}
 
 Reconstruction::Reconstruction(const Reconstruction& other)
     : cameras_(other.cameras_),
@@ -49,7 +50,7 @@ Reconstruction::Reconstruction(const Reconstruction& other)
       points3D_(other.points3D_),
       reg_image_ids_(other.reg_image_ids_),
       max_point3D_id_(other.max_point3D_id_),
-      max_constraining_point3D_id_(other.max_constraining_point3D_id_){
+      max_constraining_point3D_id_(other.max_constraining_point3D_id_) {
   for (auto& [_, image] : images_) {
     image.ResetCameraPtr();
     image.SetCameraPtr(&Camera(image.CameraId()));
@@ -123,7 +124,8 @@ void Reconstruction::Load(const DatabaseCache& database_cache) {
   }
 
   for (const auto& constraining_point3D : database_cache.ConstrainingPoints()) {
-    AddConstrainingPoint3D(constraining_point3D.first, constraining_point3D.second);
+    AddConstrainingPoint3D(constraining_point3D.first,
+                           constraining_point3D.second);
   }
 }
 
@@ -183,10 +185,12 @@ void Reconstruction::AddPoint3D(const point3D_t point3D_id,
   THROW_CHECK(points3D_.emplace(point3D_id, std::move(point3D)).second);
 }
 
-void Reconstruction::AddConstrainingPoint3D(const point3D_t point3D_id,
-                                struct ConstrainingPoint3D point3D) {
-  max_constraining_point3D_id_ = std::max(max_constraining_point3D_id_, point3D_id);
-  THROW_CHECK(constrainingPoints3D_.emplace(point3D_id, std::move(point3D)).second);
+void Reconstruction::AddConstrainingPoint3D(
+    const point3D_t point3D_id, struct ConstrainingPoint3D point3D) {
+  max_constraining_point3D_id_ =
+      std::max(max_constraining_point3D_id_, point3D_id);
+  THROW_CHECK(
+      constrainingPoints3D_.emplace(point3D_id, std::move(point3D)).second);
 }
 
 point3D_t Reconstruction::AddPoint3D(const Eigen::Vector3d& xyz,
@@ -214,7 +218,8 @@ point3D_t Reconstruction::AddConstrainingPoint3D(const Eigen::Vector3d& xyz) {
   const point3D_t point3D_id = ++max_constraining_point3D_id_;
   THROW_CHECK(!ExistsConstrainingPoint3D(point3D_id));
 
-  struct ConstrainingPoint3D& constraining_point_3d = constrainingPoints3D_[point3D_id];
+  struct ConstrainingPoint3D& constraining_point_3d =
+      constrainingPoints3D_[point3D_id];
   constraining_point_3d.xyz = xyz;
 
   return point3D_id;
@@ -793,6 +798,38 @@ std::ostream& operator<<(std::ostream& stream,
          << ", num_reg_images=" << reconstruction.NumRegImages()
          << ", num_points3D=" << reconstruction.NumPoints3D() << ")";
   return stream;
+}
+
+void Reconstruction::ReadTextLegacy(const std::string& path) {
+  cameras_.clear();
+  images_.clear();
+  points3D_.clear();
+  ReadCamerasText(*this, JoinPaths(path, "cameras.txt"));
+  ReadImagesTextLegacy(*this, JoinPaths(path, "images.txt"));
+  ReadPoints3DText(*this, JoinPaths(path, "points3D.txt"));
+}
+
+void Reconstruction::ReadBinaryLegacy(const std::string& path) {
+  cameras_.clear();
+  images_.clear();
+  points3D_.clear();
+  ReadCamerasBinary(*this, JoinPaths(path, "cameras.bin"));
+  ReadImagesBinaryLegacy(*this, JoinPaths(path, "images.bin"));
+  ReadPoints3DBinary(*this, JoinPaths(path, "points3D.bin"));
+}
+
+void Reconstruction::WriteTextLegacy(const std::string& path) const {
+  THROW_CHECK_DIR_EXISTS(path);
+  WriteCamerasText(*this, JoinPaths(path, "cameras.txt"));
+  WriteImagesTextLegacy(*this, JoinPaths(path, "images.txt"));
+  WritePoints3DText(*this, JoinPaths(path, "points3D.txt"));
+}
+
+void Reconstruction::WriteBinaryLegacy(const std::string& path) const {
+  THROW_CHECK_DIR_EXISTS(path);
+  WriteCamerasBinary(*this, JoinPaths(path, "cameras.bin"));
+  WriteImagesBinaryLegacy(*this, JoinPaths(path, "images.bin"));
+  WritePoints3DBinary(*this, JoinPaths(path, "points3D.bin"));
 }
 
 }  // namespace colmap
