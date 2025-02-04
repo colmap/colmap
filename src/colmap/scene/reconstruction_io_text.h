@@ -56,6 +56,11 @@ void ReadImagesTextLegacy(Reconstruction& reconstruction,
 void ReadPoints3DText(Reconstruction& reconstruction, std::istream& stream);
 void ReadPoints3DText(Reconstruction& reconstruction, const std::string& path);
 
+void ReadConstrainingPointsText(Reconstruction& reconstruction,
+                                std::istream& stream);
+void ReadConstrainingPointsText(Reconstruction& reconstruction,
+                                const std::string& path);
+
 void WriteRigsText(const Reconstruction& reconstruction, std::ostream& stream);
 void WriteRigsText(const Reconstruction& reconstruction,
                    const std::string& path);
@@ -84,5 +89,10 @@ void WritePoints3DText(const Reconstruction& reconstruction,
                        std::ostream& stream);
 void WritePoints3DText(const Reconstruction& reconstruction,
                        const std::string& path);
+
+void WriteConstrainingPointsText(const Reconstruction& reconstruction,
+                                 std::ostream& stream);
+void WriteConstrainingPointsText(const Reconstruction& reconstruction,
+                                 const std::string& path);
 
 }  // namespace colmap

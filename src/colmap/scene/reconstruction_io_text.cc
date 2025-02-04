@@ -596,6 +596,49 @@ void ReadPoints3DText(Reconstruction& reconstruction, const std::string& path) {
   ReadPoints3DText(reconstruction, file);
 }
 
+void ReadConstrainingPointsText(Reconstruction& reconstruction,
+                                std::istream& stream) {
+  THROW_CHECK(stream.good());
+
+  std::string line;
+  std::string item;
+
+  while (std::getline(stream, line)) {
+    StringTrim(&line);
+
+    if (line.empty() || line[0] == '#') {
+      continue;
+    }
+
+    std::stringstream line_stream(line);
+
+    // ID
+    std::getline(line_stream, item, ' ');
+    const point3D_t point3D_id = std::stoll(item);
+
+    struct ConstrainingPoint3D point3D;
+
+    // XYZ
+    std::getline(line_stream, item, ' ');
+    point3D.xyz(0) = std::stold(item);
+
+    std::getline(line_stream, item, ' ');
+    point3D.xyz(1) = std::stold(item);
+
+    std::getline(line_stream, item, ' ');
+    point3D.xyz(2) = std::stold(item);
+
+    reconstruction.AddConstrainingPoint3D(point3D_id, std::move(point3D));
+  }
+}
+
+void ReadConstrainingPointsText(Reconstruction& reconstruction,
+                                const std::string& path) {
+  std::ifstream file(path);
+  THROW_CHECK_FILE_OPEN(file, path);
+  ReadConstrainingPointsText(reconstruction, file);
+}
+
 void WriteRigsText(const Reconstruction& reconstruction, std::ostream& stream) {
   THROW_CHECK(stream.good());
 
@@ -930,6 +973,37 @@ void WritePoints3DText(const Reconstruction& reconstruction,
   std::ofstream file(path, std::ios::trunc);
   THROW_CHECK_FILE_OPEN(file, path);
   WritePoints3DText(reconstruction, file);
+}
+
+void WriteConstrainingPointsText(const Reconstruction& reconstruction,
+                                 std::ostream& stream) {
+  THROW_CHECK(stream.good());
+
+  // Ensure that we don't lose any precision by storing in text.
+  stream.precision(17);
+
+  stream << "# Constraining 3D point list with one line of data per point:"
+         << "\n";
+  stream << "#   POINT3D_ID, X, Y, Z" << "\n";
+  stream << "# Number of points: " << reconstruction.NumConstrainingPoints3D()
+         << "\n";
+
+  for (const point3D_t point3D_id : reconstruction.ConstrainingPoint3DIds()) {
+    const ConstrainingPoint3D& point3D =
+        reconstruction.ConstrainingPoint3D(point3D_id);
+
+    stream << point3D_id << " ";
+    stream << point3D.xyz(0) << " ";
+    stream << point3D.xyz(1) << " ";
+    stream << point3D.xyz(2) << "\n";
+  }
+}
+
+void WriteConstrainingPointsText(const Reconstruction& reconstruction,
+                                 const std::string& path) {
+  std::ofstream file(path, std::ios::trunc);
+  THROW_CHECK_FILE_OPEN(file, path);
+  WriteConstrainingPointsText(reconstruction, file);
 }
 
 }  // namespace colmap

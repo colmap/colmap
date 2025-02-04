@@ -58,6 +58,11 @@ void ReadPoints3DBinary(Reconstruction& reconstruction, std::istream& stream);
 void ReadPoints3DBinary(Reconstruction& reconstruction,
                         const std::string& path);
 
+void ReadConstrainingPointsBinary(Reconstruction& reconstruction,
+                                  std::istream& stream);
+void ReadConstrainingPointsBinary(Reconstruction& reconstruction,
+                                  const std::string& path);
+
 void WriteRigsBinary(const Reconstruction& reconstruction,
                      std::ostream& stream);
 void WriteRigsBinary(const Reconstruction& reconstruction,
@@ -87,5 +92,10 @@ void WritePoints3DBinary(const Reconstruction& reconstruction,
                          std::ostream& stream);
 void WritePoints3DBinary(const Reconstruction& reconstruction,
                          const std::string& path);
+
+void WriteConstrainingPointsBinary(const Reconstruction& reconstruction,
+                                   std::ostream& stream);
+void WriteConstrainingPointsBinary(const Reconstruction& reconstruction,
+                                   const std::string& path);
 
 }  // namespace colmap

@@ -383,6 +383,31 @@ void ReadPoints3DBinary(Reconstruction& reconstruction,
   ReadPoints3DBinary(reconstruction, file);
 }
 
+void ReadConstrainingPointsBinary(Reconstruction& reconstruction,
+                                  std::istream& stream) {
+  THROW_CHECK(stream.good());
+
+  const size_t num_points3D = ReadBinaryLittleEndian<uint64_t>(&stream);
+  for (size_t i = 0; i < num_points3D; ++i) {
+    struct ConstrainingPoint3D point3D;
+
+    const point3D_t point3D_id = ReadBinaryLittleEndian<point3D_t>(&stream);
+
+    point3D.xyz(0) = ReadBinaryLittleEndian<double>(&stream);
+    point3D.xyz(1) = ReadBinaryLittleEndian<double>(&stream);
+    point3D.xyz(2) = ReadBinaryLittleEndian<double>(&stream);
+
+    reconstruction.AddConstrainingPoint3D(point3D_id, std::move(point3D));
+  }
+}
+
+void ReadConstrainingPointsBinary(Reconstruction& reconstruction,
+                                  const std::string& path) {
+  std::ifstream file(path, std::ios::binary);
+  THROW_CHECK_FILE_OPEN(file, path);
+  ReadConstrainingPointsBinary(reconstruction, file);
+}
+
 void WriteRigsBinary(const Reconstruction& reconstruction,
                      std::ostream& stream) {
   THROW_CHECK(stream.good());
@@ -610,6 +635,31 @@ void WritePoints3DBinary(const Reconstruction& reconstruction,
   std::ofstream file(path, std::ios::trunc | std::ios::binary);
   THROW_CHECK_FILE_OPEN(file, path);
   WritePoints3DBinary(reconstruction, file);
+}
+
+void WriteConstrainingPointsBinary(const Reconstruction& reconstruction,
+                                   std::ostream& stream) {
+  THROW_CHECK(stream.good());
+
+  WriteBinaryLittleEndian<uint64_t>(&stream,
+                                    reconstruction.NumConstrainingPoints3D());
+
+  for (const point3D_t point3D_id : reconstruction.ConstrainingPoint3DIds()) {
+    const ConstrainingPoint3D& point3D =
+        reconstruction.ConstrainingPoint3D(point3D_id);
+
+    WriteBinaryLittleEndian<point3D_t>(&stream, point3D_id);
+    WriteBinaryLittleEndian<double>(&stream, point3D.xyz(0));
+    WriteBinaryLittleEndian<double>(&stream, point3D.xyz(1));
+    WriteBinaryLittleEndian<double>(&stream, point3D.xyz(2));
+  }
+}
+
+void WriteConstrainingPointsBinary(const Reconstruction& reconstruction,
+                                   const std::string& path) {
+  std::ofstream file(path, std::ios::trunc | std::ios::binary);
+  THROW_CHECK_FILE_OPEN(file, path);
+  WriteConstrainingPointsBinary(reconstruction, file);
 }
 
 }  // namespace colmap
