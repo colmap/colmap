@@ -74,7 +74,7 @@ struct data_t {
   // Unique identifier of the data (measurement)
   // This can be image_t / imu_measurement_t (not supported yet)
   uint32_t id;
-  data_t(const sensor_t& sensor_id, uint64_t id)
+  data_t(const sensor_t& sensor_id, uint32_t id)
       : sensor_id(sensor_id), id(id) {}
 
   inline bool operator<(const data_t& other) const {
