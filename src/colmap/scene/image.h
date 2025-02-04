@@ -218,9 +218,15 @@ point2D_t Image::NumPoints2D() const {
 
 point2D_t Image::NumPoints3D() const { return num_points3D_; }
 
-frame_t Image::FrameId() const { return frame_->FrameId(); }
+frame_t Image::FrameId() const {
+  THROW_CHECK(frame_) << "Invalid pointer to the corresponding frame";
+  return frame_->FrameId();
+}
 
-void Image::SetFrameId(frame_t frame_id) { frame_->SetFrameId(frame_id); }
+void Image::SetFrameId(frame_t frame_id) {
+  THROW_CHECK(frame_) << "Invalid pointer to the corresponding frame";
+  frame_->SetFrameId(frame_id);
+}
 
 const std::shared_ptr<class Frame>& Image::Frame() const { return frame_; }
 
@@ -229,7 +235,7 @@ void Image::SetFrame(std::shared_ptr<class Frame> frame) {
 }
 
 bool Image::HasNonTrivialFrame() const {
-  THROW_CHECK(frame_) << "Invalid shared pointer to the corresponding frame";
+  THROW_CHECK(frame_) << "Invalid pointer to the corresponding frame";
   return frame_->HasRigCalibration() &&
          !frame_->RigCalibration()->IsReference(
              sensor_t(SensorType::CAMERA, CameraId()));
