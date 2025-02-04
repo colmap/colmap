@@ -50,6 +50,7 @@ Reconstruction::Reconstruction(const Reconstruction& other)
       frames_(other.frames_),
       images_(other.images_),
       points3D_(other.points3D_),
+      constrainingPoints3D_(other.constrainingPoints3D_),
       reg_frame_ids_(other.reg_frame_ids_),
       max_point3D_id_(other.max_point3D_id_),
       max_constraining_point3D_id_(other.max_constraining_point3D_id_) {
@@ -74,6 +75,7 @@ Reconstruction& Reconstruction::operator=(const Reconstruction& other) {
     points3D_ = other.points3D_;
     reg_frame_ids_ = other.reg_frame_ids_;
     max_point3D_id_ = other.max_point3D_id_;
+    constrainingPoints3D_ = other.constrainingPoints3D_;
     for (auto& [_, frame] : frames_) {
       frame.ResetRigPtr();
       frame.SetRigPtr(&Rig(frame.RigId()));
