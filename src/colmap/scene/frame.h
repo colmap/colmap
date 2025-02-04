@@ -148,10 +148,11 @@ class Frame {
   inline rig_t RigId() const;
   inline void SetRigId(rig_t rig_id);
 
-  // Check if the frame has a non-trivial rig calibration
+  // Access the rig calibration
   inline const std::shared_ptr<class RigCalibration>& RigCalibration() const;
   inline void SetRigCalibration(
       std::shared_ptr<class RigCalibration> rig_calibration);
+  // Check if the frame has a non-trivial rig calibration
   inline bool HasRigCalibration() const;
 
   // Access the frame from world transformation
