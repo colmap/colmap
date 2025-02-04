@@ -48,6 +48,7 @@ Reconstruction::Reconstruction(const Reconstruction& other)
     : cameras_(other.cameras_),
       images_(other.images_),
       points3D_(other.points3D_),
+      constrainingPoints3D_(other.constrainingPoints3D_),
       reg_image_ids_(other.reg_image_ids_),
       max_point3D_id_(other.max_point3D_id_),
       max_constraining_point3D_id_(other.max_constraining_point3D_id_) {
@@ -62,6 +63,7 @@ Reconstruction& Reconstruction::operator=(const Reconstruction& other) {
     cameras_ = other.cameras_;
     images_ = other.images_;
     points3D_ = other.points3D_;
+    constrainingPoints3D_ = other.constrainingPoints3D_;
     reg_image_ids_ = other.reg_image_ids_;
     max_point3D_id_ = other.max_point3D_id_;
     max_constraining_point3D_id_ = other.max_constraining_point3D_id_;
