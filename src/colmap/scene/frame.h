@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -45,22 +45,17 @@
 namespace colmap {
 
 // Sensor type
-MAKE_ENUM_CLASS_OVERLOAD_STREAM(SensorType,
-                                0,
-                                CAMERA,
-                                IMU,
-                                LOCATION  // include GNSS, radios, compass, etc.
-);
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(SensorType, 0, CAMERA, IMU);
 
 struct sensor_t {
   SensorType type;
   uint32_t id;
   sensor_t(const SensorType& type, uint32_t id) : type(type), id(id) {}
 
-  bool operator<(const sensor_t& other) const {
+  inline bool operator<(const sensor_t& other) const {
     return std::tie(type, id) < std::tie(other.type, other.id);
   }
-  bool operator==(const sensor_t& other) const {
+  inline bool operator==(const sensor_t& other) const {
     return type == other.type && id == other.id;
   }
 };
@@ -71,10 +66,10 @@ struct data_t {
   data_t(const sensor_t& sensor_id, uint64_t id)
       : sensor_id(sensor_id), id(id) {}
 
-  bool operator<(const data_t& other) const {
+  inline bool operator<(const data_t& other) const {
     return std::tie(sensor_id, id) < std::tie(other.sensor_id, other.id);
   }
-  bool operator==(const data_t& other) const {
+  inline bool operator==(const data_t& other) const {
     return sensor_id == other.sensor_id && id == other.id;
   }
 };
@@ -93,9 +88,9 @@ class RigCalibration {
   inline void SetRigId(rig_t rig_id);
 
   // Add sensor into the rig
-  // ``AddReferenceSensor`` needs to called first before all the ``AddSensor``
+  // ``AddRefSensor`` needs to called first before all the ``AddSensor``
   // operation
-  inline void AddReferenceSensor(sensor_t ref_sensor_id);
+  inline void AddRefSensor(sensor_t ref_sensor_id);
   inline void AddSensor(sensor_t sensor_id, const Rigid3d& sensor_from_rig);
 
   // Check whether the sensor exists in the rig
@@ -191,25 +186,25 @@ bool RigCalibration::HasSensor(sensor_t sensor_id) const {
 
 size_t RigCalibration::NumSensors() const { return sensor_ids_.size(); }
 
-void RigCalibration::AddReferenceSensor(sensor_t ref_sensor_id) {
-  THROW_CHECK(sensor_ids_.empty());  // The reference sensor must be added first
+void RigCalibration::AddRefSensor(sensor_t ref_sensor_id) {
+  THROW_CHECK(sensor_ids_.empty())
+      << "Only one reference sensor is accepted and must be added before all "
+         "the sensors";
   ref_sensor_id_ = ref_sensor_id;
   sensor_ids_.insert(ref_sensor_id);
 }
 
 void RigCalibration::AddSensor(sensor_t sensor_id,
                                const Rigid3d& sensor_from_rig) {
-  if (NumSensors() == 0)
-    LOG(FATAL_THROW) << "The reference sensor needs to added first before any "
-                        "sensor being added.";
-  else {
-    THROW_CHECK(!HasSensor(sensor_id))
-        << StringPrintf("Sensor id (%d, %d) is inserted twice into the rig",
-                        sensor_id.type,
-                        sensor_id.id);
-    sensors_from_rig_.emplace(sensor_id, sensor_from_rig);
-    sensor_ids_.insert(sensor_id);
-  }
+  THROW_CHECK(NumSensors() >= 1)
+      << "The reference sensor needs to added first before any "
+         "sensor being added.";
+  THROW_CHECK(!HasSensor(sensor_id))
+      << StringPrintf("Sensor id (%d, %d) is inserted twice into the rig",
+                      sensor_id.type,
+                      sensor_id.id);
+  sensors_from_rig_.emplace(sensor_id, sensor_from_rig);
+  sensor_ids_.insert(sensor_id);
 }
 
 sensor_t RigCalibration::RefSensorId() const { return ref_sensor_id_; }
@@ -219,7 +214,9 @@ bool RigCalibration::IsReference(sensor_t sensor_id) const {
 }
 
 Rigid3d& RigCalibration::SensorFromRig(sensor_t sensor_id) {
-  THROW_CHECK(!IsReference(sensor_id));
+  THROW_CHECK(!IsReference(sensor_id))
+      << "No reference is available for the SensorFromRig transformation of "
+         "the reference sensor, which is identity";
   if (sensors_from_rig_.find(sensor_id) == sensors_from_rig_.end())
     LOG(FATAL_THROW) << StringPrintf(
         "Sensor id (%d, %d) not found in the rig calibration",
@@ -229,7 +226,9 @@ Rigid3d& RigCalibration::SensorFromRig(sensor_t sensor_id) {
 }
 
 const Rigid3d& RigCalibration::SensorFromRig(sensor_t sensor_id) const {
-  THROW_CHECK(!IsReference(sensor_id));
+  THROW_CHECK(!IsReference(sensor_id))
+      << "No reference is available for the SensorFromRig transformation of "
+         "the reference sensor, which is identity";
   auto it = sensors_from_rig_.find(sensor_id);
   if (it == sensors_from_rig_.end())
     LOG(FATAL_THROW) << StringPrintf(
