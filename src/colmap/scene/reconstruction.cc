@@ -267,7 +267,7 @@ void Reconstruction::DeleteAllPoints2DAndPoints3D() {
     new_image.SetCameraId(image.second.CameraId());
     new_image.SetCameraPtr(image.second.CameraPtr());
     new_image.SetCamFromWorld(image.second.MaybeCamFromWorld());
-    image.second = std::move(new_image);
+    image.second = new_image;
   }
 }
 
@@ -400,7 +400,7 @@ Reconstruction Reconstruction::Crop(const Eigen::AlignedBox3d& bbox) const {
     for (point2D_t point2D_idx = 0; point2D_idx < num_points2D; ++point2D_idx) {
       new_image.ResetPoint3DForPoint2D(point2D_idx);
     }
-    cropped_reconstruction.AddImage(std::move(new_image));
+    cropped_reconstruction.AddImage(new_image);
   }
   std::unordered_set<image_t> registered_image_ids;
   for (const auto& point3D : points3D_) {

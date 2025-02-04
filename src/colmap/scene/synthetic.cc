@@ -314,7 +314,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
 
     image.SetImageId(image_id);
     image.SetPoints2D(points2D);
-    reconstruction->AddImage(std::move(image));
+    reconstruction->AddImage(image);
     reconstruction->RegisterImage(image_id);
   }
 

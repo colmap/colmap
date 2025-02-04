@@ -214,7 +214,7 @@ void ReadImagesText(Reconstruction& reconstruction, std::istream& stream) {
       }
     }
 
-    reconstruction.AddImage(std::move(image));
+    reconstruction.AddImage(image);
   }
 }
 
@@ -377,7 +377,7 @@ void ReadImagesBinary(Reconstruction& reconstruction, std::istream& stream) {
       }
     }
 
-    reconstruction.AddImage(std::move(image));
+    reconstruction.AddImage(image);
   }
 }
 
