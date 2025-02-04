@@ -99,6 +99,8 @@ const data_t kInvalidDataId =
 // not ideal particularly when it comes to covariance estimation.
 class RigCalibration {
  public:
+  RigCalibration();
+
   // Access the unique identifier of the rig
   inline rig_t RigId() const;
   inline void SetRigId(rig_t rig_id);
@@ -138,6 +140,8 @@ class RigCalibration {
 
 class Frame {
  public:
+  Frame();
+
   // Access the unique identifier of the frame
   inline frame_t FrameId() const;
   inline void SetFrameId(frame_t frame_id);
@@ -175,7 +179,7 @@ class Frame {
   inline Rigid3d SensorFromWorld(sensor_t sensor_id) const;
 
  private:
-  frame_t frame_id_;
+  frame_t frame_id_ = kInvalidFrameId;
   std::set<data_t> data_ids_;
 
   // Store the frame_from_world transformation and an optional rig calibration.

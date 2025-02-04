@@ -39,7 +39,8 @@ Image::Image()
       name_(""),
       camera_id_(kInvalidCameraId),
       camera_ptr_(nullptr),
-      num_points3D_(0) {}
+      num_points3D_(0),
+      frame_(std::make_shared<class Frame>()) {}
 
 void Image::SetPoints2D(const std::vector<Eigen::Vector2d>& points) {
   THROW_CHECK(points2D_.empty());

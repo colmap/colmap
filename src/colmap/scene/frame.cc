@@ -31,6 +31,8 @@
 
 namespace colmap {
 
+RigCalibration::RigCalibration() {}
+
 void RigCalibration::AddRefSensor(sensor_t ref_sensor_id) {
   THROW_CHECK(ref_sensor_id_ == kInvalidSensorId)
       << "Reference sensor already set";
@@ -48,5 +50,7 @@ void RigCalibration::AddSensor(sensor_t sensor_id,
                       sensor_id.id);
   sensors_from_rig_.emplace(sensor_id, sensor_from_rig);
 }
+
+Frame::Frame() {}
 
 }  // namespace colmap

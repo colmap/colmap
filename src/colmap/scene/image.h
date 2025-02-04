@@ -90,7 +90,6 @@ class Image {
   inline void SetFrameId(frame_t frame_id);
   inline const std::shared_ptr<class Frame>& Frame() const;
   inline void SetFrame(std::shared_ptr<class Frame> frame);
-  inline bool HasFrame() const;
   // Check if the cam_from_world needs to be composited with rig calibration.
   inline bool HasNonTrivialFrame() const;
 
@@ -157,15 +156,9 @@ class Image {
   // where `point3D_id != kInvalidPoint3DId`.
   point2D_t num_points3D_;
 
-  // [Optional] The corresponding frame (rig) of the image
-  frame_t frame_id_;
-  std::shared_ptr<class Frame> frame_ = nullptr;
-
-  // The pose of the image, defined as the transformation from world to camera.
-  // Only useful when the corresponding frame (rig) does not exist.
-  // TODO: use a trivial frame for non-rig setup and remove necessity of this
-  // member.
-  std::optional<Rigid3d> cam_from_world_;
+  // The corresponding frame (rig) of the image. By default a trivial frame will
+  // be initialized for each image with frame_id_ = kInvalidFrameId.
+  std::shared_ptr<class Frame> frame_;
 
   // All image points, including points that are not part of a 3D point track.
   std::vector<struct Point2D> points2D_;
@@ -225,9 +218,9 @@ point2D_t Image::NumPoints2D() const {
 
 point2D_t Image::NumPoints3D() const { return num_points3D_; }
 
-frame_t Image::FrameId() const { return frame_id_; }
+frame_t Image::FrameId() const { return frame_->FrameId(); }
 
-void Image::SetFrameId(frame_t frame_id) { frame_id_ = frame_id; }
+void Image::SetFrameId(frame_t frame_id) { frame_->SetFrameId(frame_id); }
 
 const std::shared_ptr<class Frame>& Image::Frame() const { return frame_; }
 
@@ -235,105 +228,63 @@ void Image::SetFrame(std::shared_ptr<class Frame> frame) {
   frame_ = std::move(frame);
 }
 
-bool Image::HasFrame() const { return frame_ != nullptr; }
-
 bool Image::HasNonTrivialFrame() const {
-  return HasFrame() && frame_->HasRigCalibration() &&
+  THROW_CHECK(frame_) << "Invalid shared pointer to the corresponding frame";
+  return frame_->HasRigCalibration() &&
          !frame_->RigCalibration()->IsReference(
              sensor_t(SensorType::CAMERA, CameraId()));
 }
 
 Rigid3d Image::CamFromWorldValue() const {
-  if (HasFrame()) {
-    sensor_t sensor_id = sensor_t(SensorType::CAMERA, CameraId());
-    return frame_->SensorFromWorld(sensor_id);
-  } else {
-    THROW_CHECK(cam_from_world_) << "Image does not have a valid pose.";
-    return *cam_from_world_;
-  }
+  sensor_t sensor_id = sensor_t(SensorType::CAMERA, CameraId());
+  return frame_->SensorFromWorld(sensor_id);
 }
 
 const Rigid3d& Image::CamFromWorld() const {
   THROW_CHECK(!HasNonTrivialFrame())
       << "No reference available for cam_from_world transformation, since "
          "composition with rig calibration is needed";
-
-  if (HasFrame()) {
-    return frame_->FrameFromWorld();
-  } else {
-    THROW_CHECK(cam_from_world_) << "Image does not have a valid pose.";
-    return *cam_from_world_;
-  }
+  return frame_->FrameFromWorld();
 }
 
 Rigid3d& Image::CamFromWorld() {
   THROW_CHECK(!HasNonTrivialFrame())
       << "No reference available for cam_from_world transformation, since "
          "composition with rig calibration is needed";
-
-  if (HasFrame()) {
-    return frame_->FrameFromWorld();
-  } else {
-    THROW_CHECK(cam_from_world_) << "Image does not have a valid pose.";
-    return *cam_from_world_;
-  }
+  return frame_->FrameFromWorld();
 }
 
 const std::optional<Rigid3d>& Image::MaybeCamFromWorld() const {
   THROW_CHECK(!HasNonTrivialFrame())
       << "No reference available for cam_from_world transformation, since "
          "composition with rig calibration is needed";
-  if (HasFrame()) {
-    return frame_->MaybeFrameFromWorld();
-  }
-  return cam_from_world_;
+  return frame_->MaybeFrameFromWorld();
 }
 
 std::optional<Rigid3d>& Image::MaybeCamFromWorld() {
   THROW_CHECK(!HasNonTrivialFrame())
       << "No reference available for cam_from_world transformation, since "
          "composition with rig calibration is needed";
-  if (HasFrame()) {
-    return frame_->MaybeFrameFromWorld();
-  }
-  return cam_from_world_;
+  return frame_->MaybeFrameFromWorld();
 }
 
 void Image::SetCamFromWorld(const Rigid3d& cam_from_world) {
   THROW_CHECK(!HasNonTrivialFrame())
       << "No reference available for cam_from_world transformation, since "
          "composition with rig calibration is needed";
-  if (HasFrame()) {
-    frame_->SetFrameFromWorld(cam_from_world);
-  } else {
-    cam_from_world_ = cam_from_world;
-  }
+  frame_->SetFrameFromWorld(cam_from_world);
 }
 
 void Image::SetCamFromWorld(const std::optional<Rigid3d>& cam_from_world) {
   THROW_CHECK(!HasNonTrivialFrame())
       << "No reference available for cam_from_world transformation, since "
          "composition with rig calibration is needed";
-  if (HasFrame()) {
-    frame_->SetFrameFromWorld(cam_from_world);
-  } else {
-    cam_from_world_ = cam_from_world;
-  }
+  frame_->SetFrameFromWorld(cam_from_world);
 }
 
-bool Image::HasPose() const {
-  if (HasFrame())
-    return frame_->HasPose();
-  else
-    return cam_from_world_.has_value();
-}
+bool Image::HasPose() const { return frame_->HasPose(); }
 
-void Image::ResetPose() {
-  if (HasFrame())
-    frame_->ResetPose();
-  else
-    cam_from_world_.reset();
-}
+void Image::ResetPose() { frame_->ResetPose(); }
 
 const struct Point2D& Image::Point2D(const point2D_t point2D_idx) const {
   return points2D_.at(point2D_idx);
@@ -350,8 +301,7 @@ std::vector<struct Point2D>& Image::Points2D() { return points2D_; }
 bool Image::operator==(const Image& other) const {
   return image_id_ == other.image_id_ && camera_id_ == other.camera_id_ &&
          name_ == other.name_ && num_points3D_ == other.num_points3D_ &&
-         cam_from_world_ == other.cam_from_world_ &&
-         points2D_ == other.points2D_;
+         Frame() == other.Frame() && points2D_ == other.points2D_;
 }
 
 bool Image::operator!=(const Image& other) const { return !(*this == other); }
