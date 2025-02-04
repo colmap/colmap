@@ -45,11 +45,11 @@
 namespace colmap {
 
 // Sensor type
-MAKE_ENUM_CLASS_OVERLOAD_STREAM(SensorType, 0, CAMERA, IMU);
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(SensorType, -1, INVALID, CAMERA, IMU);
 
 struct sensor_t {
   SensorType type;
-  uint32_t id;
+  uint32_t id;  // This can be camera_t / imu_t (not supported yet)
   sensor_t(const SensorType& type, uint32_t id) : type(type), id(id) {}
 
   inline bool operator<(const sensor_t& other) const {
@@ -59,10 +59,12 @@ struct sensor_t {
     return type == other.type && id == other.id;
   }
 };
+const sensor_t kInvalidSensorId =
+    sensor_t(SensorType::INVALID, std::numeric_limits<uint32_t>::max());
 
 struct data_t {
   sensor_t sensor_id;
-  uint64_t id;
+  uint64_t id;  // This can be image_t / imu_measurement_t (not supported yet)
   data_t(const sensor_t& sensor_id, uint64_t id)
       : sensor_id(sensor_id), id(id) {}
 
@@ -73,6 +75,8 @@ struct data_t {
     return sensor_id == other.sensor_id && id == other.id;
   }
 };
+const data_t kInvalidDataId =
+    data_t(kInvalidSensorId, std::numeric_limits<uint64_t>::max());
 
 // Rig calibration storing the sensor from rig transformation.
 // The reference sensor shares identity poses with the device.
@@ -114,10 +118,7 @@ class RigCalibration {
   rig_t rig_id_;
 
   // Reference sensor id which has the identity transformation to the rig.
-  sensor_t ref_sensor_id_;
-
-  // list of sensors
-  std::set<sensor_t> sensor_ids_;
+  sensor_t ref_sensor_id_ = kInvalidSensorId;
 
   // sensor_from_rig transformation.
   std::map<sensor_t, Rigid3d> sensors_from_rig_;
@@ -181,17 +182,19 @@ rig_t RigCalibration::RigId() const { return rig_id_; }
 void RigCalibration::SetRigId(rig_t rig_id) { rig_id_ = rig_id; }
 
 bool RigCalibration::HasSensor(sensor_t sensor_id) const {
-  return sensor_ids_.find(sensor_id) != sensor_ids_.end();
+  return sensor_id == ref_sensor_id_ ||
+         sensors_from_rig_.find(sensor_id) != sensors_from_rig_.end();
 }
 
-size_t RigCalibration::NumSensors() const { return sensor_ids_.size(); }
+size_t RigCalibration::NumSensors() const {
+  return sensors_from_rig_.size() + (ref_sensor_id_ == kInvalidSensorId) ? 0
+                                                                         : 1;
+}
 
 void RigCalibration::AddRefSensor(sensor_t ref_sensor_id) {
-  THROW_CHECK(sensor_ids_.empty())
-      << "Only one reference sensor is accepted and must be added before all "
-         "the sensors";
+  THROW_CHECK(ref_sensor_id_ == kInvalidSensorId)
+      << "Reference sensor already set";
   ref_sensor_id_ = ref_sensor_id;
-  sensor_ids_.insert(ref_sensor_id);
 }
 
 void RigCalibration::AddSensor(sensor_t sensor_id,
@@ -204,7 +207,6 @@ void RigCalibration::AddSensor(sensor_t sensor_id,
                       sensor_id.type,
                       sensor_id.id);
   sensors_from_rig_.emplace(sensor_id, sensor_from_rig);
-  sensor_ids_.insert(sensor_id);
 }
 
 sensor_t RigCalibration::RefSensorId() const { return ref_sensor_id_; }
