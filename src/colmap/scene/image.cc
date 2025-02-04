@@ -42,6 +42,45 @@ Image::Image()
       num_points3D_(0),
       frame_(std::make_shared<class Frame>()) {}
 
+Image::Image(const Image& other)
+    : image_id_(other.ImageId()),
+      name_(other.Name()),
+      camera_id_(other.CameraId()),
+      camera_ptr_(nullptr),
+      num_points3D_(other.NumPoints3D()),
+      points2D_(other.Points2D()) {
+  if (other.HasCameraPtr()) {
+    camera_ptr_ = other.CameraPtr();
+  }
+  if (other.HasNonTrivialFrame()) {
+    frame_ = other.Frame();
+  } else {
+    frame_ = std::make_shared<class Frame>();
+    frame_->SetFrameFromWorld(other.MaybeCamFromWorld());
+  }
+}
+
+Image& Image::operator=(const Image& other) {
+  if (this != &other) {
+    image_id_ = other.ImageId();
+    name_ = other.Name();
+    camera_id_ = other.CameraId();
+    camera_ptr_ = nullptr;
+    if (other.HasCameraPtr()) {
+      camera_ptr_ = other.CameraPtr();
+    }
+    num_points3D_ = other.NumPoints3D();
+    points2D_ = other.Points2D();
+    if (other.HasNonTrivialFrame()) {
+      frame_ = other.Frame();
+    } else {
+      frame_ = std::make_shared<class Frame>();
+      frame_->SetFrameFromWorld(other.MaybeCamFromWorld());
+    }
+  }
+  return *this;
+}
+
 void Image::SetPoints2D(const std::vector<Eigen::Vector2d>& points) {
   THROW_CHECK(points2D_.empty());
   points2D_.resize(points.size());
