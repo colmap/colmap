@@ -70,7 +70,7 @@ struct data_t {
   sensor_t sensor_id;
   // Unique identifier of the data (measurement)
   // This can be image_t / imu_measurement_t (not supported yet)
-  uint64_t id;
+  uint32_t id;
   data_t(const sensor_t& sensor_id, uint64_t id)
       : sensor_id(sensor_id), id(id) {}
 
@@ -82,7 +82,7 @@ struct data_t {
   }
 };
 const data_t kInvalidDataId =
-    data_t(kInvalidSensorId, std::numeric_limits<uint64_t>::max());
+    data_t(kInvalidSensorId, std::numeric_limits<uint32_t>::max());
 
 // Rig calibration storing the sensor from rig transformation.
 // The reference sensor shares identity poses with the device.
