@@ -65,6 +65,16 @@ void ReadPoints3DBinary(Reconstruction& reconstruction, std::istream& stream);
 void ReadPoints3DBinary(Reconstruction& reconstruction,
                         const std::string& path);
 
+void ReadConstrainingPointsText(Reconstruction& reconstruction,
+                                std::istream& stream);
+void ReadConstrainingPointsText(Reconstruction& reconstruction,
+                                const std::string& path);
+
+void ReadConstrainingPointsBinary(Reconstruction& reconstruction,
+                                  std::istream& stream);
+void ReadConstrainingPointsBinary(Reconstruction& reconstruction,
+                                  const std::string& path);
+
 void WriteCamerasText(const Reconstruction& reconstruction,
                       std::ostream& stream);
 void WriteCamerasText(const Reconstruction& reconstruction,
@@ -84,6 +94,11 @@ void WritePoints3DText(const Reconstruction& reconstruction,
 void WritePoints3DText(const Reconstruction& reconstruction,
                        const std::string& path);
 
+void WriteConstrainingPointsText(const Reconstruction& reconstruction,
+                                 std::ostream& stream);
+void WriteConstrainingPointsText(const Reconstruction& reconstruction,
+                                 const std::string& path);
+
 void WriteCamerasBinary(const Reconstruction& reconstruction,
                         std::ostream& stream);
 void WriteCamerasBinary(const Reconstruction& reconstruction,
@@ -102,6 +117,11 @@ void WritePoints3DBinary(const Reconstruction& reconstruction,
                          std::ostream& stream);
 void WritePoints3DBinary(const Reconstruction& reconstruction,
                          const std::string& path);
+
+void WriteConstrainingPointsBinary(const Reconstruction& reconstruction,
+                                   std::ostream& stream);
+void WriteConstrainingPointsBinary(const Reconstruction& reconstruction,
+                                   const std::string& path);
 
 // Exports in NVM format http://ccwu.me/vsfm/doc.html#nvm. Only supports
 // SIMPLE_RADIAL camera model when exporting distortion parameters. When

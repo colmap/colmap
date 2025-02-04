@@ -621,18 +621,24 @@ void Reconstruction::ReadText(const std::string& path) {
   cameras_.clear();
   images_.clear();
   points3D_.clear();
+  constrainingPoints3D_.clear();
   ReadCamerasText(*this, JoinPaths(path, "cameras.txt"));
   ReadImagesText(*this, JoinPaths(path, "images.txt"));
   ReadPoints3DText(*this, JoinPaths(path, "points3D.txt"));
+  ReadConstrainingPointsText(*this,
+                             JoinPaths(path, "constraining_points3D.txt"));
 }
 
 void Reconstruction::ReadBinary(const std::string& path) {
   cameras_.clear();
   images_.clear();
   points3D_.clear();
+  constrainingPoints3D_.clear();
   ReadCamerasBinary(*this, JoinPaths(path, "cameras.bin"));
   ReadImagesBinary(*this, JoinPaths(path, "images.bin"));
   ReadPoints3DBinary(*this, JoinPaths(path, "points3D.bin"));
+  ReadConstrainingPointsBinary(*this,
+                               JoinPaths(path, "constraining_points3D.bin"));
 }
 
 void Reconstruction::WriteText(const std::string& path) const {
@@ -640,6 +646,8 @@ void Reconstruction::WriteText(const std::string& path) const {
   WriteCamerasText(*this, JoinPaths(path, "cameras.txt"));
   WriteImagesText(*this, JoinPaths(path, "images.txt"));
   WritePoints3DText(*this, JoinPaths(path, "points3D.txt"));
+  WriteConstrainingPointsText(*this,
+                              JoinPaths(path, "constraining_points3D.txt"));
 }
 
 void Reconstruction::WriteBinary(const std::string& path) const {
@@ -647,6 +655,8 @@ void Reconstruction::WriteBinary(const std::string& path) const {
   WriteCamerasBinary(*this, JoinPaths(path, "cameras.bin"));
   WriteImagesBinary(*this, JoinPaths(path, "images.bin"));
   WritePoints3DBinary(*this, JoinPaths(path, "points3D.bin"));
+  WriteConstrainingPointsBinary(*this,
+                                JoinPaths(path, "constraining_points3D.bin"));
 }
 
 std::vector<PlyPoint> Reconstruction::ConvertToPLY() const {
@@ -804,6 +814,7 @@ void Reconstruction::ReadTextLegacy(const std::string& path) {
   cameras_.clear();
   images_.clear();
   points3D_.clear();
+  constrainingPoints3D_.clear();
   ReadCamerasText(*this, JoinPaths(path, "cameras.txt"));
   ReadImagesTextLegacy(*this, JoinPaths(path, "images.txt"));
   ReadPoints3DText(*this, JoinPaths(path, "points3D.txt"));
@@ -813,6 +824,7 @@ void Reconstruction::ReadBinaryLegacy(const std::string& path) {
   cameras_.clear();
   images_.clear();
   points3D_.clear();
+  constrainingPoints3D_.clear();
   ReadCamerasBinary(*this, JoinPaths(path, "cameras.bin"));
   ReadImagesBinaryLegacy(*this, JoinPaths(path, "images.bin"));
   ReadPoints3DBinary(*this, JoinPaths(path, "points3D.bin"));

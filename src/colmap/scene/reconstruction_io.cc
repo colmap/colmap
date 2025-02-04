@@ -1491,4 +1491,128 @@ void ExportVRML(const Reconstruction& reconstruction,
   points3D_file << " ] } } }\n";
 }
 
+void ReadConstrainingPointsText(Reconstruction& reconstruction,
+                                std::istream& stream) {
+  THROW_CHECK(stream.good());
+
+  std::string line;
+  std::string item;
+
+  while (std::getline(stream, line)) {
+    StringTrim(&line);
+
+    if (line.empty() || line[0] == '#') {
+      continue;
+    }
+
+    std::stringstream line_stream(line);
+
+    // ID
+    std::getline(line_stream, item, ' ');
+    const point3D_t point3D_id = std::stoll(item);
+
+    struct ConstrainingPoint3D point3D;
+
+    // XYZ
+    std::getline(line_stream, item, ' ');
+    point3D.xyz(0) = std::stold(item);
+
+    std::getline(line_stream, item, ' ');
+    point3D.xyz(1) = std::stold(item);
+
+    std::getline(line_stream, item, ' ');
+    point3D.xyz(2) = std::stold(item);
+
+    reconstruction.AddConstrainingPoint3D(point3D_id, std::move(point3D));
+  }
+}
+
+void ReadConstrainingPointsText(Reconstruction& reconstruction,
+                                const std::string& path) {
+  std::ifstream file(path);
+  THROW_CHECK_FILE_OPEN(file, path);
+  ReadConstrainingPointsText(reconstruction, file);
+}
+
+void ReadConstrainingPointsBinary(Reconstruction& reconstruction,
+                                  std::istream& stream) {
+  THROW_CHECK(stream.good());
+
+  const size_t num_points3D = ReadBinaryLittleEndian<uint64_t>(&stream);
+  for (size_t i = 0; i < num_points3D; ++i) {
+    struct ConstrainingPoint3D point3D;
+
+    const point3D_t point3D_id = ReadBinaryLittleEndian<point3D_t>(&stream);
+
+    point3D.xyz(0) = ReadBinaryLittleEndian<double>(&stream);
+    point3D.xyz(1) = ReadBinaryLittleEndian<double>(&stream);
+    point3D.xyz(2) = ReadBinaryLittleEndian<double>(&stream);
+
+    reconstruction.AddConstrainingPoint3D(point3D_id, std::move(point3D));
+  }
+}
+
+void ReadConstrainingPointsBinary(Reconstruction& reconstruction,
+                                  const std::string& path) {
+  std::ifstream file(path, std::ios::binary);
+  THROW_CHECK_FILE_OPEN(file, path);
+  ReadConstrainingPointsBinary(reconstruction, file);
+}
+
+void WriteConstrainingPointsText(const Reconstruction& reconstruction,
+                                 std::ostream& stream) {
+  THROW_CHECK(stream.good());
+
+  // Ensure that we don't lose any precision by storing in text.
+  stream.precision(17);
+
+  stream << "# Constraining 3D point list with one line of data per point:"
+         << std::endl;
+  stream << "#   POINT3D_ID, X, Y, Z" << std::endl;
+  stream << "# Number of points: " << reconstruction.NumConstrainingPoints3D()
+         << std::endl;
+
+  for (const point3D_t point3D_id : reconstruction.ConstrainingPoint3DIds()) {
+    const ConstrainingPoint3D& point3D =
+        reconstruction.ConstrainingPoint3D(point3D_id);
+
+    stream << point3D_id << " ";
+    stream << point3D.xyz(0) << " ";
+    stream << point3D.xyz(1) << " ";
+    stream << point3D.xyz(2) << std::endl;
+  }
+}
+
+void WriteConstrainingPointsText(const Reconstruction& reconstruction,
+                                 const std::string& path) {
+  std::ofstream file(path, std::ios::trunc);
+  THROW_CHECK_FILE_OPEN(file, path);
+  WriteConstrainingPointsText(reconstruction, file);
+}
+
+void WriteConstrainingPointsBinary(const Reconstruction& reconstruction,
+                                   std::ostream& stream) {
+  THROW_CHECK(stream.good());
+
+  WriteBinaryLittleEndian<uint64_t>(&stream,
+                                    reconstruction.NumConstrainingPoints3D());
+
+  for (const point3D_t point3D_id : reconstruction.ConstrainingPoint3DIds()) {
+    const ConstrainingPoint3D& point3D =
+        reconstruction.ConstrainingPoint3D(point3D_id);
+
+    WriteBinaryLittleEndian<point3D_t>(&stream, point3D_id);
+    WriteBinaryLittleEndian<double>(&stream, point3D.xyz(0));
+    WriteBinaryLittleEndian<double>(&stream, point3D.xyz(1));
+    WriteBinaryLittleEndian<double>(&stream, point3D.xyz(2));
+  }
+}
+
+void WriteConstrainingPointsBinary(const Reconstruction& reconstruction,
+                                   const std::string& path) {
+  std::ofstream file(path, std::ios::trunc | std::ios::binary);
+  THROW_CHECK_FILE_OPEN(file, path);
+  WriteConstrainingPointsBinary(reconstruction, file);
+}
+
 }  // namespace colmap
