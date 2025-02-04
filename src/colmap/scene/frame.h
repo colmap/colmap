@@ -100,8 +100,8 @@ class RigCalibration {
   // Add sensor into the rig
   // ``AddRefSensor`` needs to called first before all the ``AddSensor``
   // operation
-  inline void AddRefSensor(sensor_t ref_sensor_id);
-  inline void AddSensor(sensor_t sensor_id, const Rigid3d& sensor_from_rig);
+  void AddRefSensor(sensor_t ref_sensor_id);
+  void AddSensor(sensor_t sensor_id, const Rigid3d& sensor_from_rig);
 
   // Check whether the sensor exists in the rig
   inline bool HasSensor(sensor_t sensor_id) const;
@@ -195,24 +195,6 @@ bool RigCalibration::HasSensor(sensor_t sensor_id) const {
 size_t RigCalibration::NumSensors() const {
   return sensors_from_rig_.size() + (ref_sensor_id_ == kInvalidSensorId) ? 0
                                                                          : 1;
-}
-
-void RigCalibration::AddRefSensor(sensor_t ref_sensor_id) {
-  THROW_CHECK(ref_sensor_id_ == kInvalidSensorId)
-      << "Reference sensor already set";
-  ref_sensor_id_ = ref_sensor_id;
-}
-
-void RigCalibration::AddSensor(sensor_t sensor_id,
-                               const Rigid3d& sensor_from_rig) {
-  THROW_CHECK(NumSensors() >= 1)
-      << "The reference sensor needs to added first before any "
-         "sensor being added.";
-  THROW_CHECK(!HasSensor(sensor_id))
-      << StringPrintf("Sensor id (%d, %d) is inserted twice into the rig",
-                      sensor_id.type,
-                      sensor_id.id);
-  sensors_from_rig_.emplace(sensor_id, sensor_from_rig);
 }
 
 sensor_t RigCalibration::RefSensorId() const { return ref_sensor_id_; }
