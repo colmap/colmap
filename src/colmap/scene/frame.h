@@ -48,8 +48,11 @@ namespace colmap {
 MAKE_ENUM_CLASS_OVERLOAD_STREAM(SensorType, -1, INVALID, CAMERA, IMU);
 
 struct sensor_t {
+  // Type of the sensor (INVALID / CAMERA / IMU)
   SensorType type;
-  uint32_t id;  // This can be camera_t / imu_t (not supported yet)
+  // Unique identifier of the sensor.
+  // This can be camera_t / imu_t (not supported yet)
+  uint32_t id;
   sensor_t(const SensorType& type, uint32_t id) : type(type), id(id) {}
 
   inline bool operator<(const sensor_t& other) const {
@@ -63,8 +66,11 @@ const sensor_t kInvalidSensorId =
     sensor_t(SensorType::INVALID, std::numeric_limits<uint32_t>::max());
 
 struct data_t {
+  // Unique identifer of the sensor
   sensor_t sensor_id;
-  uint64_t id;  // This can be image_t / imu_measurement_t (not supported yet)
+  // Unique identifier of the data (measurement)
+  // This can be image_t / imu_measurement_t (not supported yet)
+  uint64_t id;
   data_t(const sensor_t& sensor_id, uint64_t id)
       : sensor_id(sensor_id), id(id) {}
 
