@@ -242,7 +242,7 @@ void Image::SetFrame(std::shared_ptr<class Frame> frame) {
 bool Image::HasNonTrivialFrame() const {
   THROW_CHECK(frame_) << "Invalid pointer to the corresponding frame";
   return frame_->HasRigCalibration() &&
-         !frame_->RigCalibration()->IsReference(
+         !frame_->RigCalibration()->IsRefSensor(
              sensor_t(SensorType::CAMERA, CameraId()));
 }
 

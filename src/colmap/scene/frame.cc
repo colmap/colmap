@@ -31,8 +31,6 @@
 
 namespace colmap {
 
-RigCalibration::RigCalibration() {}
-
 void RigCalibration::AddRefSensor(sensor_t ref_sensor_id) {
   THROW_CHECK(ref_sensor_id_ == kInvalidSensorId)
       << "Reference sensor already set";
@@ -40,7 +38,7 @@ void RigCalibration::AddRefSensor(sensor_t ref_sensor_id) {
 }
 
 void RigCalibration::AddSensor(sensor_t sensor_id,
-                               const Rigid3d& sensor_from_rig) {
+                               const std::optional<Rigid3d>& sensor_from_rig) {
   THROW_CHECK(NumSensors() >= 1)
       << "The reference sensor needs to added first before any "
          "sensor being added.";
@@ -50,7 +48,5 @@ void RigCalibration::AddSensor(sensor_t sensor_id,
                       sensor_id.id);
   sensors_from_rig_.emplace(sensor_id, sensor_from_rig);
 }
-
-Frame::Frame() {}
 
 }  // namespace colmap
