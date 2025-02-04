@@ -50,7 +50,7 @@ TEST(RigCalibration, SetUp) {
   calib.AddRefSensor(sensor_t(SensorType::IMU, 0));
   calib.AddSensor(sensor_t(SensorType::IMU, 1), TestRigid3d());
   calib.AddSensor(sensor_t(SensorType::CAMERA, 0), TestRigid3d());
-  calib.AddSensor(sensor_t(SensorType::CAMERA, 1)); // no input sensor_from_rig
+  calib.AddSensor(sensor_t(SensorType::CAMERA, 1));  // no input sensor_from_rig
 
   EXPECT_EQ(calib.NumSensors(), 4);
   EXPECT_EQ(calib.RefSensorId().type, SensorType::IMU);
