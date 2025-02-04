@@ -61,6 +61,9 @@ struct sensor_t {
   inline bool operator==(const sensor_t& other) const {
     return type == other.type && id == other.id;
   }
+  inline bool operator!=(const sensor_t& other) const {
+    return !(*this == other);
+  }
 };
 const sensor_t kInvalidSensorId =
     sensor_t(SensorType::INVALID, std::numeric_limits<uint32_t>::max());
@@ -79,6 +82,9 @@ struct data_t {
   }
   inline bool operator==(const data_t& other) const {
     return sensor_id == other.sensor_id && id == other.id;
+  }
+  inline bool operator!=(const data_t& other) const {
+    return !(*this == other);
   }
 };
 const data_t kInvalidDataId =
@@ -194,8 +200,9 @@ bool RigCalibration::HasSensor(sensor_t sensor_id) const {
 }
 
 size_t RigCalibration::NumSensors() const {
-  return sensors_from_rig_.size() + (ref_sensor_id_ == kInvalidSensorId) ? 0
-                                                                         : 1;
+  size_t n_sensors = sensors_from_rig_.size();
+  if (ref_sensor_id_ != kInvalidSensorId) n_sensors += 1;
+  return n_sensors;
 }
 
 sensor_t RigCalibration::RefSensorId() const { return ref_sensor_id_; }
