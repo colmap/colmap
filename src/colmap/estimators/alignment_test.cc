@@ -39,6 +39,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 Sim3d TestSim3d() {
   return Sim3d(RandomUniformReal<double>(0.5, 2),
@@ -206,4 +207,5 @@ TEST(Alignment, MergeReconstructions) {
             src_reconstruction.ComputeNumObservations());
 }
 
+}  // namespace
 }  // namespace colmap
