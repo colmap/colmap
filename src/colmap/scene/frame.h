@@ -194,7 +194,6 @@ class Frame {
   std::optional<Rigid3d> frame_from_world_;
 
   // [Optional] Rig calibration
-  rig_t rig_id_ = kInvalidRigId;
   std::shared_ptr<class RigCalibration> rig_calibration_ = nullptr;
 };
 
