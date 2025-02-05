@@ -101,7 +101,7 @@ class Image {
   // World to camera pose.
   // Get the value (copy) of cam_from_world. This also supports non-trivial
   // frame (rig).
-  inline Rigid3d CamFromWorldValue() const;
+  inline Rigid3d ComposeCamFromWorld() const;
 
   // The following methods only works for non-composited pose. Will throw an
   // error if the image has a non-trivial frame (rig) attached to it.
@@ -246,7 +246,7 @@ bool Image::HasNonTrivialFrame() const {
              sensor_t(SensorType::CAMERA, CameraId()));
 }
 
-Rigid3d Image::CamFromWorldValue() const {
+Rigid3d Image::ComposeCamFromWorld() const {
   sensor_t sensor_id = sensor_t(SensorType::CAMERA, CameraId());
   return frame_->SensorFromWorld(sensor_id);
 }
@@ -321,7 +321,7 @@ bool Image::operator==(const Image& other) const {
   if (!HasPose()) {
     return res;
   } else {
-    return res && CamFromWorldValue() == other.CamFromWorldValue();
+    return res && ComposeCamFromWorld() == other.ComposeCamFromWorld();
   }
 }
 
