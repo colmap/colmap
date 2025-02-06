@@ -38,15 +38,15 @@ Rigid3d TestRigid3d() {
   return Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
 }
 
-TEST(RigCalibration, Default) {
-  RigCalibration calib;
+TEST(RigCalib, Default) {
+  RigCalib calib;
   EXPECT_EQ(calib.RigId(), kInvalidRigId);
   EXPECT_EQ(calib.RefSensorId(), kInvalidSensorId);
   EXPECT_EQ(calib.NumSensors(), 0);
 }
 
-TEST(RigCalibration, SetUp) {
-  RigCalibration calib;
+TEST(RigCalib, SetUp) {
+  RigCalib calib;
   calib.AddRefSensor(sensor_t(SensorType::IMU, 0));
   calib.AddSensor(sensor_t(SensorType::IMU, 1), TestRigid3d());
   calib.AddSensor(sensor_t(SensorType::CAMERA, 0), TestRigid3d());

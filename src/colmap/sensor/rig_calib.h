@@ -76,9 +76,9 @@ constexpr sensor_t kInvalidSensorId =
 // the reference frame since it is metric.
 // 2) Not having a reference frame brings a 6 DoF Gauge for each rig, which is
 // not ideal particularly when it comes to covariance estimation.
-class RigCalibration {
+class RigCalib {
  public:
-  RigCalibration() = default;
+  RigCalib() = default;
 
   // Access the unique identifier of the rig
   inline rig_t RigId() const;
@@ -130,28 +130,28 @@ class RigCalibration {
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////
 
-rig_t RigCalibration::RigId() const { return rig_id_; }
+rig_t RigCalib::RigId() const { return rig_id_; }
 
-void RigCalibration::SetRigId(rig_t rig_id) { rig_id_ = rig_id; }
+void RigCalib::SetRigId(rig_t rig_id) { rig_id_ = rig_id; }
 
-bool RigCalibration::HasSensor(sensor_t sensor_id) const {
+bool RigCalib::HasSensor(sensor_t sensor_id) const {
   return sensor_id == ref_sensor_id_ ||
          sensors_from_rig_.find(sensor_id) != sensors_from_rig_.end();
 }
 
-size_t RigCalibration::NumSensors() const {
+size_t RigCalib::NumSensors() const {
   size_t n_sensors = sensors_from_rig_.size();
   if (ref_sensor_id_ != kInvalidSensorId) n_sensors += 1;
   return n_sensors;
 }
 
-sensor_t RigCalibration::RefSensorId() const { return ref_sensor_id_; }
+sensor_t RigCalib::RefSensorId() const { return ref_sensor_id_; }
 
-bool RigCalibration::IsRefSensor(sensor_t sensor_id) const {
+bool RigCalib::IsRefSensor(sensor_t sensor_id) const {
   return sensor_id == ref_sensor_id_;
 }
 
-Rigid3d& RigCalibration::SensorFromRig(sensor_t sensor_id) {
+Rigid3d& RigCalib::SensorFromRig(sensor_t sensor_id) {
   THROW_CHECK(!IsRefSensor(sensor_id))
       << "No reference is available for the SensorFromRig transformation of "
          "the reference sensor, which is identity";
@@ -165,7 +165,7 @@ Rigid3d& RigCalibration::SensorFromRig(sensor_t sensor_id) {
   return *sensors_from_rig_.at(sensor_id);
 }
 
-const Rigid3d& RigCalibration::SensorFromRig(sensor_t sensor_id) const {
+const Rigid3d& RigCalib::SensorFromRig(sensor_t sensor_id) const {
   THROW_CHECK(!IsRefSensor(sensor_id))
       << "No reference is available for the SensorFromRig transformation of "
          "the reference sensor, which is identity";
@@ -179,7 +179,7 @@ const Rigid3d& RigCalibration::SensorFromRig(sensor_t sensor_id) const {
   return *sensors_from_rig_.at(sensor_id);
 }
 
-std::optional<Rigid3d>& RigCalibration::MaybeSensorFromRig(sensor_t sensor_id) {
+std::optional<Rigid3d>& RigCalib::MaybeSensorFromRig(sensor_t sensor_id) {
   THROW_CHECK(!IsRefSensor(sensor_id))
       << "No reference is available for the SensorFromRig transformation of "
          "the reference sensor, which is identity";
@@ -191,7 +191,7 @@ std::optional<Rigid3d>& RigCalibration::MaybeSensorFromRig(sensor_t sensor_id) {
   return sensors_from_rig_.at(sensor_id);
 }
 
-const std::optional<Rigid3d>& RigCalibration::MaybeSensorFromRig(
+const std::optional<Rigid3d>& RigCalib::MaybeSensorFromRig(
     sensor_t sensor_id) const {
   THROW_CHECK(!IsRefSensor(sensor_id))
       << "No reference is available for the SensorFromRig transformation of "
@@ -204,8 +204,8 @@ const std::optional<Rigid3d>& RigCalibration::MaybeSensorFromRig(
   return sensors_from_rig_.at(sensor_id);
 }
 
-void RigCalibration::SetSensorFromRig(sensor_t sensor_id,
-                                      const Rigid3d& sensor_from_rig) {
+void RigCalib::SetSensorFromRig(sensor_t sensor_id,
+                                const Rigid3d& sensor_from_rig) {
   THROW_CHECK(!IsRefSensor(sensor_id))
       << "Cannot set the SensorFromRig transformation of the reference sensor, "
          "which is fixed to identity";
@@ -217,8 +217,8 @@ void RigCalibration::SetSensorFromRig(sensor_t sensor_id,
   sensors_from_rig_.at(sensor_id) = sensor_from_rig;
 }
 
-void RigCalibration::SetSensorFromRig(
-    sensor_t sensor_id, const std::optional<Rigid3d>& sensor_from_rig) {
+void RigCalib::SetSensorFromRig(sensor_t sensor_id,
+                                const std::optional<Rigid3d>& sensor_from_rig) {
   THROW_CHECK(!IsRefSensor(sensor_id))
       << "Cannot set the SensorFromRig transformation of the reference sensor, "
          "which is fixed to identity";
@@ -230,7 +230,7 @@ void RigCalibration::SetSensorFromRig(
   sensors_from_rig_.at(sensor_id) = sensor_from_rig;
 }
 
-bool RigCalibration::HasSensorFromRig(sensor_t sensor_id) const {
+bool RigCalib::HasSensorFromRig(sensor_t sensor_id) const {
   if (IsRefSensor(sensor_id))
     return true;  // SensorFromRig for the reference sensor is always identity
   if (sensors_from_rig_.find(sensor_id) == sensors_from_rig_.end())
@@ -241,7 +241,7 @@ bool RigCalibration::HasSensorFromRig(sensor_t sensor_id) const {
   return sensors_from_rig_.at(sensor_id).has_value();
 }
 
-void RigCalibration::ResetSensorFromRig(sensor_t sensor_id) {
+void RigCalib::ResetSensorFromRig(sensor_t sensor_id) {
   THROW_CHECK(!IsRefSensor(sensor_id))
       << "Cannot reset the SensorFromRig transformation of the reference "
          "sensor, "
