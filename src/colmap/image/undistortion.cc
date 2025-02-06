@@ -802,13 +802,8 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
   undistorted_camera.SetFocalLengthY(camera.FocalLengthY());
 
   // Copy principal point parameters.
-  if (options.center_principal_point) {
-    undistorted_camera.SetPrincipalPointX(0.5 * camera.width);
-    undistorted_camera.SetPrincipalPointY(0.5 * camera.height);
-  } else {
-    undistorted_camera.SetPrincipalPointX(camera.PrincipalPointX());
-    undistorted_camera.SetPrincipalPointY(camera.PrincipalPointY());
-  }
+  undistorted_camera.SetPrincipalPointX(camera.PrincipalPointX());
+  undistorted_camera.SetPrincipalPointY(camera.PrincipalPointY());
 
   // Modify undistorted camera parameters based on ROI if enabled
   size_t roi_min_x = 0;
@@ -953,6 +948,11 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
     if (max_image_scale < 1.0) {
       undistorted_camera.Rescale(max_image_scale);
     }
+  }
+
+  if (options.center_principal_point) {
+    undistorted_camera.SetPrincipalPointX(0.5 * undistorted_camera.width);
+    undistorted_camera.SetPrincipalPointY(0.5 * undistorted_camera.height);
   }
 
   return undistorted_camera;

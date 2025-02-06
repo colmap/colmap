@@ -118,6 +118,32 @@ TEST(UndistortCamera, ForceCenterPrincipalPoint) {
   EXPECT_EQ(undistorted_camera.PrincipalPointY(), 40);
   EXPECT_EQ(undistorted_camera.width, 100);
   EXPECT_EQ(undistorted_camera.height, 80);
+
+  distorted_camera =
+      Camera::CreateFromModelName(1, "SIMPLE_RADIAL", 100, 100, 80);
+  distorted_camera.params[3] = 0.5;
+  undistorted_camera = UndistortCamera(options, distorted_camera);
+  EXPECT_EQ(undistorted_camera.ModelName(), "PINHOLE");
+  EXPECT_EQ(undistorted_camera.FocalLengthX(), 100);
+  EXPECT_EQ(undistorted_camera.FocalLengthY(), 100);
+  EXPECT_EQ(undistorted_camera.PrincipalPointX(), 42.5);
+  EXPECT_EQ(undistorted_camera.PrincipalPointY(), 34);
+  EXPECT_EQ(undistorted_camera.width, 85);
+  EXPECT_EQ(undistorted_camera.height, 68);
+
+  options.max_image_size = 50;
+
+  distorted_camera =
+      Camera::CreateFromModelName(1, "SIMPLE_RADIAL", 100, 100, 80);
+  distorted_camera.params[3] = 0.5;
+  undistorted_camera = UndistortCamera(options, distorted_camera);
+  EXPECT_EQ(undistorted_camera.ModelName(), "PINHOLE");
+  EXPECT_NEAR(undistorted_camera.FocalLengthX(), 58.823, 1e-3);
+  EXPECT_NEAR(undistorted_camera.FocalLengthY(), 58.823, 1e-3);
+  EXPECT_EQ(undistorted_camera.PrincipalPointX(), 25);
+  EXPECT_EQ(undistorted_camera.PrincipalPointY(), 20);
+  EXPECT_EQ(undistorted_camera.width, 50);
+  EXPECT_EQ(undistorted_camera.height, 40);
 }
 
 TEST(UndistortCamera, BlankPixels) {
