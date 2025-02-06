@@ -82,10 +82,10 @@ class Frame {
   // Check whether the data id is existent in the frame
   inline bool HasData(data_t data_id) const;
 
-  // Access the rig calib
+  // Access the rig calibration
   inline const std::shared_ptr<class RigCalib>& RigCalib() const;
   inline void SetRigCalib(std::shared_ptr<class RigCalib> rig_calib);
-  // Check if the frame has a non-trivial rig calib
+  // Check if the frame has a non-trivial rig calibration
   inline bool HasRigCalib() const;
 
   // Access the frame from world transformation
@@ -105,12 +105,12 @@ class Frame {
   frame_t frame_id_ = kInvalidFrameId;
   std::set<data_t> data_ids_;
 
-  // Store the frame_from_world transformation and an optional rig calib.
-  // If the rig calib is a nullptr, the frame becomes a single sensor
+  // Store the frame_from_world transformation and an optional rig calibration.
+  // If the rig calibration is a nullptr, the frame becomes a single sensor
   // case, where rig modeling is no longer needed.
   std::optional<Rigid3d> frame_from_world_;
 
-  // [Optional] Rig calib
+  // [Optional] Rig calibration
   std::shared_ptr<class RigCalib> rig_calib_ = nullptr;
 };
 
