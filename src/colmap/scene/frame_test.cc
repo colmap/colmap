@@ -42,21 +42,21 @@ TEST(Frame, Default) {
   Frame frame;
   EXPECT_EQ(frame.FrameId(), kInvalidFrameId);
   EXPECT_FALSE(frame.HasPose());
-  EXPECT_FALSE(frame.HasRigCalibration());
+  EXPECT_FALSE(frame.HasRigCalib());
 }
 
 TEST(Frame, SetUp) {
   sensor_t s1(SensorType::IMU, 0);
   sensor_t s2(SensorType::CAMERA, 0);
-  std::shared_ptr<RigCalibration> calib = std::make_shared<RigCalibration>();
+  std::shared_ptr<RigCalib> calib = std::make_shared<RigCalib>();
   calib->AddRefSensor(s1);
   calib->AddSensor(s2, TestRigid3d());
 
   Frame frame;
   frame.AddData(data_t(s1, 2));
   frame.AddData(data_t(s2, 5));
-  frame.SetRigCalibration(calib);
-  EXPECT_TRUE(frame.HasRigCalibration());
+  frame.SetRigCalib(calib);
+  EXPECT_TRUE(frame.HasRigCalib());
   EXPECT_FALSE(frame.HasPose());
 }
 

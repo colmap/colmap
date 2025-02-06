@@ -241,9 +241,8 @@ void Image::SetFrame(std::shared_ptr<class Frame> frame) {
 
 bool Image::HasNonTrivialFrame() const {
   THROW_CHECK(frame_) << "Invalid pointer to the corresponding frame";
-  return frame_->HasRigCalibration() &&
-         !frame_->RigCalibration()->IsRefSensor(
-             sensor_t(SensorType::CAMERA, CameraId()));
+  return frame_->HasRigCalib() && !frame_->RigCalib()->IsRefSensor(
+                                      sensor_t(SensorType::CAMERA, CameraId()));
 }
 
 Rigid3d Image::ComposeCamFromWorld() const {
