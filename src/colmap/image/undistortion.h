@@ -57,6 +57,9 @@ struct UndistortCameraOptions {
   double roi_min_y = 0.0;
   double roi_max_x = 1.0;
   double roi_max_y = 1.0;
+
+  // Whether to force the principal point to be at the center of the image.
+  bool center_principal_point = false;
 };
 
 // Undistort images and export undistorted cameras, as required by the

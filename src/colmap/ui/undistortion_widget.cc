@@ -58,6 +58,8 @@ UndistortionWidget::UndistortionWidget(QWidget* parent,
   AddOptionDouble(&undistortion_options_.roi_min_y, "roi_min_y", 0.0, 1.0);
   AddOptionDouble(&undistortion_options_.roi_max_x, "roi_max_x", 0.0, 1.0);
   AddOptionDouble(&undistortion_options_.roi_max_y, "roi_max_y", 0.0, 1.0);
+  AddOptionBool(&undistortion_options_.center_principal_point,
+                "center_principal_point");
   AddOptionDirPath(&output_path_, "output_path");
 
   AddSpacer();

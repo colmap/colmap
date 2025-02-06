@@ -216,6 +216,8 @@ int RunImageRectifier(int argc, char** argv) {
   options.AddDefaultOption("max_scale", &undistort_camera_options.max_scale);
   options.AddDefaultOption("max_image_size",
                            &undistort_camera_options.max_image_size);
+  options.AddDefaultOption("center_principal_point",
+                           &undistort_camera_options.center_principal_point);
   options.Parse(argc, argv);
 
   Reconstruction reconstruction;

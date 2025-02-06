@@ -101,6 +101,25 @@ TEST(UndistortCamera, Nominal) {
   EXPECT_EQ(undistorted_camera.PrincipalPointY(), 30);
 }
 
+TEST(UndistortCamera, ForceCenterPrincipalPoint) {
+  UndistortCameraOptions options;
+  options.center_principal_point = true;
+  Camera distorted_camera;
+  Camera undistorted_camera;
+
+  distorted_camera = Camera::CreateFromModelName(1, "PINHOLE", 100, 100, 80);
+  distorted_camera.SetPrincipalPointX(40);
+  distorted_camera.SetPrincipalPointX(30);
+  undistorted_camera = UndistortCamera(options, distorted_camera);
+  EXPECT_EQ(undistorted_camera.ModelName(), "PINHOLE");
+  EXPECT_EQ(undistorted_camera.FocalLengthX(), 100);
+  EXPECT_EQ(undistorted_camera.FocalLengthY(), 100);
+  EXPECT_EQ(undistorted_camera.PrincipalPointX(), 50);
+  EXPECT_EQ(undistorted_camera.PrincipalPointY(), 40);
+  EXPECT_EQ(undistorted_camera.width, 100);
+  EXPECT_EQ(undistorted_camera.height, 80);
+}
+
 TEST(UndistortCamera, BlankPixels) {
   UndistortCameraOptions options;
   options.blank_pixels = 1;
