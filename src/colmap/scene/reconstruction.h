@@ -36,6 +36,7 @@
 #include "colmap/scene/point2d.h"
 #include "colmap/scene/point3d.h"
 #include "colmap/scene/track.h"
+#include "colmap/sensor/rig_calib.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/types.h"
 
@@ -65,22 +66,26 @@ class Reconstruction {
   Reconstruction& operator=(const Reconstruction& other);
 
   // Get number of objects.
+  inline size_t NumRigCalibs() const;
   inline size_t NumCameras() const;
   inline size_t NumImages() const;
   inline size_t NumRegImages() const;
   inline size_t NumPoints3D() const;
 
   // Get const objects.
+  inline const class RigCalib& RigCalib(rig_t rig_id) const;
   inline const struct Camera& Camera(camera_t camera_id) const;
   inline const class Image& Image(image_t image_id) const;
   inline const struct Point3D& Point3D(point3D_t point3D_id) const;
 
   // Get mutable objects.
+  inline class RigCalib& RigCalib(rig_t rig_id);
   inline struct Camera& Camera(camera_t camera_id);
   inline class Image& Image(image_t image_id);
   inline struct Point3D& Point3D(point3D_t point3D_id);
 
   // Get reference to all objects.
+  inline const std::unordered_map<rig_t, class RigCalib>& RigCalibs() const;
   inline const std::unordered_map<camera_t, struct Camera>& Cameras() const;
   inline const std::unordered_map<image_t, class Image>& Images() const;
   inline const std::set<image_t>& RegImageIds() const;
@@ -90,6 +95,7 @@ class Reconstruction {
   std::unordered_set<point3D_t> Point3DIds() const;
 
   // Check whether specific object exists.
+  inline bool ExistsRigCalib(rig_t rig_id) const;
   inline bool ExistsCamera(camera_t camera_id) const;
   inline bool ExistsImage(image_t image_id) const;
   inline bool ExistsPoint3D(point3D_t point3D_id) const;
@@ -102,6 +108,9 @@ class Reconstruction {
   // This removes all not yet registered images and unused cameras, in order to
   // save memory.
   void TearDown();
+
+  // Add new rig calibration.
+  void AddRigCalib(class RigCalib rig_calib);
 
   // Add new camera. There is only one camera per image, while multiple images
   // might be taken by the same camera.
@@ -249,6 +258,7 @@ class Reconstruction {
   std::pair<Eigen::AlignedBox3d, Eigen::Vector3d> ComputeBBBoxAndCentroid(
       double min_percentile, double max_percentile, bool use_images) const;
 
+  std::unordered_map<rig_t, class RigCalib> rig_calibs_;
   std::unordered_map<camera_t, struct Camera> cameras_;
   std::unordered_map<image_t, class Image> images_;
   std::unordered_map<point3D_t, struct Point3D> points3D_;
@@ -267,6 +277,8 @@ std::ostream& operator<<(std::ostream& stream,
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////
 
+size_t Reconstruction::NumRigCalibs() const { return rig_calibs_.size(); }
+
 size_t Reconstruction::NumCameras() const { return cameras_.size(); }
 
 size_t Reconstruction::NumImages() const { return images_.size(); }
@@ -274,6 +286,15 @@ size_t Reconstruction::NumImages() const { return images_.size(); }
 size_t Reconstruction::NumRegImages() const { return reg_image_ids_.size(); }
 
 size_t Reconstruction::NumPoints3D() const { return points3D_.size(); }
+
+const class RigCalib& Reconstruction::RigCalib(const rig_t rig_id) const {
+  try {
+    return rig_calibs_.at(rig_id);
+  } catch (const std::out_of_range&) {
+    throw std::out_of_range(
+        StringPrintf("RigCalib with ID %d does not exist", rig_id));
+  }
+}
 
 const struct Camera& Reconstruction::Camera(const camera_t camera_id) const {
   try {
@@ -300,6 +321,15 @@ const struct Point3D& Reconstruction::Point3D(
   } catch (const std::out_of_range&) {
     throw std::out_of_range(
         StringPrintf("Point3D with ID %d does not exist", point3D_id));
+  }
+}
+
+class RigCalib& Reconstruction::RigCalib(const rig_t rig_id) {
+  try {
+    return rig_calibs_.at(rig_id);
+  } catch (const std::out_of_range&) {
+    throw std::out_of_range(
+        StringPrintf("RigCalib with ID %d does not exist", rig_id));
   }
 }
 
@@ -330,6 +360,10 @@ struct Point3D& Reconstruction::Point3D(const point3D_t point3D_id) {
   }
 }
 
+const std::unordered_map<rig_t, RigCalib>& Reconstruction::RigCalibs() const {
+  return rig_calibs_;
+}
+
 const std::unordered_map<camera_t, Camera>& Reconstruction::Cameras() const {
   return cameras_;
 }
@@ -344,6 +378,10 @@ const std::set<image_t>& Reconstruction::RegImageIds() const {
 
 const std::unordered_map<point3D_t, Point3D>& Reconstruction::Points3D() const {
   return points3D_;
+}
+
+bool Reconstruction::ExistsRigCalib(const rig_t rig_id) const {
+  return rig_calibs_.find(rig_id) != rig_calibs_.end();
 }
 
 bool Reconstruction::ExistsCamera(const camera_t camera_id) const {

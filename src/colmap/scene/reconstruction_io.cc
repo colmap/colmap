@@ -64,6 +64,76 @@ std::vector<ID_TYPE> ExtractSortedIds(
 
 }  // namespace
 
+void ReadRigCalibsText(Reconstruction& reconstruction, std::istream& stream) {
+  THROW_CHECK(stream.good());
+
+  std::string line;
+  std::string item;
+
+  while (std::getline(stream, line)) {
+    StringTrim(&line);
+
+    if (line.empty() || line[0] == '#') {
+      continue;
+    }
+
+    std::stringstream line_stream(line);
+
+    RigCalib rig_calib;
+
+    // ID
+    std::getline(line_stream, item, ' ');
+    rig_calib.SetRigId(std::stoll(item));
+
+    std::getline(line_stream, item, ' ');
+    const int num_sensors = std::stoul(item);
+
+    for (int i = 0; i < num_sensors; ++i) {
+      std::getline(line_stream, item, ' ');
+      sensor_t sensor_id;
+      sensor_id.type = SensorTypeFromString(item);
+      std::getline(line_stream, item, ' ');
+      sensor_id.id = std::stoul(item);
+
+      if (i > 0) {
+        Rigid3d sensor_from_rig;
+
+        std::getline(line_stream, item, ' ');
+        sensor_from_rig.rotation.w() = std::stold(item);
+
+        std::getline(line_stream, item, ' ');
+        sensor_from_rig.rotation.x() = std::stold(item);
+
+        std::getline(line_stream, item, ' ');
+        sensor_from_rig.rotation.y() = std::stold(item);
+
+        std::getline(line_stream, item, ' ');
+        sensor_from_rig.rotation.z() = std::stold(item);
+
+        std::getline(line_stream, item, ' ');
+        sensor_from_rig.translation.x() = std::stold(item);
+
+        std::getline(line_stream, item, ' ');
+        sensor_from_rig.translation.y() = std::stold(item);
+
+        std::getline(line_stream, item, ' ');
+        sensor_from_rig.translation.z() = std::stold(item);
+
+        rig_calib.AddSensor(sensor_id, sensor_from_rig);
+      } else {
+        rig_calib.AddRefSensor(sensor_id);
+      }
+    }
+  }
+}
+
+void ReadRigCalibsText(Reconstruction& reconstruction,
+                       const std::string& path) {
+  std::ifstream file(path);
+  THROW_CHECK_FILE_OPEN(file, path);
+  ReadRigCalibsText(reconstruction, file);
+}
+
 void ReadCamerasText(Reconstruction& reconstruction, std::istream& stream) {
   THROW_CHECK(stream.good());
 
@@ -421,6 +491,46 @@ void ReadPoints3DBinary(Reconstruction& reconstruction,
   std::ifstream file(path, std::ios::binary);
   THROW_CHECK_FILE_OPEN(file, path);
   ReadPoints3DBinary(reconstruction, file);
+}
+
+void WriteRigCalibsText(const Reconstruction& reconstruction,
+                        std::ostream& stream) {
+  THROW_CHECK(stream.good());
+
+  // Ensure that we don't loose any precision by storing in text.
+  stream.precision(17);
+
+  stream << "# Rig calib list with one line of data per calib:" << std::endl;
+  stream << "#   RIG_ID, NUM_SENSORS, SENSORS[] as (SENSOR_TYPE, SENSOR_ID, QW, QX, QY, QZ, TX, TY, TZ)" << std::endl;
+  stream << "# Number of rig calibs: " << reconstruction.NumCameras() << std::endl;
+
+  for (const camera_t camera_id : ExtractSortedIds(reconstruction.Cameras())) {
+    const Camera& camera = reconstruction.Camera(camera_id);
+
+    std::ostringstream line;
+    line.precision(17);
+
+    line << camera_id << " ";
+    line << camera.ModelName() << " ";
+    line << camera.width << " ";
+    line << camera.height << " ";
+
+    for (const double param : camera.params) {
+      line << param << " ";
+    }
+
+    std::string line_string = line.str();
+    line_string = line_string.substr(0, line_string.size() - 1);
+
+    stream << line_string << std::endl;
+  }
+}
+
+void WriteRigCalibsText(const Reconstruction& reconstruction,
+                        const std::string& path) {
+  std::ofstream file(path, std::ios::trunc);
+  THROW_CHECK_FILE_OPEN(file, path);
+  WriteRigCalibsText(reconstruction, file);
 }
 
 void WriteCamerasText(const Reconstruction& reconstruction,

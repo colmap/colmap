@@ -53,6 +53,8 @@ struct sensor_t {
   // Unique identifier of the sensor.
   // This can be camera_t / imu_t (not supported yet)
   uint32_t id;
+  constexpr sensor_t()
+      : type(SensorType::INVALID), id(std::numeric_limits<uint32_t>::max()) {}
   constexpr sensor_t(const SensorType& type, uint32_t id)
       : type(type), id(id) {}
 
@@ -114,6 +116,9 @@ class RigCalib {
                                const std::optional<Rigid3d>& sensor_from_rig);
   inline bool HasSensorFromRig(sensor_t sensor_id) const;
   inline void ResetSensorFromRig(sensor_t sensor_id);
+
+  inline bool operator==(const RigCalib& other) const;
+  inline bool operator!=(const RigCalib& other) const;
 
  private:
   // Unique identifier of the device.
@@ -253,6 +258,14 @@ void RigCalib::ResetSensorFromRig(sensor_t sensor_id) {
         sensor_id.id);
   sensors_from_rig_.at(sensor_id).reset();
 }
+
+bool RigCalib::operator==(const RigCalib& other) const {
+    return rig_id_ == other.rig_id_ &&
+           ref_sensor_id_ == other.ref_sensor_id_ &&
+           sensors_from_rig_ == other.sensors_from_rig_;
+  }
+
+bool RigCalib::operator!=(const RigCalib& other) const { return !(*this == other); }
 
 }  // namespace colmap
 

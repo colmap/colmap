@@ -138,6 +138,11 @@ void Reconstruction::TearDown() {
   }
 }
 
+void Reconstruction::AddRigCalib(class RigCalib rig_calib) {
+  const rig_t rig_id = rig_calib.RigId();
+  THROW_CHECK(rig_calibs_.emplace(rig_id, std::move(rig_calib)).second);
+}
+
 void Reconstruction::AddCamera(struct Camera camera) {
   const camera_t camera_id = camera.camera_id;
   THROW_CHECK(camera.VerifyParams());

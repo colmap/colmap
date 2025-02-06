@@ -44,20 +44,26 @@ namespace {
 struct ReaderWriter {
   virtual ~ReaderWriter() = default;
 
+  virtual void ReadRigCalibs(Reconstruction& reconstruction) = 0;
   virtual void ReadCameras(Reconstruction& reconstruction) = 0;
   virtual void ReadImages(Reconstruction& reconstruction) = 0;
   virtual void ReadPoints3D(Reconstruction& reconstruction) = 0;
 
+  virtual void WriteRigCalibs(const Reconstruction& reconstruction) = 0;
   virtual void WriteCameras(const Reconstruction& reconstruction) = 0;
   virtual void WriteImages(const Reconstruction& reconstruction) = 0;
   virtual void WritePoints3D(const Reconstruction& reconstruction) = 0;
 
+  virtual std::string RigCalibsStr() const = 0;
   virtual std::string CamerasStr() const = 0;
   virtual std::string ImagesStr() const = 0;
   virtual std::string Points3DStr() const = 0;
 };
 
 struct ReaderWriterTextStringStream : public ReaderWriter {
+  void ReadRigCalibs(Reconstruction& reconstruction) override {
+    ReadRigCalibsText(reconstruction, rig_calibs_stream_);
+  }
   void ReadCameras(Reconstruction& reconstruction) override {
     ReadCamerasText(reconstruction, cameras_stream_);
   }
@@ -68,6 +74,9 @@ struct ReaderWriterTextStringStream : public ReaderWriter {
     ReadPoints3DText(reconstruction, points3D_stream_);
   }
 
+  void WriteRigCalibs(const Reconstruction& reconstruction) override {
+    WriteRigCalibsText(reconstruction, rig_calibs_stream_);
+  }
   void WriteCameras(const Reconstruction& reconstruction) override {
     WriteCamerasText(reconstruction, cameras_stream_);
   }
@@ -78,6 +87,9 @@ struct ReaderWriterTextStringStream : public ReaderWriter {
     WritePoints3DText(reconstruction, points3D_stream_);
   }
 
+  virtual std::string RigCalibsStr() const override {
+    return rig_calibs_stream_.str();
+  }
   virtual std::string CamerasStr() const override {
     return cameras_stream_.str();
   }
@@ -89,12 +101,16 @@ struct ReaderWriterTextStringStream : public ReaderWriter {
   }
 
  private:
+  std::stringstream rig_calibs_stream_;
   std::stringstream cameras_stream_;
   std::stringstream images_stream_;
   std::stringstream points3D_stream_;
 };
 
 struct ReaderWriterBinaryStringStream : public ReaderWriter {
+  void ReadRigCalibs(Reconstruction& reconstruction) override {
+    ReadRigCalibsText(reconstruction, rig_calibs_stream_);
+  }
   void ReadCameras(Reconstruction& reconstruction) override {
     ReadCamerasBinary(reconstruction, cameras_stream_);
   }
@@ -105,6 +121,9 @@ struct ReaderWriterBinaryStringStream : public ReaderWriter {
     ReadPoints3DBinary(reconstruction, points3D_stream_);
   }
 
+  void WriteRigCalibs(const Reconstruction& reconstruction) override {
+    WriteRigCalibsText(reconstruction, rig_calibs_stream_);
+  }
   void WriteCameras(const Reconstruction& reconstruction) override {
     WriteCamerasBinary(reconstruction, cameras_stream_);
   }
@@ -115,6 +134,9 @@ struct ReaderWriterBinaryStringStream : public ReaderWriter {
     WritePoints3DBinary(reconstruction, points3D_stream_);
   }
 
+  virtual std::string RigCalibsStr() const override {
+    return rig_calibs_stream_.str();
+  }
   virtual std::string CamerasStr() const override {
     return cameras_stream_.str();
   }
@@ -126,6 +148,7 @@ struct ReaderWriterBinaryStringStream : public ReaderWriter {
   }
 
  private:
+  std::stringstream rig_calibs_stream_;
   std::stringstream cameras_stream_;
   std::stringstream images_stream_;
   std::stringstream points3D_stream_;
@@ -142,10 +165,14 @@ std::string ReadFileAsString(const std::string& path) {
 struct ReaderWriterFileStream : public ReaderWriter {
   explicit ReaderWriterFileStream(const std::string& ext)
       : test_dir_(CreateTestDir()),
+        rig_calibs_path_((test_dir_ / ("rigs." + ext)).string()),
         cameras_path_((test_dir_ / ("cameras." + ext)).string()),
         images_path_((test_dir_ / ("images." + ext)).string()),
         points3D_path_((test_dir_ / ("points3D." + ext)).string()) {}
 
+  virtual std::string RigCalibsStr() const override {
+    return ReadFileAsString(rig_calibs_path_);
+  }
   virtual std::string CamerasStr() const override {
     return ReadFileAsString(cameras_path_);
   }
@@ -158,6 +185,7 @@ struct ReaderWriterFileStream : public ReaderWriter {
 
  protected:
   const std::filesystem::path test_dir_;
+  const std::string rig_calibs_path_;
   const std::string cameras_path_;
   const std::string images_path_;
   const std::string points3D_path_;
@@ -166,6 +194,9 @@ struct ReaderWriterFileStream : public ReaderWriter {
 struct ReaderWriterTextFileStream : public ReaderWriterFileStream {
   ReaderWriterTextFileStream() : ReaderWriterFileStream("txt") {}
 
+  void ReadRigCalibs(Reconstruction& reconstruction) override {
+    ReadRigCalibsText(reconstruction, rig_calibs_path_);
+  }
   void ReadCameras(Reconstruction& reconstruction) override {
     ReadCamerasText(reconstruction, cameras_path_);
   }
@@ -176,6 +207,9 @@ struct ReaderWriterTextFileStream : public ReaderWriterFileStream {
     ReadPoints3DText(reconstruction, points3D_path_);
   }
 
+  void WriteRigCalibs(const Reconstruction& reconstruction) override {
+    WriteRigCalibsText(reconstruction, rig_calibs_path_);
+  }
   void WriteCameras(const Reconstruction& reconstruction) override {
     WriteCamerasText(reconstruction, cameras_path_);
   }
@@ -190,6 +224,9 @@ struct ReaderWriterTextFileStream : public ReaderWriterFileStream {
 struct ReaderWriterBinaryFileStream : public ReaderWriterFileStream {
   ReaderWriterBinaryFileStream() : ReaderWriterFileStream("bin") {}
 
+  void ReadRigCalibs(Reconstruction& reconstruction) override {
+    ReadRigCalibsText(reconstruction, rig_calibs_path_);
+  }
   void ReadCameras(Reconstruction& reconstruction) override {
     ReadCamerasBinary(reconstruction, cameras_path_);
   }
@@ -200,6 +237,9 @@ struct ReaderWriterBinaryFileStream : public ReaderWriterFileStream {
     ReadPoints3DBinary(reconstruction, points3D_path_);
   }
 
+  void WriteRigCalibs(const Reconstruction& reconstruction) override {
+    WriteRigCalibsText(reconstruction, rig_calibs_path_);
+  }
   void WriteCameras(const Reconstruction& reconstruction) override {
     WriteCamerasBinary(reconstruction, cameras_path_);
   }
@@ -220,10 +260,14 @@ TEST_P(ParameterizedReaderWriterTests, Roundtrip) {
 
   Reconstruction orig;
   SyntheticDatasetOptions options;
+  options.num_rigs = 3;
   options.num_cameras = 11;
   options.num_images = 43;
   options.num_points3D = 321;
   SynthesizeDataset(options, &orig);
+
+  reader_writer->WriteRigCalibs(orig);
+  EXPECT_FALSE(reader_writer->RigCalibsStr().empty());
 
   reader_writer->WriteCameras(orig);
   EXPECT_FALSE(reader_writer->CamerasStr().empty());
@@ -235,6 +279,8 @@ TEST_P(ParameterizedReaderWriterTests, Roundtrip) {
   EXPECT_FALSE(reader_writer->Points3DStr().empty());
 
   Reconstruction test;
+  reader_writer->ReadRigCalibs(test);
+  EXPECT_EQ(orig.RigCalibs(), test.RigCalibs());
   reader_writer->ReadCameras(test);
   EXPECT_EQ(orig.Cameras(), test.Cameras());
   reader_writer->ReadImages(test);
