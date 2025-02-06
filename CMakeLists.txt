@@ -407,6 +407,7 @@ if(TORCH_ENABLED)
     list(APPEND COLMAP_EXPORT_LIBS
          colmap_aliked
          colmap_lightglue
+         torch
     )
 endif()
 if(FETCH_POSELIB)
