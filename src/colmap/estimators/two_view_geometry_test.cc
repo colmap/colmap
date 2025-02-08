@@ -142,9 +142,10 @@ TEST(EstimateTwoViewGeometryPose, Calibrated) {
                                           test_data.points2,
                                           &geometry));
   EXPECT_NEAR(geometry.tri_angle, test_data.geometry.tri_angle, 1e-6);
-  EXPECT_THAT(geometry.cam2_from_cam1.rotation.coeffs(),
-              EigenMatrixNear(
-                  test_data.geometry.cam2_from_cam1.rotation.coeffs(), 1e-6));
+  EXPECT_NEAR(geometry.cam2_from_cam1.rotation.angularDistance(
+                  test_data.geometry.cam2_from_cam1.rotation),
+              0,
+              1e-6);
   EXPECT_THAT(
       geometry.cam2_from_cam1.translation,
       EigenMatrixNear(
@@ -165,9 +166,10 @@ TEST(EstimateTwoViewGeometryPose, Uncalibrated) {
                                           test_data.points2,
                                           &geometry));
   EXPECT_NEAR(geometry.tri_angle, test_data.geometry.tri_angle, 1e-6);
-  EXPECT_THAT(geometry.cam2_from_cam1.rotation.coeffs(),
-              EigenMatrixNear(
-                  test_data.geometry.cam2_from_cam1.rotation.coeffs(), 1e-6));
+  EXPECT_NEAR(geometry.cam2_from_cam1.rotation.angularDistance(
+                  test_data.geometry.cam2_from_cam1.rotation),
+              0,
+              1e-6);
   EXPECT_THAT(
       geometry.cam2_from_cam1.translation,
       EigenMatrixNear(
