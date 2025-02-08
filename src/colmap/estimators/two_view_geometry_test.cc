@@ -30,6 +30,7 @@
 #include "colmap/estimators/two_view_geometry.h"
 
 #include "colmap/geometry/essential_matrix.h"
+#include "colmap/geometry/homography_matrix.h"
 #include "colmap/geometry/triangulation.h"
 #include "colmap/math/math.h"
 #include "colmap/scene/reconstruction.h"
@@ -43,7 +44,16 @@
 namespace colmap {
 namespace {
 
-TEST(EstimateTwoViewGeometryPose, Calibrated) {
+struct TwoViewGeometryTestData {
+  Camera camera1;
+  Camera camera2;
+  std::vector<Eigen::Vector2d> points1;
+  std::vector<Eigen::Vector2d> points2;
+  TwoViewGeometry geometry;
+};
+
+TwoViewGeometryTestData CreateTwoViewGeometryTestData(
+    TwoViewGeometry::ConfigurationType config) {
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_cameras = 2;
@@ -52,59 +62,119 @@ TEST(EstimateTwoViewGeometryPose, Calibrated) {
   synthetic_dataset_options.point2D_stddev = 0;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
 
-  const auto& image1 = reconstruction.Image(1);
-  const auto& camera1 = reconstruction.Camera(image1.CameraId());
-  const auto& image2 = reconstruction.Image(2);
-  const auto& camera2 = reconstruction.Camera(image2.CameraId());
-  const Rigid3d cam2_from_cam1 =
+  const Eigen::Vector3d homography_plane_normal =
+      Eigen::Vector3d::Random().normalized();
+  const double homography_plane_distance = 1.5;
+
+  const Image& image1 = reconstruction.Image(1);
+  const Image& image2 = reconstruction.Image(2);
+
+  TwoViewGeometryTestData data;
+  data.camera1 = reconstruction.Camera(image1.CameraId());
+  data.camera2 = reconstruction.Camera(image2.CameraId());
+  data.geometry.cam2_from_cam1 =
       image2.CamFromWorld() * Inverse(image1.CamFromWorld());
 
-  TwoViewGeometry geometry;
-  geometry.config = TwoViewGeometry::ConfigurationType::CALIBRATED;
-  geometry.E = EssentialMatrixFromPose(cam2_from_cam1);
-
-  std::vector<Eigen::Vector2d> points1;
-  for (const auto& point2D : image1.Points2D()) {
-    points1.emplace_back(point2D.xy);
+  if (config == TwoViewGeometry::ConfigurationType::CALIBRATED) {
+    data.geometry.E = EssentialMatrixFromPose(data.geometry.cam2_from_cam1);
+  } else if (config == TwoViewGeometry::ConfigurationType::UNCALIBRATED) {
+    data.geometry.F = FundamentalFromEssentialMatrix(
+        data.camera2.CalibrationMatrix(),
+        EssentialMatrixFromPose(data.geometry.cam2_from_cam1),
+        data.camera1.CalibrationMatrix());
+  } else if (config == TwoViewGeometry::ConfigurationType::PLANAR) {
+    data.geometry.H =
+        HomographyMatrixFromPose(data.camera1.CalibrationMatrix(),
+                                 data.camera2.CalibrationMatrix(),
+                                 data.geometry.cam2_from_cam1.rotation.matrix(),
+                                 data.geometry.cam2_from_cam1.translation,
+                                 homography_plane_normal,
+                                 homography_plane_distance);
+  } else {
+    LOG(FATAL) << "Invalid configuration.";
   }
 
-  std::vector<Eigen::Vector2d> points2;
-  for (const auto& point2D : image2.Points2D()) {
-    points2.emplace_back(point2D.xy);
+  for (const Point2D& point2D : image1.Points2D()) {
+    data.points1.emplace_back(point2D.xy);
   }
+  for (const Point2D& point2D : image2.Points2D()) {
+    data.points2.emplace_back(point2D.xy);
+  }
+
+  // TODO: Move points to homography plane.
 
   std::vector<Eigen::Vector3d> points3D;
-  for (const auto& point3D : reconstruction.Points3D()) {
-    points3D.push_back(point3D.second.xyz);
-    CHECK_EQ(point3D.second.track.Length(), 2);
-    const auto& element1 = point3D.second.track.Element(0);
-    const auto& element2 = point3D.second.track.Element(1);
-    if (element1.image_id == image1.ImageId() &&
-        element2.image_id == image2.ImageId()) {
-      geometry.inlier_matches.emplace_back(element1.point2D_idx,
-                                           element2.point2D_idx);
-    } else if (element1.image_id == image2.ImageId() &&
-               element2.image_id == image1.ImageId()) {
-      geometry.inlier_matches.emplace_back(element2.point2D_idx,
-                                           element1.point2D_idx);
+  for (const auto& [_, point3D] : reconstruction.Points3D()) {
+    points3D.push_back(point3D.xyz);
+    CHECK_EQ(point3D.track.Length(), 2);
+    const TrackElement& elem1 = point3D.track.Element(0);
+    const TrackElement& elem2 = point3D.track.Element(1);
+    if (elem1.image_id == image1.ImageId() &&
+        elem2.image_id == image2.ImageId()) {
+      data.geometry.inlier_matches.emplace_back(elem1.point2D_idx,
+                                                elem2.point2D_idx);
+    } else if (elem1.image_id == image2.ImageId() &&
+               elem2.image_id == image1.ImageId()) {
+      data.geometry.inlier_matches.emplace_back(elem2.point2D_idx,
+                                                elem1.point2D_idx);
     } else {
       LOG(FATAL) << "Invalid track element.";
     }
   }
 
-  const double tri_angle = Median(CalculateTriangulationAngles(
+  data.geometry.tri_angle = Median(CalculateTriangulationAngles(
       image1.ProjectionCenter(), image2.ProjectionCenter(), points3D));
 
-  EXPECT_TRUE(EstimateTwoViewGeometryPose(
-      camera1, points1, camera2, points2, &geometry));
-  EXPECT_NEAR(geometry.tri_angle, tri_angle, 1e-6);
-  EXPECT_THAT(geometry.cam2_from_cam1.rotation.coeffs(),
-              EigenMatrixNear(cam2_from_cam1.rotation.coeffs(), 1e-6));
-  EXPECT_THAT(geometry.cam2_from_cam1.translation,
-              EigenMatrixNear(cam2_from_cam1.translation.normalized(), 1e-6));
+  return data;
 }
 
-// TODO: Add test for uncalibrated, panoramic, planar cases.
+TEST(EstimateTwoViewGeometryPose, Calibrated) {
+  const TwoViewGeometryTestData test_data = CreateTwoViewGeometryTestData(
+      TwoViewGeometry::ConfigurationType::CALIBRATED);
+
+  TwoViewGeometry geometry;
+  geometry.config = TwoViewGeometry::ConfigurationType::CALIBRATED;
+  geometry.E = test_data.geometry.E;
+  geometry.inlier_matches = test_data.geometry.inlier_matches;
+  EXPECT_TRUE(EstimateTwoViewGeometryPose(test_data.camera1,
+                                          test_data.points1,
+                                          test_data.camera2,
+                                          test_data.points2,
+                                          &geometry));
+  EXPECT_NEAR(geometry.tri_angle, test_data.geometry.tri_angle, 1e-6);
+  EXPECT_THAT(geometry.cam2_from_cam1.rotation.coeffs(),
+              EigenMatrixNear(
+                  test_data.geometry.cam2_from_cam1.rotation.coeffs(), 1e-6));
+  EXPECT_THAT(
+      geometry.cam2_from_cam1.translation,
+      EigenMatrixNear(
+          test_data.geometry.cam2_from_cam1.translation.normalized(), 1e-6));
+}
+
+TEST(EstimateTwoViewGeometryPose, Uncalibrated) {
+  const TwoViewGeometryTestData test_data = CreateTwoViewGeometryTestData(
+      TwoViewGeometry::ConfigurationType::UNCALIBRATED);
+
+  TwoViewGeometry geometry;
+  geometry.config = TwoViewGeometry::ConfigurationType::UNCALIBRATED;
+  geometry.F = test_data.geometry.F;
+  geometry.inlier_matches = test_data.geometry.inlier_matches;
+  EXPECT_TRUE(EstimateTwoViewGeometryPose(test_data.camera1,
+                                          test_data.points1,
+                                          test_data.camera2,
+                                          test_data.points2,
+                                          &geometry));
+  EXPECT_NEAR(geometry.tri_angle, test_data.geometry.tri_angle, 1e-6);
+  EXPECT_THAT(geometry.cam2_from_cam1.rotation.coeffs(),
+              EigenMatrixNear(
+                  test_data.geometry.cam2_from_cam1.rotation.coeffs(), 1e-6));
+  EXPECT_THAT(
+      geometry.cam2_from_cam1.translation,
+      EigenMatrixNear(
+          test_data.geometry.cam2_from_cam1.translation.normalized(), 1e-6));
+}
+
+// TODO: Add test for panoramic, planar cases.
 
 }  // namespace
 }  // namespace colmap

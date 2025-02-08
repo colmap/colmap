@@ -352,13 +352,17 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
 
   std::vector<Eigen::Vector3d> points3D;
 
-  if (geometry->config == TwoViewGeometry::ConfigurationType::CALIBRATED ||
-      geometry->config == TwoViewGeometry::ConfigurationType::UNCALIBRATED) {
-    // Try to recover relative pose for calibrated and uncalibrated
-    // configurations. In the uncalibrated case, this most likely leads to a
-    // ill-defined reconstruction, but sometimes it succeeds anyways after e.g.
-    // subsequent bundle-adjustment etc.
+  if (geometry->config == TwoViewGeometry::ConfigurationType::CALIBRATED) {
     PoseFromEssentialMatrix(geometry->E,
+                            inlier_points1_normalized,
+                            inlier_points2_normalized,
+                            &geometry->cam2_from_cam1,
+                            &points3D);
+  } else if (geometry->config ==
+             TwoViewGeometry::ConfigurationType::UNCALIBRATED) {
+    const Eigen::Matrix3d E = EssentialFromFundamentalMatrix(
+        camera2.CalibrationMatrix(), geometry->F, camera1.CalibrationMatrix());
+    PoseFromEssentialMatrix(E,
                             inlier_points1_normalized,
                             inlier_points2_normalized,
                             &geometry->cam2_from_cam1,
