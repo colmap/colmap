@@ -63,6 +63,8 @@ void WriteCamerasText(const Reconstruction& reconstruction,
 void WriteCamerasText(const Reconstruction& reconstruction,
                       const std::string& path);
 
+// If an image does not have a valid pose (unregistered), all zeros will be
+// written for the corresponding cam_from_world.
 void WriteImagesText(const Reconstruction& reconstruction,
                      std::ostream& stream);
 void WriteImagesText(const Reconstruction& reconstruction,
@@ -78,6 +80,8 @@ void WriteCamerasBinary(const Reconstruction& reconstruction,
 void WriteCamerasBinary(const Reconstruction& reconstruction,
                         const std::string& path);
 
+// If an image does not have a valid pose (unregistered), all zeros will be
+// written for the corresponding cam_from_world.
 void WriteImagesBinary(const Reconstruction& reconstruction,
                        std::ostream& stream);
 void WriteImagesBinary(const Reconstruction& reconstruction,

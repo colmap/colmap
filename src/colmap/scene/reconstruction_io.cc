@@ -163,7 +163,8 @@ void ReadImagesText(Reconstruction& reconstruction, std::istream& stream) {
     std::getline(line_stream1, item, ' ');
     cam_from_world.translation.z() = std::stold(item);
 
-    image.SetCamFromWorld(cam_from_world);
+    if (cam_from_world.rotation.coeffs().norm() > 0)
+      image.SetCamFromWorld(cam_from_world);
 
     // CAMERA_ID
     std::getline(line_stream1, item, ' ');
@@ -343,7 +344,8 @@ void ReadImagesBinary(Reconstruction& reconstruction, std::istream& stream) {
     cam_from_world.translation.x() = ReadBinaryLittleEndian<double>(&stream);
     cam_from_world.translation.y() = ReadBinaryLittleEndian<double>(&stream);
     cam_from_world.translation.z() = ReadBinaryLittleEndian<double>(&stream);
-    image.SetCamFromWorld(cam_from_world);
+    if (cam_from_world.rotation.coeffs().norm() > 0)
+      image.SetCamFromWorld(cam_from_world);
 
     image.SetCameraId(ReadBinaryLittleEndian<camera_t>(&stream));
 
@@ -490,14 +492,20 @@ void WriteImagesText(const Reconstruction& reconstruction,
 
     line << image_id << " ";
 
-    const Rigid3d& cam_from_world = image.CamFromWorld();
-    line << cam_from_world.rotation.w() << " ";
-    line << cam_from_world.rotation.x() << " ";
-    line << cam_from_world.rotation.y() << " ";
-    line << cam_from_world.rotation.z() << " ";
-    line << cam_from_world.translation.x() << " ";
-    line << cam_from_world.translation.y() << " ";
-    line << cam_from_world.translation.z() << " ";
+    if (image.HasPose()) {
+      const Rigid3d& cam_from_world = image.CamFromWorld();
+      line << cam_from_world.rotation.w() << " ";
+      line << cam_from_world.rotation.x() << " ";
+      line << cam_from_world.rotation.y() << " ";
+      line << cam_from_world.rotation.z() << " ";
+      line << cam_from_world.translation.x() << " ";
+      line << cam_from_world.translation.y() << " ";
+      line << cam_from_world.translation.z() << " ";
+    } else {
+      for (size_t i = 0; i < 7; ++i) {
+        line << 0.0 << " ";
+      }
+    }
 
     line << image.CameraId() << " ";
 
@@ -617,15 +625,20 @@ void WriteImagesBinary(const Reconstruction& reconstruction,
 
     WriteBinaryLittleEndian<image_t>(&stream, image_id);
 
-    const Rigid3d& cam_from_world = image.CamFromWorld();
-    WriteBinaryLittleEndian<double>(&stream, cam_from_world.rotation.w());
-    WriteBinaryLittleEndian<double>(&stream, cam_from_world.rotation.x());
-    WriteBinaryLittleEndian<double>(&stream, cam_from_world.rotation.y());
-    WriteBinaryLittleEndian<double>(&stream, cam_from_world.rotation.z());
-    WriteBinaryLittleEndian<double>(&stream, cam_from_world.translation.x());
-    WriteBinaryLittleEndian<double>(&stream, cam_from_world.translation.y());
-    WriteBinaryLittleEndian<double>(&stream, cam_from_world.translation.z());
-
+    if (image.HasPose()) {
+      const Rigid3d& cam_from_world = image.CamFromWorld();
+      WriteBinaryLittleEndian<double>(&stream, cam_from_world.rotation.w());
+      WriteBinaryLittleEndian<double>(&stream, cam_from_world.rotation.x());
+      WriteBinaryLittleEndian<double>(&stream, cam_from_world.rotation.y());
+      WriteBinaryLittleEndian<double>(&stream, cam_from_world.rotation.z());
+      WriteBinaryLittleEndian<double>(&stream, cam_from_world.translation.x());
+      WriteBinaryLittleEndian<double>(&stream, cam_from_world.translation.y());
+      WriteBinaryLittleEndian<double>(&stream, cam_from_world.translation.z());
+    } else {
+      for (size_t i = 0; i < 7; ++i) {
+        WriteBinaryLittleEndian<double>(&stream, 0.0);
+      }
+    }
     WriteBinaryLittleEndian<camera_t>(&stream, image.CameraId());
 
     const std::string name = image.Name() + '\0';

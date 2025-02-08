@@ -243,6 +243,39 @@ TEST_P(ParameterizedReaderWriterTests, Roundtrip) {
   EXPECT_EQ(orig.Points3D(), test.Points3D());
 }
 
+TEST_P(ParameterizedReaderWriterTests, Roundtrip_PartiallyAvailablePoses) {
+  std::unique_ptr<ReaderWriter> reader_writer = GetParam()();
+
+  Reconstruction orig;
+  SyntheticDatasetOptions options;
+  options.num_cameras = 11;
+  options.num_images = 43;
+  options.num_points3D = 321;
+  SynthesizeDataset(options, &orig);
+
+  // Reset poses for some images
+  for (const auto& [image_id, image] : orig.Images()) {
+    if (image_id % 2 == 0) orig.Image(image_id).ResetPose();
+  }
+
+  reader_writer->WriteCameras(orig);
+  EXPECT_FALSE(reader_writer->CamerasStr().empty());
+
+  reader_writer->WriteImages(orig);
+  EXPECT_FALSE(reader_writer->ImagesStr().empty());
+
+  reader_writer->WritePoints3D(orig);
+  EXPECT_FALSE(reader_writer->Points3DStr().empty());
+
+  Reconstruction test;
+  reader_writer->ReadCameras(test);
+  EXPECT_EQ(orig.Cameras(), test.Cameras());
+  reader_writer->ReadImages(test);
+  EXPECT_EQ(orig.Images(), test.Images());
+  reader_writer->ReadPoints3D(test);
+  EXPECT_EQ(orig.Points3D(), test.Points3D());
+}
+
 INSTANTIATE_TEST_SUITE_P(
     ReaderWriterTests,
     ParameterizedReaderWriterTests,
