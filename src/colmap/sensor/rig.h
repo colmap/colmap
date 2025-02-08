@@ -78,9 +78,9 @@ constexpr sensor_t kInvalidSensorId =
 // the reference frame since it is metric.
 // 2) Not having a reference frame brings a 6 DoF Gauge for each rig, which is
 // not ideal particularly when it comes to covariance estimation.
-class RigCalib {
+class Rig {
  public:
-  RigCalib() = default;
+  Rig() = default;
 
   // Access the unique identifier of the rig.
   inline rig_t RigId() const;
@@ -120,8 +120,8 @@ class RigCalib {
   inline bool HasSensorFromRig(sensor_t sensor_id) const;
   inline void ResetSensorFromRig(sensor_t sensor_id);
 
-  inline bool operator==(const RigCalib& other) const;
-  inline bool operator!=(const RigCalib& other) const;
+  inline bool operator==(const Rig& other) const;
+  inline bool operator!=(const Rig& other) const;
 
  private:
   // Unique identifier of the device.
@@ -134,38 +134,38 @@ class RigCalib {
   std::map<sensor_t, std::optional<Rigid3d>> sensors_from_rig_;
 };
 
-std::ostream& operator<<(std::ostream& stream, const RigCalib& rig_calib);
+std::ostream& operator<<(std::ostream& stream, const Rig& rig);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////
 
-rig_t RigCalib::RigId() const { return rig_id_; }
+rig_t Rig::RigId() const { return rig_id_; }
 
-void RigCalib::SetRigId(rig_t rig_id) { rig_id_ = rig_id; }
+void Rig::SetRigId(rig_t rig_id) { rig_id_ = rig_id; }
 
-bool RigCalib::HasSensor(sensor_t sensor_id) const {
+bool Rig::HasSensor(sensor_t sensor_id) const {
   return sensor_id == ref_sensor_id_ ||
          sensors_from_rig_.find(sensor_id) != sensors_from_rig_.end();
 }
 
-size_t RigCalib::NumSensors() const {
+size_t Rig::NumSensors() const {
   size_t n_sensors = sensors_from_rig_.size();
   if (ref_sensor_id_ != kInvalidSensorId) n_sensors += 1;
   return n_sensors;
 }
 
-sensor_t RigCalib::RefSensorId() const { return ref_sensor_id_; }
+sensor_t Rig::RefSensorId() const { return ref_sensor_id_; }
 
-bool RigCalib::IsRefSensor(sensor_t sensor_id) const {
+bool Rig::IsRefSensor(sensor_t sensor_id) const {
   return sensor_id == ref_sensor_id_;
 }
 
-const std::map<sensor_t, std::optional<Rigid3d>>& RigCalib::Sensors() const {
+const std::map<sensor_t, std::optional<Rigid3d>>& Rig::Sensors() const {
   return sensors_from_rig_;
 }
 
-Rigid3d& RigCalib::SensorFromRig(sensor_t sensor_id) {
+Rigid3d& Rig::SensorFromRig(sensor_t sensor_id) {
   THROW_CHECK(!IsRefSensor(sensor_id))
       << "No reference is available for the SensorFromRig transformation of "
          "the reference sensor, which is identity";
@@ -179,7 +179,7 @@ Rigid3d& RigCalib::SensorFromRig(sensor_t sensor_id) {
   return *sensors_from_rig_.at(sensor_id);
 }
 
-const Rigid3d& RigCalib::SensorFromRig(sensor_t sensor_id) const {
+const Rigid3d& Rig::SensorFromRig(sensor_t sensor_id) const {
   THROW_CHECK(!IsRefSensor(sensor_id))
       << "No reference is available for the SensorFromRig transformation of "
          "the reference sensor, which is identity";
@@ -193,7 +193,7 @@ const Rigid3d& RigCalib::SensorFromRig(sensor_t sensor_id) const {
   return *sensors_from_rig_.at(sensor_id);
 }
 
-std::optional<Rigid3d>& RigCalib::MaybeSensorFromRig(sensor_t sensor_id) {
+std::optional<Rigid3d>& Rig::MaybeSensorFromRig(sensor_t sensor_id) {
   THROW_CHECK(!IsRefSensor(sensor_id))
       << "No reference is available for the SensorFromRig transformation of "
          "the reference sensor, which is identity";
@@ -205,7 +205,7 @@ std::optional<Rigid3d>& RigCalib::MaybeSensorFromRig(sensor_t sensor_id) {
   return sensors_from_rig_.at(sensor_id);
 }
 
-const std::optional<Rigid3d>& RigCalib::MaybeSensorFromRig(
+const std::optional<Rigid3d>& Rig::MaybeSensorFromRig(
     sensor_t sensor_id) const {
   THROW_CHECK(!IsRefSensor(sensor_id))
       << "No reference is available for the SensorFromRig transformation of "
@@ -218,8 +218,7 @@ const std::optional<Rigid3d>& RigCalib::MaybeSensorFromRig(
   return sensors_from_rig_.at(sensor_id);
 }
 
-void RigCalib::SetSensorFromRig(sensor_t sensor_id,
-                                const Rigid3d& sensor_from_rig) {
+void Rig::SetSensorFromRig(sensor_t sensor_id, const Rigid3d& sensor_from_rig) {
   THROW_CHECK(!IsRefSensor(sensor_id))
       << "Cannot set the SensorFromRig transformation of the reference sensor, "
          "which is fixed to identity";
@@ -231,8 +230,8 @@ void RigCalib::SetSensorFromRig(sensor_t sensor_id,
   sensors_from_rig_.at(sensor_id) = sensor_from_rig;
 }
 
-void RigCalib::SetSensorFromRig(sensor_t sensor_id,
-                                const std::optional<Rigid3d>& sensor_from_rig) {
+void Rig::SetSensorFromRig(sensor_t sensor_id,
+                           const std::optional<Rigid3d>& sensor_from_rig) {
   THROW_CHECK(!IsRefSensor(sensor_id))
       << "Cannot set the SensorFromRig transformation of the reference sensor, "
          "which is fixed to identity";
@@ -244,7 +243,7 @@ void RigCalib::SetSensorFromRig(sensor_t sensor_id,
   sensors_from_rig_.at(sensor_id) = sensor_from_rig;
 }
 
-bool RigCalib::HasSensorFromRig(sensor_t sensor_id) const {
+bool Rig::HasSensorFromRig(sensor_t sensor_id) const {
   if (IsRefSensor(sensor_id))
     return true;  // SensorFromRig for the reference sensor is always identity
   if (sensors_from_rig_.find(sensor_id) == sensors_from_rig_.end())
@@ -255,7 +254,7 @@ bool RigCalib::HasSensorFromRig(sensor_t sensor_id) const {
   return sensors_from_rig_.at(sensor_id).has_value();
 }
 
-void RigCalib::ResetSensorFromRig(sensor_t sensor_id) {
+void Rig::ResetSensorFromRig(sensor_t sensor_id) {
   THROW_CHECK(!IsRefSensor(sensor_id))
       << "Cannot reset the SensorFromRig transformation of the reference "
          "sensor, "
@@ -268,14 +267,12 @@ void RigCalib::ResetSensorFromRig(sensor_t sensor_id) {
   sensors_from_rig_.at(sensor_id).reset();
 }
 
-bool RigCalib::operator==(const RigCalib& other) const {
+bool Rig::operator==(const Rig& other) const {
   return rig_id_ == other.rig_id_ && ref_sensor_id_ == other.ref_sensor_id_ &&
          sensors_from_rig_ == other.sensors_from_rig_;
 }
 
-bool RigCalib::operator!=(const RigCalib& other) const {
-  return !(*this == other);
-}
+bool Rig::operator!=(const Rig& other) const { return !(*this == other); }
 
 }  // namespace colmap
 

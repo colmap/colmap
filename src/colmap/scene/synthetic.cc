@@ -171,9 +171,9 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
 
   std::vector<rig_t> rig_ids(options.num_rigs);
   for (int rig_idx = 0; rig_idx < options.num_rigs; ++rig_idx) {
-    RigCalib rig_calib;
-    rig_calib.SetRigId(rig_idx);
-    reconstruction->AddRigCalib(std::move(rig_calib));
+    Rig rig;
+    rig.SetRigId(rig_idx);
+    reconstruction->AddRig(std::move(rig));
   }
 
   // Synthesize cameras.
@@ -192,15 +192,15 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
     reconstruction->AddCamera(std::move(camera));
     sensor_t sensor_id(SensorType::CAMERA, camera_idx);
     const rig_t rig_id = camera_idx % options.num_rigs;
-    RigCalib& rig_calib = reconstruction->RigCalib(rig_id);
-    if (rig_calib.NumSensors() == 0) {
-      rig_calib.AddRefSensor(sensor_id);
+    Rig& rig = reconstruction->Rig(rig_id);
+    if (rig.NumSensors() == 0) {
+      rig.AddRefSensor(sensor_id);
     } else {
       Rigid3d sensor_from_rig;
       sensor_from_rig.translation =
           Eigen::Vector3d::Random() * options.prior_position_stddev;
       sensor_from_rig.rotation = Eigen::Quaterniond::UnitRandom();
-      rig_calib.AddSensor(sensor_id, sensor_from_rig);
+      rig.AddSensor(sensor_id, sensor_from_rig);
     }
   }
 

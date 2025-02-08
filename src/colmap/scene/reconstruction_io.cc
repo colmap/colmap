@@ -64,7 +64,7 @@ std::vector<ID_TYPE> ExtractSortedIds(
 
 }  // namespace
 
-void ReadRigCalibsText(Reconstruction& reconstruction, std::istream& stream) {
+void ReadRigsText(Reconstruction& reconstruction, std::istream& stream) {
   THROW_CHECK(stream.good());
 
   std::string line;
@@ -79,11 +79,11 @@ void ReadRigCalibsText(Reconstruction& reconstruction, std::istream& stream) {
 
     std::stringstream line_stream(line);
 
-    RigCalib rig_calib;
+    Rig rig;
 
     // ID
     std::getline(line_stream, item, ' ');
-    rig_calib.SetRigId(std::stoll(item));
+    rig.SetRigId(std::stoll(item));
 
     // NUM_SENSORS
     std::getline(line_stream, item, ' ');
@@ -99,7 +99,7 @@ void ReadRigCalibsText(Reconstruction& reconstruction, std::istream& stream) {
     ref_sensor_id.id = std::stoul(item);
     std::getline(line_stream, item, ' ');
     ref_sensor_id.type = SensorTypeFromString(item);
-    rig_calib.AddRefSensor(ref_sensor_id);
+    rig.AddRefSensor(ref_sensor_id);
 
     // SENSORS
     for (int i = 0; i < num_sensors - 1; ++i) {
@@ -132,18 +132,17 @@ void ReadRigCalibsText(Reconstruction& reconstruction, std::istream& stream) {
       std::getline(line_stream, item, ' ');
       sensor_from_rig.translation.z() = std::stold(item);
 
-      rig_calib.AddSensor(sensor_id, sensor_from_rig);
+      rig.AddSensor(sensor_id, sensor_from_rig);
     }
 
-    reconstruction.AddRigCalib(std::move(rig_calib));
+    reconstruction.AddRig(std::move(rig));
   }
 }
 
-void ReadRigCalibsText(Reconstruction& reconstruction,
-                       const std::string& path) {
+void ReadRigsText(Reconstruction& reconstruction, const std::string& path) {
   std::ifstream file(path);
   THROW_CHECK_FILE_OPEN(file, path);
-  ReadRigCalibsText(reconstruction, file);
+  ReadRigsText(reconstruction, file);
 }
 
 void ReadCamerasText(Reconstruction& reconstruction, std::istream& stream) {
@@ -380,6 +379,48 @@ void ReadPoints3DText(Reconstruction& reconstruction, const std::string& path) {
   ReadPoints3DText(reconstruction, file);
 }
 
+void ReadRigsBinary(Reconstruction& reconstruction, std::istream& stream) {
+  THROW_CHECK(stream.good());
+
+  const int num_rigs = ReadBinaryLittleEndian<uint64_t>(&stream);
+  for (size_t i = 0; i < num_rigs; ++i) {
+    Rig rig;
+
+    rig.SetRigId(ReadBinaryLittleEndian<rig_t>(&stream));
+    const size_t num_sensors = ReadBinaryLittleEndian<uint64_t>(&stream);
+
+    sensor_t ref_sensor_id;
+    ref_sensor_id.id = ReadBinaryLittleEndian<uint64_t>(&stream);
+    ref_sensor_id.type =
+        static_cast<SensorType>(ReadBinaryLittleEndian<int>(&stream));
+    rig.AddRefSensor(ref_sensor_id);
+
+    for (size_t j = 0; j < num_sensors - 1; ++j) {
+      sensor_t sensor_id;
+      sensor_id.id = ReadBinaryLittleEndian<uint64_t>(&stream);
+      sensor_id.type =
+          static_cast<SensorType>(ReadBinaryLittleEndian<int>(&stream));
+      Rigid3d sensor_from_rig;
+      sensor_from_rig.rotation.w() = ReadBinaryLittleEndian<double>(&stream);
+      sensor_from_rig.rotation.x() = ReadBinaryLittleEndian<double>(&stream);
+      sensor_from_rig.rotation.y() = ReadBinaryLittleEndian<double>(&stream);
+      sensor_from_rig.rotation.z() = ReadBinaryLittleEndian<double>(&stream);
+      sensor_from_rig.translation.x() = ReadBinaryLittleEndian<double>(&stream);
+      sensor_from_rig.translation.y() = ReadBinaryLittleEndian<double>(&stream);
+      sensor_from_rig.translation.z() = ReadBinaryLittleEndian<double>(&stream);
+      rig.AddSensor(sensor_id, sensor_from_rig);
+    }
+
+    reconstruction.AddRig(std::move(rig));
+  }
+}
+
+void ReadRigsBinary(Reconstruction& reconstruction, const std::string& path) {
+  std::ifstream file(path, std::ios::binary);
+  THROW_CHECK_FILE_OPEN(file, path);
+  ReadRigsBinary(reconstruction, file);
+}
+
 void ReadCamerasBinary(Reconstruction& reconstruction, std::istream& stream) {
   THROW_CHECK(stream.good());
 
@@ -505,8 +546,7 @@ void ReadPoints3DBinary(Reconstruction& reconstruction,
   ReadPoints3DBinary(reconstruction, file);
 }
 
-void WriteRigCalibsText(const Reconstruction& reconstruction,
-                        std::ostream& stream) {
+void WriteRigsText(const Reconstruction& reconstruction, std::ostream& stream) {
   THROW_CHECK(stream.good());
 
   // Ensure that we don't loose any precision by storing in text.
@@ -516,24 +556,23 @@ void WriteRigCalibsText(const Reconstruction& reconstruction,
   stream << "#   RIG_ID, NUM_SENSORS, REF_SENSOR_ID, REF_SENSOR_TYPE, "
             "SENSORS[] as (SENSOR_ID, SENSOR_TYPE, QW, QX, QY, QZ, TX, TY, TZ)"
          << std::endl;
-  stream << "# Number of rig calibs: " << reconstruction.NumRigCalibs()
-         << std::endl;
+  stream << "# Number of rig calibs: " << reconstruction.NumRigs() << std::endl;
 
-  for (const camera_t rig_id : ExtractSortedIds(reconstruction.RigCalibs())) {
-    const RigCalib& rig_calib = reconstruction.RigCalib(rig_id);
+  for (const camera_t rig_id : ExtractSortedIds(reconstruction.Rigs())) {
+    const Rig& rig = reconstruction.Rig(rig_id);
 
     std::ostringstream line;
     line.precision(17);
 
     line << rig_id << " ";
 
-    line << rig_calib.NumSensors() << " ";
+    line << rig.NumSensors() << " ";
 
-    const sensor_t ref_sensor_id = rig_calib.RefSensorId();
+    const sensor_t ref_sensor_id = rig.RefSensorId();
     line << ref_sensor_id.id << " ";
     line << ref_sensor_id.type << " ";
 
-    for (const auto& [sensor_id, sensor_from_rig] : rig_calib.Sensors()) {
+    for (const auto& [sensor_id, sensor_from_rig] : rig.Sensors()) {
       line << sensor_id.id << " ";
       line << sensor_id.type << " ";
       line << sensor_from_rig->rotation.w() << " ";
@@ -552,11 +591,11 @@ void WriteRigCalibsText(const Reconstruction& reconstruction,
   }
 }
 
-void WriteRigCalibsText(const Reconstruction& reconstruction,
-                        const std::string& path) {
+void WriteRigsText(const Reconstruction& reconstruction,
+                   const std::string& path) {
   std::ofstream file(path, std::ios::trunc);
   THROW_CHECK_FILE_OPEN(file, path);
-  WriteRigCalibsText(reconstruction, file);
+  WriteRigsText(reconstruction, file);
 }
 
 void WriteCamerasText(const Reconstruction& reconstruction,
@@ -715,6 +754,43 @@ void WritePoints3DText(const Reconstruction& reconstruction,
   std::ofstream file(path, std::ios::trunc);
   THROW_CHECK_FILE_OPEN(file, path);
   WritePoints3DText(reconstruction, file);
+}
+
+void WriteRigsBinary(const Reconstruction& reconstruction,
+                     std::ostream& stream) {
+  THROW_CHECK(stream.good());
+
+  WriteBinaryLittleEndian<uint64_t>(&stream, reconstruction.NumRigs());
+
+  for (const rig_t rig_id : ExtractSortedIds(reconstruction.Rigs())) {
+    const Rig& camera = reconstruction.Rig(rig_id);
+    WriteBinaryLittleEndian<rig_t>(&stream, rig_id);
+    WriteBinaryLittleEndian<uint64_t>(&stream, camera.NumSensors());
+    WriteBinaryLittleEndian<uint64_t>(&stream, camera.RefSensorId().id);
+    WriteBinaryLittleEndian<int>(&stream,
+                                 static_cast<int>(camera.RefSensorId().type));
+    for (const auto& [sensor_id, sensor_from_rig] : camera.Sensors()) {
+      WriteBinaryLittleEndian<uint64_t>(&stream, sensor_id.id);
+      WriteBinaryLittleEndian<int>(&stream, static_cast<int>(sensor_id.type));
+      WriteBinaryLittleEndian<double>(&stream, sensor_from_rig->rotation.w());
+      WriteBinaryLittleEndian<double>(&stream, sensor_from_rig->rotation.x());
+      WriteBinaryLittleEndian<double>(&stream, sensor_from_rig->rotation.y());
+      WriteBinaryLittleEndian<double>(&stream, sensor_from_rig->rotation.z());
+      WriteBinaryLittleEndian<double>(&stream,
+                                      sensor_from_rig->translation.x());
+      WriteBinaryLittleEndian<double>(&stream,
+                                      sensor_from_rig->translation.y());
+      WriteBinaryLittleEndian<double>(&stream,
+                                      sensor_from_rig->translation.z());
+    }
+  }
+}
+
+void WriteRigsBinary(const Reconstruction& reconstruction,
+                     const std::string& path) {
+  std::ofstream file(path, std::ios::trunc | std::ios::binary);
+  THROW_CHECK_FILE_OPEN(file, path);
+  WriteRigsBinary(reconstruction, file);
 }
 
 void WriteCamerasBinary(const Reconstruction& reconstruction,

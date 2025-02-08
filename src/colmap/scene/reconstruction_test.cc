@@ -56,6 +56,12 @@ void ExpectValidCameraPtrs(const Reconstruction& reconstruction) {
 
 void ExpectEqualReconstructions(const Reconstruction& reconstruction1,
                                 const Reconstruction& reconstruction2) {
+  // compare rig calibrations
+  std::stringstream stream1_rigs, stream2_rigs;
+  WriteRigsText(reconstruction1, stream1_rigs);
+  WriteRigsText(reconstruction2, stream2_rigs);
+  EXPECT_EQ(stream1_rigs.str(), stream2_rigs.str());
+
   // compare cameras
   std::stringstream stream1_cameras, stream2_cameras;
   WriteCamerasText(reconstruction1, stream1_cameras);
@@ -96,6 +102,7 @@ void GenerateReconstruction(const image_t num_images,
 
 TEST(Reconstruction, Empty) {
   Reconstruction reconstruction;
+  EXPECT_EQ(reconstruction.NumRigs(), 0);
   EXPECT_EQ(reconstruction.NumCameras(), 0);
   EXPECT_EQ(reconstruction.NumImages(), 0);
   EXPECT_EQ(reconstruction.NumRegImages(), 0);
@@ -105,8 +112,9 @@ TEST(Reconstruction, Empty) {
 TEST(Reconstruction, ConstructCopy) {
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
-  synthetic_dataset_options.num_cameras = 2;
-  synthetic_dataset_options.num_images = 5;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras = 3;
+  synthetic_dataset_options.num_images = 8;
   synthetic_dataset_options.num_points3D = 21;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
   const Reconstruction reconstruction_copy(reconstruction);
@@ -116,8 +124,9 @@ TEST(Reconstruction, ConstructCopy) {
 TEST(Reconstruction, AssignCopy) {
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
-  synthetic_dataset_options.num_cameras = 2;
-  synthetic_dataset_options.num_images = 5;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras = 3;
+  synthetic_dataset_options.num_images = 8;
   synthetic_dataset_options.num_points3D = 21;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
   Reconstruction reconstruction_copy;
@@ -128,6 +137,7 @@ TEST(Reconstruction, AssignCopy) {
 TEST(Reconstruction, Print) {
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
   synthetic_dataset_options.num_cameras = 1;
   synthetic_dataset_options.num_images = 2;
   synthetic_dataset_options.num_points3D = 3;
@@ -135,8 +145,24 @@ TEST(Reconstruction, Print) {
   std::ostringstream stream;
   stream << reconstruction;
   EXPECT_EQ(stream.str(),
-            "Reconstruction(num_cameras=1, num_images=2, num_reg_images=2, "
-            "num_points3D=3)");
+            "Reconstruction(num_rigs=1, num_cameras=1, num_images=2, "
+            "num_reg_images=2, num_points3D=3)");
+}
+
+TEST(Reconstruction, AddRig) {
+  Reconstruction reconstruction;
+  Rig rig;
+  rig.SetRigId(1);
+  reconstruction.AddRig(rig);
+  EXPECT_TRUE(reconstruction.ExistsRig(rig.rig_id));
+  EXPECT_EQ(reconstruction.Camera(camera.camera_id).camera_id,
+            camera.camera_id);
+  EXPECT_EQ(reconstruction.Cameras().count(camera.camera_id), 1);
+  EXPECT_EQ(reconstruction.Cameras().size(), 1);
+  EXPECT_EQ(reconstruction.NumCameras(), 1);
+  EXPECT_EQ(reconstruction.NumImages(), 0);
+  EXPECT_EQ(reconstruction.NumRegImages(), 0);
+  EXPECT_EQ(reconstruction.NumPoints3D(), 0);
 }
 
 TEST(Reconstruction, AddCamera) {

@@ -138,9 +138,9 @@ void Reconstruction::TearDown() {
   }
 }
 
-void Reconstruction::AddRigCalib(class RigCalib rig_calib) {
-  const rig_t rig_id = rig_calib.RigId();
-  THROW_CHECK(rig_calibs_.emplace(rig_id, std::move(rig_calib)).second);
+void Reconstruction::AddRig(class Rig rig) {
+  const rig_t rig_id = rig.RigId();
+  THROW_CHECK(rigs_.emplace(rig_id, std::move(rig)).second);
 }
 
 void Reconstruction::AddCamera(struct Camera camera) {
@@ -736,7 +736,8 @@ void Reconstruction::CreateImageDirs(const std::string& path) const {
 
 std::ostream& operator<<(std::ostream& stream,
                          const Reconstruction& reconstruction) {
-  stream << "Reconstruction(num_cameras=" << reconstruction.NumCameras()
+  stream << "Reconstruction(num_rigs=" << reconstruction.NumRigs()
+         << ", num_cameras=" << reconstruction.NumCameras()
          << ", num_images=" << reconstruction.NumImages()
          << ", num_reg_images=" << reconstruction.NumRegImages()
          << ", num_points3D=" << reconstruction.NumPoints3D() << ")";
