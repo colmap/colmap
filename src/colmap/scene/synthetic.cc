@@ -200,7 +200,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
       sensor_from_rig.translation =
           Eigen::Vector3d::Random() * options.prior_position_stddev;
       sensor_from_rig.rotation = Eigen::Quaterniond::UnitRandom();
-      rig_calib.SetSensorFromRig(sensor_id, sensor_from_rig);
+      rig_calib.AddSensor(sensor_id, sensor_from_rig);
     }
   }
 

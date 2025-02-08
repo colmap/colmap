@@ -82,27 +82,30 @@ class RigCalib {
  public:
   RigCalib() = default;
 
-  // Access the unique identifier of the rig
+  // Access the unique identifier of the rig.
   inline rig_t RigId() const;
   inline void SetRigId(rig_t rig_id);
 
   // Add sensor into the rig. ``AddRefSensor`` needs to called first before all
-  // the ``AddSensor`` operations
+  // the ``AddSensor`` operations.
   void AddRefSensor(sensor_t ref_sensor_id);
   void AddSensor(sensor_t sensor_id,
                  const std::optional<Rigid3d>& sensor_from_rig = std::nullopt);
 
-  // Check whether the sensor exists in the rig
+  // Check whether the sensor exists in the rig.
   inline bool HasSensor(sensor_t sensor_id) const;
 
-  // Count the number of sensors available in the rig
+  // Count the number of sensors available in the rig.
   inline size_t NumSensors() const;
 
-  // Access the reference sensor id (default to be the first added sensor)
+  // Access the reference sensor id (default to be the first added sensor).
   inline sensor_t RefSensorId() const;
 
-  // Check if the sensor is the reference sensor of the rig
+  // Check if the sensor is the reference sensor of the rig.
   inline bool IsRefSensor(sensor_t sensor_id) const;
+
+  // Access all sensors in the rig except for the reference sensor,
+  inline const std::map<sensor_t, std::optional<Rigid3d>>& Sensors() const;
 
   // Access sensor from rig transformations
   inline Rigid3d& SensorFromRig(sensor_t sensor_id);
@@ -127,9 +130,11 @@ class RigCalib {
   // Reference sensor id which has the identity transformation to the rig.
   sensor_t ref_sensor_id_ = kInvalidSensorId;
 
-  // sensor_from_rig transformation.
+  // sensor_from_rig transformations.
   std::map<sensor_t, std::optional<Rigid3d>> sensors_from_rig_;
 };
+
+std::ostream& operator<<(std::ostream& stream, const RigCalib& rig_calib);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
@@ -154,6 +159,10 @@ sensor_t RigCalib::RefSensorId() const { return ref_sensor_id_; }
 
 bool RigCalib::IsRefSensor(sensor_t sensor_id) const {
   return sensor_id == ref_sensor_id_;
+}
+
+const std::map<sensor_t, std::optional<Rigid3d>>& RigCalib::Sensors() const {
+  return sensors_from_rig_;
 }
 
 Rigid3d& RigCalib::SensorFromRig(sensor_t sensor_id) {
@@ -260,12 +269,13 @@ void RigCalib::ResetSensorFromRig(sensor_t sensor_id) {
 }
 
 bool RigCalib::operator==(const RigCalib& other) const {
-    return rig_id_ == other.rig_id_ &&
-           ref_sensor_id_ == other.ref_sensor_id_ &&
-           sensors_from_rig_ == other.sensors_from_rig_;
-  }
+  return rig_id_ == other.rig_id_ && ref_sensor_id_ == other.ref_sensor_id_ &&
+         sensors_from_rig_ == other.sensors_from_rig_;
+}
 
-bool RigCalib::operator!=(const RigCalib& other) const { return !(*this == other); }
+bool RigCalib::operator!=(const RigCalib& other) const {
+  return !(*this == other);
+}
 
 }  // namespace colmap
 

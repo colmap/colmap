@@ -85,45 +85,57 @@ void ReadRigCalibsText(Reconstruction& reconstruction, std::istream& stream) {
     std::getline(line_stream, item, ' ');
     rig_calib.SetRigId(std::stoll(item));
 
+    // NUM_SENSORS
     std::getline(line_stream, item, ' ');
     const int num_sensors = std::stoul(item);
 
-    for (int i = 0; i < num_sensors; ++i) {
-      std::getline(line_stream, item, ' ');
+    if (num_sensors == 0) {
+      continue;
+    }
+
+    // REF_SENSOR
+    sensor_t ref_sensor_id;
+    std::getline(line_stream, item, ' ');
+    ref_sensor_id.id = std::stoul(item);
+    std::getline(line_stream, item, ' ');
+    ref_sensor_id.type = SensorTypeFromString(item);
+    rig_calib.AddRefSensor(ref_sensor_id);
+
+    // SENSORS
+    for (int i = 0; i < num_sensors - 1; ++i) {
       sensor_t sensor_id;
-      sensor_id.type = SensorTypeFromString(item);
       std::getline(line_stream, item, ' ');
       sensor_id.id = std::stoul(item);
+      std::getline(line_stream, item, ' ');
+      sensor_id.type = SensorTypeFromString(item);
 
-      if (i > 0) {
-        Rigid3d sensor_from_rig;
+      Rigid3d sensor_from_rig;
 
-        std::getline(line_stream, item, ' ');
-        sensor_from_rig.rotation.w() = std::stold(item);
+      std::getline(line_stream, item, ' ');
+      sensor_from_rig.rotation.w() = std::stold(item);
 
-        std::getline(line_stream, item, ' ');
-        sensor_from_rig.rotation.x() = std::stold(item);
+      std::getline(line_stream, item, ' ');
+      sensor_from_rig.rotation.x() = std::stold(item);
 
-        std::getline(line_stream, item, ' ');
-        sensor_from_rig.rotation.y() = std::stold(item);
+      std::getline(line_stream, item, ' ');
+      sensor_from_rig.rotation.y() = std::stold(item);
 
-        std::getline(line_stream, item, ' ');
-        sensor_from_rig.rotation.z() = std::stold(item);
+      std::getline(line_stream, item, ' ');
+      sensor_from_rig.rotation.z() = std::stold(item);
 
-        std::getline(line_stream, item, ' ');
-        sensor_from_rig.translation.x() = std::stold(item);
+      std::getline(line_stream, item, ' ');
+      sensor_from_rig.translation.x() = std::stold(item);
 
-        std::getline(line_stream, item, ' ');
-        sensor_from_rig.translation.y() = std::stold(item);
+      std::getline(line_stream, item, ' ');
+      sensor_from_rig.translation.y() = std::stold(item);
 
-        std::getline(line_stream, item, ' ');
-        sensor_from_rig.translation.z() = std::stold(item);
+      std::getline(line_stream, item, ' ');
+      sensor_from_rig.translation.z() = std::stold(item);
 
-        rig_calib.AddSensor(sensor_id, sensor_from_rig);
-      } else {
-        rig_calib.AddRefSensor(sensor_id);
-      }
+      rig_calib.AddSensor(sensor_id, sensor_from_rig);
     }
+
+    reconstruction.AddRigCalib(std::move(rig_calib));
   }
 }
 
@@ -501,22 +513,36 @@ void WriteRigCalibsText(const Reconstruction& reconstruction,
   stream.precision(17);
 
   stream << "# Rig calib list with one line of data per calib:" << std::endl;
-  stream << "#   RIG_ID, NUM_SENSORS, SENSORS[] as (SENSOR_TYPE, SENSOR_ID, QW, QX, QY, QZ, TX, TY, TZ)" << std::endl;
-  stream << "# Number of rig calibs: " << reconstruction.NumCameras() << std::endl;
+  stream << "#   RIG_ID, NUM_SENSORS, REF_SENSOR_ID, REF_SENSOR_TYPE, "
+            "SENSORS[] as (SENSOR_ID, SENSOR_TYPE, QW, QX, QY, QZ, TX, TY, TZ)"
+         << std::endl;
+  stream << "# Number of rig calibs: " << reconstruction.NumRigCalibs()
+         << std::endl;
 
-  for (const camera_t camera_id : ExtractSortedIds(reconstruction.Cameras())) {
-    const Camera& camera = reconstruction.Camera(camera_id);
+  for (const camera_t rig_id : ExtractSortedIds(reconstruction.RigCalibs())) {
+    const RigCalib& rig_calib = reconstruction.RigCalib(rig_id);
 
     std::ostringstream line;
     line.precision(17);
 
-    line << camera_id << " ";
-    line << camera.ModelName() << " ";
-    line << camera.width << " ";
-    line << camera.height << " ";
+    line << rig_id << " ";
 
-    for (const double param : camera.params) {
-      line << param << " ";
+    line << rig_calib.NumSensors() << " ";
+
+    const sensor_t ref_sensor_id = rig_calib.RefSensorId();
+    line << ref_sensor_id.id << " ";
+    line << ref_sensor_id.type << " ";
+
+    for (const auto& [sensor_id, sensor_from_rig] : rig_calib.Sensors()) {
+      line << sensor_id.id << " ";
+      line << sensor_id.type << " ";
+      line << sensor_from_rig->rotation.w() << " ";
+      line << sensor_from_rig->rotation.x() << " ";
+      line << sensor_from_rig->rotation.y() << " ";
+      line << sensor_from_rig->rotation.z() << " ";
+      line << sensor_from_rig->translation.x() << " ";
+      line << sensor_from_rig->translation.y() << " ";
+      line << sensor_from_rig->translation.z() << " ";
     }
 
     std::string line_string = line.str();

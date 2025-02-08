@@ -43,6 +43,7 @@ TEST(RigCalib, Default) {
   EXPECT_EQ(calib.RigId(), kInvalidRigId);
   EXPECT_EQ(calib.RefSensorId(), kInvalidSensorId);
   EXPECT_EQ(calib.NumSensors(), 0);
+  EXPECT_EQ(calib.Sensors().size(), 0);
 }
 
 TEST(RigCalib, SetUp) {
@@ -62,6 +63,19 @@ TEST(RigCalib, SetUp) {
   EXPECT_TRUE(calib.HasSensorFromRig(sensor_t(SensorType::CAMERA, 0)));
   EXPECT_FALSE(calib.HasSensorFromRig(sensor_t(SensorType::CAMERA, 1)));
   EXPECT_TRUE(calib.HasSensor(sensor_t(SensorType::CAMERA, 1)));
+  EXPECT_EQ(calib.Sensors().size(), 3);
+}
+
+TEST(RigCalib, Print) {
+  RigCalib rig_calib;
+  rig_calib.AddRefSensor(sensor_t(SensorType::IMU, 0));
+  rig_calib.AddSensor(sensor_t(SensorType::CAMERA, 1), Rigid3d());
+  rig_calib.AddSensor(sensor_t(SensorType::CAMERA, 2), Rigid3d());
+  std::ostringstream stream;
+  stream << rig_calib;
+  EXPECT_EQ(stream.str(),
+            "RigCalib(rig_id=Invalid, ref_sensor_id=(0, IMU), sensors=[(1, "
+            "CAMERA), (2, CAMERA)])");
 }
 
 }  // namespace

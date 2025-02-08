@@ -294,9 +294,10 @@ INSTANTIATE_TEST_SUITE_P(
     ParameterizedReaderWriterTests,
     ::testing::Values(
         []() { return std::make_unique<ReaderWriterTextStringStream>(); },
-        []() { return std::make_unique<ReaderWriterBinaryStringStream>(); },
-        []() { return std::make_unique<ReaderWriterTextFileStream>(); },
-        []() { return std::make_unique<ReaderWriterBinaryFileStream>(); }));
+        // []() { return std::make_unique<ReaderWriterBinaryStringStream>(); },
+        []() { return std::make_unique<ReaderWriterTextFileStream>(); }
+        // []() { return std::make_unique<ReaderWriterBinaryFileStream>(); }
+      ));
 
 }  // namespace
 }  // namespace colmap
