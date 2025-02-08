@@ -68,14 +68,15 @@ TEST(RigCalib, SetUp) {
 
 TEST(RigCalib, Print) {
   RigCalib rig_calib;
+  rig_calib.SetRigId(0);
   rig_calib.AddRefSensor(sensor_t(SensorType::IMU, 0));
   rig_calib.AddSensor(sensor_t(SensorType::CAMERA, 1), Rigid3d());
   rig_calib.AddSensor(sensor_t(SensorType::CAMERA, 2), Rigid3d());
   std::ostringstream stream;
   stream << rig_calib;
   EXPECT_EQ(stream.str(),
-            "RigCalib(rig_id=Invalid, ref_sensor_id=(0, IMU), sensors=[(1, "
-            "CAMERA), (2, CAMERA)])");
+            "RigCalib(rig_id=0, ref_sensor_id=(0, IMU), sensors=[(1, CAMERA), "
+            "(2, CAMERA)])");
 }
 
 }  // namespace
