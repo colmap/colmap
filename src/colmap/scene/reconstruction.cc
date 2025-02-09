@@ -45,7 +45,8 @@ namespace colmap {
 Reconstruction::Reconstruction() : max_point3D_id_(0) {}
 
 Reconstruction::Reconstruction(const Reconstruction& other)
-    : cameras_(other.cameras_),
+    : rigs_(other.rigs_),
+      cameras_(other.cameras_),
       images_(other.images_),
       points3D_(other.points3D_),
       reg_image_ids_(other.reg_image_ids_),
@@ -58,6 +59,7 @@ Reconstruction::Reconstruction(const Reconstruction& other)
 
 Reconstruction& Reconstruction::operator=(const Reconstruction& other) {
   if (this != &other) {
+    rigs_ = other.rigs_;
     cameras_ = other.cameras_;
     images_ = other.images_;
     points3D_ = other.points3D_;

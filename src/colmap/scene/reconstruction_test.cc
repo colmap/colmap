@@ -154,12 +154,12 @@ TEST(Reconstruction, AddRig) {
   Rig rig;
   rig.SetRigId(1);
   reconstruction.AddRig(rig);
-  EXPECT_TRUE(reconstruction.ExistsRig(rig.rig_id));
-  EXPECT_EQ(reconstruction.Camera(camera.camera_id).camera_id,
-            camera.camera_id);
-  EXPECT_EQ(reconstruction.Cameras().count(camera.camera_id), 1);
-  EXPECT_EQ(reconstruction.Cameras().size(), 1);
-  EXPECT_EQ(reconstruction.NumCameras(), 1);
+  EXPECT_TRUE(reconstruction.ExistsRig(rig.RigId()));
+  EXPECT_EQ(reconstruction.Rig(rig.RigId()).RigId(), rig.RigId());
+  EXPECT_EQ(reconstruction.Rigs().count(rig.RigId()), 1);
+  EXPECT_EQ(reconstruction.Rigs().size(), 1);
+  EXPECT_EQ(reconstruction.NumRigs(), 1);
+  EXPECT_EQ(reconstruction.NumCameras(), 0);
   EXPECT_EQ(reconstruction.NumImages(), 0);
   EXPECT_EQ(reconstruction.NumRegImages(), 0);
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
@@ -175,6 +175,7 @@ TEST(Reconstruction, AddCamera) {
             camera.camera_id);
   EXPECT_EQ(reconstruction.Cameras().count(camera.camera_id), 1);
   EXPECT_EQ(reconstruction.Cameras().size(), 1);
+  EXPECT_EQ(reconstruction.NumRigs(), 0);
   EXPECT_EQ(reconstruction.NumCameras(), 1);
   EXPECT_EQ(reconstruction.NumImages(), 0);
   EXPECT_EQ(reconstruction.NumRegImages(), 0);
@@ -196,6 +197,7 @@ TEST(Reconstruction, AddImage) {
   EXPECT_FALSE(reconstruction.IsImageRegistered(1));
   EXPECT_EQ(reconstruction.Images().count(1), 1);
   EXPECT_EQ(reconstruction.Images().size(), 1);
+  EXPECT_EQ(reconstruction.NumRigs(), 0);
   EXPECT_EQ(reconstruction.NumCameras(), 1);
   EXPECT_EQ(reconstruction.NumImages(), 1);
   EXPECT_EQ(reconstruction.NumRegImages(), 0);
@@ -211,6 +213,7 @@ TEST(Reconstruction, AddPoint3D) {
   EXPECT_EQ(reconstruction.Point3D(point3D_id).track.Length(), 0);
   EXPECT_EQ(reconstruction.Points3D().count(point3D_id), 1);
   EXPECT_EQ(reconstruction.Points3D().size(), 1);
+  EXPECT_EQ(reconstruction.NumRigs(), 0);
   EXPECT_EQ(reconstruction.NumCameras(), 0);
   EXPECT_EQ(reconstruction.NumImages(), 0);
   EXPECT_EQ(reconstruction.NumRegImages(), 0);
