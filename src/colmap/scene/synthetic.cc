@@ -166,6 +166,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
   THROW_CHECK_LE(options.num_cameras, options.num_images);
   THROW_CHECK_GE(options.num_points3D, 0);
   THROW_CHECK_GE(options.num_points2D_without_point3D, 0);
+  THROW_CHECK_GE(options.rig_from_sensor_translation_stddev, 0.);
   THROW_CHECK_GE(options.point2D_stddev, 0.);
   THROW_CHECK_GE(options.prior_position_stddev, 0.);
 
@@ -190,17 +191,32 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
     camera_ids[camera_idx] = camera_id;
     camera.camera_id = camera_id;
     reconstruction->AddCamera(std::move(camera));
-    sensor_t sensor_id(SensorType::CAMERA, camera_idx);
+
+    sensor_t sensor_id(SensorType::CAMERA, camera_id);
     const rig_t rig_id = camera_idx % options.num_rigs;
     Rig& rig = reconstruction->Rig(rig_id);
     if (rig.NumSensors() == 0) {
       rig.AddRefSensor(sensor_id);
     } else {
       Rigid3d sensor_from_rig;
-      sensor_from_rig.translation =
-          Eigen::Vector3d::Random() * options.prior_position_stddev;
-      sensor_from_rig.rotation = Eigen::Quaterniond::UnitRandom();
+      if (options.rig_from_sensor_translation_stddev > 0) {
+        sensor_from_rig.translation =
+            Eigen::Vector3d(RandomGaussian<double>(
+                                0, options.rig_from_sensor_translation_stddev),
+                            RandomGaussian<double>(
+                                0, options.rig_from_sensor_translation_stddev),
+                            RandomGaussian<double>(
+                                0, options.rig_from_sensor_translation_stddev));
+      }
       rig.AddSensor(sensor_id, sensor_from_rig);
+    }
+  }
+
+  if (database) {
+    for (int rig_idx = 0; rig_idx < options.num_rigs; ++rig_idx) {
+      LOG(INFO) << "Rig " << rig_idx << " has "
+                << reconstruction->Rig(rig_idx).NumSensors() << " sensors";
+      database->WriteRig(reconstruction->Rig(rig_idx), /*use_rig_id=*/true);
     }
   }
 

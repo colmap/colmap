@@ -48,8 +48,11 @@ struct data_t {
   // Unique identifer of the sensor
   sensor_t sensor_id;
   // Unique identifier of the data (measurement)
-  // This can be image_t / imu_measurement_t (not supported yet)
+  // This can be image_t / imu_sample_t (not supported yet)
   uint32_t id;
+
+  constexpr data_t()
+      : sensor_id(kInvalidSensorId), id(std::numeric_limits<uint32_t>::max()) {}
   constexpr data_t(const sensor_t& sensor_id, uint32_t id)
       : sensor_id(sensor_id), id(id) {}
 
@@ -63,6 +66,7 @@ struct data_t {
     return !(*this == other);
   }
 };
+
 constexpr data_t kInvalidDataId =
     data_t(kInvalidSensorId, std::numeric_limits<uint32_t>::max());
 

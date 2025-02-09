@@ -95,7 +95,7 @@ class Image {
   inline void SetFrameId(frame_t frame_id);
   inline const std::shared_ptr<class Frame>& Frame() const;
   inline void SetFrame(std::shared_ptr<class Frame> frame);
-  // Check if the cam_from_world needs to be composited with rig calibration.
+  // Check if the cam_from_world needs to be composited with rig.
   inline bool HasNonTrivialFrame() const;
 
   // World to camera pose.
@@ -253,42 +253,42 @@ Rigid3d Image::ComposeCamFromWorld() const {
 const Rigid3d& Image::CamFromWorld() const {
   THROW_CHECK(!HasNonTrivialFrame())
       << "No reference available for cam_from_world transformation, since "
-         "composition with rig calibration is needed.";
+         "composition with rig is needed.";
   return frame_->FrameFromWorld();
 }
 
 Rigid3d& Image::CamFromWorld() {
   THROW_CHECK(!HasNonTrivialFrame())
       << "No reference available for cam_from_world transformation, since "
-         "composition with rig calibration is needed.";
+         "composition with rig is needed.";
   return frame_->FrameFromWorld();
 }
 
 const std::optional<Rigid3d>& Image::MaybeCamFromWorld() const {
   THROW_CHECK(!HasNonTrivialFrame())
       << "No reference available for cam_from_world transformation, since "
-         "composition with rig calibration is needed.";
+         "composition with rig is needed.";
   return frame_->MaybeFrameFromWorld();
 }
 
 std::optional<Rigid3d>& Image::MaybeCamFromWorld() {
   THROW_CHECK(!HasNonTrivialFrame())
       << "No reference available for cam_from_world transformation, since "
-         "composition with rig calibration is needed.";
+         "composition with rig is needed.";
   return frame_->MaybeFrameFromWorld();
 }
 
 void Image::SetCamFromWorld(const Rigid3d& cam_from_world) {
   THROW_CHECK(!HasNonTrivialFrame())
       << "No reference available for cam_from_world transformation, since "
-         "composition with rig calibration is needed.";
+         "composition with rig is needed.";
   frame_->SetFrameFromWorld(cam_from_world);
 }
 
 void Image::SetCamFromWorld(const std::optional<Rigid3d>& cam_from_world) {
   THROW_CHECK(!HasNonTrivialFrame())
       << "No reference available for cam_from_world transformation, since "
-         "composition with rig calibration is needed.";
+         "composition with rig is needed.";
   frame_->SetFrameFromWorld(cam_from_world);
 }
 
