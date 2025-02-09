@@ -50,6 +50,12 @@ TEST(SynthesizeDataset, Nominal) {
   CreateDirIfNotExists(sparse_path);
   reconstruction.Write(sparse_path);
 
+  EXPECT_EQ(database.NumRigs(), options.num_rigs);
+  EXPECT_EQ(reconstruction.NumRigs(), options.num_rigs);
+  for (const auto& rig : reconstruction.Rigs()) {
+    EXPECT_EQ(rig.second.NumSensors(), options.num_cameras);
+  }
+
   EXPECT_EQ(database.NumCameras(), options.num_cameras);
   EXPECT_EQ(reconstruction.NumCameras(), options.num_cameras);
   for (const auto& camera : reconstruction.Cameras()) {
