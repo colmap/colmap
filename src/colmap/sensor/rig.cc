@@ -40,10 +40,9 @@ void Rig::AddRefSensor(sensor_t ref_sensor_id) {
 void Rig::AddSensor(sensor_t sensor_id,
                     const std::optional<Rigid3d>& sensor_from_rig) {
   THROW_CHECK_GE(NumSensors(), 1)
-      << "The reference sensor needs to added first before any "
-         "sensor being added.";
+      << "The reference sensor needs to be added first before other sensors.";
   THROW_CHECK(!HasSensor(sensor_id))
-      << StringPrintf("Sensor id (%d, %d) is inserted twice into the rig",
+      << StringPrintf("Sensor (%d, %d) is inserted twice into the rig",
                       sensor_id.type,
                       sensor_id.id);
   sensors_from_rig_.emplace(sensor_id, sensor_from_rig);
