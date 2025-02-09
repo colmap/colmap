@@ -42,9 +42,8 @@ void Rig::AddSensor(sensor_t sensor_id,
   THROW_CHECK_GE(NumSensors(), 1)
       << "The reference sensor needs to be added first before other sensors.";
   THROW_CHECK(!HasSensor(sensor_id))
-      << StringPrintf("Sensor (%d, %d) is inserted twice into the rig",
-                      sensor_id.type,
-                      sensor_id.id);
+      << "Sensor (" << sensor_id.type << ", " << sensor_id.id
+      << ") is inserted twice into the rig";
   sensors_from_rig_.emplace(sensor_id, sensor_from_rig);
 }
 

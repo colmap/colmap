@@ -29,6 +29,7 @@
 
 #include "colmap/scene/database.h"
 
+#include "colmap/util/endian.h"
 #include "colmap/util/sqlite3_utils.h"
 #include "colmap/util/string.h"
 #include "colmap/util/version.h"
@@ -210,8 +211,48 @@ Rig ReadRigRow(sqlite3_stmt* sql_stmt) {
   ref_sensor_id.id = static_cast<uint32_t>(sqlite3_column_int64(sql_stmt, 1));
   ref_sensor_id.type =
       static_cast<SensorType>(sqlite3_column_int64(sql_stmt, 2));
+  rig.AddRefSensor(ref_sensor_id);
 
-  // TODO
+  const size_t num_sensor_data_bytes =
+      static_cast<size_t>(sqlite3_column_bytes(sql_stmt, 3));
+  std::string sensor_data(num_sensor_data_bytes, '\0');
+  std::memcpy(sensor_data.data(),
+              sqlite3_column_blob(sql_stmt, 3),
+              num_sensor_data_bytes);
+  std::stringstream sensor_data_stream;
+  sensor_data_stream << sensor_data;
+
+  const size_t num_other_sensors =
+      ReadBinaryLittleEndian<uint64_t>(&sensor_data_stream);
+
+  for (size_t i = 0; i < num_other_sensors; ++i) {
+    sensor_t sensor_id;
+    sensor_id.id = ReadBinaryLittleEndian<uint64_t>(&sensor_data_stream);
+    sensor_id.type = static_cast<SensorType>(
+        ReadBinaryLittleEndian<int>(&sensor_data_stream));
+
+    const bool has_pose = ReadBinaryLittleEndian<uint8_t>(&sensor_data_stream);
+    std::optional<Rigid3d> sensor_from_rig;
+    if (has_pose) {
+      sensor_from_rig = Rigid3d();
+      sensor_from_rig->rotation.w() =
+          ReadBinaryLittleEndian<double>(&sensor_data_stream);
+      sensor_from_rig->rotation.x() =
+          ReadBinaryLittleEndian<double>(&sensor_data_stream);
+      sensor_from_rig->rotation.y() =
+          ReadBinaryLittleEndian<double>(&sensor_data_stream);
+      sensor_from_rig->rotation.z() =
+          ReadBinaryLittleEndian<double>(&sensor_data_stream);
+      sensor_from_rig->translation.x() =
+          ReadBinaryLittleEndian<double>(&sensor_data_stream);
+      sensor_from_rig->translation.y() =
+          ReadBinaryLittleEndian<double>(&sensor_data_stream);
+      sensor_from_rig->translation.z() =
+          ReadBinaryLittleEndian<double>(&sensor_data_stream);
+    }
+
+    rig.AddSensor(sensor_id, sensor_from_rig);
+  }
 
   return rig;
 }
@@ -230,7 +271,7 @@ Camera ReadCameraRow(sqlite3_stmt* sql_stmt) {
   const size_t num_params = num_params_bytes / sizeof(double);
   THROW_CHECK_EQ(num_params, CameraModelNumParams(camera.model_id));
   camera.params.resize(num_params, 0.);
-  memcpy(
+  std::memcpy(
       camera.params.data(), sqlite3_column_blob(sql_stmt, 4), num_params_bytes);
 
   camera.has_prior_focal_length = sqlite3_column_int64(sql_stmt, 5) != 0;
@@ -247,6 +288,39 @@ Image ReadImageRow(sqlite3_stmt* sql_stmt) {
   image.SetCameraId(static_cast<camera_t>(sqlite3_column_int64(sql_stmt, 2)));
 
   return image;
+}
+
+std::string OtherRigSensorsToBytes(const Rig& rig) {
+  std::stringstream sensor_data_stream;
+
+  const int num_other_sensors = rig.NumSensors() - 1;
+  WriteBinaryLittleEndian<uint64_t>(&sensor_data_stream, num_other_sensors);
+
+  for (const auto& [sensor_id, sensor_from_rig] : rig.Sensors()) {
+    WriteBinaryLittleEndian<uint64_t>(&sensor_data_stream, sensor_id.id);
+    WriteBinaryLittleEndian<int>(&sensor_data_stream,
+                                 static_cast<int>(sensor_id.type));
+    WriteBinaryLittleEndian<uint8_t>(&sensor_data_stream,
+                                     sensor_from_rig.has_value() ? 1 : 0);
+    if (sensor_from_rig.has_value()) {
+      WriteBinaryLittleEndian<double>(&sensor_data_stream,
+                                      sensor_from_rig->rotation.w());
+      WriteBinaryLittleEndian<double>(&sensor_data_stream,
+                                      sensor_from_rig->rotation.x());
+      WriteBinaryLittleEndian<double>(&sensor_data_stream,
+                                      sensor_from_rig->rotation.y());
+      WriteBinaryLittleEndian<double>(&sensor_data_stream,
+                                      sensor_from_rig->rotation.z());
+      WriteBinaryLittleEndian<double>(&sensor_data_stream,
+                                      sensor_from_rig->translation.x());
+      WriteBinaryLittleEndian<double>(&sensor_data_stream,
+                                      sensor_from_rig->translation.y());
+      WriteBinaryLittleEndian<double>(&sensor_data_stream,
+                                      sensor_from_rig->translation.z());
+    }
+  }
+
+  return sensor_data_stream.str();
 }
 
 }  // namespace
@@ -703,6 +777,8 @@ Database::ReadTwoViewGeometryNumInliers() const {
 }
 
 rig_t Database::WriteRig(const Rig& rig, const bool use_rig_id) const {
+  THROW_CHECK(rig.NumSensors() > 0) << "Rig must have at least one sensor";
+
   if (use_rig_id) {
     THROW_CHECK(!ExistsRig(rig.RigId())) << "rig_id must be unique";
     SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_add_rig_, 1, rig.RigId()));
@@ -710,7 +786,19 @@ rig_t Database::WriteRig(const Rig& rig, const bool use_rig_id) const {
     SQLITE3_CALL(sqlite3_bind_null(sql_stmt_add_rig_, 1));
   }
 
-  // TODO
+  SQLITE3_CALL(sqlite3_bind_int64(
+      sql_stmt_add_rig_, 2, static_cast<sqlite3_int64>(rig.RefSensorId().id)));
+  SQLITE3_CALL(
+      sqlite3_bind_int64(sql_stmt_add_rig_,
+                         3,
+                         static_cast<sqlite3_int64>(rig.RefSensorId().type)));
+
+  const std::string sensor_data = OtherRigSensorsToBytes(rig);
+  SQLITE3_CALL(sqlite3_bind_blob(sql_stmt_add_rig_,
+                                 4,
+                                 sensor_data.data(),
+                                 static_cast<int>(sensor_data.size()),
+                                 SQLITE_STATIC));
 
   SQLITE3_CALL(sqlite3_step(sql_stmt_add_rig_));
   SQLITE3_CALL(sqlite3_reset(sql_stmt_add_rig_));
@@ -899,7 +987,21 @@ void Database::WriteTwoViewGeometry(
 }
 
 void Database::UpdateRig(const Rig& rig) const {
-  // TODO
+  SQLITE3_CALL(
+      sqlite3_bind_int64(sql_stmt_update_rig_,
+                         1,
+                         static_cast<sqlite3_int64>(rig.RefSensorId().id)));
+  SQLITE3_CALL(
+      sqlite3_bind_int64(sql_stmt_update_rig_,
+                         2,
+                         static_cast<sqlite3_int64>(rig.RefSensorId().type)));
+
+  const std::string sensor_data = OtherRigSensorsToBytes(rig);
+  SQLITE3_CALL(sqlite3_bind_blob(sql_stmt_update_rig_,
+                                 3,
+                                 sensor_data.data(),
+                                 static_cast<int>(sensor_data.size()),
+                                 SQLITE_STATIC));
 
   SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_update_rig_, 4, rig.RigId()));
 
@@ -1042,8 +1144,6 @@ void Database::ClearTwoViewGeometries() const {
 void Database::Merge(const Database& database1,
                      const Database& database2,
                      Database* merged_database) {
-  // TODO: rigs
-
   // Merge the cameras.
 
   std::unordered_map<camera_t, camera_t> new_camera_ids1;
@@ -1056,6 +1156,45 @@ void Database::Merge(const Database& database1,
   for (const auto& camera : database2.ReadAllCameras()) {
     const camera_t new_camera_id = merged_database->WriteCamera(camera);
     new_camera_ids2.emplace(camera.camera_id, new_camera_id);
+  }
+
+  // Merge the rigs.
+
+  auto update_rig =
+      [](const Rig& rig,
+         const std::unordered_map<camera_t, camera_t>& new_camera_ids) {
+        if (rig.NumSensors() == 0) {
+          return rig;
+        }
+        Rig updated_rig;
+        updated_rig.SetRigId(rig.RigId());
+        sensor_t ref_sensor_id = rig.RefSensorId();
+        if (ref_sensor_id.type == SensorType::CAMERA) {
+          ref_sensor_id.id = new_camera_ids.at(ref_sensor_id.id);
+        }
+        updated_rig.AddRefSensor(ref_sensor_id);
+        for (auto [sensor_id, sensor_from_rig] : rig.Sensors()) {
+          sensor_t updated_sensor_id = sensor_id;
+          if (sensor_id.type == SensorType::CAMERA) {
+            updated_sensor_id.id = new_camera_ids.at(sensor_id.id);
+          }
+          updated_rig.AddSensor(updated_sensor_id, sensor_from_rig);
+        }
+        return updated_rig;
+      };
+
+  std::unordered_map<rig_t, rig_t> new_rig_ids1;
+  for (auto& rig : database1.ReadAllRigs()) {
+    const rig_t new_rig_id =
+        merged_database->WriteRig(update_rig(rig, new_camera_ids1));
+    new_rig_ids1.emplace(rig.RigId(), new_rig_id);
+  }
+
+  std::unordered_map<rig_t, rig_t> new_rig_ids2;
+  for (auto& rig : database2.ReadAllRigs()) {
+    const rig_t new_rig_id =
+        merged_database->WriteRig(update_rig(rig, new_camera_ids2));
+    new_rig_ids2.emplace(rig.RigId(), new_rig_id);
   }
 
   // Merge the images.

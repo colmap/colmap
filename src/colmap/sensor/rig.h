@@ -38,9 +38,6 @@
 #include <map>
 #include <memory>
 #include <optional>
-#include <set>
-#include <tuple>
-#include <vector>
 
 namespace colmap {
 
@@ -53,6 +50,7 @@ struct sensor_t {
   // Unique identifier of the sensor.
   // This can be camera_t / imu_t (not supported yet)
   uint32_t id;
+
   constexpr sensor_t()
       : type(SensorType::INVALID), id(std::numeric_limits<uint32_t>::max()) {}
   constexpr sensor_t(const SensorType& type, uint32_t id)
@@ -68,6 +66,7 @@ struct sensor_t {
     return !(*this == other);
   }
 };
+
 constexpr sensor_t kInvalidSensorId =
     sensor_t(SensorType::INVALID, std::numeric_limits<uint32_t>::max());
 
@@ -80,8 +79,6 @@ constexpr sensor_t kInvalidSensorId =
 // not ideal particularly when it comes to covariance estimation.
 class Rig {
  public:
-  Rig() = default;
-
   // Access the unique identifier of the rig.
   inline rig_t RigId() const;
   inline void SetRigId(rig_t rig_id);
@@ -124,7 +121,11 @@ class Rig {
   inline bool operator!=(const Rig& other) const;
 
  private:
-  // Unique identifier of the device.
+  inline std::optional<Rigid3d>& FindSensorFromRigOrThrow(sensor_t sensor_id);
+  inline const std::optional<Rigid3d>& FindSensorFromRigOrThrow(
+      sensor_t sensor_id) const;
+
+  // Unique identifier of the rig.
   rig_t rig_id_ = kInvalidRigId;
 
   // Reference sensor id which has the identity transformation to the rig.
@@ -166,105 +167,40 @@ const std::map<sensor_t, std::optional<Rigid3d>>& Rig::Sensors() const {
 }
 
 Rigid3d& Rig::SensorFromRig(sensor_t sensor_id) {
-  THROW_CHECK(!IsRefSensor(sensor_id))
-      << "No reference is available for the SensorFromRig transformation of "
-         "the reference sensor, which is identity";
-  if (sensors_from_rig_.find(sensor_id) == sensors_from_rig_.end())
-    LOG(FATAL_THROW) << StringPrintf(
-        "Sensor id (%d, %d) not found in the rig calibration",
-        sensor_id.type,
-        sensor_id.id);
-  THROW_CHECK(sensors_from_rig_.at(sensor_id))
-      << "The corresponding sensor does not have a valid transformation.";
-  return *sensors_from_rig_.at(sensor_id);
+  return *FindSensorFromRigOrThrow(sensor_id);
 }
 
 const Rigid3d& Rig::SensorFromRig(sensor_t sensor_id) const {
-  THROW_CHECK(!IsRefSensor(sensor_id))
-      << "No reference is available for the SensorFromRig transformation of "
-         "the reference sensor, which is identity";
-  if (sensors_from_rig_.find(sensor_id) == sensors_from_rig_.end())
-    LOG(FATAL_THROW) << StringPrintf(
-        "Sensor id (%d, %d) not found in the rig calibration",
-        sensor_id.type,
-        sensor_id.id);
-  THROW_CHECK(sensors_from_rig_.at(sensor_id))
-      << "The corresponding sensor does not have a valid transformation.";
-  return *sensors_from_rig_.at(sensor_id);
+  return *FindSensorFromRigOrThrow(sensor_id);
 }
 
 std::optional<Rigid3d>& Rig::MaybeSensorFromRig(sensor_t sensor_id) {
-  THROW_CHECK(!IsRefSensor(sensor_id))
-      << "No reference is available for the SensorFromRig transformation of "
-         "the reference sensor, which is identity";
-  if (sensors_from_rig_.find(sensor_id) == sensors_from_rig_.end())
-    LOG(FATAL_THROW) << StringPrintf(
-        "Sensor id (%d, %d) not found in the rig calibration",
-        sensor_id.type,
-        sensor_id.id);
-  return sensors_from_rig_.at(sensor_id);
+  return FindSensorFromRigOrThrow(sensor_id);
 }
 
 const std::optional<Rigid3d>& Rig::MaybeSensorFromRig(
     sensor_t sensor_id) const {
-  THROW_CHECK(!IsRefSensor(sensor_id))
-      << "No reference is available for the SensorFromRig transformation of "
-         "the reference sensor, which is identity";
-  if (sensors_from_rig_.find(sensor_id) == sensors_from_rig_.end())
-    LOG(FATAL_THROW) << StringPrintf(
-        "Sensor id (%d, %d) not found in the rig calibration",
-        sensor_id.type,
-        sensor_id.id);
-  return sensors_from_rig_.at(sensor_id);
+  return FindSensorFromRigOrThrow(sensor_id);
 }
 
 void Rig::SetSensorFromRig(sensor_t sensor_id, const Rigid3d& sensor_from_rig) {
-  THROW_CHECK(!IsRefSensor(sensor_id))
-      << "Cannot set the SensorFromRig transformation of the reference sensor, "
-         "which is fixed to identity";
-  if (sensors_from_rig_.find(sensor_id) == sensors_from_rig_.end())
-    LOG(FATAL_THROW) << StringPrintf(
-        "Sensor id (%d, %d) not found in the rig calibration",
-        sensor_id.type,
-        sensor_id.id);
-  sensors_from_rig_.at(sensor_id) = sensor_from_rig;
+  FindSensorFromRigOrThrow(sensor_id) = sensor_from_rig;
 }
 
 void Rig::SetSensorFromRig(sensor_t sensor_id,
                            const std::optional<Rigid3d>& sensor_from_rig) {
-  THROW_CHECK(!IsRefSensor(sensor_id))
-      << "Cannot set the SensorFromRig transformation of the reference sensor, "
-         "which is fixed to identity";
-  if (sensors_from_rig_.find(sensor_id) == sensors_from_rig_.end())
-    LOG(FATAL_THROW) << StringPrintf(
-        "Sensor id (%d, %d) not found in the rig calibration",
-        sensor_id.type,
-        sensor_id.id);
-  sensors_from_rig_.at(sensor_id) = sensor_from_rig;
+  FindSensorFromRigOrThrow(sensor_id) = sensor_from_rig;
 }
 
 bool Rig::HasSensorFromRig(sensor_t sensor_id) const {
-  if (IsRefSensor(sensor_id))
+  if (IsRefSensor(sensor_id)) {
     return true;  // SensorFromRig for the reference sensor is always identity
-  if (sensors_from_rig_.find(sensor_id) == sensors_from_rig_.end())
-    LOG(FATAL_THROW) << StringPrintf(
-        "Sensor id (%d, %d) not found in the rig calibration",
-        sensor_id.type,
-        sensor_id.id);
-  return sensors_from_rig_.at(sensor_id).has_value();
+  }
+  return FindSensorFromRigOrThrow(sensor_id).has_value();
 }
 
 void Rig::ResetSensorFromRig(sensor_t sensor_id) {
-  THROW_CHECK(!IsRefSensor(sensor_id))
-      << "Cannot reset the SensorFromRig transformation of the reference "
-         "sensor, "
-         "which is fixed to identity";
-  if (sensors_from_rig_.find(sensor_id) == sensors_from_rig_.end())
-    LOG(FATAL_THROW) << StringPrintf(
-        "Sensor id (%d, %d) not found in the rig calibration",
-        sensor_id.type,
-        sensor_id.id);
-  sensors_from_rig_.at(sensor_id).reset();
+  FindSensorFromRigOrThrow(sensor_id).reset();
 }
 
 bool Rig::operator==(const Rig& other) const {
@@ -273,6 +209,30 @@ bool Rig::operator==(const Rig& other) const {
 }
 
 bool Rig::operator!=(const Rig& other) const { return !(*this == other); }
+
+inline std::optional<Rigid3d>& Rig::FindSensorFromRigOrThrow(
+    sensor_t sensor_id) {
+  THROW_CHECK(sensor_id != ref_sensor_id_)
+      << "The reference sensor does not have a SensorFromRig transformation, "
+         "which is fixed to identity";
+  auto it = sensors_from_rig_.find(sensor_id);
+  THROW_CHECK(it != sensors_from_rig_.end())
+      << "Sensor (" << sensor_id.type << ", " << sensor_id.id
+      << ") not found in the rig";
+  return it->second;
+}
+
+inline const std::optional<Rigid3d>& Rig::FindSensorFromRigOrThrow(
+    sensor_t sensor_id) const {
+  THROW_CHECK(sensor_id != ref_sensor_id_)
+      << "The reference sensor does not have a SensorFromRig transformation, "
+         "which is fixed to identity";
+  auto it = sensors_from_rig_.find(sensor_id);
+  THROW_CHECK(it != sensors_from_rig_.end())
+      << "Sensor (" << sensor_id.type << ", " << sensor_id.id
+      << ") not found in the rig";
+  return it->second;
+}
 
 }  // namespace colmap
 

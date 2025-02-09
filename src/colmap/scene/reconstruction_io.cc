@@ -406,6 +406,7 @@ void ReadRigsBinary(Reconstruction& reconstruction, std::istream& stream) {
       sensor_id.id = ReadBinaryLittleEndian<uint64_t>(&stream);
       sensor_id.type =
           static_cast<SensorType>(ReadBinaryLittleEndian<int>(&stream));
+
       const bool has_pose = ReadBinaryLittleEndian<uint8_t>(&stream);
       std::optional<Rigid3d> sensor_from_rig;
       if (has_pose) {
@@ -421,6 +422,7 @@ void ReadRigsBinary(Reconstruction& reconstruction, std::istream& stream) {
         sensor_from_rig->translation.z() =
             ReadBinaryLittleEndian<double>(&stream);
       }
+
       rig.AddSensor(sensor_id, sensor_from_rig);
     }
 
@@ -782,13 +784,13 @@ void WriteRigsBinary(const Reconstruction& reconstruction,
   WriteBinaryLittleEndian<uint64_t>(&stream, reconstruction.NumRigs());
 
   for (const rig_t rig_id : ExtractSortedIds(reconstruction.Rigs())) {
-    const Rig& camera = reconstruction.Rig(rig_id);
+    const Rig& rig = reconstruction.Rig(rig_id);
     WriteBinaryLittleEndian<rig_t>(&stream, rig_id);
-    WriteBinaryLittleEndian<uint64_t>(&stream, camera.NumSensors());
-    WriteBinaryLittleEndian<uint64_t>(&stream, camera.RefSensorId().id);
+    WriteBinaryLittleEndian<uint64_t>(&stream, rig.NumSensors());
+    WriteBinaryLittleEndian<uint64_t>(&stream, rig.RefSensorId().id);
     WriteBinaryLittleEndian<int>(&stream,
-                                 static_cast<int>(camera.RefSensorId().type));
-    for (const auto& [sensor_id, sensor_from_rig] : camera.Sensors()) {
+                                 static_cast<int>(rig.RefSensorId().type));
+    for (const auto& [sensor_id, sensor_from_rig] : rig.Sensors()) {
       WriteBinaryLittleEndian<uint64_t>(&stream, sensor_id.id);
       WriteBinaryLittleEndian<int>(&stream, static_cast<int>(sensor_id.type));
       WriteBinaryLittleEndian<uint8_t>(&stream,
