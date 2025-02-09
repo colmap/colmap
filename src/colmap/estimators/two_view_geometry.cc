@@ -398,7 +398,7 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
 
   if (geometry->config ==
       TwoViewGeometry::ConfigurationType::PLANAR_OR_PANORAMIC) {
-    if (geometry->cam2_from_cam1.translation.norm() == 0) {
+    if (geometry->cam2_from_cam1.translation.norm() < 1e-6) {
       geometry->config = TwoViewGeometry::ConfigurationType::PANORAMIC;
       geometry->tri_angle = 0;
     } else {
