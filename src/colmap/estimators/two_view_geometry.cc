@@ -352,13 +352,17 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
 
   std::vector<Eigen::Vector3d> points3D;
 
-  if (geometry->config == TwoViewGeometry::ConfigurationType::CALIBRATED ||
-      geometry->config == TwoViewGeometry::ConfigurationType::UNCALIBRATED) {
-    // Try to recover relative pose for calibrated and uncalibrated
-    // configurations. In the uncalibrated case, this most likely leads to a
-    // ill-defined reconstruction, but sometimes it succeeds anyways after e.g.
-    // subsequent bundle-adjustment etc.
+  if (geometry->config == TwoViewGeometry::ConfigurationType::CALIBRATED) {
     PoseFromEssentialMatrix(geometry->E,
+                            inlier_points1_normalized,
+                            inlier_points2_normalized,
+                            &geometry->cam2_from_cam1,
+                            &points3D);
+  } else if (geometry->config ==
+             TwoViewGeometry::ConfigurationType::UNCALIBRATED) {
+    const Eigen::Matrix3d E = EssentialFromFundamentalMatrix(
+        camera2.CalibrationMatrix(), geometry->F, camera1.CalibrationMatrix());
+    PoseFromEssentialMatrix(E,
                             inlier_points1_normalized,
                             inlier_points2_normalized,
                             &geometry->cam2_from_cam1,
@@ -385,15 +389,16 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
     geometry->tri_angle = 0;
   } else {
     const Eigen::Vector3d proj_center1 = Eigen::Vector3d::Zero();
-    const Eigen::Vector3d proj_center2 = geometry->cam2_from_cam1.rotation *
-                                         -geometry->cam2_from_cam1.translation;
+    const Eigen::Vector3d proj_center2 =
+        geometry->cam2_from_cam1.rotation.inverse() *
+        -geometry->cam2_from_cam1.translation;
     geometry->tri_angle = Median(
         CalculateTriangulationAngles(proj_center1, proj_center2, points3D));
   }
 
   if (geometry->config ==
       TwoViewGeometry::ConfigurationType::PLANAR_OR_PANORAMIC) {
-    if (geometry->cam2_from_cam1.translation.norm() == 0) {
+    if (geometry->cam2_from_cam1.translation.norm() < 1e-6) {
       geometry->config = TwoViewGeometry::ConfigurationType::PANORAMIC;
       geometry->tri_angle = 0;
     } else {
