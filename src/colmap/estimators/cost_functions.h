@@ -279,7 +279,7 @@ class ConstraintReprojErrorCostFunctor
                                  CameraModel::num_params> {
  public:
   ConstraintReprojErrorCostFunctor(const Eigen::Vector2d& point2D,
-                                   const Eigen::Vector3d& constrainingPoint3D)
+                                   const Eigen::Vector3d constrainingPoint3D)
       : constrainingPoint3D_(constrainingPoint3D), reproj_cost_(point2D) {}
 
   template <typename T>
@@ -297,7 +297,7 @@ class ConstraintReprojErrorCostFunctor
   }
 
  private:
-  const Eigen::Vector3d& constrainingPoint3D_;
+  const Eigen::Vector3d constrainingPoint3D_;
   const ReprojErrorCostFunctor<CameraModel> reproj_cost_;
 };
 
