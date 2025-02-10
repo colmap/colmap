@@ -129,4 +129,10 @@ Eigen::Matrix3d FundamentalFromEssentialMatrix(const Eigen::Matrix3d& K2,
                                                const Eigen::Matrix3d& E,
                                                const Eigen::Matrix3d& K1);
 
+// Composes the essential matrix from image 1 to 2 from the fundamental matrix
+// and two camera's calibrations.
+Eigen::Matrix3d EssentialFromFundamentalMatrix(const Eigen::Matrix3d& K2,
+                                               const Eigen::Matrix3d& F,
+                                               const Eigen::Matrix3d& K1);
+
 }  // namespace colmap
