@@ -37,6 +37,7 @@
 #include "colmap/optim/ransac.h"
 #include "colmap/scene/reconstruction_io.h"
 #include "colmap/sfm/observation_manager.h"
+#include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
 
@@ -267,6 +268,7 @@ int RunModelAligner(int argc, char** argv) {
   std::string input_path;
   std::string output_path;
   std::string database_path;
+  std::string ref_model_path;
   std::string ref_images_path;
   bool ref_is_gps = true;
   bool merge_origins = false;
@@ -279,6 +281,7 @@ int RunModelAligner(int argc, char** argv) {
   options.AddRequiredOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
   options.AddDefaultOption("database_path", &database_path);
+  options.AddDefaultOption("ref_model_path", &ref_model_path);
   options.AddDefaultOption("ref_images_path", &ref_images_path);
   options.AddDefaultOption("ref_is_gps", &ref_is_gps);
   options.AddDefaultOption("merge_image_and_ref_origins", &merge_origins);
@@ -306,16 +309,24 @@ int RunModelAligner(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  if (alignment_type != "plane" && database_path.empty() &&
-      ref_images_path.empty()) {
-    LOG(ERROR) << "Location alignment requires either database or "
-                  "location file path.";
+  if (ref_model_path.empty() && database_path.empty() &&
+      ref_images_path.empty() && alignment_type != "plane") {
+    LOG(ERROR) << "One of the following arguments must be specified: "
+                  "--ref_model_path, --database_path, "
+                  "--ref_images_path, --alignment_type=plane";
     return EXIT_FAILURE;
   }
 
   std::vector<std::string> ref_image_names;
   std::vector<Eigen::Vector3d> ref_locations;
-  if (!ref_images_path.empty() && database_path.empty()) {
+  if (!ref_model_path.empty() && database_path.empty()) {
+    Reconstruction reconstruction;
+    reconstruction.Read(ref_model_path);
+    for (const auto& image : reconstruction.Images()) {
+      ref_image_names.push_back(image.second.Name());
+      ref_locations.push_back(image.second.ProjectionCenter());
+    }
+  } else if (!ref_images_path.empty() && database_path.empty()) {
     ReadFileCameraLocations(ref_images_path,
                             ref_is_gps,
                             alignment_type,

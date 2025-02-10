@@ -1,4 +1,3 @@
-#include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/gps.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/geometry/rigid3.h"
@@ -15,14 +14,14 @@
 #include <pybind11/stl.h>
 #include <pybind11/stl_bind.h>
 
-namespace py = pybind11;
+using namespace colmap;
 using namespace pybind11::literals;
+namespace py = pybind11;
 
-void BindHomographyGeometry(py::module& m);
+void BindHomographyMatrixGeometry(py::module& m);
+void BindEssentialMatrixGeometry(py::module& m);
 
 void BindGeometry(py::module& m) {
-  BindHomographyGeometry(m);
-
   py::class_ext_<Eigen::Quaterniond> PyRotation3d(m, "Rotation3d");
   PyRotation3d.def(py::init([]() { return Eigen::Quaterniond::Identity(); }))
       .def(py::init<const Eigen::Vector4d&>(),
@@ -59,14 +58,16 @@ void BindGeometry(py::module& m) {
            [](const Eigen::Quaterniond& self) {
              return Eigen::AngleAxis<double>(self).angle();
            })
-      .def("angle_to",
-           [](const Eigen::Quaterniond& self, const Eigen::Quaterniond& other) {
-             return self.angularDistance(other);
-           })
+      .def(
+          "angle_to",
+          [](const Eigen::Quaterniond& self, const Eigen::Quaterniond& other) {
+            return self.angularDistance(other);
+          },
+          "other"_a)
       .def("inverse", &Eigen::Quaterniond::inverse)
       .def("__repr__", [](const Eigen::Quaterniond& self) {
-        std::stringstream ss;
-        ss << "Rotation3d(quat_xyzw=[" << self.coeffs().format(vec_fmt) << "])";
+        std::ostringstream ss;
+        ss << "Rotation3d(xyzw=[" << self.coeffs().format(vec_fmt) << "])";
         return ss.str();
       });
   py::implicitly_convertible<py::array, Eigen::Quaterniond>();
@@ -82,7 +83,6 @@ void BindGeometry(py::module& m) {
       .def_readwrite("translation", &Rigid3d::translation)
       .def("matrix", &Rigid3d::ToMatrix)
       .def("adjoint", &Rigid3d::Adjoint)
-      .def("essential_matrix", &EssentialMatrixFromPose)
       .def(py::self * Rigid3d())
       .def(py::self * Eigen::Vector3d())
       .def("__mul__",
@@ -99,14 +99,11 @@ void BindGeometry(py::module& m) {
                                            const Eigen::Matrix6d&)>(
                &GetCovarianceForRigid3dInverse),
            py::arg("covar"))
-      .def_static("interpolate", &InterpolateCameraPoses)
-      .def("__repr__", [](const Rigid3d& self) {
-        std::stringstream ss;
-        ss << "Rigid3d("
-           << "quat_xyzw=[" << self.rotation.coeffs().format(vec_fmt) << "], "
-           << "t=[" << self.translation.format(vec_fmt) << "])";
-        return ss.str();
-      });
+      .def_static("interpolate",
+                  &InterpolateCameraPoses,
+                  "cam_from_world1"_a,
+                  "cam_from_world2"_a,
+                  "t"_a);
   py::implicitly_convertible<py::array, Rigid3d>();
   MakeDataclass(PyRigid3d);
 
@@ -135,16 +132,8 @@ void BindGeometry(py::module& m) {
                         .rowwise() +
                     t.translation.transpose();
            })
-      .def("transform_camera_world", &TransformCameraWorld)
-      .def("inverse", static_cast<Sim3d (*)(const Sim3d&)>(&Inverse))
-      .def("__repr__", [](const Sim3d& self) {
-        std::stringstream ss;
-        ss << "Sim3d("
-           << "scale=" << self.scale << ", "
-           << "quat_xyzw=[" << self.rotation.coeffs().format(vec_fmt) << "], "
-           << "t=[" << self.translation.format(vec_fmt) << "])";
-        return ss.str();
-      });
+      .def("transform_camera_world", &TransformCameraWorld, "cam_from_world"_a)
+      .def("inverse", static_cast<Sim3d (*)(const Sim3d&)>(&Inverse));
   py::implicitly_convertible<py::array, Sim3d>();
   MakeDataclass(PySim3d);
 
@@ -160,15 +149,17 @@ void BindGeometry(py::module& m) {
   PyPosePrior.def(py::init<>())
       .def(py::init<const Eigen::Vector3d&>())
       .def(py::init<const Eigen::Vector3d&, const PPCoordinateSystem>())
-      .def_readwrite("rotation", &PosePrior::position)
-      .def_readwrite("translation", &PosePrior::coordinate_system)
+      .def(py::init<const Eigen::Vector3d&, const Eigen::Matrix3d&>())
+      .def(py::init<const Eigen::Vector3d&,
+                    const Eigen::Matrix3d&,
+                    const PPCoordinateSystem>())
+      .def_readwrite("position", &PosePrior::position)
+      .def_readwrite("position_covariance", &PosePrior::position_covariance)
+      .def_readwrite("coordinate_system", &PosePrior::coordinate_system)
       .def("is_valid", &PosePrior::IsValid)
-      .def("__repr__", [](const PosePrior& self) {
-        std::stringstream ss;
-        ss << "PosePrior("
-           << "position=[" << self.position.format(vec_fmt) << "], "
-           << "system=" << py::str(py::cast(self.coordinate_system)) << ")";
-        return ss.str();
-      });
+      .def("is_covariance_valid", &PosePrior::IsCovarianceValid);
   MakeDataclass(PyPosePrior);
+
+  BindHomographyMatrixGeometry(m);
+  BindEssentialMatrixGeometry(m);
 }

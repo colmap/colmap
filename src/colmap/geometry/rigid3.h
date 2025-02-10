@@ -32,6 +32,8 @@
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/types.h"
 
+#include <ostream>
+
 #include <Eigen/Geometry>
 
 namespace colmap {
@@ -109,5 +111,15 @@ inline Rigid3d operator*(const Rigid3d& c_from_b, const Rigid3d& b_from_a) {
       c_from_b.translation + (c_from_b.rotation * b_from_a.translation);
   return c_from_a;
 }
+
+inline bool operator==(const Rigid3d& left, const Rigid3d& right) {
+  return left.rotation.coeffs() == right.rotation.coeffs() &&
+         left.translation == right.translation;
+}
+inline bool operator!=(const Rigid3d& left, const Rigid3d& right) {
+  return !(left == right);
+}
+
+std::ostream& operator<<(std::ostream& stream, const Rigid3d& tform);
 
 }  // namespace colmap

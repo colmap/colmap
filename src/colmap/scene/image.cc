@@ -38,7 +38,7 @@ Image::Image()
     : image_id_(kInvalidImageId),
       name_(""),
       camera_id_(kInvalidCameraId),
-      registered_(false),
+      camera_ptr_(nullptr),
       num_points3D_(0) {}
 
 void Image::SetPoints2D(const std::vector<Eigen::Vector2d>& points) {
@@ -87,11 +87,41 @@ bool Image::HasPoint3D(const point3D_t point3D_id) const {
 }
 
 Eigen::Vector3d Image::ProjectionCenter() const {
-  return cam_from_world_.rotation.inverse() * -cam_from_world_.translation;
+  return CamFromWorld().rotation.inverse() * -CamFromWorld().translation;
 }
 
 Eigen::Vector3d Image::ViewingDirection() const {
-  return cam_from_world_.rotation.toRotationMatrix().row(2);
+  return CamFromWorld().rotation.toRotationMatrix().row(2);
+}
+
+std::pair<bool, Eigen::Vector2d> Image::ProjectPoint(
+    const Eigen::Vector3d& point3D) const {
+  THROW_CHECK(HasCameraPtr());
+  const Eigen::Vector3d point3D_in_cam = CamFromWorld() * point3D;
+  if (point3D_in_cam.z() < std::numeric_limits<double>::epsilon()) {
+    return {false, Eigen::Vector2d()};
+  }
+  return {true, camera_ptr_->ImgFromCam(point3D_in_cam.hnormalized())};
+}
+
+std::ostream& operator<<(std::ostream& stream, const Image& image) {
+  stream << "Image(image_id="
+         << (image.ImageId() != kInvalidImageId
+                 ? std::to_string(image.ImageId())
+                 : "Invalid");
+  if (!image.HasCameraPtr()) {
+    stream << ", camera_id="
+           << (image.HasCameraId() ? std::to_string(image.CameraId())
+                                   : "Invalid");
+  } else {
+    stream << ", camera=Camera(camera_id=" << std::to_string(image.CameraId())
+           << ")";
+  }
+  stream << ", name=\"" << image.Name() << "\""
+         << ", has_pose=" << image.HasPose()
+         << ", triangulated=" << image.NumPoints3D() << "/"
+         << image.NumPoints2D() << ")";
+  return stream;
 }
 
 }  // namespace colmap

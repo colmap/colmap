@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include "colmap/controllers/incremental_mapper.h"
+#include "colmap/controllers/incremental_pipeline.h"
 #include "colmap/scene/reconstruction.h"
 
 namespace colmap {
@@ -48,6 +48,7 @@ int RunBundleAdjuster(int argc, char** argv);
 int RunColorExtractor(int argc, char** argv);
 int RunMapper(int argc, char** argv);
 int RunHierarchicalMapper(int argc, char** argv);
+int RunPosePriorMapper(int argc, char** argv);
 int RunPointFiltering(int argc, char** argv);
 int RunPointTriangulator(int argc, char** argv);
 int RunRigBundleAdjuster(int argc, char** argv);

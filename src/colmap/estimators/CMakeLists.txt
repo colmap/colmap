@@ -27,7 +27,6 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-
 set(FOLDER_NAME "estimators")
 
 COLMAP_ADD_LIBRARY(
@@ -66,7 +65,12 @@ COLMAP_ADD_LIBRARY(
         colmap_optim
         Eigen3::Eigen
         Ceres::ceres
+        PoseLib::PoseLib
 )
+
+if(CUDA_ENABLED)
+    target_link_libraries(colmap_estimators PUBLIC colmap_util_cuda)
+endif()
 
 COLMAP_ADD_TEST(
     NAME absolute_pose_test

@@ -98,14 +98,14 @@ class PositiveExponentialManifold : public ceres::Manifold {
   bool Plus(const double* x,
             const double* delta,
             double* x_plus_delta) const override {
-    for (size_t i = 0; i < size_; ++i) {
+    for (int i = 0; i < size_; ++i) {
       x_plus_delta[i] = x[i] * std::exp(delta[i]);
     }
     return true;
   }
 
   bool PlusJacobian(const double* x, double* jacobian) const override {
-    for (size_t i = 0; i < size_; ++i) {
+    for (int i = 0; i < size_; ++i) {
       jacobian[size_ * i + i] = x[i];
     }
     return true;
@@ -149,14 +149,14 @@ class PositiveExponentialParameterization
   bool Plus(const double* x,
             const double* delta,
             double* x_plus_delta) const override {
-    for (size_t i = 0; i < size_; ++i) {
+    for (int i = 0; i < size_; ++i) {
       x_plus_delta[i] = x[i] * std::exp(delta[i]);
     }
     return true;
   }
 
   bool ComputeJacobian(const double* x, double* jacobian) const override {
-    for (size_t i = 0; i < size_; ++i) {
+    for (int i = 0; i < size_; ++i) {
       jacobian[size_ * i + i] = x[i];
     }
     return true;
@@ -168,6 +168,7 @@ class PositiveExponentialParameterization
  private:
   const int size_{};
 };
+
 #endif
 
 template <int size>
@@ -182,13 +183,13 @@ inline void SetPositiveExponentialManifold(ceres::Problem* problem,
 #endif
 }
 
-inline int ParameterBlockTangentSize(ceres::Problem* problem,
+inline int ParameterBlockTangentSize(const ceres::Problem& problem,
                                      const double* param) {
 #if CERES_VERSION_MAJOR >= 3 || \
     (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 1)
-  return problem->ParameterBlockTangentSize(param);
+  return problem.ParameterBlockTangentSize(param);
 #else
-  return problem->ParameterBlockLocalSize(param);
+  return problem.ParameterBlockLocalSize(param);
 #endif
 }
 

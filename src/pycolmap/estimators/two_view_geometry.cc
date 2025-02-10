@@ -42,38 +42,6 @@ void BindTwoViewGeometryEstimator(py::module& m) {
                      &TwoViewGeometryOptions::multiple_models)
       .def_readwrite("ransac", &TwoViewGeometryOptions::ransac_options);
   MakeDataclass(PyTwoViewGeometryOptions);
-  auto tvg_options = PyTwoViewGeometryOptions().cast<TwoViewGeometryOptions>();
-
-  py::enum_<TwoViewGeometry::ConfigurationType>(m,
-                                                "TwoViewGeometryConfiguration")
-      .value("UNDEFINED", TwoViewGeometry::UNDEFINED)
-      .value("DEGENERATE", TwoViewGeometry::DEGENERATE)
-      .value("CALIBRATED", TwoViewGeometry::CALIBRATED)
-      .value("UNCALIBRATED", TwoViewGeometry::UNCALIBRATED)
-      .value("PLANAR", TwoViewGeometry::PLANAR)
-      .value("PANORAMIC", TwoViewGeometry::PANORAMIC)
-      .value("PLANAR_OR_PANORAMIC", TwoViewGeometry::PLANAR_OR_PANORAMIC)
-      .value("WATERMARK", TwoViewGeometry::WATERMARK)
-      .value("MULTIPLE", TwoViewGeometry::MULTIPLE);
-
-  py::class_<TwoViewGeometry> PyTwoViewGeometry(m, "TwoViewGeometry");
-  PyTwoViewGeometry.def(py::init<>())
-      .def_readwrite("config", &TwoViewGeometry::config)
-      .def_readwrite("E", &TwoViewGeometry::E)
-      .def_readwrite("F", &TwoViewGeometry::F)
-      .def_readwrite("H", &TwoViewGeometry::H)
-      .def_readwrite("cam2_from_cam1", &TwoViewGeometry::cam2_from_cam1)
-      .def_property(
-          "inlier_matches",
-          [](const TwoViewGeometry& self) {
-            return FeatureMatchesToMatrix(self.inlier_matches);
-          },
-          [](TwoViewGeometry& self, const PyFeatureMatches& matrix) {
-            self.inlier_matches = FeatureMatchesFromMatrix(matrix);
-          })
-      .def_readwrite("tri_angle", &TwoViewGeometry::tri_angle)
-      .def("invert", &TwoViewGeometry::Invert);
-  MakeDataclass(PyTwoViewGeometry);
 
   m.def(
       "estimate_calibrated_two_view_geometry",
@@ -102,7 +70,8 @@ void BindTwoViewGeometryEstimator(py::module& m) {
       "camera2"_a,
       "points2"_a,
       "matches"_a = py::none(),
-      "options"_a = tvg_options);
+      py::arg_v(
+          "options", TwoViewGeometryOptions(), "TwoViewGeometryOptions()"));
 
   m.def(
       "estimate_two_view_geometry",
@@ -131,7 +100,8 @@ void BindTwoViewGeometryEstimator(py::module& m) {
       "camera2"_a,
       "points2"_a,
       "matches"_a = py::none(),
-      "options"_a = tvg_options);
+      py::arg_v(
+          "options", TwoViewGeometryOptions(), "TwoViewGeometryOptions()"));
 
   m.def("estimate_two_view_geometry_pose",
         &EstimateTwoViewGeometryPose,
@@ -142,7 +112,7 @@ void BindTwoViewGeometryEstimator(py::module& m) {
         "geometry"_a);
 
   m.def(
-      "squared_sampson_error",
+      "compute_squared_sampson_error",
       [](const std::vector<Eigen::Vector2d>& points1,
          const std::vector<Eigen::Vector2d>& points2,
          const Eigen::Matrix3d& E) {
@@ -156,4 +126,5 @@ void BindTwoViewGeometryEstimator(py::module& m) {
       "Calculate the squared Sampson error for a given essential or "
       "fundamental matrix.",
       py::call_guard<py::gil_scoped_release>());
+  DefDeprecation(m, "squared_sampson_error", "compute_squared_sampson_error");
 }

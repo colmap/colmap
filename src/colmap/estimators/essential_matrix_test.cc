@@ -32,7 +32,6 @@
 #include "colmap/estimators/essential_matrix.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/math/random.h"
-#include "colmap/optim/ransac.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/eigen_alignment.h"
 

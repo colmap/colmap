@@ -116,9 +116,9 @@ jobs:
             exit 0
           fi
           set +x -euo pipefail
-          sudo apt-get update && sudo apt-get install -y clang-format-14 black
-          ./scripts/format/clang_format.sh
-          ./scripts/format/black.sh
+          python -m pip install ruff==0.6.7 clang-format==19.1.0
+          ./scripts/format/c++.sh
+          ./scripts/format/python.sh
           git diff --name-only
           git diff --exit-code || (echo "Code formatting failed" && exit 1)
 
@@ -129,7 +129,6 @@ jobs:
             cmake \
             ninja-build \
             libboost-program-options-dev \
-            libboost-filesystem-dev \
             libboost-graph-dev \
             libboost-system-dev \
             libeigen3-dev \

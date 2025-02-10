@@ -36,7 +36,8 @@ If you use the image retrieval / vocabulary tree engine, please also cite:
 The latest source code is available at https://github.com/colmap/colmap. COLMAP
 builds on top of existing works and when using specific algorithms within
 COLMAP, please also cite the original authors, as specified in the source code,
-and consider citing relevant third-party dependencies.
+and consider citing relevant third-party dependencies (most notably
+ceres-solver, poselib, sift-gpu, vlfeat).
 
 
 Download
@@ -81,11 +82,15 @@ Acknowledgments
 
 COLMAP was originally written by [Johannes Schönberger](https://demuc.de/) with
 funding provided by his PhD advisors Jan-Michael Frahm and Marc Pollefeys.
+The team of core project maintainers currently includes
+[Johannes Schönberger](https://github.com/ahojnnes),
+[Paul-Edouard Sarlin](https://github.com/sarlinpe), and
+[Shaohui Liu](https://github.com/B1ueber2y).
 
 The Python bindings in PyCOLMAP were originally added by
 [Mihai Dusmanu](https://github.com/mihaidusmanu),
 [Philipp Lindenberger](https://github.com/Phil26AT), and
-[Paul-Edouard Sarlin](https://github.com/Skydes).
+[Paul-Edouard Sarlin](https://github.com/sarlinpe).
 
 The project has also benefitted from countless community contributions, including
 bug fixes, improvements, new features, third-party tooling, and community
@@ -135,4 +140,3 @@ dependencies may affect the resulting COLMAP license.
     CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
     ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
     POSSIBILITY OF SUCH DAMAGE.
-

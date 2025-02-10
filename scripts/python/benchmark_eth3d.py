@@ -1,8 +1,8 @@
-import os
-import sys
 import argparse
-import urllib.request
+import os
 import subprocess
+import sys
+import urllib.request
 
 
 def download_file(url, file_path, max_retries=3):

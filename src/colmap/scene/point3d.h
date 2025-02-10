@@ -54,7 +54,27 @@ struct Point3D {
   // The track of the point as a list of image observations.
   Track track;
 
-  inline bool HasError() const { return error != -1.; }
+  inline bool HasError() const;
+
+  inline bool operator==(const Point3D& other) const;
+  inline bool operator!=(const Point3D& other) const;
 };
+
+std::ostream& operator<<(std::ostream& stream, const Point3D& point3D);
+
+////////////////////////////////////////////////////////////////////////////////
+// Implementation
+////////////////////////////////////////////////////////////////////////////////
+
+bool Point3D::HasError() const { return error != -1; }
+
+bool Point3D::operator==(const Point3D& other) const {
+  return xyz == other.xyz && color == other.color && error == other.error &&
+         track == other.track;
+}
+
+bool Point3D::operator!=(const Point3D& other) const {
+  return !(*this == other);
+}
 
 }  // namespace colmap

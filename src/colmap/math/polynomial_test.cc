@@ -29,6 +29,8 @@
 
 #include "colmap/math/polynomial.h"
 
+#include "colmap/util/eigen_matchers.h"
+
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -84,7 +86,8 @@ TEST(FindQuadraticPolynomialRootsReal, Nominal) {
   Eigen::VectorXd imag;
   Eigen::Vector3d coeffs(3, -2, -4);
   EXPECT_TRUE(FindQuadraticPolynomialRoots(coeffs, &real, &imag));
-  EXPECT_TRUE(real.isApprox(Eigen::Vector2d(-0.868517092, 1.535183758), 1e-6));
+  EXPECT_THAT(
+      real, EigenMatrixNear(Eigen::Vector2d(-0.868517092, 1.535183758), 1e-6));
   EXPECT_EQ(imag, Eigen::Vector2d(0, 0));
   EXPECT_NEAR(
       EvaluatePolynomial(coeffs, std::complex<double>(real(0), imag(0))).real(),
@@ -102,10 +105,14 @@ TEST(FindQuadraticPolynomialRootsComplex, Nominal) {
   const Eigen::Vector3d coeffs(
       0.276025076998578, 0.679702676853675, 0.655098003973841);
   EXPECT_TRUE(FindQuadraticPolynomialRoots(coeffs, &real, &imag));
-  EXPECT_TRUE(real.isApprox(
-      Eigen::Vector2d(-1.231233560813707, -1.231233560813707), 1e-6));
-  EXPECT_TRUE(imag.isApprox(
-      Eigen::Vector2d(0.925954520440279, -0.925954520440279), 1e-6));
+  EXPECT_THAT(
+      real,
+      EigenMatrixNear(Eigen::Vector2d(-1.231233560813707, -1.231233560813707),
+                      1e-6));
+  EXPECT_THAT(
+      imag,
+      EigenMatrixNear(Eigen::Vector2d(0.925954520440279, -0.925954520440279),
+                      1e-6));
   EXPECT_NEAR(
       EvaluatePolynomial(coeffs, std::complex<double>(real(0), imag(0))).real(),
       0.0,
@@ -135,8 +142,10 @@ TEST(FindCubicPolynomialRoots, MultiRoot) {
   EXPECT_EQ(FindCubicPolynomialRoots(coeffs(1), coeffs(2), coeffs(3), &real),
             3);
   std::sort(real.data(), real.data() + real.size());
-  EXPECT_TRUE(real.isApprox(
-      Eigen::Vector3d(-1.4494897427831781, 1, 3.4494897427831783), 1e-6));
+  EXPECT_THAT(
+      real,
+      EigenMatrixNear(
+          Eigen::Vector3d(-1.4494897427831781, 1, 3.4494897427831783), 1e-6));
   for (int i = 0; i < 3; ++i) {
     EXPECT_NEAR(
         EvaluatePolynomial(coeffs, std::complex<double>(real(i), 0)).real(),
@@ -148,7 +157,7 @@ TEST(FindCubicPolynomialRoots, MultiRoot) {
       FindPolynomialRootsDurandKerner(coeffs, &real_durand_kerner, nullptr));
   std::sort(real_durand_kerner.data(),
             real_durand_kerner.data() + real_durand_kerner.size());
-  EXPECT_TRUE(real.isApprox(real_durand_kerner, 1e-4));
+  EXPECT_THAT(real, EigenMatrixNear(real_durand_kerner, 1e-4));
 }
 
 TEST(FindPolynomialRootsDurandKerner, Nominal) {
@@ -160,10 +169,10 @@ TEST(FindPolynomialRootsDurandKerner, Nominal) {
   // Reference values generated with OpenCV/Matlab.
   Eigen::VectorXd ref_real(4);
   ref_real << -0.201826, -0.201826, 0.451826, 0.451826;
-  EXPECT_TRUE(real.isApprox(ref_real, 1e-6));
+  EXPECT_THAT(real, EigenMatrixNear(ref_real, 1e-6));
   Eigen::VectorXd ref_imag(4);
   ref_imag << -0.627696, 0.627696, 0.160867, -0.160867;
-  EXPECT_TRUE(imag.isApprox(ref_imag, 1e-6));
+  EXPECT_THAT(imag, EigenMatrixNear(ref_imag, 1e-6));
 }
 
 TEST(FindPolynomialRootsDurandKernerLinearQuadratic, Nominal) {
@@ -194,10 +203,10 @@ TEST(FindPolynomialRootsCompanionMatrix, Nominal) {
   // Reference values generated with OpenCV/Matlab.
   Eigen::VectorXd ref_real(4);
   ref_real << -0.201826, -0.201826, 0.451826, 0.451826;
-  EXPECT_TRUE(real.isApprox(ref_real, 1e-6));
+  EXPECT_THAT(real, EigenMatrixNear(ref_real, 1e-6));
   Eigen::VectorXd ref_imag(4);
   ref_imag << 0.627696, -0.627696, 0.160867, -0.160867;
-  EXPECT_TRUE(imag.isApprox(ref_imag, 1e-6));
+  EXPECT_THAT(imag, EigenMatrixNear(ref_imag, 1e-6));
 }
 
 TEST(FindPolynomialRootsCompanionMatrixLinearQuadratic, Nominal) {
@@ -228,10 +237,10 @@ TEST(FindPolynomialRootsCompanionMatrixZeroSolution, Nominal) {
   // Reference values generated with Matlab.
   Eigen::VectorXd ref_real(4);
   ref_real << 0.692438, -0.0962191, -0.0962191, 0;
-  EXPECT_TRUE(real.isApprox(ref_real, 1e-6));
+  EXPECT_THAT(real, EigenMatrixNear(ref_real, 1e-6));
   Eigen::VectorXd ref_imag(4);
   ref_imag << 0, 0.651148, -0.651148, 0;
-  EXPECT_TRUE(imag.isApprox(ref_imag, 1e-6));
+  EXPECT_THAT(imag, EigenMatrixNear(ref_imag, 1e-6));
 }
 
 }  // namespace

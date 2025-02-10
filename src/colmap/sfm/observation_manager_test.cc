@@ -50,9 +50,21 @@ void GenerateReconstruction(const image_t num_images,
     image.SetName("image" + std::to_string(image_id));
     image.SetPoints2D(
         std::vector<Eigen::Vector2d>(kNumPoints2D, Eigen::Vector2d::Zero()));
-    image.SetRegistered(true);
+    image.SetCamFromWorld(Rigid3d());
     reconstruction.AddImage(std::move(image));
   }
+}
+
+TEST(Reconstruction, Print) {
+  Reconstruction reconstruction;
+  GenerateReconstruction(2, reconstruction);
+  ObservationManager obs_manager(reconstruction);
+  std::ostringstream stream;
+  stream << obs_manager;
+  EXPECT_EQ(stream.str(),
+            "ObservationManager(reconstruction=Reconstruction(num_cameras=1, "
+            "num_images=2, num_reg_images=2, num_points3D=0), "
+            "correspondence_graph=null)");
 }
 
 TEST(ObservationManager, FilterPoints3D) {

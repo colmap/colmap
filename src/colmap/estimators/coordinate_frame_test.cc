@@ -42,6 +42,7 @@ TEST(CoordinateFrame, EstimateGravityVectorFromImageOrientation) {
             Eigen::Vector3d::Zero());
 }
 
+#ifdef COLMAP_LSD_ENABLED
 TEST(CoordinateFrame, EstimateManhattanWorldFrame) {
   Reconstruction reconstruction;
   std::string image_path;
@@ -50,6 +51,7 @@ TEST(CoordinateFrame, EstimateManhattanWorldFrame) {
           ManhattanWorldFrameEstimationOptions(), reconstruction, image_path),
       Eigen::Matrix3d::Zero());
 }
+#endif
 
 TEST(CoordinateFrame, AlignToPrincipalPlane) {
   // Start with reconstruction containing points on the Y-Z plane and cameras
@@ -58,12 +60,15 @@ TEST(CoordinateFrame, AlignToPrincipalPlane) {
   // axis.
   Sim3d tform;
   Reconstruction reconstruction;
+  Camera camera =
+      Camera::CreateFromModelId(1, CameraModelId::kSimplePinhole, 1, 1, 1);
+  reconstruction.AddCamera(camera);
   // Setup image with projection center at (1, 0, 0)
   Image image;
+  image.SetCameraId(camera.camera_id);
   image.SetImageId(1);
-  image.SetRegistered(true);
-  image.CamFromWorld() =
-      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(-1, 0, 0));
+  image.SetCamFromWorld(
+      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(-1, 0, 0)));
   reconstruction.AddImage(image);
   // Setup 4 points on the Y-Z plane
   const point3D_t p1 =

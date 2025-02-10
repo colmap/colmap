@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/controllers/hierarchical_mapper.h"
+#include "colmap/controllers/hierarchical_pipeline.h"
 
 #include "colmap/estimators/alignment.h"
 #include "colmap/scene/scene_clustering.h"
@@ -101,7 +101,7 @@ void MergeClusters(const SceneClustering::Cluster& cluster,
 
 }  // namespace
 
-bool HierarchicalMapperController::Options::Check() const {
+bool HierarchicalPipeline::Options::Check() const {
   CHECK_OPTION_GT(init_num_trials, -1);
   CHECK_OPTION_GE(num_workers, -1);
   clustering_options.Check();
@@ -110,7 +110,7 @@ bool HierarchicalMapperController::Options::Check() const {
   return true;
 }
 
-HierarchicalMapperController::HierarchicalMapperController(
+HierarchicalPipeline::HierarchicalPipeline(
     const Options& options,
     std::shared_ptr<ReconstructionManager> reconstruction_manager)
     : options_(options),
@@ -118,7 +118,7 @@ HierarchicalMapperController::HierarchicalMapperController(
   THROW_CHECK(options_.Check());
 }
 
-void HierarchicalMapperController::Run() {
+void HierarchicalPipeline::Run() {
   PrintHeading1("Partitioning scene");
   Timer run_timer;
   run_timer.Start();

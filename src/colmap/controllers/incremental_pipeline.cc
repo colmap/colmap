@@ -27,8 +27,9 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/controllers/incremental_mapper.h"
+#include "colmap/controllers/incremental_pipeline.h"
 
+#include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
 
@@ -85,6 +86,9 @@ IncrementalMapper::Options IncrementalPipelineOptions::Mapper() const {
   options.num_threads = num_threads;
   options.local_ba_num_images = ba_local_num_images;
   options.fix_existing_images = fix_existing_images;
+  options.use_prior_position = use_prior_position;
+  options.use_robust_loss_on_prior_position = use_robust_loss_on_prior_position;
+  options.prior_position_loss_scale = prior_position_loss_scale;
   return options;
 }
 
@@ -114,11 +118,13 @@ BundleAdjustmentOptions IncrementalPipelineOptions::LocalBundleAdjustment()
   options.refine_focal_length = ba_refine_focal_length;
   options.refine_principal_point = ba_refine_principal_point;
   options.refine_extra_params = ba_refine_extra_params;
-  options.min_num_residuals_for_multi_threading =
-      ba_min_num_residuals_for_multi_threading;
+  options.min_num_residuals_for_cpu_multi_threading =
+      ba_min_num_residuals_for_cpu_multi_threading;
   options.loss_function_scale = 1.0;
   options.loss_function_type =
       BundleAdjustmentOptions::LossFunctionType::SOFT_L1;
+  options.use_gpu = ba_use_gpu;
+  options.gpu_index = ba_gpu_index;
   return options;
 }
 
@@ -130,9 +136,12 @@ BundleAdjustmentOptions IncrementalPipelineOptions::GlobalBundleAdjustment()
   options.solver_options.parameter_tolerance = 0.0;
   options.solver_options.max_num_iterations = ba_global_max_num_iterations;
   options.solver_options.max_linear_solver_iterations = 100;
-  options.solver_options.logging_type =
-      ceres::LoggingType::PER_MINIMIZER_ITERATION;
-  options.solver_options.minimizer_progress_to_stdout = false;
+  options.solver_options.logging_type = ceres::LoggingType::SILENT;
+  if (VLOG_IS_ON(2)) {
+    options.solver_options.minimizer_progress_to_stdout = true;
+    options.solver_options.logging_type =
+        ceres::LoggingType::PER_MINIMIZER_ITERATION;
+  }
   options.solver_options.num_threads = num_threads;
 #if CERES_VERSION_MAJOR < 2
   options.solver_options.num_linear_solver_threads = num_threads;
@@ -141,10 +150,12 @@ BundleAdjustmentOptions IncrementalPipelineOptions::GlobalBundleAdjustment()
   options.refine_focal_length = ba_refine_focal_length;
   options.refine_principal_point = ba_refine_principal_point;
   options.refine_extra_params = ba_refine_extra_params;
-  options.min_num_residuals_for_multi_threading =
-      ba_min_num_residuals_for_multi_threading;
+  options.min_num_residuals_for_cpu_multi_threading =
+      ba_min_num_residuals_for_cpu_multi_threading;
   options.loss_function_type =
       BundleAdjustmentOptions::LossFunctionType::TRIVIAL;
+  options.use_gpu = ba_use_gpu;
+  options.gpu_index = ba_gpu_index;
   return options;
 }
 
@@ -169,6 +180,7 @@ bool IncrementalPipelineOptions::Check() const {
   CHECK_OPTION_GT(ba_global_max_refinements, 0);
   CHECK_OPTION_GE(ba_global_max_refinement_change, 0);
   CHECK_OPTION_GE(snapshot_images_freq, 0);
+  CHECK_OPTION_GT(prior_position_loss_scale, 0.);
   CHECK_OPTION(Mapper().Check());
   CHECK_OPTION(Triangulation().Check());
   return true;
@@ -246,6 +258,12 @@ bool IncrementalPipeline::LoadDatabase() {
   if (database_cache_->NumImages() == 0) {
     LOG(WARNING) << "No images with matches found in the database";
     return false;
+  }
+
+  // If prior positions are to be used and setup from the database, convert
+  // geographic coords. to cartesian ones
+  if (options_->use_prior_position) {
+    return database_cache_->SetupPosePriors();
   }
 
   return true;
@@ -482,12 +500,13 @@ void IncrementalPipeline::Reconstruct(
     const Status status =
         ReconstructSubModel(mapper, mapper_options, reconstruction);
     switch (status) {
-      case Status::INTERRUPTED:
+      case Status::INTERRUPTED: {
         mapper.EndReconstruction(/*discard=*/false);
         return;
+      }
 
       case Status::NO_INITIAL_PAIR:
-      case Status::BAD_INITIAL_PAIR:
+      case Status::BAD_INITIAL_PAIR: {
         mapper.EndReconstruction(/*discard=*/true);
         reconstruction_manager_->Delete(reconstruction_idx);
         // If both initial images are manually specified, there is no need for
@@ -496,6 +515,7 @@ void IncrementalPipeline::Reconstruct(
           return;
         }
         break;
+      }
 
       case Status::SUCCESS: {
         // Remember the total number of registered images before potentially
@@ -526,7 +546,9 @@ void IncrementalPipeline::Reconstruct(
             total_num_reg_images >= database_cache_->NumImages() - 1) {
           return;
         }
-      } break;
+
+        break;
+      }
 
       default:
         LOG(FATAL_THROW) << "Unknown reconstruction status.";
@@ -541,12 +563,12 @@ void IncrementalPipeline::TriangulateReconstruction(
   mapper.BeginReconstruction(reconstruction);
 
   LOG(INFO) << "Iterative triangulation";
-  const std::vector<image_t>& reg_image_ids = reconstruction->RegImageIds();
-  for (size_t i = 0; i < reg_image_ids.size(); ++i) {
-    const image_t image_id = reg_image_ids[i];
+  size_t image_idx = 0;
+  for (const image_t image_id : reconstruction->RegImageIds()) {
     const auto& image = reconstruction->Image(image_id);
 
-    LOG(INFO) << StringPrintf("Triangulating image #%d (%d)", image_id, i);
+    LOG(INFO) << StringPrintf(
+        "Triangulating image #%d (%d)", image_id, image_idx++);
     const size_t num_existing_points3D = image.NumPoints3D();
     LOG(INFO) << "=> Image sees " << num_existing_points3D << " / "
               << mapper.ObservationManager().NumObservations(image_id)

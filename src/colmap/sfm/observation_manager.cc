@@ -70,22 +70,20 @@ ObservationManager::ObservationManager(
 
   // Add image stats.
   image_stats_.reserve(reconstruction_.NumImages());
-  for (const auto& id_image : reconstruction_.Images()) {
-    const Image& image = id_image.second;
-    const Camera& camera = reconstruction_.Camera(image.CameraId());
+  for (const auto& [image_id, image] : reconstruction_.Images()) {
+    const Camera& camera = *image.CameraPtr();
     ImageStat image_stat;
     image_stat.point3D_visibility_pyramid = VisibilityPyramid(
         kNumPoint3DVisibilityPyramidLevels, camera.width, camera.height);
     image_stat.num_correspondences_have_point3D.resize(image.NumPoints2D(), 0);
     image_stat.num_visible_points3D = 0;
-    if (correspondence_graph_ &&
-        correspondence_graph_->ExistsImage(id_image.first)) {
+    if (correspondence_graph_ && correspondence_graph_->ExistsImage(image_id)) {
       image_stat.num_observations =
-          correspondence_graph_->NumObservationsForImage(id_image.first);
+          correspondence_graph_->NumObservationsForImage(image_id);
       image_stat.num_correspondences =
-          correspondence_graph_->NumCorrespondencesForImage(id_image.first);
+          correspondence_graph_->NumCorrespondencesForImage(image_id);
     }
-    image_stats_.emplace(id_image.first, image_stat);
+    image_stats_.emplace(image_id, image_stat);
   }
 
   // If an existing model was loaded from disk and there were already images
@@ -143,7 +141,7 @@ void ObservationManager::SetObservationAsTriangulated(
     return;
   }
   const Image& image = reconstruction_.Image(image_id);
-  THROW_CHECK(image.IsRegistered());
+  THROW_CHECK(image.HasPose());
 
   const Point2D& point2D = image.Point2D(point2D_idx);
   THROW_CHECK(point2D.HasPoint3D());
@@ -176,7 +174,7 @@ void ObservationManager::ResetTriObservations(const image_t image_id,
     return;
   }
   const Image& image = reconstruction_.Image(image_id);
-  THROW_CHECK(image.IsRegistered());
+  THROW_CHECK(image.HasPose());
   const Point2D& point2D = image.Point2D(point2D_idx);
   THROW_CHECK(point2D.HasPoint3D());
 
@@ -431,7 +429,7 @@ size_t ObservationManager::FilterPoints3DWithLargeReprojectionError(
 
     for (const auto& track_el : point3D.track.Elements()) {
       const Image& image = reconstruction_.Image(track_el.image_id);
-      const struct Camera& camera = reconstruction_.Camera(image.CameraId());
+      const struct Camera& camera = *image.CameraPtr();
       const Point2D& point2D = image.Point2D(track_el.point2D_idx);
       const double squared_reproj_error = CalculateSquaredReprojectionError(
           point2D.xy, point3D.xyz, image.CamFromWorld(), camera);
@@ -475,10 +473,9 @@ std::vector<image_t> ObservationManager::FilterImages(
   std::vector<image_t> filtered_image_ids;
   for (const image_t image_id : reconstruction_.RegImageIds()) {
     const Image& image = reconstruction_.Image(image_id);
-    if (image.NumPoints3D() == 0 || reconstruction_.Camera(image.CameraId())
-                                        .HasBogusParams(min_focal_length_ratio,
-                                                        max_focal_length_ratio,
-                                                        max_extra_param)) {
+    if (image.NumPoints3D() == 0 ||
+        image.CameraPtr()->HasBogusParams(
+            min_focal_length_ratio, max_focal_length_ratio, max_extra_param)) {
       filtered_image_ids.push_back(image_id);
     }
   }
@@ -490,6 +487,19 @@ std::vector<image_t> ObservationManager::FilterImages(
   }
 
   return filtered_image_ids;
+}
+
+std::ostream& operator<<(std::ostream& stream,
+                         const ObservationManager& obs_manager) {
+  stream << "ObservationManager(reconstruction=" << obs_manager.reconstruction_
+         << ", correspondence_graph=";
+  if (obs_manager.correspondence_graph_ == nullptr) {
+    stream << "null";
+  } else {
+    stream << obs_manager.correspondence_graph_;
+  }
+  stream << ")";
+  return stream;
 }
 
 }  // namespace colmap

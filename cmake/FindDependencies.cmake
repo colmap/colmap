@@ -4,8 +4,11 @@ else()
     set(COLMAP_FIND_TYPE REQUIRED)
 endif()
 
+if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.30")
+    cmake_policy(SET CMP0167 NEW)
+endif()
+
 find_package(Boost ${COLMAP_FIND_TYPE} COMPONENTS
-             filesystem
              graph
              program_options
              system)
@@ -82,6 +85,10 @@ if(CGAL_FOUND)
             CGAL INTERFACE ${CGAL_LIBRARY} ${GMP_LIBRARIES})
     endif()
     list(APPEND COLMAP_LINK_DIRS ${CGAL_LIBRARIES_DIR})
+endif()
+
+if(NOT FETCH_POSELIB)
+    find_package(PoseLib ${COLMAP_FIND_TYPE})
 endif()
 
 set(COLMAP_LINK_DIRS ${Boost_LIBRARY_DIRS})

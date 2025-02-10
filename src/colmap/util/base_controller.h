@@ -45,7 +45,7 @@ class BaseController {
   virtual ~BaseController() = default;
 
   // Set callbacks that can be triggered within the main run function.
-  void AddCallback(int id, const std::function<void()>& func);
+  void AddCallback(int id, std::function<void()> func);
 
   // Call back to the function with the specified name, if it exists.
   void Callback(int id) const;
@@ -57,7 +57,7 @@ class BaseController {
   virtual void Run() = 0;
 
   // check if the thread is stopped
-  void SetCheckIfStoppedFunc(const std::function<bool()>& func);
+  void SetCheckIfStoppedFunc(std::function<bool()> func);
   bool CheckIfStopped();
 
  protected:

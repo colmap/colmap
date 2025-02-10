@@ -31,6 +31,7 @@
 
 #include "colmap/controllers/option_manager.h"
 #include "colmap/scene/reconstruction_manager.h"
+#include "colmap/util/enum_to_string.h"
 #include "colmap/util/threading.h"
 
 #include <memory>
@@ -40,9 +41,9 @@ namespace colmap {
 
 class AutomaticReconstructionController : public Thread {
  public:
-  enum class DataType { INDIVIDUAL, VIDEO, INTERNET };
-  enum class Quality { LOW, MEDIUM, HIGH, EXTREME };
-  enum class Mesher { POISSON, DELAUNAY };
+  MAKE_ENUM_CLASS(DataType, 0, INDIVIDUAL, VIDEO, INTERNET);
+  MAKE_ENUM_CLASS(Quality, 0, LOW, MEDIUM, HIGH, EXTREME);
+  MAKE_ENUM_CLASS(Mesher, 0, POISSON, DELAUNAY);
 
   struct Options {
     // The path to the workspace folder in which all results are stored.
@@ -76,6 +77,12 @@ class AutomaticReconstructionController : public Thread {
     // Initial camera params for all images.
     std::string camera_params;
 
+    // Whether to perform feature extraction.
+    bool extraction = true;
+
+    // Whether to perform feature matching.
+    bool matching = true;
+
     // Whether to perform sparse mapping.
     bool sparse = true;
 
@@ -92,12 +99,14 @@ class AutomaticReconstructionController : public Thread {
     // The number of threads to use in all stages.
     int num_threads = -1;
 
-    // Whether to use the GPU in feature extraction and matching.
+    // Whether to use the GPU in feature extraction, feature matching, and
+    // bundle adjustment.
     bool use_gpu = true;
 
-    // Index of the GPU used for GPU stages. For multi-GPU computation,
-    // you should separate multiple GPU indices by comma, e.g., "0,1,2,3".
-    // By default, all GPUs will be used in all stages.
+    // Index of the GPU used for GPU stages. For multi-GPU computation in
+    // feature extraction/matching, you should separate multiple GPU indices by
+    // comma, e.g., "0,1,2,3". For single-GPU stages only the first GPU will be
+    // used. By default, all available GPUs will be used in all stages.
     std::string gpu_index = "-1";
   };
 

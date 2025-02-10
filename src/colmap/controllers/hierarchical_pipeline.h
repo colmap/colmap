@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include "colmap/controllers/incremental_mapper.h"
+#include "colmap/controllers/incremental_pipeline.h"
 #include "colmap/scene/reconstruction_manager.h"
 #include "colmap/scene/scene_clustering.h"
 #include "colmap/util/base_controller.h"
@@ -43,7 +43,7 @@ namespace colmap {
 // mapping, and finally merges them all into a globally consistent
 // reconstruction. This is especially useful for larger-scale scenes, since
 // incremental mapping becomes slow with an increasing number of images.
-class HierarchicalMapperController : public BaseController {
+class HierarchicalPipeline : public BaseController {
  public:
   struct Options {
     // The path to the image folder which are used as input.
@@ -67,7 +67,7 @@ class HierarchicalMapperController : public BaseController {
     bool Check() const;
   };
 
-  HierarchicalMapperController(
+  HierarchicalPipeline(
       const Options& options,
       std::shared_ptr<ReconstructionManager> reconstruction_manager);
 

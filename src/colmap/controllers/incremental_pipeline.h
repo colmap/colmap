@@ -35,6 +35,7 @@
 
 namespace colmap {
 
+// NOLINTNEXTLINE(clang-analyzer-optin.performance.Padding)
 struct IncrementalPipelineOptions {
   // The minimum number of matches for inlier matches to be considered.
   int min_num_matches = 15;
@@ -85,7 +86,7 @@ struct IncrementalPipelineOptions {
 
   // The minimum number of residuals per bundle adjustment problem to
   // enable multi-threading solving of the problems.
-  int ba_min_num_residuals_for_multi_threading = 50000;
+  int ba_min_num_residuals_for_cpu_multi_threading = 50000;
 
   // The number of images to optimize in local bundle adjustment.
   int ba_local_num_images = 6;
@@ -113,6 +114,20 @@ struct IncrementalPipelineOptions {
   double ba_local_max_refinement_change = 0.001;
   int ba_global_max_refinements = 5;
   double ba_global_max_refinement_change = 0.0005;
+
+  // Whether to use Ceres' CUDA sparse linear algebra library, if available.
+  bool ba_use_gpu = false;
+  std::string ba_gpu_index = "-1";
+
+  // Whether to use prior camera positions
+  bool use_prior_position = false;
+
+  // Whether to use a robust loss on prior locations
+  bool use_robust_loss_on_prior_position = false;
+
+  // Threshold on the residual for the robust loss
+  // (chi2 for 3DOF at 95% = 7.815)
+  double prior_position_loss_scale = 7.815;
 
   // Path to a folder with reconstruction snapshots during incremental
   // reconstruction. Snapshots will be saved according to the specified

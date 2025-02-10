@@ -145,13 +145,15 @@ bool EstimateGeneralizedAbsolutePose(
   ransac.support_measurer.SetUniqueSampleIds(unique_point3D_ids);
   ransac.estimator.residual_type =
       GP3PEstimator::ResidualType::ReprojectionError;
-  const auto report = ransac.Estimate(rig_points2D, points3D);
+  auto report = ransac.Estimate(rig_points2D, points3D);
   if (!report.success) {
     return false;
   }
+
   *rig_from_world = report.model;
   *num_inliers = report.support.num_unique_inliers;
-  *inlier_mask = report.inlier_mask;
+  *inlier_mask = std::move(report.inlier_mask);
+
   return true;
 }
 
@@ -200,7 +202,7 @@ bool RefineGeneralizedAbsolutePose(const AbsolutePoseRefinementOptions& options,
     camera_counts[camera_idx] += 1;
 
     problem.AddResidualBlock(
-        CameraCostFunction<RigReprojErrorCostFunction>(
+        CreateCameraCostFunction<RigReprojErrorCostFunctor>(
             cameras->at(camera_idx).model_id, points2D[i]),
         loss_function.get(),
         cams_from_rig_copy[camera_idx].rotation.coeffs().data(),
