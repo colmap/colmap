@@ -42,7 +42,7 @@ struct SyntheticDatasetOptions {
   int num_images = 10;
   int num_points3D = 100;
 
-  double rig_from_sensor_translation_stddev = 0.05;
+  double sensor_from_rig_translation_stddev = 0.05;
 
   int camera_width = 1024;
   int camera_height = 768;

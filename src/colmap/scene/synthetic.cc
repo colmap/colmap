@@ -166,18 +166,12 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
   THROW_CHECK_LE(options.num_cameras, options.num_images);
   THROW_CHECK_GE(options.num_points3D, 0);
   THROW_CHECK_GE(options.num_points2D_without_point3D, 0);
-  THROW_CHECK_GE(options.rig_from_sensor_translation_stddev, 0.);
+  THROW_CHECK_GE(options.sensor_from_rig_translation_stddev, 0.);
   THROW_CHECK_GE(options.point2D_stddev, 0.);
   THROW_CHECK_GE(options.prior_position_stddev, 0.);
 
-  std::vector<rig_t> rig_ids(options.num_rigs);
-  for (int rig_idx = 0; rig_idx < options.num_rigs; ++rig_idx) {
-    Rig rig;
-    rig.SetRigId(rig_idx);
-    reconstruction->AddRig(std::move(rig));
-  }
-
   // Synthesize cameras.
+  std::vector<Rig> rigs(options.num_rigs);
   std::vector<camera_t> camera_ids(options.num_cameras);
   for (int camera_idx = 0; camera_idx < options.num_cameras; ++camera_idx) {
     Camera camera;
@@ -193,31 +187,31 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
     reconstruction->AddCamera(std::move(camera));
 
     sensor_t sensor_id(SensorType::CAMERA, camera_id);
-    const rig_t rig_id = camera_idx % options.num_rigs;
-    Rig& rig = reconstruction->Rig(rig_id);
+    const rig_t rig_idx = camera_idx % options.num_rigs;
+    Rig& rig = rigs[rig_idx];
     if (rig.NumSensors() == 0) {
       rig.AddRefSensor(sensor_id);
     } else {
       Rigid3d sensor_from_rig;
-      if (options.rig_from_sensor_translation_stddev > 0) {
+      if (options.sensor_from_rig_translation_stddev > 0) {
         sensor_from_rig.translation =
             Eigen::Vector3d(RandomGaussian<double>(
-                                0, options.rig_from_sensor_translation_stddev),
+                                0, options.sensor_from_rig_translation_stddev),
                             RandomGaussian<double>(
-                                0, options.rig_from_sensor_translation_stddev),
+                                0, options.sensor_from_rig_translation_stddev),
                             RandomGaussian<double>(
-                                0, options.rig_from_sensor_translation_stddev));
+                                0, options.sensor_from_rig_translation_stddev));
       }
       rig.AddSensor(sensor_id, sensor_from_rig);
     }
   }
 
-  if (database) {
-    for (int rig_idx = 0; rig_idx < options.num_rigs; ++rig_idx) {
-      LOG(INFO) << "Rig " << rig_idx << " has "
-                << reconstruction->Rig(rig_idx).NumSensors() << " sensors";
-      database->WriteRig(reconstruction->Rig(rig_idx), /*use_rig_id=*/true);
-    }
+  for (int rig_idx = 0; rig_idx < options.num_rigs; ++rig_idx) {
+    Rig& rig = rigs[rig_idx];
+    const rig_t rig_id =
+        (database == nullptr) ? rig_idx + 1 : database->WriteRig(rig);
+    rig.SetRigId(rig_id);
+    reconstruction->AddRig(std::move(rig));
   }
 
   // Synthesize 3D points on unit sphere centered at origin.
