@@ -161,6 +161,7 @@ void SynthesizeChainedMatches(double inlier_match_ratio,
 void SynthesizeDataset(const SyntheticDatasetOptions& options,
                        Reconstruction* reconstruction,
                        Database* database) {
+  THROW_CHECK_GE(options.num_rigs, 0);
   THROW_CHECK_GT(options.num_cameras, 0);
   THROW_CHECK_GT(options.num_images, 0);
   THROW_CHECK_LE(options.num_cameras, options.num_images);
@@ -170,8 +171,11 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
   THROW_CHECK_GE(options.point2D_stddev, 0.);
   THROW_CHECK_GE(options.prior_position_stddev, 0.);
 
+  const int num_rigs =
+      (options.num_rigs == 0) ? options.num_cameras : options.num_rigs;
+
   // Synthesize cameras.
-  std::vector<Rig> rigs(options.num_rigs);
+  std::vector<Rig> rigs(num_rigs);
   std::vector<camera_t> camera_ids(options.num_cameras);
   for (int camera_idx = 0; camera_idx < options.num_cameras; ++camera_idx) {
     Camera camera;
@@ -187,7 +191,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
     reconstruction->AddCamera(std::move(camera));
 
     sensor_t sensor_id(SensorType::CAMERA, camera_id);
-    const rig_t rig_idx = camera_idx % options.num_rigs;
+    const rig_t rig_idx = camera_idx % num_rigs;
     Rig& rig = rigs[rig_idx];
     if (rig.NumSensors() == 0) {
       rig.AddRefSensor(sensor_id);
@@ -206,7 +210,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
     }
   }
 
-  for (int rig_idx = 0; rig_idx < options.num_rigs; ++rig_idx) {
+  for (int rig_idx = 0; rig_idx < num_rigs; ++rig_idx) {
     Rig& rig = rigs[rig_idx];
     const rig_t rig_id =
         (database == nullptr) ? rig_idx + 1 : database->WriteRig(rig);

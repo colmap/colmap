@@ -37,7 +37,7 @@
 namespace colmap {
 
 struct SyntheticDatasetOptions {
-  int num_rigs = 1;
+  int num_rigs = 0;
   int num_cameras = 2;
   int num_images = 10;
   int num_points3D = 100;
