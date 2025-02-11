@@ -75,8 +75,8 @@ TEST(Rig, Print) {
   std::ostringstream stream;
   stream << rig;
   EXPECT_EQ(stream.str(),
-            "Rig(rig_id=0, ref_sensor_id=(0, IMU), sensors=[(1, CAMERA), "
-            "(2, CAMERA)])");
+            "Rig(rig_id=0, ref_sensor_id=(IMU, 0), sensors=[(CAMERA, 1), "
+            "(CAMERA, 2)])");
 }
 
 }  // namespace

@@ -90,20 +90,19 @@ class Image {
   // are part of a 3D point track.
   inline point2D_t NumPoints3D() const;
 
-  // [Optional] The corresponding frame of the image
+  // [Optional] The corresponding frame of the image.
   inline frame_t FrameId() const;
   inline void SetFrameId(frame_t frame_id);
   inline const std::shared_ptr<class Frame>& Frame() const;
   inline void SetFrame(std::shared_ptr<class Frame> frame);
-  // Check if the cam_from_world needs to be composited with rig.
-  inline bool HasNonTrivialFrame() const;
+  // Check if the cam_from_world needs to be composed with the rig pose.
+  inline bool HasTrivialFrame() const;
 
   // World to camera pose.
-  // Get the value (copy) of cam_from_world. This also supports non-trivial
-  // frame (rig).
+  // Get the value (copy) of cam_from_world. This supports non-trivial frames.
   inline Rigid3d ComposeCamFromWorld() const;
 
-  // The following methods only works for non-composited pose. Will throw an
+  // The following methods only works for non-composed pose. Will throw an
   // error if the image has a non-trivial frame (rig) attached to it.
   inline const Rigid3d& CamFromWorld() const;
   inline Rigid3d& CamFromWorld();
@@ -146,6 +145,8 @@ class Image {
   inline bool operator!=(const Image& other) const;
 
  private:
+  inline void ThrowIfNonTrivialFrame() const;
+
   // Identifier of the image, if not specified `kInvalidImageId`.
   image_t image_id_;
 
@@ -239,65 +240,57 @@ void Image::SetFrame(std::shared_ptr<class Frame> frame) {
   frame_ = std::move(frame);
 }
 
-bool Image::HasNonTrivialFrame() const {
+bool Image::HasTrivialFrame() const {
   THROW_CHECK(frame_) << "Invalid pointer to the corresponding frame";
-  return frame_->HasRig() &&
-         !frame_->Rig()->IsRefSensor(sensor_t(SensorType::CAMERA, CameraId()));
+  return !frame_->HasRig() ||
+         frame_->Rig()->IsRefSensor(sensor_t(SensorType::CAMERA, CameraId()));
 }
 
 Rigid3d Image::ComposeCamFromWorld() const {
-  sensor_t sensor_id = sensor_t(SensorType::CAMERA, CameraId());
-  return frame_->SensorFromWorld(sensor_id);
+  return frame_->SensorFromWorld(sensor_t(SensorType::CAMERA, CameraId()));
 }
 
 const Rigid3d& Image::CamFromWorld() const {
-  THROW_CHECK(!HasNonTrivialFrame())
-      << "No reference available for cam_from_world transformation, since "
-         "composition with rig is needed.";
+  ThrowIfNonTrivialFrame();
   return frame_->FrameFromWorld();
 }
 
 Rigid3d& Image::CamFromWorld() {
-  THROW_CHECK(!HasNonTrivialFrame())
-      << "No reference available for cam_from_world transformation, since "
-         "composition with rig is needed.";
+  ThrowIfNonTrivialFrame();
   return frame_->FrameFromWorld();
 }
 
 const std::optional<Rigid3d>& Image::MaybeCamFromWorld() const {
-  THROW_CHECK(!HasNonTrivialFrame())
-      << "No reference available for cam_from_world transformation, since "
-         "composition with rig is needed.";
+  ThrowIfNonTrivialFrame();
   return frame_->MaybeFrameFromWorld();
 }
 
 std::optional<Rigid3d>& Image::MaybeCamFromWorld() {
-  THROW_CHECK(!HasNonTrivialFrame())
-      << "No reference available for cam_from_world transformation, since "
-         "composition with rig is needed.";
+  ThrowIfNonTrivialFrame();
   return frame_->MaybeFrameFromWorld();
 }
 
 void Image::SetCamFromWorld(const Rigid3d& cam_from_world) {
-  THROW_CHECK(!HasNonTrivialFrame())
-      << "No reference available for cam_from_world transformation, since "
-         "composition with rig is needed.";
+  ThrowIfNonTrivialFrame();
   frame_->SetFrameFromWorld(cam_from_world);
 }
 
 void Image::SetCamFromWorld(const std::optional<Rigid3d>& cam_from_world) {
-  THROW_CHECK(!HasNonTrivialFrame())
-      << "No reference available for cam_from_world transformation, since "
-         "composition with rig is needed.";
+  ThrowIfNonTrivialFrame();
   frame_->SetFrameFromWorld(cam_from_world);
 }
 
-bool Image::HasPose() const { return frame_->HasPose(); }
+bool Image::HasPose() const {
+  if (HasTrivialFrame()) {
+    return frame_->HasPose();
+  } else {
+    return frame_->HasPose() && frame_->Rig()->HasSensorFromRig(
+                                    sensor_t(SensorType::CAMERA, CameraId()));
+  }
+}
 
 void Image::ResetPose() {
-  THROW_CHECK(!HasNonTrivialFrame())
-      << "Resetting the global pose of a non-trivial frame (rig) from a single "
-         "sensor is not supported.";
+  ThrowIfNonTrivialFrame();
   frame_->ResetPose();
 }
 
@@ -325,5 +318,10 @@ bool Image::operator==(const Image& other) const {
 }
 
 bool Image::operator!=(const Image& other) const { return !(*this == other); }
+
+void Image::ThrowIfNonTrivialFrame() const {
+  THROW_CHECK(HasTrivialFrame())
+      << "Operation not supported for non-trivial frame (rig).";
+}
 
 }  // namespace colmap

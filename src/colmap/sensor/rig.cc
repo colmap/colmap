@@ -51,10 +51,10 @@ std::ostream& operator<<(std::ostream& stream, const Rig& rig) {
   const std::string rig_id_str =
       rig.RigId() != kInvalidRigId ? std::to_string(rig.RigId()) : "Invalid";
   stream << "Rig(rig_id=" << rig_id_str << ", ref_sensor_id=("
-         << rig.RefSensorId().id << ", " << rig.RefSensorId().type
+         << rig.RefSensorId().type << ", " << rig.RefSensorId().id
          << "), sensors=[";
   for (const auto& [sensor_id, _] : rig.Sensors()) {
-    stream << "(" << sensor_id.id << ", " << sensor_id.type << "), ";
+    stream << "(" << sensor_id.type << ", " << sensor_id.id << "), ";
   }
   if (rig.NumSensors() > 1) {
     stream.seekp(-2, std::ios_base::end);
