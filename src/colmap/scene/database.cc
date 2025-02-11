@@ -50,6 +50,9 @@ FeatureKeypointsBlob FeatureKeypointsToBlob(const FeatureKeypoints& keypoints) {
     blob(i, 0) = keypoints[i].x;
     blob(i, 1) = keypoints[i].y;
     blob(i, 2) = keypoints[i].weight;
+    // Blob matrices here support only the same type for each column
+    // So as a workaround, to avoid creating a separate matrix for the ids,
+    // I convert the id here to float
     blob(i, 3) = float(keypoints[i].constraint_point_id);
     blob(i, 4) = keypoints[i].a11;
     blob(i, 5) = keypoints[i].a12;
