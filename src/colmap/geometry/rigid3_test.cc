@@ -144,6 +144,16 @@ TEST(Rigid3d, Compose) {
 
 TEST(Rigid3d, Adjoint) {
   const Rigid3d b_from_a = TestRigid3d();
+  const Eigen::Matrix6d adjoint = b_from_a.Adjoint();
+  const Eigen::Matrix6d adjoint_inv = b_from_a.AdjointInverse();
+  EXPECT_LT((adjoint * adjoint_inv - Eigen::Matrix6d::Identity()).norm(), 1e-6);
+  const Rigid3d a_from_b = Inverse(b_from_a);
+  const Eigen::Matrix6d adjoint_a_from_b = a_from_b.Adjoint();
+  EXPECT_LT((adjoint_inv - adjoint_a_from_b).norm(), 1e-6);
+}
+
+TEST(Rigid3d, CovariancePropagation) {
+  const Rigid3d b_from_a = TestRigid3d();
   const Eigen::Matrix6d A = Eigen::Matrix6d::Random();
   const Eigen::Matrix6d cov_b_from_a = A * A.transpose();
   const Eigen::Matrix6d cov_a_from_b =
