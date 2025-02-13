@@ -50,6 +50,10 @@ struct Point2D {
   // Will be used to weight the track's residual term in Bundle Adjustment.
   float weight;
 
+  // Index of the point from the constraining structure to which a reprojection error should be computed
+  // -1 if no constrain
+  int constraint_point_id = -1;
+
   // Determin whether the 2D point observes a 3D point.
   inline bool HasPoint3D() const;
 

@@ -27,17 +27,46 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/scene/point2d.h"
+#pragma once
+
+#include "colmap/scene/track.h"
+#include "colmap/util/eigen_alignment.h"
+#include "colmap/util/logging.h"
+#include "colmap/util/types.h"
+
+#include <vector>
+
+#include <Eigen/Core>
 
 namespace colmap {
 
-std::ostream& operator<<(std::ostream& stream, const Point2D& point2D) {
-  stream << "Point2D(xy=[" << point2D.xy(0) << ", " << point2D.xy(1)
-         << "], point3D_id="
-         << (point2D.HasPoint3D() ? std::to_string(point2D.point3D_id) : "-1")
-         << ", weight=" << point2D.weight
-         << ", constraint_point_id=" << point2D.constraint_point_id << ")";
-  return stream;
+// 3D point class that is used for constraining the Bundle Adjustment problem
+struct ConstrainingPoint3D {
+  // The 3D position of the point.
+  Eigen::Vector3d xyz = Eigen::Vector3d::Zero();
+
+  ConstrainingPoint3D() = default;
+  explicit ConstrainingPoint3D(const Eigen::Vector3d &xyz);
+
+  inline bool operator==(const ConstrainingPoint3D& other) const;
+  inline bool operator!=(const ConstrainingPoint3D& other) const;
+};
+
+std::ostream& operator<<(std::ostream& stream,
+                         const ConstrainingPoint3D& point3D);
+
+////////////////////////////////////////////////////////////////////////////////
+// Implementation
+////////////////////////////////////////////////////////////////////////////////
+
+inline ConstrainingPoint3D::ConstrainingPoint3D(const Eigen::Vector3d &xyz) : xyz(xyz) {}
+
+bool ConstrainingPoint3D::operator==(const ConstrainingPoint3D& other) const {
+  return xyz == other.xyz;
+}
+
+bool ConstrainingPoint3D::operator!=(const ConstrainingPoint3D& other) const {
+  return !(*this == other);
 }
 
 }  // namespace colmap

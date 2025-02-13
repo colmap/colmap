@@ -64,10 +64,16 @@ void BindReconstruction(py::module& m) {
       .def("read_binary", &Reconstruction::ReadBinary, "path"_a)
       .def("write_text", &Reconstruction::WriteText, "path"_a)
       .def("write_binary", &Reconstruction::WriteBinary, "path"_a)
+      .def("read_text_legacy", &Reconstruction::ReadTextLegacy, "path"_a)
+      .def("read_binary_legacy", &Reconstruction::ReadBinaryLegacy, "path"_a)
+      .def("write_text_legacy", &Reconstruction::WriteTextLegacy, "path"_a)
+      .def("write_binary_legacy", &Reconstruction::WriteBinaryLegacy, "path"_a)
       .def("num_cameras", &Reconstruction::NumCameras)
       .def("num_images", &Reconstruction::NumImages)
       .def("num_reg_images", &Reconstruction::NumRegImages)
       .def("num_points3D", &Reconstruction::NumPoints3D)
+      .def("num_constraining_points3D",
+           &Reconstruction::NumConstrainingPoints3D)
       .def_property_readonly("images",
                              &Reconstruction::Images,
                              py::return_value_policy::reference_internal)
@@ -87,16 +93,28 @@ void BindReconstruction(py::module& m) {
       .def_property_readonly("points3D",
                              &Reconstruction::Points3D,
                              py::return_value_policy::reference_internal)
+      .def_property_readonly("constraining_points3D",
+                             &Reconstruction::ConstrainingPoints3D,
+                             py::return_value_policy::reference_internal)
       .def("point3D",
            py::overload_cast<point3D_t>(&Reconstruction::Point3D),
            "point3D_id"_a,
            "Direct accessor for a Point3D.",
            py::return_value_policy::reference_internal)
+      .def("constraining_point3D",
+           py::overload_cast<point3D_t>(&Reconstruction::ConstrainingPoint3D),
+           "point3D_id"_a,
+           "Direct accessor for a ConstrainingPoint3D.",
+           py::return_value_policy::reference_internal)
       .def("point3D_ids", &Reconstruction::Point3DIds)
+      .def("constraining_point3D_ids", &Reconstruction::ConstrainingPoint3DIds)
       .def("reg_image_ids", &Reconstruction::RegImageIds)
       .def("exists_camera", &Reconstruction::ExistsCamera, "camera_id"_a)
       .def("exists_image", &Reconstruction::ExistsImage, "image_id"_a)
       .def("exists_point3D", &Reconstruction::ExistsPoint3D, "point3D_id"_a)
+      .def("exists_constraining_point3D",
+           &Reconstruction::ExistsConstrainingPoint3D,
+           "point3D_id"_a)
       .def("tear_down", &Reconstruction::TearDown)
       .def("add_camera",
            &Reconstruction::AddCamera,
@@ -119,6 +137,11 @@ void BindReconstruction(py::module& m) {
            "xyz"_a,
            "track"_a,
            "color"_a = Eigen::Vector3ub::Zero())
+      .def("add_constraining_point3D",
+           py::overload_cast<const Eigen::Vector3d&>(
+               &Reconstruction::AddConstrainingPoint3D),
+           "Add new constraining 3D point, and return its unique ID.",
+           "xyz"_a)
       .def("add_observation",
            &Reconstruction::AddObservation,
            "point3D_id"_a,

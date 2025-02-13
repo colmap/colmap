@@ -469,6 +469,8 @@ void OptionManager::AddBundleAdjustmentOptions() {
                               &bundle_adjustment->refine_extra_params);
   AddAndRegisterDefaultOption("BundleAdjustment.refine_extrinsics",
                               &bundle_adjustment->refine_extrinsics);
+  AddAndRegisterDefaultOption("BundleAdjustment.apply_constraints",
+                              &bundle_adjustment->apply_constraints);
   AddAndRegisterDefaultOption("BundleAdjustment.use_gpu",
                               &bundle_adjustment->use_gpu);
   AddAndRegisterDefaultOption("BundleAdjustment.gpu_index",
@@ -526,6 +528,8 @@ void OptionManager::AddMapperOptions() {
                               &mapper->ba_refine_principal_point);
   AddAndRegisterDefaultOption("Mapper.ba_refine_extra_params",
                               &mapper->ba_refine_extra_params);
+  AddAndRegisterDefaultOption("Mapper.ba_apply_constraints",
+                              &mapper->ba_apply_constraints);
   AddAndRegisterDefaultOption("Mapper.ba_local_num_images",
                               &mapper->ba_local_num_images);
   AddAndRegisterDefaultOption("Mapper.ba_local_function_tolerance",

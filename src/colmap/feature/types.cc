@@ -33,16 +33,23 @@
 
 namespace colmap {
 
-FeatureKeypoint::FeatureKeypoint() : FeatureKeypoint(0, 0, 1) {}
+FeatureKeypoint::FeatureKeypoint() : FeatureKeypoint(0, 0, 1, -1) {}
 
 FeatureKeypoint::FeatureKeypoint(const float x,
                                  const float y,
                                  const float weight_)
-    : FeatureKeypoint(x, y, weight_, 1, 0, 0, 1) {}
+    : FeatureKeypoint(x, y, weight_, -1) {}
+
+FeatureKeypoint::FeatureKeypoint(const float x,
+                                 const float y,
+                                 const float weight_,
+                                 const int constraint_point_id_)
+    : FeatureKeypoint(x, y, weight_, constraint_point_id_, 1, 0, 0, 1) {}
 
 FeatureKeypoint::FeatureKeypoint(const float x_,
                                  const float y_,
                                  const float weight_,
+                                 const int constraint_point_id_,
                                  const float scale,
                                  const float orientation)
     : x(x_), y(y_) {
@@ -54,11 +61,13 @@ FeatureKeypoint::FeatureKeypoint(const float x_,
   a21 = scale_sin_orientation;
   a22 = scale_cos_orientation;
   weight = weight_;
+  constraint_point_id = constraint_point_id_;
 }
 
 FeatureKeypoint::FeatureKeypoint(const float x_,
                                  const float y_,
                                  const float weight_,
+                                 const int constraint_point_id_,
                                  const float a11_,
                                  const float a12_,
                                  const float a21_,
@@ -66,23 +75,27 @@ FeatureKeypoint::FeatureKeypoint(const float x_,
     : x(x_),
       y(y_),
       weight(weight_),
+      constraint_point_id(constraint_point_id_),
       a11(a11_),
       a12(a12_),
       a21(a21_),
       a22(a22_) {}
 
-FeatureKeypoint FeatureKeypoint::FromShapeParameters(const float x,
-                                                     const float y,
-                                                     const float weight,
-                                                     const float scale_x,
-                                                     const float scale_y,
-                                                     const float orientation,
-                                                     const float shear) {
+FeatureKeypoint FeatureKeypoint::FromShapeParameters(
+    const float x,
+    const float y,
+    const float weight,
+    const int constraint_point_id_,
+    const float scale_x,
+    const float scale_y,
+    const float orientation,
+    const float shear) {
   THROW_CHECK_GE(scale_x, 0.0);
   THROW_CHECK_GE(scale_y, 0.0);
   return FeatureKeypoint(x,
                          y,
                          weight,
+                         constraint_point_id_,
                          scale_x * std::cos(orientation),
                          -scale_y * std::sin(orientation + shear),
                          scale_x * std::sin(orientation),

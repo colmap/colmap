@@ -139,6 +139,7 @@ void BindDatabase(py::module& m) {
             return std::make_pair(std::move(all_pair_ids),
                                   std::move(all_num_inliers));
           })
+      .def("read_constraining_points", &Database::ReadConstrainingPoints)
       .def("write_camera",
            &Database::WriteCamera,
            "camera"_a,
@@ -171,6 +172,10 @@ void BindDatabase(py::module& m) {
            "image_id1"_a,
            "image_id2"_a,
            "two_view_geometry"_a)
+      .def("write_constraining_points",
+           py::overload_cast<const std::vector<Eigen::Vector3d>&>(
+               &Database::WriteConstrainingPoints, py::const_),
+           "keypoints"_a)
       .def("update_camera", &Database::UpdateCamera, "camera"_a)
       .def("update_image", &Database::UpdateImage, "image"_a)
       .def("delete_matches",
@@ -189,6 +194,7 @@ void BindDatabase(py::module& m) {
       .def("clear_keypoints", &Database::ClearKeypoints)
       .def("clear_matches", &Database::ClearMatches)
       .def("clear_two_view_geometries", &Database::ClearTwoViewGeometries)
+      .def("clear_constraining_points", &Database::ClearConstrainingPoints)
       .def_static("merge",
                   &Database::Merge,
                   "database1"_a,

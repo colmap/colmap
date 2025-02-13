@@ -41,6 +41,7 @@ COLMAP_ADD_LIBRARY(
         image.h image.cc
         point2d.h point2d.cc
         point3d.h point3d.cc
+        constraining_point3d.h constraining_point3d.cc
         projection.h projection.cc
         reconstruction.h reconstruction.cc
         reconstruction_io.h reconstruction_io.cc

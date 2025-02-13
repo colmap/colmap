@@ -90,6 +90,7 @@ class Database {
   bool ExistsDescriptors(image_t image_id) const;
   bool ExistsMatches(image_t image_id1, image_t image_id2) const;
   bool ExistsInlierMatches(image_t image_id1, image_t image_id2) const;
+  bool ExistsConstrainingPoint(point3D_t point3D_id) const;
 
   // Number of rows in `cameras` table.
   size_t NumCameras() const;
@@ -99,6 +100,9 @@ class Database {
 
   //  Number of rows in `pose_priors` table.
   size_t NumPosePriors() const;
+
+  // Number of rows in `constraining_points` table.
+  size_t NumConstrainingPoints() const;
 
   // Sum of `rows` column in `keypoints` table, i.e. number of total keypoints.
   size_t NumKeypoints() const;
@@ -179,6 +183,7 @@ class Database {
   // table with at least one inlier match and their number of inlier matches.
   std::vector<std::pair<image_pair_t, int>> ReadTwoViewGeometryNumInliers()
       const;
+  std::vector<Eigen::Vector3d> ReadConstrainingPoints() const;
 
   // Add new camera and return its database identifier. If `use_camera_id`
   // is false a new identifier is automatically generated.
@@ -206,6 +211,8 @@ class Database {
   void WriteTwoViewGeometry(image_t image_id1,
                             image_t image_id2,
                             const TwoViewGeometry& two_view_geometry) const;
+  void WriteConstrainingPoints(
+      const std::vector<Eigen::Vector3d>& points) const;
 
   // Update an existing camera in the database. The user is responsible for
   // making sure that the entry already exists.
@@ -249,6 +256,9 @@ class Database {
   // Clear the entire inlier matches table.
   void ClearTwoViewGeometries() const;
 
+  // Clear the entire constraining points table.
+  void ClearConstrainingPoints() const;
+
   // Merge two databases into a single, new database.
   static void Merge(const Database& database1,
                     const Database& database2,
@@ -279,6 +289,7 @@ class Database {
   void CreateDescriptorsTable() const;
   void CreateMatchesTable() const;
   void CreateTwoViewGeometriesTable() const;
+  void CreateConstrainingPointsTable() const;
 
   void UpdateSchema() const;
 
@@ -327,6 +338,7 @@ class Database {
   sqlite3_stmt* sql_stmt_exists_descriptors_ = nullptr;
   sqlite3_stmt* sql_stmt_exists_matches_ = nullptr;
   sqlite3_stmt* sql_stmt_exists_two_view_geometry_ = nullptr;
+  sqlite3_stmt* sql_stmt_exists_constraining_point_ = nullptr;
 
   // add_*
   sqlite3_stmt* sql_stmt_add_camera_ = nullptr;

@@ -270,6 +270,37 @@ class RigReprojErrorConstantRigCostFunctor
   const RigReprojErrorCostFunctor<CameraModel> reproj_cost_;
 };
 
+template <typename CameraModel>
+class ConstraintReprojErrorCostFunctor
+    : public AutoDiffCostFunctor<ConstraintReprojErrorCostFunctor<CameraModel>,
+                                 2,
+                                 4,
+                                 3,
+                                 CameraModel::num_params> {
+ public:
+  ConstraintReprojErrorCostFunctor(const Eigen::Vector2d& point2D,
+                                   const Eigen::Vector3d constrainingPoint3D)
+      : constrainingPoint3D_(constrainingPoint3D), reproj_cost_(point2D) {}
+
+  template <typename T>
+  bool operator()(const T* const cam_from_world_rotation,
+                  const T* const cam_from_world_translation,
+                  const T* const camera_params,
+                  T* residuals) const {
+    const Eigen::Matrix<T, 3, 1> constraining_point3D =
+        constrainingPoint3D_.cast<T>();
+    return reproj_cost_(cam_from_world_rotation,
+                        cam_from_world_translation,
+                        constraining_point3D.data(),
+                        camera_params,
+                        residuals);
+  }
+
+ private:
+  const Eigen::Vector3d constrainingPoint3D_;
+  const ReprojErrorCostFunctor<CameraModel> reproj_cost_;
+};
+
 // Cost function for refining two-view geometry based on the Sampson-Error.
 //
 // First pose is assumed to be located at the origin with 0 rotation. Second
