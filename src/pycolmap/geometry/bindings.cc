@@ -85,6 +85,7 @@ void BindGeometry(py::module& m) {
       .def_readwrite("translation", &Rigid3d::translation)
       .def("matrix", &Rigid3d::ToMatrix)
       .def("adjoint", &Rigid3d::Adjoint)
+      .def("adjoint_inverse", &Rigid3d::AdjointInverse)
       .def(py::self * Rigid3d())
       .def(py::self * Eigen::Vector3d())
       .def("__mul__",
