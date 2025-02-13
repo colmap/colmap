@@ -35,6 +35,7 @@
 #include <thread>
 
 #include <Eigen/Geometry>
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -114,6 +115,39 @@ TEST(Database, SwapImagePair) {
   EXPECT_FALSE(Database::SwapImagePair(1, 1));
 }
 
+TEST(Database, Rig) {
+  Database database(Database::kInMemoryDatabasePath);
+  EXPECT_EQ(database.NumRigs(), 0);
+  Rig rig;
+  rig.AddRefSensor(sensor_t(SensorType::CAMERA, 1));
+  rig.AddSensor(
+      sensor_t(SensorType::CAMERA, 2),
+      Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random()));
+  rig.AddSensor(sensor_t(SensorType::IMU, 3));
+  rig.AddSensor(
+      sensor_t(SensorType::IMU, 4),
+      Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random()));
+  rig.SetRigId(database.WriteRig(rig));
+  EXPECT_EQ(database.NumRigs(), 1);
+  EXPECT_TRUE(database.ExistsRig(rig.RigId()));
+  EXPECT_EQ(database.ReadRig(rig.RigId()), rig);
+  rig.SensorFromRig(sensor_t(SensorType::CAMERA, 2)) =
+      Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
+  database.UpdateRig(rig);
+  EXPECT_EQ(database.ReadRig(rig.RigId()), rig);
+  Rig rig2 = rig;
+  rig2.SetRigId(rig.RigId() + 1);
+  database.WriteRig(rig2, true);
+  EXPECT_EQ(database.NumRigs(), 2);
+  EXPECT_TRUE(database.ExistsRig(rig.RigId()));
+  EXPECT_TRUE(database.ExistsRig(rig2.RigId()));
+  EXPECT_EQ(database.ReadAllRigs().size(), 2);
+  EXPECT_EQ(database.ReadAllRigs()[0].RigId(), rig.RigId());
+  EXPECT_EQ(database.ReadAllRigs()[1].RigId(), rig2.RigId());
+  database.ClearRigs();
+  EXPECT_EQ(database.NumRigs(), 0);
+}
+
 TEST(Database, Camera) {
   Database database(Database::kInMemoryDatabasePath);
   EXPECT_EQ(database.NumCameras(), 0);
@@ -124,16 +158,10 @@ TEST(Database, Camera) {
   EXPECT_TRUE(database.ExistsCamera(camera.camera_id));
   EXPECT_EQ(database.ReadCamera(camera.camera_id).camera_id, camera.camera_id);
   EXPECT_EQ(database.ReadCamera(camera.camera_id).model_id, camera.model_id);
-  EXPECT_EQ(database.ReadCamera(camera.camera_id).FocalLength(),
-            camera.FocalLength());
-  EXPECT_EQ(database.ReadCamera(camera.camera_id).PrincipalPointX(),
-            camera.PrincipalPointX());
-  EXPECT_EQ(database.ReadCamera(camera.camera_id).PrincipalPointY(),
-            camera.PrincipalPointY());
-  camera.SetFocalLength(2.0);
+  EXPECT_EQ(database.ReadCamera(camera.camera_id), camera);
+  camera.SetFocalLength(2 * camera.FocalLength());
   database.UpdateCamera(camera);
-  EXPECT_EQ(database.ReadCamera(camera.camera_id).FocalLength(),
-            camera.FocalLength());
+  EXPECT_EQ(database.ReadCamera(camera.camera_id), camera);
   Camera camera2 = camera;
   camera2.camera_id = camera.camera_id + 1;
   database.WriteCamera(camera2, true);
@@ -141,8 +169,7 @@ TEST(Database, Camera) {
   EXPECT_TRUE(database.ExistsCamera(camera.camera_id));
   EXPECT_TRUE(database.ExistsCamera(camera2.camera_id));
   EXPECT_EQ(database.ReadAllCameras().size(), 2);
-  EXPECT_EQ(database.ReadAllCameras()[0].camera_id, camera.camera_id);
-  EXPECT_EQ(database.ReadAllCameras()[1].camera_id, camera2.camera_id);
+  EXPECT_THAT(database.ReadAllCameras(), testing::ElementsAre(camera, camera2));
   database.ClearCameras();
   EXPECT_EQ(database.NumCameras(), 0);
 }
@@ -159,13 +186,10 @@ TEST(Database, Image) {
   image.SetImageId(database.WriteImage(image));
   EXPECT_EQ(database.NumImages(), 1);
   EXPECT_TRUE(database.ExistsImage(image.ImageId()));
-  auto read_image = database.ReadImage(image.ImageId());
-  EXPECT_EQ(read_image.ImageId(), image.ImageId());
-  EXPECT_EQ(read_image.CameraId(), image.CameraId());
+  EXPECT_EQ(database.ReadImage(image.ImageId()), image);
+  image.SetName("test_changed");
   database.UpdateImage(image);
-  read_image = database.ReadImage(image.ImageId());
-  EXPECT_EQ(read_image.ImageId(), image.ImageId());
-  EXPECT_EQ(read_image.CameraId(), image.CameraId());
+  EXPECT_EQ(database.ReadImage(image.ImageId()), image);
   Image image2 = image;
   image2.SetName("test2");
   image2.SetImageId(image.ImageId() + 1);
@@ -173,7 +197,7 @@ TEST(Database, Image) {
   EXPECT_EQ(database.NumImages(), 2);
   EXPECT_TRUE(database.ExistsImage(image.ImageId()));
   EXPECT_TRUE(database.ExistsImage(image2.ImageId()));
-  EXPECT_EQ(database.ReadAllImages().size(), 2);
+  EXPECT_THAT(database.ReadAllImages(), testing::ElementsAre(image, image2));
   database.ClearImages();
   EXPECT_EQ(database.NumImages(), 0);
 }
@@ -433,18 +457,29 @@ TEST(Database, Merge) {
   Database database1(Database::kInMemoryDatabasePath);
   Database database2(Database::kInMemoryDatabasePath);
 
-  Camera camera = Camera::CreateFromModelName(
+  Camera camera1 = Camera::CreateFromModelName(
       kInvalidCameraId, "SIMPLE_PINHOLE", 1.0, 1, 1);
-  camera.camera_id = database1.WriteCamera(camera);
-  camera.camera_id = database2.WriteCamera(camera);
+  camera1.camera_id = database1.WriteCamera(camera1);
+  Camera camera2 = Camera::CreateFromModelName(
+      kInvalidCameraId, "SIMPLE_PINHOLE", 1.0, 1, 1);
+  camera2.camera_id = database2.WriteCamera(camera2);
+
+  Rig rig;
+  rig.AddRefSensor(sensor_t(SensorType::CAMERA, camera1.camera_id));
+  rig.SetRigId(database1.WriteRig(rig));
+  Rig rig2;
+  rig2.AddRefSensor(sensor_t(SensorType::CAMERA, camera2.camera_id));
+  rig2.SetRigId(database2.WriteRig(rig2));
 
   Image image;
-  image.SetCameraId(camera.camera_id);
+  image.SetCameraId(camera1.camera_id);
 
   image.SetName("test1");
   const image_t image_id1 = database1.WriteImage(image);
   image.SetName("test2");
   const image_t image_id2 = database1.WriteImage(image);
+
+  image.SetCameraId(camera2.camera_id);
   image.SetName("test3");
   const image_t image_id3 = database2.WriteImage(image);
   image.SetName("test4");
@@ -484,6 +519,7 @@ TEST(Database, Merge) {
 
   Database merged_database(Database::kInMemoryDatabasePath);
   Database::Merge(database1, database2, &merged_database);
+  EXPECT_EQ(merged_database.NumRigs(), 2);
   EXPECT_EQ(merged_database.NumCameras(), 2);
   EXPECT_EQ(merged_database.NumImages(), 4);
   EXPECT_EQ(merged_database.NumPosePriors(), 2);
@@ -515,6 +551,7 @@ TEST(Database, Merge) {
   EXPECT_FALSE(merged_database.ExistsMatches(2, 3));
   EXPECT_FALSE(merged_database.ExistsMatches(2, 4));
   EXPECT_TRUE(merged_database.ExistsMatches(3, 4));
+
   merged_database.ClearAllTables();
   EXPECT_EQ(merged_database.NumCameras(), 0);
   EXPECT_EQ(merged_database.NumImages(), 0);

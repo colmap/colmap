@@ -34,6 +34,7 @@
 #include "colmap/scene/camera.h"
 #include "colmap/scene/image.h"
 #include "colmap/scene/two_view_geometry.h"
+#include "colmap/sensor/rig.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/types.h"
 
@@ -82,6 +83,7 @@ class Database {
 
   // Check if entry already exists in database. For image pairs, the order of
   // `image_id1` and `image_id2` does not matter.
+  bool ExistsRig(rig_t rig_id) const;
   bool ExistsCamera(camera_t camera_id) const;
   bool ExistsImage(image_t image_id) const;
   bool ExistsImageWithName(const std::string& name) const;
@@ -90,6 +92,9 @@ class Database {
   bool ExistsDescriptors(image_t image_id) const;
   bool ExistsMatches(image_t image_id1, image_t image_id2) const;
   bool ExistsInlierMatches(image_t image_id1, image_t image_id2) const;
+
+  // Number of rows in `rigs` table.
+  size_t NumRigs() const;
 
   // Number of rows in `cameras` table.
   size_t NumCameras() const;
@@ -150,6 +155,10 @@ class Database {
   // Read an existing entry in the database. The user is responsible for making
   // sure that the entry actually exists. For image pairs, the order of
   // `image_id1` and `image_id2` does not matter.
+
+  Rig ReadRig(rig_t rig_id) const;
+  std::vector<Rig> ReadAllRigs() const;
+
   Camera ReadCamera(camera_t camera_id) const;
   std::vector<Camera> ReadAllCameras() const;
 
@@ -180,6 +189,10 @@ class Database {
   std::vector<std::pair<image_pair_t, int>> ReadTwoViewGeometryNumInliers()
       const;
 
+  // Add new rig and return its database identifier. If `use_rig_id`
+  // is false a new identifier is automatically generated.
+  rig_t WriteRig(const Rig& rig, bool use_rig_id = false) const;
+
   // Add new camera and return its database identifier. If `use_camera_id`
   // is false a new identifier is automatically generated.
   camera_t WriteCamera(const Camera& camera, bool use_camera_id = false) const;
@@ -207,6 +220,10 @@ class Database {
                             image_t image_id2,
                             const TwoViewGeometry& two_view_geometry) const;
 
+  // Update an existing rig in the database. The user is responsible for
+  // making sure that the entry already exists.
+  void UpdateRig(const Rig& rig) const;
+
   // Update an existing camera in the database. The user is responsible for
   // making sure that the entry already exists.
   void UpdateCamera(const Camera& camera) const;
@@ -227,6 +244,9 @@ class Database {
 
   // Clear all database tables
   void ClearAllTables() const;
+
+  // Clear the entire rigs table
+  void ClearRigs() const;
 
   // Clear the entire cameras table
   void ClearCameras() const;
@@ -272,6 +292,7 @@ class Database {
 
   // Create database tables, if not existing, called when opening a database.
   void CreateTables() const;
+  void CreateRigTable() const;
   void CreateCameraTable() const;
   void CreateImageTable() const;
   void CreatePosePriorTable() const;
@@ -299,7 +320,7 @@ class Database {
 
   // Check if elements got removed from the database to only apply
   // the VACUUM command in such case
-  mutable bool database_cleared_ = false;
+  mutable bool database_entry_deleted_ = false;
 
   // Ensure that only one database object at a time updates the schema of a
   // database. Since the schema is updated every time a database is opened, this
@@ -319,6 +340,7 @@ class Database {
   sqlite3_stmt* sql_stmt_num_descriptors_ = nullptr;
 
   // exists_*
+  sqlite3_stmt* sql_stmt_exists_rig_ = nullptr;
   sqlite3_stmt* sql_stmt_exists_camera_ = nullptr;
   sqlite3_stmt* sql_stmt_exists_image_id_ = nullptr;
   sqlite3_stmt* sql_stmt_exists_image_name_ = nullptr;
@@ -329,15 +351,19 @@ class Database {
   sqlite3_stmt* sql_stmt_exists_two_view_geometry_ = nullptr;
 
   // add_*
+  sqlite3_stmt* sql_stmt_add_rig_ = nullptr;
   sqlite3_stmt* sql_stmt_add_camera_ = nullptr;
   sqlite3_stmt* sql_stmt_add_image_ = nullptr;
 
   // update_*
+  sqlite3_stmt* sql_stmt_update_rig_ = nullptr;
   sqlite3_stmt* sql_stmt_update_camera_ = nullptr;
   sqlite3_stmt* sql_stmt_update_image_ = nullptr;
   sqlite3_stmt* sql_stmt_update_pose_prior_ = nullptr;
 
   // read_*
+  sqlite3_stmt* sql_stmt_read_rig_ = nullptr;
+  sqlite3_stmt* sql_stmt_read_rigs_ = nullptr;
   sqlite3_stmt* sql_stmt_read_camera_ = nullptr;
   sqlite3_stmt* sql_stmt_read_cameras_ = nullptr;
   sqlite3_stmt* sql_stmt_read_image_id_ = nullptr;
@@ -364,6 +390,7 @@ class Database {
   sqlite3_stmt* sql_stmt_delete_two_view_geometry_ = nullptr;
 
   // clear_*
+  sqlite3_stmt* sql_stmt_clear_rigs_ = nullptr;
   sqlite3_stmt* sql_stmt_clear_cameras_ = nullptr;
   sqlite3_stmt* sql_stmt_clear_images_ = nullptr;
   sqlite3_stmt* sql_stmt_clear_pose_priors_ = nullptr;

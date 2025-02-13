@@ -36,7 +36,7 @@ COLMAP_ADD_LIBRARY(
         bitmap.h bitmap.cc
         database.h database.cc
         models.h models.cc
-        rig_calib.h rig_calib.cc
+        rig.h rig.cc
         specs.h specs.cc
     PUBLIC_LINK_LIBS
         Ceres::ceres
@@ -66,7 +66,7 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_sensor
 )
 COLMAP_ADD_TEST(
-    NAME rig_calib_test
-    SRCS rig_calib_test.cc
+    NAME rig_test
+    SRCS rig_test.cc
     LINK_LIBS colmap_sensor
 )

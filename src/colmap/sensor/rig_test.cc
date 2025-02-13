@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/sensor/rig_calib.h"
+#include "colmap/sensor/rig.h"
 
 #include <gtest/gtest.h>
 
@@ -38,15 +38,16 @@ Rigid3d TestRigid3d() {
   return Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
 }
 
-TEST(RigCalib, Default) {
-  RigCalib calib;
+TEST(Rig, Default) {
+  Rig calib;
   EXPECT_EQ(calib.RigId(), kInvalidRigId);
   EXPECT_EQ(calib.RefSensorId(), kInvalidSensorId);
   EXPECT_EQ(calib.NumSensors(), 0);
+  EXPECT_EQ(calib.Sensors().size(), 0);
 }
 
-TEST(RigCalib, SetUp) {
-  RigCalib calib;
+TEST(Rig, SetUp) {
+  Rig calib;
   calib.AddRefSensor(sensor_t(SensorType::IMU, 0));
   calib.AddSensor(sensor_t(SensorType::IMU, 1), TestRigid3d());
   calib.AddSensor(sensor_t(SensorType::CAMERA, 0), TestRigid3d());
@@ -62,6 +63,20 @@ TEST(RigCalib, SetUp) {
   EXPECT_TRUE(calib.HasSensorFromRig(sensor_t(SensorType::CAMERA, 0)));
   EXPECT_FALSE(calib.HasSensorFromRig(sensor_t(SensorType::CAMERA, 1)));
   EXPECT_TRUE(calib.HasSensor(sensor_t(SensorType::CAMERA, 1)));
+  EXPECT_EQ(calib.Sensors().size(), 3);
+}
+
+TEST(Rig, Print) {
+  Rig rig;
+  rig.SetRigId(0);
+  rig.AddRefSensor(sensor_t(SensorType::IMU, 0));
+  rig.AddSensor(sensor_t(SensorType::CAMERA, 1), Rigid3d());
+  rig.AddSensor(sensor_t(SensorType::CAMERA, 2), Rigid3d());
+  std::ostringstream stream;
+  stream << rig;
+  EXPECT_EQ(stream.str(),
+            "Rig(rig_id=0, ref_sensor_id=(IMU, 0), sensors=[(CAMERA, 1), "
+            "(CAMERA, 2)])");
 }
 
 }  // namespace

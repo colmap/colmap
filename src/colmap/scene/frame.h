@@ -30,7 +30,7 @@
 #pragma once
 
 #include "colmap/geometry/rigid3.h"
-#include "colmap/sensor/rig_calib.h"
+#include "colmap/sensor/rig.h"
 #include "colmap/util/types.h"
 
 #include <cstdint>
@@ -48,8 +48,11 @@ struct data_t {
   // Unique identifer of the sensor
   sensor_t sensor_id;
   // Unique identifier of the data (measurement)
-  // This can be image_t / imu_measurement_t (not supported yet)
+  // This can be image_t / imu_sample_t (not supported yet)
   uint32_t id;
+
+  constexpr data_t()
+      : sensor_id(kInvalidSensorId), id(std::numeric_limits<uint32_t>::max()) {}
   constexpr data_t(const sensor_t& sensor_id, uint32_t id)
       : sensor_id(sensor_id), id(id) {}
 
@@ -63,6 +66,7 @@ struct data_t {
     return !(*this == other);
   }
 };
+
 constexpr data_t kInvalidDataId =
     data_t(kInvalidSensorId, std::numeric_limits<uint32_t>::max());
 
@@ -83,10 +87,10 @@ class Frame {
   inline bool HasData(data_t data_id) const;
 
   // Access the rig calibration
-  inline const std::shared_ptr<class RigCalib>& RigCalib() const;
-  inline void SetRigCalib(std::shared_ptr<class RigCalib> rig_calib);
+  inline const std::shared_ptr<class Rig>& Rig() const;
+  inline void SetRig(std::shared_ptr<class Rig> rig);
   // Check if the frame has a non-trivial rig calibration
-  inline bool HasRigCalib() const;
+  inline bool HasRig() const;
 
   // Access the frame from world transformation
   inline const Rigid3d& FrameFromWorld() const;
@@ -111,7 +115,7 @@ class Frame {
   std::optional<Rigid3d> frame_from_world_;
 
   // [Optional] Rig calibration
-  std::shared_ptr<class RigCalib> rig_calib_ = nullptr;
+  std::shared_ptr<class Rig> rig_ = nullptr;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -132,19 +136,15 @@ bool Frame::HasData(data_t data_id) const {
   return data_ids_.find(data_id) != data_ids_.end();
 }
 
-const std::shared_ptr<class RigCalib>& Frame::RigCalib() const {
-  return rig_calib_;
-}
+const std::shared_ptr<class Rig>& Frame::Rig() const { return rig_; }
 
-void Frame::SetRigCalib(std::shared_ptr<class RigCalib> rig_calib) {
-  rig_calib_ = std::move(rig_calib);
-}
+void Frame::SetRig(std::shared_ptr<class Rig> rig) { rig_ = std::move(rig); }
 
-bool Frame::HasRigCalib() const {
-  if (!rig_calib_)
+bool Frame::HasRig() const {
+  if (!rig_)
     return false;
   else
-    return rig_calib_->NumSensors() > 1;
+    return rig_->NumSensors() > 1;
 }
 
 const Rigid3d& Frame::FrameFromWorld() const {
@@ -178,11 +178,11 @@ bool Frame::HasPose() const { return frame_from_world_.has_value(); }
 void Frame::ResetPose() { frame_from_world_.reset(); }
 
 Rigid3d Frame::SensorFromWorld(sensor_t sensor_id) const {
-  if (!HasRigCalib() || rig_calib_->IsRefSensor(sensor_id)) {
+  if (!HasRig() || rig_->IsRefSensor(sensor_id)) {
     return FrameFromWorld();
   }
-  THROW_CHECK(rig_calib_->HasSensor(sensor_id));
-  return rig_calib_->SensorFromRig(sensor_id) * FrameFromWorld();
+  THROW_CHECK(rig_->HasSensor(sensor_id));
+  return rig_->SensorFromRig(sensor_id) * FrameFromWorld();
 }
 
 }  // namespace colmap

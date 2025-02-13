@@ -37,9 +37,12 @@
 namespace colmap {
 
 struct SyntheticDatasetOptions {
+  int num_rigs = 0;
   int num_cameras = 2;
   int num_images = 10;
   int num_points3D = 100;
+
+  double sensor_from_rig_translation_stddev = 0.05;
 
   int camera_width = 1024;
   int camera_height = 768;
