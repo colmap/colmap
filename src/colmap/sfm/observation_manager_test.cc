@@ -62,8 +62,8 @@ TEST(Reconstruction, Print) {
   std::ostringstream stream;
   stream << obs_manager;
   EXPECT_EQ(stream.str(),
-            "ObservationManager(reconstruction=Reconstruction(num_cameras=1, "
-            "num_images=2, num_reg_images=2, num_points3D=0), "
+            "ObservationManager(reconstruction=Reconstruction(num_rigs=0, "
+            "num_cameras=1, num_images=2, num_reg_images=2, num_points3D=0), "
             "correspondence_graph=null)");
 }
 
