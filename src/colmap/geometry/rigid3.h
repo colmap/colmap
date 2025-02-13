@@ -38,6 +38,9 @@
 
 namespace colmap {
 
+// Compose the skew symmetric cross product matrix from a vector.
+Eigen::Matrix3d CrossProductMatrix(const Eigen::Vector3d& vector);
+
 // 3D rigid transform with 6 degrees of freedom.
 // Transforms point x from a to b as: x_in_b = R * x_in_a + t.
 struct Rigid3d {
@@ -75,6 +78,16 @@ struct Rigid3d {
     adjoint.block<3, 3>(3, 3) = adjoint.block<3, 3>(0, 0);
     return adjoint;
   }
+
+  inline Eigen::Matrix6d AdjointInverse() const {
+    Eigen::Matrix6d adjoint_inv;
+    adjoint_inv.block<3, 3>(0, 0) = rotation.toRotationMatrix().transpose();
+    adjoint_inv.block<3, 3>(0, 3).setZero();
+    adjoint_inv.block<3, 3>(3, 0) =
+        -adjoint_inv.block<3, 3>(0, 0) * CrossProductMatrix(translation);
+    adjoint_inv.block<3, 3>(3, 3) = adjoint_inv.block<3, 3>(0, 0);
+    return adjoint_inv;
+  }
 };
 
 // Return inverse transform.
@@ -88,8 +101,8 @@ inline Rigid3d Inverse(const Rigid3d& b_from_a) {
 // Update covariance (6x6) for rigid3d.inverse()
 inline Eigen::Matrix6d GetCovarianceForRigid3dInverse(
     const Rigid3d& rigid3, const Eigen::Matrix6d& covar) {
-  const Eigen::Matrix6d adjoint = rigid3.Adjoint();
-  return adjoint * covar * adjoint.transpose();
+  const Eigen::Matrix6d adjoint_inv = rigid3.AdjointInverse();
+  return adjoint_inv * covar * adjoint_inv.transpose();
 }
 
 // Apply transform to point such that one can write expressions like:
