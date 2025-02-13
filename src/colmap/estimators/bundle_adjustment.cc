@@ -510,19 +510,12 @@ class DefaultBundleAdjuster : public BundleAdjuster {
     for (const Point2D& point2D : image.Points2D()) {
       if (point2D.constraint_point_id >= 0 && options_.apply_constraints) {
         if (constant_cam_pose) {
-          LOG(ERROR) << "Constraint points are not supported with constant "
-                        "camera poses. "
-                     << "Skipping constraint for point "
-                     << point2D.constraint_point_id << " in image " << image_id;
+          // Constraints aren't supported with constant camera poses
         } else {
           if (!reconstruction.ExistsConstrainingPoint3D(
                   point2D.constraint_point_id)) {
-            LOG(ERROR) << "Constraint point " << point2D.constraint_point_id
-                       << " does not exist in reconstruction object.";
+            // Constraint point does not exist in reconstruction object
           } else {
-            LOG(INFO) << "Adding constraint point "
-                      << point2D.constraint_point_id << " in image "
-                      << image_id;
             ConstrainingPoint3D constraining_point_3d =
                 reconstruction.ConstrainingPoint3D(point2D.constraint_point_id);
             problem_->AddResidualBlock(
@@ -629,11 +622,7 @@ class DefaultBundleAdjuster : public BundleAdjuster {
           camera.params.data());
 
       if (point2D.constraint_point_id >= 0) {
-        LOG(ERROR) << "Constraint points are not supported with constant "
-                      "camera poses. "
-                   << "Skipping constraint for point "
-                   << point2D.constraint_point_id << " in image "
-                   << track_el.image_id;
+        // Constraints aren't supported with constant camera poses
       }
     }
   }
@@ -773,19 +762,13 @@ class RigBundleAdjuster : public BundleAdjuster {
     for (const Point2D& point2D : image.Points2D()) {
       if (point2D.constraint_point_id >= 0 && options_.apply_constraints) {
         if (constant_cam_pose) {
-          LOG(ERROR) << "Constraint points are not supported with constant "
-                        "camera poses. "
-                     << "Skipping constraint for point "
-                     << point2D.constraint_point_id << " in image " << image_id;
+          // Constraints aren't supported with constant camera poses
         } else {
           if (!reconstruction.ExistsConstrainingPoint3D(
                   point2D.constraint_point_id)) {
-            LOG(ERROR) << "Constraint point " << point2D.constraint_point_id
-                       << " does not exist in reconstruction object.";
+            // Constraint point does not exist in reconstruction object
           } else {
-            LOG(INFO) << "Adding constraint point "
-                      << point2D.constraint_point_id << " in image "
-                      << image_id;
+            // Add constraint point to problem
             ConstrainingPoint3D constraining_point_3d =
                 reconstruction.ConstrainingPoint3D(point2D.constraint_point_id);
             problem_->AddResidualBlock(
@@ -924,11 +907,7 @@ class RigBundleAdjuster : public BundleAdjuster {
             camera.params.data());
 
         if (point2D.constraint_point_id >= 0) {
-          LOG(ERROR) << "Constraint points are not supported with constant "
-                        "camera poses. "
-                     << "Skipping constraint for point "
-                     << point2D.constraint_point_id << " in image "
-                     << track_el.image_id;
+          // Constraints aren't supported with constant camera poses
         }
       } else {
         problem_->AddResidualBlock(
@@ -940,11 +919,7 @@ class RigBundleAdjuster : public BundleAdjuster {
             camera.params.data());
 
         if (point2D.constraint_point_id >= 0) {
-          LOG(ERROR) << "Constraint points are not supported with constant "
-                        "camera poses. "
-                     << "Skipping constraint for point "
-                     << point2D.constraint_point_id << " in image "
-                     << track_el.image_id;
+          // Constraints aren't supported with constant camera poses
         }
       }
     }
