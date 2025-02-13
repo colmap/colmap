@@ -829,8 +829,7 @@ class DefaultBundleAdjuster : public BundleAdjuster {
         if (point2D.constraint_point_id > 0) {
           if (!reconstruction.ExistsConstrainingPoint3D(
                   point2D.constraint_point_id)) {
-            LOG(ERROR) << "Constraint point " << point2D.constraint_point_id
-                       << " does not exist in reconstruction object.";
+            // Constraint point does not exist in reconstruction object
           } else {
             ConstrainingPoint3D constraining_point_3d =
                 reconstruction.ConstrainingPoint3D(point2D.constraint_point_id);
@@ -1123,24 +1122,6 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
       }
 
       // Set max error using the median RMS variance of valid pose priors.
-      // Scaled by sqrt(chi-square 95% quantile, 3 DOF) to approximate a 95%
-      // confidence radius.
-      ransac_options.max_error =
-          std::sqrt(kChiSquare95ThreeDof * Median(rms_vars));
-    }
-
-    VLOG(2) << "Robustly aligning reconstruction with max_error="
-            << ransac_options.max_error;
-
-    Sim3d metric_from_orig;
-    if (!AlignReconstructionToPosePriors(
-            reconstruction_, pose_priors_, ransac_options, &metric_from_orig)) {
-      LOG(WARNING) << "Alignment w.r.t. prior positions failed";
-      return false;
-    }
-    reconstruction_.Transform(metric_from_orig);
-
-    if (VLOG_IS_ON(2)) {
       std::vector<double> verr2_wrt_prior;
       verr2_wrt_prior.reserve(reconstruction_.NumRegImages());
       for (const image_t image_id : reconstruction_.RegImageIds()) {
