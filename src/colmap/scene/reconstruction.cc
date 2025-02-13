@@ -71,6 +71,27 @@ Reconstruction& Reconstruction::operator=(const Reconstruction& other) {
   return *this;
 }
 
+std::optional<Sim3d> Reconstruction::Gauge() const {
+  if (!metric_from_scene_.has_value()) {
+    return std::nullopt;
+  }
+  if (!scene_from_normalized_.has_value()) {
+    return metric_from_scene_;
+  }
+  if (metric_from_scene_->scale > 1000 ||
+      metric_from_scene_->translation.norm() > 1000) {
+    LOG(WARNING) << "Scene was normalized and the chosen Gauge has large "
+                    "coordinates. Due to numerical errors, the resulting "
+                    "metric_from_scene transformation may be inaccurate.";
+  }
+  return Compose(*metric_from_scene_, *scene_from_normalized_);
+}
+
+void Reconstruction::SetGauge(const Sim3d& metric_from_scene) {
+  metric_from_scene_ = metric_from_scene;
+  scene_from_normalized_.reset();
+}
+
 std::unordered_set<point3D_t> Reconstruction::Point3DIds() const {
   std::unordered_set<point3D_t> point3D_ids;
   point3D_ids.reserve(points3D_.size());
@@ -315,10 +336,18 @@ Sim3d Reconstruction::Normalize(const bool fixed_scale,
     }
   }
 
-  Sim3d tform(scale, Eigen::Quaterniond::Identity(), -scale * centroid);
-  Transform(tform);
+  Sim3d new_from_old(scale, Eigen::Quaterniond::Identity(), -scale * centroid);
+  Transform(new_from_old);
 
-  return tform;
+  if (gauge_.has_value()) {
+    if (!scene_from_normalized_.has_value()) {
+      scene_from_normalized_ = Sim3d();
+    }
+    scene_from_normalized_ =
+        Compose(*scene_from_normalized_, Inverse(old_from_new));
+  }
+
+  return new_from_old;
 }
 
 Eigen::Vector3d Reconstruction::ComputeCentroid(const double min_percentile,
