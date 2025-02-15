@@ -289,7 +289,7 @@ int RunMapper(int argc, char** argv) {
           idx++;
         }
 
-        if (!new_fixed_image_positions.empty()) {
+        if (new_fixed_image_positions.size() >= 3) {
           LOG(INFO) << "With fix_existing_images=True, transforming the final reconstruction back to the input coordinate frame using " << new_fixed_image_positions.size() 
                     << " original registered images"; 
 
@@ -303,7 +303,7 @@ int RunMapper(int argc, char** argv) {
                             "to the input coordinate frame.";
           }
         } else {
-          LOG(WARNING) << "No registered images found to transform the reconstruction.";
+          LOG(WARNING) << "Too few registered images found to transform the reconstruction.";
         }
       }
     }
@@ -482,7 +482,7 @@ int RunPosePriorMapper(int argc, char** argv) {
           idx++;
         }
 
-        if (!new_fixed_image_positions.empty()) {
+        if (new_fixed_image_positions.size() >= 3) {
           LOG(INFO) << "With fix_existing_images=True, transforming the final reconstruction back to the input coordinate frame using " << new_fixed_image_positions.size() 
                     << " original registered images"; 
 
@@ -496,7 +496,7 @@ int RunPosePriorMapper(int argc, char** argv) {
                             "to the input coordinate frame.";
           }
         } else {
-          LOG(WARNING) << "No registered images found to transform the reconstruction.";
+          LOG(WARNING) << "Too few registered images found to transform the reconstruction.";
         }
       }
     }
