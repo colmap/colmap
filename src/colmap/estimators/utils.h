@@ -62,12 +62,16 @@ void CenterAndNormalizeImagePoints(const std::vector<Eigen::Vector2d>& points,
 //
 // Residuals are defined as the squared Sampson error.
 //
-// @param points1     First set of corresponding points as Nx2 matrix.
-// @param points2     Second set of corresponding points as Nx2 matrix.
+// @param points1     Corresponding points/rays.
+// @param points2     Corresponding points/rays.
 // @param E           3x3 fundamental or essential matrix.
 // @param residuals   Output vector of residuals.
 void ComputeSquaredSampsonError(const std::vector<Eigen::Vector2d>& points1,
                                 const std::vector<Eigen::Vector2d>& points2,
+                                const Eigen::Matrix3d& E,
+                                std::vector<double>* residuals);
+void ComputeSquaredSampsonError(const std::vector<Eigen::Vector3d>& rays1,
+                                const std::vector<Eigen::Vector3d>& rays2,
                                 const Eigen::Matrix3d& E,
                                 std::vector<double>* residuals);
 
