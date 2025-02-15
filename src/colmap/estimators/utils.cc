@@ -88,7 +88,7 @@ void ComputeSquaredSampsonError(const std::vector<Eigen::Vector2d>& points1,
   }
 }
 
-void ComputeSquaredReprojectionError(
+void ComputeSquaredReprojError(
     const std::vector<Eigen::Vector2d>& points2D,
     const std::vector<Eigen::Vector3d>& points3D,
     const Eigen::Matrix3x4d& cam_from_world,
@@ -105,6 +105,30 @@ void ComputeSquaredReprojectionError(
           (point3D_in_cam.hnormalized() - points2D[i]).squaredNorm();
     } else {
       (*residuals)[i] = std::numeric_limits<double>::max();
+    }
+  }
+}
+
+void ComputeSquaredAngularReprojError(
+    const std::vector<Eigen::Vector3d>& rays,
+    const std::vector<Eigen::Vector3d>& points,
+    const Eigen::Matrix3x4d& cam_from_world,
+    std::vector<double>* residuals) {
+  const size_t num_rays = rays.size();
+  THROW_CHECK_EQ(num_rays, points.size());
+  residuals->resize(num_rays);
+  for (size_t i = 0; i < num_rays; ++i) {
+    const Eigen::Vector3d point_in_cam =
+        cam_from_world * points[i].homogeneous();
+    const double point_in_cam_norm = point_in_cam.norm();
+    if (point_in_cam_norm < std::numeric_limits<double>::epsilon()) {
+      (*residuals)[i] = std::numeric_limits<double>::max();
+    } else {
+      const double cos_angular_error =
+          rays[i].dot(point_in_cam / point_in_cam_norm);
+      const double angular_error =
+          std::acos(std::clamp(cos_angular_error, -1.0, 1.0));
+      (*residuals)[i] = angular_error * angular_error;
     }
   }
 }

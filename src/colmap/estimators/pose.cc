@@ -55,16 +55,16 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
   *num_inliers = 0;
   inlier_mask->clear();
 
-  std::vector<Eigen::Vector2d> points2D_normalized(points2D.size());
-  for (size_t i = 0; i < points2D.size(); ++i) {
-    points2D_normalized[i] = camera->CamFromImg(points2D[i]);
-  }
-
   auto custom_ransac_options = options.ransac_options;
   custom_ransac_options.max_error =
       camera->CamFromImgThreshold(options.ransac_options.max_error);
 
   if (options.estimate_focal_length) {
+    // Focal length estimator only works for non-spherical cameras.
+    std::vector<Eigen::Vector2d> points2D_normalized(points2D.size());
+    for (size_t i = 0; i < points2D.size(); ++i) {
+      points2D_normalized[i] = camera->CamFromImg(points2D[i]);
+    }
     // TODO(jsch): Implement non-minimal solver for LORANSAC refinement.
     // Experiments showed marginal difference between RANSAC/LORANSAC for PNPF
     // after refining the estimates of this function using RefineAbsolutePose.
@@ -82,8 +82,15 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
       return true;
     }
   } else {
+    // Convert normalized error to angular error.
+    custom_ransac_options.max_error =
+      std::atan(custom_ransac_options.max_error);
+    std::vector<Eigen::Vector3d> rays(points2D.size());
+    for (size_t i = 0; i < points2D.size(); ++i) {
+      rays[i] = camera->CamFromImg(points2D[i]).homogeneous().normalized();
+    }
     LORANSAC<P3PEstimator, EPNPEstimator> ransac(custom_ransac_options);
-    auto report = ransac.Estimate(points2D_normalized, points3D);
+    auto report = ransac.Estimate(rays, points3D);
     if (report.success) {
       *cam_from_world = Rigid3d(Eigen::Quaterniond(report.model.leftCols<3>()),
                                 report.model.col(3));

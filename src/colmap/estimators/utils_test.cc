@@ -81,7 +81,7 @@ TEST(ComputeSquaredSampsonError, Nominal) {
   EXPECT_EQ(residuals[2], 2);
 }
 
-TEST(ComputeSquaredReprojectionError, Nominal) {
+TEST(ComputeSquaredReprojError, Nominal) {
   std::vector<Eigen::Vector2d> points2D;
   points2D.emplace_back(0, 0);
   points2D.emplace_back(0, 0);
@@ -95,13 +95,36 @@ TEST(ComputeSquaredReprojectionError, Nominal) {
                                Eigen::Vector3d(1, 0, 0));
 
   std::vector<double> residuals;
-  ComputeSquaredReprojectionError(
+  ComputeSquaredReprojError(
       points2D, points3D, cam_from_world.ToMatrix(), &residuals);
 
   EXPECT_EQ(residuals.size(), 3);
   EXPECT_EQ(residuals[0], 9);
   EXPECT_EQ(residuals[1], 10);
   EXPECT_EQ(residuals[2], 13);
+}
+
+TEST(ComputeSquaredAngularReprojError, Nominal) {
+  std::vector<Eigen::Vector3d> rays;
+  rays.emplace_back(0, 0, 1);
+  rays.emplace_back(0, 0, 1);
+  rays.emplace_back(0, 0, 1);
+  std::vector<Eigen::Vector3d> points;
+  points.emplace_back(-1, 0, 1);
+  points.emplace_back(-1, 1, 0);
+  points.emplace_back(-1, 0, -1);
+
+  const Rigid3d cam_from_world(Eigen::Quaterniond::Identity(),
+                               Eigen::Vector3d(1, 0, 0));
+
+  std::vector<double> residuals;
+  ComputeSquaredAngularReprojError(
+      rays, points, cam_from_world.ToMatrix(), &residuals);
+
+  EXPECT_EQ(residuals.size(), 3);
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], M_PI / 2 * M_PI / 2);
+  EXPECT_EQ(residuals[2], M_PI * M_PI);
 }
 
 }  // namespace
