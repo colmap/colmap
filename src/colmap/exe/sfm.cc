@@ -275,19 +275,35 @@ int RunMapper(int argc, char** argv) {
         LOG(WARNING) << "Too few images to transform the reconstruction.";
       } else {
         std::vector<Eigen::Vector3d> new_fixed_image_positions;
+        std::vector<Eigen::Vector3d> filtered_orig_positions;
         new_fixed_image_positions.reserve(fixed_image_ids.size());
+        filtered_orig_positions.reserve(fixed_image_ids.size());
+
+        size_t idx = 0;
         for (const image_t image_id : fixed_image_ids) {
-          new_fixed_image_positions.push_back(
-              reconstruction->Image(image_id).ProjectionCenter());
+          if (reconstruction->ExistsImage(image_id)) {
+            new_fixed_image_positions.push_back(
+                reconstruction->Image(image_id).ProjectionCenter());
+            filtered_orig_positions.push_back(orig_fixed_image_positions[idx]);
+          }
+          idx++;
         }
-        Sim3d orig_from_new;
-        if (EstimateSim3d(new_fixed_image_positions,
-                          orig_fixed_image_positions,
-                          orig_from_new)) {
-          reconstruction->Transform(orig_from_new);
+
+        if (!new_fixed_image_positions.empty()) {
+          LOG(INFO) << "With fix_existing_images=True, transforming the final reconstruction back to the input coordinate frame using " << new_fixed_image_positions.size() 
+                    << " original registered images"; 
+
+          Sim3d orig_from_new;
+          if (EstimateSim3d(new_fixed_image_positions,
+                            filtered_orig_positions,
+                            orig_from_new)) {
+            reconstruction->Transform(orig_from_new);
+          } else {
+            LOG(WARNING) << "Failed to transform the reconstruction back "
+                            "to the input coordinate frame.";
+          }
         } else {
-          LOG(WARNING) << "Failed to transform the reconstruction back "
-                          "to the input coordinate frame.";
+          LOG(WARNING) << "No registered images found to transform the reconstruction.";
         }
       }
     }
@@ -452,19 +468,35 @@ int RunPosePriorMapper(int argc, char** argv) {
         LOG(WARNING) << "Too few images to transform the reconstruction.";
       } else {
         std::vector<Eigen::Vector3d> new_fixed_image_positions;
+        std::vector<Eigen::Vector3d> filtered_orig_positions;
         new_fixed_image_positions.reserve(fixed_image_ids.size());
+        filtered_orig_positions.reserve(fixed_image_ids.size());
+
+        size_t idx = 0;
         for (const image_t image_id : fixed_image_ids) {
-          new_fixed_image_positions.push_back(
-              reconstruction->Image(image_id).ProjectionCenter());
+          if (reconstruction->ExistsImage(image_id)) {
+            new_fixed_image_positions.push_back(
+                reconstruction->Image(image_id).ProjectionCenter());
+            filtered_orig_positions.push_back(orig_fixed_image_positions[idx]);
+          }
+          idx++;
         }
-        Sim3d orig_from_new;
-        if (EstimateSim3d(new_fixed_image_positions,
-                          orig_fixed_image_positions,
-                          orig_from_new)) {
-          reconstruction->Transform(orig_from_new);
+
+        if (!new_fixed_image_positions.empty()) {
+          LOG(INFO) << "With fix_existing_images=True, transforming the final reconstruction back to the input coordinate frame using " << new_fixed_image_positions.size() 
+                    << " original registered images"; 
+
+          Sim3d orig_from_new;
+          if (EstimateSim3d(new_fixed_image_positions,
+                            filtered_orig_positions,
+                            orig_from_new)) {
+            reconstruction->Transform(orig_from_new);
+          } else {
+            LOG(WARNING) << "Failed to transform the reconstruction back "
+                            "to the input coordinate frame.";
+          }
         } else {
-          LOG(WARNING) << "Failed to transform the reconstruction back "
-                          "to the input coordinate frame.";
+          LOG(WARNING) << "No registered images found to transform the reconstruction.";
         }
       }
     }
