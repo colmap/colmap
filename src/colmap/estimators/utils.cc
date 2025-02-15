@@ -88,11 +88,10 @@ void ComputeSquaredSampsonError(const std::vector<Eigen::Vector2d>& points1,
   }
 }
 
-void ComputeSquaredReprojError(
-    const std::vector<Eigen::Vector2d>& points2D,
-    const std::vector<Eigen::Vector3d>& points3D,
-    const Eigen::Matrix3x4d& cam_from_world,
-    std::vector<double>* residuals) {
+void ComputeSquaredReprojError(const std::vector<Eigen::Vector2d>& points2D,
+                               const std::vector<Eigen::Vector3d>& points3D,
+                               const Eigen::Matrix3x4d& cam_from_world,
+                               std::vector<double>* residuals) {
   const size_t num_points2D = points2D.size();
   THROW_CHECK_EQ(num_points2D, points3D.size());
   residuals->resize(num_points2D);

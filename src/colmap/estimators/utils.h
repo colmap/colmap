@@ -79,11 +79,10 @@ void ComputeSquaredSampsonError(const std::vector<Eigen::Vector2d>& points1,
 // @param points3D        3D world points.
 // @param cam_from_world  3x4 projection matrix.
 // @param residuals       Output vector of residuals.
-void ComputeSquaredReprojError(
-    const std::vector<Eigen::Vector2d>& points2D,
-    const std::vector<Eigen::Vector3d>& points3D,
-    const Eigen::Matrix3x4d& cam_from_world,
-    std::vector<double>* residuals);
+void ComputeSquaredReprojError(const std::vector<Eigen::Vector2d>& points2D,
+                               const std::vector<Eigen::Vector3d>& points3D,
+                               const Eigen::Matrix3x4d& cam_from_world,
+                               std::vector<double>* residuals);
 
 // Calculate the squared angular error given a set of ray-point
 // correspondences and a projection matrix.

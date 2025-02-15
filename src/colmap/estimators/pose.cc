@@ -84,7 +84,7 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
   } else {
     // Convert normalized error to angular error.
     custom_ransac_options.max_error =
-      std::atan(custom_ransac_options.max_error);
+        std::atan(custom_ransac_options.max_error);
     std::vector<Eigen::Vector3d> rays(points2D.size());
     for (size_t i = 0; i < points2D.size(); ++i) {
       rays[i] = camera->CamFromImg(points2D[i]).homogeneous().normalized();
