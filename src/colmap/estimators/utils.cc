@@ -81,7 +81,7 @@ inline double ComputeSquaredSampsonError(const Eigen::Vector3d& ray1,
                               epipolar_line1.x(),
                               epipolar_line1.y());
   const double denom_sq_norm = denom.squaredNorm();
-  if (denom_sq_norm < std::numeric_limits<double>::epsilon()) {
+  if (denom_sq_norm == 0) {
     return std::numeric_limits<double>::max();
   }
   return num * num / denom_sq_norm;

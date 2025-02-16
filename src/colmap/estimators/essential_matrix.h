@@ -56,12 +56,12 @@ class EssentialMatrixFivePointEstimator {
   static const int kMinNumSamples = 5;
 
   // Estimate up to 10 possible essential matrix solutions from a set of
-  // corresponding rays.
+  // corresponding rays directions.
   //
   //  The number of corresponding rays must be at least 5.
   //
-  // @param rays1    First set of corresponding rays.
-  // @param rays2    Second set of corresponding rays.
+  // @param rays1    First set of corresponding rays directions.
+  // @param rays2    Second set of corresponding rays directions.
   //
   // @return         Up to 10 solutions as a vector of 3x3 essential matrices.
   static void Estimate(const std::vector<X_t>& rays1,
@@ -73,8 +73,8 @@ class EssentialMatrixFivePointEstimator {
   //
   // Residuals are defined as the squared Sampson error.
   //
-  // @param rays1      First set of corresponding rays.
-  // @param rays2      Second set of corresponding rays.
+  // @param rays1      First set of corresponding rays directions.
+  // @param rays2      Second set of corresponding rays directions.
   // @param E          3x3 essential matrix.
   // @param residuals  Output vector of residuals as squared Sampson errors.
   static void Residuals(const std::vector<X_t>& rays1,
@@ -97,12 +97,13 @@ class EssentialMatrixEightPointEstimator {
   // The minimum number of samples needed to estimate a model.
   static const int kMinNumSamples = 8;
 
-  // Estimate essential matrix solutions from  set of corresponding rays.
+  // Estimate essential matrix solutions from  set of corresponding rays
+  // directions.
   //
   // The number of corresponding rays must be at least 8.
   //
-  // @param rays1    First set of corresponding rays.
-  // @param rays2    Second set of corresponding rays.
+  // @param rays1    First set of corresponding rays directions.
+  // @param rays2    Second set of corresponding rays directions.
   //
   // @return         Estimated 3x3 essential matrix.
   static void Estimate(const std::vector<X_t>& rays1,
@@ -114,8 +115,8 @@ class EssentialMatrixEightPointEstimator {
   //
   // Residuals are defined as the squared Sampson error.
   //
-  // @param rays1      First set of corresponding rays.
-  // @param rays2      Second set of corresponding rays.
+  // @param rays1      First set of corresponding rays directions.
+  // @param rays2      Second set of corresponding rays directions.
   // @param E          3x3 essential matrix.
   // @param residuals  Output vector of residuals as squared Sampson errors.
   static void Residuals(const std::vector<X_t>& rays1,
