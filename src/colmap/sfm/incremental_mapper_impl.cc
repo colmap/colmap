@@ -96,31 +96,33 @@ std::vector<image_t> IncrementalMapperImpl::FindFirstInitialImage(
   // correspondences.
   std::vector<ImageInfo> image_infos;
   image_infos.reserve(reconstruction.NumImages());
-  for (const auto& image : reconstruction.Images()) {
+  for (const auto& [image_id, image] : reconstruction.Images()) {
     // Only images with correspondences can be registered.
-    if (correspondence_graph.NumCorrespondencesForImage(image.first) == 0) {
+    if (correspondence_graph.NumCorrespondencesForImage(image_id) == 0) {
       continue;
     }
 
     // Only use images for initialization a maximum number of times.
-    if (init_num_reg_trials.count(image.first) &&
-        init_num_reg_trials.at(image.first) >= init_max_reg_trials) {
+    if (const auto init_num_reg_trials_it = init_num_reg_trials.find(image_id);
+        init_num_reg_trials_it != init_num_reg_trials.end() &&
+        init_num_reg_trials_it->second >= init_max_reg_trials) {
       continue;
     }
 
     // Only use images for initialization that are not registered in any
     // of the other reconstructions.
-    if (num_registrations.count(image.first) > 0 &&
-        num_registrations.at(image.first) > 0) {
+    if (const auto num_registrations_it = num_registrations.find(image_id);
+        num_registrations_it != num_registrations.end() &&
+        num_registrations_it->second > 0) {
       continue;
     }
 
-    const Camera& camera = *image.second.CameraPtr();
+    const Camera& camera = *image.CameraPtr();
     ImageInfo image_info;
-    image_info.image_id = image.first;
+    image_info.image_id = image_id;
     image_info.prior_focal_length = camera.has_prior_focal_length;
     image_info.num_correspondences =
-        correspondence_graph.NumCorrespondencesForImage(image.first);
+        correspondence_graph.NumCorrespondencesForImage(image_id);
     image_infos.push_back(image_info);
   }
 
@@ -166,8 +168,10 @@ std::vector<image_t> IncrementalMapperImpl::FindSecondInitialImage(
     const auto corr_range =
         correspondence_graph.FindCorrespondences(image_id1, point2D_idx);
     for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
-      if (num_registrations.count(corr->image_id) == 0 ||
-          num_registrations.at(corr->image_id) == 0) {
+      if (const auto num_registrations_it =
+              num_registrations.find(corr->image_id);
+          num_registrations_it == num_registrations.end() ||
+          num_registrations_it->second == 0) {
         num_correspondences[corr->image_id] += 1;
       }
     }
@@ -185,15 +189,15 @@ std::vector<image_t> IncrementalMapperImpl::FindSecondInitialImage(
 
   // Compose image information in a compact form for sorting.
   std::vector<ImageInfo> image_infos;
-  image_infos.reserve(reconstruction.NumImages());
-  for (const auto elem : num_correspondences) {
-    if (elem.second >= init_min_num_inliers) {
-      const Image& image = reconstruction.Image(elem.first);
+  image_infos.reserve(num_correspondences.size());
+  for (const auto& [image_id, num_corrs] : num_correspondences) {
+    if (num_corrs >= init_min_num_inliers) {
+      const Image& image = reconstruction.Image(image_id);
       const Camera& camera = *image.CameraPtr();
       ImageInfo image_info;
-      image_info.image_id = elem.first;
+      image_info.image_id = image_id;
       image_info.prior_focal_length = camera.has_prior_focal_length;
-      image_info.num_correspondences = elem.second;
+      image_info.num_correspondences = num_corrs;
       image_infos.push_back(image_info);
     }
   }
@@ -279,11 +283,9 @@ bool IncrementalMapperImpl::FindInitialImagePair(
           Database::ImagePairToPairId(image_id1, image_id2);
 
       // Try every pair only once.
-      if (init_image_pairs.count(pair_id) > 0) {
+      if (!init_image_pairs.emplace(pair_id).second) {
         continue;
       }
-
-      init_image_pairs.insert(pair_id);
 
       if (IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
               options,
