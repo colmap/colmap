@@ -54,8 +54,6 @@ void SortAndAppendNextImages(std::vector<std::pair<image_t, float>> image_ranks,
   for (const auto& image : image_ranks) {
     sorted_images_ids->push_back(image.first);
   }
-
-  image_ranks.clear();
 }
 
 float RankNextImageMaxVisiblePointsNum(
@@ -309,7 +307,7 @@ std::vector<image_t> IncrementalMapperImpl::FindNextImages(
     const IncrementalMapper::Options& options,
     const ObservationManager& obs_manager,
     const std::unordered_set<image_t>& filtered_images,
-    std::unordered_map<image_t, size_t>& m_num_reg_trials) {
+    std::unordered_map<image_t, size_t>& num_reg_trials) {
   THROW_CHECK(options.Check());
   const Reconstruction& reconstruction = obs_manager.Reconstruction();
 
@@ -333,37 +331,37 @@ std::vector<image_t> IncrementalMapperImpl::FindNextImages(
   std::vector<std::pair<image_t, float>> other_image_ranks;
 
   // Append images that have not failed to register before.
-  for (const auto& image : reconstruction.Images()) {
+  for (const auto& [image_id, image] : reconstruction.Images()) {
     // Skip images that are already registered.
-    if (image.second.HasPose()) {
+    if (image.HasPose()) {
       continue;
     }
 
     // Only consider images with a sufficient number of visible points.
-    if (obs_manager.NumVisiblePoints3D(image.first) <
+    if (obs_manager.NumVisiblePoints3D(image_id) <
         static_cast<size_t>(options.abs_pose_min_num_inliers)) {
       continue;
     }
 
     // Only try registration for a certain maximum number of times.
-    const size_t num_reg_trials = m_num_reg_trials[image.first];
-    if (num_reg_trials >= static_cast<size_t>(options.max_reg_trials)) {
+    const size_t image_num_reg_trials = num_reg_trials[image_id];
+    if (image_num_reg_trials >= static_cast<size_t>(options.max_reg_trials)) {
       continue;
     }
 
     // If image has been filtered or failed to register, place it in the
     // second bucket and prefer images that have not been tried before.
-    const float rank = rank_image_func(image.first, obs_manager);
-    if (filtered_images.count(image.first) == 0 && num_reg_trials == 0) {
-      image_ranks.emplace_back(image.first, rank);
+    const float rank = rank_image_func(image_id, obs_manager);
+    if (filtered_images.count(image_id) == 0 && image_num_reg_trials == 0) {
+      image_ranks.emplace_back(image_id, rank);
     } else {
-      other_image_ranks.emplace_back(image.first, rank);
+      other_image_ranks.emplace_back(image_id, rank);
     }
   }
 
   std::vector<image_t> ranked_images_ids;
-  SortAndAppendNextImages(image_ranks, &ranked_images_ids);
-  SortAndAppendNextImages(other_image_ranks, &ranked_images_ids);
+  SortAndAppendNextImages(std::move(image_ranks), &ranked_images_ids);
+  SortAndAppendNextImages(std::move(other_image_ranks), &ranked_images_ids);
 
   return ranked_images_ids;
 }
