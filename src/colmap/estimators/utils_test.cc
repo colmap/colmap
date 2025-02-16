@@ -123,8 +123,8 @@ TEST(ComputeSquaredAngularReprojError, Nominal) {
 
   EXPECT_EQ(residuals.size(), 3);
   EXPECT_EQ(residuals[0], 0);
-  EXPECT_EQ(residuals[1], M_PI / 2 * M_PI / 2);
-  EXPECT_EQ(residuals[2], M_PI * M_PI);
+  EXPECT_EQ(residuals[1], EIGEN_PI / 2 * EIGEN_PI / 2);
+  EXPECT_EQ(residuals[2], EIGEN_PI * EIGEN_PI);
 }
 
 }  // namespace
