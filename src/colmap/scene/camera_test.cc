@@ -291,10 +291,8 @@ TEST(Camera, ImgFromCam) {
   Camera camera;
   EXPECT_THROW(camera.ImgFromCam(Eigen::Vector2d::Zero()), std::domain_error);
   camera = Camera::CreateFromModelName(1, "SIMPLE_PINHOLE", 1.0, 1, 1);
-  EXPECT_EQ(camera.ImgFromCam(Eigen::Vector2d(0.0, 0.0))(0), 0.5);
-  EXPECT_EQ(camera.ImgFromCam(Eigen::Vector2d(0.0, 0.0))(1), 0.5);
-  EXPECT_EQ(camera.ImgFromCam(Eigen::Vector2d(-0.5, -0.5))(0), 0.0);
-  EXPECT_EQ(camera.ImgFromCam(Eigen::Vector2d(-0.5, -0.5))(1), 0.0);
+  EXPECT_EQ(camera.ImgFromCam(Eigen::Vector2d(0.0, 0.0)).value(), Eigen::Vector2d(0.5, 0.5));
+  EXPECT_EQ(camera.ImgFromCam(Eigen::Vector2d(-0.5, -0.5)).value(), Eigen::Vector2d(0.0, 0.0));
 }
 
 TEST(Camera, Rescale) {
