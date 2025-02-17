@@ -429,15 +429,15 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
   // Extract corresponding points.
   std::vector<Eigen::Vector2d> matched_points1(matches.size());
   std::vector<Eigen::Vector2d> matched_points2(matches.size());
-  std::vector<Eigen::Vector2d> matched_points1_normalized(matches.size());
-  std::vector<Eigen::Vector2d> matched_points2_normalized(matches.size());
+  std::vector<Eigen::Vector3d> matched_rays1(matches.size());
+  std::vector<Eigen::Vector3d> matched_rays2(matches.size());
   for (size_t i = 0; i < matches.size(); ++i) {
     const point2D_t idx1 = matches[i].point2D_idx1;
     const point2D_t idx2 = matches[i].point2D_idx2;
     matched_points1[i] = points1[idx1];
     matched_points2[i] = points2[idx2];
-    matched_points1_normalized[i] = camera1.CamFromImg(points1[idx1]);
-    matched_points2_normalized[i] = camera2.CamFromImg(points2[idx2]);
+    matched_rays1[i] = camera1.CamFromImg(points1[idx1]).homogeneous();
+    matched_rays2[i] = camera2.CamFromImg(points2[idx2]).homogeneous();
   }
 
   // Estimate epipolar models.
@@ -450,8 +450,7 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
 
   LORANSAC<EssentialMatrixFivePointEstimator, EssentialMatrixFivePointEstimator>
       E_ransac(E_ransac_options);
-  const auto E_report =
-      E_ransac.Estimate(matched_points1_normalized, matched_points2_normalized);
+  const auto E_report = E_ransac.Estimate(matched_rays1, matched_rays2);
   geometry.E = E_report.model;
 
   LORANSAC<FundamentalMatrixSevenPointEstimator,

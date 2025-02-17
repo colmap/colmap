@@ -34,6 +34,7 @@
 #include "colmap/math/random.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/eigen_matchers.h"
 
 #include <Eigen/Core>
 #include <gtest/gtest.h>
@@ -42,22 +43,21 @@ namespace colmap {
 namespace {
 
 void RandomEpipolarCorrespondences(const Rigid3d& cam2_from_cam1,
-                                   size_t num_points,
-                                   std::vector<Eigen::Vector2d>& points1,
-                                   std::vector<Eigen::Vector2d>& points2) {
-  for (size_t i = 0; i < num_points; ++i) {
-    points1.push_back(Eigen::Vector2d::Random());
+                                   size_t num_rays,
+                                   std::vector<Eigen::Vector3d>& rays1,
+                                   std::vector<Eigen::Vector3d>& rays2) {
+  for (size_t i = 0; i < num_rays; ++i) {
+    rays1.push_back(Eigen::Vector3d::Random().normalized());
     const double random_depth = RandomUniformReal<double>(0.2, 2.0);
-    points2.push_back(
-        (cam2_from_cam1 * (random_depth * points1.back().homogeneous()))
-            .hnormalized());
+    rays2.push_back(
+        (cam2_from_cam1 * (random_depth * rays1.back())).normalized());
   }
 }
 
 template <typename Estimator>
 void ExpectAtLeastOneValidModel(const Estimator& estimator,
-                                const std::vector<Eigen::Vector2d>& points1,
-                                const std::vector<Eigen::Vector2d>& points2,
+                                const std::vector<Eigen::Vector3d>& rays1,
+                                const std::vector<Eigen::Vector3d>& rays2,
                                 Eigen::Matrix3d& expected_E,
                                 std::vector<Eigen::Matrix3d>& models,
                                 double E_eps = 1e-4,
@@ -70,35 +70,42 @@ void ExpectAtLeastOneValidModel(const Estimator& estimator,
       continue;
     }
 
+    bool all_residuals_small = true;
     std::vector<double> residuals;
-    estimator.Residuals(points1, points2, E, &residuals);
-    for (size_t j = 0; j < points1.size(); ++j) {
-      EXPECT_LT(residuals[j], r_eps);
+    estimator.Residuals(rays1, rays2, E, &residuals);
+    for (const double residual : residuals) {
+      if (residual > r_eps) {
+        all_residuals_small = false;
+        break;
+      }
     }
 
-    return;
+    if (all_residuals_small) {
+      return;
+    }
   }
-  ADD_FAILURE() << "No essential matrix is equal up to scale.";
+
+  ADD_FAILURE() << "No good solution found.";
 }
 
 class EssentialMatrixFivePointEstimatorTests
     : public ::testing::TestWithParam<size_t> {};
 
 TEST_P(EssentialMatrixFivePointEstimatorTests, Nominal) {
-  const size_t kNumPoints = GetParam();
+  const size_t kNumrays = GetParam();
   for (size_t k = 0; k < 100; ++k) {
     const Rigid3d cam2_from_cam1(Eigen::Quaterniond::UnitRandom(),
                                  Eigen::Vector3d::Random());
     Eigen::Matrix3d expected_E = EssentialMatrixFromPose(cam2_from_cam1);
-    std::vector<Eigen::Vector2d> points1;
-    std::vector<Eigen::Vector2d> points2;
-    RandomEpipolarCorrespondences(cam2_from_cam1, kNumPoints, points1, points2);
+    std::vector<Eigen::Vector3d> rays1;
+    std::vector<Eigen::Vector3d> rays2;
+    RandomEpipolarCorrespondences(cam2_from_cam1, kNumrays, rays1, rays2);
 
     EssentialMatrixFivePointEstimator estimator;
     std::vector<Eigen::Matrix3d> models;
-    estimator.Estimate(points1, points2, &models);
+    estimator.Estimate(rays1, rays2, &models);
 
-    ExpectAtLeastOneValidModel(estimator, points1, points2, expected_E, models);
+    ExpectAtLeastOneValidModel(estimator, rays1, rays2, expected_E, models);
   }
 }
 
@@ -107,24 +114,24 @@ INSTANTIATE_TEST_SUITE_P(EssentialMatrixFivePointEstimator,
                          ::testing::Values(5, 20, 1000));
 
 TEST(EssentialMatrixEightPointEstimator, Reference) {
-  const double points1_raw[] = {1.839035,
-                                1.924743,
-                                0.543582,
-                                0.375221,
-                                0.473240,
-                                0.142522,
-                                0.964910,
-                                0.598376,
-                                0.102388,
-                                0.140092,
-                                15.994343,
-                                9.622164,
-                                0.285901,
-                                0.430055,
-                                0.091150,
-                                0.254594};
+  const double rays1_raw[] = {1.839035,
+                              1.924743,
+                              0.543582,
+                              0.375221,
+                              0.473240,
+                              0.142522,
+                              0.964910,
+                              0.598376,
+                              0.102388,
+                              0.140092,
+                              15.994343,
+                              9.622164,
+                              0.285901,
+                              0.430055,
+                              0.091150,
+                              0.254594};
 
-  const double points2_raw[] = {
+  const double rays2_raw[] = {
       1.002114,
       1.129644,
       1.521742,
@@ -143,31 +150,28 @@ TEST(EssentialMatrixEightPointEstimator, Reference) {
       1.028681,
   };
 
-  const size_t kNumPoints = 8;
-  std::vector<Eigen::Vector2d> points1(kNumPoints);
-  std::vector<Eigen::Vector2d> points2(kNumPoints);
-  for (size_t i = 0; i < kNumPoints; ++i) {
-    points1[i] = Eigen::Vector2d(points1_raw[2 * i], points1_raw[2 * i + 1]);
-    points2[i] = Eigen::Vector2d(points2_raw[2 * i], points2_raw[2 * i + 1]);
+  const size_t kNumrays = 8;
+  std::vector<Eigen::Vector3d> rays1(kNumrays);
+  std::vector<Eigen::Vector3d> rays2(kNumrays);
+  for (size_t i = 0; i < kNumrays; ++i) {
+    rays1[i] = Eigen::Vector3d(rays1_raw[2 * i], rays1_raw[2 * i + 1], 1);
+    rays2[i] = Eigen::Vector3d(rays2_raw[2 * i], rays2_raw[2 * i + 1], 1);
   }
 
   EssentialMatrixEightPointEstimator estimator;
   std::vector<Eigen::Matrix3d> models;
-  estimator.Estimate(points1, points2, &models);
+  estimator.Estimate(rays1, rays2, &models);
+
+  Eigen::Matrix3d expected_E;
+  expected_E << -0.315968, 0.604935, -0.0538653, -0.103596, 0.0652994,
+      0.0208669, 0.355946, -0.622327, 0.043552;
+  expected_E /= expected_E(2, 2);
 
   ASSERT_EQ(models.size(), 1);
-  const Eigen::Matrix3d& E = models[0];
+  Eigen::Matrix3d& E = models[0];
+  E /= E(2, 2);
 
-  // Reference values.
-  EXPECT_NEAR(E(0, 0), 0.217859, 1e-5);
-  EXPECT_NEAR(E(0, 1), -0.419282, 1e-5);
-  EXPECT_NEAR(E(0, 2), 0.0343075, 1e-5);
-  EXPECT_NEAR(E(1, 0), 0.0717941, 1e-5);
-  EXPECT_NEAR(E(1, 1), -0.0451643, 1e-5);
-  EXPECT_NEAR(E(1, 2), -0.0216073, 1e-5);
-  EXPECT_NEAR(E(2, 0), -0.248062, 1e-5);
-  EXPECT_NEAR(E(2, 1), 0.429478, 1e-5);
-  EXPECT_NEAR(E(2, 2), -0.0221019, 1e-5);
+  EXPECT_THAT(E, EigenMatrixNear(expected_E, 1e-5));
 
   // Check that the internal constraint is satisfied (two singular values equal
   // and one zero).
@@ -182,20 +186,20 @@ class EssentialMatrixEightPointEstimatorTests
     : public ::testing::TestWithParam<size_t> {};
 
 TEST_P(EssentialMatrixEightPointEstimatorTests, Nominal) {
-  const size_t kNumPoints = GetParam();
+  const size_t kNumrays = GetParam();
   for (size_t k = 0; k < 1; ++k) {
     const Rigid3d cam2_from_cam1(Eigen::Quaterniond::UnitRandom(),
                                  Eigen::Vector3d::Random());
     Eigen::Matrix3d expected_E = EssentialMatrixFromPose(cam2_from_cam1);
-    std::vector<Eigen::Vector2d> points1;
-    std::vector<Eigen::Vector2d> points2;
-    RandomEpipolarCorrespondences(cam2_from_cam1, kNumPoints, points1, points2);
+    std::vector<Eigen::Vector3d> rays1;
+    std::vector<Eigen::Vector3d> rays2;
+    RandomEpipolarCorrespondences(cam2_from_cam1, kNumrays, rays1, rays2);
 
     EssentialMatrixEightPointEstimator estimator;
     std::vector<Eigen::Matrix3d> models;
-    estimator.Estimate(points1, points2, &models);
+    estimator.Estimate(rays1, rays2, &models);
 
-    ExpectAtLeastOneValidModel(estimator, points1, points2, expected_E, models);
+    ExpectAtLeastOneValidModel(estimator, rays1, rays2, expected_E, models);
   }
 }
 
