@@ -104,11 +104,8 @@ void BindGeometry(py::module& m) {
            py::arg("covar"))
       .def("get_covariance_for_relative_rigid3d",
            static_cast<Eigen::Matrix6d (*)(
-               const Rigid3d&,
-               const Rigid3d&,
-               const Eigen::Matrix<double, 12, 12>&)>(
+               const Rigid3d&, const Eigen::Matrix<double, 12, 12>&)>(
                &GetCovarianceForRelativeRigid3d),
-           py::arg("target_rigid3d"),
            py::arg("covar"))
       .def_static("interpolate",
                   &InterpolateCameraPoses,

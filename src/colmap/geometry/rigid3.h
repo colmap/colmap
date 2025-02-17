@@ -98,7 +98,7 @@ inline Rigid3d Inverse(const Rigid3d& b_from_a) {
   return a_from_b;
 }
 
-// Update covariance (6x6) for rigid3d.inverse()
+// Update covariance (6 x 6) for rigid3d.inverse()
 //
 // [Reference] Joan Solà, Jeremie Deray, Dinesh Atchuthan, A micro Lie theory
 // for state estimation in robotics, 2018.
@@ -112,14 +112,15 @@ inline Eigen::Matrix6d GetCovarianceForRigid3dInverse(
   return adjoint_inv * covar * adjoint_inv.transpose();
 }
 
-// Calculate covariance (6 x 6) for relative transformation T_1^{-1}T_2.
+// Given a (12 x 12) covariance on top of two rigid3d objects, (T_a, T_b), this
+// function calculates the (6 x 6) covariance of the relative transformation
+// T_a^{-1}T_b. T_b does not contribute to the covariance propagation and is
+// thus not required.
 inline Eigen::Matrix6d GetCovarianceForRelativeRigid3d(
-    const Rigid3d& pose1,
-    const Rigid3d& pose2,
-    const Eigen::Matrix<double, 12, 12>& covar) {
+    const Rigid3d& T_a, const Eigen::Matrix<double, 12, 12>& covar) {
   Eigen::Matrix<double, 6, 12> J;
-  J.block<6, 6>(0, 0) = -pose1.AdjointInverse();
-  J.block<6, 6>(0, 6) = pose1.AdjointInverse();
+  J.block<6, 6>(0, 0) = -T_a.AdjointInverse();
+  J.block<6, 6>(0, 6) = T_a.AdjointInverse();
   return J * covar * J.transpose();
 }
 

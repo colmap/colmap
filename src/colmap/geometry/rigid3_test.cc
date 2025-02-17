@@ -174,7 +174,6 @@ TEST(Rigid3d, CovariancePropagation) {
 
 TEST(Rigid3d, RelativePoseCovariance_PerfectCorrelation) {
   const Rigid3d pose1 = TestRigid3d();
-  const Rigid3d pose2 = TestRigid3d();
   const Eigen::Matrix6d A = Eigen::Matrix6d::Random();
   const Eigen::Matrix6d covar_subblock = A * A.transpose();
   // Two poses are perfectly correlated
@@ -184,20 +183,19 @@ TEST(Rigid3d, RelativePoseCovariance_PerfectCorrelation) {
   covar.block<6, 6>(6, 0) = covar_subblock;
   covar.block<6, 6>(6, 6) = covar_subblock;
   const Eigen::Matrix6d covar_2_from_1 =
-      GetCovarianceForRelativeRigid3d(pose1, pose2, covar);
+      GetCovarianceForRelativeRigid3d(pose1, covar);
   EXPECT_LT(covar_2_from_1.norm(), 1e-6);
 }
 
 TEST(Rigid3d, RelativePoseCovariance) {
   const Rigid3d pose1 = TestRigid3d();
-  const Rigid3d pose2 = TestRigid3d();
   const Eigen::Matrix<double, 12, 12> A =
       Eigen::Matrix<double, 12, 12>::Random();
   const Eigen::Matrix<double, 12, 12> covar = A * A.transpose();
 
   // Ours (in left convention)
   const Eigen::Matrix6d covar_2_from_1 =
-      GetCovarianceForRelativeRigid3d(pose1, pose2, covar);
+      GetCovarianceForRelativeRigid3d(pose1, covar);
 
   // Use the equations from the right convention as a reference.
   // The covariance in left (right) equals to the covariance of pose inverse in
