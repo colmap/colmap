@@ -112,6 +112,17 @@ inline Eigen::Matrix6d GetCovarianceForRigid3dInverse(
   return adjoint_inv * covar * adjoint_inv.transpose();
 }
 
+// Calculate covariance (6 x 6) for relative transformation T_1^{-1}T_2.
+inline Eigen::Matrix6d GetCovarianceForRelativeRigid3d(
+    const Rigid3d& pose1,
+    const Rigid3d& pose2,
+    const Eigen::Matrix<double, 12, 12> covar) {
+  Eigen::Matrix<double, 6, 12> J;
+  J.block<6, 6>(0, 0) = -pose1.AdjointInverse();
+  J.block<6, 6>(0, 6) = pose1.AdjointInverse();
+  return J * covar * J.transpose();
+}
+
 // Apply transform to point such that one can write expressions like:
 //      x_in_b = b_from_a * x_in_a
 //

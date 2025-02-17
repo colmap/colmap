@@ -172,5 +172,62 @@ TEST(Rigid3d, CovariancePropagation) {
   EXPECT_LT((cov_b_from_a_test - cov_b_from_a).norm(), 1e-6);
 }
 
+TEST(Rigid3d, RelativePoseCovariance_PerfectCorrelation) {
+  const Rigid3d pose1 = TestRigid3d();
+  const Rigid3d pose2 = TestRigid3d();
+  const Eigen::Matrix6d A = Eigen::Matrix6d::Random();
+  const Eigen::Matrix6d covar_subblock = A * A.transpose();
+  // Two poses are perfectly correlated
+  Eigen::Matrix<double, 12, 12> covar;
+  covar.block<6, 6>(0, 0) = covar_subblock;
+  covar.block<6, 6>(0, 6) = covar_subblock;
+  covar.block<6, 6>(6, 0) = covar_subblock;
+  covar.block<6, 6>(6, 6) = covar_subblock;
+  const Eigen::Matrix6d covar_2_from_1 =
+      GetCovarianceForRelativeRigid3d(pose1, pose2, covar);
+  EXPECT_LT(covar_2_from_1.norm(), 1e-6);
+}
+
+TEST(Rigid3d, RelativePoseCovariance) {
+  const Rigid3d pose1 = TestRigid3d();
+  const Rigid3d pose2 = TestRigid3d();
+  const Eigen::Matrix<double, 12, 12> A =
+      Eigen::Matrix<double, 12, 12>::Random();
+  const Eigen::Matrix<double, 12, 12> covar = A * A.transpose();
+
+  // Ours (in left convention)
+  const Eigen::Matrix6d covar_2_from_1 =
+      GetCovarianceForRelativeRigid3d(pose1, pose2, covar);
+
+  // Use the equations from the right convention as a reference.
+  // The covariance in left (right) equals to the covariance of pose inverse in
+  // right (left).
+
+  // Convert to right convention. We aim to estimate covariance of T_2^{-1}T_1
+  // in right.
+  Eigen::Matrix<double, 12, 12> J0;
+  J0.setZero();
+  // the covariance of T_1^{-1} in left corresponds to the covariance of T_1 in
+  // right
+  J0.block<6, 6>(0, 0) = -pose1.AdjointInverse();
+  // the covariance of T_2 in left corresponds to the covariance of T_2^{-1} in
+  // right
+  J0.block<6, 6>(6, 6) = Eigen::Matrix6d::Identity();
+  // Get the covariance of (T_1, T_2^{-1}) in right
+  const Eigen::Matrix<double, 12, 12> covar_in_right =
+      J0 * covar * J0.transpose();
+
+  // Compose T_2^{-1}T_1 in right
+  // [Reference] Joan Solà, Jeremie Deray, Dinesh Atchuthan, A micro Lie theory
+  // for state estimation in robotics, 2018.
+  // Eqs. (177) and (178)
+  Eigen::Matrix<double, 6, 12> J_in_right;
+  J_in_right.block<6, 6>(0, 0) = Eigen::Matrix6d::Identity();
+  J_in_right.block<6, 6>(0, 6) = pose1.AdjointInverse();
+  const Eigen::Matrix6d ref_covar_2_from_1 =
+      J_in_right * covar_in_right * J_in_right.transpose();
+  EXPECT_LT((covar_2_from_1 - ref_covar_2_from_1).norm(), 1e-6);
+}
+
 }  // namespace
 }  // namespace colmap
