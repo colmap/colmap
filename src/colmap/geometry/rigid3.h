@@ -104,8 +104,8 @@ inline Rigid3d Inverse(const Rigid3d& b_from_a) {
 // for state estimation in robotics, 2018.
 // In COLMAP we follow the left convention (rather than the right convention as
 // in the reference paper and GTSAM). With the left convention the Jacobian of
-// the inverse is -Ad(X^-1). This can be easily derived combining Eqs. (62) and
-// (57) in the paper.
+// the inverse is -Ad(X^{-1}). This can be easily derived combining Eqs. (62)
+// and (57) in the paper.
 inline Eigen::Matrix6d GetCovarianceForRigid3dInverse(
     const Rigid3d& rigid3, const Eigen::Matrix6d& covar) {
   const Eigen::Matrix6d adjoint_inv = rigid3.AdjointInverse();
