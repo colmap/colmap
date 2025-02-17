@@ -509,12 +509,12 @@ void IncrementalPipeline::Reconstruct(
     switch (status) {
       case Status::INTERRUPTED: {
         LOG(INFO) << "Keeping reconstruction due to interrupt";
-        mapper.EndReconstruction(/*discard=*/true);
+        mapper.EndReconstruction(/*discard=*/false);
         return;
       }
 
       case Status::NO_INITIAL_PAIR: {
-        LOG(INFO) << "Disacarding reconstruction due to no initial pair";
+        LOG(INFO) << "Discarding reconstruction due to no initial pair";
         mapper.EndReconstruction(/*discard=*/true);
         reconstruction_manager_->Delete(reconstruction_idx);
         // If no pair could be found, we can exit the trial loop, because
@@ -524,7 +524,7 @@ void IncrementalPipeline::Reconstruct(
       }
 
       case Status::BAD_INITIAL_PAIR: {
-        LOG(INFO) << "Disacarding reconstruction due to bad initial pair";
+        LOG(INFO) << "Discarding reconstruction due to bad initial pair";
         mapper.EndReconstruction(/*discard=*/true);
         reconstruction_manager_->Delete(reconstruction_idx);
         // If an initial pair was found but it was bad, we discard and attempt
