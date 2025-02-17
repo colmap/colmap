@@ -116,7 +116,7 @@ inline Eigen::Matrix6d GetCovarianceForRigid3dInverse(
 inline Eigen::Matrix6d GetCovarianceForRelativeRigid3d(
     const Rigid3d& pose1,
     const Rigid3d& pose2,
-    const Eigen::Matrix<double, 12, 12> covar) {
+    const Eigen::Matrix<double, 12, 12>& covar) {
   Eigen::Matrix<double, 6, 12> J;
   J.block<6, 6>(0, 0) = -pose1.AdjointInverse();
   J.block<6, 6>(0, 6) = pose1.AdjointInverse();
