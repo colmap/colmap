@@ -94,8 +94,7 @@ TEST_P(ParameterizedGeneralizedAbsolutePoseTests, Estimate) {
           GP3PEstimator::ResidualType::ReprojectionError}) {
       RANSACOptions options;
       options.max_error = 1e-5;
-      RANSAC<GP3PEstimator> ransac(options);
-      ransac.estimator.residual_type = residual_type;
+      RANSAC<GP3PEstimator> ransac(options, GP3PEstimator(residual_type));
 
       const auto report = ransac.Estimate(points2D, points3D);
 

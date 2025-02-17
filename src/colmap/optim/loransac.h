@@ -52,7 +52,11 @@ class LORANSAC : public RANSAC<Estimator, SupportMeasurer, Sampler> {
  public:
   using typename RANSAC<Estimator, SupportMeasurer, Sampler>::Report;
 
-  explicit LORANSAC(const RANSACOptions& options);
+  explicit LORANSAC(const RANSACOptions& options,
+                    Estimator estimator = Estimator(),
+                    LocalEstimator local_estimator = LocalEstimator(),
+                    SupportMeasurer support_measurer = SupportMeasurer(),
+                    Sampler sampler = Sampler(Estimator::kMinNumSamples));
 
   // Robustly estimate model with RANSAC (RANdom SAmple Consensus).
   //
@@ -63,11 +67,10 @@ class LORANSAC : public RANSAC<Estimator, SupportMeasurer, Sampler> {
   Report Estimate(const std::vector<typename Estimator::X_t>& X,
                   const std::vector<typename Estimator::Y_t>& Y);
 
-  // Objects used in RANSAC procedure.
   using RANSAC<Estimator, SupportMeasurer, Sampler>::estimator;
-  LocalEstimator local_estimator;
-  using RANSAC<Estimator, SupportMeasurer, Sampler>::sampler;
   using RANSAC<Estimator, SupportMeasurer, Sampler>::support_measurer;
+  using RANSAC<Estimator, SupportMeasurer, Sampler>::sampler;
+  LocalEstimator local_estimator;
 
  private:
   using RANSAC<Estimator, SupportMeasurer, Sampler>::options_;
@@ -82,8 +85,16 @@ template <typename Estimator,
           typename SupportMeasurer,
           typename Sampler>
 LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::LORANSAC(
-    const RANSACOptions& options)
-    : RANSAC<Estimator, SupportMeasurer, Sampler>(options) {}
+    const RANSACOptions& options,
+    Estimator estimator,
+    LocalEstimator local_estimator,
+    SupportMeasurer support_measurer,
+    Sampler sampler)
+    : RANSAC<Estimator, SupportMeasurer, Sampler>(options,
+                                                  std::move(estimator),
+                                                  std::move(support_measurer),
+                                                  std::move(sampler)),
+      local_estimator(std::move(local_estimator)) {}
 
 template <typename Estimator,
           typename LocalEstimator,
