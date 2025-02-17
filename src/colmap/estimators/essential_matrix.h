@@ -48,37 +48,37 @@ namespace colmap {
 //    http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.86.8769
 class EssentialMatrixFivePointEstimator {
  public:
-  typedef Eigen::Vector2d X_t;
-  typedef Eigen::Vector2d Y_t;
+  typedef Eigen::Vector3d X_t;
+  typedef Eigen::Vector3d Y_t;
   typedef Eigen::Matrix3d M_t;
 
   // The minimum number of samples needed to estimate a model.
   static const int kMinNumSamples = 5;
 
   // Estimate up to 10 possible essential matrix solutions from a set of
-  // corresponding points.
+  // corresponding rays directions.
   //
-  //  The number of corresponding points must be at least 5.
+  //  The number of corresponding rays must be at least 5.
   //
-  // @param points1  First set of corresponding points.
-  // @param points2  Second set of corresponding points.
+  // @param rays1    First set of corresponding rays directions.
+  // @param rays2    Second set of corresponding rays directions.
   //
   // @return         Up to 10 solutions as a vector of 3x3 essential matrices.
-  static void Estimate(const std::vector<X_t>& points1,
-                       const std::vector<Y_t>& points2,
+  static void Estimate(const std::vector<X_t>& rays1,
+                       const std::vector<Y_t>& rays2,
                        std::vector<M_t>* models);
 
-  // Calculate the residuals of a set of corresponding points and a given
+  // Calculate the residuals of a set of corresponding rays and a given
   // essential matrix.
   //
   // Residuals are defined as the squared Sampson error.
   //
-  // @param points1    First set of corresponding points.
-  // @param points2    Second set of corresponding points.
+  // @param rays1      First set of corresponding rays directions.
+  // @param rays2      Second set of corresponding rays directions.
   // @param E          3x3 essential matrix.
-  // @param residuals  Output vector of residuals.
-  static void Residuals(const std::vector<X_t>& points1,
-                        const std::vector<Y_t>& points2,
+  // @param residuals  Output vector of residuals as squared Sampson errors.
+  static void Residuals(const std::vector<X_t>& rays1,
+                        const std::vector<Y_t>& rays2,
                         const M_t& E,
                         std::vector<double>* residuals);
 };
@@ -90,34 +90,37 @@ class EssentialMatrixFivePointEstimator {
 //    Hartley and Zisserman, Multiple View Geometry, algorithm 11.1, page 282.
 class EssentialMatrixEightPointEstimator {
  public:
-  typedef Eigen::Vector2d X_t;
-  typedef Eigen::Vector2d Y_t;
+  typedef Eigen::Vector3d X_t;
+  typedef Eigen::Vector3d Y_t;
   typedef Eigen::Matrix3d M_t;
 
   // The minimum number of samples needed to estimate a model.
   static const int kMinNumSamples = 8;
 
-  // Estimate essential matrix solutions from  set of corresponding points.
+  // Estimate essential matrix solutions from  set of corresponding rays
+  // directions.
   //
-  // The number of corresponding points must be at least 8.
+  // The number of corresponding rays must be at least 8.
   //
-  // @param points1  First set of corresponding points.
-  // @param points2  Second set of corresponding points.
-  static void Estimate(const std::vector<X_t>& points1,
-                       const std::vector<Y_t>& points2,
+  // @param rays1    First set of corresponding rays directions.
+  // @param rays2    Second set of corresponding rays directions.
+  //
+  // @return         Estimated 3x3 essential matrix.
+  static void Estimate(const std::vector<X_t>& rays1,
+                       const std::vector<Y_t>& rays2,
                        std::vector<M_t>* models);
 
-  // Calculate the residuals of a set of corresponding points and a given
+  // Calculate the residuals of a set of corresponding rays and a given
   // essential matrix.
   //
   // Residuals are defined as the squared Sampson error.
   //
-  // @param points1    First set of corresponding points.
-  // @param points2    Second set of corresponding points.
+  // @param rays1      First set of corresponding rays directions.
+  // @param rays2      Second set of corresponding rays directions.
   // @param E          3x3 essential matrix.
-  // @param residuals  Output vector of residuals.
-  static void Residuals(const std::vector<X_t>& points1,
-                        const std::vector<Y_t>& points2,
+  // @param residuals  Output vector of residuals as squared Sampson errors.
+  static void Residuals(const std::vector<X_t>& rays1,
+                        const std::vector<Y_t>& rays2,
                         const M_t& E,
                         std::vector<double>* residuals);
 };
