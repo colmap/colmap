@@ -33,6 +33,7 @@
 #include "colmap/util/types.h"
 
 #include <array>
+#include <optional>
 #include <vector>
 
 #include <Eigen/Core>
