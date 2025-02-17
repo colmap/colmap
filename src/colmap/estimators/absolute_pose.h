@@ -61,8 +61,8 @@ class P3PEstimator {
   //
   // @return           Most probable pose as length-1 vector of a 3x4 matrix.
   static void Estimate(const std::vector<X_t>& points2D,
-                const std::vector<Y_t>& points3D,
-                std::vector<M_t>* cams_from_world);
+                       const std::vector<Y_t>& points3D,
+                       std::vector<M_t>* cams_from_world);
 
   // Calculate the squared reprojection error given a set of 2D-3D point
   // correspondences and a projection matrix.
@@ -72,9 +72,9 @@ class P3PEstimator {
   // @param cam_from_world  3x4 projection matrix.
   // @param residuals       Output vector of residuals.
   static void Residuals(const std::vector<X_t>& points2D,
-                 const std::vector<Y_t>& points3D,
-                 const M_t& cam_from_world,
-                 std::vector<double>* residuals);
+                        const std::vector<Y_t>& points3D,
+                        const M_t& cam_from_world,
+                        std::vector<double>* residuals);
 };
 
 // Minimal solver for 6-DOF pose and focal length.
