@@ -42,13 +42,10 @@
 
 namespace colmap {
 
-void TriangulationEstimator::SetMinTriAngle(const double min_tri_angle) {
+TriangulationEstimator::TriangulationEstimator(double min_tri_angle,
+                                               ResidualType residual_type)
+    : min_tri_angle_(min_tri_angle), residual_type_(residual_type) {
   THROW_CHECK_GE(min_tri_angle, 0);
-  min_tri_angle_ = min_tri_angle;
-}
-
-void TriangulationEstimator::SetResidualType(const ResidualType residual_type) {
-  residual_type_ = residual_type;
 }
 
 void TriangulationEstimator::Estimate(const std::vector<X_t>& point_data,
@@ -171,11 +168,10 @@ bool EstimateTriangulation(const EstimateTriangulationOptions& options,
            TriangulationEstimator,
            InlierSupportMeasurer,
            CombinationSampler>
-      ransac(options.ransac_options);
-  ransac.estimator.SetMinTriAngle(options.min_tri_angle);
-  ransac.estimator.SetResidualType(options.residual_type);
-  ransac.local_estimator.SetMinTriAngle(options.min_tri_angle);
-  ransac.local_estimator.SetResidualType(options.residual_type);
+      ransac(
+          options.ransac_options,
+          TriangulationEstimator(options.min_tri_angle, options.residual_type),
+          TriangulationEstimator(options.min_tri_angle, options.residual_type));
   auto report = ransac.Estimate(point_data, pose_data);
   if (!report.success) {
     return false;

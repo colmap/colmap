@@ -93,20 +93,21 @@ class RANSAC {
     typename Estimator::M_t model;
   };
 
-  explicit RANSAC(const RANSACOptions& options);
+  explicit RANSAC(const RANSACOptions& options,
+                  Estimator estimator = Estimator(),
+                  SupportMeasurer support_measurer = SupportMeasurer(),
+                  Sampler sampler = Sampler(Estimator::kMinNumSamples));
 
   // Determine the maximum number of trials required to sample at least one
   // outlier-free random set of samples with the specified confidence,
   // given the inlier ratio.
   //
-  // @param num_inliers				The number of inliers.
-  // @param num_samples				The total number of samples.
-  // @param confidence				Confidence that one sample is
-  //								outlier-free.
-  // @param num_trials_multiplier   Multiplication factor to the computed
-  //							    number of trials.
+  // @param num_inliers The number of inliers.
+  // @param num_samples The total number of samples.
+  // @param confidence Confidence that one sample is outlier-free.
+  // @param num_trials_multiplier Multiplication factor to number of trials.
   //
-  // @return               The required number of iterations.
+  // @return The required number of iterations.
   static size_t ComputeNumTrials(size_t num_inliers,
                                  size_t num_samples,
                                  double confidence,
@@ -121,11 +122,9 @@ class RANSAC {
   Report Estimate(const std::vector<typename Estimator::X_t>& X,
                   const std::vector<typename Estimator::Y_t>& Y);
 
-  // Objects used in RANSAC procedure. Access useful to define custom behavior
-  // through options or e.g. to compute residuals.
   Estimator estimator;
-  Sampler sampler;
   SupportMeasurer support_measurer;
+  Sampler sampler;
 
  protected:
   RANSACOptions options_;
@@ -137,8 +136,14 @@ class RANSAC {
 
 template <typename Estimator, typename SupportMeasurer, typename Sampler>
 RANSAC<Estimator, SupportMeasurer, Sampler>::RANSAC(
-    const RANSACOptions& options)
-    : sampler(Sampler(Estimator::kMinNumSamples)), options_(options) {
+    const RANSACOptions& options,
+    Estimator estimator,
+    SupportMeasurer support_measurer,
+    Sampler sampler)
+    : estimator(std::move(estimator)),
+      support_measurer(std::move(support_measurer)),
+      sampler(std::move(sampler)),
+      options_(options) {
   options.Check();
 
   // Determine max_num_trials based on assumed `min_inlier_ratio`.

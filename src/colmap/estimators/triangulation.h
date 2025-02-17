@@ -86,9 +86,7 @@ class TriangulationEstimator {
   typedef PoseData Y_t;
   typedef Eigen::Vector3d M_t;
 
-  // Specify settings for triangulation estimator.
-  void SetMinTriAngle(double min_tri_angle);
-  void SetResidualType(ResidualType residual_type);
+  TriangulationEstimator(double min_tri_angle, ResidualType residual_type);
 
   // The minimum number of samples needed to estimate a model.
   static const int kMinNumSamples = 2;
@@ -116,8 +114,8 @@ class TriangulationEstimator {
                  std::vector<double>* residuals) const;
 
  private:
-  ResidualType residual_type_ = ResidualType::REPROJECTION_ERROR;
-  double min_tri_angle_ = 0.0;
+  const double min_tri_angle_;
+  const ResidualType residual_type_;
 };
 
 struct EstimateTriangulationOptions {

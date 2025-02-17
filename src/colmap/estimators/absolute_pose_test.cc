@@ -83,13 +83,13 @@ TEST(AbsolutePose, P3P) {
 
       // Test residuals of exact points.
       std::vector<double> residuals;
-      P3PEstimator::Residuals(points2D, points3D, report.model, &residuals);
+      ransac.estimator.Residuals(points2D, points3D, report.model, &residuals);
       for (size_t i = 0; i < residuals.size(); ++i) {
         EXPECT_LT(residuals[i], 1e-3);
       }
 
       // Test residuals of faulty points.
-      P3PEstimator::Residuals(
+      ransac.estimator.Residuals(
           points2D, points3D_faulty, report.model, &residuals);
       for (size_t i = 0; i < residuals.size(); ++i) {
         EXPECT_GT(residuals[i], 0.1);
