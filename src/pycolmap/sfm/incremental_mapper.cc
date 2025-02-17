@@ -226,15 +226,19 @@ void BindIncrementalPipeline(py::module& m) {
            "reconstruction"_a,
            "ba_prev_num_reg_images"_a,
            "ba_prev_num_points"_a)
-      .def("reconstruct", &IncrementalPipeline::Reconstruct, "mapper_options"_a)
+      .def("reconstruct",
+           &IncrementalPipeline::Reconstruct,
+           "mapper"_a,
+           "mapper_options"_a,
+           "continue_reconstruction"_a)
       .def("reconstruct_sub_model",
            &IncrementalPipeline::ReconstructSubModel,
-           "core_mapper"_a,
+           "mapper"_a,
            "mapper_options"_a,
            "reconstruction"_a)
       .def("initialize_reconstruction",
            &IncrementalPipeline::InitializeReconstruction,
-           "core_mapper"_a,
+           "mapper"_a,
            "mapper_options"_a,
            "reconstruction"_a)
       .def("run", &IncrementalPipeline::Run);
@@ -464,6 +468,8 @@ void BindIncrementalMapperImpl(py::module& m) {
                              &IncrementalMapper::FilteredImages)
       .def_property_readonly("existing_image_ids",
                              &IncrementalMapper::ExistingImageIds)
+      .def("reset_initialization_stats",
+           &IncrementalMapper::ResetInitializationStats)
       .def_property_readonly("num_reg_images_per_camera",
                              &IncrementalMapper::NumRegImagesPerCamera)
       .def("num_total_reg_images", &IncrementalMapper::NumTotalRegImages)
