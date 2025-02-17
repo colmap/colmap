@@ -60,7 +60,7 @@ class P3PEstimator {
   // @param points3D   3D world points as 3x3 matrix.
   //
   // @return           Most probable pose as length-1 vector of a 3x4 matrix.
-  void Estimate(const std::vector<X_t>& points2D,
+  static void Estimate(const std::vector<X_t>& points2D,
                 const std::vector<Y_t>& points3D,
                 std::vector<M_t>* cams_from_world);
 
@@ -71,7 +71,7 @@ class P3PEstimator {
   // @param points3D        3D world points as Nx3 matrix.
   // @param cam_from_world  3x4 projection matrix.
   // @param residuals       Output vector of residuals.
-  void Residuals(const std::vector<X_t>& points2D,
+  static void Residuals(const std::vector<X_t>& points2D,
                  const std::vector<Y_t>& points3D,
                  const M_t& cam_from_world,
                  std::vector<double>* residuals);
