@@ -100,8 +100,17 @@ size_t EstimateRelativePose(const RANSACOptions& ransac_options,
                             const std::vector<Eigen::Vector2d>& points1,
                             const std::vector<Eigen::Vector2d>& points2,
                             Rigid3d* cam2_from_cam1) {
+  THROW_CHECK_EQ(points1.size(), points2.size());
+
+  std::vector<Eigen::Vector3d> rays1(points1.size());
+  std::vector<Eigen::Vector3d> rays2(points2.size());
+  for (size_t i = 0; i < points1.size(); ++i) {
+    rays1[i] = points1[i].homogeneous();
+    rays2[i] = points1[i].homogeneous();
+  }
+
   RANSAC<EssentialMatrixFivePointEstimator> ransac(ransac_options);
-  const auto report = ransac.Estimate(points1, points2);
+  const auto report = ransac.Estimate(rays1, rays2);
 
   if (!report.success) {
     return 0;
