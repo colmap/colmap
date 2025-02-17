@@ -63,7 +63,7 @@ class P3PEstimator {
   // The minimum number of samples needed to estimate a model.
   static const int kMinNumSamples = 3;
 
-  P3PEstimator(ImgFromCamFunc img_from_cam_func);
+  explicit P3PEstimator(ImgFromCamFunc img_from_cam_func);
 
   // Estimate the most probable solution of the P3P problem from a set of
   // three 2D-3D point correspondences.
@@ -142,7 +142,7 @@ class EPNPEstimator {
   // The minimum number of samples needed to estimate a model.
   static const int kMinNumSamples = 4;
 
-  EPNPEstimator(ImgFromCamFunc img_from_cam_func);
+  explicit EPNPEstimator(ImgFromCamFunc img_from_cam_func);
 
   // Estimate the most probable solution of the P3P problem from a set of
   // three 2D-3D point correspondences.
