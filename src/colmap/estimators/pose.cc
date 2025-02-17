@@ -55,16 +55,16 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
   *num_inliers = 0;
   inlier_mask->clear();
 
-  std::vector<Eigen::Vector2d> points2D_normalized(points2D.size());
-  for (size_t i = 0; i < points2D.size(); ++i) {
-    points2D_normalized[i] = camera->CamFromImg(points2D[i]);
-  }
-
-  auto custom_ransac_options = options.ransac_options;
-  custom_ransac_options.max_error =
-      camera->CamFromImgThreshold(options.ransac_options.max_error);
-
   if (options.estimate_focal_length) {
+    std::vector<Eigen::Vector2d> points2D_normalized(points2D.size());
+    for (size_t i = 0; i < points2D.size(); ++i) {
+      points2D_normalized[i] = camera->CamFromImg(points2D[i]);
+    }
+
+    auto custom_ransac_options = options.ransac_options;
+    custom_ransac_options.max_error =
+        camera->CamFromImgThreshold(options.ransac_options.max_error);
+
     // TODO(jsch): Implement non-minimal solver for LORANSAC refinement.
     // Experiments showed marginal difference between RANSAC/LORANSAC for PNPF
     // after refining the estimates of this function using RefineAbsolutePose.
@@ -82,8 +82,29 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
       return true;
     }
   } else {
-    LORANSAC<P3PEstimator, EPNPEstimator> ransac(custom_ransac_options);
-    auto report = ransac.Estimate(points2D_normalized, points3D);
+    std::vector<P3PEstimator::X_t> estimator_points2D(points2D.size());
+    for (size_t i = 0; i < points2D.size(); ++i) {
+      estimator_points2D[i].image_point = points2D[i];
+      estimator_points2D[i].camera_ray =
+          camera->CamFromImg(points2D[i]).homogeneous().normalized();
+    }
+
+    // TODO(jsch): Replace this with camera->ImgFromCam() once the camera class
+    // returns an optional.
+    auto img_from_cam_func = [&camera](const Eigen::Vector3d& point3D_in_cam)
+        -> std::optional<Eigen::Vector2d> {
+      if (point3D_in_cam.z() < std::numeric_limits<double>::epsilon()) {
+        return std::nullopt;
+      } else {
+        return camera->ImgFromCam(point3D_in_cam.hnormalized());
+      }
+    };
+
+    LORANSAC<P3PEstimator, EPNPEstimator> ransac(
+        options.ransac_options,
+        P3PEstimator(img_from_cam_func),
+        EPNPEstimator(img_from_cam_func));
+    auto report = ransac.Estimate(estimator_points2D, points3D);
     if (report.success) {
       *cam_from_world = Rigid3d(Eigen::Quaterniond(report.model.leftCols<3>()),
                                 report.model.col(3));
