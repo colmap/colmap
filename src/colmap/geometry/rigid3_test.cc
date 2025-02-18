@@ -29,6 +29,7 @@
 
 #include "colmap/geometry/rigid3.h"
 
+#include "colmap/util/eigen_matchers.h"
 #include "colmap/util/testing.h"
 
 #include <gtest/gtest.h>
@@ -157,7 +158,7 @@ TEST(Rigid3d, Adjoint) {
   EXPECT_LT((adjoint * adjoint_inv - Eigen::Matrix6d::Identity()).norm(), 1e-6);
   const Rigid3d a_from_b = Inverse(b_from_a);
   const Eigen::Matrix6d adjoint_a_from_b = a_from_b.Adjoint();
-  EXPECT_LT((adjoint_inv - adjoint_a_from_b).norm(), 1e-6);
+  EXPECT_THAT(adjoint_inv, EigenMatrixNear(adjoint_a_from_b, 1e-6));
 }
 
 TEST(Rigid3d, CovarianceForInverse) {
@@ -169,7 +170,7 @@ TEST(Rigid3d, CovarianceForInverse) {
   const Rigid3d a_from_b = Inverse(b_from_a);
   const Eigen::Matrix6d cov_b_from_a_test =
       GetCovarianceForRigid3dInverse(a_from_b, cov_a_from_b);
-  EXPECT_LT((cov_b_from_a_test - cov_b_from_a).norm(), 1e-6);
+  EXPECT_THAT(cov_b_from_a_test, EigenMatrixNear(cov_b_from_a, 1e-6));
 }
 
 TEST(Rigid3d, CovarianceForRelativeRigid3d_PerfectCorrelation) {
@@ -236,7 +237,7 @@ TEST(Rigid3d, CovarianceForRelativeRigid3d) {
   J_in_right.block<6, 6>(0, 6) = Eigen::Matrix6d::Identity();
   const Eigen::Matrix6d a_cov_from_b_right =
       J_in_right * covar_in_right * J_in_right.transpose();
-  EXPECT_LT((b_cov_from_a - a_cov_from_b_right).norm(), 1e-6);
+  EXPECT_THAT(b_cov_from_a, EigenMatrixNear(a_cov_from_b_right, 1e-6));
 }
 
 TEST(Rigid3d, CovariancePropagation_Composed_vs_Relative) {
@@ -262,7 +263,8 @@ TEST(Rigid3d, CovariancePropagation_Composed_vs_Relative) {
       GetCovarianceForRelativeRigid3d(c_from_b, a_from_b, covar_x_from_b);
 
   // Check consistency
-  EXPECT_LT((a_cov_from_c_composed - a_cov_from_c_relative).norm(), 1e-6);
+  EXPECT_THAT(a_cov_from_c_composed,
+              EigenMatrixNear(a_cov_from_c_relative, 1e-6));
 }
 
 }  // namespace
