@@ -250,8 +250,7 @@ std::optional<Eigen::MatrixXd> BACovariance::GetCamFromWorldCov(
   return ExtractCovFromLInverse(L_inv_, start, start, size, size);
 }
 
-std::optional<Eigen::MatrixXd>
-BACovariance::GetCorrelation_Cam1FromWorld_Cam2FromWorld(
+std::optional<Eigen::MatrixXd> BACovariance::GetCamFromWorldCorr(
     image_t image_id1, image_t image_id2) const {
   const auto it1 = pose_L_start_size_.find(image_id1);
   const auto it2 = pose_L_start_size_.find(image_id2);

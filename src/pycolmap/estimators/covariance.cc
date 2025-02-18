@@ -109,8 +109,8 @@ void BindCovarianceEstimator(py::module& m) {
            "Tangent space covariance in the order [rotation, translation]. If "
            "some dimensions are kept constant, the respective rows/columns are "
            "omitted. Returns null if image not a variable in the problem.")
-      .def("get_correlation_cam1_from_world_cam2_from_world",
-           &BACovariance::GetCorrelation_Cam1FromWorld_Cam2FromWorld,
+      .def("get_cam_from_world_corr",
+           &BACovariance::GetCamFromWorldCorr,
            "image_id1"_a,
            "image_id2"_a,
            "Tangent space covariance in the order [rotation, translation]. If "

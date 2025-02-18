@@ -63,8 +63,8 @@ struct BACovariance {
   // dimensions are kept constant, the respective rows/columns are omitted.
   // Returns null if image not a variable in the problem.
   std::optional<Eigen::MatrixXd> GetCamFromWorldCov(image_t image_id) const;
-  std::optional<Eigen::MatrixXd> GetCorrelation_Cam1FromWorld_Cam2FromWorld(
-      image_t image_id1, image_t image_id2) const;
+  std::optional<Eigen::MatrixXd> GetCamFromWorldCorr(image_t image_id1,
+                                                     image_t image_id2) const;
 
   // Tangent space covariance for any other variable parameter block in the
   // problem. If some dimensions are kept constant, the respective rows/columns
