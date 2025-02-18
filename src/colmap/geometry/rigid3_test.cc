@@ -172,7 +172,7 @@ TEST(Rigid3d, CovarianceForInverse) {
   EXPECT_LT((cov_b_from_a_test - cov_b_from_a).norm(), 1e-6);
 }
 
-TEST(Rigid3d, RelativePoseCovariance_PerfectCorrelation) {
+TEST(Rigid3d, CovarianceForRelativeRigid3d_PerfectCorrelation) {
   const Rigid3d world_from_a = TestRigid3d();
   const Rigid3d world_from_b = TestRigid3d();
   const Eigen::Matrix6d A = Eigen::Matrix6d::Random();
@@ -198,7 +198,7 @@ TEST(Rigid3d, RelativePoseCovariance_PerfectCorrelation) {
   EXPECT_LT(covar_b_from_a.norm(), 1e-6);
 }
 
-TEST(Rigid3d, RelativePoseCovariance) {
+TEST(Rigid3d, CovarianceForRelativeRigid3d) {
   const Rigid3d a_from_world = TestRigid3d();
   const Rigid3d b_from_world = TestRigid3d();
   const Eigen::Matrix<double, 12, 12> A =
@@ -237,6 +237,32 @@ TEST(Rigid3d, RelativePoseCovariance) {
   const Eigen::Matrix6d covar_a_from_b_right =
       J_in_right * covar_in_right * J_in_right.transpose();
   EXPECT_LT((covar_b_from_a - covar_a_from_b_right).norm(), 1e-6);
+}
+
+TEST(Rigid3d, CovariancePropagation_Composed_vs_Relative) {
+  const Rigid3d a_from_b = TestRigid3d();
+  const Rigid3d b_from_c = TestRigid3d();
+  const Eigen::Matrix<double, 12, 12> A =
+      Eigen::Matrix<double, 12, 12>::Random();
+  const Eigen::Matrix<double, 12, 12> covar = A * A.transpose();
+
+  // Covariance for the composed rigid3d
+  const Eigen::Matrix6d covar_a_from_c_composed =
+      GetCovarianceForComposedRigid3d(a_from_b, covar);
+
+  // Invert b_from_c and switch order
+  const Rigid3d c_from_b = Inverse(b_from_c);
+  Eigen::Matrix<double, 12, 12> J0;
+  J0.setZero();
+  J0.block<6, 6>(6, 0) = Eigen::Matrix6d::Identity();
+  J0.block<6, 6>(0, 6) = -b_from_c.AdjointInverse();
+  const Eigen::Matrix<double, 12, 12> covar_x_from_b =
+      J0 * covar * J0.transpose();
+  const Eigen::Matrix6d covar_a_from_c_relative =
+      GetCovarianceForRelativeRigid3d(c_from_b, a_from_b, covar_x_from_b);
+
+  // Check consistency
+  EXPECT_LT((covar_a_from_c_composed - covar_a_from_c_relative).norm(), 1e-6);
 }
 
 }  // namespace

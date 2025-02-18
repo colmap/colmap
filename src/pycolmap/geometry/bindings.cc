@@ -102,6 +102,11 @@ void BindGeometry(py::module& m) {
                                            const Eigen::Matrix6d&)>(
                &GetCovarianceForRigid3dInverse),
            py::arg("covar"))
+      .def("get_covariance_for_composed_rigid3d",
+           static_cast<Eigen::Matrix6d (*)(
+               const Rigid3d&, const Eigen::Matrix<double, 12, 12>&)>(
+               &GetCovarianceForComposedRigid3d),
+           py::arg("covar"))
       .def("get_covariance_for_relative_rigid3d",
            static_cast<Eigen::Matrix6d (*)(
                const Rigid3d&,

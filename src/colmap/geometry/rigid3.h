@@ -112,17 +112,29 @@ inline Eigen::Matrix6d GetCovarianceForRigid3dInverse(
   return adjoint_inv * covar * adjoint_inv.transpose();
 }
 
+// Given a (12 x 12) covariance on top of two rigid3d objects, a_from_b,
+// b_from_c, this function calculates the (6 x 6) covariance of the composed
+// transformation a_from_c (a_T_b * b_T_c). b_T_c does not contribute to the
+// covariance propagation and is thus not required.
+inline Eigen::Matrix6d GetCovarianceForComposedRigid3d(
+    const Rigid3d& a_from_b, const Eigen::Matrix<double, 12, 12>& covar) {
+  Eigen::Matrix<double, 6, 12> J;
+  J.block<6, 6>(0, 0) = Eigen::Matrix6d::Identity();
+  J.block<6, 6>(0, 6) = a_from_b.Adjoint();
+  return J * covar * J.transpose();
+}
+
 // Given a (12 x 12) covariance on top of two rigid3d objects, a_from_c,
 // b_from_c, this function calculates the (6 x 6) covariance of the relative
 // transformation b_from_a (b_T_c * a_T_c^{-1}).
 inline Eigen::Matrix6d GetCovarianceForRelativeRigid3d(
     const Rigid3d& a_from_c,
     const Rigid3d& b_from_c,
-    const Eigen::Matrix<double, 12, 12>& covar) {
+    const Eigen::Matrix<double, 12, 12>& covar_x_from_c) {
   Eigen::Matrix<double, 6, 12> J;
   J.block<6, 6>(0, 0) = -b_from_c.Adjoint() * a_from_c.AdjointInverse();
   J.block<6, 6>(0, 6) = Eigen::Matrix6d::Identity();
-  return J * covar * J.transpose();
+  return J * covar_x_from_c * J.transpose();
 }
 
 // Apply transform to point such that one can write expressions like:
