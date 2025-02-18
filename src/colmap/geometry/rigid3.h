@@ -112,15 +112,16 @@ inline Eigen::Matrix6d GetCovarianceForRigid3dInverse(
   return adjoint_inv * covar * adjoint_inv.transpose();
 }
 
-// Given a (12 x 12) covariance on top of two rigid3d objects, (T_a, T_b), this
-// function calculates the (6 x 6) covariance of the relative transformation
-// T_a^{-1}T_b. T_b does not contribute to the covariance propagation and is
-// thus not required.
+// Given a (12 x 12) covariance on top of two rigid3d objects, a_from_c,
+// b_from_c, this function calculates the (6 x 6) covariance of the relative
+// transformation b_from_a (b_T_c * a_T_c^{-1}).
 inline Eigen::Matrix6d GetCovarianceForRelativeRigid3d(
-    const Rigid3d& T_a, const Eigen::Matrix<double, 12, 12>& covar) {
+    const Rigid3d& a_from_c,
+    const Rigid3d& b_from_c,
+    const Eigen::Matrix<double, 12, 12>& covar) {
   Eigen::Matrix<double, 6, 12> J;
-  J.block<6, 6>(0, 0) = -T_a.AdjointInverse();
-  J.block<6, 6>(0, 6) = T_a.AdjointInverse();
+  J.block<6, 6>(0, 0) = -b_from_c.Adjoint() * a_from_c.AdjointInverse();
+  J.block<6, 6>(0, 6) = Eigen::Matrix6d::Identity();
   return J * covar * J.transpose();
 }
 
