@@ -193,9 +193,9 @@ TEST(Rigid3d, CovarianceForRelativeRigid3d_PerfectCorrelation) {
   const Eigen::Matrix<double, 12, 12> covar_cam_from_world =
       J0 * covar_world_from_cam * J0.transpose();
   // Calculate relative pose covariance, which should be a zero matrix.
-  const Eigen::Matrix6d b_covar_from_a = GetCovarianceForRelativeRigid3d(
+  const Eigen::Matrix6d b_cov_from_a = GetCovarianceForRelativeRigid3d(
       a_from_world, b_from_world, covar_cam_from_world);
-  EXPECT_LT(b_covar_from_a.norm(), 1e-6);
+  EXPECT_LT(b_cov_from_a.norm(), 1e-6);
 }
 
 TEST(Rigid3d, CovarianceForRelativeRigid3d) {
@@ -206,7 +206,7 @@ TEST(Rigid3d, CovarianceForRelativeRigid3d) {
   const Eigen::Matrix<double, 12, 12> covar = A * A.transpose();
 
   // Ours (in left convention)
-  const Eigen::Matrix6d b_covar_from_a =
+  const Eigen::Matrix6d b_cov_from_a =
       GetCovarianceForRelativeRigid3d(a_from_world, b_from_world, covar);
 
   // Use the equations from the right convention as a reference.
@@ -234,9 +234,9 @@ TEST(Rigid3d, CovarianceForRelativeRigid3d) {
   Eigen::Matrix<double, 6, 12> J_in_right;
   J_in_right.block<6, 6>(0, 0) = b_from_world.Adjoint();
   J_in_right.block<6, 6>(0, 6) = Eigen::Matrix6d::Identity();
-  const Eigen::Matrix6d a_covar_from_b_right =
+  const Eigen::Matrix6d a_cov_from_b_right =
       J_in_right * covar_in_right * J_in_right.transpose();
-  EXPECT_LT((b_covar_from_a - a_covar_from_b_right).norm(), 1e-6);
+  EXPECT_LT((b_cov_from_a - a_cov_from_b_right).norm(), 1e-6);
 }
 
 TEST(Rigid3d, CovariancePropagation_Composed_vs_Relative) {
@@ -247,7 +247,7 @@ TEST(Rigid3d, CovariancePropagation_Composed_vs_Relative) {
   const Eigen::Matrix<double, 12, 12> covar = A * A.transpose();
 
   // Covariance for the composed rigid3d
-  const Eigen::Matrix6d a_covar_from_c_composed =
+  const Eigen::Matrix6d a_cov_from_c_composed =
       GetCovarianceForComposedRigid3d(a_from_b, covar);
 
   // Invert b_from_c and switch order
@@ -258,11 +258,11 @@ TEST(Rigid3d, CovariancePropagation_Composed_vs_Relative) {
   J0.block<6, 6>(0, 6) = -b_from_c.AdjointInverse();
   const Eigen::Matrix<double, 12, 12> covar_x_from_b =
       J0 * covar * J0.transpose();
-  const Eigen::Matrix6d a_covar_from_c_relative =
+  const Eigen::Matrix6d a_cov_from_c_relative =
       GetCovarianceForRelativeRigid3d(c_from_b, a_from_b, covar_x_from_b);
 
   // Check consistency
-  EXPECT_LT((a_covar_from_c_composed - a_covar_from_c_relative).norm(), 1e-6);
+  EXPECT_LT((a_cov_from_c_composed - a_cov_from_c_relative).norm(), 1e-6);
 }
 
 }  // namespace
