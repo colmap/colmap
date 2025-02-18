@@ -160,7 +160,7 @@ TEST(Rigid3d, Adjoint) {
   EXPECT_LT((adjoint_inv - adjoint_a_from_b).norm(), 1e-6);
 }
 
-TEST(Rigid3d, CovariancePropagation) {
+TEST(Rigid3d, CovarianceForInverse) {
   const Rigid3d b_from_a = TestRigid3d();
   const Eigen::Matrix6d A = Eigen::Matrix6d::Random();
   const Eigen::Matrix6d cov_b_from_a = A * A.transpose();
@@ -183,16 +183,16 @@ TEST(Rigid3d, RelativePoseCovariance_PerfectCorrelation) {
   covar_world_from_cam.block<6, 6>(0, 6) = covar_subblock;
   covar_world_from_cam.block<6, 6>(6, 0) = covar_subblock;
   covar_world_from_cam.block<6, 6>(6, 6) = covar_subblock;
-  // invert poses
-  Eigen::Matrix<double, 12, 12> J0;
-  J0.setZero();
+  // Invert poses
   const Rigid3d a_from_world = Inverse(world_from_a);
   const Rigid3d b_from_world = Inverse(world_from_b);
+  Eigen::Matrix<double, 12, 12> J0;
+  J0.setZero();
   J0.block<6, 6>(0, 0) = -world_from_a.AdjointInverse();
   J0.block<6, 6>(6, 6) = -world_from_b.AdjointInverse();
   const Eigen::Matrix<double, 12, 12> covar_cam_from_world =
       J0 * covar_world_from_cam * J0.transpose();
-  // calculate relative pose covariance
+  // Calculate relative pose covariance, which should be a zero matrix.
   const Eigen::Matrix6d covar_b_from_a = GetCovarianceForRelativeRigid3d(
       a_from_world, b_from_world, covar_cam_from_world);
   EXPECT_LT(covar_b_from_a.norm(), 1e-6);
