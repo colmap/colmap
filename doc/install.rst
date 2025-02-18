@@ -41,6 +41,12 @@ are not officially signed. The provided COLMAP binaries are automatically built
 from GitHub Actions CI machines. If you do not trust them, you can build from
 source as described below.
 
+Docker
+------
+
+COLMAP provides a pre-built Docker image with CUDA support. For detailed
+instructions on how to build and run COLMAP using Docker, please refer to the
+`Docker documentation <https://github.com/colmap/colmap/tree/main/docker>`__.
 
 -----------------
 Build from Source
