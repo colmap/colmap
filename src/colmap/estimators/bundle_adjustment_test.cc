@@ -162,21 +162,21 @@ void GenerateReconstruction(const size_t num_images,
         Eigen::Quaterniond::Identity(),
         Eigen::Vector3d(
             RandomUniformReal(-1.0, 1.0), RandomUniformReal(-1.0, 1.0), 10)));
-    reconstruction->AddImage(image);
 
     std::vector<Eigen::Vector2d> points2D;
     for (const auto& point3D : reconstruction->Points3D()) {
       // Get exact projection of 3D point.
       std::optional<Eigen::Vector2d> point2D =
           camera.ImgFromCam(image.CamFromWorld() * point3D.second.xyz);
-      ASSERT_TRUE(point2D.has_value());
+      CHECK(point2D.has_value());
       // Add some uniform noise.
       *point2D += Eigen::Vector2d(RandomUniformReal(-2.0, 2.0),
                                   RandomUniformReal(-2.0, 2.0));
       points2D.push_back(*point2D);
     }
 
-    reconstruction->Image(image_id).SetPoints2D(points2D);
+    image.SetPoints2D(points2D);
+    reconstruction->AddImage(std::move(image));
   }
 
   for (size_t i = 0; i < num_images; ++i) {
@@ -654,7 +654,9 @@ TEST(RigBundleAdjuster, TwoView) {
   std::vector<CameraRig> camera_rigs;
   camera_rigs.emplace_back();
   camera_rigs[0].AddCamera(0, Rigid3d());
-  camera_rigs[0].AddCamera(1, Rigid3d());
+  camera_rigs[0].AddCamera(1,
+                           reconstruction.Image(1).CamFromWorld() *
+                               Inverse(reconstruction.Image(0).CamFromWorld()));
   camera_rigs[0].AddSnapshot({0, 1});
   camera_rigs[0].SetRefCameraId(0);
   const auto orig_camera_rigs = camera_rigs;
@@ -709,7 +711,9 @@ TEST(RigBundleAdjuster, FourView) {
   std::vector<CameraRig> camera_rigs;
   camera_rigs.emplace_back();
   camera_rigs[0].AddCamera(0, Rigid3d());
-  camera_rigs[0].AddCamera(1, Rigid3d());
+  camera_rigs[0].AddCamera(1,
+                           reconstruction.Image(1).CamFromWorld() *
+                               Inverse(reconstruction.Image(0).CamFromWorld()));
   camera_rigs[0].AddSnapshot({0, 1});
   camera_rigs[0].AddSnapshot({2, 3});
   camera_rigs[0].SetRefCameraId(0);
@@ -765,7 +769,9 @@ TEST(RigBundleAdjuster, ConstantFourView) {
   std::vector<CameraRig> camera_rigs;
   camera_rigs.emplace_back();
   camera_rigs[0].AddCamera(0, Rigid3d());
-  camera_rigs[0].AddCamera(1, Rigid3d());
+  camera_rigs[0].AddCamera(1,
+                           reconstruction.Image(1).CamFromWorld() *
+                               Inverse(reconstruction.Image(0).CamFromWorld()));
   camera_rigs[0].AddSnapshot({0, 1});
   camera_rigs[0].AddSnapshot({2, 3});
   camera_rigs[0].SetRefCameraId(0);
@@ -821,7 +827,9 @@ TEST(RigBundleAdjuster, FourViewPartial) {
   std::vector<CameraRig> camera_rigs;
   camera_rigs.emplace_back();
   camera_rigs[0].AddCamera(0, Rigid3d());
-  camera_rigs[0].AddCamera(1, Rigid3d());
+  camera_rigs[0].AddCamera(1,
+                           reconstruction.Image(1).CamFromWorld() *
+                               Inverse(reconstruction.Image(0).CamFromWorld()));
   camera_rigs[0].AddSnapshot({0, 1});
   camera_rigs[0].AddSnapshot({2});
   camera_rigs[0].SetRefCameraId(0);
