@@ -266,6 +266,7 @@ std::optional<Eigen::MatrixXd> BACovariance::GetCamFromWorldCov(
     const std::vector<image_t>& image_ids) const {
   int n_dims = 0;
   std::vector<std::pair<int, int>> start_sizes;
+  start_sizes.reserve(image_ids.size());
   for (const image_t& image_id : image_ids) {
     const auto it = pose_L_start_size_.find(image_id);
     if (it == pose_L_start_size_.end()) {
