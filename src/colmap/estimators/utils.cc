@@ -114,25 +114,4 @@ void ComputeSquaredSampsonError(const std::vector<Eigen::Vector3d>& ray1,
   }
 }
 
-void ComputeSquaredReprojectionError(
-    const std::vector<Eigen::Vector2d>& points2D,
-    const std::vector<Eigen::Vector3d>& points3D,
-    const Eigen::Matrix3x4d& cam_from_world,
-    std::vector<double>* residuals) {
-  const size_t num_points2D = points2D.size();
-  THROW_CHECK_EQ(num_points2D, points3D.size());
-  residuals->resize(num_points2D);
-  for (size_t i = 0; i < num_points2D; ++i) {
-    const Eigen::Vector3d point3D_in_cam =
-        cam_from_world * points3D[i].homogeneous();
-    // Check if 3D point is in front of camera.
-    if (point3D_in_cam.z() > std::numeric_limits<double>::epsilon()) {
-      (*residuals)[i] =
-          (point3D_in_cam.hnormalized() - points2D[i]).squaredNorm();
-    } else {
-      (*residuals)[i] = std::numeric_limits<double>::max();
-    }
-  }
-}
-
 }  // namespace colmap
