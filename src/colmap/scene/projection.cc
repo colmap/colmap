@@ -41,7 +41,7 @@ double CalculateSquaredReprojectionError(const Eigen::Vector2d& point2D,
   const Eigen::Vector3d point3D_in_cam = cam_from_world * point3D;
   const std::optional<Eigen::Vector2d> proj_point2D =
       camera.ImgFromCam(point3D_in_cam);
-  if (proj_point2D) {
+  if (!proj_point2D) {
     return std::numeric_limits<double>::max();
   }
   return (*proj_point2D - point2D).squaredNorm();
