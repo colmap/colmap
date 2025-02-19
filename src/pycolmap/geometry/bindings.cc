@@ -110,11 +110,11 @@ void BindGeometry(py::module& m) {
         "rigid3d"_a,
         "covar"_a);
   m.def("get_covariance_for_composed_rigid3d",
-        &GetCovarianceForRigid3dInverse,
+        &GetCovarianceForComposedRigid3d,
         "left_rigid3d"_a,
         "joint_covar"_a);
   m.def("get_covariance_for_relative_rigid3d",
-        &GetCovarianceForRigid3dInverse,
+        &GetCovarianceForRelativeRigid3d,
         "base_rigid3d"_a,
         "target_rigid3d"_a,
         "joint_covar"_a);
