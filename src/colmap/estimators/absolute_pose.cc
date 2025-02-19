@@ -39,33 +39,6 @@
 #include <PoseLib/solvers/p4pf.h>
 
 namespace colmap {
-namespace {
-
-void ComputeSquaredReprojectionError(
-    const std::vector<Point2DWithRay>& points2D,
-    const std::vector<Eigen::Vector3d>& points3D,
-    const Eigen::Matrix3x4d& cam_from_world,
-    const std::function<std::optional<Eigen::Vector2d>(const Eigen::Vector3d&)>&
-        img_from_cam_func,
-    std::vector<double>* residuals) {
-  const size_t num_points = points2D.size();
-  THROW_CHECK_EQ(num_points, points3D.size());
-  residuals->resize(num_points);
-  for (size_t i = 0; i < num_points; ++i) {
-    const Eigen::Vector3d point3D_in_cam =
-        cam_from_world * points3D[i].homogeneous();
-    const std::optional<Eigen::Vector2d> proj_image_point =
-        img_from_cam_func(point3D_in_cam);
-    if (proj_image_point) {
-      (*residuals)[i] =
-          (*proj_image_point - points2D[i].image_point).squaredNorm();
-    } else {
-      (*residuals)[i] = std::numeric_limits<double>::max();
-    }
-  }
-}
-
-}  // namespace
 
 P3PEstimator::P3PEstimator(ImgFromCamFunc img_from_cam_func)
     : img_from_cam_func_(std::move(img_from_cam_func)) {}
@@ -576,6 +549,29 @@ double EPNPEstimator::ComputeTotalError(const Eigen::Matrix3d& R,
   }
 
   return error;
+}
+
+void ComputeSquaredReprojectionError(
+    const std::vector<Point2DWithRay>& points2D,
+    const std::vector<Eigen::Vector3d>& points3D,
+    const Eigen::Matrix3x4d& cam_from_world,
+    const ImgFromCamFunc& img_from_cam_func,
+    std::vector<double>* residuals) {
+  const size_t num_points = points2D.size();
+  THROW_CHECK_EQ(num_points, points3D.size());
+  residuals->resize(num_points);
+  for (size_t i = 0; i < num_points; ++i) {
+    const Eigen::Vector3d point3D_in_cam =
+        cam_from_world * points3D[i].homogeneous();
+    const std::optional<Eigen::Vector2d> proj_image_point =
+        img_from_cam_func(point3D_in_cam);
+    if (proj_image_point) {
+      (*residuals)[i] =
+          (*proj_image_point - points2D[i].image_point).squaredNorm();
+    } else {
+      (*residuals)[i] = std::numeric_limits<double>::max();
+    }
+  }
 }
 
 }  // namespace colmap

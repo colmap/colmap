@@ -37,6 +37,7 @@
 #include "colmap/util/eigen_alignment.h"
 
 #include <Eigen/Core>
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -318,6 +319,58 @@ TEST(AbsolutePose, EPNP_BrokenSolveSignCase) {
   }
 
   EXPECT_TRUE(reproj < 0.2);
+}
+
+TEST(ComputeSquaredReprojectionError, Nominal) {
+  const Camera camera = Camera::CreateFromModelId(
+      kInvalidCameraId, CameraModelId::kPinhole, 12, 34, 56);
+
+  // TODO(jsch): Replace this with camera->ImgFromCam() once the camera class
+  // returns an optional.
+  auto img_from_cam_func = [&camera](const Eigen::Vector3d& point3D_in_cam)
+      -> std::optional<Eigen::Vector2d> {
+    if (point3D_in_cam.z() < std::numeric_limits<double>::epsilon()) {
+      return std::nullopt;
+    } else {
+      return camera.ImgFromCam(point3D_in_cam.hnormalized());
+    }
+  };
+
+  std::vector<Eigen::Vector3d> points3D;
+  points3D.emplace_back(-1, 0, 1);
+  points3D.emplace_back(-1, 1, 1);
+  points3D.emplace_back(0, 0, -1);
+  points3D.emplace_back(0, 0, 0);
+
+  std::vector<Point2DWithRay> points2D;
+  points2D.push_back(Point2DWithRay{
+      Eigen::Vector2d(camera.PrincipalPointX(), camera.PrincipalPointY()),
+  });
+  points2D.push_back(Point2DWithRay{
+      Eigen::Vector2d(camera.PrincipalPointX(), camera.PrincipalPointY()),
+  });
+  points2D.push_back(Point2DWithRay{
+      Eigen::Vector2d::Zero(),
+  });
+  points2D.push_back(Point2DWithRay{
+      Eigen::Vector2d::Zero(),
+  });
+
+  const Rigid3d cam_from_world(Eigen::Quaterniond::Identity(),
+                               Eigen::Vector3d(1, 0, 0));
+
+  std::vector<double> residuals;
+  ComputeSquaredReprojectionError(points2D,
+                                  points3D,
+                                  cam_from_world.ToMatrix(),
+                                  img_from_cam_func,
+                                  &residuals);
+
+  EXPECT_THAT(residuals,
+              testing::ElementsAre(0,
+                                   camera.FocalLength() * camera.FocalLength(),
+                                   std::numeric_limits<double>::max(),
+                                   std::numeric_limits<double>::max()));
 }
 
 }  // namespace

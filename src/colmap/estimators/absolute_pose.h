@@ -41,6 +41,7 @@
 namespace colmap {
 
 // Function mapping 3D point in the camera frame to 2D point in the image.
+// Returns null if the point projection is invalid (e.g., behind the camera).
 using ImgFromCamFunc =
     std::function<std::optional<Eigen::Vector2d>(const Eigen::Vector3d&)>;
 
@@ -217,5 +218,13 @@ class EPNPEstimator {
   std::array<Eigen::Vector3d, 4> cws_;
   std::array<Eigen::Vector3d, 4> ccs_;
 };
+
+// Compute squared reprojection error in pixels.
+void ComputeSquaredReprojectionError(
+    const std::vector<Point2DWithRay>& points2D,
+    const std::vector<Eigen::Vector3d>& points3D,
+    const Eigen::Matrix3x4d& cam_from_world,
+    const ImgFromCamFunc& img_from_cam_func,
+    std::vector<double>* residuals);
 
 }  // namespace colmap
