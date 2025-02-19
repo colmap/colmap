@@ -11,6 +11,7 @@
 #include <pybind11/stl_bind.h>
 
 using namespace colmap;
+using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindIncrementalPipeline(py::module& m) {
