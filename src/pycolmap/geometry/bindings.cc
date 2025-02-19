@@ -97,11 +97,6 @@ void BindGeometry(py::module& m) {
                     t.translation.transpose();
            })
       .def("inverse", static_cast<Rigid3d (*)(const Rigid3d&)>(&Inverse))
-      .def("get_covariance_for_inverse",
-           static_cast<Eigen::Matrix6d (*)(const Rigid3d&,
-                                           const Eigen::Matrix6d&)>(
-               &GetCovarianceForRigid3dInverse),
-           py::arg("covar"))
       .def_static("interpolate",
                   &InterpolateCameraPoses,
                   "cam_from_world1"_a,
@@ -109,6 +104,20 @@ void BindGeometry(py::module& m) {
                   "t"_a);
   py::implicitly_convertible<py::array, Rigid3d>();
   MakeDataclass(PyRigid3d);
+
+  m.def("get_covariance_for_inverse",
+        &GetCovarianceForRigid3dInverse,
+        "rigid3d"_a,
+        "covar"_a);
+  m.def("get_covariance_for_composed_rigid3d",
+        &GetCovarianceForComposedRigid3d,
+        "left_rigid3d"_a,
+        "joint_covar"_a);
+  m.def("get_covariance_for_relative_rigid3d",
+        &GetCovarianceForRelativeRigid3d,
+        "base_rigid3d"_a,
+        "target_rigid3d"_a,
+        "joint_covar"_a);
 
   py::class_ext_<Sim3d> PySim3d(m, "Sim3d");
   PySim3d.def(py::init<>())
