@@ -250,7 +250,7 @@ std::optional<Eigen::MatrixXd> BACovariance::GetCamFromWorldCov(
   return ExtractCovFromLInverse(L_inv_, start, start, size, size);
 }
 
-std::optional<Eigen::MatrixXd> BACovariance::GetCamFromWorldCorr(
+std::optional<Eigen::MatrixXd> BACovariance::GetCamFromWorldCrossCov(
     image_t image_id1, image_t image_id2) const {
   const auto it1 = pose_L_start_size_.find(image_id1);
   const auto it2 = pose_L_start_size_.find(image_id2);
@@ -260,6 +260,33 @@ std::optional<Eigen::MatrixXd> BACovariance::GetCamFromWorldCorr(
   const auto [start1, size1] = it1->second;
   const auto [start2, size2] = it2->second;
   return ExtractCovFromLInverse(L_inv_, start1, start2, size1, size2);
+}
+
+std::optional<Eigen::MatrixXd> BACovariance::GetCamFromWorldCov(
+    const std::vector<image_t>& image_ids) const {
+  int n_dims = 0;
+  std::vector<std::pair<int, int>> start_sizes;
+  for (const image_t& image_id : image_ids) {
+    const auto it = pose_L_start_size_.find(image_id);
+    if (it == pose_L_start_size_.end()) {
+      return std::nullopt;
+    }
+    n_dims += it->second.second;
+    start_sizes.push_back(it->second);
+  }
+  Eigen::MatrixXd cov;
+  cov.resize(n_dims, n_dims);
+  int row_start = 0;
+  for (const auto& [start1, size1] : start_sizes) {
+    int col_start = 0;
+    for (const auto& [start2, size2] : start_sizes) {
+      cov.block(row_start, col_start, size1, size2) =
+          ExtractCovFromLInverse(L_inv_, row_start, col_start, size1, size2);
+      col_start += size2;
+    }
+    row_start += size1;
+  }
+  return cov;
 }
 
 std::optional<Eigen::MatrixXd> BACovariance::GetOtherParamsCov(

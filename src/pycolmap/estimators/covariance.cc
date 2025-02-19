@@ -104,18 +104,28 @@ void BindCovarianceEstimator(py::module& m) {
            "rows/columns are omitted. Returns null if 3D point not a variable "
            "in the problem.")
       .def("get_cam_from_world_cov",
-           &BACovariance::GetCamFromWorldCov,
+           py::overload_cast<image_t>(&BACovariance::GetCamFromWorldCov,
+                                      py::const_),
            "image_id"_a,
            "Tangent space covariance in the order [rotation, translation]. If "
            "some dimensions are kept constant, the respective rows/columns are "
-           "omitted. Returns null if image not a variable in the problem.")
-      .def("get_cam_from_world_corr",
-           &BACovariance::GetCamFromWorldCorr,
+           "omitted. Returns null if image is not a variable in the problem.")
+      .def("get_cam_from_world_cross_cov",
+           &BACovariance::GetCamFromWorldCrossCov,
            "image_id1"_a,
            "image_id2"_a,
            "Tangent space covariance in the order [rotation, translation]. If "
            "some dimensions are kept constant, the respective rows/columns are "
-           "omitted. Returns null if image not a variable in the problem.")
+           "omitted. Returns null if image is not a variable in the problem.")
+      .def("get_cam_from_world_cov",
+           py::overload_cast<const std::vector<image_t>&>(
+               &BACovariance::GetCamFromWorldCov, py::const_),
+           "image_ids"_a,
+           "Tangent space covariance in the order [rotation, translation] for "
+           "all images. If "
+           "some dimensions are kept constant, the respective rows/columns are "
+           "omitted. Returns null if any image from the image is not a "
+           "variable in the problem.")
       .def(
           "get_other_params_cov",
           [](BACovariance& self, py::array_t<double>& pyarray) {

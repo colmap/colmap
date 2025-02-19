@@ -204,7 +204,7 @@ TEST_P(ParameterizedBACovarianceTests, CompareWithCeres) {
           ExpectNearEigenMatrixXd(ceres_cov, *cov, /*tol=*/1e-8);
         } else {
           const std::optional<Eigen::MatrixXd> cov =
-              ba_cov->GetCamFromWorldCorr(pose1.image_id, pose2.image_id);
+              ba_cov->GetCamFromWorldCrossCov(pose1.image_id, pose2.image_id);
           ASSERT_TRUE(cov.has_value());
           ExpectNearEigenMatrixXd(
               ceres_cov.block(0, tangent_size1, tangent_size1, tangent_size2),
@@ -215,10 +215,12 @@ TEST_P(ParameterizedBACovarianceTests, CompareWithCeres) {
     }
 
     ASSERT_FALSE(ba_cov->GetCamFromWorldCov(kInvalidImageId).has_value());
-    ASSERT_FALSE(ba_cov->GetCamFromWorldCorr(kInvalidImageId, poses[0].image_id)
-                     .has_value());
-    ASSERT_FALSE(ba_cov->GetCamFromWorldCorr(poses[0].image_id, kInvalidImageId)
-                     .has_value());
+    ASSERT_FALSE(
+        ba_cov->GetCamFromWorldCrossCov(kInvalidImageId, poses[0].image_id)
+            .has_value());
+    ASSERT_FALSE(
+        ba_cov->GetCamFromWorldCrossCov(poses[0].image_id, kInvalidImageId)
+            .has_value());
   }
 
   if (!test_options.fixed_cam_intrinsics && estimate_other_covs) {
