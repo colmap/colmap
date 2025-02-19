@@ -36,6 +36,7 @@
 
 #include <array>
 #include <cfloat>
+#include <optional>
 #include <string>
 #include <vector>
 
