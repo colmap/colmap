@@ -396,14 +396,14 @@ class DelaunayMeshingInput {
 
           // Check reprojection error between the two points.
           const std::optional<Eigen::Vector2d> point_proj =
-              camera.ImgFromCam(point_local.hnormalized().cast<double>());
+              camera.ImgFromCam(point_local.cast<double>());
           const std::optional<Eigen::Vector2d> cell_point_proj =
-              camera.ImgFromCam(cell_point_local.hnormalized().cast<double>());
+              camera.ImgFromCam(cell_point_local.cast<double>());
           if (!point_proj || !cell_point_proj) {
             continue;
           }
           const float squared_proj_dist =
-              (point_proj - cell_point_proj).squaredNorm();
+              (*point_proj - *cell_point_proj).squaredNorm();
           if (squared_proj_dist > max_squared_proj_dist) {
             insert_point = true;
             break;

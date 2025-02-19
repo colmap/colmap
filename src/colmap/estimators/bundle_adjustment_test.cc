@@ -164,14 +164,11 @@ void GenerateReconstruction(const size_t num_images,
             RandomUniformReal(-1.0, 1.0), RandomUniformReal(-1.0, 1.0), 10)));
     reconstruction->AddImage(image);
 
-    const Eigen::Matrix3x4d cam_from_world_matrix =
-        image.CamFromWorld().ToMatrix();
-
     std::vector<Eigen::Vector2d> points2D;
     for (const auto& point3D : reconstruction->Points3D()) {
       // Get exact projection of 3D point.
-      std::optional<Eigen::Vector2d> point2D = camera.ImgFromCam(
-          (image.CamFromWorld() * point3D.second.xyz).hnormalized());
+      std::optional<Eigen::Vector2d> point2D =
+          camera.ImgFromCam(image.CamFromWorld() * point3D.second.xyz);
       ASSERT_TRUE(point2D.has_value());
       // Add some uniform noise.
       *point2D += Eigen::Vector2d(RandomUniformReal(-2.0, 2.0),

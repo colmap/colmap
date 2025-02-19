@@ -134,11 +134,11 @@ Eigen::Vector3d Image::ViewingDirection() const {
   return CamFromWorld().rotation.toRotationMatrix().row(2);
 }
 
-std::pair<bool, Eigen::Vector2d> Image::ProjectPoint(
+std::optional<Eigen::Vector2d> Image::ProjectPoint(
     const Eigen::Vector3d& point3D) const {
   THROW_CHECK(HasCameraPtr());
   const Eigen::Vector3d point3D_in_cam = CamFromWorld() * point3D;
-  return {true, camera_ptr_->ImgFromCam(point3D_in_cam.hnormalized())};
+  return camera_ptr_->ImgFromCam(point3D_in_cam);
 }
 
 std::ostream& operator<<(std::ostream& stream, const Image& image) {

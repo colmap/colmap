@@ -221,8 +221,11 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
     // Create 3D point observations by project all 3D points to the image.
     for (auto& point3D : reconstruction->Points3D()) {
       Point2D point2D;
-      point2D.xy = camera.ImgFromCam(
-          (image.CamFromWorld() * point3D.second.xyz).hnormalized());
+      if (const std::optional<Eigen::Vector2d> proj_point2D =
+              camera.ImgFromCam(image.CamFromWorld() * point3D.second.xyz);
+          proj_point2D.has_value()) {
+        point2D.xy = *proj_point2D;
+      }
       if (options.point2D_stddev > 0) {
         const Eigen::Vector2d noise(
             RandomGaussian<double>(0, options.point2D_stddev),

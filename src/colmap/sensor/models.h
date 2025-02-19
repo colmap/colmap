@@ -538,9 +538,10 @@ bool CameraModelHasBogusParams(CameraModelId model_id,
 // @param params       Array of camera parameters.
 // @param u, v         Coordinates in camera system as (u, v, 1).
 // @param x, y         Output image coordinates in pixels.
-inline Eigen::Vector2d CameraModelImgFromCam(CameraModelId model_id,
-                                             const std::vector<double>& params,
-                                             const Eigen::Vector3d& uvw);
+inline std::optional<Eigen::Vector2d> CameraModelImgFromCam(
+    CameraModelId model_id,
+    const std::vector<double>& params,
+    const Eigen::Vector3d& uvw);
 
 // Transform image to camera coordinates.
 //
@@ -868,7 +869,7 @@ bool SimpleRadialCameraModel::ImgFromCam(
   *x = f * *x + c1;
   *y = f * *y + c2;
 
-  return false;
+  return true;
 }
 
 void SimpleRadialCameraModel::CamFromImg(

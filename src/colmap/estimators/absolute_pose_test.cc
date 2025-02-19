@@ -62,17 +62,8 @@ TEST(AbsolutePose, P3P) {
 
   const Camera camera = Camera::CreateFromModelId(
       kInvalidCameraId, CameraModelId::kPinhole, 12, 34, 56);
-
-  // TODO(jsch): Replace this with camera->ImgFromCam() once the camera class
-  // returns an optional.
-  auto img_from_cam_func = [&camera](const Eigen::Vector3d& point3D_in_cam)
-      -> std::optional<Eigen::Vector2d> {
-    if (point3D_in_cam.z() < std::numeric_limits<double>::epsilon()) {
-      return std::nullopt;
-    } else {
-      return camera.ImgFromCam(point3D_in_cam.hnormalized());
-    }
-  };
+  ImgFromCamFunc img_from_cam_func =
+      std::bind(&Camera::ImgFromCam, &camera, std::placeholders::_1);
 
   // NOLINTNEXTLINE(clang-analyzer-security.FloatLoopCounter)
   for (double qx = 0; qx < 1; qx += 0.2) {
@@ -200,17 +191,8 @@ TEST(AbsolutePose, EPNP) {
 
   const Camera camera = Camera::CreateFromModelId(
       kInvalidCameraId, CameraModelId::kPinhole, 12, 34, 56);
-
-  // TODO(jsch): Replace this with camera->ImgFromCam() once the camera class
-  // returns an optional.
-  auto img_from_cam_func = [&camera](const Eigen::Vector3d& point3D_in_cam)
-      -> std::optional<Eigen::Vector2d> {
-    if (point3D_in_cam.z() < std::numeric_limits<double>::epsilon()) {
-      return std::nullopt;
-    } else {
-      return camera.ImgFromCam(point3D_in_cam.hnormalized());
-    }
-  };
+  auto img_from_cam_func =
+      std::bind(&Camera::ImgFromCam, &camera, std::placeholders::_1);
 
   // NOLINTNEXTLINE(clang-analyzer-security.FloatLoopCounter)
   for (double qx = 0; qx < 1; qx += 0.2) {
@@ -325,16 +307,8 @@ TEST(ComputeSquaredReprojectionError, Nominal) {
   const Camera camera = Camera::CreateFromModelId(
       kInvalidCameraId, CameraModelId::kPinhole, 12, 34, 56);
 
-  // TODO(jsch): Replace this with camera->ImgFromCam() once the camera class
-  // returns an optional.
-  auto img_from_cam_func = [&camera](const Eigen::Vector3d& point3D_in_cam)
-      -> std::optional<Eigen::Vector2d> {
-    if (point3D_in_cam.z() < std::numeric_limits<double>::epsilon()) {
-      return std::nullopt;
-    } else {
-      return camera.ImgFromCam(point3D_in_cam.hnormalized());
-    }
-  };
+  auto img_from_cam_func =
+      std::bind(&Camera::ImgFromCam, &camera, std::placeholders::_1);
 
   std::vector<Eigen::Vector3d> points3D;
   points3D.emplace_back(-1, 0, 1);
