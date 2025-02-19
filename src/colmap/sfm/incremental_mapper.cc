@@ -754,6 +754,11 @@ const std::unordered_set<image_t>& IncrementalMapper::ExistingImageIds() const {
   return existing_image_ids_;
 }
 
+void IncrementalMapper::ResetInitializationStats() {
+  reg_stats_.init_image_pairs.clear();
+  reg_stats_.init_num_reg_trials.clear();
+}
+
 const std::unordered_map<camera_t, size_t>&
 IncrementalMapper::NumRegImagesPerCamera() const {
   return reg_stats_.num_reg_images_per_camera;

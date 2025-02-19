@@ -61,6 +61,10 @@ bool InlierSupportMeasurer::IsLeftBetter(const Support& left,
   }
 }
 
+UniqueInlierSupportMeasurer::UniqueInlierSupportMeasurer(
+    std::vector<size_t> unique_sample_ids)
+    : unique_sample_ids_(std::move(unique_sample_ids)) {}
+
 UniqueInlierSupportMeasurer::Support UniqueInlierSupportMeasurer::Evaluate(
     const std::vector<double>& residuals, const double max_residual) {
   THROW_CHECK_EQ(residuals.size(), unique_sample_ids_.size());

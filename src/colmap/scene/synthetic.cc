@@ -178,6 +178,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
     camera.model_id = options.camera_model_id;
     camera.params = options.camera_params;
     THROW_CHECK(camera.VerifyParams());
+    camera.has_prior_focal_length = options.camera_has_prior_focal_length;
     const camera_t camera_id =
         (database == nullptr) ? camera_idx + 1 : database->WriteCamera(camera);
     camera_ids[camera_idx] = camera_id;

@@ -177,9 +177,6 @@ class IncrementalPipeline : public BaseController {
 
   void Run();
 
-  void TriangulateReconstruction(
-      const std::shared_ptr<Reconstruction>& reconstruction);
-
   bool LoadDatabase();
 
   // getter functions for python pipelines
@@ -196,7 +193,9 @@ class IncrementalPipeline : public BaseController {
     return database_cache_;
   }
 
-  void Reconstruct(const IncrementalMapper::Options& init_mapper_options);
+  void Reconstruct(IncrementalMapper& mapper,
+                   const IncrementalMapper::Options& mapper_options,
+                   bool continue_reconstruction);
 
   Status ReconstructSubModel(
       IncrementalMapper& mapper,
@@ -207,6 +206,9 @@ class IncrementalPipeline : public BaseController {
       IncrementalMapper& mapper,
       const IncrementalMapper::Options& mapper_options,
       Reconstruction& reconstruction);
+
+  void TriangulateReconstruction(
+      const std::shared_ptr<Reconstruction>& reconstruction);
 
   bool CheckRunGlobalRefinement(const Reconstruction& reconstruction,
                                 size_t ba_prev_num_reg_images,
