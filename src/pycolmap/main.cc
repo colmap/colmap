@@ -13,6 +13,7 @@
 #include <pybind11/stl.h>
 
 using namespace colmap;
+using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindEstimators(py::module& m);
