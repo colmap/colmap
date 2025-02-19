@@ -40,6 +40,12 @@
     colmap automatic_reconstructor --image_path ./images --workspace_path .
     ```
 
+5. Alternatively, you can run the *run-gui* script, which will start the graphical user interface of COLMAP:
+
+    ```
+    ./run-gui.sh /path/where/your/working/folder/is
+    ```
+
 ## Build from Scratch
 
 After completing steps 1-3, you can alternatively build the docker image from
