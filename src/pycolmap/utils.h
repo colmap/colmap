@@ -9,8 +9,6 @@
 
 #include <Eigen/Core>
 
-using namespace colmap;
-
 enum class Device { AUTO = -1, CPU = 0, CUDA = 1 };
 
 inline bool IsGPU(Device device) {
@@ -46,7 +44,8 @@ inline PyInlierMask ToPythonMask(const std::vector<char>& mask_char) {
 typedef Eigen::Matrix<uint32_t, Eigen::Dynamic, 2, Eigen::RowMajor>
     PyFeatureMatches;
 
-inline PyFeatureMatches FeatureMatchesToMatrix(const FeatureMatches& matches) {
+inline PyFeatureMatches FeatureMatchesToMatrix(
+    const colmap::FeatureMatches& matches) {
   PyFeatureMatches matrix(matches.size(), 2);
   for (size_t i = 0; i < matches.size(); i++) {
     matrix(i, 0) = matches[i].point2D_idx1;
@@ -55,8 +54,9 @@ inline PyFeatureMatches FeatureMatchesToMatrix(const FeatureMatches& matches) {
   return matrix;
 }
 
-inline FeatureMatches FeatureMatchesFromMatrix(const PyFeatureMatches& matrix) {
-  FeatureMatches matches(matrix.rows());
+inline colmap::FeatureMatches FeatureMatchesFromMatrix(
+    const PyFeatureMatches& matrix) {
+  colmap::FeatureMatches matches(matrix.rows());
   for (size_t i = 0; i < matches.size(); i++) {
     matches[i].point2D_idx1 = matrix(i, 0);
     matches[i].point2D_idx2 = matrix(i, 1);
