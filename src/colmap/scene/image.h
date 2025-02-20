@@ -59,6 +59,9 @@ class Image {
   // Initialize a new Frame object if the image has a trivial frame.
   Image(const Image& other);
   Image& operator=(const Image& other);
+  // Move construct/assign.
+  Image(Image&& other) = default;
+  Image& operator=(Image&& other) = default;
 
   // Access the unique identifier of the image.
   inline image_t ImageId() const;
