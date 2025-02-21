@@ -33,5 +33,6 @@ void BindScene(py::module& m) {
   BindDatabaseCache(m);
   BindSynthetic(m);
 
-  py::implicitly_convertible<py::iterable, Point2DVector>();
+  // Must be defined here, see: https://github.com/colmap/colmap/pull/2558
+  py::bind_vector<Point2DVector>(m, "Point2DList");
 }

@@ -45,7 +45,7 @@ void BindImage(py::module& m) {
   PyImage.def(py::init<>())
       .def(py::init(&MakeImage<Point2D>),
            "name"_a = "",
-           py::arg_v("points2D", Point2DVector(), "ListPoint2D()"),
+           py::arg_v("points2D", Point2DVector(), "Point2DList()"),
            "cam_from_world"_a = py::none(),
            py::arg_v(
                "camera_id", kInvalidCameraId, "pycolmap.INVALID_CAMERA_ID"),
@@ -183,5 +183,5 @@ void BindImage(py::module& m) {
           "Get the 2D points that observe a 3D point.");
   MakeDataclass(PyImage);
 
-  py::bind_map<ImageMap>(m, "MapImageIdToImage");
+  py::bind_map<ImageMap>(m, "ImageMap");
 }
