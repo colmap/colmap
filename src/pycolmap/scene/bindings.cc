@@ -32,6 +32,4 @@ void BindScene(py::module& m) {
   BindDatabase(m);
   BindDatabaseCache(m);
   BindSynthetic(m);
-
-  py::implicitly_convertible<py::iterable, Point2DVector>();
 }
