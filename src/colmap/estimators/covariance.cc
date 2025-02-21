@@ -240,7 +240,7 @@ std::optional<Eigen::MatrixXd> BACovariance::GetPointCov(
   return it->second;
 }
 
-std::optional<Eigen::MatrixXd> BACovariance::GetCamFromWorldCov(
+std::optional<Eigen::MatrixXd> BACovariance::GetCamCovFromWorld(
     image_t image_id) const {
   const auto it = pose_L_start_size_.find(image_id);
   if (it == pose_L_start_size_.end()) {
@@ -250,7 +250,7 @@ std::optional<Eigen::MatrixXd> BACovariance::GetCamFromWorldCov(
   return ExtractCovFromLInverse(L_inv_, start, start, size, size);
 }
 
-std::optional<Eigen::MatrixXd> BACovariance::GetCamFromWorldCrossCov(
+std::optional<Eigen::MatrixXd> BACovariance::GetCamCrossCovFromWorld(
     image_t image_id1, image_t image_id2) const {
   const auto it1 = pose_L_start_size_.find(image_id1);
   const auto it2 = pose_L_start_size_.find(image_id2);
@@ -262,7 +262,7 @@ std::optional<Eigen::MatrixXd> BACovariance::GetCamFromWorldCrossCov(
   return ExtractCovFromLInverse(L_inv_, start1, start2, size1, size2);
 }
 
-std::optional<Eigen::MatrixXd> BACovariance::GetCamFromWorldCov(
+std::optional<Eigen::MatrixXd> BACovariance::GetCamCovFromWorld(
     const std::vector<image_t>& image_ids) const {
   int n_dims = 0;
   std::vector<std::pair<int, int>> start_sizes;
@@ -296,7 +296,7 @@ std::optional<Eigen::MatrixXd> BACovariance::GetCam2CovFromCam1(
     image_t image_id2,
     const Rigid3d& cam2_from_world) const {
   std::vector<image_t> image_ids = {image_id1, image_id2};
-  auto cov = GetCamFromWorldCov(image_ids);
+  auto cov = GetCamCovFromWorld(image_ids);
   if (!cov.has_value()) return std::nullopt;
   if (cov->rows() != 12) {
     LOG(WARNING) << "Either cam1_from_world or cam2_from_world are not fully "

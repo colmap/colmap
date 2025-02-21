@@ -103,29 +103,28 @@ void BindCovarianceEstimator(py::module& m) {
            "constant. If some dimensions are kept constant, the respective "
            "rows/columns are omitted. Returns null if 3D point not a variable "
            "in the problem.")
-      .def("get_cam_from_world_cov",
-           py::overload_cast<image_t>(&BACovariance::GetCamFromWorldCov,
+      .def("get_cam_cov_from_world",
+           py::overload_cast<image_t>(&BACovariance::GetCamCovFromWorld,
                                       py::const_),
            "image_id"_a,
            "Tangent space covariance in the order [rotation, translation]. If "
            "some dimensions are kept constant, the respective rows/columns are "
            "omitted. Returns null if image is not a variable in the problem.")
-      .def("get_cam_from_world_cross_cov",
-           &BACovariance::GetCamFromWorldCrossCov,
+      .def("get_cam_cross_cov_from_world",
+           &BACovariance::GetCamCrossCovFromWorld,
            "image_id1"_a,
            "image_id2"_a,
            "Tangent space covariance in the order [rotation, translation]. If "
            "some dimensions are kept constant, the respective rows/columns are "
            "omitted. Returns null if image is not a variable in the problem.")
-      .def("get_cam_from_world_cov",
+      .def("get_cam_cov_from_world",
            py::overload_cast<const std::vector<image_t>&>(
-               &BACovariance::GetCamFromWorldCov, py::const_),
+               &BACovariance::GetCamCovFromWorld, py::const_),
            "image_ids"_a,
            "Tangent space covariance in the order [rotation, translation] for "
-           "all images. If "
-           "some dimensions are kept constant, the respective rows/columns are "
-           "omitted. Returns null if any image from the image is not a "
-           "variable in the problem.")
+           "all images. If some dimensions are kept constant, the respective "
+           "rows/columns are omitted. Returns null if any image from the image "
+           "is not a variable in the problem.")
       .def("get_cam2_cov_from_cam1",
            &BACovariance::GetCam2CovFromCam1,
            "image_id1"_a,
