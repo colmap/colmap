@@ -270,15 +270,15 @@ std::optional<Eigen::MatrixXd> BACovariance::GetCam2CovFromCam1(
   auto cov_11 = GetCamCovFromWorld(image_id1);
   if (!cov_11.has_value()) return std::nullopt;
   if (cov_11->rows() != 6) {
-    LOG(WARNING) << "cam1_from_world not fully in the problem (likely to due "
-                    "to being set constant / partially constant). ";
+    LOG(WARNING) << "cam1_from_world is not fully in the problem. This is "
+                    "likely due to the pose being set (partially) constant. ";
     return std::nullopt;
   }
   auto cov_22 = GetCamCovFromWorld(image_id2);
   if (!cov_22.has_value()) return std::nullopt;
   if (cov_22->rows() != 6) {
-    LOG(WARNING) << "cam2_from_world not fully in the problem (likely to due "
-                    "to being set constant / partially constant). ";
+    LOG(WARNING) << "cam2_from_world is not fully in the problem. This is "
+                    "likely due to the pose being set (partially) constant. ";
     return std::nullopt;
   }
   auto cov_12 = GetCamCrossCovFromWorld(image_id1, image_id2);
