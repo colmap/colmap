@@ -67,6 +67,16 @@ struct BACovariance {
       image_t image_id1, image_t image_id2) const;
   std::optional<Eigen::MatrixXd> GetCamFromWorldCov(
       const std::vector<image_t>& image_ids) const;
+  // Get relative pose covariance in the order [rotation, translation]. This
+  // function returns null if some dimensions are kept constant for either of
+  // the two poses. This does not mean that one cannot get relative pose
+  // covariance for such case, but requires custom logic to fill in zero block
+  // in the covariance matrix.
+  std::optional<Eigen::MatrixXd> GetCam2CovFromCam1(
+      image_t image_id1,
+      const Rigid3d& cam1_from_world,
+      image_t image_id2,
+      const Rigid3d& cam2_from_world) const;
 
   // Tangent space covariance for any other variable parameter block in the
   // problem. If some dimensions are kept constant, the respective rows/columns

@@ -126,6 +126,17 @@ void BindCovarianceEstimator(py::module& m) {
            "some dimensions are kept constant, the respective rows/columns are "
            "omitted. Returns null if any image from the image is not a "
            "variable in the problem.")
+      .def("get_cam2_cov_from_cam1",
+           &BACovariance::GetCam2CovFromCam1,
+           "image_id1"_a,
+           "cam1_from_world"_a,
+           "image_id2"_a,
+           "cam2_from_world"_a,
+           "Get relative pose covariance in the order [rotation, translation]. "
+           "This function returns null if some dimensions are kept constant "
+           "for either of the two poses. This does not mean that one cannot "
+           "get relative pose covariance for such case, but requires custom "
+           "logic to fill in zero block in the covariance matrix.")
       .def(
           "get_other_params_cov",
           [](BACovariance& self, py::array_t<double>& pyarray) {

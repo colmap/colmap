@@ -290,6 +290,24 @@ std::optional<Eigen::MatrixXd> BACovariance::GetCamFromWorldCov(
   return cov;
 }
 
+std::optional<Eigen::MatrixXd> BACovariance::GetCam2CovFromCam1(
+    image_t image_id1,
+    const Rigid3d& cam1_from_world,
+    image_t image_id2,
+    const Rigid3d& cam2_from_world) const {
+  std::vector<image_t> image_ids = {image_id1, image_id2};
+  auto cov = GetCamFromWorldCov(image_ids);
+  if (!cov.has_value()) return std::nullopt;
+  if (cov->rows() != 12) {
+    LOG(WARNING) << "Either cam1_from_world or cam2_from_world are not fully "
+                    "in the problem. This is likely due to one of the two "
+                    "being set constant / partially constant.";
+    return std::nullopt;
+  }
+  return GetCovarianceForRelativeRigid3d(
+      cam1_from_world, cam2_from_world, *cov);
+}
+
 std::optional<Eigen::MatrixXd> BACovariance::GetOtherParamsCov(
     const double* params) const {
   const auto it = other_L_start_size_.find(params);
