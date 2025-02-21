@@ -45,7 +45,7 @@ void BindImage(py::module& m) {
   PyImage.def(py::init<>())
       .def(py::init(&MakeImage<Point2D>),
            "name"_a = "",
-           py::arg_v("points2D", Point2DVector(), "Points2D()"),
+           py::arg_v("points2D", Point2DVector(), "Point2DList()"),
            "cam_from_world"_a = py::none(),
            py::arg_v(
                "camera_id", kInvalidCameraId, "pycolmap.INVALID_CAMERA_ID"),

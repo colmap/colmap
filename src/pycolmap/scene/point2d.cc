@@ -8,9 +8,6 @@
 #include "pycolmap/pybind11_extension.h"
 #include "pycolmap/scene/types.h"
 
-#include <memory>
-#include <sstream>
-
 #include <pybind11/eigen.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -34,6 +31,6 @@ void BindPoint2D(py::module& m) {
       .def("has_point3D", &Point2D::HasPoint3D);
   MakeDataclass(PyPoint2D);
 
-  py::bind_vector<Point2DVector>(m, "Points2D");
+  py::bind_vector<Point2DVector>(m, "Point2DList");
   py::implicitly_convertible<py::iterable, Point2DVector>();
 }
