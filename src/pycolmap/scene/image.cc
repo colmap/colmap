@@ -126,19 +126,10 @@ void BindImage(py::module& m) {
       .def("viewing_direction",
            &Image::ViewingDirection,
            "Extract the viewing direction of the image.")
-      .def(
-          "project_point",
-          [](const Image& self, const Eigen::Vector3d& point3D)
-              -> py::typing::Optional<Eigen::Vector2d> {
-            auto result = self.ProjectPoint(point3D);
-            if (result.first) {
-              return py::cast(result.second);
-            } else {
-              return py::none();
-            }
-          },
-          "Project 3D point onto the image",
-          "point3D"_a)
+      .def("project_point",
+           &Image::ProjectPoint,
+           "Project 3D point onto the image",
+           "point3D"_a)
       .def("has_camera_id",
            &Image::HasCameraId,
            "Check whether identifier of camera has been set.")

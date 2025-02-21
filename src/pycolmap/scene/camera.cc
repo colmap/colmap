@@ -148,7 +148,14 @@ void BindCamera(py::module& m) {
              const py::EigenDRef<const Eigen::MatrixX2d>& world_points) {
             std::vector<Eigen::Vector2d> image_points(world_points.rows());
             for (size_t idx = 0; idx < world_points.rows(); ++idx) {
-              image_points[idx] = self.ImgFromCam(world_points.row(idx));
+              const std::optional<Eigen::Vector2d> image_point =
+                  self.ImgFromCam(world_points.row(idx).homogeneous());
+              if (image_point) {
+                image_points[idx] = *image_point;
+              } else {
+                image_points[idx].setConstant(
+                    std::numeric_limits<double>::quiet_NaN());
+              }
             }
             return image_points;
           },
@@ -168,7 +175,14 @@ void BindCamera(py::module& m) {
           [](const Camera& self, const Point2DVector& world_points) {
             std::vector<Eigen::Vector2d> image_points(world_points.size());
             for (size_t idx = 0; idx < world_points.size(); ++idx) {
-              image_points[idx] = self.ImgFromCam(world_points[idx].xy);
+              const std::optional<Eigen::Vector2d> image_point =
+                  self.ImgFromCam(world_points[idx].xy.homogeneous());
+              if (image_point) {
+                image_points[idx] = *image_point;
+              } else {
+                image_points[idx].setConstant(
+                    std::numeric_limits<double>::quiet_NaN());
+              }
             }
             return image_points;
           },

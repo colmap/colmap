@@ -68,10 +68,11 @@ void TestCamToCamFromImg(const std::vector<double>& params,
                          const double w0) {
   double u, v, w, x, y;
   CameraModel::ImgFromCam(params.data(), u0, v0, w0, &x, &y);
-  const Eigen::Vector2d xy = CameraModelImgFromCam(
+  const std::optional<Eigen::Vector2d> xy = CameraModelImgFromCam(
       CameraModel::model_id, params, Eigen::Vector3d(u0, v0, w0));
-  EXPECT_EQ(x, xy.x());
-  EXPECT_EQ(y, xy.y());
+  ASSERT_TRUE(xy.has_value());
+  EXPECT_EQ(x, xy->x());
+  EXPECT_EQ(y, xy->y());
   CameraModel::CamFromImg(params.data(), x, y, &u, &v, &w);
   EXPECT_NEAR(u, u0 / w0, 1e-6);
   EXPECT_NEAR(v, v0 / w0, 1e-6);
@@ -88,7 +89,7 @@ void TestCamFromImgToImg(const std::vector<double>& params,
   EXPECT_EQ(u, uvw.x());
   EXPECT_EQ(v, uvw.y());
   EXPECT_EQ(w, uvw.z());
-  CameraModel::ImgFromCam(params.data(), u, v, w, &x, &y);
+  ASSERT_TRUE(CameraModel::ImgFromCam(params.data(), u, v, w, &x, &y));
   EXPECT_NEAR(x, x0, 1e-6);
   EXPECT_NEAR(y, y0, 1e-6);
 }

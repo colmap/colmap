@@ -701,12 +701,13 @@ class RigBundleAdjuster : public BundleAdjuster {
     CameraRig* camera_rig = nullptr;
     Eigen::Matrix3x4d cam_from_world_mat = Eigen::Matrix3x4d::Zero();
 
-    if (image_id_to_camera_rig_.count(image_id) > 0) {
+    if (const auto it = image_id_to_camera_rig_.find(image_id);
+        it != image_id_to_camera_rig_.end()) {
       THROW_CHECK(!constant_cam_pose)
           << "Images contained in a camera rig must not have constant pose";
       THROW_CHECK(!constant_cam_position)
           << "Images contained in a camera rig must not have constant tvec";
-      camera_rig = image_id_to_camera_rig_.at(image_id);
+      camera_rig = it->second;
       Rigid3d& rig_from_world = *image_id_to_rig_from_world_.at(image_id);
       rig_from_world_rotation = rig_from_world.rotation.coeffs().data();
       rig_from_world_translation = rig_from_world.translation.data();
