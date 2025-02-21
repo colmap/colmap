@@ -5,8 +5,6 @@
 #include <glog/logging.h>
 #include <pybind11/pybind11.h>
 
-using namespace colmap;
-using namespace pybind11::literals;
 namespace py = pybind11;
 
 struct Logging {
@@ -48,8 +46,8 @@ void BindLogging(py::module& m) {
             google::SetLogDestination(
                 static_cast<google::LogSeverity>(severity), path.c_str());
           },
-          "level"_a,
-          "path"_a)
+          py::arg("level"),
+          py::arg("path"))
       .def_static(
           "verbose",
           [](const int level, const std::string& msg) {
@@ -59,8 +57,8 @@ void BindLogging(py::module& m) {
                   << msg;
             }
           },
-          "level"_a,
-          "message"_a)
+          py::arg("level"),
+          py::arg("message"))
       .def_static(
           "info",
           [](const std::string& msg) {
@@ -68,7 +66,7 @@ void BindLogging(py::module& m) {
             google::LogMessage(frame.first.c_str(), frame.second).stream()
                 << msg;
           },
-          "message"_a)
+          py::arg("message"))
       .def_static(
           "warning",
           [](const std::string& msg) {
@@ -78,7 +76,7 @@ void BindLogging(py::module& m) {
                     .stream()
                 << msg;
           },
-          "message"_a)
+          py::arg("message"))
       .def_static(
           "error",
           [](const std::string& msg) {
@@ -88,7 +86,7 @@ void BindLogging(py::module& m) {
                     .stream()
                 << msg;
           },
-          "message"_a)
+          py::arg("message"))
       .def_static(
           "fatal",
           [](const std::string& msg) {
@@ -96,7 +94,7 @@ void BindLogging(py::module& m) {
             google::LogMessageFatal(frame.first.c_str(), frame.second).stream()
                 << msg;
           },
-          "message"_a);
+          py::arg("message"));
 
 #if defined(GLOG_VERSION_MAJOR) && \
     (GLOG_VERSION_MAJOR > 0 || GLOG_VERSION_MINOR >= 6)

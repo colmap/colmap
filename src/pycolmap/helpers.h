@@ -19,8 +19,6 @@
 #include <pybind11/stl.h>
 #include <pybind11/stl_bind.h>
 
-using namespace colmap;
-using namespace pybind11::literals;
 namespace py = pybind11;
 
 const Eigen::IOFormat vec_fmt(Eigen::StreamPrecision,
@@ -44,7 +42,7 @@ void AddStringToEnumConstructor(py::enum_<T>& enm) {
   enm.def(py::init([enm](const std::string& value) {
             return PyStringToEnum(enm, py::str(value));  // str constructor
           }),
-          "name"_a);
+          py::arg("name"));
   enm.attr("__repr__") = enm.attr("__str__");
   py::implicitly_convertible<std::string, T>();
 }
@@ -204,7 +202,7 @@ std::string CreateSummary(const T& self, bool write_type) {
       std::string value = py::str(attribute);
       if (value.length() > 80 && py::hasattr(attribute, "__len__")) {
         const int length = attribute.attr("__len__")().template cast<int>();
-        value = StringPrintf(
+        value = colmap::StringPrintf(
             "%c ... %d elements ... %c", value.front(), length, value.back());
       }
       ss << " = " << value;
@@ -286,10 +284,10 @@ void AddDefaultsToDocstrings(py::class_<T, options...> cls) {
     }
     const auto type_name = py::type::of(member).attr("__name__");
     const std::string doc =
-        StringPrintf("%s (%s, default: %s)",
-                     py::str(prop.doc()).cast<std::string>().c_str(),
-                     type_name.template cast<std::string>().c_str(),
-                     py::str(member).cast<std::string>().c_str());
+        colmap::StringPrintf("%s (%s, default: %s)",
+                             py::str(prop.doc()).cast<std::string>().c_str(),
+                             type_name.template cast<std::string>().c_str(),
+                             py::str(member).cast<std::string>().c_str());
     prop.doc() = py::str(doc);
   }
 }
@@ -299,25 +297,24 @@ void MakeDataclass(py::class_<T, options...> cls,
                    const std::vector<std::string>& attributes = {}) {
   AddDefaultsToDocstrings(cls);
   if (!py::hasattr(cls, "summary")) {
-    cls.def("summary", &CreateSummary<T>, "write_type"_a = false);
+    cls.def("summary", &CreateSummary<T>, py::arg("write_type") = false);
   }
   if (!cls.attr("__dict__").contains("__repr__")) {
     cls.def("__repr__", &CreateRepresentation<T>);
   }
-  cls.def("mergedict", &UpdateFromDict, "kwargs"_a);
+  cls.def("mergedict", &UpdateFromDict, py::arg("kwargs"));
   cls.def(
       "todict",
       [attributes](const T& self, const bool recursive) {
         return ConvertToDict(self, attributes, recursive);
       },
-      "recursive"_a = true);
+      py::arg("recursive") = true);
 
   cls.def(py::init([cls](const py::dict& dict) {
-            py::object self = cls();
-            self.attr("mergedict").attr("__call__")(dict);
-            return self.cast<T>();
-          }),
-          "kwargs"_a);
+    py::object self = cls();
+    self.attr("mergedict").attr("__call__")(dict);
+    return self.cast<T>();
+  }));
   cls.def(py::init([cls](const py::kwargs& kwargs) {
     py::dict dict = kwargs.cast<py::dict>();
     return cls(dict).template cast<T>();
@@ -364,14 +361,14 @@ for (...) {
 struct PyInterrupt {
   using clock = std::chrono::steady_clock;
   using sec = std::chrono::duration<double>;
-  explicit PyInterrupt(double gap = -1.0) : gap_(gap), start(clock::now()) {}
+  explicit PyInterrupt(double gap = -1.0) : start(clock::now()), gap_(gap) {}
 
   inline bool Raised();
 
  private:
   std::mutex mutex_;
   bool found = false;
-  Timer timer_;
+  colmap::Timer timer_;
   clock::time_point start;
   double gap_;
 };
@@ -388,7 +385,7 @@ inline bool PyInterrupt::Raised() {
 }
 
 // Instead of thread.Wait() call this to allow interrupts through python
-inline void PyWait(Thread* thread, double gap = 2.0) {
+inline void PyWait(colmap::Thread* thread, double gap = 2.0) {
   PyInterrupt py_interrupt(gap);
   while (thread->IsRunning()) {
     if (py_interrupt.Raised()) {
@@ -419,7 +416,7 @@ inline void DefDeprecation(
     std::string new_name,
     std::optional<std::string> custom_warning = std::nullopt) {
   const std::string doc =
-      StringPrintf("Deprecated, use ``%s`` instead.", new_name.c_str());
+      colmap::StringPrintf("Deprecated, use ``%s`` instead.", new_name.c_str());
   parent.def(
       old_name.c_str(),
       [parent,
