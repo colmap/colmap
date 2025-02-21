@@ -32,4 +32,7 @@ void BindScene(py::module& m) {
   BindDatabase(m);
   BindDatabaseCache(m);
   BindSynthetic(m);
+
+  // Must be defined here, see: https://github.com/colmap/colmap/pull/2558
+  py::bind_vector<Point2DVector>(m, "Point2DList");
 }

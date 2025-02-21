@@ -183,5 +183,5 @@ void BindImage(py::module& m) {
           "Get the 2D points that observe a 3D point.");
   MakeDataclass(PyImage);
 
-  py::bind_map<ImageMap>(m, "MapImageIdToImage");
+  py::bind_map<ImageMap>(m, "ImageMap");
 }
