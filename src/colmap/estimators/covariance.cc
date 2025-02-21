@@ -262,50 +262,33 @@ std::optional<Eigen::MatrixXd> BACovariance::GetCamCrossCovFromWorld(
   return ExtractCovFromLInverse(L_inv_, start1, start2, size1, size2);
 }
 
-std::optional<Eigen::MatrixXd> BACovariance::GetCamCovFromWorld(
-    const std::vector<image_t>& image_ids) const {
-  int n_dims = 0;
-  std::vector<std::pair<int, int>> start_sizes;
-  start_sizes.reserve(image_ids.size());
-  for (const image_t& image_id : image_ids) {
-    const auto it = pose_L_start_size_.find(image_id);
-    if (it == pose_L_start_size_.end()) {
-      return std::nullopt;
-    }
-    n_dims += it->second.second;
-    start_sizes.push_back(it->second);
-  }
-  Eigen::MatrixXd cov;
-  cov.resize(n_dims, n_dims);
-  int row_start = 0;
-  for (const auto& [start1, size1] : start_sizes) {
-    int col_start = 0;
-    for (const auto& [start2, size2] : start_sizes) {
-      cov.block(row_start, col_start, size1, size2) =
-          ExtractCovFromLInverse(L_inv_, row_start, col_start, size1, size2);
-      col_start += size2;
-    }
-    row_start += size1;
-  }
-  return cov;
-}
-
 std::optional<Eigen::MatrixXd> BACovariance::GetCam2CovFromCam1(
     image_t image_id1,
     const Rigid3d& cam1_from_world,
     image_t image_id2,
     const Rigid3d& cam2_from_world) const {
-  std::vector<image_t> image_ids = {image_id1, image_id2};
-  auto cov = GetCamCovFromWorld(image_ids);
-  if (!cov.has_value()) return std::nullopt;
-  if (cov->rows() != 12) {
-    LOG(WARNING) << "Either cam1_from_world or cam2_from_world are not fully "
-                    "in the problem. This is likely due to one of the two "
-                    "being set constant / partially constant.";
+  auto cov_11 = GetCamCovFromWorld(image_id1);
+  if (!cov_11.has_value()) return std::nullopt;
+  if (cov_11->rows() != 6) {
+    LOG(WARNING) << "cam1_from_world not fully in the problem (likely to due "
+                    "to being set constant / partially constant). ";
     return std::nullopt;
   }
-  return GetCovarianceForRelativeRigid3d(
-      cam1_from_world, cam2_from_world, *cov);
+  auto cov_22 = GetCamCovFromWorld(image_id2);
+  if (!cov_22.has_value()) return std::nullopt;
+  if (cov_22->rows() != 6) {
+    LOG(WARNING) << "cam2_from_world not fully in the problem (likely to due "
+                    "to being set constant / partially constant). ";
+    return std::nullopt;
+  }
+  auto cov_12 = GetCamCrossCovFromWorld(image_id1, image_id2);
+  THROW_CHECK(cov_12.has_value());
+  Eigen::Matrix<double, 12, 12> cov;
+  cov.block<6, 6>(0, 0) = *cov_11;
+  cov.block<6, 6>(6, 6) = *cov_22;
+  cov.block<6, 6>(0, 6) = *cov_12;
+  cov.block<6, 6>(6, 0) = cov_12->transpose();
+  return GetCovarianceForRelativeRigid3d(cam1_from_world, cam2_from_world, cov);
 }
 
 std::optional<Eigen::MatrixXd> BACovariance::GetOtherParamsCov(

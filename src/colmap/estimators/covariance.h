@@ -65,8 +65,6 @@ struct BACovariance {
   std::optional<Eigen::MatrixXd> GetCamCovFromWorld(image_t image_id) const;
   std::optional<Eigen::MatrixXd> GetCamCrossCovFromWorld(
       image_t image_id1, image_t image_id2) const;
-  std::optional<Eigen::MatrixXd> GetCamCovFromWorld(
-      const std::vector<image_t>& image_ids) const;
   // Get relative pose covariance in the order [rotation, translation]. This
   // function returns null if some dimensions are kept constant for either of
   // the two poses. This does not mean that one cannot get relative pose
