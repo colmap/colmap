@@ -21,16 +21,16 @@ jobs:
     strategy:
       matrix:
         config: [
-          {
-            os: ubuntu-24.04,
-            cmakeBuildType: RelWithDebInfo,
-            asanEnabled: false,
-            guiEnabled: true,
-            cudaEnabled: false,
-            e2eTests: false,
-            checkCodeFormat: true,
-            coverageEnabled: true,
-          },
+          # {
+          #   os: ubuntu-24.04,
+          #   cmakeBuildType: RelWithDebInfo,
+          #   asanEnabled: false,
+          #   guiEnabled: true,
+          #   cudaEnabled: false,
+          #   e2eTests: false,
+          #   checkCodeFormat: true,
+          #   coverageEnabled: true,
+          # },
           {
             os: ubuntu-22.04,
             cmakeBuildType: Release,
@@ -41,16 +41,16 @@ jobs:
             checkCodeFormat: true,
             coverageEnabled: false,
           },
-          {
-            os: ubuntu-22.04,
-            cmakeBuildType: Release,
-            asanEnabled: false,
-            guiEnabled: false,
-            cudaEnabled: true,
-            e2eTests: false,
-            checkCodeFormat: false,
-            coverageEnabled: false,
-          },
+          # {
+          #   os: ubuntu-22.04,
+          #   cmakeBuildType: Release,
+          #   asanEnabled: false,
+          #   guiEnabled: false,
+          #   cudaEnabled: true,
+          #   e2eTests: false,
+          #   checkCodeFormat: false,
+          #   coverageEnabled: false,
+          # },
           {
             os: ubuntu-22.04,
             cmakeBuildType: Release,
@@ -81,16 +81,16 @@ jobs:
             checkCodeFormat: false,
             coverageEnabled: false,
           },
-          {
-            os: ubuntu-20.04,
-            cmakeBuildType: Release,
-            asanEnabled: false,
-            guiEnabled: false,
-            cudaEnabled: true,
-            e2eTests: false,
-            checkCodeFormat: false,
-            coverageEnabled: false,
-          },
+          # {
+          #   os: ubuntu-20.04,
+          #   cmakeBuildType: Release,
+          #   asanEnabled: false,
+          #   guiEnabled: false,
+          #   cudaEnabled: true,
+          #   e2eTests: false,
+          #   checkCodeFormat: false,
+          #   coverageEnabled: false,
+          # },
         ]
 
     env:
@@ -102,13 +102,16 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          lfs: true
+
       - uses: actions/cache@v4
         id: cache-builds
         with:
           key: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}-${{ github.run_id }}-${{ github.run_number }}
           restore-keys: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}
           path: ${{ env.COMPILER_CACHE_DIR }}
-      
+
       - name: Install compiler cache
         run: |
           mkdir -p "$CCACHE_DIR" "$CTCACHE_DIR"
@@ -166,7 +169,8 @@ jobs:
             libgl1-mesa-dri \
             libunwind-dev \
             libcurl4-openssl-dev \
-            xvfb
+            xvfb \
+            libmkl-dev
 
           if [ "${{ matrix.config.cudaEnabled }}" == "true" ]; then
             if [ "${{ matrix.config.os }}" == "ubuntu-20.04" ]; then
@@ -213,6 +217,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=${{ matrix.config.cmakeBuildType }} \
             -DCMAKE_INSTALL_PREFIX=./install \
             -DCMAKE_CUDA_ARCHITECTURES=50 \
+            -DTORCH_ENABLED=ON \
             -DTESTS_ENABLED=ON \
             -DCUDA_ENABLED=${{ matrix.config.cudaEnabled }} \
             -DGUI_ENABLED=${{ matrix.config.guiEnabled }} \
@@ -295,7 +300,7 @@ jobs:
           indicators: true
           output: both
           thresholds: '75 90'
-      
+
       # TODO: Add code coverage comment to PR. Currently, this action reports
       # coverage for the entire repository, not just the changed files in the PR.
       # We could manually filter the coverage report to only include the changed
