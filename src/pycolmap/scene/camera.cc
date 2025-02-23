@@ -159,8 +159,8 @@ void BindCamera(py::module& m) {
           [](const Camera& self,
              const py::EigenDRef<const Eigen::MatrixX3d>& cam_points) {
             const size_t num_points = cam_points.rows();
-            std::vector<Eigen::Vector2d> image_points(cam_points.rows());
-            for (size_t i = 0; i < cam_points.rows(); ++i) {
+            std::vector<Eigen::Vector2d> image_points(num_points);
+            for (size_t i = 0; i < num_points; ++i) {
               const std::optional<Eigen::Vector2d> image_point =
                   self.ImgFromCam(cam_points.row(i));
               if (image_point) {
@@ -197,14 +197,15 @@ void BindCamera(py::module& m) {
                 "img_from_cam() with normalized 2D points as input is "
                 "deprecated. Instead, pass 3D points in the camera frame.",
                 1);
-            std::vector<Eigen::Vector2d> image_points(cam_points.size());
-            for (size_t idx = 0; idx < cam_points.size(); ++idx) {
+            const size_t num_points = cam_points.size();
+            std::vector<Eigen::Vector2d> image_points(num_points);
+            for (size_t i = 0; i < num_points; ++i) {
               const std::optional<Eigen::Vector2d> image_point =
-                  self.ImgFromCam(cam_points[idx].xy.homogeneous());
+                  self.ImgFromCam(cam_points[i].xy.homogeneous());
               if (image_point) {
-                image_points[idx] = *image_point;
+                image_points[i] = *image_point;
               } else {
-                image_points[idx].setConstant(
+                image_points[i].setConstant(
                     std::numeric_limits<double>::quiet_NaN());
               }
             }
