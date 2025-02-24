@@ -42,8 +42,7 @@ void BindAffineTransformEstimator(py::module& m) {
       "estimate_affine2d_robust",
       [](const std::vector<Eigen::Vector2d>& src,
          const std::vector<Eigen::Vector2d>& tgt,
-         const RANSACOptions& options)
-          -> py::typing::Optional<py::dict> {
+         const RANSACOptions& options) -> py::typing::Optional<py::dict> {
         py::gil_scoped_release release;
         Eigen::Matrix2x3d tgt_from_src;
         const auto report =

@@ -1,20 +1,19 @@
 #include "colmap/util/logging.h"
 
-#include "pycolmap/pybind11_extension.h"
 #include "pycolmap/helpers.h"
+#include "pycolmap/pybind11_extension.h"
 
+#include <Eigen/Geometry>
 #include <pybind11/eigen.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
-
-#include <Eigen/Geometry>
 
 using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindEigenGeometry(py::module& m) {
-    py::class_ext_<Eigen::Quaterniond> PyRotation3d(m, "Rotation3d");
+  py::class_ext_<Eigen::Quaterniond> PyRotation3d(m, "Rotation3d");
   PyRotation3d.def(py::init([]() { return Eigen::Quaterniond::Identity(); }))
       .def(py::init<const Eigen::Vector4d&>(),
            "xyzw"_a,
