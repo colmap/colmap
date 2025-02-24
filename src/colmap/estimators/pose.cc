@@ -80,17 +80,8 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
           camera->CamFromImg(points2D[i]).homogeneous().normalized();
     }
 
-    // TODO(jsch): Replace this with camera->ImgFromCam() once the camera class
-    // returns an optional.
-    auto img_from_cam_func = [&camera](const Eigen::Vector3d& point3D_in_cam)
-        -> std::optional<Eigen::Vector2d> {
-      if (point3D_in_cam.z() < std::numeric_limits<double>::epsilon()) {
-        return std::nullopt;
-      } else {
-        return camera->ImgFromCam(point3D_in_cam.hnormalized());
-      }
-    };
-
+    ImgFromCamFunc img_from_cam_func =
+        std::bind(&Camera::ImgFromCam, camera, std::placeholders::_1);
     LORANSAC<P3PEstimator, EPNPEstimator> ransac(
         options.ransac_options,
         P3PEstimator(img_from_cam_func),
