@@ -31,5 +31,5 @@ void BindPoint2D(py::module& m) {
       .def("has_point3D", &Point2D::HasPoint3D);
   MakeDataclass(PyPoint2D);
 
-  py::implicitly_convertible<py::iterable, Point2DVector>();
+  py::bind_vector<Point2DVector>(m, "Point2DList");
 }
