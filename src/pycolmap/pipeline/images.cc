@@ -199,32 +199,6 @@ void BindImages(py::module& m) {
                         .value("hardlink", CopyType::HARD_LINK);
   AddStringToEnumConstructor(PyCopyType);
 
-  using UDOpts = UndistortCameraOptions;
-  auto PyUndistortCameraOptions =
-      py::class_<UDOpts>(m, "UndistortCameraOptions")
-          .def(py::init<>())
-          .def_readwrite("blank_pixels",
-                         &UDOpts::blank_pixels,
-                         "The amount of blank pixels in the undistorted "
-                         "image in the range [0, 1].")
-          .def_readwrite("min_scale",
-                         &UDOpts::min_scale,
-                         "Minimum scale change of camera used to satisfy the "
-                         "blank pixel constraint.")
-          .def_readwrite("max_scale",
-                         &UDOpts::max_scale,
-                         "Maximum scale change of camera used to satisfy the "
-                         "blank pixel constraint.")
-          .def_readwrite("max_image_size",
-                         &UDOpts::max_image_size,
-                         "Maximum image size in terms of width or height of "
-                         "the undistorted camera.")
-          .def_readwrite("roi_min_x", &UDOpts::roi_min_x)
-          .def_readwrite("roi_min_y", &UDOpts::roi_min_y)
-          .def_readwrite("roi_max_x", &UDOpts::roi_max_x)
-          .def_readwrite("roi_max_y", &UDOpts::roi_max_y);
-  MakeDataclass(PyUndistortCameraOptions);
-
   m.def("import_images",
         &ImportImages,
         "database_path"_a,
