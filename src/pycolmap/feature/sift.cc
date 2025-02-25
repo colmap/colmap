@@ -174,7 +174,8 @@ void BindSift(py::module& m) {
           .def_readwrite("dsp_num_scales", &Opts::dsp_num_scales)
           .def_readwrite("normalization",
                          &Opts::normalization,
-                         "L1_ROOT or L2 descriptor normalization");
+                         "L1_ROOT or L2 descriptor normalization")
+          .def("check", &Opts::Check);
   MakeDataclass(PySiftExtractionOptions);
 
   py::class_<Sift>(m, "Sift")
@@ -219,6 +220,7 @@ void BindSift(py::module& m) {
           .def_readwrite("guided_matching",
                          &SMOpts::guided_matching,
                          "Whether to perform guided matching, if geometric "
-                         "verification succeeds.");
+                         "verification succeeds.")
+          .def("check", &SMOpts::Check);
   MakeDataclass(PySiftMatchingOptions);
 }

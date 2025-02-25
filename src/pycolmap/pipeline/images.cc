@@ -190,7 +190,8 @@ void BindImages(py::module& m) {
               &IROpts::camera_mask_path,
               "Optional path to an image file specifying a mask for all "
               "images. No features will be extracted in regions where the "
-              "mask is black (pixel intensity value 0 in grayscale)");
+              "mask is black (pixel intensity value 0 in grayscale)")
+          .def("check", &IROpts::Check);
   MakeDataclass(PyImageReaderOptions);
 
   auto PyCopyType = py::enum_<CopyType>(m, "CopyType")

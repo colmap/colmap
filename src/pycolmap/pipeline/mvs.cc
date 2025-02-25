@@ -170,7 +170,8 @@ void BindMVS(py::module& m) {
               "Whether to tolerate missing images/maps in the problem setup")
           .def_readwrite("write_consistency_graph",
                          &PMOpts::write_consistency_graph,
-                         "Whether to write the consistency graph.");
+                         "Whether to write the consistency graph.")
+          .def("check", &PMOpts::Check);
   MakeDataclass(PyPatchMatchOptions);
 
   m.def("patch_match_stereo",
@@ -231,7 +232,8 @@ void BindMVS(py::module& m) {
                          "Cache size in gigabytes for fusion.")
           .def_readwrite("bounding_box",
                          &SFOpts::bounding_box,
-                         "Bounding box Tuple[min, max]");
+                         "Bounding box Tuple[min, max]")
+          .def("check", &SFOpts::Check);
   MakeDataclass(PyStereoFusionOptions);
 
   m.def(
