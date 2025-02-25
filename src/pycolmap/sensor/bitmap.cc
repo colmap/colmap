@@ -10,6 +10,11 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
+#ifdef _MSC_VER  // If compiling with MSVC
+#include <stddef.h>
+typedef ptrdiff_t ssize_t;
+#endif
+
 void BindBitmap(pybind11::module& m) {
   py::class_<Bitmap>(m, "Bitmap")
       .def(py::init<>())
