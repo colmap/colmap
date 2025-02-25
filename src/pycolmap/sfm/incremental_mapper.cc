@@ -143,6 +143,13 @@ void BindIncrementalPipeline(py::module& m) {
           "ba_global_max_refinement_change",
           &Opts::ba_global_max_refinement_change,
           "The thresholds for iterative bundle adjustment refinements.")
+      .def_readwrite("ba_use_gpu",
+                     &IncrementalPipelineOptions::ba_use_gpu,
+                     "Whether to use Ceres' CUDA sparse linear algebra "
+                     "library, if available.")
+      .def_readwrite("ba_gpu_index",
+                     &IncrementalPipelineOptions::ba_gpu_index,
+                     "Index of CUDA GPU to use for BA, if available.")
       .def_readwrite("use_prior_position",
                      &Opts::use_prior_position,
                      "Whether to use priors on the camera positions.")
@@ -179,7 +186,8 @@ void BindIncrementalPipeline(py::module& m) {
       .def("get_triangulation", &Opts::Triangulation)
       .def("get_local_bundle_adjustment", &Opts::LocalBundleAdjustment)
       .def("get_global_bundle_adjustment", &Opts::GlobalBundleAdjustment)
-      .def("is_initial_pair_provided", &Opts::IsInitialPairProvided);
+      .def("is_initial_pair_provided", &Opts::IsInitialPairProvided)
+      .def("check", &Opts::Check);
   MakeDataclass(PyOpts);
 
   using CallbackType = IncrementalPipeline::CallbackType;
@@ -330,7 +338,8 @@ void BindIncrementalMapperOptions(py::module& m) {
       .def_readwrite("num_threads", &Opts::num_threads, "Number of threads.")
       .def_readwrite("image_selection_method",
                      &Opts::image_selection_method,
-                     "Method to find and select next best image to register.");
+                     "Method to find and select next best image to register.")
+      .def("check", &Opts::Check);
   MakeDataclass(PyOpts);
 }
 
