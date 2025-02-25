@@ -2,6 +2,23 @@ cmake_minimum_required(VERSION 3.10)
 project(${SKBUILD_PROJECT_NAME} VERSION ${SKBUILD_PROJECT_VERSION})
 option(GENERATE_STUBS "Whether to generate stubs" ON)
 
+# Qt5 configuration
+if(NOT DEFINED Qt5_DIR)
+    execute_process(
+        COMMAND brew --prefix qt5
+        OUTPUT_VARIABLE BREW_QT5_PREFIX
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        RESULT_VARIABLE BREW_RESULT
+    )
+    
+    if(BREW_RESULT EQUAL 0 AND EXISTS "${BREW_QT5_PREFIX}")
+        set(Qt5_DIR "${BREW_QT5_PREFIX}/lib/cmake/Qt5" CACHE PATH "Path to Qt5 CMake config")
+        message(STATUS "Setting Qt5_DIR to: ${Qt5_DIR}")
+    else()
+        message(WARNING "Could not determine Qt5 path from brew. Please set Qt5_DIR manually if needed.")
+    endif()
+endif()
+
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
