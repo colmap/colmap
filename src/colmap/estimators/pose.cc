@@ -76,8 +76,13 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
     std::vector<P3PEstimator::X_t> points2D_with_rays(points2D.size());
     for (size_t i = 0; i < points2D.size(); ++i) {
       points2D_with_rays[i].image_point = points2D[i];
-      points2D_with_rays[i].camera_ray =
-          camera->CamFromImg(points2D[i]).homogeneous().normalized();
+      if (const std::optional<Eigen::Vector3d> cam_ray =
+              camera->CamFromImg(points2D[i]);
+          cam_ray) {
+        points2D_with_rays[i].camera_ray = cam_ray->normalized();
+      } else {
+        points2D_with_rays[i].camera_ray.setZero();
+      }
     }
 
     ImgFromCamFunc img_from_cam_func =

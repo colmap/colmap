@@ -130,7 +130,7 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
       double focal_length, size_t width, size_t height);                      \
   template <typename T>                                                       \
   static bool ImgFromCam(const T* params, T u, T v, T w, T* x, T* y);         \
-  static inline void CamFromImg(const double* params,                         \
+  static inline bool CamFromImg(const double* params,                         \
                                 double x,                                     \
                                 double y,                                     \
                                 double* u,                                    \
@@ -217,7 +217,7 @@ struct BaseCameraModel {
   template <typename T>
   static inline T CamFromImgThreshold(const T* params, T threshold);
 
-  static inline void IterativeUndistortion(const double* params,
+  static inline bool IterativeUndistortion(const double* params,
                                            double* u,
                                            double* v);
 };
@@ -552,10 +552,11 @@ inline std::optional<Eigen::Vector2d> CameraModelImgFromCam(
 // @param params        Array of camera parameters.
 // @param xy            Image coordinates in pixels.
 //
-// @return              Output Coordinates in camera system as (u, v, w=1).
-inline Eigen::Vector3d CameraModelCamFromImg(CameraModelId model_id,
-                                             const std::vector<double>& params,
-                                             const Eigen::Vector2d& xy);
+// @return              Output ray in camera frame (u, v, w).
+inline std::optional<Eigen::Vector3d> CameraModelCamFromImg(
+    CameraModelId model_id,
+    const std::vector<double>& params,
+    const Eigen::Vector2d& xy);
 
 // Convert pixel threshold in image plane to camera space by dividing
 // the threshold through the mean focal length.
@@ -656,13 +657,13 @@ T BaseCameraModel<CameraModel>::CamFromImgThreshold(const T* params,
 }
 
 template <typename CameraModel>
-void BaseCameraModel<CameraModel>::IterativeUndistortion(const double* params,
+bool BaseCameraModel<CameraModel>::IterativeUndistortion(const double* params,
                                                          double* u,
                                                          double* v) {
   // Parameters for Newton iteration. 100 iterations should be enough for
   // complex camera models with higher order terms.
   constexpr size_t kNumIterations = 100;
-  constexpr double kMaxStepNorm = 1e-10;
+  constexpr double kMinStepSquaredNorm = 1e-10;
   // Trust region: step_x.norm() <= max(x.norm() * kRelStepRadius, kStepRadius)
   constexpr double kRelStepRadius = 0.1;
   constexpr double kStepRadius = 0.1;
@@ -701,13 +702,17 @@ void BaseCameraModel<CameraModel>::IterativeUndistortion(const double* params,
       step_x *= std::sqrt(radius_sqr / step_x_norm_sqr);
     }
     x -= step_x;
-    if (step_x.squaredNorm() < kMaxStepNorm) {
-      break;
+    if (step_x.squaredNorm() < kMinStepSquaredNorm) {
+      *u = x(0);
+      *v = x(1);
+      return true;
     }
   }
 
   *u = x(0);
   *v = x(1);
+
+  return false;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -754,7 +759,7 @@ bool SimplePinholeCameraModel::ImgFromCam(
   return true;
 }
 
-void SimplePinholeCameraModel::CamFromImg(
+bool SimplePinholeCameraModel::CamFromImg(
     const double* params, double x, double y, double* u, double* v, double* w) {
   const double f = params[0];
   const double c1 = params[1];
@@ -763,6 +768,8 @@ void SimplePinholeCameraModel::CamFromImg(
   *u = (x - c1) / f;
   *v = (y - c2) / f;
   *w = 1;
+
+  return true;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -810,7 +817,7 @@ bool PinholeCameraModel::ImgFromCam(
   return true;
 }
 
-void PinholeCameraModel::CamFromImg(
+bool PinholeCameraModel::CamFromImg(
     const double* params, double x, double y, double* u, double* v, double* w) {
   const double f1 = params[0];
   const double f2 = params[1];
@@ -820,6 +827,8 @@ void PinholeCameraModel::CamFromImg(
   *u = (x - c1) / f1;
   *v = (y - c2) / f2;
   *w = 1;
+
+  return true;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -873,7 +882,7 @@ bool SimpleRadialCameraModel::ImgFromCam(
   return true;
 }
 
-void SimpleRadialCameraModel::CamFromImg(
+bool SimpleRadialCameraModel::CamFromImg(
     const double* params, double x, double y, double* u, double* v, double* w) {
   const double f = params[0];
   const double c1 = params[1];
@@ -884,7 +893,7 @@ void SimpleRadialCameraModel::CamFromImg(
   *v = (y - c2) / f;
   *w = 1;
 
-  IterativeUndistortion(&params[3], u, v);
+  return IterativeUndistortion(&params[3], u, v);
 }
 
 template <typename T>
@@ -950,7 +959,7 @@ bool RadialCameraModel::ImgFromCam(const T* params, T u, T v, T w, T* x, T* y) {
   return true;
 }
 
-void RadialCameraModel::CamFromImg(
+bool RadialCameraModel::CamFromImg(
     const double* params, double x, double y, double* u, double* v, double* w) {
   const double f = params[0];
   const double c1 = params[1];
@@ -961,7 +970,7 @@ void RadialCameraModel::CamFromImg(
   *v = (y - c2) / f;
   *w = 1;
 
-  IterativeUndistortion(&params[3], u, v);
+  return IterativeUndistortion(&params[3], u, v);
 }
 
 template <typename T>
@@ -1029,7 +1038,7 @@ bool OpenCVCameraModel::ImgFromCam(const T* params, T u, T v, T w, T* x, T* y) {
   return true;
 }
 
-void OpenCVCameraModel::CamFromImg(
+bool OpenCVCameraModel::CamFromImg(
     const double* params, double x, double y, double* u, double* v, double* w) {
   const double f1 = params[0];
   const double f2 = params[1];
@@ -1041,7 +1050,7 @@ void OpenCVCameraModel::CamFromImg(
   *v = (y - c2) / f2;
   *w = 1;
 
-  IterativeUndistortion(&params[4], u, v);
+  return IterativeUndistortion(&params[4], u, v);
 }
 
 template <typename T>
@@ -1131,14 +1140,16 @@ bool OpenCVFisheyeCameraModel::ImgFromCam(
   return true;
 }
 
-void OpenCVFisheyeCameraModel::CamFromImg(
+bool OpenCVFisheyeCameraModel::CamFromImg(
     const double* params, double x, double y, double* u, double* v, double* w) {
-  // Lift points to normalized plane
   double uu, vv;
   FisheyeFromImg(params, x, y, &uu, &vv);
   *w = 1;
-  IterativeUndistortion(&params[4], &uu, &vv);
+  if (!IterativeUndistortion(&params[4], &uu, &vv)) {
+    return false;
+  }
   NormalFromFisheye(uu, vv, u, v);
+  return true;
 }
 
 template <typename T>
@@ -1221,7 +1232,7 @@ bool FullOpenCVCameraModel::ImgFromCam(
   return true;
 }
 
-void FullOpenCVCameraModel::CamFromImg(
+bool FullOpenCVCameraModel::CamFromImg(
     const double* params, double x, double y, double* u, double* v, double* w) {
   const double f1 = params[0];
   const double f2 = params[1];
@@ -1233,7 +1244,7 @@ void FullOpenCVCameraModel::CamFromImg(
   *v = (y - c2) / f2;
   *w = 1;
 
-  IterativeUndistortion(&params[4], u, v);
+  return IterativeUndistortion(&params[4], u, v);
 }
 
 template <typename T>
@@ -1309,7 +1320,7 @@ bool FOVCameraModel::ImgFromCam(const T* params, T u, T v, T w, T* x, T* y) {
   return true;
 }
 
-void FOVCameraModel::CamFromImg(
+bool FOVCameraModel::CamFromImg(
     const double* params, double x, double y, double* u, double* v, double* w) {
   const double f1 = params[0];
   const double f2 = params[1];
@@ -1323,6 +1334,8 @@ void FOVCameraModel::CamFromImg(
 
   // Undistortion
   Undistortion(&params[4], uu, vv, u, v);
+
+  return true;
 }
 
 template <typename T>
@@ -1472,13 +1485,16 @@ bool SimpleRadialFisheyeCameraModel::ImgFromCam(
   return true;
 }
 
-void SimpleRadialFisheyeCameraModel::CamFromImg(
+bool SimpleRadialFisheyeCameraModel::CamFromImg(
     const double* params, double x, double y, double* u, double* v, double* w) {
   double uu, vv;
   FisheyeFromImg(params, x, y, &uu, &vv);
   *w = 1;
-  IterativeUndistortion(&params[3], &uu, &vv);
+  if (!IterativeUndistortion(&params[3], &uu, &vv)) {
+    return false;
+  }
   NormalFromFisheye(uu, vv, u, v);
+  return true;
 }
 
 template <typename T>
@@ -1560,13 +1576,16 @@ bool RadialFisheyeCameraModel::ImgFromCam(
   return true;
 }
 
-void RadialFisheyeCameraModel::CamFromImg(
+bool RadialFisheyeCameraModel::CamFromImg(
     const double* params, double x, double y, double* u, double* v, double* w) {
   double uu, vv;
   FisheyeFromImg(params, x, y, &uu, &vv);
   *w = 1;
-  IterativeUndistortion(&params[3], &uu, &vv);
+  if (!IterativeUndistortion(&params[3], &uu, &vv)) {
+    return false;
+  }
   NormalFromFisheye(uu, vv, u, v);
+  return true;
 }
 
 template <typename T>
@@ -1664,13 +1683,16 @@ bool ThinPrismFisheyeCameraModel::ImgFromCam(
   return true;
 }
 
-void ThinPrismFisheyeCameraModel::CamFromImg(
+bool ThinPrismFisheyeCameraModel::CamFromImg(
     const double* params, double x, double y, double* u, double* v, double* w) {
   double uu, vv;
   FisheyeFromImg(params, x, y, &uu, &vv);
   *w = 1;
-  IterativeUndistortion(&params[4], &uu, &vv);
+  if (!IterativeUndistortion(&params[4], &uu, &vv)) {
+    return false;
+  }
   NormalFromFisheye(uu, vv, u, v);
+  return true;
 }
 
 template <typename T>
@@ -1776,13 +1798,16 @@ bool RadTanThinPrismFisheyeModel::ImgFromCam(
   return true;
 }
 
-void RadTanThinPrismFisheyeModel::CamFromImg(
+bool RadTanThinPrismFisheyeModel::CamFromImg(
     const double* params, double x, double y, double* u, double* v, double* w) {
   double uu, vv;
   FisheyeFromImg(params, x, y, &uu, &vv);
   *w = 1;
-  IterativeUndistortion(&params[4], &uu, &vv);
+  if (!IterativeUndistortion(&params[4], &uu, &vv)) {
+    return false;
+  }
   NormalFromFisheye(uu, vv, u, v);
+  return true;
 }
 
 template <typename T>
@@ -1854,22 +1879,25 @@ std::optional<Eigen::Vector2d> CameraModelImgFromCam(
   return std::nullopt;
 }
 
-Eigen::Vector3d CameraModelCamFromImg(const CameraModelId model_id,
-                                      const std::vector<double>& params,
-                                      const Eigen::Vector2d& xy) {
+std::optional<Eigen::Vector3d> CameraModelCamFromImg(
+    const CameraModelId model_id,
+    const std::vector<double>& params,
+    const Eigen::Vector2d& xy) {
   Eigen::Vector3d uvw;
   switch (model_id) {
-#define CAMERA_MODEL_CASE(CameraModel)                                \
-  case CameraModel::model_id:                                         \
-    CameraModel::CamFromImg(                                          \
-        params.data(), xy.x(), xy.y(), &uvw.x(), &uvw.y(), &uvw.z()); \
+#define CAMERA_MODEL_CASE(CameraModel)                                      \
+  case CameraModel::model_id:                                               \
+    if (CameraModel::CamFromImg(                                            \
+            params.data(), xy.x(), xy.y(), &uvw.x(), &uvw.y(), &uvw.z())) { \
+      return uvw;                                                           \
+    }                                                                       \
     break;
 
     CAMERA_MODEL_SWITCH_CASES
 
 #undef CAMERA_MODEL_CASE
   }
-  return uvw;
+  return std::nullopt;
 }
 
 double CameraModelCamFromImgThreshold(const CameraModelId model_id,

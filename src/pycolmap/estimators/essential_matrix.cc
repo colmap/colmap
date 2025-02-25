@@ -30,13 +30,23 @@ py::typing::Optional<py::dict> PyEstimateAndDecomposeEssentialMatrix(
   THROW_CHECK_EQ(points2D1.size(), points2D2.size());
   const size_t num_points2D = points2D1.size();
 
-  std::vector<Eigen::Vector3d> rays1(num_points2D);
-  std::vector<Eigen::Vector3d> rays2(num_points2D);
+  std::vector<Eigen::Vector3d> cam_rays1(num_points2D);
+  std::vector<Eigen::Vector3d> cam_rays2(num_points2D);
   for (size_t point2D_idx = 0; point2D_idx < num_points2D; ++point2D_idx) {
-    rays1[point2D_idx] =
-        camera1.CamFromImg(points2D1[point2D_idx]).homogeneous();
-    rays2[point2D_idx] =
-        camera2.CamFromImg(points2D2[point2D_idx]).homogeneous();
+    if (const std::optional<Eigen::Vector3d> cam_ray1 =
+            camera1.CamFromImg(points2D1[point2D_idx]);
+        cam_ray1) {
+      cam_rays1[point2D_idx] = *cam_ray1;
+    } else {
+      cam_rays1[point2D_idx].setZero();
+    }
+    if (const std::optional<Eigen::Vector3d> cam_ray2 =
+            camera2.CamFromImg(points2D2[point2D_idx]);
+        cam_ray2) {
+      cam_rays2[point2D_idx] = *cam_ray2;
+    } else {
+      cam_rays2[point2D_idx].setZero();
+    }
   }
 
   const double max_error_px = options.max_error;
@@ -48,7 +58,7 @@ py::typing::Optional<py::dict> PyEstimateAndDecomposeEssentialMatrix(
       ransac(ransac_options);
 
   // Essential matrix estimation.
-  const auto report = ransac.Estimate(rays1, rays2);
+  const auto report = ransac.Estimate(cam_rays1, cam_rays2);
 
   if (!report.success) {
     py::gil_scoped_acquire acquire;
@@ -56,24 +66,24 @@ py::typing::Optional<py::dict> PyEstimateAndDecomposeEssentialMatrix(
   }
 
   // Pose from essential matrix.
-  std::vector<Eigen::Vector2d> inlier_cam_points2D1;
-  inlier_cam_points2D1.reserve(inlier_cam_points2D1.size());
-  std::vector<Eigen::Vector2d> inlier_cam_points2D2;
-  inlier_cam_points2D1.reserve(inlier_cam_points2D2.size());
+  std::vector<Eigen::Vector2d> inlier_cam_rays1;
+  inlier_cam_rays1.reserve(report.support.num_inliers);
+  std::vector<Eigen::Vector2d> inlier_cam_rays2;
+  inlier_cam_rays1.reserve(report.support.num_inliers);
   for (size_t point2D_idx = 0; point2D_idx < num_points2D; ++point2D_idx) {
     if (report.inlier_mask[point2D_idx]) {
-      inlier_cam_points2D1.push_back(
-          camera1.CamFromImg(points2D1[point2D_idx]));
-      inlier_cam_points2D2.push_back(
-          camera2.CamFromImg(points2D2[point2D_idx]));
+      // TODO(jsch): Change normalized points to camera rays when we changed
+      // pose decomposition and cheirality check to deal with camera rays.
+      inlier_cam_rays1.push_back(cam_rays1[point2D_idx].hnormalized());
+      inlier_cam_rays2.push_back(cam_rays2[point2D_idx].hnormalized());
     }
   }
 
   Rigid3d cam2_from_cam1;
   std::vector<Eigen::Vector3d> inlier_points3D;
   PoseFromEssentialMatrix(report.model,
-                          inlier_cam_points2D1,
-                          inlier_cam_points2D2,
+                          inlier_cam_rays1,
+                          inlier_cam_rays2,
                           &cam2_from_cam1,
                           &inlier_points3D);
 

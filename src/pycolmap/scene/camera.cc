@@ -110,30 +110,44 @@ void BindCamera(py::module& m) {
       .def("cam_from_img",
            &Camera::CamFromImg,
            "image_point"_a,
-           "Project point in image plane to camera frame.")
+           "Unproject point in image plane to camera frame.")
       .def(
           "cam_from_img",
           [](const Camera& self,
              const py::EigenDRef<const Eigen::MatrixX2d>& image_points) {
-            std::vector<Eigen::Vector2d> world_points(image_points.rows());
-            for (size_t idx = 0; idx < image_points.rows(); ++idx) {
-              world_points[idx] = self.CamFromImg(image_points.row(idx));
+            std::vector<Eigen::Vector3d> cam_rays(image_points.rows());
+            for (size_t i = 0; i < image_points.rows(); ++i) {
+              const std::optional<Eigen::Vector3d> cam_ray =
+                  self.CamFromImg(image_points.row(i));
+              if (cam_ray) {
+                cam_rays[i] = *cam_ray;
+              } else {
+                cam_rays[i].setConstant(
+                    std::numeric_limits<double>::quiet_NaN());
+              }
             }
-            return world_points;
+            return cam_rays;
           },
           "image_points"_a,
-          "Project list of points in image plane to camera frame.")
+          "Unproject list of points in image plane to camera frame.")
       .def(
           "cam_from_img",
           [](const Camera& self, const Point2DVector& image_points) {
-            std::vector<Eigen::Vector2d> world_points(image_points.size());
-            for (size_t idx = 0; idx < image_points.size(); ++idx) {
-              world_points[idx] = self.CamFromImg(image_points[idx].xy);
+            std::vector<Eigen::Vector3d> cam_rays(image_points.size());
+            for (size_t i = 0; i < image_points.size(); ++i) {
+              const std::optional<Eigen::Vector3d> cam_ray =
+                  self.CamFromImg(image_points[i].xy);
+              if (cam_ray) {
+                cam_rays[i] = *cam_ray;
+              } else {
+                cam_rays[i].setConstant(
+                    std::numeric_limits<double>::quiet_NaN());
+              }
             }
-            return world_points;
+            return cam_rays;
           },
           "image_points"_a,
-          "Project list of points in image plane to camera frame.")
+          "Unproject list of points in image plane to camera frame.")
       .def("cam_from_img_threshold",
            &Camera::CamFromImgThreshold,
            "threshold"_a,
