@@ -232,5 +232,5 @@ void BindCamera(py::module& m) {
                  "params",
                  "has_prior_focal_length"});
 
-  py::bind_map<CameraMap>(m, "MapCameraIdToCamera");
+  py::bind_map<CameraMap>(m, "CameraMap");
 }

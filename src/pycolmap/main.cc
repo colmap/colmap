@@ -18,10 +18,12 @@ namespace py = pybind11;
 
 void BindEstimators(py::module& m);
 void BindGeometry(py::module& m);
+void BindImage(py::module& m);
 void BindOptim(py::module& m);
 void BindPipeline(py::module& m);
 void BindScene(py::module& m);
-void BindSfMObjects(py::module& m);
+void BindSensor(py::module& m);
+void BindSfm(py::module& m);
 void BindSift(py::module& m);
 
 PYBIND11_MODULE(_core, m) {
@@ -47,8 +49,10 @@ PYBIND11_MODULE(_core, m) {
   BindGeometry(m);
   BindOptim(m);
   BindScene(m);
+  BindSensor(m);
+  BindImage(m);
   BindEstimators(m);
-  BindSfMObjects(m);
+  BindSfm(m);
   BindSift(m);
   BindPipeline(m);
 

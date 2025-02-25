@@ -70,6 +70,14 @@ TEST(Bitmap, Empty) {
   EXPECT_FALSE(bitmap.IsGrey());
 }
 
+TEST(Bitmap, Print) {
+  Bitmap bitmap;
+  bitmap.Allocate(100, 100, true);
+  std::ostringstream stream;
+  stream << bitmap;
+  EXPECT_EQ(stream.str(), "Bitmap(width=100, height=100, channels=3)");
+}
+
 TEST(Bitmap, AllocateRGB) {
   Bitmap bitmap;
   bitmap.Allocate(100, 100, true);
