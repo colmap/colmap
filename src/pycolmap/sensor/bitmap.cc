@@ -20,9 +20,9 @@ void BindBitmap(pybind11::module& m) {
       .def(py::init<>())
       .def("to_array",
            [](const Bitmap& self) {
-             std::vector<size_t> shape = {static_cast<size_t>(self.Height()),
-                                          static_cast<size_t>(self.Width())};
-             const auto channels = static_cast<size_t>(self.Channels());
+             std::vector<ssize_t> shape = {static_cast<ssize_t>(self.Height()),
+                                           static_cast<ssize_t>(self.Width())};
+             const auto channels = static_cast<ssize_t>(self.Channels());
              const bool is_rgb = self.IsRGB();
              if (channels != 1) {
                if (channels != 3) {
@@ -36,13 +36,13 @@ void BindBitmap(pybind11::module& m) {
              py::buffer_info output_into = output.request();
              uint8_t* output_row_ptr =
                  reinterpret_cast<uint8_t*>(output.request().ptr);
-             const size_t output_pitch =
+             const ssize_t output_pitch =
                  (output_into.shape.size() == 2)
                      ? output_into.shape[1]
                      : (output_into.shape[1] * output_into.shape[2]);
-             for (size_t y = 0; y < output_into.shape[0]; ++y) {
+             for (ssize_t y = 0; y < output_into.shape[0]; ++y) {
                if (is_rgb) {
-                 for (size_t x = 0; x < output_into.shape[1]; ++x) {
+                 for (ssize_t x = 0; x < output_into.shape[1]; ++x) {
                    // Notice that the underlying FreeImage buffer may order
                    // the channels as BGR or in any other format and with
                    // different striding, so we have to set each pixel
