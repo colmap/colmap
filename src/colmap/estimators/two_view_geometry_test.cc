@@ -135,12 +135,11 @@ TwoViewGeometryTestData CreateTwoViewGeometryTestData(
       Eigen::Vector2d& point1 = data.points1[match.point2D_idx1];
       Eigen::Vector2d& point2 = data.points2[match.point2D_idx2];
       point2 = (data.geometry.H * point1.homogeneous()).hnormalized();
-      CHECK(TriangulatePoint(
-          image1.CamFromWorld().ToMatrix(),
-          image2.CamFromWorld().ToMatrix(),
-          data.camera1.CamFromImg(point1).value(),
-          data.camera2.CamFromImg(point2).value(),
-          &points3D.back()));
+      CHECK(TriangulatePoint(image1.CamFromWorld().ToMatrix(),
+                             image2.CamFromWorld().ToMatrix(),
+                             data.camera1.CamFromImg(point1).value(),
+                             data.camera2.CamFromImg(point2).value(),
+                             &points3D.back()));
     }
   }
 
