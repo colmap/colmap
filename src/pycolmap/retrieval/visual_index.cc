@@ -11,17 +11,17 @@
 
 using namespace colmap;
 using VisualIndex = retrieval::VisualIndex<>;
+using ImageScore = retrieval::ImageScore;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindVisualIndex(py::module& m) {
-  auto PyImageScore =
-      py::class_<retrieval::ImageScore>(m, "ImageScore")
-          .def(py::init<>())
-          .def_readonly("image_id", &retrieval::ImageScore::image_id)
-          .def_readonly("score", &retrieval::ImageScore::score);
+  auto PyImageScore = py::class_<ImageScore>(m, "ImageScore")
+                          .def(py::init<>())
+                          .def_readonly("image_id", &ImageScore::image_id)
+                          .def_readonly("score", &ImageScore::score);
   MakeDataclass(PyImageScore);
-  py::bind_vector<std::vector<retrieval::ImageScore>>(m, "ImageScores");
+  py::bind_vector<std::vector<ImageScore>>(m, "ImageScores");
 
   py::class_<VisualIndex, std::shared_ptr<VisualIndex>> PyVisualIndex(
       m, "VisualIndex");
@@ -74,14 +74,14 @@ void BindVisualIndex(py::module& m) {
            static_cast<void (VisualIndex::*)(
                const typename VisualIndex::QueryOptions&,
                const typename VisualIndex::DescType&,
-               std::vector<retrieval::ImageScore>*) const>(&VisualIndex::Query),
+               std::vector<ImageScore>*) const>(&VisualIndex::Query),
            py::call_guard<py::gil_scoped_release>())
       .def("query",
            static_cast<void (VisualIndex::*)(
                const typename VisualIndex::QueryOptions&,
                const typename VisualIndex::GeomType&,
                const typename VisualIndex::DescType&,
-               std::vector<retrieval::ImageScore>*) const>(&VisualIndex::Query),
+               std::vector<ImageScore>*) const>(&VisualIndex::Query),
            py::call_guard<py::gil_scoped_release>())
       .def("prepare",
            &VisualIndex::Prepare,
