@@ -138,8 +138,8 @@ TwoViewGeometryTestData CreateTwoViewGeometryTestData(
       CHECK(TriangulatePoint(
           image1.CamFromWorld().ToMatrix(),
           image2.CamFromWorld().ToMatrix(),
-          data.camera1.CamFromImg(point1).value().hnormalized(),
-          data.camera2.CamFromImg(point2).value().hnormalized(),
+          data.camera1.CamFromImg(point1).value(),
+          data.camera2.CamFromImg(point2).value(),
           &points3D.back()));
     }
   }
