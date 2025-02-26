@@ -192,13 +192,20 @@ void IncrementalMapper::RegisterInitialImagePair(
   track.Element(0).image_id = image_id1;
   track.Element(1).image_id = image_id2;
   for (const auto& corr : corrs) {
-    const Eigen::Vector2d point2D1 =
+    const std::optional<Eigen::Vector3d> cam_ray1 =
         camera1.CamFromImg(image1.Point2D(corr.point2D_idx1).xy);
-    const Eigen::Vector2d point2D2 =
+    const std::optional<Eigen::Vector3d> cam_ray2 =
         camera2.CamFromImg(image2.Point2D(corr.point2D_idx2).xy);
+    if (!cam_ray1 || !cam_ray2) {
+      continue;
+    }
+    // TODO(jsch): Change triangulation to operate on camera rays.
     Eigen::Vector3d xyz;
-    if (TriangulatePoint(
-            cam_from_world1, cam_from_world2, point2D1, point2D2, &xyz) &&
+    if (TriangulatePoint(cam_from_world1,
+                         cam_from_world2,
+                         cam_ray1->hnormalized(),
+                         cam_ray2->hnormalized(),
+                         &xyz) &&
         CalculateTriangulationAngle(proj_center1, proj_center2, xyz) >=
             min_tri_angle_rad &&
         HasPointPositiveDepth(cam_from_world1, xyz) &&

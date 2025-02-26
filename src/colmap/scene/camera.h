@@ -124,8 +124,9 @@ struct Camera {
                              double max_focal_length_ratio,
                              double max_extra_param) const;
 
-  // Project point in image plane to world / infinity.
-  inline Eigen::Vector2d CamFromImg(const Eigen::Vector2d& image_point) const;
+  // Project point in image plane to camera ray (not unit normalized).
+  inline std::optional<Eigen::Vector3d> CamFromImg(
+      const Eigen::Vector2d& image_point) const;
 
   // Convert pixel threshold in image plane to camera frame.
   inline double CamFromImgThreshold(double threshold) const;
@@ -244,8 +245,9 @@ bool Camera::HasBogusParams(const double min_focal_length_ratio,
                                    max_extra_param);
 }
 
-Eigen::Vector2d Camera::CamFromImg(const Eigen::Vector2d& image_point) const {
-  return CameraModelCamFromImg(model_id, params, image_point).hnormalized();
+std::optional<Eigen::Vector3d> Camera::CamFromImg(
+    const Eigen::Vector2d& image_point) const {
+  return CameraModelCamFromImg(model_id, params, image_point);
 }
 
 double Camera::CamFromImgThreshold(const double threshold) const {
