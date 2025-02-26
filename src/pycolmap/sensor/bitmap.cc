@@ -36,7 +36,7 @@ void BindBitmap(pybind11::module& m) {
              py::buffer_info output_into = output.request();
              uint8_t* output_row_ptr =
                  reinterpret_cast<uint8_t*>(output.request().ptr);
-             const ssize_t output_pitch =
+             const size_t output_pitch =
                  (output_into.shape.size() == 2)
                      ? output_into.shape[1]
                      : (output_into.shape[1] * output_into.shape[2]);
