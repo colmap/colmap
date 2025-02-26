@@ -199,13 +199,9 @@ void IncrementalMapper::RegisterInitialImagePair(
     if (!cam_ray1 || !cam_ray2) {
       continue;
     }
-    // TODO(jsch): Change triangulation to operate on camera rays.
     Eigen::Vector3d xyz;
-    if (TriangulatePoint(cam_from_world1,
-                         cam_from_world2,
-                         cam_ray1->hnormalized(),
-                         cam_ray2->hnormalized(),
-                         &xyz) &&
+    if (TriangulatePoint(
+            cam_from_world1, cam_from_world2, *cam_ray1, *cam_ray2, &xyz) &&
         CalculateTriangulationAngle(proj_center1, proj_center2, xyz) >=
             min_tri_angle_rad &&
         HasPointPositiveDepth(cam_from_world1, xyz) &&
