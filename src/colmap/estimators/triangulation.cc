@@ -59,13 +59,11 @@ void TriangulationEstimator::Estimate(const std::vector<X_t>& point_data,
 
   if (point_data.size() == 2) {
     // Two-view triangulation.
-
-    // TODO(jsch): Change triangulation to operate on camera rays.
     M_t xyz;
     if (TriangulatePoint(pose_data[0].cam_from_world,
                          pose_data[1].cam_from_world,
-                         point_data[0].camera_ray.hnormalized(),
-                         point_data[1].camera_ray.hnormalized(),
+                         point_data[0].camera_ray,
+                         point_data[1].camera_ray,
                          &xyz) &&
         HasPointPositiveDepth(pose_data[0].cam_from_world, xyz) &&
         HasPointPositiveDepth(pose_data[1].cam_from_world, xyz) &&
@@ -79,18 +77,21 @@ void TriangulationEstimator::Estimate(const std::vector<X_t>& point_data,
   } else {
     // Multi-view triangulation.
 
-    std::vector<Eigen::Matrix3x4d> proj_matrices;
-    proj_matrices.reserve(point_data.size());
-    std::vector<Eigen::Vector2d> points;
-    points.reserve(point_data.size());
+    std::vector<Eigen::Matrix3x4d> cams_from_world;
+    cams_from_world.reserve(point_data.size());
+    std::vector<Eigen::Vector3d> cam_rays;
+    cam_rays.reserve(point_data.size());
     for (size_t i = 0; i < point_data.size(); ++i) {
-      proj_matrices.push_back(pose_data[i].cam_from_world);
-      points.push_back(point_data[i].camera_ray.hnormalized());
+      cams_from_world.push_back(pose_data[i].cam_from_world);
+      cam_rays.push_back(point_data[i].camera_ray);
     }
 
-    // TODO(jsch): Change triangulation to operate on camera rays.
     M_t xyz;
-    if (!TriangulateMultiViewPoint(proj_matrices, points, &xyz)) {
+    if (!TriangulateMultiViewPoint(
+            span<const Eigen::Matrix3x4d>(cams_from_world.data(),
+                                          cams_from_world.size()),
+            span<const Eigen::Vector3d>(cam_rays.data(), cam_rays.size()),
+            &xyz)) {
       return;
     }
 

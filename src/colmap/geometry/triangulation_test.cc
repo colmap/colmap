@@ -57,14 +57,14 @@ TEST(TriangulatePoint, Nominal) {
                                     Eigen::Vector3d(tx, 2, 3));
       for (size_t i = 0; i < points3D.size(); ++i) {
         const Eigen::Vector3d& point3D = points3D[i];
-        const Eigen::Vector3d point2D1 = cam_from_world1 * point3D;
-        const Eigen::Vector3d point2D2 = cam_from_world2 * point3D;
+        const Eigen::Vector3d cam_ray1 = cam_from_world1 * point3D;
+        const Eigen::Vector3d cam_ray2 = cam_from_world2 * point3D;
 
         Eigen::Vector3d tri_point3D;
         EXPECT_TRUE(TriangulatePoint(cam_from_world1.ToMatrix(),
                                      cam_from_world2.ToMatrix(),
-                                     point2D1.hnormalized(),
-                                     point2D2.hnormalized(),
+                                     cam_ray1,
+                                     cam_ray2,
                                      &tri_point3D));
 
         EXPECT_TRUE((point3D - tri_point3D).norm() < 1e-10);
@@ -79,8 +79,8 @@ TEST(TriangulatePoint, ParallelRays) {
       Rigid3d().ToMatrix(),
       Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(1, 0, 0))
           .ToMatrix(),
-      Eigen::Vector2d(0, 0),
-      Eigen::Vector2d(0, 0),
+      Eigen::Vector3d(0, 0, 1),
+      Eigen::Vector3d(0, 0, 1),
       &xyz));
 }
 
