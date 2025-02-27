@@ -339,15 +339,27 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
   }
 
   // Extract normalized inlier points.
-  std::vector<Eigen::Vector2d> inlier_points1_normalized;
-  inlier_points1_normalized.reserve(geometry->inlier_matches.size());
-  std::vector<Eigen::Vector2d> inlier_points2_normalized;
-  inlier_points2_normalized.reserve(geometry->inlier_matches.size());
-  for (const auto& match : geometry->inlier_matches) {
-    inlier_points1_normalized.push_back(
-        camera1.CamFromImg(points1[match.point2D_idx1]));
-    inlier_points2_normalized.push_back(
-        camera2.CamFromImg(points2[match.point2D_idx2]));
+  const size_t num_inlier_matches = geometry->inlier_matches.size();
+  std::vector<Eigen::Vector2d> inlier_points1_normalized(num_inlier_matches);
+  std::vector<Eigen::Vector2d> inlier_points2_normalized(num_inlier_matches);
+  for (size_t i = 0; i < num_inlier_matches; ++i) {
+    const FeatureMatch& match = geometry->inlier_matches[i];
+    // TODO(jsch): Change normalized points to camera rays when we changed
+    // pose decomposition and cheirality check to deal with camera rays.
+    if (const std::optional<Eigen::Vector3d> cam_ray1 =
+            camera1.CamFromImg(points1[match.point2D_idx1]);
+        cam_ray1) {
+      inlier_points1_normalized[i] = cam_ray1->hnormalized();
+    } else {
+      inlier_points1_normalized[i].setZero();
+    }
+    if (const std::optional<Eigen::Vector3d> cam_ray2 =
+            camera2.CamFromImg(points2[match.point2D_idx2]);
+        cam_ray2) {
+      inlier_points2_normalized[i] = cam_ray2->hnormalized();
+    } else {
+      inlier_points2_normalized[i].setZero();
+    }
   }
 
   std::vector<Eigen::Vector3d> points3D;
@@ -429,15 +441,27 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
   // Extract corresponding points.
   std::vector<Eigen::Vector2d> matched_points1(matches.size());
   std::vector<Eigen::Vector2d> matched_points2(matches.size());
-  std::vector<Eigen::Vector2d> matched_points1_normalized(matches.size());
-  std::vector<Eigen::Vector2d> matched_points2_normalized(matches.size());
+  std::vector<Eigen::Vector3d> matched_rays1(matches.size());
+  std::vector<Eigen::Vector3d> matched_rays2(matches.size());
   for (size_t i = 0; i < matches.size(); ++i) {
     const point2D_t idx1 = matches[i].point2D_idx1;
     const point2D_t idx2 = matches[i].point2D_idx2;
     matched_points1[i] = points1[idx1];
     matched_points2[i] = points2[idx2];
-    matched_points1_normalized[i] = camera1.CamFromImg(points1[idx1]);
-    matched_points2_normalized[i] = camera2.CamFromImg(points2[idx2]);
+    if (const std::optional<Eigen::Vector3d> cam_ray1 =
+            camera1.CamFromImg(points1[idx1]);
+        cam_ray1) {
+      matched_rays1[i] = *cam_ray1;
+    } else {
+      matched_rays1[i].setZero();
+    }
+    if (const std::optional<Eigen::Vector3d> cam_ray2 =
+            camera2.CamFromImg(points2[idx2]);
+        cam_ray2) {
+      matched_rays2[i] = *cam_ray2;
+    } else {
+      matched_rays2[i].setZero();
+    }
   }
 
   // Estimate epipolar models.
@@ -450,8 +474,7 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
 
   LORANSAC<EssentialMatrixFivePointEstimator, EssentialMatrixFivePointEstimator>
       E_ransac(E_ransac_options);
-  const auto E_report =
-      E_ransac.Estimate(matched_points1_normalized, matched_points2_normalized);
+  const auto E_report = E_ransac.Estimate(matched_rays1, matched_rays2);
   geometry.E = E_report.model;
 
   LORANSAC<FundamentalMatrixSevenPointEstimator,

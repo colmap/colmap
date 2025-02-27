@@ -178,6 +178,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
     camera.model_id = options.camera_model_id;
     camera.params = options.camera_params;
     THROW_CHECK(camera.VerifyParams());
+    camera.has_prior_focal_length = options.camera_has_prior_focal_length;
     const camera_t camera_id =
         (database == nullptr) ? camera_idx + 1 : database->WriteCamera(camera);
     camera_ids[camera_idx] = camera_id;
@@ -220,8 +221,11 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
     // Create 3D point observations by project all 3D points to the image.
     for (auto& point3D : reconstruction->Points3D()) {
       Point2D point2D;
-      point2D.xy = camera.ImgFromCam(
-          (image.CamFromWorld() * point3D.second.xyz).hnormalized());
+      if (const std::optional<Eigen::Vector2d> proj_point2D =
+              camera.ImgFromCam(image.CamFromWorld() * point3D.second.xyz);
+          proj_point2D.has_value()) {
+        point2D.xy = *proj_point2D;
+      }
       if (options.point2D_stddev > 0) {
         const Eigen::Vector2d noise(
             RandomGaussian<double>(0, options.point2D_stddev),
@@ -314,7 +318,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
 
     image.SetImageId(image_id);
     image.SetPoints2D(points2D);
-    reconstruction->AddImage(image);
+    reconstruction->AddImage(std::move(image));
     reconstruction->RegisterImage(image_id);
   }
 

@@ -25,22 +25,6 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
-bool ExistsReconstructionText(const std::string& path) {
-  return (ExistsFile(JoinPaths(path, "cameras.txt")) &&
-          ExistsFile(JoinPaths(path, "images.txt")) &&
-          ExistsFile(JoinPaths(path, "points3D.txt")));
-}
-
-bool ExistsReconstructionBinary(const std::string& path) {
-  return (ExistsFile(JoinPaths(path, "cameras.bin")) &&
-          ExistsFile(JoinPaths(path, "images.bin")) &&
-          ExistsFile(JoinPaths(path, "points3D.bin")));
-}
-
-bool ExistsReconstruction(const std::string& path) {
-  return (ExistsReconstructionText(path) || ExistsReconstructionBinary(path));
-}
-
 void BindReconstruction(py::module& m) {
   py::class_<Reconstruction, std::shared_ptr<Reconstruction>>(m,
                                                               "Reconstruction")

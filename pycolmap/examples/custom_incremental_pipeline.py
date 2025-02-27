@@ -189,37 +189,35 @@ def reconstruct_sub_model(controller, mapper, mapper_options, reconstruction):
     return pycolmap.IncrementalMapperStatus.SUCCESS
 
 
-def reconstruct(controller, mapper_options):
+def reconstruct(controller, mapper, mapper_options, continue_reconstruction):
     """Equivalent to IncrementalPipeline.reconstruct(...)"""
     options = controller.options
-    reconstruction_manager = controller.reconstruction_manager
+
     database_cache = controller.database_cache
-    mapper = pycolmap.IncrementalMapper(database_cache)
-    initial_reconstruction_given = reconstruction_manager.size() > 0
-    if reconstruction_manager.size() > 1:
-        logging.fatal(
-            "Can only resume from a single reconstruction, "
-            "but multiple are given"
-        )
+    reconstruction_manager = controller.reconstruction_manager
+
     for num_trials in range(options.init_num_trials):
-        if (not initial_reconstruction_given) or num_trials > 0:
+        if not continue_reconstruction or num_trials > 0:
             reconstruction_idx = reconstruction_manager.add()
         else:
             reconstruction_idx = 0
+
         reconstruction = reconstruction_manager.get(reconstruction_idx)
         status = reconstruct_sub_model(
             controller, mapper, mapper_options, reconstruction
         )
         if status == pycolmap.IncrementalMapperStatus.INTERRUPTED:
+            logging.info("Keeping reconstruction due to interrupt")
             mapper.end_reconstruction(False)
-        elif status in (
-            pycolmap.IncrementalMapperStatus.NO_INITIAL_PAIR,
-            pycolmap.IncrementalMapperStatus.BAD_INITIAL_PAIR,
-        ):
+        elif status == pycolmap.IncrementalMapperStatus.NO_INITIAL_PAIR:
+            logging.info("Disacarding reconstruction due to no initial pair")
             mapper.end_reconstruction(True)
             reconstruction_manager.delete(reconstruction_idx)
-            if options.is_initial_pair_provided():
-                return
+            return
+        elif status == pycolmap.IncrementalMapperStatus.BAD_INITIAL_PAIR:
+            logging.info("Disacarding reconstruction due to bad initial pair")
+            mapper.end_reconstruction(True)
+            reconstruction_manager.delete(reconstruction_idx)
         elif status == pycolmap.IncrementalMapperStatus.SUCCESS:
             total_num_reg_images = mapper.num_total_reg_images()
             min_model_size = min(
@@ -233,16 +231,19 @@ def reconstruct(controller, mapper_options):
                     or reconstruction.num_reg_images() == 0
                 )
             ):
+                logging.info(
+                    "Discarding reconstruction due to insufficient size"
+                )
                 mapper.end_reconstruction(True)
                 reconstruction_manager.delete(reconstruction_idx)
             else:
+                logging.info("Keeping successful reconstruction")
                 mapper.end_reconstruction(False)
             controller.callback(
                 pycolmap.IncrementalMapperCallback.LAST_IMAGE_REG_CALLBACK
             )
             if (
-                initial_reconstruction_given
-                or (not options.multiple_models)
+                not options.multiple_models
                 or reconstruction_manager.size() >= options.max_num_models
                 or total_num_reg_images >= database_cache.num_images() - 1
             ):
@@ -257,22 +258,43 @@ def main_incremental_mapper(controller):
     timer.start()
     if not controller.load_database():
         return
-    init_mapper_options = controller.options.get_mapper()
-    reconstruct(controller, init_mapper_options)
+
+    reconstruction_manager = controller.reconstruction_manager
+
+    continue_reconstruction = reconstruction_manager.size() > 0
+    if reconstruction_manager.size() > 1:
+        logging.fatal(
+            "Can only resume from a single reconstruction, "
+            "but multiple are given"
+        )
+
+    database_cache = controller.database_cache
+    mapper = pycolmap.IncrementalMapper(database_cache)
+    mapper_options = controller.options.get_mapper()
+    reconstruct(controller, mapper, mapper_options, continue_reconstruction)
 
     for _ in range(2):  # number of relaxations
-        if controller.reconstruction_manager.size() > 0:
+        if mapper.num_total_reg_images() == database_cache.num_images():
             break
+
         logging.info("=> Relaxing the initialization constraints")
-        init_mapper_options.init_min_num_inliers = int(
-            init_mapper_options.init_min_num_inliers / 2
+        mapper_options.init_min_num_inliers = int(
+            mapper_options.init_min_num_inliers / 2
         )
-        reconstruct(controller, init_mapper_options)
-        if controller.reconstruction_manager.size() > 0:
+        mapper.reset_initialization_stats()
+        reconstruct(
+            controller, mapper, mapper_options, continue_reconstruction=False
+        )
+
+        if mapper.num_total_reg_images() == database_cache.num_images():
             break
+
         logging.info("=> Relaxing the initialization constraints")
-        init_mapper_options.init_min_tri_angle /= 2
-        reconstruct(controller, init_mapper_options)
+        mapper_options.init_min_tri_angle /= 2
+        mapper.reset_initialization_stats()
+        reconstruct(
+            controller, mapper, mapper_options, continue_reconstruction=False
+        )
     timer.print_minutes()
 
 
