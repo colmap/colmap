@@ -40,6 +40,4 @@ void BindFeatureTypes(py::module& m) {
             return ss.str();
           });
   MakeDataclass(PyFeatureKeypoint);
-
-  py::bind_vector<FeatureKeypoints>(m, "FeatureKeypoints");
 }
