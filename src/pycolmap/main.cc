@@ -53,9 +53,9 @@ PYBIND11_MODULE(_core, m) {
   BindSensor(m);
   BindImage(m);
   BindEstimators(m);
+  BindFeature(m);
   BindRetrieval(m);
   BindSfm(m);
-  BindFeature(m);
   BindPipeline(m);
 
   m.def("set_random_seed",
