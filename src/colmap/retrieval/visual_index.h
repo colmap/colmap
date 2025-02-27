@@ -129,7 +129,7 @@ class VisualIndex {
            const DescType& descriptors);
 
   // Check if an image has been indexed.
-  bool ImageIndexed(int image_id) const;
+  bool IsImageIndexed(int image_id) const;
 
   // Query for most similar images in the visual index.
   void Query(const QueryOptions& options,
@@ -217,7 +217,7 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Add(
   THROW_CHECK_EQ(geometries.size(), descriptors.rows());
 
   // If the image is already indexed, do nothing.
-  if (ImageIndexed(image_id)) {
+  if (IsImageIndexed(image_id)) {
     return;
   }
 
@@ -253,7 +253,7 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Add(
 }
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
-bool VisualIndex<kDescType, kDescDim, kEmbeddingDim>::ImageIndexed(
+bool VisualIndex<kDescType, kDescDim, kEmbeddingDim>::IsImageIndexed(
     const int image_id) const {
   return image_ids_.count(image_id) != 0;
 }

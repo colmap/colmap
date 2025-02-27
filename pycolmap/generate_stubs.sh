@@ -13,6 +13,7 @@ $PYTHON_EXEC -m pybind11_stubgen $PACKAGE_NAME -o $OUTPUT \
         --print-safe-value-reprs "[a-zA-Z]+Options\(\)"
 FILES=$(find $OUTPUT/$PACKAGE_NAME/ -name '*.pyi' -type f)
 
+perl -i -pe's/colmap:://g' $FILES
 perl -i -pe's/\b_core\b/pycolmap/g' $FILES
 perl -i -pe's/: ceres::([a-zA-Z]|::)+//g' $FILES
 perl -i -pe's/ -> ceres::([a-zA-Z]|::)+:$/:/g' $FILES

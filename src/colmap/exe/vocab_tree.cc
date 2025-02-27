@@ -199,7 +199,7 @@ int RunVocabTreeRetriever(int argc, char** argv) {
                      "Indexing image [%d/%d]", i + 1, database_images.size())
               << std::flush;
 
-    if (visual_index.ImageIndexed(database_images[i].ImageId())) {
+    if (visual_index.IsImageIndexed(database_images[i].ImageId())) {
       continue;
     }
 
