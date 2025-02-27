@@ -25,7 +25,7 @@ void BindRetrieval(py::module& m);
 void BindScene(py::module& m);
 void BindSensor(py::module& m);
 void BindSfm(py::module& m);
-void BindSift(py::module& m);
+void BindFeature(py::module& m);
 
 PYBIND11_MODULE(_core, m) {
   m.doc() = "COLMAP plugin";
@@ -55,7 +55,7 @@ PYBIND11_MODULE(_core, m) {
   BindEstimators(m);
   BindRetrieval(m);
   BindSfm(m);
-  BindSift(m);
+  BindFeature(m);
   BindPipeline(m);
 
   m.def("set_random_seed",
