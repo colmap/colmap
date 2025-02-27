@@ -16,10 +16,10 @@ using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindVisualIndex(py::module& m) {
-  auto PyImageScore = py::class_<ImageScore>(m, "ImageScore")
-                          .def(py::init<>())
-                          .def_readonly("image_id", &ImageScore::image_id)
-                          .def_readonly("score", &ImageScore::score);
+  py::class_ext_<ImageScore, std::shared_ptr<ImageScore>> PyImageScore;
+  PyImageScore.def(py::init<>())
+      .def_readonly("image_id", &ImageScore::image_id)
+      .def_readonly("score", &ImageScore::score);
   MakeDataclass(PyImageScore);
   py::bind_vector<std::vector<ImageScore>>(m, "ImageScores");
 
