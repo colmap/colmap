@@ -288,8 +288,8 @@ class RigReprojErrorConstantRigCostFunctor
 class SampsonErrorCostFunctor
     : public AutoDiffCostFunctor<SampsonErrorCostFunctor, 1, 4, 3> {
  public:
-  SampsonErrorCostFunctor(const Eigen::Vector2d& x1, const Eigen::Vector2d& x2)
-      : x1_(x1(0)), y1_(x1(1)), x2_(x2(0)), y2_(x2(1)) {}
+  SampsonErrorCostFunctor(const Eigen::Vector3d& x1, const Eigen::Vector3d& x2)
+      : x1_(x1.normalized()), x2_(x2.normalized()) {}
 
   template <typename T>
   bool operator()(const T* const cam2_from_cam1_rotation,
@@ -307,26 +307,23 @@ class SampsonErrorCostFunctor
     // Essential matrix.
     const Eigen::Matrix<T, 3, 3> E = t_x * R;
 
-    // Homogeneous image coordinates.
-    const Eigen::Matrix<T, 3, 1> x1_h(T(x1_), T(y1_), T(1));
-    const Eigen::Matrix<T, 3, 1> x2_h(T(x2_), T(y2_), T(1));
-
     // Squared sampson error.
-    const Eigen::Matrix<T, 3, 1> Ex1 = E * x1_h;
-    const Eigen::Matrix<T, 3, 1> Etx2 = E.transpose() * x2_h;
-    const T x2tEx1 = x2_h.transpose() * Ex1;
-    residuals[0] = x2tEx1 * x2tEx1 /
-                   (Ex1(0) * Ex1(0) + Ex1(1) * Ex1(1) + Etx2(0) * Etx2(0) +
-                    Etx2(1) * Etx2(1));
+    const Eigen::Matrix<T, 3, 1> Ex1 = E * x1_.cast<T>();
+    const Eigen::Matrix<T, 3, 1> Etx2 = E.transpose() * x2_.cast<T>();
+    const T denom = Ex1.squaredNorm() + Etx2.squaredNorm();
+    if (denom == T(0)) {
+      residuals[0] = T(0);
+    } else {
+      const T x2tEx1 = x2_.cast<T>().transpose() * Ex1;
+      residuals[0] = x2tEx1 * x2tEx1 / denom;
+    }
 
     return true;
   }
 
  private:
-  const double x1_;
-  const double y1_;
-  const double x2_;
-  const double y2_;
+  const Eigen::Vector3d x1_;
+  const Eigen::Vector3d x2_;
 };
 
 template <typename T>

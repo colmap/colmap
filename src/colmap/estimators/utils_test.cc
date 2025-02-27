@@ -59,7 +59,7 @@ TEST(CenterAndNormalizeImagePoints, Nominal) {
   EXPECT_LT(std::abs(mean_point[1]), 1e-6);
 }
 
-TEST(ComputeSquaredSampsonError, Nominal) {
+TEST(ComputeSquaredSampsonError, ImagePoints) {
   std::vector<Eigen::Vector2d> points1;
   points1.emplace_back(0, 0);
   points1.emplace_back(0, 0);
@@ -74,6 +74,28 @@ TEST(ComputeSquaredSampsonError, Nominal) {
 
   std::vector<double> residuals;
   ComputeSquaredSampsonError(points1, points2, E, &residuals);
+
+  EXPECT_EQ(residuals.size(), 3);
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], 0.5);
+  EXPECT_EQ(residuals[2], 2);
+}
+
+TEST(ComputeSquaredSampsonError, CameraRays) {
+  std::vector<Eigen::Vector3d> cam_rays1;
+  cam_rays1.emplace_back(0, 0, 1);
+  cam_rays1.emplace_back(0, 0, 1);
+  cam_rays1.emplace_back(0, 0, 1);
+  std::vector<Eigen::Vector3d> cam_rays2;
+  cam_rays2.emplace_back(2, 0, 1);
+  cam_rays2.emplace_back(2, 1, 1);
+  cam_rays2.emplace_back(2, 2, 1);
+
+  const Eigen::Matrix3d E = EssentialMatrixFromPose(
+      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(1, 0, 0)));
+
+  std::vector<double> residuals;
+  ComputeSquaredSampsonError(cam_rays1, cam_rays2, E, &residuals);
 
   EXPECT_EQ(residuals.size(), 3);
   EXPECT_EQ(residuals[0], 0);

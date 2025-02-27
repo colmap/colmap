@@ -190,27 +190,28 @@ TEST(CheckCheirality, Nominal) {
   const Rigid3d cam2_from_cam1(Eigen::Quaterniond::Identity(),
                                Eigen::Vector3d(1, 0, 0));
 
-  std::vector<Eigen::Vector2d> points1;
-  std::vector<Eigen::Vector2d> points2;
+  std::vector<Eigen::Vector3d> cam_rays1;
+  std::vector<Eigen::Vector3d> cam_rays2;
   std::vector<Eigen::Vector3d> points3D;
 
-  points1.emplace_back(0, 0);
-  points2.emplace_back(0.1, 0);
-  EXPECT_TRUE(CheckCheirality(cam2_from_cam1, points1, points2, &points3D));
+  cam_rays1.emplace_back(0, 0, 1);
+  cam_rays2.emplace_back(0.1, 0, 1);
+  EXPECT_TRUE(CheckCheirality(cam2_from_cam1, cam_rays1, cam_rays2, &points3D));
   EXPECT_EQ(points3D.size(), 1);
 
-  points1.emplace_back(0, 0);
-  points2.emplace_back(-0.1, 0);
-  EXPECT_TRUE(CheckCheirality(cam2_from_cam1, points1, points2, &points3D));
+  cam_rays1.emplace_back(0, 0, 1);
+  cam_rays2.emplace_back(-0.1, 0, 1);
+  EXPECT_TRUE(CheckCheirality(cam2_from_cam1, cam_rays1, cam_rays2, &points3D));
   EXPECT_EQ(points3D.size(), 1);
 
-  points2[1][0] = 0.2;
-  EXPECT_TRUE(CheckCheirality(cam2_from_cam1, points1, points2, &points3D));
+  cam_rays2[1][0] = 0.2;
+  EXPECT_TRUE(CheckCheirality(cam2_from_cam1, cam_rays1, cam_rays2, &points3D));
   EXPECT_EQ(points3D.size(), 2);
 
-  points2[0][0] = -0.2;
-  points2[1][0] = -0.2;
-  EXPECT_FALSE(CheckCheirality(cam2_from_cam1, points1, points2, &points3D));
+  cam_rays2[0][0] = -0.2;
+  cam_rays2[1][0] = -0.2;
+  EXPECT_FALSE(
+      CheckCheirality(cam2_from_cam1, cam_rays1, cam_rays2, &points3D));
   EXPECT_EQ(points3D.size(), 0);
 }
 

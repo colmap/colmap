@@ -71,20 +71,17 @@ void CenterAndNormalizeImagePoints(const std::vector<Eigen::Vector2d>& points,
 
 namespace {
 
-inline double ComputeSquaredSampsonError(const Eigen::Vector3d& ray1,
-                                         const Eigen::Vector3d& ray2,
+inline double ComputeSquaredSampsonError(const Eigen::Vector3d& x1,
+                                         const Eigen::Vector3d& x2,
                                          const Eigen::Matrix3d& E) {
-  const Eigen::Vector3d epipolar_line1 = E * ray1;
-  const double num = ray2.dot(epipolar_line1);
-  const Eigen::Vector4d denom(ray2.dot(E.col(0)),
-                              ray2.dot(E.col(1)),
-                              epipolar_line1.x(),
-                              epipolar_line1.y());
-  const double denom_sq_norm = denom.squaredNorm();
-  if (denom_sq_norm == 0) {
+  const Eigen::Vector3d Ex1 = E * x1;
+  const Eigen::Vector3d Etx2 = E.transpose() * x2;
+  const double x2tEx1 = x2.transpose() * Ex1;
+  const double denom = Ex1.squaredNorm() + Etx2.squaredNorm();
+  if (denom == 0) {
     return std::numeric_limits<double>::max();
   }
-  return num * num / denom_sq_norm;
+  return x2tEx1 * x2tEx1 / denom;
 }
 
 }  // namespace

@@ -188,12 +188,12 @@ void DecomposeHomographyMatrix(const Eigen::Matrix3d& H,
 void PoseFromHomographyMatrix(const Eigen::Matrix3d& H,
                               const Eigen::Matrix3d& K1,
                               const Eigen::Matrix3d& K2,
-                              const std::vector<Eigen::Vector2d>& points1,
-                              const std::vector<Eigen::Vector2d>& points2,
+                              const std::vector<Eigen::Vector3d>& cam_rays1,
+                              const std::vector<Eigen::Vector3d>& cam_rays2,
                               Rigid3d* cam2_from_cam1,
                               Eigen::Vector3d* normal,
                               std::vector<Eigen::Vector3d>* points3D) {
-  THROW_CHECK_EQ(points1.size(), points2.size());
+  THROW_CHECK_EQ(cam_rays1.size(), cam_rays2.size());
 
   std::vector<Rigid3d> cams2_from_cams1;
   std::vector<Eigen::Vector3d> normals;
@@ -203,7 +203,8 @@ void PoseFromHomographyMatrix(const Eigen::Matrix3d& H,
   points3D->clear();
   std::vector<Eigen::Vector3d> tentative_points3D;
   for (size_t i = 0; i < cams2_from_cams1.size(); ++i) {
-    CheckCheirality(cams2_from_cams1[i], points1, points2, &tentative_points3D);
+    CheckCheirality(
+        cams2_from_cams1[i], cam_rays1, cam_rays2, &tentative_points3D);
     if (tentative_points3D.size() >= points3D->size()) {
       *cam2_from_cam1 = cams2_from_cams1[i];
       *normal = normals[i];

@@ -51,11 +51,11 @@ TEST(RefineEssentialMatrix, Nominal) {
     points3D[3 * i + 2] = Eigen::Vector3d(i * 0.01, i * 0.01, 1);
   }
 
-  std::vector<Eigen::Vector2d> points1(points3D.size());
-  std::vector<Eigen::Vector2d> points2(points3D.size());
+  std::vector<Eigen::Vector3d> cam_rays1(points3D.size());
+  std::vector<Eigen::Vector3d> cam_rays2(points3D.size());
   for (size_t i = 0; i < points3D.size(); ++i) {
-    points1[i] = (cam1_from_world * points3D[i]).hnormalized();
-    points2[i] = (cam2_from_world * points3D[i]).hnormalized();
+    cam_rays1[i] = cam1_from_world * points3D[i];
+    cam_rays2[i] = cam2_from_world * points3D[i];
   }
 
   const Rigid3d cam2_from_world_perturbed(
@@ -67,9 +67,9 @@ TEST(RefineEssentialMatrix, Nominal) {
   Eigen::Matrix3d E_refined = E_pertubated;
   ceres::Solver::Options options;
   RefineEssentialMatrix(options,
-                        points1,
-                        points2,
-                        std::vector<char>(points1.size(), true),
+                        cam_rays1,
+                        cam_rays2,
+                        std::vector<char>(cam_rays1.size(), true),
                         &E_refined);
 
   EXPECT_LE((E - E_refined).norm(), (E - E_pertubated).norm());

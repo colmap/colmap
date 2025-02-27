@@ -132,23 +132,23 @@ TEST(PoseFromHomographyMatrix, Nominal) {
   const Eigen::Matrix3d H = HomographyMatrixFromPose(
       K1, K2, ref_rotation, ref_translation, ref_normal, d_ref);
 
-  std::vector<Eigen::Vector2d> points1;
-  points1.emplace_back(0.1, 0.4);
-  points1.emplace_back(0.2, 0.3);
-  points1.emplace_back(0.3, 0.2);
-  points1.emplace_back(0.4, 0.1);
+  std::vector<Eigen::Vector3d> cam_rays1;
+  cam_rays1.emplace_back(0.1, 0.4, 1);
+  cam_rays1.emplace_back(0.2, 0.3, 1);
+  cam_rays1.emplace_back(0.3, 0.2, 1);
+  cam_rays1.emplace_back(0.4, 0.1, 1);
 
-  std::vector<Eigen::Vector2d> points2;
-  for (const auto& point1 : points1) {
-    const Eigen::Vector3d point2 = H * point1.homogeneous();
-    points2.push_back(point2.hnormalized());
+  std::vector<Eigen::Vector3d> cam_rays2;
+  for (const auto& cam_ray1 : cam_rays1) {
+    const Eigen::Vector3d point2 = H * cam_ray1;
+    cam_rays2.push_back(point2);
   }
 
   Rigid3d cam2_from_cam1;
   Eigen::Vector3d normal;
   std::vector<Eigen::Vector3d> points3D;
   PoseFromHomographyMatrix(
-      H, K1, K2, points1, points2, &cam2_from_cam1, &normal, &points3D);
+      H, K1, K2, cam_rays1, cam_rays2, &cam2_from_cam1, &normal, &points3D);
 
   EXPECT_THAT(cam2_from_cam1.rotation.matrix(),
               EigenMatrixNear(ref_rotation, 1e-5));

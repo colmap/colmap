@@ -340,8 +340,8 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
 
   // Extract normalized inlier points.
   const size_t num_inlier_matches = geometry->inlier_matches.size();
-  std::vector<Eigen::Vector2d> inlier_points1_normalized(num_inlier_matches);
-  std::vector<Eigen::Vector2d> inlier_points2_normalized(num_inlier_matches);
+  std::vector<Eigen::Vector3d> inlier_cam_rays1(num_inlier_matches);
+  std::vector<Eigen::Vector3d> inlier_cam_rays2(num_inlier_matches);
   for (size_t i = 0; i < num_inlier_matches; ++i) {
     const FeatureMatch& match = geometry->inlier_matches[i];
     // TODO(jsch): Change normalized points to camera rays when we changed
@@ -349,16 +349,16 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
     if (const std::optional<Eigen::Vector3d> cam_ray1 =
             camera1.CamFromImg(points1[match.point2D_idx1]);
         cam_ray1) {
-      inlier_points1_normalized[i] = cam_ray1->hnormalized();
+      inlier_cam_rays1[i] = *cam_ray1;
     } else {
-      inlier_points1_normalized[i].setZero();
+      inlier_cam_rays1[i].setZero();
     }
     if (const std::optional<Eigen::Vector3d> cam_ray2 =
             camera2.CamFromImg(points2[match.point2D_idx2]);
         cam_ray2) {
-      inlier_points2_normalized[i] = cam_ray2->hnormalized();
+      inlier_cam_rays2[i] = *cam_ray2;
     } else {
-      inlier_points2_normalized[i].setZero();
+      inlier_cam_rays2[i].setZero();
     }
   }
 
@@ -366,8 +366,8 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
 
   if (geometry->config == TwoViewGeometry::ConfigurationType::CALIBRATED) {
     PoseFromEssentialMatrix(geometry->E,
-                            inlier_points1_normalized,
-                            inlier_points2_normalized,
+                            inlier_cam_rays1,
+                            inlier_cam_rays2,
                             &geometry->cam2_from_cam1,
                             &points3D);
   } else if (geometry->config ==
@@ -375,8 +375,8 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
     const Eigen::Matrix3d E = EssentialFromFundamentalMatrix(
         camera2.CalibrationMatrix(), geometry->F, camera1.CalibrationMatrix());
     PoseFromEssentialMatrix(E,
-                            inlier_points1_normalized,
-                            inlier_points2_normalized,
+                            inlier_cam_rays1,
+                            inlier_cam_rays2,
                             &geometry->cam2_from_cam1,
                             &points3D);
   } else if (geometry->config == TwoViewGeometry::ConfigurationType::PLANAR ||
@@ -388,8 +388,8 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
     PoseFromHomographyMatrix(geometry->H,
                              camera1.CalibrationMatrix(),
                              camera2.CalibrationMatrix(),
-                             inlier_points1_normalized,
-                             inlier_points2_normalized,
+                             inlier_cam_rays1,
+                             inlier_cam_rays2,
                              &geometry->cam2_from_cam1,
                              &normal,
                              &points3D);
