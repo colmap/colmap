@@ -66,8 +66,8 @@ bool TriangulatePoint(const Eigen::Matrix3x4d& cam1_from_world,
 }
 
 bool TriangulateMultiViewPoint(
-    const std::vector<Eigen::Matrix3x4d>& cams_from_world,
-    const std::vector<Eigen::Vector2d>& points,
+    const span<const Eigen::Matrix3x4d>& cams_from_world,
+    const span<const Eigen::Vector2d>& points,
     Eigen::Vector3d* xyz) {
   THROW_CHECK_EQ(cams_from_world.size(), points.size());
   THROW_CHECK_NOTNULL(xyz);

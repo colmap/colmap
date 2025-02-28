@@ -98,6 +98,7 @@ class EssentialMatrixEightPointEstimator {
   static const int kMinNumSamples = 8;
 
   // Estimate essential matrix solutions from  set of corresponding points.
+
   //
   // The number of corresponding points must be at least 8.
   //
@@ -105,6 +106,7 @@ class EssentialMatrixEightPointEstimator {
   // @param points2  Second set of corresponding points.
   static void Estimate(const std::vector<X_t>& points1,
                        const std::vector<Y_t>& points2,
+
                        std::vector<M_t>* models);
 
   // Calculate the residuals of a set of corresponding points and a given

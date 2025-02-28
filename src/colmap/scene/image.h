@@ -59,6 +59,9 @@ class Image {
   // Initialize a new Frame object if the image has a trivial frame.
   Image(const Image& other);
   Image& operator=(const Image& other);
+  // Move construct/assign.
+  Image(Image&& other) = default;
+  Image& operator=(Image&& other) = default;
 
   // Access the unique identifier of the image.
   inline image_t ImageId() const;
@@ -137,8 +140,8 @@ class Image {
   Eigen::Vector3d ViewingDirection() const;
 
   // Reproject the 3D point onto the image in pixels (throws if the camera
-  // object was not set). Return false if the 3D point is behind the camera.
-  std::pair<bool, Eigen::Vector2d> ProjectPoint(
+  // object was not set). Return null if the 3D point is behind the camera.
+  std::optional<Eigen::Vector2d> ProjectPoint(
       const Eigen::Vector3d& point3D) const;
 
   inline bool operator==(const Image& other) const;

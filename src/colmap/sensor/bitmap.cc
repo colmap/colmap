@@ -745,6 +745,12 @@ Bitmap::FreeImageHandle& Bitmap::FreeImageHandle::operator=(
   return *this;
 }
 
+std::ostream& operator<<(std::ostream& stream, const Bitmap& bitmap) {
+  stream << "Bitmap(width=" << bitmap.Width() << ", height=" << bitmap.Height()
+         << ", channels=" << bitmap.Channels() << ")";
+  return stream;
+}
+
 float JetColormap::Red(const float gray) { return Base(gray - 0.25f); }
 
 float JetColormap::Green(const float gray) { return Base(gray); }

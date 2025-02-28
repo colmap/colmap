@@ -19,6 +19,8 @@ void BindDatabaseCache(py::module& m) {
                   "min_num_matches"_a,
                   "ignore_watermarks"_a,
                   "image_names"_a)
+      .def("add_camera", &DatabaseCache::AddCamera)
+      .def("add_image", &DatabaseCache::AddImage)
       .def("num_cameras", &DatabaseCache::NumCameras)
       .def("num_images", &DatabaseCache::NumImages)
       .def("exists_camera", &DatabaseCache::ExistsCamera, "camera_id"_a)

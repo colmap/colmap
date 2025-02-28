@@ -38,6 +38,9 @@
 
 namespace colmap {
 
+GP3PEstimator::GP3PEstimator(ResidualType residual_type)
+    : residual_type_(residual_type) {}
+
 void GP3PEstimator::Estimate(const std::vector<X_t>& points2D,
                              const std::vector<Y_t>& points3D,
                              std::vector<M_t>* rigs_from_world) {
@@ -67,7 +70,7 @@ void GP3PEstimator::Estimate(const std::vector<X_t>& points2D,
 void GP3PEstimator::Residuals(const std::vector<X_t>& points2D,
                               const std::vector<Y_t>& points3D,
                               const M_t& rig_from_world,
-                              std::vector<double>* residuals) {
+                              std::vector<double>* residuals) const {
   THROW_CHECK_EQ(points2D.size(), points3D.size());
   residuals->resize(points2D.size(), 0);
   for (size_t i = 0; i < points2D.size(); ++i) {
@@ -75,11 +78,11 @@ void GP3PEstimator::Residuals(const std::vector<X_t>& points2D,
         points2D[i].cam_from_rig * (rig_from_world * points3D[i]);
     // Check if 3D point is in front of camera.
     if (point3D_in_cam.z() > std::numeric_limits<double>::epsilon()) {
-      if (residual_type == ResidualType::CosineDistance) {
+      if (residual_type_ == ResidualType::CosineDistance) {
         const double cosine_dist =
             1 - point3D_in_cam.normalized().dot(points2D[i].ray_in_cam);
         (*residuals)[i] = cosine_dist * cosine_dist;
-      } else if (residual_type == ResidualType::ReprojectionError) {
+      } else if (residual_type_ == ResidualType::ReprojectionError) {
         (*residuals)[i] = (point3D_in_cam.hnormalized() -
                            points2D[i].ray_in_cam.hnormalized())
                               .squaredNorm();
