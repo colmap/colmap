@@ -659,6 +659,48 @@ void WriteCamerasText(const Reconstruction& reconstruction,
   WriteCamerasText(reconstruction, file);
 }
 
+void WriteFramesText(const Reconstruction& reconstruction,
+                     std::ostream& stream) {
+  THROW_CHECK(stream.good());
+
+  // Ensure that we don't loose any precision by storing in text.
+  stream.precision(17);
+
+  stream << "# Frame list with one line of data per frame:" << std::endl;
+  stream << "#   FRAME_ID, HAS_POSE, FRAME_FROM_WORLD[QW, QX, QY, QZ, TX, TY, TZ], NUM_DATA_IDS, "
+            "DATA_IDS[] as (SENSOR_ID, SENSOR_TYPE, DATA_ID)"
+         << std::endl;
+  stream << "# Number of frames: " << reconstruction.NumFrames() << std::endl;
+
+  for (const camera_t camera_id : ExtractSortedIds(reconstruction.Cameras())) {
+    const Camera& camera = reconstruction.Camera(camera_id);
+
+    std::ostringstream line;
+    line.precision(17);
+
+    line << camera_id << " ";
+    line << camera.ModelName() << " ";
+    line << camera.width << " ";
+    line << camera.height << " ";
+
+    for (const double param : camera.params) {
+      line << param << " ";
+    }
+
+    std::string line_string = line.str();
+    line_string = line_string.substr(0, line_string.size() - 1);
+
+    stream << line_string << std::endl;
+  }
+}
+
+void WriteFramesText(const Reconstruction& reconstruction,
+                     const std::string& path) {
+  std::ofstream file(path, std::ios::trunc);
+  THROW_CHECK_FILE_OPEN(file, path);
+  WriteFramesText(reconstruction, file);
+}
+
 void WriteImagesText(const Reconstruction& reconstruction,
                      std::ostream& stream) {
   THROW_CHECK(stream.good());
