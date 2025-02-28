@@ -52,11 +52,11 @@ Image::Image(const Image& other)
   if (other.HasCameraPtr()) {
     camera_ptr_ = other.CameraPtr();
   }
-  if (other.HasNonTrivialFrame()) {
-    frame_ = other.Frame();
-  } else {
+  if (other.HasTrivialFrame()) {
     frame_ = std::make_shared<class Frame>();
     frame_->SetFrameFromWorld(other.MaybeCamFromWorld());
+  } else {
+    frame_ = other.Frame();
   }
 }
 
@@ -71,11 +71,11 @@ Image& Image::operator=(const Image& other) {
     }
     num_points3D_ = other.NumPoints3D();
     points2D_ = other.Points2D();
-    if (other.HasNonTrivialFrame()) {
-      frame_ = other.Frame();
-    } else {
+    if (other.HasTrivialFrame()) {
       frame_ = std::make_shared<class Frame>();
       frame_->SetFrameFromWorld(other.MaybeCamFromWorld());
+    } else {
+      frame_ = other.Frame();
     }
   }
   return *this;

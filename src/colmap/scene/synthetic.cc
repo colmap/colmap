@@ -161,15 +161,21 @@ void SynthesizeChainedMatches(double inlier_match_ratio,
 void SynthesizeDataset(const SyntheticDatasetOptions& options,
                        Reconstruction* reconstruction,
                        Database* database) {
+  THROW_CHECK_GE(options.num_rigs, 0);
   THROW_CHECK_GT(options.num_cameras, 0);
   THROW_CHECK_GT(options.num_images, 0);
   THROW_CHECK_LE(options.num_cameras, options.num_images);
   THROW_CHECK_GE(options.num_points3D, 0);
   THROW_CHECK_GE(options.num_points2D_without_point3D, 0);
+  THROW_CHECK_GE(options.sensor_from_rig_translation_stddev, 0.);
   THROW_CHECK_GE(options.point2D_stddev, 0.);
   THROW_CHECK_GE(options.prior_position_stddev, 0.);
 
+  const int num_rigs =
+      (options.num_rigs == 0) ? options.num_cameras : options.num_rigs;
+
   // Synthesize cameras.
+  std::vector<Rig> rigs(num_rigs);
   std::vector<camera_t> camera_ids(options.num_cameras);
   for (int camera_idx = 0; camera_idx < options.num_cameras; ++camera_idx) {
     Camera camera;
@@ -183,6 +189,33 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
     camera_ids[camera_idx] = camera_id;
     camera.camera_id = camera_id;
     reconstruction->AddCamera(std::move(camera));
+
+    sensor_t sensor_id(SensorType::CAMERA, camera_id);
+    const rig_t rig_idx = camera_idx % num_rigs;
+    Rig& rig = rigs[rig_idx];
+    if (rig.NumSensors() == 0) {
+      rig.AddRefSensor(sensor_id);
+    } else {
+      Rigid3d sensor_from_rig;
+      if (options.sensor_from_rig_translation_stddev > 0) {
+        sensor_from_rig.translation =
+            Eigen::Vector3d(RandomGaussian<double>(
+                                0, options.sensor_from_rig_translation_stddev),
+                            RandomGaussian<double>(
+                                0, options.sensor_from_rig_translation_stddev),
+                            RandomGaussian<double>(
+                                0, options.sensor_from_rig_translation_stddev));
+      }
+      rig.AddSensor(sensor_id, sensor_from_rig);
+    }
+  }
+
+  for (int rig_idx = 0; rig_idx < num_rigs; ++rig_idx) {
+    Rig& rig = rigs[rig_idx];
+    const rig_t rig_id =
+        (database == nullptr) ? rig_idx + 1 : database->WriteRig(rig);
+    rig.SetRigId(rig_id);
+    reconstruction->AddRig(std::move(rig));
   }
 
   // Synthesize 3D points on unit sphere centered at origin.

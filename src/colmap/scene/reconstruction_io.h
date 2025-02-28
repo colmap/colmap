@@ -39,6 +39,9 @@ namespace colmap {
 
 // Note that cameras must be read before images.
 
+void ReadRigsText(Reconstruction& reconstruction, std::istream& stream);
+void ReadRigsText(Reconstruction& reconstruction, const std::string& path);
+
 void ReadCamerasText(Reconstruction& reconstruction, std::istream& stream);
 void ReadCamerasText(Reconstruction& reconstruction, const std::string& path);
 
@@ -47,6 +50,9 @@ void ReadImagesText(Reconstruction& reconstruction, const std::string& path);
 
 void ReadPoints3DText(Reconstruction& reconstruction, std::istream& stream);
 void ReadPoints3DText(Reconstruction& reconstruction, const std::string& path);
+
+void ReadRigsBinary(Reconstruction& reconstruction, std::istream& stream);
+void ReadRigsBinary(Reconstruction& reconstruction, const std::string& path);
 
 void ReadCamerasBinary(Reconstruction& reconstruction, std::istream& stream);
 void ReadCamerasBinary(Reconstruction& reconstruction, const std::string& path);
@@ -57,6 +63,10 @@ void ReadImagesBinary(Reconstruction& reconstruction, const std::string& path);
 void ReadPoints3DBinary(Reconstruction& reconstruction, std::istream& stream);
 void ReadPoints3DBinary(Reconstruction& reconstruction,
                         const std::string& path);
+
+void WriteRigsText(const Reconstruction& reconstruction, std::ostream& stream);
+void WriteRigsText(const Reconstruction& reconstruction,
+                   const std::string& path);
 
 void WriteCamerasText(const Reconstruction& reconstruction,
                       std::ostream& stream);
@@ -72,6 +82,11 @@ void WritePoints3DText(const Reconstruction& reconstruction,
                        std::ostream& stream);
 void WritePoints3DText(const Reconstruction& reconstruction,
                        const std::string& path);
+
+void WriteRigsBinary(const Reconstruction& reconstruction,
+                     std::ostream& stream);
+void WriteRigsBinary(const Reconstruction& reconstruction,
+                     const std::string& path);
 
 void WriteCamerasBinary(const Reconstruction& reconstruction,
                         std::ostream& stream);
