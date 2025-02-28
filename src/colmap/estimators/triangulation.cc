@@ -159,10 +159,10 @@ bool EstimateTriangulation(const EstimateTriangulationOptions& options,
   pose_data.resize(points.size());
   for (size_t i = 0; i < points.size(); ++i) {
     point_data[i].image_point = points[i];
-    if (const std::optional<Eigen::Vector3d> cam_ray =
+    if (const std::optional<Eigen::Vector2d> cam_point =
             cameras[i]->CamFromImg(points[i]);
-        cam_ray) {
-      point_data[i].camera_ray = *cam_ray;
+        cam_point) {
+      point_data[i].camera_ray = cam_point->homogeneous().normalized();
     } else {
       point_data[i].camera_ray.setZero();
     }

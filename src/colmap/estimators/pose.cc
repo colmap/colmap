@@ -76,10 +76,11 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
     std::vector<P3PEstimator::X_t> points2D_with_rays(points2D.size());
     for (size_t i = 0; i < points2D.size(); ++i) {
       points2D_with_rays[i].image_point = points2D[i];
-      if (const std::optional<Eigen::Vector3d> cam_ray =
+      if (const std::optional<Eigen::Vector2d> cam_point =
               camera->CamFromImg(points2D[i]);
-          cam_ray) {
-        points2D_with_rays[i].camera_ray = cam_ray->normalized();
+          cam_point) {
+        points2D_with_rays[i].camera_ray =
+            cam_point->homogeneous().normalized();
       } else {
         points2D_with_rays[i].camera_ray.setZero();
       }
@@ -110,15 +111,8 @@ size_t EstimateRelativePose(const RANSACOptions& ransac_options,
                             Rigid3d* cam2_from_cam1) {
   THROW_CHECK_EQ(points1.size(), points2.size());
 
-  std::vector<Eigen::Vector3d> rays1(points1.size());
-  std::vector<Eigen::Vector3d> rays2(points2.size());
-  for (size_t i = 0; i < points1.size(); ++i) {
-    rays1[i] = points1[i].homogeneous();
-    rays2[i] = points1[i].homogeneous();
-  }
-
   RANSAC<EssentialMatrixFivePointEstimator> ransac(ransac_options);
-  const auto report = ransac.Estimate(rays1, rays2);
+  const auto report = ransac.Estimate(points1, points2);
 
   if (!report.success) {
     return 0;

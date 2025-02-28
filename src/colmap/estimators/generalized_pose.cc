@@ -123,10 +123,10 @@ bool EstimateGeneralizedAbsolutePose(
   std::vector<GP3PEstimator::X_t> rig_points2D(points2D.size());
   for (size_t i = 0; i < points2D.size(); i++) {
     const size_t camera_idx = camera_idxs[i];
-    if (const std::optional<Eigen::Vector3d> cam_ray =
+    if (const std::optional<Eigen::Vector2d> cam_point =
             cameras[camera_idx].CamFromImg(points2D[i]);
-        cam_ray) {
-      rig_points2D[i].ray_in_cam = cam_ray->normalized();
+        cam_point) {
+      rig_points2D[i].ray_in_cam = cam_point->homogeneous().normalized();
     } else {
       rig_points2D[i].ray_in_cam.setZero();
     }
