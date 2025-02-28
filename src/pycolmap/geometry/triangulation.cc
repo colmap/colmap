@@ -18,12 +18,12 @@ void BindTriangulation(py::module& m) {
       "TriangulatePoint",
       [](const Eigen::Matrix3x4d& cam1_from_world,
          const Eigen::Matrix3x4d& cam2_from_world,
-         const Eigen::Vector3d& cam_ray1,
-         const Eigen::Vector3d& cam_ray2)
+         const Eigen::Vector2d& point1,
+         const Eigen::Vector2d& point2)
           -> py::typing::Optional<Eigen::Vector3d> {
         Eigen::Vector3d xyz;
         if (TriangulatePoint(
-                cam1_from_world, cam2_from_world, cam_ray1, cam_ray2, &xyz)) {
+                cam1_from_world, cam2_from_world, point1, point2, &xyz)) {
           return py::cast(xyz);
         } else {
           return py::none();
@@ -31,8 +31,8 @@ void BindTriangulation(py::module& m) {
       },
       "cam1_from_world"_a,
       "cam2_from_world"_a,
-      "cam_ray1"_a,
-      "cam_ray2"_a,
+      "point1"_a,
+      "point2"_a,
       "Triangulate point from two-view observation.");
   m.def("CalculateTriangulationAngle",
         &CalculateTriangulationAngle,
