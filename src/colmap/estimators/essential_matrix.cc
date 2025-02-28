@@ -35,8 +35,6 @@
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 
-#include <complex>
-
 #include <Eigen/Geometry>
 #include <Eigen/LU>
 #include <Eigen/SVD>
