@@ -200,11 +200,8 @@ void IncrementalMapper::RegisterInitialImagePair(
       continue;
     }
     Eigen::Vector3d xyz;
-    if (TriangulatePoint(cam_from_world1,
-                         cam_from_world2,
-                         cam_point1->homogeneous(),
-                         cam_point2->homogeneous(),
-                         &xyz) &&
+    if (TriangulatePoint(
+            cam_from_world1, cam_from_world2, *cam_point1, *cam_point2, &xyz) &&
         CalculateTriangulationAngle(proj_center1, proj_center2, xyz) >=
             min_tri_angle_rad &&
         HasPointPositiveDepth(cam_from_world1, xyz) &&

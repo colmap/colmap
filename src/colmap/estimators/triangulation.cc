@@ -62,8 +62,8 @@ void TriangulationEstimator::Estimate(const std::vector<X_t>& point_data,
     M_t xyz;
     if (TriangulatePoint(pose_data[0].cam_from_world,
                          pose_data[1].cam_from_world,
-                         point_data[0].camera_ray,
-                         point_data[1].camera_ray,
+                         point_data[0].cam_point,
+                         point_data[1].cam_point,
                          &xyz) &&
         HasPointPositiveDepth(pose_data[0].cam_from_world, xyz) &&
         HasPointPositiveDepth(pose_data[1].cam_from_world, xyz) &&
@@ -79,18 +79,18 @@ void TriangulationEstimator::Estimate(const std::vector<X_t>& point_data,
 
     std::vector<Eigen::Matrix3x4d> cams_from_world;
     cams_from_world.reserve(point_data.size());
-    std::vector<Eigen::Vector3d> cam_rays;
-    cam_rays.reserve(point_data.size());
+    std::vector<Eigen::Vector2d> cam_points;
+    cam_points.reserve(point_data.size());
     for (size_t i = 0; i < point_data.size(); ++i) {
       cams_from_world.push_back(pose_data[i].cam_from_world);
-      cam_rays.push_back(point_data[i].camera_ray);
+      cam_points.push_back(point_data[i].cam_point);
     }
 
     M_t xyz;
     if (!TriangulateMultiViewPoint(
             span<const Eigen::Matrix3x4d>(cams_from_world.data(),
                                           cams_from_world.size()),
-            span<const Eigen::Vector3d>(cam_rays.data(), cam_rays.size()),
+            span<const Eigen::Vector2d>(cam_points.data(), cam_points.size()),
             &xyz)) {
       return;
     }
@@ -128,13 +128,13 @@ void TriangulationEstimator::Residuals(const std::vector<X_t>& point_data,
   for (size_t i = 0; i < point_data.size(); ++i) {
     if (residual_type_ == ResidualType::REPROJECTION_ERROR) {
       (*residuals)[i] =
-          CalculateSquaredReprojectionError(point_data[i].image_point,
+          CalculateSquaredReprojectionError(point_data[i].img_point,
                                             xyz,
                                             pose_data[i].cam_from_world,
                                             *pose_data[i].camera);
     } else if (residual_type_ == ResidualType::ANGULAR_ERROR) {
       const double angular_error = CalculateNormalizedAngularError(
-          point_data[i].camera_ray, xyz, pose_data[i].cam_from_world);
+          point_data[i].cam_point, xyz, pose_data[i].cam_from_world);
       (*residuals)[i] = angular_error * angular_error;
     }
   }
@@ -158,13 +158,13 @@ bool EstimateTriangulation(const EstimateTriangulationOptions& options,
   std::vector<TriangulationEstimator::PoseData> pose_data;
   pose_data.resize(points.size());
   for (size_t i = 0; i < points.size(); ++i) {
-    point_data[i].image_point = points[i];
+    point_data[i].img_point = points[i];
     if (const std::optional<Eigen::Vector2d> cam_point =
             cameras[i]->CamFromImg(points[i]);
         cam_point) {
-      point_data[i].camera_ray = cam_point->homogeneous().normalized();
+      point_data[i].cam_point = *cam_point;
     } else {
-      point_data[i].camera_ray.setZero();
+      point_data[i].cam_point.setZero();
     }
     pose_data[i].cam_from_world = cams_from_world[i]->ToMatrix();
     pose_data[i].proj_center = cams_from_world[i]->rotation.inverse() *
