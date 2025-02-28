@@ -170,8 +170,8 @@ bool CheckCheirality(const Rigid3d& cam2_from_cam1,
     Eigen::Vector3d point3D;
     if (!TriangulatePoint(cam1_from_world,
                           cam2_from_world,
-                          points1[i].homogeneous(),
-                          points2[i].homogeneous(),
+                          points1[i],
+                          points2[i],
                           &point3D)) {
       continue;
     }

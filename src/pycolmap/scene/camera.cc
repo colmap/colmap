@@ -115,36 +115,36 @@ void BindCamera(py::module& m) {
           "cam_from_img",
           [](const Camera& self,
              const py::EigenDRef<const Eigen::MatrixX2d>& image_points) {
-            std::vector<Eigen::Vector3d> cam_rays(image_points.rows());
+            std::vector<Eigen::Vector2d> cam_points(image_points.rows());
             for (size_t i = 0; i < image_points.rows(); ++i) {
-              const std::optional<Eigen::Vector3d> cam_ray =
+              const std::optional<Eigen::Vector2d> cam_point =
                   self.CamFromImg(image_points.row(i));
-              if (cam_ray) {
-                cam_rays[i] = *cam_ray;
+              if (cam_point) {
+                cam_points[i] = *cam_point;
               } else {
-                cam_rays[i].setConstant(
+                cam_points[i].setConstant(
                     std::numeric_limits<double>::quiet_NaN());
               }
             }
-            return cam_rays;
+            return cam_points;
           },
           "image_points"_a,
           "Unproject list of points in image plane to camera frame.")
       .def(
           "cam_from_img",
           [](const Camera& self, const Point2DVector& image_points) {
-            std::vector<Eigen::Vector3d> cam_rays(image_points.size());
+            std::vector<Eigen::Vector2d> cam_points(image_points.size());
             for (size_t i = 0; i < image_points.size(); ++i) {
-              const std::optional<Eigen::Vector3d> cam_ray =
+              const std::optional<Eigen::Vector2d> cam_point =
                   self.CamFromImg(image_points[i].xy);
-              if (cam_ray) {
-                cam_rays[i] = *cam_ray;
+              if (cam_point) {
+                cam_points[i] = *cam_point;
               } else {
-                cam_rays[i].setConstant(
+                cam_points[i].setConstant(
                     std::numeric_limits<double>::quiet_NaN());
               }
             }
-            return cam_rays;
+            return cam_points;
           },
           "image_points"_a,
           "Unproject list of points in image plane to camera frame.")
