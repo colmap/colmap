@@ -76,7 +76,7 @@ class Reconstruction {
   // Get const objects.
   inline const class Rig& Rig(rig_t rig_id) const;
   inline const struct Camera& Camera(camera_t camera_id) const;
-  inline const struct Frame& Frame(frame_t frame_id) const;
+  inline const class Frame& Frame(frame_t frame_id) const;
   inline const class Image& Image(image_t image_id) const;
   inline const struct Point3D& Point3D(point3D_t point3D_id) const;
 
@@ -90,7 +90,7 @@ class Reconstruction {
   // Get reference to all objects.
   inline const std::unordered_map<rig_t, class Rig>& Rigs() const;
   inline const std::unordered_map<camera_t, struct Camera>& Cameras() const;
-  inline const std::unordered_map<frame_t, class Frame>& Frame() const;
+  inline const std::unordered_map<frame_t, class Frame>& Frames() const;
   inline const std::unordered_map<image_t, class Image>& Images() const;
   inline const std::set<image_t>& RegImageIds() const;
   inline const std::unordered_map<point3D_t, struct Point3D>& Points3D() const;

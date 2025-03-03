@@ -176,6 +176,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
 
   // Synthesize cameras.
   std::vector<Rig> rigs(num_rigs);
+  std::unordered_map<camera_t, const Rig*> camera_to_rig;
   std::vector<camera_t> camera_ids(options.num_cameras);
   for (int camera_idx = 0; camera_idx < options.num_cameras; ++camera_idx) {
     Camera camera;
@@ -191,9 +192,10 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
     camera.camera_id = camera_id;
     reconstruction->AddCamera(std::move(camera));
 
-    sensor_t sensor_id(SensorType::CAMERA, camera_id);
+    const sensor_t sensor_id(SensorType::CAMERA, camera_id);
     const rig_t rig_idx = camera_idx % num_rigs;
     Rig& rig = rigs[rig_idx];
+    camera_to_rig[camera_id] = &rig;
     if (rig.NumSensors() == 0) {
       rig.AddRefSensor(sensor_id);
     } else {
@@ -307,6 +309,14 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
       }
       database->WriteKeypoints(image_id, keypoints);
       database->WriteDescriptors(image_id, descriptors);
+
+      Frame frame;
+      frame.SetFrameId(image.ImageId());
+      frame.SetRig(camera_to_rig.at(image.CameraId()));
+      frame.AddDataId(data_t(sensor_t(SensorType::CAMERA, image.CameraId()),
+                           image.ImageId()));
+      frame.SetFrameFromWorld(image.CamFromWorld());
+      reconstruction->AddFrame(std::move(frame));
     }
 
     for (point2D_t point2D_idx = 0; point2D_idx < points2D.size();

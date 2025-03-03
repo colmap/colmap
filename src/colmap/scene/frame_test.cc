@@ -46,17 +46,22 @@ TEST(Frame, Default) {
 }
 
 TEST(Frame, SetUp) {
-  sensor_t s1(SensorType::IMU, 0);
-  sensor_t s2(SensorType::CAMERA, 0);
-  std::shared_ptr<Rig> calib = std::make_shared<Rig>();
-  calib->AddRefSensor(s1);
-  calib->AddSensor(s2, TestRigid3d());
-
   Frame frame;
-  frame.AddData(data_t(s1, 2));
-  frame.AddData(data_t(s2, 5));
-  frame.SetRig(calib);
+  Rig rig;
+
+  EXPECT_FALSE(frame.HasRig());
+
+  const sensor_t s1(SensorType::IMU, 0);
+  rig.AddRefSensor(s1);
+  frame.SetRig(&rig);
+  EXPECT_FALSE(frame.HasRig());
+
+  const sensor_t s2(SensorType::CAMERA, 0);
+  rig.AddSensor(s2, TestRigid3d());
   EXPECT_TRUE(frame.HasRig());
+
+  frame.AddDataId(data_t(s1, 2));
+  frame.AddDataId(data_t(s2, 5));
   EXPECT_FALSE(frame.HasPose());
 }
 
@@ -72,6 +77,29 @@ TEST(Frame, SetResetPose) {
   frame.ResetPose();
   EXPECT_FALSE(frame.HasPose());
   EXPECT_ANY_THROW(frame.FrameFromWorld());
+}
+
+TEST(Image, Equals) {
+  Frame frame;
+  Frame other = frame;
+  EXPECT_EQ(frame, other);
+  frame.SetFrameId(2);
+  EXPECT_NE(frame, other);
+  other.SetFrameId(2);
+  EXPECT_EQ(frame, other);
+}
+
+TEST(Frame, Print) {
+  Frame frame;
+  frame.SetFrameId(1);
+  Rig rig;
+  rig.AddRefSensor(sensor_t(SensorType::IMU, 0));
+  rig.AddSensor(sensor_t(SensorType::CAMERA, 1));
+  rig.SetRigId(2);
+  frame.SetRig(&rig);
+  std::ostringstream stream;
+  stream << frame;
+  EXPECT_EQ(stream.str(), "Frame(frame_id=1, rig_id=2)");
 }
 
 }  // namespace

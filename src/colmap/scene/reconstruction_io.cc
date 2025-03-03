@@ -62,6 +62,18 @@ std::vector<ID_TYPE> ExtractSortedIds(
   return ids;
 }
 
+std::unordered_map<camera_t, const Rig*> ExtractCameraToRig(
+    const Reconstruction& reconstruction) {
+  std::unordered_map<camera_t, const Rig*> camera_to_rig;
+  for (const auto& [_, rig] : reconstruction.Rigs()) {
+    THROW_CHECK(camera_to_rig.emplace(rig.RefSensorId().id, &rig).second);
+    for (const auto& [sensor_id, _] : rig.Sensors()) {
+      THROW_CHECK(camera_to_rig.emplace(sensor_id.id, &rig).second);
+    }
+  }
+  return camera_to_rig;
+}
+
 }  // namespace
 
 void ReadRigsText(Reconstruction& reconstruction, std::istream& stream) {
@@ -83,62 +95,62 @@ void ReadRigsText(Reconstruction& reconstruction, std::istream& stream) {
 
     // ID
     std::getline(line_stream, item, ' ');
-    rig.SetRigId(std::stoll(item));
+    rig.SetRigId(std::stoull(item));
 
     // NUM_SENSORS
     std::getline(line_stream, item, ' ');
-    const int num_sensors = std::stoul(item);
+    const uint64_t num_sensors = std::stoull(item);
 
-    if (num_sensors == 0) {
-      continue;
+    if (num_sensors > 0) {
+      // REF_SENSOR
+      sensor_t ref_sensor_id;
+      std::getline(line_stream, item, ' ');
+      ref_sensor_id.type = SensorTypeFromString(item);
+      std::getline(line_stream, item, ' ');
+      ref_sensor_id.id = std::stoul(item);
+      rig.AddRefSensor(ref_sensor_id);
     }
 
-    // REF_SENSOR
-    sensor_t ref_sensor_id;
-    std::getline(line_stream, item, ' ');
-    ref_sensor_id.id = std::stoul(item);
-    std::getline(line_stream, item, ' ');
-    ref_sensor_id.type = SensorTypeFromString(item);
-    rig.AddRefSensor(ref_sensor_id);
-
     // SENSORS
-    for (int i = 0; i < num_sensors - 1; ++i) {
-      sensor_t sensor_id;
-      std::getline(line_stream, item, ' ');
-      sensor_id.id = std::stoul(item);
-      std::getline(line_stream, item, ' ');
-      sensor_id.type = SensorTypeFromString(item);
-
-      std::getline(line_stream, item, ' ');
-      const bool has_pose = item == "1";
-
-      std::optional<Rigid3d> sensor_from_rig;
-      if (has_pose) {
-        sensor_from_rig = Rigid3d();
+    if (num_sensors > 1) {
+      for (uint64_t i = 0; i < num_sensors - 1; ++i) {
+        sensor_t sensor_id;
+        std::getline(line_stream, item, ' ');
+        sensor_id.type = SensorTypeFromString(item);
+        std::getline(line_stream, item, ' ');
+        sensor_id.id = std::stoul(item);
 
         std::getline(line_stream, item, ' ');
-        sensor_from_rig->rotation.w() = std::stold(item);
+        const bool has_pose = item == "1";
 
-        std::getline(line_stream, item, ' ');
-        sensor_from_rig->rotation.x() = std::stold(item);
+        std::optional<Rigid3d> sensor_from_rig;
+        if (has_pose) {
+          sensor_from_rig = Rigid3d();
 
-        std::getline(line_stream, item, ' ');
-        sensor_from_rig->rotation.y() = std::stold(item);
+          std::getline(line_stream, item, ' ');
+          sensor_from_rig->rotation.w() = std::stold(item);
 
-        std::getline(line_stream, item, ' ');
-        sensor_from_rig->rotation.z() = std::stold(item);
+          std::getline(line_stream, item, ' ');
+          sensor_from_rig->rotation.x() = std::stold(item);
 
-        std::getline(line_stream, item, ' ');
-        sensor_from_rig->translation.x() = std::stold(item);
+          std::getline(line_stream, item, ' ');
+          sensor_from_rig->rotation.y() = std::stold(item);
 
-        std::getline(line_stream, item, ' ');
-        sensor_from_rig->translation.y() = std::stold(item);
+          std::getline(line_stream, item, ' ');
+          sensor_from_rig->rotation.z() = std::stold(item);
 
-        std::getline(line_stream, item, ' ');
-        sensor_from_rig->translation.z() = std::stold(item);
+          std::getline(line_stream, item, ' ');
+          sensor_from_rig->translation.x() = std::stold(item);
+
+          std::getline(line_stream, item, ' ');
+          sensor_from_rig->translation.y() = std::stold(item);
+
+          std::getline(line_stream, item, ' ');
+          sensor_from_rig->translation.z() = std::stold(item);
+        }
+
+        rig.AddSensor(sensor_id, sensor_from_rig);
       }
-
-      rig.AddSensor(sensor_id, sensor_from_rig);
     }
 
     reconstruction.AddRig(std::move(rig));
@@ -200,6 +212,94 @@ void ReadCamerasText(Reconstruction& reconstruction, const std::string& path) {
   std::ifstream file(path);
   THROW_CHECK_FILE_OPEN(file, path);
   ReadCamerasText(reconstruction, file);
+}
+
+void ReadFramesText(Reconstruction& reconstruction, std::istream& stream) {
+  THROW_CHECK(stream.good());
+
+  const std::unordered_map<camera_t, const Rig*> camera_to_rig =
+      ExtractCameraToRig(reconstruction);
+
+  std::string line;
+  std::string item;
+
+  while (std::getline(stream, line)) {
+    StringTrim(&line);
+
+    if (line.empty() || line[0] == '#') {
+      continue;
+    }
+
+    std::stringstream line_stream(line);
+
+    Frame frame;
+
+    // ID
+    std::getline(line_stream, item, ' ');
+    frame.SetFrameId(std::stoll(item));
+
+    // HAS_POSE
+    std::getline(line_stream, item, ' ');
+    const bool has_pose = item == "1";
+
+    // FRAME_FROM_WORLD
+    std::optional<Rigid3d> frame_from_world;
+    if (has_pose) {
+      frame_from_world = Rigid3d();
+
+      std::getline(line_stream, item, ' ');
+      frame_from_world->rotation.w() = std::stold(item);
+
+      std::getline(line_stream, item, ' ');
+      frame_from_world->rotation.x() = std::stold(item);
+
+      std::getline(line_stream, item, ' ');
+      frame_from_world->rotation.y() = std::stold(item);
+
+      std::getline(line_stream, item, ' ');
+      frame_from_world->rotation.z() = std::stold(item);
+
+      std::getline(line_stream, item, ' ');
+      frame_from_world->translation.x() = std::stold(item);
+
+      std::getline(line_stream, item, ' ');
+      frame_from_world->translation.y() = std::stold(item);
+
+      std::getline(line_stream, item, ' ');
+      frame_from_world->translation.z() = std::stold(item);
+    }
+
+    frame.SetFrameFromWorld(frame_from_world);
+
+    // DATA_IDS
+    std::getline(line_stream, item, ' ');
+    const uint32_t num_data_ids = std::stoul(item);
+    for (uint32_t i = 0; i < num_data_ids; ++i) {
+      data_t data_id;
+      std::getline(line_stream, item, ' ');
+      data_id.sensor_id.id = std::stoul(item);
+      std::getline(line_stream, item, ' ');
+      data_id.sensor_id.type = SensorTypeFromString(item);
+      std::getline(line_stream, item, ' ');
+      data_id.id = std::stoull(item);
+      frame.AddDataId(data_id);
+
+      if (!frame.HasRig()) {
+        const auto it = camera_to_rig.find(data_id.sensor_id.id);
+        if (it != camera_to_rig.end()) {
+          frame.SetRig(it->second);
+        }
+      }
+    }
+
+    reconstruction.AddFrame(std::move(frame));
+  }
+}
+
+void ReadFramesText(Reconstruction& reconstruction, const std::string& path) {
+  std::ifstream file(path);
+  THROW_CHECK_FILE_OPEN(file, path);
+  ReadFramesText(reconstruction, file);
 }
 
 void ReadImagesText(Reconstruction& reconstruction, std::istream& stream) {
@@ -393,37 +493,45 @@ void ReadRigsBinary(Reconstruction& reconstruction, std::istream& stream) {
     Rig rig;
 
     rig.SetRigId(ReadBinaryLittleEndian<rig_t>(&stream));
-    const size_t num_sensors = ReadBinaryLittleEndian<uint64_t>(&stream);
+    const uint32_t num_sensors = ReadBinaryLittleEndian<uint32_t>(&stream);
 
-    sensor_t ref_sensor_id;
-    ref_sensor_id.id = ReadBinaryLittleEndian<uint64_t>(&stream);
-    ref_sensor_id.type =
-        static_cast<SensorType>(ReadBinaryLittleEndian<int>(&stream));
-    rig.AddRefSensor(ref_sensor_id);
-
-    for (size_t j = 0; j < num_sensors - 1; ++j) {
-      sensor_t sensor_id;
-      sensor_id.id = ReadBinaryLittleEndian<uint64_t>(&stream);
-      sensor_id.type =
+    if (num_sensors > 0) {
+      sensor_t ref_sensor_id;
+      ref_sensor_id.type =
           static_cast<SensorType>(ReadBinaryLittleEndian<int>(&stream));
+      ref_sensor_id.id = ReadBinaryLittleEndian<uint32_t>(&stream);
+      rig.AddRefSensor(ref_sensor_id);
+    }
 
-      const bool has_pose = ReadBinaryLittleEndian<uint8_t>(&stream);
-      std::optional<Rigid3d> sensor_from_rig;
-      if (has_pose) {
-        sensor_from_rig = Rigid3d();
-        sensor_from_rig->rotation.w() = ReadBinaryLittleEndian<double>(&stream);
-        sensor_from_rig->rotation.x() = ReadBinaryLittleEndian<double>(&stream);
-        sensor_from_rig->rotation.y() = ReadBinaryLittleEndian<double>(&stream);
-        sensor_from_rig->rotation.z() = ReadBinaryLittleEndian<double>(&stream);
-        sensor_from_rig->translation.x() =
-            ReadBinaryLittleEndian<double>(&stream);
-        sensor_from_rig->translation.y() =
-            ReadBinaryLittleEndian<double>(&stream);
-        sensor_from_rig->translation.z() =
-            ReadBinaryLittleEndian<double>(&stream);
+    if (num_sensors > 1) {
+      for (uint32_t j = 0; j < num_sensors - 1; ++j) {
+        sensor_t sensor_id;
+        sensor_id.type =
+            static_cast<SensorType>(ReadBinaryLittleEndian<int>(&stream));
+        sensor_id.id = ReadBinaryLittleEndian<uint32_t>(&stream);
+
+        const bool has_pose = ReadBinaryLittleEndian<uint8_t>(&stream);
+        std::optional<Rigid3d> sensor_from_rig;
+        if (has_pose) {
+          sensor_from_rig = Rigid3d();
+          sensor_from_rig->rotation.w() =
+              ReadBinaryLittleEndian<double>(&stream);
+          sensor_from_rig->rotation.x() =
+              ReadBinaryLittleEndian<double>(&stream);
+          sensor_from_rig->rotation.y() =
+              ReadBinaryLittleEndian<double>(&stream);
+          sensor_from_rig->rotation.z() =
+              ReadBinaryLittleEndian<double>(&stream);
+          sensor_from_rig->translation.x() =
+              ReadBinaryLittleEndian<double>(&stream);
+          sensor_from_rig->translation.y() =
+              ReadBinaryLittleEndian<double>(&stream);
+          sensor_from_rig->translation.z() =
+              ReadBinaryLittleEndian<double>(&stream);
+        }
+
+        rig.AddSensor(sensor_id, sensor_from_rig);
       }
-
-      rig.AddSensor(sensor_id, sensor_from_rig);
     }
 
     reconstruction.AddRig(std::move(rig));
@@ -459,6 +567,63 @@ void ReadCamerasBinary(Reconstruction& reconstruction,
   std::ifstream file(path, std::ios::binary);
   THROW_CHECK_FILE_OPEN(file, path);
   ReadCamerasBinary(reconstruction, file);
+}
+
+void ReadFramesBinary(Reconstruction& reconstruction, std::istream& stream) {
+  THROW_CHECK(stream.good());
+
+  const std::unordered_map<camera_t, const Rig*> camera_to_rig =
+      ExtractCameraToRig(reconstruction);
+
+  const uint64_t num_frames = ReadBinaryLittleEndian<uint64_t>(&stream);
+  for (uint64_t i = 0; i < num_frames; ++i) {
+    Frame frame;
+
+    frame.SetFrameId(ReadBinaryLittleEndian<frame_t>(&stream));
+    const bool has_pose = ReadBinaryLittleEndian<uint8_t>(&stream);
+
+    std::optional<Rigid3d> frame_from_world;
+    if (has_pose) {
+      frame_from_world = Rigid3d();
+      frame_from_world->rotation.w() = ReadBinaryLittleEndian<double>(&stream);
+      frame_from_world->rotation.x() = ReadBinaryLittleEndian<double>(&stream);
+      frame_from_world->rotation.y() = ReadBinaryLittleEndian<double>(&stream);
+      frame_from_world->rotation.z() = ReadBinaryLittleEndian<double>(&stream);
+      frame_from_world->translation.x() =
+          ReadBinaryLittleEndian<double>(&stream);
+      frame_from_world->translation.y() =
+          ReadBinaryLittleEndian<double>(&stream);
+      frame_from_world->translation.z() =
+          ReadBinaryLittleEndian<double>(&stream);
+    }
+
+    frame.SetFrameFromWorld(frame_from_world);
+
+    const uint32_t num_data_ids = ReadBinaryLittleEndian<uint32_t>(&stream);
+    for (uint32_t j = 0; j < num_data_ids; ++j) {
+      data_t data_id;
+      data_id.sensor_id.id = ReadBinaryLittleEndian<uint32_t>(&stream);
+      data_id.sensor_id.type =
+          static_cast<SensorType>(ReadBinaryLittleEndian<int>(&stream));
+      data_id.id = ReadBinaryLittleEndian<uint64_t>(&stream);
+      frame.AddDataId(data_id);
+
+      if (!frame.HasRig()) {
+        const auto it = camera_to_rig.find(data_id.sensor_id.id);
+        if (it != camera_to_rig.end()) {
+          frame.SetRig(it->second);
+        }
+      }
+    }
+
+    reconstruction.AddFrame(std::move(frame));
+  }
+}
+
+void ReadFramesBinary(Reconstruction& reconstruction, const std::string& path) {
+  std::ifstream file(path, std::ios::binary);
+  THROW_CHECK_FILE_OPEN(file, path);
+  ReadFramesBinary(reconstruction, file);
 }
 
 void ReadImagesBinary(Reconstruction& reconstruction, std::istream& stream) {
@@ -569,7 +734,7 @@ void WriteRigsText(const Reconstruction& reconstruction, std::ostream& stream) {
 
   stream << "# Rig calib list with one line of data per calib:" << std::endl;
   stream << "#   RIG_ID, NUM_SENSORS, REF_SENSOR_ID, REF_SENSOR_TYPE, "
-            "SENSORS[] as (SENSOR_ID, SENSOR_TYPE, HAS_POSE, [QW, QX, QY, QZ, "
+            "SENSORS[] as (SENSOR_TYPE, SENSOR_ID, HAS_POSE, [QW, QX, QY, QZ, "
             "TX, TY, TZ])"
          << std::endl;
   stream << "# Number of rigs: " << reconstruction.NumRigs() << std::endl;
@@ -584,13 +749,15 @@ void WriteRigsText(const Reconstruction& reconstruction, std::ostream& stream) {
 
     line << rig.NumSensors() << " ";
 
-    const sensor_t ref_sensor_id = rig.RefSensorId();
-    line << ref_sensor_id.id << " ";
-    line << ref_sensor_id.type << " ";
+    if (rig.NumSensors() > 0) {
+      const sensor_t ref_sensor_id = rig.RefSensorId();
+      line << ref_sensor_id.type << " ";
+      line << ref_sensor_id.id << " ";
+    }
 
     for (const auto& [sensor_id, sensor_from_rig] : rig.Sensors()) {
-      line << sensor_id.id << " ";
       line << sensor_id.type << " ";
+      line << sensor_id.id << " ";
       if (sensor_from_rig.has_value()) {
         line << "1 ";
         line << sensor_from_rig->rotation.w() << " ";
@@ -667,30 +834,38 @@ void WriteFramesText(const Reconstruction& reconstruction,
   stream.precision(17);
 
   stream << "# Frame list with one line of data per frame:" << std::endl;
-  stream << "#   FRAME_ID, HAS_POSE, FRAME_FROM_WORLD[QW, QX, QY, QZ, TX, TY, TZ], NUM_DATA_IDS, "
+  stream << "#   FRAME_ID, HAS_POSE, FRAME_FROM_WORLD[QW, QX, QY, QZ, TX, TY, "
+            "TZ], NUM_DATA_IDS, "
             "DATA_IDS[] as (SENSOR_ID, SENSOR_TYPE, DATA_ID)"
          << std::endl;
   stream << "# Number of frames: " << reconstruction.NumFrames() << std::endl;
 
-  for (const camera_t camera_id : ExtractSortedIds(reconstruction.Cameras())) {
-    const Camera& camera = reconstruction.Camera(camera_id);
+  for (const frame_t frame_id : ExtractSortedIds(reconstruction.Frames())) {
+    const Frame& frame = reconstruction.Frame(frame_id);
 
     std::ostringstream line;
     line.precision(17);
 
-    line << camera_id << " ";
-    line << camera.ModelName() << " ";
-    line << camera.width << " ";
-    line << camera.height << " ";
-
-    for (const double param : camera.params) {
-      line << param << " ";
+    line << frame_id << " ";
+    if (frame.HasPose()) {
+      line << "1 ";
+      const Rigid3d& frame_from_world = frame.FrameFromWorld();
+      line << frame_from_world.rotation.w() << " ";
+      line << frame_from_world.rotation.x() << " ";
+      line << frame_from_world.rotation.y() << " ";
+      line << frame_from_world.rotation.z() << " ";
+      line << frame_from_world.translation.x() << " ";
+      line << frame_from_world.translation.y() << " ";
+      line << frame_from_world.translation.z() << " ";
+      const std::set<data_t>& data_ids = frame.DataIds();
+      line << data_ids.size() << " ";
+      for (const data_t& data_id : data_ids) {
+        line << data_id.sensor_id.id << " " << data_id.sensor_id.type << " "
+             << data_id.id;
+      }
+    } else {
+      line << "0";
     }
-
-    std::string line_string = line.str();
-    line_string = line_string.substr(0, line_string.size() - 1);
-
-    stream << line_string << std::endl;
   }
 }
 
@@ -828,13 +1003,15 @@ void WriteRigsBinary(const Reconstruction& reconstruction,
   for (const rig_t rig_id : ExtractSortedIds(reconstruction.Rigs())) {
     const Rig& rig = reconstruction.Rig(rig_id);
     WriteBinaryLittleEndian<rig_t>(&stream, rig_id);
-    WriteBinaryLittleEndian<uint64_t>(&stream, rig.NumSensors());
-    WriteBinaryLittleEndian<uint64_t>(&stream, rig.RefSensorId().id);
-    WriteBinaryLittleEndian<int>(&stream,
-                                 static_cast<int>(rig.RefSensorId().type));
+    WriteBinaryLittleEndian<uint32_t>(&stream, rig.NumSensors());
+    if (rig.NumSensors() > 0) {
+      WriteBinaryLittleEndian<int>(&stream,
+                                   static_cast<int>(rig.RefSensorId().type));
+      WriteBinaryLittleEndian<uint32_t>(&stream, rig.RefSensorId().id);
+    }
     for (const auto& [sensor_id, sensor_from_rig] : rig.Sensors()) {
-      WriteBinaryLittleEndian<uint64_t>(&stream, sensor_id.id);
       WriteBinaryLittleEndian<int>(&stream, static_cast<int>(sensor_id.type));
+      WriteBinaryLittleEndian<uint32_t>(&stream, sensor_id.id);
       WriteBinaryLittleEndian<uint8_t>(&stream,
                                        sensor_from_rig.has_value() ? 1 : 0);
       if (sensor_from_rig.has_value()) {
@@ -883,6 +1060,48 @@ void WriteCamerasBinary(const Reconstruction& reconstruction,
   std::ofstream file(path, std::ios::trunc | std::ios::binary);
   THROW_CHECK_FILE_OPEN(file, path);
   WriteCamerasBinary(reconstruction, file);
+}
+
+void WriteFramesBinary(const Reconstruction& reconstruction,
+                       std::ostream& stream) {
+  THROW_CHECK(stream.good());
+
+  WriteBinaryLittleEndian<uint64_t>(&stream, reconstruction.NumFrames());
+
+  for (const frame_t frame_id : ExtractSortedIds(reconstruction.Frames())) {
+    const Frame& frame = reconstruction.Frame(frame_id);
+    WriteBinaryLittleEndian<frame_t>(&stream, frame_id);
+    WriteBinaryLittleEndian<uint8_t>(&stream, frame.HasPose() ? 1 : 0);
+    if (frame.HasPose()) {
+      const Rigid3d& frame_from_world = frame.FrameFromWorld();
+      WriteBinaryLittleEndian<double>(&stream, frame_from_world.rotation.w());
+      WriteBinaryLittleEndian<double>(&stream, frame_from_world.rotation.x());
+      WriteBinaryLittleEndian<double>(&stream, frame_from_world.rotation.y());
+      WriteBinaryLittleEndian<double>(&stream, frame_from_world.rotation.z());
+      WriteBinaryLittleEndian<double>(&stream,
+                                      frame_from_world.translation.x());
+      WriteBinaryLittleEndian<double>(&stream,
+                                      frame_from_world.translation.y());
+      WriteBinaryLittleEndian<double>(&stream,
+                                      frame_from_world.translation.z());
+    }
+
+    const std::set<data_t>& data_ids = frame.DataIds();
+    WriteBinaryLittleEndian<uint32_t>(&stream, data_ids.size());
+    for (const data_t& data_id : data_ids) {
+      WriteBinaryLittleEndian<uint32_t>(&stream, data_id.sensor_id.id);
+      WriteBinaryLittleEndian<int>(&stream,
+                                   static_cast<int>(data_id.sensor_id.type));
+      WriteBinaryLittleEndian<uint64_t>(&stream, data_id.id);
+    }
+  }
+}
+
+void WriteFramesBinary(const Reconstruction& reconstruction,
+                       const std::string& path) {
+  std::ofstream file(path, std::ios::trunc | std::ios::binary);
+  THROW_CHECK_FILE_OPEN(file, path);
+  WriteFramesBinary(reconstruction, file);
 }
 
 void WriteImagesBinary(const Reconstruction& reconstruction,

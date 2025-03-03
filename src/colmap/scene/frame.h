@@ -49,7 +49,7 @@ struct data_t {
   sensor_t sensor_id;
   // Unique identifier of the data (measurement)
   // This can be image_t / imu_sample_t (not supported yet)
-  uint32_t id;
+  uint64_t id;
 
   constexpr data_t()
       : sensor_id(kInvalidSensorId), id(std::numeric_limits<uint32_t>::max()) {}
@@ -74,25 +74,25 @@ class Frame {
  public:
   Frame() = default;
 
-  // Access the unique identifier of the frame
+  // Access the unique identifier of the frame.
   inline frame_t FrameId() const;
   inline void SetFrameId(frame_t frame_id);
 
   // Access data ids
   inline std::set<data_t>& DataIds();
   inline const std::set<data_t>& DataIds() const;
-  inline void AddData(data_t data_id);
+  inline void AddDataId(data_t data_id);
 
-  // Check whether the data id is existent in the frame
-  inline bool HasData(data_t data_id) const;
+  // Check whether the data id is existent in the frame.
+  inline bool HasDataId(data_t data_id) const;
 
-  // Access the rig calibration
-  inline const std::shared_ptr<class Rig>& Rig() const;
-  inline void SetRig(std::shared_ptr<class Rig> rig);
-  // Check if the frame has a non-trivial rig calibration
+  // Access the rig calibration.
+  inline const class Rig* Rig() const;
+  inline void SetRig(const class Rig* rig);
+  // Check if the frame has a non-trivial rig calibration.
   inline bool HasRig() const;
 
-  // Access the frame from world transformation
+  // Access the frame from world transformation.
   inline const Rigid3d& FrameFromWorld() const;
   inline Rigid3d& FrameFromWorld();
   inline const std::optional<Rigid3d>& MaybeFrameFromWorld() const;
@@ -102,8 +102,11 @@ class Frame {
   inline bool HasPose() const;
   inline void ResetPose();
 
-  // Get the sensor from world transformation
+  // Get the sensor from world transformation.
   inline Rigid3d SensorFromWorld(sensor_t sensor_id) const;
+
+  inline bool operator==(const Frame& other) const;
+  inline bool operator!=(const Frame& other) const;
 
  private:
   frame_t frame_id_ = kInvalidFrameId;
@@ -114,9 +117,11 @@ class Frame {
   // case, where rig modeling is no longer needed.
   std::optional<Rigid3d> frame_from_world_;
 
-  // [Optional] Rig calibration
-  std::shared_ptr<class Rig> rig_ = nullptr;
+  // [Optional] Rig calibration.
+  const class Rig* rig_ = nullptr;
 };
+
+std::ostream& operator<<(std::ostream& stream, const Frame& frame);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
@@ -130,18 +135,18 @@ std::set<data_t>& Frame::DataIds() { return data_ids_; }
 
 const std::set<data_t>& Frame::DataIds() const { return data_ids_; }
 
-void Frame::AddData(data_t data_id) { data_ids_.insert(data_id); }
+void Frame::AddDataId(data_t data_id) { data_ids_.insert(data_id); }
 
-bool Frame::HasData(data_t data_id) const {
+bool Frame::HasDataId(data_t data_id) const {
   return data_ids_.find(data_id) != data_ids_.end();
 }
 
-const std::shared_ptr<class Rig>& Frame::Rig() const { return rig_; }
+const Rig* Frame::Rig() const { return rig_; }
 
-void Frame::SetRig(std::shared_ptr<class Rig> rig) { rig_ = std::move(rig); }
+void Frame::SetRig(const class Rig* rig) { rig_ = rig; }
 
 bool Frame::HasRig() const {
-  if (!rig_)
+  if (rig_ == nullptr)
     return false;
   else
     return rig_->NumSensors() > 1;
@@ -184,6 +189,13 @@ Rigid3d Frame::SensorFromWorld(sensor_t sensor_id) const {
   THROW_CHECK(rig_->HasSensor(sensor_id));
   return rig_->SensorFromRig(sensor_id) * FrameFromWorld();
 }
+
+bool Frame::operator==(const Frame& other) const {
+  return frame_id_ == other.frame_id_ && data_ids_ == other.data_ids_ &&
+         frame_from_world_ == other.frame_from_world_;
+}
+
+bool Frame::operator!=(const Frame& other) const { return !(*this == other); }
 
 }  // namespace colmap
 

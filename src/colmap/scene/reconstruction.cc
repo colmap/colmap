@@ -151,7 +151,7 @@ void Reconstruction::AddCamera(struct Camera camera) {
   THROW_CHECK(cameras_.emplace(camera_id, std::move(camera)).second);
 }
 
-void Reconstruction::AddFrame(struct Frame frame) {
+void Reconstruction::AddFrame(class Frame frame) {
   const frame_t frame_id = frame.FrameId();
   THROW_CHECK(frames_.emplace(frame_id, std::move(frame)).second);
 }
