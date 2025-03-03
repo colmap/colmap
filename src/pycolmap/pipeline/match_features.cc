@@ -74,7 +74,8 @@ void BindMatchFeatures(py::module& m) {
   auto PyExhaustiveMatchingOptions =
       py::class_<ExhaustiveMatchingOptions>(m, "ExhaustiveMatchingOptions")
           .def(py::init<>())
-          .def_readwrite("block_size", &EMOpts::block_size);
+          .def_readwrite("block_size", &EMOpts::block_size)
+          .def("check", &EMOpts::Check);
   MakeDataclass(PyExhaustiveMatchingOptions);
 
   using SpMOpts = SpatialMatchingOptions;
@@ -92,7 +93,8 @@ void BindMatchFeatures(py::module& m) {
                          &SpMOpts::max_distance,
                          "The maximum distance between the query and nearest "
                          "neighbor [meters].")
-          .def_readwrite("num_threads", &SpMOpts::num_threads);
+          .def_readwrite("num_threads", &SpMOpts::num_threads)
+          .def("check", &SpMOpts::Check);
   MakeDataclass(PySpatialMatchingOptions);
 
   using VTMOpts = VocabTreeMatchingOptions;
@@ -127,11 +129,7 @@ void BindMatchFeatures(py::module& m) {
               &VTMOpts::match_list_path,
               "Optional path to file with specific image names to match.")
           .def_readwrite("num_threads", &VTMOpts::num_threads)
-          .def("check", [](VTMOpts& self) {
-            THROW_CHECK(!self.vocab_tree_path.empty())
-                << "vocab_tree_path required.";
-            THROW_CHECK_FILE_EXISTS(self.vocab_tree_path);
-          });
+          .def("check", &VTMOpts::Check);
   MakeDataclass(PyVocabTreeMatchingOptions);
 
   using SeqMOpts = SequentialMatchingOptions;
@@ -175,7 +173,8 @@ void BindMatchFeatures(py::module& m) {
           .def_readwrite("vocab_tree_path",
                          &SeqMOpts::vocab_tree_path,
                          "Path to the vocabulary tree.")
-          .def("vocab_tree_options", &SeqMOpts::VocabTreeOptions);
+          .def("vocab_tree_options", &SeqMOpts::VocabTreeOptions)
+          .def("check", &SeqMOpts::Check);
   MakeDataclass(PySequentialMatchingOptions);
 
   using IPMOpts = ImagePairsMatchingOptions;
@@ -187,7 +186,8 @@ void BindMatchFeatures(py::module& m) {
                          "Number of image pairs to match in one batch.")
           .def_readwrite("match_list_path",
                          &IPMOpts::match_list_path,
-                         "Path to the file with the matches.");
+                         "Path to the file with the matches.")
+          .def("check", &IPMOpts::Check);
   MakeDataclass(PyImagePairsMatchingOptions);
 
   m.def(

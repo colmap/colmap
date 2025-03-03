@@ -27,5 +27,5 @@ void BindPoint3D(py::module& m) {
       .def_readwrite("track", &Point3D::track);
   MakeDataclass(PyPoint3D);
 
-  py::bind_map<Point3DMap>(m, "MapPoint3DIdToPoint3D");
+  py::bind_map<Point3DMap>(m, "Point3DMap");
 }

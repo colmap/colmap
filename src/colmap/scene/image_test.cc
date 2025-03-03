@@ -251,11 +251,12 @@ TEST(Image, ProjectPoint) {
       Camera::CreateFromModelId(1, CameraModelId::kSimplePinhole, 1, 1, 1);
   image.SetCameraId(camera.camera_id);
   image.SetCameraPtr(&camera);
-  const auto result = image.ProjectPoint(Eigen::Vector3d(2, 0, 1));
-  EXPECT_TRUE(result.first);
-  EXPECT_EQ(result.second, Eigen::Vector2d(2.5, 0.5));
-  EXPECT_FALSE(image.ProjectPoint(Eigen::Vector3d(2, 0, 0)).first);
-  EXPECT_FALSE(image.ProjectPoint(Eigen::Vector3d(2, 0, -1)).first);
+  const std::optional<Eigen::Vector2d> result =
+      image.ProjectPoint(Eigen::Vector3d(2, 0, 1));
+  ASSERT_TRUE(result.has_value());
+  EXPECT_EQ(result.value(), Eigen::Vector2d(2.5, 0.5));
+  EXPECT_FALSE(image.ProjectPoint(Eigen::Vector3d(2, 0, 0)).has_value());
+  EXPECT_FALSE(image.ProjectPoint(Eigen::Vector3d(2, 0, -1)).has_value());
 }
 
 }  // namespace

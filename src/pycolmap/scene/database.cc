@@ -9,6 +9,8 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
+namespace {
+
 class DatabaseTransactionWrapper {
  public:
   explicit DatabaseTransactionWrapper(Database* database)
@@ -24,6 +26,8 @@ class DatabaseTransactionWrapper {
   Database* database_;
   std::unique_ptr<DatabaseTransaction> transaction_;
 };
+
+}  // namespace
 
 void BindDatabase(py::module& m) {
   py::class_<Database, std::shared_ptr<Database>> PyDatabase(m, "Database");
