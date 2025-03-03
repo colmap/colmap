@@ -41,35 +41,6 @@
 
 namespace colmap {
 
-// Sensor type
-MAKE_ENUM_CLASS_OVERLOAD_STREAM(SensorType, -1, INVALID, CAMERA, IMU);
-
-struct sensor_t {
-  // Type of the sensor (INVALID / CAMERA / IMU)
-  SensorType type;
-  // Unique identifier of the sensor.
-  // This can be camera_t / imu_t (not supported yet)
-  uint32_t id;
-
-  constexpr sensor_t()
-      : type(SensorType::INVALID), id(std::numeric_limits<uint32_t>::max()) {}
-  constexpr sensor_t(const SensorType& type, uint32_t id)
-      : type(type), id(id) {}
-
-  inline bool operator<(const sensor_t& other) const {
-    return std::tie(type, id) < std::tie(other.type, other.id);
-  }
-  inline bool operator==(const sensor_t& other) const {
-    return type == other.type && id == other.id;
-  }
-  inline bool operator!=(const sensor_t& other) const {
-    return !(*this == other);
-  }
-};
-
-constexpr sensor_t kInvalidSensorId =
-    sensor_t(SensorType::INVALID, std::numeric_limits<uint32_t>::max());
-
 // Rig calibration storing the sensor from rig transformation.
 // The reference sensor shares identity poses with the device.
 // This design is mainly for two purposes:
@@ -101,10 +72,10 @@ class Rig {
   // Check if the sensor is the reference sensor of the rig.
   inline bool IsRefSensor(sensor_t sensor_id) const;
 
-  // Access all sensors in the rig except for the reference sensor,
+  // Access all sensors in the rig except for the reference sensor.
   inline const std::map<sensor_t, std::optional<Rigid3d>>& Sensors() const;
 
-  // Access sensor from rig transformations
+  // Access sensor from rig transformations.
   inline Rigid3d& SensorFromRig(sensor_t sensor_id);
   inline const Rigid3d& SensorFromRig(sensor_t sensor_id) const;
   inline std::optional<Rigid3d>& MaybeSensorFromRig(sensor_t sensor_id);

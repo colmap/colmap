@@ -40,7 +40,7 @@ Image::Image()
       camera_id_(kInvalidCameraId),
       camera_ptr_(nullptr),
       num_points3D_(0),
-      frame_(std::make_shared<class Frame>()) {}
+      frame_ptr_(nullptr) {}
 
 Image::Image(const Image& other)
     : image_id_(other.ImageId()),
@@ -53,10 +53,7 @@ Image::Image(const Image& other)
     camera_ptr_ = other.CameraPtr();
   }
   if (other.HasTrivialFrame()) {
-    frame_ = std::make_shared<class Frame>();
-    frame_->SetFrameFromWorld(other.MaybeCamFromWorld());
-  } else {
-    frame_ = other.Frame();
+    frame_ptr_ = other.FramePtr();
   }
 }
 
@@ -72,10 +69,7 @@ Image& Image::operator=(const Image& other) {
     num_points3D_ = other.NumPoints3D();
     points2D_ = other.Points2D();
     if (other.HasTrivialFrame()) {
-      frame_ = std::make_shared<class Frame>();
-      frame_->SetFrameFromWorld(other.MaybeCamFromWorld());
-    } else {
-      frame_ = other.Frame();
+      frame_ptr_ = other.FramePtr();
     }
   }
   return *this;

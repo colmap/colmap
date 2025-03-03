@@ -44,32 +44,6 @@
 
 namespace colmap {
 
-struct data_t {
-  // Unique identifer of the sensor
-  sensor_t sensor_id;
-  // Unique identifier of the data (measurement)
-  // This can be image_t / imu_sample_t (not supported yet)
-  uint64_t id;
-
-  constexpr data_t()
-      : sensor_id(kInvalidSensorId), id(std::numeric_limits<uint32_t>::max()) {}
-  constexpr data_t(const sensor_t& sensor_id, uint32_t id)
-      : sensor_id(sensor_id), id(id) {}
-
-  inline bool operator<(const data_t& other) const {
-    return std::tie(sensor_id, id) < std::tie(other.sensor_id, other.id);
-  }
-  inline bool operator==(const data_t& other) const {
-    return sensor_id == other.sensor_id && id == other.id;
-  }
-  inline bool operator!=(const data_t& other) const {
-    return !(*this == other);
-  }
-};
-
-constexpr data_t kInvalidDataId =
-    data_t(kInvalidSensorId, std::numeric_limits<uint32_t>::max());
-
 class Frame {
  public:
   Frame() = default;

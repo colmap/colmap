@@ -176,7 +176,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
 
   // Synthesize cameras.
   std::vector<Rig> rigs(num_rigs);
-  std::unordered_map<camera_t, const Rig*> camera_to_rig;
+  std::unordered_map<camera_t, size_t> camera_to_rig_idx;
   std::vector<camera_t> camera_ids(options.num_cameras);
   for (int camera_idx = 0; camera_idx < options.num_cameras; ++camera_idx) {
     Camera camera;
@@ -195,7 +195,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
     const sensor_t sensor_id(SensorType::CAMERA, camera_id);
     const rig_t rig_idx = camera_idx % num_rigs;
     Rig& rig = rigs[rig_idx];
-    camera_to_rig[camera_id] = &rig;
+    camera_to_rig_idx[camera_id] = rig_idx;
     if (rig.NumSensors() == 0) {
       rig.AddRefSensor(sensor_id);
     } else {
@@ -218,7 +218,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
     const rig_t rig_id =
         (database == nullptr) ? rig_idx + 1 : database->WriteRig(rig);
     rig.SetRigId(rig_id);
-    reconstruction->AddRig(std::move(rig));
+    reconstruction->AddRig(rig);
   }
 
   // Synthesize 3D points on unit sphere centered at origin.
@@ -241,11 +241,10 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
     // centered at origin.
     const Eigen::Vector3d view_dir = -Eigen::Vector3d::Random().normalized();
     const Eigen::Vector3d proj_center = -5 * view_dir;
-    image.SetCamFromWorld(Rigid3d());
-    image.CamFromWorld().rotation =
-        Eigen::Quaterniond::FromTwoVectors(view_dir, Eigen::Vector3d(0, 0, 1));
-    image.CamFromWorld().translation =
-        image.CamFromWorld().rotation * -proj_center;
+    const Rigid3d cam_from_world(
+        Eigen::Quaterniond::FromTwoVectors(view_dir, Eigen::Vector3d(0, 0, 1)),
+        image.CamFromWorld().rotation * -proj_center);
+    image.SetCamFromWorld(cam_from_world);
 
     const Camera& camera = reconstruction->Camera(image.CameraId());
 
@@ -309,14 +308,6 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
       }
       database->WriteKeypoints(image_id, keypoints);
       database->WriteDescriptors(image_id, descriptors);
-
-      Frame frame;
-      frame.SetFrameId(image.ImageId());
-      frame.SetRig(camera_to_rig.at(image.CameraId()));
-      frame.AddDataId(data_t(sensor_t(SensorType::CAMERA, image.CameraId()),
-                           image.ImageId()));
-      frame.SetFrameFromWorld(image.CamFromWorld());
-      reconstruction->AddFrame(std::move(frame));
     }
 
     for (point2D_t point2D_idx = 0; point2D_idx < points2D.size();
@@ -359,7 +350,27 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
       database->WritePosePrior(image_id, noisy_prior);
     }
 
+    Frame frame;
+    const rig_t rig_id =
+        rigs.at(camera_to_rig_idx.at(image.CameraId())).RigId();
+    const Rig* rig = &reconstruction->Rig(rig_id);
+    const sensor_t sensor_id(SensorType::CAMERA, image.CameraId());
+    Rigid3d frame_from_world = image.CamFromWorld();
+    if (!rig->IsRefSensor(sensor_id)) {
+      frame_from_world =
+          Inverse(rig->SensorFromRig(sensor_id)) * frame_from_world;
+    }
+    frame.SetRig(rig);
+    frame.AddDataId(data_t(sensor_id, image_id));
+    frame.SetFrameFromWorld(frame_from_world);
+    const frame_t frame_id =
+        (database == nullptr) ? image_id : database->WriteFrame(frame);
+    frame.SetFrameId(frame_id);
+    reconstruction->AddFrame(std::move(frame));
+
     image.SetImageId(image_id);
+    image.SetFrameId(frame_id);
+    image.SetFramePtr(&reconstruction->Frame(frame_id));
     image.SetPoints2D(points2D);
     reconstruction->AddImage(std::move(image));
     reconstruction->RegisterImage(image_id);

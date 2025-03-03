@@ -58,9 +58,16 @@ TEST(SynthesizeDataset, Nominal) {
 
   EXPECT_EQ(database.NumCameras(), options.num_cameras);
   EXPECT_EQ(reconstruction.NumCameras(), options.num_cameras);
-  for (const auto& camera : reconstruction.Cameras()) {
-    EXPECT_EQ(camera.second.ParamsToString(),
-              database.ReadCamera(camera.first).ParamsToString());
+  for (const auto& [camera_id, camera] : reconstruction.Cameras()) {
+    EXPECT_EQ(camera, database.ReadCamera(camera_id));
+    EXPECT_EQ(camera.model_id, options.camera_model_id);
+  }
+
+  EXPECT_EQ(database.NumFrames(), options.num_images);
+  EXPECT_EQ(reconstruction.NumFrames(), options.num_images);
+  for (const auto& [frame_id, frame] : reconstruction.Frames()) {
+    EXPECT_EQ(frame, database.ReadFrame(frame_id));
+    EXPECT_EQ(frame.DataIds().size(), frame.Rig()->NumSensors());
   }
 
   EXPECT_EQ(database.NumImages(), options.num_images);
