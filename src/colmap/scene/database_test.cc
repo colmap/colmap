@@ -494,9 +494,9 @@ TEST(Database, Merge) {
       kInvalidCameraId, "SIMPLE_PINHOLE", 1.0, 1, 1);
   camera2.camera_id = database2.WriteCamera(camera2);
 
-  Rig rig;
-  rig.AddRefSensor(sensor_t(SensorType::CAMERA, camera1.camera_id));
-  rig.SetRigId(database1.WriteRig(rig));
+  Rig rig1;
+  rig1.AddRefSensor(sensor_t(SensorType::CAMERA, camera1.camera_id));
+  rig1.SetRigId(database1.WriteRig(rig1));
   Rig rig2;
   rig2.AddRefSensor(sensor_t(SensorType::CAMERA, camera2.camera_id));
   rig2.SetRigId(database2.WriteRig(rig2));
