@@ -65,38 +65,38 @@ double CalculateAngularError(const Eigen::Vector2d& point2D,
                              const Eigen::Vector3d& point3D,
                              const Rigid3d& cam_from_world,
                              const Camera& camera) {
-  const std::optional<Eigen::Vector3d> ray = camera.CamFromImg(point2D);
-  if (!ray) {
+  const std::optional<Eigen::Vector2d> cam_point = camera.CamFromImg(point2D);
+  if (!cam_point) {
     return EIGEN_PI;
   }
-  return CalculateNormalizedAngularError(*ray, point3D, cam_from_world);
+  return CalculateNormalizedAngularError(*cam_point, point3D, cam_from_world);
 }
 
 double CalculateAngularError(const Eigen::Vector2d& point2D,
                              const Eigen::Vector3d& point3D,
                              const Eigen::Matrix3x4d& cam_from_world,
                              const Camera& camera) {
-  const std::optional<Eigen::Vector3d> ray = camera.CamFromImg(point2D);
-  if (!ray) {
+  const std::optional<Eigen::Vector2d> cam_point = camera.CamFromImg(point2D);
+  if (!cam_point) {
     return EIGEN_PI;
   }
-  return CalculateNormalizedAngularError(*ray, point3D, cam_from_world);
+  return CalculateNormalizedAngularError(*cam_point, point3D, cam_from_world);
 }
 
-double CalculateNormalizedAngularError(const Eigen::Vector3d& cam_ray,
+double CalculateNormalizedAngularError(const Eigen::Vector2d& cam_point,
                                        const Eigen::Vector3d& point3D,
                                        const Rigid3d& cam_from_world) {
   const Eigen::Vector3d point3D_in_cam = cam_from_world * point3D;
-  return std::acos(cam_ray.normalized().transpose() *
+  return std::acos(cam_point.homogeneous().normalized().transpose() *
                    point3D_in_cam.normalized());
 }
 
 double CalculateNormalizedAngularError(
-    const Eigen::Vector3d& cam_ray,
+    const Eigen::Vector2d& cam_point,
     const Eigen::Vector3d& point3D,
     const Eigen::Matrix3x4d& cam_from_world) {
   const Eigen::Vector3d point3D_in_cam = cam_from_world * point3D.homogeneous();
-  return std::acos(cam_ray.normalized().transpose() *
+  return std::acos(cam_point.homogeneous().normalized().transpose() *
                    point3D_in_cam.normalized());
 }
 
