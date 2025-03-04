@@ -29,6 +29,8 @@
 
 #pragma once
 
+#include <functional>
+
 #ifdef _MSC_VER
 #if _MSC_VER >= 1600
 #include <cstdint>

@@ -34,13 +34,9 @@
 #include "colmap/util/types.h"
 
 #include <cstdint>
-#include <functional>
-#include <map>
 #include <memory>
 #include <optional>
 #include <set>
-#include <tuple>
-#include <vector>
 
 namespace colmap {
 
