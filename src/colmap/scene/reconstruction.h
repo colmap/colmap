@@ -76,21 +76,22 @@ class Reconstruction {
   // Get const objects.
   inline const class Rig& Rig(rig_t rig_id) const;
   inline const struct Camera& Camera(camera_t camera_id) const;
-  inline const class Frame& Frame(frame_t frame_id) const;
+  inline const std::shared_ptr<class Frame>& Frame(frame_t frame_id) const;
   inline const class Image& Image(image_t image_id) const;
   inline const struct Point3D& Point3D(point3D_t point3D_id) const;
 
   // Get mutable objects.
   inline class Rig& Rig(rig_t rig_id);
   inline struct Camera& Camera(camera_t camera_id);
-  inline class Frame& Frame(frame_t frame_id);
+  inline std::shared_ptr<class Frame>& Frame(frame_t frame_id);
   inline class Image& Image(image_t image_id);
   inline struct Point3D& Point3D(point3D_t point3D_id);
 
   // Get reference to all objects.
   inline const std::unordered_map<rig_t, class Rig>& Rigs() const;
   inline const std::unordered_map<camera_t, struct Camera>& Cameras() const;
-  inline const std::unordered_map<frame_t, class Frame>& Frames() const;
+  inline const std::unordered_map<frame_t, std::shared_ptr<class Frame>>&
+  Frames() const;
   inline const std::unordered_map<image_t, class Image>& Images() const;
   inline const std::set<image_t>& RegImageIds() const;
   inline const std::unordered_map<point3D_t, struct Point3D>& Points3D() const;
@@ -122,7 +123,7 @@ class Reconstruction {
   void AddCamera(struct Camera camera);
 
   // Add new frame.
-  void AddFrame(class Frame frame);
+  void AddFrame(std::shared_ptr<class Frame> frame);
 
   // Add new image. Its camera must have been added before. If its camera object
   // is unset, it will be automatically populated from the added cameras.
@@ -268,7 +269,7 @@ class Reconstruction {
 
   std::unordered_map<rig_t, class Rig> rigs_;
   std::unordered_map<camera_t, struct Camera> cameras_;
-  std::unordered_map<frame_t, class Frame> frames_;
+  std::unordered_map<frame_t, std::shared_ptr<class Frame>> frames_;
   std::unordered_map<image_t, class Image> images_;
   std::unordered_map<point3D_t, struct Point3D> points3D_;
 
@@ -325,7 +326,8 @@ const class Image& Reconstruction::Image(const image_t image_id) const {
   }
 }
 
-const class Frame& Reconstruction::Frame(const frame_t frame_id) const {
+const std::shared_ptr<class Frame>& Reconstruction::Frame(
+    const frame_t frame_id) const {
   try {
     return frames_.at(frame_id);
   } catch (const std::out_of_range&) {
@@ -371,7 +373,7 @@ class Image& Reconstruction::Image(const image_t image_id) {
   }
 }
 
-class Frame& Reconstruction::Frame(const frame_t frame_id) {
+std::shared_ptr<class Frame>& Reconstruction::Frame(const frame_t frame_id) {
   try {
     return frames_.at(frame_id);
   } catch (const std::out_of_range&) {
@@ -397,7 +399,8 @@ const std::unordered_map<camera_t, Camera>& Reconstruction::Cameras() const {
   return cameras_;
 }
 
-const std::unordered_map<frame_t, class Frame>& Reconstruction::Frames() const {
+const std::unordered_map<frame_t, std::shared_ptr<class Frame>>&
+Reconstruction::Frames() const {
   return frames_;
 }
 

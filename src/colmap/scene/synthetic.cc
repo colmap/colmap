@@ -350,7 +350,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
       database->WritePosePrior(image_id, noisy_prior);
     }
 
-    Frame frame;
+    auto frame = std::make_shared<Frame>();
     const rig_t rig_id =
         rigs.at(camera_to_rig_idx.at(image.CameraId())).RigId();
     const Rig* rig = &reconstruction->Rig(rig_id);
@@ -360,17 +360,17 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
       frame_from_world =
           Inverse(rig->SensorFromRig(sensor_id)) * frame_from_world;
     }
-    frame.SetRig(rig);
-    frame.AddDataId(data_t(sensor_id, image_id));
-    frame.SetFrameFromWorld(frame_from_world);
+    frame->SetRig(rig);
+    frame->AddDataId(data_t(sensor_id, image_id));
+    frame->SetFrameFromWorld(frame_from_world);
     const frame_t frame_id =
-        (database == nullptr) ? image_id : database->WriteFrame(frame);
-    frame.SetFrameId(frame_id);
-    reconstruction->AddFrame(std::move(frame));
+        (database == nullptr) ? image_id : database->WriteFrame(*frame);
+    frame->SetFrameId(frame_id);
+    reconstruction->AddFrame(frame);
 
     image.SetImageId(image_id);
     image.SetFrameId(frame_id);
-    image.SetFramePtr(&reconstruction->Frame(frame_id));
+    image.SetFrame(frame);
     image.SetPoints2D(points2D);
     reconstruction->AddImage(std::move(image));
     reconstruction->RegisterImage(image_id);

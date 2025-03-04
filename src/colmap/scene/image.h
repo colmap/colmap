@@ -96,8 +96,8 @@ class Image {
   // [Optional] The corresponding frame of the image.
   inline frame_t FrameId() const;
   inline void SetFrameId(frame_t frame_id);
-  inline class Frame* FramePtr() const;
-  inline void SetFramePtr(class Frame* frame);
+  inline const std::shared_ptr<class Frame>& Frame() const;
+  inline void SetFrame(std::shared_ptr<class Frame> frame);
   // Check if the cam_from_world needs to be composed with the rig pose.
   inline bool HasTrivialFrame() const;
 
@@ -167,7 +167,7 @@ class Image {
 
   // The corresponding frame (rig) of the image. By default a trivial frame will
   // be initialized for each image with frame_id_ = kInvalidFrameId.
-  class Frame* frame_ptr_;
+  std::shared_ptr<class Frame> frame_;
 
   // All image points, including points that are not part of a 3D point track.
   std::vector<struct Point2D> points2D_;
@@ -228,72 +228,74 @@ point2D_t Image::NumPoints2D() const {
 point2D_t Image::NumPoints3D() const { return num_points3D_; }
 
 frame_t Image::FrameId() const {
-  THROW_CHECK(frame_ptr_) << "Invalid pointer to the corresponding frame";
-  return frame_ptr_->FrameId();
+  THROW_CHECK(frame_) << "Invalid pointer to the corresponding frame";
+  return frame_->FrameId();
 }
 
 void Image::SetFrameId(frame_t frame_id) {
-  THROW_CHECK(frame_ptr_) << "Invalid pointer to the corresponding frame";
-  frame_ptr_->SetFrameId(frame_id);
+  THROW_CHECK(frame_) << "Invalid pointer to the corresponding frame";
+  frame_->SetFrameId(frame_id);
 }
 
-class Frame* Image::FramePtr() const { return frame_ptr_; }
+const std::shared_ptr<class Frame>& Image::Frame() const { return frame_; }
 
-void Image::SetFramePtr(class Frame* frame) { frame_ptr_ = std::move(frame); }
+void Image::SetFrame(std::shared_ptr<class Frame> frame) {
+  frame_ = std::move(frame);
+}
 
 bool Image::HasTrivialFrame() const {
-  THROW_CHECK(frame_ptr_) << "Invalid pointer to the corresponding frame";
-  return !frame_ptr_->HasRig() || frame_ptr_->Rig()->IsRefSensor(
-                                      sensor_t(SensorType::CAMERA, CameraId()));
+  THROW_CHECK(frame_ != nullptr)
+      << "Invalid pointer to the corresponding frame";
+  return !frame_->HasRig() ||
+         frame_->Rig()->IsRefSensor(sensor_t(SensorType::CAMERA, CameraId()));
 }
 
 Rigid3d Image::ComposeCamFromWorld() const {
-  return frame_ptr_->SensorFromWorld(sensor_t(SensorType::CAMERA, CameraId()));
+  return frame_->SensorFromWorld(sensor_t(SensorType::CAMERA, CameraId()));
 }
 
 const Rigid3d& Image::CamFromWorld() const {
   ThrowIfNonTrivialFrame();
-  return frame_ptr_->FrameFromWorld();
+  return frame_->FrameFromWorld();
 }
 
 Rigid3d& Image::CamFromWorld() {
   ThrowIfNonTrivialFrame();
-  return frame_ptr_->FrameFromWorld();
+  return frame_->FrameFromWorld();
 }
 
 const std::optional<Rigid3d>& Image::MaybeCamFromWorld() const {
   ThrowIfNonTrivialFrame();
-  return frame_ptr_->MaybeFrameFromWorld();
+  return frame_->MaybeFrameFromWorld();
 }
 
 std::optional<Rigid3d>& Image::MaybeCamFromWorld() {
   ThrowIfNonTrivialFrame();
-  return frame_ptr_->MaybeFrameFromWorld();
+  return frame_->MaybeFrameFromWorld();
 }
 
 void Image::SetCamFromWorld(const Rigid3d& cam_from_world) {
   ThrowIfNonTrivialFrame();
-  frame_ptr_->SetFrameFromWorld(cam_from_world);
+  frame_->SetFrameFromWorld(cam_from_world);
 }
 
 void Image::SetCamFromWorld(const std::optional<Rigid3d>& cam_from_world) {
   ThrowIfNonTrivialFrame();
-  frame_ptr_->SetFrameFromWorld(cam_from_world);
+  frame_->SetFrameFromWorld(cam_from_world);
 }
 
 bool Image::HasPose() const {
   if (HasTrivialFrame()) {
-    return frame_ptr_->HasPose();
+    return frame_->HasPose();
   } else {
-    return frame_ptr_->HasPose() &&
-           frame_ptr_->Rig()->HasSensorFromRig(
-               sensor_t(SensorType::CAMERA, CameraId()));
+    return frame_->HasPose() && frame_->Rig()->HasSensorFromRig(
+                                    sensor_t(SensorType::CAMERA, CameraId()));
   }
 }
 
 void Image::ResetPose() {
   ThrowIfNonTrivialFrame();
-  frame_ptr_->ResetPose();
+  frame_->ResetPose();
 }
 
 const struct Point2D& Image::Point2D(const point2D_t point2D_idx) const {
