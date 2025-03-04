@@ -48,12 +48,12 @@ test-command = "python -c \"import pycolmap; print(pycolmap.__version__)\" &&  p
 VCPKG_COMMIT_ID = "3b57fb2e1ff55613db14d2aaf0a30529289c7050"
 
 [tool.cibuildwheel.linux]
-before-all = "python/ci/install-colmap-almalinux.sh"
+before-all = "{project}/python/ci/install-colmap-almalinux.sh"
 
 [tool.cibuildwheel.macos]
-before-all = "python/ci/install-colmap-macos.sh"
+before-all = "{project}/python/ci/install-colmap-macos.sh"
 
 [tool.cibuildwheel.windows]
-before-all = "pwsh -File python/ci/install-colmap-windows.ps1"
+before-all = "pwsh -File {project}/python/ci/install-colmap-windows.ps1"
 before-build = "pip install delvewheel"
-test-command = "pwsh -File python/ci/test-colmap-windows.ps1"
+test-command = "pwsh -File {project}/python/ci/test-colmap-windows.ps1"
