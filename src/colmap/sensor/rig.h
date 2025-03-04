@@ -33,10 +33,7 @@
 #include "colmap/util/enum_utils.h"
 #include "colmap/util/types.h"
 
-#include <cstdint>
-#include <functional>
 #include <map>
-#include <memory>
 #include <optional>
 
 namespace colmap {
@@ -206,14 +203,3 @@ inline const std::optional<Rigid3d>& Rig::FindSensorFromRigOrThrow(
 }
 
 }  // namespace colmap
-
-namespace std {
-template <>
-struct hash<colmap::sensor_t> {
-  std::size_t operator()(const colmap::sensor_t& s) const noexcept {
-    return std::hash<std::pair<uint32_t, uint32_t>>{}(
-        std::make_pair(static_cast<uint32_t>(s.type), s.id));
-  }
-};
-
-}  // namespace std
