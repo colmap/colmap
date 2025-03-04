@@ -201,4 +201,16 @@ struct hash<std::pair<uint32_t, uint32_t>> {
   }
 };
 
+// [Reference]
+// https://stackoverflow.com/questions/26705751/why-is-the-magic-number-in-boosthash-combine-specified-in-hex
+template <>
+struct hash<colmap::data_t> {
+  std::size_t operator()(const colmap::data_t& d) const noexcept {
+    size_t h1 =
+        std::hash<uint64_t>{}(std::hash<colmap::sensor_t>{}(d.sensor_id));
+    size_t h2 = std::hash<uint64_t>{}(d.id);
+    return h1 ^ (h2 + 0x9e3779b9 + (h1 << 6) + (h1 >> 2));
+  }
+};
+
 }  // namespace std
