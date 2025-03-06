@@ -42,23 +42,28 @@ TEST(Frame, Default) {
   Frame frame;
   EXPECT_EQ(frame.FrameId(), kInvalidFrameId);
   EXPECT_FALSE(frame.HasPose());
-  EXPECT_FALSE(frame.HasRig());
+  EXPECT_EQ(frame.RigId(), kInvalidRigId);
+  EXPECT_FALSE(frame.HasRigId());
+  EXPECT_FALSE(frame.HasRigPtr());
 }
 
 TEST(Frame, SetUp) {
   Frame frame;
   Rig rig;
 
-  EXPECT_FALSE(frame.HasRig());
+  EXPECT_FALSE(frame.HasRigId());
+  EXPECT_FALSE(frame.HasRigPtr());
+
+  frame.SetRigId(1);
+  EXPECT_TRUE(frame.HasRigId());
+  EXPECT_FALSE(frame.HasRigPtr());
 
   const sensor_t s1(SensorType::IMU, 0);
   rig.AddRefSensor(s1);
-  frame.SetRig(&rig);
-  EXPECT_FALSE(frame.HasRig());
-
   const sensor_t s2(SensorType::CAMERA, 0);
   rig.AddSensor(s2, TestRigid3d());
-  EXPECT_TRUE(frame.HasRig());
+  frame.SetRigPtr(&rig);
+  EXPECT_TRUE(frame.HasRigPtr());
 
   frame.AddDataId(data_t(s1, 2));
   frame.AddDataId(data_t(s2, 5));
@@ -92,14 +97,14 @@ TEST(Image, Equals) {
 TEST(Frame, Print) {
   Frame frame;
   frame.SetFrameId(1);
-  Rig rig;
-  rig.AddRefSensor(sensor_t(SensorType::IMU, 0));
-  rig.AddSensor(sensor_t(SensorType::CAMERA, 1));
-  rig.SetRigId(2);
-  frame.SetRig(&rig);
+  frame.SetRigId(2);
+  frame.AddDataId(data_t(sensor_t(SensorType::IMU, 0), 2));
+  frame.AddDataId(data_t(sensor_t(SensorType::CAMERA, 1), 3));
   std::ostringstream stream;
   stream << frame;
-  EXPECT_EQ(stream.str(), "Frame(frame_id=1, rig_id=2)");
+  EXPECT_EQ(stream.str(),
+            "Frame(frame_id=1, rig_id=2, has_pose=0, data_ids=[(CAMERA, 1, 3), "
+            "(IMU, 0, 2)])");
 }
 
 }  // namespace

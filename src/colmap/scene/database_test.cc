@@ -177,18 +177,19 @@ TEST(Database, Camera) {
 
 TEST(Database, Frame) {
   Database database(Database::kInMemoryDatabasePath);
-  EXPECT_EQ(database.NumRigs(), 0);
+  Rig rig;
+  rig.AddRefSensor(sensor_t(SensorType::CAMERA, 1));
+  rig.SetRigId(database.WriteRig(rig));
+  EXPECT_EQ(database.NumFrames(), 0);
   Frame frame;
-  frame.SetFrameFromWorld(
-      Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random()));
+  frame.SetRigId(rig.RigId());
   frame.AddDataId(data_t(sensor_t(SensorType::IMU, 1), 2));
   frame.AddDataId(data_t(sensor_t(SensorType::CAMERA, 1), 3));
   frame.SetFrameId(database.WriteFrame(frame));
   EXPECT_EQ(database.NumFrames(), 1);
   EXPECT_TRUE(database.ExistsFrame(frame.FrameId()));
   EXPECT_EQ(database.ReadFrame(frame.FrameId()), frame);
-  frame.SetFrameFromWorld(
-      Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random()));
+  frame.AddDataId(data_t(sensor_t(SensorType::CAMERA, 2), 4));
   database.UpdateFrame(frame);
   EXPECT_EQ(database.ReadFrame(frame.FrameId()), frame);
   Frame frame2 = frame;
@@ -516,12 +517,14 @@ TEST(Database, Merge) {
   const image_t image_id4 = database2.WriteImage(image);
 
   Frame frame1;
+  frame1.SetRigId(rig1.RigId());
   frame1.AddDataId(
       data_t(sensor_t(SensorType::CAMERA, camera1.camera_id), image_id1));
   frame1.AddDataId(
       data_t(sensor_t(SensorType::CAMERA, camera2.camera_id), image_id2));
   frame1.SetFrameId(database1.WriteFrame(frame1));
   Frame frame2;
+  frame2.SetRigId(rig2.RigId());
   frame2.AddDataId(
       data_t(sensor_t(SensorType::CAMERA, camera1.camera_id), image_id3));
   frame2.AddDataId(

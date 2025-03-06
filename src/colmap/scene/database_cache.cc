@@ -56,25 +56,79 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
     const std::unordered_set<std::string>& image_names) {
   auto cache = std::make_shared<DatabaseCache>();
 
+  const bool has_rigs = database.NumRigs() == 0;
+  const bool has_frames = database.NumFrames() == 0;
+
   //////////////////////////////////////////////////////////////////////////////
-  // Load cameras
+  // Load rigs
   //////////////////////////////////////////////////////////////////////////////
 
   Timer timer;
 
   timer.Start();
+  LOG(INFO) << "Loading rigs...";
+
+  {
+    std::vector<class Rig> rigs = database.ReadAllRigs();
+    cache->rigs_.reserve(rigs.size());
+    for (auto& rig : rigs) {
+      cache->rigs_.emplace(rig.RigId(), std::move(rig));
+    }
+  }
+
+  LOG(INFO) << StringPrintf(
+      " %d in %.3fs", cache->rigs_.size(), timer.ElapsedSeconds());
+
+  //////////////////////////////////////////////////////////////////////////////
+  // Load cameras
+  //////////////////////////////////////////////////////////////////////////////
+
+  timer.Restart();
   LOG(INFO) << "Loading cameras...";
 
   {
     std::vector<struct Camera> cameras = database.ReadAllCameras();
     cache->cameras_.reserve(cameras.size());
     for (auto& camera : cameras) {
+      if (!has_rigs) {
+        // For backwards compatibility with old databases from before having
+        // support for rigs/frames, we create a rig for each camera.
+        class Rig rig;
+        rig.SetRigId(camera.camera_id);
+        rig.AddRefSensor(sensor_t(SensorType::CAMERA, camera.camera_id));
+        cache->rigs_.emplace(rig.RigId(), std::move(rig));
+      }
       cache->cameras_.emplace(camera.camera_id, std::move(camera));
     }
   }
 
   LOG(INFO) << StringPrintf(
       " %d in %.3fs", cache->cameras_.size(), timer.ElapsedSeconds());
+
+  //////////////////////////////////////////////////////////////////////////////
+  // Load frames
+  //////////////////////////////////////////////////////////////////////////////
+
+  timer.Restart();
+  LOG(INFO) << "Loading frames...";
+
+  std::unordered_map<image_t, frame_t> image_to_frame_id;
+
+  {
+    std::vector<class Frame> frames = database.ReadAllFrames();
+    cache->frames_.reserve(frames.size());
+    for (auto& frame : frames) {
+      for (const auto& data_id : frame.DataIds()) {
+        if (data_id.sensor_id.type == SensorType::CAMERA) {
+          image_to_frame_id.emplace(data_id.id, frame.FrameId());
+        }
+      }
+      cache->frames_.emplace(frame.FrameId(), std::move(frame));
+    }
+  }
+
+  LOG(INFO) << StringPrintf(
+      " %d in %.3fs", cache->frames_.size(), timer.ElapsedSeconds());
 
   //////////////////////////////////////////////////////////////////////////////
   // Load matches
@@ -142,11 +196,28 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
     cache->images_.reserve(connected_image_ids.size());
     for (auto& image : images) {
       const image_t image_id = image.ImageId();
-      if (image_ids.count(image_id) > 0 &&
-          connected_image_ids.count(image_id) > 0) {
-        image.SetPoints2D(
-            FeatureKeypointsToPointsVector(database.ReadKeypoints(image_id)));
-        cache->images_.emplace(image_id, std::move(image));
+      if (image_ids.count(image_id) == 0 ||
+          connected_image_ids.count(image_id) == 0) {
+        continue;
+      }
+
+      if (!has_frames) {
+        // For backwards compatibility with old databases from before having
+        // support for rigs/frames, we create a frame for each image.
+        class Frame frame;
+        frame.SetFrameId(image_id);
+        frame.SetRigId(image.CameraId());
+        cache->frames_.emplace(frame.FrameId(), std::move(frame));
+        image_to_frame_id.emplace(image_id, frame.FrameId());
+      }
+      
+      image.SetFrameId(image_to_frame_id.at(image_id));
+      image.SetPoints2D(
+          FeatureKeypointsToPointsVector(database.ReadKeypoints(image_id)));
+      cache->images_.emplace(image_id, std::move(image));
+
+      if (database.ExistsPosePrior(image_id)) {
+        cache->pose_priors_.emplace(image_id, database.ReadPosePrior(image_id));
       }
     }
 
@@ -154,26 +225,6 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
                               num_images,
                               timer.ElapsedSeconds(),
                               connected_image_ids.size());
-  }
-
-  //////////////////////////////////////////////////////////////////////////////
-  // Load pose priors
-  //////////////////////////////////////////////////////////////////////////////
-
-  timer.Restart();
-  LOG(INFO) << "Loading pose priors...";
-
-  {
-    cache->pose_priors_.reserve(database.NumPosePriors());
-
-    for (const auto& [image_id, _] : cache->images_) {
-      if (database.ExistsPosePrior(image_id)) {
-        cache->pose_priors_.emplace(image_id, database.ReadPosePrior(image_id));
-      }
-    }
-
-    LOG(INFO) << StringPrintf(
-        " %d in %.3fs", cache->pose_priors_.size(), timer.ElapsedSeconds());
   }
 
   //////////////////////////////////////////////////////////////////////////////

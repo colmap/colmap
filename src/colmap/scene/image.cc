@@ -39,24 +39,24 @@ Image::Image()
       name_(""),
       camera_id_(kInvalidCameraId),
       camera_ptr_(nullptr),
-      num_points3D_(0),
-      frame_(std::make_shared<class Frame>()) {}
+      frame_id_(kInvalidFrameId),
+      frame_ptr_(nullptr),
+      num_points3D_(0) {}
 
 Image::Image(const Image& other)
     : image_id_(other.ImageId()),
       name_(other.Name()),
       camera_id_(other.CameraId()),
       camera_ptr_(nullptr),
+      frame_id_(other.FrameId()),
+      frame_ptr_(nullptr),
       num_points3D_(other.NumPoints3D()),
       points2D_(other.Points2D()) {
   if (other.HasCameraPtr()) {
     camera_ptr_ = other.CameraPtr();
   }
-  if (other.HasTrivialFrame()) {
-    frame_ = std::make_shared<class Frame>();
-    frame_->SetFrameFromWorld(other.MaybeCamFromWorld());
-  } else {
-    frame_ = other.Frame();
+  if (other.HasFramePtr()) {
+    frame_ptr_ = other.FramePtr();
   }
 }
 
@@ -65,17 +65,17 @@ Image& Image::operator=(const Image& other) {
     image_id_ = other.ImageId();
     name_ = other.Name();
     camera_id_ = other.CameraId();
-    camera_ptr_ = nullptr;
     if (other.HasCameraPtr()) {
       camera_ptr_ = other.CameraPtr();
+    } else {
+      camera_ptr_ = nullptr;
     }
     num_points3D_ = other.NumPoints3D();
     points2D_ = other.Points2D();
-    if (other.HasTrivialFrame()) {
-      frame_ = std::make_shared<class Frame>();
-      frame_->SetFrameFromWorld(other.MaybeCamFromWorld());
+    if (other.HasFramePtr()) {
+      frame_ptr_ = other.FramePtr();
     } else {
-      frame_ = other.Frame();
+      frame_ptr_ = nullptr;
     }
   }
   return *this;

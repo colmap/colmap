@@ -65,10 +65,13 @@ TEST(SynthesizeDataset, Nominal) {
 
   EXPECT_EQ(database.NumFrames(), options.num_images);
   EXPECT_EQ(reconstruction.NumFrames(), options.num_images);
-  for (const auto& [frame_id, frame] : reconstruction.Frames()) {
-    EXPECT_EQ(*frame, database.ReadFrame(frame_id));
-    EXPECT_TRUE(frame->HasRig());
-    EXPECT_EQ(frame->DataIds().size(), frame->Rig()->NumSensors());
+  for (auto& [frame_id, frame] : reconstruction.Frames()) {
+    Frame reconstruction_frame = frame;
+    EXPECT_TRUE(reconstruction_frame.HasPose());
+    reconstruction_frame.ResetPose();
+    EXPECT_EQ(reconstruction_frame, database.ReadFrame(frame_id));
+    EXPECT_EQ(reconstruction_frame.DataIds().size(),
+              reconstruction_frame.RigPtr()->NumSensors());
   }
 
   EXPECT_EQ(database.NumImages(), options.num_images);

@@ -42,8 +42,6 @@ namespace colmap {
 
 class Frame {
  public:
-  Frame() = default;
-
   // Access the unique identifier of the frame.
   inline frame_t FrameId() const;
   inline void SetFrameId(frame_t frame_id);
@@ -57,10 +55,13 @@ class Frame {
   inline bool HasDataId(data_t data_id) const;
 
   // Access the rig calibration.
-  inline const class Rig* Rig() const;
-  inline void SetRig(const class Rig* rig);
+  inline rig_t RigId() const;
+  inline void SetRigId(rig_t rig_id);
+  inline bool HasRigId() const;
+  inline const class Rig* RigPtr() const;
+  inline void SetRigPtr(const class Rig* rig);
   // Check if the frame has a non-trivial rig calibration.
-  inline bool HasRig() const;
+  inline bool HasRigPtr() const;
 
   // Access the frame from world transformation.
   inline const Rigid3d& FrameFromWorld() const;
@@ -87,8 +88,9 @@ class Frame {
   // case, where rig modeling is no longer needed.
   std::optional<Rigid3d> frame_from_world_;
 
-  // [Optional] Rig calibration.
-  const class Rig* rig_ = nullptr;
+  // Rig calibration.
+  rig_t rig_id_ = kInvalidRigId;
+  const class Rig* rig_ptr_ = nullptr;
 };
 
 std::ostream& operator<<(std::ostream& stream, const Frame& frame);
@@ -111,16 +113,17 @@ bool Frame::HasDataId(data_t data_id) const {
   return data_ids_.find(data_id) != data_ids_.end();
 }
 
-const Rig* Frame::Rig() const { return rig_; }
+rig_t Frame::RigId() const { return rig_id_; }
 
-void Frame::SetRig(const class Rig* rig) { rig_ = rig; }
+void Frame::SetRigId(rig_t rig_id) { rig_id_ = rig_id; }
 
-bool Frame::HasRig() const {
-  if (rig_ == nullptr)
-    return false;
-  else
-    return rig_->NumSensors() > 1;
-}
+bool Frame::HasRigId() const { return rig_id_ != kInvalidRigId; }
+
+const Rig* Frame::RigPtr() const { return THROW_CHECK_NOTNULL(rig_ptr_); }
+
+void Frame::SetRigPtr(const class Rig* rig) { rig_ptr_ = rig; }
+
+bool Frame::HasRigPtr() const { return rig_ptr_ != nullptr; }
 
 const Rigid3d& Frame::FrameFromWorld() const {
   THROW_CHECK(frame_from_world_) << "Frame does not have a valid pose.";
@@ -153,15 +156,16 @@ bool Frame::HasPose() const { return frame_from_world_.has_value(); }
 void Frame::ResetPose() { frame_from_world_.reset(); }
 
 Rigid3d Frame::SensorFromWorld(sensor_t sensor_id) const {
-  if (!HasRig() || rig_->IsRefSensor(sensor_id)) {
+  if (!HasRigPtr() || rig_ptr_->IsRefSensor(sensor_id)) {
     return FrameFromWorld();
   }
-  THROW_CHECK(rig_->HasSensor(sensor_id));
-  return rig_->SensorFromRig(sensor_id) * FrameFromWorld();
+  THROW_CHECK(rig_ptr_->HasSensor(sensor_id));
+  return rig_ptr_->SensorFromRig(sensor_id) * FrameFromWorld();
 }
 
 bool Frame::operator==(const Frame& other) const {
-  return frame_id_ == other.frame_id_ && data_ids_ == other.data_ids_ &&
+  return frame_id_ == other.frame_id_ && rig_id_ == other.rig_id_ &&
+         data_ids_ == other.data_ids_ &&
          frame_from_world_ == other.frame_from_world_;
 }
 

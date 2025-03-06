@@ -296,7 +296,7 @@ TEST_P(ParameterizedReaderWriterTests, Roundtrip) {
 
   Reconstruction orig;
   SyntheticDatasetOptions options;
-  options.num_rigs = 3;
+  options.num_rigs = 11;
   options.num_cameras = 11;
   options.num_images = 43;
   options.num_points3D = 321;
@@ -324,6 +324,9 @@ TEST_P(ParameterizedReaderWriterTests, Roundtrip) {
   EXPECT_EQ(orig.Cameras(), test.Cameras());
   reader_writer->ReadFrames(test);
   EXPECT_EQ(orig.Frames(), test.Frames());
+  for (const auto& [frame_id, frame] : orig.Frames()) {
+    EXPECT_EQ(frame.FrameFromWorld(), test.Frame(frame_id).FrameFromWorld());
+  }
   reader_writer->ReadImages(test);
   EXPECT_EQ(orig.Images(), test.Images());
   reader_writer->ReadPoints3D(test);

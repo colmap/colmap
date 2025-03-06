@@ -293,29 +293,7 @@ Frame ReadFrameRow(sqlite3_stmt* sql_stmt) {
   Frame frame;
 
   frame.SetFrameId(static_cast<rig_t>(sqlite3_column_int64(sql_stmt, 0)));
-
-  std::optional<std::stringstream> frame_from_world_stream =
-      BlobColumnToStringStream(sql_stmt, 1);
-  if (frame_from_world_stream) {
-    std::stringstream* frame_from_world_stream_ptr =
-        &frame_from_world_stream.value();
-    Rigid3d frame_from_world;
-    frame_from_world.rotation.w() =
-        ReadBinaryLittleEndian<double>(frame_from_world_stream_ptr);
-    frame_from_world.rotation.x() =
-        ReadBinaryLittleEndian<double>(frame_from_world_stream_ptr);
-    frame_from_world.rotation.y() =
-        ReadBinaryLittleEndian<double>(frame_from_world_stream_ptr);
-    frame_from_world.rotation.z() =
-        ReadBinaryLittleEndian<double>(frame_from_world_stream_ptr);
-    frame_from_world.translation.x() =
-        ReadBinaryLittleEndian<double>(frame_from_world_stream_ptr);
-    frame_from_world.translation.y() =
-        ReadBinaryLittleEndian<double>(frame_from_world_stream_ptr);
-    frame_from_world.translation.z() =
-        ReadBinaryLittleEndian<double>(frame_from_world_stream_ptr);
-    frame.SetFrameFromWorld(frame_from_world);
-  }
+  frame.SetRigId(static_cast<rig_t>(sqlite3_column_int64(sql_stmt, 1)));
 
   std::optional<std::stringstream> data_ids_stream =
       BlobColumnToStringStream(sql_stmt, 2);
@@ -373,21 +351,6 @@ std::string OtherRigSensorsToBytes(const Rig& rig) {
     }
   }
 
-  return stream.str();
-}
-
-std::string FrameFromWorldToBytes(const Frame& frame) {
-  std::stringstream stream;
-  if (frame.HasPose()) {
-    const Rigid3d& frame_from_world = frame.FrameFromWorld();
-    WriteBinaryLittleEndian<double>(&stream, frame_from_world.rotation.w());
-    WriteBinaryLittleEndian<double>(&stream, frame_from_world.rotation.x());
-    WriteBinaryLittleEndian<double>(&stream, frame_from_world.rotation.y());
-    WriteBinaryLittleEndian<double>(&stream, frame_from_world.rotation.z());
-    WriteBinaryLittleEndian<double>(&stream, frame_from_world.translation.x());
-    WriteBinaryLittleEndian<double>(&stream, frame_from_world.translation.y());
-    WriteBinaryLittleEndian<double>(&stream, frame_from_world.translation.z());
-  }
   return stream.str();
 }
 
@@ -964,18 +927,7 @@ frame_t Database::WriteFrame(const Frame& frame,
     SQLITE3_CALL(sqlite3_bind_null(sql_stmt_add_frame_, 1));
   }
 
-  const std::string frame_from_world_bytes = FrameFromWorldToBytes(frame);
-  if (frame_from_world_bytes.empty()) {
-    SQLITE3_CALL(
-        sqlite3_bind_blob(sql_stmt_add_frame_, 2, nullptr, 0, SQLITE_STATIC));
-  } else {
-    SQLITE3_CALL(
-        sqlite3_bind_blob(sql_stmt_add_frame_,
-                          2,
-                          frame_from_world_bytes.data(),
-                          static_cast<int>(frame_from_world_bytes.size()),
-                          SQLITE_STATIC));
-  }
+  SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_add_frame_, 2, frame.RigId()));
 
   const std::string data_ids_bytes = DataIdsToBytes(frame);
   if (data_ids_bytes.empty()) {
@@ -1197,18 +1149,7 @@ void Database::UpdateCamera(const Camera& camera) const {
 }
 
 void Database::UpdateFrame(const Frame& frame) const {
-  const std::string frame_from_world_bytes = FrameFromWorldToBytes(frame);
-  if (frame_from_world_bytes.empty()) {
-    SQLITE3_CALL(sqlite3_bind_blob(
-        sql_stmt_update_frame_, 1, nullptr, 0, SQLITE_STATIC));
-  } else {
-    SQLITE3_CALL(
-        sqlite3_bind_blob(sql_stmt_update_frame_,
-                          1,
-                          frame_from_world_bytes.data(),
-                          static_cast<int>(frame_from_world_bytes.size()),
-                          SQLITE_STATIC));
-  }
+  SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_update_frame_, 1, frame.RigId()));
 
   const std::string data_ids_bytes = DataIdsToBytes(frame);
   if (data_ids_bytes.empty()) {
@@ -1442,6 +1383,7 @@ void Database::Merge(const Database& database1,
   // Merge the frames.
 
   for (auto& frame : database1.ReadAllFrames()) {
+    frame.SetRigId(new_rig_ids1.at(frame.RigId()));
     for (data_t data_id : frame.DataIds()) {
       if (data_id.sensor_id.type == SensorType::CAMERA) {
         data_id.sensor_id.id = new_camera_ids1.at(data_id.sensor_id.id);
@@ -1452,6 +1394,7 @@ void Database::Merge(const Database& database1,
   }
 
   for (auto& frame : database2.ReadAllFrames()) {
+    frame.SetRigId(new_rig_ids2.at(frame.RigId()));
     for (data_t data_id : frame.DataIds()) {
       if (data_id.sensor_id.type == SensorType::CAMERA) {
         data_id.sensor_id.id = new_camera_ids2.at(data_id.sensor_id.id);
@@ -1568,8 +1511,7 @@ void Database::PrepareSQLStatements() {
       "prior_focal_length) VALUES(?, ?, ?, ?, ?, ?);",
       &sql_stmt_add_camera_);
   prepare_sql_stmt(
-      "INSERT INTO frames(frame_id, frame_from_world, data_ids) "
-      "VALUES(?, ?, ?);",
+      "INSERT INTO frames(frame_id, rig_id, data_ids) VALUES(?, ?, ?);",
       &sql_stmt_add_frame_);
   prepare_sql_stmt(
       "INSERT INTO images(image_id, name, camera_id) VALUES(?, ?, ?);",
@@ -1587,7 +1529,7 @@ void Database::PrepareSQLStatements() {
       "prior_focal_length=? WHERE camera_id=?;",
       &sql_stmt_update_camera_);
   prepare_sql_stmt(
-      "UPDATE frames SET frame_from_world=?, data_ids=? WHERE frame_id=?;",
+      "UPDATE frames SET rig_id=?, data_ids=? WHERE frame_id=?;",
       &sql_stmt_update_frame_);
   prepare_sql_stmt("UPDATE images SET name=?, camera_id=? WHERE image_id=?;",
                    &sql_stmt_update_image_);
@@ -1724,8 +1666,9 @@ void Database::CreateFrameTable() const {
   const std::string sql =
       "CREATE TABLE IF NOT EXISTS frames"
       "   (frame_id             INTEGER  PRIMARY KEY AUTOINCREMENT  NOT NULL,"
-      "    frame_from_world     BLOB,"
-      "    data_ids             BLOB);";
+      "    rig_id               INTEGER                             NOT NULL,"
+      "    data_ids             BLOB,"
+      "FOREIGN KEY(rig_id) REFERENCES rigs(rig_id));";
 
   SQLITE3_EXEC(database_, sql.c_str(), nullptr);
 }
