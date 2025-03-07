@@ -455,27 +455,26 @@ bool MergeReconstructions(const double max_reproj_error,
 
   // Register the missing images in this src_reconstruction.
   for (const auto image_id : missing_image_ids) {
-    auto src_image = src_reconstruction.Image(image_id);
+    const auto& src_image = src_reconstruction.Image(image_id);
+    auto tgt_image = src_image;
     if (!tgt_reconstruction.ExistsRig(src_image.FramePtr()->RigId())) {
       tgt_reconstruction.AddRig(
           src_reconstruction.Rig(src_image.FramePtr()->RigId()));
     }
-    if (!tgt_reconstruction.ExistsCamera(src_image.CameraId())) {
+    if (!tgt_reconstruction.ExistsCamera(tgt_image.CameraId())) {
       tgt_reconstruction.AddCamera(
-          src_reconstruction.Camera(src_image.CameraId()));
+          src_reconstruction.Camera(tgt_image.CameraId()));
     }
-    if (!tgt_reconstruction.ExistsFrame(src_image.FrameId())) {
+    if (!tgt_reconstruction.ExistsFrame(tgt_image.FrameId())) {
       tgt_reconstruction.AddFrame(
-          src_reconstruction.Frame(src_image.FrameId()));
+          src_reconstruction.Frame(tgt_image.FrameId()));
     }
-    src_image.ResetCameraPtr();
-    src_image.FramePtr()->ResetRigPtr();
+    tgt_image.SetFramePtr(&tgt_reconstruction.Frame(tgt_image.FrameId()));
     const Rigid3d cam_from_tgt_world =
         TransformCameraWorld(tgt_from_src, src_image.CamFromWorld());
-    tgt_reconstruction.Frame(src_image.FrameId())
-        .SetFrameFromWorld(src_image.CameraId(), cam_from_tgt_world);
-    src_image.ResetFramePtr();
-    tgt_reconstruction.AddImage(src_image);
+    tgt_reconstruction.Frame(tgt_image.FrameId())
+        .SetFrameFromWorld(tgt_image.CameraId(), cam_from_tgt_world);
+    tgt_reconstruction.AddImage(tgt_image);
     tgt_reconstruction.RegisterImage(image_id);
   }
 

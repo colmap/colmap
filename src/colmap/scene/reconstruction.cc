@@ -47,13 +47,20 @@ Reconstruction::Reconstruction() : max_point3D_id_(0) {}
 Reconstruction::Reconstruction(const Reconstruction& other)
     : rigs_(other.rigs_),
       cameras_(other.cameras_),
+      frames_(other.frames_),
       images_(other.images_),
       points3D_(other.points3D_),
       reg_image_ids_(other.reg_image_ids_),
       max_point3D_id_(other.max_point3D_id_) {
+  for (auto& [_, frame] : frames_) {
+    frame.ResetRigPtr();
+    frame.SetRigPtr(&Rig(frame.RigId()));
+  }
   for (auto& [_, image] : images_) {
     image.ResetCameraPtr();
     image.SetCameraPtr(&Camera(image.CameraId()));
+    image.ResetFramePtr();
+    image.SetFramePtr(&Frame(image.FrameId()));
   }
 }
 
@@ -61,13 +68,20 @@ Reconstruction& Reconstruction::operator=(const Reconstruction& other) {
   if (this != &other) {
     rigs_ = other.rigs_;
     cameras_ = other.cameras_;
+    frames_ = other.frames_;
     images_ = other.images_;
     points3D_ = other.points3D_;
     reg_image_ids_ = other.reg_image_ids_;
     max_point3D_id_ = other.max_point3D_id_;
+    for (auto& [_, frame] : frames_) {
+      frame.ResetRigPtr();
+      frame.SetRigPtr(&Rig(frame.RigId()));
+    }
     for (auto& [_, image] : images_) {
       image.ResetCameraPtr();
       image.SetCameraPtr(&Camera(image.CameraId()));
+      image.ResetFramePtr();
+      image.SetFramePtr(&Frame(image.FrameId()));
     }
   }
   return *this;
