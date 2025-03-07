@@ -64,12 +64,20 @@ TEST(CoordinateFrame, AlignToPrincipalPlane) {
   Camera camera =
       Camera::CreateFromModelId(1, CameraModelId::kSimplePinhole, 1, 1, 1);
   reconstruction.AddCamera(camera);
+  Rig rig;
+  rig.SetRigId(1);
+  rig.AddRefSensor(sensor_t(SensorType::CAMERA, 1));
+  reconstruction.AddRig(rig);
+  Frame frame;
+  frame.SetFrameId(1);
+  frame.SetFrameFromWorld(
+      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(-1, 0, 0)));
+  reconstruction.AddFrame(frame);
   // Setup image with projection center at (1, 0, 0)
   Image image;
   image.SetCameraId(camera.camera_id);
   image.SetImageId(1);
-  image.SetCamFromWorld(
-      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(-1, 0, 0)));
+  image.SetFrameId(1);
   reconstruction.AddImage(image);
   // Setup 4 points on the Y-Z plane
   const point3D_t p1 =

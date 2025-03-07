@@ -60,6 +60,7 @@ class Frame {
   inline bool HasRigId() const;
   inline const class Rig* RigPtr() const;
   inline void SetRigPtr(const class Rig* rig);
+  inline void ResetRigPtr();
   // Check if the frame has a non-trivial rig calibration.
   inline bool HasRigPtr() const;
 
@@ -122,6 +123,8 @@ bool Frame::HasRigId() const { return rig_id_ != kInvalidRigId; }
 const Rig* Frame::RigPtr() const { return THROW_CHECK_NOTNULL(rig_ptr_); }
 
 void Frame::SetRigPtr(const class Rig* rig) { rig_ptr_ = rig; }
+
+void Frame::ResetRigPtr() { rig_ptr_ = nullptr; }
 
 bool Frame::HasRigPtr() const { return rig_ptr_ != nullptr; }
 

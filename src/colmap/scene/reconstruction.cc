@@ -300,13 +300,7 @@ void Reconstruction::DeleteObservation(const image_t image_id,
 void Reconstruction::DeleteAllPoints2DAndPoints3D() {
   points3D_.clear();
   for (auto& image : images_) {
-    class Image new_image;
-    new_image.SetImageId(image.second.ImageId());
-    new_image.SetName(image.second.Name());
-    new_image.SetCameraId(image.second.CameraId());
-    new_image.SetCameraPtr(image.second.CameraPtr());
-    new_image.SetCamFromWorld(image.second.MaybeCamFromWorld());
-    image.second = new_image;
+    image.second.SetPoints2D(std::vector<Eigen::Vector2d>(0));
   }
 }
 
@@ -418,8 +412,8 @@ Reconstruction::ComputeBBBoxAndCentroid(const double min_percentile,
 void Reconstruction::Transform(const Sim3d& new_from_old_world) {
   for (auto& [_, image] : images_) {
     if (image.HasPose()) {
-      image.SetCamFromWorld(
-          TransformCameraWorld(new_from_old_world, image.CamFromWorld()));
+      image.FramePtr()->SetFrameFromWorld(TransformCameraWorld(
+          new_from_old_world, image.FramePtr()->FrameFromWorld()));
     }
   }
   for (auto& point3D : points3D_) {
@@ -429,17 +423,24 @@ void Reconstruction::Transform(const Sim3d& new_from_old_world) {
 
 Reconstruction Reconstruction::Crop(const Eigen::AlignedBox3d& bbox) const {
   Reconstruction cropped_reconstruction;
-  for (const auto& camera : cameras_) {
-    cropped_reconstruction.AddCamera(camera.second);
+  for (const auto& [_, rig] : rigs_) {
+    cropped_reconstruction.AddRig(rig);
   }
-  for (const auto& image : images_) {
-    auto new_image = image.second;
-    new_image.ResetCameraPtr();
-    const auto num_points2D = new_image.NumPoints2D();
+  for (const auto& [_, camera] : cameras_) {
+    cropped_reconstruction.AddCamera(camera);
+  }
+  for (auto [_, frame] : frames_) {
+    frame.ResetRigPtr();
+    cropped_reconstruction.AddFrame(frame);
+  }
+  for (auto [_, image] : images_) {
+    image.ResetCameraPtr();
+    image.ResetFramePtr();
+    const auto num_points2D = image.NumPoints2D();
     for (point2D_t point2D_idx = 0; point2D_idx < num_points2D; ++point2D_idx) {
-      new_image.ResetPoint3DForPoint2D(point2D_idx);
+      image.ResetPoint3DForPoint2D(point2D_idx);
     }
-    cropped_reconstruction.AddImage(new_image);
+    cropped_reconstruction.AddImage(image);
   }
   std::unordered_set<image_t> registered_image_ids;
   for (const auto& point3D : points3D_) {

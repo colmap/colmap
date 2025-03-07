@@ -356,7 +356,7 @@ void ReadImagesText(Reconstruction& reconstruction, std::istream& stream) {
     cam_from_world.translation.z() = std::stold(item);
 
     if (image.HasTrivialFrame()) {
-      image.SetCamFromWorld(cam_from_world);
+      image.FramePtr()->SetFrameFromWorld(cam_from_world);
     }
 
     // CAMERA_ID
@@ -653,7 +653,7 @@ void ReadImagesBinary(Reconstruction& reconstruction, std::istream& stream) {
     cam_from_world.translation.z() = ReadBinaryLittleEndian<double>(&stream);
 
     if (image.HasTrivialFrame()) {
-      image.SetCamFromWorld(cam_from_world);
+      image.FramePtr()->SetFrameFromWorld(cam_from_world);
     }
 
     image.SetCameraId(ReadBinaryLittleEndian<camera_t>(&stream));
@@ -913,7 +913,7 @@ void WriteImagesText(const Reconstruction& reconstruction,
 
     line << image_id << " ";
 
-    const Rigid3d& cam_from_world = image.ComposeCamFromWorld();
+    const Rigid3d& cam_from_world = image.CamFromWorld();
     line << cam_from_world.rotation.w() << " ";
     line << cam_from_world.rotation.x() << " ";
     line << cam_from_world.rotation.y() << " ";
@@ -1126,7 +1126,7 @@ void WriteImagesBinary(const Reconstruction& reconstruction,
 
     WriteBinaryLittleEndian<image_t>(&stream, image_id);
 
-    const Rigid3d& cam_from_world = image.ComposeCamFromWorld();
+    const Rigid3d& cam_from_world = image.CamFromWorld();
     WriteBinaryLittleEndian<double>(&stream, cam_from_world.rotation.w());
     WriteBinaryLittleEndian<double>(&stream, cam_from_world.rotation.x());
     WriteBinaryLittleEndian<double>(&stream, cam_from_world.rotation.y());

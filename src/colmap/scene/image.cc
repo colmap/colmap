@@ -82,7 +82,6 @@ Image& Image::operator=(const Image& other) {
 }
 
 void Image::SetPoints2D(const std::vector<Eigen::Vector2d>& points) {
-  THROW_CHECK(points2D_.empty());
   points2D_.resize(points.size());
   for (point2D_t point2D_idx = 0; point2D_idx < points.size(); ++point2D_idx) {
     points2D_[point2D_idx].xy = points[point2D_idx];

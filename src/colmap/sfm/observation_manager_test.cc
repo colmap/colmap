@@ -42,15 +42,22 @@ void GenerateReconstruction(const image_t num_images,
 
   Camera camera = Camera::CreateFromModelName(1, "PINHOLE", 1, 1, 1);
   reconstruction.AddCamera(camera);
+  Rig rig;
+  rig.SetRigId(1);
+  rig.AddRefSensor(sensor_t(SensorType::CAMERA, camera.camera_id));
+  reconstruction.AddRig(rig);
 
   for (image_t image_id = 1; image_id <= num_images; ++image_id) {
+    Frame frame;
+    frame.SetFrameId(image_id);
+    frame.SetRigId(rig.RigId());
+    frame.SetFrameFromWorld(Rigid3d());
     Image image;
     image.SetImageId(image_id);
     image.SetCameraId(camera.camera_id);
     image.SetName("image" + std::to_string(image_id));
     image.SetPoints2D(
         std::vector<Eigen::Vector2d>(kNumPoints2D, Eigen::Vector2d::Zero()));
-    image.SetCamFromWorld(Rigid3d());
     reconstruction.AddImage(image);
   }
 }

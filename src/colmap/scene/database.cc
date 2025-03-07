@@ -1528,9 +1528,8 @@ void Database::PrepareSQLStatements() {
       "UPDATE cameras SET model=?, width=?, height=?, params=?, "
       "prior_focal_length=? WHERE camera_id=?;",
       &sql_stmt_update_camera_);
-  prepare_sql_stmt(
-      "UPDATE frames SET rig_id=?, data_ids=? WHERE frame_id=?;",
-      &sql_stmt_update_frame_);
+  prepare_sql_stmt("UPDATE frames SET rig_id=?, data_ids=? WHERE frame_id=?;",
+                   &sql_stmt_update_frame_);
   prepare_sql_stmt("UPDATE images SET name=?, camera_id=? WHERE image_id=?;",
                    &sql_stmt_update_image_);
   prepare_sql_stmt(

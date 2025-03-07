@@ -56,8 +56,8 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
     const std::unordered_set<std::string>& image_names) {
   auto cache = std::make_shared<DatabaseCache>();
 
-  const bool has_rigs = database.NumRigs() == 0;
-  const bool has_frames = database.NumFrames() == 0;
+  const bool has_rigs = database.NumRigs() > 0;
+  const bool has_frames = database.NumFrames() > 0;
 
   //////////////////////////////////////////////////////////////////////////////
   // Load rigs
@@ -210,7 +210,7 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
         cache->frames_.emplace(frame.FrameId(), std::move(frame));
         image_to_frame_id.emplace(image_id, frame.FrameId());
       }
-      
+
       image.SetFrameId(image_to_frame_id.at(image_id));
       image.SetPoints2D(
           FeatureKeypointsToPointsVector(database.ReadKeypoints(image_id)));

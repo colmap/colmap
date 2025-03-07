@@ -307,7 +307,8 @@ Eigen::Matrix3d EstimateManhattanWorldFrame(
 }
 #endif
 
-void AlignToPrincipalPlane(Reconstruction* reconstruction, Sim3d* tform) {
+void AlignToPrincipalPlane(Reconstruction* reconstruction,
+                           Sim3d* aligned_from_original) {
   // Perform SVD on the 3D points to estimate the ground plane basis
   const Eigen::Vector3d centroid = reconstruction->ComputeCentroid(0.0, 1.0);
   Eigen::MatrixXd normalized_points3D(3, reconstruction->NumPoints3D());
@@ -322,24 +323,26 @@ void AlignToPrincipalPlane(Reconstruction* reconstruction, Sim3d* tform) {
   rot_mat << basis.col(0), basis.col(1), basis.col(0).cross(basis.col(1));
   rot_mat.transposeInPlace();
 
-  *tform = Sim3d(1.0, Eigen::Quaterniond(rot_mat), -rot_mat * centroid);
+  *aligned_from_original =
+      Sim3d(1.0, Eigen::Quaterniond(rot_mat), -rot_mat * centroid);
 
   // If camera plane ends up below ground then flip basis vectors.
   const Rigid3d cam0_from_aligned_world = TransformCameraWorld(
-      *tform,
+      *aligned_from_original,
       reconstruction->Image(*reconstruction->RegImageIds().begin())
           .CamFromWorld());
   if (Inverse(cam0_from_aligned_world).translation.z() < 0.0) {
     rot_mat << basis.col(0), -basis.col(1), basis.col(0).cross(-basis.col(1));
     rot_mat.transposeInPlace();
-    *tform = Sim3d(1.0, Eigen::Quaterniond(rot_mat), -rot_mat * centroid);
+    *aligned_from_original =
+        Sim3d(1.0, Eigen::Quaterniond(rot_mat), -rot_mat * centroid);
   }
 
-  reconstruction->Transform(*tform);
+  reconstruction->Transform(*aligned_from_original);
 }
 
 void AlignToENUPlane(Reconstruction* reconstruction,
-                     Sim3d* tform,
+                     Sim3d* aligned_from_original,
                      bool unscaled) {
   const Eigen::Vector3d centroid = reconstruction->ComputeCentroid(0.0, 1.0);
   GPSTransform gps_tform;
@@ -356,10 +359,10 @@ void AlignToENUPlane(Reconstruction* reconstruction,
   rot_mat << -sin_lon, cos_lon, 0, -cos_lon * sin_lat, -sin_lon * sin_lat,
       cos_lat, cos_lon * cos_lat, sin_lon * cos_lat, sin_lat;
 
-  const double scale = unscaled ? 1.0 / tform->scale : 1.0;
-  *tform =
+  const double scale = unscaled ? 1.0 / aligned_from_original->scale : 1.0;
+  *aligned_from_original =
       Sim3d(scale, Eigen::Quaterniond(rot_mat), -scale * rot_mat * centroid);
-  reconstruction->Transform(*tform);
+  reconstruction->Transform(*aligned_from_original);
 }
 
 }  // namespace colmap

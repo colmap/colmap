@@ -154,20 +154,31 @@ void GenerateReconstruction(const size_t num_images,
                                   kImageSize);
     reconstruction->AddCamera(camera);
 
-    Image image;
-    image.SetImageId(image_id);
-    image.SetCameraId(camera_id);
-    image.SetName(std::to_string(i));
-    image.SetCamFromWorld(Rigid3d(
+    Rig rig;
+    rig.SetRigId(camera_id);
+    rig.AddRefSensor(sensor_t(SensorType::CAMERA, camera_id));
+    reconstruction->AddRig(std::move(rig));
+
+    Frame frame;
+    frame.SetFrameId(image_id);
+    frame.SetRigId(rig.RigId());
+    frame.SetFrameFromWorld(Rigid3d(
         Eigen::Quaterniond::Identity(),
         Eigen::Vector3d(
             RandomUniformReal(-1.0, 1.0), RandomUniformReal(-1.0, 1.0), 10)));
+    reconstruction->AddFrame(std::move(frame));
+
+    Image image;
+    image.SetImageId(image_id);
+    image.SetFrameId(image_id);
+    image.SetCameraId(camera_id);
+    image.SetName(std::to_string(i));
 
     std::vector<Eigen::Vector2d> points2D;
     for (const auto& point3D : reconstruction->Points3D()) {
       // Get exact projection of 3D point.
       std::optional<Eigen::Vector2d> point2D =
-          camera.ImgFromCam(image.CamFromWorld() * point3D.second.xyz);
+          camera.ImgFromCam(frame.FrameFromWorld() * point3D.second.xyz);
       CHECK(point2D.has_value());
       // Add some uniform noise.
       *point2D += Eigen::Vector2d(RandomUniformReal(-2.0, 2.0),
