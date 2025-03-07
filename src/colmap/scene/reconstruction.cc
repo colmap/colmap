@@ -412,8 +412,9 @@ Reconstruction::ComputeBBBoxAndCentroid(const double min_percentile,
 void Reconstruction::Transform(const Sim3d& new_from_old_world) {
   for (auto& [_, image] : images_) {
     if (image.HasPose()) {
-      image.FramePtr()->SetFrameFromWorld(TransformCameraWorld(
-          new_from_old_world, image.FramePtr()->FrameFromWorld()));
+      const Rigid3d cam_from_new_world =
+          TransformCameraWorld(new_from_old_world, image.CamFromWorld());
+      image.FramePtr()->SetFrameFromWorld(image.CameraId(), cam_from_new_world);
     }
   }
   for (auto& point3D : points3D_) {

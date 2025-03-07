@@ -29,6 +29,8 @@
 
 #include "colmap/scene/frame.h"
 
+#include "colmap/util/eigen_matchers.h"
+
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -58,15 +60,15 @@ TEST(Frame, SetUp) {
   EXPECT_TRUE(frame.HasRigId());
   EXPECT_FALSE(frame.HasRigPtr());
 
-  const sensor_t s1(SensorType::IMU, 0);
-  rig.AddRefSensor(s1);
-  const sensor_t s2(SensorType::CAMERA, 0);
-  rig.AddSensor(s2, TestRigid3d());
+  const sensor_t sensor_id1(SensorType::IMU, 0);
+  rig.AddRefSensor(sensor_id1);
+  const sensor_t sensor_id2(SensorType::CAMERA, 0);
+  rig.AddSensor(sensor_id2, TestRigid3d());
   frame.SetRigPtr(&rig);
   EXPECT_TRUE(frame.HasRigPtr());
 
-  frame.AddDataId(data_t(s1, 2));
-  frame.AddDataId(data_t(s2, 5));
+  frame.AddDataId(data_t(sensor_id1, 2));
+  frame.AddDataId(data_t(sensor_id2, 5));
   EXPECT_FALSE(frame.HasPose());
 }
 
@@ -76,12 +78,34 @@ TEST(Frame, SetResetPose) {
   EXPECT_ANY_THROW(frame.FrameFromWorld());
   frame.SetFrameFromWorld(Rigid3d());
   EXPECT_TRUE(frame.HasPose());
-  EXPECT_EQ(frame.FrameFromWorld().rotation.coeffs(),
-            Eigen::Quaterniond::Identity().coeffs());
-  EXPECT_EQ(frame.FrameFromWorld().translation, Eigen::Vector3d::Zero());
+  EXPECT_EQ(frame.FrameFromWorld(), Rigid3d());
   frame.ResetPose();
   EXPECT_FALSE(frame.HasPose());
   EXPECT_ANY_THROW(frame.FrameFromWorld());
+}
+
+TEST(Frame, SetCamFromWorld) {
+  Frame frame;
+  Rig rig;
+  frame.SetRigId(1);
+  const sensor_t sensor_id1(SensorType::CAMERA, 0);
+  rig.AddRefSensor(sensor_id1);
+  const sensor_t sensor_id2(SensorType::CAMERA, 1);
+  rig.AddSensor(sensor_id2, TestRigid3d());
+  frame.SetRigPtr(&rig);
+
+  const Rigid3d cam1_from_world = TestRigid3d();
+  frame.SetFrameFromWorld(sensor_id1.id, cam1_from_world);
+  EXPECT_EQ(frame.FrameFromWorld(), cam1_from_world);
+
+  const Rigid3d cam2_from_world = TestRigid3d();
+  frame.SetFrameFromWorld(sensor_id2.id, cam2_from_world);
+  const Rigid3d sensor2_from_world =
+      rig.SensorFromRig(sensor_id2) * frame.FrameFromWorld();
+  EXPECT_THAT(cam2_from_world.translation,
+              EigenMatrixNear(sensor2_from_world.translation, 1e-6));
+  EXPECT_THAT(cam2_from_world.rotation.coeffs(),
+              EigenMatrixNear(sensor2_from_world.rotation.coeffs(), 1e-6));
 }
 
 TEST(Image, Equals) {
@@ -103,8 +127,8 @@ TEST(Frame, Print) {
   std::ostringstream stream;
   stream << frame;
   EXPECT_EQ(stream.str(),
-            "Frame(frame_id=1, rig_id=2, has_pose=0, data_ids=[(CAMERA, 1, 3), "
-            "(IMU, 0, 2)])");
+            "Frame(frame_id=1, rig_id=2, has_pose=0, "
+            "data_ids=[(CAMERA, 1, 3), (IMU, 0, 2)])");
 }
 
 }  // namespace

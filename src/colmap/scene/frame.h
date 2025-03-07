@@ -71,6 +71,7 @@ class Frame {
   inline std::optional<Rigid3d>& MaybeFrameFromWorld();
   inline void SetFrameFromWorld(const Rigid3d& frame_from_world);
   inline void SetFrameFromWorld(const std::optional<Rigid3d>& frame_from_world);
+  void SetFrameFromWorld(camera_t camera_id, const Rigid3d& cam_from_world);
   inline bool HasPose() const;
   inline void ResetPose();
 
