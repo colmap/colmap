@@ -711,6 +711,12 @@ TEST(RigBundleAdjuster, FourView) {
   reconstruction.Image(3).ResetCameraPtr();
   reconstruction.Image(3).SetCameraId(1);
   reconstruction.Image(3).SetCameraPtr(&reconstruction.Camera(1));
+  reconstruction.Image(2).FramePtr()->ResetRigPtr();
+  reconstruction.Image(2).FramePtr()->SetRigId(0);
+  reconstruction.Image(2).FramePtr()->SetRigPtr(&reconstruction.Rig(0));
+  reconstruction.Image(3).FramePtr()->ResetRigPtr();
+  reconstruction.Image(3).FramePtr()->SetRigId(1);
+  reconstruction.Image(3).FramePtr()->SetRigPtr(&reconstruction.Rig(1));
   const auto orig_reconstruction = reconstruction;
 
   BundleAdjustmentConfig config;
@@ -769,6 +775,12 @@ TEST(RigBundleAdjuster, ConstantFourView) {
   reconstruction.Image(3).ResetCameraPtr();
   reconstruction.Image(3).SetCameraId(1);
   reconstruction.Image(3).SetCameraPtr(&reconstruction.Camera(1));
+  reconstruction.Image(2).FramePtr()->ResetRigPtr();
+  reconstruction.Image(2).FramePtr()->SetRigId(0);
+  reconstruction.Image(2).FramePtr()->SetRigPtr(&reconstruction.Rig(0));
+  reconstruction.Image(3).FramePtr()->ResetRigPtr();
+  reconstruction.Image(3).FramePtr()->SetRigId(1);
+  reconstruction.Image(3).FramePtr()->SetRigPtr(&reconstruction.Rig(1));
   const auto orig_reconstruction = reconstruction;
 
   BundleAdjustmentConfig config;
@@ -827,6 +839,12 @@ TEST(RigBundleAdjuster, FourViewPartial) {
   reconstruction.Image(3).ResetCameraPtr();
   reconstruction.Image(3).SetCameraId(1);
   reconstruction.Image(3).SetCameraPtr(&reconstruction.Camera(1));
+  reconstruction.Image(2).FramePtr()->ResetRigPtr();
+  reconstruction.Image(2).FramePtr()->SetRigId(0);
+  reconstruction.Image(2).FramePtr()->SetRigPtr(&reconstruction.Rig(0));
+  reconstruction.Image(3).FramePtr()->ResetRigPtr();
+  reconstruction.Image(3).FramePtr()->SetRigId(1);
+  reconstruction.Image(3).FramePtr()->SetRigPtr(&reconstruction.Rig(1));
   const auto orig_reconstruction = reconstruction;
 
   BundleAdjustmentConfig config;
