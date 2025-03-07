@@ -52,9 +52,11 @@ void GenerateReconstruction(const image_t num_images,
     frame.SetFrameId(image_id);
     frame.SetRigId(rig.RigId());
     frame.SetFrameFromWorld(Rigid3d());
+    reconstruction.AddFrame(frame);
     Image image;
     image.SetImageId(image_id);
     image.SetCameraId(camera.camera_id);
+    image.SetFrameId(frame.FrameId());
     image.SetName("image" + std::to_string(image_id));
     image.SetPoints2D(
         std::vector<Eigen::Vector2d>(kNumPoints2D, Eigen::Vector2d::Zero()));
@@ -62,14 +64,14 @@ void GenerateReconstruction(const image_t num_images,
   }
 }
 
-TEST(Reconstruction, Print) {
+TEST(ObservationManager, Print) {
   Reconstruction reconstruction;
   GenerateReconstruction(2, reconstruction);
   ObservationManager obs_manager(reconstruction);
   std::ostringstream stream;
   stream << obs_manager;
   EXPECT_EQ(stream.str(),
-            "ObservationManager(reconstruction=Reconstruction(num_rigs=0, "
+            "ObservationManager(reconstruction=Reconstruction(num_rigs=1, "
             "num_cameras=1, num_images=2, num_reg_images=2, num_points3D=0), "
             "correspondence_graph=null)");
 }
@@ -235,9 +237,18 @@ TEST(ObservationManager, NumVisiblePoints3D) {
                                                   /*width=*/10,
                                                   /*height=*/10);
   reconstruction.AddCamera(camera);
+  Rig rig;
+  rig.SetRigId(1);
+  rig.AddRefSensor(sensor_t(SensorType::CAMERA, camera.camera_id));
+  reconstruction.AddRig(rig);
+  Frame frame;
+  frame.SetFrameId(1);
+  frame.SetRigId(rig.RigId());
+  reconstruction.AddFrame(frame);
   Image image;
   image.SetImageId(kImageId1);
   image.SetCameraId(kCameraId);
+  image.SetFrameId(frame.FrameId());
   image.SetPoints2D(std::vector<Eigen::Vector2d>(10));
   reconstruction.AddImage(image);
   image.SetImageId(kImageId2);
@@ -281,9 +292,18 @@ TEST(ObservationManager, Point3DVisibilityScore) {
                                                   /*width=*/4,
                                                   /*height=*/4);
   reconstruction.AddCamera(camera);
+  Rig rig;
+  rig.SetRigId(1);
+  rig.AddRefSensor(sensor_t(SensorType::CAMERA, camera.camera_id));
+  reconstruction.AddRig(rig);
+  Frame frame;
+  frame.SetFrameId(1);
+  frame.SetRigId(rig.RigId());
+  reconstruction.AddFrame(frame);
   Image image;
   image.SetImageId(kImageId1);
   image.SetCameraId(kCameraId);
+  image.SetFrameId(frame.FrameId());
   std::vector<Eigen::Vector2d> points2D;
   for (size_t i = 0; i < 4; ++i) {
     for (size_t j = 0; j < 4; ++j) {
