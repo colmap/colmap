@@ -112,7 +112,15 @@ typedef uint64_t point3D_t;
 constexpr point3D_t kInvalidPoint3DId = std::numeric_limits<point3D_t>::max();
 
 // Sensor type.
+#ifdef __CUDA_ARCH__
+enum class SensorType {
+  INVALID = -1,
+  CAMERA = 0,
+  IMU = 1,
+};
+#else
 MAKE_ENUM_CLASS_OVERLOAD_STREAM(SensorType, -1, INVALID, CAMERA, IMU);
+#endif
 
 struct sensor_t {
   // Type of the sensor (INVALID / CAMERA / IMU)

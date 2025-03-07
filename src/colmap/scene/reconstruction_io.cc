@@ -495,7 +495,7 @@ void ReadPoints3DText(Reconstruction& reconstruction, const std::string& path) {
 void ReadRigsBinary(Reconstruction& reconstruction, std::istream& stream) {
   THROW_CHECK(stream.good());
 
-  const int num_rigs = ReadBinaryLittleEndian<uint64_t>(&stream);
+  const size_t num_rigs = ReadBinaryLittleEndian<uint64_t>(&stream);
   for (size_t i = 0; i < num_rigs; ++i) {
     Rig rig;
 
