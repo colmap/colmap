@@ -457,6 +457,8 @@ bool MergeReconstructions(const double max_reproj_error,
   for (const auto image_id : missing_image_ids) {
     const auto& src_image = src_reconstruction.Image(image_id);
     auto tgt_image = src_image;
+    tgt_image.ResetCameraPtr();
+    tgt_image.ResetFramePtr();
     if (!tgt_reconstruction.ExistsRig(src_image.FramePtr()->RigId())) {
       tgt_reconstruction.AddRig(
           src_reconstruction.Rig(src_image.FramePtr()->RigId()));
