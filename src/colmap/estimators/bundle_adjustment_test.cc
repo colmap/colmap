@@ -157,7 +157,7 @@ void GenerateReconstruction(const size_t num_images,
     Rig rig;
     rig.SetRigId(camera_id);
     rig.AddRefSensor(sensor_t(SensorType::CAMERA, camera_id));
-    reconstruction->AddRig(std::move(rig));
+    reconstruction->AddRig(rig);
 
     Frame frame;
     frame.SetFrameId(image_id);
@@ -166,7 +166,7 @@ void GenerateReconstruction(const size_t num_images,
         Eigen::Quaterniond::Identity(),
         Eigen::Vector3d(
             RandomUniformReal(-1.0, 1.0), RandomUniformReal(-1.0, 1.0), 10)));
-    reconstruction->AddFrame(std::move(frame));
+    reconstruction->AddFrame(frame);
 
     Image image;
     image.SetImageId(image_id);
