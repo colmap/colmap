@@ -62,10 +62,27 @@ std::vector<ID_TYPE> ExtractSortedIds(
   return ids;
 }
 
+void CreateOneRigPerCamera(Reconstruction& reconstruction) {
+  for (const auto& [camera_id, _] : reconstruction.Cameras()) {
+    Rig rig;
+    rig.SetRigId(camera_id);
+    rig.AddRefSensor(sensor_t(SensorType::CAMERA, camera_id));
+    reconstruction.AddRig(std::move(rig));
+  }
+}
+
+void CreateFrameForImage(Reconstruction& reconstruction, Image& image) {
+  Frame frame;
+  frame.SetFrameId(image.ImageId());
+  frame.SetRigId(image.CameraId());
+  frame.AddDataId(
+      data_t(sensor_t(SensorType::CAMERA, image.CameraId()), image.ImageId()));
+  reconstruction.AddFrame(std::move(frame));
+}
+
 std::unordered_map<image_t, Frame*> ExtractImageToFramePtr(
     Reconstruction& reconstruction) {
   std::unordered_map<image_t, Frame*> image_to_frame;
-  image_to_frame.reserve(reconstruction.NumImages());
   for (const auto& [frame_id, frame] : reconstruction.Frames()) {
     for (const data_t& data_id : frame.DataIds()) {
       if (data_id.sensor_id.type == SensorType::CAMERA) {
@@ -303,6 +320,13 @@ void ReadFramesText(Reconstruction& reconstruction, const std::string& path) {
 void ReadImagesText(Reconstruction& reconstruction, std::istream& stream) {
   THROW_CHECK(stream.good());
 
+  // Handle backwards-compatibility for when we didn't have rigs and frames.
+  const bool is_legacy_reconstruction =
+      reconstruction.NumRigs() == 0 && reconstruction.NumFrames() == 0;
+  if (is_legacy_reconstruction) {
+    CreateOneRigPerCamera(reconstruction);
+  }
+
   const std::unordered_map<image_t, Frame*> image_to_frame =
       ExtractImageToFramePtr(reconstruction);
 
@@ -328,10 +352,6 @@ void ReadImagesText(Reconstruction& reconstruction, std::istream& stream) {
     class Image image;
     image.SetImageId(image_id);
 
-    Frame* frame = image_to_frame.at(image.ImageId());
-    image.SetFrameId(frame->FrameId());
-    image.SetFramePtr(frame);
-
     Rigid3d cam_from_world;
 
     std::getline(line_stream1, item, ' ');
@@ -355,13 +375,23 @@ void ReadImagesText(Reconstruction& reconstruction, std::istream& stream) {
     std::getline(line_stream1, item, ' ');
     cam_from_world.translation.z() = std::stold(item);
 
-    if (image.HasTrivialFrame()) {
-      image.FramePtr()->SetFrameFromWorld(cam_from_world);
-    }
-
     // CAMERA_ID
     std::getline(line_stream1, item, ' ');
     image.SetCameraId(std::stoul(item));
+
+    if (is_legacy_reconstruction) {
+      CreateFrameForImage(reconstruction, image);
+      image.SetFrameId(image.ImageId());
+      image.SetFramePtr(&reconstruction.Frame(image.ImageId()));
+    } else {
+      Frame* frame = image_to_frame.at(image.ImageId());
+      image.SetFrameId(frame->FrameId());
+      image.SetFramePtr(frame);
+    }
+
+    if (image.HasTrivialFrame()) {
+      image.FramePtr()->SetFrameFromWorld(cam_from_world);
+    }
 
     // NAME
     std::getline(line_stream1, item, ' ');
@@ -627,6 +657,13 @@ void ReadFramesBinary(Reconstruction& reconstruction, const std::string& path) {
 void ReadImagesBinary(Reconstruction& reconstruction, std::istream& stream) {
   THROW_CHECK(stream.good());
 
+  // Handle backwards-compatibility for when we didn't have rigs and frames.
+  const bool is_legacy_reconstruction =
+      reconstruction.NumRigs() == 0 && reconstruction.NumFrames() == 0;
+  if (is_legacy_reconstruction) {
+    CreateOneRigPerCamera(reconstruction);
+  }
+
   const std::unordered_map<image_t, Frame*> image_to_frame =
       ExtractImageToFramePtr(reconstruction);
 
@@ -639,10 +676,6 @@ void ReadImagesBinary(Reconstruction& reconstruction, std::istream& stream) {
 
     image.SetImageId(ReadBinaryLittleEndian<image_t>(&stream));
 
-    Frame* frame = image_to_frame.at(image.ImageId());
-    image.SetFrameId(frame->FrameId());
-    image.SetFramePtr(frame);
-
     Rigid3d cam_from_world;
     cam_from_world.rotation.w() = ReadBinaryLittleEndian<double>(&stream);
     cam_from_world.rotation.x() = ReadBinaryLittleEndian<double>(&stream);
@@ -652,11 +685,21 @@ void ReadImagesBinary(Reconstruction& reconstruction, std::istream& stream) {
     cam_from_world.translation.y() = ReadBinaryLittleEndian<double>(&stream);
     cam_from_world.translation.z() = ReadBinaryLittleEndian<double>(&stream);
 
+    image.SetCameraId(ReadBinaryLittleEndian<camera_t>(&stream));
+
+    if (is_legacy_reconstruction) {
+      CreateFrameForImage(reconstruction, image);
+      image.SetFrameId(image.ImageId());
+      image.SetFramePtr(&reconstruction.Frame(image.ImageId()));
+    } else {
+      Frame* frame = image_to_frame.at(image.ImageId());
+      image.SetFrameId(frame->FrameId());
+      image.SetFramePtr(frame);
+    }
+
     if (image.HasTrivialFrame()) {
       image.FramePtr()->SetFrameFromWorld(cam_from_world);
     }
-
-    image.SetCameraId(ReadBinaryLittleEndian<camera_t>(&stream));
 
     char name_char;
     do {

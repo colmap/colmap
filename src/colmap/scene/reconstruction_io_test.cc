@@ -324,10 +324,37 @@ TEST_P(ParameterizedReaderWriterTests, Roundtrip) {
   EXPECT_EQ(orig.Cameras(), test.Cameras());
   reader_writer->ReadFrames(test);
   EXPECT_EQ(orig.Frames(), test.Frames());
-  for (const auto& [frame_id, frame] : orig.Frames()) {
-    EXPECT_EQ(frame.FrameFromWorld(), test.Frame(frame_id).FrameFromWorld());
-  }
   reader_writer->ReadImages(test);
+  EXPECT_EQ(orig.Images(), test.Images());
+  reader_writer->ReadPoints3D(test);
+  EXPECT_EQ(orig.Points3D(), test.Points3D());
+}
+
+TEST_P(ParameterizedReaderWriterTests, LegacyWithoutRigsAndFrames) {
+  std::unique_ptr<ReaderWriter> reader_writer = GetParam()();
+
+  Reconstruction orig;
+  SyntheticDatasetOptions options;
+  options.num_cameras = 11;
+  options.num_images = 43;
+  options.num_points3D = 321;
+  SynthesizeDataset(options, &orig);
+
+  reader_writer->WriteCameras(orig);
+  EXPECT_FALSE(reader_writer->CamerasStr().empty());
+
+  reader_writer->WriteImages(orig);
+  EXPECT_FALSE(reader_writer->ImagesStr().empty());
+
+  reader_writer->WritePoints3D(orig);
+  EXPECT_FALSE(reader_writer->Points3DStr().empty());
+
+  Reconstruction test;
+  reader_writer->ReadCameras(test);
+  EXPECT_EQ(orig.Cameras(), test.Cameras());
+  reader_writer->ReadImages(test);
+  EXPECT_EQ(orig.Rigs(), test.Rigs());
+  EXPECT_EQ(orig.Frames(), test.Frames());
   EXPECT_EQ(orig.Images(), test.Images());
   reader_writer->ReadPoints3D(test);
   EXPECT_EQ(orig.Points3D(), test.Points3D());
