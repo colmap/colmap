@@ -39,31 +39,50 @@ Rigid3d TestRigid3d() {
 }
 
 TEST(Rig, Default) {
-  Rig calib;
-  EXPECT_EQ(calib.RigId(), kInvalidRigId);
-  EXPECT_EQ(calib.RefSensorId(), kInvalidSensorId);
-  EXPECT_EQ(calib.NumSensors(), 0);
-  EXPECT_EQ(calib.Sensors().size(), 0);
+  Rig rig;
+  EXPECT_EQ(rig.RigId(), kInvalidRigId);
+  EXPECT_EQ(rig.RefSensorId(), kInvalidSensorId);
+  EXPECT_EQ(rig.NumSensors(), 0);
+  EXPECT_EQ(rig.Sensors().size(), 0);
 }
 
 TEST(Rig, SetUp) {
-  Rig calib;
-  calib.AddRefSensor(sensor_t(SensorType::IMU, 0));
-  calib.AddSensor(sensor_t(SensorType::IMU, 1), TestRigid3d());
-  calib.AddSensor(sensor_t(SensorType::CAMERA, 0), TestRigid3d());
-  calib.AddSensor(sensor_t(SensorType::CAMERA, 1));  // no input sensor_from_rig
+  Rig rig;
+  const sensor_t sensor_id0(SensorType::IMU, 0);
+  rig.AddRefSensor(sensor_id0);
+  const sensor_t sensor_id1(SensorType::IMU, 1);
+  const Rigid3d sensor1_from_rig = TestRigid3d();
+  rig.AddSensor(sensor_id1, sensor1_from_rig);
+  const sensor_t sensor_id2(SensorType::CAMERA, 0);
+  const Rigid3d sensor2_from_rig = TestRigid3d();
+  rig.AddSensor(sensor_id2, sensor2_from_rig);
+  const sensor_t sensor_id3(SensorType::CAMERA, 1);
+  rig.AddSensor(sensor_id3);  // no input sensor_from_rig
 
-  EXPECT_EQ(calib.NumSensors(), 4);
-  EXPECT_EQ(calib.RefSensorId().type, SensorType::IMU);
-  EXPECT_EQ(calib.RefSensorId().id, 0);
-  EXPECT_TRUE(calib.IsRefSensor(sensor_t(SensorType::IMU, 0)));
-  EXPECT_FALSE(calib.IsRefSensor(sensor_t(SensorType::IMU, 1)));
-  EXPECT_TRUE(calib.HasSensorFromRig(sensor_t(SensorType::IMU, 0)));
-  EXPECT_TRUE(calib.HasSensorFromRig(sensor_t(SensorType::IMU, 1)));
-  EXPECT_TRUE(calib.HasSensorFromRig(sensor_t(SensorType::CAMERA, 0)));
-  EXPECT_FALSE(calib.HasSensorFromRig(sensor_t(SensorType::CAMERA, 1)));
-  EXPECT_TRUE(calib.HasSensor(sensor_t(SensorType::CAMERA, 1)));
-  EXPECT_EQ(calib.Sensors().size(), 3);
+  EXPECT_EQ(rig.NumSensors(), 4);
+  EXPECT_EQ(rig.Sensors().size(), 3);
+
+  EXPECT_EQ(rig.RefSensorId().type, SensorType::IMU);
+  EXPECT_EQ(rig.RefSensorId().id, 0);
+
+  EXPECT_TRUE(rig.IsRefSensor(sensor_id0));
+  EXPECT_FALSE(rig.IsRefSensor(sensor_id1));
+  EXPECT_FALSE(rig.IsRefSensor(sensor_id2));
+  EXPECT_FALSE(rig.IsRefSensor(sensor_id3));
+
+  EXPECT_EQ(rig.SensorFromRig(sensor_id1), sensor1_from_rig);
+  EXPECT_EQ(rig.MaybeSensorFromRig(sensor_id1).value(), sensor1_from_rig);
+
+  EXPECT_EQ(rig.SensorFromRig(sensor_id2), sensor2_from_rig);
+  EXPECT_EQ(rig.MaybeSensorFromRig(sensor_id2).value(), sensor2_from_rig);
+
+  EXPECT_TRUE(rig.HasSensor(sensor_id3));
+  EXPECT_ANY_THROW(rig.SensorFromRig(sensor_id3));
+  EXPECT_EQ(rig.MaybeSensorFromRig(sensor_id3), std::nullopt);
+  const Rigid3d sensor3_from_rig = TestRigid3d();
+  rig.SetSensorFromRig(sensor_id3, sensor3_from_rig);
+  EXPECT_EQ(rig.SensorFromRig(sensor_id3), sensor3_from_rig);
+  EXPECT_EQ(rig.MaybeSensorFromRig(sensor_id3).value(), sensor3_from_rig);
 }
 
 TEST(Rig, Print) {

@@ -82,7 +82,6 @@ class Rig {
                                const Rigid3d& sensor_from_rig);
   inline void SetSensorFromRig(sensor_t sensor_id,
                                const std::optional<Rigid3d>& sensor_from_rig);
-  inline bool HasSensorFromRig(sensor_t sensor_id) const;
   inline void ResetSensorFromRig(sensor_t sensor_id);
 
   inline bool operator==(const Rig& other) const;
@@ -119,9 +118,9 @@ bool Rig::HasSensor(sensor_t sensor_id) const {
 }
 
 size_t Rig::NumSensors() const {
-  size_t n_sensors = sensors_from_rig_.size();
-  if (ref_sensor_id_ != kInvalidSensorId) n_sensors += 1;
-  return n_sensors;
+  size_t num_sensors = sensors_from_rig_.size();
+  if (ref_sensor_id_ != kInvalidSensorId) num_sensors += 1;
+  return num_sensors;
 }
 
 sensor_t Rig::RefSensorId() const { return ref_sensor_id_; }
@@ -135,11 +134,11 @@ const std::map<sensor_t, std::optional<Rigid3d>>& Rig::Sensors() const {
 }
 
 Rigid3d& Rig::SensorFromRig(sensor_t sensor_id) {
-  return *FindSensorFromRigOrThrow(sensor_id);
+  return FindSensorFromRigOrThrow(sensor_id).value();
 }
 
 const Rigid3d& Rig::SensorFromRig(sensor_t sensor_id) const {
-  return *FindSensorFromRigOrThrow(sensor_id);
+  return FindSensorFromRigOrThrow(sensor_id).value();
 }
 
 std::optional<Rigid3d>& Rig::MaybeSensorFromRig(sensor_t sensor_id) {
@@ -158,13 +157,6 @@ void Rig::SetSensorFromRig(sensor_t sensor_id, const Rigid3d& sensor_from_rig) {
 void Rig::SetSensorFromRig(sensor_t sensor_id,
                            const std::optional<Rigid3d>& sensor_from_rig) {
   FindSensorFromRigOrThrow(sensor_id) = sensor_from_rig;
-}
-
-bool Rig::HasSensorFromRig(sensor_t sensor_id) const {
-  if (IsRefSensor(sensor_id)) {
-    return true;  // SensorFromRig for the reference sensor is always identity
-  }
-  return FindSensorFromRigOrThrow(sensor_id).has_value();
 }
 
 void Rig::ResetSensorFromRig(sensor_t sensor_id) {
