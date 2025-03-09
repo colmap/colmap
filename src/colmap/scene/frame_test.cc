@@ -31,6 +31,7 @@
 
 #include "colmap/util/eigen_matchers.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -67,8 +68,18 @@ TEST(Frame, SetUp) {
   frame.SetRigPtr(&rig);
   EXPECT_TRUE(frame.HasRigPtr());
 
-  frame.AddDataId(data_t(sensor_id1, 2));
-  frame.AddDataId(data_t(sensor_id2, 5));
+  EXPECT_THAT(frame.DataIds(), testing::IsEmpty());
+  const data_t data_id1(sensor_id1, 2);
+  EXPECT_FALSE(frame.HasDataId(data_id1));
+  frame.AddDataId(data_id1);
+  EXPECT_TRUE(frame.HasDataId(data_id1));
+  EXPECT_THAT(frame.DataIds(), testing::UnorderedElementsAre(data_id1));
+  const data_t data_id2(sensor_id2, 5);
+  EXPECT_FALSE(frame.HasDataId(data_id2));
+  frame.AddDataId(data_id2);
+  EXPECT_TRUE(frame.HasDataId(data_id2));
+  EXPECT_THAT(frame.DataIds(),
+              testing::UnorderedElementsAre(data_id1, data_id2));
   EXPECT_FALSE(frame.HasPose());
 }
 
@@ -76,12 +87,15 @@ TEST(Frame, SetResetPose) {
   Frame frame;
   EXPECT_FALSE(frame.HasPose());
   EXPECT_ANY_THROW(frame.FrameFromWorld());
+  EXPECT_EQ(frame.MaybeFrameFromWorld(), std::nullopt);
   frame.SetFrameFromWorld(Rigid3d());
   EXPECT_TRUE(frame.HasPose());
   EXPECT_EQ(frame.FrameFromWorld(), Rigid3d());
+  EXPECT_EQ(frame.MaybeFrameFromWorld().value(), Rigid3d());
   frame.ResetPose();
   EXPECT_FALSE(frame.HasPose());
   EXPECT_ANY_THROW(frame.FrameFromWorld());
+  EXPECT_EQ(frame.MaybeFrameFromWorld(), std::nullopt);
 }
 
 TEST(Frame, SetCamFromWorld) {
@@ -97,11 +111,11 @@ TEST(Frame, SetCamFromWorld) {
   const Rigid3d cam1_from_world = TestRigid3d();
   frame.SetFrameFromWorld(sensor_id1.id, cam1_from_world);
   EXPECT_EQ(frame.FrameFromWorld(), cam1_from_world);
+  EXPECT_EQ(frame.SensorFromWorld(sensor_id1), cam1_from_world);
 
   const Rigid3d cam2_from_world = TestRigid3d();
   frame.SetFrameFromWorld(sensor_id2.id, cam2_from_world);
-  const Rigid3d sensor2_from_world =
-      rig.SensorFromRig(sensor_id2) * frame.FrameFromWorld();
+  const Rigid3d sensor2_from_world = frame.SensorFromWorld(sensor_id2);
   EXPECT_THAT(cam2_from_world.translation,
               EigenMatrixNear(sensor2_from_world.translation, 1e-6));
   EXPECT_THAT(cam2_from_world.rotation.coeffs(),
