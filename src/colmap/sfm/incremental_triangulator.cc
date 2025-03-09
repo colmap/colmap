@@ -50,7 +50,8 @@ bool TriangulateTrack(
   for (size_t i = 0; i < corrs_data.size(); ++i) {
     const auto& corr_data = corrs_data[i];
     points[i] = corr_data.point2D->xy;
-    cams_from_world[i] = &corr_data.image->CamFromWorld();
+    THROW_CHECK(corr_data.image->HasTrivialFrame());
+    cams_from_world[i] = &corr_data.image->FramePtr()->FrameFromWorld();
     cameras[i] = corr_data.camera;
   }
 

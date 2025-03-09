@@ -154,20 +154,31 @@ void GenerateReconstruction(const size_t num_images,
                                   kImageSize);
     reconstruction->AddCamera(camera);
 
-    Image image;
-    image.SetImageId(image_id);
-    image.SetCameraId(camera_id);
-    image.SetName(std::to_string(i));
-    image.SetCamFromWorld(Rigid3d(
+    Rig rig;
+    rig.SetRigId(camera_id);
+    rig.AddRefSensor(sensor_t(SensorType::CAMERA, camera_id));
+    reconstruction->AddRig(rig);
+
+    Frame frame;
+    frame.SetFrameId(image_id);
+    frame.SetRigId(rig.RigId());
+    frame.SetFrameFromWorld(Rigid3d(
         Eigen::Quaterniond::Identity(),
         Eigen::Vector3d(
             RandomUniformReal(-1.0, 1.0), RandomUniformReal(-1.0, 1.0), 10)));
+    reconstruction->AddFrame(frame);
+
+    Image image;
+    image.SetImageId(image_id);
+    image.SetFrameId(image_id);
+    image.SetCameraId(camera_id);
+    image.SetName(std::to_string(i));
 
     std::vector<Eigen::Vector2d> points2D;
     for (const auto& point3D : reconstruction->Points3D()) {
       // Get exact projection of 3D point.
       std::optional<Eigen::Vector2d> point2D =
-          camera.ImgFromCam(image.CamFromWorld() * point3D.second.xyz);
+          camera.ImgFromCam(frame.FrameFromWorld() * point3D.second.xyz);
       CHECK(point2D.has_value());
       // Add some uniform noise.
       *point2D += Eigen::Vector2d(RandomUniformReal(-2.0, 2.0),
@@ -700,6 +711,12 @@ TEST(RigBundleAdjuster, FourView) {
   reconstruction.Image(3).ResetCameraPtr();
   reconstruction.Image(3).SetCameraId(1);
   reconstruction.Image(3).SetCameraPtr(&reconstruction.Camera(1));
+  reconstruction.Image(2).FramePtr()->ResetRigPtr();
+  reconstruction.Image(2).FramePtr()->SetRigId(0);
+  reconstruction.Image(2).FramePtr()->SetRigPtr(&reconstruction.Rig(0));
+  reconstruction.Image(3).FramePtr()->ResetRigPtr();
+  reconstruction.Image(3).FramePtr()->SetRigId(1);
+  reconstruction.Image(3).FramePtr()->SetRigPtr(&reconstruction.Rig(1));
   const auto orig_reconstruction = reconstruction;
 
   BundleAdjustmentConfig config;
@@ -758,6 +775,12 @@ TEST(RigBundleAdjuster, ConstantFourView) {
   reconstruction.Image(3).ResetCameraPtr();
   reconstruction.Image(3).SetCameraId(1);
   reconstruction.Image(3).SetCameraPtr(&reconstruction.Camera(1));
+  reconstruction.Image(2).FramePtr()->ResetRigPtr();
+  reconstruction.Image(2).FramePtr()->SetRigId(0);
+  reconstruction.Image(2).FramePtr()->SetRigPtr(&reconstruction.Rig(0));
+  reconstruction.Image(3).FramePtr()->ResetRigPtr();
+  reconstruction.Image(3).FramePtr()->SetRigId(1);
+  reconstruction.Image(3).FramePtr()->SetRigPtr(&reconstruction.Rig(1));
   const auto orig_reconstruction = reconstruction;
 
   BundleAdjustmentConfig config;
@@ -816,6 +839,12 @@ TEST(RigBundleAdjuster, FourViewPartial) {
   reconstruction.Image(3).ResetCameraPtr();
   reconstruction.Image(3).SetCameraId(1);
   reconstruction.Image(3).SetCameraPtr(&reconstruction.Camera(1));
+  reconstruction.Image(2).FramePtr()->ResetRigPtr();
+  reconstruction.Image(2).FramePtr()->SetRigId(0);
+  reconstruction.Image(2).FramePtr()->SetRigPtr(&reconstruction.Rig(0));
+  reconstruction.Image(3).FramePtr()->ResetRigPtr();
+  reconstruction.Image(3).FramePtr()->SetRigId(1);
+  reconstruction.Image(3).FramePtr()->SetRigPtr(&reconstruction.Rig(1));
   const auto orig_reconstruction = reconstruction;
 
   BundleAdjustmentConfig config;

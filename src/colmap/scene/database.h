@@ -85,6 +85,7 @@ class Database {
   // `image_id1` and `image_id2` does not matter.
   bool ExistsRig(rig_t rig_id) const;
   bool ExistsCamera(camera_t camera_id) const;
+  bool ExistsFrame(frame_t frame_id) const;
   bool ExistsImage(image_t image_id) const;
   bool ExistsImageWithName(const std::string& name) const;
   bool ExistsPosePrior(image_t image_id) const;
@@ -98,6 +99,9 @@ class Database {
 
   // Number of rows in `cameras` table.
   size_t NumCameras() const;
+
+  //  Number of rows in `frames` table.
+  size_t NumFrames() const;
 
   //  Number of rows in `images` table.
   size_t NumImages() const;
@@ -162,6 +166,9 @@ class Database {
   Camera ReadCamera(camera_t camera_id) const;
   std::vector<Camera> ReadAllCameras() const;
 
+  Frame ReadFrame(frame_t frame_id) const;
+  std::vector<Frame> ReadAllFrames() const;
+
   Image ReadImage(image_t image_id) const;
   Image ReadImageWithName(const std::string& name) const;
   std::vector<Image> ReadAllImages() const;
@@ -197,6 +204,10 @@ class Database {
   // is false a new identifier is automatically generated.
   camera_t WriteCamera(const Camera& camera, bool use_camera_id = false) const;
 
+  // Add new frame and return its database identifier. If `use_frame_id`
+  // is false a new identifier is automatically generated.
+  frame_t WriteFrame(const Frame& frame, bool use_frame_id = false) const;
+
   // Add new image and return its database identifier. If `use_image_id`
   // is false a new identifier is automatically generated.
   image_t WriteImage(const Image& image, bool use_image_id = false) const;
@@ -228,6 +239,10 @@ class Database {
   // making sure that the entry already exists.
   void UpdateCamera(const Camera& camera) const;
 
+  // Update an existing frame in the database. The user is responsible for
+  // making sure that the entry already exists.
+  void UpdateFrame(const Frame& frame) const;
+
   // Update an existing image in the database. The user is responsible for
   // making sure that the entry already exists.
   void UpdateImage(const Image& image) const;
@@ -250,6 +265,9 @@ class Database {
 
   // Clear the entire cameras table
   void ClearCameras() const;
+
+  // Clear the entire frames table
+  void ClearFrames() const;
 
   // Clear the entire images, keypoints, and descriptors tables
   void ClearImages() const;
@@ -294,6 +312,7 @@ class Database {
   void CreateTables() const;
   void CreateRigTable() const;
   void CreateCameraTable() const;
+  void CreateFrameTable() const;
   void CreateImageTable() const;
   void CreatePosePriorTable() const;
   void CreateKeypointsTable() const;
@@ -342,6 +361,7 @@ class Database {
   // exists_*
   sqlite3_stmt* sql_stmt_exists_rig_ = nullptr;
   sqlite3_stmt* sql_stmt_exists_camera_ = nullptr;
+  sqlite3_stmt* sql_stmt_exists_frame_ = nullptr;
   sqlite3_stmt* sql_stmt_exists_image_id_ = nullptr;
   sqlite3_stmt* sql_stmt_exists_image_name_ = nullptr;
   sqlite3_stmt* sql_stmt_exists_pose_prior_ = nullptr;
@@ -353,11 +373,13 @@ class Database {
   // add_*
   sqlite3_stmt* sql_stmt_add_rig_ = nullptr;
   sqlite3_stmt* sql_stmt_add_camera_ = nullptr;
+  sqlite3_stmt* sql_stmt_add_frame_ = nullptr;
   sqlite3_stmt* sql_stmt_add_image_ = nullptr;
 
   // update_*
   sqlite3_stmt* sql_stmt_update_rig_ = nullptr;
   sqlite3_stmt* sql_stmt_update_camera_ = nullptr;
+  sqlite3_stmt* sql_stmt_update_frame_ = nullptr;
   sqlite3_stmt* sql_stmt_update_image_ = nullptr;
   sqlite3_stmt* sql_stmt_update_pose_prior_ = nullptr;
 
@@ -366,6 +388,8 @@ class Database {
   sqlite3_stmt* sql_stmt_read_rigs_ = nullptr;
   sqlite3_stmt* sql_stmt_read_camera_ = nullptr;
   sqlite3_stmt* sql_stmt_read_cameras_ = nullptr;
+  sqlite3_stmt* sql_stmt_read_frame_ = nullptr;
+  sqlite3_stmt* sql_stmt_read_frames_ = nullptr;
   sqlite3_stmt* sql_stmt_read_image_id_ = nullptr;
   sqlite3_stmt* sql_stmt_read_image_name_ = nullptr;
   sqlite3_stmt* sql_stmt_read_images_ = nullptr;
@@ -392,6 +416,7 @@ class Database {
   // clear_*
   sqlite3_stmt* sql_stmt_clear_rigs_ = nullptr;
   sqlite3_stmt* sql_stmt_clear_cameras_ = nullptr;
+  sqlite3_stmt* sql_stmt_clear_frames_ = nullptr;
   sqlite3_stmt* sql_stmt_clear_images_ = nullptr;
   sqlite3_stmt* sql_stmt_clear_pose_priors_ = nullptr;
   sqlite3_stmt* sql_stmt_clear_descriptors_ = nullptr;

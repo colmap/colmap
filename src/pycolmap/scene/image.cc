@@ -26,13 +26,11 @@ namespace py = pybind11;
 template <typename T>
 std::shared_ptr<Image> MakeImage(const std::string& name,
                                  const std::vector<T>& points2D,
-                                 const std::optional<Rigid3d>& cam_from_world,
                                  size_t camera_id,
                                  image_t image_id) {
   auto image = std::make_shared<Image>();
   image->SetName(name);
   image->SetPoints2D(points2D);
-  image->SetCamFromWorld(cam_from_world);
   if (camera_id != kInvalidCameraId) {
     image->SetCameraId(camera_id);
   }
@@ -53,7 +51,6 @@ void BindSceneImage(py::module& m) {
       .def(py::init(&MakeImage<Eigen::Vector2d>),
            "name"_a = "",
            "keypoints"_a = std::vector<Eigen::Vector2d>(),
-           "cam_from_world"_a = Rigid3d(),
            py::arg_v(
                "camera_id", kInvalidCameraId, "pycolmap.INVALID_CAMERA_ID"),
            py::arg_v("id", kInvalidImageId, "pycolmap.INVALID_IMAGE_ID"))
@@ -80,16 +77,8 @@ void BindSceneImage(py::module& m) {
                     py::overload_cast<>(&Image::Name),
                     &Image::SetName,
                     "Name of the image.")
-      .def_property(
-          "cam_from_world",
-          py::overload_cast<>(&Image::MaybeCamFromWorld),
-          py::overload_cast<const std::optional<Rigid3d>&>(
-              &Image::SetCamFromWorld),
-          "The pose of the image, defined as the transformation from world to "
-          "camera space. None if the image is not registered. Will throw an "
-          "error if a non-trivial frame (rig) is present.")
-      .def("compose_cam_from_world",
-           &Image::ComposeCamFromWorld,
+      .def("cam_from_world",
+           &Image::CamFromWorld,
            "The pose of the image, defined as the transformation from world to "
            "camera space. This method is read-only and support non-trivial "
            "frame (rig).")

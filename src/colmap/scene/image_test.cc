@@ -111,10 +111,14 @@ TEST(Image, CameraPtr) {
 }
 
 TEST(Image, SetResetPose) {
+  Frame frame;
+  frame.SetFrameId(1);
   Image image;
+  image.SetFrameId(1);
+  image.SetFramePtr(&frame);
   EXPECT_FALSE(image.HasPose());
   EXPECT_ANY_THROW(image.CamFromWorld());
-  image.SetCamFromWorld(Rigid3d());
+  frame.SetFrameFromWorld(Rigid3d());
   EXPECT_TRUE(image.HasPose());
   EXPECT_EQ(image.CamFromWorld().rotation.coeffs(),
             Eigen::Quaterniond::Identity().coeffs());
@@ -125,24 +129,32 @@ TEST(Image, SetResetPose) {
 }
 
 TEST(Image, ConstructCopy) {
+  Frame frame;
+  frame.SetFrameId(1);
+  frame.SetFrameFromWorld(Rigid3d());
   Image image;
-  image.SetCamFromWorld(Rigid3d());
+  image.SetFrameId(1);
+  image.SetFramePtr(&frame);
   Image image_copy = Image(image);
   EXPECT_EQ(image, image_copy);
   EXPECT_EQ(Rigid3d(), image_copy.CamFromWorld());
   image_copy.ResetPose();
-  EXPECT_TRUE(image.HasPose());
+  EXPECT_FALSE(image.HasPose());
   EXPECT_FALSE(image_copy.HasPose());
 }
 
 TEST(Image, AssignCopy) {
+  Frame frame;
+  frame.SetFrameId(1);
+  frame.SetFrameFromWorld(Rigid3d());
   Image image;
-  image.SetCamFromWorld(Rigid3d());
+  image.SetFrameId(1);
+  image.SetFramePtr(&frame);
   Image image_copy = image;
   EXPECT_EQ(image, image_copy);
   EXPECT_EQ(Rigid3d(), image_copy.CamFromWorld());
   image_copy.ResetPose();
-  EXPECT_TRUE(image.HasPose());
+  EXPECT_FALSE(image.HasPose());
   EXPECT_FALSE(image_copy.HasPose());
 }
 
@@ -233,20 +245,32 @@ TEST(Image, Points3D) {
 }
 
 TEST(Image, ProjectionCenter) {
+  Frame frame;
+  frame.SetFrameId(1);
+  frame.SetFrameFromWorld(Rigid3d());
   Image image;
-  image.SetCamFromWorld(Rigid3d());
+  image.SetFrameId(1);
+  image.SetFramePtr(&frame);
   EXPECT_EQ(image.ProjectionCenter(), Eigen::Vector3d::Zero());
 }
 
 TEST(Image, ViewingDirection) {
+  Frame frame;
+  frame.SetFrameId(1);
+  frame.SetFrameFromWorld(Rigid3d());
   Image image;
-  image.SetCamFromWorld(Rigid3d());
+  image.SetFrameId(1);
+  image.SetFramePtr(&frame);
   EXPECT_EQ(image.ViewingDirection(), Eigen::Vector3d(0, 0, 1));
 }
 
 TEST(Image, ProjectPoint) {
+  Frame frame;
+  frame.SetFrameId(1);
+  frame.SetFrameFromWorld(Rigid3d());
   Image image;
-  image.SetCamFromWorld(Rigid3d());
+  image.SetFrameId(1);
+  image.SetFramePtr(&frame);
   Camera camera =
       Camera::CreateFromModelId(1, CameraModelId::kSimplePinhole, 1, 1, 1);
   image.SetCameraId(camera.camera_id);

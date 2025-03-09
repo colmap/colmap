@@ -126,28 +126,60 @@ TEST(CameraRig, Check) {
 
   Camera camera1 = Camera::CreateFromModelName(0, "PINHOLE", 1, 1, 1);
   reconstruction.AddCamera(camera1);
+  Rig rig1;
+  rig1.SetRigId(0);
+  rig1.AddRefSensor(sensor_t(SensorType::CAMERA, camera1.camera_id));
+  reconstruction.AddRig(rig1);
 
   Camera camera2 = Camera::CreateFromModelName(1, "PINHOLE", 1, 1, 1);
   reconstruction.AddCamera(camera2);
+  Rig rig2;
+  rig2.SetRigId(1);
+  rig2.AddRefSensor(sensor_t(SensorType::CAMERA, camera2.camera_id));
+  reconstruction.AddRig(rig2);
+
+  Frame frame1;
+  frame1.SetFrameId(0);
+  frame1.SetRigId(rig1.RigId());
+  reconstruction.AddFrame(frame1);
 
   Image image1;
   image1.SetImageId(0);
   image1.SetCameraId(camera1.camera_id);
+  image1.SetFrameId(frame1.FrameId());
   reconstruction.AddImage(image1);
+
+  Frame frame2;
+  frame2.SetFrameId(1);
+  frame2.SetRigId(rig2.RigId());
+  reconstruction.AddFrame(frame2);
 
   Image image2;
   image2.SetImageId(1);
   image2.SetCameraId(camera2.camera_id);
+  image2.SetFrameId(frame2.FrameId());
   reconstruction.AddImage(image2);
+
+  Frame frame3;
+  frame3.SetFrameId(2);
+  frame3.SetRigId(rig1.RigId());
+  reconstruction.AddFrame(frame3);
 
   Image image3;
   image3.SetImageId(2);
   image3.SetCameraId(camera1.camera_id);
+  image3.SetFrameId(frame3.FrameId());
   reconstruction.AddImage(image3);
+
+  Frame frame4;
+  frame4.SetFrameId(3);
+  frame4.SetRigId(rig2.RigId());
+  reconstruction.AddFrame(frame4);
 
   Image image4;
   image4.SetImageId(3);
   image4.SetCameraId(camera2.camera_id);
+  image4.SetFrameId(frame4.FrameId());
   reconstruction.AddImage(image4);
 
   camera_rig.SetRefCameraId(0);
@@ -167,21 +199,41 @@ TEST(CameraRig, ComputeRigFromWorldScale) {
 
   Camera camera1 = Camera::CreateFromModelName(0, "PINHOLE", 1, 1, 1);
   reconstruction.AddCamera(camera1);
+  Rig rig1;
+  rig1.SetRigId(0);
+  rig1.AddRefSensor(sensor_t(SensorType::CAMERA, camera1.camera_id));
+  reconstruction.AddRig(rig1);
 
   Camera camera2 = Camera::CreateFromModelName(1, "PINHOLE", 1, 1, 1);
   reconstruction.AddCamera(camera2);
+  Rig rig2;
+  rig2.SetRigId(1);
+  rig2.AddRefSensor(sensor_t(SensorType::CAMERA, camera2.camera_id));
+  reconstruction.AddRig(rig2);
+
+  Frame frame1;
+  frame1.SetFrameId(0);
+  frame1.SetRigId(rig1.RigId());
+  frame1.SetFrameFromWorld(Rigid3d());
+  reconstruction.AddFrame(frame1);
 
   Image image1;
   image1.SetImageId(0);
   image1.SetCameraId(camera1.camera_id);
-  image1.SetCamFromWorld(Rigid3d());
+  image1.SetFrameId(frame1.FrameId());
   reconstruction.AddImage(image1);
+
+  Frame frame2;
+  frame2.SetFrameId(1);
+  frame2.SetRigId(rig2.RigId());
+  frame2.SetFrameFromWorld(
+      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(1, 2, 3)));
+  reconstruction.AddFrame(frame2);
 
   Image image2;
   image2.SetImageId(1);
   image2.SetCameraId(camera2.camera_id);
-  image2.SetCamFromWorld(Rigid3d());
-  image2.CamFromWorld().translation = Eigen::Vector3d(1, 2, 3);
+  image2.SetFrameId(frame2.FrameId());
   reconstruction.AddImage(image2);
 
   camera_rig.SetRefCameraId(0);
@@ -189,7 +241,8 @@ TEST(CameraRig, ComputeRigFromWorldScale) {
 
   EXPECT_EQ(camera_rig.ComputeRigFromWorldScale(reconstruction), 2.0);
 
-  reconstruction.Image(1).CamFromWorld().translation = Eigen::Vector3d(0, 0, 0);
+  reconstruction.Frame(image2.FrameId()).FrameFromWorld().translation =
+      Eigen::Vector3d(0, 0, 0);
   EXPECT_TRUE(std::isnan(camera_rig.ComputeRigFromWorldScale(reconstruction)));
 }
 
@@ -206,21 +259,41 @@ TEST(CameraRig, ComputeCamsFromRigs) {
 
   Camera camera1 = Camera::CreateFromModelName(0, "PINHOLE", 1, 1, 1);
   reconstruction.AddCamera(camera1);
+  Rig rig1;
+  rig1.SetRigId(0);
+  rig1.AddRefSensor(sensor_t(SensorType::CAMERA, camera1.camera_id));
+  reconstruction.AddRig(rig1);
 
   Camera camera2 = Camera::CreateFromModelName(1, "PINHOLE", 1, 1, 1);
   reconstruction.AddCamera(camera2);
+  Rig rig2;
+  rig2.SetRigId(1);
+  rig2.AddRefSensor(sensor_t(SensorType::CAMERA, camera2.camera_id));
+  reconstruction.AddRig(rig2);
+
+  Frame frame1;
+  frame1.SetFrameId(0);
+  frame1.SetRigId(rig1.RigId());
+  frame1.SetFrameFromWorld(Rigid3d());
+  reconstruction.AddFrame(frame1);
 
   Image image1;
   image1.SetImageId(0);
   image1.SetCameraId(camera1.camera_id);
-  image1.SetCamFromWorld(Rigid3d());
+  image1.SetFrameId(frame1.FrameId());
   reconstruction.AddImage(image1);
+
+  Frame frame2;
+  frame2.SetFrameId(1);
+  frame2.SetRigId(rig2.RigId());
+  frame2.SetFrameFromWorld(
+      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(1, 2, 3)));
+  reconstruction.AddFrame(frame2);
 
   Image image2;
   image2.SetImageId(1);
   image2.SetCameraId(camera2.camera_id);
-  image2.SetCamFromWorld(Rigid3d());
-  image2.CamFromWorld().translation = Eigen::Vector3d(1, 2, 3);
+  image2.SetFrameId(frame2.FrameId());
   reconstruction.AddImage(image2);
 
   camera_rig.SetRefCameraId(0);
@@ -236,17 +309,29 @@ TEST(CameraRig, ComputeCamsFromRigs) {
   const std::vector<image_t> image_ids2 = {2, 3};
   camera_rig.AddSnapshot(image_ids2);
 
+  Frame frame3;
+  frame3.SetFrameId(2);
+  frame3.SetRigId(rig1.RigId());
+  frame3.SetFrameFromWorld(Rigid3d());
+  reconstruction.AddFrame(frame3);
+
   Image image3;
   image3.SetImageId(2);
   image3.SetCameraId(camera1.camera_id);
-  image3.SetCamFromWorld(Rigid3d());
+  image3.SetFrameId(frame3.FrameId());
   reconstruction.AddImage(image3);
+
+  Frame frame4;
+  frame4.SetFrameId(3);
+  frame4.SetRigId(rig2.RigId());
+  frame4.SetFrameFromWorld(
+      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(2, 4, 6)));
+  reconstruction.AddFrame(frame4);
 
   Image image4;
   image4.SetImageId(3);
   image4.SetCameraId(camera2.camera_id);
-  image4.SetCamFromWorld(Rigid3d());
-  image4.CamFromWorld().translation = Eigen::Vector3d(2, 4, 6);
+  image4.SetFrameId(frame4.FrameId());
   reconstruction.AddImage(image4);
 
   camera_rig.Check(reconstruction);
@@ -261,10 +346,16 @@ TEST(CameraRig, ComputeCamsFromRigs) {
   const std::vector<image_t> image_ids3 = {4};
   camera_rig.AddSnapshot(image_ids3);
 
+  Frame frame5;
+  frame5.SetFrameId(4);
+  frame5.SetRigId(rig1.RigId());
+  frame5.SetFrameFromWorld(Rigid3d());
+  reconstruction.AddFrame(frame5);
+
   Image image5;
   image5.SetImageId(4);
   image5.SetCameraId(camera1.camera_id);
-  image5.SetCamFromWorld(Rigid3d());
+  image5.SetFrameId(frame5.FrameId());
   reconstruction.AddImage(image5);
 
   camera_rig.Check(reconstruction);
@@ -290,21 +381,41 @@ TEST(CameraRig, ComputeRigFromWorld) {
 
   Camera camera1 = Camera::CreateFromModelName(0, "PINHOLE", 1, 1, 1);
   reconstruction.AddCamera(camera1);
+  Rig rig1;
+  rig1.SetRigId(0);
+  rig1.AddRefSensor(sensor_t(SensorType::CAMERA, camera1.camera_id));
+  reconstruction.AddRig(rig1);
 
   Camera camera2 = Camera::CreateFromModelName(1, "PINHOLE", 1, 1, 1);
   reconstruction.AddCamera(camera2);
+  Rig rig2;
+  rig2.SetRigId(1);
+  rig2.AddRefSensor(sensor_t(SensorType::CAMERA, camera2.camera_id));
+  reconstruction.AddRig(rig2);
+
+  Frame frame1;
+  frame1.SetFrameId(0);
+  frame1.SetRigId(rig1.RigId());
+  frame1.SetFrameFromWorld(Rigid3d());
+  reconstruction.AddFrame(frame1);
 
   Image image1;
   image1.SetImageId(0);
   image1.SetCameraId(camera1.camera_id);
-  image1.SetCamFromWorld(Rigid3d());
+  image1.SetFrameId(frame1.FrameId());
   reconstruction.AddImage(image1);
+
+  Frame frame2;
+  frame2.SetFrameId(1);
+  frame2.SetRigId(rig2.RigId());
+  frame2.SetFrameFromWorld(
+      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(3, 3, 3)));
+  reconstruction.AddFrame(frame2);
 
   Image image2;
   image2.SetImageId(1);
   image2.SetCameraId(camera2.camera_id);
-  image2.SetCamFromWorld(Rigid3d());
-  image2.CamFromWorld().translation = Eigen::Vector3d(3, 3, 3);
+  image2.SetFrameId(frame2.FrameId());
   reconstruction.AddImage(image2);
 
   camera_rig.SetRefCameraId(0);

@@ -29,6 +29,8 @@
 
 #pragma once
 
+#include <functional>
+
 #ifdef _MSC_VER
 #if _MSC_VER >= 1600
 #include <cstdint>
@@ -55,6 +57,7 @@ typedef unsigned __int64 uint64_t;
 #define NON_MOVABLE(class_name) class_name(class_name&&) = delete;
 
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/enum_utils.h"
 
 #include <Eigen/Core>
 
@@ -77,38 +80,99 @@ namespace colmap {
 // Index types, determines the maximum number of objects.
 ////////////////////////////////////////////////////////////////////////////////
 
+// Unique identifier for rigs.
+typedef uint32_t rig_t;
+constexpr rig_t kInvalidRigId = std::numeric_limits<rig_t>::max();
+
 // Unique identifier for cameras.
 typedef uint32_t camera_t;
+constexpr camera_t kInvalidCameraId = std::numeric_limits<camera_t>::max();
 
 // Unique identifier for images.
 typedef uint32_t image_t;
+constexpr image_t kInvalidImageId = std::numeric_limits<image_t>::max();
 
 // Unique identifier for frames.
 typedef uint32_t frame_t;
-
-// Unique identifier for rigs.
-typedef uint32_t rig_t;
+constexpr frame_t kInvalidFrameId = std::numeric_limits<frame_t>::max();
 
 // Each image pair gets a unique ID, see `Database::ImagePairToPairId`.
 typedef uint64_t image_pair_t;
+constexpr image_pair_t kInvalidImagePairId =
+    std::numeric_limits<image_pair_t>::max();
 
 // Index per image, i.e. determines maximum number of 2D points per image.
 typedef uint32_t point2D_t;
+constexpr point2D_t kInvalidPoint2DIdx = std::numeric_limits<point2D_t>::max();
 
 // Unique identifier per added 3D point. Since we add many 3D points,
 // delete them, and possibly re-add them again, the maximum number of allowed
 // unique indices should be large.
 typedef uint64_t point3D_t;
+constexpr point3D_t kInvalidPoint3DId = std::numeric_limits<point3D_t>::max();
 
-// Values for invalid identifiers or indices.
-const camera_t kInvalidCameraId = std::numeric_limits<camera_t>::max();
-const image_t kInvalidImageId = std::numeric_limits<image_t>::max();
-const frame_t kInvalidFrameId = std::numeric_limits<frame_t>::max();
-const frame_t kInvalidRigId = std::numeric_limits<rig_t>::max();
-const image_pair_t kInvalidImagePairId =
-    std::numeric_limits<image_pair_t>::max();
-const point2D_t kInvalidPoint2DIdx = std::numeric_limits<point2D_t>::max();
-const point3D_t kInvalidPoint3DId = std::numeric_limits<point3D_t>::max();
+// Sensor type.
+#ifdef __CUDACC__
+enum class SensorType {
+  INVALID = -1,
+  CAMERA = 0,
+  IMU = 1,
+};
+#else
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(SensorType, -1, INVALID, CAMERA, IMU);
+#endif
+
+struct sensor_t {
+  // Type of the sensor (INVALID / CAMERA / IMU)
+  SensorType type;
+  // Unique identifier of the sensor.
+  // This can be camera_t / imu_t (not supported yet)
+  uint32_t id;
+
+  constexpr sensor_t()
+      : type(SensorType::INVALID), id(std::numeric_limits<uint32_t>::max()) {}
+  constexpr sensor_t(const SensorType& type, uint32_t id)
+      : type(type), id(id) {}
+
+  inline bool operator<(const sensor_t& other) const {
+    return std::tie(type, id) < std::tie(other.type, other.id);
+  }
+  inline bool operator==(const sensor_t& other) const {
+    return type == other.type && id == other.id;
+  }
+  inline bool operator!=(const sensor_t& other) const {
+    return !(*this == other);
+  }
+};
+
+constexpr sensor_t kInvalidSensorId =
+    sensor_t(SensorType::INVALID, std::numeric_limits<uint32_t>::max());
+
+struct data_t {
+  // Unique identifer of the sensor
+  sensor_t sensor_id;
+  // Unique identifier of the data (measurement)
+  // This can be image_t / imu_sample_t (not supported yet)
+  uint64_t id;
+
+  constexpr data_t()
+      : sensor_id(kInvalidSensorId), id(std::numeric_limits<uint32_t>::max()) {}
+  constexpr data_t(const sensor_t& sensor_id, uint32_t id)
+      : sensor_id(sensor_id), id(id) {}
+
+  inline bool operator<(const data_t& other) const {
+    return std::tie(sensor_id, id) < std::tie(other.sensor_id, other.id);
+  }
+  inline bool operator==(const data_t& other) const {
+    return sensor_id == other.sensor_id && id == other.id;
+  }
+  inline bool operator!=(const data_t& other) const {
+    return !(*this == other);
+  }
+};
+
+constexpr data_t kInvalidDataId =
+    data_t(kInvalidSensorId, std::numeric_limits<uint32_t>::max());
 
 // Simple implementation of C++20's std::span, as Ubuntu 20.04's default GCC
 // version does not come with full C++20 and we still want to support it.
@@ -144,6 +208,24 @@ struct hash<std::pair<uint32_t, uint32_t>> {
     const uint64_t s = (static_cast<uint64_t>(p.first) << 32) +
                        static_cast<uint64_t>(p.second);
     return std::hash<uint64_t>()(s);
+  }
+};
+
+template <>
+struct hash<colmap::sensor_t> {
+  std::size_t operator()(const colmap::sensor_t& s) const noexcept {
+    return std::hash<std::pair<uint32_t, uint32_t>>{}(
+        std::make_pair(static_cast<uint32_t>(s.type), s.id));
+  }
+};
+
+template <>
+struct hash<colmap::data_t> {
+  std::size_t operator()(const colmap::data_t& d) const noexcept {
+    const size_t h1 =
+        std::hash<uint64_t>{}(std::hash<colmap::sensor_t>{}(d.sensor_id));
+    const size_t h2 = std::hash<uint64_t>{}(d.id);
+    return h1 ^ (h2 + 0x9e3779b9 + (h1 << 6) + (h1 >> 2));
   }
 };
 
