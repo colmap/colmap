@@ -245,8 +245,9 @@ void Image::ResetFramePtr() { frame_ptr_ = nullptr; }
 bool Image::HasFramePtr() const { return frame_ptr_ != nullptr; }
 
 bool Image::HasTrivialFrame() const {
-  return THROW_CHECK_NOTNULL(frame_ptr_)->RigPtr()->IsRefSensor(
-      sensor_t(SensorType::CAMERA, CameraId()));
+  return THROW_CHECK_NOTNULL(frame_ptr_)
+      ->RigPtr()
+      ->IsRefSensor(sensor_t(SensorType::CAMERA, CameraId()));
 }
 
 point2D_t Image::NumPoints2D() const {
