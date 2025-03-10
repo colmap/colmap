@@ -44,16 +44,15 @@ void BindSceneImage(py::module& m) {
       .def(py::init(&MakeImage<Point2D>),
            "name"_a = "",
            py::arg_v("points2D", Point2DVector(), "Point2DList()"),
-           "cam_from_world"_a = py::none(),
            py::arg_v(
                "camera_id", kInvalidCameraId, "pycolmap.INVALID_CAMERA_ID"),
-           py::arg_v("id", kInvalidImageId, "pycolmap.INVALID_IMAGE_ID"))
+           py::arg_v("image_id", kInvalidImageId, "pycolmap.INVALID_IMAGE_ID"))
       .def(py::init(&MakeImage<Eigen::Vector2d>),
            "name"_a = "",
            "keypoints"_a = std::vector<Eigen::Vector2d>(),
            py::arg_v(
                "camera_id", kInvalidCameraId, "pycolmap.INVALID_CAMERA_ID"),
-           py::arg_v("id", kInvalidImageId, "pycolmap.INVALID_IMAGE_ID"))
+           py::arg_v("image_id", kInvalidImageId, "pycolmap.INVALID_IMAGE_ID"))
       .def_property("image_id",
                     &Image::ImageId,
                     &Image::SetImageId,
