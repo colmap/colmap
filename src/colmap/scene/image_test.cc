@@ -111,9 +111,14 @@ TEST(Image, CameraPtr) {
 }
 
 TEST(Image, SetResetPose) {
+  Rig rig;
+  rig.SetRigId(1);
+  rig.AddRefSensor(sensor_t(SensorType::CAMERA, 1));
   Frame frame;
   frame.SetFrameId(1);
+  frame.SetRigPtr(&rig);
   Image image;
+  image.SetCameraId(1);
   image.SetFrameId(1);
   image.SetFramePtr(&frame);
   EXPECT_FALSE(image.HasPose());
@@ -129,10 +134,15 @@ TEST(Image, SetResetPose) {
 }
 
 TEST(Image, ConstructCopy) {
+  Rig rig;
+  rig.SetRigId(1);
+  rig.AddRefSensor(sensor_t(SensorType::CAMERA, 1));
   Frame frame;
   frame.SetFrameId(1);
   frame.SetFrameFromWorld(Rigid3d());
+  frame.SetRigPtr(&rig);
   Image image;
+  image.SetCameraId(1);
   image.SetFrameId(1);
   image.SetFramePtr(&frame);
   Image image_copy = Image(image);
@@ -144,15 +154,20 @@ TEST(Image, ConstructCopy) {
 }
 
 TEST(Image, AssignCopy) {
+  Rig rig;
+  rig.SetRigId(1);
+  rig.AddRefSensor(sensor_t(SensorType::CAMERA, 1));
   Frame frame;
   frame.SetFrameId(1);
   frame.SetFrameFromWorld(Rigid3d());
+  frame.SetRigPtr(&rig);
   Image image;
+  image.SetCameraId(1);
   image.SetFrameId(1);
   image.SetFramePtr(&frame);
   Image image_copy = image;
   EXPECT_EQ(image, image_copy);
-  EXPECT_EQ(Rigid3d(), image_copy.CamFromWorld());
+  EXPECT_EQ(image_copy.CamFromWorld(), Rigid3d());
   image_copy.ResetPose();
   EXPECT_FALSE(image.HasPose());
   EXPECT_FALSE(image_copy.HasPose());
@@ -245,30 +260,45 @@ TEST(Image, Points3D) {
 }
 
 TEST(Image, ProjectionCenter) {
+  Rig rig;
+  rig.SetRigId(1);
+  rig.AddRefSensor(sensor_t(SensorType::CAMERA, 1));
   Frame frame;
   frame.SetFrameId(1);
   frame.SetFrameFromWorld(Rigid3d());
+  frame.SetRigPtr(&rig);
   Image image;
+  image.SetCameraId(1);
   image.SetFrameId(1);
   image.SetFramePtr(&frame);
   EXPECT_EQ(image.ProjectionCenter(), Eigen::Vector3d::Zero());
 }
 
 TEST(Image, ViewingDirection) {
+  Rig rig;
+  rig.SetRigId(1);
+  rig.AddRefSensor(sensor_t(SensorType::CAMERA, 1));
   Frame frame;
   frame.SetFrameId(1);
   frame.SetFrameFromWorld(Rigid3d());
+  frame.SetRigPtr(&rig);
   Image image;
+  image.SetCameraId(1);
   image.SetFrameId(1);
   image.SetFramePtr(&frame);
   EXPECT_EQ(image.ViewingDirection(), Eigen::Vector3d(0, 0, 1));
 }
 
 TEST(Image, ProjectPoint) {
+  Rig rig;
+  rig.SetRigId(1);
+  rig.AddRefSensor(sensor_t(SensorType::CAMERA, 1));
   Frame frame;
   frame.SetFrameId(1);
   frame.SetFrameFromWorld(Rigid3d());
+  frame.SetRigPtr(&rig);
   Image image;
+  image.SetCameraId(1);
   image.SetFrameId(1);
   image.SetFramePtr(&frame);
   Camera camera =

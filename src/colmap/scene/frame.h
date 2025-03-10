@@ -166,11 +166,12 @@ bool Frame::HasPose() const { return frame_from_world_.has_value(); }
 void Frame::ResetPose() { frame_from_world_.reset(); }
 
 Rigid3d Frame::SensorFromWorld(sensor_t sensor_id) const {
-  if (!HasRigPtr() || rig_ptr_->IsRefSensor(sensor_id)) {
+  THROW_CHECK_NOTNULL(rig_ptr_);
+  if (rig_ptr_->IsRefSensor(sensor_id)) {
     return FrameFromWorld();
+  } else {
+    return rig_ptr_->SensorFromRig(sensor_id) * FrameFromWorld();
   }
-  THROW_CHECK(rig_ptr_->HasSensor(sensor_id));
-  return rig_ptr_->SensorFromRig(sensor_id) * FrameFromWorld();
 }
 
 bool Frame::operator==(const Frame& other) const {
