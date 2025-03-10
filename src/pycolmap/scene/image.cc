@@ -72,6 +72,17 @@ void BindSceneImage(py::module& m) {
           },
           &Image::SetCameraPtr,
           "The associated camera object.")
+      .def_property(
+          "frame",
+          [](Image& self) -> py::typing::Optional<Frame> {
+            if (self.HasFramePtr()) {
+              return py::cast(*self.FramePtr());
+            } else {
+              return py::none();
+            }
+          },
+          &Image::SetFramePtr,
+          "The associated frame object.")
       .def_property("name",
                     py::overload_cast<>(&Image::Name),
                     &Image::SetName,

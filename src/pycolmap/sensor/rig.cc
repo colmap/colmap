@@ -29,11 +29,10 @@ void BindRig(py::module& m) {
            &Rig::AddSensor,
            "sensor_id"
            "Add non-reference sensor.")
-      .def_property_readonly("has_sensor",
-                             &Rig::HasSensor,
-                             "Whether the rig has a specific sensor.")
-      .def_property_readonly(
-          "num_sensors", &Rig::NumSensors, "The number of sensors in the rig.")
+      .def("has_sensor",
+           &Rig::HasSensor,
+           "Whether the rig has a specific sensor.")
+      .def("num_sensors", &Rig::NumSensors, "The number of sensors in the rig.")
       .def_property_readonly("ref_sensor_id",
                              &Rig::RefSensorId,
                              "The reference sensor's identifier.")
@@ -41,9 +40,9 @@ void BindRig(py::module& m) {
           "is_ref_sensor",
           &Rig::IsRefSensor,
           "Check whether the given sensor is the reference sensor.")
-      .def_property_readonly("has_sensor",
-                             &Rig::HasSensor,
-                             "Check whether rig has the given sensor.")
+      .def("has_sensor",
+           &Rig::HasSensor,
+           "Check whether rig has the given sensor.")
       .def_property(
           "sensor_from_rig",
           [](Rig& self, sensor_t sensor_id) -> py::typing::Optional<Rigid3d> {

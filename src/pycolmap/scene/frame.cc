@@ -29,9 +29,9 @@ void BindFrame(py::module& m) {
                     &Frame::SetRigId,
                     "Unique identifier of the rig.")
       .def("add_data_id", &Frame::AddDataId, "Associate data with frame.")
-      .def_property_readonly("has_data",
-                             &Frame::HasDataId,
-                             "Check whether frame has associated data.")
+      .def("has_data",
+           &Frame::HasDataId,
+           "Check whether frame has associated data.")
       .def_property_readonly(
           "data_ids",
           [](const Frame& self) { return self.DataIds(); },
@@ -61,8 +61,7 @@ void BindFrame(py::module& m) {
           },
           "The pose of the frame, defined as the transformation from world to "
           "rig space.")
-      .def_property_readonly(
-          "has_pose", &Frame::HasPose, "Whether the frame has a valid pose.")
+      .def("has_pose", &Frame::HasPose, "Whether the frame has a valid pose.")
       .def("reset_pose", &Frame::ResetPose, "Invalidate the pose of the frame.")
       .def("sensor_from_world",
            &Frame::SensorFromWorld,
