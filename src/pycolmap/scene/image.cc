@@ -71,7 +71,7 @@ void BindSceneImage(py::module& m) {
             }
           },
           &Image::SetCameraPtr,
-          "The address of the camera")
+          "The associated camera object.")
       .def_property("name",
                     py::overload_cast<>(&Image::Name),
                     &Image::SetName,

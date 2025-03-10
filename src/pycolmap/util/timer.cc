@@ -1,5 +1,3 @@
-#pragma once
-
 #include "colmap/util/timer.h"
 
 #include <pybind11/pybind11.h>

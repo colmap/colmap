@@ -68,6 +68,7 @@ class Rig {
 
   // Check if the sensor is the reference sensor of the rig.
   inline bool IsRefSensor(sensor_t sensor_id) const;
+  inline bool HasSensorFromRig(sensor_t sensor_id) const;
 
   // Access all sensors in the rig except for the reference sensor.
   inline const std::map<sensor_t, std::optional<Rigid3d>>& Sensors() const;

@@ -54,7 +54,7 @@ std::ostream& operator<<(std::ostream& stream, const Frame& frame) {
   return stream;
 }
 
-void Frame::SetFrameFromWorld(camera_t camera_id,
+void Frame::ApplyCamFromWorld(camera_t camera_id,
                               const Rigid3d& cam_from_world) {
   THROW_CHECK_NOTNULL(rig_ptr_);
   const sensor_t sensor_id(SensorType::CAMERA, camera_id);

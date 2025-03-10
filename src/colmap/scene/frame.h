@@ -46,22 +46,26 @@ class Frame {
   inline frame_t FrameId() const;
   inline void SetFrameId(frame_t frame_id);
 
-  // Access data ids
+  // Access the frame's associated data.
   inline std::set<data_t>& DataIds();
   inline const std::set<data_t>& DataIds() const;
   inline void AddDataId(data_t data_id);
 
-  // Check whether the data id is existent in the frame.
+  // Check whether the data is associated with the frame.
   inline bool HasDataId(data_t data_id) const;
 
-  // Access the rig calibration.
+  // Access the unique identifier of the rig. Note that multiple frames
+  // might share the same rig.
   inline rig_t RigId() const;
   inline void SetRigId(rig_t rig_id);
   inline bool HasRigId() const;
+
+  // Access to the underlying, shared rig object.
+  // This is typically only set when the frame was added to a reconstruction.
   inline const class Rig* RigPtr() const;
   inline void SetRigPtr(const class Rig* rig);
   inline void ResetRigPtr();
-  // Check if the frame has a non-trivial rig calibration.
+  // Check if the frame has a non-trivial rig.
   inline bool HasRigPtr() const;
 
   // Access the frame from world transformation.
@@ -71,12 +75,14 @@ class Frame {
   inline std::optional<Rigid3d>& MaybeFrameFromWorld();
   inline void SetFrameFromWorld(const Rigid3d& frame_from_world);
   inline void SetFrameFromWorld(const std::optional<Rigid3d>& frame_from_world);
-  void SetFrameFromWorld(camera_t camera_id, const Rigid3d& cam_from_world);
   inline bool HasPose() const;
   inline void ResetPose();
 
   // Get the sensor from world transformation.
   inline Rigid3d SensorFromWorld(sensor_t sensor_id) const;
+
+  // Set the world to frame from the given camera to world transformation.
+  void ApplyCamFromWorld(camera_t camera_id, const Rigid3d& cam_from_world);
 
   inline bool operator==(const Frame& other) const;
   inline bool operator!=(const Frame& other) const;

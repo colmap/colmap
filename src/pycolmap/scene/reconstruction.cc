@@ -48,17 +48,19 @@ void BindReconstruction(py::module& m) {
       .def("read_binary", &Reconstruction::ReadBinary, "path"_a)
       .def("write_text", &Reconstruction::WriteText, "path"_a)
       .def("write_binary", &Reconstruction::WriteBinary, "path"_a)
+      .def("num_rigs", &Reconstruction::NumRigs)
       .def("num_cameras", &Reconstruction::NumCameras)
+      .def("num_frames", &Reconstruction::NumFrames)
       .def("num_images", &Reconstruction::NumImages)
       .def("num_reg_images", &Reconstruction::NumRegImages)
       .def("num_points3D", &Reconstruction::NumPoints3D)
-      .def_property_readonly("images",
-                             &Reconstruction::Images,
+      .def_property_readonly("rigs",
+                             &Reconstruction::Rigs,
                              py::return_value_policy::reference_internal)
-      .def("image",
-           py::overload_cast<image_t>(&Reconstruction::Image),
-           "image_id"_a,
-           "Direct accessor for an image.",
+      .def("rig",
+           py::overload_cast<rig_t>(&Reconstruction::Rig),
+           "rig_id"_a,
+           "Direct accessor for a rig.",
            py::return_value_policy::reference_internal)
       .def_property_readonly("cameras",
                              &Reconstruction::Cameras,
@@ -67,6 +69,22 @@ void BindReconstruction(py::module& m) {
            py::overload_cast<camera_t>(&Reconstruction::Camera),
            "camera_id"_a,
            "Direct accessor for a camera.",
+           py::return_value_policy::reference_internal)
+      .def_property_readonly("frames",
+                             &Reconstruction::Frames,
+                             py::return_value_policy::reference_internal)
+      .def("frame",
+           py::overload_cast<frame_t>(&Reconstruction::Frame),
+           "frame_id"_a,
+           "Direct accessor for a frame.",
+           py::return_value_policy::reference_internal)
+      .def_property_readonly("images",
+                             &Reconstruction::Images,
+                             py::return_value_policy::reference_internal)
+      .def("image",
+           py::overload_cast<image_t>(&Reconstruction::Image),
+           "image_id"_a,
+           "Direct accessor for an image.",
            py::return_value_policy::reference_internal)
       .def_property_readonly("points3D",
                              &Reconstruction::Points3D,
@@ -78,15 +96,19 @@ void BindReconstruction(py::module& m) {
            py::return_value_policy::reference_internal)
       .def("point3D_ids", &Reconstruction::Point3DIds)
       .def("reg_image_ids", &Reconstruction::RegImageIds)
+      .def("exists_rig", &Reconstruction::ExistsRig, "rig_id"_a)
       .def("exists_camera", &Reconstruction::ExistsCamera, "camera_id"_a)
+      .def("exists_frame", &Reconstruction::ExistsFrame, "frame_id"_a)
       .def("exists_image", &Reconstruction::ExistsImage, "image_id"_a)
       .def("exists_point3D", &Reconstruction::ExistsPoint3D, "point3D_id"_a)
       .def("tear_down", &Reconstruction::TearDown)
+      .def("add_rig", &Reconstruction::AddRig, "rig"_a, "Add new rig.")
       .def("add_camera",
            &Reconstruction::AddCamera,
            "camera"_a,
            "Add new camera. There is only one camera per image, while multiple "
            "images might be taken by the same camera.")
+      .def("add_frame", &Reconstruction::AddFrame, "frame"_a, "Add new frame.")
       .def(
           "add_image",
           &Reconstruction::AddImage,
@@ -246,7 +268,9 @@ void BindReconstruction(py::module& m) {
       .def("summary", [](const Reconstruction& self) {
         std::ostringstream ss;
         ss << "Reconstruction:"
+           << "\n\tnum_rigs = " << self.NumRigs()
            << "\n\tnum_cameras = " << self.NumCameras()
+           << "\n\tnum_frames = " << self.NumFrames()
            << "\n\tnum_images = " << self.NumImages()
            << "\n\tnum_reg_images = " << self.NumRegImages()
            << "\n\tnum_points3D = " << self.NumPoints3D()

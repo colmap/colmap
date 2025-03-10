@@ -76,7 +76,9 @@ class DatabaseCache {
   inline size_t NumPosePriors() const;
 
   // Add objects.
+  void AddRig(class Rig rig);
   void AddCamera(struct Camera camera);
+  void AddFrame(class Frame frame);
   void AddImage(class Image image);
   void AddPosePrior(image_t image_id, struct PosePrior pose_prior);
 

@@ -428,7 +428,7 @@ void Reconstruction::Transform(const Sim3d& new_from_old_world) {
     if (image.HasPose()) {
       const Rigid3d cam_from_new_world =
           TransformCameraWorld(new_from_old_world, image.CamFromWorld());
-      image.FramePtr()->SetFrameFromWorld(image.CameraId(), cam_from_new_world);
+      image.FramePtr()->ApplyCamFromWorld(image.CameraId(), cam_from_new_world);
     }
   }
   for (auto& point3D : points3D_) {

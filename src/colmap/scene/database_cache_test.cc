@@ -226,14 +226,27 @@ TEST(DatabaseCache, ConstructFromLegacyDatabaseWithoutRigsAndFrames) {
 
 TEST(DatabaseCache, ConstructFromCustom) {
   DatabaseCache cache;
+  EXPECT_EQ(cache.NumRigs(), 0);
   EXPECT_EQ(cache.NumCameras(), 0);
+  EXPECT_EQ(cache.NumFrames(), 0);
   EXPECT_EQ(cache.NumImages(), 0);
+  EXPECT_EQ(cache.NumPosePriors(), 0);
+
+  constexpr rig_t kRigId = 41;
+  Rig rig;
+  rig.SetRigId(kRigId);
+  cache.AddRig(rig);
 
   constexpr camera_t kCameraId = 42;
   cache.AddCamera(Camera::CreateFromModelId(
       /*camera_id*/ kCameraId, SimplePinholeCameraModel::model_id, 1, 1, 1));
 
-  constexpr image_t kImageId = 43;
+  constexpr frame_t kFrameId = 43;
+  Frame frame;
+  frame.SetFrameId(kFrameId);
+  cache.AddFrame(frame);
+
+  constexpr image_t kImageId = 44;
   Image image;
   image.SetImageId(kImageId);
   image.SetName("image");
@@ -244,7 +257,9 @@ TEST(DatabaseCache, ConstructFromCustom) {
   EXPECT_EQ(cache.NumCameras(), 1);
   EXPECT_EQ(cache.NumImages(), 1);
   EXPECT_EQ(cache.NumPosePriors(), 1);
+  EXPECT_TRUE(cache.ExistsRig(kRigId));
   EXPECT_TRUE(cache.ExistsCamera(kCameraId));
+  EXPECT_TRUE(cache.ExistsFrame(kFrameId));
   EXPECT_TRUE(cache.ExistsImage(kImageId));
   EXPECT_TRUE(cache.ExistsPosePrior(kImageId));
 }
