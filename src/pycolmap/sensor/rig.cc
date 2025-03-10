@@ -36,14 +36,13 @@ void BindRig(py::module& m) {
       .def_property_readonly("ref_sensor_id",
                              &Rig::RefSensorId,
                              "The reference sensor's identifier.")
-      .def_property_readonly(
-          "is_ref_sensor",
-          &Rig::IsRefSensor,
-          "Check whether the given sensor is the reference sensor.")
+      .def("is_ref_sensor",
+           &Rig::IsRefSensor,
+           "Check whether the given sensor is the reference sensor.")
       .def("has_sensor",
            &Rig::HasSensor,
            "Check whether rig has the given sensor.")
-      .def_property(
+      .def(
           "sensor_from_rig",
           [](Rig& self, sensor_t sensor_id) -> py::typing::Optional<Rigid3d> {
             if (const std::optional<Rigid3d> sensor_from_rig =
@@ -53,9 +52,6 @@ void BindRig(py::module& m) {
             } else {
               return py::none();
             }
-          },
-          [](Rig& self, sensor_t sensor_id, const Rigid3d& sensor_from_rig) {
-            self.SetSensorFromRig(sensor_id, sensor_from_rig);
           },
           "The pose of the frame, defined as the transformation from world to "
           "rig space.");
