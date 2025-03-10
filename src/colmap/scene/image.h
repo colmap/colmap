@@ -157,8 +157,8 @@ class Image {
   camera_t camera_id_;
   struct Camera* camera_ptr_;
 
-  // The corresponding frame (rig) of the image. By default a trivial frame will
-  // be initialized for each image with frame_id_ = kInvalidFrameId.
+  // The corresponding frame of the image. Note that multiple images might
+  // share the same frame. If not specified `kInvalidFrameId`.
   frame_t frame_id_;
   class Frame* frame_ptr_;
 
@@ -220,7 +220,7 @@ frame_t Image::FrameId() const { return frame_id_; }
 
 void Image::SetFrameId(const frame_t frame_id) {
   THROW_CHECK_NE(frame_id, kInvalidFrameId);
-  THROW_CHECK(!HasCameraPtr());
+  THROW_CHECK(!HasFramePtr());
   frame_id_ = frame_id;
 }
 
@@ -245,9 +245,8 @@ void Image::ResetFramePtr() { frame_ptr_ = nullptr; }
 bool Image::HasFramePtr() const { return frame_ptr_ != nullptr; }
 
 bool Image::HasTrivialFrame() const {
-  THROW_CHECK_NOTNULL(frame_ptr_);
-  return !frame_ptr_->HasRigPtr() || frame_ptr_->RigPtr()->IsRefSensor(sensor_t(
-                                         SensorType::CAMERA, CameraId()));
+  return THROW_CHECK_NOTNULL(frame_ptr_)->RigPtr()->IsRefSensor(
+      sensor_t(SensorType::CAMERA, CameraId()));
 }
 
 point2D_t Image::NumPoints2D() const {

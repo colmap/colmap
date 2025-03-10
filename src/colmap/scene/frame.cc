@@ -31,6 +31,18 @@
 
 namespace colmap {
 
+void Frame::ApplyCamFromWorld(camera_t camera_id,
+                              const Rigid3d& cam_from_world) {
+  THROW_CHECK_NOTNULL(rig_ptr_);
+  const sensor_t sensor_id(SensorType::CAMERA, camera_id);
+  if (rig_ptr_->IsRefSensor(sensor_id)) {
+    SetFrameFromWorld(cam_from_world);
+  } else {
+    const Rigid3d& cam_from_rig = rig_ptr_->SensorFromRig(sensor_id);
+    SetFrameFromWorld(Inverse(cam_from_rig) * cam_from_world);
+  }
+}
+
 std::ostream& operator<<(std::ostream& stream, const Frame& frame) {
   stream << "Frame(frame_id=" << frame.FrameId() << ", rig_id=";
   if (frame.HasRigId()) {
@@ -52,18 +64,6 @@ std::ostream& operator<<(std::ostream& stream, const Frame& frame) {
   }
   stream << "])";
   return stream;
-}
-
-void Frame::ApplyCamFromWorld(camera_t camera_id,
-                              const Rigid3d& cam_from_world) {
-  THROW_CHECK_NOTNULL(rig_ptr_);
-  const sensor_t sensor_id(SensorType::CAMERA, camera_id);
-  if (rig_ptr_->IsRefSensor(sensor_id)) {
-    SetFrameFromWorld(cam_from_world);
-  } else {
-    const Rigid3d& cam_from_rig = rig_ptr_->SensorFromRig(sensor_id);
-    SetFrameFromWorld(Inverse(cam_from_rig) * cam_from_world);
-  }
 }
 
 }  // namespace colmap
