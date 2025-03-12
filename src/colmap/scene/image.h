@@ -108,6 +108,7 @@ class Image {
   inline bool HasTrivialFrame() const;
 
   // Composition of sensor_from_rig and frame_from_world transformations.
+  // If the corresponding frame is trivial, this is equal to frame_from_world.
   inline Rigid3d CamFromWorld() const;
   inline bool HasPose() const;
   inline void ResetPose();
