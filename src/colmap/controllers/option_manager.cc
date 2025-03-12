@@ -470,8 +470,10 @@ void OptionManager::AddBundleAdjustmentOptions() {
                               &bundle_adjustment->refine_principal_point);
   AddAndRegisterDefaultOption("BundleAdjustment.refine_extra_params",
                               &bundle_adjustment->refine_extra_params);
-  AddAndRegisterDefaultOption("BundleAdjustment.refine_extrinsics",
-                              &bundle_adjustment->refine_extrinsics);
+  AddAndRegisterDefaultOption("BundleAdjustment.refine_cam_extrinsics",
+                              &bundle_adjustment->refine_cam_extrinsics);
+  AddAndRegisterDefaultOption("BundleAdjustment.refine_rig_extrinsics",
+                              &bundle_adjustment->refine_rig_extrinsics);
   AddAndRegisterDefaultOption("BundleAdjustment.use_gpu",
                               &bundle_adjustment->use_gpu);
   AddAndRegisterDefaultOption("BundleAdjustment.gpu_index",

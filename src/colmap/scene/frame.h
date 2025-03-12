@@ -62,8 +62,8 @@ class Frame {
 
   // Access to the underlying, shared rig object.
   // This is typically only set when the frame was added to a reconstruction.
-  inline const class Rig* RigPtr() const;
-  inline void SetRigPtr(const class Rig* rig);
+  inline class Rig* RigPtr() const;
+  inline void SetRigPtr(class Rig* rig);
   inline void ResetRigPtr();
   // Check if the frame has a non-trivial rig.
   inline bool HasRigPtr() const;
@@ -98,7 +98,7 @@ class Frame {
 
   // Rig calibration.
   rig_t rig_id_ = kInvalidRigId;
-  const class Rig* rig_ptr_ = nullptr;
+  class Rig* rig_ptr_ = nullptr;
 };
 
 std::ostream& operator<<(std::ostream& stream, const Frame& frame);
@@ -127,9 +127,9 @@ void Frame::SetRigId(rig_t rig_id) { rig_id_ = rig_id; }
 
 bool Frame::HasRigId() const { return rig_id_ != kInvalidRigId; }
 
-const Rig* Frame::RigPtr() const { return THROW_CHECK_NOTNULL(rig_ptr_); }
+Rig* Frame::RigPtr() const { return THROW_CHECK_NOTNULL(rig_ptr_); }
 
-void Frame::SetRigPtr(const class Rig* rig) { rig_ptr_ = rig; }
+void Frame::SetRigPtr(Rig* rig) { rig_ptr_ = rig; }
 
 void Frame::ResetRigPtr() { rig_ptr_ = nullptr; }
 

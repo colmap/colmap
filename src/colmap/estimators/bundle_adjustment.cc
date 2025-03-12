@@ -491,9 +491,18 @@ class DefaultBundleAdjuster : public BundleAdjuster {
   void AddImageToProblem(const image_t image_id,
                          Reconstruction& reconstruction) {
     Image& image = reconstruction.Image(image_id);
+
+    if (image.HasTrivialFrame()) {
+      AddImageWithTrivialFrameToProblem(image, reconstruction);
+    } else {
+      AddImageWithNonTrivialFrameToProblem(image, reconstruction);
+    }
+  }
+
+  void AddImageWithTrivialFrameToProblem(Image& image,
+                                         Reconstruction& reconstruction) {
     Camera& camera = *image.CameraPtr();
 
-    // TODO(jsch): Add support for non-trivial frames.
     THROW_CHECK(image.HasTrivialFrame());
     Rigid3d& cam_from_world = image.FramePtr()->FrameFromWorld();
 
@@ -504,8 +513,8 @@ class DefaultBundleAdjuster : public BundleAdjuster {
     double* cam_from_world_translation = cam_from_world.translation.data();
     double* camera_params = camera.params.data();
 
-    const bool constant_cam_pose =
-        !options_.refine_extrinsics || config_.HasConstantCamPose(image_id);
+    const bool constant_cam_pose = !options_.refine_cam_extrinsics ||
+                                   config_.HasConstantCamPose(image.ImageId());
 
     // Add residuals to bundle adjustment problem.
     size_t num_observations = 0;
@@ -545,15 +554,105 @@ class DefaultBundleAdjuster : public BundleAdjuster {
       // Set pose parameterization.
       if (!constant_cam_pose) {
         SetQuaternionManifold(problem_.get(), cam_from_world_rotation);
-        if (config_.HasConstantCamPositions(image_id)) {
+        if (config_.HasConstantCamPositions(image.ImageId())) {
           const std::vector<int>& constant_position_idxs =
-              config_.ConstantCamPositions(image_id);
+              config_.ConstantCamPositions(image.ImageId());
           SetSubsetManifold(3,
                             constant_position_idxs,
                             problem_.get(),
                             cam_from_world_translation);
         }
       }
+    }
+  }
+
+  void AddImageWithNonTrivialFrameToProblem(Image& image,
+                                            Reconstruction& reconstruction) {
+    Camera& camera = *image.CameraPtr();
+
+    THROW_CHECK(!image.HasTrivialFrame());
+    Rigid3d& cam_from_rig = image.FramePtr()->RigPtr()->SensorFromRig(
+        sensor_t(SensorType::CAMERA, image.CameraId()));
+    Rigid3d& rig_from_world = image.FramePtr()->FrameFromWorld();
+
+    // CostFunction assumes unit quaternions.
+    cam_from_rig.rotation.normalize();
+    rig_from_world.rotation.normalize();
+
+    double* cam_from_rig_rotation = cam_from_rig.rotation.coeffs().data();
+    double* cam_from_rig_translation = cam_from_rig.translation.data();
+    double* rig_from_world_rotation = rig_from_world.rotation.coeffs().data();
+    double* rig_from_world_translation = rig_from_world.translation.data();
+    double* camera_params = camera.params.data();
+
+    const bool constant_cam_pose = !options_.refine_cam_extrinsics ||
+                                   config_.HasConstantCamPose(image.ImageId());
+    const bool constant_rig_pose = !options_.refine_rig_extrinsics;
+
+    // Add residuals to bundle adjustment problem.
+    size_t num_observations = 0;
+    for (const Point2D& point2D : image.Points2D()) {
+      if (!point2D.HasPoint3D()) {
+        continue;
+      }
+
+      num_observations += 1;
+      point3D_num_observations_[point2D.point3D_id] += 1;
+
+      Point3D& point3D = reconstruction.Point3D(point2D.point3D_id);
+      assert(point3D.track.Length() > 1);
+
+      // Notice that the constant_cam_pose && !constant_rig_pose is rare/exotic
+      // enough that we do not have a specialized cost function for it.
+      if (constant_cam_pose && constant_rig_pose) {
+        problem_->AddResidualBlock(
+            CreateCameraCostFunction<ReprojErrorConstantPoseCostFunctor>(
+                camera.model_id, point2D.xy, cam_from_rig * rig_from_world),
+            loss_function_.get(),
+            point3D.xyz.data(),
+            camera_params);
+      } else if (!constant_cam_pose && constant_cam_pose) {
+        problem_->AddResidualBlock(
+            CreateCameraCostFunction<RigReprojErrorConstantRigCostFunctor>(
+                camera.model_id, point2D.xy, cam_from_rig),
+            loss_function_.get(),
+            point3D.xyz.data(),
+            camera_params);
+      } else {
+        problem_->AddResidualBlock(
+            CreateCameraCostFunction<RigReprojErrorCostFunctor>(camera.model_id,
+                                                                point2D.xy),
+            loss_function_.get(),
+            cam_from_rig_rotation,
+            cam_from_rig_translation,
+            rig_from_world_rotation,
+            rig_from_world_translation,
+            point3D.xyz.data(),
+            camera_params);
+      }
+    }
+
+    if (num_observations > 0) {
+      camera_ids_.insert(image.CameraId());
+
+      // Set pose parameterization.
+      if (constant_cam_pose) {
+        problem_->SetParameterBlockConstant(rig_from_world_rotation);
+        problem_->SetParameterBlockConstant(rig_from_world_translation);
+      } else {
+        SetQuaternionManifold(problem_.get(), rig_from_world_rotation);
+        if (config_.HasConstantCamPositions(image.ImageId())) {
+          const std::vector<int>& constant_position_idxs =
+              config_.ConstantCamPositions(image.ImageId());
+          SetSubsetManifold(3,
+                            constant_position_idxs,
+                            problem_.get(),
+                            rig_from_world_translation);
+        }
+      }
+      if (!constant_rig_pose) {
+        SetQuaternionManifold(problem_.get(), cam_from_rig_rotation);
+      }  // else: special cased cost function above.
     }
   }
 
@@ -580,12 +679,34 @@ class DefaultBundleAdjuster : public BundleAdjuster {
       Camera& camera = *image.CameraPtr();
       const Point2D& point2D = image.Point2D(track_el.point2D_idx);
 
-      // TODO(jsch): Add support for non-trivial frames.
-      THROW_CHECK(image.HasTrivialFrame());
-      Rigid3d& cam_from_world = image.FramePtr()->FrameFromWorld();
+      if (image.HasTrivialFrame()) {
+        Rigid3d& cam_from_world = image.FramePtr()->FrameFromWorld();
 
-      // CostFunction assumes unit quaternions.
-      cam_from_world.rotation.normalize();
+        // CostFunction assumes unit quaternions.
+        cam_from_world.rotation.normalize();
+
+        problem_->AddResidualBlock(
+            CreateCameraCostFunction<ReprojErrorConstantPoseCostFunctor>(
+                camera.model_id, point2D.xy, cam_from_world),
+            loss_function_.get(),
+            point3D.xyz.data(),
+            camera.params.data());
+      } else {
+        Rigid3d& cam_from_rig = image.FramePtr()->RigPtr()->SensorFromRig(
+            sensor_t(SensorType::CAMERA, image.CameraId()));
+        Rigid3d& rig_from_world = image.FramePtr()->FrameFromWorld();
+
+        // CostFunction assumes unit quaternions.
+        cam_from_rig.rotation.normalize();
+        rig_from_world.rotation.normalize();
+
+        problem_->AddResidualBlock(
+            CreateCameraCostFunction<ReprojErrorConstantPoseCostFunctor>(
+                camera.model_id, point2D.xy, cam_from_rig * rig_from_world),
+            loss_function_.get(),
+            point3D.xyz.data(),
+            camera.params.data());
+      }
 
       // We do not want to refine the camera of images that are not
       // part of `constant_image_ids_`, `constant_image_ids_`,
@@ -594,12 +715,6 @@ class DefaultBundleAdjuster : public BundleAdjuster {
         camera_ids_.insert(image.CameraId());
         config_.SetConstantCamIntrinsics(image.CameraId());
       }
-      problem_->AddResidualBlock(
-          CreateCameraCostFunction<ReprojErrorConstantPoseCostFunctor>(
-              camera.model_id, point2D.xy, cam_from_world),
-          loss_function_.get(),
-          point3D.xyz.data(),
-          camera.params.data());
     }
   }
 

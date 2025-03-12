@@ -101,9 +101,13 @@ void BindBundleAdjuster(py::module& m) {
           .def_readwrite("refine_extra_params",
                          &BAOpts::refine_extra_params,
                          "Whether to refine the extra parameter group.")
-          .def_readwrite("refine_extrinsics",
-                         &BAOpts::refine_extrinsics,
-                         "Whether to refine the extrinsic parameter group.")
+          .def_readwrite(
+              "refine_cam_extrinsics",
+              &BAOpts::refine_cam_extrinsics,
+              "Whether to refine the camera extrinsic parameter group.")
+          .def_readwrite("refine_rig_extrinsics",
+                         &BAOpts::refine_rig_extrinsics,
+                         "Whether to refine the rig extrinsic parameter group.")
           .def_readwrite("print_summary",
                          &BAOpts::print_summary,
                          "Whether to print a final summary.")

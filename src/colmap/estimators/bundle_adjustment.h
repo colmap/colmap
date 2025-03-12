@@ -128,7 +128,8 @@ struct BundleAdjustmentOptions {
   bool refine_extra_params = true;
 
   // Whether to refine the extrinsic parameter group.
-  bool refine_extrinsics = true;
+  bool refine_cam_extrinsics = true;
+  bool refine_rig_extrinsics = true;
 
   // Whether to print a final summary.
   bool print_summary = true;
