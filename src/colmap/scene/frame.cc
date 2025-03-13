@@ -31,12 +31,7 @@
 
 namespace colmap {
 
-<<<<<<< HEAD
-void Frame::ApplyCamFromWorld(camera_t camera_id,
-                              const Rigid3d& cam_from_world) {
-=======
 void Frame::SetCamFromWorld(camera_t camera_id, const Rigid3d& cam_from_world) {
->>>>>>> 31c95fb49f7f957c6a3197c19d239ac455acb8c0
   THROW_CHECK_NOTNULL(rig_ptr_);
   const sensor_t sensor_id(SensorType::CAMERA, camera_id);
   if (rig_ptr_->IsRefSensor(sensor_id)) {
