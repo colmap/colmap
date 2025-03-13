@@ -52,11 +52,14 @@ namespace {
 // the unordered map container.
 template <typename ID_TYPE, typename DATA_TYPE>
 std::vector<ID_TYPE> ExtractSortedIds(
-    const std::unordered_map<ID_TYPE, DATA_TYPE>& data) {
+    const std::unordered_map<ID_TYPE, DATA_TYPE>& data,
+    const std::function<bool(const DATA_TYPE&)>& filter = nullptr) {
   std::vector<ID_TYPE> ids;
   ids.reserve(data.size());
-  for (const auto& [id, _] : data) {
-    ids.push_back(id);
+  for (const auto& [id, d] : data) {
+    if (filter == nullptr || filter(d)) {
+      ids.push_back(id);
+    }
   }
   std::sort(ids.begin(), ids.end());
   return ids;
@@ -260,36 +263,30 @@ void ReadFramesText(Reconstruction& reconstruction, std::istream& stream) {
     std::getline(line_stream, item, ' ');
     frame.SetRigId(std::stoul(item));
 
-    // HAS_POSE
-    std::getline(line_stream, item, ' ');
-    const bool has_pose = item == "1";
-
     // FRAME_FROM_WORLD
-    std::optional<Rigid3d> frame_from_world;
-    if (has_pose) {
-      frame_from_world = Rigid3d();
 
-      std::getline(line_stream, item, ' ');
-      frame_from_world->rotation.w() = std::stold(item);
+    Rigid3d frame_from_world;
 
-      std::getline(line_stream, item, ' ');
-      frame_from_world->rotation.x() = std::stold(item);
+    std::getline(line_stream, item, ' ');
+    frame_from_world.rotation.w() = std::stold(item);
 
-      std::getline(line_stream, item, ' ');
-      frame_from_world->rotation.y() = std::stold(item);
+    std::getline(line_stream, item, ' ');
+    frame_from_world.rotation.x() = std::stold(item);
 
-      std::getline(line_stream, item, ' ');
-      frame_from_world->rotation.z() = std::stold(item);
+    std::getline(line_stream, item, ' ');
+    frame_from_world.rotation.y() = std::stold(item);
 
-      std::getline(line_stream, item, ' ');
-      frame_from_world->translation.x() = std::stold(item);
+    std::getline(line_stream, item, ' ');
+    frame_from_world.rotation.z() = std::stold(item);
 
-      std::getline(line_stream, item, ' ');
-      frame_from_world->translation.y() = std::stold(item);
+    std::getline(line_stream, item, ' ');
+    frame_from_world.translation.x() = std::stold(item);
 
-      std::getline(line_stream, item, ' ');
-      frame_from_world->translation.z() = std::stold(item);
-    }
+    std::getline(line_stream, item, ' ');
+    frame_from_world.translation.y() = std::stold(item);
+
+    std::getline(line_stream, item, ' ');
+    frame_from_world.translation.z() = std::stold(item);
 
     frame.SetFrameFromWorld(frame_from_world);
 
@@ -615,23 +612,15 @@ void ReadFramesBinary(Reconstruction& reconstruction, std::istream& stream) {
 
     frame.SetFrameId(ReadBinaryLittleEndian<frame_t>(&stream));
     frame.SetRigId(ReadBinaryLittleEndian<rig_t>(&stream));
-    const bool has_pose = ReadBinaryLittleEndian<uint8_t>(&stream);
 
-    std::optional<Rigid3d> frame_from_world;
-    if (has_pose) {
-      frame_from_world = Rigid3d();
-      frame_from_world->rotation.w() = ReadBinaryLittleEndian<double>(&stream);
-      frame_from_world->rotation.x() = ReadBinaryLittleEndian<double>(&stream);
-      frame_from_world->rotation.y() = ReadBinaryLittleEndian<double>(&stream);
-      frame_from_world->rotation.z() = ReadBinaryLittleEndian<double>(&stream);
-      frame_from_world->translation.x() =
-          ReadBinaryLittleEndian<double>(&stream);
-      frame_from_world->translation.y() =
-          ReadBinaryLittleEndian<double>(&stream);
-      frame_from_world->translation.z() =
-          ReadBinaryLittleEndian<double>(&stream);
-    }
-
+    Rigid3d frame_from_world;
+    frame_from_world.rotation.w() = ReadBinaryLittleEndian<double>(&stream);
+    frame_from_world.rotation.x() = ReadBinaryLittleEndian<double>(&stream);
+    frame_from_world.rotation.y() = ReadBinaryLittleEndian<double>(&stream);
+    frame_from_world.rotation.z() = ReadBinaryLittleEndian<double>(&stream);
+    frame_from_world.translation.x() = ReadBinaryLittleEndian<double>(&stream);
+    frame_from_world.translation.y() = ReadBinaryLittleEndian<double>(&stream);
+    frame_from_world.translation.z() = ReadBinaryLittleEndian<double>(&stream);
     frame.SetFrameFromWorld(frame_from_world);
 
     const uint32_t num_data_ids = ReadBinaryLittleEndian<uint32_t>(&stream);
@@ -881,41 +870,42 @@ void WriteFramesText(const Reconstruction& reconstruction,
                      std::ostream& stream) {
   THROW_CHECK(stream.good());
 
+  const std::vector<frame_t> frame_ids = ExtractSortedIds<frame_t, Frame>(
+      reconstruction.Frames(),
+      [](const Frame& frame) { return frame.HasPose(); });
+
   // Ensure that we don't loose any precision by storing in text.
   stream.precision(17);
 
   stream << "# Frame list with one line of data per frame:" << std::endl;
-  stream << "#   FRAME_ID, RIG_ID, HAS_POSE, "
+  stream << "#   FRAME_ID, RIG_ID, "
             "FRAME_FROM_WORLD[QW, QX, QY, QZ, TX, TY, TZ], NUM_DATA_IDS, "
             "DATA_IDS[] as (SENSOR_ID, SENSOR_TYPE, DATA_ID)"
          << std::endl;
-  stream << "# Number of frames: " << reconstruction.NumFrames() << std::endl;
+  stream << "# Number of frames: " << frame_ids.size() << std::endl;
 
   stream.precision(17);
 
-  for (const frame_t frame_id : ExtractSortedIds(reconstruction.Frames())) {
+  for (const frame_t frame_id : frame_ids) {
     const Frame& frame = reconstruction.Frame(frame_id);
 
     stream << frame_id << " ";
     stream << frame.RigId() << " ";
-    if (frame.HasPose()) {
-      stream << "1 ";
-      const Rigid3d& frame_from_world = frame.FrameFromWorld();
-      stream << frame_from_world.rotation.w() << " ";
-      stream << frame_from_world.rotation.x() << " ";
-      stream << frame_from_world.rotation.y() << " ";
-      stream << frame_from_world.rotation.z() << " ";
-      stream << frame_from_world.translation.x() << " ";
-      stream << frame_from_world.translation.y() << " ";
-      stream << frame_from_world.translation.z() << " ";
-      const std::set<data_t>& data_ids = frame.DataIds();
-      stream << data_ids.size() << " ";
-      for (const data_t& data_id : data_ids) {
-        stream << data_id.sensor_id.type << " " << data_id.sensor_id.id << " "
-               << data_id.id;
-      }
-    } else {
-      stream << "0";
+
+    const Rigid3d& frame_from_world = frame.FrameFromWorld();
+    stream << frame_from_world.rotation.w() << " ";
+    stream << frame_from_world.rotation.x() << " ";
+    stream << frame_from_world.rotation.y() << " ";
+    stream << frame_from_world.rotation.z() << " ";
+    stream << frame_from_world.translation.x() << " ";
+    stream << frame_from_world.translation.y() << " ";
+    stream << frame_from_world.translation.z() << " ";
+
+    const std::set<data_t>& data_ids = frame.DataIds();
+    stream << data_ids.size() << " ";
+    for (const data_t& data_id : data_ids) {
+      stream << data_id.sensor_id.type << " " << data_id.sensor_id.id << " "
+             << data_id.id;
     }
 
     stream << std::endl;
@@ -1119,26 +1109,26 @@ void WriteFramesBinary(const Reconstruction& reconstruction,
                        std::ostream& stream) {
   THROW_CHECK(stream.good());
 
-  WriteBinaryLittleEndian<uint64_t>(&stream, reconstruction.NumFrames());
+  const std::vector<frame_t> frame_ids = ExtractSortedIds<frame_t, Frame>(
+      reconstruction.Frames(),
+      [](const Frame& frame) { return frame.HasPose(); });
 
-  for (const frame_t frame_id : ExtractSortedIds(reconstruction.Frames())) {
+  WriteBinaryLittleEndian<uint64_t>(&stream, frame_ids.size());
+
+  for (const frame_t frame_id : frame_ids) {
     const Frame& frame = reconstruction.Frame(frame_id);
+
     WriteBinaryLittleEndian<frame_t>(&stream, frame_id);
     WriteBinaryLittleEndian<rig_t>(&stream, frame.RigId());
-    WriteBinaryLittleEndian<uint8_t>(&stream, frame.HasPose() ? 1 : 0);
-    if (frame.HasPose()) {
-      const Rigid3d& frame_from_world = frame.FrameFromWorld();
-      WriteBinaryLittleEndian<double>(&stream, frame_from_world.rotation.w());
-      WriteBinaryLittleEndian<double>(&stream, frame_from_world.rotation.x());
-      WriteBinaryLittleEndian<double>(&stream, frame_from_world.rotation.y());
-      WriteBinaryLittleEndian<double>(&stream, frame_from_world.rotation.z());
-      WriteBinaryLittleEndian<double>(&stream,
-                                      frame_from_world.translation.x());
-      WriteBinaryLittleEndian<double>(&stream,
-                                      frame_from_world.translation.y());
-      WriteBinaryLittleEndian<double>(&stream,
-                                      frame_from_world.translation.z());
-    }
+
+    const Rigid3d& frame_from_world = frame.FrameFromWorld();
+    WriteBinaryLittleEndian<double>(&stream, frame_from_world.rotation.w());
+    WriteBinaryLittleEndian<double>(&stream, frame_from_world.rotation.x());
+    WriteBinaryLittleEndian<double>(&stream, frame_from_world.rotation.y());
+    WriteBinaryLittleEndian<double>(&stream, frame_from_world.rotation.z());
+    WriteBinaryLittleEndian<double>(&stream, frame_from_world.translation.x());
+    WriteBinaryLittleEndian<double>(&stream, frame_from_world.translation.y());
+    WriteBinaryLittleEndian<double>(&stream, frame_from_world.translation.z());
 
     const std::set<data_t>& data_ids = frame.DataIds();
     WriteBinaryLittleEndian<uint32_t>(&stream, data_ids.size());

@@ -49,8 +49,9 @@
 namespace colmap {
 
 // Class that holds information about an image. An image is the product of one
-// camera shot at a certain location (parameterized as the pose). An image may
-// share a camera with multiple other images, if its intrinsics are the same.
+// camera exposure at a certain location (parameterized as the pose). An image
+// may share a camera with multiple other images, if its intrinsics are the
+// same.
 class Image {
  public:
   Image();

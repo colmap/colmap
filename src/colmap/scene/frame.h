@@ -40,6 +40,9 @@
 
 namespace colmap {
 
+// Frames represent (posed) instantiations of rigs with associated measurements
+// for the different sensors. The captured sensor measurements are defined by
+// the list of data ids.
 class Frame {
  public:
   // Access the unique identifier of the frame.
