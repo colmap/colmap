@@ -428,6 +428,38 @@ bool AlignReconstructionsViaPoints(const Reconstruction& src_reconstruction,
   return report.success;
 }
 
+namespace {
+
+void CopyRegisteredImage(image_t image_id,
+                         const Sim3d& tgt_from_src,
+                         const Reconstruction& src_reconstruction,
+                         Reconstruction& tgt_reconstruction) {
+  const auto& src_image = src_reconstruction.Image(image_id);
+  auto tgt_image = src_image;
+  tgt_image.ResetCameraPtr();
+  tgt_image.ResetFramePtr();
+  if (!tgt_reconstruction.ExistsRig(src_image.FramePtr()->RigId())) {
+    tgt_reconstruction.AddRig(
+        src_reconstruction.Rig(src_image.FramePtr()->RigId()));
+  }
+  if (!tgt_reconstruction.ExistsCamera(tgt_image.CameraId())) {
+    tgt_reconstruction.AddCamera(
+        src_reconstruction.Camera(tgt_image.CameraId()));
+  }
+  if (!tgt_reconstruction.ExistsFrame(tgt_image.FrameId())) {
+    tgt_reconstruction.AddFrame(src_reconstruction.Frame(tgt_image.FrameId()));
+  }
+  tgt_image.SetFramePtr(&tgt_reconstruction.Frame(tgt_image.FrameId()));
+  const Rigid3d cam_from_tgt_world =
+      TransformCameraWorld(tgt_from_src, src_image.CamFromWorld());
+  tgt_reconstruction.Frame(tgt_image.FrameId())
+      .SetCamFromWorld(tgt_image.CameraId(), cam_from_tgt_world);
+  tgt_reconstruction.AddImage(tgt_image);
+  tgt_reconstruction.RegisterImage(image_id);
+}
+
+}  // namespace
+
 bool MergeReconstructions(const double max_reproj_error,
                           const Reconstruction& src_reconstruction,
                           Reconstruction& tgt_reconstruction) {
@@ -455,29 +487,8 @@ bool MergeReconstructions(const double max_reproj_error,
 
   // Register the missing images in this src_reconstruction.
   for (const auto image_id : missing_image_ids) {
-    const auto& src_image = src_reconstruction.Image(image_id);
-    auto tgt_image = src_image;
-    tgt_image.ResetCameraPtr();
-    tgt_image.ResetFramePtr();
-    if (!tgt_reconstruction.ExistsRig(src_image.FramePtr()->RigId())) {
-      tgt_reconstruction.AddRig(
-          src_reconstruction.Rig(src_image.FramePtr()->RigId()));
-    }
-    if (!tgt_reconstruction.ExistsCamera(tgt_image.CameraId())) {
-      tgt_reconstruction.AddCamera(
-          src_reconstruction.Camera(tgt_image.CameraId()));
-    }
-    if (!tgt_reconstruction.ExistsFrame(tgt_image.FrameId())) {
-      tgt_reconstruction.AddFrame(
-          src_reconstruction.Frame(tgt_image.FrameId()));
-    }
-    tgt_image.SetFramePtr(&tgt_reconstruction.Frame(tgt_image.FrameId()));
-    const Rigid3d cam_from_tgt_world =
-        TransformCameraWorld(tgt_from_src, src_image.CamFromWorld());
-    tgt_reconstruction.Frame(tgt_image.FrameId())
-        .SetCamFromWorld(tgt_image.CameraId(), cam_from_tgt_world);
-    tgt_reconstruction.AddImage(tgt_image);
-    tgt_reconstruction.RegisterImage(image_id);
+    CopyRegisteredImage(
+        image_id, tgt_from_src, src_reconstruction, tgt_reconstruction);
   }
 
   // Merge the two point clouds using the following two rules:
