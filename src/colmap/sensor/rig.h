@@ -33,50 +33,18 @@
 #include "colmap/util/enum_utils.h"
 #include "colmap/util/types.h"
 
-#include <cstdint>
-#include <functional>
 #include <map>
-#include <memory>
 #include <optional>
 
 namespace colmap {
 
-// Sensor type
-MAKE_ENUM_CLASS_OVERLOAD_STREAM(SensorType, -1, INVALID, CAMERA, IMU);
-
-struct sensor_t {
-  // Type of the sensor (INVALID / CAMERA / IMU)
-  SensorType type;
-  // Unique identifier of the sensor.
-  // This can be camera_t / imu_t (not supported yet)
-  uint32_t id;
-
-  constexpr sensor_t()
-      : type(SensorType::INVALID), id(std::numeric_limits<uint32_t>::max()) {}
-  constexpr sensor_t(const SensorType& type, uint32_t id)
-      : type(type), id(id) {}
-
-  inline bool operator<(const sensor_t& other) const {
-    return std::tie(type, id) < std::tie(other.type, other.id);
-  }
-  inline bool operator==(const sensor_t& other) const {
-    return type == other.type && id == other.id;
-  }
-  inline bool operator!=(const sensor_t& other) const {
-    return !(*this == other);
-  }
-};
-
-constexpr sensor_t kInvalidSensorId =
-    sensor_t(SensorType::INVALID, std::numeric_limits<uint32_t>::max());
-
-// Rig calibration storing the sensor from rig transformation.
-// The reference sensor shares identity poses with the device.
-// This design is mainly for two purposes:
-// 1) In the visual-inertial optimization one of the IMUs is generally used as
-// the reference frame since it is metric.
-// 2) Not having a reference frame brings a 6 DoF Gauge for each rig, which is
-// not ideal particularly when it comes to covariance estimation.
+// Rigs represent a collection of rigidly mounted sensors and the associated
+// sensor from rig transformations. The reference sensor is defined to have
+// identity pose in the rig frame. This design is mainly for two purposes: 1) In
+// visual-inertial optimization, one of the IMUs is generally used as the
+// reference frame since it is metric. 2) Not having a reference frame brings a
+// 6 DoF Gauge for each rig, which is not ideal particularly when it comes to
+// covariance estimation.
 class Rig {
  public:
   // Access the unique identifier of the rig.
@@ -100,11 +68,12 @@ class Rig {
 
   // Check if the sensor is the reference sensor of the rig.
   inline bool IsRefSensor(sensor_t sensor_id) const;
+  inline bool HasSensorFromRig(sensor_t sensor_id) const;
 
-  // Access all sensors in the rig except for the reference sensor,
+  // Access all sensors in the rig except for the reference sensor.
   inline const std::map<sensor_t, std::optional<Rigid3d>>& Sensors() const;
 
-  // Access sensor from rig transformations
+  // Access sensor from rig transformations.
   inline Rigid3d& SensorFromRig(sensor_t sensor_id);
   inline const Rigid3d& SensorFromRig(sensor_t sensor_id) const;
   inline std::optional<Rigid3d>& MaybeSensorFromRig(sensor_t sensor_id);
@@ -114,7 +83,6 @@ class Rig {
                                const Rigid3d& sensor_from_rig);
   inline void SetSensorFromRig(sensor_t sensor_id,
                                const std::optional<Rigid3d>& sensor_from_rig);
-  inline bool HasSensorFromRig(sensor_t sensor_id) const;
   inline void ResetSensorFromRig(sensor_t sensor_id);
 
   inline bool operator==(const Rig& other) const;
@@ -151,9 +119,9 @@ bool Rig::HasSensor(sensor_t sensor_id) const {
 }
 
 size_t Rig::NumSensors() const {
-  size_t n_sensors = sensors_from_rig_.size();
-  if (ref_sensor_id_ != kInvalidSensorId) n_sensors += 1;
-  return n_sensors;
+  size_t num_sensors = sensors_from_rig_.size();
+  if (ref_sensor_id_ != kInvalidSensorId) num_sensors += 1;
+  return num_sensors;
 }
 
 sensor_t Rig::RefSensorId() const { return ref_sensor_id_; }
@@ -167,11 +135,11 @@ const std::map<sensor_t, std::optional<Rigid3d>>& Rig::Sensors() const {
 }
 
 Rigid3d& Rig::SensorFromRig(sensor_t sensor_id) {
-  return *FindSensorFromRigOrThrow(sensor_id);
+  return FindSensorFromRigOrThrow(sensor_id).value();
 }
 
 const Rigid3d& Rig::SensorFromRig(sensor_t sensor_id) const {
-  return *FindSensorFromRigOrThrow(sensor_id);
+  return FindSensorFromRigOrThrow(sensor_id).value();
 }
 
 std::optional<Rigid3d>& Rig::MaybeSensorFromRig(sensor_t sensor_id) {
@@ -190,13 +158,6 @@ void Rig::SetSensorFromRig(sensor_t sensor_id, const Rigid3d& sensor_from_rig) {
 void Rig::SetSensorFromRig(sensor_t sensor_id,
                            const std::optional<Rigid3d>& sensor_from_rig) {
   FindSensorFromRigOrThrow(sensor_id) = sensor_from_rig;
-}
-
-bool Rig::HasSensorFromRig(sensor_t sensor_id) const {
-  if (IsRefSensor(sensor_id)) {
-    return true;  // SensorFromRig for the reference sensor is always identity
-  }
-  return FindSensorFromRigOrThrow(sensor_id).has_value();
 }
 
 void Rig::ResetSensorFromRig(sensor_t sensor_id) {
@@ -235,14 +196,3 @@ inline const std::optional<Rigid3d>& Rig::FindSensorFromRigOrThrow(
 }
 
 }  // namespace colmap
-
-namespace std {
-template <>
-struct hash<colmap::sensor_t> {
-  std::size_t operator()(const colmap::sensor_t& s) const noexcept {
-    return std::hash<std::pair<uint32_t, uint32_t>>{}(
-        std::make_pair(static_cast<uint32_t>(s.type), s.id));
-  }
-};
-
-}  // namespace std

@@ -49,8 +49,9 @@
 namespace colmap {
 
 // Class that holds information about an image. An image is the product of one
-// camera shot at a certain location (parameterized as the pose). An image may
-// share a camera with multiple other images, if its intrinsics are the same.
+// camera exposure at a certain location (parameterized as the pose). An image
+// may share a camera with multiple other images, if its intrinsics are the
+// same.
 class Image {
  public:
   Image();
@@ -93,26 +94,23 @@ class Image {
   // are part of a 3D point track.
   inline point2D_t NumPoints3D() const;
 
-  // [Optional] The corresponding frame of the image.
-  inline frame_t FrameId() const;
+  // Access the unique identifier of the frame.
+  inline camera_t FrameId() const;
   inline void SetFrameId(frame_t frame_id);
-  inline const std::shared_ptr<class Frame>& Frame() const;
-  inline void SetFrame(std::shared_ptr<class Frame> frame);
+  // Check whether identifier of Frame has been set.
+  inline bool HasFrameId() const;
+
+  // [Optional] The corresponding frame of the image.
+  inline class Frame* FramePtr() const;
+  inline void SetFramePtr(class Frame* frame);
+  inline void ResetFramePtr();
+  inline bool HasFramePtr() const;
   // Check if the cam_from_world needs to be composed with the rig pose.
   inline bool HasTrivialFrame() const;
 
-  // World to camera pose.
-  // Get the value (copy) of cam_from_world. This supports non-trivial frames.
-  inline Rigid3d ComposeCamFromWorld() const;
-
-  // The following methods only works for non-composed pose. Will throw an
-  // error if the image has a non-trivial frame (rig) attached to it.
-  inline const Rigid3d& CamFromWorld() const;
-  inline Rigid3d& CamFromWorld();
-  inline const std::optional<Rigid3d>& MaybeCamFromWorld() const;
-  inline std::optional<Rigid3d>& MaybeCamFromWorld();
-  inline void SetCamFromWorld(const Rigid3d& cam_from_world);
-  inline void SetCamFromWorld(const std::optional<Rigid3d>& cam_from_world);
+  // Composition of sensor_from_rig and frame_from_world transformations.
+  // If the corresponding frame is trivial, this is equal to frame_from_world.
+  inline Rigid3d CamFromWorld() const;
   inline bool HasPose() const;
   inline void ResetPose();
 
@@ -161,13 +159,14 @@ class Image {
   camera_t camera_id_;
   struct Camera* camera_ptr_;
 
+  // The corresponding frame of the image. Note that multiple images might
+  // share the same frame. If not specified `kInvalidFrameId`.
+  frame_t frame_id_;
+  class Frame* frame_ptr_;
+
   // The number of 3D points the image observes, i.e. the sum of its `points2D`
   // where `point3D_id != kInvalidPoint3DId`.
   point2D_t num_points3D_;
-
-  // The corresponding frame (rig) of the image. By default a trivial frame will
-  // be initialized for each image with frame_id_ = kInvalidFrameId.
-  std::shared_ptr<class Frame> frame_;
 
   // All image points, including points that are not part of a 3D point track.
   std::vector<struct Point2D> points2D_;
@@ -189,29 +188,27 @@ std::string& Image::Name() { return name_; }
 
 void Image::SetName(const std::string& name) { name_ = name; }
 
-inline camera_t Image::CameraId() const { return camera_id_; }
+camera_t Image::CameraId() const { return camera_id_; }
 
-inline void Image::SetCameraId(const camera_t camera_id) {
+void Image::SetCameraId(const camera_t camera_id) {
   THROW_CHECK_NE(camera_id, kInvalidCameraId);
   THROW_CHECK(!HasCameraPtr());
   camera_id_ = camera_id;
 }
 
-inline bool Image::HasCameraId() const {
-  return camera_id_ != kInvalidCameraId;
-}
+bool Image::HasCameraId() const { return camera_id_ != kInvalidCameraId; }
 
-inline struct Camera* Image::CameraPtr() const {
+struct Camera* Image::CameraPtr() const {
   return THROW_CHECK_NOTNULL(camera_ptr_);
 }
 
-inline void Image::SetCameraPtr(struct Camera* camera) {
+void Image::SetCameraPtr(struct Camera* camera) {
   THROW_CHECK_NOTNULL(camera);
   THROW_CHECK_NE(camera->camera_id, kInvalidCameraId);
   if (!HasCameraPtr()) {
     THROW_CHECK_EQ(camera->camera_id, camera_id_);
     camera_ptr_ = camera;
-  } else {  // switch to new camera
+  } else {
     camera_id_ = camera->camera_id;
     camera_ptr_ = camera;
   }
@@ -221,80 +218,62 @@ void Image::ResetCameraPtr() { camera_ptr_ = nullptr; }
 
 bool Image::HasCameraPtr() const { return camera_ptr_ != nullptr; }
 
+frame_t Image::FrameId() const { return frame_id_; }
+
+void Image::SetFrameId(const frame_t frame_id) {
+  THROW_CHECK_NE(frame_id, kInvalidFrameId);
+  THROW_CHECK(!HasFramePtr());
+  frame_id_ = frame_id;
+}
+
+bool Image::HasFrameId() const { return frame_id_ != kInvalidFrameId; }
+
+class Frame* Image::FramePtr() const { return THROW_CHECK_NOTNULL(frame_ptr_); }
+
+void Image::SetFramePtr(class Frame* frame) {
+  THROW_CHECK_NOTNULL(frame);
+  THROW_CHECK_NE(frame->FrameId(), kInvalidFrameId);
+  if (!HasFramePtr()) {
+    THROW_CHECK_EQ(frame->FrameId(), frame_id_);
+    frame_ptr_ = frame;
+  } else {
+    frame_id_ = frame->FrameId();
+    frame_ptr_ = frame;
+  }
+}
+
+void Image::ResetFramePtr() { frame_ptr_ = nullptr; }
+
+bool Image::HasFramePtr() const { return frame_ptr_ != nullptr; }
+
+bool Image::HasTrivialFrame() const {
+  return THROW_CHECK_NOTNULL(frame_ptr_)
+      ->RigPtr()
+      ->IsRefSensor(sensor_t(SensorType::CAMERA, CameraId()));
+}
+
 point2D_t Image::NumPoints2D() const {
   return static_cast<point2D_t>(points2D_.size());
 }
 
 point2D_t Image::NumPoints3D() const { return num_points3D_; }
 
-frame_t Image::FrameId() const {
-  THROW_CHECK(frame_) << "Invalid pointer to the corresponding frame";
-  return frame_->FrameId();
-}
-
-void Image::SetFrameId(frame_t frame_id) {
-  THROW_CHECK(frame_) << "Invalid pointer to the corresponding frame";
-  frame_->SetFrameId(frame_id);
-}
-
-const std::shared_ptr<class Frame>& Image::Frame() const { return frame_; }
-
-void Image::SetFrame(std::shared_ptr<class Frame> frame) {
-  frame_ = std::move(frame);
-}
-
-bool Image::HasTrivialFrame() const {
-  THROW_CHECK(frame_) << "Invalid pointer to the corresponding frame";
-  return !frame_->HasRig() ||
-         frame_->Rig()->IsRefSensor(sensor_t(SensorType::CAMERA, CameraId()));
-}
-
-Rigid3d Image::ComposeCamFromWorld() const {
-  return frame_->SensorFromWorld(sensor_t(SensorType::CAMERA, CameraId()));
-}
-
-const Rigid3d& Image::CamFromWorld() const {
-  ThrowIfNonTrivialFrame();
-  return frame_->FrameFromWorld();
-}
-
-Rigid3d& Image::CamFromWorld() {
-  ThrowIfNonTrivialFrame();
-  return frame_->FrameFromWorld();
-}
-
-const std::optional<Rigid3d>& Image::MaybeCamFromWorld() const {
-  ThrowIfNonTrivialFrame();
-  return frame_->MaybeFrameFromWorld();
-}
-
-std::optional<Rigid3d>& Image::MaybeCamFromWorld() {
-  ThrowIfNonTrivialFrame();
-  return frame_->MaybeFrameFromWorld();
-}
-
-void Image::SetCamFromWorld(const Rigid3d& cam_from_world) {
-  ThrowIfNonTrivialFrame();
-  frame_->SetFrameFromWorld(cam_from_world);
-}
-
-void Image::SetCamFromWorld(const std::optional<Rigid3d>& cam_from_world) {
-  ThrowIfNonTrivialFrame();
-  frame_->SetFrameFromWorld(cam_from_world);
+Rigid3d Image::CamFromWorld() const {
+  return THROW_CHECK_NOTNULL(frame_ptr_)
+      ->SensorFromWorld(sensor_t(SensorType::CAMERA, CameraId()));
 }
 
 bool Image::HasPose() const {
-  if (HasTrivialFrame()) {
-    return frame_->HasPose();
+  if (frame_ptr_ == nullptr) {
+    return false;
   } else {
-    return frame_->HasPose() && frame_->Rig()->HasSensorFromRig(
-                                    sensor_t(SensorType::CAMERA, CameraId()));
+    return frame_ptr_->HasPose();
   }
 }
 
 void Image::ResetPose() {
   ThrowIfNonTrivialFrame();
-  frame_->ResetPose();
+  frame_ptr_->ResetPose();
 }
 
 const struct Point2D& Image::Point2D(const point2D_t point2D_idx) const {
@@ -310,13 +289,18 @@ const std::vector<struct Point2D>& Image::Points2D() const { return points2D_; }
 std::vector<struct Point2D>& Image::Points2D() { return points2D_; }
 
 bool Image::operator==(const Image& other) const {
-  bool res = image_id_ == other.image_id_ && camera_id_ == other.camera_id_ &&
-             name_ == other.name_ && num_points3D_ == other.num_points3D_ &&
-             HasPose() == other.HasPose() && points2D_ == other.points2D_;
+  const bool result = image_id_ == other.image_id_ &&          //
+                      camera_id_ == other.camera_id_ &&        //
+                      frame_id_ == other.frame_id_ &&          //
+                      name_ == other.name_ &&                  //
+                      num_points3D_ == other.num_points3D_ &&  //
+                      HasPose() == other.HasPose() &&          //
+                      points2D_ == other.points2D_;
   if (!HasPose()) {
-    return res;
+    return result;
   } else {
-    return res && ComposeCamFromWorld() == other.ComposeCamFromWorld();
+    return result &&
+           frame_ptr_->FrameFromWorld() == other.frame_ptr_->FrameFromWorld();
   }
 }
 

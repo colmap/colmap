@@ -493,13 +493,15 @@ class DefaultBundleAdjuster : public BundleAdjuster {
     Image& image = reconstruction.Image(image_id);
     Camera& camera = *image.CameraPtr();
 
-    // CostFunction assumes unit quaternions.
-    image.CamFromWorld().rotation.normalize();
+    // TODO(jsch): Add support for non-trivial frames.
+    THROW_CHECK(image.HasTrivialFrame());
+    Rigid3d& cam_from_world = image.FramePtr()->FrameFromWorld();
 
-    double* cam_from_world_rotation =
-        image.CamFromWorld().rotation.coeffs().data();
-    double* cam_from_world_translation =
-        image.CamFromWorld().translation.data();
+    // CostFunction assumes unit quaternions.
+    cam_from_world.rotation.normalize();
+
+    double* cam_from_world_rotation = cam_from_world.rotation.coeffs().data();
+    double* cam_from_world_translation = cam_from_world.translation.data();
     double* camera_params = camera.params.data();
 
     const bool constant_cam_pose =
@@ -521,7 +523,7 @@ class DefaultBundleAdjuster : public BundleAdjuster {
       if (constant_cam_pose) {
         problem_->AddResidualBlock(
             CreateCameraCostFunction<ReprojErrorConstantPoseCostFunctor>(
-                camera.model_id, point2D.xy, image.CamFromWorld()),
+                camera.model_id, point2D.xy, cam_from_world),
             loss_function_.get(),
             point3D.xyz.data(),
             camera_params);
@@ -578,8 +580,12 @@ class DefaultBundleAdjuster : public BundleAdjuster {
       Camera& camera = *image.CameraPtr();
       const Point2D& point2D = image.Point2D(track_el.point2D_idx);
 
+      // TODO(jsch): Add support for non-trivial frames.
+      THROW_CHECK(image.HasTrivialFrame());
+      Rigid3d& cam_from_world = image.FramePtr()->FrameFromWorld();
+
       // CostFunction assumes unit quaternions.
-      image.CamFromWorld().rotation.normalize();
+      cam_from_world.rotation.normalize();
 
       // We do not want to refine the camera of images that are not
       // part of `constant_image_ids_`, `constant_image_ids_`,
@@ -590,7 +596,7 @@ class DefaultBundleAdjuster : public BundleAdjuster {
       }
       problem_->AddResidualBlock(
           CreateCameraCostFunction<ReprojErrorConstantPoseCostFunctor>(
-              camera.model_id, point2D.xy, image.CamFromWorld()),
+              camera.model_id, point2D.xy, cam_from_world),
           loss_function_.get(),
           point3D.xyz.data(),
           camera.params.data());
@@ -716,10 +722,13 @@ class RigBundleAdjuster : public BundleAdjuster {
       cam_from_rig_translation = cam_from_rig.translation.data();
       cam_from_world_mat = (cam_from_rig * rig_from_world).ToMatrix();
     } else {
+      // TODO(jsch): Merge rig functionality into standard bundle adjuster.
+      THROW_CHECK(image.HasTrivialFrame());
+      Rigid3d& cam_from_world = image.FramePtr()->FrameFromWorld();
       // CostFunction assumes unit quaternions.
-      image.CamFromWorld().rotation.normalize();
-      cam_from_rig_rotation = image.CamFromWorld().rotation.coeffs().data();
-      cam_from_rig_translation = image.CamFromWorld().translation.data();
+      cam_from_world.rotation.normalize();
+      cam_from_rig_rotation = cam_from_world.rotation.coeffs().data();
+      cam_from_rig_translation = cam_from_world.translation.data();
     }
 
     // Collect cameras for final parameterization.
@@ -871,8 +880,11 @@ class RigBundleAdjuster : public BundleAdjuster {
   void ComputeCamsFromWorld() {
     for (const auto& [image_id, camera_rig] : image_id_to_camera_rig_) {
       Image& image = reconstruction_.Image(image_id);
-      image.CamFromWorld() = camera_rig->CamFromRig(image.CameraId()) *
-                             (*image_id_to_rig_from_world_.at(image_id));
+      // TODO(jsch): Merge rig functionality into standard bundle adjuster.
+      THROW_CHECK(image.HasTrivialFrame());
+      image.FramePtr()->SetFrameFromWorld(
+          camera_rig->CamFromRig(image.CameraId()) *
+          (*image_id_to_rig_from_world_.at(image_id)));
     }
   }
 
@@ -990,16 +1002,17 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
     Image& image = reconstruction.Image(image_id);
     THROW_CHECK(image.HasPose());
 
-    double* cam_from_world_translation =
-        image.CamFromWorld().translation.data();
+    // TODO(jsch): Merge rig functionality into standard bundle adjuster.
+    THROW_CHECK(image.HasTrivialFrame());
+    Rigid3d& cam_from_world = image.FramePtr()->FrameFromWorld();
+
+    double* cam_from_world_translation = cam_from_world.translation.data();
     if (!problem->HasParameterBlock(cam_from_world_translation)) {
       return;
     }
 
-    // image.CamFromWorld().rotation is already normalized in
-    // AddImageToProblem()
-    double* cam_from_world_rotation =
-        image.CamFromWorld().rotation.coeffs().data();
+    // cam_from_world.rotation is normalized in AddImageToProblem()
+    double* cam_from_world_rotation = cam_from_world.rotation.coeffs().data();
 
     problem->AddResidualBlock(
         CovarianceWeightedCostFunctor<AbsolutePosePositionPriorCostFunctor>::

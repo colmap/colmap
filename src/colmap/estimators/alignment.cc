@@ -99,7 +99,7 @@ struct ReconstructionAlignmentEstimator {
     THROW_CHECK_NOTNULL(src_reconstruction_);
     THROW_CHECK_NOTNULL(tgt_reconstruction_);
 
-    const Sim3d srcFromTgt = Inverse(tgt_from_src);
+    const Sim3d src_from_tgt = Inverse(tgt_from_src);
 
     residuals->resize(src_images.size());
 
@@ -150,7 +150,7 @@ struct ReconstructionAlignmentEstimator {
         }
 
         const Eigen::Vector3d tgt_point_in_src =
-            srcFromTgt *
+            src_from_tgt *
             tgt_reconstruction_->Point3D(tgt_point2D.point3D_id).xyz;
         if (CalculateSquaredReprojectionError(src_point2D.xy,
                                               tgt_point_in_src,
@@ -209,11 +209,10 @@ bool AlignReconstructionToLocations(
     }
 
     // Ignore duplicate images.
-    if (common_image_ids.count(src_image->ImageId()) > 0) {
+    if (!common_image_ids.insert(src_image->ImageId()).second) {
       continue;
     }
 
-    common_image_ids.insert(src_image->ImageId());
     src.push_back(src_image->ProjectionCenter());
     dst.push_back(tgt_image_locations[i]);
   }
@@ -405,16 +404,16 @@ bool AlignReconstructionsViaPoints(const Reconstruction& src_reconstruction,
       continue;
     }
     // The 3D point in tgt who is associated the most is selected
-    auto best_p3D =
+    auto best_point3D =
         std::max_element(counts.begin(),
                          counts.end(),
                          [](const std::pair<point3D_t, size_t>& p1,
                             const std::pair<point3D_t, size_t>& p2) {
                            return p1.second < p2.second;
                          });
-    if (best_p3D->second >= min_common_observations) {
+    if (best_point3D->second >= min_common_observations) {
       src_xyz.push_back(src_point3D.second.xyz);
-      tgt_xyz.push_back(tgt_reconstruction.Point3D(best_p3D->first).xyz);
+      tgt_xyz.push_back(tgt_reconstruction.Point3D(best_point3D->first).xyz);
     }
   }
   THROW_CHECK_EQ(src_xyz.size(), tgt_xyz.size());
@@ -428,6 +427,38 @@ bool AlignReconstructionsViaPoints(const Reconstruction& src_reconstruction,
       EstimateSim3dRobust(src_xyz, tgt_xyz, ransac_options, *tgt_from_src);
   return report.success;
 }
+
+namespace {
+
+void CopyRegisteredImage(image_t image_id,
+                         const Sim3d& tgt_from_src,
+                         const Reconstruction& src_reconstruction,
+                         Reconstruction& tgt_reconstruction) {
+  const auto& src_image = src_reconstruction.Image(image_id);
+  auto tgt_image = src_image;
+  tgt_image.ResetCameraPtr();
+  tgt_image.ResetFramePtr();
+  if (!tgt_reconstruction.ExistsRig(src_image.FramePtr()->RigId())) {
+    tgt_reconstruction.AddRig(
+        src_reconstruction.Rig(src_image.FramePtr()->RigId()));
+  }
+  if (!tgt_reconstruction.ExistsCamera(tgt_image.CameraId())) {
+    tgt_reconstruction.AddCamera(
+        src_reconstruction.Camera(tgt_image.CameraId()));
+  }
+  if (!tgt_reconstruction.ExistsFrame(tgt_image.FrameId())) {
+    tgt_reconstruction.AddFrame(src_reconstruction.Frame(tgt_image.FrameId()));
+  }
+  tgt_image.SetFramePtr(&tgt_reconstruction.Frame(tgt_image.FrameId()));
+  const Rigid3d cam_from_tgt_world =
+      TransformCameraWorld(tgt_from_src, src_image.CamFromWorld());
+  tgt_reconstruction.Frame(tgt_image.FrameId())
+      .SetCamFromWorld(tgt_image.CameraId(), cam_from_tgt_world);
+  tgt_reconstruction.AddImage(tgt_image);
+  tgt_reconstruction.RegisterImage(image_id);
+}
+
+}  // namespace
 
 bool MergeReconstructions(const double max_reproj_error,
                           const Reconstruction& src_reconstruction,
@@ -456,16 +487,8 @@ bool MergeReconstructions(const double max_reproj_error,
 
   // Register the missing images in this src_reconstruction.
   for (const auto image_id : missing_image_ids) {
-    auto src_image = src_reconstruction.Image(image_id);
-    src_image.ResetCameraPtr();
-    src_image.SetCamFromWorld(
-        TransformCameraWorld(tgt_from_src, src_image.CamFromWorld()));
-    if (!tgt_reconstruction.ExistsCamera(src_image.CameraId())) {
-      tgt_reconstruction.AddCamera(
-          src_reconstruction.Camera(src_image.CameraId()));
-    }
-    tgt_reconstruction.AddImage(src_image);
-    tgt_reconstruction.RegisterImage(image_id);
+    CopyRegisteredImage(
+        image_id, tgt_from_src, src_reconstruction, tgt_reconstruction);
   }
 
   // Merge the two point clouds using the following two rules:

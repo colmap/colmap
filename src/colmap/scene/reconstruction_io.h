@@ -45,6 +45,9 @@ void ReadRigsText(Reconstruction& reconstruction, const std::string& path);
 void ReadCamerasText(Reconstruction& reconstruction, std::istream& stream);
 void ReadCamerasText(Reconstruction& reconstruction, const std::string& path);
 
+void ReadFramesText(Reconstruction& reconstruction, std::istream& stream);
+void ReadFramesText(Reconstruction& reconstruction, const std::string& path);
+
 void ReadImagesText(Reconstruction& reconstruction, std::istream& stream);
 void ReadImagesText(Reconstruction& reconstruction, const std::string& path);
 
@@ -56,6 +59,9 @@ void ReadRigsBinary(Reconstruction& reconstruction, const std::string& path);
 
 void ReadCamerasBinary(Reconstruction& reconstruction, std::istream& stream);
 void ReadCamerasBinary(Reconstruction& reconstruction, const std::string& path);
+
+void ReadFramesBinary(Reconstruction& reconstruction, std::istream& stream);
+void ReadFramesBinary(Reconstruction& reconstruction, const std::string& path);
 
 void ReadImagesBinary(Reconstruction& reconstruction, std::istream& stream);
 void ReadImagesBinary(Reconstruction& reconstruction, const std::string& path);
@@ -73,6 +79,11 @@ void WriteCamerasText(const Reconstruction& reconstruction,
 void WriteCamerasText(const Reconstruction& reconstruction,
                       const std::string& path);
 
+void WriteFramesText(const Reconstruction& reconstruction,
+                     std::ostream& stream);
+void WriteFramesText(const Reconstruction& reconstruction,
+                     const std::string& path);
+
 void WriteImagesText(const Reconstruction& reconstruction,
                      std::ostream& stream);
 void WriteImagesText(const Reconstruction& reconstruction,
@@ -87,6 +98,11 @@ void WriteRigsBinary(const Reconstruction& reconstruction,
                      std::ostream& stream);
 void WriteRigsBinary(const Reconstruction& reconstruction,
                      const std::string& path);
+
+void WriteFramesBinary(const Reconstruction& reconstruction,
+                       std::ostream& stream);
+void WriteFramesBinary(const Reconstruction& reconstruction,
+                       const std::string& path);
 
 void WriteCamerasBinary(const Reconstruction& reconstruction,
                         std::ostream& stream);

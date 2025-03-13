@@ -27,64 +27,42 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#pragma once
-
-#include "colmap/scene/reconstruction.h"
-
-#include <QtCore>
-#include <QtGui>
-#include <QtWidgets>
-#include <unordered_map>
+#include "colmap/scene/frame.h"
 
 namespace colmap {
 
-class ModelViewerWidget;
+void Frame::SetCamFromWorld(camera_t camera_id, const Rigid3d& cam_from_world) {
+  THROW_CHECK_NOTNULL(rig_ptr_);
+  const sensor_t sensor_id(SensorType::CAMERA, camera_id);
+  if (rig_ptr_->IsRefSensor(sensor_id)) {
+    SetFrameFromWorld(cam_from_world);
+  } else {
+    const Rigid3d& cam_from_rig = rig_ptr_->SensorFromRig(sensor_id);
+    SetFrameFromWorld(Inverse(cam_from_rig) * cam_from_world);
+  }
+}
 
-class MovieGrabberWidget : public QWidget {
- public:
-  MovieGrabberWidget(QWidget* parent, ModelViewerWidget* model_viewer_widget);
-
-  // List of frames, used to visualize the movie grabber camera path.
-  std::vector<Frame> frames;
-
-  struct ViewData {
-    QMatrix4x4 model_view_matrix;
-    float point_size = -1.0f;
-    float image_size = -1.0f;
-  };
-
- private:
-  // Add, delete, clear viewpoints.
-  void Add();
-  void Delete();
-  void Clear();
-
-  // Assemble movie from current viewpoints.
-  void Assemble();
-
-  // Event slot for time modification.
-  void TimeChanged(QTableWidgetItem* item);
-
-  // Event slot for changed selection.
-  void SelectionChanged(const QItemSelection& selected,
-                        const QItemSelection& deselected);
-
-  // Update state when viewpoints reordered.
-  void UpdateViews();
-
-  ModelViewerWidget* model_viewer_widget_;
-
-  QPushButton* assemble_button_;
-  QPushButton* add_button_;
-  QPushButton* delete_button_;
-  QPushButton* clear_button_;
-  QTableWidget* table_;
-
-  QSpinBox* frame_rate_sb_;
-  QCheckBox* smooth_cb_;
-  QDoubleSpinBox* smoothness_sb_;
-
-  std::unordered_map<const QTableWidgetItem*, ViewData> view_data_;
-};
+std::ostream& operator<<(std::ostream& stream, const Frame& frame) {
+  stream << "Frame(frame_id=" << frame.FrameId() << ", rig_id=";
+  if (frame.HasRigId()) {
+    if (frame.RigId() == kInvalidRigId) {
+      stream << "Invalid";
+    } else {
+      stream << frame.RigId();
+    }
+  } else {
+    stream << "Unknown";
+  }
+  stream << ", has_pose=" << frame.HasPose() << ", data_ids=[";
+  for (const auto& data_id : frame.DataIds()) {
+    stream << "(" << data_id.sensor_id.type << ", " << data_id.sensor_id.id
+           << ", " << data_id.id << "), ";
+  }
+  if (!frame.DataIds().empty()) {
+    stream.seekp(-2, std::ios_base::end);
+  }
+  stream << "])";
+  return stream;
+}
 
 }  // namespace colmap

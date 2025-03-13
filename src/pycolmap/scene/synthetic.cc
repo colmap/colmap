@@ -23,6 +23,7 @@ void BindSynthetic(py::module& m) {
   auto PySyntheticDatasetOptions =
       py::class_<SyntheticDatasetOptions>(m, "SyntheticDatasetOptions")
           .def(py::init<>())
+          .def_readwrite("num_rigs", &SyntheticDatasetOptions::num_rigs)
           .def_readwrite("num_cameras", &SyntheticDatasetOptions::num_cameras)
           .def_readwrite("num_images", &SyntheticDatasetOptions::num_images)
           .def_readwrite("num_points3D", &SyntheticDatasetOptions::num_points3D)

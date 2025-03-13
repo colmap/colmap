@@ -47,13 +47,20 @@ Reconstruction::Reconstruction() : max_point3D_id_(0) {}
 Reconstruction::Reconstruction(const Reconstruction& other)
     : rigs_(other.rigs_),
       cameras_(other.cameras_),
+      frames_(other.frames_),
       images_(other.images_),
       points3D_(other.points3D_),
       reg_image_ids_(other.reg_image_ids_),
       max_point3D_id_(other.max_point3D_id_) {
+  for (auto& [_, frame] : frames_) {
+    frame.ResetRigPtr();
+    frame.SetRigPtr(&Rig(frame.RigId()));
+  }
   for (auto& [_, image] : images_) {
     image.ResetCameraPtr();
     image.SetCameraPtr(&Camera(image.CameraId()));
+    image.ResetFramePtr();
+    image.SetFramePtr(&Frame(image.FrameId()));
   }
 }
 
@@ -61,13 +68,20 @@ Reconstruction& Reconstruction::operator=(const Reconstruction& other) {
   if (this != &other) {
     rigs_ = other.rigs_;
     cameras_ = other.cameras_;
+    frames_ = other.frames_;
     images_ = other.images_;
     points3D_ = other.points3D_;
     reg_image_ids_ = other.reg_image_ids_;
     max_point3D_id_ = other.max_point3D_id_;
+    for (auto& [_, frame] : frames_) {
+      frame.ResetRigPtr();
+      frame.SetRigPtr(&Rig(frame.RigId()));
+    }
     for (auto& [_, image] : images_) {
       image.ResetCameraPtr();
       image.SetCameraPtr(&Camera(image.CameraId()));
+      image.ResetFramePtr();
+      image.SetFramePtr(&Frame(image.FrameId()));
     }
   }
   return *this;
@@ -85,30 +99,44 @@ std::unordered_set<point3D_t> Reconstruction::Point3DIds() const {
 }
 
 void Reconstruction::Load(const DatabaseCache& database_cache) {
+  // Add rigs.
+  cameras_.reserve(database_cache.NumRigs());
+  for (const auto& [rig_id, rig] : database_cache.Rigs()) {
+    if (!ExistsRig(rig_id)) {
+      AddRig(rig);
+    }
+  }
+
   // Add cameras.
   cameras_.reserve(database_cache.NumCameras());
-  for (const auto& camera : database_cache.Cameras()) {
-    if (!ExistsCamera(camera.first)) {
-      AddCamera(camera.second);
+  for (const auto& [camera_id, camera] : database_cache.Cameras()) {
+    if (!ExistsCamera(camera_id)) {
+      AddCamera(camera);
     }
-    // Else: camera was added before, e.g. with `ReadAllCameras`.
+  }
+
+  // Add frames.
+  frames_.reserve(database_cache.NumFrames());
+  for (const auto& [frame_id, frame] : database_cache.Frames()) {
+    if (!ExistsFrame(frame_id)) {
+      AddFrame(frame);
+    }
   }
 
   // Add images.
   images_.reserve(database_cache.NumImages());
 
-  for (const auto& image : database_cache.Images()) {
-    if (ExistsImage(image.second.ImageId())) {
-      class Image& existing_image = Image(image.second.ImageId());
-      THROW_CHECK_EQ(existing_image.Name(), image.second.Name());
+  for (const auto& [image_id, image] : database_cache.Images()) {
+    if (ExistsImage(image_id)) {
+      class Image& existing_image = Image(image_id);
+      THROW_CHECK_EQ(existing_image.Name(), image.Name());
       if (existing_image.NumPoints2D() == 0) {
-        existing_image.SetPoints2D(image.second.Points2D());
+        existing_image.SetPoints2D(image.Points2D());
       } else {
-        THROW_CHECK_EQ(image.second.NumPoints2D(),
-                       existing_image.NumPoints2D());
+        THROW_CHECK_EQ(image.NumPoints2D(), existing_image.NumPoints2D());
       }
     } else {
-      AddImage(image.second);
+      AddImage(image);
     }
   }
 }
@@ -151,6 +179,17 @@ void Reconstruction::AddCamera(struct Camera camera) {
   THROW_CHECK(cameras_.emplace(camera_id, std::move(camera)).second);
 }
 
+void Reconstruction::AddFrame(class Frame frame) {
+  THROW_CHECK(frame.HasRigId());
+  auto& rig = Rig(frame.RigId());
+  if (frame.HasRigPtr()) {
+    THROW_CHECK_EQ(frame.RigPtr(), &rig);
+  } else {
+    frame.SetRigPtr(&rig);
+  }
+  THROW_CHECK(frames_.emplace(frame.FrameId(), std::move(frame)).second);
+}
+
 void Reconstruction::AddImage(class Image image) {
   THROW_CHECK(image.HasCameraId());
   auto& camera = Camera(image.CameraId());
@@ -158,6 +197,13 @@ void Reconstruction::AddImage(class Image image) {
     THROW_CHECK_EQ(image.CameraPtr(), &camera);
   } else {
     image.SetCameraPtr(&camera);
+  }
+  THROW_CHECK(image.HasFrameId());
+  auto& frame = Frame(image.FrameId());
+  if (image.HasFramePtr()) {
+    THROW_CHECK_EQ(image.FramePtr(), &frame);
+  } else {
+    image.SetFramePtr(&frame);
   }
   const image_t image_id = image.ImageId();
   const bool is_registered = image.HasPose();
@@ -268,13 +314,7 @@ void Reconstruction::DeleteObservation(const image_t image_id,
 void Reconstruction::DeleteAllPoints2DAndPoints3D() {
   points3D_.clear();
   for (auto& image : images_) {
-    class Image new_image;
-    new_image.SetImageId(image.second.ImageId());
-    new_image.SetName(image.second.Name());
-    new_image.SetCameraId(image.second.CameraId());
-    new_image.SetCameraPtr(image.second.CameraPtr());
-    new_image.SetCamFromWorld(image.second.MaybeCamFromWorld());
-    image.second = new_image;
+    image.second.SetPoints2D(std::vector<Eigen::Vector2d>(0));
   }
 }
 
@@ -386,8 +426,9 @@ Reconstruction::ComputeBBBoxAndCentroid(const double min_percentile,
 void Reconstruction::Transform(const Sim3d& new_from_old_world) {
   for (auto& [_, image] : images_) {
     if (image.HasPose()) {
-      image.SetCamFromWorld(
-          TransformCameraWorld(new_from_old_world, image.CamFromWorld()));
+      const Rigid3d cam_from_new_world =
+          TransformCameraWorld(new_from_old_world, image.CamFromWorld());
+      image.FramePtr()->SetCamFromWorld(image.CameraId(), cam_from_new_world);
     }
   }
   for (auto& point3D : points3D_) {
@@ -397,17 +438,24 @@ void Reconstruction::Transform(const Sim3d& new_from_old_world) {
 
 Reconstruction Reconstruction::Crop(const Eigen::AlignedBox3d& bbox) const {
   Reconstruction cropped_reconstruction;
-  for (const auto& camera : cameras_) {
-    cropped_reconstruction.AddCamera(camera.second);
+  for (const auto& [_, rig] : rigs_) {
+    cropped_reconstruction.AddRig(rig);
   }
-  for (const auto& image : images_) {
-    auto new_image = image.second;
-    new_image.ResetCameraPtr();
-    const auto num_points2D = new_image.NumPoints2D();
+  for (const auto& [_, camera] : cameras_) {
+    cropped_reconstruction.AddCamera(camera);
+  }
+  for (auto [_, frame] : frames_) {
+    frame.ResetRigPtr();
+    cropped_reconstruction.AddFrame(frame);
+  }
+  for (auto [_, image] : images_) {
+    image.ResetCameraPtr();
+    image.ResetFramePtr();
+    const auto num_points2D = image.NumPoints2D();
     for (point2D_t point2D_idx = 0; point2D_idx < num_points2D; ++point2D_idx) {
-      new_image.ResetPoint3DForPoint2D(point2D_idx);
+      image.ResetPoint3DForPoint2D(point2D_idx);
     }
-    cropped_reconstruction.AddImage(new_image);
+    cropped_reconstruction.AddImage(image);
   }
   std::unordered_set<image_t> registered_image_ids;
   for (const auto& point3D : points3D_) {

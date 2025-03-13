@@ -161,8 +161,11 @@ void IncrementalMapper::RegisterInitialImagePair(
   // Estimate two-view geometry
   //////////////////////////////////////////////////////////////////////////////
 
-  image1.SetCamFromWorld(Rigid3d());
-  image2.SetCamFromWorld(two_view_geometry.cam2_from_cam1);
+  THROW_CHECK(image1.HasTrivialFrame());
+  image1.FramePtr()->SetFrameFromWorld(Rigid3d());
+
+  THROW_CHECK(image2.HasTrivialFrame());
+  image2.FramePtr()->SetFrameFromWorld(two_view_geometry.cam2_from_cam1);
 
   const Eigen::Matrix3x4d cam_from_world1 = image1.CamFromWorld().ToMatrix();
   const Eigen::Matrix3x4d cam_from_world2 = image2.CamFromWorld().ToMatrix();
@@ -381,7 +384,9 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   // Continue tracks
   //////////////////////////////////////////////////////////////////////////////
 
-  image.SetCamFromWorld(cam_from_world);
+  THROW_CHECK(image.HasTrivialFrame());
+  image.FramePtr()->SetFrameFromWorld(cam_from_world);
+
   reconstruction_->RegisterImage(image_id);
   RegisterImageEvent(image_id);
 

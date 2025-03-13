@@ -176,6 +176,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
 
   // Synthesize cameras.
   std::vector<Rig> rigs(num_rigs);
+  std::unordered_map<camera_t, size_t> camera_to_rig_idx;
   std::vector<camera_t> camera_ids(options.num_cameras);
   for (int camera_idx = 0; camera_idx < options.num_cameras; ++camera_idx) {
     Camera camera;
@@ -191,9 +192,10 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
     camera.camera_id = camera_id;
     reconstruction->AddCamera(std::move(camera));
 
-    sensor_t sensor_id(SensorType::CAMERA, camera_id);
+    const sensor_t sensor_id(SensorType::CAMERA, camera_id);
     const rig_t rig_idx = camera_idx % num_rigs;
     Rig& rig = rigs[rig_idx];
+    camera_to_rig_idx[camera_id] = rig_idx;
     if (rig.NumSensors() == 0) {
       rig.AddRefSensor(sensor_id);
     } else {
@@ -216,7 +218,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
     const rig_t rig_id =
         (database == nullptr) ? rig_idx + 1 : database->WriteRig(rig);
     rig.SetRigId(rig_id);
-    reconstruction->AddRig(std::move(rig));
+    reconstruction->AddRig(rig);
   }
 
   // Synthesize 3D points on unit sphere centered at origin.
@@ -239,11 +241,10 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
     // centered at origin.
     const Eigen::Vector3d view_dir = -Eigen::Vector3d::Random().normalized();
     const Eigen::Vector3d proj_center = -5 * view_dir;
-    image.SetCamFromWorld(Rigid3d());
-    image.CamFromWorld().rotation =
+    Rigid3d cam_from_world;
+    cam_from_world.rotation =
         Eigen::Quaterniond::FromTwoVectors(view_dir, Eigen::Vector3d(0, 0, 1));
-    image.CamFromWorld().translation =
-        image.CamFromWorld().rotation * -proj_center;
+    cam_from_world.translation = cam_from_world.rotation * -proj_center;
 
     const Camera& camera = reconstruction->Camera(image.CameraId());
 
@@ -254,11 +255,9 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
     // Create 3D point observations by project all 3D points to the image.
     for (auto& point3D : reconstruction->Points3D()) {
       Point2D point2D;
-      if (const std::optional<Eigen::Vector2d> proj_point2D =
-              camera.ImgFromCam(image.CamFromWorld() * point3D.second.xyz);
-          proj_point2D.has_value()) {
-        point2D.xy = *proj_point2D;
-      }
+      const std::optional<Eigen::Vector2d> proj_point2D =
+          camera.ImgFromCam(cam_from_world * point3D.second.xyz);
+      point2D.xy = proj_point2D.value();
       if (options.point2D_stddev > 0) {
         const Eigen::Vector2d noise(
             RandomGaussian<double>(0, options.point2D_stddev),
@@ -349,7 +348,24 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
       database->WritePosePrior(image_id, noisy_prior);
     }
 
+    Frame frame;
+    const Rig& rig = rigs.at(camera_to_rig_idx.at(image.CameraId()));
+    const sensor_t sensor_id(SensorType::CAMERA, image.CameraId());
+    frame.SetRigId(rig.RigId());
+    frame.AddDataId(data_t(sensor_id, image_id));
+    if (rig.IsRefSensor(sensor_id)) {
+      frame.SetFrameFromWorld(cam_from_world);
+    } else {
+      frame.SetFrameFromWorld(Inverse(rig.SensorFromRig(sensor_id)) *
+                              cam_from_world);
+    }
+    const frame_t frame_id =
+        (database == nullptr) ? image_id : database->WriteFrame(frame);
+    frame.SetFrameId(frame_id);
+    reconstruction->AddFrame(std::move(frame));
+
     image.SetImageId(image_id);
+    image.SetFrameId(frame_id);
     image.SetPoints2D(points2D);
     reconstruction->AddImage(std::move(image));
     reconstruction->RegisterImage(image_id);
