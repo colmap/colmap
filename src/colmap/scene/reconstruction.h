@@ -121,11 +121,13 @@ class Reconstruction {
   // might be taken by the same camera.
   void AddCamera(struct Camera camera);
 
-  // Add new frame.
+  // Add new frame. Its rig must have been added before. If its rig object
+  // is unset, it will be automatically populated from the added rigs.
   void AddFrame(class Frame frame);
 
-  // Add new image. Its camera must have been added before. If its camera object
-  // is unset, it will be automatically populated from the added cameras.
+  // Add new image. Its camera and frame must have been added before. If its
+  // camera/frame objects are unset, they will be automatically populated from
+  // the added cameras.
   void AddImage(class Image image);
 
   // Add new 3D point with known ID.

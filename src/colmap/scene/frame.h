@@ -40,6 +40,9 @@
 
 namespace colmap {
 
+// Frames represent (posed) instantiations of rigs with associated measurements
+// for the different sensors. The captured sensor measurements are defined by
+// the list of data ids.
 class Frame {
  public:
   // Access the unique identifier of the frame.
@@ -62,8 +65,8 @@ class Frame {
 
   // Access to the underlying, shared rig object.
   // This is typically only set when the frame was added to a reconstruction.
-  inline class Rig* RigPtr() const;
-  inline void SetRigPtr(class Rig* rig);
+  inline const class Rig* RigPtr() const;
+  inline void SetRigPtr(const class Rig* rig);
   inline void ResetRigPtr();
   // Check if the frame has a non-trivial rig.
   inline bool HasRigPtr() const;
@@ -82,7 +85,7 @@ class Frame {
   inline Rigid3d SensorFromWorld(sensor_t sensor_id) const;
 
   // Set the world to frame from the given camera to world transformation.
-  void ApplyCamFromWorld(camera_t camera_id, const Rigid3d& cam_from_world);
+  void SetCamFromWorld(camera_t camera_id, const Rigid3d& cam_from_world);
 
   inline bool operator==(const Frame& other) const;
   inline bool operator!=(const Frame& other) const;
@@ -98,7 +101,7 @@ class Frame {
 
   // Rig calibration.
   rig_t rig_id_ = kInvalidRigId;
-  class Rig* rig_ptr_ = nullptr;
+  const class Rig* rig_ptr_ = nullptr;
 };
 
 std::ostream& operator<<(std::ostream& stream, const Frame& frame);
@@ -127,9 +130,9 @@ void Frame::SetRigId(rig_t rig_id) { rig_id_ = rig_id; }
 
 bool Frame::HasRigId() const { return rig_id_ != kInvalidRigId; }
 
-Rig* Frame::RigPtr() const { return THROW_CHECK_NOTNULL(rig_ptr_); }
+const Rig* Frame::RigPtr() const { return THROW_CHECK_NOTNULL(rig_ptr_); }
 
-void Frame::SetRigPtr(Rig* rig) { rig_ptr_ = rig; }
+void Frame::SetRigPtr(const class Rig* rig) { rig_ptr_ = rig; }
 
 void Frame::ResetRigPtr() { rig_ptr_ = nullptr; }
 

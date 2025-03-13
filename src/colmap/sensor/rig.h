@@ -38,13 +38,13 @@
 
 namespace colmap {
 
-// Rig calibration storing the sensor from rig transformation.
-// The reference sensor shares identity poses with the device.
-// This design is mainly for two purposes:
-// 1) In the visual-inertial optimization one of the IMUs is generally used as
-// the reference frame since it is metric.
-// 2) Not having a reference frame brings a 6 DoF Gauge for each rig, which is
-// not ideal particularly when it comes to covariance estimation.
+// Rigs represent a collection of rigidly mounted sensors and the associated
+// sensor from rig transformations. The reference sensor is defined to have
+// identity pose in the rig frame. This design is mainly for two purposes: 1) In
+// visual-inertial optimization, one of the IMUs is generally used as the
+// reference frame since it is metric. 2) Not having a reference frame brings a
+// 6 DoF Gauge for each rig, which is not ideal particularly when it comes to
+// covariance estimation.
 class Rig {
  public:
   // Access the unique identifier of the rig.
