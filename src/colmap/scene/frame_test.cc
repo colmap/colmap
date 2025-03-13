@@ -98,7 +98,7 @@ TEST(Frame, SetResetPose) {
   EXPECT_EQ(frame.MaybeFrameFromWorld(), std::nullopt);
 }
 
-TEST(Frame, ApplyCamFromWorld) {
+TEST(Frame, SetCamFromWorld) {
   Frame frame;
   Rig rig;
   frame.SetRigId(1);
@@ -109,12 +109,12 @@ TEST(Frame, ApplyCamFromWorld) {
   frame.SetRigPtr(&rig);
 
   const Rigid3d cam1_from_world = TestRigid3d();
-  frame.ApplyCamFromWorld(sensor_id1.id, cam1_from_world);
+  frame.SetCamFromWorld(sensor_id1.id, cam1_from_world);
   EXPECT_EQ(frame.FrameFromWorld(), cam1_from_world);
   EXPECT_EQ(frame.SensorFromWorld(sensor_id1), cam1_from_world);
 
   const Rigid3d cam2_from_world = TestRigid3d();
-  frame.ApplyCamFromWorld(sensor_id2.id, cam2_from_world);
+  frame.SetCamFromWorld(sensor_id2.id, cam2_from_world);
   const Rigid3d sensor2_from_world = frame.SensorFromWorld(sensor_id2);
   EXPECT_THAT(cam2_from_world.translation,
               EigenMatrixNear(sensor2_from_world.translation, 1e-6));

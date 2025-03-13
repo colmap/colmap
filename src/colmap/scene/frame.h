@@ -82,7 +82,7 @@ class Frame {
   inline Rigid3d SensorFromWorld(sensor_t sensor_id) const;
 
   // Set the world to frame from the given camera to world transformation.
-  void ApplyCamFromWorld(camera_t camera_id, const Rigid3d& cam_from_world);
+  void SetCamFromWorld(camera_t camera_id, const Rigid3d& cam_from_world);
 
   inline bool operator==(const Frame& other) const;
   inline bool operator!=(const Frame& other) const;

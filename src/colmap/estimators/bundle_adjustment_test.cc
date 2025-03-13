@@ -175,10 +175,10 @@ void GenerateReconstruction(const size_t num_images,
     image.SetName(std::to_string(i));
 
     std::vector<Eigen::Vector2d> points2D;
-    for (const auto& point3D : reconstruction->Points3D()) {
+    for (const auto& [_, point3D] : reconstruction->Points3D()) {
       // Get exact projection of 3D point.
       std::optional<Eigen::Vector2d> point2D =
-          camera.ImgFromCam(frame.FrameFromWorld() * point3D.second.xyz);
+          camera.ImgFromCam(frame.FrameFromWorld() * point3D.xyz);
       CHECK(point2D.has_value());
       // Add some uniform noise.
       *point2D += Eigen::Vector2d(RandomUniformReal(-2.0, 2.0),
@@ -195,8 +195,8 @@ void GenerateReconstruction(const size_t num_images,
     TrackElement track_el;
     track_el.image_id = image_id;
     track_el.point2D_idx = 0;
-    for (const auto& point3D : reconstruction->Points3D()) {
-      reconstruction->AddObservation(point3D.first, track_el);
+    for (const auto& [point3D_id, _] : reconstruction->Points3D()) {
+      reconstruction->AddObservation(point3D_id, track_el);
       track_el.point2D_idx += 1;
     }
   }

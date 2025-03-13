@@ -475,7 +475,7 @@ bool MergeReconstructions(const double max_reproj_error,
     const Rigid3d cam_from_tgt_world =
         TransformCameraWorld(tgt_from_src, src_image.CamFromWorld());
     tgt_reconstruction.Frame(tgt_image.FrameId())
-        .ApplyCamFromWorld(tgt_image.CameraId(), cam_from_tgt_world);
+        .SetCamFromWorld(tgt_image.CameraId(), cam_from_tgt_world);
     tgt_reconstruction.AddImage(tgt_image);
     tgt_reconstruction.RegisterImage(image_id);
   }
