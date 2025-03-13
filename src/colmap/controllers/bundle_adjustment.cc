@@ -92,6 +92,7 @@ void BundleAdjustmentController::Run() {
     ba_config.AddImage(image_id);
   }
   auto reg_image_ids_it = reconstruction_->RegImageIds().begin();
+  ba_config.ChooseGauge()
   ba_config.SetConstantCamPose(*reg_image_ids_it);                // 1st image
   ba_config.SetConstantCamPositions(*(++reg_image_ids_it), {0});  // 2nd image
 

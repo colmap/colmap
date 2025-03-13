@@ -633,6 +633,55 @@ TEST(DefaultBundleAdjuster, ConstantExtraParam) {
   }
 }
 
+TEST(DefaultBundleAdjuster, TwoFrameStereoRig) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras = 2;
+  synthetic_dataset_options.num_images = 4;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.point2D_stddev = 1;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  const Reconstruction orig_reconstruction = reconstruction;
+
+  BundleAdjustmentConfig config;
+  config.AddImage(1);
+  config.AddImage(2);
+  config.AddImage(3);
+  config.AddImage(4);
+  config.SetConstantCamPose(1);
+  config.SetConstantCamPositions(2, {0});
+
+  BundleAdjustmentOptions options;
+  std::unique_ptr<BundleAdjuster> bundle_adjuster =
+      CreateDefaultBundleAdjuster(options, config, reconstruction);
+  const auto summary = bundle_adjuster->Solve();
+  ASSERT_NE(summary.termination_type, ceres::FAILURE);
+
+  // 100 points, 2 images, 2 residuals per point per image
+  EXPECT_EQ(summary.num_residuals_reduced, 800);
+  // 100 x 3 point parameters
+  // + 5 image parameters (pose of second image)
+  // + 1 x 6 image parameters
+  // + 1 x 6 rig paramaeters
+  // + 2 x 2 camera parameters
+  EXPECT_EQ(summary.num_effective_parameters_reduced, 321);
+
+  CheckVariableCamera(reconstruction.Camera(1), orig_reconstruction.Camera(1));
+  CheckConstantImage(reconstruction.Image(1), orig_reconstruction.Image(1));
+
+  CheckVariableCamera(reconstruction.Camera(2), orig_reconstruction.Camera(2));
+  CheckConstantXImage(reconstruction.Image(2), orig_reconstruction.Image(2));
+
+  CheckVariableImage(reconstruction.Image(3), orig_reconstruction.Image(3));
+  CheckVariableImage(reconstruction.Image(4), orig_reconstruction.Image(4));
+
+  for (const auto& point3D : reconstruction.Points3D()) {
+    CheckVariablePoint(point3D.second,
+                       orig_reconstruction.Point3D(point3D.first));
+  }
+}
+
 void GeneratePointCloud(const size_t num_points,
                         const Eigen::Vector3d& min,
                         const Eigen::Vector3d& max,

@@ -47,7 +47,9 @@ namespace colmap {
 // BundleAdjustmentConfig
 ////////////////////////////////////////////////////////////////////////////////
 
-BundleAdjustmentConfig::BundleAdjustmentConfig() {}
+void BundleAdjustmentConfig::ChooseGauge(Gauge gauge) { gauge_ = gauge; }
+
+enum class Gauge BundleAdjustmentConfig::Gauge() const { return gauge_; }
 
 size_t BundleAdjustmentConfig::NumImages() const { return image_ids_.size(); }
 
@@ -56,15 +58,11 @@ size_t BundleAdjustmentConfig::NumPoints() const {
 }
 
 size_t BundleAdjustmentConfig::NumConstantCamIntrinsics() const {
-  return constant_intrinsics_.size();
+  return constant_cam_intrinsics_.size();
 }
 
 size_t BundleAdjustmentConfig::NumConstantCamPoses() const {
   return constant_cam_poses_.size();
-}
-
-size_t BundleAdjustmentConfig::NumConstantCamPositions() const {
-  return constant_cam_positions_.size();
 }
 
 size_t BundleAdjustmentConfig::NumVariablePoints() const {
@@ -122,23 +120,18 @@ void BundleAdjustmentConfig::RemoveImage(const image_t image_id) {
 
 void BundleAdjustmentConfig::SetConstantCamIntrinsics(
     const camera_t camera_id) {
-  constant_intrinsics_.insert(camera_id);
+  constant_cam_intrinsics_.insert(camera_id);
 }
 
 void BundleAdjustmentConfig::SetVariableCamIntrinsics(
     const camera_t camera_id) {
-  constant_intrinsics_.erase(camera_id);
+  constant_cam_intrinsics_.erase(camera_id);
 }
 
 bool BundleAdjustmentConfig::HasConstantCamIntrinsics(
     const camera_t camera_id) const {
-  return constant_intrinsics_.find(camera_id) != constant_intrinsics_.end();
-}
-
-void BundleAdjustmentConfig::SetConstantCamPose(const image_t image_id) {
-  THROW_CHECK(HasImage(image_id));
-  THROW_CHECK(!HasConstantCamPositions(image_id));
-  constant_cam_poses_.insert(image_id);
+  return constant_cam_intrinsics_.find(camera_id) !=
+         constant_cam_intrinsics_.end();
 }
 
 void BundleAdjustmentConfig::SetVariableCamPose(const image_t image_id) {
@@ -147,34 +140,6 @@ void BundleAdjustmentConfig::SetVariableCamPose(const image_t image_id) {
 
 bool BundleAdjustmentConfig::HasConstantCamPose(const image_t image_id) const {
   return constant_cam_poses_.find(image_id) != constant_cam_poses_.end();
-}
-
-void BundleAdjustmentConfig::SetConstantCamPositions(
-    const image_t image_id, const std::vector<int>& idxs) {
-  THROW_CHECK_GT(idxs.size(), 0);
-  THROW_CHECK_LT(idxs.size(), 3)
-      << "Set the entire parameter block as constant instead";
-  THROW_CHECK(HasImage(image_id));
-  THROW_CHECK(!HasConstantCamPose(image_id));
-  THROW_CHECK(!VectorContainsDuplicateValues(idxs))
-      << "Tvec indices must not contain duplicates";
-  constant_cam_positions_.emplace(image_id, idxs);
-}
-
-void BundleAdjustmentConfig::RemoveConstantCamPositions(
-    const image_t image_id) {
-  constant_cam_positions_.erase(image_id);
-}
-
-bool BundleAdjustmentConfig::HasConstantCamPositions(
-    const image_t image_id) const {
-  return constant_cam_positions_.find(image_id) !=
-         constant_cam_positions_.end();
-}
-
-const std::unordered_set<camera_t> BundleAdjustmentConfig::ConstantIntrinsics()
-    const {
-  return constant_intrinsics_;
 }
 
 const std::unordered_set<image_t>& BundleAdjustmentConfig::Images() const {
@@ -191,14 +156,14 @@ const std::unordered_set<point3D_t>& BundleAdjustmentConfig::ConstantPoints()
   return constant_point3D_ids_;
 }
 
+const std::unordered_set<camera_t>
+BundleAdjustmentConfig::ConstantCamIntrinsics() const {
+  return constant_cam_intrinsics_;
+}
+
 const std::unordered_set<image_t>& BundleAdjustmentConfig::ConstantCamPoses()
     const {
   return constant_cam_poses_;
-}
-
-const std::vector<int>& BundleAdjustmentConfig::ConstantCamPositions(
-    const image_t image_id) const {
-  return constant_cam_positions_.at(image_id);
 }
 
 void BundleAdjustmentConfig::AddVariablePoint(const point3D_t point3D_id) {
@@ -437,6 +402,12 @@ void ParameterizePoints(
   }
 }
 
+void ParameterizeCameras(const BundleAdjustmentConfig& config,
+  Reconstruction& reconstruction,
+  ceres::Problem& problem) {
+    
+  }
+
 class DefaultBundleAdjuster : public BundleAdjuster {
  public:
   DefaultBundleAdjuster(BundleAdjustmentOptions options,
@@ -466,6 +437,7 @@ class DefaultBundleAdjuster : public BundleAdjuster {
         options_, config_, camera_ids_, reconstruction, *problem_);
     ParameterizePoints(
         config_, point3D_num_observations_, reconstruction, *problem_);
+        FixGauge(config_, reconstruction, *problem_);
   }
 
   ceres::Solver::Summary Solve() override {
