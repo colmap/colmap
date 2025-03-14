@@ -129,7 +129,7 @@ constexpr double kConstantPoseVarEps = 1e-9;
 namespace colmap {
 namespace {
 
-TEST(DefaultBundleAdjuster, ConfigNumObservations) {
+TEST(BundleAdjustmentConfig, NumResiduals) {
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_cameras = 4;
@@ -181,6 +181,9 @@ TEST(DefaultBundleAdjuster, TwoView) {
   const auto summary = bundle_adjuster->Solve();
   ASSERT_NE(summary.termination_type, ceres::FAILURE);
 
+  EXPECT_EQ(config.NumResiduals(reconstruction),
+            bundle_adjuster->Problem()->NumResiduals());
+
   // 100 points, 2 images, 2 residuals per point per image
   EXPECT_EQ(summary.num_residuals_reduced, 400);
   // 100 x 3 point parameters
@@ -222,6 +225,9 @@ TEST(DefaultBundleAdjuster, TwoViewConstantCamera) {
       CreateDefaultBundleAdjuster(options, config, reconstruction);
   const auto summary = bundle_adjuster->Solve();
   ASSERT_NE(summary.termination_type, ceres::FAILURE);
+
+  EXPECT_EQ(config.NumResiduals(reconstruction),
+            bundle_adjuster->Problem()->NumResiduals());
 
   // 100 points, 2 images, 2 residuals per point per image
   EXPECT_EQ(summary.num_residuals_reduced, 400);
@@ -265,6 +271,9 @@ TEST(DefaultBundleAdjuster, PartiallyContainedTracks) {
       CreateDefaultBundleAdjuster(options, config, reconstruction);
   const auto summary = bundle_adjuster->Solve();
   ASSERT_NE(summary.termination_type, ceres::FAILURE);
+
+  EXPECT_EQ(config.NumResiduals(reconstruction),
+            bundle_adjuster->Problem()->NumResiduals());
 
   // 100 points, 2 images, 2 residuals per point per image
   EXPECT_EQ(summary.num_residuals_reduced, 400);
@@ -325,6 +334,9 @@ TEST(DefaultBundleAdjuster, PartiallyContainedTracksForceToOptimizePoint) {
   const auto summary = bundle_adjuster->Solve();
   ASSERT_NE(summary.termination_type, ceres::FAILURE);
 
+  EXPECT_EQ(config.NumResiduals(reconstruction),
+            bundle_adjuster->Problem()->NumResiduals());
+
   // 100 points, 2 images, 2 residuals per point per image
   // + 2 residuals in 3rd image for added variable 3D point
   // (added constant point does not add residuals since the image/camera
@@ -382,6 +394,9 @@ TEST(DefaultBundleAdjuster, ConstantPoints) {
   const auto summary = bundle_adjuster->Solve();
   ASSERT_NE(summary.termination_type, ceres::FAILURE);
 
+  EXPECT_EQ(config.NumResiduals(reconstruction),
+            bundle_adjuster->Problem()->NumResiduals());
+
   // 100 points, 2 images, 2 residuals per point per image
   EXPECT_EQ(summary.num_residuals_reduced, 400);
   // 98 x 3 point parameters
@@ -428,6 +443,9 @@ TEST(DefaultBundleAdjuster, VariableImage) {
   const auto summary = bundle_adjuster->Solve();
   ASSERT_NE(summary.termination_type, ceres::FAILURE);
 
+  EXPECT_EQ(config.NumResiduals(reconstruction),
+            bundle_adjuster->Problem()->NumResiduals());
+
   // 100 points, 3 images, 2 residuals per point per image
   EXPECT_EQ(summary.num_residuals_reduced, 600);
   // 100 x 3 point parameters
@@ -472,6 +490,9 @@ TEST(DefaultBundleAdjuster, ConstantFocalLength) {
       CreateDefaultBundleAdjuster(options, config, reconstruction);
   const auto summary = bundle_adjuster->Solve();
   ASSERT_NE(summary.termination_type, ceres::FAILURE);
+
+  EXPECT_EQ(config.NumResiduals(reconstruction),
+            bundle_adjuster->Problem()->NumResiduals());
 
   // 100 points, 3 images, 2 residuals per point per image
   EXPECT_EQ(summary.num_residuals_reduced, 400);
@@ -527,6 +548,9 @@ TEST(DefaultBundleAdjuster, VariablePrincipalPoint) {
       CreateDefaultBundleAdjuster(options, config, reconstruction);
   const auto summary = bundle_adjuster->Solve();
   ASSERT_NE(summary.termination_type, ceres::FAILURE);
+
+  EXPECT_EQ(config.NumResiduals(reconstruction),
+            bundle_adjuster->Problem()->NumResiduals());
 
   // 100 points, 3 images, 2 residuals per point per image
   EXPECT_EQ(summary.num_residuals_reduced, 400);
@@ -595,6 +619,9 @@ TEST(DefaultBundleAdjuster, ConstantExtraParam) {
   const auto summary = bundle_adjuster->Solve();
   ASSERT_NE(summary.termination_type, ceres::FAILURE);
 
+  EXPECT_EQ(config.NumResiduals(reconstruction),
+            bundle_adjuster->Problem()->NumResiduals());
+
   // 100 points, 3 images, 2 residuals per point per image
   EXPECT_EQ(summary.num_residuals_reduced, 400);
   // 100 x 3 point parameters
@@ -651,6 +678,9 @@ TEST(DefaultBundleAdjuster, TwoFrameStereoRig) {
       CreateDefaultBundleAdjuster(options, config, reconstruction);
   const auto summary = bundle_adjuster->Solve();
   ASSERT_NE(summary.termination_type, ceres::FAILURE);
+
+  EXPECT_EQ(config.NumResiduals(reconstruction),
+            bundle_adjuster->Problem()->NumResiduals());
 
   // 100 points, 2 images, 2 residuals per point per image
   EXPECT_EQ(summary.num_residuals_reduced, 800);
