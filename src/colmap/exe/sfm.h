@@ -31,6 +31,7 @@
 
 #include "colmap/controllers/incremental_pipeline.h"
 #include "colmap/scene/reconstruction.h"
+#include "colmap/scene/camera_rig.h"
 
 namespace colmap {
 
@@ -52,5 +53,8 @@ int RunPosePriorMapper(int argc, char** argv);
 int RunPointFiltering(int argc, char** argv);
 int RunPointTriangulator(int argc, char** argv);
 int RunRigBundleAdjuster(int argc, char** argv);
+void WriteCameraRigConfig(const std::string& rig_config_path,
+                          const std::vector<CameraRig>& camera_rigs,
+                          const Reconstruction& reconstruction);
 
 }  // namespace colmap

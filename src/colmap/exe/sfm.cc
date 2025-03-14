@@ -43,6 +43,7 @@
 
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
+#include <iomanip>
 
 namespace colmap {
 
@@ -670,9 +671,12 @@ namespace {
 //            frame002.png
 //            ...
 //
-std::vector<CameraRig> ReadCameraRigConfig(const std::string& rig_config_path,
-                                           const Reconstruction& reconstruction,
-                                           bool estimate_rig_relative_poses) {
+std::vector<CameraRig> ReadCameraRigConfig(
+    const std::string& rig_config_path,
+    const Reconstruction& reconstruction,
+    bool estimate_rig_relative_poses,
+    std::unordered_map<camera_t, std::string>* camera_id_to_prefix) {
+
   boost::property_tree::ptree pt;
   boost::property_tree::read_json(rig_config_path.c_str(), pt);
 
@@ -683,7 +687,13 @@ std::vector<CameraRig> ReadCameraRigConfig(const std::string& rig_config_path,
     std::vector<std::string> image_prefixes;
     for (const auto& camera : rig_config.second.get_child("cameras")) {
       const int camera_id = camera.second.get<int>("camera_id");
-      image_prefixes.push_back(camera.second.get<std::string>("image_prefix"));
+      std::string image_prefix = camera.second.get<std::string>("image_prefix");
+      image_prefixes.push_back(image_prefix);
+
+      // Store the mapping
+      if (camera_id_to_prefix != nullptr) {
+        (*camera_id_to_prefix)[camera_id] = image_prefix;
+      }
 
       Rigid3d cam_from_rig;
 
@@ -764,6 +774,98 @@ std::vector<CameraRig> ReadCameraRigConfig(const std::string& rig_config_path,
 
 }  // namespace
 
+// Write the configuration of camera rigs to a JSON file.
+void WriteCameraRigConfig(
+    const std::string& rig_config_path,
+    const std::vector<CameraRig>& camera_rigs,
+    const Reconstruction& reconstruction,
+    const std::unordered_map<camera_t, std::string>& camera_id_to_prefix) {
+  // Open the file for writing
+  std::ofstream file(rig_config_path);
+  if (!file.is_open()) {
+    LOG(ERROR) << "Could not open file: " << rig_config_path;
+    return;
+  }
+
+  // Set high precision for floating point values
+  file << std::setprecision(16);
+
+  // Write array opening bracket
+  file << "[\n";
+
+  // Iterate over camera rigs
+  for (size_t rig_idx = 0; rig_idx < camera_rigs.size(); ++rig_idx) {
+    const auto& camera_rig = camera_rigs[rig_idx];
+
+    file << "    {\n";
+    file << "        \"ref_camera_id\": " << camera_rig.RefCameraId() << ",\n";
+    file << "        \"cameras\": [\n";
+
+    // Get all camera IDs and sort them
+    std::vector<camera_t> camera_ids = camera_rig.GetCameraIds();
+    std::sort(camera_ids.begin(), camera_ids.end());
+
+    // Iterate over cameras
+    for (size_t cam_idx = 0; cam_idx < camera_ids.size(); ++cam_idx) {
+      const auto camera_id = camera_ids[cam_idx];
+
+      file << "            {\n";
+      file << "                \"camera_id\": " << camera_id << ",\n";
+
+      // Image prefix
+      std::string image_prefix = "";
+      if (camera_id_to_prefix.count(camera_id)) {
+        image_prefix = camera_id_to_prefix.at(camera_id);
+      }
+      file << "                \"image_prefix\": \"" << image_prefix << "\",\n";
+
+      // Get camera-to-rig transformation
+      const Rigid3d& cam_from_rig = camera_rig.CamFromRig(camera_id);
+
+      // Write translation vector first
+      file << "                \"cam_from_rig_translation\": [\n";
+      const Eigen::Vector3d& translation = cam_from_rig.translation;
+      for (size_t i = 0; i < 3; ++i) {
+        file << "                    " << translation(i);
+        if (i < 2) file << ",";
+        file << "\n";
+      }
+      file << "                ],\n";
+
+      // Write rotation quaternion
+      file << "                \"cam_from_rig_rotation\": [\n";
+      const Eigen::Quaterniond& rotation = cam_from_rig.rotation;
+      // Order: w, x, y, z
+      Eigen::Vector4d qvec(
+          rotation.w(), rotation.x(), rotation.y(), rotation.z());
+      for (size_t i = 0; i < 4; ++i) {
+        file << "                    " << qvec(i);
+        if (i < 3) file << ",";
+        file << "\n";
+      }
+      file << "                ]\n";
+
+      // End of camera
+      file << "            }";
+      if (cam_idx < camera_ids.size() - 1) file << ",";
+      file << "\n";
+    }
+
+    // End of cameras array
+    file << "        ]\n";
+
+    // End of rig
+    file << "    }";
+    if (rig_idx < camera_rigs.size() - 1) file << ",";
+    file << "\n";
+  }
+
+  // Write array closing bracket
+  file << "]\n";
+
+  file.close();
+}
+
 int RunRigBundleAdjuster(int argc, char** argv) {
   std::string input_path;
   std::string output_path;
@@ -783,13 +885,19 @@ int RunRigBundleAdjuster(int argc, char** argv) {
   options.AddBundleAdjustmentOptions();
   options.Parse(argc, argv);
 
+  // save the optimized rig config to cam.json in the output folder
+  const std::string output_rig_config_path = JoinPaths(output_path, "cam.json");
+
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
 
   PrintHeading1("Camera rig configuration");
 
-  auto camera_rigs = ReadCameraRigConfig(
-      rig_config_path, reconstruction, estimate_rig_relative_poses);
+  std::unordered_map<camera_t, std::string> camera_id_to_prefix;
+  auto camera_rigs = ReadCameraRigConfig(rig_config_path,
+                                         reconstruction,
+                                         estimate_rig_relative_poses,
+                                         &camera_id_to_prefix);
 
   BundleAdjustmentConfig config;
   for (size_t i = 0; i < camera_rigs.size(); ++i) {
@@ -817,6 +925,16 @@ int RunRigBundleAdjuster(int argc, char** argv) {
   THROW_CHECK_NE(bundle_adjuster->Solve().termination_type, ceres::FAILURE);
 
   reconstruction.Write(output_path);
+
+  // Write the optimized rig configuration
+  PrintHeading1("Exporting optimized rig configuration");
+  LOG(INFO) << "Writing optimized rig configuration to: "
+            << output_rig_config_path;
+  WriteCameraRigConfig(
+      output_rig_config_path,
+      camera_rigs,
+      reconstruction,
+      camera_id_to_prefix);
 
   return EXIT_SUCCESS;
 }
