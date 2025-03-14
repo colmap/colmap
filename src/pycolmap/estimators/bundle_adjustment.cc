@@ -67,13 +67,13 @@ void BindBundleAdjuster(py::module& m) {
       .def("remove_constant_point", &BACfg::RemoveConstantPoint, "point3D_id"_a)
       .def_property_readonly("constant_cam_intrinsics",
                              &BACfg::ConstantCamIntrinsics)
-      .def_property_readonly("image_ids", &BACfg::Images)
-      .def_property_readonly("variable_point3D_ids", &BACfg::VariablePoints)
-      .def_property_readonly("constant_point3D_ids", &BACfg::ConstantPoints)
-      .def_property_readonly("constant_cam_poses",
-                             &BACfg::ConstantCamFromWorldPoses)
-      .def(
-          "constant_cam_positions", &BACfg::ConstantCamPositions, "image_id"_a);
+      .def_property_readonly("images", &BACfg::Images)
+      .def_property_readonly("variable_points", &BACfg::VariablePoints)
+      .def_property_readonly("constant_points", &BACfg::ConstantPoints)
+      .def_property_readonly("constant_frame_from_world_poses",
+                             &BACfg::ConstantFrameFromWorldPoses)
+      .def_property_readonly("constant_sensor_from_rig_poses",
+                             &BACfg::ConstantSensorFromRigPoses);
   MakeDataclass(PyBundleAdjustmentConfig);
 
   using BAOpts = BundleAdjustmentOptions;
