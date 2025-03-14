@@ -173,8 +173,7 @@ TEST(DefaultBundleAdjuster, TwoView) {
   BundleAdjustmentConfig config;
   config.AddImage(1);
   config.AddImage(2);
-  config.SetConstantCamPose(1);
-  config.SetConstantCamPositions(2, {0});
+  config.FixGauge(BundleAdjustmentConfig::Gauge::TWO_CAMS_FROM_WORLD);
 
   BundleAdjustmentOptions options;
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
@@ -214,8 +213,8 @@ TEST(DefaultBundleAdjuster, TwoViewConstantCamera) {
   BundleAdjustmentConfig config;
   config.AddImage(1);
   config.AddImage(2);
-  config.SetConstantCamPose(1);
-  config.SetConstantCamPose(2);
+  config.SetConstantFrameFromWorldPose(1);
+  config.SetConstantFrameFromWorldPose(2);
   config.SetConstantCamIntrinsics(1);
 
   BundleAdjustmentOptions options;
@@ -258,8 +257,8 @@ TEST(DefaultBundleAdjuster, PartiallyContainedTracks) {
   BundleAdjustmentConfig config;
   config.AddImage(1);
   config.AddImage(2);
-  config.SetConstantCamPose(1);
-  config.SetConstantCamPose(2);
+  config.SetConstantFrameFromWorldPose(1);
+  config.SetConstantFrameFromWorldPose(2);
 
   BundleAdjustmentOptions options;
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
@@ -315,8 +314,8 @@ TEST(DefaultBundleAdjuster, PartiallyContainedTracksForceToOptimizePoint) {
   BundleAdjustmentConfig config;
   config.AddImage(1);
   config.AddImage(2);
-  config.SetConstantCamPose(1);
-  config.SetConstantCamPose(2);
+  config.SetConstantFrameFromWorldPose(1);
+  config.SetConstantFrameFromWorldPose(2);
   config.AddVariablePoint(add_variable_point3D_id);
   config.AddConstantPoint(add_constant_point3D_id);
 
@@ -372,8 +371,8 @@ TEST(DefaultBundleAdjuster, ConstantPoints) {
   BundleAdjustmentConfig config;
   config.AddImage(1);
   config.AddImage(2);
-  config.SetConstantCamPose(1);
-  config.SetConstantCamPose(2);
+  config.SetConstantFrameFromWorldPose(1);
+  config.SetConstantFrameFromWorldPose(2);
   config.AddConstantPoint(constant_point3D_id1);
   config.AddConstantPoint(constant_point3D_id2);
 
@@ -421,8 +420,7 @@ TEST(DefaultBundleAdjuster, VariableImage) {
   config.AddImage(1);
   config.AddImage(2);
   config.AddImage(3);
-  config.SetConstantCamPose(1);
-  config.SetConstantCamPositions(2, {0});
+  config.FixGauge(BundleAdjustmentConfig::Gauge::TWO_CAMS_FROM_WORLD);
 
   BundleAdjustmentOptions options;
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
@@ -466,8 +464,7 @@ TEST(DefaultBundleAdjuster, ConstantFocalLength) {
   BundleAdjustmentConfig config;
   config.AddImage(1);
   config.AddImage(2);
-  config.SetConstantCamPose(1);
-  config.SetConstantCamPositions(2, {0});
+  config.FixGauge(BundleAdjustmentConfig::Gauge::TWO_CAMS_FROM_WORLD);
 
   BundleAdjustmentOptions options;
   options.refine_focal_length = false;
@@ -522,8 +519,7 @@ TEST(DefaultBundleAdjuster, VariablePrincipalPoint) {
   BundleAdjustmentConfig config;
   config.AddImage(1);
   config.AddImage(2);
-  config.SetConstantCamPose(1);
-  config.SetConstantCamPositions(2, {0});
+  config.FixGauge(BundleAdjustmentConfig::Gauge::TWO_CAMS_FROM_WORLD);
 
   BundleAdjustmentOptions options;
   options.refine_principal_point = true;
@@ -590,8 +586,7 @@ TEST(DefaultBundleAdjuster, ConstantExtraParam) {
   BundleAdjustmentConfig config;
   config.AddImage(1);
   config.AddImage(2);
-  config.SetConstantCamPose(1);
-  config.SetConstantCamPositions(2, {0});
+  config.FixGauge(BundleAdjustmentConfig::Gauge::TWO_CAMS_FROM_WORLD);
 
   BundleAdjustmentOptions options;
   options.refine_extra_params = false;
@@ -649,8 +644,7 @@ TEST(DefaultBundleAdjuster, TwoFrameStereoRig) {
   config.AddImage(2);
   config.AddImage(3);
   config.AddImage(4);
-  config.SetConstantCamPose(1);
-  config.SetConstantCamPositions(2, {0});
+  config.FixGauge(BundleAdjustmentConfig::Gauge::TWO_CAMS_FROM_WORLD);
 
   BundleAdjustmentOptions options;
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
@@ -722,7 +716,7 @@ void GenerateReconstruction(const size_t num_images,
 
     Rig rig;
     rig.SetRigId(camera_id);
-    rig.AddRefSensor(sensor_t(SensorType::CAMERA, camera_id));
+    rig.AddRefSensor(camera.SensorId());
     reconstruction->AddRig(rig);
 
     Frame frame;

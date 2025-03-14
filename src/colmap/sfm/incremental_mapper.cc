@@ -464,6 +464,7 @@ IncrementalMapper::AdjustLocalBundle(
   // Do the bundle adjustment only if there is any connected images.
   if (local_bundle.size() > 0) {
     BundleAdjustmentConfig ba_config;
+    ba_config.FixGauge(BundleAdjustmentConfig::Gauge::THREE_POINTS);
     ba_config.AddImage(image_id);
     for (const image_t local_image_id : local_bundle) {
       ba_config.AddImage(local_image_id);
@@ -473,7 +474,7 @@ IncrementalMapper::AdjustLocalBundle(
     if (options.fix_existing_images) {
       for (const image_t local_image_id : local_bundle) {
         if (existing_image_ids_.count(local_image_id)) {
-          ba_config.SetConstantCamPose(local_image_id);
+          ba_config.SetConstantFrameFromWorldPose(local_image_id);
         }
       }
     }
@@ -491,20 +492,6 @@ IncrementalMapper::AdjustLocalBundle(
           reg_stats_.num_reg_images_per_camera.at(camera_id);
       if (num_images < num_reg_images_for_camera) {
         ba_config.SetConstantCamIntrinsics(camera_id);
-      }
-    }
-
-    // Fix 7 DOF to avoid scale/rotation/translation drift in bundle adjustment.
-    if (local_bundle.size() == 1) {
-      ba_config.SetConstantCamPose(local_bundle[0]);
-      ba_config.SetConstantCamPositions(image_id, {0});
-    } else if (local_bundle.size() > 1) {
-      const image_t image_id1 = local_bundle[local_bundle.size() - 1];
-      const image_t image_id2 = local_bundle[local_bundle.size() - 2];
-      ba_config.SetConstantCamPose(image_id1);
-      if (!options.fix_existing_images ||
-          !existing_image_ids_.count(image_id2)) {
-        ba_config.SetConstantCamPositions(image_id2, {0});
       }
     }
 
@@ -598,7 +585,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
   if (options.fix_existing_images) {
     for (const image_t image_id : reg_image_ids) {
       if (existing_image_ids_.count(image_id)) {
-        ba_config.SetConstantCamPose(image_id);
+        ba_config.SetConstantFrameFromWorldPose(image_id);
       }
     }
   }
@@ -609,14 +596,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
 
   std::unique_ptr<BundleAdjuster> bundle_adjuster;
   if (!use_prior_position) {
-    // Fix 7-DOFs of the bundle adjustment problem.
-    auto reg_image_ids_it = reg_image_ids.begin();
-    ba_config.SetConstantCamPose(*(reg_image_ids_it++));  // 1st image
-    if (!options.fix_existing_images ||
-        !existing_image_ids_.count(*reg_image_ids_it)) {
-      ba_config.SetConstantCamPositions(*reg_image_ids_it, {0});  // 2nd image
-    }
-
+    ba_config.FixGauge(BundleAdjustmentConfig::Gauge::TWO_CAMS_FROM_WORLD);
     bundle_adjuster = CreateDefaultBundleAdjuster(
         std::move(custom_ba_options), std::move(ba_config), *reconstruction_);
   } else {

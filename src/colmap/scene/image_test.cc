@@ -39,6 +39,9 @@ TEST(Image, Default) {
   EXPECT_EQ(image.ImageId(), kInvalidImageId);
   EXPECT_EQ(image.Name(), "");
   EXPECT_EQ(image.CameraId(), kInvalidCameraId);
+  EXPECT_EQ(
+      image.DataId(),
+      data_t(sensor_t(SensorType::CAMERA, kInvalidCameraId), kInvalidImageId));
   EXPECT_FALSE(image.HasCameraId());
   EXPECT_FALSE(image.HasCameraPtr());
   EXPECT_FALSE(image.HasPose());
@@ -90,6 +93,13 @@ TEST(Image, CameraId) {
   EXPECT_EQ(image.CameraId(), kInvalidCameraId);
   image.SetCameraId(1);
   EXPECT_EQ(image.CameraId(), 1);
+}
+
+TEST(Image, DataId) {
+  Image image;
+  image.SetImageId(1);
+  image.SetCameraId(2);
+  EXPECT_EQ(image.DataId(), data_t(sensor_t(SensorType::CAMERA, 2), 1));
 }
 
 TEST(Image, CameraPtr) {

@@ -46,21 +46,25 @@ class BundleAdjustmentConfig {
  public:
   enum class Gauge {
     UNSPECIFIED,
-    FIRST_TWO_CAMS,
+    TWO_CAMS_FROM_WORLD,
+    THREE_POINTS,
   };
 
   BundleAdjustmentConfig() = default;
 
-  void ChooseGauge(Gauge gauge);
-  enum class Gauge Gauge() const;
+  void FixGauge(Gauge gauge);
+  Gauge FixedGauge() const;
 
   size_t NumImages() const;
+
   size_t NumPoints() const;
-  size_t NumConstantCamIntrinsics() const;
-  size_t NumConstantCamPoses() const;
-  size_t NumConstantRigPoses() const;
   size_t NumVariablePoints() const;
   size_t NumConstantPoints() const;
+
+  size_t NumConstantCamIntrinsics() const;
+
+  size_t NumConstantFrameFromWorldPoses() const;
+  size_t NumConstantSensorFromRigPoses() const;
 
   // Determine the number of residuals for the given reconstruction. The number
   // of residuals equals the number of observations times two.
@@ -80,15 +84,15 @@ class BundleAdjustmentConfig {
 
   // Set the pose of added images as constant. The pose is defined as the
   // rotational and translational part of the projection matrix.
-  void SetConstantCamPose(image_t image_id);
-  void SetVariableCamPose(image_t image_id);
-  bool HasConstantCamPose(image_t image_id) const;
+  void SetConstantFrameFromWorldPose(image_t image_id);
+  void SetVariableFrameFromWorldPose(image_t image_id);
+  bool HasConstantFrameFromWorldPose(image_t image_id) const;
 
   // Set the pose of added images as constant. The pose is defined as the
   // rotational and translational part of the projection matrix.
-  void SetConstantRigPose(rig_t rig_id);
-  void SetVariableRigPose(rig_t rig_id);
-  bool HasConstantRigPose(rig_t rig_id) const;
+  void SetConstantSensorFromRigPose(sensor_t sensor_id);
+  void SetVariableSensorFromRigPose(sensor_t sensor_id);
+  bool HasConstantSensorFromRigPose(sensor_t sensor_id) const;
 
   // Add / remove points from the configuration. Note that points can either
   // be variable or constant but not both at the same time.
@@ -105,17 +109,17 @@ class BundleAdjustmentConfig {
   const std::unordered_set<point3D_t>& VariablePoints() const;
   const std::unordered_set<point3D_t>& ConstantPoints() const;
   const std::unordered_set<camera_t> ConstantCamIntrinsics() const;
-  const std::unordered_set<image_t>& ConstantCamPoses() const;
-  const std::unordered_set<rig_t>& ConstantRigPoses() const;
+  const std::unordered_set<image_t>& ConstantFrameFromWorldPoses() const;
+  const std::unordered_set<rig_t>& ConstantSensorFromRigPoses() const;
 
  private:
-  Gauge gauge_ = Gauge::UNSPECIFIED;
+  Gauge fixed_gauge_ = Gauge::UNSPECIFIED;
   std::unordered_set<camera_t> constant_cam_intrinsics_;
   std::unordered_set<image_t> image_ids_;
   std::unordered_set<point3D_t> variable_point3D_ids_;
   std::unordered_set<point3D_t> constant_point3D_ids_;
-  std::unordered_set<image_t> constant_cam_poses_;
-  std::unordered_set<rig_t> constant_rig_poses_;
+  std::unordered_set<image_t> constant_cam_from_world_poses_;
+  std::unordered_set<sensor_t> constant_sensor_from_rig_poses_;
 };
 
 struct BundleAdjustmentOptions {
@@ -136,8 +140,8 @@ struct BundleAdjustmentOptions {
   bool refine_extra_params = true;
 
   // Whether to refine the extrinsic parameter group.
-  bool refine_cam_extrinsics = true;
-  bool refine_rig_extrinsics = true;
+  bool refine_frame_from_world = true;
+  bool refine_sensor_from_rig = true;
 
   // Whether to print a final summary.
   bool print_summary = true;

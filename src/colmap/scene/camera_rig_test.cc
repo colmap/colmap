@@ -128,14 +128,14 @@ TEST(CameraRig, Check) {
   reconstruction.AddCamera(camera1);
   Rig rig1;
   rig1.SetRigId(0);
-  rig1.AddRefSensor(sensor_t(SensorType::CAMERA, camera1.camera_id));
+  rig1.AddRefSensor(camera1.SensorId());
   reconstruction.AddRig(rig1);
 
   Camera camera2 = Camera::CreateFromModelName(1, "PINHOLE", 1, 1, 1);
   reconstruction.AddCamera(camera2);
   Rig rig2;
   rig2.SetRigId(1);
-  rig2.AddRefSensor(sensor_t(SensorType::CAMERA, camera2.camera_id));
+  rig2.AddRefSensor(camera2.SensorId());
   reconstruction.AddRig(rig2);
 
   Frame frame1;
@@ -201,14 +201,14 @@ TEST(CameraRig, ComputeRigFromWorldScale) {
   reconstruction.AddCamera(camera1);
   Rig rig1;
   rig1.SetRigId(0);
-  rig1.AddRefSensor(sensor_t(SensorType::CAMERA, camera1.camera_id));
+  rig1.AddRefSensor(camera1.SensorId());
   reconstruction.AddRig(rig1);
 
   Camera camera2 = Camera::CreateFromModelName(1, "PINHOLE", 1, 1, 1);
   reconstruction.AddCamera(camera2);
   Rig rig2;
   rig2.SetRigId(1);
-  rig2.AddRefSensor(sensor_t(SensorType::CAMERA, camera2.camera_id));
+  rig2.AddRefSensor(camera2.SensorId());
   reconstruction.AddRig(rig2);
 
   Frame frame1;
@@ -261,14 +261,14 @@ TEST(CameraRig, ComputeCamsFromRigs) {
   reconstruction.AddCamera(camera1);
   Rig rig1;
   rig1.SetRigId(0);
-  rig1.AddRefSensor(sensor_t(SensorType::CAMERA, camera1.camera_id));
+  rig1.AddRefSensor(camera1.SensorId());
   reconstruction.AddRig(rig1);
 
   Camera camera2 = Camera::CreateFromModelName(1, "PINHOLE", 1, 1, 1);
   reconstruction.AddCamera(camera2);
   Rig rig2;
   rig2.SetRigId(1);
-  rig2.AddRefSensor(sensor_t(SensorType::CAMERA, camera2.camera_id));
+  rig2.AddRefSensor(camera2.SensorId());
   reconstruction.AddRig(rig2);
 
   Frame frame1;
@@ -383,14 +383,14 @@ TEST(CameraRig, ComputeRigFromWorld) {
   reconstruction.AddCamera(camera1);
   Rig rig1;
   rig1.SetRigId(0);
-  rig1.AddRefSensor(sensor_t(SensorType::CAMERA, camera1.camera_id));
+  rig1.AddRefSensor(camera1.SensorId());
   reconstruction.AddRig(rig1);
 
   Camera camera2 = Camera::CreateFromModelName(1, "PINHOLE", 1, 1, 1);
   reconstruction.AddCamera(camera2);
   Rig rig2;
   rig2.SetRigId(1);
-  rig2.AddRefSensor(sensor_t(SensorType::CAMERA, camera2.camera_id));
+  rig2.AddRefSensor(camera2.SensorId());
   reconstruction.AddRig(rig2);
 
   Frame frame1;

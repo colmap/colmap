@@ -66,10 +66,10 @@ std::vector<ID_TYPE> ExtractSortedIds(
 }
 
 void CreateOneRigPerCamera(Reconstruction& reconstruction) {
-  for (const auto& [camera_id, _] : reconstruction.Cameras()) {
+  for (const auto& [camera_id, camera] : reconstruction.Cameras()) {
     Rig rig;
     rig.SetRigId(camera_id);
-    rig.AddRefSensor(sensor_t(SensorType::CAMERA, camera_id));
+    rig.AddRefSensor(camera.SensorId());
     reconstruction.AddRig(std::move(rig));
   }
 }
@@ -78,8 +78,7 @@ void CreateFrameForImage(Reconstruction& reconstruction, Image& image) {
   Frame frame;
   frame.SetFrameId(image.ImageId());
   frame.SetRigId(image.CameraId());
-  frame.AddDataId(
-      data_t(sensor_t(SensorType::CAMERA, image.CameraId()), image.ImageId()));
+  frame.AddDataId(image.DataId());
   reconstruction.AddFrame(std::move(frame));
 }
 
