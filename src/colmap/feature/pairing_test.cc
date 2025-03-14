@@ -42,8 +42,9 @@ namespace {
 void CreateSyntheticDatabase(int num_images, Database& database) {
   Reconstruction unused_reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
-  synthetic_dataset_options.num_cameras = num_images;
-  synthetic_dataset_options.num_images = num_images;
+  synthetic_dataset_options.num_rigs = num_images;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
   SynthesizeDataset(
       synthetic_dataset_options, &unused_reconstruction, &database);
 }

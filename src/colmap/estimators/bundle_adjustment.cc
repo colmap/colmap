@@ -183,7 +183,8 @@ const std::unordered_set<point3D_t>& BundleAdjustmentConfig::ConstantPoints()
   return constant_point3D_ids_;
 }
 
-const std::unordered_set<camera_t> BundleAdjustmentConfig::ConstantCamIntrinsics() const {
+const std::unordered_set<camera_t>
+BundleAdjustmentConfig::ConstantCamIntrinsics() const {
   return constant_cam_intrinsics_;
 }
 
@@ -416,10 +417,8 @@ void ParameterizeImages(const BundleAdjustmentOptions& options,
                         Reconstruction& reconstruction,
                         ceres::Problem& problem) {
   if (config.FixedGauge() !=
-      BundleAdjustmentConfig::Gauge::TWO_CAMS_FROM_WORLD) {
-  }
-
-  if (!options.refine_frame_from_world) {
+          BundleAdjustmentConfig::Gauge::TWO_CAMS_FROM_WORLD ||
+      !options.refine_frame_from_world) {
     return;
   }
 
@@ -462,12 +461,14 @@ void ParameterizeImages(const BundleAdjustmentOptions& options,
 
   Rigid3d& cam2_from_world = image2->FramePtr()->FrameFromWorld();
   if (!config.HasConstantFrameFromWorldPose(image2->FrameId())) {
-    const int constant_coord =
-        (cam1_from_world.translation - cam2_from_world.translation)
-            .cwiseAbs()
-            .maxCoeff();
-    SetSubsetManifold(
-        3, {constant_coord}, &problem, cam2_from_world.translation.data());
+    Eigen::Index constant_coord;
+    (cam1_from_world.translation - cam2_from_world.translation)
+        .cwiseAbs()
+        .maxCoeff(&constant_coord);
+    SetSubsetManifold(3,
+                      {static_cast<int>(constant_coord)},
+                      &problem,
+                      cam2_from_world.translation.data());
   }
 }
 
@@ -606,7 +607,7 @@ class DefaultBundleAdjuster : public BundleAdjuster {
       point3D_num_observations_[point2D.point3D_id] += 1;
 
       Point3D& point3D = reconstruction.Point3D(point2D.point3D_id);
-      assert(point3D.track.Length() > 1);
+      THROW_CHECK_GT(point3D.track.Length(), 1);
 
       if (constant_cam_from_world) {
         problem_->AddResidualBlock(
@@ -658,12 +659,16 @@ class DefaultBundleAdjuster : public BundleAdjuster {
     double* frame_from_world_translation = frame_from_world.translation.data();
     double* camera_params = camera.params.data();
 
-    const bool constant_frame_from_world =
-        !options_.refine_frame_from_world ||
-        config_.HasConstantFrameFromWorldPose(image.FrameId());
     const bool constant_sensor_from_rig =
         !options_.refine_sensor_from_rig ||
         config_.HasConstantSensorFromRigPose(image.CameraPtr()->SensorId());
+    const bool constant_frame_from_world =
+        !options_.refine_frame_from_world ||
+        config_.HasConstantFrameFromWorldPose(image.FrameId());
+    const bool constant_pose_cost_functor =
+        constant_frame_from_world && constant_sensor_from_rig;
+    const bool constant_rig_cost_functor =
+        !constant_frame_from_world && constant_sensor_from_rig;
 
     // Add residuals to bundle adjustment problem.
     size_t num_observations = 0;
@@ -676,23 +681,25 @@ class DefaultBundleAdjuster : public BundleAdjuster {
       point3D_num_observations_[point2D.point3D_id] += 1;
 
       Point3D& point3D = reconstruction.Point3D(point2D.point3D_id);
-      assert(point3D.track.Length() > 1);
+      THROW_CHECK_GT(point3D.track.Length(), 1);
 
       // Notice that the constant_frame_from_world && !constant_sensor_from_rig
       // is rare/exotic enough that we do not have a specialized cost function
       // for it.
-      if (constant_frame_from_world && constant_sensor_from_rig) {
+      if (constant_pose_cost_functor) {
         problem_->AddResidualBlock(
             CreateCameraCostFunction<ReprojErrorConstantPoseCostFunctor>(
                 camera.model_id, point2D.xy, cam_from_rig * frame_from_world),
             loss_function_.get(),
             point3D.xyz.data(),
             camera_params);
-      } else if (!constant_frame_from_world && constant_frame_from_world) {
+      } else if (constant_rig_cost_functor) {
         problem_->AddResidualBlock(
             CreateCameraCostFunction<RigReprojErrorConstantRigCostFunctor>(
                 camera.model_id, point2D.xy, cam_from_rig),
             loss_function_.get(),
+            frame_from_world_rotation,
+            frame_from_world_translation,
             point3D.xyz.data(),
             camera_params);
       } else {
@@ -714,7 +721,7 @@ class DefaultBundleAdjuster : public BundleAdjuster {
       parameterized_image_ids_.insert(image.ImageId());
 
       // Set pose parameterization.
-      if (constant_frame_from_world) {
+      if (constant_frame_from_world && !constant_pose_cost_functor) {
         problem_->SetParameterBlockConstant(frame_from_world_rotation);
         problem_->SetParameterBlockConstant(frame_from_world_translation);
       } else {

@@ -40,8 +40,8 @@ def test_without_noise(tmp_path):
 
     with pycolmap.Database(database_path) as database:
         synthetic_dataset_options = pycolmap.SyntheticDatasetOptions()
-        synthetic_dataset_options.num_cameras = 2
-        synthetic_dataset_options.num_images = 7
+        synthetic_dataset_options.num_cameras_per_rig = 2
+        synthetic_dataset_options.num_frames_per_rig = 7
         synthetic_dataset_options.num_points3D = 50
         synthetic_dataset_options.point2D_stddev = 0
         gt_reconstruction = pycolmap.synthesize_dataset(
@@ -72,8 +72,8 @@ def test_with_noise(tmp_path):
 
     with pycolmap.Database(database_path) as database:
         synthetic_dataset_options = pycolmap.SyntheticDatasetOptions()
-        synthetic_dataset_options.num_cameras = 2
-        synthetic_dataset_options.num_images = 7
+        synthetic_dataset_options.num_cameras_per_rig = 2
+        synthetic_dataset_options.num_frames_per_rig = 7
         synthetic_dataset_options.num_points3D = 100
         synthetic_dataset_options.point2D_stddev = 0.5
         gt_reconstruction = pycolmap.synthesize_dataset(
@@ -104,14 +104,14 @@ def test_multi_reconstruction(tmp_path):
 
     with pycolmap.Database(database_path) as database:
         synthetic_dataset_options = pycolmap.SyntheticDatasetOptions()
-        synthetic_dataset_options.num_cameras = 1
-        synthetic_dataset_options.num_images = 5
+        synthetic_dataset_options.num_cameras_per_rig = 1
+        synthetic_dataset_options.num_frames_per_rig = 5
         synthetic_dataset_options.num_points3D = 50
         synthetic_dataset_options.point2D_stddev = 0
         gt_reconstruction1 = pycolmap.synthesize_dataset(
             synthetic_dataset_options, database
         )
-        synthetic_dataset_options.num_images = 4
+        synthetic_dataset_options.num_frames_per_rig = 4
         gt_reconstruction2 = pycolmap.synthesize_dataset(
             synthetic_dataset_options, database
         )
@@ -156,8 +156,8 @@ def test_chained_matches(tmp_path):
 
     with pycolmap.Database(database_path) as database:
         synthetic_dataset_options = pycolmap.SyntheticDatasetOptions()
-        synthetic_dataset_options.num_cameras = 1
-        synthetic_dataset_options.num_images = 4
+        synthetic_dataset_options.num_cameras_per_rig = 1
+        synthetic_dataset_options.num_frames_per_rig = 4
         synthetic_dataset_options.num_points3D = 100
         synthetic_dataset_options.point2D_stddev = 0
         synthetic_dataset_options.match_config = (

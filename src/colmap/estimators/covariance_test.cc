@@ -80,8 +80,9 @@ TEST_P(ParameterizedBACovarianceTests, CompareWithCeres) {
 
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
-  synthetic_dataset_options.num_cameras = 3;
-  synthetic_dataset_options.num_images = 7;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 7;
   synthetic_dataset_options.num_points3D = 200;
   synthetic_dataset_options.point2D_stddev = 0.01;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
@@ -130,7 +131,7 @@ TEST_P(ParameterizedBACovarianceTests, CompareWithCeres) {
   if (test_options.fixed_cam_poses) {
     ASSERT_TRUE(poses.empty());
   } else {
-    ASSERT_EQ(poses.size(), synthetic_dataset_options.num_images);
+    ASSERT_EQ(poses.size(), synthetic_dataset_options.num_frames_per_rig);
   }
 
   const std::vector<const double*> others =
@@ -138,7 +139,7 @@ TEST_P(ParameterizedBACovarianceTests, CompareWithCeres) {
   if (test_options.fixed_cam_intrinsics) {
     ASSERT_TRUE(others.empty());
   } else {
-    ASSERT_EQ(others.size(), synthetic_dataset_options.num_cameras);
+    ASSERT_EQ(others.size(), synthetic_dataset_options.num_cameras_per_rig);
   }
 
   if (!test_options.fixed_cam_poses && estimate_pose_covs) {

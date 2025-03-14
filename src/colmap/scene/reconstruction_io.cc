@@ -625,9 +625,9 @@ void ReadFramesBinary(Reconstruction& reconstruction, std::istream& stream) {
     const uint32_t num_data_ids = ReadBinaryLittleEndian<uint32_t>(&stream);
     for (uint32_t j = 0; j < num_data_ids; ++j) {
       data_t data_id;
-      data_id.sensor_id.id = ReadBinaryLittleEndian<uint32_t>(&stream);
       data_id.sensor_id.type =
           static_cast<SensorType>(ReadBinaryLittleEndian<int>(&stream));
+      data_id.sensor_id.id = ReadBinaryLittleEndian<uint32_t>(&stream);
       data_id.id = ReadBinaryLittleEndian<uint64_t>(&stream);
       frame.AddDataId(data_id);
     }
@@ -879,7 +879,7 @@ void WriteFramesText(const Reconstruction& reconstruction,
   stream << "# Frame list with one line of data per frame:" << std::endl;
   stream << "#   FRAME_ID, RIG_ID, "
             "FRAME_FROM_WORLD[QW, QX, QY, QZ, TX, TY, TZ], NUM_DATA_IDS, "
-            "DATA_IDS[] as (SENSOR_ID, SENSOR_TYPE, DATA_ID)"
+            "DATA_IDS[] as (SENSOR_TYPE, SENSOR_ID, DATA_ID)"
          << std::endl;
   stream << "# Number of frames: " << frame_ids.size() << std::endl;
 
@@ -901,10 +901,10 @@ void WriteFramesText(const Reconstruction& reconstruction,
     stream << frame_from_world.translation.z() << " ";
 
     const std::set<data_t>& data_ids = frame.DataIds();
-    stream << data_ids.size() << " ";
+    stream << data_ids.size();
     for (const data_t& data_id : data_ids) {
-      stream << data_id.sensor_id.type << " " << data_id.sensor_id.id << " "
-             << data_id.id;
+      stream << " " << data_id.sensor_id.type << " " << data_id.sensor_id.id
+             << " " << data_id.id;
     }
 
     stream << std::endl;
@@ -1132,9 +1132,9 @@ void WriteFramesBinary(const Reconstruction& reconstruction,
     const std::set<data_t>& data_ids = frame.DataIds();
     WriteBinaryLittleEndian<uint32_t>(&stream, data_ids.size());
     for (const data_t& data_id : data_ids) {
-      WriteBinaryLittleEndian<uint32_t>(&stream, data_id.sensor_id.id);
       WriteBinaryLittleEndian<int>(&stream,
                                    static_cast<int>(data_id.sensor_id.type));
+      WriteBinaryLittleEndian<uint32_t>(&stream, data_id.sensor_id.id);
       WriteBinaryLittleEndian<uint64_t>(&stream, data_id.id);
     }
   }
