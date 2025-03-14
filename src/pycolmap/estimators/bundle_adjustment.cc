@@ -42,22 +42,22 @@ void BindBundleAdjuster(py::module& m) {
            "camera_id"_a)
       .def("set_constant_frame_from_world_pose",
            &BACfg::SetConstantFrameFromWorldPose,
-           "image_id"_a)
+           "frame_id"_a)
       .def("set_variable_frame_from_world_pose",
            &BACfg::SetVariableFrameFromWorldPose,
-           "image_id"_a)
+           "frame_id"_a)
       .def("has_constant_frame_from_world_pose",
            &BACfg::HasConstantFrameFromWorldPose,
-           "image_id"_a)
+           "frame_id"_a)
       .def("set_constant_sensor_from_rig_pose",
            &BACfg::SetConstantSensorFromRigPose,
-           "camera_id"_a)
+           "sensor_id"_a)
       .def("set_variable_sensor_from_rig_pose",
            &BACfg::SetVariableSensorFromRigPose,
-           "camera_id"_a)
+           "sensor_id"_a)
       .def("has_constant_sensor_from_rig_pose",
            &BACfg::HasConstantSensorFromRigPose,
-           "camera_id"_a)
+           "sensor_id"_a)
       .def("add_variable_point", &BACfg::AddVariablePoint, "point3D_id"_a)
       .def("add_constant_point", &BACfg::AddConstantPoint, "point3D_id"_a)
       .def("has_point", &BACfg::HasPoint, "point3D_id"_a)

@@ -64,7 +64,7 @@ size_t BundleAdjustmentConfig::NumConstantCamIntrinsics() const {
 }
 
 size_t BundleAdjustmentConfig::NumConstantFrameFromWorldPoses() const {
-  return constant_cam_from_world_poses_.size();
+  return constant_frame_from_world_poses_.size();
 }
 
 size_t BundleAdjustmentConfig::NumVariablePoints() const {
@@ -137,20 +137,20 @@ bool BundleAdjustmentConfig::HasConstantCamIntrinsics(
 }
 
 void BundleAdjustmentConfig::SetConstantFrameFromWorldPose(
-    const image_t image_id) {
-  THROW_CHECK(HasImage(image_id));
-  constant_cam_from_world_poses_.insert(image_id);
+    const frame_t frame_id) {
+  THROW_CHECK(HasImage(frame_id));
+  constant_frame_from_world_poses_.insert(frame_id);
 }
 
 void BundleAdjustmentConfig::SetVariableFrameFromWorldPose(
-    const image_t image_id) {
-  constant_cam_from_world_poses_.erase(image_id);
+    const frame_t frame_id) {
+  constant_frame_from_world_poses_.erase(frame_id);
 }
 
 bool BundleAdjustmentConfig::HasConstantFrameFromWorldPose(
-    const image_t image_id) const {
-  return constant_cam_from_world_poses_.find(image_id) !=
-         constant_cam_from_world_poses_.end();
+    const frame_t frame_id) const {
+  return constant_frame_from_world_poses_.find(frame_id) !=
+         constant_frame_from_world_poses_.end();
 }
 
 void BundleAdjustmentConfig::SetConstantSensorFromRigPose(
@@ -183,14 +183,13 @@ const std::unordered_set<point3D_t>& BundleAdjustmentConfig::ConstantPoints()
   return constant_point3D_ids_;
 }
 
-const std::unordered_set<camera_t>
-BundleAdjustmentConfig::ConstantCamIntrinsics() const {
+const std::unordered_set<camera_t> BundleAdjustmentConfig::ConstantCamIntrinsics() const {
   return constant_cam_intrinsics_;
 }
 
 const std::unordered_set<image_t>&
 BundleAdjustmentConfig::ConstantFrameFromWorldPoses() const {
-  return constant_cam_from_world_poses_;
+  return constant_frame_from_world_poses_;
 }
 
 void BundleAdjustmentConfig::AddVariablePoint(const point3D_t point3D_id) {
@@ -371,7 +370,7 @@ namespace {
 
 void ParameterizeCameras(const BundleAdjustmentOptions& options,
                          const BundleAdjustmentConfig& config,
-                         const std::unordered_set<camera_t>& camera_ids,
+                         const std::set<camera_t>& camera_ids,
                          Reconstruction& reconstruction,
                          ceres::Problem& problem) {
   const bool constant_camera = !options.refine_focal_length &&
@@ -413,7 +412,7 @@ void ParameterizeCameras(const BundleAdjustmentOptions& options,
 
 void ParameterizeImages(const BundleAdjustmentOptions& options,
                         const BundleAdjustmentConfig& config,
-                        const std::unordered_set<image_t>& image_ids,
+                        const std::set<image_t>& image_ids,
                         Reconstruction& reconstruction,
                         ceres::Problem& problem) {
   if (config.FixedGauge() !=
@@ -421,6 +420,17 @@ void ParameterizeImages(const BundleAdjustmentOptions& options,
   }
 
   if (!options.refine_frame_from_world) {
+    return;
+  }
+
+  const size_t num_constant_images = std::count_if(
+      image_ids.begin(),
+      image_ids.end(),
+      [&config, &reconstruction](image_t image_id) {
+        Image& image = reconstruction.Image(image_id);
+        return config.HasConstantFrameFromWorldPose(image.FrameId());
+      });
+  if (num_constant_images >= 2) {
     return;
   }
 
@@ -445,14 +455,19 @@ void ParameterizeImages(const BundleAdjustmentOptions& options,
   THROW_CHECK(image1 != nullptr && image2 != nullptr);
 
   Rigid3d& cam1_from_world = image1->FramePtr()->FrameFromWorld();
-  if (!config.HasConstantFrameFromWorldPose(image1->ImageId())) {
+  if (!config.HasConstantFrameFromWorldPose(image1->FrameId())) {
     problem.SetParameterBlockConstant(cam1_from_world.rotation.coeffs().data());
     problem.SetParameterBlockConstant(cam1_from_world.translation.data());
   }
 
-  if (!config.HasConstantFrameFromWorldPose(image2->ImageId())) {
-    Rigid3d& cam2_from_world = image2->FramePtr()->FrameFromWorld();
-    SetSubsetManifold(3, {0}, &problem, cam2_from_world.translation.data());
+  Rigid3d& cam2_from_world = image2->FramePtr()->FrameFromWorld();
+  if (!config.HasConstantFrameFromWorldPose(image2->FrameId())) {
+    const int constant_coord =
+        (cam1_from_world.translation - cam2_from_world.translation)
+            .cwiseAbs()
+            .maxCoeff();
+    SetSubsetManifold(
+        3, {constant_coord}, &problem, cam2_from_world.translation.data());
   }
 }
 
@@ -578,7 +593,7 @@ class DefaultBundleAdjuster : public BundleAdjuster {
 
     const bool constant_cam_from_world =
         !options_.refine_frame_from_world ||
-        config_.HasConstantFrameFromWorldPose(image.ImageId());
+        config_.HasConstantFrameFromWorldPose(image.FrameId());
 
     // Add residuals to bundle adjustment problem.
     size_t num_observations = 0;
@@ -645,7 +660,7 @@ class DefaultBundleAdjuster : public BundleAdjuster {
 
     const bool constant_frame_from_world =
         !options_.refine_frame_from_world ||
-        config_.HasConstantFrameFromWorldPose(image.ImageId());
+        config_.HasConstantFrameFromWorldPose(image.FrameId());
     const bool constant_sensor_from_rig =
         !options_.refine_sensor_from_rig ||
         config_.HasConstantSensorFromRigPose(image.CameraPtr()->SensorId());
@@ -775,8 +790,8 @@ class DefaultBundleAdjuster : public BundleAdjuster {
   std::shared_ptr<ceres::Problem> problem_;
   std::unique_ptr<ceres::LossFunction> loss_function_;
 
-  std::unordered_set<camera_t> parameterized_camera_ids_;
-  std::unordered_set<image_t> parameterized_image_ids_;
+  std::set<camera_t> parameterized_camera_ids_;
+  std::set<image_t> parameterized_image_ids_;
   std::unordered_map<point3D_t, size_t> point3D_num_observations_;
 };
 
@@ -1063,7 +1078,7 @@ class RigBundleAdjuster : public BundleAdjuster {
   std::shared_ptr<ceres::Problem> problem_;
   std::unique_ptr<ceres::LossFunction> loss_function_;
 
-  std::unordered_set<camera_t> parameterized_camera_ids_;
+  std::set<camera_t> parameterized_camera_ids_;
   std::unordered_map<point3D_t, size_t> point3D_num_observations_;
 
   // Mapping from images to camera rigs.

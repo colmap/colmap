@@ -82,11 +82,10 @@ class BundleAdjustmentConfig {
   void SetVariableCamIntrinsics(camera_t camera_id);
   bool HasConstantCamIntrinsics(camera_t camera_id) const;
 
-  // Set the pose of added images as constant. The pose is defined as the
-  // rotational and translational part of the projection matrix.
-  void SetConstantFrameFromWorldPose(image_t image_id);
-  void SetVariableFrameFromWorldPose(image_t image_id);
-  bool HasConstantFrameFromWorldPose(image_t image_id) const;
+  // Set the frame from world pose as constant.
+  void SetConstantFrameFromWorldPose(frame_t frame_id);
+  void SetVariableFrameFromWorldPose(frame_t frame_id);
+  bool HasConstantFrameFromWorldPose(frame_t frame_id) const;
 
   // Set the pose of added images as constant. The pose is defined as the
   // rotational and translational part of the projection matrix.
@@ -109,7 +108,7 @@ class BundleAdjustmentConfig {
   const std::unordered_set<point3D_t>& VariablePoints() const;
   const std::unordered_set<point3D_t>& ConstantPoints() const;
   const std::unordered_set<camera_t> ConstantCamIntrinsics() const;
-  const std::unordered_set<image_t>& ConstantFrameFromWorldPoses() const;
+  const std::unordered_set<frame_t>& ConstantFrameFromWorldPoses() const;
   const std::unordered_set<rig_t>& ConstantSensorFromRigPoses() const;
 
  private:
@@ -118,7 +117,7 @@ class BundleAdjustmentConfig {
   std::unordered_set<image_t> image_ids_;
   std::unordered_set<point3D_t> variable_point3D_ids_;
   std::unordered_set<point3D_t> constant_point3D_ids_;
-  std::unordered_set<image_t> constant_cam_from_world_poses_;
+  std::unordered_set<frame_t> constant_frame_from_world_poses_;
   std::unordered_set<sensor_t> constant_sensor_from_rig_poses_;
 };
 

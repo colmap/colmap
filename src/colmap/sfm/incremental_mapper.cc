@@ -474,7 +474,8 @@ IncrementalMapper::AdjustLocalBundle(
     if (options.fix_existing_images) {
       for (const image_t local_image_id : local_bundle) {
         if (existing_image_ids_.count(local_image_id)) {
-          ba_config.SetConstantFrameFromWorldPose(local_image_id);
+          const Image& image = reconstruction_->Image(local_image_id);
+          ba_config.SetConstantFrameFromWorldPose(image.FrameId());
         }
       }
     }
@@ -585,7 +586,8 @@ bool IncrementalMapper::AdjustGlobalBundle(
   if (options.fix_existing_images) {
     for (const image_t image_id : reg_image_ids) {
       if (existing_image_ids_.count(image_id)) {
-        ba_config.SetConstantFrameFromWorldPose(image_id);
+        const Image& image = reconstruction_->Image(image_id);
+        ba_config.SetConstantFrameFromWorldPose(image.FrameId());
       }
     }
   }
