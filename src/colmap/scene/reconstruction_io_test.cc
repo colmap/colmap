@@ -295,12 +295,12 @@ TEST_P(ParameterizedReaderWriterTests, Roundtrip) {
   std::unique_ptr<ReaderWriter> reader_writer = GetParam()();
 
   Reconstruction orig;
-  SyntheticDatasetOptions options;
-  options.num_rigs = 11;
-  options.num_cameras = 11;
-  options.num_images = 43;
-  options.num_points3D = 321;
-  SynthesizeDataset(options, &orig);
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 3;
+  synthetic_dataset_options.num_cameras_per_rig = 4;
+  synthetic_dataset_options.num_frames_per_rig = 5;
+  synthetic_dataset_options.num_points3D = 321;
+  SynthesizeDataset(synthetic_dataset_options, &orig);
 
   reader_writer->WriteRigs(orig);
   EXPECT_FALSE(reader_writer->RigsStr().empty());
@@ -334,11 +334,12 @@ TEST_P(ParameterizedReaderWriterTests, LegacyWithoutRigsAndFrames) {
   std::unique_ptr<ReaderWriter> reader_writer = GetParam()();
 
   Reconstruction orig;
-  SyntheticDatasetOptions options;
-  options.num_cameras = 11;
-  options.num_images = 43;
-  options.num_points3D = 321;
-  SynthesizeDataset(options, &orig);
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 3;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 5;
+  synthetic_dataset_options.num_points3D = 321;
+  SynthesizeDataset(synthetic_dataset_options, &orig);
 
   reader_writer->WriteCameras(orig);
   EXPECT_FALSE(reader_writer->CamerasStr().empty());

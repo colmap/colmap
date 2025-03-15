@@ -95,7 +95,7 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
         // support for rigs/frames, we create a rig for each camera.
         class Rig rig;
         rig.SetRigId(camera.camera_id);
-        rig.AddRefSensor(sensor_t(SensorType::CAMERA, camera.camera_id));
+        rig.AddRefSensor(camera.SensorId());
         cache->rigs_.emplace(rig.RigId(), std::move(rig));
       }
       cache->cameras_.emplace(camera.camera_id, std::move(camera));

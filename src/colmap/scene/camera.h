@@ -78,6 +78,8 @@ struct Camera {
 
   inline const std::string& ModelName() const;
 
+  inline sensor_t SensorId() const;
+
   // Access focal length parameters.
   double MeanFocalLength() const;
   inline double FocalLength() const;
@@ -152,6 +154,10 @@ std::ostream& operator<<(std::ostream& stream, const Camera& camera);
 
 const std::string& Camera::ModelName() const {
   return CameraModelIdToName(model_id);
+}
+
+sensor_t Camera::SensorId() const {
+  return sensor_t(SensorType::CAMERA, camera_id);
 }
 
 double Camera::FocalLength() const {

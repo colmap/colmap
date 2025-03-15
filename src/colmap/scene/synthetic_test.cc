@@ -43,6 +43,9 @@ TEST(SynthesizeDataset, Nominal) {
   Database database(Database::kInMemoryDatabasePath);
   Reconstruction reconstruction;
   SyntheticDatasetOptions options;
+  options.num_rigs = 2;
+  options.num_cameras_per_rig = 3;
+  options.num_frames_per_rig = 3;
   SynthesizeDataset(options, &reconstruction, &database);
 
   const std::string test_dir = CreateTestDir();
@@ -50,21 +53,25 @@ TEST(SynthesizeDataset, Nominal) {
   CreateDirIfNotExists(sparse_path);
   reconstruction.Write(sparse_path);
 
-  EXPECT_EQ(database.NumRigs(), options.num_cameras);
-  EXPECT_EQ(reconstruction.NumRigs(), options.num_cameras);
+  EXPECT_EQ(database.NumRigs(), options.num_rigs);
+  EXPECT_EQ(reconstruction.NumRigs(), options.num_rigs);
   for (const auto& rig : reconstruction.Rigs()) {
-    EXPECT_GE(rig.second.NumSensors(), 1);
+    EXPECT_GE(rig.second.NumSensors(), options.num_cameras_per_rig);
   }
 
-  EXPECT_EQ(database.NumCameras(), options.num_cameras);
-  EXPECT_EQ(reconstruction.NumCameras(), options.num_cameras);
+  EXPECT_EQ(database.NumCameras(),
+            options.num_rigs * options.num_cameras_per_rig);
+  EXPECT_EQ(reconstruction.NumCameras(),
+            options.num_rigs * options.num_cameras_per_rig);
   for (const auto& [camera_id, camera] : reconstruction.Cameras()) {
     EXPECT_EQ(camera, database.ReadCamera(camera_id));
     EXPECT_EQ(camera.model_id, options.camera_model_id);
   }
 
-  EXPECT_EQ(database.NumFrames(), options.num_images);
-  EXPECT_EQ(reconstruction.NumFrames(), options.num_images);
+  EXPECT_EQ(database.NumFrames(),
+            options.num_rigs * options.num_frames_per_rig);
+  EXPECT_EQ(reconstruction.NumFrames(),
+            options.num_rigs * options.num_frames_per_rig);
   for (auto& [frame_id, frame] : reconstruction.Frames()) {
     Frame reconstruction_frame = frame;
     EXPECT_TRUE(reconstruction_frame.HasPose());
@@ -74,9 +81,15 @@ TEST(SynthesizeDataset, Nominal) {
               reconstruction_frame.RigPtr()->NumSensors());
   }
 
-  EXPECT_EQ(database.NumImages(), options.num_images);
-  EXPECT_EQ(reconstruction.NumImages(), options.num_images);
-  EXPECT_EQ(reconstruction.NumRegImages(), options.num_images);
+  EXPECT_EQ(database.NumImages(),
+            options.num_rigs * options.num_cameras_per_rig *
+                options.num_frames_per_rig);
+  EXPECT_EQ(reconstruction.NumImages(),
+            options.num_rigs * options.num_cameras_per_rig *
+                options.num_frames_per_rig);
+  EXPECT_EQ(reconstruction.NumRegImages(),
+            options.num_rigs * options.num_cameras_per_rig *
+                options.num_frames_per_rig);
   for (const auto& image : reconstruction.Images()) {
     EXPECT_EQ(image.second.Name(), database.ReadImage(image.first).Name());
     EXPECT_EQ(image.second.NumPoints2D(),
@@ -89,16 +102,18 @@ TEST(SynthesizeDataset, Nominal) {
     EXPECT_EQ(image.second.NumPoints3D(), options.num_points3D);
   }
 
-  const int num_image_pairs = options.num_images * (options.num_images - 1) / 2;
+  const int num_image_pairs =
+      reconstruction.NumImages() * (reconstruction.NumImages() - 1) / 2;
   EXPECT_EQ(database.NumVerifiedImagePairs(), num_image_pairs);
   EXPECT_EQ(database.NumInlierMatches(),
             num_image_pairs * options.num_points3D);
 
   EXPECT_NEAR(reconstruction.ComputeMeanReprojectionError(), 0, 1e-6);
   EXPECT_NEAR(reconstruction.ComputeCentroid(0, 1).norm(), 0, 0.2);
-  EXPECT_NEAR(reconstruction.ComputeMeanTrackLength(), options.num_images, 0.1);
+  EXPECT_NEAR(
+      reconstruction.ComputeMeanTrackLength(), reconstruction.NumImages(), 0.1);
   EXPECT_EQ(reconstruction.ComputeNumObservations(),
-            options.num_images * options.num_points3D);
+            reconstruction.NumImages() * options.num_points3D);
 
   // All observations should be perfect and have sufficient triangulation angle.
   // No points or observations should be filtered.
@@ -113,6 +128,7 @@ TEST(SynthesizeDataset, Nominal) {
         database.ReadDescriptors(point3D.track.Element(0).image_id)
             .row(point3D.track.Element(0).point2D_idx);
 
+    double max_tri_angle = 0;
     for (size_t i1 = 0; i1 < point3D.track.Length(); ++i1) {
       const auto& track_el = point3D.track.Element(i1);
       const image_t image_id1 = track_el.image_id;
@@ -137,12 +153,13 @@ TEST(SynthesizeDataset, Nominal) {
       for (size_t i2 = 0; i2 < i1; ++i2) {
         const image_t image_id2 = point3D.track.Element(i2).image_id;
         const Eigen::Vector3d proj_center2 = proj_centers.at(image_id2);
-
-        const double tri_angle = CalculateTriangulationAngle(
-            proj_center1, proj_center2, point3D.xyz);
-        EXPECT_GE(tri_angle, DegToRad(kMinTriAngleDeg));
+        max_tri_angle = std::max(max_tri_angle,
+                                 CalculateTriangulationAngle(
+                                     proj_center1, proj_center2, point3D.xyz));
       }
     }
+
+    EXPECT_GE(max_tri_angle, DegToRad(kMinTriAngleDeg));
   }
 }
 
@@ -156,7 +173,8 @@ TEST(SynthesizeDataset, WithNoise) {
   EXPECT_NEAR(reconstruction.ComputeMeanReprojectionError(),
               options.point2D_stddev,
               0.5 * options.point2D_stddev);
-  EXPECT_NEAR(reconstruction.ComputeMeanTrackLength(), options.num_images, 0.1);
+  EXPECT_NEAR(
+      reconstruction.ComputeMeanTrackLength(), reconstruction.NumImages(), 0.1);
 }
 
 TEST(SynthesizeDataset, WithPriors) {
@@ -186,15 +204,17 @@ TEST(SynthesizeDataset, MultiReconstruction) {
   SynthesizeDataset(options, &reconstruction1, &database);
   SynthesizeDataset(options, &reconstruction2, &database);
 
-  EXPECT_EQ(database.NumCameras(), 2 * options.num_cameras);
-  EXPECT_EQ(reconstruction1.NumCameras(), options.num_cameras);
-  EXPECT_EQ(reconstruction1.NumCameras(), options.num_cameras);
-  EXPECT_EQ(database.NumImages(), 2 * options.num_images);
-  EXPECT_EQ(reconstruction1.NumImages(), options.num_images);
-  EXPECT_EQ(reconstruction2.NumImages(), options.num_images);
-  EXPECT_EQ(reconstruction1.NumRegImages(), options.num_images);
-  EXPECT_EQ(reconstruction2.NumRegImages(), options.num_images);
-  const int num_image_pairs = options.num_images * (options.num_images - 1) / 2;
+  const int num_cameras = options.num_rigs * options.num_cameras_per_rig;
+  EXPECT_EQ(database.NumCameras(), 2 * num_cameras);
+  EXPECT_EQ(reconstruction1.NumCameras(), num_cameras);
+  EXPECT_EQ(reconstruction1.NumCameras(), num_cameras);
+  const int num_images = num_cameras * options.num_frames_per_rig;
+  EXPECT_EQ(database.NumImages(), 2 * num_images);
+  EXPECT_EQ(reconstruction1.NumImages(), num_images);
+  EXPECT_EQ(reconstruction2.NumImages(), num_images);
+  EXPECT_EQ(reconstruction1.NumRegImages(), num_images);
+  EXPECT_EQ(reconstruction2.NumRegImages(), num_images);
+  const int num_image_pairs = num_images * (num_images - 1) / 2;
   EXPECT_EQ(database.NumVerifiedImagePairs(), 2 * num_image_pairs);
   EXPECT_EQ(database.NumInlierMatches(),
             2 * num_image_pairs * options.num_points3D);
@@ -207,7 +227,8 @@ TEST(SynthesizeDataset, ExhaustiveMatches) {
   options.match_config = SyntheticDatasetOptions::MatchConfig::EXHAUSTIVE;
   SynthesizeDataset(options, &reconstruction, &database);
 
-  const int num_image_pairs = options.num_images * (options.num_images - 1) / 2;
+  const int num_image_pairs =
+      reconstruction.NumImages() * (reconstruction.NumImages() - 1) / 2;
   EXPECT_EQ(database.NumVerifiedImagePairs(), num_image_pairs);
   EXPECT_EQ(database.NumInlierMatches(),
             num_image_pairs * options.num_points3D);
@@ -220,10 +241,11 @@ TEST(SynthesizeDataset, ChainedMatches) {
   options.match_config = SyntheticDatasetOptions::MatchConfig::CHAINED;
   SynthesizeDataset(options, &reconstruction, &database);
 
-  const int num_image_pairs = options.num_images * (options.num_images - 1) / 2;
+  const int num_image_pairs =
+      reconstruction.NumImages() * (reconstruction.NumImages() - 1) / 2;
   EXPECT_EQ(database.NumVerifiedImagePairs(), num_image_pairs);
   EXPECT_EQ(database.NumInlierMatches(),
-            (options.num_images - 1) * options.num_points3D);
+            (reconstruction.NumImages() - 1) * options.num_points3D);
 }
 
 TEST(SynthesizeDataset, NoDatabase) {

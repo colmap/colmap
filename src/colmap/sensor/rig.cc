@@ -56,7 +56,7 @@ std::ostream& operator<<(std::ostream& stream, const Rig& rig) {
   for (const auto& [sensor_id, _] : rig.Sensors()) {
     stream << "(" << sensor_id.type << ", " << sensor_id.id << "), ";
   }
-  if (rig.NumSensors() > 1) {
+  if (!rig.Sensors().empty()) {
     stream.seekp(-2, std::ios_base::end);
   }
   stream << "])";

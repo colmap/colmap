@@ -496,10 +496,10 @@ TEST(Database, Merge) {
   camera2.camera_id = database2.WriteCamera(camera2);
 
   Rig rig1;
-  rig1.AddRefSensor(sensor_t(SensorType::CAMERA, camera1.camera_id));
+  rig1.AddRefSensor(camera1.SensorId());
   rig1.SetRigId(database1.WriteRig(rig1));
   Rig rig2;
-  rig2.AddRefSensor(sensor_t(SensorType::CAMERA, camera2.camera_id));
+  rig2.AddRefSensor(camera2.SensorId());
   rig2.SetRigId(database2.WriteRig(rig2));
 
   Image image;
@@ -518,17 +518,13 @@ TEST(Database, Merge) {
 
   Frame frame1;
   frame1.SetRigId(rig1.RigId());
-  frame1.AddDataId(
-      data_t(sensor_t(SensorType::CAMERA, camera1.camera_id), image_id1));
-  frame1.AddDataId(
-      data_t(sensor_t(SensorType::CAMERA, camera2.camera_id), image_id2));
+  frame1.AddDataId(data_t(camera1.SensorId(), image_id1));
+  frame1.AddDataId(data_t(camera2.SensorId(), image_id2));
   frame1.SetFrameId(database1.WriteFrame(frame1));
   Frame frame2;
   frame2.SetRigId(rig2.RigId());
-  frame2.AddDataId(
-      data_t(sensor_t(SensorType::CAMERA, camera1.camera_id), image_id3));
-  frame2.AddDataId(
-      data_t(sensor_t(SensorType::CAMERA, camera2.camera_id), image_id4));
+  frame2.AddDataId(data_t(camera1.SensorId(), image_id3));
+  frame2.AddDataId(data_t(camera2.SensorId(), image_id4));
   frame2.SetFrameId(database2.WriteFrame(frame2));
 
   database1.WritePosePrior(image_id1,

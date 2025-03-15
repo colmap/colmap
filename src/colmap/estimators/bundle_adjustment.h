@@ -32,6 +32,7 @@
 #include "colmap/scene/camera_rig.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/enum_utils.h"
 
 #include <memory>
 #include <unordered_set>
@@ -41,18 +42,27 @@
 
 namespace colmap {
 
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(
+    BundleAdjustmentGauge, -1, UNSPECIFIED, TWO_CAMS_FROM_WORLD, THREE_POINTS);
+
 // Configuration container to setup bundle adjustment problems.
 class BundleAdjustmentConfig {
  public:
-  BundleAdjustmentConfig();
+  BundleAdjustmentConfig() = default;
+
+  void FixGauge(BundleAdjustmentGauge gauge);
+  BundleAdjustmentGauge FixedGauge() const;
 
   size_t NumImages() const;
+
   size_t NumPoints() const;
-  size_t NumConstantCamIntrinsics() const;
-  size_t NumConstantCamPoses() const;
-  size_t NumConstantCamPositions() const;
   size_t NumVariablePoints() const;
   size_t NumConstantPoints() const;
+
+  size_t NumConstantCamIntrinsics() const;
+
+  size_t NumConstantSensorFromRigPoses() const;
+  size_t NumConstantFrameFromWorldPoses() const;
 
   // Determine the number of residuals for the given reconstruction. The number
   // of residuals equals the number of observations times two.
@@ -72,16 +82,14 @@ class BundleAdjustmentConfig {
 
   // Set the pose of added images as constant. The pose is defined as the
   // rotational and translational part of the projection matrix.
-  void SetConstantCamPose(image_t image_id);
-  void SetVariableCamPose(image_t image_id);
-  bool HasConstantCamPose(image_t image_id) const;
+  void SetConstantSensorFromRigPose(sensor_t sensor_id);
+  void SetVariableSensorFromRigPose(sensor_t sensor_id);
+  bool HasConstantSensorFromRigPose(sensor_t sensor_id) const;
 
-  // Set the translational part of the pose, hence the constant pose
-  // indices may be in [0, 1, 2] and must be unique. Note that the
-  // corresponding images have to be added prior to calling these methods.
-  void SetConstantCamPositions(image_t image_id, const std::vector<int>& idxs);
-  void RemoveConstantCamPositions(image_t image_id);
-  bool HasConstantCamPositions(image_t image_id) const;
+  // Set the frame from world pose as constant.
+  void SetConstantFrameFromWorldPose(frame_t frame_id);
+  void SetVariableFrameFromWorldPose(frame_t frame_id);
+  bool HasConstantFrameFromWorldPose(frame_t frame_id) const;
 
   // Add / remove points from the configuration. Note that points can either
   // be variable or constant but not both at the same time.
@@ -94,20 +102,21 @@ class BundleAdjustmentConfig {
   void RemoveConstantPoint(point3D_t point3D_id);
 
   // Access configuration data.
-  const std::unordered_set<camera_t> ConstantIntrinsics() const;
   const std::unordered_set<image_t>& Images() const;
   const std::unordered_set<point3D_t>& VariablePoints() const;
   const std::unordered_set<point3D_t>& ConstantPoints() const;
-  const std::unordered_set<image_t>& ConstantCamPoses() const;
-  const std::vector<int>& ConstantCamPositions(image_t image_id) const;
+  const std::unordered_set<camera_t> ConstantCamIntrinsics() const;
+  const std::unordered_set<sensor_t>& ConstantSensorFromRigPoses() const;
+  const std::unordered_set<frame_t>& ConstantFrameFromWorldPoses() const;
 
  private:
-  std::unordered_set<camera_t> constant_intrinsics_;
+  BundleAdjustmentGauge fixed_gauge_ = BundleAdjustmentGauge::UNSPECIFIED;
+  std::unordered_set<camera_t> constant_cam_intrinsics_;
   std::unordered_set<image_t> image_ids_;
   std::unordered_set<point3D_t> variable_point3D_ids_;
   std::unordered_set<point3D_t> constant_point3D_ids_;
-  std::unordered_set<image_t> constant_cam_poses_;
-  std::unordered_map<image_t, std::vector<int>> constant_cam_positions_;
+  std::unordered_set<sensor_t> constant_sensor_from_rig_poses_;
+  std::unordered_set<frame_t> constant_frame_from_world_poses_;
 };
 
 struct BundleAdjustmentOptions {
@@ -128,7 +137,8 @@ struct BundleAdjustmentOptions {
   bool refine_extra_params = true;
 
   // Whether to refine the extrinsic parameter group.
-  bool refine_extrinsics = true;
+  bool refine_frame_from_world = true;
+  bool refine_sensor_from_rig = true;
 
   // Whether to print a final summary.
   bool print_summary = true;

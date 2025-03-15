@@ -39,6 +39,7 @@ namespace {
 TEST(Camera, Empty) {
   Camera camera;
   EXPECT_EQ(camera.camera_id, kInvalidCameraId);
+  EXPECT_EQ(camera.SensorId(), sensor_t(SensorType::CAMERA, kInvalidCameraId));
   EXPECT_EQ(camera.model_id, CameraModelId::kInvalid);
   EXPECT_EQ(camera.ModelName(), "");
   EXPECT_EQ(camera.width, 0);
@@ -78,6 +79,12 @@ TEST(Camera, CameraId) {
   EXPECT_EQ(camera.camera_id, kInvalidCameraId);
   camera.camera_id = 1;
   EXPECT_EQ(camera.camera_id, 1);
+}
+
+TEST(Camera, SensorId) {
+  Camera camera;
+  camera.camera_id = 1;
+  EXPECT_EQ(camera.SensorId(), sensor_t(SensorType::CAMERA, 1));
 }
 
 TEST(Camera, FocalLength) {
