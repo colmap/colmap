@@ -91,7 +91,7 @@ void BundleAdjustmentController::Run() {
   for (const image_t image_id : reconstruction_->RegImageIds()) {
     ba_config.AddImage(image_id);
   }
-  ba_config.FixGauge(BundleAdjustmentConfig::Gauge::TWO_CAMS_FROM_WORLD);
+  ba_config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
 
   // Run bundle adjustment.
   std::unique_ptr<BundleAdjuster> bundle_adjuster = CreateDefaultBundleAdjuster(

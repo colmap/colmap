@@ -47,9 +47,11 @@ namespace colmap {
 // BundleAdjustmentConfig
 ////////////////////////////////////////////////////////////////////////////////
 
-void BundleAdjustmentConfig::FixGauge(Gauge gauge) { fixed_gauge_ = gauge; }
+void BundleAdjustmentConfig::FixGauge(BundleAdjustmentGauge gauge) {
+  fixed_gauge_ = gauge;
+}
 
-BundleAdjustmentConfig::Gauge BundleAdjustmentConfig::FixedGauge() const {
+BundleAdjustmentGauge BundleAdjustmentConfig::FixedGauge() const {
   return fixed_gauge_;
 }
 
@@ -141,19 +143,19 @@ bool BundleAdjustmentConfig::HasConstantCamIntrinsics(
 }
 
 void BundleAdjustmentConfig::SetConstantSensorFromRigPose(
-  const sensor_t sensor_id) {
-constant_sensor_from_rig_poses_.insert(sensor_id);
+    const sensor_t sensor_id) {
+  constant_sensor_from_rig_poses_.insert(sensor_id);
 }
 
 void BundleAdjustmentConfig::SetVariableSensorFromRigPose(
-  const sensor_t sensor_id) {
-constant_sensor_from_rig_poses_.erase(sensor_id);
+    const sensor_t sensor_id) {
+  constant_sensor_from_rig_poses_.erase(sensor_id);
 }
 
 bool BundleAdjustmentConfig::HasConstantSensorFromRigPose(
-  const sensor_t sensor_id) const {
-return constant_sensor_from_rig_poses_.find(sensor_id) !=
-       constant_sensor_from_rig_poses_.end();
+    const sensor_t sensor_id) const {
+  return constant_sensor_from_rig_poses_.find(sensor_id) !=
+         constant_sensor_from_rig_poses_.end();
 }
 
 void BundleAdjustmentConfig::SetConstantFrameFromWorldPose(
@@ -425,8 +427,7 @@ void ParameterizeImages(const BundleAdjustmentOptions& options,
                         const std::set<image_t>& image_ids,
                         Reconstruction& reconstruction,
                         ceres::Problem& problem) {
-  if (config.FixedGauge() !=
-          BundleAdjustmentConfig::Gauge::TWO_CAMS_FROM_WORLD ||
+  if (config.FixedGauge() != BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD ||
       !options.refine_frame_from_world) {
     return;
   }
@@ -500,7 +501,7 @@ void ParameterizePoints(
     problem.SetParameterBlockConstant(point3D.xyz.data());
   }
 
-  if (config.FixedGauge() == BundleAdjustmentConfig::Gauge::THREE_POINTS &&
+  if (config.FixedGauge() == BundleAdjustmentGauge::THREE_POINTS &&
       num_constant_points < 3) {
     // TODO(jsch): Notice that the current logic has a chance of not fixing the
     // Gauge appropriately with the randomly selected points. Ensure there are
@@ -1124,7 +1125,7 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
 
     // Fix 7-DOFs of BA problem if not enough valid pose priors.
     if (!use_prior_position) {
-      config.FixGauge(BundleAdjustmentConfig::Gauge::TWO_CAMS_FROM_WORLD);
+      config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
     }
 
     default_bundle_adjuster_ = std::make_unique<DefaultBundleAdjuster>(

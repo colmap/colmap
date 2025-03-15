@@ -15,10 +15,19 @@ namespace py = pybind11;
 void BindBundleAdjuster(py::module& m) {
   IsPyceresAvailable();  // Try to import pyceres to populate the docstrings.
 
+  auto PyBundleAdjustmentGauge =
+      py::enum_<BundleAdjustmentGauge>(m, "BundleAdjustmentGauge")
+          .value("UNSPECIFIED", BundleAdjustmentGauge::UNSPECIFIED)
+          .value("TWO_CAMS_FROM_WORLD",
+                 BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD)
+          .value("THREE_POINTS", BundleAdjustmentGauge::THREE_POINTS);
+  AddStringToEnumConstructor(PyBundleAdjustmentGauge);
+
   using BACfg = BundleAdjustmentConfig;
   py::class_<BACfg> PyBundleAdjustmentConfig(m, "BundleAdjustmentConfig");
   PyBundleAdjustmentConfig.def(py::init<>())
-      .def("num_images", &BACfg::NumImages)
+      .def("fix_gauge", &BACfg::FixGauge)
+      .def_property_readonly("fixed_gauge", &BACfg::FixedGauge)
       .def("num_points", &BACfg::NumPoints)
       .def("num_constant_cam_intrinsics", &BACfg::NumConstantCamIntrinsics)
       .def("num_constant_sensor_from_rig_poses",

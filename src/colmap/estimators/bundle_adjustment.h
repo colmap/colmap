@@ -32,6 +32,7 @@
 #include "colmap/scene/camera_rig.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/enum_utils.h"
 
 #include <memory>
 #include <unordered_set>
@@ -41,19 +42,16 @@
 
 namespace colmap {
 
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(
+    BundleAdjustmentGauge, -1, UNSPECIFIED, TWO_CAMS_FROM_WORLD, THREE_POINTS);
+
 // Configuration container to setup bundle adjustment problems.
 class BundleAdjustmentConfig {
  public:
-  enum class Gauge {
-    UNSPECIFIED,
-    TWO_CAMS_FROM_WORLD,
-    THREE_POINTS,
-  };
-
   BundleAdjustmentConfig() = default;
 
-  void FixGauge(Gauge gauge);
-  Gauge FixedGauge() const;
+  void FixGauge(BundleAdjustmentGauge gauge);
+  BundleAdjustmentGauge FixedGauge() const;
 
   size_t NumImages() const;
 
@@ -112,7 +110,7 @@ class BundleAdjustmentConfig {
   const std::unordered_set<frame_t>& ConstantFrameFromWorldPoses() const;
 
  private:
-  Gauge fixed_gauge_ = Gauge::UNSPECIFIED;
+  BundleAdjustmentGauge fixed_gauge_ = BundleAdjustmentGauge::UNSPECIFIED;
   std::unordered_set<camera_t> constant_cam_intrinsics_;
   std::unordered_set<image_t> image_ids_;
   std::unordered_set<point3D_t> variable_point3D_ids_;

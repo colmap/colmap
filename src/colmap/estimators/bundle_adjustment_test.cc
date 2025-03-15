@@ -179,7 +179,7 @@ TEST(DefaultBundleAdjuster, TwoView) {
   BundleAdjustmentConfig config;
   config.AddImage(1);
   config.AddImage(2);
-  config.FixGauge(BundleAdjustmentConfig::Gauge::TWO_CAMS_FROM_WORLD);
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
 
   BundleAdjustmentOptions options;
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
@@ -225,7 +225,7 @@ TEST(DefaultBundleAdjuster, TwoViewRig) {
   for (const image_t image_id : reconstruction.RegImageIds()) {
     config.AddImage(image_id);
   }
-  config.FixGauge(BundleAdjustmentConfig::Gauge::THREE_POINTS);
+  config.FixGauge(BundleAdjustmentGauge::THREE_POINTS);
 
   BundleAdjustmentOptions options;
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
@@ -276,7 +276,7 @@ TEST(DefaultBundleAdjuster, ManyViewRig) {
   for (const image_t image_id : reconstruction.RegImageIds()) {
     config.AddImage(image_id);
   }
-  config.FixGauge(BundleAdjustmentConfig::Gauge::THREE_POINTS);
+  config.FixGauge(BundleAdjustmentGauge::THREE_POINTS);
 
   BundleAdjustmentOptions options;
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
@@ -329,7 +329,7 @@ TEST(DefaultBundleAdjuster, ManyViewRigConstantSensorFromRig) {
     config.AddImage(image_id);
   }
   config.SetConstantSensorFromRigPose(reconstruction.Camera(2).SensorId());
-  config.FixGauge(BundleAdjustmentConfig::Gauge::THREE_POINTS);
+  config.FixGauge(BundleAdjustmentGauge::THREE_POINTS);
 
   BundleAdjustmentOptions options;
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
@@ -383,7 +383,7 @@ TEST(DefaultBundleAdjuster, ManyViewRigConstantFrameFromWorld) {
   }
   const frame_t constant_frame_id = 1;
   config.SetConstantFrameFromWorldPose(constant_frame_id);
-  config.FixGauge(BundleAdjustmentConfig::Gauge::THREE_POINTS);
+  config.FixGauge(BundleAdjustmentGauge::THREE_POINTS);
 
   BundleAdjustmentOptions options;
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
@@ -670,7 +670,7 @@ TEST(DefaultBundleAdjuster, VariableImage) {
   config.AddImage(1);
   config.AddImage(2);
   config.AddImage(3);
-  config.FixGauge(BundleAdjustmentConfig::Gauge::TWO_CAMS_FROM_WORLD);
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
 
   BundleAdjustmentOptions options;
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
@@ -720,7 +720,7 @@ TEST(DefaultBundleAdjuster, ConstantFocalLength) {
   BundleAdjustmentConfig config;
   config.AddImage(1);
   config.AddImage(2);
-  config.FixGauge(BundleAdjustmentConfig::Gauge::TWO_CAMS_FROM_WORLD);
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
 
   BundleAdjustmentOptions options;
   options.refine_focal_length = false;
@@ -780,7 +780,7 @@ TEST(DefaultBundleAdjuster, VariablePrincipalPoint) {
   BundleAdjustmentConfig config;
   config.AddImage(1);
   config.AddImage(2);
-  config.FixGauge(BundleAdjustmentConfig::Gauge::TWO_CAMS_FROM_WORLD);
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
 
   BundleAdjustmentOptions options;
   options.refine_principal_point = true;
@@ -852,7 +852,7 @@ TEST(DefaultBundleAdjuster, ConstantExtraParam) {
   BundleAdjustmentConfig config;
   config.AddImage(1);
   config.AddImage(2);
-  config.FixGauge(BundleAdjustmentConfig::Gauge::TWO_CAMS_FROM_WORLD);
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
 
   BundleAdjustmentOptions options;
   options.refine_extra_params = false;

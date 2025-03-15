@@ -464,7 +464,7 @@ IncrementalMapper::AdjustLocalBundle(
   // Do the bundle adjustment only if there is any connected images.
   if (local_bundle.size() > 0) {
     BundleAdjustmentConfig ba_config;
-    ba_config.FixGauge(BundleAdjustmentConfig::Gauge::THREE_POINTS);
+    ba_config.FixGauge(BundleAdjustmentGauge::THREE_POINTS);
     ba_config.AddImage(image_id);
     for (const image_t local_image_id : local_bundle) {
       ba_config.AddImage(local_image_id);
@@ -598,7 +598,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
 
   std::unique_ptr<BundleAdjuster> bundle_adjuster;
   if (!use_prior_position) {
-    ba_config.FixGauge(BundleAdjustmentConfig::Gauge::TWO_CAMS_FROM_WORLD);
+    ba_config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
     bundle_adjuster = CreateDefaultBundleAdjuster(
         std::move(custom_ba_options), std::move(ba_config), *reconstruction_);
   } else {
