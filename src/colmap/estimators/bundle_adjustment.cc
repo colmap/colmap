@@ -63,6 +63,10 @@ size_t BundleAdjustmentConfig::NumConstantCamIntrinsics() const {
   return constant_cam_intrinsics_.size();
 }
 
+size_t BundleAdjustmentConfig::NumConstantSensorFromRigPoses() const {
+  return constant_sensor_from_rig_poses_.size();
+}
+
 size_t BundleAdjustmentConfig::NumConstantFrameFromWorldPoses() const {
   return constant_frame_from_world_poses_.size();
 }
@@ -136,6 +140,22 @@ bool BundleAdjustmentConfig::HasConstantCamIntrinsics(
          constant_cam_intrinsics_.end();
 }
 
+void BundleAdjustmentConfig::SetConstantSensorFromRigPose(
+  const sensor_t sensor_id) {
+constant_sensor_from_rig_poses_.insert(sensor_id);
+}
+
+void BundleAdjustmentConfig::SetVariableSensorFromRigPose(
+  const sensor_t sensor_id) {
+constant_sensor_from_rig_poses_.erase(sensor_id);
+}
+
+bool BundleAdjustmentConfig::HasConstantSensorFromRigPose(
+  const sensor_t sensor_id) const {
+return constant_sensor_from_rig_poses_.find(sensor_id) !=
+       constant_sensor_from_rig_poses_.end();
+}
+
 void BundleAdjustmentConfig::SetConstantFrameFromWorldPose(
     const frame_t frame_id) {
   THROW_CHECK(HasImage(frame_id));
@@ -151,22 +171,6 @@ bool BundleAdjustmentConfig::HasConstantFrameFromWorldPose(
     const frame_t frame_id) const {
   return constant_frame_from_world_poses_.find(frame_id) !=
          constant_frame_from_world_poses_.end();
-}
-
-void BundleAdjustmentConfig::SetConstantSensorFromRigPose(
-    const sensor_t sensor_id) {
-  constant_sensor_from_rig_poses_.insert(sensor_id);
-}
-
-void BundleAdjustmentConfig::SetVariableSensorFromRigPose(
-    const sensor_t sensor_id) {
-  constant_sensor_from_rig_poses_.erase(sensor_id);
-}
-
-bool BundleAdjustmentConfig::HasConstantSensorFromRigPose(
-    const sensor_t sensor_id) const {
-  return constant_sensor_from_rig_poses_.find(sensor_id) !=
-         constant_sensor_from_rig_poses_.end();
 }
 
 const std::unordered_set<image_t>& BundleAdjustmentConfig::Images() const {
@@ -188,7 +192,12 @@ BundleAdjustmentConfig::ConstantCamIntrinsics() const {
   return constant_cam_intrinsics_;
 }
 
-const std::unordered_set<image_t>&
+const std::unordered_set<sensor_t>&
+BundleAdjustmentConfig::ConstantSensorFromRigPoses() const {
+  return constant_sensor_from_rig_poses_;
+}
+
+const std::unordered_set<frame_t>&
 BundleAdjustmentConfig::ConstantFrameFromWorldPoses() const {
   return constant_frame_from_world_poses_;
 }
@@ -890,7 +899,7 @@ class RigBundleAdjuster : public BundleAdjuster {
     Camera& camera = *image.CameraPtr();
 
     const bool constant_cam_from_world =
-        config_.HasConstantFrameFromWorldPose(image_id);
+        config_.HasConstantFrameFromWorldPose(image.FrameId());
 
     double* camera_params = camera.params.data();
     double* cam_from_rig_rotation = nullptr;

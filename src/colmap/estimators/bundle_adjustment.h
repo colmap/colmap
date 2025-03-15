@@ -63,8 +63,8 @@ class BundleAdjustmentConfig {
 
   size_t NumConstantCamIntrinsics() const;
 
-  size_t NumConstantFrameFromWorldPoses() const;
   size_t NumConstantSensorFromRigPoses() const;
+  size_t NumConstantFrameFromWorldPoses() const;
 
   // Determine the number of residuals for the given reconstruction. The number
   // of residuals equals the number of observations times two.
@@ -82,16 +82,16 @@ class BundleAdjustmentConfig {
   void SetVariableCamIntrinsics(camera_t camera_id);
   bool HasConstantCamIntrinsics(camera_t camera_id) const;
 
-  // Set the frame from world pose as constant.
-  void SetConstantFrameFromWorldPose(frame_t frame_id);
-  void SetVariableFrameFromWorldPose(frame_t frame_id);
-  bool HasConstantFrameFromWorldPose(frame_t frame_id) const;
-
   // Set the pose of added images as constant. The pose is defined as the
   // rotational and translational part of the projection matrix.
   void SetConstantSensorFromRigPose(sensor_t sensor_id);
   void SetVariableSensorFromRigPose(sensor_t sensor_id);
   bool HasConstantSensorFromRigPose(sensor_t sensor_id) const;
+
+  // Set the frame from world pose as constant.
+  void SetConstantFrameFromWorldPose(frame_t frame_id);
+  void SetVariableFrameFromWorldPose(frame_t frame_id);
+  bool HasConstantFrameFromWorldPose(frame_t frame_id) const;
 
   // Add / remove points from the configuration. Note that points can either
   // be variable or constant but not both at the same time.
@@ -108,8 +108,8 @@ class BundleAdjustmentConfig {
   const std::unordered_set<point3D_t>& VariablePoints() const;
   const std::unordered_set<point3D_t>& ConstantPoints() const;
   const std::unordered_set<camera_t> ConstantCamIntrinsics() const;
+  const std::unordered_set<sensor_t>& ConstantSensorFromRigPoses() const;
   const std::unordered_set<frame_t>& ConstantFrameFromWorldPoses() const;
-  const std::unordered_set<rig_t>& ConstantSensorFromRigPoses() const;
 
  private:
   Gauge fixed_gauge_ = Gauge::UNSPECIFIED;
@@ -117,8 +117,8 @@ class BundleAdjustmentConfig {
   std::unordered_set<image_t> image_ids_;
   std::unordered_set<point3D_t> variable_point3D_ids_;
   std::unordered_set<point3D_t> constant_point3D_ids_;
-  std::unordered_set<frame_t> constant_frame_from_world_poses_;
   std::unordered_set<sensor_t> constant_sensor_from_rig_poses_;
+  std::unordered_set<frame_t> constant_frame_from_world_poses_;
 };
 
 struct BundleAdjustmentOptions {
