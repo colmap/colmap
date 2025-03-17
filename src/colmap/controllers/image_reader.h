@@ -72,6 +72,22 @@ struct ImageReaderOptions {
   // Whether to use a different camera for each image.
   bool single_camera_per_image = false;
 
+  // Whether to create a rig and camera per sub-folder:
+  //    rig1/
+  //      camera1/
+  //        image1
+  //        image2
+  //        ...
+  //      camera2/
+  //        image1
+  //        image2
+  //        ...
+  //      rig2/
+  //        ...
+  //      ...
+  //    ...
+  bool rig_and_camera_per_folder = false;
+
   // Whether to explicitly use an existing camera for all images. Note that in
   // this case the specified camera model and parameters are ignored.
   int existing_camera_id = kInvalidCameraId;
