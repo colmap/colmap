@@ -1191,7 +1191,7 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
 
     // Fix 7-DOFs of BA problem if not enough valid pose priors.
     if (!use_prior_position) {
-      config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+      config_.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
     }
 
     default_bundle_adjuster_ = std::make_unique<DefaultBundleAdjuster>(
