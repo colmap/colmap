@@ -397,7 +397,7 @@ TEST(DefaultBundleAdjuster, ManyViewRigConstantFrameFromWorld) {
   // 100 points, 30 images, 2 residuals per point per image
   EXPECT_EQ(summary.num_residuals_reduced, 6000);
   // 97 x 3 point parameters (3 fixed for gauge)
-  // + 5 x 6 frame_from_world parameters
+  // + 9 x 6 frame_from_world parameters
   // + 4 x 6 sensor_from_rig parameters
   // + 6 x 2 camera parameters
   EXPECT_EQ(summary.num_effective_parameters_reduced, 381);
