@@ -565,9 +565,6 @@ void FixGaugeWithThreePoints(
     FixedGaugeWithThreePoints& fixed_gauge,
     Reconstruction& reconstruction,
     ceres::Problem& problem) {
-  // TODO(jsch): Notice that the current logic has a chance of not fixing the
-  // Gauge appropriately with the randomly selected points. Ensure there are
-  // at least three points whose coordinates make up a rank-3 matrix.
   for (const auto& [point3D_id, num_observations] : point3D_num_observations) {
     Point3D& point3D = reconstruction.Point3D(point3D_id);
     if (point3D.track.Length() == num_observations &&
