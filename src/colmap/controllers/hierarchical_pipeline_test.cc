@@ -70,8 +70,9 @@ TEST(HierarchicalPipeline, WithoutNoise) {
   Database database(database_path);
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
-  synthetic_dataset_options.num_cameras = 2;
-  synthetic_dataset_options.num_images = 20;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 20;
   synthetic_dataset_options.num_points3D = 50;
   synthetic_dataset_options.point2D_stddev = 0;
   SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction, &database);
@@ -99,12 +100,13 @@ TEST(HierarchicalPipeline, MultiReconstruction) {
   Reconstruction gt_reconstruction1;
   Reconstruction gt_reconstruction2;
   SyntheticDatasetOptions synthetic_dataset_options;
-  synthetic_dataset_options.num_cameras = 1;
-  synthetic_dataset_options.num_images = 5;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 5;
   synthetic_dataset_options.num_points3D = 50;
   synthetic_dataset_options.point2D_stddev = 0;
   SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction1, &database);
-  synthetic_dataset_options.num_images = 4;
+  synthetic_dataset_options.num_frames_per_rig = 4;
   SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction2, &database);
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();

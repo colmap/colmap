@@ -89,7 +89,7 @@ void GenerateReconstruction(const image_t num_images,
   reconstruction->AddCamera(camera);
   Rig rig;
   rig.SetRigId(1);
-  rig.AddRefSensor(sensor_t(SensorType::CAMERA, camera.camera_id));
+  rig.AddRefSensor(camera.SensorId());
   reconstruction->AddRig(rig);
 
   for (image_t image_id = 1; image_id <= num_images; ++image_id) {
@@ -123,8 +123,9 @@ TEST(Reconstruction, ConstructCopy) {
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
-  synthetic_dataset_options.num_cameras = 3;
-  synthetic_dataset_options.num_images = 8;
+  synthetic_dataset_options.num_rigs = 3;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 8;
   synthetic_dataset_options.num_points3D = 21;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
   const Reconstruction reconstruction_copy(reconstruction);
@@ -135,8 +136,9 @@ TEST(Reconstruction, AssignCopy) {
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
-  synthetic_dataset_options.num_cameras = 3;
-  synthetic_dataset_options.num_images = 8;
+  synthetic_dataset_options.num_rigs = 3;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 8;
   synthetic_dataset_options.num_points3D = 21;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
   Reconstruction reconstruction_copy;
@@ -148,8 +150,9 @@ TEST(Reconstruction, Print) {
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
-  synthetic_dataset_options.num_cameras = 1;
-  synthetic_dataset_options.num_images = 2;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 2;
   synthetic_dataset_options.num_points3D = 3;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
   std::ostringstream stream;
@@ -200,7 +203,7 @@ TEST(Reconstruction, AddImage) {
       Camera::CreateFromModelId(1, CameraModelId::kSimplePinhole, 1, 1, 1);
   Rig rig;
   rig.SetRigId(1);
-  rig.AddRefSensor(sensor_t(SensorType::CAMERA, camera.camera_id));
+  rig.AddRefSensor(camera.SensorId());
   reconstruction.AddRig(rig);
   Frame frame;
   frame.SetFrameId(1);
@@ -615,8 +618,9 @@ TEST(Reconstruction, UpdatePoint3DErrors) {
 TEST(Reconstruction, DeleteAllPoints2DAndPoints3D) {
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
-  synthetic_dataset_options.num_cameras = 2;
-  synthetic_dataset_options.num_images = 20;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 20;
   synthetic_dataset_options.num_points3D = 50;
   synthetic_dataset_options.point2D_stddev = 0;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);

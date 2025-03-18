@@ -44,7 +44,7 @@ void GenerateReconstruction(const image_t num_images,
   reconstruction.AddCamera(camera);
   Rig rig;
   rig.SetRigId(1);
-  rig.AddRefSensor(sensor_t(SensorType::CAMERA, camera.camera_id));
+  rig.AddRefSensor(camera.SensorId());
   reconstruction.AddRig(rig);
 
   for (image_t image_id = 1; image_id <= num_images; ++image_id) {
@@ -239,7 +239,7 @@ TEST(ObservationManager, NumVisiblePoints3D) {
   reconstruction.AddCamera(camera);
   Rig rig;
   rig.SetRigId(1);
-  rig.AddRefSensor(sensor_t(SensorType::CAMERA, camera.camera_id));
+  rig.AddRefSensor(camera.SensorId());
   reconstruction.AddRig(rig);
   Frame frame;
   frame.SetFrameId(1);
@@ -294,7 +294,7 @@ TEST(ObservationManager, Point3DVisibilityScore) {
   reconstruction.AddCamera(camera);
   Rig rig;
   rig.SetRigId(1);
-  rig.AddRefSensor(sensor_t(SensorType::CAMERA, camera.camera_id));
+  rig.AddRefSensor(camera.SensorId());
   reconstruction.AddRig(rig);
   Frame frame;
   frame.SetFrameId(1);

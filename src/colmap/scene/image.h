@@ -80,6 +80,8 @@ class Image {
   // Check whether identifier of camera has been set.
   inline bool HasCameraId() const;
 
+  inline data_t DataId() const;
+
   // Access to the underlying, shared camera object.
   // This is typically only set when the image was added to a reconstruction.
   inline struct Camera* CameraPtr() const;
@@ -197,6 +199,10 @@ void Image::SetCameraId(const camera_t camera_id) {
 }
 
 bool Image::HasCameraId() const { return camera_id_ != kInvalidCameraId; }
+
+data_t Image::DataId() const {
+  return data_t(sensor_t(SensorType::CAMERA, camera_id_), image_id_);
+}
 
 struct Camera* Image::CameraPtr() const {
   return THROW_CHECK_NOTNULL(camera_ptr_);

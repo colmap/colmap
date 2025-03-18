@@ -61,6 +61,8 @@ void BindSceneImage(py::module& m) {
                     &Image::CameraId,
                     &Image::SetCameraId,
                     "Unique identifier of the camera.")
+      .def_property_readonly(
+          "data_id", &Image::DataId, "Unique identifier of the data.")
       .def_property(
           "camera",
           [](Image& self) -> py::typing::Optional<Camera> {

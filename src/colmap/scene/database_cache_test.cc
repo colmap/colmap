@@ -53,8 +53,8 @@ TEST(DatabaseCache, ConstructFromDatabase) {
   camera2.camera_id = database.WriteCamera(camera2);
 
   Rig rig;
-  rig.AddRefSensor(sensor_t(SensorType::CAMERA, camera1.camera_id));
-  rig.AddSensor(sensor_t(SensorType::CAMERA, camera2.camera_id));
+  rig.AddRefSensor(camera1.SensorId());
+  rig.AddSensor(camera2.SensorId());
   const rig_t rig_id = database.WriteRig(rig);
 
   Image image1;
@@ -76,17 +76,13 @@ TEST(DatabaseCache, ConstructFromDatabase) {
 
   Frame frame1;
   frame1.SetRigId(rig_id);
-  frame1.AddDataId(data_t(sensor_t(SensorType::CAMERA, camera1.camera_id),
-                          image1.ImageId()));
-  frame1.AddDataId(data_t(sensor_t(SensorType::CAMERA, camera2.camera_id),
-                          image2.ImageId()));
+  frame1.AddDataId(image1.DataId());
+  frame1.AddDataId(image2.DataId());
   frame1.SetFrameId(database.WriteFrame(frame1));
   Frame frame2;
   frame2.SetRigId(rig_id);
-  frame2.AddDataId(data_t(sensor_t(SensorType::CAMERA, camera1.camera_id),
-                          image3.ImageId()));
-  frame2.AddDataId(data_t(sensor_t(SensorType::CAMERA, camera2.camera_id),
-                          image4.ImageId()));
+  frame2.AddDataId(image3.DataId());
+  frame2.AddDataId(image4.DataId());
   frame2.SetFrameId(database.WriteFrame(frame2));
 
   database.WritePosePrior(image1.ImageId(),
