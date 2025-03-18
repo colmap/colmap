@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,13 +26,12 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/geometry/homography_matrix.h"
 
 #include "colmap/geometry/pose.h"
 #include "colmap/math/math.h"
+#include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 
 #include <array>
@@ -66,9 +65,8 @@ Eigen::Matrix3d ComputeHomographyRotation(const Eigen::Matrix3d& H_normalized,
 void DecomposeHomographyMatrix(const Eigen::Matrix3d& H,
                                const Eigen::Matrix3d& K1,
                                const Eigen::Matrix3d& K2,
-                               std::vector<Eigen::Matrix3d>* R,
-                               std::vector<Eigen::Vector3d>* t,
-                               std::vector<Eigen::Vector3d>* n) {
+                               std::vector<Rigid3d>* cams2_from_cams1,
+                               std::vector<Eigen::Vector3d>* normals) {
   // Remove calibration from homography.
   Eigen::Matrix3d H_normalized = K2.inverse() * H * K1;
 
@@ -97,9 +95,9 @@ void DecomposeHomographyMatrix(const Eigen::Matrix3d& H,
   // Check if H is rotation matrix.
   const double kMinInfinityNorm = 1e-3;
   if (S.lpNorm<Eigen::Infinity>() < kMinInfinityNorm) {
-    *R = {H_normalized};
-    *t = {Eigen::Vector3d::Zero()};
-    *n = {Eigen::Vector3d::Zero()};
+    *cams2_from_cams1 = {
+        Rigid3d(Eigen::Quaterniond(H_normalized), Eigen::Vector3d::Zero())};
+    *normals = {Eigen::Vector3d::Zero()};
     return;
   }
 
@@ -107,9 +105,9 @@ void DecomposeHomographyMatrix(const Eigen::Matrix3d& H,
   const double M11 = ComputeOppositeOfMinor(S, 1, 1);
   const double M22 = ComputeOppositeOfMinor(S, 2, 2);
 
-  const double rtM00 = std::sqrt(M00);
-  const double rtM11 = std::sqrt(M11);
-  const double rtM22 = std::sqrt(M22);
+  const double rtM00 = std::sqrt(std::max(M00, 0.));
+  const double rtM11 = std::sqrt(std::max(M11, 0.));
+  const double rtM22 = std::sqrt(std::max(M22, 0.));
 
   const double M01 = ComputeOppositeOfMinor(S, 0, 1);
   const double M12 = ComputeOppositeOfMinor(S, 1, 2);
@@ -153,14 +151,15 @@ void DecomposeHomographyMatrix(const Eigen::Matrix3d& H,
   }
 
   const double traceS = S.trace();
-  const double v = 2.0 * std::sqrt(1.0 + traceS - M00 - M11 - M22);
+  const double v =
+      2.0 * std::sqrt(std::max(1.0 + traceS - M00 - M11 - M22, 0.));
 
   const double ESii = SignOfNumber(S(idx, idx));
   const double r_2 = 2 + traceS + v;
   const double nt_2 = 2 + traceS - v;
 
-  const double r = std::sqrt(r_2);
-  const double n_t = std::sqrt(nt_2);
+  const double r = std::sqrt(std::max(r_2, 0.));
+  const double n_t = std::sqrt(std::max(nt_2, 0.));
 
   const Eigen::Vector3d n1 = np1.normalized();
   const Eigen::Vector3d n2 = np2.normalized();
@@ -179,9 +178,11 @@ void DecomposeHomographyMatrix(const Eigen::Matrix3d& H,
       ComputeHomographyRotation(H_normalized, t2_star, n2, v);
   const Eigen::Vector3d t2 = R2 * t2_star;
 
-  *R = {R1, R1, R2, R2};
-  *t = {t1, -t1, t2, -t2};
-  *n = {-n1, n1, -n2, n2};
+  *cams2_from_cams1 = {Rigid3d(Eigen::Quaterniond(R1), t1),
+                       Rigid3d(Eigen::Quaterniond(R1), -t1),
+                       Rigid3d(Eigen::Quaterniond(R2), t2),
+                       Rigid3d(Eigen::Quaterniond(R2), -t2)};
+  *normals = {-n1, n1, -n2, n2};
 }
 
 void PoseFromHomographyMatrix(const Eigen::Matrix3d& H,
@@ -189,26 +190,24 @@ void PoseFromHomographyMatrix(const Eigen::Matrix3d& H,
                               const Eigen::Matrix3d& K2,
                               const std::vector<Eigen::Vector2d>& points1,
                               const std::vector<Eigen::Vector2d>& points2,
-                              Eigen::Matrix3d* R,
-                              Eigen::Vector3d* t,
-                              Eigen::Vector3d* n,
+                              Rigid3d* cam2_from_cam1,
+                              Eigen::Vector3d* normal,
                               std::vector<Eigen::Vector3d>* points3D) {
-  CHECK_EQ(points1.size(), points2.size());
+  THROW_CHECK_EQ(points1.size(), points2.size());
 
-  std::vector<Eigen::Matrix3d> R_cmbs;
-  std::vector<Eigen::Vector3d> t_cmbs;
-  std::vector<Eigen::Vector3d> n_cmbs;
-  DecomposeHomographyMatrix(H, K1, K2, &R_cmbs, &t_cmbs, &n_cmbs);
+  std::vector<Rigid3d> cams2_from_cams1;
+  std::vector<Eigen::Vector3d> normals;
+  DecomposeHomographyMatrix(H, K1, K2, &cams2_from_cams1, &normals);
+  THROW_CHECK_EQ(cams2_from_cams1.size(), normals.size());
 
   points3D->clear();
-  for (size_t i = 0; i < R_cmbs.size(); ++i) {
-    std::vector<Eigen::Vector3d> points3D_cmb;
-    CheckCheirality(R_cmbs[i], t_cmbs[i], points1, points2, &points3D_cmb);
-    if (points3D_cmb.size() >= points3D->size()) {
-      *R = R_cmbs[i];
-      *t = t_cmbs[i];
-      *n = n_cmbs[i];
-      *points3D = points3D_cmb;
+  std::vector<Eigen::Vector3d> tentative_points3D;
+  for (size_t i = 0; i < cams2_from_cams1.size(); ++i) {
+    CheckCheirality(cams2_from_cams1[i], points1, points2, &tentative_points3D);
+    if (tentative_points3D.size() >= points3D->size()) {
+      *cam2_from_cam1 = cams2_from_cams1[i];
+      *normal = normals[i];
+      std::swap(*points3D, tentative_points3D);
     }
   }
 }
@@ -219,7 +218,7 @@ Eigen::Matrix3d HomographyMatrixFromPose(const Eigen::Matrix3d& K1,
                                          const Eigen::Vector3d& t,
                                          const Eigen::Vector3d& n,
                                          const double d) {
-  CHECK_GT(d, 0);
+  THROW_CHECK_GT(d, 0);
   return K2 * (R - t * n.normalized().transpose() / d) * K1.inverse();
 }
 

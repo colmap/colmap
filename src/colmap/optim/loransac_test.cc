@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/optim/loransac.h"
 
@@ -35,12 +33,14 @@
 #include "colmap/geometry/pose.h"
 #include "colmap/geometry/sim3.h"
 #include "colmap/math/random.h"
+#include "colmap/util/eigen_alignment.h"
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(LORANSAC, Report) {
   LORANSAC<SimilarityTransformEstimator<3>,
@@ -52,55 +52,5 @@ TEST(LORANSAC, Report) {
   EXPECT_EQ(report.inlier_mask.size(), 0);
 }
 
-TEST(LORANSAC, SimilarityTransform) {
-  SetPRNGSeed(0);
-
-  const size_t num_samples = 1000;
-  const size_t num_outliers = 400;
-
-  // Create some arbitrary transformation.
-  const Sim3d expectedTgtFromSrc(
-      2, Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d(100, 10, 10));
-
-  // Generate exact data
-  std::vector<Eigen::Vector3d> src;
-  std::vector<Eigen::Vector3d> tgt;
-  for (size_t i = 0; i < num_samples; ++i) {
-    src.emplace_back(i, std::sqrt(i) + 2, std::sqrt(2 * i + 2));
-    tgt.push_back(expectedTgtFromSrc * src.back());
-  }
-
-  // Add some faulty data.
-  for (size_t i = 0; i < num_outliers; ++i) {
-    tgt[i] = Eigen::Vector3d(RandomUniformReal(-3000.0, -2000.0),
-                             RandomUniformReal(-4000.0, -3000.0),
-                             RandomUniformReal(-5000.0, -4000.0));
-  }
-
-  // Robustly estimate transformation using RANSAC.
-  RANSACOptions options;
-  options.max_error = 10;
-  LORANSAC<SimilarityTransformEstimator<3>, SimilarityTransformEstimator<3>>
-      ransac(options);
-  const auto report = ransac.Estimate(src, tgt);
-
-  EXPECT_TRUE(report.success);
-  EXPECT_GT(report.num_trials, 0);
-
-  // Make sure outliers were detected correctly.
-  EXPECT_EQ(report.support.num_inliers, num_samples - num_outliers);
-  for (size_t i = 0; i < num_samples; ++i) {
-    if (i < num_outliers) {
-      EXPECT_FALSE(report.inlier_mask[i]);
-    } else {
-      EXPECT_TRUE(report.inlier_mask[i]);
-    }
-  }
-
-  // Make sure original transformation is estimated correctly.
-  const double matrix_diff =
-      (expectedTgtFromSrc.ToMatrix() - report.model).norm();
-  EXPECT_LT(matrix_diff, 1e-6);
-}
-
+}  // namespace
 }  // namespace colmap

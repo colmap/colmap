@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,18 +26,18 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/estimators/translation_transform.h"
 
 #include "colmap/math/random.h"
 #include "colmap/optim/ransac.h"
+#include "colmap/util/eigen_alignment.h"
 
 #include <Eigen/Core>
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(TranslationTransform, Estimate) {
   SetPRNGSeed(0);
@@ -56,8 +56,11 @@ TEST(TranslationTransform, Estimate) {
     dst.push_back(src[i] + translation);
   }
 
-  const auto estimated_translation =
-      TranslationTransformEstimator<2>::Estimate(src, dst)[0];
+  std::vector<Eigen::Vector2d> models;
+  TranslationTransformEstimator<2>::Estimate(src, dst, &models);
+
+  ASSERT_EQ(models.size(), 1);
+  const Eigen::Vector2d& estimated_translation = models[0];
 
   EXPECT_NEAR(translation(0), estimated_translation(0), 1e-6);
   EXPECT_NEAR(translation(1), estimated_translation(1), 1e-6);
@@ -71,4 +74,5 @@ TEST(TranslationTransform, Estimate) {
   }
 }
 
+}  // namespace
 }  // namespace colmap

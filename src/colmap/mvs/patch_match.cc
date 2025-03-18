@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/mvs/patch_match.h"
 
@@ -35,12 +33,13 @@
 #include "colmap/mvs/consistency_graph.h"
 #include "colmap/mvs/patch_match_cuda.h"
 #include "colmap/mvs/workspace.h"
+#include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 
 #include <numeric>
 #include <unordered_set>
 
-#define PrintOption(option) std::cout << #option ": " << option << std::endl
+#define PrintOption(option) LOG(INFO) << #option ": " << option << std::endl
 
 namespace colmap {
 namespace mvs {
@@ -50,98 +49,68 @@ PatchMatch::PatchMatch(const PatchMatchOptions& options, const Problem& problem)
 
 PatchMatch::~PatchMatch() {}
 
-void PatchMatchOptions::Print() const {
-  PrintHeading2("PatchMatchOptions");
-  PrintOption(max_image_size);
-  PrintOption(gpu_index);
-  PrintOption(depth_min);
-  PrintOption(depth_max);
-  PrintOption(window_radius);
-  PrintOption(window_step);
-  PrintOption(sigma_spatial);
-  PrintOption(sigma_color);
-  PrintOption(num_samples);
-  PrintOption(ncc_sigma);
-  PrintOption(min_triangulation_angle);
-  PrintOption(incident_angle_sigma);
-  PrintOption(num_iterations);
-  PrintOption(geom_consistency);
-  PrintOption(geom_consistency_regularizer);
-  PrintOption(geom_consistency_max_cost);
-  PrintOption(filter);
-  PrintOption(filter_min_ncc);
-  PrintOption(filter_min_triangulation_angle);
-  PrintOption(filter_min_num_consistent);
-  PrintOption(filter_geom_consistency_max_cost);
-  PrintOption(write_consistency_graph);
-  PrintOption(allow_missing_files);
-}
-
 void PatchMatch::Problem::Print() const {
   PrintHeading2("PatchMatch::Problem");
-
-  PrintOption(ref_image_idx);
-
-  std::cout << "src_image_idxs: ";
+  LOG(INFO) << "ref_image_idx: " << ref_image_idx;
+  LOG(INFO) << "src_image_idxs: ";
   if (!src_image_idxs.empty()) {
     for (size_t i = 0; i < src_image_idxs.size() - 1; ++i) {
-      std::cout << src_image_idxs[i] << " ";
+      LOG(INFO) << src_image_idxs[i] << " ";
     }
-    std::cout << src_image_idxs.back() << std::endl;
+    LOG(INFO) << src_image_idxs.back();
   } else {
-    std::cout << std::endl;
   }
 }
 
 void PatchMatch::Check() const {
-  CHECK(options_.Check());
+  THROW_CHECK(options_.Check());
 
-  CHECK(!options_.gpu_index.empty());
+  THROW_CHECK(!options_.gpu_index.empty());
   const std::vector<int> gpu_indices = CSVToVector<int>(options_.gpu_index);
-  CHECK_EQ(gpu_indices.size(), 1);
-  CHECK_GE(gpu_indices[0], -1);
+  THROW_CHECK_EQ(gpu_indices.size(), 1);
+  THROW_CHECK_GE(gpu_indices[0], -1);
 
-  CHECK_NOTNULL(problem_.images);
+  THROW_CHECK_NOTNULL(problem_.images);
   if (options_.geom_consistency) {
-    CHECK_NOTNULL(problem_.depth_maps);
-    CHECK_NOTNULL(problem_.normal_maps);
-    CHECK_EQ(problem_.depth_maps->size(), problem_.images->size());
-    CHECK_EQ(problem_.normal_maps->size(), problem_.images->size());
+    THROW_CHECK_NOTNULL(problem_.depth_maps);
+    THROW_CHECK_NOTNULL(problem_.normal_maps);
+    THROW_CHECK_EQ(problem_.depth_maps->size(), problem_.images->size());
+    THROW_CHECK_EQ(problem_.normal_maps->size(), problem_.images->size());
   }
 
-  CHECK_GT(problem_.src_image_idxs.size(), 0);
+  THROW_CHECK_GT(problem_.src_image_idxs.size(), 0);
 
   // Check that there are no duplicate images and that the reference image
   // is not defined as a source image.
   std::set<int> unique_image_idxs(problem_.src_image_idxs.begin(),
                                   problem_.src_image_idxs.end());
   unique_image_idxs.insert(problem_.ref_image_idx);
-  CHECK_EQ(problem_.src_image_idxs.size() + 1, unique_image_idxs.size());
+  THROW_CHECK_EQ(problem_.src_image_idxs.size() + 1, unique_image_idxs.size());
 
   // Check that input data is well-formed.
   for (const int image_idx : unique_image_idxs) {
-    CHECK_GE(image_idx, 0) << image_idx;
-    CHECK_LT(image_idx, problem_.images->size()) << image_idx;
+    THROW_CHECK_GE(image_idx, 0) << image_idx;
+    THROW_CHECK_LT(image_idx, problem_.images->size()) << image_idx;
 
     const Image& image = problem_.images->at(image_idx);
-    CHECK_GT(image.GetBitmap().Width(), 0) << image_idx;
-    CHECK_GT(image.GetBitmap().Height(), 0) << image_idx;
-    CHECK(image.GetBitmap().IsGrey()) << image_idx;
-    CHECK_EQ(image.GetWidth(), image.GetBitmap().Width()) << image_idx;
-    CHECK_EQ(image.GetHeight(), image.GetBitmap().Height()) << image_idx;
+    THROW_CHECK_GT(image.GetBitmap().Width(), 0) << image_idx;
+    THROW_CHECK_GT(image.GetBitmap().Height(), 0) << image_idx;
+    THROW_CHECK(image.GetBitmap().IsGrey()) << image_idx;
+    THROW_CHECK_EQ(image.GetWidth(), image.GetBitmap().Width()) << image_idx;
+    THROW_CHECK_EQ(image.GetHeight(), image.GetBitmap().Height()) << image_idx;
 
     // Make sure, the calibration matrix only contains fx, fy, cx, cy.
-    CHECK_LT(std::abs(image.GetK()[1] - 0.0f), 1e-6f) << image_idx;
-    CHECK_LT(std::abs(image.GetK()[3] - 0.0f), 1e-6f) << image_idx;
-    CHECK_LT(std::abs(image.GetK()[6] - 0.0f), 1e-6f) << image_idx;
-    CHECK_LT(std::abs(image.GetK()[7] - 0.0f), 1e-6f) << image_idx;
-    CHECK_LT(std::abs(image.GetK()[8] - 1.0f), 1e-6f) << image_idx;
+    THROW_CHECK_LT(std::abs(image.GetK()[1] - 0.0f), 1e-6f) << image_idx;
+    THROW_CHECK_LT(std::abs(image.GetK()[3] - 0.0f), 1e-6f) << image_idx;
+    THROW_CHECK_LT(std::abs(image.GetK()[6] - 0.0f), 1e-6f) << image_idx;
+    THROW_CHECK_LT(std::abs(image.GetK()[7] - 0.0f), 1e-6f) << image_idx;
+    THROW_CHECK_LT(std::abs(image.GetK()[8] - 1.0f), 1e-6f) << image_idx;
 
     if (options_.geom_consistency) {
-      CHECK_LT(image_idx, problem_.depth_maps->size()) << image_idx;
+      THROW_CHECK_LT(image_idx, problem_.depth_maps->size()) << image_idx;
       const DepthMap& depth_map = problem_.depth_maps->at(image_idx);
-      CHECK_EQ(image.GetWidth(), depth_map.GetWidth()) << image_idx;
-      CHECK_EQ(image.GetHeight(), depth_map.GetHeight()) << image_idx;
+      THROW_CHECK_EQ(image.GetWidth(), depth_map.GetWidth()) << image_idx;
+      THROW_CHECK_EQ(image.GetHeight(), depth_map.GetHeight()) << image_idx;
     }
   }
 
@@ -149,8 +118,8 @@ void PatchMatch::Check() const {
     const Image& ref_image = problem_.images->at(problem_.ref_image_idx);
     const NormalMap& ref_normal_map =
         problem_.normal_maps->at(problem_.ref_image_idx);
-    CHECK_EQ(ref_image.GetWidth(), ref_normal_map.GetWidth());
-    CHECK_EQ(ref_image.GetHeight(), ref_normal_map.GetHeight());
+    THROW_CHECK_EQ(ref_image.GetWidth(), ref_normal_map.GetWidth());
+    THROW_CHECK_EQ(ref_image.GetHeight(), ref_normal_map.GetHeight());
   }
 }
 
@@ -196,6 +165,8 @@ PatchMatchController::PatchMatchController(const PatchMatchOptions& options,
 }
 
 void PatchMatchController::Run() {
+  Timer run_timer;
+  run_timer.Start();
   ReadWorkspace();
   ReadProblems();
   ReadGpuIndices();
@@ -227,11 +198,11 @@ void PatchMatchController::Run() {
 
   thread_pool_->Wait();
 
-  GetTimer().PrintMinutes();
+  run_timer.PrintMinutes();
 }
 
 void PatchMatchController::ReadWorkspace() {
-  std::cout << "Reading workspace..." << std::endl;
+  LOG(INFO) << "Reading workspace...";
 
   Workspace::Options workspace_options;
 
@@ -252,9 +223,8 @@ void PatchMatchController::ReadWorkspace() {
   workspace_ = std::make_unique<CachedWorkspace>(workspace_options);
 
   if (workspace_format_lower_case == "pmvs") {
-    std::cout << StringPrintf("Importing PMVS workspace (option %s)...",
-                              pmvs_option_name_.c_str())
-              << std::endl;
+    LOG(INFO) << StringPrintf("Importing PMVS workspace (option %s)...",
+                              pmvs_option_name_.c_str());
     ImportPMVSWorkspace(*workspace_, pmvs_option_name_);
   }
 
@@ -262,7 +232,7 @@ void PatchMatchController::ReadWorkspace() {
 }
 
 void PatchMatchController::ReadProblems() {
-  std::cout << "Reading configuration..." << std::endl;
+  LOG(INFO) << "Reading configuration...";
 
   problems_.clear();
 
@@ -384,27 +354,24 @@ void PatchMatchController::ReadProblems() {
     }
 
     if (problem.src_image_idxs.empty()) {
-      std::cout
-          << StringPrintf(
-                 "WARNING: Ignoring reference image %s, because it has no "
-                 "source images.",
-                 problem_config.ref_image_name.c_str())
-          << std::endl;
+      LOG(WARNING) << StringPrintf(
+          "Ignoring reference image %s, because it has no "
+          "source images.",
+          problem_config.ref_image_name.c_str());
     } else {
       problems_.push_back(problem);
     }
   }
 
-  std::cout << StringPrintf("Configuration has %d problems...",
-                            problems_.size())
-            << std::endl;
+  LOG(INFO) << StringPrintf("Configuration has %d problems...",
+                            problems_.size());
 }
 
 void PatchMatchController::ReadGpuIndices() {
   gpu_indices_ = CSVToVector<int>(options_.gpu_index);
   if (gpu_indices_.size() == 1 && gpu_indices_[0] == -1) {
     const int num_cuda_devices = GetNumCudaDevices();
-    CHECK_GT(num_cuda_devices, 0);
+    THROW_CHECK_GT(num_cuda_devices, 0);
     gpu_indices_.resize(num_cuda_devices);
     std::iota(gpu_indices_.begin(), gpu_indices_.end(), 0);
   }
@@ -412,7 +379,7 @@ void PatchMatchController::ReadGpuIndices() {
 
 void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
                                           const size_t problem_idx) {
-  if (IsStopped()) {
+  if (CheckIfStopped()) {
     return;
   }
 
@@ -420,7 +387,7 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
 
   auto& problem = problems_.at(problem_idx);
   const int gpu_index = gpu_indices_.at(thread_pool_->GetThreadIndex());
-  CHECK_GE(gpu_index, -1);
+  THROW_CHECK_GE(gpu_index, -1);
 
   const std::string& stereo_folder = workspace_->GetOptions().stereo_folder;
   const std::string output_type =
@@ -453,8 +420,8 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
         depth_ranges_.at(problem.ref_image_idx).first;
     patch_match_options.depth_max =
         depth_ranges_.at(problem.ref_image_idx).second;
-    CHECK(patch_match_options.depth_min > 0 &&
-          patch_match_options.depth_max > 0)
+    THROW_CHECK(patch_match_options.depth_min > 0 &&
+                patch_match_options.depth_max > 0)
         << " - You must manually set the minimum and maximum depth, since no "
            "sparse model is provided in the workspace.";
   }
@@ -491,7 +458,7 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
     // threads from one master thread at a time.
     std::unique_lock<std::mutex> lock(workspace_mutex_);
 
-    std::cout << "Reading inputs..." << std::endl;
+    LOG(INFO) << "Reading inputs...";
     std::vector<int> src_image_idxs;
     for (const auto image_idx : used_image_idxs) {
       std::string image_path = workspace_->GetBitmapPath(image_idx);
@@ -502,20 +469,17 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
           (options.geom_consistency && !ExistsFile(depth_path)) ||
           (options.geom_consistency && !ExistsFile(normal_path))) {
         if (options.allow_missing_files) {
-          std::cout << StringPrintf(
-                           "WARN: Skipping source image %d: %s for missing "
-                           "image or depth/normal map",
-                           image_idx,
-                           model.GetImageName(image_idx).c_str())
-                    << std::endl;
+          LOG(WARNING) << StringPrintf(
+              "Skipping source image %d: %s for missing "
+              "image or depth/normal map",
+              image_idx,
+              model.GetImageName(image_idx).c_str());
           continue;
         } else {
-          std::cout
-              << StringPrintf(
-                     "ERROR: Missing image or map dependency for image %d: %s",
-                     image_idx,
-                     model.GetImageName(image_idx).c_str())
-              << std::endl;
+          LOG(ERROR) << StringPrintf(
+              "Missing image or map dependency for image %d: %s",
+              image_idx,
+              model.GetImageName(image_idx).c_str());
         }
       }
 
@@ -537,11 +501,10 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
   PatchMatch patch_match(patch_match_options, problem);
   patch_match.Run();
 
-  std::cout << std::endl
+  LOG(INFO) << std::endl
             << StringPrintf("Writing %s output for %s",
                             output_type.c_str(),
-                            image_name.c_str())
-            << std::endl;
+                            image_name.c_str());
 
   patch_match.GetDepthMap().Write(depth_map_path);
   patch_match.GetNormalMap().Write(normal_map_path);

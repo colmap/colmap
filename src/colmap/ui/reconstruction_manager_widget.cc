@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/ui/reconstruction_manager_widget.h"
 
@@ -81,7 +79,12 @@ void ReconstructionManagerWidget::Update() {
   if (reconstruction_manager_->Size() == 0) {
     setCurrentIndex(0);
   } else {
-    setCurrentIndex(prev_idx);
+    const int max_idx = static_cast<int>(reconstruction_manager_->Size());
+    if (prev_idx <= max_idx) {
+      setCurrentIndex(prev_idx);
+    } else {
+      setCurrentIndex(max_idx);
+    }
   }
 
   blockSignals(false);

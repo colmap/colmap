@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,11 +26,10 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #pragma once
 
+#include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/types.h"
 
@@ -58,8 +57,9 @@ class TranslationTransformEstimator {
   // @param points2      Set of corresponding destination 2D points.
   //
   // @return             Translation vector.
-  static std::vector<M_t> Estimate(const std::vector<X_t>& points1,
-                                   const std::vector<Y_t>& points2);
+  static void Estimate(const std::vector<X_t>& points1,
+                       const std::vector<Y_t>& points2,
+                       std::vector<M_t>* models);
 
   // Calculate the squared translation error.
   //
@@ -78,10 +78,14 @@ class TranslationTransformEstimator {
 ////////////////////////////////////////////////////////////////////////////////
 
 template <int kDim>
-std::vector<typename TranslationTransformEstimator<kDim>::M_t>
-TranslationTransformEstimator<kDim>::Estimate(const std::vector<X_t>& points1,
-                                              const std::vector<Y_t>& points2) {
-  CHECK_EQ(points1.size(), points2.size());
+void TranslationTransformEstimator<kDim>::Estimate(
+    const std::vector<X_t>& points1,
+    const std::vector<Y_t>& points2,
+    std::vector<M_t>* models) {
+  THROW_CHECK_EQ(points1.size(), points2.size());
+  THROW_CHECK(models != nullptr);
+
+  models->clear();
 
   X_t mean_src = X_t::Zero();
   Y_t mean_dst = Y_t::Zero();
@@ -94,10 +98,8 @@ TranslationTransformEstimator<kDim>::Estimate(const std::vector<X_t>& points1,
   mean_src /= points1.size();
   mean_dst /= points2.size();
 
-  std::vector<M_t> models(1);
-  models[0] = mean_dst - mean_src;
-
-  return models;
+  models->resize(1);
+  (*models)[0] = mean_dst - mean_src;
 }
 
 template <int kDim>
@@ -106,7 +108,7 @@ void TranslationTransformEstimator<kDim>::Residuals(
     const std::vector<Y_t>& points2,
     const M_t& translation,
     std::vector<double>* residuals) {
-  CHECK_EQ(points1.size(), points2.size());
+  THROW_CHECK_EQ(points1.size(), points2.size());
 
   residuals->resize(points1.size());
 

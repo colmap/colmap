@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,14 +26,13 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/scene/correspondence_graph.h"
 
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 int CountNumTransitiveCorrespondences(const CorrespondenceGraph& graph,
                                       const image_t image_id,
@@ -45,11 +44,29 @@ int CountNumTransitiveCorrespondences(const CorrespondenceGraph& graph,
   return corrs.size();
 }
 
+TEST(Correspondence, Print) {
+  CorrespondenceGraph::Correspondence correspondence(1, 2);
+  std::ostringstream stream;
+  stream << correspondence;
+  EXPECT_EQ(stream.str(), "Correspondence(image_id=1, point2D_idx=2)");
+}
+
 TEST(CorrespondenceGraph, Empty) {
   CorrespondenceGraph correspondence_graph;
   EXPECT_EQ(correspondence_graph.NumImages(), 0);
   EXPECT_EQ(correspondence_graph.NumImagePairs(), 0);
   EXPECT_EQ(correspondence_graph.NumCorrespondencesBetweenImages().size(), 0);
+}
+
+TEST(CorrespondenceGraph, Print) {
+  CorrespondenceGraph correspondence_graph;
+  correspondence_graph.AddImage(0, 10);
+  correspondence_graph.AddImage(1, 10);
+  correspondence_graph.AddCorrespondences(0, 1, {});
+  std::ostringstream stream;
+  stream << correspondence_graph;
+  EXPECT_EQ(stream.str(),
+            "CorrespondenceGraph(num_images=2, num_image_pairs=1)");
 }
 
 TEST(CorrespondenceGraph, TwoView) {
@@ -279,4 +296,5 @@ TEST(CorrespondenceGraph, Duplicate) {
             3);
 }
 
+}  // namespace
 }  // namespace colmap

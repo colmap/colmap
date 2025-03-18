@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,12 +26,11 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #pragma once
 
 #include "colmap/sensor/bitmap.h"
+#include "colmap/util/eigen_alignment.h"
 
 #include <Eigen/Core>
 
@@ -48,9 +47,11 @@ enum class LineSegmentOrientation {
   UNDEFINED = 0,
 };
 
+#ifdef COLMAP_LSD_ENABLED
 // Detect line segments in the given bitmap image.
 std::vector<LineSegment> DetectLineSegments(const Bitmap& bitmap,
                                             double min_length = 3);
+#endif
 
 // Classify line segments into horizontal/vertical.
 std::vector<LineSegmentOrientation> ClassifyLineSegmentOrientations(

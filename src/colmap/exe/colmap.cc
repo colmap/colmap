@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/exe/database.h"
 #include "colmap/exe/feature.h"
@@ -46,8 +44,7 @@ typedef std::function<int(int, char**)> command_func_t;
 int ShowHelp(
     const std::vector<std::pair<std::string, command_func_t>>& commands) {
   std::cout << colmap::StringPrintf(
-                   "%s -- Structure-from-Motion and Multi-View Stereo\n"
-                   "              (%s)",
+                   "%s -- Structure-from-Motion and Multi-View Stereo\n(%s)",
                    colmap::GetVersionInfo().c_str(),
                    colmap::GetBuildInfo().c_str())
             << std::endl
@@ -91,9 +88,6 @@ int ShowHelp(
 
 int main(int argc, char** argv) {
   colmap::InitializeGlog(argv);
-#if defined(COLMAP_GUI_ENABLED)
-  Q_INIT_RESOURCE(resources);
-#endif
 
   std::vector<std::pair<std::string, command_func_t>> commands;
   commands.emplace_back("gui", &colmap::RunGraphicalUserInterface);
@@ -133,6 +127,7 @@ int main(int argc, char** argv) {
   commands.emplace_back("patch_match_stereo", &colmap::RunPatchMatchStereo);
   commands.emplace_back("point_filtering", &colmap::RunPointFiltering);
   commands.emplace_back("point_triangulator", &colmap::RunPointTriangulator);
+  commands.emplace_back("pose_prior_mapper", &colmap::RunPosePriorMapper);
   commands.emplace_back("poisson_mesher", &colmap::RunPoissonMesher);
   commands.emplace_back("project_generator", &colmap::RunProjectGenerator);
   commands.emplace_back("rig_bundle_adjuster", &colmap::RunRigBundleAdjuster);
@@ -160,11 +155,10 @@ int main(int argc, char** argv) {
       }
     }
     if (matched_command_func == nullptr) {
-      std::cerr << colmap::StringPrintf(
-                       "ERROR: Command `%s` not recognized. To list the "
-                       "available commands, run `colmap help`.",
-                       command.c_str())
-                << std::endl;
+      LOG(ERROR) << colmap::StringPrintf(
+          "Command `%s` not recognized. To list the "
+          "available commands, run `colmap help`.",
+          command.c_str());
       return EXIT_FAILURE;
     } else {
       int command_argc = argc - 1;

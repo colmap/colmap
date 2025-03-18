@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,27 +26,54 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/sensor/models.h"
 
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
+
+bool FisheyeCameraModelIsValidPixel(const CameraModelId model_id,
+                                    const std::vector<double>& params,
+                                    const Eigen::Vector2d& xy) {
+  switch (model_id) {
+#define CAMERA_MODEL_CASE(CameraModel)                                    \
+  case CameraModel::model_id: {                                           \
+    double uu, vv;                                                        \
+    CameraModel::FisheyeFromImg(params.data(), xy.x(), xy.y(), &uu, &vv); \
+    const double theta = std::sqrt(uu * uu + vv * vv);                    \
+    if (theta < M_PI / 2.0) {                                             \
+      return true;                                                        \
+    } else {                                                              \
+      return false;                                                       \
+    }                                                                     \
+  }
+
+    FISHEYE_CAMERA_MODEL_CASES
+    default:
+      throw std::domain_error(
+          "Camera model does not exist or is not a fisheye camera");
+
+#undef CAMERA_MODEL_CASE
+  }
+
+  return false;
+}
 
 template <typename CameraModel>
 void TestCamToCamFromImg(const std::vector<double>& params,
                          const double u0,
                          const double v0,
                          const double w0) {
-  double u, v, w, x, y;
+  double u, v, x, y;
   CameraModel::ImgFromCam(params.data(), u0, v0, w0, &x, &y);
-  const Eigen::Vector2d xy = CameraModelImgFromCam(
+  const std::optional<Eigen::Vector2d> xy = CameraModelImgFromCam(
       CameraModel::model_id, params, Eigen::Vector3d(u0, v0, w0));
-  EXPECT_EQ(x, xy.x());
-  EXPECT_EQ(y, xy.y());
-  CameraModel::CamFromImg(params.data(), x, y, &u, &v, &w);
+  ASSERT_TRUE(xy.has_value());
+  EXPECT_EQ(x, xy->x());
+  EXPECT_EQ(y, xy->y());
+  CameraModel::CamFromImg(params.data(), x, y, &u, &v);
   EXPECT_NEAR(u, u0 / w0, 1e-6);
   EXPECT_NEAR(v, v0 / w0, 1e-6);
 }
@@ -55,16 +82,19 @@ template <typename CameraModel>
 void TestCamFromImgToImg(const std::vector<double>& params,
                          const double x0,
                          const double y0) {
-  double u, v, w, x, y;
-  CameraModel::CamFromImg(params.data(), x0, y0, &u, &v, &w);
-  const Eigen::Vector3d uvw = CameraModelCamFromImg(
+  double u, v, x, y;
+  CameraModel::CamFromImg(params.data(), x0, y0, &u, &v);
+  const std::optional<Eigen::Vector2d> uv = CameraModelCamFromImg(
       CameraModel::model_id, params, Eigen::Vector2d(x0, y0));
-  EXPECT_EQ(u, uvw.x());
-  EXPECT_EQ(v, uvw.y());
-  EXPECT_EQ(w, uvw.z());
-  CameraModel::ImgFromCam(params.data(), u, v, w, &x, &y);
-  EXPECT_NEAR(x, x0, 1e-6);
-  EXPECT_NEAR(y, y0, 1e-6);
+  ASSERT_TRUE(uv.has_value());
+  EXPECT_EQ(u, uv->x());
+  EXPECT_EQ(v, uv->y());
+  for (const double w : {0.5, 1.0, 2.0}) {
+    ASSERT_TRUE(
+        CameraModel::ImgFromCam(params.data(), w * u, w * v, w, &x, &y));
+    EXPECT_NEAR(x, x0, 1e-6);
+    EXPECT_NEAR(y, y0, 1e-6);
+  }
 }
 
 template <typename CameraModel>
@@ -77,12 +107,21 @@ void TestModel(const std::vector<double>& params) {
 
   EXPECT_EQ(CameraModelParamsInfo(CameraModel::model_id),
             CameraModel::params_info);
-  EXPECT_EQ(&CameraModelFocalLengthIdxs(CameraModel::model_id),
-            &CameraModel::focal_length_idxs);
-  EXPECT_EQ(&CameraModelPrincipalPointIdxs(CameraModel::model_id),
-            &CameraModel::principal_point_idxs);
-  EXPECT_EQ(&CameraModelExtraParamsIdxs(CameraModel::model_id),
-            &CameraModel::extra_params_idxs);
+  EXPECT_EQ(std::vector<size_t>(
+                CameraModelFocalLengthIdxs(CameraModel::model_id).begin(),
+                CameraModelFocalLengthIdxs(CameraModel::model_id).end()),
+            std::vector<size_t>(CameraModel::focal_length_idxs.begin(),
+                                CameraModel::focal_length_idxs.end()));
+  EXPECT_EQ(std::vector<size_t>(
+                CameraModelPrincipalPointIdxs(CameraModel::model_id).begin(),
+                CameraModelPrincipalPointIdxs(CameraModel::model_id).end()),
+            std::vector<size_t>(CameraModel::principal_point_idxs.begin(),
+                                CameraModel::principal_point_idxs.end()));
+  EXPECT_EQ(std::vector<size_t>(
+                CameraModelExtraParamsIdxs(CameraModel::model_id).begin(),
+                CameraModelExtraParamsIdxs(CameraModel::model_id).end()),
+            std::vector<size_t>(CameraModel::extra_params_idxs.begin(),
+                                CameraModel::extra_params_idxs.end()));
   EXPECT_EQ(CameraModelNumParams(CameraModel::model_id),
             CameraModel::num_params);
 
@@ -109,7 +148,7 @@ void TestModel(const std::vector<double>& params) {
   EXPECT_FALSE(ExistsCameraModelWithName(CameraModel::model_name + "FOO"));
 
   EXPECT_TRUE(ExistsCameraModelWithId(CameraModel::model_id));
-  EXPECT_FALSE(ExistsCameraModelWithId(CameraModel::model_id + 123456789));
+  EXPECT_FALSE(ExistsCameraModelWithId(static_cast<CameraModelId>(123456789)));
 
   EXPECT_EQ(CameraModelNameToId(CameraModelIdToName(CameraModel::model_id)),
             CameraModel::model_id);
@@ -120,7 +159,7 @@ void TestModel(const std::vector<double>& params) {
   for (double u = -0.5; u <= 0.5; u += 0.1) {
     // NOLINTNEXTLINE(clang-analyzer-security.FloatLoopCounter)
     for (double v = -0.5; v <= 0.5; v += 0.1) {
-      for (double w : {1, 2}) {
+      for (const double w : {0.5, 1.0, 2.0}) {
         TestCamToCamFromImg<CameraModel>(params, u, v, w);
       }
     }
@@ -128,6 +167,11 @@ void TestModel(const std::vector<double>& params) {
 
   for (int x = 0; x <= 800; x += 50) {
     for (int y = 0; y <= 800; y += 50) {
+      if (CameraModelIsFisheye(CameraModel::model_id) &&
+          !FisheyeCameraModelIsValidPixel(
+              CameraModel::model_id, params, Eigen::Vector2d(x, y))) {
+        continue;
+      }
       TestCamFromImgToImg<CameraModel>(params, x, y);
     }
   }
@@ -220,4 +264,26 @@ TEST(ThinPrismFisheye, Nominal) {
                                           0.001});
 }
 
+TEST(RadTanThinPrismFisheye, Nominal) {
+  std::vector<double> params = {651.123,
+                                655.123,
+                                386.123,
+                                511.123,
+                                -0.0232,
+                                0.0924,
+                                -0.0591,
+                                0.003,
+                                0.0048,
+                                -0.0009,
+                                0.0002,
+                                0.0005,
+                                -0.0009,
+                                -0.0001,
+                                0.00007,
+                                -0.00017};
+
+  TestModel<RadTanThinPrismFisheyeModel>(params);
+}
+
+}  // namespace
 }  // namespace colmap

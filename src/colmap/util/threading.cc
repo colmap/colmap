@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/util/threading.h"
 
@@ -49,7 +47,7 @@ Thread::Thread()
 
 void Thread::Start() {
   std::unique_lock<std::mutex> lock(mutex_);
-  CHECK(!started_ || finished_);
+  THROW_CHECK(!started_ || finished_);
   Wait();
   timer_.Restart();
   thread_ = std::thread(&Thread::RunFunc, this);
@@ -114,10 +112,10 @@ bool Thread::IsFinished() {
   return finished_;
 }
 
-void Thread::AddCallback(const int id, const std::function<void()>& func) {
-  CHECK(func);
-  CHECK_GT(callbacks_.count(id), 0) << "Callback not registered";
-  callbacks_.at(id).push_back(func);
+void Thread::AddCallback(const int id, std::function<void()> func) {
+  THROW_CHECK(func);
+  THROW_CHECK_GT(callbacks_.count(id), 0) << "Callback not registered";
+  callbacks_.at(id).push_back(std::move(func));
 }
 
 void Thread::RegisterCallback(const int id) {
@@ -125,7 +123,7 @@ void Thread::RegisterCallback(const int id) {
 }
 
 void Thread::Callback(const int id) const {
-  CHECK_GT(callbacks_.count(id), 0) << "Callback not registered";
+  THROW_CHECK_GT(callbacks_.count(id), 0) << "Callback not registered";
   for (const auto& callback : callbacks_.at(id)) {
     callback();
   }
@@ -137,7 +135,7 @@ std::thread::id Thread::GetThreadId() const {
 
 void Thread::SignalValidSetup() {
   std::unique_lock<std::mutex> lock(mutex_);
-  CHECK(!setup_);
+  THROW_CHECK(!setup_);
   setup_ = true;
   setup_valid_ = true;
   setup_condition_.notify_all();
@@ -145,7 +143,7 @@ void Thread::SignalValidSetup() {
 
 void Thread::SignalInvalidSetup() {
   std::unique_lock<std::mutex> lock(mutex_);
-  CHECK(!setup_);
+  THROW_CHECK(!setup_);
   setup_ = true;
   setup_valid_ = false;
   setup_condition_.notify_all();

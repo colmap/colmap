@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,13 +26,12 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/exe/database.h"
 
 #include "colmap/controllers/option_manager.h"
 #include "colmap/scene/database.h"
+#include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 
 namespace colmap {
@@ -69,8 +68,7 @@ int RunDatabaseCleaner(int argc, char** argv) {
       database.ClearTwoViewGeometries();
       database.ClearMatches();
     } else {
-      std::cout << "ERROR: Invalid cleanup type; no changes in database"
-                << std::endl;
+      LOG(ERROR) << "Invalid cleanup type; no changes in database";
       return EXIT_FAILURE;
     }
   }
@@ -100,7 +98,7 @@ int RunDatabaseMerger(int argc, char** argv) {
   options.Parse(argc, argv);
 
   if (ExistsFile(merged_database_path)) {
-    std::cout << "ERROR: Merged database file must not exist." << std::endl;
+    LOG(ERROR) << "Merged database file must not exist.";
     return EXIT_FAILURE;
   }
 

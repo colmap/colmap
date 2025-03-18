@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/mvs/meshing.h"
 
@@ -44,6 +42,7 @@
 #include "colmap/math/random.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/endian.h"
+#include "colmap/util/file.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/ply.h"
@@ -123,7 +122,11 @@ bool DelaunayMeshingOptions::Check() const {
 bool PoissonMeshing(const PoissonMeshingOptions& options,
                     const std::string& input_path,
                     const std::string& output_path) {
-  CHECK(options.Check());
+  THROW_CHECK(options.Check());
+  THROW_CHECK_HAS_FILE_EXTENSION(input_path, ".ply");
+  THROW_CHECK_FILE_EXISTS(input_path);
+  THROW_CHECK_HAS_FILE_EXTENSION(output_path, ".ply");
+  THROW_CHECK_PATH_OPEN(output_path);
 
   std::vector<std::string> args;
 
@@ -240,8 +243,8 @@ class DelaunayMeshingInput {
     for (const auto& point3D : reconstruction.Points3D()) {
       point_id_to_idx.emplace(point3D.first, points.size());
       DelaunayMeshingInput::Point input_point;
-      input_point.position = point3D.second.XYZ().cast<float>();
-      input_point.num_visible_images = point3D.second.Track().Length();
+      input_point.position = point3D.second.xyz.cast<float>();
+      input_point.num_visible_images = point3D.second.track.Length();
       points.push_back(input_point);
     }
 
@@ -284,10 +287,10 @@ class DelaunayMeshingInput {
 
     const std::string vis_path = JoinPaths(path, "fused.ply.vis");
     std::fstream vis_file(vis_path, std::ios::in | std::ios::binary);
-    CHECK(vis_file.is_open()) << vis_path;
+    THROW_CHECK_FILE_OPEN(vis_file, vis_path);
 
     const size_t vis_num_points = ReadBinaryLittleEndian<uint64_t>(&vis_file);
-    CHECK_EQ(vis_num_points, ply_points.size());
+    THROW_CHECK_EQ(vis_num_points, ply_points.size());
 
     points.reserve(ply_points.size());
     for (const auto& ply_point : ply_points) {
@@ -317,7 +320,7 @@ class DelaunayMeshingInput {
 
   Delaunay CreateSubSampledDelaunayTriangulation(
       const float max_proj_dist, const float max_depth_dist) const {
-    CHECK_GE(max_proj_dist, 0);
+    THROW_CHECK_GE(max_proj_dist, 0);
 
     if (max_proj_dist == 0) {
       return CreateDelaunayTriangulation();
@@ -392,14 +395,15 @@ class DelaunayMeshingInput {
           }
 
           // Check reprojection error between the two points.
-          const Eigen::Vector2f point_proj =
-              camera.ImgFromCam(point_local.hnormalized().cast<double>())
-                  .cast<float>();
-          const Eigen::Vector2f cell_point_proj =
-              camera.ImgFromCam(cell_point_local.hnormalized().cast<double>())
-                  .cast<float>();
+          const std::optional<Eigen::Vector2d> point_proj =
+              camera.ImgFromCam(point_local.cast<double>());
+          const std::optional<Eigen::Vector2d> cell_point_proj =
+              camera.ImgFromCam(cell_point_local.cast<double>());
+          if (!point_proj || !cell_point_proj) {
+            continue;
+          }
           const float squared_proj_dist =
-              (point_proj - cell_point_proj).squaredNorm();
+              (*point_proj - *cell_point_proj).squaredNorm();
           if (squared_proj_dist > max_squared_proj_dist) {
             insert_point = true;
             break;
@@ -416,10 +420,9 @@ class DelaunayMeshingInput {
       }
     }
 
-    std::cout << StringPrintf("Triangulation has %d using %d points.",
+    LOG(INFO) << StringPrintf("Triangulation has %d using %d points.",
                               triangulation.number_of_vertices(),
-                              points.size())
-              << std::endl;
+                              points.size());
 
     return triangulation;
   }
@@ -444,7 +447,7 @@ struct DelaunayMeshingEdgeWeightComputer {
     }
 
     distance_sigma_ = distance_sigma_factor *
-                      std::max(std::sqrt(Percentile(edge_lengths, 25)), 1e-7f);
+                      std::max(std::sqrt(Percentile(edge_lengths, 25)), 1e-7);
     distance_threshold_ = 5 * distance_sigma_;
     distance_normalization_ = -0.5 / (distance_sigma_ * distance_sigma_);
   }
@@ -637,7 +640,7 @@ double ComputeCosFacetCellAngle(const Delaunay& triangulation,
 void WriteDelaunayTriangulationPly(const std::string& path,
                                    const Delaunay& triangulation) {
   std::fstream file(path, std::ios::out);
-  CHECK(file.is_open());
+  THROW_CHECK_FILE_OPEN(file, path);
 
   file << "ply" << std::endl;
   file << "format ascii 1.0" << std::endl;
@@ -702,15 +705,15 @@ struct DelaunayCellData {
 
 PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
                         const DelaunayMeshingInput& input_data) {
-  CHECK(options.Check());
+  THROW_CHECK(options.Check());
 
   // Create a delaunay triangulation of all input points.
-  std::cout << "Triangulating points..." << std::endl;
+  LOG(INFO) << "Triangulating points...";
   const auto triangulation = input_data.CreateSubSampledDelaunayTriangulation(
       options.max_proj_dist, options.max_depth_dist);
 
   // Helper class to efficiently trace rays through the triangulation.
-  std::cout << "Initializing ray tracer..." << std::endl;
+  LOG(INFO) << "Initializing ray tracer...";
   const DelaunayTriangulationRayCaster ray_caster(triangulation);
 
   // Helper class to efficiently compute edge weights in the s-t graph.
@@ -719,7 +722,7 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
 
   // Initialize the s-t graph with cells as nodes and oriented facets as edges.
 
-  std::cout << "Initializing graph optimization..." << std::endl;
+  LOG(INFO) << "Initializing graph optimization...";
 
   typedef std::unordered_map<const Delaunay::Cell_handle, DelaunayCellData>
       CellGraphData;
@@ -828,7 +831,7 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
       }
     }
 
-    CHECK(result_queue.Push(std::move(image_cell_graph_data)));
+    THROW_CHECK(result_queue.Push(std::move(image_cell_graph_data)));
   };
 
   // Add first batch of images to the thread job queue.
@@ -845,7 +848,7 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
     Timer timer;
     timer.Start();
 
-    std::cout << StringPrintf("Integrating image [%d/%d]",
+    LOG(INFO) << StringPrintf("Integrating image [%d/%d]",
                               i + 1,
                               input_data.images.size())
               << std::flush;
@@ -858,7 +861,7 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
 
     // Pop the next results from the queue.
     auto result = result_queue.Pop();
-    CHECK(result.IsValid());
+    THROW_CHECK(result.IsValid());
 
     // Accumulate the weights of the image into the global graph.
     const auto& image_cell_graph_data = result.Data();
@@ -871,12 +874,12 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
       }
     }
 
-    std::cout << StringPrintf(" in %.3fs", timer.ElapsedSeconds()) << std::endl;
+    LOG(INFO) << StringPrintf(" in %.3fs", timer.ElapsedSeconds());
   }
 
   // Setup the min-cut (max-flow) graph optimization.
 
-  std::cout << "Setting up optimization..." << std::endl;
+  LOG(INFO) << "Setting up optimization...";
 
   // Each oriented facet in the Delaunay triangulation corresponds to a directed
   // edge and each cell corresponds to a node in the graph.
@@ -926,10 +929,10 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
 
   // Extract the surface facets as the oriented min-cut of the graph.
 
-  std::cout << "Running graph-cut optimization..." << std::endl;
+  LOG(INFO) << "Running graph-cut optimization...";
   graph_cut.Compute();
 
-  std::cout << "Extracting surface as min-cut..." << std::endl;
+  LOG(INFO) << "Extracting surface as min-cut...";
 
   std::unordered_set<Delaunay::Vertex_handle> surface_vertices;
   std::vector<Delaunay::Facet> surface_facets;
@@ -976,7 +979,7 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
     }
   }
 
-  std::cout << "Creating surface mesh model..." << std::endl;
+  LOG(INFO) << "Creating surface mesh model...";
 
   PlyMesh mesh;
 
@@ -992,7 +995,7 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
 
   const float max_facet_side_length =
       options.max_side_length_factor *
-      Percentile(surface_facet_side_lengths,
+      Percentile(std::vector<float>(surface_facet_side_lengths),
                  options.max_side_length_percentile);
 
   mesh.faces.reserve(surface_facets.size());
@@ -1028,7 +1031,7 @@ void SparseDelaunayMeshing(const DelaunayMeshingOptions& options,
 
   const auto mesh = DelaunayMeshing(options, input_data);
 
-  std::cout << "Writing surface mesh..." << std::endl;
+  LOG(INFO) << "Writing surface mesh...";
   WriteBinaryPlyMesh(output_path, mesh);
 
   timer.PrintSeconds();
@@ -1045,7 +1048,7 @@ void DenseDelaunayMeshing(const DelaunayMeshingOptions& options,
 
   const auto mesh = DelaunayMeshing(options, input_data);
 
-  std::cout << "Writing surface mesh..." << std::endl;
+  LOG(INFO) << "Writing surface mesh...";
   WriteBinaryPlyMesh(output_path, mesh);
 
   timer.PrintSeconds();

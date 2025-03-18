@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/mvs/model.h"
 
@@ -36,7 +34,7 @@
 #include "colmap/scene/projection.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sensor/models.h"
-#include "colmap/util/misc.h"
+#include "colmap/util/file.h"
 
 namespace colmap {
 namespace mvs {
@@ -49,7 +47,7 @@ void Model::Read(const std::string& path, const std::string& format) {
   } else if (format_lower_case == "pmvs") {
     ReadFromPMVS(path);
   } else {
-    LOG(FATAL) << "Invalid input format";
+    LOG(FATAL_THROW) << "Invalid input format";
   }
 }
 
@@ -61,10 +59,10 @@ void Model::ReadFromCOLMAP(const std::string& path,
 
   images.reserve(reconstruction.NumRegImages());
   std::unordered_map<image_t, size_t> image_id_to_idx;
-  for (size_t i = 0; i < reconstruction.NumRegImages(); ++i) {
-    const auto image_id = reconstruction.RegImageIds()[i];
+  size_t image_idx = 0;
+  for (const image_t image_id : reconstruction.RegImageIds()) {
     const auto& image = reconstruction.Image(image_id);
-    const auto& camera = reconstruction.Camera(image.CameraId());
+    const auto& camera = *image.CameraPtr();
 
     const std::string image_path = JoinPaths(path, images_path, image.Name());
     const Eigen::Matrix<float, 3, 3, Eigen::RowMajor> K =
@@ -73,25 +71,22 @@ void Model::ReadFromCOLMAP(const std::string& path,
         image.CamFromWorld().rotation.toRotationMatrix().cast<float>();
     const Eigen::Vector3f T = image.CamFromWorld().translation.cast<float>();
 
-    images.emplace_back(image_path,
-                        camera.Width(),
-                        camera.Height(),
-                        K.data(),
-                        R.data(),
-                        T.data());
-    image_id_to_idx.emplace(image_id, i);
+    images.emplace_back(
+        image_path, camera.width, camera.height, K.data(), R.data(), T.data());
+    image_id_to_idx.emplace(image_id, image_idx);
     image_names_.push_back(image.Name());
-    image_name_to_idx_.emplace(image.Name(), i);
+    image_name_to_idx_.emplace(image.Name(), image_idx);
+    ++image_idx;
   }
 
   points.reserve(reconstruction.NumPoints3D());
   for (const auto& point3D : reconstruction.Points3D()) {
     Point point;
-    point.x = point3D.second.X();
-    point.y = point3D.second.Y();
-    point.z = point3D.second.Z();
-    point.track.reserve(point3D.second.Track().Length());
-    for (const auto& track_el : point3D.second.Track().Elements()) {
+    point.x = point3D.second.xyz(0);
+    point.y = point3D.second.xyz(1);
+    point.z = point3D.second.xyz(2);
+    point.track.reserve(point3D.second.track.Length());
+    for (const auto& track_el : point3D.second.track.Elements()) {
       point.track.push_back(image_id_to_idx.at(track_el.image_id));
     }
     points.push_back(point);
@@ -102,19 +97,19 @@ void Model::ReadFromPMVS(const std::string& path) {
   if (ReadFromBundlerPMVS(path) || ReadFromRawPMVS(path)) {
     return;
   } else {
-    LOG(FATAL) << "Invalid PMVS format";
+    LOG(FATAL_THROW) << "Invalid PMVS format";
   }
 }
 
 int Model::GetImageIdx(const std::string& name) const {
-  CHECK_GT(image_name_to_idx_.count(name), 0)
+  THROW_CHECK_GT(image_name_to_idx_.count(name), 0)
       << "Image with name `" << name << "` does not exist";
   return image_name_to_idx_.at(name);
 }
 
 std::string Model::GetImageName(const int image_idx) const {
-  CHECK_GE(image_idx, 0);
-  CHECK_LT(image_idx, image_names_.size());
+  THROW_CHECK_GE(image_idx, 0);
+  THROW_CHECK_LT(image_idx, image_names_.size());
   return image_names_.at(image_idx);
 }
 
@@ -267,8 +262,8 @@ std::vector<std::map<int, float>> Model::ComputeTriangulationAngles(
   std::vector<std::map<int, float>> triangulation_angles(images.size());
   for (size_t image_idx = 0; image_idx < all_triangulation_angles.size();
        ++image_idx) {
-    const auto& overlapping_images = all_triangulation_angles[image_idx];
-    for (const auto& image : overlapping_images) {
+    auto& overlapping_images = all_triangulation_angles[image_idx];
+    for (auto& image : overlapping_images) {
       triangulation_angles[image_idx].emplace(
           image.first, Percentile(image.second, percentile));
     }
@@ -285,7 +280,7 @@ bool Model::ReadFromBundlerPMVS(const std::string& path) {
   }
 
   std::ifstream file(bundle_file_path);
-  CHECK(file.is_open()) << bundle_file_path;
+  THROW_CHECK_FILE_OPEN(file, bundle_file_path);
 
   // Header line.
   std::string header;
@@ -304,14 +299,14 @@ bool Model::ReadFromBundlerPMVS(const std::string& path) {
     K[4] = K[0];
 
     Bitmap bitmap;
-    CHECK(bitmap.Read(image_path));
+    THROW_CHECK(bitmap.Read(image_path));
     K[2] = bitmap.Width() / 2.0f;
     K[5] = bitmap.Height() / 2.0f;
 
     float k1, k2;
     file >> k1 >> k2;
-    CHECK_EQ(k1, 0.0f);
-    CHECK_EQ(k2, 0.0f);
+    THROW_CHECK_EQ(k1, 0.0f);
+    THROW_CHECK_EQ(k2, 0.0f);
 
     float R[9];
     for (size_t i = 0; i < 9; ++i) {
@@ -348,7 +343,7 @@ bool Model::ReadFromBundlerPMVS(const std::string& path) {
       int feature_idx;
       float imx, imy;
       file >> point.track[i] >> feature_idx >> imx >> imy;
-      CHECK_LT(point.track[i], images.size());
+      THROW_CHECK_LT(point.track[i], images.size());
     }
   }
 
@@ -370,17 +365,17 @@ bool Model::ReadFromRawPMVS(const std::string& path) {
     }
 
     Bitmap bitmap;
-    CHECK(bitmap.Read(image_path));
+    THROW_CHECK(bitmap.Read(image_path));
 
     const std::string proj_matrix_path =
         JoinPaths(path, "txt", StringPrintf("%08d.txt", image_idx));
 
     std::ifstream proj_matrix_file(proj_matrix_path);
-    CHECK(proj_matrix_file.is_open()) << proj_matrix_path;
+    THROW_CHECK_FILE_OPEN(proj_matrix_file, proj_matrix_path);
 
     std::string contour;
     proj_matrix_file >> contour;
-    CHECK_EQ(contour, "CONTOUR");
+    THROW_CHECK_EQ(contour, "CONTOUR");
 
     Eigen::Matrix3x4d P;
     for (int i = 0; i < 3; ++i) {
@@ -414,23 +409,23 @@ bool Model::ReadFromRawPMVS(const std::string& path) {
   }
 
   std::ifstream vis_dat_file(vis_dat_path);
-  CHECK(vis_dat_file.is_open()) << vis_dat_path;
+  THROW_CHECK_FILE_OPEN(vis_dat_file, vis_dat_path);
 
   std::string visdata;
   vis_dat_file >> visdata;
-  CHECK_EQ(visdata, "VISDATA");
+  THROW_CHECK_EQ(visdata, "VISDATA");
 
   int num_images;
   vis_dat_file >> num_images;
-  CHECK_GE(num_images, 0);
-  CHECK_EQ(num_images, images.size());
+  THROW_CHECK_GE(num_images, 0);
+  THROW_CHECK_EQ(num_images, images.size());
 
   pmvs_vis_dat_.resize(num_images);
   for (int i = 0; i < num_images; ++i) {
     int image_idx;
     vis_dat_file >> image_idx;
-    CHECK_GE(image_idx, 0);
-    CHECK_LT(image_idx, num_images);
+    THROW_CHECK_GE(image_idx, 0);
+    THROW_CHECK_LT(image_idx, num_images);
 
     int num_visible_images;
     vis_dat_file >> num_visible_images;
@@ -441,8 +436,8 @@ bool Model::ReadFromRawPMVS(const std::string& path) {
     for (int j = 0; j < num_visible_images; ++j) {
       int visible_image_idx;
       vis_dat_file >> visible_image_idx;
-      CHECK_GE(visible_image_idx, 0);
-      CHECK_LT(visible_image_idx, num_images);
+      THROW_CHECK_GE(visible_image_idx, 0);
+      THROW_CHECK_LT(visible_image_idx, num_images);
       if (visible_image_idx != image_idx) {
         visible_image_idxs.push_back(visible_image_idx);
       }

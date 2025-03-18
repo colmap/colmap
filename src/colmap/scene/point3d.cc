@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,13 +26,15 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/scene/point3d.h"
 
 namespace colmap {
 
-Point3D::Point3D() : xyz_(0.0, 0.0, 0.0), color_(0, 0, 0), error_(-1.0) {}
+std::ostream& operator<<(std::ostream& stream, const Point3D& point3D) {
+  stream << "Point3D(xyz=[" << point3D.xyz(0) << ", " << point3D.xyz(1) << ", "
+         << point3D.xyz(2) << "], track_len=" << point3D.track.Length() << ")";
+  return stream;
+}
 
 }  // namespace colmap

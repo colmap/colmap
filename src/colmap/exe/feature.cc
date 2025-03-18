@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/exe/feature.h"
 
@@ -41,39 +39,36 @@
 #include "colmap/util/opengl_utils.h"
 
 namespace colmap {
-namespace {
 
 bool VerifyCameraParams(const std::string& camera_model,
                         const std::string& params) {
   if (!ExistsCameraModelWithName(camera_model)) {
-    std::cerr << "ERROR: Camera model does not exist" << std::endl;
+    LOG(ERROR) << "Camera model does not exist";
     return false;
   }
 
   const std::vector<double> camera_params = CSVToVector<double>(params);
-  const int camera_model_id = CameraModelNameToId(camera_model);
+  const CameraModelId camera_model_id = CameraModelNameToId(camera_model);
 
   if (camera_params.size() > 0 &&
       !CameraModelVerifyParams(camera_model_id, camera_params)) {
-    std::cerr << "ERROR: Invalid camera parameters" << std::endl;
+    LOG(ERROR) << "Invalid camera parameters";
     return false;
   }
   return true;
 }
 
 bool VerifySiftGPUParams(const bool use_gpu) {
-#if defined(COLMAP_GPU_ENABLED)
+#if !defined(COLMAP_GPU_ENABLED)
   if (use_gpu) {
-    std::cerr << "ERROR: Cannot use Sift GPU without CUDA or OpenGL support; "
-                 "set SiftExtraction.use_gpu or SiftMatching.use_gpu to false."
-              << std::endl;
+    LOG(ERROR)
+        << "Cannot use Sift GPU without CUDA or OpenGL support; "
+           "set SiftExtraction.use_gpu or SiftMatching.use_gpu to false.";
     return false;
   }
 #endif
   return true;
 }
-
-}  // namespace
 
 void UpdateImageReaderOptionsFromCameraMode(ImageReaderOptions& options,
                                             CameraMode mode) {
@@ -134,19 +129,19 @@ int RunFeatureExtractor(int argc, char** argv) {
     options.sift_extraction->normalization =
         SiftExtractionOptions::Normalization::L2;
   } else {
-    std::cerr << "ERROR: Invalid `descriptor_normalization`" << std::endl;
+    LOG(ERROR) << "Invalid `descriptor_normalization`";
     return EXIT_FAILURE;
   }
 
   if (!image_list_path.empty()) {
-    reader_options.image_list = ReadTextFileLines(image_list_path);
-    if (reader_options.image_list.empty()) {
+    reader_options.image_names = ReadTextFileLines(image_list_path);
+    if (reader_options.image_names.empty()) {
       return EXIT_SUCCESS;
     }
   }
 
   if (!ExistsCameraModelWithName(reader_options.camera_model)) {
-    std::cerr << "ERROR: Camera model does not exist" << std::endl;
+    LOG(ERROR) << "Camera model does not exist";
   }
 
   if (!VerifyCameraParams(reader_options.camera_model,
@@ -200,8 +195,8 @@ int RunFeatureImporter(int argc, char** argv) {
   }
 
   if (!image_list_path.empty()) {
-    reader_options.image_list = ReadTextFileLines(image_list_path);
-    if (reader_options.image_list.empty()) {
+    reader_options.image_names = ReadTextFileLines(image_list_path);
+    if (reader_options.image_names.empty()) {
       return EXIT_SUCCESS;
     }
   }
@@ -287,7 +282,7 @@ int RunMatchesImporter(int argc, char** argv) {
                                                *options.two_view_geometry,
                                                *options.database_path);
   } else {
-    std::cerr << "ERROR: Invalid `match_type`";
+    LOG(ERROR) << "Invalid `match_type`";
     return EXIT_FAILURE;
   }
 

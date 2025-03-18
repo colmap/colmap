@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #pragma once
 
@@ -37,6 +35,7 @@
 #include "colmap/util/logging.h"
 
 #include <cfloat>
+#include <optional>
 #include <random>
 #include <stdexcept>
 #include <vector>
@@ -54,7 +53,11 @@ class LORANSAC : public RANSAC<Estimator, SupportMeasurer, Sampler> {
  public:
   using typename RANSAC<Estimator, SupportMeasurer, Sampler>::Report;
 
-  explicit LORANSAC(const RANSACOptions& options);
+  explicit LORANSAC(const RANSACOptions& options,
+                    Estimator estimator = Estimator(),
+                    LocalEstimator local_estimator = LocalEstimator(),
+                    SupportMeasurer support_measurer = SupportMeasurer(),
+                    Sampler sampler = Sampler(Estimator::kMinNumSamples));
 
   // Robustly estimate model with RANSAC (RANdom SAmple Consensus).
   //
@@ -65,11 +68,10 @@ class LORANSAC : public RANSAC<Estimator, SupportMeasurer, Sampler> {
   Report Estimate(const std::vector<typename Estimator::X_t>& X,
                   const std::vector<typename Estimator::Y_t>& Y);
 
-  // Objects used in RANSAC procedure.
   using RANSAC<Estimator, SupportMeasurer, Sampler>::estimator;
-  LocalEstimator local_estimator;
-  using RANSAC<Estimator, SupportMeasurer, Sampler>::sampler;
   using RANSAC<Estimator, SupportMeasurer, Sampler>::support_measurer;
+  using RANSAC<Estimator, SupportMeasurer, Sampler>::sampler;
+  LocalEstimator local_estimator;
 
  private:
   using RANSAC<Estimator, SupportMeasurer, Sampler>::options_;
@@ -84,8 +86,16 @@ template <typename Estimator,
           typename SupportMeasurer,
           typename Sampler>
 LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::LORANSAC(
-    const RANSACOptions& options)
-    : RANSAC<Estimator, SupportMeasurer, Sampler>(options) {}
+    const RANSACOptions& options,
+    Estimator estimator,
+    LocalEstimator local_estimator,
+    SupportMeasurer support_measurer,
+    Sampler sampler)
+    : RANSAC<Estimator, SupportMeasurer, Sampler>(options,
+                                                  std::move(estimator),
+                                                  std::move(support_measurer),
+                                                  std::move(sampler)),
+      local_estimator(std::move(local_estimator)) {}
 
 template <typename Estimator,
           typename LocalEstimator,
@@ -95,7 +105,7 @@ typename LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Report
 LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
     const std::vector<typename Estimator::X_t>& X,
     const std::vector<typename Estimator::Y_t>& Y) {
-  CHECK_EQ(X.size(), Y.size());
+  THROW_CHECK_EQ(X.size(), Y.size());
 
   const size_t num_samples = X.size();
 
@@ -108,7 +118,7 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
   }
 
   typename SupportMeasurer::Support best_support;
-  typename Estimator::M_t best_model;
+  std::optional<typename Estimator::M_t> best_model;
   bool best_model_is_local = false;
 
   bool abort = false;
@@ -123,6 +133,8 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
 
   std::vector<typename Estimator::X_t> X_rand(Estimator::kMinNumSamples);
   std::vector<typename Estimator::Y_t> Y_rand(Estimator::kMinNumSamples);
+  std::vector<typename Estimator::M_t> sample_models;
+  std::vector<typename LocalEstimator::M_t> local_models;
 
   sampler.Initialize(num_samples);
 
@@ -141,18 +153,17 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
     sampler.SampleXY(X, Y, &X_rand, &Y_rand);
 
     // Estimate model for current subset.
-    const std::vector<typename Estimator::M_t> sample_models =
-        estimator.Estimate(X_rand, Y_rand);
+    estimator.Estimate(X_rand, Y_rand, &sample_models);
 
     // Iterate through all estimated models
     for (const auto& sample_model : sample_models) {
       estimator.Residuals(X, Y, sample_model, &residuals);
-      CHECK_EQ(residuals.size(), num_samples);
+      THROW_CHECK_EQ(residuals.size(), num_samples);
 
       const auto support = support_measurer.Evaluate(residuals, max_residual);
 
       // Do local optimization if better than all previous subsets.
-      if (support_measurer.Compare(support, best_support)) {
+      if (support_measurer.IsLeftBetter(support, best_support)) {
         best_support = support;
         best_model = sample_model;
         best_model_is_local = false;
@@ -176,20 +187,19 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
               }
             }
 
-            const std::vector<typename LocalEstimator::M_t> local_models =
-                local_estimator.Estimate(X_inlier, Y_inlier);
+            local_estimator.Estimate(X_inlier, Y_inlier, &local_models);
 
             const size_t prev_best_num_inliers = best_support.num_inliers;
 
             for (const auto& local_model : local_models) {
               local_estimator.Residuals(X, Y, local_model, &residuals);
-              CHECK_EQ(residuals.size(), num_samples);
+              THROW_CHECK_EQ(residuals.size(), num_samples);
 
               const auto local_support =
                   support_measurer.Evaluate(residuals, max_residual);
 
               // Check if locally optimized model is better.
-              if (support_measurer.Compare(local_support, best_support)) {
+              if (support_measurer.IsLeftBetter(local_support, best_support)) {
                 best_support = local_support;
                 best_model = local_model;
                 best_model_is_local = true;
@@ -225,8 +235,12 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
     }
   }
 
+  if (!best_model.has_value()) {
+    return report;
+  }
+
   report.support = best_support;
-  report.model = best_model;
+  report.model = best_model.value();
 
   // No valid model was found
   if (report.support.num_inliers < estimator.kMinNumSamples) {
@@ -245,7 +259,7 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
     estimator.Residuals(X, Y, report.model, &residuals);
   }
 
-  CHECK_EQ(residuals.size(), num_samples);
+  THROW_CHECK_EQ(residuals.size(), num_samples);
 
   report.inlier_mask.resize(num_samples);
   for (size_t i = 0; i < residuals.size(); ++i) {

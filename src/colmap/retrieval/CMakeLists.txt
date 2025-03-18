@@ -1,4 +1,4 @@
-# Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+# Copyright (c), ETH Zurich and UNC Chapel Hill.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,7 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
-#
-# Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
+
 
 set(FOLDER_NAME "retrieval")
 
@@ -38,18 +37,23 @@ COLMAP_ADD_LIBRARY(
         inverted_file.h
         inverted_file_entry.h
         inverted_index.h
+        resources.h
         utils.h
         visual_index.h
         vote_and_verify.h vote_and_verify.cc
     PUBLIC_LINK_LIBS
-        Boost::graph
+        Boost::boost
         Eigen3::Eigen
         flann
         lz4
     PRIVATE_LINK_LIBS
         colmap_math
         colmap_estimators
+        colmap_optim
 )
+if(OPENMP_FOUND)
+    target_link_libraries(colmap_retrieval PUBLIC OpenMP::OpenMP_CXX)
+endif()
 
 COLMAP_ADD_TEST(
     NAME geometry_test

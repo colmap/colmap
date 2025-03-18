@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,13 +26,12 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/sensor/bitmap.h"
 
 #include "colmap/math/math.h"
 #include "colmap/sensor/database.h"
+#include "colmap/util/file.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 
@@ -40,6 +39,14 @@
 
 #include <regex>
 #include <unordered_map>
+
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <Windows.h>
+#endif
+#include <FreeImage.h>
 
 namespace colmap {
 namespace {
@@ -55,96 +62,122 @@ const static auto initializer = FreeImageInitializer();
 
 #endif  // FREEIMAGE_LIB
 
+bool ReadExifTag(FIBITMAP* ptr,
+                 const FREE_IMAGE_MDMODEL model,
+                 const std::string& tag_name,
+                 std::string* result) {
+  FITAG* tag = nullptr;
+  FreeImage_GetMetadata(model, ptr, tag_name.c_str(), &tag);
+  if (tag == nullptr) {
+    *result = "";
+    return false;
+  } else {
+    if (tag_name == "FocalPlaneXResolution") {
+      // This tag seems to be in the wrong category.
+      *result = std::string(FreeImage_TagToString(FIMD_EXIF_INTEROP, tag));
+    } else {
+      *result = FreeImage_TagToString(model, tag);
+    }
+    return true;
+  }
+}
+
+bool IsPtrGrey(FIBITMAP* ptr) {
+  return FreeImage_GetColorType(ptr) == FIC_MINISBLACK &&
+         FreeImage_GetBPP(ptr) == 8;
+}
+
+bool IsPtrRGB(FIBITMAP* ptr) {
+  return FreeImage_GetColorType(ptr) == FIC_RGB && FreeImage_GetBPP(ptr) == 24;
+}
+
+bool IsPtrSupported(FIBITMAP* ptr) { return IsPtrGrey(ptr) || IsPtrRGB(ptr); }
+
 }  // namespace
 
-Bitmap::Bitmap()
-    : data_(nullptr, &FreeImage_Unload), width_(0), height_(0), channels_(0) {}
+Bitmap::Bitmap() : width_(0), height_(0), channels_(0) {}
 
 Bitmap::Bitmap(const Bitmap& other) : Bitmap() {
-  if (other.data_) {
-    SetPtr(FreeImage_Clone(other.data_.get()));
+  if (other.handle_.ptr != nullptr) {
+    SetPtr(FreeImage_Clone(other.handle_.ptr));
   }
 }
 
 Bitmap::Bitmap(Bitmap&& other) noexcept : Bitmap() {
-  data_ = std::move(other.data_);
+  handle_ = std::move(other.handle_);
   width_ = other.width_;
   height_ = other.height_;
   channels_ = other.channels_;
+  other.width_ = 0;
+  other.height_ = 0;
+  other.channels_ = 0;
 }
 
 Bitmap::Bitmap(FIBITMAP* data) : Bitmap() { SetPtr(data); }
 
 Bitmap& Bitmap::operator=(const Bitmap& other) {
-  if (other.data_) {
-    SetPtr(FreeImage_Clone(other.data_.get()));
+  if (other.handle_.ptr != nullptr) {
+    SetPtr(FreeImage_Clone(other.handle_.ptr));
   }
   return *this;
 }
 
 Bitmap& Bitmap::operator=(Bitmap&& other) noexcept {
   if (this != &other) {
-    data_ = std::move(other.data_);
+    handle_ = std::move(other.handle_);
     width_ = other.width_;
     height_ = other.height_;
     channels_ = other.channels_;
+    other.width_ = 0;
+    other.height_ = 0;
+    other.channels_ = 0;
   }
   return *this;
 }
 
 bool Bitmap::Allocate(const int width, const int height, const bool as_rgb) {
-  FIBITMAP* data = nullptr;
   width_ = width;
   height_ = height;
   if (as_rgb) {
     const int kNumBitsPerPixel = 24;
-    data = FreeImage_Allocate(width, height, kNumBitsPerPixel);
+    handle_ =
+        FreeImageHandle(FreeImage_Allocate(width, height, kNumBitsPerPixel));
     channels_ = 3;
   } else {
     const int kNumBitsPerPixel = 8;
-    data = FreeImage_Allocate(width, height, kNumBitsPerPixel);
+    handle_ =
+        FreeImageHandle(FreeImage_Allocate(width, height, kNumBitsPerPixel));
     channels_ = 1;
   }
-  data_ = FIBitmapPtr(data, &FreeImage_Unload);
-  return data != nullptr;
+  return handle_.ptr != nullptr;
 }
 
 void Bitmap::Deallocate() {
-  data_.reset();
+  handle_ = FreeImageHandle();
   width_ = 0;
   height_ = 0;
   channels_ = 0;
 }
 
 size_t Bitmap::NumBytes() const {
-  if (data_) {
-    return ScanWidth() * height_;
+  if (handle_.ptr != nullptr) {
+    return Pitch() * height_;
   } else {
     return 0;
   }
 }
 
-std::vector<uint8_t> Bitmap::ConvertToRawBits() const {
-  const unsigned int scan_width = ScanWidth();
-  const unsigned int bpp = BitsPerPixel();
-  const bool kTopDown = true;
-  std::vector<uint8_t> raw_bits(scan_width * height_, 0);
-  FreeImage_ConvertToRawBits(raw_bits.data(),
-                             data_.get(),
-                             scan_width,
-                             bpp,
-                             FI_RGBA_RED_MASK,
-                             FI_RGBA_GREEN_MASK,
-                             FI_RGBA_BLUE_MASK,
-                             kTopDown);
-  return raw_bits;
+unsigned int Bitmap::BitsPerPixel() const {
+  return FreeImage_GetBPP(handle_.ptr);
 }
+
+unsigned int Bitmap::Pitch() const { return FreeImage_GetPitch(handle_.ptr); }
 
 std::vector<uint8_t> Bitmap::ConvertToRowMajorArray() const {
   std::vector<uint8_t> array(width_ * height_ * channels_);
   size_t i = 0;
   for (int y = 0; y < height_; ++y) {
-    const uint8_t* line = FreeImage_GetScanLine(data_.get(), height_ - 1 - y);
+    const uint8_t* line = FreeImage_GetScanLine(handle_.ptr, height_ - 1 - y);
     for (int x = 0; x < width_; ++x) {
       for (int d = 0; d < channels_; ++d) {
         array[i] = line[x * channels_ + d];
@@ -162,13 +195,44 @@ std::vector<uint8_t> Bitmap::ConvertToColMajorArray() const {
     for (int x = 0; x < width_; ++x) {
       for (int y = 0; y < height_; ++y) {
         const uint8_t* line =
-            FreeImage_GetScanLine(data_.get(), height_ - 1 - y);
+            FreeImage_GetScanLine(handle_.ptr, height_ - 1 - y);
         array[i] = line[x * channels_ + d];
         i += 1;
       }
     }
   }
   return array;
+}
+
+std::vector<uint8_t> Bitmap::ConvertToRawBits() const {
+  const unsigned int pitch = Pitch();
+  const unsigned int bpp = BitsPerPixel();
+  std::vector<uint8_t> raw_bits(pitch * height_ * bpp / 8, 0);
+  FreeImage_ConvertToRawBits(raw_bits.data(),
+                             handle_.ptr,
+                             pitch,
+                             bpp,
+                             FI_RGBA_RED_MASK,
+                             FI_RGBA_GREEN_MASK,
+                             FI_RGBA_BLUE_MASK,
+                             /*topdown=*/true);
+  return raw_bits;
+}
+
+Bitmap Bitmap::ConvertFromRawBits(
+    const uint8_t* data, int pitch, int width, int height, bool rgb) {
+  const unsigned bpp = rgb ? 24 : 8;
+  return Bitmap(FreeImage_ConvertFromRawBitsEx(/*copy_source=*/true,
+                                               const_cast<uint8_t*>(data),
+                                               FIT_BITMAP,
+                                               width,
+                                               height,
+                                               pitch,
+                                               bpp,
+                                               FI_RGBA_RED_MASK,
+                                               FI_RGBA_GREEN_MASK,
+                                               FI_RGBA_BLUE_MASK,
+                                               /*topdown=*/true));
 }
 
 bool Bitmap::GetPixel(const int x,
@@ -178,7 +242,7 @@ bool Bitmap::GetPixel(const int x,
     return false;
   }
 
-  const uint8_t* line = FreeImage_GetScanLine(data_.get(), height_ - 1 - y);
+  const uint8_t* line = FreeImage_GetScanLine(handle_.ptr, height_ - 1 - y);
 
   if (IsGrey()) {
     color->r = line[x];
@@ -200,7 +264,7 @@ bool Bitmap::SetPixel(const int x,
     return false;
   }
 
-  uint8_t* line = FreeImage_GetScanLine(data_.get(), height_ - 1 - y);
+  uint8_t* line = FreeImage_GetScanLine(handle_.ptr, height_ - 1 - y);
 
   if (IsGrey()) {
     line[x] = color.r;
@@ -216,14 +280,14 @@ bool Bitmap::SetPixel(const int x,
 }
 
 const uint8_t* Bitmap::GetScanline(const int y) const {
-  CHECK_GE(y, 0);
-  CHECK_LT(y, height_);
-  return FreeImage_GetScanLine(data_.get(), height_ - 1 - y);
+  THROW_CHECK_GE(y, 0);
+  THROW_CHECK_LT(y, height_);
+  return FreeImage_GetScanLine(handle_.ptr, height_ - 1 - y);
 }
 
 void Bitmap::Fill(const BitmapColor<uint8_t>& color) {
   for (int y = 0; y < height_; ++y) {
-    uint8_t* line = FreeImage_GetScanLine(data_.get(), height_ - 1 - y);
+    uint8_t* line = FreeImage_GetScanLine(handle_.ptr, height_ - 1 - y);
     for (int x = 0; x < width_; ++x) {
       if (IsGrey()) {
         line[x] = color.r;
@@ -264,8 +328,8 @@ bool Bitmap::InterpolateBilinear(const double x,
   const double dx_1 = 1 - dx;
   const double dy_1 = 1 - dy;
 
-  const uint8_t* line0 = FreeImage_GetScanLine(data_.get(), y0);
-  const uint8_t* line1 = FreeImage_GetScanLine(data_.get(), y1);
+  const uint8_t* line0 = FreeImage_GetScanLine(handle_.ptr, y0);
+  const uint8_t* line1 = FreeImage_GetScanLine(handle_.ptr, y1);
 
   if (IsGrey()) {
     // Top row, column-wise linear interpolation.
@@ -309,20 +373,23 @@ bool Bitmap::ExifCameraModel(std::string* camera_model) const {
   std::string model_str;
   std::string focal_length;
   *camera_model = "";
-  if (ReadExifTag(FIMD_EXIF_MAIN, "Make", &make_str)) {
+  if (ReadExifTag(handle_.ptr, FIMD_EXIF_MAIN, "Make", &make_str)) {
     *camera_model += (make_str + "-");
   } else {
     *camera_model = "";
     return false;
   }
-  if (ReadExifTag(FIMD_EXIF_MAIN, "Model", &model_str)) {
+  if (ReadExifTag(handle_.ptr, FIMD_EXIF_MAIN, "Model", &model_str)) {
     *camera_model += (model_str + "-");
   } else {
     *camera_model = "";
     return false;
   }
-  if (ReadExifTag(FIMD_EXIF_EXIF, "FocalLengthIn35mmFilm", &focal_length) ||
-      ReadExifTag(FIMD_EXIF_EXIF, "FocalLength", &focal_length)) {
+  if (ReadExifTag(handle_.ptr,
+                  FIMD_EXIF_EXIF,
+                  "FocalLengthIn35mmFilm",
+                  &focal_length) ||
+      ReadExifTag(handle_.ptr, FIMD_EXIF_EXIF, "FocalLength", &focal_length)) {
     *camera_model += (focal_length + "-");
   } else {
     *camera_model = "";
@@ -340,9 +407,11 @@ bool Bitmap::ExifFocalLength(double* focal_length) const {
   //////////////////////////////////////////////////////////////////////////////
 
   std::string focal_length_35mm_str;
-  if (ReadExifTag(
-          FIMD_EXIF_EXIF, "FocalLengthIn35mmFilm", &focal_length_35mm_str)) {
-    const std::regex regex(".*?([0-9.]+).*?mm.*?");
+  if (ReadExifTag(handle_.ptr,
+                  FIMD_EXIF_EXIF,
+                  "FocalLengthIn35mmFilm",
+                  &focal_length_35mm_str)) {
+    static const std::regex regex(".*?([0-9.]+).*?mm.*?");
     std::cmatch result;
     if (std::regex_search(focal_length_35mm_str.c_str(), result, regex)) {
       const double focal_length_35 = std::stold(result[1]);
@@ -358,7 +427,8 @@ bool Bitmap::ExifFocalLength(double* focal_length) const {
   //////////////////////////////////////////////////////////////////////////////
 
   std::string focal_length_str;
-  if (ReadExifTag(FIMD_EXIF_EXIF, "FocalLength", &focal_length_str)) {
+  if (ReadExifTag(
+          handle_.ptr, FIMD_EXIF_EXIF, "FocalLength", &focal_length_str)) {
     std::regex regex(".*?([0-9.]+).*?mm");
     std::cmatch result;
     if (std::regex_search(focal_length_str.c_str(), result, regex)) {
@@ -367,8 +437,8 @@ bool Bitmap::ExifFocalLength(double* focal_length) const {
       // Lookup sensor width in database.
       std::string make_str;
       std::string model_str;
-      if (ReadExifTag(FIMD_EXIF_MAIN, "Make", &make_str) &&
-          ReadExifTag(FIMD_EXIF_MAIN, "Model", &model_str)) {
+      if (ReadExifTag(handle_.ptr, FIMD_EXIF_MAIN, "Make", &make_str) &&
+          ReadExifTag(handle_.ptr, FIMD_EXIF_MAIN, "Model", &model_str)) {
         CameraDatabase database;
         double sensor_width;
         if (database.QuerySensorWidth(make_str, model_str, &sensor_width)) {
@@ -381,10 +451,18 @@ bool Bitmap::ExifFocalLength(double* focal_length) const {
       std::string pixel_x_dim_str;
       std::string x_res_str;
       std::string res_unit_str;
-      if (ReadExifTag(FIMD_EXIF_EXIF, "PixelXDimension", &pixel_x_dim_str) &&
-          ReadExifTag(FIMD_EXIF_EXIF, "FocalPlaneXResolution", &x_res_str) &&
-          ReadExifTag(
-              FIMD_EXIF_EXIF, "FocalPlaneResolutionUnit", &res_unit_str)) {
+      if (ReadExifTag(handle_.ptr,
+                      FIMD_EXIF_EXIF,
+                      "PixelXDimension",
+                      &pixel_x_dim_str) &&
+          ReadExifTag(handle_.ptr,
+                      FIMD_EXIF_EXIF,
+                      "FocalPlaneXResolution",
+                      &x_res_str) &&
+          ReadExifTag(handle_.ptr,
+                      FIMD_EXIF_EXIF,
+                      "FocalPlaneResolutionUnit",
+                      &res_unit_str)) {
         regex = std::regex(".*?([0-9.]+).*?");
         if (std::regex_search(pixel_x_dim_str.c_str(), result, regex)) {
           const double pixel_x_dim = std::stold(result[1]);
@@ -415,15 +493,15 @@ bool Bitmap::ExifFocalLength(double* focal_length) const {
 bool Bitmap::ExifLatitude(double* latitude) const {
   std::string str;
   double sign = 1.0;
-  if (ReadExifTag(FIMD_EXIF_GPS, "GPSLatitudeRef", &str)) {
+  if (ReadExifTag(handle_.ptr, FIMD_EXIF_GPS, "GPSLatitudeRef", &str)) {
     StringTrim(&str);
     StringToLower(&str);
     if (!str.empty() && str[0] == 's') {
       sign = -1.0;
     }
   }
-  if (ReadExifTag(FIMD_EXIF_GPS, "GPSLatitude", &str)) {
-    const std::regex regex(".*?([0-9.]+):([0-9.]+):([0-9.]+).*?");
+  if (ReadExifTag(handle_.ptr, FIMD_EXIF_GPS, "GPSLatitude", &str)) {
+    static const std::regex regex(".*?([0-9.]+):([0-9.]+):([0-9.]+).*?");
     std::cmatch result;
     if (std::regex_search(str.c_str(), result, regex)) {
       const double hours = std::stold(result[1]);
@@ -443,15 +521,15 @@ bool Bitmap::ExifLatitude(double* latitude) const {
 bool Bitmap::ExifLongitude(double* longitude) const {
   std::string str;
   double sign = 1.0;
-  if (ReadExifTag(FIMD_EXIF_GPS, "GPSLongitudeRef", &str)) {
+  if (ReadExifTag(handle_.ptr, FIMD_EXIF_GPS, "GPSLongitudeRef", &str)) {
     StringTrim(&str);
     StringToLower(&str);
     if (!str.empty() && str[0] == 'w') {
       sign = -1.0;
     }
   }
-  if (ReadExifTag(FIMD_EXIF_GPS, "GPSLongitude", &str)) {
-    const std::regex regex(".*?([0-9.]+):([0-9.]+):([0-9.]+).*?");
+  if (ReadExifTag(handle_.ptr, FIMD_EXIF_GPS, "GPSLongitude", &str)) {
+    static const std::regex regex(".*?([0-9.]+):([0-9.]+):([0-9.]+).*?");
     std::cmatch result;
     if (std::regex_search(str.c_str(), result, regex)) {
       const double hours = std::stold(result[1]);
@@ -470,8 +548,8 @@ bool Bitmap::ExifLongitude(double* longitude) const {
 
 bool Bitmap::ExifAltitude(double* altitude) const {
   std::string str;
-  if (ReadExifTag(FIMD_EXIF_GPS, "GPSAltitude", &str)) {
-    const std::regex regex(".*?([0-9.]+).*?/.*?([0-9.]+).*?");
+  if (ReadExifTag(handle_.ptr, FIMD_EXIF_GPS, "GPSAltitude", &str)) {
+    static const std::regex regex(".*?([0-9.]+).*?/.*?([0-9.]+).*?");
     std::cmatch result;
     if (std::regex_search(str.c_str(), result, regex)) {
       *altitude = std::stold(result[1]) / std::stold(result[2]);
@@ -492,45 +570,40 @@ bool Bitmap::Read(const std::string& path, const bool as_rgb) {
     return false;
   }
 
-  FIBITMAP* fi_bitmap = FreeImage_Load(format, path.c_str());
-  if (fi_bitmap == nullptr) {
+  handle_ = FreeImageHandle(FreeImage_Load(format, path.c_str()));
+  if (handle_.ptr == nullptr) {
     return false;
   }
 
-  data_ = FIBitmapPtr(fi_bitmap, &FreeImage_Unload);
-
-  if (!IsPtrRGB(data_.get()) && as_rgb) {
-    FIBITMAP* converted_bitmap = FreeImage_ConvertTo24Bits(fi_bitmap);
-    data_ = FIBitmapPtr(converted_bitmap, &FreeImage_Unload);
-  } else if (!IsPtrGrey(data_.get()) && !as_rgb) {
-    FIBITMAP* converted_bitmap = FreeImage_ConvertToGreyscale(fi_bitmap);
-    data_ = FIBitmapPtr(converted_bitmap, &FreeImage_Unload);
+  if (!IsPtrRGB(handle_.ptr) && as_rgb) {
+    FIBITMAP* converted_bitmap = FreeImage_ConvertTo24Bits(handle_.ptr);
+    handle_ = FreeImageHandle(converted_bitmap);
+  } else if (!IsPtrGrey(handle_.ptr) && !as_rgb) {
+    if (FreeImage_GetBPP(handle_.ptr) != 24) {
+      FIBITMAP* converted_bitmap_24 = FreeImage_ConvertTo24Bits(handle_.ptr);
+      handle_ = FreeImageHandle(converted_bitmap_24);
+    }
+    FIBITMAP* converted_bitmap = FreeImage_ConvertToGreyscale(handle_.ptr);
+    handle_ = FreeImageHandle(converted_bitmap);
   }
 
-  if (!IsPtrSupported(data_.get())) {
-    data_.reset();
+  if (!IsPtrSupported(handle_.ptr)) {
+    handle_ = FreeImageHandle();
     return false;
   }
 
-  width_ = FreeImage_GetWidth(data_.get());
-  height_ = FreeImage_GetHeight(data_.get());
+  width_ = FreeImage_GetWidth(handle_.ptr);
+  height_ = FreeImage_GetHeight(handle_.ptr);
   channels_ = as_rgb ? 3 : 1;
 
   return true;
 }
 
-bool Bitmap::Write(const std::string& path,
-                   const FREE_IMAGE_FORMAT format,
-                   const int flags) const {
-  FREE_IMAGE_FORMAT save_format;
-  if (format == FIF_UNKNOWN) {
-    save_format = FreeImage_GetFIFFromFilename(path.c_str());
-    if (save_format == FIF_UNKNOWN) {
-      // If format could not be deduced, save as PNG by default.
-      save_format = FIF_PNG;
-    }
-  } else {
-    save_format = format;
+bool Bitmap::Write(const std::string& path, const int flags) const {
+  FREE_IMAGE_FORMAT save_format = FreeImage_GetFIFFromFilename(path.c_str());
+  if (save_format == FIF_UNKNOWN) {
+    // If format could not be deduced, save as PNG by default.
+    save_format = FIF_PNG;
   }
 
   int save_flags = flags;
@@ -541,10 +614,10 @@ bool Bitmap::Write(const std::string& path,
 
   bool success = false;
   if (save_flags == 0) {
-    success = FreeImage_Save(save_format, data_.get(), path.c_str());
+    success = FreeImage_Save(save_format, handle_.ptr, path.c_str());
   } else {
     success =
-        FreeImage_Save(save_format, data_.get(), path.c_str(), save_flags);
+        FreeImage_Save(save_format, handle_.ptr, path.c_str(), save_flags);
   }
 
   return success;
@@ -556,7 +629,7 @@ void Bitmap::Smooth(const float sigma_x, const float sigma_y) {
   for (int d = 0; d < channels_; ++d) {
     size_t i = 0;
     for (int y = 0; y < height_; ++y) {
-      const uint8_t* line = FreeImage_GetScanLine(data_.get(), height_ - 1 - y);
+      const uint8_t* line = FreeImage_GetScanLine(handle_.ptr, height_ - 1 - y);
       for (int x = 0; x < width_; ++x) {
         array[i] = line[x * channels_ + d];
         i += 1;
@@ -574,7 +647,7 @@ void Bitmap::Smooth(const float sigma_x, const float sigma_y) {
 
     i = 0;
     for (int y = 0; y < height_; ++y) {
-      uint8_t* line = FreeImage_GetScanLine(data_.get(), height_ - 1 - y);
+      uint8_t* line = FreeImage_GetScanLine(handle_.ptr, height_ - 1 - y);
       for (int x = 0; x < width_; ++x) {
         line[x * channels_ + d] =
             TruncateCast<float, uint8_t>(array_smoothed[i]);
@@ -586,17 +659,31 @@ void Bitmap::Smooth(const float sigma_x, const float sigma_y) {
 
 void Bitmap::Rescale(const int new_width,
                      const int new_height,
-                     const FREE_IMAGE_FILTER filter) {
-  SetPtr(FreeImage_Rescale(data_.get(), new_width, new_height, filter));
+                     RescaleFilter filter) {
+  FREE_IMAGE_FILTER fi_filter = FILTER_BILINEAR;
+  switch (filter) {
+    case RescaleFilter::kBilinear:
+      fi_filter = FILTER_BILINEAR;
+      break;
+    case RescaleFilter::kBox:
+      fi_filter = FILTER_BOX;
+      break;
+    default:
+      LOG(FATAL_THROW) << "Filter not implemented";
+  }
+  SetPtr(FreeImage_Rescale(handle_.ptr, new_width, new_height, fi_filter));
 }
 
-Bitmap Bitmap::Clone() const { return Bitmap(FreeImage_Clone(data_.get())); }
+Bitmap Bitmap::Clone() const {
+  FIBITMAP* cloned = FreeImage_Clone(handle_.ptr);
+  return Bitmap(cloned);
+}
 
 Bitmap Bitmap::CloneAsGrey() const {
   if (IsGrey()) {
     return Clone();
   } else {
-    return Bitmap(FreeImage_ConvertToGreyscale(data_.get()));
+    return Bitmap(FreeImage_ConvertToGreyscale(handle_.ptr));
   }
 }
 
@@ -604,60 +691,64 @@ Bitmap Bitmap::CloneAsRGB() const {
   if (IsRGB()) {
     return Clone();
   } else {
-    return Bitmap(FreeImage_ConvertTo24Bits(data_.get()));
+    return Bitmap(FreeImage_ConvertTo24Bits(handle_.ptr));
   }
 }
 
 void Bitmap::CloneMetadata(Bitmap* target) const {
-  CHECK_NOTNULL(target);
-  CHECK_NOTNULL(target->Data());
-  FreeImage_CloneMetadata(data_.get(), target->Data());
+  THROW_CHECK_NOTNULL(target);
+  THROW_CHECK_NOTNULL(target->Data());
+  FreeImage_CloneMetadata(handle_.ptr, target->Data());
 }
 
-bool Bitmap::ReadExifTag(const FREE_IMAGE_MDMODEL model,
-                         const std::string& tag_name,
-                         std::string* result) const {
-  FITAG* tag = nullptr;
-  FreeImage_GetMetadata(model, data_.get(), tag_name.c_str(), &tag);
-  if (tag == nullptr) {
-    *result = "";
-    return false;
-  } else {
-    if (tag_name == "FocalPlaneXResolution") {
-      // This tag seems to be in the wrong category.
-      *result = std::string(FreeImage_TagToString(FIMD_EXIF_INTEROP, tag));
-    } else {
-      *result = FreeImage_TagToString(model, tag);
+void Bitmap::SetPtr(FIBITMAP* ptr) {
+  THROW_CHECK_NOTNULL(ptr);
+
+  if (!IsPtrSupported(ptr)) {
+    FreeImageHandle temp_handle(ptr);
+    ptr = FreeImage_ConvertTo24Bits(temp_handle.ptr);
+    THROW_CHECK(IsPtrSupported(ptr));
+  }
+
+  handle_ = FreeImageHandle(ptr);
+  width_ = FreeImage_GetWidth(handle_.ptr);
+  height_ = FreeImage_GetHeight(handle_.ptr);
+  channels_ = IsPtrRGB(handle_.ptr) ? 3 : 1;
+}
+
+Bitmap::FreeImageHandle::FreeImageHandle() : ptr(nullptr) {}
+
+Bitmap::FreeImageHandle::FreeImageHandle(FIBITMAP* ptr) : ptr(ptr) {}
+
+Bitmap::FreeImageHandle::~FreeImageHandle() {
+  if (ptr != nullptr) {
+    FreeImage_Unload(ptr);
+    ptr = nullptr;
+  }
+}
+
+Bitmap::FreeImageHandle::FreeImageHandle(
+    Bitmap::FreeImageHandle&& other) noexcept {
+  ptr = other.ptr;
+  other.ptr = nullptr;
+}
+
+Bitmap::FreeImageHandle& Bitmap::FreeImageHandle::operator=(
+    Bitmap::FreeImageHandle&& other) noexcept {
+  if (this != &other) {
+    if (ptr != nullptr) {
+      FreeImage_Unload(ptr);
     }
-    return true;
+    ptr = other.ptr;
+    other.ptr = nullptr;
   }
+  return *this;
 }
 
-void Bitmap::SetPtr(FIBITMAP* data) {
-  if (!IsPtrSupported(data)) {
-    FIBITMAP* temp_data = data;
-    data = FreeImage_ConvertTo24Bits(temp_data);
-    FreeImage_Unload(temp_data);
-  }
-
-  data_ = FIBitmapPtr(data, &FreeImage_Unload);
-  width_ = FreeImage_GetWidth(data);
-  height_ = FreeImage_GetHeight(data);
-  channels_ = IsPtrRGB(data) ? 3 : 1;
-}
-
-bool Bitmap::IsPtrGrey(FIBITMAP* data) {
-  return FreeImage_GetColorType(data) == FIC_MINISBLACK &&
-         FreeImage_GetBPP(data) == 8;
-}
-
-bool Bitmap::IsPtrRGB(FIBITMAP* data) {
-  return FreeImage_GetColorType(data) == FIC_RGB &&
-         FreeImage_GetBPP(data) == 24;
-}
-
-bool Bitmap::IsPtrSupported(FIBITMAP* data) {
-  return IsPtrGrey(data) || IsPtrRGB(data);
+std::ostream& operator<<(std::ostream& stream, const Bitmap& bitmap) {
+  stream << "Bitmap(width=" << bitmap.Width() << ", height=" << bitmap.Height()
+         << ", channels=" << bitmap.Channels() << ")";
+  return stream;
 }
 
 float JetColormap::Red(const float gray) { return Base(gray - 0.25f); }

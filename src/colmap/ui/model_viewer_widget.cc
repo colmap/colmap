@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,12 +26,12 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/ui/model_viewer_widget.h"
 
 #include "colmap/ui/main_window.h"
+
+#include <set>
 
 #define SELECTION_BUFFER_IMAGE_IDX 0
 #define SELECTION_BUFFER_POINT_IDX 1
@@ -75,34 +75,46 @@ void BuildImageModel(const Image& image,
                      const Eigen::Vector4f& frame_color,
                      std::vector<TrianglePainter::Data>* triangle_data,
                      std::vector<LinePainter::Data>* line_data) {
+  // Updating the reconstruction in the viewer (e.g., deleting an image or a
+  // point) is not thread-safe when the mapper is running, where some images may
+  // be in a partial, incorrect state. In rare circumstances, an image may be
+  // registered but not yet have a pose. Instead of crashing the viewer, we
+  // simply skip the visualization of these images and warn the user.
+  const std::optional<Rigid3d>& cam_from_world = image.MaybeCamFromWorld();
+  if (!cam_from_world) {
+    LOG(WARNING) << "Failed to render image " << image.Name()
+                 << " but it has no pose.";
+    return;
+  }
+
   // Generate camera dimensions in OpenGL (world) coordinate space.
   const float kBaseCameraWidth = 1024.0f;
-  const float image_width = image_size * camera.Width() / kBaseCameraWidth;
-  const float image_height = image_width * static_cast<float>(camera.Height()) /
-                             static_cast<float>(camera.Width());
+  const float image_width = image_size * camera.width / kBaseCameraWidth;
+  const float image_height = image_width * static_cast<float>(camera.height) /
+                             static_cast<float>(camera.width);
   const float image_extent = std::max(image_width, image_height);
-  const float camera_extent = std::max(camera.Width(), camera.Height());
+  const float camera_extent = std::max(camera.width, camera.height);
   const float camera_extent_normalized =
       static_cast<float>(camera.CamFromImgThreshold(camera_extent));
   const float focal_length = 2.0f * image_extent / camera_extent_normalized;
 
-  const Eigen::Matrix<float, 3, 4> inv_proj_matrix =
-      Inverse(image.CamFromWorld()).ToMatrix().cast<float>();
+  const Eigen::Matrix<float, 3, 4> world_from_cam =
+      Inverse(*cam_from_world).ToMatrix().cast<float>();
 
   // Projection center, top-left, top-right, bottom-right, bottom-left corners.
 
-  const Eigen::Vector3f pc = inv_proj_matrix.rightCols<1>();
+  const Eigen::Vector3f pc = world_from_cam.rightCols<1>();
   const Eigen::Vector3f tl =
-      inv_proj_matrix *
+      world_from_cam *
       Eigen::Vector4f(-image_width, image_height, focal_length, 1);
   const Eigen::Vector3f tr =
-      inv_proj_matrix *
+      world_from_cam *
       Eigen::Vector4f(image_width, image_height, focal_length, 1);
   const Eigen::Vector3f br =
-      inv_proj_matrix *
+      world_from_cam *
       Eigen::Vector4f(image_width, -image_height, focal_length, 1);
   const Eigen::Vector3f bl =
-      inv_proj_matrix *
+      world_from_cam *
       Eigen::Vector4f(-image_width, -image_height, focal_length, 1);
 
   // Image plane as two triangles.
@@ -376,11 +388,23 @@ void ModelViewerWidget::ReloadReconstruction() {
 
   cameras = reconstruction->Cameras();
   points3D = reconstruction->Points3D();
-  reg_image_ids = reconstruction->RegImageIds();
+  const std::set<image_t>& reg_image_ids_set = reconstruction->RegImageIds();
+  reg_image_ids =
+      std::vector<image_t>(reg_image_ids_set.begin(), reg_image_ids_set.end());
 
   images.clear();
   for (const image_t image_id : reg_image_ids) {
     images[image_id] = reconstruction->Image(image_id);
+  }
+
+  if (selected_point3D_id_ != kInvalidPoint3DId &&
+      points3D.count(selected_point3D_id_) == 0) {
+    selected_point3D_id_ = kInvalidPoint3DId;
+  }
+
+  if (selected_image_id_ != kInvalidImageId &&
+      reg_image_ids_set.count(selected_image_id_) == 0) {
+    selected_image_id_ = kInvalidImageId;
   }
 
   statusbar_status_label->setText(
@@ -922,13 +946,13 @@ void ModelViewerWidget::UploadPointData(const bool selection_mode) {
   if (selected_image_id_ == kInvalidImageId &&
       images.count(selected_image_id_) == 0) {
     for (const auto& point3D : points3D) {
-      if (point3D.second.Error() <= options_->render->max_error &&
-          point3D.second.Track().Length() >= min_track_len) {
+      if (point3D.second.error <= options_->render->max_error &&
+          point3D.second.track.Length() >= min_track_len) {
         PointPainter::Data painter_point;
 
-        painter_point.x = static_cast<float>(point3D.second.XYZ(0));
-        painter_point.y = static_cast<float>(point3D.second.XYZ(1));
-        painter_point.z = static_cast<float>(point3D.second.XYZ(2));
+        painter_point.x = static_cast<float>(point3D.second.xyz(0));
+        painter_point.y = static_cast<float>(point3D.second.xyz(1));
+        painter_point.z = static_cast<float>(point3D.second.xyz(2));
 
         Eigen::Vector4f color;
         if (selection_mode) {
@@ -954,13 +978,13 @@ void ModelViewerWidget::UploadPointData(const bool selection_mode) {
   } else {  // Image selected
     const auto& selected_image = images[selected_image_id_];
     for (const auto& point3D : points3D) {
-      if (point3D.second.Error() <= options_->render->max_error &&
-          point3D.second.Track().Length() >= min_track_len) {
+      if (point3D.second.error <= options_->render->max_error &&
+          point3D.second.track.Length() >= min_track_len) {
         PointPainter::Data painter_point;
 
-        painter_point.x = static_cast<float>(point3D.second.XYZ(0));
-        painter_point.y = static_cast<float>(point3D.second.XYZ(1));
-        painter_point.z = static_cast<float>(point3D.second.XYZ(2));
+        painter_point.x = static_cast<float>(point3D.second.xyz(0));
+        painter_point.y = static_cast<float>(point3D.second.xyz(1));
+        painter_point.z = static_cast<float>(point3D.second.xyz(2));
 
         Eigen::Vector4f color;
         if (selection_mode) {
@@ -1004,16 +1028,16 @@ void ModelViewerWidget::UploadPointConnectionData() {
 
   // 3D point position.
   LinePainter::Data line;
-  line.point1 = PointPainter::Data(static_cast<float>(point3D.XYZ(0)),
-                                   static_cast<float>(point3D.XYZ(1)),
-                                   static_cast<float>(point3D.XYZ(2)),
+  line.point1 = PointPainter::Data(static_cast<float>(point3D.xyz(0)),
+                                   static_cast<float>(point3D.xyz(1)),
+                                   static_cast<float>(point3D.xyz(2)),
                                    kSelectedPointColor(0),
                                    kSelectedPointColor(1),
                                    kSelectedPointColor(2),
                                    0.8f);
 
   // All images in which 3D point is observed.
-  for (const auto& track_el : point3D.Track().Elements()) {
+  for (const auto& track_el : point3D.track.Elements()) {
     const Image& conn_image = images[track_el.image_id];
     const Eigen::Vector3f conn_proj_center =
         conn_image.ProjectionCenter().cast<float>();
@@ -1102,7 +1126,7 @@ void ModelViewerWidget::UploadImageConnectionData() {
     for (const Point2D& point2D : image.Points2D()) {
       if (point2D.HasPoint3D()) {
         const Point3D& point3D = points3D[point2D.point3D_id];
-        for (const auto& track_elem : point3D.Track().Elements()) {
+        for (const auto& track_elem : point3D.track.Elements()) {
           conn_image_ids.insert(track_elem.image_id);
         }
       }
@@ -1181,11 +1205,12 @@ void ModelViewerWidget::UploadMovieGrabberData() {
     const float kDefaultImageHeight = 1536.0f;
     const float focal_length =
         -2.0f * std::tan(DegToRad(kFieldOfView) / 2.0f) * kDefaultImageWdith;
-    Camera camera;
-    camera.InitializeWithId(SimplePinholeCameraModel::model_id,
-                            focal_length,
-                            kDefaultImageWdith,
-                            kDefaultImageHeight);
+    Camera camera =
+        Camera::CreateFromModelId(kInvalidCameraId,
+                                  SimplePinholeCameraModel::model_id,
+                                  focal_length,
+                                  kDefaultImageWdith,
+                                  kDefaultImageHeight);
 
     // Build all camera models
     for (size_t i = 0; i < movie_grabber_widget_->views.size(); ++i) {

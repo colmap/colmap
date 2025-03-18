@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #pragma once
 
@@ -38,9 +36,10 @@
 #include "colmap/mvs/model.h"
 #include "colmap/mvs/normal_map.h"
 #include "colmap/mvs/workspace.h"
+#include "colmap/util/base_controller.h"
 #include "colmap/util/cache.h"
+#include "colmap/util/eigen_alignment.h"
 #include "colmap/util/ply.h"
-#include "colmap/util/threading.h"
 
 #include <cfloat>
 #include <unordered_set>
@@ -103,7 +102,7 @@ struct StereoFusionOptions {
   void Print() const;
 };
 
-class StereoFusion : public Thread {
+class StereoFusion : public BaseController {
  public:
   StereoFusion(const StereoFusionOptions& options,
                const std::string& workspace_path,
@@ -114,8 +113,9 @@ class StereoFusion : public Thread {
   const std::vector<PlyPoint>& GetFusedPoints() const;
   const std::vector<std::vector<int>>& GetFusedPointsVisibility() const;
 
- private:
   void Run();
+
+ private:
   void InitFusedPixelMask(int image_idx, size_t width, size_t height);
   void Fuse(int thread_id, int image_idx, int row, int col);
 

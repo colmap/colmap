@@ -1,4 +1,4 @@
-# Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+# Copyright (c), ETH Zurich and UNC Chapel Hill.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -26,14 +26,13 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
-#
-# Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-import re
+
 import argparse
+import re
+
 import requests
 from lxml.html import soupparser
-
 
 MAX_REQUEST_TRIALS = 10
 
@@ -49,7 +48,7 @@ def request_trial(func, *args, **kwargs):
     for i in range(MAX_REQUEST_TRIALS):
         try:
             response = func(*args, **kwargs)
-        except:
+        except:  # noqa E722
             continue
         else:
             return response
@@ -69,8 +68,12 @@ def main():
         f.write("#include <string>\n")
         f.write("#include <unordered_map>\n\n")
         f.write("// { make1 : ({ model1 : sensor-width in mm }, ...), ... }\n")
-        f.write("typedef std::vector<std::pair<std::string, float>> make_specs_t;\n")
-        f.write("typedef std::unordered_map<std::string, make_specs_t> camera_specs_t;;\n\n")
+        f.write(
+            "typedef std::vector<std::pair<std::string, float>> make_specs_t;\n"
+        )
+        f.write(
+            "typedef std::unordered_map<std::string, make_specs_t> camera_specs_t;;\n\n"
+        )
         f.write("camera_specs_t InitializeCameraSpecs();\n\n")
 
     ##########################################################################
@@ -79,7 +82,7 @@ def main():
 
     makes_response = requests.get("http://www.digicamdb.com")
     makes_tree = soupparser.fromstring(makes_response.text)
-    makes_node = makes_tree.find(".//select[@id=\"select_brand\"]")
+    makes_node = makes_tree.find('.//select[@id="select_brand"]')
     makes = [b.attrib["value"] for b in makes_node.iter("option")]
 
     with open(args.lib_path + ".cc", "w") as f:
@@ -87,12 +90,16 @@ def main():
         f.write("  camera_specs_t specs;\n\n")
         for make in makes:
             f.write("  {\n")
-            f.write("    auto& make_specs = specs[\"%s\"];\n" % make.lower().replace(" ", ""))
+            f.write(
+                '    auto& make_specs = specs["%s"];\n'
+                % make.lower().replace(" ", "")
+            )
 
             models_response = request_trial(
                 requests.post,
                 "http://www.digicamdb.com/inc/ajax.php",
-                data={"b": make, "role": "header_search"})
+                data={"b": make, "role": "header_search"},
+            )
 
             models_tree = soupparser.fromstring(models_response.text)
             models_code = ""
@@ -103,20 +110,27 @@ def main():
                 if model is None:
                     continue
 
-                url = "http://www.digicamdb.com/specs/{0}_{1}" \
-                                            .format(make, model)
+                url = "http://www.digicamdb.com/specs/{0}_{1}".format(
+                    make, model
+                )
                 specs_response = request_trial(requests.get, url)
 
                 specs_tree = soupparser.fromstring(specs_response.text)
-                for spec in specs_tree.findall(".//td[@class=\"info_key\"]"):
+                for spec in specs_tree.findall('.//td[@class="info_key"]'):
                     if spec.text.strip() == "Sensor:":
-                        sensor_text = spec.find("..").find("./td[@class=\"bold\"]")
+                        sensor_text = spec.find("..").find(
+                            './td[@class="bold"]'
+                        )
                         sensor_text = sensor_text.text.strip()
                         m = re.match(".*?([\d.]+) x ([\d.]+).*?", sensor_text)
                         sensor_width = m.group(1)
-                        data = (model_name.lower().replace(" ", ""),
-                                float(sensor_width.replace(" ", "")))
-                        models_code += "    make_specs.emplace_back(\"%s\", %.4ff);\n" % data
+                        data = (
+                            model_name.lower().replace(" ", ""),
+                            float(sensor_width.replace(" ", "")),
+                        )
+                        models_code += (
+                            '    make_specs.emplace_back("%s", %.4ff);\n' % data
+                        )
 
                         print(make, model_name)
                         print("   ", sensor_text)

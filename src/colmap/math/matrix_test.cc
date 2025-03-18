@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,14 +26,15 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/math/matrix.h"
+
+#include "colmap/util/eigen_matchers.h"
 
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(DecomposeMatrixRQ, Nominal) {
   for (int i = 0; i < 10; ++i) {
@@ -45,8 +46,9 @@ TEST(DecomposeMatrixRQ, Nominal) {
     EXPECT_TRUE(R.bottomRows(4).isUpperTriangular());
     EXPECT_TRUE(Q.isUnitary());
     EXPECT_NEAR(Q.determinant(), 1.0, 1e-6);
-    EXPECT_TRUE(A.isApprox(R * Q, 1e-6));
+    EXPECT_THAT(A, EigenMatrixNear(Eigen::Matrix4d(R * Q), 1e-6));
   }
 }
 
+}  // namespace
 }  // namespace colmap

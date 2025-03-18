@@ -1,4 +1,4 @@
-# Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+# Copyright (c), ETH Zurich and UNC Chapel Hill.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,7 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
-#
-# Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
+
 
 if (DEFINED GIT_COMMIT_ID OR DEFINED GIT_COMMIT_DATE)
     message(STATUS "Using custom-defined GIT_COMMIT_ID (${GIT_COMMIT_ID}) "
@@ -44,6 +43,13 @@ elseif(Git_FOUND AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.git")
         WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
         OUTPUT_VARIABLE GIT_COMMIT_DATE
         ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE)
+
+    # Re-generate version.cc if the git index changes.
+    set_property(
+        DIRECTORY APPEND 
+        PROPERTY CMAKE_CONFIGURE_DEPENDS
+        "${CMAKE_CURRENT_SOURCE_DIR}/.git/index"
+    )
 else()
     set(GIT_COMMIT_ID "Unknown")
     set(GIT_COMMIT_DATE "Unknown")

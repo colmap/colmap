@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,13 +26,13 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/util/ply.h"
 
+#include "colmap/util/eigen_alignment.h"
+#include "colmap/util/endian.h"
+#include "colmap/util/file.h"
 #include "colmap/util/logging.h"
-#include "colmap/util/misc.h"
 
 #include <fstream>
 
@@ -42,7 +42,7 @@ namespace colmap {
 
 std::vector<PlyPoint> ReadPly(const std::string& path) {
   std::ifstream file(path, std::ios::binary);
-  CHECK(file.is_open()) << path;
+  THROW_CHECK_FILE_OPEN(file, path);
 
   std::vector<PlyPoint> points;
 
@@ -116,8 +116,8 @@ std::vector<PlyPoint> ReadPly(const std::string& path) {
         num_vertices = std::stoll(line_elems[2]);
         in_vertex_section = true;
       } else if (std::stoll(line_elems[2]) > 0) {
-        std::cout << "WARN: Only vertex elements supported; ignoring "
-                  << line_elems[1] << std::endl;
+        LOG(WARNING) << "Only vertex elements supported; ignoring "
+                     << line_elems[1];
       }
     }
 
@@ -128,9 +128,9 @@ std::vector<PlyPoint> ReadPly(const std::string& path) {
     // Show diffuse, ambient, specular colors as regular colors.
 
     if (line_elems.size() >= 3 && line_elems[0] == "property") {
-      CHECK(line_elems[1] == "float" || line_elems[1] == "float32" ||
-            line_elems[1] == "double" || line_elems[1] == "float64" ||
-            line_elems[1] == "uchar")
+      THROW_CHECK(line_elems[1] == "float" || line_elems[1] == "float32" ||
+                  line_elems[1] == "double" || line_elems[1] == "float64" ||
+                  line_elems[1] == "uchar")
           << "PLY import only supports float, double, and uchar data types";
 
       if (line == "property float x" || line == "property float32 x" ||
@@ -194,7 +194,7 @@ std::vector<PlyPoint> ReadPly(const std::string& path) {
       } else if (line_elems[1] == "uchar") {
         num_bytes_per_line += 1;
       } else {
-        LOG(FATAL) << "Invalid data type: " << line_elems[1];
+        LOG(FATAL_THROW) << "Invalid data type: " << line_elems[1];
       }
     }
   }
@@ -204,7 +204,7 @@ std::vector<PlyPoint> ReadPly(const std::string& path) {
   const bool is_rgb_missing =
       (R_index == -1) || (G_index == -1) || (B_index == -1);
 
-  CHECK(X_index != -1 && Y_index != -1 && Z_index != -1)
+  THROW_CHECK(X_index != -1 && Y_index != -1 && Z_index != -1)
       << "Invalid PLY file format: x, y, z properties missing";
 
   points.reserve(num_vertices);
@@ -325,7 +325,7 @@ void WriteTextPlyPoints(const std::string& path,
                         const bool write_normal,
                         const bool write_rgb) {
   std::ofstream file(path);
-  CHECK(file.is_open()) << path;
+  THROW_CHECK_FILE_OPEN(file, path);
 
   file << "ply" << std::endl;
   file << "format ascii 1.0" << std::endl;
@@ -372,7 +372,7 @@ void WriteBinaryPlyPoints(const std::string& path,
                           const bool write_normal,
                           const bool write_rgb) {
   std::fstream text_file(path, std::ios::out);
-  CHECK(text_file.is_open()) << path;
+  THROW_CHECK_FILE_OPEN(text_file, path);
 
   text_file << "ply" << std::endl;
   text_file << "format binary_little_endian 1.0" << std::endl;
@@ -399,7 +399,7 @@ void WriteBinaryPlyPoints(const std::string& path,
 
   std::fstream binary_file(path,
                            std::ios::out | std::ios::binary | std::ios::app);
-  CHECK(binary_file.is_open()) << path;
+  THROW_CHECK_FILE_OPEN(binary_file, path);
 
   for (const auto& point : points) {
     WriteBinaryLittleEndian<float>(&binary_file, point.x);
@@ -424,7 +424,7 @@ void WriteBinaryPlyPoints(const std::string& path,
 
 void WriteTextPlyMesh(const std::string& path, const PlyMesh& mesh) {
   std::fstream file(path, std::ios::out);
-  CHECK(file.is_open());
+  THROW_CHECK_FILE_OPEN(file, path);
 
   file << "ply" << std::endl;
   file << "format ascii 1.0" << std::endl;
@@ -451,7 +451,7 @@ void WriteTextPlyMesh(const std::string& path, const PlyMesh& mesh) {
 
 void WriteBinaryPlyMesh(const std::string& path, const PlyMesh& mesh) {
   std::fstream text_file(path, std::ios::out);
-  CHECK(text_file.is_open());
+  THROW_CHECK_FILE_OPEN(text_file, path);
 
   text_file << "ply" << std::endl;
   text_file << "format binary_little_endian 1.0" << std::endl;
@@ -466,7 +466,7 @@ void WriteBinaryPlyMesh(const std::string& path, const PlyMesh& mesh) {
 
   std::fstream binary_file(path,
                            std::ios::out | std::ios::binary | std::ios::app);
-  CHECK(binary_file.is_open()) << path;
+  THROW_CHECK_FILE_OPEN(binary_file, path);
 
   for (const auto& vertex : mesh.vertices) {
     WriteBinaryLittleEndian<float>(&binary_file, vertex.x);
@@ -475,9 +475,9 @@ void WriteBinaryPlyMesh(const std::string& path, const PlyMesh& mesh) {
   }
 
   for (const auto& face : mesh.faces) {
-    CHECK_LT(face.vertex_idx1, mesh.vertices.size());
-    CHECK_LT(face.vertex_idx2, mesh.vertices.size());
-    CHECK_LT(face.vertex_idx3, mesh.vertices.size());
+    THROW_CHECK_LT(face.vertex_idx1, mesh.vertices.size());
+    THROW_CHECK_LT(face.vertex_idx2, mesh.vertices.size());
+    THROW_CHECK_LT(face.vertex_idx3, mesh.vertices.size());
     const uint8_t kNumVertices = 3;
     WriteBinaryLittleEndian<uint8_t>(&binary_file, kNumVertices);
     WriteBinaryLittleEndian<int>(&binary_file, face.vertex_idx1);

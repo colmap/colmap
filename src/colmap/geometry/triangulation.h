@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,12 +26,11 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #pragma once
 
 #include "colmap/math/math.h"
+#include "colmap/util/eigen_alignment.h"
 #include "colmap/util/types.h"
 
 #include <vector>
@@ -48,31 +47,28 @@ namespace colmap {
 //
 // @param cam_from_world1   Projection matrix of the first image as 3x4 matrix.
 // @param cam_from_world2   Projection matrix of the second image as 3x4 matrix.
-// @param point1         Corresponding 2D point in first image.
-// @param point2         Corresponding 2D point in second image.
+// @param point1            Corresponding 2D point in first image.
+// @param point2            Corresponding 2D point in second image.
+// @param point3D           Triangulated 3D point.
 //
-// @return               Triangulated 3D point.
-Eigen::Vector3d TriangulatePoint(const Eigen::Matrix3x4d& cam_from_world1,
-                                 const Eigen::Matrix3x4d& cam_from_world2,
-                                 const Eigen::Vector2d& point1,
-                                 const Eigen::Vector2d& point2);
-
-// Triangulate multiple 3D points from multiple image correspondences.
-std::vector<Eigen::Vector3d> TriangulatePoints(
-    const Eigen::Matrix3x4d& cam_from_world1,
-    const Eigen::Matrix3x4d& cam_from_world2,
-    const std::vector<Eigen::Vector2d>& points1,
-    const std::vector<Eigen::Vector2d>& points2);
+// @return                  Whether triangulation was successful.
+bool TriangulatePoint(const Eigen::Matrix3x4d& cam_from_world1,
+                      const Eigen::Matrix3x4d& cam_from_world2,
+                      const Eigen::Vector2d& point1,
+                      const Eigen::Vector2d& point2,
+                      Eigen::Vector3d* point3D);
 
 // Triangulate point from multiple views minimizing the L2 error.
 //
-// @param cams_from_world       Projection matrices of multi-view observations.
-// @param points              Image observations of multi-view observations.
+// @param cams_from_world   Projection matrices of multi-view observations.
+// @param points            Image observations of multi-view observations.
+// @param point3D           Triangulated 3D point.
 //
-// @return                    Estimated 3D point.
-Eigen::Vector3d TriangulateMultiViewPoint(
-    const std::vector<Eigen::Matrix3x4d>& cams_from_world,
-    const std::vector<Eigen::Vector2d>& points);
+// @return                  Whether triangulation was successful.
+bool TriangulateMultiViewPoint(
+    const span<const Eigen::Matrix3x4d>& cams_from_world,
+    const span<const Eigen::Vector2d>& points,
+    Eigen::Vector3d* point3D);
 
 // Triangulate optimal 3D point from corresponding image point observations by
 // finding the optimal image observations.
@@ -86,22 +82,16 @@ Eigen::Vector3d TriangulateMultiViewPoint(
 //
 // @param cam_from_world1   Projection matrix of the first image as 3x4 matrix.
 // @param cam_from_world2   Projection matrix of the second image as 3x4 matrix.
-// @param point1         Corresponding 2D point in first image.
-// @param point2         Corresponding 2D point in second image.
+// @param point1            Corresponding 2D point in first image.
+// @param point2            Corresponding 2D point in second image.
+// @param point3D           Triangulated 3D point.
 //
-// @return               Triangulated optimal 3D point.
-Eigen::Vector3d TriangulateOptimalPoint(
-    const Eigen::Matrix3x4d& cam_from_world1,
-    const Eigen::Matrix3x4d& cam_from_world2,
-    const Eigen::Vector2d& point1,
-    const Eigen::Vector2d& point2);
-
-// Triangulate multiple optimal 3D points from multiple image correspondences.
-std::vector<Eigen::Vector3d> TriangulateOptimalPoints(
-    const Eigen::Matrix3x4d& cam_from_world1,
-    const Eigen::Matrix3x4d& cam_from_world2,
-    const std::vector<Eigen::Vector2d>& points1,
-    const std::vector<Eigen::Vector2d>& points2);
+// @return                  Whether triangulation was successful.
+bool TriangulateOptimalPoint(const Eigen::Matrix3x4d& cam_from_world1,
+                             const Eigen::Matrix3x4d& cam_from_world2,
+                             const Eigen::Vector2d& point1,
+                             const Eigen::Vector2d& point2,
+                             Eigen::Vector3d* point3D);
 
 // Calculate angle in radians between the two rays of a triangulated point.
 double CalculateTriangulationAngle(const Eigen::Vector3d& proj_center1,

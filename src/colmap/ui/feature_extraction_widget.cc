@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/ui/feature_extraction_widget.h"
 
@@ -36,6 +34,7 @@
 #include "colmap/ui/options_widget.h"
 #include "colmap/ui/qt_utils.h"
 #include "colmap/ui/thread_control_widget.h"
+#include "colmap/util/file.h"
 
 namespace colmap {
 
@@ -157,9 +156,8 @@ void ImportFeaturesWidget::Run() {
 FeatureExtractionWidget::FeatureExtractionWidget(QWidget* parent,
                                                  OptionManager* options)
     : parent_(parent), options_(options) {
-  // Do not change flag, to make sure feature database is not accessed from
-  // multiple threads
-  setWindowFlags(Qt::Window);
+  setWindowFlags(Qt::Dialog);
+  setWindowModality(Qt::ApplicationModal);
   setWindowTitle("Feature extraction");
 
   QGridLayout* grid = new QGridLayout(this);
@@ -264,10 +262,10 @@ void FeatureExtractionWidget::hideEvent(QHideEvent* event) {
 }
 
 void FeatureExtractionWidget::ReadOptions() {
-  const auto camera_code =
+  const CameraModelId model_id =
       CameraModelNameToId(options_->image_reader->camera_model);
   for (size_t i = 0; i < camera_model_ids_.size(); ++i) {
-    if (camera_model_ids_[i] == camera_code) {
+    if (camera_model_ids_[i] == static_cast<int>(model_id)) {
       SelectCameraModel(i);
       camera_model_cb_->setCurrentIndex(i);
       break;
@@ -282,7 +280,8 @@ void FeatureExtractionWidget::ReadOptions() {
 
 void FeatureExtractionWidget::WriteOptions() {
   options_->image_reader->camera_model =
-      CameraModelIdToName(camera_model_ids_[camera_model_cb_->currentIndex()]);
+      CameraModelIdToName(static_cast<CameraModelId>(
+          camera_model_ids_[camera_model_cb_->currentIndex()]));
   options_->image_reader->single_camera = single_camera_cb_->isChecked();
   options_->image_reader->single_camera_per_folder =
       single_camera_per_folder_cb_->isChecked();
@@ -291,9 +290,11 @@ void FeatureExtractionWidget::WriteOptions() {
 }
 
 void FeatureExtractionWidget::SelectCameraModel(const int idx) {
-  const int code = camera_model_ids_[idx];
-  camera_params_info_->setText(QString::fromStdString(StringPrintf(
-      "<small>Parameters: %s</small>", CameraModelParamsInfo(code).c_str())));
+  const CameraModelId model_id =
+      static_cast<CameraModelId>(camera_model_ids_[idx]);
+  camera_params_info_->setText(QString::fromStdString(
+      StringPrintf("<small>Parameters: %s</small>",
+                   CameraModelParamsInfo(model_id).c_str())));
 }
 
 void FeatureExtractionWidget::Extract() {

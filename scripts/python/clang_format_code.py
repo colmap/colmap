@@ -1,4 +1,4 @@
-# Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+# Copyright (c), ETH Zurich and UNC Chapel Hill.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -26,12 +26,11 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
-#
-# Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
+
+import argparse
 import os
 import string
-import argparse
 import subprocess
 
 
@@ -54,9 +53,10 @@ def main():
             name, ext = os.path.splitext(f)
             if ext.lower() in exts:
                 file_path = os.path.join(root, f)
-                proc = subprocess.Popen(["clang-format", "--style",
-                                         args.style, file_path],
-                                        stdout=subprocess.PIPE)
+                proc = subprocess.Popen(
+                    ["clang-format", "--style", args.style, file_path],
+                    stdout=subprocess.PIPE,
+                )
 
                 text = "".join(proc.stdout)
 

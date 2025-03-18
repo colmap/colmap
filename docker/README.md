@@ -22,10 +22,10 @@
 
 3. Setup the nvidia-toolkit on your host machine:
 
-  For Ubuntu host machines: `./setup-ubuntu.sh`
-  For CentOS host machines: `./setup-centos.sh`
+    For Ubuntu host machines: `./setup-ubuntu.sh`
+    For CentOS host machines: `./setup-centos.sh`
 
-4. Run the *run* script, using the *full local path* to your prefered local
+4. Run the *run* script, using the *full local path* to your preferred local
    working directory (a folder with your input files/images, etc.):
 
     ```
@@ -38,6 +38,12 @@
 
     ```
     colmap automatic_reconstructor --image_path ./images --workspace_path .
+    ```
+
+5. Alternatively, you can run the *run-gui* script, which will start the graphical user interface of COLMAP:
+
+    ```
+    ./run-gui.sh /path/where/your/working/folder/is
     ```
 
 ## Build from Scratch

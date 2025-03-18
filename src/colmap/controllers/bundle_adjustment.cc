@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,13 +26,13 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/controllers/bundle_adjustment.h"
 
 #include "colmap/estimators/bundle_adjustment.h"
+#include "colmap/sfm/observation_manager.h"
 #include "colmap/util/misc.h"
+#include "colmap/util/timer.h"
 
 #include <ceres/ceres.h>
 
@@ -42,14 +42,13 @@ namespace {
 // Callback functor called after each bundle adjustment iteration.
 class BundleAdjustmentIterationCallback : public ceres::IterationCallback {
  public:
-  explicit BundleAdjustmentIterationCallback(Thread* thread)
-      : thread_(thread) {}
+  explicit BundleAdjustmentIterationCallback(BaseController* controller)
+      : controller_(controller) {}
 
   virtual ceres::CallbackReturnType operator()(
       const ceres::IterationSummary& summary) {
-    CHECK_NOTNULL(thread_);
-    thread_->BlockIfPaused();
-    if (thread_->IsStopped()) {
+    THROW_CHECK_NOTNULL(controller_);
+    if (controller_->CheckIfStopped()) {
       return ceres::SOLVER_TERMINATE_SUCCESSFULLY;
     } else {
       return ceres::SOLVER_CONTINUE;
@@ -57,7 +56,7 @@ class BundleAdjustmentIterationCallback : public ceres::IterationCallback {
   }
 
  private:
-  Thread* thread_;
+  BaseController* controller_;
 };
 
 }  // namespace
@@ -68,39 +67,40 @@ BundleAdjustmentController::BundleAdjustmentController(
     : options_(options), reconstruction_(std::move(reconstruction)) {}
 
 void BundleAdjustmentController::Run() {
-  CHECK_NOTNULL(reconstruction_);
+  THROW_CHECK_NOTNULL(reconstruction_);
 
   PrintHeading1("Global bundle adjustment");
+  Timer run_timer;
+  run_timer.Start();
 
-  const std::vector<image_t>& reg_image_ids = reconstruction_->RegImageIds();
-
-  if (reg_image_ids.size() < 2) {
-    std::cout << "ERROR: Need at least two views." << std::endl;
+  if (reconstruction_->NumRegImages() < 2) {
+    LOG(ERROR) << "Need at least two views.";
     return;
   }
 
   // Avoid degeneracies in bundle adjustment.
-  reconstruction_->FilterObservationsWithNegativeDepth();
+  ObservationManager(*reconstruction_).FilterObservationsWithNegativeDepth();
 
   BundleAdjustmentOptions ba_options = *options_.bundle_adjustment;
-  ba_options.solver_options.minimizer_progress_to_stdout = true;
 
   BundleAdjustmentIterationCallback iteration_callback(this);
   ba_options.solver_options.callbacks.push_back(&iteration_callback);
 
   // Configure bundle adjustment.
   BundleAdjustmentConfig ba_config;
-  for (const image_t image_id : reg_image_ids) {
+  for (const image_t image_id : reconstruction_->RegImageIds()) {
     ba_config.AddImage(image_id);
   }
-  ba_config.SetConstantCamPose(reg_image_ids[0]);
-  ba_config.SetConstantCamPositions(reg_image_ids[1], {0});
+  auto reg_image_ids_it = reconstruction_->RegImageIds().begin();
+  ba_config.SetConstantCamPose(*reg_image_ids_it);                // 1st image
+  ba_config.SetConstantCamPositions(*(++reg_image_ids_it), {0});  // 2nd image
 
   // Run bundle adjustment.
-  BundleAdjuster bundle_adjuster(ba_options, ba_config);
-  bundle_adjuster.Solve(reconstruction_.get());
+  std::unique_ptr<BundleAdjuster> bundle_adjuster = CreateDefaultBundleAdjuster(
+      std::move(ba_options), std::move(ba_config), *reconstruction_);
+  bundle_adjuster->Solve();
 
-  GetTimer().PrintMinutes();
+  run_timer.PrintMinutes();
 }
 
 }  // namespace colmap

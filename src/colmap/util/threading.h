@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #pragma once
 
@@ -40,6 +38,7 @@
 #include <list>
 #include <queue>
 #include <thread>
+#include <type_traits>
 #include <unordered_map>
 
 namespace colmap {
@@ -84,11 +83,11 @@ namespace colmap {
 //
 //      MyThread thread;
 //      thread.AddCallback(MyThread::PROCESSED_CALLBACK, []() {
-//        std::cout << "Processed item"; })
+//        LOG(INFO) << "Processed item"; })
 //      thread.AddCallback(MyThread::STARTED_CALLBACK, []() {
-//        std::cout << "Start"; })
+//        LOG(INFO) << "Start"; })
 //      thread.AddCallback(MyThread::FINISHED_CALLBACK, []() {
-//        std::cout << "Finished"; })
+//        LOG(INFO) << "Finished"; })
 //      thread.Start();
 //      // thread.CheckValidSetup();
 //      // Pause, resume, stop, ...
@@ -131,7 +130,7 @@ class Thread {
   bool CheckValidSetup();
 
   // Set callbacks that can be triggered within the main run function.
-  void AddCallback(int id, const std::function<void()>& func);
+  void AddCallback(int id, std::function<void()> func);
 
   // Get timing information of the thread, properly accounting for pause times.
   const Timer& GetTimer() const;
@@ -195,6 +194,13 @@ class ThreadPool {
  public:
   static const int kMaxNumThreads = -1;
 
+  template <class func_t, class... args_t>
+#ifdef __cpp_lib_is_invocable
+  using result_of_t = std::invoke_result_t<func_t, args_t...>;
+#else
+  using result_of_t = typename std::result_of<func_t(args_t...)>::type;
+#endif
+
   explicit ThreadPool(int num_threads = kMaxNumThreads);
   ~ThreadPool();
 
@@ -203,7 +209,7 @@ class ThreadPool {
   // Add new task to the thread pool.
   template <class func_t, class... args_t>
   auto AddTask(func_t&& f, args_t&&... args)
-      -> std::future<typename std::result_of<func_t(args_t...)>::type>;
+      -> std::future<result_of_t<func_t, args_t...>>;
 
   // Stop the execution of all workers.
   void Stop();
@@ -320,8 +326,8 @@ size_t ThreadPool::NumThreads() const { return workers_.size(); }
 
 template <class func_t, class... args_t>
 auto ThreadPool::AddTask(func_t&& f, args_t&&... args)
-    -> std::future<typename std::result_of<func_t(args_t...)>::type> {
-  typedef typename std::result_of<func_t(args_t...)>::type return_t;
+    -> std::future<result_of_t<func_t, args_t...>> {
+  typedef result_of_t<func_t, args_t...> return_t;
 
   auto task = std::make_shared<std::packaged_task<return_t()>>(
       std::bind(std::forward<func_t>(f), std::forward<args_t>(args)...));

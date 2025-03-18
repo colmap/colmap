@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #pragma once
 
@@ -36,8 +34,11 @@
 #include "colmap/retrieval/inverted_file.h"
 #include "colmap/retrieval/inverted_index.h"
 #include "colmap/retrieval/vote_and_verify.h"
+#include "colmap/util/eigen_alignment.h"
 #include "colmap/util/endian.h"
+#include "colmap/util/file.h"
 #include "colmap/util/logging.h"
+#include "colmap/util/misc.h"
 
 #include <Eigen/Core>
 #include <boost/heap/fibonacci_heap.hpp>
@@ -128,7 +129,7 @@ class VisualIndex {
            const DescType& descriptors);
 
   // Check if an image has been indexed.
-  bool ImageIndexed(int image_id) const;
+  bool IsImageIndexed(int image_id) const;
 
   // Query for most similar images in the visual index.
   void Query(const QueryOptions& options,
@@ -150,12 +151,13 @@ class VisualIndex {
 
   // Read and write the visual index. This can be done for an index with and
   // without indexed images.
-  void Read(const std::string& path);
+  void Read(const std::string& vocab_tree_path);
   void Write(const std::string& path);
 
  private:
   // Quantize the descriptor space into visual words.
-  void Quantize(const BuildOptions& options, const DescType& descriptors);
+  flann::Matrix<kDescType> Quantize(const BuildOptions& options,
+                                    const DescType& descriptors) const;
 
   // Query for nearest neighbor images and return nearest neighbor visual word
   // identifiers for each descriptor.
@@ -212,10 +214,10 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Add(
     const int image_id,
     const GeomType& geometries,
     const DescType& descriptors) {
-  CHECK_EQ(geometries.size(), descriptors.rows());
+  THROW_CHECK_EQ(geometries.size(), descriptors.rows());
 
   // If the image is already indexed, do nothing.
-  if (ImageIndexed(image_id)) {
+  if (IsImageIndexed(image_id)) {
     return;
   }
 
@@ -251,7 +253,7 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Add(
 }
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
-bool VisualIndex<kDescType, kDescDim, kEmbeddingDim>::ImageIndexed(
+bool VisualIndex<kDescType, kDescDim, kEmbeddingDim>::IsImageIndexed(
     const int image_id) const {
   return image_ids_.count(image_id) != 0;
 }
@@ -278,7 +280,7 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Query(
     return;
   }
 
-  CHECK_EQ(descriptors.rows(), geometries.size());
+  THROW_CHECK_EQ(descriptors.rows(), geometries.size());
 
   // Extract top-ranked images to verify.
   std::unordered_set<int> image_ids;
@@ -530,7 +532,10 @@ template <typename kDescType, int kDescDim, int kEmbeddingDim>
 void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Build(
     const BuildOptions& options, const DescType& descriptors) {
   // Quantize the descriptor space into visual words.
-  Quantize(options, descriptors);
+  if (visual_words_.ptr() != nullptr) {
+    delete[] visual_words_.ptr();
+  }
+  visual_words_ = Quantize(options, descriptors);
 
   // Build the search index on the visual words.
   flann::AutotunedIndexParams index_params;
@@ -556,7 +561,9 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Build(
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
 void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Read(
-    const std::string& path) {
+    const std::string& vocab_tree_path) {
+  const std::string resolved_path = MaybeDownloadAndCacheFile(vocab_tree_path);
+
   long int file_offset = 0;
 
   // Read the visual words.
@@ -566,8 +573,8 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Read(
       delete[] visual_words_.ptr();
     }
 
-    std::ifstream file(path, std::ios::binary);
-    CHECK(file.is_open()) << path;
+    std::ifstream file(resolved_path, std::ios::binary);
+    THROW_CHECK_FILE_OPEN(file, resolved_path);
     const uint64_t rows = ReadBinaryLittleEndian<uint64_t>(&file);
     const uint64_t cols = ReadBinaryLittleEndian<uint64_t>(&file);
     kDescType* visual_words_data = new kDescType[rows * cols];
@@ -584,8 +591,13 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Read(
       flann::AutotunedIndex<flann::L2<kDescType>>(visual_words_);
 
   {
-    FILE* fin = fopen(path.c_str(), "rb");
-    CHECK_NOTNULL(fin);
+    FILE* fin = nullptr;
+#ifdef _MSC_VER
+    THROW_CHECK_EQ(fopen_s(&fin, resolved_path.c_str(), "rb"), 0);
+#else
+    fin = fopen(resolved_path.c_str(), "rb");
+#endif
+    THROW_CHECK_NOTNULL(fin);
     fseek(fin, file_offset, SEEK_SET);
     visual_word_index_.loadIndex(fin);
     file_offset = ftell(fin);
@@ -595,8 +607,8 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Read(
   // Read the inverted index.
 
   {
-    std::ifstream file(path, std::ios::binary);
-    CHECK(file.is_open()) << path;
+    std::ifstream file(resolved_path, std::ios::binary);
+    THROW_CHECK_FILE_OPEN(file, resolved_path);
     file.seekg(file_offset, std::ios::beg);
     inverted_index_.Read(&file);
   }
@@ -611,9 +623,9 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Write(
   // Write the visual words.
 
   {
-    CHECK_NOTNULL(visual_words_.ptr());
+    THROW_CHECK_NOTNULL(visual_words_.ptr());
     std::ofstream file(path, std::ios::binary);
-    CHECK(file.is_open()) << path;
+    THROW_CHECK_FILE_OPEN(file, path);
     WriteBinaryLittleEndian<uint64_t>(&file, visual_words_.rows);
     WriteBinaryLittleEndian<uint64_t>(&file, visual_words_.cols);
     for (size_t i = 0; i < visual_words_.rows * visual_words_.cols; ++i) {
@@ -624,8 +636,13 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Write(
   // Write the visual words search index.
 
   {
-    FILE* fout = fopen(path.c_str(), "ab");
-    CHECK_NOTNULL(fout);
+    FILE* fout = nullptr;
+#ifdef _MSC_VER
+    THROW_CHECK_EQ(fopen_s(&fout, path.c_str(), "ab"), 0);
+#else
+    fout = fopen(path.c_str(), "ab");
+#endif
+    THROW_CHECK_NOTNULL(fout);
     visual_word_index_.saveIndex(fout);
     fclose(fout);
   }
@@ -634,18 +651,19 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Write(
 
   {
     std::ofstream file(path, std::ios::binary | std::ios::app);
-    CHECK(file.is_open()) << path;
+    THROW_CHECK_FILE_OPEN(file, path);
     inverted_index_.Write(&file);
   }
 }
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
-void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Quantize(
-    const BuildOptions& options, const DescType& descriptors) {
+flann::Matrix<kDescType>
+VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Quantize(
+    const BuildOptions& options, const DescType& descriptors) const {
   static_assert(DescType::IsRowMajor, "Descriptors must be row-major.");
 
-  CHECK_GE(options.num_visual_words, options.branching);
-  CHECK_GE(descriptors.rows(), options.num_visual_words);
+  THROW_CHECK_GE(options.num_visual_words, options.branching);
+  THROW_CHECK_GE(descriptors.rows(), options.num_visual_words);
 
   const flann::Matrix<kDescType> descriptor_matrix(
       const_cast<kDescType*>(descriptors.data()),
@@ -665,7 +683,7 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Quantize(
   const int num_centers = flann::hierarchicalClustering<flann::L2<kDescType>>(
       descriptor_matrix, centers, index_params);
 
-  CHECK_LE(num_centers, options.num_visual_words);
+  THROW_CHECK_LE(num_centers, options.num_visual_words);
 
   const size_t visual_word_data_size = num_centers * descriptors.cols();
   kDescType* visual_words_data = new kDescType[visual_word_data_size];
@@ -677,11 +695,7 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Quantize(
     }
   }
 
-  if (visual_words_.ptr() != nullptr) {
-    delete[] visual_words_.ptr();
-  }
-
-  visual_words_ = flann::Matrix<kDescType>(
+  return flann::Matrix<kDescType>(
       visual_words_data, num_centers, descriptors.cols());
 }
 
@@ -691,7 +705,7 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::QueryAndFindWordIds(
     const DescType& descriptors,
     std::vector<ImageScore>* image_scores,
     Eigen::MatrixXi* word_ids) const {
-  CHECK(prepared_);
+  THROW_CHECK(prepared_);
 
   if (descriptors.rows() == 0) {
     image_scores->clear();
@@ -732,8 +746,8 @@ Eigen::MatrixXi VisualIndex<kDescType, kDescDim, kEmbeddingDim>::FindWordIds(
     const int num_threads) const {
   static_assert(DescType::IsRowMajor, "Descriptors must be row-major");
 
-  CHECK_GT(descriptors.rows(), 0);
-  CHECK_GT(num_neighbors, 0);
+  THROW_CHECK_GT(descriptors.rows(), 0);
+  THROW_CHECK_GT(num_neighbors, 0);
 
   Eigen::Matrix<size_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
       word_ids(descriptors.rows(), num_neighbors);

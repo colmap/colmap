@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #pragma once
 
@@ -108,7 +106,7 @@ class OverlappingImagesWidget : public QWidget {
 };
 
 ////////////////////////////////////////////////////////////////////////////////
-// Images, Cameras
+// Images, Cameras, PosePriors
 ////////////////////////////////////////////////////////////////////////////////
 
 class CameraTab : public QWidget {
@@ -164,6 +162,22 @@ class ImageTab : public QWidget {
   FeatureImageViewerWidget* image_viewer_widget_;
 };
 
+class PosePriorsTab : public QWidget {
+ public:
+  PosePriorsTab(QWidget* parent, Database* database);
+
+  void Reload();
+  void Clear();
+
+ private:
+  void itemChanged(QTableWidgetItem* item);
+
+  Database* database_;
+
+  QTableWidget* table_widget_;
+  QLabel* info_label_;
+};
+
 class DatabaseManagementWidget : public QWidget {
  public:
   DatabaseManagementWidget(QWidget* parent, OptionManager* options);
@@ -183,6 +197,7 @@ class DatabaseManagementWidget : public QWidget {
   QTabWidget* tab_widget_;
   ImageTab* image_tab_;
   CameraTab* camera_tab_;
+  PosePriorsTab* pose_prior_tab_;
 };
 
 }  // namespace colmap

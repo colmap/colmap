@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #pragma once
 
@@ -86,7 +84,7 @@ void Shuffle(uint32_t num_to_shuffle, std::vector<T>* elems);
 
 template <typename T>
 T RandomUniformInteger(const T min, const T max) {
-  if (PRNG == nullptr) {
+  if (GOOGLE_PREDICT_FALSE(PRNG == nullptr)) {
     SetPRNGSeed();
   }
 
@@ -97,7 +95,7 @@ T RandomUniformInteger(const T min, const T max) {
 
 template <typename T>
 T RandomUniformReal(const T min, const T max) {
-  if (PRNG == nullptr) {
+  if (GOOGLE_PREDICT_FALSE(PRNG == nullptr)) {
     SetPRNGSeed();
   }
 
@@ -108,7 +106,7 @@ T RandomUniformReal(const T min, const T max) {
 
 template <typename T>
 T RandomGaussian(const T mean, const T stddev) {
-  if (PRNG == nullptr) {
+  if (GOOGLE_PREDICT_FALSE(PRNG == nullptr)) {
     SetPRNGSeed();
   }
 
@@ -118,7 +116,7 @@ T RandomGaussian(const T mean, const T stddev) {
 
 template <typename T>
 void Shuffle(const uint32_t num_to_shuffle, std::vector<T>* elems) {
-  CHECK_LE(num_to_shuffle, elems->size());
+  THROW_CHECK_LE(num_to_shuffle, elems->size());
   const uint32_t last_idx = static_cast<uint32_t>(elems->size() - 1);
   for (uint32_t i = 0; i < num_to_shuffle; ++i) {
     const auto j = RandomUniformInteger<uint32_t>(i, last_idx);

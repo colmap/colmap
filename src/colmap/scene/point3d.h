@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,12 +26,11 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #pragma once
 
 #include "colmap/scene/track.h"
+#include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/types.h"
 
@@ -42,92 +41,40 @@
 namespace colmap {
 
 // 3D point class that holds information about triangulated 2D points.
-class Point3D {
- public:
-  Point3D();
-
-  // The point coordinate in world space.
-  inline const Eigen::Vector3d& XYZ() const;
-  inline Eigen::Vector3d& XYZ();
-  inline double XYZ(size_t idx) const;
-  inline double& XYZ(size_t idx);
-  inline double X() const;
-  inline double Y() const;
-  inline double Z() const;
-  inline void SetXYZ(const Eigen::Vector3d& xyz);
-
-  // The RGB color of the point.
-  inline const Eigen::Vector3ub& Color() const;
-  inline Eigen::Vector3ub& Color();
-  inline uint8_t Color(size_t idx) const;
-  inline uint8_t& Color(size_t idx);
-  inline void SetColor(const Eigen::Vector3ub& color);
-
-  // The mean reprojection error in image space.
-  inline double Error() const;
-  inline bool HasError() const;
-  inline void SetError(double error);
-
-  inline const class Track& Track() const;
-  inline class Track& Track();
-  inline void SetTrack(class Track track);
-
- private:
+struct Point3D {
   // The 3D position of the point.
-  Eigen::Vector3d xyz_;
+  Eigen::Vector3d xyz = Eigen::Vector3d::Zero();
 
   // The color of the point in the range [0, 255].
-  Eigen::Vector3ub color_;
+  Eigen::Vector3ub color = Eigen::Vector3ub::Zero();
 
   // The mean reprojection error in pixels.
-  double error_;
+  double error = -1.;
 
   // The track of the point as a list of image observations.
-  class Track track_;
+  Track track;
+
+  inline bool HasError() const;
+
+  inline bool operator==(const Point3D& other) const;
+  inline bool operator!=(const Point3D& other) const;
 };
+
+std::ostream& operator<<(std::ostream& stream, const Point3D& point3D);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////
 
-const Eigen::Vector3d& Point3D::XYZ() const { return xyz_; }
+bool Point3D::HasError() const { return error != -1; }
 
-Eigen::Vector3d& Point3D::XYZ() { return xyz_; }
-
-double Point3D::XYZ(const size_t idx) const { return xyz_(idx); }
-
-double& Point3D::XYZ(const size_t idx) { return xyz_(idx); }
-
-double Point3D::X() const { return xyz_.x(); }
-
-double Point3D::Y() const { return xyz_.y(); }
-
-double Point3D::Z() const { return xyz_.z(); }
-
-void Point3D::SetXYZ(const Eigen::Vector3d& xyz) { xyz_ = xyz; }
-
-const Eigen::Vector3ub& Point3D::Color() const { return color_; }
-
-Eigen::Vector3ub& Point3D::Color() { return color_; }
-
-uint8_t Point3D::Color(const size_t idx) const { return color_(idx); }
-
-uint8_t& Point3D::Color(const size_t idx) { return color_(idx); }
-
-void Point3D::SetColor(const Eigen::Vector3ub& color) { color_ = color; }
-
-double Point3D::Error() const { return error_; }
-
-bool Point3D::HasError() const { return error_ != -1.0; }
-
-void Point3D::SetError(const double error) { error_ = error; }
-
-const class Track& Point3D::Track() const { return track_; }
-
-class Track& Point3D::Track() {
-  return track_;
+bool Point3D::operator==(const Point3D& other) const {
+  return xyz == other.xyz && color == other.color && error == other.error &&
+         track == other.track;
 }
 
-void Point3D::SetTrack(class Track track) { track_ = std::move(track); }
+bool Point3D::operator!=(const Point3D& other) const {
+  return !(*this == other);
+}
 
 }  // namespace colmap

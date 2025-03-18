@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,19 +26,19 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/scene/projection.h"
 
 #include "colmap/geometry/pose.h"
 #include "colmap/math/math.h"
 #include "colmap/sensor/models.h"
+#include "colmap/util/eigen_alignment.h"
 
 #include <Eigen/Core>
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(CalculateSquaredReprojectionError, Nominal) {
   const Rigid3d cam_from_world(Eigen::Quaterniond::Identity(),
@@ -49,8 +49,8 @@ TEST(CalculateSquaredReprojectionError, Nominal) {
   const Eigen::Vector3d point2D_h = cam_from_world_mat * point3D.homogeneous();
   const Eigen::Vector2d point2D = point2D_h.hnormalized();
 
-  Camera camera;
-  camera.InitializeWithId(SimplePinholeCameraModel::model_id, 1, 0, 0);
+  Camera camera =
+      Camera::CreateFromModelId(1, SimplePinholeCameraModel::model_id, 1, 0, 0);
 
   EXPECT_NEAR(CalculateSquaredReprojectionError(
                   point2D, point3D, cam_from_world, camera),
@@ -77,8 +77,8 @@ TEST(CalculateAngularError, Nominal) {
   const Eigen::Matrix3x4d cam_from_world_mat = cam_from_world.ToMatrix();
 
   Camera camera;
-  camera.SetModelId(SimplePinholeCameraModel::model_id);
-  camera.Params() = {1, 0, 0};
+  camera.model_id = SimplePinholeCameraModel::model_id;
+  camera.params = {1, 0, 0};
 
   const double error1 = CalculateAngularError(Eigen::Vector2d(0, 0),
                                               Eigen::Vector3d(0, 0, 1),
@@ -171,4 +171,5 @@ TEST(HasPointPositiveDepth, Nominal) {
   EXPECT_FALSE(check4);
 }
 
+}  // namespace
 }  // namespace colmap

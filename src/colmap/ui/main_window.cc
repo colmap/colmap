@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,14 +26,15 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/ui/main_window.h"
 
+#include "colmap/scene/reconstruction_io.h"
 #include "colmap/util/version.h"
 
 #include <clocale>
+
+static void InitUiResources() { Q_INIT_RESOURCE(resources); }
 
 namespace colmap {
 
@@ -42,6 +43,8 @@ MainWindow::MainWindow(const OptionManager& options)
       reconstruction_manager_(std::make_shared<ReconstructionManager>()),
       thread_control_widget_(new ThreadControlWidget(this)),
       window_closed_(false) {
+  InitUiResources();
+
   // NOLINTNEXTLINE(concurrency-mt-unsafe)
   std::setlocale(LC_NUMERIC, "C");
 
@@ -611,31 +614,31 @@ void MainWindow::CreateControllers() {
     mapper_controller_->Wait();
   }
 
-  mapper_controller_ =
-      std::make_unique<IncrementalMapperController>(options_.mapper,
-                                                    *options_.image_path,
-                                                    *options_.database_path,
-                                                    reconstruction_manager_);
-  mapper_controller_->AddCallback(
-      IncrementalMapperController::INITIAL_IMAGE_PAIR_REG_CALLBACK, [this]() {
+  mapper_controller_ = std::make_unique<ControllerThread<IncrementalPipeline>>(
+      std::make_shared<IncrementalPipeline>(options_.mapper,
+                                            *options_.image_path,
+                                            *options_.database_path,
+                                            reconstruction_manager_));
+  mapper_controller_->GetController()->AddCallback(
+      IncrementalPipeline::INITIAL_IMAGE_PAIR_REG_CALLBACK, [this]() {
         if (!mapper_controller_->IsStopped()) {
           action_render_now_->trigger();
         }
       });
-  mapper_controller_->AddCallback(
-      IncrementalMapperController::NEXT_IMAGE_REG_CALLBACK, [this]() {
+  mapper_controller_->GetController()->AddCallback(
+      IncrementalPipeline::NEXT_IMAGE_REG_CALLBACK, [this]() {
         if (!mapper_controller_->IsStopped()) {
           action_render_->trigger();
         }
       });
-  mapper_controller_->AddCallback(
-      IncrementalMapperController::LAST_IMAGE_REG_CALLBACK, [this]() {
+  mapper_controller_->GetController()->AddCallback(
+      IncrementalPipeline::LAST_IMAGE_REG_CALLBACK, [this]() {
         if (!mapper_controller_->IsStopped()) {
           action_render_now_->trigger();
         }
       });
   mapper_controller_->AddCallback(
-      IncrementalMapperController::FINISHED_CALLBACK, [this]() {
+      ControllerThread<IncrementalPipeline>::FINISHED_CALLBACK, [this]() {
         if (!mapper_controller_->IsStopped()) {
           action_render_now_->trigger();
           action_reconstruction_finish_->trigger();
@@ -918,18 +921,20 @@ void MainWindow::ExportAs() {
         const std::shared_ptr<Reconstruction> reconstruction =
             reconstruction_manager_->Get(SelectedReconstructionIdx());
         if (filter == "NVM (*.nvm)") {
-          reconstruction->ExportNVM(export_path);
+          ExportNVM(*reconstruction, export_path);
         } else if (filter == "Bundler (*.out)") {
-          reconstruction->ExportBundler(export_path, export_path + ".list.txt");
+          ExportBundler(
+              *reconstruction, export_path, export_path + ".list.txt");
         } else if (filter == "PLY (*.ply)") {
-          reconstruction->ExportPLY(export_path);
+          ExportPLY(*reconstruction, export_path);
         } else if (filter == "VRML (*.wrl)") {
           const auto base_path =
               export_path.substr(0, export_path.find_last_of('.'));
-          reconstruction->ExportVRML(base_path + ".images.wrl",
-                                     base_path + ".points3D.wrl",
-                                     1,
-                                     Eigen::Vector3d(1, 0, 0));
+          ExportVRML(*reconstruction,
+                     base_path + ".images.wrl",
+                     base_path + ".points3D.wrl",
+                     1,
+                     Eigen::Vector3d(1, 0, 0));
         }
       });
 }
@@ -1316,7 +1321,7 @@ void MainWindow::SetOptions() {
   } else if (data_item == "Internet images") {
     options_.ModifyForInternetData();
   } else {
-    LOG(FATAL) << "Data type does not exist";
+    LOG(FATAL_THROW) << "Data type does not exist";
   }
 
   if (quality_item == "Low") {
@@ -1328,7 +1333,7 @@ void MainWindow::SetOptions() {
   } else if (quality_item == "Extreme") {
     options_.ModifyForExtremeQuality();
   } else {
-    LOG(FATAL) << "Quality level does not exist";
+    LOG(FATAL_THROW) << "Quality level does not exist";
   }
 }
 
@@ -1355,7 +1360,7 @@ void MainWindow::Documentation() {
 
 void MainWindow::Support() {
   QDesktopServices::openUrl(
-      QUrl("https://groups.google.com/forum/#!forum/colmap"));
+      QUrl("https://github.com/colmap/colmap/discussions"));
 }
 
 void MainWindow::RenderToggle() {

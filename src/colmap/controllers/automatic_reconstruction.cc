@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,19 +26,18 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/controllers/automatic_reconstruction.h"
 
 #include "colmap/controllers/feature_extraction.h"
 #include "colmap/controllers/feature_matching.h"
-#include "colmap/controllers/incremental_mapper.h"
+#include "colmap/controllers/incremental_pipeline.h"
 #include "colmap/controllers/option_manager.h"
 #include "colmap/image/undistortion.h"
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/meshing.h"
 #include "colmap/mvs/patch_match.h"
+#include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 
 namespace colmap {
@@ -49,13 +48,16 @@ AutomaticReconstructionController::AutomaticReconstructionController(
     : options_(options),
       reconstruction_manager_(std::move(reconstruction_manager)),
       active_thread_(nullptr) {
-  CHECK(ExistsDir(options_.workspace_path));
-  CHECK(ExistsDir(options_.image_path));
-  CHECK_NOTNULL(reconstruction_manager_);
+  THROW_CHECK_DIR_EXISTS(options_.workspace_path);
+  THROW_CHECK_DIR_EXISTS(options_.image_path);
+  THROW_CHECK_NOTNULL(reconstruction_manager_);
 
   option_manager_.AddAllOptions();
 
   *option_manager_.image_path = options_.image_path;
+  option_manager_.image_reader->image_names = options_.image_names;
+  option_manager_.mapper->image_names = {options_.image_names.begin(),
+                                         options_.image_names.end()};
   *option_manager_.database_path =
       JoinPaths(options_.workspace_path, "database.db");
 
@@ -66,10 +68,10 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   } else if (options_.data_type == DataType::INTERNET) {
     option_manager_.ModifyForInternetData();
   } else {
-    LOG(FATAL) << "Data type not supported";
+    LOG(FATAL_THROW) << "Data type not supported";
   }
 
-  CHECK(ExistsCameraModelWithName(options_.camera_model));
+  THROW_CHECK(ExistsCameraModelWithName(options_.camera_model));
 
   if (options_.quality == Quality::LOW) {
     option_manager_.ModifyForLowQuality();
@@ -101,40 +103,48 @@ AutomaticReconstructionController::AutomaticReconstructionController(
 
   option_manager_.sift_extraction->use_gpu = options_.use_gpu;
   option_manager_.sift_matching->use_gpu = options_.use_gpu;
+  option_manager_.mapper->ba_use_gpu = options_.use_gpu;
+  option_manager_.bundle_adjustment->use_gpu = options_.use_gpu;
 
   option_manager_.sift_extraction->gpu_index = options_.gpu_index;
   option_manager_.sift_matching->gpu_index = options_.gpu_index;
   option_manager_.patch_match_stereo->gpu_index = options_.gpu_index;
+  option_manager_.mapper->ba_gpu_index = options_.gpu_index;
+  option_manager_.bundle_adjustment->gpu_index = options_.gpu_index;
 
-  feature_extractor_ = CreateFeatureExtractorController(
-      reader_options, *option_manager_.sift_extraction);
-
-  exhaustive_matcher_ =
-      CreateExhaustiveFeatureMatcher(*option_manager_.exhaustive_matching,
-                                     *option_manager_.sift_matching,
-                                     *option_manager_.two_view_geometry,
-                                     *option_manager_.database_path);
-
-  if (!options_.vocab_tree_path.empty()) {
-    option_manager_.sequential_matching->loop_detection = true;
-    option_manager_.sequential_matching->vocab_tree_path =
-        options_.vocab_tree_path;
+  if (options_.extraction) {
+    feature_extractor_ = CreateFeatureExtractorController(
+        reader_options, *option_manager_.sift_extraction);
   }
 
-  sequential_matcher_ =
-      CreateSequentialFeatureMatcher(*option_manager_.sequential_matching,
-                                     *option_manager_.sift_matching,
-                                     *option_manager_.two_view_geometry,
-                                     *option_manager_.database_path);
+  if (options_.matching) {
+    exhaustive_matcher_ =
+        CreateExhaustiveFeatureMatcher(*option_manager_.exhaustive_matching,
+                                       *option_manager_.sift_matching,
+                                       *option_manager_.two_view_geometry,
+                                       *option_manager_.database_path);
 
-  if (!options_.vocab_tree_path.empty()) {
-    option_manager_.vocab_tree_matching->vocab_tree_path =
-        options_.vocab_tree_path;
-    vocab_tree_matcher_ =
-        CreateVocabTreeFeatureMatcher(*option_manager_.vocab_tree_matching,
-                                      *option_manager_.sift_matching,
-                                      *option_manager_.two_view_geometry,
-                                      *option_manager_.database_path);
+    if (!options_.vocab_tree_path.empty()) {
+      option_manager_.sequential_matching->loop_detection = true;
+      option_manager_.sequential_matching->vocab_tree_path =
+          options_.vocab_tree_path;
+    }
+
+    sequential_matcher_ =
+        CreateSequentialFeatureMatcher(*option_manager_.sequential_matching,
+                                       *option_manager_.sift_matching,
+                                       *option_manager_.two_view_geometry,
+                                       *option_manager_.database_path);
+
+    if (!options_.vocab_tree_path.empty()) {
+      option_manager_.vocab_tree_matching->vocab_tree_path =
+          options_.vocab_tree_path;
+      vocab_tree_matcher_ =
+          CreateVocabTreeFeatureMatcher(*option_manager_.vocab_tree_matching,
+                                        *option_manager_.sift_matching,
+                                        *option_manager_.two_view_geometry,
+                                        *option_manager_.database_path);
+    }
   }
 }
 
@@ -150,13 +160,17 @@ void AutomaticReconstructionController::Run() {
     return;
   }
 
-  RunFeatureExtraction();
+  if (options_.extraction) {
+    RunFeatureExtraction();
+  }
 
   if (IsStopped()) {
     return;
   }
 
-  RunFeatureMatching();
+  if (options_.matching) {
+    RunFeatureMatching();
+  }
 
   if (IsStopped()) {
     return;
@@ -176,7 +190,7 @@ void AutomaticReconstructionController::Run() {
 }
 
 void AutomaticReconstructionController::RunFeatureExtraction() {
-  CHECK(feature_extractor_);
+  THROW_CHECK_NOTNULL(feature_extractor_);
   active_thread_ = feature_extractor_.get();
   feature_extractor_->Start();
   feature_extractor_->Wait();
@@ -199,7 +213,7 @@ void AutomaticReconstructionController::RunFeatureMatching() {
     }
   }
 
-  CHECK(matcher);
+  THROW_CHECK_NOTNULL(matcher);
   active_thread_ = matcher;
   matcher->Start();
   matcher->Wait();
@@ -215,10 +229,8 @@ void AutomaticReconstructionController::RunSparseMapper() {
     auto dir_list = GetDirList(sparse_path);
     std::sort(dir_list.begin(), dir_list.end());
     if (dir_list.size() > 0) {
-      std::cout << std::endl
-                << "WARNING: Skipping sparse reconstruction because it is "
-                   "already computed"
-                << std::endl;
+      LOG(WARNING)
+          << "Skipping sparse reconstruction because it is already computed";
       for (const auto& dir : dir_list) {
         reconstruction_manager_->Read(dir);
       }
@@ -226,14 +238,12 @@ void AutomaticReconstructionController::RunSparseMapper() {
     }
   }
 
-  IncrementalMapperController mapper(option_manager_.mapper,
-                                     *option_manager_.image_path,
-                                     *option_manager_.database_path,
-                                     reconstruction_manager_);
-  active_thread_ = &mapper;
-  mapper.Start();
-  mapper.Wait();
-  active_thread_ = nullptr;
+  IncrementalPipeline mapper(option_manager_.mapper,
+                             *option_manager_.image_path,
+                             *option_manager_.database_path,
+                             reconstruction_manager_);
+  mapper.SetCheckIfStoppedFunc([&]() { return IsStopped(); });
+  mapper.Run();
 
   CreateDirIfNotExists(sparse_path);
   reconstruction_manager_->Write(sparse_path);
@@ -275,10 +285,8 @@ void AutomaticReconstructionController::RunDenseMapper() {
                                     *reconstruction_manager_->Get(i),
                                     *option_manager_.image_path,
                                     dense_path);
-      active_thread_ = &undistorter;
-      undistorter.Start();
-      undistorter.Wait();
-      active_thread_ = nullptr;
+      undistorter.SetCheckIfStoppedFunc([&]() { return IsStopped(); });
+      undistorter.Run();
     }
 
     if (IsStopped()) {
@@ -291,16 +299,12 @@ void AutomaticReconstructionController::RunDenseMapper() {
     {
       mvs::PatchMatchController patch_match_controller(
           *option_manager_.patch_match_stereo, dense_path, "COLMAP", "");
-      active_thread_ = &patch_match_controller;
-      patch_match_controller.Start();
-      patch_match_controller.Wait();
-      active_thread_ = nullptr;
+      patch_match_controller.SetCheckIfStoppedFunc(
+          [&]() { return IsStopped(); });
+      patch_match_controller.Run();
     }
 #else   // COLMAP_CUDA_ENABLED
-    std::cout
-        << std::endl
-        << "WARNING: Skipping patch match stereo because CUDA is not available."
-        << std::endl;
+    LOG(WARNING) << "Skipping patch match stereo because CUDA is not available";
     return;
 #endif  // COLMAP_CUDA_ENABLED
 
@@ -321,13 +325,12 @@ void AutomaticReconstructionController::RunDenseMapper() {
           dense_path,
           "COLMAP",
           "",
-          options_.quality == Quality::HIGH ? "geometric" : "photometric");
-      active_thread_ = &fuser;
-      fuser.Start();
-      fuser.Wait();
-      active_thread_ = nullptr;
+          option_manager_.patch_match_stereo->geom_consistency ? "geometric"
+                                                               : "photometric");
+      fuser.SetCheckIfStoppedFunc([&]() { return IsStopped(); });
+      fuser.Run();
 
-      std::cout << "Writing output: " << fused_path << std::endl;
+      LOG(INFO) << "Writing output: " << fused_path;
       WriteBinaryPlyPoints(fused_path, fuser.GetFusedPoints());
       mvs::WritePointsVisibility(fused_path + ".vis",
                                  fuser.GetFusedPointsVisibility());
@@ -348,10 +351,8 @@ void AutomaticReconstructionController::RunDenseMapper() {
         mvs::DenseDelaunayMeshing(
             *option_manager_.delaunay_meshing, dense_path, meshing_path);
 #else  // COLMAP_CGAL_ENABLED
-        std::cout << std::endl
-                  << "WARNING: Skipping Delaunay meshing because CGAL is "
-                     "not available."
-                  << std::endl;
+        LOG(WARNING)
+            << "Skipping Delaunay meshing because CGAL is not available";
         return;
 
 #endif  // COLMAP_CGAL_ENABLED

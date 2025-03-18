@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/optim/ransac.h"
 
@@ -35,12 +33,14 @@
 #include "colmap/geometry/pose.h"
 #include "colmap/geometry/sim3.h"
 #include "colmap/math/random.h"
+#include "colmap/util/eigen_alignment.h"
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(RANSAC, Options) {
   RANSACOptions options;
@@ -134,4 +134,5 @@ TEST(RANSAC, SimilarityTransform) {
   EXPECT_LT(matrix_diff, 1e-6);
 }
 
+}  // namespace
 }  // namespace colmap

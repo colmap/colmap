@@ -1,4 +1,4 @@
-# Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+# Copyright (c), ETH Zurich and UNC Chapel Hill.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,6 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
-#
-# Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 set(FOLDER_NAME "estimators")
 
@@ -40,15 +38,17 @@ COLMAP_ADD_LIBRARY(
         bundle_adjustment.h bundle_adjustment.cc
         coordinate_frame.h coordinate_frame.cc
         cost_functions.h
+        manifold.h
+        covariance.h covariance.cc
         essential_matrix.h essential_matrix.cc
         euclidean_transform.h
         fundamental_matrix.h fundamental_matrix.cc
         generalized_absolute_pose.h generalized_absolute_pose.cc
-        generalized_absolute_pose_coeffs.h generalized_absolute_pose_coeffs.cc
         generalized_relative_pose.h generalized_relative_pose.cc
         homography_matrix.h homography_matrix.cc
         pose.h pose.cc
-        similarity_transform.h
+        generalized_pose.h generalized_pose.cc
+        similarity_transform.h similarity_transform.cc
         translation_transform.h
         triangulation.h triangulation.cc
         two_view_geometry.h two_view_geometry.cc
@@ -56,14 +56,20 @@ COLMAP_ADD_LIBRARY(
     PUBLIC_LINK_LIBS
         colmap_util
         colmap_math
-        colmap_feature
+        colmap_feature_types
         colmap_geometry
         colmap_sensor
         colmap_image
         colmap_scene
+        colmap_optim
         Eigen3::Eigen
         Ceres::ceres
+        PoseLib::PoseLib
 )
+
+if(CUDA_ENABLED)
+    target_link_libraries(colmap_estimators PUBLIC colmap_util_cuda)
+endif()
 
 COLMAP_ADD_TEST(
     NAME absolute_pose_test
@@ -76,6 +82,11 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_estimators
 )
 COLMAP_ADD_TEST(
+    NAME alignment_test
+    SRCS alignment_test.cc
+    LINK_LIBS colmap_estimators
+)
+COLMAP_ADD_TEST(
     NAME bundle_adjustment_test
     SRCS bundle_adjustment_test.cc
     LINK_LIBS colmap_estimators
@@ -83,6 +94,11 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME coordinate_frame_test
     SRCS coordinate_frame_test.cc
+    LINK_LIBS colmap_estimators
+)
+COLMAP_ADD_TEST(
+    NAME covariance_test
+    SRCS covariance_test.cc
     LINK_LIBS colmap_estimators
 )
 COLMAP_ADD_TEST(
@@ -111,6 +127,11 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_estimators
 )
 COLMAP_ADD_TEST(
+    NAME generalized_pose_test
+    SRCS generalized_pose_test.cc
+    LINK_LIBS colmap_estimators
+)
+COLMAP_ADD_TEST(
     NAME generalized_relative_pose_test
     SRCS generalized_relative_pose_test.cc
     LINK_LIBS colmap_estimators
@@ -126,7 +147,17 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_estimators
 )
 COLMAP_ADD_TEST(
+    NAME similarity_transform_test
+    SRCS similarity_transform_test.cc
+    LINK_LIBS colmap_estimators
+)
+COLMAP_ADD_TEST(
     NAME translation_transform_test
     SRCS translation_transform_test.cc
+    LINK_LIBS colmap_estimators
+)
+COLMAP_ADD_TEST(
+    NAME two_view_geometry_test
+    SRCS two_view_geometry_test.cc
     LINK_LIBS colmap_estimators
 )

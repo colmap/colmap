@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,16 +26,17 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #pragma once
 
+#include "colmap/geometry/gps.h"
 #include "colmap/scene/database.h"
 #include "colmap/sensor/bitmap.h"
 #include "colmap/util/threading.h"
 
+#include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 namespace colmap {
 
@@ -57,7 +58,7 @@ struct ImageReaderOptions {
 
   // Optional list of images to read. The list must contain the relative path
   // of the images with respect to the image_path.
-  std::vector<std::string> image_list;
+  std::vector<std::string> image_names;
 
   // Name of the camera model.
   std::string camera_model = "SIMPLE_RADIAL";
@@ -102,6 +103,7 @@ class ImageReader {
     SUCCESS,
     IMAGE_EXISTS,
     BITMAP_ERROR,
+    MASK_ERROR,
     CAMERA_SINGLE_DIM_ERROR,
     CAMERA_EXIST_DIM_ERROR,
     CAMERA_PARAM_ERROR
@@ -109,9 +111,15 @@ class ImageReader {
 
   ImageReader(const ImageReaderOptions& options, Database* database);
 
-  Status Next(Camera* camera, Image* image, Bitmap* bitmap, Bitmap* mask);
+  Status Next(Camera* camera,
+              Image* image,
+              PosePrior* pose_prior,
+              Bitmap* bitmap,
+              Bitmap* mask);
   size_t NextIndex() const;
   size_t NumImages() const;
+
+  static std::string StatusToString(Status status);
 
  private:
   // Image reader options.

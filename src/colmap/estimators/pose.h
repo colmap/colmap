@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #pragma once
 
@@ -35,6 +33,7 @@
 #include "colmap/optim/loransac.h"
 #include "colmap/scene/camera.h"
 #include "colmap/sensor/models.h"
+#include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/threading.h"
 #include "colmap/util/types.h"
@@ -50,30 +49,19 @@ struct AbsolutePoseEstimationOptions {
   // Whether to estimate the focal length.
   bool estimate_focal_length = false;
 
-  // Number of discrete samples for focal length estimation.
-  size_t num_focal_length_samples = 30;
-
-  // Minimum focal length ratio for discrete focal length sampling
-  // around focal length of given camera.
-  double min_focal_length_ratio = 0.2;
-
-  // Maximum focal length ratio for discrete focal length sampling
-  // around focal length of given camera.
-  double max_focal_length_ratio = 5;
-
-  // Number of threads for parallel estimation of focal length.
-  int num_threads = ThreadPool::kMaxNumThreads;
-
   // Options used for P3P RANSAC.
   RANSACOptions ransac_options;
 
-  void Check() const {
-    CHECK_GT(num_focal_length_samples, 0);
-    CHECK_GT(min_focal_length_ratio, 0);
-    CHECK_GT(max_focal_length_ratio, 0);
-    CHECK_LT(min_focal_length_ratio, max_focal_length_ratio);
-    ransac_options.Check();
+  AbsolutePoseEstimationOptions() {
+    ransac_options.max_error = 12.0;
+    // Use high confidence to avoid preemptive termination of P3P RANSAC
+    // - too early termination may lead to bad registration.
+    ransac_options.min_num_trials = 100;
+    ransac_options.max_num_trials = 10000;
+    ransac_options.confidence = 0.99999;
   }
+
+  void Check() const { ransac_options.Check(); }
 };
 
 struct AbsolutePoseRefinementOptions {
@@ -87,18 +75,18 @@ struct AbsolutePoseRefinementOptions {
   double loss_function_scale = 1.0;
 
   // Whether to refine the focal length parameter group.
-  bool refine_focal_length = true;
+  bool refine_focal_length = false;
 
   // Whether to refine the extra parameter group.
-  bool refine_extra_params = true;
+  bool refine_extra_params = false;
 
   // Whether to print final summary.
-  bool print_summary = true;
+  bool print_summary = false;
 
   void Check() const {
-    CHECK_GE(gradient_tolerance, 0.0);
-    CHECK_GE(max_num_iterations, 0);
-    CHECK_GE(loss_function_scale, 0.0);
+    THROW_CHECK_GE(gradient_tolerance, 0.0);
+    THROW_CHECK_GE(max_num_iterations, 0);
+    THROW_CHECK_GE(loss_function_scale, 0.0);
   }
 };
 
@@ -188,34 +176,6 @@ bool RefineRelativePose(const ceres::Solver::Options& options,
                         const std::vector<Eigen::Vector2d>& points1,
                         const std::vector<Eigen::Vector2d>& points2,
                         Rigid3d* cam_from_world);
-
-// Refine generalized absolute pose (optionally focal lengths)
-// from 2D-3D correspondences.
-//
-// @param options              Refinement options.
-// @param inlier_mask          Inlier mask for 2D-3D correspondences.
-// @param points2D             Corresponding 2D points.
-// @param points3D             Corresponding 3D points.
-// @param camera_idxs          Index of the rig camera for each correspondence.
-// @param cams_from_rig        Relative pose from rig to each camera frame.
-// @param rig_from_world       Estimated rig from world pose.
-// @param cameras              Cameras for which to estimate pose. Modified
-//                             in-place to store the estimated focal lengths.
-// @param rig_from_world_cov   Estimated 6x6 covariance matrix of
-//                             the rotation (as axis-angle, in tangent space)
-//                             and translation terms (optional).
-//
-// @return                     Whether the solution is usable.
-bool RefineGeneralizedAbsolutePose(
-    const AbsolutePoseRefinementOptions& options,
-    const std::vector<char>& inlier_mask,
-    const std::vector<Eigen::Vector2d>& points2D,
-    const std::vector<Eigen::Vector3d>& points3D,
-    const std::vector<size_t>& camera_idxs,
-    const std::vector<Rigid3d>& cams_from_rig,
-    Rigid3d* rig_from_world,
-    std::vector<Camera>* cameras,
-    Eigen::Matrix6d* rig_from_world_cov = nullptr);
 
 // Refine essential matrix.
 //

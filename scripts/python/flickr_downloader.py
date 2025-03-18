@@ -1,4 +1,4 @@
-# Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+# Copyright (c), ETH Zurich and UNC Chapel Hill.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -26,25 +26,27 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
-#
-# Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-import os
-import time
+
+import argparse
 import datetime
+import multiprocessing
+import os
+import socket
+import time
 import urllib
+import xml.etree.ElementTree as ElementTree
+
 import urllib2
 import urlparse
-import socket
-import argparse
-import multiprocessing
-import xml.etree.ElementTree as ElementTree
 
 PER_PAGE = 500
 SORT = "date-posted-desc"
-URL = "https://api.flickr.com/services/rest/?method=flickr.photos.search&" \
-      "api_key=%s&text=%s&sort=%s&per_page=%d&page=%d&min_upload_date=%s&" \
-      "max_upload_date=%s&format=rest&extras=url_o,url_l,url_c,url_z,url_n"
+URL = (
+    "https://api.flickr.com/services/rest/?method=flickr.photos.search&"
+    "api_key=%s&text=%s&sort=%s&per_page=%d&page=%d&min_upload_date=%s&"
+    "max_upload_date=%s&format=rest&extras=url_o,url_l,url_c,url_z,url_n"
+)
 MAX_PAGE_REQUESTS = 5
 MAX_PAGE_TIMEOUT = 20
 MAX_IMAGE_REQUESTS = 3
@@ -65,26 +67,37 @@ def parse_args():
 
 
 def compose_url(page, api_key, text, min_date, max_date):
-    return URL % (api_key, text, SORT, PER_PAGE, page,
-                  str(min_date), str(max_date))
+    return URL % (
+        api_key,
+        text,
+        SORT,
+        PER_PAGE,
+        page,
+        str(min_date),
+        str(max_date),
+    )
 
 
 def parse_page(page, api_key, text, min_date, max_date):
     f = None
     for _ in range(MAX_PAGE_REQUESTS):
         try:
-            f = urllib2.urlopen(compose_url(page, api_key, text, min_date,
-                                            max_date), timeout=MAX_PAGE_TIMEOUT)
+            f = urllib2.urlopen(
+                compose_url(page, api_key, text, min_date, max_date),
+                timeout=MAX_PAGE_TIMEOUT,
+            )
         except socket.timeout:
             continue
         else:
             break
 
     if f is None:
-        return {'pages': '0',
-                'total': '0',
-                'page': '0',
-                'perpage': '0'}, tuple()
+        return {
+            "pages": "0",
+            "total": "0",
+            "page": "0",
+            "perpage": "0",
+        }, tuple()
 
     response = f.read()
     root = ElementTree.fromstring(response)
@@ -100,7 +113,6 @@ def parse_page(page, api_key, text, min_date, max_date):
 
 
 class PhotoDownloader(object):
-
     def __init__(self, image_path):
         self.image_path = image_path
 
@@ -146,15 +158,16 @@ def main():
     min_date = MIN_DATE
     max_date = MAX_DATE
 
-    days_in_row = 0;
+    days_in_row = 0
 
     search_text = args.search_text.replace(" ", "-")
 
     while num_pages > page:
         page += 1
 
-        metadata, photos = parse_page(page, args.api_key, search_text,
-                                      min_date, max_date)
+        metadata, photos = parse_page(
+            page, args.api_key, search_text, min_date, max_date
+        )
 
         num_pages = int(metadata["pages"])
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,13 +26,12 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/mvs/consistency_graph.h"
 
+#include "colmap/util/endian.h"
+#include "colmap/util/file.h"
 #include "colmap/util/logging.h"
-#include "colmap/util/misc.h"
 
 #include <fstream>
 #include <numeric>
@@ -71,7 +70,7 @@ void ConsistencyGraph::GetImageIdxs(const int row,
 
 void ConsistencyGraph::Read(const std::string& path) {
   std::fstream text_file(path, std::ios::in | std::ios::binary);
-  CHECK(text_file.is_open()) << path;
+  THROW_CHECK_FILE_OPEN(text_file, path);
 
   size_t width = 0;
   size_t height = 0;
@@ -83,12 +82,12 @@ void ConsistencyGraph::Read(const std::string& path) {
   const std::streampos pos = text_file.tellg();
   text_file.close();
 
-  CHECK_GT(width, 0);
-  CHECK_GT(height, 0);
-  CHECK_GT(depth, 0);
+  THROW_CHECK_GT(width, 0);
+  THROW_CHECK_GT(height, 0);
+  THROW_CHECK_GT(depth, 0);
 
   std::fstream binary_file(path, std::ios::in | std::ios::binary);
-  CHECK(binary_file.is_open()) << path;
+  THROW_CHECK_FILE_OPEN(binary_file, path);
 
   binary_file.seekg(0, std::ios::end);
   const size_t num_bytes = binary_file.tellg() - pos;
@@ -104,14 +103,14 @@ void ConsistencyGraph::Read(const std::string& path) {
 
 void ConsistencyGraph::Write(const std::string& path) const {
   std::fstream text_file(path, std::ios::out);
-  CHECK(text_file.is_open()) << path;
+  THROW_CHECK_FILE_OPEN(text_file, path);
   text_file << map_.cols() << "&" << map_.rows() << "&" << 1 << "&";
   text_file.close();
 
   std::fstream binary_file(path,
                            std::ios::out | std::ios::binary | std::ios::app);
-  CHECK(binary_file.is_open()) << path;
-  WriteBinaryLittleEndian<int>(&binary_file, data_);
+  THROW_CHECK_FILE_OPEN(binary_file, path);
+  WriteBinaryLittleEndian<int>(&binary_file, {data_.data(), data_.size()});
   binary_file.close();
 }
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/mvs/depth_map.h"
 
@@ -53,7 +51,7 @@ DepthMap::DepthMap(const Mat<float>& mat,
     : Mat<float>(mat.GetWidth(), mat.GetHeight(), mat.GetDepth()),
       depth_min_(depth_min),
       depth_max_(depth_max) {
-  CHECK_EQ(mat.GetDepth(), 1);
+  THROW_CHECK_EQ(mat.GetDepth(), 1);
   data_ = mat.GetData();
 }
 
@@ -86,8 +84,8 @@ void DepthMap::Downsize(const size_t max_width, const size_t max_height) {
 
 Bitmap DepthMap::ToBitmap(const float min_percentile,
                           const float max_percentile) const {
-  CHECK_GT(width_, 0);
-  CHECK_GT(height_, 0);
+  THROW_CHECK_GT(width_, 0);
+  THROW_CHECK_GT(height_, 0);
 
   Bitmap bitmap;
   bitmap.Allocate(width_, height_, true);

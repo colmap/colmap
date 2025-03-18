@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/util/opengl_utils.h"
 
@@ -41,8 +39,9 @@ OpenGLContextManager::OpenGLContextManager(int opengl_major_version,
     : parent_thread_(QThread::currentThread()),
       current_thread_(nullptr),
       make_current_action_(new QAction(this)) {
-  CHECK_NOTNULL(QCoreApplication::instance());
-  CHECK_EQ(QCoreApplication::instance()->thread(), QThread::currentThread());
+  THROW_CHECK_NOTNULL(QCoreApplication::instance());
+  THROW_CHECK_EQ(QCoreApplication::instance()->thread(),
+                 QThread::currentThread());
 
   QSurfaceFormat format;
   format.setDepthBufferSize(24);
@@ -53,16 +52,16 @@ OpenGLContextManager::OpenGLContextManager(int opengl_major_version,
   context_.setFormat(format);
 
   surface_.create();
-  CHECK(context_.create());
+  THROW_CHECK(context_.create());
   context_.makeCurrent(&surface_);
-  CHECK(context_.isValid()) << "Could not create valid OpenGL context";
+  THROW_CHECK(context_.isValid()) << "Could not create valid OpenGL context";
 
   connect(
       make_current_action_,
       &QAction::triggered,
       this,
       [this]() {
-        CHECK_NOTNULL(current_thread_);
+        THROW_CHECK_NOTNULL(current_thread_);
         context_.doneCurrent();
         context_.moveToThread(current_thread_);
       },
@@ -80,9 +79,9 @@ void RunThreadWithOpenGLContext(Thread* thread) {
   std::thread opengl_thread([thread]() {
     thread->Start();
     thread->Wait();
-    CHECK_NOTNULL(QCoreApplication::instance())->exit();
+    THROW_CHECK_NOTNULL(QCoreApplication::instance())->exit();
   });
-  CHECK_NOTNULL(QCoreApplication::instance())->exec();
+  THROW_CHECK_NOTNULL(QCoreApplication::instance())->exec();
   opengl_thread.join();
   // Make sure that all triggered OpenGLContextManager events are processed in
   // case the application exits before the contexts were made current.
@@ -113,11 +112,8 @@ void GLError(const char* file, const int line) {
         error_name = "UNKNOWN_ERROR";
         break;
     }
-    fprintf(stderr,
-            "OpenGL error [%s, line %i]: GL_%s",
-            file,
-            line,
-            error_name.c_str());
+    LOG(ERROR) << "OpenGL error [" << file << ", line " << line << "]: GL_"
+               << error_name;
     error_code = glGetError();
   }
 }

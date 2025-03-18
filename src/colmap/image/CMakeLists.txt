@@ -1,4 +1,4 @@
-# Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+# Copyright (c), ETH Zurich and UNC Chapel Hill.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,7 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
-#
-# Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
+
 
 set(FOLDER_NAME "image")
 
@@ -38,13 +37,15 @@ COLMAP_ADD_LIBRARY(
         undistortion.h undistortion.cc
         warp.h warp.cc
     PUBLIC_LINK_LIBS
+        colmap_scene
         Eigen3::Eigen
     PRIVATE_LINK_LIBS
         colmap_util
         colmap_sensor
-        colmap_scene
-        colmap_lsd
 )
+if(LSD_ENABLED)
+    target_link_libraries(colmap_image PRIVATE colmap_lsd)
+endif()
 
 COLMAP_ADD_TEST(
     NAME line_test

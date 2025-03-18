@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/util/endian.h"
 
@@ -36,6 +34,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(ReverseBytes, Nominal) {
   for (size_t i = 0; i < 256; ++i) {
@@ -99,8 +98,7 @@ void TestIntNativeToLitteBigEndian() {
   std::default_random_engine prng;
   std::uniform_int_distribution<T> distribution(
       std::numeric_limits<T>::lowest(), std::numeric_limits<T>::max());
-  constexpr int kNumTrials = 100;
-  for (int i = 0; i < kNumTrials; ++i) {
+  for (int i = 0; i < 100; ++i) {
     const T x = distribution(prng);
     EXPECT_EQ(LittleEndianToNative<T>(NativeToLittleEndian<T>(x)), x);
     EXPECT_EQ(BigEndianToNative<T>(NativeToBigEndian<T>(x)), x);
@@ -112,8 +110,7 @@ void TestRealNativeToLitteBigEndian() {
   std::default_random_engine prng;
   std::uniform_real_distribution<T> distribution(
       std::numeric_limits<T>::lowest(), std::numeric_limits<T>::max());
-  constexpr int kNumTrials = 100;
-  for (int i = 0; i < kNumTrials; ++i) {
+  for (int i = 0; i < 100; ++i) {
     const T x = distribution(prng);
     EXPECT_EQ(LittleEndianToNative<T>(NativeToLittleEndian<T>(x)), x);
     EXPECT_EQ(BigEndianToNative<T>(NativeToBigEndian<T>(x)), x);
@@ -144,8 +141,7 @@ void TestIntReadWriteBinaryLittleEndian() {
   std::default_random_engine prng;
   std::uniform_int_distribution<T> distribution(
       std::numeric_limits<T>::lowest(), std::numeric_limits<T>::max());
-  constexpr int kNumTrials = 100;
-  for (int i = 0; i < kNumTrials; ++i) {
+  for (int i = 0; i < 100; ++i) {
     std::stringstream file;
     const T orig_value = distribution(prng);
     WriteBinaryLittleEndian<T>(&file, orig_value);
@@ -157,7 +153,8 @@ void TestIntReadWriteBinaryLittleEndian() {
     std::generate(orig_vector.begin(), orig_vector.end(), [&]() {
       return distribution(prng);
     });
-    WriteBinaryLittleEndian<T>(&file_vector, orig_vector);
+    WriteBinaryLittleEndian<T>(&file_vector,
+                               {orig_vector.data(), orig_vector.size()});
     std::vector<T> read_vector(orig_vector.size());
     ReadBinaryLittleEndian<T>(&file_vector, &read_vector);
     for (size_t i = 0; i < orig_vector.size(); ++i) {
@@ -171,8 +168,7 @@ void TestFloatReadWriteBinaryLittleEndian() {
   std::default_random_engine prng;
   std::uniform_real_distribution<T> distribution(
       std::numeric_limits<T>::lowest(), std::numeric_limits<T>::max());
-  constexpr int kNumTrials = 100;
-  for (int i = 0; i < kNumTrials; ++i) {
+  for (int i = 0; i < 100; ++i) {
     std::stringstream file;
     const T orig_value = distribution(prng);
     WriteBinaryLittleEndian<T>(&file, orig_value);
@@ -184,7 +180,8 @@ void TestFloatReadWriteBinaryLittleEndian() {
     std::generate(orig_vector.begin(), orig_vector.end(), [&]() {
       return distribution(prng);
     });
-    WriteBinaryLittleEndian<T>(&file_vector, orig_vector);
+    WriteBinaryLittleEndian<T>(&file_vector,
+                               {orig_vector.data(), orig_vector.size()});
     std::vector<T> read_vector(orig_vector.size());
     ReadBinaryLittleEndian<T>(&file_vector, &read_vector);
     for (size_t i = 0; i < orig_vector.size(); ++i) {
@@ -210,4 +207,5 @@ TEST(ReadWriteBinaryLittleEndian, Nominal) {
   TestFloatReadWriteBinaryLittleEndian<double>();
 }
 
+}  // namespace
 }  // namespace colmap

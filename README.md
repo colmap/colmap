@@ -35,22 +35,28 @@ If you use the image retrieval / vocabulary tree engine, please also cite:
 
 The latest source code is available at https://github.com/colmap/colmap. COLMAP
 builds on top of existing works and when using specific algorithms within
-COLMAP, please also cite the original authors, as specified in the source code.
+COLMAP, please also cite the original authors, as specified in the source code,
+and consider citing relevant third-party dependencies (most notably
+ceres-solver, poselib, sift-gpu, vlfeat).
 
 
 Download
 --------
 
-Executables for Windows and Mac and other resources can be downloaded from
-https://demuc.de/colmap/. Executables for Linux/Unix/BSD are available at
-https://repology.org/metapackage/colmap/versions. To build COLMAP from source,
-please see https://colmap.github.io/install.html.
+* Binaries for **Windows** and other resources can be downloaded
+  from https://github.com/colmap/colmap/releases.
+* Binaries for **Linux/Unix/BSD** are available at
+  https://repology.org/metapackage/colmap/versions.
+* Pre-built **Docker** images are available at
+  https://hub.docker.com/r/colmap/colmap.
+* **Python bindings** are available at https://pypi.org/project/pycolmap.
+* To **build from source**, please see https://colmap.github.io/install.html.
+
 
 Getting Started
 ---------------
 
-1. Download the pre-built binaries from https://demuc.de/colmap/ or build the
-   library manually as described in the documentation.
+1. Download pre-built binaries or build from source.
 2. Download one of the provided datasets at https://demuc.de/colmap/datasets/
    or use your own images.
 3. Use the **automatic reconstruction** to easily build models
@@ -66,18 +72,29 @@ The documentation is available at https://colmap.github.io/.
 Support
 -------
 
-Please, use the COLMAP Google Group at
-https://groups.google.com/forum/#!forum/colmap (colmap@googlegroups.com) for
-questions and the GitHub issue tracker at https://github.com/colmap/colmap for
-bug reports, feature requests/additions, etc.
+Please, use GitHub Discussions at https://github.com/colmap/colmap/discussions
+for questions and the GitHub issue tracker at https://github.com/colmap/colmap
+for bug reports, feature requests/additions, etc.
 
 
 Acknowledgments
 ---------------
 
-The library was written by Johannes L. Schönberger (https://demuc.de/). Funding
-was provided by his PhD advisors Jan-Michael Frahm (http://frahm.web.unc.edu/)
-and Marc Pollefeys (https://people.inf.ethz.ch/pomarc/).
+COLMAP was originally written by [Johannes Schönberger](https://demuc.de/) with
+funding provided by his PhD advisors Jan-Michael Frahm and Marc Pollefeys.
+The team of core project maintainers currently includes
+[Johannes Schönberger](https://github.com/ahojnnes),
+[Paul-Edouard Sarlin](https://github.com/sarlinpe), and
+[Shaohui Liu](https://github.com/B1ueber2y).
+
+The Python bindings in PyCOLMAP were originally added by
+[Mihai Dusmanu](https://github.com/mihaidusmanu),
+[Philipp Lindenberger](https://github.com/Phil26AT), and
+[Paul-Edouard Sarlin](https://github.com/sarlinpe).
+
+The project has also benefitted from countless community contributions, including
+bug fixes, improvements, new features, third-party tooling, and community
+support (special credits to [Torsten Sattler](https://tsattler.github.io)).
 
 
 Contribution
@@ -95,7 +112,7 @@ refers only to the license for COLMAP itself, independent of its thirdparty
 dependencies, which are separately licensed. Building COLMAP with these
 dependencies may affect the resulting COLMAP license.
 
-    Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+    Copyright (c), ETH Zurich and UNC Chapel Hill.
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -123,5 +140,3 @@ dependencies may affect the resulting COLMAP license.
     CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
     ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
     POSSIBILITY OF SUCH DAMAGE.
-
-    Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)

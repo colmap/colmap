@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,13 +26,11 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/ui/point_viewer_widget.h"
 
 #include "colmap/ui/model_viewer_widget.h"
-#include "colmap/util/misc.h"
+#include "colmap/util/file.h"
 
 namespace colmap {
 
@@ -151,21 +149,21 @@ void PointViewerWidget::Show(const point3D_t point3D_id) {
 
   const auto& point3D = model_viewer_widget_->points3D[point3D_id];
 
-  xyz_item_->setText(QString::number(point3D.X()) + ", " +
-                     QString::number(point3D.Y()) + ", " +
-                     QString::number(point3D.Z()));
-  rgb_item_->setText(QString::number(point3D.Color(0)) + ", " +
-                     QString::number(point3D.Color(1)) + ", " +
-                     QString::number(point3D.Color(2)));
-  error_item_->setText(QString::number(point3D.Error()));
+  xyz_item_->setText(QString::number(point3D.xyz(0)) + ", " +
+                     QString::number(point3D.xyz(1)) + ", " +
+                     QString::number(point3D.xyz(2)));
+  rgb_item_->setText(QString::number(point3D.color(0)) + ", " +
+                     QString::number(point3D.color(1)) + ", " +
+                     QString::number(point3D.color(2)));
+  error_item_->setText(QString::number(point3D.error));
 
   ResizeInfoTable();
 
   // Sort the track elements by the image names.
 
   std::vector<std::pair<TrackElement, std::string>> track_idx_image_name_pairs;
-  track_idx_image_name_pairs.reserve(point3D.Track().Length());
-  for (const auto& track_el : point3D.Track().Elements()) {
+  track_idx_image_name_pairs.reserve(point3D.track.Length());
+  for (const auto& track_el : point3D.track.Elements()) {
     const Image& image = model_viewer_widget_->images[track_el.image_id];
     track_idx_image_name_pairs.emplace_back(track_el, image.Name());
   }
@@ -183,14 +181,19 @@ void PointViewerWidget::Show(const point3D_t point3D_id) {
     const Image& image = model_viewer_widget_->images[track_el.first.image_id];
     const Camera& camera = model_viewer_widget_->cameras[image.CameraId()];
     const Point2D& point2D = image.Point2D(track_el.first.point2D_idx);
-    const Eigen::Vector2d proj_point2D =
-        camera.ImgFromCam((image.CamFromWorld() * point3D.XYZ()).hnormalized());
-    const double reproj_error = (point2D.xy - proj_point2D).norm();
+    const std::optional<Eigen::Vector2d> proj_point2D =
+        camera.ImgFromCam(image.CamFromWorld() * point3D.xyz);
+    if (!proj_point2D) {
+      LOG(WARNING) << "Failed to project point into image " << image.Name();
+      continue;
+    }
+
+    const double reproj_error = (point2D.xy - *proj_point2D).norm();
 
     Bitmap bitmap;
     const std::string path = JoinPaths(*options_->image_path, image.Name());
     if (!bitmap.Read(path, true)) {
-      std::cerr << "ERROR: Cannot read image at path " << path << std::endl;
+      LOG(ERROR) << "Cannot read image at path " << path;
       continue;
     }
 
@@ -216,8 +219,8 @@ void PointViewerWidget::Show(const point3D_t point3D_id) {
     pen.setColor(Qt::red);
     painter.setPen(pen);
 
-    const int proj_x = static_cast<int>(std::round(proj_point2D.x()));
-    const int proj_y = static_cast<int>(std::round(proj_point2D.y()));
+    const int proj_x = static_cast<int>(std::round(proj_point2D->x()));
+    const int proj_y = static_cast<int>(std::round(proj_point2D->y()));
     painter.drawEllipse(proj_x - 5, proj_y - 5, 10, 10);
     painter.drawEllipse(proj_x - 15, proj_y - 15, 30, 30);
     painter.drawEllipse(proj_x - 45, proj_y - 45, 90, 90);
@@ -315,6 +318,7 @@ void PointViewerWidget::Delete() {
     }
     model_viewer_widget_->ReloadReconstruction();
   }
+  hide();
 }
 
 }  // namespace colmap

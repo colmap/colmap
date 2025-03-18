@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,13 +26,11 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/ui/image_viewer_widget.h"
 
 #include "colmap/ui/model_viewer_widget.h"
-#include "colmap/util/misc.h"
+#include "colmap/util/file.h"
 
 namespace colmap {
 
@@ -123,7 +121,7 @@ void ImageViewerWidget::ShowPixmap(const QPixmap& pixmap) {
 void ImageViewerWidget::ReadAndShow(const std::string& path) {
   Bitmap bitmap;
   if (!bitmap.Read(path, true)) {
-    std::cerr << "ERROR: Cannot read image at path " << path << std::endl;
+    LOG(ERROR) << "Cannot read image at path " << path;
   }
 
   ShowBitmap(bitmap);
@@ -176,7 +174,7 @@ void FeatureImageViewerWidget::ReadAndShowWithKeypoints(
     const std::vector<char>& tri_mask) {
   Bitmap bitmap;
   if (!bitmap.Read(path, true)) {
-    std::cerr << "ERROR: Cannot read image at path " << path << std::endl;
+    LOG(ERROR) << "Cannot read image at path " << path;
   }
 
   image1_ = QPixmap::fromImage(BitmapToQImageRGB(bitmap));
@@ -218,8 +216,7 @@ void FeatureImageViewerWidget::ReadAndShowWithMatches(
   Bitmap bitmap1;
   Bitmap bitmap2;
   if (!bitmap1.Read(path1, true) || !bitmap2.Read(path2, true)) {
-    std::cerr << "ERROR: Cannot read images at paths " << path1 << " and "
-              << path2 << std::endl;
+    LOG(ERROR) << "Cannot read images at paths " << path1 << " and " << path2;
     return;
   }
 
@@ -325,12 +322,6 @@ DatabaseImageViewerWidget::DatabaseImageViewerWidget(
   table_widget_->setItem(table_row, 1, num_points3D_item_);
   table_row += 1;
 
-  table_widget_->setItem(
-      table_row, 0, new QTableWidgetItem("num_observations"));
-  num_obs_item_ = new QTableWidgetItem();
-  table_widget_->setItem(table_row, 1, num_obs_item_);
-  table_row += 1;
-
   table_widget_->setItem(table_row, 0, new QTableWidgetItem("name"));
   name_item_ = new QTableWidgetItem();
   table_widget_->setItem(table_row, 1, name_item_);
@@ -362,17 +353,22 @@ void DatabaseImageViewerWidget::ShowImageWithId(const image_t image_id) {
   camera_id_item_->setText(QString::number(image.CameraId()));
   camera_model_item_->setText(QString::fromStdString(camera.ModelName()));
   camera_params_item_->setText(QString::fromStdString(camera.ParamsToString()));
-  rotation_item_->setText(
-      QString::number(image.CamFromWorld().rotation.w()) + ", " +
-      QString::number(image.CamFromWorld().rotation.x()) + ", " +
-      QString::number(image.CamFromWorld().rotation.y()) + ", " +
-      QString::number(image.CamFromWorld().rotation.z()));
-  translation_item_->setText(
-      QString::number(image.CamFromWorld().translation.x()) + ", " +
-      QString::number(image.CamFromWorld().translation.y()) + ", " +
-      QString::number(image.CamFromWorld().translation.z()));
-  dimensions_item_->setText(QString::number(camera.Width()) + "x" +
-                            QString::number(camera.Height()));
+  if (image.HasPose()) {
+    rotation_item_->setText(
+        QString::number(image.CamFromWorld().rotation.w()) + ", " +
+        QString::number(image.CamFromWorld().rotation.x()) + ", " +
+        QString::number(image.CamFromWorld().rotation.y()) + ", " +
+        QString::number(image.CamFromWorld().rotation.z()));
+    translation_item_->setText(
+        QString::number(image.CamFromWorld().translation.x()) + ", " +
+        QString::number(image.CamFromWorld().translation.y()) + ", " +
+        QString::number(image.CamFromWorld().translation.z()));
+    dimensions_item_->setText(QString::number(camera.width) + "x" +
+                              QString::number(camera.height));
+  } else {
+    rotation_item_->setText("undefined");
+    translation_item_->setText("undefined");
+  }
   num_points2D_item_->setText(QString::number(image.NumPoints2D()));
 
   std::vector<char> tri_mask(image.NumPoints2D());
@@ -381,7 +377,6 @@ void DatabaseImageViewerWidget::ShowImageWithId(const image_t image_id) {
   }
 
   num_points3D_item_->setText(QString::number(image.NumPoints3D()));
-  num_obs_item_->setText(QString::number(image.NumObservations()));
   name_item_->setText(QString::fromStdString(image.Name()));
 
   ResizeTable();

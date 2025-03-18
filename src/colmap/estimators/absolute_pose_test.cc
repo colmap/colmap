@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,23 +26,89 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/estimators/absolute_pose.h"
 
-#include "colmap/estimators/essential_matrix.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/geometry/rigid3.h"
-#include "colmap/math/random.h"
 #include "colmap/optim/ransac.h"
+#include "colmap/scene/camera.h"
+#include "colmap/sensor/models.h"
+#include "colmap/util/eigen_alignment.h"
 
 #include <Eigen/Core>
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(AbsolutePose, P3P) {
+  const std::vector<Eigen::Vector3d> points3D = {
+      Eigen::Vector3d(1, 1, 1),
+      Eigen::Vector3d(0, 1, 1),
+      Eigen::Vector3d(3, 1.0, 4),
+      Eigen::Vector3d(3, 1.1, 4),
+      Eigen::Vector3d(3, 1.2, 4),
+      Eigen::Vector3d(3, 1.3, 4),
+      Eigen::Vector3d(3, 1.4, 4),
+      Eigen::Vector3d(2, 1, 7),
+  };
+
+  auto points3D_faulty = points3D;
+  for (size_t i = 0; i < points3D.size(); ++i) {
+    points3D_faulty[i](0) = 20;
+  }
+
+  const Camera camera = Camera::CreateFromModelId(
+      kInvalidCameraId, CameraModelId::kPinhole, 12, 34, 56);
+  ImgFromCamFunc img_from_cam_func =
+      std::bind(&Camera::ImgFromCam, &camera, std::placeholders::_1);
+
+  // NOLINTNEXTLINE(clang-analyzer-security.FloatLoopCounter)
+  for (double qx = 0; qx < 1; qx += 0.2) {
+    // NOLINTNEXTLINE(clang-analyzer-security.FloatLoopCounter)
+    for (double tx = 0; tx < 1; tx += 0.1) {
+      const Rigid3d expected_cam_from_world(
+          Eigen::Quaterniond(1, qx, 0, 0).normalized(),
+          Eigen::Vector3d(tx, 0, 0));
+
+      // Project points to camera coordinate system.
+      std::vector<P3PEstimator::X_t> points2D;
+      for (size_t i = 0; i < points3D.size(); ++i) {
+        auto& point2D = points2D.emplace_back();
+        point2D.camera_ray =
+            (expected_cam_from_world * points3D[i]).normalized();
+        point2D.image_point = img_from_cam_func(point2D.camera_ray).value();
+      }
+
+      RANSACOptions options;
+      options.max_error = 1e-3;
+      RANSAC<P3PEstimator> ransac(options, P3PEstimator(img_from_cam_func));
+      const auto report = ransac.Estimate(points2D, points3D);
+
+      EXPECT_TRUE(report.success);
+      EXPECT_LT((expected_cam_from_world.ToMatrix() - report.model).norm(),
+                1e-5);
+
+      // Test residuals of exact points.
+      std::vector<double> residuals;
+      ransac.estimator.Residuals(points2D, points3D, report.model, &residuals);
+      for (size_t i = 0; i < residuals.size(); ++i) {
+        EXPECT_LT(residuals[i], 1e-3);
+      }
+
+      // Test residuals of faulty points.
+      ransac.estimator.Residuals(
+          points2D, points3D_faulty, report.model, &residuals);
+      for (size_t i = 0; i < residuals.size(); ++i) {
+        EXPECT_GT(residuals[i], 0.1);
+      }
+    }
+  }
+}
+
+TEST(AbsolutePose, P4PF) {
   const std::vector<Eigen::Vector3d> points3D = {
       Eigen::Vector3d(1, 1, 1),
       Eigen::Vector3d(0, 1, 1),
@@ -63,38 +129,44 @@ TEST(AbsolutePose, P3P) {
   for (double qx = 0; qx < 1; qx += 0.2) {
     // NOLINTNEXTLINE(clang-analyzer-security.FloatLoopCounter)
     for (double tx = 0; tx < 1; tx += 0.1) {
-      const Rigid3d expected_cam_from_world(
-          Eigen::Quaterniond(1, qx, 0, 0).normalized(),
-          Eigen::Vector3d(tx, 0, 0));
+      // NOLINTNEXTLINE(clang-analyzer-security.FloatLoopCounter)
+      for (double f = 0.5; f < 20; f += 2) {
+        const Rigid3d expected_cam_from_world(
+            Eigen::Quaterniond(1, qx, 0, 0).normalized(),
+            Eigen::Vector3d(tx, 0, 0));
 
-      // Project points to camera coordinate system.
-      std::vector<Eigen::Vector2d> points2D;
-      for (size_t i = 0; i < points3D.size(); ++i) {
-        points2D.push_back(
-            (expected_cam_from_world * points3D[i]).hnormalized());
-      }
+        // Project points to camera coordinate system.
+        std::vector<Eigen::Vector2d> points2D;
+        for (size_t i = 0; i < points3D.size(); ++i) {
+          points2D.push_back(
+              f * (expected_cam_from_world * points3D[i]).hnormalized());
+        }
 
-      RANSACOptions options;
-      options.max_error = 1e-5;
-      RANSAC<P3PEstimator> ransac(options);
-      const auto report = ransac.Estimate(points2D, points3D);
+        RANSACOptions options;
+        options.max_error = 1e-5;
+        RANSAC<P4PFEstimator> ransac(options);
+        const auto report = ransac.Estimate(points2D, points3D);
 
-      EXPECT_TRUE(report.success);
-      EXPECT_LT((expected_cam_from_world.ToMatrix() - report.model).norm(),
-                1e-2);
+        EXPECT_TRUE(report.success);
+        EXPECT_NEAR(report.model.focal_length, f, 1e-3);
+        EXPECT_LT(
+            (expected_cam_from_world.ToMatrix() - report.model.cam_from_world)
+                .norm(),
+            1e-3);
 
-      // Test residuals of exact points.
-      std::vector<double> residuals;
-      P3PEstimator::Residuals(points2D, points3D, report.model, &residuals);
-      for (size_t i = 0; i < residuals.size(); ++i) {
-        EXPECT_TRUE(residuals[i] < 1e-3);
-      }
+        // Test residuals of exact points.
+        std::vector<double> residuals;
+        P4PFEstimator::Residuals(points2D, points3D, report.model, &residuals);
+        for (size_t i = 0; i < residuals.size(); ++i) {
+          EXPECT_LT(residuals[i], 1e-3);
+        }
 
-      // Test residuals of faulty points.
-      P3PEstimator::Residuals(
-          points2D, points3D_faulty, report.model, &residuals);
-      for (size_t i = 0; i < residuals.size(); ++i) {
-        EXPECT_TRUE(residuals[i] > 0.1);
+        // Test residuals of faulty points.
+        P4PFEstimator::Residuals(
+            points2D, points3D_faulty, report.model, &residuals);
+        for (size_t i = 0; i < residuals.size(); ++i) {
+          EXPECT_GT(residuals[i], 0.1);
+        }
       }
     }
   }
@@ -117,6 +189,11 @@ TEST(AbsolutePose, EPNP) {
     points3D_faulty[i](0) = 20;
   }
 
+  const Camera camera = Camera::CreateFromModelId(
+      kInvalidCameraId, CameraModelId::kPinhole, 12, 34, 56);
+  auto img_from_cam_func =
+      std::bind(&Camera::ImgFromCam, &camera, std::placeholders::_1);
+
   // NOLINTNEXTLINE(clang-analyzer-security.FloatLoopCounter)
   for (double qx = 0; qx < 1; qx += 0.2) {
     // NOLINTNEXTLINE(clang-analyzer-security.FloatLoopCounter)
@@ -126,52 +203,61 @@ TEST(AbsolutePose, EPNP) {
           Eigen::Vector3d(tx, 0, 0));
 
       // Project points to camera coordinate system.
-      std::vector<Eigen::Vector2d> points2D;
+      std::vector<EPNPEstimator::X_t> points2D;
       for (size_t i = 0; i < points3D.size(); ++i) {
-        points2D.push_back(
-            (expected_cam_from_world * points3D[i]).hnormalized());
+        auto& point2D = points2D.emplace_back();
+        point2D.camera_ray =
+            (expected_cam_from_world * points3D[i]).normalized();
+        point2D.image_point = img_from_cam_func(point2D.camera_ray).value();
       }
 
       RANSACOptions options;
       options.max_error = 1e-5;
-      RANSAC<EPNPEstimator> ransac(options);
+      RANSAC<EPNPEstimator> ransac(options, EPNPEstimator(img_from_cam_func));
       const auto report = ransac.Estimate(points2D, points3D);
 
       EXPECT_TRUE(report.success);
       EXPECT_LT((expected_cam_from_world.ToMatrix() - report.model).norm(),
-                1e-4);
+                1e-3);
 
       // Test residuals of exact points.
       std::vector<double> residuals;
-      EPNPEstimator::Residuals(points2D, points3D, report.model, &residuals);
+      ransac.estimator.Residuals(points2D, points3D, report.model, &residuals);
       for (size_t i = 0; i < residuals.size(); ++i) {
-        EXPECT_TRUE(residuals[i] < 1e-3);
+        EXPECT_LT(residuals[i], 1e-3);
       }
 
       // Test residuals of faulty points.
-      EPNPEstimator::Residuals(
+      ransac.estimator.Residuals(
           points2D, points3D_faulty, report.model, &residuals);
       for (size_t i = 0; i < residuals.size(); ++i) {
-        EXPECT_TRUE(residuals[i] > 0.1);
+        EXPECT_GT(residuals[i], 0.1);
       }
     }
   }
 }
 
 TEST(AbsolutePose, EPNP_BrokenSolveSignCase) {
-  std::vector<Eigen::Vector2d> points2D;
-  points2D.emplace_back(-2.6783007931074532e-01, 5.3457197430746251e-01);
-  points2D.emplace_back(-4.2629907287470264e-01, 7.5623350319519789e-01);
-  points2D.emplace_back(-1.6767413005963930e-01, -1.3387172544910089e-01);
-  points2D.emplace_back(-5.6616329720373559e-02, 2.3621156497739373e-01);
-  points2D.emplace_back(-1.7721225948969935e-01, 2.3395366792735982e-02);
-  points2D.emplace_back(-5.1836259886632222e-02, -4.4380694271927049e-02);
-  points2D.emplace_back(-3.5897765845560037e-01, 1.6252721078589397e-01);
-  points2D.emplace_back(2.7057324473684058e-01, -1.4067450104631887e-01);
-  points2D.emplace_back(-2.5811166424334520e-01, 8.0167171300227366e-02);
-  points2D.emplace_back(2.0239567448222310e-02, -3.2845953375344145e-01);
-  points2D.emplace_back(4.2571014715170657e-01, -2.8321173570154773e-01);
-  points2D.emplace_back(-5.4597596412987237e-01, 9.1431935871671977e-02);
+  std::vector<Eigen::Vector2d> image_points;
+  image_points.emplace_back(-2.6783007931074532e-01, 5.3457197430746251e-01);
+  image_points.emplace_back(-4.2629907287470264e-01, 7.5623350319519789e-01);
+  image_points.emplace_back(-1.6767413005963930e-01, -1.3387172544910089e-01);
+  image_points.emplace_back(-5.6616329720373559e-02, 2.3621156497739373e-01);
+  image_points.emplace_back(-1.7721225948969935e-01, 2.3395366792735982e-02);
+  image_points.emplace_back(-5.1836259886632222e-02, -4.4380694271927049e-02);
+  image_points.emplace_back(-3.5897765845560037e-01, 1.6252721078589397e-01);
+  image_points.emplace_back(2.7057324473684058e-01, -1.4067450104631887e-01);
+  image_points.emplace_back(-2.5811166424334520e-01, 8.0167171300227366e-02);
+  image_points.emplace_back(2.0239567448222310e-02, -3.2845953375344145e-01);
+  image_points.emplace_back(4.2571014715170657e-01, -2.8321173570154773e-01);
+  image_points.emplace_back(-5.4597596412987237e-01, 9.1431935871671977e-02);
+
+  std::vector<EPNPEstimator::X_t> points2D;
+  for (size_t i = 0; i < image_points.size(); ++i) {
+    auto& point2D = points2D.emplace_back();
+    point2D.image_point = image_points[i];
+    point2D.camera_ray = point2D.image_point.homogeneous().normalized();
+  }
 
   std::vector<Eigen::Vector3d> points3D;
   points3D.emplace_back(
@@ -199,19 +285,66 @@ TEST(AbsolutePose, EPNP_BrokenSolveSignCase) {
   points3D.emplace_back(
       4.4592895306946758e+00, -9.1235241641579902e-03, -1.6555237117970871e+00);
 
-  const std::vector<EPNPEstimator::M_t> output =
-      EPNPEstimator::Estimate(points2D, points3D);
+  std::vector<EPNPEstimator::M_t> models;
+  EPNPEstimator estimator([](const Eigen::Vector3d& point3D_in_cam) {
+    return point3D_in_cam.hnormalized();
+  });
+  estimator.Estimate(points2D, points3D, &models);
 
-  EXPECT_EQ(output.size(), 1);
+  ASSERT_EQ(models.size(), 1);
 
   double reproj = 0.0;
   for (size_t i = 0; i < points3D.size(); ++i) {
-    reproj +=
-        ((output[0] * points3D[i].homogeneous()).hnormalized() - points2D[i])
-            .norm();
+    reproj += ((models[0] * points3D[i].homogeneous()).hnormalized() -
+               points2D[i].image_point)
+                  .norm();
   }
 
   EXPECT_TRUE(reproj < 0.2);
 }
 
+TEST(ComputeSquaredReprojectionError, Nominal) {
+  const Camera camera = Camera::CreateFromModelId(
+      kInvalidCameraId, CameraModelId::kPinhole, 12, 34, 56);
+  auto img_from_cam_func =
+      std::bind(&Camera::ImgFromCam, &camera, std::placeholders::_1);
+
+  std::vector<Eigen::Vector3d> points3D;
+  points3D.emplace_back(-1, 0, 1);
+  points3D.emplace_back(-1, 1, 1);
+  points3D.emplace_back(0, 0, -1);
+  points3D.emplace_back(0, 0, 0);
+
+  std::vector<Point2DWithRay> points2D;
+  points2D.push_back(Point2DWithRay{
+      Eigen::Vector2d(camera.PrincipalPointX(), camera.PrincipalPointY()),
+  });
+  points2D.push_back(Point2DWithRay{
+      Eigen::Vector2d(camera.PrincipalPointX(), camera.PrincipalPointY()),
+  });
+  points2D.push_back(Point2DWithRay{
+      Eigen::Vector2d::Zero(),
+  });
+  points2D.push_back(Point2DWithRay{
+      Eigen::Vector2d::Zero(),
+  });
+
+  const Rigid3d cam_from_world(Eigen::Quaterniond::Identity(),
+                               Eigen::Vector3d(1, 0, 0));
+
+  std::vector<double> residuals;
+  ComputeSquaredReprojectionError(points2D,
+                                  points3D,
+                                  cam_from_world.ToMatrix(),
+                                  img_from_cam_func,
+                                  &residuals);
+
+  EXPECT_THAT(residuals,
+              testing::ElementsAre(0,
+                                   camera.FocalLength() * camera.FocalLength(),
+                                   std::numeric_limits<double>::max(),
+                                   std::numeric_limits<double>::max()));
+}
+
+}  // namespace
 }  // namespace colmap

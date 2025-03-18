@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/util/timer.h"
 
@@ -86,18 +84,15 @@ double Timer::ElapsedMinutes() const { return ElapsedSeconds() / 60; }
 double Timer::ElapsedHours() const { return ElapsedMinutes() / 60; }
 
 void Timer::PrintSeconds() const {
-  std::cout << StringPrintf("Elapsed time: %.5f [seconds]", ElapsedSeconds())
-            << std::endl;
+  LOG(INFO) << StringPrintf("Elapsed time: %.5f [seconds]", ElapsedSeconds());
 }
 
 void Timer::PrintMinutes() const {
-  std::cout << StringPrintf("Elapsed time: %.3f [minutes]", ElapsedMinutes())
-            << std::endl;
+  LOG(INFO) << StringPrintf("Elapsed time: %.3f [minutes]", ElapsedMinutes());
 }
 
 void Timer::PrintHours() const {
-  std::cout << StringPrintf("Elapsed time: %.3f [hours]", ElapsedHours())
-            << std::endl;
+  LOG(INFO) << StringPrintf("Elapsed time: %.3f [hours]", ElapsedHours());
 }
 
 }  // namespace colmap

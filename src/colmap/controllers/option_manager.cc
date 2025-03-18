@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,27 +26,24 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/controllers/option_manager.h"
 
 #include "colmap/controllers/feature_extraction.h"
-#include "colmap/controllers/feature_matching.h"
 #include "colmap/controllers/image_reader.h"
-#include "colmap/controllers/incremental_mapper.h"
+#include "colmap/controllers/incremental_pipeline.h"
 #include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/estimators/two_view_geometry.h"
+#include "colmap/feature/pairing.h"
 #include "colmap/feature/sift.h"
 #include "colmap/math/random.h"
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/meshing.h"
 #include "colmap/mvs/patch_match.h"
 #include "colmap/ui/render_options.h"
-#include "colmap/util/misc.h"
+#include "colmap/util/file.h"
 #include "colmap/util/version.h"
 
-#include <boost/filesystem/operations.hpp>
 #include <boost/property_tree/ini_parser.hpp>
 
 namespace config = boost::program_options;
@@ -69,7 +66,7 @@ OptionManager::OptionManager(bool add_project_options) {
   transitive_matching = std::make_shared<TransitiveMatchingOptions>();
   image_pairs_matching = std::make_shared<ImagePairsMatchingOptions>();
   bundle_adjustment = std::make_shared<BundleAdjustmentOptions>();
-  mapper = std::make_shared<IncrementalMapperOptions>();
+  mapper = std::make_shared<IncrementalPipelineOptions>();
   patch_match_stereo = std::make_shared<mvs::PatchMatchOptions>();
   stereo_fusion = std::make_shared<mvs::StereoFusionOptions>();
   poisson_meshing = std::make_shared<mvs::PoissonMeshingOptions>();
@@ -114,6 +111,7 @@ void OptionManager::ModifyForLowQuality() {
   sift_extraction->max_image_size = 1000;
   sift_extraction->max_num_features = 2048;
   sequential_matching->loop_detection_num_images /= 2;
+  vocab_tree_matching->max_num_features = 256;
   vocab_tree_matching->num_images /= 2;
   mapper->ba_local_max_num_iterations /= 2;
   mapper->ba_global_max_num_iterations /= 2;
@@ -134,6 +132,7 @@ void OptionManager::ModifyForMediumQuality() {
   sift_extraction->max_image_size = 1600;
   sift_extraction->max_num_features = 4096;
   sequential_matching->loop_detection_num_images /= 1.5;
+  vocab_tree_matching->max_num_features = 1024;
   vocab_tree_matching->num_images /= 1.5;
   mapper->ba_local_max_num_iterations /= 1.5;
   mapper->ba_global_max_num_iterations /= 1.5;
@@ -155,6 +154,7 @@ void OptionManager::ModifyForHighQuality() {
   sift_extraction->max_image_size = 2400;
   sift_extraction->max_num_features = 8192;
   sift_matching->guided_matching = true;
+  vocab_tree_matching->max_num_features = 4096;
   mapper->ba_local_max_num_iterations = 30;
   mapper->ba_local_max_refinements = 3;
   mapper->ba_global_max_num_iterations = 75;
@@ -409,8 +409,6 @@ void OptionManager::AddSpatialMatchingOptions() {
 
   AddMatchingOptions();
 
-  AddAndRegisterDefaultOption("SpatialMatching.is_gps",
-                              &spatial_matching->is_gps);
   AddAndRegisterDefaultOption("SpatialMatching.ignore_z",
                               &spatial_matching->ignore_z);
   AddAndRegisterDefaultOption("SpatialMatching.max_num_neighbors",
@@ -474,6 +472,27 @@ void OptionManager::AddBundleAdjustmentOptions() {
                               &bundle_adjustment->refine_extra_params);
   AddAndRegisterDefaultOption("BundleAdjustment.refine_extrinsics",
                               &bundle_adjustment->refine_extrinsics);
+  AddAndRegisterDefaultOption("BundleAdjustment.use_gpu",
+                              &bundle_adjustment->use_gpu);
+  AddAndRegisterDefaultOption("BundleAdjustment.gpu_index",
+                              &bundle_adjustment->gpu_index);
+  AddAndRegisterDefaultOption("BundleAdjustment.min_num_images_gpu_solver",
+                              &bundle_adjustment->min_num_images_gpu_solver);
+  AddAndRegisterDefaultOption(
+      "BundleAdjustment.min_num_residuals_for_cpu_multi_threading",
+      &bundle_adjustment->min_num_residuals_for_cpu_multi_threading);
+  AddAndRegisterDefaultOption(
+      "BundleAdjustment.max_num_images_direct_dense_cpu_solver",
+      &bundle_adjustment->max_num_images_direct_dense_cpu_solver);
+  AddAndRegisterDefaultOption(
+      "BundleAdjustment.max_num_images_direct_sparse_cpu_solver",
+      &bundle_adjustment->max_num_images_direct_sparse_cpu_solver);
+  AddAndRegisterDefaultOption(
+      "BundleAdjustment.max_num_images_direct_dense_gpu_solver",
+      &bundle_adjustment->max_num_images_direct_dense_gpu_solver);
+  AddAndRegisterDefaultOption(
+      "BundleAdjustment.max_num_images_direct_sparse_gpu_solver",
+      &bundle_adjustment->max_num_images_direct_sparse_gpu_solver);
 }
 
 void OptionManager::AddMapperOptions() {
@@ -510,9 +529,6 @@ void OptionManager::AddMapperOptions() {
                               &mapper->ba_refine_principal_point);
   AddAndRegisterDefaultOption("Mapper.ba_refine_extra_params",
                               &mapper->ba_refine_extra_params);
-  AddAndRegisterDefaultOption(
-      "Mapper.ba_min_num_residuals_for_multi_threading",
-      &mapper->ba_min_num_residuals_for_multi_threading);
   AddAndRegisterDefaultOption("Mapper.ba_local_num_images",
                               &mapper->ba_local_num_images);
   AddAndRegisterDefaultOption("Mapper.ba_local_function_tolerance",
@@ -539,6 +555,11 @@ void OptionManager::AddMapperOptions() {
                               &mapper->ba_local_max_refinements);
   AddAndRegisterDefaultOption("Mapper.ba_local_max_refinement_change",
                               &mapper->ba_local_max_refinement_change);
+  AddAndRegisterDefaultOption("Mapper.ba_use_gpu", &mapper->ba_use_gpu);
+  AddAndRegisterDefaultOption("Mapper.ba_gpu_index", &mapper->ba_gpu_index);
+  AddAndRegisterDefaultOption(
+      "Mapper.ba_min_num_residuals_for_cpu_multi_threading",
+      &mapper->ba_min_num_residuals_for_cpu_multi_threading);
   AddAndRegisterDefaultOption("Mapper.snapshot_path", &mapper->snapshot_path);
   AddAndRegisterDefaultOption("Mapper.snapshot_images_freq",
                               &mapper->snapshot_images_freq);
@@ -744,8 +765,7 @@ void OptionManager::AddRenderOptions() {
 }
 
 void OptionManager::Reset() {
-  FLAGS_logtostderr = false;
-  FLAGS_v = 2;
+  FLAGS_logtostderr = true;
 
   const bool kResetPaths = true;
   ResetOptions(kResetPaths);
@@ -794,7 +814,7 @@ void OptionManager::ResetOptions(const bool reset_paths) {
   *transitive_matching = TransitiveMatchingOptions();
   *image_pairs_matching = ImagePairsMatchingOptions();
   *bundle_adjustment = BundleAdjustmentOptions();
-  *mapper = IncrementalMapperOptions();
+  *mapper = IncrementalPipelineOptions();
   *patch_match_stereo = mvs::PatchMatchOptions();
   *stereo_fusion = mvs::StereoFusionOptions();
   *poisson_meshing = mvs::PoissonMeshingOptions();
@@ -849,18 +869,12 @@ void OptionManager::Parse(const int argc, char** argv) {
     config::store(config::parse_command_line(argc, argv, *desc_), vmap);
 
     if (vmap.count("help")) {
-      std::cout << StringPrintf("%s (%s)",
-                                GetVersionInfo().c_str(),
-                                GetBuildInfo().c_str())
-                << std::endl
-                << std::endl;
-      std::cout
-          << "Options can either be specified via command-line or by defining"
-          << std::endl
-          << "them in a .ini project file passed to `--project_path`."
-          << std::endl
-          << std::endl;
-      std::cout << *desc_ << std::endl;
+      LOG(INFO) << StringPrintf(
+          "%s (%s)", GetVersionInfo().c_str(), GetBuildInfo().c_str());
+      LOG(INFO)
+          << "Options can either be specified via command-line or by defining "
+             "them in a .ini project file passed to `--project_path`.\n"
+          << *desc_;
       // NOLINTNEXTLINE(concurrency-mt-unsafe)
       exit(EXIT_SUCCESS);
     }
@@ -875,19 +889,17 @@ void OptionManager::Parse(const int argc, char** argv) {
       vmap.notify();
     }
   } catch (std::exception& exc) {
-    std::cerr << "ERROR: Failed to parse options - " << exc.what() << "."
-              << std::endl;
+    LOG(ERROR) << "Failed to parse options - " << exc.what() << ".";
     // NOLINTNEXTLINE(concurrency-mt-unsafe)
     exit(EXIT_FAILURE);
   } catch (...) {
-    std::cerr << "ERROR: Failed to parse options for unknown reason."
-              << std::endl;
+    LOG(ERROR) << "Failed to parse options for unknown reason.";
     // NOLINTNEXTLINE(concurrency-mt-unsafe)
     exit(EXIT_FAILURE);
   }
 
   if (!Check()) {
-    std::cerr << "ERROR: Invalid options provided." << std::endl;
+    LOG(ERROR) << "Invalid options provided.";
     // NOLINTNEXTLINE(concurrency-mt-unsafe)
     exit(EXIT_FAILURE);
   }
@@ -897,22 +909,20 @@ bool OptionManager::Read(const std::string& path) {
   config::variables_map vmap;
 
   if (!ExistsFile(path)) {
-    std::cout << "ERROR: Configuration file does not exist." << std::endl;
+    LOG(ERROR) << "Configuration file does not exist.";
     return false;
   }
 
   try {
     std::ifstream file(path);
-    CHECK(file.is_open()) << path;
+    THROW_CHECK_FILE_OPEN(file, path);
     config::store(config::parse_config_file(file, *desc_), vmap);
     vmap.notify();
   } catch (std::exception& e) {
-    std::cout << "ERROR: Failed to parse options " << e.what() << "."
-              << std::endl;
+    LOG(ERROR) << "Failed to parse options " << e.what() << ".";
     return false;
   } catch (...) {
-    std::cout << "ERROR: Failed to parse options for unknown reason."
-              << std::endl;
+    LOG(ERROR) << "Failed to parse options for unknown reason.";
     return false;
   }
 
@@ -981,7 +991,12 @@ void OptionManager::Write(const std::string& path) const {
     }
   }
 
-  boost::property_tree::write_ini(path, pt);
+  std::ofstream file(path);
+  THROW_CHECK_FILE_OPEN(file, path);
+  // Ensure that we don't lose any precision by storing in text.
+  file.precision(17);
+  boost::property_tree::write_ini(file, pt);
+  file.close();
 }
 
 }  // namespace colmap

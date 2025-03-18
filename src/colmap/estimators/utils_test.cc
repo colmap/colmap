@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/estimators/utils.h"
 
@@ -36,6 +34,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(CenterAndNormalizeImagePoints, Nominal) {
   std::vector<Eigen::Vector2d> points;
@@ -82,27 +81,5 @@ TEST(ComputeSquaredSampsonError, Nominal) {
   EXPECT_EQ(residuals[2], 2);
 }
 
-TEST(ComputeSquaredReprojectionError, Nominal) {
-  std::vector<Eigen::Vector2d> points2D;
-  points2D.emplace_back(0, 0);
-  points2D.emplace_back(0, 0);
-  points2D.emplace_back(0, 0);
-  std::vector<Eigen::Vector3d> points3D;
-  points3D.emplace_back(2, 0, 1);
-  points3D.emplace_back(2, 1, 1);
-  points3D.emplace_back(2, 2, 1);
-
-  const Rigid3d cam_from_world(Eigen::Quaterniond::Identity(),
-                               Eigen::Vector3d(1, 0, 0));
-
-  std::vector<double> residuals;
-  ComputeSquaredReprojectionError(
-      points2D, points3D, cam_from_world.ToMatrix(), &residuals);
-
-  EXPECT_EQ(residuals.size(), 3);
-  EXPECT_EQ(residuals[0], 9);
-  EXPECT_EQ(residuals[1], 10);
-  EXPECT_EQ(residuals[2], 13);
-}
-
+}  // namespace
 }  // namespace colmap

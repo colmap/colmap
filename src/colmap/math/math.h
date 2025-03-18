@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #pragma once
 
@@ -63,9 +61,19 @@ inline double DegToRad(double deg);
 inline float RadToDeg(float rad);
 inline double RadToDeg(double rad);
 
-// Determine median value in vector. Returns NaN for empty vectors.
+// Compute the n-th percentile. Reorders elements in-place.
+// Performs linear interpolation between values.
 template <typename T>
-double Median(const std::vector<T>& elems);
+double Percentile(std::vector<T>& elems, double p);
+template <typename T>
+double Percentile(std::vector<T>&& elems, double p);
+
+// Determine median value. Reorderes elements in-place.
+// Performs linear interpolation between mid values.
+template <typename T>
+double Median(std::vector<T>& elems);
+template <typename T>
+double Median(std::vector<T>&& elems);
 
 // Determine mean value in a vector.
 template <typename T>
@@ -103,16 +111,12 @@ template <typename T>
 T ScaleSigmoid(T x, T alpha = 1, T x0 = 10);
 
 // Binomial coefficient or all combinations, defined as n! / ((n - k)! k!).
-size_t NChooseK(size_t n, size_t k);
+uint64_t NChooseK(uint64_t n, uint64_t k);
 
 // Cast value from one type to another and truncate instead of overflow, if the
 // input value is out of range of the output data type.
 template <typename T1, typename T2>
 T2 TruncateCast(T1 value);
-
-// Compute the n-th percentile in the given sequence.
-template <typename T>
-T Percentile(const std::vector<T>& elems, double p);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
@@ -188,47 +192,45 @@ double RadToDeg(const double rad) {
 }
 
 template <typename T>
-double Median(const std::vector<T>& elems) {
-  CHECK(!elems.empty());
-
-  const size_t mid_idx = elems.size() / 2;
-
-  std::vector<T> ordered_elems = elems;
-  std::nth_element(ordered_elems.begin(),
-                   ordered_elems.begin() + mid_idx,
-                   ordered_elems.end());
-
-  if (elems.size() % 2 == 0) {
-    const T mid_element1 = ordered_elems[mid_idx];
-    const T mid_element2 = *std::max_element(ordered_elems.begin(),
-                                             ordered_elems.begin() + mid_idx);
-    return 0.5 * mid_element1 + 0.5 * mid_element2;
+double Percentile(std::vector<T>& elems, const double p) {
+  THROW_CHECK(!elems.empty());
+  THROW_CHECK_GE(p, 0);
+  THROW_CHECK_LE(p, 100);
+  const double idx_double = p / 100. * (elems.size() - 1);
+  const double left_idx_double = std::floor(idx_double);
+  const size_t left_idx = static_cast<size_t>(left_idx_double);
+  const double right_idx_double = std::ceil(idx_double);
+  const size_t right_idx = static_cast<size_t>(right_idx_double);
+  std::nth_element(elems.begin(), elems.begin() + right_idx, elems.end());
+  const double right = elems[right_idx];
+  if (left_idx == right_idx) {
+    return right;
   } else {
-    return ordered_elems[mid_idx];
+    const double left =
+        *std::max_element(elems.begin(), elems.begin() + right_idx);
+    return (right_idx_double - idx_double) * left +
+           (idx_double - left_idx_double) * right;
   }
 }
 
 template <typename T>
-T Percentile(const std::vector<T>& elems, const double p) {
-  CHECK(!elems.empty());
-  CHECK_GE(p, 0);
-  CHECK_LE(p, 100);
+double Percentile(std::vector<T>&& elems, const double p) {
+  return Percentile(elems, p);
+}
 
-  const int idx = static_cast<int>(std::round(p / 100 * (elems.size() - 1)));
-  const size_t percentile_idx =
-      std::max(0, std::min(static_cast<int>(elems.size() - 1), idx));
+template <typename T>
+double Median(std::vector<T>& elems) {
+  return Percentile(elems, 50);
+}
 
-  std::vector<T> ordered_elems = elems;
-  std::nth_element(ordered_elems.begin(),
-                   ordered_elems.begin() + percentile_idx,
-                   ordered_elems.end());
-
-  return ordered_elems.at(percentile_idx);
+template <typename T>
+double Median(std::vector<T>&& elems) {
+  return Median(elems);
 }
 
 template <typename T>
 double Mean(const std::vector<T>& elems) {
-  CHECK(!elems.empty());
+  THROW_CHECK(!elems.empty());
   double sum = 0;
   for (const auto el : elems) {
     sum += static_cast<double>(el);

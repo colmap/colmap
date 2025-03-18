@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #pragma once
 
@@ -37,18 +35,20 @@ namespace colmap {
 
 // This enum can be used as optional input for feature_extractor and
 // feature_importer to ensure that the camera flags of ImageReader are set in an
-// exclusive and unambigous way. The table below explains the corespondence of
+// exclusive and unambiguous way. The table below explains the correspondence of
 // each setting with the flags
 //
+// clang-format off
 // -----------------------------------------------------------------------------------
-// |            |                         ImageReaderOptions | | CameraMode |
-// single_camera | single_camera_per_folder | single_camera_per_image |
+// |            |                         ImageReaderOptions                         |
+// | CameraMode | single_camera | single_camera_per_folder | single_camera_per_image |
 // |------------|---------------|--------------------------|-------------------------|
-// | AUTO       | false         | false                    | false | | SINGLE |
-// true          | false                    | false                   | |
-// PER_FOLDER | false         | true                     | false | | PER_IMAGE
-// | false         | false                    | true                    |
+// | AUTO       | false         | false                    | false                   |
+// | SINGLE     | true          | false                    | false                   |
+// | PER_FOLDER | false         | true                     | false                   |
+// | PER_IMAGE  | false         | false                    | true                    |
 // -----------------------------------------------------------------------------------
+// clang-format on
 //
 // Note: When using AUTO mode a camera model will be uniquely identified by the
 // following 5 parameters from EXIF tags:
@@ -70,6 +70,11 @@ enum class CameraMode { AUTO = 0, SINGLE = 1, PER_FOLDER = 2, PER_IMAGE = 3 };
 
 void UpdateImageReaderOptionsFromCameraMode(ImageReaderOptions& options,
                                             CameraMode mode);
+
+bool VerifySiftGPUParams(bool use_gpu);
+
+bool VerifyCameraParams(const std::string& camera_model,
+                        const std::string& params);
 
 int RunFeatureExtractor(int argc, char** argv);
 int RunFeatureImporter(int argc, char** argv);

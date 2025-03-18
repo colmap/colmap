@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/ui/movie_grabber_widget.h"
 
@@ -294,9 +292,9 @@ void MovieGrabberWidget::UpdateViews() {
     const Eigen::Matrix4d model_view_matrix =
         QMatrixToEigen(view_data_.at(item).model_view_matrix).cast<double>();
     Image image;
-    image.CamFromWorld() =
+    image.SetCamFromWorld(
         Rigid3d(Eigen::Quaterniond(model_view_matrix.topLeftCorner<3, 3>()),
-                model_view_matrix.topRightCorner<3, 1>());
+                model_view_matrix.topRightCorner<3, 1>()));
     views.push_back(image);
   }
 }

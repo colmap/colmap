@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,15 +26,9 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #pragma once
 
-#include "colmap/util/endian.h"
-#include "colmap/util/logging.h"
-
-#include <fstream>
 #include <string>
 #include <vector>
 
@@ -151,32 +145,6 @@ void Mat<T>::Set(const size_t row,
 template <typename T>
 void Mat<T>::Fill(const T value) {
   std::fill(data_.begin(), data_.end(), value);
-}
-
-template <typename T>
-void Mat<T>::Read(const std::string& path) {
-  std::ifstream file(path, std::ios::binary);
-  CHECK(file.is_open()) << path;
-
-  char unused_char;
-  file >> width_ >> unused_char >> height_ >> unused_char >> depth_ >>
-      unused_char;
-  CHECK_GT(width_, 0) << path;
-  CHECK_GT(height_, 0) << path;
-  CHECK_GT(depth_, 0) << path;
-  data_.resize(width_ * height_ * depth_);
-
-  ReadBinaryLittleEndian<T>(&file, &data_);
-  file.close();
-}
-
-template <typename T>
-void Mat<T>::Write(const std::string& path) const {
-  std::ofstream file(path, std::ios::binary);
-  CHECK(file.is_open()) << path;
-  file << width_ << "&" << height_ << "&" << depth_ << "&";
-  WriteBinaryLittleEndian<T>(&file, data_);
-  file.close();
 }
 
 }  // namespace mvs

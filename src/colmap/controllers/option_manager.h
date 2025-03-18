@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #pragma once
 
@@ -50,7 +48,7 @@ struct SpatialMatchingOptions;
 struct TransitiveMatchingOptions;
 struct ImagePairsMatchingOptions;
 struct BundleAdjustmentOptions;
-struct IncrementalMapperOptions;
+struct IncrementalPipelineOptions;
 struct RenderOptions;
 
 namespace mvs {
@@ -136,7 +134,7 @@ class OptionManager {
   std::shared_ptr<ImagePairsMatchingOptions> image_pairs_matching;
 
   std::shared_ptr<BundleAdjustmentOptions> bundle_adjustment;
-  std::shared_ptr<IncrementalMapperOptions> mapper;
+  std::shared_ptr<IncrementalPipelineOptions> mapper;
 
   std::shared_ptr<mvs::PatchMatchOptions> patch_match_stereo;
   std::shared_ptr<mvs::StereoFusionOptions> stereo_fusion;
@@ -242,7 +240,7 @@ void OptionManager::RegisterOption(const std::string& name, const T* option) {
     options_string_.emplace_back(name,
                                  reinterpret_cast<const std::string*>(option));
   } else {
-    LOG(FATAL) << "Unsupported option type";
+    LOG(FATAL_THROW) << "Unsupported option type";
   }
 }
 

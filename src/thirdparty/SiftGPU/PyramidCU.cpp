@@ -237,6 +237,7 @@ void PyramidCU::ResizePyramid(int w, int h)
 			if(	j >= 1 && j < 1 + param._dog_level_num)
 			{
 				got->InitTexture(wa, h, 2); //2 * nlev - 6
+				got->InitTexture2D();
 			}
 			if(j > 1 && j < nlev -1)	key->InitTexture(wa, h, 4); // nlev -3 ; 4 * nlev - 12
 		}
@@ -295,6 +296,7 @@ void PyramidCU::FitPyramid(int w, int h)
 			if(	j >= 1 && j < 1 + param._dog_level_num)
 			{
 				got->InitTexture(wa, h, 2); //2 * nlev - 6
+				got->InitTexture2D();
 			}
 			if(j > 1 && j < nlev -1)	key->InitTexture(wa, h, 4); // nlev -3 ; 4 * nlev - 12
 		}
@@ -1082,7 +1084,7 @@ void PyramidCU::CopyGradientTex()
 		//compute the gradient
 		for(int j = 0; j <  param._dog_level_num ; j++, got++, idx++)
 		{
-			// if(_levelFeatureNum[idx] > 0)	got->CopyToTexture2D();
+			if(_levelFeatureNum[idx] > 0)	got->CopyToTexture2D();
 		}
 	}
 	if(GlobalUtil::_timingS)
@@ -1192,4 +1194,3 @@ CuTexImage* PyramidCU::GetBaseLevel(int octave, int dataName)
 }
 
 #endif
-

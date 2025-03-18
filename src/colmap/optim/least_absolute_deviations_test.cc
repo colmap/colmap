@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,17 +26,18 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/optim/least_absolute_deviations.h"
 
 #include "colmap/math/random.h"
+#include "colmap/util/eigen_alignment.h"
+#include "colmap/util/eigen_matchers.h"
 
 #include <Eigen/Dense>
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(SolveLeastAbsoluteDeviations, OverDetermined) {
   Eigen::SparseMatrix<double> A(4, 3);
@@ -58,8 +59,7 @@ TEST(SolveLeastAbsoluteDeviations, OverDetermined) {
   EXPECT_TRUE(SolveLeastAbsoluteDeviations(options, A, b, &x));
 
   // Reference solution obtained with Boyd's Matlab implementation.
-  const Eigen::Vector3d x_ref(0, 0, 1 / 3.0);
-  EXPECT_TRUE(x.isApprox(x_ref));
+  EXPECT_THAT(x, EigenMatrixNear(Eigen::Vector3d(0, 0, 1 / 3.0)));
 
   const Eigen::VectorXd residual = A * x - b;
   EXPECT_LE(residual.norm(), 1e-6);
@@ -85,8 +85,7 @@ TEST(SolveLeastAbsoluteDeviations, WellDetermined) {
   EXPECT_TRUE(SolveLeastAbsoluteDeviations(options, A, b, &x));
 
   // Reference solution obtained with Boyd's Matlab implementation.
-  const Eigen::Vector3d x_ref(0, 0, 1 / 3.0);
-  EXPECT_TRUE(x.isApprox(x_ref));
+  EXPECT_THAT(x, EigenMatrixNear(Eigen::Vector3d(0, 0, 1 / 3.0)));
 
   const Eigen::VectorXd residual = A * x - b;
   EXPECT_LE(residual.norm(), 1e-6);
@@ -101,4 +100,5 @@ TEST(SolveLeastAbsoluteDeviations, UnderDetermined) {
   EXPECT_FALSE(SolveLeastAbsoluteDeviations(options, A, b, &x));
 }
 
+}  // namespace
 }  // namespace colmap

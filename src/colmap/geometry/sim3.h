@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,11 +26,10 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #pragma once
 
+#include "colmap/util/eigen_alignment.h"
 #include "colmap/util/types.h"
 
 #include <vector>
@@ -60,9 +59,14 @@ struct Sim3d {
     return matrix;
   }
 
-  // Estimate tgtFromSrc transform. Return true if successful.
-  bool Estimate(const std::vector<Eigen::Vector3d>& src,
-                const std::vector<Eigen::Vector3d>& tgt);
+  static inline Sim3d FromMatrix(const Eigen::Matrix3x4d& matrix) {
+    Sim3d t;
+    t.scale = matrix.col(0).norm();
+    t.rotation =
+        Eigen::Quaterniond(matrix.leftCols<3>() / t.scale).normalized();
+    t.translation = matrix.rightCols<1>();
+    return t;
+  }
 
   // Read from or write to text file without loss of precision.
   void ToFile(const std::string& path) const;
@@ -99,13 +103,24 @@ inline Eigen::Vector3d operator*(const Sim3d& t, const Eigen::Vector3d& x) {
 // Concatenate transforms such one can write expressions like:
 //      d_from_a = d_from_c * c_from_b * b_from_a
 inline Sim3d operator*(const Sim3d& c_from_b, const Sim3d& b_from_a) {
-  Sim3d cFromA;
-  cFromA.scale = c_from_b.scale * b_from_a.scale;
-  cFromA.rotation = (c_from_b.rotation * b_from_a.rotation).normalized();
-  cFromA.translation =
+  Sim3d c_from_a;
+  c_from_a.scale = c_from_b.scale * b_from_a.scale;
+  c_from_a.rotation = (c_from_b.rotation * b_from_a.rotation).normalized();
+  c_from_a.translation =
       c_from_b.translation +
       (c_from_b.scale * (c_from_b.rotation * b_from_a.translation));
-  return cFromA;
+  return c_from_a;
 }
+
+inline bool operator==(const Sim3d& left, const Sim3d& right) {
+  return left.scale == right.scale &&
+         left.rotation.coeffs() == right.rotation.coeffs() &&
+         left.translation == right.translation;
+}
+inline bool operator!=(const Sim3d& left, const Sim3d& right) {
+  return !(left == right);
+}
+
+std::ostream& operator<<(std::ostream& stream, const Sim3d& tform);
 
 }  // namespace colmap

@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,16 +26,17 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/controllers/feature_extraction.h"
 
 #include "colmap/feature/sift.h"
+#include "colmap/geometry/gps.h"
 #include "colmap/scene/database.h"
 #include "colmap/util/cuda.h"
+#include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/opengl_utils.h"
+#include "colmap/util/timer.h"
 
 #include <numeric>
 
@@ -45,10 +46,10 @@ namespace {
 void ScaleKeypoints(const Bitmap& bitmap,
                     const Camera& camera,
                     FeatureKeypoints* keypoints) {
-  if (static_cast<size_t>(bitmap.Width()) != camera.Width() ||
-      static_cast<size_t>(bitmap.Height()) != camera.Height()) {
-    const float scale_x = static_cast<float>(camera.Width()) / bitmap.Width();
-    const float scale_y = static_cast<float>(camera.Height()) / bitmap.Height();
+  if (static_cast<size_t>(bitmap.Width()) != camera.width ||
+      static_cast<size_t>(bitmap.Height()) != camera.height) {
+    const float scale_x = static_cast<float>(camera.width) / bitmap.Width();
+    const float scale_y = static_cast<float>(camera.height) / bitmap.Height();
     for (auto& keypoint : *keypoints) {
       keypoint.Rescale(scale_x, scale_y);
     }
@@ -88,6 +89,7 @@ struct ImageData {
 
   Camera camera;
   Image image;
+  PosePrior pose_prior;
   Bitmap bitmap;
   Bitmap mask;
 
@@ -154,7 +156,7 @@ class SiftFeatureExtractorThread : public Thread {
         camera_mask_(camera_mask),
         input_queue_(input_queue),
         output_queue_(output_queue) {
-    CHECK(sift_options_.Check());
+    THROW_CHECK(sift_options_.Check());
 
 #if !defined(COLMAP_CUDA_ENABLED)
     if (sift_options_.use_gpu) {
@@ -167,15 +169,15 @@ class SiftFeatureExtractorThread : public Thread {
   void Run() override {
     if (sift_options_.use_gpu) {
 #if !defined(COLMAP_CUDA_ENABLED)
-      CHECK(opengl_context_);
-      CHECK(opengl_context_->MakeCurrent());
+      THROW_CHECK_NOTNULL(opengl_context_);
+      THROW_CHECK(opengl_context_->MakeCurrent());
 #endif
     }
 
     std::unique_ptr<FeatureExtractor> extractor =
         CreateSiftFeatureExtractor(sift_options_);
     if (extractor == nullptr) {
-      std::cerr << "ERROR: Failed to create feature extractor." << std::endl;
+      LOG(ERROR) << "Failed to create feature extractor.";
       SignalInvalidSetup();
       return;
     }
@@ -253,74 +255,47 @@ class FeatureWriterThread : public Thread {
 
         image_index += 1;
 
-        std::cout << StringPrintf(
-                         "Processed file [%d/%d]", image_index, num_images_)
-                  << std::endl;
+        LOG(INFO) << StringPrintf(
+            "Processed file [%d/%d]", image_index, num_images_);
 
-        std::cout << StringPrintf("  Name:            %s",
-                                  image_data.image.Name().c_str())
-                  << std::endl;
-
-        if (image_data.status == ImageReader::Status::IMAGE_EXISTS) {
-          std::cout << "  SKIP: Features for image already extracted."
-                    << std::endl;
-        } else if (image_data.status == ImageReader::Status::BITMAP_ERROR) {
-          std::cout << "  ERROR: Failed to read image file format."
-                    << std::endl;
-        } else if (image_data.status ==
-                   ImageReader::Status::CAMERA_SINGLE_DIM_ERROR) {
-          std::cout << "  ERROR: Single camera specified, "
-                       "but images have different dimensions."
-                    << std::endl;
-        } else if (image_data.status ==
-                   ImageReader::Status::CAMERA_EXIST_DIM_ERROR) {
-          std::cout << "  ERROR: Image previously processed, but current image "
-                       "has different dimensions."
-                    << std::endl;
-        } else if (image_data.status ==
-                   ImageReader::Status::CAMERA_PARAM_ERROR) {
-          std::cout << "  ERROR: Camera has invalid parameters." << std::endl;
-        } else if (image_data.status == ImageReader::Status::FAILURE) {
-          std::cout << "  ERROR: Failed to extract features." << std::endl;
-        }
+        LOG(INFO) << StringPrintf("  Name:            %s",
+                                  image_data.image.Name().c_str());
 
         if (image_data.status != ImageReader::Status::SUCCESS) {
+          LOG(ERROR) << image_data.image.Name() << " "
+                     << ImageReader::StatusToString(image_data.status);
           continue;
         }
 
-        std::cout << StringPrintf("  Dimensions:      %d x %d",
-                                  image_data.camera.Width(),
-                                  image_data.camera.Height())
-                  << std::endl;
-        std::cout << StringPrintf("  Camera:          #%d - %s",
-                                  image_data.camera.CameraId(),
-                                  image_data.camera.ModelName().c_str())
-                  << std::endl;
-        std::cout << StringPrintf("  Focal Length:    %.2fpx",
-                                  image_data.camera.MeanFocalLength());
-        if (image_data.camera.HasPriorFocalLength()) {
-          std::cout << " (Prior)" << std::endl;
-        } else {
-          std::cout << std::endl;
+        LOG(INFO) << StringPrintf("  Dimensions:      %d x %d",
+                                  image_data.camera.width,
+                                  image_data.camera.height);
+        LOG(INFO) << StringPrintf("  Camera:          #%d - %s",
+                                  image_data.camera.camera_id,
+                                  image_data.camera.ModelName().c_str());
+        LOG(INFO) << StringPrintf(
+            "  Focal Length:    %.2fpx%s",
+            image_data.camera.MeanFocalLength(),
+            image_data.camera.has_prior_focal_length ? " (Prior)" : "");
+        LOG(INFO) << StringPrintf("  Features:        %d",
+                                  image_data.keypoints.size());
+        if (image_data.mask.Data()) {
+          LOG(INFO) << "  Mask:            Yes";
         }
-        const Eigen::Vector3d& translation_prior =
-            image_data.image.CamFromWorldPrior().translation;
-        if (translation_prior.array().isFinite().any()) {
-          std::cout << StringPrintf(
-                           "  GPS:             LAT=%.3f, LON=%.3f, ALT=%.3f",
-                           translation_prior.x(),
-                           translation_prior.y(),
-                           translation_prior.z())
-                    << std::endl;
-        }
-        std::cout << StringPrintf("  Features:        %d",
-                                  image_data.keypoints.size())
-                  << std::endl;
 
         DatabaseTransaction database_transaction(database_);
 
         if (image_data.image.ImageId() == kInvalidImageId) {
           image_data.image.SetImageId(database_->WriteImage(image_data.image));
+          if (image_data.pose_prior.IsValid()) {
+            LOG(INFO) << StringPrintf(
+                "  GPS:             LAT=%.3f, LON=%.3f, ALT=%.3f",
+                image_data.pose_prior.position.x(),
+                image_data.pose_prior.position.y(),
+                image_data.pose_prior.position.z());
+            database_->WritePosePrior(image_data.image.ImageId(),
+                                      image_data.pose_prior);
+          }
         }
 
         if (!database_->ExistsKeypoints(image_data.image.ImageId())) {
@@ -352,23 +327,28 @@ class FeatureExtractorController : public Thread {
         sift_options_(sift_options),
         database_(reader_options_.database_path),
         image_reader_(reader_options_, &database_) {
-    CHECK(reader_options_.Check());
-    CHECK(sift_options_.Check());
+    THROW_CHECK(reader_options_.Check());
+    THROW_CHECK(sift_options_.Check());
 
     std::shared_ptr<Bitmap> camera_mask;
     if (!reader_options_.camera_mask_path.empty()) {
-      camera_mask = std::make_shared<Bitmap>();
-      if (!camera_mask->Read(reader_options_.camera_mask_path,
-                             /*as_rgb*/ false)) {
-        std::cerr << "  ERROR: Cannot read camera mask file: "
-                  << reader_options_.camera_mask_path
-                  << ". No mask is going to be used." << std::endl;
-        camera_mask.reset();
+      if (ExistsFile(reader_options_.camera_mask_path)) {
+        camera_mask = std::make_shared<Bitmap>();
+        if (!camera_mask->Read(reader_options_.camera_mask_path,
+                               /*as_rgb*/ false)) {
+          LOG(ERROR) << "Failed to read invalid mask file at: "
+                     << reader_options_.camera_mask_path
+                     << ". No mask is going to be used.";
+          camera_mask.reset();
+        }
+      } else {
+        LOG(ERROR) << "Mask at " << reader_options_.camera_mask_path
+                   << " does not exist.";
       }
     }
 
     const int num_threads = GetEffectiveNumThreads(sift_options_.num_threads);
-    CHECK_GT(num_threads, 0);
+    THROW_CHECK_GT(num_threads, 0);
 
     // Make sure that we only have limited number of objects in the queue to
     // avoid excess in memory usage since images and features take lots of
@@ -390,12 +370,12 @@ class FeatureExtractorController : public Thread {
     if (!sift_options_.domain_size_pooling &&
         !sift_options_.estimate_affine_shape && sift_options_.use_gpu) {
       std::vector<int> gpu_indices = CSVToVector<int>(sift_options_.gpu_index);
-      CHECK_GT(gpu_indices.size(), 0);
+      THROW_CHECK_GT(gpu_indices.size(), 0);
 
 #if defined(COLMAP_CUDA_ENABLED)
       if (gpu_indices.size() == 1 && gpu_indices[0] == -1) {
         const int num_cuda_devices = GetNumCudaDevices();
-        CHECK_GT(num_cuda_devices, 0);
+        THROW_CHECK_GT(num_cuda_devices, 0);
         gpu_indices.resize(num_cuda_devices);
         std::iota(gpu_indices.begin(), gpu_indices.end(), 0);
       }
@@ -415,15 +395,14 @@ class FeatureExtractorController : public Thread {
           sift_options_.max_image_size ==
               SiftExtractionOptions().max_image_size &&
           sift_options_.first_octave == SiftExtractionOptions().first_octave) {
-        std::cout
-            << "WARNING: Your current options use the maximum number of "
+        LOG(WARNING)
+            << "Your current options use the maximum number of "
                "threads on the machine to extract features. Extracting SIFT "
                "features on the CPU can consume a lot of RAM per thread for "
                "large images. Consider reducing the maximum image size and/or "
                "the first octave or manually limit the number of extraction "
                "threads. Ignore this warning, if your machine has sufficient "
-               "memory for the current settings."
-            << std::endl;
+               "memory for the current settings.";
       }
 
       auto custom_sift_options = sift_options_;
@@ -444,6 +423,8 @@ class FeatureExtractorController : public Thread {
  private:
   void Run() override {
     PrintHeading1("Feature extraction");
+    Timer run_timer;
+    run_timer.Start();
 
     for (auto& resizer : resizers_) {
       resizer->Start();
@@ -473,6 +454,7 @@ class FeatureExtractorController : public Thread {
       ImageData image_data;
       image_data.status = image_reader_.Next(&image_data.camera,
                                              &image_data.image,
+                                             &image_data.pose_prior,
                                              &image_data.bitmap,
                                              &image_data.mask);
 
@@ -481,9 +463,9 @@ class FeatureExtractorController : public Thread {
       }
 
       if (sift_options_.max_image_size > 0) {
-        CHECK(resizer_queue_->Push(std::move(image_data)));
+        THROW_CHECK(resizer_queue_->Push(std::move(image_data)));
       } else {
-        CHECK(extractor_queue_->Push(std::move(image_data)));
+        THROW_CHECK(extractor_queue_->Push(std::move(image_data)));
       }
     }
 
@@ -503,7 +485,7 @@ class FeatureExtractorController : public Thread {
     writer_queue_->Stop();
     writer_->Wait();
 
-    GetTimer().PrintMinutes();
+    run_timer.PrintMinutes();
   }
 
   const ImageReaderOptions reader_options_;
@@ -532,9 +514,11 @@ class FeatureImporterController : public Thread {
  private:
   void Run() override {
     PrintHeading1("Feature import");
+    Timer run_timer;
+    run_timer.Start();
 
     if (!ExistsDir(import_path_)) {
-      std::cerr << "  ERROR: Import directory does not exist." << std::endl;
+      LOG(ERROR) << "Import directory does not exist.";
       return;
     }
 
@@ -546,16 +530,16 @@ class FeatureImporterController : public Thread {
         break;
       }
 
-      std::cout << StringPrintf("Processing file [%d/%d]",
+      LOG(INFO) << StringPrintf("Processing file [%d/%d]",
                                 image_reader.NextIndex() + 1,
-                                image_reader.NumImages())
-                << std::endl;
+                                image_reader.NumImages());
 
       // Load image data and possibly save camera to database.
       Camera camera;
       Image image;
+      PosePrior pose_prior;
       Bitmap bitmap;
-      if (image_reader.Next(&camera, &image, &bitmap, nullptr) !=
+      if (image_reader.Next(&camera, &image, &pose_prior, &bitmap, nullptr) !=
           ImageReader::Status::SUCCESS) {
         continue;
       }
@@ -567,12 +551,15 @@ class FeatureImporterController : public Thread {
         FeatureDescriptors descriptors;
         LoadSiftFeaturesFromTextFile(path, &keypoints, &descriptors);
 
-        std::cout << "  Features:       " << keypoints.size() << std::endl;
+        LOG(INFO) << "Features:       " << keypoints.size();
 
         DatabaseTransaction database_transaction(&database);
 
         if (image.ImageId() == kInvalidImageId) {
           image.SetImageId(database.WriteImage(image));
+          if (pose_prior.IsValid()) {
+            database.WritePosePrior(image.ImageId(), pose_prior);
+          }
         }
 
         if (!database.ExistsKeypoints(image.ImageId())) {
@@ -583,11 +570,11 @@ class FeatureImporterController : public Thread {
           database.WriteDescriptors(image.ImageId(), descriptors);
         }
       } else {
-        std::cout << "  SKIP: No features found at " << path << std::endl;
+        LOG(INFO) << "SKIP: No features found at " << path;
       }
     }
 
-    GetTimer().PrintMinutes();
+    run_timer.PrintMinutes();
   }
 
   const ImageReaderOptions reader_options_;

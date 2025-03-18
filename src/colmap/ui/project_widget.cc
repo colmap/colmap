@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,12 +26,11 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/ui/project_widget.h"
 
 #include "colmap/scene/database.h"
+#include "colmap/util/file.h"
 
 namespace colmap {
 
@@ -42,13 +41,13 @@ ProjectWidget::ProjectWidget(QWidget* parent, OptionManager* options)
   setWindowTitle("Project");
 
   // Database path.
-  QPushButton* databse_path_new = new QPushButton(tr("New"), this);
-  connect(databse_path_new,
+  QPushButton* database_path_new = new QPushButton(tr("New"), this);
+  connect(database_path_new,
           &QPushButton::released,
           this,
           &ProjectWidget::SelectNewDatabasePath);
-  QPushButton* databse_path_open = new QPushButton(tr("Open"), this);
-  connect(databse_path_open,
+  QPushButton* database_path_open = new QPushButton(tr("Open"), this);
+  connect(database_path_open,
           &QPushButton::released,
           this,
           &ProjectWidget::SelectExistingDatabasePath);
@@ -73,8 +72,8 @@ ProjectWidget::ProjectWidget(QWidget* parent, OptionManager* options)
 
   grid->addWidget(new QLabel(tr("Database"), this), 0, 0);
   grid->addWidget(database_path_text_, 0, 1);
-  grid->addWidget(databse_path_new, 0, 2);
-  grid->addWidget(databse_path_open, 0, 3);
+  grid->addWidget(database_path_new, 0, 2);
+  grid->addWidget(database_path_open, 0, 3);
 
   grid->addWidget(new QLabel(tr("Images"), this), 1, 0);
   grid->addWidget(image_path_text_, 1, 1);

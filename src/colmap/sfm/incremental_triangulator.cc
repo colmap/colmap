@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/sfm/incremental_triangulator.h"
 
@@ -36,6 +34,38 @@
 #include "colmap/util/misc.h"
 
 namespace colmap {
+namespace {
+
+bool TriangulateTrack(
+    const EstimateTriangulationOptions& options,
+    const std::vector<IncrementalTriangulator::CorrData>& corrs_data,
+    std::vector<char>& inlier_mask,
+    Eigen::Vector3d& xyz) {
+  std::vector<Eigen::Vector2d> points;
+  points.resize(corrs_data.size());
+  std::vector<Rigid3d const*> cams_from_world;
+  cams_from_world.resize(corrs_data.size());
+  std::vector<Camera const*> cameras;
+  cameras.resize(corrs_data.size());
+  for (size_t i = 0; i < corrs_data.size(); ++i) {
+    const auto& corr_data = corrs_data[i];
+    points[i] = corr_data.point2D->xy;
+    cams_from_world[i] = &corr_data.image->CamFromWorld();
+    cameras[i] = corr_data.camera;
+  }
+
+  // Enforce exhaustive sampling for small track lengths.
+  EstimateTriangulationOptions options_(options);
+  const size_t kExhaustiveSamplingThreshold = 15;
+  if (points.size() <= kExhaustiveSamplingThreshold) {
+    options_.ransac_options.min_num_trials = NChooseK(points.size(), 2);
+  }
+
+  return EstimateTriangulation(
+      options_, points, cams_from_world, cameras, &inlier_mask, &xyz);
+}
+
+}  // namespace
 
 bool IncrementalTriangulator::Options::Check() const {
   CHECK_OPTION_GE(max_transitivity, 0);
@@ -54,25 +84,31 @@ bool IncrementalTriangulator::Options::Check() const {
 
 IncrementalTriangulator::IncrementalTriangulator(
     std::shared_ptr<const CorrespondenceGraph> correspondence_graph,
-    std::shared_ptr<Reconstruction> reconstruction)
+    Reconstruction& reconstruction,
+    std::shared_ptr<ObservationManager> obs_manager)
     : correspondence_graph_(std::move(correspondence_graph)),
-      reconstruction_(std::move(reconstruction)) {}
+      reconstruction_(reconstruction),
+      obs_manager_(std::move(obs_manager)) {
+  if (!obs_manager_) {
+    obs_manager_ = std::make_shared<ObservationManager>(reconstruction_,
+                                                        correspondence_graph_);
+  }
+}
 
 size_t IncrementalTriangulator::TriangulateImage(const Options& options,
                                                  const image_t image_id) {
-  CHECK(options.Check());
+  THROW_CHECK(options.Check());
 
   size_t num_tris = 0;
 
   ClearCaches();
 
-  const Image& image = reconstruction_->Image(image_id);
-  if (!image.IsRegistered()) {
+  const Image& image = reconstruction_.Image(image_id);
+  if (!image.HasPose()) {
     return num_tris;
   }
 
-  const Camera& camera = reconstruction_->Camera(image.CameraId());
-  if (HasCameraBogusParams(options, camera)) {
+  if (HasCameraBogusParams(options, *image.CameraPtr())) {
     return num_tris;
   }
 
@@ -82,7 +118,7 @@ size_t IncrementalTriangulator::TriangulateImage(const Options& options,
   CorrData ref_corr_data;
   ref_corr_data.image_id = image_id;
   ref_corr_data.image = &image;
-  ref_corr_data.camera = &camera;
+  ref_corr_data.camera = image.CameraPtr();
 
   // Container for correspondences from reference observation to other images.
   std::vector<CorrData> corrs_data;
@@ -121,18 +157,18 @@ size_t IncrementalTriangulator::TriangulateImage(const Options& options,
 
 size_t IncrementalTriangulator::CompleteImage(const Options& options,
                                               const image_t image_id) {
-  CHECK(options.Check());
+  THROW_CHECK(options.Check());
 
   size_t num_tris = 0;
 
   ClearCaches();
 
-  const Image& image = reconstruction_->Image(image_id);
-  if (!image.IsRegistered()) {
+  const Image& image = reconstruction_.Image(image_id);
+  if (!image.HasPose()) {
     return num_tris;
   }
 
-  const Camera& camera = reconstruction_->Camera(image.CameraId());
+  const Camera& camera = *image.CameraPtr();
   if (HasCameraBogusParams(options, camera)) {
     return num_tris;
   }
@@ -143,9 +179,6 @@ size_t IncrementalTriangulator::CompleteImage(const Options& options,
   tri_options.residual_type =
       TriangulationEstimator::ResidualType::REPROJECTION_ERROR;
   tri_options.ransac_options.max_error = options.complete_max_reproj_error;
-  tri_options.ransac_options.confidence = 0.9999;
-  tri_options.ransac_options.min_inlier_ratio = 0.02;
-  tri_options.ransac_options.max_num_trials = 10000;
 
   // Correspondence data for reference observation in given image. We iterate
   // over all observations of the image and each observation once becomes
@@ -186,33 +219,10 @@ size_t IncrementalTriangulator::CompleteImage(const Options& options,
     ref_corr_data.point2D_idx = point2D_idx;
     corrs_data.push_back(ref_corr_data);
 
-    // Setup data for triangulation estimation.
-    std::vector<TriangulationEstimator::PointData> point_data;
-    point_data.resize(corrs_data.size());
-    std::vector<TriangulationEstimator::PoseData> pose_data;
-    pose_data.resize(corrs_data.size());
-    for (size_t i = 0; i < corrs_data.size(); ++i) {
-      const CorrData& corr_data = corrs_data[i];
-      point_data[i].point = corr_data.point2D->xy;
-      point_data[i].point_normalized =
-          corr_data.camera->CamFromImg(point_data[i].point);
-      pose_data[i].proj_matrix = corr_data.image->CamFromWorld().ToMatrix();
-      pose_data[i].proj_center = corr_data.image->ProjectionCenter();
-      pose_data[i].camera = corr_data.camera;
-    }
-
-    // Enforce exhaustive sampling for small track lengths.
-    const size_t kExhaustiveSamplingThreshold = 15;
-    if (point_data.size() <= kExhaustiveSamplingThreshold) {
-      tri_options.ransac_options.min_num_trials =
-          NChooseK(point_data.size(), 2);
-    }
-
     // Estimate triangulation.
     Eigen::Vector3d xyz;
     std::vector<char> inlier_mask;
-    if (!EstimateTriangulation(
-            tri_options, point_data, pose_data, &inlier_mask, &xyz)) {
+    if (!TriangulateTrack(tri_options, corrs_data, inlier_mask, xyz)) {
       continue;
     }
 
@@ -227,8 +237,7 @@ size_t IncrementalTriangulator::CompleteImage(const Options& options,
       }
     }
 
-    const point3D_t point3D_id =
-        reconstruction_->AddPoint3D(xyz, std::move(track));
+    const point3D_t point3D_id = obs_manager_->AddPoint3D(xyz, track);
     modified_point3D_ids_.insert(point3D_id);
   }
 
@@ -237,7 +246,7 @@ size_t IncrementalTriangulator::CompleteImage(const Options& options,
 
 size_t IncrementalTriangulator::CompleteTracks(
     const Options& options, const std::unordered_set<point3D_t>& point3D_ids) {
-  CHECK(options.Check());
+  THROW_CHECK(options.Check());
 
   size_t num_completed = 0;
 
@@ -251,13 +260,13 @@ size_t IncrementalTriangulator::CompleteTracks(
 }
 
 size_t IncrementalTriangulator::CompleteAllTracks(const Options& options) {
-  CHECK(options.Check());
+  THROW_CHECK(options.Check());
 
   size_t num_completed = 0;
 
   ClearCaches();
 
-  for (const point3D_t point3D_id : reconstruction_->Point3DIds()) {
+  for (const point3D_t point3D_id : reconstruction_.Point3DIds()) {
     num_completed += Complete(options, point3D_id);
   }
 
@@ -266,7 +275,7 @@ size_t IncrementalTriangulator::CompleteAllTracks(const Options& options) {
 
 size_t IncrementalTriangulator::MergeTracks(
     const Options& options, const std::unordered_set<point3D_t>& point3D_ids) {
-  CHECK(options.Check());
+  THROW_CHECK(options.Check());
 
   size_t num_merged = 0;
 
@@ -280,13 +289,13 @@ size_t IncrementalTriangulator::MergeTracks(
 }
 
 size_t IncrementalTriangulator::MergeAllTracks(const Options& options) {
-  CHECK(options.Check());
+  THROW_CHECK(options.Check());
 
   size_t num_merged = 0;
 
   ClearCaches();
 
-  for (const point3D_t point3D_id : reconstruction_->Point3DIds()) {
+  for (const point3D_t point3D_id : reconstruction_.Point3DIds()) {
     num_merged += Merge(options, point3D_id);
   }
 
@@ -294,7 +303,7 @@ size_t IncrementalTriangulator::MergeAllTracks(const Options& options) {
 }
 
 size_t IncrementalTriangulator::Retriangulate(const Options& options) {
-  CHECK(options.Check());
+  THROW_CHECK(options.Check());
 
   size_t num_tris = 0;
 
@@ -303,7 +312,7 @@ size_t IncrementalTriangulator::Retriangulate(const Options& options) {
   Options re_options = options;
   re_options.continue_max_angle_error = options.re_max_angle_error;
 
-  for (const auto& image_pair : reconstruction_->ImagePairs()) {
+  for (const auto& image_pair : obs_manager_->ImagePairs()) {
     // Only perform retriangulation for under-reconstructed image pairs.
     const double tri_ratio =
         static_cast<double>(image_pair.second.num_tri_corrs) /
@@ -316,15 +325,16 @@ size_t IncrementalTriangulator::Retriangulate(const Options& options) {
 
     image_t image_id1;
     image_t image_id2;
-    Database::PairIdToImagePair(image_pair.first, &image_id1, &image_id2);
+    std::tie(image_id1, image_id2) =
+        Database::PairIdToImagePair(image_pair.first);
 
-    const Image& image1 = reconstruction_->Image(image_id1);
-    if (!image1.IsRegistered()) {
+    const Image& image1 = reconstruction_.Image(image_id1);
+    if (!image1.HasPose()) {
       continue;
     }
 
-    const Image& image2 = reconstruction_->Image(image_id2);
-    if (!image2.IsRegistered()) {
+    const Image& image2 = reconstruction_.Image(image_id2);
+    if (!image2.HasPose()) {
       continue;
     }
 
@@ -336,8 +346,8 @@ size_t IncrementalTriangulator::Retriangulate(const Options& options) {
     }
     num_re_trials += 1;
 
-    const Camera& camera1 = reconstruction_->Camera(image1.CameraId());
-    const Camera& camera2 = reconstruction_->Camera(image2.CameraId());
+    const Camera& camera1 = *image1.CameraPtr();
+    const Camera& camera2 = *image2.CameraPtr();
     if (HasCameraBogusParams(options, camera1) ||
         HasCameraBogusParams(options, camera2)) {
       continue;
@@ -405,7 +415,7 @@ IncrementalTriangulator::GetModifiedPoints3D() {
   // First remove any missing 3D points from the set.
   for (auto it = modified_point3D_ids_.begin();
        it != modified_point3D_ids_.end();) {
-    if (reconstruction_->ExistsPoint3D(*it)) {
+    if (reconstruction_.ExistsPoint3D(*it)) {
       ++it;
     } else {
       modified_point3D_ids_.erase(it++);
@@ -438,12 +448,12 @@ size_t IncrementalTriangulator::Find(const Options& options,
   size_t num_triangulated = 0;
 
   for (const auto& corr : found_corrs_) {
-    const Image& corr_image = reconstruction_->Image(corr.image_id);
-    if (!corr_image.IsRegistered()) {
+    const Image& corr_image = reconstruction_.Image(corr.image_id);
+    if (!corr_image.HasPose()) {
       continue;
     }
 
-    const Camera& corr_camera = reconstruction_->Camera(corr_image.CameraId());
+    const Camera& corr_camera = *corr_image.CameraPtr();
     if (HasCameraBogusParams(options, corr_camera)) {
       continue;
     }
@@ -487,21 +497,6 @@ size_t IncrementalTriangulator::Create(
     }
   }
 
-  // Setup data for triangulation estimation.
-  std::vector<TriangulationEstimator::PointData> point_data;
-  point_data.resize(create_corrs_data.size());
-  std::vector<TriangulationEstimator::PoseData> pose_data;
-  pose_data.resize(create_corrs_data.size());
-  for (size_t i = 0; i < create_corrs_data.size(); ++i) {
-    const CorrData& corr_data = create_corrs_data[i];
-    point_data[i].point = corr_data.point2D->xy;
-    point_data[i].point_normalized =
-        corr_data.camera->CamFromImg(point_data[i].point);
-    pose_data[i].proj_matrix = corr_data.image->CamFromWorld().ToMatrix();
-    pose_data[i].proj_center = corr_data.image->ProjectionCenter();
-    pose_data[i].camera = corr_data.camera;
-  }
-
   // Setup estimation options.
   EstimateTriangulationOptions tri_options;
   tri_options.min_tri_angle = DegToRad(options.min_angle);
@@ -509,21 +504,11 @@ size_t IncrementalTriangulator::Create(
       TriangulationEstimator::ResidualType::ANGULAR_ERROR;
   tri_options.ransac_options.max_error =
       DegToRad(options.create_max_angle_error);
-  tri_options.ransac_options.confidence = 0.9999;
-  tri_options.ransac_options.min_inlier_ratio = 0.02;
-  tri_options.ransac_options.max_num_trials = 10000;
-
-  // Enforce exhaustive sampling for small track lengths.
-  const size_t kExhaustiveSamplingThreshold = 15;
-  if (point_data.size() <= kExhaustiveSamplingThreshold) {
-    tri_options.ransac_options.min_num_trials = NChooseK(point_data.size(), 2);
-  }
 
   // Estimate triangulation.
   Eigen::Vector3d xyz;
   std::vector<char> inlier_mask;
-  if (!EstimateTriangulation(
-          tri_options, point_data, pose_data, &inlier_mask, &xyz)) {
+  if (!TriangulateTrack(tri_options, create_corrs_data, inlier_mask, xyz)) {
     return 0;
   }
 
@@ -539,8 +524,7 @@ size_t IncrementalTriangulator::Create(
 
   // Add estimated point to reconstruction.
   const size_t track_length = track.Length();
-  const point3D_t point3D_id =
-      reconstruction_->AddPoint3D(xyz, std::move(track));
+  const point3D_t point3D_id = obs_manager_->AddPoint3D(xyz, track);
   modified_point3D_ids_.insert(point3D_id);
 
   const size_t kMinRecursiveTrackLength = 3;
@@ -570,11 +554,11 @@ size_t IncrementalTriangulator::Continue(
     }
 
     const Point3D& point3D =
-        reconstruction_->Point3D(corr_data.point2D->point3D_id);
+        reconstruction_.Point3D(corr_data.point2D->point3D_id);
 
     const double angle_error =
         CalculateAngularError(ref_corr_data.point2D->xy,
-                              point3D.XYZ(),
+                              point3D.xyz,
                               ref_corr_data.image->CamFromWorld(),
                               *ref_corr_data.camera);
     if (angle_error < best_angle_error) {
@@ -589,7 +573,7 @@ size_t IncrementalTriangulator::Continue(
     const CorrData& corr_data = corrs_data[best_idx];
     const TrackElement track_el(ref_corr_data.image_id,
                                 ref_corr_data.point2D_idx);
-    reconstruction_->AddObservation(corr_data.point2D->point3D_id, track_el);
+    obs_manager_->AddObservation(corr_data.point2D->point3D_id, track_el);
     modified_point3D_ids_.insert(corr_data.point2D->point3D_id);
     return 1;
   }
@@ -599,21 +583,21 @@ size_t IncrementalTriangulator::Continue(
 
 size_t IncrementalTriangulator::Merge(const Options& options,
                                       const point3D_t point3D_id) {
-  if (!reconstruction_->ExistsPoint3D(point3D_id)) {
+  if (!reconstruction_.ExistsPoint3D(point3D_id)) {
     return 0;
   }
 
   const double max_squared_reproj_error =
       options.merge_max_reproj_error * options.merge_max_reproj_error;
 
-  const auto& point3D = reconstruction_->Point3D(point3D_id);
+  const auto& point3D = reconstruction_.Point3D(point3D_id);
 
-  for (const auto& track_el : point3D.Track().Elements()) {
+  for (const auto& track_el : point3D.track.Elements()) {
     const auto corr_range = correspondence_graph_->FindCorrespondences(
         track_el.image_id, track_el.point2D_idx);
     for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
-      const auto& image = reconstruction_->Image(corr->image_id);
-      if (!image.IsRegistered()) {
+      const auto& image = reconstruction_.Image(corr->image_id);
+      if (!image.HasPose()) {
         continue;
       }
 
@@ -626,25 +610,24 @@ size_t IncrementalTriangulator::Merge(const Options& options,
       // Try to merge the two 3D points.
 
       const Point3D& corr_point3D =
-          reconstruction_->Point3D(corr_point2D.point3D_id);
+          reconstruction_.Point3D(corr_point2D.point3D_id);
 
       merge_trials_[point3D_id].insert(corr_point2D.point3D_id);
       merge_trials_[corr_point2D.point3D_id].insert(point3D_id);
 
       // Weighted average of point locations, depending on track length.
       const Eigen::Vector3d merged_xyz =
-          (point3D.Track().Length() * point3D.XYZ() +
-           corr_point3D.Track().Length() * corr_point3D.XYZ()) /
-          (point3D.Track().Length() + corr_point3D.Track().Length());
+          (point3D.track.Length() * point3D.xyz +
+           corr_point3D.track.Length() * corr_point3D.xyz) /
+          (point3D.track.Length() + corr_point3D.track.Length());
 
       // Count number of inlier track elements of the merged track.
       bool merge_success = true;
-      for (const Track* track : {&point3D.Track(), &corr_point3D.Track()}) {
+      for (const Track* track : {&point3D.track, &corr_point3D.track}) {
         for (const auto test_track_el : track->Elements()) {
           const Image& test_image =
-              reconstruction_->Image(test_track_el.image_id);
-          const Camera& test_camera =
-              reconstruction_->Camera(test_image.CameraId());
+              reconstruction_.Image(test_track_el.image_id);
+          const Camera& test_camera = *test_image.CameraPtr();
           const Point2D& test_point2D =
               test_image.Point2D(test_track_el.point2D_idx);
           if (CalculateSquaredReprojectionError(test_point2D.xy,
@@ -664,10 +647,10 @@ size_t IncrementalTriangulator::Merge(const Options& options,
       // Only accept merge if all track elements are inliers.
       if (merge_success) {
         const size_t num_merged =
-            point3D.Track().Length() + corr_point3D.Track().Length();
+            point3D.track.Length() + corr_point3D.track.Length();
 
         const point3D_t merged_point3D_id =
-            reconstruction_->MergePoints3D(point3D_id, corr_point2D.point3D_id);
+            obs_manager_->MergePoints3D(point3D_id, corr_point2D.point3D_id);
 
         modified_point3D_ids_.erase(point3D_id);
         modified_point3D_ids_.erase(corr_point2D.point3D_id);
@@ -692,32 +675,29 @@ size_t IncrementalTriangulator::Complete(const Options& options,
                                          const point3D_t point3D_id) {
   size_t num_completed = 0;
 
-  if (!reconstruction_->ExistsPoint3D(point3D_id)) {
+  if (!reconstruction_.ExistsPoint3D(point3D_id)) {
     return num_completed;
   }
 
   const double max_squared_reproj_error =
       options.complete_max_reproj_error * options.complete_max_reproj_error;
 
-  const Point3D& point3D = reconstruction_->Point3D(point3D_id);
+  const Point3D& point3D = reconstruction_.Point3D(point3D_id);
 
-  std::vector<TrackElement> queue = point3D.Track().Elements();
+  std::vector<TrackElement> curr_queue = point3D.track.Elements();
+  std::vector<TrackElement> next_queue;
 
   const int max_transitivity = options.complete_max_transitivity;
-  for (int transitivity = 0; transitivity < max_transitivity; ++transitivity) {
-    if (queue.empty()) {
-      break;
-    }
+  for (int transitivity = 1; transitivity <= max_transitivity; ++transitivity) {
+    while (!curr_queue.empty()) {
+      const TrackElement queue_elem = curr_queue.back();
+      curr_queue.pop_back();
 
-    const std::vector<TrackElement> prev_queue = queue;
-    queue.clear();
-
-    for (const TrackElement& queue_elem : prev_queue) {
       const auto corr_range = correspondence_graph_->FindCorrespondences(
           queue_elem.image_id, queue_elem.point2D_idx);
       for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
-        const Image& image = reconstruction_->Image(corr->image_id);
-        if (!image.IsRegistered()) {
+        const Image& image = reconstruction_.Image(corr->image_id);
+        if (!image.HasPose()) {
           continue;
         }
 
@@ -726,30 +706,36 @@ size_t IncrementalTriangulator::Complete(const Options& options,
           continue;
         }
 
-        const Camera& camera = reconstruction_->Camera(image.CameraId());
+        const Camera& camera = *image.CameraPtr();
         if (HasCameraBogusParams(options, camera)) {
           continue;
         }
 
         if (CalculateSquaredReprojectionError(
-                point2D.xy, point3D.XYZ(), image.CamFromWorld(), camera) >
+                point2D.xy, point3D.xyz, image.CamFromWorld(), camera) >
             max_squared_reproj_error) {
           continue;
         }
 
         // Success, add observation to point track.
-        const TrackElement track_el(corr->image_id, corr->point2D_idx);
-        reconstruction_->AddObservation(point3D_id, track_el);
+        obs_manager_->AddObservation(
+            point3D_id, TrackElement(corr->image_id, corr->point2D_idx));
         modified_point3D_ids_.insert(point3D_id);
 
         // Recursively complete track for this new correspondence.
-        if (transitivity < max_transitivity - 1) {
-          queue.emplace_back(corr->image_id, corr->point2D_idx);
+        if (transitivity < max_transitivity) {
+          next_queue.emplace_back(corr->image_id, corr->point2D_idx);
         }
 
         num_completed += 1;
       }
     }
+
+    if (next_queue.empty()) {
+      break;
+    }
+
+    std::swap(curr_queue, next_queue);
   }
 
   return num_completed;
@@ -757,17 +743,30 @@ size_t IncrementalTriangulator::Complete(const Options& options,
 
 bool IncrementalTriangulator::HasCameraBogusParams(const Options& options,
                                                    const Camera& camera) {
-  const auto it = camera_has_bogus_params_.find(camera.CameraId());
+  const auto it = camera_has_bogus_params_.find(camera.camera_id);
   if (it == camera_has_bogus_params_.end()) {
     const bool has_bogus_params =
         camera.HasBogusParams(options.min_focal_length_ratio,
                               options.max_focal_length_ratio,
                               options.max_extra_param);
-    camera_has_bogus_params_.emplace(camera.CameraId(), has_bogus_params);
+    camera_has_bogus_params_.emplace(camera.camera_id, has_bogus_params);
     return has_bogus_params;
   } else {
     return it->second;
   }
+}
+
+std::ostream& operator<<(std::ostream& stream,
+                         const IncrementalTriangulator& triangulator) {
+  stream << "IncrementalTriangulator(reconstruction="
+         << triangulator.reconstruction_ << ", correspondence_graph=";
+  if (triangulator.correspondence_graph_ == nullptr) {
+    stream << "null";
+  } else {
+    stream << *triangulator.correspondence_graph_;
+  }
+  stream << ")";
+  return stream;
 }
 
 }  // namespace colmap

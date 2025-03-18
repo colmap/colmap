@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #pragma once
 
@@ -56,16 +54,20 @@ typedef unsigned __int64 uint64_t;
 // NOLINTNEXTLINE(bugprone-macro-parentheses)
 #define NON_MOVABLE(class_name) class_name(class_name&&) = delete;
 
+#include "colmap/util/eigen_alignment.h"
+
 #include <Eigen/Core>
 
 namespace Eigen {
 
-typedef Eigen::Matrix<float, 3, 4> Matrix3x4f;
-typedef Eigen::Matrix<double, 3, 4> Matrix3x4d;
-typedef Eigen::Matrix<double, 6, 6> Matrix6d;
-typedef Eigen::Matrix<uint8_t, 3, 1> Vector3ub;
-typedef Eigen::Matrix<uint8_t, 4, 1> Vector4ub;
-typedef Eigen::Matrix<double, 6, 1> Vector6d;
+using Matrix3x4f = Matrix<float, 3, 4>;
+using Matrix3x4d = Matrix<double, 3, 4>;
+using Matrix2x3d = Matrix<double, 2, 3>;
+using Matrix6d = Matrix<double, 6, 6>;
+using Vector3ub = Matrix<uint8_t, 3, 1>;
+using Vector4ub = Matrix<uint8_t, 4, 1>;
+using Vector6d = Matrix<double, 6, 1>;
+using RowMajorMatrixXi = Matrix<int, Dynamic, Dynamic, RowMajor>;
 
 }  // namespace Eigen
 
@@ -81,6 +83,12 @@ typedef uint32_t camera_t;
 // Unique identifier for images.
 typedef uint32_t image_t;
 
+// Unique identifier for frames.
+typedef uint32_t frame_t;
+
+// Unique identifier for rigs.
+typedef uint32_t rig_t;
+
 // Each image pair gets a unique ID, see `Database::ImagePairToPairId`.
 typedef uint64_t image_pair_t;
 
@@ -95,10 +103,33 @@ typedef uint64_t point3D_t;
 // Values for invalid identifiers or indices.
 const camera_t kInvalidCameraId = std::numeric_limits<camera_t>::max();
 const image_t kInvalidImageId = std::numeric_limits<image_t>::max();
+const frame_t kInvalidFrameId = std::numeric_limits<frame_t>::max();
+const frame_t kInvalidRigId = std::numeric_limits<rig_t>::max();
 const image_pair_t kInvalidImagePairId =
     std::numeric_limits<image_pair_t>::max();
 const point2D_t kInvalidPoint2DIdx = std::numeric_limits<point2D_t>::max();
 const point3D_t kInvalidPoint3DId = std::numeric_limits<point3D_t>::max();
+
+// Simple implementation of C++20's std::span, as Ubuntu 20.04's default GCC
+// version does not come with full C++20 and we still want to support it.
+template <typename T>
+class span {
+  T* ptr_;
+  const size_t size_;
+
+ public:
+  span(T* ptr, size_t len) noexcept : ptr_{ptr}, size_{len} {}
+
+  T& operator[](size_t i) noexcept { return ptr_[i]; }
+  T const& operator[](size_t i) const noexcept { return ptr_[i]; }
+
+  size_t size() const noexcept { return size_; }
+
+  T* begin() noexcept { return ptr_; }
+  T* end() noexcept { return ptr_ + size_; }
+  const T* begin() const noexcept { return ptr_; }
+  const T* end() const noexcept { return ptr_ + size_; }
+};
 
 }  // namespace colmap
 

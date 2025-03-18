@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/util/cuda.h"
 
@@ -62,7 +60,7 @@ int GetNumCudaDevices() {
 
 void SetBestCudaDevice(const int gpu_index) {
   const int num_cuda_devices = GetNumCudaDevices();
-  CHECK_GT(num_cuda_devices, 0) << "No CUDA devices available";
+  THROW_CHECK_GT(num_cuda_devices, 0) << "No CUDA devices available";
 
   int selected_gpu_index = -1;
   if (gpu_index >= 0) {
@@ -74,10 +72,14 @@ void SetBestCudaDevice(const int gpu_index) {
     }
     std::sort(all_devices.begin(), all_devices.end(), CompareCudaDevice);
     CUDA_SAFE_CALL(cudaChooseDevice(&selected_gpu_index, all_devices.data()));
+    VLOG(2) << "Found " << num_cuda_devices << " CUDA device(s), "
+            << "selected device " << selected_gpu_index << " with name "
+            << all_devices[selected_gpu_index].name;
   }
 
-  CHECK_GE(selected_gpu_index, 0);
-  CHECK_LT(selected_gpu_index, num_cuda_devices) << "Invalid CUDA GPU selected";
+  THROW_CHECK_GE(selected_gpu_index, 0);
+  THROW_CHECK_LT(selected_gpu_index, num_cuda_devices)
+      << "Invalid CUDA GPU selected";
 
   cudaDeviceProp device;
   cudaGetDeviceProperties(&device, selected_gpu_index);

@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #pragma once
 
@@ -38,6 +36,7 @@
 #include "colmap/util/cuda.h"
 #include "colmap/util/cudacc.h"
 #include "colmap/util/endian.h"
+#include "colmap/util/logging.h"
 
 #include <fstream>
 #include <iterator>
@@ -382,7 +381,7 @@ void GpuMat<T>::Rotate(GpuMat<T>* output) {
 template <typename T>
 void GpuMat<T>::Read(const std::string& path) {
   std::fstream text_file(path, std::ios::in | std::ios::binary);
-  CHECK(text_file.is_open()) << path;
+  THROW_CHECK(text_file.is_open()) << "Could not open " << path;
 
   size_t width;
   size_t height;
@@ -409,11 +408,13 @@ void GpuMat<T>::Write(const std::string& path) {
   CopyToHost(dest.data(), width_ * sizeof(T));
 
   std::fstream text_file(path, std::ios::out);
+  THROW_CHECK(text_file.is_open()) << "Could not open " << path;
   text_file << width_ << "&" << height_ << "&" << depth_ << "&";
   text_file.close();
 
   std::fstream binary_file(path,
                            std::ios::out | std::ios::binary | std::ios::app);
+  THROW_CHECK(binary_file.is_open()) << "Could not open " << path;
   WriteBinaryLittleEndian<T>(&binary_file, dest);
   binary_file.close();
 }
@@ -431,11 +432,13 @@ void GpuMat<T>::Write(const std::string& path, const size_t slice) {
                    cudaMemcpyDeviceToHost));
 
   std::fstream text_file(path, std::ios::out);
+  THROW_CHECK(text_file.is_open()) << "Could not open " << path;
   text_file << width_ << "&" << height_ << "&" << 1 << "&";
   text_file.close();
 
   std::fstream binary_file(path,
                            std::ios::out | std::ios::binary | std::ios::app);
+  THROW_CHECK(binary_file.is_open()) << "Could not open " << path;
   WriteBinaryLittleEndian<T>(&binary_file, dest);
   binary_file.close();
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #pragma once
 
@@ -45,11 +43,14 @@ struct SyntheticDatasetOptions {
 
   int camera_width = 1024;
   int camera_height = 768;
-  int camera_model_id = SimpleRadialCameraModel::model_id;
+  CameraModelId camera_model_id = SimpleRadialCameraModel::model_id;
   std::vector<double> camera_params = {1280, 512, 384, 0.05};
+  bool camera_has_prior_focal_length = false;
 
   int num_points2D_without_point3D = 10;
   double point2D_stddev = 0.0;
+
+  double inlier_match_ratio = 1.0;
 
   enum class MatchConfig {
     // Exhaustive matches between all pairs of observations of a 3D point.
@@ -58,10 +59,14 @@ struct SyntheticDatasetOptions {
     CHAINED = 2,
   };
   MatchConfig match_config = MatchConfig::EXHAUSTIVE;
+
+  bool use_prior_position = false;
+  bool use_geographic_coords_prior = false;
+  double prior_position_stddev = 1.5;
 };
 
 void SynthesizeDataset(const SyntheticDatasetOptions& options,
                        Reconstruction* reconstruction,
-                       Database* database);
+                       Database* database = nullptr);
 
 }  // namespace colmap

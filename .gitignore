@@ -7,11 +7,15 @@ src/colmap/util/version.cc
 .vscode
 .vs
 .DS_Store
+.cache
 build*/
 install-debug/
 install-release/
 data/
+benchmark/reconstruction/data/
+benchmark/reconstruction/runs/
 doc/_build
+vcpkg_installed/
 
 # Compiled Object files
 *.slo

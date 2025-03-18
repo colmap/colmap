@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,28 +26,20 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #pragma once
 
+#include "colmap/util/string.h"
+
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <ios>
 #include <limits>
-#include <memory>
 #include <string>
 #include <vector>
 
-#ifdef _WIN32
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <Windows.h>
-#endif
-#include "colmap/util/string.h"
-
-#include <FreeImage.h>
+struct FIBITMAP;
 
 namespace colmap {
 
@@ -108,11 +100,11 @@ class Bitmap {
   inline int Channels() const;
 
   // Number of bits per pixel. This is 8 for grey and 24 for RGB image.
-  inline unsigned int BitsPerPixel() const;
+  unsigned int BitsPerPixel() const;
 
   // Scan width of bitmap which differs from the actual image width to achieve
-  // 32 bit aligned memory. Also known as pitch or stride.
-  inline unsigned int ScanWidth() const;
+  // 32 bit aligned memory. Also known as stride.
+  unsigned int Pitch() const;
 
   // Check whether image is grey- or colorscale.
   inline bool IsRGB() const;
@@ -122,9 +114,13 @@ class Bitmap {
   size_t NumBytes() const;
 
   // Copy raw image data to array.
-  std::vector<uint8_t> ConvertToRawBits() const;
   std::vector<uint8_t> ConvertToRowMajorArray() const;
   std::vector<uint8_t> ConvertToColMajorArray() const;
+
+  // Convert to/from raw bits.
+  std::vector<uint8_t> ConvertToRawBits() const;
+  static Bitmap ConvertFromRawBits(
+      const uint8_t* data, int pitch, int width, int height, bool rgb = true);
 
   // Manipulate individual pixels. For grayscale images, only the red element
   // of the RGB color is used.
@@ -157,17 +153,19 @@ class Bitmap {
 
   // Write image to file. Flags can be used to set e.g. the JPEG quality.
   // Consult the FreeImage documentation for all available flags.
-  bool Write(const std::string& path,
-             FREE_IMAGE_FORMAT format = FIF_UNKNOWN,
-             int flags = 0) const;
+  bool Write(const std::string& path, int flags = 0) const;
 
   // Smooth the image using a Gaussian kernel.
   void Smooth(float sigma_x, float sigma_y);
 
   // Rescale image to the new dimensions.
+  enum class RescaleFilter {
+    kBilinear,
+    kBox,
+  };
   void Rescale(int new_width,
                int new_height,
-               FREE_IMAGE_FILTER filter = FILTER_BILINEAR);
+               RescaleFilter filter = RescaleFilter::kBilinear);
 
   // Clone the image to a new bitmap object.
   Bitmap Clone() const;
@@ -177,25 +175,27 @@ class Bitmap {
   // Clone metadata from this bitmap object to another target bitmap object.
   void CloneMetadata(Bitmap* target) const;
 
-  // Read specific EXIF tag.
-  bool ReadExifTag(FREE_IMAGE_MDMODEL model,
-                   const std::string& tag_name,
-                   std::string* result) const;
-
  private:
-  typedef std::unique_ptr<FIBITMAP, decltype(&FreeImage_Unload)> FIBitmapPtr;
+  struct FreeImageHandle {
+    FreeImageHandle();
+    explicit FreeImageHandle(FIBITMAP* ptr);
+    ~FreeImageHandle();
+    FreeImageHandle(FreeImageHandle&&) noexcept;
+    FreeImageHandle& operator=(FreeImageHandle&&) noexcept;
+    FreeImageHandle(const FreeImageHandle&) = delete;
+    FreeImageHandle& operator=(const FreeImageHandle&) = delete;
+    FIBITMAP* ptr;
+  };
 
-  void SetPtr(FIBITMAP* data);
+  void SetPtr(FIBITMAP* ptr);
 
-  static bool IsPtrGrey(FIBITMAP* data);
-  static bool IsPtrRGB(FIBITMAP* data);
-  static bool IsPtrSupported(FIBITMAP* data);
-
-  FIBitmapPtr data_;
+  FreeImageHandle handle_;
   int width_;
   int height_;
   int channels_;
 };
+
+std::ostream& operator<<(std::ostream& stream, const Bitmap& bitmap);
 
 // Jet colormap inspired by Matlab. Grayvalues are expected in the range [0, 1]
 // and are converted to RGB values in the same range.
@@ -264,20 +264,12 @@ std::ostream& operator<<(std::ostream& output, const BitmapColor<T>& color) {
   return output;
 }
 
-FIBITMAP* Bitmap::Data() { return data_.get(); }
-const FIBITMAP* Bitmap::Data() const { return data_.get(); }
+FIBITMAP* Bitmap::Data() { return handle_.ptr; }
+const FIBITMAP* Bitmap::Data() const { return handle_.ptr; }
 
 int Bitmap::Width() const { return width_; }
 int Bitmap::Height() const { return height_; }
 int Bitmap::Channels() const { return channels_; }
-
-unsigned int Bitmap::BitsPerPixel() const {
-  return FreeImage_GetBPP(data_.get());
-}
-
-unsigned int Bitmap::ScanWidth() const {
-  return FreeImage_GetPitch(data_.get());
-}
 
 bool Bitmap::IsRGB() const { return channels_ == 3; }
 

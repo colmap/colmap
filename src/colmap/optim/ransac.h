@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #pragma once
 
@@ -36,6 +34,7 @@
 #include "colmap/util/logging.h"
 
 #include <cfloat>
+#include <optional>
 #include <random>
 #include <stdexcept>
 #include <vector>
@@ -64,12 +63,12 @@ struct RANSACOptions {
   int max_num_trials = std::numeric_limits<int>::max();
 
   void Check() const {
-    CHECK_GT(max_error, 0);
-    CHECK_GE(min_inlier_ratio, 0);
-    CHECK_LE(min_inlier_ratio, 1);
-    CHECK_GE(confidence, 0);
-    CHECK_LE(confidence, 1);
-    CHECK_LE(min_num_trials, max_num_trials);
+    THROW_CHECK_GT(max_error, 0);
+    THROW_CHECK_GE(min_inlier_ratio, 0);
+    THROW_CHECK_LE(min_inlier_ratio, 1);
+    THROW_CHECK_GE(confidence, 0);
+    THROW_CHECK_LE(confidence, 1);
+    THROW_CHECK_LE(min_num_trials, max_num_trials);
   }
 };
 
@@ -95,20 +94,21 @@ class RANSAC {
     typename Estimator::M_t model;
   };
 
-  explicit RANSAC(const RANSACOptions& options);
+  explicit RANSAC(const RANSACOptions& options,
+                  Estimator estimator = Estimator(),
+                  SupportMeasurer support_measurer = SupportMeasurer(),
+                  Sampler sampler = Sampler(Estimator::kMinNumSamples));
 
   // Determine the maximum number of trials required to sample at least one
   // outlier-free random set of samples with the specified confidence,
   // given the inlier ratio.
   //
-  // @param num_inliers				The number of inliers.
-  // @param num_samples				The total number of samples.
-  // @param confidence				Confidence that one sample is
-  //								outlier-free.
-  // @param num_trials_multiplier   Multiplication factor to the computed
-  //							    number of trials.
+  // @param num_inliers The number of inliers.
+  // @param num_samples The total number of samples.
+  // @param confidence Confidence that one sample is outlier-free.
+  // @param num_trials_multiplier Multiplication factor to number of trials.
   //
-  // @return               The required number of iterations.
+  // @return The required number of iterations.
   static size_t ComputeNumTrials(size_t num_inliers,
                                  size_t num_samples,
                                  double confidence,
@@ -123,11 +123,9 @@ class RANSAC {
   Report Estimate(const std::vector<typename Estimator::X_t>& X,
                   const std::vector<typename Estimator::Y_t>& Y);
 
-  // Objects used in RANSAC procedure. Access useful to define custom behavior
-  // through options or e.g. to compute residuals.
   Estimator estimator;
-  Sampler sampler;
   SupportMeasurer support_measurer;
+  Sampler sampler;
 
  protected:
   RANSACOptions options_;
@@ -139,8 +137,14 @@ class RANSAC {
 
 template <typename Estimator, typename SupportMeasurer, typename Sampler>
 RANSAC<Estimator, SupportMeasurer, Sampler>::RANSAC(
-    const RANSACOptions& options)
-    : sampler(Sampler(Estimator::kMinNumSamples)), options_(options) {
+    const RANSACOptions& options,
+    Estimator estimator,
+    SupportMeasurer support_measurer,
+    Sampler sampler)
+    : estimator(std::move(estimator)),
+      support_measurer(std::move(support_measurer)),
+      sampler(std::move(sampler)),
+      options_(options) {
   options.Check();
 
   // Determine max_num_trials based on assumed `min_inlier_ratio`.
@@ -185,7 +189,7 @@ typename RANSAC<Estimator, SupportMeasurer, Sampler>::Report
 RANSAC<Estimator, SupportMeasurer, Sampler>::Estimate(
     const std::vector<typename Estimator::X_t>& X,
     const std::vector<typename Estimator::Y_t>& Y) {
-  CHECK_EQ(X.size(), Y.size());
+  THROW_CHECK_EQ(X.size(), Y.size());
 
   const size_t num_samples = X.size();
 
@@ -198,7 +202,7 @@ RANSAC<Estimator, SupportMeasurer, Sampler>::Estimate(
   }
 
   typename SupportMeasurer::Support best_support;
-  typename Estimator::M_t best_model;
+  std::optional<typename Estimator::M_t> best_model;
 
   bool abort = false;
 
@@ -208,6 +212,7 @@ RANSAC<Estimator, SupportMeasurer, Sampler>::Estimate(
 
   std::vector<typename Estimator::X_t> X_rand(Estimator::kMinNumSamples);
   std::vector<typename Estimator::Y_t> Y_rand(Estimator::kMinNumSamples);
+  std::vector<typename Estimator::M_t> sample_models;
 
   sampler.Initialize(num_samples);
 
@@ -226,18 +231,17 @@ RANSAC<Estimator, SupportMeasurer, Sampler>::Estimate(
     sampler.SampleXY(X, Y, &X_rand, &Y_rand);
 
     // Estimate model for current subset.
-    const std::vector<typename Estimator::M_t> sample_models =
-        estimator.Estimate(X_rand, Y_rand);
+    estimator.Estimate(X_rand, Y_rand, &sample_models);
 
     // Iterate through all estimated models.
     for (const auto& sample_model : sample_models) {
       estimator.Residuals(X, Y, sample_model, &residuals);
-      CHECK_EQ(residuals.size(), num_samples);
+      THROW_CHECK_EQ(residuals.size(), num_samples);
 
       const auto support = support_measurer.Evaluate(residuals, max_residual);
 
       // Save as best subset if better than all previous subsets.
-      if (support_measurer.Compare(support, best_support)) {
+      if (support_measurer.IsLeftBetter(support, best_support)) {
         best_support = support;
         best_model = sample_model;
 
@@ -256,8 +260,12 @@ RANSAC<Estimator, SupportMeasurer, Sampler>::Estimate(
     }
   }
 
+  if (!best_model.has_value()) {
+    return report;
+  }
+
   report.support = best_support;
-  report.model = best_model;
+  report.model = best_model.value();
 
   // No valid model was found.
   if (report.support.num_inliers < estimator.kMinNumSamples) {
@@ -271,7 +279,7 @@ RANSAC<Estimator, SupportMeasurer, Sampler>::Estimate(
   // evaluated model. Some benchmarking revealed that this approach is faster.
 
   estimator.Residuals(X, Y, report.model, &residuals);
-  CHECK_EQ(residuals.size(), num_samples);
+  THROW_CHECK_EQ(residuals.size(), num_samples);
 
   report.inlier_mask.resize(num_samples);
   for (size_t i = 0; i < residuals.size(); ++i) {

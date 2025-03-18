@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,14 +26,13 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/scene/camera_rig.h"
 
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(CameraRig, Empty) {
   CameraRig camera_rig;
@@ -125,34 +124,30 @@ TEST(CameraRig, Check) {
 
   Reconstruction reconstruction;
 
-  Camera camera1;
-  camera1.SetCameraId(0);
-  camera1.InitializeWithName("PINHOLE", 1, 1, 1);
+  Camera camera1 = Camera::CreateFromModelName(0, "PINHOLE", 1, 1, 1);
   reconstruction.AddCamera(camera1);
 
-  Camera camera2;
-  camera2.SetCameraId(1);
-  camera2.InitializeWithName("PINHOLE", 1, 1, 1);
+  Camera camera2 = Camera::CreateFromModelName(1, "PINHOLE", 1, 1, 1);
   reconstruction.AddCamera(camera2);
 
   Image image1;
   image1.SetImageId(0);
-  image1.SetCameraId(camera1.CameraId());
+  image1.SetCameraId(camera1.camera_id);
   reconstruction.AddImage(image1);
 
   Image image2;
   image2.SetImageId(1);
-  image2.SetCameraId(camera2.CameraId());
+  image2.SetCameraId(camera2.camera_id);
   reconstruction.AddImage(image2);
 
   Image image3;
   image3.SetImageId(2);
-  image3.SetCameraId(camera1.CameraId());
+  image3.SetCameraId(camera1.camera_id);
   reconstruction.AddImage(image3);
 
   Image image4;
   image4.SetImageId(3);
-  image4.SetCameraId(camera2.CameraId());
+  image4.SetCameraId(camera2.camera_id);
   reconstruction.AddImage(image4);
 
   camera_rig.SetRefCameraId(0);
@@ -170,24 +165,22 @@ TEST(CameraRig, ComputeRigFromWorldScale) {
 
   Reconstruction reconstruction;
 
-  Camera camera1;
-  camera1.SetCameraId(0);
-  camera1.InitializeWithName("PINHOLE", 1, 1, 1);
+  Camera camera1 = Camera::CreateFromModelName(0, "PINHOLE", 1, 1, 1);
   reconstruction.AddCamera(camera1);
 
-  Camera camera2;
-  camera2.SetCameraId(1);
-  camera2.InitializeWithName("PINHOLE", 1, 1, 1);
+  Camera camera2 = Camera::CreateFromModelName(1, "PINHOLE", 1, 1, 1);
   reconstruction.AddCamera(camera2);
 
   Image image1;
   image1.SetImageId(0);
-  image1.SetCameraId(camera1.CameraId());
+  image1.SetCameraId(camera1.camera_id);
+  image1.SetCamFromWorld(Rigid3d());
   reconstruction.AddImage(image1);
 
   Image image2;
   image2.SetImageId(1);
-  image2.SetCameraId(camera2.CameraId());
+  image2.SetCameraId(camera2.camera_id);
+  image2.SetCamFromWorld(Rigid3d());
   image2.CamFromWorld().translation = Eigen::Vector3d(1, 2, 3);
   reconstruction.AddImage(image2);
 
@@ -211,24 +204,22 @@ TEST(CameraRig, ComputeCamsFromRigs) {
 
   Reconstruction reconstruction;
 
-  Camera camera1;
-  camera1.SetCameraId(0);
-  camera1.InitializeWithName("PINHOLE", 1, 1, 1);
+  Camera camera1 = Camera::CreateFromModelName(0, "PINHOLE", 1, 1, 1);
   reconstruction.AddCamera(camera1);
 
-  Camera camera2;
-  camera2.SetCameraId(1);
-  camera2.InitializeWithName("PINHOLE", 1, 1, 1);
+  Camera camera2 = Camera::CreateFromModelName(1, "PINHOLE", 1, 1, 1);
   reconstruction.AddCamera(camera2);
 
   Image image1;
   image1.SetImageId(0);
-  image1.SetCameraId(camera1.CameraId());
+  image1.SetCameraId(camera1.camera_id);
+  image1.SetCamFromWorld(Rigid3d());
   reconstruction.AddImage(image1);
 
   Image image2;
   image2.SetImageId(1);
-  image2.SetCameraId(camera2.CameraId());
+  image2.SetCameraId(camera2.camera_id);
+  image2.SetCamFromWorld(Rigid3d());
   image2.CamFromWorld().translation = Eigen::Vector3d(1, 2, 3);
   reconstruction.AddImage(image2);
 
@@ -247,12 +238,14 @@ TEST(CameraRig, ComputeCamsFromRigs) {
 
   Image image3;
   image3.SetImageId(2);
-  image3.SetCameraId(camera1.CameraId());
+  image3.SetCameraId(camera1.camera_id);
+  image3.SetCamFromWorld(Rigid3d());
   reconstruction.AddImage(image3);
 
   Image image4;
   image4.SetImageId(3);
-  image4.SetCameraId(camera2.CameraId());
+  image4.SetCameraId(camera2.camera_id);
+  image4.SetCamFromWorld(Rigid3d());
   image4.CamFromWorld().translation = Eigen::Vector3d(2, 4, 6);
   reconstruction.AddImage(image4);
 
@@ -270,7 +263,8 @@ TEST(CameraRig, ComputeCamsFromRigs) {
 
   Image image5;
   image5.SetImageId(4);
-  image5.SetCameraId(camera1.CameraId());
+  image5.SetCameraId(camera1.camera_id);
+  image5.SetCamFromWorld(Rigid3d());
   reconstruction.AddImage(image5);
 
   camera_rig.Check(reconstruction);
@@ -294,24 +288,22 @@ TEST(CameraRig, ComputeRigFromWorld) {
 
   Reconstruction reconstruction;
 
-  Camera camera1;
-  camera1.SetCameraId(0);
-  camera1.InitializeWithName("PINHOLE", 1, 1, 1);
+  Camera camera1 = Camera::CreateFromModelName(0, "PINHOLE", 1, 1, 1);
   reconstruction.AddCamera(camera1);
 
-  Camera camera2;
-  camera2.SetCameraId(1);
-  camera2.InitializeWithName("PINHOLE", 1, 1, 1);
+  Camera camera2 = Camera::CreateFromModelName(1, "PINHOLE", 1, 1, 1);
   reconstruction.AddCamera(camera2);
 
   Image image1;
   image1.SetImageId(0);
-  image1.SetCameraId(camera1.CameraId());
+  image1.SetCameraId(camera1.camera_id);
+  image1.SetCamFromWorld(Rigid3d());
   reconstruction.AddImage(image1);
 
   Image image2;
   image2.SetImageId(1);
-  image2.SetCameraId(camera2.CameraId());
+  image2.SetCameraId(camera2.camera_id);
+  image2.SetCamFromWorld(Rigid3d());
   image2.CamFromWorld().translation = Eigen::Vector3d(3, 3, 3);
   reconstruction.AddImage(image2);
 
@@ -325,4 +317,5 @@ TEST(CameraRig, ComputeRigFromWorld) {
   EXPECT_EQ(rig_from_world.translation, Eigen::Vector3d(0, -1, -2));
 }
 
+}  // namespace
 }  // namespace colmap

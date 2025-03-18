@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/estimators/coordinate_frame.h"
 
@@ -42,53 +40,6 @@
 
 namespace colmap {
 namespace {
-
-struct VanishingPointEstimator {
-  // The line segments.
-  typedef LineSegment X_t;
-  // The line representation of the segments.
-  typedef Eigen::Vector3d Y_t;
-  // The vanishing point.
-  typedef Eigen::Vector3d M_t;
-
-  // The minimum number of samples needed to estimate a model.
-  static const int kMinNumSamples = 2;
-
-  // Estimate the vanishing point from at least two line segments.
-  static std::vector<M_t> Estimate(const std::vector<X_t>& line_segments,
-                                   const std::vector<Y_t>& lines) {
-    CHECK_EQ(line_segments.size(), 2);
-    CHECK_EQ(lines.size(), 2);
-    return {lines[0].cross(lines[1])};
-  }
-
-  // Calculate the squared distance of each line segment's end point to the line
-  // connecting the vanishing point and the midpoint of the line segment.
-  static void Residuals(const std::vector<X_t>& line_segments,
-                        const std::vector<Y_t>& lines,
-                        const M_t& vanishing_point,
-                        std::vector<double>* residuals) {
-    residuals->resize(line_segments.size());
-
-    // Check if vanishing point is at infinity.
-    if (vanishing_point[2] == 0) {
-      std::fill(residuals->begin(),
-                residuals->end(),
-                std::numeric_limits<double>::max());
-      return;
-    }
-
-    for (size_t i = 0; i < lines.size(); ++i) {
-      const Eigen::Vector3d midpoint =
-          (0.5 * (line_segments[i].start + line_segments[i].end)).homogeneous();
-      const Eigen::Vector3d connecting_line = midpoint.cross(vanishing_point);
-      const double signed_distance =
-          connecting_line.dot(line_segments[i].end.homogeneous()) /
-          connecting_line.head<2>().norm();
-      (*residuals)[i] = signed_distance * signed_distance;
-    }
-  }
-};
 
 Eigen::Vector3d FindBestConsensusAxis(const std::vector<Eigen::Vector3d>& axes,
                                       const double max_distance) {
@@ -155,28 +106,80 @@ Eigen::Vector3d EstimateGravityVectorFromImageOrientation(
   return FindBestConsensusAxis(downward_axes, max_axis_distance);
 }
 
+#ifdef COLMAP_LSD_ENABLED
+
+struct VanishingPointEstimator {
+  // The line segments.
+  typedef LineSegment X_t;
+  // The line representation of the segments.
+  typedef Eigen::Vector3d Y_t;
+  // The vanishing point.
+  typedef Eigen::Vector3d M_t;
+
+  // The minimum number of samples needed to estimate a model.
+  static const int kMinNumSamples = 2;
+
+  // Estimate the vanishing point from at least two line segments.
+  static void Estimate(const std::vector<X_t>& line_segments,
+                       const std::vector<Y_t>& lines,
+                       std::vector<M_t>* models) {
+    THROW_CHECK_EQ(line_segments.size(), 2);
+    THROW_CHECK_EQ(lines.size(), 2);
+    THROW_CHECK(models != nullptr);
+    models->resize(1);
+    (*models)[0] = lines[0].cross(lines[1]);
+  }
+
+  // Calculate the squared distance of each line segment's end point to the line
+  // connecting the vanishing point and the midpoint of the line segment.
+  static void Residuals(const std::vector<X_t>& line_segments,
+                        const std::vector<Y_t>& lines,
+                        const M_t& vanishing_point,
+                        std::vector<double>* residuals) {
+    residuals->resize(line_segments.size());
+
+    // Check if vanishing point is at infinity.
+    if (vanishing_point[2] == 0) {
+      std::fill(residuals->begin(),
+                residuals->end(),
+                std::numeric_limits<double>::max());
+      return;
+    }
+
+    for (size_t i = 0; i < lines.size(); ++i) {
+      const Eigen::Vector3d midpoint =
+          (0.5 * (line_segments[i].start + line_segments[i].end)).homogeneous();
+      const Eigen::Vector3d connecting_line = midpoint.cross(vanishing_point);
+      const double signed_distance =
+          connecting_line.dot(line_segments[i].end.homogeneous()) /
+          connecting_line.head<2>().norm();
+      (*residuals)[i] = signed_distance * signed_distance;
+    }
+  }
+};
+
 Eigen::Matrix3d EstimateManhattanWorldFrame(
     const ManhattanWorldFrameEstimationOptions& options,
     const Reconstruction& reconstruction,
     const std::string& image_path) {
   std::vector<Eigen::Vector3d> rightward_axes;
   std::vector<Eigen::Vector3d> downward_axes;
-  for (size_t i = 0; i < reconstruction.NumRegImages(); ++i) {
-    const auto image_id = reconstruction.RegImageIds()[i];
+  size_t image_idx = 0;
+  for (const image_t image_id : reconstruction.RegImageIds()) {
     const auto& image = reconstruction.Image(image_id);
-    const auto& camera = reconstruction.Camera(image.CameraId());
+    const auto& camera = *image.CameraPtr();
 
     PrintHeading1(StringPrintf("Processing image %s (%d / %d)",
                                image.Name().c_str(),
-                               i + 1,
+                               ++image_idx,
                                reconstruction.NumRegImages()));
 
-    std::cout << "Reading image..." << std::endl;
+    LOG(INFO) << "Reading image...";
 
     colmap::Bitmap bitmap;
-    CHECK(bitmap.Read(colmap::JoinPaths(image_path, image.Name())));
+    THROW_CHECK(bitmap.Read(colmap::JoinPaths(image_path, image.Name())));
 
-    std::cout << "Undistorting image..." << std::endl;
+    LOG(INFO) << "Undistorting image...";
 
     UndistortCameraOptions undistortion_options;
     undistortion_options.max_image_size = options.max_image_size;
@@ -189,7 +192,7 @@ Eigen::Matrix3d EstimateManhattanWorldFrame(
                    &undistorted_bitmap,
                    &undistorted_camera);
 
-    std::cout << "Detecting lines...";
+    LOG(INFO) << "Detecting lines...";
 
     const std::vector<LineSegment> line_segments =
         DetectLineSegments(undistorted_bitmap, options.min_line_length);
@@ -197,7 +200,7 @@ Eigen::Matrix3d EstimateManhattanWorldFrame(
         ClassifyLineSegmentOrientations(line_segments,
                                         options.line_orientation_tolerance);
 
-    std::cout << StringPrintf(" %d", line_segments.size());
+    LOG(INFO) << StringPrintf(" %d", line_segments.size());
 
     std::vector<LineSegment> horizontal_line_segments;
     std::vector<LineSegment> vertical_line_segments;
@@ -218,12 +221,11 @@ Eigen::Matrix3d EstimateManhattanWorldFrame(
       }
     }
 
-    std::cout << StringPrintf(" (%d horizontal, %d vertical)",
+    LOG(INFO) << StringPrintf(" (%d horizontal, %d vertical)",
                               horizontal_lines.size(),
-                              vertical_lines.size())
-              << std::endl;
+                              vertical_lines.size());
 
-    std::cout << "Estimating vanishing points...";
+    LOG(INFO) << "Estimating vanishing points...";
 
     RANSACOptions ransac_options;
     ransac_options.max_error = options.max_line_vp_distance;
@@ -233,12 +235,11 @@ Eigen::Matrix3d EstimateManhattanWorldFrame(
     const auto vertical_report =
         ransac.Estimate(vertical_line_segments, vertical_lines);
 
-    std::cout << StringPrintf(" (%d horizontal inliers, %d vertical inliers)",
+    LOG(INFO) << StringPrintf(" (%d horizontal inliers, %d vertical inliers)",
                               horizontal_report.support.num_inliers,
-                              vertical_report.support.num_inliers)
-              << std::endl;
+                              vertical_report.support.num_inliers);
 
-    std::cout << "Composing coordinate axes..." << std::endl;
+    LOG(INFO) << "Composing coordinate axes...";
 
     const Eigen::Matrix3d inv_calib_matrix =
         undistorted_camera.CalibrationMatrix().inverse();
@@ -255,8 +256,7 @@ Eigen::Matrix3d EstimateManhattanWorldFrame(
         horizontal_axis_in_world = -horizontal_axis_in_world;
       }
       rightward_axes.push_back(horizontal_axis_in_world);
-      std::cout << "  Horizontal: " << horizontal_axis_in_world.transpose()
-                << std::endl;
+      LOG(INFO) << "Horizontal: " << horizontal_axis_in_world.transpose();
     }
 
     if (vertical_report.success) {
@@ -270,8 +270,7 @@ Eigen::Matrix3d EstimateManhattanWorldFrame(
         vertical_axis_in_world = -vertical_axis_in_world;
       }
       downward_axes.push_back(vertical_axis_in_world);
-      std::cout << "  Vertical: " << vertical_axis_in_world.transpose()
-                << std::endl;
+      LOG(INFO) << "Vertical: " << vertical_axis_in_world.transpose();
     }
   }
 
@@ -284,15 +283,14 @@ Eigen::Matrix3d EstimateManhattanWorldFrame(
         FindBestConsensusAxis(rightward_axes, options.max_axis_distance);
   }
 
-  std::cout << "Found rightward axis: " << frame.col(0).transpose()
-            << std::endl;
+  LOG(INFO) << "Found rightward axis: " << frame.col(0).transpose();
 
   if (downward_axes.size() > 0) {
     frame.col(1) =
         FindBestConsensusAxis(downward_axes, options.max_axis_distance);
   }
 
-  std::cout << "Found downward axis: " << frame.col(1).transpose() << std::endl;
+  LOG(INFO) << "Found downward axis: " << frame.col(1).transpose();
 
   if (rightward_axes.size() > 0 && downward_axes.size() > 0) {
     frame.col(2) = frame.col(0).cross(frame.col(1));
@@ -303,11 +301,11 @@ Eigen::Matrix3d EstimateManhattanWorldFrame(
     frame = orthonormal_frame;
   }
 
-  std::cout << "Found orthonormal frame: " << std::endl;
-  std::cout << frame << std::endl;
+  LOG(INFO) << "Found orthonormal frame:\n" << frame;
 
   return frame;
 }
+#endif
 
 void AlignToPrincipalPlane(Reconstruction* reconstruction, Sim3d* tform) {
   // Perform SVD on the 3D points to estimate the ground plane basis
@@ -315,7 +313,7 @@ void AlignToPrincipalPlane(Reconstruction* reconstruction, Sim3d* tform) {
   Eigen::MatrixXd normalized_points3D(3, reconstruction->NumPoints3D());
   int pidx = 0;
   for (const auto& point : reconstruction->Points3D()) {
-    normalized_points3D.col(pidx++) = point.second.XYZ() - centroid;
+    normalized_points3D.col(pidx++) = point.second.xyz - centroid;
   }
   const Eigen::Matrix3d basis =
       normalized_points3D.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV)
@@ -329,7 +327,8 @@ void AlignToPrincipalPlane(Reconstruction* reconstruction, Sim3d* tform) {
   // If camera plane ends up below ground then flip basis vectors.
   const Rigid3d cam0_from_aligned_world = TransformCameraWorld(
       *tform,
-      reconstruction->Image(reconstruction->RegImageIds()[0]).CamFromWorld());
+      reconstruction->Image(*reconstruction->RegImageIds().begin())
+          .CamFromWorld());
   if (Inverse(cam0_from_aligned_world).translation.z() < 0.0) {
     rot_mat << basis.col(0), -basis.col(1), basis.col(0).cross(-basis.col(1));
     rot_mat.transposeInPlace();

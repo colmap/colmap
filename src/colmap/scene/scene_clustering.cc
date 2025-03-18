@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/scene/scene_clustering.h"
 
@@ -45,14 +43,14 @@ bool SceneClustering::Options::Check() const {
 }
 
 SceneClustering::SceneClustering(const Options& options) : options_(options) {
-  CHECK(options_.Check());
+  THROW_CHECK(options_.Check());
 }
 
 void SceneClustering::Partition(
     const std::vector<std::pair<image_t, image_t>>& image_pairs,
     const std::vector<int>& num_inliers) {
-  CHECK(!root_cluster_);
-  CHECK_EQ(image_pairs.size(), num_inliers.size());
+  THROW_CHECK(!root_cluster_);
+  THROW_CHECK_EQ(image_pairs.size(), num_inliers.size());
 
   std::set<image_t> image_ids;
   std::vector<std::pair<int, int>> edges;
@@ -77,7 +75,7 @@ void SceneClustering::PartitionHierarchicalCluster(
     const std::vector<std::pair<int, int>>& edges,
     const std::vector<int>& weights,
     Cluster* cluster) {
-  CHECK_EQ(edges.size(), weights.size());
+  THROW_CHECK_EQ(edges.size(), weights.size());
 
   // If the cluster is small enough, we return from the recursive clustering.
   if (edges.empty() || cluster->image_ids.size() <=
@@ -96,8 +94,8 @@ void SceneClustering::PartitionHierarchicalCluster(
       auto& child_cluster = cluster->child_clusters.at(labels.at(image_id));
       child_cluster.image_ids.push_back(image_id);
     } else {
-      std::cout << "WARN: Graph cut failed to assign cluster label to image "
-                << image_id << "; assigning to cluster 0" << std::endl;
+      LOG(WARNING) << "Graph cut failed to assign cluster label to image "
+                   << image_id << "; assigning to cluster 0";
       cluster->child_clusters.at(0).image_ids.push_back(image_id);
     }
   }
@@ -196,7 +194,7 @@ void SceneClustering::PartitionHierarchicalCluster(
 void SceneClustering::PartitionFlatCluster(
     const std::vector<std::pair<int, int>>& edges,
     const std::vector<int>& weights) {
-  CHECK_EQ(edges.size(), weights.size());
+  THROW_CHECK_EQ(edges.size(), weights.size());
 
   // Partition the cluster using a normalized cut on the scene graph.
   const auto labels =
@@ -282,7 +280,7 @@ const SceneClustering::Cluster* SceneClustering::GetRootCluster() const {
 
 std::vector<const SceneClustering::Cluster*> SceneClustering::GetLeafClusters()
     const {
-  CHECK(root_cluster_);
+  THROW_CHECK_NOTNULL(root_cluster_);
 
   std::vector<const Cluster*> leaf_clusters;
 
@@ -314,14 +312,22 @@ std::vector<const SceneClustering::Cluster*> SceneClustering::GetLeafClusters()
 
 SceneClustering SceneClustering::Create(const Options& options,
                                         const Database& database) {
-  std::cout << "Reading scene graph..." << std::endl;
-  std::vector<std::pair<image_t, image_t>> image_pairs;
-  std::vector<int> num_inliers;
-  database.ReadTwoViewGeometryNumInliers(&image_pairs, &num_inliers);
+  LOG(INFO) << "Reading scene graph...";
+  const std::vector<std::pair<image_pair_t, int>> pair_ids_and_num_inliers =
+      database.ReadTwoViewGeometryNumInliers();
 
-  std::cout << "Partitioning scene graph..." << std::endl;
+  std::vector<std::pair<image_t, image_t>> all_image_pairs;
+  all_image_pairs.reserve(pair_ids_and_num_inliers.size());
+  std::vector<int> all_num_inliers;
+  all_num_inliers.reserve(pair_ids_and_num_inliers.size());
+  for (const auto& [pair_id, num_inliers] : pair_ids_and_num_inliers) {
+    all_image_pairs.push_back(Database::PairIdToImagePair(pair_id));
+    all_num_inliers.push_back(num_inliers);
+  }
+
+  LOG(INFO) << "Partitioning scene graph...";
   SceneClustering scene_clustering(options);
-  scene_clustering.Partition(image_pairs, num_inliers);
+  scene_clustering.Partition(all_image_pairs, all_num_inliers);
   return scene_clustering;
 }
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,14 +26,13 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/ui/feature_matching_widget.h"
 
 #include "colmap/controllers/feature_matching.h"
 #include "colmap/ui/options_widget.h"
 #include "colmap/ui/thread_control_widget.h"
+#include "colmap/util/file.h"
 
 namespace colmap {
 
@@ -266,7 +265,6 @@ void VocabTreeMatchingTab::Run() {
 
 SpatialMatchingTab::SpatialMatchingTab(QWidget* parent, OptionManager* options)
     : FeatureMatchingTab(parent, options) {
-  options_widget_->AddOptionBool(&options_->spatial_matching->is_gps, "is_gps");
   options_widget_->AddOptionBool(&options_->spatial_matching->ignore_z,
                                  "ignore_z");
   options_widget_->AddOptionInt(&options_->spatial_matching->max_num_neighbors,
@@ -362,7 +360,8 @@ FeatureMatchingWidget::FeatureMatchingWidget(QWidget* parent,
     : parent_(parent) {
   // Do not change flag, to make sure feature database is not accessed from
   // multiple threads
-  setWindowFlags(Qt::Window);
+  setWindowFlags(Qt::Dialog);
+  setWindowModality(Qt::ApplicationModal);
   setWindowTitle("Feature matching");
 
   QGridLayout* grid = new QGridLayout(this);

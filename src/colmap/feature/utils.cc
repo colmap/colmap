@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/feature/utils.h"
 
@@ -72,8 +70,8 @@ FeatureDescriptors FeatureDescriptorsToUnsignedByte(
 void ExtractTopScaleFeatures(FeatureKeypoints* keypoints,
                              FeatureDescriptors* descriptors,
                              const size_t num_features) {
-  CHECK_EQ(keypoints->size(), descriptors->rows());
-  CHECK_GT(num_features, 0);
+  THROW_CHECK_EQ(keypoints->size(), descriptors->rows());
+  THROW_CHECK_GT(num_features, 0);
 
   if (static_cast<size_t>(descriptors->rows()) <= num_features) {
     return;

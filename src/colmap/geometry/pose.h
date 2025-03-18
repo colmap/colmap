@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,13 +26,12 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #pragma once
 
 #include "colmap/geometry/rigid3.h"
 #include "colmap/geometry/sim3.h"
+#include "colmap/util/eigen_alignment.h"
 #include "colmap/util/types.h"
 
 #include <vector>
@@ -51,9 +50,6 @@ bool DecomposeProjectionMatrix(const Eigen::Matrix3x4d& proj_matrix,
                                Eigen::Matrix3d* K,
                                Eigen::Matrix3d* R,
                                Eigen::Vector3d* T);
-
-// Compose the skew symmetric cross product matrix from a vector.
-Eigen::Matrix3d CrossProductMatrix(const Eigen::Vector3d& vector);
 
 // Convert 3D rotation matrix to Euler angles.
 //
@@ -96,17 +92,13 @@ Rigid3d InterpolateCameraPoses(const Rigid3d& cam_from_world1,
                                double t);
 
 // Perform cheirality constraint test, i.e., determine which of the triangulated
-// correspondences lie in front of of both cameras. The first camera has the
-// projection matrix P1 = [I | 0] and the second camera has the projection
-// matrix P2 = [R | t].
+// correspondences lie in front of both cameras.
 //
-// @param R            3x3 rotation matrix of second projection matrix.
-// @param t            3x1 translation vector of second projection matrix.
-// @param points1      First set of corresponding points.
-// @param points2      Second set of corresponding points.
-// @param points3D     Points that lie in front of both cameras.
-bool CheckCheirality(const Eigen::Matrix3d& R,
-                     const Eigen::Vector3d& t,
+// @param cam2_from_cam1  Relative camera transformation.
+// @param points1         First set of corresponding points.
+// @param points2         Second set of corresponding points.
+// @param points3D        Points that lie in front of both cameras.
+bool CheckCheirality(const Rigid3d& cam2_from_cam1,
                      const std::vector<Eigen::Vector2d>& points1,
                      const std::vector<Eigen::Vector2d>& points2,
                      std::vector<Eigen::Vector3d>* points3D);

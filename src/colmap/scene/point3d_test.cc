@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,90 +26,49 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/scene/point3d.h"
 
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(Point3D, Default) {
   Point3D point3D;
-  EXPECT_EQ(point3D.X(), 0);
-  EXPECT_EQ(point3D.Y(), 0);
-  EXPECT_EQ(point3D.Z(), 0);
-  EXPECT_EQ(point3D.XYZ()[0], point3D.X());
-  EXPECT_EQ(point3D.XYZ()[1], point3D.Y());
-  EXPECT_EQ(point3D.XYZ()[2], point3D.Z());
-  EXPECT_EQ(point3D.Color()[0], 0);
-  EXPECT_EQ(point3D.Color()[1], 0);
-  EXPECT_EQ(point3D.Color()[2], 0);
-  EXPECT_EQ(point3D.Error(), -1.0);
+  EXPECT_EQ(point3D.xyz, Eigen::Vector3d::Zero());
+  EXPECT_EQ(point3D.color, Eigen::Vector3ub::Zero());
+  EXPECT_EQ(point3D.error, -1.0);
   EXPECT_FALSE(point3D.HasError());
-  EXPECT_EQ(point3D.Track().Length(), 0);
+  EXPECT_EQ(point3D.track.Length(), 0);
 }
 
-TEST(Point3D, XYZ) {
+TEST(Point3D, Equals) {
   Point3D point3D;
-  EXPECT_EQ(point3D.X(), 0);
-  EXPECT_EQ(point3D.Y(), 0);
-  EXPECT_EQ(point3D.Z(), 0);
-  EXPECT_EQ(point3D.XYZ()[0], point3D.X());
-  EXPECT_EQ(point3D.XYZ()[1], point3D.Y());
-  EXPECT_EQ(point3D.XYZ()[2], point3D.Z());
-  point3D.SetXYZ(Eigen::Vector3d(0.1, 0.2, 0.3));
-  EXPECT_EQ(point3D.X(), 0.1);
-  EXPECT_EQ(point3D.Y(), 0.2);
-  EXPECT_EQ(point3D.Z(), 0.3);
-  EXPECT_EQ(point3D.XYZ()[0], point3D.X());
-  EXPECT_EQ(point3D.XYZ()[1], point3D.Y());
-  EXPECT_EQ(point3D.XYZ()[2], point3D.Z());
-  point3D.XYZ() = Eigen::Vector3d(0.2, 0.3, 0.4);
-  EXPECT_EQ(point3D.X(), 0.2);
-  EXPECT_EQ(point3D.Y(), 0.3);
-  EXPECT_EQ(point3D.Z(), 0.4);
-  EXPECT_EQ(point3D.XYZ()[0], point3D.X());
-  EXPECT_EQ(point3D.XYZ()[1], point3D.Y());
-  EXPECT_EQ(point3D.XYZ()[2], point3D.Z());
+  Point3D other = point3D;
+  EXPECT_EQ(point3D, other);
+  point3D.xyz(0) += 1;
+  EXPECT_NE(point3D, other);
+  other.xyz(0) += 1;
+  EXPECT_EQ(point3D, other);
 }
 
-TEST(Point3D, RGB) {
+TEST(Point3D, Print) {
   Point3D point3D;
-  EXPECT_EQ(point3D.Color()[0], 0);
-  EXPECT_EQ(point3D.Color()[1], 0);
-  EXPECT_EQ(point3D.Color()[2], 0);
-  point3D.SetColor(Eigen::Vector3ub(1, 2, 3));
-  EXPECT_EQ(point3D.Color()[0], 1);
-  EXPECT_EQ(point3D.Color()[1], 2);
-  EXPECT_EQ(point3D.Color()[2], 3);
+  point3D.xyz = Eigen::Vector3d(1, 2, 3);
+  std::ostringstream stream;
+  stream << point3D;
+  EXPECT_EQ(stream.str(), "Point3D(xyz=[1, 2, 3], track_len=0)");
 }
 
 TEST(Point3D, Error) {
   Point3D point3D;
-  EXPECT_EQ(point3D.Error(), -1.0);
+  EXPECT_EQ(point3D.error, -1.0);
   EXPECT_FALSE(point3D.HasError());
-  point3D.SetError(1.0);
-  EXPECT_EQ(point3D.Error(), 1.0);
+  point3D.error = 1.0;
+  EXPECT_EQ(point3D.error, 1.0);
   EXPECT_TRUE(point3D.HasError());
-  point3D.SetError(-1.0);
-  EXPECT_EQ(point3D.Error(), -1.0);
-  EXPECT_FALSE(point3D.HasError());
 }
 
-TEST(Point3D, Track) {
-  Point3D point3D;
-  EXPECT_EQ(point3D.Track().Length(), 0);
-  point3D.SetTrack(Track());
-  EXPECT_EQ(point3D.Track().Length(), 0);
-  Track track;
-  track.AddElement(0, 1);
-  track.AddElement(0, 2);
-  point3D.SetTrack(track);
-  EXPECT_EQ(point3D.Track().Length(), 2);
-  track.AddElement(0, 3);
-  EXPECT_EQ(point3D.Track().Length(), 2);
-}
-
+}  // namespace
 }  // namespace colmap

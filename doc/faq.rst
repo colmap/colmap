@@ -241,16 +241,13 @@ transformation. Then, the model can be geo-registered using::
     colmap model_aligner \
         --input_path /path/to/model \
         --output_path /path/to/geo-registered-model \
-        --ref_images_path /path/to/text-file (or --database_path /path/to/databse.db) \
+        --ref_images_path /path/to/text-file (or --database_path /path/to/database.db) \
         --ref_is_gps 1 \
         --alignment_type ecef \
-        --robust_alignment 1 \
-        --robust_alignment_max_error 3.0 (where 3.0 is the error threshold to be used in RANSAC)
+        --alignment_max_error 3.0 (where 3.0 is the error threshold to be used in RANSAC)
 
-By default, the robust_alignment flag is set to 1.  If this flag is set, a 3D similarity
-transformation will be estimated with a RANSAC estimator to be robust to potential outliers
-in the data.  In such case, it is required to provide the error threshold to be used in the 
-RANSAC estimator.
+A 3D similarity transformation will be estimated with a RANSAC estimator to be robust to potential outliers
+in the data. It is required to provide the error threshold to be used in the RANSAC estimator.
 
 Manhattan world alignment
 -------------------------
@@ -293,7 +290,6 @@ new images within this reconstruction, you can follow these steps::
 
     colmap vocab_tree_matcher \
         --database_path $PROJECT_PATH/database.db \
-        --VocabTreeMatching.vocab_tree_path /path/to/vocab-tree.bin \
         --VocabTreeMatching.match_list_path /path/to/image-list.txt
 
     colmap image_registrator \

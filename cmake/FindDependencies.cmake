@@ -4,10 +4,13 @@ else()
     set(COLMAP_FIND_TYPE REQUIRED)
 endif()
 
+if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.30")
+    cmake_policy(SET CMP0167 NEW)
+endif()
+
 find_package(Boost ${COLMAP_FIND_TYPE} COMPONENTS
-             program_options
-             filesystem
              graph
+             program_options
              system)
 
 find_package(Eigen3 ${COLMAP_FIND_TYPE})
@@ -20,6 +23,11 @@ find_package(LZ4 ${COLMAP_FIND_TYPE})
 find_package(Metis ${COLMAP_FIND_TYPE})
 
 find_package(Glog ${COLMAP_FIND_TYPE})
+if(DEFINED glog_VERSION_MAJOR)
+  # Older versions of glog don't export version variables.
+  add_definitions("-DGLOG_VERSION_MAJOR=${glog_VERSION_MAJOR}")
+  add_definitions("-DGLOG_VERSION_MINOR=${glog_VERSION_MINOR}")
+endif()
 
 find_package(SQLite3 ${COLMAP_FIND_TYPE})
 
@@ -44,7 +52,7 @@ if(TESTS_ENABLED)
     find_package(GTest ${COLMAP_FIND_TYPE})
 endif()
 
-if(OPENMP_ENABLED)
+if(OPENMP_ENABLED AND NOT "${CMAKE_BUILD_TYPE}" STREQUAL "ClangTidy")
     find_package(OpenMP QUIET)
 endif()
 
@@ -79,6 +87,45 @@ if(CGAL_FOUND)
     list(APPEND COLMAP_LINK_DIRS ${CGAL_LIBRARIES_DIR})
 endif()
 
+if(DOWNLOAD_ENABLED)
+    # The OpenSSL package in vcpkg seems broken under Windows and leads to
+    # missing certificate verification when connecting to SSL servers. We
+    # therefore use curl[schannel] (i.e., native Windows SSL/TLS) under Windows
+    # and curl[openssl] otherwise.
+    find_package(CURL QUIET)
+    set(CRYPTO_FOUND FALSE)
+    if(IS_MSVC AND IS_ARM64)
+        # OpenSSL crashes for ARM64 under Windows. We therefore fall back to
+        # CryptoPP as an alternative to OpenSSL for SHA256 computation.
+        find_package(CryptoPP QUIET)
+        if(CryptoPP_FOUND)
+            set(CRYPTO_FOUND TRUE)
+        else()
+            message(STATUS "CryptoPP not found")
+        endif()
+    else()
+        find_package(OpenSSL QUIET COMPONENTS Crypto)
+        if(OpenSSL_FOUND)
+            set(CRYPTO_FOUND TRUE)
+        else()
+            message(STATUS "OpenSSL::Crypto not found")
+        endif()
+    endif()
+    if(CURL_FOUND AND CRYPTO_FOUND)
+        message(STATUS "Enabling download support")
+        add_definitions("-DCOLMAP_DOWNLOAD_ENABLED")
+    else()
+        set(DOWNLOAD_ENABLED OFF)
+        message(STATUS "Disabling download support (Curl/Crypto not found)")
+    endif()
+else()
+    message(STATUS "Disabling download support")
+endif()
+
+if(NOT FETCH_POSELIB)
+    find_package(PoseLib ${COLMAP_FIND_TYPE})
+endif()
+
 set(COLMAP_LINK_DIRS ${Boost_LIBRARY_DIRS})
 
 set(CUDA_MIN_VERSION "7.0")
@@ -110,27 +157,27 @@ if(CUDA_ENABLED)
             
             set(CUDAToolkit_VERSION "${CUDA_VERSION_STRING}")
             set(CUDAToolkit_BIN_DIR "${CUDA_TOOLKIT_ROOT_DIR}/bin")
+        else()
+            message(STATUS "CUDA not found")
         endif()
     else()
         find_package(CUDAToolkit QUIET)
         if(CUDAToolkit_FOUND)
             set(CUDA_FOUND ON)
             enable_language(CUDA)
+        else()
+            message(STATUS "CUDA not found")
         endif()
     endif()
 endif()
 
 if(CUDA_ENABLED AND CUDA_FOUND)
     if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
-        message(
-            FATAL_ERROR "You must set CMAKE_CUDA_ARCHITECTURES to e.g. 'native', 'all-major', '70', etc. "
-            "More information at https://cmake.org/cmake/help/latest/prop_tgt/CUDA_ARCHITECTURES.html")
+        set(CMAKE_CUDA_ARCHITECTURES "native")
     endif()
 
     add_definitions("-DCOLMAP_CUDA_ENABLED")
 
-    # Fix for some combinations of CUDA and GCC (e.g. under Ubuntu 16.04).
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -D_FORCE_INLINES")
     # Do not show warnings if the architectures are deprecated.
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Wno-deprecated-gpu-targets")
     # Explicitly set PIC flags for CUDA targets.
@@ -195,6 +242,6 @@ endif()
 set(GPU_ENABLED OFF)
 if(OPENGL_ENABLED OR CUDA_ENABLED)
     add_definitions("-DCOLMAP_GPU_ENABLED")
-    message(STATUS "Enabling GPU support")
+    message(STATUS "Enabling GPU support (OpenGL: ${OPENGL_ENABLED}, CUDA: ${CUDA_ENABLED})")
     set(GPU_ENABLED ON)
 endif()

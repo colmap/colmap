@@ -1,4 +1,4 @@
-# Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+# Copyright (c), ETH Zurich and UNC Chapel Hill.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,7 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
-#
-# Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
+
 
 set(FOLDER_NAME "sensor")
 
@@ -37,28 +36,37 @@ COLMAP_ADD_LIBRARY(
         bitmap.h bitmap.cc
         database.h database.cc
         models.h models.cc
+        rig_calib.h rig_calib.cc
         specs.h specs.cc
     PUBLIC_LINK_LIBS
         Ceres::ceres
         Eigen3::Eigen
-        freeimage::FreeImage
     PRIVATE_LINK_LIBS
+        colmap_geometry
         colmap_util
         colmap_vlfeat
+        freeimage::FreeImage
 )
 
 COLMAP_ADD_TEST(
     NAME bitmap_test
     SRCS bitmap_test.cc
-    LINK_LIBS colmap_sensor
+    LINK_LIBS
+        colmap_sensor
+        freeimage::FreeImage
 )
-COLMAP_ADD_TEST( 
+COLMAP_ADD_TEST(
     NAME database_test
     SRCS database_test.cc
     LINK_LIBS colmap_sensor
 )
-COLMAP_ADD_TEST( 
+COLMAP_ADD_TEST(
     NAME models_test
     SRCS models_test.cc
+    LINK_LIBS colmap_sensor
+)
+COLMAP_ADD_TEST(
+    NAME rig_calib_test
+    SRCS rig_calib_test.cc
     LINK_LIBS colmap_sensor
 )

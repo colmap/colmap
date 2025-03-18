@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,64 +26,65 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/image/undistortion.h"
 
 #include "colmap/geometry/pose.h"
+#include "colmap/util/eigen_matchers.h"
 
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(UndistortCamera, Nominal) {
   UndistortCameraOptions options;
   Camera distorted_camera;
   Camera undistorted_camera;
 
-  distorted_camera.InitializeWithName("SIMPLE_PINHOLE", 1, 1, 1);
+  distorted_camera = Camera::CreateFromModelName(1, "SIMPLE_PINHOLE", 1, 1, 1);
   undistorted_camera = UndistortCamera(options, distorted_camera);
   EXPECT_EQ(undistorted_camera.ModelName(), "PINHOLE");
   EXPECT_EQ(undistorted_camera.FocalLengthX(), 1);
   EXPECT_EQ(undistorted_camera.FocalLengthY(), 1);
-  EXPECT_EQ(undistorted_camera.Width(), 1);
-  EXPECT_EQ(undistorted_camera.Height(), 1);
+  EXPECT_EQ(undistorted_camera.width, 1);
+  EXPECT_EQ(undistorted_camera.height, 1);
 
-  distorted_camera.InitializeWithName("SIMPLE_RADIAL", 1, 1, 1);
+  distorted_camera = Camera::CreateFromModelName(1, "SIMPLE_RADIAL", 1, 1, 1);
   undistorted_camera = UndistortCamera(options, distorted_camera);
   EXPECT_EQ(undistorted_camera.ModelName(), "PINHOLE");
   EXPECT_EQ(undistorted_camera.FocalLengthX(), 1);
   EXPECT_EQ(undistorted_camera.FocalLengthY(), 1);
-  EXPECT_EQ(undistorted_camera.Width(), 1);
-  EXPECT_EQ(undistorted_camera.Height(), 1);
+  EXPECT_EQ(undistorted_camera.width, 1);
+  EXPECT_EQ(undistorted_camera.height, 1);
 
-  distorted_camera.InitializeWithName("SIMPLE_RADIAL", 100, 100, 100);
-  distorted_camera.Params(3) = 0.5;
+  distorted_camera =
+      Camera::CreateFromModelName(1, "SIMPLE_RADIAL", 100, 100, 100);
+  distorted_camera.params[3] = 0.5;
   undistorted_camera = UndistortCamera(options, distorted_camera);
   EXPECT_EQ(undistorted_camera.ModelName(), "PINHOLE");
   EXPECT_EQ(undistorted_camera.FocalLengthX(), 100);
   EXPECT_EQ(undistorted_camera.FocalLengthY(), 100);
   EXPECT_EQ(undistorted_camera.PrincipalPointX(), 84.0 / 2.0);
   EXPECT_EQ(undistorted_camera.PrincipalPointY(), 84.0 / 2.0);
-  EXPECT_EQ(undistorted_camera.Width(), 84);
-  EXPECT_EQ(undistorted_camera.Height(), 84);
+  EXPECT_EQ(undistorted_camera.width, 84);
+  EXPECT_EQ(undistorted_camera.height, 84);
 
   options.blank_pixels = 1;
   undistorted_camera = UndistortCamera(options, distorted_camera);
   EXPECT_EQ(undistorted_camera.ModelName(), "PINHOLE");
   EXPECT_EQ(undistorted_camera.FocalLengthX(), 100);
   EXPECT_EQ(undistorted_camera.FocalLengthY(), 100);
-  EXPECT_EQ(undistorted_camera.Width(), 90);
-  EXPECT_EQ(undistorted_camera.Height(), 90);
+  EXPECT_EQ(undistorted_camera.width, 90);
+  EXPECT_EQ(undistorted_camera.height, 90);
 
   options.max_scale = 0.75;
   undistorted_camera = UndistortCamera(options, distorted_camera);
   EXPECT_EQ(undistorted_camera.ModelName(), "PINHOLE");
   EXPECT_EQ(undistorted_camera.FocalLengthX(), 100);
   EXPECT_EQ(undistorted_camera.FocalLengthY(), 100);
-  EXPECT_EQ(undistorted_camera.Width(), 75);
-  EXPECT_EQ(undistorted_camera.Height(), 75);
+  EXPECT_EQ(undistorted_camera.width, 75);
+  EXPECT_EQ(undistorted_camera.height, 75);
 
   options.max_scale = 1.0;
   options.roi_min_x = 0.1;
@@ -94,8 +95,8 @@ TEST(UndistortCamera, Nominal) {
   EXPECT_EQ(undistorted_camera.ModelName(), "PINHOLE");
   EXPECT_EQ(undistorted_camera.FocalLengthX(), 100);
   EXPECT_EQ(undistorted_camera.FocalLengthY(), 100);
-  EXPECT_EQ(undistorted_camera.Width(), 80);
-  EXPECT_EQ(undistorted_camera.Height(), 60);
+  EXPECT_EQ(undistorted_camera.width, 80);
+  EXPECT_EQ(undistorted_camera.height, 60);
   EXPECT_EQ(undistorted_camera.PrincipalPointX(), 40);
   EXPECT_EQ(undistorted_camera.PrincipalPointY(), 30);
 }
@@ -105,8 +106,9 @@ TEST(UndistortCamera, BlankPixels) {
   options.blank_pixels = 1;
 
   Camera distorted_camera;
-  distorted_camera.InitializeWithName("SIMPLE_RADIAL", 100, 100, 100);
-  distorted_camera.Params(3) = 0.5;
+  distorted_camera =
+      Camera::CreateFromModelName(1, "SIMPLE_RADIAL", 100, 100, 100);
+  distorted_camera.params[3] = 0.5;
 
   Bitmap distorted_image;
   distorted_image.Allocate(100, 100, false);
@@ -125,8 +127,8 @@ TEST(UndistortCamera, BlankPixels) {
   EXPECT_EQ(undistorted_camera.FocalLengthY(), 100);
   EXPECT_EQ(undistorted_camera.PrincipalPointX(), 90.0 / 2.0);
   EXPECT_EQ(undistorted_camera.PrincipalPointY(), 90.0 / 2.0);
-  EXPECT_EQ(undistorted_camera.Width(), 90);
-  EXPECT_EQ(undistorted_camera.Height(), 90);
+  EXPECT_EQ(undistorted_camera.width, 90);
+  EXPECT_EQ(undistorted_camera.height, 90);
 
   // Make sure that there is no blank pixel.
   size_t num_blank_pixels = 0;
@@ -148,8 +150,9 @@ TEST(UndistortCamera, NoBlankPixels) {
   options.blank_pixels = 0;
 
   Camera distorted_camera;
-  distorted_camera.InitializeWithName("SIMPLE_RADIAL", 100, 100, 100);
-  distorted_camera.Params(3) = 0.5;
+  distorted_camera =
+      Camera::CreateFromModelName(1, "SIMPLE_RADIAL", 100, 100, 100);
+  distorted_camera.params[3] = 0.5;
 
   Bitmap distorted_image;
   distorted_image.Allocate(100, 100, false);
@@ -168,8 +171,8 @@ TEST(UndistortCamera, NoBlankPixels) {
   EXPECT_EQ(undistorted_camera.FocalLengthY(), 100);
   EXPECT_EQ(undistorted_camera.PrincipalPointX(), 84.0 / 2.0);
   EXPECT_EQ(undistorted_camera.PrincipalPointY(), 84.0 / 2.0);
-  EXPECT_EQ(undistorted_camera.Width(), 84);
-  EXPECT_EQ(undistorted_camera.Height(), 84);
+  EXPECT_EQ(undistorted_camera.width, 84);
+  EXPECT_EQ(undistorted_camera.height, 84);
 
   // Make sure that there is no blank pixel.
   for (int y = 0; y < undistorted_image.Height(); ++y) {
@@ -189,10 +192,8 @@ TEST(UndistortReconstruction, Nominal) {
 
   Reconstruction reconstruction;
 
-  Camera camera;
-  camera.SetCameraId(1);
-  camera.InitializeWithName("OPENCV", 1, 1, 1);
-  camera.Params(4) = 1.0;
+  Camera camera = Camera::CreateFromModelName(1, "OPENCV", 1, 1, 1);
+  camera.params[4] = 1.0;
   reconstruction.AddCamera(camera);
 
   for (image_t image_id = 1; image_id <= kNumImages; ++image_id) {
@@ -202,6 +203,7 @@ TEST(UndistortReconstruction, Nominal) {
     image.SetName("image" + std::to_string(image_id));
     image.SetPoints2D(
         std::vector<Eigen::Vector2d>(kNumPoints2D, Eigen::Vector2d::Ones()));
+    image.SetCamFromWorld(Rigid3d());
     reconstruction.AddImage(image);
     reconstruction.RegisterImage(image_id);
   }
@@ -221,12 +223,10 @@ TEST(UndistortReconstruction, Nominal) {
 
 TEST(RectifyStereoCameras, Nominal) {
   Camera camera1;
-  camera1.SetCameraId(1);
-  camera1.InitializeWithName("PINHOLE", 1, 1, 1);
+  camera1 = Camera::CreateFromModelName(1, "PINHOLE", 1, 1, 1);
 
   Camera camera2;
-  camera2.SetCameraId(1);
-  camera2.InitializeWithName("PINHOLE", 1, 1, 1);
+  camera2 = Camera::CreateFromModelName(1, "PINHOLE", 1, 1, 1);
 
   const Rigid3d cam2_from_cam1(
       Eigen::Quaterniond(EulerAnglesToRotationMatrix(0.1, 0.2, 0.3)),
@@ -242,16 +242,17 @@ TEST(RectifyStereoCameras, Nominal) {
   Eigen::Matrix3d H1_ref;
   H1_ref << -0.202759, -0.815848, -0.897034, 0.416329, 0.733069, -0.199657,
       0.910839, -0.175408, 0.942638;
-  EXPECT_TRUE(H1.isApprox(H1_ref.transpose(), 1e-5));
+  EXPECT_THAT(H1, EigenMatrixNear<Eigen::Matrix3d>(H1_ref.transpose(), 1e-5));
 
   Eigen::Matrix3d H2_ref;
   H2_ref << -0.082173, -1.01288, -0.698868, 0.301854, 0.472844, -0.465336,
       0.963533, 0.292411, 1.12528;
-  EXPECT_TRUE(H2.isApprox(H2_ref.transpose(), 1e-5));
+  EXPECT_THAT(H2, EigenMatrixNear<Eigen::Matrix3d>(H2_ref.transpose(), 1e-5));
 
   Eigen::Matrix4d Q_ref;
   Q_ref << 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, -2.67261, -0.5, -0.5, 1, 0;
-  EXPECT_TRUE(Q.isApprox(Q_ref, 1e-5));
+  EXPECT_THAT(Q, EigenMatrixNear(Q_ref, 1e-5));
 }
 
+}  // namespace
 }  // namespace colmap

@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,17 +26,16 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/estimators/coordinate_frame.h"
 
 #include "colmap/geometry/gps.h"
-#include "colmap/scene/projection.h"
+#include "colmap/util/eigen_matchers.h"
 
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(CoordinateFrame, EstimateGravityVectorFromImageOrientation) {
   Reconstruction reconstruction;
@@ -44,6 +43,7 @@ TEST(CoordinateFrame, EstimateGravityVectorFromImageOrientation) {
             Eigen::Vector3d::Zero());
 }
 
+#ifdef COLMAP_LSD_ENABLED
 TEST(CoordinateFrame, EstimateManhattanWorldFrame) {
   Reconstruction reconstruction;
   std::string image_path;
@@ -52,6 +52,7 @@ TEST(CoordinateFrame, EstimateManhattanWorldFrame) {
           ManhattanWorldFrameEstimationOptions(), reconstruction, image_path),
       Eigen::Matrix3d::Zero());
 }
+#endif
 
 TEST(CoordinateFrame, AlignToPrincipalPlane) {
   // Start with reconstruction containing points on the Y-Z plane and cameras
@@ -60,12 +61,15 @@ TEST(CoordinateFrame, AlignToPrincipalPlane) {
   // axis.
   Sim3d tform;
   Reconstruction reconstruction;
+  Camera camera =
+      Camera::CreateFromModelId(1, CameraModelId::kSimplePinhole, 1, 1, 1);
+  reconstruction.AddCamera(camera);
   // Setup image with projection center at (1, 0, 0)
   Image image;
+  image.SetCameraId(camera.camera_id);
   image.SetImageId(1);
-  image.SetRegistered(true);
-  image.CamFromWorld() =
-      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(-1, 0, 0));
+  image.SetCamFromWorld(
+      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(-1, 0, 0)));
   reconstruction.AddImage(image);
   // Setup 4 points on the Y-Z plane
   const point3D_t p1 =
@@ -82,19 +86,19 @@ TEST(CoordinateFrame, AlignToPrincipalPlane) {
   const bool inverted = tform.rotation.y() < 0;
 
   // Verify that points lie on the correct locations of the X-Y plane
-  EXPECT_LE((reconstruction.Point3D(p1).XYZ() -
+  EXPECT_LE((reconstruction.Point3D(p1).xyz -
              Eigen::Vector3d(inverted ? 1 : -1, 0, 0))
                 .norm(),
             1e-6);
-  EXPECT_LE((reconstruction.Point3D(p2).XYZ() -
+  EXPECT_LE((reconstruction.Point3D(p2).xyz -
              Eigen::Vector3d(inverted ? -1 : 1, 0, 0))
                 .norm(),
             1e-6);
-  EXPECT_LE((reconstruction.Point3D(p3).XYZ() -
+  EXPECT_LE((reconstruction.Point3D(p3).xyz -
              Eigen::Vector3d(0, inverted ? 1 : -1, 0))
                 .norm(),
             1e-6);
-  EXPECT_LE((reconstruction.Point3D(p4).XYZ() -
+  EXPECT_LE((reconstruction.Point3D(p4).xyz -
              Eigen::Vector3d(0, inverted ? -1 : 1, 0))
                 .norm(),
             1e-6);
@@ -126,35 +130,40 @@ TEST(CoordinateFrame, AlignToENUPlane) {
   std::vector<point3D_t> point_ids;
   for (size_t i = 0; i < points.size(); ++i) {
     point_ids.push_back(reconstruction.AddPoint3D(points[i], Track()));
-    std::cout << points[i].transpose() << std::endl;
+    LOG(INFO) << points[i].transpose();
   }
   AlignToENUPlane(&reconstruction, &tform, false);
   // Verify final locations of points
-  EXPECT_LE((reconstruction.Point3D(point_ids[0]).XYZ() -
-             Eigen::Vector3d(3584.8565215, -5561.5336506, 0.0742643))
-                .norm(),
-            1e-6);
-  EXPECT_LE((reconstruction.Point3D(point_ids[1]).XYZ() -
-             Eigen::Vector3d(-3577.3888622, 5561.6397107, 0.0783761))
-                .norm(),
-            1e-6);
-  EXPECT_LE((reconstruction.Point3D(point_ids[2]).XYZ() -
-             Eigen::Vector3d(3577.4152111, 5561.6397283, 0.0783613))
-                .norm(),
-            1e-6);
-  EXPECT_LE((reconstruction.Point3D(point_ids[3]).XYZ() -
-             Eigen::Vector3d(-3584.8301178, -5561.5336683, 0.0742791))
-                .norm(),
-            1e-6);
+  EXPECT_THAT(reconstruction.Point3D(point_ids[0]).xyz,
+              EigenMatrixNear(Eigen::Vector3d(3584.8433196335045,
+                                              -5561.5866894473402,
+                                              -0.0020947810262441635),
+                              1e-6));
+  EXPECT_THAT(reconstruction.Point3D(point_ids[1]).xyz,
+              EigenMatrixNear(Eigen::Vector3d(-3577.4020366631503,
+                                              5561.5866894469982,
+                                              0.0020947791635990143),
+                              1e-6));
+  EXPECT_THAT(reconstruction.Point3D(point_ids[2]).xyz,
+              EigenMatrixNear(Eigen::Vector3d(3577.4020366640707,
+                                              5561.5866894467654,
+                                              0.0020947791635990143),
+                              1e-6));
+  EXPECT_THAT(reconstruction.Point3D(point_ids[3]).xyz,
+              EigenMatrixNear(Eigen::Vector3d(-3584.8433196330498,
+                                              -5561.586689447573,
+                                              -0.0020947810262441635),
+                              1e-6));
 
   // Verify that straight line distance between points is preserved
   for (size_t i = 1; i < points.size(); ++i) {
     const double dist_orig = (points[i] - points[i - 1]).norm();
-    const double dist_tform = (reconstruction.Point3D(point_ids[i]).XYZ() -
-                               reconstruction.Point3D(point_ids[i - 1]).XYZ())
+    const double dist_tform = (reconstruction.Point3D(point_ids[i]).xyz -
+                               reconstruction.Point3D(point_ids[i - 1]).xyz)
                                   .norm();
     EXPECT_LE(std::abs(dist_orig - dist_tform), 1e-6);
   }
 }
 
+}  // namespace
 }  // namespace colmap

@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/scene/correspondence_graph.h"
 
@@ -51,7 +49,7 @@ CorrespondenceGraph::NumCorrespondencesBetweenImages() const {
 }
 
 void CorrespondenceGraph::Finalize() {
-  CHECK(!finalized_);
+  THROW_CHECK(!finalized_);
   finalized_ = true;
 
   // Flatten all correspondences, remove images without observations.
@@ -85,7 +83,7 @@ void CorrespondenceGraph::Finalize() {
     it->second.flat_corr_begs[num_points2D] = it->second.flat_corrs.size();
 
     // Ensure we reserved enough space before insertion.
-    CHECK_EQ(it->second.flat_corrs.size(), num_total_corrs);
+    THROW_CHECK_EQ(it->second.flat_corrs.size(), num_total_corrs);
 
     // Deallocate original data.
     it->second.corrs.clear();
@@ -97,7 +95,7 @@ void CorrespondenceGraph::Finalize() {
 
 void CorrespondenceGraph::AddImage(const image_t image_id,
                                    const size_t num_points) {
-  CHECK(!ExistsImage(image_id));
+  THROW_CHECK(!ExistsImage(image_id));
   images_[image_id].corrs.resize(num_points);
 }
 
@@ -106,8 +104,7 @@ void CorrespondenceGraph::AddCorrespondences(const image_t image_id1,
                                              const FeatureMatches& matches) {
   // Avoid self-matches - should only happen, if user provides custom matches.
   if (image_id1 == image_id2) {
-    std::cout << "WARNING: Cannot use self-matches for image_id=" << image_id1
-              << std::endl;
+    LOG(WARNING) << "Cannot use self-matches for image_id=" << image_id1;
     return;
   }
 
@@ -156,15 +153,14 @@ void CorrespondenceGraph::AddCorrespondences(const image_t image_id1,
         image1.num_correspondences -= 1;
         image2.num_correspondences -= 1;
         image_pair.num_correspondences -= 1;
-        std::cout << StringPrintf(
-                         "WARNING: Duplicate correspondence between "
-                         "point2D_idx=%d in image_id=%d and point2D_idx=%d in "
-                         "image_id=%d",
-                         match.point2D_idx1,
-                         image_id1,
-                         match.point2D_idx2,
-                         image_id2)
-                  << std::endl;
+        LOG(WARNING) << StringPrintf(
+            "Duplicate correspondence between "
+            "point2D_idx=%d in image_id=%d and point2D_idx=%d in "
+            "image_id=%d",
+            match.point2D_idx1,
+            image_id1,
+            match.point2D_idx2,
+            image_id2);
       } else {
         corrs1.emplace_back(image_id2, match.point2D_idx2);
         corrs2.emplace_back(image_id1, match.point2D_idx1);
@@ -174,20 +170,16 @@ void CorrespondenceGraph::AddCorrespondences(const image_t image_id1,
       image2.num_correspondences -= 1;
       image_pair.num_correspondences -= 1;
       if (!valid_idx1) {
-        std::cout
-            << StringPrintf(
-                   "WARNING: point2D_idx=%d in image_id=%d does not exist",
-                   match.point2D_idx1,
-                   image_id1)
-            << std::endl;
+        LOG(WARNING) << StringPrintf(
+            "point2D_idx=%d in image_id=%d does not exist",
+            match.point2D_idx1,
+            image_id1);
       }
       if (!valid_idx2) {
-        std::cout
-            << StringPrintf(
-                   "WARNING: point2D_idx=%d in image_id=%d does not exist",
-                   match.point2D_idx2,
-                   image_id2)
-            << std::endl;
+        LOG(WARNING) << StringPrintf(
+            "point2D_idx=%d in image_id=%d does not exist",
+            match.point2D_idx2,
+            image_id2);
       }
     }
   }
@@ -196,7 +188,7 @@ void CorrespondenceGraph::AddCorrespondences(const image_t image_id1,
 CorrespondenceGraph::CorrespondenceRange
 CorrespondenceGraph::FindCorrespondences(const image_t image_id,
                                          const point2D_t point2D_idx) const {
-  CHECK(finalized_);
+  THROW_CHECK(finalized_);
   const point2D_t next_point2D_idx = point2D_idx + 1;
   const Image& image = images_.at(image_id);
   const Correspondence* beg =
@@ -314,6 +306,22 @@ bool CorrespondenceGraph::IsTwoViewObservation(
   const CorrespondenceRange other_range =
       FindCorrespondences(range.beg->image_id, range.beg->point2D_idx);
   return (other_range.end - other_range.beg) == 1;
+}
+
+std::ostream& operator<<(
+    std::ostream& stream,
+    const CorrespondenceGraph::Correspondence& correspondence) {
+  stream << "Correspondence(image_id=" << correspondence.image_id
+         << ", point2D_idx=" << correspondence.point2D_idx << ")";
+  return stream;
+}
+
+std::ostream& operator<<(std::ostream& stream,
+                         const CorrespondenceGraph& correspondence_graph) {
+  stream << "CorrespondenceGraph(num_images="
+         << correspondence_graph.NumImages()
+         << ", num_image_pairs=" << correspondence_graph.NumImagePairs() << ")";
+  return stream;
 }
 
 }  // namespace colmap

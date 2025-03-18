@@ -29,7 +29,7 @@ intrinsic parameters (focal length, principal point, distortion, etc.), while
 every image has separate extrinsic parameters (orientation and location).
 
 The intrinsic parameters of cameras are stored as contiguous binary blobs in
-`float64`, ordered as specified in ``src/colmap/camera/models.h``. COLMAP only
+`float64`, ordered as specified in ``src/colmap/sensor/models.h``. COLMAP only
 uses cameras that are referenced by images, all other cameras are ignored.
 
 The ``name`` column in the images table is the unique relative path in the image

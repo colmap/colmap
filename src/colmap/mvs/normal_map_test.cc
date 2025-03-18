@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/mvs/normal_map.h"
 
@@ -35,6 +33,7 @@
 
 namespace colmap {
 namespace mvs {
+namespace {
 
 TEST(NormalMap, Empty) {
   NormalMap normal_map;
@@ -95,5 +94,6 @@ TEST(NormalMap, ToBitmap) {
   EXPECT_EQ(color, BitmapColor<uint8_t>(37, 37, 0));
 }
 
+}  // namespace
 }  // namespace mvs
 }  // namespace colmap

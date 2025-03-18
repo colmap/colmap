@@ -74,19 +74,29 @@ Getting Started
 Support
 -------
 
-Please, use the `Google Group <https://groups.google.com/forum/#!forum/colmap>`_
-(colmap@googlegroups.com) for questions and the `GitHub issue tracker
-<https://github.com/colmap/colmap>`_ for bug reports, feature
-requests/additions, etc.
+Please, use `GitHub Discussions <https://github.com/colmap/colmap/discussions>`_
+for questions and the `GitHub issue tracker <https://github.com/colmap/colmap>`_
+for bug reports, feature requests/additions, etc.
 
 
 Acknowledgments
 ---------------
 
-The library was written by `Johannes L. Schönberger <https://demuc.de/>`_.
-Funding was provided by his PhD advisors `Jan-Michael Frahm
-<http://frahm.web.unc.edu/>`_ and `Marc Pollefeys
-<https://people.inf.ethz.ch/pomarc/>`_.
+COLMAP was originally written by `Johannes Schönberger <https://demuc.de/>`__ with
+funding provided by his PhD advisors Jan-Michael Frahm and Marc Pollefeys.
+The team of core project maintainers currently includes
+`Johannes Schönberger <https://github.com/ahojnnes>`__,
+`Paul-Edouard Sarlin <https://github.com/sarlinpe>`_, and
+`Shaohui Liu <https://github.com/B1ueber2y>`_.
+
+The Python bindings in PyCOLMAP were originally added by
+`Mihai Dusmanu <https://github.com/mihaidusmanu>`_,
+`Philipp Lindenberger <https://github.com/Phil26AT>`_, and
+`Paul-Edouard Sarlin <https://github.com/sarlinpe>`_.
+
+The project has also benefitted from countless community contributions, including
+bug fixes, improvements, new features, third-party tooling, and community
+support (special credits to `Torsten Sattler <https://tsattler.github.io>`_).
 
 
 .. toctree::
@@ -101,6 +111,7 @@ Funding was provided by his PhD advisors `Jan-Michael Frahm
    datasets
    gui
    cli
+   pycolmap/index
    faq
    changelog
    contribution

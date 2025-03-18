@@ -210,6 +210,47 @@ void CuTexImage::CopyToHost(void * buf, int stream)
 	cudaMemcpyAsync(buf, _cuData, _imgWidth * _imgHeight * _numChannel * sizeof(float), cudaMemcpyDeviceToHost, (cudaStream_t)stream);
 }
 
+void CuTexImage::InitTexture2D()
+{
+#if !defined(SIFTGPU_ENABLE_LINEAR_TEX2D)
+	if(_cuData2D && (_texWidth < _imgWidth || _texHeight < _imgHeight))
+	{
+		cudaFreeArray(_cuData2D);
+		_cuData2D = NULL;
+	}
+	if(_cuData2D == NULL)
+	{
+		_texWidth = max(_texWidth, _imgWidth);
+		_texHeight = max(_texHeight, _imgHeight);
+		cudaChannelFormatDesc desc;
+		desc.f = cudaChannelFormatKindFloat;
+		desc.x = sizeof(float) * 8;
+		desc.y = _numChannel >=2 ? sizeof(float) * 8 : 0;
+		desc.z = _numChannel >=3 ? sizeof(float) * 8 : 0;
+		desc.w = _numChannel >=4 ? sizeof(float) * 8 : 0;
+		const cudaError_t status = cudaMallocArray(&_cuData2D, &desc, _texWidth, _texHeight);
+    if (status != cudaSuccess) {
+      _cuData = NULL;
+      _numBytes = 0;
+    }
+		ProgramCU::CheckErrorCUDA("CuTexImage::InitTexture2D");
+	}
+#endif
+}
+
+void CuTexImage::CopyToTexture2D()
+{
+#if !defined(SIFTGPU_ENABLE_LINEAR_TEX2D)
+	InitTexture2D();
+	if(_cuData2D)
+	{
+		cudaMemcpy2DToArray(_cuData2D, 0, 0, _cuData, _imgWidth* _numChannel* sizeof(float) ,
+		_imgWidth * _numChannel*sizeof(float), _imgHeight,	cudaMemcpyDeviceToDevice);
+		ProgramCU::CheckErrorCUDA("cudaMemcpy2DToArray");
+	}
+#endif
+}
+
 void CuTexImage::CopyFromPBO(int width, int height, GLuint pbo)
 {
 	void* pbuf =NULL;
@@ -251,4 +292,3 @@ int CuTexImage::CopyToPBO(GLuint pbo)
 }
 
 #endif
-

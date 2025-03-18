@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,16 +26,16 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/scene/two_view_geometry.h"
 
 #include "colmap/geometry/pose.h"
+#include "colmap/util/eigen_matchers.h"
 
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(TwoViewGeometry, Default) {
   TwoViewGeometry two_view_geometry;
@@ -63,13 +63,16 @@ TEST(TwoViewGeometry, Invert) {
 
   two_view_geometry.Invert();
   EXPECT_EQ(two_view_geometry.config, TwoViewGeometry::CALIBRATED);
-  EXPECT_TRUE(two_view_geometry.F.isApprox(Eigen::Matrix3d::Identity()));
-  EXPECT_TRUE(two_view_geometry.E.isApprox(Eigen::Matrix3d::Identity()));
-  EXPECT_TRUE(two_view_geometry.H.isApprox(Eigen::Matrix3d::Identity()));
-  EXPECT_TRUE(two_view_geometry.cam2_from_cam1.rotation.isApprox(
-      Eigen::Quaterniond::Identity()));
-  EXPECT_TRUE(two_view_geometry.cam2_from_cam1.translation.isApprox(
-      Eigen::Vector3d(-0, -1, -2)));
+  EXPECT_THAT(two_view_geometry.F,
+              EigenMatrixNear<Eigen::Matrix3d>(Eigen::Matrix3d::Identity()));
+  EXPECT_THAT(two_view_geometry.E,
+              EigenMatrixNear<Eigen::Matrix3d>(Eigen::Matrix3d::Identity()));
+  EXPECT_THAT(two_view_geometry.H,
+              EigenMatrixNear<Eigen::Matrix3d>(Eigen::Matrix3d::Identity()));
+  EXPECT_THAT(two_view_geometry.cam2_from_cam1.rotation.coeffs(),
+              EigenMatrixNear(Eigen::Quaterniond::Identity().coeffs()));
+  EXPECT_THAT(two_view_geometry.cam2_from_cam1.translation,
+              EigenMatrixNear(Eigen::Vector3d(-0, -1, -2)));
   EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx1, 1);
   EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx2, 0);
   EXPECT_EQ(two_view_geometry.inlier_matches[1].point2D_idx1, 3);
@@ -77,17 +80,21 @@ TEST(TwoViewGeometry, Invert) {
 
   two_view_geometry.Invert();
   EXPECT_EQ(two_view_geometry.config, TwoViewGeometry::CALIBRATED);
-  EXPECT_TRUE(two_view_geometry.F.isApprox(Eigen::Matrix3d::Identity()));
-  EXPECT_TRUE(two_view_geometry.E.isApprox(Eigen::Matrix3d::Identity()));
-  EXPECT_TRUE(two_view_geometry.H.isApprox(Eigen::Matrix3d::Identity()));
-  EXPECT_TRUE(two_view_geometry.cam2_from_cam1.rotation.isApprox(
-      Eigen::Quaterniond::Identity()));
-  EXPECT_TRUE(two_view_geometry.cam2_from_cam1.translation.isApprox(
-      Eigen::Vector3d(0, 1, 2)));
+  EXPECT_THAT(two_view_geometry.F,
+              EigenMatrixNear<Eigen::Matrix3d>(Eigen::Matrix3d::Identity()));
+  EXPECT_THAT(two_view_geometry.E,
+              EigenMatrixNear<Eigen::Matrix3d>(Eigen::Matrix3d::Identity()));
+  EXPECT_THAT(two_view_geometry.H,
+              EigenMatrixNear<Eigen::Matrix3d>(Eigen::Matrix3d::Identity()));
+  EXPECT_THAT(two_view_geometry.cam2_from_cam1.rotation.coeffs(),
+              EigenMatrixNear(Eigen::Quaterniond::Identity().coeffs()));
+  EXPECT_THAT(two_view_geometry.cam2_from_cam1.translation,
+              EigenMatrixNear(Eigen::Vector3d(0, 1, 2)));
   EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx1, 0);
   EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx2, 1);
   EXPECT_EQ(two_view_geometry.inlier_matches[1].point2D_idx1, 2);
   EXPECT_EQ(two_view_geometry.inlier_matches[1].point2D_idx2, 3);
 }
 
+}  // namespace
 }  // namespace colmap

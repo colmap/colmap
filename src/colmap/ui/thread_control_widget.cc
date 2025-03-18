@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/ui/bundle_adjustment_widget.h"
 
@@ -53,8 +51,8 @@ ThreadControlWidget::ThreadControlWidget(QWidget* parent)
 void ThreadControlWidget::StartThread(const QString& progress_text,
                                       const bool stoppable,
                                       std::unique_ptr<Thread> thread) {
-  CHECK(!thread_);
-  CHECK_NOTNULL(thread);
+  THROW_CHECK(!thread_);
+  THROW_CHECK_NOTNULL(thread);
 
   thread_ = std::move(thread);
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,35 +26,47 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/scene/image.h"
 
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(Image, Default) {
   Image image;
   EXPECT_EQ(image.ImageId(), kInvalidImageId);
   EXPECT_EQ(image.Name(), "");
   EXPECT_EQ(image.CameraId(), kInvalidCameraId);
-  EXPECT_FALSE(image.HasCamera());
-  EXPECT_FALSE(image.IsRegistered());
+  EXPECT_FALSE(image.HasCameraId());
+  EXPECT_FALSE(image.HasCameraPtr());
+  EXPECT_FALSE(image.HasPose());
   EXPECT_EQ(image.NumPoints2D(), 0);
   EXPECT_EQ(image.NumPoints3D(), 0);
-  EXPECT_EQ(image.NumObservations(), 0);
-  EXPECT_EQ(image.NumCorrespondences(), 0);
-  EXPECT_EQ(image.NumVisiblePoints3D(), 0);
-  EXPECT_EQ(image.Point3DVisibilityScore(), 0);
-  EXPECT_EQ(image.CamFromWorld().rotation.coeffs(),
-            Eigen::Quaterniond::Identity().coeffs());
-  EXPECT_EQ(image.CamFromWorld().translation, Eigen::Vector3d::Zero());
-  EXPECT_TRUE(
-      image.CamFromWorldPrior().rotation.coeffs().array().isNaN().all());
-  EXPECT_TRUE(image.CamFromWorldPrior().translation.array().isNaN().all());
   EXPECT_EQ(image.Points2D().size(), 0);
+}
+
+TEST(Image, Equals) {
+  Image image;
+  Image other = image;
+  EXPECT_EQ(image, other);
+  image.SetName("test");
+  EXPECT_NE(image, other);
+  other.SetName("test");
+  EXPECT_EQ(image, other);
+}
+
+TEST(Image, Print) {
+  Image image;
+  image.SetImageId(1);
+  image.SetCameraId(2);
+  image.SetName("test");
+  std::ostringstream stream;
+  stream << image;
+  EXPECT_EQ(stream.str(),
+            "Image(image_id=1, camera_id=2, name=\"test\", "
+            "has_pose=0, triangulated=0/0)");
 }
 
 TEST(Image, ImageId) {
@@ -80,13 +92,58 @@ TEST(Image, CameraId) {
   EXPECT_EQ(image.CameraId(), 1);
 }
 
-TEST(Image, Registered) {
+TEST(Image, CameraPtr) {
   Image image;
-  EXPECT_FALSE(image.IsRegistered());
-  image.SetRegistered(true);
-  EXPECT_TRUE(image.IsRegistered());
-  image.SetRegistered(false);
-  EXPECT_FALSE(image.IsRegistered());
+  EXPECT_FALSE(image.HasCameraPtr());
+  EXPECT_ANY_THROW(image.CameraPtr());
+  Camera camera;
+  camera.camera_id = 1;
+  EXPECT_ANY_THROW(image.SetCameraPtr(&camera));
+  image.SetCameraId(2);
+  EXPECT_ANY_THROW(image.SetCameraPtr(&camera));
+  image.SetCameraId(1);
+  image.SetCameraPtr(&camera);
+  EXPECT_TRUE(image.HasCameraPtr());
+  EXPECT_EQ(image.CameraPtr(), &camera);
+  image.ResetCameraPtr();
+  EXPECT_FALSE(image.HasCameraPtr());
+  EXPECT_ANY_THROW(image.CameraPtr());
+}
+
+TEST(Image, SetResetPose) {
+  Image image;
+  EXPECT_FALSE(image.HasPose());
+  EXPECT_ANY_THROW(image.CamFromWorld());
+  image.SetCamFromWorld(Rigid3d());
+  EXPECT_TRUE(image.HasPose());
+  EXPECT_EQ(image.CamFromWorld().rotation.coeffs(),
+            Eigen::Quaterniond::Identity().coeffs());
+  EXPECT_EQ(image.CamFromWorld().translation, Eigen::Vector3d::Zero());
+  image.ResetPose();
+  EXPECT_FALSE(image.HasPose());
+  EXPECT_ANY_THROW(image.CamFromWorld());
+}
+
+TEST(Image, ConstructCopy) {
+  Image image;
+  image.SetCamFromWorld(Rigid3d());
+  Image image_copy = Image(image);
+  EXPECT_EQ(image, image_copy);
+  EXPECT_EQ(Rigid3d(), image_copy.CamFromWorld());
+  image_copy.ResetPose();
+  EXPECT_TRUE(image.HasPose());
+  EXPECT_FALSE(image_copy.HasPose());
+}
+
+TEST(Image, AssignCopy) {
+  Image image;
+  image.SetCamFromWorld(Rigid3d());
+  Image image_copy = image;
+  EXPECT_EQ(image, image_copy);
+  EXPECT_EQ(Rigid3d(), image_copy.CamFromWorld());
+  image_copy.ResetPose();
+  EXPECT_TRUE(image.HasPose());
+  EXPECT_FALSE(image_copy.HasPose());
 }
 
 TEST(Image, NumPoints2D) {
@@ -105,89 +162,6 @@ TEST(Image, NumPoints3D) {
   image.SetPoint3DForPoint2D(0, 1);
   image.SetPoint3DForPoint2D(1, 2);
   EXPECT_EQ(image.NumPoints3D(), 2);
-}
-
-TEST(Image, NumObservations) {
-  Image image;
-  EXPECT_EQ(image.NumObservations(), 0);
-  image.SetNumObservations(10);
-  EXPECT_EQ(image.NumObservations(), 10);
-}
-
-TEST(Image, NumCorrespondences) {
-  Image image;
-  EXPECT_EQ(image.NumCorrespondences(), 0);
-  image.SetNumCorrespondences(10);
-  EXPECT_EQ(image.NumCorrespondences(), 10);
-}
-
-TEST(Image, NumVisiblePoints3D) {
-  Image image;
-  image.SetPoints2D(std::vector<Eigen::Vector2d>(10));
-  image.SetNumObservations(10);
-  Camera camera;
-  camera.SetWidth(10);
-  camera.SetHeight(10);
-  image.SetUp(camera);
-  EXPECT_EQ(image.NumVisiblePoints3D(), 0);
-  image.IncrementCorrespondenceHasPoint3D(0);
-  EXPECT_EQ(image.NumVisiblePoints3D(), 1);
-  image.IncrementCorrespondenceHasPoint3D(0);
-  image.IncrementCorrespondenceHasPoint3D(1);
-  EXPECT_EQ(image.NumVisiblePoints3D(), 2);
-  image.DecrementCorrespondenceHasPoint3D(0);
-  EXPECT_EQ(image.NumVisiblePoints3D(), 2);
-  image.DecrementCorrespondenceHasPoint3D(0);
-  EXPECT_EQ(image.NumVisiblePoints3D(), 1);
-  image.DecrementCorrespondenceHasPoint3D(1);
-  EXPECT_EQ(image.NumVisiblePoints3D(), 0);
-}
-
-TEST(Image, Point3DVisibilityScore) {
-  Image image;
-  std::vector<Eigen::Vector2d> points2D;
-  for (size_t i = 0; i < 4; ++i) {
-    for (size_t j = 0; j < 4; ++j) {
-      points2D.emplace_back(i, j);
-    }
-  }
-  image.SetPoints2D(points2D);
-  image.SetNumObservations(16);
-  Camera camera;
-  camera.SetWidth(4);
-  camera.SetHeight(4);
-  image.SetUp(camera);
-  Eigen::Matrix<size_t, Eigen::Dynamic, 1> scores(
-      image.kNumPoint3DVisibilityPyramidLevels, 1);
-  for (int i = 1; i <= image.kNumPoint3DVisibilityPyramidLevels; ++i) {
-    scores(i - 1) = (1 << i) * (1 << i);
-  }
-  EXPECT_EQ(image.Point3DVisibilityScore(), 0);
-  image.IncrementCorrespondenceHasPoint3D(0);
-  EXPECT_EQ(image.Point3DVisibilityScore(), scores.sum());
-  image.IncrementCorrespondenceHasPoint3D(0);
-  EXPECT_EQ(image.Point3DVisibilityScore(), scores.sum());
-  image.IncrementCorrespondenceHasPoint3D(1);
-  EXPECT_EQ(image.Point3DVisibilityScore(),
-            scores.sum() + scores.bottomRows(scores.size() - 1).sum());
-  image.IncrementCorrespondenceHasPoint3D(1);
-  image.IncrementCorrespondenceHasPoint3D(1);
-  image.IncrementCorrespondenceHasPoint3D(4);
-  EXPECT_EQ(image.Point3DVisibilityScore(),
-            scores.sum() + 2 * scores.bottomRows(scores.size() - 1).sum());
-  image.IncrementCorrespondenceHasPoint3D(4);
-  image.IncrementCorrespondenceHasPoint3D(5);
-  EXPECT_EQ(image.Point3DVisibilityScore(),
-            scores.sum() + 3 * scores.bottomRows(scores.size() - 1).sum());
-  image.DecrementCorrespondenceHasPoint3D(0);
-  EXPECT_EQ(image.Point3DVisibilityScore(),
-            scores.sum() + 3 * scores.bottomRows(scores.size() - 1).sum());
-  image.DecrementCorrespondenceHasPoint3D(0);
-  EXPECT_EQ(image.Point3DVisibilityScore(),
-            scores.sum() + 2 * scores.bottomRows(scores.size() - 1).sum());
-  image.IncrementCorrespondenceHasPoint3D(2);
-  EXPECT_EQ(image.Point3DVisibilityScore(),
-            2 * scores.sum() + 2 * scores.bottomRows(scores.size() - 1).sum());
 }
 
 TEST(Image, Points2D) {
@@ -260,12 +234,30 @@ TEST(Image, Points3D) {
 
 TEST(Image, ProjectionCenter) {
   Image image;
+  image.SetCamFromWorld(Rigid3d());
   EXPECT_EQ(image.ProjectionCenter(), Eigen::Vector3d::Zero());
 }
 
 TEST(Image, ViewingDirection) {
   Image image;
+  image.SetCamFromWorld(Rigid3d());
   EXPECT_EQ(image.ViewingDirection(), Eigen::Vector3d(0, 0, 1));
 }
 
+TEST(Image, ProjectPoint) {
+  Image image;
+  image.SetCamFromWorld(Rigid3d());
+  Camera camera =
+      Camera::CreateFromModelId(1, CameraModelId::kSimplePinhole, 1, 1, 1);
+  image.SetCameraId(camera.camera_id);
+  image.SetCameraPtr(&camera);
+  const std::optional<Eigen::Vector2d> result =
+      image.ProjectPoint(Eigen::Vector3d(2, 0, 1));
+  ASSERT_TRUE(result.has_value());
+  EXPECT_EQ(result.value(), Eigen::Vector2d(2.5, 0.5));
+  EXPECT_FALSE(image.ProjectPoint(Eigen::Vector3d(2, 0, 0)).has_value());
+  EXPECT_FALSE(image.ProjectPoint(Eigen::Vector3d(2, 0, -1)).has_value());
+}
+
+}  // namespace
 }  // namespace colmap

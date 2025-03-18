@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,10 +26,10 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/ui/undistortion_widget.h"
+
+#include "colmap/util/controller_thread.h"
 
 namespace colmap {
 
@@ -80,7 +80,7 @@ void UndistortionWidget::Show(
 bool UndistortionWidget::IsValid() const { return ExistsDir(output_path_); }
 
 void UndistortionWidget::Undistort() {
-  CHECK_NOTNULL(reconstruction_);
+  THROW_CHECK_NOTNULL(reconstruction_);
 
   WriteOptions();
 
@@ -88,20 +88,23 @@ void UndistortionWidget::Undistort() {
     std::unique_ptr<Thread> undistorter;
 
     if (output_format_->currentIndex() == 0) {
-      undistorter = std::make_unique<COLMAPUndistorter>(undistortion_options_,
-                                                        *reconstruction_,
-                                                        *options_->image_path,
-                                                        output_path_);
+      undistorter = std::make_unique<ControllerThread<COLMAPUndistorter>>(
+          std::make_shared<COLMAPUndistorter>(undistortion_options_,
+                                              *reconstruction_,
+                                              *options_->image_path,
+                                              output_path_));
     } else if (output_format_->currentIndex() == 1) {
-      undistorter = std::make_unique<PMVSUndistorter>(undistortion_options_,
-                                                      *reconstruction_,
-                                                      *options_->image_path,
-                                                      output_path_);
+      undistorter = std::make_unique<ControllerThread<PMVSUndistorter>>(
+          std::make_shared<PMVSUndistorter>(undistortion_options_,
+                                            *reconstruction_,
+                                            *options_->image_path,
+                                            output_path_));
     } else if (output_format_->currentIndex() == 2) {
-      undistorter = std::make_unique<CMPMVSUndistorter>(undistortion_options_,
-                                                        *reconstruction_,
-                                                        *options_->image_path,
-                                                        output_path_);
+      undistorter = std::make_unique<ControllerThread<CMPMVSUndistorter>>(
+          std::make_shared<CMPMVSUndistorter>(undistortion_options_,
+                                              *reconstruction_,
+                                              *options_->image_path,
+                                              output_path_));
     } else {
       QMessageBox::critical(this, "", tr("Invalid output format"));
       return;

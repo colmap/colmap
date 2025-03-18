@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/mvs/normal_map.h"
 
@@ -43,7 +41,7 @@ NormalMap::NormalMap(const size_t width, const size_t height)
 
 NormalMap::NormalMap(const Mat<float>& mat)
     : Mat<float>(mat.GetWidth(), mat.GetHeight(), mat.GetDepth()) {
-  CHECK_EQ(mat.GetDepth(), 3);
+  THROW_CHECK_EQ(mat.GetDepth(), 3);
   data_ = mat.GetData();
 }
 
@@ -99,9 +97,9 @@ void NormalMap::Downsize(const size_t max_width, const size_t max_height) {
 }
 
 Bitmap NormalMap::ToBitmap() const {
-  CHECK_GT(width_, 0);
-  CHECK_GT(height_, 0);
-  CHECK_EQ(depth_, 3);
+  THROW_CHECK_GT(width_, 0);
+  THROW_CHECK_GT(height_, 0);
+  THROW_CHECK_EQ(depth_, 3);
 
   Bitmap bitmap;
   bitmap.Allocate(width_, height_, true);

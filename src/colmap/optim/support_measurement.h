@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #pragma once
 
@@ -52,8 +50,38 @@ struct InlierSupportMeasurer {
   // Compute the support of the residuals.
   Support Evaluate(const std::vector<double>& residuals, double max_residual);
 
-  // Compare the two supports and return the better support.
-  bool Compare(const Support& support1, const Support& support2);
+  // Compare the two supports.
+  bool IsLeftBetter(const Support& left, const Support& right);
+};
+
+// Measure the support of a model by counting the number of unique inliers
+// (e.g., visible 3D points), number of inliers, and summing all inlier
+// residuals. Each sample should have an associated id. Samples with the same id
+// are only counted once in num_unique_inliers. The support is better if it has
+// more unique inliers, more inliers, and a smaller residual sum.
+struct UniqueInlierSupportMeasurer {
+  struct Support {
+    // The number of unique inliers;
+    size_t num_unique_inliers = 0;
+
+    // The number of inliers.
+    // This is still needed for determining the dynamic number of iterations.
+    size_t num_inliers = 0;
+
+    // The sum of all inlier residuals.
+    double residual_sum = std::numeric_limits<double>::max();
+  };
+
+  explicit UniqueInlierSupportMeasurer(std::vector<size_t> unique_sample_ids);
+
+  // Compute the support of the residuals.
+  Support Evaluate(const std::vector<double>& residuals, double max_residual);
+
+  // Compare the two supports.
+  bool IsLeftBetter(const Support& left, const Support& right);
+
+ private:
+  std::vector<size_t> unique_sample_ids_;
 };
 
 // Measure the support of a model by its fitness to the data as used in MSAC.
@@ -70,8 +98,8 @@ struct MEstimatorSupportMeasurer {
   // Compute the support of the residuals.
   Support Evaluate(const std::vector<double>& residuals, double max_residual);
 
-  // Compare the two supports and return the better support.
-  bool Compare(const Support& support1, const Support& support2);
+  // Compare the two supports.
+  bool IsLeftBetter(const Support& left, const Support& right);
 };
 
 }  // namespace colmap

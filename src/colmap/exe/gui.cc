@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/exe/gui.h"
 
@@ -38,9 +36,8 @@ namespace colmap {
 
 int RunGraphicalUserInterface(int argc, char** argv) {
 #if !defined(COLMAP_GUI_ENABLED)
-  std::cerr << "ERROR: Cannot start colmap GUI; colmap was built without GUI "
-               "support or QT dependency is missing."
-            << std::endl;
+  LOG(ERROR) << "Cannot start colmap GUI; colmap was built without GUI "
+                "support or QT dependency is missing.";
   return EXIT_FAILURE;
 #else
   colmap::OptionManager options;
@@ -93,7 +90,7 @@ int RunProjectGenerator(int argc, char** argv) {
   } else if (quality == "extreme") {
     output_options.ModifyForExtremeQuality();
   } else {
-    LOG(FATAL) << "Invalid quality provided";
+    LOG(FATAL_THROW) << "Invalid quality provided";
   }
 
   output_options.Write(output_path);

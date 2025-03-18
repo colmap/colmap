@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,46 +26,28 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/geometry/sim3.h"
 
-#include "colmap/estimators/similarity_transform.h"
-#include "colmap/geometry/pose.h"
-#include "colmap/scene/projection.h"
+#include "colmap/util/logging.h"
 
 #include <fstream>
 
 namespace colmap {
 
-bool Sim3d::Estimate(const std::vector<Eigen::Vector3d>& src,
-                     const std::vector<Eigen::Vector3d>& tgt) {
-  const auto results =
-      SimilarityTransformEstimator<3, true>().Estimate(src, tgt);
-  if (results.empty()) {
-    return false;
-  }
-  CHECK_EQ(results.size(), 1);
-  scale = results[0].col(0).norm();
-  rotation = Eigen::Quaterniond(results[0].leftCols<3>() / scale).normalized();
-  translation = results[0].rightCols<1>();
-  return true;
-}
-
 void Sim3d::ToFile(const std::string& path) const {
   std::ofstream file(path, std::ios::trunc);
-  CHECK(file.good()) << path;
+  THROW_CHECK(file.good()) << path;
   // Ensure that we don't loose any precision by storing in text.
   file.precision(17);
   file << scale << " " << rotation.w() << " " << rotation.x() << " "
        << rotation.y() << " " << rotation.z() << " " << translation.x() << " "
-       << translation.y() << " " << translation.z() << std::endl;
+       << translation.y() << " " << translation.z() << "\n";
 }
 
 Sim3d Sim3d::FromFile(const std::string& path) {
   std::ifstream file(path);
-  CHECK(file.good()) << path;
+  THROW_CHECK(file.good()) << path;
   Sim3d t;
   file >> t.scale;
   file >> t.rotation.w();
@@ -76,6 +58,15 @@ Sim3d Sim3d::FromFile(const std::string& path) {
   file >> t.translation(1);
   file >> t.translation(2);
   return t;
+}
+
+std::ostream& operator<<(std::ostream& stream, const Sim3d& tform) {
+  const static Eigen::IOFormat kVecFmt(
+      Eigen::StreamPrecision, Eigen::DontAlignCols, ", ", ", ");
+  stream << "Sim3d(scale=" << tform.scale << ", rotation_xyzw=["
+         << tform.rotation.coeffs().format(kVecFmt) << "], translation=["
+         << tform.translation.format(kVecFmt) << "])";
+  return stream;
 }
 
 }  // namespace colmap

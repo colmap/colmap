@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,13 +26,12 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/ui/bundle_adjustment_widget.h"
 
 #include "colmap/controllers/bundle_adjustment.h"
 #include "colmap/ui/main_window.h"
+#include "colmap/util/controller_thread.h"
 
 namespace colmap {
 
@@ -43,6 +42,8 @@ BundleAdjustmentWidget::BundleAdjustmentWidget(MainWindow* main_window,
       options_(options),
       reconstruction_(nullptr),
       thread_control_widget_(new ThreadControlWidget(this)) {
+  setWindowFlags(Qt::Dialog);
+  setWindowModality(Qt::ApplicationModal);
   setWindowTitle("Bundle adjustment");
 
   AddOptionInt(&options->bundle_adjustment->solver_options.max_num_iterations,
@@ -97,12 +98,12 @@ void BundleAdjustmentWidget::Show(
 }
 
 void BundleAdjustmentWidget::Run() {
-  CHECK_NOTNULL(reconstruction_);
+  THROW_CHECK_NOTNULL(reconstruction_);
 
   WriteOptions();
 
-  auto thread =
-      std::make_unique<BundleAdjustmentController>(*options_, reconstruction_);
+  auto thread = std::make_unique<ControllerThread<BundleAdjustmentController>>(
+      std::make_shared<BundleAdjustmentController>(*options_, reconstruction_));
   thread->AddCallback(Thread::FINISHED_CALLBACK,
                       [this]() { render_action_->trigger(); });
 
