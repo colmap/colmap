@@ -16,7 +16,7 @@ on:
 
 jobs:
   build:
-    name: PyCOLMAP ${{ matrix.config.os }} ${{ matrix.config.arch }}
+    name: ${{ matrix.config.os }} ${{ matrix.config.arch }}
     runs-on: ${{ matrix.config.os }}
     strategy:
       matrix:
