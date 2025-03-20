@@ -1,4 +1,4 @@
-# Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+# Copyright (c), ETH Zurich and UNC Chapel Hill.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -44,7 +44,6 @@ COLMAP_ADD_LIBRARY(
         euclidean_transform.h
         fundamental_matrix.h fundamental_matrix.cc
         generalized_absolute_pose.h generalized_absolute_pose.cc
-        generalized_absolute_pose_coeffs.h generalized_absolute_pose_coeffs.cc
         generalized_relative_pose.h generalized_relative_pose.cc
         homography_matrix.h homography_matrix.cc
         pose.h pose.cc
@@ -155,5 +154,10 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME translation_transform_test
     SRCS translation_transform_test.cc
+    LINK_LIBS colmap_estimators
+)
+COLMAP_ADD_TEST(
+    NAME two_view_geometry_test
+    SRCS two_view_geometry_test.cc
     LINK_LIBS colmap_estimators
 )

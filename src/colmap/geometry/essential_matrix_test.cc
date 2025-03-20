@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -163,6 +163,18 @@ TEST(FundamentalFromEssentialMatrix, Nominal) {
               EigenMatrixNear(Eigen::Vector3d(F * K1 * x)));
   EXPECT_THAT(E * K1.inverse() * x,
               EigenMatrixNear(Eigen::Vector3d(K2.transpose() * F * x)));
+}
+
+TEST(EssentialFromFundamentalMatrix, Nominal) {
+  const Eigen::Matrix3d E = EssentialMatrixFromPose(
+      Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random()));
+  const Eigen::Matrix3d K1 =
+      (Eigen::Matrix3d() << 2, 0, 1, 0, 3, 2, 0, 0, 1).finished();
+  const Eigen::Matrix3d K2 =
+      (Eigen::Matrix3d() << 3, 0, 2, 0, 4, 1, 0, 0, 1).finished();
+  const Eigen::Matrix3d F = FundamentalFromEssentialMatrix(K2, E, K1);
+  EXPECT_THAT(EssentialFromFundamentalMatrix(K2, F, K1),
+              EigenMatrixNear(E, 1e-6));
 }
 
 }  // namespace

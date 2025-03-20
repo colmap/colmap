@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -27,15 +27,26 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#pragma once
-
-#include "colmap/util/eigen_alignment.h"
-
-#include <Eigen/Core>
+#include "colmap/sensor/rig_calib.h"
 
 namespace colmap {
 
-Eigen::Matrix<double, 9, 1> ComputeDepthsSylvesterCoeffs(
-    const Eigen::Matrix<double, 3, 6>& K);
+void RigCalib::AddRefSensor(sensor_t ref_sensor_id) {
+  THROW_CHECK(ref_sensor_id_ == kInvalidSensorId)
+      << "Reference sensor already set";
+  ref_sensor_id_ = ref_sensor_id;
+}
+
+void RigCalib::AddSensor(sensor_t sensor_id,
+                         const std::optional<Rigid3d>& sensor_from_rig) {
+  THROW_CHECK(NumSensors() >= 1)
+      << "The reference sensor needs to added first before any "
+         "sensor being added.";
+  THROW_CHECK(!HasSensor(sensor_id))
+      << StringPrintf("Sensor id (%d, %d) is inserted twice into the rig",
+                      sensor_id.type,
+                      sensor_id.id);
+  sensors_from_rig_.emplace(sensor_id, sensor_from_rig);
+}
 
 }  // namespace colmap

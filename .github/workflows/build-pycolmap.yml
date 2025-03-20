@@ -32,7 +32,7 @@ jobs:
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
       MACOSX_DEPLOYMENT_TARGET: 10.15
-      # For faster builds in PRs, skip all but the latest Python versions.
+      # For faster builds in PRs, skip all but the oldest Python versions.
       PULL_REQUEST_CIBW_BUILD: cp38-{macosx,manylinux,win}*
     steps:
       - uses: actions/checkout@v4
@@ -164,7 +164,7 @@ jobs:
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.22.0
         with:
-          package-dir: ./pycolmap/
+          package-dir: ./
         env:
           CIBW_ARCHS_MACOS: ${{ matrix.config.arch }}
       - name: Archive wheels

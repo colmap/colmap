@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -124,6 +124,28 @@ TEST(Image, SetResetPose) {
   EXPECT_ANY_THROW(image.CamFromWorld());
 }
 
+TEST(Image, ConstructCopy) {
+  Image image;
+  image.SetCamFromWorld(Rigid3d());
+  Image image_copy = Image(image);
+  EXPECT_EQ(image, image_copy);
+  EXPECT_EQ(Rigid3d(), image_copy.CamFromWorld());
+  image_copy.ResetPose();
+  EXPECT_TRUE(image.HasPose());
+  EXPECT_FALSE(image_copy.HasPose());
+}
+
+TEST(Image, AssignCopy) {
+  Image image;
+  image.SetCamFromWorld(Rigid3d());
+  Image image_copy = image;
+  EXPECT_EQ(image, image_copy);
+  EXPECT_EQ(Rigid3d(), image_copy.CamFromWorld());
+  image_copy.ResetPose();
+  EXPECT_TRUE(image.HasPose());
+  EXPECT_FALSE(image_copy.HasPose());
+}
+
 TEST(Image, NumPoints2D) {
   Image image;
   EXPECT_EQ(image.NumPoints2D(), 0);
@@ -229,11 +251,12 @@ TEST(Image, ProjectPoint) {
       Camera::CreateFromModelId(1, CameraModelId::kSimplePinhole, 1, 1, 1);
   image.SetCameraId(camera.camera_id);
   image.SetCameraPtr(&camera);
-  const auto result = image.ProjectPoint(Eigen::Vector3d(2, 0, 1));
-  EXPECT_TRUE(result.first);
-  EXPECT_EQ(result.second, Eigen::Vector2d(2.5, 0.5));
-  EXPECT_FALSE(image.ProjectPoint(Eigen::Vector3d(2, 0, 0)).first);
-  EXPECT_FALSE(image.ProjectPoint(Eigen::Vector3d(2, 0, -1)).first);
+  const std::optional<Eigen::Vector2d> result =
+      image.ProjectPoint(Eigen::Vector3d(2, 0, 1));
+  ASSERT_TRUE(result.has_value());
+  EXPECT_EQ(result.value(), Eigen::Vector2d(2.5, 0.5));
+  EXPECT_FALSE(image.ProjectPoint(Eigen::Vector3d(2, 0, 0)).has_value());
+  EXPECT_FALSE(image.ProjectPoint(Eigen::Vector3d(2, 0, -1)).has_value());
 }
 
 }  // namespace

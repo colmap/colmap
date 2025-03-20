@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -77,6 +77,35 @@ TEST(IncrementalPipeline, WithoutNoise) {
   synthetic_dataset_options.num_images = 7;
   synthetic_dataset_options.num_points3D = 50;
   synthetic_dataset_options.point2D_stddev = 0;
+  synthetic_dataset_options.camera_has_prior_focal_length = false;
+  SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction, &database);
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  IncrementalPipeline mapper(std::make_shared<IncrementalPipelineOptions>(),
+                             /*image_path=*/"",
+                             database_path,
+                             reconstruction_manager);
+  mapper.Run();
+
+  ASSERT_EQ(reconstruction_manager->Size(), 1);
+  ExpectEqualReconstructions(gt_reconstruction,
+                             *reconstruction_manager->Get(0),
+                             /*max_rotation_error_deg=*/1e-2,
+                             /*max_proj_center_error=*/1e-4,
+                             /*num_obs_tolerance=*/0);
+}
+
+TEST(IncrementalPipeline, WithPriorFocalLength) {
+  const std::string database_path = CreateTestDir() + "/database.db";
+
+  Database database(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_cameras = 2;
+  synthetic_dataset_options.num_images = 7;
+  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.point2D_stddev = 0;
+  synthetic_dataset_options.camera_has_prior_focal_length = true;
   SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction, &database);
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();

@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -51,7 +51,7 @@ void GenerateReconstruction(const image_t num_images,
     image.SetPoints2D(
         std::vector<Eigen::Vector2d>(kNumPoints2D, Eigen::Vector2d::Zero()));
     image.SetCamFromWorld(Rigid3d());
-    reconstruction.AddImage(std::move(image));
+    reconstruction.AddImage(image);
   }
 }
 

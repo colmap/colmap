@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -29,10 +29,11 @@
 
 #include "colmap/estimators/generalized_absolute_pose.h"
 
-#include "colmap/geometry/pose.h"
 #include "colmap/geometry/rigid3.h"
+#include "colmap/math/random.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/eigen_matchers.h"
 
 #include <array>
 
@@ -42,81 +43,88 @@
 namespace colmap {
 namespace {
 
-TEST(GeneralizedAbsolutePose, Estimate) {
-  std::vector<Eigen::Vector3d> points3D;
-  points3D.emplace_back(1, 1, 1);
-  points3D.emplace_back(0, 1, 1);
-  points3D.emplace_back(3, 1.0, 4);
-  points3D.emplace_back(3, 1.1, 4);
-  points3D.emplace_back(3, 1.2, 4);
-  points3D.emplace_back(3, 1.3, 4);
-  points3D.emplace_back(3, 1.4, 4);
-  points3D.emplace_back(2, 1, 7);
+class ParameterizedGeneralizedAbsolutePoseTests
+    : public ::testing::TestWithParam</*numCams=*/int> {};
 
-  auto points3D_faulty = points3D;
-  for (size_t i = 0; i < points3D.size(); ++i) {
-    points3D_faulty[i](0) = 20;
-  }
+TEST_P(ParameterizedGeneralizedAbsolutePoseTests, Estimate) {
+  // Note that we can estimate the minimal problem from only 3 points but we
+  // need a 4th point to choose the correct solution. In theory, we don't need
+  // RANSAC as we generate exact correspondences, but we use it in this test to
+  // do the choosing of the best solution for us.
+  constexpr int kNumPoints = 4;
+  constexpr int kNumTrials = 10;
+  const int kNumCams = GetParam();
 
-  // NOLINTNEXTLINE(clang-analyzer-security.FloatLoopCounter)
-  for (double qx = 0; qx < 1; qx += 0.2) {
-    // NOLINTNEXTLINE(clang-analyzer-security.FloatLoopCounter)
-    for (double tx = 0; tx < 1; tx += 0.1) {
-      const int kRefCamIdx = 1;
-      const int kNumCams = 3;
+  for (int i = 0; i < kNumTrials; ++i) {
+    const Rigid3d rig_from_world(Eigen::Quaterniond::UnitRandom(),
+                                 Eigen::Vector3d::Random());
+    const Rigid3d world_from_fig = Inverse(rig_from_world);
 
-      const std::array<Rigid3d, kNumCams> cams_from_world = {{
-          Rigid3d(Eigen::Quaterniond(1, qx, 0, 0).normalized(),
-                  Eigen::Vector3d(tx, -0.1, 0)),
-          Rigid3d(Eigen::Quaterniond(1, qx, 0, 0).normalized(),
-                  Eigen::Vector3d(tx, 0, 0)),
-          Rigid3d(Eigen::Quaterniond(1, qx, 0, 0).normalized(),
-                  Eigen::Vector3d(tx, 0.1, 0)),
-      }};
+    std::vector<Rigid3d> cams_from_world(kNumCams);
+    std::vector<Rigid3d> cams_from_rig(kNumCams);
+    for (int i = 0; i < kNumCams; ++i) {
+      cams_from_world[i] =
+          Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
+      cams_from_rig[i] = cams_from_world[i] * world_from_fig;
+    }
 
-      const Rigid3d& rig_from_world = cams_from_world[kRefCamIdx];
+    std::vector<GP3PEstimator::X_t> points2D;
+    std::vector<GP3PEstimator::Y_t> points3D;
+    std::vector<GP3PEstimator::Y_t> points3D_outlier;
+    for (int i = 0; i < kNumPoints; ++i) {
+      points2D.emplace_back();
+      points2D.back().cam_from_rig = cams_from_rig[i % kNumCams];
+      points2D.back().ray_in_cam =
+          Eigen::Vector3d(RandomUniformReal<double>(-0.5, 0.5),
+                          RandomUniformReal<double>(-0.5, 0.5),
+                          1)
+              .normalized();
+      const Eigen::Vector3d point3D_in_cam =
+          points2D.back().ray_in_cam * RandomUniformReal<double>(0.1, 10);
+      const Rigid3d world_from_cam = Inverse(cams_from_world[i % kNumCams]);
+      points3D.push_back(world_from_cam * point3D_in_cam);
+      points3D_outlier.push_back(
+          world_from_cam *
+          (Eigen::AngleAxisd(EIGEN_PI / 2, Eigen::Vector3d::UnitX()) *
+           point3D_in_cam));
+    }
 
-      std::array<Rigid3d, kNumCams> cams_from_rig;
-      for (size_t i = 0; i < kNumCams; ++i) {
-        cams_from_rig[i] = cams_from_world[i] * Inverse(rig_from_world);
-      }
-
-      // Project points to camera coordinate system.
-      std::vector<GP3PEstimator::X_t> points2D;
-      for (size_t i = 0; i < points3D.size(); ++i) {
-        points2D.emplace_back();
-        points2D.back().cam_from_rig = cams_from_rig[i % kNumCams];
-        points2D.back().ray_in_cam =
-            (cams_from_world[i % kNumCams] * points3D[i]).normalized();
-      }
-
+    for (const auto residual_type :
+         {GP3PEstimator::ResidualType::CosineDistance,
+          GP3PEstimator::ResidualType::ReprojectionError}) {
       RANSACOptions options;
       options.max_error = 1e-5;
-      RANSAC<GP3PEstimator> ransac(options);
+      RANSAC<GP3PEstimator> ransac(options, GP3PEstimator(residual_type));
+
       const auto report = ransac.Estimate(points2D, points3D);
 
       EXPECT_TRUE(report.success);
-      EXPECT_LT((rig_from_world.ToMatrix() - report.model.ToMatrix()).norm(),
-                1e-2)
-          << report.model.ToMatrix() << "\n\n"
-          << rig_from_world.ToMatrix();
+      EXPECT_THAT(report.model.ToMatrix(),
+                  EigenMatrixNear(rig_from_world.ToMatrix(), 1e-3));
 
-      // Test residuals of exact points.
+      // Test residuals of inlier points.
       std::vector<double> residuals;
       ransac.estimator.Residuals(points2D, points3D, report.model, &residuals);
+      EXPECT_EQ(residuals.size(), points2D.size());
       for (size_t i = 0; i < residuals.size(); ++i) {
         EXPECT_LT(residuals[i], 1e-10);
       }
 
-      // Test residuals of faulty points.
+      // Test residuals of outlier points.
+      std::vector<double> residuals_outlier;
       ransac.estimator.Residuals(
-          points2D, points3D_faulty, report.model, &residuals);
-      for (size_t i = 0; i < residuals.size(); ++i) {
-        EXPECT_GT(residuals[i], 1e-10);
+          points2D, points3D_outlier, report.model, &residuals_outlier);
+      EXPECT_EQ(residuals_outlier.size(), points2D.size());
+      for (size_t i = 0; i < residuals_outlier.size(); ++i) {
+        EXPECT_GT(residuals_outlier[i], 1e-2);
       }
     }
   }
 }
+
+INSTANTIATE_TEST_SUITE_P(GeneralizedAbsolutePoseTests,
+                         ParameterizedGeneralizedAbsolutePoseTests,
+                         ::testing::Values(1, 2, 3, 4));
 
 }  // namespace
 }  // namespace colmap

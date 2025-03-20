@@ -1,4 +1,4 @@
-# Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+# Copyright (c), ETH Zurich and UNC Chapel Hill.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -38,7 +38,7 @@ COLMAP_ADD_LIBRARY(
         controller_thread.h
         eigen_alignment.h
         endian.h endian.cc
-        enum_to_string.h
+        enum_utils.h
         file.h file.cc
         logging.h logging.cc
         misc.h misc.cc
@@ -68,8 +68,15 @@ if(TESTS_ENABLED)
 endif()
 
 if(DOWNLOAD_ENABLED)
-    target_link_libraries(colmap_util PRIVATE CURL::libcurl OpenSSL::Crypto)
-endif()
+    target_link_libraries(colmap_util PRIVATE CURL::libcurl)
+    if(TARGET cryptopp::cryptopp)
+        target_link_libraries(colmap_util PRIVATE cryptopp::cryptopp)
+        target_compile_definitions(colmap_util PRIVATE COLMAP_USE_CRYPTOPP)
+    else()
+        target_link_libraries(colmap_util PRIVATE OpenSSL::Crypto)
+        target_compile_definitions(colmap_util PRIVATE COLMAP_USE_OPENSSL)
+    endif()
+ endif()
 if(GUI_ENABLED)
     target_link_libraries(colmap_util PUBLIC Qt5::Core Qt5::OpenGL OpenGL::GL)
 endif()
@@ -113,8 +120,8 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_util
 )
 COLMAP_ADD_TEST(
-    NAME enum_to_string_test
-    SRCS enum_to_string_test.cc
+    NAME enum_utils_test
+    SRCS enum_utils_test.cc
     LINK_LIBS colmap_util
 )
 COLMAP_ADD_TEST(

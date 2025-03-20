@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -199,12 +199,12 @@ TEST_P(ParameterizedBACovarianceTests, CompareWithCeres) {
 
         if (pose1.image_id == pose2.image_id) {
           const std::optional<Eigen::MatrixXd> cov =
-              ba_cov->GetCamFromWorldCov(pose1.image_id);
+              ba_cov->GetCamCovFromWorld(pose1.image_id);
           ASSERT_TRUE(cov.has_value());
           ExpectNearEigenMatrixXd(ceres_cov, *cov, /*tol=*/1e-8);
         } else {
           const std::optional<Eigen::MatrixXd> cov =
-              ba_cov->GetCam1FromCam2Cov(pose1.image_id, pose2.image_id);
+              ba_cov->GetCamCrossCovFromWorld(pose1.image_id, pose2.image_id);
           ASSERT_TRUE(cov.has_value());
           ExpectNearEigenMatrixXd(
               ceres_cov.block(0, tangent_size1, tangent_size1, tangent_size2),
@@ -214,11 +214,13 @@ TEST_P(ParameterizedBACovarianceTests, CompareWithCeres) {
       }
     }
 
-    ASSERT_FALSE(ba_cov->GetCamFromWorldCov(kInvalidImageId).has_value());
-    ASSERT_FALSE(ba_cov->GetCam1FromCam2Cov(kInvalidImageId, poses[0].image_id)
-                     .has_value());
-    ASSERT_FALSE(ba_cov->GetCam1FromCam2Cov(poses[0].image_id, kInvalidImageId)
-                     .has_value());
+    ASSERT_FALSE(ba_cov->GetCamCovFromWorld(kInvalidImageId).has_value());
+    ASSERT_FALSE(
+        ba_cov->GetCamCrossCovFromWorld(kInvalidImageId, poses[0].image_id)
+            .has_value());
+    ASSERT_FALSE(
+        ba_cov->GetCamCrossCovFromWorld(poses[0].image_id, kInvalidImageId)
+            .has_value());
   }
 
   if (!test_options.fixed_cam_intrinsics && estimate_other_covs) {

@@ -11,6 +11,7 @@
 #include <pybind11/stl_bind.h>
 
 using namespace colmap;
+using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindIncrementalPipeline(py::module& m) {
@@ -142,6 +143,23 @@ void BindIncrementalPipeline(py::module& m) {
           "ba_global_max_refinement_change",
           &Opts::ba_global_max_refinement_change,
           "The thresholds for iterative bundle adjustment refinements.")
+      .def_readwrite("ba_use_gpu",
+                     &IncrementalPipelineOptions::ba_use_gpu,
+                     "Whether to use Ceres' CUDA sparse linear algebra "
+                     "library, if available.")
+      .def_readwrite("ba_gpu_index",
+                     &IncrementalPipelineOptions::ba_gpu_index,
+                     "Index of CUDA GPU to use for BA, if available.")
+      .def_readwrite("use_prior_position",
+                     &Opts::use_prior_position,
+                     "Whether to use priors on the camera positions.")
+      .def_readwrite("use_robust_loss_on_prior_position",
+                     &Opts::use_robust_loss_on_prior_position,
+                     "Whether to use a robust loss on prior camera positions.")
+      .def_readwrite("prior_position_loss_scale",
+                     &Opts::prior_position_loss_scale,
+                     "Threshold on the residual for the robust position prior "
+                     "loss (chi2 for 3DOF at 95% = 7.815).")
       .def_readwrite("snapshot_path",
                      &Opts::snapshot_path,
                      "Path to a folder in which reconstruction snapshots will "
@@ -168,7 +186,8 @@ void BindIncrementalPipeline(py::module& m) {
       .def("get_triangulation", &Opts::Triangulation)
       .def("get_local_bundle_adjustment", &Opts::LocalBundleAdjustment)
       .def("get_global_bundle_adjustment", &Opts::GlobalBundleAdjustment)
-      .def("is_initial_pair_provided", &Opts::IsInitialPairProvided);
+      .def("is_initial_pair_provided", &Opts::IsInitialPairProvided)
+      .def("check", &Opts::Check);
   MakeDataclass(PyOpts);
 
   using CallbackType = IncrementalPipeline::CallbackType;
@@ -216,15 +235,19 @@ void BindIncrementalPipeline(py::module& m) {
            "reconstruction"_a,
            "ba_prev_num_reg_images"_a,
            "ba_prev_num_points"_a)
-      .def("reconstruct", &IncrementalPipeline::Reconstruct, "mapper_options"_a)
+      .def("reconstruct",
+           &IncrementalPipeline::Reconstruct,
+           "mapper"_a,
+           "mapper_options"_a,
+           "continue_reconstruction"_a)
       .def("reconstruct_sub_model",
            &IncrementalPipeline::ReconstructSubModel,
-           "core_mapper"_a,
+           "mapper"_a,
            "mapper_options"_a,
            "reconstruction"_a)
       .def("initialize_reconstruction",
            &IncrementalPipeline::InitializeReconstruction,
-           "core_mapper"_a,
+           "mapper"_a,
            "mapper_options"_a,
            "reconstruction"_a)
       .def("run", &IncrementalPipeline::Run);
@@ -315,7 +338,8 @@ void BindIncrementalMapperOptions(py::module& m) {
       .def_readwrite("num_threads", &Opts::num_threads, "Number of threads.")
       .def_readwrite("image_selection_method",
                      &Opts::image_selection_method,
-                     "Method to find and select next best image to register.");
+                     "Method to find and select next best image to register.")
+      .def("check", &Opts::Check);
   MakeDataclass(PyOpts);
 }
 
@@ -454,6 +478,8 @@ void BindIncrementalMapperImpl(py::module& m) {
                              &IncrementalMapper::FilteredImages)
       .def_property_readonly("existing_image_ids",
                              &IncrementalMapper::ExistingImageIds)
+      .def("reset_initialization_stats",
+           &IncrementalMapper::ResetInitializationStats)
       .def_property_readonly("num_reg_images_per_camera",
                              &IncrementalMapper::NumRegImagesPerCamera)
       .def("num_total_reg_images", &IncrementalMapper::NumTotalRegImages)

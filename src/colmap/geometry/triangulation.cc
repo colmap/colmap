@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -66,8 +66,8 @@ bool TriangulatePoint(const Eigen::Matrix3x4d& cam1_from_world,
 }
 
 bool TriangulateMultiViewPoint(
-    const std::vector<Eigen::Matrix3x4d>& cams_from_world,
-    const std::vector<Eigen::Vector2d>& points,
+    const span<const Eigen::Matrix3x4d>& cams_from_world,
+    const span<const Eigen::Vector2d>& points,
     Eigen::Vector3d* xyz) {
   THROW_CHECK_EQ(cams_from_world.size(), points.size());
   THROW_CHECK_NOTNULL(xyz);
@@ -133,7 +133,8 @@ double CalculateTriangulationAngle(const Eigen::Vector3d& proj_center1,
   }
   const double nominator =
       ray_length_squared1 + ray_length_squared2 - baseline_length_squared;
-  const double angle = std::abs(std::acos(nominator / denominator));
+  const double angle =
+      std::abs(std::acos(std::clamp(nominator / denominator, -1.0, 1.0)));
 
   // Triangulation is unstable for acute angles (far away points) and
   // obtuse angles (close points), so always compute the minimum angle

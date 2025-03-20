@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -105,9 +105,9 @@ void DecomposeHomographyMatrix(const Eigen::Matrix3d& H,
   const double M11 = ComputeOppositeOfMinor(S, 1, 1);
   const double M22 = ComputeOppositeOfMinor(S, 2, 2);
 
-  const double rtM00 = std::sqrt(M00);
-  const double rtM11 = std::sqrt(M11);
-  const double rtM22 = std::sqrt(M22);
+  const double rtM00 = std::sqrt(std::max(M00, 0.));
+  const double rtM11 = std::sqrt(std::max(M11, 0.));
+  const double rtM22 = std::sqrt(std::max(M22, 0.));
 
   const double M01 = ComputeOppositeOfMinor(S, 0, 1);
   const double M12 = ComputeOppositeOfMinor(S, 1, 2);
@@ -151,14 +151,15 @@ void DecomposeHomographyMatrix(const Eigen::Matrix3d& H,
   }
 
   const double traceS = S.trace();
-  const double v = 2.0 * std::sqrt(1.0 + traceS - M00 - M11 - M22);
+  const double v =
+      2.0 * std::sqrt(std::max(1.0 + traceS - M00 - M11 - M22, 0.));
 
   const double ESii = SignOfNumber(S(idx, idx));
   const double r_2 = 2 + traceS + v;
   const double nt_2 = 2 + traceS - v;
 
-  const double r = std::sqrt(r_2);
-  const double n_t = std::sqrt(nt_2);
+  const double r = std::sqrt(std::max(r_2, 0.));
+  const double n_t = std::sqrt(std::max(nt_2, 0.));
 
   const Eigen::Vector3d n1 = np1.normalized();
   const Eigen::Vector3d n2 = np2.normalized();

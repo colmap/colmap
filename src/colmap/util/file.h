@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -136,7 +136,10 @@ std::vector<std::string> ReadTextFileLines(const std::string& path);
 #ifdef COLMAP_DOWNLOAD_ENABLED
 
 // Download file from server. Supports any protocol suppported by Curl.
-// Automatically follows redirects. Returns null in case of failure.
+// Automatically follows redirects. Returns null in case of failure. Notice that
+// this function is not suitable for large files that don't fit easily into
+// memory. If such a use case emerges in the future, we want to instead stream
+// the downloaded data chunks to disk instead of accumulating them in memory.
 std::optional<std::string> DownloadFile(const std::string& url);
 
 // Computes SHA256 digest for given string.

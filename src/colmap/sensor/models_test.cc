@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -66,13 +66,14 @@ void TestCamToCamFromImg(const std::vector<double>& params,
                          const double u0,
                          const double v0,
                          const double w0) {
-  double u, v, w, x, y;
+  double u, v, x, y;
   CameraModel::ImgFromCam(params.data(), u0, v0, w0, &x, &y);
-  const Eigen::Vector2d xy = CameraModelImgFromCam(
+  const std::optional<Eigen::Vector2d> xy = CameraModelImgFromCam(
       CameraModel::model_id, params, Eigen::Vector3d(u0, v0, w0));
-  EXPECT_EQ(x, xy.x());
-  EXPECT_EQ(y, xy.y());
-  CameraModel::CamFromImg(params.data(), x, y, &u, &v, &w);
+  ASSERT_TRUE(xy.has_value());
+  EXPECT_EQ(x, xy->x());
+  EXPECT_EQ(y, xy->y());
+  CameraModel::CamFromImg(params.data(), x, y, &u, &v);
   EXPECT_NEAR(u, u0 / w0, 1e-6);
   EXPECT_NEAR(v, v0 / w0, 1e-6);
 }
@@ -81,16 +82,19 @@ template <typename CameraModel>
 void TestCamFromImgToImg(const std::vector<double>& params,
                          const double x0,
                          const double y0) {
-  double u, v, w, x, y;
-  CameraModel::CamFromImg(params.data(), x0, y0, &u, &v, &w);
-  const Eigen::Vector3d uvw = CameraModelCamFromImg(
+  double u, v, x, y;
+  CameraModel::CamFromImg(params.data(), x0, y0, &u, &v);
+  const std::optional<Eigen::Vector2d> uv = CameraModelCamFromImg(
       CameraModel::model_id, params, Eigen::Vector2d(x0, y0));
-  EXPECT_EQ(u, uvw.x());
-  EXPECT_EQ(v, uvw.y());
-  EXPECT_EQ(w, uvw.z());
-  CameraModel::ImgFromCam(params.data(), u, v, w, &x, &y);
-  EXPECT_NEAR(x, x0, 1e-6);
-  EXPECT_NEAR(y, y0, 1e-6);
+  ASSERT_TRUE(uv.has_value());
+  EXPECT_EQ(u, uv->x());
+  EXPECT_EQ(v, uv->y());
+  for (const double w : {0.5, 1.0, 2.0}) {
+    ASSERT_TRUE(
+        CameraModel::ImgFromCam(params.data(), w * u, w * v, w, &x, &y));
+    EXPECT_NEAR(x, x0, 1e-6);
+    EXPECT_NEAR(y, y0, 1e-6);
+  }
 }
 
 template <typename CameraModel>
@@ -155,7 +159,7 @@ void TestModel(const std::vector<double>& params) {
   for (double u = -0.5; u <= 0.5; u += 0.1) {
     // NOLINTNEXTLINE(clang-analyzer-security.FloatLoopCounter)
     for (double v = -0.5; v <= 0.5; v += 0.1) {
-      for (double w : {1, 2}) {
+      for (const double w : {0.5, 1.0, 2.0}) {
         TestCamToCamFromImg<CameraModel>(params, u, v, w);
       }
     }

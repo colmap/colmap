@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -104,47 +104,17 @@ int RunAutomaticReconstructor(int argc, char** argv) {
     reconstruction_options.image_names = ReadTextFileLines(image_list_path);
   }
 
-  StringToLower(&data_type);
-  if (data_type == "individual") {
-    reconstruction_options.data_type =
-        AutomaticReconstructionController::DataType::INDIVIDUAL;
-  } else if (data_type == "video") {
-    reconstruction_options.data_type =
-        AutomaticReconstructionController::DataType::VIDEO;
-  } else if (data_type == "internet") {
-    reconstruction_options.data_type =
-        AutomaticReconstructionController::DataType::INTERNET;
-  } else {
-    LOG(FATAL_THROW) << "Invalid data type provided";
-  }
+  StringToUpper(&data_type);
+  reconstruction_options.data_type =
+      AutomaticReconstructionController::DataTypeFromString(data_type);
 
-  StringToLower(&quality);
-  if (quality == "low") {
-    reconstruction_options.quality =
-        AutomaticReconstructionController::Quality::LOW;
-  } else if (quality == "medium") {
-    reconstruction_options.quality =
-        AutomaticReconstructionController::Quality::MEDIUM;
-  } else if (quality == "high") {
-    reconstruction_options.quality =
-        AutomaticReconstructionController::Quality::HIGH;
-  } else if (quality == "extreme") {
-    reconstruction_options.quality =
-        AutomaticReconstructionController::Quality::EXTREME;
-  } else {
-    LOG(FATAL_THROW) << "Invalid quality provided";
-  }
+  StringToUpper(&quality);
+  reconstruction_options.quality =
+      AutomaticReconstructionController::QualityFromString(quality);
 
-  StringToLower(&mesher);
-  if (mesher == "poisson") {
-    reconstruction_options.mesher =
-        AutomaticReconstructionController::Mesher::POISSON;
-  } else if (mesher == "delaunay") {
-    reconstruction_options.mesher =
-        AutomaticReconstructionController::Mesher::DELAUNAY;
-  } else {
-    LOG(FATAL_THROW) << "Invalid mesher provided";
-  }
+  StringToUpper(&mesher);
+  reconstruction_options.mesher =
+      AutomaticReconstructionController::MesherFromString(mesher);
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
 

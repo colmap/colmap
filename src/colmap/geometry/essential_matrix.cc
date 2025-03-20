@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -155,6 +155,12 @@ Eigen::Matrix3d FundamentalFromEssentialMatrix(const Eigen::Matrix3d& K2,
                                                const Eigen::Matrix3d& E,
                                                const Eigen::Matrix3d& K1) {
   return K2.transpose().inverse() * E * K1.inverse();
+}
+
+Eigen::Matrix3d EssentialFromFundamentalMatrix(const Eigen::Matrix3d& K2,
+                                               const Eigen::Matrix3d& F,
+                                               const Eigen::Matrix3d& K1) {
+  return K2.transpose() * F * K1;
 }
 
 }  // namespace colmap

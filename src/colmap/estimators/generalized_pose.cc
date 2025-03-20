@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -123,8 +123,13 @@ bool EstimateGeneralizedAbsolutePose(
   std::vector<GP3PEstimator::X_t> rig_points2D(points2D.size());
   for (size_t i = 0; i < points2D.size(); i++) {
     const size_t camera_idx = camera_idxs[i];
-    rig_points2D[i].ray_in_cam =
-        cameras[camera_idx].CamFromImg(points2D[i]).homogeneous().normalized();
+    if (const std::optional<Eigen::Vector2d> cam_point =
+            cameras[camera_idx].CamFromImg(points2D[i]);
+        cam_point) {
+      rig_points2D[i].ray_in_cam = cam_point->homogeneous().normalized();
+    } else {
+      rig_points2D[i].ray_in_cam.setZero();
+    }
     rig_points2D[i].cam_from_rig = cams_from_rig[camera_idx];
   }
 
@@ -132,8 +137,7 @@ bool EstimateGeneralizedAbsolutePose(
   // Needed for UniqueInlierSupportMeasurer to avoid counting the same
   // 3D point multiple times due to FoV overlap in rig.
   // TODO(sarlinpe): Allow passing unique_point3D_ids as argument.
-  const std::vector<size_t> unique_point3D_ids =
-      ComputeUniquePointIds(points3D);
+  std::vector<size_t> unique_point3D_ids = ComputeUniquePointIds(points3D);
 
   // Average of the errors over the cameras, weighted by the number of
   // correspondences
@@ -141,10 +145,10 @@ bool EstimateGeneralizedAbsolutePose(
   options_copy.max_error =
       ComputeMaxErrorInCamera(camera_idxs, cameras, options.max_error);
 
-  RANSAC<GP3PEstimator, UniqueInlierSupportMeasurer> ransac(options_copy);
-  ransac.support_measurer.SetUniqueSampleIds(unique_point3D_ids);
-  ransac.estimator.residual_type =
-      GP3PEstimator::ResidualType::ReprojectionError;
+  RANSAC<GP3PEstimator, UniqueInlierSupportMeasurer> ransac(
+      options_copy,
+      GP3PEstimator(GP3PEstimator::ResidualType::ReprojectionError),
+      UniqueInlierSupportMeasurer(std::move(unique_point3D_ids)));
   auto report = ransac.Estimate(rig_points2D, points3D);
   if (!report.success) {
     return false;

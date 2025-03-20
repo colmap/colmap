@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -199,7 +199,7 @@ int RunVocabTreeRetriever(int argc, char** argv) {
                      "Indexing image [%d/%d]", i + 1, database_images.size())
               << std::flush;
 
-    if (visual_index.ImageIndexed(database_images[i].ImageId())) {
+    if (visual_index.IsImageIndexed(database_images[i].ImageId())) {
       continue;
     }
 

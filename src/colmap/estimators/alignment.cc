@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -47,16 +47,15 @@ struct ReconstructionAlignmentEstimator {
   typedef const Image* Y_t;
   typedef Sim3d M_t;
 
-  void SetMaxReprojError(const double max_reproj_error) {
-    max_squared_reproj_error_ = max_reproj_error * max_reproj_error;
-  }
-
-  void SetReconstructions(const Reconstruction* src_reconstruction,
-                          const Reconstruction* tgt_reconstruction) {
-    THROW_CHECK_NOTNULL(src_reconstruction);
-    THROW_CHECK_NOTNULL(tgt_reconstruction);
-    src_reconstruction_ = src_reconstruction;
-    tgt_reconstruction_ = tgt_reconstruction;
+  ReconstructionAlignmentEstimator(double max_reproj_error,
+                                   const Reconstruction* src_reconstruction,
+                                   const Reconstruction* tgt_reconstruction)
+      : max_squared_reproj_error_(max_reproj_error * max_reproj_error),
+        src_reconstruction_(src_reconstruction),
+        tgt_reconstruction_(tgt_reconstruction) {
+    THROW_CHECK_GE(max_reproj_error, 0);
+    THROW_CHECK_NOTNULL(src_reconstruction_);
+    THROW_CHECK_NOTNULL(tgt_reconstruction_);
   }
 
   // Estimate 3D similarity transform from corresponding projection centers.
@@ -176,9 +175,9 @@ struct ReconstructionAlignmentEstimator {
   }
 
  private:
-  double max_squared_reproj_error_ = 0.0;
-  const Reconstruction* src_reconstruction_ = nullptr;
-  const Reconstruction* tgt_reconstruction_ = nullptr;
+  double max_squared_reproj_error_;
+  const Reconstruction* src_reconstruction_;
+  const Reconstruction* tgt_reconstruction_;
 };
 
 }  // namespace
@@ -285,12 +284,11 @@ bool AlignReconstructionsViaReprojections(
   ransac_options.min_inlier_ratio = 0.2;
 
   LORANSAC<ReconstructionAlignmentEstimator, ReconstructionAlignmentEstimator>
-      ransac(ransac_options);
-  ransac.estimator.SetMaxReprojError(max_reproj_error);
-  ransac.estimator.SetReconstructions(&src_reconstruction, &tgt_reconstruction);
-  ransac.local_estimator.SetMaxReprojError(max_reproj_error);
-  ransac.local_estimator.SetReconstructions(&src_reconstruction,
-                                            &tgt_reconstruction);
+      ransac(ransac_options,
+             ReconstructionAlignmentEstimator(
+                 max_reproj_error, &src_reconstruction, &tgt_reconstruction),
+             ReconstructionAlignmentEstimator(
+                 max_reproj_error, &src_reconstruction, &tgt_reconstruction));
 
   const std::vector<std::pair<image_t, image_t>> common_image_ids =
       src_reconstruction.FindCommonRegImageIds(tgt_reconstruction);

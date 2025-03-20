@@ -69,7 +69,8 @@ void BindIncrementalTriangulator(py::module& m) {
       .def_readwrite("max_extra_param",
                      &Opts::max_extra_param,
                      "The threshold used to filter and ignore images with "
-                     "degenerate intrinsics.");
+                     "degenerate intrinsics.")
+      .def("check", &Opts::Check);
   MakeDataclass(PyOpts);
 
   // TODO: Add bindings for GetModifiedPoints3D.

@@ -33,7 +33,7 @@ class BM_ReprojErrorCostFunction : public benchmark::Fixture {
  public:
   void SetUp(::benchmark::State& state) {
     cost_function.reset(
-        ReprojErrorCostFunction<camera_model>::Create(data.point2D));
+        ReprojErrorCostFunctor<camera_model>::Create(data.point2D));
   }
 
   ReprojErrorData data = CreateReprojErrorData();
@@ -60,8 +60,8 @@ class BM_ReprojErrorConstantPoseCostFunction : public benchmark::Fixture {
  public:
   void SetUp(::benchmark::State& state) {
     cost_function.reset(
-        ReprojErrorConstantPoseCostFunction<camera_model>::Create(
-            data.cam_from_world, data.point2D));
+        ReprojErrorConstantPoseCostFunctor<camera_model>::Create(
+            data.point2D, data.cam_from_world));
   }
 
   ReprojErrorData data = CreateReprojErrorData();
@@ -85,7 +85,7 @@ class BM_ReprojErrorConstantPoint3DCostFunction : public benchmark::Fixture {
  public:
   void SetUp(::benchmark::State& state) {
     cost_function.reset(
-        ReprojErrorConstantPoint3DCostFunction<camera_model>::Create(
+        ReprojErrorConstantPoint3DCostFunctor<camera_model>::Create(
             data.point2D, data.point3D));
   }
 

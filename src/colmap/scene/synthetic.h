@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -45,6 +45,7 @@ struct SyntheticDatasetOptions {
   int camera_height = 768;
   CameraModelId camera_model_id = SimpleRadialCameraModel::model_id;
   std::vector<double> camera_params = {1280, 512, 384, 0.05};
+  bool camera_has_prior_focal_length = false;
 
   int num_points2D_without_point3D = 10;
   double point2D_stddev = 0.0;

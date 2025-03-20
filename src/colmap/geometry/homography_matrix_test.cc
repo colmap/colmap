@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -30,6 +30,7 @@
 #include "colmap/geometry/homography_matrix.h"
 
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/eigen_matchers.h"
 
 #include <cmath>
 
@@ -123,10 +124,11 @@ TEST(DecomposeHomographyMatrix, Random) {
 TEST(PoseFromHomographyMatrix, Nominal) {
   const Eigen::Matrix3d K1 = Eigen::Matrix3d::Identity();
   const Eigen::Matrix3d K2 = Eigen::Matrix3d::Identity();
-  const Eigen::Matrix3d ref_rotation = Eigen::Matrix3d::Identity();
-  const Eigen::Vector3d ref_translation(1, 0, 0);
+  const Eigen::Matrix3d ref_rotation =
+      Eigen::Quaterniond::UnitRandom().matrix();
+  const Eigen::Vector3d ref_translation(2, 0, 0);
   const Eigen::Vector3d ref_normal(-1, 0, 0);
-  const double d_ref = 1;
+  const double d_ref = 1.5;
   const Eigen::Matrix3d H = HomographyMatrixFromPose(
       K1, K2, ref_rotation, ref_translation, ref_normal, d_ref);
 
@@ -148,10 +150,12 @@ TEST(PoseFromHomographyMatrix, Nominal) {
   PoseFromHomographyMatrix(
       H, K1, K2, points1, points2, &cam2_from_cam1, &normal, &points3D);
 
-  EXPECT_EQ(cam2_from_cam1.rotation.toRotationMatrix(), ref_rotation);
-  EXPECT_EQ(cam2_from_cam1.translation, ref_translation);
-  EXPECT_EQ(normal, ref_normal);
-  EXPECT_EQ(points3D.size(), points1.size());
+  EXPECT_THAT(cam2_from_cam1.rotation.matrix(),
+              EigenMatrixNear(ref_rotation, 1e-5));
+  EXPECT_THAT(cam2_from_cam1.translation.normalized(),
+              EigenMatrixNear(ref_translation.normalized(), 1e-5));
+  EXPECT_THAT(normal, EigenMatrixNear(ref_normal, 1e-5));
+  EXPECT_GE(points3D.size(), 3);
 }
 
 TEST(HomographyMatrixFromPose, PureRotation) {

@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -62,27 +62,17 @@ void CenterAndNormalizeImagePoints(const std::vector<Eigen::Vector2d>& points,
 //
 // Residuals are defined as the squared Sampson error.
 //
-// @param points1     First set of corresponding points as Nx2 matrix.
-// @param points2     Second set of corresponding points as Nx2 matrix.
+// @param points1     Corresponding points/rays.
+// @param points2     Corresponding points/rays.
 // @param E           3x3 fundamental or essential matrix.
 // @param residuals   Output vector of residuals.
 void ComputeSquaredSampsonError(const std::vector<Eigen::Vector2d>& points1,
                                 const std::vector<Eigen::Vector2d>& points2,
                                 const Eigen::Matrix3d& E,
                                 std::vector<double>* residuals);
-
-// Calculate the squared reprojection error given a set of 2D-3D point
-// correspondences and a projection matrix. Returns DBL_MAX if a 3D point is
-// behind the given camera.
-//
-// @param points2D        Normalized 2D image points.
-// @param points3D        3D world points.
-// @param cam_from_world  3x4 projection matrix.
-// @param residuals       Output vector of residuals.
-void ComputeSquaredReprojectionError(
-    const std::vector<Eigen::Vector2d>& points2D,
-    const std::vector<Eigen::Vector3d>& points3D,
-    const Eigen::Matrix3x4d& cam_from_world,
-    std::vector<double>* residuals);
+void ComputeSquaredSampsonError(const std::vector<Eigen::Vector3d>& rays1,
+                                const std::vector<Eigen::Vector3d>& rays2,
+                                const Eigen::Matrix3d& E,
+                                std::vector<double>* residuals);
 
 }  // namespace colmap

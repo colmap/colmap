@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -178,6 +178,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
     camera.model_id = options.camera_model_id;
     camera.params = options.camera_params;
     THROW_CHECK(camera.VerifyParams());
+    camera.has_prior_focal_length = options.camera_has_prior_focal_length;
     const camera_t camera_id =
         (database == nullptr) ? camera_idx + 1 : database->WriteCamera(camera);
     camera_ids[camera_idx] = camera_id;
@@ -220,8 +221,11 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
     // Create 3D point observations by project all 3D points to the image.
     for (auto& point3D : reconstruction->Points3D()) {
       Point2D point2D;
-      point2D.xy = camera.ImgFromCam(
-          (image.CamFromWorld() * point3D.second.xyz).hnormalized());
+      if (const std::optional<Eigen::Vector2d> proj_point2D =
+              camera.ImgFromCam(image.CamFromWorld() * point3D.second.xyz);
+          proj_point2D.has_value()) {
+        point2D.xy = *proj_point2D;
+      }
       if (options.point2D_stddev > 0) {
         const Eigen::Vector2d noise(
             RandomGaussian<double>(0, options.point2D_stddev),
@@ -282,15 +286,14 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
     }
 
     if (options.use_prior_position) {
-      const Eigen::Vector3d noise(
-          RandomGaussian<double>(0, options.prior_position_stddev),
-          RandomGaussian<double>(0, options.prior_position_stddev),
-          RandomGaussian<double>(0, options.prior_position_stddev));
-
-      PosePrior noisy_prior(proj_center + noise,
+      PosePrior noisy_prior(proj_center,
                             PosePrior::CoordinateSystem::CARTESIAN);
 
       if (options.prior_position_stddev > 0.) {
+        noisy_prior.position += Eigen::Vector3d(
+            RandomGaussian<double>(0, options.prior_position_stddev),
+            RandomGaussian<double>(0, options.prior_position_stddev),
+            RandomGaussian<double>(0, options.prior_position_stddev));
         noisy_prior.position_covariance = options.prior_position_stddev *
                                           options.prior_position_stddev *
                                           Eigen::Matrix3d::Identity();

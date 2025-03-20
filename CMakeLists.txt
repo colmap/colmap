@@ -1,4 +1,4 @@
-# Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+# Copyright (c), ETH Zurich and UNC Chapel Hill.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -41,6 +41,7 @@ option(CUDA_ENABLED "Whether to enable CUDA, if available" ON)
 option(GUI_ENABLED "Whether to enable the graphical UI" ON)
 option(OPENGL_ENABLED "Whether to enable OpenGL, if available" ON)
 option(TESTS_ENABLED "Whether to build test binaries" OFF)
+option(COVERAGE_ENABLED "Whether to enable code coverage" OFF)
 option(ASAN_ENABLED "Whether to enable AddressSanitizer flags" OFF)
 option(PROFILING_ENABLED "Whether to enable google-perftools linker flags" OFF)
 option(CCACHE_ENABLED "Whether to enable compiler caching, if available" ON)
@@ -56,7 +57,6 @@ list(APPEND VCPKG_MANIFEST_FEATURES "core")
 
 # Propagate options to vcpkg manifest.
 if(TESTS_ENABLED)
-  enable_testing()
   list(APPEND VCPKG_MANIFEST_FEATURES "tests")
 endif()
 if(CUDA_ENABLED)
@@ -158,10 +158,6 @@ if(IS_GNU)
     if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.9)
         message(FATAL_ERROR "GCC version 4.8 or older not supported")
     endif()
-
-    # Hide incorrect warnings for uninitialized Eigen variables under GCC.
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-maybe-uninitialized")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-maybe-uninitialized")
 endif()
 
 if(IS_MACOS)
@@ -215,6 +211,23 @@ if(PROFILING_ENABLED)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -lprofiler -ltcmalloc")
 else()
     message(STATUS "Disabling profiling support")
+endif()
+
+if(TESTS_ENABLED)
+    message(STATUS "Enabling tests")
+    enable_testing()
+    include(CTest)
+else()
+    message(STATUS "Disabling tests")
+endif()
+
+if(COVERAGE_ENABLED)
+    if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+        message(FATAL_ERROR "Coverage can only be enabled in Debug or RelWithDebInfo mode")
+    endif()
+    message(STATUS "Enabling coverage support")
+else()
+    message(STATUS "Disabling coverage support")
 endif()
 
 ################################################################################
