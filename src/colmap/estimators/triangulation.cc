@@ -142,7 +142,7 @@ void TriangulationEstimator::Residuals(const std::vector<X_t>& point_data,
 
 bool EstimateTriangulation(const EstimateTriangulationOptions& options,
                            const std::vector<Eigen::Vector2d>& points,
-                           const std::vector<Rigid3d const*>& cams_from_world,
+                           const std::vector<Rigid3d>& cams_from_world,
                            const std::vector<Camera const*>& cameras,
                            std::vector<char>* inlier_mask,
                            Eigen::Vector3d* xyz) {
@@ -166,9 +166,9 @@ bool EstimateTriangulation(const EstimateTriangulationOptions& options,
     } else {
       point_data[i].cam_point.setZero();
     }
-    pose_data[i].cam_from_world = cams_from_world[i]->ToMatrix();
-    pose_data[i].proj_center = cams_from_world[i]->rotation.inverse() *
-                               -cams_from_world[i]->translation;
+    pose_data[i].cam_from_world = cams_from_world[i].ToMatrix();
+    pose_data[i].proj_center =
+        cams_from_world[i].rotation.inverse() * -cams_from_world[i].translation;
     pose_data[i].camera = cameras[i];
   }
 

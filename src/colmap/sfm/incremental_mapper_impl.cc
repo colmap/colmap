@@ -95,6 +95,9 @@ std::vector<image_t> IncrementalMapperImpl::FindFirstInitialImage(
   std::vector<ImageInfo> image_infos;
   image_infos.reserve(reconstruction.NumImages());
   for (const auto& [image_id, image] : reconstruction.Images()) {
+    if(!image.HasTrivialFrame()) {
+      continue;
+    }
     // Only images with correspondences can be registered.
     if (correspondence_graph.NumCorrespondencesForImage(image_id) == 0) {
       continue;
@@ -191,6 +194,9 @@ std::vector<image_t> IncrementalMapperImpl::FindSecondInitialImage(
   for (const auto& [image_id, num_corrs] : num_correspondences) {
     if (num_corrs >= init_min_num_inliers) {
       const Image& image = reconstruction.Image(image_id);
+      if (!image.HasTrivialFrame()) {
+        continue;
+      }
       const Camera& camera = *image.CameraPtr();
       ImageInfo image_info;
       image_info.image_id = image_id;

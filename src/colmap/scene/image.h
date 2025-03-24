@@ -255,7 +255,7 @@ bool Image::HasFramePtr() const { return frame_ptr_ != nullptr; }
 bool Image::HasTrivialFrame() const {
   return THROW_CHECK_NOTNULL(frame_ptr_)
       ->RigPtr()
-      ->IsRefSensor(sensor_t(SensorType::CAMERA, CameraId()));
+      ->IsRefSensor(sensor_t(SensorType::CAMERA, camera_id_));
 }
 
 point2D_t Image::NumPoints2D() const {
@@ -266,7 +266,7 @@ point2D_t Image::NumPoints3D() const { return num_points3D_; }
 
 Rigid3d Image::CamFromWorld() const {
   return THROW_CHECK_NOTNULL(frame_ptr_)
-      ->SensorFromWorld(sensor_t(SensorType::CAMERA, CameraId()));
+      ->SensorFromWorld(sensor_t(SensorType::CAMERA, camera_id_));
 }
 
 bool Image::HasPose() const {

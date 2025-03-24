@@ -158,17 +158,15 @@ void IncrementalMapper::RegisterInitialImagePair(
   const Camera& camera2 = *image2.CameraPtr();
 
   //////////////////////////////////////////////////////////////////////////////
-  // Estimate two-view geometry
+  // Apply two-view geometry
   //////////////////////////////////////////////////////////////////////////////
 
-  THROW_CHECK(image1.HasTrivialFrame());
-  image1.FramePtr()->SetFrameFromWorld(Rigid3d());
+  image1.FramePtr()->SetCamFromWorld(image1.CameraId(), Rigid3d());
+  image2.FramePtr()->SetCamFromWorld(image2.CameraId(),
+                                     two_view_geometry.cam2_from_cam1);
 
-  THROW_CHECK(image2.HasTrivialFrame());
-  image2.FramePtr()->SetFrameFromWorld(two_view_geometry.cam2_from_cam1);
-
-  const Eigen::Matrix3x4d cam_from_world1 = image1.CamFromWorld().ToMatrix();
-  const Eigen::Matrix3x4d cam_from_world2 = image2.CamFromWorld().ToMatrix();
+  const Eigen::Matrix3x4d cam1_from_world = image1.CamFromWorld().ToMatrix();
+  const Eigen::Matrix3x4d cam2_from_world = image2.CamFromWorld().ToMatrix();
   const Eigen::Vector3d proj_center1 = image1.ProjectionCenter();
   const Eigen::Vector3d proj_center2 = image2.ProjectionCenter();
 
@@ -204,11 +202,11 @@ void IncrementalMapper::RegisterInitialImagePair(
     }
     Eigen::Vector3d xyz;
     if (TriangulatePoint(
-            cam_from_world1, cam_from_world2, *cam_point1, *cam_point2, &xyz) &&
+            cam1_from_world, cam2_from_world, *cam_point1, *cam_point2, &xyz) &&
         CalculateTriangulationAngle(proj_center1, proj_center2, xyz) >=
             min_tri_angle_rad &&
-        HasPointPositiveDepth(cam_from_world1, xyz) &&
-        HasPointPositiveDepth(cam_from_world2, xyz)) {
+        HasPointPositiveDepth(cam1_from_world, xyz) &&
+        HasPointPositiveDepth(cam2_from_world, xyz)) {
       track.Element(0).point2D_idx = corr.point2D_idx1;
       track.Element(1).point2D_idx = corr.point2D_idx2;
       obs_manager_->AddPoint3D(xyz, track);
@@ -592,6 +590,10 @@ bool IncrementalMapper::AdjustGlobalBundle(
     }
   }
 
+  for (const image_t image_id : ba_config.Images()) {
+    LOG(INFO) << image_id << ": " << reconstruction_->Image(image_id).CamFromWorld() << " === " << *reconstruction_->Image(image_id).CameraPtr();
+  }
+
   // Only use prior pose if at least 3 images have been registered.
   const bool use_prior_position =
       options.use_prior_position && reg_image_ids.size() > 2;
@@ -600,7 +602,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
   if (!use_prior_position) {
     ba_config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
     bundle_adjuster = CreateDefaultBundleAdjuster(
-        std::move(custom_ba_options), std::move(ba_config), *reconstruction_);
+        std::move(custom_ba_options), ba_config, *reconstruction_);
   } else {
     PosePriorBundleAdjustmentOptions prior_options;
     prior_options.use_robust_loss_on_prior_position =
@@ -609,12 +611,16 @@ bool IncrementalMapper::AdjustGlobalBundle(
     bundle_adjuster =
         CreatePosePriorBundleAdjuster(std::move(custom_ba_options),
                                       prior_options,
-                                      std::move(ba_config),
+                                      ba_config,
                                       database_cache_->PosePriors(),
                                       *reconstruction_);
   }
 
-  return bundle_adjuster->Solve().termination_type != ceres::FAILURE;
+  auto r = bundle_adjuster->Solve().termination_type != ceres::FAILURE;
+  for (const image_t image_id : ba_config.Images()) {
+    LOG(INFO) << image_id << ": " << reconstruction_->Image(image_id).CamFromWorld() << " === " << *reconstruction_->Image(image_id).CameraPtr();
+  }
+  return r;
 }
 
 void IncrementalMapper::IterativeLocalRefinement(
