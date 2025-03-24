@@ -52,6 +52,7 @@ class Frame {
   // Access the frame's associated data.
   inline std::set<data_t>& DataIds();
   inline const std::set<data_t>& DataIds() const;
+  inline filter_view<std::set<data_t>> ImageIds() const;
   inline void AddDataId(data_t data_id);
 
   // Check whether the data is associated with the frame.
@@ -117,6 +118,15 @@ void Frame::SetFrameId(frame_t frame_id) { frame_id_ = frame_id; }
 std::set<data_t>& Frame::DataIds() { return data_ids_; }
 
 const std::set<data_t>& Frame::DataIds() const { return data_ids_; }
+
+filter_view<std::set<data_t>> Frame::ImageIds() const {
+  return filter_view<std::set<data_t>>(
+      [](const data_t& data_id) {
+        return data_id.sensor_id.type == SensorType::CAMERA;
+      },
+      data_ids_.begin(),
+      data_ids_.end());
+}
 
 void Frame::AddDataId(data_t data_id) { data_ids_.insert(data_id); }
 

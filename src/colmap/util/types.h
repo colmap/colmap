@@ -195,6 +195,58 @@ class span {
   const T* end() const noexcept { return ptr_ + size_; }
 };
 
+// Simple implementation of C++20's std::ranges::filter_view.
+
+template <typename BaseIterator>
+struct filter_iterator : public BaseIterator {
+  typedef std::function<bool(const typename BaseIterator::value_type&)>
+      filter_type;
+
+  filter_iterator() = default;
+  filter_iterator(filter_type filter, BaseIterator base, BaseIterator end = {})
+      : BaseIterator(base), end_(end), filter_(filter) {
+    while (*this != end_ && !filter_(**this)) {
+      ++*this;
+    }
+  }
+
+  filter_iterator& operator++() {
+    do {
+      BaseIterator::operator++();
+    } while (*this != end_ && !filter_(**this));
+    return *this;
+  }
+
+  filter_iterator operator++(int) {
+    filter_iterator copy = *this;
+    ++*this;
+    return copy;
+  }
+
+ private:
+  const BaseIterator end_;
+  const filter_type filter_;
+};
+
+template <typename BaseContainer>
+struct filter_view {
+  using const_iterator =
+      filter_iterator<typename BaseContainer::const_iterator>;
+
+ public:
+  filter_view(typename const_iterator::filter_type filter,
+              typename BaseContainer::const_iterator beg,
+              typename BaseContainer::const_iterator end)
+      : beg_(filter, beg, end), end_(filter, end, end) {}
+
+  const_iterator begin() const { return beg_; }
+  const_iterator end() const { return end_; }
+
+ private:
+  const const_iterator beg_;
+  const const_iterator end_;
+};
+
 }  // namespace colmap
 
 // This file provides specializations of the templated hash function for
