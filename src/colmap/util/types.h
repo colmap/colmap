@@ -197,16 +197,11 @@ class span {
 
 // Simple implementation of C++20's std::ranges::filter_view.
 
-template <typename BaseIterator>
-struct filter_iterator : public BaseIterator {
-  typedef std::function<bool(const typename BaseIterator::value_type&)>
-      filter_type;
-
+template <class Iterator, class Predicate>
+struct filter_iterator : public Iterator {
   filter_iterator() = default;
-  filter_iterator(filter_type filter, BaseIterator base, BaseIterator end)
-      : BaseIterator(std::forward<BaseIterator>(base)),
-        end_(std::forward<BaseIterator>(end)),
-        filter_(std::move(filter)) {
+  filter_iterator(const Predicate& filter, Iterator base, Iterator end)
+      : Iterator(std::move(base)), filter_(filter), end_(std::move(end)) {
     while (*this != end_ && !filter_(**this)) {
       ++(*this);
     }
@@ -214,7 +209,7 @@ struct filter_iterator : public BaseIterator {
 
   filter_iterator& operator++() {
     do {
-      BaseIterator::operator++();
+      Iterator::operator++();
     } while (*this != end_ && !filter_(**this));
     return *this;
   }
@@ -226,27 +221,27 @@ struct filter_iterator : public BaseIterator {
   }
 
  private:
-  const BaseIterator end_;
-  const filter_type filter_;
+  const Predicate& filter_;
+  const Iterator end_;
 };
 
-template <typename BaseContainer>
+template <class Iterator, class Predicate>
 struct filter_view {
-  using const_iterator =
-      filter_iterator<typename BaseContainer::const_iterator>;
-
  public:
-  filter_view(typename const_iterator::filter_type filter,
-              typename BaseContainer::const_iterator beg,
-              typename BaseContainer::const_iterator end)
-      : beg_(std::move(filter), beg, end), end_(nullptr, end, end) {}
+  using iterator_type = filter_iterator<Iterator, Predicate>;
 
-  const_iterator begin() const { return beg_; }
-  const_iterator end() const { return end_; }
+  filter_view(Predicate filter, Iterator beg, Iterator end)
+      : filter_(std::move(filter)),
+        beg_(filter_, beg, end),
+        end_(filter_, end, end) {}
+
+  iterator_type begin() const { return beg_; }
+  iterator_type end() const { return end_; }
 
  private:
-  const const_iterator beg_;
-  const const_iterator end_;
+  const Predicate filter_;
+  const iterator_type beg_;
+  const iterator_type end_;
 };
 
 }  // namespace colmap
@@ -254,7 +249,6 @@ struct filter_view {
 // This file provides specializations of the templated hash function for
 // custom types. These are used for comparison in unordered sets/maps.
 namespace std {
-
 // Hash function specialization for uint32_t pairs, e.g., image_t or camera_t.
 template <>
 struct hash<std::pair<uint32_t, uint32_t>> {

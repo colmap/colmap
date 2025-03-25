@@ -40,7 +40,7 @@ namespace {
 TEST(FilterView, Empty) {
   const std::vector<int> container;
   auto filter = [](const int&) { return true; };
-  filter_view<std::vector<int>> filtered_container(
+  filter_view filtered_container(
       filter, container.begin(), container.end());
   EXPECT_THAT(
       std::vector<int>(filtered_container.begin(), filtered_container.end()),
@@ -50,7 +50,7 @@ TEST(FilterView, Empty) {
 TEST(FilterView, All) {
   const std::vector<int> container = {1, 2, 3, 4, 5, 6};
   auto filter = [](const int&) { return true; };
-  filter_view<std::vector<int>> filtered_container(
+  filter_view filtered_container(
       filter, container.begin(), container.end());
   EXPECT_THAT(
       std::vector<int>(filtered_container.begin(), filtered_container.end()),
@@ -60,7 +60,7 @@ TEST(FilterView, All) {
 TEST(FilterView, None) {
   const std::vector<int> container = {1, 2, 3, 4, 5, 6};
   auto filter = [](const int&) { return false; };
-  filter_view<std::vector<int>> filtered_container(
+  filter_view filtered_container(
       filter, container.begin(), container.end());
   EXPECT_THAT(
       std::vector<int>(filtered_container.begin(), filtered_container.end()),
@@ -70,7 +70,7 @@ TEST(FilterView, None) {
 TEST(FilterView, Nominal) {
   const std::vector<int> container = {1, 2, 3, 4, 5, 6};
   auto filter = [](const int& d) { return d % 2 == 0; };
-  filter_view<std::vector<int>> filtered_container(
+  filter_view filtered_container(
       filter, container.begin(), container.end());
   EXPECT_THAT(
       std::vector<int>(filtered_container.begin(), filtered_container.end()),
@@ -80,7 +80,7 @@ TEST(FilterView, Nominal) {
 TEST(FilterView, RangeExpression) {
   const std::vector<int> container = {1, 2, 3, 4, 5, 6};
   auto filter = [](const int& d) { return d % 2 == 0; };
-  filter_view<std::vector<int>> filtered_container(
+  filter_view filtered_container(
       filter, container.begin(), container.end());
   for (const int d : filtered_container) {
     EXPECT_EQ(d % 2, 0);
