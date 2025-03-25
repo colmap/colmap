@@ -204,9 +204,11 @@ struct filter_iterator : public BaseIterator {
 
   filter_iterator() = default;
   filter_iterator(filter_type filter, BaseIterator base, BaseIterator end = {})
-      : BaseIterator(base), end_(end), filter_(filter) {
+      : BaseIterator(std::forward<BaseIterator>(base)),
+        end_(std::forward<BaseIterator>(end)),
+        filter_(std::move(filter)) {
     while (*this != end_ && !filter_(**this)) {
-      ++*this;
+      ++(*this);
     }
   }
 
@@ -219,7 +221,7 @@ struct filter_iterator : public BaseIterator {
 
   filter_iterator operator++(int) {
     filter_iterator copy = *this;
-    ++*this;
+    ++(*this);
     return copy;
   }
 
@@ -237,7 +239,7 @@ struct filter_view {
   filter_view(typename const_iterator::filter_type filter,
               typename BaseContainer::const_iterator beg,
               typename BaseContainer::const_iterator end)
-      : beg_(filter, beg, end), end_(filter, end, end) {}
+      : beg_(std::move(filter), beg, end), end_(nullptr, end, end) {}
 
   const_iterator begin() const { return beg_; }
   const_iterator end() const { return end_; }
