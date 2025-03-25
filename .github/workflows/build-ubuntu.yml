@@ -53,7 +53,7 @@ jobs:
           },
           {
             os: ubuntu-22.04,
-            cmakeBuildType: Release,
+            cmakeBuildType: RelWithDebInfo,
             asanEnabled: true,
             guiEnabled: false,
             cudaEnabled: false,
