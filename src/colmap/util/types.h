@@ -203,7 +203,7 @@ struct filter_iterator : public BaseIterator {
       filter_type;
 
   filter_iterator() = default;
-  filter_iterator(filter_type filter, BaseIterator base, BaseIterator end = {})
+  filter_iterator(filter_type filter, BaseIterator base, BaseIterator end)
       : BaseIterator(std::forward<BaseIterator>(base)),
         end_(std::forward<BaseIterator>(end)),
         filter_(std::move(filter)) {
