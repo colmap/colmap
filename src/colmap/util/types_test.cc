@@ -39,47 +39,47 @@ namespace {
 
 TEST(FilterView, Empty) {
   const std::vector<int> container;
-  filter_view filtered_container(
+  filter_view container_filter_view(
       [](const int&) { return true; }, container.begin(), container.end());
-  EXPECT_THAT(
-      std::vector<int>(filtered_container.begin(), filtered_container.end()),
-      testing::IsEmpty());
+  const std::vector<int> container_filtered(container_filter_view.begin(),
+                                            container_filter_view.end());
+  EXPECT_THAT(container_filtered, testing::IsEmpty());
 }
 
 TEST(FilterView, All) {
   const std::vector<int> container = {1, 2, 3, 4, 5, 6};
-  filter_view filtered_container(
+  filter_view container_filter_view(
       [](const int&) { return true; }, container.begin(), container.end());
-  EXPECT_THAT(
-      std::vector<int>(filtered_container.begin(), filtered_container.end()),
-      container);
+  const std::vector<int> container_filtered(container_filter_view.begin(),
+                                            container_filter_view.end());
+  EXPECT_THAT(container_filtered, container);
 }
 
 TEST(FilterView, None) {
   const std::vector<int> container = {1, 2, 3, 4, 5, 6};
-  filter_view filtered_container(
+  filter_view container_filter_view(
       [](const int&) { return false; }, container.begin(), container.end());
-  EXPECT_THAT(
-      std::vector<int>(filtered_container.begin(), filtered_container.end()),
-      testing::IsEmpty());
+  const std::vector<int> container_filtered(container_filter_view.begin(),
+                                            container_filter_view.end());
+  EXPECT_THAT(container_filtered, testing::IsEmpty());
 }
 
 TEST(FilterView, Nominal) {
   const std::vector<int> container = {1, 2, 3, 4, 5, 6};
-  filter_view filtered_container([](const int& d) { return d % 2 == 0; },
-                                 container.begin(),
-                                 container.end());
-  EXPECT_THAT(
-      std::vector<int>(filtered_container.begin(), filtered_container.end()),
-      testing::ElementsAre(2, 4, 6));
+  filter_view container_filter_view([](const int& d) { return d % 2 == 0; },
+                                    container.begin(),
+                                    container.end());
+  const std::vector<int> container_filtered(container_filter_view.begin(),
+                                            container_filter_view.end());
+  EXPECT_THAT(container_filtered, testing::ElementsAre(2, 4, 6));
 }
 
 TEST(FilterView, RangeExpression) {
   const std::vector<int> container = {1, 2, 3, 4, 5, 6};
-  filter_view filtered_container([](const int& d) { return d % 2 == 0; },
-                                 container.begin(),
-                                 container.end());
-  for (const int d : filtered_container) {
+  filter_view container_filter_view([](const int& d) { return d % 2 == 0; },
+                                    container.begin(),
+                                    container.end());
+  for (const int d : container_filter_view) {
     EXPECT_EQ(d % 2, 0);
   }
 }
