@@ -228,20 +228,18 @@ struct filter_iterator : public Iterator {
 template <class Iterator, class Predicate>
 struct filter_view {
  public:
-  using iterator_type = filter_iterator<Iterator, Predicate>;
-
   filter_view(Predicate filter, Iterator beg, Iterator end)
       : filter_(std::move(filter)),
         beg_(filter_, beg, end),
         end_(filter_, end, end) {}
 
-  iterator_type begin() const { return beg_; }
-  iterator_type end() const { return end_; }
+  filter_iterator<Iterator, Predicate> begin() const { return beg_; }
+  filter_iterator<Iterator, Predicate> end() const { return end_; }
 
  private:
   const Predicate filter_;
-  const iterator_type beg_;
-  const iterator_type end_;
+  const filter_iterator<Iterator, Predicate> beg_;
+  const filter_iterator<Iterator, Predicate> end_;
 };
 
 }  // namespace colmap
