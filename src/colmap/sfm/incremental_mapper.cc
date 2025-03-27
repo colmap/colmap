@@ -606,6 +606,10 @@ bool IncrementalMapper::AdjustGlobalBundle(
     }
   }
 
+  for (const image_t image_id : ba_config.Images()) {
+    LOG(INFO) << image_id << ": " << reconstruction_->Image(image_id).CamFromWorld() << " === " << *reconstruction_->Image(image_id).CameraPtr();
+  }
+
   // Only use prior pose if at least 3 images have been registered.
   const bool use_prior_position =
       options.use_prior_position && reg_image_ids.size() > 2;
@@ -628,7 +632,11 @@ bool IncrementalMapper::AdjustGlobalBundle(
                                       *reconstruction_);
   }
 
-  return bundle_adjuster->Solve().termination_type != ceres::FAILURE;
+  auto r = bundle_adjuster->Solve().termination_type != ceres::FAILURE;
+  for (const image_t image_id : ba_config.Images()) {
+    LOG(INFO) << image_id << ": " << reconstruction_->Image(image_id).CamFromWorld() << " === " << *reconstruction_->Image(image_id).CameraPtr();
+  }
+  return r;
 }
 
 void IncrementalMapper::IterativeLocalRefinement(
