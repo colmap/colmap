@@ -326,8 +326,8 @@ IncrementalPipeline::Status IncrementalPipeline::InitializeReconstruction(
   LOG(INFO) << "Global bundle adjustment";
   mapper.AdjustGlobalBundle(mapper_options, options_->GlobalBundleAdjustment());
   reconstruction.Normalize();
-  // mapper.FilterPoints(mapper_options);
-  // mapper.FilterImages(mapper_options);
+  mapper.FilterPoints(mapper_options);
+  mapper.FilterImages(mapper_options);
 
   // Initial image pair failed to register.
   if (reconstruction.NumRegImages() == 0 || reconstruction.NumPoints3D() == 0) {
