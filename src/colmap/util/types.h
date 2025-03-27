@@ -30,6 +30,7 @@
 #pragma once
 
 #include <functional>
+#include <iterator>
 
 #ifdef _MSC_VER
 #if _MSC_VER >= 1600
@@ -195,12 +196,96 @@ class span {
   const T* end() const noexcept { return ptr_ + size_; }
 };
 
+// Simple implementation of C++20's std::ranges::filter_view.
+
+template <class Iterator, class Predicate>
+struct filter_iterator {
+  template <class OtherIterator, class OtherPredicate>
+  friend struct filter_iterator;
+
+  typedef
+      typename std::iterator_traits<Iterator>::iterator_category base_category;
+  typedef typename std::conditional<
+      std::is_same<base_category, std::random_access_iterator_tag>::value,
+      std::bidirectional_iterator_tag,
+      base_category>::type iterator_category;
+
+  typedef typename std::iterator_traits<Iterator>::value_type value_type;
+  typedef typename std::iterator_traits<Iterator>::reference reference;
+  typedef typename std::iterator_traits<Iterator>::pointer pointer;
+  typedef
+      typename std::iterator_traits<Iterator>::difference_type difference_type;
+
+  filter_iterator() = default;
+  filter_iterator(const Predicate& filter, Iterator it, Iterator end)
+      : filter_(filter), it_(std::move(it)), end_(std::move(end)) {
+    while (it_ != end_ && !filter_(*it_)) {
+      ++it_;
+    }
+  }
+
+  // Enable conversion from const to non-const iterator and vice versa.
+  template <class OtherIterator>
+  explicit filter_iterator(
+      const filter_iterator<OtherIterator, Predicate>& f,
+      typename std::enable_if<
+          std::is_convertible<OtherIterator, Iterator>::value>::type* = nullptr)
+      : filter_(f.filter_), it_(f.it_), end_(f.end_) {}
+
+  reference operator*() const { return *it_; }
+  pointer operator->() { return std::addressof(*it_); }
+
+  filter_iterator& operator++() {
+    do {
+      ++it_;
+    } while (it_ != end_ && !filter_(*it_));
+    return *this;
+  }
+
+  filter_iterator operator++(int) {
+    filter_iterator copy = *this;
+    ++it_;
+    return copy;
+  }
+
+  inline friend bool operator==(const filter_iterator& left,
+                                const filter_iterator& right) {
+    return left.it_ == right.it_;
+  }
+
+  inline friend bool operator!=(const filter_iterator& left,
+                                const filter_iterator& right) {
+    return left.it_ != right.it_;
+  }
+
+ private:
+  const Predicate& filter_;
+  Iterator it_;
+  const Iterator end_;
+};
+
+template <class Iterator, class Predicate>
+struct filter_view {
+ public:
+  filter_view(Predicate filter, Iterator beg, Iterator end)
+      : filter_(std::move(filter)),
+        beg_(filter_, beg, end),
+        end_(filter_, end, end) {}
+
+  filter_iterator<Iterator, Predicate> begin() const { return beg_; }
+  filter_iterator<Iterator, Predicate> end() const { return end_; }
+
+ private:
+  const Predicate filter_;
+  const filter_iterator<Iterator, Predicate> beg_;
+  const filter_iterator<Iterator, Predicate> end_;
+};
+
 }  // namespace colmap
 
 // This file provides specializations of the templated hash function for
 // custom types. These are used for comparison in unordered sets/maps.
 namespace std {
-
 // Hash function specialization for uint32_t pairs, e.g., image_t or camera_t.
 template <>
 struct hash<std::pair<uint32_t, uint32_t>> {
