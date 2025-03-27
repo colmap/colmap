@@ -95,6 +95,9 @@ std::vector<image_t> IncrementalMapperImpl::FindFirstInitialImage(
   std::vector<ImageInfo> image_infos;
   image_infos.reserve(reconstruction.NumImages());
   for (const auto& [image_id, image] : reconstruction.Images()) {
+    if (!image.HasTrivialFrame()) {  // Remove. Temp hack.
+      continue;
+    }
     // Only images with correspondences can be registered.
     if (correspondence_graph.NumCorrespondencesForImage(image_id) == 0) {
       continue;
@@ -191,6 +194,9 @@ std::vector<image_t> IncrementalMapperImpl::FindSecondInitialImage(
   for (const auto& [image_id, num_corrs] : num_correspondences) {
     if (num_corrs >= init_min_num_inliers) {
       const Image& image = reconstruction.Image(image_id);
+      if (!image.HasTrivialFrame()) {  // Remove. Temp hack.
+        continue;
+      }
       const Camera& camera = *image.CameraPtr();
       ImageInfo image_info;
       image_info.image_id = image_id;
@@ -455,14 +461,15 @@ std::vector<image_t> IncrementalMapperImpl::FindLocalBundle(
   std::vector<double> tri_angles(overlapping_images.size(), -1.0);
   std::vector<char> used_overlapping_images(overlapping_images.size(), false);
 
-  for (const auto& selection_threshold : selection_thresholds) {
+  for (const auto& [min_tri_angle_rad, min_num_shared_obs] :
+       selection_thresholds) {
     for (size_t overlapping_image_idx = 0;
          overlapping_image_idx < overlapping_images.size();
          ++overlapping_image_idx) {
       // Check if the image has sufficient overlap. Since the images are ordered
       // based on the overlap, we can just skip the remaining ones.
       if (overlapping_images[overlapping_image_idx].second <
-          selection_threshold.second) {
+          min_num_shared_obs) {
         break;
       }
 
@@ -478,8 +485,8 @@ std::vector<image_t> IncrementalMapperImpl::FindLocalBundle(
 
       // In the first iteration, compute the triangulation angle. In later
       // iterations, reuse the previously computed value.
-      double& tri_angle = tri_angles[overlapping_image_idx];
-      if (tri_angle < 0.0) {
+      double& tri_angle_rad = tri_angles[overlapping_image_idx];
+      if (tri_angle_rad < 0.0) {
         // Collect the commonly observed 3D points.
         shared_points3D.clear();
         for (const Point2D& point2D : overlapping_image.Points2D()) {
@@ -491,14 +498,14 @@ std::vector<image_t> IncrementalMapperImpl::FindLocalBundle(
 
         // Calculate the triangulation angle at a certain percentile.
         const double kTriangulationAnglePercentile = 75;
-        tri_angle = Percentile(
+        tri_angle_rad = Percentile(
             CalculateTriangulationAngles(
                 proj_center, overlapping_proj_center, shared_points3D),
             kTriangulationAnglePercentile);
       }
 
       // Check that the image has sufficient triangulation angle.
-      if (tri_angle >= selection_threshold.first) {
+      if (tri_angle_rad >= min_tri_angle_rad) {
         local_bundle_image_ids.push_back(overlapping_image.ImageId());
         used_overlapping_images[overlapping_image_idx] = true;
         // Check if we already collected enough images.

@@ -1081,13 +1081,9 @@ void ModelViewerWidget::UploadImageData(const bool selection_mode) {
       }
     }
 
-    THROW_CHECK(image.HasTrivialFrame());
-    const std::optional<Rigid3d>& cam_from_world =
-        image.FramePtr()->MaybeFrameFromWorld();
-
     // Lines are not colored with the indexed color in selection mode, so do not
     // show them, so they do not block the selection process
-    BuildCameraModel(*cam_from_world,
+    BuildCameraModel(image.CamFromWorld(),
                      camera,
                      image_size_,
                      plane_color,

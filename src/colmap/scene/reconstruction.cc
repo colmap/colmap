@@ -344,6 +344,8 @@ Sim3d Reconstruction::Normalize(const bool fixed_scale,
                                 const bool use_images) {
   THROW_CHECK_GT(extent, 0);
 
+  return Sim3d();
+
   if ((use_images && NumRegImages() < 2) ||
       (!use_images && points3D_.size() < 2)) {
     return Sim3d();
@@ -352,10 +354,19 @@ Sim3d Reconstruction::Normalize(const bool fixed_scale,
   const auto [bbox, centroid] =
       ComputeBBBoxAndCentroid(min_percentile, max_percentile, use_images);
 
+  const auto has_non_trivial_rigs = [this]() {
+    for (const auto& [_, rig] : rigs_) {
+      if (rig.NumSensors() > 1) {
+        return true;
+      }
+    }
+    return false;
+  };
+
   // Calculate scale and translation, such that
   // translation is applied before scaling.
   double scale = 1.;
-  if (!fixed_scale) {
+  if (!fixed_scale && !has_non_trivial_rigs()) {
     const double old_extent = bbox.diagonal().norm();
     if (old_extent >= std::numeric_limits<double>::epsilon()) {
       scale = extent / old_extent;
