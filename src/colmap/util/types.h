@@ -226,7 +226,7 @@ struct filter_iterator {
 
   // Enable conversion from const to non-const iterator and vice versa.
   template <class OtherIterator>
-  filter_iterator(
+  explicit filter_iterator(
       const filter_iterator<OtherIterator, Predicate>& f,
       typename std::enable_if<
           std::is_convertible<OtherIterator, Iterator>::value>::type* = nullptr)
