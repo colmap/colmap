@@ -83,6 +83,19 @@ TEST(Frame, SetUp) {
   EXPECT_FALSE(frame.HasPose());
 }
 
+TEST(Frame, ImageIds) {
+  Frame frame;
+  const data_t data_id1(sensor_t(SensorType::IMU, 0), 2);
+  frame.AddDataId(data_id1);
+  const data_t data_id2(sensor_t(SensorType::CAMERA, 0), 2);
+  frame.AddDataId(data_id2);
+  const data_t data_id3(sensor_t(SensorType::CAMERA, 1), 1);
+  frame.AddDataId(data_id3);
+  EXPECT_THAT(
+      std::vector<data_t>(frame.ImageIds().begin(), frame.ImageIds().end()),
+      testing::UnorderedElementsAre(data_id2, data_id3));
+}
+
 TEST(Frame, SetResetPose) {
   Frame frame;
   EXPECT_FALSE(frame.HasPose());

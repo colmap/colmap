@@ -493,63 +493,41 @@ void ParameterizeImages(const BundleAdjustmentOptions& options,
   std::unordered_set<frame_t> parameterized_frame_ids;
   for (const image_t image_id : image_ids) {
     Image& image = reconstruction.Image(image_id);
-    if (image.HasTrivialFrame()) {
-      // Parameterize cam_from_world (==frame_from_world).
-      if (parameterized_frame_ids.insert(image.FrameId()).second) {
-        Rigid3d& cam_from_world = image.FramePtr()->FrameFromWorld();
-        // CostFunction assumes unit quaternions.
-        cam_from_world.rotation.normalize();
-        if (problem.HasParameterBlock(
-                cam_from_world.rotation.coeffs().data())) {
-          SetQuaternionManifold(&problem,
-                                cam_from_world.rotation.coeffs().data());
-          if (!options.refine_frame_from_world ||
-              config.HasConstantFrameFromWorldPose(image.FrameId())) {
-            problem.SetParameterBlockConstant(
-                cam_from_world.rotation.coeffs().data());
-            problem.SetParameterBlockConstant(
-                cam_from_world.translation.data());
-          }
+    // Parameterize sensor_from_rig.
+    const sensor_t sensor_id = image.CameraPtr()->SensorId();
+    if (!image.HasTrivialFrame() &&
+        parameterized_sensor_ids.insert(sensor_id).second) {
+      Rigid3d& sensor_from_rig =
+          image.FramePtr()->RigPtr()->SensorFromRig(sensor_id);
+      // CostFunction assumes unit quaternions.
+      sensor_from_rig.rotation.normalize();
+      if (problem.HasParameterBlock(sensor_from_rig.rotation.coeffs().data())) {
+        SetQuaternionManifold(&problem,
+                              sensor_from_rig.rotation.coeffs().data());
+        if (!options.refine_sensor_from_rig ||
+            config.HasConstantSensorFromRigPose(sensor_id)) {
+          problem.SetParameterBlockConstant(
+              sensor_from_rig.rotation.coeffs().data());
+          problem.SetParameterBlockConstant(sensor_from_rig.translation.data());
         }
       }
-    } else {
-      // Parameterize sensor_from_rig.
-      const sensor_t sensor_id = image.CameraPtr()->SensorId();
-      if (parameterized_sensor_ids.insert(sensor_id).second) {
-        Rigid3d& sensor_from_rig =
-            image.FramePtr()->RigPtr()->SensorFromRig(sensor_id);
-        // CostFunction assumes unit quaternions.
-        sensor_from_rig.rotation.normalize();
-        if (problem.HasParameterBlock(
-                sensor_from_rig.rotation.coeffs().data())) {
-          SetQuaternionManifold(&problem,
-                                sensor_from_rig.rotation.coeffs().data());
-          if (!options.refine_sensor_from_rig ||
-              config.HasConstantSensorFromRigPose(sensor_id)) {
-            problem.SetParameterBlockConstant(
-                sensor_from_rig.rotation.coeffs().data());
-            problem.SetParameterBlockConstant(
-                sensor_from_rig.translation.data());
-          }
-        }
-      }
+    }
 
-      // Parameterize frame_from_world.
-      if (parameterized_frame_ids.insert(image.FrameId()).second) {
-        Rigid3d& frame_from_world = image.FramePtr()->FrameFromWorld();
-        // CostFunction assumes unit quaternions.
-        frame_from_world.rotation.normalize();
-        if (problem.HasParameterBlock(
-                frame_from_world.rotation.coeffs().data())) {
-          SetQuaternionManifold(&problem,
-                                frame_from_world.rotation.coeffs().data());
-          if (!options.refine_frame_from_world ||
-              config.HasConstantFrameFromWorldPose(image.FrameId())) {
-            problem.SetParameterBlockConstant(
-                frame_from_world.rotation.coeffs().data());
-            problem.SetParameterBlockConstant(
-                frame_from_world.translation.data());
-          }
+    // Parameterize frame_from_world.
+    if (parameterized_frame_ids.insert(image.FrameId()).second) {
+      Rigid3d& frame_from_world = image.FramePtr()->FrameFromWorld();
+      // CostFunction assumes unit quaternions.
+      frame_from_world.rotation.normalize();
+      if (problem.HasParameterBlock(
+              frame_from_world.rotation.coeffs().data())) {
+        SetQuaternionManifold(&problem,
+                              frame_from_world.rotation.coeffs().data());
+        if (!options.refine_frame_from_world ||
+            config.HasConstantFrameFromWorldPose(image.FrameId())) {
+          problem.SetParameterBlockConstant(
+              frame_from_world.rotation.coeffs().data());
+          problem.SetParameterBlockConstant(
+              frame_from_world.translation.data());
         }
       }
     }
@@ -587,9 +565,6 @@ void FixGaugeWithThreePoints(
     FixedGaugeWithThreePoints& fixed_gauge,
     Reconstruction& reconstruction,
     ceres::Problem& problem) {
-  // TODO(jsch): Notice that the current logic has a chance of not fixing the
-  // Gauge appropriately with the randomly selected points. Ensure there are
-  // at least three points whose coordinates make up a rank-3 matrix.
   for (const auto& [point3D_id, num_observations] : point3D_num_observations) {
     Point3D& point3D = reconstruction.Point3D(point3D_id);
     if (point3D.track.Length() == num_observations &&
