@@ -83,15 +83,15 @@ void IncrementalMapper::BeginReconstruction(
 
   reg_stats_.num_shared_reg_images = 0;
   reg_stats_.num_reg_images_per_camera.clear();
-  for (const image_t image_id : reconstruction_->RegImageIds()) {
-    RegisterImageEvent(image_id);
+  for (const frame_t frame_id : reconstruction_->RegFrameIds()) {
+    RegisterFrameEvent(frame_id);
   }
 
-  existing_image_ids_ =
-      std::unordered_set<image_t>(reconstruction->RegImageIds().begin(),
-                                  reconstruction->RegImageIds().end());
+  existing_frame_ids_ =
+      std::unordered_set<image_t>(reconstruction->RegFrameIds().begin(),
+                                  reconstruction->RegFrameIds().end());
 
-  filtered_images_.clear();
+  filtered_frames_.clear();
   reg_stats_.num_reg_trials.clear();
 }
 
@@ -99,8 +99,8 @@ void IncrementalMapper::EndReconstruction(const bool discard) {
   THROW_CHECK_NOTNULL(reconstruction_);
 
   if (discard) {
-    for (const image_t image_id : reconstruction_->RegImageIds()) {
-      DeRegisterImageEvent(image_id);
+    for (const frame_t frame_id : reconstruction_->RegFrameIds()) {
+      DeRegisterFrameEvent(frame_id);
     }
   }
 
@@ -128,9 +128,11 @@ bool IncrementalMapper::FindInitialImagePair(const Options& options,
 
 std::vector<image_t> IncrementalMapper::FindNextImages(const Options& options) {
   return IncrementalMapperImpl::FindNextImages(
-      options, *obs_manager_, filtered_images_, reg_stats_.num_reg_trials);
+      options, *obs_manager_, filtered_frames_, reg_stats_.num_reg_trials);
 }
 
+// TODO(jsch): Better handle non-trivial frames by performing generalized
+// relative pose estimation.
 void IncrementalMapper::RegisterInitialImagePair(
     const Options& options,
     const TwoViewGeometry& two_view_geometry,
@@ -138,7 +140,7 @@ void IncrementalMapper::RegisterInitialImagePair(
     const image_t image_id2) {
   THROW_CHECK_NOTNULL(reconstruction_);
   THROW_CHECK_NOTNULL(obs_manager_);
-  THROW_CHECK_EQ(reconstruction_->NumRegImages(), 0);
+  THROW_CHECK_EQ(reconstruction_->NumRegFrames(), 0);
 
   THROW_CHECK(options.Check());
 
@@ -174,18 +176,11 @@ void IncrementalMapper::RegisterInitialImagePair(
   // Update Reconstruction
   //////////////////////////////////////////////////////////////////////////////
 
-  for (const data_t data_id : image1.FramePtr()->DataIds()) {
-    if (data_id.sensor_id.type == SensorType::CAMERA) {
-      reconstruction_->RegisterImage(data_id.id);
-      RegisterImageEvent(data_id.id);
-    }
-  }
-  for (const data_t data_id : image2.FramePtr()->DataIds()) {
-    if (data_id.sensor_id.type == SensorType::CAMERA) {
-      reconstruction_->RegisterImage(data_id.id);
-      RegisterImageEvent(data_id.id);
-    }
-  }
+  reconstruction_->RegisterFrame(image1.FrameId());
+  reconstruction_->RegisterFrame(image2.FrameId());
+
+  RegisterFrameEvent(image1.FrameId());
+  RegisterFrameEvent(image2.FrameId());
 
   const FeatureMatches& corrs =
       database_cache_->CorrespondenceGraph()->FindCorrespondencesBetweenImages(
@@ -222,19 +217,17 @@ void IncrementalMapper::RegisterInitialImagePair(
   }
 }
 
+// TODO(jsch): Better handle non-trivial frames by performing generalized
+// absolute pose estimation.
 bool IncrementalMapper::RegisterNextImage(const Options& options,
                                           const image_t image_id) {
   THROW_CHECK_NOTNULL(reconstruction_);
   THROW_CHECK_NOTNULL(obs_manager_);
-  THROW_CHECK_GE(reconstruction_->NumRegImages(), 2);
+  THROW_CHECK_GT(reconstruction_->NumRegFrames(), 0);
 
   THROW_CHECK(options.Check());
 
   Image& image = reconstruction_->Image(image_id);
-  // if (!image.HasTrivialFrame()) {
-  //   return RegisterNextFrame(options, image.FrameId());
-  // }
-
   Camera& camera = *image.CameraPtr();
 
   THROW_CHECK(!image.HasPose()) << "Image cannot be registered multiple times";
@@ -396,12 +389,8 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
 
   image.FramePtr()->SetFrameFromWorld(cam_from_world);
 
-  for (const data_t data_id : image.FramePtr()->DataIds()) {
-    if (data_id.sensor_id.type == SensorType::CAMERA) {
-      reconstruction_->RegisterImage(data_id.id);
-      RegisterImageEvent(data_id.id);
-    }
-  }
+  reconstruction_->RegisterFrame(image.FrameId());
+  RegisterFrameEvent(image.FrameId());
 
   for (size_t i = 0; i < inlier_mask.size(); ++i) {
     if (inlier_mask[i]) {
@@ -484,14 +473,16 @@ IncrementalMapper::AdjustLocalBundle(
     }
 
     // Fix the existing images, if option specified.
-    if (options.fix_existing_images) {
-      for (const image_t local_image_id : local_bundle) {
-        if (existing_image_ids_.count(local_image_id)) {
-          const Image& image = reconstruction_->Image(local_image_id);
-          ba_config.SetConstantFrameFromWorldPose(image.FrameId());
-        }
-      }
-    }
+
+    // TODO(jsch): Rewrite for frames.
+    // if (options.fix_existing_images) {
+    //   for (const image_t local_image_id : local_bundle) {
+    //     if (existing_image_ids_.count(local_image_id)) {
+    //       const Image& image = reconstruction_->Image(local_image_id);
+    //       ba_config.SetConstantFrameFromWorldPose(image.FrameId());
+    //     }
+    //   }
+    // }
 
     // Determine which cameras to fix, when not all the registered images
     // are within the current local bundle.
@@ -570,7 +561,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
   THROW_CHECK_NOTNULL(reconstruction_);
   THROW_CHECK_NOTNULL(obs_manager_);
 
-  const std::set<image_t>& reg_image_ids = reconstruction_->RegImageIds();
+  const std::vector<image_t>& reg_image_ids = reconstruction_->RegImageIds();
 
   THROW_CHECK_GE(reg_image_ids.size(), 2) << "At least two images must be "
                                              "registered for global "
@@ -596,15 +587,16 @@ bool IncrementalMapper::AdjustGlobalBundle(
     ba_config.AddImage(image_id);
   }
 
+  // TODO(jsch): Rewrite for frames.
   // Fix the existing images, if option specified.
-  if (options.fix_existing_images) {
-    for (const image_t image_id : reg_image_ids) {
-      if (existing_image_ids_.count(image_id)) {
-        const Image& image = reconstruction_->Image(image_id);
-        ba_config.SetConstantFrameFromWorldPose(image.FrameId());
-      }
-    }
-  }
+  // if (options.fix_existing_images) {
+  //   for (const image_t image_id : reg_image_ids) {
+  //     if (existing_image_ids_.count(image_id)) {
+  //       const Image& image = reconstruction_->Image(image_id);
+  //       ba_config.SetConstantFrameFromWorldPose(image.FrameId());
+  //     }
+  //   }
+  // }
 
   // Only use prior pose if at least 3 images have been registered.
   const bool use_prior_position =
@@ -698,32 +690,32 @@ void IncrementalMapper::IterativeGlobalRefinement(
   ClearModifiedPoints3D();
 }
 
-size_t IncrementalMapper::FilterImages(const Options& options) {
+size_t IncrementalMapper::FilterFrames(const Options& options) {
   THROW_CHECK_NOTNULL(reconstruction_);
   THROW_CHECK_NOTNULL(obs_manager_);
   THROW_CHECK(options.Check());
 
-  // Do not filter images in the early stage of the reconstruction, since the
+  // Do not filter frames in the early stage of the reconstruction, since the
   // calibration is often still refining a lot. Hence, the camera parameters
   // are not stable in the beginning.
-  const size_t kMinNumImages = 20;
-  if (reconstruction_->NumRegImages() < kMinNumImages) {
+  const size_t kMinNumFrames = 20;
+  if (reconstruction_->NumRegFrames() < kMinNumFrames) {
     return {};
   }
 
-  const std::vector<image_t> image_ids =
-      obs_manager_->FilterImages(options.min_focal_length_ratio,
+  const std::vector<frame_t> frame_ids =
+      obs_manager_->FilterFrames(options.min_focal_length_ratio,
                                  options.max_focal_length_ratio,
                                  options.max_extra_param);
 
-  for (const image_t image_id : image_ids) {
-    DeRegisterImageEvent(image_id);
-    filtered_images_.insert(image_id);
+  for (const frame_t frame_id : frame_ids) {
+    DeRegisterFrameEvent(frame_id);
+    filtered_frames_.insert(frame_id);
   }
 
-  const size_t num_filtered_images = image_ids.size();
-  VLOG(1) << "=> Filtered images: " << num_filtered_images;
-  return num_filtered_images;
+  const size_t num_filtered_frames = frame_ids.size();
+  VLOG(1) << "=> Filtered frames: " << num_filtered_frames;
+  return num_filtered_frames;
 }
 
 size_t IncrementalMapper::FilterPoints(const Options& options) {
@@ -750,12 +742,12 @@ IncrementalTriangulator& IncrementalMapper::Triangulator() const {
   return *triangulator_;
 }
 
-const std::unordered_set<image_t>& IncrementalMapper::FilteredImages() const {
-  return filtered_images_;
+const std::unordered_set<frame_t>& IncrementalMapper::FilteredFrames() const {
+  return filtered_frames_;
 }
 
-const std::unordered_set<image_t>& IncrementalMapper::ExistingImageIds() const {
-  return existing_image_ids_;
+const std::unordered_set<image_t>& IncrementalMapper::ExistingFrameIds() const {
+  return existing_frame_ids_;
 }
 
 void IncrementalMapper::ResetInitializationStats() {
@@ -790,34 +782,40 @@ std::vector<image_t> IncrementalMapper::FindLocalBundle(
       options, image_id, *reconstruction_);
 }
 
-void IncrementalMapper::RegisterImageEvent(const image_t image_id) {
-  const Image& image = reconstruction_->Image(image_id);
-  size_t& num_reg_images_for_camera =
-      reg_stats_.num_reg_images_per_camera[image.CameraId()];
-  num_reg_images_for_camera += 1;
+void IncrementalMapper::RegisterFrameEvent(const frame_t frame_id) {
+  const Frame& frame = reconstruction_->Frame(frame_id);
+  for (const data_t& data_id : frame.ImageIds()) {
+    const Image& image = reconstruction_->Image(data_id.id);
+    size_t& num_reg_images_for_camera =
+        reg_stats_.num_reg_images_per_camera[image.CameraId()];
+    num_reg_images_for_camera += 1;
 
-  size_t& num_regs_for_image = reg_stats_.num_registrations[image_id];
-  num_regs_for_image += 1;
-  if (num_regs_for_image == 1) {
-    reg_stats_.num_total_reg_images += 1;
-  } else if (num_regs_for_image > 1) {
-    reg_stats_.num_shared_reg_images += 1;
+    size_t& num_regs_for_image = reg_stats_.num_registrations[data_id.id];
+    num_regs_for_image += 1;
+    if (num_regs_for_image == 1) {
+      reg_stats_.num_total_reg_images += 1;
+    } else if (num_regs_for_image > 1) {
+      reg_stats_.num_shared_reg_images += 1;
+    }
   }
 }
 
-void IncrementalMapper::DeRegisterImageEvent(const image_t image_id) {
-  const Image& image = reconstruction_->Image(image_id);
-  size_t& num_reg_images_for_camera =
-      reg_stats_.num_reg_images_per_camera.at(image.CameraId());
-  THROW_CHECK_GT(num_reg_images_for_camera, 0);
-  num_reg_images_for_camera -= 1;
+void IncrementalMapper::DeRegisterFrameEvent(const frame_t frame_id) {
+  const Frame& frame = reconstruction_->Frame(frame_id);
+  for (const data_t& data_id : frame.ImageIds()) {
+    const Image& image = reconstruction_->Image(data_id.id);
+    size_t& num_reg_images_for_camera =
+        reg_stats_.num_reg_images_per_camera.at(image.CameraId());
+    THROW_CHECK_GT(num_reg_images_for_camera, 0);
+    num_reg_images_for_camera -= 1;
 
-  size_t& num_regs_for_image = reg_stats_.num_registrations[image_id];
-  num_regs_for_image -= 1;
-  if (num_regs_for_image == 0) {
-    reg_stats_.num_total_reg_images -= 1;
-  } else if (num_regs_for_image > 0) {
-    reg_stats_.num_shared_reg_images -= 1;
+    size_t& num_regs_for_image = reg_stats_.num_registrations[data_id.id];
+    num_regs_for_image -= 1;
+    if (num_regs_for_image == 0) {
+      reg_stats_.num_total_reg_images -= 1;
+    } else if (num_regs_for_image > 0) {
+      reg_stats_.num_shared_reg_images -= 1;
+    }
   }
 }
 

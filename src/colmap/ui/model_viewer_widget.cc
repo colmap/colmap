@@ -386,9 +386,8 @@ void ModelViewerWidget::ReloadReconstruction() {
 
   cameras = reconstruction->Cameras();
   points3D = reconstruction->Points3D();
-  const std::set<image_t>& reg_image_ids_set = reconstruction->RegImageIds();
-  reg_image_ids =
-      std::vector<image_t>(reg_image_ids_set.begin(), reg_image_ids_set.end());
+  reg_image_ids = reconstruction->RegImageIds();
+  std::sort(reg_image_ids.begin(), reg_image_ids.end());
 
   images.clear();
   for (const image_t image_id : reg_image_ids) {
@@ -401,12 +400,14 @@ void ModelViewerWidget::ReloadReconstruction() {
   }
 
   if (selected_image_id_ != kInvalidImageId &&
-      reg_image_ids_set.count(selected_image_id_) == 0) {
+      std::binary_search(
+          reg_image_ids.begin(), reg_image_ids.end(), selected_image_id_)) {
     selected_image_id_ = kInvalidImageId;
   }
 
   statusbar_status_label->setText(
-      QString().asprintf("%d Images - %d Points",
+      QString().asprintf("%d Frames - %d Images - %d Points",
+                         static_cast<int>(reconstruction->NumRegFrames()),
                          static_cast<int>(reg_image_ids.size()),
                          static_cast<int>(points3D.size())));
 

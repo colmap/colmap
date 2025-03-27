@@ -115,7 +115,7 @@ TEST(Reconstruction, Empty) {
   EXPECT_EQ(reconstruction.NumCameras(), 0);
   EXPECT_EQ(reconstruction.NumFrames(), 0);
   EXPECT_EQ(reconstruction.NumImages(), 0);
-  EXPECT_EQ(reconstruction.NumRegImages(), 0);
+  EXPECT_EQ(reconstruction.NumRegFrames(), 0);
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
 }
 
@@ -175,7 +175,7 @@ TEST(Reconstruction, AddRig) {
   EXPECT_EQ(reconstruction.NumCameras(), 0);
   EXPECT_EQ(reconstruction.NumFrames(), 0);
   EXPECT_EQ(reconstruction.NumImages(), 0);
-  EXPECT_EQ(reconstruction.NumRegImages(), 0);
+  EXPECT_EQ(reconstruction.NumRegFrames(), 0);
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
 }
 
@@ -193,7 +193,7 @@ TEST(Reconstruction, AddCamera) {
   EXPECT_EQ(reconstruction.NumCameras(), 1);
   EXPECT_EQ(reconstruction.NumFrames(), 0);
   EXPECT_EQ(reconstruction.NumImages(), 0);
-  EXPECT_EQ(reconstruction.NumRegImages(), 0);
+  EXPECT_EQ(reconstruction.NumRegFrames(), 0);
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
 }
 
@@ -225,7 +225,7 @@ TEST(Reconstruction, AddImage) {
   EXPECT_EQ(reconstruction.NumCameras(), 1);
   EXPECT_EQ(reconstruction.NumFrames(), 1);
   EXPECT_EQ(reconstruction.NumImages(), 1);
-  EXPECT_EQ(reconstruction.NumRegImages(), 0);
+  EXPECT_EQ(reconstruction.NumRegFrames(), 0);
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
   ExpectValidCameraPtrs(reconstruction);
 }
@@ -242,7 +242,7 @@ TEST(Reconstruction, AddPoint3D) {
   EXPECT_EQ(reconstruction.NumCameras(), 0);
   EXPECT_EQ(reconstruction.NumFrames(), 0);
   EXPECT_EQ(reconstruction.NumImages(), 0);
-  EXPECT_EQ(reconstruction.NumRegImages(), 0);
+  EXPECT_EQ(reconstruction.NumRegFrames(), 0);
   EXPECT_EQ(reconstruction.NumPoints3D(), 1);
   EXPECT_EQ(reconstruction.Point3DIds().count(point3D_id), 1);
 }
@@ -329,15 +329,15 @@ TEST(Reconstruction, DeleteObservation) {
 TEST(Reconstruction, RegisterImage) {
   Reconstruction reconstruction;
   GenerateReconstruction(1, &reconstruction);
-  EXPECT_EQ(reconstruction.NumRegImages(), 1);
+  EXPECT_EQ(reconstruction.NumRegFrames(), 1);
   EXPECT_TRUE(reconstruction.Image(1).HasPose());
   EXPECT_TRUE(reconstruction.IsImageRegistered(1));
   reconstruction.RegisterImage(1);
-  EXPECT_EQ(reconstruction.NumRegImages(), 1);
+  EXPECT_EQ(reconstruction.NumRegFrames(), 1);
   EXPECT_TRUE(reconstruction.Image(1).HasPose());
   EXPECT_TRUE(reconstruction.IsImageRegistered(1));
   reconstruction.DeRegisterImage(1);
-  EXPECT_EQ(reconstruction.NumRegImages(), 0);
+  EXPECT_EQ(reconstruction.NumRegFrames(), 0);
   EXPECT_FALSE(reconstruction.Image(1).HasPose());
   EXPECT_FALSE(reconstruction.IsImageRegistered(1));
 }
@@ -472,7 +472,7 @@ TEST(Reconstruction, Crop) {
   // Check correct reconstruction setup
   EXPECT_EQ(reconstruction.NumCameras(), 1);
   EXPECT_EQ(reconstruction.NumImages(), 3);
-  EXPECT_EQ(reconstruction.NumRegImages(), 3);
+  EXPECT_EQ(reconstruction.NumRegFrames(), 3);
   EXPECT_EQ(reconstruction.NumPoints3D(), 5);
 
   std::pair<Eigen::Vector3d, Eigen::Vector3d> bbox;
@@ -482,7 +482,7 @@ TEST(Reconstruction, Crop) {
       Eigen::Vector3d(-1, -1, -1), Eigen::Vector3d(-0.5, -0.5, -0.5)));
   EXPECT_EQ(cropped1.NumCameras(), 1);
   EXPECT_EQ(cropped1.NumImages(), 3);
-  EXPECT_EQ(cropped1.NumRegImages(), 0);
+  EXPECT_EQ(cropped1.NumRegFrames(), 0);
   EXPECT_EQ(cropped1.NumPoints3D(), 0);
 
   // Test reconstruction with contents after cropping
@@ -490,7 +490,7 @@ TEST(Reconstruction, Crop) {
       Eigen::Vector3d(0.0, 0.0, 0.0), Eigen::Vector3d(0.75, 0.75, 0.75)));
   EXPECT_EQ(cropped2.NumCameras(), 1);
   EXPECT_EQ(cropped2.NumImages(), 3);
-  EXPECT_EQ(cropped2.NumRegImages(), 2);
+  EXPECT_EQ(cropped2.NumRegFrames(), 2);
   EXPECT_EQ(cropped2.NumPoints3D(), 3);
   EXPECT_TRUE(cropped2.IsImageRegistered(1));
   EXPECT_TRUE(cropped2.IsImageRegistered(2));

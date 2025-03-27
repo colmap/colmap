@@ -1153,10 +1153,10 @@ void MainWindow::Render() {
 
   int refresh_rate;
   if (options_.render->adapt_refresh_rate) {
-    const auto num_reg_images =
+    const auto num_reg_frames =
         reconstruction_manager_->Get(SelectedReconstructionIdx())
-            ->NumRegImages();
-    refresh_rate = static_cast<int>(num_reg_images / 50 + 1);
+            ->NumRegFrames();
+    refresh_rate = static_cast<int>(num_reg_frames / 50 + 1);
   } else {
     refresh_rate = options_.render->refresh_rate;
   }

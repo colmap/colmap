@@ -204,7 +204,7 @@ bool AlignReconstructionToLocations(
       continue;
     }
 
-    if (!src_reconstruction.IsImageRegistered(src_image->ImageId())) {
+    if (!src_image->FramePtr()->HasPose()) {
       continue;
     }
 
@@ -387,11 +387,11 @@ bool AlignReconstructionsViaPoints(const Reconstruction& src_reconstruction,
     counts.clear();
     // Count how often a 3D point in tgt is associated to this 3D point.
     for (const auto& track_el : src_point3D.second.track.Elements()) {
-      if (!tgt_reconstruction.IsImageRegistered(track_el.image_id)) {
+      const Image& tgt_image = tgt_reconstruction.Image(track_el.image_id);
+      if (!tgt_image.FramePtr()->HasPose()) {
         continue;
       }
-      const Point2D& tgt_point2D = tgt_reconstruction.Image(track_el.image_id)
-                                       .Point2D(track_el.point2D_idx);
+      const Point2D& tgt_point2D = tgt_image.Point2D(track_el.point2D_idx);
       if (tgt_point2D.HasPoint3D()) {
         if (counts.find(tgt_point2D.point3D_id) != counts.end()) {
           counts[tgt_point2D.point3D_id]++;
@@ -455,7 +455,8 @@ void CopyRegisteredImage(image_t image_id,
   tgt_reconstruction.Frame(tgt_image.FrameId())
       .SetCamFromWorld(tgt_image.CameraId(), cam_from_tgt_world);
   tgt_reconstruction.AddImage(tgt_image);
-  tgt_reconstruction.RegisterImage(image_id);
+  // TODO
+  // tgt_reconstruction.RegisterImage(image_id);
 }
 
 }  // namespace

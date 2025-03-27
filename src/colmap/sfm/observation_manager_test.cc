@@ -218,12 +218,12 @@ TEST(ObservationManager, FilterImages) {
   reconstruction.AddObservation(point3D_id1, TrackElement(2, 0));
   reconstruction.AddObservation(point3D_id1, TrackElement(3, 0));
   obs_manager.FilterImages(0.0, 10.0, 1.0);
-  EXPECT_EQ(reconstruction.NumRegImages(), 3);
+  EXPECT_EQ(reconstruction.NumRegFrames(), 3);
   reconstruction.DeleteObservation(3, 0);
   obs_manager.FilterImages(0.0, 10.0, 1.0);
-  EXPECT_EQ(reconstruction.NumRegImages(), 2);
+  EXPECT_EQ(reconstruction.NumRegFrames(), 2);
   obs_manager.FilterImages(0.0, 0.9, 1.0);
-  EXPECT_EQ(reconstruction.NumRegImages(), 0);
+  EXPECT_EQ(reconstruction.NumRegFrames(), 0);
 }
 
 TEST(ObservationManager, NumVisiblePoints3D) {

@@ -45,7 +45,7 @@ void IterativeGlobalRefinement(const IncrementalPipelineOptions& options,
                                    mapper_options,
                                    options.GlobalBundleAdjustment(),
                                    options.Triangulation());
-  mapper.FilterImages(mapper_options);
+  mapper.FilterFrames(mapper_options);
 }
 
 void ExtractColors(const std::string& image_path,
@@ -170,16 +170,16 @@ bool IncrementalPipelineOptions::Check() const {
   CHECK_OPTION_GE(max_extra_param, 0);
   CHECK_OPTION_GE(ba_local_num_images, 2);
   CHECK_OPTION_GE(ba_local_max_num_iterations, 0);
-  CHECK_OPTION_GT(ba_global_images_ratio, 1.0);
+  CHECK_OPTION_GT(ba_global_frames_ratio, 1.0);
   CHECK_OPTION_GT(ba_global_points_ratio, 1.0);
-  CHECK_OPTION_GT(ba_global_images_freq, 0);
+  CHECK_OPTION_GT(ba_global_frames_freq, 0);
   CHECK_OPTION_GT(ba_global_points_freq, 0);
   CHECK_OPTION_GT(ba_global_max_num_iterations, 0);
   CHECK_OPTION_GT(ba_local_max_refinements, 0);
   CHECK_OPTION_GE(ba_local_max_refinement_change, 0);
   CHECK_OPTION_GT(ba_global_max_refinements, 0);
   CHECK_OPTION_GE(ba_global_max_refinement_change, 0);
-  CHECK_OPTION_GE(snapshot_images_freq, 0);
+  CHECK_OPTION_GE(snapshot_frames_freq, 0);
   CHECK_OPTION_GT(prior_position_loss_scale, 0.);
   CHECK_OPTION(Mapper().Check());
   CHECK_OPTION(Triangulation().Check());
@@ -327,10 +327,10 @@ IncrementalPipeline::Status IncrementalPipeline::InitializeReconstruction(
   mapper.AdjustGlobalBundle(mapper_options, options_->GlobalBundleAdjustment());
   reconstruction.Normalize();
   mapper.FilterPoints(mapper_options);
-  mapper.FilterImages(mapper_options);
+  mapper.FilterFrames(mapper_options);
 
   // Initial image pair failed to register.
-  if (reconstruction.NumRegImages() == 0 || reconstruction.NumPoints3D() == 0) {
+  if (reconstruction.NumRegFrames() == 0 || reconstruction.NumPoints3D() == 0) {
     return Status::BAD_INITIAL_PAIR;
   }
 
@@ -342,12 +342,12 @@ IncrementalPipeline::Status IncrementalPipeline::InitializeReconstruction(
 
 bool IncrementalPipeline::CheckRunGlobalRefinement(
     const Reconstruction& reconstruction,
-    const size_t ba_prev_num_reg_images,
+    const size_t ba_prev_num_reg_frames,
     const size_t ba_prev_num_points) {
-  return reconstruction.NumRegImages() >=
-             options_->ba_global_images_ratio * ba_prev_num_reg_images ||
-         reconstruction.NumRegImages() >=
-             options_->ba_global_images_freq + ba_prev_num_reg_images ||
+  return reconstruction.NumRegFrames() >=
+             options_->ba_global_frames_ratio * ba_prev_num_reg_frames ||
+         reconstruction.NumRegFrames() >=
+             options_->ba_global_frames_freq + ba_prev_num_reg_frames ||
          reconstruction.NumPoints3D() >=
              options_->ba_global_points_ratio * ba_prev_num_points ||
          reconstruction.NumPoints3D() >=
@@ -364,7 +364,7 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
   // Register initial pair
   ////////////////////////////////////////////////////////////////////////////
 
-  if (reconstruction->NumRegImages() == 0) {
+  if (reconstruction->NumRegFrames() == 0) {
     const Status init_status = IncrementalPipeline::InitializeReconstruction(
         mapper, mapper_options, *reconstruction);
     if (init_status != Status::SUCCESS) {
@@ -377,8 +377,8 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
   // Incremental mapping
   ////////////////////////////////////////////////////////////////////////////
 
-  size_t snapshot_prev_num_reg_images = reconstruction->NumRegImages();
-  size_t ba_prev_num_reg_images = reconstruction->NumRegImages();
+  size_t snapshot_prev_num_reg_frames = reconstruction->NumRegFrames();
+  size_t ba_prev_num_reg_frames = reconstruction->NumRegFrames();
   size_t ba_prev_num_points = reconstruction->NumPoints3D();
 
   bool reg_next_success = true;
@@ -404,7 +404,7 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
 
       LOG(INFO) << StringPrintf("Registering image #%d (%d)",
                                 next_image_id,
-                                reconstruction->NumRegImages() + 1);
+                                reconstruction->NumRegFrames() + 1);
       LOG(INFO) << StringPrintf(
           "=> Image sees %d / %d points",
           mapper.ObservationManager().NumVisiblePoints3D(next_image_id),
@@ -422,7 +422,7 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
         // abort and try different initial pair.
         const size_t kMinNumInitialRegTrials = 30;
         if (reg_trial >= kMinNumInitialRegTrials &&
-            reconstruction->NumRegImages() <
+            reconstruction->NumRegFrames() <
                 static_cast<size_t>(options_->min_model_size)) {
           break;
         }
@@ -439,20 +439,20 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
                                       next_image_id);
 
       if (CheckRunGlobalRefinement(
-              *reconstruction, ba_prev_num_reg_images, ba_prev_num_points)) {
+              *reconstruction, ba_prev_num_reg_frames, ba_prev_num_points)) {
         IterativeGlobalRefinement(*options_, mapper_options, mapper);
         ba_prev_num_points = reconstruction->NumPoints3D();
-        ba_prev_num_reg_images = reconstruction->NumRegImages();
+        ba_prev_num_reg_frames = reconstruction->NumRegFrames();
       }
 
       if (options_->extract_colors) {
         ExtractColors(image_path_, next_image_id, *reconstruction);
       }
 
-      if (options_->snapshot_images_freq > 0 &&
-          reconstruction->NumRegImages() >=
-              options_->snapshot_images_freq + snapshot_prev_num_reg_images) {
-        snapshot_prev_num_reg_images = reconstruction->NumRegImages();
+      if (options_->snapshot_frames_freq > 0 &&
+          reconstruction->NumRegFrames() >=
+              options_->snapshot_frames_freq + snapshot_prev_num_reg_frames) {
+        snapshot_prev_num_reg_frames = reconstruction->NumRegFrames();
         WriteSnapshot(*reconstruction, options_->snapshot_path);
       }
 
@@ -478,8 +478,8 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
   }
 
   // Only run final global BA, if last incremental BA was not global.
-  if (reconstruction->NumRegImages() >= 2 &&
-      reconstruction->NumRegImages() != ba_prev_num_reg_images &&
+  if (reconstruction->NumRegFrames() > 0 &&
+      reconstruction->NumRegFrames() != ba_prev_num_reg_frames &&
       reconstruction->NumPoints3D() != ba_prev_num_points) {
     IterativeGlobalRefinement(*options_, mapper_options, mapper);
   }
@@ -545,8 +545,8 @@ void IncrementalPipeline::Reconstruct(
         const size_t min_model_size = std::min<size_t>(
             0.8 * database_cache_->NumImages(), options_->min_model_size);
         if ((options_->multiple_models && reconstruction_manager_->Size() > 1 &&
-             reconstruction->NumRegImages() < min_model_size) ||
-            reconstruction->NumRegImages() == 0) {
+             reconstruction->NumRegFrames() < min_model_size) ||
+            reconstruction->NumRegFrames() == 0) {
           LOG(INFO) << "Discarding reconstruction due to insufficient size";
           mapper.EndReconstruction(/*discard=*/true);
           reconstruction_manager_->Delete(reconstruction_idx);

@@ -351,7 +351,7 @@ int RunRigConfigurator(int argc, char** argv) {
       Frame frame;
       frame.SetRigId(rig.RigId());
       for (const Image* image : images) {
-        const data_t data_id = image->DataId();
+        const data_t& data_id = image->DataId();
         THROW_CHECK(rig.HasSensor(data_id.sensor_id))
             << rig << " must not contain Image(image_id=" << image->ImageId()
             << ", camera_id=" << image->CameraId() << ", name=" << image->Name()

@@ -249,16 +249,16 @@ class IncrementalMapper {
       const IncrementalTriangulator::Options& tri_options,
       bool normalize_reconstruction = true);
 
-  // Filter images and point observations.
-  size_t FilterImages(const Options& options);
+  // Filter frames and point observations.
+  size_t FilterFrames(const Options& options);
   size_t FilterPoints(const Options& options);
 
   // Getter functions
   std::shared_ptr<class Reconstruction> Reconstruction() const;
   class ObservationManager& ObservationManager() const;
   IncrementalTriangulator& Triangulator() const;
-  const std::unordered_set<image_t>& FilteredImages() const;
-  const std::unordered_set<image_t>& ExistingImageIds() const;
+  const std::unordered_set<frame_t>& FilteredFrames() const;
+  const std::unordered_set<frame_t>& ExistingFrameIds() const;
   const std::unordered_map<camera_t, size_t>& NumRegImagesPerCamera() const;
 
   // Reset registration statistics for initialization. This can be used when
@@ -319,10 +319,10 @@ class IncrementalMapper {
     std::unordered_map<image_t, size_t> num_reg_trials;
   };
 
-  // Register / De-register image in current reconstruction and update
-  // the number of shared images between all reconstructions.
-  void RegisterImageEvent(image_t image_id);
-  void DeRegisterImageEvent(image_t image_id);
+  // Register / De-register frame in current reconstruction and update
+  // the number of shared frames between all reconstructions.
+  void RegisterFrameEvent(const frame_t frame_id);
+  void DeRegisterFrameEvent(const frame_t frame_id);
 
   // Class that holds all necessary data from database in memory.
   const std::shared_ptr<const DatabaseCache> database_cache_;
@@ -339,13 +339,13 @@ class IncrementalMapper {
   // Statistics
   RegistrationStatistics reg_stats_;
 
-  // Images that have been filtered in current reconstruction.
-  std::unordered_set<image_t> filtered_images_;
+  // Frames that have been filtered in current reconstruction.
+  std::unordered_set<frame_t> filtered_frames_;
 
-  // Images that were registered before beginning the reconstruction.
-  // This image list will be non-empty, if the reconstruction is continued from
+  // Frames that were registered before beginning the reconstruction.
+  // This frame list will be non-empty, if the reconstruction is continued from
   // an existing reconstruction.
-  std::unordered_set<image_t> existing_image_ids_;
+  std::unordered_set<frame_t> existing_frame_ids_;
 };
 
 }  // namespace colmap
