@@ -30,6 +30,7 @@
 #pragma once
 
 #include <functional>
+#include <iterator>
 
 #ifdef _MSC_VER
 #if _MSC_VER >= 1600
@@ -198,30 +199,68 @@ class span {
 // Simple implementation of C++20's std::ranges::filter_view.
 
 template <class Iterator, class Predicate>
-struct filter_iterator : public Iterator {
+struct filter_iterator {
+  template <class OtherIterator, class OtherPredicate>
+  friend struct filter_iterator;
+
+  typedef
+      typename std::iterator_traits<Iterator>::iterator_category base_category;
+  typedef typename std::conditional<
+      std::is_same<base_category, std::random_access_iterator_tag>::value,
+      std::bidirectional_iterator_tag,
+      base_category>::type iterator_category;
+
+  typedef typename std::iterator_traits<Iterator>::value_type value_type;
+  typedef typename std::iterator_traits<Iterator>::reference reference;
+  typedef typename std::iterator_traits<Iterator>::pointer pointer;
+  typedef
+      typename std::iterator_traits<Iterator>::difference_type difference_type;
+
   filter_iterator() = default;
-  filter_iterator(const Predicate& filter, Iterator base, Iterator end)
-      : Iterator(std::move(base)), filter_(filter), end_(std::move(end)) {
-    while (*this != end_ && !filter_(**this)) {
-      ++(*this);
+  filter_iterator(const Predicate& filter, Iterator it, Iterator end)
+      : filter_(filter), it_(std::move(it)), end_(std::move(end)) {
+    while (it_ != end_ && !filter_(*it_)) {
+      ++it_;
     }
   }
 
+  // Enable conversion from const to non-const iterator and vice versa.
+  template <class OtherIterator>
+  filter_iterator(
+      const filter_iterator<OtherIterator, Predicate>& f,
+      typename std::enable_if<
+          std::is_convertible<OtherIterator, Iterator>::value>::type* = nullptr)
+      : filter_(f.filter_), it_(f.it_), end_(f.end_) {}
+
+  reference operator*() const { return *it_; }
+  pointer operator->() { return std::addressof(*it_); }
+
   filter_iterator& operator++() {
     do {
-      Iterator::operator++();
-    } while (*this != end_ && !filter_(**this));
+      ++it_;
+    } while (it_ != end_ && !filter_(*it_));
     return *this;
   }
 
   filter_iterator operator++(int) {
     filter_iterator copy = *this;
-    ++(*this);
+    ++it_;
     return copy;
+  }
+
+  inline friend bool operator==(const filter_iterator& left,
+                                const filter_iterator& right) {
+    return left.it_ == right.it_;
+  }
+
+  inline friend bool operator!=(const filter_iterator& left,
+                                const filter_iterator& right) {
+    return left.it_ != right.it_;
   }
 
  private:
   const Predicate& filter_;
+  Iterator it_;
   const Iterator end_;
 };
 
