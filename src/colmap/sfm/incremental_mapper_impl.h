@@ -81,9 +81,9 @@ class IncrementalMapperImpl {
       std::unordered_map<image_t, size_t>& num_reg_trials);
 
   // Implement IncrementalMapper::FindLocalBundle
-  static std::vector<image_t> FindLocalBundle(
+  static std::vector<frame_t> FindLocalBundle(
       const IncrementalMapper::Options& options,
-      image_t image_id,
+      frame_t frame_id,
       const Reconstruction& reconstruction);
 
   // Implement IncrementalMapper::EstimateInitialTwoViewGeometry

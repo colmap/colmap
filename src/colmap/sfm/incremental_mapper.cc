@@ -53,7 +53,7 @@ bool IncrementalMapper::Options::Check() const {
   CHECK_OPTION_GT(abs_pose_min_num_inliers, 0);
   CHECK_OPTION_GE(abs_pose_min_inlier_ratio, 0.0);
   CHECK_OPTION_LE(abs_pose_min_inlier_ratio, 1.0);
-  CHECK_OPTION_GE(local_ba_num_images, 2);
+  CHECK_OPTION_GE(local_ba_num_frames, 2);
   CHECK_OPTION_GE(local_ba_min_tri_angle, 0.0);
   CHECK_OPTION_GE(min_focal_length_ratio, 0.0);
   CHECK_OPTION_GE(max_focal_length_ratio, min_focal_length_ratio);
@@ -215,6 +215,21 @@ void IncrementalMapper::RegisterInitialImagePair(
       obs_manager_->AddPoint3D(xyz, track);
     }
   }
+
+  // // TODO(jsch): Better handle non-trivial frames by performing generalized
+  // // relative pose estimation.
+  // if (!image1.HasTrivialFrame()) {
+  //   for (const data_t& data_id : image1.FramePtr()->ImageIds()) {
+  //     triangulator_->TriangulateImage(IncrementalTriangulator::Options(),
+  //                                     data_id.id);
+  //   }
+  // }
+  // if (!image2.HasTrivialFrame()) {
+  //   for (const data_t& data_id : image2.FramePtr()->ImageIds()) {
+  //     triangulator_->TriangulateImage(IncrementalTriangulator::Options(),
+  //                                     data_id.id);
+  //   }
+  // }
 }
 
 // TODO(jsch): Better handle non-trivial frames by performing generalized
@@ -405,6 +420,15 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
     }
   }
 
+  // TODO(jsch): Better handle non-trivial frames by performing generalized
+  // absolute pose estimation.
+  if (!image.HasTrivialFrame()) {
+    for (const data_t& data_id : image.FramePtr()->ImageIds()) {
+      triangulator_->TriangulateImage(IncrementalTriangulator::Options(),
+                                      data_id.id);
+    }
+  }
+
   return true;
 }
 
@@ -447,6 +471,7 @@ size_t IncrementalMapper::CompleteAndMergeTracks(
   return num_completed_observations + num_merged_observations;
 }
 
+// TODO(jsch): Change interface to take frame_id instead of image_id.
 IncrementalMapper::LocalBundleAdjustmentReport
 IncrementalMapper::AdjustLocalBundle(
     const Options& options,
@@ -460,16 +485,28 @@ IncrementalMapper::AdjustLocalBundle(
 
   LocalBundleAdjustmentReport report;
 
+  const Image& image = reconstruction_->Image(image_id);
+
   // Find images that have most 3D points with given image in common.
-  const std::vector<image_t> local_bundle = FindLocalBundle(options, image_id);
+  const std::vector<frame_t> local_bundle =
+      FindLocalBundle(options, image.FrameId());
 
   // Do the bundle adjustment only if there is any connected images.
+  BundleAdjustmentConfig ba_config;
   if (local_bundle.size() > 0) {
-    BundleAdjustmentConfig ba_config;
     ba_config.FixGauge(BundleAdjustmentGauge::THREE_POINTS);
-    ba_config.AddImage(image_id);
-    for (const image_t local_image_id : local_bundle) {
-      ba_config.AddImage(local_image_id);
+
+    LOG(INFO) << image.FrameId();
+    const Frame& frame = reconstruction_->Frame(image.FrameId());
+    for (const data_t& data_id : frame.ImageIds()) {
+      ba_config.AddImage(data_id.id);
+    }
+    for (const frame_t other_frame_id : local_bundle) {
+      LOG(INFO) << "OTHER: " << other_frame_id;
+      const Frame& other_frame = reconstruction_->Frame(other_frame_id);
+      for (const data_t& other_data_id : other_frame.ImageIds()) {
+        ba_config.AddImage(other_data_id.id);
+      }
     }
 
     // Fix the existing images, if option specified.
@@ -516,10 +553,13 @@ IncrementalMapper::AdjustLocalBundle(
       }
     }
 
+    auto custom_ba_options = ba_options;
+    custom_ba_options.refine_sensor_from_rig = false;
+
     // Adjust the local bundle.
     std::unique_ptr<BundleAdjuster> bundle_adjuster =
         CreateDefaultBundleAdjuster(
-            ba_options, std::move(ba_config), *reconstruction_);
+          custom_ba_options, std::move(ba_config), *reconstruction_);
     const ceres::Solver::Summary summary = bundle_adjuster->Solve();
 
     report.num_adjusted_observations = summary.num_residuals / 2;
@@ -541,13 +581,11 @@ IncrementalMapper::AdjustLocalBundle(
   // there are no outlier points in the model. This results in duplicate work as
   // many of the provided 3D points may also be contained in the adjusted
   // images, but the filtering is not a bottleneck at this point.
-  std::unordered_set<image_t> filter_image_ids;
-  filter_image_ids.insert(image_id);
-  filter_image_ids.insert(local_bundle.begin(), local_bundle.end());
-  report.num_filtered_observations =
-      obs_manager_->FilterPoints3DInImages(options.filter_max_reproj_error,
-                                           options.filter_min_tri_angle,
-                                           filter_image_ids);
+  report.num_filtered_observations = obs_manager_->FilterPoints3DInImages(
+      options.filter_max_reproj_error,
+      options.filter_min_tri_angle,
+      std::unordered_set<image_t>(ba_config.Images().begin(),
+                                  ba_config.Images().end()));
   report.num_filtered_observations +=
       obs_manager_->FilterPoints3D(options.filter_max_reproj_error,
                                    options.filter_min_tri_angle,
@@ -776,10 +814,10 @@ void IncrementalMapper::ClearModifiedPoints3D() {
   triangulator_->ClearModifiedPoints3D();
 }
 
-std::vector<image_t> IncrementalMapper::FindLocalBundle(
-    const Options& options, const image_t image_id) const {
+std::vector<frame_t> IncrementalMapper::FindLocalBundle(
+    const Options& options, const frame_t frame_id) const {
   return IncrementalMapperImpl::FindLocalBundle(
-      options, image_id, *reconstruction_);
+      options, frame_id, *reconstruction_);
 }
 
 void IncrementalMapper::RegisterFrameEvent(const frame_t frame_id) {

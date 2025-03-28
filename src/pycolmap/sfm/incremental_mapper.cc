@@ -302,8 +302,8 @@ void BindIncrementalMapperOptions(py::module& m) {
                      &Opts::abs_pose_refine_extra_params,
                      "Whether to estimate the extra parameters in absolute "
                      "pose estimation.")
-      .def_readwrite("local_ba_num_images",
-                     &Opts::local_ba_num_images,
+      .def_readwrite("local_ba_num_frames",
+                     &Opts::local_ba_num_frames,
                      "Number of images to optimize in local bundle adjustment.")
       .def_readwrite("local_ba_min_tri_angle",
                      &Opts::local_ba_min_tri_angle,
@@ -454,7 +454,7 @@ void BindIncrementalMapperImpl(py::module& m) {
       .def("find_local_bundle",
            &IncrementalMapper::FindLocalBundle,
            "options"_a,
-           "image_id"_a)
+           "frame_id"_a)
       .def("adjust_global_bundle",
            &IncrementalMapper::AdjustGlobalBundle,
            "options"_a,

@@ -95,7 +95,7 @@ class IncrementalMapper {
     bool abs_pose_refine_extra_params = true;
 
     // Number of images to optimize in local bundle adjustment.
-    int local_ba_num_images = 6;
+    int local_ba_num_frames = 6;
 
     // Minimum triangulation for images to be chosen in local bundle adjustment.
     double local_ba_min_tri_angle = 6;
@@ -285,11 +285,11 @@ class IncrementalMapper {
                                       image_t image_id2,
                                       TwoViewGeometry& two_view_geometry);
 
-  // Find local bundle for given image in the reconstruction. The local bundle
-  // is defined as the images that are most connected, i.e. maximum number of
-  // shared 3D points, to the given image.
-  std::vector<image_t> FindLocalBundle(const Options& options,
-                                       image_t image_id) const;
+  // Find local bundle for given frame in the reconstruction. The local bundle
+  // is defined as the frames that are most connected, i.e. maximum number of
+  // shared 3D points, to the given frame.
+  std::vector<frame_t> FindLocalBundle(const Options& options,
+                                       frame_t frame_id) const;
 
  private:
   struct RegistrationStatistics {

@@ -84,7 +84,7 @@ IncrementalMapper::Options IncrementalPipelineOptions::Mapper() const {
   options.max_focal_length_ratio = max_focal_length_ratio;
   options.max_extra_param = max_extra_param;
   options.num_threads = num_threads;
-  options.local_ba_num_images = ba_local_num_images;
+  options.local_ba_num_frames = ba_local_num_images;
   options.fix_existing_images = fix_existing_images;
   options.use_prior_position = use_prior_position;
   options.use_robust_loss_on_prior_position = use_robust_loss_on_prior_position;
