@@ -464,25 +464,33 @@ IncrementalMapper::AdjustLocalBundle(
   const std::vector<image_t> local_bundle = FindLocalBundle(options, image_id);
 
   // Do the bundle adjustment only if there is any connected images.
+  BundleAdjustmentConfig ba_config;
   if (local_bundle.size() > 0) {
-    BundleAdjustmentConfig ba_config;
     ba_config.FixGauge(BundleAdjustmentGauge::THREE_POINTS);
-    ba_config.AddImage(image_id);
+
+    // Insert the images of all local frames.
+    const Image& image = reconstruction_->Image(image_id);
+    std::set<frame_t> frame_ids;
+    frame_ids.insert(image.FrameId());
+    for (const data_t& data_id : image.FramePtr()->ImageIds()) {
+      ba_config.AddImage(data_id.id);
+    }
     for (const image_t local_image_id : local_bundle) {
-      ba_config.AddImage(local_image_id);
+      const Image& local_image = reconstruction_->Image(local_image_id);
+      frame_ids.insert(local_image.FrameId());
+      for (const data_t& data_id : local_image.FramePtr()->ImageIds()) {
+        ba_config.AddImage(data_id.id);
+      }
     }
 
     // Fix the existing images, if option specified.
-
-    // TODO(jsch): Rewrite for frames.
-    // if (options.fix_existing_images) {
-    //   for (const image_t local_image_id : local_bundle) {
-    //     if (existing_image_ids_.count(local_image_id)) {
-    //       const Image& image = reconstruction_->Image(local_image_id);
-    //       ba_config.SetConstantFrameFromWorldPose(image.FrameId());
-    //     }
-    //   }
-    // }
+    if (options.fix_existing_images) {
+      for (const frame_t local_frame_id : frame_ids) {
+        if (existing_frame_ids_.count(local_frame_id)) {
+          ba_config.SetConstantFrameFromWorldPose(local_frame_id);
+        }
+      }
+    }
 
     // Determine which cameras to fix, when not all the registered images
     // are within the current local bundle.
@@ -509,7 +517,7 @@ IncrementalMapper::AdjustLocalBundle(
     std::unordered_set<point3D_t> variable_point3D_ids;
     for (const point3D_t point3D_id : point3D_ids) {
       const Point3D& point3D = reconstruction_->Point3D(point3D_id);
-      const size_t kMaxTrackLength = 15;
+      constexpr size_t kMaxTrackLength = 15;
       if (!point3D.HasError() || point3D.track.Length() <= kMaxTrackLength) {
         ba_config.AddVariablePoint(point3D_id);
         variable_point3D_ids.insert(point3D_id);
@@ -541,13 +549,10 @@ IncrementalMapper::AdjustLocalBundle(
   // there are no outlier points in the model. This results in duplicate work as
   // many of the provided 3D points may also be contained in the adjusted
   // images, but the filtering is not a bottleneck at this point.
-  std::unordered_set<image_t> filter_image_ids;
-  filter_image_ids.insert(image_id);
-  filter_image_ids.insert(local_bundle.begin(), local_bundle.end());
   report.num_filtered_observations =
       obs_manager_->FilterPoints3DInImages(options.filter_max_reproj_error,
                                            options.filter_min_tri_angle,
-                                           filter_image_ids);
+                                           ba_config.Images());
   report.num_filtered_observations +=
       obs_manager_->FilterPoints3D(options.filter_max_reproj_error,
                                    options.filter_min_tri_angle,
