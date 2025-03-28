@@ -166,16 +166,32 @@ void Reconstruction::Load(const DatabaseCache& database_cache) {
 }
 
 void Reconstruction::TearDown() {
-  // Remove all not yet registered images.
+  // Remove all non-registered frames/images.
+  std::unordered_set<rig_t> keep_rig_ids;
   std::unordered_set<camera_t> keep_camera_ids;
-  for (const auto& [_, frame] : frames_) {
-    for (const data_t& data_id : frame.ImageIds()) {
+  for (auto frame_it = frames_.begin(); frame_it != frames_.end();) {
+    for (const data_t& data_id : frame_it->second.ImageIds()) {
       auto image_it = images_.find(data_id.id);
-      if (frame.HasPose()) {
+      if (frame_it->second.HasPose()) {
         keep_camera_ids.insert(image_it->second.CameraId());
       } else {
         images_.erase(image_it);
       }
+    }
+    if (frame_it->second.HasPose()) {
+      keep_rig_ids.insert(frame_it->second.RigId());
+      ++frame_it;
+    } else {
+      frame_it = frames_.erase(frame_it);
+    }
+  }
+
+  // Remove all unused rigs.
+  for (auto it = rigs_.begin(); it != rigs_.end();) {
+    if (keep_rig_ids.count(it->first) == 0) {
+      it = rigs_.erase(it);
+    } else {
+      ++it;
     }
   }
 
