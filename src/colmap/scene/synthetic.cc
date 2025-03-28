@@ -378,7 +378,6 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
           database->UpdateImage(image);
         }
         reconstruction->AddImage(image);
-        reconstruction->RegisterImage(image.ImageId());
       }
     }
   }

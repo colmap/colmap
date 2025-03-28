@@ -98,9 +98,9 @@ struct IncrementalPipelineOptions {
   int ba_local_max_num_iterations = 25;
 
   // The growth rates after which to perform global bundle adjustment.
-  double ba_global_images_ratio = 1.1;
+  double ba_global_frames_ratio = 1.1;
   double ba_global_points_ratio = 1.1;
-  int ba_global_images_freq = 500;
+  int ba_global_frames_freq = 500;
   int ba_global_points_freq = 250000;
 
   // Ceres solver function tolerance for global bundle adjustment
@@ -133,7 +133,7 @@ struct IncrementalPipelineOptions {
   // reconstruction. Snapshots will be saved according to the specified
   // frequency of registered images.
   std::string snapshot_path = "";
-  int snapshot_images_freq = 0;
+  int snapshot_frames_freq = 0;
 
   // Optional list of image names to reconstruct. If no images are specified,
   // all images will be reconstructed by default.

@@ -1623,7 +1623,7 @@ void ExportVRML(const Reconstruction& reconstruction,
   points.emplace_back(-six / 3.0, +siy / 3.0, six * 1.0 * 2.0);
 
   for (const auto& [image_id, image] : reconstruction.Images()) {
-    if (!reconstruction.IsImageRegistered(image_id)) {
+    if (!image.FramePtr()->HasPose()) {
       continue;
     }
 

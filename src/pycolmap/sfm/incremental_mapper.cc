@@ -104,16 +104,16 @@ void BindIncrementalPipeline(py::module& m) {
           &Opts::ba_local_max_num_iterations,
           "The maximum number of local bundle adjustment iterations.")
       .def_readwrite(
-          "ba_global_images_ratio",
-          &Opts::ba_global_images_ratio,
+          "ba_global_frames_ratio",
+          &Opts::ba_global_frames_ratio,
           "The growth rates after which to perform global bundle adjustment.")
       .def_readwrite(
           "ba_global_points_ratio",
           &Opts::ba_global_points_ratio,
           "The growth rates after which to perform global bundle adjustment.")
       .def_readwrite(
-          "ba_global_images_freq",
-          &Opts::ba_global_images_freq,
+          "ba_global_frames_freq",
+          &Opts::ba_global_frames_freq,
           "The growth rates after which to perform global bundle adjustment.")
       .def_readwrite(
           "ba_global_points_freq",
@@ -164,8 +164,8 @@ void BindIncrementalPipeline(py::module& m) {
                      &Opts::snapshot_path,
                      "Path to a folder in which reconstruction snapshots will "
                      "be saved during incremental reconstruction.")
-      .def_readwrite("snapshot_images_freq",
-                     &Opts::snapshot_images_freq,
+      .def_readwrite("snapshot_frames_freq",
+                     &Opts::snapshot_frames_freq,
                      "Frequency of registered images according to which "
                      "reconstruction snapshots will be saved.")
       .def_readwrite(
@@ -173,10 +173,10 @@ void BindIncrementalPipeline(py::module& m) {
           &Opts::image_names,
           "Optional list of image names to reconstruct. If no images are "
           "specified, all images will be reconstructed by default.")
-      .def_readwrite("fix_existing_images",
-                     &Opts::fix_existing_images,
+      .def_readwrite("fix_existing_frames",
+                     &Opts::fix_existing_frames,
                      "If reconstruction is provided as input, fix the existing "
-                     "image poses.")
+                     "frame poses.")
       .def_readwrite(
           "mapper", &Opts::mapper, "Options of the IncrementalMapper.")
       .def_readwrite("triangulation",
@@ -331,10 +331,10 @@ void BindIncrementalMapperOptions(py::module& m) {
       .def_readwrite("max_reg_trials",
                      &Opts::max_reg_trials,
                      "Maximum number of trials to register an image.")
-      .def_readwrite("fix_existing_images",
-                     &Opts::fix_existing_images,
+      .def_readwrite("fix_existing_frames",
+                     &Opts::fix_existing_frames,
                      "If reconstruction is provided as input, fix the existing "
-                     "image poses.")
+                     "frame poses.")
       .def_readwrite("num_threads", &Opts::num_threads, "Number of threads.")
       .def_readwrite("image_selection_method",
                      &Opts::image_selection_method,

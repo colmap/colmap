@@ -158,10 +158,6 @@ if(IS_GNU)
     if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.9)
         message(FATAL_ERROR "GCC version 4.8 or older not supported")
     endif()
-
-    # Hide incorrect warnings for uninitialized Eigen variables under GCC.
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-maybe-uninitialized")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-maybe-uninitialized")
 endif()
 
 if(IS_MACOS)

@@ -602,7 +602,7 @@ void MainWindow::CreateStatusbar() {
   statusbar_timer_->start(1000);
 
   model_viewer_widget_->statusbar_status_label =
-      new QLabel("0 Images - 0 Points", this);
+      new QLabel("0 Frames - 0 Images - 0 Points", this);
   model_viewer_widget_->statusbar_status_label->setFont(font);
   model_viewer_widget_->statusbar_status_label->setAlignment(Qt::AlignCenter);
   statusBar()->addWidget(model_viewer_widget_->statusbar_status_label, 1);
@@ -1153,10 +1153,10 @@ void MainWindow::Render() {
 
   int refresh_rate;
   if (options_.render->adapt_refresh_rate) {
-    const auto num_reg_images =
+    const auto num_reg_frames =
         reconstruction_manager_->Get(SelectedReconstructionIdx())
-            ->NumRegImages();
-    refresh_rate = static_cast<int>(num_reg_images / 50 + 1);
+            ->NumRegFrames();
+    refresh_rate = static_cast<int>(num_reg_frames / 50 + 1);
   } else {
     refresh_rate = options_.render->refresh_rate;
   }

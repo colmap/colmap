@@ -403,14 +403,17 @@ void DatabaseImageViewerWidget::ResizeTable() {
 }
 
 void DatabaseImageViewerWidget::DeleteImage() {
-  QMessageBox::StandardButton reply =
-      QMessageBox::question(this,
-                            "",
-                            tr("Do you really want to delete this image?"),
-                            QMessageBox::Yes | QMessageBox::No);
+  QMessageBox::StandardButton reply = QMessageBox::question(
+      this,
+      "",
+      tr("Do you really want to delete this image? This will delete other "
+         "images in the same frame as well."),
+      QMessageBox::Yes | QMessageBox::No);
   if (reply == QMessageBox::Yes) {
     if (model_viewer_widget_->reconstruction->ExistsImage(image_id_)) {
-      model_viewer_widget_->reconstruction->DeRegisterImage(image_id_);
+      const Image& image =
+          model_viewer_widget_->reconstruction->Image(image_id_);
+      model_viewer_widget_->reconstruction->DeRegisterFrame(image.FrameId());
     }
     model_viewer_widget_->ReloadReconstruction();
   }

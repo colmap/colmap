@@ -328,8 +328,7 @@ TEST(DefaultBundleAdjuster, ManyViewRigConstantSensorFromRig) {
   for (const image_t image_id : reconstruction.RegImageIds()) {
     config.AddImage(image_id);
   }
-  config.SetConstantSensorFromRigPose(
-      reconstruction.Rig(1).Sensors().begin()->first);
+  config.SetConstantSensorFromRigPose(reconstruction.Camera(2).SensorId());
   config.FixGauge(BundleAdjustmentGauge::THREE_POINTS);
 
   BundleAdjustmentOptions options;

@@ -19,7 +19,7 @@ namespace py = pybind11;
 
 py::typing::Optional<py::dict> PyEstimateTriangulation(
     const std::vector<Eigen::Vector2d>& points,
-    const std::vector<Rigid3d const*>& cams_from_world,
+    const std::vector<Rigid3d>& cams_from_world,
     const std::vector<Camera const*>& cameras,
     const EstimateTriangulationOptions& options) {
   py::gil_scoped_release release;

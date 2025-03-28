@@ -95,7 +95,7 @@ void OptionManager::ModifyForVideoData() {
   const bool kResetPaths = false;
   ResetOptions(kResetPaths);
   mapper->mapper.init_min_tri_angle /= 2;
-  mapper->ba_global_images_ratio = 1.4;
+  mapper->ba_global_frames_ratio = 1.4;
   mapper->ba_global_points_ratio = 1.4;
   mapper->min_focal_length_ratio = 0.1;
   mapper->max_focal_length_ratio = 10;
@@ -115,7 +115,7 @@ void OptionManager::ModifyForLowQuality() {
   vocab_tree_matching->num_images /= 2;
   mapper->ba_local_max_num_iterations /= 2;
   mapper->ba_global_max_num_iterations /= 2;
-  mapper->ba_global_images_ratio *= 1.2;
+  mapper->ba_global_frames_ratio *= 1.2;
   mapper->ba_global_points_ratio *= 1.2;
   mapper->ba_global_max_refinements = 2;
   patch_match_stereo->max_image_size = 1000;
@@ -136,7 +136,7 @@ void OptionManager::ModifyForMediumQuality() {
   vocab_tree_matching->num_images /= 1.5;
   mapper->ba_local_max_num_iterations /= 1.5;
   mapper->ba_global_max_num_iterations /= 1.5;
-  mapper->ba_global_images_ratio *= 1.1;
+  mapper->ba_global_frames_ratio *= 1.1;
   mapper->ba_global_points_ratio *= 1.1;
   mapper->ba_global_max_refinements = 2;
   patch_match_stereo->max_image_size = 1600;
@@ -537,12 +537,12 @@ void OptionManager::AddMapperOptions() {
                               &mapper->ba_local_function_tolerance);
   AddAndRegisterDefaultOption("Mapper.ba_local_max_num_iterations",
                               &mapper->ba_local_max_num_iterations);
-  AddAndRegisterDefaultOption("Mapper.ba_global_images_ratio",
-                              &mapper->ba_global_images_ratio);
+  AddAndRegisterDefaultOption("Mapper.ba_global_frames_ratio",
+                              &mapper->ba_global_frames_ratio);
   AddAndRegisterDefaultOption("Mapper.ba_global_points_ratio",
                               &mapper->ba_global_points_ratio);
-  AddAndRegisterDefaultOption("Mapper.ba_global_images_freq",
-                              &mapper->ba_global_images_freq);
+  AddAndRegisterDefaultOption("Mapper.ba_global_frames_freq",
+                              &mapper->ba_global_frames_freq);
   AddAndRegisterDefaultOption("Mapper.ba_global_points_freq",
                               &mapper->ba_global_points_freq);
   AddAndRegisterDefaultOption("Mapper.ba_global_function_tolerance",
@@ -563,8 +563,8 @@ void OptionManager::AddMapperOptions() {
       "Mapper.ba_min_num_residuals_for_cpu_multi_threading",
       &mapper->ba_min_num_residuals_for_cpu_multi_threading);
   AddAndRegisterDefaultOption("Mapper.snapshot_path", &mapper->snapshot_path);
-  AddAndRegisterDefaultOption("Mapper.snapshot_images_freq",
-                              &mapper->snapshot_images_freq);
+  AddAndRegisterDefaultOption("Mapper.snapshot_frames_freq",
+                              &mapper->snapshot_frames_freq);
   AddAndRegisterDefaultOption("Mapper.fix_existing_images",
                               &mapper->fix_existing_images);
 

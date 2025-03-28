@@ -50,7 +50,7 @@ Reconstruction::Reconstruction(const Reconstruction& other)
       frames_(other.frames_),
       images_(other.images_),
       points3D_(other.points3D_),
-      reg_image_ids_(other.reg_image_ids_),
+      reg_frame_ids_(other.reg_frame_ids_),
       max_point3D_id_(other.max_point3D_id_) {
   for (auto& [_, frame] : frames_) {
     frame.ResetRigPtr();
@@ -71,7 +71,7 @@ Reconstruction& Reconstruction::operator=(const Reconstruction& other) {
     frames_ = other.frames_;
     images_ = other.images_;
     points3D_ = other.points3D_;
-    reg_image_ids_ = other.reg_image_ids_;
+    reg_frame_ids_ = other.reg_frame_ids_;
     max_point3D_id_ = other.max_point3D_id_;
     for (auto& [_, frame] : frames_) {
       frame.ResetRigPtr();
@@ -85,6 +85,30 @@ Reconstruction& Reconstruction::operator=(const Reconstruction& other) {
     }
   }
   return *this;
+}
+
+size_t Reconstruction::NumRegImages() const {
+  size_t num_reg_images = 0;
+  for (const frame_t frame_id : reg_frame_ids_) {
+    const class Frame& frame = Frame(frame_id);
+    if (frame.HasPose()) {
+      for ([[maybe_unused]] const data_t& data_id : frame.ImageIds()) {
+        ++num_reg_images;
+      }
+    }
+  }
+  return num_reg_images;
+}
+
+std::vector<image_t> Reconstruction::RegImageIds() const {
+  std::vector<image_t> reg_image_ids;
+  for (const frame_t frame_id : reg_frame_ids_) {
+    const auto& frame = Frame(frame_id);
+    for (const data_t& data_id : frame.ImageIds()) {
+      reg_image_ids.push_back(data_id.id);
+    }
+  }
+  return reg_image_ids;
 }
 
 std::unordered_set<point3D_t> Reconstruction::Point3DIds() const {
@@ -142,14 +166,32 @@ void Reconstruction::Load(const DatabaseCache& database_cache) {
 }
 
 void Reconstruction::TearDown() {
-  // Remove all not yet registered images.
+  // Remove all non-registered frames/images.
+  std::unordered_set<rig_t> keep_rig_ids;
   std::unordered_set<camera_t> keep_camera_ids;
-  for (auto it = images_.begin(); it != images_.end();) {
-    if (IsImageRegistered(it->first)) {
-      keep_camera_ids.insert(it->second.CameraId());
-      ++it;
+  for (auto frame_it = frames_.begin(); frame_it != frames_.end();) {
+    for (const data_t& data_id : frame_it->second.ImageIds()) {
+      auto image_it = images_.find(data_id.id);
+      if (frame_it->second.HasPose()) {
+        keep_camera_ids.insert(image_it->second.CameraId());
+      } else {
+        images_.erase(image_it);
+      }
+    }
+    if (frame_it->second.HasPose()) {
+      keep_rig_ids.insert(frame_it->second.RigId());
+      ++frame_it;
     } else {
-      it = images_.erase(it);
+      frame_it = frames_.erase(frame_it);
+    }
+  }
+
+  // Remove all unused rigs.
+  for (auto it = rigs_.begin(); it != rigs_.end();) {
+    if (keep_rig_ids.count(it->first) == 0) {
+      it = rigs_.erase(it);
+    } else {
+      ++it;
     }
   }
 
@@ -187,7 +229,13 @@ void Reconstruction::AddFrame(class Frame frame) {
   } else {
     frame.SetRigPtr(&rig);
   }
-  THROW_CHECK(frames_.emplace(frame.FrameId(), std::move(frame)).second);
+  const bool is_registered = frame.HasPose();
+  const frame_t frame_id = frame.FrameId();
+  THROW_CHECK(frames_.emplace(frame_id, std::move(frame)).second);
+  if (is_registered) {
+    THROW_CHECK_NE(frame_id, kInvalidFrameId);
+    RegisterFrame(frame_id);
+  }
 }
 
 void Reconstruction::AddImage(class Image image) {
@@ -206,12 +254,7 @@ void Reconstruction::AddImage(class Image image) {
     image.SetFramePtr(&frame);
   }
   const image_t image_id = image.ImageId();
-  const bool is_registered = image.HasPose();
   THROW_CHECK(images_.emplace(image_id, std::move(image)).second);
-  if (is_registered) {
-    THROW_CHECK_NE(image_id, kInvalidImageId);
-    RegisterImage(image_id);
-  }
 }
 
 void Reconstruction::AddPoint3D(const point3D_t point3D_id,
@@ -318,23 +361,26 @@ void Reconstruction::DeleteAllPoints2DAndPoints3D() {
   }
 }
 
-void Reconstruction::RegisterImage(const image_t image_id) {
-  THROW_CHECK(Image(image_id).HasPose());
-  reg_image_ids_.insert(image_id);
+void Reconstruction::RegisterFrame(const frame_t frame_id) {
+  THROW_CHECK(Frame(frame_id).HasPose());
+  reg_frame_ids_.insert(frame_id);
 }
 
-void Reconstruction::DeRegisterImage(const image_t image_id) {
-  class Image& image = Image(image_id);
-
-  const auto num_points2D = image.NumPoints2D();
-  for (point2D_t point2D_idx = 0; point2D_idx < num_points2D; ++point2D_idx) {
-    if (image.Point2D(point2D_idx).HasPoint3D()) {
-      DeleteObservation(image_id, point2D_idx);
+void Reconstruction::DeRegisterFrame(const frame_t frame_id) {
+  class Frame& frame = Frame(frame_id);
+  for (const data_t& data_id : frame.ImageIds()) {
+    const image_t image_id = data_id.id;
+    class Image& image = Image(image_id);
+    const auto num_points2D = image.NumPoints2D();
+    for (point2D_t point2D_idx = 0; point2D_idx < num_points2D; ++point2D_idx) {
+      if (image.Point2D(point2D_idx).HasPoint3D()) {
+        DeleteObservation(image_id, point2D_idx);
+      }
     }
   }
 
-  image.ResetPose();
-  reg_image_ids_.erase(image_id);
+  frame.ResetPose();
+  reg_frame_ids_.erase(frame_id);
 }
 
 Sim3d Reconstruction::Normalize(const bool fixed_scale,
@@ -344,7 +390,9 @@ Sim3d Reconstruction::Normalize(const bool fixed_scale,
                                 const bool use_images) {
   THROW_CHECK_GT(extent, 0);
 
-  if ((use_images && NumRegImages() < 2) ||
+  return Sim3d();
+
+  if ((use_images && NumRegFrames() < 2) ||
       (!use_images && points3D_.size() < 2)) {
     return Sim3d();
   }
@@ -352,10 +400,19 @@ Sim3d Reconstruction::Normalize(const bool fixed_scale,
   const auto [bbox, centroid] =
       ComputeBBBoxAndCentroid(min_percentile, max_percentile, use_images);
 
+  const auto has_non_trivial_rigs = [this]() {
+    for (const auto& [_, rig] : rigs_) {
+      if (rig.NumSensors() > 1) {
+        return true;
+      }
+    }
+    return false;
+  };
+
   // Calculate scale and translation, such that
   // translation is applied before scaling.
   double scale = 1.;
-  if (!fixed_scale) {
+  if (!fixed_scale && !has_non_trivial_rigs()) {
     const double old_extent = bbox.diagonal().norm();
     if (old_extent >= std::numeric_limits<double>::epsilon()) {
       scale = extent / old_extent;
@@ -387,7 +444,7 @@ std::pair<Eigen::AlignedBox3d, Eigen::Vector3d>
 Reconstruction::ComputeBBBoxAndCentroid(const double min_percentile,
                                         const double max_percentile,
                                         const bool use_images) const {
-  const size_t num_elements = use_images ? NumRegImages() : points3D_.size();
+  const size_t num_elements = use_images ? NumRegFrames() : points3D_.size();
   if (num_elements == 0) {
     return std::make_pair(
         Eigen::AlignedBox3d(Eigen::Vector3d(0, 0, 0), Eigen::Vector3d(0, 0, 0)),
@@ -457,19 +514,19 @@ Reconstruction Reconstruction::Crop(const Eigen::AlignedBox3d& bbox) const {
     }
     cropped_reconstruction.AddImage(image);
   }
-  std::unordered_set<image_t> registered_image_ids;
+  std::unordered_set<image_t> cropped_frame_ids;
   for (const auto& point3D : points3D_) {
     if (bbox.contains(point3D.second.xyz)) {
       for (const auto& track_el : point3D.second.track.Elements()) {
-        registered_image_ids.insert(track_el.image_id);
+        cropped_frame_ids.insert(Image(track_el.image_id).FrameId());
       }
       cropped_reconstruction.AddPoint3D(
           point3D.second.xyz, point3D.second.track, point3D.second.color);
     }
   }
-  for (const auto& [image_id, _] : cropped_reconstruction.Images()) {
-    if (registered_image_ids.count(image_id) == 0) {
-      cropped_reconstruction.DeRegisterImage(image_id);
+  for (const auto& [frame_id, _] : cropped_reconstruction.Frames()) {
+    if (cropped_frame_ids.count(frame_id) == 0) {
+      cropped_reconstruction.DeRegisterFrame(frame_id);
     }
   }
   return cropped_reconstruction;
@@ -488,12 +545,14 @@ const class Image* Reconstruction::FindImageWithName(
 std::vector<std::pair<image_t, image_t>> Reconstruction::FindCommonRegImageIds(
     const Reconstruction& other) const {
   std::vector<std::pair<image_t, image_t>> common_reg_image_ids;
-  for (const auto image_id : RegImageIds()) {
-    const auto& image = Image(image_id);
-    const auto* other_image = other.FindImageWithName(image.Name());
-    if (other_image != nullptr &&
-        other.IsImageRegistered(other_image->ImageId())) {
-      common_reg_image_ids.emplace_back(image_id, other_image->ImageId());
+  for (const frame_t frame_id : reg_frame_ids_) {
+    const auto& frame = Frame(frame_id);
+    for (const data_t& data_id : frame.ImageIds()) {
+      const auto& image = Image(data_id.id);
+      const auto* other_image = other.FindImageWithName(image.Name());
+      if (other_image != nullptr && other_image->FramePtr()->HasPose()) {
+        common_reg_image_ids.emplace_back(frame_id, other_image->ImageId());
+      }
     }
   }
   return common_reg_image_ids;
@@ -525,7 +584,7 @@ void Reconstruction::TranscribeImageIdsToDatabase(const Database& database) {
   for (const image_t image_id : RegImageIds()) {
     new_reg_image_ids.insert(old_to_new_image_ids.at(image_id));
   }
-  reg_image_ids_ = new_reg_image_ids;
+  reg_frame_ids_ = new_reg_image_ids;
 
   for (auto& point3D : points3D_) {
     for (auto& track_el : point3D.second.track.Elements()) {
@@ -551,10 +610,10 @@ double Reconstruction::ComputeMeanTrackLength() const {
 }
 
 double Reconstruction::ComputeMeanObservationsPerRegImage() const {
-  if (NumRegImages() == 0) {
+  if (NumRegFrames() == 0) {
     return 0.0;
   } else {
-    return ComputeNumObservations() / static_cast<double>(NumRegImages());
+    return ComputeNumObservations() / static_cast<double>(NumRegFrames());
   }
 }
 
@@ -788,8 +847,9 @@ std::ostream& operator<<(std::ostream& stream,
                          const Reconstruction& reconstruction) {
   stream << "Reconstruction(" << "num_rigs=" << reconstruction.NumRigs()
          << ", num_cameras=" << reconstruction.NumCameras()
+         << ", num_frames=" << reconstruction.NumFrames()
+         << ", num_reg_frames=" << reconstruction.NumRegFrames()
          << ", num_images=" << reconstruction.NumImages()
-         << ", num_reg_images=" << reconstruction.NumRegImages()
          << ", num_points3D=" << reconstruction.NumPoints3D() << ")";
   return stream;
 }

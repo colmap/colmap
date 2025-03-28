@@ -46,7 +46,7 @@ MapperGeneralOptionsWidget::MapperGeneralOptionsWidget(QWidget* parent,
   AddOptionBool(&options->mapper->ignore_watermarks, "ignore_watermarks");
   AddOptionDirPath(&options->mapper->snapshot_path, "snapshot_path");
   AddOptionInt(
-      &options->mapper->snapshot_images_freq, "snapshot_images_freq", 0);
+      &options->mapper->snapshot_frames_freq, "snapshot_frames_freq", 0);
 }
 
 MapperTriangulationOptionsWidget::MapperTriangulationOptionsWidget(
@@ -132,8 +132,8 @@ MapperBundleAdjustmentOptionsWidget::MapperBundleAdjustmentOptionsWidget(
   AddSpacer();
 
   AddSection("Global Bundle Adjustment");
-  AddOptionDouble(&options->mapper->ba_global_images_ratio, "images_ratio");
-  AddOptionInt(&options->mapper->ba_global_images_freq, "images_freq");
+  AddOptionDouble(&options->mapper->ba_global_frames_ratio, "images_ratio");
+  AddOptionInt(&options->mapper->ba_global_frames_freq, "images_freq");
   AddOptionDouble(&options->mapper->ba_global_points_ratio, "points_ratio");
   AddOptionInt(&options->mapper->ba_global_points_freq, "points_freq");
   AddOptionInt(&options->mapper->ba_global_max_num_iterations,
