@@ -566,16 +566,12 @@ bool IncrementalMapper::AdjustGlobalBundle(
   THROW_CHECK_NOTNULL(reconstruction_);
   THROW_CHECK_NOTNULL(obs_manager_);
 
-  const std::vector<image_t>& reg_image_ids = reconstruction_->RegImageIds();
-
-  THROW_CHECK_GE(reg_image_ids.size(), 2) << "At least two images must be "
-                                             "registered for global "
-                                             "bundle-adjustment";
+  const std::set<frame_t>& reg_frame_ids = reconstruction_->RegFrameIds();
 
   BundleAdjustmentOptions custom_ba_options = ba_options;
   // Use stricter convergence criteria for first registered images.
-  const size_t kMinNumRegImagesForFastBA = 10;
-  if (reg_image_ids.size() < kMinNumRegImagesForFastBA) {
+  const size_t kMinNumRegFramesForFastBA = 10;
+  if (reg_frame_ids.size() < kMinNumRegFramesForFastBA) {
     custom_ba_options.solver_options.function_tolerance /= 10;
     custom_ba_options.solver_options.gradient_tolerance /= 10;
     custom_ba_options.solver_options.parameter_tolerance /= 10;
@@ -588,24 +584,29 @@ bool IncrementalMapper::AdjustGlobalBundle(
 
   // Configure bundle adjustment.
   BundleAdjustmentConfig ba_config;
-  for (const image_t image_id : reg_image_ids) {
-    ba_config.AddImage(image_id);
+  for (const frame_t frame_id : reg_frame_ids) {
+    const Frame& frame = reconstruction_->Frame(frame_id);
+    for (const data_t& data_id : frame.ImageIds()) {
+      ba_config.AddImage(data_id.id);
+    }
   }
 
-  // TODO(jsch): Rewrite for frames.
+  THROW_CHECK_GE(ba_config.NumImages(), 2) << "At least two images must be "
+                                              "registered for global "
+                                              "bundle-adjustment";
+
   // Fix the existing images, if option specified.
-  // if (options.fix_existing_images) {
-  //   for (const image_t image_id : reg_image_ids) {
-  //     if (existing_image_ids_.count(image_id)) {
-  //       const Image& image = reconstruction_->Image(image_id);
-  //       ba_config.SetConstantFrameFromWorldPose(image.FrameId());
-  //     }
-  //   }
-  // }
+  if (options.fix_existing_images) {
+    for (const frame_t frame_id : reg_frame_ids) {
+      if (existing_frame_ids_.count(frame_id)) {
+        ba_config.SetConstantFrameFromWorldPose(frame_id);
+      }
+    }
+  }
 
   // Only use prior pose if at least 3 images have been registered.
   const bool use_prior_position =
-      options.use_prior_position && reg_image_ids.size() > 2;
+      options.use_prior_position && ba_config.NumImages() > 2;
 
   std::unique_ptr<BundleAdjuster> bundle_adjuster;
   if (!use_prior_position) {
