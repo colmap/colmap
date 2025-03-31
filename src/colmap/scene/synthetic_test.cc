@@ -88,8 +88,7 @@ TEST(SynthesizeDataset, Nominal) {
             options.num_rigs * options.num_cameras_per_rig *
                 options.num_frames_per_rig);
   EXPECT_EQ(reconstruction.NumRegFrames(),
-            options.num_rigs * options.num_cameras_per_rig *
-                options.num_frames_per_rig);
+            options.num_rigs * options.num_frames_per_rig);
   for (const auto& image : reconstruction.Images()) {
     EXPECT_EQ(image.second.Name(), database.ReadImage(image.first).Name());
     EXPECT_EQ(image.second.NumPoints2D(),

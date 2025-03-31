@@ -42,6 +42,7 @@ void GenerateReconstruction(const image_t num_images,
 
   Camera camera = Camera::CreateFromModelName(1, "PINHOLE", 1, 1, 1);
   reconstruction.AddCamera(camera);
+
   Rig rig;
   rig.SetRigId(1);
   rig.AddRefSensor(camera.SensorId());
@@ -51,6 +52,7 @@ void GenerateReconstruction(const image_t num_images,
     Frame frame;
     frame.SetFrameId(image_id);
     frame.SetRigId(rig.RigId());
+    frame.AddDataId(data_t(camera.SensorId(), image_id));
     frame.SetFrameFromWorld(Rigid3d());
     reconstruction.AddFrame(frame);
     Image image;
@@ -72,8 +74,8 @@ TEST(ObservationManager, Print) {
   stream << obs_manager;
   EXPECT_EQ(stream.str(),
             "ObservationManager(reconstruction=Reconstruction(num_rigs=1, "
-            "num_cameras=1, num_images=2, num_reg_images=2, num_points3D=0), "
-            "correspondence_graph=null)");
+            "num_cameras=1, num_frames=2, num_reg_frames=2, num_images=2, "
+            "num_points3D=0), correspondence_graph=null)");
 }
 
 TEST(ObservationManager, FilterPoints3D) {

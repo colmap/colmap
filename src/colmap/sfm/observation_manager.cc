@@ -321,18 +321,20 @@ size_t ObservationManager::FilterAllPoints3D(const double max_reproj_error,
 
 size_t ObservationManager::FilterObservationsWithNegativeDepth() {
   size_t num_filtered = 0;
-  for (const auto image_id : reconstruction_.RegImageIds()) {
-    const Image& image = reconstruction_.Image(image_id);
-    const Eigen::Matrix3x4d cam_from_world = image.CamFromWorld().ToMatrix();
-    for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
-         ++point2D_idx) {
-      const Point2D& point2D = image.Point2D(point2D_idx);
-      if (point2D.HasPoint3D()) {
-        const struct Point3D& point3D =
-            reconstruction_.Point3D(point2D.point3D_id);
-        if (!HasPointPositiveDepth(cam_from_world, point3D.xyz)) {
-          DeleteObservation(image_id, point2D_idx);
-          num_filtered += 1;
+  for (const frame_t frame_id : reconstruction_.RegFrameIds()) {
+    for (const data_t& data_id : reconstruction_.Frame(frame_id).ImageIds()) {
+      const Image& image = reconstruction_.Image(data_id.id);
+      const Eigen::Matrix3x4d cam_from_world = image.CamFromWorld().ToMatrix();
+      for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
+           ++point2D_idx) {
+        const Point2D& point2D = image.Point2D(point2D_idx);
+        if (point2D.HasPoint3D()) {
+          const struct Point3D& point3D =
+              reconstruction_.Point3D(point2D.point3D_id);
+          if (!HasPointPositiveDepth(cam_from_world, point3D.xyz)) {
+            DeleteObservation(data_id.id, point2D_idx);
+            num_filtered += 1;
+          }
         }
       }
     }
