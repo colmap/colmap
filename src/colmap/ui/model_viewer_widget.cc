@@ -36,11 +36,14 @@
 #define SELECTION_BUFFER_IMAGE_IDX 0
 #define SELECTION_BUFFER_POINT_IDX 1
 
+// Color of a selected 3D point.
 const Eigen::Vector4f kSelectedPointColor(0.0f, 1.0f, 0.0f, 1.0f);
 
+// Color of the viewing frustum if the image is selected.
 const Eigen::Vector4f kSelectedImagePlaneColor(1.0f, 0.0f, 1.0f, 0.6f);
 const Eigen::Vector4f kSelectedImageFrameColor(0.8f, 0.0f, 0.8f, 1.0f);
 
+// Color of the viewing frustum if another image in the same frame is selected.
 const Eigen::Vector4f kSelectedFramePlaneColor(0.8f, 0.0f, 0.8f, 0.3f);
 const Eigen::Vector4f kSelectedFrameFrameColor(0.6f, 0.0f, 0.6f, 0.7f);
 
@@ -416,7 +419,7 @@ void ModelViewerWidget::ReloadReconstruction() {
   }
 
   if (selected_image_id_ != kInvalidImageId &&
-      std::binary_search(
+      !std::binary_search(
           reg_image_ids.begin(), reg_image_ids.end(), selected_image_id_)) {
     selected_image_id_ = kInvalidImageId;
   }

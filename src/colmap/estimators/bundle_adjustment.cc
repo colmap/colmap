@@ -489,14 +489,18 @@ void ParameterizeImages(const BundleAdjustmentOptions& options,
                         const std::set<image_t>& image_ids,
                         Reconstruction& reconstruction,
                         ceres::Problem& problem) {
+  std::unordered_set<rig_t> parameterized_rig_ids;
   std::unordered_set<sensor_t> parameterized_sensor_ids;
   std::unordered_set<frame_t> parameterized_frame_ids;
   for (const image_t image_id : image_ids) {
     Image& image = reconstruction.Image(image_id);
+    parameterized_rig_ids.insert(image.FramePtr()->RigId());
+
     // Parameterize sensor_from_rig.
     const sensor_t sensor_id = image.CameraPtr()->SensorId();
-    if (!image.HasTrivialFrame() &&
-        parameterized_sensor_ids.insert(sensor_id).second) {
+    const bool not_parameterized_before =
+        parameterized_sensor_ids.insert(sensor_id).second;
+    if (not_parameterized_before && !image.HasTrivialFrame()) {
       Rigid3d& sensor_from_rig =
           image.FramePtr()->RigPtr()->SensorFromRig(sensor_id);
       // CostFunction assumes unit quaternions.
@@ -529,6 +533,26 @@ void ParameterizeImages(const BundleAdjustmentOptions& options,
           problem.SetParameterBlockConstant(
               frame_from_world.translation.data());
         }
+      }
+    }
+  }
+
+  // Set the rig poses as constant, if the reference sensor is not part of the
+  // problem. Otherwise, the relative pose between the sensors is not well
+  // constrained. Notice that this does not handle degenerate configurations and
+  // assumes the observations in the problem constrain the relative poses
+  // sufficiently.
+  for (const rig_t rig_id : parameterized_rig_ids) {
+    Rig& rig = reconstruction.Rig(rig_id);
+    if (parameterized_sensor_ids.count(rig.RefSensorId()) != 0) {
+      continue;
+    }
+    for (auto& [_, sensor_from_rig] : rig.Sensors()) {
+      if (sensor_from_rig.has_value() &&
+          problem.HasParameterBlock(sensor_from_rig->translation.data())) {
+        problem.SetParameterBlockConstant(
+            sensor_from_rig->rotation.coeffs().data());
+        problem.SetParameterBlockConstant(sensor_from_rig->translation.data());
       }
     }
   }

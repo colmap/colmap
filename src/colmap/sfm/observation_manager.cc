@@ -482,13 +482,13 @@ std::vector<frame_t> ObservationManager::FilterFrames(
           image.CameraPtr()->HasBogusParams(min_focal_length_ratio,
                                             max_focal_length_ratio,
                                             max_extra_param)) {
-        filtered_frame_ids.push_back(data_id.id);
+        filtered_frame_ids.push_back(frame_id);
         break;
       }
     }
   }
 
-  // Only de-register after iterating over reg_image_ids_ to avoid
+  // Only de-register after iterating over reg_frame_ids_ to avoid
   // simultaneous iteration and modification of the vector.
   for (const frame_t frame_id : filtered_frame_ids) {
     DeRegisterFrame(frame_id);
