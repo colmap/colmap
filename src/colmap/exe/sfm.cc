@@ -45,7 +45,21 @@
 #include <boost/property_tree/ptree.hpp>
 
 namespace colmap {
+namespace {
 
+std::pair<std::vector<image_t>, std::vector<Eigen::Vector3d>>
+ExtractExistingImages(const Reconstruction& reconstruction) {
+  std::vector<image_t> fixed_image_ids = reconstruction.RegImageIds();
+  std::vector<Eigen::Vector3d> orig_fixed_image_positions;
+  orig_fixed_image_positions.reserve(fixed_image_ids.size());
+  for (const image_t image_id : fixed_image_ids) {
+    orig_fixed_image_positions.push_back(
+        reconstruction.Image(image_id).ProjectionCenter());
+  }
+  return {std::move(fixed_image_ids), std::move(orig_fixed_image_positions)};
+}
+
+}  // namespace
 void UpdateDatabasePosePriorsCovariance(const std::string& database_path,
                                         const Eigen::Matrix3d& covariance) {
   Database database(database_path);
@@ -215,22 +229,16 @@ int RunMapper(int argc, char** argv) {
     reconstruction_manager->Read(input_path);
   }
 
-  // TODO(jsch): Rewrite to frames.
-  // If fix_existing_images is enabled, we store the initial positions of
+  // If fix_existing_frames is enabled, we store the initial positions of
   // existing images in order to transform them back to the original coordinate
   // frame, as the reconstruction is normalized multiple times for numerical
   // stability.
   std::vector<Eigen::Vector3d> orig_fixed_image_positions;
   std::vector<image_t> fixed_image_ids;
-  if (options.mapper->fix_existing_images &&
+  if (options.mapper->fix_existing_frames &&
       reconstruction_manager->Size() > 0) {
-    const auto& reconstruction = reconstruction_manager->Get(0);
-    fixed_image_ids = reconstruction->RegImageIds();
-    orig_fixed_image_positions.reserve(fixed_image_ids.size());
-    for (const image_t image_id : fixed_image_ids) {
-      orig_fixed_image_positions.push_back(
-          reconstruction->Image(image_id).ProjectionCenter());
-    }
+    std::tie(fixed_image_ids, orig_fixed_image_positions) =
+        ExtractExistingImages(*reconstruction_manager->Get(0));
   }
 
   IncrementalPipeline mapper(options.mapper,
@@ -271,7 +279,7 @@ int RunMapper(int argc, char** argv) {
     const auto& reconstruction = reconstruction_manager->Get(0);
 
     // Transform the final reconstruction back to the original coordinate frame.
-    if (options.mapper->fix_existing_images) {
+    if (options.mapper->fix_existing_frames) {
       if (fixed_image_ids.size() < 3) {
         LOG(WARNING) << "Too few images to transform the reconstruction.";
       } else {
@@ -393,22 +401,16 @@ int RunPosePriorMapper(int argc, char** argv) {
     reconstruction_manager->Read(input_path);
   }
 
-  // TODO(jsch): Rewrite to frames.
-  // If fix_existing_images is enabled, we store the initial positions of
+  // If fix_existing_frames is enabled, we store the initial positions of
   // existing images in order to transform them back to the original coordinate
   // frame, as the reconstruction is normalized multiple times for numerical
   // stability.
   std::vector<Eigen::Vector3d> orig_fixed_image_positions;
   std::vector<image_t> fixed_image_ids;
-  if (options.mapper->fix_existing_images &&
+  if (options.mapper->fix_existing_frames &&
       reconstruction_manager->Size() > 0) {
-    const auto& reconstruction = reconstruction_manager->Get(0);
-    fixed_image_ids = reconstruction->RegImageIds();
-    orig_fixed_image_positions.reserve(fixed_image_ids.size());
-    for (const image_t image_id : fixed_image_ids) {
-      orig_fixed_image_positions.push_back(
-          reconstruction->Image(image_id).ProjectionCenter());
-    }
+    std::tie(fixed_image_ids, orig_fixed_image_positions) =
+        ExtractExistingImages(*reconstruction_manager->Get(0));
   }
 
   IncrementalPipeline mapper(options.mapper,
@@ -449,7 +451,7 @@ int RunPosePriorMapper(int argc, char** argv) {
     const auto& reconstruction = reconstruction_manager->Get(0);
 
     // Transform the final reconstruction back to the original coordinate frame.
-    if (options.mapper->fix_existing_images) {
+    if (options.mapper->fix_existing_frames) {
       if (fixed_image_ids.size() < 3) {
         LOG(WARNING) << "Too few images to transform the reconstruction.";
       } else {
@@ -580,7 +582,7 @@ void RunPointTriangulatorImpl(
   }
 
   auto options_tmp = std::make_shared<IncrementalPipelineOptions>(options);
-  options_tmp->fix_existing_images = true;
+  options_tmp->fix_existing_frames = true;
   options_tmp->ba_refine_focal_length = refine_intrinsics;
   options_tmp->ba_refine_principal_point = false;
   options_tmp->ba_refine_extra_params = refine_intrinsics;

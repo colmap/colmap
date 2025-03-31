@@ -116,7 +116,7 @@ class IncrementalMapper {
     int max_reg_trials = 3;
 
     // If reconstruction is provided as input, fix the existing image poses.
-    bool fix_existing_images = false;
+    bool fix_existing_frames = false;
 
     // Whether to use prior camera positions
     bool use_prior_position = false;

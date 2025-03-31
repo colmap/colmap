@@ -142,8 +142,8 @@ struct IncrementalPipelineOptions {
   // all images will be reconstructed by default.
   std::vector<std::string> image_names;
 
-  // If reconstruction is provided as input, fix the existing image poses.
-  bool fix_existing_images = false;
+  // If reconstruction is provided as input, fix the existing frame poses.
+  bool fix_existing_frames = false;
 
   IncrementalMapper::Options mapper;
   IncrementalTriangulator::Options triangulation;

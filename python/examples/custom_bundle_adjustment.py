@@ -29,13 +29,13 @@ def adjust_global_bundle(mapper, mapper_options, ba_options):
     """Equivalent to mapper.adjust_global_bundle(...)"""
     reconstruction = mapper.reconstruction
     assert reconstruction is not None
-    reg_image_ids = reconstruction.reg_image_ids()
-    if len(reg_image_ids) < 2:
+    reg_frame_ids = reconstruction.reg_frame_ids()
+    if len(reg_frame_ids) < 2:
         logging.fatal("At least two images must be registered for global BA")
     ba_options_tmp = copy.deepcopy(ba_options)
 
     # Use stricter convergence criteria for first registered images
-    if len(reg_image_ids) < 10:  # kMinNumRegImagesForFastBA = 10
+    if len(reg_frame_ids) < 10:  # kMinNumRegImagesForFastBA = 10
         ba_options_tmp.solver_options.function_tolerance /= 10
         ba_options_tmp.solver_options.gradient_tolerance /= 10
         ba_options_tmp.solver_options.parameter_tolerance /= 10
@@ -47,22 +47,22 @@ def adjust_global_bundle(mapper, mapper_options, ba_options):
 
     # Configure bundle adjustment
     ba_config = pycolmap.BundleAdjustmentConfig()
-    for image_id in reg_image_ids:
+    for image_id in reg_frame_ids:
         ba_config.add_image(image_id)
 
     # Fix the existing images, if option specified
-    if mapper_options.fix_existing_images:
-        for image_id in reg_image_ids:
-            if image_id in mapper.existing_image_ids:
+    if mapper_options.fix_existing_frames:
+        for image_id in reg_frame_ids:
+            if image_id in mapper.existing_frame_ids:
                 ba_config.set_constant_cam_pose(image_id)
 
     # Fix 7-DOFs of the bundle adjustment problem
-    reg_image_ids_it = iter(reg_image_ids)
+    reg_image_ids_it = iter(reg_frame_ids)
     first_reg_image_id = next(reg_image_ids_it)
     second_reg_image_id = next(reg_image_ids_it)
     ba_config.set_constant_cam_pose(first_reg_image_id)
-    if (not mapper_options.fix_existing_images) or (
-        second_reg_image_id not in mapper.existing_image_ids
+    if (not mapper_options.fix_existing_frames) or (
+        second_reg_image_id not in mapper.existing_frame_ids
     ):
         ba_config.set_constant_cam_positions(second_reg_image_id, [0])
 
@@ -125,9 +125,9 @@ def adjust_local_bundle(
             ba_config.add_image(local_image_id)
 
         # Fix the existing images, if options specified
-        if mapper_options.fix_existing_images:
+        if mapper_options.fix_existing_frames:
             for local_image_id in local_bundle:
-                if local_image_id in mapper.existing_image_ids:
+                if local_image_id in mapper.existing_frame_ids:
                     ba_config.set_constant_cam_pose(local_image_id)
 
         # Determine which cameras to fix, when not all the registered images
@@ -149,8 +149,8 @@ def adjust_local_bundle(
         elif len(local_bundle) > 1:
             image_id1, image_id2 = local_bundle[-1], local_bundle[-2]
             ba_config.set_constant_cam_pose(image_id1)
-            if (not mapper_options.fix_existing_images) or (
-                image_id2 not in mapper.existing_image_ids
+            if (not mapper_options.fix_existing_frames) or (
+                image_id2 not in mapper.existing_frame_ids
             ):
                 ba_config.set_constant_cam_positions(image_id2, [0])
 
