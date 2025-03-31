@@ -1372,7 +1372,7 @@ void MainWindow::RenderToggle() {
   } else {
     render_options_widget_->automatic_update = true;
     render_options_widget_->counter = 0;
-    Render();
+    RenderNow();
     action_render_toggle_->setIcon(QIcon(":/media/render-enabled.png"));
     action_render_toggle_->setText(tr("Disable rendering"));
   }
