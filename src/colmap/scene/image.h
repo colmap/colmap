@@ -107,7 +107,7 @@ class Image {
   inline void SetFramePtr(class Frame* frame);
   inline void ResetFramePtr();
   inline bool HasFramePtr() const;
-  // Check if the cam_from_world needs to be composed with the sensor_from_rig pose.
+  // Check if cam_from_world needs to be composed with sensor_from_rig pose.
   inline bool HasTrivialFrame() const;
 
   // Composition of sensor_from_rig and frame_from_world transformations.
