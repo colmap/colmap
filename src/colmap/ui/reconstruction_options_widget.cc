@@ -106,13 +106,14 @@ MapperInitializationOptionsWidget::MapperInitializationOptionsWidget(
 MapperBundleAdjustmentOptionsWidget::MapperBundleAdjustmentOptionsWidget(
     QWidget* parent, OptionManager* options)
     : OptionsWidget(parent) {
-  AddSection("Camera parameters");
+  AddSection("Rig/Camera parameters");
   AddOptionBool(&options->mapper->ba_refine_focal_length,
                 "refine_focal_length");
   AddOptionBool(&options->mapper->ba_refine_principal_point,
                 "refine_principal_point");
   AddOptionBool(&options->mapper->ba_refine_extra_params,
                 "refine_extra_params");
+  AddOptionBool(&options->mapper->ba_refine_sensor_from_rig, "refine_sensor_from_rig");
 
   AddSpacer();
 

@@ -578,6 +578,13 @@ bool IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
     return false;
   }
 
+  VLOG(3) << "Initial image pair with config " << two_view_geometry.config
+          << ", " << two_view_geometry.inlier_matches.size()
+          << " inlier matches, "
+          << two_view_geometry.cam2_from_cam1.translation.z()
+          << " z translation, " << RadToDeg(two_view_geometry.tri_angle)
+          << " deg triangulation angle";
+
   if (static_cast<int>(two_view_geometry.inlier_matches.size()) >=
           options.init_min_num_inliers &&
       std::abs(two_view_geometry.cam2_from_cam1.translation.z()) <

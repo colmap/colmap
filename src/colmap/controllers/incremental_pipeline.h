@@ -79,10 +79,13 @@ struct IncrementalPipelineOptions {
   double max_focal_length_ratio = 10.0;
   double max_extra_param = 1.0;
 
-  // Which intrinsic parameters to optimize during the reconstruction.
+  // Which camera parameters to optimize during the reconstruction.
   bool ba_refine_focal_length = true;
   bool ba_refine_principal_point = false;
   bool ba_refine_extra_params = true;
+
+  // Whether to optimize rig poses during the reconstruction.
+  bool ba_refine_sensor_from_rig = true;
 
   // The minimum number of residuals per bundle adjustment problem to
   // enable multi-threading solving of the problems.

@@ -531,6 +531,8 @@ void OptionManager::AddMapperOptions() {
                               &mapper->ba_refine_principal_point);
   AddAndRegisterDefaultOption("Mapper.ba_refine_extra_params",
                               &mapper->ba_refine_extra_params);
+  AddAndRegisterDefaultOption("Mapper.ba_refine_sensor_from_rig",
+                              &mapper->ba_refine_sensor_from_rig);
   AddAndRegisterDefaultOption("Mapper.ba_local_num_images",
                               &mapper->ba_local_num_images);
   AddAndRegisterDefaultOption("Mapper.ba_local_function_tolerance",

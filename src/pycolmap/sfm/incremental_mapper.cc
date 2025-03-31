@@ -77,15 +77,18 @@ void BindIncrementalPipeline(py::module& m) {
       .def_readwrite(
           "ba_refine_focal_length",
           &Opts::ba_refine_focal_length,
-          "Which intrinsic parameters to optimize during the reconstruction.")
+          "Whether to refine the focal length during the reconstruction.")
       .def_readwrite(
           "ba_refine_principal_point",
           &Opts::ba_refine_principal_point,
-          "Which intrinsic parameters to optimize during the reconstruction.")
+          "Whether to refine the principal point during the reconstruction.")
       .def_readwrite(
           "ba_refine_extra_params",
           &Opts::ba_refine_extra_params,
-          "Which intrinsic parameters to optimize during the reconstruction.")
+          "Whether to refine extra parameters during the reconstruction.")
+      .def_readwrite("ba_refine_sensor_from_rig",
+                     &Opts::ba_refine_sensor_from_rig,
+                     "Whether to refine rig poses during the reconstruction.")
       .def_readwrite(
           "ba_min_num_residuals_for_cpu_multi_threading",
           &Opts::ba_min_num_residuals_for_cpu_multi_threading,

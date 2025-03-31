@@ -118,6 +118,7 @@ BundleAdjustmentOptions IncrementalPipelineOptions::LocalBundleAdjustment()
   options.refine_focal_length = ba_refine_focal_length;
   options.refine_principal_point = ba_refine_principal_point;
   options.refine_extra_params = ba_refine_extra_params;
+  options.refine_sensor_from_rig = ba_refine_sensor_from_rig;
   options.min_num_residuals_for_cpu_multi_threading =
       ba_min_num_residuals_for_cpu_multi_threading;
   options.loss_function_scale = 1.0;
@@ -150,6 +151,7 @@ BundleAdjustmentOptions IncrementalPipelineOptions::GlobalBundleAdjustment()
   options.refine_focal_length = ba_refine_focal_length;
   options.refine_principal_point = ba_refine_principal_point;
   options.refine_extra_params = ba_refine_extra_params;
+  options.refine_sensor_from_rig = ba_refine_sensor_from_rig;
   options.min_num_residuals_for_cpu_multi_threading =
       ba_min_num_residuals_for_cpu_multi_threading;
   options.loss_function_type =
