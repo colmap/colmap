@@ -448,11 +448,15 @@ Reconstruction::ComputeBBBoxAndCentroid(const double min_percentile,
   coords_y.reserve(num_elements);
   coords_z.reserve(num_elements);
   if (use_images) {
-    for (const image_t image_id : RegImageIds()) {
-      const Eigen::Vector3d proj_center = Image(image_id).ProjectionCenter();
-      coords_x.push_back(proj_center(0));
-      coords_y.push_back(proj_center(1));
-      coords_z.push_back(proj_center(2));
+    for (const frame_t frame_id : reg_frame_ids_) {
+      const class Frame& frame = Frame(frame_id);
+      for (const data_t& data_id : frame.ImageIds()) {
+        const Eigen::Vector3d proj_center =
+            Image(data_id.id).ProjectionCenter();
+        coords_x.push_back(proj_center(0));
+        coords_y.push_back(proj_center(1));
+        coords_z.push_back(proj_center(2));
+      }
     }
   } else {
     for (const auto& point3D : points3D_) {

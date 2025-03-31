@@ -96,6 +96,7 @@ void GenerateReconstruction(const image_t num_images,
     Frame frame;
     frame.SetFrameId(image_id);
     frame.SetRigId(rig.RigId());
+    frame.AddDataId(data_t(camera.SensorId(), image_id));
     frame.SetFrameFromWorld(Rigid3d());
     reconstruction->AddFrame(frame);
     Image image;

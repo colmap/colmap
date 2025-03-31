@@ -208,7 +208,7 @@ TEST(ObservationManager, FilterObservationsWithNegativeDepth) {
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
 }
 
-TEST(ObservationManager, FilterImages) {
+TEST(ObservationManager, FilterFrames) {
   Reconstruction reconstruction;
   GenerateReconstruction(4, reconstruction);
   ObservationManager obs_manager(reconstruction);
@@ -217,12 +217,18 @@ TEST(ObservationManager, FilterImages) {
   reconstruction.AddObservation(point3D_id1, TrackElement(1, 0));
   reconstruction.AddObservation(point3D_id1, TrackElement(2, 0));
   reconstruction.AddObservation(point3D_id1, TrackElement(3, 0));
-  obs_manager.FilterImages(0.0, 10.0, 1.0);
+  obs_manager.FilterFrames(/*min_focal_length_ratio=*/0.0,
+                           /*max_focal_length_ratio=*/10.0,
+                           /*max_extra_param=*/1.0);
   EXPECT_EQ(reconstruction.NumRegFrames(), 3);
   reconstruction.DeleteObservation(3, 0);
-  obs_manager.FilterImages(0.0, 10.0, 1.0);
+  obs_manager.FilterFrames(/*min_focal_length_ratio=*/0.0,
+                           /*max_focal_length_ratio=*/10.0,
+                           /*max_extra_param=*/1.0);
   EXPECT_EQ(reconstruction.NumRegFrames(), 2);
-  obs_manager.FilterImages(0.0, 0.9, 1.0);
+  obs_manager.FilterFrames(/*min_focal_length_ratio=*/0.0,
+                           /*max_focal_length_ratio=*/0.9,
+                           /*max_extra_param=*/1.0);
   EXPECT_EQ(reconstruction.NumRegFrames(), 0);
 }
 
