@@ -35,6 +35,7 @@
 #include "colmap/util/logging.h"
 
 #include <cfloat>
+#include <optional>
 #include <random>
 #include <stdexcept>
 #include <vector>
@@ -117,7 +118,7 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
   }
 
   typename SupportMeasurer::Support best_support;
-  typename Estimator::M_t best_model;
+  std::optional<typename Estimator::M_t> best_model;
   bool best_model_is_local = false;
 
   bool abort = false;
@@ -234,8 +235,12 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
     }
   }
 
+  if (!best_model.has_value()) {
+    return report;
+  }
+
   report.support = best_support;
-  report.model = best_model;
+  report.model = best_model.value();
 
   // No valid model was found
   if (report.support.num_inliers < estimator.kMinNumSamples) {

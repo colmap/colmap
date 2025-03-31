@@ -20,11 +20,11 @@ void BindGeometry(py::module& m);
 void BindImage(py::module& m);
 void BindOptim(py::module& m);
 void BindPipeline(py::module& m);
+void BindFeature(py::module& m);
 void BindRetrieval(py::module& m);
 void BindScene(py::module& m);
 void BindSensor(py::module& m);
 void BindSfm(py::module& m);
-void BindUtil(py::module& m);
 
 PYBIND11_MODULE(_core, m) {
   m.doc() = "COLMAP plugin";
