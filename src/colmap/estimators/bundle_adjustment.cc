@@ -566,7 +566,7 @@ void ParameterizeImages(const BundleAdjustmentOptions& options,
 
 struct FixedGaugeWithThreePoints {
   // The number of fixed points for the Gauge.
-  size_t num_fixed_points = 0;
+  Eigen::Index num_fixed_points = 0;
   // The coordinates of the fixed points as columns.
   Eigen::Matrix3d fixed_points = Eigen::Matrix3d::Zero();
   bool MaybeAddPoint(const Eigen::Vector3d& point) {
