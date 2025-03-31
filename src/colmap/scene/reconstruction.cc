@@ -174,7 +174,7 @@ void Reconstruction::TearDown() {
       auto image_it = images_.find(data_id.id);
       if (frame_it->second.HasPose()) {
         keep_camera_ids.insert(image_it->second.CameraId());
-      } else {
+      } else if (image_it != images_.end()) {
         images_.erase(image_it);
       }
     }
