@@ -158,8 +158,8 @@ TEST(Reconstruction, Print) {
   std::ostringstream stream;
   stream << reconstruction;
   EXPECT_EQ(stream.str(),
-            "Reconstruction(num_rigs=1, num_cameras=1, num_images=2, "
-            "num_reg_images=2, num_points3D=3)");
+            "Reconstruction(num_rigs=1, num_cameras=1, num_frames=2, "
+            "num_reg_frames=2, num_images=2, num_points3D=3)");
 }
 
 TEST(Reconstruction, AddRig) {
@@ -218,7 +218,7 @@ TEST(Reconstruction, AddImage) {
   reconstruction.AddImage(image);
   EXPECT_TRUE(reconstruction.ExistsImage(1));
   EXPECT_EQ(reconstruction.Image(1).ImageId(), 1);
-  EXPECT_FALSE(reconstruction.IsImageRegistered(1));
+  EXPECT_FALSE(reconstruction.Frame(1).HasPose());
   EXPECT_EQ(reconstruction.Images().count(1), 1);
   EXPECT_EQ(reconstruction.Images().size(), 1);
   EXPECT_EQ(reconstruction.NumRigs(), 1);
@@ -326,42 +326,41 @@ TEST(Reconstruction, DeleteObservation) {
   EXPECT_FALSE(reconstruction.Image(point3D_id).Point2D(2).HasPoint3D());
 }
 
-TEST(Reconstruction, RegisterImage) {
+TEST(Reconstruction, RegisterFrame) {
   Reconstruction reconstruction;
   GenerateReconstruction(1, &reconstruction);
   EXPECT_EQ(reconstruction.NumRegFrames(), 1);
   EXPECT_TRUE(reconstruction.Image(1).HasPose());
-  EXPECT_TRUE(reconstruction.IsImageRegistered(1));
-  reconstruction.RegisterImage(1);
+  EXPECT_TRUE(reconstruction.Frame(1).HasPose());
+  reconstruction.RegisterFrame(1);
   EXPECT_EQ(reconstruction.NumRegFrames(), 1);
   EXPECT_TRUE(reconstruction.Image(1).HasPose());
-  EXPECT_TRUE(reconstruction.IsImageRegistered(1));
-  reconstruction.DeRegisterImage(1);
+  EXPECT_TRUE(reconstruction.Frame(1).HasPose());
+  reconstruction.DeRegisterFrame(1);
   EXPECT_EQ(reconstruction.NumRegFrames(), 0);
   EXPECT_FALSE(reconstruction.Image(1).HasPose());
-  EXPECT_FALSE(reconstruction.IsImageRegistered(1));
+  EXPECT_FALSE(reconstruction.Frame(1).HasPose());
 }
 
 TEST(Reconstruction, Normalize) {
   Reconstruction reconstruction;
   GenerateReconstruction(7, &reconstruction);
-  auto reg_image_ids = reconstruction.RegImageIds();
-  for (const auto& [image_id, _] : reconstruction.Images()) {
-    reconstruction.DeRegisterImage(image_id);
+  for (const auto& [frame_id, _] : reconstruction.Frames()) {
+    reconstruction.DeRegisterFrame(frame_id);
   }
   Sim3d tform = reconstruction.Normalize(/*fixed_scale=*/false);
   EXPECT_EQ(tform.scale, 1);
   EXPECT_EQ(tform.rotation.coeffs(), Eigen::Quaterniond::Identity().coeffs());
   EXPECT_EQ(tform.translation, Eigen::Vector3d::Zero());
-  reconstruction.Image(1).FramePtr()->SetFrameFromWorld(Rigid3d());
-  reconstruction.Image(2).FramePtr()->SetFrameFromWorld(Rigid3d());
-  reconstruction.Image(3).FramePtr()->SetFrameFromWorld(Rigid3d());
-  reconstruction.Image(1).FramePtr()->FrameFromWorld().translation.z() = -20.0;
-  reconstruction.Image(2).FramePtr()->FrameFromWorld().translation.z() = -10.0;
-  reconstruction.Image(3).FramePtr()->FrameFromWorld().translation.z() = 0.0;
-  reconstruction.RegisterImage(1);
-  reconstruction.RegisterImage(2);
-  reconstruction.RegisterImage(3);
+  reconstruction.Frame(1).SetFrameFromWorld(Rigid3d());
+  reconstruction.Frame(2).SetFrameFromWorld(Rigid3d());
+  reconstruction.Frame(3).SetFrameFromWorld(Rigid3d());
+  reconstruction.Frame(1).FrameFromWorld().translation.z() = -20.0;
+  reconstruction.Frame(2).FrameFromWorld().translation.z() = -10.0;
+  reconstruction.Frame(3).FrameFromWorld().translation.z() = 0.0;
+  reconstruction.RegisterFrame(1);
+  reconstruction.RegisterFrame(2);
+  reconstruction.RegisterFrame(3);
   reconstruction.Normalize(/*fixed_scale=*/true);
   EXPECT_NEAR(
       reconstruction.Image(1).CamFromWorld().translation.z(), -10, 1e-6);
@@ -403,10 +402,10 @@ TEST(Reconstruction, Normalize) {
   reconstruction.Image(5).FramePtr()->FrameFromWorld().translation.z() = -5.0;
   reconstruction.Image(6).FramePtr()->FrameFromWorld().translation.z() = 5.0;
   reconstruction.Image(7).FramePtr()->FrameFromWorld().translation.z() = 7.5;
-  reconstruction.RegisterImage(4);
-  reconstruction.RegisterImage(5);
-  reconstruction.RegisterImage(6);
-  reconstruction.RegisterImage(7);
+  reconstruction.RegisterFrame(4);
+  reconstruction.RegisterFrame(5);
+  reconstruction.RegisterFrame(6);
+  reconstruction.RegisterFrame(7);
   reconstruction.Normalize(/*fixed_scale=*/false, 10, 0.0, 1.0);
   EXPECT_NEAR(reconstruction.Image(1).CamFromWorld().translation.z(), -5, 1e-6);
   EXPECT_NEAR(reconstruction.Image(2).CamFromWorld().translation.z(), 0, 1e-6);
@@ -492,9 +491,9 @@ TEST(Reconstruction, Crop) {
   EXPECT_EQ(cropped2.NumImages(), 3);
   EXPECT_EQ(cropped2.NumRegFrames(), 2);
   EXPECT_EQ(cropped2.NumPoints3D(), 3);
-  EXPECT_TRUE(cropped2.IsImageRegistered(1));
-  EXPECT_TRUE(cropped2.IsImageRegistered(2));
-  EXPECT_FALSE(cropped2.IsImageRegistered(3));
+  EXPECT_TRUE(cropped2.Frame(1).HasPose());
+  EXPECT_TRUE(cropped2.Frame(2).HasPose());
+  EXPECT_FALSE(cropped2.Frame(3).HasPose());
 }
 
 TEST(Reconstruction, Transform) {
@@ -526,9 +525,9 @@ TEST(Reconstruction, FindCommonRegImageIds) {
   GenerateReconstruction(5, &reconstruction1);
   Reconstruction reconstruction2;
   GenerateReconstruction(5, &reconstruction2);
-  reconstruction1.DeRegisterImage(1);
+  reconstruction1.DeRegisterFrame(1);
   reconstruction1.Image(2).SetName("foo");
-  reconstruction2.DeRegisterImage(3);
+  reconstruction2.DeRegisterFrame(3);
   reconstruction2.Image(4).SetName("bar");
   const auto common_image_ids =
       reconstruction1.FindCommonRegImageIds(reconstruction2);

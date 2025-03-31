@@ -390,8 +390,6 @@ Sim3d Reconstruction::Normalize(const bool fixed_scale,
                                 const bool use_images) {
   THROW_CHECK_GT(extent, 0);
 
-  return Sim3d();
-
   if ((use_images && NumRegFrames() < 2) ||
       (!use_images && points3D_.size() < 2)) {
     return Sim3d();
@@ -400,19 +398,10 @@ Sim3d Reconstruction::Normalize(const bool fixed_scale,
   const auto [bbox, centroid] =
       ComputeBBBoxAndCentroid(min_percentile, max_percentile, use_images);
 
-  const auto has_non_trivial_rigs = [this]() {
-    for (const auto& [_, rig] : rigs_) {
-      if (rig.NumSensors() > 1) {
-        return true;
-      }
-    }
-    return false;
-  };
-
   // Calculate scale and translation, such that
   // translation is applied before scaling.
   double scale = 1.;
-  if (!fixed_scale && !has_non_trivial_rigs()) {
+  if (!fixed_scale) {
     const double old_extent = bbox.diagonal().norm();
     if (old_extent >= std::numeric_limits<double>::epsilon()) {
       scale = extent / old_extent;
@@ -481,11 +470,17 @@ Reconstruction::ComputeBBBoxAndCentroid(const double min_percentile,
 }
 
 void Reconstruction::Transform(const Sim3d& new_from_old_world) {
-  for (auto& [_, image] : images_) {
-    if (image.HasPose()) {
-      const Rigid3d cam_from_new_world =
-          TransformCameraWorld(new_from_old_world, image.CamFromWorld());
-      image.FramePtr()->SetCamFromWorld(image.CameraId(), cam_from_new_world);
+  for (auto& [_, rig] : rigs_) {
+    for (auto& [_, sensor_from_rig] : rig.Sensors()) {
+      if (sensor_from_rig.has_value()) {
+        sensor_from_rig->translation *= new_from_old_world.scale;
+      }
+    }
+  }
+  for (auto& [_, frame] : frames_) {
+    if (frame.HasPose()) {
+      frame.SetFrameFromWorld(
+          TransformCameraWorld(new_from_old_world, frame.FrameFromWorld()));
     }
   }
   for (auto& point3D : points3D_) {
