@@ -117,6 +117,8 @@ def adjust_local_bundle(
     # Find images that have most 3D points with given image in common
     local_bundle = mapper.find_local_bundle(mapper_options, image_id)
 
+    # TODO: Needs to be updated for rigs.
+
     # Do the bundle adjustment only if there is any connected images
     if local_bundle:
         ba_config = pycolmap.BundleAdjustmentConfig()
@@ -132,6 +134,7 @@ def adjust_local_bundle(
 
         # Determine which cameras to fix, when not all the registered images
         # are within the current local bundle.
+        num_frames_per_rig = {}
         num_images_per_camera = {}
         for image_id in ba_config.image_ids:
             image = reconstruction.images[image_id]

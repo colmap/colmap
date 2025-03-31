@@ -305,10 +305,11 @@ class IncrementalMapper {
     std::unordered_map<image_t, size_t> init_num_reg_trials;
     std::unordered_set<image_pair_t> init_image_pairs;
 
-    // The number of registered images per camera. This information is used
-    // to avoid duplicate refinement of camera parameters and degradation of
-    // already refined camera parameters in local bundle adjustment when
-    // multiple images share intrinsics.
+    // The number of registered frames/images per rig/camera. This information
+    // is used to avoid duplicate refinement of rig/camera parameters and
+    // degradation of already refined rig/camera parameters in local bundle
+    // adjustment when multiple frames share rigs or images share intrinsics.
+    std::unordered_map<rig_t, size_t> num_reg_frames_per_rig;
     std::unordered_map<camera_t, size_t> num_reg_images_per_camera;
 
     // The number of reconstructions in which images are registered.

@@ -483,6 +483,8 @@ void BindIncrementalMapperImpl(py::module& m) {
                              &IncrementalMapper::ExistingImageIds)
       .def("reset_initialization_stats",
            &IncrementalMapper::ResetInitializationStats)
+      .def_property_readonly("num_reg_frames_per_rig",
+                             &IncrementalMapper::NumRegFramesPerRig)
       .def_property_readonly("num_reg_images_per_camera",
                              &IncrementalMapper::NumRegImagesPerCamera)
       .def("num_total_reg_images", &IncrementalMapper::NumTotalRegImages)

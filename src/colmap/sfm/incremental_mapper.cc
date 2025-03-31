@@ -492,15 +492,32 @@ IncrementalMapper::AdjustLocalBundle(
       }
     }
 
-    // Determine which cameras to fix, when not all the registered images
-    // are within the current local bundle.
+    // Fix rig poses, if not all frames within the local bundle.
+    std::unordered_map<rig_t, size_t> num_frames_per_rig;
+    num_frames_per_rig.reserve(frame_ids.size());
+    for (const frame_t frame_id : frame_ids) {
+      const Frame& frame = reconstruction_->Frame(frame_id);
+      num_frames_per_rig[frame.RigId()] += 1;
+    }
+    for (const auto& [rig_id, num_frames] : num_frames_per_rig) {
+      const size_t num_reg_frames_for_rig =
+          reg_stats_.num_reg_frames_per_rig.at(rig_id);
+      if (num_frames < num_reg_frames_for_rig) {
+        const Rig& rig = reconstruction_->Rig(rig_id);
+        for (const auto& [sensor_id, _] : rig.Sensors()) {
+          ba_config.SetConstantSensorFromRigPose(sensor_id);
+        }
+      }
+    }
+
+    // Fix camera intrinsics, if not all images within local bundle.
     std::unordered_map<camera_t, size_t> num_images_per_camera;
     num_images_per_camera.reserve(ba_config.NumImages());
     for (const image_t image_id : ba_config.Images()) {
       const Image& image = reconstruction_->Image(image_id);
+      num_frames_per_rig[image.FramePtr()->RigId()] += 1;
       num_images_per_camera[image.CameraId()] += 1;
     }
-
     for (const auto& [camera_id, num_images] : num_images_per_camera) {
       const size_t num_reg_images_for_camera =
           reg_stats_.num_reg_images_per_camera.at(camera_id);
@@ -790,8 +807,14 @@ std::vector<image_t> IncrementalMapper::FindLocalBundle(
 
 void IncrementalMapper::RegisterFrameEvent(const frame_t frame_id) {
   const Frame& frame = reconstruction_->Frame(frame_id);
+
+  size_t& num_reg_frames_for_rig =
+      reg_stats_.num_reg_frames_per_rig[frame.RigId()];
+  num_reg_frames_for_rig += 1;
+
   for (const data_t& data_id : frame.ImageIds()) {
     const Image& image = reconstruction_->Image(data_id.id);
+
     size_t& num_reg_images_for_camera =
         reg_stats_.num_reg_images_per_camera[image.CameraId()];
     num_reg_images_for_camera += 1;
@@ -808,8 +831,15 @@ void IncrementalMapper::RegisterFrameEvent(const frame_t frame_id) {
 
 void IncrementalMapper::DeRegisterFrameEvent(const frame_t frame_id) {
   const Frame& frame = reconstruction_->Frame(frame_id);
+
+  size_t& num_reg_frames_per_rig =
+      reg_stats_.num_reg_images_per_camera.at(frame.RigId());
+  THROW_CHECK_GT(num_reg_frames_per_rig, 0);
+  num_reg_frames_per_rig -= 1;
+
   for (const data_t& data_id : frame.ImageIds()) {
     const Image& image = reconstruction_->Image(data_id.id);
+
     size_t& num_reg_images_for_camera =
         reg_stats_.num_reg_images_per_camera.at(image.CameraId());
     THROW_CHECK_GT(num_reg_images_for_camera, 0);
