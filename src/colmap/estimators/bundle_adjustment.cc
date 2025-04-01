@@ -98,7 +98,7 @@ size_t BundleAdjustmentConfig::NumResiduals(
     const auto& point3D = reconstruction.Point3D(point3D_id);
     for (const auto& track_el : point3D.track.Elements()) {
       if (image_ids_.count(track_el.image_id) == 0) {
-        num_observations_for_point += 1;
+        ++num_observations_for_point;
       }
     }
     return num_observations_for_point;

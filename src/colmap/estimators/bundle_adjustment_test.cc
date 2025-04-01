@@ -143,8 +143,10 @@ TEST(BundleAdjustmentConfig, NumResiduals) {
   synthetic_dataset_options.num_points3D = 100;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
 
-  const std::vector<image_t> image_ids = {reconstruction.RegImageIds().begin(),
-                                          reconstruction.RegImageIds().end()};
+  auto reg_image_ids = reconstruction.RegImageIds();
+  const std::vector<image_t> image_ids = {reg_image_ids.begin(),
+                                          reg_image_ids.end()};
+  CHECK_EQ(image_ids.size(), 4);
 
   BundleAdjustmentConfig config;
 
