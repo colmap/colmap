@@ -134,7 +134,6 @@ def adjust_local_bundle(
 
         # Determine which cameras to fix, when not all the registered images
         # are within the current local bundle.
-        num_frames_per_rig = {}
         num_images_per_camera = {}
         for image_id in ba_config.image_ids:
             image = reconstruction.images[image_id]
