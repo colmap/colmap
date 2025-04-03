@@ -74,11 +74,14 @@ void CreateOneRigPerCamera(Reconstruction& reconstruction) {
   }
 }
 
-void CreateFrameForImage(Reconstruction& reconstruction, Image& image) {
+void CreateFrameForImage(const Image& image,
+                         const Rigid3d& cam_from_world,
+                         Reconstruction& reconstruction) {
   Frame frame;
   frame.SetFrameId(image.ImageId());
   frame.SetRigId(image.CameraId());
   frame.AddDataId(image.DataId());
+  frame.SetFrameFromWorld(cam_from_world);
   reconstruction.AddFrame(std::move(frame));
 }
 
@@ -376,17 +379,13 @@ void ReadImagesText(Reconstruction& reconstruction, std::istream& stream) {
     image.SetCameraId(std::stoul(item));
 
     if (is_legacy_reconstruction) {
-      CreateFrameForImage(reconstruction, image);
+      CreateFrameForImage(image, cam_from_world, reconstruction);
       image.SetFrameId(image.ImageId());
       image.SetFramePtr(&reconstruction.Frame(image.ImageId()));
     } else {
       Frame* frame = image_to_frame.at(image.ImageId());
       image.SetFrameId(frame->FrameId());
       image.SetFramePtr(frame);
-    }
-
-    if (image.HasTrivialFrame()) {
-      image.FramePtr()->SetFrameFromWorld(cam_from_world);
     }
 
     // NAME
@@ -676,17 +675,13 @@ void ReadImagesBinary(Reconstruction& reconstruction, std::istream& stream) {
     image.SetCameraId(ReadBinaryLittleEndian<camera_t>(&stream));
 
     if (is_legacy_reconstruction) {
-      CreateFrameForImage(reconstruction, image);
+      CreateFrameForImage(image, cam_from_world, reconstruction);
       image.SetFrameId(image.ImageId());
       image.SetFramePtr(&reconstruction.Frame(image.ImageId()));
     } else {
       Frame* frame = image_to_frame.at(image.ImageId());
       image.SetFrameId(frame->FrameId());
       image.SetFramePtr(frame);
-    }
-
-    if (image.HasTrivialFrame()) {
-      image.FramePtr()->SetFrameFromWorld(cam_from_world);
     }
 
     char name_char;

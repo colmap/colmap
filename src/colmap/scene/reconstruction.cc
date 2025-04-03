@@ -661,41 +661,66 @@ void Reconstruction::Read(const std::string& path) {
              ExistsFile(JoinPaths(path, "points3D.txt"))) {
     ReadText(path);
   } else {
-    LOG(FATAL_THROW) << "cameras, images, points3D files do not exist at "
-                     << path;
+    LOG(FATAL_THROW)
+        << "rigs, cameras, frames, images, points3D files do not exist at "
+        << path;
   }
 }
 
 void Reconstruction::Write(const std::string& path) const { WriteBinary(path); }
 
 void Reconstruction::ReadText(const std::string& path) {
+  rigs_.clear();
   cameras_.clear();
+  frames_.clear();
   images_.clear();
   points3D_.clear();
+  const std::string rigs_path = JoinPaths(path, "rigs.txt");
+  if (!ExistsFile(rigs_path)) {
+    ReadRigsText(*this, rigs_path);
+  }
   ReadCamerasText(*this, JoinPaths(path, "cameras.txt"));
+  const std::string frames_path = JoinPaths(path, "frames.txt");
+  if (!ExistsFile(frames_path)) {
+    ReadFramesText(*this, frames_path);
+  }
   ReadImagesText(*this, JoinPaths(path, "images.txt"));
   ReadPoints3DText(*this, JoinPaths(path, "points3D.txt"));
 }
 
 void Reconstruction::ReadBinary(const std::string& path) {
+  rigs_.clear();
   cameras_.clear();
+  frames_.clear();
   images_.clear();
   points3D_.clear();
+  const std::string rigs_path = JoinPaths(path, "rigs.bin");
+  if (!ExistsFile(rigs_path)) {
+    ReadRigsBinary(*this, rigs_path);
+  }
   ReadCamerasBinary(*this, JoinPaths(path, "cameras.bin"));
+  const std::string frames_path = JoinPaths(path, "frames.bin");
+  if (!ExistsFile(frames_path)) {
+    ReadFramesBinary(*this, frames_path);
+  }
   ReadImagesBinary(*this, JoinPaths(path, "images.bin"));
   ReadPoints3DBinary(*this, JoinPaths(path, "points3D.bin"));
 }
 
 void Reconstruction::WriteText(const std::string& path) const {
   THROW_CHECK_DIR_EXISTS(path);
+  WriteRigsText(*this, JoinPaths(path, "rigs.txt"));
   WriteCamerasText(*this, JoinPaths(path, "cameras.txt"));
+  WriteFramesText(*this, JoinPaths(path, "frames.txt"));
   WriteImagesText(*this, JoinPaths(path, "images.txt"));
   WritePoints3DText(*this, JoinPaths(path, "points3D.txt"));
 }
 
 void Reconstruction::WriteBinary(const std::string& path) const {
   THROW_CHECK_DIR_EXISTS(path);
+  WriteRigsBinary(*this, JoinPaths(path, "rigs.bin"));
   WriteCamerasBinary(*this, JoinPaths(path, "cameras.bin"));
+  WriteFramesBinary(*this, JoinPaths(path, "frames.bin"));
   WriteImagesBinary(*this, JoinPaths(path, "images.bin"));
   WritePoints3DBinary(*this, JoinPaths(path, "points3D.bin"));
 }
