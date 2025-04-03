@@ -331,7 +331,7 @@ int RunRigConfigurator(int argc, char** argv) {
       const std::optional<camera_t>& camera_id = camera_ids[camera_idx];
       THROW_CHECK(camera_id.has_value())
           << "At least one image must exist for each camera in the rig";
-      if (ref_sensor_idx == camera_idx) {
+      if (static_cast<size_t>(ref_sensor_idx) == camera_idx) {
         rig.AddRefSensor(sensor_t(SensorType::CAMERA, *camera_id));
       } else {
         rig.AddSensor(sensor_t(SensorType::CAMERA, *camera_id),
