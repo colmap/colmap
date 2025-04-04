@@ -33,7 +33,7 @@
 # The following variables are set by this module:
 #
 #   FLANN_FOUND: TRUE if FLANN is found.
-#   flann: Imported target to link against.
+#   flann::flann_cpp_s Imported target to link against.
 #
 # The following variables control the behavior of this module:
 #
@@ -49,49 +49,56 @@ unset(FLANN_FOUND)
 unset(FLANN_INCLUDE_DIRS)
 unset(FLANN_LIBRARIES)
 
-list(APPEND FLANN_CHECK_INCLUDE_DIRS
-    ${FLANN_INCLUDE_DIR_HINTS}
-    /usr/include
-    /usr/local/include
-    /opt/include
-    /opt/local/include
-)
-
-list(APPEND FLANN_CHECK_LIBRARY_DIRS
-    ${FLANN_LIBRARY_DIR_HINTS}
-    /usr/lib
-    /usr/local/lib
-    /opt/lib
-    /opt/local/lib
-)
-
-find_path(FLANN_INCLUDE_DIRS
-    NAMES
-    flann/flann.hpp
-    PATHS
-    ${FLANN_CHECK_INCLUDE_DIRS})
-find_library(FLANN_LIBRARIES
-    NAMES
-    flann
-    PATHS
-    ${FLANN_CHECK_LIBRARY_DIRS})
-
-if(FLANN_INCLUDE_DIRS AND FLANN_LIBRARIES)
+find_package(flann CONFIG QUIET)
+if(TARGET flann::flann_cpp_s)
     set(FLANN_FOUND TRUE)
-endif()
-
-if(FLANN_FOUND)
     message(STATUS "Found FLANN")
-    message(STATUS "  Includes : ${FLANN_INCLUDE_DIRS}")
-    message(STATUS "  Libraries : ${FLANN_LIBRARIES}")
+    message(STATUS "  Target : flann::flann_cpp_s")
 else()
-    if(FLANN_FIND_REQUIRED)
-        message(FATAL_ERROR "Could not find FLANN")
-    endif()
-endif()
+    list(APPEND FLANN_CHECK_INCLUDE_DIRS
+        ${FLANN_INCLUDE_DIR_HINTS}
+        /usr/include
+        /usr/local/include
+        /opt/include
+        /opt/local/include
+    )
 
-add_library(flann INTERFACE IMPORTED)
-target_include_directories(
-    flann INTERFACE ${FLANN_INCLUDE_DIRS})
-target_link_libraries(
-    flann INTERFACE ${FLANN_LIBRARIES})
+    list(APPEND FLANN_CHECK_LIBRARY_DIRS
+        ${FLANN_LIBRARY_DIR_HINTS}
+        /usr/lib
+        /usr/local/lib
+        /opt/lib
+        /opt/local/lib
+    )
+
+    find_path(FLANN_INCLUDE_DIRS
+        NAMES
+        flann/flann.hpp
+        PATHS
+        ${FLANN_CHECK_INCLUDE_DIRS})
+    find_library(FLANN_LIBRARIES
+        NAMES
+        flann
+        PATHS
+        ${FLANN_CHECK_LIBRARY_DIRS})
+
+    if(FLANN_INCLUDE_DIRS AND FLANN_LIBRARIES)
+        set(FLANN_FOUND TRUE)
+    endif()
+
+    if(FLANN_FOUND)
+        message(STATUS "Found FLANN")
+        message(STATUS "  Includes : ${FLANN_INCLUDE_DIRS}")
+        message(STATUS "  Libraries : ${FLANN_LIBRARIES}")
+    else()
+        if(FLANN_FIND_REQUIRED)
+            message(FATAL_ERROR "Could not find FLANN")
+        endif()
+    endif()
+
+    add_library(flann::flann_cpp_s INTERFACE IMPORTED)
+    target_include_directories(
+        flann::flann_cpp_s INTERFACE ${FLANN_INCLUDE_DIRS})
+    target_link_libraries(
+        flann::flann_cpp_s INTERFACE ${FLANN_LIBRARIES})
+endif()
