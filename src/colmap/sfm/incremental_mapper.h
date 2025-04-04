@@ -259,6 +259,7 @@ class IncrementalMapper {
   IncrementalTriangulator& Triangulator() const;
   const std::unordered_set<frame_t>& FilteredFrames() const;
   const std::unordered_set<frame_t>& ExistingFrameIds() const;
+  const std::unordered_map<rig_t, size_t>& NumRegFramesPerRig() const;
   const std::unordered_map<camera_t, size_t>& NumRegImagesPerCamera() const;
 
   // Reset registration statistics for initialization. This can be used when

@@ -379,8 +379,8 @@ void BindIncrementalMapperImpl(py::module& m) {
           "find_initial_image_pair",
           [](IncrementalMapper& self,
              const IncrementalMapper::Options& options,
-             int image_id1,
-             int image_id2)
+             image_t image_id1,
+             image_t image_id2)
               -> py::typing::Optional<py::typing::Tuple<image_t, image_t>> {
             // Explicitly handle the conversion
             // from -1 (int) to kInvalidImageId (uint32_t).
@@ -470,17 +470,17 @@ void BindIncrementalMapperImpl(py::module& m) {
            "ba_options"_a,
            "tri_options"_a,
            "normalize_reconstruction"_a = true)
-      .def("filter_images", &IncrementalMapper::FilterImages, "options"_a)
+      .def("filter_frames", &IncrementalMapper::FilterFrames, "options"_a)
       .def("filter_points", &IncrementalMapper::FilterPoints, "options"_a)
       .def_property_readonly("reconstruction",
                              &IncrementalMapper::Reconstruction)
       .def_property_readonly("observation_manager",
                              &IncrementalMapper::ObservationManager)
       .def_property_readonly("triangulator", &IncrementalMapper::Triangulator)
-      .def_property_readonly("filtered_images",
-                             &IncrementalMapper::FilteredImages)
-      .def_property_readonly("existing_image_ids",
-                             &IncrementalMapper::ExistingImageIds)
+      .def_property_readonly("filtered_frames",
+                             &IncrementalMapper::FilteredFrames)
+      .def_property_readonly("existing_frame_ids",
+                             &IncrementalMapper::ExistingFrameIds)
       .def("reset_initialization_stats",
            &IncrementalMapper::ResetInitializationStats)
       .def_property_readonly("num_reg_frames_per_rig",
