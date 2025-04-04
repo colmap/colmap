@@ -542,6 +542,7 @@ IncrementalMapper::AdjustLocalBundle(
     }
 
     // Adjust the local bundle.
+    const std::unordered_set<image_t> image_ids = ba_config.Images();
     std::unique_ptr<BundleAdjuster> bundle_adjuster =
         CreateDefaultBundleAdjuster(
             ba_options, std::move(ba_config), *reconstruction_);
@@ -569,7 +570,7 @@ IncrementalMapper::AdjustLocalBundle(
   report.num_filtered_observations =
       obs_manager_->FilterPoints3DInImages(options.filter_max_reproj_error,
                                            options.filter_min_tri_angle,
-                                           ba_config.Images());
+                                           image_ids);
   report.num_filtered_observations +=
       obs_manager_->FilterPoints3D(options.filter_max_reproj_error,
                                    options.filter_min_tri_angle,

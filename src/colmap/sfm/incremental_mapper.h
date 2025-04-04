@@ -322,8 +322,8 @@ class IncrementalMapper {
 
   // Register / De-register frame in current reconstruction and update
   // the number of shared frames between all reconstructions.
-  void RegisterFrameEvent(const frame_t frame_id);
-  void DeRegisterFrameEvent(const frame_t frame_id);
+  void RegisterFrameEvent(frame_t frame_id);
+  void DeRegisterFrameEvent(frame_t frame_id);
 
   // Class that holds all necessary data from database in memory.
   const std::shared_ptr<const DatabaseCache> database_cache_;
