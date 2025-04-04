@@ -465,6 +465,7 @@ IncrementalMapper::AdjustLocalBundle(
 
   // Do the bundle adjustment only if there is any connected images.
   BundleAdjustmentConfig ba_config;
+  std::unordered_set<image_t> image_ids;
   if (local_bundle.size() > 0) {
     ba_config.FixGauge(BundleAdjustmentGauge::THREE_POINTS);
 
@@ -542,7 +543,7 @@ IncrementalMapper::AdjustLocalBundle(
     }
 
     // Adjust the local bundle.
-    const std::unordered_set<image_t> image_ids = ba_config.Images();
+    image_ids = ba_config.Images();
     std::unique_ptr<BundleAdjuster> bundle_adjuster =
         CreateDefaultBundleAdjuster(
             ba_options, std::move(ba_config), *reconstruction_);
