@@ -33,7 +33,7 @@
 # The following variables are set by this module:
 #
 #   FLANN_FOUND: TRUE if FLANN is found.
-#   flann::flann: Imported target to link against.
+#   flann::flann_cpp_s Imported target to link against.
 #
 # The following variables control the behavior of this module:
 #
