@@ -567,10 +567,8 @@ IncrementalMapper::AdjustLocalBundle(
   // there are no outlier points in the model. This results in duplicate work as
   // many of the provided 3D points may also be contained in the adjusted
   // images, but the filtering is not a bottleneck at this point.
-  report.num_filtered_observations =
-      obs_manager_->FilterPoints3DInImages(options.filter_max_reproj_error,
-                                           options.filter_min_tri_angle,
-                                           image_ids);
+  report.num_filtered_observations = obs_manager_->FilterPoints3DInImages(
+      options.filter_max_reproj_error, options.filter_min_tri_angle, image_ids);
   report.num_filtered_observations +=
       obs_manager_->FilterPoints3D(options.filter_max_reproj_error,
                                    options.filter_min_tri_angle,
