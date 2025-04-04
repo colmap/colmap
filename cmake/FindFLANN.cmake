@@ -98,7 +98,7 @@ else()
 
     add_library(flann::flann_cpp_s INTERFACE IMPORTED)
     target_include_directories(
-        flann INTERFACE ${FLANN_INCLUDE_DIRS})
+        flann::flann_cpp_s INTERFACE ${FLANN_INCLUDE_DIRS})
     target_link_libraries(
-        flann INTERFACE ${FLANN_LIBRARIES})
+        flann::flann_cpp_s INTERFACE ${FLANN_LIBRARIES})
 endif()
