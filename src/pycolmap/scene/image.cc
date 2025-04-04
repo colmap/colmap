@@ -26,7 +26,7 @@ namespace py = pybind11;
 template <typename T>
 std::shared_ptr<Image> MakeImage(const std::string& name,
                                  const std::vector<T>& points2D,
-                                 size_t camera_id,
+                                 camera_t camera_id,
                                  image_t image_id) {
   auto image = std::make_shared<Image>();
   image->SetName(name);
@@ -44,7 +44,6 @@ void BindSceneImage(py::module& m) {
       .def(py::init(&MakeImage<Point2D>),
            "name"_a = "",
            py::arg_v("points2D", Point2DVector(), "Point2DList()"),
-           "cam_from_world"_a = py::none(),
            py::arg_v(
                "camera_id", kInvalidCameraId, "pycolmap.INVALID_CAMERA_ID"),
            py::arg_v("image_id", kInvalidImageId, "pycolmap.INVALID_IMAGE_ID"))
