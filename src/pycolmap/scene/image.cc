@@ -96,7 +96,6 @@ void BindSceneImage(py::module& m) {
            "frame (rig).")
       .def_property_readonly(
           "has_pose", &Image::HasPose, "Whether the image has a valid pose.")
-      .def("reset_pose", &Image::ResetPose, "Invalidate the pose of the image.")
       .def_property(
           "points2D",
           py::overload_cast<>(&Image::Points2D),

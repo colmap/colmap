@@ -214,7 +214,7 @@ TEST(UndistortReconstruction, Nominal) {
     image.SetPoints2D(
         std::vector<Eigen::Vector2d>(kNumPoints2D, Eigen::Vector2d::Ones()));
     reconstruction.AddImage(image);
-    reconstruction.RegisterImage(image_id);
+    reconstruction.RegisterFrame(frame.FrameId());
   }
 
   UndistortCameraOptions options;

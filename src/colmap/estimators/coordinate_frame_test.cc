@@ -71,6 +71,7 @@ TEST(CoordinateFrame, AlignToPrincipalPlane) {
   Frame frame;
   frame.SetFrameId(1);
   frame.SetRigId(rig.RigId());
+  frame.AddDataId(data_t(camera.SensorId(), 1));
   frame.SetFrameFromWorld(
       Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(-1, 0, 0)));
   reconstruction.AddFrame(frame);

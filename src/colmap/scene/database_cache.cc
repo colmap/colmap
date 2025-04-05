@@ -207,6 +207,7 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
         class Frame frame;
         frame.SetFrameId(image_id);
         frame.SetRigId(image.CameraId());
+        frame.AddDataId(image.DataId());
         image_to_frame_id.emplace(image_id, frame.FrameId());
         cache->frames_.emplace(frame.FrameId(), std::move(frame));
       }

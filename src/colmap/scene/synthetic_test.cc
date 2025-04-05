@@ -87,9 +87,8 @@ TEST(SynthesizeDataset, Nominal) {
   EXPECT_EQ(reconstruction.NumImages(),
             options.num_rigs * options.num_cameras_per_rig *
                 options.num_frames_per_rig);
-  EXPECT_EQ(reconstruction.NumRegImages(),
-            options.num_rigs * options.num_cameras_per_rig *
-                options.num_frames_per_rig);
+  EXPECT_EQ(reconstruction.NumRegFrames(),
+            options.num_rigs * options.num_frames_per_rig);
   for (const auto& image : reconstruction.Images()) {
     EXPECT_EQ(image.second.Name(), database.ReadImage(image.first).Name());
     EXPECT_EQ(image.second.NumPoints2D(),
@@ -212,8 +211,8 @@ TEST(SynthesizeDataset, MultiReconstruction) {
   EXPECT_EQ(database.NumImages(), 2 * num_images);
   EXPECT_EQ(reconstruction1.NumImages(), num_images);
   EXPECT_EQ(reconstruction2.NumImages(), num_images);
-  EXPECT_EQ(reconstruction1.NumRegImages(), num_images);
-  EXPECT_EQ(reconstruction2.NumRegImages(), num_images);
+  EXPECT_EQ(reconstruction1.NumRegFrames(), num_images);
+  EXPECT_EQ(reconstruction2.NumRegFrames(), num_images);
   const int num_image_pairs = num_images * (num_images - 1) / 2;
   EXPECT_EQ(database.NumVerifiedImagePairs(), 2 * num_image_pairs);
   EXPECT_EQ(database.NumInlierMatches(),

@@ -36,10 +36,16 @@
 #define SELECTION_BUFFER_IMAGE_IDX 0
 #define SELECTION_BUFFER_POINT_IDX 1
 
+// Color of a selected 3D point.
 const Eigen::Vector4f kSelectedPointColor(0.0f, 1.0f, 0.0f, 1.0f);
 
+// Color of the viewing frustum if the image is selected.
 const Eigen::Vector4f kSelectedImagePlaneColor(1.0f, 0.0f, 1.0f, 0.6f);
 const Eigen::Vector4f kSelectedImageFrameColor(0.8f, 0.0f, 0.8f, 1.0f);
+
+// Color of the viewing frustum if another image in the same frame is selected.
+const Eigen::Vector4f kSelectedFramePlaneColor(0.8f, 0.0f, 0.8f, 0.3f);
+const Eigen::Vector4f kSelectedFrameFrameColor(0.6f, 0.0f, 0.6f, 0.7f);
 
 const Eigen::Vector4f kMovieGrabberImagePlaneColor(0.0f, 1.0f, 1.0f, 0.6f);
 const Eigen::Vector4f kMovieGrabberImageFrameColor(0.0f, 0.8f, 0.8f, 1.0f);
@@ -384,16 +390,28 @@ void ModelViewerWidget::ReloadReconstruction() {
     return;
   }
 
+  rigs = reconstruction->Rigs();
   cameras = reconstruction->Cameras();
+  frames = reconstruction->Frames();
   points3D = reconstruction->Points3D();
-  const std::set<image_t>& reg_image_ids_set = reconstruction->RegImageIds();
-  reg_image_ids =
-      std::vector<image_t>(reg_image_ids_set.begin(), reg_image_ids_set.end());
 
+  frames.clear();
   images.clear();
-  for (const image_t image_id : reg_image_ids) {
-    images[image_id] = reconstruction->Image(image_id);
+  reg_image_ids.clear();
+  for (const frame_t frame_id : reconstruction->RegFrameIds()) {
+    Frame& frame = frames[frame_id];
+    frame = reconstruction->Frame(frame_id);
+    frame.SetRigPtr(&rigs[frame.RigId()]);
+    for (const data_t& data_id : frame.ImageIds()) {
+      Image& image = images[data_id.id];
+      image = reconstruction->Image(data_id.id);
+      image.SetCameraPtr(&cameras[image.CameraId()]);
+      image.SetFramePtr(&frame);
+      reg_image_ids.push_back(data_id.id);
+    }
   }
+
+  std::sort(reg_image_ids.begin(), reg_image_ids.end());
 
   if (selected_point3D_id_ != kInvalidPoint3DId &&
       points3D.count(selected_point3D_id_) == 0) {
@@ -401,12 +419,14 @@ void ModelViewerWidget::ReloadReconstruction() {
   }
 
   if (selected_image_id_ != kInvalidImageId &&
-      reg_image_ids_set.count(selected_image_id_) == 0) {
+      !std::binary_search(
+          reg_image_ids.begin(), reg_image_ids.end(), selected_image_id_)) {
     selected_image_id_ = kInvalidImageId;
   }
 
   statusbar_status_label->setText(
-      QString().asprintf("%d Images - %d Points",
+      QString().asprintf("%d Frames - %d Images - %d Points",
+                         static_cast<int>(reconstruction->NumRegFrames()),
                          static_cast<int>(reg_image_ids.size()),
                          static_cast<int>(points3D.size())));
 
@@ -1061,6 +1081,10 @@ void ModelViewerWidget::UploadImageData(const bool selection_mode) {
   std::vector<TrianglePainter::Data> triangle_data;
   triangle_data.reserve(2 * reg_image_ids.size());
 
+  const frame_t selected_frame_id = selected_image_id_ == kInvalidImageId
+                                        ? kInvalidFrameId
+                                        : images[selected_image_id_].FrameId();
+
   for (const image_t image_id : reg_image_ids) {
     const Image& image = images[image_id];
     const Camera& camera = cameras[image.CameraId()];
@@ -1076,18 +1100,18 @@ void ModelViewerWidget::UploadImageData(const bool selection_mode) {
       if (image_id == selected_image_id_) {
         plane_color = kSelectedImagePlaneColor;
         frame_color = kSelectedImageFrameColor;
+      } else if (selected_frame_id != kInvalidFrameId &&
+                 image.FrameId() == selected_frame_id) {
+        plane_color = kSelectedFramePlaneColor;
+        frame_color = kSelectedFrameFrameColor;
       } else {
         image_colormap_->ComputeColor(image, &plane_color, &frame_color);
       }
     }
 
-    THROW_CHECK(image.HasTrivialFrame());
-    const std::optional<Rigid3d>& cam_from_world =
-        image.FramePtr()->MaybeFrameFromWorld();
-
     // Lines are not colored with the indexed color in selection mode, so do not
     // show them, so they do not block the selection process
-    BuildCameraModel(*cam_from_world,
+    BuildCameraModel(image.CamFromWorld(),
                      camera,
                      image_size_,
                      plane_color,

@@ -107,14 +107,13 @@ class Image {
   inline void SetFramePtr(class Frame* frame);
   inline void ResetFramePtr();
   inline bool HasFramePtr() const;
-  // Check if the cam_from_world needs to be composed with the rig pose.
+  // Check if cam_from_world needs to be composed with sensor_from_rig pose.
   inline bool HasTrivialFrame() const;
 
   // Composition of sensor_from_rig and frame_from_world transformations.
   // If the corresponding frame is trivial, this is equal to frame_from_world.
   inline Rigid3d CamFromWorld() const;
   inline bool HasPose() const;
-  inline void ResetPose();
 
   // Access the coordinates of image points.
   inline const struct Point2D& Point2D(point2D_t point2D_idx) const;
@@ -148,8 +147,6 @@ class Image {
   inline bool operator!=(const Image& other) const;
 
  private:
-  inline void ThrowIfNonTrivialFrame() const;
-
   // Identifier of the image, if not specified `kInvalidImageId`.
   image_t image_id_;
 
@@ -255,7 +252,7 @@ bool Image::HasFramePtr() const { return frame_ptr_ != nullptr; }
 bool Image::HasTrivialFrame() const {
   return THROW_CHECK_NOTNULL(frame_ptr_)
       ->RigPtr()
-      ->IsRefSensor(sensor_t(SensorType::CAMERA, CameraId()));
+      ->IsRefSensor(sensor_t(SensorType::CAMERA, camera_id_));
 }
 
 point2D_t Image::NumPoints2D() const {
@@ -266,7 +263,7 @@ point2D_t Image::NumPoints3D() const { return num_points3D_; }
 
 Rigid3d Image::CamFromWorld() const {
   return THROW_CHECK_NOTNULL(frame_ptr_)
-      ->SensorFromWorld(sensor_t(SensorType::CAMERA, CameraId()));
+      ->SensorFromWorld(sensor_t(SensorType::CAMERA, camera_id_));
 }
 
 bool Image::HasPose() const {
@@ -275,11 +272,6 @@ bool Image::HasPose() const {
   } else {
     return frame_ptr_->HasPose();
   }
-}
-
-void Image::ResetPose() {
-  ThrowIfNonTrivialFrame();
-  frame_ptr_->ResetPose();
 }
 
 const struct Point2D& Image::Point2D(const point2D_t point2D_idx) const {
@@ -311,10 +303,5 @@ bool Image::operator==(const Image& other) const {
 }
 
 bool Image::operator!=(const Image& other) const { return !(*this == other); }
-
-void Image::ThrowIfNonTrivialFrame() const {
-  THROW_CHECK(HasTrivialFrame())
-      << "Operation not supported for non-trivial frame (rig).";
-}
 
 }  // namespace colmap

@@ -455,14 +455,15 @@ std::vector<image_t> IncrementalMapperImpl::FindLocalBundle(
   std::vector<double> tri_angles(overlapping_images.size(), -1.0);
   std::vector<char> used_overlapping_images(overlapping_images.size(), false);
 
-  for (const auto& selection_threshold : selection_thresholds) {
+  for (const auto& [min_tri_angle_rad, min_num_shared_obs] :
+       selection_thresholds) {
     for (size_t overlapping_image_idx = 0;
          overlapping_image_idx < overlapping_images.size();
          ++overlapping_image_idx) {
       // Check if the image has sufficient overlap. Since the images are ordered
       // based on the overlap, we can just skip the remaining ones.
       if (overlapping_images[overlapping_image_idx].second <
-          selection_threshold.second) {
+          min_num_shared_obs) {
         break;
       }
 
@@ -478,8 +479,8 @@ std::vector<image_t> IncrementalMapperImpl::FindLocalBundle(
 
       // In the first iteration, compute the triangulation angle. In later
       // iterations, reuse the previously computed value.
-      double& tri_angle = tri_angles[overlapping_image_idx];
-      if (tri_angle < 0.0) {
+      double& tri_angle_rad = tri_angles[overlapping_image_idx];
+      if (tri_angle_rad < 0.0) {
         // Collect the commonly observed 3D points.
         shared_points3D.clear();
         for (const Point2D& point2D : overlapping_image.Points2D()) {
@@ -491,14 +492,14 @@ std::vector<image_t> IncrementalMapperImpl::FindLocalBundle(
 
         // Calculate the triangulation angle at a certain percentile.
         const double kTriangulationAnglePercentile = 75;
-        tri_angle = Percentile(
+        tri_angle_rad = Percentile(
             CalculateTriangulationAngles(
                 proj_center, overlapping_proj_center, shared_points3D),
             kTriangulationAnglePercentile);
       }
 
       // Check that the image has sufficient triangulation angle.
-      if (tri_angle >= selection_threshold.first) {
+      if (tri_angle_rad >= min_tri_angle_rad) {
         local_bundle_image_ids.push_back(overlapping_image.ImageId());
         used_overlapping_images[overlapping_image_idx] = true;
         // Check if we already collected enough images.
@@ -576,6 +577,13 @@ bool IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
           camera1, points1, camera2, points2, &two_view_geometry)) {
     return false;
   }
+
+  VLOG(3) << "Initial image pair with config " << two_view_geometry.config
+          << ", " << two_view_geometry.inlier_matches.size()
+          << " inlier matches, "
+          << two_view_geometry.cam2_from_cam1.translation.z()
+          << " z translation, " << RadToDeg(two_view_geometry.tri_angle)
+          << " deg triangulation angle";
 
   if (static_cast<int>(two_view_geometry.inlier_matches.size()) >=
           options.init_min_num_inliers &&
