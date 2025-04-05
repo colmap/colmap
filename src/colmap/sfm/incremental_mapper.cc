@@ -778,8 +778,8 @@ void IncrementalMapper::ResetInitializationStats() {
   reg_stats_.init_num_reg_trials.clear();
 }
 
-const std::unordered_map<rig_t, size_t>&
-IncrementalMapper::NumRegFramesPerRig() const {
+const std::unordered_map<rig_t, size_t>& IncrementalMapper::NumRegFramesPerRig()
+    const {
   return reg_stats_.num_reg_frames_per_rig;
 }
 
