@@ -55,7 +55,8 @@ struct SyntheticDatasetOptions {
   enum class MatchConfig {
     // Exhaustive matches between all pairs of observations of a 3D point.
     EXHAUSTIVE = 1,
-    // Chain of matches with random start/end observations.
+    // Chain of matches between images with consecutive identifiers, i.e.,
+    // there are only matches between image pairs (image_id, image_id+1).
     CHAINED = 2,
   };
   MatchConfig match_config = MatchConfig::EXHAUSTIVE;
