@@ -609,10 +609,10 @@ double Reconstruction::ComputeMeanTrackLength() const {
 }
 
 double Reconstruction::ComputeMeanObservationsPerRegImage() const {
-  if (NumRegFrames() == 0) {
+  if (NumRegImages() == 0) {
     return 0.0;
   } else {
-    return ComputeNumObservations() / static_cast<double>(NumRegFrames());
+    return ComputeNumObservations() / static_cast<double>(NumRegImages());
   }
 }
 
