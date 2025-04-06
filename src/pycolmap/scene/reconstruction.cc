@@ -31,9 +31,9 @@ void BindReconstruction(py::module& m) {
       .def(py::init<>())
       .def(py::init<const Reconstruction&>(), "reconstruction"_a)
       .def(py::init([](const std::string& path) {
-             auto reconstruction = std::make_shared<Reconstruction>();
-             reconstruction->Read(path);
-             return reconstruction;
+    auto reconstruction = std::make_shared<Reconstruction>();
+    reconstruction->Read(path);
+    return reconstruction;
            }),
            "path"_a)
       .def("read",
@@ -213,45 +213,46 @@ void BindReconstruction(py::module& m) {
       .def(
           "check",
           [](Reconstruction& self) {
-            for (auto& p3D_p : self.Points3D()) {
-              const Point3D& p3D = p3D_p.second;
-              const point3D_t p3Did = p3D_p.first;
-              for (auto& track_el : p3D.track.Elements()) {
-                image_t image_id = track_el.image_id;
-                point2D_t point2D_idx = track_el.point2D_idx;
-                THROW_CHECK(self.ExistsImage(image_id)) << image_id;
-                const Image& image = self.Image(image_id);
-                THROW_CHECK(image.HasPose());
-                THROW_CHECK_EQ(image.Point2D(point2D_idx).point3D_id, p3Did);
-              }
-            }
-            for (auto& image_id : self.RegImageIds()) {
-              THROW_CHECK(self.Image(image_id).HasCameraId()) << image_id;
-              camera_t camera_id = self.Image(image_id).CameraId();
-              THROW_CHECK(self.ExistsCamera(camera_id)) << camera_id;
-            }
+    for (auto& p3D_p : self.Points3D()) {
+      const Point3D& p3D = p3D_p.second;
+      const point3D_t p3Did = p3D_p.first;
+      for (auto& track_el : p3D.track.Elements()) {
+        image_t image_id = track_el.image_id;
+        point2D_t point2D_idx = track_el.point2D_idx;
+        THROW_CHECK(self.ExistsImage(image_id)) << image_id;
+        const Image& image = self.Image(image_id);
+        THROW_CHECK(image.HasPose());
+        THROW_CHECK_EQ(image.Point2D(point2D_idx).point3D_id, p3Did);
+      }
+    }
+    for (auto& image_id : self.RegImageIds()) {
+      THROW_CHECK(self.Image(image_id).HasCameraId()) << image_id;
+      camera_t camera_id = self.Image(image_id).CameraId();
+      THROW_CHECK(self.ExistsCamera(camera_id)) << camera_id;
+    }
           },
           "Check if current reconstruction is well formed.")
       .def("__copy__",
-           [](const Reconstruction& self) { return Reconstruction(self); })
+           [](const Reconstruction& self) {
+    return Reconstruction(self); })
       .def("__deepcopy__",
            [](const Reconstruction& self, const py::dict&) {
-             return Reconstruction(self);
+    return Reconstruction(self);
            })
       .def("__repr__", &CreateRepresentation<Reconstruction>)
       .def("summary", [](const Reconstruction& self) {
-        std::ostringstream ss;
-        ss << "Reconstruction:"
-           << "\n\tnum_cameras = " << self.NumCameras()
-           << "\n\tnum_images = " << self.NumImages()
-           << "\n\tnum_reg_images = " << self.NumRegImages()
-           << "\n\tnum_points3D = " << self.NumPoints3D()
-           << "\n\tnum_observations = " << self.ComputeNumObservations()
-           << "\n\tmean_track_length = " << self.ComputeMeanTrackLength()
-           << "\n\tmean_observations_per_image = "
-           << self.ComputeMeanObservationsPerRegImage()
-           << "\n\tmean_reprojection_error = "
-           << self.ComputeMeanReprojectionError();
-        return ss.str();
+    std::ostringstream ss;
+    ss << "Reconstruction:"
+       << "\n\tnum_cameras = " << self.NumCameras()
+       << "\n\tnum_images = " << self.NumImages()
+       << "\n\tnum_reg_images = " << self.NumRegImages()
+       << "\n\tnum_points3D = " << self.NumPoints3D()
+       << "\n\tnum_observations = " << self.ComputeNumObservations()
+       << "\n\tmean_track_length = " << self.ComputeMeanTrackLength()
+       << "\n\tmean_observations_per_image = "
+       << self.ComputeMeanObservationsPerRegImage()
+       << "\n\tmean_reprojection_error = "
+       << self.ComputeMeanReprojectionError();
+    return ss.str();
       });
 }
