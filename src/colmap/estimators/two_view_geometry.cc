@@ -371,6 +371,9 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
                             inlier_cam_points2,
                             &geometry->cam2_from_cam1,
                             &points3D);
+    if (points3D.empty()) {
+      return false;
+    }
   } else if (geometry->config ==
              TwoViewGeometry::ConfigurationType::UNCALIBRATED) {
     const Eigen::Matrix3d E = EssentialFromFundamentalMatrix(
@@ -380,6 +383,9 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
                             inlier_cam_points2,
                             &geometry->cam2_from_cam1,
                             &points3D);
+    if (points3D.empty()) {
+      return false;
+    }
   } else if (geometry->config == TwoViewGeometry::ConfigurationType::PLANAR ||
              geometry->config ==
                  TwoViewGeometry::ConfigurationType::PANORAMIC ||
@@ -394,6 +400,10 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
                              &geometry->cam2_from_cam1,
                              &normal,
                              &points3D);
+    if (geometry->config == TwoViewGeometry::ConfigurationType::PLANAR &&
+        points3D.empty()) {
+      return false;
+    }
   } else {
     return false;
   }

@@ -166,8 +166,9 @@ std::vector<double> CalculateTriangulationAngles(
       angles[i] = 0.0;
       continue;
     }
-    const double nominator =
-        ray_length_squared1 + ray_length_squared2 - baseline_length_squared;
+    const double nominator = std::max(
+        0.0,
+        ray_length_squared1 + ray_length_squared2 - baseline_length_squared);
     const double angle = std::abs(std::acos(nominator / denominator));
 
     // Triangulation is unstable for acute angles (far away points) and
