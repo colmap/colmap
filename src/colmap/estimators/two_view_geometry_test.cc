@@ -55,7 +55,7 @@ struct TwoViewGeometryTestData {
 
 TwoViewGeometryTestData CreateTwoViewGeometryTestData(
     TwoViewGeometry::ConfigurationType config) {
-  SetPRNGSeed(42);
+  SetPRNGSeed(10);
 
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
