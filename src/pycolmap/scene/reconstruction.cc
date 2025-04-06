@@ -231,31 +231,6 @@ void BindReconstruction(py::module& m) {
            &Reconstruction::CreateImageDirs,
            "path"_a,
            "Create all image sub-directories in the given path.")
-      // TODO(jsch): Implement this in the reconstruction rather than here?
-      //  .def(
-      //      "check",
-      //      [](Reconstruction& self) {
-      //        for (auto& p3D_p : self.Points3D()) {
-      //          const Point3D& p3D = p3D_p.second;
-      //          const point3D_t p3Did = p3D_p.first;
-      //          for (auto& track_el : p3D.track.Elements()) {
-      //            image_t image_id = track_el.image_id;
-      //            point2D_t point2D_idx = track_el.point2D_idx;
-      //            THROW_CHECK(self.ExistsImage(image_id)) << image_id;
-      //            THROW_CHECK(self.IsImageRegistered(image_id)) << image_id;
-      //            const Image& image = self.Image(image_id);
-      //            THROW_CHECK(image.HasPose());
-      //            THROW_CHECK_EQ(image.Point2D(point2D_idx).point3D_id,
-      //            p3Did);
-      //          }
-      //        }
-      //        for (auto& frame_id : self.RegFrameIds()) {
-      //          THROW_CHECK(self.Image(image_id).HasCameraId()) << image_id;
-      //          camera_t camera_id = self.Image(image_id).CameraId();
-      //          THROW_CHECK(self.ExistsCamera(camera_id)) << camera_id;
-      //        }
-      //      },
-      //      "Check if current reconstruction is well formed.")
       .def("__copy__",
            [](const Reconstruction& self) { return Reconstruction(self); })
       .def("__deepcopy__",
