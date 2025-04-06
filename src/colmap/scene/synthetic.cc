@@ -169,6 +169,10 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
   THROW_CHECK_GE(options.point2D_stddev, 0.);
   THROW_CHECK_GE(options.prior_position_stddev, 0.);
 
+  if (PRNG == nullptr) {
+    SetPRNGSeed();
+  }
+
   // Synthesize cameras.
   std::vector<camera_t> camera_ids(options.num_cameras);
   for (int camera_idx = 0; camera_idx < options.num_cameras; ++camera_idx) {
