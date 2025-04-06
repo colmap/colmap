@@ -46,11 +46,19 @@
 namespace colmap {
 namespace {
 
-void ExpectValidCameraPtrs(const Reconstruction& reconstruction) {
+void ExpectValidPtrs(const Reconstruction& reconstruction) {
+  for (const auto& frame : reconstruction.Frames()) {
+    EXPECT_TRUE(frame.second.HasRigPtr());
+    auto& rig = reconstruction.Rig(frame.second.RigId());
+    EXPECT_EQ(frame.second.RigPtr(), &rig);
+  }
   for (const auto& image : reconstruction.Images()) {
     EXPECT_TRUE(image.second.HasCameraPtr());
     auto& camera = reconstruction.Camera(image.second.CameraId());
     EXPECT_EQ(image.second.CameraPtr(), &camera);
+    EXPECT_TRUE(image.second.HasFramePtr());
+    auto& frame = reconstruction.Frame(image.second.FrameId());
+    EXPECT_EQ(image.second.FramePtr(), &frame);
   }
 }
 
@@ -115,8 +123,9 @@ TEST(Reconstruction, Empty) {
   EXPECT_EQ(reconstruction.NumRigs(), 0);
   EXPECT_EQ(reconstruction.NumCameras(), 0);
   EXPECT_EQ(reconstruction.NumFrames(), 0);
-  EXPECT_EQ(reconstruction.NumImages(), 0);
   EXPECT_EQ(reconstruction.NumRegFrames(), 0);
+  EXPECT_EQ(reconstruction.NumImages(), 0);
+  EXPECT_EQ(reconstruction.NumRegImages(), 0);
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
 }
 
@@ -131,6 +140,8 @@ TEST(Reconstruction, ConstructCopy) {
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
   const Reconstruction reconstruction_copy(reconstruction);
   ExpectEqualReconstructions(reconstruction, reconstruction_copy);
+  ExpectValidPtrs(reconstruction);
+  ExpectValidPtrs(reconstruction_copy);
 }
 
 TEST(Reconstruction, AssignCopy) {
@@ -145,6 +156,8 @@ TEST(Reconstruction, AssignCopy) {
   Reconstruction reconstruction_copy;
   reconstruction_copy = reconstruction;
   ExpectEqualReconstructions(reconstruction, reconstruction_copy);
+  ExpectValidPtrs(reconstruction);
+  ExpectValidPtrs(reconstruction_copy);
 }
 
 TEST(Reconstruction, Print) {
@@ -175,8 +188,9 @@ TEST(Reconstruction, AddRig) {
   EXPECT_EQ(reconstruction.NumRigs(), 1);
   EXPECT_EQ(reconstruction.NumCameras(), 0);
   EXPECT_EQ(reconstruction.NumFrames(), 0);
-  EXPECT_EQ(reconstruction.NumImages(), 0);
   EXPECT_EQ(reconstruction.NumRegFrames(), 0);
+  EXPECT_EQ(reconstruction.NumImages(), 0);
+  EXPECT_EQ(reconstruction.NumRegImages(), 0);
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
 }
 
@@ -192,10 +206,42 @@ TEST(Reconstruction, AddCamera) {
   EXPECT_EQ(reconstruction.Cameras().size(), 1);
   EXPECT_EQ(reconstruction.NumRigs(), 0);
   EXPECT_EQ(reconstruction.NumCameras(), 1);
-  EXPECT_EQ(reconstruction.NumFrames(), 0);
-  EXPECT_EQ(reconstruction.NumImages(), 0);
   EXPECT_EQ(reconstruction.NumRegFrames(), 0);
+  EXPECT_EQ(reconstruction.NumImages(), 0);
+  EXPECT_EQ(reconstruction.NumRegImages(), 0);
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
+}
+
+TEST(Reconstruction, AddFrame) {
+  Reconstruction reconstruction;
+  Camera camera =
+      Camera::CreateFromModelId(1, CameraModelId::kSimplePinhole, 1, 1, 1);
+  reconstruction.AddCamera(camera);
+  Rig rig;
+  rig.SetRigId(1);
+  rig.AddRefSensor(camera.SensorId());
+  Frame frame;
+  frame.SetFrameId(1);
+  frame.SetRigId(rig.RigId());
+  EXPECT_ANY_THROW(reconstruction.AddFrame(frame));
+  reconstruction.AddRig(rig);
+  reconstruction.AddFrame(frame);
+  EXPECT_TRUE(reconstruction.ExistsFrame(1));
+  EXPECT_EQ(reconstruction.Frame(1).FrameId(), 1);
+  EXPECT_EQ(reconstruction.Frames().count(1), 1);
+  EXPECT_EQ(reconstruction.Frames().size(), 1);
+  EXPECT_EQ(reconstruction.NumRigs(), 1);
+  EXPECT_EQ(reconstruction.NumCameras(), 1);
+  EXPECT_EQ(reconstruction.NumFrames(), 1);
+  EXPECT_EQ(reconstruction.NumRegFrames(), 0);
+  EXPECT_EQ(reconstruction.NumImages(), 0);
+  EXPECT_EQ(reconstruction.NumRegImages(), 0);
+  EXPECT_EQ(reconstruction.NumPoints3D(), 0);
+  reconstruction.Frame(1).SetFrameFromWorld(Rigid3d());
+  reconstruction.RegisterFrame(1);
+  EXPECT_EQ(reconstruction.NumRegFrames(), 1);
+  EXPECT_EQ(reconstruction.NumRegImages(), 0);
+  ExpectValidPtrs(reconstruction);
 }
 
 TEST(Reconstruction, AddImage) {
@@ -209,13 +255,15 @@ TEST(Reconstruction, AddImage) {
   Frame frame;
   frame.SetFrameId(1);
   frame.SetRigId(rig.RigId());
-  reconstruction.AddFrame(frame);
   Image image;
   image.SetCameraId(camera.camera_id);
   image.SetImageId(1);
   image.SetFrameId(frame.FrameId());
+  frame.AddDataId(image.DataId());
   EXPECT_ANY_THROW(reconstruction.AddImage(image));
   reconstruction.AddCamera(camera);
+  EXPECT_ANY_THROW(reconstruction.AddImage(image));
+  reconstruction.AddFrame(frame);
   reconstruction.AddImage(image);
   EXPECT_TRUE(reconstruction.ExistsImage(1));
   EXPECT_EQ(reconstruction.Image(1).ImageId(), 1);
@@ -225,10 +273,15 @@ TEST(Reconstruction, AddImage) {
   EXPECT_EQ(reconstruction.NumRigs(), 1);
   EXPECT_EQ(reconstruction.NumCameras(), 1);
   EXPECT_EQ(reconstruction.NumFrames(), 1);
-  EXPECT_EQ(reconstruction.NumImages(), 1);
   EXPECT_EQ(reconstruction.NumRegFrames(), 0);
+  EXPECT_EQ(reconstruction.NumImages(), 1);
+  EXPECT_EQ(reconstruction.NumRegImages(), 0);
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
-  ExpectValidCameraPtrs(reconstruction);
+  reconstruction.Image(1).FramePtr()->SetFrameFromWorld(Rigid3d());
+  reconstruction.RegisterFrame(1);
+  EXPECT_EQ(reconstruction.NumRegFrames(), 1);
+  EXPECT_EQ(reconstruction.NumRegImages(), 1);
+  ExpectValidPtrs(reconstruction);
 }
 
 TEST(Reconstruction, AddPoint3D) {
@@ -626,7 +679,7 @@ TEST(Reconstruction, DeleteAllPoints2DAndPoints3D) {
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
   reconstruction.DeleteAllPoints2DAndPoints3D();
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
-  ExpectValidCameraPtrs(reconstruction);
+  ExpectValidPtrs(reconstruction);
 }
 
 }  // namespace
