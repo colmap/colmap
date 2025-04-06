@@ -363,7 +363,10 @@ void Reconstruction::DeleteAllPoints2DAndPoints3D() {
 
 void Reconstruction::RegisterFrame(const frame_t frame_id) {
   THROW_CHECK(Frame(frame_id).HasPose());
-  reg_frame_ids_.insert(frame_id);
+  if (std::find(reg_frame_ids_.begin(), reg_frame_ids_.end(), frame_id) ==
+      reg_frame_ids_.end()) {
+    reg_frame_ids_.push_back(frame_id);
+  }
 }
 
 void Reconstruction::DeRegisterFrame(const frame_t frame_id) {
@@ -380,7 +383,9 @@ void Reconstruction::DeRegisterFrame(const frame_t frame_id) {
   }
 
   frame.ResetPose();
-  reg_frame_ids_.erase(frame_id);
+  reg_frame_ids_.erase(
+      std::remove(reg_frame_ids_.begin(), reg_frame_ids_.end(), frame_id),
+      reg_frame_ids_.end());
 }
 
 Sim3d Reconstruction::Normalize(const bool fixed_scale,
@@ -570,7 +575,8 @@ void Reconstruction::TranscribeImageIdsToDatabase(const Database& database) {
                        << " does not exist in database";
     }
 
-    const auto database_image = database.ReadImageWithName(image.second.Name());
+    const class Image database_image =
+        database.ReadImageWithName(image.second.Name());
     old_to_new_image_ids.emplace(image.second.ImageId(),
                                  database_image.ImageId());
     image.second.SetImageId(database_image.ImageId());
@@ -578,12 +584,6 @@ void Reconstruction::TranscribeImageIdsToDatabase(const Database& database) {
   }
 
   images_ = std::move(new_images);
-
-  std::set<image_t> new_reg_image_ids;
-  for (const image_t image_id : RegImageIds()) {
-    new_reg_image_ids.insert(old_to_new_image_ids.at(image_id));
-  }
-  reg_frame_ids_ = new_reg_image_ids;
 
   for (auto& point3D : points3D_) {
     for (auto& track_el : point3D.second.track.Elements()) {

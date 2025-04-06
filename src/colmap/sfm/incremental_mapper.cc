@@ -583,12 +583,10 @@ bool IncrementalMapper::AdjustGlobalBundle(
   THROW_CHECK_NOTNULL(reconstruction_);
   THROW_CHECK_NOTNULL(obs_manager_);
 
-  const std::set<frame_t>& reg_frame_ids = reconstruction_->RegFrameIds();
-
   BundleAdjustmentOptions custom_ba_options = ba_options;
   // Use stricter convergence criteria for first registered images.
   const size_t kMinNumRegFramesForFastBA = 10;
-  if (reg_frame_ids.size() < kMinNumRegFramesForFastBA) {
+  if (reconstruction_->NumRegFrames() < kMinNumRegFramesForFastBA) {
     custom_ba_options.solver_options.function_tolerance /= 10;
     custom_ba_options.solver_options.gradient_tolerance /= 10;
     custom_ba_options.solver_options.parameter_tolerance /= 10;
@@ -601,7 +599,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
 
   // Configure bundle adjustment.
   BundleAdjustmentConfig ba_config;
-  for (const frame_t frame_id : reg_frame_ids) {
+  for (const frame_t frame_id : reconstruction_->RegFrameIds()) {
     const Frame& frame = reconstruction_->Frame(frame_id);
     for (const data_t& data_id : frame.ImageIds()) {
       ba_config.AddImage(data_id.id);
@@ -614,7 +612,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
 
   // Fix the existing images, if option specified.
   if (options.fix_existing_frames) {
-    for (const frame_t frame_id : reg_frame_ids) {
+    for (const frame_t frame_id : reconstruction_->RegFrameIds()) {
       if (existing_frame_ids_.count(frame_id)) {
         ba_config.SetConstantFrameFromWorldPose(frame_id);
       }

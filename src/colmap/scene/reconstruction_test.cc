@@ -390,6 +390,14 @@ TEST(Reconstruction, RegisterFrame) {
   EXPECT_EQ(reconstruction.NumRegFrames(), 1);
   EXPECT_TRUE(reconstruction.Image(1).HasPose());
   EXPECT_TRUE(reconstruction.Frame(1).HasPose());
+  reconstruction.RegisterFrame(1);
+  EXPECT_EQ(reconstruction.NumRegFrames(), 1);
+  EXPECT_TRUE(reconstruction.Image(1).HasPose());
+  EXPECT_TRUE(reconstruction.Frame(1).HasPose());
+  reconstruction.DeRegisterFrame(1);
+  EXPECT_EQ(reconstruction.NumRegFrames(), 0);
+  EXPECT_FALSE(reconstruction.Image(1).HasPose());
+  EXPECT_FALSE(reconstruction.Frame(1).HasPose());
   reconstruction.DeRegisterFrame(1);
   EXPECT_EQ(reconstruction.NumRegFrames(), 0);
   EXPECT_FALSE(reconstruction.Image(1).HasPose());

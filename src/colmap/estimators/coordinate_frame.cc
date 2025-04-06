@@ -330,7 +330,7 @@ void AlignToPrincipalPlane(Reconstruction* reconstruction,
 
   // If camera plane ends up below ground then flip basis vectors.
   const Frame& frame0 =
-      reconstruction->Frame(*reconstruction->RegFrameIds().begin());
+      reconstruction->Frame(reconstruction->RegFrameIds().front());
   const auto frame0_image_ids = frame0.ImageIds();
   THROW_CHECK(frame0_image_ids.begin() != frame0_image_ids.end());
   const Rigid3d cam0_from_aligned_world = TransformCameraWorld(

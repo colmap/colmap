@@ -91,7 +91,7 @@ class Reconstruction {
   inline const std::unordered_map<rig_t, class Rig>& Rigs() const;
   inline const std::unordered_map<camera_t, struct Camera>& Cameras() const;
   inline const std::unordered_map<frame_t, class Frame>& Frames() const;
-  inline const std::set<frame_t>& RegFrameIds() const;
+  inline const std::vector<frame_t>& RegFrameIds() const;
   inline const std::unordered_map<image_t, class Image>& Images() const;
   inline const std::unordered_map<point3D_t, struct Point3D>& Points3D() const;
 
@@ -275,8 +275,11 @@ class Reconstruction {
   std::unordered_map<image_t, class Image> images_;
   std::unordered_map<point3D_t, struct Point3D> points3D_;
 
-  // { frame_id, ... } where `Frame(frame_id).HasPose() == true`.
-  std::set<frame_t> reg_frame_ids_;
+  // Unique set of frame_ids where `Frame(frame_id).HasPose() == true`.
+  // Note that we intentionally use a vector instead of a set here leading
+  // to O(n) complexity on calls to RegisterFrame/DeRegisterFrame, because
+  // we iterate very often over the set of registered frames.
+  std::vector<frame_t> reg_frame_ids_;
 
   // Total number of added 3D points, used to generate unique identifiers.
   point3D_t max_point3D_id_;
@@ -408,7 +411,7 @@ const std::unordered_map<image_t, class Image>& Reconstruction::Images() const {
   return images_;
 }
 
-const std::set<frame_t>& Reconstruction::RegFrameIds() const {
+const std::vector<frame_t>& Reconstruction::RegFrameIds() const {
   return reg_frame_ids_;
 }
 

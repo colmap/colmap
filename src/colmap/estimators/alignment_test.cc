@@ -187,7 +187,7 @@ TEST(Alignment, MergeReconstructions) {
   Reconstruction tgt_reconstruction = src_reconstruction;
 
   // Remove the rig of the first image from the target reconstruction.
-  const std::set<frame_t> frame_ids = tgt_reconstruction.RegFrameIds();
+  const std::vector<frame_t> frame_ids = tgt_reconstruction.RegFrameIds();
   const rig_t rig_id = tgt_reconstruction.Frame(*frame_ids.begin()).RigId();
   for (const auto& frame_id : frame_ids) {
     if (tgt_reconstruction.Frame(frame_id).RigId() == rig_id) {
