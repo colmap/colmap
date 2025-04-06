@@ -33,6 +33,7 @@
 #include "colmap/geometry/homography_matrix.h"
 #include "colmap/geometry/triangulation.h"
 #include "colmap/math/math.h"
+#include "colmap/math/random.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/eigen_alignment.h"
@@ -58,7 +59,7 @@ TwoViewGeometryTestData CreateTwoViewGeometryTestData(
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_cameras = 2;
   synthetic_dataset_options.num_images = 2;
-  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.num_points3D = 100;
   synthetic_dataset_options.point2D_stddev = 0;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
 
