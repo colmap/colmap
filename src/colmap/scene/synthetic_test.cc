@@ -239,10 +239,7 @@ TEST(SynthesizeDataset, ChainedMatches) {
   SyntheticDatasetOptions options;
   options.match_config = SyntheticDatasetOptions::MatchConfig::CHAINED;
   SynthesizeDataset(options, &reconstruction, &database);
-
-  const int num_image_pairs =
-      reconstruction.NumImages() * (reconstruction.NumImages() - 1) / 2;
-  EXPECT_EQ(database.NumVerifiedImagePairs(), num_image_pairs);
+  EXPECT_EQ(database.NumVerifiedImagePairs(), reconstruction.NumImages() - 1);
   EXPECT_EQ(database.NumInlierMatches(),
             (reconstruction.NumImages() - 1) * options.num_points3D);
 }
