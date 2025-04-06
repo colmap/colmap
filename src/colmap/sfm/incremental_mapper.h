@@ -322,7 +322,7 @@ class IncrementalMapper {
   };
 
   // Register / De-register frame in current reconstruction and update
-  // the number of shared frames between all reconstructions.
+  // the (shared) registration statistics.
   void RegisterFrameEvent(frame_t frame_id);
   void DeRegisterFrameEvent(frame_t frame_id);
 

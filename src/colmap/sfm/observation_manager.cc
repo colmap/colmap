@@ -88,7 +88,7 @@ ObservationManager::ObservationManager(
 
   // If an existing model was loaded from disk and there were already images
   // registered previously, we need to set observations as triangulated.
-  for (const auto image_id : reconstruction_.RegImageIds()) {
+  for (const image_t image_id : reconstruction_.RegImageIds()) {
     const Image& image = reconstruction_.Image(image_id);
     for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
          ++point2D_idx) {
@@ -104,7 +104,7 @@ ObservationManager::ObservationManager(
 void ObservationManager::IncrementCorrespondenceHasPoint3D(
     const image_t image_id, const point2D_t point2D_idx) {
   const Image& image = reconstruction_.Image(image_id);
-  const struct Point2D& point2D = image.Point2D(point2D_idx);
+  const Point2D& point2D = image.Point2D(point2D_idx);
   ImageStat& stats = image_stats_.at(image_id);
 
   stats.num_correspondences_have_point3D[point2D_idx] += 1;
@@ -120,7 +120,7 @@ void ObservationManager::IncrementCorrespondenceHasPoint3D(
 void ObservationManager::DecrementCorrespondenceHasPoint3D(
     const image_t image_id, const point2D_t point2D_idx) {
   const Image& image = reconstruction_.Image(image_id);
-  const struct Point2D& point2D = image.Point2D(point2D_idx);
+  const Point2D& point2D = image.Point2D(point2D_idx);
   ImageStat& stats = image_stats_.at(image_id);
 
   stats.num_correspondences_have_point3D[point2D_idx] -= 1;
@@ -339,6 +339,7 @@ size_t ObservationManager::FilterObservationsWithNegativeDepth() {
       }
     }
   }
+  LOG(ERROR) << "FILETERED " << num_filtered;
   return num_filtered;
 }
 

@@ -835,10 +835,10 @@ void IncrementalMapper::RegisterFrameEvent(const frame_t frame_id) {
 void IncrementalMapper::DeRegisterFrameEvent(const frame_t frame_id) {
   const Frame& frame = reconstruction_->Frame(frame_id);
 
-  size_t& num_reg_frames_per_rig =
-      reg_stats_.num_reg_images_per_camera.at(frame.RigId());
-  THROW_CHECK_GT(num_reg_frames_per_rig, 0);
-  num_reg_frames_per_rig -= 1;
+  size_t& num_reg_frames_for_rig =
+      reg_stats_.num_reg_frames_per_rig.at(frame.RigId());
+  THROW_CHECK_GT(num_reg_frames_for_rig, 0);
+  num_reg_frames_for_rig -= 1;
 
   for (const data_t& data_id : frame.ImageIds()) {
     const Image& image = reconstruction_->Image(data_id.id);
