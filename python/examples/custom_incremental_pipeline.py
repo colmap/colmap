@@ -122,7 +122,7 @@ def reconstruct_sub_model(controller, mapper, mapper_options, reconstruction):
             next_image_id = next_images[reg_trial]
             logging.info(
                 f"Registering image #{next_image_id} "
-                f"({reconstruction.num_reg_images() + 1})"
+                f"(num_reg_frames={reconstruction.num_reg_frames() + 1})"
             )
             num_vis = mapper.observation_manager.num_visible_points3D(
                 next_image_id

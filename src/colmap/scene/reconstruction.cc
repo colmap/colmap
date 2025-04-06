@@ -555,7 +555,8 @@ std::vector<std::pair<image_t, image_t>> Reconstruction::FindCommonRegImageIds(
       const auto& image = Image(data_id.id);
       const auto* other_image = other.FindImageWithName(image.Name());
       if (other_image != nullptr && other_image->FramePtr()->HasPose()) {
-        common_reg_image_ids.emplace_back(frame_id, other_image->ImageId());
+        common_reg_image_ids.emplace_back(image.ImageId(),
+                                          other_image->ImageId());
       }
     }
   }

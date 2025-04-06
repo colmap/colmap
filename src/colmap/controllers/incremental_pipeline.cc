@@ -404,9 +404,9 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
     for (size_t reg_trial = 0; reg_trial < next_images.size(); ++reg_trial) {
       next_image_id = next_images[reg_trial];
 
-      LOG(INFO) << StringPrintf("Registering image #%d (%d)",
+      LOG(INFO) << StringPrintf("Registering image #%d (num_reg_frames=%d)",
                                 next_image_id,
-                                reconstruction->NumRegFrames() + 1);
+                                reconstruction->NumRegFrames());
       LOG(INFO) << StringPrintf(
           "=> Image sees %d / %d points",
           mapper.ObservationManager().NumVisiblePoints3D(next_image_id),
