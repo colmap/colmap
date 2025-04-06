@@ -145,9 +145,6 @@ class Reconstruction {
   // De-register an existing image, and all its references.
   void DeRegisterImage(image_t image_id);
 
-  // Check if image is registered.
-  inline bool IsImageRegistered(image_t image_id) const;
-
   // Normalize scene by scaling and translation to improve numerical stability
   // of algorithms.
   //
@@ -356,10 +353,6 @@ bool Reconstruction::ExistsImage(const image_t image_id) const {
 
 bool Reconstruction::ExistsPoint3D(const point3D_t point3D_id) const {
   return points3D_.find(point3D_id) != points3D_.end();
-}
-
-bool Reconstruction::IsImageRegistered(const image_t image_id) const {
-  return reg_image_ids_.find(image_id) != reg_image_ids_.end();
 }
 
 }  // namespace colmap
