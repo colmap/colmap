@@ -306,8 +306,8 @@ TEST(EstimateTwoViewGeometryPose, PlanarOrPanoramic) {
         num_failures++;
       }
     }
-    EXPECT_EQ(num_failures, 0);
   }
+  EXPECT_EQ(num_failures, 0);
 }
 
 }  // namespace
