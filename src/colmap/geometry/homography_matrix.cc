@@ -249,6 +249,9 @@ void PoseFromHomographyMatrix(const Eigen::Matrix3d& H,
   std::vector<Eigen::Vector3d> tentative_points3D;
   double best_reproj_error_sum = std::numeric_limits<double>::max();
   for (size_t i = 0; i < cams2_from_cams1.size(); ++i) {
+    // Note that we can typically eliminate 2 of the 4 solutions using the
+    // cheirality check. We can then typically narrow it down to 1 solution by
+    // picking the solution with minimal overall reprojection error.
     const double reproj_error_sum = CheckCheiralityAndReprojErrorSum(
         cams2_from_cams1[i], points1, points2, &tentative_points3D);
     if (tentative_points3D.size() > points3D->size() ||
