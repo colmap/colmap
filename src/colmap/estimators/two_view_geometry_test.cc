@@ -144,7 +144,6 @@ TwoViewGeometryTestData CreateTwoViewGeometryTestData(
 TEST(EstimateTwoViewGeometryPose, Calibrated) {
   constexpr int kNumTests = 100;
   for (int seed = 0; seed < kNumTests; ++seed) {
-    SetPRNGSeed(seed);
     const TwoViewGeometryTestData test_data = CreateTwoViewGeometryTestData(
         TwoViewGeometry::ConfigurationType::CALIBRATED);
 
@@ -166,6 +165,26 @@ TEST(EstimateTwoViewGeometryPose, Calibrated) {
         geometry.cam2_from_cam1.translation,
         EigenMatrixNear(
             test_data.geometry.cam2_from_cam1.translation.normalized(), 1e-6));
+  }
+}
+
+TEST(EstimateTwoViewGeometryPose, FailureDueToInsufficientMatches) {
+  for (const auto config : {TwoViewGeometry::ConfigurationType::CALIBRATED,
+                            TwoViewGeometry::ConfigurationType::UNCALIBRATED,
+                            TwoViewGeometry::ConfigurationType::PLANAR,
+                            TwoViewGeometry::ConfigurationType::PANORAMIC}) {
+    TwoViewGeometryTestData test_data = CreateTwoViewGeometryTestData(config);
+    test_data.geometry.inlier_matches.clear();
+
+    TwoViewGeometry geometry;
+    geometry.config = test_data.geometry.config;
+    geometry.E = test_data.geometry.E;
+    geometry.inlier_matches = test_data.geometry.inlier_matches;
+    EXPECT_FALSE(EstimateTwoViewGeometryPose(test_data.camera1,
+                                             test_data.points1,
+                                             test_data.camera2,
+                                             test_data.points2,
+                                             &geometry)) << config;
   }
 }
 
@@ -199,7 +218,6 @@ TEST(EstimateTwoViewGeometryPose, Uncalibrated) {
 TEST(EstimateTwoViewGeometryPose, Planar) {
   constexpr int kNumTests = 100;
   for (int seed = 0; seed < kNumTests; ++seed) {
-    SetPRNGSeed(seed);
     const TwoViewGeometryTestData test_data = CreateTwoViewGeometryTestData(
         TwoViewGeometry::ConfigurationType::PLANAR);
 
