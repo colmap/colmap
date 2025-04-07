@@ -45,7 +45,8 @@
 
 namespace colmap {
 
-// Return 1 if number is positive, -1 if negative, and 0 if the number is 0.
+// Return 1 if number is positive (including 0), -1 if negative.
+// Undefined behavior if the value is NaN.
 template <typename T>
 int SignOfNumber(T val);
 
@@ -166,7 +167,7 @@ bool NextCombination(Iterator first1,
 
 template <typename T>
 int SignOfNumber(const T val) {
-  return (T(0) < val) - (val < T(0));
+  return val >= 0 ? 1 : -1;
 }
 
 template <typename T>

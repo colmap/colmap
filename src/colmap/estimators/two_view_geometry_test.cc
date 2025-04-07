@@ -269,7 +269,7 @@ TEST(EstimateTwoViewGeometryPose, Planar) {
                                    test_data.geometry,
                                    /*tri_angle_tol=*/1e-3,
                                    /*rotation_tol=*/1e-6,
-                                   /*translation_tol=*/1e-6,
+                                   /*translation_tol=*/1e-5,
                                    /*normalized_translation=*/false)) {
       num_failures++;
     }

@@ -36,6 +36,7 @@
 #include "colmap/util/logging.h"
 
 #include <array>
+#include <iomanip>
 
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
@@ -44,12 +45,12 @@ namespace colmap {
 namespace {
 
 double ComputeOppositeOfMinor(const Eigen::Matrix3d& matrix,
-                              const size_t row,
-                              const size_t col) {
-  const size_t col1 = col == 0 ? 1 : 0;
-  const size_t col2 = col == 2 ? 1 : 2;
-  const size_t row1 = row == 0 ? 1 : 0;
-  const size_t row2 = row == 2 ? 1 : 2;
+                              const int row,
+                              const int col) {
+  const int col1 = col == 0 ? 1 : 0;
+  const int col2 = col == 2 ? 1 : 2;
+  const int row1 = row == 0 ? 1 : 0;
+  const int row2 = row == 2 ? 1 : 2;
   return (matrix(row1, col2) * matrix(row2, col1) -
           matrix(row1, col1) * matrix(row2, col2));
 }
