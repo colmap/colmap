@@ -144,6 +144,7 @@ TwoViewGeometryTestData CreateTwoViewGeometryTestData(
 TEST(EstimateTwoViewGeometryPose, Calibrated) {
   constexpr int kNumTests = 100;
   for (int seed = 0; seed < kNumTests; ++seed) {
+    SetPRNGSeed(seed);
     const TwoViewGeometryTestData test_data = CreateTwoViewGeometryTestData(
         TwoViewGeometry::ConfigurationType::CALIBRATED);
 
@@ -169,6 +170,7 @@ TEST(EstimateTwoViewGeometryPose, Calibrated) {
 }
 
 TEST(EstimateTwoViewGeometryPose, FailureDueToInsufficientMatches) {
+  SetPRNGSeed(0);
   for (const auto config : {TwoViewGeometry::ConfigurationType::CALIBRATED,
                             TwoViewGeometry::ConfigurationType::UNCALIBRATED,
                             TwoViewGeometry::ConfigurationType::PLANAR,
@@ -192,6 +194,7 @@ TEST(EstimateTwoViewGeometryPose, FailureDueToInsufficientMatches) {
 TEST(EstimateTwoViewGeometryPose, Uncalibrated) {
   constexpr int kNumTests = 100;
   for (int seed = 0; seed < kNumTests; ++seed) {
+    SetPRNGSeed(seed);
     const TwoViewGeometryTestData test_data = CreateTwoViewGeometryTestData(
         TwoViewGeometry::ConfigurationType::UNCALIBRATED);
 
@@ -219,6 +222,7 @@ TEST(EstimateTwoViewGeometryPose, Uncalibrated) {
 TEST(EstimateTwoViewGeometryPose, Planar) {
   constexpr int kNumTests = 100;
   for (int seed = 0; seed < kNumTests; ++seed) {
+    SetPRNGSeed(seed);
     const TwoViewGeometryTestData test_data = CreateTwoViewGeometryTestData(
         TwoViewGeometry::ConfigurationType::PLANAR);
 
@@ -245,6 +249,7 @@ TEST(EstimateTwoViewGeometryPose, Planar) {
 TEST(EstimateTwoViewGeometryPose, PlanarOrPanoramic) {
   constexpr int kNumTests = 100;
   for (int seed = 0; seed < kNumTests; ++seed) {
+    SetPRNGSeed(seed);
     for (const auto config : {TwoViewGeometry::ConfigurationType::PLANAR,
                               TwoViewGeometry::ConfigurationType::PANORAMIC}) {
       const TwoViewGeometryTestData test_data =
