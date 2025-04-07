@@ -85,6 +85,8 @@ GeneralizedCameraProblem BuildGeneralizedCameraProblem() {
 }
 
 TEST(EstimateGeneralizedAbsolutePose, Nominal) {
+  SetPRNGSeed();
+
   GeneralizedCameraProblem problem = BuildGeneralizedCameraProblem();
   const size_t num_points = problem.points2D.size();
 

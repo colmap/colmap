@@ -343,6 +343,9 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
 
   // Extract normalized inlier points.
   const size_t num_inlier_matches = geometry->inlier_matches.size();
+  if (num_inlier_matches == 0) {
+    return false;
+  }
   std::vector<Eigen::Vector2d> inlier_cam_points1(num_inlier_matches);
   std::vector<Eigen::Vector2d> inlier_cam_points2(num_inlier_matches);
   for (size_t i = 0; i < num_inlier_matches; ++i) {
@@ -371,6 +374,9 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
                             inlier_cam_points2,
                             &geometry->cam2_from_cam1,
                             &points3D);
+    if (points3D.empty()) {
+      return false;
+    }
   } else if (geometry->config ==
              TwoViewGeometry::ConfigurationType::UNCALIBRATED) {
     const Eigen::Matrix3d E = EssentialFromFundamentalMatrix(
@@ -380,6 +386,9 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
                             inlier_cam_points2,
                             &geometry->cam2_from_cam1,
                             &points3D);
+    if (points3D.empty()) {
+      return false;
+    }
   } else if (geometry->config == TwoViewGeometry::ConfigurationType::PLANAR ||
              geometry->config ==
                  TwoViewGeometry::ConfigurationType::PANORAMIC ||
@@ -394,29 +403,34 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
                              &geometry->cam2_from_cam1,
                              &normal,
                              &points3D);
+    if (geometry->config ==
+        TwoViewGeometry::ConfigurationType::PLANAR_OR_PANORAMIC) {
+      if (geometry->cam2_from_cam1.translation.squaredNorm() < 1e-12) {
+        geometry->config = TwoViewGeometry::ConfigurationType::PANORAMIC;
+      } else {
+        geometry->config = TwoViewGeometry::ConfigurationType::PLANAR;
+      }
+    }
+
+    if (geometry->config == TwoViewGeometry::ConfigurationType::PANORAMIC) {
+      geometry->tri_angle = 0;
+    }
+
+    if (geometry->config == TwoViewGeometry::ConfigurationType::PLANAR &&
+        points3D.empty()) {
+      return false;
+    }
   } else {
     return false;
   }
 
-  if (points3D.empty()) {
-    geometry->tri_angle = 0;
-  } else {
+  if (!points3D.empty()) {
     const Eigen::Vector3d proj_center1 = Eigen::Vector3d::Zero();
     const Eigen::Vector3d proj_center2 =
         geometry->cam2_from_cam1.rotation.inverse() *
         -geometry->cam2_from_cam1.translation;
     geometry->tri_angle = Median(
         CalculateTriangulationAngles(proj_center1, proj_center2, points3D));
-  }
-
-  if (geometry->config ==
-      TwoViewGeometry::ConfigurationType::PLANAR_OR_PANORAMIC) {
-    if (geometry->cam2_from_cam1.translation.norm() < 1e-6) {
-      geometry->config = TwoViewGeometry::ConfigurationType::PANORAMIC;
-      geometry->tri_angle = 0;
-    } else {
-      geometry->config = TwoViewGeometry::ConfigurationType::PLANAR;
-    }
   }
 
   return true;

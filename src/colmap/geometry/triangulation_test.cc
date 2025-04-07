@@ -34,6 +34,7 @@
 #include "colmap/util/eigen_matchers.h"
 
 #include <Eigen/Core>
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -147,19 +148,36 @@ TEST(CalculateTriangulationAngle, Nominal) {
       0.019997333973,
       1e-8);
   EXPECT_NEAR(CalculateTriangulationAngles(
+                  tvec1, tvec2, {Eigen::Vector3d(0, 0, 100)})[0],
+              0.009999666687,
+              1e-8);
+  EXPECT_NEAR(CalculateTriangulationAngles(
                   tvec1, tvec2, {Eigen::Vector3d(0, 0, 50)})[0],
               0.019997333973,
               1e-8);
-  EXPECT_NEAR(CalculateTriangulationAngles(Eigen::Vector3d::Zero(),
+  // Parallel rays.
+  EXPECT_THAT(CalculateTriangulationAngles(Eigen::Vector3d::Zero(),
                                            Eigen::Vector3d::Zero(),
-                                           {Eigen::Vector3d(0, 0, 50)})[0],
-              0.,
-              1e-8);
-  EXPECT_NEAR(CalculateTriangulationAngles(Eigen::Vector3d::Zero(),
-                                           Eigen::Vector3d(50, 0, 50),
-                                           {Eigen::Vector3d(0, 0, 50)})[0],
-              M_PI / 2,
-              1e-8);
+                                           {Eigen::Vector3d(0, 0, 0),
+                                            Eigen::Vector3d(50, 0, 0),
+                                            Eigen::Vector3d(0, 50, 0),
+                                            Eigen::Vector3d(0, 0, 50)}),
+              testing::Each(testing::DoubleNear(0, 1e-6)));
+  // Orthogonal rays.
+  EXPECT_THAT(CalculateTriangulationAngles(
+                  Eigen::Vector3d::Zero(),
+                  Eigen::Vector3d(50, 0, 50),
+                  {Eigen::Vector3d(50, 0, 0), Eigen::Vector3d(0, 0, 50)}),
+              testing::Each(testing::DoubleNear(M_PI / 2, 1e-6)));
+  // Opposing rays.
+  EXPECT_THAT(CalculateTriangulationAngles(Eigen::Vector3d::Zero(),
+                                           Eigen::Vector3d(0, 0, 50),
+                                           {Eigen::Vector3d(0, 0, 0),
+                                            Eigen::Vector3d(0, 0, 50),
+                                            Eigen::Vector3d(0, 0, 25),
+                                            Eigen::Vector3d(0, 0, -25),
+                                            Eigen::Vector3d(0, 0, 75)}),
+              testing::Each(testing::DoubleNear(0, 1e-6)));
 }
 
 }  // namespace
