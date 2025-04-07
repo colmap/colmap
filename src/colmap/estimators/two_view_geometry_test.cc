@@ -184,7 +184,8 @@ TEST(EstimateTwoViewGeometryPose, FailureDueToInsufficientMatches) {
                                              test_data.points1,
                                              test_data.camera2,
                                              test_data.points2,
-                                             &geometry)) << config;
+                                             &geometry))
+        << config;
   }
 }
 
@@ -241,29 +242,33 @@ TEST(EstimateTwoViewGeometryPose, Planar) {
   }
 }
 
-TEST(EstimateTwoViewGeometryPose, Panoramic) {
+TEST(EstimateTwoViewGeometryPose, PlanarOrPanoramic) {
   constexpr int kNumTests = 100;
   for (int seed = 0; seed < kNumTests; ++seed) {
-    const TwoViewGeometryTestData test_data = CreateTwoViewGeometryTestData(
-        TwoViewGeometry::ConfigurationType::PANORAMIC);
+    for (const auto config : {TwoViewGeometry::ConfigurationType::PLANAR,
+                              TwoViewGeometry::ConfigurationType::PANORAMIC}) {
+      const TwoViewGeometryTestData test_data =
+          CreateTwoViewGeometryTestData(config);
 
-    TwoViewGeometry geometry;
-    geometry.config = test_data.geometry.config;
-    geometry.H = test_data.geometry.H;
-    geometry.inlier_matches = test_data.geometry.inlier_matches;
-    EXPECT_TRUE(EstimateTwoViewGeometryPose(test_data.camera1,
-                                            test_data.points1,
-                                            test_data.camera2,
-                                            test_data.points2,
-                                            &geometry));
-    EXPECT_NEAR(geometry.tri_angle, test_data.geometry.tri_angle, 1e-3);
-    EXPECT_NEAR(geometry.cam2_from_cam1.rotation.angularDistance(
-                    test_data.geometry.cam2_from_cam1.rotation),
-                0,
-                1e-6);
-    EXPECT_THAT(
-        geometry.cam2_from_cam1.translation,
-        EigenMatrixNear(test_data.geometry.cam2_from_cam1.translation, 1e-6));
+      TwoViewGeometry geometry;
+      geometry.config = TwoViewGeometry::ConfigurationType::PLANAR_OR_PANORAMIC;
+      geometry.H = test_data.geometry.H;
+      geometry.inlier_matches = test_data.geometry.inlier_matches;
+      EXPECT_TRUE(EstimateTwoViewGeometryPose(test_data.camera1,
+                                              test_data.points1,
+                                              test_data.camera2,
+                                              test_data.points2,
+                                              &geometry));
+      EXPECT_EQ(geometry.config, config);
+      EXPECT_NEAR(geometry.tri_angle, test_data.geometry.tri_angle, 1e-3);
+      EXPECT_NEAR(geometry.cam2_from_cam1.rotation.angularDistance(
+                      test_data.geometry.cam2_from_cam1.rotation),
+                  0,
+                  1e-6);
+      EXPECT_THAT(
+          geometry.cam2_from_cam1.translation,
+          EigenMatrixNear(test_data.geometry.cam2_from_cam1.translation, 1e-6));
+    }
   }
 }
 
