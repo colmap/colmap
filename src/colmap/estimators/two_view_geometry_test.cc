@@ -141,8 +141,36 @@ TwoViewGeometryTestData CreateTwoViewGeometryTestData(
   return data;
 }
 
+bool CheckEqualTwoViewGeometry(const TwoViewGeometry& geometry,
+                               const TwoViewGeometry& expected_geometry,
+                               double tri_angle_tol,
+                               double rotation_tol,
+                               double translation_tol,
+                               bool normalized_translation) {
+  const double tri_angle_error =
+      std::abs(geometry.tri_angle - expected_geometry.tri_angle);
+  const double rotation_error =
+      geometry.cam2_from_cam1.rotation.angularDistance(
+          expected_geometry.cam2_from_cam1.rotation);
+  const double translation_error =
+      (geometry.cam2_from_cam1.translation -
+       (normalized_translation
+            ? expected_geometry.cam2_from_cam1.translation.normalized()
+            : expected_geometry.cam2_from_cam1.translation))
+          .norm();
+  if (tri_angle_error > tri_angle_tol || rotation_error > rotation_tol ||
+      translation_error > translation_tol) {
+    LOG(ERROR) << "Two view geometries do not match with errors: tri_angle="
+               << tri_angle_error << ", rotation=" << rotation_error
+               << ", translation=" << translation_error;
+    return false;
+  }
+  return true;
+}
+
 TEST(EstimateTwoViewGeometryPose, Calibrated) {
   constexpr int kNumTests = 100;
+  int num_failures = 0;
   for (int seed = 0; seed < kNumTests; ++seed) {
     SetPRNGSeed(seed);
     const TwoViewGeometryTestData test_data = CreateTwoViewGeometryTestData(
@@ -157,16 +185,16 @@ TEST(EstimateTwoViewGeometryPose, Calibrated) {
                                             test_data.camera2,
                                             test_data.points2,
                                             &geometry));
-    EXPECT_NEAR(geometry.tri_angle, test_data.geometry.tri_angle, 1e-6);
-    EXPECT_NEAR(geometry.cam2_from_cam1.rotation.angularDistance(
-                    test_data.geometry.cam2_from_cam1.rotation),
-                0,
-                1e-6);
-    EXPECT_THAT(
-        geometry.cam2_from_cam1.translation,
-        EigenMatrixNear(
-            test_data.geometry.cam2_from_cam1.translation.normalized(), 1e-6));
+    if (!CheckEqualTwoViewGeometry(geometry,
+                                   test_data.geometry,
+                                   /*tri_angle_tol=*/1e-6,
+                                   /*rotation_tol=*/1e-6,
+                                   /*translation_tol=*/1e-6,
+                                   /*normalized_translation=*/true)) {
+      num_failures++;
+    }
   }
+  EXPECT_EQ(num_failures, 0);
 }
 
 TEST(EstimateTwoViewGeometryPose, FailureDueToInsufficientMatches) {
@@ -193,6 +221,7 @@ TEST(EstimateTwoViewGeometryPose, FailureDueToInsufficientMatches) {
 
 TEST(EstimateTwoViewGeometryPose, Uncalibrated) {
   constexpr int kNumTests = 100;
+  int num_failures = 0;
   for (int seed = 0; seed < kNumTests; ++seed) {
     SetPRNGSeed(seed);
     const TwoViewGeometryTestData test_data = CreateTwoViewGeometryTestData(
@@ -207,20 +236,21 @@ TEST(EstimateTwoViewGeometryPose, Uncalibrated) {
                                             test_data.camera2,
                                             test_data.points2,
                                             &geometry));
-    EXPECT_NEAR(geometry.tri_angle, test_data.geometry.tri_angle, 1e-6);
-    EXPECT_NEAR(geometry.cam2_from_cam1.rotation.angularDistance(
-                    test_data.geometry.cam2_from_cam1.rotation),
-                0,
-                1e-6);
-    EXPECT_THAT(
-        geometry.cam2_from_cam1.translation,
-        EigenMatrixNear(
-            test_data.geometry.cam2_from_cam1.translation.normalized(), 1e-6));
+    if (!CheckEqualTwoViewGeometry(geometry,
+                                   test_data.geometry,
+                                   /*tri_angle_tol=*/1e-6,
+                                   /*rotation_tol=*/1e-6,
+                                   /*translation_tol=*/1e-6,
+                                   /*normalized_translation=*/true)) {
+      num_failures++;
+    }
   }
+  EXPECT_EQ(num_failures, 0);
 }
 
 TEST(EstimateTwoViewGeometryPose, Planar) {
   constexpr int kNumTests = 100;
+  int num_failures = 0;
   for (int seed = 0; seed < kNumTests; ++seed) {
     SetPRNGSeed(seed);
     const TwoViewGeometryTestData test_data = CreateTwoViewGeometryTestData(
@@ -235,19 +265,21 @@ TEST(EstimateTwoViewGeometryPose, Planar) {
                                             test_data.camera2,
                                             test_data.points2,
                                             &geometry));
-    EXPECT_NEAR(geometry.tri_angle, test_data.geometry.tri_angle, 1e-3);
-    EXPECT_NEAR(geometry.cam2_from_cam1.rotation.angularDistance(
-                    test_data.geometry.cam2_from_cam1.rotation),
-                0,
-                1e-6);
-    EXPECT_THAT(
-        geometry.cam2_from_cam1.translation,
-        EigenMatrixNear(test_data.geometry.cam2_from_cam1.translation, 1e-6));
+    if (!CheckEqualTwoViewGeometry(geometry,
+                                   test_data.geometry,
+                                   /*tri_angle_tol=*/1e-3,
+                                   /*rotation_tol=*/1e-6,
+                                   /*translation_tol=*/1e-6,
+                                   /*normalized_translation=*/false)) {
+      num_failures++;
+    }
   }
+  EXPECT_EQ(num_failures, 0);
 }
 
 TEST(EstimateTwoViewGeometryPose, PlanarOrPanoramic) {
   constexpr int kNumTests = 100;
+  int num_failures = 0;
   for (int seed = 0; seed < kNumTests; ++seed) {
     SetPRNGSeed(seed);
     for (const auto config : {TwoViewGeometry::ConfigurationType::PLANAR,
@@ -265,15 +297,16 @@ TEST(EstimateTwoViewGeometryPose, PlanarOrPanoramic) {
                                               test_data.points2,
                                               &geometry));
       EXPECT_EQ(geometry.config, config);
-      EXPECT_NEAR(geometry.tri_angle, test_data.geometry.tri_angle, 1e-3);
-      EXPECT_NEAR(geometry.cam2_from_cam1.rotation.angularDistance(
-                      test_data.geometry.cam2_from_cam1.rotation),
-                  0,
-                  1e-6);
-      EXPECT_THAT(
-          geometry.cam2_from_cam1.translation,
-          EigenMatrixNear(test_data.geometry.cam2_from_cam1.translation, 1e-6));
+      if (!CheckEqualTwoViewGeometry(geometry,
+                                     test_data.geometry,
+                                     /*tri_angle_tol=*/1e-3,
+                                     /*rotation_tol=*/1e-6,
+                                     /*translation_tol=*/1e-6,
+                                     /*normalized_translation=*/false)) {
+        num_failures++;
+      }
     }
+    EXPECT_EQ(num_failures, 0);
   }
 }
 
