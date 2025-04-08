@@ -339,7 +339,6 @@ size_t ObservationManager::FilterObservationsWithNegativeDepth() {
       }
     }
   }
-  LOG(ERROR) << "FILETERED " << num_filtered;
   return num_filtered;
 }
 
