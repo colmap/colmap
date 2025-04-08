@@ -54,6 +54,7 @@ COLMAP_ADD_LIBRARY(
         Eigen3::Eigen
         glog::glog
         SQLite::SQLite3
+        ${CMAKE_DL_LIBS}
     PRIVATE_LINK_LIBS
         Boost::boost
         $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:-lstdc++fs>
