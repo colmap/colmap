@@ -124,7 +124,7 @@ std::unordered_set<point3D_t> Reconstruction::Point3DIds() const {
 
 void Reconstruction::Load(const DatabaseCache& database_cache) {
   // Add rigs.
-  cameras_.reserve(database_cache.NumRigs());
+  rigs_.reserve(database_cache.NumRigs());
   for (const auto& [rig_id, rig] : database_cache.Rigs()) {
     if (!ExistsRig(rig_id)) {
       AddRig(rig);
