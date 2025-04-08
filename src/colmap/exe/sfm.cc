@@ -186,7 +186,6 @@ int RunColorExtractor(int argc, char** argv) {
 int RunIncrementalModelRefiner(int argc, char** argv) {
   std::string input_path;
   std::string output_path;
-  std::string image_list_path;
 
   OptionManager options;
   options.AddDatabaseOptions();
@@ -208,24 +207,7 @@ int RunIncrementalModelRefiner(int argc, char** argv) {
   }
 
   const auto& mapper_options = *options.mapper;
-
-  PrintHeading1("Loading model");
-
-  Reconstruction reconstruction;
-  reconstruction.Read(input_path);
-
-  // Loads the list of images for which the camera pose will be fixed.
-  std::vector<image_t> image_ids_fixed_poses;
-  if (!image_list_path.empty()) {
-    const auto image_names = ReadTextFileLines(image_list_path);
-    for (const std::string& image_name : image_names) {
-      const Image* image = reconstruction.FindImageWithName(image_name);
-      if (image != nullptr) {
-        image_ids_fixed_poses.push_back(image->ImageId());
-      }
-      
-    }
-  }
+  const auto& ba_options = *options.bundle_adjustment;
 
   PrintHeading1("Loading database");
 
@@ -248,10 +230,14 @@ int RunIncrementalModelRefiner(int argc, char** argv) {
 
   std::cout << std::endl;
 
+  PrintHeading1("Loading model");
+  
   IncrementalMapper mapper(database_cache);
-  mapper.BeginReconstruction(&reconstruction);
+  auto reconstruction = std::make_shared<Reconstruction>();
+  reconstruction->Read(input_path);
+  mapper.BeginReconstruction(reconstruction);
 
-  CHECK_GE(reconstruction.NumRegImages(), 2)
+  CHECK_GE(reconstruction->NumRegImages(), 2)
       << "Need at least two images for refinement";
 
   const std::vector<image_t>& reg_image_ids = reconstruction.RegImageIds();
@@ -259,39 +245,16 @@ int RunIncrementalModelRefiner(int argc, char** argv) {
   //////////////////////////////////////////////////////////////////////////////
   // Iteratively run bundle adjustment and re-triangulate
   //////////////////////////////////////////////////////////////////////////////
-
-  auto ba_options = mapper_options.GlobalBundleAdjustment();
-
-  // Configure bundle adjustment.
-  BundleAdjustmentConfig ba_config;
-  for (const image_t image_id : reg_image_ids) {
-    ba_config.AddImage(image_id);
-  }
-
-  for (const image_t image_id : image_ids_fixed_poses) {
-    ba_config.SetConstantPose(image_id);
-  }
-
-  // Fix 7-DOFs of the bundle adjustment problem.
-  ba_config.SetConstantPose(reg_image_ids[0]);
-  if (image_ids_fixed_poses.empty()) {
-    ba_config.SetConstantTvec(reg_image_ids[1], {0});
-  }
-  
-
   for (int i = 0; i < mapper_options.ba_global_max_refinements; ++i) {   
     // Avoid degeneracies in bundle adjustment.
-    reconstruction.FilterObservationsWithNegativeDepth();
-
-    const size_t num_observations = reconstruction.ComputeNumObservations();
+    const size_t num_observations = reconstruction->ComputeNumObservations();
 
     PrintHeading1("Bundle adjustment");
-    BundleAdjuster bundle_adjuster(ba_options, ba_config);
-    CHECK(bundle_adjuster.Solve(&reconstruction));
+    mapper.AdjustGlobalBundle(mapper_options.mapper, ba_options);
 
     size_t num_changed_observations = 0;
-    num_changed_observations += CompleteAndMergeTracks(mapper_options, &mapper);
-    num_changed_observations += FilterPoints(mapper_options, &mapper);
+    num_changed_observations += mapper.CompleteAndMergeTracks(mapper_options.triangulation);
+    num_changed_observations += mapper.FilterPoints(mapper_options.mapper);
     const double changed =
         static_cast<double>(num_changed_observations) / num_observations;
     std::cout << StringPrintf("  => Changed observations: %.6f", changed)
@@ -302,12 +265,11 @@ int RunIncrementalModelRefiner(int argc, char** argv) {
   }
 
   PrintHeading1("Extracting colors");
-  reconstruction.ExtractColorsForAllImages(*options.image_path);
+  reconstruction->ExtractColorsForAllImages(*options.image_path);
 
-  const bool kDiscardReconstruction = false;
-  mapper.EndReconstruction(kDiscardReconstruction);
+  mapper.EndReconstruction(false);
 
-  reconstruction.Write(output_path);
+  reconstruction->Write(output_path);
 
   return EXIT_SUCCESS;
 }
