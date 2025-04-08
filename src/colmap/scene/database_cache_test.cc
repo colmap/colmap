@@ -125,6 +125,11 @@ TEST(DatabaseCache, ConstructFromDatabase) {
   EXPECT_EQ(cache->NumImages(), 4);
   EXPECT_EQ(cache->NumPosePriors(), 2);
 
+  for (const Rig& rig : database.ReadAllRigs()) {
+    EXPECT_TRUE(cache->ExistsRig(rig.RigId()));
+    EXPECT_EQ(cache->Rig(rig.RigId()), rig);
+  }
+
   for (const Camera& camera : database.ReadAllCameras()) {
     EXPECT_TRUE(cache->ExistsCamera(camera.camera_id));
     EXPECT_EQ(cache->Camera(camera.camera_id), camera);
