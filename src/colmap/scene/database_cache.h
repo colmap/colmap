@@ -61,9 +61,10 @@ class DatabaseCache {
   //                              of matches.
   // @param ignore_watermarks     Whether to ignore watermark image pairs.
   // @param image_names           Whether to use only load the data for a subset
-  //                              of the images. Notice that if one image of a frame
-  //                              is included, all other images in the same frame
-  //                              will also be included. All images are used if empty.
+  //                              of the images. Notice that if one image of a
+  //                              frame is included, all other images in the
+  //                              same frame will also be included. All images
+  //                              are used if empty.
   static std::shared_ptr<DatabaseCache> Create(
       const Database& database,
       size_t min_num_matches,
