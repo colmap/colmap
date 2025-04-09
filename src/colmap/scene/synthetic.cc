@@ -110,10 +110,17 @@ void SynthesizeChainedMatches(double inlier_match_ratio,
   std::unordered_map<image_pair_t, TwoViewGeometry> two_view_geometries;
   for (const auto& point3D : reconstruction->Points3D()) {
     std::vector<TrackElement> track_elements = point3D.second.track.Elements();
-    std::shuffle(track_elements.begin(), track_elements.end(), *PRNG);
+    std::sort(track_elements.begin(),
+              track_elements.end(),
+              [](const TrackElement& left, const TrackElement& right) {
+                return left.image_id < right.image_id;
+              });
     for (size_t i = 1; i < track_elements.size(); ++i) {
       const auto& prev_track_el = track_elements[i - 1];
       const auto& curr_track_el = track_elements[i];
+      if (curr_track_el.image_id != prev_track_el.image_id + 1) {
+        continue;
+      }
       const image_pair_t pair_id = Database::ImagePairToPairId(
           prev_track_el.image_id, curr_track_el.image_id);
       if (Database::SwapImagePair(prev_track_el.image_id,
@@ -168,6 +175,10 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
   THROW_CHECK_GE(options.num_points2D_without_point3D, 0);
   THROW_CHECK_GE(options.point2D_stddev, 0.);
   THROW_CHECK_GE(options.prior_position_stddev, 0.);
+
+  if (PRNG == nullptr) {
+    SetPRNGSeed();
+  }
 
   // Synthesize cameras.
   std::vector<camera_t> camera_ids(options.num_cameras);
