@@ -430,6 +430,9 @@ torch::Dict<std::string, torch::Tensor> LightGlue::forward(
       m_indices_0 = ind0.index({torch::indexing::Slice(), m_indices_0});
       m_indices_1 = ind1.index({torch::indexing::Slice(), m_indices_1});
     }
+  } else {
+    torch::Tensor m_indices_0 = torch::empty({0}, torch::TensorOptions().device(device_));
+    torch::Tensor m_indices_1 = torch::empty({0}, torch::TensorOptions().device(device_)); 
   }
 
   auto matches = torch::stack({m_indices_0, m_indices_1}, 0);
