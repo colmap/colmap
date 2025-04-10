@@ -113,6 +113,8 @@ ALIKED::extract_dense_map(torch::Tensor image) && {
 
 torch::Dict<std::string, torch::Tensor>
 ALIKED::forward(torch::Tensor image) && {
+    // Tensors to the right device
+    image = image.to(device_);
 
     auto start_time = std::chrono::high_resolution_clock::now();
 

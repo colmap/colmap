@@ -231,6 +231,12 @@ torch::Dict<std::string, torch::Tensor> LightGlue::forward(
   auto desc0 = desc0_ref.detach().contiguous().unsqueeze(0);
   auto desc1 = desc1_ref.detach().contiguous().unsqueeze(0);
 
+  // Move all to the same device as the model
+  kpts0 = kpts0.to(device_);
+  kpts1 = kpts1.to(device_);
+  desc0 = desc0.to(device_);
+  desc1 = desc1.to(device_);
+
   // Pre-calculate sizes once
   const int64_t b = kpts0.size(0);
   const int64_t m = kpts0.size(1);

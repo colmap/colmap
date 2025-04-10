@@ -120,7 +120,9 @@ torch::Tensor get_patches_forward(const torch::Tensor& map,
     return get_patches_forward_cpu(map, points, kernel_size);
   } else {
 #ifdef COLMAP_CUDA_ENABLED
-    return get_patches_forward_cuda(map, points, kernel_size);
+    // Ensure points is on the correct device and is kLong
+    auto points_long = points.to(map.device(), torch::kLong);
+    return get_patches_forward_cuda(map, points_long, kernel_size);
 #else
     LOG_FIRST_N(WARNING, 1)
         << "Requested to extract patches using CUDA but CUDA is not available. "
