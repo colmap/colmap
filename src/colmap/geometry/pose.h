@@ -51,9 +51,6 @@ bool DecomposeProjectionMatrix(const Eigen::Matrix3x4d& proj_matrix,
                                Eigen::Matrix3d* R,
                                Eigen::Vector3d* T);
 
-// Compose the skew symmetric cross product matrix from a vector.
-Eigen::Matrix3d CrossProductMatrix(const Eigen::Vector3d& vector);
-
 // Convert 3D rotation matrix to Euler angles.
 //
 // The convention `R = Rx * Ry * Rz` is used,

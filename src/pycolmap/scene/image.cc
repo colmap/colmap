@@ -40,12 +40,12 @@ std::shared_ptr<Image> MakeImage(const std::string& name,
   return image;
 }
 
-void BindImage(py::module& m) {
+void BindSceneImage(py::module& m) {
   py::class_<Image, std::shared_ptr<Image>> PyImage(m, "Image");
   PyImage.def(py::init<>())
       .def(py::init(&MakeImage<Point2D>),
            "name"_a = "",
-           py::arg_v("points2D", Point2DVector(), "ListPoint2D()"),
+           py::arg_v("points2D", Point2DVector(), "Point2DList()"),
            "cam_from_world"_a = py::none(),
            py::arg_v(
                "camera_id", kInvalidCameraId, "pycolmap.INVALID_CAMERA_ID"),
@@ -86,7 +86,13 @@ void BindImage(py::module& m) {
           py::overload_cast<const std::optional<Rigid3d>&>(
               &Image::SetCamFromWorld),
           "The pose of the image, defined as the transformation from world to "
-          "camera space. None if the image is not registered.")
+          "camera space. None if the image is not registered. Will throw an "
+          "error if a non-trivial frame (rig) is present.")
+      .def("compose_cam_from_world",
+           &Image::ComposeCamFromWorld,
+           "The pose of the image, defined as the transformation from world to "
+           "camera space. This method is read-only and support non-trivial "
+           "frame (rig).")
       .def_property_readonly(
           "has_pose", &Image::HasPose, "Whether the image has a valid pose.")
       .def("reset_pose", &Image::ResetPose, "Invalidate the pose of the image.")
@@ -120,19 +126,10 @@ void BindImage(py::module& m) {
       .def("viewing_direction",
            &Image::ViewingDirection,
            "Extract the viewing direction of the image.")
-      .def(
-          "project_point",
-          [](const Image& self, const Eigen::Vector3d& point3D)
-              -> py::typing::Optional<Eigen::Vector2d> {
-            auto result = self.ProjectPoint(point3D);
-            if (result.first) {
-              return py::cast(result.second);
-            } else {
-              return py::none();
-            }
-          },
-          "Project 3D point onto the image",
-          "point3D"_a)
+      .def("project_point",
+           &Image::ProjectPoint,
+           "Project 3D point onto the image",
+           "point3D"_a)
       .def("has_camera_id",
            &Image::HasCameraId,
            "Check whether identifier of camera has been set.")
@@ -177,5 +174,5 @@ void BindImage(py::module& m) {
           "Get the 2D points that observe a 3D point.");
   MakeDataclass(PyImage);
 
-  py::bind_map<ImageMap>(m, "MapImageIdToImage");
+  py::bind_map<ImageMap>(m, "ImageMap");
 }

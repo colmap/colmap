@@ -66,8 +66,8 @@ bool TriangulatePoint(const Eigen::Matrix3x4d& cam_from_world1,
 //
 // @return                  Whether triangulation was successful.
 bool TriangulateMultiViewPoint(
-    const std::vector<Eigen::Matrix3x4d>& cams_from_world,
-    const std::vector<Eigen::Vector2d>& points,
+    const span<const Eigen::Matrix3x4d>& cams_from_world,
+    const span<const Eigen::Vector2d>& points,
     Eigen::Vector3d* point3D);
 
 // Triangulate optimal 3D point from corresponding image point observations by

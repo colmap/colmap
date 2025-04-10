@@ -25,22 +25,6 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
-bool ExistsReconstructionText(const std::string& path) {
-  return (ExistsFile(JoinPaths(path, "cameras.txt")) &&
-          ExistsFile(JoinPaths(path, "images.txt")) &&
-          ExistsFile(JoinPaths(path, "points3D.txt")));
-}
-
-bool ExistsReconstructionBinary(const std::string& path) {
-  return (ExistsFile(JoinPaths(path, "cameras.bin")) &&
-          ExistsFile(JoinPaths(path, "images.bin")) &&
-          ExistsFile(JoinPaths(path, "points3D.bin")));
-}
-
-bool ExistsReconstruction(const std::string& path) {
-  return (ExistsReconstructionText(path) || ExistsReconstructionBinary(path));
-}
-
 void BindReconstruction(py::module& m) {
   py::class_<Reconstruction, std::shared_ptr<Reconstruction>>(m,
                                                               "Reconstruction")
@@ -151,10 +135,6 @@ void BindReconstruction(py::module& m) {
            &Reconstruction::DeRegisterImage,
            "image_id"_a,
            "De-register an existing image, and all its references.")
-      .def("is_image_registered",
-           &Reconstruction::IsImageRegistered,
-           "image_id"_a,
-           "Check if image is registered.")
       .def("normalize",
            &Reconstruction::Normalize,
            "fixed_scale"_a = false,
@@ -239,7 +219,6 @@ void BindReconstruction(py::module& m) {
                 image_t image_id = track_el.image_id;
                 point2D_t point2D_idx = track_el.point2D_idx;
                 THROW_CHECK(self.ExistsImage(image_id)) << image_id;
-                THROW_CHECK(self.IsImageRegistered(image_id)) << image_id;
                 const Image& image = self.Image(image_id);
                 THROW_CHECK(image.HasPose());
                 THROW_CHECK_EQ(image.Point2D(point2D_idx).point3D_id, p3Did);

@@ -12,8 +12,6 @@
 #include <pybind11/stl.h>
 #include <pybind11/stl_bind.h>
 
-using namespace colmap;
-
 namespace PYBIND11_NAMESPACE {
 namespace detail {
 
@@ -22,7 +20,8 @@ namespace detail {
 // should be explicit and cannot be automatic - likely not worth the added
 // logic.
 template <typename Type>
-struct type_caster<span<Type>> : list_caster<span<Type>, Type> {};
+struct type_caster<colmap::span<Type>> : list_caster<colmap::span<Type>, Type> {
+};
 
 // Autocast os.PathLike to std::string
 // Adapted from pybind11/stl/filesystem.h

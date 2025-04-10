@@ -71,26 +71,6 @@ jobs:
             checkCodeFormat: false,
             coverageEnabled: false,
           },
-          {
-            os: ubuntu-20.04,
-            cmakeBuildType: Release,
-            asanEnabled: false,
-            guiEnabled: true,
-            cudaEnabled: false,
-            e2eTests: false,
-            checkCodeFormat: false,
-            coverageEnabled: false,
-          },
-          # {
-          #   os: ubuntu-20.04,
-          #   cmakeBuildType: Release,
-          #   asanEnabled: false,
-          #   guiEnabled: false,
-          #   cudaEnabled: true,
-          #   e2eTests: false,
-          #   checkCodeFormat: false,
-          #   coverageEnabled: false,
-          # },
         ]
 
     env:
@@ -253,6 +233,8 @@ jobs:
           Xvfb :99 &
           sleep 3
           cd build
+          export GLOG_v=1
+          export GLOG_logtostderr=1
           ctest -E "$ctestExclusions" --output-on-failure
 
       - name: Run E2E tests
@@ -300,7 +282,10 @@ jobs:
           indicators: true
           output: both
           thresholds: '75 90'
+<<<<<<< HEAD
 
+=======
+>>>>>>> 9577644167f2a8ce846e1709fb19567c0ef929e2
       # TODO: Add code coverage comment to PR. Currently, this action reports
       # coverage for the entire repository, not just the changed files in the PR.
       # We could manually filter the coverage report to only include the changed

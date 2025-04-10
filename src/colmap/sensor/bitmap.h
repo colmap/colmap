@@ -195,6 +195,8 @@ class Bitmap {
   int channels_;
 };
 
+std::ostream& operator<<(std::ostream& stream, const Bitmap& bitmap);
+
 // Jet colormap inspired by Matlab. Grayvalues are expected in the range [0, 1]
 // and are converted to RGB values in the same range.
 class JetColormap {
