@@ -253,18 +253,18 @@ if(TORCH_ENABLED)
         if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24.0")
             cmake_policy(SET CMP0135 NEW)
         endif()
-        set(LIBTORCH_VERSION "2.5.1")
-        set(LIBTORCH_CUDA_VERSION "124")
+        set(LIBTORCH_VERSION "2.6.0")
+        set(LIBTORCH_CUDA_VERSION "126")
         if(IS_MSVC)
             if(CUDA_ENABLED)
                 FetchContent_Declare(libtorch
                     URL https://download.pytorch.org/libtorch/cu${LIBTORCH_CUDA_VERSION}/libtorch-win-shared-with-deps-${LIBTORCH_VERSION}%2Bcu${LIBTORCH_CUDA_VERSION}.zip
-                    URL_HASH SHA256=8625bfd95ac62f260f114ac606d7f9d5acbf72855429dc085c2bc1e0e76fc0cf
+                    URL_HASH SHA256=89ed2ae468555487ad153bf6f1b0bcce17814da314ba14996c4d63602e94c8c9
                 )
             else()
                 FetchContent_Declare(libtorch
                     URL https://download.pytorch.org/libtorch/cpu/libtorch-win-shared-with-deps-${LIBTORCH_VERSION}%2Bcpu.zip
-                    URL_HASH SHA256=176f3c501e50694cec2f23ca512ca36c0c268f523e90d91c8fca57bed56a6a65
+                    URL_HASH SHA256=f2c2e46073848a8e0150984ef26af7c112149a61401063dd4b1f12b7905dac41
                 )
             endif()
         elseif(IS_MACOS)
@@ -273,7 +273,7 @@ if(TORCH_ENABLED)
             endif()
             FetchContent_Declare(libtorch
                 URL https://download.pytorch.org/libtorch/cpu/libtorch-macos-arm64-${LIBTORCH_VERSION}.zip
-                URL_HASH SHA256=0822824c1df267159a649ad4701518217c60b8f75de056a26ab43958d8ab1622
+                URL_HASH SHA256=d647af55fd15754e5df8e2f99cab7fa0ab87adf76f708ce792e1c3b1150adac9
             )
         elseif(IS_LINUX)
             if(NOT IS_X86)
@@ -282,12 +282,12 @@ if(TORCH_ENABLED)
             if(CUDA_ENABLED)
                 FetchContent_Declare(libtorch
                     URL https://download.pytorch.org/libtorch/cu${LIBTORCH_CUDA_VERSION}/libtorch-shared-with-deps-${LIBTORCH_VERSION}%2Bcu${LIBTORCH_CUDA_VERSION}.zip
-                    URL_HASH SHA256=470ab7f7f56e96d28d1dc9ae34ceb2e0d8723cc2899c5d0192f4cb12b8f7843b
+                    URL_HASH SHA256=15708d647d720eb703994f022488bca9ae29a07cf19e76e8b218d0a07be2a943
                 )
             else()
                 FetchContent_Declare(libtorch
                     URL https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-${LIBTORCH_VERSION}%2Bcpu.zip
-                    URL_HASH SHA256=618ca54eef82a1dca46ff1993d5807d9c0deb0bae147da4974166a147cb562fa
+                    URL_HASH SHA256=6887b5186e466a6d5ca044a51d083bb03c48cb1b4952059b7ca51a5398fbafcc
                 )
             endif()
         endif()
