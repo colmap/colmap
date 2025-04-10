@@ -73,8 +73,8 @@ void BundleAdjustmentController::Run() {
   Timer run_timer;
   run_timer.Start();
 
-  if (reconstruction_->NumRegImages() < 2) {
-    LOG(ERROR) << "Need at least two views.";
+  if (reconstruction_->NumRegFrames() == 0) {
+    LOG(ERROR) << "Need at least one registered frame.";
     return;
   }
 

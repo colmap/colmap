@@ -138,7 +138,7 @@ TEST(Image, SetResetPose) {
   EXPECT_EQ(image.CamFromWorld().rotation.coeffs(),
             Eigen::Quaterniond::Identity().coeffs());
   EXPECT_EQ(image.CamFromWorld().translation, Eigen::Vector3d::Zero());
-  image.ResetPose();
+  image.FramePtr()->ResetPose();
   EXPECT_FALSE(image.HasPose());
   EXPECT_ANY_THROW(image.CamFromWorld());
 }
@@ -158,7 +158,7 @@ TEST(Image, ConstructCopy) {
   Image image_copy = Image(image);
   EXPECT_EQ(image, image_copy);
   EXPECT_EQ(Rigid3d(), image_copy.CamFromWorld());
-  image_copy.ResetPose();
+  image_copy.FramePtr()->ResetPose();
   EXPECT_FALSE(image.HasPose());
   EXPECT_FALSE(image_copy.HasPose());
 }
@@ -178,7 +178,7 @@ TEST(Image, AssignCopy) {
   Image image_copy = image;
   EXPECT_EQ(image, image_copy);
   EXPECT_EQ(image_copy.CamFromWorld(), Rigid3d());
-  image_copy.ResetPose();
+  image_copy.FramePtr()->ResetPose();
   EXPECT_FALSE(image.HasPose());
   EXPECT_FALSE(image_copy.HasPose());
 }

@@ -42,6 +42,7 @@ void GenerateReconstruction(const image_t num_images,
 
   Camera camera = Camera::CreateFromModelName(1, "PINHOLE", 1, 1, 1);
   reconstruction.AddCamera(camera);
+
   Rig rig;
   rig.SetRigId(1);
   rig.AddRefSensor(camera.SensorId());
@@ -51,6 +52,7 @@ void GenerateReconstruction(const image_t num_images,
     Frame frame;
     frame.SetFrameId(image_id);
     frame.SetRigId(rig.RigId());
+    frame.AddDataId(data_t(camera.SensorId(), image_id));
     frame.SetFrameFromWorld(Rigid3d());
     reconstruction.AddFrame(frame);
     Image image;
@@ -72,8 +74,8 @@ TEST(ObservationManager, Print) {
   stream << obs_manager;
   EXPECT_EQ(stream.str(),
             "ObservationManager(reconstruction=Reconstruction(num_rigs=1, "
-            "num_cameras=1, num_images=2, num_reg_images=2, num_points3D=0), "
-            "correspondence_graph=null)");
+            "num_cameras=1, num_frames=2, num_reg_frames=2, num_images=2, "
+            "num_points3D=0), correspondence_graph=null)");
 }
 
 TEST(ObservationManager, FilterPoints3D) {
@@ -208,7 +210,7 @@ TEST(ObservationManager, FilterObservationsWithNegativeDepth) {
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
 }
 
-TEST(ObservationManager, FilterImages) {
+TEST(ObservationManager, FilterFrames) {
   Reconstruction reconstruction;
   GenerateReconstruction(4, reconstruction);
   ObservationManager obs_manager(reconstruction);
@@ -217,13 +219,19 @@ TEST(ObservationManager, FilterImages) {
   reconstruction.AddObservation(point3D_id1, TrackElement(1, 0));
   reconstruction.AddObservation(point3D_id1, TrackElement(2, 0));
   reconstruction.AddObservation(point3D_id1, TrackElement(3, 0));
-  obs_manager.FilterImages(0.0, 10.0, 1.0);
-  EXPECT_EQ(reconstruction.NumRegImages(), 3);
+  obs_manager.FilterFrames(/*min_focal_length_ratio=*/0.0,
+                           /*max_focal_length_ratio=*/10.0,
+                           /*max_extra_param=*/1.0);
+  EXPECT_EQ(reconstruction.NumRegFrames(), 3);
   reconstruction.DeleteObservation(3, 0);
-  obs_manager.FilterImages(0.0, 10.0, 1.0);
-  EXPECT_EQ(reconstruction.NumRegImages(), 2);
-  obs_manager.FilterImages(0.0, 0.9, 1.0);
-  EXPECT_EQ(reconstruction.NumRegImages(), 0);
+  obs_manager.FilterFrames(/*min_focal_length_ratio=*/0.0,
+                           /*max_focal_length_ratio=*/10.0,
+                           /*max_extra_param=*/1.0);
+  EXPECT_EQ(reconstruction.NumRegFrames(), 2);
+  obs_manager.FilterFrames(/*min_focal_length_ratio=*/0.0,
+                           /*max_focal_length_ratio=*/0.9,
+                           /*max_extra_param=*/1.0);
+  EXPECT_EQ(reconstruction.NumRegFrames(), 0);
 }
 
 TEST(ObservationManager, NumVisiblePoints3D) {

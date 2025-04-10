@@ -15,4 +15,4 @@ pip install \
     --no-build-isolation \
     -Cbuild-dir="$script_dir/build" \
     -ve \
-    "$script_dir"
+    "$script_dir/.."

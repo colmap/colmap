@@ -186,13 +186,12 @@ TEST(Alignment, MergeReconstructions) {
   SynthesizeDataset(synthetic_dataset_options, &src_reconstruction);
   Reconstruction tgt_reconstruction = src_reconstruction;
 
-  // Remove the camera of the first image from the target reconstruction
-  const std::set<image_t> image_ids = tgt_reconstruction.RegImageIds();
-  const camera_t camera_id =
-      tgt_reconstruction.Image(*image_ids.begin()).CameraId();
-  for (const auto& image_id : image_ids) {
-    if (tgt_reconstruction.Image(image_id).CameraId() == camera_id) {
-      tgt_reconstruction.DeRegisterImage(image_id);
+  // Remove the rig of the first image from the target reconstruction.
+  const std::vector<frame_t> frame_ids = tgt_reconstruction.RegFrameIds();
+  const rig_t rig_id = tgt_reconstruction.Frame(*frame_ids.begin()).RigId();
+  for (const auto& frame_id : frame_ids) {
+    if (tgt_reconstruction.Frame(frame_id).RigId() == rig_id) {
+      tgt_reconstruction.DeRegisterFrame(frame_id);
     }
   }
   tgt_reconstruction.TearDown();

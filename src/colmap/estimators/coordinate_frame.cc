@@ -309,6 +309,8 @@ Eigen::Matrix3d EstimateManhattanWorldFrame(
 
 void AlignToPrincipalPlane(Reconstruction* reconstruction,
                            Sim3d* aligned_from_original) {
+  THROW_CHECK_GT(reconstruction->NumRegFrames(), 0);
+
   // Perform SVD on the 3D points to estimate the ground plane basis
   const Eigen::Vector3d centroid = reconstruction->ComputeCentroid(0.0, 1.0);
   Eigen::MatrixXd normalized_points3D(3, reconstruction->NumPoints3D());
@@ -327,10 +329,13 @@ void AlignToPrincipalPlane(Reconstruction* reconstruction,
       Sim3d(1.0, Eigen::Quaterniond(rot_mat), -rot_mat * centroid);
 
   // If camera plane ends up below ground then flip basis vectors.
+  const Frame& frame0 =
+      reconstruction->Frame(reconstruction->RegFrameIds().front());
+  const auto frame0_image_ids = frame0.ImageIds();
+  THROW_CHECK(frame0_image_ids.begin() != frame0_image_ids.end());
   const Rigid3d cam0_from_aligned_world = TransformCameraWorld(
       *aligned_from_original,
-      reconstruction->Image(*reconstruction->RegImageIds().begin())
-          .CamFromWorld());
+      reconstruction->Image(frame0_image_ids.begin()->id).CamFromWorld());
   if (Inverse(cam0_from_aligned_world).translation.z() < 0.0) {
     rot_mat << basis.col(0), -basis.col(1), basis.col(0).cross(-basis.col(1));
     rot_mat.transposeInPlace();

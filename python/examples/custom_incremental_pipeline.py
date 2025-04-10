@@ -122,7 +122,7 @@ def reconstruct_sub_model(controller, mapper, mapper_options, reconstruction):
             next_image_id = next_images[reg_trial]
             logging.info(
                 f"Registering image #{next_image_id} "
-                f"({reconstruction.num_reg_images() + 1})"
+                f"(num_reg_frames={reconstruction.num_reg_frames() + 1})"
             )
             num_vis = mapper.observation_manager.num_visible_points3D(
                 next_image_id
@@ -167,9 +167,9 @@ def reconstruct_sub_model(controller, mapper, mapper_options, reconstruction):
                     controller.image_path, next_image_id, reconstruction
                 )
             if (
-                options.snapshot_images_freq > 0
+                options.snapshot_frames_freq > 0
                 and reconstruction.num_reg_images()
-                >= options.snapshot_images_freq + snapshot_prev_num_reg_images
+                >= options.snapshot_frames_freq + snapshot_prev_num_reg_images
             ):
                 snapshot_prev_num_reg_images = reconstruction.num_reg_images()
                 write_snapshot(reconstruction, Path(options.snapshot_path))
