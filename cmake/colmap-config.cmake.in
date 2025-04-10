@@ -87,6 +87,8 @@ if(@FETCH_TORCH@)
     set(FIND_TORCH FALSE)
 else()
     set(FIND_TORCH TRUE)
+    include("${libtorch_SOURCE_DIR}/share/cmake/Torch/TorchConfigVersion.cmake")
+    include("${libtorch_SOURCE_DIR}/share/cmake/Torch/TorchConfig.cmake")
 endif()
 set(FETCH_TORCH FALSE)
 

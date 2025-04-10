@@ -12,5 +12,5 @@ COLMAP_ADD_LIBRARY(
         transformer.cpp
         transformer.hpp
     PUBLIC_LINK_LIBS
-        torch
+        torch::torch
 )

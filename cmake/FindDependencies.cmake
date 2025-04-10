@@ -316,8 +316,14 @@ if(TORCH_ENABLED)
         include("${libtorch_SOURCE_DIR}/share/cmake/Torch/TorchConfigVersion.cmake")
         include("${libtorch_SOURCE_DIR}/share/cmake/Torch/TorchConfig.cmake")
         install(
+            DIRECTORY "${libtorch_SOURCE_DIR}/include/"
+            DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
+        install(
             DIRECTORY "${libtorch_SOURCE_DIR}/lib/"
-            DESTINATION "${CMAKE_INSTALL_LIBDIR}/torch")
+            DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+        install(
+            DIRECTORY "${libtorch_SOURCE_DIR}/share/"
+            DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}")
     else()
         if(FIND_TORCH)
             find_package(Torch REQUIRED)
@@ -325,8 +331,14 @@ if(TORCH_ENABLED)
             # This script is called from the installed colmap-config.cmake file.
             # This is the sub-folder under the CMAKE_INSTALL_PREFIX lib/torch
             # where we installed the Torch CMake config files.
-            link_directories("${CMAKE_CURRENT_LIST_DIR}/../../../lib/torch")
+            include("${CMAKE_CURRENT_LIST_DIR}/../../../share/cmake/Torch/TorchConfigVersion.cmake")
+            include("${CMAKE_CURRENT_LIST_DIR}/../../../share/cmake/Torch/TorchConfig.cmake")
         endif()
     endif()
     add_definitions("-DCOLMAP_TORCH_ENABLED")
+    add_library(torch::torch INTERFACE IMPORTED)
+    target_include_directories(
+        torch::torch INTERFACE ${TORCH_INCLUDE_DIRS})
+    target_link_libraries(
+        torch::torch INTERFACE ${TORCH_LIBRARIES})
 endif()
