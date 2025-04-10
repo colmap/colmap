@@ -238,6 +238,7 @@ endif()
 include(GenerateVersionDefinitions)
 
 include_directories(src)
+include_directories(${COLMAP_INCLUDE_DIRS})
 link_directories(${COLMAP_LINK_DIRS})
 
 add_subdirectory(src/colmap)
