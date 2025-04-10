@@ -542,7 +542,7 @@ class SiftGPUFeatureExtractor : public FeatureExtractor {
 
 #if defined(COLMAP_CUDA_ENABLED)
     // Use CUDA version by default if darkness adaptivity is disabled.
-    if (!options.darkness_adaptivity && gpu_indices[0] < 0) {
+    if (!options.sift->darkness_adaptivity && gpu_indices[0] < 0) {
       gpu_indices[0] = 0;
     }
 
