@@ -282,10 +282,7 @@ jobs:
           indicators: true
           output: both
           thresholds: '75 90'
-<<<<<<< HEAD
 
-=======
->>>>>>> 9577644167f2a8ce846e1709fb19567c0ef929e2
       # TODO: Add code coverage comment to PR. Currently, this action reports
       # coverage for the entire repository, not just the changed files in the PR.
       # We could manually filter the coverage report to only include the changed
