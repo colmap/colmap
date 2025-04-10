@@ -77,6 +77,9 @@ if(DOWNLOAD_ENABLED)
         target_compile_definitions(colmap_util PRIVATE COLMAP_USE_OPENSSL)
     endif()
  endif()
+
+target_include_directories(colmap_util INTERFACE ${Boost_INCLUDE_DIRS})
+
 if(GUI_ENABLED)
     target_link_libraries(colmap_util PUBLIC Qt5::Core Qt5::OpenGL OpenGL::GL)
 endif()
