@@ -64,7 +64,8 @@ jobs:
             glew \
             cgal \
             sqlite3 \
-            ccache
+            ccache \
+            pytorch
 
       - name: Configure and build
         run: |

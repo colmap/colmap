@@ -30,6 +30,7 @@ jobs:
           #   e2eTests: false,
           #   checkCodeFormat: true,
           #   coverageEnabled: true,
+          #   torchEnabled: false,
           # },
           {
             os: ubuntu-22.04,
@@ -40,6 +41,7 @@ jobs:
             e2eTests: true,
             checkCodeFormat: true,
             coverageEnabled: false,
+            torchEnabled: true,
           },
           # {
           #   os: ubuntu-22.04,
@@ -50,6 +52,7 @@ jobs:
           #   e2eTests: false,
           #   checkCodeFormat: false,
           #   coverageEnabled: false,
+          #   torchEnabled: false,
           # },
           {
             os: ubuntu-22.04,
@@ -60,6 +63,7 @@ jobs:
             e2eTests: false,
             checkCodeFormat: false,
             coverageEnabled: false,
+            torchEnabled: false,
           },
           {
             os: ubuntu-22.04,
@@ -70,6 +74,7 @@ jobs:
             e2eTests: false,
             checkCodeFormat: false,
             coverageEnabled: false,
+            torchEnabled: false,
           },
         ]
 
@@ -88,8 +93,8 @@ jobs:
       - uses: actions/cache@v4
         id: cache-builds
         with:
-          key: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}-${{ github.run_id }}-${{ github.run_number }}
-          restore-keys: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}
+          key: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}-${{ matrix.config.torchEnabled }}-${{ github.run_id }}-${{ github.run_number }}
+          restore-keys: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}-${{ matrix.config.torchEnabled }}
           path: ${{ env.COMPILER_CACHE_DIR }}
 
       - name: Install compiler cache
@@ -150,7 +155,8 @@ jobs:
             libunwind-dev \
             libcurl4-openssl-dev \
             xvfb \
-            libmkl-dev
+            libmkl-dev \
+            pytorch
 
           if [ "${{ matrix.config.cudaEnabled }}" == "true" ]; then
             if [ "${{ matrix.config.os }}" == "ubuntu-20.04" ]; then
@@ -186,6 +192,10 @@ jobs:
             sudo apt-get install -y gcovr
           fi
 
+          if [ "${{ matrix.config.torchEnabled }}" == "true" ]; then
+            sudo apt-get install -y pytorch
+          fi
+
       - name: Configure and build
         run: |
           set -x
@@ -197,11 +207,11 @@ jobs:
             -DCMAKE_BUILD_TYPE=${{ matrix.config.cmakeBuildType }} \
             -DCMAKE_INSTALL_PREFIX=./install \
             -DCMAKE_CUDA_ARCHITECTURES=50 \
-            -DTORCH_ENABLED=ON \
             -DTESTS_ENABLED=ON \
             -DCUDA_ENABLED=${{ matrix.config.cudaEnabled }} \
             -DGUI_ENABLED=${{ matrix.config.guiEnabled }} \
             -DASAN_ENABLED=${{ matrix.config.asanEnabled }} \
+            -DTORCH_ENABLED=${{ matrix.config.torchEnabled }} \
             -DCOVERAGE_ENABLED=${{ matrix.config.coverageEnabled }}
           ninja -k 10000
 

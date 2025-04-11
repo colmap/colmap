@@ -83,14 +83,6 @@ set(CGAL_ENABLED @CGAL_ENABLED@)
 set(LSD_ENABLED @LSD_ENABLED@)
 
 set(TORCH_ENABLED @TORCH_ENABLED@)
-if(@FETCH_TORCH@)
-    set(FIND_TORCH FALSE)
-else()
-    set(FIND_TORCH TRUE)
-    include("${libtorch_SOURCE_DIR}/share/cmake/Torch/TorchConfigVersion.cmake")
-    include("${libtorch_SOURCE_DIR}/share/cmake/Torch/TorchConfig.cmake")
-endif()
-set(FETCH_TORCH FALSE)
 
 set(FETCH_POSELIB @FETCH_POSELIB@)
 

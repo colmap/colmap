@@ -51,7 +51,6 @@ option(DOWNLOAD_ENABLED "Whether to enable (automatic) download of resources (re
 option(UNINSTALL_ENABLED "Whether to create a target to 'uninstall' colmap" ON)
 option(FETCH_POSELIB "Whether to consume PoseLib using FetchContent or find_package" ON)
 option(TORCH_ENABLED "Whether to enable the libtorch library" OFF)
-option(FETCH_TORCH "Whether to consume libtorch using FetchContent or find_package" ON)
 option(ALL_SOURCE_TARGET "Whether to create a target for all source files (for Visual Studio / XCode development)" OFF)
 
 # Disables default features, as we specify each required feature manually below.
@@ -70,7 +69,7 @@ endif()
 if(CGAL_ENABLED)
     list(APPEND VCPKG_MANIFEST_FEATURES "cgal")
 endif()
-if(NOT FETCH_TORCH)
+if(TORCH_ENABLED)
     if(CUDA_ENABLED)
         list(APPEND VCPKG_MANIFEST_FEATURES "libtorch-cuda")
     else()

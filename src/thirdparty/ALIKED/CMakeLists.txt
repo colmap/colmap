@@ -19,6 +19,6 @@ COLMAP_ADD_LIBRARY(
         sddh.hpp sddh.cpp
         ${OPTIONAL_CUDA_SRCS}
     PUBLIC_LINK_LIBS
-        torch::torch
+        torch
         glog::glog
 )

@@ -247,98 +247,92 @@ if(OPENGL_ENABLED OR CUDA_ENABLED)
 endif()
 
 if(TORCH_ENABLED)
-    if(FETCH_TORCH)
-        include(FetchContent)
-        # Avoid warning about DOWNLOAD_EXTRACT_TIMESTAMP in CMake 3.24:
-        if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24.0")
-            cmake_policy(SET CMP0135 NEW)
-        endif()
-        set(LIBTORCH_VERSION "2.6.0")
-        set(LIBTORCH_CUDA_VERSION "126")
-        if(IS_MSVC)
-            if(CUDA_ENABLED)
-                FetchContent_Declare(libtorch
-                    URL https://download.pytorch.org/libtorch/cu${LIBTORCH_CUDA_VERSION}/libtorch-win-shared-with-deps-${LIBTORCH_VERSION}%2Bcu${LIBTORCH_CUDA_VERSION}.zip
-                    URL_HASH SHA256=89ed2ae468555487ad153bf6f1b0bcce17814da314ba14996c4d63602e94c8c9
-                )
-            else()
-                FetchContent_Declare(libtorch
-                    URL https://download.pytorch.org/libtorch/cpu/libtorch-win-shared-with-deps-${LIBTORCH_VERSION}%2Bcpu.zip
-                    URL_HASH SHA256=f2c2e46073848a8e0150984ef26af7c112149a61401063dd4b1f12b7905dac41
-                )
-            endif()
-        elseif(IS_MACOS)
-            if(NOT IS_ARM64)
-                message(FATAL_ERROR "libtorch only supported with ARM-based Macs")
-            endif()
-            FetchContent_Declare(libtorch
-                URL https://download.pytorch.org/libtorch/cpu/libtorch-macos-arm64-${LIBTORCH_VERSION}.zip
-                URL_HASH SHA256=d647af55fd15754e5df8e2f99cab7fa0ab87adf76f708ce792e1c3b1150adac9
-            )
-        elseif(IS_LINUX)
-            if(NOT IS_X86)
-                message(FATAL_ERROR "libtorch only supported with x86-based Linux")
-            endif()
-            if(CUDA_ENABLED)
-                FetchContent_Declare(libtorch
-                    URL https://download.pytorch.org/libtorch/cu${LIBTORCH_CUDA_VERSION}/libtorch-shared-with-deps-${LIBTORCH_VERSION}%2Bcu${LIBTORCH_CUDA_VERSION}.zip
-                    URL_HASH SHA256=15708d647d720eb703994f022488bca9ae29a07cf19e76e8b218d0a07be2a943
-                )
-            else()
-                FetchContent_Declare(libtorch
-                    URL https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-${LIBTORCH_VERSION}%2Bcpu.zip
-                    URL_HASH SHA256=6887b5186e466a6d5ca044a51d083bb03c48cb1b4952059b7ca51a5398fbafcc
-                )
-            endif()
-        endif()
-        # find_package() targets are only visible in the current folder, so we need
-        # to call it here. Once we require CMake 3.24, we can use the
-        # find_package(GLOBAL) option and move this logic to the thirdparty folder.
-        FetchContent_MakeAvailable(libtorch)
-        if(NOT DEFINED MKL_ROOT)
-            cmake_policy(SET CMP0074 NEW)
-            if(IS_LINUX)
-                set(DEBIAN_DEFAULT_MKL_LIB_PATH "/usr/lib/x86_64-linux-gnu/libmkl_core.so")
-                if(EXISTS "${DEBIAN_DEFAULT_MKL_LIB_PATH}")
-                    set(MKL_INCLUDE_DIR "/usr/include")
-                    set(MKL_LIBRARIES "${DEBIAN_DEFAULT_MKL_LIB_PATH}")
-                else()
-                    set(MKL_ROOT "/opt/intel/mkl")
-                endif()
-            elseif(IS_MSVC)
-                set(DEFAULT_MKL_LIB_PATH "C:/Program Files (x86)/IntelSWTools/compilers_and_libraries/windows/mkl/lib/intel64/mkl_core_dll.lib")
-                if(EXISTS "${DEFAULT_MKL_LIB_PATH}")
-                    set(MKL_INCLUDE_DIR "C:/Program Files (x86)/IntelSWTools/compilers_and_libraries/windows/mkl/include")
-                    set(MKL_LIBRARIES "${DEFAULT_MKL_LIB_PATH}")
-                endif()
-            endif()
-        endif()
-        include("${libtorch_SOURCE_DIR}/share/cmake/Torch/TorchConfigVersion.cmake")
-        include("${libtorch_SOURCE_DIR}/share/cmake/Torch/TorchConfig.cmake")
-        install(
-            DIRECTORY "${libtorch_SOURCE_DIR}/include/"
-            DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
-        install(
-            DIRECTORY "${libtorch_SOURCE_DIR}/lib/"
-            DESTINATION "${CMAKE_INSTALL_LIBDIR}")
-        install(
-            DIRECTORY "${libtorch_SOURCE_DIR}/share/"
-            DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}")
-    else()
-        if(FIND_TORCH)
-            find_package(Torch REQUIRED)
-        else()
-            # This script is called from the installed colmap-config.cmake file.
-            # This is the sub-folder under the CMAKE_INSTALL_PREFIX lib/torch
-            # where we installed the Torch CMake config files.
-            include("${CMAKE_CURRENT_LIST_DIR}/../../../share/cmake/Torch/TorchConfigVersion.cmake")
-            include("${CMAKE_CURRENT_LIST_DIR}/../../../share/cmake/Torch/TorchConfig.cmake")
-        endif()
-    endif()
+    find_package(Torch REQUIRED)
     add_definitions("-DCOLMAP_TORCH_ENABLED")
-    add_library(torch::torch INTERFACE IMPORTED)
-    target_include_directories(
-        torch::torch INTERFACE ${TORCH_INCLUDE_DIRS})
-    target_link_libraries(
-        torch::torch INTERFACE ${TORCH_LIBRARIES})
+    # if(FETCH_TORCH)
+    #     include(FetchContent)
+    #     # Avoid warning about DOWNLOAD_EXTRACT_TIMESTAMP in CMake 3.24:
+    #     if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24.0")
+    #         cmake_policy(SET CMP0135 NEW)
+    #     endif()
+    #     set(LIBTORCH_VERSION "2.6.0")
+    #     set(LIBTORCH_CUDA_VERSION "126")
+    #     if(IS_MSVC)
+    #         if(CUDA_ENABLED)
+    #             FetchContent_Declare(libtorch
+    #                 URL https://download.pytorch.org/libtorch/cu${LIBTORCH_CUDA_VERSION}/libtorch-win-shared-with-deps-${LIBTORCH_VERSION}%2Bcu${LIBTORCH_CUDA_VERSION}.zip
+    #                 URL_HASH SHA256=89ed2ae468555487ad153bf6f1b0bcce17814da314ba14996c4d63602e94c8c9
+    #             )
+    #         else()
+    #             FetchContent_Declare(libtorch
+    #                 URL https://download.pytorch.org/libtorch/cpu/libtorch-win-shared-with-deps-${LIBTORCH_VERSION}%2Bcpu.zip
+    #                 URL_HASH SHA256=f2c2e46073848a8e0150984ef26af7c112149a61401063dd4b1f12b7905dac41
+    #             )
+    #         endif()
+    #     elseif(IS_MACOS)
+    #         if(NOT IS_ARM64)
+    #             message(FATAL_ERROR "libtorch only supported with ARM-based Macs")
+    #         endif()
+    #         FetchContent_Declare(libtorch
+    #             URL https://download.pytorch.org/libtorch/cpu/libtorch-macos-arm64-${LIBTORCH_VERSION}.zip
+    #             URL_HASH SHA256=d647af55fd15754e5df8e2f99cab7fa0ab87adf76f708ce792e1c3b1150adac9
+    #         )
+    #     elseif(IS_LINUX)
+    #         if(NOT IS_X86)
+    #             message(FATAL_ERROR "libtorch only supported with x86-based Linux")
+    #         endif()
+    #         if(CUDA_ENABLED)
+    #             FetchContent_Declare(libtorch
+    #                 URL https://download.pytorch.org/libtorch/cu${LIBTORCH_CUDA_VERSION}/libtorch-shared-with-deps-${LIBTORCH_VERSION}%2Bcu${LIBTORCH_CUDA_VERSION}.zip
+    #                 URL_HASH SHA256=15708d647d720eb703994f022488bca9ae29a07cf19e76e8b218d0a07be2a943
+    #             )
+    #         else()
+    #             FetchContent_Declare(libtorch
+    #                 URL https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-${LIBTORCH_VERSION}%2Bcpu.zip
+    #                 URL_HASH SHA256=6887b5186e466a6d5ca044a51d083bb03c48cb1b4952059b7ca51a5398fbafcc
+    #             )
+    #         endif()
+    #     endif()
+    #     # find_package() targets are only visible in the current folder, so we need
+    #     # to call it here. Once we require CMake 3.24, we can use the
+    #     # find_package(GLOBAL) option and move this logic to the thirdparty folder.
+    #     FetchContent_MakeAvailable(libtorch)
+    #     if(NOT DEFINED MKL_ROOT)
+    #         cmake_policy(SET CMP0074 NEW)
+    #         if(IS_LINUX)
+    #             set(DEBIAN_DEFAULT_MKL_LIB_PATH "/usr/lib/x86_64-linux-gnu/libmkl_core.so")
+    #             if(EXISTS "${DEBIAN_DEFAULT_MKL_LIB_PATH}")
+    #                 set(MKL_INCLUDE_DIR "/usr/include")
+    #                 set(MKL_LIBRARIES "${DEBIAN_DEFAULT_MKL_LIB_PATH}")
+    #             else()
+    #                 set(MKL_ROOT "/opt/intel/mkl")
+    #             endif()
+    #         elseif(IS_MSVC)
+    #             set(DEFAULT_MKL_LIB_PATH "C:/Program Files (x86)/IntelSWTools/compilers_and_libraries/windows/mkl/lib/intel64/mkl_core_dll.lib")
+    #             if(EXISTS "${DEFAULT_MKL_LIB_PATH}")
+    #                 set(MKL_INCLUDE_DIR "C:/Program Files (x86)/IntelSWTools/compilers_and_libraries/windows/mkl/include")
+    #                 set(MKL_LIBRARIES "${DEFAULT_MKL_LIB_PATH}")
+    #             endif()
+    #         endif()
+    #     endif()
+    #     include("${libtorch_SOURCE_DIR}/share/cmake/Torch/TorchConfigVersion.cmake")
+    #     include("${libtorch_SOURCE_DIR}/share/cmake/Torch/TorchConfig.cmake")
+    #     install(
+    #         DIRECTORY "${libtorch_SOURCE_DIR}/include/"
+    #         DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
+    #     install(
+    #         DIRECTORY "${libtorch_SOURCE_DIR}/lib/"
+    #         DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+    #     install(
+    #         DIRECTORY "${libtorch_SOURCE_DIR}/share/"
+    #         DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}")
+    # else()
+    #     find_package(Torch REQUIRED)
+    # endif()
+    # add_definitions("-DCOLMAP_TORCH_ENABLED")
+    # add_library(torch::torch INTERFACE IMPORTED)
+    # target_include_directories(
+    #     torch::torch INTERFACE ${TORCH_INCLUDE_DIRS})
+    # target_link_libraries(
+    #     torch::torch INTERFACE ${TORCH_LIBRARIES})
 endif()
