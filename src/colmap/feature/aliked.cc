@@ -72,6 +72,9 @@ class ALIKEDFeatureExtractor : public FeatureExtractor {
   bool Extract(const Bitmap& bitmap,
                FeatureKeypoints* keypoints,
                FeatureDescriptors* descriptors) override {
+    THROW_CHECK_NOTNULL(keypoints);
+    THROW_CHECK_NOTNULL(descriptors);
+
     const int orig_width = bitmap.Width();
     const int orig_height = bitmap.Height();
     const int image_size = std::max(orig_width, orig_height);
@@ -107,26 +110,36 @@ class ALIKEDFeatureExtractor : public FeatureExtractor {
     const torch::Dict<std::string, torch::Tensor> outputs =
         aliked_.forward(torch_image);
 
-    const auto& torch_keypoints = outputs.at("keypoints");
+    const auto torch_keypoints = outputs.at("keypoints");      // shape [N, 2]
+    const auto torch_descriptors = outputs.at("descriptors");  // shape [N, D]
     const int num_keypoints = torch_keypoints.size(0);
+    const int descriptor_dim = torch_descriptors.size(1);
+    THROW_CHECK_EQ(num_keypoints, torch_descriptors.size(0));
 
     keypoints->resize(num_keypoints);
-    for (int i = 0; i < num_keypoints; ++i) {
-      (*keypoints)[i].x =
-          0.5f * orig_width * (torch_keypoints[i][0].item<float>() + 1.f);
-      (*keypoints)[i].y =
-          0.5f * orig_height * (torch_keypoints[i][1].item<float>() + 1.f);
+    {
+      // Move to CPU, ensure contiguous
+      const auto torch_keypoints_cpu = torch_keypoints.contiguous().cpu();
+      const float* torch_keypoints_data = torch_keypoints_cpu.data_ptr<float>();
+      for (int i = 0; i < num_keypoints; ++i) {
+        (*keypoints)[i].x =
+            0.5f * orig_width * (torch_keypoints_data[2 * i] + 1.f);
+        (*keypoints)[i].y =
+            0.5f * orig_height * (torch_keypoints_data[2 * i + 1] + 1.f);
+      }
     }
 
-    const auto& torch_descriptors = outputs.at("descriptors");
-    const int num_descriptors = torch_descriptors.size(0);
-    THROW_CHECK_EQ(num_descriptors, num_keypoints);
-    const int descriptor_dim = torch_descriptors.size(1);
-    descriptors->resize(num_descriptors, descriptor_dim * sizeof(float));
-    torch::from_blob(reinterpret_cast<float*>(descriptors->data()),
-                     {num_descriptors, descriptor_dim},
-                     torch::TensorOptions().dtype(torch::kFloat32)) =
-        outputs.at("descriptors");
+    // Bulk copy the descriptors
+    descriptors->resize(num_keypoints, descriptor_dim * sizeof(float));
+    {
+      // Move to CPU, ensure contiguous
+      const auto torch_descriptors_cpu = torch_descriptors.contiguous().cpu();
+      const float* torch_descriptors_data =
+          torch_descriptors_cpu.data_ptr<float>();
+      std::memcpy(descriptors->data(),
+                  torch_descriptors_data,
+                  num_keypoints * descriptor_dim * sizeof(float));
+    }
 
     return true;
   }
