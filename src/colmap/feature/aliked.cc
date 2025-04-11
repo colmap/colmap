@@ -45,9 +45,14 @@ namespace {
 
 #ifdef COLMAP_TORCH_ENABLED
 
-std::string GetDeviceName() {
-  if (torch::cuda::is_available()) {
-    return "cuda";
+template <class ExtractionOrMatchingOptions>
+std::string GetDeviceName(const ExtractionOrMatchingOptions& options) {
+  if (options.use_gpu && torch::cuda::is_available()) {
+    if (options.gpu_index == "-1") {
+      return "cuda";
+    } else {
+      return std::string("cuda:") + options.gpu_index;
+    }
   } else {
     return "cpu";
   }
@@ -59,7 +64,7 @@ class ALIKEDFeatureExtractor : public FeatureExtractor {
       : options_(options),
         aliked_(options.aliked->model_name,
                 MaybeDownloadAndCacheFile(options.aliked->model_path),
-                GetDeviceName(),
+                GetDeviceName(options),
                 /*top_k=*/options.aliked->top_k,
                 /*scores_th=*/options.aliked->score_threshold,
                 /*n_limit=*/options.aliked->max_num_features) {}
@@ -136,7 +141,8 @@ class ALIKEDLightGlueFeatureMatcher : public FeatureMatcher {
  public:
   explicit ALIKEDLightGlueFeatureMatcher(const FeatureMatchingOptions& options)
       : lightglue_("aliked",
-                   MaybeDownloadAndCacheFile(options.aliked->model_path)) {
+                   MaybeDownloadAndCacheFile(options.aliked->model_path),
+                   GetDeviceName(options)) {
     if (!options.Check()) {
       throw std::runtime_error("Invalid ALIKED matching options.");
     }

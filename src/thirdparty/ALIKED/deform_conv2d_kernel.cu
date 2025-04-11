@@ -76,8 +76,6 @@
 namespace vision {
     namespace ops {
 
-        namespace {
-
             const int kMaxParallelImgs = 32;
 
             inline unsigned int GET_THREADS() {
@@ -1056,7 +1054,7 @@ namespace vision {
                 return grad_weight;
             }
 
-            at::Tensor deform_conv2d_forward_kernel(
+            at::Tensor deform_conv2d_forward_kernel_cuda(
                 const at::Tensor& input,
                 const at::Tensor& weight,
                 const at::Tensor& offset,
@@ -1283,7 +1281,7 @@ namespace vision {
             }
 
             std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor, at::Tensor>
-            deform_conv2d_backward_kernel(
+            deform_conv2d_backward_kernel_cuda(
                 const at::Tensor& grad_out,
                 const at::Tensor& input,
                 const at::Tensor& weight,
@@ -1354,17 +1352,5 @@ namespace vision {
                 return std::make_tuple(
                     grad_input, grad_weight, grad_offset, grad_mask, grad_bias);
             }
-
-        } // namespace
-
-        TORCH_LIBRARY_IMPL(torchvision, CUDA, m) {
-            m.impl(
-                TORCH_SELECTIVE_NAME("torchvision::deform_conv2d"),
-                TORCH_FN(deform_conv2d_forward_kernel));
-            m.impl(
-                TORCH_SELECTIVE_NAME("torchvision::_deform_conv2d_backward"),
-                TORCH_FN(deform_conv2d_backward_kernel));
-        }
-
     } // namespace ops
 } // namespace vision

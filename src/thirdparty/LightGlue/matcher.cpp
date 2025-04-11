@@ -114,8 +114,9 @@ static const std::unordered_map<std::string, int> INPUT_DIMS = {
 
 LightGlue::LightGlue(const std::string& feature_type,
                      const std::string& model_path,
+                     const std::string& device,
                      const LightGlueConfig& config)
-    : config_(config), device_(torch::kCPU) {
+    : config_(config), device_(device) {
   // Configure based on feature type
   auto it = INPUT_DIMS.find(feature_type);
   if (it == INPUT_DIMS.end()) {
@@ -175,12 +176,7 @@ LightGlue::LightGlue(const std::string& feature_type,
 
   // Load weights if specified
   load_parameters(model_path);
-
-  // Move to device if CUDA is available
-  if (torch::cuda::is_available()) {
-    device_ = torch::kCUDA;
-    moveToDevice(device_);
-  }
+  moveToDevice(device_);
 }
 
 void LightGlue::moveToDevice(const torch::Device& device) {

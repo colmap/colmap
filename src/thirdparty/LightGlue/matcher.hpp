@@ -35,6 +35,7 @@ namespace matcher {
     public:
         explicit LightGlue(const std::string& feature_type,
                            const std::string& model_path,
+                           const std::string& device = "cuda",
                            const LightGlueConfig& config = LightGlueConfig());
 
         // Main forward function to process features and find matches

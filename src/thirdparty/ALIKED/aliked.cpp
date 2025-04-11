@@ -24,7 +24,7 @@ ALIKED::ALIKED(const std::string& model_name,
                int top_k,
                float scores_th,
                int n_limit)
-    : device_(torch::Device(std::string(device))),
+    : device_(device),
       dim_(-1) {
 
     // Initialize DKD and descriptor head
