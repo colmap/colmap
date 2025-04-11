@@ -43,7 +43,8 @@ namespace colmap {
 // representation and vice versa.
 class GPSTransform {
  public:
-  MAKE_ENUM(ELLPSOID, 0, GRS80, WGS84);
+  MAKE_ENUM(Ellipsoid, 0, GRS80, WGS84);
+  MAKE_ENUM(CartesianFrame, 0, ECEF, ENU, UTM);
 
   explicit GPSTransform(int ellipsoid = GRS80);
 
@@ -57,11 +58,13 @@ class GPSTransform {
   // defining the origin of the ENU frame
   std::vector<Eigen::Vector3d> EllToENU(const std::vector<Eigen::Vector3d>& ell,
                                         double lat0,
-                                        double lon0) const;
+                                        double lon0,
+                                        double alt0) const;
 
   std::vector<Eigen::Vector3d> XYZToENU(const std::vector<Eigen::Vector3d>& xyz,
                                         double lat0,
-                                        double lon0) const;
+                                        double lon0,
+                                        double alt0) const;
 
   std::vector<Eigen::Vector3d> ENUToEll(const std::vector<Eigen::Vector3d>& enu,
                                         double lat0,
@@ -75,19 +78,56 @@ class GPSTransform {
 
   // Converts GPS (lat / lon / alt) to UTM coordinates.
   // Returns a pair of the converted coordinates and the zone number.
-  // If the points span multiple zones, the zone with the most points
-  // is chosen as the reference frame.
+  //
+  // Zone sign indicates hemisphere: positive for Northern, negative for
+  // Southern. This is a custom convention to simplify hemisphere handling, as
+  // the UTM zone number itself is always positive in the standard. If the
+  // points span multiple zones, the zone with the most points is chosen as the
+  // reference frame.
   //
   // The conversion uses a 4th-order expansion formula. The easting offset is
   // 500 km, and the northing offset is 10,000 km for the Southern Hemisphere.
+  // To handle points that span across multiple zones and hemispheres, it is
+  // recommended to convert each point individually, remove the northing and
+  // easting offsets for each point, and then merge the coordinates in the
+  // target coordinate system.
   std::pair<std::vector<Eigen::Vector3d>, int> EllToUTM(
       const std::vector<Eigen::Vector3d>& ell) const;
 
   // Converts UTM coords to GPS (lat / lon / alt).
-  // Requires the zone number and hemisphere (true for north, false for south).
+  // Requires the zone number: positive for Northern Hemisphere, negative for
+  // Southern Hemisphere.
   std::vector<Eigen::Vector3d> UTMToEll(const std::vector<Eigen::Vector3d>& utm,
-                                        int zone,
-                                        bool is_north) const;
+                                        int zone) const;
+
+  // Single point conversion functions
+  Eigen::Vector3d EllToXYZ(const Eigen::Vector3d& ell) const;
+
+  Eigen::Vector3d XYZToEll(const Eigen::Vector3d& xyz) const;
+
+  Eigen::Vector3d EllToENU(const Eigen::Vector3d& ell,
+                           double lat0,
+                           double lon0,
+                           double alt0) const;
+
+  Eigen::Vector3d XYZToENU(const Eigen::Vector3d& xyz,
+                           double lat0,
+                           double lon0,
+                           double alt0) const;
+
+  Eigen::Vector3d ENUToEll(const Eigen::Vector3d& enu,
+                           double lat0,
+                           double lon0,
+                           double alt0) const;
+
+  Eigen::Vector3d ENUToXYZ(const Eigen::Vector3d& enu,
+                           double lat0,
+                           double lon0,
+                           double alt0) const;
+
+  std::pair<Eigen::Vector3d, int> EllToUTM(const Eigen::Vector3d& ell) const;
+
+  Eigen::Vector3d UTMToEll(const Eigen::Vector3d& utm, int zone) const;
 
  private:
   // Semimajor axis.
