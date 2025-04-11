@@ -185,7 +185,7 @@ ResBlock::ResBlock(int inplanes, int planes, int stride,
 }
 
 torch::Tensor ConvBlock::forward(torch::Tensor x) && {
-    return std::move(*this).forward(std::move(x));
+    return static_cast<ConvBlock&>(*this).forward(x);
 }
 
 torch::Tensor ConvBlock::forward(const torch::Tensor& x) & {
@@ -201,7 +201,7 @@ torch::Tensor ConvBlock::forward(const torch::Tensor& x) & {
 }
 
 torch::Tensor ResBlock::forward(torch::Tensor x) && {
-    return std::move(*this).forward(std::move(x));
+    return static_cast<ResBlock&>(*this).forward(x);
 }
 
 torch::Tensor ResBlock::forward(const torch::Tensor& x) & {
