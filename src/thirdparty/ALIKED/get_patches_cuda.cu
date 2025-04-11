@@ -159,7 +159,7 @@ torch::Tensor get_patches_forward_cuda(const torch::Tensor& input, torch::Tensor
     // cuda kernel
     int64_t num_kernels = n_input_plane * n_points;
     auto stream = at::cuda::getCurrentCUDAStream();
-    AT_DISPATCH_FLOATING_TYPES(input.type(), "get_patches_forward_cuda",
+    AT_DISPATCH_FLOATING_TYPES(input.scalar_type(), "get_patches_forward_cuda",
                                (
                                    [&] {
                                        get_patches_forward_cuda_kernel<scalar_t><<<GET_BLOCKS(num_kernels), CUDA_NUM_THREADS, 0, stream>>>(
@@ -196,7 +196,7 @@ torch::Tensor get_patches_forward_cuda1(const torch::Tensor& map, torch::Tensor&
     // cuda kernel
     const int threads = CUDA_NUM_THREADS;
     const int blocks = (N + threads - 1) / threads;
-    AT_DISPATCH_FLOATING_TYPES(map_pad.type(), "get_patches_forward_cuda",
+    AT_DISPATCH_FLOATING_TYPES(map_pad.scalar_type(), "get_patches_forward_cuda",
                                (
                                    [&] {
                                        get_patches_forward_cuda_kernel1<scalar_t>
@@ -234,7 +234,7 @@ torch::Tensor get_patches_backward_cuda(const torch::Tensor& d_patches, torch::T
     // cuda kernel
     const int threads = CUDA_NUM_THREADS;
     const int blocks = (N + threads - 1) / threads;
-    AT_DISPATCH_FLOATING_TYPES(d_map_pad.type(), "get_patches_backward_cuda",
+    AT_DISPATCH_FLOATING_TYPES(d_map_pad.scalar_type(), "get_patches_backward_cuda",
                                (
                                    [&] {
                                        get_patches_backward_cuda_kernel<scalar_t>
