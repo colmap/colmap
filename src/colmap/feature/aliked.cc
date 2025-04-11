@@ -93,17 +93,16 @@ class ALIKEDFeatureExtractor : public FeatureExtractor {
 
     const int width = bitmap_ptr->Width();
     const int height = bitmap_ptr->Height();
-    torch::Tensor torch_image = torch::empty({1, 3, height, width});
-    for (int y = 0; y < height; ++y) {
-      for (int x = 0; x < width; ++x) {
-        BitmapColor<uint8_t> color;
-        CHECK(bitmap_ptr->GetPixel(x, y, &color));
-        constexpr float kNorm = 1.f / 255.f;
-        torch_image[0][0][y][x] = kNorm * color.r;
-        torch_image[0][1][y][x] = kNorm * color.g;
-        torch_image[0][2][y][x] = kNorm * color.b;
-      }
-    }
+    auto row_major_array = bitmap_ptr->ConvertToRowMajorArray();
+    // Clone to ensure ownership
+    auto torch_image =
+        torch::from_blob(
+            row_major_array.data(), {height, width, 3}, torch::kUInt8)
+            .clone()
+            .permute({2, 0, 1})   // [C, H, W]
+            .to(torch::kFloat32)  // Convert to float
+            .mul_(1.0f / 255.0f)  // Normalize in-place
+            .unsqueeze(0);        // Add batch dimension [1, C, H, W]
 
     const torch::Dict<std::string, torch::Tensor> outputs =
         aliked_.forward(torch_image);
