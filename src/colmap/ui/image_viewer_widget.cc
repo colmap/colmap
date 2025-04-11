@@ -360,9 +360,9 @@ void DatabaseImageViewerWidget::ShowImageWithId(const image_t image_id) {
         QString::number(image.CamFromWorld().rotation.y()) + ", " +
         QString::number(image.CamFromWorld().rotation.z()));
     translation_item_->setText(
-        QString::number(image.CamFromWorld().translation.x()) + ", " +
-        QString::number(image.CamFromWorld().translation.y()) + ", " +
-        QString::number(image.CamFromWorld().translation.z()));
+        QString::number(image.CamFromWorld().translation.x(), 'f', 10) + ", " +
+        QString::number(image.CamFromWorld().translation.y(), 'f', 10) + ", " +
+        QString::number(image.CamFromWorld().translation.z(), 'f', 10));
     dimensions_item_->setText(QString::number(camera.width) + "x" +
                               QString::number(camera.height));
   } else {
