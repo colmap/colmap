@@ -176,12 +176,7 @@ LightGlue::LightGlue(const std::string& feature_type,
 
   // Load weights if specified
   load_parameters(model_path);
-  moveToDevice(device_);
-}
-
-void LightGlue::moveToDevice(const torch::Device& device) {
-  device_ = device;
-  torch::nn::Module::to(device);
+  torch::nn::Module::to(device_);
 }
 
 torch::Tensor LightGlue::get_pruning_mask(

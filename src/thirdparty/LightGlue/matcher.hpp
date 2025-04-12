@@ -43,9 +43,6 @@ namespace matcher {
             const torch::Dict<std::string, torch::Tensor>& data0,
             const torch::Dict<std::string, torch::Tensor>& data1);
 
-        // Method to move all components to specified device
-        void moveToDevice(const torch::Device& device);
-
     private:
         torch::Tensor get_pruning_mask(
             const torch::optional<torch::Tensor>& confidences,

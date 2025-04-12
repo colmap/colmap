@@ -1275,6 +1275,8 @@ TORCH_LIBRARY_IMPL(torchvision, CPU, m) {
          TORCH_FN(deform_conv2d_backward_kernel));
 }
 
+#ifdef COLMAP_CUDA_ENABLED
+
 std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor, at::Tensor>
 deform_conv2d_backward_kernel_cuda(const at::Tensor& grad_out,
                                    const at::Tensor& input,
@@ -1313,6 +1315,8 @@ TORCH_LIBRARY_IMPL(torchvision, CUDA, m) {
   m.impl(TORCH_SELECTIVE_NAME("torchvision::_deform_conv2d_backward"),
          TORCH_FN(deform_conv2d_backward_kernel_cuda));
 }
+
+#endif
 
 }  // namespace ops
 }  // namespace vision
