@@ -154,6 +154,12 @@ class ALIKEDDescriptorFeatureMatcher : public FeatureMatcher {
     THROW_CHECK_NOTNULL(matches);
     matches->clear();
 
+    const int num_keypoints1 = image1.descriptors->rows();
+    const int num_keypoints2 = image2.descriptors->rows();
+    if (num_keypoints1 == 0 || num_keypoints2 == 0) {
+      return;
+    }
+
     auto descriptors1 = FeaturesFromImage(image1);
     auto descriptors2 = FeaturesFromImage(image2);
 
@@ -164,8 +170,6 @@ class ALIKEDDescriptorFeatureMatcher : public FeatureMatcher {
     const auto nn21 = torch::argmax(sim, /*axis=*/0).contiguous().cpu();
     const int64_t* nn21_data = nn21.data_ptr<int64_t>();
 
-    const int num_keypoints1 = image1.descriptors->rows();
-    const int num_keypoints2 = image2.descriptors->rows();
     matches->reserve(num_keypoints1);
     for (int i1 = 0; i1 < num_keypoints1; ++i1) {
       const int i2 = nn12_data[i1];
