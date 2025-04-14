@@ -26,52 +26,13 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-//
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #pragma once
 
-#include "colmap/feature/extractor.h"
-#include "colmap/feature/matcher.h"
-#include "colmap/feature/resources.h"
+#include <string>
 
 namespace colmap {
 
-struct ALIKEDExtractionOptions {
-  // Maximum number of features to detect (in combination with score threshold).
-  int max_num_features = 4096;
-
-  // Minimum detection score threshold.
-  double score_threshold = 0.2;
-
-  // Detect fixed number of top k features independent of detection score.
-  // Ignored if negative.
-  int top_k = -1;
-
-  // The ALIKED model name.
-  std::string model_name = "aliked-n32";
-
-  // The path to the ALIKED model.
-  std::string model_path = kDefaultAlikedUri;
-
-  bool Check() const;
-};
-
-std::unique_ptr<FeatureExtractor> CreateALIKEDFeatureExtractor(
-    const FeatureExtractionOptions& options);
-
-struct ALIKEDMatchingOptions {
-  // Whether to use LightGlue for matching or regular L2-distance based
-  // mutual nearest-neighbor search.
-  bool lightglue = true;
-
-  // Path to .pt ALIKED model file in torch model format.
-  std::string lightglue_model_path = kDefaultAlikedLightGlueUri;
-
-  bool Check() const;
-};
-
-std::unique_ptr<FeatureMatcher> CreateALIKEDFeatureMatcher(
-    const FeatureMatchingOptions& options);
+std::string GetDeviceName(bool use_gpu, const std::string& gpu_index);
 
 }  // namespace colmap

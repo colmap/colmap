@@ -108,26 +108,17 @@ const std::unordered_map<std::string, int>
     LightGlue::pruning_keypoint_thresholds_ = {
         {"cpu", -1}, {"mps", -1}, {"cuda", 1024}, {"flash", 1536}};
 
-// Feature configurations
-static const std::unordered_map<std::string, int> INPUT_DIMS = {
-    {"aliked", 128}};
-
-LightGlue::LightGlue(const std::string& feature_type,
+LightGlue::LightGlue(int input_dim,
                      const std::string& model_path,
                      const std::string& device,
                      const LightGlueConfig& config)
     : config_(config), device_(device) {
-  // Configure based on feature type
-  auto it = INPUT_DIMS.find(feature_type);
-  if (it == INPUT_DIMS.end()) {
-    throw std::runtime_error("Unsupported feature type: " + feature_type);
-  }
 
   if (config_.flash) {
     at::globalContext().setSDPUseFlash(true);
   }
 
-  config_.input_dim = it->second;
+  config_.input_dim = input_dim;
 
   // Initialize input projection if needed
   if (config_.input_dim != config_.descriptor_dim) {
@@ -426,8 +417,10 @@ torch::Dict<std::string, torch::Tensor> LightGlue::forward(
       m_indices_1 = ind1.index({torch::indexing::Slice(), m_indices_1});
     }
   } else {
-    torch::Tensor m_indices_0 = torch::empty({0}, torch::TensorOptions().device(device_));
-    torch::Tensor m_indices_1 = torch::empty({0}, torch::TensorOptions().device(device_)); 
+    torch::Tensor m_indices_0 =
+        torch::empty({0}, torch::TensorOptions().device(device_));
+    torch::Tensor m_indices_1 =
+        torch::empty({0}, torch::TensorOptions().device(device_));
   }
 
   auto matches = torch::stack({m_indices_0, m_indices_1}, 0);

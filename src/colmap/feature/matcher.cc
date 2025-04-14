@@ -30,6 +30,7 @@
 #include "colmap/feature/matcher.h"
 
 #include "colmap/feature/aliked.h"
+#include "colmap/feature/lightglue.h"
 #include "colmap/feature/sift.h"
 #include "colmap/util/misc.h"
 
@@ -50,9 +51,11 @@ bool FeatureMatchingOptions::Check() const {
 #endif
   }
   CHECK_OPTION_GE(max_num_matches, 0);
-  if (type == FeatureMatcherType::SIFT) {
+  if (type == FeatureMatcherType::SIFT ||
+      type == FeatureMatcherType::LIGHTGLUE_SIFT) {
     return THROW_CHECK_NOTNULL(sift)->Check();
-  } else if (type == FeatureMatcherType::ALIKED) {
+  } else if (type == FeatureMatcherType::ALIKED ||
+             type == FeatureMatcherType::LIGHTGLUE_ALIKED) {
     return THROW_CHECK_NOTNULL(aliked)->Check();
   } else {
     LOG(ERROR) << "Unknown feature matcher type: " << type;

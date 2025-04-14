@@ -55,10 +55,12 @@ COLMAP_ADD_LIBRARY(
         aliked.h aliked.cc
         extractor.h extractor.cc
         index.h index.cc
+        lightglue.h lightglue.cc
         matcher.h matcher.cc
         pairing.h pairing.cc
         resources.h
         sift.h sift.cc
+        torch_utils.h torch_utils.cc
         types.h types.cc
         utils.h utils.cc
     PUBLIC_LINK_LIBS
@@ -114,9 +116,13 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME sift_test
     SRCS sift_test.cc
-    LINK_LIBS
-        colmap_feature
+    LINK_LIBS colmap_feature
 )
 if(TESTS_ENABLED AND GUI_ENABLED)
     target_link_libraries(colmap_feature_sift_test Qt5::Widgets)
 endif()
+COLMAP_ADD_TEST(
+    NAME torch_utils_test
+    SRCS torch_utils_test.cc
+    LINK_LIBS colmap_feature
+)

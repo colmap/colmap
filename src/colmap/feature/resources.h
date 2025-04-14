@@ -39,17 +39,13 @@ const static std::string kDefaultAlikedUri =
     "aliked-n32.pt;"
     "aliked-n32.pt;"
     "bc64763cfa2dc7b3356bb03053d2b2b277498c64e89786001dd391daa577a7d6";
-#else
-const static std::string kDefaultAlikedUri = "";
-#endif
-
-#ifdef COLMAP_DOWNLOAD_ENABLED
 const static std::string kDefaultAlikedLightGlueUri =
     "https://github.com/MrNeRF/Light_Glue_CPP/raw/refs/heads/master/models/"
     "aliked_lightglue.pt;"
     "aliked_lightglue.pt;"
     "01ce35141db9d91e0e4fe39ede3435b1f8dd61929f9d32ae609e95172e2fa402";
 #else
+const static std::string kDefaultAlikedUri = "";
 const static std::string kDefaultAlikedLightGlueUri = "";
 #endif
 

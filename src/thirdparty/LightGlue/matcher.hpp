@@ -33,7 +33,7 @@ namespace matcher {
 
     class LightGlue : public torch::nn::Module {
     public:
-        explicit LightGlue(const std::string& feature_type,
+        explicit LightGlue(int input_dim,
                            const std::string& model_path,
                            const std::string& device = "cuda",
                            const LightGlueConfig& config = LightGlueConfig());

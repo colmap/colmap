@@ -45,10 +45,12 @@
 
 namespace colmap {
 
-MAKE_ENUM_CLASS_OVERLOAD_STREAM(FeatureMatcherType, 0, SIFT, ALIKED);
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(
+    FeatureMatcherType, 0, SIFT, ALIKED, LIGHTGLUE_SIFT, LIGHTGLUE_ALIKED);
 
 struct SiftMatchingOptions;
 struct ALIKEDMatchingOptions;
+struct LightGlueMatchingOptions;
 
 struct FeatureMatchingOptions {
   explicit FeatureMatchingOptions(
