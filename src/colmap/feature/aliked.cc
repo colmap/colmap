@@ -223,8 +223,7 @@ std::unique_ptr<FeatureExtractor> CreateALIKEDFeatureExtractor(
 #ifdef COLMAP_TORCH_ENABLED
   return std::make_unique<ALIKEDFeatureExtractor>(options);
 #else
-  throw std::runtime_error(
-      "ALIKED feature extraction requires torch support.");
+  throw std::runtime_error("ALIKED feature extraction requires torch support.");
 #endif
 }
 
@@ -245,8 +244,7 @@ std::unique_ptr<FeatureMatcher> CreateALIKEDFeatureMatcher(
     lightglue_options.model_path = options.aliked->lightglue_model_path;
     return CreateLightGlueFeatureMatcher(options, lightglue_options);
 #else
-    throw std::runtime_error(
-        "ALIKED feature matching requires torch support.");
+    throw std::runtime_error("ALIKED feature matching requires torch support.");
 #endif
   } else {
     return std::make_unique<ALIKEDDescriptorFeatureMatcher>(options);
