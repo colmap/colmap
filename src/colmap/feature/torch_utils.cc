@@ -29,13 +29,9 @@
 
 #include "colmap/feature/torch_utils.h"
 
-#ifdef COLMAP_TORCH_ENABLED
 #include <torch/torch.h>
-#endif
 
 namespace colmap {
-
-#ifdef COLMAP_TORCH_ENABLED
 
 std::string GetDeviceName(bool use_gpu, const std::string& gpu_index) {
   if (use_gpu && torch::cuda::is_available()) {
@@ -48,7 +44,5 @@ std::string GetDeviceName(bool use_gpu, const std::string& gpu_index) {
     return "cpu";
   }
 }
-
-#endif
 
 }  // namespace colmap
