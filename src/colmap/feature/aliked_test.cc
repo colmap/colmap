@@ -58,6 +58,8 @@ TEST(ALIKED, Nominal) {
   auto keypoints = std::make_shared<FeatureKeypoints>();
   auto descriptors = std::make_shared<FeatureDescriptors>();
   ASSERT_TRUE(extractor->Extract(image, keypoints.get(), descriptors.get()));
+  EXPECT_GT(keypoints->size(), 0);
+  EXPECT_EQ(keypoints->size(), descriptors->rows());
 
   for (const auto& matching_options :
        {FeatureMatchingOptions(FeatureMatcherType::ALIKED),
