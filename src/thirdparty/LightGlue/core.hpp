@@ -14,7 +14,7 @@ namespace matcher {
         bool add_scale_ori{false};
         int n_layers{9};
         int num_heads{4};
-        bool flash{false};
+        bool flash{true};
         bool mp{false};
         float depth_confidence{DEFAULT_DEPTH_CONFIDENCE};
         float width_confidence{DEFAULT_WIDTH_CONFIDENCE};
