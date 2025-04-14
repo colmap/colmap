@@ -1,5 +1,7 @@
 #include "attention.hpp"
+
 #include <torch/torch.h>
+#include <ATen/native/transformers/sdp_utils_cpp.h>
 
 namespace matcher {
 
@@ -183,15 +185,7 @@ namespace matcher {
     }
 
     Attention::Attention(bool allow_flash) {
-        // TODO: fix this
-        // enable_flash_ = allow_flash && FLASH_AVAILABLE;
-        // has_sdp_ = torch::cuda::is_available() &&
-        //           torch::cuda::is_available(); // &&
-        // torch::().major >= 8;
-        enable_flash_ = false;
-        // if (enable_flash_) {
-        //     torch::cuda::set_device(torch::cuda::current_device());
-        // }
+        allow_flash_ = allow_flash;
     }
 
     torch::Tensor Attention::forward(
@@ -206,19 +200,18 @@ namespace matcher {
         }
 
         // Use scaled dot-product attention if available
-        if (enable_flash_ && q.device().is_cuda())
+        if (allow_flash_)
         {
-            if (has_sdp_)
-            {
+            if (q.device().is_cuda()) {
                 auto args_q = q.to(torch::kHalf).contiguous();
                 auto args_k = k.to(torch::kHalf).contiguous();
                 auto args_v = v.to(torch::kHalf).contiguous();
 
                 auto result = torch::scaled_dot_product_attention(
                     args_q, args_k, args_v);
-
-                result = result.to(q.dtype());
-                return result;
+                return result.to(q.dtype());
+            } else {
+                return torch::scaled_dot_product_attention(q.contiguous(), k.contiguous(), v.contiguous());
             }
         }
 

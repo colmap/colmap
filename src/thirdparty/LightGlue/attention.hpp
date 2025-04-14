@@ -25,8 +25,7 @@ namespace matcher {
             const torch::Tensor& v);
 
     private:
-        bool enable_flash_;
-        bool has_sdp_;
+        bool allow_flash_;
     };
 
     // Self-Attention Block
