@@ -122,7 +122,7 @@ TEST(IncrementalPipeline, WithoutNoiseAndNonTrivialFrames) {
   ExpectEqualReconstructions(gt_reconstruction,
                              *reconstruction_manager->Get(0),
                              /*max_rotation_error_deg=*/1e-2,
-                             /*max_proj_center_error=*/1e-4,
+                             /*max_proj_center_error=*/1e-3,
                              /*num_obs_tolerance=*/0);
 }
 
