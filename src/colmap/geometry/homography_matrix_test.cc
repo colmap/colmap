@@ -31,6 +31,7 @@
 
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/eigen_matchers.h"
+#include "colmap/util/logging.h"
 
 #include <cmath>
 
@@ -75,19 +76,20 @@ TEST(DecomposeHomographyMatrix, Nominal) {
         (cams2_from_cams1[i].translation - ref_translation).norm() < kEps &&
         (normals[i] - ref_normal).norm() < kEps) {
       ref_solution_exists = true;
+      break;
     }
   }
   EXPECT_TRUE(ref_solution_exists);
 }
 
 TEST(DecomposeHomographyMatrix, Random) {
-  const int numIters = 100;
+  constexpr int kNumIters = 100;
 
   const double epsilon = 1e-6;
 
   const Eigen::Matrix3d identity = Eigen::Matrix3d::Identity();
 
-  for (int i = 0; i < numIters; ++i) {
+  for (int i = 0; i < kNumIters; ++i) {
     const Eigen::Matrix3d H = Eigen::Matrix3d::Random();
 
     if (std::abs(H.determinant()) < epsilon) {
