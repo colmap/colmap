@@ -192,7 +192,9 @@ jobs:
           fi
 
           if [ "${{ matrix.config.torchEnabled }}" == "true" ]; then
-            sudo apt-get install -y pytorch
+            sudo apt-get install -y python3 python3-pip
+            pip install torch
+            echo "Torch_DIR=`python3 -c 'import torch;print(torch.utils.cmake_prefix_path)'`" >> $GITHUB_ENV
           fi
 
       - name: Configure and build
