@@ -115,8 +115,16 @@ int RunDatabaseMerger(int argc, char** argv) {
   return EXIT_SUCCESS;
 }
 
-void ExtractRigCalib(
-    const Reconstruction& rig_calib_reconstruction,
+namespace {
+
+// Update the database with extracted rig and calibrations from the given
+// reconstruction derived as follows:
+//   * Compute the sensor_from_rig poses as the average of the relative
+//     poses between registered sensors in the reconstruction.
+//   * Set the camera calibration parameters from the first frame with an image
+//     of the camera.
+void UpdateRigAndCameraCalibFromReconstruction(
+    const Reconstruction& reconstruction,
     const std::unordered_map<std::string, std::vector<const Image*>>&
         frames_to_images,
     Rig rig,
@@ -125,7 +133,7 @@ void ExtractRigCalib(
       camera_t,
       std::pair<std::vector<Eigen::Quaterniond>, Eigen::Vector3d>>
       rig_from_cams;
-  std::set<camera_t> rig_calib_updated_cameras;
+  std::set<camera_t> updated_cameras;
   for (auto& [_, images] : frames_to_images) {
     const Image* ref_image = nullptr;
     for (const Image* image : images) {
@@ -139,14 +147,13 @@ void ExtractRigCalib(
     }
 
     const Image* rig_calib_ref_image =
-        rig_calib_reconstruction.FindImageWithName(ref_image->Name());
+        reconstruction.FindImageWithName(ref_image->Name());
     if (rig_calib_ref_image == nullptr || !rig_calib_ref_image->HasPose()) {
       continue;
     }
 
     const Rigid3d ref_cam_from_world = rig_calib_ref_image->CamFromWorld();
-    if (rig_calib_updated_cameras.insert(rig_calib_ref_image->CameraId())
-            .second) {
+    if (updated_cameras.insert(rig_calib_ref_image->CameraId()).second) {
       Camera ref_camera = *rig_calib_ref_image->CameraPtr();
       ref_camera.camera_id = ref_image->CameraId();
       database.UpdateCamera(ref_camera);
@@ -155,7 +162,7 @@ void ExtractRigCalib(
     for (const Image* image : images) {
       if (image->CameraId() != ref_image->CameraId()) {
         const Image* rig_calib_image =
-            rig_calib_reconstruction.FindImageWithName(image->Name());
+            reconstruction.FindImageWithName(image->Name());
         if (rig_calib_image == nullptr || !rig_calib_image->HasPose()) {
           continue;
         }
@@ -163,8 +170,7 @@ void ExtractRigCalib(
             ref_cam_from_world * Inverse(rig_calib_image->CamFromWorld());
         auto& [rig_from_cam_rotations, rig_from_cam_translation] =
             rig_from_cams[image->CameraId()];
-        if (rig_calib_updated_cameras.insert(rig_calib_image->CameraId())
-                .second) {
+        if (updated_cameras.insert(rig_calib_image->CameraId()).second) {
           Camera camera = *rig_calib_image->CameraPtr();
           camera.camera_id = image->CameraId();
           database.UpdateCamera(camera);
@@ -179,6 +185,7 @@ void ExtractRigCalib(
     }
   }
 
+  // Compute the average sensor_from_rig poses over all frames.
   for (auto& [sensor_id, sensor_from_rig] : rig.Sensors()) {
     if (sensor_from_rig.has_value()) {
       continue;
@@ -206,24 +213,26 @@ void ExtractRigCalib(
   database.UpdateRig(rig);
 }
 
+}  // namespace
+
 // Example for eth3d/delivery_area:
 // [
 //   {
-//       "cameras": [
-//           {
-//               "image_prefix": "images_rig_cam4_undistorted/",
-//               "ref_sensor": true
-//           },
-//           {
-//               "image_prefix": "images_rig_cam5_undistorted/"
-//           },
-//           {
-//               "image_prefix": "images_rig_cam6_undistorted/"
-//           },
-//           {
-//               "image_prefix": "images_rig_cam7_undistorted/"
-//           }
-//       ]
+//     "cameras": [
+//       {
+//           "image_prefix": "images_rig_cam4_undistorted/",
+//           "ref_sensor": true
+//       },
+//       {
+//           "image_prefix": "images_rig_cam5_undistorted/"
+//       },
+//       {
+//           "image_prefix": "images_rig_cam6_undistorted/"
+//       },
+//       {
+//           "image_prefix": "images_rig_cam7_undistorted/"
+//       }
+//     ]
 //   }
 // ]
 int RunRigConfigurator(int argc, char** argv) {
@@ -234,7 +243,10 @@ int RunRigConfigurator(int argc, char** argv) {
   OptionManager options;
   options.AddRequiredOption("database_path", &database_path);
   options.AddRequiredOption("rig_config_path", &rig_config_path);
-  options.AddDefaultOption("rig_calib_path", &rig_calib_path);
+  options.AddDefaultOption(
+      "rig_calib_path",
+      &rig_calib_path,
+      "Compute the rig and camera calibrations from the given reconstruction.");
   options.Parse(argc, argv);
 
   boost::property_tree::ptree pt;
@@ -346,7 +358,7 @@ int RunRigConfigurator(int argc, char** argv) {
         camera_t,
         std::pair<std::vector<Eigen::Quaterniond>, Eigen::Vector3d>>
         rig_from_cams;
-    std::set<camera_t> rig_calib_updated_cameras;
+    std::set<camera_t> updated_cameras;
     for (auto& [_, images] : frames_to_images) {
       Frame frame;
       frame.SetRigId(rig.RigId());
@@ -363,10 +375,10 @@ int RunRigConfigurator(int argc, char** argv) {
     }
 
     if (rig_calib_reconstruction) {
-      ExtractRigCalib(*rig_calib_reconstruction,
-                      frames_to_images,
-                      std::move(rig),
-                      database);
+      UpdateRigAndCameraCalibFromReconstruction(*rig_calib_reconstruction,
+                                                frames_to_images,
+                                                std::move(rig),
+                                                database);
     }
   }
 
