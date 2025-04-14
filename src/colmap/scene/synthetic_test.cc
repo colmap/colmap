@@ -226,8 +226,10 @@ TEST(SynthesizeDataset, ExhaustiveMatches) {
   options.match_config = SyntheticDatasetOptions::MatchConfig::EXHAUSTIVE;
   SynthesizeDataset(options, &reconstruction, &database);
 
-  const int num_image_pairs =
-      reconstruction.NumImages() * (reconstruction.NumImages() - 1) / 2;
+  const int num_images = options.num_rigs * options.num_cameras_per_rig *
+                         options.num_frames_per_rig;
+  const int num_image_pairs = num_images * (num_images - 1) / 2;
+  EXPECT_EQ(database.NumMatchedImagePairs(), num_image_pairs);
   EXPECT_EQ(database.NumVerifiedImagePairs(), num_image_pairs);
   EXPECT_EQ(database.NumInlierMatches(),
             num_image_pairs * options.num_points3D);
@@ -239,9 +241,22 @@ TEST(SynthesizeDataset, ChainedMatches) {
   SyntheticDatasetOptions options;
   options.match_config = SyntheticDatasetOptions::MatchConfig::CHAINED;
   SynthesizeDataset(options, &reconstruction, &database);
-  EXPECT_EQ(database.NumVerifiedImagePairs(), reconstruction.NumImages() - 1);
+
+  const int num_images = options.num_rigs * options.num_cameras_per_rig *
+                         options.num_frames_per_rig;
+  const int num_image_pairs = num_images - 1;
+  EXPECT_EQ(database.NumMatchedImagePairs(), num_image_pairs);
+  EXPECT_EQ(database.NumVerifiedImagePairs(), num_image_pairs);
   EXPECT_EQ(database.NumInlierMatches(),
-            (reconstruction.NumImages() - 1) * options.num_points3D);
+            num_image_pairs * options.num_points3D);
+  for (const auto& [pair_id, _] : database.ReadAllMatches()) {
+    const auto [image_id1, image_id2] = Database::PairIdToImagePair(pair_id);
+    EXPECT_EQ(image_id1 + 1, image_id2);
+  }
+  for (const auto& [pair_id, _] : database.ReadTwoViewGeometries()) {
+    const auto [image_id1, image_id2] = Database::PairIdToImagePair(pair_id);
+    EXPECT_EQ(image_id1 + 1, image_id2);
+  }
 }
 
 TEST(SynthesizeDataset, NoDatabase) {

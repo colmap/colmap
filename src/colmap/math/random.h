@@ -89,7 +89,6 @@ T RandomUniformInteger(const T min, const T max) {
   }
 
   std::uniform_int_distribution<T> distribution(min, max);
-
   return distribution(*PRNG);
 }
 
@@ -100,7 +99,6 @@ T RandomUniformReal(const T min, const T max) {
   }
 
   std::uniform_real_distribution<T> distribution(min, max);
-
   return distribution(*PRNG);
 }
 

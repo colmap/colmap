@@ -267,7 +267,7 @@ TEST(Reconstruction, AddImage) {
   reconstruction.AddImage(image);
   EXPECT_TRUE(reconstruction.ExistsImage(1));
   EXPECT_EQ(reconstruction.Image(1).ImageId(), 1);
-  EXPECT_FALSE(reconstruction.Frame(1).HasPose());
+  EXPECT_FALSE(reconstruction.Image(1).HasPose());
   EXPECT_EQ(reconstruction.Images().count(1), 1);
   EXPECT_EQ(reconstruction.Images().size(), 1);
   EXPECT_EQ(reconstruction.NumRigs(), 1);
@@ -553,9 +553,9 @@ TEST(Reconstruction, Crop) {
   EXPECT_EQ(cropped2.NumImages(), 3);
   EXPECT_EQ(cropped2.NumRegFrames(), 2);
   EXPECT_EQ(cropped2.NumPoints3D(), 3);
-  EXPECT_TRUE(cropped2.Frame(1).HasPose());
-  EXPECT_TRUE(cropped2.Frame(2).HasPose());
-  EXPECT_FALSE(cropped2.Frame(3).HasPose());
+  EXPECT_TRUE(cropped2.Image(1).HasPose());
+  EXPECT_TRUE(cropped2.Image(2).HasPose());
+  EXPECT_FALSE(cropped2.Image(3).HasPose());
 }
 
 TEST(Reconstruction, Transform) {

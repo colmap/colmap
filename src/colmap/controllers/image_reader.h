@@ -64,7 +64,6 @@ struct ImageReaderOptions {
   // Optional list of images to read. The list must contain the relative path
   // of the images with respect to the image_path.
   std::vector<std::string> image_names;
-
   // Name of the camera model.
   std::string camera_model = "SIMPLE_RADIAL";
 
@@ -77,10 +76,8 @@ struct ImageReaderOptions {
 
   // Whether to use the same camera for all images in the same sub-folder.
   bool single_camera_per_folder = false;
-
   // Whether to use a different camera for each image.
   bool single_camera_per_image = false;
-
   // Whether to explicitly use an existing camera for all images. Note that in
   // this case the specified camera model and parameters are ignored.
   int existing_camera_id = kInvalidCameraId;
