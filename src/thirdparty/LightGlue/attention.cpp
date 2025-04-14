@@ -1,7 +1,6 @@
 #include "attention.hpp"
 
 #include <torch/torch.h>
-#include <ATen/native/transformers/sdp_utils_cpp.h>
 
 namespace matcher {
 

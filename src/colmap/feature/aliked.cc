@@ -240,17 +240,17 @@ bool ALIKEDMatchingOptions::Check() const {
 
 std::unique_ptr<FeatureMatcher> CreateALIKEDFeatureMatcher(
     const FeatureMatchingOptions& options) {
-  if (options.aliked->lightglue) {
 #ifdef COLMAP_TORCH_ENABLED
+  if (options.aliked->lightglue) {
     LightGlueMatchingOptions lightglue_options;
     lightglue_options.model_path = options.aliked->lightglue_model_path;
     return CreateLightGlueFeatureMatcher(options, lightglue_options);
-#else
-    throw std::runtime_error("ALIKED feature matching requires torch support.");
-#endif
   } else {
     return std::make_unique<ALIKEDDescriptorFeatureMatcher>(options);
   }
+#else
+  throw std::runtime_error("ALIKED feature matching requires torch support.");
+#endif
 }
 
 }  // namespace colmap
