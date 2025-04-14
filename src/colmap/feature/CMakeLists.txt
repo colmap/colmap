@@ -46,7 +46,11 @@ COLMAP_ADD_TEST(
 )
 
 if(TORCH_ENABLED)
-    set(OPTIONAL_TORCH_FEATURE_LIBS colmap_aliked colmap_lightglue)
+    set(OPTIONAL_TORCH_FEATURE_SRCS
+        torch_utils.h torch_utils.cc)
+    set(OPTIONAL_TORCH_FEATURE_LIBS
+        colmap_aliked
+        colmap_lightglue)
 endif()
 
 COLMAP_ADD_LIBRARY(
@@ -60,9 +64,9 @@ COLMAP_ADD_LIBRARY(
         pairing.h pairing.cc
         resources.h
         sift.h sift.cc
-        torch_utils.h torch_utils.cc
         types.h types.cc
         utils.h utils.cc
+        ${OPTIONAL_TORCH_FEATURE_SRCS}
     PUBLIC_LINK_LIBS
         colmap_feature_types
         colmap_geometry
@@ -121,8 +125,10 @@ COLMAP_ADD_TEST(
 if(TESTS_ENABLED AND GUI_ENABLED)
     target_link_libraries(colmap_feature_sift_test Qt5::Widgets)
 endif()
-COLMAP_ADD_TEST(
-    NAME torch_utils_test
-    SRCS torch_utils_test.cc
-    LINK_LIBS colmap_feature
-)
+if(TORCH_ENABLED)
+    COLMAP_ADD_TEST(
+        NAME torch_utils_test
+        SRCS torch_utils_test.cc
+        LINK_LIBS colmap_feature
+    )
+endif()
