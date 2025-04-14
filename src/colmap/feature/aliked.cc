@@ -140,7 +140,8 @@ class ALIKEDFeatureExtractor : public FeatureExtractor {
 class ALIKEDDescriptorFeatureMatcher : public FeatureMatcher {
  public:
   explicit ALIKEDDescriptorFeatureMatcher(const FeatureMatchingOptions& options)
-      : min_similarity_(options.aliked->min_similarity) {
+      : options_(options),
+        device_(GetDeviceName(options.use_gpu, options.gpu_index)) {
     if (!options.Check()) {
       throw std::runtime_error("Invalid feature matching options.");
     }
@@ -156,7 +157,7 @@ class ALIKEDDescriptorFeatureMatcher : public FeatureMatcher {
     auto descriptors2 = FeaturesFromImage(image2);
 
     auto sim = torch::matmul(descriptors1, descriptors2.transpose(0, 1));
-    sim = torch::where(sim < min_similarity_, 0, sim);
+    sim = torch::where(sim < options_.aliked->min_similarity, 0, sim);
     const auto nn12 = torch::argmax(sim, /*axis=*/1).contiguous().cpu();
     const int64_t* nn12_data = nn12.data_ptr<int64_t>();
     const auto nn21 = torch::argmax(sim, /*axis=*/0).contiguous().cpu();
@@ -165,11 +166,12 @@ class ALIKEDDescriptorFeatureMatcher : public FeatureMatcher {
     const int num_keypoints1 = image1.descriptors->rows();
     const int num_keypoints2 = image2.descriptors->rows();
     matches->reserve(num_keypoints1);
-    for (int i = 0; i < num_keypoints1; ++i) {
-      if (i == nn21_data[nn12_data[i]]) {
+    for (int i1 = 0; i1 < num_keypoints1; ++i1) {
+      const int i2 = nn12_data[i1];
+      if (i1 == nn21_data[i2]) {
         FeatureMatch match;
-        match.point2D_idx1 = i;
-        match.point2D_idx2 = nn12_data[i];
+        match.point2D_idx1 = i1;
+        match.point2D_idx2 = i2;
         THROW_CHECK_LT(match.point2D_idx2, num_keypoints2);
         matches->push_back(match);
       }
@@ -197,10 +199,12 @@ class ALIKEDDescriptorFeatureMatcher : public FeatureMatcher {
 
     return torch::from_blob(const_cast<uint8_t*>(image.descriptors->data()),
                             {num_keypoints, descriptor_dim},
-                            torch::TensorOptions().dtype(torch::kFloat32));
+                            torch::TensorOptions().dtype(torch::kFloat32))
+        .to(device_);
   }
 
-  const double min_similarity_;
+  const FeatureMatchingOptions options_;
+  const torch::Device device_;
 };
 
 #endif
@@ -220,7 +224,7 @@ std::unique_ptr<FeatureExtractor> CreateALIKEDFeatureExtractor(
   return std::make_unique<ALIKEDFeatureExtractor>(options);
 #else
   throw std::runtime_error(
-      "ALIKED feature extraction requires libtorch support.");
+      "ALIKED feature extraction requires torch support.");
 #endif
 }
 
@@ -242,7 +246,7 @@ std::unique_ptr<FeatureMatcher> CreateALIKEDFeatureMatcher(
     return CreateLightGlueFeatureMatcher(options, lightglue_options);
 #else
     throw std::runtime_error(
-        "ALIKED feature matching requires libtorch support.");
+        "ALIKED feature matching requires torch support.");
 #endif
   } else {
     return std::make_unique<ALIKEDDescriptorFeatureMatcher>(options);

@@ -173,7 +173,7 @@ std::unique_ptr<FeatureMatcher> CreateLightGlueFeatureMatcher(
   return std::make_unique<LightGlueFeatureMatcher>(options, lightglue_options);
 #else
   throw std::runtime_error(
-      "LightGlue feature matching requires libtorch support.");
+      "LightGlue feature matching requires torch support.");
 #endif
 }
 
