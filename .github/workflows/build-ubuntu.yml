@@ -21,17 +21,17 @@ jobs:
     strategy:
       matrix:
         config: [
-          # {
-          #   os: ubuntu-24.04,
-          #   cmakeBuildType: RelWithDebInfo,
-          #   asanEnabled: false,
-          #   guiEnabled: true,
-          #   cudaEnabled: false,
-          #   e2eTests: false,
-          #   checkCodeFormat: true,
-          #   coverageEnabled: true,
-          #   torchEnabled: false,
-          # },
+          {
+            os: ubuntu-24.04,
+            cmakeBuildType: RelWithDebInfo,
+            asanEnabled: false,
+            guiEnabled: true,
+            cudaEnabled: false,
+            e2eTests: false,
+            checkCodeFormat: true,
+            coverageEnabled: true,
+            torchEnabled: false,
+          },
           {
             os: ubuntu-22.04,
             cmakeBuildType: Release,
@@ -43,17 +43,17 @@ jobs:
             coverageEnabled: false,
             torchEnabled: true,
           },
-          # {
-          #   os: ubuntu-22.04,
-          #   cmakeBuildType: Release,
-          #   asanEnabled: false,
-          #   guiEnabled: false,
-          #   cudaEnabled: true,
-          #   e2eTests: false,
-          #   checkCodeFormat: false,
-          #   coverageEnabled: false,
-          #   torchEnabled: false,
-          # },
+          {
+            os: ubuntu-22.04,
+            cmakeBuildType: Release,
+            asanEnabled: false,
+            guiEnabled: false,
+            cudaEnabled: true,
+            e2eTests: false,
+            checkCodeFormat: false,
+            coverageEnabled: false,
+            torchEnabled: false,
+          },
           {
             os: ubuntu-22.04,
             cmakeBuildType: Release,
