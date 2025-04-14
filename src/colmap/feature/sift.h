@@ -118,6 +118,10 @@ struct SiftMatchingOptions {
   // Whether to use brute-force instead of FLANN based CPU matching.
   bool cpu_brute_force_matcher = false;
 
+  // Whether to use LightGlue for matching or regular L2-distance based
+  // mutual nearest-neighbor search.
+  bool lightglue = true;
+
   // Cache for reusing descriptor index for feature matching.
   ThreadSafeLRUCache<image_t, FeatureDescriptorIndex>*
       cpu_descriptor_index_cache = nullptr;

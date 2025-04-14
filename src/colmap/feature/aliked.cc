@@ -137,6 +137,72 @@ class ALIKEDFeatureExtractor : public FeatureExtractor {
   ALIKED aliked_;
 };
 
+class ALIKEDDescriptorFeatureMatcher : public FeatureMatcher {
+ public:
+  explicit ALIKEDDescriptorFeatureMatcher(const FeatureMatchingOptions& options)
+      : min_similarity_(options.aliked->min_similarity) {
+    if (!options.Check()) {
+      throw std::runtime_error("Invalid feature matching options.");
+    }
+  }
+
+  void Match(const Image& image1,
+             const Image& image2,
+             FeatureMatches* matches) override {
+    THROW_CHECK_NOTNULL(matches);
+    matches->clear();
+
+    auto descriptors1 = FeaturesFromImage(image1);
+    auto descriptors2 = FeaturesFromImage(image2);
+
+    auto sim = torch::matmul(descriptors1, descriptors2.transpose(0, 1));
+    sim = torch::where(sim < min_similarity_, 0, sim);
+    const auto nn12 = torch::argmax(sim, /*axis=*/1).contiguous().cpu();
+    const int64_t* nn12_data = nn12.data_ptr<int64_t>();
+    const auto nn21 = torch::argmax(sim, /*axis=*/0).contiguous().cpu();
+    const int64_t* nn21_data = nn21.data_ptr<int64_t>();
+
+    const int num_keypoints1 = image1.descriptors->rows();
+    const int num_keypoints2 = image2.descriptors->rows();
+    matches->reserve(num_keypoints1);
+    for (int i = 0; i < num_keypoints1; ++i) {
+      if (i == nn21_data[nn12_data[i]]) {
+        FeatureMatch match;
+        match.point2D_idx1 = i;
+        match.point2D_idx2 = nn12_data[i];
+        THROW_CHECK_LT(match.point2D_idx2, num_keypoints2);
+        matches->push_back(match);
+      }
+    }
+  }
+
+  void MatchGuided(double max_error,
+                   const Image& image1,
+                   const Image& image2,
+                   TwoViewGeometry* two_view_geometry) override {
+    THROW_CHECK_GE(max_error, 0);
+    Match(image1, image2, &two_view_geometry->inlier_matches);
+  }
+
+ private:
+  torch::Tensor FeaturesFromImage(const Image& image) {
+    THROW_CHECK_NE(image.image_id, kInvalidImageId);
+    THROW_CHECK_NOTNULL(image.descriptors);
+    THROW_CHECK_NOTNULL(image.keypoints);
+    THROW_CHECK_EQ(image.descriptors->rows(), image.keypoints->size());
+
+    const int num_keypoints = image.keypoints->size();
+    THROW_CHECK_EQ(image.descriptors->cols() % sizeof(float), 0);
+    const int descriptor_dim = image.descriptors->cols() / sizeof(float);
+
+    return torch::from_blob(const_cast<uint8_t*>(image.descriptors->data()),
+                            {num_keypoints, descriptor_dim},
+                            torch::TensorOptions().dtype(torch::kFloat32));
+  }
+
+  const float min_similarity_;
+};
+
 #endif
 
 }  // namespace
@@ -159,6 +225,8 @@ std::unique_ptr<FeatureExtractor> CreateALIKEDFeatureExtractor(
 }
 
 bool ALIKEDMatchingOptions::Check() const {
+  CHECK_OPTION_GE(min_similarity, -1);
+  CHECK_OPTION_LE(min_similarity, 1);
   if (lightglue) {
     CHECK_OPTION(!lightglue_model_path.empty());
   }
@@ -177,7 +245,7 @@ std::unique_ptr<FeatureMatcher> CreateALIKEDFeatureMatcher(
         "ALIKED feature matching requires libtorch support.");
 #endif
   } else {
-    throw std::runtime_error("Not implemented.");
+    return std::make_unique<ALIKEDDescriptorFeatureMatcher>(options);
   }
 }
 

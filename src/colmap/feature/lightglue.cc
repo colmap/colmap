@@ -45,17 +45,27 @@ namespace {
 
 #ifdef COLMAP_TORCH_ENABLED
 
-std::unordered_map<FeatureMatcherType, int> kTypeToDescDim{
-    {FeatureMatcherType::LIGHTGLUE_SIFT, 128},
-    {FeatureMatcherType::LIGHTGLUE_ALIKED, 128},
-};
+int GetInputDim(FeatureMatcherType type) {
+  const static std::unordered_map<FeatureMatcherType, int> kTypeToDescDim{
+      {FeatureMatcherType::LIGHTGLUE_SIFT, 128},
+      {FeatureMatcherType::LIGHTGLUE_ALIKED, 128},
+  };
+  auto it = kTypeToDescDim.find(type);
+  if (it == kTypeToDescDim.end()) {
+    std::ostringstream error;
+    error << "LightGlue input dimension not defined for feature matcher type: "
+          << type;
+    throw std::runtime_error(error.str());
+  }
+  return it->second;
+}
 
 class LightGlueFeatureMatcher : public FeatureMatcher {
  public:
   explicit LightGlueFeatureMatcher(
       const FeatureMatchingOptions& options,
       const LightGlueMatchingOptions& lightglue_options)
-      : lightglue_(kTypeToDescDim.at(options.type),
+      : lightglue_(GetInputDim(options.type),
                    MaybeDownloadAndCacheFile(lightglue_options.model_path),
                    GetDeviceName(options.use_gpu, options.gpu_index)) {
     if (!options.Check()) {
@@ -70,6 +80,7 @@ class LightGlueFeatureMatcher : public FeatureMatcher {
              const Image& image2,
              FeatureMatches* matches) override {
     THROW_CHECK_NOTNULL(matches);
+    matches->clear();
 
     // TODO: Cache the torch tensors if the same image is passed.
 

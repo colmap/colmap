@@ -39,7 +39,10 @@ namespace colmap {
 FeatureMatchingOptions::FeatureMatchingOptions(FeatureMatcherType type)
     : type(type),
       sift(std::make_shared<SiftMatchingOptions>()),
-      aliked(std::make_shared<ALIKEDMatchingOptions>()) {}
+      aliked(std::make_shared<ALIKEDMatchingOptions>()) {
+  sift->lightglue = type == FeatureMatcherType::LIGHTGLUE_SIFT;
+  aliked->lightglue = type == FeatureMatcherType::LIGHTGLUE_ALIKED;
+}
 
 bool FeatureMatchingOptions::Check() const {
   if (use_gpu) {
@@ -68,8 +71,10 @@ std::unique_ptr<FeatureMatcher> FeatureMatcher::Create(
     const FeatureMatchingOptions& options) {
   switch (options.type) {
     case FeatureMatcherType::SIFT:
+    case FeatureMatcherType::LIGHTGLUE_SIFT:
       return CreateSiftFeatureMatcher(options);
     case FeatureMatcherType::ALIKED:
+    case FeatureMatcherType::LIGHTGLUE_ALIKED:
       return CreateALIKEDFeatureMatcher(options);
     default:
       std::ostringstream error;

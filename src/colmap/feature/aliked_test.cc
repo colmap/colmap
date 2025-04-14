@@ -59,20 +59,24 @@ TEST(ALIKED, Nominal) {
   auto descriptors = std::make_shared<FeatureDescriptors>();
   ASSERT_TRUE(extractor->Extract(image, keypoints.get(), descriptors.get()));
 
-  FeatureMatchingOptions matching_options(FeatureMatcherType::LIGHTGLUE_ALIKED);
-  auto matcher = CreateALIKEDFeatureMatcher(matching_options);
-  FeatureMatches matches;
-  matcher->Match({/*image_id=*/1,
-                  /*image_width=*/image.Width(),
-                  /*image_height=*/image.Height(),
-                  keypoints,
-                  descriptors},
-                 {/*image_id=*/2,
-                  /*image_width=*/image.Width(),
-                  /*image_height=*/image.Height(),
-                  keypoints,
-                  descriptors},
-                 &matches);
+  for (const auto& matching_options :
+       {FeatureMatchingOptions(FeatureMatcherType::ALIKED),
+        FeatureMatchingOptions(FeatureMatcherType::LIGHTGLUE_ALIKED)}) {
+    auto matcher = CreateALIKEDFeatureMatcher(matching_options);
+    FeatureMatches matches;
+    matcher->Match({/*image_id=*/1,
+                    /*image_width=*/image.Width(),
+                    /*image_height=*/image.Height(),
+                    keypoints,
+                    descriptors},
+                   {/*image_id=*/2,
+                    /*image_width=*/image.Width(),
+                    /*image_height=*/image.Height(),
+                    keypoints,
+                    descriptors},
+                   &matches);
+    EXPECT_GT(matches.size(), 0);
+  }
 }
 
 }  // namespace
