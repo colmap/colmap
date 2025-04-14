@@ -30,6 +30,8 @@
 #include "colmap/ui/feature_extraction_widget.h"
 
 #include "colmap/controllers/feature_extraction.h"
+#include "colmap/feature/aliked.h"
+#include "colmap/feature/sift.h"
 #include "colmap/sensor/models.h"
 #include "colmap/ui/options_widget.h"
 #include "colmap/ui/qt_utils.h"
@@ -81,8 +83,9 @@ SIFTExtractionWidget::SIFTExtractionWidget(QWidget* parent,
   AddOptionInt(&options->feature_extraction->num_threads, "num_threads", -1);
   AddOptionBool(&options->feature_extraction->use_gpu, "use_gpu");
   AddOptionText(&options->feature_extraction->gpu_index, "gpu_index");
-  AddOptionInt(&options->feature_extraction->max_image_size, "max_image_size");
 
+  AddOptionInt(&options->feature_extraction->sift->max_image_size,
+               "sift.max_image_size");
   AddOptionInt(&options->feature_extraction->sift->max_num_features,
                "sift.max_num_features");
   AddOptionInt(&options->feature_extraction->sift->first_octave,
@@ -123,7 +126,17 @@ SIFTExtractionWidget::SIFTExtractionWidget(QWidget* parent,
                "sift.dsp_num_scales",
                1);
 
-  // TODO(jsch): Add ALIKED options.
+  AddOptionInt(&options->feature_extraction->aliked->max_image_size,
+               "aliked.max_image_size");
+  AddOptionInt(&options->feature_extraction->aliked->max_num_features,
+               "aliked.max_num_features");
+  AddOptionDouble(&options->feature_extraction->aliked->score_threshold,
+                  "aliked.score_threshold");
+  AddOptionInt(&options->feature_extraction->aliked->top_k, "aliked.top_k");
+  AddOptionText(&options->feature_extraction->aliked->model_name,
+                "aliked.model_name");
+  AddOptionText(&options->feature_extraction->aliked->model_path,
+                "aliked.model_path");
 }
 
 void SIFTExtractionWidget::Run() {

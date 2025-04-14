@@ -147,12 +147,12 @@ class ImageResizerThread : public Thread {
   JobQueue<ImageData>* output_queue_;
 };
 
-class SiftFeatureExtractorThread : public Thread {
+class FeatureExtractorThread : public Thread {
  public:
-  SiftFeatureExtractorThread(const FeatureExtractionOptions& extraction_options,
-                             const std::shared_ptr<Bitmap>& camera_mask,
-                             JobQueue<ImageData>* input_queue,
-                             JobQueue<ImageData>* output_queue)
+  FeatureExtractorThread(const FeatureExtractionOptions& extraction_options,
+                         const std::shared_ptr<Bitmap>& camera_mask,
+                         JobQueue<ImageData>* input_queue,
+                         JobQueue<ImageData>* output_queue)
       : extraction_options_(extraction_options),
         camera_mask_(camera_mask),
         input_queue_(input_queue),
@@ -360,12 +360,11 @@ class FeatureExtractorController : public Thread {
     extractor_queue_ = std::make_unique<JobQueue<ImageData>>(kQueueSize);
     writer_queue_ = std::make_unique<JobQueue<ImageData>>(kQueueSize);
 
-    if (extraction_options_.max_image_size > 0) {
+    const int max_image_size = extraction_options_.MaxImageSize();
+    if (max_image_size > 0) {
       for (int i = 0; i < num_threads; ++i) {
         resizers_.emplace_back(std::make_unique<ImageResizerThread>(
-            extraction_options_.max_image_size,
-            resizer_queue_.get(),
-            extractor_queue_.get()));
+            max_image_size, resizer_queue_.get(), extractor_queue_.get()));
       }
     }
 
@@ -389,16 +388,15 @@ class FeatureExtractorController : public Thread {
       for (const auto& gpu_index : gpu_indices) {
         sift_gpu_options.gpu_index = std::to_string(gpu_index);
         extractors_.emplace_back(
-            std::make_unique<SiftFeatureExtractorThread>(sift_gpu_options,
-                                                         camera_mask,
-                                                         extractor_queue_.get(),
-                                                         writer_queue_.get()));
+            std::make_unique<FeatureExtractorThread>(sift_gpu_options,
+                                                     camera_mask,
+                                                     extractor_queue_.get(),
+                                                     writer_queue_.get()));
       }
     } else {
       const static FeatureExtractionOptions kDefaultExtractionOptions;
       if (extraction_options_.num_threads == -1 &&
-          extraction_options_.max_image_size ==
-              kDefaultExtractionOptions.max_image_size &&
+          max_image_size == kDefaultExtractionOptions.MaxImageSize() &&
           extraction_options_.sift->first_octave ==
               kDefaultExtractionOptions.sift->first_octave) {
         LOG(WARNING)
@@ -411,14 +409,14 @@ class FeatureExtractorController : public Thread {
                "memory for the current settings.";
       }
 
-      auto custom_sift_options = extraction_options_;
-      custom_sift_options.use_gpu = false;
+      auto custom_extraction_options = extraction_options_;
+      custom_extraction_options.use_gpu = false;
       for (int i = 0; i < num_threads; ++i) {
         extractors_.emplace_back(
-            std::make_unique<SiftFeatureExtractorThread>(custom_sift_options,
-                                                         camera_mask,
-                                                         extractor_queue_.get(),
-                                                         writer_queue_.get()));
+            std::make_unique<FeatureExtractorThread>(custom_extraction_options,
+                                                     camera_mask,
+                                                     extractor_queue_.get(),
+                                                     writer_queue_.get()));
       }
     }
 
@@ -448,6 +446,8 @@ class FeatureExtractorController : public Thread {
       }
     }
 
+    const bool should_resize = extraction_options_.MaxImageSize() > 0;
+
     while (image_reader_.NextIndex() < image_reader_.NumImages()) {
       if (IsStopped()) {
         resizer_queue_->Stop();
@@ -468,7 +468,7 @@ class FeatureExtractorController : public Thread {
         image_data.bitmap.Deallocate();
       }
 
-      if (extraction_options_.max_image_size > 0) {
+      if (should_resize) {
         THROW_CHECK(resizer_queue_->Push(std::move(image_data)));
       } else {
         THROW_CHECK(extractor_queue_->Push(std::move(image_data)));

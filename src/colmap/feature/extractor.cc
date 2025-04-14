@@ -34,11 +34,31 @@
 #include "colmap/util/misc.h"
 
 namespace colmap {
+namespace {
+
+void ThrowUnknownFeatureExtractorType(FeatureExtractorType type) {
+  std::ostringstream error;
+  error << "Unknown feature extractor type: " << type;
+  throw std::runtime_error(error.str());
+}
+
+}  // namespace
 
 FeatureExtractionOptions::FeatureExtractionOptions(FeatureExtractorType type)
     : type(type),
       sift(std::make_shared<SiftExtractionOptions>()),
       aliked(std::make_shared<ALIKEDExtractionOptions>()) {}
+
+int FeatureExtractionOptions::MaxImageSize() const {
+  switch (type) {
+    case FeatureExtractorType::SIFT:
+      return sift->max_image_size;
+    case FeatureExtractorType::ALIKED:
+      return aliked->max_image_size;
+    default:
+      ThrowUnknownFeatureExtractorType(type);
+  }
+}
 
 bool FeatureExtractionOptions::Check() const {
   if (use_gpu) {
@@ -57,7 +77,6 @@ bool FeatureExtractionOptions::Check() const {
     return false;
 #endif
   }
-  CHECK_OPTION_GT(max_image_size, 0);
   if (type == FeatureExtractorType::SIFT) {
     return THROW_CHECK_NOTNULL(sift)->Check();
   } else if (type == FeatureExtractorType::ALIKED) {
@@ -77,9 +96,7 @@ std::unique_ptr<FeatureExtractor> FeatureExtractor::Create(
     case FeatureExtractorType::ALIKED:
       return CreateALIKEDFeatureExtractor(options);
     default:
-      std::ostringstream error;
-      error << "Unknown feature extractor type: " << options.type;
-      throw std::runtime_error(error.str());
+      ThrowUnknownFeatureExtractorType(options.type);
   }
 }
 

@@ -58,11 +58,10 @@ struct FeatureExtractionOptions {
   // you should separate multiple GPU indices by comma, e.g., "0,1,2,3".
   std::string gpu_index = "-1";
 
-  // Maximum image size, otherwise image will be down-scaled.
-  int max_image_size = 3200;
-
   std::shared_ptr<SiftExtractionOptions> sift;
   std::shared_ptr<ALIKEDExtractionOptions> aliked;
+
+  int MaxImageSize() const;
 
   bool Check() const;
 };

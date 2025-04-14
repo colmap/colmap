@@ -66,7 +66,7 @@ class ALIKEDFeatureExtractor : public FeatureExtractor {
     const int orig_width = bitmap.Width();
     const int orig_height = bitmap.Height();
     const int image_size = std::max(orig_width, orig_height);
-    const bool needs_rescale = image_size > options_.max_image_size;
+    const bool needs_rescale = image_size > options_.aliked->max_image_size;
 
     // Only copy bitmap if we need to rescale or convert to RGB.
     const Bitmap* bitmap_ptr = &bitmap;
@@ -77,8 +77,9 @@ class ALIKEDFeatureExtractor : public FeatureExtractor {
     }
 
     if (needs_rescale) {
-      const double scale = static_cast<double>(options_.max_image_size) /
-                           static_cast<double>(image_size);
+      const double scale =
+          static_cast<double>(options_.aliked->max_image_size) /
+          static_cast<double>(image_size);
       maybe_bitmap_copy->Rescale(scale * orig_width, scale * orig_height);
     }
 
@@ -212,6 +213,7 @@ class ALIKEDDescriptorFeatureMatcher : public FeatureMatcher {
 }  // namespace
 
 bool ALIKEDExtractionOptions::Check() const {
+  CHECK_OPTION_GT(max_image_size, 0);
   CHECK_OPTION_GT(max_num_features, 0);
   CHECK_OPTION_GT(score_threshold, 0);
   CHECK_OPTION_GE(top_k, -1);

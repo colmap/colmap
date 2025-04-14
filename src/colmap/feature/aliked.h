@@ -38,6 +38,9 @@
 namespace colmap {
 
 struct ALIKEDExtractionOptions {
+  // Maximum image size, otherwise image will be down-scaled.
+  int max_image_size = 2000;
+
   // Maximum number of features to detect (in combination with score threshold).
   int max_num_features = 4096;
 

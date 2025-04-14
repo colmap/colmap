@@ -112,8 +112,9 @@ void OptionManager::ModifyForInternetData() {
 }
 
 void OptionManager::ModifyForLowQuality() {
-  feature_extraction->max_image_size = 1000;
+  feature_extraction->sift->max_image_size = 1000;
   feature_extraction->sift->max_num_features = 2048;
+  feature_extraction->aliked->max_image_size = 800;
   feature_extraction->aliked->max_num_features = 1024;
   sequential_matching->loop_detection_num_images /= 2;
   vocab_tree_matching->max_num_features = 256;
@@ -134,8 +135,9 @@ void OptionManager::ModifyForLowQuality() {
 }
 
 void OptionManager::ModifyForMediumQuality() {
-  feature_extraction->max_image_size = 1600;
+  feature_extraction->sift->max_image_size = 1600;
   feature_extraction->sift->max_num_features = 4096;
+  feature_extraction->aliked->max_image_size = 1200;
   feature_extraction->aliked->max_num_features = 2048;
   sequential_matching->loop_detection_num_images /= 1.5;
   vocab_tree_matching->max_num_features = 1024;
@@ -157,8 +159,9 @@ void OptionManager::ModifyForMediumQuality() {
 
 void OptionManager::ModifyForHighQuality() {
   feature_extraction->sift->estimate_affine_shape = true;
-  feature_extraction->max_image_size = 2400;
+  feature_extraction->sift->max_image_size = 2400;
   feature_extraction->sift->max_num_features = 8192;
+  feature_extraction->aliked->max_image_size = 1600;
   feature_extraction->aliked->max_num_features = 4096;
   feature_matching->guided_matching = true;
   vocab_tree_matching->max_num_features = 4096;
@@ -173,6 +176,7 @@ void OptionManager::ModifyForExtremeQuality() {
   // Most of the options are set to extreme quality by default.
   feature_extraction->sift->estimate_affine_shape = true;
   feature_extraction->sift->domain_size_pooling = true;
+  feature_extraction->aliked->max_image_size = 2400;
   feature_matching->guided_matching = true;
   mapper->ba_local_max_num_iterations = 40;
   mapper->ba_local_max_refinements = 3;
@@ -271,9 +275,9 @@ void OptionManager::AddExtractionOptions() {
                               &feature_extraction->use_gpu);
   AddAndRegisterDefaultOption("FeatureExtraction.gpu_index",
                               &feature_extraction->gpu_index);
-  AddAndRegisterDefaultOption("FeatureExtraction.max_image_size",
-                              &feature_extraction->max_image_size);
 
+  AddAndRegisterDefaultOption("SiftExtraction.max_image_size",
+                              &feature_extraction->sift->max_image_size);
   AddAndRegisterDefaultOption("SiftExtraction.max_num_features",
                               &feature_extraction->sift->max_num_features);
   AddAndRegisterDefaultOption("SiftExtraction.first_octave",
@@ -301,6 +305,8 @@ void OptionManager::AddExtractionOptions() {
   AddAndRegisterDefaultOption("SiftExtraction.dsp_num_scales",
                               &feature_extraction->sift->dsp_num_scales);
 
+  AddAndRegisterDefaultOption("ALIKEDExtraction.max_image_size",
+                              &feature_extraction->aliked->max_image_size);
   AddAndRegisterDefaultOption("ALIKEDExtraction.max_num_features",
                               &feature_extraction->aliked->max_num_features);
   AddAndRegisterDefaultOption("ALIKEDExtraction.score_threshold",
