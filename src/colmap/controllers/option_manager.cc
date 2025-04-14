@@ -57,9 +57,9 @@ OptionManager::OptionManager(bool add_project_options) {
   image_path = std::make_shared<std::string>();
 
   image_reader = std::make_shared<ImageReaderOptions>();
+  feature_extraction = std::make_shared<FeatureExtractionOptions>();
   feature_extraction_type_ =
       FeatureExtractorTypeToString(feature_extraction->type);
-  feature_extraction = std::make_shared<FeatureExtractionOptions>();
   feature_matching = std::make_shared<FeatureMatchingOptions>();
   feature_matching_type_ = FeatureMatcherTypeToString(feature_matching->type);
   two_view_geometry = std::make_shared<TwoViewGeometryOptions>();
