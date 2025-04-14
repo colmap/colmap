@@ -123,6 +123,10 @@ LightGlue::LightGlue(const std::string& feature_type,
     throw std::runtime_error("Unsupported feature type: " + feature_type);
   }
 
+  if (config_.flash) {
+    at::globalContext().setSDPUseFlash(true);
+  }
+
   config_.input_dim = it->second;
 
   // Initialize input projection if needed
