@@ -62,7 +62,7 @@ std::unique_ptr<FeatureExtractor> CreateALIKEDFeatureExtractor(
 
 struct ALIKEDMatchingOptions {
   // Minimum dot product similarity score.
-  float min_similarity = 0.75;
+  double min_similarity = 0.75;
 
   // Whether to use LightGlue for matching or regular L2-distance based
   // mutual nearest-neighbor search.

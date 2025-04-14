@@ -339,9 +339,15 @@ void OptionManager::AddMatchingOptions() {
                               &feature_matching->sift->cross_check);
   AddAndRegisterDefaultOption("SiftMatching.cpu_brute_force_matcher",
                               &feature_matching->sift->cpu_brute_force_matcher);
+  AddAndRegisterDefaultOption("SiftMatching.lightglue",
+                              &feature_matching->sift->lightglue);
 
-  AddAndRegisterDefaultOption("ALIKEDMatching.model_path",
-                              &feature_matching->aliked->model_path);
+  AddAndRegisterDefaultOption("ALIKEDMatching.min_similarity",
+                              &feature_matching->aliked->min_similarity);
+  AddAndRegisterDefaultOption("ALIKEDMatching.lightglue",
+                              &feature_matching->aliked->lightglue);
+  AddAndRegisterDefaultOption("ALIKEDMatching.lightglue_model_path",
+                              &feature_matching->aliked->lightglue_model_path);
 
   AddAndRegisterDefaultOption("TwoViewGeometry.min_num_inliers",
                               &two_view_geometry->min_num_inliers);

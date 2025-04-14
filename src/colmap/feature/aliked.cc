@@ -200,7 +200,7 @@ class ALIKEDDescriptorFeatureMatcher : public FeatureMatcher {
                             torch::TensorOptions().dtype(torch::kFloat32));
   }
 
-  const float min_similarity_;
+  const double min_similarity_;
 };
 
 #endif
