@@ -269,7 +269,8 @@ void UpdateRigAndCameraCalibFromReconstruction(
 //                   0,
 //                   0
 //               ]
-//           }
+//           },
+//           ...
 //       ]
 //   }
 // ]
