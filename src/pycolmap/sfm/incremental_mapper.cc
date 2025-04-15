@@ -379,8 +379,8 @@ void BindIncrementalMapperImpl(py::module& m) {
           "find_initial_image_pair",
           [](IncrementalMapper& self,
              const IncrementalMapper::Options& options,
-             image_t image_id1,
-             image_t image_id2)
+             int image_id1,
+             int image_id2)
               -> py::typing::Optional<py::typing::Tuple<image_t, image_t>> {
             // Explicitly handle the conversion
             // from -1 (int) to kInvalidImageId (uint32_t).

@@ -95,6 +95,7 @@ void BindReconstruction(py::module& m) {
            "Direct accessor for a Point3D.",
            py::return_value_policy::reference_internal)
       .def("reg_image_ids", &Reconstruction::RegImageIds)
+      .def("reg_frame_ids", &Reconstruction::RegFrameIds)
       .def("point3D_ids", &Reconstruction::Point3DIds)
       .def("exists_rig", &Reconstruction::ExistsRig, "rig_id"_a)
       .def("exists_camera", &Reconstruction::ExistsCamera, "camera_id"_a)
