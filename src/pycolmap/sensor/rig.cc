@@ -51,7 +51,12 @@ void BindRig(py::module& m) {
             }
           },
           "The pose of the frame, defined as the transformation from world to "
-          "rig space.");
+          "rig space.")
+      .def_property_readonly(
+          "sensors",
+          py::overload_cast<>(&Rig::Sensors),
+          py::return_value_policy::reference_internal,
+          "Access all sensors in the rig except for reference sensor");
   MakeDataclass(PyRig);
 
   py::bind_map<RigMap>(m, "RigMap");

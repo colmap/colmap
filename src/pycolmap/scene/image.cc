@@ -61,6 +61,10 @@ void BindSceneImage(py::module& m) {
                     &Image::CameraId,
                     &Image::SetCameraId,
                     "Unique identifier of the camera.")
+      .def_property("frame_id",
+                    &Image::FrameId,
+                    &Image::SetFrameId,
+                    "Unique identifier of the frame.")
       .def_property_readonly(
           "data_id", &Image::DataId, "Unique identifier of the data.")
       .def_property(
@@ -139,6 +143,15 @@ void BindSceneImage(py::module& m) {
       .def("reset_camera_ptr",
            &Image::ResetCameraPtr,
            "Make the camera pointer a nullptr.")
+      .def("has_frame_id",
+           &Image::HasFrameId,
+           "Check whether identifier of frame has been set.")
+      .def("has_frame_ptr",
+           &Image::HasFramePtr,
+           "Check whether the frame pointer has been set.")
+      .def("reset_frame_ptr",
+           &Image::ResetFramePtr,
+           "Make the frame pointer a nullptr.")
       .def("num_points2D",
            &Image::NumPoints2D,
            "Get the number of image points (keypoints).")

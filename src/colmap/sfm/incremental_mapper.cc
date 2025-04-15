@@ -486,9 +486,9 @@ IncrementalMapper::AdjustLocalBundle(
 
     // Fix the existing images, if option specified.
     if (options.fix_existing_frames) {
-      for (const frame_t local_frame_id : frame_ids) {
-        if (existing_frame_ids_.count(local_frame_id)) {
-          ba_config.SetConstantFrameFromWorldPose(local_frame_id);
+      for (const frame_t frame_id : frame_ids) {
+        if (existing_frame_ids_.count(frame_id)) {
+          ba_config.SetConstantFrameFromWorldPose(frame_id);
         }
       }
     }
