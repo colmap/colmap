@@ -41,8 +41,33 @@
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
+#include <Eigen/Dense>
 
 namespace colmap {
+
+// Estimates a 3D similarity transform with per-axis weighting from covariance matrices
+bool EstimateWeightedSim3d(const std::vector<Eigen::Vector3d>& src,
+                          const std::vector<Eigen::Vector3d>& tgt,
+                          const std::vector<Eigen::Matrix3d>& covariances,
+                          Sim3d& tgt_from_src);
+
+// Estimates a 3D similarity transform with per-axis weighting from covariances
+// Uses the diagonal elements of covariance matrices to determine per-axis weights
+// Higher uncertainty (variance) in an axis results in lower weight for that axis
+bool WeightedUmeyama(const std::vector<Eigen::Vector3d>& src_points,
+                    const std::vector<Eigen::Vector3d>& dst_points,
+                    const std::vector<Eigen::Matrix3d>& covariances,
+                    Sim3d* tgt_from_src);
+
+// Template implementation of weighted Umeyama algorithm that handles per-axis uncertainty
+// The template version is used internally by the vector-based version above
+template <typename Derived1, typename Derived2>
+Eigen::Matrix<typename Derived1::Scalar, Derived1::RowsAtCompileTime,
+              Derived1::RowsAtCompileTime + 1>
+WeightedUmeyama(const Eigen::MatrixBase<Derived1>& src,
+               const Eigen::MatrixBase<Derived2>& dst,
+               const std::vector<Eigen::Matrix3d>& covariances,
+               bool with_scaling = true);
 
 // N-D similarity transform estimator from corresponding point pairs in the
 // source and destination coordinate systems.

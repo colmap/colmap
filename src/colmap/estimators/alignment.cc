@@ -238,6 +238,84 @@ bool AlignReconstructionToLocations(
   return true;
 }
 
+void PrintAxisErrors(const std::vector<Eigen::Vector3d>& src_points,
+                    const std::vector<Eigen::Vector3d>& tgt_points,
+                    const Sim3d& transform,
+                    const std::string& stage) {
+  if (src_points.empty() || src_points.size() != tgt_points.size()) {
+    return;
+  }
+  
+  // Initialize error accumulators for each axis
+  double x_abs_error_sum = 0.0;
+  double y_abs_error_sum = 0.0;
+  double z_abs_error_sum = 0.0;
+  double total_abs_error_sum = 0.0;
+  
+  std::vector<double> x_errors, y_errors, z_errors, total_errors;
+  
+  // For each point pair
+  for (size_t i = 0; i < src_points.size(); ++i) {
+    // Transform the source point if we're in the "after" stage
+    Eigen::Vector3d transformed_src;
+    if (stage == "After") {
+      transformed_src = transform * src_points[i];
+    } else {
+      transformed_src = src_points[i];
+    }
+    
+    // Calculate error vector
+    Eigen::Vector3d error = tgt_points[i] - transformed_src;
+    
+    // Accumulate absolute errors for each axis
+    double x_abs_error = std::abs(error.x());
+    double y_abs_error = std::abs(error.y());
+    double z_abs_error = std::abs(error.z());
+    double total_error = error.norm();
+    
+    x_abs_error_sum += x_abs_error;
+    y_abs_error_sum += y_abs_error;
+    z_abs_error_sum += z_abs_error;
+    total_abs_error_sum += total_error;
+    
+    x_errors.push_back(x_abs_error);
+    y_errors.push_back(y_abs_error);
+    z_errors.push_back(z_abs_error);
+    total_errors.push_back(total_error);
+  }
+  
+  // Calculate means
+  double mean_x_error = x_abs_error_sum / src_points.size();
+  double mean_y_error = y_abs_error_sum / src_points.size();
+  double mean_z_error = z_abs_error_sum / src_points.size();
+  double mean_total_error = total_abs_error_sum / src_points.size();
+  
+  // Calculate medians (first sort the vectors)
+  std::sort(x_errors.begin(), x_errors.end());
+  std::sort(y_errors.begin(), y_errors.end());
+  std::sort(z_errors.begin(), z_errors.end());
+  std::sort(total_errors.begin(), total_errors.end());
+  
+  double median_x_error = x_errors[x_errors.size() / 2];
+  double median_y_error = y_errors[y_errors.size() / 2];
+  double median_z_error = z_errors[z_errors.size() / 2];
+  double median_total_error = total_errors[total_errors.size() / 2];
+  
+  // Print summary statistics
+  LOG(INFO) << "===== " << stage << " Alignment Error Summary =====";
+  LOG(INFO) << "Mean absolute errors: "
+            << "X=" << mean_x_error 
+            << " Y=" << mean_y_error
+            << " Z=" << mean_z_error
+            << " Total=" << mean_total_error;
+  LOG(INFO) << "Median absolute errors: "
+            << "X=" << median_x_error 
+            << " Y=" << median_y_error
+            << " Z=" << median_z_error
+            << " Total=" << median_total_error;
+  LOG(INFO) << "==========================================";
+}
+
 bool AlignReconstructionToPosePriors(
     const Reconstruction& src_reconstruction,
     const std::unordered_map<image_t, PosePrior>& tgt_pose_priors,
@@ -245,9 +323,14 @@ bool AlignReconstructionToPosePriors(
     Sim3d* tgt_from_src) {
   std::vector<Eigen::Vector3d> src;
   std::vector<Eigen::Vector3d> tgt;
+  std::vector<Eigen::Matrix3d> covariances;
+  
   src.reserve(tgt_pose_priors.size());
   tgt.reserve(tgt_pose_priors.size());
-
+  covariances.reserve(tgt_pose_priors.size());
+  
+  bool has_valid_covs = false;
+  
   for (const image_t image_id : src_reconstruction.RegImageIds()) {
     const auto pose_prior_it = tgt_pose_priors.find(image_id);
     if (pose_prior_it != tgt_pose_priors.end() &&
@@ -255,6 +338,14 @@ bool AlignReconstructionToPosePriors(
       const auto& image = src_reconstruction.Image(image_id);
       src.push_back(image.ProjectionCenter());
       tgt.push_back(pose_prior_it->second.position);
+      
+      if (pose_prior_it->second.IsCovarianceValid()) {
+        covariances.push_back(pose_prior_it->second.position_covariance);
+        has_valid_covs = true;
+      } else {
+        // Add identity covariance if invalid
+        covariances.push_back(Eigen::Matrix3d::Identity());
+      }
     }
   }
 
@@ -264,10 +355,91 @@ bool AlignReconstructionToPosePriors(
     return false;
   }
 
-  if (ransac_options.max_error > 0) {
-    return EstimateSim3dRobust(src, tgt, ransac_options, *tgt_from_src).success;
+  // Print errors before alignment
+  Sim3d identity_transform; // Identity transform for "Before" calculation
+  PrintAxisErrors(src, tgt, identity_transform, "Before");
+  
+  bool success = false;
+  
+  if (has_valid_covs) {
+    LOG(INFO) << "Using weighted similarity transform with covariances";
+    success = EstimateWeightedSim3d(src, tgt, covariances, *tgt_from_src);
+  } else {
+    LOG(INFO) << "Using similarity transform without covariances";
+    success = EstimateSim3d(src, tgt, *tgt_from_src);
   }
-  return EstimateSim3d(src, tgt, *tgt_from_src);
+
+  if (success) {
+    // Print errors after alignment
+    PrintAxisErrors(src, tgt, *tgt_from_src, "After");
+    
+    // Print a simple error comparison to confirm alignment was successful
+    double total_weighted_before = 0.0;
+    double total_weighted_after = 0.0;
+    
+    // Compute error metrics for each axis separately
+    double x_weighted_before = 0.0, y_weighted_before = 0.0, z_weighted_before = 0.0;
+    double x_weighted_after = 0.0, y_weighted_after = 0.0, z_weighted_after = 0.0;
+    
+    for (size_t i = 0; i < src.size(); ++i) {
+      Eigen::Vector3d transformed = (*tgt_from_src) * src[i];
+      Eigen::Vector3d weights;
+      
+      // Calculate weights from diagonal of covariance (inverse of variance)
+      weights(0) = 1.0 / std::max(covariances[i](0,0), 1e-8);
+      weights(1) = 1.0 / std::max(covariances[i](1,1), 1e-8);
+      weights(2) = 1.0 / std::max(covariances[i](2,2), 1e-8);
+      
+      // Per-axis weighted squared errors
+      x_weighted_before += weights(0) * std::pow(tgt[i](0) - src[i](0), 2);
+      y_weighted_before += weights(1) * std::pow(tgt[i](1) - src[i](1), 2);
+      z_weighted_before += weights(2) * std::pow(tgt[i](2) - src[i](2), 2);
+      
+      x_weighted_after += weights(0) * std::pow(tgt[i](0) - transformed(0), 2);
+      y_weighted_after += weights(1) * std::pow(tgt[i](1) - transformed(1), 2);
+      z_weighted_after += weights(2) * std::pow(tgt[i](2) - transformed(2), 2);
+      
+      // Total weighted MSE
+      total_weighted_before += weights(0) * std::pow(tgt[i](0) - src[i](0), 2) + 
+                              weights(1) * std::pow(tgt[i](1) - src[i](1), 2) + 
+                              weights(2) * std::pow(tgt[i](2) - src[i](2), 2);
+      
+      total_weighted_after += weights(0) * std::pow(tgt[i](0) - transformed(0), 2) + 
+                             weights(1) * std::pow(tgt[i](1) - transformed(1), 2) + 
+                             weights(2) * std::pow(tgt[i](2) - transformed(2), 2);
+    }
+    
+    // Take square root for RMSE
+    double weighted_rmse_before = std::sqrt(total_weighted_before / src.size());
+    double weighted_rmse_after = std::sqrt(total_weighted_after / src.size());
+    
+    // Per-axis RMSE
+    double x_rmse_before = std::sqrt(x_weighted_before / src.size());
+    double y_rmse_before = std::sqrt(y_weighted_before / src.size());
+    double z_rmse_before = std::sqrt(z_weighted_before / src.size());
+    
+    double x_rmse_after = std::sqrt(x_weighted_after / src.size());
+    double y_rmse_after = std::sqrt(y_weighted_after / src.size());
+    double z_rmse_after = std::sqrt(z_weighted_after / src.size());
+    
+    LOG(INFO) << "Weighted RMSE before: " << weighted_rmse_before 
+              << ", after: " << weighted_rmse_after;
+    LOG(INFO) << "X-axis RMSE before: " << x_rmse_before << ", after: " << x_rmse_after;
+    LOG(INFO) << "Y-axis RMSE before: " << y_rmse_before << ", after: " << y_rmse_after;
+    LOG(INFO) << "Z-axis RMSE before: " << z_rmse_before << ", after: " << z_rmse_after;
+    
+    // Only consider the alignment successful if it improved the total error
+    if (weighted_rmse_after >= weighted_rmse_before) {
+      LOG(WARNING) << "Alignment increased error, returning identity transform";
+      *tgt_from_src = identity_transform;
+      success = false;
+    } else {
+      double improvement = 100.0 * (weighted_rmse_before - weighted_rmse_after) / weighted_rmse_before;
+      LOG(INFO) << "Alignment reduced error by " << improvement << "%";
+    }
+  }
+
+  return success;
 }
 
 bool AlignReconstructionsViaReprojections(
