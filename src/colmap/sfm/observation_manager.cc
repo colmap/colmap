@@ -478,15 +478,20 @@ std::vector<frame_t> ObservationManager::FilterFrames(
   std::vector<frame_t> filtered_frame_ids;
   for (const frame_t frame_id : reconstruction_.RegFrameIds()) {
     const Frame& frame = reconstruction_.Frame(frame_id);
+    int num_points3D = 0;
     for (const data_t& data_id : frame.ImageIds()) {
       const Image& image = reconstruction_.Image(data_id.id);
-      if (image.NumPoints3D() == 0 ||
-          image.CameraPtr()->HasBogusParams(min_focal_length_ratio,
+      num_points3D += image.NumPoints3D();
+      if (image.CameraPtr()->HasBogusParams(min_focal_length_ratio,
                                             max_focal_length_ratio,
                                             max_extra_param)) {
-        filtered_frame_ids.push_back(frame_id);
+        // Flag the frame for filtering.
+        num_points3D = 0;
         break;
       }
+    }
+    if (num_points3D == 0) {
+      filtered_frame_ids.push_back(frame_id);
     }
   }
 
