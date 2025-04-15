@@ -91,6 +91,11 @@ if(TORCH_ENABLED)
             colmap_feature
             colmap_util
     )
+    COLMAP_ADD_TEST(
+        NAME torch_utils_test
+        SRCS torch_utils_test.cc
+        LINK_LIBS colmap_feature
+    )
 endif()
 
 if(GPU_ENABLED)
@@ -124,11 +129,4 @@ COLMAP_ADD_TEST(
 )
 if(TESTS_ENABLED AND GUI_ENABLED)
     target_link_libraries(colmap_feature_sift_test Qt5::Widgets)
-endif()
-if(TORCH_ENABLED)
-    COLMAP_ADD_TEST(
-        NAME torch_utils_test
-        SRCS torch_utils_test.cc
-        LINK_LIBS colmap_feature
-    )
 endif()

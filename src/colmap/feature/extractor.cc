@@ -58,6 +58,7 @@ int FeatureExtractionOptions::MaxImageSize() const {
     default:
       ThrowUnknownFeatureExtractorType(type);
   }
+  return -1;
 }
 
 bool FeatureExtractionOptions::Check() const {
@@ -98,6 +99,7 @@ std::unique_ptr<FeatureExtractor> FeatureExtractor::Create(
     default:
       ThrowUnknownFeatureExtractorType(options.type);
   }
+  return nullptr;
 }
 
 }  // namespace colmap
