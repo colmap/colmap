@@ -190,7 +190,7 @@ TEST(DatabaseCache, ConstructFromDatabaseWithCustomImages) {
 
   EXPECT_EQ(cache->NumRigs(), 1);
   EXPECT_EQ(cache->NumCameras(), 2);
-  EXPECT_EQ(cache->NumFrames(), 2);
+  EXPECT_EQ(cache->NumFrames(), 1);
   EXPECT_EQ(cache->NumImages(), 2);
   EXPECT_EQ(cache->NumPosePriors(), 2);
 
