@@ -125,8 +125,7 @@ namespace {
 //     of the camera.
 void UpdateRigAndCameraCalibFromReconstruction(
     const Reconstruction& reconstruction,
-    const std::unordered_map<std::string, std::vector<const Image*>>&
-        frames_to_images,
+    const std::map<std::string, std::vector<const Image*>>& frames_to_images,
     Rig rig,
     Database& database) {
   std::unordered_map<
@@ -235,6 +234,45 @@ void UpdateRigAndCameraCalibFromReconstruction(
 //     ]
 //   }
 // ]
+// Example for GoPro cubemaps:
+// [
+//   {
+//       "cameras": [
+//           {
+//               "image_prefix": "0/",
+//               "ref_sensor": true
+//           },
+//           {
+//               "image_prefix": "1/",
+//               "cam_from_rig_rotation": [
+//                   0.7071067811865475,
+//                   0.0,
+//                   0.7071067811865476,
+//                   0.0
+//               ],
+//               "cam_from_rig_translation": [
+//                   0,
+//                   0,
+//                   0
+//               ]
+//           },
+//           {
+//               "image_prefix": "2/",
+//               "cam_from_rig_rotation": [
+//                   1.0,
+//                   0.0,
+//                   0.0,
+//                   0.0
+//               ],
+//               "cam_from_rig_translation": [
+//                   0,
+//                   0,
+//                   0
+//               ]
+//           }
+//       ]
+//   }
+// ]
 int RunRigConfigurator(int argc, char** argv) {
   std::string database_path;
   std::string rig_config_path;
@@ -271,6 +309,7 @@ int RunRigConfigurator(int argc, char** argv) {
     int ref_sensor_idx = -1;
     std::vector<std::string> image_prefixes;
     std::vector<std::optional<Rigid3d>> cams_from_rig;
+    std::vector<std::optional<Camera>> cameras;
     for (const auto& camera : rig_config.second.get_child("cameras")) {
       image_prefixes.push_back(camera.second.get<std::string>("image_prefix"));
 
@@ -308,6 +347,22 @@ int RunRigConfigurator(int argc, char** argv) {
             << "Reference sensor must not have cam_from_rig";
         ref_sensor_idx = image_prefixes.size() - 1;
       }
+
+      auto camera_model_name_node =
+          camera.second.get_child_optional("camera_model_name");
+      auto camera_params_node =
+          camera.second.get_child_optional("camera_params");
+      if (camera_model_name_node && camera_params_node) {
+        Camera config_camera;
+        config_camera.model_id = CameraModelNameToId(
+            camera.second.get<std::string>("camera_model_name"));
+        for (const auto& node : camera_params_node.get()) {
+          config_camera.params.push_back(node.second.get_value<double>());
+        }
+        cameras.push_back(config_camera);
+      } else {
+        cameras.emplace_back();
+      }
     }
 
     const size_t num_cameras = image_prefixes.size();
@@ -316,7 +371,7 @@ int RunRigConfigurator(int argc, char** argv) {
     THROW_CHECK_EQ(num_cameras, cams_from_rig.size());
 
     std::vector<std::optional<camera_t>> camera_ids(num_cameras);
-    std::unordered_map<std::string, std::vector<const Image*>> frames_to_images;
+    std::map<std::string, std::vector<const Image*>> frames_to_images;
     for (const Image& image : images) {
       for (size_t camera_idx = 0; camera_idx < num_cameras; ++camera_idx) {
         const std::string& image_prefix = image_prefixes[camera_idx];
@@ -334,6 +389,14 @@ int RunRigConfigurator(int argc, char** argv) {
                    "camera_id's.";
           } else {
             camera_id = image.CameraId();
+            auto& config_camera = cameras[camera_idx];
+            if (config_camera.has_value()) {
+              Camera camera = database.ReadCamera(image.CameraId());
+              camera.model_id = config_camera->model_id;
+              camera.params = config_camera->params;
+              database.UpdateCamera(camera);
+              LOG(INFO) << camera;
+            }
           }
         }
       }

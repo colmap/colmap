@@ -211,12 +211,20 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
       }
     }
 
+    // Remove unconnected frames.
+    for (auto it = cache->frames_.begin(); it != cache->frames_.end();) {
+      if (connected_frame_ids.count(it->first) == 0) {
+        it = cache->frames_.erase(it);
+      } else {
+        ++it;
+      }
+    }
+
     // Load images with correspondences and discard images without
     // correspondences, as those images are useless for SfM.
     cache->images_.reserve(connected_frame_ids.size());
     for (auto& image : images) {
-      if (frame_ids.count(image.FrameId()) == 0 ||
-          connected_frame_ids.count(image.FrameId()) == 0) {
+      if (connected_frame_ids.count(image.FrameId()) == 0) {
         continue;
       }
 
@@ -245,9 +253,8 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
 
   cache->correspondence_graph_ = std::make_shared<class CorrespondenceGraph>();
 
-  for (const auto& image : cache->images_) {
-    cache->correspondence_graph_->AddImage(image.first,
-                                           image.second.NumPoints2D());
+  for (const auto& [image_id, image] : cache->images_) {
+    cache->correspondence_graph_->AddImage(image_id, image.NumPoints2D());
   }
 
   size_t num_ignored_image_pairs = 0;
