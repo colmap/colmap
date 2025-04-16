@@ -285,7 +285,7 @@ bool RefineGeneralizedAbsolutePose(const AbsolutePoseRefinementOptions& options,
   ceres::Solve(solver_options, &problem, &summary);
 
   if (options.print_summary || VLOG_IS_ON(1)) {
-    PrintSolverSummary(summary, "Pose refinement report");
+    PrintSolverSummary(summary, "Generalized pose refinement report");
   }
 
   if (problem.NumResiduals() > 0 && rig_from_world_cov != nullptr) {

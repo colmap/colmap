@@ -321,6 +321,9 @@ class IncrementalMapper {
     std::unordered_map<image_t, size_t> num_reg_trials;
   };
 
+  // Registers a frame using generalized absolute pose estimation.
+  bool RegisterNextGeneralFrame(const Options& options, Frame& frame);
+
   // Register / De-register frame in current reconstruction and update
   // the (shared) registration statistics.
   void RegisterFrameEvent(frame_t frame_id);

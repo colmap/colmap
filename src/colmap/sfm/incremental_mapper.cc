@@ -29,6 +29,7 @@
 
 #include "colmap/sfm/incremental_mapper.h"
 
+#include "colmap/estimators/generalized_pose.h"
 #include "colmap/estimators/pose.h"
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/geometry/triangulation.h"
@@ -175,26 +176,47 @@ void IncrementalMapper::RegisterInitialImagePair(
   RegisterFrameEvent(image2.FrameId());
 }
 
-// TODO(jsch): Better handle non-trivial frames by performing generalized
-// absolute pose estimation.
 bool IncrementalMapper::RegisterNextImage(const Options& options,
                                           const image_t image_id) {
   THROW_CHECK_NOTNULL(reconstruction_);
   THROW_CHECK_NOTNULL(obs_manager_);
   THROW_CHECK_GT(reconstruction_->NumRegFrames(), 0);
-
   THROW_CHECK(options.Check());
 
   Image& image = reconstruction_->Image(image_id);
   Camera& camera = *image.CameraPtr();
 
-  THROW_CHECK(!image.HasPose()) << "Image cannot be registered multiple times";
+  // Use central camera pose estimation for trivial frames and when we don't
+  // have a good estimate of the camera's focal length, because we don't have a
+  // focal length estimator for non-central/generalized cameras.
+  if (image.FramePtr()->RigPtr()->NumSensors() > 1) {
+    bool all_cameras_have_good_focal_length = true;
+    for (const data_t& data_id : image.FramePtr()->ImageIds()) {
+      const Image& frame_image = reconstruction_->Image(data_id.id);
+      if ((!frame_image.CameraPtr()->has_prior_focal_length &&
+           reg_stats_.num_reg_images_per_camera[frame_image.CameraId()] == 0) ||
+          frame_image.CameraPtr()->HasBogusParams(
+              options.min_focal_length_ratio,
+              options.max_focal_length_ratio,
+              options.max_extra_param)) {
+        all_cameras_have_good_focal_length = false;
+        break;
+      }
+    }
+    if (all_cameras_have_good_focal_length) {
+      VLOG(2) << "Registering image using generalized pose estimation";
+      return RegisterNextGeneralFrame(options, *image.FramePtr());
+    }
+  }
 
   reg_stats_.num_reg_trials[image_id] += 1;
 
   // Check if enough 2D-3D correspondences.
   if (obs_manager_->NumVisiblePoints3D(image_id) <
       static_cast<size_t>(options.abs_pose_min_num_inliers)) {
+    VLOG(2) << "Image observes insufficient number of points "
+            << obs_manager_->NumVisiblePoints3D(image_id)
+            << " for registration";
     return false;
   }
 
@@ -257,6 +279,8 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   // hence we skip some of the 2D-3D correspondences.
   if (tri_points2D.size() <
       static_cast<size_t>(options.abs_pose_min_num_inliers)) {
+    VLOG(2) << "Insufficient number of " << tri_points2D.size()
+            << " 2D-3D correspondences for registration";
     return false;
   }
 
@@ -266,8 +290,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
 
   // Only refine / estimate focal length, if no focal length was specified
   // (manually or through EXIF) and if it was not already estimated previously
-  // from another image (when multiple images share the same camera
-  // parameters)
+  // from another image (when multiple images share the same camera parameters).
 
   AbsolutePoseEstimationOptions abs_pose_options;
   abs_pose_options.ransac_options.max_error = options.abs_pose_max_error;
@@ -280,9 +303,6 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
     if (camera.HasBogusParams(options.min_focal_length_ratio,
                               options.max_focal_length_ratio,
                               options.max_extra_param)) {
-      // Previously refined camera has bogus parameters,
-      // so reset parameters and try to re-estimage.
-      camera.params = database_cache_->Camera(image.CameraId()).params;
       abs_pose_options.estimate_focal_length = !camera.has_prior_focal_length;
       abs_pose_refinement_options.refine_focal_length = true;
       abs_pose_refinement_options.refine_extra_params = true;
@@ -310,9 +330,25 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
     abs_pose_refinement_options.refine_extra_params = false;
   }
 
+  // If any of the cameras in the same rig has bogus cameras, reset them to the
+  // original values from the database, so we have a chance of recovering from
+  // previous failed estimations. Notice that this function will be called for
+  // non-trivial frames, when there is no good estimate for the focal length or
+  // one of the rig's cameras has bogus parameters.
+  for (const data_t& data_id : image.FramePtr()->ImageIds()) {
+    Image& frame_image = reconstruction_->Image(data_id.id);
+    if (frame_image.CameraPtr()->HasBogusParams(options.min_focal_length_ratio,
+                                                options.max_focal_length_ratio,
+                                                options.max_extra_param)) {
+      VLOG(2) << "Resetting camera " << frame_image.CameraId()
+              << "'s bogus parameters";
+      frame_image.CameraPtr()->params =
+          database_cache_->Camera(frame_image.CameraId()).params;
+    }
+  }
+
   size_t num_inliers;
   std::vector<char> inlier_mask;
-
   Rigid3d cam_from_world;
   if (!EstimateAbsolutePose(abs_pose_options,
                             tri_points2D,
@@ -321,10 +357,13 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
                             &camera,
                             &num_inliers,
                             &inlier_mask)) {
+    VLOG(2) << "Absolute pose estimation failed";
     return false;
   }
 
   if (num_inliers < static_cast<size_t>(options.abs_pose_min_num_inliers)) {
+    VLOG(2) << "Absolute pose estimation failed due to insufficient "
+            << num_inliers << " inliers";
     return false;
   }
 
@@ -338,6 +377,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
                           tri_points3D,
                           &cam_from_world,
                           &camera)) {
+    VLOG(2) << "Absolute pose refinement failed";
     return false;
   }
 
@@ -345,20 +385,199 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   // Continue tracks
   //////////////////////////////////////////////////////////////////////////////
 
-  image.FramePtr()->SetRigFromWorld(cam_from_world);
+  VLOG(2) << "Continuing tracks for " << num_inliers
+          << " inlier 2D-3D correspondences";
+
+  image.FramePtr()->SetCamFromWorld(image.CameraId(), cam_from_world);
 
   reconstruction_->RegisterFrame(image.FrameId());
   RegisterFrameEvent(image.FrameId());
 
   for (size_t i = 0; i < inlier_mask.size(); ++i) {
     if (inlier_mask[i]) {
-      const point2D_t point2D_idx = tri_corrs[i].first;
+      const auto [point2D_idx, point3D_id] = tri_corrs[i];
       const Point2D& point2D = image.Point2D(point2D_idx);
       if (!point2D.HasPoint3D()) {
-        const point3D_t point3D_id = tri_corrs[i].second;
         const TrackElement track_el(image_id, point2D_idx);
         obs_manager_->AddObservation(point3D_id, track_el);
         triangulator_->AddModifiedPoint3D(point3D_id);
+      }
+    }
+  }
+
+  return true;
+}
+
+bool IncrementalMapper::RegisterNextGeneralFrame(const Options& options,
+                                                 Frame& frame) {
+  // Only call this method for frames with more than
+  THROW_CHECK_GT(frame.RigPtr()->NumSensors(), 1);
+
+  struct Corr {
+    point2D_t point2D_idx;
+    image_t image_id;
+    point3D_t point3D_id;
+  };
+
+  std::vector<Corr> tri_corrs;
+  std::vector<Eigen::Vector2d> tri_points2D;
+  std::vector<Eigen::Vector3d> tri_points3D;
+  std::vector<size_t> tri_camera_idxs;
+
+  std::vector<Rigid3d> cams_from_rig;
+  cams_from_rig.reserve(frame.RigPtr()->NumSensors());
+  std::vector<Camera> cameras;
+  cameras.reserve(frame.RigPtr()->NumSensors());
+
+  const std::shared_ptr<const CorrespondenceGraph> correspondence_graph =
+      database_cache_->CorrespondenceGraph();
+
+  for (const data_t& data_id : frame.ImageIds()) {
+    const image_t image_id = data_id.id;
+    const Image& image = reconstruction_->Image(image_id);
+    const Camera& camera = *image.CameraPtr();
+
+    const size_t camera_idx = cameras.size();
+    if (frame.RigPtr()->IsRefSensor(camera.SensorId())) {
+      cams_from_rig.push_back(Rigid3d());
+    } else {
+      cams_from_rig.push_back(frame.RigPtr()->SensorFromRig(camera.SensorId()));
+    }
+    cameras.push_back(camera);
+
+    reg_stats_.num_reg_trials[image_id] += 1;
+
+    std::unordered_set<point3D_t> corr_point3D_ids;
+    for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
+         ++point2D_idx) {
+      const Point2D& point2D = image.Point2D(point2D_idx);
+
+      corr_point3D_ids.clear();
+      const auto corr_range =
+          correspondence_graph->FindCorrespondences(image_id, point2D_idx);
+      for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
+        const Image& corr_image = reconstruction_->Image(corr->image_id);
+        if (!corr_image.HasPose()) {
+          continue;
+        }
+
+        const Point2D& corr_point2D = corr_image.Point2D(corr->point2D_idx);
+        if (!corr_point2D.HasPoint3D()) {
+          continue;
+        }
+
+        // Avoid duplicate correspondences.
+        if (corr_point3D_ids.count(corr_point2D.point3D_id) > 0) {
+          continue;
+        }
+
+        const Camera& corr_camera = *corr_image.CameraPtr();
+
+        // Avoid correspondences to images with bogus camera parameters.
+        if (corr_camera.HasBogusParams(options.min_focal_length_ratio,
+                                       options.max_focal_length_ratio,
+                                       options.max_extra_param)) {
+          continue;
+        }
+
+        const Point3D& point3D =
+            reconstruction_->Point3D(corr_point2D.point3D_id);
+
+        tri_corrs.push_back(
+            Corr{point2D_idx, image_id, corr_point2D.point3D_id});
+        corr_point3D_ids.insert(corr_point2D.point3D_id);
+        tri_points2D.push_back(point2D.xy);
+        tri_points3D.push_back(point3D.xyz);
+        tri_camera_idxs.push_back(camera_idx);
+      }
+    }
+  }
+
+  // The size of `next_image.num_tri_obs` and `tri_corrs_point2D_idxs.size()`
+  // can only differ, when there are images with bogus camera parameters, and
+  // hence we skip some of the 2D-3D correspondences.
+  if (tri_points2D.size() <
+      static_cast<size_t>(options.abs_pose_min_num_inliers)) {
+    VLOG(2) << "Insufficient number of " << tri_points2D.size()
+            << " 2D-3D correspondences for registration";
+    return false;
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+  // 2D-3D estimation
+  //////////////////////////////////////////////////////////////////////////////
+
+  // Only refine focal length, if no focal length was specified
+  // (manually or through EXIF) and if it was not already estimated previously
+  // from another image (when multiple images share the same camera parameters).
+
+  RANSACOptions abs_pose_options;
+  abs_pose_options.max_error = options.abs_pose_max_error;
+  abs_pose_options.min_inlier_ratio = options.abs_pose_min_inlier_ratio;
+
+  AbsolutePoseRefinementOptions abs_pose_refinement_options;
+  abs_pose_refinement_options.refine_focal_length = false;
+  abs_pose_refinement_options.refine_extra_params = false;
+
+  size_t num_inliers;
+  std::vector<char> inlier_mask;
+  Rigid3d rig_from_world;
+  if (!EstimateGeneralizedAbsolutePose(abs_pose_options,
+                                       tri_points2D,
+                                       tri_points3D,
+                                       tri_camera_idxs,
+                                       cams_from_rig,
+                                       cameras,
+                                       &rig_from_world,
+                                       &num_inliers,
+                                       &inlier_mask)) {
+    VLOG(2) << "Absolute pose estimation failed";
+    return false;
+  }
+
+  if (num_inliers < static_cast<size_t>(options.abs_pose_min_num_inliers)) {
+    VLOG(2) << "Absolute pose estimation failed due to insufficient "
+            << num_inliers << " inliers";
+    return false;
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+  // Pose refinement
+  //////////////////////////////////////////////////////////////////////////////
+
+  if (!RefineGeneralizedAbsolutePose(abs_pose_refinement_options,
+                                     inlier_mask,
+                                     tri_points2D,
+                                     tri_points3D,
+                                     tri_camera_idxs,
+                                     cams_from_rig,
+                                     &rig_from_world,
+                                     &cameras)) {
+    VLOG(2) << "Absolute pose refinement failed";
+    return false;
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+  // Continue tracks
+  //////////////////////////////////////////////////////////////////////////////
+
+  VLOG(2) << "Continuing tracks for " << num_inliers
+          << " inlier 2D-3D correspondences";
+
+  frame.SetRigFromWorld(rig_from_world);
+
+  reconstruction_->RegisterFrame(frame.FrameId());
+  RegisterFrameEvent(frame.FrameId());
+
+  for (size_t i = 0; i < inlier_mask.size(); ++i) {
+    if (inlier_mask[i]) {
+      const Corr& corr = tri_corrs[i];
+      const Image& image = reconstruction_->Image(corr.image_id);
+      const Point2D& point2D = image.Point2D(corr.point2D_idx);
+      if (!point2D.HasPoint3D()) {
+        const TrackElement track_el(corr.image_id, corr.point2D_idx);
+        obs_manager_->AddObservation(corr.point3D_id, track_el);
+        triangulator_->AddModifiedPoint3D(corr.point3D_id);
       }
     }
   }
