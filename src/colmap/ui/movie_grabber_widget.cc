@@ -292,7 +292,7 @@ void MovieGrabberWidget::UpdateViews() {
     const Eigen::Matrix4d model_view_matrix =
         QMatrixToEigen(view_data_.at(item).model_view_matrix).cast<double>();
     Frame frame;
-    frame.SetFrameFromWorld(
+    frame.SetRigFromWorld(
         Rigid3d(Eigen::Quaterniond(model_view_matrix.topLeftCorner<3, 3>()),
                 model_view_matrix.topRightCorner<3, 1>()));
     frames.push_back(frame);

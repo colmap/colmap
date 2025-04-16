@@ -110,8 +110,8 @@ class Image {
   // Check if cam_from_world needs to be composed with sensor_from_rig pose.
   inline bool HasTrivialFrame() const;
 
-  // Composition of sensor_from_rig and frame_from_world transformations.
-  // If the corresponding frame is trivial, this is equal to frame_from_world.
+  // Composition of sensor_from_rig and rig_from_world transformations.
+  // If the corresponding frame is trivial, this is equal to rig_from_world.
   inline Rigid3d CamFromWorld() const;
   inline bool HasPose() const;
 
@@ -298,7 +298,7 @@ bool Image::operator==(const Image& other) const {
     return result;
   } else {
     return result &&
-           frame_ptr_->FrameFromWorld() == other.frame_ptr_->FrameFromWorld();
+           frame_ptr_->RigFromWorld() == other.frame_ptr_->RigFromWorld();
   }
 }
 

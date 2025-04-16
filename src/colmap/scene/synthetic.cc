@@ -239,12 +239,12 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
       // Synthesize frames as sphere centered at world origin.
       const Eigen::Vector3d view_dir = -Eigen::Vector3d::Random().normalized();
       const Eigen::Vector3d proj_center = -5 * view_dir;
-      Rigid3d frame_from_world;
-      frame_from_world.rotation = Eigen::Quaterniond::FromTwoVectors(
+      Rigid3d rig_from_world;
+      rig_from_world.rotation = Eigen::Quaterniond::FromTwoVectors(
           view_dir, Eigen::Vector3d(0, 0, 1));
-      frame_from_world.translation = frame_from_world.rotation * -proj_center;
+      rig_from_world.translation = rig_from_world.rotation * -proj_center;
 
-      frame.SetFrameFromWorld(frame_from_world);
+      frame.SetRigFromWorld(rig_from_world);
 
       std::vector<Image> images;
       images.reserve(options.num_cameras_per_rig);
@@ -277,7 +277,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
             rig.IsRefSensor(camera.SensorId())
                 ? Rigid3d()
                 : rig.SensorFromRig(camera.SensorId());
-        const Rigid3d cam_from_world = sensor_from_rig * frame_from_world;
+        const Rigid3d cam_from_world = sensor_from_rig * rig_from_world;
 
         std::vector<Point2D> points2D;
         points2D.reserve(options.num_points3D +

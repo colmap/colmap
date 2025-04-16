@@ -214,7 +214,7 @@ TEST(CameraRig, ComputeRigFromWorldScale) {
   Frame frame1;
   frame1.SetFrameId(0);
   frame1.SetRigId(rig1.RigId());
-  frame1.SetFrameFromWorld(Rigid3d());
+  frame1.SetRigFromWorld(Rigid3d());
   reconstruction.AddFrame(frame1);
 
   Image image1;
@@ -226,7 +226,7 @@ TEST(CameraRig, ComputeRigFromWorldScale) {
   Frame frame2;
   frame2.SetFrameId(1);
   frame2.SetRigId(rig2.RigId());
-  frame2.SetFrameFromWorld(
+  frame2.SetRigFromWorld(
       Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(1, 2, 3)));
   reconstruction.AddFrame(frame2);
 
@@ -241,7 +241,7 @@ TEST(CameraRig, ComputeRigFromWorldScale) {
 
   EXPECT_EQ(camera_rig.ComputeRigFromWorldScale(reconstruction), 2.0);
 
-  reconstruction.Frame(image2.FrameId()).FrameFromWorld().translation =
+  reconstruction.Frame(image2.FrameId()).RigFromWorld().translation =
       Eigen::Vector3d(0, 0, 0);
   EXPECT_TRUE(std::isnan(camera_rig.ComputeRigFromWorldScale(reconstruction)));
 }
@@ -274,7 +274,7 @@ TEST(CameraRig, ComputeCamsFromRigs) {
   Frame frame1;
   frame1.SetFrameId(0);
   frame1.SetRigId(rig1.RigId());
-  frame1.SetFrameFromWorld(Rigid3d());
+  frame1.SetRigFromWorld(Rigid3d());
   reconstruction.AddFrame(frame1);
 
   Image image1;
@@ -286,7 +286,7 @@ TEST(CameraRig, ComputeCamsFromRigs) {
   Frame frame2;
   frame2.SetFrameId(1);
   frame2.SetRigId(rig2.RigId());
-  frame2.SetFrameFromWorld(
+  frame2.SetRigFromWorld(
       Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(1, 2, 3)));
   reconstruction.AddFrame(frame2);
 
@@ -312,7 +312,7 @@ TEST(CameraRig, ComputeCamsFromRigs) {
   Frame frame3;
   frame3.SetFrameId(2);
   frame3.SetRigId(rig1.RigId());
-  frame3.SetFrameFromWorld(Rigid3d());
+  frame3.SetRigFromWorld(Rigid3d());
   reconstruction.AddFrame(frame3);
 
   Image image3;
@@ -324,7 +324,7 @@ TEST(CameraRig, ComputeCamsFromRigs) {
   Frame frame4;
   frame4.SetFrameId(3);
   frame4.SetRigId(rig2.RigId());
-  frame4.SetFrameFromWorld(
+  frame4.SetRigFromWorld(
       Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(2, 4, 6)));
   reconstruction.AddFrame(frame4);
 
@@ -349,7 +349,7 @@ TEST(CameraRig, ComputeCamsFromRigs) {
   Frame frame5;
   frame5.SetFrameId(4);
   frame5.SetRigId(rig1.RigId());
-  frame5.SetFrameFromWorld(Rigid3d());
+  frame5.SetRigFromWorld(Rigid3d());
   reconstruction.AddFrame(frame5);
 
   Image image5;
@@ -396,7 +396,7 @@ TEST(CameraRig, ComputeRigFromWorld) {
   Frame frame1;
   frame1.SetFrameId(0);
   frame1.SetRigId(rig1.RigId());
-  frame1.SetFrameFromWorld(Rigid3d());
+  frame1.SetRigFromWorld(Rigid3d());
   reconstruction.AddFrame(frame1);
 
   Image image1;
@@ -408,7 +408,7 @@ TEST(CameraRig, ComputeRigFromWorld) {
   Frame frame2;
   frame2.SetFrameId(1);
   frame2.SetRigId(rig2.RigId());
-  frame2.SetFrameFromWorld(
+  frame2.SetRigFromWorld(
       Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(3, 3, 3)));
   reconstruction.AddFrame(frame2);
 

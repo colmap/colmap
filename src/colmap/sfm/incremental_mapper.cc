@@ -345,7 +345,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   // Continue tracks
   //////////////////////////////////////////////////////////////////////////////
 
-  image.FramePtr()->SetFrameFromWorld(cam_from_world);
+  image.FramePtr()->SetRigFromWorld(cam_from_world);
 
   reconstruction_->RegisterFrame(image.FrameId());
   RegisterFrameEvent(image.FrameId());
@@ -446,7 +446,7 @@ IncrementalMapper::AdjustLocalBundle(
     if (options.fix_existing_frames) {
       for (const frame_t frame_id : frame_ids) {
         if (existing_frame_ids_.count(frame_id)) {
-          ba_config.SetConstantFrameFromWorldPose(frame_id);
+          ba_config.SetConstantRigFromWorldPose(frame_id);
         }
       }
     }
@@ -572,7 +572,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
   if (options.fix_existing_frames) {
     for (const frame_t frame_id : reconstruction_->RegFrameIds()) {
       if (existing_frame_ids_.count(frame_id)) {
-        ba_config.SetConstantFrameFromWorldPose(frame_id);
+        ba_config.SetConstantRigFromWorldPose(frame_id);
       }
     }
   }

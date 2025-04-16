@@ -48,16 +48,16 @@ void BindFrame(py::module& m) {
           &Frame::SetRigPtr,
           "The associated rig object.")
       .def_property(
-          "frame_from_world",
+          "rig_from_world",
           [](Frame& self) -> py::typing::Optional<Rigid3d> {
             if (self.HasPose()) {
-              return py::cast(self.FrameFromWorld());
+              return py::cast(self.RigFromWorld());
             } else {
               return py::none();
             }
           },
-          [](Frame& self, const Rigid3d& frame_from_world) {
-            self.SetFrameFromWorld(frame_from_world);
+          [](Frame& self, const Rigid3d& rig_from_world) {
+            self.SetRigFromWorld(rig_from_world);
           },
           "The pose of the frame, defined as the transformation from world to "
           "rig space.")

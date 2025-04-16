@@ -488,8 +488,8 @@ void Reconstruction::Transform(const Sim3d& new_from_old_world) {
   }
   for (auto& [_, frame] : frames_) {
     if (frame.HasPose()) {
-      frame.SetFrameFromWorld(
-          TransformCameraWorld(new_from_old_world, frame.FrameFromWorld()));
+      frame.SetRigFromWorld(
+          TransformCameraWorld(new_from_old_world, frame.RigFromWorld()));
     }
   }
   for (auto& point3D : points3D_) {

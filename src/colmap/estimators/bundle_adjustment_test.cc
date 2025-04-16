@@ -193,7 +193,7 @@ TEST(DefaultBundleAdjuster, TwoView) {
   // 100 points, 2 images, 2 residuals per point per image
   EXPECT_EQ(summary.num_residuals_reduced, 400);
   // 100 x 3 point parameters
-  // + 5 frame_from_world parameters (pose of second image)
+  // + 5 rig_from_world parameters (pose of second image)
   // + 2 x 2 camera parameters
   EXPECT_EQ(summary.num_effective_parameters_reduced, 309);
 
@@ -239,7 +239,7 @@ TEST(DefaultBundleAdjuster, TwoViewRig) {
   // 100 points, 4 images, 2 residuals per point per image
   EXPECT_EQ(summary.num_residuals_reduced, 800);
   // 97 x 3 point parameters (3 fixed for gauge)
-  // + 2 x 6 frame_from_world parameters
+  // + 2 x 6 rig_from_world parameters
   // + 1 x 6 sensor_from_rig parameters
   // + 2 x 2 camera parameters
   EXPECT_EQ(summary.num_effective_parameters_reduced, 313);
@@ -290,7 +290,7 @@ TEST(DefaultBundleAdjuster, ManyViewRig) {
   // 100 points, 30 images, 2 residuals per point per image
   EXPECT_EQ(summary.num_residuals_reduced, 6000);
   // 97 x 3 point parameters (3 fixed for gauge)
-  // + 10 x 6 frame_from_world parameters
+  // + 10 x 6 rig_from_world parameters
   // + 4 x 6 sensor_from_rig parameters
   // + 6 x 2 camera parameters
   EXPECT_EQ(summary.num_effective_parameters_reduced, 387);
@@ -343,7 +343,7 @@ TEST(DefaultBundleAdjuster, ManyViewRigConstantSensorFromRig) {
   // 100 points, 30 images, 2 residuals per point per image
   EXPECT_EQ(summary.num_residuals_reduced, 6000);
   // 97 x 3 point parameters (3 fixed for gauge)
-  // + 10 x 6 frame_from_world parameters
+  // + 10 x 6 rig_from_world parameters
   // + 3 x 6 sensor_from_rig parameters
   // + 6 x 2 camera parameters
   EXPECT_EQ(summary.num_effective_parameters_reduced, 381);
@@ -366,7 +366,7 @@ TEST(DefaultBundleAdjuster, ManyViewRigConstantSensorFromRig) {
   EXPECT_EQ(num_variable_points, 97);
 }
 
-TEST(DefaultBundleAdjuster, ManyViewRigConstantFrameFromWorld) {
+TEST(DefaultBundleAdjuster, ManyViewRigConstantRigFromWorld) {
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
@@ -382,7 +382,7 @@ TEST(DefaultBundleAdjuster, ManyViewRigConstantFrameFromWorld) {
     config.AddImage(image_id);
   }
   const frame_t constant_frame_id = 1;
-  config.SetConstantFrameFromWorldPose(constant_frame_id);
+  config.SetConstantRigFromWorldPose(constant_frame_id);
   config.FixGauge(BundleAdjustmentGauge::THREE_POINTS);
 
   BundleAdjustmentOptions options;
@@ -397,7 +397,7 @@ TEST(DefaultBundleAdjuster, ManyViewRigConstantFrameFromWorld) {
   // 100 points, 30 images, 2 residuals per point per image
   EXPECT_EQ(summary.num_residuals_reduced, 6000);
   // 97 x 3 point parameters (3 fixed for gauge)
-  // + 9 x 6 frame_from_world parameters
+  // + 9 x 6 rig_from_world parameters
   // + 4 x 6 sensor_from_rig parameters
   // + 6 x 2 camera parameters
   EXPECT_EQ(summary.num_effective_parameters_reduced, 381);
@@ -440,8 +440,8 @@ TEST(DefaultBundleAdjuster, TwoViewConstantCamera) {
   BundleAdjustmentConfig config;
   config.AddImage(1);
   config.AddImage(2);
-  config.SetConstantFrameFromWorldPose(1);
-  config.SetConstantFrameFromWorldPose(2);
+  config.SetConstantRigFromWorldPose(1);
+  config.SetConstantRigFromWorldPose(2);
   config.SetConstantCamIntrinsics(1);
 
   BundleAdjustmentOptions options;
@@ -490,8 +490,8 @@ TEST(DefaultBundleAdjuster, PartiallyContainedTracks) {
   BundleAdjustmentConfig config;
   config.AddImage(1);
   config.AddImage(2);
-  config.SetConstantFrameFromWorldPose(1);
-  config.SetConstantFrameFromWorldPose(2);
+  config.SetConstantRigFromWorldPose(1);
+  config.SetConstantRigFromWorldPose(2);
 
   BundleAdjustmentOptions options;
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
@@ -555,8 +555,8 @@ TEST(DefaultBundleAdjuster, PartiallyContainedTracksForceToOptimizePoint) {
   BundleAdjustmentConfig config;
   config.AddImage(1);
   config.AddImage(2);
-  config.SetConstantFrameFromWorldPose(1);
-  config.SetConstantFrameFromWorldPose(2);
+  config.SetConstantRigFromWorldPose(1);
+  config.SetConstantRigFromWorldPose(2);
   config.AddVariablePoint(add_variable_point3D_id);
   config.AddConstantPoint(add_constant_point3D_id);
 
@@ -617,8 +617,8 @@ TEST(DefaultBundleAdjuster, ConstantPoints) {
   BundleAdjustmentConfig config;
   config.AddImage(1);
   config.AddImage(2);
-  config.SetConstantFrameFromWorldPose(1);
-  config.SetConstantFrameFromWorldPose(2);
+  config.SetConstantRigFromWorldPose(1);
+  config.SetConstantRigFromWorldPose(2);
   config.AddConstantPoint(constant_point3D_id1);
   config.AddConstantPoint(constant_point3D_id2);
 
@@ -684,8 +684,8 @@ TEST(DefaultBundleAdjuster, VariableImage) {
   // 100 points, 3 images, 2 residuals per point per image
   EXPECT_EQ(summary.num_residuals_reduced, 600);
   // 100 x 3 point parameters
-  // + 5 frame_from_world parameters (pose of second image)
-  // + 6 frame_from_world parameters (pose of third image)
+  // + 5 rig_from_world parameters (pose of second image)
+  // + 6 rig_from_world parameters (pose of third image)
   // + 3 x 2 camera parameters
   EXPECT_EQ(summary.num_effective_parameters_reduced, 317);
 
@@ -735,7 +735,7 @@ TEST(DefaultBundleAdjuster, ConstantFocalLength) {
   // 100 points, 3 images, 2 residuals per point per image
   EXPECT_EQ(summary.num_residuals_reduced, 400);
   // 100 x 3 point parameters
-  // + 5 frame_from_world parameters (pose of second image)
+  // + 5 rig_from_world parameters (pose of second image)
   // + 2 camera parameters
   EXPECT_EQ(summary.num_effective_parameters_reduced, 307);
 
@@ -795,7 +795,7 @@ TEST(DefaultBundleAdjuster, VariablePrincipalPoint) {
   // 100 points, 3 images, 2 residuals per point per image
   EXPECT_EQ(summary.num_residuals_reduced, 400);
   // 100 x 3 point parameters
-  // + 5 frame_from_world parameters (pose of second image)
+  // + 5 rig_from_world parameters (pose of second image)
   // + 8 camera parameters
   EXPECT_EQ(summary.num_effective_parameters_reduced, 313);
 
@@ -867,7 +867,7 @@ TEST(DefaultBundleAdjuster, ConstantExtraParam) {
   // 100 points, 3 images, 2 residuals per point per image
   EXPECT_EQ(summary.num_residuals_reduced, 400);
   // 100 x 3 point parameters
-  // + 5 frame_from_world parameters (pose of second image)
+  // + 5 rig_from_world parameters (pose of second image)
   // + 2 camera parameters
   EXPECT_EQ(summary.num_effective_parameters_reduced, 307);
 
@@ -944,7 +944,7 @@ void GenerateReconstruction(const size_t num_images,
     Frame frame;
     frame.SetFrameId(image_id);
     frame.SetRigId(rig.RigId());
-    frame.SetFrameFromWorld(Rigid3d(
+    frame.SetRigFromWorld(Rigid3d(
         Eigen::Quaterniond::Identity(),
         Eigen::Vector3d(
             RandomUniformReal(-1.0, 1.0), RandomUniformReal(-1.0, 1.0), 10)));
@@ -960,7 +960,7 @@ void GenerateReconstruction(const size_t num_images,
     for (const auto& [_, point3D] : reconstruction->Points3D()) {
       // Get exact projection of 3D point.
       std::optional<Eigen::Vector2d> point2D =
-          camera.ImgFromCam(frame.FrameFromWorld() * point3D.xyz);
+          camera.ImgFromCam(frame.RigFromWorld() * point3D.xyz);
       CHECK(point2D.has_value());
       // Add some uniform noise.
       *point2D += Eigen::Vector2d(RandomUniformReal(-2.0, 2.0),

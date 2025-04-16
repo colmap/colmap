@@ -470,8 +470,8 @@ void OptionManager::AddBundleAdjustmentOptions() {
                               &bundle_adjustment->refine_principal_point);
   AddAndRegisterDefaultOption("BundleAdjustment.refine_extra_params",
                               &bundle_adjustment->refine_extra_params);
-  AddAndRegisterDefaultOption("BundleAdjustment.refine_frame_from_world",
-                              &bundle_adjustment->refine_frame_from_world);
+  AddAndRegisterDefaultOption("BundleAdjustment.refine_rig_from_world",
+                              &bundle_adjustment->refine_rig_from_world);
   AddAndRegisterDefaultOption("BundleAdjustment.refine_sensor_from_rig",
                               &bundle_adjustment->refine_sensor_from_rig);
   AddAndRegisterDefaultOption("BundleAdjustment.use_gpu",

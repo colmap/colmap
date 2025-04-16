@@ -62,7 +62,7 @@ class BundleAdjustmentConfig {
   size_t NumConstantCamIntrinsics() const;
 
   size_t NumConstantSensorFromRigPoses() const;
-  size_t NumConstantFrameFromWorldPoses() const;
+  size_t NumConstantRigFromWorldPoses() const;
 
   // Determine the number of residuals for the given reconstruction. The number
   // of residuals equals the number of observations times two.
@@ -86,10 +86,10 @@ class BundleAdjustmentConfig {
   void SetVariableSensorFromRigPose(sensor_t sensor_id);
   bool HasConstantSensorFromRigPose(sensor_t sensor_id) const;
 
-  // Set the frame from world pose as constant.
-  void SetConstantFrameFromWorldPose(frame_t frame_id);
-  void SetVariableFrameFromWorldPose(frame_t frame_id);
-  bool HasConstantFrameFromWorldPose(frame_t frame_id) const;
+  // Set the rig from world pose as constant.
+  void SetConstantRigFromWorldPose(frame_t frame_id);
+  void SetVariableRigFromWorldPose(frame_t frame_id);
+  bool HasConstantRigFromWorldPose(frame_t frame_id) const;
 
   // Add / remove points from the configuration. Note that points can either
   // be variable or constant but not both at the same time.
@@ -107,7 +107,7 @@ class BundleAdjustmentConfig {
   const std::unordered_set<point3D_t>& ConstantPoints() const;
   const std::unordered_set<camera_t> ConstantCamIntrinsics() const;
   const std::unordered_set<sensor_t>& ConstantSensorFromRigPoses() const;
-  const std::unordered_set<frame_t>& ConstantFrameFromWorldPoses() const;
+  const std::unordered_set<frame_t>& ConstantRigFromWorldPoses() const;
 
  private:
   BundleAdjustmentGauge fixed_gauge_ = BundleAdjustmentGauge::UNSPECIFIED;
@@ -116,7 +116,7 @@ class BundleAdjustmentConfig {
   std::unordered_set<point3D_t> variable_point3D_ids_;
   std::unordered_set<point3D_t> constant_point3D_ids_;
   std::unordered_set<sensor_t> constant_sensor_from_rig_poses_;
-  std::unordered_set<frame_t> constant_frame_from_world_poses_;
+  std::unordered_set<frame_t> constant_rig_from_world_poses_;
 };
 
 struct BundleAdjustmentOptions {
@@ -137,8 +137,8 @@ struct BundleAdjustmentOptions {
   bool refine_extra_params = true;
 
   // Whether to refine the extrinsic parameter group.
-  bool refine_frame_from_world = true;
   bool refine_sensor_from_rig = true;
+  bool refine_rig_from_world = true;
 
   // Whether to print a final summary.
   bool print_summary = true;
