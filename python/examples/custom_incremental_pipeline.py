@@ -171,13 +171,16 @@ def reconstruct_sub_model(controller, mapper, mapper_options, reconstruction):
                 iterative_global_refinement(options, mapper_options, mapper)
                 ba_prev_num_points = reconstruction.num_points3D()
                 ba_prev_num_reg_frames = reconstruction.num_reg_frames()
-            if options.extract_colors:
-                if not reconstruction.extract_colors_for_image(
+            if (
+                options.extract_colors
+                and not reconstruction.extract_colors_for_image(
                     next_image_id, controller.image_path
-                ):
-                    logging.warning(
-                        f"Could not read image {next_image_id} at path {controller.image_path}"
-                    )
+                )
+            ):
+                logging.warning(
+                    f"Could not read image {next_image_id} "
+                    f"at path {controller.image_path}"
+                )
             if (
                 options.snapshot_frames_freq > 0
                 and reconstruction.num_reg_frames()
