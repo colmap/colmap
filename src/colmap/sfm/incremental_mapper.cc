@@ -154,10 +154,7 @@ void IncrementalMapper::RegisterInitialImagePair(
   reg_stats_.init_image_pairs.insert(pair_id);
 
   Image& image1 = reconstruction_->Image(image_id1);
-  const Camera& camera1 = *image1.CameraPtr();
-
   Image& image2 = reconstruction_->Image(image_id2);
-  const Camera& camera2 = *image2.CameraPtr();
 
   //////////////////////////////////////////////////////////////////////////////
   // Apply two-view geometry
@@ -166,11 +163,6 @@ void IncrementalMapper::RegisterInitialImagePair(
   image1.FramePtr()->SetCamFromWorld(image1.CameraId(), Rigid3d());
   image2.FramePtr()->SetCamFromWorld(image2.CameraId(),
                                      two_view_geometry.cam2_from_cam1);
-
-  const Eigen::Matrix3x4d cam1_from_world = image1.CamFromWorld().ToMatrix();
-  const Eigen::Matrix3x4d cam2_from_world = image2.CamFromWorld().ToMatrix();
-  const Eigen::Vector3d proj_center1 = image1.ProjectionCenter();
-  const Eigen::Vector3d proj_center2 = image2.ProjectionCenter();
 
   //////////////////////////////////////////////////////////////////////////////
   // Update Reconstruction
@@ -182,38 +174,14 @@ void IncrementalMapper::RegisterInitialImagePair(
   RegisterFrameEvent(image1.FrameId());
   RegisterFrameEvent(image2.FrameId());
 
-  const FeatureMatches& corrs =
-      database_cache_->CorrespondenceGraph()->FindCorrespondencesBetweenImages(
-          image_id1, image_id2);
+  IncrementalTriangulator::Options tri_options;
+  tri_options.min_angle = options.init_min_tri_angle;
 
-  const double min_tri_angle_rad = DegToRad(options.init_min_tri_angle);
-
-  // Add 3D point tracks.
-  Track track;
-  track.Reserve(2);
-  track.AddElement(TrackElement());
-  track.AddElement(TrackElement());
-  track.Element(0).image_id = image_id1;
-  track.Element(1).image_id = image_id2;
-  for (const auto& corr : corrs) {
-    const std::optional<Eigen::Vector2d> cam_point1 =
-        camera1.CamFromImg(image1.Point2D(corr.point2D_idx1).xy);
-    const std::optional<Eigen::Vector2d> cam_point2 =
-        camera2.CamFromImg(image2.Point2D(corr.point2D_idx2).xy);
-    if (!cam_point1 || !cam_point2) {
-      continue;
-    }
-    Eigen::Vector3d xyz;
-    if (TriangulatePoint(
-            cam1_from_world, cam2_from_world, *cam_point1, *cam_point2, &xyz) &&
-        CalculateTriangulationAngle(proj_center1, proj_center2, xyz) >=
-            min_tri_angle_rad &&
-        HasPointPositiveDepth(cam1_from_world, xyz) &&
-        HasPointPositiveDepth(cam2_from_world, xyz)) {
-      track.Element(0).point2D_idx = corr.point2D_idx1;
-      track.Element(1).point2D_idx = corr.point2D_idx2;
-      obs_manager_->AddPoint3D(xyz, track);
-    }
+  for (const data_t& data_id : image1.FramePtr()->ImageIds()) {
+    TriangulateImage(tri_options, data_id.id);
+  }
+  for (const data_t& data_id : image2.FramePtr()->ImageIds()) {
+    TriangulateImage(tri_options, data_id.id);
   }
 }
 
