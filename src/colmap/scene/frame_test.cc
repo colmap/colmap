@@ -99,16 +99,16 @@ TEST(Frame, ImageIds) {
 TEST(Frame, SetResetPose) {
   Frame frame;
   EXPECT_FALSE(frame.HasPose());
-  EXPECT_ANY_THROW(frame.FrameFromWorld());
-  EXPECT_EQ(frame.MaybeFrameFromWorld(), std::nullopt);
-  frame.SetFrameFromWorld(Rigid3d());
+  EXPECT_ANY_THROW(frame.RigFromWorld());
+  EXPECT_EQ(frame.MaybeRigFromWorld(), std::nullopt);
+  frame.SetRigFromWorld(Rigid3d());
   EXPECT_TRUE(frame.HasPose());
-  EXPECT_EQ(frame.FrameFromWorld(), Rigid3d());
-  EXPECT_EQ(frame.MaybeFrameFromWorld().value(), Rigid3d());
+  EXPECT_EQ(frame.RigFromWorld(), Rigid3d());
+  EXPECT_EQ(frame.MaybeRigFromWorld().value(), Rigid3d());
   frame.ResetPose();
   EXPECT_FALSE(frame.HasPose());
-  EXPECT_ANY_THROW(frame.FrameFromWorld());
-  EXPECT_EQ(frame.MaybeFrameFromWorld(), std::nullopt);
+  EXPECT_ANY_THROW(frame.RigFromWorld());
+  EXPECT_EQ(frame.MaybeRigFromWorld(), std::nullopt);
 }
 
 TEST(Frame, SetCamFromWorld) {
@@ -123,7 +123,7 @@ TEST(Frame, SetCamFromWorld) {
 
   const Rigid3d cam1_from_world = TestRigid3d();
   frame.SetCamFromWorld(sensor_id1.id, cam1_from_world);
-  EXPECT_EQ(frame.FrameFromWorld(), cam1_from_world);
+  EXPECT_EQ(frame.RigFromWorld(), cam1_from_world);
   EXPECT_EQ(frame.SensorFromWorld(sensor_id1), cam1_from_world);
 
   const Rigid3d cam2_from_world = TestRigid3d();

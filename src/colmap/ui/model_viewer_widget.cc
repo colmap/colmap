@@ -1204,15 +1204,15 @@ void ModelViewerWidget::UploadMovieGrabberData() {
   if (num_frames > 0) {
     const Frame& frame0 = movie_grabber_widget_->frames[0];
     Eigen::Vector3f prev_proj_center =
-        (frame0.FrameFromWorld().rotation.inverse() *
-         -frame0.FrameFromWorld().translation)
+        (frame0.RigFromWorld().rotation.inverse() *
+         -frame0.RigFromWorld().translation)
             .cast<float>();
 
     for (size_t i = 1; i < num_frames; ++i) {
       const Frame& frame = movie_grabber_widget_->frames[i];
       const Eigen::Vector3f curr_proj_center =
-          (frame.FrameFromWorld().rotation.inverse() *
-           -frame.FrameFromWorld().translation)
+          (frame.RigFromWorld().rotation.inverse() *
+           -frame.RigFromWorld().translation)
               .cast<float>();
       LinePainter::Data path;
       path.point1 = PointPainter::Data(prev_proj_center(0),
@@ -1258,7 +1258,7 @@ void ModelViewerWidget::UploadMovieGrabberData() {
         frame_color = kMovieGrabberImageFrameColor;
       }
 
-      BuildCameraModel(frame.MaybeFrameFromWorld(),
+      BuildCameraModel(frame.MaybeRigFromWorld(),
                        camera,
                        image_size_,
                        plane_color,

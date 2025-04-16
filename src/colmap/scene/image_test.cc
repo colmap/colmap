@@ -133,7 +133,7 @@ TEST(Image, SetResetPose) {
   image.SetFramePtr(&frame);
   EXPECT_FALSE(image.HasPose());
   EXPECT_ANY_THROW(image.CamFromWorld());
-  frame.SetFrameFromWorld(Rigid3d());
+  frame.SetRigFromWorld(Rigid3d());
   EXPECT_TRUE(image.HasPose());
   EXPECT_EQ(image.CamFromWorld().rotation.coeffs(),
             Eigen::Quaterniond::Identity().coeffs());
@@ -149,7 +149,7 @@ TEST(Image, ConstructCopy) {
   rig.AddRefSensor(sensor_t(SensorType::CAMERA, 1));
   Frame frame;
   frame.SetFrameId(1);
-  frame.SetFrameFromWorld(Rigid3d());
+  frame.SetRigFromWorld(Rigid3d());
   frame.SetRigPtr(&rig);
   Image image;
   image.SetCameraId(1);
@@ -169,7 +169,7 @@ TEST(Image, AssignCopy) {
   rig.AddRefSensor(sensor_t(SensorType::CAMERA, 1));
   Frame frame;
   frame.SetFrameId(1);
-  frame.SetFrameFromWorld(Rigid3d());
+  frame.SetRigFromWorld(Rigid3d());
   frame.SetRigPtr(&rig);
   Image image;
   image.SetCameraId(1);
@@ -275,7 +275,7 @@ TEST(Image, ProjectionCenter) {
   rig.AddRefSensor(sensor_t(SensorType::CAMERA, 1));
   Frame frame;
   frame.SetFrameId(1);
-  frame.SetFrameFromWorld(Rigid3d());
+  frame.SetRigFromWorld(Rigid3d());
   frame.SetRigPtr(&rig);
   Image image;
   image.SetCameraId(1);
@@ -290,7 +290,7 @@ TEST(Image, ViewingDirection) {
   rig.AddRefSensor(sensor_t(SensorType::CAMERA, 1));
   Frame frame;
   frame.SetFrameId(1);
-  frame.SetFrameFromWorld(Rigid3d());
+  frame.SetRigFromWorld(Rigid3d());
   frame.SetRigPtr(&rig);
   Image image;
   image.SetCameraId(1);
@@ -305,7 +305,7 @@ TEST(Image, ProjectPoint) {
   rig.AddRefSensor(sensor_t(SensorType::CAMERA, 1));
   Frame frame;
   frame.SetFrameId(1);
-  frame.SetFrameFromWorld(Rigid3d());
+  frame.SetRigFromWorld(Rigid3d());
   frame.SetRigPtr(&rig);
   Image image;
   image.SetCameraId(1);

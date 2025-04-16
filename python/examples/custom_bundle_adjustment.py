@@ -58,7 +58,7 @@ def adjust_global_bundle(mapper, mapper_options, ba_options):
     if mapper_options.fix_existing_frames:
         for frame_id in reg_frame_ids:
             if frame_id in mapper.existing_frame_ids:
-                ba_config.set_constant_frame_from_world_pose(frame_id)
+                ba_config.set_constant_rig_from_world_pose(frame_id)
 
     # TODO: Add python support for prior positions
     ba_config.fix_gauge(pycolmap.BundleAdjustmentGauge.THREE_POINTS)
@@ -139,7 +139,7 @@ def adjust_local_bundle(
         if mapper_options.fix_existing_frames:
             for frame_id in frame_ids:
                 if frame_id in mapper.existing_frame_ids:
-                    ba_config.set_constant_frame_from_world_pose(frame_id)
+                    ba_config.set_constant_rig_from_world_pose(frame_id)
 
         # Fix rig poses, if not all frames within the local bundle.
         num_frames_per_rig = {}

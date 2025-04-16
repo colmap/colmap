@@ -35,10 +35,10 @@ void Frame::SetCamFromWorld(camera_t camera_id, const Rigid3d& cam_from_world) {
   THROW_CHECK_NOTNULL(rig_ptr_);
   const sensor_t sensor_id(SensorType::CAMERA, camera_id);
   if (rig_ptr_->IsRefSensor(sensor_id)) {
-    SetFrameFromWorld(cam_from_world);
+    SetRigFromWorld(cam_from_world);
   } else {
     const Rigid3d& cam_from_rig = rig_ptr_->SensorFromRig(sensor_id);
-    SetFrameFromWorld(Inverse(cam_from_rig) * cam_from_world);
+    SetRigFromWorld(Inverse(cam_from_rig) * cam_from_world);
   }
 }
 

@@ -204,7 +204,7 @@ TEST(UndistortReconstruction, Nominal) {
     Frame frame;
     frame.SetRigId(1);
     frame.SetFrameId(image_id);
-    frame.SetFrameFromWorld(Rigid3d());
+    frame.SetRigFromWorld(Rigid3d());
     reconstruction.AddFrame(frame);
     Image image;
     image.SetImageId(image_id);

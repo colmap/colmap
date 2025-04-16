@@ -32,8 +32,8 @@ void BindBundleAdjuster(py::module& m) {
       .def("num_constant_cam_intrinsics", &BACfg::NumConstantCamIntrinsics)
       .def("num_constant_sensor_from_rig_poses",
            &BACfg::NumConstantSensorFromRigPoses)
-      .def("num_constant_frame_from_world_poses",
-           &BACfg::NumConstantFrameFromWorldPoses)
+      .def("num_constant_rig_from_world_poses",
+           &BACfg::NumConstantRigFromWorldPoses)
       .def("num_variable_points", &BACfg::NumVariablePoints)
       .def("num_constant_points", &BACfg::NumConstantPoints)
       .def("num_residuals", &BACfg::NumResiduals, "reconstruction"_a)
@@ -58,14 +58,14 @@ void BindBundleAdjuster(py::module& m) {
       .def("has_constant_sensor_from_rig_pose",
            &BACfg::HasConstantSensorFromRigPose,
            "sensor_id"_a)
-      .def("set_constant_frame_from_world_pose",
-           &BACfg::SetConstantFrameFromWorldPose,
+      .def("set_constant_rig_from_world_pose",
+           &BACfg::SetConstantRigFromWorldPose,
            "frame_id"_a)
-      .def("set_variable_frame_from_world_pose",
-           &BACfg::SetVariableFrameFromWorldPose,
+      .def("set_variable_rig_from_world_pose",
+           &BACfg::SetVariableRigFromWorldPose,
            "frame_id"_a)
-      .def("has_constant_frame_from_world_pose",
-           &BACfg::HasConstantFrameFromWorldPose,
+      .def("has_constant_rig_from_world_pose",
+           &BACfg::HasConstantRigFromWorldPose,
            "frame_id"_a)
       .def("add_variable_point", &BACfg::AddVariablePoint, "point3D_id"_a)
       .def("add_constant_point", &BACfg::AddConstantPoint, "point3D_id"_a)
@@ -81,8 +81,8 @@ void BindBundleAdjuster(py::module& m) {
       .def_property_readonly("constant_points", &BACfg::ConstantPoints)
       .def_property_readonly("constant_sensor_from_rig_poses",
                              &BACfg::ConstantSensorFromRigPoses)
-      .def_property_readonly("constant_frame_from_world_poses",
-                             &BACfg::ConstantFrameFromWorldPoses);
+      .def_property_readonly("constant_rig_from_world_poses",
+                             &BACfg::ConstantRigFromWorldPoses);
   MakeDataclass(PyBundleAdjustmentConfig);
 
   using BAOpts = BundleAdjustmentOptions;
@@ -119,8 +119,8 @@ void BindBundleAdjuster(py::module& m) {
           .def_readwrite("refine_extra_params",
                          &BAOpts::refine_extra_params,
                          "Whether to refine the extra parameter group.")
-          .def_readwrite("refine_frame_from_world",
-                         &BAOpts::refine_frame_from_world,
+          .def_readwrite("refine_rig_from_world",
+                         &BAOpts::refine_rig_from_world,
                          "Whether to refine the frame from world extrinsic "
                          "parameter group.")
           .def_readwrite("refine_sensor_from_rig",
