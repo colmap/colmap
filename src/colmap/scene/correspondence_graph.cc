@@ -64,11 +64,6 @@ void CorrespondenceGraph::Finalize() {
       }
     }
 
-    // Erase image without observations.
-    if (num_total_corrs == 0) {
-      continue;
-    }
-
     // Reshuffle correspondences into flattened vector.
     const point2D_t num_points2D = image.corrs.size();
     image.flat_corrs.reserve(num_total_corrs);

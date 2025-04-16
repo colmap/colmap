@@ -432,7 +432,10 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
     }
 
     if (reg_next_success) {
-      mapper.TriangulateImage(options_->Triangulation(), next_image_id);
+      const Image& image = reconstruction->Image(next_image_id);
+      for (const data_t& data_id : image.FramePtr()->ImageIds()) {
+        mapper.TriangulateImage(options_->Triangulation(), data_id.id);
+      }
       mapper.IterativeLocalRefinement(options_->ba_local_max_refinements,
                                       options_->ba_local_max_refinement_change,
                                       mapper_options,
