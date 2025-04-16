@@ -321,9 +321,18 @@ IncrementalPipeline::Status IncrementalPipeline::InitializeReconstruction(
   }
 
   LOG(INFO) << StringPrintf(
-      "Initializing with image pair #%d and #%d", image_id1, image_id2);
+      "Registering initial image pair #%d and #%d", image_id1, image_id2);
   mapper.RegisterInitialImagePair(
       mapper_options, two_view_geometry, image_id1, image_id2);
+
+  IncrementalTriangulator::Options tri_options;
+  tri_options.min_angle = mapper_options.init_min_tri_angle;
+  for (const image_t image_id : {image_id1, image_id2}) {
+    const Image& image = reconstruction.Image(image_id);
+    for (const data_t& data_id : image.FramePtr()->ImageIds()) {
+      mapper.TriangulateImage(tri_options, data_id.id);
+    }
+  }
 
   LOG(INFO) << "Global bundle adjustment";
   mapper.AdjustGlobalBundle(mapper_options, options_->GlobalBundleAdjustment());

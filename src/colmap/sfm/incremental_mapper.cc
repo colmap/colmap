@@ -173,16 +173,6 @@ void IncrementalMapper::RegisterInitialImagePair(
 
   RegisterFrameEvent(image1.FrameId());
   RegisterFrameEvent(image2.FrameId());
-
-  IncrementalTriangulator::Options tri_options;
-  tri_options.min_angle = options.init_min_tri_angle;
-
-  for (const data_t& data_id : image1.FramePtr()->ImageIds()) {
-    TriangulateImage(tri_options, data_id.id);
-  }
-  for (const data_t& data_id : image2.FramePtr()->ImageIds()) {
-    TriangulateImage(tri_options, data_id.id);
-  }
 }
 
 // TODO(jsch): Better handle non-trivial frames by performing generalized

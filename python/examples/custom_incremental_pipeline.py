@@ -13,11 +13,6 @@ import pycolmap
 from pycolmap import logging
 
 
-def extract_colors(image_path, image_id, reconstruction):
-    if not reconstruction.extract_colors_for_image(image_id, image_path):
-        logging.warning(f"Could not read image {image_id} at path {image_path}")
-
-
 def write_snapshot(reconstruction, snapshot_path):
     logging.info("Creating snapshot")
     timestamp = time.time() * 1000
@@ -66,10 +61,20 @@ def initialize_reconstruction(
         if two_view_geometry is None:
             logging.info("Provided pair is insuitable for initialization")
             return pycolmap.IncrementalMapperStatus.BAD_INITIAL_PAIR
-    logging.info(f"Initializing with image pair {init_pair}")
+
+    logging.info(
+        f"Registering initial image pair #{init_pair[0]} and #{init_pair[1]}"
+    )
     mapper.register_initial_image_pair(
         mapper_options, two_view_geometry, *init_pair
     )
+    for image_id in init_pair:
+        for data_id in reconstruction.images[image_id].frame.data_ids:
+            if data_id.sensor_id.type == pycolmap.SensorType.CAMERA:
+                mapper.triangulate_image(
+                    options.get_triangulation(), data_id.id
+                )
+
     logging.info("Global bundle adjustment")
     # The following is equivalent to: mapper.adjust_global_bundle(...)
     custom_bundle_adjustment.adjust_global_bundle(
@@ -86,7 +91,7 @@ def initialize_reconstruction(
     ):
         return pycolmap.IncrementalMapperStatus.BAD_INITIAL_PAIR
     if options.extract_colors:
-        extract_colors(controller.image_path, init_pair[0], reconstruction)
+        reconstruction.extract_colors_all_images(controller.image_path)
     return pycolmap.IncrementalMapperStatus.SUCCESS
 
 
@@ -145,7 +150,11 @@ def reconstruct_sub_model(controller, mapper, mapper_options, reconstruction):
             ):
                 break
         if reg_next_success:
-            mapper.triangulate_image(options.get_triangulation(), next_image_id)
+            for data_id in reconstruction.images[next_image_id].frame.data_ids:
+                if data_id.sensor_id.type == pycolmap.SensorType.CAMERA:
+                    mapper.triangulate_image(
+                        options.get_triangulation(), data_id.id
+                    )
             # This is equivalent to mapper.iterative_local_refinement(...)
             custom_bundle_adjustment.iterative_local_refinement(
                 mapper,
@@ -163,9 +172,12 @@ def reconstruct_sub_model(controller, mapper, mapper_options, reconstruction):
                 ba_prev_num_points = reconstruction.num_points3D()
                 ba_prev_num_reg_frames = reconstruction.num_reg_frames()
             if options.extract_colors:
-                extract_colors(
-                    controller.image_path, next_image_id, reconstruction
-                )
+                if not reconstruction.extract_colors_for_image(
+                    next_image_id, controller.image_path
+                ):
+                    logging.warning(
+                        f"Could not read image {next_image_id} at path {controller.image_path}"
+                    )
             if (
                 options.snapshot_frames_freq > 0
                 and reconstruction.num_reg_frames()
