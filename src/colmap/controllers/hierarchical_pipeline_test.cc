@@ -73,7 +73,7 @@ TEST(HierarchicalPipeline, WithoutNoise) {
   synthetic_dataset_options.num_rigs = 2;
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 20;
-  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.num_points3D = 100;
   synthetic_dataset_options.point2D_stddev = 0;
   SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction, &database);
 
