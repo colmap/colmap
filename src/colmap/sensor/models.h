@@ -1797,13 +1797,13 @@ bool RadTanThinPrismFisheyeModel::CamFromImg(
 template <typename T>
 void RadTanThinPrismFisheyeModel::Distortion(
     const T* extra_params, const T u, const T v, T* du, T* dv) {
-  const int numK = 6;
-  const T radial_coeffs[numK] = {extra_params[0],
-                                 extra_params[1],
-                                 extra_params[2],
-                                 extra_params[3],
-                                 extra_params[4],
-                                 extra_params[5]};
+  constexpr int kNumRadialParams = 6;
+  const T radial_coeffs[kNumRadialParams] = {extra_params[0],
+                                             extra_params[1],
+                                             extra_params[2],
+                                             extra_params[3],
+                                             extra_params[4],
+                                             extra_params[5]};
 
   const T p0 = extra_params[6];
   const T p1 = extra_params[7];
@@ -1815,7 +1815,7 @@ void RadTanThinPrismFisheyeModel::Distortion(
   const T theta2 = u * u + v * v;
   T th_radial = T(1);
   T theta_power = T(1);
-  for (int i = 0; i < numK; ++i) {
+  for (int i = 0; i < kNumRadialParams; ++i) {
     theta_power *= theta2;
     th_radial += radial_coeffs[i] * theta_power;
   }

@@ -434,28 +434,29 @@ void CopyRegisteredImage(image_t image_id,
                          const Sim3d& tgt_from_src,
                          const Reconstruction& src_reconstruction,
                          Reconstruction& tgt_reconstruction) {
-  const auto& src_image = src_reconstruction.Image(image_id);
-  auto tgt_image = src_image;
-  tgt_image.ResetCameraPtr();
-  tgt_image.ResetFramePtr();
+  const Image& src_image = src_reconstruction.Image(image_id);
   if (!tgt_reconstruction.ExistsRig(src_image.FramePtr()->RigId())) {
     tgt_reconstruction.AddRig(
         src_reconstruction.Rig(src_image.FramePtr()->RigId()));
   }
-  if (!tgt_reconstruction.ExistsCamera(tgt_image.CameraId())) {
+  if (!tgt_reconstruction.ExistsCamera(src_image.CameraId())) {
     tgt_reconstruction.AddCamera(
-        src_reconstruction.Camera(tgt_image.CameraId()));
+        src_reconstruction.Camera(src_image.CameraId()));
   }
-  if (!tgt_reconstruction.ExistsFrame(tgt_image.FrameId())) {
-    tgt_reconstruction.AddFrame(src_reconstruction.Frame(tgt_image.FrameId()));
+  if (!tgt_reconstruction.ExistsFrame(src_image.FrameId())) {
+    Frame tgt_frame = src_reconstruction.Frame(src_image.FrameId());
+    tgt_frame.ResetRigPtr();
+    tgt_reconstruction.AddFrame(std::move(tgt_frame));
+    const Rigid3d cam_from_tgt_world =
+        TransformCameraWorld(tgt_from_src, src_image.CamFromWorld());
+    tgt_reconstruction.Frame(src_image.FrameId())
+        .SetCamFromWorld(src_image.CameraId(), cam_from_tgt_world);
   }
-  tgt_image.SetFramePtr(&tgt_reconstruction.Frame(tgt_image.FrameId()));
-  const Rigid3d cam_from_tgt_world =
-      TransformCameraWorld(tgt_from_src, src_image.CamFromWorld());
-  tgt_reconstruction.Frame(tgt_image.FrameId())
-      .SetCamFromWorld(tgt_image.CameraId(), cam_from_tgt_world);
-  tgt_reconstruction.AddImage(tgt_image);
-  tgt_reconstruction.RegisterImage(image_id);
+
+  Image tgt_image = src_image;
+  tgt_image.ResetCameraPtr();
+  tgt_image.ResetFramePtr();
+  tgt_reconstruction.AddImage(std::move(tgt_image));
 }
 
 }  // namespace
@@ -477,7 +478,7 @@ bool MergeReconstructions(const double max_reproj_error,
   common_image_ids.reserve(src_reconstruction.NumRegImages());
   std::unordered_set<image_t> missing_image_ids;
   missing_image_ids.reserve(src_reconstruction.NumRegImages());
-  for (const auto& image_id : src_reconstruction.RegImageIds()) {
+  for (const image_t image_id : src_reconstruction.RegImageIds()) {
     if (tgt_reconstruction.ExistsImage(image_id)) {
       common_image_ids.insert(image_id);
     } else {
@@ -499,11 +500,11 @@ bool MergeReconstructions(const double max_reproj_error,
   //      reconstructions if they have a one-to-one mapping.
   // Note that in both cases no cheirality or reprojection test is performed.
 
-  for (const auto& point3D : src_reconstruction.Points3D()) {
+  for (const auto& [_, point3D] : src_reconstruction.Points3D()) {
     Track new_track;
     Track old_track;
     std::unordered_set<point3D_t> old_point3D_ids;
-    for (const auto& track_el : point3D.second.track.Elements()) {
+    for (const auto& track_el : point3D.track.Elements()) {
       if (common_image_ids.count(track_el.image_id) > 0) {
         const auto& point2D = tgt_reconstruction.Image(track_el.image_id)
                                   .Point2D(track_el.point2D_idx);
@@ -525,14 +526,15 @@ bool MergeReconstructions(const double max_reproj_error,
         (new_track.Length() + old_track.Length()) >= 2 &&
         old_point3D_ids.size() == 1;
     if (create_new_point || merge_new_and_old_point) {
-      const Eigen::Vector3d xyz = tgt_from_src * point3D.second.xyz;
+      const Eigen::Vector3d xyz = tgt_from_src * point3D.xyz;
       const auto point3D_id =
-          tgt_reconstruction.AddPoint3D(xyz, new_track, point3D.second.color);
+          tgt_reconstruction.AddPoint3D(xyz, new_track, point3D.color);
       if (old_point3D_ids.size() == 1) {
         tgt_reconstruction.MergePoints3D(point3D_id, *old_point3D_ids.begin());
       }
     }
   }
+
   return true;
 }
 

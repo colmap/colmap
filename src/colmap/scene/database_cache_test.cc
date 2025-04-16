@@ -34,17 +34,7 @@
 namespace colmap {
 namespace {
 
-TEST(DatabaseCache, Empty) {
-  DatabaseCache cache;
-  EXPECT_EQ(cache.NumRigs(), 0);
-  EXPECT_EQ(cache.NumCameras(), 0);
-  EXPECT_EQ(cache.NumFrames(), 0);
-  EXPECT_EQ(cache.NumImages(), 0);
-  EXPECT_EQ(cache.NumPosePriors(), 0);
-}
-
-TEST(DatabaseCache, ConstructFromDatabase) {
-  Database database(Database::kInMemoryDatabasePath);
+void CreateTestDatabase(Database& database) {
   Camera camera1 = Camera::CreateFromModelId(
       kInvalidCameraId, SimplePinholeCameraModel::model_id, 1, 1, 1);
   camera1.camera_id = database.WriteCamera(camera1);
@@ -110,7 +100,20 @@ TEST(DatabaseCache, ConstructFromDatabase) {
       image2.ImageId(), image3.ImageId(), two_view_geometry);
   database.WriteTwoViewGeometry(
       image3.ImageId(), image4.ImageId(), two_view_geometry);
+}
 
+TEST(DatabaseCache, Empty) {
+  DatabaseCache cache;
+  EXPECT_EQ(cache.NumRigs(), 0);
+  EXPECT_EQ(cache.NumCameras(), 0);
+  EXPECT_EQ(cache.NumFrames(), 0);
+  EXPECT_EQ(cache.NumImages(), 0);
+  EXPECT_EQ(cache.NumPosePriors(), 0);
+}
+
+TEST(DatabaseCache, ConstructFromDatabase) {
+  Database database(Database::kInMemoryDatabasePath);
+  CreateTestDatabase(database);
   auto cache = DatabaseCache::Create(database,
                                      /*min_num_matches=*/0,
                                      /*ignore_watermarks=*/false,
@@ -122,47 +125,86 @@ TEST(DatabaseCache, ConstructFromDatabase) {
   EXPECT_EQ(cache->NumImages(), 4);
   EXPECT_EQ(cache->NumPosePriors(), 2);
 
-  EXPECT_TRUE(cache->ExistsCamera(camera1.camera_id));
-  EXPECT_EQ(cache->Camera(camera1.camera_id), camera1);
-  EXPECT_TRUE(cache->ExistsCamera(camera2.camera_id));
-  EXPECT_EQ(cache->Camera(camera2.camera_id), camera2);
+  for (const Rig& rig : database.ReadAllRigs()) {
+    EXPECT_TRUE(cache->ExistsRig(rig.RigId()));
+    EXPECT_EQ(cache->Rig(rig.RigId()), rig);
+  }
 
-  EXPECT_TRUE(cache->ExistsFrame(frame1.FrameId()));
-  EXPECT_EQ(cache->Frame(frame1.FrameId()), frame1);
-  EXPECT_TRUE(cache->ExistsFrame(frame2.FrameId()));
-  EXPECT_EQ(cache->Frame(frame2.FrameId()), frame2);
+  for (const Camera& camera : database.ReadAllCameras()) {
+    EXPECT_TRUE(cache->ExistsCamera(camera.camera_id));
+    EXPECT_EQ(cache->Camera(camera.camera_id), camera);
+  }
 
-  EXPECT_TRUE(cache->ExistsImage(image1.ImageId()));
-  EXPECT_EQ(cache->Image(image1.ImageId()).NumPoints2D(), 10);
-  EXPECT_TRUE(cache->ExistsImage(image2.ImageId()));
-  EXPECT_EQ(cache->Image(image2.ImageId()).NumPoints2D(), 5);
-  EXPECT_TRUE(cache->ExistsImage(image3.ImageId()));
-  EXPECT_EQ(cache->Image(image3.ImageId()).NumPoints2D(), 6);
-  EXPECT_TRUE(cache->ExistsImage(image4.ImageId()));
-  EXPECT_EQ(cache->Image(image4.ImageId()).NumPoints2D(), 3);
+  for (const Frame& frame : database.ReadAllFrames()) {
+    EXPECT_TRUE(cache->ExistsFrame(frame.FrameId()));
+    EXPECT_EQ(cache->Frame(frame.FrameId()), frame);
+  }
 
-  EXPECT_TRUE(cache->ExistsPosePrior(image1.ImageId()));
-  EXPECT_TRUE(cache->PosePrior(image1.ImageId()).IsValid());
-  EXPECT_TRUE(cache->ExistsPosePrior(image2.ImageId()));
-  EXPECT_TRUE(cache->PosePrior(image2.ImageId()).IsValid());
-  EXPECT_FALSE(cache->ExistsPosePrior(image3.ImageId()));
-  EXPECT_FALSE(cache->ExistsPosePrior(image4.ImageId()));
+  const std::vector<Image> images = database.ReadAllImages();
+  EXPECT_TRUE(cache->ExistsImage(images[0].ImageId()));
+  EXPECT_EQ(cache->Image(images[0].ImageId()).NumPoints2D(), 10);
+  EXPECT_TRUE(cache->ExistsImage(images[1].ImageId()));
+  EXPECT_EQ(cache->Image(images[1].ImageId()).NumPoints2D(), 5);
+  EXPECT_TRUE(cache->ExistsImage(images[2].ImageId()));
+  EXPECT_EQ(cache->Image(images[2].ImageId()).NumPoints2D(), 6);
+  EXPECT_TRUE(cache->ExistsImage(images[3].ImageId()));
+  EXPECT_EQ(cache->Image(images[3].ImageId()).NumPoints2D(), 3);
+
+  EXPECT_TRUE(cache->ExistsPosePrior(images[0].ImageId()));
+  EXPECT_TRUE(cache->PosePrior(images[0].ImageId()).IsValid());
+  EXPECT_TRUE(cache->ExistsPosePrior(images[1].ImageId()));
+  EXPECT_TRUE(cache->PosePrior(images[1].ImageId()).IsValid());
+  EXPECT_FALSE(cache->ExistsPosePrior(images[2].ImageId()));
+  EXPECT_FALSE(cache->ExistsPosePrior(images[3].ImageId()));
 
   const auto correspondence_graph = cache->CorrespondenceGraph();
-  EXPECT_TRUE(correspondence_graph->ExistsImage(image1.ImageId()));
-  EXPECT_EQ(correspondence_graph->NumCorrespondencesForImage(image1.ImageId()),
+  EXPECT_TRUE(correspondence_graph->ExistsImage(images[0].ImageId()));
+  EXPECT_EQ(
+      correspondence_graph->NumCorrespondencesForImage(images[0].ImageId()), 1);
+  EXPECT_EQ(correspondence_graph->NumObservationsForImage(images[0].ImageId()),
             1);
-  EXPECT_EQ(correspondence_graph->NumObservationsForImage(image1.ImageId()), 1);
-  EXPECT_TRUE(correspondence_graph->ExistsImage(image2.ImageId()));
-  EXPECT_EQ(correspondence_graph->NumCorrespondencesForImage(image2.ImageId()),
+  EXPECT_TRUE(correspondence_graph->ExistsImage(images[1].ImageId()));
+  EXPECT_EQ(
+      correspondence_graph->NumCorrespondencesForImage(images[1].ImageId()), 2);
+  EXPECT_EQ(correspondence_graph->NumObservationsForImage(images[1].ImageId()),
             2);
-  EXPECT_EQ(correspondence_graph->NumObservationsForImage(image2.ImageId()), 2);
-  EXPECT_EQ(correspondence_graph->NumCorrespondencesForImage(image3.ImageId()),
+  EXPECT_EQ(
+      correspondence_graph->NumCorrespondencesForImage(images[2].ImageId()), 2);
+  EXPECT_EQ(correspondence_graph->NumObservationsForImage(images[2].ImageId()),
             2);
-  EXPECT_EQ(correspondence_graph->NumObservationsForImage(image3.ImageId()), 2);
-  EXPECT_EQ(correspondence_graph->NumCorrespondencesForImage(image4.ImageId()),
+  EXPECT_EQ(
+      correspondence_graph->NumCorrespondencesForImage(images[3].ImageId()), 1);
+  EXPECT_EQ(correspondence_graph->NumObservationsForImage(images[3].ImageId()),
             1);
-  EXPECT_EQ(correspondence_graph->NumObservationsForImage(image4.ImageId()), 1);
+}
+
+TEST(DatabaseCache, ConstructFromDatabaseWithCustomImages) {
+  Database database(Database::kInMemoryDatabasePath);
+  CreateTestDatabase(database);
+
+  const std::vector<Image> images = database.ReadAllImages();
+  auto cache = DatabaseCache::Create(database,
+                                     /*min_num_matches=*/0,
+                                     /*ignore_watermarks=*/false,
+                                     /*image_names=*/{images[0].Name()});
+
+  EXPECT_EQ(cache->NumRigs(), 1);
+  EXPECT_EQ(cache->NumCameras(), 2);
+  EXPECT_EQ(cache->NumFrames(), 1);
+  EXPECT_EQ(cache->NumImages(), 2);
+  EXPECT_EQ(cache->NumPosePriors(), 2);
+
+  const auto correspondence_graph = cache->CorrespondenceGraph();
+  EXPECT_TRUE(correspondence_graph->ExistsImage(images[0].ImageId()));
+  EXPECT_EQ(
+      correspondence_graph->NumCorrespondencesForImage(images[0].ImageId()), 1);
+  EXPECT_EQ(correspondence_graph->NumObservationsForImage(images[0].ImageId()),
+            1);
+  EXPECT_TRUE(correspondence_graph->ExistsImage(images[1].ImageId()));
+  EXPECT_EQ(
+      correspondence_graph->NumCorrespondencesForImage(images[1].ImageId()), 1);
+  EXPECT_EQ(correspondence_graph->NumObservationsForImage(images[1].ImageId()),
+            1);
 }
 
 TEST(DatabaseCache, ConstructFromLegacyDatabaseWithoutRigsAndFrames) {

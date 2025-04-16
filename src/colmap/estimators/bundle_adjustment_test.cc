@@ -143,8 +143,8 @@ TEST(BundleAdjustmentConfig, NumResiduals) {
   synthetic_dataset_options.num_points3D = 100;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
 
-  const std::vector<image_t> image_ids = {reconstruction.RegImageIds().begin(),
-                                          reconstruction.RegImageIds().end()};
+  const std::vector<image_t> image_ids = reconstruction.RegImageIds();
+  CHECK_EQ(image_ids.size(), 4);
 
   BundleAdjustmentConfig config;
 
@@ -328,8 +328,7 @@ TEST(DefaultBundleAdjuster, ManyViewRigConstantSensorFromRig) {
   for (const image_t image_id : reconstruction.RegImageIds()) {
     config.AddImage(image_id);
   }
-  config.SetConstantSensorFromRigPose(
-      reconstruction.Rig(1).Sensors().begin()->first);
+  config.SetConstantSensorFromRigPose(reconstruction.Camera(2).SensorId());
   config.FixGauge(BundleAdjustmentGauge::THREE_POINTS);
 
   BundleAdjustmentOptions options;

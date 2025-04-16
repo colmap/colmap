@@ -72,6 +72,7 @@ class Rig {
 
   // Access all sensors in the rig except for the reference sensor.
   inline const std::map<sensor_t, std::optional<Rigid3d>>& Sensors() const;
+  inline std::map<sensor_t, std::optional<Rigid3d>>& Sensors();
 
   // Access sensor from rig transformations.
   inline Rigid3d& SensorFromRig(sensor_t sensor_id);
@@ -131,6 +132,10 @@ bool Rig::IsRefSensor(sensor_t sensor_id) const {
 }
 
 const std::map<sensor_t, std::optional<Rigid3d>>& Rig::Sensors() const {
+  return sensors_from_rig_;
+}
+
+std::map<sensor_t, std::optional<Rigid3d>>& Rig::Sensors() {
   return sensors_from_rig_;
 }
 

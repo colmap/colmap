@@ -441,7 +441,11 @@ int RunModelAnalyzer(int argc, char** argv) {
   Reconstruction reconstruction;
   reconstruction.Read(path);
 
+  LOG(INFO) << StringPrintf("Rigs: %d", reconstruction.NumRigs());
   LOG(INFO) << StringPrintf("Cameras: %d", reconstruction.NumCameras());
+  LOG(INFO) << StringPrintf("Frames: %d", reconstruction.NumFrames());
+  LOG(INFO) << StringPrintf("Registered frames: %d",
+                            reconstruction.NumRegFrames());
   LOG(INFO) << StringPrintf("Images: %d", reconstruction.NumImages());
   LOG(INFO) << StringPrintf("Registered images: %d",
                             reconstruction.NumRegImages());
@@ -540,10 +544,12 @@ bool CompareModels(const Reconstruction& reconstruction1,
                    std::vector<ImageAlignmentError>& errors,
                    Sim3d& rec2_from_rec1) {
   PrintHeading1("Reconstruction 1");
+  LOG(INFO) << StringPrintf("Frames: %d", reconstruction1.NumRegFrames());
   LOG(INFO) << StringPrintf("Images: %d", reconstruction1.NumRegImages());
   LOG(INFO) << StringPrintf("Points: %d", reconstruction1.NumPoints3D());
 
   PrintHeading1("Reconstruction 2");
+  LOG(INFO) << StringPrintf("Frames: %d", reconstruction2.NumRegFrames());
   LOG(INFO) << StringPrintf("Images: %d", reconstruction2.NumRegImages());
   LOG(INFO) << StringPrintf("Points: %d", reconstruction2.NumPoints3D());
 

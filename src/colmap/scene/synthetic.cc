@@ -313,6 +313,9 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
 
         // Shuffle 2D points, so each image has another order of observed 3D
         // points.
+        if (PRNG == nullptr) {
+          SetPRNGSeed();
+        }
         std::shuffle(points2D.begin(), points2D.end(), *PRNG);
         image.SetPoints2D(points2D);
 
@@ -385,7 +388,6 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
           database->UpdateImage(image);
         }
         reconstruction->AddImage(image);
-        reconstruction->RegisterImage(image.ImageId());
       }
     }
   }

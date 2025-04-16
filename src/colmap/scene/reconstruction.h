@@ -69,8 +69,8 @@ class Reconstruction {
   inline size_t NumRigs() const;
   inline size_t NumCameras() const;
   inline size_t NumFrames() const;
+  inline size_t NumRegFrames() const;
   inline size_t NumImages() const;
-  inline size_t NumRegImages() const;
   inline size_t NumPoints3D() const;
 
   // Get const objects.
@@ -91,10 +91,14 @@ class Reconstruction {
   inline const std::unordered_map<rig_t, class Rig>& Rigs() const;
   inline const std::unordered_map<camera_t, struct Camera>& Cameras() const;
   inline const std::unordered_map<frame_t, class Frame>& Frames() const;
+  inline const std::vector<frame_t>& RegFrameIds() const;
   inline const std::unordered_map<image_t, class Image>& Images() const;
-  inline const std::set<image_t>& RegImageIds() const;
   inline const std::unordered_map<point3D_t, struct Point3D>& Points3D() const;
 
+  // Number of images in all registered frames.
+  size_t NumRegImages() const;
+  // Identifiers of all registered images.
+  std::vector<image_t> RegImageIds() const;
   // Identifiers of all 3D points.
   std::unordered_set<point3D_t> Point3DIds() const;
 
@@ -158,11 +162,11 @@ class Reconstruction {
   // Delete all 2D points of all images and all 3D points.
   void DeleteAllPoints2DAndPoints3D();
 
-  // Register an existing image.
-  void RegisterImage(image_t image_id);
+  // Register an existing frame.
+  void RegisterFrame(frame_t frame_id);
 
-  // De-register an existing image, and all its references.
-  void DeRegisterImage(image_t image_id);
+  // De-register an existing frame, and all its references.
+  void DeRegisterFrame(frame_t frame_id);
 
   // Normalize scene by scaling and translation to improve numerical stability
   // of algorithms.
@@ -271,8 +275,11 @@ class Reconstruction {
   std::unordered_map<image_t, class Image> images_;
   std::unordered_map<point3D_t, struct Point3D> points3D_;
 
-  // { image_id, ... } where `images_.at(image_id).registered == true`.
-  std::set<image_t> reg_image_ids_;
+  // Unique set of frame_ids where `Frame(frame_id).HasPose() == true`.
+  // Note that we intentionally use a vector instead of a set here leading
+  // to O(n) complexity on calls to RegisterFrame/DeRegisterFrame, because
+  // we iterate very often over the set of registered frames.
+  std::vector<frame_t> reg_frame_ids_;
 
   // Total number of added 3D points, used to generate unique identifiers.
   point3D_t max_point3D_id_;
@@ -289,11 +296,11 @@ size_t Reconstruction::NumRigs() const { return rigs_.size(); }
 
 size_t Reconstruction::NumCameras() const { return cameras_.size(); }
 
-size_t Reconstruction::NumImages() const { return images_.size(); }
-
 size_t Reconstruction::NumFrames() const { return frames_.size(); }
 
-size_t Reconstruction::NumRegImages() const { return reg_image_ids_.size(); }
+size_t Reconstruction::NumRegFrames() const { return reg_frame_ids_.size(); }
+
+size_t Reconstruction::NumImages() const { return images_.size(); }
 
 size_t Reconstruction::NumPoints3D() const { return points3D_.size(); }
 
@@ -404,8 +411,8 @@ const std::unordered_map<image_t, class Image>& Reconstruction::Images() const {
   return images_;
 }
 
-const std::set<image_t>& Reconstruction::RegImageIds() const {
-  return reg_image_ids_;
+const std::vector<frame_t>& Reconstruction::RegFrameIds() const {
+  return reg_frame_ids_;
 }
 
 const std::unordered_map<point3D_t, Point3D>& Reconstruction::Points3D() const {
