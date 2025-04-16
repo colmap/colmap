@@ -192,7 +192,6 @@ int RunIncrementalModelRefiner(int argc, char** argv) {
   options.AddImageOptions();
   options.AddRequiredOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
-  options.AddDefaultOption("image_list_path", &image_list_path);  
   options.AddMapperOptions();
   options.Parse(argc, argv);
 
@@ -216,22 +215,20 @@ int RunIncrementalModelRefiner(int argc, char** argv) {
   {
     Timer timer;
     timer.Start();
-    const Database database(database_path);
+    const Database database(*options.database_path);
     const size_t min_num_matches =
         static_cast<size_t>(mapper_options.min_num_matches);
+    std::unordered_set<std::string> image_names(
+        mapper_options.image_names.begin(), mapper_options.image_names.end());
     database_cache = DatabaseCache::Create(database,
                                            min_num_matches,
                                            mapper_options.ignore_watermarks,
-                                           mapper_options.image_names);
+                                           image_names);
 
-    std::cout << std::endl;
     timer.PrintMinutes();
   }
 
-  std::cout << std::endl;
-
   PrintHeading1("Loading model");
-  
   IncrementalMapper mapper(database_cache);
   auto reconstruction = std::make_shared<Reconstruction>();
   reconstruction->Read(input_path);
@@ -240,12 +237,10 @@ int RunIncrementalModelRefiner(int argc, char** argv) {
   CHECK_GE(reconstruction->NumRegImages(), 2)
       << "Need at least two images for refinement";
 
-  const std::vector<image_t>& reg_image_ids = reconstruction.RegImageIds();
-
   //////////////////////////////////////////////////////////////////////////////
   // Iteratively run bundle adjustment and re-triangulate
   //////////////////////////////////////////////////////////////////////////////
-  for (int i = 0; i < mapper_options.ba_global_max_refinements; ++i) {   
+  for (int i = 0; i < mapper_options.ba_global_max_refinements; ++i) {
     // Avoid degeneracies in bundle adjustment.
     const size_t num_observations = reconstruction->ComputeNumObservations();
 
@@ -253,7 +248,8 @@ int RunIncrementalModelRefiner(int argc, char** argv) {
     mapper.AdjustGlobalBundle(mapper_options.mapper, ba_options);
 
     size_t num_changed_observations = 0;
-    num_changed_observations += mapper.CompleteAndMergeTracks(mapper_options.triangulation);
+    num_changed_observations +=
+        mapper.CompleteAndMergeTracks(mapper_options.triangulation);
     num_changed_observations += mapper.FilterPoints(mapper_options.mapper);
     const double changed =
         static_cast<double>(num_changed_observations) / num_observations;
