@@ -98,9 +98,11 @@ class LightGlueFeatureMatcher : public FeatureMatcher {
     const int num_keypoints1 = image1.keypoints->size();
     const int num_keypoints2 = image2.keypoints->size();
     THROW_CHECK_EQ(num_matches, num_keypoints1);
-    matches->reserve(num_matches);
+    torch::Tensor matches_cpu = torch_matches0[0].cpu().contiguous();
+    const int64_t* matches_ptr = matches_cpu.data_ptr<int64_t>();
+    matches->reserve(num_keypoints1);
     for (int i = 0; i < num_keypoints1; ++i) {
-      const int64_t j = torch_matches0[0][i].item<int64_t>();
+      const int64_t j = matches_ptr[i];
       if (j >= 0) {
         FeatureMatch match;
         match.point2D_idx1 = i;
@@ -131,25 +133,39 @@ class LightGlueFeatureMatcher : public FeatureMatcher {
     THROW_CHECK_EQ(image.descriptors->cols() % sizeof(float), 0);
     const int descriptor_dim = image.descriptors->cols() / sizeof(float);
 
-    torch::Dict<std::string, torch::Tensor> features;
-    features.insert("image_size",
-                    torch::tensor({static_cast<float>(image.width),
-                                   static_cast<float>(image.height)},
-                                  torch::kFloat32)
-                        .unsqueeze(0));
-    torch::Tensor torch_keypoints = torch::empty({num_keypoints, 2});
+    // Convert to contiguous array so we can use torch::from_blob below.
+    std::vector<float> keypoints_array(num_keypoints * 2);
     for (int i = 0; i < num_keypoints; ++i) {
       const FeatureKeypoint& keypoint = (*image.keypoints)[i];
-      torch_keypoints[i][0] = 2.f * keypoint.x / image.width - 1.f;
-      torch_keypoints[i][1] = 2.f * keypoint.y / image.height - 1.f;
+      keypoints_array[2 * i + 0] = keypoint.x;
+      keypoints_array[2 * i + 1] = keypoint.y;
     }
+
+    const auto kFloat32Options = torch::TensorOptions().dtype(torch::kFloat32);
+
+    auto torch_keypoints =
+        torch::from_blob(
+            keypoints_array.data(), {num_keypoints, 2}, kFloat32Options)
+            .clone();
+    // Normalize to [-1, 1].
+    torch_keypoints.index({torch::indexing::Ellipsis, 0}) =
+        (2.0f * torch_keypoints.index({torch::indexing::Ellipsis, 0}) /
+         image.width) -
+        1.0f;
+    torch_keypoints.index({torch::indexing::Ellipsis, 1}) =
+        (2.0f * torch_keypoints.index({torch::indexing::Ellipsis, 1}) /
+         image.height) -
+        1.0f;
+
+    torch::Dict<std::string, torch::Tensor> features;
     features.insert("keypoints", std::move(torch_keypoints));
     // TODO: The const_cast here is a little evil.
     features.insert(
         "descriptors",
         torch::from_blob(const_cast<uint8_t*>(image.descriptors->data()),
                          {num_keypoints, descriptor_dim},
-                         torch::TensorOptions().dtype(torch::kFloat32)));
+                         kFloat32Options)
+            .clone());
 
     return features;
   }
