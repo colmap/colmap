@@ -221,9 +221,9 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   // Check if enough 2D-3D correspondences.
   if (obs_manager_->NumVisiblePoints3D(image_id) <
       static_cast<size_t>(options.abs_pose_min_num_inliers)) {
-    VLOG(2) << "Image observes insufficient number of points "
-            << obs_manager_->NumVisiblePoints3D(image_id)
-            << " for registration";
+    VLOG(2) << "Image observes insufficient number of points for registration ("
+            << obs_manager_->NumVisiblePoints3D(image_id) << " < "
+            << options.abs_pose_min_num_inliers << ")";
     return false;
   }
 
@@ -286,8 +286,9 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   // hence we skip some of the 2D-3D correspondences.
   if (tri_points2D.size() <
       static_cast<size_t>(options.abs_pose_min_num_inliers)) {
-    VLOG(2) << "Insufficient number of " << tri_points2D.size()
-            << " 2D-3D correspondences for registration";
+    VLOG(2) << "Insufficient number of 2D-3D correspondences for registration ("
+            << tri_points2D.size() << " < " << options.abs_pose_min_num_inliers
+            << ")";
     return false;
   }
 
@@ -369,8 +370,8 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   }
 
   if (num_inliers < static_cast<size_t>(options.abs_pose_min_num_inliers)) {
-    VLOG(2) << "Absolute pose estimation failed due to insufficient "
-            << num_inliers << " inliers";
+    VLOG(2) << "Absolute pose estimation failed due to insufficient inliers ("
+            << num_inliers << " < " << options.abs_pose_min_num_inliers << ")";
     return false;
   }
 
@@ -505,8 +506,9 @@ bool IncrementalMapper::RegisterNextGeneralFrame(const Options& options,
   // hence we skip some of the 2D-3D correspondences.
   if (tri_points2D.size() <
       static_cast<size_t>(options.abs_pose_min_num_inliers)) {
-    VLOG(2) << "Insufficient number of " << tri_points2D.size()
-            << " 2D-3D correspondences for registration";
+    VLOG(2) << "Insufficient number of 2D-3D correspondences for registration ("
+            << tri_points2D.size() << " < " << options.abs_pose_min_num_inliers
+            << ")";
     return false;
   }
 
@@ -543,8 +545,8 @@ bool IncrementalMapper::RegisterNextGeneralFrame(const Options& options,
   }
 
   if (num_inliers < static_cast<size_t>(options.abs_pose_min_num_inliers)) {
-    VLOG(2) << "Absolute pose estimation failed due to insufficient "
-            << num_inliers << " inliers";
+    VLOG(2) << "Absolute pose estimation failed due to insufficient inliers ("
+            << num_inliers << " < " << options.abs_pose_min_num_inliers << ")";
     return false;
   }
 
