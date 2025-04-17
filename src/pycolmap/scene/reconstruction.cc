@@ -53,6 +53,7 @@ void BindReconstruction(py::module& m) {
       .def("num_frames", &Reconstruction::NumFrames)
       .def("num_reg_frames", &Reconstruction::NumRegFrames)
       .def("num_images", &Reconstruction::NumImages)
+      .def("num_reg_images", &Reconstruction::NumRegImages)
       .def("num_points3D", &Reconstruction::NumPoints3D)
       .def_property_readonly("rigs",
                              &Reconstruction::Rigs,
