@@ -134,5 +134,11 @@ void BindObservationManager(py::module& m) {
            "any more and has a correspondence to this image point. This assumes"
            "that `IncrementCorrespondenceHasPoint3D` was called for the same"
            "image point and correspondence before.")
+      .def("find_points3D_with_good_triangulation_angle",
+          &ObservationManager::FindPoints3DWithGoodTriangulationAngle,
+          "min_tri_angle"_a,
+          "point3D_ids"_a,
+          "Find 3D points with sufficient triangulation angle. "
+          "Returns a boolean mask.")
       .def("__repr__", &CreateRepresentation<ObservationManager>);
 }

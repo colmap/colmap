@@ -134,7 +134,8 @@ class IncrementalTriangulator {
   // Image pairs are under-reconstructed if less than `Options::tri_re_min_ratio
   // > tri_ratio`, where `tri_ratio` is the number of triangulated matches over
   // inlier matches between the image pair.
-  size_t Retriangulate(const Options& options);
+  size_t Retriangulate(const Options& options,
+    const std::unordered_set<image_t>& ignore_image_ids = {});
 
   // Indicate that a 3D point has been modified.
   void AddModifiedPoint3D(point3D_t point3D_id);

@@ -416,6 +416,9 @@ std::vector<PoseParam> GetPoseParams(const Reconstruction& reconstruction,
   std::vector<PoseParam> params;
   params.reserve(reconstruction.NumImages());
   for (const auto& [image_id, image] : reconstruction.Images()) {
+    if (!image.HasPose()) {
+      continue;
+    }
     const double* qvec = image.CamFromWorld().rotation.coeffs().data();
     if (!problem.HasParameterBlock(qvec) ||
         problem.IsParameterBlockConstant(const_cast<double*>(qvec))) {
