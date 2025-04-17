@@ -86,6 +86,10 @@ struct SequentialMatchingOptions {
   // Whether to match images against their quadratic neighbors.
   bool quadratic_overlap = true;
 
+  // Whether to match an image against all images in neighboring rig frames.
+  // If no rigs/frames are configured in the database, this option is ignored.
+  bool expand_rig_images = true;
+
   // Whether to enable vocabulary tree based loop detection.
   bool loop_detection = false;
 
@@ -276,6 +280,9 @@ class SequentialPairGenerator : public PairGenerator {
   const SequentialMatchingOptions options_;
   const std::shared_ptr<FeatureMatcherCache> cache_;
   std::vector<image_t> image_ids_;
+  // Optional mapping from frames to images and vice versa.
+  std::unordered_map<frame_t, std::vector<image_t>> frame_to_image_ids_;
+  std::unordered_map<image_t, frame_t> image_to_frame_ids_;
   std::unique_ptr<VocabTreePairGenerator> vocab_tree_pair_generator_;
   std::vector<std::pair<image_t, image_t>> image_pairs_;
   size_t image_idx_ = 0;
