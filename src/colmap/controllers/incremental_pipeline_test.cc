@@ -106,7 +106,7 @@ TEST(IncrementalPipeline, WithoutNoiseAndNonTrivialFrames) {
   synthetic_dataset_options.num_rigs = 2;
   synthetic_dataset_options.num_cameras_per_rig = 2;
   synthetic_dataset_options.num_frames_per_rig = 7;
-  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.num_points3D = 100;
   synthetic_dataset_options.point2D_stddev = 0;
   synthetic_dataset_options.camera_has_prior_focal_length = false;
   SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction, &database);
