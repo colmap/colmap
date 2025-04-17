@@ -346,7 +346,12 @@ IncrementalPipeline::Status IncrementalPipeline::InitializeReconstruction(
   }
 
   if (options_->extract_colors) {
-    ExtractColors(image_path_, image_id1, reconstruction);
+    for (const image_t image_id : {image_id1, image_id2}) {
+      const Image& image = reconstruction.Image(image_id);
+      for (const data_t& data_id : image.FramePtr()->ImageIds()) {
+        ExtractColors(image_path_, data_id.id, reconstruction);
+      }
+    }
   }
   return Status::SUCCESS;
 }
@@ -460,7 +465,9 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
       }
 
       if (options_->extract_colors) {
-        ExtractColors(image_path_, next_image_id, *reconstruction);
+        for (const data_t& data_id : image.FramePtr()->ImageIds()) {
+          ExtractColors(image_path_, data_id.id, *reconstruction);
+        }
       }
 
       if (options_->snapshot_frames_freq > 0 &&
