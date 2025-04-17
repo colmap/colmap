@@ -43,6 +43,8 @@ jobs:
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
       VCPKG_COMMIT_ID: 9b75e789ece3f942159b8500584e35aafe3979ff
+      GLOG_v: 1
+      GLOG_logtostderr: 1
 
     steps:
       - uses: actions/checkout@v4
