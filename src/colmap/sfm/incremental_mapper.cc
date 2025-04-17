@@ -186,6 +186,13 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   Image& image = reconstruction_->Image(image_id);
   Camera& camera = *image.CameraPtr();
 
+  for (const auto& [_, sensor_from_rig] :
+       image.FramePtr()->RigPtr()->Sensors()) {
+    THROW_CHECK(sensor_from_rig.has_value())
+        << "Registration only implemented for frames with known "
+           "sensor_from_rig poses";
+  }
+
   // Use central camera pose estimation for trivial frames and when we don't
   // have a good estimate of the camera's focal length, because we don't have a
   // focal length estimator for non-central/generalized cameras.
