@@ -35,6 +35,7 @@ COLMAP_ADD_LIBRARY(
     SRCS
         bitmap.h bitmap.cc
         database.h database.cc
+        imu.h imu.cc
         models.h models.cc
         rig_calib.h rig_calib.cc
         specs.h specs.cc
