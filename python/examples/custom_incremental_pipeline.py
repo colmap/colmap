@@ -91,7 +91,7 @@ def initialize_reconstruction(
     ):
         return pycolmap.IncrementalMapperStatus.BAD_INITIAL_PAIR
     if options.extract_colors:
-        reconstruction.extract_colors_all_images(controller.image_path)
+        reconstruction.extract_colors_for_all_images(controller.image_path)
     return pycolmap.IncrementalMapperStatus.SUCCESS
 
 
