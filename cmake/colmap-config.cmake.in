@@ -82,6 +82,8 @@ set(CGAL_ENABLED @CGAL_ENABLED@)
 
 set(LSD_ENABLED @LSD_ENABLED@)
 
+set(TORCH_ENABLED @TORCH_ENABLED@)
+
 set(FETCH_POSELIB @FETCH_POSELIB@)
 
 include(${PACKAGE_PREFIX_DIR}/share/colmap/colmap-targets.cmake)
