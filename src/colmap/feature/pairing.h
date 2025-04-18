@@ -93,16 +93,25 @@ struct SequentialMatchingOptions {
   //      camera1/
   //        image0001.jpg
   //        image0002.jpg
+  //        image0003.jpg
   //        ...
   //      camera2/
   //        image0001.jpg
   //        image0002.jpg
+  //        image0003.jpg
+  //        ...
+  //      camera3/
+  //        image0001.jpg
+  //        image0002.jpg
+  //        image0003.jpg
   //        ...
   //      ...
-  // then image0001.jpg will be matched against all image0002.jpg instances
-  // in rig1 (i.e., camera1 and camera2) and so on. If the `expand_rig_images`
-  // option is off, then it will only be matched against the instance in
-  // rig1/camera1.
+  // then, for overlap=1, rig1/camera1/image0001.jpg will be matched against:
+  //    rig1/camera2/image0001.jpg  # same frame
+  //    rig1/camera3/image0001.jpg  # same frame 
+  //    rig1/camera1/image0002.jpg  # neighboring frame
+  //    rig1/camera2/image0002.jpg  # neighboring frame
+  //    rig1/camera3/image0002.jpg  # neighboring frame
   //
   // If no rigs/frames are configured in the database, this option is ignored.
   bool expand_rig_images = true;
