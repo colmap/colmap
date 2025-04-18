@@ -86,7 +86,24 @@ struct SequentialMatchingOptions {
   // Whether to match images against their quadratic neighbors.
   bool quadratic_overlap = true;
 
-  // Whether to match an image against all images in neighboring rig frames.
+  // Whether to match an image against all images within the same rig frame
+  // and all images in neighboring rig frames. For example, if we have the
+  // following image folder layout:
+  //    rig1/
+  //      camera1/
+  //        image0001.jpg
+  //        image0002.jpg
+  //        ...
+  //      camera2/
+  //        image0001.jpg
+  //        image0002.jpg
+  //        ...
+  //      ...
+  // then image0001.jpg will be matched against all image0002.jpg instances
+  // in rig1 (i.e., camera1 and camera2) and so on. If the `expand_rig_images`
+  // option is off, then it will only be matched against the instance in
+  // rig1/camera1.
+  //
   // If no rigs/frames are configured in the database, this option is ignored.
   bool expand_rig_images = true;
 
