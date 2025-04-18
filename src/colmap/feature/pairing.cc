@@ -404,6 +404,20 @@ SequentialPairGenerator::SequentialPairGenerator(
     vocab_tree_pair_generator_ = std::make_unique<VocabTreePairGenerator>(
         options_.VocabTreeOptions(), cache_, query_image_ids);
   }
+
+  if (options_.expand_rig_images) {
+    const std::vector<frame_t> frame_ids = cache_->GetFrameIds();
+    frame_to_image_ids_.reserve(frame_ids.size());
+    image_to_frame_ids_.reserve(image_ids_.size());
+    for (const frame_t frame_id : frame_ids) {
+      const Frame& frame = cache_->GetFrame(frame_id);
+      auto& frame_image_ids = frame_to_image_ids_[frame_id];
+      for (const data_t& data_id : frame.ImageIds()) {
+        frame_image_ids.push_back(data_id.id);
+        image_to_frame_ids_[data_id.id] = frame_id;
+      }
+    }
+  }
 }
 
 SequentialPairGenerator::SequentialPairGenerator(
@@ -439,19 +453,52 @@ std::vector<std::pair<image_t, image_t>> SequentialPairGenerator::Next() {
       "Matching image [%d/%d]", image_idx_ + 1, image_ids_.size());
 
   const auto image_id1 = image_ids_.at(image_idx_);
+
+  // If image is part of a rig, then pair the other images in the same frame.
+  if (options_.expand_rig_images) {
+    if (const auto frame_id1_it = image_to_frame_ids_.find(image_id1);
+        frame_id1_it != image_to_frame_ids_.end()) {
+      for (const image_t frame_image_id2 :
+           frame_to_image_ids_.at(frame_id1_it->second)) {
+        if (image_id1 != frame_image_id2) {
+          image_pairs_.emplace_back(image_id1, frame_image_id2);
+        }
+      }
+    }
+  }
+
+  auto MaybeExpandRigImages = [this](image_t image_id1, image_t image_id2) {
+    if (!options_.expand_rig_images) {
+      return;
+    }
+    const auto frame_id2_it = image_to_frame_ids_.find(image_id2);
+    if (frame_id2_it != image_to_frame_ids_.end()) {
+      // Pair with all images in second frame.
+      for (const image_t frame_image_id2 :
+           frame_to_image_ids_.at(frame_id2_it->second)) {
+        if (image_id1 != frame_image_id2 && image_id2 != frame_image_id2) {
+          image_pairs_.emplace_back(image_id1, frame_image_id2);
+        }
+      }
+    }
+  };
+
   for (int i = 0; i < options_.overlap; ++i) {
     if (options_.quadratic_overlap) {
       const size_t image_idx_2_quadratic = image_idx_ + (1ull << i);
       if (image_idx_2_quadratic < image_ids_.size()) {
-        image_pairs_.emplace_back(image_id1,
-                                  image_ids_.at(image_idx_2_quadratic));
+        const image_t image_id2 = image_ids_.at(image_idx_2_quadratic);
+        image_pairs_.emplace_back(image_id1, image_id2);
+        MaybeExpandRigImages(image_id1, image_id2);
       } else {
         break;
       }
     } else {
       const size_t image_idx_2 = image_idx_ + i + 1;
       if (image_idx_2 < image_ids_.size()) {
-        image_pairs_.emplace_back(image_id1, image_ids_.at(image_idx_2));
+        const image_t image_id2 = image_ids_.at(image_idx_2);
+        image_pairs_.emplace_back(image_id1, image_id2);
+        MaybeExpandRigImages(image_id1, image_id2);
       } else {
         break;
       }

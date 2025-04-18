@@ -252,7 +252,8 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
         ++total_num_images;
 
         Image& image = images.emplace_back();
-        image.SetName("image" + std::to_string(total_num_images));
+        image.SetName(
+            StringPrintf("camera%06d_frame%06d", sensor_id.id, frame_idx));
         image.SetCameraId(sensor_id.id);
         const image_t image_id = (database == nullptr)
                                      ? total_num_images

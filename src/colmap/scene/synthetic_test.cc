@@ -89,8 +89,10 @@ TEST(SynthesizeDataset, Nominal) {
                 options.num_frames_per_rig);
   EXPECT_EQ(reconstruction.NumRegFrames(),
             options.num_rigs * options.num_frames_per_rig);
+  std::set<std::string> image_names;
   for (const auto& image : reconstruction.Images()) {
     EXPECT_EQ(image.second.Name(), database.ReadImage(image.first).Name());
+    image_names.insert(image.second.Name());
     EXPECT_EQ(image.second.NumPoints2D(),
               database.ReadKeypoints(image.first).size());
     EXPECT_EQ(image.second.NumPoints2D(),
@@ -100,6 +102,7 @@ TEST(SynthesizeDataset, Nominal) {
               options.num_points3D + options.num_points2D_without_point3D);
     EXPECT_EQ(image.second.NumPoints3D(), options.num_points3D);
   }
+  EXPECT_EQ(image_names.size(), reconstruction.NumImages());
 
   const int num_image_pairs =
       reconstruction.NumImages() * (reconstruction.NumImages() - 1) / 2;
