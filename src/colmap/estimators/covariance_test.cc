@@ -299,6 +299,45 @@ TEST_P(ParameterizedBACovarianceTests, CompareWithCeres) {
   }
 }
 
+TEST(ScaledDepthError, Nominal) {
+  const double depth_prior = 2.0;
+  std::unique_ptr<ceres::CostFunction> cost_function(
+      ScaledDepthErrorCostFunction::Create(depth_prior));
+  double cam_from_world_rotation[4] = {0, 0, 0, 1};
+  double cam_from_world_translation[3] = {0, 0, 0};
+  double point3D[3] = {0, 0, 3};
+  double shift_scale[2] = {0, 0};
+  double residuals[1];
+  const double* parameters[4] = {cam_from_world_rotation,
+                                 cam_from_world_translation,
+                                 point3D,
+                                 shift_scale};
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 1);
+  point3D[2] = 2;
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 0);
+  cam_from_world_translation[2] = 2;
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 2);
+  cam_from_world_translation[0] = 1;
+  cam_from_world_translation[1] = 3;
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 2);
+  shift_scale[1] = std::log(2);
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 0);
+  shift_scale[0] = 1;
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], -1);
+  std::unique_ptr<ceres::CostFunction> cost_function_with_noise(
+      IsotropicNoiseCostFunctionWrapper<ScaledDepthErrorCostFunction>::Create(
+          2.0, depth_prior));
+  EXPECT_TRUE(
+      cost_function_with_noise->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], -0.5);
+}
+
 INSTANTIATE_TEST_SUITE_P(
     BACovarianceTests,
     ParameterizedBACovarianceTests,

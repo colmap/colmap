@@ -402,6 +402,65 @@ size_t ObservationManager::FilterPoints3DWithSmallTriangulationAngle(
   return num_filtered;
 }
 
+std::vector<bool> ObservationManager::FindPoints3DWithGoodTriangulationAngle(
+    double min_tri_angle,
+    const std::vector<point3D_t>& point3D_ids) const {
+        // Minimum triangulation angle in radians.
+  const double min_tri_angle_rad = DegToRad(min_tri_angle);
+
+  // Cache for image projection centers.
+  std::unordered_map<image_t, Eigen::Vector3d> proj_centers;
+
+  // Result mask.
+  std::vector<bool> mask;
+  mask.reserve(point3D_ids.size());
+
+  for (const auto& point3D_id : point3D_ids) {
+    if (!reconstruction_.ExistsPoint3D(point3D_id)) {
+      mask.push_back(false);
+      continue;
+    }
+
+    const Point3D& point3D = reconstruction_.Point3D(point3D_id);
+
+    // Check if any triangulation angle is sufficient.
+    bool keep_point = false;
+    for (size_t i1 = 0; i1 < point3D.track.Length(); ++i1) {
+      const image_t image_id1 = point3D.track.Element(i1).image_id;
+
+      Eigen::Vector3d proj_center1;
+      if (proj_centers.count(image_id1) == 0) {
+        const Image& image1 = reconstruction_.Image(image_id1);
+        proj_center1 = image1.ProjectionCenter();
+        proj_centers.emplace(image_id1, proj_center1);
+      } else {
+        proj_center1 = proj_centers.at(image_id1);
+      }
+
+      for (size_t i2 = 0; i2 < i1; ++i2) {
+        const image_t image_id2 = point3D.track.Element(i2).image_id;
+        const Eigen::Vector3d proj_center2 = proj_centers.at(image_id2);
+
+        const double tri_angle = CalculateTriangulationAngle(
+            proj_center1, proj_center2, point3D.xyz);
+
+        if (tri_angle >= min_tri_angle_rad) {
+          keep_point = true;
+          break;
+        }
+      }
+
+      if (keep_point) {
+        break;
+      }
+    }
+
+    mask.push_back(keep_point);
+  }
+
+  return mask;
+}
+
 size_t ObservationManager::FilterPoints3DWithLargeReprojectionError(
     const double max_reproj_error,
     const std::unordered_set<point3D_t>& point3D_ids) {

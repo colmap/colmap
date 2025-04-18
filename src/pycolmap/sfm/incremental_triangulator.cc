@@ -100,7 +100,9 @@ void BindIncrementalTriangulator(py::module& m) {
            &IncrementalTriangulator::MergeAllTracks,
            "options"_a)
       .def(
-          "retriangulate", &IncrementalTriangulator::Retriangulate, "options"_a)
+          "retriangulate", &IncrementalTriangulator::Retriangulate,
+          "options"_a,
+          "ignore_image_ids"_a = std::unordered_set<image_t>())
       .def("add_modified_point3D",
            &IncrementalTriangulator::AddModifiedPoint3D,
            "point3D_id"_a)

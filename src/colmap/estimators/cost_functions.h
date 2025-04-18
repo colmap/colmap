@@ -530,6 +530,104 @@ class CovarianceWeightedCostFunctor {
   const CostFunctor cost_;
 };
 
+// Cost function for constraining the depth of a point in the camera frame 
+// with depth priors.
+struct ScaledDepthErrorCostFunction {
+  public:
+   ScaledDepthErrorCostFunction(const double depth) : depth_(depth) {}
+   static ceres::CostFunction* Create(const double depth) {
+     return (
+         new ceres::
+             AutoDiffCostFunction<ScaledDepthErrorCostFunction, 1, 4, 3, 3, 2>(
+                 new ScaledDepthErrorCostFunction(depth)));
+   }
+   template <typename T>
+   bool operator()(const T* const cam_from_world_rotation,
+                   const T* const cam_from_world_translation,
+                   const T* const point3D,
+                   const T* const shift_scale,
+                   T* residuals) const {
+     *residuals = (EigenQuaternionMap<T>(cam_from_world_rotation) *
+                   EigenVector3Map<T>(point3D))[2] +
+                  cam_from_world_translation[2] - shift_scale[0] -
+                  T(depth_) * exp(shift_scale[1]);
+     return true;
+   }
+  private:
+   const double depth_;
+ };
+ 
+// Cost function for constraining the depth of a point in the camera frame 
+// with depth priors, with a fixed camera pose.
+ struct ScaledDepthErrorConstantPoseCostFunction
+     : public ScaledDepthErrorCostFunction {
+   using Parent = ScaledDepthErrorCostFunction;
+  public:
+   ScaledDepthErrorConstantPoseCostFunction(const Rigid3d& cam_from_world,
+                                            const double depth)
+       : Parent(depth), cam_from_world_(cam_from_world) {}
+   static ceres::CostFunction* Create(const Rigid3d& cam_from_world,
+                                      const double depth) {
+     return (new ceres::AutoDiffCostFunction<
+             ScaledDepthErrorConstantPoseCostFunction,
+             1,
+             3,
+             2>(
+         new ScaledDepthErrorConstantPoseCostFunction(cam_from_world, depth)));
+   }
+   template <typename T>
+   bool operator()(const T* const point3D,
+                   const T* const shift_scale,
+                   T* residuals) const {
+     const Eigen::Quaternion<T> cam_from_world_rotation =
+         cam_from_world_.rotation.cast<T>();
+     const Eigen::Matrix<T, 3, 1> cam_from_world_translation =
+         cam_from_world_.translation.cast<T>();
+     return Parent::operator()(cam_from_world_rotation.coeffs().data(),
+                               cam_from_world_translation.data(),
+                               point3D,
+                               shift_scale,
+                               residuals);
+   }
+  private:
+   const Rigid3d& cam_from_world_;
+ };
+
+ // Cost function for constraining the depth of a point in the camera frame
+ // with depth priors, with a fixed camera pose, in log space.
+ struct TruncatedLogScaledDepthErrorCostFunction {
+  public:
+   TruncatedLogScaledDepthErrorCostFunction(const double depth) : depth_(depth) {}
+ 
+   static ceres::CostFunction* Create(const double depth) {
+     return new ceres::AutoDiffCostFunction<TruncatedLogScaledDepthErrorCostFunction, 1, 4, 3, 3, 2>(
+         new TruncatedLogScaledDepthErrorCostFunction(depth));
+   }
+ 
+   template <typename T>
+   bool operator()(const T* const cam_from_world_rotation,
+                   const T* const cam_from_world_translation,
+                   const T* const point3D,
+                   const T* const shift_scale,
+                   T* residuals) const {
+     // Compute the predicted depth in the camera frame.
+     T d_pred = (EigenQuaternionMap<T>(cam_from_world_rotation) *
+                 EigenVector3Map<T>(point3D))[2] +
+                cam_from_world_translation[2];
+ 
+     if (d_pred <= T(0)) {
+       *residuals = T(0);
+       return true;
+     }
+ 
+     *residuals = ceres::log(d_pred) - (ceres::log(T(depth_)) + shift_scale[1]);
+     return true;
+   }
+ 
+  private:
+   const double depth_;
+ };
+
 template <template <typename> class CostFunctor, typename... Args>
 ceres::CostFunction* CreateCameraCostFunction(
     const CameraModelId camera_model_id, Args&&... args) {

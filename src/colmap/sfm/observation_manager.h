@@ -93,6 +93,8 @@ class ObservationManager {
   size_t FilterPoints3DInImages(double max_reproj_error,
                                 double min_tri_angle,
                                 const std::unordered_set<image_t>& image_ids);
+  std::vector<bool> FindPoints3DWithGoodTriangulationAngle(
+        double min_tri_angle, const std::vector<point3D_t>& point3D_ids) const;
   size_t FilterAllPoints3D(double max_reproj_error, double min_tri_angle);
 
   // Filter observations that have negative depth.

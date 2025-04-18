@@ -1175,4 +1175,70 @@ void PrintSolverSummary(const ceres::Solver::Summary& summary,
   LOG(INFO) << log.str();
 }
 
+ceres::LossFunction* CreateLossFunctionPerPoint(const std::string& loss_name,
+                                                  double loss_param,
+                                                  double loss_magnitude) {
+  ceres::LossFunction* lf = nullptr;
+  if (loss_name == "trivial") {
+    lf = new ceres::TrivialLoss();
+  } else if (loss_name == "soft_l1") {
+    lf = new ceres::SoftLOneLoss(loss_param);
+  } else if (loss_name == "cauchy") {
+    lf = new ceres::CauchyLoss(loss_param);
+  } else {
+    throw std::runtime_error("Unknown loss name: " + loss_name);
+  }
+  if (loss_magnitude != 1.0) {
+    lf = new ceres::ScaledLoss(lf, loss_magnitude, ceres::TAKE_OWNERSHIP);
+  }
+  return lf;
+}
+void ExtendBundleAdjusterWithDepth(ceres::Problem* problem,
+    image_t image_id,
+    const std::vector<point3D_t>& point3D_ids,
+    const std::vector<double>& depths,
+    const std::vector<double>& loss_magnitudes,
+    const std::vector<double>& loss_params,
+    const std::string& loss_name,
+    double* shift_scale_ptr,  
+    Reconstruction& reconstruction,
+    bool logloss,
+    bool fix_shift,
+    bool fix_scale) {
+  if (point3D_ids.size() != depths.size() ||
+      point3D_ids.size() != loss_magnitudes.size() ||
+      point3D_ids.size() != loss_params.size()) {
+    throw std::runtime_error("Input vectors must have the same size");
+  }
+
+  Image& image = reconstruction.Image(image_id);
+
+  double* cam_rot = image.CamFromWorld().rotation.coeffs().data();
+  double* cam_trans = image.CamFromWorld().translation.data();
+
+  for (size_t i = 0; i < point3D_ids.size(); ++i) {
+    point3D_t pt_id = point3D_ids[i];
+    double depth = depths[i];
+    double loss_magnitude = loss_magnitudes[i];
+    double loss_param = loss_params[i];
+
+    Point3D& point3D = reconstruction.Point3D(pt_id);
+
+    ceres::CostFunction* cost_function = nullptr;
+    if (logloss)
+      cost_function = TruncatedLogScaledDepthErrorCostFunction::Create(depth);
+    else
+      cost_function = ScaledDepthErrorCostFunction::Create(depth);
+
+    ceres::LossFunction* loss_function = CreateLossFunctionPerPoint(loss_name, loss_param, loss_magnitude);
+
+    problem->AddResidualBlock(cost_function,
+        loss_function,
+        cam_rot,
+        cam_trans,
+        point3D.xyz.data(),
+        shift_scale_ptr);
+    }
+}
+
 }  // namespace colmap

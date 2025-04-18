@@ -105,6 +105,58 @@ void BindSceneImage(py::module& m) {
            py::overload_cast<camera_t>(&Image::Point2D),
            "point2D_idx"_a,
            "Direct accessor for a point2D.")
+      .def("get_xy",
+           [](const Image& self, std::optional<std::vector<point2D_t>> point_ids = std::nullopt) -> py::array {
+               std::vector<double> xy_coords;
+
+               if (!point_ids) {
+                    // Use all Point2D IDs if none are provided
+                    point_ids = std::vector<point2D_t>(self.NumPoints2D());
+                    std::iota(point_ids->begin(), point_ids->end(), 0);
+               }
+
+               for (const auto& id : *point_ids) {
+                    const auto& point2D = self.Point2D(id);
+                    xy_coords.push_back(point2D.xy(0));
+                    xy_coords.push_back(point2D.xy(1));
+               }
+
+               py::ssize_t num_points = static_cast<py::ssize_t>(point_ids->size());
+               std::vector<py::ssize_t> shape{num_points, 2};
+               std::vector<py::ssize_t> strides{2 * sizeof(double), sizeof(double)};
+
+               return py::array(py::buffer_info(
+                    xy_coords.data(),
+                    sizeof(double),
+                    py::format_descriptor<double>::format(),
+                    2,
+                    shape,
+                    strides
+               ));
+           },
+           "point_ids"_a = std::nullopt,
+           "Get an Nx2 numpy array of xy coordinates for the specified 2D point IDs. "
+           "If no IDs are provided, return all.")
+      .def("get_point3D_ids",
+           [](const Image& self, std::optional<std::vector<point2D_t>> point_ids = std::nullopt) {
+               std::vector<point3D_t> point3D_ids;
+ 
+               if (!point_ids) {
+                   // Use all Point2D IDs if none are provided
+                   point_ids = std::vector<point2D_t>(self.NumPoints2D());
+                   std::iota(point_ids->begin(), point_ids->end(), 0);
+               }
+ 
+               for (const auto& id : *point_ids) {
+                   const auto& point2D = self.Point2D(id);
+                   point3D_ids.push_back(point2D.HasPoint3D() ? point2D.point3D_id : kInvalidPoint3DId);
+               }
+               return point3D_ids;
+           },
+           "point_ids"_a = std::nullopt,
+           "Get a list of 3D point IDs corresponding to the specified 2D point IDs. Returns -1 for points "
+           "without a 3D point. If no IDs are provided, return for all."
+       )
       .def(
           "set_point3D_for_point2D",
           &Image::SetPoint3DForPoint2D,

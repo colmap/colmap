@@ -252,5 +252,84 @@ void BindReconstruction(py::module& m) {
            << "\n\tmean_reprojection_error = "
            << self.ComputeMeanReprojectionError();
         return ss.str();
-      });
+     })
+      .def("find_local_bundle_ids", [](const Reconstruction& self, 
+                                   image_t image_id, 
+                                   size_t local_ba_num_images) {
+          // Get the image from Reconstruction
+          const Image& image = self.Image(image_id);
+          if (!image.HasPose()) {
+               throw std::invalid_argument("Image does not have a valid pose.");
+          }
+
+          // Map to count shared observations
+          std::unordered_map<image_t, size_t> shared_observations;
+          std::unordered_set<point3D_t> point3D_ids;
+          point3D_ids.reserve(image.NumPoints3D());
+
+          for (const Point2D& point2D : image.Points2D()) {
+               if (point2D.HasPoint3D()) {
+                    point3D_ids.insert(point2D.point3D_id);
+                    const Point3D& point3D = self.Point3D(point2D.point3D_id);
+                    for (const TrackElement& track_el : point3D.track.Elements()) {
+                         if (track_el.image_id != image_id) {
+                              shared_observations[track_el.image_id] += 1;
+                         }
+                    }
+               }
+          }
+
+          // Sort overlapping images by shared observations
+          std::vector<std::pair<image_t, size_t>> overlapping_images(
+               shared_observations.begin(), shared_observations.end());
+          std::sort(overlapping_images.begin(),
+                    overlapping_images.end(),
+                    [](const std::pair<image_t, size_t>& a,
+                         const std::pair<image_t, size_t>& b) {
+                         return a.second > b.second;
+                    });
+
+          // Determine the number of images to include in the local bundle
+          const size_t num_images = local_ba_num_images - 1;
+          const size_t num_eff_images = std::min(num_images, overlapping_images.size());
+
+          // Collect the most connected images
+          std::vector<image_t> local_bundle_image_ids;
+          local_bundle_image_ids.reserve(num_eff_images);
+
+          for (size_t i = 0; i < num_eff_images; ++i) {
+               local_bundle_image_ids.push_back(overlapping_images[i].first);
+          }
+
+          return local_bundle_image_ids;
+          }, py::arg("image_id"), py::arg("local_ba_num_images"),
+          "Find a local bundle of images based on shared observations with the specified image.")
+      .def("get_point3d_coordinates",
+             [](const Reconstruction& self, const std::vector<point3D_t>& point_ids) -> py::array {
+                 std::vector<double> coordinates;
+                 
+                 for (const auto& id : point_ids) {
+                     auto it = self.Points3D().find(id);
+                     if (it != self.Points3D().end()) {
+                         const auto& xyz = it->second.xyz;
+                         coordinates.insert(coordinates.end(), xyz.data(), xyz.data() + 3);
+                     }
+                 }
+
+                 // Create a NumPy array with shape (N, 3)
+                 py::ssize_t num_points = coordinates.size() / 3;
+                 std::vector<py::ssize_t> shape = {num_points, 3};
+                 std::vector<py::ssize_t> strides = {3 * sizeof(double), sizeof(double)};
+
+                 return py::array(py::buffer_info(
+                     coordinates.data(),
+                     sizeof(double),
+                     py::format_descriptor<double>::format(),
+                     2,
+                     shape,
+                     strides
+                 ));
+             },
+             "point_ids"_a,
+             "Retrieve xyz coordinates for the given 3D point IDs as a NumPy array.");
 }
