@@ -235,10 +235,12 @@ class FeatureExtractorThread : public Thread {
 
 class FeatureWriterThread : public Thread {
  public:
-  FeatureWriterThread(size_t num_images,
+  FeatureWriterThread(FeatureExtractorType extractor_type,
+                      size_t num_images,
                       Database* database,
                       JobQueue<ImageData>* input_queue)
-      : num_images_(num_images),
+      : extractor_type_str_(FeatureExtractorTypeToString(extractor_type)),
+        num_images_(num_images),
         database_(database),
         input_queue_(input_queue) {}
 
@@ -278,8 +280,8 @@ class FeatureWriterThread : public Thread {
             "  Focal Length:    %.2fpx%s",
             image_data.camera.MeanFocalLength(),
             image_data.camera.has_prior_focal_length ? " (Prior)" : "");
-        LOG(INFO) << StringPrintf("  Features:        %d",
-                                  image_data.keypoints.size());
+        LOG(INFO) << "  Features:        " << image_data.keypoints.size()
+                  << " (" << extractor_type_str_ << ")";
         if (image_data.mask.Data()) {
           LOG(INFO) << "  Mask:            Yes";
         }
@@ -314,6 +316,7 @@ class FeatureWriterThread : public Thread {
     }
   }
 
+  const std::string extractor_type_str_;
   const size_t num_images_;
   Database* database_;
   JobQueue<ImageData>* input_queue_;
@@ -420,8 +423,10 @@ class FeatureExtractorController : public Thread {
       }
     }
 
-    writer_ = std::make_unique<FeatureWriterThread>(
-        image_reader_.NumImages(), &database_, writer_queue_.get());
+    writer_ = std::make_unique<FeatureWriterThread>(extraction_options_.type,
+                                                    image_reader_.NumImages(),
+                                                    &database_,
+                                                    writer_queue_.get());
   }
 
  private:
@@ -511,6 +516,7 @@ class FeatureExtractorController : public Thread {
 
 // Import features from text files. Each image must have a corresponding text
 // file with the same name and an additional ".txt" suffix.
+// Currently hard-coded to support SIFT features.
 class FeatureImporterController : public Thread {
  public:
   FeatureImporterController(const ImageReaderOptions& reader_options,
@@ -557,7 +563,8 @@ class FeatureImporterController : public Thread {
         FeatureDescriptors descriptors;
         LoadSiftFeaturesFromTextFile(path, &keypoints, &descriptors);
 
-        LOG(INFO) << "Features:       " << keypoints.size();
+        LOG(INFO) << "Features:       " << keypoints.size()
+                  << "(Imported SIFT)";
 
         DatabaseTransaction database_transaction(&database);
 
