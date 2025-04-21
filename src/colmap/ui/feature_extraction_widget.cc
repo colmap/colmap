@@ -150,7 +150,7 @@ void SIFTExtractionWidget::Run() {
 }
 
 ALIKEDExtractionWidget::ALIKEDExtractionWidget(QWidget* parent,
-                                           OptionManager* options)
+                                               OptionManager* options)
     : ExtractionWidget(parent, options) {
   AddOptionDirPath(&options->image_reader->mask_path, "mask_path");
   AddOptionFilePath(&options->image_reader->camera_mask_path,
