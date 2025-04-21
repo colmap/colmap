@@ -25,7 +25,7 @@ try {
     }
 
     Write-Host "Unzip cuDNN"
-    Expand-Archive -Path "$zipFilePath" -DestinationPath "$env:TEMP"
+    Expand-Archive -Path "$zipFilePath" -DestinationPath "$env:TEMP" -Force
     
     Write-Host "Move cuDNN"
     $sourceFolder = "$env:TEMP/$folder"
