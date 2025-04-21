@@ -119,8 +119,10 @@ void FeatureMatchingTab::CreateGeneralOptions() {
     matcher_types_.push_back(type);
   };
   add_matcher_type(FeatureMatcherType::SIFT);
+#ifdef COLMAP_TORCH_ENABLED
   add_matcher_type(FeatureMatcherType::ALIKED);
   add_matcher_type(FeatureMatcherType::LIGHTGLUE_ALIKED);
+#endif
   options_widget_->AddWidgetRow("Type", matcher_type_cb_);
 
   options_widget_->AddOptionInt(

@@ -229,10 +229,12 @@ FeatureExtractionWidget::FeatureExtractionWidget(QWidget* parent,
   sift_widget->setWidget(new SIFTExtractionWidget(this, options));
   tab_widget_->addTab(sift_widget, tr("SIFT"));
 
+#ifdef COLMAP_TORCH_ENABLED
   QScrollArea* aliked_widget = new QScrollArea(this);
   aliked_widget->setAlignment(Qt::AlignHCenter);
   aliked_widget->setWidget(new ALIKEDExtractionWidget(this, options));
   tab_widget_->addTab(aliked_widget, tr("ALIKED"));
+#endif
 
   QScrollArea* import_widget = new QScrollArea(this);
   import_widget->setAlignment(Qt::AlignHCenter);
