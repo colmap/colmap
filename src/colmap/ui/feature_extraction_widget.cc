@@ -58,6 +58,13 @@ class SIFTExtractionWidget : public ExtractionWidget {
   void Run() override;
 };
 
+class ALIKEDExtractionWidget : public ExtractionWidget {
+ public:
+  ALIKEDExtractionWidget(QWidget* parent, OptionManager* options);
+
+  void Run() override;
+};
+
 class ImportFeaturesWidget : public ExtractionWidget {
  public:
   ImportFeaturesWidget(QWidget* parent, OptionManager* options);
@@ -125,6 +132,33 @@ SIFTExtractionWidget::SIFTExtractionWidget(QWidget* parent,
   AddOptionInt(&options->feature_extraction->sift->dsp_num_scales,
                "sift.dsp_num_scales",
                1);
+}
+
+void SIFTExtractionWidget::Run() {
+  WriteOptions();
+
+  options_->feature_extraction->type = FeatureExtractorType::SIFT;
+
+  ImageReaderOptions reader_options = *options_->image_reader;
+  reader_options.database_path = *options_->database_path;
+  reader_options.image_path = *options_->image_path;
+
+  auto extractor = CreateFeatureExtractorController(
+      reader_options, *options_->feature_extraction);
+  thread_control_widget_->StartThread(
+      "Extracting...", true, std::move(extractor));
+}
+
+ALIKEDExtractionWidget::ALIKEDExtractionWidget(QWidget* parent,
+                                           OptionManager* options)
+    : ExtractionWidget(parent, options) {
+  AddOptionDirPath(&options->image_reader->mask_path, "mask_path");
+  AddOptionFilePath(&options->image_reader->camera_mask_path,
+                    "camera_mask_path");
+
+  AddOptionInt(&options->feature_extraction->num_threads, "num_threads", -1);
+  AddOptionBool(&options->feature_extraction->use_gpu, "use_gpu");
+  AddOptionText(&options->feature_extraction->gpu_index, "gpu_index");
 
   AddOptionInt(&options->feature_extraction->aliked->max_image_size,
                "aliked.max_image_size");
@@ -139,8 +173,10 @@ SIFTExtractionWidget::SIFTExtractionWidget(QWidget* parent,
                 "aliked.model_path");
 }
 
-void SIFTExtractionWidget::Run() {
+void ALIKEDExtractionWidget::Run() {
   WriteOptions();
+
+  options_->feature_extraction->type = FeatureExtractorType::ALIKED;
 
   ImageReaderOptions reader_options = *options_->image_reader;
   reader_options.database_path = *options_->database_path;
@@ -188,15 +224,20 @@ FeatureExtractionWidget::FeatureExtractionWidget(QWidget* parent,
 
   tab_widget_ = new QTabWidget(this);
 
-  QScrollArea* extraction_widget = new QScrollArea(this);
-  extraction_widget->setAlignment(Qt::AlignHCenter);
-  extraction_widget->setWidget(new SIFTExtractionWidget(this, options));
-  tab_widget_->addTab(extraction_widget, tr("Extract"));
+  QScrollArea* sift_widget = new QScrollArea(this);
+  sift_widget->setAlignment(Qt::AlignHCenter);
+  sift_widget->setWidget(new SIFTExtractionWidget(this, options));
+  tab_widget_->addTab(sift_widget, tr("SIFT"));
+
+  QScrollArea* aliked_widget = new QScrollArea(this);
+  aliked_widget->setAlignment(Qt::AlignHCenter);
+  aliked_widget->setWidget(new ALIKEDExtractionWidget(this, options));
+  tab_widget_->addTab(aliked_widget, tr("ALIKED"));
 
   QScrollArea* import_widget = new QScrollArea(this);
   import_widget->setAlignment(Qt::AlignHCenter);
   import_widget->setWidget(new ImportFeaturesWidget(this, options));
-  tab_widget_->addTab(import_widget, tr("Import"));
+  tab_widget_->addTab(import_widget, tr("Import (SIFT)"));
 
   grid->addWidget(tab_widget_);
 
