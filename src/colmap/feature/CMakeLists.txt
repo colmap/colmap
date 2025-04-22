@@ -125,7 +125,9 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME sift_test
     SRCS sift_test.cc
-    LINK_LIBS colmap_feature
+    LINK_LIBS
+        colmap_feature
+        colmap_util
 )
 if(TESTS_ENABLED AND GUI_ENABLED)
     target_link_libraries(colmap_feature_sift_test Qt5::Widgets)
