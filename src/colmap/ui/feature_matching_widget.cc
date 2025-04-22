@@ -109,9 +109,7 @@ FeatureMatchingTab::FeatureMatchingTab(QWidget* parent, OptionManager* options)
 
 void FeatureMatchingTab::CreateGeneralOptions() {
   options_widget_->AddSpacer();
-  options_widget_->AddSpacer();
-  options_widget_->AddSection("General Options");
-  options_widget_->AddSpacer();
+  options_widget_->AddSection("Shared options");
 
   matcher_type_cb_ = new QComboBox(options_widget_);
   auto add_matcher_type = [this](FeatureMatcherType type) {
@@ -149,6 +147,9 @@ void FeatureMatchingTab::CreateGeneralOptions() {
       &options_->feature_matching->aliked->min_similarity,
       "aliked.min_similarity");
 #endif
+
+  options_widget_->AddSpacer();
+  options_widget_->AddSection("Geometric verification");
 
   options_widget_->AddOptionDouble(
       &options_->two_view_geometry->ransac_options.max_error, "max_error");
