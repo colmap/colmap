@@ -30,6 +30,7 @@
 #include "colmap/ui/feature_matching_widget.h"
 
 #include "colmap/controllers/feature_matching.h"
+#include "colmap/feature/aliked.h"
 #include "colmap/feature/sift.h"
 #include "colmap/ui/options_widget.h"
 #include "colmap/ui/thread_control_widget.h"
@@ -143,7 +144,11 @@ void FeatureMatchingTab::CreateGeneralOptions() {
   options_widget_->AddOptionBool(&options_->feature_matching->sift->cross_check,
                                  "sift.cross_check");
 
-  // TODO(jsch): Add ALIKED options.
+#ifdef COLMAP_TORCH_ENABLED
+  options_widget_->AddOptionDouble(
+      &options_->feature_matching->aliked->min_similarity,
+      "aliked.min_similarity");
+#endif
 
   options_widget_->AddOptionDouble(
       &options_->two_view_geometry->ransac_options.max_error, "max_error");
