@@ -112,8 +112,8 @@ SDDH::forward(torch::Tensor x, std::vector<torch::Tensor>& keypoints) && {
         const auto& kptsi = keypoints[batch_idx];
         const auto num_keypoints = kptsi.size(0);
         if (num_keypoints == 0) {
-          offsets.push_back(torch::zeros({0}, torch::TensorOptions().device(xi.device()).dtype(xi.dtype())));
-          descriptors.push_back(torch::zeros({0}, torch::TensorOptions().device(xi.device()).dtype(xi.dtype())));
+          offsets.push_back(torch::zeros({0, 2}, torch::TensorOptions().device(xi.device()).dtype(xi.dtype())));
+          descriptors.push_back(torch::zeros({0, 128}, torch::TensorOptions().device(xi.device()).dtype(xi.dtype())));
           continue;
         }
 
