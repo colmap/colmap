@@ -564,6 +564,13 @@ std::vector<char> LightGlue::get_the_bytes(const std::string& filename) {
     buffer.insert(buffer.end(), chunk, chunk + file.gcount());
   }
 
+  if (buffer.size() != size) {
+    std::ostringstream error;
+    error << "Failed to read expected number of bytes: " << buffer.size() << " vs " << size;
+    throw std::runtime_error(error.str());
+  }
+
   return buffer;
 }
+
 }  // namespace matcher
