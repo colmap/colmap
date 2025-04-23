@@ -203,7 +203,7 @@ void BindBundleAdjuster(py::module& m) {
         "pose_priors"_a,
         "reconstruction"_a);
         
-  m.def("extend_bundle_adjuster_with_depth",
+  m.def("create_depth_bundle_adjuster",
         [](ceres::Problem* problem,
             image_t image_id,
             const std::vector<point3D_t>& point3D_ids,
@@ -223,7 +223,7 @@ void BindBundleAdjuster(py::module& m) {
 
             double* shift_scale_ptr = static_cast<double*>(buf.ptr);
 
-            ExtendBundleAdjusterWithDepth(problem, image_id, point3D_ids, depths,
+            DepthPriorBundleAdjuster(problem, image_id, point3D_ids, depths,
                                             loss_magnitudes, loss_params, loss_name,
                                             shift_scale_ptr, reconstruction,
                                             logloss, fix_shift, fix_scale);

@@ -1193,7 +1193,7 @@ ceres::LossFunction* CreateLossFunctionPerPoint(const std::string& loss_name,
   }
   return lf;
 }
-void ExtendBundleAdjusterWithDepth(ceres::Problem* problem,
+void DepthPriorBundleAdjuster(ceres::Problem* problem,
     image_t image_id,
     const std::vector<point3D_t>& point3D_ids,
     const std::vector<double>& depths,
