@@ -195,5 +195,5 @@ void BindCostFunctions(py::module& m_parent) {
         "depth"_a,
         "Scaled depth error cost function with constant camera pose.");
   m.def(
-      "TruncatedLogScaledDepthErrorCost", &TruncatedLogScaledDepthErrorCostFunction::Create, "depth"_a);
+      "LogScaledDepthErrorCost", &LogScaledDepthErrorCostFunction::Create, "depth"_a);
 }

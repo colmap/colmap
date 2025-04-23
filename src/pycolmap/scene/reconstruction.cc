@@ -304,32 +304,8 @@ void BindReconstruction(py::module& m) {
           return local_bundle_image_ids;
           }, py::arg("image_id"), py::arg("local_ba_num_images"),
           "Find a local bundle of images based on shared observations with the specified image.")
-      .def("get_point3d_coordinates",
-             [](const Reconstruction& self, const std::vector<point3D_t>& point_ids) -> py::array {
-                 std::vector<double> coordinates;
-                 
-                 for (const auto& id : point_ids) {
-                     auto it = self.Points3D().find(id);
-                     if (it != self.Points3D().end()) {
-                         const auto& xyz = it->second.xyz;
-                         coordinates.insert(coordinates.end(), xyz.data(), xyz.data() + 3);
-                     }
-                 }
-
-                 // Create a NumPy array with shape (N, 3)
-                 py::ssize_t num_points = coordinates.size() / 3;
-                 std::vector<py::ssize_t> shape = {num_points, 3};
-                 std::vector<py::ssize_t> strides = {3 * sizeof(double), sizeof(double)};
-
-                 return py::array(py::buffer_info(
-                     coordinates.data(),
-                     sizeof(double),
-                     py::format_descriptor<double>::format(),
-                     2,
-                     shape,
-                     strides
-                 ));
-             },
-             "point_ids"_a,
-             "Retrieve xyz coordinates for the given 3D point IDs as a NumPy array.");
+      .def("point3D_coordinates",
+           &Reconstruction::Point3DCoordinates,
+           "point_ids"_a,
+           "Retrieve an Nx3 matrix of 3D coordinates for the given point IDs.");
 }

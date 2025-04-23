@@ -105,17 +105,10 @@ void BindSceneImage(py::module& m) {
            py::overload_cast<camera_t>(&Image::Point2D),
            "point2D_idx"_a,
            "Direct accessor for a point2D.")
-      .def(
-          "keypoint_coordinates", [](const Image& self, std::optional<std::vector<point2D_t>> point_ids) {
-              const auto coords = self.KeypointCoordinates(point_ids);
-              Eigen::Matrix<double, Eigen::Dynamic, 2> out(coords.size(), 2);
-              for (size_t i = 0; i < coords.size(); ++i) {
-                out.row(i) = coords[i];
-              }
-              return out;
-            }, "point_ids"_a = std::nullopt,
-           "Get an Nx2 numpy array of xy coordinates for the specified 2D point IDs. "
-           "If no IDs are provided, return all.")
+      .def("keypoint_coordinates",
+           &Image::KeypointCoordinates,
+           "point_ids"_a,
+           "Get an Nx2 numpy array of xy coordinates for the specified 2D point IDs.")
       .def("point3D_ids", &Image::Point3DIds,
            "point_ids"_a = std::nullopt,
            "Get a list of 3D point IDs corresponding to the specified 2D point IDs. Returns -1 for points "

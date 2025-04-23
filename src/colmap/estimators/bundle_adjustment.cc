@@ -1226,7 +1226,7 @@ void ExtendBundleAdjusterWithDepth(ceres::Problem* problem,
 
     ceres::CostFunction* cost_function = nullptr;
     if (logloss)
-      cost_function = TruncatedLogScaledDepthErrorCostFunction::Create(depth);
+      cost_function = LogScaledDepthErrorCostFunction::Create(depth);
     else
       cost_function = ScaledDepthErrorCostFunction::Create(depth);
 

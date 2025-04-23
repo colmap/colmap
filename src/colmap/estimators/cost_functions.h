@@ -595,13 +595,13 @@ struct ScaledDepthErrorCostFunction {
 
  // Cost function for constraining the depth of a point in the camera frame
  // with depth priors, with a fixed camera pose, in log space.
- struct TruncatedLogScaledDepthErrorCostFunction {
+ struct LogScaledDepthErrorCostFunction {
   public:
-   TruncatedLogScaledDepthErrorCostFunction(const double depth) : depth_(depth) {}
+   LogScaledDepthErrorCostFunction(const double depth) : depth_(depth) {}
  
    static ceres::CostFunction* Create(const double depth) {
-     return new ceres::AutoDiffCostFunction<TruncatedLogScaledDepthErrorCostFunction, 1, 4, 3, 3, 2>(
-         new TruncatedLogScaledDepthErrorCostFunction(depth));
+     return new ceres::AutoDiffCostFunction<LogScaledDepthErrorCostFunction, 1, 4, 3, 3, 2>(
+         new LogScaledDepthErrorCostFunction(depth));
    }
  
    template <typename T>
