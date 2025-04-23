@@ -76,6 +76,12 @@ void ExpectEqualReconstructions(const Reconstruction& reconstruction1,
   WriteCamerasText(reconstruction2, stream2_cameras);
   EXPECT_EQ(stream1_cameras.str(), stream2_cameras.str());
 
+  // compare frames
+  std::stringstream stream1_frames, stream2_frames;
+  WriteFramesText(reconstruction1, stream1_frames);
+  WriteFramesText(reconstruction2, stream2_frames);
+  EXPECT_EQ(stream1_frames.str(), stream2_frames.str());
+
   // compare images
   std::stringstream stream1_images, stream2_images;
   WriteImagesText(reconstruction1, stream1_images);
@@ -378,6 +384,25 @@ TEST(Reconstruction, DeleteObservation) {
   EXPECT_FALSE(reconstruction.ExistsPoint3D(point3D_id));
   EXPECT_FALSE(reconstruction.Image(point3D_id).Point2D(1).HasPoint3D());
   EXPECT_FALSE(reconstruction.Image(point3D_id).Point2D(2).HasPoint3D());
+}
+
+TEST(Reconstruction, SetRigsAndFrames) {
+  Reconstruction reconstruction;
+  Database database(Database::kInMemoryDatabasePath);
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_rigs = 3;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 8;
+  synthetic_dataset_options.num_points3D = 21;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction, &database);
+  for (const auto& [frame_id, _] : reconstruction.Frames()) {
+    reconstruction.DeRegisterFrame(frame_id);
+  }
+  const Reconstruction orig_reconstruction = reconstruction;
+  reconstruction.SetRigsAndFrames(database.ReadAllRigs(),
+                                  database.ReadAllFrames());
+  ExpectEqualReconstructions(reconstruction, orig_reconstruction);
 }
 
 TEST(Reconstruction, RegisterFrame) {
