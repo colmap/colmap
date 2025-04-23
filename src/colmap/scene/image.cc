@@ -118,6 +118,25 @@ void Image::ResetPoint3DForPoint2D(const point2D_t point2D_idx) {
   }
 }
 
+std::vector<point3D_t> Image::Point3DIds(const std::optional<std::vector<point2D_t>>& point_ids) const {
+  std::vector<point3D_t> point3D_ids;
+
+  if (!point_ids.has_value()) {
+    for (point2D_t idx = 0; idx < NumPoints2D(); ++idx) {
+      const auto& pt = Point2D(idx);
+      // will append kInvalidPoint3DId does not exist
+      point3D_ids.push_back(pt.point3D_id);
+    }
+  } else {
+    for (const auto& idx : point_ids.value()) {
+      const auto& pt = Point2D(idx);
+      point3D_ids.push_back(pt.point3D_id);
+    }
+  }
+
+  return point3D_ids;
+}
+
 bool Image::HasPoint3D(const point3D_t point3D_id) const {
   return std::find_if(points2D_.begin(),
                       points2D_.end(),
