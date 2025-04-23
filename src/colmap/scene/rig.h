@@ -45,8 +45,8 @@ namespace colmap {
 // specified image prefix. All images with the given name prefix will be
 // associated with the camera. In addition, each camera may specify an optional
 // known pose in the rig - except for the reference camera whose pose is defined
-// as identity. Furthermore, each camera may specify a custom camera model and
-// parameters.
+// as identity. The rotation is expected in the order [w, x, y, z]. Furthermore,
+// each camera may specify a custom camera model and parameters.
 //
 // Example for eth3d/delivery_area:
 // [
@@ -94,9 +94,9 @@ namespace colmap {
 //         {
 //             "image_prefix": "2/",
 //             "cam_from_rig_rotation": [
+//                 0.0,
+//                 0.0,
 //                 1.0,
-//                 0.0,
-//                 0.0,
 //                 0.0
 //             ],
 //             "cam_from_rig_translation": [
