@@ -35,6 +35,7 @@
 #include <boost/property_tree/ptree.hpp>
 
 namespace colmap {
+namespace {
 
 // Update the database with extracted rig and calibrations from the given
 // reconstruction derived as follows:
@@ -106,6 +107,7 @@ void UpdateRigAndCameraCalibFromReconstruction(
   // Compute the average sensor_from_rig poses over all frames.
   for (auto& [sensor_id, sensor_from_rig] : rig.Sensors()) {
     if (sensor_from_rig.has_value()) {
+      // Do not compute it for explicitly provided poses in the config.
       continue;
     }
 
@@ -130,6 +132,8 @@ void UpdateRigAndCameraCalibFromReconstruction(
 
   database.UpdateRig(rig);
 }
+
+}  // namespace
 
 std::vector<RigConfig> ReadRigConfig(const std::string& rig_config_path) {
   boost::property_tree::ptree pt;

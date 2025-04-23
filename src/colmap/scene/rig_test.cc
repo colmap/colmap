@@ -29,6 +29,7 @@
 
 #include "colmap/scene/rig.h"
 
+#include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
 
 #include <fstream>
@@ -163,6 +164,63 @@ TEST(ReadRigConfig, Nominal) {
   EXPECT_FALSE(configs[1].cameras[1].ref_sensor);
   ASSERT_FALSE(configs[1].cameras[1].cam_from_rig.has_value());
   ASSERT_FALSE(configs[1].cameras[1].camera.has_value());
+}
+
+TEST(ApplyRigConfig, WithReconstruction) {
+  Database database(Database::kInMemoryDatabasePath);
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions options;
+  options.num_rigs = 1;
+  options.num_cameras_per_rig = 2;
+  options.num_frames_per_rig = 5;
+  SynthesizeDataset(options, &reconstruction, &database);
+
+  std::vector<RigConfig> configs;
+  auto& config = configs.emplace_back();
+  auto& camera1 = config.cameras.emplace_back();
+  camera1.image_prefix = "camera000001_";
+  camera1.ref_sensor = true;
+  auto& camera2 = config.cameras.emplace_back();
+  camera2.image_prefix = "camera000002_";
+
+  ApplyRigConfig(configs, database, &reconstruction);
+  EXPECT_EQ(database.NumRigs(), 1);
+  EXPECT_EQ(database.NumFrames(), options.num_frames_per_rig);
+  EXPECT_EQ(reconstruction.NumRigs(), 1);
+  EXPECT_EQ(reconstruction.NumFrames(), options.num_frames_per_rig);
+}
+
+TEST(ApplyRigConfig, WithoutReconstruction) {
+  Database database(Database::kInMemoryDatabasePath);
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions options;
+  options.num_rigs = 1;
+  options.num_cameras_per_rig = 2;
+  options.num_frames_per_rig = 5;
+  SynthesizeDataset(options, &reconstruction, &database);
+
+  std::vector<RigConfig> configs;
+  auto& config = configs.emplace_back();
+  auto& camera1 = config.cameras.emplace_back();
+  camera1.image_prefix = "camera000001_";
+  camera1.ref_sensor = true;
+  auto& camera2 = config.cameras.emplace_back();
+  camera2.image_prefix = "camera000002_";
+  camera2.camera =
+      Camera::CreateFromModelId(2, CameraModelId::kOpenCV, 2.0, 1024, 768);
+  camera2.cam_from_rig =
+      Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
+
+  ApplyRigConfig(configs, database);
+  EXPECT_EQ(database.NumRigs(), 1);
+  EXPECT_EQ(database.NumFrames(), options.num_frames_per_rig);
+  EXPECT_EQ(reconstruction.NumRigs(), 1);
+  EXPECT_EQ(reconstruction.NumFrames(), options.num_frames_per_rig);
+  const auto [sensor_id2, sensor2_from_rig] =
+      *database.ReadAllRigs().at(0).Sensors().begin();
+  EXPECT_EQ(sensor2_from_rig.value().rotation.coeffs(),
+            camera2.cam_from_rig.value().rotation.coeffs());
+  EXPECT_EQ(database.ReadCamera(sensor_id2.id), camera2.camera);
 }
 
 }  // namespace
