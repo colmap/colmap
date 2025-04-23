@@ -105,23 +105,15 @@ void BindSceneImage(py::module& m) {
            py::overload_cast<camera_t>(&Image::Point2D),
            "point2D_idx"_a,
            "Direct accessor for a point2D.")
-      .def("get_xy",
-        [](const Image& self, std::optional<std::vector<point2D_t>> point_ids = std::nullopt) {
-          if (!point_ids) {
-              point_ids = std::vector<point2D_t>(self.NumPoints2D());
-              std::iota(point_ids->begin(), point_ids->end(), 0);
-          }
- 
-          Eigen::Matrix<double, Eigen::Dynamic, 2> xy_coords(point_ids->size(), 2);
-          for (size_t i = 0; i < point_ids->size(); ++i) {
-              const auto& point2D = self.Point2D((*point_ids)[i]);
-              xy_coords(i, 0) = point2D.xy(0);
-              xy_coords(i, 1) = point2D.xy(1);
-          }
- 
-          return xy_coords;
-           },
-           "point_ids"_a = std::nullopt,
+      .def(
+          "keypoint_coordinates", [](const Image& self, std::optional<std::vector<point2D_t>> point_ids) {
+              const auto coords = self.KeypointCoordinates(point_ids);
+              Eigen::Matrix<double, Eigen::Dynamic, 2> out(coords.size(), 2);
+              for (size_t i = 0; i < coords.size(); ++i) {
+                out.row(i) = coords[i];
+              }
+              return out;
+            }, "point_ids"_a = std::nullopt,
            "Get an Nx2 numpy array of xy coordinates for the specified 2D point IDs. "
            "If no IDs are provided, return all.")
       .def("point3D_ids", &Image::Point3DIds,

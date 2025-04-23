@@ -137,6 +137,26 @@ std::vector<point3D_t> Image::Point3DIds(const std::optional<std::vector<point2D
   return point3D_ids;
 }
 
+std::vector<Eigen::Vector2d> Image::KeypointCoordinates(
+    const std::optional<std::vector<point2D_t>>& point_ids) const {
+
+  std::vector<Eigen::Vector2d> xy_coords;
+
+  if (!point_ids.has_value()) {
+    xy_coords.reserve(NumPoints2D());
+    for (point2D_t idx = 0; idx < NumPoints2D(); ++idx) {
+      xy_coords.emplace_back(Point2D(idx).xy);
+    }
+  } else {
+    xy_coords.reserve(point_ids->size());
+    for (const auto& idx : *point_ids) {
+      xy_coords.emplace_back(Point2D(idx).xy);
+    }
+  }
+
+  return xy_coords;
+}
+
 bool Image::HasPoint3D(const point3D_t point3D_id) const {
   return std::find_if(points2D_.begin(),
                       points2D_.end(),
