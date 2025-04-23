@@ -220,6 +220,8 @@ TEST(ApplyRigConfig, WithoutReconstruction) {
       *database.ReadAllRigs().at(0).Sensors().begin();
   EXPECT_EQ(sensor2_from_rig.value().rotation.coeffs(),
             camera2.cam_from_rig.value().rotation.coeffs());
+  EXPECT_EQ(sensor2_from_rig.value().translation,
+            camera2.cam_from_rig.value().translation);
   EXPECT_EQ(database.ReadCamera(sensor_id2.id), camera2.camera);
 }
 
