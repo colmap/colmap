@@ -46,6 +46,7 @@ COLMAP_ADD_LIBRARY(
         reconstruction.h reconstruction.cc
         reconstruction_io.h reconstruction_io.cc
         reconstruction_manager.h reconstruction_manager.cc
+        rig.h rig.cc
         scene_clustering.h scene_clustering.cc
         synthetic.h synthetic.cc
         track.h track.cc
@@ -123,6 +124,11 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME reconstruction_manager_test
     SRCS reconstruction_manager_test.cc
+    LINK_LIBS colmap_scene
+)
+COLMAP_ADD_TEST(
+    NAME rig_test
+    SRCS rig_test.cc
     LINK_LIBS colmap_scene
 )
 COLMAP_ADD_TEST(

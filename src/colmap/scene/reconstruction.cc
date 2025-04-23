@@ -361,6 +361,32 @@ void Reconstruction::DeleteAllPoints2DAndPoints3D() {
   }
 }
 
+void Reconstruction::SetRigsAndFrames(std::vector<class Rig> rigs,
+                                      std::vector<class Frame> frames) {
+  rigs_.clear();
+  rigs_.reserve(rigs.size());
+  for (auto& rig : rigs) {
+    AddRig(std::move(rig));
+  }
+
+  frames_.clear();
+  frames_.reserve(frames.size());
+  std::unordered_map<image_t, frame_t> image_to_frame_ids;
+  for (auto& frame : frames) {
+    for (const data_t& data_id : frame.ImageIds()) {
+      THROW_CHECK(
+          image_to_frame_ids.emplace(data_id.id, frame.FrameId()).second);
+    }
+    AddFrame(std::move(frame));
+  }
+
+  for (auto& [image_id, image] : images_) {
+    image.ResetFramePtr();
+    image.SetFrameId(image_to_frame_ids.at(image_id));
+    image.SetFramePtr(&Frame(image.FrameId()));
+  }
+}
+
 void Reconstruction::RegisterFrame(const frame_t frame_id) {
   THROW_CHECK(Frame(frame_id).HasPose());
   if (std::find(reg_frame_ids_.begin(), reg_frame_ids_.end(), frame_id) ==

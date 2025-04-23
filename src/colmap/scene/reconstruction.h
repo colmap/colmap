@@ -162,6 +162,9 @@ class Reconstruction {
   // Delete all 2D points of all images and all 3D points.
   void DeleteAllPoints2DAndPoints3D();
 
+  void SetRigsAndFrames(std::vector<class Rig> rigs,
+                        std::vector<class Frame> frames);
+
   // Register an existing frame.
   void RegisterFrame(frame_t frame_id);
 
