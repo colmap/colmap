@@ -263,6 +263,9 @@ ceres::LossFunction* BundleAdjustmentOptions::CreateLossFunction() const {
       break;
   }
   THROW_CHECK_NOTNULL(loss_function);
+  if (loss_function_magnitude != 1.0) {
+    loss_function = new ceres::ScaledLoss(loss_function, loss_function_magnitude, ceres::TAKE_OWNERSHIP);
+  }
   return loss_function;
 }
 
@@ -1175,31 +1178,13 @@ void PrintSolverSummary(const ceres::Solver::Summary& summary,
   LOG(INFO) << log.str();
 }
 
-ceres::LossFunction* CreateLossFunctionPerPoint(const std::string& loss_name,
-                                                  double loss_param,
-                                                  double loss_magnitude) {
-  ceres::LossFunction* lf = nullptr;
-  if (loss_name == "trivial") {
-    lf = new ceres::TrivialLoss();
-  } else if (loss_name == "soft_l1") {
-    lf = new ceres::SoftLOneLoss(loss_param);
-  } else if (loss_name == "cauchy") {
-    lf = new ceres::CauchyLoss(loss_param);
-  } else {
-    throw std::runtime_error("Unknown loss name: " + loss_name);
-  }
-  if (loss_magnitude != 1.0) {
-    lf = new ceres::ScaledLoss(lf, loss_magnitude, ceres::TAKE_OWNERSHIP);
-  }
-  return lf;
-}
 void DepthPriorBundleAdjuster(ceres::Problem* problem,
     image_t image_id,
     const std::vector<point3D_t>& point3D_ids,
     const std::vector<double>& depths,
     const std::vector<double>& loss_magnitudes,
     const std::vector<double>& loss_params,
-    const std::string& loss_name,
+    BundleAdjustmentOptions::LossFunctionType loss_type,
     double* shift_scale_ptr,  
     Reconstruction& reconstruction,
     bool logloss,
@@ -1224,13 +1209,16 @@ void DepthPriorBundleAdjuster(ceres::Problem* problem,
 
     Point3D& point3D = reconstruction.Point3D(pt_id);
 
-    ceres::CostFunction* cost_function = nullptr;
-    if (logloss)
-      cost_function = LogScaledDepthErrorCostFunction::Create(depth);
-    else
-      cost_function = ScaledDepthErrorCostFunction::Create(depth);
+    ceres::CostFunction* cost_function = logloss
+      ? LogScaledDepthErrorCostFunction::Create(depth)
+      : ScaledDepthErrorCostFunction::Create(depth);
 
-    ceres::LossFunction* loss_function = CreateLossFunctionPerPoint(loss_name, loss_param, loss_magnitude);
+    BundleAdjustmentOptions loss_opts;
+    loss_opts.loss_function_type = loss_type;
+    loss_opts.loss_function_scale = loss_param;
+    loss_opts.loss_function_magnitude = loss_magnitude;
+
+    ceres::LossFunction* loss_function = loss_opts.CreateLossFunction();
 
     problem->AddResidualBlock(cost_function,
         loss_function,
@@ -1238,7 +1226,7 @@ void DepthPriorBundleAdjuster(ceres::Problem* problem,
         cam_trans,
         point3D.xyz.data(),
         shift_scale_ptr);
-    }
+  }
 }
 
 }  // namespace colmap
