@@ -46,7 +46,7 @@ namespace {
 void UpdateRigAndCameraCalibFromReconstruction(
     const Reconstruction& reconstruction,
     const std::map<std::string, std::vector<const Image*>>& frames_to_images,
-    Rig rig,
+    Rig& rig,
     Database& database) {
   std::unordered_map<
       camera_t,
@@ -288,9 +288,24 @@ void ApplyRigConfig(const std::vector<RigConfig>& configs,
 
     if (reconstruction != nullptr) {
       UpdateRigAndCameraCalibFromReconstruction(
-          *reconstruction, frames_to_images, std::move(rig), database);
+          *reconstruction, frames_to_images, rig, database);
+      // Set the frame poses from the first image we find in each frame.
+      std::vector<Frame> frames = database.ReadAllFrames();
+      for (Frame& frame : frames) {
+        for (const data_t& data_id : frame.ImageIds()) {
+          const Image& image = reconstruction->Image(data_id.id);
+          const sensor_t sensor_id = image.CameraPtr()->SensorId();
+          if (rig.IsRefSensor(sensor_id)) {
+            frame.SetRigFromWorld(image.CamFromWorld());
+          } else {
+            frame.SetRigFromWorld(Inverse(rig.SensorFromRig(sensor_id)) *
+                                  image.CamFromWorld());
+          }
+          break;
+        }
+      }
       reconstruction->SetRigsAndFrames(database.ReadAllRigs(),
-                                       database.ReadAllFrames());
+                                       std::move(frames));
     }
   }
 }
