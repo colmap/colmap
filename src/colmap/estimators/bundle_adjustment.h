@@ -29,7 +29,6 @@
 
 #pragma once
 
-#include "colmap/scene/camera_rig.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/enum_utils.h"
@@ -195,18 +194,6 @@ struct BundleAdjustmentOptions {
   bool Check() const;
 };
 
-struct RigBundleAdjustmentOptions {
-  // Whether to optimize the relative poses of the camera rigs.
-  bool refine_relative_poses = true;
-
-  // The maximum allowed reprojection error for an observation to be
-  // considered in the bundle adjustment. Some observations might have large
-  // reprojection errors due to the concatenation of the absolute and relative
-  // rig poses, which might be different from the absolute pose of the image
-  // in the reconstruction.
-  double max_reproj_error = 1000.0;
-};
-
 struct PosePriorBundleAdjustmentOptions {
   // Whether to use a robust loss on prior locations.
   bool use_robust_loss_on_prior_position = false;
@@ -240,13 +227,6 @@ std::unique_ptr<BundleAdjuster> CreateDefaultBundleAdjuster(
     BundleAdjustmentOptions options,
     BundleAdjustmentConfig config,
     Reconstruction& reconstruction);
-
-std::unique_ptr<BundleAdjuster> CreateRigBundleAdjuster(
-    BundleAdjustmentOptions options,
-    RigBundleAdjustmentOptions rig_options,
-    BundleAdjustmentConfig config,
-    Reconstruction& reconstruction,
-    std::vector<CameraRig>& camera_rigs);
 
 std::unique_ptr<BundleAdjuster> CreatePosePriorBundleAdjuster(
     BundleAdjustmentOptions options,

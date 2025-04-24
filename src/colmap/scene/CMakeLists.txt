@@ -34,7 +34,6 @@ COLMAP_ADD_LIBRARY(
     NAME colmap_scene
     SRCS
         camera.h camera.cc
-        camera_rig.h camera_rig.cc
         correspondence_graph.h correspondence_graph.cc
         database.h database.cc
         database_cache.h database_cache.cc
@@ -61,11 +60,6 @@ COLMAP_ADD_LIBRARY(
         SQLite::SQLite3
 )
 
-COLMAP_ADD_TEST(
-    NAME camera_rig_test
-    SRCS camera_rig_test.cc
-    LINK_LIBS colmap_scene
-)
 COLMAP_ADD_TEST(
     NAME camera_test
     SRCS camera_test.cc
