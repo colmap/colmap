@@ -371,6 +371,7 @@ void Reconstruction::SetRigsAndFrames(std::vector<class Rig> rigs,
 
   frames_.clear();
   frames_.reserve(frames.size());
+  reg_frame_ids_.clear();
   std::unordered_map<image_t, frame_t> image_to_frame_ids;
   for (auto& frame : frames) {
     for (const data_t& data_id : frame.ImageIds()) {

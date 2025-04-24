@@ -188,6 +188,7 @@ TEST(ApplyRigConfig, WithReconstruction) {
   EXPECT_EQ(database.NumFrames(), options.num_frames_per_rig);
   EXPECT_EQ(reconstruction.NumRigs(), 1);
   EXPECT_EQ(reconstruction.NumFrames(), options.num_frames_per_rig);
+  EXPECT_EQ(reconstruction.NumRegFrames(), options.num_frames_per_rig);
 }
 
 TEST(ApplyRigConfig, WithoutReconstruction) {
