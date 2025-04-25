@@ -311,8 +311,10 @@ class Database {
   // Create database tables, if not existing, called when opening a database.
   void CreateTables() const;
   void CreateRigTable() const;
+  void CreateRigSensorsTable() const;
   void CreateCameraTable() const;
   void CreateFrameTable() const;
+  void CreateFrameDataTable() const;
   void CreateImageTable() const;
   void CreatePosePriorTable() const;
   void CreateKeypointsTable() const;
@@ -372,8 +374,10 @@ class Database {
 
   // add_*
   sqlite3_stmt* sql_stmt_add_rig_ = nullptr;
+  sqlite3_stmt* sql_stmt_add_rig_sensor_ = nullptr;
   sqlite3_stmt* sql_stmt_add_camera_ = nullptr;
   sqlite3_stmt* sql_stmt_add_frame_ = nullptr;
+  sqlite3_stmt* sql_stmt_add_frame_data_ = nullptr;
   sqlite3_stmt* sql_stmt_add_image_ = nullptr;
 
   // update_*
@@ -386,9 +390,11 @@ class Database {
   // read_*
   sqlite3_stmt* sql_stmt_read_rig_ = nullptr;
   sqlite3_stmt* sql_stmt_read_rigs_ = nullptr;
+  sqlite3_stmt* sql_stmt_read_rig_sensors_ = nullptr;
   sqlite3_stmt* sql_stmt_read_camera_ = nullptr;
   sqlite3_stmt* sql_stmt_read_cameras_ = nullptr;
   sqlite3_stmt* sql_stmt_read_frame_ = nullptr;
+  sqlite3_stmt* sql_stmt_read_frame_data_ = nullptr;
   sqlite3_stmt* sql_stmt_read_frames_ = nullptr;
   sqlite3_stmt* sql_stmt_read_image_id_ = nullptr;
   sqlite3_stmt* sql_stmt_read_image_name_ = nullptr;
@@ -410,6 +416,8 @@ class Database {
   sqlite3_stmt* sql_stmt_write_two_view_geometry_ = nullptr;
 
   // delete_*
+  sqlite3_stmt* sql_stmt_delete_rig_sensors_ = nullptr;
+  sqlite3_stmt* sql_stmt_delete_frame_data_ = nullptr;
   sqlite3_stmt* sql_stmt_delete_matches_ = nullptr;
   sqlite3_stmt* sql_stmt_delete_two_view_geometry_ = nullptr;
 
