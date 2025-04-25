@@ -374,22 +374,6 @@ void WriteFrameData(const frame_t frame_id,
   }
 }
 
-std::string DataIdsToBytes(const Frame& frame) {
-  const std::set<data_t>& data_ids = frame.DataIds();
-  if (data_ids.empty()) {
-    return {};
-  }
-  std::stringstream stream;
-  WriteBinaryLittleEndian<uint32_t>(&stream, data_ids.size());
-  for (const data_t& data_id : data_ids) {
-    WriteBinaryLittleEndian<uint32_t>(&stream, data_id.sensor_id.id);
-    WriteBinaryLittleEndian<int>(&stream,
-                                 static_cast<int>(data_id.sensor_id.type));
-    WriteBinaryLittleEndian<uint64_t>(&stream, data_id.id);
-  }
-  return stream.str();
-}
-
 }  // namespace
 
 const size_t Database::kMaxNumImages =
