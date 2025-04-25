@@ -598,17 +598,16 @@ void Reconstruction::TranscribeImageIdsToDatabase(const Database& database) {
   new_images.reserve(NumImages());
 
   for (auto& image : images_) {
-    if (!database.ExistsImageWithName(image.second.Name())) {
+    const std::optional<class Image> database_image =
+        database.ReadImageWithName(image.second.Name()).value();
+    if (!database_image.has_value()) {
       LOG(FATAL_THROW) << "Image with name " << image.second.Name()
                        << " does not exist in database";
     }
-
-    const class Image database_image =
-        database.ReadImageWithName(image.second.Name());
     old_to_new_image_ids.emplace(image.second.ImageId(),
-                                 database_image.ImageId());
-    image.second.SetImageId(database_image.ImageId());
-    new_images.emplace(database_image.ImageId(), image.second);
+                                 database_image->ImageId());
+    image.second.SetImageId(database_image->ImageId());
+    new_images.emplace(database_image->ImageId(), image.second);
   }
 
   images_ = std::move(new_images);

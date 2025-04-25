@@ -161,6 +161,7 @@ class Database {
   // `image_id1` and `image_id2` does not matter.
 
   Rig ReadRig(rig_t rig_id) const;
+  std::optional<Rig> ReadRigWithSensor(sensor_t sensor_id) const;
   std::vector<Rig> ReadAllRigs() const;
 
   Camera ReadCamera(camera_t camera_id) const;
@@ -170,7 +171,7 @@ class Database {
   std::vector<Frame> ReadAllFrames() const;
 
   Image ReadImage(image_t image_id) const;
-  Image ReadImageWithName(const std::string& name) const;
+  std::optional<Image> ReadImageWithName(const std::string& name) const;
   std::vector<Image> ReadAllImages() const;
 
   PosePrior ReadPosePrior(image_t image_id) const;
@@ -391,13 +392,15 @@ class Database {
   sqlite3_stmt* sql_stmt_read_rig_ = nullptr;
   sqlite3_stmt* sql_stmt_read_rigs_ = nullptr;
   sqlite3_stmt* sql_stmt_read_rig_sensors_ = nullptr;
+  sqlite3_stmt* sql_stmt_read_rig_with_sensor_ = nullptr;
+  sqlite3_stmt* sql_stmt_read_rig_with_ref_sensor_ = nullptr;
   sqlite3_stmt* sql_stmt_read_camera_ = nullptr;
   sqlite3_stmt* sql_stmt_read_cameras_ = nullptr;
   sqlite3_stmt* sql_stmt_read_frame_ = nullptr;
   sqlite3_stmt* sql_stmt_read_frame_data_ = nullptr;
   sqlite3_stmt* sql_stmt_read_frames_ = nullptr;
   sqlite3_stmt* sql_stmt_read_image_id_ = nullptr;
-  sqlite3_stmt* sql_stmt_read_image_name_ = nullptr;
+  sqlite3_stmt* sql_stmt_read_image_with_name_ = nullptr;
   sqlite3_stmt* sql_stmt_read_images_ = nullptr;
   sqlite3_stmt* sql_stmt_read_pose_prior_ = nullptr;
   sqlite3_stmt* sql_stmt_read_keypoints_ = nullptr;
