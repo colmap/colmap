@@ -1682,8 +1682,7 @@ void Database::CreateRigTable() const {
 void Database::CreateRigSensorsTable() const {
   const std::string sql =
       "CREATE TABLE IF NOT EXISTS rig_sensors"
-      "   (id                   INTEGER  PRIMARY KEY AUTOINCREMENT  NOT NULL,"
-      "    rig_id               INTEGER                             NOT NULL,"
+      "   (rig_id               INTEGER                             NOT NULL,"
       "    sensor_id            INTEGER                             NOT NULL,"
       "    sensor_type          INTEGER                             NOT NULL,"
       "    sensor_from_rig      BLOB,"
@@ -1720,8 +1719,7 @@ void Database::CreateFrameTable() const {
 void Database::CreateFrameDataTable() const {
   const std::string sql =
       "CREATE TABLE IF NOT EXISTS frame_data"
-      "   (id                   INTEGER  PRIMARY KEY AUTOINCREMENT  NOT NULL,"
-      "    frame_id             INTEGER                             NOT NULL,"
+      "   (frame_id             INTEGER                             NOT NULL,"
       "    data_id              INTEGER                             NOT NULL,"
       "    sensor_id            INTEGER                             NOT NULL,"
       "    sensor_type          INTEGER                             NOT NULL,"
