@@ -82,7 +82,7 @@ void FileCopy(const std::string& src_path,
               const std::string& dst_path,
               CopyType type = CopyType::COPY);
 
-// Check if the path points to an existing directory.
+// Check if the path points to an existing file.
 bool ExistsFile(const std::string& path);
 
 // Check if the path points to an existing directory.
