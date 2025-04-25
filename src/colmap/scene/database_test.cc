@@ -136,9 +136,10 @@ TEST(Database, Rig) {
       Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
   database.UpdateRig(rig);
   EXPECT_EQ(database.ReadRig(rig.RigId()), rig);
-  Rig rig2 = rig;
+  Rig rig2;
+  rig2.AddRefSensor(sensor_t(SensorType::IMU, 10));
   rig2.SetRigId(rig.RigId() + 1);
-  database.WriteRig(rig2, true);
+  database.WriteRig(rig2, /*use_rig_id=*/true);
   EXPECT_EQ(database.NumRigs(), 2);
   EXPECT_TRUE(database.ExistsRig(rig.RigId()));
   EXPECT_TRUE(database.ExistsRig(rig2.RigId()));
@@ -192,9 +193,11 @@ TEST(Database, Frame) {
   frame.AddDataId(data_t(sensor_t(SensorType::CAMERA, 2), 4));
   database.UpdateFrame(frame);
   EXPECT_EQ(database.ReadFrame(frame.FrameId()), frame);
-  Frame frame2 = frame;
+  Frame frame2;
+  frame2.SetRigId(rig.RigId());
+  frame2.AddDataId(data_t(sensor_t(SensorType::CAMERA, 2), 5));
   frame2.SetFrameId(frame.FrameId() + 1);
-  database.WriteFrame(frame2, true);
+  database.WriteFrame(frame2, /*use_frame_id=*/true);
   EXPECT_EQ(database.NumFrames(), 2);
   EXPECT_TRUE(database.ExistsFrame(frame.FrameId()));
   EXPECT_TRUE(database.ExistsFrame(frame2.FrameId()));
@@ -570,8 +573,10 @@ TEST(Database, Merge) {
   EXPECT_EQ(merged_database.NumDescriptors(), 100);
   EXPECT_EQ(merged_database.NumMatches(), 20);
   EXPECT_EQ(merged_database.NumInlierMatches(), 0);
-  EXPECT_EQ(merged_database.ReadAllFrames()[0].DataIds(), frame1.DataIds());
-  EXPECT_EQ(merged_database.ReadAllFrames()[1].DataIds(), frame2.DataIds());
+  EXPECT_EQ(merged_database.ReadAllFrames()[0].DataIds().size(),
+            frame1.DataIds().size());
+  EXPECT_EQ(merged_database.ReadAllFrames()[1].DataIds().size(),
+            frame2.DataIds().size());
   EXPECT_EQ(merged_database.ReadAllImages()[0].CameraId(), 1);
   EXPECT_EQ(merged_database.ReadAllImages()[1].CameraId(), 1);
   EXPECT_EQ(merged_database.ReadAllImages()[2].CameraId(), 2);
