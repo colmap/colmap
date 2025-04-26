@@ -923,24 +923,32 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
     if (!use_prior_position) {
       auto reg_image_ids_it = reconstruction_.RegImageIds().begin();
       config_.SetConstantCamPose(*reg_image_ids_it);
-      config_.SetConstantCamPositions(*(++reg_image_ids_it), {0});
+      auto second_image_id = *(++reg_image_ids_it);
+      if (!config_.ConstantCamPoses().count(second_image_id)) {
+        config_.SetConstantCamPositions(second_image_id, {0});
+      }
     }
-
-    default_bundle_adjuster_ = std::make_unique<DefaultBundleAdjuster>(
-        options_, config_, reconstruction);
 
     if (use_prior_position) {
       // Normalize the reconstruction to avoid any numerical instability but do
       // not transform priors as they will be transformed when added to
       // ceres::Problem.
       normalized_from_metric_ = reconstruction_.Normalize(/*fixed_scale=*/true);
+    }
 
+    default_bundle_adjuster_ = std::make_unique<DefaultBundleAdjuster>(
+        options_, config_, reconstruction);
+
+    if (use_prior_position) {
       if (prior_options_.use_robust_loss_on_prior_position) {
         prior_loss_function_ = std::make_unique<ceres::CauchyLoss>(
             prior_options_.prior_position_loss_scale);
       }
 
       for (const image_t image_id : config_.Images()) {
+        if (config_.ConstantCamPoses().count(image_id)) {
+          continue;
+        }
         const auto pose_prior_it = pose_priors_.find(image_id);
         if (pose_prior_it != pose_priors_.end()) {
           AddPosePriorToProblem(
