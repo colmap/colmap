@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -58,12 +58,13 @@ class TriangulationEstimator {
 
   struct PointData {
     PointData() {}
-    PointData(const Eigen::Vector2d& point, const Eigen::Vector2d& point_N)
-        : point(point), point_normalized(point_N) {}
+    PointData(const Eigen::Vector2d& img_point,
+              const Eigen::Vector2d& cam_point)
+        : img_point(img_point), cam_point(cam_point) {}
     // Image observation in pixels. Only needs to be set for REPROJECTION_ERROR.
-    Eigen::Vector2d point;
-    // Normalized image observation. Must always be set.
-    Eigen::Vector2d point_normalized;
+    Eigen::Vector2d img_point;
+    // Normalized camera coordinates. Must always be set.
+    Eigen::Vector2d cam_point;
   };
 
   struct PoseData {
@@ -86,9 +87,7 @@ class TriangulationEstimator {
   typedef PoseData Y_t;
   typedef Eigen::Vector3d M_t;
 
-  // Specify settings for triangulation estimator.
-  void SetMinTriAngle(double min_tri_angle);
-  void SetResidualType(ResidualType residual_type);
+  TriangulationEstimator(double min_tri_angle, ResidualType residual_type);
 
   // The minimum number of samples needed to estimate a model.
   static const int kMinNumSamples = 2;
@@ -116,8 +115,8 @@ class TriangulationEstimator {
                  std::vector<double>* residuals) const;
 
  private:
-  ResidualType residual_type_ = ResidualType::REPROJECTION_ERROR;
-  double min_tri_angle_ = 0.0;
+  const double min_tri_angle_;
+  const ResidualType residual_type_;
 };
 
 struct EstimateTriangulationOptions {

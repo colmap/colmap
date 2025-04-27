@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -27,15 +27,18 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#pragma once
-
-#include "colmap/util/eigen_alignment.h"
-
-#include <Eigen/Core>
+#include "colmap/geometry/pose_prior.h"
 
 namespace colmap {
 
-Eigen::Matrix<double, 9, 1> ComputeDepthsSylvesterCoeffs(
-    const Eigen::Matrix<double, 3, 6>& K);
+std::ostream& operator<<(std::ostream& stream, const PosePrior& prior) {
+  const static Eigen::IOFormat kVecFmt(
+      Eigen::StreamPrecision, Eigen::DontAlignCols, ", ", ", ");
+  stream << "PosePrior(position=[" << prior.position.format(kVecFmt)
+         << "], position_covariance=["
+         << prior.position_covariance.format(kVecFmt) << "], coordinate_system="
+         << PosePrior::CoordinateSystemToString(prior.coordinate_system) << ")";
+  return stream;
+}
 
 }  // namespace colmap

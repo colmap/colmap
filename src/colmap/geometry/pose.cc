@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -79,13 +79,6 @@ bool DecomposeProjectionMatrix(const Eigen::Matrix3x4d& P,
   }
 
   return true;
-}
-
-Eigen::Matrix3d CrossProductMatrix(const Eigen::Vector3d& vector) {
-  Eigen::Matrix3d matrix;
-  matrix << 0, -vector(2), vector(1), vector(2), 0, -vector(0), -vector(1),
-      vector(0), 0;
-  return matrix;
 }
 
 void RotationMatrixToEulerAngles(const Eigen::Matrix3d& R,

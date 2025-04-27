@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -30,7 +30,7 @@
 #pragma once
 
 #include "colmap/feature/types.h"
-#include "colmap/geometry/gps.h"
+#include "colmap/geometry/pose_prior.h"
 #include "colmap/scene/camera.h"
 #include "colmap/scene/image.h"
 #include "colmap/scene/two_view_geometry.h"

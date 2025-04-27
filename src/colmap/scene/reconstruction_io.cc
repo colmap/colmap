@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -1082,7 +1082,7 @@ void ExportVRML(const Reconstruction& reconstruction,
   points.emplace_back(-six / 3.0, +siy / 3.0, six * 1.0 * 2.0);
 
   for (const auto& [image_id, image] : reconstruction.Images()) {
-    if (!reconstruction.IsImageRegistered(image_id)) {
+    if (!image.HasPose()) {
       continue;
     }
 

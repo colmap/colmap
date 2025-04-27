@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -30,6 +30,7 @@
 #include "colmap/estimators/coordinate_frame.h"
 
 #include "colmap/geometry/gps.h"
+#include "colmap/util/eigen_matchers.h"
 
 #include <gtest/gtest.h>
 
@@ -133,22 +134,26 @@ TEST(CoordinateFrame, AlignToENUPlane) {
   }
   AlignToENUPlane(&reconstruction, &tform, false);
   // Verify final locations of points
-  EXPECT_LE((reconstruction.Point3D(point_ids[0]).xyz -
-             Eigen::Vector3d(3584.8565215, -5561.5336506, 0.0742643))
-                .norm(),
-            1e-6);
-  EXPECT_LE((reconstruction.Point3D(point_ids[1]).xyz -
-             Eigen::Vector3d(-3577.3888622, 5561.6397107, 0.0783761))
-                .norm(),
-            1e-6);
-  EXPECT_LE((reconstruction.Point3D(point_ids[2]).xyz -
-             Eigen::Vector3d(3577.4152111, 5561.6397283, 0.0783613))
-                .norm(),
-            1e-6);
-  EXPECT_LE((reconstruction.Point3D(point_ids[3]).xyz -
-             Eigen::Vector3d(-3584.8301178, -5561.5336683, 0.0742791))
-                .norm(),
-            1e-6);
+  EXPECT_THAT(reconstruction.Point3D(point_ids[0]).xyz,
+              EigenMatrixNear(Eigen::Vector3d(3584.8433196335045,
+                                              -5561.5866894473402,
+                                              -0.0020947810262441635),
+                              1e-6));
+  EXPECT_THAT(reconstruction.Point3D(point_ids[1]).xyz,
+              EigenMatrixNear(Eigen::Vector3d(-3577.4020366631503,
+                                              5561.5866894469982,
+                                              0.0020947791635990143),
+                              1e-6));
+  EXPECT_THAT(reconstruction.Point3D(point_ids[2]).xyz,
+              EigenMatrixNear(Eigen::Vector3d(3577.4020366640707,
+                                              5561.5866894467654,
+                                              0.0020947791635990143),
+                              1e-6));
+  EXPECT_THAT(reconstruction.Point3D(point_ids[3]).xyz,
+              EigenMatrixNear(Eigen::Vector3d(-3584.8433196330498,
+                                              -5561.586689447573,
+                                              -0.0020947810262441635),
+                              1e-6));
 
   // Verify that straight line distance between points is preserved
   for (size_t i = 1; i < points.size(); ++i) {

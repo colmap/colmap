@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -279,6 +279,9 @@ class FeatureWriterThread : public Thread {
             image_data.camera.has_prior_focal_length ? " (Prior)" : "");
         LOG(INFO) << StringPrintf("  Features:        %d",
                                   image_data.keypoints.size());
+        if (image_data.mask.Data()) {
+          LOG(INFO) << "  Mask:            Yes";
+        }
 
         DatabaseTransaction database_transaction(database_);
 
@@ -329,13 +332,18 @@ class FeatureExtractorController : public Thread {
 
     std::shared_ptr<Bitmap> camera_mask;
     if (!reader_options_.camera_mask_path.empty()) {
-      camera_mask = std::make_shared<Bitmap>();
-      if (!camera_mask->Read(reader_options_.camera_mask_path,
-                             /*as_rgb*/ false)) {
-        LOG(ERROR) << "Cannot read camera mask file: "
-                   << reader_options_.camera_mask_path
-                   << ". No mask is going to be used.";
-        camera_mask.reset();
+      if (ExistsFile(reader_options_.camera_mask_path)) {
+        camera_mask = std::make_shared<Bitmap>();
+        if (!camera_mask->Read(reader_options_.camera_mask_path,
+                               /*as_rgb*/ false)) {
+          LOG(ERROR) << "Failed to read invalid mask file at: "
+                     << reader_options_.camera_mask_path
+                     << ". No mask is going to be used.";
+          camera_mask.reset();
+        }
+      } else {
+        LOG(ERROR) << "Mask at " << reader_options_.camera_mask_path
+                   << " does not exist.";
       }
     }
 

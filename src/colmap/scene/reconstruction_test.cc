@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -90,7 +90,7 @@ void GenerateReconstruction(const image_t num_images,
     image.SetPoints2D(
         std::vector<Eigen::Vector2d>(kNumPoints2D, Eigen::Vector2d::Zero()));
     image.SetCamFromWorld(Rigid3d());
-    reconstruction->AddImage(std::move(image));
+    reconstruction->AddImage(image);
   }
 }
 
@@ -167,7 +167,7 @@ TEST(Reconstruction, AddImage) {
   reconstruction.AddImage(image);
   EXPECT_TRUE(reconstruction.ExistsImage(1));
   EXPECT_EQ(reconstruction.Image(1).ImageId(), 1);
-  EXPECT_FALSE(reconstruction.IsImageRegistered(1));
+  EXPECT_FALSE(reconstruction.Image(1).HasPose());
   EXPECT_EQ(reconstruction.Images().count(1), 1);
   EXPECT_EQ(reconstruction.Images().size(), 1);
   EXPECT_EQ(reconstruction.NumCameras(), 1);
@@ -276,23 +276,17 @@ TEST(Reconstruction, RegisterImage) {
   GenerateReconstruction(1, &reconstruction);
   EXPECT_EQ(reconstruction.NumRegImages(), 1);
   EXPECT_TRUE(reconstruction.Image(1).HasPose());
-  EXPECT_TRUE(reconstruction.IsImageRegistered(1));
   reconstruction.RegisterImage(1);
   EXPECT_EQ(reconstruction.NumRegImages(), 1);
   EXPECT_TRUE(reconstruction.Image(1).HasPose());
-  EXPECT_TRUE(reconstruction.IsImageRegistered(1));
   reconstruction.DeRegisterImage(1);
   EXPECT_EQ(reconstruction.NumRegImages(), 0);
   EXPECT_FALSE(reconstruction.Image(1).HasPose());
-  EXPECT_FALSE(reconstruction.IsImageRegistered(1));
 }
 
 TEST(Reconstruction, Normalize) {
   Reconstruction reconstruction;
   GenerateReconstruction(3, &reconstruction);
-  reconstruction.Image(1).CamFromWorld().translation.z() = -10.0;
-  reconstruction.Image(2).CamFromWorld().translation.z() = 0.0;
-  reconstruction.Image(3).CamFromWorld().translation.z() = 10.0;
   reconstruction.DeRegisterImage(1);
   reconstruction.DeRegisterImage(2);
   reconstruction.DeRegisterImage(3);
@@ -376,37 +370,37 @@ TEST(Reconstruction, Normalize) {
       reconstruction.Image(7).CamFromWorld().translation.z(), 3.75, 1e-6);
 }
 
+TEST(Reconstruction, ComputeBoundsAndCentroidEmpty) {
+  Reconstruction reconstruction;
+  const Eigen::Vector3d centroid = reconstruction.ComputeCentroid(0.0, 1.0);
+  const Eigen::AlignedBox3d bbox = reconstruction.ComputeBoundingBox(0.0, 1.0);
+  EXPECT_NEAR(centroid(0), 0, 1e-6);
+  EXPECT_NEAR(centroid(1), 0, 1e-6);
+  EXPECT_NEAR(centroid(2), 0, 1e-6);
+  EXPECT_NEAR(bbox.min().x(), 0, 1e-6);
+  EXPECT_NEAR(bbox.min().y(), 0, 1e-6);
+  EXPECT_NEAR(bbox.min().z(), 0, 1e-6);
+  EXPECT_NEAR(bbox.max().x(), 0, 1e-6);
+  EXPECT_NEAR(bbox.max().y(), 0, 1e-6);
+  EXPECT_NEAR(bbox.max().z(), 0, 1e-6);
+}
+
 TEST(Reconstruction, ComputeBoundsAndCentroid) {
   Reconstruction reconstruction;
-
-  // Test emtpy reconstruction first
-  auto centroid = reconstruction.ComputeCentroid(0.0, 1.0);
-  auto bbox = reconstruction.ComputeBoundingBox(0.0, 1.0);
-  EXPECT_LT(std::abs(centroid(0)), 1e-6);
-  EXPECT_LT(std::abs(centroid(1)), 1e-6);
-  EXPECT_LT(std::abs(centroid(2)), 1e-6);
-  EXPECT_LT(std::abs(bbox.first(0)), 1e-6);
-  EXPECT_LT(std::abs(bbox.first(1)), 1e-6);
-  EXPECT_LT(std::abs(bbox.first(2)), 1e-6);
-  EXPECT_LT(std::abs(bbox.second(0)), 1e-6);
-  EXPECT_LT(std::abs(bbox.second(1)), 1e-6);
-  EXPECT_LT(std::abs(bbox.second(2)), 1e-6);
-
-  // Test reconstruction with 3D points
   reconstruction.AddPoint3D(Eigen::Vector3d(3.0, 0.0, 0.0), Track());
   reconstruction.AddPoint3D(Eigen::Vector3d(0.0, 3.0, 0.0), Track());
   reconstruction.AddPoint3D(Eigen::Vector3d(0.0, 0.0, 3.0), Track());
-  centroid = reconstruction.ComputeCentroid(0.0, 1.0);
-  bbox = reconstruction.ComputeBoundingBox(0.0, 1.0);
-  EXPECT_LT(std::abs(centroid(0) - 1.0), 1e-6);
-  EXPECT_LT(std::abs(centroid(1) - 1.0), 1e-6);
-  EXPECT_LT(std::abs(centroid(2) - 1.0), 1e-6);
-  EXPECT_LT(std::abs(bbox.first(0)), 1e-6);
-  EXPECT_LT(std::abs(bbox.first(1)), 1e-6);
-  EXPECT_LT(std::abs(bbox.first(2)), 1e-6);
-  EXPECT_LT(std::abs(bbox.second(0) - 3.0), 1e-6);
-  EXPECT_LT(std::abs(bbox.second(1) - 3.0), 1e-6);
-  EXPECT_LT(std::abs(bbox.second(2) - 3.0), 1e-6);
+  const Eigen::Vector3d centroid = reconstruction.ComputeCentroid(0.0, 1.0);
+  const Eigen::AlignedBox3d bbox = reconstruction.ComputeBoundingBox(0.0, 1.0);
+  EXPECT_NEAR(centroid(0), 1.0, 1e-6);
+  EXPECT_NEAR(centroid(1), 1.0, 1e-6);
+  EXPECT_NEAR(centroid(2), 1.0, 1e-6);
+  EXPECT_NEAR(bbox.min().x(), 0, 1e-6);
+  EXPECT_NEAR(bbox.min().y(), 0, 1e-6);
+  EXPECT_NEAR(bbox.min().z(), 0, 1e-6);
+  EXPECT_NEAR(bbox.max().x(), 3.0, 1e-6);
+  EXPECT_NEAR(bbox.max().y(), 3.0, 1e-6);
+  EXPECT_NEAR(bbox.max().z(), 3.0, 1e-6);
 }
 
 TEST(Reconstruction, Crop) {
@@ -433,25 +427,23 @@ TEST(Reconstruction, Crop) {
   std::pair<Eigen::Vector3d, Eigen::Vector3d> bbox;
 
   // Test emtpy reconstruction after cropping.
-  bbox.first = Eigen::Vector3d(-1, -1, -1);
-  bbox.second = Eigen::Vector3d(-0.5, -0.5, -0.5);
-  Reconstruction cropped1 = reconstruction.Crop(bbox);
+  const Reconstruction cropped1 = reconstruction.Crop(Eigen::AlignedBox3d(
+      Eigen::Vector3d(-1, -1, -1), Eigen::Vector3d(-0.5, -0.5, -0.5)));
   EXPECT_EQ(cropped1.NumCameras(), 1);
   EXPECT_EQ(cropped1.NumImages(), 3);
   EXPECT_EQ(cropped1.NumRegImages(), 0);
   EXPECT_EQ(cropped1.NumPoints3D(), 0);
 
   // Test reconstruction with contents after cropping
-  bbox.first = Eigen::Vector3d(0.0, 0.0, 0.0);
-  bbox.second = Eigen::Vector3d(0.75, 0.75, 0.75);
-  Reconstruction reconstruction2 = reconstruction.Crop(bbox);
-  EXPECT_EQ(reconstruction2.NumCameras(), 1);
-  EXPECT_EQ(reconstruction2.NumImages(), 3);
-  EXPECT_EQ(reconstruction2.NumRegImages(), 2);
-  EXPECT_EQ(reconstruction2.NumPoints3D(), 3);
-  EXPECT_TRUE(reconstruction2.IsImageRegistered(1));
-  EXPECT_TRUE(reconstruction2.IsImageRegistered(2));
-  EXPECT_FALSE(reconstruction2.IsImageRegistered(3));
+  const Reconstruction cropped2 = reconstruction.Crop(Eigen::AlignedBox3d(
+      Eigen::Vector3d(0.0, 0.0, 0.0), Eigen::Vector3d(0.75, 0.75, 0.75)));
+  EXPECT_EQ(cropped2.NumCameras(), 1);
+  EXPECT_EQ(cropped2.NumImages(), 3);
+  EXPECT_EQ(cropped2.NumRegImages(), 2);
+  EXPECT_EQ(cropped2.NumPoints3D(), 3);
+  EXPECT_TRUE(cropped2.Image(1).HasPose());
+  EXPECT_TRUE(cropped2.Image(2).HasPose());
+  EXPECT_FALSE(cropped2.Image(3).HasPose());
 }
 
 TEST(Reconstruction, Transform) {

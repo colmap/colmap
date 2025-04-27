@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -32,9 +32,6 @@
 #include "colmap/util/string.h"
 #include "colmap/util/timer.h"
 
-#include <set>
-#include <unordered_set>
-
 namespace colmap {
 namespace {
 
@@ -48,6 +45,9 @@ std::vector<Eigen::Vector2d> FeatureKeypointsToPointsVector(
 }
 
 }  // namespace
+
+DatabaseCache::DatabaseCache()
+    : correspondence_graph_(std::make_shared<class CorrespondenceGraph>()) {}
 
 std::shared_ptr<DatabaseCache> DatabaseCache::Create(
     const Database& database,
@@ -212,6 +212,26 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
                             num_ignored_image_pairs);
 
   return cache;
+}
+
+void DatabaseCache::AddCamera(struct Camera camera) {
+  const camera_t camera_id = camera.camera_id;
+  THROW_CHECK(!ExistsCamera(camera_id));
+  cameras_.emplace(camera_id, std::move(camera));
+}
+
+void DatabaseCache::AddImage(class Image image) {
+  const image_t image_id = image.ImageId();
+  THROW_CHECK(!ExistsImage(image_id));
+  correspondence_graph_->AddImage(image_id, image.NumPoints2D());
+  images_.emplace(image_id, std::move(image));
+}
+
+void DatabaseCache::AddPosePrior(image_t image_id,
+                                 struct PosePrior pose_prior) {
+  THROW_CHECK(ExistsImage(image_id));
+  THROW_CHECK(!ExistsPosePrior(image_id));
+  pose_priors_.emplace(image_id, std::move(pose_prior));
 }
 
 const class Image* DatabaseCache::FindImageWithName(

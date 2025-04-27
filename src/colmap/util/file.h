@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -31,10 +31,13 @@
 
 #include "colmap/util/endian.h"
 #include "colmap/util/logging.h"
+#include "colmap/util/types.h"
 
 #include <filesystem>
 #include <fstream>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #define THROW_CHECK_FILE_EXISTS(path) \
@@ -116,17 +119,48 @@ std::vector<std::string> GetRecursiveDirList(const std::string& path);
 // Get the size in bytes of a file.
 size_t GetFileSize(const std::string& path);
 
+// Gets current user's home directory from environment variables.
+// Returns null if it cannot be resolved.
+std::optional<std::filesystem::path> HomeDir();
+
 // Read contiguous binary blob from file.
-template <typename T>
-void ReadBinaryBlob(const std::string& path, std::vector<T>* data);
+void ReadBinaryBlob(const std::string& path, std::vector<char>* data);
 
 // Write contiguous binary blob to file.
-template <typename T>
-void WriteBinaryBlob(const std::string& path, const std::vector<T>& data);
+void WriteBinaryBlob(const std::string& path, const span<const char>& data);
 
 // Read each line of a text file into a separate element. Empty lines are
 // ignored and leading/trailing whitespace is removed.
 std::vector<std::string> ReadTextFileLines(const std::string& path);
+
+#ifdef COLMAP_DOWNLOAD_ENABLED
+
+// Download file from server. Supports any protocol suppported by Curl.
+// Automatically follows redirects. Returns null in case of failure. Notice that
+// this function is not suitable for large files that don't fit easily into
+// memory. If such a use case emerges in the future, we want to instead stream
+// the downloaded data chunks to disk instead of accumulating them in memory.
+std::optional<std::string> DownloadFile(const std::string& url);
+
+// Computes SHA256 digest for given string.
+std::string ComputeSHA256(const std::string_view& str);
+
+// Downloads and caches file from given URI. The URI must take the format
+// "<url>;<name>;<sha256>". The file will be cached under
+// $HOME/.cache/colmap/<sha256>-<name>. File integrity is checked against the
+// provided SHA256 digest. Throws exception if the digest does not match.
+// Returns the path to the cached file.
+std::string DownloadAndCacheFile(const std::string& uri);
+
+// Overwrites the default download cache directory at $HOME/.cache/colmap/.
+void OverwriteDownloadCacheDir(std::filesystem::path path);
+
+#endif  // COLMAP_DOWNLOAD_ENABLED
+
+// If the given URI is a local filesystem path, returns the input path. If the
+// URI matches the "<url>;<name>;<sha256>" format, calls DownloadAndCacheFile().
+// Throws runtime exception if download is not supported.
+std::string MaybeDownloadAndCacheFile(const std::string& uri);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
@@ -138,25 +172,6 @@ std::string JoinPaths(T const&... paths) {
   int unpack[]{0, (result = result / std::filesystem::path(paths), 0)...};
   static_cast<void>(unpack);
   return result.string();
-}
-
-template <typename T>
-void ReadBinaryBlob(const std::string& path, std::vector<T>* data) {
-  std::ifstream file(path, std::ios::binary | std::ios::ate);
-  THROW_CHECK_FILE_OPEN(file, path);
-  file.seekg(0, std::ios::end);
-  const size_t num_bytes = file.tellg();
-  THROW_CHECK_EQ(num_bytes % sizeof(T), 0);
-  data->resize(num_bytes / sizeof(T));
-  file.seekg(0, std::ios::beg);
-  ReadBinaryLittleEndian<T>(&file, data);
-}
-
-template <typename T>
-void WriteBinaryBlob(const std::string& path, const std::vector<T>& data) {
-  std::ofstream file(path, std::ios::binary);
-  THROW_CHECK_FILE_OPEN(file, path);
-  WriteBinaryLittleEndian<T>(&file, data);
 }
 
 }  // namespace colmap

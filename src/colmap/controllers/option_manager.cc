@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -111,6 +111,7 @@ void OptionManager::ModifyForLowQuality() {
   sift_extraction->max_image_size = 1000;
   sift_extraction->max_num_features = 2048;
   sequential_matching->loop_detection_num_images /= 2;
+  vocab_tree_matching->max_num_features = 256;
   vocab_tree_matching->num_images /= 2;
   mapper->ba_local_max_num_iterations /= 2;
   mapper->ba_global_max_num_iterations /= 2;
@@ -131,6 +132,7 @@ void OptionManager::ModifyForMediumQuality() {
   sift_extraction->max_image_size = 1600;
   sift_extraction->max_num_features = 4096;
   sequential_matching->loop_detection_num_images /= 1.5;
+  vocab_tree_matching->max_num_features = 1024;
   vocab_tree_matching->num_images /= 1.5;
   mapper->ba_local_max_num_iterations /= 1.5;
   mapper->ba_global_max_num_iterations /= 1.5;
@@ -152,6 +154,7 @@ void OptionManager::ModifyForHighQuality() {
   sift_extraction->max_image_size = 2400;
   sift_extraction->max_num_features = 8192;
   sift_matching->guided_matching = true;
+  vocab_tree_matching->max_num_features = 4096;
   mapper->ba_local_max_num_iterations = 30;
   mapper->ba_local_max_refinements = 3;
   mapper->ba_global_max_num_iterations = 75;

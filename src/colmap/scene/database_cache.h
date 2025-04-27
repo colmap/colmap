@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -52,6 +52,8 @@ namespace colmap {
 // create new reconstruction instances when multiple models are reconstructed.
 class DatabaseCache {
  public:
+  DatabaseCache();
+
   // Load cameras, images, features, and matches from database.
   //
   // @param database              Source database from which to load data.
@@ -70,6 +72,11 @@ class DatabaseCache {
   inline size_t NumCameras() const;
   inline size_t NumImages() const;
   inline size_t NumPosePriors() const;
+
+  // Add objects.
+  void AddCamera(struct Camera camera);
+  void AddImage(class Image image);
+  void AddPosePrior(image_t image_id, struct PosePrior pose_prior);
 
   // Get specific objects.
   inline struct Camera& Camera(camera_t camera_id);

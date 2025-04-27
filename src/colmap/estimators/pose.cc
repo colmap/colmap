@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -55,35 +55,44 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
   *num_inliers = 0;
   inlier_mask->clear();
 
-  std::vector<Eigen::Vector2d> points2D_normalized(points2D.size());
-  for (size_t i = 0; i < points2D.size(); ++i) {
-    points2D_normalized[i] = camera->CamFromImg(points2D[i]);
-  }
-
-  auto custom_ransac_options = options.ransac_options;
-  custom_ransac_options.max_error =
-      camera->CamFromImgThreshold(options.ransac_options.max_error);
-
   if (options.estimate_focal_length) {
     // TODO(jsch): Implement non-minimal solver for LORANSAC refinement.
     // Experiments showed marginal difference between RANSAC/LORANSAC for PNPF
     // after refining the estimates of this function using RefineAbsolutePose.
-    RANSAC<P4PFEstimator> ransac(custom_ransac_options);
-    auto report = ransac.Estimate(points2D_normalized, points3D);
+    RANSAC<P4PFEstimator> ransac(options.ransac_options);
+    auto report = ransac.Estimate(points2D, points3D);
     if (report.success) {
       *cam_from_world =
           Rigid3d(Eigen::Quaterniond(report.model.cam_from_world.leftCols<3>()),
                   report.model.cam_from_world.col(3));
       for (const size_t idx : camera->FocalLengthIdxs()) {
-        camera->params[idx] *= report.model.focal_length;
+        camera->params[idx] = report.model.focal_length;
       }
       *num_inliers = report.support.num_inliers;
       *inlier_mask = std::move(report.inlier_mask);
       return true;
     }
   } else {
-    LORANSAC<P3PEstimator, EPNPEstimator> ransac(custom_ransac_options);
-    auto report = ransac.Estimate(points2D_normalized, points3D);
+    std::vector<P3PEstimator::X_t> points2D_with_rays(points2D.size());
+    for (size_t i = 0; i < points2D.size(); ++i) {
+      points2D_with_rays[i].image_point = points2D[i];
+      if (const std::optional<Eigen::Vector2d> cam_point =
+              camera->CamFromImg(points2D[i]);
+          cam_point) {
+        points2D_with_rays[i].camera_ray =
+            cam_point->homogeneous().normalized();
+      } else {
+        points2D_with_rays[i].camera_ray.setZero();
+      }
+    }
+
+    ImgFromCamFunc img_from_cam_func =
+        std::bind(&Camera::ImgFromCam, camera, std::placeholders::_1);
+    LORANSAC<P3PEstimator, EPNPEstimator> ransac(
+        options.ransac_options,
+        P3PEstimator(img_from_cam_func),
+        EPNPEstimator(img_from_cam_func));
+    auto report = ransac.Estimate(points2D_with_rays, points3D);
     if (report.success) {
       *cam_from_world = Rigid3d(Eigen::Quaterniond(report.model.leftCols<3>()),
                                 report.model.col(3));
@@ -100,6 +109,8 @@ size_t EstimateRelativePose(const RANSACOptions& ransac_options,
                             const std::vector<Eigen::Vector2d>& points1,
                             const std::vector<Eigen::Vector2d>& points2,
                             Rigid3d* cam2_from_cam1) {
+  THROW_CHECK_EQ(points1.size(), points2.size());
+
   RANSAC<EssentialMatrixFivePointEstimator> ransac(ransac_options);
   const auto report = ransac.Estimate(points1, points2);
 

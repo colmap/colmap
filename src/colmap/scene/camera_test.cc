@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -268,10 +268,10 @@ TEST(Camera, CamFromImg) {
   Camera camera;
   EXPECT_THROW(camera.CamFromImg(Eigen::Vector2d::Zero()), std::domain_error);
   camera = Camera::CreateFromModelName(1, "SIMPLE_PINHOLE", 1.0, 1, 1);
-  EXPECT_EQ(camera.CamFromImg(Eigen::Vector2d(0.0, 0.0))(0), -0.5);
-  EXPECT_EQ(camera.CamFromImg(Eigen::Vector2d(0.0, 0.0))(1), -0.5);
-  EXPECT_EQ(camera.CamFromImg(Eigen::Vector2d(0.5, 0.5))(0), 0.0);
-  EXPECT_EQ(camera.CamFromImg(Eigen::Vector2d(0.5, 0.5))(1), 0.0);
+  EXPECT_EQ(camera.CamFromImg(Eigen::Vector2d(0.0, 0.0)).value(),
+            Eigen::Vector2d(-0.5, -0.5));
+  EXPECT_EQ(camera.CamFromImg(Eigen::Vector2d(0.5, 0.5)).value(),
+            Eigen::Vector2d(0, 0));
 }
 
 TEST(Camera, CamFromImgThreshold) {
@@ -289,12 +289,12 @@ TEST(Camera, CamFromImgThreshold) {
 
 TEST(Camera, ImgFromCam) {
   Camera camera;
-  EXPECT_THROW(camera.ImgFromCam(Eigen::Vector2d::Zero()), std::domain_error);
+  EXPECT_THROW(camera.ImgFromCam(Eigen::Vector3d::Zero()), std::domain_error);
   camera = Camera::CreateFromModelName(1, "SIMPLE_PINHOLE", 1.0, 1, 1);
-  EXPECT_EQ(camera.ImgFromCam(Eigen::Vector2d(0.0, 0.0))(0), 0.5);
-  EXPECT_EQ(camera.ImgFromCam(Eigen::Vector2d(0.0, 0.0))(1), 0.5);
-  EXPECT_EQ(camera.ImgFromCam(Eigen::Vector2d(-0.5, -0.5))(0), 0.0);
-  EXPECT_EQ(camera.ImgFromCam(Eigen::Vector2d(-0.5, -0.5))(1), 0.0);
+  EXPECT_EQ(camera.ImgFromCam(Eigen::Vector3d(0.0, 0.0, 1)).value(),
+            Eigen::Vector2d(0.5, 0.5));
+  EXPECT_EQ(camera.ImgFromCam(Eigen::Vector3d(-0.5, -0.5, 1)).value(),
+            Eigen::Vector2d(0.0, 0.0));
 }
 
 TEST(Camera, Rescale) {

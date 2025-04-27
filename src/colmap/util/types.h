@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -62,6 +62,7 @@ namespace Eigen {
 
 using Matrix3x4f = Matrix<float, 3, 4>;
 using Matrix3x4d = Matrix<double, 3, 4>;
+using Matrix2x3d = Matrix<double, 2, 3>;
 using Matrix6d = Matrix<double, 6, 6>;
 using Vector3ub = Matrix<uint8_t, 3, 1>;
 using Vector4ub = Matrix<uint8_t, 4, 1>;
@@ -82,6 +83,12 @@ typedef uint32_t camera_t;
 // Unique identifier for images.
 typedef uint32_t image_t;
 
+// Unique identifier for frames.
+typedef uint32_t frame_t;
+
+// Unique identifier for rigs.
+typedef uint32_t rig_t;
+
 // Each image pair gets a unique ID, see `Database::ImagePairToPairId`.
 typedef uint64_t image_pair_t;
 
@@ -96,6 +103,8 @@ typedef uint64_t point3D_t;
 // Values for invalid identifiers or indices.
 const camera_t kInvalidCameraId = std::numeric_limits<camera_t>::max();
 const image_t kInvalidImageId = std::numeric_limits<image_t>::max();
+const frame_t kInvalidFrameId = std::numeric_limits<frame_t>::max();
+const frame_t kInvalidRigId = std::numeric_limits<rig_t>::max();
 const image_pair_t kInvalidImagePairId =
     std::numeric_limits<image_pair_t>::max();
 const point2D_t kInvalidPoint2DIdx = std::numeric_limits<point2D_t>::max();

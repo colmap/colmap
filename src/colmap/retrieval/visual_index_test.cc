@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -28,6 +28,9 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 #include "colmap/retrieval/visual_index.h"
+
+#include "colmap/util/file.h"
+#include "colmap/util/testing.h"
 
 #include <gtest/gtest.h>
 
@@ -131,6 +134,39 @@ TEST(VisualIndex, double_32_16) {
   // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
   TestVocabTreeType<double, 32, 16>();
 }
+
+#ifdef COLMAP_DOWNLOAD_ENABLED
+
+TEST(VisualIndex, Download) {
+  const std::string test_dir = CreateTestDir();
+  const std::string vocab_tree_path = test_dir + "/server_vocab_tree.bin";
+  OverwriteDownloadCacheDir(test_dir);
+
+  typedef VisualIndex<uint8_t, 16, 8> VisualIndexType;
+  typename VisualIndexType::DescType descriptors =
+      VisualIndexType::DescType::Random(50, 16);
+  VisualIndexType visual_index;
+  typename VisualIndexType::BuildOptions build_options;
+  build_options.num_visual_words = 5;
+  build_options.branching = 5;
+  // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
+  visual_index.Build(build_options, descriptors);
+  visual_index.Write(vocab_tree_path);
+
+  VisualIndexType downloaded_visual_index;
+  std::vector<char> vocab_tree_data;
+  ReadBinaryBlob(vocab_tree_path, &vocab_tree_data);
+  const std::string vocab_tree_uri =
+      "file://" + std::filesystem::absolute(vocab_tree_path).string() +
+      ";vocab_tree.bin;" +
+      ComputeSHA256({vocab_tree_data.data(), vocab_tree_data.size()});
+  downloaded_visual_index.Read(vocab_tree_uri);
+
+  EXPECT_EQ(downloaded_visual_index.NumVisualWords(),
+            visual_index.NumVisualWords());
+}
+
+#endif
 
 }  // namespace
 }  // namespace retrieval

@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -30,6 +30,7 @@
 #include "colmap/scene/reconstruction.h"
 
 #include "colmap/geometry/gps.h"
+#include "colmap/geometry/normalization.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/geometry/triangulation.h"
 #include "colmap/scene/database_cache.h"
@@ -114,7 +115,7 @@ void Reconstruction::TearDown() {
   // Remove all not yet registered images.
   std::unordered_set<camera_t> keep_camera_ids;
   for (auto it = images_.begin(); it != images_.end();) {
-    if (IsImageRegistered(it->first)) {
+    if (it->second.HasPose()) {
       keep_camera_ids.insert(it->second.CameraId());
       ++it;
     } else {
@@ -266,7 +267,7 @@ void Reconstruction::DeleteAllPoints2DAndPoints3D() {
     new_image.SetCameraId(image.second.CameraId());
     new_image.SetCameraPtr(image.second.CameraPtr());
     new_image.SetCamFromWorld(image.second.MaybeCamFromWorld());
-    image.second = std::move(new_image);
+    image.second = new_image;
   }
 }
 
@@ -291,8 +292,8 @@ void Reconstruction::DeRegisterImage(const image_t image_id) {
 
 Sim3d Reconstruction::Normalize(const bool fixed_scale,
                                 const double extent,
-                                const double p0,
-                                const double p1,
+                                const double min_percentile,
+                                const double max_percentile,
                                 const bool use_images) {
   THROW_CHECK_GT(extent, 0);
 
@@ -301,101 +302,78 @@ Sim3d Reconstruction::Normalize(const bool fixed_scale,
     return Sim3d();
   }
 
-  auto bound = ComputeBoundsAndCentroid(p0, p1, use_images);
+  const auto [bbox, centroid] =
+      ComputeBBBoxAndCentroid(min_percentile, max_percentile, use_images);
 
   // Calculate scale and translation, such that
   // translation is applied before scaling.
   double scale = 1.;
   if (!fixed_scale) {
-    const double old_extent = (std::get<1>(bound) - std::get<0>(bound)).norm();
+    const double old_extent = bbox.diagonal().norm();
     if (old_extent >= std::numeric_limits<double>::epsilon()) {
       scale = extent / old_extent;
     }
   }
 
-  Sim3d tform(
-      scale, Eigen::Quaterniond::Identity(), -scale * std::get<2>(bound));
+  Sim3d tform(scale, Eigen::Quaterniond::Identity(), -scale * centroid);
   Transform(tform);
 
   return tform;
 }
 
-Eigen::Vector3d Reconstruction::ComputeCentroid(const double p0,
-                                                const double p1) const {
-  return std::get<2>(ComputeBoundsAndCentroid(p0, p1, false));
+Eigen::Vector3d Reconstruction::ComputeCentroid(const double min_percentile,
+                                                const double max_percentile,
+                                                bool use_images) const {
+  return ComputeBBBoxAndCentroid(min_percentile, max_percentile, use_images)
+      .second;
 }
 
-std::pair<Eigen::Vector3d, Eigen::Vector3d> Reconstruction::ComputeBoundingBox(
-    const double p0, const double p1) const {
-  auto bound = ComputeBoundsAndCentroid(p0, p1, false);
-  return std::make_pair(std::get<0>(bound), std::get<1>(bound));
+Eigen::AlignedBox3d Reconstruction::ComputeBoundingBox(
+    const double min_percentile,
+    const double max_percentile,
+    bool use_images) const {
+  return ComputeBBBoxAndCentroid(min_percentile, max_percentile, use_images)
+      .first;
 }
 
-std::tuple<Eigen::Vector3d, Eigen::Vector3d, Eigen::Vector3d>
-Reconstruction::ComputeBoundsAndCentroid(const double p0,
-                                         const double p1,
-                                         const bool use_images) const {
-  THROW_CHECK_GE(p0, 0);
-  THROW_CHECK_LE(p0, 1);
-  THROW_CHECK_GE(p1, 0);
-  THROW_CHECK_LE(p1, 1);
-  THROW_CHECK_LE(p0, p1);
-
+std::pair<Eigen::AlignedBox3d, Eigen::Vector3d>
+Reconstruction::ComputeBBBoxAndCentroid(const double min_percentile,
+                                        const double max_percentile,
+                                        const bool use_images) const {
   const size_t num_elements = use_images ? NumRegImages() : points3D_.size();
   if (num_elements == 0) {
-    return std::make_tuple(Eigen::Vector3d(0, 0, 0),
-                           Eigen::Vector3d(0, 0, 0),
-                           Eigen::Vector3d(0, 0, 0));
+    return std::make_pair(
+        Eigen::AlignedBox3d(Eigen::Vector3d(0, 0, 0), Eigen::Vector3d(0, 0, 0)),
+        Eigen::Vector3d(0, 0, 0));
   }
 
   // Coordinates of image centers or point locations.
-  std::vector<float> coords_x;
-  std::vector<float> coords_y;
-  std::vector<float> coords_z;
+  std::vector<double> coords_x;
+  std::vector<double> coords_y;
+  std::vector<double> coords_z;
+  coords_x.reserve(num_elements);
+  coords_y.reserve(num_elements);
+  coords_z.reserve(num_elements);
   if (use_images) {
-    coords_x.reserve(NumRegImages());
-    coords_y.reserve(NumRegImages());
-    coords_z.reserve(NumRegImages());
-    for (const image_t im_id : RegImageIds()) {
-      const Eigen::Vector3d proj_center = Image(im_id).ProjectionCenter();
-      coords_x.push_back(static_cast<float>(proj_center(0)));
-      coords_y.push_back(static_cast<float>(proj_center(1)));
-      coords_z.push_back(static_cast<float>(proj_center(2)));
+    for (const image_t image_id : RegImageIds()) {
+      const Eigen::Vector3d proj_center = Image(image_id).ProjectionCenter();
+      coords_x.push_back(proj_center(0));
+      coords_y.push_back(proj_center(1));
+      coords_z.push_back(proj_center(2));
     }
   } else {
-    coords_x.reserve(points3D_.size());
-    coords_y.reserve(points3D_.size());
-    coords_z.reserve(points3D_.size());
     for (const auto& point3D : points3D_) {
-      coords_x.push_back(static_cast<float>(point3D.second.xyz(0)));
-      coords_y.push_back(static_cast<float>(point3D.second.xyz(1)));
-      coords_z.push_back(static_cast<float>(point3D.second.xyz(2)));
+      coords_x.push_back(point3D.second.xyz(0));
+      coords_y.push_back(point3D.second.xyz(1));
+      coords_z.push_back(point3D.second.xyz(2));
     }
   }
 
-  // Determine robust bounding box and mean.
-
-  std::sort(coords_x.begin(), coords_x.end());
-  std::sort(coords_y.begin(), coords_y.end());
-  std::sort(coords_z.begin(), coords_z.end());
-
-  const size_t P0 = static_cast<size_t>(
-      (coords_x.size() > 3) ? p0 * (coords_x.size() - 1) : 0);
-  const size_t P1 = static_cast<size_t>(
-      (coords_x.size() > 3) ? p1 * (coords_x.size() - 1) : coords_x.size() - 1);
-
-  const Eigen::Vector3d bbox_min(coords_x[P0], coords_y[P0], coords_z[P0]);
-  const Eigen::Vector3d bbox_max(coords_x[P1], coords_y[P1], coords_z[P1]);
-
-  Eigen::Vector3d mean_coord(0, 0, 0);
-  for (size_t i = P0; i <= P1; ++i) {
-    mean_coord(0) += coords_x[i];
-    mean_coord(1) += coords_y[i];
-    mean_coord(2) += coords_z[i];
-  }
-  mean_coord /= P1 - P0 + 1;
-
-  return std::make_tuple(bbox_min, bbox_max, mean_coord);
+  return ComputeBoundingBoxAndCentroid(min_percentile,
+                                       max_percentile,
+                                       std::move(coords_x),
+                                       std::move(coords_y),
+                                       std::move(coords_z));
 }
 
 void Reconstruction::Transform(const Sim3d& new_from_old_world) {
@@ -410,8 +388,7 @@ void Reconstruction::Transform(const Sim3d& new_from_old_world) {
   }
 }
 
-Reconstruction Reconstruction::Crop(
-    const std::pair<Eigen::Vector3d, Eigen::Vector3d>& bbox) const {
+Reconstruction Reconstruction::Crop(const Eigen::AlignedBox3d& bbox) const {
   Reconstruction cropped_reconstruction;
   for (const auto& camera : cameras_) {
     cropped_reconstruction.AddCamera(camera.second);
@@ -423,12 +400,11 @@ Reconstruction Reconstruction::Crop(
     for (point2D_t point2D_idx = 0; point2D_idx < num_points2D; ++point2D_idx) {
       new_image.ResetPoint3DForPoint2D(point2D_idx);
     }
-    cropped_reconstruction.AddImage(std::move(new_image));
+    cropped_reconstruction.AddImage(new_image);
   }
   std::unordered_set<image_t> registered_image_ids;
   for (const auto& point3D : points3D_) {
-    if ((point3D.second.xyz.array() >= bbox.first.array()).all() &&
-        (point3D.second.xyz.array() <= bbox.second.array()).all()) {
+    if (bbox.contains(point3D.second.xyz)) {
       for (const auto& track_el : point3D.second.track.Elements()) {
         registered_image_ids.insert(track_el.image_id);
       }
@@ -460,8 +436,7 @@ std::vector<std::pair<image_t, image_t>> Reconstruction::FindCommonRegImageIds(
   for (const auto image_id : RegImageIds()) {
     const auto& image = Image(image_id);
     const auto* other_image = other.FindImageWithName(image.Name());
-    if (other_image != nullptr &&
-        other.IsImageRegistered(other_image->ImageId())) {
+    if (other_image != nullptr && other_image->HasPose()) {
       common_reg_image_ids.emplace_back(image_id, other_image->ImageId());
     }
   }

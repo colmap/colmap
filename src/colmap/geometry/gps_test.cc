@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -292,29 +292,166 @@ TEST(GPS, ENUToXYZ) {
   }
 }
 
-TEST(PosePrior, Equals) {
-  PosePrior prior;
-  prior.position = Eigen::Vector3d::Zero();
-  prior.position_covariance = Eigen::Matrix3d::Identity();
-  prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
-  PosePrior other = prior;
-  EXPECT_EQ(prior, other);
-  prior.position.x() = 1;
-  EXPECT_NE(prior, other);
-  other.position.x() = 1;
-  EXPECT_EQ(prior, other);
+TEST(GPS, EllToUTMWGS84) {
+  std::vector<Eigen::Vector3d> ell;
+  ell.reserve(3);
+  //(48.1476954472, 11.5695882694, 561.1851) zone32
+  ell.emplace_back(48 + 8. / 60 + 51.70361 / 3600,
+                   11 + 34. / 60 + 10.51777 / 3600,
+                   561.1851);
+  //(48.1478904861, 11.5699366083, 561.1509) zone32
+  ell.emplace_back(48 + 8. / 60 + 52.40575 / 3600,
+                   11 + 34. / 60 + 11.77179 / 3600,
+                   561.1509);
+  //(48.1478904861, 12.5699366083, 561.1509) zone33
+  ell.emplace_back(48 + 8. / 60 + 52.40575 / 3600,
+                   12 + 34. / 60 + 11.77179 / 3600,
+                   561.1509);
+
+  // Calculated from GeographicLib
+  // echo 48.1476954472 11.5695882694 | TransverseMercatorProj -l 9 -p 9
+  // echo 48.1478904861 11.5699366083 | TransverseMercatorProj -l 9 -p 9
+  // echo 48.1478904861 12.5699366083 | TransverseMercatorProj -l 9 -p 9
+  const double east_offset = 5.0e5;
+  std::vector<Eigen::Vector3d> ref_utm;
+  ref_utm.reserve(3);
+  ref_utm.emplace_back(
+      1.91125018424899e5 + east_offset, 5.335909515367108e6, 561.1851);
+  ref_utm.emplace_back(
+      1.91150201163177e5 + east_offset, 5.335932057413140e6, 561.1509);
+  ref_utm.emplace_back(
+      2.65520501819149e5 + east_offset, 5.338903134602814e6, 561.1509);
+
+  GPSTransform gps_tform(GPSTransform::WGS84);
+  const auto [utm, zone] = gps_tform.EllToUTM(ell);
+
+  double tolerance = 1e-8;  // 10nm
+  for (size_t i = 0; i < ell.size(); ++i) {
+    EXPECT_THAT(utm[i], EigenMatrixNear(ref_utm[i], tolerance));
+  }
+  EXPECT_EQ(zone, 32);
 }
 
-TEST(PosePrior, Print) {
-  PosePrior prior;
-  prior.position = Eigen::Vector3d::Zero();
-  prior.position_covariance = Eigen::Matrix3d::Identity();
-  prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
-  std::ostringstream stream;
-  stream << prior;
-  EXPECT_EQ(stream.str(),
-            "PosePrior(position=[0, 0, 0], position_covariance=[1, 0, 0, 0, 1, "
-            "0, 0, 0, 1], coordinate_system=CARTESIAN)");
+TEST(GPS, EllToUTMGRS80) {
+  std::vector<Eigen::Vector3d> ell;
+  ell.reserve(3);
+  //(48.1476954472, 11.5695882694, 561.1851) zone32
+  ell.emplace_back(48 + 8. / 60 + 51.70361 / 3600,
+                   11 + 34. / 60 + 10.51777 / 3600,
+                   561.1851);
+  //(48.1478904861, 11.5699366083, 561.1509) zone32
+  ell.emplace_back(48 + 8. / 60 + 52.40575 / 3600,
+                   11 + 34. / 60 + 11.77179 / 3600,
+                   561.1509);
+  //(48.1478904861, 12.5699366083, 561.1509) zone33
+  ell.emplace_back(48 + 8. / 60 + 52.40575 / 3600,
+                   12 + 34. / 60 + 11.77179 / 3600,
+                   561.1509);
+
+  // Calculated from GeographicLib
+  // echo 48.1476954472 11.5695882694 | TransverseMercatorProj -l 9 -p 9
+  // -e 6378137.0 1.0/298.257222100882711243162837
+  // echo 48.1478904861 11.5699366083 | TransverseMercatorProj -l 9 -p 9
+  // -e 6378137.0 1.0/298.257222100882711243162837
+  // echo 48.1478904861 12.5699366083 | TransverseMercatorProj -l 9 -p 9
+  // -e 6378137.0 1.0/298.257222100882711243162837
+  const double east_offset = 5.0e5;
+  std::vector<Eigen::Vector3d> ref_utm;
+  ref_utm.reserve(3);
+  ref_utm.emplace_back(
+      1.91125018426643e5 + east_offset, 5.335909515244992e6, 561.1851);
+  ref_utm.emplace_back(
+      1.91150201164921e5 + east_offset, 5.335932057291023e6, 561.1509);
+  ref_utm.emplace_back(
+      2.65520501821572e5 + east_offset, 5.338903134480723e6, 561.1509);
+
+  GPSTransform gps_tform(GPSTransform::GRS80);
+  const auto [utm, zone] = gps_tform.EllToUTM(ell);
+
+  double tolerance = 1e-8;  // 10nm
+  for (size_t i = 0; i < ell.size(); ++i) {
+    EXPECT_THAT(utm[i], EigenMatrixNear(ref_utm[i], tolerance));
+  }
+  EXPECT_EQ(zone, 32);
+}
+
+TEST(GPS, UTMToEllWGS84) {
+  const double east_offset = 5.0e5;
+  std::vector<Eigen::Vector3d> utm;
+  utm.reserve(3);
+  utm.emplace_back(
+      1.91125018424899e5 + east_offset, 5.335909515367108e6, 561.1851);
+  utm.emplace_back(
+      1.91150201163177e5 + east_offset, 5.335932057413140e6, 561.1509);
+  utm.emplace_back(
+      2.65520501819149e5 + east_offset, 5.338903134602814e6, 561.1509);
+
+  // Calculated from GeographicLib
+  // echo 191125.018424899 5335909.515367108|TransverseMercatorProj -l 9 -p 9 -r
+  // echo 191150.201163177 5335932.057413140|TransverseMercatorProj -l 9 -p 9 -r
+  // echo 265520.501819149 5338903.134602814|TransverseMercatorProj -l 9 -p 9 -r
+  std::vector<Eigen::Vector3d> ref_ell;
+  ref_ell.reserve(3);
+  //(48.1476954472, 11.5695882694, 561.1851) zone32
+  ref_ell.emplace_back(48 + 8. / 60 + 51.70361 / 3600,
+                       11 + 34. / 60 + 10.51777 / 3600,
+                       561.1851);
+  //(48.1478904861, 11.5699366083, 561.1509) zone32
+  ref_ell.emplace_back(48 + 8. / 60 + 52.40575 / 3600,
+                       11 + 34. / 60 + 11.77179 / 3600,
+                       561.1509);
+  //(48.1478904861, 12.5699366083, 561.1509) zone33
+  ref_ell.emplace_back(48 + 8. / 60 + 52.40575 / 3600,
+                       12 + 34. / 60 + 11.77179 / 3600,
+                       561.1509);
+  GPSTransform gps_tform(GPSTransform::WGS84);
+  const auto ell = gps_tform.UTMToEll(utm, 32, true);
+
+  double tolerance = 1e-8;
+  for (size_t i = 0; i < ell.size(); ++i) {
+    EXPECT_THAT(ell[i], EigenMatrixNear(ref_ell[i], tolerance));
+  }
+}
+
+TEST(GPS, UTMToEllGRS80) {
+  const double east_offset = 5.0e5;
+  std::vector<Eigen::Vector3d> utm;
+  utm.reserve(3);
+  utm.emplace_back(
+      1.91125018426643e5 + east_offset, 5.335909515244992e6, 561.1851);
+  utm.emplace_back(
+      1.91150201164921e5 + east_offset, 5.335932057291023e6, 561.1509);
+  utm.emplace_back(
+      2.65520501821572e5 + east_offset, 5.338903134480723e6, 561.1509);
+
+  // Calculated from GeographicLib
+  // echo 191125.018424899 5335909.515367108|TransverseMercatorProj -l 9 -p 9 -r
+  // -e 6378137.0 1.0/298.257222100882711243162837
+  // echo 191150.201163177 5335932.057413140|TransverseMercatorProj -l 9 -p 9 -r
+  // -e 6378137.0 1.0/298.257222100882711243162837
+  // echo 265520.501819149 5338903.134602814|TransverseMercatorProj -l 9 -p 9 -r
+  // -e 6378137.0 1.0/298.257222100882711243162837
+  std::vector<Eigen::Vector3d> ref_ell;
+  ref_ell.reserve(3);
+  //(48.1476954472, 11.5695882694, 561.1851) zone32
+  ref_ell.emplace_back(48 + 8. / 60 + 51.70361 / 3600,
+                       11 + 34. / 60 + 10.51777 / 3600,
+                       561.1851);
+  //(48.1478904861, 11.5699366083, 561.1509) zone32
+  ref_ell.emplace_back(48 + 8. / 60 + 52.40575 / 3600,
+                       11 + 34. / 60 + 11.77179 / 3600,
+                       561.1509);
+  //(48.1478904861, 12.5699366083, 561.1509) zone33
+  ref_ell.emplace_back(48 + 8. / 60 + 52.40575 / 3600,
+                       12 + 34. / 60 + 11.77179 / 3600,
+                       561.1509);
+  GPSTransform gps_tform(GPSTransform::WGS84);
+  const auto ell = gps_tform.UTMToEll(utm, 32, true);
+
+  double tolerance = 1e-8;
+  for (size_t i = 0; i < ell.size(); ++i) {
+    EXPECT_THAT(ell[i], EigenMatrixNear(ref_ell[i], tolerance));
+  }
 }
 
 }  // namespace

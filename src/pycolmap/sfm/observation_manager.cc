@@ -9,6 +9,7 @@
 #include <pybind11/pybind11.h>
 
 using namespace colmap;
+using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindObservationManager(py::module& m) {

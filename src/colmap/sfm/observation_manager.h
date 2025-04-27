@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -50,9 +50,12 @@ class ObservationManager {
     size_t num_total_corrs = 0;
   };
 
-  explicit ObservationManager(Reconstruction& reconstruction,
+  explicit ObservationManager(class Reconstruction& reconstruction,
                               std::shared_ptr<const CorrespondenceGraph>
                                   correspondence_graph = nullptr);
+
+  inline const class Reconstruction& Reconstruction() const;
+  inline class Reconstruction& Reconstruction();
 
   inline const std::unordered_map<image_pair_t, ImagePairStat>& ImagePairs()
       const;
@@ -179,7 +182,7 @@ class ObservationManager {
     VisibilityPyramid point3D_visibility_pyramid;
   };
 
-  Reconstruction& reconstruction_;
+  class Reconstruction& reconstruction_;
   const std::shared_ptr<const CorrespondenceGraph> correspondence_graph_;
   std::unordered_map<image_pair_t, ImagePairStat> image_pair_stats_;
   std::unordered_map<image_t, ImageStat> image_stats_;
@@ -187,6 +190,14 @@ class ObservationManager {
 
 std::ostream& operator<<(std::ostream& stream,
                          const ObservationManager& obs_manager);
+
+const class Reconstruction& ObservationManager::Reconstruction() const {
+  return reconstruction_;
+}
+
+class Reconstruction& ObservationManager::Reconstruction() {
+  return reconstruction_;
+}
 
 const std::unordered_map<image_pair_t, ObservationManager::ImagePairStat>&
 ObservationManager::ImagePairs() const {

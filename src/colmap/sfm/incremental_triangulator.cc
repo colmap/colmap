@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -684,13 +684,14 @@ size_t IncrementalTriangulator::Complete(const Options& options,
 
   const Point3D& point3D = reconstruction_.Point3D(point3D_id);
 
-  std::vector<TrackElement> queue = point3D.track.Elements();
+  std::vector<TrackElement> curr_queue = point3D.track.Elements();
+  std::vector<TrackElement> next_queue;
 
   const int max_transitivity = options.complete_max_transitivity;
   for (int transitivity = 1; transitivity <= max_transitivity; ++transitivity) {
-    while (!queue.empty()) {
-      const TrackElement queue_elem = queue.back();
-      queue.pop_back();
+    while (!curr_queue.empty()) {
+      const TrackElement queue_elem = curr_queue.back();
+      curr_queue.pop_back();
 
       const auto corr_range = correspondence_graph_->FindCorrespondences(
           queue_elem.image_id, queue_elem.point2D_idx);
@@ -723,16 +724,18 @@ size_t IncrementalTriangulator::Complete(const Options& options,
 
         // Recursively complete track for this new correspondence.
         if (transitivity < max_transitivity) {
-          queue.emplace_back(corr->image_id, corr->point2D_idx);
+          next_queue.emplace_back(corr->image_id, corr->point2D_idx);
         }
 
         num_completed += 1;
       }
     }
 
-    if (queue.empty()) {
+    if (next_queue.empty()) {
       break;
     }
+
+    std::swap(curr_queue, next_queue);
   }
 
   return num_completed;

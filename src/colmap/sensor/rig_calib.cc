@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -27,36 +27,26 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/util/enum_to_string.h"
-
-#include <string>
-
-#include <gtest/gtest.h>
+#include "colmap/sensor/rig_calib.h"
 
 namespace colmap {
-namespace {
 
-MAKE_ENUM(MyEnum, 0, ClassA, ClassB);
-MAKE_ENUM_CLASS_OVERLOAD_STREAM(MyEnumClass, -1, UNDEFINED, ClassA, ClassB);
-
-TEST(MakeEnum, Nominal) {
-  EXPECT_EQ(ClassA, 0);
-  EXPECT_EQ(ClassB, 1);
-  EXPECT_EQ(MyEnumToString(ClassA), "ClassA");
-  EXPECT_EQ(MyEnumToString(ClassB), "ClassB");
+void RigCalib::AddRefSensor(sensor_t ref_sensor_id) {
+  THROW_CHECK(ref_sensor_id_ == kInvalidSensorId)
+      << "Reference sensor already set";
+  ref_sensor_id_ = ref_sensor_id;
 }
 
-TEST(MakeEnumClass, Nominal) {
-  EXPECT_EQ(static_cast<int>(MyEnumClass::UNDEFINED), -1);
-  EXPECT_EQ(static_cast<int>(MyEnumClass::ClassA), 0);
-  EXPECT_EQ(static_cast<int>(MyEnumClass::ClassB), 1);
-  EXPECT_EQ(MyEnumClassToString(-1), "UNDEFINED");
-  EXPECT_EQ(MyEnumClassToString(0), "ClassA");
-  EXPECT_EQ(MyEnumClassToString(1), "ClassB");
-  std::ostringstream stream;
-  stream << MyEnumClass::ClassA;
-  EXPECT_EQ(stream.str(), "ClassA");
+void RigCalib::AddSensor(sensor_t sensor_id,
+                         const std::optional<Rigid3d>& sensor_from_rig) {
+  THROW_CHECK(NumSensors() >= 1)
+      << "The reference sensor needs to added first before any "
+         "sensor being added.";
+  THROW_CHECK(!HasSensor(sensor_id))
+      << StringPrintf("Sensor id (%d, %d) is inserted twice into the rig",
+                      sensor_id.type,
+                      sensor_id.id);
+  sensors_from_rig_.emplace(sensor_id, sensor_from_rig);
 }
 
-}  // namespace
 }  // namespace colmap

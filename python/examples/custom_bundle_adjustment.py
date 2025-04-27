@@ -2,7 +2,6 @@
 Python reimplementation of the bundle adjustment for the incremental mapper of
 C++ with equivalent logic. As a result, one can add customized residuals on top
 of the exposed ceres problem from conventional bundle adjustment.
-pyceres is needed as a dependency for this file.
 """
 
 import copy
@@ -17,6 +16,7 @@ def solve_bundle_adjustment(reconstruction, ba_options, ba_config):
     )
     summary = bundle_adjuster.solve()
     # Alternatively, you can customize the existing problem or options as:
+    # import pyceres
     # solver_options = ba_options.create_solver_options(
     #     ba_config, bundle_adjuster.problem
     # )

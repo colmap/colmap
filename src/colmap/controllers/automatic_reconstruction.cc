@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -55,6 +55,9 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   option_manager_.AddAllOptions();
 
   *option_manager_.image_path = options_.image_path;
+  option_manager_.image_reader->image_names = options_.image_names;
+  option_manager_.mapper->image_names = {options_.image_names.begin(),
+                                         options_.image_names.end()};
   *option_manager_.database_path =
       JoinPaths(options_.workspace_path, "database.db");
 
@@ -109,35 +112,39 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   option_manager_.mapper->ba_gpu_index = options_.gpu_index;
   option_manager_.bundle_adjustment->gpu_index = options_.gpu_index;
 
-  feature_extractor_ = CreateFeatureExtractorController(
-      reader_options, *option_manager_.sift_extraction);
-
-  exhaustive_matcher_ =
-      CreateExhaustiveFeatureMatcher(*option_manager_.exhaustive_matching,
-                                     *option_manager_.sift_matching,
-                                     *option_manager_.two_view_geometry,
-                                     *option_manager_.database_path);
-
-  if (!options_.vocab_tree_path.empty()) {
-    option_manager_.sequential_matching->loop_detection = true;
-    option_manager_.sequential_matching->vocab_tree_path =
-        options_.vocab_tree_path;
+  if (options_.extraction) {
+    feature_extractor_ = CreateFeatureExtractorController(
+        reader_options, *option_manager_.sift_extraction);
   }
 
-  sequential_matcher_ =
-      CreateSequentialFeatureMatcher(*option_manager_.sequential_matching,
-                                     *option_manager_.sift_matching,
-                                     *option_manager_.two_view_geometry,
-                                     *option_manager_.database_path);
+  if (options_.matching) {
+    exhaustive_matcher_ =
+        CreateExhaustiveFeatureMatcher(*option_manager_.exhaustive_matching,
+                                       *option_manager_.sift_matching,
+                                       *option_manager_.two_view_geometry,
+                                       *option_manager_.database_path);
 
-  if (!options_.vocab_tree_path.empty()) {
-    option_manager_.vocab_tree_matching->vocab_tree_path =
-        options_.vocab_tree_path;
-    vocab_tree_matcher_ =
-        CreateVocabTreeFeatureMatcher(*option_manager_.vocab_tree_matching,
-                                      *option_manager_.sift_matching,
-                                      *option_manager_.two_view_geometry,
-                                      *option_manager_.database_path);
+    if (!options_.vocab_tree_path.empty()) {
+      option_manager_.sequential_matching->loop_detection = true;
+      option_manager_.sequential_matching->vocab_tree_path =
+          options_.vocab_tree_path;
+    }
+
+    sequential_matcher_ =
+        CreateSequentialFeatureMatcher(*option_manager_.sequential_matching,
+                                       *option_manager_.sift_matching,
+                                       *option_manager_.two_view_geometry,
+                                       *option_manager_.database_path);
+
+    if (!options_.vocab_tree_path.empty()) {
+      option_manager_.vocab_tree_matching->vocab_tree_path =
+          options_.vocab_tree_path;
+      vocab_tree_matcher_ =
+          CreateVocabTreeFeatureMatcher(*option_manager_.vocab_tree_matching,
+                                        *option_manager_.sift_matching,
+                                        *option_manager_.two_view_geometry,
+                                        *option_manager_.database_path);
+    }
   }
 }
 

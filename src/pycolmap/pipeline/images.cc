@@ -26,7 +26,7 @@ namespace py = pybind11;
 void ImportImages(const std::string& database_path,
                   const std::string& image_path,
                   const CameraMode camera_mode,
-                  const std::vector<std::string>& image_list,
+                  const std::vector<std::string>& image_names,
                   const ImageReaderOptions& options_) {
   THROW_CHECK_FILE_EXISTS(database_path);
   THROW_CHECK_DIR_EXISTS(image_path);
@@ -34,7 +34,7 @@ void ImportImages(const std::string& database_path,
   ImageReaderOptions options(options_);
   options.database_path = database_path;
   options.image_path = image_path;
-  options.image_list = image_list;
+  options.image_names = image_names;
   UpdateImageReaderOptionsFromCameraMode(options, camera_mode);
 
   Database database(options.database_path);
@@ -94,7 +94,7 @@ Camera InferCameraFromImage(const std::string& image_path,
 void UndistortImages(const std::string& output_path,
                      const std::string& input_path,
                      const std::string& image_path,
-                     const std::vector<std::string>& image_list,
+                     const std::vector<std::string>& image_names,
                      const std::string& output_type,
                      const CopyType copy_type,
                      const int num_patch_match_src_images,
@@ -108,7 +108,7 @@ void UndistortImages(const std::string& output_path,
                             reconstruction.NumPoints3D());
 
   std::vector<image_t> image_ids;
-  for (const auto& image_name : image_list) {
+  for (const auto& image_name : image_names) {
     const Image* image = reconstruction.FindImageWithName(image_name);
     if (image != nullptr) {
       image_ids.push_back(image->ImageId());
@@ -190,7 +190,8 @@ void BindImages(py::module& m) {
               &IROpts::camera_mask_path,
               "Optional path to an image file specifying a mask for all "
               "images. No features will be extracted in regions where the "
-              "mask is black (pixel intensity value 0 in grayscale)");
+              "mask is black (pixel intensity value 0 in grayscale)")
+          .def("check", &IROpts::Check);
   MakeDataclass(PyImageReaderOptions);
 
   auto PyCopyType = py::enum_<CopyType>(m, "CopyType")
@@ -199,38 +200,12 @@ void BindImages(py::module& m) {
                         .value("hardlink", CopyType::HARD_LINK);
   AddStringToEnumConstructor(PyCopyType);
 
-  using UDOpts = UndistortCameraOptions;
-  auto PyUndistortCameraOptions =
-      py::class_<UDOpts>(m, "UndistortCameraOptions")
-          .def(py::init<>())
-          .def_readwrite("blank_pixels",
-                         &UDOpts::blank_pixels,
-                         "The amount of blank pixels in the undistorted "
-                         "image in the range [0, 1].")
-          .def_readwrite("min_scale",
-                         &UDOpts::min_scale,
-                         "Minimum scale change of camera used to satisfy the "
-                         "blank pixel constraint.")
-          .def_readwrite("max_scale",
-                         &UDOpts::max_scale,
-                         "Maximum scale change of camera used to satisfy the "
-                         "blank pixel constraint.")
-          .def_readwrite("max_image_size",
-                         &UDOpts::max_image_size,
-                         "Maximum image size in terms of width or height of "
-                         "the undistorted camera.")
-          .def_readwrite("roi_min_x", &UDOpts::roi_min_x)
-          .def_readwrite("roi_min_y", &UDOpts::roi_min_y)
-          .def_readwrite("roi_max_x", &UDOpts::roi_max_x)
-          .def_readwrite("roi_max_y", &UDOpts::roi_max_y);
-  MakeDataclass(PyUndistortCameraOptions);
-
   m.def("import_images",
         &ImportImages,
         "database_path"_a,
         "image_path"_a,
         "camera_mode"_a = CameraMode::AUTO,
-        "image_list"_a = std::vector<std::string>(),
+        "image_names"_a = std::vector<std::string>(),
         py::arg_v("options", ImageReaderOptions(), "ImageReaderOptions()"),
         "Import images into a database");
 
@@ -245,7 +220,7 @@ void BindImages(py::module& m) {
         "output_path"_a,
         "input_path"_a,
         "image_path"_a,
-        "image_list"_a = std::vector<std::string>(),
+        "image_names"_a = std::vector<std::string>(),
         "output_type"_a = "COLMAP",
         "copy_policy"_a = CopyType::COPY,
         "num_patch_match_src_images"_a = 20,

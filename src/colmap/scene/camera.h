@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -124,14 +124,16 @@ struct Camera {
                              double max_focal_length_ratio,
                              double max_extra_param) const;
 
-  // Project point in image plane to world / infinity.
-  inline Eigen::Vector2d CamFromImg(const Eigen::Vector2d& image_point) const;
+  // Project point in image plane to camera ray (not unit normalized).
+  inline std::optional<Eigen::Vector2d> CamFromImg(
+      const Eigen::Vector2d& image_point) const;
 
   // Convert pixel threshold in image plane to camera frame.
   inline double CamFromImgThreshold(double threshold) const;
 
   // Project point from camera frame to image plane.
-  inline Eigen::Vector2d ImgFromCam(const Eigen::Vector2d& cam_point) const;
+  inline std::optional<Eigen::Vector2d> ImgFromCam(
+      const Eigen::Vector3d& cam_point) const;
 
   // Rescale camera dimensions and accordingly the focal length and
   // and the principal point.
@@ -243,16 +245,18 @@ bool Camera::HasBogusParams(const double min_focal_length_ratio,
                                    max_extra_param);
 }
 
-Eigen::Vector2d Camera::CamFromImg(const Eigen::Vector2d& image_point) const {
-  return CameraModelCamFromImg(model_id, params, image_point).hnormalized();
+std::optional<Eigen::Vector2d> Camera::CamFromImg(
+    const Eigen::Vector2d& image_point) const {
+  return CameraModelCamFromImg(model_id, params, image_point);
 }
 
 double Camera::CamFromImgThreshold(const double threshold) const {
   return CameraModelCamFromImgThreshold(model_id, params, threshold);
 }
 
-Eigen::Vector2d Camera::ImgFromCam(const Eigen::Vector2d& cam_point) const {
-  return CameraModelImgFromCam(model_id, params, cam_point.homogeneous());
+std::optional<Eigen::Vector2d> Camera::ImgFromCam(
+    const Eigen::Vector3d& cam_point) const {
+  return CameraModelImgFromCam(model_id, params, cam_point);
 }
 
 bool Camera::operator==(const Camera& other) const {

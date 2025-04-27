@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -66,6 +66,7 @@ void UpdateDatabasePosePriorsCovariance(const std::string& database_path,
 
 int RunAutomaticReconstructor(int argc, char** argv) {
   AutomaticReconstructionController::Options reconstruction_options;
+  std::string image_list_path;
   std::string data_type = "individual";
   std::string quality = "high";
   std::string mesher = "poisson";
@@ -74,6 +75,7 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   options.AddRequiredOption("workspace_path",
                             &reconstruction_options.workspace_path);
   options.AddRequiredOption("image_path", &reconstruction_options.image_path);
+  options.AddDefaultOption("image_list_path", &image_list_path);
   options.AddDefaultOption("mask_path", &reconstruction_options.mask_path);
   options.AddDefaultOption("vocab_tree_path",
                            &reconstruction_options.vocab_tree_path);
@@ -98,51 +100,26 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   options.AddDefaultOption("gpu_index", &reconstruction_options.gpu_index);
   options.Parse(argc, argv);
 
-  StringToLower(&data_type);
-  if (data_type == "individual") {
-    reconstruction_options.data_type =
-        AutomaticReconstructionController::DataType::INDIVIDUAL;
-  } else if (data_type == "video") {
-    reconstruction_options.data_type =
-        AutomaticReconstructionController::DataType::VIDEO;
-  } else if (data_type == "internet") {
-    reconstruction_options.data_type =
-        AutomaticReconstructionController::DataType::INTERNET;
-  } else {
-    LOG(FATAL_THROW) << "Invalid data type provided";
+  if (!image_list_path.empty()) {
+    reconstruction_options.image_names = ReadTextFileLines(image_list_path);
   }
 
-  StringToLower(&quality);
-  if (quality == "low") {
-    reconstruction_options.quality =
-        AutomaticReconstructionController::Quality::LOW;
-  } else if (quality == "medium") {
-    reconstruction_options.quality =
-        AutomaticReconstructionController::Quality::MEDIUM;
-  } else if (quality == "high") {
-    reconstruction_options.quality =
-        AutomaticReconstructionController::Quality::HIGH;
-  } else if (quality == "extreme") {
-    reconstruction_options.quality =
-        AutomaticReconstructionController::Quality::EXTREME;
-  } else {
-    LOG(FATAL_THROW) << "Invalid quality provided";
-  }
+  StringToUpper(&data_type);
+  reconstruction_options.data_type =
+      AutomaticReconstructionController::DataTypeFromString(data_type);
 
-  StringToLower(&mesher);
-  if (mesher == "poisson") {
-    reconstruction_options.mesher =
-        AutomaticReconstructionController::Mesher::POISSON;
-  } else if (mesher == "delaunay") {
-    reconstruction_options.mesher =
-        AutomaticReconstructionController::Mesher::DELAUNAY;
-  } else {
-    LOG(FATAL_THROW) << "Invalid mesher provided";
-  }
+  StringToUpper(&quality);
+  reconstruction_options.quality =
+      AutomaticReconstructionController::QualityFromString(quality);
+
+  StringToUpper(&mesher);
+  reconstruction_options.mesher =
+      AutomaticReconstructionController::MesherFromString(mesher);
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
 
-  if (reconstruction_options.use_gpu && kUseOpenGL) {
+  if (reconstruction_options.use_gpu && kUseOpenGL &&
+      (reconstruction_options.extraction || reconstruction_options.matching)) {
     QApplication app(argc, argv);
     AutomaticReconstructionController controller(reconstruction_options,
                                                  reconstruction_manager);
@@ -226,9 +203,7 @@ int RunMapper(int argc, char** argv) {
   }
 
   if (!image_list_path.empty()) {
-    const auto image_names = ReadTextFileLines(image_list_path);
-    options.mapper->image_names =
-        std::unordered_set<std::string>(image_names.begin(), image_names.end());
+    options.mapper->image_names = ReadTextFileLines(image_list_path);
   }
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();

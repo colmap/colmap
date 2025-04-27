@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -34,6 +34,8 @@
 
 #include <clocale>
 
+static void InitUiResources() { Q_INIT_RESOURCE(resources); }
+
 namespace colmap {
 
 MainWindow::MainWindow(const OptionManager& options)
@@ -41,6 +43,8 @@ MainWindow::MainWindow(const OptionManager& options)
       reconstruction_manager_(std::make_shared<ReconstructionManager>()),
       thread_control_widget_(new ThreadControlWidget(this)),
       window_closed_(false) {
+  InitUiResources();
+
   // NOLINTNEXTLINE(concurrency-mt-unsafe)
   std::setlocale(LC_NUMERIC, "C");
 
@@ -1368,7 +1372,7 @@ void MainWindow::RenderToggle() {
   } else {
     render_options_widget_->automatic_update = true;
     render_options_widget_->counter = 0;
-    Render();
+    RenderNow();
     action_render_toggle_->setIcon(QIcon(":/media/render-enabled.png"));
     action_render_toggle_->setText(tr("Disable rendering"));
   }

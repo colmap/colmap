@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/geometry/rigid3.h"
 #include "colmap/geometry/sim3.h"
 #include "colmap/optim/loransac.h"
 #include "colmap/optim/ransac.h"
@@ -69,58 +70,49 @@ class SimilarityTransformEstimator {
   // Estimate the similarity transform.
   //
   // @param src      Set of corresponding source points.
-  // @param dst      Set of corresponding destination points.
+  // @param tgt      Set of corresponding destination points.
   //
   // @return         4x4 homogeneous transformation matrix.
   static void Estimate(const std::vector<X_t>& src,
-                       const std::vector<Y_t>& dst,
-                       std::vector<M_t>* models);
+                       const std::vector<Y_t>& tgt,
+                       std::vector<M_t>* tgt_from_src);
 
   // Calculate the transformation error for each corresponding point pair.
   //
   // Residuals are defined as the squared transformation error when
   // transforming the source to the destination coordinates.
   //
-  // @param src        Set of corresponding points in the source coordinate
-  //                   system as a Nx3 matrix.
-  // @param dst        Set of corresponding points in the destination
-  //                   coordinate system as a Nx3 matrix.
-  // @param matrix     4x4 homogeneous transformation matrix.
-  // @param residuals  Output vector of residuals for each point pair.
+  // @param src           Set of corresponding points in the source coordinate
+  //                      system as a Nx3 matrix.
+  // @param tgt           Set of corresponding points in the destination
+  //                      coordinate system as a Nx3 matrix.
+  // @param tgt_from_src  4x4 homogeneous transformation matrix.
+  // @param residuals     Output vector of residuals for each point pair.
   static void Residuals(const std::vector<X_t>& src,
-                        const std::vector<Y_t>& dst,
-                        const M_t& matrix,
+                        const std::vector<Y_t>& tgt,
+                        const M_t& tgt_from_src,
                         std::vector<double>* residuals);
 };
 
-inline bool EstimateSim3d(const std::vector<Eigen::Vector3d>& src,
-                          const std::vector<Eigen::Vector3d>& tgt,
-                          Sim3d& tgt_from_src) {
-  std::vector<Eigen::Matrix3x4d> models;
-  SimilarityTransformEstimator<3, true>().Estimate(src, tgt, &models);
-  if (models.empty()) {
-    return false;
-  }
-  THROW_CHECK_EQ(models.size(), 1);
-  tgt_from_src = Sim3d::FromMatrix(models[0]);
-  return true;
-}
+bool EstimateRigid3d(const std::vector<Eigen::Vector3d>& src,
+                     const std::vector<Eigen::Vector3d>& tgt,
+                     Rigid3d& tgt_from_src);
 
-template <bool kEstimateScale = true>
-inline typename RANSAC<SimilarityTransformEstimator<3, kEstimateScale>>::Report
+typename RANSAC<SimilarityTransformEstimator<3, false>>::Report
+EstimateRigid3dRobust(const std::vector<Eigen::Vector3d>& src,
+                      const std::vector<Eigen::Vector3d>& tgt,
+                      const RANSACOptions& options,
+                      Rigid3d& tgt_from_src);
+
+bool EstimateSim3d(const std::vector<Eigen::Vector3d>& src,
+                   const std::vector<Eigen::Vector3d>& tgt,
+                   Sim3d& tgt_from_src);
+
+typename RANSAC<SimilarityTransformEstimator<3, true>>::Report
 EstimateSim3dRobust(const std::vector<Eigen::Vector3d>& src,
                     const std::vector<Eigen::Vector3d>& tgt,
                     const RANSACOptions& options,
-                    Sim3d& tgt_from_src) {
-  LORANSAC<SimilarityTransformEstimator<3, kEstimateScale>,
-           SimilarityTransformEstimator<3, kEstimateScale>>
-      ransac(options);
-  auto report = ransac.Estimate(src, tgt);
-  if (report.success) {
-    tgt_from_src = Sim3d::FromMatrix(report.model);
-  }
-  return report;
-}
+                    Sim3d& tgt_from_src);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
@@ -129,44 +121,48 @@ EstimateSim3dRobust(const std::vector<Eigen::Vector3d>& src,
 template <int kDim, bool kEstimateScale>
 void SimilarityTransformEstimator<kDim, kEstimateScale>::Estimate(
     const std::vector<X_t>& src,
-    const std::vector<Y_t>& dst,
+    const std::vector<Y_t>& tgt,
     std::vector<M_t>* models) {
-  THROW_CHECK_EQ(src.size(), dst.size());
+  THROW_CHECK_EQ(src.size(), tgt.size());
+  THROW_CHECK_GE(src.size(), kMinNumSamples);
   THROW_CHECK(models != nullptr);
 
   models->clear();
 
-  Eigen::Matrix<double, kDim, Eigen::Dynamic> src_mat(kDim, src.size());
-  Eigen::Matrix<double, kDim, Eigen::Dynamic> dst_mat(kDim, dst.size());
-  for (size_t i = 0; i < src.size(); ++i) {
-    src_mat.col(i) = src[i];
-    dst_mat.col(i) = dst[i];
+  using MatrixType = Eigen::Matrix<double, kDim, Eigen::Dynamic>;
+  const Eigen::Map<const MatrixType> src_mat(
+      reinterpret_cast<const double*>(src.data()), kDim, src.size());
+  const Eigen::Map<const MatrixType> tgt_mat(
+      reinterpret_cast<const double*>(tgt.data()), kDim, tgt.size());
+
+  if (Eigen::FullPivLU<MatrixType>(src_mat).rank() < kMinNumSamples ||
+      Eigen::FullPivLU<MatrixType>(tgt_mat).rank() < kMinNumSamples) {
+    return;
   }
 
-  const M_t model = Eigen::umeyama(src_mat, dst_mat, kEstimateScale)
-                        .template topLeftCorner<kDim, kDim + 1>();
+  const M_t sol = Eigen::umeyama(src_mat, tgt_mat, kEstimateScale)
+                      .template topLeftCorner<kDim, kDim + 1>();
 
-  if (model.array().isNaN().any()) {
+  if (sol.hasNaN()) {
     return;
   }
 
   models->resize(1);
-  (*models)[0] = model;
+  (*models)[0] = sol;
 }
 
 template <int kDim, bool kEstimateScale>
 void SimilarityTransformEstimator<kDim, kEstimateScale>::Residuals(
     const std::vector<X_t>& src,
-    const std::vector<Y_t>& dst,
-    const M_t& matrix,
+    const std::vector<Y_t>& tgt,
+    const M_t& tgt_from_src,
     std::vector<double>* residuals) {
-  THROW_CHECK_EQ(src.size(), dst.size());
-
-  residuals->resize(src.size());
-
-  for (size_t i = 0; i < src.size(); ++i) {
-    const Y_t dst_transformed = matrix * src[i].homogeneous();
-    (*residuals)[i] = (dst[i] - dst_transformed).squaredNorm();
+  const size_t num_points = src.size();
+  THROW_CHECK_EQ(num_points, tgt.size());
+  residuals->resize(num_points);
+  for (size_t i = 0; i < num_points; ++i) {
+    (*residuals)[i] =
+        (tgt[i] - tgt_from_src * src[i].homogeneous()).squaredNorm();
   }
 }
 

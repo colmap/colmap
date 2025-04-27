@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -30,6 +30,7 @@
 #pragma once
 
 #include "colmap/feature/matcher.h"
+#include "colmap/retrieval/resources.h"
 #include "colmap/retrieval/visual_index.h"
 #include "colmap/scene/database.h"
 #include "colmap/util/threading.h"
@@ -65,7 +66,7 @@ struct VocabTreeMatchingOptions {
   int max_num_features = -1;
 
   // Path to the vocabulary tree.
-  std::string vocab_tree_path = "";
+  std::string vocab_tree_path = kDefaultVocabTreeUri;
 
   // Optional path to file with specific image names to match.
   std::string match_list_path = "";
@@ -110,7 +111,7 @@ struct SequentialMatchingOptions {
   int loop_detection_max_num_features = -1;
 
   // Path to the vocabulary tree.
-  std::string vocab_tree_path = "";
+  std::string vocab_tree_path = kDefaultVocabTreeUri;
 
   bool Check() const;
 

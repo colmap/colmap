@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -29,6 +29,7 @@
 
 #include "colmap/mvs/fusion.h"
 
+#include "colmap/math/math.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/file.h"
 #include "colmap/util/misc.h"
@@ -40,21 +41,6 @@
 namespace colmap {
 namespace mvs {
 namespace internal {
-
-template <typename T>
-float Median(std::vector<T>* elems) {
-  THROW_CHECK(!elems->empty());
-  const size_t mid_idx = elems->size() / 2;
-  std::nth_element(elems->begin(), elems->begin() + mid_idx, elems->end());
-  if (elems->size() % 2 == 0) {
-    const float mid_element1 = static_cast<float>((*elems)[mid_idx]);
-    const float mid_element2 = static_cast<float>(
-        *std::max_element(elems->begin(), elems->begin() + mid_idx));
-    return (mid_element1 + mid_element2) / 2.0f;
-  } else {
-    return static_cast<float>((*elems)[mid_idx]);
-  }
-}
 
 // Use the sparse model to find most connected image that has not yet been
 // fused. This is used as a heuristic to ensure that the workspace cache reuses
@@ -535,28 +521,28 @@ void StereoFusion::Fuse(const int thread_id,
     PlyPoint fused_point;
 
     Eigen::Vector3f fused_normal;
-    fused_normal.x() = internal::Median(&fused_point_nx);
-    fused_normal.y() = internal::Median(&fused_point_ny);
-    fused_normal.z() = internal::Median(&fused_point_nz);
+    fused_normal.x() = Median(fused_point_nx);
+    fused_normal.y() = Median(fused_point_ny);
+    fused_normal.z() = Median(fused_point_nz);
     const float fused_normal_norm = fused_normal.norm();
     if (fused_normal_norm < std::numeric_limits<float>::epsilon()) {
       return;
     }
 
-    fused_point.x = internal::Median(&fused_point_x);
-    fused_point.y = internal::Median(&fused_point_y);
-    fused_point.z = internal::Median(&fused_point_z);
+    fused_point.x = Median(fused_point_x);
+    fused_point.y = Median(fused_point_y);
+    fused_point.z = Median(fused_point_z);
 
     fused_point.nx = fused_normal.x() / fused_normal_norm;
     fused_point.ny = fused_normal.y() / fused_normal_norm;
     fused_point.nz = fused_normal.z() / fused_normal_norm;
 
-    fused_point.r = TruncateCast<float, uint8_t>(
-        std::round(internal::Median(&fused_point_r)));
-    fused_point.g = TruncateCast<float, uint8_t>(
-        std::round(internal::Median(&fused_point_g)));
-    fused_point.b = TruncateCast<float, uint8_t>(
-        std::round(internal::Median(&fused_point_b)));
+    fused_point.r =
+        TruncateCast<float, uint8_t>(std::round(Median(fused_point_r)));
+    fused_point.g =
+        TruncateCast<float, uint8_t>(std::round(Median(fused_point_g)));
+    fused_point.b =
+        TruncateCast<float, uint8_t>(std::round(Median(fused_point_b)));
 
     task_fused_points_[thread_id].push_back(fused_point);
     task_fused_points_visibility_[thread_id].emplace_back(
