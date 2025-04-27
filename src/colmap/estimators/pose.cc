@@ -59,7 +59,8 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
     // TODO(jsch): Implement non-minimal solver for LORANSAC refinement.
     // Experiments showed marginal difference between RANSAC/LORANSAC for PNPF
     // after refining the estimates of this function using RefineAbsolutePose.
-    const Eigen::Vector2d principal_point(camera->PrincipalPointX(), camera->PrincipalPointY());
+    const Eigen::Vector2d principal_point(camera->PrincipalPointX(),
+                                          camera->PrincipalPointY());
     std::vector<Eigen::Vector2d> points2D_centered(points2D.size());
     for (size_t i = 0; i < points2D.size(); ++i) {
       points2D_centered[i] = points2D[i] - principal_point;
