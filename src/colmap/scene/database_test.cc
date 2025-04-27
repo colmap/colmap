@@ -132,6 +132,10 @@ TEST(Database, Rig) {
   EXPECT_EQ(database.NumRigs(), 1);
   EXPECT_TRUE(database.ExistsRig(rig.RigId()));
   EXPECT_EQ(database.ReadRig(rig.RigId()), rig);
+  EXPECT_EQ(database.ReadRigWithSensor(sensor_t(SensorType::CAMERA, 1)), rig);
+  EXPECT_EQ(database.ReadRigWithSensor(sensor_t(SensorType::IMU, 4)), rig);
+  EXPECT_EQ(database.ReadRigWithSensor(sensor_t(SensorType::IMU, 42)),
+            std::nullopt);
   rig.SensorFromRig(sensor_t(SensorType::CAMERA, 2)) =
       Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
   database.UpdateRig(rig);
@@ -221,6 +225,8 @@ TEST(Database, Image) {
   EXPECT_EQ(database.NumImages(), 1);
   EXPECT_TRUE(database.ExistsImage(image.ImageId()));
   EXPECT_EQ(database.ReadImage(image.ImageId()), image);
+  EXPECT_EQ(database.ReadImageWithName(image.Name()), image);
+  EXPECT_EQ(database.ReadImageWithName("foobar"), std::nullopt);
   image.SetName("test_changed");
   database.UpdateImage(image);
   EXPECT_EQ(database.ReadImage(image.ImageId()), image);

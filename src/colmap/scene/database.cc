@@ -598,6 +598,35 @@ Rig Database::ReadRig(const rig_t rig_id) const {
   return rig;
 }
 
+std::optional<Rig> Database::ReadRigWithSensor(sensor_t sensor_id) const {
+  auto find_rig_id_with_sensor = [&sensor_id](sqlite3_stmt* sql_stmt) {
+    SQLITE3_CALL(sqlite3_bind_int64(
+        sql_stmt, 1, static_cast<sqlite3_int64>(sensor_id.id)));
+    SQLITE3_CALL(sqlite3_bind_int64(
+        sql_stmt, 2, static_cast<sqlite3_int64>(sensor_id.type)));
+    std::optional<rig_t> rig_id;
+    if (SQLITE3_CALL(sqlite3_step(sql_stmt)) == SQLITE_ROW) {
+      rig_id = static_cast<rig_t>(sqlite3_column_int64(sql_stmt, 0));
+    }
+    SQLITE3_CALL(sqlite3_reset(sql_stmt));
+    return rig_id;
+  };
+
+  if (const std::optional<rig_t> rig_id =
+          find_rig_id_with_sensor(sql_stmt_read_rig_with_sensor_);
+      rig_id.has_value()) {
+    return ReadRig(*rig_id);
+  }
+
+  if (const std::optional<rig_t> rig_id =
+          find_rig_id_with_sensor(sql_stmt_read_rig_with_ref_sensor_);
+      rig_id.has_value()) {
+    return ReadRig(*rig_id);
+  }
+
+  return std::nullopt;
+}
+
 std::vector<Rig> Database::ReadAllRigs() const {
   std::vector<Rig> rigs;
   while (SQLITE3_CALL(sqlite3_step(sql_stmt_read_rigs_)) == SQLITE_ROW) {
@@ -633,21 +662,21 @@ Image Database::ReadImage(const image_t image_id) const {
   return image;
 }
 
-Image Database::ReadImageWithName(const std::string& name) const {
-  SQLITE3_CALL(sqlite3_bind_text(sql_stmt_read_image_name_,
+std::optional<Image> Database::ReadImageWithName(
+    const std::string& name) const {
+  SQLITE3_CALL(sqlite3_bind_text(sql_stmt_read_image_with_name_,
                                  1,
                                  name.c_str(),
                                  static_cast<int>(name.size()),
                                  SQLITE_STATIC));
 
-  Image image;
-
-  const int rc = SQLITE3_CALL(sqlite3_step(sql_stmt_read_image_name_));
-  if (rc == SQLITE_ROW) {
-    image = ReadImageRow(sql_stmt_read_image_name_);
+  std::optional<Image> image;
+  if (SQLITE3_CALL(sqlite3_step(sql_stmt_read_image_with_name_)) ==
+      SQLITE_ROW) {
+    image = ReadImageRow(sql_stmt_read_image_with_name_);
   }
 
-  SQLITE3_CALL(sqlite3_reset(sql_stmt_read_image_name_));
+  SQLITE3_CALL(sqlite3_reset(sql_stmt_read_image_with_name_));
 
   return image;
 }
@@ -1560,6 +1589,13 @@ void Database::PrepareSQLStatements() {
       "SELECT sensor_id, sensor_type, sensor_from_rig "
       "FROM rig_sensors WHERE rig_id = ?;",
       &sql_stmt_read_rig_sensors_);
+  prepare_sql_stmt(
+      "SELECT rig_id FROM rig_sensors WHERE sensor_id = ? AND sensor_type = ?;",
+      &sql_stmt_read_rig_with_sensor_);
+  prepare_sql_stmt(
+      "SELECT rig_id FROM rigs "
+      "WHERE ref_sensor_id = ? AND ref_sensor_type = ?;",
+      &sql_stmt_read_rig_with_ref_sensor_);
   prepare_sql_stmt("SELECT * FROM cameras;", &sql_stmt_read_cameras_);
   prepare_sql_stmt("SELECT * FROM cameras WHERE camera_id = ?;",
                    &sql_stmt_read_camera_);
@@ -1574,7 +1610,7 @@ void Database::PrepareSQLStatements() {
                    &sql_stmt_read_image_id_);
   prepare_sql_stmt("SELECT * FROM images;", &sql_stmt_read_images_);
   prepare_sql_stmt("SELECT * FROM images WHERE name = ?;",
-                   &sql_stmt_read_image_name_);
+                   &sql_stmt_read_image_with_name_);
   prepare_sql_stmt("SELECT * FROM pose_priors WHERE image_id = ?;",
                    &sql_stmt_read_pose_prior_);
   prepare_sql_stmt("SELECT rows, cols, data FROM keypoints WHERE image_id = ?;",

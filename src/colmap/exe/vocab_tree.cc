@@ -104,12 +104,12 @@ std::vector<Image> ReadVocabTreeRetrievalImageList(const std::string& path,
   } else {
     DatabaseTransaction database_transaction(database);
 
-    const auto image_names = ReadTextFileLines(path);
+    const std::vector<std::string> image_names = ReadTextFileLines(path);
     images.reserve(image_names.size());
     for (const auto& image_name : image_names) {
-      const auto image = database->ReadImageWithName(image_name);
+      Image image = database->ReadImageWithName(image_name).value();
       THROW_CHECK_NE(image.ImageId(), kInvalidImageId);
-      images.push_back(image);
+      images.push_back(std::move(image));
     }
   }
   return images;
