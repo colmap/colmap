@@ -105,6 +105,15 @@ void BindSceneImage(py::module& m) {
            py::overload_cast<camera_t>(&Image::Point2D),
            "point2D_idx"_a,
            "Direct accessor for a point2D.")
+      .def("keypoint_coordinates",
+           &Image::KeypointCoordinates,
+           "point_ids"_a,
+           "Get an Nx2 numpy array of xy coordinates for the specified 2D point IDs.")
+      .def("point3D_ids", &Image::Point3DIds,
+           "point_ids"_a = std::nullopt,
+           "Get a list of 3D point IDs corresponding to the specified 2D point IDs. Returns -1 for points "
+           "without a 3D point. If no IDs are provided, return for all."
+       )
       .def(
           "set_point3D_for_point2D",
           &Image::SetPoint3DForPoint2D,

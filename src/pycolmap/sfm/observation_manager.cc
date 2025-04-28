@@ -134,5 +134,29 @@ void BindObservationManager(py::module& m) {
            "any more and has a correspondence to this image point. This assumes"
            "that `IncrementCorrespondenceHasPoint3D` was called for the same"
            "image point and correspondence before.")
+      .def("find_points3D_with_small_triangulation_angle",
+           &ObservationManager::FindPoints3DWithSmallTriangulationAngle,
+           "min_tri_angle"_a,
+           "point3D_ids"_a,
+           "Return point3D IDs with triangulation angle below the threshold.")
+      .def("find_small_angle_points_mask",
+           [](ObservationManager& self,
+           double min_tri_angle,
+           const std::vector<point3D_t>& point3D_ids) {
+           const std::unordered_set<point3D_t> small_angle_points =
+                self.FindPoints3DWithSmallTriangulationAngle(
+                     min_tri_angle,
+                     std::unordered_set<point3D_t>(point3D_ids.begin(), point3D_ids.end()));
+
+           std::vector<bool> mask;
+           mask.reserve(point3D_ids.size());
+           for (const auto id : point3D_ids) {
+                mask.push_back(small_angle_points.count(id) > 0);
+           }
+           return mask;
+           },
+           "min_tri_angle"_a,
+           "point3D_ids"_a,
+           "Return boolean mask of small angle points.")
       .def("__repr__", &CreateRepresentation<ObservationManager>);
 }

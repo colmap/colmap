@@ -271,6 +271,20 @@ void Reconstruction::DeleteAllPoints2DAndPoints3D() {
   }
 }
 
+Eigen::MatrixXd Reconstruction::Point3DCoordinates(
+    const std::vector<point3D_t>& point_ids) const {
+  Eigen::MatrixXd coords(point_ids.size(), 3);
+  for (size_t i = 0; i < point_ids.size(); ++i) {
+    auto it = points3D_.find(point_ids[i]);
+    if (it != points3D_.end()) {
+      coords.row(i) = it->second.xyz;
+    } else {
+      coords.row(i) = Eigen::RowVector3d::Constant(std::numeric_limits<double>::quiet_NaN());
+    }
+  }
+  return coords;
+}
+
 void Reconstruction::RegisterImage(const image_t image_id) {
   THROW_CHECK(Image(image_id).HasPose());
   reg_image_ids_.insert(image_id);

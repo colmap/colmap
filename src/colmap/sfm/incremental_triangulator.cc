@@ -302,7 +302,9 @@ size_t IncrementalTriangulator::MergeAllTracks(const Options& options) {
   return num_merged;
 }
 
-size_t IncrementalTriangulator::Retriangulate(const Options& options) {
+size_t IncrementalTriangulator::Retriangulate(
+  const Options& options,
+  const std::unordered_set<image_t>& ignore_image_ids) {
   THROW_CHECK(options.Check());
 
   size_t num_tris = 0;
@@ -328,6 +330,11 @@ size_t IncrementalTriangulator::Retriangulate(const Options& options) {
     std::tie(image_id1, image_id2) =
         Database::PairIdToImagePair(image_pair.first);
 
+    if (!ignore_image_ids.empty() &&
+        (ignore_image_ids.count(image_id1) > 0 || ignore_image_ids.count(image_id2) > 0)) {
+      continue;
+    }
+    
     const Image& image1 = reconstruction_.Image(image_id1);
     if (!image1.HasPose()) {
       continue;

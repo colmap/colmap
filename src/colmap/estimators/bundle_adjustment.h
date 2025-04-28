@@ -117,6 +117,9 @@ struct BundleAdjustmentOptions {
 
   // Scaling factor determines residual at which robustification takes place.
   double loss_function_scale = 1.0;
+  
+  // Magnitude determines the scaling of the residual
+  double loss_function_magnitude = 1.0;
 
   // Whether to refine the focal length parameter group.
   bool refine_focal_length = true;
@@ -244,6 +247,20 @@ std::unique_ptr<BundleAdjuster> CreatePosePriorBundleAdjuster(
     BundleAdjustmentConfig config,
     std::unordered_map<image_t, PosePrior> pose_priors,
     Reconstruction& reconstruction);
+
+// Adds a depth prior to the bundle adjustment problem.
+void DepthPriorBundleAdjuster(ceres::Problem* problem,
+                              image_t image_id,
+                              const std::vector<point3D_t>& point3D_ids,
+                              const std::vector<double>& depths,
+                              const std::vector<double>& loss_magnitudes,
+                              const std::vector<double>& loss_params,
+                              BundleAdjustmentOptions::LossFunctionType loss_type,
+                              double* shift_scale_ptr, 
+                              Reconstruction& reconstruction,
+                              bool logloss = false,
+                              bool fix_shift = false,
+                              bool fix_scale = false);
 
 void PrintSolverSummary(const ceres::Solver::Summary& summary,
                         const std::string& header);
