@@ -165,7 +165,7 @@ that we use to configure the sensor rig poses as well as camera models using::
         --rig_config_path terrains/rig_config.json \
         --input_path terrains/rig_calibration_undistorted
 
-with the `rig_config.json`:
+with the `rig_config.json`::
 
     [
         {
