@@ -84,7 +84,9 @@ in the rig are known a priori::
     ]
 
 With known calibrated camera parameters, each camera can optionally have
-specified `camera_model_name` and `camera_params` fields.
+specified `camera_model_name` and `camera_params` fields. For more fine-grain
+configuration of rigs and frames, the likely most convenient option is to
+manually configure the database using pycolmap.
 
 Next, we would run standard feature matching. Note that it is important to
 configure the rig before sequential feature matching, as images in consecutive
@@ -168,19 +170,19 @@ with the `rig_config.json`:
     [
         {
             "cameras": [
-            {
-                "image_prefix": "images_rig_cam4_undistorted/",
-                "ref_sensor": true
-            },
-            {
-                "image_prefix": "images_rig_cam5_undistorted/"
-            },
-            {
-                "image_prefix": "images_rig_cam6_undistorted/"
-            },
-            {
-                "image_prefix": "images_rig_cam7_undistorted/"
-            }
+                {
+                    "image_prefix": "images_rig_cam4_undistorted/",
+                    "ref_sensor": true
+                },
+                {
+                    "image_prefix": "images_rig_cam5_undistorted/"
+                },
+                {
+                    "image_prefix": "images_rig_cam6_undistorted/"
+                },
+                {
+                    "image_prefix": "images_rig_cam7_undistorted/"
+                }
             ]
         }
     ]
