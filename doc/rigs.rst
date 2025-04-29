@@ -121,9 +121,9 @@ Next, reconstruct the scene without rig constraints by modeling each camera as
 its own rig (the default behavior of COLMAP without further configuration). Note
 that this can be a partial reconstruction from a subset of the full set of input
 images. The only requirement is that each camera must have at least one
-registered image. If the reconstruction was successful and the relative poses
-between registered images look roughly correct, we can proceed with the next
-step.
+registered image in the same frame with a registered image of the reference
+camera. If the reconstruction was successful and the relative poses between
+registered images look roughly correct, we can proceed with the next step.
 
 The `rig_configurator` can also work without `cam_from_rig_*` transformations.
 By providing an existing (partial) reconstruction of the scene, it can compute
@@ -198,9 +198,10 @@ with the `rig_config.json`::
         }
     ]
 
-Notice that we do not specify the sensor poses, because we used the groundtruth
-reconstruction to automatically infer the average rig extrinsics and camera
-parameters.
+Notice that we do not specify the sensor poses, because we used an existing
+reconstruction (in this case, the groundtruth but it can also be a
+reconstruction without rig constraints, as explained in the previous section) to
+automatically infer the average rig extrinsics and camera parameters.
 
 Next, we sequentially match the frames, since they were captured as a video::
 

@@ -36,11 +36,19 @@ Sparse Reconstruction
 By default, COLMAP uses a binary file format (machine-readable, fast) for
 storing sparse models. In addition, COLMAP provides the option to store the
 sparse models as text files (human-readable, slow). In both cases, the
-information is split into three files for the information about `cameras`,
-`images`, and `points`. Any directory containing those three files constitutes a
-sparse model. The binary files have the file extension `.bin` and the text files
-the file extension `.txt`. Note that when loading a model from a directory which
-contains both binary and text files, COLMAP prefers the binary format.
+information is split into multiples files for the information about `rigs`,
+`cameras`, `frames`, `images`, and `points`. Any directory containing these
+files constitutes a sparse model. The binary files have the file extension
+`.bin` and the text files the file extension `.txt`. Note that when loading a
+model from a directory which contains both binary and text files, COLMAP prefers
+the binary format.
+
+Note that older versions of COLMAP had no rig support and thus the `rigs` and
+`frames` files may be missing. The reconstruction I/O routines in COLMAP are
+fully backwards compatible in that models without these files can be read and
+trivial rigs and frames will be automatically initialized. Furthermore, newer
+output reconstructions' `cameras` and `images` files are fully compatible with
+old outputs.
 
 To export the currently selected model in the GUI, choose ``File > Export
 model``. To export all reconstructed models in the current dataset, choose
