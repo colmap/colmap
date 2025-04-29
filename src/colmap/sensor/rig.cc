@@ -27,42 +27,40 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/sensor/rig_calib.h"
-
-#include <gtest/gtest.h>
+#include "colmap/sensor/rig.h"
 
 namespace colmap {
-namespace {
 
-Rigid3d TestRigid3d() {
-  return Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
+void Rig::AddRefSensor(sensor_t ref_sensor_id) {
+  THROW_CHECK(ref_sensor_id_ == kInvalidSensorId)
+      << "Reference sensor already set";
+  ref_sensor_id_ = ref_sensor_id;
 }
 
-TEST(RigCalib, Default) {
-  RigCalib calib;
-  EXPECT_EQ(calib.RigId(), kInvalidRigId);
-  EXPECT_EQ(calib.RefSensorId(), kInvalidSensorId);
-  EXPECT_EQ(calib.NumSensors(), 0);
+void Rig::AddSensor(sensor_t sensor_id,
+                    const std::optional<Rigid3d>& sensor_from_rig) {
+  THROW_CHECK_GE(NumSensors(), 1)
+      << "The reference sensor needs to be added first before other sensors.";
+  THROW_CHECK(!HasSensor(sensor_id))
+      << "Sensor (" << sensor_id.type << ", " << sensor_id.id
+      << ") is inserted twice into the rig";
+  sensors_from_rig_.emplace(sensor_id, sensor_from_rig);
 }
 
-TEST(RigCalib, SetUp) {
-  RigCalib calib;
-  calib.AddRefSensor(sensor_t(SensorType::IMU, 0));
-  calib.AddSensor(sensor_t(SensorType::IMU, 1), TestRigid3d());
-  calib.AddSensor(sensor_t(SensorType::CAMERA, 0), TestRigid3d());
-  calib.AddSensor(sensor_t(SensorType::CAMERA, 1));  // no input sensor_from_rig
-
-  EXPECT_EQ(calib.NumSensors(), 4);
-  EXPECT_EQ(calib.RefSensorId().type, SensorType::IMU);
-  EXPECT_EQ(calib.RefSensorId().id, 0);
-  EXPECT_TRUE(calib.IsRefSensor(sensor_t(SensorType::IMU, 0)));
-  EXPECT_FALSE(calib.IsRefSensor(sensor_t(SensorType::IMU, 1)));
-  EXPECT_TRUE(calib.HasSensorFromRig(sensor_t(SensorType::IMU, 0)));
-  EXPECT_TRUE(calib.HasSensorFromRig(sensor_t(SensorType::IMU, 1)));
-  EXPECT_TRUE(calib.HasSensorFromRig(sensor_t(SensorType::CAMERA, 0)));
-  EXPECT_FALSE(calib.HasSensorFromRig(sensor_t(SensorType::CAMERA, 1)));
-  EXPECT_TRUE(calib.HasSensor(sensor_t(SensorType::CAMERA, 1)));
+std::ostream& operator<<(std::ostream& stream, const Rig& rig) {
+  const std::string rig_id_str =
+      rig.RigId() != kInvalidRigId ? std::to_string(rig.RigId()) : "Invalid";
+  stream << "Rig(rig_id=" << rig_id_str << ", ref_sensor_id=("
+         << rig.RefSensorId().type << ", " << rig.RefSensorId().id
+         << "), sensors=[";
+  for (const auto& [sensor_id, _] : rig.Sensors()) {
+    stream << "(" << sensor_id.type << ", " << sensor_id.id << "), ";
+  }
+  if (!rig.Sensors().empty()) {
+    stream.seekp(-2, std::ios_base::end);
+  }
+  stream << "])";
+  return stream;
 }
 
-}  // namespace
 }  // namespace colmap

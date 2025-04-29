@@ -88,6 +88,7 @@ void MaskKeypoints(const Bitmap& mask,
 struct ImageData {
   ImageReader::Status status = ImageReader::Status::FAILURE;
 
+  Rig rig;
   Camera camera;
   Image image;
   PosePrior pose_prior;
@@ -299,6 +300,10 @@ class FeatureWriterThread : public Thread {
             database_->WritePosePrior(image_data.image.ImageId(),
                                       image_data.pose_prior);
           }
+          Frame frame;
+          frame.SetRigId(image_data.rig.RigId());
+          frame.AddDataId(image_data.image.DataId());
+          database_->WriteFrame(frame);
         }
 
         if (!database_->ExistsKeypoints(image_data.image.ImageId())) {
@@ -463,7 +468,8 @@ class FeatureExtractorController : public Thread {
       }
 
       ImageData image_data;
-      image_data.status = image_reader_.Next(&image_data.camera,
+      image_data.status = image_reader_.Next(&image_data.rig,
+                                             &image_data.camera,
                                              &image_data.image,
                                              &image_data.pose_prior,
                                              &image_data.bitmap,
@@ -547,11 +553,13 @@ class FeatureImporterController : public Thread {
                                 image_reader.NumImages());
 
       // Load image data and possibly save camera to database.
+      Rig rig;
       Camera camera;
       Image image;
       PosePrior pose_prior;
       Bitmap bitmap;
-      if (image_reader.Next(&camera, &image, &pose_prior, &bitmap, nullptr) !=
+      if (image_reader.Next(
+              &rig, &camera, &image, &pose_prior, &bitmap, nullptr) !=
           ImageReader::Status::SUCCESS) {
         continue;
       }
@@ -573,6 +581,10 @@ class FeatureImporterController : public Thread {
           if (pose_prior.IsValid()) {
             database.WritePosePrior(image.ImageId(), pose_prior);
           }
+          Frame frame;
+          frame.SetRigId(rig.RigId());
+          frame.AddDataId(image.DataId());
+          database.WriteFrame(frame);
         }
 
         if (!database.ExistsKeypoints(image.ImageId())) {

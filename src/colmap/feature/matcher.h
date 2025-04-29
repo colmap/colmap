@@ -123,11 +123,13 @@ class FeatureMatcherCache {
   void AccessDatabase(const std::function<void(Database& database)>& func);
 
   const Camera& GetCamera(camera_t camera_id);
+  const Frame& GetFrame(frame_t frame_id);
   const Image& GetImage(image_t image_id);
   const PosePrior* GetPosePriorOrNull(image_t image_id);
   std::shared_ptr<FeatureKeypoints> GetKeypoints(image_t image_id);
   std::shared_ptr<FeatureDescriptors> GetDescriptors(image_t image_id);
   FeatureMatches GetMatches(image_t image_id1, image_t image_id2);
+  std::vector<frame_t> GetFrameIds();
   std::vector<image_t> GetImageIds();
   ThreadSafeLRUCache<image_t, FeatureDescriptorIndex>&
   GetFeatureDescriptorIndexCache();
@@ -152,6 +154,7 @@ class FeatureMatcherCache {
 
  private:
   void MaybeLoadCameras();
+  void MaybeLoadFrames();
   void MaybeLoadImages();
   void MaybeLoadPosePriors();
 
@@ -159,6 +162,7 @@ class FeatureMatcherCache {
   const std::shared_ptr<Database> database_;
   std::mutex database_mutex_;
   std::unique_ptr<std::unordered_map<camera_t, Camera>> cameras_cache_;
+  std::unique_ptr<std::unordered_map<frame_t, Frame>> frames_cache_;
   std::unique_ptr<std::unordered_map<image_t, Image>> images_cache_;
   std::unique_ptr<std::unordered_map<image_t, PosePrior>> pose_priors_cache_;
   std::unique_ptr<ThreadSafeLRUCache<image_t, FeatureKeypoints>>

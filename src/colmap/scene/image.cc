@@ -39,50 +39,42 @@ Image::Image()
       name_(""),
       camera_id_(kInvalidCameraId),
       camera_ptr_(nullptr),
-      num_points3D_(0),
-      frame_(std::make_shared<class Frame>()) {}
+      frame_id_(kInvalidFrameId),
+      frame_ptr_(nullptr),
+      num_points3D_(0) {}
 
 Image::Image(const Image& other)
     : image_id_(other.ImageId()),
       name_(other.Name()),
       camera_id_(other.CameraId()),
-      camera_ptr_(nullptr),
+      camera_ptr_(other.HasCameraPtr() ? other.CameraPtr() : nullptr),
+      frame_id_(other.FrameId()),
+      frame_ptr_(other.HasFramePtr() ? other.FramePtr() : nullptr),
       num_points3D_(other.NumPoints3D()),
-      points2D_(other.Points2D()) {
-  if (other.HasCameraPtr()) {
-    camera_ptr_ = other.CameraPtr();
-  }
-  if (other.HasNonTrivialFrame()) {
-    frame_ = other.Frame();
-  } else {
-    frame_ = std::make_shared<class Frame>();
-    frame_->SetFrameFromWorld(other.MaybeCamFromWorld());
-  }
-}
+      points2D_(other.Points2D()) {}
 
 Image& Image::operator=(const Image& other) {
   if (this != &other) {
     image_id_ = other.ImageId();
     name_ = other.Name();
     camera_id_ = other.CameraId();
-    camera_ptr_ = nullptr;
     if (other.HasCameraPtr()) {
       camera_ptr_ = other.CameraPtr();
+    } else {
+      camera_ptr_ = nullptr;
+    }
+    if (other.HasFramePtr()) {
+      frame_ptr_ = other.FramePtr();
+    } else {
+      frame_ptr_ = nullptr;
     }
     num_points3D_ = other.NumPoints3D();
     points2D_ = other.Points2D();
-    if (other.HasNonTrivialFrame()) {
-      frame_ = other.Frame();
-    } else {
-      frame_ = std::make_shared<class Frame>();
-      frame_->SetFrameFromWorld(other.MaybeCamFromWorld());
-    }
   }
   return *this;
 }
 
 void Image::SetPoints2D(const std::vector<Eigen::Vector2d>& points) {
-  THROW_CHECK(points2D_.empty());
   points2D_.resize(points.size());
   for (point2D_t point2D_idx = 0; point2D_idx < points.size(); ++point2D_idx) {
     points2D_[point2D_idx].xy = points[point2D_idx];

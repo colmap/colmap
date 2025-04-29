@@ -9,7 +9,9 @@ Binary File Format
 
 Note that all binary data is stored using little endian byte ordering. All x86
 processors are little endian and thus no special care has to be taken when
-reading COLMAP binary data on most platforms.
+reading COLMAP binary data on most platforms. The data can be most conveniently
+parsed using the C++ reconstruction API under `src/colmap/scene/reconstruction_io.h`
+or using the Python API provided by pycolmap.
 
 
 =======================
@@ -34,11 +36,19 @@ Sparse Reconstruction
 By default, COLMAP uses a binary file format (machine-readable, fast) for
 storing sparse models. In addition, COLMAP provides the option to store the
 sparse models as text files (human-readable, slow). In both cases, the
-information is split into three files for the information about `cameras`,
-`images`, and `points`. Any directory containing those three files constitutes a
-sparse model. The binary files have the file extension `.bin` and the text files
-the file extension `.txt`. Note that when loading a model from a directory which
-contains both binary and text files, COLMAP prefers the binary format.
+information is split into multiples files for the information about `rigs`,
+`cameras`, `frames`, `images`, and `points`. Any directory containing these
+files constitutes a sparse model. The binary files have the file extension
+`.bin` and the text files the file extension `.txt`. Note that when loading a
+model from a directory which contains both binary and text files, COLMAP prefers
+the binary format.
+
+Note that older versions of COLMAP had no rig support and thus the `rigs` and
+`frames` files may be missing. The reconstruction I/O routines in COLMAP are
+fully backwards compatible in that models without these files can be read and
+trivial rigs and frames will be automatically initialized. Furthermore, newer
+output reconstructions' `cameras` and `images` files are fully compatible with
+old outputs.
 
 To export the currently selected model in the GUI, choose ``File > Export
 model``. To export all reconstructed models in the current dataset, choose
@@ -66,9 +76,25 @@ Text Format
 -----------
 
 COLMAP exports the following three text files for every reconstructed model:
-`cameras.txt`, `images.txt`, and `points3D.txt`. Comments start with a leading
-"#" character and are ignored. The first comment lines briefly describe the
-format of the text files, as described in more detailed on this page.
+`rigs.txt`, `cameras.txt`, `frames.txt`, `images.txt`, and `points3D.txt`.
+Comments start with a leading "#" character and are ignored. The first comment
+lines briefly describe the format of the text files, as described in more
+detailed on this page.
+
+
+rigs.txt
+-----------
+
+This file contains the configured rigs and sensors, e.g.::
+
+    # Rig calib list with one line of data per calib:
+    #   RIG_ID, NUM_SENSORS, REF_SENSOR_TYPE, REF_SENSOR_ID, SENSORS[] as (SENSOR_TYPE, SENSOR_ID, HAS_POSE, [QW, QX, QY, QZ, TX, TY, TZ])
+    # Number of rigs: 1
+    1 2 CAMERA 1 CAMERA 2 1 -0.9999701516465348 -0.0011120266840749639 -0.0075347911527510894 0.0012985125893421306 -0.19316906391350164 0.00085222218993398979 0.0070758955539026785
+    2 1 CAMERA 3
+
+Here, the dataset contains two rigs: the first rig has two cameras and the second
+one has 1 camera.
 
 
 cameras.txt
@@ -91,6 +117,22 @@ there are 3 parameters with a single focal length of 2559.81 pixels and a
 principal point at pixel location `(1536, 1152)`. The intrinsic parameters of a
 camera can be shared by multiple images, which refer to cameras using the unique
 identifier `CAMERA_ID`.
+
+
+frames.txt
+----------
+
+This file contains the frames, where a frame defines a specific
+instance of a rig with all or a subset of sensors exposed at the same time, e.g.::
+
+    # Frame list with one line of data per frame:
+    #   FRAME_ID, RIG_ID, RIG_FROM_WORLD[QW, QX, QY, QZ, TX, TY, TZ], NUM_DATA_IDS, DATA_IDS[] as (SENSOR_TYPE, SENSOR_ID, DATA_ID)
+    # Number of frames: 151
+    1 1 0.99801363919752195 0.040985139360073107 0.041890917712361225 -0.023111584553400576 -5.2666546897987896 -0.17120007823690631 0.12300519697527648 2 CAMERA 1 1 CAMERA 2 2
+    2 2 0.99816472047267968 0.037605501383281774 0.043101511724657163 -0.019881568259519072 -5.1956060695789192 -0.20794508616745555 0.14967533910764824 1 CAMERA 3 3
+
+Here, the dataset contains two frames, where frame 1 is an instance of rig 1 and
+frame 2 an instance of rig 2. 
 
 
 images.txt

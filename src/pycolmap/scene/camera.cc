@@ -45,6 +45,8 @@ void BindCamera(py::module& m) {
                   "height"_a)
       .def_readwrite(
           "camera_id", &Camera::camera_id, "Unique identifier of the camera.")
+      .def_property_readonly(
+          "sensor_id", &Camera::SensorId, "Unique identifier of the sensor.")
       .def_readwrite("model", &Camera::model_id, "Camera model.")
       .def_readwrite("width", &Camera::width, "Width of camera sensor.")
       .def_readwrite("height", &Camera::height, "Height of camera sensor.")
