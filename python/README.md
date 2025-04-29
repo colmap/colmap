@@ -162,7 +162,7 @@ For instance, to estimate the absolute pose of a query camera given 2D-3D corres
 # Optional parameters:
 # - estimation_options: dict or pycolmap.AbsolutePoseEstimationOptions
 # - refinement_options: dict or pycolmap.AbsolutePoseRefinementOptions
-answer = pycolmap.absolute_pose_estimation(points2D, points3D, camera)
+answer = pycolmap.estimate_and_refine_absolute_pose(points2D, points3D, camera)
 # Returns: dictionary of estimation outputs or None if failure
 ```
 
@@ -171,7 +171,7 @@ answer = pycolmap.absolute_pose_estimation(points2D, points3D, camera)
 and can be passed as regular (nested) Python dictionaries:
 
 ```python
-pycolmap.absolute_pose_estimation(
+pycolmap.estimate_and_refine_absolute_pose(
     points2D, points3D, camera,
     estimation_options=dict(ransac=dict(max_error=12.0)),
     refinement_options=dict(refine_focal_length=True),
@@ -189,7 +189,7 @@ pycolmap.absolute_pose_estimation(
 # - camera: pycolmap.Camera
 # Optional parameters:
 # - refinement_options: dict or pycolmap.AbsolutePoseRefinementOptions
-answer = pycolmap.pose_refinement(cam_from_world, points2D, points3D, inlier_mask, camera)
+answer = pycolmap.refine_absolute_pose(cam_from_world, points2D, points3D, inlier_mask, camera)
 # Returns: dictionary of refinement outputs or None if failure
 ```
 
@@ -203,14 +203,14 @@ answer = pycolmap.pose_refinement(cam_from_world, points2D, points3D, inlier_mas
 # - camera2: pycolmap.Camera of image 2
 # Optional parameters:
 # - options: dict or pycolmap.RANSACOptions (default inlier threshold is 4px)
-answer = pycolmap.essential_matrix_estimation(points1, points2, camera1, camera2)
+answer = pycolmap.estimate_essential_matrix(points1, points2, camera1, camera2)
 # Returns: dictionary of estimation outputs or None if failure
 ```
 
 ### Fundamental matrix estimation
 
 ```python
-answer = pycolmap.fundamental_matrix_estimation(
+answer = pycolmap.estimate_fundamental_matrix(
     points1,
     points2,
     [options],       # optional dict or pycolmap.RANSACOptions
@@ -220,7 +220,7 @@ answer = pycolmap.fundamental_matrix_estimation(
 ### Homography estimation
 
 ```python
-answer = pycolmap.homography_matrix_estimation(
+answer = pycolmap.estimate_homography_matrix(
     points1,
     points2,
     [options],       # optional dict or pycolmap.RANSACOptions
