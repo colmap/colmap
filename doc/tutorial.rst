@@ -302,7 +302,7 @@ matching modes, that are intended for different input scenarios:
   automatically downloaded and cached. More trees are available and can be
   downloaded from https://demuc.de/colmap/. In case rigs and frames are
   configured appropriately in the database, sequential matching will
-  automatically match all images in consecutive frames against reach other.
+  automatically match all images in consecutive frames against each other.
 
 - **Vocabulary Tree Matching**: In this matching mode [schoenberger16vote]_,
   every image is matched against its visual nearest neighbors using a vocabulary
