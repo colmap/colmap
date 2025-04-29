@@ -14,7 +14,7 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
-void BindRig(py::module& m) {
+void BindSensorRig(py::module& m) {
   py::class_<Rig, std::shared_ptr<Rig>> PyRig(m, "Rig");
   PyRig.def(py::init<>())
       .def_property("rig_id",
