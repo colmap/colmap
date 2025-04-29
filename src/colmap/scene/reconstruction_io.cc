@@ -767,7 +767,7 @@ void WriteRigsText(const Reconstruction& reconstruction, std::ostream& stream) {
   stream.precision(17);
 
   stream << "# Rig calib list with one line of data per calib:" << std::endl;
-  stream << "#   RIG_ID, NUM_SENSORS, REF_SENSOR_ID, REF_SENSOR_TYPE, "
+  stream << "#   RIG_ID, NUM_SENSORS, REF_SENSOR_TYPE, REF_SENSOR_ID, "
             "SENSORS[] as (SENSOR_TYPE, SENSOR_ID, HAS_POSE, [QW, QX, QY, QZ, "
             "TX, TY, TZ])"
          << std::endl;
