@@ -13,6 +13,7 @@ void BindDatabaseCache(py::module& m);
 void BindSceneImage(py::module& m);
 void BindPoint2D(py::module& m);
 void BindPoint3D(py::module& m);
+void BindSceneRig(py::module& m);
 void BindReconstruction(py::module& m);
 void BindReconstructionManager(py::module& m);
 void BindSynthetic(py::module& m);
@@ -32,6 +33,7 @@ void BindScene(py::module& m) {
   BindReconstructionManager(m);
   BindTwoViewGeometryScene(m);
   BindDatabase(m);
+  BindSceneRig(m);
   BindDatabaseCache(m);
   BindSynthetic(m);
 
