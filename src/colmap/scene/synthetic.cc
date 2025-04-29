@@ -177,6 +177,10 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
   THROW_CHECK_GE(options.point2D_stddev, 0.);
   THROW_CHECK_GE(options.prior_position_stddev, 0.);
 
+  if (PRNG == nullptr) {
+    SetPRNGSeed();
+  }
+
   // Synthesize 3D points on unit sphere centered at origin.
   for (int point3D_idx = 0; point3D_idx < options.num_points3D; ++point3D_idx) {
     reconstruction->AddPoint3D(Eigen::Vector3d::Random().normalized(),
