@@ -11,12 +11,15 @@ at the same time. For example, in a stereo camera rig, one camera would be
 defined as the reference sensor and have an identity `sensor_from_rig` pose,
 whereas the second camera would be posed relative to the reference camera. Each
 frame would then usually be composed of two images as the measurements of both
-of the cameras.
+of the cameras at the same time.
 
-By default, when running the standard reconstruction pipeline, each camera would
-be modeled with a separate rig and thus each frame only contains a single image.
-To model rigs, the recommended workflow is to organize images by rigs and
-cameras in a folder structure as follows::
+Workflow
+--------
+
+By default, when running the standard reconstruction pipeline, each camera is
+modeled with a separate rig and thus each frame contains only a single image. To
+model rigs, the recommended workflow is to organize images by rigs and cameras
+in a folder structure as follows::
 
     rig1/
         camera1/
@@ -39,7 +42,9 @@ As a next step, we would first extract features using::
         --database_path $DATASET_PATH/database.db \
         --ImageReader.single_camera_per_folder 1
 
-Next, we configure the rig using::
+By default, the resulting database now contains a separate rig for each camera
+and a separate frame for each image. As such, we must adjust the relationships
+in the database with the desired rig configuration. This is done using::
 
     colmap rig_configurator \
         --database_path $DATASET_PATH/database.db \
@@ -83,14 +88,21 @@ in the rig are known a priori::
       ...
     ]
 
-With known calibrated camera parameters, each camera can optionally have
-specified `camera_model_name` and `camera_params` fields. For more fine-grain
-configuration of rigs and frames, the likely most convenient option is to
-manually configure the database using pycolmap.
+Notice that this modifies the rig and frame configuration in the database, which
+contains the full specification of rigs that we later feed as an input to
+downstream processing steps.
 
-Next, we would run standard feature matching. Note that it is important to
-configure the rig before sequential feature matching, as images in consecutive
-frames will be automatically matched against each other.
+With known calibrated camera parameters, each camera can optionally also have
+specified `camera_model_name` and `camera_params` fields.
+
+For more fine-grain configuration of rigs and frames, the most convenient option
+is to manually configure the database using pycolmap by either using the
+`apply_rig_config` function or by individually adding the desired rig and frame
+objects to the reconstruction for the most flexibility.
+
+Next, we run standard feature matching. Note that it is important to configure
+the rigs before sequential feature matching, as images in consecutive frames will
+be automatically matched against each other.
 
 Finally, we can reconstruct the scene using the standard `mapper` command with
 the option of keeping the relative poses in the rig fixed using
@@ -101,22 +113,21 @@ Unknown rig sensor poses
 
 If the relative poses of sensors in the rig are not known a priori and we only
 know that a specific set of sensors are rigidly mounted and exposed at the same
-time, we can attempt the following two-step reconstruction approach. Before
+time, one can attempt the following two-step reconstruction approach. Before
 starting, ensure to organize your images as detailed above and perform feature
 extraction with the `--ImageReader.single_camera_per_folder 1` option.
 
-Next, reconstruct the scene without any rig constraints by modeling each camera
-as its own rig (the default behavior of COLMAP without further configuration).
-Note that this can be a partial reconstruction from a small subset of the full
-set of input images. The only requirement is that each camera modeled in a rig
-must have at least one registered image. If the reconstruction was successful
-and the relative poses between registered images look roughly correct, we can
-proceed with the next step. Otherwise, you can try to adjust COLMAP's options
-and proceed when happy with the results.
+Next, reconstruct the scene without rig constraints by modeling each camera as
+its own rig (the default behavior of COLMAP without further configuration). Note
+that this can be a partial reconstruction from a subset of the full set of input
+images. The only requirement is that each camera must have at least one
+registered image. If the reconstruction was successful and the relative poses
+between registered images look roughly correct, we can proceed with the next
+step.
 
-Next, the `rig_configurator` can also work without specified `cam_from_rig_*`
-transformations. By providing an existing reconstruction of the dataset, it can
-compute the average relative rig sensor poses from all registered images using::
+The `rig_configurator` can also work without `cam_from_rig_*` transformations.
+By providing an existing (partial) reconstruction of the scene, it can compute
+the average relative rig sensor poses from all registered images::
 
     colmap rig_configurator \
         --database_path $DATASET_PATH/database.db \
@@ -186,6 +197,10 @@ with the `rig_config.json`::
             ]
         }
     ]
+
+Notice that we do not specify the sensor poses, because we used the groundtruth
+reconstruction to automatically infer the average rig extrinsics and camera
+parameters.
 
 Next, we sequentially match the frames, since they were captured as a video::
 
