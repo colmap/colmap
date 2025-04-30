@@ -147,7 +147,7 @@ class LightGlueFeatureMatcher : public FeatureMatcher {
 
     const auto kFloat32Options = torch::TensorOptions().dtype(torch::kFloat32);
 
-    auto torch_keypoints =
+    torch::Tensor torch_keypoints =
         torch::from_blob(
             keypoints_array.data(), {num_keypoints, 2}, kFloat32Options)
             .clone();
