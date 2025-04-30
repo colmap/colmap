@@ -82,6 +82,10 @@ class LightGlueFeatureMatcher : public FeatureMatcher {
     THROW_CHECK_NOTNULL(matches);
     matches->clear();
 
+    if (image1.descriptors->rows() == 0 || image2.descriptors->rows() == 0) {
+      return;
+    }
+
     // TODO: Cache the torch tensors if the same image is passed.
 
     const torch::Dict<std::string, torch::Tensor> features1 =
