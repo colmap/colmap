@@ -19,7 +19,8 @@ Workflow
 By default, when running the standard reconstruction pipeline, each camera is
 modeled with a separate rig and thus each frame contains only a single image. To
 model rigs, the recommended workflow is to organize images by rigs and cameras
-in a folder structure as follows::
+in a folder structure as follows (ensure that images corresponding to the same
+frame have identical filenames across all folders)::
 
     rig1/
         camera1/
@@ -27,6 +28,8 @@ in a folder structure as follows::
             image0002.jpg
             ...
         camera2/
+            image0001.jpg # same frame as camera1/image0001.jpg
+            image0002.jpg # same frame as camera1/image0002.jpg
             ...
         ...
     rig2/
