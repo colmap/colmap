@@ -39,11 +39,13 @@ const static std::string kDefaultAlikedUri =
     "aliked_n32.pt;"
     "bc64763cfa2dc7b3356bb03053d2b2b277498c64e89786001dd391daa577a7d6";
 const static std::string kDefaultLightGlueAlikedUri =
-    "https://github.com/colmap/colmap/releases/download/3.11.1/lightglue_aliked.pt;"
+    "https://github.com/colmap/colmap/releases/download/3.11.1/"
+    "lightglue_aliked.pt;"
     "lightglue_aliked.pt;"
     "01ce35141db9d91e0e4fe39ede3435b1f8dd61929f9d32ae609e95172e2fa402";
 const static std::string kDefaultLightGlueSiftUri =
-    "https://github.com/colmap/colmap/releases/download/3.11.1/lightglue_sift.pt;"
+    "https://github.com/colmap/colmap/releases/download/3.11.1/"
+    "lightglue_sift.pt;"
     "lightglue_sift.pt;"
     "5a3c6ec3f941cf7600fb465b65f0f0a341383e069fec77d510381945b3de41a7";
 #else
