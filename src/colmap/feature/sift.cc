@@ -1427,10 +1427,6 @@ std::unique_ptr<FeatureMatcher> CreateSiftFeatureMatcher(
 #ifdef COLMAP_TORCH_ENABLED
     LightGlueMatchingOptions lightglue_options;
     lightglue_options.model_path = options.sift->lightglue_model_path;
-    lightglue_options.requires_scale = true;
-    lightglue_options.requires_orientation = true;
-    lightglue_options.descriptor_data_type =
-        LightGlueMatchingOptions::DescriptorDataType::UINT8;
     return CreateLightGlueFeatureMatcher(options, lightglue_options);
 #else
     throw std::runtime_error(

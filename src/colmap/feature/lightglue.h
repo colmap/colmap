@@ -40,18 +40,6 @@ struct LightGlueMatchingOptions {
   // Path to .pt model file in torch model format.
   std::string model_path = kDefaultLightGlueAlikedUri;
 
-  // Feature needs keypoint scale as input.
-  bool requires_scale = false;
-
-  // Feature needs keypoint orientation as input.
-  bool requires_orientation = false;
-
-  enum class DescriptorDataType {
-    UINT8,
-    FLOAT32,
-  };
-  DescriptorDataType descriptor_data_type = DescriptorDataType::UINT8;
-
   bool Check() const;
 };
 

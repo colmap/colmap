@@ -73,7 +73,7 @@ class LightGlueFeatureMatcher : public FeatureMatcher {
   explicit LightGlueFeatureMatcher(
       const FeatureMatchingOptions& options,
       const LightGlueMatchingOptions& lightglue_options)
-      : lightglue_options_(lightglue_options),
+      : options_(options),
         lightglue_(GetInputDim(options.type),
                    MaybeDownloadAndCacheFile(lightglue_options.model_path),
                    GetDeviceName(options.use_gpu, options.gpu_index),
@@ -143,14 +143,20 @@ class LightGlueFeatureMatcher : public FeatureMatcher {
     THROW_CHECK_NOTNULL(image.keypoints);
     THROW_CHECK_EQ(image.descriptors->rows(), image.keypoints->size());
 
+    bool requires_scale = false;
+    bool requires_orientation = false;
     int descriptor_dim_size = 0;
+    float descriptor_normalization = 1.0f;
     torch::TensorOptions descriptor_options;
-    switch (lightglue_options_.descriptor_data_type) {
-      case LightGlueMatchingOptions::DescriptorDataType::UINT8:
+    switch (options_.type) {
+      case FeatureMatcherType::LIGHTGLUE_SIFT:
+        requires_scale = true;
+        requires_orientation = true;
         descriptor_dim_size = sizeof(uint8_t);
+        descriptor_normalization = 1.0f / 512.0f;
         descriptor_options = torch::TensorOptions().dtype(torch::kUInt8);
         break;
-      case LightGlueMatchingOptions::DescriptorDataType::FLOAT32:
+      case FeatureMatcherType::LIGHTGLUE_ALIKED:
         descriptor_dim_size = sizeof(float);
         descriptor_options = torch::TensorOptions().dtype(torch::kFloat32);
         break;
@@ -189,15 +195,18 @@ class LightGlueFeatureMatcher : public FeatureMatcher {
     torch::Dict<std::string, torch::Tensor> features;
     features.insert("keypoints", std::move(torch_keypoints));
     // TODO: The const_cast here is a little evil.
-    features.insert(
-        "descriptors",
+    torch::Tensor torch_descriptors =
         torch::from_blob(const_cast<uint8_t*>(image.descriptors->data()),
                          {num_keypoints, descriptor_dim},
                          descriptor_options)
             .clone()
-            .toType(torch::kFloat32));
+            .toType(torch::kFloat32);
+    if (descriptor_normalization != 1.0f) {
+      torch_descriptors.mul_(descriptor_normalization);
+    }
+    features.insert("descriptors", std::move(torch_descriptors));
 
-    if (lightglue_options_.requires_scale) {
+    if (requires_scale) {
       std::vector<float> scales_array(num_keypoints * 2);
       for (int i = 0; i < num_keypoints; ++i) {
         const FeatureKeypoint& keypoint = (*image.keypoints)[i];
@@ -210,7 +219,7 @@ class LightGlueFeatureMatcher : public FeatureMatcher {
               .clone());
     }
 
-    if (lightglue_options_.requires_orientation) {
+    if (requires_orientation) {
       std::vector<float> orientations_array(num_keypoints * 2);
       for (int i = 0; i < num_keypoints; ++i) {
         const FeatureKeypoint& keypoint = (*image.keypoints)[i];
@@ -226,7 +235,7 @@ class LightGlueFeatureMatcher : public FeatureMatcher {
     return features;
   }
 
-  const LightGlueMatchingOptions lightglue_options_;
+  const FeatureMatchingOptions options_;
   matcher::LightGlue lightglue_;
 };
 

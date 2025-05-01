@@ -245,8 +245,6 @@ std::unique_ptr<FeatureMatcher> CreateALIKEDFeatureMatcher(
   if (options.type == FeatureMatcherType::LIGHTGLUE_ALIKED) {
     LightGlueMatchingOptions lightglue_options;
     lightglue_options.model_path = options.aliked->lightglue_model_path;
-    lightglue_options.descriptor_data_type =
-        LightGlueMatchingOptions::DescriptorDataType::FLOAT32;
     return CreateLightGlueFeatureMatcher(options, lightglue_options);
   } else {
     return std::make_unique<ALIKEDDescriptorFeatureMatcher>(options);

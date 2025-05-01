@@ -121,6 +121,7 @@ void FeatureMatchingTab::CreateGeneralOptions() {
 #ifdef COLMAP_TORCH_ENABLED
   add_matcher_type(FeatureMatcherType::ALIKED);
   add_matcher_type(FeatureMatcherType::LIGHTGLUE_ALIKED);
+  add_matcher_type(FeatureMatcherType::LIGHTGLUE_SIFT);
 #endif
   options_widget_->AddWidgetRow("Type", matcher_type_cb_);
 
