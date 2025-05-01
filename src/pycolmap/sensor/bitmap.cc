@@ -53,9 +53,8 @@ void BindBitmap(pybind11::module& m) {
                  }
                } else {
                  // Copy (guaranteed contiguous) row memory directly.
-                 std::memcpy(output_row_ptr,
-                             self.GetScanline(y),
-                             output_into.shape[1]);
+                 std::memcpy(
+                     output_row_ptr, self.GetScanline(y), output_into.shape[1]);
                }
                output_row_ptr += output_pitch;
              }
