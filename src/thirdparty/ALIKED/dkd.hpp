@@ -8,19 +8,12 @@ public:
     DKD(int radius = 2, int top_k = -1, float scores_th = 0.2, int n_limit = 20000);
 
     std::tuple<std::vector<torch::Tensor>, std::vector<torch::Tensor>, std::vector<torch::Tensor>>
-    detect_keypoints(torch::Tensor scores_map, bool sub_pixel = true) &&;
+    detect_keypoints(const torch::Tensor& scores_map, bool sub_pixel = true);
+
+    torch::Tensor simple_nms(const torch::Tensor& scores, int nms_radius);
 
     std::tuple<std::vector<torch::Tensor>, std::vector<torch::Tensor>, std::vector<torch::Tensor>>
-    detect_keypoints(const torch::Tensor& scores_map, bool sub_pixel = true) &;
-
-    torch::Tensor simple_nms(torch::Tensor scores, int nms_radius) &&;
-    torch::Tensor simple_nms(const torch::Tensor& scores, int nms_radius) &;
-
-    std::tuple<std::vector<torch::Tensor>, std::vector<torch::Tensor>, std::vector<torch::Tensor>>
-    forward(torch::Tensor scores_map, bool sub_pixel = true) &&;
-
-    std::tuple<std::vector<torch::Tensor>, std::vector<torch::Tensor>, std::vector<torch::Tensor>>
-    forward(const torch::Tensor& scores_map, bool sub_pixel = true) &;
+    forward(const torch::Tensor& scores_map, bool sub_pixel = true);
 
 private:
     static constexpr int calculateKernelSize(int radius) { return 2 * radius + 1; }

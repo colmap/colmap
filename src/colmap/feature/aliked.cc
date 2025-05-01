@@ -87,7 +87,7 @@ class ALIKEDFeatureExtractor : public FeatureExtractor {
     const int height = bitmap_ptr->Height();
     auto row_major_array = bitmap_ptr->ConvertToRowMajorArray();
     // Clone to ensure ownership
-    auto torch_image =
+    const torch::Tensor torch_image =
         torch::from_blob(
             row_major_array.data(), {height, width, 3}, torch::kUInt8)
             .clone()
@@ -236,16 +236,13 @@ std::unique_ptr<FeatureExtractor> CreateALIKEDFeatureExtractor(
 bool ALIKEDMatchingOptions::Check() const {
   CHECK_OPTION_GE(min_similarity, -1);
   CHECK_OPTION_LE(min_similarity, 1);
-  if (lightglue) {
-    CHECK_OPTION(!lightglue_model_path.empty());
-  }
   return true;
 }
 
 std::unique_ptr<FeatureMatcher> CreateALIKEDFeatureMatcher(
     const FeatureMatchingOptions& options) {
 #ifdef COLMAP_TORCH_ENABLED
-  if (options.aliked->lightglue) {
+  if (options.type == FeatureMatcherType::LIGHTGLUE_ALIKED) {
     LightGlueMatchingOptions lightglue_options;
     lightglue_options.model_path = options.aliked->lightglue_model_path;
     return CreateLightGlueFeatureMatcher(options, lightglue_options);

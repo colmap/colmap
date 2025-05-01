@@ -39,10 +39,7 @@ namespace colmap {
 FeatureMatchingOptions::FeatureMatchingOptions(FeatureMatcherType type)
     : type(type),
       sift(std::make_shared<SiftMatchingOptions>()),
-      aliked(std::make_shared<ALIKEDMatchingOptions>()) {
-  sift->lightglue = type == FeatureMatcherType::LIGHTGLUE_SIFT;
-  aliked->lightglue = type == FeatureMatcherType::LIGHTGLUE_ALIKED;
-}
+      aliked(std::make_shared<ALIKEDMatchingOptions>()) {}
 
 bool FeatureMatchingOptions::Check() const {
   if (use_gpu) {

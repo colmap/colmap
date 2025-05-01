@@ -9,8 +9,7 @@ public:
                      int kernel_size = 3, int stride = 1,
                      int padding = 1, bool bias = false);
 
-    torch::Tensor forward(const torch::Tensor& x) &;
-    torch::Tensor forward(torch::Tensor x) &&;
+    torch::Tensor forward(const torch::Tensor& x);
 
 private:
     torch::nn::Conv2d offset_conv_{nullptr};
@@ -26,8 +25,7 @@ public:
               std::string_view conv_type = "conv",
               bool mask = false);
 
-    torch::Tensor forward(torch::Tensor x) &&;
-    torch::Tensor forward(const torch::Tensor& x) &;
+    torch::Tensor forward(const torch::Tensor& x);
 
 private:
     torch::nn::Conv2d conv1_{nullptr}, conv2_{nullptr};
@@ -41,8 +39,7 @@ public:
              const torch::nn::Conv2d& downsample = nullptr,
              std::string_view conv_type = "conv");
 
-    torch::Tensor forward(torch::Tensor x) &&;
-    torch::Tensor forward(const torch::Tensor& x) &;
+    torch::Tensor forward(const torch::Tensor& x);
 
 private:
     torch::nn::Conv2d conv1_{nullptr}, conv2_{nullptr};

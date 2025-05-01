@@ -23,7 +23,7 @@ DeformableConv2d::DeformableConv2d(int in_channels, int out_channels,
                                                           .bias(bias)));
 }
 
-torch::Tensor DeformableConv2d::forward(const torch::Tensor& x) & {
+torch::Tensor DeformableConv2d::forward(const torch::Tensor& x) {
     auto h = x.size(2);
     auto w = x.size(3);
     float max_offset = std::max(h, w) / 4.0f;
@@ -48,40 +48,6 @@ torch::Tensor DeformableConv2d::forward(const torch::Tensor& x) & {
         regular_conv_->weight,
         offset,
         mask,
-        regular_conv_->bias,
-        1, 1,
-        padding_, padding_,
-        1, 1,
-        groups_,
-        mask_offset_,
-        false);
-}
-
-torch::Tensor DeformableConv2d::forward(torch::Tensor x) && {
-    auto h = x.size(2);
-    auto w = x.size(3);
-    float max_offset = std::max(h, w) / 4.0f;
-
-    // Offset and mask
-    auto offset = offset_conv_->forward(std::move(x));
-    auto mask = torch::zeros(
-        {offset.size(0), 1},
-        torch::TensorOptions().device(offset.device()).dtype(offset.dtype()));
-
-    offset = std::move(offset).clamp(-max_offset, max_offset);
-
-    if (!regular_conv_->bias.defined())
-    {
-        regular_conv_->bias = torch::zeros(
-            {regular_conv_->weight.size(0)},
-            torch::TensorOptions().device(x.device()).dtype(x.dtype()));
-    }
-
-    return vision::ops::deform_conv2d(
-        std::move(x),
-        regular_conv_->weight,
-        std::move(offset),
-        std::move(mask),
         regular_conv_->bias,
         1, 1,
         padding_, padding_,
@@ -184,53 +150,32 @@ ResBlock::ResBlock(int inplanes, int planes, int stride,
     }
 }
 
-torch::Tensor ConvBlock::forward(torch::Tensor x) && {
-    return static_cast<ConvBlock&>(*this).forward(x);
-}
-
-torch::Tensor ConvBlock::forward(const torch::Tensor& x) & {
+torch::Tensor ConvBlock::forward(const torch::Tensor& x) {
     if (conv1_ && conv2_)
     {
-        auto tmp = torch::selu(bn1_->forward(conv1_->forward(x)));
-        return torch::selu(bn2_->forward(conv2_->forward(std::move(tmp))));
+        return torch::selu(bn2_->forward(conv2_->forward(
+            torch::selu(bn1_->forward(conv1_->forward(x))))));
     } else
     {
-        auto tmp = torch::selu(bn1_->forward(deform1_->forward(x)));
-        return torch::selu(bn2_->forward(deform2_->forward(std::move(tmp))));
+        return torch::selu(bn2_->forward(deform2_->forward(
+            torch::selu(bn1_->forward(deform1_->forward(x))))));
     }
 }
 
-torch::Tensor ResBlock::forward(torch::Tensor x) && {
-    return static_cast<ResBlock&>(*this).forward(x);
-}
-
-torch::Tensor ResBlock::forward(const torch::Tensor& x) & {
-    auto identity = x;
-
+torch::Tensor ResBlock::forward(const torch::Tensor& x) {
     torch::Tensor processed;
     if (conv1_ && conv2_)
     {
-        auto tmp = conv1_->forward(x);
-        tmp = bn1_->forward(std::move(tmp));
-        tmp = torch::selu(std::move(tmp));
-
-        processed = conv2_->forward(std::move(tmp));
-        processed = bn2_->forward(std::move(processed));
+        processed = bn2_->forward(conv2_->forward(torch::selu(bn1_->forward(conv1_->forward(x)))));
     } else
     {
-        auto tmp = deform1_->forward(x);
-        tmp = bn1_->forward(std::move(tmp));
-        tmp = torch::selu(std::move(tmp));
-
-        processed = deform2_->forward(std::move(tmp));
-        processed = bn2_->forward(std::move(processed));
+        processed = bn2_->forward(deform2_->forward(torch::selu(bn1_->forward(deform1_->forward(x)))));
     }
 
     if (downsample_)
     {
-        identity = downsample_->as<torch::nn::Conv2d>()->forward(std::move(identity));
+        return torch::selu(processed + downsample_->forward(x));
+    } else {
+        return torch::selu(processed + x);
     }
-
-    processed += identity;
-    return torch::selu(std::move(processed));
 }

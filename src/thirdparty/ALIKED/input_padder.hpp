@@ -15,13 +15,8 @@ public:
                 pad_ht / 2, pad_ht - pad_ht / 2};
     }
 
-    // Move semantics for pad operation
-    torch::Tensor pad(torch::Tensor x) &&;
-    torch::Tensor pad(const torch::Tensor& x) &;
-
-    // Move semantics for unpad operation
-    [[maybe_unused]] torch::Tensor unpad(torch::Tensor x) &&;
-    torch::Tensor unpad(const torch::Tensor& x) &;
+    torch::Tensor pad(const torch::Tensor& x) const;
+    torch::Tensor unpad(const torch::Tensor& x) const;
 
     void setPadding(const std::array<int, 4>& pad);
     const std::array<int, 4>& getPadding() const { return pad_; }

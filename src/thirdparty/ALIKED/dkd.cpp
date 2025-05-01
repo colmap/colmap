@@ -21,13 +21,13 @@ DKD::DKD(int radius, int top_k, float scores_th, int n_limit)
                    .contiguous(); // Ensure contiguous memory layout
 }
 
-torch::Tensor DKD::simple_nms(torch::Tensor scores, int nms_radius) && {
+torch::Tensor DKD::simple_nms(const torch::Tensor& scores, int nms_radius) {
     auto zeros = torch::zeros_like(scores);
     auto max_pool_options = F::MaxPool2dFuncOptions(nms_radius * 2 + 1)
                                 .stride(1)
                                 .padding(nms_radius);
 
-    auto max_mask = std::move(scores) == F::max_pool2d(scores, max_pool_options);
+    auto max_mask = scores == F::max_pool2d(scores, max_pool_options);
 
     for (int i = 0; i < 2; ++i)
     {
@@ -37,23 +37,17 @@ torch::Tensor DKD::simple_nms(torch::Tensor scores, int nms_radius) && {
         max_mask = max_mask | (new_max_mask & (~supp_mask));
     }
 
-    return torch::where(max_mask, scores, std::move(zeros));
-}
-
-torch::Tensor DKD::simple_nms(const torch::Tensor& scores, int nms_radius) & {
-    auto scores_copy = scores.clone();
-    return std::move(*this).simple_nms(std::move(scores_copy), nms_radius);
+    return torch::where(max_mask, scores, zeros);
 }
 
 std::tuple<std::vector<torch::Tensor>, std::vector<torch::Tensor>, std::vector<torch::Tensor>>
-DKD::detect_keypoints(torch::Tensor scores_map, bool sub_pixel) && {
+DKD::detect_keypoints(const torch::Tensor& scores_map, bool sub_pixel) {
     const auto batch_size = scores_map.size(0);
     const auto height = scores_map.size(2);
     const auto width = scores_map.size(3);
     const auto device = scores_map.device();
 
-    auto scores_nograd = scores_map.detach();
-    auto nms_scores = std::move(*this).simple_nms(std::move(scores_nograd), 2);
+    auto nms_scores = simple_nms(scores_map, 2);
 
     auto border_mask = torch::ones_like(nms_scores,
                                         torch::TensorOptions()
@@ -119,7 +113,7 @@ DKD::detect_keypoints(torch::Tensor scores_map, bool sub_pixel) && {
                                         .to(device);
 
             auto [max_v, _] = patch_scores.max(1, true);
-            auto x_exp = ((patch_scores - max_v.detach()) / temperature_).exp();
+            auto x_exp = ((patch_scores - max_v) / temperature_).exp();
             auto xy_residual = (x_exp.unsqueeze(2) * hw_grid_.unsqueeze(0)).sum(1) /
                                x_exp.sum(1, true);
 
@@ -192,17 +186,6 @@ DKD::detect_keypoints(torch::Tensor scores_map, bool sub_pixel) && {
 }
 
 std::tuple<std::vector<torch::Tensor>, std::vector<torch::Tensor>, std::vector<torch::Tensor>>
-DKD::detect_keypoints(const torch::Tensor& scores_map, bool sub_pixel) & {
-    auto scores_map_copy = scores_map.clone();
-    return std::move(*this).detect_keypoints(std::move(scores_map_copy), sub_pixel);
-}
-
-std::tuple<std::vector<torch::Tensor>, std::vector<torch::Tensor>, std::vector<torch::Tensor>>
-DKD::forward(torch::Tensor scores_map, bool sub_pixel) && {
-    return std::move(*this).detect_keypoints(std::move(scores_map), sub_pixel);
-}
-
-std::tuple<std::vector<torch::Tensor>, std::vector<torch::Tensor>, std::vector<torch::Tensor>>
-DKD::forward(const torch::Tensor& scores_map, bool sub_pixel) & {
-    return this->detect_keypoints(scores_map, sub_pixel);
+DKD::forward(const torch::Tensor& scores_map, bool sub_pixel) {
+    return detect_keypoints(scores_map, sub_pixel);
 }

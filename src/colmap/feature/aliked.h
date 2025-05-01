@@ -67,10 +67,6 @@ struct ALIKEDMatchingOptions {
   // Minimum dot product similarity score.
   double min_similarity = 0.75;
 
-  // Whether to use LightGlue for matching or regular L2-distance based
-  // mutual nearest-neighbor search.
-  bool lightglue = true;
-
   // Path to .pt ALIKED model file in torch model format.
   std::string lightglue_model_path = kDefaultAlikedLightGlueUri;
 

@@ -64,16 +64,15 @@ ALIKED::ALIKED(const std::string& model_name,
 }
 
 std::tuple<torch::Tensor, torch::Tensor>
-ALIKED::extract_dense_map(torch::Tensor image) && {
+ALIKED::extract_dense_map(const torch::Tensor& image) {
     // Create padder for input
-    auto padder = InputPadder(image.size(2), image.size(3), 32);
-    image = std::move(padder).pad(std::move(image));
+    const InputPadder padder(image.size(2), image.size(3), 32);
 
-    // Feature extraction with move semantics
-    auto x1 = std::dynamic_pointer_cast<ConvBlock>(block1_)->forward(image);
-    auto x2 = std::dynamic_pointer_cast<ResBlock>(block2_)->forward(pool2_->forward(x1));
-    auto x3 = std::dynamic_pointer_cast<ResBlock>(block3_)->forward(pool4_->forward(x2));
-    auto x4 = std::dynamic_pointer_cast<ResBlock>(block4_)->forward(pool4_->forward(x3));
+    // Feature extraction
+    auto x1 = block1_->forward(padder.pad(image));
+    auto x2 = block2_->forward(pool2_->forward(x1));
+    auto x3 = block3_->forward(pool4_->forward(x2));
+    auto x4 = block4_->forward(pool4_->forward(x3));
 
     // Feature aggregation
     auto x1_processed = torch::selu(conv1_->forward(x1));
@@ -81,7 +80,7 @@ ALIKED::extract_dense_map(torch::Tensor image) && {
     auto x3_processed = torch::selu(conv3_->forward(x3));
     auto x4_processed = torch::selu(conv4_->forward(x4));
 
-    // Upsample with move semantics
+    // Upsample
     auto options = torch::nn::functional::InterpolateFuncOptions()
                        .mode(torch::kBilinear)
                        .align_corners(true);
@@ -100,27 +99,20 @@ ALIKED::extract_dense_map(torch::Tensor image) && {
                             1);
 
     // Generate score map and feature map
-    auto score_map = torch::sigmoid(score_head_->forward(x1234.clone()));
+    auto score_map = torch::sigmoid(score_head_->forward(x1234));
     auto feature_map = torch::nn::functional::normalize(x1234,
                                                         torch::nn::functional::NormalizeFuncOptions().p(2).dim(1));
 
-    // Unpad tensors with move semantics
-    feature_map = std::move(padder).unpad(std::move(feature_map));
-    score_map = std::move(padder).unpad(std::move(score_map));
-
-    return std::make_tuple(std::move(feature_map), std::move(score_map));
+    return std::make_tuple(padder.unpad(feature_map), padder.unpad(score_map));
 }
 
 torch::Dict<std::string, torch::Tensor>
-ALIKED::forward(torch::Tensor image) && {
-    // Tensors to the right device
-    image = image.to(device_);
-
+ALIKED::forward(const torch::Tensor& image) {
     auto start_time = std::chrono::high_resolution_clock::now();
 
-    auto [feature_map, score_map] = std::move(*this).extract_dense_map(std::move(image));
-    auto [keypoints, kptscores, scoredispersitys] = std::move(*dkd_).forward(score_map);
-    auto [descriptors, offsets] = std::move(*desc_head_).forward(feature_map, keypoints);
+    auto [feature_map, score_map] = extract_dense_map(image.to(device_));
+    auto [keypoints, kptscores, scoredispersitys] = dkd_->forward(score_map);
+    auto [descriptors, offsets] = desc_head_->forward(feature_map, keypoints);
 
     auto end_time = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count() / 1000.0f;
@@ -136,12 +128,6 @@ ALIKED::forward(torch::Tensor image) && {
     return output;
 }
 
-torch::Dict<std::string, torch::Tensor>
-ALIKED::forward(const torch::Tensor& image) & {
-    auto image_copy = image.clone();
-    return std::move(*this).forward(std::move(image_copy));
-}
-
 void ALIKED::init_layers(const std::string& model_name) {
     const auto& config = ALIKED_CFGS.at(std::string(model_name));
     dim_ = config.dim;
@@ -152,7 +138,7 @@ void ALIKED::init_layers(const std::string& model_name) {
     pool4_ = register_module("pool4",
                              torch::nn::AvgPool2d(torch::nn::AvgPool2dOptions(4).stride(4)));
 
-    // Blocks with move semantics
+    // Blocks
     block1_ = register_module(
         "block1",
         std::make_shared<ConvBlock>(3, config.c1, "conv", false));

@@ -23,15 +23,11 @@ public:
                     float scores_th = 0.2,
                     int n_limit = 20000);
 
-    // Move semantics for tensor operations
     std::tuple<torch::Tensor, torch::Tensor>
-    extract_dense_map(torch::Tensor image) &&;
+    extract_dense_map(const torch::Tensor& image);
 
     torch::Dict<std::string, torch::Tensor>
-    forward(torch::Tensor image) &&;
-
-    torch::Dict<std::string, torch::Tensor>
-    forward(const torch::Tensor& image) &;
+    forward(const torch::Tensor& image);
 
 private:
     void init_layers(const std::string& model_name);
