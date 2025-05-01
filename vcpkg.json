@@ -97,7 +97,7 @@
                 }
             ]
         },
-        "libtorch": {
+        "torch": {
             "description": "Build with libtorch.",
             "dependencies": [
                 {
@@ -109,7 +109,7 @@
                 }
             ]
         },
-        "libtorch-cuda": {
+        "torch-cuda": {
             "description": "Build with libtorch and CUDA support.",
             "dependencies": [
                 {
