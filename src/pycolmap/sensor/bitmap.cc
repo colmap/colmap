@@ -131,10 +131,13 @@ void BindBitmap(pybind11::module& m) {
       .def("__repr__", &CreateRepresentation<Bitmap>)
       .def_static(
           "read",
-          [](const std::string& path, bool as_rgb) {
+          [](const std::string& path,
+             bool as_rgb) -> py::typing::Optional<Bitmap> {
             Bitmap bitmap;
-            bitmap.Read(path, as_rgb);
-            return bitmap;
+            if (!bitmap.Read(path, as_rgb)) {
+              return py::none();
+            }
+            return py::cast(bitmap);
           },
           "path"_a,
           "as_rgb"_a,
