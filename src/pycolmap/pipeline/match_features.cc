@@ -154,7 +154,7 @@ void BindMatchFeatures(py::module& m) {
                          "`loop_detection_period` images.")
           .def_readwrite("loop_detection_period",
                          &SeqMOpts::loop_detection_period,
-                         " The number of images to retrieve in loop detection. "
+                         "The number of images to retrieve in loop detection. "
                          "This number should be significantly bigger than the "
                          "sequential matching overlap.")
           .def_readwrite("loop_detection_num_images",
