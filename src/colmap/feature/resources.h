@@ -39,14 +39,20 @@ const static std::string kDefaultAlikedUri =
     "aliked-n32.pt;"
     "aliked-n32.pt;"
     "bc64763cfa2dc7b3356bb03053d2b2b277498c64e89786001dd391daa577a7d6";
-const static std::string kDefaultAlikedLightGlueUri =
+const static std::string kDefaultLightGlueAlikedUri =
     "https://github.com/MrNeRF/Light_Glue_CPP/raw/refs/heads/master/models/"
     "aliked_lightglue.pt;"
     "aliked_lightglue.pt;"
     "01ce35141db9d91e0e4fe39ede3435b1f8dd61929f9d32ae609e95172e2fa402";
+const static std::string kDefaultLightGlueSiftUri =
+    "https://github.com/MrNeRF/Light_Glue_CPP/raw/refs/heads/master/models/"
+    "sift_lightglue.pt;"
+    "sift_lightglue.pt;"
+    "5a3c6ec3f941cf7600fb465b65f0f0a341383e069fec77d510381945b3de41a7";
 #else
 const static std::string kDefaultAlikedUri = "";
-const static std::string kDefaultAlikedLightGlueUri = "";
+const static std::string kDefaultLightGlueAlikedUri = "";
+const static std::string kDefaultLightGlueSiftUri = "";
 #endif
 
 }  // namespace colmap

@@ -240,12 +240,12 @@ torch::Dict<std::string, torch::Tensor> LightGlue::forward(
   // Add scale and orientation if configured
   if (config_.add_scale_ori) {
     kpts0 = torch::cat({kpts0,
-                        data0.at("scales").unsqueeze(-1),
-                        data0.at("oris").unsqueeze(-1)},
+                        data0.at("scales").unsqueeze(0),
+                        data0.at("oris").unsqueeze(0)},
                        -1);
     kpts1 = torch::cat({kpts1,
-                        data1.at("scales").unsqueeze(-1),
-                        data1.at("oris").unsqueeze(-1)},
+                        data1.at("scales").unsqueeze(0),
+                        data1.at("oris").unsqueeze(0)},
                        -1);
   }
 

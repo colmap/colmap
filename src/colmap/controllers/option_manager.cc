@@ -345,6 +345,8 @@ void OptionManager::AddMatchingOptions() {
                               &feature_matching->sift->cross_check);
   AddAndRegisterDefaultOption("SiftMatching.cpu_brute_force_matcher",
                               &feature_matching->sift->cpu_brute_force_matcher);
+  AddAndRegisterDefaultOption("SiftMatching.lightglue_model_path",
+                              &feature_matching->sift->lightglue_model_path);
 
   AddAndRegisterDefaultOption("ALIKEDMatching.min_similarity",
                               &feature_matching->aliked->min_similarity);

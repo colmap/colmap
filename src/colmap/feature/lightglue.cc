@@ -60,14 +60,24 @@ int GetInputDim(FeatureMatcherType type) {
   return it->second;
 }
 
+matcher::LightGlueConfig GetConfig(FeatureMatcherType type) {
+  matcher::LightGlueConfig config;
+  if (type == FeatureMatcherType::LIGHTGLUE_SIFT) {
+    config.add_scale_ori = true;
+  }
+  return config;
+}
+
 class LightGlueFeatureMatcher : public FeatureMatcher {
  public:
   explicit LightGlueFeatureMatcher(
       const FeatureMatchingOptions& options,
       const LightGlueMatchingOptions& lightglue_options)
-      : lightglue_(GetInputDim(options.type),
+      : lightglue_options_(lightglue_options),
+        lightglue_(GetInputDim(options.type),
                    MaybeDownloadAndCacheFile(lightglue_options.model_path),
-                   GetDeviceName(options.use_gpu, options.gpu_index)) {
+                   GetDeviceName(options.use_gpu, options.gpu_index),
+                   GetConfig(options.type)) {
     if (!options.Check()) {
       throw std::runtime_error("Invalid feature matching options.");
     }
@@ -133,9 +143,24 @@ class LightGlueFeatureMatcher : public FeatureMatcher {
     THROW_CHECK_NOTNULL(image.keypoints);
     THROW_CHECK_EQ(image.descriptors->rows(), image.keypoints->size());
 
+    int descriptor_dim_size = 0;
+    torch::TensorOptions descriptor_options;
+    switch (lightglue_options_.descriptor_data_type) {
+      case LightGlueMatchingOptions::DescriptorDataType::UINT8:
+        descriptor_dim_size = sizeof(uint8_t);
+        descriptor_options = torch::TensorOptions().dtype(torch::kUInt8);
+        break;
+      case LightGlueMatchingOptions::DescriptorDataType::FLOAT32:
+        descriptor_dim_size = sizeof(float);
+        descriptor_options = torch::TensorOptions().dtype(torch::kFloat32);
+        break;
+      default:
+        throw std::runtime_error("Unknown descriptor data type provided");
+    }
+
     const int num_keypoints = image.keypoints->size();
-    THROW_CHECK_EQ(image.descriptors->cols() % sizeof(float), 0);
-    const int descriptor_dim = image.descriptors->cols() / sizeof(float);
+    THROW_CHECK_EQ(image.descriptors->cols() % descriptor_dim_size, 0);
+    const int descriptor_dim = image.descriptors->cols() / descriptor_dim_size;
 
     // Convert to contiguous array so we can use torch::from_blob below.
     std::vector<float> keypoints_array(num_keypoints * 2);
@@ -168,12 +193,40 @@ class LightGlueFeatureMatcher : public FeatureMatcher {
         "descriptors",
         torch::from_blob(const_cast<uint8_t*>(image.descriptors->data()),
                          {num_keypoints, descriptor_dim},
-                         kFloat32Options)
-            .clone());
+                         descriptor_options)
+            .clone()
+            .toType(torch::kFloat32));
+
+    if (lightglue_options_.requires_scale) {
+      std::vector<float> scales_array(num_keypoints * 2);
+      for (int i = 0; i < num_keypoints; ++i) {
+        const FeatureKeypoint& keypoint = (*image.keypoints)[i];
+        scales_array[i] = keypoint.ComputeScale();
+      }
+      features.insert(
+          "scales",
+          torch::from_blob(
+              scales_array.data(), {num_keypoints, 1}, kFloat32Options)
+              .clone());
+    }
+
+    if (lightglue_options_.requires_orientation) {
+      std::vector<float> orientations_array(num_keypoints * 2);
+      for (int i = 0; i < num_keypoints; ++i) {
+        const FeatureKeypoint& keypoint = (*image.keypoints)[i];
+        orientations_array[i] = keypoint.ComputeOrientation();
+      }
+      features.insert(
+          "oris",
+          torch::from_blob(
+              orientations_array.data(), {num_keypoints, 1}, kFloat32Options)
+              .clone());
+    }
 
     return features;
   }
 
+  const LightGlueMatchingOptions lightglue_options_;
   matcher::LightGlue lightglue_;
 };
 

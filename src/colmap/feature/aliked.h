@@ -67,8 +67,8 @@ struct ALIKEDMatchingOptions {
   // Minimum dot product similarity score.
   double min_similarity = 0.75;
 
-  // Path to .pt ALIKED model file in torch model format.
-  std::string lightglue_model_path = kDefaultAlikedLightGlueUri;
+  // Path to .pt LightGlue model file ALIKED features in torch model format.
+  std::string lightglue_model_path = kDefaultLightGlueAlikedUri;
 
   bool Check() const;
 };

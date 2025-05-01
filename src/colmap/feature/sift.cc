@@ -29,6 +29,7 @@
 
 #include "colmap/feature/sift.h"
 
+#include "colmap/feature/lightglue.h"
 #include "colmap/feature/utils.h"
 #include "colmap/math/math.h"
 #include "colmap/util/cuda.h"
@@ -1422,8 +1423,23 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
 std::unique_ptr<FeatureMatcher> CreateSiftFeatureMatcher(
     const FeatureMatchingOptions& options) {
   THROW_CHECK_NOTNULL(options.sift);
+  if (options.type == FeatureMatcherType::LIGHTGLUE_SIFT) {
+#ifdef COLMAP_TORCH_ENABLED
+    LightGlueMatchingOptions lightglue_options;
+    lightglue_options.model_path = options.sift->lightglue_model_path;
+    lightglue_options.requires_scale = true;
+    lightglue_options.requires_orientation = true;
+    lightglue_options.descriptor_data_type =
+        LightGlueMatchingOptions::DescriptorDataType::UINT8;
+    return CreateLightGlueFeatureMatcher(options, lightglue_options);
+#else
+    throw std::runtime_error(
+        "LightGlue feature matching requires torch support.");
+#endif
+  }
+
   if (options.use_gpu) {
-#if defined(COLMAP_GPU_ENABLED)
+#ifdef COLMAP_GPU_ENABLED
     LOG(INFO) << "Creating SIFT GPU feature matcher";
     return SiftGPUFeatureMatcher::Create(options);
 #else
