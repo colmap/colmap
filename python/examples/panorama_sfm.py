@@ -201,13 +201,17 @@ def run(args):
         camera_mode=pycolmap.CameraMode.PER_FOLDER,
     )
 
-    db = pycolmap.Database(database_path)
-    pycolmap.apply_rig_config([rig_config], db)
-    db.close()
+    with pycolmap.Database(database_path) as db:
+        pycolmap.apply_rig_config([rig_config], db)
 
     pycolmap.match_vocabtree(database_path)
 
-    opts = pycolmap.IncrementalPipelineOptions(ba_refine_sensor_from_rig=False)
+    opts = pycolmap.IncrementalPipelineOptions(
+        ba_refine_sensor_from_rig=False,
+        ba_refine_focal_length=False,
+        ba_refine_principal_point=False,
+        ba_refine_extra_params=False,
+    )
     recs = pycolmap.incremental_mapping(
         database_path, image_dir, rec_path, opts
     )
