@@ -79,10 +79,13 @@ struct IncrementalPipelineOptions {
   double max_focal_length_ratio = 10.0;
   double max_extra_param = 1.0;
 
-  // Which intrinsic parameters to optimize during the reconstruction.
+  // Which camera parameters to optimize during the reconstruction.
   bool ba_refine_focal_length = true;
   bool ba_refine_principal_point = false;
   bool ba_refine_extra_params = true;
+
+  // Whether to optimize rig poses during the reconstruction.
+  bool ba_refine_sensor_from_rig = true;
 
   // The minimum number of residuals per bundle adjustment problem to
   // enable multi-threading solving of the problems.
@@ -98,9 +101,9 @@ struct IncrementalPipelineOptions {
   int ba_local_max_num_iterations = 25;
 
   // The growth rates after which to perform global bundle adjustment.
-  double ba_global_images_ratio = 1.1;
+  double ba_global_frames_ratio = 1.1;
   double ba_global_points_ratio = 1.1;
-  int ba_global_images_freq = 500;
+  int ba_global_frames_freq = 500;
   int ba_global_points_freq = 250000;
 
   // Ceres solver function tolerance for global bundle adjustment
@@ -133,14 +136,14 @@ struct IncrementalPipelineOptions {
   // reconstruction. Snapshots will be saved according to the specified
   // frequency of registered images.
   std::string snapshot_path = "";
-  int snapshot_images_freq = 0;
+  int snapshot_frames_freq = 0;
 
   // Optional list of image names to reconstruct. If no images are specified,
   // all images will be reconstructed by default.
   std::vector<std::string> image_names;
 
-  // If reconstruction is provided as input, fix the existing image poses.
-  bool fix_existing_images = false;
+  // If reconstruction is provided as input, fix the existing frame poses.
+  bool fix_existing_frames = false;
 
   IncrementalMapper::Options mapper;
   IncrementalTriangulator::Options triangulation;

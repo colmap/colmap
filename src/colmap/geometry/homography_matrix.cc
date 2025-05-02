@@ -30,24 +30,27 @@
 #include "colmap/geometry/homography_matrix.h"
 
 #include "colmap/geometry/pose.h"
+#include "colmap/geometry/triangulation.h"
 #include "colmap/math/math.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 
 #include <array>
+#include <iomanip>
 
 #include <Eigen/Dense>
+#include <Eigen/Geometry>
 
 namespace colmap {
 namespace {
 
 double ComputeOppositeOfMinor(const Eigen::Matrix3d& matrix,
-                              const size_t row,
-                              const size_t col) {
-  const size_t col1 = col == 0 ? 1 : 0;
-  const size_t col2 = col == 2 ? 1 : 2;
-  const size_t row1 = row == 0 ? 1 : 0;
-  const size_t row2 = row == 2 ? 1 : 2;
+                              const int row,
+                              const int col) {
+  const int col1 = col == 0 ? 1 : 0;
+  const int col2 = col == 2 ? 1 : 2;
+  const int row1 = row == 0 ? 1 : 0;
+  const int row2 = row == 2 ? 1 : 2;
   return (matrix(row1, col2) * matrix(row2, col1) -
           matrix(row1, col1) * matrix(row2, col2));
 }
@@ -93,7 +96,7 @@ void DecomposeHomographyMatrix(const Eigen::Matrix3d& H,
       H_normalized.transpose() * H_normalized - Eigen::Matrix3d::Identity();
 
   // Check if H is rotation matrix.
-  const double kMinInfinityNorm = 1e-3;
+  constexpr double kMinInfinityNorm = 1e-3;
   if (S.lpNorm<Eigen::Infinity>() < kMinInfinityNorm) {
     *cams2_from_cams1 = {
         Rigid3d(Eigen::Quaterniond(H_normalized), Eigen::Vector3d::Zero())};
@@ -185,6 +188,51 @@ void DecomposeHomographyMatrix(const Eigen::Matrix3d& H,
   *normals = {-n1, n1, -n2, n2};
 }
 
+namespace {
+
+double CheckCheiralityAndReprojErrorSum(
+    const Rigid3d& cam2_from_cam1,
+    const std::vector<Eigen::Vector2d>& points1,
+    const std::vector<Eigen::Vector2d>& points2,
+    std::vector<Eigen::Vector3d>* points3D) {
+  THROW_CHECK_EQ(points1.size(), points2.size());
+  const Eigen::Matrix3x4d cam1_from_world = Eigen::Matrix3x4d::Identity();
+  const Eigen::Matrix3x4d cam2_from_world = cam2_from_cam1.ToMatrix();
+  constexpr double kMinDepth = std::numeric_limits<double>::epsilon();
+  const double max_depth = 1000.0 * cam2_from_cam1.translation.norm();
+  double reproj_residual_sum = 0;
+  points3D->clear();
+  for (size_t i = 0; i < points1.size(); ++i) {
+    Eigen::Vector3d point3D;
+    if (!TriangulatePoint(cam1_from_world,
+                          cam2_from_world,
+                          points1[i],
+                          points2[i],
+                          &point3D)) {
+      continue;
+    }
+    const Eigen::Vector3d point3D_in_cam1 =
+        cam1_from_world * point3D.homogeneous();
+    if (point3D_in_cam1.z() < kMinDepth || point3D_in_cam1.z() > max_depth) {
+      continue;
+    }
+    const Eigen::Vector3d point3D_in_cam2 =
+        cam2_from_world * point3D.homogeneous();
+    if (point3D_in_cam2.z() < kMinDepth || point3D_in_cam2.z() > max_depth) {
+      continue;
+    }
+    const double error1 =
+        (points1[i] - point3D_in_cam1.hnormalized()).squaredNorm();
+    const double error2 =
+        (points2[i] - point3D_in_cam2.hnormalized()).squaredNorm();
+    reproj_residual_sum += error1 + error2;
+    points3D->push_back(point3D);
+  }
+  return reproj_residual_sum;
+}
+
+}  // namespace
+
 void PoseFromHomographyMatrix(const Eigen::Matrix3d& H,
                               const Eigen::Matrix3d& K1,
                               const Eigen::Matrix3d& K2,
@@ -202,9 +250,20 @@ void PoseFromHomographyMatrix(const Eigen::Matrix3d& H,
 
   points3D->clear();
   std::vector<Eigen::Vector3d> tentative_points3D;
+  double best_reproj_residual_sum = std::numeric_limits<double>::max();
   for (size_t i = 0; i < cams2_from_cams1.size(); ++i) {
-    CheckCheirality(cams2_from_cams1[i], points1, points2, &tentative_points3D);
-    if (tentative_points3D.size() >= points3D->size()) {
+    // Note that we can typically eliminate 2 of the 4 solutions using the
+    // cheirality check. We can then typically narrow it down to 1 solution by
+    // picking the solution with minimal overall squared reprojection error.
+    // There is no principled reasoning for why choosing the sum of squared or
+    // non-squared reprojection errors other than avoid sqrt for efficiency and
+    // consistency with the RANSAC cost function.
+    const double reproj_residual_sum = CheckCheiralityAndReprojErrorSum(
+        cams2_from_cams1[i], points1, points2, &tentative_points3D);
+    if (tentative_points3D.size() > points3D->size() ||
+        (tentative_points3D.size() == points3D->size() &&
+         reproj_residual_sum < best_reproj_residual_sum)) {
+      best_reproj_residual_sum = reproj_residual_sum;
       *cam2_from_cam1 = cams2_from_cams1[i];
       *normal = normals[i];
       std::swap(*points3D, tentative_points3D);

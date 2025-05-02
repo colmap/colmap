@@ -27,26 +27,42 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/sensor/rig_calib.h"
+#include "colmap/scene/frame.h"
 
 namespace colmap {
 
-void RigCalib::AddRefSensor(sensor_t ref_sensor_id) {
-  THROW_CHECK(ref_sensor_id_ == kInvalidSensorId)
-      << "Reference sensor already set";
-  ref_sensor_id_ = ref_sensor_id;
+void Frame::SetCamFromWorld(camera_t camera_id, const Rigid3d& cam_from_world) {
+  THROW_CHECK_NOTNULL(rig_ptr_);
+  const sensor_t sensor_id(SensorType::CAMERA, camera_id);
+  if (rig_ptr_->IsRefSensor(sensor_id)) {
+    SetRigFromWorld(cam_from_world);
+  } else {
+    const Rigid3d& cam_from_rig = rig_ptr_->SensorFromRig(sensor_id);
+    SetRigFromWorld(Inverse(cam_from_rig) * cam_from_world);
+  }
 }
 
-void RigCalib::AddSensor(sensor_t sensor_id,
-                         const std::optional<Rigid3d>& sensor_from_rig) {
-  THROW_CHECK(NumSensors() >= 1)
-      << "The reference sensor needs to added first before any "
-         "sensor being added.";
-  THROW_CHECK(!HasSensor(sensor_id))
-      << StringPrintf("Sensor id (%d, %d) is inserted twice into the rig",
-                      sensor_id.type,
-                      sensor_id.id);
-  sensors_from_rig_.emplace(sensor_id, sensor_from_rig);
+std::ostream& operator<<(std::ostream& stream, const Frame& frame) {
+  stream << "Frame(frame_id=" << frame.FrameId() << ", rig_id=";
+  if (frame.HasRigId()) {
+    if (frame.RigId() == kInvalidRigId) {
+      stream << "Invalid";
+    } else {
+      stream << frame.RigId();
+    }
+  } else {
+    stream << "Unknown";
+  }
+  stream << ", has_pose=" << frame.HasPose() << ", data_ids=[";
+  for (const auto& data_id : frame.DataIds()) {
+    stream << "(" << data_id.sensor_id.type << ", " << data_id.sensor_id.id
+           << ", " << data_id.id << "), ";
+  }
+  if (!frame.DataIds().empty()) {
+    stream.seekp(-2, std::ios_base::end);
+  }
+  stream << "])";
+  return stream;
 }
 
 }  // namespace colmap

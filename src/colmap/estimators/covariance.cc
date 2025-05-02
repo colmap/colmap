@@ -416,13 +416,17 @@ std::vector<PoseParam> GetPoseParams(const Reconstruction& reconstruction,
   std::vector<PoseParam> params;
   params.reserve(reconstruction.NumImages());
   for (const auto& [image_id, image] : reconstruction.Images()) {
-    const double* qvec = image.CamFromWorld().rotation.coeffs().data();
+    // TODO(jsch): Add support for non-trivial frames.
+    THROW_CHECK(image.HasTrivialFrame());
+    const Rigid3d& cam_from_world = image.FramePtr()->RigFromWorld();
+
+    const double* qvec = cam_from_world.rotation.coeffs().data();
     if (!problem.HasParameterBlock(qvec) ||
         problem.IsParameterBlockConstant(const_cast<double*>(qvec))) {
       qvec = nullptr;
     }
 
-    const double* tvec = image.CamFromWorld().translation.data();
+    const double* tvec = cam_from_world.translation.data();
     if (!problem.HasParameterBlock(tvec) ||
         problem.IsParameterBlockConstant(const_cast<double*>(tvec))) {
       tvec = nullptr;

@@ -143,10 +143,20 @@ void BindMatchFeatures(py::module& m) {
               "quadratic_overlap",
               &SeqMOpts::quadratic_overlap,
               "Whether to match images against their quadratic neighbors.")
+          .def_readwrite("expand_rig_images",
+                         &SeqMOpts::expand_rig_images,
+                         "Whether to match an image against all images in "
+                         "neighboring rig frames. If no rigs/frames are "
+                         "configured in the database, this option is ignored.")
           .def_readwrite("loop_detection",
                          &SeqMOpts::loop_detection,
                          "Loop detection is invoked every "
                          "`loop_detection_period` images.")
+          .def_readwrite("loop_detection_period",
+                         &SeqMOpts::loop_detection_period,
+                         "The number of images to retrieve in loop detection. "
+                         "This number should be significantly bigger than the "
+                         "sequential matching overlap.")
           .def_readwrite("loop_detection_num_images",
                          &SeqMOpts::loop_detection_num_images,
                          "The number of images to retrieve in loop "

@@ -46,12 +46,13 @@ void ImportImages(const std::string& database_path,
     if (py_interrupt.Raised()) {
       throw py::error_already_set();
     }
+    Rig rig;
     Camera camera;
     Image image;
     PosePrior pose_prior;
     Bitmap bitmap;
     const ImageReader::Status status =
-        image_reader.Next(&camera, &image, &pose_prior, &bitmap, nullptr);
+        image_reader.Next(&rig, &camera, &image, &pose_prior, &bitmap, nullptr);
     if (status != ImageReader::Status::SUCCESS) {
       LOG(ERROR) << image.Name() << " " << ImageReader::StatusToString(status);
       continue;
@@ -62,6 +63,10 @@ void ImportImages(const std::string& database_path,
       if (pose_prior.IsValid()) {
         database.WritePosePrior(image.ImageId(), pose_prior);
       }
+      Frame frame;
+      frame.SetRigId(rig.RigId());
+      frame.AddDataId(image.DataId());
+      database.WriteFrame(frame);
     }
   }
 }

@@ -133,6 +133,10 @@ void WriteBinaryBlob(const std::string& path, const span<const char>& data);
 // ignored and leading/trailing whitespace is removed.
 std::vector<std::string> ReadTextFileLines(const std::string& path);
 
+// Detect if given string is a URI
+// (i.e., starts with http://, https://, file://).
+bool IsURI(const std::string& uri);
+
 #ifdef COLMAP_DOWNLOAD_ENABLED
 
 // Download file from server. Supports any protocol suppported by Curl.

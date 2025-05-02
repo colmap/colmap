@@ -37,9 +37,12 @@
 namespace colmap {
 
 struct SyntheticDatasetOptions {
-  int num_cameras = 2;
-  int num_images = 10;
+  int num_rigs = 2;
+  int num_cameras_per_rig = 1;
+  int num_frames_per_rig = 5;
   int num_points3D = 100;
+
+  double sensor_from_rig_translation_stddev = 0.05;
 
   int camera_width = 1024;
   int camera_height = 768;
@@ -55,7 +58,8 @@ struct SyntheticDatasetOptions {
   enum class MatchConfig {
     // Exhaustive matches between all pairs of observations of a 3D point.
     EXHAUSTIVE = 1,
-    // Chain of matches with random start/end observations.
+    // Chain of matches between images with consecutive identifiers, i.e.,
+    // there are only matches between image pairs (image_id, image_id+1).
     CHAINED = 2,
   };
   MatchConfig match_config = MatchConfig::EXHAUSTIVE;

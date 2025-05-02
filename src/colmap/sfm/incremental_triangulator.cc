@@ -43,14 +43,14 @@ bool TriangulateTrack(
     Eigen::Vector3d& xyz) {
   std::vector<Eigen::Vector2d> points;
   points.resize(corrs_data.size());
-  std::vector<Rigid3d const*> cams_from_world;
+  std::vector<Rigid3d> cams_from_world;
   cams_from_world.resize(corrs_data.size());
   std::vector<Camera const*> cameras;
   cameras.resize(corrs_data.size());
   for (size_t i = 0; i < corrs_data.size(); ++i) {
     const auto& corr_data = corrs_data[i];
     points[i] = corr_data.point2D->xy;
-    cams_from_world[i] = &corr_data.image->CamFromWorld();
+    cams_from_world[i] = corr_data.image->CamFromWorld();
     cameras[i] = corr_data.camera;
   }
 

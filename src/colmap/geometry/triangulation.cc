@@ -116,12 +116,13 @@ bool TriangulateOptimalPoint(const Eigen::Matrix3x4d& cam1_from_world_mat,
                           xyz);
 }
 
-double CalculateTriangulationAngle(const Eigen::Vector3d& proj_center1,
-                                   const Eigen::Vector3d& proj_center2,
-                                   const Eigen::Vector3d& point3D) {
-  const double baseline_length_squared =
-      (proj_center1 - proj_center2).squaredNorm();
+namespace {
 
+inline double CalculateTriangulationAngleWithKnownBaseline(
+    double baseline_length_squared,
+    const Eigen::Vector3d& proj_center1,
+    const Eigen::Vector3d& proj_center2,
+    const Eigen::Vector3d& point3D) {
   const double ray_length_squared1 = (point3D - proj_center1).squaredNorm();
   const double ray_length_squared2 = (point3D - proj_center2).squaredNorm();
 
@@ -134,7 +135,7 @@ double CalculateTriangulationAngle(const Eigen::Vector3d& proj_center1,
   const double nominator =
       ray_length_squared1 + ray_length_squared2 - baseline_length_squared;
   const double angle =
-      std::abs(std::acos(std::clamp(nominator / denominator, -1.0, 1.0)));
+      std::acos(std::clamp(nominator / denominator, -1.0, 1.0));
 
   // Triangulation is unstable for acute angles (far away points) and
   // obtuse angles (close points), so always compute the minimum angle
@@ -142,40 +143,28 @@ double CalculateTriangulationAngle(const Eigen::Vector3d& proj_center1,
   return std::min(angle, M_PI - angle);
 }
 
+}  // namespace
+
+double CalculateTriangulationAngle(const Eigen::Vector3d& proj_center1,
+                                   const Eigen::Vector3d& proj_center2,
+                                   const Eigen::Vector3d& point3D) {
+  const double baseline_length_squared =
+      (proj_center1 - proj_center2).squaredNorm();
+  return CalculateTriangulationAngleWithKnownBaseline(
+      baseline_length_squared, proj_center1, proj_center2, point3D);
+}
+
 std::vector<double> CalculateTriangulationAngles(
     const Eigen::Vector3d& proj_center1,
     const Eigen::Vector3d& proj_center2,
     const std::vector<Eigen::Vector3d>& points3D) {
-  // Baseline length between camera centers.
   const double baseline_length_squared =
       (proj_center1 - proj_center2).squaredNorm();
-
   std::vector<double> angles(points3D.size());
-
   for (size_t i = 0; i < points3D.size(); ++i) {
-    // Ray lengths from cameras to point.
-    const double ray_length_squared1 =
-        (points3D[i] - proj_center1).squaredNorm();
-    const double ray_length_squared2 =
-        (points3D[i] - proj_center2).squaredNorm();
-
-    // Using "law of cosines" to compute the enclosing angle between rays.
-    const double denominator =
-        2.0 * std::sqrt(ray_length_squared1 * ray_length_squared2);
-    if (denominator == 0.0) {
-      angles[i] = 0.0;
-      continue;
-    }
-    const double nominator =
-        ray_length_squared1 + ray_length_squared2 - baseline_length_squared;
-    const double angle = std::abs(std::acos(nominator / denominator));
-
-    // Triangulation is unstable for acute angles (far away points) and
-    // obtuse angles (close points), so always compute the minimum angle
-    // between the two intersecting rays.
-    angles[i] = std::min(angle, M_PI - angle);
+    angles[i] = CalculateTriangulationAngleWithKnownBaseline(
+        baseline_length_squared, proj_center1, proj_center2, points3D[i]);
   }
-
   return angles;
 }
 

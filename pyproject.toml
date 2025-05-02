@@ -45,7 +45,7 @@ test-requires = "mypy==1.12.1"
 test-command = "python -c \"import pycolmap; print(pycolmap.__version__)\" &&  python -m mypy --package pycolmap --implicit-optional"
 
 [tool.cibuildwheel.environment]
-VCPKG_COMMIT_ID = "3b57fb2e1ff55613db14d2aaf0a30529289c7050"
+VCPKG_COMMIT_ID = "bc3512a509f9d29b37346a7e7e929f9a26e66c7e"
 
 [tool.cibuildwheel.linux]
 before-all = "{project}/python/ci/install-colmap-almalinux.sh"

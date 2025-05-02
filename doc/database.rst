@@ -5,12 +5,14 @@ Database Format
 
 COLMAP stores all extracted information in a single SQLite database file. The
 database can be accessed with the database management toolkit in the COLMAP GUI,
-the provided C++ database API (see ``src/colmap/scene/database.h``), or with a scripting
-language of your choice (see ``scripts/python/database.py``).
+the provided C++ database API (see ``src/colmap/scene/database.h``), or using
+Python with pycolmap.
 
 The database contains the following tables:
 
+- rigs
 - cameras
+- frames
 - images
 - keypoints
 - descriptors
@@ -19,6 +21,22 @@ The database contains the following tables:
 
 To initialize an empty SQLite database file with the required schema, you can
 either create a new project in the GUI or execute `src/colmap/exe/database_create.cc`.
+
+
+Rigs and Sensors
+----------------
+
+The relation between rigs and sensors (cameras, etc.) is 1-to-N with one sensor
+being chosen as the reference sensor to define the origin of the rig. Each sensor
+must only be be part of one rig.
+
+
+Rigs and Frames
+---------------
+
+The relation between rigs and frames is 1-to-N, where a frame defines a specific
+instance of the rig with all or a subset of sensors exposed at the same time.
+
 
 Cameras and Images
 ------------------
@@ -68,8 +86,8 @@ only X and Y must be provided and the other keypoint columns can be set to zero.
 The rest of the reconstruction pipeline only uses the keypoint locations.
 
 
-Matches
--------
+Matches and two-view geometries
+-------------------------------
 
 Feature matching stores its output in the `matches` table and geometric
 verification in the `two_view_geometries` table. COLMAP only uses the data in

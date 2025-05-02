@@ -88,7 +88,7 @@ ObservationManager::ObservationManager(
 
   // If an existing model was loaded from disk and there were already images
   // registered previously, we need to set observations as triangulated.
-  for (const auto image_id : reconstruction_.RegImageIds()) {
+  for (const image_t image_id : reconstruction_.RegImageIds()) {
     const Image& image = reconstruction_.Image(image_id);
     for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
          ++point2D_idx) {
@@ -104,7 +104,7 @@ ObservationManager::ObservationManager(
 void ObservationManager::IncrementCorrespondenceHasPoint3D(
     const image_t image_id, const point2D_t point2D_idx) {
   const Image& image = reconstruction_.Image(image_id);
-  const struct Point2D& point2D = image.Point2D(point2D_idx);
+  const Point2D& point2D = image.Point2D(point2D_idx);
   ImageStat& stats = image_stats_.at(image_id);
 
   stats.num_correspondences_have_point3D[point2D_idx] += 1;
@@ -120,7 +120,7 @@ void ObservationManager::IncrementCorrespondenceHasPoint3D(
 void ObservationManager::DecrementCorrespondenceHasPoint3D(
     const image_t image_id, const point2D_t point2D_idx) {
   const Image& image = reconstruction_.Image(image_id);
-  const struct Point2D& point2D = image.Point2D(point2D_idx);
+  const Point2D& point2D = image.Point2D(point2D_idx);
   ImageStat& stats = image_stats_.at(image_id);
 
   stats.num_correspondences_have_point3D[point2D_idx] -= 1;
@@ -321,18 +321,20 @@ size_t ObservationManager::FilterAllPoints3D(const double max_reproj_error,
 
 size_t ObservationManager::FilterObservationsWithNegativeDepth() {
   size_t num_filtered = 0;
-  for (const auto image_id : reconstruction_.RegImageIds()) {
-    const Image& image = reconstruction_.Image(image_id);
-    const Eigen::Matrix3x4d cam_from_world = image.CamFromWorld().ToMatrix();
-    for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
-         ++point2D_idx) {
-      const Point2D& point2D = image.Point2D(point2D_idx);
-      if (point2D.HasPoint3D()) {
-        const struct Point3D& point3D =
-            reconstruction_.Point3D(point2D.point3D_id);
-        if (!HasPointPositiveDepth(cam_from_world, point3D.xyz)) {
-          DeleteObservation(image_id, point2D_idx);
-          num_filtered += 1;
+  for (const frame_t frame_id : reconstruction_.RegFrameIds()) {
+    for (const data_t& data_id : reconstruction_.Frame(frame_id).ImageIds()) {
+      const Image& image = reconstruction_.Image(data_id.id);
+      const Eigen::Matrix3x4d cam_from_world = image.CamFromWorld().ToMatrix();
+      for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
+           ++point2D_idx) {
+        const Point2D& point2D = image.Point2D(point2D_idx);
+        if (point2D.HasPoint3D()) {
+          const struct Point3D& point3D =
+              reconstruction_.Point3D(point2D.point3D_id);
+          if (!HasPointPositiveDepth(cam_from_world, point3D.xyz)) {
+            DeleteObservation(data_id.id, point2D_idx);
+            num_filtered += 1;
+          }
         }
       }
     }
@@ -455,38 +457,51 @@ size_t ObservationManager::FilterPoints3DWithLargeReprojectionError(
   return num_filtered;
 }
 
-void ObservationManager::DeRegisterImage(const image_t image_id) {
-  Image& image = reconstruction_.Image(image_id);
-  const auto num_points2D = image.NumPoints2D();
-  for (point2D_t point2D_idx = 0; point2D_idx < num_points2D; ++point2D_idx) {
-    if (image.Point2D(point2D_idx).HasPoint3D()) {
-      DeleteObservation(image_id, point2D_idx);
+void ObservationManager::DeRegisterFrame(const frame_t frame_id) {
+  const Frame& frame = reconstruction_.Frame(frame_id);
+  for (const data_t& data_id : frame.DataIds()) {
+    Image& image = reconstruction_.Image(data_id.id);
+    const auto num_points2D = image.NumPoints2D();
+    for (point2D_t point2D_idx = 0; point2D_idx < num_points2D; ++point2D_idx) {
+      if (image.Point2D(point2D_idx).HasPoint3D()) {
+        DeleteObservation(data_id.id, point2D_idx);
+      }
     }
   }
-  reconstruction_.DeRegisterImage(image_id);
+  reconstruction_.DeRegisterFrame(frame_id);
 }
 
-std::vector<image_t> ObservationManager::FilterImages(
+std::vector<frame_t> ObservationManager::FilterFrames(
     const double min_focal_length_ratio,
     const double max_focal_length_ratio,
     const double max_extra_param) {
-  std::vector<image_t> filtered_image_ids;
-  for (const image_t image_id : reconstruction_.RegImageIds()) {
-    const Image& image = reconstruction_.Image(image_id);
-    if (image.NumPoints3D() == 0 ||
-        image.CameraPtr()->HasBogusParams(
-            min_focal_length_ratio, max_focal_length_ratio, max_extra_param)) {
-      filtered_image_ids.push_back(image_id);
+  std::vector<frame_t> filtered_frame_ids;
+  for (const frame_t frame_id : reconstruction_.RegFrameIds()) {
+    const Frame& frame = reconstruction_.Frame(frame_id);
+    int num_points3D = 0;
+    for (const data_t& data_id : frame.ImageIds()) {
+      const Image& image = reconstruction_.Image(data_id.id);
+      num_points3D += image.NumPoints3D();
+      if (image.CameraPtr()->HasBogusParams(min_focal_length_ratio,
+                                            max_focal_length_ratio,
+                                            max_extra_param)) {
+        // Flag the frame for filtering.
+        num_points3D = 0;
+        break;
+      }
+    }
+    if (num_points3D == 0) {
+      filtered_frame_ids.push_back(frame_id);
     }
   }
 
-  // Only de-register after iterating over reg_image_ids_ to avoid
+  // Only de-register after iterating over reg_frame_ids_ to avoid
   // simultaneous iteration and modification of the vector.
-  for (const image_t image_id : filtered_image_ids) {
-    DeRegisterImage(image_id);
+  for (const frame_t frame_id : filtered_frame_ids) {
+    DeRegisterFrame(frame_id);
   }
 
-  return filtered_image_ids;
+  return filtered_frame_ids;
 }
 
 std::ostream& operator<<(std::ostream& stream,

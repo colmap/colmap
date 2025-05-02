@@ -57,8 +57,9 @@ struct GeneralizedCameraProblem {
 GeneralizedCameraProblem BuildGeneralizedCameraProblem() {
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
-  synthetic_dataset_options.num_cameras = 3;
-  synthetic_dataset_options.num_images = 3;
+  synthetic_dataset_options.num_rigs = 3;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 3;
   synthetic_dataset_options.num_points3D = 50;
   synthetic_dataset_options.point2D_stddev = 0;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
@@ -85,6 +86,8 @@ GeneralizedCameraProblem BuildGeneralizedCameraProblem() {
 }
 
 TEST(EstimateGeneralizedAbsolutePose, Nominal) {
+  SetPRNGSeed();
+
   GeneralizedCameraProblem problem = BuildGeneralizedCameraProblem();
   const size_t num_points = problem.points2D.size();
 

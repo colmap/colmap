@@ -66,7 +66,10 @@ void TestCamToCamFromImg(const std::vector<double>& params,
                          const double u0,
                          const double v0,
                          const double w0) {
-  double u, v, x, y;
+  double u = 0;
+  double v = 0;
+  double x = 0;
+  double y = 0;
   CameraModel::ImgFromCam(params.data(), u0, v0, w0, &x, &y);
   const std::optional<Eigen::Vector2d> xy = CameraModelImgFromCam(
       CameraModel::model_id, params, Eigen::Vector3d(u0, v0, w0));
@@ -82,7 +85,10 @@ template <typename CameraModel>
 void TestCamFromImgToImg(const std::vector<double>& params,
                          const double x0,
                          const double y0) {
-  double u, v, x, y;
+  double u = 0;
+  double v = 0;
+  double x = 0;
+  double y = 0;
   CameraModel::CamFromImg(params.data(), x0, y0, &u, &v);
   const std::optional<Eigen::Vector2d> uv = CameraModelCamFromImg(
       CameraModel::model_id, params, Eigen::Vector2d(x0, y0));
