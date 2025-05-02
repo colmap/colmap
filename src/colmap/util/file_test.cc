@@ -165,6 +165,19 @@ TEST(ReadWriteBinaryBlob, Nominal) {
   EXPECT_EQ(read_data, data);
 }
 
+TEST(IsURI, Nominal) {
+  EXPECT_FALSE(IsURI(""));
+  EXPECT_TRUE(IsURI("http://"));
+  EXPECT_TRUE(IsURI("https://"));
+  EXPECT_TRUE(IsURI("file://"));
+  EXPECT_TRUE(IsURI("http://foobar"));
+  EXPECT_TRUE(IsURI("https://foobar"));
+  EXPECT_TRUE(IsURI("file://foobar"));
+  EXPECT_FALSE(IsURI("http"));
+  EXPECT_FALSE(IsURI("https"));
+  EXPECT_FALSE(IsURI("file"));
+}
+
 #ifdef COLMAP_DOWNLOAD_ENABLED
 
 TEST(DownloadFile, Nominal) {
