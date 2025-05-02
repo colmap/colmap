@@ -188,7 +188,7 @@ def test_chained_matches(tmp_path):
         database_path=database_path,
         image_path=image_path,
         output_path=output_path,
-        options = create_test_options(),
+        options=create_test_options(),
     )
 
     expect_equal_reconstructions(
