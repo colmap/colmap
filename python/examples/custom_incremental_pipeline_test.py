@@ -31,7 +31,16 @@ def expect_equal_reconstructions(
         assert error.proj_center_error < max_proj_center_error
 
 
+def create_test_options():
+    options = pycolmap.IncrementalPipelineOptions()
+    # Use single thread for deterministic behavior.
+    options.num_threads = 1
+    return options
+
+
 def test_without_noise(tmp_path):
+    pycolmap.set_random_seed(0)
+
     database_path = tmp_path / "database.db"
     image_path = tmp_path / "images"
     image_path.mkdir()
@@ -52,6 +61,7 @@ def test_without_noise(tmp_path):
         database_path=database_path,
         image_path=image_path,
         output_path=output_path,
+        options=create_test_options(),
     )
 
     expect_equal_reconstructions(
@@ -64,6 +74,8 @@ def test_without_noise(tmp_path):
 
 
 def test_with_noise(tmp_path):
+    pycolmap.set_random_seed(0)
+
     database_path = tmp_path / "database.db"
     image_path = tmp_path / "images"
     image_path.mkdir()
@@ -84,6 +96,7 @@ def test_with_noise(tmp_path):
         database_path=database_path,
         image_path=image_path,
         output_path=output_path,
+        options=create_test_options(),
     )
 
     expect_equal_reconstructions(
@@ -96,6 +109,8 @@ def test_with_noise(tmp_path):
 
 
 def test_multi_reconstruction(tmp_path):
+    pycolmap.set_random_seed(0)
+
     database_path = tmp_path / "database.db"
     image_path = tmp_path / "images"
     image_path.mkdir()
@@ -116,7 +131,7 @@ def test_multi_reconstruction(tmp_path):
             synthetic_dataset_options, database
         )
 
-    options = pycolmap.IncrementalPipelineOptions()
+    options = create_test_options()
     options.min_model_size = 4
     custom_incremental_pipeline.main(
         database_path=database_path,
@@ -148,6 +163,8 @@ def test_multi_reconstruction(tmp_path):
 
 
 def test_chained_matches(tmp_path):
+    pycolmap.set_random_seed(0)
+
     database_path = tmp_path / "database.db"
     image_path = tmp_path / "images"
     image_path.mkdir()
@@ -171,6 +188,7 @@ def test_chained_matches(tmp_path):
         database_path=database_path,
         image_path=image_path,
         output_path=output_path,
+        options = create_test_options(),
     )
 
     expect_equal_reconstructions(
