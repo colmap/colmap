@@ -51,8 +51,8 @@ void MatchFeatures(const std::string& database_path,
 }
 
 void VerifyMatches(const std::string& database_path,
-                    const std::string& pairs_path,
-                    const TwoViewGeometryOptions& verification_options) {
+                   const std::string& pairs_path,
+                   const TwoViewGeometryOptions& verification_options) {
   THROW_CHECK_FILE_EXISTS(database_path);
   THROW_CHECK_FILE_EXISTS(pairs_path);
   py::gil_scoped_release release;  // verification is multi-threaded
