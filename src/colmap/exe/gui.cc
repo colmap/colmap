@@ -29,6 +29,9 @@
 
 #include "colmap/exe/gui.h"
 
+#if defined(COLMAP_GUI_ENABLED)
+#include "colmap/ui/main_window.h"
+#endif
 #include "colmap/controllers/option_manager.h"
 #include "colmap/util/opengl_utils.h"
 
