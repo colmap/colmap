@@ -111,7 +111,8 @@ def render_perspective_images(
         pano_path = pano_image_dir / pano_name
         pano_image = pycolmap.Bitmap.read(pano_path, as_rgb=True)
         if pano_image is None:
-            raise RuntimeError(f"Cannot read {pano_path}")
+            logging.info(f"Skipping file {pano_path} as it cannot be read.")
+            continue
         pano_image = pano_image.to_array()
         pano_height, pano_width, *_ = pano_image.shape
         if pano_width != pano_height * 2:
