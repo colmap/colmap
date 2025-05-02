@@ -50,9 +50,9 @@ void MatchFeatures(const std::string& database_path,
   PyWait(matcher.get());
 }
 
-void verify_matches(const std::string& database_path,
-                    const std::string& pairs_path,
-                    const TwoViewGeometryOptions& verification_options) {
+void VerifyMatches(const std::string& database_path,
+                   const std::string& pairs_path,
+                   const TwoViewGeometryOptions& verification_options) {
   THROW_CHECK_FILE_EXISTS(database_path);
   THROW_CHECK_FILE_EXISTS(pairs_path);
   py::gil_scoped_release release;  // verification is multi-threaded
@@ -257,7 +257,7 @@ void BindMatchFeatures(py::module& m) {
       "Sequential feature matching");
 
   m.def("verify_matches",
-        &verify_matches,
+        &VerifyMatches,
         "database_path"_a,
         "pairs_path"_a,
         py::arg_v(

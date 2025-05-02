@@ -221,6 +221,10 @@ void BindSift(py::module& m) {
                          &SMOpts::guided_matching,
                          "Whether to perform guided matching, if geometric "
                          "verification succeeds.")
+          .def_readwrite(
+              "cpu_brute_force_matcher",
+              &SMOpts::cpu_brute_force_matcher,
+              "Whether to use brute-force instead of FLANN based CPU matching.")
           .def("check", &SMOpts::Check);
   MakeDataclass(PySiftMatchingOptions);
 }
