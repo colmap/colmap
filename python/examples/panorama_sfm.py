@@ -215,13 +215,17 @@ def run(args):
 
     if args.matcher == "sequential":
         pycolmap.match_sequential(
-            database_path, pycolmap.SequentialMatchingOptions(loop_detection=True)
+            database_path,
+            pycolmap.SequentialMatchingOptions(loop_detection=True),
         )
-    elif args.matcher == "vocab_tree":
+    elif args.matcher == "exhaustive":
+        pycolmap.match_exhaustive(database_path)
+    elif args.matcher == "vocabtree":
         pycolmap.match_vocabtree(database_path)
+    elif args.matcher == "spatial":
+        pycolmap.match_spatial(database_path)
     else:
         logging.fatal(f"Unknown matcher: {args.matcher}")
-
 
     opts = pycolmap.IncrementalPipelineOptions(
         ba_refine_sensor_from_rig=False,
@@ -241,6 +245,8 @@ if __name__ == "__main__":
     parser.add_argument("--input_image_path", type=Path, required=True)
     parser.add_argument("--output_path", type=Path, required=True)
     parser.add_argument(
-        "--matcher", default="sequential", choices=["sequential", "vocab_tree"]
+        "--matcher",
+        default="sequential",
+        choices=["sequential", "exhaustive", "vocabtree", "spatial"],
     )
     run(parser.parse_args())
