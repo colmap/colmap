@@ -361,13 +361,13 @@ bool DatabaseCache::SetupPosePriors() {
 
   // Convert geographic to cartesian
   if (prior_is_gps) {
-    // GPS reference to be used for EllToENU conversion
+    // GPS reference to be used for EllipsoidToENU conversion
     const double ref_lat = v_gps_prior[0][0];
     const double ref_lon = v_gps_prior[0][1];
 
-    const GPSTransform gps_transform(GPSTransform::WGS84);
+    const GPSTransform gps_transform(GPSTransform::Ellipsoid::WGS84);
     const std::vector<Eigen::Vector3d> v_xyz_prior =
-        gps_transform.EllToENU(v_gps_prior, ref_lat, ref_lon);
+        gps_transform.EllipsoidToENU(v_gps_prior, ref_lat, ref_lon);
 
     auto xyz_prior_it = v_xyz_prior.begin();
     for (const auto& image_id : image_ids_with_prior) {
