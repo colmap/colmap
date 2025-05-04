@@ -102,7 +102,7 @@ class FlannFeatureDescriptorIndex : public FeatureDescriptorIndex {
   constexpr static int kNumTreesInForest = 4;
   constexpr static int kNumLeavesToVisit = 128;
 
-  using FlannIndexType = flann::Index<flann::L2<uint8_t>>;
+  using FlannIndexType = flann::KDTreeIndex<flann::L2<uint8_t>>;
   std::unique_ptr<FlannIndexType> index_;
   int num_index_descriptors_ = 0;
 };
