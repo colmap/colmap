@@ -313,7 +313,7 @@ TEST(IncrementalPipeline, PriorBasedSfMWithoutNoiseAndWithNonTrivialFrames) {
   synthetic_dataset_options.camera_has_prior_focal_length = false;
 
   synthetic_dataset_options.use_prior_position = true;
-  synthetic_dataset_options.prior_position_stddev = 1.5;
+  synthetic_dataset_options.prior_position_stddev = 0.0;
   SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction, &database);
 
   std::shared_ptr<IncrementalPipelineOptions> mapper_options =
