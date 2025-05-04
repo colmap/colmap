@@ -44,7 +44,8 @@ namespace colmap {
 namespace {
 
 class ParameterizedGeneralizedAbsolutePoseTests
-    : public ::testing::TestWithParam</*numCams=*/int> {};
+    : public ::testing::TestWithParam<
+          std::pair</*num_cams=*/int, /*panoramic=*/bool>> {};
 
 TEST_P(ParameterizedGeneralizedAbsolutePoseTests, Estimate) {
   // Note that we can estimate the minimal problem from only 3 points but we
@@ -53,7 +54,7 @@ TEST_P(ParameterizedGeneralizedAbsolutePoseTests, Estimate) {
   // do the choosing of the best solution for us.
   constexpr int kNumPoints = 4;
   constexpr int kNumTrials = 10;
-  const int kNumCams = GetParam();
+  const auto [kNumCams, kPanoramic] = GetParam();
 
   for (int i = 0; i < kNumTrials; ++i) {
     const Rigid3d rig_from_world(Eigen::Quaterniond::UnitRandom(),
@@ -63,9 +64,14 @@ TEST_P(ParameterizedGeneralizedAbsolutePoseTests, Estimate) {
     std::vector<Rigid3d> cams_from_world(kNumCams);
     std::vector<Rigid3d> cams_from_rig(kNumCams);
     for (int i = 0; i < kNumCams; ++i) {
-      cams_from_world[i] =
-          Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
-      cams_from_rig[i] = cams_from_world[i] * world_from_fig;
+      if (kPanoramic) {
+        cams_from_world[i] = rig_from_world;
+        cams_from_rig[i] = Rigid3d();
+      } else {
+        cams_from_world[i] = Rigid3d(Eigen::Quaterniond::UnitRandom(),
+                                     Eigen::Vector3d::Random());
+        cams_from_rig[i] = cams_from_world[i] * world_from_fig;
+      }
     }
 
     std::vector<GP3PEstimator::X_t> points2D;
@@ -124,7 +130,12 @@ TEST_P(ParameterizedGeneralizedAbsolutePoseTests, Estimate) {
 
 INSTANTIATE_TEST_SUITE_P(GeneralizedAbsolutePoseTests,
                          ParameterizedGeneralizedAbsolutePoseTests,
-                         ::testing::Values(1, 2, 3, 4));
+                         ::testing::Values(std::make_pair(1, false),
+                                           std::make_pair(2, false),
+                                           std::make_pair(3, false),
+                                           std::make_pair(4, false),
+                                           std::make_pair(1, true),
+                                           std::make_pair(2, true)));
 
 }  // namespace
 }  // namespace colmap
