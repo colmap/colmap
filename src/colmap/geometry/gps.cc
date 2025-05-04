@@ -286,8 +286,8 @@ std::pair<std::vector<Eigen::Vector3d>, int> GPSTransform::EllipsoidToUTM(
   const double lambda0 = DegToRad(UTMParams::ZoneToCentralMeridian(zone));
 
   // Converts lla to utm
-  std::vector<Eigen::Vector3d> utm;
-  utm.reserve(lat_lon_alt.size());
+  std::vector<Eigen::Vector3d> xyz_in_utm;
+  xyz_in_utm.reserve(lat_lon_alt.size());
 
   for (const Eigen::Vector3d& lla : lat_lon_alt) {
     const double phi = DegToRad(lla[0]);
@@ -313,14 +313,17 @@ std::pair<std::vector<Eigen::Vector3d>, int> GPSTransform::EllipsoidToUTM(
     E = params.E0 + params.k0 * params.A * E;
     N = params.N0(lla[0]) + params.k0 * params.A * N;
 
-    utm.emplace_back(E * 1000, N * 1000, lla[2]);  // converts back to meters
+    xyz_in_utm.emplace_back(
+        E * 1000, N * 1000, lla[2]);  // converts back to meters
   }
 
-  return std::make_pair(std::move(utm), zone);
+  return std::make_pair(std::move(xyz_in_utm), zone);
 }
 
 std::vector<Eigen::Vector3d> GPSTransform::UTMToEllipsoid(
-    const std::vector<Eigen::Vector3d>& utm, int zone, bool is_north) const {
+    const std::vector<Eigen::Vector3d>& xyz_in_utm,
+    int zone,
+    bool is_north) const {
   // The following implementation is based on the formulas from:
   // https://en.wikipedia.org/wiki/Universal_Transverse_Mercator_coordinate_system
 
@@ -332,9 +335,9 @@ std::vector<Eigen::Vector3d> GPSTransform::UTMToEllipsoid(
 
   // Converts utm to ell
   std::vector<Eigen::Vector3d> lat_lon_alt;
-  lat_lon_alt.reserve(utm.size());
+  lat_lon_alt.reserve(xyz_in_utm.size());
 
-  for (const Eigen::Vector3d& ena : utm) {
+  for (const Eigen::Vector3d& ena : xyz_in_utm) {
     const double xi =
         (ena[1] / 1000.0 - params.N0(is_north)) / (params.k0 * params.A);
     const double eta = (ena[0] / 1000.0 - params.E0) / (params.k0 * params.A);

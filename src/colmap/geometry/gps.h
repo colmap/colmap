@@ -90,7 +90,9 @@ class GPSTransform {
   // Converts UTM coords to GPS (lat / lon / alt).
   // Requires the zone number and hemisphere (true for north, false for south).
   std::vector<Eigen::Vector3d> UTMToEllipsoid(
-      const std::vector<Eigen::Vector3d>& utm, int zone, bool is_north) const;
+      const std::vector<Eigen::Vector3d>& xyz_in_utm,
+      int zone,
+      bool is_north) const;
 
  private:
   // Semimajor axis.
