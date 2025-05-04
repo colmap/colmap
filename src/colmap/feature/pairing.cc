@@ -668,7 +668,7 @@ SpatialPairGenerator::ReadPositionPriorData(FeatureMatcherCache& cache) {
         ells[0](1) = position_prior(1);
         ells[0](2) = options_.ignore_z ? 0 : position_prior(2);
 
-        const auto xyzs = gps_transform.EllToECEF(ells);
+        const auto xyzs = gps_transform.EllipsoidToECEF(ells);
         position_matrix(num_positions, 0) = static_cast<float>(xyzs[0](0));
         position_matrix(num_positions, 1) = static_cast<float>(xyzs[0](1));
         position_matrix(num_positions, 2) = static_cast<float>(xyzs[0](2));

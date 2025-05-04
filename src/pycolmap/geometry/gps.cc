@@ -24,10 +24,10 @@ void BindGPS(py::module& m) {
   PyGPSTransform
       .def(py::init<const GPSTransform::Ellipsoid>(),
            "ellipsoid"_a = GPSTransform::Ellipsoid::GRS80)
-      .def("ellipsoid_to_ecef", &GPSTransform::EllToECEF, "lat_lon_alt"_a)
-      .def("ecef_to_ellipsoid", &GPSTransform::ECEFToEll, "xyz_in_ecef"_a)
+      .def("ellipsoid_to_ecef", &GPSTransform::EllipsoidToECEF, "lat_lon_alt"_a)
+      .def("ecef_to_ellipsoid", &GPSTransform::ECEFToEllipsoid, "xyz_in_ecef"_a)
       .def("ellipsoid_to_enu",
-           &GPSTransform::EllToENU,
+           &GPSTransform::EllipsoidToENU,
            "lat_lon_alt"_a,
            "ref_lat"_a,
            "ref_lon"_a)
@@ -37,7 +37,7 @@ void BindGPS(py::module& m) {
            "ref_lat"_a,
            "ref_lon"_a)
       .def("enu_to_ellipsoid",
-           &GPSTransform::ENUToEll,
+           &GPSTransform::ENUToEllipsoid,
            "xyz_in_enu"_a,
            "ref_lat"_a,
            "ref_lon"_a,
@@ -48,9 +48,9 @@ void BindGPS(py::module& m) {
            "ref_lat"_a,
            "ref_lon"_a,
            "ref_alt"_a)
-      .def("ellipsoid_to_utm", &GPSTransform::EllToUTM, "lat_lon_alt"_a)
+      .def("ellipsoid_to_utm", &GPSTransform::EllipsoidToUTM, "lat_lon_alt"_a)
       .def("utm_to_ellipsoid",
-           &GPSTransform::UTMToEll,
+           &GPSTransform::UTMToEllipsoid,
            "xyz_in_utm"_a,
            "zone"_a,
            "is_north"_a);

@@ -47,31 +47,35 @@ class GPSTransform {
 
   explicit GPSTransform(Ellipsoid ellipsoid = Ellipsoid::GRS80);
 
-  std::vector<Eigen::Vector3d> EllToECEF(
+  std::vector<Eigen::Vector3d> EllipsoidToECEF(
       const std::vector<Eigen::Vector3d>& ell) const;
 
-  std::vector<Eigen::Vector3d> ECEFToEll(
+  std::vector<Eigen::Vector3d> ECEFToEllipsoid(
       const std::vector<Eigen::Vector3d>& xyz) const;
 
-  // Convert GPS (lat / lon / alt) to ENU coords. with lat0 and lon0
+  // Convert GPS (lat / lon / alt) to ENU coords. with ref_lat and ref_lon
   // defining the origin of the ENU frame
-  std::vector<Eigen::Vector3d> EllToENU(const std::vector<Eigen::Vector3d>& ell,
-                                        double lat0,
-                                        double lon0) const;
+  std::vector<Eigen::Vector3d> EllipsoidToENU(
+      const std::vector<Eigen::Vector3d>& ell,
+      double ref_lat,
+      double ref_lon) const;
 
   std::vector<Eigen::Vector3d> ECEFToENU(
-      const std::vector<Eigen::Vector3d>& xyz, double lat0, double lon0) const;
+      const std::vector<Eigen::Vector3d>& xyz,
+      double ref_lat,
+      double ref_lon) const;
 
-  std::vector<Eigen::Vector3d> ENUToEll(const std::vector<Eigen::Vector3d>& enu,
-                                        double lat0,
-                                        double lon0,
-                                        double alt0) const;
+  std::vector<Eigen::Vector3d> ENUToEllipsoid(
+      const std::vector<Eigen::Vector3d>& enu,
+      double ref_lat,
+      double ref_lon,
+      double ref_alt) const;
 
   std::vector<Eigen::Vector3d> ENUToECEF(
       const std::vector<Eigen::Vector3d>& enu,
-      double lat0,
-      double lon0,
-      double alt0) const;
+      double ref_lat,
+      double ref_lon,
+      double ref_alt) const;
 
   // Converts GPS (lat / lon / alt) to UTM coordinates.
   // Returns a pair of the converted coordinates and the zone number.
@@ -80,14 +84,13 @@ class GPSTransform {
   //
   // The conversion uses a 4th-order expansion formula. The easting offset is
   // 500 km, and the northing offset is 10,000 km for the Southern Hemisphere.
-  std::pair<std::vector<Eigen::Vector3d>, int> EllToUTM(
+  std::pair<std::vector<Eigen::Vector3d>, int> EllipsoidToUTM(
       const std::vector<Eigen::Vector3d>& ell) const;
 
   // Converts UTM coords to GPS (lat / lon / alt).
   // Requires the zone number and hemisphere (true for north, false for south).
-  std::vector<Eigen::Vector3d> UTMToEll(const std::vector<Eigen::Vector3d>& utm,
-                                        int zone,
-                                        bool is_north) const;
+  std::vector<Eigen::Vector3d> UTMToEllipsoid(
+      const std::vector<Eigen::Vector3d>& utm, int zone, bool is_north) const;
 
  private:
   // Semimajor axis.
