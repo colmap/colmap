@@ -117,7 +117,7 @@ GPSTransform::GPSTransform(const Ellipsoid ellipsoid) {
 
 std::vector<Eigen::Vector3d> GPSTransform::EllipsoidToECEF(
     const std::vector<Eigen::Vector3d>& ell) const {
-  std::vector<Eigen::Vector3d> xyz(ell.size());
+  std::vector<Eigen::Vector3d> xyz_in_ecef(ell.size());
 
   for (size_t i = 0; i < ell.size(); ++i) {
     const double lat = DegToRad(ell[i](0));
@@ -132,22 +132,22 @@ std::vector<Eigen::Vector3d> GPSTransform::EllipsoidToECEF(
     // Normalized radius
     const double N = a_ / std::sqrt(1 - e2_ * sin_lat * sin_lat);
 
-    xyz[i](0) = (N + alt) * cos_lat * cos_lon;
-    xyz[i](1) = (N + alt) * cos_lat * sin_lon;
-    xyz[i](2) = (N * (1 - e2_) + alt) * sin_lat;
+    xyz_in_ecef[i](0) = (N + alt) * cos_lat * cos_lon;
+    xyz_in_ecef[i](1) = (N + alt) * cos_lat * sin_lon;
+    xyz_in_ecef[i](2) = (N * (1 - e2_) + alt) * sin_lat;
   }
 
-  return xyz;
+  return xyz_in_ecef;
 }
 
 std::vector<Eigen::Vector3d> GPSTransform::ECEFToEllipsoid(
-    const std::vector<Eigen::Vector3d>& xyz) const {
-  std::vector<Eigen::Vector3d> ell(xyz.size());
+    const std::vector<Eigen::Vector3d>& xyz_in_ecef) const {
+  std::vector<Eigen::Vector3d> ell(xyz_in_ecef.size());
 
   for (size_t i = 0; i < ell.size(); ++i) {
-    const double x = xyz[i](0);
-    const double y = xyz[i](1);
-    const double z = xyz[i](2);
+    const double x = xyz_in_ecef[i](0);
+    const double y = xyz_in_ecef[i](1);
+    const double z = xyz_in_ecef[i](2);
 
     const double radius_xy = std::sqrt(x * x + y * y);
     const double kEps = 1e-12;
@@ -185,16 +185,16 @@ std::vector<Eigen::Vector3d> GPSTransform::EllipsoidToENU(
     const double ref_lat,
     const double ref_lon) const {
   // Convert GPS (lat / lon / alt) to ECEF
-  std::vector<Eigen::Vector3d> xyz = EllipsoidToECEF(ell);
+  std::vector<Eigen::Vector3d> xyz_in_ecef = EllipsoidToECEF(ell);
 
-  return ECEFToENU(xyz, ref_lat, ref_lon);
+  return ECEFToENU(xyz_in_ecef, ref_lat, ref_lon);
 }
 
 std::vector<Eigen::Vector3d> GPSTransform::ECEFToENU(
-    const std::vector<Eigen::Vector3d>& xyz,
+    const std::vector<Eigen::Vector3d>& xyz_in_ecef,
     const double ref_lat,
     const double ref_lon) const {
-  std::vector<Eigen::Vector3d> enu(xyz.size());
+  std::vector<Eigen::Vector3d> xyz_in_enu(xyz_in_ecef.size());
 
   // https://en.wikipedia.org/wiki/Geographic_coordinate_conversion#From_ECEF_to_ENU
 
@@ -209,31 +209,31 @@ std::vector<Eigen::Vector3d> GPSTransform::ECEFToENU(
   R << -sin_lon, cos_lon, 0., -sin_lat * cos_lon, -sin_lat * sin_lon, cos_lat,
       cos_lat * cos_lon, cos_lat * sin_lon, sin_lat;
 
-  // Convert ECEF to ENU coords. (w.r.t. ECEF ref == xyz[0])
-  for (size_t i = 0; i < xyz.size(); ++i) {
-    enu[i] = R * (xyz[i] - xyz[0]);
+  // Convert ECEF to ENU coords. (w.r.t. ECEF ref == xyz_in_ecef[0])
+  for (size_t i = 0; i < xyz_in_ecef.size(); ++i) {
+    xyz_in_enu[i] = R * (xyz_in_ecef[i] - xyz_in_ecef[0]);
   }
 
-  return enu;
+  return xyz_in_enu;
 }
 
 std::vector<Eigen::Vector3d> GPSTransform::ENUToEllipsoid(
-    const std::vector<Eigen::Vector3d>& enu,
+    const std::vector<Eigen::Vector3d>& xyz_in_enu,
     const double ref_lat,
     const double ref_lon,
     const double ref_alt) const {
-  return ECEFToEllipsoid(ENUToECEF(enu, ref_lat, ref_lon, ref_alt));
+  return ECEFToEllipsoid(ENUToECEF(xyz_in_enu, ref_lat, ref_lon, ref_alt));
 }
 
 std::vector<Eigen::Vector3d> GPSTransform::ENUToECEF(
-    const std::vector<Eigen::Vector3d>& enu,
+    const std::vector<Eigen::Vector3d>& xyz_in_enu,
     const double ref_lat,
     const double ref_lon,
     const double ref_alt) const {
-  std::vector<Eigen::Vector3d> xyz(enu.size());
+  std::vector<Eigen::Vector3d> xyz_in_ecef(xyz_in_enu.size());
 
   // ECEF ref (origin)
-  const Eigen::Vector3d ref_xyz =
+  const Eigen::Vector3d ref_xyz_in_ecef =
       EllipsoidToECEF({Eigen::Vector3d(ref_lat, ref_lon, ref_alt)})[0];
 
   // ENU to ECEF Rot :
@@ -251,11 +251,11 @@ std::vector<Eigen::Vector3d> GPSTransform::ENUToECEF(
   R.transposeInPlace();
 
   // Convert ENU to ECEF coords.
-  for (size_t i = 0; i < enu.size(); ++i) {
-    xyz[i] = (R * enu[i]) + ref_xyz;
+  for (size_t i = 0; i < xyz_in_enu.size(); ++i) {
+    xyz_in_ecef[i] = (R * xyz_in_enu[i]) + ref_xyz_in_ecef;
   }
 
-  return xyz;
+  return xyz_in_ecef;
 }
 
 std::pair<std::vector<Eigen::Vector3d>, int> GPSTransform::EllipsoidToUTM(

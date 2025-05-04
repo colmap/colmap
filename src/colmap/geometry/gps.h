@@ -51,7 +51,7 @@ class GPSTransform {
       const std::vector<Eigen::Vector3d>& ell) const;
 
   std::vector<Eigen::Vector3d> ECEFToEllipsoid(
-      const std::vector<Eigen::Vector3d>& xyz) const;
+      const std::vector<Eigen::Vector3d>& xyz_in_ecef) const;
 
   // Convert GPS (lat / lon / alt) to ENU coords. with ref_lat and ref_lon
   // defining the origin of the ENU frame
@@ -61,18 +61,18 @@ class GPSTransform {
       double ref_lon) const;
 
   std::vector<Eigen::Vector3d> ECEFToENU(
-      const std::vector<Eigen::Vector3d>& xyz,
+      const std::vector<Eigen::Vector3d>& xyz_in_ecef,
       double ref_lat,
       double ref_lon) const;
 
   std::vector<Eigen::Vector3d> ENUToEllipsoid(
-      const std::vector<Eigen::Vector3d>& enu,
+      const std::vector<Eigen::Vector3d>& xyz_in_enu,
       double ref_lat,
       double ref_lon,
       double ref_alt) const;
 
   std::vector<Eigen::Vector3d> ENUToECEF(
-      const std::vector<Eigen::Vector3d>& enu,
+      const std::vector<Eigen::Vector3d>& xyz_in_enu,
       double ref_lat,
       double ref_lon,
       double ref_alt) const;
