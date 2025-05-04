@@ -34,6 +34,9 @@
 namespace colmap {
 namespace {
 
+// Silence clang-tidy warning:
+// Call to virtual method 'KDTreeIndex::freeIndex' during destruction bypasses virtual dispatch
+// NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
 class FlannFeatureDescriptorIndex : public FeatureDescriptorIndex {
  public:
   void Build(const FeatureDescriptors& index_descriptors) override {
