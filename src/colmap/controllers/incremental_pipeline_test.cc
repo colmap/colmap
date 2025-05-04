@@ -260,7 +260,7 @@ TEST(IncrementalPipeline, ChainedMatches) {
                              /*num_obs_tolerance=*/0);
 }
 
-TEST(IncrementalPipeline, PriorBasedSfWithoutNoise) {
+TEST(IncrementalPipeline, PriorBasedSfMWithoutNoise) {
   const std::string database_path = CreateTestDir() + "/database.db";
 
   Database database(database_path);
