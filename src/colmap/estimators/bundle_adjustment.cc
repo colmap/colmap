@@ -889,19 +889,19 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
     const bool use_prior_position = AlignReconstruction();
 
     // Fix 7-DOFs of BA problem if not enough valid pose priors.
-    if (!use_prior_position) {
-      config_.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+    if (use_prior_position) {
+      // Normalize the reconstruction to avoid any numerical instability but do
+      // not transform priors as they will be transformed when added to
+      // ceres::Problem.
+      normalized_from_metric_ = reconstruction_.Normalize(/*fixed_scale=*/true);
+    } else {
+      config_.FixGauge(BundleAdjustmentGauge::THREE_POINTS);
     }
 
     default_bundle_adjuster_ = std::make_unique<DefaultBundleAdjuster>(
         options_, config_, reconstruction);
 
     if (use_prior_position) {
-      // Normalize the reconstruction to avoid any numerical instability but do
-      // not transform priors as they will be transformed when added to
-      // ceres::Problem.
-      normalized_from_metric_ = reconstruction_.Normalize(/*fixed_scale=*/true);
-
       if (prior_options_.use_robust_loss_on_prior_position) {
         prior_loss_function_ = std::make_unique<ceres::CauchyLoss>(
             prior_options_.prior_position_loss_scale);
@@ -951,15 +951,20 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
       return;
     }
 
-    std::shared_ptr<ceres::Problem> problem =
-        default_bundle_adjuster_->Problem();
-
     Image& image = reconstruction.Image(image_id);
-    THROW_CHECK(image.HasPose());
+    if (!image.HasTrivialFrame()) {
+      // TODO(jsch): Only enforce the pose prior on the reference sensor. This
+      // fails if only a non-reference sensor image has a corresponding pose
+      // prior stored. This will be replaced with dedicated modeling of a
+      // GNSS/GPS sensor.
+      return;
+    }
 
-    // TODO(jsch): Merge rig functionality into standard bundle adjuster.
-    THROW_CHECK(image.HasTrivialFrame());
+    THROW_CHECK(image.HasPose());
     Rigid3d& cam_from_world = image.FramePtr()->RigFromWorld();
+
+    std::shared_ptr<ceres::Problem>& problem =
+        default_bundle_adjuster_->Problem();
 
     double* cam_from_world_translation = cam_from_world.translation.data();
     if (!problem->HasParameterBlock(cam_from_world_translation)) {
@@ -1003,6 +1008,9 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
       // Set max error at the 3 sigma confidence interval. Assumes no outliers.
       ransac_options.max_error = 3 * max_stddev_sum / num_valid_covs;
     }
+
+    VLOG(2) << "Robustly aligning reconstruction with max_error="
+            << ransac_options.max_error;
 
     Sim3d metric_from_orig;
     const bool success = AlignReconstructionToPosePriors(
