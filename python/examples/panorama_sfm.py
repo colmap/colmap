@@ -8,6 +8,8 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+import PIL.ExifTags
+import PIL.Image
 from scipy.spatial.transform import Rotation
 from tqdm import tqdm
 
@@ -109,11 +111,18 @@ def render_perspective_images(
     camera = pano_size = rays_in_cam = None
     for pano_name in tqdm(pano_image_names):
         pano_path = pano_image_dir / pano_name
-        pano_image = pycolmap.Bitmap.read(pano_path, as_rgb=True)
-        if pano_image is None:
+        try:
+            pano_image = PIL.Image.open(pano_path)
+        except PIL.Image.UnidentifiedImageError:
             logging.info(f"Skipping file {pano_path} as it cannot be read.")
             continue
-        pano_image = pano_image.to_array()
+        pano_exif = pano_image.getexif()
+        pano_image = np.asarray(pano_image)
+        gpsonly_exif = PIL.Image.Exif()
+        gpsonly_exif[PIL.ExifTags.IFD.GPSInfo] = pano_exif.get_ifd(
+            PIL.ExifTags.IFD.GPSInfo
+        )
+
         pano_height, pano_width, *_ = pano_image.shape
         if pano_width != pano_height * 2:
             raise ValueError("Only 360° panoramas are supported.")
@@ -157,8 +166,7 @@ def render_perspective_images(
 
             image_path = output_image_dir / image_name
             image_path.parent.mkdir(exist_ok=True, parents=True)
-            if not pycolmap.Bitmap.from_array(image).write(image_path):
-                raise RuntimeError(f"Cannot write {image_path}")
+            PIL.Image.fromarray(image).save(image_path, exif=gpsonly_exif)
 
             mask_path = mask_dir / mask_name
             mask_path.parent.mkdir(exist_ok=True, parents=True)
