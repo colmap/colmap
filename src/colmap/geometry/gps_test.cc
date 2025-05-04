@@ -36,7 +36,7 @@
 namespace colmap {
 namespace {
 
-TEST(GPS, EllToXYZGRS80) {
+TEST(GPS, EllToECEFGRS80) {
   std::vector<Eigen::Vector3d> ell;
   ell.emplace_back(48 + 8. / 60 + 51.70361 / 3600,
                    11 + 34. / 60 + 10.51777 / 3600,
@@ -52,14 +52,14 @@ TEST(GPS, EllToXYZGRS80) {
 
   GPSTransform gps_tform(GPSTransform::Ellipsoid::GRS80);
 
-  const auto xyz = gps_tform.EllToXYZ(ell);
+  const auto xyz = gps_tform.EllToECEF(ell);
 
   for (size_t i = 0; i < ell.size(); ++i) {
     EXPECT_THAT(xyz[i], EigenMatrixNear(ref_xyz[i], 1e-8));
   }
 }
 
-TEST(GPS, EllToXYZWGS84) {
+TEST(GPS, EllToECEFWGS84) {
   std::vector<Eigen::Vector3d> ell;
   ell.emplace_back(48 + 8. / 60 + 51.70361 / 3600,
                    11 + 34. / 60 + 10.51777 / 3600,
@@ -75,14 +75,14 @@ TEST(GPS, EllToXYZWGS84) {
 
   GPSTransform gps_tform(GPSTransform::Ellipsoid::WGS84);
 
-  const auto xyz = gps_tform.EllToXYZ(ell);
+  const auto xyz = gps_tform.EllToECEF(ell);
 
   for (size_t i = 0; i < ell.size(); ++i) {
     EXPECT_THAT(xyz[i], EigenMatrixNear(ref_xyz[i], 1e-8));
   }
 }
 
-TEST(GPS, XYZToEll_GRS80) {
+TEST(GPS, ECEFToEll_GRS80) {
   std::vector<Eigen::Vector3d> xyz;
   xyz.emplace_back(
       4.1772397090808507e6, 0.85515377993121441e6, 4.7282674046563692e6);
@@ -98,14 +98,14 @@ TEST(GPS, XYZToEll_GRS80) {
 
   GPSTransform gps_tform(GPSTransform::Ellipsoid::GRS80);
 
-  const auto ell = gps_tform.XYZToEll(xyz);
+  const auto ell = gps_tform.ECEFToEll(xyz);
 
   for (size_t i = 0; i < xyz.size(); ++i) {
     EXPECT_THAT(ell[i], EigenMatrixNear(ref_ell[i], 1e-5));
   }
 }
 
-TEST(GPS, XYZToEll_WGS84) {
+TEST(GPS, ECEFToEll_WGS84) {
   std::vector<Eigen::Vector3d> xyz;
   xyz.emplace_back(
       4.177239709042750e6, 0.855153779923415e6, 4.728267404769168e6);
@@ -121,14 +121,14 @@ TEST(GPS, XYZToEll_WGS84) {
 
   GPSTransform gps_tform(GPSTransform::Ellipsoid::WGS84);
 
-  const auto ell = gps_tform.XYZToEll(xyz);
+  const auto ell = gps_tform.ECEFToEll(xyz);
 
   for (size_t i = 0; i < xyz.size(); ++i) {
     EXPECT_THAT(ell[i], EigenMatrixNear(ref_ell[i], 1e-5));
   }
 }
 
-TEST(GPS, XYZToEllToXYZ_GRS80) {
+TEST(GPS, ECEFToEllipsoidToECEF_GRS80) {
   std::vector<Eigen::Vector3d> xyz;
   xyz.emplace_back(
       4.177239709080851e6, 0.855153779931214e6, 4.728267404656370e6);
@@ -137,15 +137,15 @@ TEST(GPS, XYZToEllToXYZ_GRS80) {
 
   GPSTransform gps_tform(GPSTransform::Ellipsoid::GRS80);
 
-  const auto ell = gps_tform.XYZToEll(xyz);
-  const auto xyz2 = gps_tform.EllToXYZ(ell);
+  const auto ell = gps_tform.ECEFToEll(xyz);
+  const auto xyz2 = gps_tform.EllToECEF(ell);
 
   for (size_t i = 0; i < xyz.size(); ++i) {
     EXPECT_THAT(xyz[i], EigenMatrixNear(xyz2[i], 1e-5));
   }
 }
 
-TEST(GPS, XYZToEllToXYZ_WGS84) {
+TEST(GPS, ECEFToEllipsoidToECEF_WGS84) {
   std::vector<Eigen::Vector3d> xyz;
   xyz.emplace_back(
       4.177239709080851e6, 0.855153779931214e6, 4.728267404656370e6);
@@ -154,8 +154,8 @@ TEST(GPS, XYZToEllToXYZ_WGS84) {
 
   GPSTransform gps_tform(GPSTransform::Ellipsoid::WGS84);
 
-  const auto ell = gps_tform.XYZToEll(xyz);
-  const auto xyz2 = gps_tform.EllToXYZ(ell);
+  const auto ell = gps_tform.ECEFToEll(xyz);
+  const auto xyz2 = gps_tform.EllToECEF(ell);
 
   for (size_t i = 0; i < xyz.size(); ++i) {
     EXPECT_THAT(xyz[i], EigenMatrixNear(xyz2[i], 1e-5));
@@ -179,10 +179,10 @@ TEST(GPS, EllToENUWGS84) {
   GPSTransform gps_tform(GPSTransform::Ellipsoid::WGS84);
 
   // Get lat0, lon0 origin from ref
-  const auto ori_ell = gps_tform.XYZToEll({ref_xyz[0]})[0];
+  const auto ori_ell = gps_tform.ECEFToEll({ref_xyz[0]})[0];
 
   // Get ENU ref from ECEF ref
-  const auto ref_enu = gps_tform.XYZToENU(ref_xyz, ori_ell(0), ori_ell(1));
+  const auto ref_enu = gps_tform.ECEFToENU(ref_xyz, ori_ell(0), ori_ell(1));
 
   // Get ENU from Ell
   const auto enu = gps_tform.EllToENU(ell, ori_ell(0), ori_ell(1));
@@ -192,7 +192,7 @@ TEST(GPS, EllToENUWGS84) {
   }
 }
 
-TEST(GPS, XYZToENU) {
+TEST(GPS, ECEFToENU) {
   std::vector<Eigen::Vector3d> ell;
   ell.emplace_back(48 + 8. / 60 + 51.70361 / 3600,
                    11 + 34. / 60 + 10.51777 / 3600,
@@ -208,16 +208,16 @@ TEST(GPS, XYZToENU) {
 
   GPSTransform gps_tform(GPSTransform::Ellipsoid::WGS84);
 
-  const auto xyz = gps_tform.EllToXYZ(ell);
+  const auto xyz = gps_tform.EllToECEF(ell);
 
   // Get lat0, lon0 origin from ref
-  const auto ori_ell = gps_tform.XYZToEll({ref_xyz[0]})[0];
+  const auto ori_ell = gps_tform.ECEFToEll({ref_xyz[0]})[0];
 
   // Get ENU from ECEF ref
-  const auto ref_enu = gps_tform.XYZToENU(ref_xyz, ori_ell(0), ori_ell(1));
+  const auto ref_enu = gps_tform.ECEFToENU(ref_xyz, ori_ell(0), ori_ell(1));
 
   // Get ENU from ECEF
-  const auto enu = gps_tform.XYZToENU(xyz, ori_ell(0), ori_ell(1));
+  const auto enu = gps_tform.ECEFToENU(xyz, ori_ell(0), ori_ell(1));
 
   for (size_t i = 0; i < ell.size(); ++i) {
     EXPECT_THAT(enu[i], EigenMatrixNear(ref_enu[i], 1e-8));
@@ -242,15 +242,15 @@ TEST(GPS, ENUToEllWGS84) {
   GPSTransform gps_tform(GPSTransform::Ellipsoid::WGS84);
 
   // Get lat0, lon0 origin from ref
-  const auto ori_ell = gps_tform.XYZToEll(xyz);
+  const auto ori_ell = gps_tform.ECEFToEll(xyz);
   const double lat0 = ori_ell[0](0);
   const double lon0 = ori_ell[0](1);
   const double alt0 = ori_ell[0](2);
 
   // Get ENU from ECEF
-  const auto enu = gps_tform.XYZToENU(xyz, lat0, lon0);
+  const auto enu = gps_tform.ECEFToENU(xyz, lat0, lon0);
 
-  const auto xyz_enu = gps_tform.ENUToXYZ(enu, lat0, lon0, alt0);
+  const auto xyz_enu = gps_tform.ENUToECEF(enu, lat0, lon0, alt0);
 
   // Get Ell from ENU
   const auto ell = gps_tform.ENUToEll(enu, lat0, lon0, alt0);
@@ -260,7 +260,7 @@ TEST(GPS, ENUToEllWGS84) {
   }
 }
 
-TEST(GPS, ENUToXYZ) {
+TEST(GPS, ENUToECEF) {
   std::vector<Eigen::Vector3d> ell;
   ell.emplace_back(48 + 8. / 60 + 51.70361 / 3600,
                    11 + 34. / 60 + 10.51777 / 3600,
@@ -285,7 +285,7 @@ TEST(GPS, ENUToXYZ) {
   const auto enu = gps_tform.EllToENU(ell, lat0, lon0);
 
   // Get XYZ from ENU
-  const auto xyz = gps_tform.ENUToXYZ(enu, lat0, lon0, alt0);
+  const auto xyz = gps_tform.ENUToECEF(enu, lat0, lon0, alt0);
 
   for (size_t i = 0; i < ell.size(); ++i) {
     EXPECT_THAT(xyz[i], EigenMatrixNear(ref_xyz[i], 1e-8));

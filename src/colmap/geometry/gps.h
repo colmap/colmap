@@ -47,10 +47,10 @@ class GPSTransform {
 
   explicit GPSTransform(Ellipsoid ellipsoid = Ellipsoid::GRS80);
 
-  std::vector<Eigen::Vector3d> EllToXYZ(
+  std::vector<Eigen::Vector3d> EllToECEF(
       const std::vector<Eigen::Vector3d>& ell) const;
 
-  std::vector<Eigen::Vector3d> XYZToEll(
+  std::vector<Eigen::Vector3d> ECEFToEll(
       const std::vector<Eigen::Vector3d>& xyz) const;
 
   // Convert GPS (lat / lon / alt) to ENU coords. with lat0 and lon0
@@ -59,19 +59,19 @@ class GPSTransform {
                                         double lat0,
                                         double lon0) const;
 
-  std::vector<Eigen::Vector3d> XYZToENU(const std::vector<Eigen::Vector3d>& xyz,
-                                        double lat0,
-                                        double lon0) const;
+  std::vector<Eigen::Vector3d> ECEFToENU(
+      const std::vector<Eigen::Vector3d>& xyz, double lat0, double lon0) const;
 
   std::vector<Eigen::Vector3d> ENUToEll(const std::vector<Eigen::Vector3d>& enu,
                                         double lat0,
                                         double lon0,
                                         double alt0) const;
 
-  std::vector<Eigen::Vector3d> ENUToXYZ(const std::vector<Eigen::Vector3d>& enu,
-                                        double lat0,
-                                        double lon0,
-                                        double alt0) const;
+  std::vector<Eigen::Vector3d> ENUToECEF(
+      const std::vector<Eigen::Vector3d>& enu,
+      double lat0,
+      double lon0,
+      double alt0) const;
 
   // Converts GPS (lat / lon / alt) to UTM coordinates.
   // Returns a pair of the converted coordinates and the zone number.

@@ -77,7 +77,7 @@ Eigen::Vector3d TransformLatLonAltToModelCoords(const Sim3d& tform,
   // ENU frame.
   Eigen::Vector3d xyz =
       tform * GPSTransform(GPSTransform::Ellipsoid::WGS84)
-                  .EllToXYZ({Eigen::Vector3d(lat, lon, 0.0)})[0];
+                  .EllToECEF({Eigen::Vector3d(lat, lon, 0.0)})[0];
   xyz(2) = tform.scale * alt;
   return xyz;
 }
@@ -123,7 +123,7 @@ std::vector<Eigen::Vector3d> ConvertCameraLocations(
     if (alignment_type != "enu") {
       LOG(INFO) << "Converting Alignment Coordinates from GPS (lat/lon/alt) "
                    "to ECEF.";
-      return gps_transform.EllToXYZ(ref_locations);
+      return gps_transform.EllToECEF(ref_locations);
     } else {
       LOG(INFO) << "Converting Alignment Coordinates from GPS (lat/lon/alt) "
                    "to ENU.";

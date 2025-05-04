@@ -115,7 +115,7 @@ GPSTransform::GPSTransform(const Ellipsoid ellipsoid) {
   e2_ = f_ * (2.0 - f_);
 }
 
-std::vector<Eigen::Vector3d> GPSTransform::EllToXYZ(
+std::vector<Eigen::Vector3d> GPSTransform::EllToECEF(
     const std::vector<Eigen::Vector3d>& ell) const {
   std::vector<Eigen::Vector3d> xyz(ell.size());
 
@@ -140,7 +140,7 @@ std::vector<Eigen::Vector3d> GPSTransform::EllToXYZ(
   return xyz;
 }
 
-std::vector<Eigen::Vector3d> GPSTransform::XYZToEll(
+std::vector<Eigen::Vector3d> GPSTransform::ECEFToEll(
     const std::vector<Eigen::Vector3d>& xyz) const {
   std::vector<Eigen::Vector3d> ell(xyz.size());
 
@@ -185,12 +185,12 @@ std::vector<Eigen::Vector3d> GPSTransform::EllToENU(
     const double lat0,
     const double lon0) const {
   // Convert GPS (lat / lon / alt) to ECEF
-  std::vector<Eigen::Vector3d> xyz = EllToXYZ(ell);
+  std::vector<Eigen::Vector3d> xyz = EllToECEF(ell);
 
-  return XYZToENU(xyz, lat0, lon0);
+  return ECEFToENU(xyz, lat0, lon0);
 }
 
-std::vector<Eigen::Vector3d> GPSTransform::XYZToENU(
+std::vector<Eigen::Vector3d> GPSTransform::ECEFToENU(
     const std::vector<Eigen::Vector3d>& xyz,
     const double lat0,
     const double lon0) const {
@@ -222,10 +222,10 @@ std::vector<Eigen::Vector3d> GPSTransform::ENUToEll(
     const double lat0,
     const double lon0,
     const double alt0) const {
-  return XYZToEll(ENUToXYZ(enu, lat0, lon0, alt0));
+  return ECEFToEll(ENUToECEF(enu, lat0, lon0, alt0));
 }
 
-std::vector<Eigen::Vector3d> GPSTransform::ENUToXYZ(
+std::vector<Eigen::Vector3d> GPSTransform::ENUToECEF(
     const std::vector<Eigen::Vector3d>& enu,
     const double lat0,
     const double lon0,
@@ -234,7 +234,7 @@ std::vector<Eigen::Vector3d> GPSTransform::ENUToXYZ(
 
   // ECEF ref (origin)
   const Eigen::Vector3d xyz_ref =
-      EllToXYZ({Eigen::Vector3d(lat0, lon0, alt0)})[0];
+      EllToECEF({Eigen::Vector3d(lat0, lon0, alt0)})[0];
 
   // ENU to ECEF Rot :
   const double cos_lat0 = std::cos(DegToRad(lat0));
