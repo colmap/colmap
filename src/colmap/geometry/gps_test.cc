@@ -50,7 +50,7 @@ TEST(GPS, EllToXYZGRS80) {
   ref_xyz.emplace_back(
       4.1772186604902023e6, 0.8551759313518483e6, 4.7282818502697079e6);
 
-  GPSTransform gps_tform(GPSTransform::GRS80);
+  GPSTransform gps_tform(GPSTransform::Ellipsoid::GRS80);
 
   const auto xyz = gps_tform.EllToXYZ(ell);
 
@@ -73,7 +73,7 @@ TEST(GPS, EllToXYZWGS84) {
   ref_xyz.emplace_back(
       4.177218660452103e6, 0.855175931344048e6, 4.728281850382507e6);
 
-  GPSTransform gps_tform(GPSTransform::WGS84);
+  GPSTransform gps_tform(GPSTransform::Ellipsoid::WGS84);
 
   const auto xyz = gps_tform.EllToXYZ(ell);
 
@@ -96,7 +96,7 @@ TEST(GPS, XYZToEll_GRS80) {
                        11 + 34. / 60 + 11.77179 / 3600,
                        561.1509);
 
-  GPSTransform gps_tform(GPSTransform::GRS80);
+  GPSTransform gps_tform(GPSTransform::Ellipsoid::GRS80);
 
   const auto ell = gps_tform.XYZToEll(xyz);
 
@@ -119,7 +119,7 @@ TEST(GPS, XYZToEll_WGS84) {
                        11 + 34. / 60 + 11.77179 / 3600,
                        561.1509);
 
-  GPSTransform gps_tform(GPSTransform::WGS84);
+  GPSTransform gps_tform(GPSTransform::Ellipsoid::WGS84);
 
   const auto ell = gps_tform.XYZToEll(xyz);
 
@@ -135,7 +135,7 @@ TEST(GPS, XYZToEllToXYZ_GRS80) {
   xyz.emplace_back(
       4.177218660490202e6, 0.855175931351848e6, 4.728281850269709e6);
 
-  GPSTransform gps_tform(GPSTransform::GRS80);
+  GPSTransform gps_tform(GPSTransform::Ellipsoid::GRS80);
 
   const auto ell = gps_tform.XYZToEll(xyz);
   const auto xyz2 = gps_tform.EllToXYZ(ell);
@@ -152,7 +152,7 @@ TEST(GPS, XYZToEllToXYZ_WGS84) {
   xyz.emplace_back(
       4.177218660490202e6, 0.855175931351848e6, 4.728281850269709e6);
 
-  GPSTransform gps_tform(GPSTransform::WGS84);
+  GPSTransform gps_tform(GPSTransform::Ellipsoid::WGS84);
 
   const auto ell = gps_tform.XYZToEll(xyz);
   const auto xyz2 = gps_tform.EllToXYZ(ell);
@@ -176,7 +176,7 @@ TEST(GPS, EllToENUWGS84) {
   ref_xyz.emplace_back(
       4.177218660452103e6, 0.855175931344048e6, 4.728281850382507e6);
 
-  GPSTransform gps_tform(GPSTransform::WGS84);
+  GPSTransform gps_tform(GPSTransform::Ellipsoid::WGS84);
 
   // Get lat0, lon0 origin from ref
   const auto ori_ell = gps_tform.XYZToEll({ref_xyz[0]})[0];
@@ -206,7 +206,7 @@ TEST(GPS, XYZToENU) {
   ref_xyz.emplace_back(
       4.177218660452103e6, 0.855175931344048e6, 4.728281850382507e6);
 
-  GPSTransform gps_tform(GPSTransform::WGS84);
+  GPSTransform gps_tform(GPSTransform::Ellipsoid::WGS84);
 
   const auto xyz = gps_tform.EllToXYZ(ell);
 
@@ -239,7 +239,7 @@ TEST(GPS, ENUToEllWGS84) {
   xyz.emplace_back(
       4.177218660452103e6, 0.855175931344048e6, 4.728281850382507e6);
 
-  GPSTransform gps_tform(GPSTransform::WGS84);
+  GPSTransform gps_tform(GPSTransform::Ellipsoid::WGS84);
 
   // Get lat0, lon0 origin from ref
   const auto ori_ell = gps_tform.XYZToEll(xyz);
@@ -274,7 +274,7 @@ TEST(GPS, ENUToXYZ) {
   ref_xyz.emplace_back(
       4.177218660452103e6, 0.855175931344048e6, 4.728281850382507e6);
 
-  GPSTransform gps_tform(GPSTransform::WGS84);
+  GPSTransform gps_tform(GPSTransform::Ellipsoid::WGS84);
 
   // Get lat0, lon0 origin from Ell
   const double lat0 = ell[0](0);
@@ -322,7 +322,7 @@ TEST(GPS, EllToUTMWGS84) {
   ref_utm.emplace_back(
       2.65520501819149e5 + east_offset, 5.338903134602814e6, 561.1509);
 
-  GPSTransform gps_tform(GPSTransform::WGS84);
+  GPSTransform gps_tform(GPSTransform::Ellipsoid::WGS84);
   const auto [utm, zone] = gps_tform.EllToUTM(ell);
 
   double tolerance = 1e-8;  // 10nm
@@ -365,7 +365,7 @@ TEST(GPS, EllToUTMGRS80) {
   ref_utm.emplace_back(
       2.65520501821572e5 + east_offset, 5.338903134480723e6, 561.1509);
 
-  GPSTransform gps_tform(GPSTransform::GRS80);
+  GPSTransform gps_tform(GPSTransform::Ellipsoid::GRS80);
   const auto [utm, zone] = gps_tform.EllToUTM(ell);
 
   double tolerance = 1e-8;  // 10nm
@@ -404,7 +404,7 @@ TEST(GPS, UTMToEllWGS84) {
   ref_ell.emplace_back(48 + 8. / 60 + 52.40575 / 3600,
                        12 + 34. / 60 + 11.77179 / 3600,
                        561.1509);
-  GPSTransform gps_tform(GPSTransform::WGS84);
+  GPSTransform gps_tform(GPSTransform::Ellipsoid::WGS84);
   const auto ell = gps_tform.UTMToEll(utm, 32, true);
 
   double tolerance = 1e-8;
@@ -445,7 +445,7 @@ TEST(GPS, UTMToEllGRS80) {
   ref_ell.emplace_back(48 + 8. / 60 + 52.40575 / 3600,
                        12 + 34. / 60 + 11.77179 / 3600,
                        561.1509);
-  GPSTransform gps_tform(GPSTransform::WGS84);
+  GPSTransform gps_tform(GPSTransform::Ellipsoid::WGS84);
   const auto ell = gps_tform.UTMToEll(utm, 32, true);
 
   double tolerance = 1e-8;

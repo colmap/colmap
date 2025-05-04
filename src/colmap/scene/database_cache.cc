@@ -365,7 +365,7 @@ bool DatabaseCache::SetupPosePriors() {
     const double ref_lat = v_gps_prior[0][0];
     const double ref_lon = v_gps_prior[0][1];
 
-    const GPSTransform gps_transform(GPSTransform::WGS84);
+    const GPSTransform gps_transform(GPSTransform::Ellipsoid::WGS84);
     const std::vector<Eigen::Vector3d> v_xyz_prior =
         gps_transform.EllToENU(v_gps_prior, ref_lat, ref_lon);
 

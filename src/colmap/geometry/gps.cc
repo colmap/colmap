@@ -94,14 +94,14 @@ struct UTMParams {
 };
 }  // namespace
 
-GPSTransform::GPSTransform(const int ellipsoid) {
+GPSTransform::GPSTransform(Ellipsoid ellipsoid) {
   switch (ellipsoid) {
-    case GRS80:
+    case Ellipsoid::GRS80:
       a_ = 6378137.0;
       f_ = 1.0 / 298.257222100882711243162837;  // More accurate GRS80 ellipsoid
       b_ = (1.0 - f_) * a_;
       break;
-    case WGS84:
+    case Ellipsoid::WGS84:
       a_ = 6378137.0;
       f_ = 1.0 / 298.257223563;  // The WGS84 ellipsoid
       b_ = (1.0 - f_) * a_;
