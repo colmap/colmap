@@ -94,7 +94,7 @@ struct UTMParams {
 };
 }  // namespace
 
-GPSTransform::GPSTransform(Ellipsoid ellipsoid) {
+GPSTransform::GPSTransform(const Ellipsoid ellipsoid) {
   switch (ellipsoid) {
     case Ellipsoid::GRS80:
       a_ = 6378137.0;

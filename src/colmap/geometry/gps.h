@@ -45,7 +45,7 @@ class GPSTransform {
  public:
   MAKE_ENUM_CLASS(Ellipsoid, 0, GRS80, WGS84);
 
-  explicit GPSTransform(const Ellipsoid ellipsoid = Ellipsoid::GRS80);
+  explicit GPSTransform(Ellipsoid ellipsoid = Ellipsoid::GRS80);
 
   std::vector<Eigen::Vector3d> EllToXYZ(
       const std::vector<Eigen::Vector3d>& ell) const;
