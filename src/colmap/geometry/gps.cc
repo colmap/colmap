@@ -116,13 +116,13 @@ GPSTransform::GPSTransform(const Ellipsoid ellipsoid) {
 }
 
 std::vector<Eigen::Vector3d> GPSTransform::EllipsoidToECEF(
-    const std::vector<Eigen::Vector3d>& ell) const {
-  std::vector<Eigen::Vector3d> xyz_in_ecef(ell.size());
+    const std::vector<Eigen::Vector3d>& lat_lon_alt) const {
+  std::vector<Eigen::Vector3d> xyz_in_ecef(lat_lon_alt.size());
 
-  for (size_t i = 0; i < ell.size(); ++i) {
-    const double lat = DegToRad(ell[i](0));
-    const double lon = DegToRad(ell[i](1));
-    const double alt = ell[i](2);
+  for (size_t i = 0; i < lat_lon_alt.size(); ++i) {
+    const double lat = DegToRad(lat_lon_alt[i](0));
+    const double lon = DegToRad(lat_lon_alt[i](1));
+    const double alt = lat_lon_alt[i](2);
 
     const double sin_lat = std::sin(lat);
     const double sin_lon = std::sin(lon);
@@ -142,9 +142,9 @@ std::vector<Eigen::Vector3d> GPSTransform::EllipsoidToECEF(
 
 std::vector<Eigen::Vector3d> GPSTransform::ECEFToEllipsoid(
     const std::vector<Eigen::Vector3d>& xyz_in_ecef) const {
-  std::vector<Eigen::Vector3d> ell(xyz_in_ecef.size());
+  std::vector<Eigen::Vector3d> lat_lon_alt(xyz_in_ecef.size());
 
-  for (size_t i = 0; i < ell.size(); ++i) {
+  for (size_t i = 0; i < lat_lon_alt.size(); ++i) {
     const double x = xyz_in_ecef[i](0);
     const double y = xyz_in_ecef[i](1);
     const double z = xyz_in_ecef[i](2);
@@ -169,23 +169,23 @@ std::vector<Eigen::Vector3d> GPSTransform::ECEFToEllipsoid(
       }
     }
 
-    ell[i](0) = RadToDeg(lat);
+    lat_lon_alt[i](0) = RadToDeg(lat);
 
     // Longitude
-    ell[i](1) = RadToDeg(std::atan2(y, x));
+    lat_lon_alt[i](1) = RadToDeg(std::atan2(y, x));
     // Alt
-    ell[i](2) = alt;
+    lat_lon_alt[i](2) = alt;
   }
 
-  return ell;
+  return lat_lon_alt;
 }
 
 std::vector<Eigen::Vector3d> GPSTransform::EllipsoidToENU(
-    const std::vector<Eigen::Vector3d>& ell,
+    const std::vector<Eigen::Vector3d>& lat_lon_alt,
     const double ref_lat,
     const double ref_lon) const {
   // Convert GPS (lat / lon / alt) to ECEF
-  std::vector<Eigen::Vector3d> xyz_in_ecef = EllipsoidToECEF(ell);
+  std::vector<Eigen::Vector3d> xyz_in_ecef = EllipsoidToECEF(lat_lon_alt);
 
   return ECEFToENU(xyz_in_ecef, ref_lat, ref_lon);
 }
@@ -259,7 +259,7 @@ std::vector<Eigen::Vector3d> GPSTransform::ENUToECEF(
 }
 
 std::pair<std::vector<Eigen::Vector3d>, int> GPSTransform::EllipsoidToUTM(
-    const std::vector<Eigen::Vector3d>& ell) const {
+    const std::vector<Eigen::Vector3d>& lat_lon_alt) const {
   // The following implementation is based on the formulas from:
   // https://en.wikipedia.org/wiki/Universal_Transverse_Mercator_coordinate_system
 
@@ -268,7 +268,7 @@ std::pair<std::vector<Eigen::Vector3d>, int> GPSTransform::EllipsoidToUTM(
   // For cases where points span different zones, we select the predominant zone
   // as the reference frame.
   std::array<int, 60> zone_counts{};
-  for (const Eigen::Vector3d& lla : ell) {
+  for (const Eigen::Vector3d& lla : lat_lon_alt) {
     THROW_CHECK_GE(lla[0], -90);
     THROW_CHECK_LE(lla[0], 90);
     THROW_CHECK_GE(lla[1], -180);
@@ -287,9 +287,9 @@ std::pair<std::vector<Eigen::Vector3d>, int> GPSTransform::EllipsoidToUTM(
 
   // Converts lla to utm
   std::vector<Eigen::Vector3d> utm;
-  utm.reserve(ell.size());
+  utm.reserve(lat_lon_alt.size());
 
-  for (const Eigen::Vector3d& lla : ell) {
+  for (const Eigen::Vector3d& lla : lat_lon_alt) {
     const double phi = DegToRad(lla[0]);
     const double lambda = DegToRad(lla[1]);
 
@@ -331,8 +331,8 @@ std::vector<Eigen::Vector3d> GPSTransform::UTMToEllipsoid(
   const UTMParams params(a_ / 1000.0, f_);  // converts to kilometers
 
   // Converts utm to ell
-  std::vector<Eigen::Vector3d> ell;
-  ell.reserve(utm.size());
+  std::vector<Eigen::Vector3d> lat_lon_alt;
+  lat_lon_alt.reserve(utm.size());
 
   for (const Eigen::Vector3d& ena : utm) {
     const double xi =
@@ -362,10 +362,10 @@ std::vector<Eigen::Vector3d> GPSTransform::UTMToEllipsoid(
         UTMParams::ZoneToCentralMeridian(zone) +
         RadToDeg(std::atan(std::sinh(eta_prime) / std::cos(xi_prime)));
 
-    ell.emplace_back(lat, lon, ena[2]);
+    lat_lon_alt.emplace_back(lat, lon, ena[2]);
   }
 
-  return ell;
+  return lat_lon_alt;
 }
 
 }  // namespace colmap

@@ -48,7 +48,7 @@ class GPSTransform {
   explicit GPSTransform(Ellipsoid ellipsoid = Ellipsoid::GRS80);
 
   std::vector<Eigen::Vector3d> EllipsoidToECEF(
-      const std::vector<Eigen::Vector3d>& ell) const;
+      const std::vector<Eigen::Vector3d>& lat_lon_alt) const;
 
   std::vector<Eigen::Vector3d> ECEFToEllipsoid(
       const std::vector<Eigen::Vector3d>& xyz_in_ecef) const;
@@ -56,7 +56,7 @@ class GPSTransform {
   // Convert GPS (lat / lon / alt) to ENU coords. with ref_lat and ref_lon
   // defining the origin of the ENU frame
   std::vector<Eigen::Vector3d> EllipsoidToENU(
-      const std::vector<Eigen::Vector3d>& ell,
+      const std::vector<Eigen::Vector3d>& lat_lon_alt,
       double ref_lat,
       double ref_lon) const;
 
@@ -85,7 +85,7 @@ class GPSTransform {
   // The conversion uses a 4th-order expansion formula. The easting offset is
   // 500 km, and the northing offset is 10,000 km for the Southern Hemisphere.
   std::pair<std::vector<Eigen::Vector3d>, int> EllipsoidToUTM(
-      const std::vector<Eigen::Vector3d>& ell) const;
+      const std::vector<Eigen::Vector3d>& lat_lon_alt) const;
 
   // Converts UTM coords to GPS (lat / lon / alt).
   // Requires the zone number and hemisphere (true for north, false for south).
