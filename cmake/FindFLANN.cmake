@@ -33,7 +33,7 @@
 # The following variables are set by this module:
 #
 #   FLANN_FOUND: TRUE if FLANN is found.
-#   flann::flann_cpp_s Imported target to link against.
+#   flann::flann_cpp: Imported target to link against.
 #
 # The following variables control the behavior of this module:
 #
@@ -50,10 +50,10 @@ unset(FLANN_INCLUDE_DIRS)
 unset(FLANN_LIBRARIES)
 
 find_package(flann CONFIG QUIET)
-if(TARGET flann::flann_cpp_s)
+if(TARGET flann::flann_cpp)
     set(FLANN_FOUND TRUE)
     message(STATUS "Found FLANN")
-    message(STATUS "  Target : flann::flann_cpp_s")
+    message(STATUS "  Target : flann::flann_cpp")
 else()
     list(APPEND FLANN_CHECK_INCLUDE_DIRS
         ${FLANN_INCLUDE_DIR_HINTS}
@@ -96,9 +96,9 @@ else()
         endif()
     endif()
 
-    add_library(flann::flann_cpp_s INTERFACE IMPORTED)
+    add_library(flann::flann_cpp INTERFACE IMPORTED)
     target_include_directories(
-        flann::flann_cpp_s INTERFACE ${FLANN_INCLUDE_DIRS})
+        flann::flann_cpp INTERFACE ${FLANN_INCLUDE_DIRS})
     target_link_libraries(
-        flann::flann_cpp_s INTERFACE ${FLANN_LIBRARIES})
+        flann::flann_cpp INTERFACE ${FLANN_LIBRARIES})
 endif()

@@ -66,7 +66,7 @@ COLMAP_ADD_LIBRARY(
         colmap_sensor
         colmap_vlfeat
         Eigen3::Eigen
-        flann::flann_cpp_s
+        flann::flann_cpp
         lz4
 )
 if(GPU_ENABLED)

@@ -44,7 +44,7 @@ COLMAP_ADD_LIBRARY(
     PUBLIC_LINK_LIBS
         Boost::boost
         Eigen3::Eigen
-        flann::flann_cpp_s
+        flann::flann_cpp
         lz4
     PRIVATE_LINK_LIBS
         colmap_math
