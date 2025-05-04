@@ -313,6 +313,8 @@ void OptionManager::AddMatchingOptions() {
                               &sift_matching->guided_matching);
   AddAndRegisterDefaultOption("SiftMatching.max_num_matches",
                               &sift_matching->max_num_matches);
+  AddAndRegisterDefaultOption("SiftMatching.cpu_brute_force_matcher",
+                              &sift_matching->cpu_brute_force_matcher);
   AddAndRegisterDefaultOption("TwoViewGeometry.min_num_inliers",
                               &two_view_geometry->min_num_inliers);
   AddAndRegisterDefaultOption("TwoViewGeometry.multiple_models",
