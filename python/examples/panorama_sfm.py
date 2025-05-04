@@ -213,7 +213,15 @@ def run(args):
     with pycolmap.Database(database_path) as db:
         pycolmap.apply_rig_config([rig_config], db)
 
-    pycolmap.match_vocabtree(database_path)
+    if args.matcher == "sequential":
+        pycolmap.match_sequential(
+            database_path, pycolmap.SequentialMatchingOptions(loop_detection=True)
+        )
+    elif args.matcher == "vocab_tree":
+        pycolmap.match_vocabtree(database_path)
+    else:
+        logging.fatal(f"Unknown matcher: {args.matcher}")
+
 
     opts = pycolmap.IncrementalPipelineOptions(
         ba_refine_sensor_from_rig=False,
@@ -232,4 +240,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--input_image_path", type=Path, required=True)
     parser.add_argument("--output_path", type=Path, required=True)
+    parser.add_argument(
+        "--matcher", default="sequential", choices=["sequential", "vocab_tree"]
+    )
     run(parser.parse_args())
