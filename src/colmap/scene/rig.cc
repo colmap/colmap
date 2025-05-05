@@ -294,13 +294,22 @@ void ApplyRigConfig(const std::vector<RigConfig>& configs,
       std::vector<Frame> frames = database.ReadAllFrames();
       for (Frame& frame : frames) {
         for (const data_t& data_id : frame.ImageIds()) {
-          const Image& image = reconstruction->Image(data_id.id);
-          const sensor_t sensor_id = image.CameraPtr()->SensorId();
+          // Note that the input reconstruction may have a different assignment
+          // of images and image_ids, so we associate them uniquely by name.
+          // In addition, not all images in the database may be present in the
+          // input reconstruction, e.g., when self-calibrating the rigs and
+          // cameras from a subset of images.
+          const Image* image = reconstruction->FindImageWithName(
+              database.ReadImage(data_id.id).Name());
+          if (image == nullptr || !image->HasPose()) {
+            continue;
+          }
+          const sensor_t sensor_id = image->CameraPtr()->SensorId();
           if (rig.IsRefSensor(sensor_id)) {
-            frame.SetRigFromWorld(image.CamFromWorld());
+            frame.SetRigFromWorld(image->CamFromWorld());
           } else {
             frame.SetRigFromWorld(Inverse(rig.SensorFromRig(sensor_id)) *
-                                  image.CamFromWorld());
+                                  image->CamFromWorld());
           }
           break;
         }
