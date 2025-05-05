@@ -193,6 +193,7 @@ std::vector<RigConfig> ReadRigConfig(const std::string& rig_config_path) {
         config_camera.camera = std::make_optional<Camera>();
         config_camera.camera->model_id = CameraModelNameToId(
             camera.second.get<std::string>("camera_model_name"));
+        config_camera.camera->has_prior_focal_length = true;
         for (const auto& node : camera_params_node.get()) {
           config_camera.camera->params.push_back(
               node.second.get_value<double>());
