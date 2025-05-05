@@ -71,7 +71,7 @@ void BindSceneImage(py::module& m) {
           "camera",
           [](Image& self) -> py::typing::Optional<Camera> {
             if (self.HasCameraPtr()) {
-              return py::cast(*self.CameraPtr());
+              return py::cast(self.CameraPtr());
             } else {
               return py::none();
             }
@@ -82,7 +82,7 @@ void BindSceneImage(py::module& m) {
           "frame",
           [](Image& self) -> py::typing::Optional<Frame> {
             if (self.HasFramePtr()) {
-              return py::cast(*self.FramePtr());
+              return py::cast(self.FramePtr());
             } else {
               return py::none();
             }
