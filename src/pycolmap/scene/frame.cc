@@ -40,7 +40,7 @@ void BindFrame(py::module& m) {
           "rig",
           [](Frame& self) -> py::typing::Optional<Rig> {
             if (self.HasRigPtr()) {
-              return py::cast(*self.RigPtr());
+              return py::cast(self.RigPtr());
             } else {
               return py::none();
             }
