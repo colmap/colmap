@@ -192,6 +192,34 @@ TEST(ApplyRigConfig, WithReconstruction) {
   EXPECT_EQ(reconstruction.NumRegFrames(), options.num_frames_per_rig);
 }
 
+TEST(ApplyRigConfig, WithPartialReconstruction) {
+  Database database(Database::kInMemoryDatabasePath);
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions options;
+  options.num_rigs = 1;
+  options.num_cameras_per_rig = 2;
+  options.num_frames_per_rig = 5;
+  SynthesizeDataset(options, &reconstruction, &database);
+
+  reconstruction.DeRegisterFrame(1);
+  reconstruction.DeRegisterFrame(3);
+
+  std::vector<RigConfig> configs;
+  auto& config = configs.emplace_back();
+  auto& camera1 = config.cameras.emplace_back();
+  camera1.image_prefix = "camera000001_";
+  camera1.ref_sensor = true;
+  auto& camera2 = config.cameras.emplace_back();
+  camera2.image_prefix = "camera000002_";
+
+  ApplyRigConfig(configs, database, &reconstruction);
+  EXPECT_EQ(database.NumRigs(), 1);
+  EXPECT_EQ(database.NumFrames(), options.num_frames_per_rig);
+  EXPECT_EQ(reconstruction.NumRigs(), 1);
+  EXPECT_EQ(reconstruction.NumFrames(), options.num_frames_per_rig);
+  EXPECT_EQ(reconstruction.NumRegFrames(), options.num_frames_per_rig - 2);
+}
+
 TEST(ApplyRigConfig, WithoutReconstruction) {
   Database database(Database::kInMemoryDatabasePath);
   Reconstruction reconstruction;
