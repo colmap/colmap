@@ -15,7 +15,7 @@ namespace py = pybind11;
 
 void BindTriangulation(py::module& m) {
   m.def(
-      "TriangulatePoint",
+      "triangulate_point",
       [](const Eigen::Matrix3x4d& cam1_from_world,
          const Eigen::Matrix3x4d& cam2_from_world,
          const Eigen::Vector2d& point1,
@@ -34,10 +34,13 @@ void BindTriangulation(py::module& m) {
       "point1"_a,
       "point2"_a,
       "Triangulate point from two-view observation.");
-  m.def("CalculateTriangulationAngle",
+  m.def("calculate_triangulation_angle",
         &CalculateTriangulationAngle,
         "proj_center1"_a,
         "proj_center2"_a,
         "point3D"_a,
         "Calculate triangulation angle in radians.");
+  DefDeprecation(m, "TriangulatePoint", "triangulate_point");
+  DefDeprecation(
+      m, "CalculateTriangulationAngle", "calculate_triangulation_angle");
 }
