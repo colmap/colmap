@@ -143,6 +143,7 @@ TEST(ReadRigConfig, Nominal) {
   ASSERT_FALSE(configs[0].cameras[0].cam_from_rig.has_value());
   ASSERT_TRUE(configs[0].cameras[0].camera.has_value());
   EXPECT_EQ(configs[0].cameras[0].camera->model_id, CameraModelId::kOpenCV);
+  EXPECT_TRUE(configs[0].cameras[0].camera->has_prior_focal_length);
   EXPECT_THAT(configs[0].cameras[0].camera->params,
               testing::ElementsAre(640, 480, 320, 240, 0.1, 0.2, 0.3, 0.4));
 
@@ -189,6 +190,34 @@ TEST(ApplyRigConfig, WithReconstruction) {
   EXPECT_EQ(reconstruction.NumRigs(), 1);
   EXPECT_EQ(reconstruction.NumFrames(), options.num_frames_per_rig);
   EXPECT_EQ(reconstruction.NumRegFrames(), options.num_frames_per_rig);
+}
+
+TEST(ApplyRigConfig, WithPartialReconstruction) {
+  Database database(Database::kInMemoryDatabasePath);
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions options;
+  options.num_rigs = 1;
+  options.num_cameras_per_rig = 2;
+  options.num_frames_per_rig = 5;
+  SynthesizeDataset(options, &reconstruction, &database);
+
+  reconstruction.DeRegisterFrame(1);
+  reconstruction.DeRegisterFrame(3);
+
+  std::vector<RigConfig> configs;
+  auto& config = configs.emplace_back();
+  auto& camera1 = config.cameras.emplace_back();
+  camera1.image_prefix = "camera000001_";
+  camera1.ref_sensor = true;
+  auto& camera2 = config.cameras.emplace_back();
+  camera2.image_prefix = "camera000002_";
+
+  ApplyRigConfig(configs, database, &reconstruction);
+  EXPECT_EQ(database.NumRigs(), 1);
+  EXPECT_EQ(database.NumFrames(), options.num_frames_per_rig);
+  EXPECT_EQ(reconstruction.NumRigs(), 1);
+  EXPECT_EQ(reconstruction.NumFrames(), options.num_frames_per_rig);
+  EXPECT_EQ(reconstruction.NumRegFrames(), options.num_frames_per_rig - 2);
 }
 
 TEST(ApplyRigConfig, WithoutReconstruction) {

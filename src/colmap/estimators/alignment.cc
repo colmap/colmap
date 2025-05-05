@@ -258,8 +258,7 @@ bool AlignReconstructionToPosePriors(
   }
 
   if (src.size() < 3) {
-    LOG(WARNING)
-        << "Not enough valid pose priors for PosePrior based alignment!";
+    LOG(WARNING) << "Not enough valid pose priors for alignment";
     return false;
   }
 
