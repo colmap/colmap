@@ -60,7 +60,6 @@ ExtractExistingImages(const Reconstruction& reconstruction) {
   return {std::move(fixed_image_ids), std::move(orig_fixed_image_positions)};
 }
 
-}  // namespace
 void UpdateDatabasePosePriorsCovariance(const std::string& database_path,
                                         const Eigen::Matrix3d& covariance) {
   Database database(database_path);
@@ -78,6 +77,8 @@ void UpdateDatabasePosePriorsCovariance(const std::string& database_path,
     }
   }
 }
+
+}  // namespace
 
 int RunAutomaticReconstructor(int argc, char** argv) {
   AutomaticReconstructionController::Options reconstruction_options;

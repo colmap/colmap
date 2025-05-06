@@ -44,6 +44,9 @@ COLMAP_ADD_LIBRARY(
         projection.h projection.cc
         reconstruction.h reconstruction.cc
         reconstruction_io.h reconstruction_io.cc
+        reconstruction_io_binary.h reconstruction_io_binary.cc
+        reconstruction_io_text.h reconstruction_io_text.cc
+        reconstruction_io_utils.h reconstruction_io_utils.cc
         reconstruction_manager.h reconstruction_manager.cc
         rig.h rig.cc
         scene_clustering.h scene_clustering.cc
