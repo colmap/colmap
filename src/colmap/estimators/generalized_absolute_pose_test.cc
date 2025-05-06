@@ -30,6 +30,7 @@
 #include "colmap/estimators/generalized_absolute_pose.h"
 
 #include "colmap/geometry/rigid3.h"
+#include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/math/random.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/util/eigen_alignment.h"
@@ -105,8 +106,8 @@ TEST_P(ParameterizedGeneralizedAbsolutePoseTests, Estimate) {
       const auto report = ransac.Estimate(points2D, points3D);
 
       EXPECT_TRUE(report.success);
-      EXPECT_THAT(report.model.ToMatrix(),
-                  EigenMatrixNear(rig_from_world.ToMatrix(), 1e-3));
+      EXPECT_THAT(report.model,
+                  Rigid3dNear(rig_from_world, /*rtol=*/1e-6, /*ttol=*/1e-6));
 
       // Test residuals of inlier points.
       std::vector<double> residuals;

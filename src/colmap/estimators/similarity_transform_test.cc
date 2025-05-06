@@ -29,7 +29,10 @@
 
 #include "colmap/estimators/similarity_transform.h"
 
+#include "colmap/geometry/rigid3.h"
+#include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/geometry/sim3.h"
+#include "colmap/geometry/sim3_matchers.h"
 #include "colmap/math/random.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/eigen_matchers.h"
@@ -130,8 +133,8 @@ TEST(Rigid3d, EstimateRobust) {
     }
   }
 
-  EXPECT_THAT(tgt_from_src.ToMatrix(),
-              EigenMatrixNear(gt_tgt_from_src.ToMatrix(), 1e-6));
+  EXPECT_THAT(tgt_from_src,
+              Rigid3dNear(gt_tgt_from_src, /*rtol=*/1e-6, /*ttol=*/1e-6));
 }
 
 void TestEstimateSim3dWithNumCoords(const size_t num_coords) {
@@ -202,8 +205,9 @@ TEST(Sim3d, EstimateRobust) {
     }
   }
 
-  EXPECT_THAT(tgt_from_src.ToMatrix(),
-              EigenMatrixNear(gt_tgt_from_src.ToMatrix(), 1e-6));
+  EXPECT_THAT(
+      tgt_from_src,
+      Sim3dNear(gt_tgt_from_src, /*stol=*/1e-8, /*rtol=*/1e-8, /*ttol=*/1e-8));
 }
 
 }  // namespace
