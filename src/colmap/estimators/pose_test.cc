@@ -31,11 +31,101 @@
 
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/rigid3.h"
+#include "colmap/scene/synthetic.h"
+#include "colmap/util/eigen_matchers.h"
 
 #include <gtest/gtest.h>
 
 namespace colmap {
 namespace {
+
+struct EstimateAbsolutePoseTestData {
+  Reconstruction reconstruction;
+  Image image;
+  Camera camera;
+  std::vector<Eigen::Vector2d> points2D;
+  std::vector<Eigen::Vector3d> points3D;
+};
+
+EstimateAbsolutePoseTestData CreateEstimateAbsolutePoseTestData() {
+  EstimateAbsolutePoseTestData test_data;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 2;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.point2D_stddev = 0;
+  SynthesizeDataset(synthetic_dataset_options, &test_data.reconstruction);
+
+  test_data.image = test_data.reconstruction.Image(1);
+  test_data.camera = *test_data.image.CameraPtr();
+  for (const auto& point2D : test_data.image.Points2D()) {
+    if (point2D.HasPoint3D()) {
+      test_data.points2D.push_back(point2D.xy);
+      test_data.points3D.push_back(
+          test_data.reconstruction.Point3D(point2D.point3D_id).xyz);
+    }
+  }
+
+  return test_data;
+}
+
+TEST(EstimateAbsolutePose, Nominal) {
+  const EstimateAbsolutePoseTestData test_data =
+      CreateEstimateAbsolutePoseTestData();
+
+  AbsolutePoseEstimationOptions options;
+  Rigid3d cam_from_world;
+  size_t num_inliers = 0;
+  std::vector<char> inlier_mask;
+  Camera camera = test_data.camera;
+  EXPECT_TRUE(EstimateAbsolutePose(options,
+                                   test_data.points2D,
+                                   test_data.points3D,
+                                   &cam_from_world,
+                                   &camera,
+                                   &num_inliers,
+                                   &inlier_mask));
+  EXPECT_LT(cam_from_world.rotation.angularDistance(
+                test_data.image.CamFromWorld().rotation),
+            1e-6);
+  EXPECT_THAT(
+      cam_from_world.translation,
+      EigenMatrixNear(test_data.image.CamFromWorld().translation, 1e-6));
+  EXPECT_EQ(camera, test_data.camera);
+  EXPECT_EQ(num_inliers, test_data.points2D.size());
+  EXPECT_THAT(inlier_mask, testing::Each(testing::Eq(true)));
+}
+
+TEST(EstimateAbsolutePose, EstimateFocalLength) {
+  const EstimateAbsolutePoseTestData test_data =
+      CreateEstimateAbsolutePoseTestData();
+
+  AbsolutePoseEstimationOptions options;
+  options.estimate_focal_length = true;
+  Rigid3d cam_from_world;
+  size_t num_inliers = 0;
+  std::vector<char> inlier_mask;
+  Camera camera = test_data.camera;
+  EXPECT_TRUE(EstimateAbsolutePose(options,
+                                   test_data.points2D,
+                                   test_data.points3D,
+                                   &cam_from_world,
+                                   &camera,
+                                   &num_inliers,
+                                   &inlier_mask));
+  EXPECT_LT(cam_from_world.rotation.angularDistance(
+                test_data.image.CamFromWorld().rotation),
+            1e-3);
+  EXPECT_THAT(
+      cam_from_world.translation,
+      EigenMatrixNear(test_data.image.CamFromWorld().translation, 1e-2));
+  EXPECT_NEAR(camera.FocalLength(), test_data.camera.FocalLength(), 5);
+  camera.SetFocalLength(test_data.camera.FocalLength());
+  EXPECT_EQ(camera, test_data.camera);
+  EXPECT_EQ(num_inliers, test_data.points2D.size());
+  EXPECT_THAT(inlier_mask, testing::Each(testing::Eq(true)));
+}
 
 TEST(RefineEssentialMatrix, Nominal) {
   const Rigid3d cam1_from_world;
