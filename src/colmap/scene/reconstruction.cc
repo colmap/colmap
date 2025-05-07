@@ -276,11 +276,8 @@ Eigen::MatrixXd Reconstruction::Point3DCoordinates(
   Eigen::MatrixXd coords(point3D_ids.size(), 3);
   for (size_t i = 0; i < point3D_ids.size(); ++i) {
     auto it = points3D_.find(point3D_ids[i]);
-    if (it != points3D_.end()) {
-      coords.row(i) = it->second.xyz;
-    } else {
-      coords.row(i) = Eigen::RowVector3d::Constant(std::numeric_limits<double>::quiet_NaN());
-    }
+    THROW_CHECK(it != points3D_.end());
+    coords.row(i) = it->second.xyz;
   }
   return coords;
 }
