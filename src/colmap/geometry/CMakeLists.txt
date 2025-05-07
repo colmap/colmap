@@ -52,8 +52,8 @@ if(TESTS_ENABLED)
     target_sources(
         colmap_geometry
         PRIVATE
-            rigid3_matchers.h rigid3_matchers.cc
-            sim3_matchers.h sim3_matchers.cc
+            rigid3_matchers.h
+            sim3_matchers.h
     )
 endif()
 

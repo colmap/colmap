@@ -35,29 +35,56 @@
 
 namespace colmap {
 
-class Rigid3dEqMatcher : public testing::MatcherInterface<const Rigid3d&> {
+template <typename T>
+class Rigid3dEqMatcher : public testing::MatcherInterface<T> {
  public:
-  explicit Rigid3dEqMatcher(const Rigid3d& rhs);
+  explicit Rigid3dEqMatcher(T rhs) : rhs_(std::forward<T>(rhs)) {}
 
-  void DescribeTo(std::ostream* os) const override;
+  void DescribeTo(std::ostream* os) const override { *os << rhs_; }
 
-  bool MatchAndExplain(const Rigid3d& lhs,
-                       testing::MatchResultListener* listener) const override;
+  bool MatchAndExplain(T lhs,
+                       testing::MatchResultListener* listener) const override {
+    // Note that with use !(a == b) to handle NaNs.
+    if (!(lhs.rotation == rhs_.rotation)) {
+      return false;
+    }
+    if (!(lhs.translation == rhs_.translation)) {
+      return false;
+    }
+    return true;
+  }
 
  private:
   const Rigid3d rhs_;
 };
 
-testing::PolymorphicMatcher<Rigid3dEqMatcher> Rigid3dEq(const Rigid3d& rhs);
+template <typename T>
+testing::PolymorphicMatcher<Rigid3dEqMatcher<T>> Rigid3dEq(T rhs) {
+  return testing::MakePolymorphicMatcher(
+      Rigid3dEqMatcher<T>(std::forward<T>(rhs)));
+}
 
-class Rigid3dNearMatcher : public testing::MatcherInterface<const Rigid3d&> {
+template <typename T>
+class Rigid3dNearMatcher : public testing::MatcherInterface<T> {
  public:
-  Rigid3dNearMatcher(const Rigid3d& rhs, double rtol, double ttol);
+  Rigid3dNearMatcher(T rhs, double rtol, double ttol)
+      : rhs_(std::forward<T>(rhs)), rtol_(rtol), ttol_(ttol) {}
 
-  void DescribeTo(std::ostream* os) const override;
+  void DescribeTo(std::ostream* os) const override { *os << rhs_; }
 
-  bool MatchAndExplain(const Rigid3d& lhs,
-                       testing::MatchResultListener* listener) const override;
+  bool MatchAndExplain(T lhs,
+                       testing::MatchResultListener* listener) const override {
+    // Note that with use !(a <= b) to handle NaNs.
+    if (!(lhs.rotation.angularDistance(rhs_.rotation) <= rtol_)) {
+      *listener << " exceed rotation threshold " << rtol_;
+      return false;
+    }
+    if (!lhs.translation.isApprox(rhs_.translation, ttol_)) {
+      *listener << " exceed translation threshold " << ttol_;
+      return false;
+    }
+    return true;
+  }
 
  private:
   const Rigid3d rhs_;
@@ -65,9 +92,13 @@ class Rigid3dNearMatcher : public testing::MatcherInterface<const Rigid3d&> {
   const double ttol_;
 };
 
-testing::PolymorphicMatcher<Rigid3dNearMatcher> Rigid3dNear(
-    const Rigid3d& rhs,
+template <typename T>
+testing::PolymorphicMatcher<Rigid3dNearMatcher<T>> Rigid3dNear(
+    T rhs,
     double rtol = Eigen::NumTraits<double>::dummy_precision(),
-    double ttol = Eigen::NumTraits<double>::dummy_precision());
+    double ttol = Eigen::NumTraits<double>::dummy_precision()) {
+  return testing::MakePolymorphicMatcher(
+      Rigid3dNearMatcher<T>(std::forward<T>(rhs), rtol, ttol));
+}
 
 }  // namespace colmap
