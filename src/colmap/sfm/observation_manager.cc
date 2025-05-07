@@ -368,7 +368,7 @@ std::unordered_set<point3D_t> ObservationManager::FindPoints3DWithSmallTriangula
       continue;
     }
 
-    const auto& point3D = reconstruction_.Point3D(point3D_id);
+    const struct Point3D& point3D = reconstruction_.Point3D(point3D_id);
 
     // Calculate triangulation angle for all pairwise combinations of image
     // poses in the track. Only delete point if none of the combinations
@@ -391,14 +391,16 @@ std::unordered_set<point3D_t> ObservationManager::FindPoints3DWithSmallTriangula
         const Eigen::Vector3d proj_center2 = proj_centers.at(image_id2);
 
         const double tri_angle = CalculateTriangulationAngle(
-          proj_center1, proj_center2, point3D.xyz);
+            proj_center1, proj_center2, point3D.xyz);
         if (tri_angle >= min_tri_angle_rad) {
           keep_point = true;
           break;
         }
       }
 
-      if (keep_point) break;
+      if (keep_point) {
+        break;
+      }
     }
 
     if (!keep_point) {
