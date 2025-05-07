@@ -60,6 +60,7 @@ EstimateAbsolutePoseTestData CreateAbsolutePoseTestData() {
 
   test_data.image = test_data.reconstruction.Image(1);
   test_data.camera = *test_data.image.CameraPtr();
+  CHECK_EQ(test_data.camera.model_id, CameraModelId::kSimpleRadial);
   for (const auto& point2D : test_data.image.Points2D()) {
     if (point2D.HasPoint3D()) {
       test_data.points2D.push_back(point2D.xy);
@@ -184,7 +185,6 @@ TEST(RefineAbsolutePose, RefineExtraParams) {
   options.refine_extra_params = true;
   Rigid3d cam_from_world = test_data.image.CamFromWorld();
   Camera camera = test_data.camera;
-  ASSERT_EQ(camera.model_id, CameraModelId::kSimpleRadial);
   camera.params.at(3) += 0.1;
   Eigen::Matrix6d cam_from_world_cov = Eigen::Matrix6d::Zero();
   EXPECT_TRUE(RefineAbsolutePose(options,
