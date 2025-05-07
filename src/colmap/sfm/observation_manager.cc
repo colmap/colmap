@@ -341,7 +341,7 @@ size_t ObservationManager::FilterObservationsWithNegativeDepth() {
 }
 
 size_t ObservationManager::FilterPoints3DWithSmallTriangulationAngle(
-    double min_tri_angle,
+    const double min_tri_angle,
     const std::unordered_set<point3D_t>& point3D_ids) {
   const auto to_remove = FindPoints3DWithSmallTriangulationAngle(min_tri_angle, point3D_ids);
   for (const auto id : to_remove) {
@@ -361,7 +361,6 @@ std::unordered_set<point3D_t> ObservationManager::FindPoints3DWithSmallTriangula
 
   // Cache for image projection centers.
   std::unordered_map<image_t, Eigen::Vector3d> proj_centers;
-  
 
   for (const auto point3D_id : point3D_ids) {
     if (!reconstruction_.ExistsPoint3D(point3D_id)) {
@@ -392,7 +391,8 @@ std::unordered_set<point3D_t> ObservationManager::FindPoints3DWithSmallTriangula
 
         const double tri_angle = CalculateTriangulationAngle(
             proj_center1, proj_center2, point3D.xyz);
-        if (tri_angle >= min_tri_angle_rad) {
+            
+            if (tri_angle >= min_tri_angle_rad) {
           keep_point = true;
           break;
         }
