@@ -37,7 +37,7 @@ namespace colmap {
 
 class Rigid3dEqMatcher : public testing::MatcherInterface<const Rigid3d&> {
  public:
-  Rigid3dEqMatcher(const Rigid3d& rhs);
+  explicit Rigid3dEqMatcher(const Rigid3d& rhs);
 
   void DescribeTo(std::ostream* os) const override;
 

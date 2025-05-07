@@ -31,6 +31,7 @@
 
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/rigid3.h"
+#include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/eigen_matchers.h"
 
@@ -86,12 +87,10 @@ TEST(EstimateAbsolutePose, Nominal) {
                                    &camera,
                                    &num_inliers,
                                    &inlier_mask));
-  EXPECT_LT(cam_from_world.rotation.angularDistance(
-                test_data.image.CamFromWorld().rotation),
-            1e-6);
   EXPECT_THAT(
-      cam_from_world.translation,
-      EigenMatrixNear(test_data.image.CamFromWorld().translation, 1e-6));
+      cam_from_world,
+      Rigid3dNear(
+          test_data.image.CamFromWorld(), /*rtol=*/1e-6, /*ttol=*/1e-6));
   EXPECT_EQ(camera, test_data.camera);
   EXPECT_EQ(num_inliers, test_data.points2D.size());
   EXPECT_THAT(inlier_mask, testing::Each(testing::Eq(true)));
@@ -114,12 +113,10 @@ TEST(EstimateAbsolutePose, EstimateFocalLength) {
                                    &camera,
                                    &num_inliers,
                                    &inlier_mask));
-  EXPECT_LT(cam_from_world.rotation.angularDistance(
-                test_data.image.CamFromWorld().rotation),
-            1e-3);
   EXPECT_THAT(
-      cam_from_world.translation,
-      EigenMatrixNear(test_data.image.CamFromWorld().translation, 1e-2));
+      cam_from_world,
+      Rigid3dNear(
+          test_data.image.CamFromWorld(), /*rtol=*/1e-3, /*ttol=*/1e-2));
   EXPECT_NEAR(camera.FocalLength(), test_data.camera.FocalLength(), 5);
   camera.SetFocalLength(test_data.camera.FocalLength());
   EXPECT_EQ(camera, test_data.camera);

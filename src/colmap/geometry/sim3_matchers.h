@@ -37,7 +37,7 @@ namespace colmap {
 
 class Sim3dEqMatcher : public testing::MatcherInterface<const Sim3d&> {
  public:
-  Sim3dEqMatcher(const Sim3d& rhs);
+  explicit Sim3dEqMatcher(const Sim3d& rhs);
 
   void DescribeTo(std::ostream* os) const override;
 
