@@ -126,11 +126,11 @@ class Image {
   void SetPoints2D(const std::vector<struct Point2D>& points);
 
   std::vector<point3D_t> Point3DIds(
-    const std::optional<std::vector<point2D_t>>& point_ids = std::nullopt
+    const std::optional<std::vector<point2D_t>>& point2D_idxs = std::nullopt
   ) const;
 
   Eigen::MatrixXd KeypointCoordinates(
-    const std::vector<point2D_t>& point_ids
+    const std::vector<point2D_t>& point2D_idxs
   ) const;
 
   // Set the point as triangulated, i.e. it is part of a 3D point track.

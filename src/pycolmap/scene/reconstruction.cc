@@ -255,6 +255,6 @@ void BindReconstruction(py::module& m) {
      })
       .def("point3D_coordinates",
            &Reconstruction::Point3DCoordinates,
-           "point_ids"_a,
+           "point3D_ids"_a,
            "Retrieve an Nx3 matrix of 3D coordinates for the given point IDs.");
 }

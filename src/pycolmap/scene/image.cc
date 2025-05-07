@@ -107,10 +107,10 @@ void BindSceneImage(py::module& m) {
            "Direct accessor for a point2D.")
       .def("keypoint_coordinates",
            &Image::KeypointCoordinates,
-           "point_ids"_a,
+           "point2D_idxs"_a,
            "Get an Nx2 numpy array of xy coordinates for the specified 2D point IDs.")
       .def("point3D_ids", &Image::Point3DIds,
-           "point_ids"_a = std::nullopt,
+           "point2D_idxs"_a = std::nullopt,
            "Get a list of 3D point IDs corresponding to the specified 2D point IDs. Returns -1 for points "
            "without a 3D point. If no IDs are provided, return for all."
        )
