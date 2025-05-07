@@ -168,7 +168,7 @@ jobs:
           python-version: 3.8
         if: runner.os == 'macOS' && runner.arch == 'ARM64' && ${{ matrix.config.arch }} == "arm64"
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.21.3
+        uses: pypa/cibuildwheel@v2.23.2
         with:
           package-dir: ./
         env:

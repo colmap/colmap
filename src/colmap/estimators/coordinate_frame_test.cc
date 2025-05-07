@@ -131,10 +131,10 @@ TEST(CoordinateFrame, AlignToENUPlane) {
   // Create reconstruction with 4 points with known LLA coordinates. After the
   // ENU transform all 4 points should land approximately on the X-Y plane.
   GPSTransform gps;
-  auto points = gps.EllToXYZ({Eigen::Vector3d(50, 10.1, 100),
-                              Eigen::Vector3d(50.1, 10, 100),
-                              Eigen::Vector3d(50.1, 10.1, 100),
-                              Eigen::Vector3d(50, 10, 100)});
+  auto points = gps.EllipsoidToECEF({Eigen::Vector3d(50, 10.1, 100),
+                                     Eigen::Vector3d(50.1, 10, 100),
+                                     Eigen::Vector3d(50.1, 10.1, 100),
+                                     Eigen::Vector3d(50, 10, 100)});
   Sim3d tform;
   Reconstruction reconstruction;
   std::vector<point3D_t> point_ids;

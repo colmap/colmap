@@ -36,10 +36,7 @@ void BindBitmap(pybind11::module& m) {
              py::buffer_info output_into = output.request();
              uint8_t* output_row_ptr =
                  reinterpret_cast<uint8_t*>(output.request().ptr);
-             const size_t output_pitch =
-                 (output_into.shape.size() == 2)
-                     ? output_into.shape[1]
-                     : (output_into.shape[1] * output_into.shape[2]);
+             const size_t output_pitch = output_into.shape[1] * channels;
              for (ssize_t y = 0; y < output_into.shape[0]; ++y) {
                if (is_rgb) {
                  for (ssize_t x = 0; x < output_into.shape[1]; ++x) {
@@ -56,9 +53,8 @@ void BindBitmap(pybind11::module& m) {
                  }
                } else {
                  // Copy (guaranteed contiguous) row memory directly.
-                 std::memcpy(const_cast<uint8_t*>(self.GetScanline(y)),
-                             output_row_ptr,
-                             output_into.shape[1]);
+                 std::memcpy(
+                     output_row_ptr, self.GetScanline(y), output_into.shape[1]);
                }
                output_row_ptr += output_pitch;
              }
@@ -135,10 +131,13 @@ void BindBitmap(pybind11::module& m) {
       .def("__repr__", &CreateRepresentation<Bitmap>)
       .def_static(
           "read",
-          [](const std::string& path, bool as_rgb) {
+          [](const std::string& path,
+             bool as_rgb) -> py::typing::Optional<Bitmap> {
             Bitmap bitmap;
-            bitmap.Read(path, as_rgb);
-            return bitmap;
+            if (!bitmap.Read(path, as_rgb)) {
+              return py::none();
+            }
+            return py::cast(bitmap);
           },
           "path"_a,
           "as_rgb"_a,

@@ -137,13 +137,13 @@ Eigen::Quaterniond AverageQuaternions(
       average_qvec(3), average_qvec(0), average_qvec(1), average_qvec(2));
 }
 
-Rigid3d InterpolateCameraPoses(const Rigid3d& cam_from_world1,
-                               const Rigid3d& cam_from_world2,
+Rigid3d InterpolateCameraPoses(const Rigid3d& cam1_from_world,
+                               const Rigid3d& cam2_from_world,
                                double t) {
   const Eigen::Vector3d translation12 =
-      cam_from_world2.translation - cam_from_world1.translation;
-  return Rigid3d(cam_from_world1.rotation.slerp(t, cam_from_world2.rotation),
-                 cam_from_world1.translation + translation12 * t);
+      cam2_from_world.translation - cam1_from_world.translation;
+  return Rigid3d(cam1_from_world.rotation.slerp(t, cam2_from_world.rotation),
+                 cam1_from_world.translation + translation12 * t);
 }
 
 namespace {

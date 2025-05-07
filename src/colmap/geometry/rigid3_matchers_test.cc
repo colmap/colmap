@@ -27,19 +27,56 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#pragma once
+#include "colmap/geometry/rigid3_matchers.h"
 
-#include "colmap/controllers/option_manager.h"
-#include "colmap/ui/options_widget.h"
-
-#include <QtCore>
-#include <QtWidgets>
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
-class ReconstructionOptionsWidget : public QWidget {
- public:
-  ReconstructionOptionsWidget(QWidget* parent, OptionManager* options);
+struct TestClass {
+  virtual ~TestClass() = default;
+  virtual void TestMethod(const Rigid3d&) const {}
 };
 
+struct MockTestClass : public TestClass {
+  MOCK_METHOD(void, TestMethod, (const Rigid3d&), (const, override));
+};
+
+TEST(Rigid3d, Eq) {
+  const Rigid3d x(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
+  Rigid3d y = x;
+  EXPECT_THAT(x, Rigid3dEq(y));
+  y.rotation.w() += 1e-7;
+  EXPECT_THAT(x, testing::Not(Rigid3dEq(y)));
+  y = x;
+  y.translation.x() += 1e-7;
+  EXPECT_THAT(x, testing::Not(Rigid3dEq(y)));
+
+  testing::StrictMock<MockTestClass> mock;
+  EXPECT_CALL(mock, TestMethod(Rigid3dEq(x))).Times(1);
+  EXPECT_CALL(mock, TestMethod(Rigid3dEq(y))).Times(1);
+  mock.TestMethod(x);
+  mock.TestMethod(y);
+}
+
+TEST(Rigid3d, Near) {
+  const Rigid3d x(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
+  Rigid3d y = x;
+  EXPECT_THAT(x, Rigid3dNear(y, /*rtol=*/1e-8, /*ttol=*/1e-8));
+  y.rotation.w() += 1e-7;
+  EXPECT_THAT(x, testing::Not(Rigid3dNear(y, /*rtol=*/1e-8, /*ttol=*/1e-8)));
+  y = x;
+  y.translation.x() += 1e-7;
+  EXPECT_THAT(x, testing::Not(Rigid3dNear(y)));
+
+  testing::StrictMock<MockTestClass> mock;
+  EXPECT_CALL(mock, TestMethod(Rigid3dNear(x))).Times(1);
+  EXPECT_CALL(mock, TestMethod(Rigid3dNear(y))).Times(1);
+  mock.TestMethod(x);
+  mock.TestMethod(y);
+}
+
+}  // namespace
 }  // namespace colmap

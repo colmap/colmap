@@ -60,4 +60,11 @@ void BindRigid3(py::module& m) {
         "base_rigid3d"_a,
         "target_rigid3d"_a,
         "joint_covar"_a);
+
+  m.def("average_quaternions", &AverageQuaternions, "quats"_a, "weights"_a);
+  m.def("interpolate_camera_poses",
+        &InterpolateCameraPoses,
+        "cam1_from_world"_a,
+        "cam2_from_world"_a,
+        "t"_a);
 }

@@ -304,6 +304,11 @@ std::vector<std::string> ReadTextFileLines(const std::string& path) {
   return lines;
 }
 
+bool IsURI(const std::string& uri) {
+  return StringStartsWith(uri, "http://") ||
+         StringStartsWith(uri, "https://") || StringStartsWith(uri, "file://");
+}
+
 #ifdef COLMAP_DOWNLOAD_ENABLED
 
 namespace {
@@ -458,8 +463,7 @@ void OverwriteDownloadCacheDir(std::filesystem::path path) {
 #endif  // COLMAP_DOWNLOAD_ENABLED
 
 std::string MaybeDownloadAndCacheFile(const std::string& uri) {
-  if (!StringStartsWith(uri, "http://") && !StringStartsWith(uri, "https://") &&
-      !StringStartsWith(uri, "file://")) {
+  if (!IsURI(uri)) {
     return uri;
   }
 #ifdef COLMAP_DOWNLOAD_ENABLED

@@ -220,3 +220,17 @@ sensor rig poses and camera parameters fixed::
         --Mapper.ba_refine_focal_length 0 \
         --Mapper.ba_refine_extra_params 0 \
         --output_path terrains/sparse
+
+
+Reconstruction from 360° spherical images
+-----------------------------------------
+
+COLMAP can handle collections of 360° panoramas by rendering virtual pinhole
+images (similar to a cubemap) and treating them as a camera rig. Since the rig
+extrinsics and camera intrinsics are known, the reconstruction process is more
+robust. We provide an example Python script to reconstruct a 360° collection::
+
+    python python/examples/panorama_sfm.py \
+        --input_image_path image_directory \
+        --output_path output_directory
+

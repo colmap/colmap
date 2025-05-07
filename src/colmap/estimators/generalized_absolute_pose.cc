@@ -35,6 +35,7 @@
 #include <array>
 
 #include <PoseLib/solvers/gp3p.h>
+#include <PoseLib/solvers/p3p.h>
 
 namespace colmap {
 
@@ -58,8 +59,20 @@ void GP3PEstimator::Estimate(const std::vector<X_t>& points2D,
   }
 
   std::vector<poselib::CameraPose> poses;
-  const int num_poses =
-      poselib::gp3p(origins_in_world, rays_in_rig, points3D, &poses);
+  int num_poses = 0;
+  if (points2D[0].cam_from_rig.translation.isApprox(
+          points2D[1].cam_from_rig.translation, 1e-9) &&
+      points2D[0].cam_from_rig.translation.isApprox(
+          points2D[2].cam_from_rig.translation, 1e-9)) {
+    // In case of a panoramic camera, fall back to P3P.
+    num_poses = poselib::p3p(rays_in_rig, points3D, &poses);
+    for (int i = 0; i < num_poses; ++i) {
+      poses[i].t -= points2D[0].cam_from_rig.rotation.inverse() *
+                    points2D[0].cam_from_rig.translation;
+    }
+  } else {
+    num_poses = poselib::gp3p(origins_in_world, rays_in_rig, points3D, &poses);
+  }
 
   rigs_from_world->resize(num_poses);
   for (int i = 0; i < num_poses; ++i) {
