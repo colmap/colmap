@@ -48,7 +48,7 @@ struct EstimateAbsolutePoseTestData {
   std::vector<Eigen::Vector3d> points3D;
 };
 
-EstimateAbsolutePoseTestData CreateEstimateAbsolutePoseTestData() {
+EstimateAbsolutePoseTestData CreateAbsolutePoseTestData() {
   EstimateAbsolutePoseTestData test_data;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
@@ -72,8 +72,7 @@ EstimateAbsolutePoseTestData CreateEstimateAbsolutePoseTestData() {
 }
 
 TEST(EstimateAbsolutePose, Nominal) {
-  const EstimateAbsolutePoseTestData test_data =
-      CreateEstimateAbsolutePoseTestData();
+  const EstimateAbsolutePoseTestData test_data = CreateAbsolutePoseTestData();
 
   AbsolutePoseEstimationOptions options;
   Rigid3d cam_from_world;
@@ -97,8 +96,7 @@ TEST(EstimateAbsolutePose, Nominal) {
 }
 
 TEST(EstimateAbsolutePose, EstimateFocalLength) {
-  const EstimateAbsolutePoseTestData test_data =
-      CreateEstimateAbsolutePoseTestData();
+  const EstimateAbsolutePoseTestData test_data = CreateAbsolutePoseTestData();
 
   AbsolutePoseEstimationOptions options;
   options.estimate_focal_length = true;
@@ -122,6 +120,88 @@ TEST(EstimateAbsolutePose, EstimateFocalLength) {
   EXPECT_EQ(camera, test_data.camera);
   EXPECT_EQ(num_inliers, test_data.points2D.size());
   EXPECT_THAT(inlier_mask, testing::Each(testing::Eq(true)));
+}
+
+TEST(RefineAbsolutePose, Nominal) {
+  const EstimateAbsolutePoseTestData test_data = CreateAbsolutePoseTestData();
+  std::vector<char> inlier_mask(test_data.points2D.size(), true);
+
+  AbsolutePoseRefinementOptions options;
+  Rigid3d cam_from_world = test_data.image.CamFromWorld();
+  cam_from_world =
+      cam_from_world * Rigid3d(Eigen::Quaterniond(Eigen::AngleAxisd(
+                                   0.1, Eigen::Vector3d::Random())),
+                               0.1 * Eigen::Vector3d::Random());
+  Camera camera = test_data.camera;
+  Eigen::Matrix6d cam_from_world_cov = Eigen::Matrix6d::Zero();
+  EXPECT_TRUE(RefineAbsolutePose(options,
+                                 inlier_mask,
+                                 test_data.points2D,
+                                 test_data.points3D,
+                                 &cam_from_world,
+                                 &camera,
+                                 &cam_from_world_cov));
+  EXPECT_THAT(
+      cam_from_world,
+      Rigid3dNear(
+          test_data.image.CamFromWorld(), /*rtol=*/1e-6, /*ttol=*/1e-6));
+  EXPECT_EQ(camera, test_data.camera);
+  EXPECT_NE(cam_from_world_cov, Eigen::Matrix6d::Zero());
+}
+
+TEST(RefineAbsolutePose, RefineFocalLength) {
+  const EstimateAbsolutePoseTestData test_data = CreateAbsolutePoseTestData();
+  std::vector<char> inlier_mask(test_data.points2D.size(), true);
+
+  AbsolutePoseRefinementOptions options;
+  options.refine_focal_length = true;
+  Rigid3d cam_from_world = test_data.image.CamFromWorld();
+  Camera camera = test_data.camera;
+  camera.SetFocalLength(0.9 * camera.FocalLength());
+  Eigen::Matrix6d cam_from_world_cov = Eigen::Matrix6d::Zero();
+  EXPECT_TRUE(RefineAbsolutePose(options,
+                                 inlier_mask,
+                                 test_data.points2D,
+                                 test_data.points3D,
+                                 &cam_from_world,
+                                 &camera,
+                                 &cam_from_world_cov));
+  EXPECT_THAT(
+      cam_from_world,
+      Rigid3dNear(
+          test_data.image.CamFromWorld(), /*rtol=*/1e-3, /*ttol=*/1e-3));
+  EXPECT_NEAR(camera.FocalLength(), test_data.camera.FocalLength(), 5);
+  camera.SetFocalLength(test_data.camera.FocalLength());
+  EXPECT_EQ(camera, test_data.camera);
+  EXPECT_NE(cam_from_world_cov, Eigen::Matrix6d::Zero());
+}
+
+TEST(RefineAbsolutePose, RefineExtraParams) {
+  const EstimateAbsolutePoseTestData test_data = CreateAbsolutePoseTestData();
+  std::vector<char> inlier_mask(test_data.points2D.size(), true);
+
+  AbsolutePoseRefinementOptions options;
+  options.refine_extra_params = true;
+  Rigid3d cam_from_world = test_data.image.CamFromWorld();
+  Camera camera = test_data.camera;
+  ASSERT_EQ(camera.model_id, CameraModelId::kSimpleRadial);
+  camera.params.at(3) += 0.1;
+  Eigen::Matrix6d cam_from_world_cov = Eigen::Matrix6d::Zero();
+  EXPECT_TRUE(RefineAbsolutePose(options,
+                                 inlier_mask,
+                                 test_data.points2D,
+                                 test_data.points3D,
+                                 &cam_from_world,
+                                 &camera,
+                                 &cam_from_world_cov));
+  EXPECT_THAT(
+      cam_from_world,
+      Rigid3dNear(
+          test_data.image.CamFromWorld(), /*rtol=*/1e-3, /*ttol=*/1e-3));
+  EXPECT_NEAR(camera.params.at(3), test_data.camera.params.at(3), 1e-3);
+  camera.params.at(3) = test_data.camera.params.at(3);
+  EXPECT_EQ(camera, test_data.camera);
+  EXPECT_NE(cam_from_world_cov, Eigen::Matrix6d::Zero());
 }
 
 TEST(RefineEssentialMatrix, Nominal) {
