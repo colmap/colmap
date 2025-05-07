@@ -30,6 +30,7 @@
 #include "colmap/geometry/essential_matrix.h"
 
 #include "colmap/geometry/pose.h"
+#include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/eigen_matchers.h"
 
@@ -93,10 +94,7 @@ TEST(PoseFromEssentialMatrix, Nominal) {
 
   EXPECT_EQ(points3D.size(), 4);
 
-  EXPECT_THAT(cam2_from_cam1_est.rotation.toRotationMatrix(),
-              EigenMatrixNear(cam2_from_cam1.rotation.toRotationMatrix()));
-  EXPECT_THAT(cam2_from_cam1_est.translation,
-              EigenMatrixNear(cam2_from_cam1.translation));
+  EXPECT_THAT(cam2_from_cam1_est, Rigid3dNear(cam2_from_cam1));
 }
 
 TEST(FindOptimalImageObservations, Nominal) {

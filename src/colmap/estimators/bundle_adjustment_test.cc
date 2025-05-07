@@ -29,6 +29,7 @@
 
 #include "colmap/estimators/bundle_adjustment.h"
 
+#include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/math/random.h"
 #include "colmap/scene/correspondence_graph.h"
 #include "colmap/scene/projection.h"
@@ -66,22 +67,18 @@ constexpr double kConstantPoseVarEps = 1e-9;
               (orig_camera).params[extra_param_idx]);  \
   }
 
-#define CheckVariableCamFromWorld(image, orig_image)          \
-  {                                                           \
-    EXPECT_NE((image).CamFromWorld().rotation.coeffs(),       \
-              (orig_image).CamFromWorld().rotation.coeffs()); \
-    EXPECT_NE((image).CamFromWorld().translation,             \
-              (orig_image).CamFromWorld().translation);       \
+#define CheckVariableCamFromWorld(image, orig_image)                   \
+  {                                                                    \
+    EXPECT_THAT((image).CamFromWorld(),                                \
+                testing::Not(Rigid3dEq((orig_image).CamFromWorld()))); \
   }
 
-#define CheckConstantCamFromWorld(image, orig_image)                           \
-  {                                                                            \
-    EXPECT_THAT((image).CamFromWorld().rotation.coeffs(),                      \
-                EigenMatrixNear((orig_image).CamFromWorld().rotation.coeffs(), \
-                                kConstantPoseVarEps));                         \
-    EXPECT_THAT((image).CamFromWorld().translation,                            \
-                EigenMatrixNear((orig_image).CamFromWorld().translation,       \
-                                kConstantPoseVarEps));                         \
+#define CheckConstantCamFromWorld(image, orig_image)     \
+  {                                                      \
+    EXPECT_THAT((image).CamFromWorld(),                  \
+                Rigid3dNear((orig_image).CamFromWorld(), \
+                            kConstantPoseVarEps,         \
+                            kConstantPoseVarEps));       \
   }
 
 #define CheckConstantCamFromWorldTranslationCoord(image, orig_image) \
@@ -95,30 +92,6 @@ constexpr double kConstantPoseVarEps = 1e-9;
       }                                                              \
     }                                                                \
     EXPECT_EQ(num_constant_coords, 1);                               \
-  }
-
-#define CheckConstantCameraRig(camera_rig, orig_camera_rig, camera_id)         \
-  {                                                                            \
-    EXPECT_THAT((camera_rig).CamFromRig(camera_id).rotation.coeffs(),          \
-                EigenMatrixNear(                                               \
-                    (orig_camera_rig).CamFromRig(camera_id).rotation.coeffs(), \
-                    kConstantPoseVarEps));                                     \
-    EXPECT_THAT(                                                               \
-        (camera_rig).CamFromRig(camera_id).translation,                        \
-        EigenMatrixNear((orig_camera_rig).CamFromRig(camera_id).translation,   \
-                        kConstantPoseVarEps));                                 \
-  }
-
-#define CheckVariableCameraRig(camera_rig, orig_camera_rig, camera_id)      \
-  {                                                                         \
-    if ((camera_rig).RefCameraId() == (camera_id)) {                        \
-      CheckConstantCameraRig(camera_rig, orig_camera_rig, camera_id);       \
-    } else {                                                                \
-      EXPECT_NE((camera_rig).CamFromRig(camera_id).rotation.coeffs(),       \
-                (orig_camera_rig).CamFromRig(camera_id).rotation.coeffs()); \
-      EXPECT_NE((camera_rig).CamFromRig(camera_id).translation,             \
-                (orig_camera_rig).CamFromRig(camera_id).translation);       \
-    }                                                                       \
   }
 
 #define CheckVariablePoint(point, orig_point) \
