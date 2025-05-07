@@ -391,7 +391,7 @@ std::unordered_set<point3D_t> ObservationManager::FindPoints3DWithSmallTriangula
 
         const double tri_angle = CalculateTriangulationAngle(
             proj_center1, proj_center2, point3D.xyz);
-            
+
         if (tri_angle >= min_tri_angle_rad) {
           keep_point = true;
           break;
