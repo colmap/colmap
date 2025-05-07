@@ -271,6 +271,17 @@ void Reconstruction::DeleteAllPoints2DAndPoints3D() {
   }
 }
 
+Eigen::MatrixXd Reconstruction::Point3DCoordinates(
+    const std::vector<point3D_t>& point3D_ids) const {
+  Eigen::MatrixXd coords(point3D_ids.size(), 3);
+  for (size_t i = 0; i < point3D_ids.size(); ++i) {
+    auto it = points3D_.find(point3D_ids[i]);
+    THROW_CHECK(it != points3D_.end());
+    coords.row(i) = it->second.xyz;
+  }
+  return coords;
+}
+
 void Reconstruction::RegisterImage(const image_t image_id) {
   THROW_CHECK(Image(image_id).HasPose());
   reg_image_ids_.insert(image_id);

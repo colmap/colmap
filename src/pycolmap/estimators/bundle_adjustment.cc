@@ -91,6 +91,9 @@ void BindBundleAdjuster(py::module& m) {
                          &BAOpts::loss_function_scale,
                          "Scaling factor determines residual at which "
                          "robustification takes place.")
+          .def_readwrite("loss_function_magnitude",
+                         &BAOpts::loss_function_magnitude,
+                         "Magnitude determines the scaling of the residual.")
           .def_readwrite("refine_focal_length",
                          &BAOpts::refine_focal_length,
                          "Whether to refine the focal length parameter group.")

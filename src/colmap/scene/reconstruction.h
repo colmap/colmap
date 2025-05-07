@@ -139,6 +139,9 @@ class Reconstruction {
   // Delete all 2D points of all images and all 3D points.
   void DeleteAllPoints2DAndPoints3D();
 
+  // Return the 3D coordinates of the given point IDs.
+  Eigen::MatrixXd Point3DCoordinates(const std::vector<point3D_t>& point3D_ids) const;
+
   // Register an existing image.
   void RegisterImage(image_t image_id);
 

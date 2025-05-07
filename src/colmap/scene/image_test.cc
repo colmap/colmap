@@ -164,6 +164,27 @@ TEST(Image, NumPoints3D) {
   EXPECT_EQ(image.NumPoints3D(), 2);
 }
 
+TEST(Image, Point3DIds) {
+  Image image;
+  image.SetPoints2D(std::vector<Eigen::Vector2d>(3));
+  EXPECT_EQ(image.Point3DIds().size(), 3);
+  EXPECT_EQ(image.Point3DIds()[0], kInvalidPoint3DId);
+  EXPECT_EQ(image.Point3DIds()[1], kInvalidPoint3DId);
+  EXPECT_EQ(image.Point3DIds()[2], kInvalidPoint3DId);
+
+  image.SetPoint3DForPoint2D(0, 42);
+  image.SetPoint3DForPoint2D(1, 43);
+  auto ids_all = image.Point3DIds();
+  EXPECT_EQ(ids_all[0], 42);
+  EXPECT_EQ(ids_all[1], 43);
+  EXPECT_EQ(ids_all[2], kInvalidPoint3DId);
+
+  auto ids_subset = image.Point3DIds(std::vector<point2D_t>{1, 2});
+  EXPECT_EQ(ids_subset.size(), 2);
+  EXPECT_EQ(ids_subset[0], 43);
+  EXPECT_EQ(ids_subset[1], kInvalidPoint3DId);
+}
+
 TEST(Image, Points2D) {
   Image image;
   EXPECT_EQ(image.Points2D().size(), 0);
@@ -187,6 +208,23 @@ TEST(Image, Points2DWith3D) {
   EXPECT_EQ(image.Point2D(0).xy(0), 1.0);
   EXPECT_EQ(image.Point2D(0).xy(1), 2.0);
   EXPECT_EQ(image.NumPoints3D(), 1);
+}
+
+TEST(Image, KeypointCoordinates) {
+  Image image;
+  std::vector<Point2D> points2D(3);
+  points2D[0].xy = Eigen::Vector2d(1.0, 2.0);
+  points2D[1].xy = Eigen::Vector2d(3.0, 4.0);
+  points2D[2].xy = Eigen::Vector2d(5.0, 6.0);
+  image.SetPoints2D(points2D);
+
+  Eigen::MatrixXd coords = image.KeypointCoordinates({0, 2});
+  ASSERT_EQ(coords.rows(), 2);
+  ASSERT_EQ(coords.cols(), 2);
+  EXPECT_EQ(coords(0, 0), 1.0);
+  EXPECT_EQ(coords(0, 1), 2.0);
+  EXPECT_EQ(coords(1, 0), 5.0);
+  EXPECT_EQ(coords(1, 1), 6.0);
 }
 
 TEST(Image, Points3D) {
