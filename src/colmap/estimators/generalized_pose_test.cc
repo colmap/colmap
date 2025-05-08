@@ -31,6 +31,7 @@
 
 #include "colmap/estimators/generalized_absolute_pose.h"
 #include "colmap/geometry/rigid3.h"
+#include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/math/random.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/scene/camera.h"
@@ -44,7 +45,7 @@
 namespace colmap {
 namespace {
 
-struct GeneralizedCameraProblem {
+struct GeneralizedAbsolutePoseProblem {
   Rigid3d gt_rig_from_world;
   std::vector<Eigen::Vector2d> points2D;
   std::vector<Eigen::Vector3d> points3D;
@@ -54,7 +55,7 @@ struct GeneralizedCameraProblem {
   std::vector<Camera> cameras;
 };
 
-GeneralizedCameraProblem BuildGeneralizedCameraProblem() {
+GeneralizedAbsolutePoseProblem BuildGeneralizedCameraProblem() {
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 3;
@@ -64,7 +65,7 @@ GeneralizedCameraProblem BuildGeneralizedCameraProblem() {
   synthetic_dataset_options.point2D_stddev = 0;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
 
-  GeneralizedCameraProblem problem;
+  GeneralizedAbsolutePoseProblem problem;
   problem.gt_rig_from_world =
       Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
   for (const image_t image_id : reconstruction.RegImageIds()) {
@@ -88,7 +89,7 @@ GeneralizedCameraProblem BuildGeneralizedCameraProblem() {
 TEST(EstimateGeneralizedAbsolutePose, Nominal) {
   SetPRNGSeed();
 
-  GeneralizedCameraProblem problem = BuildGeneralizedCameraProblem();
+  GeneralizedAbsolutePoseProblem problem = BuildGeneralizedCameraProblem();
   const size_t num_points = problem.points2D.size();
 
   const double gt_inlier_ratio = 0.8;
@@ -132,16 +133,13 @@ TEST(EstimateGeneralizedAbsolutePose, Nominal) {
                                               &inlier_mask));
   EXPECT_EQ(num_inliers, unique_inlier_ids.size());
   EXPECT_EQ(inlier_mask, gt_inlier_mask);
-  EXPECT_LT(problem.gt_rig_from_world.rotation.angularDistance(
-                rig_from_world.rotation),
-            1e-6);
-  EXPECT_LT((problem.gt_rig_from_world.translation - rig_from_world.translation)
-                .norm(),
-            1e-6);
+  EXPECT_THAT(
+      rig_from_world,
+      Rigid3dNear(problem.gt_rig_from_world, /*rtol=*/1e-6, /*ttol=*/1e-6));
 }
 
 TEST(RefineGeneralizedAbsolutePose, Nominal) {
-  GeneralizedCameraProblem problem = BuildGeneralizedCameraProblem();
+  GeneralizedAbsolutePoseProblem problem = BuildGeneralizedCameraProblem();
   const std::vector<char> gt_inlier_mask(problem.points2D.size(), true);
 
   const double rotation_noise_degree = 1;
@@ -163,12 +161,9 @@ TEST(RefineGeneralizedAbsolutePose, Nominal) {
                                             problem.cams_from_rig,
                                             &rig_from_world,
                                             &problem.cameras));
-  EXPECT_LT(problem.gt_rig_from_world.rotation.angularDistance(
-                rig_from_world.rotation),
-            1e-6);
-  EXPECT_LT((problem.gt_rig_from_world.translation - rig_from_world.translation)
-                .norm(),
-            1e-6);
+  EXPECT_THAT(
+      rig_from_world,
+      Rigid3dNear(problem.gt_rig_from_world, /*rtol=*/1e-6, /*ttol=*/1e-6));
 }
 
 }  // namespace
