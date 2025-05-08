@@ -133,8 +133,9 @@ TEST(EstimateGeneralizedAbsolutePose, Nominal) {
                                               &inlier_mask));
   EXPECT_EQ(num_inliers, unique_inlier_ids.size());
   EXPECT_EQ(inlier_mask, gt_inlier_mask);
-  EXPECT_THAT(rig_from_world,
-              Rigid3dNear(problem, /*rtol=*/1e-6, /*ttol=*/1e-6));
+  EXPECT_THAT(
+      rig_from_world,
+      Rigid3dNear(problem.gt_rig_from_world, /*rtol=*/1e-6, /*ttol=*/1e-6));
 }
 
 TEST(RefineGeneralizedAbsolutePose, Nominal) {
