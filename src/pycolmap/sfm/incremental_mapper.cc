@@ -1,7 +1,6 @@
 #include "colmap/sfm/incremental_mapper.h"
 
 #include "colmap/controllers/incremental_pipeline.h"
-#include "colmap/sfm/incremental_mapper_impl.h"
 
 #include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
@@ -361,14 +360,6 @@ void BindIncrementalMapperImpl(py::module& m) {
       .def_readwrite("num_adjusted_observations",
                      &LocalBAReport::num_adjusted_observations);
   MakeDataclass(PyLocalBAReport);
-  
-  py::class_<IncrementalMapperImpl>(m, "IncrementalMapperImpl")
-    .def(py::init<>())
-    .def_static("find_local_bundle",
-        &IncrementalMapperImpl::FindLocalBundle,
-        "options"_a,
-        "image_id"_a,
-        "reconstruction"_a);
 
   // bind incremental mapper
   // TODO: migrate comments. improve formatting
@@ -464,6 +455,11 @@ void BindIncrementalMapperImpl(py::module& m) {
            &IncrementalMapper::FindLocalBundle,
            "options"_a,
            "image_id"_a)
+      .def_static("find_rec_local_bundle",
+           &IncrementalMapper::FindRecLocalBundle,
+           "options"_a,
+           "image_id"_a,
+           "reconstruction"_a)
       .def("adjust_global_bundle",
            &IncrementalMapper::AdjustGlobalBundle,
            "options"_a,

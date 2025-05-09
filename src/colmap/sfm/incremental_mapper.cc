@@ -28,7 +28,7 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 #include "colmap/sfm/incremental_mapper.h"
-
+#include "colmap/scene/reconstruction.h"
 #include "colmap/estimators/pose.h"
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/geometry/triangulation.h"
@@ -787,6 +787,13 @@ std::vector<image_t> IncrementalMapper::FindLocalBundle(
     const Options& options, const image_t image_id) const {
   return IncrementalMapperImpl::FindLocalBundle(
       options, image_id, *reconstruction_);
+}
+
+std::vector<image_t> IncrementalMapper::FindRecLocalBundle(
+    const Options& options, const image_t image_id, 
+    const ::colmap::Reconstruction& reconstruction) {
+  return IncrementalMapperImpl::FindLocalBundle(
+      options, image_id, reconstruction);
 }
 
 void IncrementalMapper::RegisterImageEvent(const image_t image_id) {
