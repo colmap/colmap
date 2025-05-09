@@ -112,15 +112,15 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
 }
 
 bool EstimateRelativePose(const RANSACOptions& ransac_options,
-                          const std::vector<Eigen::Vector2d>& points1,
-                          const std::vector<Eigen::Vector2d>& points2,
+                          const std::vector<Eigen::Vector2d>& cam_points1,
+                          const std::vector<Eigen::Vector2d>& cam_points2,
                           Rigid3d* cam2_from_cam1,
                           size_t* num_inliers,
                           std::vector<char>* inlier_mask) {
-  THROW_CHECK_EQ(points1.size(), points2.size());
+  THROW_CHECK_EQ(cam_points1.size(), cam_points2.size());
 
   RANSAC<EssentialMatrixFivePointEstimator> ransac(ransac_options);
-  auto report = ransac.Estimate(points1, points2);
+  auto report = ransac.Estimate(cam_points1, cam_points2);
 
   if (!report.success) {
     return false;
@@ -130,10 +130,10 @@ bool EstimateRelativePose(const RANSACOptions& ransac_options,
   std::vector<Eigen::Vector2d> inliers2(report.support.num_inliers);
 
   size_t j = 0;
-  for (size_t i = 0; i < points1.size(); ++i) {
+  for (size_t i = 0; i < cam_points1.size(); ++i) {
     if (report.inlier_mask[i]) {
-      inliers1[j] = points1[i];
-      inliers2[j] = points2[i];
+      inliers1[j] = cam_points1[i];
+      inliers2[j] = cam_points2[i];
       j += 1;
     }
   }
@@ -275,11 +275,11 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
 
 bool RefineRelativePose(const ceres::Solver::Options& options,
                         const std::vector<char>& inlier_mask,
-                        const std::vector<Eigen::Vector2d>& points1,
-                        const std::vector<Eigen::Vector2d>& points2,
+                        const std::vector<Eigen::Vector2d>& cam_points1,
+                        const std::vector<Eigen::Vector2d>& cam_points2,
                         Rigid3d* cam2_from_cam1) {
-  THROW_CHECK_EQ(points1.size(), points2.size());
-  THROW_CHECK_EQ(points1.size(), inlier_mask.size());
+  THROW_CHECK_EQ(cam_points1.size(), cam_points2.size());
+  THROW_CHECK_EQ(cam_points1.size(), inlier_mask.size());
 
   // CostFunction assumes unit quaternions.
   cam2_from_cam1->rotation.normalize();
@@ -292,13 +292,13 @@ bool RefineRelativePose(const ceres::Solver::Options& options,
 
   ceres::Problem problem;
 
-  for (size_t i = 0; i < points1.size(); ++i) {
+  for (size_t i = 0; i < cam_points1.size(); ++i) {
     // Skip outlier observations
     if (!inlier_mask[i]) {
       continue;
     }
     ceres::CostFunction* cost_function =
-        SampsonErrorCostFunctor::Create(points1[i], points2[i]);
+        SampsonErrorCostFunctor::Create(cam_points1[i], cam_points2[i]);
     problem.AddResidualBlock(cost_function,
                              loss_function,
                              cam2_from_cam1_rotation,
