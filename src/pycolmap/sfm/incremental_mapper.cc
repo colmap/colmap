@@ -457,11 +457,6 @@ void BindIncrementalMapperImpl(py::module& m) {
            &IncrementalMapper::FindLocalBundle,
            "options"_a,
            "image_id"_a)
-      .def_static("find_rec_local_bundle",
-           &IncrementalMapper::FindRecLocalBundle,
-           "options"_a,
-           "image_id"_a,
-           "reconstruction"_a)
       .def("adjust_global_bundle",
            &IncrementalMapper::AdjustGlobalBundle,
            "options"_a,
@@ -495,7 +490,7 @@ void BindIncrementalMapperImpl(py::module& m) {
       .def("clear_modified_points3D",
            &IncrementalMapper::ClearModifiedPoints3D);
 
-      m.def("find_local_bundle_impl",
+      m.def("find_rec_local_bundle",
             &IncrementalMapperImpl::FindLocalBundle,
             "options"_a,
             "image_id"_a,

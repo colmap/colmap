@@ -290,11 +290,6 @@ class IncrementalMapper {
   // shared 3D points, to the given image.
   std::vector<image_t> FindLocalBundle(const Options& options,
                                        image_t image_id) const;
-  
-  // Find local bundle for given image in given reconstruction.
-  static std::vector<image_t> FindRecLocalBundle(const Options& options,
-                                              image_t image_id,
-                                              const ::colmap::Reconstruction& reconstruction);
 
  private:
   struct RegistrationStatistics {
