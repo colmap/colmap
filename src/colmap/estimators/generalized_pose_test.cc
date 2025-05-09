@@ -55,7 +55,7 @@ struct GeneralizedAbsolutePoseProblem {
   std::vector<Camera> cameras;
 };
 
-GeneralizedAbsolutePoseProblem BuildGeneralizedCameraProblem() {
+GeneralizedAbsolutePoseProblem BuildGeneralizedAbsolutePoseProblem() {
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 3;
@@ -89,7 +89,8 @@ GeneralizedAbsolutePoseProblem BuildGeneralizedCameraProblem() {
 TEST(EstimateGeneralizedAbsolutePose, Nominal) {
   SetPRNGSeed();
 
-  GeneralizedAbsolutePoseProblem problem = BuildGeneralizedCameraProblem();
+  GeneralizedAbsolutePoseProblem problem =
+      BuildGeneralizedAbsolutePoseProblem();
   const size_t num_points = problem.points2D.size();
 
   const double gt_inlier_ratio = 0.8;
@@ -139,7 +140,8 @@ TEST(EstimateGeneralizedAbsolutePose, Nominal) {
 }
 
 TEST(RefineGeneralizedAbsolutePose, Nominal) {
-  GeneralizedAbsolutePoseProblem problem = BuildGeneralizedCameraProblem();
+  GeneralizedAbsolutePoseProblem problem =
+      BuildGeneralizedAbsolutePoseProblem();
   const std::vector<char> gt_inlier_mask(problem.points2D.size(), true);
 
   const double rotation_noise_degree = 1;
@@ -164,6 +166,117 @@ TEST(RefineGeneralizedAbsolutePose, Nominal) {
   EXPECT_THAT(
       rig_from_world,
       Rigid3dNear(problem.gt_rig_from_world, /*rtol=*/1e-6, /*ttol=*/1e-6));
+}
+
+struct GeneralizedRelativePoseProblem {
+  Rigid3d gt_rig2_from_rig1;
+  std::vector<Eigen::Vector2d> points2D1;
+  std::vector<Eigen::Vector2d> points2D2;
+  std::vector<size_t> camera_idxs1;
+  std::vector<size_t> camera_idxs2;
+  std::vector<Rigid3d> cams_from_rig;
+  std::vector<Camera> cameras;
+};
+
+GeneralizedRelativePoseProblem BuildGeneralizedRelativePoseProblem() {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 3;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.point2D_stddev = 0;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+
+  const Frame& frame1 = reconstruction.Frame(1);
+  const Frame& frame2 = reconstruction.Frame(2);
+  CHECK_NE(frame1.RigId(), frame2.RigId());
+
+  GeneralizedRelativePoseProblem problem;
+  problem.gt_rig2_from_rig1 =
+      frame2.RigFromWorld() * Inverse(frame1.RigFromWorld());
+
+  std::unordered_map<point3D_t, std::pair<const Image*, point2D_t>>
+      observations2;
+  for (const data_t& data_id : frame2.ImageIds()) {
+    const auto& image = reconstruction.Image(data_id.id);
+    for (size_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
+         ++point2D_idx) {
+      const auto& point2D = image.Point2D(point2D_idx);
+      if (point2D.HasPoint3D()) {
+        observations2[point2D.point3D_id] = std::make_pair(&image, point2D_idx);
+      }
+    }
+  }
+
+  std::unordered_map<camera_t, size_t> camera_id_to_idx;
+  for (const data_t& data_id : frame1.ImageIds()) {
+    const auto& image1 = reconstruction.Image(data_id.id);
+    for (size_t point2D_idx1 = 0; point2D_idx1 < image1.NumPoints2D();
+         ++point2D_idx1) {
+      const auto& point2D1 = image1.Point2D(point2D_idx1);
+      const auto observation_it = observations2.find(point2D1.point3D_id);
+      if (observation_it == observations2.end()) {
+        continue;
+      }
+
+      const auto& [image2_ptr, point2D_idx2] = observation_it->second;
+
+      auto maybe_add_and_get_camera = [&problem,
+                                       &camera_id_to_idx](const Image& image) {
+        auto [it, inserted] =
+            camera_id_to_idx.emplace(image.CameraId(), problem.cameras.size());
+        if (inserted) {
+          problem.cameras.push_back(*image.CameraPtr());
+          const Rig& rig = *image.FramePtr()->RigPtr();
+          if (rig.IsRefSensor(image.CameraPtr()->SensorId())) {
+            problem.cams_from_rig.push_back(Rigid3d());
+          } else {
+            problem.cams_from_rig.push_back(
+                image.FramePtr()->RigPtr()->SensorFromRig(
+                    image.CameraPtr()->SensorId()));
+          }
+        }
+        return it->second;
+      };
+
+      problem.points2D1.push_back(point2D1.xy);
+      problem.points2D2.push_back(image2_ptr->Point2D(point2D_idx2).xy);
+      problem.camera_idxs1.push_back(maybe_add_and_get_camera(image1));
+      problem.camera_idxs2.push_back(maybe_add_and_get_camera(*image2_ptr));
+    }
+  }
+
+  return problem;
+}
+
+TEST(EstimateGeneralizedRelativePose, Nominal) {
+  SetPRNGSeed();
+
+  GeneralizedRelativePoseProblem problem =
+      BuildGeneralizedRelativePoseProblem();
+
+  RANSACOptions ransac_options;
+  ransac_options.max_error = 1e-2;
+
+  Rigid3d rig2_from_rig1;
+  size_t num_inliers;
+  std::vector<char> inlier_mask;
+  EXPECT_TRUE(EstimateGeneralizedRelativePose(ransac_options,
+                                              problem.points2D1,
+                                              problem.points2D2,
+                                              problem.camera_idxs1,
+                                              problem.camera_idxs2,
+                                              problem.cams_from_rig,
+                                              problem.cameras,
+                                              &rig2_from_rig1,
+                                              &num_inliers,
+                                              &inlier_mask));
+  EXPECT_EQ(num_inliers, problem.points2D1.size());
+  EXPECT_THAT(inlier_mask, testing::Each(testing::Eq(true)));
+  EXPECT_THAT(
+      rig2_from_rig1,
+      Rigid3dNear(problem.gt_rig2_from_rig1, /*rtol=*/1e-6, /*ttol=*/1e-6));
 }
 
 }  // namespace
