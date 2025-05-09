@@ -120,7 +120,7 @@ bool EstimateRelativePose(const RANSACOptions& ransac_options,
   THROW_CHECK_EQ(points1.size(), points2.size());
 
   RANSAC<EssentialMatrixFivePointEstimator> ransac(ransac_options);
-  const auto report = ransac.Estimate(points1, points2);
+  auto report = ransac.Estimate(points1, points2);
 
   if (!report.success) {
     return false;
