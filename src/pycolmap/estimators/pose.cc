@@ -237,7 +237,8 @@ void BindAbsolutePoseEstimator(py::module& m) {
         "points2"_a,
         py::arg_v("options", RANSACOptions(), "RANSACOptions()"),
         "Robustly estimate relative pose using LO-RANSAC "
-        "without non-linear refinement.");
+        "without non-linear refinement. Expects normalized points in camera "
+        "coordinates as input.");
   m.def("refine_relative_pose",
         &PyRefineRelativePose,
         "cam2_from_cam1"_a,
@@ -245,5 +246,6 @@ void BindAbsolutePoseEstimator(py::module& m) {
         "points2"_a,
         "inlier_mask"_a,
         py::arg_v("options", ceres::Solver::Options()),
-        "Non-linear refinement of relative pose.");
+        "Non-linear refinement of relative pose. Expects normalized points in "
+        "camera coordinates as input.");
 }

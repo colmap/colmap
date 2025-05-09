@@ -172,8 +172,8 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
 //
 // @param options          Solver options.
 // @param inlier_mask      Inlier mask for 2D-2D correspondences.
-// @param points1          First set of corresponding points.
-// @param points2          Second set of corresponding points.
+// @param points1          First set of corresponding normalized points.
+// @param points2          Second set of corresponding normalized points.
 // @param cam_from_world   Refined pose between cameras.
 //
 // @return                 Flag indicating if solution is usable.
@@ -189,8 +189,8 @@ bool RefineRelativePose(const ceres::Solver::Options& options,
 // and refines the relative pose using the function `RefineRelativePose`.
 //
 // @param E                3x3 essential matrix.
-// @param points1          First set of corresponding points.
-// @param points2          Second set of corresponding points.
+// @param points1          First set of corresponding normalized points.
+// @param points2          Second set of corresponding normalized points.
 // @param inlier_mask      Inlier mask for corresponding points.
 // @param options          Solver options.
 //
