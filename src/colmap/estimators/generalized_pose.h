@@ -65,6 +65,19 @@ bool EstimateGeneralizedAbsolutePose(
     size_t* num_inliers,
     std::vector<char>* inlier_mask);
 
+// Estimate generalized relative pose.
+bool EstimateGeneralizedRelativePose(
+    const RANSACOptions& ransac_options,
+    const std::vector<Eigen::Vector2d>& points2D1,
+    const std::vector<Eigen::Vector2d>& points2D2,
+    const std::vector<size_t>& camera_idxs1,
+    const std::vector<size_t>& camera_idxs2,
+    const std::vector<Rigid3d>& cams_from_rig,
+    const std::vector<Camera>& cameras,
+    Rigid3d* rig2_from_rig1,
+    size_t* num_inliers,
+    std::vector<char>* inlier_mask);
+
 // Refine generalized absolute pose (optionally focal lengths)
 // from 2D-3D correspondences.
 //
