@@ -50,7 +50,7 @@ class FeatureMatcherThread : public Thread {
  public:
   using PairGeneratorFactory = std::function<std::unique_ptr<PairGenerator>()>;
 
-  FeatureMatcherThread(const SiftMatchingOptions& matching_options,
+  FeatureMatcherThread(const FeatureMatchingOptions& matching_options,
                        const TwoViewGeometryOptions& geometry_options,
                        std::shared_ptr<Database> database,
                        std::shared_ptr<FeatureMatcherCache> cache,
@@ -105,7 +105,7 @@ class FeatureMatcherThread : public Thread {
 
 std::unique_ptr<Thread> CreateExhaustiveFeatureMatcher(
     const ExhaustiveMatchingOptions& options,
-    const SiftMatchingOptions& matching_options,
+    const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path) {
   auto database = std::make_shared<Database>(database_path);
@@ -119,7 +119,7 @@ std::unique_ptr<Thread> CreateExhaustiveFeatureMatcher(
 
 std::unique_ptr<Thread> CreateVocabTreeFeatureMatcher(
     const VocabTreeMatchingOptions& options,
-    const SiftMatchingOptions& matching_options,
+    const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path) {
   auto database = std::make_shared<Database>(database_path);
@@ -133,7 +133,7 @@ std::unique_ptr<Thread> CreateVocabTreeFeatureMatcher(
 
 std::unique_ptr<Thread> CreateSequentialFeatureMatcher(
     const SequentialMatchingOptions& options,
-    const SiftMatchingOptions& matching_options,
+    const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path) {
   auto database = std::make_shared<Database>(database_path);
@@ -147,7 +147,7 @@ std::unique_ptr<Thread> CreateSequentialFeatureMatcher(
 
 std::unique_ptr<Thread> CreateSpatialFeatureMatcher(
     const SpatialMatchingOptions& options,
-    const SiftMatchingOptions& matching_options,
+    const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path) {
   auto database = std::make_shared<Database>(database_path);
@@ -161,7 +161,7 @@ std::unique_ptr<Thread> CreateSpatialFeatureMatcher(
 
 std::unique_ptr<Thread> CreateTransitiveFeatureMatcher(
     const TransitiveMatchingOptions& options,
-    const SiftMatchingOptions& matching_options,
+    const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path) {
   auto database = std::make_shared<Database>(database_path);
@@ -175,7 +175,7 @@ std::unique_ptr<Thread> CreateTransitiveFeatureMatcher(
 
 std::unique_ptr<Thread> CreateImagePairsFeatureMatcher(
     const ImagePairsMatchingOptions& options,
-    const SiftMatchingOptions& matching_options,
+    const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path) {
   auto database = std::make_shared<Database>(database_path);
@@ -192,7 +192,7 @@ namespace {
 class FeaturePairsFeatureMatcher : public Thread {
  public:
   FeaturePairsFeatureMatcher(const FeaturePairsMatchingOptions& options,
-                             const SiftMatchingOptions& matching_options,
+                             const FeatureMatchingOptions& matching_options,
                              const TwoViewGeometryOptions& geometry_options,
                              const std::string& database_path)
       : options_(options),
@@ -331,7 +331,7 @@ class FeaturePairsFeatureMatcher : public Thread {
   }
 
   const FeaturePairsMatchingOptions options_;
-  const SiftMatchingOptions matching_options_;
+  const FeatureMatchingOptions matching_options_;
   const TwoViewGeometryOptions geometry_options_;
   const std::shared_ptr<Database> database_;
   const std::shared_ptr<FeatureMatcherCache> cache_;
@@ -341,7 +341,7 @@ class FeaturePairsFeatureMatcher : public Thread {
 
 std::unique_ptr<Thread> CreateFeaturePairsFeatureMatcher(
     const FeaturePairsMatchingOptions& options,
-    const SiftMatchingOptions& matching_options,
+    const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path) {
   return std::make_unique<FeaturePairsFeatureMatcher>(

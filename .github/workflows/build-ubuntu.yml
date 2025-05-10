@@ -30,6 +30,7 @@ jobs:
             e2eTests: false,
             checkCodeFormat: true,
             coverageEnabled: true,
+            torchEnabled: false,
           },
           {
             os: ubuntu-22.04,
@@ -40,6 +41,7 @@ jobs:
             e2eTests: true,
             checkCodeFormat: true,
             coverageEnabled: false,
+            torchEnabled: true,
           },
           {
             os: ubuntu-22.04,
@@ -50,6 +52,7 @@ jobs:
             e2eTests: false,
             checkCodeFormat: false,
             coverageEnabled: false,
+            torchEnabled: false,
           },
           {
             os: ubuntu-22.04,
@@ -60,6 +63,7 @@ jobs:
             e2eTests: false,
             checkCodeFormat: false,
             coverageEnabled: false,
+            torchEnabled: false,
           },
           {
             os: ubuntu-22.04,
@@ -70,6 +74,7 @@ jobs:
             e2eTests: false,
             checkCodeFormat: false,
             coverageEnabled: false,
+            torchEnabled: false,
           },
         ]
 
@@ -82,12 +87,16 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          lfs: true
+
       - uses: actions/cache@v4
         id: cache-builds
         with:
-          key: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}-${{ github.run_id }}-${{ github.run_number }}
-          restore-keys: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}
+          key: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}-${{ matrix.config.torchEnabled }}-${{ github.run_id }}-${{ github.run_number }}
+          restore-keys: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}-${{ matrix.config.torchEnabled }}
           path: ${{ env.COMPILER_CACHE_DIR }}
+
       - name: Install compiler cache
         run: |
           mkdir -p "$CCACHE_DIR" "$CTCACHE_DIR"
@@ -145,7 +154,8 @@ jobs:
             libgl1-mesa-dri \
             libunwind-dev \
             libcurl4-openssl-dev \
-            xvfb
+            xvfb \
+            libmkl-dev
 
           if [ "${{ matrix.config.cudaEnabled }}" == "true" ]; then
             if [ "${{ matrix.config.os }}" == "ubuntu-20.04" ]; then
@@ -181,6 +191,12 @@ jobs:
             sudo apt-get install -y gcovr
           fi
 
+          if [ "${{ matrix.config.torchEnabled }}" == "true" ]; then
+            sudo apt-get install -y python3 python3-pip
+            pip3 install torch --index-url https://download.pytorch.org/whl/cpu
+            echo "Torch_DIR=`python3 -c 'import torch;print(torch.utils.cmake_prefix_path)'`" >> $GITHUB_ENV
+          fi
+
       - name: Configure and build
         run: |
           set -x
@@ -196,6 +212,7 @@ jobs:
             -DCUDA_ENABLED=${{ matrix.config.cudaEnabled }} \
             -DGUI_ENABLED=${{ matrix.config.guiEnabled }} \
             -DASAN_ENABLED=${{ matrix.config.asanEnabled }} \
+            -DTORCH_ENABLED=${{ matrix.config.torchEnabled }} \
             -DCOVERAGE_ENABLED=${{ matrix.config.coverageEnabled }}
           ninja -k 10000
 
@@ -276,6 +293,7 @@ jobs:
           indicators: true
           output: both
           thresholds: '75 90'
+
       # TODO: Add code coverage comment to PR. Currently, this action reports
       # coverage for the entire repository, not just the changed files in the PR.
       # We could manually filter the coverage report to only include the changed
