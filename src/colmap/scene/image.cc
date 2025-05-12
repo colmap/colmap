@@ -128,10 +128,10 @@ std::vector<point3D_t> Image::Point3DIds() const {
   return point3D_ids;
 }
 
-Eigen::MatrixXd Image::Point2DCoords(const std::vector<point2D_t>& point2D_idxs) const {
-  Eigen::MatrixXd coords(point2D_idxs.size(), 2);
-  for (size_t i = 0; i < point2D_idxs.size(); ++i) {
-    coords.row(i) = Point2D(point2D_idxs[i]).xy;
+Eigen::MatrixXd Image::Point2DCoords() const {
+  Eigen::MatrixXd coords(NumPoints2D(), 2);
+  for (point2D_t idx = 0; idx < NumPoints2D(); ++idx) {
+    coords.row(idx) = Point2D(idx).xy;
   }
   return coords;
 }

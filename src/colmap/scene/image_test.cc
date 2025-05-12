@@ -213,13 +213,15 @@ TEST(Image, Point2DCoords) {
   points2D[2].xy = Eigen::Vector2d(5.0, 6.0);
   image.SetPoints2D(points2D);
 
-  Eigen::MatrixXd coords = image.Point2DCoords({0, 2});
-  ASSERT_EQ(coords.rows(), 2);
+  Eigen::MatrixXd coords = image.Point2DCoords();
+  ASSERT_EQ(coords.rows(), 3);
   ASSERT_EQ(coords.cols(), 2);
   EXPECT_EQ(coords(0, 0), 1.0);
   EXPECT_EQ(coords(0, 1), 2.0);
-  EXPECT_EQ(coords(1, 0), 5.0);
-  EXPECT_EQ(coords(1, 1), 6.0);
+  EXPECT_EQ(coords(1, 0), 3.0);
+  EXPECT_EQ(coords(1, 1), 4.0);
+  EXPECT_EQ(coords(2, 0), 5.0);
+  EXPECT_EQ(coords(2, 1), 6.0);
 }
 
 TEST(Image, Points3D) {

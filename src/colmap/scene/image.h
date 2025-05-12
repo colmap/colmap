@@ -127,9 +127,7 @@ class Image {
 
   std::vector<point3D_t> Point3DIds() const;
 
-  Eigen::MatrixXd Point2DCoords(
-    const std::vector<point2D_t>& point2D_idxs
-  ) const;
+  Eigen::MatrixXd Point2DCoords() const;
 
   // Set the point as triangulated, i.e. it is part of a 3D point track.
   void SetPoint3DForPoint2D(point2D_t point2D_idx, point3D_t point3D_id);
