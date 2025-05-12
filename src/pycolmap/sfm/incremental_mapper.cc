@@ -488,13 +488,12 @@ void BindIncrementalMapperImpl(py::module& m) {
       .def("num_shared_reg_images", &IncrementalMapper::NumSharedRegImages)
       .def("get_modified_points3D", &IncrementalMapper::GetModifiedPoints3D)
       .def("clear_modified_points3D",
-           &IncrementalMapper::ClearModifiedPoints3D);
-
-      m.def("find_rec_local_bundle",
-            &IncrementalMapperImpl::FindLocalBundle,
-            "options"_a,
-            "image_id"_a,
-            "reconstruction"_a);
+           &IncrementalMapper::ClearModifiedPoints3D)
+      .def_static("find_rec_local_bundle",
+           &IncrementalMapperImpl::FindLocalBundle,
+           "options"_a,
+           "image_id"_a,
+           "reconstruction"_a);
 }
 
 void BindIncrementalMapper(py::module& m) {
