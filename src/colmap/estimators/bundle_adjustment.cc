@@ -263,8 +263,9 @@ ceres::LossFunction* BundleAdjustmentOptions::CreateLossFunction() const {
       break;
   }
   THROW_CHECK_NOTNULL(loss_function);
-  if (loss_function_magnitude != 1.0) {
-    loss_function = new ceres::ScaledLoss(loss_function, loss_function_magnitude, ceres::TAKE_OWNERSHIP);
+  if (loss_function_weight != 1.0) {
+    THROW_CHECK_GT(loss_function_weight, 0);
+    loss_function = new ceres::ScaledLoss(loss_function, loss_function_weight, ceres::TAKE_OWNERSHIP);
   }
   return loss_function;
 }

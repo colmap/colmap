@@ -119,7 +119,7 @@ struct BundleAdjustmentOptions {
   double loss_function_scale = 1.0;
   
   // Magnitude determines the scaling of the residual
-  double loss_function_magnitude = 1.0;
+  double loss_function_weight = 1.0;
 
   // Whether to refine the focal length parameter group.
   bool refine_focal_length = true;
