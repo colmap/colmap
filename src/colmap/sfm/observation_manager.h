@@ -103,9 +103,9 @@ class ObservationManager {
   size_t FilterPoints3DWithSmallTriangulationAngle(
       double min_tri_angle, const std::unordered_set<point3D_t>& point3D_ids);
 
-  std::unordered_set<point3D_t> FindPoints3DWithSmallTriangulationAngle(
+  std::vector<point3D_t> FindPoints3DWithSmallTriangulationAngle(
       double min_tri_angle,
-      const std::unordered_set<point3D_t>& point3D_ids);
+      const std::vector<point3D_t>& point3D_ids);
 
   size_t FilterPoints3DWithLargeReprojectionError(
       double max_reproj_error,
