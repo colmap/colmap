@@ -253,8 +253,8 @@ void BindReconstruction(py::module& m) {
            << self.ComputeMeanReprojectionError();
         return ss.str();
      })
-      .def("point3D_coordinates",
-           &Reconstruction::Point3DCoordinates,
+      .def("point3D_coords",
+           &Reconstruction::Point3DCoords,
            "point3D_ids"_a,
            "Retrieve an Nx3 matrix of 3D coordinates for the given point IDs.");
 }

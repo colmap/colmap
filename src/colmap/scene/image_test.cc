@@ -178,11 +178,6 @@ TEST(Image, Point3DIds) {
   EXPECT_EQ(ids_all[0], 42);
   EXPECT_EQ(ids_all[1], 43);
   EXPECT_EQ(ids_all[2], kInvalidPoint3DId);
-
-  auto ids_subset = image.Point3DIds(std::vector<point2D_t>{1, 2});
-  EXPECT_EQ(ids_subset.size(), 2);
-  EXPECT_EQ(ids_subset[0], 43);
-  EXPECT_EQ(ids_subset[1], kInvalidPoint3DId);
 }
 
 TEST(Image, Points2D) {
@@ -210,7 +205,7 @@ TEST(Image, Points2DWith3D) {
   EXPECT_EQ(image.NumPoints3D(), 1);
 }
 
-TEST(Image, KeypointCoordinates) {
+TEST(Image, Point2DCoords) {
   Image image;
   std::vector<Point2D> points2D(3);
   points2D[0].xy = Eigen::Vector2d(1.0, 2.0);
@@ -218,7 +213,7 @@ TEST(Image, KeypointCoordinates) {
   points2D[2].xy = Eigen::Vector2d(5.0, 6.0);
   image.SetPoints2D(points2D);
 
-  Eigen::MatrixXd coords = image.KeypointCoordinates({0, 2});
+  Eigen::MatrixXd coords = image.Point2DCoords({0, 2});
   ASSERT_EQ(coords.rows(), 2);
   ASSERT_EQ(coords.cols(), 2);
   EXPECT_EQ(coords(0, 0), 1.0);

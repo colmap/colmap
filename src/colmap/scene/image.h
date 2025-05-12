@@ -125,11 +125,9 @@ class Image {
   void SetPoints2D(const std::vector<Eigen::Vector2d>& points);
   void SetPoints2D(const std::vector<struct Point2D>& points);
 
-  std::vector<point3D_t> Point3DIds(
-    const std::optional<std::vector<point2D_t>>& point2D_idxs = std::nullopt
-  ) const;
+  std::vector<point3D_t> Point3DIds() const;
 
-  Eigen::MatrixXd KeypointCoordinates(
+  Eigen::MatrixXd Point2DCoords(
     const std::vector<point2D_t>& point2D_idxs
   ) const;
 

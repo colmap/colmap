@@ -118,24 +118,17 @@ void Image::ResetPoint3DForPoint2D(const point2D_t point2D_idx) {
   }
 }
 
-std::vector<point3D_t> Image::Point3DIds(const std::optional<std::vector<point2D_t>>& point2D_idxs) const {
+std::vector<point3D_t> Image::Point3DIds() const {
   std::vector<point3D_t> point3D_ids;
-  if (!point2D_idxs.has_value()) {
-    point3D_ids.resize(NumPoints2D());
-    for (point2D_t idx = 0; idx < NumPoints2D(); ++idx) {
-      point3D_ids[idx] = Point2D(idx).point3D_id;
-    }
-  } else {
-    point3D_ids.resize(point2D_idxs->size());
-    for (size_t i = 0; i < point2D_idxs->size(); ++i) {
-      point3D_ids[i] = Point2D((*point2D_idxs)[i]).point3D_id;
-    }
+  point3D_ids.resize(NumPoints2D());
+  for (point2D_t idx = 0; idx < NumPoints2D(); ++idx) {
+    point3D_ids[idx] = Point2D(idx).point3D_id;
   }
 
   return point3D_ids;
 }
 
-Eigen::MatrixXd Image::KeypointCoordinates(const std::vector<point2D_t>& point2D_idxs) const {
+Eigen::MatrixXd Image::Point2DCoords(const std::vector<point2D_t>& point2D_idxs) const {
   Eigen::MatrixXd coords(point2D_idxs.size(), 2);
   for (size_t i = 0; i < point2D_idxs.size(); ++i) {
     coords.row(i) = Point2D(point2D_idxs[i]).xy;

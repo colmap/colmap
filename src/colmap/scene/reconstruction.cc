@@ -271,7 +271,7 @@ void Reconstruction::DeleteAllPoints2DAndPoints3D() {
   }
 }
 
-Eigen::MatrixXd Reconstruction::Point3DCoordinates(
+Eigen::MatrixXd Reconstruction::Point3DCoords(
     const std::vector<point3D_t>& point3D_ids) const {
   Eigen::MatrixXd coords(point3D_ids.size(), 3);
   for (size_t i = 0; i < point3D_ids.size(); ++i) {
