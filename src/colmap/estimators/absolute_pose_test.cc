@@ -305,7 +305,7 @@ TEST(AbsolutePose, EPNP_BrokenSolveSignCase) {
 
 TEST(ComputeSquaredReprojectionError, Nominal) {
   const Camera camera = Camera::CreateFromModelId(
-      kInvalidCameraId, CameraModelId::kPinhole, 12, 34, 56);
+      kInvalidCameraId, CameraModelId::kSimplePinhole, 12, 34, 56);
   auto img_from_cam_func =
       std::bind(&Camera::ImgFromCam, &camera, std::placeholders::_1);
 
