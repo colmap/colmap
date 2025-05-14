@@ -152,11 +152,9 @@ TEST_P(ParameterizedGRNPEstimatorTests, GR6P) {
 }
 
 TEST_P(ParameterizedGRNPEstimatorTests, GR8P) {
-  // Note that we can estimate the minimal problem from only 8 points but we
-  // need a 9th point to choose the correct solution. In theory, we don't need
-  // RANSAC as we generate exact correspondences, but we use it in this test to
-  // do the choosing of the best solution for us.
-  constexpr int kNumPoints = 9;
+  // In theory, we don't need RANSAC as we generate exact correspondences, but
+  // we use it in this test to do the choosing of the best solution for us.
+  constexpr int kNumPoints = 8;
   constexpr int kNumTrials = 10;
   const auto [kNumCams1, kNumCams2, kPanoramic1, kPanoramic2] = GetParam();
 

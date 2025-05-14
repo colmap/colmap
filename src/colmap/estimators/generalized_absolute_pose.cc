@@ -61,7 +61,7 @@ void GP3PEstimator::Estimate(const std::vector<X_t>& points2D,
   std::vector<poselib::CameraPose> poses;
   if (origins_in_rig[0].isApprox(origins_in_rig[1], 1e-6) &&
       origins_in_rig[0].isApprox(origins_in_rig[2], 1e-6)) {
-    // In case of a panoramic camera, fall back to P3P.
+    // In case of a panoramic camera/rig, fall back to P3P.
     poselib::p3p(rays_in_rig, points3D, &poses);
     for (poselib::CameraPose& pose : poses) {
       pose.t += origins_in_rig[0];

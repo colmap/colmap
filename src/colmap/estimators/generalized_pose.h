@@ -65,7 +65,7 @@ bool EstimateGeneralizedAbsolutePose(
     size_t* num_inliers,
     std::vector<char>* inlier_mask);
 
-// Estimate generalized absolute pose from 2D-2D correspondences.
+// Estimate generalized relative pose from 2D-2D correspondences.
 //
 // @param options              RANSAC options.
 // @param points2D1            Corresponding 2D points.
