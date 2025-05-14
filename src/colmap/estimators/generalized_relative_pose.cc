@@ -50,23 +50,24 @@ void GR6PEstimator::Estimate(const std::vector<X_t>& points1,
 
   rigs2_from_rigs1->clear();
 
-  std::vector<Eigen::Vector3d> proj_centers1(6);
-  std::vector<Eigen::Vector3d> proj_centers2(6);
-  std::vector<Eigen::Vector3d> rays1(6);
-  std::vector<Eigen::Vector3d> rays2(6);
+  std::vector<Eigen::Vector3d> origins_in_rig1(6);
+  std::vector<Eigen::Vector3d> origins_in_rig2(6);
+  std::vector<Eigen::Vector3d> rays_in_rig1(6);
+  std::vector<Eigen::Vector3d> rays_in_rig2(6);
   for (int i = 0; i < 6; ++i) {
-    proj_centers1[i] = points1[i].cam_from_rig.rotation.inverse() *
-                       -points1[i].cam_from_rig.translation;
-    proj_centers2[i] = points2[i].cam_from_rig.rotation.inverse() *
-                       -points2[i].cam_from_rig.translation;
-    rays1[i] =
+    origins_in_rig1[i] = points1[i].cam_from_rig.rotation.inverse() *
+                         -points1[i].cam_from_rig.translation;
+    origins_in_rig2[i] = points2[i].cam_from_rig.rotation.inverse() *
+                         -points2[i].cam_from_rig.translation;
+    rays_in_rig1[i] =
         points1[i].cam_from_rig.rotation.inverse() * points1[i].ray_in_cam;
-    rays2[i] =
+    rays_in_rig2[i] =
         points2[i].cam_from_rig.rotation.inverse() * points2[i].ray_in_cam;
   }
 
   std::vector<poselib::CameraPose> poses;
-  poselib::gen_relpose_6pt(proj_centers1, rays1, proj_centers2, rays2, &poses);
+  poselib::gen_relpose_6pt(
+      origins_in_rig1, rays_in_rig1, origins_in_rig2, rays_in_rig2, &poses);
 
   rigs2_from_rigs1->reserve(poses.size());
   for (const poselib::CameraPose& pose : poses) {
@@ -99,11 +100,11 @@ namespace {
 
 void ComposePlueckerData(const Rigid3d& rig_from_cam,
                          const Eigen::Vector3d& ray_in_cam,
-                         Eigen::Vector3d* proj_center,
+                         Eigen::Vector3d* origin_in_rig,
                          Eigen::Vector6d* pluecker) {
   const Eigen::Vector3d ray_in_rig =
       (rig_from_cam.rotation * ray_in_cam).normalized();
-  *proj_center = rig_from_cam.translation;
+  *origin_in_rig = rig_from_cam.translation;
   *pluecker << ray_in_rig, rig_from_cam.translation.cross(ray_in_rig);
 }
 
@@ -483,18 +484,18 @@ void GR8PEstimator::Estimate(const std::vector<X_t>& points1,
 
   rigs2_from_rigs1->clear();
 
-  std::vector<Eigen::Vector3d> proj_centers1(points1.size());
-  std::vector<Eigen::Vector3d> proj_centers2(points1.size());
+  std::vector<Eigen::Vector3d> origins_in_rig1(points1.size());
+  std::vector<Eigen::Vector3d> origins_in_rig2(points1.size());
   std::vector<Eigen::Vector6d> plueckers1(points1.size());
   std::vector<Eigen::Vector6d> plueckers2(points1.size());
   for (size_t i = 0; i < points1.size(); ++i) {
     ComposePlueckerData(Inverse(points1[i].cam_from_rig),
                         points1[i].ray_in_cam,
-                        &proj_centers1[i],
+                        &origins_in_rig1[i],
                         &plueckers1[i]);
     ComposePlueckerData(Inverse(points2[i].cam_from_rig),
                         points2[i].ray_in_cam,
-                        &proj_centers2[i],
+                        &origins_in_rig2[i],
                         &plueckers2[i]);
   }
 
@@ -519,8 +520,8 @@ void GR8PEstimator::Estimate(const std::vector<X_t>& points1,
   for (size_t i = 0; i < points1.size(); ++i) {
     const Eigen::Vector3d f1 = plueckers1[i].head<3>();
     const Eigen::Vector3d f2 = plueckers2[i].head<3>();
-    const Eigen::Vector3d t1 = proj_centers1[i];
-    const Eigen::Vector3d t2 = proj_centers2[i];
+    const Eigen::Vector3d t1 = origins_in_rig1[i];
+    const Eigen::Vector3d t2 = origins_in_rig2[i];
 
     const Eigen::Matrix3d F = f2 * f2.transpose();
     xxF += f1[0] * f1[0] * F;

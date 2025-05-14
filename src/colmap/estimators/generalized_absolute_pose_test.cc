@@ -44,11 +44,11 @@
 namespace colmap {
 namespace {
 
-class ParameterizedGeneralizedAbsolutePoseTests
+class ParameterizedGP3PEstimatorTests
     : public ::testing::TestWithParam<
           std::pair</*num_cams=*/int, /*panoramic=*/bool>> {};
 
-TEST_P(ParameterizedGeneralizedAbsolutePoseTests, Estimate) {
+TEST_P(ParameterizedGP3PEstimatorTests, Nominal) {
   // Note that we can estimate the minimal problem from only 3 points but we
   // need a 4th point to choose the correct solution. In theory, we don't need
   // RANSAC as we generate exact correspondences, but we use it in this test to
@@ -60,18 +60,22 @@ TEST_P(ParameterizedGeneralizedAbsolutePoseTests, Estimate) {
   for (int i = 0; i < kNumTrials; ++i) {
     const Rigid3d rig_from_world(Eigen::Quaterniond::UnitRandom(),
                                  Eigen::Vector3d::Random());
-    const Rigid3d world_from_fig = Inverse(rig_from_world);
+    const Rigid3d world_from_rig = Inverse(rig_from_world);
 
     std::vector<Rigid3d> cams_from_world(kNumCams);
     std::vector<Rigid3d> cams_from_rig(kNumCams);
     for (int i = 0; i < kNumCams; ++i) {
       if (kPanoramic) {
-        cams_from_world[i] = rig_from_world;
-        cams_from_rig[i] = Rigid3d();
+        const Eigen::Quaterniond cam_from_rig_rotation =
+            Eigen::Quaterniond::UnitRandom();
+        cams_from_rig[i] =
+            Rigid3d(cam_from_rig_rotation,
+                    cam_from_rig_rotation * Eigen::Vector3d(1, 2, 3));
+        cams_from_world[i] = cams_from_rig[i] * rig_from_world;
       } else {
         cams_from_world[i] = Rigid3d(Eigen::Quaterniond::UnitRandom(),
                                      Eigen::Vector3d::Random());
-        cams_from_rig[i] = cams_from_world[i] * world_from_fig;
+        cams_from_rig[i] = cams_from_world[i] * world_from_rig;
       }
     }
 
@@ -129,8 +133,8 @@ TEST_P(ParameterizedGeneralizedAbsolutePoseTests, Estimate) {
   }
 }
 
-INSTANTIATE_TEST_SUITE_P(GeneralizedAbsolutePoseTests,
-                         ParameterizedGeneralizedAbsolutePoseTests,
+INSTANTIATE_TEST_SUITE_P(GP3PEstimatorTests,
+                         ParameterizedGP3PEstimatorTests,
                          ::testing::Values(std::make_pair(1, false),
                                            std::make_pair(2, false),
                                            std::make_pair(3, false),

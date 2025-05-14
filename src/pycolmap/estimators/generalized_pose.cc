@@ -126,11 +126,11 @@ py::typing::Optional<py::dict> PyEstimateAndRefineGeneralizedAbsolutePose(
   }
 
   py::gil_scoped_acquire acquire;
-  py::dict success_dict("rig_from_world"_a = rig_from_world,
-                        "num_inliers"_a = num_inliers,
-                        "inlier_mask"_a = ToPythonMask(inlier_mask));
-  if (return_covariance) success_dict["covariance"] = covariance;
-  return success_dict;
+  py::dict dict("rig_from_world"_a = rig_from_world,
+                "num_inliers"_a = num_inliers,
+                "inlier_mask"_a = ToPythonMask(inlier_mask));
+  if (return_covariance) dict["covariance"] = covariance;
+  return dict;
 }
 
 py::typing::Optional<py::dict> PyEstimateGeneralizedRelativePose(
@@ -142,7 +142,8 @@ py::typing::Optional<py::dict> PyEstimateGeneralizedRelativePose(
     const std::vector<Camera>& cameras,
     const RANSACOptions& estimation_options) {
   py::gil_scoped_release release;
-  Rigid3d rig2_from_rig1;
+  std::optional<Rigid3d> rig2_from_rig1;
+  std::optional<Rigid3d> cam2_from_cam1;
   size_t num_inliers;
   std::vector<char> inlier_mask;
   if (!EstimateGeneralizedRelativePose(estimation_options,
@@ -153,6 +154,7 @@ py::typing::Optional<py::dict> PyEstimateGeneralizedRelativePose(
                                        cams_from_rig,
                                        cameras,
                                        &rig2_from_rig1,
+                                       &cam2_from_cam1,
                                        &num_inliers,
                                        &inlier_mask)) {
     py::gil_scoped_acquire acquire;
@@ -160,9 +162,10 @@ py::typing::Optional<py::dict> PyEstimateGeneralizedRelativePose(
   }
 
   py::gil_scoped_acquire acquire;
-  return py::dict("rig2_from_rig1"_a = rig2_from_rig1,
-                  "num_inliers"_a = num_inliers,
-                  "inlier_mask"_a = ToPythonMask(inlier_mask));
+  py::dict dict("num_inliers"_a = num_inliers,
+                "inlier_mask"_a = ToPythonMask(inlier_mask));
+  if (rig2_from_rig1) dict["rig2_from_rig1"] = *rig2_from_rig1;
+  if (cam2_from_cam1) dict["cam2_from_cam1"] = *cam2_from_cam1;
 }
 
 void BindGeneralizedAbsolutePoseEstimator(py::module& m) {
