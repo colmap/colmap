@@ -228,8 +228,8 @@ VocabTreePairGenerator::VocabTreePairGenerator(
     const std::vector<image_t>& query_image_ids)
     : options_(options),
       cache_(THROW_CHECK_NOTNULL(cache)),
-      thread_pool(options_.num_threads),
-      queue(options_.num_threads) {
+      thread_pool_(options_.num_threads),
+      queue_(options_.num_threads) {
   THROW_CHECK(options.Check());
   LOG(INFO) << "Generating image pairs with vocabulary tree...";
 
@@ -300,15 +300,15 @@ bool VocabTreePairGenerator::HasFinished() const {
 std::vector<std::pair<image_t, image_t>> VocabTreePairGenerator::Next() {
   image_pairs_.clear();
   if (HasFinished()) {
-    return image_pairs_;
+    return {};
   }
   if (query_idx_ == 0) {
     // Initially, make all retrieval threads busy and continue with the
     // matching.
     const size_t init_num_tasks =
-        std::min(query_image_ids_.size(), 2 * thread_pool.NumThreads());
+        std::min(query_image_ids_.size(), 2 * thread_pool_.NumThreads());
     for (; query_idx_ < init_num_tasks; ++query_idx_) {
-      thread_pool.AddTask(
+      thread_pool_.AddTask(
           &VocabTreePairGenerator::Query, this, query_image_ids_[query_idx_]);
     }
   }
@@ -318,12 +318,12 @@ std::vector<std::pair<image_t, image_t>> VocabTreePairGenerator::Next() {
 
   // Push the next image to the retrieval queue.
   if (query_idx_ < query_image_ids_.size()) {
-    thread_pool.AddTask(
+    thread_pool_.AddTask(
         &VocabTreePairGenerator::Query, this, query_image_ids_[query_idx_++]);
   }
 
   // Pop the next results from the retrieval queue.
-  auto retrieval = queue.Pop();
+  auto retrieval = queue_.Pop();
   THROW_CHECK(retrieval.IsValid());
 
   const auto& image_id = retrieval.Data().image_id;
@@ -383,7 +383,7 @@ void VocabTreePairGenerator::Query(const image_t image_id) {
   visual_index_.Query(
       query_options_, keypoints, descriptors, &retrieval.image_scores);
 
-  THROW_CHECK(queue.Push(std::move(retrieval)));
+  THROW_CHECK(queue_.Push(std::move(retrieval)));
 }
 
 SequentialPairGenerator::SequentialPairGenerator(
