@@ -127,10 +127,8 @@ TEST(EstimateRelativePose, Nominal) {
                                 Eigen::Vector3d(1, 0.1, 0.2).normalized());
 
   std::vector<Eigen::Vector3d> points3D(100);
-  for (size_t i = 0; i < points3D.size() / 3; ++i) {
-    points3D[3 * i + 0] = Eigen::Vector3d(i * 0.01, 0, 1);
-    points3D[3 * i + 1] = Eigen::Vector3d(0, i * 0.01, 1);
-    points3D[3 * i + 2] = Eigen::Vector3d(i * 0.01, i * 0.01, 1);
+  for (size_t i = 0; i < points3D.size(); ++i) {
+    points3D[i] = Eigen::Vector3d::Random();
   }
 
   std::vector<Eigen::Vector2d> points1(points3D.size());
