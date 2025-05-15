@@ -121,6 +121,41 @@ TEST(EstimateAbsolutePose, EstimateFocalLength) {
   EXPECT_THAT(inlier_mask, testing::Each(testing::Eq(true)));
 }
 
+TEST(EstimateRelativePose, Nominal) {
+  const Rigid3d cam1_from_world;
+  const Rigid3d cam2_from_world(Eigen::Quaterniond::Identity(),
+                                Eigen::Vector3d(1, 0.1, 0.2).normalized());
+
+  std::vector<Eigen::Vector3d> points3D(100);
+  for (size_t i = 0; i < points3D.size() / 3; ++i) {
+    points3D[3 * i + 0] = Eigen::Vector3d(i * 0.01, 0, 1);
+    points3D[3 * i + 1] = Eigen::Vector3d(0, i * 0.01, 1);
+    points3D[3 * i + 2] = Eigen::Vector3d(i * 0.01, i * 0.01, 1);
+  }
+
+  std::vector<Eigen::Vector2d> points1(points3D.size());
+  std::vector<Eigen::Vector2d> points2(points3D.size());
+  for (size_t i = 0; i < points3D.size(); ++i) {
+    points1[i] = (cam1_from_world * points3D[i]).hnormalized();
+    points2[i] = (cam2_from_world * points3D[i]).hnormalized();
+  }
+
+  RANSACOptions options;
+  options.max_error = 1e-3;
+  Rigid3d cam2_from_cam1;
+  size_t num_inliers = 0;
+  std::vector<char> inlier_mask;
+  EXPECT_TRUE(EstimateRelativePose(
+      options, points1, points2, &cam2_from_cam1, &num_inliers, &inlier_mask));
+
+  EXPECT_THAT(cam2_from_cam1,
+              Rigid3dNear(cam2_from_world * Inverse(cam1_from_world),
+                          /*rtol=*/1e-3,
+                          /*ttol=*/1e-3));
+  EXPECT_EQ(num_inliers, points3D.size());
+  EXPECT_THAT(inlier_mask, testing::Each(testing::Eq(true)));
+}
+
 TEST(RefineAbsolutePose, Nominal) {
   const AbsolutePoseProblem problem = CreateAbsolutePoseTestData();
   std::vector<char> inlier_mask(problem.points2D.size(), true);
