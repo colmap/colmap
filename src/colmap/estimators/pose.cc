@@ -144,7 +144,7 @@ bool EstimateRelativePose(const RANSACOptions& ransac_options,
 
   if (cam2_from_cam1->rotation.coeffs().array().isNaN().any() ||
       cam2_from_cam1->translation.array().isNaN().any()) {
-    return 0;
+    return false;
   }
 
   *num_inliers = report.support.num_inliers;
