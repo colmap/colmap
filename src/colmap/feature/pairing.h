@@ -277,8 +277,8 @@ class VocabTreePairGenerator : public PairGenerator {
 
   const VocabTreeMatchingOptions options_;
   const std::shared_ptr<FeatureMatcherCache> cache_;
-  ThreadPool thread_pool;
-  JobQueue<Retrieval> queue;
+  ThreadPool thread_pool_;
+  JobQueue<Retrieval> queue_;
   retrieval::VisualIndex<> visual_index_;
   retrieval::VisualIndex<>::QueryOptions query_options_;
   std::vector<image_t> query_image_ids_;
