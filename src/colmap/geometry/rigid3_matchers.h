@@ -45,7 +45,7 @@ class Rigid3dEqMatcher : public testing::MatcherInterface<T> {
   bool MatchAndExplain(T lhs,
                        testing::MatchResultListener* listener) const override {
     // Note that with use !(a == b) to handle NaNs.
-    if (!(lhs.rotation == rhs_.rotation)) {
+    if (!(lhs.rotation.coeffs() == rhs_.rotation.coeffs())) {
       return false;
     }
     if (!(lhs.translation == rhs_.translation)) {
