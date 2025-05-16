@@ -166,6 +166,7 @@ py::typing::Optional<py::dict> PyEstimateGeneralizedRelativePose(
                 "inlier_mask"_a = ToPythonMask(inlier_mask));
   if (rig2_from_rig1) dict["rig2_from_rig1"] = *rig2_from_rig1;
   if (cam2_from_cam1) dict["cam2_from_cam1"] = *cam2_from_cam1;
+  return dict;
 }
 
 void BindGeneralizedAbsolutePoseEstimator(py::module& m) {
