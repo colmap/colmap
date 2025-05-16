@@ -23,7 +23,7 @@
 
 #ifndef CU_SIFT_MATCH_H
 #define CU_SIFT_MATCH_H
-#if defined(CUDA_SIFTGPU_ENABLED)
+#if defined(SIFTGPU_CUDA_ENABLED)
 
 class CuTexImage;
 class SiftMatchCU:public SiftMatchGPU

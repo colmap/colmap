@@ -20,7 +20,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////
 
-#if defined(CUDA_SIFTGPU_ENABLED)
+#if defined(SIFTGPU_CUDA_ENABLED)
 
 
 #include "GL/glew.h"
