@@ -30,6 +30,7 @@
 #include "colmap/controllers/feature_matching_utils.h"
 
 #include "colmap/estimators/two_view_geometry.h"
+#include "colmap/feature/sift.h"
 #include "colmap/feature/utils.h"
 #include "colmap/util/cuda.h"
 #include "colmap/util/misc.h"
@@ -41,7 +42,7 @@
 namespace colmap {
 
 FeatureMatcherWorker::FeatureMatcherWorker(
-    const SiftMatchingOptions& matching_options,
+    const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
     const std::shared_ptr<FeatureMatcherCache>& cache,
     JobQueue<Input>* input_queue,
@@ -60,10 +61,6 @@ FeatureMatcherWorker::FeatureMatcherWorker(
   }
 }
 
-void FeatureMatcherWorker::SetMaxNumMatches(int max_num_matches) {
-  matching_options_.max_num_matches = max_num_matches;
-}
-
 void FeatureMatcherWorker::Run() {
   if (matching_options_.use_gpu) {
 #if !defined(COLMAP_CUDA_ENABLED)
@@ -72,12 +69,16 @@ void FeatureMatcherWorker::Run() {
 #endif
   }
 
-  matching_options_.cpu_descriptor_index_cache =
-      &cache_->GetFeatureDescriptorIndexCache();
-  THROW_CHECK_NOTNULL(matching_options_.cpu_descriptor_index_cache);
+  if (matching_options_.type == FeatureMatcherType::SIFT) {
+    // TODO(jsch): This is a bit ugly, but currently cannot think of a better
+    // way to inject the shared descriptor index cache.
+    THROW_CHECK_NOTNULL(matching_options_.sift)->cpu_descriptor_index_cache =
+        &cache_->GetFeatureDescriptorIndexCache();
+    THROW_CHECK_NOTNULL(matching_options_.sift->cpu_descriptor_index_cache);
+  }
 
   std::unique_ptr<FeatureMatcher> matcher =
-      CreateSiftFeatureMatcher(matching_options_);
+      FeatureMatcher::Create(matching_options_);
   if (matcher == nullptr) {
     LOG(ERROR) << "Failed to create feature matcher.";
     SignalInvalidSetup();
@@ -101,27 +102,42 @@ void FeatureMatcherWorker::Run() {
         continue;
       }
 
+      const auto& camera1 =
+          cache_->GetCamera(cache_->GetImage(data.image_id1).CameraId());
+      const auto& camera2 =
+          cache_->GetCamera(cache_->GetImage(data.image_id2).CameraId());
+
       if (matching_options_.guided_matching) {
         matcher->MatchGuided(geometry_options_.ransac_options.max_error,
                              {
                                  data.image_id1,
-                                 cache_->GetDescriptors(data.image_id1),
+                                 static_cast<int>(camera1.width),
+                                 static_cast<int>(camera1.height),
                                  cache_->GetKeypoints(data.image_id1),
+                                 cache_->GetDescriptors(data.image_id1),
                              },
                              {
                                  data.image_id2,
-                                 cache_->GetDescriptors(data.image_id2),
+                                 static_cast<int>(camera2.width),
+                                 static_cast<int>(camera2.height),
                                  cache_->GetKeypoints(data.image_id2),
+                                 cache_->GetDescriptors(data.image_id2),
                              },
                              &data.two_view_geometry);
       } else {
         matcher->Match(
             {
                 data.image_id1,
+                static_cast<int>(camera1.width),
+                static_cast<int>(camera1.height),
+                cache_->GetKeypoints(data.image_id1),
                 cache_->GetDescriptors(data.image_id1),
             },
             {
                 data.image_id2,
+                static_cast<int>(camera2.width),
+                static_cast<int>(camera2.height),
+                cache_->GetKeypoints(data.image_id2),
                 cache_->GetDescriptors(data.image_id2),
             },
             &data.matches);
@@ -196,7 +212,7 @@ class VerifierWorker : public Thread {
 }  // namespace
 
 FeatureMatcherController::FeatureMatcherController(
-    const SiftMatchingOptions& matching_options,
+    const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
     std::shared_ptr<FeatureMatcherCache> cache)
     : matching_options_(matching_options),
@@ -221,6 +237,12 @@ FeatureMatcherController::FeatureMatcherController(
     std::iota(gpu_indices.begin(), gpu_indices.end(), 0);
   }
 #endif  // COLMAP_CUDA_ENABLED
+
+  // Minimize the amount of allocated GPU memory by computing the maximum number
+  // of descriptors for any image over the whole database.
+  matching_options_.max_num_matches =
+      std::min<int>(matching_options_.max_num_matches,
+                    THROW_CHECK_NOTNULL(cache_)->MaxNumKeypoints());
 
   if (matching_options_.use_gpu) {
     auto matching_options_copy = matching_options_;
@@ -327,14 +349,7 @@ FeatureMatcherController::~FeatureMatcherController() {
 }
 
 bool FeatureMatcherController::Setup() {
-  // Minimize the amount of allocated GPU memory by computing the maximum number
-  // of descriptors for any image over the whole database.
-  const int max_num_features = THROW_CHECK_NOTNULL(cache_)->MaxNumKeypoints();
-  matching_options_.max_num_matches =
-      std::min(matching_options_.max_num_matches, max_num_features);
-
   for (auto& matcher : matchers_) {
-    matcher->SetMaxNumMatches(matching_options_.max_num_matches);
     matcher->Start();
   }
 
@@ -343,7 +358,6 @@ bool FeatureMatcherController::Setup() {
   }
 
   for (auto& guided_matcher : guided_matchers_) {
-    guided_matcher->SetMaxNumMatches(matching_options_.max_num_matches);
     guided_matcher->Start();
   }
 

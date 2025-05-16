@@ -58,18 +58,6 @@ bool VerifyCameraParams(const std::string& camera_model,
   return true;
 }
 
-bool VerifySiftGPUParams(const bool use_gpu) {
-#if !defined(COLMAP_GPU_ENABLED)
-  if (use_gpu) {
-    LOG(ERROR)
-        << "Cannot use Sift GPU without CUDA or OpenGL support; "
-           "set SiftExtraction.use_gpu or SiftMatching.use_gpu to false.";
-    return false;
-  }
-#endif
-  return true;
-}
-
 void UpdateImageReaderOptionsFromCameraMode(ImageReaderOptions& options,
                                             CameraMode mode) {
   switch (mode) {
@@ -121,17 +109,9 @@ int RunFeatureExtractor(int argc, char** argv) {
                                            (CameraMode)camera_mode);
   }
 
-  StringToLower(&descriptor_normalization);
-  if (descriptor_normalization == "l1_root") {
-    options.sift_extraction->normalization =
-        SiftExtractionOptions::Normalization::L1_ROOT;
-  } else if (descriptor_normalization == "l2") {
-    options.sift_extraction->normalization =
-        SiftExtractionOptions::Normalization::L2;
-  } else {
-    LOG(ERROR) << "Invalid `descriptor_normalization`";
-    return EXIT_FAILURE;
-  }
+  StringToUpper(&descriptor_normalization);
+  options.feature_extraction->sift->normalization =
+      SiftExtractionOptions::NormalizationFromString(descriptor_normalization);
 
   if (!image_list_path.empty()) {
     reader_options.image_names = ReadTextFileLines(image_list_path);
@@ -149,19 +129,15 @@ int RunFeatureExtractor(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  if (!VerifySiftGPUParams(options.sift_extraction->use_gpu)) {
-    return EXIT_FAILURE;
-  }
-
   std::unique_ptr<QApplication> app;
-  if (options.sift_extraction->use_gpu && kUseOpenGL) {
+  if (options.feature_extraction->use_gpu && kUseOpenGL) {
     app.reset(new QApplication(argc, argv));
   }
 
   auto feature_extractor = CreateFeatureExtractorController(
-      reader_options, *options.sift_extraction);
+      reader_options, *options.feature_extraction);
 
-  if (options.sift_extraction->use_gpu && kUseOpenGL) {
+  if (options.feature_extraction->use_gpu && kUseOpenGL) {
     RunThreadWithOpenGLContext(feature_extractor.get());
   } else {
     feature_extractor->Start();
@@ -220,21 +196,17 @@ int RunExhaustiveMatcher(int argc, char** argv) {
   options.AddExhaustiveMatchingOptions();
   options.Parse(argc, argv);
 
-  if (!VerifySiftGPUParams(options.sift_matching->use_gpu)) {
-    return EXIT_FAILURE;
-  }
-
   std::unique_ptr<QApplication> app;
-  if (options.sift_matching->use_gpu && kUseOpenGL) {
+  if (options.feature_matching->use_gpu && kUseOpenGL) {
     app.reset(new QApplication(argc, argv));
   }
 
   auto matcher = CreateExhaustiveFeatureMatcher(*options.exhaustive_matching,
-                                                *options.sift_matching,
+                                                *options.feature_matching,
                                                 *options.two_view_geometry,
                                                 *options.database_path);
 
-  if (options.sift_matching->use_gpu && kUseOpenGL) {
+  if (options.feature_matching->use_gpu && kUseOpenGL) {
     RunThreadWithOpenGLContext(matcher.get());
   } else {
     matcher->Start();
@@ -256,12 +228,8 @@ int RunMatchesImporter(int argc, char** argv) {
   options.AddMatchingOptions();
   options.Parse(argc, argv);
 
-  if (!VerifySiftGPUParams(options.sift_matching->use_gpu)) {
-    return EXIT_FAILURE;
-  }
-
   std::unique_ptr<QApplication> app;
-  if (options.sift_matching->use_gpu && kUseOpenGL) {
+  if (options.feature_matching->use_gpu && kUseOpenGL) {
     app.reset(new QApplication(argc, argv));
   }
 
@@ -270,7 +238,7 @@ int RunMatchesImporter(int argc, char** argv) {
     ImagePairsMatchingOptions matcher_options;
     matcher_options.match_list_path = match_list_path;
     matcher = CreateImagePairsFeatureMatcher(matcher_options,
-                                             *options.sift_matching,
+                                             *options.feature_matching,
                                              *options.two_view_geometry,
                                              *options.database_path);
   } else if (match_type == "raw" || match_type == "inliers") {
@@ -278,7 +246,7 @@ int RunMatchesImporter(int argc, char** argv) {
     matcher_options.match_list_path = match_list_path;
     matcher_options.verify_matches = match_type == "raw";
     matcher = CreateFeaturePairsFeatureMatcher(matcher_options,
-                                               *options.sift_matching,
+                                               *options.feature_matching,
                                                *options.two_view_geometry,
                                                *options.database_path);
   } else {
@@ -286,7 +254,7 @@ int RunMatchesImporter(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  if (options.sift_matching->use_gpu && kUseOpenGL) {
+  if (options.feature_matching->use_gpu && kUseOpenGL) {
     RunThreadWithOpenGLContext(matcher.get());
   } else {
     matcher->Start();
@@ -302,21 +270,17 @@ int RunSequentialMatcher(int argc, char** argv) {
   options.AddSequentialMatchingOptions();
   options.Parse(argc, argv);
 
-  if (!VerifySiftGPUParams(options.sift_matching->use_gpu)) {
-    return EXIT_FAILURE;
-  }
-
   std::unique_ptr<QApplication> app;
-  if (options.sift_matching->use_gpu && kUseOpenGL) {
+  if (options.feature_matching->use_gpu && kUseOpenGL) {
     app.reset(new QApplication(argc, argv));
   }
 
   auto matcher = CreateSequentialFeatureMatcher(*options.sequential_matching,
-                                                *options.sift_matching,
+                                                *options.feature_matching,
                                                 *options.two_view_geometry,
                                                 *options.database_path);
 
-  if (options.sift_matching->use_gpu && kUseOpenGL) {
+  if (options.feature_matching->use_gpu && kUseOpenGL) {
     RunThreadWithOpenGLContext(matcher.get());
   } else {
     matcher->Start();
@@ -332,21 +296,17 @@ int RunSpatialMatcher(int argc, char** argv) {
   options.AddSpatialMatchingOptions();
   options.Parse(argc, argv);
 
-  if (!VerifySiftGPUParams(options.sift_matching->use_gpu)) {
-    return EXIT_FAILURE;
-  }
-
   std::unique_ptr<QApplication> app;
-  if (options.sift_matching->use_gpu && kUseOpenGL) {
+  if (options.feature_matching->use_gpu && kUseOpenGL) {
     app.reset(new QApplication(argc, argv));
   }
 
   auto matcher = CreateSpatialFeatureMatcher(*options.spatial_matching,
-                                             *options.sift_matching,
+                                             *options.feature_matching,
                                              *options.two_view_geometry,
                                              *options.database_path);
 
-  if (options.sift_matching->use_gpu && kUseOpenGL) {
+  if (options.feature_matching->use_gpu && kUseOpenGL) {
     RunThreadWithOpenGLContext(matcher.get());
   } else {
     matcher->Start();
@@ -362,21 +322,17 @@ int RunTransitiveMatcher(int argc, char** argv) {
   options.AddTransitiveMatchingOptions();
   options.Parse(argc, argv);
 
-  if (!VerifySiftGPUParams(options.sift_matching->use_gpu)) {
-    return EXIT_FAILURE;
-  }
-
   std::unique_ptr<QApplication> app;
-  if (options.sift_matching->use_gpu && kUseOpenGL) {
+  if (options.feature_matching->use_gpu && kUseOpenGL) {
     app.reset(new QApplication(argc, argv));
   }
 
   auto matcher = CreateTransitiveFeatureMatcher(*options.transitive_matching,
-                                                *options.sift_matching,
+                                                *options.feature_matching,
                                                 *options.two_view_geometry,
                                                 *options.database_path);
 
-  if (options.sift_matching->use_gpu && kUseOpenGL) {
+  if (options.feature_matching->use_gpu && kUseOpenGL) {
     RunThreadWithOpenGLContext(matcher.get());
   } else {
     matcher->Start();
@@ -392,21 +348,17 @@ int RunVocabTreeMatcher(int argc, char** argv) {
   options.AddVocabTreeMatchingOptions();
   options.Parse(argc, argv);
 
-  if (!VerifySiftGPUParams(options.sift_matching->use_gpu)) {
-    return EXIT_FAILURE;
-  }
-
   std::unique_ptr<QApplication> app;
-  if (options.sift_matching->use_gpu && kUseOpenGL) {
+  if (options.feature_matching->use_gpu && kUseOpenGL) {
     app.reset(new QApplication(argc, argv));
   }
 
   auto matcher = CreateVocabTreeFeatureMatcher(*options.vocab_tree_matching,
-                                               *options.sift_matching,
+                                               *options.feature_matching,
                                                *options.two_view_geometry,
                                                *options.database_path);
 
-  if (options.sift_matching->use_gpu && kUseOpenGL) {
+  if (options.feature_matching->use_gpu && kUseOpenGL) {
     RunThreadWithOpenGLContext(matcher.get());
   } else {
     matcher->Start();
