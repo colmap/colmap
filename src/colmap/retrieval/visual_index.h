@@ -770,7 +770,10 @@ Eigen::MatrixXi VisualIndex<kDescType, kDescDim, kEmbeddingDim>::FindWordIds(
 
   flann::SearchParams search_params(num_checks);
   if (num_threads < 0) {
-    search_params.cores = std::thread::hardware_concurrency();
+    // Don't spawn an excessive number of threads for a small set of query
+    // descriptors. Spawn no more than 1 thread per every 32 descriptors.
+    search_params.cores =
+        std::min<int>(query.rows / 32, std::thread::hardware_concurrency());
   } else {
     search_params.cores = num_threads;
   }
