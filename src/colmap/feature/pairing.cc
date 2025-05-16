@@ -271,6 +271,9 @@ VocabTreePairGenerator::VocabTreePairGenerator(
 
   IndexImages(all_image_ids);
 
+  // Since we parallelize over the query images, there is no need to parallelize
+  // the nearest neighbor search over the query descriptors.
+  query_options_.num_threads = 1;
   query_options_.max_num_images = options_.num_images;
   query_options_.num_neighbors = options_.num_nearest_neighbors;
   query_options_.num_checks = options_.num_checks;
