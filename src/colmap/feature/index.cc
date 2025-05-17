@@ -33,7 +33,6 @@
 #include <faiss/IndexFlat.h>
 #include <faiss/IndexIVFPQ.h>
 #include <faiss/IndexPQ.h>
-#include <faiss/index_factory.h>
 #endif
 
 #include <flann/flann.hpp>
