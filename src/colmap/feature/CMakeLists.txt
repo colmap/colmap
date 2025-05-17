@@ -75,6 +75,9 @@ if(GPU_ENABLED)
         target_link_libraries(colmap_feature PRIVATE GLEW::GLEW)
     endif()
 endif()
+if(FAISS_ENABLED)
+    target_link_libraries(colmap_feature PRIVATE faiss)
+endif()
 
 COLMAP_ADD_TEST(
     NAME index_test
