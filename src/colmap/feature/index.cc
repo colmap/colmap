@@ -130,6 +130,7 @@ class FaissFeatureDescriptorIndex : public FeatureDescriptorIndex {
       index_ = nullptr;
       return;
     }
+
     const Eigen::RowMajorMatrixXf index_descriptors_float =
         index_descriptors.cast<float>();
 
@@ -191,6 +192,9 @@ class FaissFeatureDescriptorIndex : public FeatureDescriptorIndex {
                    l2_dists_float.data(),
                    indices_long.data());
 
+    // TODO(jsch): Change the output matrix types to avoid unnecessary
+    // allocation and casting. This was optimized for the flann interface
+    // before.
     for (int query_idx = 0; query_idx < num_query_descriptors; ++query_idx) {
       for (int k = 0; k < num_eff_neighbors; ++k) {
         indices(query_idx, k) = indices_long(query_idx, k);
