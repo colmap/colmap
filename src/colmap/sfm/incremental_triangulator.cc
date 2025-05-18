@@ -304,7 +304,7 @@ size_t IncrementalTriangulator::MergeAllTracks(const Options& options) {
 
 size_t IncrementalTriangulator::Retriangulate(
   const Options& options,
-  const std::unordered_set<image_t>* ignore_image_ids) {
+  std::optional<std::unordered_set<image_t>> ignore_image_ids) {
   THROW_CHECK(options.Check());
 
   size_t num_tris = 0;
