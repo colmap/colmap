@@ -31,14 +31,106 @@
 
 #ifdef COLMAP_FAISS_ENABLED
 #include <faiss/IndexFlat.h>
+#include <faiss/IndexIVFFlat.h>
 #include <faiss/IndexIVFPQ.h>
 #include <faiss/IndexPQ.h>
 #endif
 
+#ifdef COLMAP_FLANN_ENABLED
 #include <flann/flann.hpp>
+#endif
 
 namespace colmap {
 namespace {
+
+#ifdef COLMAP_FAISS_ENABLED
+
+class FaissFeatureDescriptorIndex : public FeatureDescriptorIndex {
+ public:
+  void Build(const FeatureDescriptors& index_descriptors) override {
+    if (index_descriptors.rows() == 0) {
+      index_ = nullptr;
+      return;
+    }
+
+    const Eigen::RowMajorMatrixXf index_descriptors_float =
+        index_descriptors.cast<float>();
+
+    if (index_descriptors.rows() >= 512) {
+      const int num_centroids = 4 * std::sqrt(index_descriptors.rows());
+      coarse_quantizer_ =
+          std::make_unique<faiss::IndexFlatL2>(index_descriptors.cols());
+      index_ = std::make_unique<faiss::IndexIVFFlat>(
+          /*quantizer=*/coarse_quantizer_.get(),
+          /*d=*/index_descriptors.cols(),
+          /*nlist_=*/num_centroids);
+      auto* index_impl = dynamic_cast<faiss::IndexIVFFlat*>(index_.get());
+      index_impl->nprobe = 4;
+      // Avoid warnings during the training phase.
+      index_impl->cp.min_points_per_centroid = 1;
+      index_->train(index_descriptors.rows(), index_descriptors_float.data());
+      index_->add(index_descriptors.rows(), index_descriptors_float.data());
+    } else {
+      index_ =
+          std::make_unique<faiss::IndexFlatL2>(/*d=*/index_descriptors.cols());
+      index_->add(index_descriptors.rows(), index_descriptors_float.data());
+    }
+  }
+
+  void Search(int num_neighbors,
+              const FeatureDescriptors& query_descriptors,
+              Eigen::RowMajorMatrixXi& indices,
+              Eigen::RowMajorMatrixXi& l2_dists) const override {
+    if (num_neighbors <= 0 || index_ == nullptr) {
+      indices.resize(0, 0);
+      l2_dists.resize(0, 0);
+      return;
+    }
+
+    THROW_CHECK_EQ(query_descriptors.cols(), index_->d);
+    const int64_t num_query_descriptors = query_descriptors.rows();
+    if (num_query_descriptors == 0) {
+      return;
+    }
+
+    const int64_t num_eff_neighbors =
+        std::min<int64_t>(num_neighbors, index_->ntotal);
+
+    indices.resize(num_query_descriptors, num_eff_neighbors);
+    l2_dists.resize(num_query_descriptors, num_eff_neighbors);
+
+    Eigen::Matrix<int64_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
+        indices_long(num_query_descriptors, num_eff_neighbors);
+    Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
+        l2_dists_float(num_query_descriptors, num_eff_neighbors);
+    const Eigen::RowMajorMatrixXf query_descriptors_float =
+        query_descriptors.cast<float>();
+    index_->search(num_query_descriptors,
+                   query_descriptors_float.data(),
+                   num_eff_neighbors,
+                   l2_dists_float.data(),
+                   indices_long.data());
+
+    // TODO(jsch): Change the output matrix types to avoid unnecessary
+    // allocation and casting. This was optimized for the flann interface
+    // before.
+    for (int query_idx = 0; query_idx < num_query_descriptors; ++query_idx) {
+      for (int k = 0; k < num_eff_neighbors; ++k) {
+        indices(query_idx, k) = indices_long(query_idx, k);
+        l2_dists(query_idx, k) =
+            static_cast<int>(std::round(l2_dists_float(query_idx, k)));
+      }
+    }
+  }
+
+ private:
+  std::unique_ptr<faiss::Index> index_;
+  std::unique_ptr<faiss::IndexFlatL2> coarse_quantizer_;
+};
+
+#endif
+
+#ifdef COLMAP_FLANN_ENABLED
 
 // Silence clang-tidy warning:
 // Call to virtual method 'KDTreeIndex::freeIndex' during destruction bypasses
@@ -115,109 +207,30 @@ class FlannFeatureDescriptorIndex : public FeatureDescriptorIndex {
   constexpr static int kNumTreesInForest = 4;
   constexpr static int kNumLeavesToVisit = 128;
 
-  using FlannIndexType = flann::KDTreeIndex<flann::L2<uint8_t>>;
+  using FlannIndexType = flann::KDTreeIndex<flann::L2<uint8_t> >;
   std::unique_ptr<FlannIndexType> index_;
   int num_index_descriptors_ = 0;
-};
-
-#ifdef COLMAP_FAISS_ENABLED
-
-class FaissFeatureDescriptorIndex : public FeatureDescriptorIndex {
- public:
-  void Build(const FeatureDescriptors& index_descriptors) override {
-    if (index_descriptors.rows() == 0) {
-      index_ = nullptr;
-      return;
-    }
-
-    const Eigen::RowMajorMatrixXf index_descriptors_float =
-        index_descriptors.cast<float>();
-
-    if (index_descriptors.rows() >= 512) {
-      const int num_centroids = 4 * std::sqrt(index_descriptors.rows());
-      coarse_quantizer_ =
-          std::make_unique<faiss::IndexFlatL2>(index_descriptors.cols());
-      index_ = std::make_unique<faiss::IndexIVFPQ>(
-          /*quantizer=*/coarse_quantizer_.get(),
-          /*d=*/index_descriptors.cols(),
-          /*nlist=*/num_centroids,
-          /*M=*/4,
-          /*nbits_per_idx=*/8);
-      auto* index_impl = dynamic_cast<faiss::IndexIVFPQ*>(index_.get());
-      // Avoid warnings during the training phase.
-      index_impl->nprobe = 4;
-      index_impl->cp.min_points_per_centroid = 1;
-      index_impl->pq.cp.min_points_per_centroid = 1;
-      index_->train(index_descriptors.rows(), index_descriptors_float.data());
-      index_->add(index_descriptors.rows(), index_descriptors_float.data());
-    } else {
-      index_ =
-          std::make_unique<faiss::IndexFlatL2>(/*d=*/index_descriptors.cols());
-      index_->add(index_descriptors.rows(), index_descriptors_float.data());
-    }
-  }
-
-  void Search(int num_neighbors,
-              const FeatureDescriptors& query_descriptors,
-              Eigen::RowMajorMatrixXi& indices,
-              Eigen::RowMajorMatrixXi& l2_dists) const override {
-    if (num_neighbors <= 0 || index_ == nullptr) {
-      indices.resize(0, 0);
-      l2_dists.resize(0, 0);
-      return;
-    }
-
-    THROW_CHECK_EQ(query_descriptors.cols(), index_->d);
-    const int64_t num_query_descriptors = query_descriptors.rows();
-    if (num_query_descriptors == 0) {
-      return;
-    }
-
-    const int64_t num_eff_neighbors =
-        std::min<int64_t>(num_neighbors, index_->ntotal);
-
-    indices.resize(num_query_descriptors, num_eff_neighbors);
-    l2_dists.resize(num_query_descriptors, num_eff_neighbors);
-
-    Eigen::Matrix<int64_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
-        indices_long(num_query_descriptors, num_eff_neighbors);
-    Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
-        l2_dists_float(num_query_descriptors, num_eff_neighbors);
-    const Eigen::RowMajorMatrixXf query_descriptors_float =
-        query_descriptors.cast<float>();
-    index_->search(num_query_descriptors,
-                   query_descriptors_float.data(),
-                   num_eff_neighbors,
-                   l2_dists_float.data(),
-                   indices_long.data());
-
-    // TODO(jsch): Change the output matrix types to avoid unnecessary
-    // allocation and casting. This was optimized for the flann interface
-    // before.
-    for (int query_idx = 0; query_idx < num_query_descriptors; ++query_idx) {
-      for (int k = 0; k < num_eff_neighbors; ++k) {
-        indices(query_idx, k) = indices_long(query_idx, k);
-        l2_dists(query_idx, k) =
-            static_cast<int>(std::round(l2_dists_float(query_idx, k)));
-      }
-    }
-  }
-
- private:
-  std::unique_ptr<faiss::Index> index_;
-  std::unique_ptr<faiss::IndexFlatL2> coarse_quantizer_;
 };
 
 #endif
 
 }  // namespace
 
-std::unique_ptr<FeatureDescriptorIndex> FeatureDescriptorIndex::Create() {
+std::unique_ptr<FeatureDescriptorIndex> FeatureDescriptorIndex::Create(
+    Type type) {
+  switch (type) {
 #ifdef COLMAP_FAISS_ENABLED
-  return std::make_unique<FaissFeatureDescriptorIndex>();
-#else
-  return std::make_unique<FlannFeatureDescriptorIndex>();
+    case Type::FAISS:
+      return std::make_unique<FaissFeatureDescriptorIndex>();
 #endif
+#ifdef COLMAP_FLANN_ENABLED
+    case Type::FLANN:
+      return std::make_unique<FlannFeatureDescriptorIndex>();
+#endif
+    default:
+      throw std::runtime_error("Feature descriptor index not implemented");
+  }
+  return nullptr;
 }
 
 }  // namespace colmap

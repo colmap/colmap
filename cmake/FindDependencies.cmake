@@ -18,6 +18,13 @@ find_package(Eigen3 ${COLMAP_FIND_TYPE})
 find_package(FreeImage ${COLMAP_FIND_TYPE})
 
 find_package(FLANN ${COLMAP_FIND_TYPE})
+if(FLANN_FOUND)
+    message(STATUS "Enabling FLANN support")
+    add_definitions("-DCOLMAP_FLANN_ENABLED")
+else()
+    message(STATUS "Disabling FLANN support")
+endif()
+
 find_package(LZ4 ${COLMAP_FIND_TYPE})
 
 find_package(Metis ${COLMAP_FIND_TYPE})
@@ -49,7 +56,7 @@ if(NOT TARGET Ceres::ceres)
 endif()
 
 find_package(faiss QUIET)
-if(FAISS_FOUND)
+if(faiss_FOUND)
     message(STATUS "Enabling FAISS support")
     add_definitions("-DCOLMAP_FAISS_ENABLED")
 else()
