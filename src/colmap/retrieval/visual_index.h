@@ -42,6 +42,10 @@
 
 #include <Eigen/Core>
 #include <boost/heap/fibonacci_heap.hpp>
+#include <faiss/Clustering.h>
+#include <faiss/IndexFlat.h>
+#include <faiss/IndexIVFSpectralHash.h>
+#include <faiss/index_io.h>
 #include <flann/flann.hpp>
 
 namespace colmap {
@@ -101,24 +105,21 @@ class VisualIndex {
     // clusters. Note that the actual number of visual words might be less.
     int num_visual_words = 256 * 256;
 
-    // The branching factor of the hierarchical k-means tree.
-    int branching = 256;
-
     // The number of iterations for the clustering.
-    int num_iterations = 11;
+    int num_iterations = 50;
 
-    // The target precision of the visual word search index.
-    double target_precision = 0.95;
+    // Redo clustering multiple times and keep the clusters with the best
+    // training objective.
+    int num_rounds = 2;
 
     // The number of checks in the nearest neighbor search.
-    int num_checks = 256;
+    int num_checks = 8;
 
     // The number of threads used in the index.
     int num_threads = kMaxNumThreads;
   };
 
   VisualIndex();
-  ~VisualIndex();
 
   size_t NumVisualWords() const;
 
@@ -155,28 +156,28 @@ class VisualIndex {
   void Write(const std::string& path);
 
  private:
+  using WordIds =
+      Eigen::Matrix<int64_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+
   // Quantize the descriptor space into visual words.
-  flann::Matrix<kDescType> Quantize(const BuildOptions& options,
-                                    const DescType& descriptors) const;
+  Eigen::RowMajorMatrixXf Quantize(const BuildOptions& options,
+                                   const DescType& descriptors) const;
 
   // Query for nearest neighbor images and return nearest neighbor visual word
   // identifiers for each descriptor.
   void QueryAndFindWordIds(const QueryOptions& options,
                            const DescType& descriptors,
                            std::vector<ImageScore>* image_scores,
-                           Eigen::MatrixXi* word_ids) const;
+                           WordIds* word_ids) const;
 
   // Find the nearest neighbor visual words for the given descriptors.
-  Eigen::MatrixXi FindWordIds(const DescType& descriptors,
-                              int num_neighbors,
-                              int num_checks,
-                              int num_threads) const;
+  WordIds FindWordIds(const DescType& descriptors,
+                      int num_neighbors,
+                      int num_threads) const;
 
   // The search structure on the quantized descriptor space.
-  flann::AutotunedIndex<flann::L2<kDescType>> visual_word_index_;
-
-  // The centroids of the visual words.
-  flann::Matrix<kDescType> visual_words_;
+  std::unique_ptr<faiss::Index> index_;
+  std::unique_ptr<faiss::Index> quantizer_;
 
   // The inverted index of the database.
   InvertedIndexType inverted_index_;
@@ -197,15 +198,8 @@ VisualIndex<kDescType, kDescDim, kEmbeddingDim>::VisualIndex()
     : prepared_(false) {}
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
-VisualIndex<kDescType, kDescDim, kEmbeddingDim>::~VisualIndex() {
-  if (visual_words_.ptr() != nullptr) {
-    delete[] visual_words_.ptr();
-  }
-}
-
-template <typename kDescType, int kDescDim, int kEmbeddingDim>
 size_t VisualIndex<kDescType, kDescDim, kEmbeddingDim>::NumVisualWords() const {
-  return visual_words_.rows;
+  return (index_ == nullptr) ? 0 : index_->ntotal;
 }
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
@@ -229,10 +223,8 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Add(
     return;
   }
 
-  const Eigen::MatrixXi word_ids = FindWordIds(descriptors,
-                                               options.num_neighbors,
-                                               options.num_checks,
-                                               options.num_threads);
+  const WordIds word_ids =
+      FindWordIds(descriptors, options.num_neighbors, options.num_threads);
 
   for (typename DescType::Index i = 0; i < descriptors.rows(); ++i) {
     const auto& descriptor = descriptors.row(i);
@@ -273,7 +265,7 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Query(
     const GeomType& geometries,
     const DescType& descriptors,
     std::vector<ImageScore>* image_scores) const {
-  Eigen::MatrixXi word_ids;
+  WordIds word_ids;
   QueryAndFindWordIds(options, descriptors, image_scores, &word_ids);
 
   if (options.num_images_after_verification <= 0) {
@@ -531,32 +523,46 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Prepare() {
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
 void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Build(
     const BuildOptions& options, const DescType& descriptors) {
-  // Quantize the descriptor space into visual words.
-  if (visual_words_.ptr() != nullptr) {
-    delete[] visual_words_.ptr();
-  }
-  visual_words_ = Quantize(options, descriptors);
+  const Eigen::RowMajorMatrixXf visual_words = Quantize(options, descriptors);
+  THROW_CHECK_EQ(visual_words.cols(), kDescDim);
 
-  // Build the search index on the visual words.
-  flann::AutotunedIndexParams index_params;
-  index_params["target_precision"] =
-      static_cast<float>(options.target_precision);
-  visual_word_index_ =
-      flann::AutotunedIndex<flann::L2<kDescType>>(index_params);
-  visual_word_index_.buildIndex(visual_words_);
+  // TODO(jsch): Set num_threads.
+
+  if (visual_words.rows() >= 512) {
+    VLOG(2) << "Training IVFSpectralHash search index for visual words";
+    const int num_centroids = 4 * std::sqrt(visual_words.rows());
+    quantizer_ = std::make_unique<faiss::IndexFlatL2>(kDescDim);
+    index_ = std::make_unique<faiss::IndexIVFSpectralHash>(quantizer_.get(),
+                                                           kDescDim,
+                                                           num_centroids,
+                                                           /*nbit=*/32,
+                                                           /*period=*/1);
+    auto* index_impl = dynamic_cast<faiss::IndexIVFSpectralHash*>(index_.get());
+    index_impl->nprobe = options.num_checks;
+    index_->train(visual_words.rows(), visual_words.data());
+    index_->add(visual_words.rows(), visual_words.data());
+  } else {
+    VLOG(2) << "Training flat search index for visual words.";
+    index_ = std::make_unique<faiss::IndexFlatL2>(kDescDim);
+    index_->train(visual_words.rows(), visual_words.data());
+    index_->add(visual_words.rows(), visual_words.data());
+  }
 
   // Initialize a new inverted index.
   inverted_index_ = InvertedIndexType();
-  inverted_index_.Initialize(NumVisualWords());
+  inverted_index_.Initialize(index_->ntotal);
+  VLOG(2) << "Initialized inverted index";
 
   // Generate descriptor projection matrix.
   inverted_index_.GenerateHammingEmbeddingProjection();
+  VLOG(2) << "Generated hamming embedding";
 
   // Learn the Hamming embedding.
   const int kNumNeighbors = 1;
-  const Eigen::MatrixXi word_ids = FindWordIds(
-      descriptors, kNumNeighbors, options.num_checks, options.num_threads);
+  const WordIds word_ids =
+      FindWordIds(descriptors, kNumNeighbors, options.num_threads);
   inverted_index_.ComputeHammingEmbedding(descriptors, word_ids);
+  VLOG(2) << "Computed hamming embeddings";
 }
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
@@ -566,30 +572,6 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Read(
 
   long int file_offset = 0;
 
-  // Read the visual words.
-
-  {
-    if (visual_words_.ptr() != nullptr) {
-      delete[] visual_words_.ptr();
-    }
-
-    std::ifstream file(resolved_path, std::ios::binary);
-    THROW_CHECK_FILE_OPEN(file, resolved_path);
-    const uint64_t rows = ReadBinaryLittleEndian<uint64_t>(&file);
-    const uint64_t cols = ReadBinaryLittleEndian<uint64_t>(&file);
-    kDescType* visual_words_data = new kDescType[rows * cols];
-    for (size_t i = 0; i < rows * cols; ++i) {
-      visual_words_data[i] = ReadBinaryLittleEndian<kDescType>(&file);
-    }
-    visual_words_ = flann::Matrix<kDescType>(visual_words_data, rows, cols);
-    file_offset = file.tellg();
-  }
-
-  // Read the visual words search index.
-
-  visual_word_index_ =
-      flann::AutotunedIndex<flann::L2<kDescType>>(visual_words_);
-
   {
     FILE* fin = nullptr;
 #ifdef _MSC_VER
@@ -598,8 +580,7 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Read(
     fin = fopen(resolved_path.c_str(), "rb");
 #endif
     THROW_CHECK_NOTNULL(fin);
-    fseek(fin, file_offset, SEEK_SET);
-    visual_word_index_.loadIndex(fin);
+    index_ = std::unique_ptr<faiss::Index>(faiss::read_index(fin));
     file_offset = ftell(fin);
     fclose(fin);
   }
@@ -620,18 +601,7 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Read(
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
 void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Write(
     const std::string& path) {
-  // Write the visual words.
-
-  {
-    THROW_CHECK_NOTNULL(visual_words_.ptr());
-    std::ofstream file(path, std::ios::binary);
-    THROW_CHECK_FILE_OPEN(file, path);
-    WriteBinaryLittleEndian<uint64_t>(&file, visual_words_.rows);
-    WriteBinaryLittleEndian<uint64_t>(&file, visual_words_.cols);
-    for (size_t i = 0; i < visual_words_.rows * visual_words_.cols; ++i) {
-      WriteBinaryLittleEndian<kDescType>(&file, visual_words_.ptr()[i]);
-    }
-  }
+  THROW_CHECK_NOTNULL(index_);
 
   // Write the visual words search index.
 
@@ -643,7 +613,7 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Write(
     fout = fopen(path.c_str(), "ab");
 #endif
     THROW_CHECK_NOTNULL(fout);
-    visual_word_index_.saveIndex(fout);
+    faiss::write_index(index_.get(), fout);
     fclose(fout);
   }
 
@@ -657,46 +627,29 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Write(
 }
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
-flann::Matrix<kDescType>
+Eigen::RowMajorMatrixXf
 VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Quantize(
     const BuildOptions& options, const DescType& descriptors) const {
   static_assert(DescType::IsRowMajor, "Descriptors must be row-major.");
 
-  THROW_CHECK_GE(options.num_visual_words, options.branching);
-  THROW_CHECK_GE(descriptors.rows(), options.num_visual_words);
+  VLOG(2) << "Clustering " << descriptors.rows() << " descriptors using kmeans";
 
-  const flann::Matrix<kDescType> descriptor_matrix(
-      const_cast<kDescType*>(descriptors.data()),
-      descriptors.rows(),
-      descriptors.cols());
+  faiss::Clustering clustering(kDescDim, options.num_visual_words);
+  clustering.niter = options.num_iterations;
+  clustering.nredo = options.num_rounds;
+  clustering.verbose = VLOG_IS_ON(3);
 
-  std::vector<typename flann::L2<kDescType>::ResultType> centers_data(
-      options.num_visual_words * descriptors.cols());
-  flann::Matrix<typename flann::L2<kDescType>::ResultType> centers(
-      centers_data.data(), options.num_visual_words, descriptors.cols());
+  const Eigen::RowMajorMatrixXf descriptors_float =
+      descriptors.template cast<float>();
+  faiss::IndexFlatL2 index(kDescDim);
+  clustering.train(descriptors.rows(), descriptors_float.data(), index);
 
-  flann::KMeansIndexParams index_params;
-  index_params["branching"] = options.branching;
-  index_params["iterations"] = options.num_iterations;
-  index_params["centers_init"] = flann::FLANN_CENTERS_KMEANSPP;
-  // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
-  const int num_centers = flann::hierarchicalClustering<flann::L2<kDescType>>(
-      descriptor_matrix, centers, index_params);
+  VLOG(2) << "Quantized into " << options.num_visual_words
+          << " visual words with error "
+          << clustering.iteration_stats.back().obj;
 
-  THROW_CHECK_LE(num_centers, options.num_visual_words);
-
-  const size_t visual_word_data_size = num_centers * descriptors.cols();
-  kDescType* visual_words_data = new kDescType[visual_word_data_size];
-  for (size_t i = 0; i < visual_word_data_size; ++i) {
-    if (std::is_integral<kDescType>::value) {
-      visual_words_data[i] = std::round(centers_data[i]);
-    } else {
-      visual_words_data[i] = centers_data[i];
-    }
-  }
-
-  return flann::Matrix<kDescType>(
-      visual_words_data, num_centers, descriptors.cols());
+  return Eigen::Map<const Eigen::RowMajorMatrixXf>(
+      clustering.centroids.data(), options.num_visual_words, kDescDim);
 }
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
@@ -704,7 +657,7 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::QueryAndFindWordIds(
     const QueryOptions& options,
     const DescType& descriptors,
     std::vector<ImageScore>* image_scores,
-    Eigen::MatrixXi* word_ids) const {
+    WordIds* word_ids) const {
   THROW_CHECK(prepared_);
 
   if (descriptors.rows() == 0) {
@@ -712,10 +665,8 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::QueryAndFindWordIds(
     return;
   }
 
-  *word_ids = FindWordIds(descriptors,
-                          options.num_neighbors,
-                          options.num_checks,
-                          options.num_threads);
+  *word_ids =
+      FindWordIds(descriptors, options.num_neighbors, options.num_threads);
   inverted_index_.Query(descriptors, *word_ids, image_scores);
 
   auto SortFunc = [](const ImageScore& score1, const ImageScore& score2) {
@@ -739,52 +690,28 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::QueryAndFindWordIds(
 }
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
-Eigen::MatrixXi VisualIndex<kDescType, kDescDim, kEmbeddingDim>::FindWordIds(
+typename VisualIndex<kDescType, kDescDim, kEmbeddingDim>::WordIds
+VisualIndex<kDescType, kDescDim, kEmbeddingDim>::FindWordIds(
     const DescType& descriptors,
     const int num_neighbors,
-    const int num_checks,
     const int num_threads) const {
   static_assert(DescType::IsRowMajor, "Descriptors must be row-major");
 
   THROW_CHECK_GT(descriptors.rows(), 0);
   THROW_CHECK_GT(num_neighbors, 0);
 
-  Eigen::Matrix<size_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
-      word_ids(descriptors.rows(), num_neighbors);
-  word_ids.setConstant(InvertedIndexType::kInvalidWordId);
-  flann::Matrix<size_t> indices(
-      word_ids.data(), descriptors.rows(), num_neighbors);
+  WordIds indices_long(descriptors.rows(), num_neighbors);
+  Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
+      distances(descriptors.rows(), num_neighbors);
+  const Eigen::RowMajorMatrixXf descriptors_float =
+      descriptors.template cast<float>();
+  index_->search(descriptors.rows(),
+                 descriptors_float.data(),
+                 num_neighbors,
+                 distances.data(),
+                 indices_long.data());
 
-  Eigen::Matrix<typename flann::L2<kDescType>::ResultType,
-                Eigen::Dynamic,
-                Eigen::Dynamic,
-                Eigen::RowMajor>
-      distance_matrix(descriptors.rows(), num_neighbors);
-  flann::Matrix<typename flann::L2<kDescType>::ResultType> distances(
-      distance_matrix.data(), descriptors.rows(), num_neighbors);
-
-  const flann::Matrix<kDescType> query(
-      const_cast<kDescType*>(descriptors.data()),
-      descriptors.rows(),
-      descriptors.cols());
-
-  flann::SearchParams search_params(num_checks);
-  if (num_threads < 0) {
-    // Don't spawn an excessive number of threads for a small set of query
-    // descriptors. Spawn no more than 1 thread per every 32 descriptors.
-    search_params.cores =
-        std::min<int>(query.rows / 32, std::thread::hardware_concurrency());
-  } else {
-    search_params.cores = num_threads;
-  }
-  if (search_params.cores <= 0) {
-    search_params.cores = 1;
-  }
-
-  visual_word_index_.knnSearch(
-      query, indices, distances, num_neighbors, search_params);
-
-  return word_ids.cast<int>();
+  return indices_long;
 }
 
 }  // namespace retrieval

@@ -49,16 +49,29 @@ void TestVocabTreeType() {
     EXPECT_EQ(visual_index.NumVisualWords(), 0);
   }
 
+  typename VisualIndexType::BuildOptions build_options;
+  // Keep test runtimes low.
+  build_options.num_iterations = 10;
+  build_options.num_rounds = 1;
+
   {
     typename VisualIndexType::DescType descriptors =
-        VisualIndexType::DescType::Random(50, kDescDim);
+        VisualIndexType::DescType::Random(200, kDescDim);
     VisualIndexType visual_index;
     EXPECT_EQ(visual_index.NumVisualWords(), 0);
-    typename VisualIndexType::BuildOptions build_options;
     build_options.num_visual_words = 5;
-    build_options.branching = 5;
     visual_index.Build(build_options, descriptors);
     EXPECT_EQ(visual_index.NumVisualWords(), 5);
+  }
+
+  {
+    typename VisualIndexType::DescType descriptors =
+        VisualIndexType::DescType::Random(4096, kDescDim);
+    VisualIndexType visual_index;
+    EXPECT_EQ(visual_index.NumVisualWords(), 0);
+    build_options.num_visual_words = 512;
+    visual_index.Build(build_options, descriptors);
+    EXPECT_EQ(visual_index.NumVisualWords(), 512);
   }
 
   {
@@ -66,9 +79,7 @@ void TestVocabTreeType() {
         VisualIndexType::DescType::Random(1000, kDescDim);
     VisualIndexType visual_index;
     EXPECT_EQ(visual_index.NumVisualWords(), 0);
-    typename VisualIndexType::BuildOptions build_options;
     build_options.num_visual_words = 100;
-    build_options.branching = 10;
     visual_index.Build(build_options, descriptors);
     EXPECT_EQ(visual_index.NumVisualWords(), 100);
 
@@ -148,7 +159,6 @@ TEST(VisualIndex, Download) {
   VisualIndexType visual_index;
   typename VisualIndexType::BuildOptions build_options;
   build_options.num_visual_words = 5;
-  build_options.branching = 5;
   // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
   visual_index.Build(build_options, descriptors);
   visual_index.Write(vocab_tree_path);
