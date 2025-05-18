@@ -39,6 +39,7 @@
 #include "colmap/util/file.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
+#include "colmap/util/threading.h"
 
 #include <Eigen/Core>
 #include <boost/heap/fibonacci_heap.hpp>
@@ -47,6 +48,7 @@
 #include <faiss/IndexIVFSpectralHash.h>
 #include <faiss/index_io.h>
 #include <flann/flann.hpp>
+#include <omp.h>
 
 namespace colmap {
 namespace retrieval {
@@ -526,7 +528,7 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Build(
   const Eigen::RowMajorMatrixXf visual_words = Quantize(options, descriptors);
   THROW_CHECK_EQ(visual_words.cols(), kDescDim);
 
-  // TODO(jsch): Set num_threads.
+  omp_set_num_threads(GetEffectiveNumThreads(options.num_threads));
 
   if (visual_words.rows() >= 512) {
     VLOG(2) << "Training IVFSpectralHash search index for visual words";
@@ -705,6 +707,8 @@ VisualIndex<kDescType, kDescDim, kEmbeddingDim>::FindWordIds(
       distances(descriptors.rows(), num_neighbors);
   const Eigen::RowMajorMatrixXf descriptors_float =
       descriptors.template cast<float>();
+
+  omp_set_num_threads(GetEffectiveNumThreads(num_threads));
   index_->search(descriptors.rows(),
                  descriptors_float.data(),
                  num_neighbors,

@@ -56,6 +56,9 @@ class FaissFeatureDescriptorIndex : public FeatureDescriptorIndex {
     const Eigen::RowMajorMatrixXf index_descriptors_float =
         index_descriptors.cast<float>();
 
+    // Assume parallelization is done on the outer level.
+    omp_set_num_threads(1);
+
     if (index_descriptors.rows() >= 512) {
       const int num_centroids = 4 * std::sqrt(index_descriptors.rows());
       coarse_quantizer_ =
@@ -105,6 +108,10 @@ class FaissFeatureDescriptorIndex : public FeatureDescriptorIndex {
         l2_dists_float(num_query_descriptors, num_eff_neighbors);
     const Eigen::RowMajorMatrixXf query_descriptors_float =
         query_descriptors.cast<float>();
+
+    // Assume parallelization is done on the outer level.
+    omp_set_num_threads(1);
+
     index_->search(num_query_descriptors,
                    query_descriptors_float.data(),
                    num_eff_neighbors,
