@@ -54,6 +54,7 @@ jobs:
             boost \
             eigen \
             flann \
+            faiss \
             freeimage \
             curl \
             metis \

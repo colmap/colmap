@@ -25,6 +25,14 @@ else()
     message(STATUS "Disabling FLANN support")
 endif()
 
+find_package(faiss ${COLMAP_FIND_TYPE})
+if(faiss_FOUND)
+    message(STATUS "Enabling FAISS support")
+    add_definitions("-DCOLMAP_FAISS_ENABLED")
+else()
+    message(STATUS "Disabling FAISS support")
+endif()
+
 find_package(LZ4 ${COLMAP_FIND_TYPE})
 
 find_package(Metis ${COLMAP_FIND_TYPE})
@@ -53,14 +61,6 @@ if(NOT TARGET Ceres::ceres)
         Ceres::ceres INTERFACE ${CERES_INCLUDE_DIRS})
     target_link_libraries(
         Ceres::ceres INTERFACE ${CERES_LIBRARIES})
-endif()
-
-find_package(faiss QUIET)
-if(faiss_FOUND)
-    message(STATUS "Enabling FAISS support")
-    add_definitions("-DCOLMAP_FAISS_ENABLED")
-else()
-    message(STATUS "Disabling FAISS support")
 endif()
 
 if(TESTS_ENABLED)

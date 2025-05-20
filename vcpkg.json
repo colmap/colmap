@@ -21,6 +21,7 @@
         },
         "eigen3",
         "flann",
+        "faiss",
         "freeimage",
         "gflags",
         "glog",
