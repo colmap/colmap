@@ -36,6 +36,7 @@
 #include "colmap/estimators/similarity_transform.h"
 #include "colmap/exe/gui.h"
 #include "colmap/scene/reconstruction.h"
+#include "colmap/scene/rig.h"
 #include "colmap/sfm/observation_manager.h"
 #include "colmap/util/file.h"
 #include "colmap/util/misc.h"
@@ -45,6 +46,19 @@
 #include <boost/property_tree/ptree.hpp>
 
 namespace colmap {
+namespace {
+
+std::pair<std::vector<image_t>, std::vector<Eigen::Vector3d>>
+ExtractExistingImages(const Reconstruction& reconstruction) {
+  std::vector<image_t> fixed_image_ids = reconstruction.RegImageIds();
+  std::vector<Eigen::Vector3d> orig_fixed_image_positions;
+  orig_fixed_image_positions.reserve(fixed_image_ids.size());
+  for (const image_t image_id : fixed_image_ids) {
+    orig_fixed_image_positions.push_back(
+        reconstruction.Image(image_id).ProjectionCenter());
+  }
+  return {std::move(fixed_image_ids), std::move(orig_fixed_image_positions)};
+}
 
 void UpdateDatabasePosePriorsCovariance(const std::string& database_path,
                                         const Eigen::Matrix3d& covariance) {
@@ -63,6 +77,8 @@ void UpdateDatabasePosePriorsCovariance(const std::string& database_path,
     }
   }
 }
+
+}  // namespace
 
 int RunAutomaticReconstructor(int argc, char** argv) {
   AutomaticReconstructionController::Options reconstruction_options;
@@ -215,21 +231,16 @@ int RunMapper(int argc, char** argv) {
     reconstruction_manager->Read(input_path);
   }
 
-  // If fix_existing_images is enabled, we store the initial positions of
+  // If fix_existing_frames is enabled, we store the initial positions of
   // existing images in order to transform them back to the original coordinate
   // frame, as the reconstruction is normalized multiple times for numerical
   // stability.
   std::vector<Eigen::Vector3d> orig_fixed_image_positions;
-  std::set<image_t> fixed_image_ids;
-  if (options.mapper->fix_existing_images &&
+  std::vector<image_t> fixed_image_ids;
+  if (options.mapper->fix_existing_frames &&
       reconstruction_manager->Size() > 0) {
-    const auto& reconstruction = reconstruction_manager->Get(0);
-    fixed_image_ids = reconstruction->RegImageIds();
-    orig_fixed_image_positions.reserve(fixed_image_ids.size());
-    for (const image_t image_id : fixed_image_ids) {
-      orig_fixed_image_positions.push_back(
-          reconstruction->Image(image_id).ProjectionCenter());
-    }
+    std::tie(fixed_image_ids, orig_fixed_image_positions) =
+        ExtractExistingImages(*reconstruction_manager->Get(0));
   }
 
   IncrementalPipeline mapper(options.mapper,
@@ -270,7 +281,7 @@ int RunMapper(int argc, char** argv) {
     const auto& reconstruction = reconstruction_manager->Get(0);
 
     // Transform the final reconstruction back to the original coordinate frame.
-    if (options.mapper->fix_existing_images) {
+    if (options.mapper->fix_existing_frames) {
       if (fixed_image_ids.size() < 3) {
         LOG(WARNING) << "Too few images to transform the reconstruction.";
       } else {
@@ -392,21 +403,16 @@ int RunPosePriorMapper(int argc, char** argv) {
     reconstruction_manager->Read(input_path);
   }
 
-  // If fix_existing_images is enabled, we store the initial positions of
+  // If fix_existing_frames is enabled, we store the initial positions of
   // existing images in order to transform them back to the original coordinate
   // frame, as the reconstruction is normalized multiple times for numerical
   // stability.
   std::vector<Eigen::Vector3d> orig_fixed_image_positions;
-  std::set<image_t> fixed_image_ids;
-  if (options.mapper->fix_existing_images &&
+  std::vector<image_t> fixed_image_ids;
+  if (options.mapper->fix_existing_frames &&
       reconstruction_manager->Size() > 0) {
-    const auto& reconstruction = reconstruction_manager->Get(0);
-    fixed_image_ids = reconstruction->RegImageIds();
-    orig_fixed_image_positions.reserve(fixed_image_ids.size());
-    for (const image_t image_id : fixed_image_ids) {
-      orig_fixed_image_positions.push_back(
-          reconstruction->Image(image_id).ProjectionCenter());
-    }
+    std::tie(fixed_image_ids, orig_fixed_image_positions) =
+        ExtractExistingImages(*reconstruction_manager->Get(0));
   }
 
   IncrementalPipeline mapper(options.mapper,
@@ -447,7 +453,7 @@ int RunPosePriorMapper(int argc, char** argv) {
     const auto& reconstruction = reconstruction_manager->Get(0);
 
     // Transform the final reconstruction back to the original coordinate frame.
-    if (options.mapper->fix_existing_images) {
+    if (options.mapper->fix_existing_frames) {
       if (fixed_image_ids.size() < 3) {
         LOG(WARNING) << "Too few images to transform the reconstruction.";
       } else {
@@ -578,7 +584,7 @@ void RunPointTriangulatorImpl(
   }
 
   auto options_tmp = std::make_shared<IncrementalPipelineOptions>(options);
-  options_tmp->fix_existing_images = true;
+  options_tmp->fix_existing_frames = true;
   options_tmp->ba_refine_focal_length = refine_intrinsics;
   options_tmp->ba_refine_principal_point = false;
   options_tmp->ba_refine_extra_params = refine_intrinsics;
@@ -590,230 +596,38 @@ void RunPointTriangulatorImpl(
   reconstruction->Write(output_path);
 }
 
-namespace {
-
-// Read the configuration of the camera rigs from a JSON file. The input images
-// of a camera rig must be named consistently to assign them to the appropriate
-// camera rig and the respective snapshots.
-//
-// An example configuration of a single camera rig:
-// [
-//   {
-//     "ref_camera_id": 1,
-//     "cameras":
-//     [
-//       {
-//           "camera_id": 1,
-//           "image_prefix": "left1_image"
-//           "cam_from_rig_rotation": [1, 0, 0, 0],
-//           "cam_from_rig_translation": [0, 0, 0]
-//       },
-//       {
-//           "camera_id": 2,
-//           "image_prefix": "left2_image"
-//           "cam_from_rig_rotation": [1, 0, 0, 0],
-//           "cam_from_rig_translation": [0, 0, 1]
-//       },
-//       {
-//           "camera_id": 3,
-//           "image_prefix": "right1_image"
-//           "cam_from_rig_rotation": [1, 0, 0, 0],
-//           "cam_from_rig_translation": [0, 0, 2]
-//       },
-//       {
-//           "camera_id": 4,
-//           "image_prefix": "right2_image"
-//           "cam_from_rig_rotation": [1, 0, 0, 0],
-//           "cam_from_rig_translation": [0, 0, 3]
-//       }
-//     ]
-//   }
-// ]
-//
-// The "camera_id" and "image_prefix" fields are required, whereas the
-// "cam_from_rig_rotation" and "cam_from_rig_translation" fields optionally
-// specify the relative extrinsics of the camera rig in the form of a
-// translation vector and a rotation quaternion (w, x, y, z). If the relative
-// extrinsics are not provided then they are automatically inferred from the
-// reconstruction.
-//
-// This file specifies the configuration for a single camera rig and that you
-// could potentially define multiple camera rigs. The rig is composed of 4
-// cameras: all images of the first camera must have "left1_image" as a name
-// prefix, e.g., "left1_image_frame000.png" or "left1_image/frame000.png".
-// Images with the same suffix ("_frame000.png" and "/frame000.png") are
-// assigned to the same snapshot, i.e., they are assumed to be captured at the
-// same time. Only snapshots with the reference image registered will be added
-// to the bundle adjustment problem. The remaining images will be added with
-// independent poses to the bundle adjustment problem. The above configuration
-// could have the following input image file structure:
-//
-//    /path/to/images/...
-//        left1_image/...
-//            frame000.png
-//            frame001.png
-//            frame002.png
-//            ...
-//        left2_image/...
-//            frame000.png
-//            frame001.png
-//            frame002.png
-//            ...
-//        right1_image/...
-//            frame000.png
-//            frame001.png
-//            frame002.png
-//            ...
-//        right2_image/...
-//            frame000.png
-//            frame001.png
-//            frame002.png
-//            ...
-//
-std::vector<CameraRig> ReadCameraRigConfig(const std::string& rig_config_path,
-                                           const Reconstruction& reconstruction,
-                                           bool estimate_rig_relative_poses) {
-  boost::property_tree::ptree pt;
-  boost::property_tree::read_json(rig_config_path.c_str(), pt);
-
-  std::vector<CameraRig> camera_rigs;
-  for (const auto& rig_config : pt) {
-    CameraRig camera_rig;
-
-    std::vector<std::string> image_prefixes;
-    for (const auto& camera : rig_config.second.get_child("cameras")) {
-      const int camera_id = camera.second.get<int>("camera_id");
-      image_prefixes.push_back(camera.second.get<std::string>("image_prefix"));
-
-      Rigid3d cam_from_rig;
-
-      auto cam_from_rig_rotation_node =
-          camera.second.get_child_optional("cam_from_rig_rotation");
-      if (cam_from_rig_rotation_node) {
-        int index = 0;
-        Eigen::Vector4d cam_from_rig_wxyz;
-        for (const auto& node : cam_from_rig_rotation_node.get()) {
-          cam_from_rig_wxyz[index++] = node.second.get_value<double>();
-        }
-        cam_from_rig.rotation = Eigen::Quaterniond(cam_from_rig_wxyz(0),
-                                                   cam_from_rig_wxyz(1),
-                                                   cam_from_rig_wxyz(2),
-                                                   cam_from_rig_wxyz(3));
-      } else {
-        estimate_rig_relative_poses = true;
-      }
-
-      auto cam_from_rig_translation_node =
-          camera.second.get_child_optional("cam_from_rig_translation");
-      if (cam_from_rig_translation_node) {
-        int index = 0;
-        for (const auto& node : cam_from_rig_translation_node.get()) {
-          cam_from_rig.translation(index++) = node.second.get_value<double>();
-        }
-      } else {
-        estimate_rig_relative_poses = true;
-      }
-
-      camera_rig.AddCamera(camera_id, cam_from_rig);
-    }
-
-    camera_rig.SetRefCameraId(rig_config.second.get<int>("ref_camera_id"));
-
-    std::unordered_map<std::string, std::vector<image_t>> snapshots;
-    for (const auto image_id : reconstruction.RegImageIds()) {
-      const auto& image = reconstruction.Image(image_id);
-      for (const auto& image_prefix : image_prefixes) {
-        if (StringContains(image.Name(), image_prefix)) {
-          const std::string image_suffix =
-              StringGetAfter(image.Name(), image_prefix);
-          snapshots[image_suffix].push_back(image_id);
-        }
-      }
-    }
-
-    for (const auto& snapshot : snapshots) {
-      bool has_ref_camera = false;
-      for (const auto image_id : snapshot.second) {
-        const auto& image = reconstruction.Image(image_id);
-        if (image.CameraId() == camera_rig.RefCameraId()) {
-          has_ref_camera = true;
-          break;
-        }
-      }
-
-      if (has_ref_camera) {
-        camera_rig.AddSnapshot(snapshot.second);
-      }
-    }
-
-    camera_rig.Check(reconstruction);
-    if (estimate_rig_relative_poses) {
-      PrintHeading2("Estimating relative rig poses");
-      if (!camera_rig.ComputeCamsFromRigs(reconstruction)) {
-        LOG(WARNING) << "Failed to estimate rig poses from reconstruction; "
-                        "cannot use rig BA";
-        return std::vector<CameraRig>();
-      }
-    }
-
-    camera_rigs.push_back(camera_rig);
-  }
-
-  return camera_rigs;
-}
-
-}  // namespace
-
 int RunRigBundleAdjuster(int argc, char** argv) {
   std::string input_path;
   std::string output_path;
   std::string rig_config_path;
-  bool estimate_rig_relative_poses = true;
-
-  RigBundleAdjustmentOptions rig_ba_options;
 
   OptionManager options;
   options.AddRequiredOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
   options.AddRequiredOption("rig_config_path", &rig_config_path);
-  options.AddDefaultOption("estimate_rig_relative_poses",
-                           &estimate_rig_relative_poses);
-  options.AddDefaultOption("RigBundleAdjustment.refine_relative_poses",
-                           &rig_ba_options.refine_relative_poses);
   options.AddBundleAdjustmentOptions();
   options.Parse(argc, argv);
 
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
 
-  PrintHeading1("Camera rig configuration");
-
-  auto camera_rigs = ReadCameraRigConfig(
-      rig_config_path, reconstruction, estimate_rig_relative_poses);
-
   BundleAdjustmentConfig config;
-  for (size_t i = 0; i < camera_rigs.size(); ++i) {
-    const auto& camera_rig = camera_rigs[i];
-    PrintHeading2(StringPrintf("Camera Rig %d", i + 1));
-    LOG(INFO) << StringPrintf("Cameras: %d", camera_rig.NumCameras());
-    LOG(INFO) << StringPrintf("Snapshots: %d", camera_rig.NumSnapshots());
-
-    // Add all registered images to the bundle adjustment configuration.
-    for (const auto image_id : reconstruction.RegImageIds()) {
-      config.AddImage(image_id);
-    }
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    config.AddImage(image_id);
   }
 
-  PrintHeading1("Rig bundle adjustment");
+  Database database(Database::kInMemoryDatabasePath);
+  for (const auto& [_, camera] : reconstruction.Cameras()) {
+    database.WriteCamera(camera, /*use_camera_id=*/true);
+  }
+  for (const auto& [image_id, image] : reconstruction.Images()) {
+    database.WriteImage(image, /*use_image_id=*/true);
+    config.AddImage(image_id);
+  }
+  ApplyRigConfig(ReadRigConfig(rig_config_path), database, &reconstruction);
 
-  BundleAdjustmentOptions ba_options = *options.bundle_adjustment;
-
-  std::unique_ptr<BundleAdjuster> bundle_adjuster =
-      CreateRigBundleAdjuster(std::move(ba_options),
-                              rig_ba_options,
-                              std::move(config),
-                              reconstruction,
-                              camera_rigs);
+  std::unique_ptr<BundleAdjuster> bundle_adjuster = CreateDefaultBundleAdjuster(
+      *options.bundle_adjustment, std::move(config), reconstruction);
   THROW_CHECK_NE(bundle_adjuster->Solve().termination_type, ceres::FAILURE);
 
   reconstruction.Write(output_path);

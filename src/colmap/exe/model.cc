@@ -76,8 +76,8 @@ Eigen::Vector3d TransformLatLonAltToModelCoords(const Sim3d& tform,
   // altitude at the end, after scaling, to set it as the z coordinate in the
   // ENU frame.
   Eigen::Vector3d xyz =
-      tform * GPSTransform(GPSTransform::WGS84)
-                  .EllToXYZ({Eigen::Vector3d(lat, lon, 0.0)})[0];
+      tform * GPSTransform(GPSTransform::Ellipsoid::WGS84)
+                  .EllipsoidToECEF({Eigen::Vector3d(lat, lon, 0.0)})[0];
   xyz(2) = tform.scale * alt;
   return xyz;
 }
@@ -119,15 +119,15 @@ std::vector<Eigen::Vector3d> ConvertCameraLocations(
     const std::string& alignment_type,
     const std::vector<Eigen::Vector3d>& ref_locations) {
   if (ref_is_gps) {
-    const GPSTransform gps_transform(GPSTransform::WGS84);
+    const GPSTransform gps_transform(GPSTransform::Ellipsoid::WGS84);
     if (alignment_type != "enu") {
       LOG(INFO) << "Converting Alignment Coordinates from GPS (lat/lon/alt) "
                    "to ECEF.";
-      return gps_transform.EllToXYZ(ref_locations);
+      return gps_transform.EllipsoidToECEF(ref_locations);
     } else {
       LOG(INFO) << "Converting Alignment Coordinates from GPS (lat/lon/alt) "
                    "to ENU.";
-      return gps_transform.EllToENU(
+      return gps_transform.EllipsoidToENU(
           ref_locations, ref_locations[0](0), ref_locations[0](1));
     }
   } else {
@@ -441,7 +441,11 @@ int RunModelAnalyzer(int argc, char** argv) {
   Reconstruction reconstruction;
   reconstruction.Read(path);
 
+  LOG(INFO) << StringPrintf("Rigs: %d", reconstruction.NumRigs());
   LOG(INFO) << StringPrintf("Cameras: %d", reconstruction.NumCameras());
+  LOG(INFO) << StringPrintf("Frames: %d", reconstruction.NumFrames());
+  LOG(INFO) << StringPrintf("Registered frames: %d",
+                            reconstruction.NumRegFrames());
   LOG(INFO) << StringPrintf("Images: %d", reconstruction.NumImages());
   LOG(INFO) << StringPrintf("Registered images: %d",
                             reconstruction.NumRegImages());
@@ -540,10 +544,12 @@ bool CompareModels(const Reconstruction& reconstruction1,
                    std::vector<ImageAlignmentError>& errors,
                    Sim3d& rec2_from_rec1) {
   PrintHeading1("Reconstruction 1");
+  LOG(INFO) << StringPrintf("Frames: %d", reconstruction1.NumRegFrames());
   LOG(INFO) << StringPrintf("Images: %d", reconstruction1.NumRegImages());
   LOG(INFO) << StringPrintf("Points: %d", reconstruction1.NumPoints3D());
 
   PrintHeading1("Reconstruction 2");
+  LOG(INFO) << StringPrintf("Frames: %d", reconstruction2.NumRegFrames());
   LOG(INFO) << StringPrintf("Images: %d", reconstruction2.NumRegImages());
   LOG(INFO) << StringPrintf("Points: %d", reconstruction2.NumPoints3D());
 

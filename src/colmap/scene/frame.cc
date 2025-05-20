@@ -27,42 +27,42 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/sensor/rig_calib.h"
-
-#include <gtest/gtest.h>
+#include "colmap/scene/frame.h"
 
 namespace colmap {
-namespace {
 
-Rigid3d TestRigid3d() {
-  return Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
+void Frame::SetCamFromWorld(camera_t camera_id, const Rigid3d& cam_from_world) {
+  THROW_CHECK_NOTNULL(rig_ptr_);
+  const sensor_t sensor_id(SensorType::CAMERA, camera_id);
+  if (rig_ptr_->IsRefSensor(sensor_id)) {
+    SetRigFromWorld(cam_from_world);
+  } else {
+    const Rigid3d& cam_from_rig = rig_ptr_->SensorFromRig(sensor_id);
+    SetRigFromWorld(Inverse(cam_from_rig) * cam_from_world);
+  }
 }
 
-TEST(RigCalib, Default) {
-  RigCalib calib;
-  EXPECT_EQ(calib.RigId(), kInvalidRigId);
-  EXPECT_EQ(calib.RefSensorId(), kInvalidSensorId);
-  EXPECT_EQ(calib.NumSensors(), 0);
+std::ostream& operator<<(std::ostream& stream, const Frame& frame) {
+  stream << "Frame(frame_id=" << frame.FrameId() << ", rig_id=";
+  if (frame.HasRigId()) {
+    if (frame.RigId() == kInvalidRigId) {
+      stream << "Invalid";
+    } else {
+      stream << frame.RigId();
+    }
+  } else {
+    stream << "Unknown";
+  }
+  stream << ", has_pose=" << frame.HasPose() << ", data_ids=[";
+  for (const auto& data_id : frame.DataIds()) {
+    stream << "(" << data_id.sensor_id.type << ", " << data_id.sensor_id.id
+           << ", " << data_id.id << "), ";
+  }
+  if (!frame.DataIds().empty()) {
+    stream.seekp(-2, std::ios_base::end);
+  }
+  stream << "])";
+  return stream;
 }
 
-TEST(RigCalib, SetUp) {
-  RigCalib calib;
-  calib.AddRefSensor(sensor_t(SensorType::IMU, 0));
-  calib.AddSensor(sensor_t(SensorType::IMU, 1), TestRigid3d());
-  calib.AddSensor(sensor_t(SensorType::CAMERA, 0), TestRigid3d());
-  calib.AddSensor(sensor_t(SensorType::CAMERA, 1));  // no input sensor_from_rig
-
-  EXPECT_EQ(calib.NumSensors(), 4);
-  EXPECT_EQ(calib.RefSensorId().type, SensorType::IMU);
-  EXPECT_EQ(calib.RefSensorId().id, 0);
-  EXPECT_TRUE(calib.IsRefSensor(sensor_t(SensorType::IMU, 0)));
-  EXPECT_FALSE(calib.IsRefSensor(sensor_t(SensorType::IMU, 1)));
-  EXPECT_TRUE(calib.HasSensorFromRig(sensor_t(SensorType::IMU, 0)));
-  EXPECT_TRUE(calib.HasSensorFromRig(sensor_t(SensorType::IMU, 1)));
-  EXPECT_TRUE(calib.HasSensorFromRig(sensor_t(SensorType::CAMERA, 0)));
-  EXPECT_FALSE(calib.HasSensorFromRig(sensor_t(SensorType::CAMERA, 1)));
-  EXPECT_TRUE(calib.HasSensor(sensor_t(SensorType::CAMERA, 1)));
-}
-
-}  // namespace
 }  // namespace colmap

@@ -36,10 +36,16 @@
 #define SELECTION_BUFFER_IMAGE_IDX 0
 #define SELECTION_BUFFER_POINT_IDX 1
 
+// Color of a selected 3D point.
 const Eigen::Vector4f kSelectedPointColor(0.0f, 1.0f, 0.0f, 1.0f);
 
+// Color of the viewing frustum if the image is selected.
 const Eigen::Vector4f kSelectedImagePlaneColor(1.0f, 0.0f, 1.0f, 0.6f);
 const Eigen::Vector4f kSelectedImageFrameColor(0.8f, 0.0f, 0.8f, 1.0f);
+
+// Color of the viewing frustum if another image in the same frame is selected.
+const Eigen::Vector4f kSelectedFramePlaneColor(0.8f, 0.0f, 0.8f, 0.3f);
+const Eigen::Vector4f kSelectedFrameFrameColor(0.6f, 0.0f, 0.6f, 0.7f);
 
 const Eigen::Vector4f kMovieGrabberImagePlaneColor(0.0f, 1.0f, 1.0f, 0.6f);
 const Eigen::Vector4f kMovieGrabberImageFrameColor(0.0f, 0.8f, 0.8f, 1.0f);
@@ -68,22 +74,20 @@ inline Eigen::Vector4f IndexToRGB(const size_t index) {
   return color;
 }
 
-void BuildImageModel(const Image& image,
-                     const Camera& camera,
-                     const float image_size,
-                     const Eigen::Vector4f& plane_color,
-                     const Eigen::Vector4f& frame_color,
-                     std::vector<TrianglePainter::Data>* triangle_data,
-                     std::vector<LinePainter::Data>* line_data) {
+void BuildCameraModel(const std::optional<Rigid3d>& cam_from_world,
+                      const Camera& camera,
+                      const float image_size,
+                      const Eigen::Vector4f& plane_color,
+                      const Eigen::Vector4f& frame_color,
+                      std::vector<TrianglePainter::Data>* triangle_data,
+                      std::vector<LinePainter::Data>* line_data) {
   // Updating the reconstruction in the viewer (e.g., deleting an image or a
   // point) is not thread-safe when the mapper is running, where some images may
   // be in a partial, incorrect state. In rare circumstances, an image may be
   // registered but not yet have a pose. Instead of crashing the viewer, we
   // simply skip the visualization of these images and warn the user.
-  const std::optional<Rigid3d>& cam_from_world = image.MaybeCamFromWorld();
   if (!cam_from_world) {
-    LOG(WARNING) << "Failed to render image " << image.Name()
-                 << " but it has no pose.";
+    LOG(WARNING) << "Failed to render camera because it has no pose.";
     return;
   }
 
@@ -386,16 +390,28 @@ void ModelViewerWidget::ReloadReconstruction() {
     return;
   }
 
+  rigs = reconstruction->Rigs();
   cameras = reconstruction->Cameras();
+  frames = reconstruction->Frames();
   points3D = reconstruction->Points3D();
-  const std::set<image_t>& reg_image_ids_set = reconstruction->RegImageIds();
-  reg_image_ids =
-      std::vector<image_t>(reg_image_ids_set.begin(), reg_image_ids_set.end());
 
+  frames.clear();
   images.clear();
-  for (const image_t image_id : reg_image_ids) {
-    images[image_id] = reconstruction->Image(image_id);
+  reg_image_ids.clear();
+  for (const frame_t frame_id : reconstruction->RegFrameIds()) {
+    Frame& frame = frames[frame_id];
+    frame = reconstruction->Frame(frame_id);
+    frame.SetRigPtr(&rigs[frame.RigId()]);
+    for (const data_t& data_id : frame.ImageIds()) {
+      Image& image = images[data_id.id];
+      image = reconstruction->Image(data_id.id);
+      image.SetCameraPtr(&cameras[image.CameraId()]);
+      image.SetFramePtr(&frame);
+      reg_image_ids.push_back(data_id.id);
+    }
   }
+
+  std::sort(reg_image_ids.begin(), reg_image_ids.end());
 
   if (selected_point3D_id_ != kInvalidPoint3DId &&
       points3D.count(selected_point3D_id_) == 0) {
@@ -403,12 +419,14 @@ void ModelViewerWidget::ReloadReconstruction() {
   }
 
   if (selected_image_id_ != kInvalidImageId &&
-      reg_image_ids_set.count(selected_image_id_) == 0) {
+      !std::binary_search(
+          reg_image_ids.begin(), reg_image_ids.end(), selected_image_id_)) {
     selected_image_id_ = kInvalidImageId;
   }
 
   statusbar_status_label->setText(
-      QString().asprintf("%d Images - %d Points",
+      QString().asprintf("%d Frames - %d Images - %d Points",
+                         static_cast<int>(reconstruction->NumRegFrames()),
                          static_cast<int>(reg_image_ids.size()),
                          static_cast<int>(points3D.size())));
 
@@ -1063,6 +1081,10 @@ void ModelViewerWidget::UploadImageData(const bool selection_mode) {
   std::vector<TrianglePainter::Data> triangle_data;
   triangle_data.reserve(2 * reg_image_ids.size());
 
+  const frame_t selected_frame_id = selected_image_id_ == kInvalidImageId
+                                        ? kInvalidFrameId
+                                        : images[selected_image_id_].FrameId();
+
   for (const image_t image_id : reg_image_ids) {
     const Image& image = images[image_id];
     const Camera& camera = cameras[image.CameraId()];
@@ -1078,6 +1100,10 @@ void ModelViewerWidget::UploadImageData(const bool selection_mode) {
       if (image_id == selected_image_id_) {
         plane_color = kSelectedImagePlaneColor;
         frame_color = kSelectedImageFrameColor;
+      } else if (selected_frame_id != kInvalidFrameId &&
+                 image.FrameId() == selected_frame_id) {
+        plane_color = kSelectedFramePlaneColor;
+        frame_color = kSelectedFrameFrameColor;
       } else {
         image_colormap_->ComputeColor(image, &plane_color, &frame_color);
       }
@@ -1085,13 +1111,13 @@ void ModelViewerWidget::UploadImageData(const bool selection_mode) {
 
     // Lines are not colored with the indexed color in selection mode, so do not
     // show them, so they do not block the selection process
-    BuildImageModel(image,
-                    camera,
-                    image_size_,
-                    plane_color,
-                    frame_color,
-                    &triangle_data,
-                    selection_mode ? nullptr : &line_data);
+    BuildCameraModel(image.CamFromWorld(),
+                     camera,
+                     image_size_,
+                     plane_color,
+                     frame_color,
+                     &triangle_data,
+                     selection_mode ? nullptr : &line_data);
   }
 
   image_line_painter_.Upload(line_data);
@@ -1164,23 +1190,30 @@ void ModelViewerWidget::UploadImageConnectionData() {
 void ModelViewerWidget::UploadMovieGrabberData() {
   makeCurrent();
 
+  const size_t num_frames = movie_grabber_widget_->frames.size();
+
   std::vector<LinePainter::Data> path_data;
-  path_data.reserve(movie_grabber_widget_->views.size());
+  path_data.reserve(num_frames);
 
   std::vector<LinePainter::Data> line_data;
-  line_data.reserve(4 * movie_grabber_widget_->views.size());
+  line_data.reserve(4 * num_frames);
 
   std::vector<TrianglePainter::Data> triangle_data;
-  triangle_data.reserve(2 * movie_grabber_widget_->views.size());
+  triangle_data.reserve(2 * num_frames);
 
-  if (movie_grabber_widget_->views.size() > 0) {
-    const Image& image0 = movie_grabber_widget_->views[0];
-    Eigen::Vector3f prev_proj_center = image0.ProjectionCenter().cast<float>();
+  if (num_frames > 0) {
+    const Frame& frame0 = movie_grabber_widget_->frames[0];
+    Eigen::Vector3f prev_proj_center =
+        (frame0.RigFromWorld().rotation.inverse() *
+         -frame0.RigFromWorld().translation)
+            .cast<float>();
 
-    for (size_t i = 1; i < movie_grabber_widget_->views.size(); ++i) {
-      const Image& image = movie_grabber_widget_->views[i];
+    for (size_t i = 1; i < num_frames; ++i) {
+      const Frame& frame = movie_grabber_widget_->frames[i];
       const Eigen::Vector3f curr_proj_center =
-          image.ProjectionCenter().cast<float>();
+          (frame.RigFromWorld().rotation.inverse() *
+           -frame.RigFromWorld().translation)
+              .cast<float>();
       LinePainter::Data path;
       path.point1 = PointPainter::Data(prev_proj_center(0),
                                        prev_proj_center(1),
@@ -1213,8 +1246,8 @@ void ModelViewerWidget::UploadMovieGrabberData() {
                                   kDefaultImageHeight);
 
     // Build all camera models
-    for (size_t i = 0; i < movie_grabber_widget_->views.size(); ++i) {
-      const Image& image = movie_grabber_widget_->views[i];
+    for (size_t i = 0; i < num_frames; ++i) {
+      const Frame& frame = movie_grabber_widget_->frames[i];
       Eigen::Vector4f plane_color;
       Eigen::Vector4f frame_color;
       if (i == selected_movie_grabber_view_) {
@@ -1225,13 +1258,13 @@ void ModelViewerWidget::UploadMovieGrabberData() {
         frame_color = kMovieGrabberImageFrameColor;
       }
 
-      BuildImageModel(image,
-                      camera,
-                      image_size_,
-                      plane_color,
-                      frame_color,
-                      &triangle_data,
-                      &line_data);
+      BuildCameraModel(frame.MaybeRigFromWorld(),
+                       camera,
+                       image_size_,
+                       plane_color,
+                       frame_color,
+                       &triangle_data,
+                       &line_data);
     }
   }
 

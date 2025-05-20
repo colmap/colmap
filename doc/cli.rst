@@ -117,25 +117,38 @@ The available commands can be listed using the command::
           automatic_reconstructor
           bundle_adjuster
           color_extractor
+          database_cleaner
           database_creator
+          database_merger
           delaunay_mesher
           exhaustive_matcher
           feature_extractor
           feature_importer
+          hierarchical_mapper
           image_deleter
+          image_filterer
           image_rectifier
           image_registrator
           image_undistorter
+          image_undistorter_standalone
           mapper
           matches_importer
           model_aligner
           model_analyzer
+          model_comparer
           model_converter
+          model_cropper
           model_merger
           model_orientation_aligner
+          model_splitter
+          model_transformer
           patch_match_stereo
+          point_filtering
           point_triangulator
+          pose_prior_mapper
           poisson_mesher
+          project_generator
+          rig_configurator
           rig_bundle_adjuster
           sequential_matcher
           spatial_matcher
@@ -209,6 +222,8 @@ available as ``colmap [command]``:
 - ``mapper``: Sparse 3D reconstruction / mapping of the dataset using SfM after
   performing feature extraction and matching.
 
+- ``pose_prior_mapper`` Sparse 3D reconstruction / mapping using pose priors.
+
 - ``hierarchical_mapper``: Sparse 3D reconstruction / mapping of the dataset
   using hierarchical SfM after performing feature extraction and matching.
   This parallelizes the reconstruction process by partitioning the scene into
@@ -254,6 +269,8 @@ available as ``colmap [command]``:
   e.g., when a refinement of the intrinsics is needed or
   after running the ``image_registrator``.
 
+- ``database_cleaner``: Clean specific or all database tables.
+
 - ``database_creator``: Create an empty COLMAP SQLite database with the
   necessary database schema information.
 
@@ -269,20 +286,26 @@ available as ``colmap [command]``:
 - ``model_orientation_aligner``: Align the coordinate axis of a model using a
   Manhattan world assumption.
 
+- ``model_comparer``: Compare statistics of two reconstructions.
+
 - ``model_converter``: Convert the COLMAP export format to another format,
   such as PLY or NVM.
 
 - ``model_cropper``: Crop model to specific bounding box described in GPS or
   model coordinate system.
 
+- ``model_merger``: Attempt to merge two disconnected reconstructions,
+  if they have common registered images.
+
 - ``model_splitter``: Divide model in rectangular sub-models specified from
   file containing bounding box coordinates, or max extent of sub-model, or
   number of subdivisions in each dimension.
 
-- ``model_merger``: Attempt to merge two disconnected reconstructions,
-  if they have common registered images.
+- ``model_transformer``: Transform coordinate frame of a model.
 
 - ``color_extractor``: Extract mean colors for all 3D points of a model.
+
+- ``rig_configurator``: Configure rigs and frames after feature extraction.
 
 - ``vocab_tree_builder``: Create a vocabulary tree from a database with
   extracted images. This is an offline procedure and can be run once, while the

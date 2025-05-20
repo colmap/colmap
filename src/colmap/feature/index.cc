@@ -34,6 +34,10 @@
 namespace colmap {
 namespace {
 
+// Silence clang-tidy warning:
+// Call to virtual method 'KDTreeIndex::freeIndex' during destruction bypasses
+// virtual dispatch.
+// NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
 class FlannFeatureDescriptorIndex : public FeatureDescriptorIndex {
  public:
   void Build(const FeatureDescriptors& index_descriptors) override {
@@ -102,7 +106,7 @@ class FlannFeatureDescriptorIndex : public FeatureDescriptorIndex {
   constexpr static int kNumTreesInForest = 4;
   constexpr static int kNumLeavesToVisit = 128;
 
-  using FlannIndexType = flann::Index<flann::L2<uint8_t>>;
+  using FlannIndexType = flann::KDTreeIndex<flann::L2<uint8_t>>;
   std::unique_ptr<FlannIndexType> index_;
   int num_index_descriptors_ = 0;
 };

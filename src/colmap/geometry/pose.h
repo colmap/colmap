@@ -87,8 +87,8 @@ Eigen::Quaterniond AverageQuaternions(
     const std::vector<double>& weights);
 
 // Linearly interpolate camera pose.
-Rigid3d InterpolateCameraPoses(const Rigid3d& cam_from_world1,
-                               const Rigid3d& cam_from_world2,
+Rigid3d InterpolateCameraPoses(const Rigid3d& cam1_from_world,
+                               const Rigid3d& cam2_from_world,
                                double t);
 
 // Perform cheirality constraint test, i.e., determine which of the triangulated
