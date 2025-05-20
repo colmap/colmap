@@ -55,7 +55,7 @@ struct VocabTreeMatchingOptions {
   int num_nearest_neighbors = 5;
 
   // Number of nearest-neighbor checks to use in retrieval.
-  int num_checks = 256;
+  int num_checks = 32;
 
   // How many images to return after spatial verification. Set to 0 to turn off
   // spatial verification.

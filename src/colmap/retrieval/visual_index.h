@@ -45,7 +45,8 @@
 #include <boost/heap/fibonacci_heap.hpp>
 #include <faiss/Clustering.h>
 #include <faiss/IndexFlat.h>
-#include <faiss/IndexIVFSpectralHash.h>
+#include <faiss/IndexIVF.h>
+#include <faiss/index_factory.h>
 #include <faiss/index_io.h>
 #include <flann/flann.hpp>
 #include <omp.h>
@@ -78,10 +79,7 @@ class VisualIndex {
     int num_neighbors = 1;
 
     // The number of checks in the nearest neighbor search.
-    int num_checks = 256;
-
-    // The number of threads used in the index.
-    int num_threads = kMaxNumThreads;
+    int num_checks = 32;
   };
 
   struct QueryOptions {
@@ -92,14 +90,11 @@ class VisualIndex {
     // is assigned to.
     int num_neighbors = 5;
 
-    // The number of checks in the nearest neighbor search.
-    int num_checks = 256;
-
     // Whether to perform spatial verification after image retrieval.
     int num_images_after_verification = 0;
 
-    // The number of threads used in the index.
-    int num_threads = kMaxNumThreads;
+    // The number of checks in the nearest neighbor search.
+    int num_checks = 32;
   };
 
   struct BuildOptions {
@@ -115,13 +110,12 @@ class VisualIndex {
     int num_rounds = 2;
 
     // The number of checks in the nearest neighbor search.
-    int num_checks = 8;
-
-    // The number of threads used in the index.
-    int num_threads = kMaxNumThreads;
+    int num_checks = 32;
   };
 
   VisualIndex();
+
+  void SetNumThreads(int num_threads);
 
   size_t NumVisualWords() const;
 
@@ -154,7 +148,7 @@ class VisualIndex {
 
   // Read and write the visual index. This can be done for an index with and
   // without indexed images.
-  void Read(const std::string& vocab_tree_path);
+  void Read(const std::string& vocab_tree_path, bool legacy_flann = false);
   void Write(const std::string& path);
 
  private:
@@ -164,6 +158,10 @@ class VisualIndex {
   // Quantize the descriptor space into visual words.
   Eigen::RowMajorMatrixXf Quantize(const BuildOptions& options,
                                    const DescType& descriptors) const;
+
+  // Build visual word search index.
+  void BuildIndex(const BuildOptions& options,
+                  const Eigen::RowMajorMatrixXf& visual_words);
 
   // Query for nearest neighbor images and return nearest neighbor visual word
   // identifiers for each descriptor.
@@ -175,10 +173,10 @@ class VisualIndex {
   // Find the nearest neighbor visual words for the given descriptors.
   WordIds FindWordIds(const DescType& descriptors,
                       int num_neighbors,
-                      int num_threads) const;
+                      int num_checks) const;
 
   // The search structure on the quantized descriptor space.
-  std::unique_ptr<faiss::Index> index_;
+  std::unique_ptr<faiss::IndexIVF> index_;
   std::unique_ptr<faiss::Index> quantizer_;
 
   // The inverted index of the database.
@@ -198,6 +196,12 @@ class VisualIndex {
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
 VisualIndex<kDescType, kDescDim, kEmbeddingDim>::VisualIndex()
     : prepared_(false) {}
+
+template <typename kDescType, int kDescDim, int kEmbeddingDim>
+void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::SetNumThreads(
+    int num_threads) {
+  omp_set_num_threads(GetEffectiveNumThreads(num_threads));
+}
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
 size_t VisualIndex<kDescType, kDescDim, kEmbeddingDim>::NumVisualWords() const {
@@ -226,7 +230,7 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Add(
   }
 
   const WordIds word_ids =
-      FindWordIds(descriptors, options.num_neighbors, options.num_threads);
+      FindWordIds(descriptors, options.num_neighbors, options.num_checks);
 
   for (typename DescType::Index i = 0; i < descriptors.rows(); ++i) {
     const auto& descriptor = descriptors.row(i);
@@ -528,27 +532,7 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Build(
   const Eigen::RowMajorMatrixXf visual_words = Quantize(options, descriptors);
   THROW_CHECK_EQ(visual_words.cols(), kDescDim);
 
-  omp_set_num_threads(GetEffectiveNumThreads(options.num_threads));
-
-  if (visual_words.rows() >= 512) {
-    VLOG(2) << "Training IVFSpectralHash search index for visual words";
-    const int num_centroids = 4 * std::sqrt(visual_words.rows());
-    quantizer_ = std::make_unique<faiss::IndexFlatL2>(kDescDim);
-    index_ = std::make_unique<faiss::IndexIVFSpectralHash>(quantizer_.get(),
-                                                           kDescDim,
-                                                           num_centroids,
-                                                           /*nbit=*/32,
-                                                           /*period=*/1);
-    auto* index_impl = dynamic_cast<faiss::IndexIVFSpectralHash*>(index_.get());
-    index_impl->nprobe = options.num_checks;
-    index_->train(visual_words.rows(), visual_words.data());
-    index_->add(visual_words.rows(), visual_words.data());
-  } else {
-    VLOG(2) << "Training flat search index for visual words.";
-    index_ = std::make_unique<faiss::IndexFlatL2>(kDescDim);
-    index_->train(visual_words.rows(), visual_words.data());
-    index_->add(visual_words.rows(), visual_words.data());
-  }
+  BuildIndex(options, visual_words);
 
   // Initialize a new inverted index.
   inverted_index_ = InvertedIndexType();
@@ -562,19 +546,53 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Build(
   // Learn the Hamming embedding.
   const int kNumNeighbors = 1;
   const WordIds word_ids =
-      FindWordIds(descriptors, kNumNeighbors, options.num_threads);
+      FindWordIds(descriptors, kNumNeighbors, options.num_checks);
   inverted_index_.ComputeHammingEmbedding(descriptors, word_ids);
   VLOG(2) << "Computed hamming embeddings";
 }
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
+void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::BuildIndex(
+    const BuildOptions& options, const Eigen::RowMajorMatrixXf& visual_words) {
+  const int64_t num_centroids = std::min<int64_t>(
+      visual_words.rows(), 4 * std::sqrt(visual_words.rows()));
+  const int64_t spectral_hash_dim =
+      std::min<int64_t>(visual_words.rows(), visual_words.cols() / 2);
+  std::ostringstream index_type;
+  index_type << "IVF" << num_centroids << ",ITQ" << spectral_hash_dim << ",SH";
+  VLOG(2) << "Training " << index_type.str()
+          << " search index for visual words";
+  const auto index_factory_verbose = faiss::index_factory_verbose;
+  faiss::index_factory_verbose = VLOG_IS_ON(3);
+  index_ = std::unique_ptr<faiss::IndexIVF>(dynamic_cast<faiss::IndexIVF*>(
+      faiss::index_factory(kDescDim, index_type.str().c_str())));
+  faiss::index_factory_verbose = index_factory_verbose;
+  index_->train(visual_words.rows(), visual_words.data());
+  index_->add(visual_words.rows(), visual_words.data());
+}
+
+template <typename kDescType, int kDescDim, int kEmbeddingDim>
 void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Read(
-    const std::string& vocab_tree_path) {
+    const std::string& vocab_tree_path, bool legacy_flann) {
   const std::string resolved_path = MaybeDownloadAndCacheFile(vocab_tree_path);
 
   long int file_offset = 0;
 
-  {
+  if (legacy_flann) {
+    std::ifstream file(resolved_path, std::ios::binary);
+    THROW_CHECK_FILE_OPEN(file, resolved_path);
+    const uint64_t rows = ReadBinaryLittleEndian<uint64_t>(&file);
+    const uint64_t cols = ReadBinaryLittleEndian<uint64_t>(&file);
+    FeatureDescriptors visual_words(rows, cols);
+    for (size_t i = 0; i < rows * cols; ++i) {
+      visual_words(i) = ReadBinaryLittleEndian<kDescType>(&file);
+    }
+    file_offset = file.tellg();
+
+    // Read the visual words search index.
+    flann::AutotunedIndex<flann::L2<kDescType>> flann_index(
+        flann::Matrix<kDescType>(visual_words.data(), rows, cols));
+
     FILE* fin = nullptr;
 #ifdef _MSC_VER
     THROW_CHECK_EQ(fopen_s(&fin, resolved_path.c_str(), "rb"), 0);
@@ -582,7 +600,22 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Read(
     fin = fopen(resolved_path.c_str(), "rb");
 #endif
     THROW_CHECK_NOTNULL(fin);
-    index_ = std::unique_ptr<faiss::Index>(faiss::read_index(fin));
+    fseek(fin, file_offset, SEEK_SET);
+    flann_index.loadIndex(fin);
+    file_offset = ftell(fin);
+    fclose(fin);
+
+    BuildIndex(BuildOptions(), visual_words.cast<float>());
+  } else {
+    FILE* fin = nullptr;
+#ifdef _MSC_VER
+    THROW_CHECK_EQ(fopen_s(&fin, resolved_path.c_str(), "rb"), 0);
+#else
+    fin = fopen(resolved_path.c_str(), "rb");
+#endif
+    THROW_CHECK_NOTNULL(fin);
+    index_ = std::unique_ptr<faiss::IndexIVF>(
+        dynamic_cast<faiss::IndexIVF*>(faiss::read_index(fin)));
     file_offset = ftell(fin);
     fclose(fin);
   }
@@ -668,7 +701,7 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::QueryAndFindWordIds(
   }
 
   *word_ids =
-      FindWordIds(descriptors, options.num_neighbors, options.num_threads);
+      FindWordIds(descriptors, options.num_neighbors, options.num_checks);
   inverted_index_.Query(descriptors, *word_ids, image_scores);
 
   auto SortFunc = [](const ImageScore& score1, const ImageScore& score2) {
@@ -696,7 +729,7 @@ typename VisualIndex<kDescType, kDescDim, kEmbeddingDim>::WordIds
 VisualIndex<kDescType, kDescDim, kEmbeddingDim>::FindWordIds(
     const DescType& descriptors,
     const int num_neighbors,
-    const int num_threads) const {
+    const int num_checks) const {
   static_assert(DescType::IsRowMajor, "Descriptors must be row-major");
 
   THROW_CHECK_GT(descriptors.rows(), 0);
@@ -708,12 +741,14 @@ VisualIndex<kDescType, kDescDim, kEmbeddingDim>::FindWordIds(
   const Eigen::RowMajorMatrixXf descriptors_float =
       descriptors.template cast<float>();
 
-  omp_set_num_threads(GetEffectiveNumThreads(num_threads));
+  faiss::SearchParametersIVF search_params;
+  search_params.nprobe = num_checks;
   index_->search(descriptors.rows(),
                  descriptors_float.data(),
                  num_neighbors,
                  distances.data(),
-                 indices_long.data());
+                 indices_long.data(),
+                 &search_params);
 
   return indices_long;
 }

@@ -34,6 +34,7 @@
 #include "colmap/controllers/image_reader.h"
 #include "colmap/controllers/option_manager.h"
 #include "colmap/exe/gui.h"
+#include "colmap/retrieval/visual_index.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/opengl_utils.h"
@@ -412,6 +413,22 @@ int RunVocabTreeMatcher(int argc, char** argv) {
     matcher->Start();
     matcher->Wait();
   }
+
+  return EXIT_SUCCESS;
+}
+
+int RunVocabTreeUpgrader(int argc, char** argv) {
+  std::string input_path;
+  std::string output_path;
+
+  OptionManager options;
+  options.AddRequiredOption("input_path", &input_path);
+  options.AddRequiredOption("output_path", &output_path);
+  options.Parse(argc, argv);
+
+  retrieval::VisualIndex<> index;
+  index.Read(input_path, /*legacy_flann=*/true);
+  index.Write(output_path);
 
   return EXIT_SUCCESS;
 }
