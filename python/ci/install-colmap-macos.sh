@@ -6,7 +6,7 @@ CURRDIR=$(pwd)
 find /usr/local/bin -lname '*/Library/Frameworks/Python.framework/*' -delete
 
 brew update
-brew install git cmake ninja gfortran ccache
+brew install git cmake ninja gfortran ccache libomp
 
 sudo xcode-select --reset
 
@@ -35,6 +35,7 @@ cd ${CURRDIR}
     -DCMAKE_TOOLCHAIN_FILE="${CMAKE_TOOLCHAIN_FILE}" \
     -DVCPKG_TARGET_TRIPLET="${VCPKG_TARGET_TRIPLET}" \
     -DCMAKE_OSX_ARCHITECTURES="${CMAKE_OSX_ARCHITECTURES}" \
+    -DOpenMP_ROOT="$(brew --prefix libomp)" \
     `if [[ ${CIBW_ARCHS_MACOS} == "arm64" ]]; then echo "-DSIMD_ENABLED=OFF"; fi`
 sudo cmake --build build/ --target install
 
