@@ -131,7 +131,7 @@ jobs:
             libeigen3-dev \
             libceres-dev \
             libflann-dev \
-            faiss \
+            libfaiss-dev \
             libfreeimage-dev \
             libmetis-dev \
             libgoogle-glog-dev \
