@@ -388,6 +388,9 @@ endif()
 if(FETCH_POSELIB)
     list(APPEND COLMAP_EXPORT_LIBS PoseLib)
 endif()
+if(FETCH_FAISS)
+    list(APPEND COLMAP_EXPORT_LIBS faiss)
+endif()
 
 # Add unified interface library target to export.
 add_library(colmap INTERFACE)
