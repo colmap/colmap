@@ -165,12 +165,6 @@ jobs:
             fi
           fi
 
-          if [ "${{ matrix.config.asanEnabled }}" == "true" ]; then
-            sudo apt-get install -y clang-17 libomp-17-dev
-            echo "CC=/usr/bin/clang-17" >> $GITHUB_ENV
-            echo "CXX=/usr/bin/clang++-17" >> $GITHUB_ENV
-          fi
-
           if [ "${{ matrix.config.cmakeBuildType }}" == "ClangTidy" ]; then
             sudo apt-get install -y clang-15 clang-tidy-15 libomp-15-dev
             echo "CC=/usr/bin/clang-15" >> $GITHUB_ENV
