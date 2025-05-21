@@ -29,21 +29,14 @@
 
 #include "colmap/feature/matcher.h"
 
-#ifdef COLMAP_FAISS_ENABLED
 #include <faiss/IndexFlat.h>
 #include <faiss/IndexIVFFlat.h>
 #include <faiss/IndexIVFPQ.h>
 #include <faiss/IndexPQ.h>
-#endif
-
-#ifdef COLMAP_FLANN_ENABLED
 #include <flann/flann.hpp>
-#endif
 
 namespace colmap {
 namespace {
-
-#ifdef COLMAP_FAISS_ENABLED
 
 class FaissFeatureDescriptorIndex : public FeatureDescriptorIndex {
  public:
@@ -135,10 +128,6 @@ class FaissFeatureDescriptorIndex : public FeatureDescriptorIndex {
   std::unique_ptr<faiss::IndexFlatL2> coarse_quantizer_;
 };
 
-#endif
-
-#ifdef COLMAP_FLANN_ENABLED
-
 // Silence clang-tidy warning:
 // Call to virtual method 'KDTreeIndex::freeIndex' during destruction bypasses
 // virtual dispatch.
@@ -219,21 +208,15 @@ class FlannFeatureDescriptorIndex : public FeatureDescriptorIndex {
   int num_index_descriptors_ = 0;
 };
 
-#endif
-
 }  // namespace
 
 std::unique_ptr<FeatureDescriptorIndex> FeatureDescriptorIndex::Create(
     Type type) {
   switch (type) {
-#ifdef COLMAP_FAISS_ENABLED
     case Type::FAISS:
       return std::make_unique<FaissFeatureDescriptorIndex>();
-#endif
-#ifdef COLMAP_FLANN_ENABLED
     case Type::FLANN:
       return std::make_unique<FlannFeatureDescriptorIndex>();
-#endif
     default:
       throw std::runtime_error("Feature descriptor index not implemented");
   }

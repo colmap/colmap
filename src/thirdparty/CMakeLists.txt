@@ -61,9 +61,30 @@ if(FETCH_POSELIB)
         ${_fetch_content_declare_args}
     )
     message(STATUS "Configuring PoseLib...")
-    set(MARCH_NATIVE OFF CACHE BOOL "")
+    set(MARCH_NATIVE OFF)
     FetchContent_MakeAvailable(poselib)
     message(STATUS "Configuring PoseLib... done")
+endif()
+
+if(FETCH_FAISS)
+    include(FetchContent)
+    # Avoid warning about DOWNLOAD_EXTRACT_TIMESTAMP in CMake 3.24:
+    if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24.0")
+        cmake_policy(SET CMP0135 NEW)
+    endif()
+    if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.28")
+        set(_fetch_content_declare_args "SYSTEM" "EXCLUDE_FROM_ALL")
+    endif()
+    FetchContent_Declare(faiss
+        URL https://github.com/facebookresearch/faiss/archive/ea1cdf0fb28f31ab36ea95d8d65abfcc184d1b8f.zip
+        URL_HASH SHA256=e39af12b0c92df0254e955ec2b1a9da94b49486fd703bea66a73c728117c9c3c
+        ${_fetch_content_declare_args}
+    )
+    message(STATUS "Configuring faiss...")
+    set(FAISS_ENABLE_GPU OFF)
+    set(FAISS_ENABLE_PYTHON OFF)
+    FetchContent_MakeAvailable(faiss)
+    message(STATUS "Configuring faiss... done")
 endif()
 
 set(CLANG_TIDY_EXE ${CLANG_TIDY_EXE_TEMP})

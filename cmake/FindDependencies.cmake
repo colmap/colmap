@@ -18,20 +18,6 @@ find_package(Eigen3 ${COLMAP_FIND_TYPE})
 find_package(FreeImage ${COLMAP_FIND_TYPE})
 
 find_package(FLANN ${COLMAP_FIND_TYPE})
-if(FLANN_FOUND)
-    message(STATUS "Enabling FLANN support")
-    add_definitions("-DCOLMAP_FLANN_ENABLED")
-else()
-    message(STATUS "Disabling FLANN support")
-endif()
-
-find_package(faiss ${COLMAP_FIND_TYPE})
-if(faiss_FOUND)
-    message(STATUS "Enabling FAISS support")
-    add_definitions("-DCOLMAP_FAISS_ENABLED")
-else()
-    message(STATUS "Disabling FAISS support")
-endif()
 
 find_package(LZ4 ${COLMAP_FIND_TYPE})
 
@@ -139,6 +125,10 @@ endif()
 
 if(NOT FETCH_POSELIB)
     find_package(PoseLib ${COLMAP_FIND_TYPE})
+endif()
+
+if(NOT FETCH_FAISS)
+    find_package(faiss ${COLMAP_FIND_TYPE})
 endif()
 
 set(COLMAP_LINK_DIRS ${Boost_LIBRARY_DIRS})
