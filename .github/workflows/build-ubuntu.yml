@@ -121,6 +121,12 @@ jobs:
 
       - name: Setup Ubuntu
         run: |
+          if [ "${{ matrix.config.os }}" == "ubuntu-22.04" ]; then
+            faiss_pkg_name="libfaiss-dev"
+          elif [ "${{ matrix.config.os }}" == "ubuntu-24.04" ]; then
+            faiss_pkg_name="faiss"
+          fi
+
           sudo apt-get update && sudo apt-get install -y \
             build-essential \
             cmake \
@@ -131,7 +137,7 @@ jobs:
             libeigen3-dev \
             libceres-dev \
             libflann-dev \
-            libfaiss-dev \
+            $faiss_pkg_name \
             libfreeimage-dev \
             libmetis-dev \
             libgoogle-glog-dev \
