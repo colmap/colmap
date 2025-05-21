@@ -147,8 +147,10 @@ Dependencies from `Homebrew <http://brew.sh/>`__::
         boost \
         eigen \
         flann \
+        faiss \
         freeimage \
         curl \
+        libomp \
         metis \
         glog \
         googletest \
@@ -164,7 +166,10 @@ Configure and compile COLMAP::
     cd colmap
     mkdir build
     cd build
-    cmake .. -GNinja -DCMAKE_PREFIX_PATH="$(brew --prefix qt@5)"
+    cmake .. \
+        -GNinja \
+        -DQt5_DIR="$(brew --prefix qt@5)/lib/cmake/Qt5" \
+        -DOpenMP_ROOT="$(brew --prefix libomp)"
     ninja
     sudo ninja install
 
