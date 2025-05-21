@@ -741,7 +741,7 @@ VisualIndex<kDescType, kDescDim, kEmbeddingDim>::FindWordIds(
   const Eigen::RowMajorMatrixXf descriptors_float =
       descriptors.template cast<float>();
 
-  faiss::SearchParametersIVF search_params;
+  faiss::IVFSearchParameters search_params;
   search_params.nprobe = num_checks;
   index_->search(descriptors.rows(),
                  descriptors_float.data(),
