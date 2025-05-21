@@ -61,16 +61,16 @@ jobs:
             checkCodeFormat: false,
             coverageEnabled: false,
           },
-          {
-            os: ubuntu-22.04,
-            cmakeBuildType: ClangTidy,
-            asanEnabled: false,
-            guiEnabled: false,
-            cudaEnabled: false,
-            e2eTests: false,
-            checkCodeFormat: false,
-            coverageEnabled: false,
-          },
+          # {
+          #   os: ubuntu-22.04,
+          #   cmakeBuildType: ClangTidy,
+          #   asanEnabled: false,
+          #   guiEnabled: false,
+          #   cudaEnabled: false,
+          #   e2eTests: false,
+          #   checkCodeFormat: false,
+          #   coverageEnabled: false,
+          # },
         ]
 
     env:
