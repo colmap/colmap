@@ -1,0 +1,13 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 9a988c5d2..248e40b16 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -19,7 +19,7 @@
+ # the License.
+ # =============================================================================
+ 
+-cmake_minimum_required(VERSION 3.24.0 FATAL_ERROR)
++cmake_minimum_required(VERSION 3.17.0 FATAL_ERROR)
+ 
+ set(FAISS_LANGUAGES CXX)
+ 

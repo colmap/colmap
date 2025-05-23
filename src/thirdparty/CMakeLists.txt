@@ -76,13 +76,15 @@ if(FETCH_FAISS)
         set(_fetch_content_declare_args "SYSTEM" "EXCLUDE_FROM_ALL")
     endif()
     FetchContent_Declare(faiss
-        URL https://github.com/facebookresearch/faiss/archive/02ef6b6c099605295f96767f87772cebc4140b07.zip
-        URL_HASH SHA256=c42d8227389e195746ed7c46e02e1a77929b832cab7b2d8eca922ab083e5c2d6
+        URL https://github.com/facebookresearch/faiss/archive/ea1cdf0fb28f31ab36ea95d8d65abfcc184d1b8f.zip
+        URL_HASH SHA256=e39af12b0c92df0254e955ec2b1a9da94b49486fd703bea66a73c728117c9c3c
+        PATCH_COMMAND git apply ${CMAKE_CURRENT_SOURCE_DIR}/faiss.patch
         ${_fetch_content_declare_args}
     )
     message(STATUS "Configuring faiss...")
     set(FAISS_ENABLE_GPU OFF)
     set(FAISS_ENABLE_PYTHON OFF)
+    set(FAISS_ENABLE_MKL OFF)
     set(BUILD_TESTING OFF)
     FetchContent_MakeAvailable(faiss)
     message(STATUS "Configuring faiss... done")
