@@ -78,7 +78,7 @@ if(FETCH_FAISS)
     FetchContent_Declare(faiss
         URL https://github.com/facebookresearch/faiss/archive/ea1cdf0fb28f31ab36ea95d8d65abfcc184d1b8f.zip
         URL_HASH SHA256=e39af12b0c92df0254e955ec2b1a9da94b49486fd703bea66a73c728117c9c3c
-        PATCH_COMMAND git apply ${CMAKE_CURRENT_SOURCE_DIR}/faiss.patch
+        PATCH_COMMAND ${GIT_EXECUTABLE} apply ${CMAKE_CURRENT_SOURCE_DIR}/faiss.patch
         ${_fetch_content_declare_args}
     )
     message(STATUS "Configuring faiss...")
