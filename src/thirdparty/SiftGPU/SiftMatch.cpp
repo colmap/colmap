@@ -36,7 +36,7 @@ using namespace std;
 #include "SiftMatch.h"
 #include "FrameBufferObject.h"
 
-#if defined(CUDA_SIFTGPU_ENABLED)
+#if defined(SIFTGPU_CUDA_ENABLED)
 #include "CuTexImage.h"
 #include "SiftMatchCU.h"
 #endif
@@ -562,7 +562,7 @@ int SiftMatchGPU::_CreateContextGL()
     if (__language >= SIFTMATCH_CUDA) {}
 	else if(!GlobalUtil::CreateWindowEZ())
 	{
-#if CUDA_SIFTGPU_ENABLED
+#if SIFTGPU_CUDA_ENABLED
 		__language = SIFTMATCH_CUDA;
 #else
 		return 0;
@@ -576,7 +576,7 @@ int SiftMatchGPU::_VerifyContextGL()
 {
 	if(__matcher) return GlobalUtil::_GoodOpenGL;
 
-#ifdef CUDA_SIFTGPU_ENABLED
+#ifdef SIFTGPU_CUDA_ENABLED
 
     if(__language >= SIFTMATCH_CUDA) {}
     else if(__language == SIFTMATCH_SAME_AS_SIFTGPU && GlobalUtil::_UseCUDA){}
@@ -621,7 +621,7 @@ void SiftMatchGPU::SetLanguage(int language)
 {
 	if(__matcher) return;
     ////////////////////////
-#ifdef CUDA_SIFTGPU_ENABLED
+#ifdef SIFTGPU_CUDA_ENABLED
 	if(language >= SIFTMATCH_CUDA) GlobalUtil::_DeviceIndex = language - SIFTMATCH_CUDA;
 #endif
     __language = language > SIFTMATCH_CUDA ? SIFTMATCH_CUDA : language;
