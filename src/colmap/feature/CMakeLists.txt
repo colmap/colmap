@@ -66,6 +66,7 @@ COLMAP_ADD_LIBRARY(
         colmap_sensor
         colmap_vlfeat
         Eigen3::Eigen
+        faiss
         flann::flann_cpp_s
         lz4
 )
@@ -74,9 +75,6 @@ if(GPU_ENABLED)
     if(NOT GUI_ENABLED)
         target_link_libraries(colmap_feature PRIVATE GLEW::GLEW)
     endif()
-endif()
-if(faiss_FOUND)
-    target_link_libraries(colmap_feature PRIVATE faiss)
 endif()
 
 COLMAP_ADD_TEST(

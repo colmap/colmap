@@ -56,8 +56,8 @@ if(FETCH_POSELIB)
         set(_fetch_content_declare_args "SYSTEM" "EXCLUDE_FROM_ALL")
     endif()
     FetchContent_Declare(poselib
-        URL https://github.com/PoseLib/PoseLib/archive/8028473d92c9347794a0e3d3541863b5cbb15743.zip
-        URL_HASH SHA256=20ff75d14c839dcab3d38fb51503c47088898f394b812472a758ec17720a54c2
+        URL https://github.com/PoseLib/PoseLib/archive/f119951fca625133112acde48daffa5f20eba451.zip
+        URL_HASH SHA256=3faa27d9d1f6ae7cc47602a66c10ac6f64457bc65a959d1880947d3b3bfe1ed1
         ${_fetch_content_declare_args}
     )
     message(STATUS "Configuring PoseLib...")
