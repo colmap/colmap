@@ -46,15 +46,19 @@ if(GPU_ENABLED)
 endif()
 add_subdirectory(VLFeat)
 
+# Avoid warning about DOWNLOAD_EXTRACT_TIMESTAMP in CMake 3.24:
+if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24.0")
+    cmake_policy(SET CMP0135 NEW)
+endif()
+if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.28")
+    set(_fetch_content_declare_args "SYSTEM" "EXCLUDE_FROM_ALL")
+endif()
+if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.13")
+    cmake_policy(SET CMP0077 NEW)
+endif()
+
 if(FETCH_POSELIB)
     include(FetchContent)
-    # Avoid warning about DOWNLOAD_EXTRACT_TIMESTAMP in CMake 3.24:
-    if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24.0")
-        cmake_policy(SET CMP0135 NEW)
-    endif()
-    if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.28")
-        set(_fetch_content_declare_args "SYSTEM" "EXCLUDE_FROM_ALL")
-    endif()
     FetchContent_Declare(poselib
         URL https://github.com/PoseLib/PoseLib/archive/f119951fca625133112acde48daffa5f20eba451.zip
         URL_HASH SHA256=3faa27d9d1f6ae7cc47602a66c10ac6f64457bc65a959d1880947d3b3bfe1ed1
@@ -68,13 +72,6 @@ endif()
 
 if(FETCH_FAISS)
     include(FetchContent)
-    # Avoid warning about DOWNLOAD_EXTRACT_TIMESTAMP in CMake 3.24:
-    if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24.0")
-        cmake_policy(SET CMP0135 NEW)
-    endif()
-    if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.28")
-        set(_fetch_content_declare_args "SYSTEM" "EXCLUDE_FROM_ALL")
-    endif()
     FetchContent_Declare(faiss
         URL https://github.com/facebookresearch/faiss/archive/ea1cdf0fb28f31ab36ea95d8d65abfcc184d1b8f.zip
         URL_HASH SHA256=e39af12b0c92df0254e955ec2b1a9da94b49486fd703bea66a73c728117c9c3c
