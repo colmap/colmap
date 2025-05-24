@@ -157,6 +157,7 @@ Dependencies from `Homebrew <http://brew.sh/>`__::
         glew \
         cgal \
         sqlite3
+    brew link --force libomp
 
 Configure and compile COLMAP::
 
