@@ -71,9 +71,8 @@ endif()
 if(FETCH_FAISS)
     include(FetchContent)
     FetchContent_Declare(faiss
-        URL https://github.com/facebookresearch/faiss/archive/ea1cdf0fb28f31ab36ea95d8d65abfcc184d1b8f.zip
-        URL_HASH SHA256=e39af12b0c92df0254e955ec2b1a9da94b49486fd703bea66a73c728117c9c3c
-        PATCH_COMMAND ${GIT_EXECUTABLE} apply ${CMAKE_CURRENT_SOURCE_DIR}/faiss.patch
+        URL https://github.com/ahojnnes/faiss/archive/84a2fd7235be00add67d755e0300314cac669547.zip
+        URL_HASH SHA256=919ae53ff365fd85ab2a0a51b0dd58aff03718b025817b411a95f1afeb43649f
         ${_fetch_content_declare_args}
     )
     message(STATUS "Configuring faiss...")
