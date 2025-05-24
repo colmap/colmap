@@ -77,7 +77,6 @@ retrieval::VisualIndex<> CreateSyntheticVisualIndex() {
   retrieval::VisualIndex<> visual_index;
   retrieval::VisualIndex<>::BuildOptions build_options;
   build_options.num_visual_words = 5;
-  build_options.branching = 5;
   // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
   visual_index.Build(build_options,
                      retrieval::VisualIndex<>::DescType::Random(50, 128));

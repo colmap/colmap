@@ -46,24 +46,42 @@ if(GPU_ENABLED)
 endif()
 add_subdirectory(VLFeat)
 
+# Avoid warning about DOWNLOAD_EXTRACT_TIMESTAMP in CMake 3.24:
+if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24")
+    cmake_policy(SET CMP0135 NEW)
+endif()
+
+if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.28")
+    set(_fetch_content_declare_args "SYSTEM" "EXCLUDE_FROM_ALL")
+endif()
+
 if(FETCH_POSELIB)
     include(FetchContent)
-    # Avoid warning about DOWNLOAD_EXTRACT_TIMESTAMP in CMake 3.24:
-    if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24.0")
-        cmake_policy(SET CMP0135 NEW)
-    endif()
-    if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.28")
-        set(_fetch_content_declare_args "SYSTEM" "EXCLUDE_FROM_ALL")
-    endif()
     FetchContent_Declare(poselib
-        URL https://github.com/PoseLib/PoseLib/archive/8028473d92c9347794a0e3d3541863b5cbb15743.zip
-        URL_HASH SHA256=20ff75d14c839dcab3d38fb51503c47088898f394b812472a758ec17720a54c2
+        URL https://github.com/PoseLib/PoseLib/archive/f119951fca625133112acde48daffa5f20eba451.zip
+        URL_HASH SHA256=3faa27d9d1f6ae7cc47602a66c10ac6f64457bc65a959d1880947d3b3bfe1ed1
         ${_fetch_content_declare_args}
     )
     message(STATUS "Configuring PoseLib...")
     set(MARCH_NATIVE OFF CACHE BOOL "")
     FetchContent_MakeAvailable(poselib)
     message(STATUS "Configuring PoseLib... done")
+endif()
+
+if(FETCH_FAISS)
+    include(FetchContent)
+    FetchContent_Declare(faiss
+        URL https://github.com/ahojnnes/faiss/archive/84a2fd7235be00add67d755e0300314cac669547.zip
+        URL_HASH SHA256=919ae53ff365fd85ab2a0a51b0dd58aff03718b025817b411a95f1afeb43649f
+        ${_fetch_content_declare_args}
+    )
+    message(STATUS "Configuring faiss...")
+    set(FAISS_ENABLE_GPU OFF)
+    set(FAISS_ENABLE_PYTHON OFF)
+    set(FAISS_ENABLE_MKL OFF)
+    set(BUILD_TESTING OFF)
+    FetchContent_MakeAvailable(faiss)
+    message(STATUS "Configuring faiss... done")
 endif()
 
 set(CLANG_TIDY_EXE ${CLANG_TIDY_EXE_TEMP})

@@ -120,15 +120,17 @@ std::vector<Image> ReadVocabTreeRetrievalImageList(const std::string& path,
 int RunVocabTreeBuilder(int argc, char** argv) {
   std::string vocab_tree_path = kDefaultVocabTreeUri;
   retrieval::VisualIndex<>::BuildOptions build_options;
+  int num_threads = -1;
   int max_num_images = -1;
 
   OptionManager options;
   options.AddDatabaseOptions();
   options.AddRequiredOption("vocab_tree_path", &vocab_tree_path);
   options.AddDefaultOption("num_visual_words", &build_options.num_visual_words);
-  options.AddDefaultOption("num_checks", &build_options.num_checks);
-  options.AddDefaultOption("branching", &build_options.branching);
   options.AddDefaultOption("num_iterations", &build_options.num_iterations);
+  options.AddDefaultOption("num_checks", &build_options.num_checks);
+  options.AddDefaultOption("num_threads", &num_threads);
+  options.AddDefaultOption("num_rounds", &build_options.num_rounds);
   options.AddDefaultOption("max_num_images", &max_num_images);
   options.Parse(argc, argv);
 
@@ -139,6 +141,7 @@ int RunVocabTreeBuilder(int argc, char** argv) {
   THROW_CHECK_GT(descriptors.size(), 0);
 
   retrieval::VisualIndex<> visual_index;
+  visual_index.SetNumThreads(num_threads);
 
   LOG(INFO) << "Building index for visual words...";
   // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
@@ -158,6 +161,7 @@ int RunVocabTreeRetriever(int argc, char** argv) {
   std::string query_image_list_path;
   std::string output_index_path;
   retrieval::VisualIndex<>::QueryOptions query_options;
+  int num_threads = -1;
   int max_num_features = -1;
 
   OptionManager options;
@@ -170,12 +174,14 @@ int RunVocabTreeRetriever(int argc, char** argv) {
   options.AddDefaultOption("num_images", &query_options.max_num_images);
   options.AddDefaultOption("num_neighbors", &query_options.num_neighbors);
   options.AddDefaultOption("num_checks", &query_options.num_checks);
+  options.AddDefaultOption("num_threads", &num_threads);
   options.AddDefaultOption("num_images_after_verification",
                            &query_options.num_images_after_verification);
   options.AddDefaultOption("max_num_features", &max_num_features);
   options.Parse(argc, argv);
 
   retrieval::VisualIndex<> visual_index;
+  visual_index.SetNumThreads(num_threads);
   visual_index.Read(vocab_tree_path);
 
   Database database(*options.database_path);

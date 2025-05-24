@@ -46,6 +46,7 @@ COLMAP_ADD_LIBRARY(
         Eigen3::Eigen
         flann::flann_cpp_s
         lz4
+        faiss
     PRIVATE_LINK_LIBS
         colmap_math
         colmap_estimators

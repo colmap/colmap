@@ -18,6 +18,7 @@ find_package(Eigen3 ${COLMAP_FIND_TYPE})
 find_package(FreeImage ${COLMAP_FIND_TYPE})
 
 find_package(FLANN ${COLMAP_FIND_TYPE})
+
 find_package(LZ4 ${COLMAP_FIND_TYPE})
 
 find_package(Metis ${COLMAP_FIND_TYPE})
@@ -56,9 +57,13 @@ if(OPENMP_ENABLED AND NOT "${CMAKE_BUILD_TYPE}" STREQUAL "ClangTidy")
     find_package(OpenMP QUIET)
 endif()
 
-if(OPENMP_ENABLED AND OPENMP_FOUND)
-    message(STATUS "Enabling OpenMP support")
-    add_definitions("-DCOLMAP_OPENMP_ENABLED")
+if(OPENMP_ENABLED)
+    if(OpenMP_FOUND)
+        message(STATUS "Enabling OpenMP support")
+        add_definitions("-DCOLMAP_OPENMP_ENABLED")
+    else()
+        message(STATUS "Disabling OpenMP support (not found)")
+    endif()
 else()
     message(STATUS "Disabling OpenMP support")
 endif()
@@ -124,6 +129,10 @@ endif()
 
 if(NOT FETCH_POSELIB)
     find_package(PoseLib ${COLMAP_FIND_TYPE})
+endif()
+
+if(NOT FETCH_FAISS)
+    find_package(faiss ${COLMAP_FIND_TYPE})
 endif()
 
 set(COLMAP_LINK_DIRS ${Boost_LIBRARY_DIRS})

@@ -38,9 +38,16 @@ namespace colmap {
 
 class FeatureDescriptorIndex {
  public:
+  enum class Type {
+    DEFAULT = 1,
+    FAISS = 1,
+    FLANN = 2,
+  };
+
   virtual ~FeatureDescriptorIndex() = default;
 
-  static std::unique_ptr<FeatureDescriptorIndex> Create();
+  static std::unique_ptr<FeatureDescriptorIndex> Create(
+      Type type = Type::DEFAULT);
 
   virtual void Build(const FeatureDescriptors& descriptors) = 0;
 

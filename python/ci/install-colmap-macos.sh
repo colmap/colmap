@@ -6,7 +6,8 @@ CURRDIR=$(pwd)
 find /usr/local/bin -lname '*/Library/Frameworks/Python.framework/*' -delete
 
 brew update
-brew install git cmake ninja gfortran ccache
+brew install git cmake ninja gfortran ccache libomp
+brew link --force libomp
 
 sudo xcode-select --reset
 
