@@ -37,7 +37,7 @@
 #include <limits>
 #include <list>
 #include <memory>
-#include <mutex>
+#include <shared_mutex>
 #include <unordered_map>
 
 namespace colmap {
@@ -127,7 +127,7 @@ class ThreadSafeLRUCache {
   // Function to compute new values if not in the cache.
   const LoadFn load_fn_;
 
-  mutable std::mutex cache_mutex_;
+  mutable std::shared_mutex cache_mutex_;
   LRUCache<key_t, Entry> cache_;
 };
 
@@ -269,22 +269,19 @@ ThreadSafeLRUCache<key_t, value_t>::ThreadSafeLRUCache(
 
 template <typename key_t, typename value_t>
 size_t ThreadSafeLRUCache<key_t, value_t>::NumElems() const {
-  // TODO: With C++17, we can use std::shared_lock/mutex.
-  std::lock_guard<std::mutex> lock(cache_mutex_);
+  std::shared_lock lock(cache_mutex_);
   return cache_.NumElems();
 }
 
 template <typename key_t, typename value_t>
 size_t ThreadSafeLRUCache<key_t, value_t>::MaxNumElems() const {
-  // TODO: With C++17, we can use std::shared_lock/mutex.
-  std::lock_guard<std::mutex> lock(cache_mutex_);
+  std::shared_lock lock(cache_mutex_);
   return cache_.MaxNumElems();
 }
 
 template <typename key_t, typename value_t>
 bool ThreadSafeLRUCache<key_t, value_t>::Exists(const key_t& key) const {
-  // TODO: With C++17, we can use std::shared_lock/mutex.
-  std::lock_guard<std::mutex> lock(cache_mutex_);
+  std::shared_lock lock(cache_mutex_);
   return cache_.Exists(key);
 }
 
@@ -296,7 +293,7 @@ std::shared_ptr<value_t> ThreadSafeLRUCache<key_t, value_t>::Get(
   std::shared_future<std::shared_ptr<value_t>> shared_future;
 
   {
-    std::lock_guard<std::mutex> lock(cache_mutex_);
+    std::unique_lock lock(cache_mutex_);
     entry = cache_.Get(key);
     if (entry == nullptr) {
       return nullptr;
@@ -313,7 +310,7 @@ std::shared_ptr<value_t> ThreadSafeLRUCache<key_t, value_t>::Get(
       entry->promise.set_value(THROW_CHECK_NOTNULL(load_fn_(key)));
     } catch (...) {
       // Evict the cache entry after load failed and set the exception.
-      std::lock_guard<std::mutex> lock(cache_mutex_);
+      std::unique_lock lock(cache_mutex_);
       cache_.Evict(key);
       entry->promise.set_exception(std::current_exception());
     }
@@ -324,19 +321,19 @@ std::shared_ptr<value_t> ThreadSafeLRUCache<key_t, value_t>::Get(
 
 template <typename key_t, typename value_t>
 bool ThreadSafeLRUCache<key_t, value_t>::Evict(const key_t& key) {
-  std::lock_guard<std::mutex> lock(cache_mutex_);
+  std::unique_lock lock(cache_mutex_);
   return cache_.Evict(key);
 }
 
 template <typename key_t, typename value_t>
 void ThreadSafeLRUCache<key_t, value_t>::Pop() {
-  std::lock_guard<std::mutex> lock(cache_mutex_);
+  std::unique_lock lock(cache_mutex_);
   return cache_.Pop();
 }
 
 template <typename key_t, typename value_t>
 void ThreadSafeLRUCache<key_t, value_t>::Clear() {
-  std::lock_guard<std::mutex> lock(cache_mutex_);
+  std::unique_lock lock(cache_mutex_);
   return cache_.Clear();
 }
 
