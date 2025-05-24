@@ -8,10 +8,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.30")
     cmake_policy(SET CMP0167 NEW)
 endif()
 
-if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.12")
-    cmake_policy(SET CMP0074 OLD)
-endif()
-
 find_package(Boost ${COLMAP_FIND_TYPE} COMPONENTS
              graph
              program_options
