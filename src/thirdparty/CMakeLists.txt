@@ -51,10 +51,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24")
     cmake_policy(SET CMP0135 NEW)
 endif()
 
-if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.12")
-    cmake_policy(SET CMP0074 NEW)
-endif()
-
 if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.28")
     set(_fetch_content_declare_args "SYSTEM" "EXCLUDE_FROM_ALL")
 endif()
