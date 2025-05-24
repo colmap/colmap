@@ -84,13 +84,13 @@ GeneralizedRelativePoseProblem CreateGeneralizedRelativePoseProblem(
   }
 
   std::vector<Eigen::Vector3d> points3D;
-  for (size_t i = 0; i < num_points; ++i) {
+  for (int i = 0; i < num_points; ++i) {
     points3D.emplace_back(Eigen::Vector3d::Random());
   }
 
-  problem.points1.reserve(points3D.size());
-  problem.points2.reserve(points3D.size());
-  for (size_t i = 0; i < points3D.size(); ++i) {
+  problem.points1.reserve(num_points);
+  problem.points2.reserve(num_points);
+  for (int i = 0; i < num_points; ++i) {
     const size_t cam_idx1 = i % num_cameras1;
     const size_t cam_idx2 = i % num_cameras2;
     const Eigen::Vector3d point3D_in_cam1 =
