@@ -73,13 +73,14 @@ jobs:
           echo "CMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}" >> "$GITHUB_ENV"
           echo "CMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES}" >> "$GITHUB_ENV"
           echo "ARCHFLAGS=-arch ${CMAKE_OSX_ARCHITECTURES}" >> "$GITHUB_ENV"
+          echo "LDFLAGS=-L/opt/homebrew/opt/libomp/lib" >> "$GITHUB_ENV"
+          echo "CPPFLAGS=-I/opt/homebrew/opt/libomp/include" >> "$GITHUB_ENV"
 
           # Fix: cibuildhweel cannot interpolate env variables.
           CONFIG_SETTINGS="cmake.define.CMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}"
           CONFIG_SETTINGS="${CONFIG_SETTINGS} cmake.define.VCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET}"
           CONFIG_SETTINGS="${CONFIG_SETTINGS} cmake.define.VCPKG_INSTALLED_DIR=${{ github.workspace }}/build/vcpkg_installed"
           CONFIG_SETTINGS="${CONFIG_SETTINGS} cmake.define.CMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES}"
-          CONFIG_SETTINGS="${CONFIG_SETTINGS} cmake.define.OpenMP_ROOT=/opt/homebrew/opt/libomp"
           echo "CIBW_CONFIG_SETTINGS_MACOS=${CONFIG_SETTINGS}" >> "$GITHUB_ENV"
 
           # vcpkg binary caching
