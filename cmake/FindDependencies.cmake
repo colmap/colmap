@@ -54,12 +54,7 @@ if(TESTS_ENABLED)
 endif()
 
 if(OPENMP_ENABLED AND NOT "${CMAKE_BUILD_TYPE}" STREQUAL "ClangTidy")
-    cmake_policy(PUSH)
-    if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.12")
-        cmake_policy(SET CMP0074 NEW)
-    endif()
     find_package(OpenMP QUIET)
-    cmake_policy(POP)
 endif()
 
 if(OPENMP_ENABLED)
