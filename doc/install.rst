@@ -166,8 +166,7 @@ Configure and compile COLMAP::
     cd build
     cmake .. \
         -GNinja \
-        -DQt5_DIR="$(brew --prefix qt@5)/lib/cmake/Qt5" \
-        -DOpenMP_ROOT="$(brew --prefix libomp)"
+        -DQt5_DIR="$(brew --prefix qt@5)/lib/cmake/Qt5"
     ninja
     sudo ninja install
 

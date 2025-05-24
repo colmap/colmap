@@ -65,6 +65,7 @@ jobs:
             cgal \
             sqlite3 \
             ccache
+          brew link --force libomp
 
       - name: Configure and build
         run: |
@@ -76,8 +77,7 @@ jobs:
             -GNinja \
             -DCMAKE_BUILD_TYPE=${{ matrix.config.cmakeBuildType }} \
             -DTESTS_ENABLED=ON \
-            -DQt5_DIR="$(brew --prefix qt@5)/lib/cmake/Qt5" \
-            -DOpenMP_ROOT="$(brew --prefix libomp)"
+            -DQt5_DIR="$(brew --prefix qt@5)/lib/cmake/Qt5"
           ninja
 
       - name: Run tests
