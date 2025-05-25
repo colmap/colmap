@@ -31,6 +31,7 @@
 
 #include "colmap/feature/utils.h"
 #include "colmap/geometry/gps.h"
+#include "colmap/util/file.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
@@ -40,6 +41,8 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+
+#include <flann/flann.hpp>
 
 namespace colmap {
 namespace {
@@ -234,7 +237,7 @@ VocabTreePairGenerator::VocabTreePairGenerator(
   LOG(INFO) << "Generating image pairs with vocabulary tree...";
 
   // Read the pre-trained vocabulary tree from disk.
-  visual_index_.Read(options_.vocab_tree_path);
+  visual_index_ = retrieval::VisualIndex::Read(options_.vocab_tree_path);
 
   const std::vector<image_t> all_image_ids = cache_->GetImageIds();
   if (query_image_ids.size() > 0) {
@@ -273,7 +276,7 @@ VocabTreePairGenerator::VocabTreePairGenerator(
 
   // Since we parallelize over the query images, there is no need to parallelize
   // the nearest neighbor search over the query descriptors.
-  visual_index_.SetNumThreads(1);
+  visual_index_->SetNumThreads(1);
   query_options_.max_num_images = options_.num_images;
   query_options_.num_neighbors = options_.num_nearest_neighbors;
   query_options_.num_checks = options_.num_checks;
@@ -343,14 +346,14 @@ std::vector<std::pair<image_t, image_t>> VocabTreePairGenerator::Next() {
 
 void VocabTreePairGenerator::IndexImages(
     const std::vector<image_t>& image_ids) {
-  retrieval::VisualIndex<>::IndexOptions index_options;
+  retrieval::VisualIndex::IndexOptions index_options;
   // We only assign each feature to a single visual word in the indexing phase.
   // During the query phase, we check for overlap in possibly multiple nearest
   // neighbor visual words. We could do it symmetrically but experiments showed
   // only marginal improvements that do not justify the memory/compute increase.
   index_options.num_neighbors = 1;
   index_options.num_checks = options_.num_checks;
-  visual_index_.SetNumThreads(options_.num_threads);
+  visual_index_->SetNumThreads(options_.num_threads);
 
   for (size_t i = 0; i < image_ids.size(); ++i) {
     Timer timer;
@@ -364,12 +367,13 @@ void VocabTreePairGenerator::IndexImages(
       ExtractTopScaleFeatures(
           &keypoints, &descriptors, options_.max_num_features);
     }
-    visual_index_.Add(index_options, image_ids[i], keypoints, descriptors);
+    visual_index_->Add(
+        index_options, image_ids[i], keypoints, descriptors.cast<float>());
     LOG(INFO) << StringPrintf(" in %.3fs", timer.ElapsedSeconds());
   }
 
   // Compute the TF-IDF weights, etc.
-  visual_index_.Prepare();
+  visual_index_->Prepare();
 }
 
 void VocabTreePairGenerator::Query(const image_t image_id) {
@@ -383,8 +387,10 @@ void VocabTreePairGenerator::Query(const image_t image_id) {
 
   Retrieval retrieval;
   retrieval.image_id = image_id;
-  visual_index_.Query(
-      query_options_, keypoints, descriptors, &retrieval.image_scores);
+  visual_index_->Query(query_options_,
+                       keypoints,
+                       descriptors.cast<float>(),
+                       &retrieval.image_scores);
 
   THROW_CHECK(queue_.Push(std::move(retrieval)));
 }

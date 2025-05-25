@@ -36,6 +36,7 @@
 #include "colmap/exe/gui.h"
 #include "colmap/retrieval/visual_index.h"
 #include "colmap/sensor/models.h"
+#include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/opengl_utils.h"
 
@@ -426,9 +427,9 @@ int RunVocabTreeUpgrader(int argc, char** argv) {
   options.AddRequiredOption("output_path", &output_path);
   options.Parse(argc, argv);
 
-  retrieval::VisualIndex<> index;
-  index.Read(input_path, /*legacy_flann=*/true);
-  index.Write(output_path);
+  std::unique_ptr<retrieval::VisualIndex> index =
+      retrieval::VisualIndex::Read(input_path, /*legacy_flann=*/true);
+  index->Write(output_path);
 
   return EXIT_SUCCESS;
 }

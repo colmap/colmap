@@ -48,14 +48,14 @@ namespace {
 // Loads descriptors for training from the database. Loads all descriptors from
 // the database if max_num_images < 0, otherwise the descriptors of a random
 // subset of images are selected.
-FeatureDescriptors LoadRandomDatabaseDescriptors(
+retrieval::VisualIndex::Descriptors LoadRandomDatabaseDescriptors(
     const std::string& database_path, const int max_num_images) {
   Database database(database_path);
   DatabaseTransaction database_transaction(&database);
 
   const std::vector<Image> images = database.ReadAllImages();
 
-  FeatureDescriptors descriptors;
+  retrieval::VisualIndex::Descriptors descriptors;
 
   std::vector<size_t> image_idxs;
   size_t num_descriptors = 0;
@@ -84,7 +84,7 @@ FeatureDescriptors LoadRandomDatabaseDescriptors(
     const FeatureDescriptors image_descriptors =
         database.ReadDescriptors(image.ImageId());
     descriptors.block(descriptor_row, 0, image_descriptors.rows(), 128) =
-        image_descriptors;
+        image_descriptors.cast<float>();
     descriptor_row += image_descriptors.rows();
   }
 
@@ -119,7 +119,7 @@ std::vector<Image> ReadVocabTreeRetrievalImageList(const std::string& path,
 
 int RunVocabTreeBuilder(int argc, char** argv) {
   std::string vocab_tree_path = kDefaultVocabTreeUri;
-  retrieval::VisualIndex<>::BuildOptions build_options;
+  retrieval::VisualIndex::BuildOptions build_options;
   int num_threads = -1;
   int max_num_images = -1;
 
@@ -140,17 +140,17 @@ int RunVocabTreeBuilder(int argc, char** argv) {
   LOG(INFO) << "=> Loaded a total of " << descriptors.rows() << " descriptors";
   THROW_CHECK_GT(descriptors.size(), 0);
 
-  retrieval::VisualIndex<> visual_index;
-  visual_index.SetNumThreads(num_threads);
+  auto visual_index = retrieval::VisualIndex::Create();
+  visual_index->SetNumThreads(num_threads);
 
   LOG(INFO) << "Building index for visual words...";
   // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
-  visual_index.Build(build_options, descriptors);
+  visual_index->Build(build_options, descriptors);
   LOG(INFO) << "=> Quantized descriptor space using "
-            << visual_index.NumVisualWords() << " visual words";
+            << visual_index->NumVisualWords() << " visual words";
 
   LOG(INFO) << "Saving index to file...";
-  visual_index.Write(vocab_tree_path);
+  visual_index->Write(vocab_tree_path);
 
   return EXIT_SUCCESS;
 }
@@ -160,7 +160,7 @@ int RunVocabTreeRetriever(int argc, char** argv) {
   std::string database_image_list_path;
   std::string query_image_list_path;
   std::string output_index_path;
-  retrieval::VisualIndex<>::QueryOptions query_options;
+  retrieval::VisualIndex::QueryOptions query_options;
   int num_threads = -1;
   int max_num_features = -1;
 
@@ -180,9 +180,9 @@ int RunVocabTreeRetriever(int argc, char** argv) {
   options.AddDefaultOption("max_num_features", &max_num_features);
   options.Parse(argc, argv);
 
-  retrieval::VisualIndex<> visual_index;
-  visual_index.SetNumThreads(num_threads);
-  visual_index.Read(vocab_tree_path);
+  auto visual_index = retrieval::VisualIndex::Create();
+  visual_index->SetNumThreads(num_threads);
+  visual_index->Read(vocab_tree_path);
 
   Database database(*options.database_path);
 
@@ -205,7 +205,7 @@ int RunVocabTreeRetriever(int argc, char** argv) {
                      "Indexing image [%d/%d]", i + 1, database_images.size())
               << std::flush;
 
-    if (visual_index.IsImageIndexed(database_images[i].ImageId())) {
+    if (visual_index->IsImageIndexed(database_images[i].ImageId())) {
       continue;
     }
 
@@ -215,21 +215,21 @@ int RunVocabTreeRetriever(int argc, char** argv) {
       ExtractTopScaleFeatures(&keypoints, &descriptors, max_num_features);
     }
 
-    visual_index.Add(retrieval::VisualIndex<>::IndexOptions(),
-                     database_images[i].ImageId(),
-                     keypoints,
-                     descriptors);
+    visual_index->Add(retrieval::VisualIndex::IndexOptions(),
+                      database_images[i].ImageId(),
+                      keypoints,
+                      descriptors.cast<float>());
 
     LOG(INFO) << StringPrintf(" in %.3fs", timer.ElapsedSeconds());
   }
 
   // Compute the TF-IDF weights, etc.
-  visual_index.Prepare();
+  visual_index->Prepare();
 
   // Optionally save the indexing data for the database images (as well as the
   // original vocabulary tree data) to speed up future indexing.
   if (!output_index_path.empty()) {
-    visual_index.Write(output_index_path);
+    visual_index->Write(output_index_path);
   }
 
   if (query_images.empty()) {
@@ -263,7 +263,8 @@ int RunVocabTreeRetriever(int argc, char** argv) {
     }
 
     std::vector<retrieval::ImageScore> image_scores;
-    visual_index.Query(query_options, keypoints, descriptors, &image_scores);
+    visual_index->Query(
+        query_options, keypoints, descriptors.cast<float>(), &image_scores);
 
     LOG(INFO) << StringPrintf(" in %.3fs", timer.ElapsedSeconds());
     for (const auto& image_score : image_scores) {

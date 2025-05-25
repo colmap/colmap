@@ -36,6 +36,8 @@
 #include "colmap/util/threading.h"
 #include "colmap/util/types.h"
 
+#include <unordered_set>
+
 namespace colmap {
 
 struct ExhaustiveMatchingOptions {
@@ -279,8 +281,8 @@ class VocabTreePairGenerator : public PairGenerator {
   const std::shared_ptr<FeatureMatcherCache> cache_;
   ThreadPool thread_pool_;
   JobQueue<Retrieval> queue_;
-  retrieval::VisualIndex<> visual_index_;
-  retrieval::VisualIndex<>::QueryOptions query_options_;
+  std::unique_ptr<retrieval::VisualIndex> visual_index_;
+  retrieval::VisualIndex::QueryOptions query_options_;
   std::vector<image_t> query_image_ids_;
   std::vector<std::pair<image_t, image_t>> image_pairs_;
   size_t query_idx_ = 0;

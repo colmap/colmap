@@ -34,6 +34,7 @@
 #include "colmap/retrieval/inverted_file_entry.h"
 #include "colmap/retrieval/utils.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/endian.h"
 #include "colmap/util/logging.h"
 
 #include <algorithm>
@@ -136,8 +137,8 @@ class InvertedFile {
       std::unordered_map<int, double>* self_similarities) const;
 
   // Read/write the inverted file from/to a binary file.
-  void Read(std::ifstream* ifs);
-  void Write(std::ofstream* ofs) const;
+  void Read(std::istream* in);
+  void Write(std::ostream* out) const;
 
  private:
   // Whether the inverted file is initialized.
@@ -373,41 +374,38 @@ void InvertedFile<kEmbeddingDim>::ComputeImageSelfSimilarities(
 }
 
 template <int kEmbeddingDim>
-void InvertedFile<kEmbeddingDim>::Read(std::ifstream* ifs) {
-  THROW_CHECK(ifs->is_open());
+void InvertedFile<kEmbeddingDim>::Read(std::istream* in) {
+  THROW_CHECK(in->good());
 
-  ifs->read(reinterpret_cast<char*>(&status_), sizeof(uint8_t));
-  ifs->read(reinterpret_cast<char*>(&idf_weight_), sizeof(float));
+  status_ = ReadBinaryLittleEndian<uint8_t>(in);
+  in->read(reinterpret_cast<char*>(&idf_weight_), sizeof(float));
 
   for (int i = 0; i < kEmbeddingDim; ++i) {
-    ifs->read(reinterpret_cast<char*>(&thresholds_[i]), sizeof(float));
+    in->read(reinterpret_cast<char*>(&thresholds_[i]), sizeof(float));
   }
 
-  uint32_t num_entries = 0;
-  ifs->read(reinterpret_cast<char*>(&num_entries), sizeof(uint32_t));
+  const uint32_t num_entries = ReadBinaryLittleEndian<uint32_t>(in);
   entries_.resize(num_entries);
-
   for (uint32_t i = 0; i < num_entries; ++i) {
-    entries_[i].Read(ifs);
+    entries_[i].Read(in);
   }
 }
 
 template <int kEmbeddingDim>
-void InvertedFile<kEmbeddingDim>::Write(std::ofstream* ofs) const {
-  THROW_CHECK(ofs->is_open());
+void InvertedFile<kEmbeddingDim>::Write(std::ostream* out) const {
+  THROW_CHECK(out->good());
 
-  ofs->write(reinterpret_cast<const char*>(&status_), sizeof(uint8_t));
-  ofs->write(reinterpret_cast<const char*>(&idf_weight_), sizeof(float));
+  WriteBinaryLittleEndian<uint8_t>(out, status_);
+  out->write(reinterpret_cast<const char*>(&idf_weight_), sizeof(float));
 
   for (int i = 0; i < kEmbeddingDim; ++i) {
-    ofs->write(reinterpret_cast<const char*>(&thresholds_[i]), sizeof(float));
+    out->write(reinterpret_cast<const char*>(&thresholds_[i]), sizeof(float));
   }
 
-  const uint32_t num_entries = static_cast<uint32_t>(entries_.size());
-  ofs->write(reinterpret_cast<const char*>(&num_entries), sizeof(uint32_t));
-
+  const uint32_t num_entries = entries_.size();
+  WriteBinaryLittleEndian<uint32_t>(out, num_entries);
   for (uint32_t i = 0; i < num_entries; ++i) {
-    entries_[i].Write(ofs);
+    entries_[i].Write(out);
   }
 }
 

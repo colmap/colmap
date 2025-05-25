@@ -10,7 +10,7 @@
 #include <pybind11/stl.h>
 
 using namespace colmap;
-using VisualIndex = retrieval::VisualIndex<>;
+using VisualIndex = retrieval::VisualIndex;
 using ImageScore = retrieval::ImageScore;
 using namespace pybind11::literals;
 namespace py = pybind11;

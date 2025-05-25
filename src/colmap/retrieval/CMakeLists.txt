@@ -39,7 +39,7 @@ COLMAP_ADD_LIBRARY(
         inverted_index.h
         resources.h
         utils.h
-        visual_index.h
+        visual_index.h visual_index.cc
         vote_and_verify.h vote_and_verify.cc
     PUBLIC_LINK_LIBS
         Boost::boost

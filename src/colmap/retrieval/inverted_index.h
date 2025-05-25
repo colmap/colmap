@@ -32,6 +32,7 @@
 #include "colmap/math/random.h"
 #include "colmap/retrieval/inverted_file.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/endian.h"
 
 #include <algorithm>
 #include <bitset>
@@ -116,8 +117,8 @@ class InvertedIndex {
   void GetImageIds(std::unordered_set<int>* image_ids) const;
 
   // Read/write the inverted index from/to a binary file.
-  void Read(std::ifstream* ifs);
-  void Write(std::ofstream* ofs) const;
+  void Read(std::istream* in);
+  void Write(std::ostream* out) const;
 
  private:
   void ComputeWeightsAndNormalizationConstants();
@@ -354,76 +355,71 @@ void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::GetImageIds(
 }
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
-void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::Read(
-    std::ifstream* ifs) {
-  THROW_CHECK(ifs->is_open());
+void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::Read(std::istream* in) {
+  THROW_CHECK(in->good());
 
-  int32_t num_words = 0;
-  ifs->read(reinterpret_cast<char*>(&num_words), sizeof(int32_t));
+  const int32_t num_words = ReadBinaryLittleEndian<int>(in);
   THROW_CHECK_GT(num_words, 0);
 
   Initialize(num_words);
 
-  int32_t N_t = 0;
-  ifs->read(reinterpret_cast<char*>(&N_t), sizeof(int32_t));
-  THROW_CHECK_EQ(N_t, kEmbeddingDim)
+  const int in_embedding_dim = ReadBinaryLittleEndian<int>(in);
+  THROW_CHECK_EQ(in_embedding_dim, kEmbeddingDim)
       << "The length of the binary strings should be " << kEmbeddingDim
-      << " but is " << N_t << ". The indices are not compatible!";
+      << " but is " << in_embedding_dim << ". The indices are not compatible!";
 
   for (int i = 0; i < kEmbeddingDim; ++i) {
     for (int j = 0; j < kDescDim; ++j) {
-      ifs->read(reinterpret_cast<char*>(&proj_matrix_(i, j)), sizeof(float));
+      in->read(reinterpret_cast<char*>(&proj_matrix_(i, j)), sizeof(float));
     }
   }
 
   for (auto& inverted_file : inverted_files_) {
-    inverted_file.Read(ifs);
+    inverted_file.Read(in);
   }
 
-  int32_t num_images = 0;
-  ifs->read(reinterpret_cast<char*>(&num_images), sizeof(int32_t));
+  const int num_images = ReadBinaryLittleEndian<int>(in);
   THROW_CHECK_GE(num_images, 0);
 
   normalization_constants_.clear();
   normalization_constants_.reserve(num_images);
   for (int32_t i = 0; i < num_images; ++i) {
-    int image_id;
+    const int image_id = ReadBinaryLittleEndian<int>(in);
     float value;
-    ifs->read(reinterpret_cast<char*>(&image_id), sizeof(int));
-    ifs->read(reinterpret_cast<char*>(&value), sizeof(float));
+    in->read(reinterpret_cast<char*>(&value), sizeof(float));
     normalization_constants_[image_id] = value;
   }
 }
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
 void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::Write(
-    std::ofstream* ofs) const {
-  THROW_CHECK(ofs->is_open());
+    std::ostream* out) const {
+  THROW_CHECK(out->good());
 
-  int32_t num_words = static_cast<int32_t>(NumVisualWords());
-  ofs->write(reinterpret_cast<const char*>(&num_words), sizeof(int32_t));
+  const int num_words = static_cast<int32_t>(NumVisualWords());
   THROW_CHECK_GT(num_words, 0);
+  WriteBinaryLittleEndian<int>(out, num_words);
 
-  const int32_t N_t = static_cast<int32_t>(kEmbeddingDim);
-  ofs->write(reinterpret_cast<const char*>(&N_t), sizeof(int32_t));
+  const int32_t embedding_dim = static_cast<int32_t>(kEmbeddingDim);
+  WriteBinaryLittleEndian<int>(out, embedding_dim);
 
   for (int i = 0; i < kEmbeddingDim; ++i) {
     for (int j = 0; j < kDescDim; ++j) {
-      ofs->write(reinterpret_cast<const char*>(&proj_matrix_(i, j)),
+      out->write(reinterpret_cast<const char*>(&proj_matrix_(i, j)),
                  sizeof(float));
     }
   }
 
   for (const auto& inverted_file : inverted_files_) {
-    inverted_file.Write(ofs);
+    inverted_file.Write(out);
   }
 
   const int32_t num_images = normalization_constants_.size();
-  ofs->write(reinterpret_cast<const char*>(&num_images), sizeof(int32_t));
+  WriteBinaryLittleEndian<int>(out, num_images);
 
   for (const auto& constant : normalization_constants_) {
-    ofs->write(reinterpret_cast<const char*>(&constant.first), sizeof(int));
-    ofs->write(reinterpret_cast<const char*>(&constant.second), sizeof(float));
+    WriteBinaryLittleEndian<int>(out, constant.first);
+    out->write(reinterpret_cast<const char*>(&constant.second), sizeof(float));
   }
 }
 

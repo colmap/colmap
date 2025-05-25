@@ -30,6 +30,7 @@
 #pragma once
 
 #include "colmap/retrieval/geometry.h"
+#include "colmap/util/endian.h"
 
 #include <bitset>
 #include <fstream>
@@ -42,8 +43,8 @@ namespace retrieval {
 // This class is based on an original implementation by Torsten Sattler.
 template <int N>
 struct InvertedFileEntry {
-  void Read(std::istream* ifs);
-  void Write(std::ostream* ofs) const;
+  void Read(std::istream* in);
+  void Write(std::ostream* out) const;
 
   // The identifier of the image this entry is associated with.
   int image_id = -1;
@@ -63,45 +64,36 @@ struct InvertedFileEntry {
 ////////////////////////////////////////////////////////////////////////////////
 
 template <int N>
-void InvertedFileEntry<N>::Read(std::istream* ifs) {
+void InvertedFileEntry<N>::Read(std::istream* in) {
   static_assert(N <= 64, "Dimensionality too large");
   static_assert(sizeof(unsigned long long) >= 8,
                 "Expected unsigned long to be at least 8 byte");
   static_assert(sizeof(FeatureGeometry) == 16, "Geometry type size mismatch");
 
-  int32_t image_id_data = 0;
-  ifs->read(reinterpret_cast<char*>(&image_id_data), sizeof(int32_t));
-  image_id = static_cast<int>(image_id_data);
+  image_id = ReadBinaryLittleEndian<int>(in);
+  feature_idx = ReadBinaryLittleEndian<int>(in);
 
-  int32_t feature_idx_data = 0;
-  ifs->read(reinterpret_cast<char*>(&feature_idx_data), sizeof(int32_t));
-  feature_idx = static_cast<int>(feature_idx_data);
+  in->read(reinterpret_cast<char*>(&geometry), sizeof(FeatureGeometry));
 
-  ifs->read(reinterpret_cast<char*>(&geometry), sizeof(FeatureGeometry));
-
-  uint64_t descriptor_data = 0;
-  ifs->read(reinterpret_cast<char*>(&descriptor_data), sizeof(uint64_t));
+  const uint64_t descriptor_data = ReadBinaryLittleEndian<uint64_t>(in);
   descriptor = std::bitset<N>(descriptor_data);
 }
 
 template <int N>
-void InvertedFileEntry<N>::Write(std::ostream* ofs) const {
+void InvertedFileEntry<N>::Write(std::ostream* out) const {
   static_assert(N <= 64, "Dimensionality too large");
   static_assert(sizeof(unsigned long long) >= 8,
                 "Expected unsigned long to be at least 8 byte");
   static_assert(sizeof(FeatureGeometry) == 16, "Geometry type size mismatch");
 
-  const int32_t image_id_data = image_id;
-  ofs->write(reinterpret_cast<const char*>(&image_id_data), sizeof(int32_t));
+  WriteBinaryLittleEndian<int>(out, image_id);
+  WriteBinaryLittleEndian<int>(out, feature_idx);
 
-  const int32_t feature_idx_data = feature_idx;
-  ofs->write(reinterpret_cast<const char*>(&feature_idx_data), sizeof(int32_t));
-
-  ofs->write(reinterpret_cast<const char*>(&geometry), sizeof(FeatureGeometry));
+  out->write(reinterpret_cast<const char*>(&geometry), sizeof(FeatureGeometry));
 
   const uint64_t descriptor_data =
       static_cast<uint64_t>(descriptor.to_ullong());
-  ofs->write(reinterpret_cast<const char*>(&descriptor_data), sizeof(uint64_t));
+  WriteBinaryLittleEndian<uint64_t>(out, descriptor_data);
 }
 
 }  // namespace retrieval
