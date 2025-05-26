@@ -55,7 +55,7 @@ struct SyntheticDatasetOptions {
 
   double inlier_match_ratio = 1.0;
 
-  enum class MatchConfig : int8_t {
+  enum class MatchConfig {
     // Exhaustive matches between all pairs of observations of a 3D point.
     EXHAUSTIVE = 1,
     // Chain of matches between images with consecutive identifiers, i.e.,

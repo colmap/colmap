@@ -170,12 +170,7 @@ class IncrementalPipeline : public BaseController {
     LAST_IMAGE_REG_CALLBACK,
   };
 
-  enum class Status : int8_t {
-    NO_INITIAL_PAIR,
-    BAD_INITIAL_PAIR,
-    SUCCESS,
-    INTERRUPTED
-  };
+  enum class Status { NO_INITIAL_PAIR, BAD_INITIAL_PAIR, SUCCESS, INTERRUPTED };
 
   IncrementalPipeline(
       std::shared_ptr<const IncrementalPipelineOptions> options,

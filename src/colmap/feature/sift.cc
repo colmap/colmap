@@ -916,7 +916,7 @@ void FindBestMatchesIndex(const Eigen::RowMajorMatrixXi& indices_1to2,
   }
 }
 
-enum class DistanceType : int8_t {
+enum class DistanceType {
   L2,
   DOT_PRODUCT,
 };

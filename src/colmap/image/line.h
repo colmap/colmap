@@ -41,7 +41,7 @@ struct LineSegment {
   Eigen::Vector2d end;
 };
 
-enum class LineSegmentOrientation : int8_t {
+enum class LineSegmentOrientation {
   HORIZONTAL = 1,
   VERTICAL = -1,
   UNDEFINED = 0,

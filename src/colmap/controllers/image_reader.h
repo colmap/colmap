@@ -95,7 +95,7 @@ struct ImageReaderOptions {
 // writes the camera information to the database.
 class ImageReader {
  public:
-  enum class Status : int8_t {
+  enum class Status {
     FAILURE,
     SUCCESS,
     IMAGE_EXISTS,

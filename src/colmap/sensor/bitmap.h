@@ -159,7 +159,7 @@ class Bitmap {
   void Smooth(float sigma_x, float sigma_y);
 
   // Rescale image to the new dimensions.
-  enum class RescaleFilter : int8_t {
+  enum class RescaleFilter {
     kBilinear,
     kBox,
   };

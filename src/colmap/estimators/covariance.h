@@ -91,7 +91,7 @@ struct BACovariance {
 };
 
 struct BACovarianceOptions {
-  enum class Params : int8_t {
+  enum class Params {
     POSES,
     POINTS,
     POSES_AND_POINTS,

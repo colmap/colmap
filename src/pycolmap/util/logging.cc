@@ -6,7 +6,7 @@
 namespace py = pybind11;
 
 struct Logging {
-  enum class LogSeverity : int8_t {
+  enum class LogSeverity {
     GLOG_INFO = google::GLOG_INFO,
     GLOG_WARNING = google::GLOG_WARNING,
     GLOG_ERROR = google::GLOG_ERROR,
