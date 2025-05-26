@@ -61,7 +61,7 @@ class VisualIndex {
     int num_neighbors = 1;
 
     // The number of checks in the nearest neighbor search.
-    int num_checks = 32;
+    int num_checks = 64;
   };
 
   struct QueryOptions {
@@ -76,7 +76,7 @@ class VisualIndex {
     int num_images_after_verification = 0;
 
     // The number of checks in the nearest neighbor search.
-    int num_checks = 32;
+    int num_checks = 64;
   };
 
   struct BuildOptions {
@@ -85,14 +85,14 @@ class VisualIndex {
     int num_visual_words = 256 * 256;
 
     // The number of iterations for the clustering.
-    int num_iterations = 50;
+    int num_iterations = 100;
 
     // Redo clustering multiple times and keep the clusters with the best
     // training objective.
-    int num_rounds = 2;
+    int num_rounds = 3;
 
     // The number of checks in the nearest neighbor search.
-    int num_checks = 32;
+    int num_checks = 256;
   };
 
   // Create visual index with specific input feature descriptor dimension and

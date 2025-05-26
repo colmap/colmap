@@ -58,7 +58,7 @@ std::unique_ptr<faiss::IndexIVF> BuildFaissIndex(
     const VisualIndex::BuildOptions& options,
     const Eigen::RowMajorMatrixXf& visual_words) {
   const int64_t num_centroids = std::min<int64_t>(
-      visual_words.rows(), 4 * std::sqrt(visual_words.rows()));
+      visual_words.rows(), 2 * std::sqrt(visual_words.rows()));
   const int64_t spectral_hash_dim =
       std::min<int64_t>(visual_words.rows(), visual_words.cols() / 2);
   std::ostringstream index_type;
