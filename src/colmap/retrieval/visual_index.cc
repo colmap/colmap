@@ -397,6 +397,7 @@ class FaissVisualIndex : public VisualIndex {
       return score1.score > score2.score;
     };
 
+    // NOLINTNEXTLINE(bugprone-branch-clone)
     if (num_images == image_scores->size()) {
       std::sort(image_scores->begin(), image_scores->end(), SortFunc);
     } else {
