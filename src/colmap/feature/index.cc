@@ -61,7 +61,6 @@ class FaissFeatureDescriptorIndex : public FeatureDescriptorIndex {
           /*d=*/index_descriptors.cols(),
           /*nlist_=*/num_centroids);
       auto* index_impl = dynamic_cast<faiss::IndexIVFFlat*>(index_.get());
-      index_impl->nprobe = 4;
       // Avoid warnings during the training phase.
       index_impl->cp.min_points_per_centroid = 1;
       index_->train(index_descriptors.rows(), index_descriptors_float.data());
@@ -105,11 +104,14 @@ class FaissFeatureDescriptorIndex : public FeatureDescriptorIndex {
     // Assume parallelization is done on the outer level.
     omp_set_num_threads(1);
 
+    faiss::SearchParametersIVF search_params;
+    search_params.nprobe = 8;
     index_->search(num_query_descriptors,
                    query_descriptors_float.data(),
                    num_eff_neighbors,
                    l2_dists_float.data(),
-                   indices_long.data());
+                   indices_long.data(),
+                   &search_params);
 
     // TODO(jsch): Change the output matrix types to avoid unnecessary
     // allocation and casting. This was optimized for the flann interface
@@ -203,7 +205,7 @@ class FlannFeatureDescriptorIndex : public FeatureDescriptorIndex {
   constexpr static int kNumTreesInForest = 4;
   constexpr static int kNumLeavesToVisit = 128;
 
-  using FlannIndexType = flann::KDTreeIndex<flann::L2<uint8_t> >;
+  using FlannIndexType = flann::KDTreeIndex<flann::L2<uint8_t>>;
   std::unique_ptr<FlannIndexType> index_;
   int num_index_descriptors_ = 0;
 };
