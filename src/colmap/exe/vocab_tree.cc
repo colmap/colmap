@@ -180,7 +180,8 @@ int RunVocabTreeRetriever(int argc, char** argv) {
   options.AddDefaultOption("max_num_features", &max_num_features);
   options.Parse(argc, argv);
 
-  auto visual_index = retrieval::VisualIndex::Read(vocab_tree_path);
+  auto visual_index =
+      retrieval::VisualIndex::Read(vocab_tree_path, /*legacy_flann=*/true);
   visual_index->SetNumThreads(num_threads);
 
   Database database(*options.database_path);

@@ -69,6 +69,7 @@ struct VocabTreeMatchingOptions {
 
   // Path to the vocabulary tree.
   std::string vocab_tree_path = kDefaultVocabTreeUri;
+  bool vocab_tree_legacy_flann = true;
 
   // Optional path to file with specific image names to match.
   std::string match_list_path = "";
