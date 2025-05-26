@@ -31,7 +31,7 @@ jobs:
       COMPILER_CACHE_DIR: ${{ github.workspace }}/compiler-cache
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
-      MACOSX_DEPLOYMENT_TARGET: 10.15
+      MACOSX_DEPLOYMENT_TARGET: 14.0
       # For faster builds in PRs, skip all but the oldest Python versions.
       PULL_REQUEST_CIBW_BUILD: cp38-{macosx,manylinux,win}*
     steps:

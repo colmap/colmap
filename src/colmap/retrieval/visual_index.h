@@ -35,10 +35,6 @@
 
 #include <Eigen/Core>
 
-namespace faiss {
-struct IndexIVF;
-}
-
 namespace colmap {
 namespace retrieval {
 
