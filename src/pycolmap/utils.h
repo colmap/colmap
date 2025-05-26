@@ -9,7 +9,7 @@
 
 #include <Eigen/Core>
 
-enum class Device { AUTO = -1, CPU = 0, CUDA = 1 };
+enum class Device : int8_t { AUTO = -1, CPU = 0, CUDA = 1 };
 
 inline bool IsGPU(Device device) {
   if (device == Device::AUTO) {

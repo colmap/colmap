@@ -51,7 +51,7 @@ namespace colmap {
 // camera pose and calibration.
 class TriangulationEstimator {
  public:
-  enum class ResidualType {
+  enum class ResidualType : int8_t {
     ANGULAR_ERROR,
     REPROJECTION_ERROR,
   };

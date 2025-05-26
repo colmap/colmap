@@ -61,7 +61,7 @@ class GP3PEstimator {
   // [WARNING] The reprojection error being in normalized coordinates,
   // the unique error threshold of RANSAC corresponds to different pixel values
   // in the different cameras of the rig if they have different intrinsics.
-  enum class ResidualType {
+  enum class ResidualType : int8_t {
     CosineDistance,
     ReprojectionError,
   };

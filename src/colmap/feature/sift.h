@@ -98,7 +98,7 @@ struct SiftExtractionOptions {
   // Sift implementation is faster.
   bool force_covariant_extractor = false;
 
-  enum class Normalization {
+  enum class Normalization : int8_t {
     // L1-normalizes each descriptor followed by element-wise square rooting.
     // This normalization is usually better than standard L2-normalization.
     // See "Three things everyone should know to improve object retrieval",

@@ -12,7 +12,7 @@ int main(int argc, char** argv) {
   options.AddRequiredOption("message", &message);
   options.Parse(argc, argv);
 
-  std::cout << colmap::StringPrintf("Hello %s!", message.c_str()) << std::endl;
+  std::cout << colmap::StringPrintf("Hello %s!\n", message.c_str());
 
   return EXIT_SUCCESS;
 }

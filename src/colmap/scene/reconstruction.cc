@@ -832,10 +832,8 @@ void Reconstruction::ExtractColorsForAllImages(const std::string& path) {
 
     Bitmap bitmap;
     if (!bitmap.Read(image_path)) {
-      LOG(WARNING) << StringPrintf("Could not read image %s at path %s.",
-                                   image.Name().c_str(),
-                                   image_path.c_str())
-                   << std::endl;
+      LOG(WARNING) << "Could not read image " << image.Name() << " at path "
+                   << image_path;
       continue;
     }
 

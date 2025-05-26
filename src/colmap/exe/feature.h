@@ -66,7 +66,12 @@ namespace colmap {
 // the same camera is used with same focal length but different principal point
 // between captures. In these cases it is recommended to either use the
 // PER_FOLDER or PER_IMAGE settings.
-enum class CameraMode { AUTO = 0, SINGLE = 1, PER_FOLDER = 2, PER_IMAGE = 3 };
+enum class CameraMode : int8_t {
+  AUTO = 0,
+  SINGLE = 1,
+  PER_FOLDER = 2,
+  PER_IMAGE = 3
+};
 
 void UpdateImageReaderOptionsFromCameraMode(ImageReaderOptions& options,
                                             CameraMode mode);

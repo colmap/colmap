@@ -63,7 +63,7 @@
 
 namespace colmap {
 
-enum class CopyType { COPY, HARD_LINK, SOFT_LINK };
+enum class CopyType : int8_t { COPY, HARD_LINK, SOFT_LINK };
 
 // Append trailing slash to string if it does not yet end with a slash.
 std::string EnsureTrailingSlash(const std::string& str);
