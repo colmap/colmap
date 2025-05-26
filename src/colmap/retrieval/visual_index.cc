@@ -453,6 +453,7 @@ class FaissVisualIndex : public VisualIndex {
     offset = ftell(fin);
     fclose(fin);
 
+    // Read the inverted index.
     std::ifstream file(path, std::ios::binary);
     THROW_CHECK_FILE_OPEN(file, path);
     file.seekg(offset, std::ios::beg);
@@ -462,19 +463,22 @@ class FaissVisualIndex : public VisualIndex {
   }
 
   void ReadFromLegacyFlann(const std::string& path) override {
+    // Read the visual words.
     std::ifstream file(path, std::ios::binary);
     THROW_CHECK_FILE_OPEN(file, path);
     const uint64_t rows = ReadBinaryLittleEndian<uint64_t>(&file);
     const uint64_t cols = ReadBinaryLittleEndian<uint64_t>(&file);
-    Descriptors visual_words(rows, cols);
+    Eigen::Matrix<uint8_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
+        visual_words(rows, cols);
     for (size_t i = 0; i < rows * cols; ++i) {
       visual_words(i) = ReadBinaryLittleEndian<uint8_t>(&file);
     }
     long offset = file.tellg();
 
-    // Read the visual words search index.
-    flann::AutotunedIndex<flann::L2<float>> flann_index(
-        flann::Matrix<float>(visual_words.data(), rows, cols));
+    // Read the visual words search index. This index will be replaced by
+    // building a new faiss index below.
+    flann::AutotunedIndex<flann::L2<uint8_t>> flann_index(
+        flann::Matrix<uint8_t>(visual_words.data(), rows, cols));
 
     FILE* fin = nullptr;
 #ifdef _MSC_VER
@@ -488,8 +492,10 @@ class FaissVisualIndex : public VisualIndex {
     offset = ftell(fin);
     fclose(fin);
 
+    // Build a faiss index over the visual words.
     index_ = BuildFaissIndex(BuildOptions(), visual_words.cast<float>());
 
+    // Read the inverted index.
     file.seekg(offset, std::ios::beg);
     inverted_index_.Read(&file);
     image_ids_.clear();
@@ -609,26 +615,23 @@ class FaissVisualIndex : public VisualIndex {
                       int num_neighbors,
                       int num_checks) const {
     THROW_CHECK_EQ(descriptors.cols(), kDescDim);
-
     THROW_CHECK_GT(descriptors.rows(), 0);
     THROW_CHECK_GT(num_neighbors, 0);
+    THROW_CHECK_NOTNULL(index_);
 
-    WordIds indices_long(descriptors.rows(), num_neighbors);
-    Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
-        distances(descriptors.rows(), num_neighbors);
-    const Eigen::RowMajorMatrixXf descriptors_float =
-        descriptors.template cast<float>();
+    WordIds word_ids(descriptors.rows(), num_neighbors);
+    Eigen::RowMajorMatrixXf distances(descriptors.rows(), num_neighbors);
 
     faiss::IVFSearchParameters search_params;
     search_params.nprobe = num_checks;
     index_->search(descriptors.rows(),
-                   descriptors_float.data(),
+                   descriptors.data(),
                    num_neighbors,
                    distances.data(),
-                   indices_long.data(),
+                   word_ids.data(),
                    &search_params);
 
-    return indices_long;
+    return word_ids;
   }
 
   // The search structure on the quantized descriptor space.

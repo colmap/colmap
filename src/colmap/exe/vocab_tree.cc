@@ -180,9 +180,8 @@ int RunVocabTreeRetriever(int argc, char** argv) {
   options.AddDefaultOption("max_num_features", &max_num_features);
   options.Parse(argc, argv);
 
-  auto visual_index = retrieval::VisualIndex::Create();
+  auto visual_index = retrieval::VisualIndex::Read(vocab_tree_path);
   visual_index->SetNumThreads(num_threads);
-  visual_index->Read(vocab_tree_path);
 
   Database database(*options.database_path);
 
@@ -209,8 +208,10 @@ int RunVocabTreeRetriever(int argc, char** argv) {
       continue;
     }
 
-    auto keypoints = database.ReadKeypoints(database_images[i].ImageId());
-    auto descriptors = database.ReadDescriptors(database_images[i].ImageId());
+    FeatureKeypoints keypoints =
+        database.ReadKeypoints(database_images[i].ImageId());
+    FeatureDescriptors descriptors =
+        database.ReadDescriptors(database_images[i].ImageId());
     if (max_num_features > 0 && descriptors.rows() > max_num_features) {
       ExtractTopScaleFeatures(&keypoints, &descriptors, max_num_features);
     }
@@ -275,6 +276,22 @@ int RunVocabTreeRetriever(int argc, char** argv) {
                                 image_score.score);
     }
   }
+
+  return EXIT_SUCCESS;
+}
+
+int RunVocabTreeUpgrader(int argc, char** argv) {
+  std::string input_path;
+  std::string output_path;
+
+  OptionManager options;
+  options.AddRequiredOption("input_path", &input_path);
+  options.AddRequiredOption("output_path", &output_path);
+  options.Parse(argc, argv);
+
+  std::unique_ptr<retrieval::VisualIndex> index =
+      retrieval::VisualIndex::Read(input_path, /*legacy_flann=*/true);
+  index->Write(output_path);
 
   return EXIT_SUCCESS;
 }

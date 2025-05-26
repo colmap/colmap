@@ -418,20 +418,4 @@ int RunVocabTreeMatcher(int argc, char** argv) {
   return EXIT_SUCCESS;
 }
 
-int RunVocabTreeUpgrader(int argc, char** argv) {
-  std::string input_path;
-  std::string output_path;
-
-  OptionManager options;
-  options.AddRequiredOption("input_path", &input_path);
-  options.AddRequiredOption("output_path", &output_path);
-  options.Parse(argc, argv);
-
-  std::unique_ptr<retrieval::VisualIndex> index =
-      retrieval::VisualIndex::Read(input_path, /*legacy_flann=*/true);
-  index->Write(output_path);
-
-  return EXIT_SUCCESS;
-}
-
 }  // namespace colmap
