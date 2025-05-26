@@ -599,7 +599,7 @@ void Reconstruction::TranscribeImageIdsToDatabase(const Database& database) {
 
   for (auto& image : images_) {
     const std::optional<class Image> database_image =
-        database.ReadImageWithName(image.second.Name()).value();
+        database.ReadImageWithName(image.second.Name());
     if (!database_image.has_value()) {
       LOG(FATAL_THROW) << "Image with name " << image.second.Name()
                        << " does not exist in database";
