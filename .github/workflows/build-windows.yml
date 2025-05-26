@@ -91,7 +91,7 @@ jobs:
           .github/workflows/install-ccache.ps1 -Destination "${{ env.COMPILER_CACHE_DIR }}/bin"
 
       - name: Install CUDA
-        uses: Jimver/cuda-toolkit@v0.2.18
+        uses: Jimver/cuda-toolkit@v0.2.23
         if: matrix.config.cudaEnabled
         id: cuda-toolkit
         with:
