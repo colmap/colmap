@@ -594,12 +594,12 @@ class FaissVisualIndex : public VisualIndex {
       return score1.score > score2.score;
     };
 
-    size_t num_images = image_scores->size();
-    if (options.max_num_images >= 0) {
-      num_images =
-          std::min<size_t>(image_scores->size(), options.max_num_images);
-    }
+    const size_t num_images =
+        (options.max_num_images >= 0)
+            ? std::min<size_t>(num_images, options.max_num_images)
+            : image_scores->size();
 
+    // NOLINTNEXTLINE(bugprone-branch-clone)
     if (num_images == image_scores->size()) {
       std::sort(image_scores->begin(), image_scores->end(), SortFunc);
     } else {
