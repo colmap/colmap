@@ -1344,7 +1344,7 @@ void Database::Merge(const Database& database1,
           ref_sensor_id.id = new_camera_ids.at(ref_sensor_id.id);
         }
         updated_rig.AddRefSensor(ref_sensor_id);
-        for (auto [sensor_id, sensor_from_rig] : rig.Sensors()) {
+        for (const auto& [sensor_id, sensor_from_rig] : rig.Sensors()) {
           sensor_t updated_sensor_id = sensor_id;
           if (sensor_id.type == SensorType::CAMERA) {
             updated_sensor_id.id = new_camera_ids.at(sensor_id.id);

@@ -378,9 +378,9 @@ TEST(ImportedPairGenerator, Nominal) {
 
   {
     std::ofstream match_list_file(options.match_list_path);
-    match_list_file << images[2].Name() << " " << images[4].Name() << "\n";
-    match_list_file << images[1].Name() << " " << images[3].Name() << "\n";
-    match_list_file << images[2].Name() << " " << images[9].Name() << "\n";
+    match_list_file << images[2].Name() << " " << images[4].Name() << '\n';
+    match_list_file << images[1].Name() << " " << images[3].Name() << '\n';
+    match_list_file << images[2].Name() << " " << images[9].Name() << '\n';
     match_list_file.close();
 
     ImportedPairGenerator generator(options, database);

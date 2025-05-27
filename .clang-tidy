@@ -8,6 +8,7 @@ Checks: >
   -bugprone-narrowing-conversions,
   -bugprone-reserved-identifier,
   -bugprone-unchecked-optional-access,
+  -performance-enum-size,
   cppcoreguidelines-virtual-class-destructor,
   google-explicit-constructor,
   google-build-using-namespace,

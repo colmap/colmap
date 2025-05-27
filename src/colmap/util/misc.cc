@@ -38,15 +38,15 @@ namespace colmap {
 
 void PrintHeading1(const std::string& heading) {
   std::ostringstream log;
-  log << "\n" << std::string(78, '=') << "\n";
-  log << heading << "\n";
+  log << '\n' << std::string(78, '=') << '\n';
+  log << heading << '\n';
   log << std::string(78, '=');
   LOG(INFO) << log.str();
 }
 
 void PrintHeading2(const std::string& heading) {
   std::ostringstream log;
-  log << "\n" << heading << "\n";
+  log << '\n' << heading << '\n';
   log << std::string(std::min<int>(heading.size(), 78), '-');
   LOG(INFO) << log.str();
 }

@@ -43,7 +43,7 @@ namespace {
 std::string WriteTestConfig(const std::string& config) {
   std::string file_path = CreateTestDir() + "/config.json";
   std::ofstream file(file_path);
-  file << config << "\n";
+  file << config << '\n';
   return file_path;
 }
 
