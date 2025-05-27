@@ -22,7 +22,7 @@ jobs:
       matrix:
         config: [
           {
-            os: macos-15,
+            os: macos-14,
             arch: arm64,
             cmakeBuildType: Release,
           },
