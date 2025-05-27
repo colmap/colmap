@@ -9,9 +9,9 @@ set(CMAKE_CUDA_STANDARD 14)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     # Some fixes for the Glog library.
-    add_definitions("-DGLOG_NO_ABBREVIATED_SEVERITIES")
-    add_definitions("-DGL_GLEXT_PROTOTYPES")
-    add_definitions("-DNOMINMAX")
+    add_compile_definitions(GLOG_NO_ABBREVIATED_SEVERITIES)
+    add_compile_definitions(GL_GLEXT_PROTOTYPES)
+    add_compile_definitions(NOMINMAX)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc")
     # Enable object level parallel builds in Visual Studio.
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /MP")
