@@ -22,8 +22,8 @@ jobs:
       matrix:
         config: [
               {os: ubuntu-latest},
-              {os: macos-13, arch: x86_64},
-              {os: macos-14, arch: arm64},
+              {os: macos-13, arch: x86_64, deploymentTarget: 10.15},
+              {os: macos-14, arch: arm64, deploymentTarget: 14.0},
               {os: windows-latest},
         ]
     env:
@@ -31,7 +31,7 @@ jobs:
       COMPILER_CACHE_DIR: ${{ github.workspace }}/compiler-cache
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
-      MACOSX_DEPLOYMENT_TARGET: 10.15
+      MACOSX_DEPLOYMENT_TARGET: ${{ matrix.config.deploymentTarget }}
       # For faster builds in PRs, skip all but the oldest Python versions.
       PULL_REQUEST_CIBW_BUILD: cp38-{macosx,manylinux,win}*
     steps:
