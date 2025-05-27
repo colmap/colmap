@@ -582,8 +582,7 @@ bool CompareModels(const Reconstruction& reconstruction1,
     return false;
   }
 
-  LOG(INFO) << "Computed alignment transform:" << std::endl
-            << rec2_from_rec1.ToMatrix();
+  LOG(INFO) << "Computed alignment transform:\n" << rec2_from_rec1.ToMatrix();
 
   errors = ComputeImageAlignmentError(
       reconstruction1, reconstruction2, rec2_from_rec1);
