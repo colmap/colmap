@@ -72,7 +72,7 @@ endif()
 
 if(LSD_ENABLED)
     message(STATUS "Enabling LSD support")
-    add_definitions("-DCOLMAP_LSD_ENABLED")
+    add_compile_definitions(COLMAP_LSD_ENABLED)
 else()
     message(STATUS "Disabling LSD support")
 endif()
@@ -139,10 +139,10 @@ endif()
 
 if(IS_MSVC)
     # Some fixes for the Glog library.
-    add_definitions("-DGLOG_USE_GLOG_EXPORT")
-    add_definitions("-DGLOG_NO_ABBREVIATED_SEVERITIES")
-    add_definitions("-DGL_GLEXT_PROTOTYPES")
-    add_definitions("-DNOMINMAX")
+    add_compile_definitions(GLOG_USE_GLOG_EXPORT)
+    add_compile_definitions(GLOG_NO_ABBREVIATED_SEVERITIES)
+    add_compile_definitions(GL_GLEXT_PROTOTYPES)
+    add_compile_definitions(NOMINMAX)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc")
     # Disable warning: 'initializing': conversion from 'X' to 'Y', possible loss of data
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4244 /wd4267 /wd4305")
@@ -167,7 +167,7 @@ if(IS_MACOS)
 endif()
 
 if(IS_DEBUG)
-    add_definitions("-DEIGEN_INITIALIZE_MATRICES_BY_NAN")
+    add_compile_definitions(EIGEN_INITIALIZE_MATRICES_BY_NAN)
 endif()
 
 if(SIMD_ENABLED)

@@ -72,7 +72,7 @@ set(VLFEAT_SOURCE_FILES
 if(SIMD_ENABLED AND IS_X86)
     if(MSVC)
         # https://github.com/vlfeat/vlfeat/commit/4f0098fd47e9
-        add_definitions("-DVL_DISABLE_AVX")
+        add_compile_definitions(VL_DISABLE_AVX)
     else()
         set(AVX_SOURCES
             mathop_avx.c
@@ -99,12 +99,12 @@ if(SIMD_ENABLED AND IS_X86)
             PROPERTIES COMPILE_FLAGS "-msse2")
     endif()
 else()
-    add_definitions("-DVL_DISABLE_AVX")
-    add_definitions("-DVL_DISABLE_SSE2")
+    add_compile_definitions(VL_DISABLE_AVX)
+    add_compile_definitions(VL_DISABLE_SSE2)
 endif()
 
 if(NOT OPENMP_ENABLED OR NOT OPENMP_FOUND)
-    add_definitions("-DVL_DISABLE_OPENMP")
+    add_compile_definitions(VL_DISABLE_OPENMP)
 endif()
 
 COLMAP_ADD_LIBRARY(
