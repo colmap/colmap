@@ -45,7 +45,7 @@ COLMAP_ADD_LIBRARY(
         SparseMatrix.inl
         SurfaceTrimmer.h SurfaceTrimmer.cpp
 )
-target_compile_definitions(colmap_poisson_recon PRIVATE "-DRELEASE")
+target_compile_definitions(colmap_poisson_recon PRIVATE RELEASE)
 if(OPENMP_FOUND)
     target_link_libraries(colmap_poisson_recon PRIVATE OpenMP::OpenMP_CXX)
 endif()
