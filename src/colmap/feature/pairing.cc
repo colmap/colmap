@@ -42,7 +42,7 @@
 #include <unordered_set>
 #include <vector>
 
-#include <flann/flann.hpp>
+#include <faiss/IndexFlat.h>
 
 namespace colmap {
 namespace {
@@ -554,8 +554,7 @@ SpatialPairGenerator::SpatialPairGenerator(
   timer.Start();
   LOG(INFO) << "Indexing images...";
 
-  Eigen::Matrix<float, Eigen::Dynamic, 3, Eigen::RowMajor> position_matrix =
-      ReadPositionPriorData(*cache);
+  Eigen::RowMajorMatrixXf position_matrix = ReadPositionPriorData(*cache);
   const size_t num_positions = position_idxs_.size();
 
   LOG(INFO) << StringPrintf(" in %.3fs", timer.ElapsedSeconds());
@@ -567,12 +566,8 @@ SpatialPairGenerator::SpatialPairGenerator(
   timer.Restart();
   LOG(INFO) << "Building search index...";
 
-  flann::Matrix<float> positions(
-      position_matrix.data(), num_positions, position_matrix.cols());
-
-  flann::LinearIndexParams index_params;
-  flann::LinearIndex<flann::L2<float>> search_index(index_params);
-  search_index.buildIndex(positions);
+  faiss::IndexFlatL2 search_index(/*d=*/3);
+  search_index.add(position_matrix.rows(), position_matrix.data());
 
   LOG(INFO) << StringPrintf(" in %.3fs", timer.ElapsedSeconds());
 
@@ -583,22 +578,15 @@ SpatialPairGenerator::SpatialPairGenerator(
   image_pairs_.reserve(knn_);
 
   index_matrix_.resize(num_positions, knn_);
-  flann::Matrix<size_t> indices(index_matrix_.data(), num_positions, knn_);
-
   distance_matrix_.resize(num_positions, knn_);
-  flann::Matrix<float> distances(distance_matrix_.data(), num_positions, knn_);
 
-  flann::SearchParams search_params(flann::FLANN_CHECKS_AUTOTUNED);
-  if (options_.num_threads == ThreadPool::kMaxNumThreads) {
-    search_params.cores = std::thread::hardware_concurrency();
-  } else {
-    search_params.cores = options_.num_threads;
-  }
-  if (search_params.cores <= 0) {
-    search_params.cores = 1;
-  }
+  omp_set_num_threads(GetEffectiveNumThreads(options_.num_threads));
 
-  search_index.knnSearch(positions, indices, distances, knn_, search_params);
+  search_index.search(position_matrix.rows(),
+                      position_matrix.data(),
+                      knn_,
+                      distance_matrix_.data(),
+                      index_matrix_.data());
 
   LOG(INFO) << StringPrintf(" in %.3fs", timer.ElapsedSeconds());
 }
@@ -647,16 +635,15 @@ std::vector<std::pair<image_t, image_t>> SpatialPairGenerator::Next() {
   return image_pairs_;
 }
 
-Eigen::Matrix<float, Eigen::Dynamic, 3, Eigen::RowMajor>
-SpatialPairGenerator::ReadPositionPriorData(FeatureMatcherCache& cache) {
+Eigen::RowMajorMatrixXf SpatialPairGenerator::ReadPositionPriorData(
+    FeatureMatcherCache& cache) {
   GPSTransform gps_transform;
   std::vector<Eigen::Vector3d> ells(1);
 
   size_t num_positions = 0;
   position_idxs_.clear();
   position_idxs_.reserve(image_ids_.size());
-  Eigen::Matrix<float, Eigen::Dynamic, 3, Eigen::RowMajor> position_matrix(
-      image_ids_.size(), 3);
+  Eigen::RowMajorMatrixXf position_matrix(image_ids_.size(), 3);
 
   for (size_t i = 0; i < image_ids_.size(); ++i) {
     const PosePrior* pose_prior = cache.GetPosePriorOrNull(image_ids_[i]);
