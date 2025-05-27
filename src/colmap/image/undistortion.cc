@@ -49,7 +49,7 @@ void WriteMatrix(const Eigen::MatrixBase<Derived>& matrix,
     for (index_t c = 0; c < matrix.cols() - 1; ++c) {
       *file << matrix(r, c) << " ";
     }
-    *file << matrix(r, matrix.cols() - 1) << "\n";
+    *file << matrix(r, matrix.cols() - 1) << '\n';
   }
 }
 
@@ -73,7 +73,7 @@ void WriteProjectionMatrix(const std::string& path,
       calib_matrix * image.CamFromWorld().ToMatrix();
 
   if (!header.empty()) {
-    file << header << "\n";
+    file << header << '\n';
   }
 
   WriteMatrix(img_from_world, &file);
@@ -260,8 +260,8 @@ void COLMAPUndistorter::WritePatchMatchConfig() const {
   std::ofstream file(path, std::ios::trunc);
   THROW_CHECK_FILE_OPEN(file, path);
   for (const auto& image_name : image_names_) {
-    file << image_name << "\n";
-    file << "__auto__, " << num_patch_match_src_images_ << "\n";
+    file << image_name << '\n';
+    file << "__auto__, " << num_patch_match_src_images_ << '\n';
   }
 }
 
@@ -270,7 +270,7 @@ void COLMAPUndistorter::WriteFusionConfig() const {
   std::ofstream file(path, std::ios::trunc);
   THROW_CHECK_FILE_OPEN(file, path);
   for (const auto& image_name : image_names_) {
-    file << image_name << "\n";
+    file << image_name << '\n';
   }
 }
 
@@ -388,7 +388,7 @@ void PMVSUndistorter::WriteVisibilityData() const {
   THROW_CHECK_FILE_OPEN(file, path);
 
   file << "VISDATA\n";
-  file << reconstruction_.NumRegImages() << "\n";
+  file << reconstruction_.NumRegImages() << '\n';
 
   size_t image_idx = 0;
   for (const image_t image_id : reconstruction_.RegImageIds()) {
@@ -415,7 +415,7 @@ void PMVSUndistorter::WriteVisibilityData() const {
     for (const image_t visible_image_id : sorted_visible_image_ids) {
       file << " " << visible_image_id;
     }
-    file << "\n";
+    file << '\n';
   }
 }
 
@@ -505,7 +505,7 @@ void PMVSUndistorter::WriteOptionFile() const {
   file << "threshold 0.7\n";
   file << "wsize 7\n";
   file << "minImageNum 3\n";
-  file << "CPU " << std::thread::hardware_concurrency() << "\n";
+  file << "CPU " << std::thread::hardware_concurrency() << '\n';
   file << "setEdge 0\n";
   file << "useBound 0\n";
   file << "useVisData 1\n";
@@ -517,7 +517,7 @@ void PMVSUndistorter::WriteOptionFile() const {
   for (size_t i = 0; i < reconstruction_.NumRegImages(); ++i) {
     file << " " << i;
   }
-  file << "\n";
+  file << '\n';
 
   file << "oimages 0\n";
 }

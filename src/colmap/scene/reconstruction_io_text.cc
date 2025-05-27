@@ -469,7 +469,7 @@ void WriteRigsText(const Reconstruction& reconstruction, std::ostream& stream) {
   stream << "#   RIG_ID, NUM_SENSORS, REF_SENSOR_TYPE, REF_SENSOR_ID, "
             "SENSORS[] as (SENSOR_TYPE, SENSOR_ID, HAS_POSE, [QW, QX, QY, QZ, "
             "TX, TY, TZ])\n";
-  stream << "# Number of rigs: " << reconstruction.NumRigs() << "\n";
+  stream << "# Number of rigs: " << reconstruction.NumRigs() << '\n';
 
   for (const camera_t rig_id : ExtractSortedIds(reconstruction.Rigs())) {
     const Rig& rig = reconstruction.Rig(rig_id);
@@ -507,7 +507,7 @@ void WriteRigsText(const Reconstruction& reconstruction, std::ostream& stream) {
     std::string line_string = line.str();
     line_string = line_string.substr(0, line_string.size() - 1);
 
-    stream << line_string << "\n";
+    stream << line_string << '\n';
   }
 }
 
@@ -527,7 +527,7 @@ void WriteCamerasText(const Reconstruction& reconstruction,
 
   stream << "# Camera list with one line of data per camera:\n";
   stream << "#   CAMERA_ID, MODEL, WIDTH, HEIGHT, PARAMS[]\n";
-  stream << "# Number of cameras: " << reconstruction.NumCameras() << "\n";
+  stream << "# Number of cameras: " << reconstruction.NumCameras() << '\n';
 
   for (const camera_t camera_id : ExtractSortedIds(reconstruction.Cameras())) {
     const Camera& camera = reconstruction.Camera(camera_id);
@@ -547,7 +547,7 @@ void WriteCamerasText(const Reconstruction& reconstruction,
     std::string line_string = line.str();
     line_string = line_string.substr(0, line_string.size() - 1);
 
-    stream << line_string << "\n";
+    stream << line_string << '\n';
   }
 }
 
@@ -573,7 +573,7 @@ void WriteFramesText(const Reconstruction& reconstruction,
   stream << "#   FRAME_ID, RIG_ID, "
             "RIG_FROM_WORLD[QW, QX, QY, QZ, TX, TY, TZ], NUM_DATA_IDS, "
             "DATA_IDS[] as (SENSOR_TYPE, SENSOR_ID, DATA_ID)\n";
-  stream << "# Number of frames: " << frame_ids.size() << "\n";
+  stream << "# Number of frames: " << frame_ids.size() << '\n';
 
   stream.precision(17);
 
@@ -599,7 +599,7 @@ void WriteFramesText(const Reconstruction& reconstruction,
              << " " << data_id.id;
     }
 
-    stream << "\n";
+    stream << '\n';
   }
 }
 
@@ -623,7 +623,7 @@ void WriteImagesText(const Reconstruction& reconstruction,
   stream << "#   POINTS2D[] as (X, Y, POINT3D_ID)\n";
   stream << "# Number of images: " << reconstruction.NumRegImages()
          << ", mean observations per image: "
-         << reconstruction.ComputeMeanObservationsPerRegImage() << "\n";
+         << reconstruction.ComputeMeanObservationsPerRegImage() << '\n';
 
   std::ostringstream line;
   line.precision(17);
@@ -649,7 +649,7 @@ void WriteImagesText(const Reconstruction& reconstruction,
 
     line << image.Name();
 
-    stream << line.str() << "\n";
+    stream << line.str() << '\n';
 
     line.str("");
     line.clear();
@@ -666,7 +666,7 @@ void WriteImagesText(const Reconstruction& reconstruction,
     if (image.NumPoints2D() > 0) {
       line.seekp(-1, std::ios_base::end);
     }
-    stream << line.str() << "\n";
+    stream << line.str() << '\n';
   }
 }
 
@@ -689,7 +689,7 @@ void WritePoints3DText(const Reconstruction& reconstruction,
             "TRACK[] as (IMAGE_ID, POINT2D_IDX)\n";
   stream << "# Number of points: " << reconstruction.NumPoints3D()
          << ", mean track length: " << reconstruction.ComputeMeanTrackLength()
-         << "\n";
+         << '\n';
 
   for (const point3D_t point3D_id :
        ExtractSortedIds(reconstruction.Points3D())) {
@@ -715,7 +715,7 @@ void WritePoints3DText(const Reconstruction& reconstruction,
     std::string line_string = line.str();
     line_string = line_string.substr(0, line_string.size() - 1);
 
-    stream << line_string << "\n";
+    stream << line_string << '\n';
   }
 }
 

@@ -70,9 +70,9 @@ int ShowHelp(
   std::cout << "Available commands:\n";
   std::cout << "  help\n";
   for (const auto& command : commands) {
-    std::cout << "  " << command.first << "\n";
+    std::cout << "  " << command.first << '\n';
   }
-  std::cout << "\n";
+  std::cout << '\n';
 
   return EXIT_SUCCESS;
 }

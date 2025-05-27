@@ -83,13 +83,13 @@ bool ExportNVM(const Reconstruction& reconstruction,
     file << proj_center.y() << " ";
     file << proj_center.z() << " ";
     file << k << " ";
-    file << 0 << "\n";
+    file << 0 << '\n';
 
     image_id_to_idx_[image_id] = image_idx;
     image_idx += 1;
   }
 
-  file << "\n" << reconstruction.NumPoints3D() << "\n";
+  file << '\n' << reconstruction.NumPoints3D() << '\n';
 
   for (const auto& point3D : reconstruction.Points3D()) {
     file << point3D.second.xyz(0) << " ";
@@ -120,7 +120,7 @@ bool ExportNVM(const Reconstruction& reconstruction,
     line_string = line_string.substr(0, line_string.size() - 1);
 
     file << image_ids.size() << " ";
-    file << line_string << "\n";
+    file << line_string << '\n';
   }
 
   return true;
@@ -185,10 +185,10 @@ bool ExportCam(const Reconstruction& reconstruction,
          << image.CamFromWorld().translation.z() << " " << R(0, 0) << " "
          << R(0, 1) << " " << R(0, 2) << " " << R(1, 0) << " " << R(1, 1) << " "
          << R(1, 2) << " " << R(2, 0) << " " << R(2, 1) << " " << R(2, 2)
-         << "\n";
+         << '\n';
     file << focal_length << " " << k1 << " " << k2 << " " << fy / fx << " "
          << camera.PrincipalPointX() / camera.width << " "
-         << camera.PrincipalPointY() / camera.height << "\n";
+         << camera.PrincipalPointY() / camera.height << '\n';
   }
 
   return true;
@@ -218,7 +218,7 @@ bool ExportRecon3D(const Reconstruction& reconstruction,
   // Write header info
   synth_file << "colmap 1.0\n";
   synth_file << reconstruction.NumRegImages() << " "
-             << reconstruction.NumPoints3D() << "\n";
+             << reconstruction.NumPoints3D() << '\n';
 
   std::unordered_map<image_t, size_t> image_id_to_idx_;
   size_t image_idx = 0;
@@ -248,14 +248,14 @@ bool ExportRecon3D(const Reconstruction& reconstruction,
 
     const double scale = 1.0 / (double)std::max(camera.width, camera.height);
     synth_file << scale * camera.MeanFocalLength() << " " << k1 << " " << k2
-               << "\n";
-    synth_file << image.CamFromWorld().rotation.toRotationMatrix() << "\n";
-    synth_file << image.CamFromWorld().translation.transpose() << "\n";
+               << '\n';
+    synth_file << image.CamFromWorld().rotation.toRotationMatrix() << '\n';
+    synth_file << image.CamFromWorld().translation.transpose() << '\n';
 
     image_id_to_idx_[image_id] = image_idx;
-    image_list_file << image.Name() << "\n"
-                    << camera.width << " " << camera.height << "\n";
-    image_map_file << image_idx << "\n";
+    image_list_file << image.Name() << '\n'
+                    << camera.width << " " << camera.height << '\n';
+    image_map_file << image_idx << '\n';
 
     image_idx += 1;
   }
@@ -265,10 +265,10 @@ bool ExportRecon3D(const Reconstruction& reconstruction,
   // Write point info
   for (const auto& point3D : reconstruction.Points3D()) {
     auto& p = point3D.second;
-    synth_file << p.xyz(0) << " " << p.xyz(1) << " " << p.xyz(2) << "\n";
+    synth_file << p.xyz(0) << " " << p.xyz(1) << " " << p.xyz(2) << '\n';
     synth_file << static_cast<int>(p.color(0)) << " "
                << static_cast<int>(p.color(1)) << " "
-               << static_cast<int>(p.color(2)) << "\n";
+               << static_cast<int>(p.color(2)) << '\n';
 
     std::ostringstream line;
 
@@ -298,7 +298,7 @@ bool ExportRecon3D(const Reconstruction& reconstruction,
     line_string = line_string.substr(0, line_string.size() - 1);
 
     synth_file << image_ids.size() << " ";
-    synth_file << line_string << "\n";
+    synth_file << line_string << '\n';
   }
   synth_file.close();
 
@@ -321,7 +321,7 @@ bool ExportBundler(const Reconstruction& reconstruction,
   file << "# Bundle file v0.3\n";
 
   file << reconstruction.NumRegImages() << " " << reconstruction.NumPoints3D()
-       << "\n";
+       << '\n';
 
   std::unordered_map<image_t, size_t> image_id_to_idx_;
   size_t image_idx = 0;
@@ -348,18 +348,18 @@ bool ExportBundler(const Reconstruction& reconstruction,
       return false;
     }
 
-    file << camera.MeanFocalLength() << " " << k1 << " " << k2 << "\n";
+    file << camera.MeanFocalLength() << " " << k1 << " " << k2 << '\n';
 
     const Eigen::Matrix3d R = image.CamFromWorld().rotation.toRotationMatrix();
-    file << R(0, 0) << " " << R(0, 1) << " " << R(0, 2) << "\n";
-    file << -R(1, 0) << " " << -R(1, 1) << " " << -R(1, 2) << "\n";
-    file << -R(2, 0) << " " << -R(2, 1) << " " << -R(2, 2) << "\n";
+    file << R(0, 0) << " " << R(0, 1) << " " << R(0, 2) << '\n';
+    file << -R(1, 0) << " " << -R(1, 1) << " " << -R(1, 2) << '\n';
+    file << -R(2, 0) << " " << -R(2, 1) << " " << -R(2, 2) << '\n';
 
     file << image.CamFromWorld().translation.x() << " ";
     file << -image.CamFromWorld().translation.y() << " ";
-    file << -image.CamFromWorld().translation.z() << "\n";
+    file << -image.CamFromWorld().translation.z() << '\n';
 
-    list_file << image.Name() << "\n";
+    list_file << image.Name() << '\n';
 
     image_id_to_idx_[image_id] = image_idx;
     image_idx += 1;
@@ -368,11 +368,11 @@ bool ExportBundler(const Reconstruction& reconstruction,
   for (const auto& point3D : reconstruction.Points3D()) {
     file << point3D.second.xyz(0) << " ";
     file << point3D.second.xyz(1) << " ";
-    file << point3D.second.xyz(2) << "\n";
+    file << point3D.second.xyz(2) << '\n';
 
     file << static_cast<int>(point3D.second.color(0)) << " ";
     file << static_cast<int>(point3D.second.color(1)) << " ";
-    file << static_cast<int>(point3D.second.color(2)) << "\n";
+    file << static_cast<int>(point3D.second.color(2)) << '\n';
 
     std::ostringstream line;
 
@@ -399,7 +399,7 @@ bool ExportBundler(const Reconstruction& reconstruction,
     std::string line_string = line.str();
     line_string = line_string.substr(0, line_string.size() - 1);
 
-    file << line_string << "\n";
+    file << line_string << '\n';
   }
 
   return true;
@@ -446,7 +446,7 @@ void ExportVRML(const Reconstruction& reconstruction,
     images_file << "  ambientIntensity 0\n";
     images_file << "  diffuseColor "
                 << " " << image_rgb(0) << " " << image_rgb(1) << " "
-                << image_rgb(2) << "\n";
+                << image_rgb(2) << '\n';
     images_file << "  emissiveColor 0.1 0.1 0.1 } }\n";
     images_file << " geometry IndexedFaceSet {\n";
     images_file << " solid FALSE \n";
@@ -461,7 +461,7 @@ void ExportVRML(const Reconstruction& reconstruction,
         Inverse(image.CamFromWorld()).ToMatrix();
     for (size_t i = 0; i < points.size(); i++) {
       const Eigen::Vector3d point = world_from_cam * points[i].homogeneous();
-      images_file << point(0) << " " << point(1) << " " << point(2) << "\n";
+      images_file << point(0) << " " << point(1) << " " << point(2) << '\n';
     }
 
     images_file << " ] }\n";
@@ -469,7 +469,7 @@ void ExportVRML(const Reconstruction& reconstruction,
     images_file << "color Color {color [\n";
     for (size_t p = 0; p < points.size(); p++) {
       images_file << " " << image_rgb(0) << " " << image_rgb(1) << " "
-                  << image_rgb(2) << "\n";
+                  << image_rgb(2) << '\n';
     }
 
     images_file << "\n] }\n";
@@ -513,7 +513,7 @@ void ExportVRML(const Reconstruction& reconstruction,
   for (const auto& point3D : reconstruction.Points3D()) {
     points3D_file << point3D.second.xyz(0) << ", ";
     points3D_file << point3D.second.xyz(1) << ", ";
-    points3D_file << point3D.second.xyz(2) << "\n";
+    points3D_file << point3D.second.xyz(2) << '\n';
   }
 
   points3D_file << " ] }\n";
@@ -522,7 +522,7 @@ void ExportVRML(const Reconstruction& reconstruction,
   for (const auto& point3D : reconstruction.Points3D()) {
     points3D_file << point3D.second.color(0) / 255.0 << ", ";
     points3D_file << point3D.second.color(1) / 255.0 << ", ";
-    points3D_file << point3D.second.color(2) / 255.0 << "\n";
+    points3D_file << point3D.second.color(2) / 255.0 << '\n';
   }
 
   points3D_file << " ] } } }\n";

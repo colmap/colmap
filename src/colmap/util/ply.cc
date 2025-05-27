@@ -329,7 +329,7 @@ void WriteTextPlyPoints(const std::string& path,
 
   file << "ply\n";
   file << "format ascii 1.0\n";
-  file << "element vertex " << points.size() << "\n";
+  file << "element vertex " << points.size() << '\n';
 
   file << "property float x\n";
   file << "property float y\n";
@@ -361,7 +361,7 @@ void WriteTextPlyPoints(const std::string& path,
            << static_cast<int>(point.g) << " " << static_cast<int>(point.b);
     }
 
-    file << "\n";
+    file << '\n';
   }
 
   file.close();
@@ -376,7 +376,7 @@ void WriteBinaryPlyPoints(const std::string& path,
 
   text_file << "ply\n";
   text_file << "format binary_little_endian 1.0\n";
-  text_file << "element vertex " << points.size() << "\n";
+  text_file << "element vertex " << points.size() << '\n';
 
   text_file << "property float x\n";
   text_file << "property float y\n";
@@ -428,21 +428,21 @@ void WriteTextPlyMesh(const std::string& path, const PlyMesh& mesh) {
 
   file << "ply\n";
   file << "format ascii 1.0\n";
-  file << "element vertex " << mesh.vertices.size() << "\n";
+  file << "element vertex " << mesh.vertices.size() << '\n';
   file << "property float x\n";
   file << "property float y\n";
   file << "property float z\n";
-  file << "element face " << mesh.faces.size() << "\n";
+  file << "element face " << mesh.faces.size() << '\n';
   file << "property list uchar int vertex_index\n";
   file << "end_header\n";
 
   for (const auto& vertex : mesh.vertices) {
-    file << vertex.x << " " << vertex.y << " " << vertex.z << "\n";
+    file << vertex.x << " " << vertex.y << " " << vertex.z << '\n';
   }
 
   for (const auto& face : mesh.faces) {
     file << "3 " << face.vertex_idx1 << " " << face.vertex_idx2 << " "
-         << face.vertex_idx3 << "\n";
+         << face.vertex_idx3 << '\n';
   }
 }
 
@@ -452,11 +452,11 @@ void WriteBinaryPlyMesh(const std::string& path, const PlyMesh& mesh) {
 
   text_file << "ply\n";
   text_file << "format binary_little_endian 1.0\n";
-  text_file << "element vertex " << mesh.vertices.size() << "\n";
+  text_file << "element vertex " << mesh.vertices.size() << '\n';
   text_file << "property float x\n";
   text_file << "property float y\n";
   text_file << "property float z\n";
-  text_file << "element face " << mesh.faces.size() << "\n";
+  text_file << "element face " << mesh.faces.size() << '\n';
   text_file << "property list uchar int vertex_index\n";
   text_file << "end_header\n";
   text_file.close();
