@@ -280,7 +280,7 @@ void ImportPMVSWorkspace(const Workspace& workspace,
     THROW_CHECK_FILE_OPEN(fusion_file, fusion_path);
     for (size_t i = 0; i < image_names.size(); ++i) {
       const auto& ref_image_name = image_names[i];
-      patch_match_file << ref_image_name << "\n";
+      patch_match_file << ref_image_name << '\n';
       if (overlapping_images.empty()) {
         patch_match_file << "__auto__, 20\n";
       } else {
@@ -288,9 +288,9 @@ void ImportPMVSWorkspace(const Workspace& workspace,
           patch_match_file << workspace.GetModel().GetImageName(image_idx)
                            << ", ";
         }
-        patch_match_file << "\n";
+        patch_match_file << '\n';
       }
-      fusion_file << ref_image_name << "\n";
+      fusion_file << ref_image_name << '\n';
     }
   }
 }

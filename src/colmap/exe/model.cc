@@ -95,8 +95,8 @@ void WriteBoundingBox(const std::string& reconstruction_path,
 
     // Ensure that we don't lose any precision by storing in text.
     file.precision(17);
-    file << bbox.min().transpose() << "\n";
-    file << bbox.max().transpose() << "\n";
+    file << bbox.min().transpose() << '\n';
+    file << bbox.max().transpose() << '\n';
   }
   // write oriented bounding box
   {
@@ -110,7 +110,7 @@ void WriteBoundingBox(const std::string& reconstruction_path,
     const Eigen::Vector3d center = (bbox.min() + bbox.max()) * 0.5;
     file << center.transpose() << "\n\n";
     file << "1 0 0\n0 1 0\n0 0 1\n\n";
-    file << extent.transpose() << "\n";
+    file << extent.transpose() << '\n';
   }
 }
 
@@ -188,7 +188,7 @@ void WriteComparisonErrorsCSV(const std::string& path,
   file << "# <rotation error (deg)>, <proj center error>\n";
   for (size_t i = 0; i < errors.size(); ++i) {
     file << errors[i].rotation_error_deg << ", " << errors[i].proj_center_error
-         << "\n";
+         << '\n';
   }
 }
 
@@ -198,12 +198,12 @@ void PrintErrorStats(std::ostream& out, std::vector<double>& vals) {
     out << "Cannot extract error statistics from empty input\n";
     return;
   }
-  out << "Min:    " << Percentile(vals, 0) << "\n";
-  out << "Max:    " << Percentile(vals, 100) << "\n";
-  out << "Mean:   " << Mean(vals) << "\n";
-  out << "Median: " << Median(vals) << "\n";
-  out << "P90:    " << Percentile(vals, 90) << "\n";
-  out << "P99:    " << Percentile(vals, 99) << "\n";
+  out << "Min:    " << Percentile(vals, 0) << '\n';
+  out << "Max:    " << Percentile(vals, 100) << '\n';
+  out << "Mean:   " << Mean(vals) << '\n';
+  out << "Median: " << Median(vals) << '\n';
+  out << "P90:    " << Percentile(vals, 90) << '\n';
+  out << "P99:    " << Percentile(vals, 99) << '\n';
 }
 
 void PrintComparisonSummary(std::ostream& out,
@@ -407,7 +407,7 @@ int RunModelAligner(int argc, char** argv) {
             1.0, Eigen::Quaterniond::Identity(), trans_align);
 
         LOG(INFO) << "\n Aligning reconstruction's origin with ref origin: "
-                  << first_img_position.transpose() << "\n";
+                  << first_img_position.transpose() << '\n';
 
         reconstruction.Transform(origin_align);
 
@@ -582,8 +582,7 @@ bool CompareModels(const Reconstruction& reconstruction1,
     return false;
   }
 
-  LOG(INFO) << "Computed alignment transform:" << std::endl
-            << rec2_from_rec1.ToMatrix();
+  LOG(INFO) << "Computed alignment transform:\n" << rec2_from_rec1.ToMatrix();
 
   errors = ComputeImageAlignmentError(
       reconstruction1, reconstruction2, rec2_from_rec1);

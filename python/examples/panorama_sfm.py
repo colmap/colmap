@@ -216,7 +216,9 @@ def run(args):
     if args.matcher == "sequential":
         pycolmap.match_sequential(
             database_path,
-            pycolmap.SequentialMatchingOptions(loop_detection=True),
+            matching_options=pycolmap.SequentialMatchingOptions(
+                loop_detection=True
+            ),
         )
     elif args.matcher == "exhaustive":
         pycolmap.match_exhaustive(database_path)
