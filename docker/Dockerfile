@@ -1,5 +1,5 @@
-ARG UBUNTU_VERSION=22.04
-ARG NVIDIA_CUDA_VERSION=12.6.1
+ARG UBUNTU_VERSION=24.04
+ARG NVIDIA_CUDA_VERSION=12.9.0
 
 #
 # Docker builder stage.
@@ -61,12 +61,12 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends --no-install-suggests \
         libboost-program-options1.74.0 \
         libc6 \
-        libceres2 \
+        libceres4t64 \
         libfreeimage3 \
         libgcc-s1 \
         libgl1 \
         libglew2.2 \
-        libgoogle-glog0v5 \
+        libgoogle-glog0v6t64 \
         libqt5core5a \
         libqt5gui5 \
         libqt5widgets5 \
