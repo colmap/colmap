@@ -44,13 +44,13 @@ COLMAP_ADD_LIBRARY(
     PUBLIC_LINK_LIBS
         Boost::boost
         Eigen3::Eigen
-        flann::flann_cpp_s
-        lz4
-        faiss
     PRIVATE_LINK_LIBS
         colmap_math
         colmap_estimators
         colmap_optim
+        faiss
+        flann::flann_cpp_s
+        lz4
 )
 if(OPENMP_FOUND)
     target_link_libraries(colmap_retrieval PUBLIC OpenMP::OpenMP_CXX)
