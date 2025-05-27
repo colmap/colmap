@@ -180,6 +180,9 @@ if(CUDA_ENABLED AND CUDA_FOUND)
 
     # Do not show warnings if the architectures are deprecated.
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Wno-deprecated-gpu-targets")
+    # Suppress warnings related to Eigen:
+    # Calling a constexpr __host__ function from a __host__ __device__ function is not allowed.
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-relaxed-constexpr")
     # Explicitly set PIC flags for CUDA targets.
     if(NOT IS_MSVC)
         set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --compiler-options -fPIC")
