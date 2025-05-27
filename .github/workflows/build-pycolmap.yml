@@ -22,7 +22,7 @@ jobs:
       matrix:
         config: [
               {os: ubuntu-latest},
-              {os: macos-13, arch: x86_64, deploymentTarget: 10.15},
+              {os: macos-13, arch: x86_64, deploymentTarget: 11.0},
               {os: macos-14, arch: arm64, deploymentTarget: 14.0},
               {os: windows-latest},
         ]
