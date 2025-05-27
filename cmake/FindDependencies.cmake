@@ -53,10 +53,7 @@ if(TESTS_ENABLED)
     find_package(GTest ${COLMAP_FIND_TYPE})
 endif()
 
-if(OPENMP_ENABLED AND NOT "${CMAKE_BUILD_TYPE}" STREQUAL "ClangTidy")
-    find_package(OpenMP QUIET)
-endif()
-
+find_package(OpenMP REQUIRED)
 if(OPENMP_ENABLED)
     if(OPENMP_FOUND)
         message(STATUS "Enabling OpenMP support")
