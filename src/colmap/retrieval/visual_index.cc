@@ -559,10 +559,8 @@ class FaissVisualIndex : public VisualIndex {
     clustering.nredo = options.num_rounds;
     clustering.verbose = VLOG_IS_ON(3);
 
-    const Eigen::RowMajorMatrixXf descriptors_float =
-        descriptors.template cast<float>();
     faiss::IndexFlatL2 index(kDescDim);
-    clustering.train(descriptors.rows(), descriptors_float.data(), index);
+    clustering.train(descriptors.rows(), descriptors.data(), index);
 
     VLOG(2) << "Quantized into " << options.num_visual_words
             << " visual words with error "
