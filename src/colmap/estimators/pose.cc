@@ -287,6 +287,7 @@ bool RefineRelativePose(const ceres::Solver::Options& options,
   double* cam2_from_cam1_rotation = cam2_from_cam1->rotation.coeffs().data();
   double* cam2_from_cam1_translation = cam2_from_cam1->translation.data();
 
+  constexpr double kMaxL2Error = 1.0;
   const auto loss_function = std::make_unique<ceres::CauchyLoss>(kMaxL2Error);
 
   ceres::Problem::Options problem_options;
