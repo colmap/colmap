@@ -45,16 +45,28 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_feature_types
 )
 
+if(TORCH_ENABLED)
+    set(OPTIONAL_TORCH_FEATURE_SRCS
+        torch_utils.h torch_utils.cc)
+    set(OPTIONAL_TORCH_FEATURE_LIBS
+        colmap_aliked
+        colmap_lightglue)
+endif()
+
 COLMAP_ADD_LIBRARY(
     NAME colmap_feature
     SRCS
-        extractor.h
+        aliked.h aliked.cc
+        extractor.h extractor.cc
         index.h index.cc
+        lightglue.h lightglue.cc
         matcher.h matcher.cc
         pairing.h pairing.cc
+        resources.h
         sift.h sift.cc
         types.h types.cc
         utils.h utils.cc
+        ${OPTIONAL_TORCH_FEATURE_SRCS}
     PUBLIC_LINK_LIBS
         colmap_feature_types
         colmap_geometry
@@ -62,6 +74,7 @@ COLMAP_ADD_LIBRARY(
         colmap_scene
         colmap_util
     PRIVATE_LINK_LIBS
+        ${OPTIONAL_TORCH_FEATURE_LIBS}
         colmap_math
         colmap_sensor
         colmap_vlfeat
@@ -69,6 +82,22 @@ COLMAP_ADD_LIBRARY(
         flann::flann_cpp_s
         lz4
 )
+
+if(TORCH_ENABLED)
+    COLMAP_ADD_TEST(
+        NAME aliked_test
+        SRCS aliked_test.cc
+        LINK_LIBS
+            colmap_feature
+            colmap_util
+    )
+    COLMAP_ADD_TEST(
+        NAME torch_utils_test
+        SRCS torch_utils_test.cc
+        LINK_LIBS colmap_feature
+    )
+endif()
+
 if(GPU_ENABLED)
     target_link_libraries(colmap_feature PRIVATE colmap_sift_gpu)
     if(NOT GUI_ENABLED)
@@ -98,6 +127,7 @@ COLMAP_ADD_TEST(
     SRCS sift_test.cc
     LINK_LIBS
         colmap_feature
+        colmap_util
 )
 if(TESTS_ENABLED AND GUI_ENABLED)
     target_link_libraries(colmap_feature_sift_test Qt5::Widgets)
