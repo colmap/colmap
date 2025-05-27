@@ -287,10 +287,12 @@ bool RefineRelativePose(const ceres::Solver::Options& options,
   double* cam2_from_cam1_rotation = cam2_from_cam1->rotation.coeffs().data();
   double* cam2_from_cam1_translation = cam2_from_cam1->translation.data();
 
-  const double kMaxL2Error = 1.0;
-  ceres::LossFunction* loss_function = new ceres::CauchyLoss(kMaxL2Error);
+  constexpr double kMaxL2Error = 1.0;
+  const auto loss_function = std::make_unique<ceres::CauchyLoss>(kMaxL2Error);
 
-  ceres::Problem problem;
+  ceres::Problem::Options problem_options;
+  problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
+  ceres::Problem problem(problem_options);
 
   for (size_t i = 0; i < cam_points1.size(); ++i) {
     // Skip outlier observations
@@ -300,7 +302,7 @@ bool RefineRelativePose(const ceres::Solver::Options& options,
     ceres::CostFunction* cost_function =
         SampsonErrorCostFunctor::Create(cam_points1[i], cam_points2[i]);
     problem.AddResidualBlock(cost_function,
-                             loss_function,
+                             loss_function.get(),
                              cam2_from_cam1_rotation,
                              cam2_from_cam1_translation);
   }

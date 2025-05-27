@@ -135,8 +135,10 @@ bool NextCombination(Iterator first1,
   }
   Iterator m1 = last1;
   Iterator m2 = last2;
+  --m1;
   --m2;
-  while (--m1 != first1 && *m1 >= *m2) {
+  while (m1 != first1 && *m1 >= *m2) {
+    --m1;
   }
   bool result = (m1 == first1) && *first1 >= *m2;
   if (!result) {
