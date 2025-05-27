@@ -596,7 +596,7 @@ class FaissVisualIndex : public VisualIndex {
 
     const size_t num_images =
         (options.max_num_images >= 0)
-            ? std::min<size_t>(num_images, options.max_num_images)
+            ? std::min<size_t>(image_scores->size(), options.max_num_images)
             : image_scores->size();
 
     // NOLINTNEXTLINE(bugprone-branch-clone)
