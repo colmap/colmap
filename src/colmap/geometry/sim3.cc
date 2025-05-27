@@ -42,7 +42,7 @@ void Sim3d::ToFile(const std::string& path) const {
   file.precision(17);
   file << scale << " " << rotation.w() << " " << rotation.x() << " "
        << rotation.y() << " " << rotation.z() << " " << translation.x() << " "
-       << translation.y() << " " << translation.z() << "\n";
+       << translation.y() << " " << translation.z() << '\n';
 }
 
 Sim3d Sim3d::FromFile(const std::string& path) {
