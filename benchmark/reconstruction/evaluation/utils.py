@@ -610,7 +610,8 @@ def compute_rel_errors(
             other_image = images[other_image_gt.name]
 
             other_from_this = (
-                other_image.cam_from_world() * this_image.cam_from_world().inverse()
+                other_image.cam_from_world()
+                * this_image.cam_from_world().inverse()
             )
             other_from_this_gt = (
                 other_image_gt.cam_from_world()
