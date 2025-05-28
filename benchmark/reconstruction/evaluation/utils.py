@@ -147,6 +147,9 @@ def parse_args() -> argparse.Namespace:
         "--overwrite_database", default=False, action="store_true"
     )
     parser.add_argument(
+        "--overwrite_matches", default=False, action="store_true"
+    )
+    parser.add_argument(
         "--overwrite_reconstruction", default=False, action="store_true"
     )
     parser.add_argument(
@@ -188,6 +191,11 @@ def parse_args() -> argparse.Namespace:
     if args.overwrite_database:
         pycolmap.logging.info(
             "Overwriting database also overwrites reconstruction"
+        )
+        args.overwrite_reconstruction = True
+    if args.overwrite_matches:
+        pycolmap.logging.info(
+            "Overwriting matches also overwrites reconstruction"
         )
         args.overwrite_reconstruction = True
     if args.overwrite_reconstruction:
@@ -252,6 +260,19 @@ def colmap_reconstruction(
     if sparse_path.exists():
         pycolmap.logging.info("Skipping reconstruction, as it already exists")
         return
+
+    if args.overwrite_matches:
+        subprocess.check_call(
+            [
+                args.colmap_path,
+                "database_cleaner",
+                "--database_path",
+                database_path,
+                "--type",
+                "matches",
+            ],
+            cwd=workspace_path,
+        )
 
     # TODO: Expose automatic reconstruction through pycolmap bindings instead
     # of using the command line interface. One blocker for this is that we
