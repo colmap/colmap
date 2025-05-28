@@ -427,7 +427,13 @@ def process_scene(
                     continue
                 if image.camera_id not in sparse_merged.cameras:
                     sparse_merged.add_camera(image.camera)
+                if image.frame_id not in sparse_merged.frames:
+                    if image.frame.rig_id not in sparse_merged.rigs:
+                        sparse_merged.add_rig(image.frame.rig)
+                    image.frame.reset_rig_ptr()
+                    sparse_merged.add_frame(image.frame)
                 image.reset_camera_ptr()
+                image.reset_frame_ptr()
                 sparse_merged.add_image(image)
 
     if args.error_type == "relative":
@@ -604,11 +610,11 @@ def compute_rel_errors(
             other_image = images[other_image_gt.name]
 
             other_from_this = (
-                other_image.cam_from_world * this_image.cam_from_world.inverse()
+                other_image.cam_from_world() * this_image.cam_from_world().inverse()
             )
             other_from_this_gt = (
-                other_image_gt.cam_from_world
-                * this_image_gt.cam_from_world.inverse()
+                other_image_gt.cam_from_world()
+                * this_image_gt.cam_from_world().inverse()
             )
 
             estimated_from_gt = other_from_this.inverse() * other_from_this_gt
@@ -664,7 +670,7 @@ def compute_abs_errors(
         image = images[image_gt.name]
 
         estimated_from_gt = (
-            image.cam_from_world * image_gt.cam_from_world.inverse()
+            image.cam_from_world() * image_gt.cam_from_world().inverse()
         )
 
         dts[i] = np.linalg.norm(estimated_from_gt.translation)
