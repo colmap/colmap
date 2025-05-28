@@ -164,7 +164,7 @@ ImageReader::Status ImageReader::Next(Rig* rig,
         std::string alt_mask_path =
             JoinPaths(options_.mask_path, image->Name());
         if (ExistsFile(alt_mask_path)) {
-          mask_path = alt_mask_path;
+          mask_path = std::move(alt_mask_path);
           exists_mask = true;
         } 
       }
