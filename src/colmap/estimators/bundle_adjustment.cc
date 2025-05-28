@@ -1037,8 +1037,8 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
       }
 
       VLOG(2) << "Alignment error w.r.t. prior positions:\n"
-              << "  - rmse:   " << std::sqrt(Mean(verr2_wrt_prior)) << "\n"
-              << "  - median: " << std::sqrt(Median(verr2_wrt_prior)) << "\n";
+              << "  - rmse:   " << std::sqrt(Mean(verr2_wrt_prior)) << '\n'
+              << "  - median: " << std::sqrt(Median(verr2_wrt_prior)) << '\n';
     }
 
     return success;
@@ -1085,16 +1085,16 @@ void PrintSolverSummary(const ceres::Solver::Summary& summary,
   }
 
   std::ostringstream log;
-  log << header << "\n";
+  log << header << '\n';
   log << std::right << std::setw(16) << "Residuals : ";
-  log << std::left << summary.num_residuals_reduced << "\n";
+  log << std::left << summary.num_residuals_reduced << '\n';
 
   log << std::right << std::setw(16) << "Parameters : ";
-  log << std::left << summary.num_effective_parameters_reduced << "\n";
+  log << std::left << summary.num_effective_parameters_reduced << '\n';
 
   log << std::right << std::setw(16) << "Iterations : ";
   log << std::left
-      << summary.num_successful_steps + summary.num_unsuccessful_steps << "\n";
+      << summary.num_successful_steps + summary.num_unsuccessful_steps << '\n';
 
   log << std::right << std::setw(16) << "Time : ";
   log << std::left << summary.total_time_in_seconds << " [s]\n";

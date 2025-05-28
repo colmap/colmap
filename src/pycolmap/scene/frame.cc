@@ -47,6 +47,9 @@ void BindFrame(py::module& m) {
           },
           &Frame::SetRigPtr,
           "The associated rig object.")
+      .def("reset_rig_ptr",
+           &Frame::ResetRigPtr,
+           "Make the rig pointer a nullptr.")
       .def_property(
           "rig_from_world",
           [](Frame& self) -> py::typing::Optional<Rigid3d> {

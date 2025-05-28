@@ -154,6 +154,7 @@ void TestModel(const std::vector<double>& params) {
   EXPECT_FALSE(ExistsCameraModelWithName(CameraModel::model_name + "FOO"));
 
   EXPECT_TRUE(ExistsCameraModelWithId(CameraModel::model_id));
+  // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange)
   EXPECT_FALSE(ExistsCameraModelWithId(static_cast<CameraModelId>(123456789)));
 
   EXPECT_EQ(CameraModelNameToId(CameraModelIdToName(CameraModel::model_id)),
