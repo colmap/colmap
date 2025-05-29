@@ -7,7 +7,7 @@ ARG NVIDIA_CUDA_VERSION=12.9.0
 FROM nvidia/cuda:${NVIDIA_CUDA_VERSION}-devel-ubuntu${UBUNTU_VERSION} as builder
 
 ARG COLMAP_GIT_COMMIT=main
-ARG CUDA_ARCHITECTURES=native
+ARG CUDA_ARCHITECTURES=all-major
 ENV QT_XCB_GL_INTEGRATION=xcb_egl
 
 # Prevent stop building ubuntu at time zone selection.
@@ -59,7 +59,7 @@ FROM nvidia/cuda:${NVIDIA_CUDA_VERSION}-runtime-ubuntu${UBUNTU_VERSION} as runti
 # build dependencies are not needed.
 RUN apt-get update && \
     apt-get install -y --no-install-recommends --no-install-suggests \
-        libboost-program-options1.74.0 \
+        libboost-program-options1.83.0 \
         libc6 \
         libceres4t64 \
         libfreeimage3 \
