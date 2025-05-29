@@ -240,7 +240,7 @@ VocabTreePairGenerator::VocabTreePairGenerator(
   // Read the pre-trained vocabulary tree from disk.
   visual_index_ = retrieval::VisualIndex::Read(
       options_.vocab_tree_path,
-      /*legacy_flann=*/false);
+      /*legacy_flann=*/options_.vocab_tree_legacy_flann;
 
   const std::vector<image_t> all_image_ids = cache_->GetImageIds();
   if (query_image_ids.size() > 0) {
