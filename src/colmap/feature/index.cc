@@ -55,7 +55,11 @@ class FaissFeatureDescriptorIndex : public FeatureDescriptorIndex {
 #pragma omp parallel num_threads(1)
     {
       omp_set_num_threads(num_threads_);
+#ifdef _MSC_VER
+      omp_set_nested(1);
+#else
       omp_set_max_active_levels(1);
+#endif
 
       if (index_descriptors.rows() >= 512) {
         const int num_centroids = 4 * std::sqrt(index_descriptors.rows());
@@ -110,7 +114,11 @@ class FaissFeatureDescriptorIndex : public FeatureDescriptorIndex {
 #pragma omp parallel num_threads(1)
     {
       omp_set_num_threads(num_threads_);
+#ifdef _MSC_VER
+      omp_set_nested(1);
+#else
       omp_set_max_active_levels(1);
+#endif
 
       faiss::SearchParametersIVF search_params;
       search_params.nprobe = 8;
