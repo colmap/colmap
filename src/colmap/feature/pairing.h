@@ -146,6 +146,9 @@ struct SequentialMatchingOptions {
   // image has more features, only the largest-scale features will be indexed.
   int loop_detection_max_num_features = -1;
 
+  // Number of threads for loop detection indexing and retrieval.
+  int num_threads = -1;
+
   // Path to the vocabulary tree.
   std::string vocab_tree_path = kDefaultVocabTreeUri;
 

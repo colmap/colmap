@@ -126,6 +126,7 @@ VocabTreeMatchingOptions SequentialMatchingOptions::VocabTreeOptions() const {
       loop_detection_num_images_after_verification;
   options.max_num_features = loop_detection_max_num_features;
   options.vocab_tree_path = vocab_tree_path;
+  options.num_threads = num_threads;
   return options;
 }
 
@@ -239,7 +240,7 @@ VocabTreePairGenerator::VocabTreePairGenerator(
   // Read the pre-trained vocabulary tree from disk.
   visual_index_ = retrieval::VisualIndex::Read(
       options_.vocab_tree_path,
-      /*legacy_flann=*/options_.vocab_tree_legacy_flann);
+      /*legacy_flann=*/false);
 
   const std::vector<image_t> all_image_ids = cache_->GetImageIds();
   if (query_image_ids.size() > 0) {
@@ -617,7 +618,7 @@ std::vector<std::pair<image_t, image_t>> SpatialPairGenerator::Next() {
       static_cast<float>(options_.max_distance * options_.max_distance);
   for (int j = 0; j < knn_; ++j) {
     // Check if query equals result.
-    if (index_matrix_(current_idx_, j) == current_idx_) {
+    if (index_matrix_(current_idx_, j) == static_cast<int>(current_idx_)) {
       continue;
     }
 
