@@ -149,12 +149,10 @@ bool PoissonMeshing(const PoissonMeshingOptions& options,
     args.push_back(std::to_string(options.color));
   }
 
-#if defined(COLMAP_OPENMP_ENABLED)
   if (options.num_threads > 0) {
     args.push_back("--threads");
     args.push_back(std::to_string(options.num_threads));
   }
-#endif  // OPENMP_ENABLED
 
   if (options.trim > 0) {
     args.push_back("--density");

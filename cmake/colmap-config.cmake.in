@@ -90,6 +90,8 @@ set(LSD_ENABLED @LSD_ENABLED@)
 
 set(FETCH_POSELIB @FETCH_POSELIB@)
 
+set(FETCH_FAISS @FETCH_FAISS@)
+
 include(${PACKAGE_PREFIX_DIR}/share/colmap/colmap-targets.cmake)
 include(${PACKAGE_PREFIX_DIR}/share/colmap/cmake/FindDependencies.cmake)
 check_required_components(colmap)

@@ -8,6 +8,8 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.30")
     cmake_policy(SET CMP0167 NEW)
 endif()
 
+find_package(OpenMP REQUIRED)
+
 find_package(Boost ${COLMAP_FIND_TYPE} COMPONENTS
              graph
              program_options
@@ -18,6 +20,7 @@ find_package(Eigen3 ${COLMAP_FIND_TYPE})
 find_package(FreeImage ${COLMAP_FIND_TYPE})
 
 find_package(FLANN ${COLMAP_FIND_TYPE})
+
 find_package(LZ4 ${COLMAP_FIND_TYPE})
 
 find_package(Metis ${COLMAP_FIND_TYPE})
@@ -50,17 +53,6 @@ endif()
 
 if(TESTS_ENABLED)
     find_package(GTest ${COLMAP_FIND_TYPE})
-endif()
-
-if(OPENMP_ENABLED AND NOT "${CMAKE_BUILD_TYPE}" STREQUAL "ClangTidy")
-    find_package(OpenMP QUIET)
-endif()
-
-if(OPENMP_ENABLED AND OPENMP_FOUND)
-    message(STATUS "Enabling OpenMP support")
-    add_compile_definitions(COLMAP_OPENMP_ENABLED)
-else()
-    message(STATUS "Disabling OpenMP support")
 endif()
 
 if(CGAL_ENABLED)
@@ -126,6 +118,10 @@ if(NOT FETCH_POSELIB)
     find_package(PoseLib ${COLMAP_FIND_TYPE})
 endif()
 
+if(NOT FETCH_FAISS)
+    find_package(faiss ${COLMAP_FIND_TYPE})
+endif()
+
 set(COLMAP_LINK_DIRS ${Boost_LIBRARY_DIRS})
 
 set(CUDA_MIN_VERSION "7.0")
@@ -158,7 +154,7 @@ if(CUDA_ENABLED)
             set(CUDAToolkit_VERSION "${CUDA_VERSION_STRING}")
             set(CUDAToolkit_BIN_DIR "${CUDA_TOOLKIT_ROOT_DIR}/bin")
         else()
-            message(STATUS "CUDA not found")
+            message(STATUS "Disabling CUDA support (not found)")
         endif()
     else()
         find_package(CUDAToolkit QUIET)
@@ -166,7 +162,7 @@ if(CUDA_ENABLED)
             set(CUDA_FOUND ON)
             enable_language(CUDA)
         else()
-            message(STATUS "CUDA not found")
+            message(STATUS "Disabling CUDA support (not found)")
         endif()
     endif()
 endif()

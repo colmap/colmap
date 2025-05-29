@@ -378,6 +378,8 @@ void OptionManager::AddSequentialMatchingOptions() {
       &sequential_matching->loop_detection_max_num_features);
   AddAndRegisterDefaultOption("SequentialMatching.vocab_tree_path",
                               &sequential_matching->vocab_tree_path);
+  AddAndRegisterDefaultOption("SequentialMatching.num_threads",
+                              &sequential_matching->num_threads);
 }
 
 void OptionManager::AddVocabTreeMatchingOptions() {

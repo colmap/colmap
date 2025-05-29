@@ -33,6 +33,7 @@
 #include "colmap/math/random.h"
 
 #include <gtest/gtest.h>
+#include <omp.h>
 
 namespace colmap {
 namespace {
@@ -49,12 +50,25 @@ FeatureDescriptors CreateRandomFeatureDescriptors(const size_t num_features) {
   return FeatureDescriptorsToUnsignedByte(descriptors);
 }
 
-TEST(FeatureDescriptorIndex, Nominal) {
-  const FeatureDescriptors index_descriptors =
-      CreateRandomFeatureDescriptors(100);
-  const FeatureDescriptors& query_descriptors = index_descriptors;
+class ParameterizedFeatureDescriptorIndexTests
+    : public ::testing::TestWithParam<
+          std::pair<FeatureDescriptorIndex::Type, /*num_descriptors=*/int>> {};
 
-  auto index = FeatureDescriptorIndex::Create();
+TEST_P(ParameterizedFeatureDescriptorIndexTests, Nominal) {
+  const auto [type, num_descriptors] = GetParam();
+
+  std::unique_ptr<FeatureDescriptorIndex> index;
+  try {
+    index = FeatureDescriptorIndex::Create(type);
+  } catch (const std::runtime_error& e) {
+    GTEST_SKIP() << "Skipping test due to: " << e.what();
+  }
+
+  EXPECT_NE(index, nullptr);
+
+  const FeatureDescriptors index_descriptors =
+      CreateRandomFeatureDescriptors(num_descriptors);
+  const FeatureDescriptors& query_descriptors = index_descriptors;
   index->Build(index_descriptors);
 
   Eigen::RowMajorMatrixXi indices;
@@ -96,6 +110,15 @@ TEST(FeatureDescriptorIndex, Nominal) {
   ASSERT_EQ(distances.rows(), query_descriptors.rows());
   ASSERT_EQ(distances.cols(), index_descriptors.rows());
 }
+
+INSTANTIATE_TEST_SUITE_P(
+    FeatureDescriptorIndexTests,
+    ParameterizedFeatureDescriptorIndexTests,
+    ::testing::Values(std::make_pair(FeatureDescriptorIndex::Type::FAISS, 100),
+                      std::make_pair(FeatureDescriptorIndex::Type::FAISS, 1000),
+                      std::make_pair(FeatureDescriptorIndex::Type::FLANN, 100),
+                      std::make_pair(FeatureDescriptorIndex::Type::FLANN,
+                                     1000)));
 
 }  // namespace
 }  // namespace colmap
