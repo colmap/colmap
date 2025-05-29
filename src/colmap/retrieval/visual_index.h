@@ -58,6 +58,9 @@ class VisualIndex {
 
     // The number of checks in the nearest neighbor search.
     int num_checks = 64;
+
+    // Number of threads to use.
+    int num_threads = -1;
   };
 
   struct QueryOptions {
@@ -73,6 +76,9 @@ class VisualIndex {
 
     // The number of checks in the nearest neighbor search.
     int num_checks = 64;
+
+    // Number of threads to use.
+    int num_threads = -1;
   };
 
   struct BuildOptions {
@@ -89,6 +95,9 @@ class VisualIndex {
 
     // The number of checks in the nearest neighbor search.
     int num_checks = 256;
+
+    // Number of threads to use.
+    int num_threads = -1;
   };
 
   // Create visual index with specific input feature descriptor dimension and
@@ -97,9 +106,6 @@ class VisualIndex {
                                              int embedding_dim = 64);
 
   virtual ~VisualIndex() = default;
-
-  // Set the number of threads to use for indexing/search.
-  virtual void SetNumThreads(int num_threads) = 0;
 
   // Total number of visual words.
   virtual size_t NumVisualWords() const = 0;
