@@ -70,8 +70,16 @@ std::unique_ptr<faiss::IndexIVF> BuildFaissIndex(
   auto index = std::unique_ptr<faiss::IndexIVF>(dynamic_cast<faiss::IndexIVF*>(
       faiss::index_factory(visual_words.cols(), index_type.str().c_str())));
   faiss::index_factory_verbose = index_factory_verbose;
-  index->train(visual_words.rows(), visual_words.data());
-  index->add(visual_words.rows(), visual_words.data());
+
+#pragma omp parallel num_threads(1)
+  {
+    omp_set_num_threads(GetEffectiveNumThreads(options.num_threads));
+    omp_set_max_active_levels(1);
+
+    index->train(visual_words.rows(), visual_words.data());
+    index->add(visual_words.rows(), visual_words.data());
+  }
+
   return index;
 }
 
@@ -82,10 +90,6 @@ class FaissVisualIndex : public VisualIndex {
   typedef typename InvertedIndexType::EntryType EntryType;
 
   FaissVisualIndex() : prepared_(false) {}
-
-  void SetNumThreads(int num_threads) override {
-    omp_set_num_threads(GetEffectiveNumThreads(num_threads));
-  }
 
   size_t NumVisualWords() const override {
     return (index_ == nullptr) ? 0 : index_->ntotal;
@@ -117,8 +121,10 @@ class FaissVisualIndex : public VisualIndex {
       return;
     }
 
-    const WordIds word_ids =
-        FindWordIds(descriptors, options.num_neighbors, options.num_checks);
+    const WordIds word_ids = FindWordIds(descriptors,
+                                         options.num_neighbors,
+                                         options.num_checks,
+                                         options.num_threads);
 
     for (typename Descriptors::Index i = 0; i < descriptors.rows(); ++i) {
       const auto& descriptor = descriptors.row(i);
@@ -434,8 +440,8 @@ class FaissVisualIndex : public VisualIndex {
 
     // Learn the Hamming embedding.
     const int kNumNeighbors = 1;
-    const WordIds word_ids =
-        FindWordIds(descriptors, kNumNeighbors, options.num_checks);
+    const WordIds word_ids = FindWordIds(
+        descriptors, kNumNeighbors, options.num_checks, options.num_threads);
     inverted_index_.ComputeHammingEmbedding(descriptors, word_ids);
     VLOG(2) << "Computed hamming embeddings";
   }
@@ -584,8 +590,10 @@ class FaissVisualIndex : public VisualIndex {
       return;
     }
 
-    *word_ids =
-        FindWordIds(descriptors, options.num_neighbors, options.num_checks);
+    *word_ids = FindWordIds(descriptors,
+                            options.num_neighbors,
+                            options.num_checks,
+                            options.num_threads);
     inverted_index_.Query(descriptors, *word_ids, image_scores);
 
     auto SortFunc = [](const ImageScore& score1, const ImageScore& score2) {
@@ -612,7 +620,8 @@ class FaissVisualIndex : public VisualIndex {
   // Find the nearest neighbor visual words for the given descriptors.
   WordIds FindWordIds(const Descriptors& descriptors,
                       int num_neighbors,
-                      int num_checks) const {
+                      int num_checks,
+                      int num_threads) const {
     THROW_CHECK_EQ(descriptors.cols(), kDescDim);
     THROW_CHECK_GT(descriptors.rows(), 0);
     THROW_CHECK_GT(num_neighbors, 0);
@@ -623,12 +632,19 @@ class FaissVisualIndex : public VisualIndex {
 
     faiss::IVFSearchParameters search_params;
     search_params.nprobe = num_checks;
-    index_->search(descriptors.rows(),
-                   descriptors.data(),
-                   num_neighbors,
-                   distances.data(),
-                   word_ids.data(),
-                   &search_params);
+
+#pragma omp parallel num_threads(1)
+    {
+      omp_set_num_threads(GetEffectiveNumThreads(num_threads));
+      omp_set_max_active_levels(1);
+
+      index_->search(descriptors.rows(),
+                     descriptors.data(),
+                     num_neighbors,
+                     distances.data(),
+                     word_ids.data(),
+                     &search_params);
+    }
 
     return word_ids;
   }

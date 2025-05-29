@@ -24,10 +24,6 @@ void BindVisualIndex(py::module& m) {
 
   class PyVisualIndexImpl : public VisualIndex {
    public:
-    void SetNumThreads(int num_threads) override {
-      PYBIND11_OVERRIDE_PURE(void, VisualIndex, SetNumThreads, num_threads);
-    }
-
     size_t NumVisualWords() const override {
       PYBIND11_OVERRIDE_PURE(size_t, VisualIndex, NumVisualWords);
     }
@@ -101,7 +97,9 @@ void BindVisualIndex(py::module& m) {
           .def(py::init<>())
           .def_readwrite("num_neighbors",
                          &VisualIndex::IndexOptions::num_neighbors)
-          .def_readwrite("num_checks", &VisualIndex::IndexOptions::num_checks);
+          .def_readwrite("num_checks", &VisualIndex::IndexOptions::num_checks)
+          .def_readwrite("num_threads",
+                         &VisualIndex::IndexOptions::num_threads);
   MakeDataclass(PyIndexOptions);
 
   auto PyQueryOptions =
@@ -112,6 +110,7 @@ void BindVisualIndex(py::module& m) {
           .def_readwrite("num_neighbors",
                          &VisualIndex::QueryOptions::num_neighbors)
           .def_readwrite("num_checks", &VisualIndex::QueryOptions::num_checks)
+          .def_readwrite("num_threads", &VisualIndex::QueryOptions::num_threads)
           .def_readwrite(
               "num_images_after_verification",
               &VisualIndex::QueryOptions::num_images_after_verification);
@@ -125,7 +124,9 @@ void BindVisualIndex(py::module& m) {
           .def_readwrite("num_iterations",
                          &VisualIndex::BuildOptions::num_iterations)
           .def_readwrite("num_rounds", &VisualIndex::BuildOptions::num_rounds)
-          .def_readwrite("num_checks", &VisualIndex::BuildOptions::num_checks);
+          .def_readwrite("num_checks", &VisualIndex::BuildOptions::num_checks)
+          .def_readwrite("num_threads",
+                         &VisualIndex::BuildOptions::num_threads);
   MakeDataclass(PyBuildOptions);
 
   PyVisualIndex.def(py::init<>())

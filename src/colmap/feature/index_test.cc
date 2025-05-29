@@ -33,6 +33,7 @@
 #include "colmap/math/random.h"
 
 #include <gtest/gtest.h>
+#include <omp.h>
 
 namespace colmap {
 namespace {

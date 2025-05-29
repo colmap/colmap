@@ -40,6 +40,9 @@ namespace {
 
 class FaissFeatureDescriptorIndex : public FeatureDescriptorIndex {
  public:
+  explicit FaissFeatureDescriptorIndex(int num_threads)
+      : num_threads_(num_threads) {}
+
   void Build(const FeatureDescriptors& index_descriptors) override {
     if (index_descriptors.rows() == 0) {
       index_ = nullptr;
@@ -49,26 +52,29 @@ class FaissFeatureDescriptorIndex : public FeatureDescriptorIndex {
     const Eigen::RowMajorMatrixXf index_descriptors_float =
         index_descriptors.cast<float>();
 
-    // Assume parallelization is done on the outer level.
-    omp_set_num_threads(1);
+#pragma omp parallel num_threads(1)
+    {
+      omp_set_num_threads(num_threads_);
+      omp_set_max_active_levels(1);
 
-    if (index_descriptors.rows() >= 512) {
-      const int num_centroids = 4 * std::sqrt(index_descriptors.rows());
-      coarse_quantizer_ =
-          std::make_unique<faiss::IndexFlatL2>(index_descriptors.cols());
-      index_ = std::make_unique<faiss::IndexIVFFlat>(
-          /*quantizer=*/coarse_quantizer_.get(),
-          /*d=*/index_descriptors.cols(),
-          /*nlist_=*/num_centroids);
-      auto* index_impl = dynamic_cast<faiss::IndexIVFFlat*>(index_.get());
-      // Avoid warnings during the training phase.
-      index_impl->cp.min_points_per_centroid = 1;
-      index_->train(index_descriptors.rows(), index_descriptors_float.data());
-      index_->add(index_descriptors.rows(), index_descriptors_float.data());
-    } else {
-      index_ =
-          std::make_unique<faiss::IndexFlatL2>(/*d=*/index_descriptors.cols());
-      index_->add(index_descriptors.rows(), index_descriptors_float.data());
+      if (index_descriptors.rows() >= 512) {
+        const int num_centroids = 4 * std::sqrt(index_descriptors.rows());
+        coarse_quantizer_ =
+            std::make_unique<faiss::IndexFlatL2>(index_descriptors.cols());
+        index_ = std::make_unique<faiss::IndexIVFFlat>(
+            /*quantizer=*/coarse_quantizer_.get(),
+            /*d=*/index_descriptors.cols(),
+            /*nlist_=*/num_centroids);
+        auto* index_impl = dynamic_cast<faiss::IndexIVFFlat*>(index_.get());
+        // Avoid warnings during the training phase.
+        index_impl->cp.min_points_per_centroid = 1;
+        index_->train(index_descriptors.rows(), index_descriptors_float.data());
+        index_->add(index_descriptors.rows(), index_descriptors_float.data());
+      } else {
+        index_ = std::make_unique<faiss::IndexFlatL2>(
+            /*d=*/index_descriptors.cols());
+        index_->add(index_descriptors.rows(), index_descriptors_float.data());
+      }
     }
   }
 
@@ -101,17 +107,20 @@ class FaissFeatureDescriptorIndex : public FeatureDescriptorIndex {
     const Eigen::RowMajorMatrixXf query_descriptors_float =
         query_descriptors.cast<float>();
 
-    // Assume parallelization is done on the outer level.
-    omp_set_num_threads(1);
+#pragma omp parallel num_threads(1)
+    {
+      omp_set_num_threads(num_threads_);
+      omp_set_max_active_levels(1);
 
-    faiss::SearchParametersIVF search_params;
-    search_params.nprobe = 8;
-    index_->search(num_query_descriptors,
-                   query_descriptors_float.data(),
-                   num_eff_neighbors,
-                   l2_dists_float.data(),
-                   indices_long.data(),
-                   &search_params);
+      faiss::SearchParametersIVF search_params;
+      search_params.nprobe = 8;
+      index_->search(num_query_descriptors,
+                     query_descriptors_float.data(),
+                     num_eff_neighbors,
+                     l2_dists_float.data(),
+                     indices_long.data(),
+                     &search_params);
+    }
 
     // TODO(jsch): Change the output matrix types to avoid unnecessary
     // allocation and casting. This was optimized for the flann interface
@@ -126,6 +135,7 @@ class FaissFeatureDescriptorIndex : public FeatureDescriptorIndex {
   }
 
  private:
+  const int num_threads_;
   std::unique_ptr<faiss::Index> index_;
   std::unique_ptr<faiss::IndexFlatL2> coarse_quantizer_;
 };
@@ -213,10 +223,10 @@ class FlannFeatureDescriptorIndex : public FeatureDescriptorIndex {
 }  // namespace
 
 std::unique_ptr<FeatureDescriptorIndex> FeatureDescriptorIndex::Create(
-    Type type) {
+    Type type, int num_threads) {
   switch (type) {
     case Type::FAISS:
-      return std::make_unique<FaissFeatureDescriptorIndex>();
+      return std::make_unique<FaissFeatureDescriptorIndex>(num_threads);
     case Type::FLANN:
       return std::make_unique<FlannFeatureDescriptorIndex>();
     default:

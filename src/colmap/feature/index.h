@@ -47,7 +47,7 @@ class FeatureDescriptorIndex {
   virtual ~FeatureDescriptorIndex() = default;
 
   static std::unique_ptr<FeatureDescriptorIndex> Create(
-      Type type = Type::DEFAULT);
+      Type type = Type::DEFAULT, int num_threads = 1);
 
   virtual void Build(const FeatureDescriptors& descriptors) = 0;
 
