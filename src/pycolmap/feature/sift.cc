@@ -224,7 +224,7 @@ void BindSift(py::module& m) {
           .def_readwrite(
               "cpu_brute_force_matcher",
               &SMOpts::cpu_brute_force_matcher,
-              "Whether to use brute-force instead of FLANN based CPU matching.")
+              "Whether to use brute-force instead of faiss based CPU matching.")
           .def("check", &SMOpts::Check);
   MakeDataclass(PySiftMatchingOptions);
 }
