@@ -94,7 +94,6 @@ TEST(VocabTreePairGenerator, Nominal) {
 
   VocabTreeMatchingOptions options;
   options.vocab_tree_path = CreateTestDir() + "/vocab_tree.txt";
-  options.vocab_tree_legacy_flann = false;
 
   // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
   CreateSyntheticVisualIndex()->Write(options.vocab_tree_path);

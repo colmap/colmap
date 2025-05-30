@@ -41,7 +41,6 @@ class FeatureDescriptorIndex {
   enum class Type {
     DEFAULT = 1,
     FAISS = 1,
-    FLANN = 2,
   };
 
   virtual ~FeatureDescriptorIndex() = default;

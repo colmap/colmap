@@ -115,9 +115,7 @@ INSTANTIATE_TEST_SUITE_P(
     FeatureDescriptorIndexTests,
     ParameterizedFeatureDescriptorIndexTests,
     ::testing::Values(std::make_pair(FeatureDescriptorIndex::Type::FAISS, 100),
-                      std::make_pair(FeatureDescriptorIndex::Type::FAISS, 1000),
-                      std::make_pair(FeatureDescriptorIndex::Type::FLANN, 100),
-                      std::make_pair(FeatureDescriptorIndex::Type::FLANN,
+                      std::make_pair(FeatureDescriptorIndex::Type::FAISS,
                                      1000)));
 
 }  // namespace

@@ -84,10 +84,6 @@ void BindVisualIndex(py::module& m) {
     void ReadFromFaiss(const std::string& path, long offset) override {
       PYBIND11_OVERRIDE_PURE(void, VisualIndex, ReadFromFaiss, path, offset);
     }
-
-    void ReadFromLegacyFlann(const std::string& path) override {
-      PYBIND11_OVERRIDE_PURE(void, VisualIndex, ReadFromLegacyFlann, path);
-    }
   };
 
   py::class_<VisualIndex, PyVisualIndexImpl> PyVisualIndex(m, "VisualIndex");

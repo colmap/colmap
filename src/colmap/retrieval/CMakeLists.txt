@@ -49,8 +49,6 @@ COLMAP_ADD_LIBRARY(
         colmap_estimators
         colmap_optim
         faiss
-        flann::flann_cpp_s
-        lz4
 )
 if(OPENMP_FOUND)
     target_link_libraries(colmap_retrieval PUBLIC OpenMP::OpenMP_CXX)

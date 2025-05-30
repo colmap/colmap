@@ -143,13 +143,11 @@ class VisualIndex {
 
   // Read and write the visual index. This can be done for an index with and
   // without indexed images.
-  static std::unique_ptr<VisualIndex> Read(const std::string& vocab_tree_path,
-                                           bool legacy_flann);
+  static std::unique_ptr<VisualIndex> Read(const std::string& vocab_tree_path);
   virtual void Write(const std::string& path) const = 0;
 
  protected:
   virtual void ReadFromFaiss(const std::string& path, long offset) = 0;
-  virtual void ReadFromLegacyFlann(const std::string& path) = 0;
 };
 
 }  // namespace retrieval

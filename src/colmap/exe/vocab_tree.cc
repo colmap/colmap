@@ -180,8 +180,7 @@ int RunVocabTreeRetriever(int argc, char** argv) {
 
   index_options.num_threads = query_options.num_threads;
 
-  auto visual_index =
-      retrieval::VisualIndex::Read(vocab_tree_path, /*legacy_flann=*/true);
+  auto visual_index = retrieval::VisualIndex::Read(vocab_tree_path);
 
   Database database(*options.database_path);
 
@@ -290,7 +289,7 @@ int RunVocabTreeUpgrader(int argc, char** argv) {
   options.Parse(argc, argv);
 
   std::unique_ptr<retrieval::VisualIndex> index =
-      retrieval::VisualIndex::Read(input_path, /*legacy_flann=*/true);
+      retrieval::VisualIndex::Read(input_path);
   index->Write(output_path);
 
   return EXIT_SUCCESS;
