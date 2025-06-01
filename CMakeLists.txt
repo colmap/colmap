@@ -28,7 +28,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.12)
 
 ################################################################################
 # Options
@@ -50,6 +50,7 @@ option(LSD_ENABLED "Whether to enable the LSD library" ON)
 option(DOWNLOAD_ENABLED "Whether to enable (automatic) download of resources (requires Curl/OpenSSL)" ON)
 option(UNINSTALL_ENABLED "Whether to create a target to 'uninstall' colmap" ON)
 option(FETCH_POSELIB "Whether to consume PoseLib using FetchContent or find_package" ON)
+option(FETCH_FAISS "Whether to consume faiss using FetchContent or find_package" ON)
 option(TORCH_ENABLED "Whether to enable torch support" OFF)
 option(ALL_SOURCE_TARGET "Whether to create a target for all source files (for Visual Studio / XCode development)" OFF)
 
@@ -79,7 +80,7 @@ endif()
 
 if(LSD_ENABLED)
     message(STATUS "Enabling LSD support")
-    add_definitions("-DCOLMAP_LSD_ENABLED")
+    add_compile_definitions(COLMAP_LSD_ENABLED)
 else()
     message(STATUS "Disabling LSD support")
 endif()
@@ -152,10 +153,10 @@ endif()
 
 if(IS_MSVC)
     # Some fixes for the Glog library.
-    add_definitions("-DGLOG_USE_GLOG_EXPORT")
-    add_definitions("-DGLOG_NO_ABBREVIATED_SEVERITIES")
-    add_definitions("-DGL_GLEXT_PROTOTYPES")
-    add_definitions("-DNOMINMAX")
+    add_compile_definitions(GLOG_USE_GLOG_EXPORT)
+    add_compile_definitions(GLOG_NO_ABBREVIATED_SEVERITIES)
+    add_compile_definitions(GL_GLEXT_PROTOTYPES)
+    add_compile_definitions(NOMINMAX)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc")
     # Disable warning: 'initializing': conversion from 'X' to 'Y', possible loss of data
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4244 /wd4267 /wd4305")
@@ -180,7 +181,7 @@ if(IS_MACOS)
 endif()
 
 if(IS_DEBUG)
-    add_definitions("-DEIGEN_INITIALIZE_MATRICES_BY_NAN")
+    add_compile_definitions(EIGEN_INITIALIZE_MATRICES_BY_NAN)
 endif()
 
 if(SIMD_ENABLED)
@@ -406,6 +407,9 @@ if(TORCH_ENABLED)
 endif()
 if(FETCH_POSELIB)
     list(APPEND COLMAP_EXPORT_LIBS PoseLib)
+endif()
+if(FETCH_FAISS)
+    list(APPEND COLMAP_EXPORT_LIBS faiss)
 endif()
 
 # Add unified interface library target to export.

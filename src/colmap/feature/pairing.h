@@ -36,6 +36,8 @@
 #include "colmap/util/threading.h"
 #include "colmap/util/types.h"
 
+#include <unordered_set>
+
 namespace colmap {
 
 struct ExhaustiveMatchingOptions {
@@ -55,7 +57,7 @@ struct VocabTreeMatchingOptions {
   int num_nearest_neighbors = 5;
 
   // Number of nearest-neighbor checks to use in retrieval.
-  int num_checks = 256;
+  int num_checks = 64;
 
   // How many images to return after spatial verification. Set to 0 to turn off
   // spatial verification.
@@ -133,7 +135,7 @@ struct SequentialMatchingOptions {
   int loop_detection_num_nearest_neighbors = 1;
 
   // Number of nearest-neighbor checks to use in retrieval.
-  int loop_detection_num_checks = 256;
+  int loop_detection_num_checks = 64;
 
   // How many images to return after spatial verification. Set to 0 to turn off
   // spatial verification.
@@ -142,6 +144,9 @@ struct SequentialMatchingOptions {
   // The maximum number of features to use for indexing an image. If an
   // image has more features, only the largest-scale features will be indexed.
   int loop_detection_max_num_features = -1;
+
+  // Number of threads for loop detection indexing and retrieval.
+  int num_threads = -1;
 
   // Path to the vocabulary tree.
   std::string vocab_tree_path = kDefaultVocabTreeUri;
@@ -277,10 +282,10 @@ class VocabTreePairGenerator : public PairGenerator {
 
   const VocabTreeMatchingOptions options_;
   const std::shared_ptr<FeatureMatcherCache> cache_;
-  ThreadPool thread_pool;
-  JobQueue<Retrieval> queue;
-  retrieval::VisualIndex<> visual_index_;
-  retrieval::VisualIndex<>::QueryOptions query_options_;
+  ThreadPool thread_pool_;
+  JobQueue<Retrieval> queue_;
+  std::unique_ptr<retrieval::VisualIndex> visual_index_;
+  retrieval::VisualIndex::QueryOptions query_options_;
   std::vector<image_t> query_image_ids_;
   std::vector<std::pair<image_t, image_t>> image_pairs_;
   size_t query_idx_ = 0;
@@ -334,15 +339,13 @@ class SpatialPairGenerator : public PairGenerator {
   std::vector<std::pair<image_t, image_t>> Next() override;
 
  private:
-  Eigen::Matrix<float, Eigen::Dynamic, 3, Eigen::RowMajor>
-  ReadPositionPriorData(FeatureMatcherCache& cache);
+  Eigen::RowMajorMatrixXf ReadPositionPriorData(FeatureMatcherCache& cache);
 
   const SpatialMatchingOptions options_;
   std::vector<std::pair<image_t, image_t>> image_pairs_;
-  Eigen::Matrix<size_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
+  Eigen::Matrix<int64_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
       index_matrix_;
-  Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
-      distance_matrix_;
+  Eigen::RowMajorMatrixXf distance_matrix_;
   std::vector<image_t> image_ids_;
   std::vector<size_t> position_idxs_;
   size_t current_idx_ = 0;

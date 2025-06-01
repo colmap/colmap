@@ -359,7 +359,7 @@ struct FeatureDescriptorIndexCacheHelper {
       const std::vector<FeatureMatcher::Image>& images)
       : index_cache(100, [this](const image_t image_id) {
           auto index = FeatureDescriptorIndex::Create();
-          index->Build(*this->image_descriptors_.at(image_id));
+          index->Build(this->image_descriptors_.at(image_id)->cast<float>());
           return index;
         }) {
     for (const auto& image : images) {
@@ -427,11 +427,11 @@ TEST(SiftCPUFeatureMatcher, Nominal) {
   EXPECT_EQ(matches.size(), 0);
 }
 
-TEST(SiftCPUFeatureMatcherFlannVsBruteForce, Nominal) {
+TEST(SiftCPUFeatureMatcherFaissVsBruteForce, Nominal) {
   FeatureMatchingOptions match_options;
   match_options.max_num_matches = 1000;
 
-  auto TestFlannVsBruteForce = [](const FeatureMatchingOptions& options,
+  auto TestFaissVsBruteForce = [](const FeatureMatchingOptions& options,
                                   const FeatureDescriptors& descriptors1,
                                   const FeatureDescriptors& descriptors2) {
     const FeatureMatcher::Image image0 = {
@@ -457,7 +457,7 @@ TEST(SiftCPUFeatureMatcherFlannVsBruteForce, Nominal) {
         {image0, image1, image2});
 
     FeatureMatches matches_bf;
-    FeatureMatches matches_flann;
+    FeatureMatches matches_faiss;
 
     FeatureMatchingOptions custom_options = options;
     custom_options.use_gpu = false;
@@ -466,25 +466,25 @@ TEST(SiftCPUFeatureMatcherFlannVsBruteForce, Nominal) {
     custom_options.sift->cpu_brute_force_matcher = false;
     custom_options.sift->cpu_descriptor_index_cache =
         &index_cache_helper.index_cache;
-    auto flann_matcher = CreateSiftFeatureMatcher(custom_options);
+    auto faiss_matcher = CreateSiftFeatureMatcher(custom_options);
 
     bf_matcher->Match(image1, image2, &matches_bf);
-    flann_matcher->Match(image1, image2, &matches_flann);
-    CheckEqualMatches(matches_bf, matches_flann);
+    faiss_matcher->Match(image1, image2, &matches_faiss);
+    CheckEqualMatches(matches_bf, matches_faiss);
 
     const size_t num_matches = matches_bf.size();
 
     bf_matcher->Match(image0, image2, &matches_bf);
-    flann_matcher->Match(image0, image2, &matches_flann);
-    CheckEqualMatches(matches_bf, matches_flann);
+    faiss_matcher->Match(image0, image2, &matches_faiss);
+    CheckEqualMatches(matches_bf, matches_faiss);
 
     bf_matcher->Match(image1, image0, &matches_bf);
-    flann_matcher->Match(image1, image0, &matches_flann);
-    CheckEqualMatches(matches_bf, matches_flann);
+    faiss_matcher->Match(image1, image0, &matches_faiss);
+    CheckEqualMatches(matches_bf, matches_faiss);
 
     bf_matcher->Match(image0, image0, &matches_bf);
-    flann_matcher->Match(image0, image0, &matches_flann);
-    CheckEqualMatches(matches_bf, matches_flann);
+    faiss_matcher->Match(image0, image0, &matches_faiss);
+    CheckEqualMatches(matches_bf, matches_faiss);
 
     return num_matches;
   };
@@ -493,7 +493,7 @@ TEST(SiftCPUFeatureMatcherFlannVsBruteForce, Nominal) {
     const FeatureDescriptors descriptors1 = CreateRandomFeatureDescriptors(50);
     const FeatureDescriptors descriptors2 = CreateRandomFeatureDescriptors(50);
     FeatureMatchingOptions match_options;
-    TestFlannVsBruteForce(match_options, descriptors1, descriptors2);
+    TestFaissVsBruteForce(match_options, descriptors1, descriptors2);
   }
 
   {
@@ -501,7 +501,7 @@ TEST(SiftCPUFeatureMatcherFlannVsBruteForce, Nominal) {
     const FeatureDescriptors descriptors2 = descriptors1.colwise().reverse();
     FeatureMatchingOptions match_options;
     const size_t num_matches =
-        TestFlannVsBruteForce(match_options, descriptors1, descriptors2);
+        TestFaissVsBruteForce(match_options, descriptors1, descriptors2);
     EXPECT_EQ(num_matches, 50);
   }
 
@@ -512,7 +512,7 @@ TEST(SiftCPUFeatureMatcherFlannVsBruteForce, Nominal) {
 
     FeatureMatchingOptions match_options;
     const size_t num_matches1 =
-        TestFlannVsBruteForce(match_options, descriptors1, descriptors2);
+        TestFaissVsBruteForce(match_options, descriptors1, descriptors2);
     EXPECT_EQ(num_matches1, 50);
 
     descriptors2.row(49) = descriptors2.row(0);
@@ -524,13 +524,13 @@ TEST(SiftCPUFeatureMatcherFlannVsBruteForce, Nominal) {
         descriptors2.row(49).cast<float>().normalized());
 
     match_options.sift->max_ratio = 0.4;
-    const size_t num_matches2 = TestFlannVsBruteForce(
+    const size_t num_matches2 = TestFaissVsBruteForce(
         match_options, descriptors1.topRows(49), descriptors2);
     EXPECT_EQ(num_matches2, 48);
 
     match_options.sift->max_ratio = 0.6;
     const size_t num_matches3 =
-        TestFlannVsBruteForce(match_options, descriptors1, descriptors2);
+        TestFaissVsBruteForce(match_options, descriptors1, descriptors2);
     EXPECT_EQ(num_matches3, 49);
   }
 
@@ -544,12 +544,12 @@ TEST(SiftCPUFeatureMatcherFlannVsBruteForce, Nominal) {
 
     match_options.sift->cross_check = false;
     const size_t num_matches1 =
-        TestFlannVsBruteForce(match_options, descriptors1, descriptors2);
+        TestFaissVsBruteForce(match_options, descriptors1, descriptors2);
     EXPECT_EQ(num_matches1, 50);
 
     match_options.sift->cross_check = true;
     const size_t num_matches2 =
-        TestFlannVsBruteForce(match_options, descriptors1, descriptors2);
+        TestFaissVsBruteForce(match_options, descriptors1, descriptors2);
     EXPECT_EQ(num_matches2, 48);
   }
 }

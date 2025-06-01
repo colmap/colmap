@@ -599,7 +599,7 @@ void Reconstruction::TranscribeImageIdsToDatabase(const Database& database) {
 
   for (auto& image : images_) {
     const std::optional<class Image> database_image =
-        database.ReadImageWithName(image.second.Name()).value();
+        database.ReadImageWithName(image.second.Name());
     if (!database_image.has_value()) {
       LOG(FATAL_THROW) << "Image with name " << image.second.Name()
                        << " does not exist in database";
@@ -832,10 +832,8 @@ void Reconstruction::ExtractColorsForAllImages(const std::string& path) {
 
     Bitmap bitmap;
     if (!bitmap.Read(image_path)) {
-      LOG(WARNING) << StringPrintf("Could not read image %s at path %s.",
-                                   image.Name().c_str(),
-                                   image_path.c_str())
-                   << std::endl;
+      LOG(WARNING) << "Could not read image " << image.Name() << " at path "
+                   << image_path;
       continue;
     }
 

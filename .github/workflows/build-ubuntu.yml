@@ -55,7 +55,7 @@ jobs:
             torchEnabled: false,
           },
           {
-            os: ubuntu-22.04,
+            os: ubuntu-24.04,
             cmakeBuildType: Release,
             asanEnabled: true,
             guiEnabled: false,
@@ -66,7 +66,7 @@ jobs:
             torchEnabled: false,
           },
           {
-            os: ubuntu-22.04,
+            os: ubuntu-24.04,
             cmakeBuildType: ClangTidy,
             asanEnabled: false,
             guiEnabled: false,
@@ -139,7 +139,6 @@ jobs:
             libboost-system-dev \
             libeigen3-dev \
             libceres-dev \
-            libflann-dev \
             libfreeimage-dev \
             libmetis-dev \
             libgoogle-glog-dev \
@@ -176,15 +175,15 @@ jobs:
           fi
 
           if [ "${{ matrix.config.asanEnabled }}" == "true" ]; then
-            sudo apt-get install -y clang-15 libomp-15-dev
-            echo "CC=/usr/bin/clang-15" >> $GITHUB_ENV
-            echo "CXX=/usr/bin/clang++-15" >> $GITHUB_ENV
+            sudo apt-get install -y clang-18 libomp-18-dev
+            echo "CC=/usr/bin/clang-18" >> $GITHUB_ENV
+            echo "CXX=/usr/bin/clang++-18" >> $GITHUB_ENV
           fi
 
           if [ "${{ matrix.config.cmakeBuildType }}" == "ClangTidy" ]; then
-            sudo apt-get install -y clang-15 clang-tidy-15 libomp-15-dev
-            echo "CC=/usr/bin/clang-15" >> $GITHUB_ENV
-            echo "CXX=/usr/bin/clang++-15" >> $GITHUB_ENV
+            sudo apt-get install -y clang-18 clang-tidy-18 libomp-18-dev
+            echo "CC=/usr/bin/clang-18" >> $GITHUB_ENV
+            echo "CXX=/usr/bin/clang++-18" >> $GITHUB_ENV
           fi
 
           if [ "${{ matrix.config.coverageEnabled }}" == "true" ]; then

@@ -50,33 +50,30 @@ void GP3PEstimator::Estimate(const std::vector<X_t>& points2D,
   THROW_CHECK_NOTNULL(rigs_from_world);
 
   std::vector<Eigen::Vector3d> rays_in_rig(3);
-  std::vector<Eigen::Vector3d> origins_in_world(3);
+  std::vector<Eigen::Vector3d> origins_in_rig(3);
   for (int i = 0; i < 3; ++i) {
     const Rigid3d rig_from_cam = Inverse(points2D[i].cam_from_rig);
     rays_in_rig[i] =
         (rig_from_cam.rotation * points2D[i].ray_in_cam).normalized();
-    origins_in_world[i] = rig_from_cam.translation;
+    origins_in_rig[i] = rig_from_cam.translation;
   }
 
   std::vector<poselib::CameraPose> poses;
-  int num_poses = 0;
-  if (points2D[0].cam_from_rig.translation.isApprox(
-          points2D[1].cam_from_rig.translation, 1e-9) &&
-      points2D[0].cam_from_rig.translation.isApprox(
-          points2D[2].cam_from_rig.translation, 1e-9)) {
-    // In case of a panoramic camera, fall back to P3P.
-    num_poses = poselib::p3p(rays_in_rig, points3D, &poses);
-    for (int i = 0; i < num_poses; ++i) {
-      poses[i].t -= points2D[0].cam_from_rig.rotation.inverse() *
-                    points2D[0].cam_from_rig.translation;
+  if (origins_in_rig[0].isApprox(origins_in_rig[1], 1e-6) &&
+      origins_in_rig[0].isApprox(origins_in_rig[2], 1e-6)) {
+    // In case of a panoramic camera/rig, fall back to P3P.
+    poselib::p3p(rays_in_rig, points3D, &poses);
+    for (poselib::CameraPose& pose : poses) {
+      pose.t += origins_in_rig[0];
     }
   } else {
-    num_poses = poselib::gp3p(origins_in_world, rays_in_rig, points3D, &poses);
+    poselib::gp3p(origins_in_rig, rays_in_rig, points3D, &poses);
   }
 
-  rigs_from_world->resize(num_poses);
-  for (int i = 0; i < num_poses; ++i) {
-    (*rigs_from_world)[i] = Rigid3d::FromMatrix(poses[i].Rt());
+  rigs_from_world->reserve(poses.size());
+  for (const poselib::CameraPose& pose : poses) {
+    rigs_from_world->emplace_back(
+        Eigen::Quaterniond(pose.q(0), pose.q(1), pose.q(2), pose.q(3)), pose.t);
   }
 }
 

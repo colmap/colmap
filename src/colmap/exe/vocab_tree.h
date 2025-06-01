@@ -31,5 +31,6 @@ namespace colmap {
 
 int RunVocabTreeBuilder(int argc, char** argv);
 int RunVocabTreeRetriever(int argc, char** argv);
+int RunVocabTreeUpgrader(int argc, char** argv);
 
 }  // namespace colmap

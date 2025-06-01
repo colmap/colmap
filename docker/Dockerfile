@@ -1,13 +1,13 @@
-ARG UBUNTU_VERSION=22.04
-ARG NVIDIA_CUDA_VERSION=12.6.1
+ARG UBUNTU_VERSION=24.04
+ARG NVIDIA_CUDA_VERSION=12.9.0
 
 #
 # Docker builder stage.
 #
-FROM nvidia/cuda:${NVIDIA_CUDA_VERSION}-devel-ubuntu${UBUNTU_VERSION} as builder
+FROM nvidia/cuda:${NVIDIA_CUDA_VERSION}-devel-ubuntu${UBUNTU_VERSION} AS builder
 
 ARG COLMAP_GIT_COMMIT=main
-ARG CUDA_ARCHITECTURES=native
+ARG CUDA_ARCHITECTURES=all-major
 ENV QT_XCB_GL_INTEGRATION=xcb_egl
 
 # Prevent stop building ubuntu at time zone selection.
@@ -24,7 +24,6 @@ RUN apt-get update && \
         libboost-graph-dev \
         libboost-system-dev \
         libeigen3-dev \
-        libflann-dev \
         libfreeimage-dev \
         libmetis-dev \
         libgoogle-glog-dev \
@@ -52,21 +51,21 @@ RUN cd colmap && \
 #
 # Docker runtime stage.
 #
-FROM nvidia/cuda:${NVIDIA_CUDA_VERSION}-runtime-ubuntu${UBUNTU_VERSION} as runtime
+FROM nvidia/cuda:${NVIDIA_CUDA_VERSION}-runtime-ubuntu${UBUNTU_VERSION} AS runtime
 
 # Minimal dependencies to run COLMAP binary compiled in the builder stage.
 # Note: this reduces the size of the final image considerably, since all the
 # build dependencies are not needed.
 RUN apt-get update && \
     apt-get install -y --no-install-recommends --no-install-suggests \
-        libboost-program-options1.74.0 \
+        libboost-program-options1.83.0 \
         libc6 \
-        libceres2 \
+        libceres4t64 \
         libfreeimage3 \
         libgcc-s1 \
         libgl1 \
         libglew2.2 \
-        libgoogle-glog0v5 \
+        libgoogle-glog0v6t64 \
         libqt5core5a \
         libqt5gui5 \
         libqt5widgets5 \

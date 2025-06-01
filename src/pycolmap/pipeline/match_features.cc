@@ -183,6 +183,10 @@ void BindMatchFeatures(py::module& m) {
           .def_readwrite("vocab_tree_path",
                          &SeqMOpts::vocab_tree_path,
                          "Path to the vocabulary tree.")
+          .def_readwrite(
+              "num_threads",
+              &SeqMOpts::num_threads,
+              "Number of threads for loop detection indexing and retrieval.")
           .def("vocab_tree_options", &SeqMOpts::VocabTreeOptions)
           .def("check", &SeqMOpts::Check);
   MakeDataclass(PySequentialMatchingOptions);

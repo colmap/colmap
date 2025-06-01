@@ -81,7 +81,6 @@ Dependencies from the default Ubuntu repositories::
         libboost-graph-dev \
         libboost-system-dev \
         libeigen3-dev \
-        libflann-dev \
         libfreeimage-dev \
         libmetis-dev \
         libgoogle-glog-dev \
@@ -145,9 +144,9 @@ Dependencies from `Homebrew <http://brew.sh/>`__::
         ninja \
         boost \
         eigen \
-        flann \
         freeimage \
         curl \
+        libomp \
         metis \
         glog \
         googletest \
@@ -156,6 +155,7 @@ Dependencies from `Homebrew <http://brew.sh/>`__::
         glew \
         cgal \
         sqlite3
+    brew link --force libomp
 
 Configure and compile COLMAP::
 
@@ -163,7 +163,9 @@ Configure and compile COLMAP::
     cd colmap
     mkdir build
     cd build
-    cmake .. -GNinja -DCMAKE_PREFIX_PATH="$(brew --prefix qt@5)"
+    cmake .. \
+        -GNinja \
+        -DQt5_DIR="$(brew --prefix qt@5)/lib/cmake/Qt5"
     ninja
     sudo ninja install
 
@@ -276,7 +278,7 @@ with the source code ``hello_world.cc``::
         options.AddRequiredOption("message", &message);
         options.Parse(argc, argv);
 
-        std::cout << colmap::StringPrintf("Hello %s!", message.c_str()) << std::endl;
+        std::cout << colmap::StringPrintf("Hello %s!\n", message.c_str());
 
         return EXIT_SUCCESS;
     }

@@ -32,6 +32,7 @@
 #include "colmap/math/random.h"
 #include "colmap/retrieval/inverted_file.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/endian.h"
 
 #include <algorithm>
 #include <bitset>
@@ -53,13 +54,15 @@ namespace retrieval {
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
 class InvertedIndex {
  public:
-  const static int kInvalidWordId;
+  const static int64_t kInvalidWordId;
   typedef Eigen::Matrix<kDescType, Eigen::Dynamic, kDescDim, Eigen::RowMajor>
       DescType;
   typedef typename InvertedFile<kEmbeddingDim>::EntryType EntryType;
   typedef typename InvertedFile<kEmbeddingDim>::GeomType GeomType;
   typedef Eigen::Matrix<float, Eigen::Dynamic, kDescDim> ProjMatrixType;
   typedef Eigen::VectorXf ProjDescType;
+  using WordIds =
+      Eigen::Matrix<int64_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
 
   InvertedIndex();
 
@@ -79,11 +82,11 @@ class InvertedIndex {
   // Compute Hamming embedding thresholds from a set of descriptors with
   // given visual word identifies.
   void ComputeHammingEmbedding(const DescType& descriptors,
-                               const Eigen::VectorXi& word_ids);
+                               const WordIds& word_ids);
 
   // Add single entry to the index.
   void AddEntry(int image_id,
-                int word_id,
+                int64_t word_id,
                 typename DescType::Index feature_idx,
                 const DescType& descriptor,
                 const GeomType& geometry);
@@ -93,29 +96,29 @@ class InvertedIndex {
 
   // Query the inverted file and return a list of sorted images.
   void Query(const DescType& descriptors,
-             const Eigen::MatrixXi& word_ids,
+             const WordIds& word_ids,
              std::vector<ImageScore>* image_scores) const;
 
   void ConvertToBinaryDescriptor(
-      int word_id,
+      int64_t word_id,
       const DescType& descriptor,
       std::bitset<kEmbeddingDim>* binary_descriptor) const;
 
-  float GetIDFWeight(int word_id) const;
+  float GetIDFWeight(int64_t word_id) const;
 
-  void FindMatches(int word_id,
+  void FindMatches(int64_t word_id,
                    const std::unordered_set<int>& image_ids,
                    std::vector<const EntryType*>* matches) const;
 
   // Compute the self-similarity for the image.
-  float ComputeSelfSimilarity(const Eigen::MatrixXi& word_ids) const;
+  float ComputeSelfSimilarity(const WordIds& word_ids) const;
 
   // Get the identifiers of all indexed images.
   void GetImageIds(std::unordered_set<int>* image_ids) const;
 
   // Read/write the inverted index from/to a binary file.
-  void Read(std::ifstream* ifs);
-  void Write(std::ofstream* ofs) const;
+  void Read(std::istream* in);
+  void Write(std::ostream* out) const;
 
  private:
   void ComputeWeightsAndNormalizationConstants();
@@ -138,8 +141,8 @@ class InvertedIndex {
 ////////////////////////////////////////////////////////////////////////////////
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
-const int InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::kInvalidWordId =
-    std::numeric_limits<int>::max();
+const int64_t
+    InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::kInvalidWordId = -1;
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
 InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::InvertedIndex() {
@@ -186,9 +189,10 @@ void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
 void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::ComputeHammingEmbedding(
-    const DescType& descriptors, const Eigen::VectorXi& word_ids) {
+    const DescType& descriptors, const WordIds& word_ids) {
   THROW_CHECK_EQ(descriptors.rows(), word_ids.rows());
   THROW_CHECK_EQ(descriptors.cols(), kDescDim);
+  THROW_CHECK_EQ(word_ids.cols(), 1);
 
   // Skip every inverted file with less than kMinEntries entries.
   const size_t kMinEntries = 5;
@@ -196,7 +200,10 @@ void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::ComputeHammingEmbedding(
   // Determines for each word the corresponding descriptors.
   std::vector<std::vector<int>> indices_per_word(NumVisualWords());
   for (Eigen::MatrixXi::Index i = 0; i < word_ids.rows(); ++i) {
-    indices_per_word.at(word_ids(i)).push_back(i);
+    const int64_t word_id = word_ids(i);
+    if (word_id != kInvalidWordId) {
+      indices_per_word.at(word_ids(i)).push_back(i);
+    }
   }
 
   // For each word, learn the Hamming embedding threshold and the local
@@ -222,7 +229,7 @@ void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::ComputeHammingEmbedding(
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
 void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::AddEntry(
     const int image_id,
-    const int word_id,
+    const int64_t word_id,
     typename DescType::Index feature_idx,
     const DescType& descriptor,
     const GeomType& geometry) {
@@ -243,7 +250,7 @@ void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::ClearEntries() {
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
 void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::Query(
     const DescType& descriptors,
-    const Eigen::MatrixXi& word_ids,
+    const WordIds& word_ids,
     std::vector<ImageScore>* image_scores) const {
   THROW_CHECK_EQ(descriptors.cols(), kDescDim);
 
@@ -263,7 +270,7 @@ void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::Query(
     const ProjDescType proj_descriptor =
         proj_matrix_ * descriptors.row(i).transpose().template cast<float>();
     for (Eigen::MatrixXi::Index n = 0; n < word_ids.cols(); ++n) {
-      const int word_id = word_ids(i, n);
+      const int64_t word_id = word_ids(i, n);
       if (word_id == kInvalidWordId) {
         continue;
       }
@@ -296,7 +303,7 @@ void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::Query(
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
 void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::
     ConvertToBinaryDescriptor(
-        const int word_id,
+        const int64_t word_id,
         const DescType& descriptor,
         std::bitset<kEmbeddingDim>* binary_descriptor) const {
   const ProjDescType proj_desc =
@@ -307,13 +314,13 @@ void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
 float InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::GetIDFWeight(
-    const int word_id) const {
+    const int64_t word_id) const {
   return inverted_files_.at(word_id).IDFWeight();
 }
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
 void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::FindMatches(
-    const int word_id,
+    const int64_t word_id,
     const std::unordered_set<int>& image_ids,
     std::vector<const EntryType*>* matches) const {
   matches->clear();
@@ -327,10 +334,10 @@ void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::FindMatches(
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
 float InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::ComputeSelfSimilarity(
-    const Eigen::MatrixXi& word_ids) const {
+    const WordIds& word_ids) const {
   double self_similarity = 0.0;
   for (Eigen::MatrixXi::Index i = 0; i < word_ids.size(); ++i) {
-    const int word_id = word_ids(i);
+    const int64_t word_id = word_ids(i);
     if (word_id != kInvalidWordId) {
       const auto& inverted_file = inverted_files_.at(word_id);
       self_similarity += inverted_file.IDFWeight() * inverted_file.IDFWeight();
@@ -348,76 +355,71 @@ void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::GetImageIds(
 }
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
-void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::Read(
-    std::ifstream* ifs) {
-  THROW_CHECK(ifs->is_open());
+void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::Read(std::istream* in) {
+  THROW_CHECK(in->good());
 
-  int32_t num_words = 0;
-  ifs->read(reinterpret_cast<char*>(&num_words), sizeof(int32_t));
+  const int32_t num_words = ReadBinaryLittleEndian<int>(in);
   THROW_CHECK_GT(num_words, 0);
 
   Initialize(num_words);
 
-  int32_t N_t = 0;
-  ifs->read(reinterpret_cast<char*>(&N_t), sizeof(int32_t));
-  THROW_CHECK_EQ(N_t, kEmbeddingDim)
+  const int in_embedding_dim = ReadBinaryLittleEndian<int>(in);
+  THROW_CHECK_EQ(in_embedding_dim, kEmbeddingDim)
       << "The length of the binary strings should be " << kEmbeddingDim
-      << " but is " << N_t << ". The indices are not compatible!";
+      << " but is " << in_embedding_dim << ". The indices are not compatible!";
 
   for (int i = 0; i < kEmbeddingDim; ++i) {
     for (int j = 0; j < kDescDim; ++j) {
-      ifs->read(reinterpret_cast<char*>(&proj_matrix_(i, j)), sizeof(float));
+      in->read(reinterpret_cast<char*>(&proj_matrix_(i, j)), sizeof(float));
     }
   }
 
   for (auto& inverted_file : inverted_files_) {
-    inverted_file.Read(ifs);
+    inverted_file.Read(in);
   }
 
-  int32_t num_images = 0;
-  ifs->read(reinterpret_cast<char*>(&num_images), sizeof(int32_t));
+  const int num_images = ReadBinaryLittleEndian<int>(in);
   THROW_CHECK_GE(num_images, 0);
 
   normalization_constants_.clear();
   normalization_constants_.reserve(num_images);
   for (int32_t i = 0; i < num_images; ++i) {
-    int image_id;
+    const int image_id = ReadBinaryLittleEndian<int>(in);
     float value;
-    ifs->read(reinterpret_cast<char*>(&image_id), sizeof(int));
-    ifs->read(reinterpret_cast<char*>(&value), sizeof(float));
+    in->read(reinterpret_cast<char*>(&value), sizeof(float));
     normalization_constants_[image_id] = value;
   }
 }
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
 void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::Write(
-    std::ofstream* ofs) const {
-  THROW_CHECK(ofs->is_open());
+    std::ostream* out) const {
+  THROW_CHECK(out->good());
 
-  int32_t num_words = static_cast<int32_t>(NumVisualWords());
-  ofs->write(reinterpret_cast<const char*>(&num_words), sizeof(int32_t));
+  const int num_words = static_cast<int32_t>(NumVisualWords());
   THROW_CHECK_GT(num_words, 0);
+  WriteBinaryLittleEndian<int>(out, num_words);
 
-  const int32_t N_t = static_cast<int32_t>(kEmbeddingDim);
-  ofs->write(reinterpret_cast<const char*>(&N_t), sizeof(int32_t));
+  const int32_t embedding_dim = static_cast<int32_t>(kEmbeddingDim);
+  WriteBinaryLittleEndian<int>(out, embedding_dim);
 
   for (int i = 0; i < kEmbeddingDim; ++i) {
     for (int j = 0; j < kDescDim; ++j) {
-      ofs->write(reinterpret_cast<const char*>(&proj_matrix_(i, j)),
+      out->write(reinterpret_cast<const char*>(&proj_matrix_(i, j)),
                  sizeof(float));
     }
   }
 
   for (const auto& inverted_file : inverted_files_) {
-    inverted_file.Write(ofs);
+    inverted_file.Write(out);
   }
 
   const int32_t num_images = normalization_constants_.size();
-  ofs->write(reinterpret_cast<const char*>(&num_images), sizeof(int32_t));
+  WriteBinaryLittleEndian<int>(out, num_images);
 
   for (const auto& constant : normalization_constants_) {
-    ofs->write(reinterpret_cast<const char*>(&constant.first), sizeof(int));
-    ofs->write(reinterpret_cast<const char*>(&constant.second), sizeof(float));
+    WriteBinaryLittleEndian<int>(out, constant.first);
+    out->write(reinterpret_cast<const char*>(&constant.second), sizeof(float));
   }
 }
 

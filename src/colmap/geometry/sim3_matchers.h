@@ -48,7 +48,7 @@ class Sim3dEqMatcher : public testing::MatcherInterface<T> {
     if (!(lhs.scale == rhs_.scale)) {
       return false;
     }
-    if (!(lhs.rotation == rhs_.rotation)) {
+    if (!(lhs.rotation.coeffs() == rhs_.rotation.coeffs())) {
       return false;
     }
     if (!(lhs.translation == rhs_.translation)) {

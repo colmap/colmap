@@ -1,16 +1,16 @@
-add_definitions("-DSIFTGPU_NO_DEVIL")
+add_compile_definitions(SIFTGPU_NO_DEVIL)
 
 if(SIMD_ENABLED AND IS_X86)
-    add_definitions("-DUSE_SSE_FOR_SIFTGPU")
+    add_compile_definitions(SIFTGPU_USE_SSE_FOR)
     if(MSVC)
-        add_definitions("-D__SSE__")
+        add_compile_definitions(__SSE__)
     endif()
 endif()
 
 set(OPTIONAL_CUDA_SRCS)
 set(OPTIONAL_CUDA_LINK_LIBS)
 if(CUDA_ENABLED)
-    add_definitions("-DCUDA_SIFTGPU_ENABLED")
+    add_compile_definitions(SIFTGPU_CUDA_ENABLED)
     set(OPTIONAL_CUDA_SRCS
         CuTexImage.h CuTexImage.cpp
         ProgramCU.cu

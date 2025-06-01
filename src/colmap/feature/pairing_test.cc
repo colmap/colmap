@@ -33,6 +33,8 @@
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
 
+#include <fstream>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -73,14 +75,13 @@ TEST(ExhaustivePairGenerator, Nominal) {
   EXPECT_TRUE(generator.HasFinished());
 }
 
-retrieval::VisualIndex<> CreateSyntheticVisualIndex() {
-  retrieval::VisualIndex<> visual_index;
-  retrieval::VisualIndex<>::BuildOptions build_options;
+std::unique_ptr<retrieval::VisualIndex> CreateSyntheticVisualIndex() {
+  auto visual_index = retrieval::VisualIndex::Create();
+  retrieval::VisualIndex::BuildOptions build_options;
   build_options.num_visual_words = 5;
-  build_options.branching = 5;
   // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
-  visual_index.Build(build_options,
-                     retrieval::VisualIndex<>::DescType::Random(50, 128));
+  visual_index->Build(build_options,
+                      retrieval::VisualIndex::Descriptors::Random(50, 128));
   return visual_index;
 }
 
@@ -95,7 +96,7 @@ TEST(VocabTreePairGenerator, Nominal) {
   options.vocab_tree_path = CreateTestDir() + "/vocab_tree.txt";
 
   // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
-  CreateSyntheticVisualIndex().Write(options.vocab_tree_path);
+  CreateSyntheticVisualIndex()->Write(options.vocab_tree_path);
 
   {
     options.num_images = 3;
@@ -378,9 +379,9 @@ TEST(ImportedPairGenerator, Nominal) {
 
   {
     std::ofstream match_list_file(options.match_list_path);
-    match_list_file << images[2].Name() << " " << images[4].Name() << "\n";
-    match_list_file << images[1].Name() << " " << images[3].Name() << "\n";
-    match_list_file << images[2].Name() << " " << images[9].Name() << "\n";
+    match_list_file << images[2].Name() << " " << images[4].Name() << '\n';
+    match_list_file << images[1].Name() << " " << images[3].Name() << '\n';
+    match_list_file << images[2].Name() << " " << images[9].Name() << '\n';
     match_list_file.close();
 
     ImportedPairGenerator generator(options, database);

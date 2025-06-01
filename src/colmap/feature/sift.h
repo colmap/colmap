@@ -119,7 +119,7 @@ struct SiftMatchingOptions {
   // Whether to enable cross checking in matching.
   bool cross_check = true;
 
-  // Whether to use brute-force instead of FLANN based CPU matching.
+  // Whether to use brute-force instead of faiss based CPU matching.
   bool cpu_brute_force_matcher = false;
 
   // Path to .pt LightGlue model file for SIFT features in torch model format.

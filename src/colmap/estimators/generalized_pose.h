@@ -65,6 +65,36 @@ bool EstimateGeneralizedAbsolutePose(
     size_t* num_inliers,
     std::vector<char>* inlier_mask);
 
+// Estimate generalized relative pose from 2D-2D correspondences.
+//
+// @param options              RANSAC options.
+// @param points2D1            Corresponding 2D points.
+// @param points2D2            Corresponding 2D points.
+// @param camera_idxs1         Index of the rig camera for each correspondence.
+// @param camera_idxs2         Index of the rig camera for each correspondence.
+// @param cams_from_rig        Relative pose from rig to each camera frame.
+// @param cameras              Cameras for which to estimate pose.
+// @param rig2_from_rig1       Estimated rig2 from rig1 pose, if at least one of
+//                             the rigs is non-panoramic.
+// @param cam2_from_cam1       Estimated cam2 from cam1 pose, if the rigs are
+//                             both panoramic.
+// @param num_inliers          Number of inliers in RANSAC.
+// @param inlier_mask          Inlier mask for 2D-2D correspondences.
+//
+// @return                     Whether pose is estimated successfully.
+bool EstimateGeneralizedRelativePose(
+    const RANSACOptions& ransac_options,
+    const std::vector<Eigen::Vector2d>& points2D1,
+    const std::vector<Eigen::Vector2d>& points2D2,
+    const std::vector<size_t>& camera_idxs1,
+    const std::vector<size_t>& camera_idxs2,
+    const std::vector<Rigid3d>& cams_from_rig,
+    const std::vector<Camera>& cameras,
+    std::optional<Rigid3d>* rig2_from_rig1,
+    std::optional<Rigid3d>* cam2_from_cam1,
+    size_t* num_inliers,
+    std::vector<char>* inlier_mask);
+
 // Refine generalized absolute pose (optionally focal lengths)
 // from 2D-3D correspondences.
 //

@@ -733,7 +733,7 @@ std::unique_ptr<FeatureExtractor> CreateSiftFeatureExtractor(
 namespace {
 
 size_t FindBestMatchesOneWayBruteForce(
-    const Eigen::RowMajorMatrixXi& dot_products,
+    const Eigen::RowMajorMatrixXf& dot_products,
     const float max_ratio,
     const float max_distance,
     std::vector<int>* matches) {
@@ -745,10 +745,10 @@ size_t FindBestMatchesOneWayBruteForce(
 
   for (Eigen::Index i1 = 0; i1 < dot_products.rows(); ++i1) {
     int best_d2_idx = -1;
-    int best_dot_product = 0;
-    int second_best_dot_product = 0;
+    float best_dot_product = 0;
+    float second_best_dot_product = 0;
     for (Eigen::Index i2 = 0; i2 < dot_products.cols(); ++i2) {
-      const int dot_product = dot_products(i1, i2);
+      const float dot_product = dot_products(i1, i2);
       if (dot_product > best_dot_product) {
         best_d2_idx = i2;
         second_best_dot_product = best_dot_product;
@@ -788,7 +788,7 @@ size_t FindBestMatchesOneWayBruteForce(
   return num_matches;
 }
 
-void FindBestMatchesBruteForce(const Eigen::RowMajorMatrixXi& dot_products,
+void FindBestMatchesBruteForce(const Eigen::RowMajorMatrixXf& dot_products,
                                const float max_ratio,
                                const float max_distance,
                                const bool cross_check,
@@ -827,22 +827,22 @@ void FindBestMatchesBruteForce(const Eigen::RowMajorMatrixXi& dot_products,
 }
 
 size_t FindBestMatchesOneWayIndex(const Eigen::RowMajorMatrixXi& indices,
-                                  const Eigen::RowMajorMatrixXi& l2_dists,
+                                  const Eigen::RowMajorMatrixXf& l2_dists,
                                   const float max_ratio,
                                   const float max_distance,
                                   std::vector<int>* matches) {
-  const int max_l2_dist = kSqSiftDescriptorNorm * max_distance * max_distance;
+  const float max_l2_dist = kSqSiftDescriptorNorm * max_distance * max_distance;
 
   size_t num_matches = 0;
   matches->resize(indices.rows(), -1);
 
   for (int d1_idx = 0; d1_idx < indices.rows(); ++d1_idx) {
     int best_d2_idx = -1;
-    int best_l2_dist = std::numeric_limits<int>::max();
-    int second_best_l2_dist = std::numeric_limits<int>::max();
+    float best_l2_dist = std::numeric_limits<float>::max();
+    float second_best_l2_dist = std::numeric_limits<float>::max();
     for (int n_idx = 0; n_idx < indices.cols(); ++n_idx) {
       const int d2_idx = indices(d1_idx, n_idx);
-      const int l2_dist = l2_dists(d1_idx, n_idx);
+      const float l2_dist = l2_dists(d1_idx, n_idx);
       if (l2_dist < best_l2_dist) {
         best_d2_idx = d2_idx;
         second_best_l2_dist = best_l2_dist;
@@ -864,8 +864,7 @@ size_t FindBestMatchesOneWayIndex(const Eigen::RowMajorMatrixXi& indices,
 
     // Check if match passes ratio test. Keep this comparison >= in order to
     // ensure that the case of best == second_best is detected.
-    if (std::sqrt(static_cast<float>(best_l2_dist)) >=
-        max_ratio * std::sqrt(static_cast<float>(second_best_l2_dist))) {
+    if (std::sqrt(best_l2_dist) >= max_ratio * std::sqrt(second_best_l2_dist)) {
       continue;
     }
 
@@ -877,9 +876,9 @@ size_t FindBestMatchesOneWayIndex(const Eigen::RowMajorMatrixXi& indices,
 }
 
 void FindBestMatchesIndex(const Eigen::RowMajorMatrixXi& indices_1to2,
-                          const Eigen::RowMajorMatrixXi& l2_dists_1to2,
+                          const Eigen::RowMajorMatrixXf& l2_dists_1to2,
                           const Eigen::RowMajorMatrixXi& indices_2to1,
-                          const Eigen::RowMajorMatrixXi& l2_dists_2to1,
+                          const Eigen::RowMajorMatrixXf& l2_dists_2to1,
                           const float max_ratio,
                           const float max_distance,
                           const bool cross_check,
@@ -922,7 +921,7 @@ enum class DistanceType {
   DOT_PRODUCT,
 };
 
-Eigen::RowMajorMatrixXi ComputeSiftDistanceMatrix(
+Eigen::RowMajorMatrixXf ComputeSiftDistanceMatrix(
     const DistanceType distance_type,
     const FeatureKeypoints* keypoints1,
     const FeatureKeypoints* keypoints2,
@@ -941,7 +940,7 @@ Eigen::RowMajorMatrixXi ComputeSiftDistanceMatrix(
   const Eigen::Matrix<int, Eigen::Dynamic, 128> descriptors2_int =
       descriptors2.cast<int>();
 
-  Eigen::RowMajorMatrixXi distances(descriptors1.rows(), descriptors2.rows());
+  Eigen::RowMajorMatrixXf distances(descriptors1.rows(), descriptors2.rows());
   for (FeatureDescriptors::Index i1 = 0; i1 < descriptors1.rows(); ++i1) {
     for (FeatureDescriptors::Index i2 = 0; i2 < descriptors2.rows(); ++i2) {
       if (guided_filter != nullptr && guided_filter((*keypoints1)[i1].x,
@@ -1017,7 +1016,7 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
     }
 
     if (options_.sift->cpu_brute_force_matcher) {
-      const Eigen::RowMajorMatrixXi dot_products =
+      const Eigen::RowMajorMatrixXf dot_products =
           ComputeSiftDistanceMatrix(DistanceType::DOT_PRODUCT,
                                     nullptr,
                                     nullptr,
@@ -1033,14 +1032,17 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
     }
 
     Eigen::RowMajorMatrixXi indices_1to2;
-    Eigen::RowMajorMatrixXi l2_dists_1to2;
+    Eigen::RowMajorMatrixXf l2_dists_1to2;
     Eigen::RowMajorMatrixXi indices_2to1;
-    Eigen::RowMajorMatrixXi l2_dists_2to1;
+    Eigen::RowMajorMatrixXf l2_dists_2to1;
     index2_->Search(
-        /*num_neighbors=*/2, *image1.descriptors, indices_1to2, l2_dists_1to2);
+        /*num_neighbors=*/2,
+        image1.descriptors->cast<float>(),
+        indices_1to2,
+        l2_dists_1to2);
     if (options_.sift->cross_check) {
       index1_->Search(/*num_neighbors=*/2,
-                      *image2.descriptors,
+                      image2.descriptors->cast<float>(),
                       indices_2to1,
                       l2_dists_2to1);
     }
@@ -1123,14 +1125,14 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
 
     THROW_CHECK(guided_filter);
 
-    const Eigen::RowMajorMatrixXi l2_dists_1to2 =
+    const Eigen::RowMajorMatrixXf l2_dists_1to2 =
         ComputeSiftDistanceMatrix(DistanceType::L2,
                                   image1.keypoints.get(),
                                   image2.keypoints.get(),
                                   *image1.descriptors,
                                   *image2.descriptors,
                                   guided_filter);
-    const Eigen::RowMajorMatrixXi l2_dists_2to1 = l2_dists_1to2.transpose();
+    const Eigen::RowMajorMatrixXf l2_dists_2to1 = l2_dists_1to2.transpose();
 
     Eigen::RowMajorMatrixXi indices_1to2(l2_dists_1to2.rows(),
                                          l2_dists_1to2.cols());
@@ -1277,7 +1279,7 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
 
     const int num_matches = sift_match_gpu_.GetSiftMatch(
         options_.max_num_matches,
-        reinterpret_cast<uint32_t(*)[2]>(matches->data()),
+        reinterpret_cast<uint32_t (*)[2]>(matches->data()),
         static_cast<float>(options_.sift->max_distance),
         static_cast<float>(options_.sift->max_ratio),
         options_.sift->cross_check);
@@ -1378,7 +1380,7 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
 
     const int num_matches = sift_match_gpu_.GetGuidedSiftMatch(
         options_.max_num_matches,
-        reinterpret_cast<uint32_t(*)[2]>(
+        reinterpret_cast<uint32_t (*)[2]>(
             two_view_geometry->inlier_matches.data()),
         H_ptr,
         F_ptr,
