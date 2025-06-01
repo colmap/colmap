@@ -20,7 +20,6 @@
             ]
         },
         "eigen3",
-        "flann",
         "freeimage",
         "gflags",
         "glog",

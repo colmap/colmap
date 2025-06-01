@@ -24,7 +24,6 @@ RUN apt-get update && \
         libboost-graph-dev \
         libboost-system-dev \
         libeigen3-dev \
-        libflann-dev \
         libfreeimage-dev \
         libmetis-dev \
         libgoogle-glog-dev \

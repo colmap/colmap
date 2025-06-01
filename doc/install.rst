@@ -81,7 +81,6 @@ Dependencies from the default Ubuntu repositories::
         libboost-graph-dev \
         libboost-system-dev \
         libeigen3-dev \
-        libflann-dev \
         libfreeimage-dev \
         libmetis-dev \
         libgoogle-glog-dev \
@@ -145,7 +144,6 @@ Dependencies from `Homebrew <http://brew.sh/>`__::
         ninja \
         boost \
         eigen \
-        flann \
         freeimage \
         curl \
         libomp \

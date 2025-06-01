@@ -160,8 +160,7 @@ TEST_P(ParameterizedVisualIndexTests, ReadWrite) {
   EXPECT_EQ(visual_index->NumImages(), 2);
 
   visual_index->Write(vocab_tree_path);
-  auto read_visual_index =
-      VisualIndex::Read(vocab_tree_path, /*legacy_flann=*/false);
+  auto read_visual_index = VisualIndex::Read(vocab_tree_path);
   EXPECT_EQ(visual_index->NumVisualWords(),
             read_visual_index->NumVisualWords());
   EXPECT_EQ(visual_index->NumImages(), read_visual_index->NumImages());
@@ -199,8 +198,7 @@ TEST(VisualIndex, Download) {
       "file://" + std::filesystem::absolute(vocab_tree_path).string() +
       ";vocab_tree.bin;" +
       ComputeSHA256({vocab_tree_data.data(), vocab_tree_data.size()});
-  auto downloaded_visual_index =
-      VisualIndex::Read(vocab_tree_uri, /*legacy_flann=*/false);
+  auto downloaded_visual_index = VisualIndex::Read(vocab_tree_uri);
   EXPECT_EQ(downloaded_visual_index->NumVisualWords(),
             visual_index->NumVisualWords());
 }

@@ -19,10 +19,6 @@ find_package(Eigen3 ${COLMAP_FIND_TYPE})
 
 find_package(FreeImage ${COLMAP_FIND_TYPE})
 
-find_package(FLANN ${COLMAP_FIND_TYPE})
-
-find_package(LZ4 ${COLMAP_FIND_TYPE})
-
 find_package(Metis ${COLMAP_FIND_TYPE})
 
 find_package(Glog ${COLMAP_FIND_TYPE})

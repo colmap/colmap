@@ -67,8 +67,6 @@ COLMAP_ADD_LIBRARY(
         colmap_vlfeat
         Eigen3::Eigen
         faiss
-        flann::flann_cpp_s
-        lz4
 )
 if(GPU_ENABLED)
     target_link_libraries(colmap_feature PRIVATE colmap_sift_gpu)
