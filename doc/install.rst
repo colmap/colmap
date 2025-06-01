@@ -275,6 +275,7 @@ Install miniconda and
     mkdir build
     cd build
     cmake .. -GNinja
+    ninja
 
 
 
