@@ -48,12 +48,12 @@ class FeatureDescriptorIndex {
   static std::unique_ptr<FeatureDescriptorIndex> Create(
       Type type = Type::DEFAULT, int num_threads = 1);
 
-  virtual void Build(const FeatureDescriptors& descriptors) = 0;
+  virtual void Build(const FeatureDescriptorsFloat& descriptors) = 0;
 
   virtual void Search(int num_neighbors,
-                      const FeatureDescriptors& query_descriptors,
+                      const FeatureDescriptorsFloat& query_descriptors,
                       Eigen::RowMajorMatrixXi& indices,
-                      Eigen::RowMajorMatrixXi& l2_dists) const = 0;
+                      Eigen::RowMajorMatrixXf& l2_dists) const = 0;
 };
 
 }  // namespace colmap
