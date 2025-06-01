@@ -29,13 +29,19 @@
 
 #include "colmap/feature/torch_utils.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
 namespace {
 
 TEST(GetDeviceName, Nominal) {
-  EXPECT_EQ(GetDeviceName(/*use_gpu=*/true, /*gpu_index=*/""), "cpu");
+  EXPECT_THAT(GetDeviceName(/*use_gpu=*/true, /*gpu_index=*/""),
+              testing::AnyOf("cpu", "cuda"));
+  EXPECT_THAT(GetDeviceName(/*use_gpu=*/true, /*gpu_index=*/"-1"),
+              testing::AnyOf("cpu", "cuda"));
+  EXPECT_THAT(GetDeviceName(/*use_gpu=*/true, /*gpu_index=*/"2"),
+              testing::AnyOf("cpu", "cuda:2"));
   EXPECT_EQ(GetDeviceName(/*use_gpu=*/false, /*gpu_index=*/""), "cpu");
   EXPECT_EQ(GetDeviceName(/*use_gpu=*/false, /*gpu_index=*/"-1"), "cpu");
   EXPECT_EQ(GetDeviceName(/*use_gpu=*/false, /*gpu_index=*/"0,1,2"), "cpu");

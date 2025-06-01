@@ -35,7 +35,7 @@ namespace colmap {
 
 std::string GetDeviceName(bool use_gpu, const std::string& gpu_index) {
   if (use_gpu && torch::cuda::is_available()) {
-    if (gpu_index == "-1") {
+    if (gpu_index.empty() || gpu_index == "-1") {
       return "cuda";
     } else {
       return std::string("cuda:") + gpu_index;

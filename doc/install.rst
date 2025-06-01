@@ -235,6 +235,48 @@ vcpkg, first run `./vcpkg integrate install` (under Windows use pwsh and
     cmake .. -DCMAKE_TOOLCHAIN_FILE=path/to/vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_BUILD_TYPE=Release
     cmake --build . --config release --target colmap --parallel 24
 
+Anaconda
+--------
+
+Install miniconda and 
+
+    conda create -n colmap python=3.12
+    conda config --add channels conda-forge
+    conda config --set channel_priority strict
+    conda install \
+        cmake \
+        ninja \
+        boost \
+        ccache \
+        eigen \
+        freeimage \
+        curl \
+        metis \
+        glog \
+        gtest \
+        ceres-solver \
+        qt \
+        glew \
+        sqlite \
+        glew \
+        cgal-cpp \
+        mesa-libgl-devel-cos7-x86_64 \
+        cuda-compiler==12.6.2 \
+        cuda-cudart-dev \
+        cuda-nvrtc-dev \
+        libcurand-dev \
+        libcusparse-dev \
+        libcublas-dev \
+        libcusolver-dev \
+        libtorch==2.7.0
+
+    git clone https://github.com/colmap/colmap.git
+    cd colmap
+    mkdir build
+    cd build
+    cmake .. -GNinja
+
+
 
 .. _installation-library:
 
