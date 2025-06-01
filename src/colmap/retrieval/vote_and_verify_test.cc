@@ -27,7 +27,15 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
+#define _USE_MATH_DEFINES
+
+#include "colmap/retrieval/vote_and_verify.h"
+
+#include "colmap/math/random.h"
+#include "colmap/retrieval/geometry.h"
 #include "colmap/retrieval/visual_index.h"
+
+#include <cmath>
 
 #include <gtest/gtest.h>
 

@@ -85,6 +85,8 @@ AutomaticReconstructionController::AutomaticReconstructionController(
 
   option_manager_.sift_extraction->num_threads = options_.num_threads;
   option_manager_.sift_matching->num_threads = options_.num_threads;
+  option_manager_.sequential_matching->num_threads = options_.num_threads;
+  option_manager_.vocab_tree_matching->num_threads = options_.num_threads;
   option_manager_.mapper->num_threads = options_.num_threads;
   option_manager_.poisson_meshing->num_threads = options_.num_threads;
 

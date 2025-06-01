@@ -148,6 +148,7 @@ Dependencies from `Homebrew <http://brew.sh/>`__::
         flann \
         freeimage \
         curl \
+        libomp \
         metis \
         glog \
         googletest \
@@ -156,6 +157,7 @@ Dependencies from `Homebrew <http://brew.sh/>`__::
         glew \
         cgal \
         sqlite3
+    brew link --force libomp
 
 Configure and compile COLMAP::
 
@@ -163,7 +165,9 @@ Configure and compile COLMAP::
     cd colmap
     mkdir build
     cd build
-    cmake .. -GNinja -DCMAKE_PREFIX_PATH="$(brew --prefix qt@5)"
+    cmake .. \
+        -GNinja \
+        -DQt5_DIR="$(brew --prefix qt@5)/lib/cmake/Qt5"
     ninja
     sudo ninja install
 
