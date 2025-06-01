@@ -106,7 +106,7 @@ class LightGlueFeatureMatcher : public FeatureMatcher {
     const torch::Dict<std::string, torch::Tensor> outputs =
         lightglue_.forward(features1, features2);
 
-    const auto& torch_matches0 = outputs.at("matches0");
+    const torch::Tensor& torch_matches0 = outputs.at("matches0");
     THROW_CHECK_EQ(torch_matches0.size(0), 1);
     const int num_matches = torch_matches0.size(1);
     const int num_keypoints1 = image1.keypoints->size();
@@ -180,8 +180,7 @@ class LightGlueFeatureMatcher : public FeatureMatcher {
 
     torch::Tensor torch_keypoints =
         torch::from_blob(
-            keypoints_array.data(), {num_keypoints, 2}, kFloat32Options)
-            .clone();
+            keypoints_array.data(), {num_keypoints, 2}, kFloat32Options);
     // Normalize to [-1, 1].
     torch_keypoints.index({torch::indexing::Ellipsis, 0}) =
         (2.0f * torch_keypoints.index({torch::indexing::Ellipsis, 0}) /

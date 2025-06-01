@@ -85,8 +85,7 @@ class ALIKEDFeatureExtractor : public FeatureExtractor {
 
     const int width = bitmap_ptr->Width();
     const int height = bitmap_ptr->Height();
-    auto row_major_array = bitmap_ptr->ConvertToRowMajorArray();
-    // Clone to ensure ownership
+    std::vector<uint8_t> row_major_array = bitmap_ptr->ConvertToRowMajorArray();
     const torch::Tensor torch_image =
         torch::from_blob(
             row_major_array.data(), {height, width, 3}, torch::kUInt8)
@@ -99,16 +98,18 @@ class ALIKEDFeatureExtractor : public FeatureExtractor {
     const torch::Dict<std::string, torch::Tensor> outputs =
         aliked_.forward(torch_image);
 
-    const auto torch_keypoints = outputs.at("keypoints");      // shape [N, 2]
-    const auto torch_descriptors = outputs.at("descriptors");  // shape [N, D]
+    const torch::Tensor& torch_keypoints =
+        outputs.at("keypoints");  // shape [N, 2]
+    const torch::Tensor& torch_descriptors =
+        outputs.at("descriptors");  // shape [N, D]
     const int num_keypoints = torch_keypoints.size(0);
     const int descriptor_dim = torch_descriptors.size(1);
     THROW_CHECK_EQ(num_keypoints, torch_descriptors.size(0));
 
     keypoints->resize(num_keypoints);
     {
-      // Move to CPU, ensure contiguous
-      const auto torch_keypoints_cpu = torch_keypoints.contiguous().cpu();
+      const torch::Tensor torch_keypoints_cpu =
+          torch_keypoints.contiguous().cpu();
       const float* torch_keypoints_data = torch_keypoints_cpu.data_ptr<float>();
       for (int i = 0; i < num_keypoints; ++i) {
         (*keypoints)[i].x =
@@ -118,11 +119,10 @@ class ALIKEDFeatureExtractor : public FeatureExtractor {
       }
     }
 
-    // Bulk copy the descriptors
     descriptors->resize(num_keypoints, descriptor_dim * sizeof(float));
     {
-      // Move to CPU, ensure contiguous
-      const auto torch_descriptors_cpu = torch_descriptors.contiguous().cpu();
+      const torch::Tensor torch_descriptors_cpu =
+          torch_descriptors.contiguous().cpu();
       const float* torch_descriptors_data =
           torch_descriptors_cpu.data_ptr<float>();
       std::memcpy(descriptors->data(),
