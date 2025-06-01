@@ -38,7 +38,8 @@
 namespace colmap {
 namespace {
 
-FeatureDescriptors CreateRandomFeatureDescriptors(const size_t num_features) {
+FeatureDescriptorsFloat CreateRandomFeatureDescriptors(
+    const size_t num_features) {
   SetPRNGSeed(0);
   FeatureDescriptorsFloat descriptors(num_features, 128);
   for (size_t i = 0; i < num_features; ++i) {
@@ -47,7 +48,7 @@ FeatureDescriptors CreateRandomFeatureDescriptors(const size_t num_features) {
     }
   }
   L2NormalizeFeatureDescriptors(&descriptors);
-  return FeatureDescriptorsToUnsignedByte(descriptors);
+  return descriptors;
 }
 
 class ParameterizedFeatureDescriptorIndexTests
@@ -66,13 +67,13 @@ TEST_P(ParameterizedFeatureDescriptorIndexTests, Nominal) {
 
   EXPECT_NE(index, nullptr);
 
-  const FeatureDescriptors index_descriptors =
+  const FeatureDescriptorsFloat index_descriptors =
       CreateRandomFeatureDescriptors(num_descriptors);
-  const FeatureDescriptors& query_descriptors = index_descriptors;
+  const FeatureDescriptorsFloat& query_descriptors = index_descriptors;
   index->Build(index_descriptors);
 
   Eigen::RowMajorMatrixXi indices;
-  Eigen::RowMajorMatrixXi distances;
+  Eigen::RowMajorMatrixXf distances;
   index->Search(/*num_neighbors=*/1, query_descriptors, indices, distances);
 
   ASSERT_EQ(indices.rows(), query_descriptors.rows());
@@ -82,7 +83,7 @@ TEST_P(ParameterizedFeatureDescriptorIndexTests, Nominal) {
 
   for (int i = 0; i < query_descriptors.rows(); ++i) {
     EXPECT_EQ(indices(i, 0), i);
-    EXPECT_EQ(distances(i, 0), 0);
+    EXPECT_NEAR(distances(i, 0), 0, 1e-6);
   }
 
   index->Search(/*num_neighbors=*/2, query_descriptors, indices, distances);
@@ -93,12 +94,13 @@ TEST_P(ParameterizedFeatureDescriptorIndexTests, Nominal) {
 
   for (int i = 0; i < query_descriptors.rows(); ++i) {
     EXPECT_EQ(indices(i, 0), i);
-    EXPECT_EQ(distances(i, 0), 0);
+    EXPECT_NEAR(distances(i, 0), 0, 1e-6);
     EXPECT_NE(indices(i, 1), i);
-    EXPECT_EQ(distances(i, 1),
-              (query_descriptors.row(i).cast<int>() -
-               index_descriptors.row(indices(i, 1)).cast<int>())
-                  .squaredNorm());
+    EXPECT_NEAR(
+        distances(i, 1),
+        (query_descriptors.row(i) - index_descriptors.row(indices(i, 1)))
+            .squaredNorm(),
+        1e-6);
   }
 
   index->Search(/*num_neighbors=*/index_descriptors.rows() + 1,

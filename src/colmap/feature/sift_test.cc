@@ -359,7 +359,7 @@ struct FeatureDescriptorIndexCacheHelper {
       const std::vector<FeatureMatcher::Image>& images)
       : index_cache(100, [this](const image_t image_id) {
           auto index = FeatureDescriptorIndex::Create();
-          index->Build(*this->image_descriptors_.at(image_id));
+          index->Build(this->image_descriptors_.at(image_id)->cast<float>());
           return index;
         }) {
     for (const auto& image : images) {
