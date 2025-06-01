@@ -42,14 +42,11 @@ class FaissFeatureDescriptorIndex : public FeatureDescriptorIndex {
   explicit FaissFeatureDescriptorIndex(int num_threads)
       : num_threads_(num_threads) {}
 
-  void Build(const FeatureDescriptors& index_descriptors) override {
+  void Build(const FeatureDescriptorsFloat& index_descriptors) override {
     if (index_descriptors.rows() == 0) {
       index_ = nullptr;
       return;
     }
-
-    const Eigen::RowMajorMatrixXf index_descriptors_float =
-        index_descriptors.cast<float>();
 
 #pragma omp parallel num_threads(1)
     {
@@ -71,20 +68,20 @@ class FaissFeatureDescriptorIndex : public FeatureDescriptorIndex {
         auto* index_impl = dynamic_cast<faiss::IndexIVFFlat*>(index_.get());
         // Avoid warnings during the training phase.
         index_impl->cp.min_points_per_centroid = 1;
-        index_->train(index_descriptors.rows(), index_descriptors_float.data());
-        index_->add(index_descriptors.rows(), index_descriptors_float.data());
+        index_->train(index_descriptors.rows(), index_descriptors.data());
+        index_->add(index_descriptors.rows(), index_descriptors.data());
       } else {
         index_ = std::make_unique<faiss::IndexFlatL2>(
             /*d=*/index_descriptors.cols());
-        index_->add(index_descriptors.rows(), index_descriptors_float.data());
+        index_->add(index_descriptors.rows(), index_descriptors.data());
       }
     }
   }
 
   void Search(int num_neighbors,
-              const FeatureDescriptors& query_descriptors,
+              const FeatureDescriptorsFloat& query_descriptors,
               Eigen::RowMajorMatrixXi& indices,
-              Eigen::RowMajorMatrixXi& l2_dists) const override {
+              Eigen::RowMajorMatrixXf& l2_dists) const override {
     if (num_neighbors <= 0 || index_ == nullptr) {
       indices.resize(0, 0);
       l2_dists.resize(0, 0);
@@ -100,15 +97,9 @@ class FaissFeatureDescriptorIndex : public FeatureDescriptorIndex {
     const int64_t num_eff_neighbors =
         std::min<int64_t>(num_neighbors, index_->ntotal);
 
-    indices.resize(num_query_descriptors, num_eff_neighbors);
     l2_dists.resize(num_query_descriptors, num_eff_neighbors);
-
     Eigen::Matrix<int64_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
         indices_long(num_query_descriptors, num_eff_neighbors);
-    Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
-        l2_dists_float(num_query_descriptors, num_eff_neighbors);
-    const Eigen::RowMajorMatrixXf query_descriptors_float =
-        query_descriptors.cast<float>();
 
 #pragma omp parallel num_threads(1)
     {
@@ -122,23 +113,14 @@ class FaissFeatureDescriptorIndex : public FeatureDescriptorIndex {
       faiss::SearchParametersIVF search_params;
       search_params.nprobe = 8;
       index_->search(num_query_descriptors,
-                     query_descriptors_float.data(),
+                     query_descriptors.data(),
                      num_eff_neighbors,
-                     l2_dists_float.data(),
+                     l2_dists.data(),
                      indices_long.data(),
                      &search_params);
     }
 
-    // TODO(jsch): Change the output matrix types to avoid unnecessary
-    // allocation and casting. This was optimized for the flann interface
-    // before.
-    for (int query_idx = 0; query_idx < num_query_descriptors; ++query_idx) {
-      for (int k = 0; k < num_eff_neighbors; ++k) {
-        indices(query_idx, k) = indices_long(query_idx, k);
-        l2_dists(query_idx, k) =
-            static_cast<int>(std::round(l2_dists_float(query_idx, k)));
-      }
-    }
+    indices = indices_long.cast<int>();
   }
 
  private:
