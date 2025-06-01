@@ -47,7 +47,6 @@
 #include <faiss/IndexIVF.h>
 #include <faiss/index_factory.h>
 #include <faiss/index_io.h>
-#include <flann/flann.hpp>
 #include <omp.h>
 
 namespace colmap {
@@ -473,46 +472,6 @@ class FaissVisualIndex : public VisualIndex {
     inverted_index_.GetImageIds(&image_ids_);
   }
 
-  void ReadFromLegacyFlann(const std::string& path) override {
-    // Read the visual words.
-    std::ifstream file(path, std::ios::binary);
-    THROW_CHECK_FILE_OPEN(file, path);
-    const uint64_t rows = ReadBinaryLittleEndian<uint64_t>(&file);
-    const uint64_t cols = ReadBinaryLittleEndian<uint64_t>(&file);
-    Eigen::Matrix<uint8_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
-        visual_words(rows, cols);
-    for (size_t i = 0; i < rows * cols; ++i) {
-      visual_words(i) = ReadBinaryLittleEndian<uint8_t>(&file);
-    }
-    long offset = file.tellg();
-
-    // Read the visual words search index. This index will be replaced by
-    // building a new faiss index below.
-    flann::AutotunedIndex<flann::L2<uint8_t>> flann_index(
-        flann::Matrix<uint8_t>(visual_words.data(), rows, cols));
-
-    FILE* fin = nullptr;
-#ifdef _MSC_VER
-    THROW_CHECK_EQ(fopen_s(&fin, path.c_str(), "rb"), 0);
-#else
-    fin = fopen(path.c_str(), "rb");
-#endif
-    THROW_CHECK_NOTNULL(fin);
-    fseek(fin, offset, SEEK_SET);
-    flann_index.loadIndex(fin);
-    offset = ftell(fin);
-    fclose(fin);
-
-    // Build a faiss index over the visual words.
-    index_ = BuildFaissIndex(BuildOptions(), visual_words.cast<float>());
-
-    // Read the inverted index.
-    file.seekg(offset, std::ios::beg);
-    inverted_index_.Read(&file);
-    image_ids_.clear();
-    inverted_index_.GetImageIds(&image_ids_);
-  }
-
   void Write(const std::string& path) const override {
     THROW_CHECK_NOTNULL(index_);
 
@@ -689,14 +648,8 @@ std::unique_ptr<VisualIndex> VisualIndex::Create(int desc_dim,
 }
 
 std::unique_ptr<VisualIndex> VisualIndex::Read(
-    const std::string& vocab_tree_path, bool legacy_flann) {
+    const std::string& vocab_tree_path) {
   const std::string resolved_path = MaybeDownloadAndCacheFile(vocab_tree_path);
-
-  if (legacy_flann) {
-    auto visual_index = VisualIndex::Create(128, 64);
-    visual_index->ReadFromLegacyFlann(resolved_path);
-    return visual_index;
-  }
 
   std::ifstream file(resolved_path, std::ios::binary);
   THROW_CHECK_FILE_OPEN(file, resolved_path);
