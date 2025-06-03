@@ -49,11 +49,10 @@ std::vector<Eigen::Vector2d> FeatureKeypointsToPointsVector(
 DatabaseCache::DatabaseCache()
     : correspondence_graph_(std::make_shared<class CorrespondenceGraph>()) {}
 
-void DatabaseCache::LoadDatabase(
-    const Database& database,
-    const size_t min_num_matches,
-    const bool ignore_watermarks,
-    const std::unordered_set<std::string>& image_names) {
+void DatabaseCache::Load(const Database& database,
+                         const size_t min_num_matches,
+                         const bool ignore_watermarks,
+                         const std::unordered_set<std::string>& image_names) {
   const bool has_rigs = database.NumRigs() > 0;
   const bool has_frames = database.NumFrames() > 0;
 
@@ -285,8 +284,7 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
     const bool ignore_watermarks,
     const std::unordered_set<std::string>& image_names) {
   auto cache = std::make_shared<DatabaseCache>();
-  cache->LoadDatabase(
-      database, min_num_matches, ignore_watermarks, image_names);
+  cache->Load(database, min_num_matches, ignore_watermarks, image_names);
   return cache;
 }
 
