@@ -49,13 +49,11 @@ std::vector<Eigen::Vector2d> FeatureKeypointsToPointsVector(
 DatabaseCache::DatabaseCache()
     : correspondence_graph_(std::make_shared<class CorrespondenceGraph>()) {}
 
-std::shared_ptr<DatabaseCache> DatabaseCache::Create(
+void DatabaseCache::LoadDatabase(
     const Database& database,
     const size_t min_num_matches,
     const bool ignore_watermarks,
     const std::unordered_set<std::string>& image_names) {
-  auto cache = std::make_shared<DatabaseCache>();
-
   const bool has_rigs = database.NumRigs() > 0;
   const bool has_frames = database.NumFrames() > 0;
 
@@ -70,14 +68,14 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
 
   {
     std::vector<class Rig> rigs = database.ReadAllRigs();
-    cache->rigs_.reserve(rigs.size());
+    rigs_.reserve(rigs.size());
     for (auto& rig : rigs) {
-      cache->rigs_.emplace(rig.RigId(), std::move(rig));
+      rigs_.emplace(rig.RigId(), std::move(rig));
     }
   }
 
   LOG(INFO) << StringPrintf(
-      " %d in %.3fs", cache->rigs_.size(), timer.ElapsedSeconds());
+      " %d in %.3fs", rigs_.size(), timer.ElapsedSeconds());
 
   //////////////////////////////////////////////////////////////////////////////
   // Load cameras
@@ -88,7 +86,7 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
 
   {
     std::vector<struct Camera> cameras = database.ReadAllCameras();
-    cache->cameras_.reserve(cameras.size());
+    cameras_.reserve(cameras.size());
     for (auto& camera : cameras) {
       if (!has_rigs) {
         // For backwards compatibility with old databases from before having
@@ -96,14 +94,14 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
         class Rig rig;
         rig.SetRigId(camera.camera_id);
         rig.AddRefSensor(camera.SensorId());
-        cache->rigs_.emplace(rig.RigId(), std::move(rig));
+        rigs_.emplace(rig.RigId(), std::move(rig));
       }
-      cache->cameras_.emplace(camera.camera_id, std::move(camera));
+      cameras_.emplace(camera.camera_id, std::move(camera));
     }
   }
 
   LOG(INFO) << StringPrintf(
-      " %d in %.3fs", cache->cameras_.size(), timer.ElapsedSeconds());
+      " %d in %.3fs", cameras_.size(), timer.ElapsedSeconds());
 
   //////////////////////////////////////////////////////////////////////////////
   // Load frames
@@ -116,19 +114,19 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
 
   {
     std::vector<class Frame> frames = database.ReadAllFrames();
-    cache->frames_.reserve(frames.size());
+    frames_.reserve(frames.size());
     for (auto& frame : frames) {
       for (const auto& data_id : frame.DataIds()) {
         if (data_id.sensor_id.type == SensorType::CAMERA) {
           image_to_frame_id.emplace(data_id.id, frame.FrameId());
         }
       }
-      cache->frames_.emplace(frame.FrameId(), std::move(frame));
+      frames_.emplace(frame.FrameId(), std::move(frame));
     }
   }
 
   LOG(INFO) << StringPrintf(
-      " %d in %.3fs", cache->frames_.size(), timer.ElapsedSeconds());
+      " %d in %.3fs", frames_.size(), timer.ElapsedSeconds());
 
   //////////////////////////////////////////////////////////////////////////////
   // Load matches
@@ -178,7 +176,7 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
         frame.AddDataId(image.DataId());
         image.SetFrameId(frame.FrameId());
         image_to_frame_id.emplace(image.ImageId(), frame.FrameId());
-        cache->frames_.emplace(frame.FrameId(), std::move(frame));
+        frames_.emplace(frame.FrameId(), std::move(frame));
       }
     }
 
@@ -212,9 +210,9 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
     }
 
     // Remove unconnected frames.
-    for (auto it = cache->frames_.begin(); it != cache->frames_.end();) {
+    for (auto it = frames_.begin(); it != frames_.end();) {
       if (connected_frame_ids.count(it->first) == 0) {
-        it = cache->frames_.erase(it);
+        it = frames_.erase(it);
       } else {
         ++it;
       }
@@ -222,7 +220,7 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
 
     // Load images with correspondences and discard images without
     // correspondences, as those images are useless for SfM.
-    cache->images_.reserve(connected_frame_ids.size());
+    images_.reserve(connected_frame_ids.size());
     for (auto& image : images) {
       if (connected_frame_ids.count(image.FrameId()) == 0) {
         continue;
@@ -231,17 +229,17 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
       const image_t image_id = image.ImageId();
       image.SetPoints2D(
           FeatureKeypointsToPointsVector(database.ReadKeypoints(image_id)));
-      cache->images_.emplace(image_id, std::move(image));
+      images_.emplace(image_id, std::move(image));
 
       if (database.ExistsPosePrior(image_id)) {
-        cache->pose_priors_.emplace(image_id, database.ReadPosePrior(image_id));
+        pose_priors_.emplace(image_id, database.ReadPosePrior(image_id));
       }
     }
 
     LOG(INFO) << StringPrintf(" %d in %.3fs (connected %d)",
                               num_images,
                               timer.ElapsedSeconds(),
-                              cache->images_.size());
+                              images_.size());
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -251,10 +249,10 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
   timer.Restart();
   LOG(INFO) << "Building correspondence graph...";
 
-  cache->correspondence_graph_ = std::make_shared<class CorrespondenceGraph>();
+  correspondence_graph_ = std::make_shared<class CorrespondenceGraph>();
 
-  for (const auto& [image_id, image] : cache->images_) {
-    cache->correspondence_graph_->AddImage(image_id, image.NumPoints2D());
+  for (const auto& [image_id, image] : images_) {
+    correspondence_graph_->AddImage(image_id, image.NumPoints2D());
   }
 
   size_t num_ignored_image_pairs = 0;
@@ -264,7 +262,7 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
       const frame_t frame_id1 = image_to_frame_id.at(image_id1);
       const frame_t frame_id2 = image_to_frame_id.at(image_id2);
       if (frame_ids.count(frame_id1) > 0 && frame_ids.count(frame_id2) > 0) {
-        cache->correspondence_graph_->AddCorrespondences(
+        correspondence_graph_->AddCorrespondences(
             image_id1, image_id2, two_view_geometry.inlier_matches);
       } else {
         num_ignored_image_pairs += 1;
@@ -274,12 +272,21 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
     }
   }
 
-  cache->correspondence_graph_->Finalize();
+  correspondence_graph_->Finalize();
 
   LOG(INFO) << StringPrintf(" in %.3fs (ignored %d)",
                             timer.ElapsedSeconds(),
                             num_ignored_image_pairs);
+}
 
+std::shared_ptr<DatabaseCache> DatabaseCache::Create(
+    const Database& database,
+    const size_t min_num_matches,
+    const bool ignore_watermarks,
+    const std::unordered_set<std::string>& image_names) {
+  auto cache = std::make_shared<DatabaseCache>();
+  cache->LoadDatabase(
+      database, min_num_matches, ignore_watermarks, image_names);
   return cache;
 }
 
