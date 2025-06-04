@@ -819,7 +819,7 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
                                           static_cast<double>(roi_min_y));
   }
 
-  // Scale the image such the the boundary of the undistorted image.
+  // Scale to match the boundary of the undistorted image.
   if (roi_enabled || (camera.model_id != SimplePinholeCameraModel::model_id &&
                       camera.model_id != PinholeCameraModel::model_id)) {
     // Determine min/max coordinates along top / bottom image border.
