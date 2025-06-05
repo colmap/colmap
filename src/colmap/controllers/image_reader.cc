@@ -158,15 +158,15 @@ ImageReader::Status ImageReader::Next(Rig* rig,
   if (mask && !options_.mask_path.empty()) {
     std::string mask_path =
         JoinPaths(options_.mask_path, image->Name() + ".png");
-    if (!ExistsFile(mask_path)) {      
+    if (!ExistsFile(mask_path)) {
       bool exists_mask = false;
-      if (HasFileExtension(image->Name(), ".png")){
+      if (HasFileExtension(image->Name(), ".png")) {
         std::string alt_mask_path =
             JoinPaths(options_.mask_path, image->Name());
         if (ExistsFile(alt_mask_path)) {
           mask_path = std::move(alt_mask_path);
           exists_mask = true;
-        } 
+        }
       }
       if (!exists_mask) {      
         LOG(ERROR) << "Mask at " << mask_path << " does not exist.";
