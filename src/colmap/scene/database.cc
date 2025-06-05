@@ -1375,7 +1375,7 @@ void Database::Merge(const Database& database1,
     image.SetCameraId(new_camera_ids1.at(image.CameraId()));
     THROW_CHECK(!merged_database->ExistsImageWithName(image.Name()))
         << "The two databases must not contain images with the same name, but "
-           "the there are images with name "
+           "there are images with name "
         << image.Name() << " in both databases";
     const image_t new_image_id = merged_database->WriteImage(image);
     new_image_ids1.emplace(image.ImageId(), new_image_id);
@@ -1394,7 +1394,7 @@ void Database::Merge(const Database& database1,
     image.SetCameraId(new_camera_ids2.at(image.CameraId()));
     THROW_CHECK(!merged_database->ExistsImageWithName(image.Name()))
         << "The two databases must not contain images with the same name, but "
-           "the there are images with name "
+           "there are images with name "
         << image.Name() << " in both databases";
     const image_t new_image_id = merged_database->WriteImage(image);
     new_image_ids2.emplace(image.ImageId(), new_image_id);
