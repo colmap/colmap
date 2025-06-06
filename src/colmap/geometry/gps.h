@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -30,10 +30,9 @@
 #pragma once
 
 #include "colmap/util/eigen_alignment.h"
-#include "colmap/util/enum_to_string.h"
+#include "colmap/util/enum_utils.h"
 #include "colmap/util/types.h"
 
-#include <ostream>
 #include <vector>
 
 #include <Eigen/Core>
@@ -44,35 +43,56 @@ namespace colmap {
 // representation and vice versa.
 class GPSTransform {
  public:
-  MAKE_ENUM(ELLPSOID, 0, GRS80, WGS84);
+  MAKE_ENUM_CLASS(Ellipsoid, 0, GRS80, WGS84);
 
-  explicit GPSTransform(int ellipsoid = GRS80);
+  explicit GPSTransform(Ellipsoid ellipsoid = Ellipsoid::GRS80);
 
-  std::vector<Eigen::Vector3d> EllToXYZ(
-      const std::vector<Eigen::Vector3d>& ell) const;
+  std::vector<Eigen::Vector3d> EllipsoidToECEF(
+      const std::vector<Eigen::Vector3d>& lat_lon_alt) const;
 
-  std::vector<Eigen::Vector3d> XYZToEll(
-      const std::vector<Eigen::Vector3d>& xyz) const;
+  std::vector<Eigen::Vector3d> ECEFToEllipsoid(
+      const std::vector<Eigen::Vector3d>& xyz_in_ecef) const;
 
-  // Convert GPS (lat / lon / alt) to ENU coords. with lat0 and lon0
+  // Convert GPS (lat / lon / alt) to ENU coords. with ref_lat and ref_lon
   // defining the origin of the ENU frame
-  std::vector<Eigen::Vector3d> EllToENU(const std::vector<Eigen::Vector3d>& ell,
-                                        double lat0,
-                                        double lon0) const;
+  std::vector<Eigen::Vector3d> EllipsoidToENU(
+      const std::vector<Eigen::Vector3d>& lat_lon_alt,
+      double ref_lat,
+      double ref_lon) const;
 
-  std::vector<Eigen::Vector3d> XYZToENU(const std::vector<Eigen::Vector3d>& xyz,
-                                        double lat0,
-                                        double lon0) const;
+  std::vector<Eigen::Vector3d> ECEFToENU(
+      const std::vector<Eigen::Vector3d>& xyz_in_ecef,
+      double ref_lat,
+      double ref_lon) const;
 
-  std::vector<Eigen::Vector3d> ENUToEll(const std::vector<Eigen::Vector3d>& enu,
-                                        double lat0,
-                                        double lon0,
-                                        double alt0) const;
+  std::vector<Eigen::Vector3d> ENUToEllipsoid(
+      const std::vector<Eigen::Vector3d>& xyz_in_enu,
+      double ref_lat,
+      double ref_lon,
+      double ref_alt) const;
 
-  std::vector<Eigen::Vector3d> ENUToXYZ(const std::vector<Eigen::Vector3d>& enu,
-                                        double lat0,
-                                        double lon0,
-                                        double alt0) const;
+  std::vector<Eigen::Vector3d> ENUToECEF(
+      const std::vector<Eigen::Vector3d>& xyz_in_enu,
+      double ref_lat,
+      double ref_lon,
+      double ref_alt) const;
+
+  // Converts GPS (lat / lon / alt) to UTM coordinates.
+  // Returns a pair of the converted coordinates and the zone number.
+  // If the points span multiple zones, the zone with the most points
+  // is chosen as the reference frame.
+  //
+  // The conversion uses a 4th-order expansion formula. The easting offset is
+  // 500 km, and the northing offset is 10,000 km for the Southern Hemisphere.
+  std::pair<std::vector<Eigen::Vector3d>, int> EllipsoidToUTM(
+      const std::vector<Eigen::Vector3d>& lat_lon_alt) const;
+
+  // Converts UTM coords to GPS (lat / lon / alt).
+  // Requires the zone number and hemisphere (true for north, false for south).
+  std::vector<Eigen::Vector3d> UTMToEllipsoid(
+      const std::vector<Eigen::Vector3d>& xyz_in_utm,
+      int zone,
+      bool is_north) const;
 
  private:
   // Semimajor axis.
@@ -84,54 +104,5 @@ class GPSTransform {
   // Numerical eccentricity.
   double e2_;
 };
-
-struct PosePrior {
- public:
-  MAKE_ENUM_CLASS(CoordinateSystem,
-                  -1,
-                  UNDEFINED,  // = -1
-                  WGS84,      // = 0
-                  CARTESIAN   // = 1
-  );
-
-  Eigen::Vector3d position =
-      Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
-  Eigen::Matrix3d position_covariance =
-      Eigen::Matrix3d::Constant(std::numeric_limits<double>::quiet_NaN());
-  CoordinateSystem coordinate_system = CoordinateSystem::UNDEFINED;
-
-  PosePrior() = default;
-  explicit PosePrior(const Eigen::Vector3d& position) : position(position) {}
-  PosePrior(const Eigen::Vector3d& position, const CoordinateSystem system)
-      : position(position), coordinate_system(system) {}
-  PosePrior(const Eigen::Vector3d& position, const Eigen::Matrix3d& covariance)
-      : position(position), position_covariance(covariance) {}
-  PosePrior(const Eigen::Vector3d& position,
-            const Eigen::Matrix3d& covariance,
-            const CoordinateSystem system)
-      : position(position),
-        position_covariance(covariance),
-        coordinate_system(system) {}
-
-  inline bool IsValid() const { return position.allFinite(); }
-  inline bool IsCovarianceValid() const {
-    return position_covariance.allFinite();
-  }
-
-  inline bool operator==(const PosePrior& other) const;
-  inline bool operator!=(const PosePrior& other) const;
-};
-
-std::ostream& operator<<(std::ostream& stream, const PosePrior& prior);
-
-bool PosePrior::operator==(const PosePrior& other) const {
-  return coordinate_system == other.coordinate_system &&
-         position == other.position &&
-         position_covariance == other.position_covariance;
-}
-
-bool PosePrior::operator!=(const PosePrior& other) const {
-  return !(*this == other);
-}
 
 }  // namespace colmap

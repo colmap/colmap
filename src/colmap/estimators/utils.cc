@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -69,6 +69,26 @@ void CenterAndNormalizeImagePoints(const std::vector<Eigen::Vector2d>& points,
   }
 }
 
+namespace {
+
+inline double ComputeSquaredSampsonError(const Eigen::Vector3d& ray1,
+                                         const Eigen::Vector3d& ray2,
+                                         const Eigen::Matrix3d& E) {
+  const Eigen::Vector3d epipolar_line1 = E * ray1;
+  const double num = ray2.dot(epipolar_line1);
+  const Eigen::Vector4d denom(ray2.dot(E.col(0)),
+                              ray2.dot(E.col(1)),
+                              epipolar_line1.x(),
+                              epipolar_line1.y());
+  const double denom_sq_norm = denom.squaredNorm();
+  if (denom_sq_norm == 0) {
+    return std::numeric_limits<double>::max();
+  }
+  return num * num / denom_sq_norm;
+}
+
+}  // namespace
+
 void ComputeSquaredSampsonError(const std::vector<Eigen::Vector2d>& points1,
                                 const std::vector<Eigen::Vector2d>& points2,
                                 const Eigen::Matrix3d& E,
@@ -77,35 +97,20 @@ void ComputeSquaredSampsonError(const std::vector<Eigen::Vector2d>& points1,
   THROW_CHECK_EQ(num_points1, points2.size());
   residuals->resize(num_points1);
   for (size_t i = 0; i < num_points1; ++i) {
-    const Eigen::Vector3d epipolar_line1 = E * points1[i].homogeneous();
-    const Eigen::Vector3d point2_homogeneous = points2[i].homogeneous();
-    const double num = point2_homogeneous.dot(epipolar_line1);
-    const Eigen::Vector4d denom(point2_homogeneous.dot(E.col(0)),
-                                point2_homogeneous.dot(E.col(1)),
-                                epipolar_line1.x(),
-                                epipolar_line1.y());
-    (*residuals)[i] = num * num / denom.squaredNorm();
+    (*residuals)[i] = ComputeSquaredSampsonError(
+        points1[i].homogeneous(), points2[i].homogeneous(), E);
   }
 }
 
-void ComputeSquaredReprojectionError(
-    const std::vector<Eigen::Vector2d>& points2D,
-    const std::vector<Eigen::Vector3d>& points3D,
-    const Eigen::Matrix3x4d& cam_from_world,
-    std::vector<double>* residuals) {
-  const size_t num_points2D = points2D.size();
-  THROW_CHECK_EQ(num_points2D, points3D.size());
-  residuals->resize(num_points2D);
-  for (size_t i = 0; i < num_points2D; ++i) {
-    const Eigen::Vector3d point3D_in_cam =
-        cam_from_world * points3D[i].homogeneous();
-    // Check if 3D point is in front of camera.
-    if (point3D_in_cam.z() > std::numeric_limits<double>::epsilon()) {
-      (*residuals)[i] =
-          (point3D_in_cam.hnormalized() - points2D[i]).squaredNorm();
-    } else {
-      (*residuals)[i] = std::numeric_limits<double>::max();
-    }
+void ComputeSquaredSampsonError(const std::vector<Eigen::Vector3d>& ray1,
+                                const std::vector<Eigen::Vector3d>& ray2,
+                                const Eigen::Matrix3d& E,
+                                std::vector<double>* residuals) {
+  const size_t num_ray1 = ray1.size();
+  THROW_CHECK_EQ(num_ray1, ray2.size());
+  residuals->resize(num_ray1);
+  for (size_t i = 0; i < num_ray1; ++i) {
+    (*residuals)[i] = ComputeSquaredSampsonError(ray1[i], ray2[i], E);
   }
 }
 

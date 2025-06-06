@@ -1,4 +1,4 @@
-# Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+# Copyright (c), ETH Zurich and UNC Chapel Hill.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -66,8 +66,7 @@ COLMAP_ADD_LIBRARY(
         colmap_sensor
         colmap_vlfeat
         Eigen3::Eigen
-        flann
-        lz4
+        faiss
 )
 if(GPU_ENABLED)
     target_link_libraries(colmap_feature PRIVATE colmap_sift_gpu)

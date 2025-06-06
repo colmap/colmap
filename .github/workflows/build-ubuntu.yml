@@ -1,5 +1,9 @@
 name: COLMAP (Ubuntu)
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 on:
   push:
     branches:
@@ -12,11 +16,21 @@ on:
 
 jobs:
   build:
-    name: ${{ matrix.config.os }} ${{ matrix.config.cmakeBuildType }} ${{ matrix.config.cudaEnabled && 'CUDA' || '' }} ${{ matrix.config.asanEnabled && 'ASan' || '' }}
+    name: ${{ matrix.config.os }} ${{ matrix.config.cmakeBuildType }} ${{ matrix.config.cudaEnabled && 'CUDA' || '' }} ${{ matrix.config.asanEnabled && 'ASan' || '' }} ${{ matrix.config.coverageEnabled && 'Coverage' || '' }}
     runs-on: ${{ matrix.config.os }}
     strategy:
       matrix:
         config: [
+          {
+            os: ubuntu-24.04,
+            cmakeBuildType: RelWithDebInfo,
+            asanEnabled: false,
+            guiEnabled: true,
+            cudaEnabled: false,
+            e2eTests: false,
+            checkCodeFormat: true,
+            coverageEnabled: true,
+          },
           {
             os: ubuntu-22.04,
             cmakeBuildType: Release,
@@ -25,6 +39,7 @@ jobs:
             cudaEnabled: false,
             e2eTests: true,
             checkCodeFormat: true,
+            coverageEnabled: false,
           },
           {
             os: ubuntu-22.04,
@@ -34,42 +49,27 @@ jobs:
             cudaEnabled: true,
             e2eTests: false,
             checkCodeFormat: false,
+            coverageEnabled: false,
           },
           {
-            os: ubuntu-22.04,
+            os: ubuntu-24.04,
             cmakeBuildType: Release,
             asanEnabled: true,
             guiEnabled: false,
             cudaEnabled: false,
             e2eTests: false,
             checkCodeFormat: false,
+            coverageEnabled: false,
           },
           {
-            os: ubuntu-22.04,
+            os: ubuntu-24.04,
             cmakeBuildType: ClangTidy,
             asanEnabled: false,
             guiEnabled: false,
             cudaEnabled: false,
             e2eTests: false,
             checkCodeFormat: false,
-          },
-          {
-            os: ubuntu-20.04,
-            cmakeBuildType: Release,
-            asanEnabled: false,
-            guiEnabled: true,
-            cudaEnabled: false,
-            e2eTests: false,
-            checkCodeFormat: false,
-          },
-          {
-            os: ubuntu-20.04,
-            cmakeBuildType: Release,
-            asanEnabled: false,
-            guiEnabled: false,
-            cudaEnabled: true,
-            e2eTests: false,
-            checkCodeFormat: false,
+            coverageEnabled: false,
           },
         ]
 
@@ -88,7 +88,6 @@ jobs:
           key: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}-${{ github.run_id }}-${{ github.run_number }}
           restore-keys: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}
           path: ${{ env.COMPILER_CACHE_DIR }}
-      
       - name: Install compiler cache
         run: |
           mkdir -p "$CCACHE_DIR" "$CTCACHE_DIR"
@@ -111,10 +110,8 @@ jobs:
           mv ctcache-${ctcache_commit_id}/clang-tidy* "$COMPILER_CACHE_DIR/bin"
 
       - name: Check code format
+        if: matrix.config.checkCodeFormat
         run: |
-          if [ "${{ matrix.config.checkCodeFormat }}" != "true" ]; then
-            exit 0
-          fi
           set +x -euo pipefail
           python -m pip install ruff==0.6.7 clang-format==19.1.0
           ./scripts/format/c++.sh
@@ -133,7 +130,6 @@ jobs:
             libboost-system-dev \
             libeigen3-dev \
             libceres-dev \
-            libflann-dev \
             libfreeimage-dev \
             libmetis-dev \
             libgoogle-glog-dev \
@@ -147,6 +143,7 @@ jobs:
             libcgal-qt5-dev \
             libgl1-mesa-dri \
             libunwind-dev \
+            libcurl4-openssl-dev \
             xvfb
 
           if [ "${{ matrix.config.cudaEnabled }}" == "true" ]; then
@@ -168,15 +165,19 @@ jobs:
           fi
 
           if [ "${{ matrix.config.asanEnabled }}" == "true" ]; then
-            sudo apt-get install -y clang-15 libomp-15-dev
-            echo "CC=/usr/bin/clang-15" >> $GITHUB_ENV
-            echo "CXX=/usr/bin/clang++-15" >> $GITHUB_ENV
+            sudo apt-get install -y clang-18 libomp-18-dev
+            echo "CC=/usr/bin/clang-18" >> $GITHUB_ENV
+            echo "CXX=/usr/bin/clang++-18" >> $GITHUB_ENV
           fi
 
           if [ "${{ matrix.config.cmakeBuildType }}" == "ClangTidy" ]; then
-            sudo apt-get install -y clang-15 clang-tidy-15 libomp-15-dev
-            echo "CC=/usr/bin/clang-15" >> $GITHUB_ENV
-            echo "CXX=/usr/bin/clang++-15" >> $GITHUB_ENV
+            sudo apt-get install -y clang-18 clang-tidy-18 libomp-18-dev
+            echo "CC=/usr/bin/clang-18" >> $GITHUB_ENV
+            echo "CXX=/usr/bin/clang++-18" >> $GITHUB_ENV
+          fi
+
+          if [ "${{ matrix.config.coverageEnabled }}" == "true" ]; then
+            sudo apt-get install -y gcovr
           fi
 
       - name: Configure and build
@@ -193,16 +194,13 @@ jobs:
             -DTESTS_ENABLED=ON \
             -DCUDA_ENABLED=${{ matrix.config.cudaEnabled }} \
             -DGUI_ENABLED=${{ matrix.config.guiEnabled }} \
-            -DASAN_ENABLED=${{ matrix.config.asanEnabled }}
+            -DASAN_ENABLED=${{ matrix.config.asanEnabled }} \
+            -DCOVERAGE_ENABLED=${{ matrix.config.coverageEnabled }}
           ninja -k 10000
 
       - name: Install and build sample
+        if: ${{ matrix.config.cmakeBuildType != 'ClangTidy' && !matrix.config.asanEnabled && !matrix.config.coverageEnabled }}
         run: |
-          if [ "${{ matrix.config.asanEnabled }}" == "true" ] ||
-             [ "${{ matrix.config.cmakeBuildType }}" == "ClangTidy" ]; then
-            exit 0
-          fi
-
           set -x
           cd build
           ninja install
@@ -217,11 +215,8 @@ jobs:
           ./hello_world --message "world"
 
       - name: Run tests
+        if: ${{ matrix.config.cmakeBuildType != 'ClangTidy' }}
         run: |
-          if [ "${{ matrix.config.cmakeBuildType }}" == "ClangTidy" ]; then
-            exit 0
-          fi
-
           if [ "${{ matrix.config.cudaEnabled }}" == "true" ]; then
             ctestExclusions="(feature/colmap_feature_sift_test)|(mvs/colmap_mvs_gpu_mat_test)"
           fi
@@ -231,14 +226,13 @@ jobs:
           Xvfb :99 &
           sleep 3
           cd build
+          export GLOG_v=1
+          export GLOG_logtostderr=1
           ctest -E "$ctestExclusions" --output-on-failure
 
       - name: Run E2E tests
+        if: matrix.config.e2eTests
         run: |
-          if [ "${{ matrix.config.e2eTests }}" != "true" ]; then
-            exit 0
-          fi
-
           export DISPLAY=":99.0"
           export QT_QPA_PLATFORM="offscreen"
           Xvfb :99 &
@@ -253,6 +247,44 @@ jobs:
               --dataset_names boulders,door \
               --max_rotation_error 1.0 \
               --max_proj_center_error 0.05
+
+      - name: Generate coverage report
+        if: matrix.config.coverageEnabled
+        run: |
+          set -x
+          cd build
+          ../scripts/shell/generate_coverage_report.sh
+
+      - name: Upload coverage HTML report
+        uses: actions/upload-artifact@v4
+        if: matrix.config.coverageEnabled
+        with:
+          name: code-coverage
+          path: build/coverage-html
+
+      - name: Generate Github code coverage report
+        if: matrix.config.coverageEnabled
+        uses: irongut/CodeCoverageSummary@v1.3.0
+        with:
+          filename: build/coverage-cobertura.xml
+          badge: true
+          fail_below_min: false
+          format: markdown
+          hide_branch_rate: false
+          hide_complexity: true
+          indicators: true
+          output: both
+          thresholds: '75 90'
+      # TODO: Add code coverage comment to PR. Currently, this action reports
+      # coverage for the entire repository, not just the changed files in the PR.
+      # We could manually filter the coverage report to only include the changed
+      # files in the PR, but this is non-trivial and may not be worth the effort.
+      # - name: Add Github PR code coverage comment
+      #   uses: marocchino/sticky-pull-request-comment@v2
+      #   if: ${{ matrix.config.coverageEnabled && github.event_name == 'pull_request' }}
+      #   with:
+      #     recreate: true
+      #     path: code-coverage-results.md
 
       - name: Cleanup compiler cache
         run: |

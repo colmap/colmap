@@ -36,7 +36,9 @@ reconstruction tool, the folder would look similar to this::
     │   +── ...
     +── sparse
     │   +── 0
+    │   │   +── rigs.bin
     │   │   +── cameras.bin
+    │   │   +── frames.bin
     │   │   +── images.bin
     │   │   +── points3D.bin
     │   +── ...
@@ -289,15 +291,18 @@ matching modes, that are intended for different input scenarios:
 - **Sequential Matching**: This mode is useful if the images are acquired in
   sequential order, e.g., by a video camera. In this case, consecutive frames
   have visual overlap and there is no need to match all image pairs
-  exhaustively. Instead, consecutively captured images are matched against
-  each other. This matching mode has built-in loop detection based on a
-  vocabulary tree, where every N-th image (`loop_detection_period`) is matched
-  against its visually most similar images (`loop_detection_num_images`). Note
-  that image file names must be ordered sequentially (e.g., `image0001.jpg`,
+  exhaustively. Instead, consecutively captured images are matched against each
+  other. This matching mode has built-in loop detection based on a vocabulary
+  tree, where every N-th image (`loop_detection_period`) is matched against its
+  visually most similar images (`loop_detection_num_images`). Note that image
+  file names must be ordered sequentially (e.g., `image0001.jpg`,
   `image0002.jpg`, etc.). The order in the database is not relevant, since the
   images are explicitly ordered according to their file names. Note that loop
-  detection requires a pre-trained vocabulary tree, that can be downloaded
-  from https://demuc.de/colmap/.
+  detection requires a pre-trained vocabulary tree. A default tree will be
+  automatically downloaded and cached. More trees are available and can be
+  downloaded from https://demuc.de/colmap/. In case rigs and frames are
+  configured appropriately in the database, sequential matching will
+  automatically match all images in consecutive frames against each other.
 
 - **Vocabulary Tree Matching**: In this matching mode [schoenberger16vote]_,
   every image is matched against its visual nearest neighbors using a vocabulary

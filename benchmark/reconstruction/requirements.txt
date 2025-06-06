@@ -1,0 +1,5 @@
+pillow
+numpy
+requests
+pycolmap
+py7zr

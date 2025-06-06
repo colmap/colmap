@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -60,7 +60,7 @@ void Mat<float>::Write(const std::string& path) const {
   std::ofstream file(path, std::ios::binary);
   THROW_CHECK_FILE_OPEN(file, path);
   file << width_ << "&" << height_ << "&" << depth_ << "&";
-  WriteBinaryLittleEndian<float>(&file, data_);
+  WriteBinaryLittleEndian<float>(&file, {data_.data(), data_.size()});
   file.close();
 }
 

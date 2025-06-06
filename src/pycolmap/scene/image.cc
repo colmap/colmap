@@ -26,13 +26,11 @@ namespace py = pybind11;
 template <typename T>
 std::shared_ptr<Image> MakeImage(const std::string& name,
                                  const std::vector<T>& points2D,
-                                 const std::optional<Rigid3d>& cam_from_world,
-                                 size_t camera_id,
+                                 camera_t camera_id,
                                  image_t image_id) {
   auto image = std::make_shared<Image>();
   image->SetName(name);
   image->SetPoints2D(points2D);
-  image->SetCamFromWorld(cam_from_world);
   if (camera_id != kInvalidCameraId) {
     image->SetCameraId(camera_id);
   }
@@ -40,21 +38,21 @@ std::shared_ptr<Image> MakeImage(const std::string& name,
   return image;
 }
 
-void BindImage(py::module& m) {
+void BindSceneImage(py::module& m) {
   py::class_<Image, std::shared_ptr<Image>> PyImage(m, "Image");
   PyImage.def(py::init<>())
       .def(py::init(&MakeImage<Point2D>),
            "name"_a = "",
-           py::arg_v("points2D", Point2DVector(), "ListPoint2D()"),
-           "cam_from_world"_a = py::none(),
-           "camera_id"_a = kInvalidCameraId,
-           "id"_a = kInvalidImageId)
+           py::arg_v("points2D", Point2DVector(), "Point2DList()"),
+           py::arg_v(
+               "camera_id", kInvalidCameraId, "pycolmap.INVALID_CAMERA_ID"),
+           py::arg_v("image_id", kInvalidImageId, "pycolmap.INVALID_IMAGE_ID"))
       .def(py::init(&MakeImage<Eigen::Vector2d>),
            "name"_a = "",
            "keypoints"_a = std::vector<Eigen::Vector2d>(),
-           "cam_from_world"_a = Rigid3d(),
-           "camera_id"_a = kInvalidCameraId,
-           "id"_a = kInvalidImageId)
+           py::arg_v(
+               "camera_id", kInvalidCameraId, "pycolmap.INVALID_CAMERA_ID"),
+           py::arg_v("image_id", kInvalidImageId, "pycolmap.INVALID_IMAGE_ID"))
       .def_property("image_id",
                     &Image::ImageId,
                     &Image::SetImageId,
@@ -63,31 +61,45 @@ void BindImage(py::module& m) {
                     &Image::CameraId,
                     &Image::SetCameraId,
                     "Unique identifier of the camera.")
+      .def_property("frame_id",
+                    &Image::FrameId,
+                    &Image::SetFrameId,
+                    "Unique identifier of the frame.")
+      .def_property_readonly(
+          "data_id", &Image::DataId, "Unique identifier of the data.")
       .def_property(
           "camera",
           [](Image& self) -> py::typing::Optional<Camera> {
             if (self.HasCameraPtr()) {
-              return py::cast(*self.CameraPtr());
+              return py::cast(self.CameraPtr());
             } else {
               return py::none();
             }
           },
           &Image::SetCameraPtr,
-          "The address of the camera")
+          "The associated camera object.")
+      .def_property(
+          "frame",
+          [](Image& self) -> py::typing::Optional<Frame> {
+            if (self.HasFramePtr()) {
+              return py::cast(self.FramePtr());
+            } else {
+              return py::none();
+            }
+          },
+          &Image::SetFramePtr,
+          "The associated frame object.")
       .def_property("name",
                     py::overload_cast<>(&Image::Name),
                     &Image::SetName,
                     "Name of the image.")
-      .def_property(
-          "cam_from_world",
-          py::overload_cast<>(&Image::MaybeCamFromWorld),
-          py::overload_cast<const std::optional<Rigid3d>&>(
-              &Image::SetCamFromWorld),
-          "The pose of the image, defined as the transformation from world to "
-          "camera space. None if the image is not registered.")
+      .def("cam_from_world",
+           &Image::CamFromWorld,
+           "The pose of the image, defined as the transformation from world to "
+           "camera space. This method is read-only and support non-trivial "
+           "frame (rig).")
       .def_property_readonly(
           "has_pose", &Image::HasPose, "Whether the image has a valid pose.")
-      .def("reset_pose", &Image::ResetPose, "Invalidate the pose of the image.")
       .def_property(
           "points2D",
           py::overload_cast<>(&Image::Points2D),
@@ -118,18 +130,10 @@ void BindImage(py::module& m) {
       .def("viewing_direction",
            &Image::ViewingDirection,
            "Extract the viewing direction of the image.")
-      .def(
-          "project_point",
-          [](const Image& self, const Eigen::Vector3d& point3D)
-              -> py::typing::Optional<Eigen::Vector2d> {
-            auto result = self.ProjectPoint(point3D);
-            if (result.first) {
-              return py::cast(result.second);
-            } else {
-              return py::none();
-            }
-          },
-          "Project 3D point onto the image")
+      .def("project_point",
+           &Image::ProjectPoint,
+           "Project 3D point onto the image",
+           "point3D"_a)
       .def("has_camera_id",
            &Image::HasCameraId,
            "Check whether identifier of camera has been set.")
@@ -139,6 +143,15 @@ void BindImage(py::module& m) {
       .def("reset_camera_ptr",
            &Image::ResetCameraPtr,
            "Make the camera pointer a nullptr.")
+      .def("has_frame_id",
+           &Image::HasFrameId,
+           "Check whether identifier of frame has been set.")
+      .def("has_frame_ptr",
+           &Image::HasFramePtr,
+           "Check whether the frame pointer has been set.")
+      .def("reset_frame_ptr",
+           &Image::ResetFramePtr,
+           "Make the frame pointer a nullptr.")
       .def("num_points2D",
            &Image::NumPoints2D,
            "Get the number of image points (keypoints).")
@@ -174,5 +187,5 @@ void BindImage(py::module& m) {
           "Get the 2D points that observe a 3D point.");
   MakeDataclass(PyImage);
 
-  py::bind_map<ImageMap>(m, "MapImageIdToImage");
+  py::bind_map<ImageMap>(m, "ImageMap");
 }

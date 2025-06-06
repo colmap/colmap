@@ -5,10 +5,16 @@ Installation
 
 You can either download one of the pre-built binaries or build the source code
 manually. Pre-built binaries and other resources can be downloaded from
-https://demuc.de/colmap/. An overview of system packages for Linux/Unix/BSD
-distributions are available at https://repology.org/metapackage/colmap/versions.
-Note that the COLMAP packages in the default repositories for Linux/Unix/BSD do
-not come with CUDA support, which requires a manual build from source.
+https://demuc.de/colmap/.
+
+An overview of system packages for Linux/Unix/BSD distributions are available at
+https://repology.org/metapackage/colmap/versions. Note that the COLMAP packages
+in the default repositories for Linux/Unix/BSD do not come with CUDA support,
+which requires a manual build from source, as explained further below.
+
+For Mac users, `Homebrew <https://brew.sh>`__ provides a formula for COLMAP with
+pre-compiled binaries or the option to build from source. After installing
+homebrew, installing COLMAP is as easy as running `brew install colmap`.
 
 COLMAP can be used as an independent application through the command-line or
 graphical user interface. Alternatively, COLMAP is also built as a reusable
@@ -35,18 +41,12 @@ are not officially signed. The provided COLMAP binaries are automatically built
 from GitHub Actions CI machines. If you do not trust them, you can build from
 source as described below.
 
-Mac
----
+Docker
+------
 
-The pre-built application package for Mac contains both the GUI and command-line
-version of COLMAP. To open the GUI, simply open the application. Note that
-COLMAP is shipped as an unsigned application, i.e., when your first open the
-application, you have to right-click the application and select *Open* and then
-accept to trust the application. In the future, you can then simply double-click
-the application to open COLMAP. The command-line interface is accessible by
-running the packaged binary ``COLMAP.app/Contents/MacOS/colmap``. To list the
-available COLMAP commands, run ``COLMAP.app/Contents/MacOS/colmap -h``.
-
+COLMAP provides a pre-built Docker image with CUDA support. For detailed
+instructions on how to build and run COLMAP using Docker, please refer to the
+`Docker documentation <https://github.com/colmap/colmap/tree/main/docker>`__.
 
 -----------------
 Build from Source
@@ -81,7 +81,6 @@ Dependencies from the default Ubuntu repositories::
         libboost-graph-dev \
         libboost-system-dev \
         libeigen3-dev \
-        libflann-dev \
         libfreeimage-dev \
         libmetis-dev \
         libgoogle-glog-dev \
@@ -92,7 +91,8 @@ Dependencies from the default Ubuntu repositories::
         qtbase5-dev \
         libqt5opengl5-dev \
         libcgal-dev \
-        libceres-dev
+        libceres-dev \
+        libcurl4-openssl-dev
 
 To compile with **CUDA support**, also install Ubuntu's default CUDA package::
 
@@ -137,15 +137,16 @@ CUDA package and GCC, and you must compile against GCC 10::
 Mac
 ---
 
-Dependencies from `Homebrew <http://brew.sh/>`_::
+Dependencies from `Homebrew <http://brew.sh/>`__::
 
     brew install \
         cmake \
         ninja \
         boost \
         eigen \
-        flann \
         freeimage \
+        curl \
+        libomp \
         metis \
         glog \
         googletest \
@@ -154,6 +155,7 @@ Dependencies from `Homebrew <http://brew.sh/>`_::
         glew \
         cgal \
         sqlite3
+    brew link --force libomp
 
 Configure and compile COLMAP::
 
@@ -161,7 +163,9 @@ Configure and compile COLMAP::
     cd colmap
     mkdir build
     cd build
-    cmake .. -GNinja -DCMAKE_PREFIX_PATH="$(brew --prefix qt@5)"
+    cmake .. \
+        -GNinja \
+        -DQt5_DIR="$(brew --prefix qt@5)/lib/cmake/Qt5"
     ninja
     sudo ninja install
 
@@ -274,7 +278,7 @@ with the source code ``hello_world.cc``::
         options.AddRequiredOption("message", &message);
         options.Parse(argc, argv);
 
-        std::cout << colmap::StringPrintf("Hello %s!", message.c_str()) << std::endl;
+        std::cout << colmap::StringPrintf("Hello %s!\n", message.c_str());
 
         return EXIT_SUCCESS;
     }

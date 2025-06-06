@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -181,9 +181,14 @@ void PointViewerWidget::Show(const point3D_t point3D_id) {
     const Image& image = model_viewer_widget_->images[track_el.first.image_id];
     const Camera& camera = model_viewer_widget_->cameras[image.CameraId()];
     const Point2D& point2D = image.Point2D(track_el.first.point2D_idx);
-    const Eigen::Vector2d proj_point2D =
-        camera.ImgFromCam((image.CamFromWorld() * point3D.xyz).hnormalized());
-    const double reproj_error = (point2D.xy - proj_point2D).norm();
+    const std::optional<Eigen::Vector2d> proj_point2D =
+        camera.ImgFromCam(image.CamFromWorld() * point3D.xyz);
+    if (!proj_point2D) {
+      LOG(WARNING) << "Failed to project point into image " << image.Name();
+      continue;
+    }
+
+    const double reproj_error = (point2D.xy - *proj_point2D).norm();
 
     Bitmap bitmap;
     const std::string path = JoinPaths(*options_->image_path, image.Name());
@@ -214,8 +219,8 @@ void PointViewerWidget::Show(const point3D_t point3D_id) {
     pen.setColor(Qt::red);
     painter.setPen(pen);
 
-    const int proj_x = static_cast<int>(std::round(proj_point2D.x()));
-    const int proj_y = static_cast<int>(std::round(proj_point2D.y()));
+    const int proj_x = static_cast<int>(std::round(proj_point2D->x()));
+    const int proj_y = static_cast<int>(std::round(proj_point2D->y()));
     painter.drawEllipse(proj_x - 5, proj_y - 5, 10, 10);
     painter.drawEllipse(proj_x - 15, proj_y - 15, 30, 30);
     painter.drawEllipse(proj_x - 45, proj_y - 45, 90, 90);
@@ -313,6 +318,7 @@ void PointViewerWidget::Delete() {
     }
     model_viewer_widget_->ReloadReconstruction();
   }
+  hide();
 }
 
 }  // namespace colmap

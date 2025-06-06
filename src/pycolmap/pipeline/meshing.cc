@@ -56,7 +56,8 @@ void BindMeshing(py::module& m) {
           .def_readwrite(
               "num_threads",
               &PoissonMOpts::num_threads,
-              "The number of threads used for the Poisson reconstruction.");
+              "The number of threads used for the Poisson reconstruction.")
+          .def("check", &PoissonMOpts::Check);
   MakeDataclass(PyPoissonMeshingOptions);
 
   using DMOpts = mvs::DelaunayMeshingOptions;
@@ -113,7 +114,8 @@ void BindMeshing(py::module& m) {
           .def_readwrite("num_threads",
                          &DMOpts::num_threads,
                          "The number of threads to use for reconstruction. "
-                         "Default is all threads.");
+                         "Default is all threads.")
+          .def("check", &DMOpts::Check);
   MakeDataclass(PyDelaunayMeshingOptions);
 
   m.def(

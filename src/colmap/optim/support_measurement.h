@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -72,9 +72,7 @@ struct UniqueInlierSupportMeasurer {
     double residual_sum = std::numeric_limits<double>::max();
   };
 
-  void SetUniqueSampleIds(const std::vector<size_t>& sample_ids) {
-    unique_sample_ids_ = sample_ids;
-  }
+  explicit UniqueInlierSupportMeasurer(std::vector<size_t> unique_sample_ids);
 
   // Compute the support of the residuals.
   Support Evaluate(const std::vector<double>& residuals, double max_residual);

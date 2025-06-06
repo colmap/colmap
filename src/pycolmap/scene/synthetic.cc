@@ -23,9 +23,15 @@ void BindSynthetic(py::module& m) {
   auto PySyntheticDatasetOptions =
       py::class_<SyntheticDatasetOptions>(m, "SyntheticDatasetOptions")
           .def(py::init<>())
-          .def_readwrite("num_cameras", &SyntheticDatasetOptions::num_cameras)
-          .def_readwrite("num_images", &SyntheticDatasetOptions::num_images)
+          .def_readwrite("num_rigs", &SyntheticDatasetOptions::num_rigs)
+          .def_readwrite("num_cameras_per_rig",
+                         &SyntheticDatasetOptions::num_cameras_per_rig)
+          .def_readwrite("num_frames_per_rig",
+                         &SyntheticDatasetOptions::num_frames_per_rig)
           .def_readwrite("num_points3D", &SyntheticDatasetOptions::num_points3D)
+          .def_readwrite(
+              "sensor_from_rig_translation_stddev",
+              &SyntheticDatasetOptions::sensor_from_rig_translation_stddev)
           .def_readwrite("camera_width", &SyntheticDatasetOptions::camera_width)
           .def_readwrite("camera_height",
                          &SyntheticDatasetOptions::camera_height)

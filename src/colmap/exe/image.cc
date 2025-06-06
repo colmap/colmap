@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -107,12 +107,14 @@ int RunImageDeleter(int argc, char** argv) {
 
       const image_t image_id = std::stoi(image_id_str);
       if (reconstruction.ExistsImage(image_id)) {
-        const auto& image = reconstruction.Image(image_id);
+        const Image& image = reconstruction.Image(image_id);
         LOG(INFO) << StringPrintf(
-            "Deleting image_id=%d, image_name=%s from reconstruction",
+            "Deleting image_id=%d, image_name=%s, frame_id=%d from "
+            "reconstruction",
             image.ImageId(),
-            image.Name().c_str());
-        reconstruction.DeRegisterImage(image_id);
+            image.Name().c_str(),
+            image.FrameId());
+        reconstruction.DeRegisterFrame(image.FrameId());
       } else {
         LOG(WARNING) << StringPrintf(
             "Skipping image_id=%s, because it does not "
@@ -123,9 +125,7 @@ int RunImageDeleter(int argc, char** argv) {
   }
 
   if (!image_names_path.empty()) {
-    const auto image_names = ReadTextFileLines(image_names_path);
-
-    for (const auto& image_name : image_names) {
+    for (const std::string& image_name : ReadTextFileLines(image_names_path)) {
       if (image_name.empty()) {
         continue;
       }
@@ -133,10 +133,12 @@ int RunImageDeleter(int argc, char** argv) {
       const Image* image = reconstruction.FindImageWithName(image_name);
       if (image != nullptr) {
         LOG(INFO) << StringPrintf(
-            "Deleting image_id=%d, image_name=%s from reconstruction",
+            "Deleting image_id=%d, image_name=%s, frame_id=%d from "
+            "reconstruction",
             image->ImageId(),
-            image->Name().c_str());
-        reconstruction.DeRegisterImage(image->ImageId());
+            image->Name().c_str(),
+            image->FrameId());
+        reconstruction.DeRegisterFrame(image->FrameId());
       } else {
         LOG(WARNING) << StringPrintf(
             "Skipping image_name=%s, because it does not "
@@ -174,18 +176,29 @@ int RunImageFilterer(int argc, char** argv) {
   const size_t num_reg_images = reconstruction.NumRegImages();
 
   ObservationManager(reconstruction)
-      .FilterImages(
+      .FilterFrames(
           min_focal_length_ratio, max_focal_length_ratio, max_extra_param);
 
-  std::vector<image_t> filtered_image_ids;
-  for (const auto& [image_id, image] : reconstruction.Images()) {
-    if (image.HasPose() && image.NumPoints3D() < min_num_observations) {
-      filtered_image_ids.push_back(image_id);
+  std::vector<frame_t> filtered_frame_ids;
+  for (const auto& [frame_id, frame] : reconstruction.Frames()) {
+    if (!frame.HasPose()) {
+      filtered_frame_ids.push_back(frame_id);
+    }
+    bool enough_observations = false;
+    for (const data_t& data_id : frame.ImageIds()) {
+      const Image& image = reconstruction.Image(data_id.id);
+      if (image.NumPoints3D() >= min_num_observations) {
+        enough_observations = true;
+      }
+    }
+
+    if (!enough_observations) {
+      filtered_frame_ids.push_back(frame_id);
     }
   }
 
-  for (const auto image_id : filtered_image_ids) {
-    reconstruction.DeRegisterImage(image_id);
+  for (const auto frame_id : filtered_frame_ids) {
+    reconstruction.DeRegisterFrame(frame_id);
   }
 
   const size_t num_filtered_images =
@@ -269,7 +282,8 @@ int RunImageRegistrator(int argc, char** argv) {
     database_cache = DatabaseCache::Create(Database(*options.database_path),
                                            min_num_matches,
                                            options.mapper->ignore_watermarks,
-                                           options.mapper->image_names);
+                                           {options.mapper->image_names.begin(),
+                                            options.mapper->image_names.end()});
     timer.PrintMinutes();
   }
 
@@ -350,8 +364,7 @@ int RunImageUndistorter(int argc, char** argv) {
 
   std::vector<image_t> image_ids;
   if (!image_list_path.empty()) {
-    const auto& image_names = ReadTextFileLines(image_list_path);
-    for (const auto& image_name : image_names) {
+    for (const std::string& image_name : ReadTextFileLines(image_list_path)) {
       const Image* image = reconstruction.FindImageWithName(image_name);
       if (image != nullptr) {
         image_ids.push_back(image->ImageId());

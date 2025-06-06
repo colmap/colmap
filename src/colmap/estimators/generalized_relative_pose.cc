@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -37,17 +37,74 @@
 #include "colmap/util/logging.h"
 
 #include <Eigen/Dense>
+#include <PoseLib/solvers/gen_relpose_6pt.h>
 
 namespace colmap {
+
+void GR6PEstimator::Estimate(const std::vector<X_t>& points1,
+                             const std::vector<Y_t>& points2,
+                             std::vector<M_t>* rigs2_from_rigs1) {
+  THROW_CHECK_EQ(points1.size(), 6);
+  THROW_CHECK_EQ(points2.size(), 6);
+  THROW_CHECK_NOTNULL(rigs2_from_rigs1);
+
+  rigs2_from_rigs1->clear();
+
+  std::vector<Eigen::Vector3d> origins_in_rig1(6);
+  std::vector<Eigen::Vector3d> origins_in_rig2(6);
+  std::vector<Eigen::Vector3d> rays_in_rig1(6);
+  std::vector<Eigen::Vector3d> rays_in_rig2(6);
+  for (int i = 0; i < 6; ++i) {
+    origins_in_rig1[i] = points1[i].cam_from_rig.rotation.inverse() *
+                         -points1[i].cam_from_rig.translation;
+    origins_in_rig2[i] = points2[i].cam_from_rig.rotation.inverse() *
+                         -points2[i].cam_from_rig.translation;
+    rays_in_rig1[i] =
+        points1[i].cam_from_rig.rotation.inverse() * points1[i].ray_in_cam;
+    rays_in_rig2[i] =
+        points2[i].cam_from_rig.rotation.inverse() * points2[i].ray_in_cam;
+  }
+
+  std::vector<poselib::CameraPose> poses;
+  poselib::gen_relpose_6pt(
+      origins_in_rig1, rays_in_rig1, origins_in_rig2, rays_in_rig2, &poses);
+
+  rigs2_from_rigs1->reserve(poses.size());
+  for (const poselib::CameraPose& pose : poses) {
+    rigs2_from_rigs1->emplace_back(
+        Eigen::Quaterniond(pose.q(0), pose.q(1), pose.q(2), pose.q(3)), pose.t);
+  }
+}
+
+void GR6PEstimator::Residuals(const std::vector<X_t>& points1,
+                              const std::vector<Y_t>& points2,
+                              const M_t& rig2_from_rig1,
+                              std::vector<double>* residuals) {
+  THROW_CHECK_EQ(points1.size(), points2.size());
+  residuals->resize(points1.size());
+  for (size_t i = 0; i < points1.size(); ++i) {
+    const Rigid3d cam2_from_cam1 = points2[i].cam_from_rig * rig2_from_rig1 *
+                                   Inverse(points1[i].cam_from_rig);
+    const Eigen::Matrix3d E = EssentialMatrixFromPose(cam2_from_cam1);
+    const Eigen::Vector3d epipolar_line1 = E * points1[i].ray_in_cam;
+    const double num = points2[i].ray_in_cam.dot(epipolar_line1);
+    const Eigen::Vector4d denom(points2[i].ray_in_cam.dot(E.col(0)),
+                                points2[i].ray_in_cam.dot(E.col(1)),
+                                epipolar_line1.x(),
+                                epipolar_line1.y());
+    (*residuals)[i] = num * num / denom.squaredNorm();
+  }
+}
+
 namespace {
 
 void ComposePlueckerData(const Rigid3d& rig_from_cam,
                          const Eigen::Vector3d& ray_in_cam,
-                         Eigen::Vector3d* proj_center,
+                         Eigen::Vector3d* origin_in_rig,
                          Eigen::Vector6d* pluecker) {
   const Eigen::Vector3d ray_in_rig =
       (rig_from_cam.rotation * ray_in_cam).normalized();
-  *proj_center = rig_from_cam.translation;
+  *origin_in_rig = rig_from_cam.translation;
   *pluecker << ray_in_rig, rig_from_cam.translation.cross(ray_in_rig);
 }
 
@@ -390,10 +447,10 @@ Eigen::Vector3d ComputeJacobian(const Eigen::Matrix3d& xxF,
                                 const double current_cost,
                                 const int step) {
   Eigen::Vector3d jacobian;
-  const double kEpsilon = 0.00000001;
+  constexpr double kStepSize = 1e-8;
   for (int j = 0; j < 3; j++) {
     Eigen::Vector3d cayley_j = rotation;
-    cayley_j[j] += kEpsilon;
+    cayley_j[j] += kStepSize;
     const double cost_j = ComputeCost(xxF,
                                       yyF,
                                       zzF,
@@ -418,27 +475,27 @@ Eigen::Vector3d ComputeJacobian(const Eigen::Matrix3d& xxF,
 
 }  // namespace
 
-void GR6PEstimator::Estimate(const std::vector<X_t>& points1,
+void GR8PEstimator::Estimate(const std::vector<X_t>& points1,
                              const std::vector<Y_t>& points2,
-                             std::vector<M_t>* models) {
+                             std::vector<M_t>* rigs2_from_rigs1) {
   THROW_CHECK_GE(points1.size(), 6);
   THROW_CHECK_EQ(points1.size(), points2.size());
-  THROW_CHECK(models != nullptr);
+  THROW_CHECK(rigs2_from_rigs1 != nullptr);
 
-  models->clear();
+  rigs2_from_rigs1->clear();
 
-  std::vector<Eigen::Vector3d> proj_centers1(points1.size());
-  std::vector<Eigen::Vector3d> proj_centers2(points1.size());
+  std::vector<Eigen::Vector3d> origins_in_rig1(points1.size());
+  std::vector<Eigen::Vector3d> origins_in_rig2(points1.size());
   std::vector<Eigen::Vector6d> plueckers1(points1.size());
   std::vector<Eigen::Vector6d> plueckers2(points1.size());
   for (size_t i = 0; i < points1.size(); ++i) {
     ComposePlueckerData(Inverse(points1[i].cam_from_rig),
                         points1[i].ray_in_cam,
-                        &proj_centers1[i],
+                        &origins_in_rig1[i],
                         &plueckers1[i]);
     ComposePlueckerData(Inverse(points2[i].cam_from_rig),
                         points2[i].ray_in_cam,
-                        &proj_centers2[i],
+                        &origins_in_rig2[i],
                         &plueckers2[i]);
   }
 
@@ -463,8 +520,8 @@ void GR6PEstimator::Estimate(const std::vector<X_t>& points1,
   for (size_t i = 0; i < points1.size(); ++i) {
     const Eigen::Vector3d f1 = plueckers1[i].head<3>();
     const Eigen::Vector3d f2 = plueckers2[i].head<3>();
-    const Eigen::Vector3d t1 = proj_centers1[i];
-    const Eigen::Vector3d t2 = proj_centers2[i];
+    const Eigen::Vector3d t1 = origins_in_rig1[i];
+    const Eigen::Vector3d t2 = origins_in_rig2[i];
 
     const Eigen::Matrix3d F = f2 * f2.transpose();
     xxF += f1[0] * f1[0] * F;
@@ -710,33 +767,18 @@ void GR6PEstimator::Estimate(const std::vector<X_t>& points1,
   const Eigen::Matrix4cd V = eigen_solver_G.eigenvectors();
   const Eigen::Matrix3x4d VV = V.real().colwise().hnormalized();
 
-  models->resize(4);
+  rigs2_from_rigs1->resize(4);
   for (int i = 0; i < 4; ++i) {
-    (*models)[i].rotation = Eigen::Quaterniond(R);
-    (*models)[i].translation = -R * VV.col(i);
+    (*rigs2_from_rigs1)[i].rotation = Eigen::Quaterniond(R);
+    (*rigs2_from_rigs1)[i].translation = -R * VV.col(i);
   }
 }
 
-void GR6PEstimator::Residuals(const std::vector<X_t>& points1,
+void GR8PEstimator::Residuals(const std::vector<X_t>& points1,
                               const std::vector<Y_t>& points2,
                               const M_t& rig2_from_rig1,
                               std::vector<double>* residuals) {
-  THROW_CHECK_EQ(points1.size(), points2.size());
-  residuals->resize(points1.size(), 0);
-  for (size_t i = 0; i < points1.size(); ++i) {
-    const Rigid3d cam2_from_cam1 = points2[i].cam_from_rig * rig2_from_rig1 *
-                                   Inverse(points1[i].cam_from_rig);
-    const Eigen::Matrix3d E = EssentialMatrixFromPose(cam2_from_cam1);
-    const Eigen::Vector3d Ex1 =
-        E * points1[i].ray_in_cam.hnormalized().homogeneous();
-    const Eigen::Vector3d x2 =
-        points2[i].ray_in_cam.hnormalized().homogeneous();
-    const Eigen::Vector3d Etx2 = E.transpose() * x2;
-    const double x2tEx1 = x2.transpose() * Ex1;
-    (*residuals)[i] = x2tEx1 * x2tEx1 /
-                      (Ex1(0) * Ex1(0) + Ex1(1) * Ex1(1) + Etx2(0) * Etx2(0) +
-                       Etx2(1) * Etx2(1));
-  }
+  GR6PEstimator::Residuals(points1, points2, rig2_from_rig1, residuals);
 }
 
 }  // namespace colmap

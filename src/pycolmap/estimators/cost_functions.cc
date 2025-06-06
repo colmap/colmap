@@ -113,8 +113,8 @@ void BindCostFunctions(py::module& m_parent) {
                                   const Eigen::Vector2d&,
                                   const Rigid3d&>,
         "camera_model_id"_a,
-        "cam_from_rig"_a,
         "point2D"_a,
+        "cam_from_rig"_a,
         "Reprojection error for camera rig with constant cam-from-rig pose.");
   m.def("RigReprojErrorCost",
         &CreateCameraCostFunction<

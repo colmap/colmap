@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -31,8 +31,10 @@
 
 #include "colmap/geometry/rigid3.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/eigen_matchers.h"
 
 #include <Eigen/Core>
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -48,26 +50,28 @@ TEST(TriangulatePoint, Nominal) {
       Eigen::Vector3d(0.1, 0.1, 0.2),
   };
 
-  const Rigid3d cam_from_world1;
+  const Rigid3d cam1_from_world;
 
   for (int z = 0; z < 5; ++z) {
     const double qz = z / 5.0;
     for (int tx = 0; tx < 10; tx += 2) {
-      const Rigid3d cam_from_world2(Eigen::Quaterniond(0.2, 0.3, 0.4, qz),
+      const Rigid3d cam2_from_world(Eigen::Quaterniond(0.2, 0.3, 0.4, qz),
                                     Eigen::Vector3d(tx, 2, 3));
       for (size_t i = 0; i < points3D.size(); ++i) {
         const Eigen::Vector3d& point3D = points3D[i];
-        const Eigen::Vector3d point2D1 = cam_from_world1 * point3D;
-        const Eigen::Vector3d point2D2 = cam_from_world2 * point3D;
+        const Eigen::Vector2d point1 =
+            (cam1_from_world * point3D).hnormalized();
+        const Eigen::Vector2d point2 =
+            (cam2_from_world * point3D).hnormalized();
 
         Eigen::Vector3d tri_point3D;
-        EXPECT_TRUE(TriangulatePoint(cam_from_world1.ToMatrix(),
-                                     cam_from_world2.ToMatrix(),
-                                     point2D1.hnormalized(),
-                                     point2D2.hnormalized(),
+        EXPECT_TRUE(TriangulatePoint(cam1_from_world.ToMatrix(),
+                                     cam2_from_world.ToMatrix(),
+                                     point1,
+                                     point2,
                                      &tri_point3D));
 
-        EXPECT_TRUE((point3D - tri_point3D).norm() < 1e-10);
+        EXPECT_THAT(point3D, EigenMatrixNear(tri_point3D, 1e-10));
       }
     }
   }
@@ -84,6 +88,53 @@ TEST(TriangulatePoint, ParallelRays) {
       &xyz));
 }
 
+TEST(TriangulateMultiViewPoint, Nominal) {
+  const std::vector<Eigen::Vector3d> points3D = {
+      Eigen::Vector3d(0, 0.1, 0.1),
+      Eigen::Vector3d(0, 1, 3),
+      Eigen::Vector3d(0, 1, 2),
+      Eigen::Vector3d(0.01, 0.2, 3),
+      Eigen::Vector3d(-1, 0.1, 1),
+      Eigen::Vector3d(0.1, 0.1, 0.2),
+  };
+
+  const Rigid3d cam1_from_world;
+
+  for (int z = 0; z < 5; ++z) {
+    const double qz = z / 5.0;
+    for (int tx = 0; tx < 10; tx += 2) {
+      const Rigid3d cam2_from_world(Eigen::Quaterniond(0.21, 0.31, 0.41, qz),
+                                    Eigen::Vector3d(tx, 2, 3));
+      const Rigid3d cam3_from_world(Eigen::Quaterniond(0.2, 0.3, 0.4, qz),
+                                    Eigen::Vector3d(tx, 2.1, 3.1));
+      for (size_t i = 0; i < points3D.size(); ++i) {
+        const Eigen::Vector3d& point3D = points3D[i];
+        const Eigen::Vector2d point1 =
+            (cam1_from_world * point3D).hnormalized();
+        const Eigen::Vector2d point2 =
+            (cam2_from_world * point3D).hnormalized();
+        const Eigen::Vector2d point3 =
+            (cam3_from_world * point3D).hnormalized();
+
+        const std::array<Eigen::Matrix3x4d, 3> cams_from_world = {
+            cam1_from_world.ToMatrix(),
+            cam2_from_world.ToMatrix(),
+            cam3_from_world.ToMatrix()};
+        const std::array<Eigen::Vector2d, 3> points = {point1, point2, point3};
+
+        Eigen::Vector3d tri_point3D;
+        EXPECT_TRUE(TriangulateMultiViewPoint(
+            span<const Eigen::Matrix3x4d>(cams_from_world.data(),
+                                          cams_from_world.size()),
+            span<const Eigen::Vector2d>(points.data(), points.size()),
+            &tri_point3D));
+
+        EXPECT_THAT(point3D, EigenMatrixNear(tri_point3D, 1e-10));
+      }
+    }
+  }
+}
+
 TEST(CalculateTriangulationAngle, Nominal) {
   const Eigen::Vector3d tvec1(0, 0, 0);
   const Eigen::Vector3d tvec2(0, 1, 0);
@@ -97,9 +148,36 @@ TEST(CalculateTriangulationAngle, Nominal) {
       0.019997333973,
       1e-8);
   EXPECT_NEAR(CalculateTriangulationAngles(
+                  tvec1, tvec2, {Eigen::Vector3d(0, 0, 100)})[0],
+              0.009999666687,
+              1e-8);
+  EXPECT_NEAR(CalculateTriangulationAngles(
                   tvec1, tvec2, {Eigen::Vector3d(0, 0, 50)})[0],
               0.019997333973,
               1e-8);
+  // Parallel rays.
+  EXPECT_THAT(CalculateTriangulationAngles(Eigen::Vector3d::Zero(),
+                                           Eigen::Vector3d::Zero(),
+                                           {Eigen::Vector3d(0, 0, 0),
+                                            Eigen::Vector3d(50, 0, 0),
+                                            Eigen::Vector3d(0, 50, 0),
+                                            Eigen::Vector3d(0, 0, 50)}),
+              testing::Each(testing::DoubleNear(0, 1e-6)));
+  // Orthogonal rays.
+  EXPECT_THAT(CalculateTriangulationAngles(
+                  Eigen::Vector3d::Zero(),
+                  Eigen::Vector3d(50, 0, 50),
+                  {Eigen::Vector3d(50, 0, 0), Eigen::Vector3d(0, 0, 50)}),
+              testing::Each(testing::DoubleNear(M_PI / 2, 1e-6)));
+  // Opposing rays.
+  EXPECT_THAT(CalculateTriangulationAngles(Eigen::Vector3d::Zero(),
+                                           Eigen::Vector3d(0, 0, 50),
+                                           {Eigen::Vector3d(0, 0, 0),
+                                            Eigen::Vector3d(0, 0, 50),
+                                            Eigen::Vector3d(0, 0, 25),
+                                            Eigen::Vector3d(0, 0, -25),
+                                            Eigen::Vector3d(0, 0, 75)}),
+              testing::Each(testing::DoubleNear(0, 1e-6)));
 }
 
 }  // namespace

@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -81,13 +81,6 @@ bool DecomposeProjectionMatrix(const Eigen::Matrix3x4d& P,
   return true;
 }
 
-Eigen::Matrix3d CrossProductMatrix(const Eigen::Vector3d& vector) {
-  Eigen::Matrix3d matrix;
-  matrix << 0, -vector(2), vector(1), vector(2), 0, -vector(0), -vector(1),
-      vector(0), 0;
-  return matrix;
-}
-
 void RotationMatrixToEulerAngles(const Eigen::Matrix3d& R,
                                  double* rx,
                                  double* ry,
@@ -144,13 +137,13 @@ Eigen::Quaterniond AverageQuaternions(
       average_qvec(3), average_qvec(0), average_qvec(1), average_qvec(2));
 }
 
-Rigid3d InterpolateCameraPoses(const Rigid3d& cam_from_world1,
-                               const Rigid3d& cam_from_world2,
+Rigid3d InterpolateCameraPoses(const Rigid3d& cam1_from_world,
+                               const Rigid3d& cam2_from_world,
                                double t) {
   const Eigen::Vector3d translation12 =
-      cam_from_world2.translation - cam_from_world1.translation;
-  return Rigid3d(cam_from_world1.rotation.slerp(t, cam_from_world2.rotation),
-                 cam_from_world1.translation + translation12 * t);
+      cam2_from_world.translation - cam1_from_world.translation;
+  return Rigid3d(cam1_from_world.rotation.slerp(t, cam2_from_world.rotation),
+                 cam1_from_world.translation + translation12 * t);
 }
 
 namespace {

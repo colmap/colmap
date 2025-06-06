@@ -82,11 +82,15 @@ Acknowledgments
 
 COLMAP was originally written by [Johannes Schönberger](https://demuc.de/) with
 funding provided by his PhD advisors Jan-Michael Frahm and Marc Pollefeys.
+The team of core project maintainers currently includes
+[Johannes Schönberger](https://github.com/ahojnnes),
+[Paul-Edouard Sarlin](https://github.com/sarlinpe), and
+[Shaohui Liu](https://github.com/B1ueber2y).
 
 The Python bindings in PyCOLMAP were originally added by
 [Mihai Dusmanu](https://github.com/mihaidusmanu),
 [Philipp Lindenberger](https://github.com/Phil26AT), and
-[Paul-Edouard Sarlin](https://github.com/Skydes).
+[Paul-Edouard Sarlin](https://github.com/sarlinpe).
 
 The project has also benefitted from countless community contributions, including
 bug fixes, improvements, new features, third-party tooling, and community
@@ -108,7 +112,7 @@ refers only to the license for COLMAP itself, independent of its thirdparty
 dependencies, which are separately licensed. Building COLMAP with these
 dependencies may affect the resulting COLMAP license.
 
-    Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+    Copyright (c), ETH Zurich and UNC Chapel Hill.
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without

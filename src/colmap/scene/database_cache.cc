@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -32,9 +32,6 @@
 #include "colmap/util/string.h"
 #include "colmap/util/timer.h"
 
-#include <set>
-#include <unordered_set>
-
 namespace colmap {
 namespace {
 
@@ -49,32 +46,86 @@ std::vector<Eigen::Vector2d> FeatureKeypointsToPointsVector(
 
 }  // namespace
 
-std::shared_ptr<DatabaseCache> DatabaseCache::Create(
-    const Database& database,
-    const size_t min_num_matches,
-    const bool ignore_watermarks,
-    const std::unordered_set<std::string>& image_names) {
-  auto cache = std::make_shared<DatabaseCache>();
+DatabaseCache::DatabaseCache()
+    : correspondence_graph_(std::make_shared<class CorrespondenceGraph>()) {}
+
+void DatabaseCache::Load(const Database& database,
+                         const size_t min_num_matches,
+                         const bool ignore_watermarks,
+                         const std::unordered_set<std::string>& image_names) {
+  const bool has_rigs = database.NumRigs() > 0;
+  const bool has_frames = database.NumFrames() > 0;
 
   //////////////////////////////////////////////////////////////////////////////
-  // Load cameras
+  // Load rigs
   //////////////////////////////////////////////////////////////////////////////
 
   Timer timer;
 
   timer.Start();
-  LOG(INFO) << "Loading cameras...";
+  LOG(INFO) << "Loading rigs...";
 
   {
-    std::vector<struct Camera> cameras = database.ReadAllCameras();
-    cache->cameras_.reserve(cameras.size());
-    for (auto& camera : cameras) {
-      cache->cameras_.emplace(camera.camera_id, std::move(camera));
+    std::vector<class Rig> rigs = database.ReadAllRigs();
+    rigs_.reserve(rigs.size());
+    for (auto& rig : rigs) {
+      rigs_.emplace(rig.RigId(), std::move(rig));
     }
   }
 
   LOG(INFO) << StringPrintf(
-      " %d in %.3fs", cache->cameras_.size(), timer.ElapsedSeconds());
+      " %d in %.3fs", rigs_.size(), timer.ElapsedSeconds());
+
+  //////////////////////////////////////////////////////////////////////////////
+  // Load cameras
+  //////////////////////////////////////////////////////////////////////////////
+
+  timer.Restart();
+  LOG(INFO) << "Loading cameras...";
+
+  {
+    std::vector<struct Camera> cameras = database.ReadAllCameras();
+    cameras_.reserve(cameras.size());
+    for (auto& camera : cameras) {
+      if (!has_rigs) {
+        // For backwards compatibility with old databases from before having
+        // support for rigs/frames, we create a rig for each camera.
+        class Rig rig;
+        rig.SetRigId(camera.camera_id);
+        rig.AddRefSensor(camera.SensorId());
+        rigs_.emplace(rig.RigId(), std::move(rig));
+      }
+      cameras_.emplace(camera.camera_id, std::move(camera));
+    }
+  }
+
+  LOG(INFO) << StringPrintf(
+      " %d in %.3fs", cameras_.size(), timer.ElapsedSeconds());
+
+  //////////////////////////////////////////////////////////////////////////////
+  // Load frames
+  //////////////////////////////////////////////////////////////////////////////
+
+  timer.Restart();
+  LOG(INFO) << "Loading frames...";
+
+  std::unordered_map<image_t, frame_t> image_to_frame_id;
+
+  {
+    std::vector<class Frame> frames = database.ReadAllFrames();
+    frames_.reserve(frames.size());
+    for (auto& frame : frames) {
+      for (const auto& data_id : frame.DataIds()) {
+        if (data_id.sensor_id.type == SensorType::CAMERA) {
+          image_to_frame_id.emplace(data_id.id, frame.FrameId());
+        }
+      }
+      frames_.emplace(frame.FrameId(), std::move(frame));
+    }
+  }
+
+  LOG(INFO) << StringPrintf(
+      " %d in %.3fs", frames_.size(), timer.ElapsedSeconds());
 
   //////////////////////////////////////////////////////////////////////////////
   // Load matches
@@ -104,76 +155,90 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
   timer.Restart();
   LOG(INFO) << "Loading images...";
 
-  std::unordered_set<image_t> image_ids;
+  std::unordered_set<frame_t> frame_ids;
 
   {
     std::vector<class Image> images = database.ReadAllImages();
     const size_t num_images = images.size();
 
+    if (has_frames) {
+      for (auto& image : images) {
+        image.SetFrameId(image_to_frame_id.at(image.ImageId()));
+      }
+    } else {
+      for (auto& image : images) {
+        // For backwards compatibility with old databases from before having
+        // support for rigs/frames, we create a frame for each image.
+        class Frame frame;
+        frame.SetFrameId(image.ImageId());
+        frame.SetRigId(image.CameraId());
+        frame.AddDataId(image.DataId());
+        image.SetFrameId(frame.FrameId());
+        image_to_frame_id.emplace(image.ImageId(), frame.FrameId());
+        frames_.emplace(frame.FrameId(), std::move(frame));
+      }
+    }
+
     // Determines for which images data should be loaded.
     if (image_names.empty()) {
       for (const auto& image : images) {
-        image_ids.insert(image.ImageId());
+        frame_ids.insert(image.FrameId());
       }
     } else {
       for (const auto& image : images) {
         if (image_names.count(image.Name()) > 0) {
-          image_ids.insert(image.ImageId());
+          frame_ids.insert(image.FrameId());
         }
       }
     }
 
     // Collect all images that are connected in the correspondence graph.
-    std::unordered_set<image_t> connected_image_ids;
-    connected_image_ids.reserve(image_ids.size());
+    std::unordered_set<frame_t> connected_frame_ids;
+    connected_frame_ids.reserve(frame_ids.size());
     for (const auto& [pair_id, two_view_geometry] : two_view_geometries) {
       if (UseInlierMatchesCheck(two_view_geometry)) {
         const auto [image_id1, image_id2] =
             Database::PairIdToImagePair(pair_id);
-        if (image_ids.count(image_id1) > 0 && image_ids.count(image_id2) > 0) {
-          connected_image_ids.insert(image_id1);
-          connected_image_ids.insert(image_id2);
+        const frame_t frame_id1 = image_to_frame_id.at(image_id1);
+        const frame_t frame_id2 = image_to_frame_id.at(image_id2);
+        if (frame_ids.count(frame_id1) > 0 && frame_ids.count(frame_id2) > 0) {
+          connected_frame_ids.insert(frame_id1);
+          connected_frame_ids.insert(frame_id2);
         }
+      }
+    }
+
+    // Remove unconnected frames.
+    for (auto it = frames_.begin(); it != frames_.end();) {
+      if (connected_frame_ids.count(it->first) == 0) {
+        it = frames_.erase(it);
+      } else {
+        ++it;
       }
     }
 
     // Load images with correspondences and discard images without
     // correspondences, as those images are useless for SfM.
-    cache->images_.reserve(connected_image_ids.size());
+    images_.reserve(connected_frame_ids.size());
     for (auto& image : images) {
+      if (connected_frame_ids.count(image.FrameId()) == 0) {
+        continue;
+      }
+
       const image_t image_id = image.ImageId();
-      if (image_ids.count(image_id) > 0 &&
-          connected_image_ids.count(image_id) > 0) {
-        image.SetPoints2D(
-            FeatureKeypointsToPointsVector(database.ReadKeypoints(image_id)));
-        cache->images_.emplace(image_id, std::move(image));
+      image.SetPoints2D(
+          FeatureKeypointsToPointsVector(database.ReadKeypoints(image_id)));
+      images_.emplace(image_id, std::move(image));
+
+      if (database.ExistsPosePrior(image_id)) {
+        pose_priors_.emplace(image_id, database.ReadPosePrior(image_id));
       }
     }
 
     LOG(INFO) << StringPrintf(" %d in %.3fs (connected %d)",
                               num_images,
                               timer.ElapsedSeconds(),
-                              connected_image_ids.size());
-  }
-
-  //////////////////////////////////////////////////////////////////////////////
-  // Load pose priors
-  //////////////////////////////////////////////////////////////////////////////
-
-  timer.Restart();
-  LOG(INFO) << "Loading pose priors...";
-
-  {
-    cache->pose_priors_.reserve(database.NumPosePriors());
-
-    for (const auto& [image_id, _] : cache->images_) {
-      if (database.ExistsPosePrior(image_id)) {
-        cache->pose_priors_.emplace(image_id, database.ReadPosePrior(image_id));
-      }
-    }
-
-    LOG(INFO) << StringPrintf(
-        " %d in %.3fs", cache->pose_priors_.size(), timer.ElapsedSeconds());
+                              images_.size());
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -183,19 +248,20 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
   timer.Restart();
   LOG(INFO) << "Building correspondence graph...";
 
-  cache->correspondence_graph_ = std::make_shared<class CorrespondenceGraph>();
+  correspondence_graph_ = std::make_shared<class CorrespondenceGraph>();
 
-  for (const auto& image : cache->images_) {
-    cache->correspondence_graph_->AddImage(image.first,
-                                           image.second.NumPoints2D());
+  for (const auto& [image_id, image] : images_) {
+    correspondence_graph_->AddImage(image_id, image.NumPoints2D());
   }
 
   size_t num_ignored_image_pairs = 0;
   for (const auto& [pair_id, two_view_geometry] : two_view_geometries) {
     if (UseInlierMatchesCheck(two_view_geometry)) {
       const auto [image_id1, image_id2] = Database::PairIdToImagePair(pair_id);
-      if (image_ids.count(image_id1) > 0 && image_ids.count(image_id2) > 0) {
-        cache->correspondence_graph_->AddCorrespondences(
+      const frame_t frame_id1 = image_to_frame_id.at(image_id1);
+      const frame_t frame_id2 = image_to_frame_id.at(image_id2);
+      if (frame_ids.count(frame_id1) > 0 && frame_ids.count(frame_id2) > 0) {
+        correspondence_graph_->AddCorrespondences(
             image_id1, image_id2, two_view_geometry.inlier_matches);
       } else {
         num_ignored_image_pairs += 1;
@@ -205,13 +271,53 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
     }
   }
 
-  cache->correspondence_graph_->Finalize();
+  correspondence_graph_->Finalize();
 
   LOG(INFO) << StringPrintf(" in %.3fs (ignored %d)",
                             timer.ElapsedSeconds(),
                             num_ignored_image_pairs);
+}
 
+std::shared_ptr<DatabaseCache> DatabaseCache::Create(
+    const Database& database,
+    const size_t min_num_matches,
+    const bool ignore_watermarks,
+    const std::unordered_set<std::string>& image_names) {
+  auto cache = std::make_shared<DatabaseCache>();
+  cache->Load(database, min_num_matches, ignore_watermarks, image_names);
   return cache;
+}
+
+void DatabaseCache::AddRig(class Rig rig) {
+  const rig_t rig_id = rig.RigId();
+  THROW_CHECK(!ExistsRig(rig_id));
+  rigs_.emplace(rig_id, std::move(rig));
+}
+
+void DatabaseCache::AddCamera(struct Camera camera) {
+  const camera_t camera_id = camera.camera_id;
+  THROW_CHECK(!ExistsCamera(camera_id));
+  cameras_.emplace(camera_id, std::move(camera));
+}
+
+void DatabaseCache::AddFrame(class Frame frame) {
+  const rig_t frame_id = frame.FrameId();
+  THROW_CHECK(!ExistsFrame(frame_id));
+  frames_.emplace(frame_id, std::move(frame));
+}
+
+void DatabaseCache::AddImage(class Image image) {
+  const image_t image_id = image.ImageId();
+  THROW_CHECK(!ExistsImage(image_id));
+  correspondence_graph_->AddImage(image_id, image.NumPoints2D());
+  images_.emplace(image_id, std::move(image));
+}
+
+void DatabaseCache::AddPosePrior(image_t image_id,
+                                 struct PosePrior pose_prior) {
+  THROW_CHECK(ExistsImage(image_id));
+  THROW_CHECK(!ExistsPosePrior(image_id));
+  pose_priors_.emplace(image_id, std::move(pose_prior));
 }
 
 const class Image* DatabaseCache::FindImageWithName(
@@ -260,13 +366,13 @@ bool DatabaseCache::SetupPosePriors() {
 
   // Convert geographic to cartesian
   if (prior_is_gps) {
-    // GPS reference to be used for EllToENU conversion
+    // GPS reference to be used for EllipsoidToENU conversion
     const double ref_lat = v_gps_prior[0][0];
     const double ref_lon = v_gps_prior[0][1];
 
-    const GPSTransform gps_transform(GPSTransform::WGS84);
+    const GPSTransform gps_transform(GPSTransform::Ellipsoid::WGS84);
     const std::vector<Eigen::Vector3d> v_xyz_prior =
-        gps_transform.EllToENU(v_gps_prior, ref_lat, ref_lon);
+        gps_transform.EllipsoidToENU(v_gps_prior, ref_lat, ref_lon);
 
     auto xyz_prior_it = v_xyz_prior.begin();
     for (const auto& image_id : image_ids_with_prior) {

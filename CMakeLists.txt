@@ -1,4 +1,4 @@
-# Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+# Copyright (c), ETH Zurich and UNC Chapel Hill.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -28,7 +28,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.12)
 
 ################################################################################
 # Options
@@ -41,18 +41,23 @@ option(CUDA_ENABLED "Whether to enable CUDA, if available" ON)
 option(GUI_ENABLED "Whether to enable the graphical UI" ON)
 option(OPENGL_ENABLED "Whether to enable OpenGL, if available" ON)
 option(TESTS_ENABLED "Whether to build test binaries" OFF)
+option(COVERAGE_ENABLED "Whether to enable code coverage" OFF)
 option(ASAN_ENABLED "Whether to enable AddressSanitizer flags" OFF)
 option(PROFILING_ENABLED "Whether to enable google-perftools linker flags" OFF)
 option(CCACHE_ENABLED "Whether to enable compiler caching, if available" ON)
 option(CGAL_ENABLED "Whether to enable the CGAL library" ON)
 option(LSD_ENABLED "Whether to enable the LSD library" ON)
+option(DOWNLOAD_ENABLED "Whether to enable (automatic) download of resources (requires Curl/OpenSSL)" ON)
 option(UNINSTALL_ENABLED "Whether to create a target to 'uninstall' colmap" ON)
 option(FETCH_POSELIB "Whether to consume PoseLib using FetchContent or find_package" ON)
+option(FETCH_FAISS "Whether to consume faiss using FetchContent or find_package" ON)
 option(ALL_SOURCE_TARGET "Whether to create a target for all source files (for Visual Studio / XCode development)" OFF)
+
+# Disables default features, as we specify each required feature manually below.
+list(APPEND VCPKG_MANIFEST_FEATURES "core")
 
 # Propagate options to vcpkg manifest.
 if(TESTS_ENABLED)
-  enable_testing()
   list(APPEND VCPKG_MANIFEST_FEATURES "tests")
 endif()
 if(CUDA_ENABLED)
@@ -67,14 +72,18 @@ endif()
 
 if(LSD_ENABLED)
     message(STATUS "Enabling LSD support")
-    add_definitions("-DCOLMAP_LSD_ENABLED")
+    add_compile_definitions(COLMAP_LSD_ENABLED)
 else()
     message(STATUS "Disabling LSD support")
 endif()
 
+if(DOWNLOAD_ENABLED)
+    list(APPEND VCPKG_MANIFEST_FEATURES "download")
+endif()
+
 project(COLMAP LANGUAGES C CXX)
 
-set(COLMAP_VERSION "3.11.0.dev0")
+set(COLMAP_VERSION "3.12.0.dev0")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -90,6 +99,7 @@ set_property(GLOBAL PROPERTY GLOBAL_DEPENDS_NO_CYCLES ON)
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 include(CheckCXXCompilerFlag)
+include(GNUInstallDirs)
 
 # Include helper macros and commands, and allow the included file to override
 # the CMake policies in this file
@@ -129,10 +139,10 @@ endif()
 
 if(IS_MSVC)
     # Some fixes for the Glog library.
-    add_definitions("-DGLOG_USE_GLOG_EXPORT")
-    add_definitions("-DGLOG_NO_ABBREVIATED_SEVERITIES")
-    add_definitions("-DGL_GLEXT_PROTOTYPES")
-    add_definitions("-DNOMINMAX")
+    add_compile_definitions(GLOG_USE_GLOG_EXPORT)
+    add_compile_definitions(GLOG_NO_ABBREVIATED_SEVERITIES)
+    add_compile_definitions(GL_GLEXT_PROTOTYPES)
+    add_compile_definitions(NOMINMAX)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc")
     # Disable warning: 'initializing': conversion from 'X' to 'Y', possible loss of data
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4244 /wd4267 /wd4305")
@@ -149,10 +159,6 @@ if(IS_GNU)
     if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.9)
         message(FATAL_ERROR "GCC version 4.8 or older not supported")
     endif()
-
-    # Hide incorrect warnings for uninitialized Eigen variables under GCC.
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-maybe-uninitialized")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-maybe-uninitialized")
 endif()
 
 if(IS_MACOS)
@@ -161,7 +167,7 @@ if(IS_MACOS)
 endif()
 
 if(IS_DEBUG)
-    add_definitions("-DEIGEN_INITIALIZE_MATRICES_BY_NAN")
+    add_compile_definitions(EIGEN_INITIALIZE_MATRICES_BY_NAN)
 endif()
 
 if(SIMD_ENABLED)
@@ -206,6 +212,23 @@ if(PROFILING_ENABLED)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -lprofiler -ltcmalloc")
 else()
     message(STATUS "Disabling profiling support")
+endif()
+
+if(TESTS_ENABLED)
+    message(STATUS "Enabling tests")
+    enable_testing()
+    include(CTest)
+else()
+    message(STATUS "Disabling tests")
+endif()
+
+if(COVERAGE_ENABLED)
+    if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+        message(FATAL_ERROR "Coverage can only be enabled in Debug or RelWithDebInfo mode")
+    endif()
+    message(STATUS "Enabling coverage support")
+else()
+    message(STATUS "Disabling coverage support")
 endif()
 
 ################################################################################
@@ -307,7 +330,7 @@ endif()
 
 # Install application meny entry under Linux/Unix.
 if(UNIX AND NOT APPLE)
-    install(FILES "doc/COLMAP.desktop" DESTINATION "share/applications")
+    install(FILES "doc/COLMAP.desktop" DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/applications")
 endif()
 
 # Configure the uninstallation script.
@@ -339,7 +362,6 @@ set(COLMAP_EXPORT_LIBS
     # Third-party.
     colmap_poisson_recon
     colmap_vlfeat
-    PoseLib
 )
 if(LSD_ENABLED)
     list(APPEND COLMAP_EXPORT_LIBS
@@ -363,15 +385,20 @@ if(GPU_ENABLED)
          colmap_sift_gpu
     )
 endif()
+if(FETCH_POSELIB)
+    list(APPEND COLMAP_EXPORT_LIBS PoseLib)
+endif()
+if(FETCH_FAISS)
+    list(APPEND COLMAP_EXPORT_LIBS faiss)
+endif()
 
 # Add unified interface library target to export.
 add_library(colmap INTERFACE)
 target_link_libraries(colmap INTERFACE ${COLMAP_EXPORT_LIBS})
-set(INSTALL_INCLUDE_DIR "${CMAKE_INSTALL_PREFIX}/include")
 target_include_directories(
     colmap
     INTERFACE
-        $<INSTALL_INTERFACE:${INSTALL_INCLUDE_DIR}>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>)
 
 install(
@@ -382,7 +409,7 @@ install(
 # Generate config and version.
 include(CMakePackageConfigHelpers)
 set(PACKAGE_CONFIG_FILE "${CMAKE_CURRENT_BINARY_DIR}/colmap-config.cmake")
-set(INSTALL_CONFIG_DIR "share/colmap")
+set(INSTALL_CONFIG_DIR "${CMAKE_INSTALL_DATAROOTDIR}/colmap")
 configure_package_config_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/cmake/colmap-config.cmake.in ${PACKAGE_CONFIG_FILE}
     INSTALL_DESTINATION ${INSTALL_CONFIG_DIR})
@@ -391,7 +418,7 @@ install(FILES ${PACKAGE_CONFIG_FILE} DESTINATION ${INSTALL_CONFIG_DIR})
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/colmap-config-version.cmake.in"
                 "${CMAKE_CURRENT_BINARY_DIR}/colmap-config-version.cmake" @ONLY)
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/colmap-config-version.cmake"
-        DESTINATION "share/colmap")
+        DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/colmap")
 
 # Install targets.
 install(
@@ -403,15 +430,15 @@ install(
 # Install header files.
 install(
     DIRECTORY src/colmap
-    DESTINATION include
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
     FILES_MATCHING PATTERN "*.h")
 install(
     DIRECTORY src/thirdparty
-    DESTINATION include/colmap
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/colmap
     FILES_MATCHING REGEX ".*[.]h|.*[.]hpp|.*[.]inl")
 
 # Install find_package scripts for dependencies.
 install(
     DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/cmake
-    DESTINATION share/colmap
+    DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/colmap
     FILES_MATCHING PATTERN "Find*.cmake")

@@ -9,6 +9,8 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
+namespace {
+
 class DatabaseTransactionWrapper {
  public:
   explicit DatabaseTransactionWrapper(Database* database)
@@ -24,6 +26,8 @@ class DatabaseTransactionWrapper {
   Database* database_;
   std::unique_ptr<DatabaseTransaction> transaction_;
 };
+
+}  // namespace
 
 void BindDatabase(py::module& m) {
   py::class_<Database, std::shared_ptr<Database>> PyDatabase(m, "Database");
@@ -74,10 +78,15 @@ void BindDatabase(py::module& m) {
                   &Database::SwapImagePair,
                   "image_id1"_a,
                   "image_id2"_a)
+      .def("read_rig", &Database::ReadRig, "rig_id"_a)
+      .def("read_rig_with_sensor", &Database::ReadRigWithSensor, "sensor_id"_a)
+      .def("read_all_rigs", &Database::ReadAllRigs)
       .def("read_camera", &Database::ReadCamera, "camera_id"_a)
       .def("read_all_cameras", &Database::ReadAllCameras)
+      .def("read_frame", &Database::ReadFrame, "frame_id"_a)
+      .def("read_all_frames", &Database::ReadAllFrames)
       .def("read_image", &Database::ReadImage, "image_id"_a)
-      .def("read_image", &Database::ReadImageWithName, "name"_a)
+      .def("read_image_with_name", &Database::ReadImageWithName, "name"_a)
       .def("read_all_images", &Database::ReadAllImages)
       .def("read_pose_prior", &Database::ReadPosePrior, "image_id"_a)
       .def("read_keypoints", &Database::ReadKeypointsBlob, "image_id"_a)

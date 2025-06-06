@@ -25,27 +25,11 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
-bool ExistsReconstructionText(const std::string& path) {
-  return (ExistsFile(JoinPaths(path, "cameras.txt")) &&
-          ExistsFile(JoinPaths(path, "images.txt")) &&
-          ExistsFile(JoinPaths(path, "points3D.txt")));
-}
-
-bool ExistsReconstructionBinary(const std::string& path) {
-  return (ExistsFile(JoinPaths(path, "cameras.bin")) &&
-          ExistsFile(JoinPaths(path, "images.bin")) &&
-          ExistsFile(JoinPaths(path, "points3D.bin")));
-}
-
-bool ExistsReconstruction(const std::string& path) {
-  return (ExistsReconstructionText(path) || ExistsReconstructionBinary(path));
-}
-
 void BindReconstruction(py::module& m) {
   py::class_<Reconstruction, std::shared_ptr<Reconstruction>>(m,
                                                               "Reconstruction")
       .def(py::init<>())
-      .def(py::init<const Reconstruction&>())
+      .def(py::init<const Reconstruction&>(), "reconstruction"_a)
       .def(py::init([](const std::string& path) {
              auto reconstruction = std::make_shared<Reconstruction>();
              reconstruction->Read(path);
@@ -64,17 +48,20 @@ void BindReconstruction(py::module& m) {
       .def("read_binary", &Reconstruction::ReadBinary, "path"_a)
       .def("write_text", &Reconstruction::WriteText, "path"_a)
       .def("write_binary", &Reconstruction::WriteBinary, "path"_a)
+      .def("num_rigs", &Reconstruction::NumRigs)
       .def("num_cameras", &Reconstruction::NumCameras)
+      .def("num_frames", &Reconstruction::NumFrames)
+      .def("num_reg_frames", &Reconstruction::NumRegFrames)
       .def("num_images", &Reconstruction::NumImages)
       .def("num_reg_images", &Reconstruction::NumRegImages)
       .def("num_points3D", &Reconstruction::NumPoints3D)
-      .def_property_readonly("images",
-                             &Reconstruction::Images,
+      .def_property_readonly("rigs",
+                             &Reconstruction::Rigs,
                              py::return_value_policy::reference_internal)
-      .def("image",
-           py::overload_cast<image_t>(&Reconstruction::Image),
-           "image_id"_a,
-           "Direct accessor for an image.",
+      .def("rig",
+           py::overload_cast<rig_t>(&Reconstruction::Rig),
+           "rig_id"_a,
+           "Direct accessor for a rig.",
            py::return_value_policy::reference_internal)
       .def_property_readonly("cameras",
                              &Reconstruction::Cameras,
@@ -84,6 +71,22 @@ void BindReconstruction(py::module& m) {
            "camera_id"_a,
            "Direct accessor for a camera.",
            py::return_value_policy::reference_internal)
+      .def_property_readonly("frames",
+                             &Reconstruction::Frames,
+                             py::return_value_policy::reference_internal)
+      .def("frame",
+           py::overload_cast<frame_t>(&Reconstruction::Frame),
+           "frame_id"_a,
+           "Direct accessor for a frame.",
+           py::return_value_policy::reference_internal)
+      .def_property_readonly("images",
+                             &Reconstruction::Images,
+                             py::return_value_policy::reference_internal)
+      .def("image",
+           py::overload_cast<image_t>(&Reconstruction::Image),
+           "image_id"_a,
+           "Direct accessor for an image.",
+           py::return_value_policy::reference_internal)
       .def_property_readonly("points3D",
                              &Reconstruction::Points3D,
                              py::return_value_policy::reference_internal)
@@ -92,17 +95,22 @@ void BindReconstruction(py::module& m) {
            "point3D_id"_a,
            "Direct accessor for a Point3D.",
            py::return_value_policy::reference_internal)
-      .def("point3D_ids", &Reconstruction::Point3DIds)
       .def("reg_image_ids", &Reconstruction::RegImageIds)
+      .def("reg_frame_ids", &Reconstruction::RegFrameIds)
+      .def("point3D_ids", &Reconstruction::Point3DIds)
+      .def("exists_rig", &Reconstruction::ExistsRig, "rig_id"_a)
       .def("exists_camera", &Reconstruction::ExistsCamera, "camera_id"_a)
+      .def("exists_frame", &Reconstruction::ExistsFrame, "frame_id"_a)
       .def("exists_image", &Reconstruction::ExistsImage, "image_id"_a)
       .def("exists_point3D", &Reconstruction::ExistsPoint3D, "point3D_id"_a)
       .def("tear_down", &Reconstruction::TearDown)
+      .def("add_rig", &Reconstruction::AddRig, "rig"_a, "Add new rig.")
       .def("add_camera",
            &Reconstruction::AddCamera,
            "camera"_a,
            "Add new camera. There is only one camera per image, while multiple "
            "images might be taken by the same camera.")
+      .def("add_frame", &Reconstruction::AddFrame, "frame"_a, "Add new frame.")
       .def(
           "add_image",
           &Reconstruction::AddImage,
@@ -144,40 +152,43 @@ void BindReconstruction(py::module& m) {
            "point. Note that this deletes the entire 3D point, if the track "
            "has two elements prior to calling this method.")
       .def("register_image",
-           &Reconstruction::RegisterImage,
-           "image_id"_a,
-           "Register an existing image.")
+           &Reconstruction::RegisterFrame,
+           "frame_id"_a,
+           "Register an existing frame.")
       .def("deregister_image",
-           &Reconstruction::DeRegisterImage,
-           "image_id"_a,
-           "De-register an existing image, and all its references.")
-      .def("is_image_registered",
-           &Reconstruction::IsImageRegistered,
-           "image_id"_a,
-           "Check if image is registered.")
+           &Reconstruction::DeRegisterFrame,
+           "frame_id"_a,
+           "De-register an existing frame, and all its references.")
       .def("normalize",
            &Reconstruction::Normalize,
            "fixed_scale"_a = false,
            "extent"_a = 10.0,
-           "p0"_a = 0.1,
-           "p1"_a = 0.9,
+           "min_percentile"_a = 0.1,
+           "max_percentile"_a = 0.9,
            "use_images"_a = true,
            "Normalize scene by scaling and translation to avoid degenerate"
            "visualization after bundle adjustment and to improve numerical"
            "stability of algorithms.\n\n"
            "Translates scene such that the mean of the camera centers or point"
-           "locations are at the origin of the coordinate system.\n\n"
-           "Scales scene such that the minimum and maximum camera centers are "
-           "at the given `extent`, whereas `p0` and `p1` determine the minimum "
-           "and maximum percentiles of the camera centers considered.")
+           "locations are at the origin of the coordinate system.\n\n Scales "
+           "scene such that the minimum and maximum camera centers (or points) "
+           "are  at the given `extent`, whereas `min_percentile` and  "
+           "`max_percentile` determine the minimum  and maximum percentiles of "
+           "the camera centers (or points) considered.")
       .def("transform",
            &Reconstruction::Transform,
            "new_from_old_world"_a,
            "Apply the 3D similarity transformation to all images and points.")
+      .def("compute_centroid",
+           &Reconstruction::ComputeCentroid,
+           "min_percentile"_a = 0.0,
+           "max_percentile"_a = 1.0,
+           "use_images"_a = false)
       .def("compute_bounding_box",
            &Reconstruction::ComputeBoundingBox,
-           "p0"_a = 0.0,
-           "p1"_a = 1.0)
+           "min_percentile"_a = 0.0,
+           "max_percentile"_a = 1.0,
+           "use_images"_a = false)
       .def("crop", &Reconstruction::Crop, "bbox"_a)
       .def("find_image_with_name",
            &Reconstruction::FindImageWithName,
@@ -222,29 +233,6 @@ void BindReconstruction(py::module& m) {
            &Reconstruction::CreateImageDirs,
            "path"_a,
            "Create all image sub-directories in the given path.")
-      .def(
-          "check",
-          [](Reconstruction& self) {
-            for (auto& p3D_p : self.Points3D()) {
-              const Point3D& p3D = p3D_p.second;
-              const point3D_t p3Did = p3D_p.first;
-              for (auto& track_el : p3D.track.Elements()) {
-                image_t image_id = track_el.image_id;
-                point2D_t point2D_idx = track_el.point2D_idx;
-                THROW_CHECK(self.ExistsImage(image_id)) << image_id;
-                THROW_CHECK(self.IsImageRegistered(image_id)) << image_id;
-                const Image& image = self.Image(image_id);
-                THROW_CHECK(image.HasPose());
-                THROW_CHECK_EQ(image.Point2D(point2D_idx).point3D_id, p3Did);
-              }
-            }
-            for (auto& image_id : self.RegImageIds()) {
-              THROW_CHECK(self.Image(image_id).HasCameraId()) << image_id;
-              camera_t camera_id = self.Image(image_id).CameraId();
-              THROW_CHECK(self.ExistsCamera(camera_id)) << camera_id;
-            }
-          },
-          "Check if current reconstruction is well formed.")
       .def("__copy__",
            [](const Reconstruction& self) { return Reconstruction(self); })
       .def("__deepcopy__",
@@ -255,9 +243,11 @@ void BindReconstruction(py::module& m) {
       .def("summary", [](const Reconstruction& self) {
         std::ostringstream ss;
         ss << "Reconstruction:"
+           << "\n\tnum_rigs = " << self.NumRigs()
            << "\n\tnum_cameras = " << self.NumCameras()
+           << "\n\tnum_frames = " << self.NumFrames()
+           << "\n\tnum_reg_frames = " << self.NumRegFrames()
            << "\n\tnum_images = " << self.NumImages()
-           << "\n\tnum_reg_images = " << self.NumRegImages()
            << "\n\tnum_points3D = " << self.NumPoints3D()
            << "\n\tnum_observations = " << self.ComputeNumObservations()
            << "\n\tmean_track_length = " << self.ComputeMeanTrackLength()

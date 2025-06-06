@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -95,7 +95,7 @@ void OptionManager::ModifyForVideoData() {
   const bool kResetPaths = false;
   ResetOptions(kResetPaths);
   mapper->mapper.init_min_tri_angle /= 2;
-  mapper->ba_global_images_ratio = 1.4;
+  mapper->ba_global_frames_ratio = 1.4;
   mapper->ba_global_points_ratio = 1.4;
   mapper->min_focal_length_ratio = 0.1;
   mapper->max_focal_length_ratio = 10;
@@ -111,10 +111,11 @@ void OptionManager::ModifyForLowQuality() {
   sift_extraction->max_image_size = 1000;
   sift_extraction->max_num_features = 2048;
   sequential_matching->loop_detection_num_images /= 2;
+  vocab_tree_matching->max_num_features = 256;
   vocab_tree_matching->num_images /= 2;
   mapper->ba_local_max_num_iterations /= 2;
   mapper->ba_global_max_num_iterations /= 2;
-  mapper->ba_global_images_ratio *= 1.2;
+  mapper->ba_global_frames_ratio *= 1.2;
   mapper->ba_global_points_ratio *= 1.2;
   mapper->ba_global_max_refinements = 2;
   patch_match_stereo->max_image_size = 1000;
@@ -131,10 +132,11 @@ void OptionManager::ModifyForMediumQuality() {
   sift_extraction->max_image_size = 1600;
   sift_extraction->max_num_features = 4096;
   sequential_matching->loop_detection_num_images /= 1.5;
+  vocab_tree_matching->max_num_features = 1024;
   vocab_tree_matching->num_images /= 1.5;
   mapper->ba_local_max_num_iterations /= 1.5;
   mapper->ba_global_max_num_iterations /= 1.5;
-  mapper->ba_global_images_ratio *= 1.1;
+  mapper->ba_global_frames_ratio *= 1.1;
   mapper->ba_global_points_ratio *= 1.1;
   mapper->ba_global_max_refinements = 2;
   patch_match_stereo->max_image_size = 1600;
@@ -152,6 +154,7 @@ void OptionManager::ModifyForHighQuality() {
   sift_extraction->max_image_size = 2400;
   sift_extraction->max_num_features = 8192;
   sift_matching->guided_matching = true;
+  vocab_tree_matching->max_num_features = 4096;
   mapper->ba_local_max_num_iterations = 30;
   mapper->ba_local_max_refinements = 3;
   mapper->ba_global_max_num_iterations = 75;
@@ -310,6 +313,8 @@ void OptionManager::AddMatchingOptions() {
                               &sift_matching->guided_matching);
   AddAndRegisterDefaultOption("SiftMatching.max_num_matches",
                               &sift_matching->max_num_matches);
+  AddAndRegisterDefaultOption("SiftMatching.cpu_brute_force_matcher",
+                              &sift_matching->cpu_brute_force_matcher);
   AddAndRegisterDefaultOption("TwoViewGeometry.min_num_inliers",
                               &two_view_geometry->min_num_inliers);
   AddAndRegisterDefaultOption("TwoViewGeometry.multiple_models",
@@ -352,6 +357,8 @@ void OptionManager::AddSequentialMatchingOptions() {
                               &sequential_matching->overlap);
   AddAndRegisterDefaultOption("SequentialMatching.quadratic_overlap",
                               &sequential_matching->quadratic_overlap);
+  AddAndRegisterDefaultOption("SequentialMatching.expand_rig_images",
+                              &sequential_matching->expand_rig_images);
   AddAndRegisterDefaultOption("SequentialMatching.loop_detection",
                               &sequential_matching->loop_detection);
   AddAndRegisterDefaultOption("SequentialMatching.loop_detection_period",
@@ -371,6 +378,8 @@ void OptionManager::AddSequentialMatchingOptions() {
       &sequential_matching->loop_detection_max_num_features);
   AddAndRegisterDefaultOption("SequentialMatching.vocab_tree_path",
                               &sequential_matching->vocab_tree_path);
+  AddAndRegisterDefaultOption("SequentialMatching.num_threads",
+                              &sequential_matching->num_threads);
 }
 
 void OptionManager::AddVocabTreeMatchingOptions() {
@@ -467,8 +476,10 @@ void OptionManager::AddBundleAdjustmentOptions() {
                               &bundle_adjustment->refine_principal_point);
   AddAndRegisterDefaultOption("BundleAdjustment.refine_extra_params",
                               &bundle_adjustment->refine_extra_params);
-  AddAndRegisterDefaultOption("BundleAdjustment.refine_extrinsics",
-                              &bundle_adjustment->refine_extrinsics);
+  AddAndRegisterDefaultOption("BundleAdjustment.refine_rig_from_world",
+                              &bundle_adjustment->refine_rig_from_world);
+  AddAndRegisterDefaultOption("BundleAdjustment.refine_sensor_from_rig",
+                              &bundle_adjustment->refine_sensor_from_rig);
   AddAndRegisterDefaultOption("BundleAdjustment.use_gpu",
                               &bundle_adjustment->use_gpu);
   AddAndRegisterDefaultOption("BundleAdjustment.gpu_index",
@@ -526,18 +537,20 @@ void OptionManager::AddMapperOptions() {
                               &mapper->ba_refine_principal_point);
   AddAndRegisterDefaultOption("Mapper.ba_refine_extra_params",
                               &mapper->ba_refine_extra_params);
+  AddAndRegisterDefaultOption("Mapper.ba_refine_sensor_from_rig",
+                              &mapper->ba_refine_sensor_from_rig);
   AddAndRegisterDefaultOption("Mapper.ba_local_num_images",
                               &mapper->ba_local_num_images);
   AddAndRegisterDefaultOption("Mapper.ba_local_function_tolerance",
                               &mapper->ba_local_function_tolerance);
   AddAndRegisterDefaultOption("Mapper.ba_local_max_num_iterations",
                               &mapper->ba_local_max_num_iterations);
-  AddAndRegisterDefaultOption("Mapper.ba_global_images_ratio",
-                              &mapper->ba_global_images_ratio);
+  AddAndRegisterDefaultOption("Mapper.ba_global_frames_ratio",
+                              &mapper->ba_global_frames_ratio);
   AddAndRegisterDefaultOption("Mapper.ba_global_points_ratio",
                               &mapper->ba_global_points_ratio);
-  AddAndRegisterDefaultOption("Mapper.ba_global_images_freq",
-                              &mapper->ba_global_images_freq);
+  AddAndRegisterDefaultOption("Mapper.ba_global_frames_freq",
+                              &mapper->ba_global_frames_freq);
   AddAndRegisterDefaultOption("Mapper.ba_global_points_freq",
                               &mapper->ba_global_points_freq);
   AddAndRegisterDefaultOption("Mapper.ba_global_function_tolerance",
@@ -558,10 +571,10 @@ void OptionManager::AddMapperOptions() {
       "Mapper.ba_min_num_residuals_for_cpu_multi_threading",
       &mapper->ba_min_num_residuals_for_cpu_multi_threading);
   AddAndRegisterDefaultOption("Mapper.snapshot_path", &mapper->snapshot_path);
-  AddAndRegisterDefaultOption("Mapper.snapshot_images_freq",
-                              &mapper->snapshot_images_freq);
-  AddAndRegisterDefaultOption("Mapper.fix_existing_images",
-                              &mapper->fix_existing_images);
+  AddAndRegisterDefaultOption("Mapper.snapshot_frames_freq",
+                              &mapper->snapshot_frames_freq);
+  AddAndRegisterDefaultOption("Mapper.fix_existing_frames",
+                              &mapper->fix_existing_frames);
 
   // IncrementalMapper.
   AddAndRegisterDefaultOption("Mapper.init_min_num_inliers",
