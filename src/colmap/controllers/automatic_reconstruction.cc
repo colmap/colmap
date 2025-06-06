@@ -83,8 +83,8 @@ AutomaticReconstructionController::AutomaticReconstructionController(
     option_manager_.ModifyForExtremeQuality();
   }
 
-  option_manager_.sift_extraction->num_threads = options_.num_threads;
-  option_manager_.sift_matching->num_threads = options_.num_threads;
+  option_manager_.feature_extraction->num_threads = options_.num_threads;
+  option_manager_.feature_matching->num_threads = options_.num_threads;
   option_manager_.sequential_matching->num_threads = options_.num_threads;
   option_manager_.vocab_tree_matching->num_threads = options_.num_threads;
   option_manager_.mapper->num_threads = options_.num_threads;
@@ -103,26 +103,26 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   reader_options.camera_model = options_.camera_model;
   reader_options.camera_params = options_.camera_params;
 
-  option_manager_.sift_extraction->use_gpu = options_.use_gpu;
-  option_manager_.sift_matching->use_gpu = options_.use_gpu;
+  option_manager_.feature_extraction->use_gpu = options_.use_gpu;
+  option_manager_.feature_matching->use_gpu = options_.use_gpu;
   option_manager_.mapper->ba_use_gpu = options_.use_gpu;
   option_manager_.bundle_adjustment->use_gpu = options_.use_gpu;
 
-  option_manager_.sift_extraction->gpu_index = options_.gpu_index;
-  option_manager_.sift_matching->gpu_index = options_.gpu_index;
+  option_manager_.feature_extraction->gpu_index = options_.gpu_index;
+  option_manager_.feature_matching->gpu_index = options_.gpu_index;
   option_manager_.patch_match_stereo->gpu_index = options_.gpu_index;
   option_manager_.mapper->ba_gpu_index = options_.gpu_index;
   option_manager_.bundle_adjustment->gpu_index = options_.gpu_index;
 
   if (options_.extraction) {
     feature_extractor_ = CreateFeatureExtractorController(
-        reader_options, *option_manager_.sift_extraction);
+        reader_options, *option_manager_.feature_extraction);
   }
 
   if (options_.matching) {
     exhaustive_matcher_ =
         CreateExhaustiveFeatureMatcher(*option_manager_.exhaustive_matching,
-                                       *option_manager_.sift_matching,
+                                       *option_manager_.feature_matching,
                                        *option_manager_.two_view_geometry,
                                        *option_manager_.database_path);
 
@@ -134,7 +134,7 @@ AutomaticReconstructionController::AutomaticReconstructionController(
 
     sequential_matcher_ =
         CreateSequentialFeatureMatcher(*option_manager_.sequential_matching,
-                                       *option_manager_.sift_matching,
+                                       *option_manager_.feature_matching,
                                        *option_manager_.two_view_geometry,
                                        *option_manager_.database_path);
 
@@ -143,7 +143,7 @@ AutomaticReconstructionController::AutomaticReconstructionController(
           options_.vocab_tree_path;
       vocab_tree_matcher_ =
           CreateVocabTreeFeatureMatcher(*option_manager_.vocab_tree_matching,
-                                        *option_manager_.sift_matching,
+                                        *option_manager_.feature_matching,
                                         *option_manager_.two_view_geometry,
                                         *option_manager_.database_path);
     }
