@@ -69,7 +69,7 @@ TEST_P(ParameterizedImageReaderTests, Nominal) {
   }
   const Bitmap test_bitmap = CreateTestBitmap();
   for (int i = 0; i < kNumImages; ++i) {
-    const std::string image_name = std::to_string(i) + ".jpg";
+    const std::string image_name = std::to_string(i) + ".png";
     test_bitmap.Write(options.image_path + "/" + image_name);
     if (kWithMasks) {
       test_bitmap.Write(options.mask_path + "/" + image_name + ".png");
@@ -114,7 +114,7 @@ TEST_P(ParameterizedImageReaderTests, Nominal) {
     EXPECT_EQ(camera.ModelName(), options.camera_model);
     EXPECT_EQ(camera.width, test_bitmap.Width());
     EXPECT_EQ(camera.height, test_bitmap.Height());
-    EXPECT_EQ(image.Name(), std::to_string(i) + ".jpg");
+    EXPECT_EQ(image.Name(), std::to_string(i) + ".png");
     EXPECT_EQ(bitmap.ConvertToRowMajorArray(),
               test_bitmap.ConvertToRowMajorArray());
   }
