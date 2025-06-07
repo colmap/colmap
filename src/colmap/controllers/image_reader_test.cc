@@ -43,8 +43,8 @@ Bitmap CreateTestBitmap() {
   Bitmap bitmap;
   bitmap.Allocate(1, 3, false);
   bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(1));
-  bitmap.SetPixel(0, 1, BitmapColor<uint8_t>(2));
-  bitmap.SetPixel(0, 2, BitmapColor<uint8_t>(3));
+  bitmap.SetPixel(1, 0, BitmapColor<uint8_t>(2));
+  bitmap.SetPixel(2, 0, BitmapColor<uint8_t>(3));
   return bitmap;
 }
 
