@@ -32,12 +32,11 @@ void ImportImages(const std::string& database_path,
   THROW_CHECK_DIR_EXISTS(image_path);
 
   ImageReaderOptions options(options_);
-  options.database_path = database_path;
   options.image_path = image_path;
   options.image_names = image_names;
   UpdateImageReaderOptionsFromCameraMode(options, camera_mode);
 
-  Database database(options.database_path);
+  Database database(database_path);
   ImageReader image_reader(options, &database);
 
   PyInterrupt py_interrupt(2.0);
