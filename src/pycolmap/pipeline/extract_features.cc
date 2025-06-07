@@ -34,7 +34,6 @@ void ExtractFeatures(const std::string& database_path,
 
   UpdateImageReaderOptionsFromCameraMode(reader_options, camera_mode);
   reader_options.camera_model = camera_model;
-  reader_options.database_path = database_path;
   reader_options.image_path = image_path;
 
   if (!image_names.empty()) {
@@ -47,8 +46,8 @@ void ExtractFeatures(const std::string& database_path,
       << "Invalid camera parameters.";
 
   py::gil_scoped_release release;
-  std::unique_ptr<Thread> extractor =
-      CreateFeatureExtractorController(reader_options, sift_options);
+  std::unique_ptr<Thread> extractor = CreateFeatureExtractorController(
+      database_path, reader_options, sift_options);
   extractor->Start();
   PyWait(extractor.get());
 }

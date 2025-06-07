@@ -187,7 +187,16 @@ ImageReader::Status ImageReader::Next(Rig* rig,
     }
 
     prev_camera_ = std::move(current_camera);
-    prev_rig_ = database_->ReadRigWithSensor(prev_camera_.SensorId()).value();
+    if (std::optional<Rig> rig =
+            database_->ReadRigWithSensor(prev_camera_.SensorId());
+        rig.has_value()) {
+      prev_rig_ = std::move(rig.value());
+    } else {
+      // For backwards compatibility with old databases, we create a rig.
+      prev_rig_ = Rig();
+      prev_rig_.AddRefSensor(prev_camera_.SensorId());
+      prev_rig_.SetRigId(database_->WriteRig(prev_rig_));
+    }
 
   } else {
     //////////////////////////////////////////////////////////////////////////////

@@ -69,3 +69,8 @@ COLMAP_ADD_TEST(
     SRCS incremental_pipeline_test.cc
     LINK_LIBS colmap_controllers
 )
+COLMAP_ADD_TEST(
+    NAME image_reader_test
+    SRCS image_reader_test.cc
+    LINK_LIBS colmap_controllers
+)

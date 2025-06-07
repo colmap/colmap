@@ -115,7 +115,6 @@ int RunFeatureExtractor(int argc, char** argv) {
   options.Parse(argc, argv);
 
   ImageReaderOptions reader_options = *options.image_reader;
-  reader_options.database_path = *options.database_path;
   reader_options.image_path = *options.image_path;
 
   if (camera_mode >= 0) {
@@ -161,7 +160,7 @@ int RunFeatureExtractor(int argc, char** argv) {
   }
 
   auto feature_extractor = CreateFeatureExtractorController(
-      reader_options, *options.sift_extraction);
+      *options.database_path, reader_options, *options.sift_extraction);
 
   if (options.sift_extraction->use_gpu && kUseOpenGL) {
     RunThreadWithOpenGLContext(feature_extractor.get());
@@ -188,7 +187,6 @@ int RunFeatureImporter(int argc, char** argv) {
   options.Parse(argc, argv);
 
   ImageReaderOptions reader_options = *options.image_reader;
-  reader_options.database_path = *options.database_path;
   reader_options.image_path = *options.image_path;
 
   if (camera_mode >= 0) {
@@ -208,8 +206,8 @@ int RunFeatureImporter(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  auto feature_importer =
-      CreateFeatureImporterController(reader_options, import_path);
+  auto feature_importer = CreateFeatureImporterController(
+      *options.database_path, reader_options, import_path);
   feature_importer->Start();
   feature_importer->Wait();
 

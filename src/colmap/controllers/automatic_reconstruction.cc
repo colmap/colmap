@@ -91,7 +91,6 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   option_manager_.poisson_meshing->num_threads = options_.num_threads;
 
   ImageReaderOptions& reader_options = *option_manager_.image_reader;
-  reader_options.database_path = *option_manager_.database_path;
   reader_options.image_path = *option_manager_.image_path;
   if (!options_.mask_path.empty()) {
     reader_options.mask_path = options_.mask_path;
@@ -115,8 +114,10 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   option_manager_.bundle_adjustment->gpu_index = options_.gpu_index;
 
   if (options_.extraction) {
-    feature_extractor_ = CreateFeatureExtractorController(
-        reader_options, *option_manager_.sift_extraction);
+    feature_extractor_ =
+        CreateFeatureExtractorController(*option_manager_.database_path,
+                                         reader_options,
+                                         *option_manager_.sift_extraction);
   }
 
   if (options_.matching) {
