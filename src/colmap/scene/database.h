@@ -338,6 +338,8 @@ class Database {
   size_t SumColumn(const std::string& column, const std::string& table) const;
   size_t MaxColumn(const std::string& column, const std::string& table) const;
 
+  std::unordered_map<frame_t, std::vector<data_t>> ReadAllFramesData() const;
+
   sqlite3* database_ = nullptr;
 
   // Check if elements got removed from the database to only apply
@@ -398,6 +400,7 @@ class Database {
   sqlite3_stmt* sql_stmt_read_cameras_ = nullptr;
   sqlite3_stmt* sql_stmt_read_frame_ = nullptr;
   sqlite3_stmt* sql_stmt_read_frame_data_ = nullptr;
+  sqlite3_stmt* sql_stmt_read_frames_data_ = nullptr;
   sqlite3_stmt* sql_stmt_read_frames_ = nullptr;
   sqlite3_stmt* sql_stmt_read_image_id_ = nullptr;
   sqlite3_stmt* sql_stmt_read_image_with_name_ = nullptr;

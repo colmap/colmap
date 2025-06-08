@@ -564,16 +564,44 @@ Frame Database::ReadFrame(const frame_t frame_id) const {
   return frame;
 }
 
+std::unordered_map<frame_t, std::vector<data_t>> Database::ReadAllFramesData() const {
+  std::unordered_map<frame_t, std::vector<data_t>> frames_data;
+  
+  while (SQLITE3_CALL(sqlite3_step(sql_stmt_read_frames_data_)) == SQLITE_ROW) {
+    frame_t frame_id = static_cast<frame_t>(sqlite3_column_int64(sql_stmt_read_frames_data_, 0));
+    
+    data_t data_id;
+    data_id.id = static_cast<uint32_t>(sqlite3_column_int64(sql_stmt_read_frames_data_, 1));
+    data_id.sensor_id.id = static_cast<uint32_t>(sqlite3_column_int64(sql_stmt_read_frames_data_, 2));
+    data_id.sensor_id.type = static_cast<SensorType>(sqlite3_column_int64(sql_stmt_read_frames_data_, 3));
+    
+    frames_data[frame_id].push_back(data_id);
+  }
+  
+  SQLITE3_CALL(sqlite3_reset(sql_stmt_read_frames_data_));
+  return frames_data;
+}
+
 std::vector<Frame> Database::ReadAllFrames() const {
   std::vector<Frame> frames;
 
+  // Get all frames
   while (SQLITE3_CALL(sqlite3_step(sql_stmt_read_frames_)) == SQLITE_ROW) {
     frames.push_back(ReadFrameRow(sql_stmt_read_frames_));
   }
   SQLITE3_CALL(sqlite3_reset(sql_stmt_read_frames_));
 
+  // Get all frame data in one query
+  auto all_frames_data = ReadAllFramesData();
+  
+  // Match data to frames
   for (Frame& frame : frames) {
-    ReadFrameData(sql_stmt_read_frame_data_, &frame);
+    auto it = all_frames_data.find(frame.FrameId());
+    if (it != all_frames_data.end()) {
+      for (const auto& data_id : it->second) {
+        frame.AddDataId(data_id);
+      }
+    }
   }
 
   return frames;
@@ -1606,6 +1634,10 @@ void Database::PrepareSQLStatements() {
       "SELECT data_id, sensor_id, sensor_type "
       "FROM frame_data WHERE frame_id = ?;",
       &sql_stmt_read_frame_data_);
+  prepare_sql_stmt(
+      "SELECT frame_id, data_id, sensor_id, sensor_type "
+      "FROM frame_data ORDER BY frame_id;",
+      &sql_stmt_read_frames_data_);
   prepare_sql_stmt("SELECT * FROM images WHERE image_id = ?;",
                    &sql_stmt_read_image_id_);
   prepare_sql_stmt("SELECT * FROM images;", &sql_stmt_read_images_);
