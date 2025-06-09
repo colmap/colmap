@@ -168,7 +168,7 @@ ImageReader::Status ImageReader::Next(Rig* rig,
           exists_mask = true;
         }
       }
-      if (!exists_mask) {      
+      if (!exists_mask) {
         LOG(ERROR) << "Mask at " << mask_path << " does not exist.";
         return Status::MASK_ERROR;
       }
