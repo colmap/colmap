@@ -88,6 +88,7 @@ TEST_P(ParameterizedImageReaderTests, Nominal) {
       database.WriteDescriptors(image.ImageId(), FeatureDescriptors());
       Rig rig;
       rig.AddRefSensor(sensor_t(SensorType::CAMERA, image.CameraId()));
+      database.WriteRig(rig);
     }
   }
 
@@ -117,11 +118,20 @@ TEST_P(ParameterizedImageReaderTests, Nominal) {
     EXPECT_EQ(image.Name(), std::to_string(i) + ".png");
     EXPECT_EQ(bitmap.ConvertToRowMajorArray(),
               test_bitmap.ConvertToRowMajorArray());
+    if (kWithExistingImages) {
+      EXPECT_EQ(database.NumRigs(), kNumImages);
+      EXPECT_EQ(database.NumCameras(), kNumImages);
+    } else {
+      EXPECT_EQ(database.NumRigs(), i + 1);
+      EXPECT_EQ(database.NumCameras(), i + 1);
+    }
   }
 
   EXPECT_THROW(
       image_reader.Next(&rig, &camera, &image, &pose_prior, &bitmap, &mask),
       std::invalid_argument);
+  EXPECT_EQ(database.NumRigs(), kNumImages);
+  EXPECT_EQ(database.NumCameras(), kNumImages);
 }
 
 INSTANTIATE_TEST_SUITE_P(ImageReaderTests,

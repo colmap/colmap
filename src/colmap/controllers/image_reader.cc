@@ -281,9 +281,11 @@ ImageReader::Status ImageReader::Next(Rig* rig,
       // By default we create a separate rig per camera. Grouping of different
       // cameras into the same rig is expected to be done with the
       // "rig_configurator" after feature extraction.
-      prev_rig_ = Rig();
-      prev_rig_.AddRefSensor(prev_camera_.SensorId());
-      prev_rig_.SetRigId(database_->WriteRig(prev_rig_));
+      if (!database_->ReadRigWithSensor(prev_camera_.SensorId()).has_value()) {
+        prev_rig_ = Rig();
+        prev_rig_.AddRefSensor(prev_camera_.SensorId());
+        prev_rig_.SetRigId(database_->WriteRig(prev_rig_));
+      }
 
       if (valid_camera_model) {
         camera_model_to_id_[camera_model] = prev_camera_.camera_id;
