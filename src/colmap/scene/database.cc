@@ -311,6 +311,7 @@ void ReadFrameRows(sqlite3_stmt* sql_stmt,
       if (frame.FrameId() != kInvalidFrameId) {
         new_frame_callback(std::move(frame));
       }
+      frame = Frame();
       frame.SetFrameId(frame_id);
       frame.SetRigId(static_cast<rig_t>(sqlite3_column_int64(sql_stmt, 1)));
     }
@@ -1596,8 +1597,8 @@ void Database::PrepareSQLStatements() {
       "SELECT rigs.rig_id, rigs.ref_sensor_id, rigs.ref_sensor_type, "
       "rig_sensors.sensor_id, rig_sensors.sensor_type, "
       "rig_sensors.sensor_from_rig FROM rigs "
-      "LEFT OUTER JOIN rig_sensors ON rigs.rig_id = ? "
-      "AND rigs.rig_id = rig_sensors.rig_id;",
+      "LEFT OUTER JOIN rig_sensors ON rigs.rig_id = rig_sensors.rig_id "
+      "WHERE rigs.rig_id = ?;",
       &sql_stmt_read_rig_);
   prepare_sql_stmt(
       "SELECT rig_id FROM rig_sensors WHERE sensor_id = ? AND sensor_type = ?;",
@@ -1617,8 +1618,8 @@ void Database::PrepareSQLStatements() {
   prepare_sql_stmt(
       "SELECT frames.frame_id, frames.rig_id, frame_data.data_id, "
       "frame_data.sensor_id, frame_data.sensor_type FROM frames "
-      "LEFT OUTER JOIN frame_data ON frames.frame_id = ? "
-      "AND frames.frame_id = frame_data.frame_id;",
+      "LEFT OUTER JOIN frame_data ON frames.frame_id = frame_data.frame_id "
+      "WHERE frames.frame_id = ?;",
       &sql_stmt_read_frame_);
   prepare_sql_stmt("SELECT * FROM images WHERE image_id = ?;",
                    &sql_stmt_read_image_id_);
