@@ -36,7 +36,7 @@ RUN apt-get update && \
         libcgal-dev \
         libceres-dev \
         libcurl4-openssl-dev \
-        libmkl-dev
+        libmkl-full-dev
 
 # Build and install COLMAP.
 RUN git clone https://github.com/colmap/colmap.git
