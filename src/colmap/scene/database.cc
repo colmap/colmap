@@ -217,50 +217,74 @@ std::optional<std::stringstream> BlobColumnToStringStream(
   return stream;
 }
 
-Rig ReadRigRow(sqlite3_stmt* sql_stmt) {
-  Rig rig;
-
-  rig.SetRigId(static_cast<rig_t>(sqlite3_column_int64(sql_stmt, 0)));
-
-  sensor_t ref_sensor_id;
-  ref_sensor_id.id = static_cast<uint32_t>(sqlite3_column_int64(sql_stmt, 1));
-  ref_sensor_id.type =
-      static_cast<SensorType>(sqlite3_column_int64(sql_stmt, 2));
-  rig.AddRefSensor(ref_sensor_id);
-
-  return rig;
+Rigid3d ReadRigid3dFromStringStream(std::stringstream* stream) {
+  Rigid3d tform;
+  tform.rotation.w() = ReadBinaryLittleEndian<double>(stream);
+  tform.rotation.x() = ReadBinaryLittleEndian<double>(stream);
+  tform.rotation.y() = ReadBinaryLittleEndian<double>(stream);
+  tform.rotation.z() = ReadBinaryLittleEndian<double>(stream);
+  tform.translation.x() = ReadBinaryLittleEndian<double>(stream);
+  tform.translation.y() = ReadBinaryLittleEndian<double>(stream);
+  tform.translation.z() = ReadBinaryLittleEndian<double>(stream);
+  return tform;
 }
 
-void ReadRigSensorRow(sqlite3_stmt* sql_stmt, Rig* rig) {
-  sensor_t sensor_id;
-  sensor_id.id = static_cast<uint32_t>(sqlite3_column_int64(sql_stmt, 0));
-  sensor_id.type = static_cast<SensorType>(sqlite3_column_int64(sql_stmt, 1));
+void WriteRigid3dToStringStream(const Rigid3d& tform,
+                                std::stringstream* stream) {
+  WriteBinaryLittleEndian<double>(stream, tform.rotation.w());
+  WriteBinaryLittleEndian<double>(stream, tform.rotation.x());
+  WriteBinaryLittleEndian<double>(stream, tform.rotation.y());
+  WriteBinaryLittleEndian<double>(stream, tform.rotation.z());
+  WriteBinaryLittleEndian<double>(stream, tform.translation.x());
+  WriteBinaryLittleEndian<double>(stream, tform.translation.y());
+  WriteBinaryLittleEndian<double>(stream, tform.translation.z());
+}
 
-  std::optional<std::stringstream> sensor_from_rig_stream =
-      BlobColumnToStringStream(sql_stmt, 2);
+void ReadRigRows(sqlite3_stmt* sql_stmt,
+                 const std::function<void(Rig)>& new_rig_callback) {
+  Rig rig;
+  while (SQLITE3_CALL(sqlite3_step(sql_stmt)) == SQLITE_ROW) {
+    const rig_t rig_id = static_cast<rig_t>(sqlite3_column_int64(sql_stmt, 0));
+    if (rig_id != rig.RigId()) {
+      if (rig.RigId() != kInvalidRigId) {
+        new_rig_callback(std::move(rig));
+      }
+      rig = Rig();
+      rig.SetRigId(rig_id);
+      sensor_t ref_sensor_id;
+      ref_sensor_id.id =
+          static_cast<uint32_t>(sqlite3_column_int64(sql_stmt, 1));
+      ref_sensor_id.type =
+          static_cast<SensorType>(sqlite3_column_int64(sql_stmt, 2));
+      rig.AddRefSensor(ref_sensor_id);
+    }
 
-  std::optional<Rigid3d> sensor_from_rig;
-  if (sensor_from_rig_stream.has_value()) {
-    std::stringstream* sensor_from_rig_stream_ptr =
-        &sensor_from_rig_stream.value();
-    sensor_from_rig = Rigid3d();
-    sensor_from_rig->rotation.w() =
-        ReadBinaryLittleEndian<double>(sensor_from_rig_stream_ptr);
-    sensor_from_rig->rotation.x() =
-        ReadBinaryLittleEndian<double>(sensor_from_rig_stream_ptr);
-    sensor_from_rig->rotation.y() =
-        ReadBinaryLittleEndian<double>(sensor_from_rig_stream_ptr);
-    sensor_from_rig->rotation.z() =
-        ReadBinaryLittleEndian<double>(sensor_from_rig_stream_ptr);
-    sensor_from_rig->translation.x() =
-        ReadBinaryLittleEndian<double>(sensor_from_rig_stream_ptr);
-    sensor_from_rig->translation.y() =
-        ReadBinaryLittleEndian<double>(sensor_from_rig_stream_ptr);
-    sensor_from_rig->translation.z() =
-        ReadBinaryLittleEndian<double>(sensor_from_rig_stream_ptr);
+    if (sqlite3_column_type(sql_stmt, 3) == SQLITE_NULL) {
+      // No non-reference sensors for rig.
+      continue;
+    }
+
+    sensor_t sensor_id;
+    sensor_id.id = static_cast<uint32_t>(sqlite3_column_int64(sql_stmt, 3));
+    sensor_id.type = static_cast<SensorType>(sqlite3_column_int64(sql_stmt, 4));
+
+    std::optional<std::stringstream> sensor_from_rig_stream =
+        BlobColumnToStringStream(sql_stmt, 5);
+
+    std::optional<Rigid3d> sensor_from_rig;
+    if (sensor_from_rig_stream.has_value()) {
+      sensor_from_rig =
+          ReadRigid3dFromStringStream(&sensor_from_rig_stream.value());
+    }
+
+    rig.AddSensor(sensor_id, sensor_from_rig);
   }
 
-  rig->AddSensor(sensor_id, sensor_from_rig);
+  if (rig.RigId() != kInvalidRigId) {
+    new_rig_callback(std::move(rig));
+  }
+
+  SQLITE3_CALL(sqlite3_reset(sql_stmt));
 }
 
 Camera ReadCameraRow(sqlite3_stmt* sql_stmt) {
@@ -285,24 +309,39 @@ Camera ReadCameraRow(sqlite3_stmt* sql_stmt) {
   return camera;
 }
 
-Frame ReadFrameRow(sqlite3_stmt* sql_stmt) {
+void ReadFrameRows(sqlite3_stmt* sql_stmt,
+                   const std::function<void(Frame)>& new_frame_callback) {
   Frame frame;
-  frame.SetFrameId(static_cast<rig_t>(sqlite3_column_int64(sql_stmt, 0)));
-  frame.SetRigId(static_cast<rig_t>(sqlite3_column_int64(sql_stmt, 1)));
-  return frame;
-}
-
-void ReadFrameData(sqlite3_stmt* sql_stmt, Frame* frame) {
-  SQLITE3_CALL(sqlite3_bind_int64(sql_stmt, 1, frame->FrameId()));
   while (SQLITE3_CALL(sqlite3_step(sql_stmt)) == SQLITE_ROW) {
+    const frame_t frame_id =
+        static_cast<rig_t>(sqlite3_column_int64(sql_stmt, 0));
+    if (frame_id != frame.FrameId()) {
+      if (frame.FrameId() != kInvalidFrameId) {
+        new_frame_callback(std::move(frame));
+      }
+      frame = Frame();
+      frame.SetFrameId(frame_id);
+      frame.SetRigId(static_cast<rig_t>(sqlite3_column_int64(sql_stmt, 1)));
+    }
+
+    if (sqlite3_column_type(sql_stmt, 2) == SQLITE_NULL) {
+      // No data for frame.
+      continue;
+    }
+
     data_t data_id;
-    data_id.id = static_cast<uint32_t>(sqlite3_column_int64(sql_stmt, 0));
+    data_id.id = static_cast<uint32_t>(sqlite3_column_int64(sql_stmt, 2));
     data_id.sensor_id.id =
-        static_cast<uint32_t>(sqlite3_column_int64(sql_stmt, 1));
+        static_cast<uint32_t>(sqlite3_column_int64(sql_stmt, 3));
     data_id.sensor_id.type =
-        static_cast<SensorType>(sqlite3_column_int64(sql_stmt, 2));
-    frame->AddDataId(data_id);
+        static_cast<SensorType>(sqlite3_column_int64(sql_stmt, 4));
+    frame.AddDataId(data_id);
   }
+
+  if (frame.FrameId() != kInvalidFrameId) {
+    new_frame_callback(std::move(frame));
+  }
+
   SQLITE3_CALL(sqlite3_reset(sql_stmt));
 }
 
@@ -331,17 +370,8 @@ void WriteRigSensors(const rig_t rig_id,
     // sqlite3_step.
     std::string sensor_from_rig_bytes;
     if (sensor_from_rig.has_value()) {
-      std::ostringstream stream;
-      WriteBinaryLittleEndian<double>(&stream, sensor_from_rig->rotation.w());
-      WriteBinaryLittleEndian<double>(&stream, sensor_from_rig->rotation.x());
-      WriteBinaryLittleEndian<double>(&stream, sensor_from_rig->rotation.y());
-      WriteBinaryLittleEndian<double>(&stream, sensor_from_rig->rotation.z());
-      WriteBinaryLittleEndian<double>(&stream,
-                                      sensor_from_rig->translation.x());
-      WriteBinaryLittleEndian<double>(&stream,
-                                      sensor_from_rig->translation.y());
-      WriteBinaryLittleEndian<double>(&stream,
-                                      sensor_from_rig->translation.z());
+      std::stringstream stream;
+      WriteRigid3dToStringStream(*sensor_from_rig, &stream);
       sensor_from_rig_bytes = stream.str();
       SQLITE3_CALL(
           sqlite3_bind_blob(sql_stmt,
@@ -522,78 +552,12 @@ size_t Database::NumVerifiedImagePairs() const {
   return CountRows("two_view_geometries");
 }
 
-Camera Database::ReadCamera(const camera_t camera_id) const {
-  SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_read_camera_, 1, camera_id));
-
-  Camera camera;
-
-  const int rc = SQLITE3_CALL(sqlite3_step(sql_stmt_read_camera_));
-  if (rc == SQLITE_ROW) {
-    camera = ReadCameraRow(sql_stmt_read_camera_);
-  }
-
-  SQLITE3_CALL(sqlite3_reset(sql_stmt_read_camera_));
-
-  return camera;
-}
-
-std::vector<Camera> Database::ReadAllCameras() const {
-  std::vector<Camera> cameras;
-
-  while (SQLITE3_CALL(sqlite3_step(sql_stmt_read_cameras_)) == SQLITE_ROW) {
-    cameras.push_back(ReadCameraRow(sql_stmt_read_cameras_));
-  }
-
-  SQLITE3_CALL(sqlite3_reset(sql_stmt_read_cameras_));
-
-  return cameras;
-}
-
-Frame Database::ReadFrame(const frame_t frame_id) const {
-  SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_read_frame_, 1, frame_id));
-
-  Frame frame;
-  const int rc = SQLITE3_CALL(sqlite3_step(sql_stmt_read_frame_));
-  if (rc == SQLITE_ROW) {
-    frame = ReadFrameRow(sql_stmt_read_frame_);
-  }
-  SQLITE3_CALL(sqlite3_reset(sql_stmt_read_frame_));
-
-  ReadFrameData(sql_stmt_read_frame_data_, &frame);
-
-  return frame;
-}
-
-std::vector<Frame> Database::ReadAllFrames() const {
-  std::vector<Frame> frames;
-
-  while (SQLITE3_CALL(sqlite3_step(sql_stmt_read_frames_)) == SQLITE_ROW) {
-    frames.push_back(ReadFrameRow(sql_stmt_read_frames_));
-  }
-  SQLITE3_CALL(sqlite3_reset(sql_stmt_read_frames_));
-
-  for (Frame& frame : frames) {
-    ReadFrameData(sql_stmt_read_frame_data_, &frame);
-  }
-
-  return frames;
-}
-
 Rig Database::ReadRig(const rig_t rig_id) const {
   Rig rig;
 
   SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_read_rig_, 1, rig_id));
-  const int rc = SQLITE3_CALL(sqlite3_step(sql_stmt_read_rig_));
-  if (rc == SQLITE_ROW) {
-    rig = ReadRigRow(sql_stmt_read_rig_);
-  }
-  SQLITE3_CALL(sqlite3_reset(sql_stmt_read_rig_));
-
-  SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_read_rig_sensors_, 1, rig_id));
-  while (SQLITE3_CALL(sqlite3_step(sql_stmt_read_rig_sensors_)) == SQLITE_ROW) {
-    ReadRigSensorRow(sql_stmt_read_rig_sensors_, &rig);
-  }
-  SQLITE3_CALL(sqlite3_reset(sql_stmt_read_rig_sensors_));
+  ReadRigRows(sql_stmt_read_rig_,
+              [&rig](Rig new_rig) { rig = std::move(new_rig); });
 
   return rig;
 }
@@ -629,22 +593,60 @@ std::optional<Rig> Database::ReadRigWithSensor(sensor_t sensor_id) const {
 
 std::vector<Rig> Database::ReadAllRigs() const {
   std::vector<Rig> rigs;
-  while (SQLITE3_CALL(sqlite3_step(sql_stmt_read_rigs_)) == SQLITE_ROW) {
-    rigs.push_back(ReadRigRow(sql_stmt_read_rigs_));
-  }
-  SQLITE3_CALL(sqlite3_reset(sql_stmt_read_rigs_));
 
-  for (Rig& rig : rigs) {
-    SQLITE3_CALL(
-        sqlite3_bind_int64(sql_stmt_read_rig_sensors_, 1, rig.RigId()));
-    while (SQLITE3_CALL(sqlite3_step(sql_stmt_read_rig_sensors_)) ==
-           SQLITE_ROW) {
-      ReadRigSensorRow(sql_stmt_read_rig_sensors_, &rig);
-    }
-    SQLITE3_CALL(sqlite3_reset(sql_stmt_read_rig_sensors_));
-  }
+  ReadRigRows(sql_stmt_read_rigs_,
+              [&rigs](Rig new_rig) { rigs.push_back(std::move(new_rig)); });
 
   return rigs;
+}
+
+Camera Database::ReadCamera(const camera_t camera_id) const {
+  SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_read_camera_, 1, camera_id));
+
+  Camera camera;
+
+  const int rc = SQLITE3_CALL(sqlite3_step(sql_stmt_read_camera_));
+  if (rc == SQLITE_ROW) {
+    camera = ReadCameraRow(sql_stmt_read_camera_);
+  }
+
+  SQLITE3_CALL(sqlite3_reset(sql_stmt_read_camera_));
+
+  return camera;
+}
+
+std::vector<Camera> Database::ReadAllCameras() const {
+  std::vector<Camera> cameras;
+
+  while (SQLITE3_CALL(sqlite3_step(sql_stmt_read_cameras_)) == SQLITE_ROW) {
+    cameras.push_back(ReadCameraRow(sql_stmt_read_cameras_));
+  }
+
+  SQLITE3_CALL(sqlite3_reset(sql_stmt_read_cameras_));
+
+  return cameras;
+}
+
+Frame Database::ReadFrame(const frame_t frame_id) const {
+  SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_read_frame_, 1, frame_id));
+
+  Frame frame;
+  ReadFrameRows(sql_stmt_read_frame_, [&frame](Frame new_frame) {
+    THROW_CHECK_EQ(frame.FrameId(), kInvalidFrameId);
+    frame = std::move(new_frame);
+  });
+
+  return frame;
+}
+
+std::vector<Frame> Database::ReadAllFrames() const {
+  std::vector<Frame> frames;
+
+  ReadFrameRows(sql_stmt_read_frames_, [&frames](Frame new_frame) {
+    frames.push_back(std::move(new_frame));
+  });
+
+  return frames;
 }
 
 Image Database::ReadImage(const image_t image_id) const {
@@ -1583,12 +1585,22 @@ void Database::PrepareSQLStatements() {
   //////////////////////////////////////////////////////////////////////////////
   // read_*
   //////////////////////////////////////////////////////////////////////////////
-  prepare_sql_stmt("SELECT * FROM rigs;", &sql_stmt_read_rigs_);
-  prepare_sql_stmt("SELECT * FROM rigs WHERE rig_id = ?;", &sql_stmt_read_rig_);
+
   prepare_sql_stmt(
-      "SELECT sensor_id, sensor_type, sensor_from_rig "
-      "FROM rig_sensors WHERE rig_id = ?;",
-      &sql_stmt_read_rig_sensors_);
+      "SELECT rigs.rig_id, rigs.ref_sensor_id, rigs.ref_sensor_type, "
+      "rig_sensors.sensor_id, rig_sensors.sensor_type, "
+      "rig_sensors.sensor_from_rig FROM rigs "
+      "LEFT OUTER JOIN rig_sensors ON rigs.rig_id = rig_sensors.rig_id "
+      "ORDER BY rigs.rig_id;",
+      &sql_stmt_read_rigs_);
+  prepare_sql_stmt(
+      "SELECT rigs.rig_id, rigs.ref_sensor_id, rigs.ref_sensor_type, "
+      "rig_sensors.sensor_id, rig_sensors.sensor_type, "
+      "rig_sensors.sensor_from_rig FROM rigs "
+      "LEFT OUTER JOIN rig_sensors ON rigs.rig_id = rig_sensors.rig_id "
+      "WHERE rigs.rig_id = ? "
+      "ORDER BY rigs.rig_id;",
+      &sql_stmt_read_rig_);
   prepare_sql_stmt(
       "SELECT rig_id FROM rig_sensors WHERE sensor_id = ? AND sensor_type = ?;",
       &sql_stmt_read_rig_with_sensor_);
@@ -1599,13 +1611,19 @@ void Database::PrepareSQLStatements() {
   prepare_sql_stmt("SELECT * FROM cameras;", &sql_stmt_read_cameras_);
   prepare_sql_stmt("SELECT * FROM cameras WHERE camera_id = ?;",
                    &sql_stmt_read_camera_);
-  prepare_sql_stmt("SELECT * FROM frames;", &sql_stmt_read_frames_);
-  prepare_sql_stmt("SELECT * FROM frames WHERE frame_id = ?;",
-                   &sql_stmt_read_frame_);
   prepare_sql_stmt(
-      "SELECT data_id, sensor_id, sensor_type "
-      "FROM frame_data WHERE frame_id = ?;",
-      &sql_stmt_read_frame_data_);
+      "SELECT frames.frame_id, frames.rig_id, frame_data.data_id, "
+      "frame_data.sensor_id, frame_data.sensor_type FROM frames "
+      "LEFT OUTER JOIN frame_data ON frames.frame_id = frame_data.frame_id "
+      "ORDER BY frames.frame_id;",
+      &sql_stmt_read_frames_);
+  prepare_sql_stmt(
+      "SELECT frames.frame_id, frames.rig_id, frame_data.data_id, "
+      "frame_data.sensor_id, frame_data.sensor_type FROM frames "
+      "LEFT OUTER JOIN frame_data ON frames.frame_id = frame_data.frame_id "
+      "WHERE frames.frame_id = ? "
+      "ORDER BY frames.frame_id;",
+      &sql_stmt_read_frame_);
   prepare_sql_stmt("SELECT * FROM images WHERE image_id = ?;",
                    &sql_stmt_read_image_id_);
   prepare_sql_stmt("SELECT * FROM images;", &sql_stmt_read_images_);

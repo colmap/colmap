@@ -121,6 +121,14 @@ TEST(Database, Rig) {
   EXPECT_EQ(database.NumRigs(), 0);
   Rig rig;
   rig.AddRefSensor(sensor_t(SensorType::CAMERA, 1));
+  rig.SetRigId(database.WriteRig(rig));
+  EXPECT_EQ(database.NumRigs(), 1);
+  EXPECT_TRUE(database.ExistsRig(rig.RigId()));
+  EXPECT_EQ(database.ReadRig(rig.RigId()), rig);
+
+  database.ClearRigs();
+  EXPECT_EQ(database.NumRigs(), 0);
+
   rig.AddSensor(
       sensor_t(SensorType::CAMERA, 2),
       Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random()));
@@ -186,14 +194,24 @@ TEST(Database, Frame) {
   rig.AddRefSensor(sensor_t(SensorType::CAMERA, 1));
   rig.SetRigId(database.WriteRig(rig));
   EXPECT_EQ(database.NumFrames(), 0);
+
   Frame frame;
   frame.SetRigId(rig.RigId());
+  frame.SetFrameId(database.WriteFrame(frame));
+  EXPECT_EQ(database.NumFrames(), 1);
+  EXPECT_TRUE(database.ExistsFrame(frame.FrameId()));
+  EXPECT_EQ(database.ReadFrame(frame.FrameId()), frame);
+
+  database.ClearFrames();
+  EXPECT_EQ(database.NumFrames(), 0);
+
   frame.AddDataId(data_t(sensor_t(SensorType::IMU, 1), 2));
   frame.AddDataId(data_t(sensor_t(SensorType::CAMERA, 1), 3));
   frame.SetFrameId(database.WriteFrame(frame));
   EXPECT_EQ(database.NumFrames(), 1);
   EXPECT_TRUE(database.ExistsFrame(frame.FrameId()));
   EXPECT_EQ(database.ReadFrame(frame.FrameId()), frame);
+
   frame.AddDataId(data_t(sensor_t(SensorType::CAMERA, 2), 4));
   database.UpdateFrame(frame);
   EXPECT_EQ(database.ReadFrame(frame.FrameId()), frame);
@@ -208,6 +226,7 @@ TEST(Database, Frame) {
   EXPECT_EQ(database.ReadAllFrames().size(), 2);
   EXPECT_EQ(database.ReadAllFrames()[0].FrameId(), frame.FrameId());
   EXPECT_EQ(database.ReadAllFrames()[1].FrameId(), frame2.FrameId());
+
   database.ClearFrames();
   EXPECT_EQ(database.NumFrames(), 0);
 }
