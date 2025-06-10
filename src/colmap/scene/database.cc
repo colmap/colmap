@@ -41,7 +41,7 @@ namespace colmap {
 namespace {
 
 struct Sqlite3StmtContext {
-  Sqlite3StmtContext(sqlite3_stmt* sql_stmt) : sql_stmt_(sql_stmt) {}
+  explicit Sqlite3StmtContext(sqlite3_stmt* sql_stmt) : sql_stmt_(sql_stmt) {}
   ~Sqlite3StmtContext() { SQLITE3_CALL(sqlite3_reset(sql_stmt_)); }
 
  private:
