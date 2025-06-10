@@ -217,6 +217,29 @@ std::optional<std::stringstream> BlobColumnToStringStream(
   return stream;
 }
 
+Rigid3d ReadRigid3dFromStringStream(std::stringstream* stream) {
+  Rigid3d tform;
+  tform.rotation.w() = ReadBinaryLittleEndian<double>(stream);
+  tform.rotation.x() = ReadBinaryLittleEndian<double>(stream);
+  tform.rotation.y() = ReadBinaryLittleEndian<double>(stream);
+  tform.rotation.z() = ReadBinaryLittleEndian<double>(stream);
+  tform.translation.x() = ReadBinaryLittleEndian<double>(stream);
+  tform.translation.y() = ReadBinaryLittleEndian<double>(stream);
+  tform.translation.z() = ReadBinaryLittleEndian<double>(stream);
+  return tform;
+}
+
+void WriteRigid3dToStringStream(const Rigid3d& tform,
+                                std::stringstream* stream) {
+  WriteBinaryLittleEndian<double>(stream, tform.rotation.w());
+  WriteBinaryLittleEndian<double>(stream, tform.rotation.x());
+  WriteBinaryLittleEndian<double>(stream, tform.rotation.y());
+  WriteBinaryLittleEndian<double>(stream, tform.rotation.z());
+  WriteBinaryLittleEndian<double>(stream, tform.translation.x());
+  WriteBinaryLittleEndian<double>(stream, tform.translation.y());
+  WriteBinaryLittleEndian<double>(stream, tform.translation.z());
+}
+
 void ReadRigRows(sqlite3_stmt* sql_stmt,
                  const std::function<void(Rig)>& new_rig_callback) {
   Rig rig;
@@ -250,23 +273,8 @@ void ReadRigRows(sqlite3_stmt* sql_stmt,
 
     std::optional<Rigid3d> sensor_from_rig;
     if (sensor_from_rig_stream.has_value()) {
-      std::stringstream* sensor_from_rig_stream_ptr =
-          &sensor_from_rig_stream.value();
-      sensor_from_rig = Rigid3d();
-      sensor_from_rig->rotation.w() =
-          ReadBinaryLittleEndian<double>(sensor_from_rig_stream_ptr);
-      sensor_from_rig->rotation.x() =
-          ReadBinaryLittleEndian<double>(sensor_from_rig_stream_ptr);
-      sensor_from_rig->rotation.y() =
-          ReadBinaryLittleEndian<double>(sensor_from_rig_stream_ptr);
-      sensor_from_rig->rotation.z() =
-          ReadBinaryLittleEndian<double>(sensor_from_rig_stream_ptr);
-      sensor_from_rig->translation.x() =
-          ReadBinaryLittleEndian<double>(sensor_from_rig_stream_ptr);
-      sensor_from_rig->translation.y() =
-          ReadBinaryLittleEndian<double>(sensor_from_rig_stream_ptr);
-      sensor_from_rig->translation.z() =
-          ReadBinaryLittleEndian<double>(sensor_from_rig_stream_ptr);
+      sensor_from_rig =
+          ReadRigid3dFromStringStream(&sensor_from_rig_stream.value());
     }
 
     rig.AddSensor(sensor_id, sensor_from_rig);
@@ -362,17 +370,8 @@ void WriteRigSensors(const rig_t rig_id,
     // sqlite3_step.
     std::string sensor_from_rig_bytes;
     if (sensor_from_rig.has_value()) {
-      std::ostringstream stream;
-      WriteBinaryLittleEndian<double>(&stream, sensor_from_rig->rotation.w());
-      WriteBinaryLittleEndian<double>(&stream, sensor_from_rig->rotation.x());
-      WriteBinaryLittleEndian<double>(&stream, sensor_from_rig->rotation.y());
-      WriteBinaryLittleEndian<double>(&stream, sensor_from_rig->rotation.z());
-      WriteBinaryLittleEndian<double>(&stream,
-                                      sensor_from_rig->translation.x());
-      WriteBinaryLittleEndian<double>(&stream,
-                                      sensor_from_rig->translation.y());
-      WriteBinaryLittleEndian<double>(&stream,
-                                      sensor_from_rig->translation.z());
+      std::stringstream stream;
+      WriteRigid3dToStringStream(*sensor_from_rig, &stream);
       sensor_from_rig_bytes = stream.str();
       SQLITE3_CALL(
           sqlite3_bind_blob(sql_stmt,
@@ -1591,14 +1590,16 @@ void Database::PrepareSQLStatements() {
       "SELECT rigs.rig_id, rigs.ref_sensor_id, rigs.ref_sensor_type, "
       "rig_sensors.sensor_id, rig_sensors.sensor_type, "
       "rig_sensors.sensor_from_rig FROM rigs "
-      "LEFT OUTER JOIN rig_sensors ON rigs.rig_id = rig_sensors.rig_id;",
+      "LEFT OUTER JOIN rig_sensors ON rigs.rig_id = rig_sensors.rig_id "
+      "ORDER BY rigs.rig_id;",
       &sql_stmt_read_rigs_);
   prepare_sql_stmt(
       "SELECT rigs.rig_id, rigs.ref_sensor_id, rigs.ref_sensor_type, "
       "rig_sensors.sensor_id, rig_sensors.sensor_type, "
       "rig_sensors.sensor_from_rig FROM rigs "
       "LEFT OUTER JOIN rig_sensors ON rigs.rig_id = rig_sensors.rig_id "
-      "WHERE rigs.rig_id = ?;",
+      "WHERE rigs.rig_id = ? "
+      "ORDER BY rigs.rig_id;",
       &sql_stmt_read_rig_);
   prepare_sql_stmt(
       "SELECT rig_id FROM rig_sensors WHERE sensor_id = ? AND sensor_type = ?;",
@@ -1613,13 +1614,15 @@ void Database::PrepareSQLStatements() {
   prepare_sql_stmt(
       "SELECT frames.frame_id, frames.rig_id, frame_data.data_id, "
       "frame_data.sensor_id, frame_data.sensor_type FROM frames "
-      "LEFT OUTER JOIN frame_data ON frames.frame_id = frame_data.frame_id;",
+      "LEFT OUTER JOIN frame_data ON frames.frame_id = frame_data.frame_id "
+      "ORDER BY frames.frame_id;",
       &sql_stmt_read_frames_);
   prepare_sql_stmt(
       "SELECT frames.frame_id, frames.rig_id, frame_data.data_id, "
       "frame_data.sensor_id, frame_data.sensor_type FROM frames "
       "LEFT OUTER JOIN frame_data ON frames.frame_id = frame_data.frame_id "
-      "WHERE frames.frame_id = ?;",
+      "WHERE frames.frame_id = ? "
+      "ORDER BY frames.frame_id;",
       &sql_stmt_read_frame_);
   prepare_sql_stmt("SELECT * FROM images WHERE image_id = ?;",
                    &sql_stmt_read_image_id_);
