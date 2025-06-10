@@ -93,7 +93,7 @@ Dependencies from the default Ubuntu repositories::
         libcgal-dev \
         libceres-dev \
         libcurl4-openssl-dev \
-        libmkl-dev
+        libmkl-full-dev
 
 To compile with **CUDA support**, also install Ubuntu's default CUDA package::
 
