@@ -93,8 +93,7 @@ Dependencies from the default Ubuntu repositories::
         libcgal-dev \
         libceres-dev \
         libcurl4-openssl-dev \
-        libopenblas-openmp-dev \
-        libopenblas0-openmp
+        libopenblas-openmp-dev
 
 Notice that compiling against OpenBLAS requires the OpenMP version
 under Debian/Ubuntu because of `this issue <https://github.com/facebookresearch/faiss/wiki/Troubleshooting#surprising-faiss-openmp-and-openblas-interaction>`__.
