@@ -53,11 +53,11 @@ std::ostream& operator<<(std::ostream& stream, const Rig& rig) {
   stream << "Rig(rig_id=" << rig_id_str << ", ref_sensor_id=("
          << rig.RefSensorId().type << ", " << rig.RefSensorId().id
          << "), sensors=[";
-  for (const auto& [sensor_id, _] : rig.Sensors()) {
-    stream << "(" << sensor_id.type << ", " << sensor_id.id << "), ";
-  }
-  if (!rig.Sensors().empty()) {
-    stream.seekp(-2, std::ios_base::end);
+  for (auto it = rig.Sensors().begin(); it != rig.Sensors().end();) {
+    stream << "(" << it->first.type << ", " << it->first.id << ")";
+    if (++it != rig.Sensors().end()) {
+      stream << ", ";
+    }
   }
   stream << "])";
   return stream;
