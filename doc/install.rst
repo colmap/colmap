@@ -92,7 +92,12 @@ Dependencies from the default Ubuntu repositories::
         libqt5opengl5-dev \
         libcgal-dev \
         libceres-dev \
-        libcurl4-openssl-dev
+        libcurl4-openssl-dev \
+        libopenblas-openmp-dev \
+        libopenblas0-openmp
+
+Notice that compiling against OpenBLAS requires the OpenMP version
+under Debian/Ubuntu because of `this issue <https://github.com/facebookresearch/faiss/wiki/Troubleshooting#surprising-faiss-openmp-and-openblas-interaction>`__.
 
 To compile with **CUDA support**, also install Ubuntu's default CUDA package::
 
