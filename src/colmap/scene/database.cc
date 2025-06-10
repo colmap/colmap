@@ -218,7 +218,7 @@ std::optional<std::stringstream> BlobColumnToStringStream(
 }
 
 void ReadRigRows(sqlite3_stmt* sql_stmt,
-                 const std::function<void(Rig)> new_rig_callback) {
+                 const std::function<void(Rig)>& new_rig_callback) {
   Rig rig;
   while (SQLITE3_CALL(sqlite3_step(sql_stmt)) == SQLITE_ROW) {
     const rig_t rig_id = static_cast<rig_t>(sqlite3_column_int64(sql_stmt, 0));
@@ -302,7 +302,7 @@ Camera ReadCameraRow(sqlite3_stmt* sql_stmt) {
 }
 
 void ReadFrameRows(sqlite3_stmt* sql_stmt,
-                   const std::function<void(Frame)> new_frame_callback) {
+                   const std::function<void(Frame)>& new_frame_callback) {
   Frame frame;
   while (SQLITE3_CALL(sqlite3_step(sql_stmt)) == SQLITE_ROW) {
     const frame_t frame_id =
