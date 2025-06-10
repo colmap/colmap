@@ -49,7 +49,7 @@ RUN cd colmap && \
         -GNinja \
         -DCMAKE_CUDA_ARCHITECTURES=${CUDA_ARCHITECTURES} \
         -DCMAKE_INSTALL_PREFIX=/colmap-install \
-        -DBLA_VENDOR=Intel10_64lp
+        -DBLA_VENDOR=Intel10_64lp && \
     ninja install
 
 #
