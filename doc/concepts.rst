@@ -9,6 +9,9 @@ images. These concepts provide a structured framework to organize sensors and
 their measurements, enabling more flexible calibration and fusion of diverse
 data types (e.g., see :ref:`rig-support`).
 
+These additions are backward-compatible and do not affect the traditional usage
+of COLMAP for single-camera capture setups.
+
 
 .. _sensors:
 
