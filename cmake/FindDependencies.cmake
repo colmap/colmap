@@ -8,6 +8,15 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.30")
     cmake_policy(SET CMP0167 NEW)
 endif()
 
+# Track all the compile definitions
+set(COLMAP_COMPILE_DEFINITIONS)
+if(LSD_ENABLED)
+    list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_LSD_ENABLED)
+    message(STATUS "Enabling LSD support")
+else()
+    message(STATUS "Disabling LSD support")
+endif()
+
 find_package(OpenMP REQUIRED)
 
 find_package(Boost ${COLMAP_FIND_TYPE} COMPONENTS
@@ -22,6 +31,11 @@ find_package(FreeImage ${COLMAP_FIND_TYPE})
 find_package(Metis ${COLMAP_FIND_TYPE})
 
 find_package(Glog ${COLMAP_FIND_TYPE})
+if(DEFINED glog_VERSION_MAJOR)
+  # Older versions of glog don't export version variables.
+  list(APPEND COLMAP_COMPILE_DEFINITIONS GLOG_VERSION_MAJOR=${glog_VERSION_MAJOR})
+  list(APPEND COLMAP_COMPILE_DEFINITIONS GLOG_VERSION_MINOR=${glog_VERSION_MINOR})
+endif()
 
 find_package(SQLite3 ${COLMAP_FIND_TYPE})
 
@@ -54,6 +68,7 @@ if(CGAL_ENABLED)
 endif()
 
 if(CGAL_FOUND)
+    list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_CGAL_ENABLED)
     list(APPEND CGAL_LIBRARY ${CGAL_LIBRARIES})
     message(STATUS "Found CGAL")
     message(STATUS "  Includes : ${CGAL_INCLUDE_DIRS}")
@@ -95,6 +110,7 @@ if(DOWNLOAD_ENABLED)
     endif()
     if(CURL_FOUND AND CRYPTO_FOUND)
         message(STATUS "Enabling download support")
+        list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_DOWNLOAD_ENABLED)
     else()
         set(DOWNLOAD_ENABLED OFF)
         message(STATUS "Disabling download support (Curl/Crypto not found)")
@@ -161,6 +177,8 @@ if(CUDA_ENABLED AND CUDA_FOUND)
         set(CMAKE_CUDA_ARCHITECTURES "native")
     endif()
 
+    list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_CUDA_ENABLED)
+
     # Do not show warnings if the architectures are deprecated.
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Wno-deprecated-gpu-targets")
     # Suppress warnings related to Eigen:
@@ -206,6 +224,7 @@ if(GUI_ENABLED)
 endif()
 
 if(GUI_ENABLED AND Qt5_FOUND)
+    list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_GUI_ENABLED)
     message(STATUS "Enabling GUI support")
 else()
     set(GUI_ENABLED OFF)
@@ -225,6 +244,7 @@ endif()
 
 set(GPU_ENABLED OFF)
 if(OPENGL_ENABLED OR CUDA_ENABLED)
+    list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_GPU_ENABLED)
     message(STATUS "Enabling GPU support (OpenGL: ${OPENGL_ENABLED}, CUDA: ${CUDA_ENABLED})")
     set(GPU_ENABLED ON)
 endif()
