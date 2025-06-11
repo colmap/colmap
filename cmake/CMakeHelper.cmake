@@ -92,6 +92,7 @@ macro(COLMAP_ADD_LIBRARY)
     target_link_libraries(${COLMAP_ADD_LIBRARY_NAME}
         PRIVATE ${COLMAP_ADD_LIBRARY_PRIVATE_LINK_LIBS}
         PUBLIC ${COLMAP_ADD_LIBRARY_PUBLIC_LINK_LIBS})
+    target_compile_definitions(${COLMAP_ADD_LIBRARY_NAME} PUBLIC ${COLMAP_COMPILE_DEFINITIONS})
 endmacro(COLMAP_ADD_LIBRARY)
 
 # Replacement for the normal add_executable() command. The syntax remains the
