@@ -22,7 +22,7 @@ jobs:
       matrix:
         config: [
           {
-            os: macos-14,
+            os: macos-15,
             arch: arm64,
             cmakeBuildType: Release,
           },
@@ -53,7 +53,6 @@ jobs:
             ninja \
             boost \
             eigen \
-            flann \
             freeimage \
             curl \
             metis \
@@ -65,6 +64,7 @@ jobs:
             cgal \
             sqlite3 \
             ccache
+          brew link --force libomp
 
       - name: Configure and build
         run: |
@@ -76,7 +76,7 @@ jobs:
             -GNinja \
             -DCMAKE_BUILD_TYPE=${{ matrix.config.cmakeBuildType }} \
             -DTESTS_ENABLED=ON \
-            -DCMAKE_PREFIX_PATH="$(brew --prefix qt@5)"
+            -DQt5_DIR="$(brew --prefix qt@5)/lib/cmake/Qt5"
           ninja
 
       - name: Run tests

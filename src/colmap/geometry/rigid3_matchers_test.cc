@@ -27,26 +27,56 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/sensor/rig_calib.h"
+#include "colmap/geometry/rigid3_matchers.h"
+
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
-void RigCalib::AddRefSensor(sensor_t ref_sensor_id) {
-  THROW_CHECK(ref_sensor_id_ == kInvalidSensorId)
-      << "Reference sensor already set";
-  ref_sensor_id_ = ref_sensor_id;
+struct TestClass {
+  virtual ~TestClass() = default;
+  virtual void TestMethod(const Rigid3d&) const {}
+};
+
+struct MockTestClass : public TestClass {
+  MOCK_METHOD(void, TestMethod, (const Rigid3d&), (const, override));
+};
+
+TEST(Rigid3d, Eq) {
+  const Rigid3d x(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
+  Rigid3d y = x;
+  EXPECT_THAT(x, Rigid3dEq(y));
+  y.rotation.w() += 1e-7;
+  EXPECT_THAT(x, testing::Not(Rigid3dEq(y)));
+  y = x;
+  y.translation.x() += 1e-7;
+  EXPECT_THAT(x, testing::Not(Rigid3dEq(y)));
+
+  testing::StrictMock<MockTestClass> mock;
+  EXPECT_CALL(mock, TestMethod(Rigid3dEq(x))).Times(1);
+  EXPECT_CALL(mock, TestMethod(Rigid3dEq(y))).Times(1);
+  mock.TestMethod(x);
+  mock.TestMethod(y);
 }
 
-void RigCalib::AddSensor(sensor_t sensor_id,
-                         const std::optional<Rigid3d>& sensor_from_rig) {
-  THROW_CHECK(NumSensors() >= 1)
-      << "The reference sensor needs to added first before any "
-         "sensor being added.";
-  THROW_CHECK(!HasSensor(sensor_id))
-      << StringPrintf("Sensor id (%d, %d) is inserted twice into the rig",
-                      sensor_id.type,
-                      sensor_id.id);
-  sensors_from_rig_.emplace(sensor_id, sensor_from_rig);
+TEST(Rigid3d, Near) {
+  const Rigid3d x(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
+  Rigid3d y = x;
+  EXPECT_THAT(x, Rigid3dNear(y, /*rtol=*/1e-8, /*ttol=*/1e-8));
+  y.rotation.w() += 1e-7;
+  EXPECT_THAT(x, testing::Not(Rigid3dNear(y, /*rtol=*/1e-8, /*ttol=*/1e-8)));
+  y = x;
+  y.translation.x() += 1e-7;
+  EXPECT_THAT(x, testing::Not(Rigid3dNear(y)));
+
+  testing::StrictMock<MockTestClass> mock;
+  EXPECT_CALL(mock, TestMethod(Rigid3dNear(x))).Times(1);
+  EXPECT_CALL(mock, TestMethod(Rigid3dNear(y))).Times(1);
+  mock.TestMethod(x);
+  mock.TestMethod(y);
 }
 
+}  // namespace
 }  // namespace colmap

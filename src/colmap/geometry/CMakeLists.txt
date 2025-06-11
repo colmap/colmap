@@ -48,6 +48,15 @@ COLMAP_ADD_LIBRARY(
         Eigen3::Eigen
 )
 
+if(TESTS_ENABLED)
+    target_sources(
+        colmap_geometry
+        PRIVATE
+            rigid3_matchers.h
+            sim3_matchers.h
+    )
+endif()
+
 COLMAP_ADD_TEST(
     NAME essential_matrix_test
     SRCS essential_matrix_test.cc
@@ -84,8 +93,18 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_geometry
 )
 COLMAP_ADD_TEST(
+    NAME rigid3_matchers_test
+    SRCS rigid3_matchers_test.cc
+    LINK_LIBS colmap_geometry
+)
+COLMAP_ADD_TEST(
     NAME sim3_test
     SRCS sim3_test.cc
+    LINK_LIBS colmap_geometry
+)
+COLMAP_ADD_TEST(
+    NAME sim3_matchers_test
+    SRCS sim3_matchers_test.cc
     LINK_LIBS colmap_geometry
 )
 COLMAP_ADD_TEST(

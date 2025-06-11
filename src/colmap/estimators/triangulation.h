@@ -148,7 +148,7 @@ struct EstimateTriangulationOptions {
 // if the estimated number of inliers has more than two views.
 bool EstimateTriangulation(const EstimateTriangulationOptions& options,
                            const std::vector<Eigen::Vector2d>& points,
-                           const std::vector<Rigid3d const*>& cams_from_world,
+                           const std::vector<Rigid3d>& cams_from_world,
                            const std::vector<Camera const*>& cameras,
                            std::vector<char>* inlier_mask,
                            Eigen::Vector3d* xyz);

@@ -3,5 +3,9 @@
 namespace py = pybind11;
 
 void BindBitmap(py::module& m);
+void BindSensorRig(py::module& m);
 
-void BindSensor(py::module& m) { BindBitmap(m); }
+void BindSensor(py::module& m) {
+  BindBitmap(m);
+  BindSensorRig(m);
+}

@@ -75,6 +75,15 @@ ImageReader::ImageReader(const ImageReaderOptions& options, Database* database)
   if (static_cast<camera_t>(options_.existing_camera_id) != kInvalidCameraId) {
     THROW_CHECK(database->ExistsCamera(options_.existing_camera_id));
     prev_camera_ = database->ReadCamera(options_.existing_camera_id);
+    if (std::optional<Rig> rig =
+            database->ReadRigWithSensor(prev_camera_.SensorId());
+        rig.has_value()) {
+      prev_rig_ = std::move(*rig);
+    } else {
+      // For backwards compatibility with old databases without rigs.
+      prev_rig_.AddRefSensor(prev_camera_.SensorId());
+      prev_rig_.SetRigId(database_->WriteRig(prev_rig_));
+    }
   } else {
     // Set the manually specified camera parameters.
     prev_camera_.camera_id = kInvalidCameraId;
@@ -88,7 +97,8 @@ ImageReader::ImageReader(const ImageReaderOptions& options, Database* database)
   }
 }
 
-ImageReader::Status ImageReader::Next(Camera* camera,
+ImageReader::Status ImageReader::Next(Rig* rig,
+                                      Camera* camera,
                                       Image* image,
                                       PosePrior* pose_prior,
                                       Bitmap* bitmap,
@@ -123,7 +133,7 @@ ImageReader::Status ImageReader::Next(Camera* camera,
   const bool exists_image = database_->ExistsImageWithName(image->Name());
 
   if (exists_image) {
-    *image = database_->ReadImageWithName(image->Name());
+    *image = database_->ReadImageWithName(image->Name()).value();
     const bool exists_keypoints = database_->ExistsKeypoints(image->ImageId());
     const bool exists_descriptors =
         database_->ExistsDescriptors(image->ImageId());
@@ -177,6 +187,16 @@ ImageReader::Status ImageReader::Next(Camera* camera,
     }
 
     prev_camera_ = std::move(current_camera);
+    if (std::optional<Rig> rig =
+            database_->ReadRigWithSensor(prev_camera_.SensorId());
+        rig.has_value()) {
+      prev_rig_ = std::move(rig.value());
+    } else {
+      // For backwards compatibility with old databases, we create a rig.
+      prev_rig_ = Rig();
+      prev_rig_.AddRefSensor(prev_camera_.SensorId());
+      prev_rig_.SetRigId(database_->WriteRig(prev_rig_));
+    }
 
   } else {
     //////////////////////////////////////////////////////////////////////////////
@@ -195,6 +215,7 @@ ImageReader::Status ImageReader::Next(Camera* camera,
     //////////////////////////////////////////////////////////////////////////////
     // Read camera model and check for consistency if it exists
     //////////////////////////////////////////////////////////////////////////////
+
     std::string camera_model;
     const bool valid_camera_model = bitmap->ExifCameraModel(&camera_model);
     if (camera_model_to_id_.count(camera_model) > 0) {
@@ -205,6 +226,16 @@ ImageReader::Status ImageReader::Next(Camera* camera,
         return Status::CAMERA_EXIST_DIM_ERROR;
       }
       prev_camera_ = std::move(camera);
+      if (std::optional<Rig> rig =
+              database_->ReadRigWithSensor(prev_camera_.SensorId());
+          rig.has_value()) {
+        prev_rig_ = std::move(rig.value());
+      } else {
+        // For backwards compatibility with old databases, we create a rig.
+        prev_rig_ = Rig();
+        prev_rig_.AddRefSensor(prev_camera_.SensorId());
+        prev_rig_.SetRigId(database_->WriteRig(prev_rig_));
+      }
     }
 
     //////////////////////////////////////////////////////////////////////////////
@@ -246,6 +277,16 @@ ImageReader::Status ImageReader::Next(Camera* camera,
       }
 
       prev_camera_.camera_id = database_->WriteCamera(prev_camera_);
+
+      // By default we create a separate rig per camera. Grouping of different
+      // cameras into the same rig is expected to be done with the
+      // "rig_configurator" after feature extraction.
+      if (!database_->ReadRigWithSensor(prev_camera_.SensorId()).has_value()) {
+        prev_rig_ = Rig();
+        prev_rig_.AddRefSensor(prev_camera_.SensorId());
+        prev_rig_.SetRigId(database_->WriteRig(prev_rig_));
+      }
+
       if (valid_camera_model) {
         camera_model_to_id_[camera_model] = prev_camera_.camera_id;
       }
@@ -267,6 +308,7 @@ ImageReader::Status ImageReader::Next(Camera* camera,
   }
 
   *camera = prev_camera_;
+  *rig = prev_rig_;
 
   image_folders_.insert(image_folder);
   prev_image_folder_ = image_folder;

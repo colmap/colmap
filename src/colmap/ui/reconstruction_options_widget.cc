@@ -32,136 +32,167 @@
 #include "colmap/controllers/incremental_pipeline.h"
 
 namespace colmap {
+namespace {
 
-MapperGeneralOptionsWidget::MapperGeneralOptionsWidget(QWidget* parent,
-                                                       OptionManager* options)
-    : OptionsWidget(parent) {
-  AddOptionBool(&options->mapper->multiple_models, "multiple_models");
-  AddOptionInt(&options->mapper->max_num_models, "max_num_models");
-  AddOptionInt(&options->mapper->max_model_overlap, "max_model_overlap");
-  AddOptionInt(&options->mapper->min_model_size, "min_model_size");
-  AddOptionBool(&options->mapper->extract_colors, "extract_colors");
-  AddOptionInt(&options->mapper->num_threads, "num_threads", -1);
-  AddOptionInt(&options->mapper->min_num_matches, "min_num_matches");
-  AddOptionBool(&options->mapper->ignore_watermarks, "ignore_watermarks");
-  AddOptionDirPath(&options->mapper->snapshot_path, "snapshot_path");
-  AddOptionInt(
-      &options->mapper->snapshot_images_freq, "snapshot_images_freq", 0);
-}
+class MapperGeneralOptionsWidget : public OptionsWidget {
+ public:
+  MapperGeneralOptionsWidget(QWidget* parent, OptionManager* options)
+      : OptionsWidget(parent) {
+    AddOptionBool(&options->mapper->multiple_models, "multiple_models");
+    AddOptionInt(&options->mapper->max_num_models, "max_num_models");
+    AddOptionInt(&options->mapper->max_model_overlap, "max_model_overlap");
+    AddOptionInt(&options->mapper->min_model_size, "min_model_size");
+    AddOptionBool(&options->mapper->extract_colors, "extract_colors");
+    AddOptionInt(&options->mapper->num_threads, "num_threads", -1);
+    AddOptionInt(&options->mapper->min_num_matches, "min_num_matches");
+    AddOptionBool(&options->mapper->ignore_watermarks, "ignore_watermarks");
+    AddOptionDirPath(&options->mapper->snapshot_path, "snapshot_path");
+    AddOptionInt(
+        &options->mapper->snapshot_frames_freq, "snapshot_frames_freq", 0);
+  }
+};
 
-MapperTriangulationOptionsWidget::MapperTriangulationOptionsWidget(
-    QWidget* parent, OptionManager* options)
-    : OptionsWidget(parent) {
-  AddOptionInt(&options->mapper->triangulation.max_transitivity,
-               "max_transitivity");
-  AddOptionDouble(&options->mapper->triangulation.create_max_angle_error,
-                  "create_max_angle_error [deg]");
-  AddOptionDouble(&options->mapper->triangulation.continue_max_angle_error,
-                  "continue_max_angle_error [deg]");
-  AddOptionDouble(&options->mapper->triangulation.merge_max_reproj_error,
-                  "merge_max_reproj_error [px]");
-  AddOptionDouble(&options->mapper->triangulation.re_max_angle_error,
-                  "re_max_angle_error [deg]");
-  AddOptionDouble(&options->mapper->triangulation.re_min_ratio, "re_min_ratio");
-  AddOptionInt(&options->mapper->triangulation.re_max_trials, "re_max_trials");
-  AddOptionDouble(&options->mapper->triangulation.complete_max_reproj_error,
-                  "complete_max_reproj_error [px]");
-  AddOptionInt(&options->mapper->triangulation.complete_max_transitivity,
-               "complete_max_transitivity");
-  AddOptionDouble(
-      &options->mapper->triangulation.min_angle, "min_angle [deg]", 0, 180);
-  AddOptionBool(&options->mapper->triangulation.ignore_two_view_tracks,
-                "ignore_two_view_tracks");
-}
+class MapperTriangulationOptionsWidget : public OptionsWidget {
+ public:
+  MapperTriangulationOptionsWidget(QWidget* parent, OptionManager* options)
+      : OptionsWidget(parent) {
+    AddOptionInt(&options->mapper->triangulation.max_transitivity,
+                 "max_transitivity");
+    AddOptionDouble(&options->mapper->triangulation.create_max_angle_error,
+                    "create_max_angle_error [deg]");
+    AddOptionDouble(&options->mapper->triangulation.continue_max_angle_error,
+                    "continue_max_angle_error [deg]");
+    AddOptionDouble(&options->mapper->triangulation.merge_max_reproj_error,
+                    "merge_max_reproj_error [px]");
+    AddOptionDouble(&options->mapper->triangulation.re_max_angle_error,
+                    "re_max_angle_error [deg]");
+    AddOptionDouble(&options->mapper->triangulation.re_min_ratio,
+                    "re_min_ratio");
+    AddOptionInt(&options->mapper->triangulation.re_max_trials,
+                 "re_max_trials");
+    AddOptionDouble(&options->mapper->triangulation.complete_max_reproj_error,
+                    "complete_max_reproj_error [px]");
+    AddOptionInt(&options->mapper->triangulation.complete_max_transitivity,
+                 "complete_max_transitivity");
+    AddOptionDouble(
+        &options->mapper->triangulation.min_angle, "min_angle [deg]", 0, 180);
+    AddOptionBool(&options->mapper->triangulation.ignore_two_view_tracks,
+                  "ignore_two_view_tracks");
+  }
+};
 
-MapperRegistrationOptionsWidget::MapperRegistrationOptionsWidget(
-    QWidget* parent, OptionManager* options)
-    : OptionsWidget(parent) {
-  AddOptionDouble(&options->mapper->mapper.abs_pose_max_error,
-                  "abs_pose_max_error [px]");
-  AddOptionInt(&options->mapper->mapper.abs_pose_min_num_inliers,
-               "abs_pose_min_num_inliers");
-  AddOptionDouble(&options->mapper->mapper.abs_pose_min_inlier_ratio,
-                  "abs_pose_min_inlier_ratio");
-  AddOptionInt(&options->mapper->mapper.max_reg_trials, "max_reg_trials", 1);
-}
+class MapperRegistrationOptionsWidget : public OptionsWidget {
+ public:
+  MapperRegistrationOptionsWidget(QWidget* parent, OptionManager* options)
+      : OptionsWidget(parent) {
+    AddOptionDouble(&options->mapper->mapper.abs_pose_max_error,
+                    "abs_pose_max_error [px]");
+    AddOptionInt(&options->mapper->mapper.abs_pose_min_num_inliers,
+                 "abs_pose_min_num_inliers");
+    AddOptionDouble(&options->mapper->mapper.abs_pose_min_inlier_ratio,
+                    "abs_pose_min_inlier_ratio");
+    AddOptionInt(&options->mapper->mapper.max_reg_trials, "max_reg_trials", 1);
+  }
+};
 
-MapperInitializationOptionsWidget::MapperInitializationOptionsWidget(
-    QWidget* parent, OptionManager* options)
-    : OptionsWidget(parent) {
-  AddOptionInt(&options->mapper->init_image_id1, "init_image_id1", -1);
-  AddOptionInt(&options->mapper->init_image_id2, "init_image_id2", -1);
-  AddOptionInt(&options->mapper->init_num_trials, "init_num_trials");
-  AddOptionInt(&options->mapper->mapper.init_min_num_inliers,
-               "init_min_num_inliers");
-  AddOptionDouble(&options->mapper->mapper.init_max_error, "init_max_error");
-  AddOptionDouble(&options->mapper->mapper.init_max_forward_motion,
-                  "init_max_forward_motion");
-  AddOptionDouble(&options->mapper->mapper.init_min_tri_angle,
-                  "init_min_tri_angle [deg]");
-  AddOptionInt(
-      &options->mapper->mapper.init_max_reg_trials, "init_max_reg_trials", 1);
-}
+class MapperInitializationOptionsWidget : public OptionsWidget {
+ public:
+  MapperInitializationOptionsWidget(QWidget* parent, OptionManager* options)
+      : OptionsWidget(parent) {
+    AddOptionInt(&options->mapper->init_image_id1, "init_image_id1", -1);
+    AddOptionInt(&options->mapper->init_image_id2, "init_image_id2", -1);
+    AddOptionInt(&options->mapper->init_num_trials, "init_num_trials");
+    AddOptionInt(&options->mapper->mapper.init_min_num_inliers,
+                 "init_min_num_inliers");
+    AddOptionDouble(&options->mapper->mapper.init_max_error, "init_max_error");
+    AddOptionDouble(&options->mapper->mapper.init_max_forward_motion,
+                    "init_max_forward_motion");
+    AddOptionDouble(&options->mapper->mapper.init_min_tri_angle,
+                    "init_min_tri_angle [deg]");
+    AddOptionInt(
+        &options->mapper->mapper.init_max_reg_trials, "init_max_reg_trials", 1);
+  }
+};
 
-MapperBundleAdjustmentOptionsWidget::MapperBundleAdjustmentOptionsWidget(
-    QWidget* parent, OptionManager* options)
-    : OptionsWidget(parent) {
-  AddSection("Camera parameters");
-  AddOptionBool(&options->mapper->ba_refine_focal_length,
-                "refine_focal_length");
-  AddOptionBool(&options->mapper->ba_refine_principal_point,
-                "refine_principal_point");
-  AddOptionBool(&options->mapper->ba_refine_extra_params,
-                "refine_extra_params");
+class MapperBundleAdjustmentOptionsWidget : public OptionsWidget {
+ public:
+  MapperBundleAdjustmentOptionsWidget(QWidget* parent, OptionManager* options)
+      : OptionsWidget(parent) {
+    AddSection("Rig/Camera parameters");
+    AddOptionBool(&options->mapper->ba_refine_focal_length,
+                  "refine_focal_length");
+    AddOptionBool(&options->mapper->ba_refine_principal_point,
+                  "refine_principal_point");
+    AddOptionBool(&options->mapper->ba_refine_extra_params,
+                  "refine_extra_params");
+    AddOptionBool(&options->mapper->ba_refine_sensor_from_rig,
+                  "refine_sensor_from_rig");
 
-  AddSpacer();
+    AddSpacer();
 
-  AddSection("Local Bundle Adjustment");
-  AddOptionInt(&options->mapper->ba_local_num_images, "num_images");
-  AddOptionInt(&options->mapper->ba_local_max_num_iterations,
-               "max_num_iterations");
-  AddOptionInt(
-      &options->mapper->ba_local_max_refinements, "max_refinements", 1);
-  AddOptionDouble(&options->mapper->ba_local_max_refinement_change,
-                  "max_refinement_change",
-                  0,
-                  1,
-                  1e-6,
-                  6);
+    AddSection("Local Bundle Adjustment");
+    AddOptionInt(&options->mapper->ba_local_num_images, "num_images");
+    AddOptionInt(&options->mapper->ba_local_max_num_iterations,
+                 "max_num_iterations");
+    AddOptionInt(
+        &options->mapper->ba_local_max_refinements, "max_refinements", 1);
+    AddOptionDouble(&options->mapper->ba_local_max_refinement_change,
+                    "max_refinement_change",
+                    0,
+                    1,
+                    1e-6,
+                    6);
 
-  AddSpacer();
+    AddSpacer();
 
-  AddSection("Global Bundle Adjustment");
-  AddOptionDouble(&options->mapper->ba_global_images_ratio, "images_ratio");
-  AddOptionInt(&options->mapper->ba_global_images_freq, "images_freq");
-  AddOptionDouble(&options->mapper->ba_global_points_ratio, "points_ratio");
-  AddOptionInt(&options->mapper->ba_global_points_freq, "points_freq");
-  AddOptionInt(&options->mapper->ba_global_max_num_iterations,
-               "max_num_iterations");
-  AddOptionInt(
-      &options->mapper->ba_global_max_refinements, "max_refinements", 1);
-  AddOptionDouble(&options->mapper->ba_global_max_refinement_change,
-                  "max_refinement_change",
-                  0,
-                  1,
-                  1e-6,
-                  6);
-}
+    AddSection("Global Bundle Adjustment");
+    AddOptionDouble(&options->mapper->ba_global_frames_ratio, "images_ratio");
+    AddOptionInt(&options->mapper->ba_global_frames_freq, "images_freq");
+    AddOptionDouble(&options->mapper->ba_global_points_ratio, "points_ratio");
+    AddOptionInt(&options->mapper->ba_global_points_freq, "points_freq");
+    AddOptionInt(&options->mapper->ba_global_max_num_iterations,
+                 "max_num_iterations");
+    AddOptionInt(
+        &options->mapper->ba_global_max_refinements, "max_refinements", 1);
+    AddOptionDouble(&options->mapper->ba_global_max_refinement_change,
+                    "max_refinement_change",
+                    0,
+                    1,
+                    1e-6,
+                    6);
+  }
+};
 
-MapperFilteringOptionsWidget::MapperFilteringOptionsWidget(
-    QWidget* parent, OptionManager* options)
-    : OptionsWidget(parent) {
-  AddOptionDouble(&options->mapper->min_focal_length_ratio,
-                  "min_focal_length_ratio");
-  AddOptionDouble(&options->mapper->max_focal_length_ratio,
-                  "max_focal_length_ratio");
-  AddOptionDouble(&options->mapper->max_extra_param, "max_extra_param");
+class MapperFilteringOptionsWidget : public OptionsWidget {
+ public:
+  MapperFilteringOptionsWidget(QWidget* parent, OptionManager* options)
+      : OptionsWidget(parent) {
+    AddOptionDouble(&options->mapper->min_focal_length_ratio,
+                    "min_focal_length_ratio");
+    AddOptionDouble(&options->mapper->max_focal_length_ratio,
+                    "max_focal_length_ratio");
+    AddOptionDouble(&options->mapper->max_extra_param, "max_extra_param");
 
-  AddOptionDouble(&options->mapper->mapper.filter_max_reproj_error,
-                  "filter_max_reproj_error [px]");
-  AddOptionDouble(&options->mapper->mapper.filter_min_tri_angle,
-                  "filter_min_tri_angle [deg]");
-}
+    AddOptionDouble(&options->mapper->mapper.filter_max_reproj_error,
+                    "filter_max_reproj_error [px]");
+    AddOptionDouble(&options->mapper->mapper.filter_min_tri_angle,
+                    "filter_min_tri_angle [deg]");
+  }
+};
+
+class MapperPriorsOptionsWidget : public OptionsWidget {
+ public:
+  MapperPriorsOptionsWidget(QWidget* parent, OptionManager* options)
+      : OptionsWidget(parent) {
+    AddOptionBool(&options->mapper->use_prior_position, "use_prior_position");
+    AddOptionBool(&options->mapper->use_robust_loss_on_prior_position,
+                  "use_robust_loss_on_prior_position");
+    AddOptionDouble(&options->mapper->prior_position_loss_scale,
+                    "prior_position_loss_scale");
+  }
+};
+
+}  // namespace
 
 ReconstructionOptionsWidget::ReconstructionOptionsWidget(QWidget* parent,
                                                          OptionManager* options)
@@ -186,6 +217,8 @@ ReconstructionOptionsWidget::ReconstructionOptionsWidget(QWidget* parent,
                      tr("Bundle"));
   tab_widget->addTab(new MapperFilteringOptionsWidget(this, options),
                      tr("Filter"));
+  tab_widget->addTab(new MapperPriorsOptionsWidget(this, options),
+                     tr("Priors"));
 
   grid->addWidget(tab_widget, 0, 0);
 }

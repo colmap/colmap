@@ -49,7 +49,7 @@ void WriteMatrix(const Eigen::MatrixBase<Derived>& matrix,
     for (index_t c = 0; c < matrix.cols() - 1; ++c) {
       *file << matrix(r, c) << " ";
     }
-    *file << matrix(r, matrix.cols() - 1) << std::endl;
+    *file << matrix(r, matrix.cols() - 1) << '\n';
   }
 }
 
@@ -73,7 +73,7 @@ void WriteProjectionMatrix(const std::string& path,
       calib_matrix * image.CamFromWorld().ToMatrix();
 
   if (!header.empty()) {
-    file << header << std::endl;
+    file << header << '\n';
   }
 
   WriteMatrix(img_from_world, &file);
@@ -87,69 +87,51 @@ void WriteCOLMAPCommands(const bool geometric,
                          const std::string& indent,
                          std::ofstream* file) {
   if (geometric) {
-    *file << indent << "$COLMAP_EXE_PATH/colmap patch_match_stereo \\"
-          << std::endl;
-    *file << indent << "  --workspace_path " << workspace_path << " \\"
-          << std::endl;
-    *file << indent << "  --workspace_format " << workspace_format << " \\"
-          << std::endl;
+    *file << indent << "$COLMAP_EXE_PATH/colmap patch_match_stereo \\\n";
+    *file << indent << "  --workspace_path " << workspace_path << " \\\n";
+    *file << indent << "  --workspace_format " << workspace_format << " \\\n";
     if (workspace_format == "PMVS") {
-      *file << indent << "  --pmvs_option_name " << pmvs_option_name << " \\"
-            << std::endl;
+      *file << indent << "  --pmvs_option_name " << pmvs_option_name << " \\\n";
     }
-    *file << indent << "  --PatchMatchStereo.max_image_size 2000 \\"
-          << std::endl;
-    *file << indent << "  --PatchMatchStereo.geom_consistency true"
-          << std::endl;
+    *file << indent << "  --PatchMatchStereo.max_image_size 2000 \\\n";
+    *file << indent << "  --PatchMatchStereo.geom_consistency true\n";
   } else {
-    *file << indent << "$COLMAP_EXE_PATH/colmap patch_match_stereo \\"
-          << std::endl;
-    *file << indent << "  --workspace_path " << workspace_path << " \\"
-          << std::endl;
-    *file << indent << "  --workspace_format " << workspace_format << " \\"
-          << std::endl;
+    *file << indent << "$COLMAP_EXE_PATH/colmap patch_match_stereo \\\n";
+    *file << indent << "  --workspace_path " << workspace_path << " \\\n";
+    *file << indent << "  --workspace_format " << workspace_format << " \\\n";
     if (workspace_format == "PMVS") {
-      *file << indent << "  --pmvs_option_name " << pmvs_option_name << " \\"
-            << std::endl;
+      *file << indent << "  --pmvs_option_name " << pmvs_option_name << " \\\n";
     }
-    *file << indent << "  --PatchMatchStereo.max_image_size 2000 \\"
-          << std::endl;
-    *file << indent << "  --PatchMatchStereo.geom_consistency false"
-          << std::endl;
+    *file << indent << "  --PatchMatchStereo.max_image_size 2000 \\\n";
+    *file << indent << "  --PatchMatchStereo.geom_consistency false\n";
   }
 
-  *file << indent << "$COLMAP_EXE_PATH/colmap stereo_fusion \\" << std::endl;
-  *file << indent << "  --workspace_path " << workspace_path << " \\"
-        << std::endl;
-  *file << indent << "  --workspace_format " << workspace_format << " \\"
-        << std::endl;
+  *file << indent << "$COLMAP_EXE_PATH/colmap stereo_fusion \\\n";
+  *file << indent << "  --workspace_path " << workspace_path << " \\\n";
+  *file << indent << "  --workspace_format " << workspace_format << " \\\n";
   if (workspace_format == "PMVS") {
-    *file << indent << "  --pmvs_option_name " << pmvs_option_name << " \\"
-          << std::endl;
+    *file << indent << "  --pmvs_option_name " << pmvs_option_name << " \\\n";
   }
   if (geometric) {
-    *file << indent << "  --input_type geometric \\" << std::endl;
+    *file << indent << "  --input_type geometric \\\n";
   } else {
-    *file << indent << "  --input_type photometric \\" << std::endl;
+    *file << indent << "  --input_type photometric \\\n";
   }
   *file << indent << "  --output_path "
-        << JoinPaths(workspace_path, output_prefix + "fused.ply") << std::endl;
+        << JoinPaths(workspace_path, output_prefix + "fused.ply\n");
 
-  *file << indent << "$COLMAP_EXE_PATH/colmap poisson_mesher \\" << std::endl;
+  *file << indent << "$COLMAP_EXE_PATH/colmap poisson_mesher \\\n";
   *file << indent << "  --input_path "
-        << JoinPaths(workspace_path, output_prefix + "fused.ply") << " \\"
-        << std::endl;
+        << JoinPaths(workspace_path, output_prefix + "fused.ply") << " \\\n";
   *file << indent << "  --output_path "
-        << JoinPaths(workspace_path, output_prefix + "meshed-poisson.ply")
-        << std::endl;
+        << JoinPaths(workspace_path, output_prefix + "meshed-poisson.ply\n");
 
-  *file << indent << "$COLMAP_EXE_PATH/colmap delaunay_mesher \\" << std::endl;
+  *file << indent << "$COLMAP_EXE_PATH/colmap delaunay_mesher \\\n";
   *file << indent << "  --input_path "
-        << JoinPaths(workspace_path, output_prefix) << " \\" << std::endl;
-  *file << indent << "  --input_type dense \\" << std::endl;
+        << JoinPaths(workspace_path, output_prefix) << " \\\n";
+  *file << indent << "  --input_type dense \\\n";
   *file << indent << "  --output_path "
-        << JoinPaths(workspace_path, output_prefix + "meshed-delaunay.ply")
-        << std::endl;
+        << JoinPaths(workspace_path, output_prefix + "meshed-delaunay.ply\n");
 }
 
 }  // namespace
@@ -278,8 +260,8 @@ void COLMAPUndistorter::WritePatchMatchConfig() const {
   std::ofstream file(path, std::ios::trunc);
   THROW_CHECK_FILE_OPEN(file, path);
   for (const auto& image_name : image_names_) {
-    file << image_name << std::endl;
-    file << "__auto__, " << num_patch_match_src_images_ << std::endl;
+    file << image_name << '\n';
+    file << "__auto__, " << num_patch_match_src_images_ << '\n';
   }
 }
 
@@ -288,7 +270,7 @@ void COLMAPUndistorter::WriteFusionConfig() const {
   std::ofstream file(path, std::ios::trunc);
   THROW_CHECK_FILE_OPEN(file, path);
   for (const auto& image_name : image_names_) {
-    file << image_name << std::endl;
+    file << image_name << '\n';
   }
 }
 
@@ -299,8 +281,8 @@ void COLMAPUndistorter::WriteScript(const bool geometric) const {
   std::ofstream file(path, std::ios::trunc);
   THROW_CHECK_FILE_OPEN(file, path);
 
-  file << "# You must set $COLMAP_EXE_PATH to " << std::endl
-       << "# the directory containing the COLMAP executables." << std::endl;
+  file << "# You must set $COLMAP_EXE_PATH to \n"
+       << "# the directory containing the COLMAP executables.\n";
   WriteCOLMAPCommands(geometric, ".", "COLMAP", "option-all", "", "", &file);
 }
 
@@ -405,8 +387,8 @@ void PMVSUndistorter::WriteVisibilityData() const {
   std::ofstream file(path, std::ios::trunc);
   THROW_CHECK_FILE_OPEN(file, path);
 
-  file << "VISDATA" << std::endl;
-  file << reconstruction_.NumRegImages() << std::endl;
+  file << "VISDATA\n";
+  file << reconstruction_.NumRegImages() << '\n';
 
   size_t image_idx = 0;
   for (const image_t image_id : reconstruction_.RegImageIds()) {
@@ -433,7 +415,7 @@ void PMVSUndistorter::WriteVisibilityData() const {
     for (const image_t visible_image_id : sorted_visible_image_ids) {
       file << " " << visible_image_id;
     }
-    file << std::endl;
+    file << '\n';
   }
 }
 
@@ -442,9 +424,9 @@ void PMVSUndistorter::WritePMVSScript() const {
   std::ofstream file(path, std::ios::trunc);
   THROW_CHECK_FILE_OPEN(file, path);
 
-  file << "# You must set $PMVS_EXE_PATH to " << std::endl
-       << "# the directory containing the CMVS-PMVS executables." << std::endl;
-  file << "$PMVS_EXE_PATH/pmvs2 pmvs/ option-all" << std::endl;
+  file << "# You must set $PMVS_EXE_PATH to \n"
+       << "# the directory containing the CMVS-PMVS executables.\n";
+  file << "$PMVS_EXE_PATH/pmvs2 pmvs/ option-all\n";
 }
 
 void PMVSUndistorter::WriteCMVSPMVSScript() const {
@@ -452,19 +434,18 @@ void PMVSUndistorter::WriteCMVSPMVSScript() const {
   std::ofstream file(path, std::ios::trunc);
   THROW_CHECK_FILE_OPEN(file, path);
 
-  file << "# You must set $PMVS_EXE_PATH to " << std::endl
-       << "# the directory containing the CMVS-PMVS executables." << std::endl;
-  file << "$PMVS_EXE_PATH/cmvs pmvs/" << std::endl;
-  file << "$PMVS_EXE_PATH/genOption pmvs/" << std::endl;
-  file << "find pmvs/ -iname \"option-*\" | sort | while read file_name"
-       << std::endl;
-  file << "do" << std::endl;
-  file << "    option_name=$(basename \"$file_name\")" << std::endl;
-  file << "    if [ \"$option_name\" = \"option-all\" ]; then" << std::endl;
-  file << "        continue" << std::endl;
-  file << "    fi" << std::endl;
-  file << "    $PMVS_EXE_PATH/pmvs2 pmvs/ $option_name" << std::endl;
-  file << "done" << std::endl;
+  file << "# You must set $PMVS_EXE_PATH to \n"
+       << "# the directory containing the CMVS-PMVS executables.\n";
+  file << "$PMVS_EXE_PATH/cmvs pmvs/\n";
+  file << "$PMVS_EXE_PATH/genOption pmvs/\n";
+  file << "find pmvs/ -iname \"option-*\" | sort | while read file_name\n";
+  file << "do\n";
+  file << "    option_name=$(basename \"$file_name\")\n";
+  file << "    if [ \"$option_name\" = \"option-all\" ]; then\n";
+  file << "        continue\n";
+  file << "    fi\n";
+  file << "    $PMVS_EXE_PATH/pmvs2 pmvs/ $option_name\n";
+  file << "done\n";
 }
 
 void PMVSUndistorter::WriteCOLMAPScript(const bool geometric) const {
@@ -474,8 +455,8 @@ void PMVSUndistorter::WriteCOLMAPScript(const bool geometric) const {
   std::ofstream file(path, std::ios::trunc);
   THROW_CHECK_FILE_OPEN(file, path);
 
-  file << "# You must set $COLMAP_EXE_PATH to " << std::endl
-       << "# the directory containing the COLMAP executables." << std::endl;
+  file << "# You must set $COLMAP_EXE_PATH to \n"
+       << "# the directory containing the COLMAP executables.\n";
   WriteCOLMAPCommands(
       geometric, "pmvs", "PMVS", "option-all", "option-all-", "", &file);
 }
@@ -488,21 +469,20 @@ void PMVSUndistorter::WriteCMVSCOLMAPScript(const bool geometric) const {
   std::ofstream file(path, std::ios::trunc);
   THROW_CHECK_FILE_OPEN(file, path);
 
-  file << "# You must set $PMVS_EXE_PATH to " << std::endl
-       << "# the directory containing the CMVS-PMVS executables" << std::endl;
-  file << "# and you must set $COLMAP_EXE_PATH to " << std::endl
-       << "# the directory containing the COLMAP executables." << std::endl;
-  file << "$PMVS_EXE_PATH/cmvs pmvs/" << std::endl;
-  file << "$PMVS_EXE_PATH/genOption pmvs/" << std::endl;
-  file << "find pmvs/ -iname \"option-*\" | sort | while read file_name"
-       << std::endl;
-  file << "do" << std::endl;
-  file << "    workspace_path=$(dirname \"$file_name\")" << std::endl;
-  file << "    option_name=$(basename \"$file_name\")" << std::endl;
-  file << "    if [ \"$option_name\" = \"option-all\" ]; then" << std::endl;
-  file << "        continue" << std::endl;
-  file << "    fi" << std::endl;
-  file << "    rm -rf \"$workspace_path/stereo\"" << std::endl;
+  file << "# You must set $PMVS_EXE_PATH to \n"
+       << "# the directory containing the CMVS-PMVS executables\n";
+  file << "# and you must set $COLMAP_EXE_PATH to \n"
+       << "# the directory containing the COLMAP executables.\n";
+  file << "$PMVS_EXE_PATH/cmvs pmvs/\n";
+  file << "$PMVS_EXE_PATH/genOption pmvs/\n";
+  file << "find pmvs/ -iname \"option-*\" | sort | while read file_name\n";
+  file << "do\n";
+  file << "    workspace_path=$(dirname \"$file_name\")\n";
+  file << "    option_name=$(basename \"$file_name\")\n";
+  file << "    if [ \"$option_name\" = \"option-all\" ]; then\n";
+  file << "        continue\n";
+  file << "    fi\n";
+  file << "    rm -rf \"$workspace_path/stereo\"\n";
   WriteCOLMAPCommands(geometric,
                       "pmvs",
                       "PMVS",
@@ -510,7 +490,7 @@ void PMVSUndistorter::WriteCMVSCOLMAPScript(const bool geometric) const {
                       "$option_name-",
                       "    ",
                       &file);
-  file << "done" << std::endl;
+  file << "done\n";
 }
 
 void PMVSUndistorter::WriteOptionFile() const {
@@ -518,28 +498,28 @@ void PMVSUndistorter::WriteOptionFile() const {
   std::ofstream file(path, std::ios::trunc);
   THROW_CHECK_FILE_OPEN(file, path);
 
-  file << "# Generated by COLMAP - all images, no clustering." << std::endl;
+  file << "# Generated by COLMAP - all images, no clustering.\n";
 
-  file << "level 1" << std::endl;
-  file << "csize 2" << std::endl;
-  file << "threshold 0.7" << std::endl;
-  file << "wsize 7" << std::endl;
-  file << "minImageNum 3" << std::endl;
-  file << "CPU " << std::thread::hardware_concurrency() << std::endl;
-  file << "setEdge 0" << std::endl;
-  file << "useBound 0" << std::endl;
-  file << "useVisData 1" << std::endl;
-  file << "sequence -1" << std::endl;
-  file << "maxAngle 10" << std::endl;
-  file << "quad 2.0" << std::endl;
+  file << "level 1\n";
+  file << "csize 2\n";
+  file << "threshold 0.7\n";
+  file << "wsize 7\n";
+  file << "minImageNum 3\n";
+  file << "CPU " << std::thread::hardware_concurrency() << '\n';
+  file << "setEdge 0\n";
+  file << "useBound 0\n";
+  file << "useVisData 1\n";
+  file << "sequence -1\n";
+  file << "maxAngle 10\n";
+  file << "quad 2.0\n";
 
   file << "timages " << reconstruction_.NumRegImages();
   for (size_t i = 0; i < reconstruction_.NumRegImages(); ++i) {
     file << " " << i;
   }
-  file << std::endl;
+  file << '\n';
 
-  file << "oimages 0" << std::endl;
+  file << "oimages 0\n";
 }
 
 CMPMVSUndistorter::CMPMVSUndistorter(const UndistortCameraOptions& options,
@@ -839,7 +819,7 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
                                           static_cast<double>(roi_min_y));
   }
 
-  // Scale the image such the the boundary of the undistorted image.
+  // Scale in order to match the boundary of the undistorted image.
   if (roi_enabled || (camera.model_id != SimplePinholeCameraModel::model_id &&
                       camera.model_id != PinholeCameraModel::model_id)) {
     // Determine min/max coordinates along top / bottom image border.

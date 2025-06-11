@@ -29,6 +29,7 @@
 
 #include "colmap/retrieval/visual_index.h"
 
+#include "colmap/math/random.h"
 #include "colmap/util/file.h"
 #include "colmap/util/testing.h"
 
@@ -38,66 +39,87 @@ namespace colmap {
 namespace retrieval {
 namespace {
 
-template <typename kDescType, int kDescDim, int kEmbeddingDim>
-void TestVocabTreeType() {
-  typedef VisualIndex<kDescType, kDescDim, kEmbeddingDim> VisualIndexType;
+class ParameterizedVisualIndexTests
+    : public ::testing::TestWithParam<
+          std::pair</*embedding_dim=*/int, /*embedding_dim=*/int>> {};
+
+TEST_P(ParameterizedVisualIndexTests, Nominal) {
+  const auto [desc_dim, embedding_dim] = GetParam();
 
   SetPRNGSeed(0);
 
   {
-    VisualIndexType visual_index;
-    EXPECT_EQ(visual_index.NumVisualWords(), 0);
+    auto visual_index = VisualIndex::Create(desc_dim, embedding_dim);
+    EXPECT_EQ(visual_index->NumVisualWords(), 0);
   }
 
+  VisualIndex::BuildOptions build_options;
+  // Keep test runtimes low.
+  build_options.num_iterations = 10;
+  build_options.num_rounds = 1;
+
   {
-    typename VisualIndexType::DescType descriptors =
-        VisualIndexType::DescType::Random(50, kDescDim);
-    VisualIndexType visual_index;
-    EXPECT_EQ(visual_index.NumVisualWords(), 0);
-    typename VisualIndexType::BuildOptions build_options;
+    VisualIndex::Descriptors descriptors =
+        VisualIndex::Descriptors::Random(200, desc_dim);
+    auto visual_index = VisualIndex::Create(desc_dim, embedding_dim);
+    EXPECT_EQ(visual_index->NumVisualWords(), 0);
+    EXPECT_EQ(visual_index->NumImages(), 0);
+    EXPECT_EQ(visual_index->DescDim(), desc_dim);
+    EXPECT_EQ(visual_index->EmbeddingDim(), embedding_dim);
     build_options.num_visual_words = 5;
-    build_options.branching = 5;
-    visual_index.Build(build_options, descriptors);
-    EXPECT_EQ(visual_index.NumVisualWords(), 5);
+    visual_index->Build(build_options, descriptors);
+    EXPECT_EQ(visual_index->NumVisualWords(), 5);
   }
 
   {
-    typename VisualIndexType::DescType descriptors =
-        VisualIndexType::DescType::Random(1000, kDescDim);
-    VisualIndexType visual_index;
-    EXPECT_EQ(visual_index.NumVisualWords(), 0);
-    typename VisualIndexType::BuildOptions build_options;
+    VisualIndex::Descriptors descriptors =
+        VisualIndex::Descriptors::Random(4096, desc_dim);
+    auto visual_index = VisualIndex::Create(desc_dim, embedding_dim);
+    EXPECT_EQ(visual_index->NumVisualWords(), 0);
+    EXPECT_EQ(visual_index->NumImages(), 0);
+    build_options.num_visual_words = 512;
+    visual_index->Build(build_options, descriptors);
+    EXPECT_EQ(visual_index->NumVisualWords(), 512);
+  }
+
+  {
+    VisualIndex::Descriptors descriptors =
+        VisualIndex::Descriptors::Random(1000, desc_dim);
+    auto visual_index = VisualIndex::Create(desc_dim, embedding_dim);
+    EXPECT_EQ(visual_index->NumVisualWords(), 0);
+    EXPECT_EQ(visual_index->NumImages(), 0);
     build_options.num_visual_words = 100;
-    build_options.branching = 10;
-    visual_index.Build(build_options, descriptors);
-    EXPECT_EQ(visual_index.NumVisualWords(), 100);
+    visual_index->Build(build_options, descriptors);
+    EXPECT_EQ(visual_index->NumVisualWords(), 100);
 
-    typename VisualIndexType::IndexOptions index_options;
-    typename VisualIndexType::GeomType keypoints1(50);
-    typename VisualIndexType::DescType descriptors1 =
-        VisualIndexType::DescType::Random(50, kDescDim);
-    visual_index.Add(index_options, 1, keypoints1, descriptors1);
-    typename VisualIndexType::GeomType keypoints2(50);
-    typename VisualIndexType::DescType descriptors2 =
-        VisualIndexType::DescType::Random(50, kDescDim);
-    visual_index.Add(index_options, 2, keypoints2, descriptors2);
-    visual_index.Prepare();
+    VisualIndex::IndexOptions index_options;
+    VisualIndex::Geometries keypoints1(50);
+    VisualIndex::Descriptors descriptors1 =
+        VisualIndex::Descriptors::Random(50, desc_dim);
+    visual_index->Add(index_options, 1, keypoints1, descriptors1);
+    EXPECT_EQ(visual_index->NumImages(), 1);
+    VisualIndex::Geometries keypoints2(50);
+    VisualIndex::Descriptors descriptors2 =
+        VisualIndex::Descriptors::Random(50, desc_dim);
+    visual_index->Add(index_options, 2, keypoints2, descriptors2);
+    EXPECT_EQ(visual_index->NumImages(), 2);
+    visual_index->Prepare();
 
-    typename VisualIndexType::QueryOptions query_options;
+    VisualIndex::QueryOptions query_options;
     std::vector<ImageScore> image_scores;
-    visual_index.Query(query_options, descriptors1, &image_scores);
+    visual_index->Query(query_options, descriptors1, &image_scores);
     EXPECT_EQ(image_scores.size(), 2);
     EXPECT_EQ(image_scores[0].image_id, 1);
     EXPECT_EQ(image_scores[1].image_id, 2);
     EXPECT_GT(image_scores[0].score, image_scores[1].score);
 
     query_options.max_num_images = 1;
-    visual_index.Query(query_options, descriptors1, &image_scores);
+    visual_index->Query(query_options, descriptors1, &image_scores);
     EXPECT_EQ(image_scores.size(), 1);
     EXPECT_EQ(image_scores[0].image_id, 1);
 
     query_options.max_num_images = 3;
-    visual_index.Query(query_options, descriptors1, &image_scores);
+    visual_index->Query(query_options, descriptors1, &image_scores);
     EXPECT_EQ(image_scores.size(), 2);
     EXPECT_EQ(image_scores[0].image_id, 1);
     EXPECT_EQ(image_scores[1].image_id, 2);
@@ -105,35 +127,54 @@ void TestVocabTreeType() {
   }
 }
 
-TEST(VisualIndex, uint8_t_128_64) {
-  // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
-  TestVocabTreeType<uint8_t, 128, 64>();
+TEST_P(ParameterizedVisualIndexTests, ReadWrite) {
+  const auto [desc_dim, embedding_dim] = GetParam();
+  const std::string test_dir = CreateTestDir();
+  const std::string vocab_tree_path = test_dir + "/vocab_tree.bin";
+
+  VisualIndex::BuildOptions build_options;
+  // Keep test runtimes low.
+  build_options.num_iterations = 10;
+  build_options.num_rounds = 1;
+
+  VisualIndex::Descriptors descriptors =
+      VisualIndex::Descriptors::Random(200, desc_dim);
+  auto visual_index = VisualIndex::Create(desc_dim, embedding_dim);
+  EXPECT_EQ(visual_index->NumVisualWords(), 0);
+  EXPECT_EQ(visual_index->DescDim(), desc_dim);
+  EXPECT_EQ(visual_index->EmbeddingDim(), embedding_dim);
+  build_options.num_visual_words = 5;
+  visual_index->Build(build_options, descriptors);
+  EXPECT_EQ(visual_index->NumVisualWords(), 5);
+
+  VisualIndex::IndexOptions index_options;
+  VisualIndex::Geometries keypoints1(50);
+  VisualIndex::Descriptors descriptors1 =
+      VisualIndex::Descriptors::Random(50, desc_dim);
+  visual_index->Add(index_options, 1, keypoints1, descriptors1);
+  VisualIndex::Geometries keypoints2(50);
+  VisualIndex::Descriptors descriptors2 =
+      VisualIndex::Descriptors::Random(50, desc_dim);
+  visual_index->Add(index_options, 2, keypoints2, descriptors2);
+
+  EXPECT_EQ(visual_index->NumImages(), 2);
+
+  visual_index->Write(vocab_tree_path);
+  auto read_visual_index = VisualIndex::Read(vocab_tree_path);
+  EXPECT_EQ(visual_index->NumVisualWords(),
+            read_visual_index->NumVisualWords());
+  EXPECT_EQ(visual_index->NumImages(), read_visual_index->NumImages());
+  EXPECT_EQ(visual_index->DescDim(), read_visual_index->DescDim());
+  EXPECT_EQ(visual_index->EmbeddingDim(), read_visual_index->EmbeddingDim());
+  EXPECT_TRUE(visual_index->IsImageIndexed(1));
+  EXPECT_TRUE(visual_index->IsImageIndexed(2));
+  EXPECT_FALSE(visual_index->IsImageIndexed(3));
 }
 
-TEST(VisualIndex, uint8_t_64_64) {
-  // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
-  TestVocabTreeType<uint8_t, 64, 64>();
-}
-
-TEST(VisualIndex, uint8_t_32_16) {
-  // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
-  TestVocabTreeType<uint8_t, 32, 16>();
-}
-
-TEST(VisualIndex, int_32_16) {
-  // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
-  TestVocabTreeType<int, 32, 16>();
-}
-
-TEST(VisualIndex, float_32_16) {
-  // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
-  TestVocabTreeType<float, 32, 16>();
-}
-
-TEST(VisualIndex, double_32_16) {
-  // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
-  TestVocabTreeType<double, 32, 16>();
-}
+INSTANTIATE_TEST_SUITE_P(VisualIndexTests,
+                         ParameterizedVisualIndexTests,
+                         ::testing::Values(std::make_pair(128, 64),
+                                           std::make_pair(32, 8)));
 
 #ifdef COLMAP_DOWNLOAD_ENABLED
 
@@ -142,28 +183,24 @@ TEST(VisualIndex, Download) {
   const std::string vocab_tree_path = test_dir + "/server_vocab_tree.bin";
   OverwriteDownloadCacheDir(test_dir);
 
-  typedef VisualIndex<uint8_t, 16, 8> VisualIndexType;
-  typename VisualIndexType::DescType descriptors =
-      VisualIndexType::DescType::Random(50, 16);
-  VisualIndexType visual_index;
-  typename VisualIndexType::BuildOptions build_options;
+  VisualIndex::Descriptors descriptors =
+      VisualIndex::Descriptors::Random(50, 32);
+  auto visual_index = VisualIndex::Create(32, 8);
+  VisualIndex::BuildOptions build_options;
   build_options.num_visual_words = 5;
-  build_options.branching = 5;
   // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
-  visual_index.Build(build_options, descriptors);
-  visual_index.Write(vocab_tree_path);
+  visual_index->Build(build_options, descriptors);
+  visual_index->Write(vocab_tree_path);
 
-  VisualIndexType downloaded_visual_index;
   std::vector<char> vocab_tree_data;
   ReadBinaryBlob(vocab_tree_path, &vocab_tree_data);
   const std::string vocab_tree_uri =
       "file://" + std::filesystem::absolute(vocab_tree_path).string() +
       ";vocab_tree.bin;" +
       ComputeSHA256({vocab_tree_data.data(), vocab_tree_data.size()});
-  downloaded_visual_index.Read(vocab_tree_uri);
-
-  EXPECT_EQ(downloaded_visual_index.NumVisualWords(),
-            visual_index.NumVisualWords());
+  auto downloaded_visual_index = VisualIndex::Read(vocab_tree_uri);
+  EXPECT_EQ(downloaded_visual_index->NumVisualWords(),
+            visual_index->NumVisualWords());
 }
 
 #endif

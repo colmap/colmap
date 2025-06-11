@@ -346,6 +346,7 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
   if (num_inlier_matches == 0) {
     return false;
   }
+
   std::vector<Eigen::Vector2d> inlier_cam_points1(num_inlier_matches);
   std::vector<Eigen::Vector2d> inlier_cam_points2(num_inlier_matches);
   for (size_t i = 0; i < num_inlier_matches; ++i) {

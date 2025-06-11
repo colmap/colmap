@@ -43,28 +43,39 @@ void GenerateReconstruction(const image_t num_images,
   Camera camera = Camera::CreateFromModelName(1, "PINHOLE", 1, 1, 1);
   reconstruction.AddCamera(camera);
 
+  Rig rig;
+  rig.SetRigId(1);
+  rig.AddRefSensor(camera.SensorId());
+  reconstruction.AddRig(rig);
+
   for (image_t image_id = 1; image_id <= num_images; ++image_id) {
+    Frame frame;
+    frame.SetFrameId(image_id);
+    frame.SetRigId(rig.RigId());
+    frame.AddDataId(data_t(camera.SensorId(), image_id));
+    frame.SetRigFromWorld(Rigid3d());
+    reconstruction.AddFrame(frame);
     Image image;
     image.SetImageId(image_id);
     image.SetCameraId(camera.camera_id);
+    image.SetFrameId(frame.FrameId());
     image.SetName("image" + std::to_string(image_id));
     image.SetPoints2D(
         std::vector<Eigen::Vector2d>(kNumPoints2D, Eigen::Vector2d::Zero()));
-    image.SetCamFromWorld(Rigid3d());
     reconstruction.AddImage(image);
   }
 }
 
-TEST(Reconstruction, Print) {
+TEST(ObservationManager, Print) {
   Reconstruction reconstruction;
   GenerateReconstruction(2, reconstruction);
   ObservationManager obs_manager(reconstruction);
   std::ostringstream stream;
   stream << obs_manager;
   EXPECT_EQ(stream.str(),
-            "ObservationManager(reconstruction=Reconstruction(num_cameras=1, "
-            "num_images=2, num_reg_images=2, num_points3D=0), "
-            "correspondence_graph=null)");
+            "ObservationManager(reconstruction=Reconstruction(num_rigs=1, "
+            "num_cameras=1, num_frames=2, num_reg_frames=2, num_images=2, "
+            "num_points3D=0), correspondence_graph=null)");
 }
 
 TEST(ObservationManager, FilterPoints3D) {
@@ -199,7 +210,7 @@ TEST(ObservationManager, FilterObservationsWithNegativeDepth) {
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
 }
 
-TEST(ObservationManager, FilterImages) {
+TEST(ObservationManager, FilterFrames) {
   Reconstruction reconstruction;
   GenerateReconstruction(4, reconstruction);
   ObservationManager obs_manager(reconstruction);
@@ -208,13 +219,19 @@ TEST(ObservationManager, FilterImages) {
   reconstruction.AddObservation(point3D_id1, TrackElement(1, 0));
   reconstruction.AddObservation(point3D_id1, TrackElement(2, 0));
   reconstruction.AddObservation(point3D_id1, TrackElement(3, 0));
-  obs_manager.FilterImages(0.0, 10.0, 1.0);
-  EXPECT_EQ(reconstruction.NumRegImages(), 3);
+  obs_manager.FilterFrames(/*min_focal_length_ratio=*/0.0,
+                           /*max_focal_length_ratio=*/10.0,
+                           /*max_extra_param=*/1.0);
+  EXPECT_EQ(reconstruction.NumRegFrames(), 3);
   reconstruction.DeleteObservation(3, 0);
-  obs_manager.FilterImages(0.0, 10.0, 1.0);
-  EXPECT_EQ(reconstruction.NumRegImages(), 2);
-  obs_manager.FilterImages(0.0, 0.9, 1.0);
-  EXPECT_EQ(reconstruction.NumRegImages(), 0);
+  obs_manager.FilterFrames(/*min_focal_length_ratio=*/0.0,
+                           /*max_focal_length_ratio=*/10.0,
+                           /*max_extra_param=*/1.0);
+  EXPECT_EQ(reconstruction.NumRegFrames(), 2);
+  obs_manager.FilterFrames(/*min_focal_length_ratio=*/0.0,
+                           /*max_focal_length_ratio=*/0.9,
+                           /*max_extra_param=*/1.0);
+  EXPECT_EQ(reconstruction.NumRegFrames(), 0);
 }
 
 TEST(ObservationManager, NumVisiblePoints3D) {
@@ -228,9 +245,18 @@ TEST(ObservationManager, NumVisiblePoints3D) {
                                                   /*width=*/10,
                                                   /*height=*/10);
   reconstruction.AddCamera(camera);
+  Rig rig;
+  rig.SetRigId(1);
+  rig.AddRefSensor(camera.SensorId());
+  reconstruction.AddRig(rig);
+  Frame frame;
+  frame.SetFrameId(1);
+  frame.SetRigId(rig.RigId());
+  reconstruction.AddFrame(frame);
   Image image;
   image.SetImageId(kImageId1);
   image.SetCameraId(kCameraId);
+  image.SetFrameId(frame.FrameId());
   image.SetPoints2D(std::vector<Eigen::Vector2d>(10));
   reconstruction.AddImage(image);
   image.SetImageId(kImageId2);
@@ -274,9 +300,18 @@ TEST(ObservationManager, Point3DVisibilityScore) {
                                                   /*width=*/4,
                                                   /*height=*/4);
   reconstruction.AddCamera(camera);
+  Rig rig;
+  rig.SetRigId(1);
+  rig.AddRefSensor(camera.SensorId());
+  reconstruction.AddRig(rig);
+  Frame frame;
+  frame.SetFrameId(1);
+  frame.SetRigId(rig.RigId());
+  reconstruction.AddFrame(frame);
   Image image;
   image.SetImageId(kImageId1);
   image.SetCameraId(kCameraId);
+  image.SetFrameId(frame.FrameId());
   std::vector<Eigen::Vector2d> points2D;
   for (size_t i = 0; i < 4; ++i) {
     for (size_t j = 0; j < 4; ++j) {

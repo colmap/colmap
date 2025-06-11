@@ -76,8 +76,8 @@ Eigen::Vector3d TransformLatLonAltToModelCoords(const Sim3d& tform,
   // altitude at the end, after scaling, to set it as the z coordinate in the
   // ENU frame.
   Eigen::Vector3d xyz =
-      tform * GPSTransform(GPSTransform::WGS84)
-                  .EllToXYZ({Eigen::Vector3d(lat, lon, 0.0)})[0];
+      tform * GPSTransform(GPSTransform::Ellipsoid::WGS84)
+                  .EllipsoidToECEF({Eigen::Vector3d(lat, lon, 0.0)})[0];
   xyz(2) = tform.scale * alt;
   return xyz;
 }
@@ -95,8 +95,8 @@ void WriteBoundingBox(const std::string& reconstruction_path,
 
     // Ensure that we don't lose any precision by storing in text.
     file.precision(17);
-    file << bbox.min().transpose() << "\n";
-    file << bbox.max().transpose() << "\n";
+    file << bbox.min().transpose() << '\n';
+    file << bbox.max().transpose() << '\n';
   }
   // write oriented bounding box
   {
@@ -110,7 +110,7 @@ void WriteBoundingBox(const std::string& reconstruction_path,
     const Eigen::Vector3d center = (bbox.min() + bbox.max()) * 0.5;
     file << center.transpose() << "\n\n";
     file << "1 0 0\n0 1 0\n0 0 1\n\n";
-    file << extent.transpose() << "\n";
+    file << extent.transpose() << '\n';
   }
 }
 
@@ -119,15 +119,15 @@ std::vector<Eigen::Vector3d> ConvertCameraLocations(
     const std::string& alignment_type,
     const std::vector<Eigen::Vector3d>& ref_locations) {
   if (ref_is_gps) {
-    const GPSTransform gps_transform(GPSTransform::WGS84);
+    const GPSTransform gps_transform(GPSTransform::Ellipsoid::WGS84);
     if (alignment_type != "enu") {
       LOG(INFO) << "Converting Alignment Coordinates from GPS (lat/lon/alt) "
                    "to ECEF.";
-      return gps_transform.EllToXYZ(ref_locations);
+      return gps_transform.EllipsoidToECEF(ref_locations);
     } else {
       LOG(INFO) << "Converting Alignment Coordinates from GPS (lat/lon/alt) "
                    "to ENU.";
-      return gps_transform.EllToENU(
+      return gps_transform.EllipsoidToENU(
           ref_locations, ref_locations[0](0), ref_locations[0](1));
     }
   } else {
@@ -188,7 +188,7 @@ void WriteComparisonErrorsCSV(const std::string& path,
   file << "# <rotation error (deg)>, <proj center error>\n";
   for (size_t i = 0; i < errors.size(); ++i) {
     file << errors[i].rotation_error_deg << ", " << errors[i].proj_center_error
-         << "\n";
+         << '\n';
   }
 }
 
@@ -198,12 +198,12 @@ void PrintErrorStats(std::ostream& out, std::vector<double>& vals) {
     out << "Cannot extract error statistics from empty input\n";
     return;
   }
-  out << "Min:    " << Percentile(vals, 0) << "\n";
-  out << "Max:    " << Percentile(vals, 100) << "\n";
-  out << "Mean:   " << Mean(vals) << "\n";
-  out << "Median: " << Median(vals) << "\n";
-  out << "P90:    " << Percentile(vals, 90) << "\n";
-  out << "P99:    " << Percentile(vals, 99) << "\n";
+  out << "Min:    " << Percentile(vals, 0) << '\n';
+  out << "Max:    " << Percentile(vals, 100) << '\n';
+  out << "Mean:   " << Mean(vals) << '\n';
+  out << "Median: " << Median(vals) << '\n';
+  out << "P90:    " << Percentile(vals, 90) << '\n';
+  out << "P99:    " << Percentile(vals, 99) << '\n';
 }
 
 void PrintComparisonSummary(std::ostream& out,
@@ -407,7 +407,7 @@ int RunModelAligner(int argc, char** argv) {
             1.0, Eigen::Quaterniond::Identity(), trans_align);
 
         LOG(INFO) << "\n Aligning reconstruction's origin with ref origin: "
-                  << first_img_position.transpose() << "\n";
+                  << first_img_position.transpose() << '\n';
 
         reconstruction.Transform(origin_align);
 
@@ -441,7 +441,11 @@ int RunModelAnalyzer(int argc, char** argv) {
   Reconstruction reconstruction;
   reconstruction.Read(path);
 
+  LOG(INFO) << StringPrintf("Rigs: %d", reconstruction.NumRigs());
   LOG(INFO) << StringPrintf("Cameras: %d", reconstruction.NumCameras());
+  LOG(INFO) << StringPrintf("Frames: %d", reconstruction.NumFrames());
+  LOG(INFO) << StringPrintf("Registered frames: %d",
+                            reconstruction.NumRegFrames());
   LOG(INFO) << StringPrintf("Images: %d", reconstruction.NumImages());
   LOG(INFO) << StringPrintf("Registered images: %d",
                             reconstruction.NumRegImages());
@@ -540,10 +544,12 @@ bool CompareModels(const Reconstruction& reconstruction1,
                    std::vector<ImageAlignmentError>& errors,
                    Sim3d& rec2_from_rec1) {
   PrintHeading1("Reconstruction 1");
+  LOG(INFO) << StringPrintf("Frames: %d", reconstruction1.NumRegFrames());
   LOG(INFO) << StringPrintf("Images: %d", reconstruction1.NumRegImages());
   LOG(INFO) << StringPrintf("Points: %d", reconstruction1.NumPoints3D());
 
   PrintHeading1("Reconstruction 2");
+  LOG(INFO) << StringPrintf("Frames: %d", reconstruction2.NumRegFrames());
   LOG(INFO) << StringPrintf("Images: %d", reconstruction2.NumRegImages());
   LOG(INFO) << StringPrintf("Points: %d", reconstruction2.NumPoints3D());
 
@@ -576,8 +582,7 @@ bool CompareModels(const Reconstruction& reconstruction1,
     return false;
   }
 
-  LOG(INFO) << "Computed alignment transform:" << std::endl
-            << rec2_from_rec1.ToMatrix();
+  LOG(INFO) << "Computed alignment transform:\n" << rec2_from_rec1.ToMatrix();
 
   errors = ComputeImageAlignmentError(
       reconstruction1, reconstruction2, rec2_from_rec1);

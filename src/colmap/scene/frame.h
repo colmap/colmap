@@ -30,89 +30,91 @@
 #pragma once
 
 #include "colmap/geometry/rigid3.h"
-#include "colmap/sensor/rig_calib.h"
+#include "colmap/sensor/rig.h"
 #include "colmap/util/types.h"
 
 #include <cstdint>
-#include <functional>
-#include <map>
 #include <memory>
 #include <optional>
 #include <set>
-#include <tuple>
-#include <vector>
 
 namespace colmap {
 
-struct data_t {
-  // Unique identifer of the sensor
-  sensor_t sensor_id;
-  // Unique identifier of the data (measurement)
-  // This can be image_t / imu_measurement_t (not supported yet)
-  uint32_t id;
-  constexpr data_t(const sensor_t& sensor_id, uint32_t id)
-      : sensor_id(sensor_id), id(id) {}
-
-  inline bool operator<(const data_t& other) const {
-    return std::tie(sensor_id, id) < std::tie(other.sensor_id, other.id);
-  }
-  inline bool operator==(const data_t& other) const {
-    return sensor_id == other.sensor_id && id == other.id;
-  }
-  inline bool operator!=(const data_t& other) const {
-    return !(*this == other);
-  }
-};
-constexpr data_t kInvalidDataId =
-    data_t(kInvalidSensorId, std::numeric_limits<uint32_t>::max());
-
+// Frames represent (posed) instantiations of rigs with associated measurements
+// for the different sensors. The captured sensor measurements are defined by
+// the list of data ids.
 class Frame {
  public:
-  Frame() = default;
-
-  // Access the unique identifier of the frame
+  // Access the unique identifier of the frame.
   inline frame_t FrameId() const;
   inline void SetFrameId(frame_t frame_id);
 
-  // Access data ids
+  // Access the frame's associated data.
   inline std::set<data_t>& DataIds();
   inline const std::set<data_t>& DataIds() const;
-  inline void AddData(data_t data_id);
+  inline void AddDataId(data_t data_id);
 
-  // Check whether the data id is existent in the frame
-  inline bool HasData(data_t data_id) const;
+  // Check whether the data is associated with the frame.
+  inline bool HasDataId(data_t data_id) const;
 
-  // Access the rig calibration
-  inline const std::shared_ptr<class RigCalib>& RigCalib() const;
-  inline void SetRigCalib(std::shared_ptr<class RigCalib> rig_calib);
-  // Check if the frame has a non-trivial rig calibration
-  inline bool HasRigCalib() const;
+  // Access the unique identifier of the rig. Note that multiple frames
+  // might share the same rig.
+  inline rig_t RigId() const;
+  inline void SetRigId(rig_t rig_id);
+  inline bool HasRigId() const;
 
-  // Access the frame from world transformation
-  inline const Rigid3d& FrameFromWorld() const;
-  inline Rigid3d& FrameFromWorld();
-  inline const std::optional<Rigid3d>& MaybeFrameFromWorld() const;
-  inline std::optional<Rigid3d>& MaybeFrameFromWorld();
-  inline void SetFrameFromWorld(const Rigid3d& frame_from_world);
-  inline void SetFrameFromWorld(const std::optional<Rigid3d>& frame_from_world);
+  // Access to the underlying, shared rig object.
+  // This is typically only set when the frame was added to a reconstruction.
+  inline class Rig* RigPtr() const;
+  inline void SetRigPtr(class Rig* rig);
+  inline void ResetRigPtr();
+  // Check if the frame has a non-trivial rig.
+  inline bool HasRigPtr() const;
+
+  // Access the rig from world transformation.
+  inline const Rigid3d& RigFromWorld() const;
+  inline Rigid3d& RigFromWorld();
+  inline const std::optional<Rigid3d>& MaybeRigFromWorld() const;
+  inline std::optional<Rigid3d>& MaybeRigFromWorld();
+  inline void SetRigFromWorld(const Rigid3d& rig_from_world);
+  inline void SetRigFromWorld(const std::optional<Rigid3d>& rig_from_world);
   inline bool HasPose() const;
   inline void ResetPose();
 
-  // Get the sensor from world transformation
+  // Get the sensor from world transformation.
   inline Rigid3d SensorFromWorld(sensor_t sensor_id) const;
+
+  // Set the world to frame from the given camera to world transformation.
+  void SetCamFromWorld(camera_t camera_id, const Rigid3d& cam_from_world);
+
+  // Convenience method with view into all image data identifiers.
+  inline auto ImageIds() const {
+    return filter_view(
+        [](const data_t& data_id) {
+          return data_id.sensor_id.type == SensorType::CAMERA;
+        },
+        data_ids_.begin(),
+        data_ids_.end());
+  }
+
+  inline bool operator==(const Frame& other) const;
+  inline bool operator!=(const Frame& other) const;
 
  private:
   frame_t frame_id_ = kInvalidFrameId;
   std::set<data_t> data_ids_;
 
-  // Store the frame_from_world transformation and an optional rig calibration.
+  // Store the rig_from_world transformation and an optional rig calibration.
   // If the rig calibration is a nullptr, the frame becomes a single sensor
   // case, where rig modeling is no longer needed.
-  std::optional<Rigid3d> frame_from_world_;
+  std::optional<Rigid3d> rig_from_world_;
 
-  // [Optional] Rig calibration
-  std::shared_ptr<class RigCalib> rig_calib_ = nullptr;
+  // Rig calibration.
+  rig_t rig_id_ = kInvalidRigId;
+  class Rig* rig_ptr_ = nullptr;
 };
+
+std::ostream& operator<<(std::ostream& stream, const Frame& frame);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
@@ -126,79 +128,69 @@ std::set<data_t>& Frame::DataIds() { return data_ids_; }
 
 const std::set<data_t>& Frame::DataIds() const { return data_ids_; }
 
-void Frame::AddData(data_t data_id) { data_ids_.insert(data_id); }
+void Frame::AddDataId(data_t data_id) { data_ids_.insert(data_id); }
 
-bool Frame::HasData(data_t data_id) const {
+bool Frame::HasDataId(data_t data_id) const {
   return data_ids_.find(data_id) != data_ids_.end();
 }
 
-const std::shared_ptr<class RigCalib>& Frame::RigCalib() const {
-  return rig_calib_;
+rig_t Frame::RigId() const { return rig_id_; }
+
+void Frame::SetRigId(rig_t rig_id) { rig_id_ = rig_id; }
+
+bool Frame::HasRigId() const { return rig_id_ != kInvalidRigId; }
+
+Rig* Frame::RigPtr() const { return THROW_CHECK_NOTNULL(rig_ptr_); }
+
+void Frame::SetRigPtr(class Rig* rig) { rig_ptr_ = rig; }
+
+void Frame::ResetRigPtr() { rig_ptr_ = nullptr; }
+
+bool Frame::HasRigPtr() const { return rig_ptr_ != nullptr; }
+
+const Rigid3d& Frame::RigFromWorld() const {
+  THROW_CHECK(rig_from_world_) << "Frame does not have a valid pose.";
+  return *rig_from_world_;
 }
 
-void Frame::SetRigCalib(std::shared_ptr<class RigCalib> rig_calib) {
-  rig_calib_ = std::move(rig_calib);
+Rigid3d& Frame::RigFromWorld() {
+  THROW_CHECK(rig_from_world_) << "Frame does not have a valid pose.";
+  return *rig_from_world_;
 }
 
-bool Frame::HasRigCalib() const {
-  if (!rig_calib_)
-    return false;
-  else
-    return rig_calib_->NumSensors() > 1;
+const std::optional<Rigid3d>& Frame::MaybeRigFromWorld() const {
+  return rig_from_world_;
 }
 
-const Rigid3d& Frame::FrameFromWorld() const {
-  THROW_CHECK(frame_from_world_) << "Frame does not have a valid pose.";
-  return *frame_from_world_;
+std::optional<Rigid3d>& Frame::MaybeRigFromWorld() { return rig_from_world_; }
+
+void Frame::SetRigFromWorld(const Rigid3d& rig_from_world) {
+  rig_from_world_ = rig_from_world;
 }
 
-Rigid3d& Frame::FrameFromWorld() {
-  THROW_CHECK(frame_from_world_) << "Frame does not have a valid pose.";
-  return *frame_from_world_;
+void Frame::SetRigFromWorld(const std::optional<Rigid3d>& rig_from_world) {
+  rig_from_world_ = rig_from_world;
 }
 
-const std::optional<Rigid3d>& Frame::MaybeFrameFromWorld() const {
-  return frame_from_world_;
-}
+bool Frame::HasPose() const { return rig_from_world_.has_value(); }
 
-std::optional<Rigid3d>& Frame::MaybeFrameFromWorld() {
-  return frame_from_world_;
-}
-
-void Frame::SetFrameFromWorld(const Rigid3d& frame_from_world) {
-  frame_from_world_ = frame_from_world;
-}
-
-void Frame::SetFrameFromWorld(const std::optional<Rigid3d>& frame_from_world) {
-  frame_from_world_ = frame_from_world;
-}
-
-bool Frame::HasPose() const { return frame_from_world_.has_value(); }
-
-void Frame::ResetPose() { frame_from_world_.reset(); }
+void Frame::ResetPose() { rig_from_world_.reset(); }
 
 Rigid3d Frame::SensorFromWorld(sensor_t sensor_id) const {
-  if (!HasRigCalib() || rig_calib_->IsRefSensor(sensor_id)) {
-    return FrameFromWorld();
+  THROW_CHECK_NOTNULL(rig_ptr_);
+  if (rig_ptr_->IsRefSensor(sensor_id)) {
+    return RigFromWorld();
+  } else {
+    return rig_ptr_->SensorFromRig(sensor_id) * RigFromWorld();
   }
-  THROW_CHECK(rig_calib_->HasSensor(sensor_id));
-  return rig_calib_->SensorFromRig(sensor_id) * FrameFromWorld();
 }
 
+bool Frame::operator==(const Frame& other) const {
+  return frame_id_ == other.frame_id_ && rig_id_ == other.rig_id_ &&
+         data_ids_ == other.data_ids_ &&
+         rig_from_world_ == other.rig_from_world_;
+}
+
+bool Frame::operator!=(const Frame& other) const { return !(*this == other); }
+
 }  // namespace colmap
-
-namespace std {
-
-// [Reference]
-// https://stackoverflow.com/questions/26705751/why-is-the-magic-number-in-boosthash-combine-specified-in-hex
-template <>
-struct hash<colmap::data_t> {
-  std::size_t operator()(const colmap::data_t& d) const noexcept {
-    size_t h1 =
-        std::hash<uint64_t>{}(std::hash<colmap::sensor_t>{}(d.sensor_id));
-    size_t h2 = std::hash<uint64_t>{}(d.id);
-    return h1 ^ (h2 + 0x9e3779b9 + (h1 << 6) + (h1 >> 2));
-  }
-};
-
-}  // namespace std

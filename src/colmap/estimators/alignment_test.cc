@@ -58,8 +58,9 @@ void ExpectEqualSim3d(const Sim3d& gt_tgt_from_src, const Sim3d& tgt_from_src) {
 Reconstruction GenerateReconstructionForAlignment() {
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
-  synthetic_dataset_options.num_cameras = 2;
-  synthetic_dataset_options.num_images = 20;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 10;
   synthetic_dataset_options.num_points3D = 50;
   synthetic_dataset_options.point2D_stddev = 0;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
@@ -177,20 +178,20 @@ TEST(Alignment, MergeReconstructions) {
   // Synthesize a reconstruction which has at least two cameras
   Reconstruction src_reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
-  synthetic_dataset_options.num_cameras = 2;
-  synthetic_dataset_options.num_images = 20;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 10;
   synthetic_dataset_options.num_points3D = 50;
   synthetic_dataset_options.point2D_stddev = 0;
   SynthesizeDataset(synthetic_dataset_options, &src_reconstruction);
   Reconstruction tgt_reconstruction = src_reconstruction;
 
-  // Remove the camera of the first image from the target reconstruction
-  const std::set<image_t> image_ids = tgt_reconstruction.RegImageIds();
-  const camera_t camera_id =
-      tgt_reconstruction.Image(*image_ids.begin()).CameraId();
-  for (const auto& image_id : image_ids) {
-    if (tgt_reconstruction.Image(image_id).CameraId() == camera_id) {
-      tgt_reconstruction.DeRegisterImage(image_id);
+  // Remove the rig of the first image from the target reconstruction.
+  const std::vector<frame_t> frame_ids = tgt_reconstruction.RegFrameIds();
+  const rig_t rig_id = tgt_reconstruction.Frame(*frame_ids.begin()).RigId();
+  for (const auto& frame_id : frame_ids) {
+    if (tgt_reconstruction.Frame(frame_id).RigId() == rig_id) {
+      tgt_reconstruction.DeRegisterFrame(frame_id);
     }
   }
   tgt_reconstruction.TearDown();

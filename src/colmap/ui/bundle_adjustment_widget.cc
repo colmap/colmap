@@ -74,8 +74,10 @@ BundleAdjustmentWidget::BundleAdjustmentWidget(MainWindow* main_window,
                 "refine_principal_point");
   AddOptionBool(&options->bundle_adjustment->refine_extra_params,
                 "refine_extra_params");
-  AddOptionBool(&options->bundle_adjustment->refine_extrinsics,
-                "refine_extrinsics");
+  AddOptionBool(&options->bundle_adjustment->refine_rig_from_world,
+                "refine_rig_from_world");
+  AddOptionBool(&options->bundle_adjustment->refine_sensor_from_rig,
+                "refine_sensor_from_rig");
 
   QPushButton* run_button = new QPushButton(tr("Run"), this);
   grid_layout_->addWidget(run_button, grid_layout_->rowCount(), 1);

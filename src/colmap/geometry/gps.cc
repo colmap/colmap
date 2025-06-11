@@ -94,14 +94,14 @@ struct UTMParams {
 };
 }  // namespace
 
-GPSTransform::GPSTransform(const int ellipsoid) {
+GPSTransform::GPSTransform(const Ellipsoid ellipsoid) {
   switch (ellipsoid) {
-    case GRS80:
+    case Ellipsoid::GRS80:
       a_ = 6378137.0;
       f_ = 1.0 / 298.257222100882711243162837;  // More accurate GRS80 ellipsoid
       b_ = (1.0 - f_) * a_;
       break;
-    case WGS84:
+    case Ellipsoid::WGS84:
       a_ = 6378137.0;
       f_ = 1.0 / 298.257223563;  // The WGS84 ellipsoid
       b_ = (1.0 - f_) * a_;
@@ -115,14 +115,14 @@ GPSTransform::GPSTransform(const int ellipsoid) {
   e2_ = f_ * (2.0 - f_);
 }
 
-std::vector<Eigen::Vector3d> GPSTransform::EllToXYZ(
-    const std::vector<Eigen::Vector3d>& ell) const {
-  std::vector<Eigen::Vector3d> xyz(ell.size());
+std::vector<Eigen::Vector3d> GPSTransform::EllipsoidToECEF(
+    const std::vector<Eigen::Vector3d>& lat_lon_alt) const {
+  std::vector<Eigen::Vector3d> xyz_in_ecef(lat_lon_alt.size());
 
-  for (size_t i = 0; i < ell.size(); ++i) {
-    const double lat = DegToRad(ell[i](0));
-    const double lon = DegToRad(ell[i](1));
-    const double alt = ell[i](2);
+  for (size_t i = 0; i < lat_lon_alt.size(); ++i) {
+    const double lat = DegToRad(lat_lon_alt[i](0));
+    const double lon = DegToRad(lat_lon_alt[i](1));
+    const double alt = lat_lon_alt[i](2);
 
     const double sin_lat = std::sin(lat);
     const double sin_lon = std::sin(lon);
@@ -132,22 +132,22 @@ std::vector<Eigen::Vector3d> GPSTransform::EllToXYZ(
     // Normalized radius
     const double N = a_ / std::sqrt(1 - e2_ * sin_lat * sin_lat);
 
-    xyz[i](0) = (N + alt) * cos_lat * cos_lon;
-    xyz[i](1) = (N + alt) * cos_lat * sin_lon;
-    xyz[i](2) = (N * (1 - e2_) + alt) * sin_lat;
+    xyz_in_ecef[i](0) = (N + alt) * cos_lat * cos_lon;
+    xyz_in_ecef[i](1) = (N + alt) * cos_lat * sin_lon;
+    xyz_in_ecef[i](2) = (N * (1 - e2_) + alt) * sin_lat;
   }
 
-  return xyz;
+  return xyz_in_ecef;
 }
 
-std::vector<Eigen::Vector3d> GPSTransform::XYZToEll(
-    const std::vector<Eigen::Vector3d>& xyz) const {
-  std::vector<Eigen::Vector3d> ell(xyz.size());
+std::vector<Eigen::Vector3d> GPSTransform::ECEFToEllipsoid(
+    const std::vector<Eigen::Vector3d>& xyz_in_ecef) const {
+  std::vector<Eigen::Vector3d> lat_lon_alt(xyz_in_ecef.size());
 
-  for (size_t i = 0; i < ell.size(); ++i) {
-    const double x = xyz[i](0);
-    const double y = xyz[i](1);
-    const double z = xyz[i](2);
+  for (size_t i = 0; i < lat_lon_alt.size(); ++i) {
+    const double x = xyz_in_ecef[i](0);
+    const double y = xyz_in_ecef[i](1);
+    const double z = xyz_in_ecef[i](2);
 
     const double radius_xy = std::sqrt(x * x + y * y);
     const double kEps = 1e-12;
@@ -157,8 +157,8 @@ std::vector<Eigen::Vector3d> GPSTransform::XYZToEll(
     double alt = 0.0;
 
     for (size_t j = 0; j < 100; ++j) {
-      const double sin_lat0 = std::sin(lat);
-      const double N = a_ / std::sqrt(1 - e2_ * sin_lat0 * sin_lat0);
+      const double sin_lat = std::sin(lat);
+      const double N = a_ / std::sqrt(1 - e2_ * sin_lat * sin_lat);
       const double prev_alt = alt;
       alt = radius_xy / std::cos(lat) - N;
       const double prev_lat = lat;
@@ -169,97 +169,97 @@ std::vector<Eigen::Vector3d> GPSTransform::XYZToEll(
       }
     }
 
-    ell[i](0) = RadToDeg(lat);
+    lat_lon_alt[i](0) = RadToDeg(lat);
 
     // Longitude
-    ell[i](1) = RadToDeg(std::atan2(y, x));
+    lat_lon_alt[i](1) = RadToDeg(std::atan2(y, x));
     // Alt
-    ell[i](2) = alt;
+    lat_lon_alt[i](2) = alt;
   }
 
-  return ell;
+  return lat_lon_alt;
 }
 
-std::vector<Eigen::Vector3d> GPSTransform::EllToENU(
-    const std::vector<Eigen::Vector3d>& ell,
-    const double lat0,
-    const double lon0) const {
+std::vector<Eigen::Vector3d> GPSTransform::EllipsoidToENU(
+    const std::vector<Eigen::Vector3d>& lat_lon_alt,
+    const double ref_lat,
+    const double ref_lon) const {
   // Convert GPS (lat / lon / alt) to ECEF
-  std::vector<Eigen::Vector3d> xyz = EllToXYZ(ell);
+  std::vector<Eigen::Vector3d> xyz_in_ecef = EllipsoidToECEF(lat_lon_alt);
 
-  return XYZToENU(xyz, lat0, lon0);
+  return ECEFToENU(xyz_in_ecef, ref_lat, ref_lon);
 }
 
-std::vector<Eigen::Vector3d> GPSTransform::XYZToENU(
-    const std::vector<Eigen::Vector3d>& xyz,
-    const double lat0,
-    const double lon0) const {
-  std::vector<Eigen::Vector3d> enu(xyz.size());
+std::vector<Eigen::Vector3d> GPSTransform::ECEFToENU(
+    const std::vector<Eigen::Vector3d>& xyz_in_ecef,
+    const double ref_lat,
+    const double ref_lon) const {
+  std::vector<Eigen::Vector3d> xyz_in_enu(xyz_in_ecef.size());
 
   // https://en.wikipedia.org/wiki/Geographic_coordinate_conversion#From_ECEF_to_ENU
 
   // ECEF to ENU Rot :
-  const double cos_lat0 = std::cos(DegToRad(lat0));
-  const double sin_lat0 = std::sin(DegToRad(lat0));
+  const double cos_lat = std::cos(DegToRad(ref_lat));
+  const double sin_lat = std::sin(DegToRad(ref_lat));
 
-  const double cos_lon0 = std::cos(DegToRad(lon0));
-  const double sin_lon0 = std::sin(DegToRad(lon0));
+  const double cos_lon = std::cos(DegToRad(ref_lon));
+  const double sin_lon = std::sin(DegToRad(ref_lon));
 
   Eigen::Matrix3d R;
-  R << -sin_lon0, cos_lon0, 0., -sin_lat0 * cos_lon0, -sin_lat0 * sin_lon0,
-      cos_lat0, cos_lat0 * cos_lon0, cos_lat0 * sin_lon0, sin_lat0;
+  R << -sin_lon, cos_lon, 0., -sin_lat * cos_lon, -sin_lat * sin_lon, cos_lat,
+      cos_lat * cos_lon, cos_lat * sin_lon, sin_lat;
 
-  // Convert ECEF to ENU coords. (w.r.t. ECEF ref == xyz[0])
-  for (size_t i = 0; i < xyz.size(); ++i) {
-    enu[i] = R * (xyz[i] - xyz[0]);
+  // Convert ECEF to ENU coords. (w.r.t. ECEF ref == xyz_in_ecef[0])
+  for (size_t i = 0; i < xyz_in_ecef.size(); ++i) {
+    xyz_in_enu[i] = R * (xyz_in_ecef[i] - xyz_in_ecef[0]);
   }
 
-  return enu;
+  return xyz_in_enu;
 }
 
-std::vector<Eigen::Vector3d> GPSTransform::ENUToEll(
-    const std::vector<Eigen::Vector3d>& enu,
-    const double lat0,
-    const double lon0,
-    const double alt0) const {
-  return XYZToEll(ENUToXYZ(enu, lat0, lon0, alt0));
+std::vector<Eigen::Vector3d> GPSTransform::ENUToEllipsoid(
+    const std::vector<Eigen::Vector3d>& xyz_in_enu,
+    const double ref_lat,
+    const double ref_lon,
+    const double ref_alt) const {
+  return ECEFToEllipsoid(ENUToECEF(xyz_in_enu, ref_lat, ref_lon, ref_alt));
 }
 
-std::vector<Eigen::Vector3d> GPSTransform::ENUToXYZ(
-    const std::vector<Eigen::Vector3d>& enu,
-    const double lat0,
-    const double lon0,
-    const double alt0) const {
-  std::vector<Eigen::Vector3d> xyz(enu.size());
+std::vector<Eigen::Vector3d> GPSTransform::ENUToECEF(
+    const std::vector<Eigen::Vector3d>& xyz_in_enu,
+    const double ref_lat,
+    const double ref_lon,
+    const double ref_alt) const {
+  std::vector<Eigen::Vector3d> xyz_in_ecef(xyz_in_enu.size());
 
   // ECEF ref (origin)
-  const Eigen::Vector3d xyz_ref =
-      EllToXYZ({Eigen::Vector3d(lat0, lon0, alt0)})[0];
+  const Eigen::Vector3d ref_xyz_in_ecef =
+      EllipsoidToECEF({Eigen::Vector3d(ref_lat, ref_lon, ref_alt)})[0];
 
   // ENU to ECEF Rot :
-  const double cos_lat0 = std::cos(DegToRad(lat0));
-  const double sin_lat0 = std::sin(DegToRad(lat0));
+  const double cos_lat = std::cos(DegToRad(ref_lat));
+  const double sin_lat = std::sin(DegToRad(ref_lat));
 
-  const double cos_lon0 = std::cos(DegToRad(lon0));
-  const double sin_lon0 = std::sin(DegToRad(lon0));
+  const double cos_lon = std::cos(DegToRad(ref_lon));
+  const double sin_lon = std::sin(DegToRad(ref_lon));
 
   Eigen::Matrix3d R;
-  R << -sin_lon0, cos_lon0, 0., -sin_lat0 * cos_lon0, -sin_lat0 * sin_lon0,
-      cos_lat0, cos_lat0 * cos_lon0, cos_lat0 * sin_lon0, sin_lat0;
+  R << -sin_lon, cos_lon, 0., -sin_lat * cos_lon, -sin_lat * sin_lon, cos_lat,
+      cos_lat * cos_lon, cos_lat * sin_lon, sin_lat;
 
   // R is ECEF to ENU so Transpose to get inverse
   R.transposeInPlace();
 
   // Convert ENU to ECEF coords.
-  for (size_t i = 0; i < enu.size(); ++i) {
-    xyz[i] = (R * enu[i]) + xyz_ref;
+  for (size_t i = 0; i < xyz_in_enu.size(); ++i) {
+    xyz_in_ecef[i] = (R * xyz_in_enu[i]) + ref_xyz_in_ecef;
   }
 
-  return xyz;
+  return xyz_in_ecef;
 }
 
-std::pair<std::vector<Eigen::Vector3d>, int> GPSTransform::EllToUTM(
-    const std::vector<Eigen::Vector3d>& ell) const {
+std::pair<std::vector<Eigen::Vector3d>, int> GPSTransform::EllipsoidToUTM(
+    const std::vector<Eigen::Vector3d>& lat_lon_alt) const {
   // The following implementation is based on the formulas from:
   // https://en.wikipedia.org/wiki/Universal_Transverse_Mercator_coordinate_system
 
@@ -268,7 +268,7 @@ std::pair<std::vector<Eigen::Vector3d>, int> GPSTransform::EllToUTM(
   // For cases where points span different zones, we select the predominant zone
   // as the reference frame.
   std::array<int, 60> zone_counts{};
-  for (const Eigen::Vector3d& lla : ell) {
+  for (const Eigen::Vector3d& lla : lat_lon_alt) {
     THROW_CHECK_GE(lla[0], -90);
     THROW_CHECK_LE(lla[0], 90);
     THROW_CHECK_GE(lla[1], -180);
@@ -286,10 +286,10 @@ std::pair<std::vector<Eigen::Vector3d>, int> GPSTransform::EllToUTM(
   const double lambda0 = DegToRad(UTMParams::ZoneToCentralMeridian(zone));
 
   // Converts lla to utm
-  std::vector<Eigen::Vector3d> utm;
-  utm.reserve(ell.size());
+  std::vector<Eigen::Vector3d> xyz_in_utm;
+  xyz_in_utm.reserve(lat_lon_alt.size());
 
-  for (const Eigen::Vector3d& lla : ell) {
+  for (const Eigen::Vector3d& lla : lat_lon_alt) {
     const double phi = DegToRad(lla[0]);
     const double lambda = DegToRad(lla[1]);
 
@@ -313,14 +313,17 @@ std::pair<std::vector<Eigen::Vector3d>, int> GPSTransform::EllToUTM(
     E = params.E0 + params.k0 * params.A * E;
     N = params.N0(lla[0]) + params.k0 * params.A * N;
 
-    utm.emplace_back(E * 1000, N * 1000, lla[2]);  // converts back to meters
+    xyz_in_utm.emplace_back(
+        E * 1000, N * 1000, lla[2]);  // converts back to meters
   }
 
-  return std::make_pair(std::move(utm), zone);
+  return std::make_pair(std::move(xyz_in_utm), zone);
 }
 
-std::vector<Eigen::Vector3d> GPSTransform::UTMToEll(
-    const std::vector<Eigen::Vector3d>& utm, int zone, bool is_north) const {
+std::vector<Eigen::Vector3d> GPSTransform::UTMToEllipsoid(
+    const std::vector<Eigen::Vector3d>& xyz_in_utm,
+    int zone,
+    bool is_north) const {
   // The following implementation is based on the formulas from:
   // https://en.wikipedia.org/wiki/Universal_Transverse_Mercator_coordinate_system
 
@@ -331,10 +334,10 @@ std::vector<Eigen::Vector3d> GPSTransform::UTMToEll(
   const UTMParams params(a_ / 1000.0, f_);  // converts to kilometers
 
   // Converts utm to ell
-  std::vector<Eigen::Vector3d> ell;
-  ell.reserve(utm.size());
+  std::vector<Eigen::Vector3d> lat_lon_alt;
+  lat_lon_alt.reserve(xyz_in_utm.size());
 
-  for (const Eigen::Vector3d& ena : utm) {
+  for (const Eigen::Vector3d& ena : xyz_in_utm) {
     const double xi =
         (ena[1] / 1000.0 - params.N0(is_north)) / (params.k0 * params.A);
     const double eta = (ena[0] / 1000.0 - params.E0) / (params.k0 * params.A);
@@ -362,10 +365,10 @@ std::vector<Eigen::Vector3d> GPSTransform::UTMToEll(
         UTMParams::ZoneToCentralMeridian(zone) +
         RadToDeg(std::atan(std::sinh(eta_prime) / std::cos(xi_prime)));
 
-    ell.emplace_back(lat, lon, ena[2]);
+    lat_lon_alt.emplace_back(lat, lon, ena[2]);
   }
 
-  return ell;
+  return lat_lon_alt;
 }
 
 }  // namespace colmap

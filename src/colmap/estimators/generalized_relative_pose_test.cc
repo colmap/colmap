@@ -31,174 +31,171 @@
 
 #include "colmap/geometry/pose.h"
 #include "colmap/geometry/rigid3.h"
-#include "colmap/optim/loransac.h"
+#include "colmap/geometry/rigid3_matchers.h"
+#include "colmap/optim/ransac.h"
+#include "colmap/util/eigen_alignment.h"
 
 #include <array>
+#include <tuple>
 
 #include <gtest/gtest.h>
 
 namespace colmap {
 namespace {
 
-TEST(GR6PEstimator, Nominal) {
-  const size_t kNumPoints = 100;
+struct GeneralizedRelativePoseProblem {
+  std::vector<GRNPObservation> points1;
+  std::vector<GRNPObservation> points2;
+  Rigid3d rig2_from_rig1;
+};
+
+GeneralizedRelativePoseProblem CreateGeneralizedRelativePoseProblem(
+    int num_points,
+    int num_cameras1,
+    int num_cameras2,
+    bool panoramic1,
+    bool panoramic2) {
+  GeneralizedRelativePoseProblem problem;
+
+  const std::array<Rigid3d, 2> rigs_from_world = {
+      Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random()),
+      Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random())};
+
+  problem.rig2_from_rig1 = rigs_from_world[1] * Inverse(rigs_from_world[0]);
+
+  std::vector<Rigid3d> cams_from_rig1(num_cameras1);
+  for (int i = 0; i < num_cameras1; ++i) {
+    const Eigen::Quaterniond cam1_from_rig_rotation =
+        Eigen::Quaterniond::UnitRandom();
+    cams_from_rig1[i] =
+        Rigid3d(cam1_from_rig_rotation,
+                panoramic1 ? cam1_from_rig_rotation * Eigen::Vector3d(1, 2, 3)
+                           : Eigen::Vector3d(Eigen::Vector3d::Random()));
+  }
+
+  std::vector<Rigid3d> cams_from_rig2(num_cameras2);
+  for (int i = 0; i < num_cameras2; ++i) {
+    const Eigen::Quaterniond cam2_from_rig_rotation =
+        Eigen::Quaterniond::UnitRandom();
+    cams_from_rig2[i] = Rigid3d(
+        cam2_from_rig_rotation,
+        panoramic2 ? cam2_from_rig_rotation * Eigen::Vector3d(-3, -2, -1)
+                   : Eigen::Vector3d(Eigen::Vector3d::Random()));
+  }
 
   std::vector<Eigen::Vector3d> points3D;
-  for (size_t i = 0; i < kNumPoints; ++i) {
+  points3D.reserve(num_points);
+  for (int i = 0; i < num_points; ++i) {
     points3D.emplace_back(Eigen::Vector3d::Random());
   }
 
-  // NOLINTNEXTLINE(clang-analyzer-security.FloatLoopCounter)
-  for (double qx = 0; qx < 0.3; qx += 0.1) {
-    // NOLINTNEXTLINE(clang-analyzer-security.FloatLoopCounter)
-    for (double tx = 0; tx < 0.3; tx += 0.1) {
-      const int kRefCamIdx = 1;
-      const int kNumCams = 3;
+  problem.points1.reserve(num_points);
+  problem.points2.reserve(num_points);
+  for (int i = 0; i < num_points; ++i) {
+    const size_t cam_idx1 = i % num_cameras1;
+    const size_t cam_idx2 = i % num_cameras2;
+    const Eigen::Vector3d point3D_in_cam1 =
+        cams_from_rig1[cam_idx1] * (rigs_from_world[0] * points3D[i]);
+    const Eigen::Vector3d point3D_in_cam2 =
+        cams_from_rig2[cam_idx2] * (rigs_from_world[1] * points3D[i]);
+    if (point3D_in_cam1.norm() < 1e-8 || point3D_in_cam2.norm() < 1e-8) {
+      continue;
+    }
 
-      const std::array<Rigid3d, kNumCams> cams_from_world = {{
-          Rigid3d(Eigen::Quaterniond(1, qx, 0, 0).normalized(),
-                  Eigen::Vector3d(tx, 0.1, 0)),
-          Rigid3d(Eigen::Quaterniond(1, qx + 0.05, 0, 0).normalized(),
-                  Eigen::Vector3d(tx, 0.2, 0)),
-          Rigid3d(Eigen::Quaterniond(1, qx + 0.1, 0, 0).normalized(),
-                  Eigen::Vector3d(tx, 0.3, 0)),
-      }};
+    auto& point1 = problem.points1.emplace_back();
+    point1.cam_from_rig = cams_from_rig1[cam_idx1];
+    point1.ray_in_cam = point3D_in_cam1.normalized();
 
-      const Rigid3d rig2_from_rig1(
-          Eigen::Quaterniond(1, qx + 0.2, 0, 0).normalized(),
-          Eigen::Vector3d(tx, 2, 3));
+    auto& point2 = problem.points2.emplace_back();
+    point2.cam_from_rig = cams_from_rig2[cam_idx2];
+    point2.ray_in_cam = point3D_in_cam2.normalized();
+  }
 
-      std::array<Rigid3d, kNumCams> cams_from_rig1;
-      std::array<Rigid3d, kNumCams> cams_from_rig2;
-      for (size_t i = 0; i < kNumCams; ++i) {
-        cams_from_rig1[i] =
-            cams_from_world[i] * Inverse(cams_from_world[kRefCamIdx]);
-        cams_from_rig2[i] = cams_from_rig1[i] * Inverse(rig2_from_rig1);
-      }
+  return problem;
+}
 
-      for (int num_cams2 = 1; num_cams2 <= kNumCams; ++num_cams2) {
-        // Project points to cameras.
-        std::vector<GR6PEstimator::X_t> points1;
-        points1.reserve(points3D.size());
-        std::vector<GR6PEstimator::Y_t> points2;
-        points2.reserve(points3D.size());
-        for (size_t i = 0; i < points3D.size(); ++i) {
-          const size_t cam_idx1 = i % kNumCams;
-          const size_t cam_idx2 = (i + 1) % num_cams2;
-          const Eigen::Vector3d point3D_camera1 =
-              cams_from_world[cam_idx1] * points3D[i];
-          const Eigen::Vector3d point3D_camera2 =
-              cams_from_world[cam_idx2] * points3D[i];
-          if (point3D_camera1.norm() < 1e-8 || point3D_camera2.norm() < 1e-8) {
-            continue;
-          }
+class ParameterizedGRNPEstimatorTests
+    : public ::testing::TestWithParam<std::tuple</*num_cams1=*/int,
+                                                 /*num_cams2=*/int,
+                                                 /*panoramic1=*/bool,
+                                                 /*panoramic2=*/bool>> {};
 
-          auto& point1 = points1.emplace_back();
-          point1.cam_from_rig = cams_from_rig1[cam_idx1];
-          point1.ray_in_cam = point3D_camera1.normalized();
+TEST_P(ParameterizedGRNPEstimatorTests, GR6P) {
+  // Note that we can estimate the minimal problem from only 6 points but we
+  // need a 7th point to choose the correct solution. In theory, we don't need
+  // RANSAC as we generate exact correspondences, but we use it in this test to
+  // do the choosing of the best solution for us.
+  constexpr int kNumPoints = 7;
+  constexpr int kNumTrials = 10;
+  const auto [kNumCams1, kNumCams2, kPanoramic1, kPanoramic2] = GetParam();
 
-          auto& point2 = points2.emplace_back();
-          point2.cam_from_rig = cams_from_rig2[cam_idx2];
-          point2.ray_in_cam = point3D_camera2.normalized();
-        }
+  for (int i = 0; i < kNumTrials; ++i) {
+    const auto problem = CreateGeneralizedRelativePoseProblem(
+        kNumPoints, kNumCams1, kNumCams2, kPanoramic1, kPanoramic2);
 
-        RANSACOptions options;
-        options.max_error = 1e-3;
-        RANSAC<GR6PEstimator> ransac(options);
-        const auto report = ransac.Estimate(points1, points2);
+    RANSACOptions options;
+    options.max_error = 1e-3;
+    RANSAC<GR6PEstimator> ransac(options);
+    const auto report = ransac.Estimate(problem.points1, problem.points2);
 
-        EXPECT_TRUE(report.success);
-        EXPECT_LT((rig2_from_rig1.ToMatrix() - report.model.ToMatrix()).norm(),
-                  1e-2);
+    EXPECT_TRUE(report.success);
+    EXPECT_THAT(report.model,
+                Rigid3dNear(problem.rig2_from_rig1,
+                            /*rtol=*/1e-4,
+                            /*ttol=*/1e-4));
 
-        std::vector<double> residuals;
-        GR6PEstimator::Residuals(points1, points2, report.model, &residuals);
-        for (size_t i = 0; i < residuals.size(); ++i) {
-          EXPECT_LE(residuals[i], options.max_error);
-        }
-      }
+    std::vector<double> residuals;
+    GR6PEstimator::Residuals(
+        problem.points1, problem.points2, report.model, &residuals);
+    for (size_t i = 0; i < residuals.size(); ++i) {
+      EXPECT_LE(residuals[i], options.max_error);
     }
   }
 }
 
-TEST(GR8PEstimator, Nominal) {
-  const size_t kNumPoints = 100;
+TEST_P(ParameterizedGRNPEstimatorTests, GR8P) {
+  // In theory, we don't need RANSAC as we generate exact correspondences, but
+  // we use it in this test to do the choosing of the best solution for us.
+  constexpr int kNumPoints = 8;
+  constexpr int kNumTrials = 10;
+  const auto [kNumCams1, kNumCams2, kPanoramic1, kPanoramic2] = GetParam();
 
-  std::vector<Eigen::Vector3d> points3D;
-  for (size_t i = 0; i < kNumPoints; ++i) {
-    points3D.emplace_back(Eigen::Vector3d::Random());
-  }
+  for (int i = 0; i < kNumTrials; ++i) {
+    const auto problem = CreateGeneralizedRelativePoseProblem(
+        kNumPoints, kNumCams1, kNumCams2, kPanoramic1, kPanoramic2);
 
-  // NOLINTNEXTLINE(clang-analyzer-security.FloatLoopCounter)
-  for (double qx = 0; qx < 0.3; qx += 0.1) {
-    // NOLINTNEXTLINE(clang-analyzer-security.FloatLoopCounter)
-    for (double tx = 0; tx < 0.3; tx += 0.1) {
-      const int kRefCamIdx = 1;
-      const int kNumCams = 3;
+    RANSACOptions options;
+    options.max_error = 1e-3;
+    RANSAC<GR6PEstimator> ransac(options);
+    const auto report = ransac.Estimate(problem.points1, problem.points2);
 
-      const std::array<Rigid3d, kNumCams> cams_from_world = {{
-          Rigid3d(Eigen::Quaterniond(1, qx, 0, 0).normalized(),
-                  Eigen::Vector3d(tx, 0.1, 0)),
-          Rigid3d(Eigen::Quaterniond(1, qx + 0.05, 0, 0).normalized(),
-                  Eigen::Vector3d(tx, 0.2, 0)),
-          Rigid3d(Eigen::Quaterniond(1, qx + 0.1, 0, 0).normalized(),
-                  Eigen::Vector3d(tx, 0.3, 0)),
-      }};
+    EXPECT_TRUE(report.success);
+    EXPECT_THAT(report.model,
+                Rigid3dNear(problem.rig2_from_rig1,
+                            /*rtol=*/1e-4,
+                            /*ttol=*/1e-4));
 
-      const Rigid3d rig2_from_rig1(
-          Eigen::Quaterniond(1, qx + 0.2, 0, 0).normalized(),
-          Eigen::Vector3d(tx, 2, 3));
-
-      std::array<Rigid3d, kNumCams> cams_from_rig1;
-      std::array<Rigid3d, kNumCams> cams_from_rig2;
-      for (size_t i = 0; i < kNumCams; ++i) {
-        cams_from_rig1[i] =
-            cams_from_world[i] * Inverse(cams_from_world[kRefCamIdx]);
-        cams_from_rig2[i] = cams_from_rig1[i] * Inverse(rig2_from_rig1);
-      }
-
-      // Project points to cameras.
-      std::vector<GR8PEstimator::X_t> points1;
-      points1.reserve(points3D.size());
-      std::vector<GR8PEstimator::Y_t> points2;
-      points2.reserve(points3D.size());
-      for (size_t i = 0; i < points3D.size(); ++i) {
-        const size_t cam_idx1 = i % kNumCams;
-        const size_t cam_idx2 = (i + 1) % kNumCams;
-        const Eigen::Vector3d point3D_camera1 =
-            cams_from_world[cam_idx1] * points3D[i];
-        const Eigen::Vector3d point3D_camera2 =
-            cams_from_world[cam_idx2] * points3D[i];
-        if (point3D_camera1.norm() < 1e-8 || point3D_camera2.norm() < 1e-8) {
-          continue;
-        }
-
-        auto& point1 = points1.emplace_back();
-        point1.cam_from_rig = cams_from_rig1[cam_idx1];
-        point1.ray_in_cam = point3D_camera1.normalized();
-
-        auto& point2 = points2.emplace_back();
-        point2.cam_from_rig = cams_from_rig2[cam_idx2];
-        point2.ray_in_cam = point3D_camera2.normalized();
-      }
-
-      RANSACOptions options;
-      options.max_error = 1e-3;
-      LORANSAC<GR8PEstimator, GR8PEstimator> ransac(options);
-      const auto report = ransac.Estimate(points1, points2);
-
-      EXPECT_TRUE(report.success);
-      EXPECT_LT((rig2_from_rig1.ToMatrix() - report.model.ToMatrix()).norm(),
-                1e-2);
-
-      std::vector<double> residuals;
-      GR8PEstimator::Residuals(points1, points2, report.model, &residuals);
-      for (size_t i = 0; i < residuals.size(); ++i) {
-        EXPECT_LE(residuals[i], options.max_error);
-      }
+    std::vector<double> residuals;
+    GR6PEstimator::Residuals(
+        problem.points1, problem.points2, report.model, &residuals);
+    for (size_t i = 0; i < residuals.size(); ++i) {
+      EXPECT_LE(residuals[i], options.max_error);
     }
   }
 }
+
+// Note that only one of the cameras must be panoramic, otherwise the
+// generalized relative pose problem is ill-posed, as we cannot estimate the
+// scale between the rigs.
+INSTANTIATE_TEST_SUITE_P(GRNPEstimatorTests,
+                         ParameterizedGRNPEstimatorTests,
+                         ::testing::Values(std::make_tuple(1, 2, false, false),
+                                           std::make_tuple(2, 1, false, false),
+                                           std::make_tuple(2, 2, false, false),
+                                           std::make_tuple(3, 3, false, false),
+                                           std::make_tuple(4, 4, false, false),
+                                           std::make_tuple(4, 4, false, true),
+                                           std::make_tuple(4, 4, true, false)));
 
 }  // namespace
 }  // namespace colmap

@@ -13,11 +13,6 @@ import pycolmap
 from pycolmap import logging
 
 
-def extract_colors(image_path, image_id, reconstruction):
-    if not reconstruction.extract_colors_for_image(image_id, image_path):
-        logging.warning(f"Could not read image {image_id} at path {image_path}")
-
-
 def write_snapshot(reconstruction, snapshot_path):
     logging.info("Creating snapshot")
     timestamp = time.time() * 1000
@@ -38,7 +33,7 @@ def iterative_global_refinement(options, mapper_options, mapper):
         options.get_global_bundle_adjustment(),
         options.get_triangulation(),
     )
-    mapper.filter_images(mapper_options)
+    mapper.filter_frames(mapper_options)
 
 
 def initialize_reconstruction(
@@ -66,10 +61,20 @@ def initialize_reconstruction(
         if two_view_geometry is None:
             logging.info("Provided pair is insuitable for initialization")
             return pycolmap.IncrementalMapperStatus.BAD_INITIAL_PAIR
-    logging.info(f"Initializing with image pair {init_pair}")
+
+    logging.info(
+        f"Registering initial image pair #{init_pair[0]} and #{init_pair[1]}"
+    )
     mapper.register_initial_image_pair(
         mapper_options, two_view_geometry, *init_pair
     )
+    for image_id in init_pair:
+        for data_id in reconstruction.images[image_id].frame.data_ids:
+            if data_id.sensor_id.type == pycolmap.SensorType.CAMERA:
+                mapper.triangulate_image(
+                    options.get_triangulation(), data_id.id
+                )
+
     logging.info("Global bundle adjustment")
     # The following is equivalent to: mapper.adjust_global_bundle(...)
     custom_bundle_adjustment.adjust_global_bundle(
@@ -77,16 +82,16 @@ def initialize_reconstruction(
     )
     reconstruction.normalize()
     mapper.filter_points(mapper_options)
-    mapper.filter_images(mapper_options)
+    mapper.filter_frames(mapper_options)
 
     # Initial image pair failed to register
     if (
-        reconstruction.num_reg_images() == 0
+        reconstruction.num_reg_frames() == 0
         or reconstruction.num_points3D() == 0
     ):
         return pycolmap.IncrementalMapperStatus.BAD_INITIAL_PAIR
     if options.extract_colors:
-        extract_colors(controller.image_path, init_pair[0], reconstruction)
+        reconstruction.extract_colors_for_all_images(controller.image_path)
     return pycolmap.IncrementalMapperStatus.SUCCESS
 
 
@@ -94,7 +99,7 @@ def reconstruct_sub_model(controller, mapper, mapper_options, reconstruction):
     """Equivalent to IncrementalPipeline.reconstruct_sub_model(...)"""
     # register initial pair
     mapper.begin_reconstruction(reconstruction)
-    if reconstruction.num_reg_images() == 0:
+    if reconstruction.num_reg_frames() == 0:
         init_status = initialize_reconstruction(
             controller, mapper, mapper_options, reconstruction
         )
@@ -106,8 +111,8 @@ def reconstruct_sub_model(controller, mapper, mapper_options, reconstruction):
 
     # incremental mapping
     options = controller.options
-    snapshot_prev_num_reg_images = reconstruction.num_reg_images()
-    ba_prev_num_reg_images = reconstruction.num_reg_images()
+    snapshot_prev_num_reg_frames = reconstruction.num_reg_frames()
+    ba_prev_num_reg_frames = reconstruction.num_reg_frames()
     ba_prev_num_points = reconstruction.num_points3D()
     reg_next_success, prev_reg_next_success = True, True
     while True:
@@ -122,7 +127,7 @@ def reconstruct_sub_model(controller, mapper, mapper_options, reconstruction):
             next_image_id = next_images[reg_trial]
             logging.info(
                 f"Registering image #{next_image_id} "
-                f"({reconstruction.num_reg_images() + 1})"
+                f"(num_reg_frames={reconstruction.num_reg_frames() + 1})"
             )
             num_vis = mapper.observation_manager.num_visible_points3D(
                 next_image_id
@@ -141,11 +146,15 @@ def reconstruct_sub_model(controller, mapper, mapper_options, reconstruction):
             kMinNumInitialRegTrials = 30
             if (
                 reg_trial >= kMinNumInitialRegTrials
-                and reconstruction.num_reg_images() < options.min_model_size
+                and reconstruction.num_reg_frames() < options.min_model_size
             ):
                 break
         if reg_next_success:
-            mapper.triangulate_image(options.get_triangulation(), next_image_id)
+            for data_id in reconstruction.images[next_image_id].frame.data_ids:
+                if data_id.sensor_id.type == pycolmap.SensorType.CAMERA:
+                    mapper.triangulate_image(
+                        options.get_triangulation(), data_id.id
+                    )
             # This is equivalent to mapper.iterative_local_refinement(...)
             custom_bundle_adjustment.iterative_local_refinement(
                 mapper,
@@ -157,21 +166,27 @@ def reconstruct_sub_model(controller, mapper, mapper_options, reconstruction):
                 next_image_id,
             )
             if controller.check_run_global_refinement(
-                reconstruction, ba_prev_num_reg_images, ba_prev_num_points
+                reconstruction, ba_prev_num_reg_frames, ba_prev_num_points
             ):
                 iterative_global_refinement(options, mapper_options, mapper)
                 ba_prev_num_points = reconstruction.num_points3D()
-                ba_prev_num_reg_images = reconstruction.num_reg_images()
-            if options.extract_colors:
-                extract_colors(
-                    controller.image_path, next_image_id, reconstruction
+                ba_prev_num_reg_frames = reconstruction.num_reg_frames()
+            if (
+                options.extract_colors
+                and not reconstruction.extract_colors_for_image(
+                    next_image_id, controller.image_path
+                )
+            ):
+                logging.warning(
+                    f"Could not read image {next_image_id} "
+                    f"at path {controller.image_path}"
                 )
             if (
-                options.snapshot_images_freq > 0
-                and reconstruction.num_reg_images()
-                >= options.snapshot_images_freq + snapshot_prev_num_reg_images
+                options.snapshot_frames_freq > 0
+                and reconstruction.num_reg_frames()
+                >= options.snapshot_frames_freq + snapshot_prev_num_reg_frames
             ):
-                snapshot_prev_num_reg_images = reconstruction.num_reg_images()
+                snapshot_prev_num_reg_frames = reconstruction.num_reg_frames()
                 write_snapshot(reconstruction, Path(options.snapshot_path))
             controller.callback(
                 pycolmap.IncrementalMapperCallback.NEXT_IMAGE_REG_CALLBACK
@@ -181,8 +196,8 @@ def reconstruct_sub_model(controller, mapper, mapper_options, reconstruction):
         if (not reg_next_success) and prev_reg_next_success:
             iterative_global_refinement(options, mapper_options, mapper)
     if (
-        reconstruction.num_reg_images() >= 2
-        and reconstruction.num_reg_images() != ba_prev_num_reg_images
+        reconstruction.num_reg_frames() >= 2
+        and reconstruction.num_reg_frames() != ba_prev_num_reg_frames
         and reconstruction.num_points3D != ba_prev_num_points
     ):
         iterative_global_refinement(options, mapper_options, mapper)
@@ -219,7 +234,7 @@ def reconstruct(controller, mapper, mapper_options, continue_reconstruction):
             mapper.end_reconstruction(True)
             reconstruction_manager.delete(reconstruction_idx)
         elif status == pycolmap.IncrementalMapperStatus.SUCCESS:
-            total_num_reg_images = mapper.num_total_reg_images()
+            total_num_reg_frames = mapper.num_total_reg_images()
             min_model_size = min(
                 0.8 * database_cache.num_images(), options.min_model_size
             )
@@ -227,8 +242,8 @@ def reconstruct(controller, mapper, mapper_options, continue_reconstruction):
                 options.multiple_models
                 and reconstruction_manager.size() > 1
                 and (
-                    reconstruction.num_reg_images() < min_model_size
-                    or reconstruction.num_reg_images() == 0
+                    reconstruction.num_reg_frames() < min_model_size
+                    or reconstruction.num_reg_frames() == 0
                 )
             ):
                 logging.info(
@@ -245,7 +260,7 @@ def reconstruct(controller, mapper, mapper_options, continue_reconstruction):
             if (
                 not options.multiple_models
                 or reconstruction_manager.size() >= options.max_num_models
-                or total_num_reg_images >= database_cache.num_images() - 1
+                or total_num_reg_frames >= database_cache.num_images() - 1
             ):
                 return
         else:

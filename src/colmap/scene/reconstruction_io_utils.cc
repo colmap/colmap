@@ -27,42 +27,45 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/sensor/rig_calib.h"
+#include "colmap/scene/reconstruction_io_utils.h"
 
-#include <gtest/gtest.h>
+#include <fstream>
 
 namespace colmap {
-namespace {
 
-Rigid3d TestRigid3d() {
-  return Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
+void CreateOneRigPerCamera(Reconstruction& reconstruction) {
+  for (const auto& [camera_id, camera] : reconstruction.Cameras()) {
+    Rig rig;
+    rig.SetRigId(camera_id);
+    rig.AddRefSensor(camera.SensorId());
+    reconstruction.AddRig(std::move(rig));
+  }
 }
 
-TEST(RigCalib, Default) {
-  RigCalib calib;
-  EXPECT_EQ(calib.RigId(), kInvalidRigId);
-  EXPECT_EQ(calib.RefSensorId(), kInvalidSensorId);
-  EXPECT_EQ(calib.NumSensors(), 0);
+void CreateFrameForImage(const Image& image,
+                         const Rigid3d& cam_from_world,
+                         Reconstruction& reconstruction) {
+  Frame frame;
+  frame.SetFrameId(image.ImageId());
+  frame.SetRigId(image.CameraId());
+  frame.AddDataId(image.DataId());
+  frame.SetRigFromWorld(cam_from_world);
+  reconstruction.AddFrame(std::move(frame));
 }
 
-TEST(RigCalib, SetUp) {
-  RigCalib calib;
-  calib.AddRefSensor(sensor_t(SensorType::IMU, 0));
-  calib.AddSensor(sensor_t(SensorType::IMU, 1), TestRigid3d());
-  calib.AddSensor(sensor_t(SensorType::CAMERA, 0), TestRigid3d());
-  calib.AddSensor(sensor_t(SensorType::CAMERA, 1));  // no input sensor_from_rig
-
-  EXPECT_EQ(calib.NumSensors(), 4);
-  EXPECT_EQ(calib.RefSensorId().type, SensorType::IMU);
-  EXPECT_EQ(calib.RefSensorId().id, 0);
-  EXPECT_TRUE(calib.IsRefSensor(sensor_t(SensorType::IMU, 0)));
-  EXPECT_FALSE(calib.IsRefSensor(sensor_t(SensorType::IMU, 1)));
-  EXPECT_TRUE(calib.HasSensorFromRig(sensor_t(SensorType::IMU, 0)));
-  EXPECT_TRUE(calib.HasSensorFromRig(sensor_t(SensorType::IMU, 1)));
-  EXPECT_TRUE(calib.HasSensorFromRig(sensor_t(SensorType::CAMERA, 0)));
-  EXPECT_FALSE(calib.HasSensorFromRig(sensor_t(SensorType::CAMERA, 1)));
-  EXPECT_TRUE(calib.HasSensor(sensor_t(SensorType::CAMERA, 1)));
+std::unordered_map<image_t, Frame*> ExtractImageToFramePtr(
+    Reconstruction& reconstruction) {
+  std::unordered_map<image_t, Frame*> image_to_frame;
+  for (const auto& [frame_id, frame] : reconstruction.Frames()) {
+    for (const data_t& data_id : frame.DataIds()) {
+      if (data_id.sensor_id.type == SensorType::CAMERA) {
+        THROW_CHECK(
+            image_to_frame.emplace(data_id.id, &reconstruction.Frame(frame_id))
+                .second);
+      }
+    }
+  }
+  return image_to_frame;
 }
 
-}  // namespace
 }  // namespace colmap

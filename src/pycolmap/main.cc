@@ -2,9 +2,7 @@
 #include "colmap/util/version.h"
 
 #include "pycolmap/helpers.h"
-#include "pycolmap/logging.h"
 #include "pycolmap/pybind11_extension.h"
-#include "pycolmap/timer.h"
 #include "pycolmap/utils.h"
 
 #include <ceres/version.h>
@@ -17,6 +15,7 @@ using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindEstimators(py::module& m);
+void BindFeature(py::module& m);
 void BindGeometry(py::module& m);
 void BindImage(py::module& m);
 void BindOptim(py::module& m);
@@ -26,6 +25,7 @@ void BindRetrieval(py::module& m);
 void BindScene(py::module& m);
 void BindSensor(py::module& m);
 void BindSfm(py::module& m);
+void BindUtil(py::module& m);
 
 PYBIND11_MODULE(_core, m) {
   m.doc() = "COLMAP plugin";
@@ -45,12 +45,11 @@ PYBIND11_MODULE(_core, m) {
                       .value("cuda", Device::CUDA);
   AddStringToEnumConstructor(PyDevice);
 
-  BindLogging(m);
-  BindTimer(m);
+  BindUtil(m);
   BindGeometry(m);
   BindOptim(m);
-  BindScene(m);
   BindSensor(m);
+  BindScene(m);
   BindImage(m);
   BindEstimators(m);
   BindFeature(m);

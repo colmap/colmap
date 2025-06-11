@@ -53,43 +53,35 @@ void CorrespondenceGraph::Finalize() {
   finalized_ = true;
 
   // Flatten all correspondences, remove images without observations.
-  for (auto it = images_.begin(); it != images_.end();) {
+  for (auto& [_, image] : images_) {
     // Count number of correspondences and observations.
-    it->second.num_observations = 0;
+    image.num_observations = 0;
     size_t num_total_corrs = 0;
-    for (auto& corr : it->second.corrs) {
+    for (auto& corr : image.corrs) {
       num_total_corrs += corr.size();
       if (!corr.empty()) {
-        it->second.num_observations += 1;
+        image.num_observations += 1;
       }
     }
 
-    // Erase image without observations.
-    if (num_total_corrs == 0) {
-      images_.erase(it++);
-      continue;
-    }
-
     // Reshuffle correspondences into flattened vector.
-    const point2D_t num_points2D = it->second.corrs.size();
-    it->second.flat_corrs.reserve(num_total_corrs);
-    it->second.flat_corr_begs.resize(num_points2D + 1);
+    const point2D_t num_points2D = image.corrs.size();
+    image.flat_corrs.reserve(num_total_corrs);
+    image.flat_corr_begs.resize(num_points2D + 1);
     for (point2D_t point2D_idx = 0; point2D_idx < num_points2D; ++point2D_idx) {
-      it->second.flat_corr_begs[point2D_idx] = it->second.flat_corrs.size();
-      std::vector<Correspondence>& corrs = it->second.corrs[point2D_idx];
-      it->second.flat_corrs.insert(
-          it->second.flat_corrs.end(), corrs.begin(), corrs.end());
+      image.flat_corr_begs[point2D_idx] = image.flat_corrs.size();
+      std::vector<Correspondence>& corrs = image.corrs[point2D_idx];
+      image.flat_corrs.insert(
+          image.flat_corrs.end(), corrs.begin(), corrs.end());
     }
-    it->second.flat_corr_begs[num_points2D] = it->second.flat_corrs.size();
+    image.flat_corr_begs[num_points2D] = image.flat_corrs.size();
 
     // Ensure we reserved enough space before insertion.
-    THROW_CHECK_EQ(it->second.flat_corrs.size(), num_total_corrs);
+    THROW_CHECK_EQ(image.flat_corrs.size(), num_total_corrs);
 
     // Deallocate original data.
-    it->second.corrs.clear();
-    it->second.corrs.shrink_to_fit();
-
-    ++it;
+    image.corrs.clear();
+    image.corrs.shrink_to_fit();
   }
 }
 

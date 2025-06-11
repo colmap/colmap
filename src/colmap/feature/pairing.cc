@@ -31,6 +31,7 @@
 
 #include "colmap/feature/utils.h"
 #include "colmap/geometry/gps.h"
+#include "colmap/util/file.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
@@ -40,6 +41,8 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+
+#include <faiss/IndexFlat.h>
 
 namespace colmap {
 namespace {
@@ -123,6 +126,7 @@ VocabTreeMatchingOptions SequentialMatchingOptions::VocabTreeOptions() const {
       loop_detection_num_images_after_verification;
   options.max_num_features = loop_detection_max_num_features;
   options.vocab_tree_path = vocab_tree_path;
+  options.num_threads = num_threads;
   return options;
 }
 
@@ -228,13 +232,13 @@ VocabTreePairGenerator::VocabTreePairGenerator(
     const std::vector<image_t>& query_image_ids)
     : options_(options),
       cache_(THROW_CHECK_NOTNULL(cache)),
-      thread_pool(options_.num_threads),
-      queue(options_.num_threads) {
+      thread_pool_(options_.num_threads),
+      queue_(options_.num_threads) {
   THROW_CHECK(options.Check());
   LOG(INFO) << "Generating image pairs with vocabulary tree...";
 
   // Read the pre-trained vocabulary tree from disk.
-  visual_index_.Read(options_.vocab_tree_path);
+  visual_index_ = retrieval::VisualIndex::Read(options_.vocab_tree_path);
 
   const std::vector<image_t> all_image_ids = cache_->GetImageIds();
   if (query_image_ids.size() > 0) {
@@ -271,6 +275,9 @@ VocabTreePairGenerator::VocabTreePairGenerator(
 
   IndexImages(all_image_ids);
 
+  // Since we parallelize over the query images, there is no need to parallelize
+  // the nearest neighbor search over the query descriptors.
+  query_options_.num_threads = 1;
   query_options_.max_num_images = options_.num_images;
   query_options_.num_neighbors = options_.num_nearest_neighbors;
   query_options_.num_checks = options_.num_checks;
@@ -300,15 +307,15 @@ bool VocabTreePairGenerator::HasFinished() const {
 std::vector<std::pair<image_t, image_t>> VocabTreePairGenerator::Next() {
   image_pairs_.clear();
   if (HasFinished()) {
-    return image_pairs_;
+    return {};
   }
   if (query_idx_ == 0) {
     // Initially, make all retrieval threads busy and continue with the
     // matching.
     const size_t init_num_tasks =
-        std::min(query_image_ids_.size(), 2 * thread_pool.NumThreads());
+        std::min(query_image_ids_.size(), 2 * thread_pool_.NumThreads());
     for (; query_idx_ < init_num_tasks; ++query_idx_) {
-      thread_pool.AddTask(
+      thread_pool_.AddTask(
           &VocabTreePairGenerator::Query, this, query_image_ids_[query_idx_]);
     }
   }
@@ -318,12 +325,12 @@ std::vector<std::pair<image_t, image_t>> VocabTreePairGenerator::Next() {
 
   // Push the next image to the retrieval queue.
   if (query_idx_ < query_image_ids_.size()) {
-    thread_pool.AddTask(
+    thread_pool_.AddTask(
         &VocabTreePairGenerator::Query, this, query_image_ids_[query_idx_++]);
   }
 
   // Pop the next results from the retrieval queue.
-  auto retrieval = queue.Pop();
+  auto retrieval = queue_.Pop();
   THROW_CHECK(retrieval.IsValid());
 
   const auto& image_id = retrieval.Data().image_id;
@@ -340,14 +347,14 @@ std::vector<std::pair<image_t, image_t>> VocabTreePairGenerator::Next() {
 
 void VocabTreePairGenerator::IndexImages(
     const std::vector<image_t>& image_ids) {
-  retrieval::VisualIndex<>::IndexOptions index_options;
+  retrieval::VisualIndex::IndexOptions index_options;
   // We only assign each feature to a single visual word in the indexing phase.
   // During the query phase, we check for overlap in possibly multiple nearest
   // neighbor visual words. We could do it symmetrically but experiments showed
   // only marginal improvements that do not justify the memory/compute increase.
   index_options.num_neighbors = 1;
-  index_options.num_threads = options_.num_threads;
   index_options.num_checks = options_.num_checks;
+  index_options.num_threads = options_.num_threads;
 
   for (size_t i = 0; i < image_ids.size(); ++i) {
     Timer timer;
@@ -361,12 +368,13 @@ void VocabTreePairGenerator::IndexImages(
       ExtractTopScaleFeatures(
           &keypoints, &descriptors, options_.max_num_features);
     }
-    visual_index_.Add(index_options, image_ids[i], keypoints, descriptors);
+    visual_index_->Add(
+        index_options, image_ids[i], keypoints, descriptors.cast<float>());
     LOG(INFO) << StringPrintf(" in %.3fs", timer.ElapsedSeconds());
   }
 
   // Compute the TF-IDF weights, etc.
-  visual_index_.Prepare();
+  visual_index_->Prepare();
 }
 
 void VocabTreePairGenerator::Query(const image_t image_id) {
@@ -380,10 +388,12 @@ void VocabTreePairGenerator::Query(const image_t image_id) {
 
   Retrieval retrieval;
   retrieval.image_id = image_id;
-  visual_index_.Query(
-      query_options_, keypoints, descriptors, &retrieval.image_scores);
+  visual_index_->Query(query_options_,
+                       keypoints,
+                       descriptors.cast<float>(),
+                       &retrieval.image_scores);
 
-  THROW_CHECK(queue.Push(std::move(retrieval)));
+  THROW_CHECK(queue_.Push(std::move(retrieval)));
 }
 
 SequentialPairGenerator::SequentialPairGenerator(
@@ -403,6 +413,20 @@ SequentialPairGenerator::SequentialPairGenerator(
     }
     vocab_tree_pair_generator_ = std::make_unique<VocabTreePairGenerator>(
         options_.VocabTreeOptions(), cache_, query_image_ids);
+  }
+
+  if (options_.expand_rig_images) {
+    const std::vector<frame_t> frame_ids = cache_->GetFrameIds();
+    frame_to_image_ids_.reserve(frame_ids.size());
+    image_to_frame_ids_.reserve(image_ids_.size());
+    for (const frame_t frame_id : frame_ids) {
+      const Frame& frame = cache_->GetFrame(frame_id);
+      auto& frame_image_ids = frame_to_image_ids_[frame_id];
+      for (const data_t& data_id : frame.ImageIds()) {
+        frame_image_ids.push_back(data_id.id);
+        image_to_frame_ids_[data_id.id] = frame_id;
+      }
+    }
   }
 }
 
@@ -439,19 +463,52 @@ std::vector<std::pair<image_t, image_t>> SequentialPairGenerator::Next() {
       "Matching image [%d/%d]", image_idx_ + 1, image_ids_.size());
 
   const auto image_id1 = image_ids_.at(image_idx_);
+
+  // If image is part of a rig, then pair the other images in the same frame.
+  if (options_.expand_rig_images) {
+    if (const auto frame_id1_it = image_to_frame_ids_.find(image_id1);
+        frame_id1_it != image_to_frame_ids_.end()) {
+      for (const image_t frame_image_id2 :
+           frame_to_image_ids_.at(frame_id1_it->second)) {
+        if (image_id1 != frame_image_id2) {
+          image_pairs_.emplace_back(image_id1, frame_image_id2);
+        }
+      }
+    }
+  }
+
+  auto MaybeExpandRigImages = [this](image_t image_id1, image_t image_id2) {
+    if (!options_.expand_rig_images) {
+      return;
+    }
+    const auto frame_id2_it = image_to_frame_ids_.find(image_id2);
+    if (frame_id2_it != image_to_frame_ids_.end()) {
+      // Pair with all images in second frame.
+      for (const image_t frame_image_id2 :
+           frame_to_image_ids_.at(frame_id2_it->second)) {
+        if (image_id1 != frame_image_id2 && image_id2 != frame_image_id2) {
+          image_pairs_.emplace_back(image_id1, frame_image_id2);
+        }
+      }
+    }
+  };
+
   for (int i = 0; i < options_.overlap; ++i) {
     if (options_.quadratic_overlap) {
       const size_t image_idx_2_quadratic = image_idx_ + (1ull << i);
       if (image_idx_2_quadratic < image_ids_.size()) {
-        image_pairs_.emplace_back(image_id1,
-                                  image_ids_.at(image_idx_2_quadratic));
+        const image_t image_id2 = image_ids_.at(image_idx_2_quadratic);
+        image_pairs_.emplace_back(image_id1, image_id2);
+        MaybeExpandRigImages(image_id1, image_id2);
       } else {
         break;
       }
     } else {
       const size_t image_idx_2 = image_idx_ + i + 1;
       if (image_idx_2 < image_ids_.size()) {
-        image_pairs_.emplace_back(image_id1, image_ids_.at(image_idx_2));
+        const image_t image_id2 = image_ids_.at(image_idx_2);
+        image_pairs_.emplace_back(image_id1, image_id2);
+        MaybeExpandRigImages(image_id1, image_id2);
       } else {
         break;
       }
@@ -496,8 +553,7 @@ SpatialPairGenerator::SpatialPairGenerator(
   timer.Start();
   LOG(INFO) << "Indexing images...";
 
-  Eigen::Matrix<float, Eigen::Dynamic, 3, Eigen::RowMajor> position_matrix =
-      ReadPositionPriorData(*cache);
+  Eigen::RowMajorMatrixXf position_matrix = ReadPositionPriorData(*cache);
   const size_t num_positions = position_idxs_.size();
 
   LOG(INFO) << StringPrintf(" in %.3fs", timer.ElapsedSeconds());
@@ -509,12 +565,8 @@ SpatialPairGenerator::SpatialPairGenerator(
   timer.Restart();
   LOG(INFO) << "Building search index...";
 
-  flann::Matrix<float> positions(
-      position_matrix.data(), num_positions, position_matrix.cols());
-
-  flann::LinearIndexParams index_params;
-  flann::LinearIndex<flann::L2<float>> search_index(index_params);
-  search_index.buildIndex(positions);
+  faiss::IndexFlatL2 search_index(/*d=*/3);
+  search_index.add(position_matrix.rows(), position_matrix.data());
 
   LOG(INFO) << StringPrintf(" in %.3fs", timer.ElapsedSeconds());
 
@@ -525,22 +577,15 @@ SpatialPairGenerator::SpatialPairGenerator(
   image_pairs_.reserve(knn_);
 
   index_matrix_.resize(num_positions, knn_);
-  flann::Matrix<size_t> indices(index_matrix_.data(), num_positions, knn_);
-
   distance_matrix_.resize(num_positions, knn_);
-  flann::Matrix<float> distances(distance_matrix_.data(), num_positions, knn_);
 
-  flann::SearchParams search_params(flann::FLANN_CHECKS_AUTOTUNED);
-  if (options_.num_threads == ThreadPool::kMaxNumThreads) {
-    search_params.cores = std::thread::hardware_concurrency();
-  } else {
-    search_params.cores = options_.num_threads;
-  }
-  if (search_params.cores <= 0) {
-    search_params.cores = 1;
-  }
+  omp_set_num_threads(GetEffectiveNumThreads(options_.num_threads));
 
-  search_index.knnSearch(positions, indices, distances, knn_, search_params);
+  search_index.search(position_matrix.rows(),
+                      position_matrix.data(),
+                      knn_,
+                      distance_matrix_.data(),
+                      index_matrix_.data());
 
   LOG(INFO) << StringPrintf(" in %.3fs", timer.ElapsedSeconds());
 }
@@ -571,7 +616,7 @@ std::vector<std::pair<image_t, image_t>> SpatialPairGenerator::Next() {
       static_cast<float>(options_.max_distance * options_.max_distance);
   for (int j = 0; j < knn_; ++j) {
     // Check if query equals result.
-    if (index_matrix_(current_idx_, j) == current_idx_) {
+    if (index_matrix_(current_idx_, j) == static_cast<int>(current_idx_)) {
       continue;
     }
 
@@ -589,16 +634,15 @@ std::vector<std::pair<image_t, image_t>> SpatialPairGenerator::Next() {
   return image_pairs_;
 }
 
-Eigen::Matrix<float, Eigen::Dynamic, 3, Eigen::RowMajor>
-SpatialPairGenerator::ReadPositionPriorData(FeatureMatcherCache& cache) {
+Eigen::RowMajorMatrixXf SpatialPairGenerator::ReadPositionPriorData(
+    FeatureMatcherCache& cache) {
   GPSTransform gps_transform;
   std::vector<Eigen::Vector3d> ells(1);
 
   size_t num_positions = 0;
   position_idxs_.clear();
   position_idxs_.reserve(image_ids_.size());
-  Eigen::Matrix<float, Eigen::Dynamic, 3, Eigen::RowMajor> position_matrix(
-      image_ids_.size(), 3);
+  Eigen::RowMajorMatrixXf position_matrix(image_ids_.size(), 3);
 
   for (size_t i = 0; i < image_ids_.size(); ++i) {
     const PosePrior* pose_prior = cache.GetPosePriorOrNull(image_ids_[i]);
@@ -621,7 +665,7 @@ SpatialPairGenerator::ReadPositionPriorData(FeatureMatcherCache& cache) {
         ells[0](1) = position_prior(1);
         ells[0](2) = options_.ignore_z ? 0 : position_prior(2);
 
-        const auto xyzs = gps_transform.EllToXYZ(ells);
+        const auto xyzs = gps_transform.EllipsoidToECEF(ells);
         position_matrix(num_positions, 0) = static_cast<float>(xyzs[0](0));
         position_matrix(num_positions, 1) = static_cast<float>(xyzs[0](1));
         position_matrix(num_positions, 2) = static_cast<float>(xyzs[0](2));

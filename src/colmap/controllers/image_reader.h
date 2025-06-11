@@ -41,9 +41,6 @@
 namespace colmap {
 
 struct ImageReaderOptions {
-  // Path to database in which to store the extracted data.
-  std::string database_path;
-
   // Root path to folder which contains the images.
   std::string image_path;
 
@@ -108,7 +105,8 @@ class ImageReader {
 
   ImageReader(const ImageReaderOptions& options, Database* database);
 
-  Status Next(Camera* camera,
+  Status Next(Rig* rig,
+              Camera* camera,
               Image* image,
               PosePrior* pose_prior,
               Bitmap* bitmap,
@@ -124,7 +122,8 @@ class ImageReader {
   Database* database_;
   // Index of previously processed image.
   size_t image_index_;
-  // Previously processed camera.
+  // Previously processed rig/camera.
+  Rig prev_rig_;
   Camera prev_camera_;
   std::unordered_map<std::string, camera_t> camera_model_to_id_;
   // Names of image sub-folders.

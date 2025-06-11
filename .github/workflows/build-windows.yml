@@ -43,6 +43,8 @@ jobs:
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
       VCPKG_COMMIT_ID: bc3512a509f9d29b37346a7e7e929f9a26e66c7e
+      GLOG_v: 1
+      GLOG_logtostderr: 1
 
     steps:
       - uses: actions/checkout@v4
@@ -89,7 +91,7 @@ jobs:
           .github/workflows/install-ccache.ps1 -Destination "${{ env.COMPILER_CACHE_DIR }}/bin"
 
       - name: Install CUDA
-        uses: Jimver/cuda-toolkit@v0.2.18
+        uses: Jimver/cuda-toolkit@v0.2.23
         if: matrix.config.cudaEnabled
         id: cuda-toolkit
         with:

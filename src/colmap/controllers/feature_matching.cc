@@ -33,6 +33,7 @@
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/feature/matcher.h"
 #include "colmap/feature/utils.h"
+#include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
 
@@ -85,10 +86,6 @@ class FeatureMatcherThread : public Thread {
       timer.Start();
       const std::vector<std::pair<image_t, image_t>> image_pairs =
           pair_generator->Next();
-      std::unique_ptr<DatabaseTransaction> database_transaction;
-      cache_->AccessDatabase([&database_transaction](Database& database) {
-        database_transaction = std::make_unique<DatabaseTransaction>(&database);
-      });
       matcher_.Match(image_pairs);
       PrintElapsedTime(timer);
     }

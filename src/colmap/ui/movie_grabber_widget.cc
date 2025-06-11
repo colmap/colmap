@@ -154,14 +154,14 @@ void MovieGrabberWidget::Clear() {
   while (table_->rowCount() > 0) {
     table_->removeRow(0);
   }
-  views.clear();
+  frames.clear();
   model_viewer_widget_->UpdateMovieGrabber();
 }
 
 void MovieGrabberWidget::Assemble() {
   if (table_->rowCount() < 2) {
     QMessageBox::critical(
-        this, tr("Error"), tr("You must add at least two control views."));
+        this, tr("Error"), tr("You must add at least two control frames."));
     return;
   }
 
@@ -186,10 +186,10 @@ void MovieGrabberWidget::Assemble() {
       model_viewer_widget_->ModelViewMatrix();
   const float point_size_cached = model_viewer_widget_->PointSize();
   const float image_size_cached = model_viewer_widget_->ImageSize();
-  const std::vector<Image> views_cached = views;
+  std::vector<Frame> cached_frames = frames;
 
   // Make sure we do not render movie grabber path.
-  views.clear();
+  frames.clear();
   model_viewer_widget_->UpdateMovieGrabber();
   model_viewer_widget_->DisableCoordinateGrid();
 
@@ -262,7 +262,7 @@ void MovieGrabberWidget::Assemble() {
     prev_view_model = curr_view_model;
   }
 
-  views = views_cached;
+  frames = std::move(cached_frames);
   model_viewer_widget_->SetPointSize(point_size_cached);
   model_viewer_widget_->SetImageSize(image_size_cached);
   model_viewer_widget_->UpdateMovieGrabber();
@@ -284,18 +284,18 @@ void MovieGrabberWidget::SelectionChanged(const QItemSelection& selected,
 }
 
 void MovieGrabberWidget::UpdateViews() {
-  views.clear();
+  frames.clear();
   for (int row = 0; row < table_->rowCount(); ++row) {
     const auto logical_idx = table_->verticalHeader()->logicalIndex(row);
     QTableWidgetItem* item = table_->item(logical_idx, 0);
 
     const Eigen::Matrix4d model_view_matrix =
         QMatrixToEigen(view_data_.at(item).model_view_matrix).cast<double>();
-    Image image;
-    image.SetCamFromWorld(
+    Frame frame;
+    frame.SetRigFromWorld(
         Rigid3d(Eigen::Quaterniond(model_view_matrix.topLeftCorner<3, 3>()),
                 model_view_matrix.topRightCorner<3, 1>()));
-    views.push_back(image);
+    frames.push_back(frame);
   }
 }
 

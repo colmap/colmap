@@ -107,6 +107,7 @@ support (special credits to `Torsten Sattler <https://tsattler.github.io>`_).
    tutorial
    database
    cameras
+   rigs
    format
    datasets
    gui
