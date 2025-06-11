@@ -70,12 +70,6 @@ if(CGAL_ENABLED)
     list(APPEND VCPKG_MANIFEST_FEATURES "cgal")
 endif()
 
-if(LSD_ENABLED)
-    message(STATUS "Enabling LSD support")
-else()
-    message(STATUS "Disabling LSD support")
-endif()
-
 if(DOWNLOAD_ENABLED)
     list(APPEND VCPKG_MANIFEST_FEATURES "download")
 endif()
