@@ -41,9 +41,6 @@
 namespace colmap {
 
 struct ImageReaderOptions {
-  // Path to database in which to store the extracted data.
-  std::string database_path;
-
   // Root path to folder which contains the images.
   std::string image_path;
 

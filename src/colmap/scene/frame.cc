@@ -54,12 +54,12 @@ std::ostream& operator<<(std::ostream& stream, const Frame& frame) {
     stream << "Unknown";
   }
   stream << ", has_pose=" << frame.HasPose() << ", data_ids=[";
-  for (const auto& data_id : frame.DataIds()) {
-    stream << "(" << data_id.sensor_id.type << ", " << data_id.sensor_id.id
-           << ", " << data_id.id << "), ";
-  }
-  if (!frame.DataIds().empty()) {
-    stream.seekp(-2, std::ios_base::end);
+  for (auto it = frame.DataIds().begin(); it != frame.DataIds().end();) {
+    stream << "(" << it->sensor_id.type << ", " << it->sensor_id.id << ", "
+           << it->id << ")";
+    if (++it != frame.DataIds().end()) {
+      stream << ", ";
+    }
   }
   stream << "])";
   return stream;

@@ -198,7 +198,16 @@ ImageReader::Status ImageReader::Next(Rig* rig,
     }
 
     prev_camera_ = std::move(current_camera);
-    prev_rig_ = database_->ReadRigWithSensor(prev_camera_.SensorId()).value();
+    if (std::optional<Rig> rig =
+            database_->ReadRigWithSensor(prev_camera_.SensorId());
+        rig.has_value()) {
+      prev_rig_ = std::move(rig.value());
+    } else {
+      // For backwards compatibility with old databases, we create a rig.
+      prev_rig_ = Rig();
+      prev_rig_.AddRefSensor(prev_camera_.SensorId());
+      prev_rig_.SetRigId(database_->WriteRig(prev_rig_));
+    }
 
   } else {
     //////////////////////////////////////////////////////////////////////////////
@@ -217,6 +226,7 @@ ImageReader::Status ImageReader::Next(Rig* rig,
     //////////////////////////////////////////////////////////////////////////////
     // Read camera model and check for consistency if it exists
     //////////////////////////////////////////////////////////////////////////////
+
     std::string camera_model;
     const bool valid_camera_model = bitmap->ExifCameraModel(&camera_model);
     if (camera_model_to_id_.count(camera_model) > 0) {
@@ -227,7 +237,16 @@ ImageReader::Status ImageReader::Next(Rig* rig,
         return Status::CAMERA_EXIST_DIM_ERROR;
       }
       prev_camera_ = std::move(camera);
-      prev_rig_ = database_->ReadRigWithSensor(prev_camera_.SensorId()).value();
+      if (std::optional<Rig> rig =
+              database_->ReadRigWithSensor(prev_camera_.SensorId());
+          rig.has_value()) {
+        prev_rig_ = std::move(rig.value());
+      } else {
+        // For backwards compatibility with old databases, we create a rig.
+        prev_rig_ = Rig();
+        prev_rig_.AddRefSensor(prev_camera_.SensorId());
+        prev_rig_.SetRigId(database_->WriteRig(prev_rig_));
+      }
     }
 
     //////////////////////////////////////////////////////////////////////////////
@@ -273,9 +292,11 @@ ImageReader::Status ImageReader::Next(Rig* rig,
       // By default we create a separate rig per camera. Grouping of different
       // cameras into the same rig is expected to be done with the
       // "rig_configurator" after feature extraction.
-      prev_rig_ = Rig();
-      prev_rig_.AddRefSensor(prev_camera_.SensorId());
-      prev_rig_.SetRigId(database_->WriteRig(prev_rig_));
+      if (!database_->ReadRigWithSensor(prev_camera_.SensorId()).has_value()) {
+        prev_rig_ = Rig();
+        prev_rig_.AddRefSensor(prev_camera_.SensorId());
+        prev_rig_.SetRigId(database_->WriteRig(prev_rig_));
+      }
 
       if (valid_camera_model) {
         camera_model_to_id_[camera_model] = prev_camera_.camera_id;

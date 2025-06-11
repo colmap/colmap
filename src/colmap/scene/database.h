@@ -391,13 +391,11 @@ class Database {
   // read_*
   sqlite3_stmt* sql_stmt_read_rig_ = nullptr;
   sqlite3_stmt* sql_stmt_read_rigs_ = nullptr;
-  sqlite3_stmt* sql_stmt_read_rig_sensors_ = nullptr;
   sqlite3_stmt* sql_stmt_read_rig_with_sensor_ = nullptr;
   sqlite3_stmt* sql_stmt_read_rig_with_ref_sensor_ = nullptr;
   sqlite3_stmt* sql_stmt_read_camera_ = nullptr;
   sqlite3_stmt* sql_stmt_read_cameras_ = nullptr;
   sqlite3_stmt* sql_stmt_read_frame_ = nullptr;
-  sqlite3_stmt* sql_stmt_read_frame_data_ = nullptr;
   sqlite3_stmt* sql_stmt_read_frames_ = nullptr;
   sqlite3_stmt* sql_stmt_read_image_id_ = nullptr;
   sqlite3_stmt* sql_stmt_read_image_with_name_ = nullptr;
