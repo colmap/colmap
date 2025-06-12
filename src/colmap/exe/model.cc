@@ -725,13 +725,18 @@ int RunModelMerger(int argc, char** argv) {
   std::string input_path2;
   std::string output_path;
   double max_reproj_error = 64.0;
+  int num_threads = -1;
 
   OptionManager options;
   options.AddRequiredOption("input_path1", &input_path1);
   options.AddRequiredOption("input_path2", &input_path2);
   options.AddRequiredOption("output_path", &output_path);
   options.AddDefaultOption("max_reproj_error", &max_reproj_error);
+  options.AddDefaultOption("num_threads", &num_threads);
   options.Parse(argc, argv);
+
+  const int num_effective_threads = GetEffectiveNumThreads(num_threads);
+  ThreadPool thread_pool(num_effective_threads);
 
   Reconstruction reconstruction1;
   reconstruction1.Read(input_path1);
@@ -747,7 +752,7 @@ int RunModelMerger(int argc, char** argv) {
 
   PrintHeading2("Merging reconstructions");
   if (MergeAndFilterReconstructions(
-          max_reproj_error, reconstruction1, reconstruction2)) {
+          max_reproj_error, reconstruction1, reconstruction2, &thread_pool)) {
     LOG(INFO) << "=> Merge succeeded";
     PrintHeading2("Merged reconstruction");
     LOG(INFO) << StringPrintf("Images: %d", reconstruction2.NumRegImages());
