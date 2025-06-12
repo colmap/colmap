@@ -4,7 +4,7 @@ Key Concepts
 =============
 
 Starting from COLMAP 3.12, the concepts of rigs and frames have been introduced
-to improve the handling of multi-sensor platforms as well as 360° panorama
+to enable a principled modeling of multi-sensor platforms as well as 360° panorama
 images. These concepts provide a structured framework to organize sensors and
 their measurements, enabling more flexible calibration and fusion of diverse
 data types (e.g., see :ref:`rig-support`).
