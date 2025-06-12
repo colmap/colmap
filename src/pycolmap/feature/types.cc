@@ -49,9 +49,10 @@ void BindFeatureTypes(py::module& m) {
           .def_readwrite("point2D_idx1", &FeatureMatch::point2D_idx1)
           .def_readwrite("point2D_idx2", &FeatureMatch::point2D_idx2)
           .def("__repr__", [](const FeatureMatch& match) {
-            std::stringstream ss << "FeatureMatch("
-                                 << " idx1=" << match.point2D_idx1
-                                 << " idx2=" << match.point2D_idx2 << ")";
+            std::ostringstream ss;
+            ss << "FeatureMatch("
+               << " idx1=" << match.point2D_idx1
+               << " idx2=" << match.point2D_idx2 << ")";
             return ss.str();
           });
   MakeDataclass(PyFeatureMatch);
