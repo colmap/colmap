@@ -105,6 +105,7 @@ support (special credits to `Torsten Sattler <https://tsattler.github.io>`_).
 
    install
    tutorial
+   concepts
    database
    cameras
    rigs

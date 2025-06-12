@@ -121,6 +121,7 @@ void BindSift(py::module& m) {
                          &Opts::num_threads,
                          "Number of threads for feature matching and "
                          "geometric verification.")
+          .def_readwrite("use_gpu", &Opts::use_gpu)
           .def_readwrite("gpu_index",
                          &Opts::gpu_index,
                          "Index of the GPU used for feature matching. For "
@@ -198,6 +199,7 @@ void BindSift(py::module& m) {
       py::class_<SMOpts>(m, "SiftMatchingOptions")
           .def(py::init<>())
           .def_readwrite("num_threads", &SMOpts::num_threads)
+          .def_readwrite("use_gpu", &SMOpts::use_gpu)
           .def_readwrite("gpu_index",
                          &SMOpts::gpu_index,
                          "Index of the GPU used for feature matching. For "
