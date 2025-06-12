@@ -116,6 +116,7 @@ macro(COLMAP_ADD_EXECUTABLE)
         set_target_properties(${COLMAP_ADD_EXECUTABLE_NAME}
             PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_EXE};-header-filter=.*")
     endif()
+    target_compile_definitions(${COLMAP_ADD_EXECUTABLE_NAME} PRIVATE ${COLMAP_COMPILE_DEFINITIONS})
 endmacro(COLMAP_ADD_EXECUTABLE)
 
 # Wrapper for test executables.
@@ -142,4 +143,5 @@ macro(COLMAP_ADD_TEST)
             install(TARGETS ${COLMAP_ADD_TEST_NAME} DESTINATION ${CMAKE_INSTALL_BINDIR})
         endif()
     endif()
+    target_compile_definitions(${COLMAP_ADD_TEST_NAME} PRIVATE ${COLMAP_COMPILE_DEFINITIONS})
 endmacro(COLMAP_ADD_TEST)
