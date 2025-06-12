@@ -22,7 +22,7 @@ A **sensor** is a device that captures data about the environment, producing
 measurements at specific timestamps. The most common sensor type is the camera,
 which captures images as its measurements. Other examples include IMUs
 (Inertial Measurement Units), which record acceleration and angular velocity,
-and GNSS receivers, which provide position data. 
+and GNSS receivers, which provide absolute position data. 
 
 Currently, COLMAP supports only cameras and their image measurements, though the
 sensor concept is designed to extend to other types such as IMUs and GNSS for
