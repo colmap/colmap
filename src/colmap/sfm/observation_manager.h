@@ -33,10 +33,11 @@
 #include "colmap/scene/image.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/track.h"
-#include "colmap/util/threading.h"
 #include "colmap/util/types.h"
 
 namespace colmap {
+
+class ThreadPool;
 
 bool MergeAndFilterReconstructions(double max_reproj_error,
                                    const Reconstruction& src_reconstruction,

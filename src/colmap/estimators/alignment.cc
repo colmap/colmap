@@ -107,23 +107,19 @@ struct ReconstructionAlignmentEstimator {
     residuals->resize(src_images.size());
 
     if (thread_pool_ && src_images.size() > 10) {
-      std::vector<std::future<void>> futures;
-      futures.reserve(src_images.size());
       for (size_t i = 0; i < src_images.size(); ++i) {
-        futures.push_back(thread_pool_->AddTask([this,
-                                                 i,
-                                                 &src_images,
-                                                 &tgt_images,
-                                                 &tgt_from_src,
-                                                 &src_from_tgt,
-                                                 residuals]() {
+        thread_pool_->AddTask([this,
+                               i,
+                               &src_images,
+                               &tgt_images,
+                               &tgt_from_src,
+                               &src_from_tgt,
+                               residuals]() {
           ComputeImageResidual(
               i, src_images, tgt_images, tgt_from_src, src_from_tgt, residuals);
-        }));
+        });
       }
-      for (auto& future : futures) {
-        future.get();
-      }
+      thread_pool_->Wait();
     } else {
       for (size_t i = 0; i < src_images.size(); ++i) {
         ComputeImageResidual(
