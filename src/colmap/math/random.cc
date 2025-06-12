@@ -29,6 +29,7 @@
 
 #include "colmap/math/random.h"
 
+#include <chrono>
 #include <mutex>
 
 namespace colmap {
@@ -36,9 +37,19 @@ namespace colmap {
 thread_local std::unique_ptr<std::mt19937> PRNG;
 
 int kDefaultPRNGSeed = 0;
+const int kRandomPRNGSeed = -1;
 
 void SetPRNGSeed(unsigned seed) {
+  // If seed is the special random value, use a fixed seed for reproducibility
+  if (seed == kRandomPRNGSeed) {
+    // Alternative approach would be to use system time:
+    // seed = static_cast<unsigned>(
+    //    std::chrono::system_clock::now().time_since_epoch().count());
+    seed = 42;
+  }
+
   PRNG = std::make_unique<std::mt19937>(seed);
+  
   // srand is not thread-safe.
   static std::mutex mutex;
   std::unique_lock<std::mutex> lock(mutex);

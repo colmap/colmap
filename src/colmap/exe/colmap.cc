@@ -35,6 +35,7 @@
 #include "colmap/exe/mvs.h"
 #include "colmap/exe/sfm.h"
 #include "colmap/exe/vocab_tree.h"
+#include "colmap/math/random.h"
 #include "colmap/util/version.h"
 
 namespace {
@@ -80,6 +81,9 @@ int ShowHelp(
 }  // namespace
 
 int main(int argc, char** argv) {
+  // Set a fixed random seed to ensure deterministic results
+  colmap::SetPRNGSeed(colmap::kRandomPRNGSeed);
+  
   colmap::InitializeGlog(argv);
 
   std::vector<std::pair<std::string, command_func_t>> commands;

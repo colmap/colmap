@@ -41,6 +41,7 @@ namespace colmap {
 extern thread_local std::unique_ptr<std::mt19937> PRNG;
 
 extern int kDefaultPRNGSeed;
+extern const int kRandomPRNGSeed;
 
 // Initialize the PRNG with the given seed.
 //
