@@ -55,5 +55,5 @@ void BindFeatureTypes(py::module& m) {
             return ss.str();
           });
   MakeDataclass(PyFeatureMatch);
-  py::bind_vector<FeatureMatches>(m, "FeatureMatches")
+  py::bind_vector<FeatureMatches>(m, "FeatureMatches");
 }
