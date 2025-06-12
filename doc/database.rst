@@ -28,7 +28,7 @@ Rigs and Sensors
 
 The relation between rigs and sensors (cameras, etc.) is 1-to-N with one sensor
 being chosen as the reference sensor to define the origin of the rig. Each sensor
-must only be be part of one rig.
+must only be part of one rig.
 
 
 Rigs and Frames
