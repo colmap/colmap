@@ -1,7 +1,7 @@
 .. _concepts:
 
 Key Concepts
-=============
+============
 
 Starting from COLMAP 3.12, the concepts of rigs and frames have been introduced
 to enable a principled modeling of multi-sensor platforms as well as 360° panorama
@@ -16,7 +16,7 @@ of COLMAP for single-camera capture setups.
 .. _sensors:
 
 Sensors and Measurements
----------------------------------------
+------------------------
 
 A **sensor** is a device that captures data about the environment, producing
 measurements at specific timestamps. The most common sensor type is the camera,
@@ -32,7 +32,7 @@ future support of multi-modal data fusion.
 .. _rigs:
 
 Rigs
------------------
+----
 
 A **rig** models a platform composed of multiple sensors with fixed relative poses,
 enabling synchronized and consistent multi-sensor data collection. Examples
@@ -52,7 +52,7 @@ reference sensor for its rig.
 .. _frames:
 
 Frames
---------------------
+------
 
 A **frame** represents a rig captured at a single timestamp, containing measurements
 from one or more sensors within that rig. For example, if a rig consists of
