@@ -40,4 +40,20 @@ void BindFeatureTypes(py::module& m) {
             return ss.str();
           });
   MakeDataclass(PyFeatureKeypoint);
+  py::bind_vector<FeatureKeypoints>(m, "FeatureKeypoints");
+
+  auto PyFeatureMatch =
+      py::class_<FeatureMatch>(m, "FeatureMatch")
+          .def(py::init<>())
+          .def(py::init<const point2D_t, const point2D_t>())
+          .def_readwrite("point2D_idx1", &FeatureMatch::point2D_idx1)
+          .def_readwrite("point2D_idx2", &FeatureMatch::point2D_idx2)
+          .def("__repr__", [](const FeatureMatch& match) {
+            std::stringstream ss << "FeatureMatch("
+                                 << " idx1=" << match.point2D_idx1
+                                 << " idx2=" << match.point2D_idx2 << ")";
+            return ss.str();
+          });
+  MakeDataclass(PyFeatureMatch);
+  py::bind_vector<FeatureMatches>(m, "FeatureMatches")
 }
