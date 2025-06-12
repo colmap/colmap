@@ -1,5 +1,14 @@
 Changelog
 =========
+--------------------------
+COLMAP 3.11.1 (12/06/2024)
+--------------------------
+
+Bug Fixes
+---------
+* Fix typo in pycolmap function align_reconstruction_to_locations interface by @B1ueber2y in https://github.com/colmap/colmap/pull/2961
+* Add back some ceres bindings to use pycolmap bundle adjustment without pyceres by @B1ueber2y in https://github.com/colmap/colmap/pull/2985
+* Fix setting of RANSAC max error in pose prior BA alignment by @ahojnnes in https://github.com/colmap/colmap/pull/2993
 
 ------------------------
 COLMAP 3.11 (11/28/2024)
