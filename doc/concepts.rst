@@ -34,7 +34,7 @@ future support of multi-modal data fusion.
 Rigs
 -----------------
 
-A **rig** is a platform composed of multiple sensors with fixed relative poses,
+A **rig** models a platform composed of multiple sensors with fixed relative poses,
 enabling synchronized and consistent multi-sensor data collection. Examples
 include stereo camera setups, headworn AR/VR devices, and autonomous driving
 sensor suites. It can also be virtual — for example, a rig modeling multiple
