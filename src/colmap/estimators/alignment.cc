@@ -106,6 +106,13 @@ struct ReconstructionAlignmentEstimator {
 
     residuals->resize(src_images.size());
 
+    for (size_t i = 0; i < src_images.size(); ++i) {
+      const Image& src_image = *src_images[i];
+      const Image& tgt_image = *tgt_images[i];
+      THROW_CHECK_EQ(src_image.ImageId(), tgt_image.ImageId());
+      THROW_CHECK_EQ(src_image.NumPoints2D(), tgt_image.NumPoints2D());
+    }
+
     if (thread_pool_ && src_images.size() > 10) {
       for (size_t i = 0; i < src_images.size(); ++i) {
         thread_pool_->AddTask([this,
@@ -138,8 +145,6 @@ struct ReconstructionAlignmentEstimator {
     const Image& src_image = *src_images[i];
     const Image& tgt_image = *tgt_images[i];
 
-    THROW_CHECK_EQ(src_image.ImageId(), tgt_image.ImageId());
-
     const Camera& src_camera = *src_image.CameraPtr();
     const Camera& tgt_camera = *tgt_image.CameraPtr();
 
@@ -147,8 +152,6 @@ struct ReconstructionAlignmentEstimator {
         src_image.CamFromWorld().ToMatrix();
     const Eigen::Matrix3x4d tgt_cam_from_world =
         tgt_image.CamFromWorld().ToMatrix();
-
-    THROW_CHECK_EQ(src_image.NumPoints2D(), tgt_image.NumPoints2D());
 
     size_t num_inliers = 0;
     size_t num_common_points = 0;
