@@ -70,6 +70,11 @@ TEST(Rig, SetUp) {
   EXPECT_FALSE(rig.IsRefSensor(sensor_id2));
   EXPECT_FALSE(rig.IsRefSensor(sensor_id3));
 
+  EXPECT_FALSE(rig.HasSensorFromRig(sensor_id0));
+  EXPECT_TRUE(rig.HasSensorFromRig(sensor_id1));
+  EXPECT_TRUE(rig.HasSensorFromRig(sensor_id2));
+  EXPECT_FALSE(rig.HasSensorFromRig(sensor_id3));  // no sensor_from_rig
+
   EXPECT_EQ(rig.SensorFromRig(sensor_id1), sensor1_from_rig);
   EXPECT_EQ(rig.MaybeSensorFromRig(sensor_id1).value(), sensor1_from_rig);
 

@@ -30,6 +30,7 @@
 #include "colmap/ui/main_window.h"
 
 #include "colmap/scene/reconstruction_io.h"
+#include "colmap/util/logging.h"
 #include "colmap/util/version.h"
 
 #include <clocale>
@@ -432,6 +433,12 @@ void MainWindow::CreateActions() {
           this,
           &MainWindow::ResetOptions);
 
+  action_set_log_level_ = new QAction(tr("Set log level"), this);
+  connect(action_set_log_level_,
+          &QAction::triggered,
+          this,
+          &MainWindow::SetLogLevel);
+
   //////////////////////////////////////////////////////////////////////////////
   // Misc actions
   //////////////////////////////////////////////////////////////////////////////
@@ -532,6 +539,7 @@ void MainWindow::CreateMenus() {
   extras_menu->addSeparator();
   extras_menu->addAction(action_set_options_);
   extras_menu->addAction(action_reset_options_);
+  extras_menu->addAction(action_set_log_level_);
   menuBar()->addAction(extras_menu->menuAction());
 
   QMenu* help_menu = new QMenu(tr("Help"), this);
@@ -1292,7 +1300,7 @@ void MainWindow::SetOptions() {
   data_items << "Individual images"
              << "Video frames"
              << "Internet images";
-  bool data_ok;
+  bool data_ok = false;
   const QString data_item =
       QInputDialog::getItem(this, "", "Data:", data_items, 0, false, &data_ok);
   if (!data_ok) {
@@ -1304,7 +1312,7 @@ void MainWindow::SetOptions() {
                 << "Medium"
                 << "High"
                 << "Extreme";
-  bool quality_ok;
+  bool quality_ok = false;
   const QString quality_item = QInputDialog::getItem(
       this, "", "Quality:", quality_items, 2, false, &quality_ok);
   if (!quality_ok) {
@@ -1340,6 +1348,17 @@ void MainWindow::SetOptions() {
 void MainWindow::ResetOptions() {
   const bool kResetPaths = false;
   options_.ResetOptions(kResetPaths);
+}
+
+void MainWindow::SetLogLevel() {
+  bool ok = false;
+  const int log_level =
+      QInputDialog::getInt(this, "", "Log Level:", FLAGS_v, 0, 3, 1, &ok);
+  if (!ok) {
+    return;
+  }
+
+  FLAGS_v = log_level;
 }
 
 void MainWindow::About() {
