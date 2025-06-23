@@ -135,9 +135,10 @@ CUDA package and GCC, and you must compile against GCC 10::
     export CUDAHOSTCXX=/usr/bin/g++-10
     # ... and then run CMake against COLMAP's sources.
 
-Notice that compiling against OpenBLAS instead of MKL requires the OpenMP
-version under Debian/Ubuntu because of `this issue
-<https://github.com/facebookresearch/faiss/wiki/Troubleshooting#surprising-faiss-openmp-and-openblas-interaction>`__.
+Notice that the `BLA_VENDOR=Intel10_64lp` option tells CMake to find Intel's MKL
+implementation of BLAS. If you decide to compile against OpenBLAS instead of
+MKL, you must install and select the OpenMP version under Debian/Ubuntu because
+of `this issue <https://github.com/facebookresearch/faiss/wiki/Troubleshooting#surprising-faiss-openmp-and-openblas-interaction>`__.
 
 Mac
 ---
