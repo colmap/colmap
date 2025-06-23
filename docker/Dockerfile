@@ -15,7 +15,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Prepare and empty machine for building.
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends --no-install-suggests \
+    apt-get install -y \
         git \
         cmake \
         ninja-build \
@@ -36,7 +36,7 @@ RUN apt-get update && \
         libcgal-dev \
         libceres-dev \
         libcurl4-openssl-dev \
-        libopenblas-openmp-dev
+        libmkl-full-dev
 
 # Build and install COLMAP.
 RUN git clone https://github.com/colmap/colmap.git
@@ -45,8 +45,11 @@ RUN cd colmap && \
     git checkout FETCH_HEAD && \
     mkdir build && \
     cd build && \
-    cmake .. -GNinja -DCMAKE_CUDA_ARCHITECTURES=${CUDA_ARCHITECTURES} \
-        -DCMAKE_INSTALL_PREFIX=/colmap-install && \
+    cmake .. \
+        -GNinja \
+        -DCMAKE_CUDA_ARCHITECTURES=${CUDA_ARCHITECTURES} \
+        -DCMAKE_INSTALL_PREFIX=/colmap-install \
+        -DBLA_VENDOR=Intel10_64lp && \
     ninja install
 
 #
@@ -71,7 +74,7 @@ RUN apt-get update && \
         libqt5gui5 \
         libqt5widgets5 \
         libcurl4 \
-        libopenblas0-openmp
+        libmkl-intel-lp64
 
 # Copy all files from /colmap-install/ in the builder stage to /usr/local/ in
 # the runtime stage. This simulates installing COLMAP in the default location
