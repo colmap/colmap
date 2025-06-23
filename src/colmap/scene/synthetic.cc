@@ -219,8 +219,11 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
         if (options.sensor_from_rig_rotation_stddev > 0) {
           // Generate a random rotation around the Z-axis.
           // This is to avoid 2D points fall behind the camera.
-          const double angle = std::clamp(RandomGaussian<double>(
-              0, options.sensor_from_rig_rotation_stddev), -180.0, 180.0);
+          const double angle =
+              std::clamp(RandomGaussian<double>(
+                             0, options.sensor_from_rig_rotation_stddev),
+                         -180.0,
+                         180.0);
           sensor_from_rig.rotation = Eigen::Quaterniond(
               Eigen::AngleAxisd(DegToRad(angle), Eigen::Vector3d(0, 0, 1)));
         }
