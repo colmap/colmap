@@ -131,6 +131,11 @@ bool Rig::IsRefSensor(sensor_t sensor_id) const {
   return sensor_id == ref_sensor_id_;
 }
 
+bool Rig::HasSensorFromRig(sensor_t sensor_id) const {
+  return sensor_id != ref_sensor_id_ && HasSensor(sensor_id) &&
+         sensors_from_rig_.at(sensor_id).has_value();
+}
+
 const std::map<sensor_t, std::optional<Rigid3d>>& Rig::Sensors() const {
   return sensors_from_rig_;
 }
