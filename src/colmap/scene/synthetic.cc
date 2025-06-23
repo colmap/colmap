@@ -174,6 +174,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
   THROW_CHECK_GE(options.num_points3D, 0);
   THROW_CHECK_GE(options.num_points2D_without_point3D, 0);
   THROW_CHECK_GE(options.sensor_from_rig_translation_stddev, 0.);
+  THROW_CHECK_GE(options.sensor_from_rig_rotation_stddev, 0.);
   THROW_CHECK_GE(options.point2D_stddev, 0.);
   THROW_CHECK_GE(options.prior_position_stddev, 0.);
 
@@ -216,10 +217,13 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
       } else {
         Rigid3d sensor_from_rig;
         if (options.sensor_from_rig_rotation_stddev > 0) {
-          const double angle = RandomGaussian<double>(
+          // Generate a random rotation around the Z-axis.
+          // This is to avoid 2D points fall behind the camera.
+          double angle = RandomGaussian<double>(
               0, options.sensor_from_rig_rotation_stddev);
-          sensor_from_rig.rotation = Eigen::Quaterniond(Eigen::AngleAxisd(
-              angle * (M_PI / 180.), Eigen::Vector3d(0, 0, 1)));
+          angle = std::max(std::min(angle, 180.0), -180.0);
+          sensor_from_rig.rotation = Eigen::Quaterniond(
+              Eigen::AngleAxisd(DegToRad(angle), Eigen::Vector3d(0, 0, 1)));
         }
         if (options.sensor_from_rig_translation_stddev > 0) {
           sensor_from_rig.translation = Eigen::Vector3d(
@@ -299,6 +303,9 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
           Point2D point2D;
           const std::optional<Eigen::Vector2d> proj_point2D =
               camera.ImgFromCam(cam_from_world * point3D.xyz);
+          if (!proj_point2D.has_value()) {
+            continue;  // Point is behind the camera.
+          }
           point2D.xy = proj_point2D.value();
           if (options.point2D_stddev > 0) {
             const Eigen::Vector2d noise(
