@@ -215,6 +215,12 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
         rig.AddRefSensor(camera.SensorId());
       } else {
         Rigid3d sensor_from_rig;
+        if (options.sensor_from_rig_rotation_stddev > 0) {
+          const double angle = RandomGaussian<double>(
+              0, options.sensor_from_rig_rotation_stddev);
+          sensor_from_rig.rotation = Eigen::Quaterniond(Eigen::AngleAxisd(
+              angle * (M_PI / 180.), Eigen::Vector3d(0, 0, 1)));
+        }
         if (options.sensor_from_rig_translation_stddev > 0) {
           sensor_from_rig.translation = Eigen::Vector3d(
               RandomGaussian<double>(
