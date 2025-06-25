@@ -249,7 +249,19 @@ TEST(IncrementalPipeline, FixExistingFrames) {
   for (const bool fix_existing_frames : {false, true}) {
     if (fix_existing_frames) {
       ASSERT_EQ(reconstruction_manager->Size(), 1);
-      reconstruction_manager->Get(0)->DeRegisterFrame(1);
+      Reconstruction& reconstruction = *reconstruction_manager->Get(0);
+      // De-register a frame that expect to be re-registered in the second run.
+      reconstruction.DeRegisterFrame(1);
+      // Clear all the observations of one image but keep it registered. We do
+      // not expect fixed images to be filtered (due to insufficient
+      // observations).
+      Image& image2 = reconstruction.Image(2);
+      for (point2D_t point2D_idx = 0; point2D_idx < image2.NumPoints2D();
+           ++point2D_idx) {
+        if (image2.Point2D(point2D_idx).HasPoint3D()) {
+          reconstruction.DeleteObservation(image2.ImageId(), point2D_idx);
+        }
+      }
     }
     options->fix_existing_frames = fix_existing_frames;
     IncrementalPipeline mapper(options,
