@@ -119,3 +119,4 @@ support (special credits to `Torsten Sattler <https://tsattler.github.io>`_).
    contribution
    license
    bibliography
+   legacy
