@@ -93,10 +93,7 @@ Dependencies from the default Ubuntu repositories::
         libcgal-dev \
         libceres-dev \
         libcurl4-openssl-dev \
-        libopenblas-openmp-dev
-
-Notice that compiling against OpenBLAS requires the OpenMP version
-under Debian/Ubuntu because of `this issue <https://github.com/facebookresearch/faiss/wiki/Troubleshooting#surprising-faiss-openmp-and-openblas-interaction>`__.
+        libmkl-full-dev
 
 To compile with **CUDA support**, also install Ubuntu's default CUDA package::
 
@@ -115,7 +112,7 @@ Configure and compile COLMAP::
     cd colmap
     mkdir build
     cd build
-    cmake .. -GNinja
+    cmake .. -GNinja -DBLA_VENDOR=Intel10_64lp
     ninja
     sudo ninja install
 
@@ -137,6 +134,11 @@ CUDA package and GCC, and you must compile against GCC 10::
     export CXX=/usr/bin/g++-10
     export CUDAHOSTCXX=/usr/bin/g++-10
     # ... and then run CMake against COLMAP's sources.
+
+Notice that the `BLA_VENDOR=Intel10_64lp` option tells CMake to find Intel's MKL
+implementation of BLAS. If you decide to compile against OpenBLAS instead of
+MKL, you must install and select the OpenMP version under Debian/Ubuntu because
+of `this issue <https://github.com/facebookresearch/faiss/wiki/Troubleshooting#surprising-faiss-openmp-and-openblas-interaction>`__.
 
 Mac
 ---
