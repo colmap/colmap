@@ -230,6 +230,55 @@ TEST(IncrementalPipeline, MultiReconstruction) {
                              /*num_obs_tolerance=*/0);
 }
 
+TEST(IncrementalPipeline, FixExistingFrames) {
+  const std::string database_path = CreateTestDir() + "/database.db";
+
+  Database database(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 7;
+  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.point2D_stddev = 0;
+  synthetic_dataset_options.camera_has_prior_focal_length = false;
+  SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction, &database);
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  auto options = std::make_shared<IncrementalPipelineOptions>();
+  for (const bool fix_existing_frames : {false, true}) {
+    if (fix_existing_frames) {
+      ASSERT_EQ(reconstruction_manager->Size(), 1);
+      Reconstruction& reconstruction = *reconstruction_manager->Get(0);
+      // De-register a frame that expect to be re-registered in the second run.
+      reconstruction.DeRegisterFrame(1);
+      // Clear all the observations of one image but keep it registered. We do
+      // not expect fixed images to be filtered (due to insufficient
+      // observations).
+      Image& image2 = reconstruction.Image(2);
+      for (point2D_t point2D_idx = 0; point2D_idx < image2.NumPoints2D();
+           ++point2D_idx) {
+        if (image2.Point2D(point2D_idx).HasPoint3D()) {
+          reconstruction.DeleteObservation(image2.ImageId(), point2D_idx);
+        }
+      }
+    }
+    options->fix_existing_frames = fix_existing_frames;
+    IncrementalPipeline mapper(options,
+                               /*image_path=*/"",
+                               database_path,
+                               reconstruction_manager);
+    mapper.Run();
+
+    ASSERT_EQ(reconstruction_manager->Size(), 1);
+    ExpectEqualReconstructions(gt_reconstruction,
+                               *reconstruction_manager->Get(0),
+                               /*max_rotation_error_deg=*/1e-2,
+                               /*max_proj_center_error=*/1e-4,
+                               /*num_obs_tolerance=*/0);
+  }
+}
+
 TEST(IncrementalPipeline, ChainedMatches) {
   const std::string database_path = CreateTestDir() + "/database.db";
 
