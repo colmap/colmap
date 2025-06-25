@@ -916,8 +916,11 @@ size_t IncrementalMapper::FilterFrames(const Options& options) {
                                  options.max_extra_param);
 
   for (const frame_t frame_id : frame_ids) {
-    DeRegisterFrameEvent(frame_id);
-    filtered_frames_.insert(frame_id);
+    if (!options.fix_existing_frames ||
+        existing_frame_ids_.count(frame_id) == 0) {
+      DeRegisterFrameEvent(frame_id);
+      filtered_frames_.insert(frame_id);
+    }
   }
 
   const size_t num_filtered_frames = frame_ids.size();
