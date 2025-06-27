@@ -62,8 +62,8 @@ void TriangulationEstimator::Estimate(const std::vector<X_t>& point_data,
     M_t xyz;
     if (TriangulatePoint(pose_data[0].cam_from_world,
                          pose_data[1].cam_from_world,
-                         point_data[0].cam_point,
-                         point_data[1].cam_point,
+                         point_data[0].cam_ray,
+                         point_data[1].cam_ray,
                          &xyz) &&
         HasPointPositiveDepth(pose_data[0].cam_from_world, xyz) &&
         HasPointPositiveDepth(pose_data[1].cam_from_world, xyz) &&
@@ -79,18 +79,18 @@ void TriangulationEstimator::Estimate(const std::vector<X_t>& point_data,
 
     std::vector<Eigen::Matrix3x4d> cams_from_world;
     cams_from_world.reserve(point_data.size());
-    std::vector<Eigen::Vector2d> cam_points;
-    cam_points.reserve(point_data.size());
+    std::vector<Eigen::Vector3d> cam_rays;
+    cam_rays.reserve(point_data.size());
     for (size_t i = 0; i < point_data.size(); ++i) {
       cams_from_world.push_back(pose_data[i].cam_from_world);
-      cam_points.push_back(point_data[i].cam_point);
+      cam_rays.push_back(point_data[i].cam_ray);
     }
 
     M_t xyz;
     if (!TriangulateMultiViewPoint(
             span<const Eigen::Matrix3x4d>(cams_from_world.data(),
                                           cams_from_world.size()),
-            span<const Eigen::Vector2d>(cam_points.data(), cam_points.size()),
+            span<const Eigen::Vector3d>(cam_rays.data(), cam_rays.size()),
             &xyz)) {
       return;
     }
@@ -133,8 +133,8 @@ void TriangulationEstimator::Residuals(const std::vector<X_t>& point_data,
                                             pose_data[i].cam_from_world,
                                             *pose_data[i].camera);
     } else if (residual_type_ == ResidualType::ANGULAR_ERROR) {
-      const double angular_error = CalculateNormalizedAngularError(
-          point_data[i].cam_point, xyz, pose_data[i].cam_from_world);
+      const double angular_error = CalculateAngularReprojectionError(
+          point_data[i].cam_ray, xyz, pose_data[i].cam_from_world);
       (*residuals)[i] = angular_error * angular_error;
     }
   }
@@ -161,10 +161,10 @@ bool EstimateTriangulation(const EstimateTriangulationOptions& options,
     point_data[i].img_point = points[i];
     if (const std::optional<Eigen::Vector2d> cam_point =
             cameras[i]->CamFromImg(points[i]);
-        cam_point) {
-      point_data[i].cam_point = *cam_point;
+        cam_point.has_value()) {
+      point_data[i].cam_ray = cam_point->homogeneous().normalized();
     } else {
-      point_data[i].cam_point.setZero();
+      point_data[i].cam_ray.setZero();
     }
     pose_data[i].cam_from_world = cams_from_world[i].ToMatrix();
     pose_data[i].proj_center =

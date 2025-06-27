@@ -59,18 +59,17 @@ TEST(TriangulatePoint, Nominal) {
                                     Eigen::Vector3d(tx, 2, 3));
       for (size_t i = 0; i < points3D.size(); ++i) {
         const Eigen::Vector3d& point3D = points3D[i];
-        const Eigen::Vector2d point1 =
-            (cam1_from_world * point3D).hnormalized();
-        const Eigen::Vector2d point2 =
-            (cam2_from_world * point3D).hnormalized();
+        const Eigen::Vector3d cam_ray1 =
+            (cam1_from_world * point3D).normalized();
+        const Eigen::Vector3d cam_ray2 =
+            (cam2_from_world * point3D).normalized();
 
         Eigen::Vector3d tri_point3D;
         EXPECT_TRUE(TriangulatePoint(cam1_from_world.ToMatrix(),
                                      cam2_from_world.ToMatrix(),
-                                     point1,
-                                     point2,
+                                     cam_ray1,
+                                     cam_ray2,
                                      &tri_point3D));
-
         EXPECT_THAT(point3D, EigenMatrixNear(tri_point3D, 1e-10));
       }
     }
@@ -83,8 +82,8 @@ TEST(TriangulatePoint, ParallelRays) {
       Rigid3d().ToMatrix(),
       Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(1, 0, 0))
           .ToMatrix(),
-      Eigen::Vector2d(0, 0),
-      Eigen::Vector2d(0, 0),
+      Eigen::Vector3d(0, 0, 1),
+      Eigen::Vector3d(0, 0, 1),
       &xyz));
 }
 
@@ -109,24 +108,25 @@ TEST(TriangulateMultiViewPoint, Nominal) {
                                     Eigen::Vector3d(tx, 2.1, 3.1));
       for (size_t i = 0; i < points3D.size(); ++i) {
         const Eigen::Vector3d& point3D = points3D[i];
-        const Eigen::Vector2d point1 =
-            (cam1_from_world * point3D).hnormalized();
-        const Eigen::Vector2d point2 =
-            (cam2_from_world * point3D).hnormalized();
-        const Eigen::Vector2d point3 =
-            (cam3_from_world * point3D).hnormalized();
+        const Eigen::Vector3d cam_ray1 =
+            (cam1_from_world * point3D).normalized();
+        const Eigen::Vector3d cam_ray2 =
+            (cam2_from_world * point3D).normalized();
+        const Eigen::Vector3d cam_ray3 =
+            (cam3_from_world * point3D).normalized();
 
         const std::array<Eigen::Matrix3x4d, 3> cams_from_world = {
             cam1_from_world.ToMatrix(),
             cam2_from_world.ToMatrix(),
             cam3_from_world.ToMatrix()};
-        const std::array<Eigen::Vector2d, 3> points = {point1, point2, point3};
+        const std::array<Eigen::Vector3d, 3> cam_rays = {
+            cam_ray1, cam_ray2, cam_ray3};
 
         Eigen::Vector3d tri_point3D;
         EXPECT_TRUE(TriangulateMultiViewPoint(
             span<const Eigen::Matrix3x4d>(cams_from_world.data(),
                                           cams_from_world.size()),
-            span<const Eigen::Vector2d>(points.data(), points.size()),
+            span<const Eigen::Vector3d>(cam_rays.data(), cam_rays.size()),
             &tri_point3D));
 
         EXPECT_THAT(point3D, EigenMatrixNear(tri_point3D, 1e-10));

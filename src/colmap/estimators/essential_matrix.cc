@@ -42,28 +42,28 @@
 namespace colmap {
 
 void EssentialMatrixFivePointEstimator::Estimate(
-    const std::vector<X_t>& points1,
-    const std::vector<Y_t>& points2,
+    const std::vector<X_t>& cam_rays1,
+    const std::vector<Y_t>& cam_rays2,
     std::vector<M_t>* models) {
-  THROW_CHECK_EQ(points1.size(), points2.size());
-  THROW_CHECK_GE(points1.size(), 5);
+  THROW_CHECK_EQ(cam_rays1.size(), cam_rays2.size());
+  THROW_CHECK_GE(cam_rays1.size(), 5);
   THROW_CHECK(models != nullptr);
 
   models->clear();
 
-  // Setup system of equations: [points2(i,:), 1]' * E * [points1(i,:), 1]'.
+  // Setup system of equations: [cam_rays2(i,:), 1]' * E * [cam_rays1(i,:), 1]'.
 
-  Eigen::Matrix<double, Eigen::Dynamic, 9> Q(points1.size(), 9);
-  for (size_t i = 0; i < points1.size(); ++i) {
-    Q.row(i) << points2[i].x() * points1[i].transpose().homogeneous(),
-        points2[i].y() * points1[i].transpose().homogeneous(),
-        points1[i].transpose().homogeneous();
+  Eigen::Matrix<double, Eigen::Dynamic, 9> Q(cam_rays1.size(), 9);
+  for (size_t i = 0; i < cam_rays1.size(); ++i) {
+    Q.row(i) << cam_rays2[i].x() * cam_rays1[i].transpose(),
+        cam_rays2[i].y() * cam_rays1[i].transpose(),
+        cam_rays2[i].z() * cam_rays1[i].transpose();
   }
 
   // Step 1: Extraction of the nullspace.
 
   Eigen::Matrix<double, 9, 4> E;
-  if (points1.size() == 5) {
+  if (cam_rays1.size() == 5) {
     E = Q.transpose().fullPivHouseholderQr().matrixQ().rightCols<4>();
   } else {
     const Eigen::JacobiSVD<Eigen::Matrix<double, Eigen::Dynamic, 9>> svd(
@@ -146,43 +146,34 @@ void EssentialMatrixFivePointEstimator::Estimate(
 }
 
 void EssentialMatrixFivePointEstimator::Residuals(
-    const std::vector<X_t>& points1,
-    const std::vector<Y_t>& points2,
+    const std::vector<X_t>& cam_rays1,
+    const std::vector<Y_t>& cam_rays2,
     const M_t& E,
     std::vector<double>* residuals) {
-  ComputeSquaredSampsonError(points1, points2, E, residuals);
+  ComputeSquaredSampsonError(cam_rays1, cam_rays2, E, residuals);
 }
 
 void EssentialMatrixEightPointEstimator::Estimate(
-    const std::vector<X_t>& points1,
-    const std::vector<Y_t>& points2,
+    const std::vector<X_t>& cam_rays1,
+    const std::vector<Y_t>& cam_rays2,
     std::vector<M_t>* models) {
-  THROW_CHECK_EQ(points1.size(), points2.size());
-  THROW_CHECK_GE(points1.size(), 8);
+  THROW_CHECK_EQ(cam_rays1.size(), cam_rays2.size());
+  THROW_CHECK_GE(cam_rays1.size(), 8);
   THROW_CHECK(models != nullptr);
 
   models->clear();
 
-  // Center and normalize image points for better numerical stability.
-  std::vector<X_t> normed_points1;
-  std::vector<Y_t> normed_points2;
-  Eigen::Matrix3d normed_from_orig1;
-  Eigen::Matrix3d normed_from_orig2;
-  CenterAndNormalizeImagePoints(points1, &normed_points1, &normed_from_orig1);
-  CenterAndNormalizeImagePoints(points2, &normed_points2, &normed_from_orig2);
-
-  // Setup homogeneous linear equation as x2' * F * x1 = 0.
-  Eigen::Matrix<double, Eigen::Dynamic, 9> A(points1.size(), 9);
-  for (size_t i = 0; i < points1.size(); ++i) {
-    A.row(i) << normed_points2[i].x() *
-                    normed_points1[i].transpose().homogeneous(),
-        normed_points2[i].y() * normed_points1[i].transpose().homogeneous(),
-        normed_points1[i].transpose().homogeneous();
+  // Setup homogeneous linear equation as x2' * E * x1 = 0.
+  Eigen::Matrix<double, Eigen::Dynamic, 9> A(cam_rays1.size(), 9);
+  for (size_t i = 0; i < cam_rays1.size(); ++i) {
+    A.row(i) << cam_rays2[i].x() * cam_rays1[i].transpose(),
+        cam_rays2[i].y() * cam_rays1[i].transpose(),
+        cam_rays2[i].z() * cam_rays1[i].transpose();
   }
 
   // Solve for the nullspace of the constraint matrix.
   Eigen::Matrix3d Q;
-  if (points1.size() == 8) {
+  if (cam_rays1.size() == 8) {
     Eigen::Matrix<double, 9, 9> QQ =
         A.transpose().householderQr().householderQ();
     Q = Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(
@@ -204,15 +195,15 @@ void EssentialMatrixEightPointEstimator::Estimate(
       svd.matrixU() * singular_values.asDiagonal() * svd.matrixV().transpose();
 
   models->resize(1);
-  (*models)[0] = normed_from_orig2.transpose() * E * normed_from_orig1;
+  (*models)[0] = E;
 }
 
 void EssentialMatrixEightPointEstimator::Residuals(
-    const std::vector<X_t>& points1,
-    const std::vector<Y_t>& points2,
+    const std::vector<X_t>& cam_rays1,
+    const std::vector<Y_t>& cam_rays2,
     const M_t& E,
     std::vector<double>* residuals) {
-  ComputeSquaredSampsonError(points1, points2, E, residuals);
+  ComputeSquaredSampsonError(cam_rays1, cam_rays2, E, residuals);
 }
 
 }  // namespace colmap

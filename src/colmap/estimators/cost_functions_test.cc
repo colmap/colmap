@@ -230,8 +230,8 @@ TEST(RigReprojErrorConstantRigCostFunctor, Nominal) {
 
 TEST(SampsonErrorCostFunctor, Nominal) {
   std::unique_ptr<ceres::CostFunction> cost_function(
-      SampsonErrorCostFunctor::Create(Eigen::Vector2d(0, 0),
-                                      Eigen::Vector2d(0, 0)));
+      SampsonErrorCostFunctor::Create(Eigen::Vector3d(0, 0, 1),
+                                      Eigen::Vector3d(0, 0, 1)));
   double cam_from_world_rotation[4] = {1, 0, 0, 0};
   double cam_from_world_translation[3] = {0, 1, 0};
   double residuals[1];
@@ -240,13 +240,13 @@ TEST(SampsonErrorCostFunctor, Nominal) {
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
   EXPECT_EQ(residuals[0], 0);
 
-  cost_function.reset(SampsonErrorCostFunctor::Create(Eigen::Vector2d(0, 0),
-                                                      Eigen::Vector2d(1, 0)));
+  cost_function.reset(SampsonErrorCostFunctor::Create(
+      Eigen::Vector3d(0, 0, 1), Eigen::Vector3d(1, 0, 1)));
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
   EXPECT_EQ(residuals[0], 0.5);
 
-  cost_function.reset(SampsonErrorCostFunctor::Create(Eigen::Vector2d(0, 0),
-                                                      Eigen::Vector2d(1, 1)));
+  cost_function.reset(SampsonErrorCostFunctor::Create(
+      Eigen::Vector3d(0, 0, 1), Eigen::Vector3d(1, 1, 1)));
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
   EXPECT_EQ(residuals[0], 0.5);
 }

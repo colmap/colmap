@@ -347,23 +347,23 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
     return false;
   }
 
-  std::vector<Eigen::Vector2d> inlier_cam_points1(num_inlier_matches);
-  std::vector<Eigen::Vector2d> inlier_cam_points2(num_inlier_matches);
+  std::vector<Eigen::Vector3d> inlier_cam_rays1(num_inlier_matches);
+  std::vector<Eigen::Vector3d> inlier_cam_rays2(num_inlier_matches);
   for (size_t i = 0; i < num_inlier_matches; ++i) {
     const FeatureMatch& match = geometry->inlier_matches[i];
     if (const std::optional<Eigen::Vector2d> cam_point1 =
             camera1.CamFromImg(points1[match.point2D_idx1]);
         cam_point1) {
-      inlier_cam_points1[i] = *cam_point1;
+      inlier_cam_rays1[i] = cam_point1->homogeneous().normalized();
     } else {
-      inlier_cam_points1[i].setZero();
+      inlier_cam_rays1[i].setZero();
     }
     if (const std::optional<Eigen::Vector2d> cam_point2 =
             camera2.CamFromImg(points2[match.point2D_idx2]);
         cam_point2) {
-      inlier_cam_points2[i] = *cam_point2;
+      inlier_cam_rays2[i] = cam_point2->homogeneous().normalized();
     } else {
-      inlier_cam_points2[i].setZero();
+      inlier_cam_rays2[i].setZero();
     }
   }
 
@@ -371,8 +371,8 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
 
   if (geometry->config == TwoViewGeometry::ConfigurationType::CALIBRATED) {
     PoseFromEssentialMatrix(geometry->E,
-                            inlier_cam_points1,
-                            inlier_cam_points2,
+                            inlier_cam_rays1,
+                            inlier_cam_rays2,
                             &geometry->cam2_from_cam1,
                             &points3D);
     if (points3D.empty()) {
@@ -383,8 +383,8 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
     const Eigen::Matrix3d E = EssentialFromFundamentalMatrix(
         camera2.CalibrationMatrix(), geometry->F, camera1.CalibrationMatrix());
     PoseFromEssentialMatrix(E,
-                            inlier_cam_points1,
-                            inlier_cam_points2,
+                            inlier_cam_rays1,
+                            inlier_cam_rays2,
                             &geometry->cam2_from_cam1,
                             &points3D);
     if (points3D.empty()) {
@@ -399,8 +399,8 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
     PoseFromHomographyMatrix(geometry->H,
                              camera1.CalibrationMatrix(),
                              camera2.CalibrationMatrix(),
-                             inlier_cam_points1,
-                             inlier_cam_points2,
+                             inlier_cam_rays1,
+                             inlier_cam_rays2,
                              &geometry->cam2_from_cam1,
                              &normal,
                              &points3D);
@@ -457,8 +457,8 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
   // Extract corresponding points.
   std::vector<Eigen::Vector2d> matched_img_points1(matches.size());
   std::vector<Eigen::Vector2d> matched_img_points2(matches.size());
-  std::vector<Eigen::Vector2d> matched_cam_points1(matches.size());
-  std::vector<Eigen::Vector2d> matched_cam_points2(matches.size());
+  std::vector<Eigen::Vector3d> matched_cam_rays1(matches.size());
+  std::vector<Eigen::Vector3d> matched_cam_rays2(matches.size());
   for (size_t i = 0; i < matches.size(); ++i) {
     const point2D_t idx1 = matches[i].point2D_idx1;
     const point2D_t idx2 = matches[i].point2D_idx2;
@@ -467,16 +467,16 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
     if (const std::optional<Eigen::Vector2d> cam_point1 =
             camera1.CamFromImg(points1[idx1]);
         cam_point1) {
-      matched_cam_points1[i] = *cam_point1;
+      matched_cam_rays1[i] = cam_point1->homogeneous().normalized();
     } else {
-      matched_cam_points1[i].setZero();
+      matched_cam_rays1[i].setZero();
     }
     if (const std::optional<Eigen::Vector2d> cam_point2 =
             camera2.CamFromImg(points2[idx2]);
         cam_point2) {
-      matched_cam_points2[i] = *cam_point2;
+      matched_cam_rays2[i] = cam_point2->homogeneous().normalized();
     } else {
-      matched_cam_points2[i].setZero();
+      matched_cam_rays2[i].setZero();
     }
   }
 
@@ -490,8 +490,7 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
 
   LORANSAC<EssentialMatrixFivePointEstimator, EssentialMatrixFivePointEstimator>
       E_ransac(E_ransac_options);
-  const auto E_report =
-      E_ransac.Estimate(matched_cam_points1, matched_cam_points2);
+  const auto E_report = E_ransac.Estimate(matched_cam_rays1, matched_cam_rays2);
   geometry.E = E_report.model;
 
   LORANSAC<FundamentalMatrixSevenPointEstimator,

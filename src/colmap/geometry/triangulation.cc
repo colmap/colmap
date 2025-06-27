@@ -39,16 +39,20 @@ namespace colmap {
 
 bool TriangulatePoint(const Eigen::Matrix3x4d& cam1_from_world,
                       const Eigen::Matrix3x4d& cam2_from_world,
-                      const Eigen::Vector2d& point1,
-                      const Eigen::Vector2d& point2,
+                      const Eigen::Vector3d& cam_ray1,
+                      const Eigen::Vector3d& cam_ray2,
                       Eigen::Vector3d* xyz) {
   THROW_CHECK_NOTNULL(xyz);
 
   Eigen::Matrix4d A;
-  A.row(0) = point1(0) * cam1_from_world.row(2) - cam1_from_world.row(0);
-  A.row(1) = point1(1) * cam1_from_world.row(2) - cam1_from_world.row(1);
-  A.row(2) = point2(0) * cam2_from_world.row(2) - cam2_from_world.row(0);
-  A.row(3) = point2(1) * cam2_from_world.row(2) - cam2_from_world.row(1);
+  A.row(0) = cam_ray1.x() * cam1_from_world.row(2) -
+             cam_ray1.z() * cam1_from_world.row(0);
+  A.row(1) = cam_ray1.y() * cam1_from_world.row(2) -
+             cam_ray1.z() * cam1_from_world.row(1);
+  A.row(2) = cam_ray2.x() * cam2_from_world.row(2) -
+             cam_ray2.z() * cam2_from_world.row(0);
+  A.row(3) = cam_ray2.y() * cam2_from_world.row(2) -
+             cam_ray2.z() * cam2_from_world.row(1);
 
   const Eigen::JacobiSVD<Eigen::Matrix4d> svd(A, Eigen::ComputeFullV);
 #if EIGEN_VERSION_AT_LEAST(3, 4, 0)
@@ -67,16 +71,16 @@ bool TriangulatePoint(const Eigen::Matrix3x4d& cam1_from_world,
 
 bool TriangulateMultiViewPoint(
     const span<const Eigen::Matrix3x4d>& cams_from_world,
-    const span<const Eigen::Vector2d>& points,
+    const span<const Eigen::Vector3d>& cam_rays,
     Eigen::Vector3d* xyz) {
-  THROW_CHECK_EQ(cams_from_world.size(), points.size());
+  THROW_CHECK_EQ(cams_from_world.size(), cam_rays.size());
   THROW_CHECK_NOTNULL(xyz);
 
   Eigen::Matrix4d A = Eigen::Matrix4d::Zero();
-  for (size_t i = 0; i < points.size(); i++) {
-    const Eigen::Vector3d point = points[i].homogeneous().normalized();
+  for (size_t i = 0; i < cam_rays.size(); i++) {
     const Eigen::Matrix3x4d term =
-        cams_from_world[i] - point * point.transpose() * cams_from_world[i];
+        cams_from_world[i] -
+        cam_rays[i] * cam_rays[i].transpose() * cams_from_world[i];
     A += term.transpose() * term;
   }
 
@@ -111,8 +115,8 @@ bool TriangulateOptimalPoint(const Eigen::Matrix3x4d& cam1_from_world_mat,
 
   return TriangulatePoint(cam1_from_world_mat,
                           cam2_from_world_mat,
-                          optimal_point1,
-                          optimal_point2,
+                          optimal_point1.homogeneous(),
+                          optimal_point2.homogeneous(),
                           xyz);
 }
 
