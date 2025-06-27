@@ -127,21 +127,24 @@ bool EstimateRelativePose(const RANSACOptions& ransac_options,
     return false;
   }
 
-  std::vector<Eigen::Vector3d> inliers1(report.support.num_inliers);
-  std::vector<Eigen::Vector3d> inliers2(report.support.num_inliers);
+  std::vector<Eigen::Vector3d> inlier_cam_rays1(report.support.num_inliers);
+  std::vector<Eigen::Vector3d> inlier_cam_rays2(report.support.num_inliers);
 
   size_t j = 0;
   for (size_t i = 0; i < cam_rays1.size(); ++i) {
     if (report.inlier_mask[i]) {
-      inliers1[j] = cam_rays1[i];
-      inliers2[j] = cam_rays2[i];
+      inlier_cam_rays1[j] = cam_rays1[i];
+      inlier_cam_rays2[j] = cam_rays2[i];
       j += 1;
     }
   }
 
   std::vector<Eigen::Vector3d> points3D;
-  PoseFromEssentialMatrix(
-      report.model, inliers1, inliers2, cam2_from_cam1, &points3D);
+  PoseFromEssentialMatrix(report.model,
+                          inlier_cam_rays1,
+                          inlier_cam_rays2,
+                          cam2_from_cam1,
+                          &points3D);
 
   if (cam2_from_cam1->rotation.coeffs().array().isNaN().any() ||
       cam2_from_cam1->translation.array().isNaN().any()) {
