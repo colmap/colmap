@@ -346,7 +346,7 @@ IncrementalPipeline::Status IncrementalPipeline::InitializeReconstruction(
   }
 
   // Number of triangulated points not enough for registering future images.
-  if (int(reconstruction.NumPoints3D()) <
+  if (static_cast<int>(reconstruction.NumPoints3D()) <
       mapper_options.abs_pose_min_num_inliers) {
     return Status::BAD_INITIAL_PAIR;
   }
