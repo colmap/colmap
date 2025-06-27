@@ -624,27 +624,27 @@ bool EstimateInitialGeneralizedTwoViewGeometry(
   }
 
   if (!maybe_rig2_from_rig1.has_value()) {
-    LOG(WARNING) << "Generalized relative pose estimation succeeded but failed "
-                    "to estimate translation scale due to panoramic rig.";
-    return false;
+    // Both rigs are panoramic.
+    THROW_CHECK(maybe_cam2_from_cam1.has_value());
+    orig_cam2_from_orig_cam1 = *maybe_cam2_from_cam1;
+  } else {
+    // Recompose the relative transformation between the original images.
+
+    const sensor_t orig_camera_id1(SensorType::CAMERA, orig_image1.CameraId());
+    Rigid3d orig_cam1_from_rig1;
+    if (!rig1.IsRefSensor(orig_camera_id1)) {
+      orig_cam1_from_rig1 = rig1.SensorFromRig(orig_camera_id1);
+    }
+
+    const sensor_t orig_camera_id2(SensorType::CAMERA, orig_image2.CameraId());
+    Rigid3d orig_cam2_from_rig2;
+    if (!rig2.IsRefSensor(orig_camera_id2)) {
+      orig_cam2_from_rig2 = rig2.SensorFromRig(orig_camera_id2);
+    }
+
+    orig_cam2_from_orig_cam1 = orig_cam2_from_rig2 * (*maybe_rig2_from_rig1) *
+                               Inverse(orig_cam1_from_rig1);
   }
-
-  // Recompose the relative transformation between the original images.
-
-  const sensor_t orig_camera_id1(SensorType::CAMERA, orig_image1.CameraId());
-  Rigid3d orig_cam1_from_rig1;
-  if (!rig1.IsRefSensor(orig_camera_id1)) {
-    orig_cam1_from_rig1 = rig1.SensorFromRig(orig_camera_id1);
-  }
-
-  const sensor_t orig_camera_id2(SensorType::CAMERA, orig_image2.CameraId());
-  Rigid3d orig_cam2_from_rig2;
-  if (!rig2.IsRefSensor(orig_camera_id2)) {
-    orig_cam2_from_rig2 = rig2.SensorFromRig(orig_camera_id2);
-  }
-
-  orig_cam2_from_orig_cam1 = orig_cam2_from_rig2 * (*maybe_rig2_from_rig1) *
-                             Inverse(orig_cam1_from_rig1);
 
   return true;
 }
