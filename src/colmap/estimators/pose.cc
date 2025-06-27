@@ -318,12 +318,12 @@ bool RefineRelativePose(const ceres::Solver::Options& options,
 }
 
 bool RefineEssentialMatrix(const ceres::Solver::Options& options,
-                           const std::vector<Eigen::Vector3d>& rays1,
-                           const std::vector<Eigen::Vector3d>& rays2,
+                           const std::vector<Eigen::Vector3d>& cam_rays1,
+                           const std::vector<Eigen::Vector3d>& cam_rays2,
                            const std::vector<char>& inlier_mask,
                            Eigen::Matrix3d* E) {
-  THROW_CHECK_EQ(rays1.size(), rays2.size());
-  THROW_CHECK_EQ(rays1.size(), inlier_mask.size());
+  THROW_CHECK_EQ(cam_rays1.size(), cam_rays2.size());
+  THROW_CHECK_EQ(cam_rays1.size(), inlier_mask.size());
 
   // Extract inlier points for decomposing the essential matrix into
   // rotation and translation components.
@@ -335,13 +335,13 @@ bool RefineEssentialMatrix(const ceres::Solver::Options& options,
     }
   }
 
-  std::vector<Eigen::Vector3d> inlier_rays1(num_inliers);
-  std::vector<Eigen::Vector3d> inlier_rays2(num_inliers);
+  std::vector<Eigen::Vector3d> inlier_cam_rays1(num_inliers);
+  std::vector<Eigen::Vector3d> inlier_cam_rays2(num_inliers);
   size_t j = 0;
   for (size_t i = 0; i < inlier_mask.size(); ++i) {
     if (inlier_mask[i]) {
-      inlier_rays1[j] = rays1[i];
-      inlier_rays2[j] = rays2[i];
+      inlier_cam_rays1[j] = cam_rays1[i];
+      inlier_cam_rays2[j] = cam_rays2[i];
       j += 1;
     }
   }
@@ -350,7 +350,7 @@ bool RefineEssentialMatrix(const ceres::Solver::Options& options,
   Rigid3d cam2_from_cam1;
   std::vector<Eigen::Vector3d> points3D;
   PoseFromEssentialMatrix(
-      *E, inlier_rays1, inlier_rays2, &cam2_from_cam1, &points3D);
+      *E, inlier_cam_rays1, inlier_cam_rays2, &cam2_from_cam1, &points3D);
 
   if (points3D.size() == 0) {
     return false;
@@ -362,8 +362,8 @@ bool RefineEssentialMatrix(const ceres::Solver::Options& options,
   const bool refinement_success =
       RefineRelativePose(options,
                          std::vector<char>(num_inliers, true),
-                         inlier_rays1,
-                         inlier_rays2,
+                         inlier_cam_rays1,
+                         inlier_cam_rays2,
                          &cam2_from_cam1);
 
   if (!refinement_success) {
