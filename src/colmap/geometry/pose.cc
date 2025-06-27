@@ -146,16 +146,6 @@ Rigid3d InterpolateCameraPoses(const Rigid3d& cam1_from_world,
                  cam1_from_world.translation + translation12 * t);
 }
 
-namespace {
-
-double CalculateDepth(const Eigen::Matrix3x4d& cam_from_world,
-                      const Eigen::Vector3d& point3D) {
-  const double proj_z = cam_from_world.row(2).dot(point3D.homogeneous());
-  return proj_z * cam_from_world.col(2).norm();
-}
-
-}  // namespace
-
 bool CheckCheirality(const Rigid3d& cam2_from_cam1,
                      const std::vector<Eigen::Vector3d>& cam_rays1,
                      const std::vector<Eigen::Vector3d>& cam_rays2,
@@ -164,23 +154,26 @@ bool CheckCheirality(const Rigid3d& cam2_from_cam1,
   const Eigen::Matrix3x4d cam1_from_world = Eigen::Matrix3x4d::Identity();
   const Eigen::Matrix3x4d cam2_from_world = cam2_from_cam1.ToMatrix();
   constexpr double kMinDepth = std::numeric_limits<double>::epsilon();
-  const double max_depth = 1000.0 * cam2_from_cam1.translation.norm();
   points3D->clear();
   for (size_t i = 0; i < cam_rays1.size(); ++i) {
+    const Eigen::Vector3d cam_ray1_in_cam2 =
+        cam2_from_cam1.rotation * cam_rays1[i];
+    const double a = cam_ray1_in_cam2.dot(cam_rays2[i]);
+    const double b1 = cam_ray1_in_cam2.dot(cam2_from_cam1.translation);
+    const double b2 = cam_rays2[i].dot(cam2_from_cam1.translation);
+    const double lambda1 = a * b2 - b1;
+    const double lambda2 = b2 - a * b1;
+    const double min_depth = kMinDepth * (1 - a * a);
+    if (lambda1 < min_depth || lambda2 < min_depth) {
+      continue;
+    }
+
     Eigen::Vector3d point3D;
     if (!TriangulatePoint(cam1_from_world,
                           cam2_from_world,
                           cam_rays1[i],
                           cam_rays2[i],
                           &point3D)) {
-      continue;
-    }
-    const double depth1 = CalculateDepth(cam1_from_world, point3D);
-    if (depth1 < kMinDepth || depth1 > max_depth) {
-      continue;
-    }
-    const double depth2 = CalculateDepth(cam2_from_world, point3D);
-    if (depth2 < kMinDepth || depth2 > max_depth) {
       continue;
     }
     points3D->push_back(point3D);
