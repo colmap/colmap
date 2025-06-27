@@ -172,8 +172,9 @@ void HierarchicalPipeline::Run() {
 
   // Function to reconstruct one cluster using incremental mapping.
   auto ReconstructCluster =
-      [&, this](const SceneClustering::Cluster& cluster,
-                std::shared_ptr<ReconstructionManager> reconstruction_manager) {
+      [this, &image_id_to_name, num_threads_per_worker](
+          const SceneClustering::Cluster& cluster,
+          std::shared_ptr<ReconstructionManager> reconstruction_manager) {
         if (cluster.image_ids.empty()) {
           return;
         }

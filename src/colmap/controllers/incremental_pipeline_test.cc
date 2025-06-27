@@ -111,19 +111,23 @@ TEST(IncrementalPipeline, WithoutNoiseAndWithNonTrivialFrames) {
   synthetic_dataset_options.camera_has_prior_focal_length = false;
   SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction, &database);
 
-  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
-  IncrementalPipeline mapper(std::make_shared<IncrementalPipelineOptions>(),
-                             /*image_path=*/"",
-                             database_path,
-                             reconstruction_manager);
-  mapper.Run();
+  for (const bool refine_sensor_from_rig : {true, false}) {
+    auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+    auto options = std::make_shared<IncrementalPipelineOptions>();
+    options->ba_refine_sensor_from_rig = refine_sensor_from_rig;
+    IncrementalPipeline mapper(options,
+                               /*image_path=*/"",
+                               database_path,
+                               reconstruction_manager);
+    mapper.Run();
 
-  ASSERT_EQ(reconstruction_manager->Size(), 1);
-  ExpectEqualReconstructions(gt_reconstruction,
-                             *reconstruction_manager->Get(0),
-                             /*max_rotation_error_deg=*/1e-2,
-                             /*max_proj_center_error=*/1e-3,
-                             /*num_obs_tolerance=*/0);
+    ASSERT_EQ(reconstruction_manager->Size(), 1);
+    ExpectEqualReconstructions(gt_reconstruction,
+                               *reconstruction_manager->Get(0),
+                               /*max_rotation_error_deg=*/1e-2,
+                               /*max_proj_center_error=*/1e-3,
+                               /*num_obs_tolerance=*/0);
+  }
 }
 
 TEST(IncrementalPipeline, WithPriorFocalLength) {
