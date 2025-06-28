@@ -69,7 +69,13 @@ void BindFrame(py::module& m) {
       .def("sensor_from_world",
            &Frame::SensorFromWorld,
            "sensor_id"_a,
-           "The transformation from the world to a specific sensor.");
+           "The transformation from the world to a specific sensor.")
+      .def("set_cam_from_world",
+           &Frame::SetCamFromWorld,
+           "camera_id"_a,
+           "cam_from_world"_a,
+           "Set the world to frame from the given camera from world "
+           "transformation.");
   MakeDataclass(PyFrame);
 
   py::bind_map<FrameMap>(m, "FrameMap");
