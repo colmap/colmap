@@ -185,7 +185,7 @@ bool ComputeLInverse(Eigen::SparseMatrix<double>& S, Eigen::MatrixXd& L_inv) {
 
   const Eigen::VectorXd D_dense = ldlt_S.vectorD();
 
-  const int rank = D_dense.nonZeros();
+  const int rank = (D_dense.array().abs() > 1e-6).count();
   if (rank < S.rows()) {
     LOG(WARNING) << StringPrintf(
         "Unable to compute covariance. The Schur complement on pose/other "

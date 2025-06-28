@@ -63,16 +63,22 @@ TEST(RANSAC, Report) {
 TEST(RANSAC, NumTrials) {
   EXPECT_EQ(RANSAC<SimilarityTransformEstimator<3>>::ComputeNumTrials(
                 1, 100, 0.99, 1.0),
-            4605168);
+            18446744073709551615llu);
   EXPECT_EQ(RANSAC<SimilarityTransformEstimator<3>>::ComputeNumTrials(
                 10, 100, 0.99, 1.0),
-            4603);
+            6204);
   EXPECT_EQ(RANSAC<SimilarityTransformEstimator<3>>::ComputeNumTrials(
                 10, 100, 0.999, 1.0),
-            6905);
+            9305);
   EXPECT_EQ(RANSAC<SimilarityTransformEstimator<3>>::ComputeNumTrials(
                 10, 100, 0.999, 2.0),
-            13809);
+            18610);
+  EXPECT_EQ(RANSAC<SimilarityTransformEstimator<3>>::ComputeNumTrials(
+                50, 100, 0.99, 1.0),
+            36);
+  EXPECT_EQ(RANSAC<SimilarityTransformEstimator<3>>::ComputeNumTrials(
+                50, 100, 0.999, 1.0),
+            54);
   EXPECT_EQ(RANSAC<SimilarityTransformEstimator<3>>::ComputeNumTrials(
                 100, 100, 0.99, 1.0),
             1);
