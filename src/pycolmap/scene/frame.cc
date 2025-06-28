@@ -74,7 +74,8 @@ void BindFrame(py::module& m) {
            &Frame::SetCamFromWorld,
            "camera_id"_a,
            "cam_from_world"_a,
-           "Set the world to frame from the given camera from world transformation.");
+           "Set the world to frame from the given camera from world "
+           "transformation.");
   MakeDataclass(PyFrame);
 
   py::bind_map<FrameMap>(m, "FrameMap");
