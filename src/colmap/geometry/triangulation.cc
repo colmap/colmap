@@ -39,20 +39,16 @@ namespace colmap {
 
 bool TriangulatePoint(const Eigen::Matrix3x4d& cam1_from_world,
                       const Eigen::Matrix3x4d& cam2_from_world,
-                      const Eigen::Vector3d& cam_ray1,
-                      const Eigen::Vector3d& cam_ray2,
+                      const Eigen::Vector2d& cam_point1,
+                      const Eigen::Vector2d& cam_point2,
                       Eigen::Vector3d* xyz) {
   THROW_CHECK_NOTNULL(xyz);
 
   Eigen::Matrix4d A;
-  A.row(0) = cam_ray1.x() * cam1_from_world.row(2) -
-             cam_ray1.z() * cam1_from_world.row(0);
-  A.row(1) = cam_ray1.y() * cam1_from_world.row(2) -
-             cam_ray1.z() * cam1_from_world.row(1);
-  A.row(2) = cam_ray2.x() * cam2_from_world.row(2) -
-             cam_ray2.z() * cam2_from_world.row(0);
-  A.row(3) = cam_ray2.y() * cam2_from_world.row(2) -
-             cam_ray2.z() * cam2_from_world.row(1);
+  A.row(0) = cam_point1(0) * cam1_from_world.row(2) - cam1_from_world.row(0);
+  A.row(1) = cam_point1(1) * cam1_from_world.row(2) - cam1_from_world.row(1);
+  A.row(2) = cam_point2(0) * cam2_from_world.row(2) - cam2_from_world.row(0);
+  A.row(3) = cam_point2(1) * cam2_from_world.row(2) - cam2_from_world.row(1);
 
   const Eigen::JacobiSVD<Eigen::Matrix4d> svd(A, Eigen::ComputeFullV);
 #if EIGEN_VERSION_AT_LEAST(3, 4, 0)
@@ -69,18 +65,58 @@ bool TriangulatePoint(const Eigen::Matrix3x4d& cam1_from_world,
   return true;
 }
 
+bool TriangulateMidPoint(const Rigid3d& cam2_from_cam1,
+                         const Eigen::Vector3d& cam_ray1,
+                         const Eigen::Vector3d& cam_ray2,
+                         Eigen::Vector3d* point3D_in_cam1) {
+  const Eigen::Quaterniond cam1_from_cam2_rotation =
+      cam2_from_cam1.rotation.inverse();
+  const Eigen::Vector3d cam_ray2_in_cam1 = cam1_from_cam2_rotation * cam_ray2;
+  const Eigen::Vector3d cam2_in_cam1 =
+      cam1_from_cam2_rotation * -cam2_from_cam1.translation;
+
+  Eigen::Matrix3d A;
+  A << cam_ray1(0), -cam_ray2_in_cam1(0), -cam2_in_cam1(0), cam_ray1(1),
+      -cam_ray2_in_cam1(1), -cam2_in_cam1(1), cam_ray1(2), -cam_ray2_in_cam1(2),
+      -cam2_in_cam1(2);
+
+  const Eigen::JacobiSVD<Eigen::Matrix3d> svd(A, Eigen::ComputeFullV);
+#if EIGEN_VERSION_AT_LEAST(3, 4, 0)
+  if (svd.info() != Eigen::Success) {
+    return false;
+  }
+#endif
+
+  if (svd.matrixV()(2, 2) == 0) {
+    return false;
+  }
+
+  const Eigen::Vector2d lambda = svd.matrixV().col(2).hnormalized();
+
+  // Check if point is behind cameras.
+  if (lambda(0) <= std::numeric_limits<double>::epsilon() ||
+      lambda(1) <= std::numeric_limits<double>::epsilon()) {
+    return false;
+  }
+
+  *point3D_in_cam1 = 0.5 * (lambda(0) * cam_ray1 + cam2_in_cam1 +
+                            lambda(1) * cam_ray2_in_cam1);
+
+  return true;
+}
+
 bool TriangulateMultiViewPoint(
     const span<const Eigen::Matrix3x4d>& cams_from_world,
-    const span<const Eigen::Vector3d>& cam_rays,
+    const span<const Eigen::Vector2d>& cam_points,
     Eigen::Vector3d* xyz) {
-  THROW_CHECK_EQ(cams_from_world.size(), cam_rays.size());
+  THROW_CHECK_EQ(cams_from_world.size(), cam_points.size());
   THROW_CHECK_NOTNULL(xyz);
 
   Eigen::Matrix4d A = Eigen::Matrix4d::Zero();
-  for (size_t i = 0; i < cam_rays.size(); i++) {
+  for (size_t i = 0; i < cam_points.size(); i++) {
+    const Eigen::Vector3d point = cam_points[i].homogeneous().normalized();
     const Eigen::Matrix3x4d term =
-        cams_from_world[i] -
-        cam_rays[i] * cam_rays[i].transpose() * cams_from_world[i];
+        cams_from_world[i] - point * point.transpose() * cams_from_world[i];
     A += term.transpose() * term;
   }
 
@@ -96,8 +132,8 @@ bool TriangulateMultiViewPoint(
 
 bool TriangulateOptimalPoint(const Eigen::Matrix3x4d& cam1_from_world_mat,
                              const Eigen::Matrix3x4d& cam2_from_world_mat,
-                             const Eigen::Vector2d& point1,
-                             const Eigen::Vector2d& point2,
+                             const Eigen::Vector2d& cam_point1,
+                             const Eigen::Vector2d& cam_point2,
                              Eigen::Vector3d* xyz) {
   const Rigid3d cam1_from_world(
       Eigen::Quaterniond(cam1_from_world_mat.leftCols<3>()),
@@ -111,12 +147,12 @@ bool TriangulateOptimalPoint(const Eigen::Matrix3x4d& cam1_from_world_mat,
   Eigen::Vector2d optimal_point1;
   Eigen::Vector2d optimal_point2;
   FindOptimalImageObservations(
-      E, point1, point2, &optimal_point1, &optimal_point2);
+      E, cam_point1, cam_point2, &optimal_point1, &optimal_point2);
 
   return TriangulatePoint(cam1_from_world_mat,
                           cam2_from_world_mat,
-                          optimal_point1.homogeneous(),
-                          optimal_point2.homogeneous(),
+                          optimal_point1,
+                          optimal_point2,
                           xyz);
 }
 
