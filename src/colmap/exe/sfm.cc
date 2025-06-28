@@ -596,6 +596,7 @@ void RunPointTriangulatorImpl(
   reconstruction->Write(output_path);
 }
 
+// TODO: Remove once version 3.12 is released.
 int RunRigBundleAdjuster(int argc, char** argv) {
   std::string input_path;
   std::string output_path;
@@ -607,6 +608,10 @@ int RunRigBundleAdjuster(int argc, char** argv) {
   options.AddRequiredOption("rig_config_path", &rig_config_path);
   options.AddBundleAdjustmentOptions();
   options.Parse(argc, argv);
+
+  LOG(WARNING)
+      << "rig_bundle_adjuster is deprecated and will be removed in the next "
+         "version, run rig_configurator and bundle_adjuster instead.";
 
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
@@ -628,7 +633,10 @@ int RunRigBundleAdjuster(int argc, char** argv) {
 
   std::unique_ptr<BundleAdjuster> bundle_adjuster = CreateDefaultBundleAdjuster(
       *options.bundle_adjustment, std::move(config), reconstruction);
-  THROW_CHECK_NE(bundle_adjuster->Solve().termination_type, ceres::FAILURE);
+  if (bundle_adjuster->Solve().termination_type == ceres::FAILURE) {
+    LOG(ERROR) << "Failed to solve rig bundle adjustment";
+    return EXIT_FAILURE;
+  }
 
   reconstruction.Write(output_path);
 
