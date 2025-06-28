@@ -30,8 +30,8 @@ py::typing::Optional<py::dict> PyEstimateAndDecomposeEssentialMatrix(
   THROW_CHECK_EQ(points2D1.size(), points2D2.size());
   const size_t num_points2D = points2D1.size();
 
-  std::vector<Eigen::Vector2d> cam_rays1(num_points2D);
-  std::vector<Eigen::Vector2d> cam_rays2(num_points2D);
+  std::vector<Eigen::Vector3d> cam_rays1(num_points2D);
+  std::vector<Eigen::Vector3d> cam_rays2(num_points2D);
   for (size_t point2D_idx = 0; point2D_idx < num_points2D; ++point2D_idx) {
     if (const std::optional<Eigen::Vector2d> cam_point1 =
             camera1.CamFromImg(points2D1[point2D_idx]);
