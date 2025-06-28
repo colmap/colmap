@@ -145,7 +145,7 @@ TEST(PoseFromHomographyMatrix, Nominal) {
   for (const auto& ray1 : rays1) {
     const Eigen::Vector3d ray2 = H * ray1;
     ASSERT_GT(ray2.z(), 0);
-    rays2.push_back(ray2);
+    rays2.push_back(ray2.normalized());
   }
 
   Rigid3d cam2_from_cam1;

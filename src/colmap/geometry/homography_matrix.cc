@@ -205,10 +205,13 @@ double CheckCheiralityAndReprojErrorSum(
       continue;
     }
     const Eigen::Vector3d point3D_in_cam2 = cam2_from_cam1 * point3D_in_cam1;
-    const double error1 = 1 - cam_rays1[i].dot(point3D_in_cam1.normalized());
-    const double error2 = 1 - cam_rays2[i].dot(point3D_in_cam2.normalized());
+    const double error1 =
+        1 -
+        std::clamp(cam_rays1[i].dot(point3D_in_cam1.normalized()), -1.0, 1.0);
+    const double error2 =
+        1 -
+        std::clamp(cam_rays2[i].dot(point3D_in_cam2.normalized()), -1.0, 1.0);
     reproj_residual_sum += error1 + error2;
-
     points3D->push_back(point3D_in_cam1);
   }
   return reproj_residual_sum;
