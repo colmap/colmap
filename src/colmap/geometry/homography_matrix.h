@@ -66,7 +66,7 @@ void DecomposeHomographyMatrix(const Eigen::Matrix3d& H,
 // @param H               3x3 homography matrix.
 // @param K1              3x3 calibration matrix of first camera.
 // @param K2              3x3 calibration matrix of second camera.
-// @param cam_rays1.      First set of corresponding rays.
+// @param cam_rays1       First set of corresponding rays.
 // @param cam_rays2       Second set of corresponding rays.
 // @param inlier_mask     Only points with `true` in the inlier mask are
 //                        considered in the cheirality test. Size of the

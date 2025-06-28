@@ -240,10 +240,7 @@ void PoseFromHomographyMatrix(const Eigen::Matrix3d& H,
   for (size_t i = 0; i < cams2_from_cams1.size(); ++i) {
     // Note that we can typically eliminate 2 of the 4 solutions using the
     // cheirality check. We can then typically narrow it down to 1 solution by
-    // picking the solution with minimal overall squared reprojection error.
-    // There is no principled reasoning for why choosing the sum of squared or
-    // non-squared reprojection errors other than avoid sqrt for efficiency and
-    // consistency with the RANSAC cost function.
+    // picking the solution with minimal overall reprojection error.
     const double reproj_residual_sum = CheckCheiralityAndReprojErrorSum(
         cams2_from_cams1[i], cam_rays1, cam_rays2, &tentative_points3D);
     if (tentative_points3D.size() > points3D->size() ||
