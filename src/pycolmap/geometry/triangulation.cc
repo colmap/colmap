@@ -49,16 +49,13 @@ void BindTriangulation(py::module& m) {
 
   m.def(
       "triangulate_mid_point",
-      [](const Eigen::Matrix3x4d& cam2_from_cam1,
+      [](const Rigid3d& cam2_from_cam1,
          const Eigen::Vector3d& cam_ray1,
          const Eigen::Vector3d& cam_ray2)
           -> py::typing::Optional<Eigen::Vector3d> {
         Eigen::Vector3d point3D_in_cam1;
-        if (TriangulateMidPoint(cam1_from_world,
-                                cam2_from_world,
-                                cam_ray1,
-                                cam_ray2,
-                                &point3D_in_cam1)) {
+        if (TriangulateMidPoint(
+                cam2_from_cam1, cam_ray1, cam_ray2, &point3D_in_cam1)) {
           return py::cast(point3D_in_cam1);
         } else {
           return py::none();

@@ -17,14 +17,14 @@ py::dict PyPoseFromHomographyMatrix(
     const Eigen::Matrix3d& H,
     const Eigen::Matrix3d& K1,
     const Eigen::Matrix3d& K2,
-    const std::vector<Eigen::Vector2d>& points1,
-    const std::vector<Eigen::Vector2d>& points2) {
+    const std::vector<Eigen::Vector3d>& cam_rays1,
+    const std::vector<Eigen::Vector3d>& cam_rays2) {
   py::gil_scoped_release release;
   Rigid3d cam2_from_cam1;
   Eigen::Vector3d normal;
   std::vector<Eigen::Vector3d> points3D;
   PoseFromHomographyMatrix(
-      H, K1, K2, points1, points2, &cam2_from_cam1, &normal, &points3D);
+      H, K1, K2, cam_rays1, cam_rays2, &cam2_from_cam1, &normal, &points3D);
   py::gil_scoped_acquire acquire;
   return py::dict("cam2_from_cam1"_a = cam2_from_cam1,
                   "normal"_a = normal,
@@ -37,8 +37,8 @@ void BindHomographyMatrixGeometry(py::module& m) {
         "H"_a,
         "K1"_a,
         "K2"_a,
-        "points1"_a,
-        "points2"_a,
+        "cam_rays1"_a,
+        "cam_rays2"_a,
         "Recover the most probable pose from the given homography matrix using "
         "the cheirality check.");
   DefDeprecation(m, "homography_decomposition", "pose_from_homography_matrix");
