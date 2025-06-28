@@ -56,29 +56,31 @@ double CalculateSquaredReprojectionError(
     const Eigen::Matrix3x4d& cam_from_world,
     const Camera& camera);
 
-// Calculate the angular error.
+// Calculate the angular reprojection error.
 //
 // The angular error is the angle between the observed viewing ray and the
 // actual viewing ray from the camera center to the 3D point.
-double CalculateAngularError(const Eigen::Vector2d& point2D,
-                             const Eigen::Vector3d& point3D,
-                             const Rigid3d& cam_from_world,
-                             const Camera& camera);
-double CalculateAngularError(const Eigen::Vector2d& point2D,
-                             const Eigen::Vector3d& point3D,
-                             const Eigen::Matrix3x4d& cam_from_world,
-                             const Camera& camera);
+double CalculateAngularReprojectionError(const Eigen::Vector2d& point2D,
+                                         const Eigen::Vector3d& point3D,
+                                         const Rigid3d& cam_from_world,
+                                         const Camera& camera);
+double CalculateAngularReprojectionError(
+    const Eigen::Vector2d& point2D,
+    const Eigen::Vector3d& point3D,
+    const Eigen::Matrix3x4d& cam_from_world,
+    const Camera& camera);
 
-// Calculate angulate error using normalized image points.
+// Calculate angular reprojection error using normalized camera ray.
 //
 // The angular error is the angle between the observed viewing ray and the
 // actual viewing ray from the camera center to the 3D point.
-double CalculateNormalizedAngularError(const Eigen::Vector2d& cam_point,
-                                       const Eigen::Vector3d& point3D,
-                                       const Rigid3d& cam_from_world);
-double CalculateNormalizedAngularError(const Eigen::Vector2d& cam_point,
-                                       const Eigen::Vector3d& point3D,
-                                       const Eigen::Matrix3x4d& cam_from_world);
+double CalculateAngularReprojectionError(const Eigen::Vector3d& cam_ray,
+                                         const Eigen::Vector3d& point3D,
+                                         const Rigid3d& cam_from_world);
+double CalculateAngularReprojectionError(
+    const Eigen::Vector3d& cam_ray,
+    const Eigen::Vector3d& point3D,
+    const Eigen::Matrix3x4d& cam_from_world);
 
 // Check if 3D point passes cheirality constraint,
 // i.e. it lies in front of the camera and not in the image plane.

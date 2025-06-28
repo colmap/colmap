@@ -131,11 +131,11 @@ TEST(EstimateRelativePose, Nominal) {
     points3D[i] = Eigen::Vector3d::Random();
   }
 
-  std::vector<Eigen::Vector2d> points1(points3D.size());
-  std::vector<Eigen::Vector2d> points2(points3D.size());
+  std::vector<Eigen::Vector3d> rays1(points3D.size());
+  std::vector<Eigen::Vector3d> rays2(points3D.size());
   for (size_t i = 0; i < points3D.size(); ++i) {
-    points1[i] = (cam1_from_world * points3D[i]).hnormalized();
-    points2[i] = (cam2_from_world * points3D[i]).hnormalized();
+    rays1[i] = (cam1_from_world * points3D[i]).normalized();
+    rays2[i] = (cam2_from_world * points3D[i]).normalized();
   }
 
   RANSACOptions options;
@@ -144,7 +144,7 @@ TEST(EstimateRelativePose, Nominal) {
   size_t num_inliers = 0;
   std::vector<char> inlier_mask;
   EXPECT_TRUE(EstimateRelativePose(
-      options, points1, points2, &cam2_from_cam1, &num_inliers, &inlier_mask));
+      options, rays1, rays2, &cam2_from_cam1, &num_inliers, &inlier_mask));
 
   EXPECT_THAT(cam2_from_cam1,
               Rigid3dNear(cam2_from_world * Inverse(cam1_from_world),
@@ -246,11 +246,11 @@ TEST(RefineEssentialMatrix, Nominal) {
     points3D[3 * i + 2] = Eigen::Vector3d(i * 0.01, i * 0.01, 1);
   }
 
-  std::vector<Eigen::Vector2d> points1(points3D.size());
-  std::vector<Eigen::Vector2d> points2(points3D.size());
+  std::vector<Eigen::Vector3d> rays1(points3D.size());
+  std::vector<Eigen::Vector3d> rays2(points3D.size());
   for (size_t i = 0; i < points3D.size(); ++i) {
-    points1[i] = (cam1_from_world * points3D[i]).hnormalized();
-    points2[i] = (cam2_from_world * points3D[i]).hnormalized();
+    rays1[i] = (cam1_from_world * points3D[i]).normalized();
+    rays2[i] = (cam2_from_world * points3D[i]).normalized();
   }
 
   const Rigid3d cam2_from_world_perturbed(
@@ -261,11 +261,8 @@ TEST(RefineEssentialMatrix, Nominal) {
 
   Eigen::Matrix3d E_refined = E_pertubated;
   ceres::Solver::Options options;
-  RefineEssentialMatrix(options,
-                        points1,
-                        points2,
-                        std::vector<char>(points1.size(), true),
-                        &E_refined);
+  RefineEssentialMatrix(
+      options, rays1, rays2, std::vector<char>(rays1.size(), true), &E_refined);
 
   EXPECT_LE((E - E_refined).norm(), (E - E_pertubated).norm());
 }
