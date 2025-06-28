@@ -59,6 +59,14 @@ bool TriangulatePoint(const Eigen::Matrix3x4d& cam_from_world1,
                       const Eigen::Vector2d& cam_point2,
                       Eigen::Vector3d* point3D);
 
+// Triangulate 3D mid-point from corresponding camera ray observations.
+//
+// @param cam2_from_cam1    Relative pose between camera pair.
+// @param cam_ray1          Corresponding 2D ray in first camera.
+// @param cam_ray2          Corresponding 2D ray in second camera.
+// @param point3D           Triangulated 3D point in first camera.
+//
+// @return                  Whether triangulation was successful.
 bool TriangulateMidPoint(const Rigid3d& cam2_from_cam1,
                          const Eigen::Vector3d& cam_ray1,
                          const Eigen::Vector3d& cam_ray2,
