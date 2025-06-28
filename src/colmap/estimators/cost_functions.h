@@ -316,11 +316,11 @@ class SampsonErrorCostFunctor
                                        cam_ray2.dot(E.col(1)),
                                        epipolar_line1.x(),
                                        epipolar_line1.y());
-    const T denom_sq_norm = denom.squaredNorm();
-    if (denom_sq_norm == static_cast<T>(0)) {
+    const T denom_norm = denom.norm();
+    if (denom_norm == static_cast<T>(0)) {
       residuals[0] = static_cast<T>(0);
     } else {
-      residuals[0] = num * num / denom_sq_norm;
+      residuals[0] = num / denom_norm;
     }
 
     return true;

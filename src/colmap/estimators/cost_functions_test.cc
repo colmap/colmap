@@ -243,12 +243,12 @@ TEST(SampsonErrorCostFunctor, Nominal) {
   cost_function.reset(SampsonErrorCostFunctor::Create(
       Eigen::Vector3d(0, 0, 1), Eigen::Vector3d(1, 0, 1)));
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
-  EXPECT_EQ(residuals[0], 0.5);
+  EXPECT_NEAR(residuals[0] * residuals[0], 0.5, 1e-6);
 
   cost_function.reset(SampsonErrorCostFunctor::Create(
       Eigen::Vector3d(0, 0, 1), Eigen::Vector3d(1, 1, 1)));
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
-  EXPECT_EQ(residuals[0], 0.5);
+  EXPECT_NEAR(residuals[0] * residuals[0], 0.5, 1e-6);
 }
 
 TEST(AbsolutePosePositionPriorCostFunctor, Nominal) {

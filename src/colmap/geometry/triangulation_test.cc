@@ -110,13 +110,31 @@ TEST(TriangulateMidPoint, Nominal) {
   }
 }
 
+TEST(TriangulateMidPoint, NonPerfectIntersection) {
+  const Rigid3d cam1_from_world(Eigen::Quaterniond::Identity(),
+                                Eigen::Vector3d(-1, 0, 0));
+  const Rigid3d cam2_from_world(Eigen::Quaterniond::Identity(),
+                                Eigen::Vector3d(1, 0, 0));
+  const Eigen::Vector3d expected_point3D(0, 0, 5);
+  Eigen::Vector3d point3D_in_cam1;
+  EXPECT_TRUE(TriangulateMidPoint(
+      cam2_from_world * Inverse(cam1_from_world),
+      (cam1_from_world * (expected_point3D + Eigen::Vector3d(0, 0.1, 0)))
+          .normalized(),
+      (cam2_from_world * (expected_point3D + Eigen::Vector3d(0, -0.1, 0)))
+          .normalized(),
+      &point3D_in_cam1));
+  EXPECT_THAT(point3D_in_cam1,
+              EigenMatrixNear(cam1_from_world * expected_point3D, 1e-3));
+}
+
 TEST(TriangulateMidPoint, ParallelRays) {
-  Eigen::Vector3d point3D;
+  Eigen::Vector3d point3D_in_cam1;
   EXPECT_FALSE(TriangulateMidPoint(
       Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(1, 0, 0)),
       Eigen::Vector3d(0, 0, 1),
       Eigen::Vector3d(0, 0, 1),
-      &point3D));
+      &point3D_in_cam1));
 }
 
 TEST(TriangulateMidPoint, BehindCameras) {
