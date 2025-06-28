@@ -66,9 +66,9 @@ py::typing::Optional<py::dict> PyEstimateAndDecomposeEssentialMatrix(
   }
 
   // Pose from essential matrix.
-  std::vector<Eigen::Vector2d> inlier_cam_rays1;
+  std::vector<Eigen::Vector3d> inlier_cam_rays1;
   inlier_cam_rays1.reserve(report.support.num_inliers);
-  std::vector<Eigen::Vector2d> inlier_cam_rays2;
+  std::vector<Eigen::Vector3d> inlier_cam_rays2;
   inlier_cam_rays1.reserve(report.support.num_inliers);
   for (size_t point2D_idx = 0; point2D_idx < num_points2D; ++point2D_idx) {
     if (report.inlier_mask[point2D_idx]) {
