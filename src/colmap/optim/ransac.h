@@ -164,8 +164,8 @@ size_t RANSAC<Estimator, SupportMeasurer, Sampler>::ComputeNumTrials(
     const size_t num_samples,
     const double confidence,
     const double num_trials_multiplier) {
-  const double nom = 1 - confidence;
-  if (nom <= 0) {
+  const double prob_failure = 1 - confidence;
+  if (prob_failure <= 0) {
     return std::numeric_limits<size_t>::max();
   }
 
@@ -188,8 +188,8 @@ size_t RANSAC<Estimator, SupportMeasurer, Sampler>::ComputeNumTrials(
     return std::numeric_limits<size_t>::max();
   }
 
-  return static_cast<size_t>(std::ceil(std::log(nom) / std::log(prob_outlier) *
-                                       num_trials_multiplier));
+  return static_cast<size_t>(std::ceil(
+      std::log(prob_failure) / std::log(prob_outlier) * num_trials_multiplier));
 }
 
 template <typename Estimator, typename SupportMeasurer, typename Sampler>

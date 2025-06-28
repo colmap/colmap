@@ -63,7 +63,7 @@ TEST(RANSAC, Report) {
 TEST(RANSAC, NumTrials) {
   EXPECT_EQ(RANSAC<SimilarityTransformEstimator<3>>::ComputeNumTrials(
                 1, 100, 0.99, 1.0),
-            18446744073709551615);
+            18446744073709551615llu);
   EXPECT_EQ(RANSAC<SimilarityTransformEstimator<3>>::ComputeNumTrials(
                 10, 100, 0.99, 1.0),
             6204);
