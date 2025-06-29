@@ -116,16 +116,16 @@ py::typing::Optional<py::dict> PyEstimateAndRefineAbsolutePose(
 }
 
 py::typing::Optional<py::dict> PyEstimateRelativePose(
-    const std::vector<Eigen::Vector2d>& cam_points1,
-    const std::vector<Eigen::Vector2d>& cam_points2,
+    const std::vector<Eigen::Vector3d>& cam_rays1,
+    const std::vector<Eigen::Vector3d>& cam_rays2,
     const RANSACOptions& estimation_options) {
   py::gil_scoped_release release;
   Rigid3d cam2_from_cam1;
   size_t num_inliers;
   std::vector<char> inlier_mask;
   if (!EstimateRelativePose(estimation_options,
-                            cam_points1,
-                            cam_points2,
+                            cam_rays1,
+                            cam_rays2,
                             &cam2_from_cam1,
                             &num_inliers,
                             &inlier_mask)) {
@@ -141,8 +141,8 @@ py::typing::Optional<py::dict> PyEstimateRelativePose(
 
 py::typing::Optional<py::dict> PyRefineRelativePose(
     const Rigid3d& init_cam2_from_cam1,
-    const std::vector<Eigen::Vector2d>& cam_points1,
-    const std::vector<Eigen::Vector2d>& cam_points2,
+    const std::vector<Eigen::Vector3d>& cam_rays1,
+    const std::vector<Eigen::Vector3d>& cam_rays2,
     const PyInlierMask& inlier_mask,
     const ceres::Solver::Options& refinement_options) {
   py::gil_scoped_release release;
@@ -152,8 +152,8 @@ py::typing::Optional<py::dict> PyRefineRelativePose(
       inlier_mask_char.data(), inlier_mask.size()) = inlier_mask.cast<char>();
   if (!RefineRelativePose(refinement_options,
                           inlier_mask_char,
-                          cam_points1,
-                          cam_points2,
+                          cam_rays1,
+                          cam_rays2,
                           &refined_cam2_from_cam1)) {
     py::gil_scoped_acquire acquire;
     return py::none();
@@ -233,16 +233,16 @@ void BindAbsolutePoseEstimator(py::module& m) {
 
   m.def("estimate_relative_pose",
         &PyEstimateRelativePose,
-        "cam_points1"_a,
-        "cam_points2"_a,
+        "cam_rays1"_a,
+        "cam_rays2"_a,
         py::arg_v("options", RANSACOptions(), "RANSACOptions()"),
         "Robustly estimate relative pose using LO-RANSAC "
         "without non-linear refinement.");
   m.def("refine_relative_pose",
         &PyRefineRelativePose,
         "cam2_from_cam1"_a,
-        "cam_points1"_a,
-        "cam_points2"_a,
+        "cam_rays1"_a,
+        "cam_rays2"_a,
         "inlier_mask"_a,
         py::arg_v("options", ceres::Solver::Options()),
         "Non-linear refinement of relative pose.");

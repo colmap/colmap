@@ -61,43 +61,44 @@ double CalculateSquaredReprojectionError(
   return (*proj_point2D - point2D).squaredNorm();
 }
 
-double CalculateAngularError(const Eigen::Vector2d& point2D,
-                             const Eigen::Vector3d& point3D,
-                             const Rigid3d& cam_from_world,
-                             const Camera& camera) {
+double CalculateAngularReprojectionError(const Eigen::Vector2d& point2D,
+                                         const Eigen::Vector3d& point3D,
+                                         const Rigid3d& cam_from_world,
+                                         const Camera& camera) {
   const std::optional<Eigen::Vector2d> cam_point = camera.CamFromImg(point2D);
   if (!cam_point) {
     return EIGEN_PI;
   }
-  return CalculateNormalizedAngularError(*cam_point, point3D, cam_from_world);
+  return CalculateAngularReprojectionError(
+      cam_point->homogeneous().normalized(), point3D, cam_from_world);
 }
 
-double CalculateAngularError(const Eigen::Vector2d& point2D,
-                             const Eigen::Vector3d& point3D,
-                             const Eigen::Matrix3x4d& cam_from_world,
-                             const Camera& camera) {
+double CalculateAngularReprojectionError(
+    const Eigen::Vector2d& point2D,
+    const Eigen::Vector3d& point3D,
+    const Eigen::Matrix3x4d& cam_from_world,
+    const Camera& camera) {
   const std::optional<Eigen::Vector2d> cam_point = camera.CamFromImg(point2D);
   if (!cam_point) {
     return EIGEN_PI;
   }
-  return CalculateNormalizedAngularError(*cam_point, point3D, cam_from_world);
+  return CalculateAngularReprojectionError(
+      cam_point->homogeneous().normalized(), point3D, cam_from_world);
 }
 
-double CalculateNormalizedAngularError(const Eigen::Vector2d& cam_point,
-                                       const Eigen::Vector3d& point3D,
-                                       const Rigid3d& cam_from_world) {
+double CalculateAngularReprojectionError(const Eigen::Vector3d& cam_ray,
+                                         const Eigen::Vector3d& point3D,
+                                         const Rigid3d& cam_from_world) {
   const Eigen::Vector3d point3D_in_cam = cam_from_world * point3D;
-  return std::acos(cam_point.homogeneous().normalized().transpose() *
-                   point3D_in_cam.normalized());
+  return std::acos(cam_ray.transpose() * point3D_in_cam.normalized());
 }
 
-double CalculateNormalizedAngularError(
-    const Eigen::Vector2d& cam_point,
+double CalculateAngularReprojectionError(
+    const Eigen::Vector3d& cam_ray,
     const Eigen::Vector3d& point3D,
     const Eigen::Matrix3x4d& cam_from_world) {
   const Eigen::Vector3d point3D_in_cam = cam_from_world * point3D.homogeneous();
-  return std::acos(cam_point.homogeneous().normalized().transpose() *
-                   point3D_in_cam.normalized());
+  return std::acos(cam_ray.transpose() * point3D_in_cam.normalized());
 }
 
 bool HasPointPositiveDepth(const Eigen::Matrix3x4d& cam_from_world,

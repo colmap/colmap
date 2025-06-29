@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include "colmap/geometry/sim3.h"
+#include "colmap/estimators/similarity_transform.h"
 
 namespace colmap {
 

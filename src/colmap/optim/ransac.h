@@ -164,24 +164,32 @@ size_t RANSAC<Estimator, SupportMeasurer, Sampler>::ComputeNumTrials(
     const size_t num_samples,
     const double confidence,
     const double num_trials_multiplier) {
-  const double inlier_ratio = num_inliers / static_cast<double>(num_samples);
-
-  const double nom = 1 - confidence;
-  if (nom <= 0) {
+  const double prob_failure = 1 - confidence;
+  if (prob_failure <= 0) {
     return std::numeric_limits<size_t>::max();
   }
 
-  const double denom = 1 - std::pow(inlier_ratio, Estimator::kMinNumSamples);
-  if (denom <= 0) {
+  // Not using pow(inlier_ratio, Estimator::kMinNumSamples).
+  // See "Fixing the RANSAC stopping criterion"
+  // by Schönberger, Larsson, Pollefeys, 2025.
+  double prob_inlier = 1.0;
+  for (int i = 0; i < Estimator::kMinNumSamples; ++i) {
+    prob_inlier *= static_cast<double>(num_inliers - i) /
+                   static_cast<double>(num_samples - i);
+  }
+
+  const double prob_outlier = 1 - prob_inlier;
+  if (prob_outlier <= 0) {
     return 1;
   }
-  // Prevent divide by zero below.
-  if (denom == 1.0) {
+
+  // Prevent division by zero below.
+  if (prob_outlier == 1.0) {
     return std::numeric_limits<size_t>::max();
   }
 
-  return static_cast<size_t>(
-      std::ceil(std::log(nom) / std::log(denom) * num_trials_multiplier));
+  return static_cast<size_t>(std::ceil(
+      std::log(prob_failure) / std::log(prob_outlier) * num_trials_multiplier));
 }
 
 template <typename Estimator, typename SupportMeasurer, typename Sampler>

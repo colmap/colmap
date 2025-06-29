@@ -66,8 +66,8 @@ void DecomposeHomographyMatrix(const Eigen::Matrix3d& H,
 // @param H               3x3 homography matrix.
 // @param K1              3x3 calibration matrix of first camera.
 // @param K2              3x3 calibration matrix of second camera.
-// @param points1         First set of corresponding points.
-// @param points2         Second set of corresponding points.
+// @param cam_rays1       First set of corresponding rays.
+// @param cam_rays2       Second set of corresponding rays.
 // @param inlier_mask     Only points with `true` in the inlier mask are
 //                        considered in the cheirality test. Size of the
 //                        inlier mask must match the number of points N.
@@ -78,8 +78,8 @@ void DecomposeHomographyMatrix(const Eigen::Matrix3d& H,
 void PoseFromHomographyMatrix(const Eigen::Matrix3d& H,
                               const Eigen::Matrix3d& K1,
                               const Eigen::Matrix3d& K2,
-                              const std::vector<Eigen::Vector2d>& points1,
-                              const std::vector<Eigen::Vector2d>& points2,
+                              const std::vector<Eigen::Vector3d>& cam_rays1,
+                              const std::vector<Eigen::Vector3d>& cam_rays2,
                               Rigid3d* cam2_from_cam1,
                               Eigen::Vector3d* normal,
                               std::vector<Eigen::Vector3d>* points3D);
