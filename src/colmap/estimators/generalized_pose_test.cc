@@ -188,7 +188,7 @@ GeneralizedRelativePoseProblem BuildGeneralizedRelativePoseProblem(
   synthetic_dataset_options.num_cameras_per_rig =
       std::max(num_cameras_per_rig1, num_cameras_per_rig2);
   synthetic_dataset_options.num_frames_per_rig = 1;
-  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.num_points3D = 100;
   synthetic_dataset_options.point2D_stddev = 0;
   synthetic_dataset_options.sensor_from_rig_translation_stddev =
       sensor_from_rig_translation_stddev;
