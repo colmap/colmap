@@ -596,7 +596,12 @@ bool EstimateInitialGeneralizedTwoViewGeometry(
 
   RANSACOptions ransac_options;
   ransac_options.min_num_trials = 30;
-  ransac_options.max_error = options.init_max_error;
+  // Compute the average normalized error.
+  ransac_options.max_error = 0;
+  for (const Camera& camera : cameras) {
+    ransac_options.max_error += camera.CamFromImgThreshold(options.init_max_error);
+  }
+  ransac_options.max_error /= cameras.size();
 
   std::optional<Rigid3d> maybe_rig2_from_rig1;
   std::optional<Rigid3d> maybe_pano2_from_pano1;
