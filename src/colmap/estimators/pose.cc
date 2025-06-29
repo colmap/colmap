@@ -112,35 +112,39 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
 }
 
 bool EstimateRelativePose(const RANSACOptions& ransac_options,
-                          const std::vector<Eigen::Vector2d>& cam_points1,
-                          const std::vector<Eigen::Vector2d>& cam_points2,
+                          const std::vector<Eigen::Vector3d>& cam_rays1,
+                          const std::vector<Eigen::Vector3d>& cam_rays2,
                           Rigid3d* cam2_from_cam1,
                           size_t* num_inliers,
                           std::vector<char>* inlier_mask) {
-  THROW_CHECK_EQ(cam_points1.size(), cam_points2.size());
+  THROW_CHECK_EQ(cam_rays1.size(), cam_rays2.size());
 
-  RANSAC<EssentialMatrixFivePointEstimator> ransac(ransac_options);
-  auto report = ransac.Estimate(cam_points1, cam_points2);
+  LORANSAC<EssentialMatrixFivePointEstimator, EssentialMatrixFivePointEstimator>
+      ransac(ransac_options);
+  auto report = ransac.Estimate(cam_rays1, cam_rays2);
 
   if (!report.success) {
     return false;
   }
 
-  std::vector<Eigen::Vector2d> inliers1(report.support.num_inliers);
-  std::vector<Eigen::Vector2d> inliers2(report.support.num_inliers);
+  std::vector<Eigen::Vector3d> inlier_cam_rays1(report.support.num_inliers);
+  std::vector<Eigen::Vector3d> inlier_cam_rays2(report.support.num_inliers);
 
   size_t j = 0;
-  for (size_t i = 0; i < cam_points1.size(); ++i) {
+  for (size_t i = 0; i < cam_rays1.size(); ++i) {
     if (report.inlier_mask[i]) {
-      inliers1[j] = cam_points1[i];
-      inliers2[j] = cam_points2[i];
+      inlier_cam_rays1[j] = cam_rays1[i];
+      inlier_cam_rays2[j] = cam_rays2[i];
       j += 1;
     }
   }
 
   std::vector<Eigen::Vector3d> points3D;
-  PoseFromEssentialMatrix(
-      report.model, inliers1, inliers2, cam2_from_cam1, &points3D);
+  PoseFromEssentialMatrix(report.model,
+                          inlier_cam_rays1,
+                          inlier_cam_rays2,
+                          cam2_from_cam1,
+                          &points3D);
 
   if (cam2_from_cam1->rotation.coeffs().array().isNaN().any() ||
       cam2_from_cam1->translation.array().isNaN().any()) {
@@ -275,11 +279,11 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
 
 bool RefineRelativePose(const ceres::Solver::Options& options,
                         const std::vector<char>& inlier_mask,
-                        const std::vector<Eigen::Vector2d>& cam_points1,
-                        const std::vector<Eigen::Vector2d>& cam_points2,
+                        const std::vector<Eigen::Vector3d>& cam_rays1,
+                        const std::vector<Eigen::Vector3d>& cam_rays2,
                         Rigid3d* cam2_from_cam1) {
-  THROW_CHECK_EQ(cam_points1.size(), cam_points2.size());
-  THROW_CHECK_EQ(cam_points1.size(), inlier_mask.size());
+  THROW_CHECK_EQ(cam_rays1.size(), cam_rays2.size());
+  THROW_CHECK_EQ(cam_rays1.size(), inlier_mask.size());
 
   // CostFunction assumes unit quaternions.
   cam2_from_cam1->rotation.normalize();
@@ -294,13 +298,13 @@ bool RefineRelativePose(const ceres::Solver::Options& options,
   problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
   ceres::Problem problem(problem_options);
 
-  for (size_t i = 0; i < cam_points1.size(); ++i) {
+  for (size_t i = 0; i < cam_rays1.size(); ++i) {
     // Skip outlier observations
     if (!inlier_mask[i]) {
       continue;
     }
     ceres::CostFunction* cost_function =
-        SampsonErrorCostFunctor::Create(cam_points1[i], cam_points2[i]);
+        SampsonErrorCostFunctor::Create(cam_rays1[i], cam_rays2[i]);
     problem.AddResidualBlock(cost_function,
                              loss_function.get(),
                              cam2_from_cam1_rotation,
@@ -317,12 +321,12 @@ bool RefineRelativePose(const ceres::Solver::Options& options,
 }
 
 bool RefineEssentialMatrix(const ceres::Solver::Options& options,
-                           const std::vector<Eigen::Vector2d>& points1,
-                           const std::vector<Eigen::Vector2d>& points2,
+                           const std::vector<Eigen::Vector3d>& cam_rays1,
+                           const std::vector<Eigen::Vector3d>& cam_rays2,
                            const std::vector<char>& inlier_mask,
                            Eigen::Matrix3d* E) {
-  THROW_CHECK_EQ(points1.size(), points2.size());
-  THROW_CHECK_EQ(points1.size(), inlier_mask.size());
+  THROW_CHECK_EQ(cam_rays1.size(), cam_rays2.size());
+  THROW_CHECK_EQ(cam_rays1.size(), inlier_mask.size());
 
   // Extract inlier points for decomposing the essential matrix into
   // rotation and translation components.
@@ -334,13 +338,13 @@ bool RefineEssentialMatrix(const ceres::Solver::Options& options,
     }
   }
 
-  std::vector<Eigen::Vector2d> inlier_points1(num_inliers);
-  std::vector<Eigen::Vector2d> inlier_points2(num_inliers);
+  std::vector<Eigen::Vector3d> inlier_cam_rays1(num_inliers);
+  std::vector<Eigen::Vector3d> inlier_cam_rays2(num_inliers);
   size_t j = 0;
   for (size_t i = 0; i < inlier_mask.size(); ++i) {
     if (inlier_mask[i]) {
-      inlier_points1[j] = points1[i];
-      inlier_points2[j] = points2[i];
+      inlier_cam_rays1[j] = cam_rays1[i];
+      inlier_cam_rays2[j] = cam_rays2[i];
       j += 1;
     }
   }
@@ -349,7 +353,7 @@ bool RefineEssentialMatrix(const ceres::Solver::Options& options,
   Rigid3d cam2_from_cam1;
   std::vector<Eigen::Vector3d> points3D;
   PoseFromEssentialMatrix(
-      *E, inlier_points1, inlier_points2, &cam2_from_cam1, &points3D);
+      *E, inlier_cam_rays1, inlier_cam_rays2, &cam2_from_cam1, &points3D);
 
   if (points3D.size() == 0) {
     return false;
@@ -361,8 +365,8 @@ bool RefineEssentialMatrix(const ceres::Solver::Options& options,
   const bool refinement_success =
       RefineRelativePose(options,
                          std::vector<char>(num_inliers, true),
-                         inlier_points1,
-                         inlier_points2,
+                         inlier_cam_rays1,
+                         inlier_cam_rays2,
                          &cam2_from_cam1);
 
   if (!refinement_success) {

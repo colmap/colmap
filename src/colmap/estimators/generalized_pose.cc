@@ -212,28 +212,32 @@ bool EstimateGeneralizedRelativePose(
   if (IsPanoramicRig(camera_idxs1, cams_from_rig) &&
       IsPanoramicRig(camera_idxs2, cams_from_rig)) {
     Rigid3d temp_cam2_from_cam1;
-    std::vector<Eigen::Vector2d> cam_points1(num_points);
-    std::vector<Eigen::Vector2d> cam_points2(num_points);
+    std::vector<Eigen::Vector3d> cam_rays1(num_points);
+    std::vector<Eigen::Vector3d> cam_rays2(num_points);
     for (size_t i = 0; i < num_points; ++i) {
+      const size_t camera_idx1 = camera_idxs1[i];
       if (const std::optional<Eigen::Vector2d> cam_point1 =
-              cameras[camera_idxs1[i]].CamFromImg(points2D1[i]);
+              cameras[camera_idx1].CamFromImg(points2D1[i]);
           cam_point1.has_value()) {
-        cam_points1[i] = *cam_point1;
+        cam_rays1[i] = cams_from_rig[camera_idx1].rotation.inverse() *
+                       cam_point1->homogeneous().normalized();
       } else {
-        cam_points1[i].setZero();
+        cam_rays1[i].setZero();
       }
 
+      const size_t camera_idx2 = camera_idxs2[i];
       if (const std::optional<Eigen::Vector2d> cam_point2 =
               cameras[camera_idxs2[i]].CamFromImg(points2D2[i]);
           cam_point2.has_value()) {
-        cam_points2[i] = *cam_point2;
+        cam_rays2[i] = cams_from_rig[camera_idx2].rotation.inverse() *
+                       cam_point2->homogeneous().normalized();
       } else {
-        cam_points2[i].setZero();
+        cam_rays2[i].setZero();
       }
     }
     if (EstimateRelativePose(ransac_options,
-                             cam_points1,
-                             cam_points2,
+                             cam_rays1,
+                             cam_rays2,
                              &temp_cam2_from_cam1,
                              num_inliers,
                              inlier_mask)) {

@@ -129,30 +129,30 @@ TEST(PoseFromHomographyMatrix, Nominal) {
   const Eigen::Matrix3d K2 = Eigen::Matrix3d::Identity();
   const Eigen::Quaterniond ref_rotation =
       Eigen::Quaterniond(1, 0.1, 0.2, 0.3).normalized();
-  const Eigen::Vector3d ref_translation(2, 0, 0);
-  const Eigen::Vector3d ref_normal(-1, 0, 0);
-  const double d_ref = 1.5;
+  const Eigen::Vector3d ref_translation(1, 0, 0);
+  const Eigen::Vector3d ref_normal(0, 0, -1);
   const Eigen::Matrix3d H = HomographyMatrixFromPose(
-      K1, K2, ref_rotation.matrix(), ref_translation, ref_normal, d_ref);
+      K1, K2, ref_rotation.matrix(), ref_translation, ref_normal, 1);
 
-  std::vector<Eigen::Vector2d> points1;
-  points1.emplace_back(0.1, 0.4);
-  points1.emplace_back(0.2, 0.3);
-  points1.emplace_back(0.3, 0.2);
-  points1.emplace_back(0.4, 0.1);
+  std::vector<Eigen::Vector3d> rays1;
+  rays1.push_back(Eigen::Vector3d(0.1, 0.1, 1).normalized());
+  rays1.push_back(Eigen::Vector3d(0.4, 0.1, 1).normalized());
+  rays1.push_back(Eigen::Vector3d(0.1, 0.4, 1).normalized());
+  rays1.push_back(Eigen::Vector3d(0.4, 0.4, 1).normalized());
+  rays1.push_back(Eigen::Vector3d(0.0, 0.0, 1).normalized());
 
-  std::vector<Eigen::Vector2d> points2;
-  for (const auto& point1 : points1) {
-    const Eigen::Vector3d point2 = H * point1.homogeneous();
-    ASSERT_GT(point2.z(), 0);
-    points2.push_back(point2.hnormalized());
+  std::vector<Eigen::Vector3d> rays2;
+  for (const auto& ray1 : rays1) {
+    const Eigen::Vector3d ray2 = H * ray1;
+    CHECK_GT(ray2.z(), 0);
+    rays2.push_back(ray2.normalized());
   }
 
   Rigid3d cam2_from_cam1;
   Eigen::Vector3d normal;
   std::vector<Eigen::Vector3d> points3D;
   PoseFromHomographyMatrix(
-      H, K1, K2, points1, points2, &cam2_from_cam1, &normal, &points3D);
+      H, K1, K2, rays1, rays2, &cam2_from_cam1, &normal, &points3D);
 
   EXPECT_THAT(
       Rigid3d(cam2_from_cam1.rotation, cam2_from_cam1.translation.normalized()),
@@ -160,7 +160,7 @@ TEST(PoseFromHomographyMatrix, Nominal) {
           Rigid3d(ref_rotation, ref_translation.normalized()), 1e-6, 1e-6));
 
   EXPECT_THAT(normal, EigenMatrixNear(ref_normal, 1e-5));
-  EXPECT_GE(points3D.size(), 3);
+  EXPECT_EQ(points3D.size(), rays1.size());
 }
 
 TEST(HomographyMatrixFromPose, PureRotation) {

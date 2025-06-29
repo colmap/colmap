@@ -121,16 +121,16 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
 // i.e. `x2 = [R | t] * X2`.
 //
 // @param ransac_options       RANSAC options.
-// @param points1              Corresponding 2D points.
-// @param points2              Corresponding 2D points.
+// @param cam_rays1            Corresponding 2D rays.
+// @param cam_rays2            Corresponding 2D rays.
 // @param cam2_from_cam1       Estimated pose between cameras.
 // @param num_inliers          Number of inliers in RANSAC.
-// @param inlier_mask          Inlier mask for 2D-3D correspondences.
+// @param inlier_mask          Inlier mask for 2D-2D correspondences.
 //
 // @return                     Whether pose is estimated successfully.
 bool EstimateRelativePose(const RANSACOptions& ransac_options,
-                          const std::vector<Eigen::Vector2d>& points1,
-                          const std::vector<Eigen::Vector2d>& points2,
+                          const std::vector<Eigen::Vector3d>& cam_rays1,
+                          const std::vector<Eigen::Vector3d>& cam_rays2,
                           Rigid3d* cam2_from_cam1,
                           size_t* num_inliers,
                           std::vector<char>* inlier_mask);
@@ -179,8 +179,8 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
 // @return                 Flag indicating if solution is usable.
 bool RefineRelativePose(const ceres::Solver::Options& options,
                         const std::vector<char>& inlier_mask,
-                        const std::vector<Eigen::Vector2d>& cam_points1,
-                        const std::vector<Eigen::Vector2d>& cam_points2,
+                        const std::vector<Eigen::Vector3d>& cam_rays1,
+                        const std::vector<Eigen::Vector3d>& cam_rays2,
                         Rigid3d* cam_from_world);
 
 // Refine essential matrix.
@@ -189,15 +189,15 @@ bool RefineRelativePose(const ceres::Solver::Options& options,
 // and refines the relative pose using the function `RefineRelativePose`.
 //
 // @param E                3x3 essential matrix.
-// @param cam_points1      First set of corresponding normalized points.
-// @param cam_points2      Second set of corresponding normalized points.
-// @param inlier_mask      Inlier mask for corresponding points.
+// @param cam_rays1        First set of corresponding normalized rays.
+// @param cam_rays2        Second set of corresponding normalized rays.
+// @param inlier_mask      Inlier mask for corresponding rays.
 // @param options          Solver options.
 //
 // @return                 Flag indicating if solution is usable.
 bool RefineEssentialMatrix(const ceres::Solver::Options& options,
-                           const std::vector<Eigen::Vector2d>& cam_points1,
-                           const std::vector<Eigen::Vector2d>& cam_points2,
+                           const std::vector<Eigen::Vector3d>& cam_rays1,
+                           const std::vector<Eigen::Vector3d>& cam_rays2,
                            const std::vector<char>& inlier_mask,
                            Eigen::Matrix3d* E);
 
