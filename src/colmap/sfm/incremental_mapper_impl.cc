@@ -543,12 +543,11 @@ bool EstimateInitialGeneralizedTwoViewGeometry(
     const DatabaseCache& database_cache,
     const Image& orig_image1,
     const Image& orig_image2,
+    const Frame& frame1,
+    const Frame& frame2,
+    const Rig& rig1,
+    const Rig& rig2,
     Rigid3d& orig_cam2_from_orig_cam1) {
-  const Frame& frame1 = database_cache.Frame(orig_image1.FrameId());
-  const Rig& rig1 = database_cache.Rig(frame1.RigId());
-  const Frame& frame2 = database_cache.Frame(orig_image2.FrameId());
-  const Rig& rig2 = database_cache.Rig(frame2.RigId());
-
   std::vector<Eigen::Vector2d> points2D1;
   std::vector<Eigen::Vector2d> points2D2;
   std::vector<size_t> camera_idxs1;
@@ -599,7 +598,8 @@ bool EstimateInitialGeneralizedTwoViewGeometry(
   // Compute the average normalized error.
   ransac_options.max_error = 0;
   for (const Camera& camera : cameras) {
-    ransac_options.max_error += camera.CamFromImgThreshold(options.init_max_error);
+    ransac_options.max_error +=
+        camera.CamFromImgThreshold(options.init_max_error);
   }
   ransac_options.max_error /= cameras.size();
 
@@ -624,13 +624,11 @@ bool EstimateInitialGeneralizedTwoViewGeometry(
   VLOG(3) << "Initial general frame pair with " << num_inliers
           << " inlier matches";
 
+  // Note that we already checked for stable geometry (i.e., non-forward motion,
+  // sufficient triangulation angle) between the original image pair.
   if (static_cast<int>(num_inliers) < options.init_min_num_inliers) {
     return false;
   }
-
-  // TODO: This currently does not check for stable triangulation and may lead
-  // to brittle initialization, if the baseline between the two rigs or the
-  // cameras within the rigs are very small.
 
   const Rigid3d rig2_from_rig1 = maybe_rig2_from_rig1.has_value()
                                      ? maybe_rig2_from_rig1.value()
@@ -666,19 +664,8 @@ bool IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
     Rigid3d& cam2_from_cam1) {
   const Image& image1 = database_cache.Image(image_id1);
   const Image& image2 = database_cache.Image(image_id2);
-  const Frame& frame1 = database_cache.Frame(image1.FrameId());
-  const Frame& frame2 = database_cache.Frame(image2.FrameId());
-  const Rig& rig1 = database_cache.Rig(frame1.RigId());
-  const Rig& rig2 = database_cache.Rig(frame2.RigId());
   const Camera& camera1 = database_cache.Camera(image1.CameraId());
   const Camera& camera2 = database_cache.Camera(image2.CameraId());
-
-  // If one or both of the frames are non-trivial, initialize using generalized
-  // relative pose solver.
-  if (rig1.NumSensors() > 1 || rig2.NumSensors() > 1) {
-    return EstimateInitialGeneralizedTwoViewGeometry(
-        options, database_cache, image1, image2, cam2_from_cam1);
-  }
 
   const FeatureMatches matches =
       database_cache.CorrespondenceGraph()->FindCorrespondencesBetweenImages(
@@ -720,6 +707,26 @@ bool IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
           options.init_max_forward_motion ||
       two_view_geometry.tri_angle <= DegToRad(options.init_min_tri_angle)) {
     return false;
+  }
+
+  const Frame& frame1 = database_cache.Frame(image1.FrameId());
+  const Frame& frame2 = database_cache.Frame(image2.FrameId());
+  const Rig& rig1 = database_cache.Rig(frame1.RigId());
+  const Rig& rig2 = database_cache.Rig(frame2.RigId());
+
+  // If one or both of the frames are non-trivial, initialize using generalized
+  // relative pose solver. Note that we intentionally do this after ensuring
+  // that the given image pair has stable two-view geometry.
+  if (rig1.NumSensors() > 1 || rig2.NumSensors() > 1) {
+    return EstimateInitialGeneralizedTwoViewGeometry(options,
+                                                     database_cache,
+                                                     image1,
+                                                     image2,
+                                                     frame1,
+                                                     frame2,
+                                                     rig1,
+                                                     rig2,
+                                                     cam2_from_cam1);
   }
 
   cam2_from_cam1 = two_view_geometry.cam2_from_cam1;
