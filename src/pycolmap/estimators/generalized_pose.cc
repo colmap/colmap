@@ -143,7 +143,7 @@ py::typing::Optional<py::dict> PyEstimateGeneralizedRelativePose(
     const RANSACOptions& estimation_options) {
   py::gil_scoped_release release;
   std::optional<Rigid3d> rig2_from_rig1;
-  std::optional<Rigid3d> cam2_from_cam1;
+  std::optional<Rigid3d> pano2_from_pano1;
   size_t num_inliers;
   std::vector<char> inlier_mask;
   if (!EstimateGeneralizedRelativePose(estimation_options,
@@ -154,7 +154,7 @@ py::typing::Optional<py::dict> PyEstimateGeneralizedRelativePose(
                                        cams_from_rig,
                                        cameras,
                                        &rig2_from_rig1,
-                                       &cam2_from_cam1,
+                                       &pano2_from_pano1,
                                        &num_inliers,
                                        &inlier_mask)) {
     py::gil_scoped_acquire acquire;
@@ -165,7 +165,7 @@ py::typing::Optional<py::dict> PyEstimateGeneralizedRelativePose(
   py::dict dict("num_inliers"_a = num_inliers,
                 "inlier_mask"_a = ToPythonMask(inlier_mask));
   if (rig2_from_rig1) dict["rig2_from_rig1"] = *rig2_from_rig1;
-  if (cam2_from_cam1) dict["cam2_from_cam1"] = *cam2_from_cam1;
+  if (pano2_from_pano1) dict["pano2_from_pano1"] = *pano2_from_pano1;
   return dict;
 }
 

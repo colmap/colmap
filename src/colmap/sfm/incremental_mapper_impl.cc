@@ -599,7 +599,7 @@ bool EstimateInitialGeneralizedTwoViewGeometry(
   ransac_options.max_error = options.init_max_error;
 
   std::optional<Rigid3d> maybe_rig2_from_rig1;
-  std::optional<Rigid3d> maybe_cam2_from_cam1;
+  std::optional<Rigid3d> maybe_pano2_from_pano1;
   size_t num_inliers;
   std::vector<char> inlier_mask;
   if (!EstimateGeneralizedRelativePose(ransac_options,
@@ -610,7 +610,7 @@ bool EstimateInitialGeneralizedTwoViewGeometry(
                                        cams_from_rig,
                                        cameras,
                                        &maybe_rig2_from_rig1,
-                                       &maybe_cam2_from_cam1,
+                                       &maybe_pano2_from_pano1,
                                        &num_inliers,
                                        &inlier_mask)) {
     return false;
@@ -623,28 +623,26 @@ bool EstimateInitialGeneralizedTwoViewGeometry(
     return false;
   }
 
-  if (!maybe_rig2_from_rig1.has_value()) {
-    // Both rigs are panoramic.
-    THROW_CHECK(maybe_cam2_from_cam1.has_value());
-    orig_cam2_from_orig_cam1 = *maybe_cam2_from_cam1;
-  } else {
-    // Recompose the relative transformation between the original images.
+  const Rigid3d rig2_from_rig1 = maybe_rig2_from_rig1.has_value()
+                                     ? maybe_rig2_from_rig1.value()
+                                     : maybe_pano2_from_pano1.value();
 
-    const sensor_t orig_camera_id1(SensorType::CAMERA, orig_image1.CameraId());
-    Rigid3d orig_cam1_from_rig1;
-    if (!rig1.IsRefSensor(orig_camera_id1)) {
-      orig_cam1_from_rig1 = rig1.SensorFromRig(orig_camera_id1);
-    }
+  // Recompose the relative transformation between the original images.
 
-    const sensor_t orig_camera_id2(SensorType::CAMERA, orig_image2.CameraId());
-    Rigid3d orig_cam2_from_rig2;
-    if (!rig2.IsRefSensor(orig_camera_id2)) {
-      orig_cam2_from_rig2 = rig2.SensorFromRig(orig_camera_id2);
-    }
-
-    orig_cam2_from_orig_cam1 = orig_cam2_from_rig2 * (*maybe_rig2_from_rig1) *
-                               Inverse(orig_cam1_from_rig1);
+  const sensor_t orig_camera_id1(SensorType::CAMERA, orig_image1.CameraId());
+  Rigid3d orig_cam1_from_rig1;
+  if (!rig1.IsRefSensor(orig_camera_id1)) {
+    orig_cam1_from_rig1 = rig1.SensorFromRig(orig_camera_id1);
   }
+
+  const sensor_t orig_camera_id2(SensorType::CAMERA, orig_image2.CameraId());
+  Rigid3d orig_cam2_from_rig2;
+  if (!rig2.IsRefSensor(orig_camera_id2)) {
+    orig_cam2_from_rig2 = rig2.SensorFromRig(orig_camera_id2);
+  }
+
+  orig_cam2_from_orig_cam1 =
+      orig_cam2_from_rig2 * rig2_from_rig1 * Inverse(orig_cam1_from_rig1);
 
   return true;
 }

@@ -291,7 +291,7 @@ TEST(EstimateGeneralizedRelativePose, Nominal) {
                                                     problem.cams_from_rig,
                                                     problem.cameras,
                                                     &rig2_from_rig1,
-                                                    &cam2_from_cam1,
+                                                    &pano2_from_pano1,
                                                     &num_inliers,
                                                     &inlier_mask));
         EXPECT_EQ(num_inliers, problem.points2D1.size());
@@ -300,9 +300,9 @@ TEST(EstimateGeneralizedRelativePose, Nominal) {
             sensor_from_rig_translation_stddev == 0) {
           // Panoramic pairs do not allow for recovery of translation scale.
           ASSERT_FALSE(rig2_from_rig1.has_value());
-          ASSERT_TRUE(cam2_from_cam1.has_value());
+          ASSERT_TRUE(pano2_from_pano1.has_value());
           EXPECT_THAT(
-              *cam2_from_cam1,
+              *pano2_from_pano1,
               Rigid3dNear(
                   Rigid3d(problem.gt_rig2_from_rig1.rotation,
                           problem.gt_rig2_from_rig1.translation.normalized()),
@@ -310,7 +310,7 @@ TEST(EstimateGeneralizedRelativePose, Nominal) {
                   /*ttol=*/1e-6));
         } else {
           ASSERT_TRUE(rig2_from_rig1.has_value());
-          ASSERT_FALSE(cam2_from_cam1.has_value());
+          ASSERT_FALSE(pano2_from_pano1.has_value());
           EXPECT_THAT(
               *rig2_from_rig1,
               Rigid3dNear(

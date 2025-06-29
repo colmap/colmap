@@ -109,6 +109,8 @@ TEST(IncrementalPipeline, WithoutNoiseAndWithNonTrivialFrames) {
   synthetic_dataset_options.num_points3D = 100;
   synthetic_dataset_options.point2D_stddev = 0;
   synthetic_dataset_options.camera_has_prior_focal_length = false;
+  synthetic_dataset_options.sensor_from_rig_translation_stddev = 0.05;
+  synthetic_dataset_options.sensor_from_rig_rotation_stddev = 30;
   SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction, &database);
 
   for (const bool refine_sensor_from_rig : {true, false}) {
@@ -137,12 +139,13 @@ TEST(IncrementalPipeline, WithoutNoiseAndWithPanoramicNonTrivialFrames) {
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
-  synthetic_dataset_options.num_cameras_per_rig = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 3;
   synthetic_dataset_options.num_frames_per_rig = 7;
   synthetic_dataset_options.num_points3D = 100;
   synthetic_dataset_options.point2D_stddev = 0;
   synthetic_dataset_options.camera_has_prior_focal_length = false;
   synthetic_dataset_options.sensor_from_rig_translation_stddev = 0;
+  synthetic_dataset_options.sensor_from_rig_rotation_stddev = 30;
   SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction, &database);
 
   for (const bool refine_sensor_from_rig : {true, false}) {
