@@ -623,6 +623,10 @@ bool EstimateInitialGeneralizedTwoViewGeometry(
     return false;
   }
 
+  // TODO: This currently does not check for stable triangulation and may lead
+  // to brittle initialization, if the baseline between the two rigs or the
+  // cameras within the rigs are very small.
+
   const Rigid3d rig2_from_rig1 = maybe_rig2_from_rig1.has_value()
                                      ? maybe_rig2_from_rig1.value()
                                      : maybe_pano2_from_pano1.value();
