@@ -386,12 +386,12 @@ void BindIncrementalMapperImpl(py::module& m) {
             // from -1 (int) to kInvalidImageId (uint32_t).
             image_t image_id1_cast = image_id1;
             image_t image_id2_cast = image_id2;
-            TwoViewGeometry two_view_geometry;
+            Rigid3d cam2_from_cam1;
             const bool success = self.FindInitialImagePair(
-                options, two_view_geometry, image_id1_cast, image_id2_cast);
+                options, image_id1_cast, image_id2_cast, cam2_from_cam1);
             if (success) {
               const auto pair = std::make_pair(image_id1_cast, image_id2_cast);
-              return py::cast(std::make_pair(pair, two_view_geometry));
+              return py::cast(std::make_pair(pair, cam2_from_cam1));
             } else {
               return py::none();
             }

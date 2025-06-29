@@ -331,11 +331,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
           points2D.push_back(point2D);
         }
 
-        // Shuffle 2D points, so each image has another order of observed 3D
-        // points.
-        if (PRNG == nullptr) {
-          SetPRNGSeed();
-        }
+        // Shuffle 2D points, so each image has 3D points ordered differently.
         std::shuffle(points2D.begin(), points2D.end(), *PRNG);
         image.SetPoints2D(points2D);
 
