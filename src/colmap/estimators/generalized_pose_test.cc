@@ -280,7 +280,7 @@ TEST(EstimateGeneralizedRelativePose, Nominal) {
         ransac_options.max_error = 1e-2;
 
         std::optional<Rigid3d> rig2_from_rig1;
-        std::optional<Rigid3d> cam2_from_cam1;
+        std::optional<Rigid3d> pano2_from_pano1;
         size_t num_inliers;
         std::vector<char> inlier_mask;
         EXPECT_TRUE(EstimateGeneralizedRelativePose(ransac_options,
