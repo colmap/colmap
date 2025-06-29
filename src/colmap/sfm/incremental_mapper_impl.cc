@@ -666,6 +666,8 @@ bool IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
   const Camera& camera1 = database_cache.Camera(image1.CameraId());
   const Camera& camera2 = database_cache.Camera(image2.CameraId());
 
+  // If one or both of the frames are non-trivial, initialize using generalized
+  // relative pose solver.
   if (!rig1.IsRefSensor(camera1.SensorId()) ||
       !rig2.IsRefSensor(camera2.SensorId())) {
     return EstimateInitialGeneralizedTwoViewGeometry(
