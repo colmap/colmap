@@ -84,7 +84,7 @@ class Frame {
   // Get the sensor from world transformation.
   inline Rigid3d SensorFromWorld(sensor_t sensor_id) const;
 
-  // Set the world to frame from the given camera to world transformation.
+  // Set the world to frame from the given camera from world transformation.
   void SetCamFromWorld(camera_t camera_id, const Rigid3d& cam_from_world);
 
   // Convenience method with view into all image data identifiers.

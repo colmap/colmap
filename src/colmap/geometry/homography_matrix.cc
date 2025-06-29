@@ -192,41 +192,27 @@ namespace {
 
 double CheckCheiralityAndReprojErrorSum(
     const Rigid3d& cam2_from_cam1,
-    const std::vector<Eigen::Vector2d>& points1,
-    const std::vector<Eigen::Vector2d>& points2,
+    const std::vector<Eigen::Vector3d>& cam_rays1,
+    const std::vector<Eigen::Vector3d>& cam_rays2,
     std::vector<Eigen::Vector3d>* points3D) {
-  THROW_CHECK_EQ(points1.size(), points2.size());
-  const Eigen::Matrix3x4d cam1_from_world = Eigen::Matrix3x4d::Identity();
-  const Eigen::Matrix3x4d cam2_from_world = cam2_from_cam1.ToMatrix();
-  constexpr double kMinDepth = std::numeric_limits<double>::epsilon();
-  const double max_depth = 1000.0 * cam2_from_cam1.translation.norm();
+  THROW_CHECK_EQ(cam_rays1.size(), cam_rays2.size());
   double reproj_residual_sum = 0;
   points3D->clear();
-  for (size_t i = 0; i < points1.size(); ++i) {
-    Eigen::Vector3d point3D;
-    if (!TriangulatePoint(cam1_from_world,
-                          cam2_from_world,
-                          points1[i],
-                          points2[i],
-                          &point3D)) {
+  for (size_t i = 0; i < cam_rays1.size(); ++i) {
+    Eigen::Vector3d point3D_in_cam1;
+    if (!TriangulateMidPoint(
+            cam2_from_cam1, cam_rays1[i], cam_rays2[i], &point3D_in_cam1)) {
       continue;
     }
-    const Eigen::Vector3d point3D_in_cam1 =
-        cam1_from_world * point3D.homogeneous();
-    if (point3D_in_cam1.z() < kMinDepth || point3D_in_cam1.z() > max_depth) {
-      continue;
-    }
-    const Eigen::Vector3d point3D_in_cam2 =
-        cam2_from_world * point3D.homogeneous();
-    if (point3D_in_cam2.z() < kMinDepth || point3D_in_cam2.z() > max_depth) {
-      continue;
-    }
+    const Eigen::Vector3d point3D_in_cam2 = cam2_from_cam1 * point3D_in_cam1;
     const double error1 =
-        (points1[i] - point3D_in_cam1.hnormalized()).squaredNorm();
+        1 -
+        std::clamp(cam_rays1[i].dot(point3D_in_cam1.normalized()), -1.0, 1.0);
     const double error2 =
-        (points2[i] - point3D_in_cam2.hnormalized()).squaredNorm();
+        1 -
+        std::clamp(cam_rays2[i].dot(point3D_in_cam2.normalized()), -1.0, 1.0);
     reproj_residual_sum += error1 + error2;
-    points3D->push_back(point3D);
+    points3D->push_back(point3D_in_cam1);
   }
   return reproj_residual_sum;
 }
@@ -236,12 +222,12 @@ double CheckCheiralityAndReprojErrorSum(
 void PoseFromHomographyMatrix(const Eigen::Matrix3d& H,
                               const Eigen::Matrix3d& K1,
                               const Eigen::Matrix3d& K2,
-                              const std::vector<Eigen::Vector2d>& points1,
-                              const std::vector<Eigen::Vector2d>& points2,
+                              const std::vector<Eigen::Vector3d>& cam_rays1,
+                              const std::vector<Eigen::Vector3d>& cam_rays2,
                               Rigid3d* cam2_from_cam1,
                               Eigen::Vector3d* normal,
                               std::vector<Eigen::Vector3d>* points3D) {
-  THROW_CHECK_EQ(points1.size(), points2.size());
+  THROW_CHECK_EQ(cam_rays1.size(), cam_rays2.size());
 
   std::vector<Rigid3d> cams2_from_cams1;
   std::vector<Eigen::Vector3d> normals;
@@ -254,12 +240,9 @@ void PoseFromHomographyMatrix(const Eigen::Matrix3d& H,
   for (size_t i = 0; i < cams2_from_cams1.size(); ++i) {
     // Note that we can typically eliminate 2 of the 4 solutions using the
     // cheirality check. We can then typically narrow it down to 1 solution by
-    // picking the solution with minimal overall squared reprojection error.
-    // There is no principled reasoning for why choosing the sum of squared or
-    // non-squared reprojection errors other than avoid sqrt for efficiency and
-    // consistency with the RANSAC cost function.
+    // picking the solution with minimal overall reprojection error.
     const double reproj_residual_sum = CheckCheiralityAndReprojErrorSum(
-        cams2_from_cams1[i], points1, points2, &tentative_points3D);
+        cams2_from_cams1[i], cam_rays1, cam_rays2, &tentative_points3D);
     if (tentative_points3D.size() > points3D->size() ||
         (tentative_points3D.size() == points3D->size() &&
          reproj_residual_sum < best_reproj_residual_sum)) {

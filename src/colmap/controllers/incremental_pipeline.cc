@@ -345,6 +345,12 @@ IncrementalPipeline::Status IncrementalPipeline::InitializeReconstruction(
     return Status::BAD_INITIAL_PAIR;
   }
 
+  // Number of triangulated points not enough for registering future images.
+  if (static_cast<int>(reconstruction.NumPoints3D()) <
+      mapper_options.abs_pose_min_num_inliers) {
+    return Status::BAD_INITIAL_PAIR;
+  }
+
   if (options_->extract_colors) {
     for (const image_t image_id : {image_id1, image_id2}) {
       const Image& image = reconstruction.Image(image_id);
