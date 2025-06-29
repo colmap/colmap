@@ -211,7 +211,7 @@ bool EstimateGeneralizedRelativePose(
 
   if (IsPanoramicRig(camera_idxs1, cams_from_rig) &&
       IsPanoramicRig(camera_idxs2, cams_from_rig)) {
-    Rigid3d temp_cam2_from_cam1;
+    Rigid3d pano2_from_pano1;
     std::vector<Eigen::Vector3d> cam_rays1(num_points);
     std::vector<Eigen::Vector3d> cam_rays2(num_points);
     for (size_t i = 0; i < num_points; ++i) {
@@ -238,10 +238,10 @@ bool EstimateGeneralizedRelativePose(
     if (EstimateRelativePose(ransac_options,
                              cam_rays1,
                              cam_rays2,
-                             &temp_cam2_from_cam1,
+                             &pano2_from_pano1,
                              num_inliers,
                              inlier_mask)) {
-      *cam2_from_cam1 = temp_cam2_from_cam1;
+      *cam2_from_cam1 = pano2_from_pano1;
       return true;
     }
     return false;
