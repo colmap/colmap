@@ -338,9 +338,9 @@ class SpatialPairGenerator : public PairGenerator {
 
   std::vector<std::pair<image_t, image_t>> Next() override;
 
- private:
   Eigen::RowMajorMatrixXf ReadPositionPriorData(FeatureMatcherCache& cache);
 
+ private:
   const SpatialMatchingOptions options_;
   std::vector<std::pair<image_t, image_t>> image_pairs_;
   Eigen::Matrix<int64_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
