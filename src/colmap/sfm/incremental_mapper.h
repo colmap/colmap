@@ -170,9 +170,9 @@ class IncrementalMapper {
   // pairs should be passed to `RegisterInitialImagePair`. This function
   // automatically ignores image pairs that failed to register previously.
   bool FindInitialImagePair(const Options& options,
-                            TwoViewGeometry& two_view_geometry,
                             image_t& image_id1,
-                            image_t& image_id2);
+                            image_t& image_id2,
+                            Rigid3d& cam2_from_cam1);
 
   // Find best next image to register in the incremental reconstruction. The
   // images should be passed to `RegisterNextImage`. This function automatically
@@ -181,9 +181,9 @@ class IncrementalMapper {
 
   // Attempt to seed the reconstruction from an image pair.
   void RegisterInitialImagePair(const Options& options,
-                                const TwoViewGeometry& two_view_geometry,
                                 image_t image_id1,
-                                image_t image_id2);
+                                image_t image_id2,
+                                const Rigid3d& cam2_from_cam1);
 
   // Attempt to register image to the existing model. This requires that
   // a previous call to `RegisterInitialImagePair` was successful.
@@ -284,7 +284,7 @@ class IncrementalMapper {
   bool EstimateInitialTwoViewGeometry(const Options& options,
                                       image_t image_id1,
                                       image_t image_id2,
-                                      TwoViewGeometry& two_view_geometry);
+                                      Rigid3d& cam2_from_cam1);
 
   // Find local bundle for given image in the reconstruction. The local bundle
   // is defined as the images that are most connected, i.e. maximum number of

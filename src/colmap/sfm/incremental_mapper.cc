@@ -112,9 +112,9 @@ void IncrementalMapper::EndReconstruction(const bool discard) {
 }
 
 bool IncrementalMapper::FindInitialImagePair(const Options& options,
-                                             TwoViewGeometry& two_view_geometry,
                                              image_t& image_id1,
-                                             image_t& image_id2) {
+                                             image_t& image_id2,
+                                             Rigid3d& cam2_from_cam1) {
   return IncrementalMapperImpl::FindInitialImagePair(
       options,
       *database_cache_,
@@ -122,9 +122,9 @@ bool IncrementalMapper::FindInitialImagePair(const Options& options,
       reg_stats_.init_num_reg_trials,
       reg_stats_.num_registrations,
       reg_stats_.init_image_pairs,
-      two_view_geometry,
       image_id1,
-      image_id2);
+      image_id2,
+      cam2_from_cam1);
 }
 
 std::vector<image_t> IncrementalMapper::FindNextImages(const Options& options) {
@@ -132,13 +132,11 @@ std::vector<image_t> IncrementalMapper::FindNextImages(const Options& options) {
       options, *obs_manager_, filtered_frames_, reg_stats_.num_reg_trials);
 }
 
-// TODO(jsch): Better handle non-trivial frames by performing generalized
-// relative pose estimation.
 void IncrementalMapper::RegisterInitialImagePair(
     const Options& options,
-    const TwoViewGeometry& two_view_geometry,
     const image_t image_id1,
-    const image_t image_id2) {
+    const image_t image_id2,
+    const Rigid3d& cam2_from_cam1) {
   THROW_CHECK_NOTNULL(reconstruction_);
   THROW_CHECK_NOTNULL(obs_manager_);
   THROW_CHECK_EQ(reconstruction_->NumRegFrames(), 0);
@@ -162,8 +160,7 @@ void IncrementalMapper::RegisterInitialImagePair(
   //////////////////////////////////////////////////////////////////////////////
 
   image1.FramePtr()->SetCamFromWorld(image1.CameraId(), Rigid3d());
-  image2.FramePtr()->SetCamFromWorld(image2.CameraId(),
-                                     two_view_geometry.cam2_from_cam1);
+  image2.FramePtr()->SetCamFromWorld(image2.CameraId(), cam2_from_cam1);
 
   //////////////////////////////////////////////////////////////////////////////
   // Update Reconstruction
@@ -1051,9 +1048,9 @@ bool IncrementalMapper::EstimateInitialTwoViewGeometry(
     const IncrementalMapper::Options& options,
     const image_t image_id1,
     const image_t image_id2,
-    TwoViewGeometry& two_view_geometry) {
+    Rigid3d& cam2_from_cam1) {
   return IncrementalMapperImpl::EstimateInitialTwoViewGeometry(
-      options, *database_cache_, image_id1, image_id2, two_view_geometry);
+      options, *database_cache_, image_id1, image_id2, cam2_from_cam1);
 }
 
 }  // namespace colmap

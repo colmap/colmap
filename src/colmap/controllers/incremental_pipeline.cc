@@ -294,11 +294,11 @@ IncrementalPipeline::Status IncrementalPipeline::InitializeReconstruction(
   image_t image_id2 = static_cast<image_t>(options_->init_image_id2);
 
   // Try to find good initial pair.
-  TwoViewGeometry two_view_geometry;
+  Rigid3d cam2_from_cam1;
   if (!options_->IsInitialPairProvided()) {
     LOG(INFO) << "Finding good initial image pair";
     const bool find_init_success = mapper.FindInitialImagePair(
-        mapper_options, two_view_geometry, image_id1, image_id2);
+        mapper_options, image_id1, image_id2, cam2_from_cam1);
     if (!find_init_success) {
       LOG(INFO) << "=> No good initial image pair found.";
       return Status::NO_INITIAL_PAIR;
@@ -313,7 +313,7 @@ IncrementalPipeline::Status IncrementalPipeline::InitializeReconstruction(
       return Status::NO_INITIAL_PAIR;
     }
     const bool provided_init_success = mapper.EstimateInitialTwoViewGeometry(
-        mapper_options, image_id1, image_id2, two_view_geometry);
+        mapper_options, image_id1, image_id2, cam2_from_cam1);
     if (!provided_init_success) {
       LOG(INFO) << "=> Provided pair is unsuitable for initialization.";
       return Status::BAD_INITIAL_PAIR;
@@ -323,7 +323,7 @@ IncrementalPipeline::Status IncrementalPipeline::InitializeReconstruction(
   LOG(INFO) << StringPrintf(
       "Registering initial image pair #%d and #%d", image_id1, image_id2);
   mapper.RegisterInitialImagePair(
-      mapper_options, two_view_geometry, image_id1, image_id2);
+      mapper_options, image_id1, image_id2, cam2_from_cam1);
 
   IncrementalTriangulator::Options tri_options;
   tri_options.min_angle = mapper_options.init_min_tri_angle;

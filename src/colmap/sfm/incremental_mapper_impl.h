@@ -69,9 +69,9 @@ class IncrementalMapperImpl {
       const std::unordered_map<image_t, size_t>& init_num_reg_trials,
       const std::unordered_map<image_t, size_t>& num_registrations,
       std::unordered_set<image_pair_t>& init_image_pairs,
-      TwoViewGeometry& two_view_geometry,
       image_t& image_id1,
-      image_t& image_id2);
+      image_t& image_id2,
+      Rigid3d& cam2_from_cam1);
 
   // Implement IncrementalMapper::FindNextImages
   static std::vector<image_t> FindNextImages(
@@ -92,7 +92,7 @@ class IncrementalMapperImpl {
       const DatabaseCache& database_cache,
       image_t image_id1,
       image_t image_id2,
-      TwoViewGeometry& two_view_geometry);
+      Rigid3d& cam2_from_cam1);
 };
 
 }  // namespace colmap

@@ -76,7 +76,7 @@ bool EstimateGeneralizedAbsolutePose(
 // @param cameras              Cameras for which to estimate pose.
 // @param rig2_from_rig1       Estimated rig2 from rig1 pose, if at least one of
 //                             the rigs is non-panoramic.
-// @param cam2_from_cam1       Estimated cam2 from cam1 pose, if the rigs are
+// @param pano2_from_pano1     Estimated rig2 from rig1 pose, if the rigs are
 //                             both panoramic.
 // @param num_inliers          Number of inliers in RANSAC.
 // @param inlier_mask          Inlier mask for 2D-2D correspondences.
@@ -91,7 +91,7 @@ bool EstimateGeneralizedRelativePose(
     const std::vector<Rigid3d>& cams_from_rig,
     const std::vector<Camera>& cameras,
     std::optional<Rigid3d>* rig2_from_rig1,
-    std::optional<Rigid3d>* cam2_from_cam1,
+    std::optional<Rigid3d>* pano2_from_pano1,
     size_t* num_inliers,
     std::vector<char>* inlier_mask);
 

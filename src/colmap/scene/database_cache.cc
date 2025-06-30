@@ -167,6 +167,9 @@ void DatabaseCache::Load(const Database& database,
       }
     } else {
       for (auto& image : images) {
+        if (!image_names.empty() && image_names.count(image.Name()) == 0) {
+          continue;
+        }
         // For backwards compatibility with old databases from before having
         // support for rigs/frames, we create a frame for each image.
         class Frame frame;

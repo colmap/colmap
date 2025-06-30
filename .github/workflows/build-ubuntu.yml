@@ -79,6 +79,8 @@ jobs:
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
       CTCACHE_DIR: ${{ github.workspace }}/compiler-cache/ctcache
+      GLOG_v: 2
+      GLOG_logtostderr: 1
 
     steps:
       - uses: actions/checkout@v4
@@ -228,8 +230,6 @@ jobs:
           Xvfb :99 &
           sleep 3
           cd build
-          export GLOG_v=1
-          export GLOG_logtostderr=1
           ctest -E "$ctestExclusions" --output-on-failure
 
       - name: Run E2E tests
