@@ -258,6 +258,7 @@ Full Change List (sorted temporally)
 * Initialize from non-trivial frame pairs using generalized relative pose by @ahojnnes in https://github.com/colmap/colmap/pull/3419
 * Fix setup_ubuntu.sh for docker by @MasahiroOgawa in https://github.com/colmap/colmap/pull/3432
 * Support visualization of models with arbitrary origin and scale by @ahojnnes in https://github.com/colmap/colmap/pull/3044
+* Fix ReadPositionPriorData to return valid and numerically more stable Position prior data by @whuaegeanse https://github.com/colmap/colmap/pull/3438
 
 --------------------------
 COLMAP 3.11.1 (12/06/2024)
