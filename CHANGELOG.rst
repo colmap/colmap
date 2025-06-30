@@ -7,7 +7,7 @@ COLMAP 3.12.0 (06/30/2025)
 
 New Features
 ------------
-* Support for modeling sensor rigs (and thus panoramas).
+* Support for modeling sensor rigs (and thus multi-camera rigs and panoramas).
   For more details and usage examples, see: https://colmap.github.io/rigs.html.
 * Automatic download and caching of vocabulary trees and other resources.
 * Support for converting between LLA and UTM coordinates.
@@ -29,6 +29,17 @@ Bug Fixes
 
 Breaking Changes
 ----------------
+* Serialization of reconstruction and database contains a new abstraction: rigs and frames.
+  The reconstruction output contains two new files `rigs.{bin,txt}` and `frames.{bin,txt}`.
+  The database contains new tables: `rigs`, `rig_sensors`, `frames`, `frames_data`.
+  Reading from existing reconstructions and databases (without rigs/frames) is fully backwards
+  compatible and vice versa reading new reconstructions (with rigs/frames) using old code is
+  fully forwards compatible.
+* Sensor poses (and thus image poses) are now composed as:
+  `sensor_from_world = sensor_from_rig * rig_from_world`. Previously, `image.cam_from_world`
+  returned a reference to the pose parameters. Now it returns a copy of the pose composition:
+  `cam_from_world = image.frame.rig.sensor_from_rig(image.camera.sensor_id) * image.frame.rig_from_world`
+  with the underlying pose parameters stored in the rig and frame objects.
 * Default bundle adjuster supports sensor rigs and thus rig bundle adjuster is deprecated.
 * FLANN-based vocabulary trees are incompatible with faiss. New trees automatically
   downloaded, if no vocab_tree_path is provided, otherwise manual download and update required.
