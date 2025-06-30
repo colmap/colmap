@@ -3,6 +3,7 @@
 namespace py = pybind11;
 
 void BindAbsolutePoseEstimator(py::module& m);
+void BindAffineTransformEstimator(py::module& m);
 void BindAlignmentEstimator(py::module& m);
 void BindBundleAdjuster(py::module& m);
 void BindCeres(py::module& m);
@@ -20,6 +21,7 @@ void BindTwoViewGeometryEstimator(py::module& m);
 void BindEstimators(py::module& m) {
   BindCeres(m);
   BindAbsolutePoseEstimator(m);
+  BindAffineTransformEstimator(m);
   BindAlignmentEstimator(m);
   BindBundleAdjuster(m);
   BindCostFunctions(m);

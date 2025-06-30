@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -147,7 +147,7 @@ struct SiftMatchingOptions {
   // Whether to perform guided matching, if geometric verification succeeds.
   bool guided_matching = false;
 
-  // Whether to use brute-force instead of FLANN based CPU matching.
+  // Whether to use brute-force instead of faiss based CPU matching.
   bool cpu_brute_force_matcher = false;
 
   // Cache for reusing descriptor index for feature matching.

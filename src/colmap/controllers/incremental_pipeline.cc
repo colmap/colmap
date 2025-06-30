@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -45,7 +45,7 @@ void IterativeGlobalRefinement(const IncrementalPipelineOptions& options,
                                    mapper_options,
                                    options.GlobalBundleAdjustment(),
                                    options.Triangulation());
-  mapper.FilterImages(mapper_options);
+  mapper.FilterFrames(mapper_options);
 }
 
 void ExtractColors(const std::string& image_path,
@@ -85,7 +85,7 @@ IncrementalMapper::Options IncrementalPipelineOptions::Mapper() const {
   options.max_extra_param = max_extra_param;
   options.num_threads = num_threads;
   options.local_ba_num_images = ba_local_num_images;
-  options.fix_existing_images = fix_existing_images;
+  options.fix_existing_frames = fix_existing_frames;
   options.use_prior_position = use_prior_position;
   options.use_robust_loss_on_prior_position = use_robust_loss_on_prior_position;
   options.prior_position_loss_scale = prior_position_loss_scale;
@@ -118,6 +118,7 @@ BundleAdjustmentOptions IncrementalPipelineOptions::LocalBundleAdjustment()
   options.refine_focal_length = ba_refine_focal_length;
   options.refine_principal_point = ba_refine_principal_point;
   options.refine_extra_params = ba_refine_extra_params;
+  options.refine_sensor_from_rig = ba_refine_sensor_from_rig;
   options.min_num_residuals_for_cpu_multi_threading =
       ba_min_num_residuals_for_cpu_multi_threading;
   options.loss_function_scale = 1.0;
@@ -150,6 +151,7 @@ BundleAdjustmentOptions IncrementalPipelineOptions::GlobalBundleAdjustment()
   options.refine_focal_length = ba_refine_focal_length;
   options.refine_principal_point = ba_refine_principal_point;
   options.refine_extra_params = ba_refine_extra_params;
+  options.refine_sensor_from_rig = ba_refine_sensor_from_rig;
   options.min_num_residuals_for_cpu_multi_threading =
       ba_min_num_residuals_for_cpu_multi_threading;
   options.loss_function_type =
@@ -170,16 +172,16 @@ bool IncrementalPipelineOptions::Check() const {
   CHECK_OPTION_GE(max_extra_param, 0);
   CHECK_OPTION_GE(ba_local_num_images, 2);
   CHECK_OPTION_GE(ba_local_max_num_iterations, 0);
-  CHECK_OPTION_GT(ba_global_images_ratio, 1.0);
+  CHECK_OPTION_GT(ba_global_frames_ratio, 1.0);
   CHECK_OPTION_GT(ba_global_points_ratio, 1.0);
-  CHECK_OPTION_GT(ba_global_images_freq, 0);
+  CHECK_OPTION_GT(ba_global_frames_freq, 0);
   CHECK_OPTION_GT(ba_global_points_freq, 0);
   CHECK_OPTION_GT(ba_global_max_num_iterations, 0);
   CHECK_OPTION_GT(ba_local_max_refinements, 0);
   CHECK_OPTION_GE(ba_local_max_refinement_change, 0);
   CHECK_OPTION_GT(ba_global_max_refinements, 0);
   CHECK_OPTION_GE(ba_global_max_refinement_change, 0);
-  CHECK_OPTION_GE(snapshot_images_freq, 0);
+  CHECK_OPTION_GE(snapshot_frames_freq, 0);
   CHECK_OPTION_GT(prior_position_loss_scale, 0.);
   CHECK_OPTION(Mapper().Check());
   CHECK_OPTION(Triangulation().Check());
@@ -208,26 +210,40 @@ void IncrementalPipeline::Run() {
     return;
   }
 
-  IncrementalMapper::Options init_mapper_options = options_->Mapper();
-  Reconstruct(init_mapper_options);
+  // Is there a sub-reconstruction before we start the reconstruction? I.e. the
+  // user has imported an existing reconstruction.
+  const bool continue_reconstruction = reconstruction_manager_->Size() > 0;
+  THROW_CHECK_LE(reconstruction_manager_->Size(), 1)
+      << "Can only continue from a single reconstruction, "
+         "but multiple are given.";
+
+  const size_t num_images = database_cache_->NumImages();
+
+  IncrementalMapper::Options mapper_options = options_->Mapper();
+  IncrementalMapper mapper(database_cache_);
+  Reconstruct(mapper,
+              mapper_options,
+              /*continue_reconstruction=*/continue_reconstruction);
 
   const size_t kNumInitRelaxations = 2;
   for (size_t i = 0; i < kNumInitRelaxations; ++i) {
-    if (reconstruction_manager_->Size() > 0 || CheckIfStopped()) {
+    if (mapper.NumTotalRegImages() == num_images || CheckIfStopped()) {
       break;
     }
 
     LOG(INFO) << "=> Relaxing the initialization constraints.";
-    init_mapper_options.init_min_num_inliers /= 2;
-    Reconstruct(init_mapper_options);
+    mapper_options.init_min_num_inliers /= 2;
+    mapper.ResetInitializationStats();
+    Reconstruct(mapper, mapper_options, /*continue_reconstruction=*/false);
 
-    if (reconstruction_manager_->Size() > 0 || CheckIfStopped()) {
+    if (mapper.NumTotalRegImages() == num_images || CheckIfStopped()) {
       break;
     }
 
     LOG(INFO) << "=> Relaxing the initialization constraints.";
-    init_mapper_options.init_min_tri_angle /= 2;
-    Reconstruct(init_mapper_options);
+    mapper_options.init_min_tri_angle /= 2;
+    mapper.ResetInitializationStats();
+    Reconstruct(mapper, mapper_options, /*continue_reconstruction=*/false);
   }
 
   run_timer.PrintMinutes();
@@ -238,7 +254,8 @@ bool IncrementalPipeline::LoadDatabase() {
 
   // Make sure images of the given reconstruction are also included when
   // manually specifying images for the reconstruction procedure.
-  std::unordered_set<std::string> image_names = options_->image_names;
+  std::unordered_set<std::string> image_names = {options_->image_names.begin(),
+                                                 options_->image_names.end()};
   if (reconstruction_manager_->Size() == 1 && !options_->image_names.empty()) {
     const auto& reconstruction = reconstruction_manager_->Get(0);
     for (const image_t image_id : reconstruction->RegImageIds()) {
@@ -277,11 +294,11 @@ IncrementalPipeline::Status IncrementalPipeline::InitializeReconstruction(
   image_t image_id2 = static_cast<image_t>(options_->init_image_id2);
 
   // Try to find good initial pair.
-  TwoViewGeometry two_view_geometry;
+  Rigid3d cam2_from_cam1;
   if (!options_->IsInitialPairProvided()) {
     LOG(INFO) << "Finding good initial image pair";
     const bool find_init_success = mapper.FindInitialImagePair(
-        mapper_options, two_view_geometry, image_id1, image_id2);
+        mapper_options, image_id1, image_id2, cam2_from_cam1);
     if (!find_init_success) {
       LOG(INFO) << "=> No good initial image pair found.";
       return Status::NO_INITIAL_PAIR;
@@ -290,49 +307,69 @@ IncrementalPipeline::Status IncrementalPipeline::InitializeReconstruction(
     if (!reconstruction.ExistsImage(image_id1) ||
         !reconstruction.ExistsImage(image_id2)) {
       LOG(INFO) << StringPrintf(
-          "=> Initial image pair #%d and #%d do not exist.",
+          "=> Initial image pair #%d and #%d does not exist.",
           image_id1,
           image_id2);
-      return Status::BAD_INITIAL_PAIR;
+      return Status::NO_INITIAL_PAIR;
     }
     const bool provided_init_success = mapper.EstimateInitialTwoViewGeometry(
-        mapper_options, image_id1, image_id2, two_view_geometry);
+        mapper_options, image_id1, image_id2, cam2_from_cam1);
     if (!provided_init_success) {
-      LOG(INFO) << "Provided pair is insuitable for intialization.";
+      LOG(INFO) << "=> Provided pair is unsuitable for initialization.";
       return Status::BAD_INITIAL_PAIR;
     }
   }
 
   LOG(INFO) << StringPrintf(
-      "Initializing with image pair #%d and #%d", image_id1, image_id2);
+      "Registering initial image pair #%d and #%d", image_id1, image_id2);
   mapper.RegisterInitialImagePair(
-      mapper_options, two_view_geometry, image_id1, image_id2);
+      mapper_options, image_id1, image_id2, cam2_from_cam1);
+
+  IncrementalTriangulator::Options tri_options;
+  tri_options.min_angle = mapper_options.init_min_tri_angle;
+  for (const image_t image_id : {image_id1, image_id2}) {
+    const Image& image = reconstruction.Image(image_id);
+    for (const data_t& data_id : image.FramePtr()->ImageIds()) {
+      mapper.TriangulateImage(tri_options, data_id.id);
+    }
+  }
 
   LOG(INFO) << "Global bundle adjustment";
   mapper.AdjustGlobalBundle(mapper_options, options_->GlobalBundleAdjustment());
   reconstruction.Normalize();
   mapper.FilterPoints(mapper_options);
-  mapper.FilterImages(mapper_options);
+  mapper.FilterFrames(mapper_options);
 
   // Initial image pair failed to register.
-  if (reconstruction.NumRegImages() == 0 || reconstruction.NumPoints3D() == 0) {
+  if (reconstruction.NumRegFrames() == 0 || reconstruction.NumPoints3D() == 0) {
+    return Status::BAD_INITIAL_PAIR;
+  }
+
+  // Number of triangulated points not enough for registering future images.
+  if (static_cast<int>(reconstruction.NumPoints3D()) <
+      mapper_options.abs_pose_min_num_inliers) {
     return Status::BAD_INITIAL_PAIR;
   }
 
   if (options_->extract_colors) {
-    ExtractColors(image_path_, image_id1, reconstruction);
+    for (const image_t image_id : {image_id1, image_id2}) {
+      const Image& image = reconstruction.Image(image_id);
+      for (const data_t& data_id : image.FramePtr()->ImageIds()) {
+        ExtractColors(image_path_, data_id.id, reconstruction);
+      }
+    }
   }
   return Status::SUCCESS;
 }
 
 bool IncrementalPipeline::CheckRunGlobalRefinement(
     const Reconstruction& reconstruction,
-    const size_t ba_prev_num_reg_images,
+    const size_t ba_prev_num_reg_frames,
     const size_t ba_prev_num_points) {
-  return reconstruction.NumRegImages() >=
-             options_->ba_global_images_ratio * ba_prev_num_reg_images ||
-         reconstruction.NumRegImages() >=
-             options_->ba_global_images_freq + ba_prev_num_reg_images ||
+  return reconstruction.NumRegFrames() >=
+             options_->ba_global_frames_ratio * ba_prev_num_reg_frames ||
+         reconstruction.NumRegFrames() >=
+             options_->ba_global_frames_freq + ba_prev_num_reg_frames ||
          reconstruction.NumPoints3D() >=
              options_->ba_global_points_ratio * ba_prev_num_points ||
          reconstruction.NumPoints3D() >=
@@ -349,7 +386,7 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
   // Register initial pair
   ////////////////////////////////////////////////////////////////////////////
 
-  if (reconstruction->NumRegImages() == 0) {
+  if (reconstruction->NumRegFrames() == 0) {
     const Status init_status = IncrementalPipeline::InitializeReconstruction(
         mapper, mapper_options, *reconstruction);
     if (init_status != Status::SUCCESS) {
@@ -362,8 +399,8 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
   // Incremental mapping
   ////////////////////////////////////////////////////////////////////////////
 
-  size_t snapshot_prev_num_reg_images = reconstruction->NumRegImages();
-  size_t ba_prev_num_reg_images = reconstruction->NumRegImages();
+  size_t snapshot_prev_num_reg_frames = reconstruction->NumRegFrames();
+  size_t ba_prev_num_reg_frames = reconstruction->NumRegFrames();
   size_t ba_prev_num_points = reconstruction->NumPoints3D();
 
   bool reg_next_success = true;
@@ -387,9 +424,9 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
     for (size_t reg_trial = 0; reg_trial < next_images.size(); ++reg_trial) {
       next_image_id = next_images[reg_trial];
 
-      LOG(INFO) << StringPrintf("Registering image #%d (%d)",
+      LOG(INFO) << StringPrintf("Registering image #%d (num_reg_frames=%d)",
                                 next_image_id,
-                                reconstruction->NumRegImages() + 1);
+                                reconstruction->NumRegFrames());
       LOG(INFO) << StringPrintf(
           "=> Image sees %d / %d points",
           mapper.ObservationManager().NumVisiblePoints3D(next_image_id),
@@ -407,7 +444,7 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
         // abort and try different initial pair.
         const size_t kMinNumInitialRegTrials = 30;
         if (reg_trial >= kMinNumInitialRegTrials &&
-            reconstruction->NumRegImages() <
+            reconstruction->NumRegFrames() <
                 static_cast<size_t>(options_->min_model_size)) {
           break;
         }
@@ -415,7 +452,10 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
     }
 
     if (reg_next_success) {
-      mapper.TriangulateImage(options_->Triangulation(), next_image_id);
+      const Image& image = reconstruction->Image(next_image_id);
+      for (const data_t& data_id : image.FramePtr()->ImageIds()) {
+        mapper.TriangulateImage(options_->Triangulation(), data_id.id);
+      }
       mapper.IterativeLocalRefinement(options_->ba_local_max_refinements,
                                       options_->ba_local_max_refinement_change,
                                       mapper_options,
@@ -424,20 +464,22 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
                                       next_image_id);
 
       if (CheckRunGlobalRefinement(
-              *reconstruction, ba_prev_num_reg_images, ba_prev_num_points)) {
+              *reconstruction, ba_prev_num_reg_frames, ba_prev_num_points)) {
         IterativeGlobalRefinement(*options_, mapper_options, mapper);
         ba_prev_num_points = reconstruction->NumPoints3D();
-        ba_prev_num_reg_images = reconstruction->NumRegImages();
+        ba_prev_num_reg_frames = reconstruction->NumRegFrames();
       }
 
       if (options_->extract_colors) {
-        ExtractColors(image_path_, next_image_id, *reconstruction);
+        for (const data_t& data_id : image.FramePtr()->ImageIds()) {
+          ExtractColors(image_path_, data_id.id, *reconstruction);
+        }
       }
 
-      if (options_->snapshot_images_freq > 0 &&
-          reconstruction->NumRegImages() >=
-              options_->snapshot_images_freq + snapshot_prev_num_reg_images) {
-        snapshot_prev_num_reg_images = reconstruction->NumRegImages();
+      if (options_->snapshot_frames_freq > 0 &&
+          reconstruction->NumRegFrames() >=
+              options_->snapshot_frames_freq + snapshot_prev_num_reg_frames) {
+        snapshot_prev_num_reg_frames = reconstruction->NumRegFrames();
         WriteSnapshot(*reconstruction, options_->snapshot_path);
       }
 
@@ -463,8 +505,8 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
   }
 
   // Only run final global BA, if last incremental BA was not global.
-  if (reconstruction->NumRegImages() >= 2 &&
-      reconstruction->NumRegImages() != ba_prev_num_reg_images &&
+  if (reconstruction->NumRegFrames() > 0 &&
+      reconstruction->NumRegFrames() != ba_prev_num_reg_frames &&
       reconstruction->NumPoints3D() != ba_prev_num_points) {
     IterativeGlobalRefinement(*options_, mapper_options, mapper);
   }
@@ -472,24 +514,16 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
 }
 
 void IncrementalPipeline::Reconstruct(
-    const IncrementalMapper::Options& mapper_options) {
-  IncrementalMapper mapper(database_cache_);
-
-  // Is there a sub-model before we start the reconstruction? I.e. the user
-  // has imported an existing reconstruction.
-  const bool initial_reconstruction_given = reconstruction_manager_->Size() > 0;
-  THROW_CHECK_LE(reconstruction_manager_->Size(), 1)
-      << "Can only resume from a "
-         "single reconstruction, but "
-         "multiple are given.";
-
+    IncrementalMapper& mapper,
+    const IncrementalMapper::Options& mapper_options,
+    bool continue_reconstruction) {
   for (int num_trials = 0; num_trials < options_->init_num_trials;
        ++num_trials) {
     if (CheckIfStopped()) {
       break;
     }
     size_t reconstruction_idx;
-    if (!initial_reconstruction_given || num_trials > 0) {
+    if (!continue_reconstruction || num_trials > 0) {
       reconstruction_idx = reconstruction_manager_->Add();
     } else {
       reconstruction_idx = 0;
@@ -501,25 +535,33 @@ void IncrementalPipeline::Reconstruct(
         ReconstructSubModel(mapper, mapper_options, reconstruction);
     switch (status) {
       case Status::INTERRUPTED: {
+        LOG(INFO) << "Keeping reconstruction due to interrupt";
         mapper.EndReconstruction(/*discard=*/false);
         return;
       }
 
-      case Status::NO_INITIAL_PAIR:
-      case Status::BAD_INITIAL_PAIR: {
+      case Status::NO_INITIAL_PAIR: {
+        LOG(INFO) << "Discarding reconstruction due to no initial pair";
         mapper.EndReconstruction(/*discard=*/true);
         reconstruction_manager_->Delete(reconstruction_idx);
-        // If both initial images are manually specified, there is no need for
-        // further initialization trials.
-        if (options_->IsInitialPairProvided()) {
-          return;
-        }
+        // If no pair could be found, we can exit the trial loop, because
+        // the next trial will not find anything unless the initialization
+        // thresholds are relaxed.
+        return;
+      }
+
+      case Status::BAD_INITIAL_PAIR: {
+        LOG(INFO) << "Discarding reconstruction due to bad initial pair";
+        mapper.EndReconstruction(/*discard=*/true);
+        reconstruction_manager_->Delete(reconstruction_idx);
+        // If an initial pair was found but it was bad, we discard and attempt
+        // to initialize from any of the remaining pairs in the next trials.
         break;
       }
 
       case Status::SUCCESS: {
         // Remember the total number of registered images before potentially
-        // discarding it below due to small size, so we can out of the main
+        // discarding it below due to small size, so we can exit out of the main
         // loop, if all images were registered.
         const size_t total_num_reg_images = mapper.NumTotalRegImages();
 
@@ -530,17 +572,19 @@ void IncrementalPipeline::Reconstruct(
         const size_t min_model_size = std::min<size_t>(
             0.8 * database_cache_->NumImages(), options_->min_model_size);
         if ((options_->multiple_models && reconstruction_manager_->Size() > 1 &&
-             reconstruction->NumRegImages() < min_model_size) ||
-            reconstruction->NumRegImages() == 0) {
+             reconstruction->NumRegFrames() < min_model_size) ||
+            reconstruction->NumRegFrames() == 0) {
+          LOG(INFO) << "Discarding reconstruction due to insufficient size";
           mapper.EndReconstruction(/*discard=*/true);
           reconstruction_manager_->Delete(reconstruction_idx);
         } else {
+          LOG(INFO) << "Keeping successful reconstruction";
           mapper.EndReconstruction(/*discard=*/false);
         }
 
         Callback(LAST_IMAGE_REG_CALLBACK);
 
-        if (initial_reconstruction_given || !options_->multiple_models ||
+        if (!options_->multiple_models ||
             reconstruction_manager_->Size() >=
                 static_cast<size_t>(options_->max_num_models) ||
             total_num_reg_images >= database_cache_->NumImages() - 1) {

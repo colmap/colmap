@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -40,16 +40,19 @@
 
 namespace colmap {
 
+P3PEstimator::P3PEstimator(ImgFromCamFunc img_from_cam_func)
+    : img_from_cam_func_(std::move(img_from_cam_func)) {}
+
 void P3PEstimator::Estimate(const std::vector<X_t>& points2D,
                             const std::vector<Y_t>& points3D,
-                            std::vector<M_t>* cams_from_world) {
+                            std::vector<M_t>* cams_from_world) const {
   THROW_CHECK_EQ(points2D.size(), 3);
   THROW_CHECK_EQ(points3D.size(), 3);
   THROW_CHECK_NOTNULL(cams_from_world);
 
   std::vector<Eigen::Vector3d> rays(3);
   for (int i = 0; i < 3; ++i) {
-    rays[i] = points2D[i].homogeneous().normalized();
+    rays[i] = points2D[i].camera_ray;
   }
 
   std::vector<poselib::CameraPose> poses;
@@ -64,9 +67,9 @@ void P3PEstimator::Estimate(const std::vector<X_t>& points2D,
 void P3PEstimator::Residuals(const std::vector<X_t>& points2D,
                              const std::vector<Y_t>& points3D,
                              const M_t& cam_from_world,
-                             std::vector<double>* residuals) {
+                             std::vector<double>* residuals) const {
   ComputeSquaredReprojectionError(
-      points2D, points3D, cam_from_world, residuals);
+      points2D, points3D, cam_from_world, img_from_cam_func_, residuals);
 }
 
 void P4PFEstimator::Estimate(const std::vector<X_t>& points2D,
@@ -109,6 +112,9 @@ void P4PFEstimator::Residuals(const std::vector<X_t>& points2D,
   }
 }
 
+EPNPEstimator::EPNPEstimator(ImgFromCamFunc img_from_cam_func)
+    : img_from_cam_func_(std::move(img_from_cam_func)) {}
+
 void EPNPEstimator::Estimate(const std::vector<X_t>& points2D,
                              const std::vector<Y_t>& points3D,
                              std::vector<M_t>* cams_from_world) {
@@ -118,9 +124,8 @@ void EPNPEstimator::Estimate(const std::vector<X_t>& points2D,
 
   cams_from_world->clear();
 
-  EPNPEstimator epnp;
   M_t cam_from_world;
-  if (!epnp.ComputePose(points2D, points3D, &cam_from_world)) {
+  if (!ComputePose(points2D, points3D, &cam_from_world)) {
     return;
   }
 
@@ -131,13 +136,13 @@ void EPNPEstimator::Estimate(const std::vector<X_t>& points2D,
 void EPNPEstimator::Residuals(const std::vector<X_t>& points2D,
                               const std::vector<Y_t>& points3D,
                               const M_t& cam_from_world,
-                              std::vector<double>* residuals) {
+                              std::vector<double>* residuals) const {
   ComputeSquaredReprojectionError(
-      points2D, points3D, cam_from_world, residuals);
+      points2D, points3D, cam_from_world, img_from_cam_func_, residuals);
 }
 
-bool EPNPEstimator::ComputePose(const std::vector<Eigen::Vector2d>& points2D,
-                                const std::vector<Eigen::Vector3d>& points3D,
+bool EPNPEstimator::ComputePose(const std::vector<X_t>& points2D,
+                                const std::vector<Y_t>& points3D,
                                 Eigen::Matrix3x4d* cam_from_world) {
   points2D_ = &points2D;
   points3D_ = &points3D;
@@ -242,16 +247,21 @@ bool EPNPEstimator::ComputeBarycentricCoordinates() {
 }
 
 Eigen::Matrix<double, Eigen::Dynamic, 12> EPNPEstimator::ComputeM() {
-  Eigen::Matrix<double, Eigen::Dynamic, 12> M(2 * points2D_->size(), 12);
+  Eigen::Matrix<double, Eigen::Dynamic, 12> M(3 * points2D_->size(), 12);
   for (size_t i = 0; i < points3D_->size(); ++i) {
+    const Eigen::Vector3d& ray = (*points2D_)[i].camera_ray;
     for (size_t j = 0; j < 4; ++j) {
-      M(2 * i, 3 * j) = alphas_[i][j];
-      M(2 * i, 3 * j + 1) = 0.0;
-      M(2 * i, 3 * j + 2) = -alphas_[i][j] * (*points2D_)[i].x();
+      M(3 * i, 3 * j) = 0.0;
+      M(3 * i, 3 * j + 1) = -alphas_[i][j] * ray.z();
+      M(3 * i, 3 * j + 2) = alphas_[i][j] * ray.y();
 
-      M(2 * i + 1, 3 * j) = 0.0;
-      M(2 * i + 1, 3 * j + 1) = alphas_[i][j];
-      M(2 * i + 1, 3 * j + 2) = -alphas_[i][j] * (*points2D_)[i].y();
+      M(3 * i + 1, 3 * j) = alphas_[i][j] * ray.z();
+      M(3 * i + 1, 3 * j + 1) = 0.0;
+      M(3 * i + 1, 3 * j + 2) = -alphas_[i][j] * ray.x();
+
+      M(3 * i + 2, 3 * j) = -alphas_[i][j] * ray.y();
+      M(3 * i + 2, 3 * j + 1) = alphas_[i][j] * ray.x();
+      M(3 * i + 2, 3 * j + 2) = 0;
     }
   }
   return M;
@@ -440,7 +450,7 @@ double EPNPEstimator::ComputeRT(const Eigen::Matrix<double, 12, 12>& Ut,
 
   EstimateRT(R, t);
 
-  return ComputeTotalReprojectionError(*R, *t);
+  return ComputeTotalError(*R, *t);
 }
 
 void EPNPEstimator::ComputeCcs(const Eigen::Vector4d& betas,
@@ -523,22 +533,45 @@ void EPNPEstimator::EstimateRT(Eigen::Matrix3d* R, Eigen::Vector3d* t) {
   *t = pc0 - *R * pw0;
 }
 
-double EPNPEstimator::ComputeTotalReprojectionError(const Eigen::Matrix3d& R,
-                                                    const Eigen::Vector3d& t) {
+double EPNPEstimator::ComputeTotalError(const Eigen::Matrix3d& R,
+                                        const Eigen::Vector3d& t) {
   Eigen::Matrix3x4d cam_from_world;
   cam_from_world.leftCols<3>() = R;
   cam_from_world.rightCols<1>() = t;
 
   std::vector<double> residuals;
   ComputeSquaredReprojectionError(
-      *points2D_, *points3D_, cam_from_world, &residuals);
+      *points2D_, *points3D_, cam_from_world, img_from_cam_func_, &residuals);
 
-  double reproj_error = 0.0;
+  double error = 0.0;
   for (const double residual : residuals) {
-    reproj_error += std::sqrt(residual);
+    error += std::sqrt(residual);
   }
 
-  return reproj_error;
+  return error;
+}
+
+void ComputeSquaredReprojectionError(
+    const std::vector<Point2DWithRay>& points2D,
+    const std::vector<Eigen::Vector3d>& points3D,
+    const Eigen::Matrix3x4d& cam_from_world,
+    const ImgFromCamFunc& img_from_cam_func,
+    std::vector<double>* residuals) {
+  const size_t num_points = points2D.size();
+  THROW_CHECK_EQ(num_points, points3D.size());
+  residuals->resize(num_points);
+  for (size_t i = 0; i < num_points; ++i) {
+    const Eigen::Vector3d point3D_in_cam =
+        cam_from_world * points3D[i].homogeneous();
+    const std::optional<Eigen::Vector2d> proj_image_point =
+        img_from_cam_func(point3D_in_cam);
+    if (proj_image_point) {
+      (*residuals)[i] =
+          (*proj_image_point - points2D[i].image_point).squaredNorm();
+    } else {
+      (*residuals)[i] = std::numeric_limits<double>::max();
+    }
+  }
 }
 
 }  // namespace colmap

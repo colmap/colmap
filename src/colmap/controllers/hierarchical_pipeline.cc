@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -116,6 +116,14 @@ HierarchicalPipeline::HierarchicalPipeline(
     : options_(options),
       reconstruction_manager_(std::move(reconstruction_manager)) {
   THROW_CHECK(options_.Check());
+  if (options_.incremental_options.ba_refine_sensor_from_rig) {
+    LOG(WARNING)
+        << "The hierarchical reconstruction pipeline currently does not work "
+           "robustly when refining the rig extrinsics, because overlapping "
+           "frames in different child clusters are optimized independently and "
+           "can thus diverge significantly. The merging of clusters oftentimes "
+           "fails in these cases.";
+  }
 }
 
 void HierarchicalPipeline::Run() {
@@ -172,8 +180,9 @@ void HierarchicalPipeline::Run() {
 
   // Function to reconstruct one cluster using incremental mapping.
   auto ReconstructCluster =
-      [&, this](const SceneClustering::Cluster& cluster,
-                std::shared_ptr<ReconstructionManager> reconstruction_manager) {
+      [this, &image_id_to_name, num_threads_per_worker](
+          const SceneClustering::Cluster& cluster,
+          std::shared_ptr<ReconstructionManager> reconstruction_manager) {
         if (cluster.image_ids.empty()) {
           return;
         }
@@ -187,7 +196,7 @@ void HierarchicalPipeline::Run() {
         }
 
         for (const auto image_id : cluster.image_ids) {
-          incremental_options->image_names.insert(
+          incremental_options->image_names.push_back(
               image_id_to_name.at(image_id));
         }
 

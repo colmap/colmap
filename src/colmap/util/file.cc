@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -38,7 +38,13 @@
 
 #ifdef COLMAP_DOWNLOAD_ENABLED
 #include <curl/curl.h>
-#include <openssl/evp.h>
+#if defined(COLMAP_USE_CRYPTOPP)
+#include <cryptopp/sha.h>
+#elif defined(COLMAP_USE_OPENSSL)
+#include <openssl/sha.h>
+#else
+#error "No crypto library defined"
+#endif
 #endif
 
 #ifndef _MSC_VER
@@ -217,7 +223,10 @@ std::optional<std::string> GetEnvSafe(const char* key) {
   }
   std::string value(size, ' ');
   getenv_s(&size, value.data(), size, key);
-  return value;
+  // getenv_s returns a null-terminated string, so we need to remove the
+  // trailing null character in our std::string.
+  THROW_CHECK_EQ(value.back(), '\0');
+  return value.substr(0, size - 1);
 #else
   // Non-MSVC replacement for std::getenv_s. The safe variant
   // std::getenv_s is not available on all platforms, unfortunately.
@@ -241,6 +250,10 @@ std::optional<std::string> GetEnvSafe(const char* key) {
 
 std::optional<std::filesystem::path> HomeDir() {
 #ifdef _MSC_VER
+  std::optional<std::string> userprofile = GetEnvSafe("USERPROFILE");
+  if (userprofile.has_value()) {
+    return *userprofile;
+  }
   const std::optional<std::string> homedrive = GetEnvSafe("HOMEDRIVE");
   const std::optional<std::string> homepath = GetEnvSafe("HOMEPATH");
   if (!homedrive.has_value() || !homepath.has_value()) {
@@ -289,6 +302,11 @@ std::vector<std::string> ReadTextFileLines(const std::string& path) {
   }
 
   return lines;
+}
+
+bool IsURI(const std::string& uri) {
+  return StringStartsWith(uri, "http://") ||
+         StringStartsWith(uri, "https://") || StringStartsWith(uri, "file://");
 }
 
 #ifdef COLMAP_DOWNLOAD_ENABLED
@@ -350,26 +368,40 @@ std::optional<std::string> DownloadFile(const std::string& url) {
   return data_str;
 }
 
-std::string ComputeSHA256(const std::string_view& str) {
-  auto context = std::unique_ptr<EVP_MD_CTX, decltype(&EVP_MD_CTX_free)>(
-      EVP_MD_CTX_new(), EVP_MD_CTX_free);
+namespace {
 
-  unsigned int hash_length = 0;
-  unsigned char hash[EVP_MAX_MD_SIZE];
-
-  EVP_DigestInit_ex(context.get(), EVP_sha256(), nullptr);
-  EVP_DigestUpdate(context.get(), str.data(), str.size());
-  EVP_DigestFinal_ex(context.get(), hash, &hash_length);
-
-  std::ostringstream digest;
-  for (unsigned int i = 0; i < hash_length; ++i) {
-    digest << std::hex << std::setw(2) << std::setfill('0')
-           << static_cast<unsigned int>(hash[i]);
+std::string SHA256DigestToHex(span<unsigned char> digest) {
+  std::ostringstream hex;
+  for (const auto c : digest) {
+    hex << std::hex << std::setw(2) << std::setfill('0')
+        << static_cast<unsigned int>(c);
   }
-  return digest.str();
+  return hex.str();
 }
 
-#endif  // COLMAP_DOWNLOAD_ENABLED
+}  // namespace
+
+#if defined(COLMAP_USE_CRYPTOPP)
+
+std::string ComputeSHA256(const std::string_view& str) {
+  CryptoPP::byte digest[CryptoPP::SHA256::DIGESTSIZE];
+  CryptoPP::SHA256().CalculateDigest(
+      digest, reinterpret_cast<const CryptoPP::byte*>(str.data()), str.size());
+  return SHA256DigestToHex({digest, CryptoPP::SHA256::DIGESTSIZE});
+}
+
+#elif defined(COLMAP_USE_OPENSSL)
+
+std::string ComputeSHA256(const std::string_view& str) {
+  unsigned char digest[SHA256_DIGEST_LENGTH];
+  SHA256(
+      reinterpret_cast<const unsigned char*>(str.data()), str.size(), digest);
+  return SHA256DigestToHex({digest, SHA256_DIGEST_LENGTH});
+}
+
+#else
+#error "No crypto library defined"
+#endif
 
 namespace {
 
@@ -378,10 +410,6 @@ std::optional<std::filesystem::path> download_cache_dir_overwrite;
 }
 
 std::string DownloadAndCacheFile(const std::string& uri) {
-#ifndef COLMAP_DOWNLOAD_ENABLED
-  throw std::invalid_argument("COLMAP was compiled without download support");
-#endif
-
   const std::vector<std::string> parts = StringSplit(uri, ";");
   THROW_CHECK_EQ(parts.size(), 3)
       << "Invalid URI format. Expected: <url>;<name>;<sha256>";
@@ -399,7 +427,12 @@ std::string DownloadAndCacheFile(const std::string& uri) {
   } else {
     const std::optional<std::filesystem::path> home_dir = HomeDir();
     THROW_CHECK(home_dir.has_value());
-    download_cache_dir = *home_dir / ".cache/colmap";
+    download_cache_dir = *home_dir / ".cache" / "colmap";
+  }
+
+  if (!std::filesystem::exists(download_cache_dir)) {
+    VLOG(2) << "Creating download cache directory: " << download_cache_dir;
+    THROW_CHECK(std::filesystem::create_directories(download_cache_dir));
   }
 
   const std::filesystem::path path = download_cache_dir / (sha256 + "-" + name);
@@ -423,17 +456,21 @@ std::string DownloadAndCacheFile(const std::string& uri) {
   return path.string();
 }
 
-std::string MaybeDownloadAndCacheFile(const std::string& uri) {
-  if (!StringStartsWith(uri, "http://") && !StringStartsWith(uri, "https://") &&
-      !StringStartsWith(uri, "file://")) {
-    return uri;
-  }
-
-  return DownloadAndCacheFile(uri);
-}
-
 void OverwriteDownloadCacheDir(std::filesystem::path path) {
   download_cache_dir_overwrite = std::move(path);
+}
+
+#endif  // COLMAP_DOWNLOAD_ENABLED
+
+std::string MaybeDownloadAndCacheFile(const std::string& uri) {
+  if (!IsURI(uri)) {
+    return uri;
+  }
+#ifdef COLMAP_DOWNLOAD_ENABLED
+  return DownloadAndCacheFile(uri);
+#else
+  throw std::runtime_error("COLMAP was compiled without download support");
+#endif
 }
 
 }  // namespace colmap

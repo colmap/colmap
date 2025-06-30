@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/optim/ransac.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/types.h"
 
@@ -42,21 +43,31 @@ class AffineTransformEstimator {
  public:
   typedef Eigen::Vector2d X_t;
   typedef Eigen::Vector2d Y_t;
-  typedef Eigen::Matrix<double, 2, 3> M_t;
+  typedef Eigen::Matrix2x3d M_t;
 
   // The minimum number of samples needed to estimate a model.
   static const int kMinNumSamples = 3;
 
   // Estimate the affine transformation from at least 3 correspondences.
-  static void Estimate(const std::vector<X_t>& points1,
-                       const std::vector<Y_t>& points2,
-                       std::vector<M_t>* models);
+  static void Estimate(const std::vector<X_t>& src,
+                       const std::vector<Y_t>& tgt,
+                       std::vector<M_t>* tgt_from_src);
 
   // Compute the squared transformation error.
-  static void Residuals(const std::vector<X_t>& points1,
-                        const std::vector<Y_t>& points2,
-                        const M_t& E,
+  static void Residuals(const std::vector<X_t>& src,
+                        const std::vector<Y_t>& tgt,
+                        const M_t& tgt_from_src,
                         std::vector<double>* residuals);
 };
+
+bool EstimateAffine2d(const std::vector<Eigen::Vector2d>& src,
+                      const std::vector<Eigen::Vector2d>& tgt,
+                      Eigen::Matrix2x3d& tgt_from_src);
+
+typename RANSAC<AffineTransformEstimator>::Report EstimateAffine2dRobust(
+    const std::vector<Eigen::Vector2d>& src,
+    const std::vector<Eigen::Vector2d>& tgt,
+    const RANSACOptions& options,
+    Eigen::Matrix2x3d& tgt_from_src);
 
 }  // namespace colmap

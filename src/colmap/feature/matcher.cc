@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -38,7 +38,7 @@ FeatureMatcherCache::FeatureMatcherCache(
       descriptor_index_cache_(cache_size_, [this](const image_t image_id) {
         auto descriptors = GetDescriptors(image_id);
         auto index = FeatureDescriptorIndex::Create();
-        index->Build(*descriptors);
+        index->Build(descriptors->cast<float>());
         return index;
       }) {
   keypoints_cache_ =
@@ -83,6 +83,11 @@ const Camera& FeatureMatcherCache::GetCamera(const camera_t camera_id) {
   return cameras_cache_->at(camera_id);
 }
 
+const Frame& FeatureMatcherCache::GetFrame(const frame_t frame_id) {
+  MaybeLoadFrames();
+  return frames_cache_->at(frame_id);
+}
+
 const Image& FeatureMatcherCache::GetImage(const image_t image_id) {
   MaybeLoadImages();
   return images_cache_->at(image_id);
@@ -112,6 +117,21 @@ FeatureMatches FeatureMatcherCache::GetMatches(const image_t image_id1,
                                                const image_t image_id2) {
   std::lock_guard<std::mutex> lock(database_mutex_);
   return database_->ReadMatches(image_id1, image_id2);
+}
+
+std::vector<frame_t> FeatureMatcherCache::GetFrameIds() {
+  MaybeLoadFrames();
+
+  std::vector<frame_t> frame_ids;
+  frame_ids.reserve(frames_cache_->size());
+  for (const auto& frame : *frames_cache_) {
+    frame_ids.push_back(frame.first);
+  }
+  // Sort the frames for deterministic behavior. Note that the frames_cache_ is
+  // an unordered_map, which does not guarantee a deterministic order across
+  // different standard library implementations.
+  std::sort(frame_ids.begin(), frame_ids.end());
+  return frame_ids;
 }
 
 std::vector<image_t> FeatureMatcherCache::GetImageIds() {
@@ -187,11 +207,11 @@ size_t FeatureMatcherCache::MaxNumKeypoints() {
 }
 
 void FeatureMatcherCache::MaybeLoadCameras() {
+  std::lock_guard<std::mutex> lock(database_mutex_);
   if (cameras_cache_) {
     return;
   }
 
-  std::lock_guard<std::mutex> lock(database_mutex_);
   std::vector<Camera> cameras = database_->ReadAllCameras();
   cameras_cache_ = std::make_unique<std::unordered_map<camera_t, Camera>>();
   cameras_cache_->reserve(cameras.size());
@@ -200,12 +220,26 @@ void FeatureMatcherCache::MaybeLoadCameras() {
   }
 }
 
+void FeatureMatcherCache::MaybeLoadFrames() {
+  std::lock_guard<std::mutex> lock(database_mutex_);
+  if (frames_cache_) {
+    return;
+  }
+
+  std::vector<Frame> frames = database_->ReadAllFrames();
+  frames_cache_ = std::make_unique<std::unordered_map<frame_t, Frame>>();
+  frames_cache_->reserve(frames.size());
+  for (Frame& frame : frames) {
+    frames_cache_->emplace(frame.FrameId(), std::move(frame));
+  }
+}
+
 void FeatureMatcherCache::MaybeLoadImages() {
+  std::lock_guard<std::mutex> lock(database_mutex_);
   if (images_cache_) {
     return;
   }
 
-  std::lock_guard<std::mutex> lock(database_mutex_);
   std::vector<Image> images = database_->ReadAllImages();
   images_cache_ = std::make_unique<std::unordered_map<image_t, Image>>();
   images_cache_->reserve(images.size());
@@ -215,13 +249,14 @@ void FeatureMatcherCache::MaybeLoadImages() {
 }
 
 void FeatureMatcherCache::MaybeLoadPosePriors() {
+  MaybeLoadImages();
+
+  std::lock_guard<std::mutex> lock(database_mutex_);
+
   if (pose_priors_cache_) {
     return;
   }
 
-  MaybeLoadImages();
-
-  std::lock_guard<std::mutex> lock(database_mutex_);
   pose_priors_cache_ =
       std::make_unique<std::unordered_map<image_t, PosePrior>>();
   pose_priors_cache_->reserve(database_->NumPosePriors());

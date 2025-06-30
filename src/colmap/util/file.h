@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -82,7 +82,7 @@ void FileCopy(const std::string& src_path,
               const std::string& dst_path,
               CopyType type = CopyType::COPY);
 
-// Check if the path points to an existing directory.
+// Check if the path points to an existing file.
 bool ExistsFile(const std::string& path);
 
 // Check if the path points to an existing directory.
@@ -133,16 +133,21 @@ void WriteBinaryBlob(const std::string& path, const span<const char>& data);
 // ignored and leading/trailing whitespace is removed.
 std::vector<std::string> ReadTextFileLines(const std::string& path);
 
+// Detect if given string is a URI
+// (i.e., starts with http://, https://, file://).
+bool IsURI(const std::string& uri);
+
 #ifdef COLMAP_DOWNLOAD_ENABLED
 
 // Download file from server. Supports any protocol suppported by Curl.
-// Automatically follows redirects. Returns null in case of failure.
+// Automatically follows redirects. Returns null in case of failure. Notice that
+// this function is not suitable for large files that don't fit easily into
+// memory. If such a use case emerges in the future, we want to instead stream
+// the downloaded data chunks to disk instead of accumulating them in memory.
 std::optional<std::string> DownloadFile(const std::string& url);
 
 // Computes SHA256 digest for given string.
 std::string ComputeSHA256(const std::string_view& str);
-
-#endif  // COLMAP_DOWNLOAD_ENABLED
 
 // Downloads and caches file from given URI. The URI must take the format
 // "<url>;<name>;<sha256>". The file will be cached under
@@ -151,12 +156,15 @@ std::string ComputeSHA256(const std::string_view& str);
 // Returns the path to the cached file.
 std::string DownloadAndCacheFile(const std::string& uri);
 
-// If the given URI is a local filesystem path, returns the input path. If the
-// URI matches the "<url>;<name>;<sha256>" format, calls DownloadAndCacheFile().
-std::string MaybeDownloadAndCacheFile(const std::string& uri);
-
 // Overwrites the default download cache directory at $HOME/.cache/colmap/.
 void OverwriteDownloadCacheDir(std::filesystem::path path);
+
+#endif  // COLMAP_DOWNLOAD_ENABLED
+
+// If the given URI is a local filesystem path, returns the input path. If the
+// URI matches the "<url>;<name>;<sha256>" format, calls DownloadAndCacheFile().
+// Throws runtime exception if download is not supported.
+std::string MaybeDownloadAndCacheFile(const std::string& uri);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation

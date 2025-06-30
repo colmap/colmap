@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -532,7 +532,7 @@ ImageTab::ImageTab(QWidget* parent,
 void ImageTab::Reload() {
   QString info;
   info += QString("Images: ") + QString::number(database_->NumImages());
-  info += QString("\n");
+  info += QString('\n');
   info += QString("Features: ") + QString::number(database_->NumKeypoints());
   info_label_->setText(info);
 
@@ -758,7 +758,7 @@ PosePriorsTab::PosePriorsTab(QWidget* parent, Database* database)
 void PosePriorsTab::Reload() {
   QString info;
   info += QString("Images: ") + QString::number(database_->NumImages());
-  info += QString("\n");
+  info += QString('\n');
   info += QString("PosePriors: ") + QString::number(database_->NumPosePriors());
   info_label_->setText(info);
 

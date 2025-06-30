@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -33,6 +33,8 @@
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
 
+#include <fstream>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -42,8 +44,9 @@ namespace {
 void CreateSyntheticDatabase(int num_images, Database& database) {
   Reconstruction unused_reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
-  synthetic_dataset_options.num_cameras = num_images;
-  synthetic_dataset_options.num_images = num_images;
+  synthetic_dataset_options.num_rigs = num_images;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
   SynthesizeDataset(
       synthetic_dataset_options, &unused_reconstruction, &database);
 }
@@ -72,14 +75,13 @@ TEST(ExhaustivePairGenerator, Nominal) {
   EXPECT_TRUE(generator.HasFinished());
 }
 
-retrieval::VisualIndex<> CreateSyntheticVisualIndex() {
-  retrieval::VisualIndex<> visual_index;
-  retrieval::VisualIndex<>::BuildOptions build_options;
+std::unique_ptr<retrieval::VisualIndex> CreateSyntheticVisualIndex() {
+  auto visual_index = retrieval::VisualIndex::Create();
+  retrieval::VisualIndex::BuildOptions build_options;
   build_options.num_visual_words = 5;
-  build_options.branching = 5;
   // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
-  visual_index.Build(build_options,
-                     retrieval::VisualIndex<>::DescType::Random(50, 128));
+  visual_index->Build(build_options,
+                      retrieval::VisualIndex::Descriptors::Random(50, 128));
   return visual_index;
 }
 
@@ -94,7 +96,7 @@ TEST(VocabTreePairGenerator, Nominal) {
   options.vocab_tree_path = CreateTestDir() + "/vocab_tree.txt";
 
   // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
-  CreateSyntheticVisualIndex().Write(options.vocab_tree_path);
+  CreateSyntheticVisualIndex()->Write(options.vocab_tree_path);
 
   {
     options.num_images = 3;
@@ -151,6 +153,56 @@ TEST(SequentialPairGenerator, Linear) {
   EXPECT_THAT(generator.Next(),
               testing::ElementsAre(
                   std::make_pair(images[3].ImageId(), images[4].ImageId())));
+  EXPECT_TRUE(generator.Next().empty());
+  EXPECT_TRUE(generator.HasFinished());
+}
+
+TEST(SequentialPairGenerator, LinearRig) {
+  auto database = std::make_shared<Database>(Database::kInMemoryDatabasePath);
+  Reconstruction unused_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 2;
+  synthetic_dataset_options.num_frames_per_rig = 3;
+  SynthesizeDataset(
+      synthetic_dataset_options, &unused_reconstruction, database.get());
+  const std::vector<Image> images = database->ReadAllImages();
+  CHECK_EQ(images.size(),
+           synthetic_dataset_options.num_cameras_per_rig *
+               synthetic_dataset_options.num_frames_per_rig);
+
+  SequentialMatchingOptions options;
+  options.overlap = 1;
+  options.quadratic_overlap = false;
+  SequentialPairGenerator generator(options, database);
+  EXPECT_THAT(generator.Next(),
+              testing::ElementsAre(
+                  std::make_pair(images[0].ImageId(), images[1].ImageId()),
+                  std::make_pair(images[0].ImageId(), images[2].ImageId()),
+                  std::make_pair(images[0].ImageId(), images[3].ImageId())));
+  EXPECT_THAT(generator.Next(),
+              testing::ElementsAre(
+                  std::make_pair(images[2].ImageId(), images[3].ImageId()),
+                  std::make_pair(images[2].ImageId(), images[4].ImageId()),
+                  std::make_pair(images[2].ImageId(), images[5].ImageId())));
+  EXPECT_THAT(generator.Next(),
+              testing::ElementsAre(
+                  std::make_pair(images[4].ImageId(), images[5].ImageId()),
+                  std::make_pair(images[4].ImageId(), images[1].ImageId()),
+                  std::make_pair(images[4].ImageId(), images[0].ImageId())));
+  EXPECT_THAT(generator.Next(),
+              testing::ElementsAre(
+                  std::make_pair(images[1].ImageId(), images[0].ImageId()),
+                  std::make_pair(images[1].ImageId(), images[3].ImageId()),
+                  std::make_pair(images[1].ImageId(), images[2].ImageId())));
+  EXPECT_THAT(generator.Next(),
+              testing::ElementsAre(
+                  std::make_pair(images[3].ImageId(), images[2].ImageId()),
+                  std::make_pair(images[3].ImageId(), images[5].ImageId()),
+                  std::make_pair(images[3].ImageId(), images[4].ImageId())));
+  EXPECT_THAT(generator.Next(),
+              testing::ElementsAre(
+                  std::make_pair(images[5].ImageId(), images[4].ImageId())));
   EXPECT_TRUE(generator.Next().empty());
   EXPECT_TRUE(generator.HasFinished());
 }
@@ -327,9 +379,9 @@ TEST(ImportedPairGenerator, Nominal) {
 
   {
     std::ofstream match_list_file(options.match_list_path);
-    match_list_file << images[2].Name() << " " << images[4].Name() << "\n";
-    match_list_file << images[1].Name() << " " << images[3].Name() << "\n";
-    match_list_file << images[2].Name() << " " << images[9].Name() << "\n";
+    match_list_file << images[2].Name() << " " << images[4].Name() << '\n';
+    match_list_file << images[1].Name() << " " << images[3].Name() << '\n';
+    match_list_file << images[2].Name() << " " << images[9].Name() << '\n';
     match_list_file.close();
 
     ImportedPairGenerator generator(options, database);

@@ -1,4 +1,4 @@
-# Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+# Copyright (c), ETH Zurich and UNC Chapel Hill.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -39,17 +39,16 @@ COLMAP_ADD_LIBRARY(
         inverted_index.h
         resources.h
         utils.h
-        visual_index.h
+        visual_index.h visual_index.cc
         vote_and_verify.h vote_and_verify.cc
     PUBLIC_LINK_LIBS
         Boost::boost
         Eigen3::Eigen
-        flann
-        lz4
     PRIVATE_LINK_LIBS
         colmap_math
         colmap_estimators
         colmap_optim
+        faiss
 )
 if(OPENMP_FOUND)
     target_link_libraries(colmap_retrieval PUBLIC OpenMP::OpenMP_CXX)

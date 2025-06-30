@@ -11,8 +11,29 @@
 # serve to show the default.
 
 import re
+import subprocess
 
 from sphinx.ext import autodoc
+
+
+def get_git_revision():
+    try:
+        commit_id = (
+            subprocess.check_output(["git", "rev-parse", "--short", "HEAD"])
+            .decode()
+            .strip()
+        )
+        commit_date = (
+            subprocess.check_output(
+                ["git", "log", "-1", "--format=%cd", "--date=short"]
+            )
+            .decode()
+            .strip()
+        )
+        return f"{commit_id} ({commit_date})"
+    except Exception:
+        return "Unknown"
+
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -47,14 +68,14 @@ master_doc = "index"
 
 # General information about the project.
 project = "COLMAP"
-copyright = "2024, Johannes L. Schoenberger"
+copyright = "2025, Johannes L. Schoenberger"
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
 # built documents.
 #
 # The short MAJOR.MINOR.PATCH version.
-version = "3.12.0.dev0"
+version = "3.12.0.dev" + " | " + get_git_revision()
 # The full version, including alpha/beta/rc tags.
 release = version
 

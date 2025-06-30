@@ -2,7 +2,7 @@ name: COLMAP (Mac)
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 on:
   push:
@@ -22,7 +22,7 @@ jobs:
       matrix:
         config: [
           {
-            os: macos-14,
+            os: macos-15,
             arch: arm64,
             cmakeBuildType: Release,
           },
@@ -33,6 +33,8 @@ jobs:
       COMPILER_CACHE_DIR: ${{ github.workspace }}/compiler-cache
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
+      GLOG_v: 2
+      GLOG_logtostderr: 1
 
     steps:
       - uses: actions/checkout@v4
@@ -48,15 +50,11 @@ jobs:
           # Fix `brew link` error.
           find /usr/local/bin -lname '*/Library/Frameworks/Python.framework/*' -delete          
 
-          # Temporary fix, see: https://github.com/actions/runner-images/issues/10984
-          brew uninstall --ignore-dependencies --force pkg-config@0.29.2
-
           brew install \
             cmake \
             ninja \
             boost \
             eigen \
-            flann \
             freeimage \
             curl \
             metis \
@@ -68,9 +66,7 @@ jobs:
             cgal \
             sqlite3 \
             ccache
-
-          # Temporary fix for: https://github.com/ceres-solver/ceres-solver/issues/1118
-          sed -i '' 's/find_package(Eigen3 ${CERES_EIGEN_VERSION} QUIET)/find_package(Eigen3 ${CERES_EIGEN_VERSION} CONFIG QUIET)/' /opt/homebrew/lib/cmake/Ceres/CeresConfig.cmake
+          brew link --force libomp
 
       - name: Configure and build
         run: |
@@ -82,7 +78,7 @@ jobs:
             -GNinja \
             -DCMAKE_BUILD_TYPE=${{ matrix.config.cmakeBuildType }} \
             -DTESTS_ENABLED=ON \
-            -DCMAKE_PREFIX_PATH="$(brew --prefix qt@5)"
+            -DQt5_DIR="$(brew --prefix qt@5)/lib/cmake/Qt5"
           ninja
 
       - name: Run tests

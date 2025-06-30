@@ -2,7 +2,7 @@ name: PyCOLMAP
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 on:
   push:
@@ -22,8 +22,8 @@ jobs:
       matrix:
         config: [
               {os: ubuntu-latest},
-              {os: macos-13, arch: x86_64},
-              {os: macos-14, arch: arm64},
+              {os: macos-13, arch: x86_64, deploymentTarget: 13.0},
+              {os: macos-14, arch: arm64, deploymentTarget: 14.0},
               {os: windows-latest},
         ]
     env:
@@ -31,8 +31,8 @@ jobs:
       COMPILER_CACHE_DIR: ${{ github.workspace }}/compiler-cache
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
-      MACOSX_DEPLOYMENT_TARGET: 10.15
-      # For faster builds in PRs, skip all but the latest Python versions.
+      MACOSX_DEPLOYMENT_TARGET: ${{ matrix.config.deploymentTarget }}
+      # For faster builds in PRs, skip all but the oldest Python versions.
       PULL_REQUEST_CIBW_BUILD: cp38-{macosx,manylinux,win}*
     steps:
       - uses: actions/checkout@v4
@@ -168,11 +168,13 @@ jobs:
           python-version: 3.8
         if: runner.os == 'macOS' && runner.arch == 'ARM64' && ${{ matrix.config.arch }} == "arm64"
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.21.3
+        uses: pypa/cibuildwheel@v2.23.2
         with:
-          package-dir: ./pycolmap/
+          package-dir: ./
         env:
           CIBW_ARCHS_MACOS: ${{ matrix.config.arch }}
+          CIBW_TEST_REQUIRES: 'pytest enlighten==1.13.0'
+          CIBW_TEST_COMMAND: 'pytest {project}/python/examples/custom_incremental_pipeline_test.py'
       - name: Archive wheels
         uses: actions/upload-artifact@v4
         with:

@@ -50,9 +50,9 @@ void MatchFeatures(const std::string& database_path,
   PyWait(matcher.get());
 }
 
-void verify_matches(const std::string& database_path,
-                    const std::string& pairs_path,
-                    const TwoViewGeometryOptions& verification_options) {
+void VerifyMatches(const std::string& database_path,
+                   const std::string& pairs_path,
+                   const TwoViewGeometryOptions& verification_options) {
   THROW_CHECK_FILE_EXISTS(database_path);
   THROW_CHECK_FILE_EXISTS(pairs_path);
   py::gil_scoped_release release;  // verification is multi-threaded
@@ -74,7 +74,8 @@ void BindMatchFeatures(py::module& m) {
   auto PyExhaustiveMatchingOptions =
       py::class_<ExhaustiveMatchingOptions>(m, "ExhaustiveMatchingOptions")
           .def(py::init<>())
-          .def_readwrite("block_size", &EMOpts::block_size);
+          .def_readwrite("block_size", &EMOpts::block_size)
+          .def("check", &EMOpts::Check);
   MakeDataclass(PyExhaustiveMatchingOptions);
 
   using SpMOpts = SpatialMatchingOptions;
@@ -92,7 +93,8 @@ void BindMatchFeatures(py::module& m) {
                          &SpMOpts::max_distance,
                          "The maximum distance between the query and nearest "
                          "neighbor [meters].")
-          .def_readwrite("num_threads", &SpMOpts::num_threads);
+          .def_readwrite("num_threads", &SpMOpts::num_threads)
+          .def("check", &SpMOpts::Check);
   MakeDataclass(PySpatialMatchingOptions);
 
   using VTMOpts = VocabTreeMatchingOptions;
@@ -127,11 +129,7 @@ void BindMatchFeatures(py::module& m) {
               &VTMOpts::match_list_path,
               "Optional path to file with specific image names to match.")
           .def_readwrite("num_threads", &VTMOpts::num_threads)
-          .def("check", [](VTMOpts& self) {
-            THROW_CHECK(!self.vocab_tree_path.empty())
-                << "vocab_tree_path required.";
-            THROW_CHECK_FILE_EXISTS(self.vocab_tree_path);
-          });
+          .def("check", &VTMOpts::Check);
   MakeDataclass(PyVocabTreeMatchingOptions);
 
   using SeqMOpts = SequentialMatchingOptions;
@@ -145,10 +143,20 @@ void BindMatchFeatures(py::module& m) {
               "quadratic_overlap",
               &SeqMOpts::quadratic_overlap,
               "Whether to match images against their quadratic neighbors.")
+          .def_readwrite("expand_rig_images",
+                         &SeqMOpts::expand_rig_images,
+                         "Whether to match an image against all images in "
+                         "neighboring rig frames. If no rigs/frames are "
+                         "configured in the database, this option is ignored.")
           .def_readwrite("loop_detection",
                          &SeqMOpts::loop_detection,
                          "Loop detection is invoked every "
                          "`loop_detection_period` images.")
+          .def_readwrite("loop_detection_period",
+                         &SeqMOpts::loop_detection_period,
+                         "The number of images to retrieve in loop detection. "
+                         "This number should be significantly bigger than the "
+                         "sequential matching overlap.")
           .def_readwrite("loop_detection_num_images",
                          &SeqMOpts::loop_detection_num_images,
                          "The number of images to retrieve in loop "
@@ -175,7 +183,12 @@ void BindMatchFeatures(py::module& m) {
           .def_readwrite("vocab_tree_path",
                          &SeqMOpts::vocab_tree_path,
                          "Path to the vocabulary tree.")
-          .def("vocab_tree_options", &SeqMOpts::VocabTreeOptions);
+          .def_readwrite(
+              "num_threads",
+              &SeqMOpts::num_threads,
+              "Number of threads for loop detection indexing and retrieval.")
+          .def("vocab_tree_options", &SeqMOpts::VocabTreeOptions)
+          .def("check", &SeqMOpts::Check);
   MakeDataclass(PySequentialMatchingOptions);
 
   using IPMOpts = ImagePairsMatchingOptions;
@@ -187,7 +200,8 @@ void BindMatchFeatures(py::module& m) {
                          "Number of image pairs to match in one batch.")
           .def_readwrite("match_list_path",
                          &IPMOpts::match_list_path,
-                         "Path to the file with the matches.");
+                         "Path to the file with the matches.")
+          .def("check", &IPMOpts::Check);
   MakeDataclass(PyImagePairsMatchingOptions);
 
   m.def(
@@ -247,7 +261,7 @@ void BindMatchFeatures(py::module& m) {
       "Sequential feature matching");
 
   m.def("verify_matches",
-        &verify_matches,
+        &VerifyMatches,
         "database_path"_a,
         "pairs_path"_a,
         py::arg_v(

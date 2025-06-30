@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -34,7 +34,9 @@
 #include "colmap/controllers/image_reader.h"
 #include "colmap/controllers/option_manager.h"
 #include "colmap/exe/gui.h"
+#include "colmap/retrieval/visual_index.h"
 #include "colmap/sensor/models.h"
+#include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/opengl_utils.h"
 
@@ -113,7 +115,6 @@ int RunFeatureExtractor(int argc, char** argv) {
   options.Parse(argc, argv);
 
   ImageReaderOptions reader_options = *options.image_reader;
-  reader_options.database_path = *options.database_path;
   reader_options.image_path = *options.image_path;
 
   if (camera_mode >= 0) {
@@ -134,8 +135,8 @@ int RunFeatureExtractor(int argc, char** argv) {
   }
 
   if (!image_list_path.empty()) {
-    reader_options.image_list = ReadTextFileLines(image_list_path);
-    if (reader_options.image_list.empty()) {
+    reader_options.image_names = ReadTextFileLines(image_list_path);
+    if (reader_options.image_names.empty()) {
       return EXIT_SUCCESS;
     }
   }
@@ -159,7 +160,7 @@ int RunFeatureExtractor(int argc, char** argv) {
   }
 
   auto feature_extractor = CreateFeatureExtractorController(
-      reader_options, *options.sift_extraction);
+      *options.database_path, reader_options, *options.sift_extraction);
 
   if (options.sift_extraction->use_gpu && kUseOpenGL) {
     RunThreadWithOpenGLContext(feature_extractor.get());
@@ -186,7 +187,6 @@ int RunFeatureImporter(int argc, char** argv) {
   options.Parse(argc, argv);
 
   ImageReaderOptions reader_options = *options.image_reader;
-  reader_options.database_path = *options.database_path;
   reader_options.image_path = *options.image_path;
 
   if (camera_mode >= 0) {
@@ -195,8 +195,8 @@ int RunFeatureImporter(int argc, char** argv) {
   }
 
   if (!image_list_path.empty()) {
-    reader_options.image_list = ReadTextFileLines(image_list_path);
-    if (reader_options.image_list.empty()) {
+    reader_options.image_names = ReadTextFileLines(image_list_path);
+    if (reader_options.image_names.empty()) {
       return EXIT_SUCCESS;
     }
   }
@@ -206,8 +206,8 @@ int RunFeatureImporter(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  auto feature_importer =
-      CreateFeatureImporterController(reader_options, import_path);
+  auto feature_importer = CreateFeatureImporterController(
+      *options.database_path, reader_options, import_path);
   feature_importer->Start();
   feature_importer->Wait();
 

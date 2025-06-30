@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -45,7 +45,8 @@
 
 namespace colmap {
 
-// Return 1 if number is positive, -1 if negative, and 0 if the number is 0.
+// Return 1 if number is positive (including 0), -1 if negative.
+// Undefined behavior if the value is NaN.
 template <typename T>
 int SignOfNumber(T val);
 
@@ -134,8 +135,10 @@ bool NextCombination(Iterator first1,
   }
   Iterator m1 = last1;
   Iterator m2 = last2;
+  --m1;
   --m2;
-  while (--m1 != first1 && *m1 >= *m2) {
+  while (m1 != first1 && *m1 >= *m2) {
+    --m1;
   }
   bool result = (m1 == first1) && *first1 >= *m2;
   if (!result) {
@@ -166,7 +169,7 @@ bool NextCombination(Iterator first1,
 
 template <typename T>
 int SignOfNumber(const T val) {
-  return (T(0) < val) - (val < T(0));
+  return val >= 0 ? 1 : -1;
 }
 
 template <typename T>

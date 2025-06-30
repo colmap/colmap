@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -34,6 +34,7 @@
 #include "colmap/util/logging.h"
 
 #include <cfloat>
+#include <optional>
 #include <random>
 #include <stdexcept>
 #include <vector>
@@ -93,20 +94,21 @@ class RANSAC {
     typename Estimator::M_t model;
   };
 
-  explicit RANSAC(const RANSACOptions& options);
+  explicit RANSAC(const RANSACOptions& options,
+                  Estimator estimator = Estimator(),
+                  SupportMeasurer support_measurer = SupportMeasurer(),
+                  Sampler sampler = Sampler(Estimator::kMinNumSamples));
 
   // Determine the maximum number of trials required to sample at least one
   // outlier-free random set of samples with the specified confidence,
   // given the inlier ratio.
   //
-  // @param num_inliers				The number of inliers.
-  // @param num_samples				The total number of samples.
-  // @param confidence				Confidence that one sample is
-  //								outlier-free.
-  // @param num_trials_multiplier   Multiplication factor to the computed
-  //							    number of trials.
+  // @param num_inliers The number of inliers.
+  // @param num_samples The total number of samples.
+  // @param confidence Confidence that one sample is outlier-free.
+  // @param num_trials_multiplier Multiplication factor to number of trials.
   //
-  // @return               The required number of iterations.
+  // @return The required number of iterations.
   static size_t ComputeNumTrials(size_t num_inliers,
                                  size_t num_samples,
                                  double confidence,
@@ -121,11 +123,9 @@ class RANSAC {
   Report Estimate(const std::vector<typename Estimator::X_t>& X,
                   const std::vector<typename Estimator::Y_t>& Y);
 
-  // Objects used in RANSAC procedure. Access useful to define custom behavior
-  // through options or e.g. to compute residuals.
   Estimator estimator;
-  Sampler sampler;
   SupportMeasurer support_measurer;
+  Sampler sampler;
 
  protected:
   RANSACOptions options_;
@@ -137,8 +137,14 @@ class RANSAC {
 
 template <typename Estimator, typename SupportMeasurer, typename Sampler>
 RANSAC<Estimator, SupportMeasurer, Sampler>::RANSAC(
-    const RANSACOptions& options)
-    : sampler(Sampler(Estimator::kMinNumSamples)), options_(options) {
+    const RANSACOptions& options,
+    Estimator estimator,
+    SupportMeasurer support_measurer,
+    Sampler sampler)
+    : estimator(std::move(estimator)),
+      support_measurer(std::move(support_measurer)),
+      sampler(std::move(sampler)),
+      options_(options) {
   options.Check();
 
   // Determine max_num_trials based on assumed `min_inlier_ratio`.
@@ -158,24 +164,32 @@ size_t RANSAC<Estimator, SupportMeasurer, Sampler>::ComputeNumTrials(
     const size_t num_samples,
     const double confidence,
     const double num_trials_multiplier) {
-  const double inlier_ratio = num_inliers / static_cast<double>(num_samples);
-
-  const double nom = 1 - confidence;
-  if (nom <= 0) {
+  const double prob_failure = 1 - confidence;
+  if (prob_failure <= 0) {
     return std::numeric_limits<size_t>::max();
   }
 
-  const double denom = 1 - std::pow(inlier_ratio, Estimator::kMinNumSamples);
-  if (denom <= 0) {
+  // Not using pow(inlier_ratio, Estimator::kMinNumSamples).
+  // See "Fixing the RANSAC stopping criterion"
+  // by Schönberger, Larsson, Pollefeys, 2025.
+  double prob_inlier = 1.0;
+  for (int i = 0; i < Estimator::kMinNumSamples; ++i) {
+    prob_inlier *= static_cast<double>(num_inliers - i) /
+                   static_cast<double>(num_samples - i);
+  }
+
+  const double prob_outlier = 1 - prob_inlier;
+  if (prob_outlier <= 0) {
     return 1;
   }
-  // Prevent divide by zero below.
-  if (denom == 1.0) {
+
+  // Prevent division by zero below.
+  if (prob_outlier == 1.0) {
     return std::numeric_limits<size_t>::max();
   }
 
-  return static_cast<size_t>(
-      std::ceil(std::log(nom) / std::log(denom) * num_trials_multiplier));
+  return static_cast<size_t>(std::ceil(
+      std::log(prob_failure) / std::log(prob_outlier) * num_trials_multiplier));
 }
 
 template <typename Estimator, typename SupportMeasurer, typename Sampler>
@@ -196,7 +210,7 @@ RANSAC<Estimator, SupportMeasurer, Sampler>::Estimate(
   }
 
   typename SupportMeasurer::Support best_support;
-  typename Estimator::M_t best_model;
+  std::optional<typename Estimator::M_t> best_model;
 
   bool abort = false;
 
@@ -254,8 +268,12 @@ RANSAC<Estimator, SupportMeasurer, Sampler>::Estimate(
     }
   }
 
+  if (!best_model.has_value()) {
+    return report;
+  }
+
   report.support = best_support;
-  report.model = best_model;
+  report.model = best_model.value();
 
   // No valid model was found.
   if (report.support.num_inliers < estimator.kMinNumSamples) {

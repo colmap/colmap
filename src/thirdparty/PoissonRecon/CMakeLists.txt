@@ -2,8 +2,6 @@ if(NOT IS_MSVC)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -funroll-loops -ffast-math")
 endif()
 
-add_definitions("-DRELEASE")
-
 COLMAP_ADD_LIBRARY(
     NAME colmap_poisson_recon
     SRCS
@@ -47,6 +45,7 @@ COLMAP_ADD_LIBRARY(
         SparseMatrix.inl
         SurfaceTrimmer.h SurfaceTrimmer.cpp
 )
+target_compile_definitions(colmap_poisson_recon PRIVATE RELEASE)
 if(OPENMP_FOUND)
     target_link_libraries(colmap_poisson_recon PRIVATE OpenMP::OpenMP_CXX)
 endif()

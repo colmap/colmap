@@ -121,6 +121,7 @@ void BindSift(py::module& m) {
                          &Opts::num_threads,
                          "Number of threads for feature matching and "
                          "geometric verification.")
+          .def_readwrite("use_gpu", &Opts::use_gpu)
           .def_readwrite("gpu_index",
                          &Opts::gpu_index,
                          "Index of the GPU used for feature matching. For "
@@ -174,7 +175,8 @@ void BindSift(py::module& m) {
           .def_readwrite("dsp_num_scales", &Opts::dsp_num_scales)
           .def_readwrite("normalization",
                          &Opts::normalization,
-                         "L1_ROOT or L2 descriptor normalization");
+                         "L1_ROOT or L2 descriptor normalization")
+          .def("check", &Opts::Check);
   MakeDataclass(PySiftExtractionOptions);
 
   py::class_<Sift>(m, "Sift")
@@ -197,6 +199,7 @@ void BindSift(py::module& m) {
       py::class_<SMOpts>(m, "SiftMatchingOptions")
           .def(py::init<>())
           .def_readwrite("num_threads", &SMOpts::num_threads)
+          .def_readwrite("use_gpu", &SMOpts::use_gpu)
           .def_readwrite("gpu_index",
                          &SMOpts::gpu_index,
                          "Index of the GPU used for feature matching. For "
@@ -219,6 +222,11 @@ void BindSift(py::module& m) {
           .def_readwrite("guided_matching",
                          &SMOpts::guided_matching,
                          "Whether to perform guided matching, if geometric "
-                         "verification succeeds.");
+                         "verification succeeds.")
+          .def_readwrite(
+              "cpu_brute_force_matcher",
+              &SMOpts::cpu_brute_force_matcher,
+              "Whether to use brute-force instead of faiss based CPU matching.")
+          .def("check", &SMOpts::Check);
   MakeDataclass(PySiftMatchingOptions);
 }

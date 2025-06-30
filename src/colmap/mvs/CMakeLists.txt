@@ -1,4 +1,4 @@
-# Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+# Copyright (c), ETH Zurich and UNC Chapel Hill.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -41,6 +41,7 @@ COLMAP_ADD_LIBRARY(
         meshing.h meshing.cc
         model.h model.cc
         normal_map.h normal_map.cc
+        patch_match_options.h patch_match_options.cc
         workspace.h workspace.cc
     PUBLIC_LINK_LIBS
         colmap_util

@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -30,9 +30,12 @@
 #include "colmap/ui/main_window.h"
 
 #include "colmap/scene/reconstruction_io.h"
+#include "colmap/util/logging.h"
 #include "colmap/util/version.h"
 
 #include <clocale>
+
+static void InitUiResources() { Q_INIT_RESOURCE(resources); }
 
 namespace colmap {
 
@@ -41,6 +44,8 @@ MainWindow::MainWindow(const OptionManager& options)
       reconstruction_manager_(std::make_shared<ReconstructionManager>()),
       thread_control_widget_(new ThreadControlWidget(this)),
       window_closed_(false) {
+  InitUiResources();
+
   // NOLINTNEXTLINE(concurrency-mt-unsafe)
   std::setlocale(LC_NUMERIC, "C");
 
@@ -428,6 +433,12 @@ void MainWindow::CreateActions() {
           this,
           &MainWindow::ResetOptions);
 
+  action_set_log_level_ = new QAction(tr("Set log level"), this);
+  connect(action_set_log_level_,
+          &QAction::triggered,
+          this,
+          &MainWindow::SetLogLevel);
+
   //////////////////////////////////////////////////////////////////////////////
   // Misc actions
   //////////////////////////////////////////////////////////////////////////////
@@ -528,6 +539,7 @@ void MainWindow::CreateMenus() {
   extras_menu->addSeparator();
   extras_menu->addAction(action_set_options_);
   extras_menu->addAction(action_reset_options_);
+  extras_menu->addAction(action_set_log_level_);
   menuBar()->addAction(extras_menu->menuAction());
 
   QMenu* help_menu = new QMenu(tr("Help"), this);
@@ -598,7 +610,7 @@ void MainWindow::CreateStatusbar() {
   statusbar_timer_->start(1000);
 
   model_viewer_widget_->statusbar_status_label =
-      new QLabel("0 Images - 0 Points", this);
+      new QLabel("0 Frames - 0 Images - 0 Points", this);
   model_viewer_widget_->statusbar_status_label->setFont(font);
   model_viewer_widget_->statusbar_status_label->setAlignment(Qt::AlignCenter);
   statusBar()->addWidget(model_viewer_widget_->statusbar_status_label, 1);
@@ -1149,10 +1161,10 @@ void MainWindow::Render() {
 
   int refresh_rate;
   if (options_.render->adapt_refresh_rate) {
-    const auto num_reg_images =
+    const auto num_reg_frames =
         reconstruction_manager_->Get(SelectedReconstructionIdx())
-            ->NumRegImages();
-    refresh_rate = static_cast<int>(num_reg_images / 50 + 1);
+            ->NumRegFrames();
+    refresh_rate = static_cast<int>(num_reg_frames / 50 + 1);
   } else {
     refresh_rate = options_.render->refresh_rate;
   }
@@ -1288,7 +1300,7 @@ void MainWindow::SetOptions() {
   data_items << "Individual images"
              << "Video frames"
              << "Internet images";
-  bool data_ok;
+  bool data_ok = false;
   const QString data_item =
       QInputDialog::getItem(this, "", "Data:", data_items, 0, false, &data_ok);
   if (!data_ok) {
@@ -1300,7 +1312,7 @@ void MainWindow::SetOptions() {
                 << "Medium"
                 << "High"
                 << "Extreme";
-  bool quality_ok;
+  bool quality_ok = false;
   const QString quality_item = QInputDialog::getItem(
       this, "", "Quality:", quality_items, 2, false, &quality_ok);
   if (!quality_ok) {
@@ -1338,6 +1350,17 @@ void MainWindow::ResetOptions() {
   options_.ResetOptions(kResetPaths);
 }
 
+void MainWindow::SetLogLevel() {
+  bool ok = false;
+  const int log_level =
+      QInputDialog::getInt(this, "", "Log Level:", FLAGS_v, 0, 3, 1, &ok);
+  if (!ok) {
+    return;
+  }
+
+  FLAGS_v = log_level;
+}
+
 void MainWindow::About() {
   QMessageBox::about(
       this,
@@ -1368,7 +1391,7 @@ void MainWindow::RenderToggle() {
   } else {
     render_options_widget_->automatic_update = true;
     render_options_widget_->counter = 0;
-    Render();
+    RenderNow();
     action_render_toggle_->setIcon(QIcon(":/media/render-enabled.png"));
     action_render_toggle_->setText(tr("Disable rendering"));
   }

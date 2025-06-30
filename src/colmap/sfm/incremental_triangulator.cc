@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -43,14 +43,14 @@ bool TriangulateTrack(
     Eigen::Vector3d& xyz) {
   std::vector<Eigen::Vector2d> points;
   points.resize(corrs_data.size());
-  std::vector<Rigid3d const*> cams_from_world;
+  std::vector<Rigid3d> cams_from_world;
   cams_from_world.resize(corrs_data.size());
   std::vector<Camera const*> cameras;
   cameras.resize(corrs_data.size());
   for (size_t i = 0; i < corrs_data.size(); ++i) {
     const auto& corr_data = corrs_data[i];
     points[i] = corr_data.point2D->xy;
-    cams_from_world[i] = &corr_data.image->CamFromWorld();
+    cams_from_world[i] = corr_data.image->CamFromWorld();
     cameras[i] = corr_data.camera;
   }
 
@@ -557,10 +557,10 @@ size_t IncrementalTriangulator::Continue(
         reconstruction_.Point3D(corr_data.point2D->point3D_id);
 
     const double angle_error =
-        CalculateAngularError(ref_corr_data.point2D->xy,
-                              point3D.xyz,
-                              ref_corr_data.image->CamFromWorld(),
-                              *ref_corr_data.camera);
+        CalculateAngularReprojectionError(ref_corr_data.point2D->xy,
+                                          point3D.xyz,
+                                          ref_corr_data.image->CamFromWorld(),
+                                          *ref_corr_data.camera);
     if (angle_error < best_angle_error) {
       best_angle_error = angle_error;
       best_idx = idx;
@@ -684,13 +684,14 @@ size_t IncrementalTriangulator::Complete(const Options& options,
 
   const Point3D& point3D = reconstruction_.Point3D(point3D_id);
 
-  std::vector<TrackElement> queue = point3D.track.Elements();
+  std::vector<TrackElement> curr_queue = point3D.track.Elements();
+  std::vector<TrackElement> next_queue;
 
   const int max_transitivity = options.complete_max_transitivity;
   for (int transitivity = 1; transitivity <= max_transitivity; ++transitivity) {
-    while (!queue.empty()) {
-      const TrackElement queue_elem = queue.back();
-      queue.pop_back();
+    while (!curr_queue.empty()) {
+      const TrackElement queue_elem = curr_queue.back();
+      curr_queue.pop_back();
 
       const auto corr_range = correspondence_graph_->FindCorrespondences(
           queue_elem.image_id, queue_elem.point2D_idx);
@@ -723,16 +724,18 @@ size_t IncrementalTriangulator::Complete(const Options& options,
 
         // Recursively complete track for this new correspondence.
         if (transitivity < max_transitivity) {
-          queue.emplace_back(corr->image_id, corr->point2D_idx);
+          next_queue.emplace_back(corr->image_id, corr->point2D_idx);
         }
 
         num_completed += 1;
       }
     }
 
-    if (queue.empty()) {
+    if (next_queue.empty()) {
       break;
     }
+
+    std::swap(curr_queue, next_queue);
   }
 
   return num_completed;

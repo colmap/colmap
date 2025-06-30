@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -32,7 +32,7 @@
 #include "colmap/controllers/option_manager.h"
 #include "colmap/retrieval/resources.h"
 #include "colmap/scene/reconstruction_manager.h"
-#include "colmap/util/enum_to_string.h"
+#include "colmap/util/enum_utils.h"
 #include "colmap/util/threading.h"
 
 #include <memory>
@@ -52,6 +52,10 @@ class AutomaticReconstructionController : public Thread {
 
     // The path to the image folder which are used as input.
     std::string image_path;
+
+    // Optional list of image names to reconstruct. The list must contain the
+    // relative path of the images with respect to the image_path.
+    std::vector<std::string> image_names;
 
     // The path to the mask folder which are used as input.
     std::string mask_path;

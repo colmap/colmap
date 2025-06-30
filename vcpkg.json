@@ -20,7 +20,6 @@
             ]
         },
         "eigen3",
-        "flann",
         "freeimage",
         "gflags",
         "glog",
@@ -76,8 +75,24 @@
                 {
                     "name": "curl",
                     "features": [
+                        "schannel"
+                    ],
+                    "platform": "windows"
+                },
+                {
+                    "name": "curl",
+                    "features": [
                         "openssl"
-                    ]
+                    ],
+                    "platform": "!windows"
+                },
+                {
+                    "name": "cryptopp",
+                    "platform": "windows & arm64"
+                },
+                {
+                    "name": "openssl",
+                    "platform": "!(windows & arm64)"
                 }
             ]
         }

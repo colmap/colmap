@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -36,6 +36,8 @@
 #include "colmap/util/threading.h"
 #include "colmap/util/types.h"
 
+#include <unordered_set>
+
 namespace colmap {
 
 struct ExhaustiveMatchingOptions {
@@ -55,7 +57,7 @@ struct VocabTreeMatchingOptions {
   int num_nearest_neighbors = 5;
 
   // Number of nearest-neighbor checks to use in retrieval.
-  int num_checks = 256;
+  int num_checks = 64;
 
   // How many images to return after spatial verification. Set to 0 to turn off
   // spatial verification.
@@ -86,6 +88,39 @@ struct SequentialMatchingOptions {
   // Whether to match images against their quadratic neighbors.
   bool quadratic_overlap = true;
 
+  // Whether to match an image against all images within the same rig frame
+  // and all images in neighboring rig frames. Note that this assumes that
+  // images are appropriate named according to the following scheme:
+  //
+  //    rig1/
+  //      camera1/
+  //        image0001.jpg
+  //        image0002.jpg
+  //        image0003.jpg
+  //        ...
+  //      camera2/
+  //        image0001.jpg
+  //        image0002.jpg
+  //        image0003.jpg
+  //        ...
+  //      camera3/
+  //        image0001.jpg
+  //        image0002.jpg
+  //        image0003.jpg
+  //        ...
+  //      ...
+  //
+  // where, for overlap=1, rig1/camera1/image0001.jpg will be matched against:
+  //
+  //    rig1/camera2/image0001.jpg  # same frame
+  //    rig1/camera3/image0001.jpg  # same frame
+  //    rig1/camera1/image0002.jpg  # neighboring frame
+  //    rig1/camera2/image0002.jpg  # neighboring frame
+  //    rig1/camera3/image0002.jpg  # neighboring frame
+  //
+  // If no rigs/frames are configured in the database, this option is ignored.
+  bool expand_rig_images = true;
+
   // Whether to enable vocabulary tree based loop detection.
   bool loop_detection = false;
 
@@ -100,7 +135,7 @@ struct SequentialMatchingOptions {
   int loop_detection_num_nearest_neighbors = 1;
 
   // Number of nearest-neighbor checks to use in retrieval.
-  int loop_detection_num_checks = 256;
+  int loop_detection_num_checks = 64;
 
   // How many images to return after spatial verification. Set to 0 to turn off
   // spatial verification.
@@ -109,6 +144,9 @@ struct SequentialMatchingOptions {
   // The maximum number of features to use for indexing an image. If an
   // image has more features, only the largest-scale features will be indexed.
   int loop_detection_max_num_features = -1;
+
+  // Number of threads for loop detection indexing and retrieval.
+  int num_threads = -1;
 
   // Path to the vocabulary tree.
   std::string vocab_tree_path = kDefaultVocabTreeUri;
@@ -244,10 +282,10 @@ class VocabTreePairGenerator : public PairGenerator {
 
   const VocabTreeMatchingOptions options_;
   const std::shared_ptr<FeatureMatcherCache> cache_;
-  ThreadPool thread_pool;
-  JobQueue<Retrieval> queue;
-  retrieval::VisualIndex<> visual_index_;
-  retrieval::VisualIndex<>::QueryOptions query_options_;
+  ThreadPool thread_pool_;
+  JobQueue<Retrieval> queue_;
+  std::unique_ptr<retrieval::VisualIndex> visual_index_;
+  retrieval::VisualIndex::QueryOptions query_options_;
   std::vector<image_t> query_image_ids_;
   std::vector<std::pair<image_t, image_t>> image_pairs_;
   size_t query_idx_ = 0;
@@ -276,6 +314,9 @@ class SequentialPairGenerator : public PairGenerator {
   const SequentialMatchingOptions options_;
   const std::shared_ptr<FeatureMatcherCache> cache_;
   std::vector<image_t> image_ids_;
+  // Optional mapping from frames to images and vice versa.
+  std::unordered_map<frame_t, std::vector<image_t>> frame_to_image_ids_;
+  std::unordered_map<image_t, frame_t> image_to_frame_ids_;
   std::unique_ptr<VocabTreePairGenerator> vocab_tree_pair_generator_;
   std::vector<std::pair<image_t, image_t>> image_pairs_;
   size_t image_idx_ = 0;
@@ -298,15 +339,13 @@ class SpatialPairGenerator : public PairGenerator {
   std::vector<std::pair<image_t, image_t>> Next() override;
 
  private:
-  Eigen::Matrix<float, Eigen::Dynamic, 3, Eigen::RowMajor>
-  ReadPositionPriorData(FeatureMatcherCache& cache);
+  Eigen::RowMajorMatrixXf ReadPositionPriorData(FeatureMatcherCache& cache);
 
   const SpatialMatchingOptions options_;
   std::vector<std::pair<image_t, image_t>> image_pairs_;
-  Eigen::Matrix<size_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
+  Eigen::Matrix<int64_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
       index_matrix_;
-  Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
-      distance_matrix_;
+  Eigen::RowMajorMatrixXf distance_matrix_;
   std::vector<image_t> image_ids_;
   std::vector<size_t> position_idxs_;
   size_t current_idx_ = 0;

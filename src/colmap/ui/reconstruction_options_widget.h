@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -36,36 +36,6 @@
 #include <QtWidgets>
 
 namespace colmap {
-
-class MapperGeneralOptionsWidget : public OptionsWidget {
- public:
-  MapperGeneralOptionsWidget(QWidget* parent, OptionManager* options);
-};
-
-class MapperTriangulationOptionsWidget : public OptionsWidget {
- public:
-  MapperTriangulationOptionsWidget(QWidget* parent, OptionManager* options);
-};
-
-class MapperRegistrationOptionsWidget : public OptionsWidget {
- public:
-  MapperRegistrationOptionsWidget(QWidget* parent, OptionManager* options);
-};
-
-class MapperInitializationOptionsWidget : public OptionsWidget {
- public:
-  MapperInitializationOptionsWidget(QWidget* parent, OptionManager* options);
-};
-
-class MapperBundleAdjustmentOptionsWidget : public OptionsWidget {
- public:
-  MapperBundleAdjustmentOptionsWidget(QWidget* parent, OptionManager* options);
-};
-
-class MapperFilteringOptionsWidget : public OptionsWidget {
- public:
-  MapperFilteringOptionsWidget(QWidget* parent, OptionManager* options);
-};
 
 class ReconstructionOptionsWidget : public QWidget {
  public:

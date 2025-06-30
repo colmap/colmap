@@ -22,7 +22,7 @@
 
 #ifndef _PROGRAM_CU_H
 #define _PROGRAM_CU_H
-#if defined(CUDA_SIFTGPU_ENABLED)
+#if defined(SIFTGPU_CUDA_ENABLED)
 
 class CuTexImage;
 
