@@ -293,6 +293,122 @@ TEST(SpatialPairGenerator, Nominal) {
     EXPECT_EQ(position_matrix.rows(), 3);
   }
 
+  {
+    constexpr int kNumImages = 3;
+    auto database = std::make_shared<Database>(Database::kInMemoryDatabasePath);
+    CreateSyntheticDatabase(kNumImages, *database);
+    const std::vector<Image> images = database->ReadAllImages();
+    CHECK_EQ(images.size(), kNumImages);
+    database->WritePosePrior(images[0].ImageId(),
+                             PosePrior(Eigen::Vector3d(0, 0, 2)));
+    database->WritePosePrior(images[1].ImageId(),
+                             PosePrior(Eigen::Vector3d(2, 3, 4)));
+    database->WritePosePrior(images[2].ImageId(),
+                             PosePrior(Eigen::Vector3d(2, 4, 12)));
+
+    SpatialMatchingOptions options;
+    options.max_num_neighbors = 1;
+    options.max_distance = 1000;
+    options.ignore_z = false;
+
+    auto cache = std::make_shared<FeatureMatcherCache>(
+        options.CacheSize(), THROW_CHECK_NOTNULL(database));
+    SpatialPairGenerator generator(options, cache);
+
+    Eigen::RowMajorMatrixXf position_matrix =
+        generator.ReadPositionPriorData(*cache);
+    EXPECT_EQ(position_matrix.rows(), 3);
+
+    return;
+  }
+
+  {
+    constexpr int kNumImages = 3;
+    auto database = std::make_shared<Database>(Database::kInMemoryDatabasePath);
+    CreateSyntheticDatabase(kNumImages, *database);
+    const std::vector<Image> images = database->ReadAllImages();
+    CHECK_EQ(images.size(), kNumImages);
+    database->WritePosePrior(images[0].ImageId(),
+                             PosePrior(Eigen::Vector3d(0, 0, 2)));
+    database->WritePosePrior(images[1].ImageId(),
+                             PosePrior(Eigen::Vector3d(2, 3, 4)));
+    database->WritePosePrior(images[2].ImageId(),
+                             PosePrior(Eigen::Vector3d(2, 4, 12)));
+
+    SpatialMatchingOptions options;
+    options.max_num_neighbors = 1;
+    options.max_distance = 1000;
+    options.ignore_z = true;
+
+    auto cache = std::make_shared<FeatureMatcherCache>(
+        options.CacheSize(), THROW_CHECK_NOTNULL(database));
+    SpatialPairGenerator generator(options, cache);
+
+    Eigen::RowMajorMatrixXf position_matrix =
+        generator.ReadPositionPriorData(*cache);
+    EXPECT_EQ(position_matrix.rows(), 2);
+
+    return;
+  }
+
+  {
+    constexpr int kNumImages = 3;
+    auto database = std::make_shared<Database>(Database::kInMemoryDatabasePath);
+    CreateSyntheticDatabase(kNumImages, *database);
+    const std::vector<Image> images = database->ReadAllImages();
+    CHECK_EQ(images.size(), kNumImages);
+    database->WritePosePrior(images[0].ImageId(),
+                             PosePrior(Eigen::Vector3d(0, 0, 0)));
+    database->WritePosePrior(images[1].ImageId(),
+                             PosePrior(Eigen::Vector3d(2, 3, 4)));
+    database->WritePosePrior(images[2].ImageId(),
+                             PosePrior(Eigen::Vector3d(2, 4, 12)));
+
+    SpatialMatchingOptions options;
+    options.max_num_neighbors = 1;
+    options.max_distance = 1000;
+    options.ignore_z = false;
+
+    auto cache = std::make_shared<FeatureMatcherCache>(
+        options.CacheSize(), THROW_CHECK_NOTNULL(database));
+    SpatialPairGenerator generator(options, cache);
+
+    Eigen::RowMajorMatrixXf position_matrix =
+        generator.ReadPositionPriorData(*cache);
+    EXPECT_EQ(position_matrix.rows(), 2);
+
+    return;
+  }
+
+  {
+    constexpr int kNumImages = 3;
+    auto database = std::make_shared<Database>(Database::kInMemoryDatabasePath);
+    CreateSyntheticDatabase(kNumImages, *database);
+    const std::vector<Image> images = database->ReadAllImages();
+    CHECK_EQ(images.size(), kNumImages);
+    database->WritePosePrior(images[0].ImageId(),
+                             PosePrior(Eigen::Vector3d(0, 0, 0)));
+    database->WritePosePrior(images[1].ImageId(),
+                             PosePrior(Eigen::Vector3d(2, 3, 4)));
+    database->WritePosePrior(images[2].ImageId(),
+                             PosePrior(Eigen::Vector3d(2, 4, 12)));
+
+    SpatialMatchingOptions options;
+    options.max_num_neighbors = 1;
+    options.max_distance = 1000;
+    options.ignore_z = true;
+
+    auto cache = std::make_shared<FeatureMatcherCache>(
+        options.CacheSize(), THROW_CHECK_NOTNULL(database));
+    SpatialPairGenerator generator(options, cache);
+
+    Eigen::RowMajorMatrixXf position_matrix =
+        generator.ReadPositionPriorData(*cache);
+    EXPECT_EQ(position_matrix.rows(), 2);
+
+    return;
+  }
+
   constexpr int kNumImages = 3;
   auto database = std::make_shared<Database>(Database::kInMemoryDatabasePath);
   CreateSyntheticDatabase(kNumImages, *database);

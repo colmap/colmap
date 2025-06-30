@@ -649,11 +649,15 @@ Eigen::RowMajorMatrixXf SpatialPairGenerator::ReadPositionPriorData(
       }
 
       const Eigen::Vector3d& position_prior = pose_prior->position;
-      if ((position_prior(0) == 0 && position_prior(1) == 0 &&
-           options_.ignore_z) ||
-          (position_prior(0) == 0 && position_prior(1) == 0 &&
-           position_prior(2) == 0 && !options_.ignore_z)) {
-        continue;
+      if (options_.ignore_z) {
+        if (position_prior(0) == 0 && position_prior(1) == 0) {
+          continue;
+        }
+      } else {
+        if (position_prior(0) == 0 && position_prior(1) == 0 &&
+            position_prior(2) == 0) {
+          continue;
+        }
       }
 
       ++num_positions;
@@ -671,11 +675,15 @@ Eigen::RowMajorMatrixXf SpatialPairGenerator::ReadPositionPriorData(
       continue;
     }
     const Eigen::Vector3d& position_prior = pose_prior->position;
-    if ((position_prior(0) == 0 && position_prior(1) == 0 &&
-         options_.ignore_z) ||
-        (position_prior(0) == 0 && position_prior(1) == 0 &&
-         position_prior(2) == 0 && !options_.ignore_z)) {
-      continue;
+    if (options_.ignore_z) {
+      if (position_prior(0) == 0 && position_prior(1) == 0) {
+        continue;
+      }
+    } else {
+      if (position_prior(0) == 0 && position_prior(1) == 0 &&
+          position_prior(2) == 0) {
+        continue;
+      }
     }
 
     int position_idx = position_idxs_.size();
@@ -728,7 +736,7 @@ Eigen::RowMajorMatrixXf SpatialPairGenerator::ReadPositionPriorData(
         position_matrix(position_idx, 1) =
             static_cast<float>(position_prior(1) - position_offset(1));
         position_matrix(position_idx, 2) = static_cast<float>(
-            options_.ignore_z ? 0 : position_prior(2) - -position_offset(2));
+            options_.ignore_z ? 0 : position_prior(2) - position_offset(2));
     }
   }
   return position_matrix;
