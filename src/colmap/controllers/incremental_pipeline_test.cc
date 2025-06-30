@@ -109,21 +109,62 @@ TEST(IncrementalPipeline, WithoutNoiseAndWithNonTrivialFrames) {
   synthetic_dataset_options.num_points3D = 100;
   synthetic_dataset_options.point2D_stddev = 0;
   synthetic_dataset_options.camera_has_prior_focal_length = false;
+  synthetic_dataset_options.sensor_from_rig_translation_stddev = 0.05;
+  synthetic_dataset_options.sensor_from_rig_rotation_stddev = 30;
   SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction, &database);
 
-  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
-  IncrementalPipeline mapper(std::make_shared<IncrementalPipelineOptions>(),
-                             /*image_path=*/"",
-                             database_path,
-                             reconstruction_manager);
-  mapper.Run();
+  for (const bool refine_sensor_from_rig : {true, false}) {
+    auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+    auto options = std::make_shared<IncrementalPipelineOptions>();
+    options->ba_refine_sensor_from_rig = refine_sensor_from_rig;
+    IncrementalPipeline mapper(options,
+                               /*image_path=*/"",
+                               database_path,
+                               reconstruction_manager);
+    mapper.Run();
 
-  ASSERT_EQ(reconstruction_manager->Size(), 1);
-  ExpectEqualReconstructions(gt_reconstruction,
-                             *reconstruction_manager->Get(0),
-                             /*max_rotation_error_deg=*/1e-2,
-                             /*max_proj_center_error=*/1e-3,
-                             /*num_obs_tolerance=*/0);
+    ASSERT_EQ(reconstruction_manager->Size(), 1);
+    ExpectEqualReconstructions(gt_reconstruction,
+                               *reconstruction_manager->Get(0),
+                               /*max_rotation_error_deg=*/1e-2,
+                               /*max_proj_center_error=*/1e-3,
+                               /*num_obs_tolerance=*/0);
+  }
+}
+
+TEST(IncrementalPipeline, WithoutNoiseAndWithPanoramicNonTrivialFrames) {
+  const std::string database_path = CreateTestDir() + "/database.db";
+
+  Database database(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 3;
+  synthetic_dataset_options.num_frames_per_rig = 7;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.point2D_stddev = 0;
+  synthetic_dataset_options.camera_has_prior_focal_length = false;
+  synthetic_dataset_options.sensor_from_rig_translation_stddev = 0;
+  synthetic_dataset_options.sensor_from_rig_rotation_stddev = 30;
+  SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction, &database);
+
+  for (const bool refine_sensor_from_rig : {true, false}) {
+    auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+    auto options = std::make_shared<IncrementalPipelineOptions>();
+    options->ba_refine_sensor_from_rig = refine_sensor_from_rig;
+    IncrementalPipeline mapper(options,
+                               /*image_path=*/"",
+                               database_path,
+                               reconstruction_manager);
+    mapper.Run();
+
+    ASSERT_EQ(reconstruction_manager->Size(), 1);
+    ExpectEqualReconstructions(gt_reconstruction,
+                               *reconstruction_manager->Get(0),
+                               /*max_rotation_error_deg=*/1e-2,
+                               /*max_proj_center_error=*/1e-3,
+                               /*num_obs_tolerance=*/0);
+  }
 }
 
 TEST(IncrementalPipeline, WithPriorFocalLength) {
