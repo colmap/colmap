@@ -639,33 +639,9 @@ Eigen::RowMajorMatrixXf SpatialPairGenerator::ReadPositionPriorData(
   GPSTransform gps_transform;
   std::vector<Eigen::Vector3d> ells(1);
 
-  Eigen::RowMajorMatrixXf position_matrix;
-  {
-    size_t num_positions = 0;
-    for (size_t i = 0; i < image_ids_.size(); ++i) {
-      const PosePrior* pose_prior = cache.GetPosePriorOrNull(image_ids_[i]);
-      if (pose_prior == nullptr) {
-        continue;
-      }
-
-      const Eigen::Vector3d& position_prior = pose_prior->position;
-      if (options_.ignore_z) {
-        if (position_prior(0) == 0 && position_prior(1) == 0) {
-          continue;
-        }
-      } else {
-        if (position_prior(0) == 0 && position_prior(1) == 0 &&
-            position_prior(2) == 0) {
-          continue;
-        }
-      }
-
-      ++num_positions;
-    }
-    position_matrix.resize(num_positions, 3);
-    position_idxs_.clear();
-    position_idxs_.reserve(num_positions);
-  }
+  Eigen::RowMajorMatrixXf position_matrix(image_ids_.size(), 3);
+  position_idxs_.clear();
+  position_idxs_.reserve(image_ids_.size());
 
   Eigen::Vector3d position_offset;
 
@@ -686,7 +662,7 @@ Eigen::RowMajorMatrixXf SpatialPairGenerator::ReadPositionPriorData(
       }
     }
 
-    int position_idx = position_idxs_.size();
+    size_t position_idx = position_idxs_.size();
     position_idxs_.push_back(i);
 
     if (position_idx == 0) {
@@ -739,7 +715,7 @@ Eigen::RowMajorMatrixXf SpatialPairGenerator::ReadPositionPriorData(
             options_.ignore_z ? 0 : position_prior(2) - position_offset(2));
     }
   }
-  return position_matrix;
+  return position_matrix.topRows(position_idxs_.size());
 }
 
 TransitivePairGenerator::TransitivePairGenerator(

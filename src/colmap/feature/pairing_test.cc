@@ -238,7 +238,7 @@ TEST(SequentialPairGenerator, Quadratic) {
   EXPECT_TRUE(generator.HasFinished());
 }
 
-TEST(SpatialPairGenerator, Nominal) {
+TEST(SpatialPairGenerator, ReadPositionPriorData) {
   {
     constexpr int kNumImages = 3;
     auto database = std::make_shared<Database>(Database::kInMemoryDatabasePath);
@@ -318,8 +318,6 @@ TEST(SpatialPairGenerator, Nominal) {
     Eigen::RowMajorMatrixXf position_matrix =
         generator.ReadPositionPriorData(*cache);
     EXPECT_EQ(position_matrix.rows(), 3);
-
-    return;
   }
 
   {
@@ -347,8 +345,6 @@ TEST(SpatialPairGenerator, Nominal) {
     Eigen::RowMajorMatrixXf position_matrix =
         generator.ReadPositionPriorData(*cache);
     EXPECT_EQ(position_matrix.rows(), 2);
-
-    return;
   }
 
   {
@@ -376,8 +372,6 @@ TEST(SpatialPairGenerator, Nominal) {
     Eigen::RowMajorMatrixXf position_matrix =
         generator.ReadPositionPriorData(*cache);
     EXPECT_EQ(position_matrix.rows(), 2);
-
-    return;
   }
 
   {
@@ -405,10 +399,10 @@ TEST(SpatialPairGenerator, Nominal) {
     Eigen::RowMajorMatrixXf position_matrix =
         generator.ReadPositionPriorData(*cache);
     EXPECT_EQ(position_matrix.rows(), 2);
-
-    return;
   }
+}
 
+TEST(SpatialPairGenerator, Nominal) {
   constexpr int kNumImages = 3;
   auto database = std::make_shared<Database>(Database::kInMemoryDatabasePath);
   CreateSyntheticDatabase(kNumImages, *database);
