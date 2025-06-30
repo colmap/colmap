@@ -42,7 +42,7 @@ jobs:
       COMPILER_CACHE_DIR: ${{ github.workspace }}/compiler-cache
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
-      VCPKG_COMMIT_ID: bc3512a509f9d29b37346a7e7e929f9a26e66c7e
+      VCPKG_COMMIT_ID: 0cb95c860ea83aafc1b24350510b30dec535989a
       GLOG_v: 2
       GLOG_logtostderr: 1
 
