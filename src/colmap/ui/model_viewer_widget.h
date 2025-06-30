@@ -163,8 +163,8 @@ class ModelViewerWidget : public QOpenGLWidget,
   QMatrix4x4 model_view_matrix_;
   QMatrix4x4 projection_matrix_;
 
-  Eigen::Vector3d model_origin_;
-  double model_scale_;
+  Eigen::Vector3d model_origin_ = Eigen::Vector3d::Zero();
+  double model_scale_ = 1.0;
 
   LinePainter coordinate_axes_painter_;
   LinePainter coordinate_grid_painter_;
