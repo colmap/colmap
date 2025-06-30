@@ -104,6 +104,8 @@ TEST(HierarchicalPipeline, WithoutNoiseAndNonTrivialFrames) {
   synthetic_dataset_options.num_frames_per_rig = 10;
   synthetic_dataset_options.num_points3D = 100;
   synthetic_dataset_options.point2D_stddev = 0;
+  synthetic_dataset_options.sensor_from_rig_translation_stddev = 0.05;
+  synthetic_dataset_options.sensor_from_rig_rotation_stddev = 30;
   SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction, &database);
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
@@ -111,6 +113,45 @@ TEST(HierarchicalPipeline, WithoutNoiseAndNonTrivialFrames) {
   mapper_options.database_path = database_path;
   mapper_options.clustering_options.leaf_max_num_images = 10;
   mapper_options.clustering_options.image_overlap = 3;
+  // Note that the hierarchical mapper does not work well when the
+  // sensor_from_rig poses are inconsistently refined in different clusters,
+  // because then the merging does not work well.
+  mapper_options.incremental_options.ba_refine_sensor_from_rig = false;
+  HierarchicalPipeline mapper(mapper_options, reconstruction_manager);
+  mapper.Run();
+
+  ASSERT_EQ(reconstruction_manager->Size(), 1);
+  ExpectEqualReconstructions(gt_reconstruction,
+                             *reconstruction_manager->Get(0),
+                             /*max_rotation_error_deg=*/1e-2,
+                             /*max_proj_center_error=*/1e-3,
+                             /*num_obs_tolerance=*/0);
+}
+
+TEST(HierarchicalPipeline, WithoutNoiseAndPanoramicNonTrivialFrames) {
+  const std::string database_path = CreateTestDir() + "/database.db";
+
+  Database database(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 3;
+  synthetic_dataset_options.num_frames_per_rig = 10;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.point2D_stddev = 0;
+  synthetic_dataset_options.sensor_from_rig_translation_stddev = 0;
+  synthetic_dataset_options.sensor_from_rig_rotation_stddev = 30;
+  SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction, &database);
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  HierarchicalPipeline::Options mapper_options;
+  mapper_options.database_path = database_path;
+  mapper_options.clustering_options.leaf_max_num_images = 10;
+  mapper_options.clustering_options.image_overlap = 3;
+  // Note that the hierarchical mapper does not work well when the
+  // sensor_from_rig poses are inconsistently refined in different clusters,
+  // because then the merging does not work well.
+  mapper_options.incremental_options.ba_refine_sensor_from_rig = false;
   HierarchicalPipeline mapper(mapper_options, reconstruction_manager);
   mapper.Run();
 

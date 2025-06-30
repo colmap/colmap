@@ -381,17 +381,19 @@ void BindIncrementalMapperImpl(py::module& m) {
              const IncrementalMapper::Options& options,
              int image_id1,
              int image_id2)
-              -> py::typing::Optional<py::typing::Tuple<image_t, image_t>> {
+              -> py::typing::Optional<
+                  py::typing::Tuple<py::typing::Tuple<image_t, image_t>,
+                                    Rigid3d>> {
             // Explicitly handle the conversion
             // from -1 (int) to kInvalidImageId (uint32_t).
             image_t image_id1_cast = image_id1;
             image_t image_id2_cast = image_id2;
-            TwoViewGeometry two_view_geometry;
+            Rigid3d cam2_from_cam1;
             const bool success = self.FindInitialImagePair(
-                options, two_view_geometry, image_id1_cast, image_id2_cast);
+                options, image_id1_cast, image_id2_cast, cam2_from_cam1);
             if (success) {
               const auto pair = std::make_pair(image_id1_cast, image_id2_cast);
-              return py::cast(std::make_pair(pair, two_view_geometry));
+              return py::cast(std::make_pair(pair, cam2_from_cam1));
             } else {
               return py::none();
             }
@@ -404,12 +406,12 @@ void BindIncrementalMapperImpl(py::module& m) {
           [](IncrementalMapper& self,
              const IncrementalMapper::Options& options,
              const image_t image_id1,
-             const image_t image_id2) -> py::typing::Optional<TwoViewGeometry> {
-            TwoViewGeometry two_view_geometry;
+             const image_t image_id2) -> py::typing::Optional<Rigid3d> {
+            Rigid3d cam2_from_cam1;
             const bool success = self.EstimateInitialTwoViewGeometry(
-                options, image_id1, image_id2, two_view_geometry);
+                options, image_id1, image_id2, cam2_from_cam1);
             if (success)
-              return py::cast(two_view_geometry);
+              return py::cast(cam2_from_cam1);
             else
               return py::none();
           },
