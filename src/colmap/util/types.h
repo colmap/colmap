@@ -72,6 +72,7 @@ using Vector3ub = Matrix<uint8_t, 3, 1>;
 using Vector4ub = Matrix<uint8_t, 4, 1>;
 using Vector6d = Matrix<double, 6, 1>;
 using RowMajorMatrixXf = Matrix<float, Dynamic, Dynamic, RowMajor>;
+using RowMajorMatrixXd = Matrix<double, Dynamic, Dynamic, RowMajor>;
 using RowMajorMatrixXi = Matrix<int, Dynamic, Dynamic, RowMajor>;
 
 }  // namespace Eigen
