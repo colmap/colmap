@@ -38,7 +38,7 @@ Breaking Changes
 * Sensor poses (and thus image poses) are now composed as:
   `sensor_from_world = sensor_from_rig * rig_from_world`. Previously, `image.cam_from_world`
   returned a reference to the pose parameters. Now it returns a copy of the pose composition:
-  `cam_from_world = image.frame.rig.sensor_from_rig(image.camera.sensor_id) * image.frame.rig_from_world`
+  `image.cam_from_world() = image.frame.rig.sensor_from_rig(image.camera.sensor_id) * image.frame.rig_from_world`
   with the underlying pose parameters stored in the rig and frame objects.
 * Default bundle adjuster supports sensor rigs and thus rig bundle adjuster is deprecated.
 * FLANN-based vocabulary trees are incompatible with faiss. New trees automatically
