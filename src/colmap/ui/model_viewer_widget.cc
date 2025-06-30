@@ -1013,73 +1013,53 @@ void ModelViewerWidget::UploadPointData(const bool selection_mode) {
 
   if (selected_image_id_ == kInvalidImageId &&
       images.count(selected_image_id_) == 0) {
-    for (const auto& point3D : points3D) {
-      if (point3D.second.error <= options_->render->max_error &&
-          point3D.second.track.Length() >= min_track_len) {
-        PointPainter::Data painter_point;
-
-        painter_point.x =
-            model_scale_ * (point3D.second.xyz(0) + model_origin_(0));
-        painter_point.y =
-            model_scale_ * (point3D.second.xyz(1) + model_origin_(1));
-        painter_point.z =
-            model_scale_ * (point3D.second.xyz(2) + model_origin_(2));
+    for (const auto& [point3D_id, point3D] : points3D) {
+      if (point3D.error <= options_->render->max_error &&
+          point3D.track.Length() >= min_track_len) {
+        const Eigen::Vector3f xyz =
+            (model_scale_ * (point3D.xyz + model_origin_)).cast<float>();
 
         Eigen::Vector4f color;
         if (selection_mode) {
           const size_t index = selection_buffer_.size();
           selection_buffer_.push_back(
-              std::make_pair(point3D.first, SELECTION_BUFFER_POINT_IDX));
+              std::make_pair(point3D_id, SELECTION_BUFFER_POINT_IDX));
           color = IndexToRGB(index);
 
-        } else if (point3D.first == selected_point3D_id_) {
+        } else if (point3D_id == selected_point3D_id_) {
           color = kSelectedPointColor;
         } else {
-          color = point_colormap_->ComputeColor(point3D.first, point3D.second);
+          color = point_colormap_->ComputeColor(point3D_id, point3D);
         }
 
-        painter_point.r = color(0);
-        painter_point.g = color(1);
-        painter_point.b = color(2);
-        painter_point.a = color(3);
-
-        data.push_back(painter_point);
+        data.emplace_back(
+            xyz(0), xyz(1), xyz(2), color(0), color(1), color(2), color(3));
       }
     }
   } else {  // Image selected
     const auto& selected_image = images[selected_image_id_];
-    for (const auto& point3D : points3D) {
-      if (point3D.second.error <= options_->render->max_error &&
-          point3D.second.track.Length() >= min_track_len) {
-        PointPainter::Data painter_point;
-
-        painter_point.x =
-            model_scale_ * (point3D.second.xyz(0) + model_origin_(0));
-        painter_point.y =
-            model_scale_ * (point3D.second.xyz(1) + model_origin_(1));
-        painter_point.z =
-            model_scale_ * (point3D.second.xyz(2) + model_origin_(2));
+    for (const auto& [point3D_id, point3D] : points3D) {
+      if (point3D.error <= options_->render->max_error &&
+          point3D.track.Length() >= min_track_len) {
+        const Eigen::Vector3f xyz =
+            (model_scale_ * (point3D.xyz + model_origin_)).cast<float>();
 
         Eigen::Vector4f color;
         if (selection_mode) {
           const size_t index = selection_buffer_.size();
           selection_buffer_.push_back(
-              std::make_pair(point3D.first, SELECTION_BUFFER_POINT_IDX));
+              std::make_pair(point3D_id, SELECTION_BUFFER_POINT_IDX));
           color = IndexToRGB(index);
-        } else if (selected_image.HasPoint3D(point3D.first)) {
+        } else if (selected_image.HasPoint3D(point3D_id)) {
           color = kSelectedImagePlaneColor;
-        } else if (point3D.first == selected_point3D_id_) {
+        } else if (point3D_id == selected_point3D_id_) {
           color = kSelectedPointColor;
         } else {
-          color = point_colormap_->ComputeColor(point3D.first, point3D.second);
+          color = point_colormap_->ComputeColor(point3D_id, point3D);
         }
 
-        painter_point.r = color(0);
-        painter_point.g = color(1);
-        painter_point.b = color(2);
-        painter_point.a = color(3);
-
-        data.push_back(painter_point);
+        data.emplace_back(
+            xyz(0), xyz(1), xyz(2), color(0), color(1), color(2), color(3));
       }
     }
   }
@@ -1099,14 +1079,14 @@ void ModelViewerWidget::UploadPointConnectionData() {
   }
 
   const auto& point3D = points3D[selected_point3D_id_];
-  const Eigen::Vector3d point3D_xyz =
-      model_scale_ * (point3D.xyz + model_origin_);
+  const Eigen::Vector3f xyz =
+      (model_scale_ * (point3D.xyz + model_origin_)).cast<float>();
 
   // 3D point position.
   LinePainter::Data line;
-  line.point1 = PointPainter::Data(static_cast<float>(point3D_xyz(0)),
-                                   static_cast<float>(point3D_xyz(1)),
-                                   static_cast<float>(point3D_xyz(2)),
+  line.point1 = PointPainter::Data(xyz(0),
+                                   xyz(1),
+                                   xyz(2),
                                    kSelectedPointColor(0),
                                    kSelectedPointColor(1),
                                    kSelectedPointColor(2),
