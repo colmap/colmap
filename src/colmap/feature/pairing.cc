@@ -639,54 +639,26 @@ Eigen::RowMajorMatrixXf SpatialPairGenerator::ReadPositionPriorData(
   GPSTransform gps_transform;
   std::vector<Eigen::Vector3d> ells(1);
 
-  Eigen::RowMajorMatrixXf position_matrix(image_ids_.size(), 3);
+  Eigen::RowMajorMatrixXd position_matrix(image_ids_.size(), 3);
   position_idxs_.clear();
   position_idxs_.reserve(image_ids_.size());
-
-  Eigen::Vector3d position_offset;
 
   for (size_t i = 0; i < image_ids_.size(); ++i) {
     const PosePrior* pose_prior = cache.GetPosePriorOrNull(image_ids_[i]);
     if (pose_prior == nullptr) {
       continue;
     }
+
     const Eigen::Vector3d& position_prior = pose_prior->position;
-    if (options_.ignore_z) {
-      if (position_prior(0) == 0 && position_prior(1) == 0) {
-        continue;
-      }
-    } else {
-      if (position_prior(0) == 0 && position_prior(1) == 0 &&
-          position_prior(2) == 0) {
-        continue;
-      }
-    }
-
-    size_t position_idx = position_idxs_.size();
-    position_idxs_.push_back(i);
-
-    if (position_idx == 0) {
-      switch (pose_prior->coordinate_system) {
-        case PosePrior::CoordinateSystem::WGS84: {
-          ells[0](0) = position_prior(0);
-          ells[0](1) = position_prior(1);
-          ells[0](2) = options_.ignore_z ? 0 : position_prior(2);
-
-          const auto xyzs = gps_transform.EllipsoidToECEF(ells);
-          position_offset = xyzs[0];
-        } break;
-        case PosePrior::CoordinateSystem::UNDEFINED:
-        default:
-        case PosePrior::CoordinateSystem::CARTESIAN:
-          position_offset(0) = position_prior(0);
-          position_offset(1) = position_prior(1);
-          position_offset(2) = (options_.ignore_z ? 0 : position_prior(2));
-      }
-      position_matrix(position_idx, 0) = 0.0f;
-      position_matrix(position_idx, 1) = 0.0f;
-      position_matrix(position_idx, 2) = 0.0f;
+    if ((position_prior(0) == 0 && position_prior(1) == 0 &&
+         position_prior(2) == 0) ||
+        (options_.ignore_z && position_prior(0) == 0 &&
+         position_prior(1) == 0)) {
       continue;
     }
+
+    const size_t position_idx = position_idxs_.size();
+    position_idxs_.push_back(i);
 
     switch (pose_prior->coordinate_system) {
       case PosePrior::CoordinateSystem::WGS84: {
@@ -694,28 +666,31 @@ Eigen::RowMajorMatrixXf SpatialPairGenerator::ReadPositionPriorData(
         ells[0](1) = position_prior(1);
         ells[0](2) = options_.ignore_z ? 0 : position_prior(2);
 
-        const auto xyzs = gps_transform.EllipsoidToECEF(ells);
-        position_matrix(position_idx, 0) =
-            static_cast<float>(xyzs[0](0) - position_offset(0));
-        position_matrix(position_idx, 1) =
-            static_cast<float>(xyzs[0](1) - position_offset(1));
-        position_matrix(position_idx, 2) =
-            static_cast<float>(xyzs[0](2) - position_offset(2));
+        const std::vector<Eigen::Vector3d> xyzs =
+            gps_transform.EllipsoidToECEF(ells);
+        position_matrix(position_idx, 0) = xyzs[0](0);
+        position_matrix(position_idx, 1) = xyzs[0](1);
+        position_matrix(position_idx, 2) = xyzs[0](2);
       } break;
       case PosePrior::CoordinateSystem::UNDEFINED:
       default:
         LOG(WARNING) << "Unknown coordinate system for image " << image_ids_[i]
                      << ", assuming cartesian.";
       case PosePrior::CoordinateSystem::CARTESIAN:
-        position_matrix(position_idx, 0) =
-            static_cast<float>(position_prior(0) - position_offset(0));
-        position_matrix(position_idx, 1) =
-            static_cast<float>(position_prior(1) - position_offset(1));
-        position_matrix(position_idx, 2) = static_cast<float>(
-            options_.ignore_z ? 0 : position_prior(2) - position_offset(2));
+        position_matrix(position_idx, 0) = position_prior(0);
+        position_matrix(position_idx, 1) = position_prior(1);
+        position_matrix(position_idx, 2) =
+            options_.ignore_z ? 0 : position_prior(2);
     }
   }
-  return position_matrix.topRows(position_idxs_.size());
+
+  // Subtract the mean coordinate before casting to float for better numerical
+  // precision when dealing with large coordinates (e.g. GPS). For even better
+  // precision, we could also rescale the coordinates.
+  position_matrix.rowwise() -=
+      Eigen::Vector3d(position_matrix.rowwise().mean()).transpose();
+
+  return position_matrix.topRows(position_idxs_.size()).cast<float>();
 }
 
 TransitivePairGenerator::TransitivePairGenerator(
