@@ -43,6 +43,7 @@
 #include <vector>
 
 #include <faiss/IndexFlat.h>
+#include <omp.h>
 
 namespace colmap {
 namespace {
