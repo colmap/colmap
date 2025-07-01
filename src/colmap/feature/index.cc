@@ -33,6 +33,7 @@
 #include <faiss/IndexIVFFlat.h>
 #include <faiss/IndexIVFPQ.h>
 #include <faiss/IndexPQ.h>
+#include <omp.h>
 
 namespace colmap {
 namespace {
