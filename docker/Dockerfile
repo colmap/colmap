@@ -16,27 +16,27 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Prepare and empty machine for building.
 RUN apt-get update && \
     apt-get install -y \
-        git \
-        cmake \
-        ninja-build \
-        build-essential \
-        libboost-program-options-dev \
-        libboost-graph-dev \
-        libboost-system-dev \
-        libeigen3-dev \
-        libfreeimage-dev \
-        libmetis-dev \
-        libgoogle-glog-dev \
-        libgtest-dev \
-        libgmock-dev \
-        libsqlite3-dev \
-        libglew-dev \
-        qtbase5-dev \
-        libqt5opengl5-dev \
-        libcgal-dev \
-        libceres-dev \
-        libcurl4-openssl-dev \
-        libmkl-full-dev
+    git \
+    cmake \
+    ninja-build \
+    build-essential \
+    libboost-program-options-dev \
+    libboost-graph-dev \
+    libboost-system-dev \
+    libeigen3-dev \
+    libfreeimage-dev \
+    libmetis-dev \
+    libgoogle-glog-dev \
+    libgtest-dev \
+    libgmock-dev \
+    libsqlite3-dev \
+    libglew-dev \
+    qtbase5-dev \
+    libqt5opengl5-dev \
+    libcgal-dev \
+    libceres-dev \
+    libcurl4-openssl-dev \
+    libmkl-full-dev
 
 # Build and install COLMAP.
 RUN git clone https://github.com/colmap/colmap.git
@@ -46,10 +46,10 @@ RUN cd colmap && \
     mkdir build && \
     cd build && \
     cmake .. \
-        -GNinja \
-        -DCMAKE_CUDA_ARCHITECTURES=${CUDA_ARCHITECTURES} \
-        -DCMAKE_INSTALL_PREFIX=/colmap-install \
-        -DBLA_VENDOR=Intel10_64lp && \
+    -GNinja \
+    -DCMAKE_CUDA_ARCHITECTURES=${CUDA_ARCHITECTURES} \
+    -DCMAKE_INSTALL_PREFIX=/colmap-install \
+    -DBLA_VENDOR=Intel10_64lp && \
     ninja install
 
 #
@@ -62,19 +62,27 @@ FROM nvidia/cuda:${NVIDIA_CUDA_VERSION}-runtime-ubuntu${UBUNTU_VERSION} AS runti
 # build dependencies are not needed.
 RUN apt-get update && \
     apt-get install -y --no-install-recommends --no-install-suggests \
-        libboost-program-options1.83.0 \
-        libc6 \
-        libceres4t64 \
-        libfreeimage3 \
-        libgcc-s1 \
-        libgl1 \
-        libglew2.2 \
-        libgoogle-glog0v6t64 \
-        libqt5core5a \
-        libqt5gui5 \
-        libqt5widgets5 \
-        libcurl4 \
-        libmkl-intel-lp64
+    libboost-program-options1.83.0 \
+    libc6 \
+    libceres4t64 \
+    libfreeimage3 \
+    libgcc-s1 \
+    libgl1 \
+    libglew2.2 \
+    libgoogle-glog0v6t64 \
+    libqt5core5a \
+    libqt5gui5 \
+    libqt5widgets5 \
+    libcurl4 \
+    libmkl-intel-lp64 \
+    libmkl-intel-thread \
+    libmkl-core && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Set MKL environment variables for proper threading
+ENV MKL_THREADING_LAYER=GNU
+ENV LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
 
 # Copy all files from /colmap-install/ in the builder stage to /usr/local/ in
 # the runtime stage. This simulates installing COLMAP in the default location
