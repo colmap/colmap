@@ -49,7 +49,7 @@ RUN cd colmap && \
         -GNinja \
         -DCMAKE_CUDA_ARCHITECTURES=${CUDA_ARCHITECTURES} \
         -DCMAKE_INSTALL_PREFIX=/colmap-install \
-        -DBLA_VENDOR=Intel10_64lp && \
+        -DBLA_VENDOR=Intel10_i64lp && \
     ninja install
 
 #
@@ -74,7 +74,8 @@ RUN apt-get update && \
         libqt5gui5 \
         libqt5widgets5 \
         libcurl4 \
-        libmkl-intel-lp64
+        libmkl-intel-ilp64 \
+        libmkl-intel-thread
 
 # Copy all files from /colmap-install/ in the builder stage to /usr/local/ in
 # the runtime stage. This simulates installing COLMAP in the default location

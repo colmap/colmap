@@ -199,7 +199,7 @@ jobs:
             -DGUI_ENABLED=${{ matrix.config.guiEnabled }} \
             -DASAN_ENABLED=${{ matrix.config.asanEnabled }} \
             -DCOVERAGE_ENABLED=${{ matrix.config.coverageEnabled }} \
-            -DBLA_VENDOR=Intel10_64lp
+            -DBLA_VENDOR=Intel10_i64lp
           ninja -k 10000
 
       - name: Install and build sample
