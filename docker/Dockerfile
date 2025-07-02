@@ -74,7 +74,8 @@ RUN apt-get update && \
         libqt5gui5 \
         libqt5widgets5 \
         libcurl4 \
-        libmkl-intel-lp64
+        libmkl-intel-ilp64 \
+        libmkl-intel-thread
 
 # Copy all files from /colmap-install/ in the builder stage to /usr/local/ in
 # the runtime stage. This simulates installing COLMAP in the default location
