@@ -64,6 +64,9 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends --no-install-suggests \
         libboost-program-options1.83.0 \
         libc6 \
+        libomp5 \
+        libopengl0 \
+        libmetis5 \
         libceres4t64 \
         libfreeimage3 \
         libgcc-s1 \
@@ -74,8 +77,9 @@ RUN apt-get update && \
         libqt5gui5 \
         libqt5widgets5 \
         libcurl4 \
-        libmkl-intel-ilp64 \
-        libmkl-intel-thread
+        libmkl-intel-lp64 \
+        libmkl-intel-thread \
+        libmkl-core
 
 # Copy all files from /colmap-install/ in the builder stage to /usr/local/ in
 # the runtime stage. This simulates installing COLMAP in the default location
