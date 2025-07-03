@@ -56,11 +56,12 @@ QMatrix4x4 EigenToQMatrix(const Eigen::Matrix4f& matrix) {
 
 QImage BitmapToQImageRGB(const Bitmap& bitmap) {
   QImage image(bitmap.Width(), bitmap.Height(), QImage::Format_RGB32);
+  const BitmapData bitmap_data = bitmap.ToData();
   for (int y = 0; y < image.height(); ++y) {
     QRgb* image_line = (QRgb*)image.scanLine(y);
     for (int x = 0; x < image.width(); ++x) {
       BitmapColor<uint8_t> color;
-      if (bitmap.GetPixel(x, y, &color)) {
+      if (bitmap_data.GetPixel(x, y, &color)) {
         image_line[x] = qRgba(color.r, color.g, color.b, 255);
       }
     }

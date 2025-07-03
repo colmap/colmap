@@ -61,6 +61,8 @@ void WarpImageBetweenCameras(const Camera& source_camera,
   THROW_CHECK_EQ(source_camera.height, source_image.Height());
   THROW_CHECK_NOTNULL(target_image);
 
+  const BitmapData source_data = source_image.ToData();
+
   target_image->Allocate(static_cast<int>(source_camera.width),
                          static_cast<int>(source_camera.height),
                          source_image.IsRGB());
@@ -92,7 +94,7 @@ void WarpImageBetweenCameras(const Camera& source_camera,
 
       BitmapColor<float> color;
       if (source_point &&
-          source_image.InterpolateBilinear(
+          source_data.InterpolateBilinear(
               source_point->x() - 0.5, source_point->y() - 0.5, &color)) {
         target_image->SetPixel(x, y, color.Cast<uint8_t>());
       } else {
@@ -115,6 +117,8 @@ void WarpImageWithHomography(const Eigen::Matrix3d& H,
   THROW_CHECK_GT(target_image->Height(), 0);
   THROW_CHECK_EQ(source_image.IsRGB(), target_image->IsRGB());
 
+  const BitmapData source_data = source_image.ToData();
+
   Eigen::Vector3d target_pixel(0, 0, 1);
   for (int y = 0; y < target_image->Height(); ++y) {
     target_pixel.y() = y + 0.5;
@@ -124,7 +128,7 @@ void WarpImageWithHomography(const Eigen::Matrix3d& H,
       const Eigen::Vector2d source_pixel = (H * target_pixel).hnormalized();
 
       BitmapColor<float> color;
-      if (source_image.InterpolateBilinear(
+      if (source_data.InterpolateBilinear(
               source_pixel.x() - 0.5, source_pixel.y() - 0.5, &color)) {
         target_image->SetPixel(x, y, color.Cast<uint8_t>());
       } else {
@@ -142,6 +146,8 @@ void WarpImageWithHomographyBetweenCameras(const Eigen::Matrix3d& H,
   THROW_CHECK_EQ(source_camera.width, source_image.Width());
   THROW_CHECK_EQ(source_camera.height, source_image.Height());
   THROW_CHECK_NOTNULL(target_image);
+
+  const BitmapData source_data = source_image.ToData();
 
   target_image->Allocate(static_cast<int>(source_camera.width),
                          static_cast<int>(source_camera.height),
@@ -179,7 +185,7 @@ void WarpImageWithHomographyBetweenCameras(const Eigen::Matrix3d& H,
 
       BitmapColor<float> color;
       if (source_point &&
-          source_image.InterpolateBilinear(
+          source_data.InterpolateBilinear(
               source_point->x() - 0.5, source_point->y() - 0.5, &color)) {
         target_image->SetPixel(x, y, color.Cast<uint8_t>());
       } else {

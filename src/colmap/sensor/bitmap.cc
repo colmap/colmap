@@ -95,6 +95,86 @@ bool IsPtrSupported(FIBITMAP* ptr) { return IsPtrGrey(ptr) || IsPtrRGB(ptr); }
 
 }  // namespace
 
+void BitmapData::Fill(const BitmapColor<uint8_t>& color) {
+  for (int y = 0; y < height; ++y) {
+    uint8_t* line = &data[y * width * channels];
+    for (int x = 0; x < width; ++x) {
+      if (IsGrey()) {
+        line[x] = color.r;
+      } else if (IsRGB()) {
+        line[3 * x + red_idx] = color.r;
+        line[3 * x + green_idx] = color.g;
+        line[3 * x + blue_idx] = color.b;
+      }
+    }
+  }
+}
+
+bool BitmapData::InterpolateNearestNeighbor(const double x,
+                                            const double y,
+                                            BitmapColor<uint8_t>* color) const {
+  const int xx = static_cast<int>(std::round(x));
+  const int yy = static_cast<int>(std::round(y));
+  return GetPixel(xx, yy, color);
+}
+
+bool BitmapData::InterpolateBilinear(const double x,
+                                     const double y,
+                                     BitmapColor<float>* color) const {
+  const int x0 = static_cast<int>(std::floor(x));
+  const int x1 = x0 + 1;
+  const int y0 = static_cast<int>(std::floor(y));
+  const int y1 = y0 + 1;
+
+  if (x0 < 0 || x1 >= width || y0 < 0 || y1 >= height) {
+    return false;
+  }
+
+  const float dx = x - x0;
+  const float dy = y - y0;
+  const float dx_1 = 1 - dx;
+  const float dy_1 = 1 - dy;
+
+  const int line_num_bytes = width * channels;
+  const uint8_t* line0 = &data[y0 * line_num_bytes];
+  const uint8_t* line1 = &data[y1 * line_num_bytes];
+
+  if (IsGrey()) {
+    // Top row, column-wise linear interpolation.
+    const float v0 = dx_1 * line0[x0] + dx * line0[x1];
+
+    // Bottom row, column-wise linear interpolation.
+    const float v1 = dx_1 * line1[x0] + dx * line1[x1];
+
+    // Row-wise linear interpolation.
+    color->r = dy_1 * v0 + dy * v1;
+    return true;
+  } else if (IsRGB()) {
+    const uint8_t* p00 = &line0[3 * x0];
+    const uint8_t* p01 = &line0[3 * x1];
+    const uint8_t* p10 = &line1[3 * x0];
+    const uint8_t* p11 = &line1[3 * x1];
+
+    // Top row, column-wise linear interpolation.
+    const float v0_r = dx_1 * p00[red_idx] + dx * p01[red_idx];
+    const float v0_g = dx_1 * p00[green_idx] + dx * p01[green_idx];
+    const float v0_b = dx_1 * p00[blue_idx] + dx * p01[blue_idx];
+
+    // Bottom row, column-wise linear interpolation.
+    const float v1_r = dx_1 * p10[red_idx] + dx * p11[red_idx];
+    const float v1_g = dx_1 * p10[green_idx] + dx * p11[green_idx];
+    const float v1_b = dx_1 * p10[blue_idx] + dx * p11[blue_idx];
+
+    // Row-wise linear interpolation.
+    color->r = dy_1 * v0_r + dy * v1_r;
+    color->g = dy_1 * v0_g + dy * v1_g;
+    color->b = dy_1 * v0_b + dy * v1_b;
+    return true;
+  }
+
+  return false;
+}
+
 Bitmap::Bitmap() : width_(0), height_(0), channels_(0) {}
 
 Bitmap::Bitmap(const Bitmap& other) : Bitmap() {
@@ -173,33 +253,25 @@ unsigned int Bitmap::BitsPerPixel() const {
 
 unsigned int Bitmap::Pitch() const { return FreeImage_GetPitch(handle_.ptr); }
 
-std::vector<uint8_t> Bitmap::ConvertToRowMajorArray() const {
-  std::vector<uint8_t> array(width_ * height_ * channels_);
-  size_t i = 0;
-  for (int y = 0; y < height_; ++y) {
-    const uint8_t* line = FreeImage_GetScanLine(handle_.ptr, height_ - 1 - y);
-    for (int x = 0; x < width_; ++x) {
-      for (int d = 0; d < channels_; ++d) {
-        array[i] = line[x * channels_ + d];
-        i += 1;
-      }
-    }
-  }
-  return array;
+BitmapData Bitmap::ToData() const {
+  return {width_,
+          height_,
+          channels_,
+          FI_RGBA_RED,
+          FI_RGBA_GREEN,
+          FI_RGBA_BLUE,
+          ConvertToRowMajorArray()};
 }
 
-std::vector<uint8_t> Bitmap::ConvertToColMajorArray() const {
-  std::vector<uint8_t> array(width_ * height_ * channels_);
-  size_t i = 0;
-  for (int d = 0; d < channels_; ++d) {
-    for (int x = 0; x < width_; ++x) {
-      for (int y = 0; y < height_; ++y) {
-        const uint8_t* line =
-            FreeImage_GetScanLine(handle_.ptr, height_ - 1 - y);
-        array[i] = line[x * channels_ + d];
-        i += 1;
-      }
-    }
+std::vector<uint8_t> Bitmap::ConvertToRowMajorArray() const {
+  const size_t scanline_num_bytes = width_ * channels_;
+  std::vector<uint8_t> array(height_ * scanline_num_bytes);
+  uint8_t* array_ptr = array.data();
+  for (int y = 0; y < height_; ++y) {
+    const uint8_t* scanline =
+        FreeImage_GetScanLine(handle_.ptr, height_ - 1 - y);
+    std::copy(scanline, scanline + scanline_num_bytes, array_ptr);
+    array_ptr += scanline_num_bytes;
   }
   return array;
 }
@@ -287,7 +359,7 @@ const uint8_t* Bitmap::GetScanline(const int y) const {
 
 void Bitmap::Fill(const BitmapColor<uint8_t>& color) {
   for (int y = 0; y < height_; ++y) {
-    uint8_t* line = FreeImage_GetScanLine(handle_.ptr, height_ - 1 - y);
+    uint8_t* line = FreeImage_GetScanLine(handle_.ptr, y);
     for (int x = 0; x < width_; ++x) {
       if (IsGrey()) {
         line[x] = color.r;
@@ -298,73 +370,6 @@ void Bitmap::Fill(const BitmapColor<uint8_t>& color) {
       }
     }
   }
-}
-
-bool Bitmap::InterpolateNearestNeighbor(const double x,
-                                        const double y,
-                                        BitmapColor<uint8_t>* color) const {
-  const int xx = static_cast<int>(std::round(x));
-  const int yy = static_cast<int>(std::round(y));
-  return GetPixel(xx, yy, color);
-}
-
-bool Bitmap::InterpolateBilinear(const double x,
-                                 const double y,
-                                 BitmapColor<float>* color) const {
-  // FreeImage's coordinate system origin is in the lower left of the image.
-  const double inv_y = height_ - 1 - y;
-
-  const int x0 = static_cast<int>(std::floor(x));
-  const int x1 = x0 + 1;
-  const int y0 = static_cast<int>(std::floor(inv_y));
-  const int y1 = y0 + 1;
-
-  if (x0 < 0 || x1 >= width_ || y0 < 0 || y1 >= height_) {
-    return false;
-  }
-
-  const double dx = x - x0;
-  const double dy = inv_y - y0;
-  const double dx_1 = 1 - dx;
-  const double dy_1 = 1 - dy;
-
-  const uint8_t* line0 = FreeImage_GetScanLine(handle_.ptr, y0);
-  const uint8_t* line1 = FreeImage_GetScanLine(handle_.ptr, y1);
-
-  if (IsGrey()) {
-    // Top row, column-wise linear interpolation.
-    const double v0 = dx_1 * line0[x0] + dx * line0[x1];
-
-    // Bottom row, column-wise linear interpolation.
-    const double v1 = dx_1 * line1[x0] + dx * line1[x1];
-
-    // Row-wise linear interpolation.
-    color->r = dy_1 * v0 + dy * v1;
-    return true;
-  } else if (IsRGB()) {
-    const uint8_t* p00 = &line0[3 * x0];
-    const uint8_t* p01 = &line0[3 * x1];
-    const uint8_t* p10 = &line1[3 * x0];
-    const uint8_t* p11 = &line1[3 * x1];
-
-    // Top row, column-wise linear interpolation.
-    const double v0_r = dx_1 * p00[FI_RGBA_RED] + dx * p01[FI_RGBA_RED];
-    const double v0_g = dx_1 * p00[FI_RGBA_GREEN] + dx * p01[FI_RGBA_GREEN];
-    const double v0_b = dx_1 * p00[FI_RGBA_BLUE] + dx * p01[FI_RGBA_BLUE];
-
-    // Bottom row, column-wise linear interpolation.
-    const double v1_r = dx_1 * p10[FI_RGBA_RED] + dx * p11[FI_RGBA_RED];
-    const double v1_g = dx_1 * p10[FI_RGBA_GREEN] + dx * p11[FI_RGBA_GREEN];
-    const double v1_b = dx_1 * p10[FI_RGBA_BLUE] + dx * p11[FI_RGBA_BLUE];
-
-    // Row-wise linear interpolation.
-    color->r = dy_1 * v0_r + dy * v1_r;
-    color->g = dy_1 * v0_g + dy * v1_g;
-    color->b = dy_1 * v0_b + dy * v1_b;
-    return true;
-  }
-
-  return false;
 }
 
 bool Bitmap::ExifCameraModel(std::string* camera_model) const {

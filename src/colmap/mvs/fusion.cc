@@ -455,7 +455,7 @@ void StereoFusion::Fuse(const int thread_id,
     // Read the color of the pixel.
     BitmapColor<uint8_t> color;
     const auto& bitmap_scale = bitmap_scales_.at(image_idx);
-    workspace_->GetBitmap(image_idx).InterpolateNearestNeighbor(
+    workspace_->GetBitmapData(image_idx).InterpolateNearestNeighbor(
         col / bitmap_scale.first, row / bitmap_scale.second, &color);
 
     // Set the current pixel as visited.

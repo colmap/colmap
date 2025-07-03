@@ -73,7 +73,7 @@ class Workspace {
 
   inline const Model& GetModel() const { return model_; }
 
-  virtual const Bitmap& GetBitmap(int image_idx);
+  virtual const BitmapData& GetBitmapData(int image_idx);
   virtual const DepthMap& GetDepthMap(int image_idx);
   virtual const NormalMap& GetNormalMap(int image_idx);
 
@@ -96,7 +96,7 @@ class Workspace {
  private:
   std::string depth_map_path_;
   std::string normal_map_path_;
-  std::vector<std::unique_ptr<Bitmap>> bitmaps_;
+  std::vector<std::unique_ptr<BitmapData>> bitmap_data_;
   std::vector<std::unique_ptr<DepthMap>> depth_maps_;
   std::vector<std::unique_ptr<NormalMap>> normal_maps_;
 };
@@ -109,7 +109,7 @@ class CachedWorkspace : public Workspace {
 
   inline void ClearCache() { cache_.Clear(); }
 
-  const Bitmap& GetBitmap(int image_idx) override;
+  const BitmapData& GetBitmapData(int image_idx) override;
   const DepthMap& GetDepthMap(int image_idx) override;
   const NormalMap& GetNormalMap(int image_idx) override;
 
@@ -122,7 +122,7 @@ class CachedWorkspace : public Workspace {
     inline size_t NumBytes() const { return num_bytes; }
     size_t num_bytes = 0;
     std::mutex mutex;
-    std::unique_ptr<Bitmap> bitmap;
+    std::unique_ptr<BitmapData> bitmap_data;
     std::unique_ptr<DepthMap> depth_map;
     std::unique_ptr<NormalMap> normal_map;
 

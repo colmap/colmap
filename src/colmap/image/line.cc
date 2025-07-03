@@ -49,8 +49,11 @@ struct RawDeleter {
 }  // namespace
 
 #ifdef COLMAP_LSD_ENABLED
+
 std::vector<LineSegment> DetectLineSegments(const Bitmap& bitmap,
                                             const double min_length) {
+  THROW_CHECK(bitmap.IsGrey());
+
   const double min_length_squared = min_length * min_length;
 
   std::vector<uint8_t> bitmap_data;
@@ -87,6 +90,7 @@ std::vector<LineSegment> DetectLineSegments(const Bitmap& bitmap,
 
   return segments;
 }
+
 #endif
 
 std::vector<LineSegmentOrientation> ClassifyLineSegmentOrientations(

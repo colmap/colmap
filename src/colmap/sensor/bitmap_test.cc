@@ -201,44 +201,6 @@ TEST(Bitmap, ConvertToRowMajorArrayGrey) {
   EXPECT_EQ(array[3], 3);
 }
 
-TEST(Bitmap, ConvertToColMajorArrayRGB) {
-  Bitmap bitmap;
-  bitmap.Allocate(2, 2, true);
-  bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(0, 0, 0));
-  bitmap.SetPixel(0, 1, BitmapColor<uint8_t>(1, 0, 0));
-  bitmap.SetPixel(1, 0, BitmapColor<uint8_t>(2, 0, 0));
-  bitmap.SetPixel(1, 1, BitmapColor<uint8_t>(3, 0, 0));
-  const std::vector<uint8_t> array = bitmap.ConvertToColMajorArray();
-  ASSERT_EQ(array.size(), 12);
-  EXPECT_EQ(array[0], 0);
-  EXPECT_EQ(array[1], 0);
-  EXPECT_EQ(array[2], 0);
-  EXPECT_EQ(array[3], 0);
-  EXPECT_EQ(array[4], 0);
-  EXPECT_EQ(array[5], 0);
-  EXPECT_EQ(array[6], 0);
-  EXPECT_EQ(array[7], 0);
-  EXPECT_EQ(array[8], 0);
-  EXPECT_EQ(array[9], 1);
-  EXPECT_EQ(array[10], 2);
-  EXPECT_EQ(array[11], 3);
-}
-
-TEST(Bitmap, ConvertToColMajorArrayGrey) {
-  Bitmap bitmap;
-  bitmap.Allocate(2, 2, false);
-  bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(0, 0, 0));
-  bitmap.SetPixel(0, 1, BitmapColor<uint8_t>(1, 0, 0));
-  bitmap.SetPixel(1, 0, BitmapColor<uint8_t>(2, 0, 0));
-  bitmap.SetPixel(1, 1, BitmapColor<uint8_t>(3, 0, 0));
-  const std::vector<uint8_t> array = bitmap.ConvertToColMajorArray();
-  ASSERT_EQ(array.size(), 4);
-  EXPECT_EQ(array[0], 0);
-  EXPECT_EQ(array[1], 1);
-  EXPECT_EQ(array[2], 2);
-  EXPECT_EQ(array[3], 3);
-}
-
 TEST(Bitmap, ConvertToFromRawBitsGrey) {
   Bitmap bitmap;
   bitmap.Allocate(3, 2, false);
@@ -357,19 +319,48 @@ TEST(Bitmap, Fill) {
   }
 }
 
+TEST(BitmapData, InterpolateNearestNeighbor) {
+  BitmapData buffer(11, 11, true);
+  buffer.Fill(BitmapColor<uint8_t>(0, 0, 0));
+  buffer.SetPixel(5, 5, BitmapColor<uint8_t>(1, 2, 3));
+  BitmapColor<uint8_t> color;
+  EXPECT_TRUE(buffer.InterpolateNearestNeighbor(5, 5, &color));
+  EXPECT_EQ(color, BitmapColor<uint8_t>(1, 2, 3));
+  EXPECT_TRUE(buffer.InterpolateNearestNeighbor(5.4999, 5.4999, &color));
+  EXPECT_EQ(color, BitmapColor<uint8_t>(1, 2, 3));
+  EXPECT_TRUE(buffer.InterpolateNearestNeighbor(5.5, 5.5, &color));
+  EXPECT_EQ(color, BitmapColor<uint8_t>(0, 0, 0));
+  EXPECT_TRUE(buffer.InterpolateNearestNeighbor(4.5, 5.4999, &color));
+  EXPECT_EQ(color, BitmapColor<uint8_t>(1, 2, 3));
+}
+
+TEST(BitmapData, InterpolateBilinear) {
+  BitmapData buffer(11, 11, true);
+  buffer.Fill(BitmapColor<uint8_t>(0, 0, 0));
+  buffer.SetPixel(5, 5, BitmapColor<uint8_t>(1, 2, 3));
+  BitmapColor<float> color;
+  EXPECT_TRUE(buffer.InterpolateBilinear(5, 5, &color));
+  EXPECT_EQ(color, BitmapColor<float>(1, 2, 3));
+  EXPECT_TRUE(buffer.InterpolateBilinear(5.5, 5, &color));
+  EXPECT_EQ(color, BitmapColor<float>(0.5, 1, 1.5));
+  EXPECT_TRUE(buffer.InterpolateBilinear(5.5, 5.5, &color));
+  EXPECT_EQ(color, BitmapColor<float>(0.25, 0.5, 0.75));
+}
+
 TEST(Bitmap, InterpolateNearestNeighbor) {
   Bitmap bitmap;
   bitmap.Allocate(11, 11, true);
   bitmap.Fill(BitmapColor<uint8_t>(0, 0, 0));
   bitmap.SetPixel(5, 5, BitmapColor<uint8_t>(1, 2, 3));
+  const BitmapData buffer = bitmap.ToData();
   BitmapColor<uint8_t> color;
-  EXPECT_TRUE(bitmap.InterpolateNearestNeighbor(5, 5, &color));
+  EXPECT_TRUE(buffer.InterpolateNearestNeighbor(5, 5, &color));
   EXPECT_EQ(color, BitmapColor<uint8_t>(1, 2, 3));
-  EXPECT_TRUE(bitmap.InterpolateNearestNeighbor(5.4999, 5.4999, &color));
+  EXPECT_TRUE(buffer.InterpolateNearestNeighbor(5.4999, 5.4999, &color));
   EXPECT_EQ(color, BitmapColor<uint8_t>(1, 2, 3));
-  EXPECT_TRUE(bitmap.InterpolateNearestNeighbor(5.5, 5.5, &color));
+  EXPECT_TRUE(buffer.InterpolateNearestNeighbor(5.5, 5.5, &color));
   EXPECT_EQ(color, BitmapColor<uint8_t>(0, 0, 0));
-  EXPECT_TRUE(bitmap.InterpolateNearestNeighbor(4.5, 5.4999, &color));
+  EXPECT_TRUE(buffer.InterpolateNearestNeighbor(4.5, 5.4999, &color));
   EXPECT_EQ(color, BitmapColor<uint8_t>(1, 2, 3));
 }
 
@@ -378,12 +369,13 @@ TEST(Bitmap, InterpolateBilinear) {
   bitmap.Allocate(11, 11, true);
   bitmap.Fill(BitmapColor<uint8_t>(0, 0, 0));
   bitmap.SetPixel(5, 5, BitmapColor<uint8_t>(1, 2, 3));
+  const BitmapData buffer = bitmap.ToData();
   BitmapColor<float> color;
-  EXPECT_TRUE(bitmap.InterpolateBilinear(5, 5, &color));
+  EXPECT_TRUE(buffer.InterpolateBilinear(5, 5, &color));
   EXPECT_EQ(color, BitmapColor<float>(1, 2, 3));
-  EXPECT_TRUE(bitmap.InterpolateBilinear(5.5, 5, &color));
+  EXPECT_TRUE(buffer.InterpolateBilinear(5.5, 5, &color));
   EXPECT_EQ(color, BitmapColor<float>(0.5, 1, 1.5));
-  EXPECT_TRUE(bitmap.InterpolateBilinear(5.5, 5.5, &color));
+  EXPECT_TRUE(buffer.InterpolateBilinear(5.5, 5.5, &color));
   EXPECT_EQ(color, BitmapColor<float>(0.25, 0.5, 0.75));
 }
 

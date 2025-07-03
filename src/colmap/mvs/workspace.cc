@@ -60,7 +60,7 @@ std::string Workspace::GetFileName(const int image_idx) const {
 
 void Workspace::Load(const std::vector<std::string>& image_names) {
   const size_t num_images = model_.images.size();
-  bitmaps_.resize(num_images);
+  bitmap_data_.resize(num_images);
   depth_maps_.resize(num_images);
   normal_maps_.resize(num_images);
 
@@ -69,11 +69,13 @@ void Workspace::Load(const std::vector<std::string>& image_names) {
     const size_t height = model_.images.at(image_idx).GetHeight();
 
     // Read and rescale bitmap
-    bitmaps_[image_idx] = std::make_unique<Bitmap>();
-    bitmaps_[image_idx]->Read(GetBitmapPath(image_idx), options_.image_as_rgb);
+    Bitmap bitmap;
+    bitmap.Read(GetBitmapPath(image_idx), options_.image_as_rgb);
     if (options_.max_image_size > 0) {
-      bitmaps_[image_idx]->Rescale((int)width, (int)height);
+      bitmap.Rescale((int)width, (int)height);
     }
+    bitmap_data_[image_idx] = std::make_unique<BitmapData>();
+    *bitmap_data_[image_idx] = bitmap.ToData();
 
     // Read and rescale depth map
     depth_maps_[image_idx] = std::make_unique<DepthMap>();
@@ -111,8 +113,8 @@ void Workspace::Load(const std::vector<std::string>& image_names) {
   timer.PrintMinutes();
 }
 
-const Bitmap& Workspace::GetBitmap(const int image_idx) {
-  return *bitmaps_[image_idx];
+const BitmapData& Workspace::GetBitmapData(const int image_idx) {
+  return *bitmap_data_[image_idx];
 }
 
 const DepthMap& Workspace::GetDepthMap(const int image_idx) {
@@ -149,7 +151,7 @@ bool Workspace::HasNormalMap(const int image_idx) const {
 
 CachedWorkspace::CachedImage::CachedImage(CachedImage&& other) noexcept {
   num_bytes = other.num_bytes;
-  bitmap = std::move(other.bitmap);
+  bitmap_data = std::move(other.bitmap_data);
   depth_map = std::move(other.depth_map);
   normal_map = std::move(other.normal_map);
 }
@@ -158,7 +160,7 @@ CachedWorkspace::CachedImage& CachedWorkspace::CachedImage::operator=(
     CachedImage&& other) noexcept {
   if (this != &other) {
     num_bytes = other.num_bytes;
-    bitmap = std::move(other.bitmap);
+    bitmap_data = std::move(other.bitmap_data);
     depth_map = std::move(other.depth_map);
     normal_map = std::move(other.normal_map);
   }
@@ -170,20 +172,22 @@ CachedWorkspace::CachedWorkspace(const Options& options)
       cache_((size_t)(1024.0 * 1024.0 * 1024.0 * options.cache_size),
              [](const int) { return std::make_shared<CachedImage>(); }) {}
 
-const Bitmap& CachedWorkspace::GetBitmap(const int image_idx) {
+const BitmapData& CachedWorkspace::GetBitmapData(const int image_idx) {
   auto cached_image = cache_.Get(image_idx);
   std::lock_guard<std::mutex> lock(cached_image->mutex);
-  if (!cached_image->bitmap) {
-    cached_image->bitmap = std::make_unique<Bitmap>();
-    cached_image->bitmap->Read(GetBitmapPath(image_idx), options_.image_as_rgb);
+  if (!cached_image->bitmap_data) {
+    Bitmap bitmap;
+    bitmap.Read(GetBitmapPath(image_idx), options_.image_as_rgb);
     if (options_.max_image_size > 0) {
-      cached_image->bitmap->Rescale(model_.images.at(image_idx).GetWidth(),
-                                    model_.images.at(image_idx).GetHeight());
+      bitmap.Rescale(model_.images.at(image_idx).GetWidth(),
+                     model_.images.at(image_idx).GetHeight());
     }
-    cached_image->num_bytes += cached_image->bitmap->NumBytes();
+    cached_image->bitmap_data = std::make_unique<BitmapData>();
+    *cached_image->bitmap_data = bitmap.ToData();
+    cached_image->num_bytes += cached_image->bitmap_data->data.size();
     cache_.UpdateNumBytes(image_idx);
   }
-  return *cached_image->bitmap;
+  return *cached_image->bitmap_data;
 }
 
 const DepthMap& CachedWorkspace::GetDepthMap(const int image_idx) {

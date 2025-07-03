@@ -65,6 +65,57 @@ struct BitmapColor {
   T b;
 };
 
+struct BitmapData {
+  BitmapData() = default;
+
+  BitmapData(int width, int height, bool as_rgb)
+      : width(width),
+        height(height),
+        channels(as_rgb ? 3 : 1),
+        data(width * height * channels) {}
+
+  BitmapData(int width,
+             int height,
+             int channels,
+             int red_idx,
+             int green_idx,
+             int blue_idx,
+             std::vector<uint8_t> data)
+      : width(width),
+        height(height),
+        channels(channels),
+        red_idx(red_idx),
+        green_idx(green_idx),
+        blue_idx(blue_idx),
+        data(std::move(data)) {}
+
+  int width = 0;
+  int height = 0;
+  int channels = 0;
+  int red_idx = 0;
+  int green_idx = 1;
+  int blue_idx = 2;
+  std::vector<uint8_t> data;
+
+  inline bool IsRGB() const;
+  inline bool IsGrey() const;
+
+  // Manipulate individual pixels. For grayscale images, only the red element
+  // of the RGB color is used.
+  inline bool GetPixel(int x, int y, BitmapColor<uint8_t>* color) const;
+  inline bool SetPixel(int x, int y, const BitmapColor<uint8_t>& color);
+
+  // Fill entire bitmap with uniform color. For grayscale images, the first
+  // element of the vector is used.
+  void Fill(const BitmapColor<uint8_t>& color);
+
+  // Interpolate color at given floating point position.
+  bool InterpolateNearestNeighbor(double x,
+                                  double y,
+                                  BitmapColor<uint8_t>* color) const;
+  bool InterpolateBilinear(double x, double y, BitmapColor<float>* color) const;
+};
+
 // Wrapper class around FreeImage bitmaps.
 class Bitmap {
  public:
@@ -113,9 +164,11 @@ class Bitmap {
   // Number of bytes required to store image.
   size_t NumBytes() const;
 
+  // Convert to raw bitmap data for efficient access.
+  BitmapData ToData() const;
+
   // Copy raw image data to array.
   std::vector<uint8_t> ConvertToRowMajorArray() const;
-  std::vector<uint8_t> ConvertToColMajorArray() const;
 
   // Convert to/from raw bits.
   std::vector<uint8_t> ConvertToRawBits() const;
@@ -133,12 +186,6 @@ class Bitmap {
   // Fill entire bitmap with uniform color. For grayscale images, the first
   // element of the vector is used.
   void Fill(const BitmapColor<uint8_t>& color);
-
-  // Interpolate color at given floating point position.
-  bool InterpolateNearestNeighbor(double x,
-                                  double y,
-                                  BitmapColor<uint8_t>* color) const;
-  bool InterpolateBilinear(double x, double y, BitmapColor<float>* color) const;
 
   // Extract EXIF information from bitmap. Returns false if no EXIF information
   // is embedded in the bitmap.
@@ -262,6 +309,52 @@ std::ostream& operator<<(std::ostream& output, const BitmapColor<T>& color) {
                          static_cast<double>(color.g),
                          static_cast<double>(color.b));
   return output;
+}
+
+bool BitmapData::IsRGB() const { return channels == 3; }
+
+bool BitmapData::IsGrey() const { return channels == 1; }
+
+bool BitmapData::GetPixel(const int x,
+                          const int y,
+                          BitmapColor<uint8_t>* color) const {
+  if (x < 0 || x >= width || y < 0 || y >= height) {
+    return false;
+  }
+
+  if (IsGrey()) {
+    color->r = data[y * width + x];
+    return true;
+  } else if (IsRGB()) {
+    const uint8_t* pixel = &data[(y * width + x) * channels];
+    color->r = pixel[red_idx];
+    color->g = pixel[green_idx];
+    color->b = pixel[blue_idx];
+    return true;
+  }
+
+  return false;
+}
+
+bool BitmapData::SetPixel(const int x,
+                          const int y,
+                          const BitmapColor<uint8_t>& color) {
+  if (x < 0 || x >= width || y < 0 || y >= height) {
+    return false;
+  }
+
+  if (IsGrey()) {
+    data[y * width + x] = color.r;
+    return true;
+  } else if (IsRGB()) {
+    uint8_t* pixel = &data[(y * width + x) * channels];
+    pixel[red_idx] = color.r;
+    pixel[green_idx] = color.g;
+    pixel[blue_idx] = color.b;
+    return true;
+  }
+
+  return false;
 }
 
 FIBITMAP* Bitmap::Data() { return handle_.ptr; }
