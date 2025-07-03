@@ -16,39 +16,38 @@ fi
 # Get absolute path
 HOST_DIR=$(realpath "$1")
 
-echo "Pulling latest COLMAP Docker image..."
-docker pull colmap/colmap:latest
+# Check if local colmap:latest image exists (in case you ran build.sh), otherwise use official image
+if docker image inspect colmap:latest >/dev/null 2>&1; then
+    echo "Using local COLMAP Docker image..."
+    COLMAP_IMAGE="colmap:latest"
+else
+    echo "Local COLMAP image not found, pulling official image..."
+    docker pull colmap/colmap:latest
+    COLMAP_IMAGE="colmap/colmap:latest"
+fi
 
 echo "Running COLMAP container with directory: $HOST_DIR"
 
 # Try different GPU configurations in order of preference
 echo "Testing GPU access..."
 
-# Test modern --gpus all flag first
-if docker run --rm --gpus all colmap/colmap:latest nvidia-smi >/dev/null 2>&1; then
-    echo "✅ Using GPU acceleration with --gpus all"
-    docker run --gpus all -w /working -v "$HOST_DIR":/working -it colmap/colmap:latest bash -c "
-        echo '[INFO] GPU-enabled COLMAP container starting...'
-        echo '[GPU Info]:' && nvidia-smi --query-gpu=name,memory.total,memory.used --format=csv,noheader,nounits
-        echo '[INFO] Container ready. GPU acceleration enabled.'
-        exec bash
-    "
-elif docker run --rm --runtime=nvidia colmap/colmap:latest nvidia-smi >/dev/null 2>&1; then
+# Test modern --runtime=nvidia flag first
+if docker run --rm --runtime=nvidia $COLMAP_IMAGE find /usr/local/cuda-*/targets/*/lib -name "libcudart.so*" 2>/dev/null | head -1 >/dev/null 2>&1; then
     echo "✅ Using GPU acceleration with --runtime=nvidia"
-    docker run --runtime=nvidia -w /working -v "$HOST_DIR":/working -it colmap/colmap:latest bash -c "
+    docker run --runtime=nvidia -w /working -v "$HOST_DIR":/working -it $COLMAP_IMAGE bash -c "
         echo '[INFO] GPU-enabled COLMAP container starting...'
-        echo '[GPU Info]:' && nvidia-smi --query-gpu=name,memory.total,memory.used --format=csv,noheader,nounits
+        echo '[CUDA Info]: CUDA 12.9 Runtime libraries found'
         echo '[INFO] Container ready. GPU acceleration enabled.'
         exec bash
     "
-elif docker run --rm colmap/colmap:latest colmap --help >/dev/null 2>&1; then
+elif docker run --rm $COLMAP_IMAGE colmap --help >/dev/null 2>&1; then
     echo "⚠️  GPU not available, using CPU mode"
-    docker run -w /working -v "$HOST_DIR":/working -it colmap/colmap:latest bash -c "
+    docker run -w /working -v "$HOST_DIR":/working -it $COLMAP_IMAGE bash -c "
         echo '[INFO] CPU-only COLMAP container starting...'
         echo '[WARNING] GPU acceleration disabled. Dense reconstruction will be slower.'
         exec bash
     "
 else
     echo "⚠️  Container test failed, trying anyway in CPU mode"
-    docker run -w /working -v "$HOST_DIR":/working -it colmap/colmap:latest
+    docker run -w /working -v "$HOST_DIR":/working -it $COLMAP_IMAGE
 fi

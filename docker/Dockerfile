@@ -68,21 +68,18 @@ RUN apt-get update && \
     libfreeimage3 \
     libgcc-s1 \
     libgl1 \
+    libopengl0 \
     libglew2.2 \
     libgoogle-glog0v6t64 \
+    libmetis5 \
     libqt5core5a \
     libqt5gui5 \
     libqt5widgets5 \
     libcurl4 \
-    libmkl-intel-lp64 \
-    libmkl-intel-thread \
-    libmkl-core && \
+    libomp5 \
+    libmkl-locale libmkl-core libmkl-intel-lp64 libmkl-intel-thread && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
-
-# Set MKL environment variables for proper threading
-ENV MKL_THREADING_LAYER=GNU
-ENV LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
 
 # Copy all files from /colmap-install/ in the builder stage to /usr/local/ in
 # the runtime stage. This simulates installing COLMAP in the default location
