@@ -36,7 +36,7 @@ if docker run --rm --runtime=nvidia $COLMAP_IMAGE find /usr/local/cuda-*/targets
     echo "✅ Using GPU acceleration with --runtime=nvidia"
     docker run --runtime=nvidia -w /working -v "$HOST_DIR":/working -it $COLMAP_IMAGE bash -c "
         echo '[INFO] GPU-enabled COLMAP container starting...'
-        echo '[CUDA Info]: CUDA 12.9 Runtime libraries found'
+        echo '[CUDA Info]: CUDA Runtime libraries found'
         echo '[INFO] Container ready. GPU acceleration enabled.'
         exec bash
     "
