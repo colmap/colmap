@@ -1,5 +1,5 @@
 ARG UBUNTU_VERSION=24.04
-ARG NVIDIA_CUDA_VERSION=12.9.0
+ARG NVIDIA_CUDA_VERSION=12.9.1
 
 #
 # Docker builder stage.
@@ -16,27 +16,27 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Prepare and empty machine for building.
 RUN apt-get update && \
     apt-get install -y \
-        git \
-        cmake \
-        ninja-build \
-        build-essential \
-        libboost-program-options-dev \
-        libboost-graph-dev \
-        libboost-system-dev \
-        libeigen3-dev \
-        libfreeimage-dev \
-        libmetis-dev \
-        libgoogle-glog-dev \
-        libgtest-dev \
-        libgmock-dev \
-        libsqlite3-dev \
-        libglew-dev \
-        qtbase5-dev \
-        libqt5opengl5-dev \
-        libcgal-dev \
-        libceres-dev \
-        libcurl4-openssl-dev \
-        libmkl-full-dev
+    git \
+    cmake \
+    ninja-build \
+    build-essential \
+    libboost-program-options-dev \
+    libboost-graph-dev \
+    libboost-system-dev \
+    libeigen3-dev \
+    libfreeimage-dev \
+    libmetis-dev \
+    libgoogle-glog-dev \
+    libgtest-dev \
+    libgmock-dev \
+    libsqlite3-dev \
+    libglew-dev \
+    qtbase5-dev \
+    libqt5opengl5-dev \
+    libcgal-dev \
+    libceres-dev \
+    libcurl4-openssl-dev \
+    libmkl-full-dev
 
 # Build and install COLMAP.
 RUN git clone https://github.com/colmap/colmap.git
@@ -46,10 +46,10 @@ RUN cd colmap && \
     mkdir build && \
     cd build && \
     cmake .. \
-        -GNinja \
-        -DCMAKE_CUDA_ARCHITECTURES=${CUDA_ARCHITECTURES} \
-        -DCMAKE_INSTALL_PREFIX=/colmap-install \
-        -DBLA_VENDOR=Intel10_64lp && \
+    -GNinja \
+    -DCMAKE_CUDA_ARCHITECTURES=${CUDA_ARCHITECTURES} \
+    -DCMAKE_INSTALL_PREFIX=/colmap-install \
+    -DBLA_VENDOR=Intel10_64lp && \
     ninja install
 
 #
@@ -62,25 +62,25 @@ FROM nvidia/cuda:${NVIDIA_CUDA_VERSION}-runtime-ubuntu${UBUNTU_VERSION} AS runti
 # build dependencies are not needed.
 RUN apt-get update && \
     apt-get install -y --no-install-recommends --no-install-suggests \
-        libboost-program-options1.83.0 \
-        libc6 \
-        libomp5 \
-        libopengl0 \
-        libmetis5 \
-        libceres4t64 \
-        libfreeimage3 \
-        libgcc-s1 \
-        libgl1 \
-        libglew2.2 \
-        libgoogle-glog0v6t64 \
-        libqt5core5a \
-        libqt5gui5 \
-        libqt5widgets5 \
-        libcurl4 \
-        libmkl-locale \
-        libmkl-intel-lp64 \
-        libmkl-intel-thread \
-        libmkl-core && \
+    libboost-program-options1.83.0 \
+    libc6 \
+    libomp5 \
+    libopengl0 \
+    libmetis5 \
+    libceres4t64 \
+    libfreeimage3 \
+    libgcc-s1 \
+    libgl1 \
+    libglew2.2 \
+    libgoogle-glog0v6t64 \
+    libqt5core5a \
+    libqt5gui5 \
+    libqt5widgets5 \
+    libcurl4 \
+    libmkl-locale \
+    libmkl-intel-lp64 \
+    libmkl-intel-thread \
+    libmkl-core && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
