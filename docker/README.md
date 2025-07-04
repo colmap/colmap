@@ -42,8 +42,8 @@
 
 ## Build from Scratch
 
-After completing steps 1,2, you can alternatively build the docker image from
-scratch based on the **Dockerfile** (e.g., with your own modifications) using:
+After completing steps 1-2, you can build the Docker image from scratch using the **Dockerfile**.
+First, update the CUDA and Ubuntu versions in Dockerfile lines 1-2 to match your system, then:
 
 ```
 ./build.sh
