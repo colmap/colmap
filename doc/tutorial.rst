@@ -173,7 +173,7 @@ not modify the input images or directory and all extracted data is stored in a
 single, self-contained SQLite database file (see :doc:`database`).
 
 The first step is to start the graphical user interface of COLMAP by running the
-pre-built binaries (Windows: `COLMAP.bat`, Mac: `COLMAP.app`) or by executing
+pre-built binaries (Windows: ``COLMAP.bat``, Mac: ``COLMAP.app``) or by executing
 ``./src/colmap/exe/colmap gui`` from the CMake build folder. Next, create a new project
 by choosing ``File > New project``. In this dialog, you must select where to
 store the database and the folder that contains the input images. For
@@ -182,7 +182,7 @@ choosing ``File > Save project``. The project configuration stores the absolute
 path information of the database and image folder in addition to any other
 parameter settings. If you decide to move the database or image folder, you must
 change the paths accordingly by creating a new project. Alternatively, the
-resulting `.ini` configuration file can be directly modified in a text editor of
+resulting ``.ini`` configuration file can be directly modified in a text editor of
 your choice. To reopen an existing project, you can simply open the
 configuration file by choosing ``File > Open project`` and all parameter
 settings should be recovered. Note that all COLMAP executables can be started
@@ -201,9 +201,9 @@ An example folder structure could look like this::
     +── database.db
     +── project.ini
 
-In this example, you would select `/path/to/project/images` as the image folder
-path, `/path/to/project/database.db` as the database file path, and save the
-project configuration to `/path/to/project/project.ini`.
+In this example, you would select ``/path/to/project/images`` as the image folder
+path, ``/path/to/project/database.db`` as the database file path, and save the
+project configuration to ``/path/to/project/project.ini``.
 
 
 Feature Detection and Extraction
@@ -236,15 +236,15 @@ while the CPU version is recommended for use on a server. In general, the GPU
 version is favorable as it has a customized feature detection mode that often
 produces higher quality features in the case of high contrast images. If you
 import existing features, every image must have a text file next to it (e.g.,
-`/path/to/image1.jpg` and `/path/to/image1.jpg.txt`) in the following format::
+``/path/to/image1.jpg`` and ``/path/to/image1.jpg.txt``) in the following format::
 
     NUM_FEATURES 128
     X Y SCALE ORIENTATION D_1 D_2 D_3 ... D_128
     ...
     X Y SCALE ORIENTATION D_1 D_2 D_3 ... D_128
 
-where `X, Y, SCALE, ORIENTATION` are floating point numbers and `D_1...D_128`
-values in the range `0...255`. The file should have `NUM_FEATURES` lines with
+where ``X, Y, SCALE, ORIENTATION`` are floating point numbers and ``D_1...D_128``
+values in the range ``0...255``. The file should have ``NUM_FEATURES`` lines with
 one line per feature. For example, if an image has 4 features, then the text
 file should look something like this::
 
@@ -254,8 +254,8 @@ file should look something like this::
     0.2 1.3 1.1 0.3 3 2 3 2 ... 2
     1.2 2.3 1.1 0.3 3 2 3 2 ... 3
 
-Note that by convention the upper left corner of an image has coordinate `(0,
-0)` and the center of the upper left most pixel has coordinate `(0.5, 0.5)`. If
+Note that by convention the upper left corner of an image has coordinate ``(0,
+0)`` and the center of the upper left most pixel has coordinate ``(0.5, 0.5)``. If
 you must  import features for large image collections, it is much more efficient
 to directly access the database with your favorite scripting language (see
 :ref:`Database Format <database-format>`).
@@ -293,10 +293,10 @@ matching modes, that are intended for different input scenarios:
   have visual overlap and there is no need to match all image pairs
   exhaustively. Instead, consecutively captured images are matched against each
   other. This matching mode has built-in loop detection based on a vocabulary
-  tree, where every N-th image (`loop_detection_period`) is matched against its
-  visually most similar images (`loop_detection_num_images`). Note that image
-  file names must be ordered sequentially (e.g., `image0001.jpg`,
-  `image0002.jpg`, etc.). The order in the database is not relevant, since the
+  tree, where every N-th image (``loop_detection_period``) is matched against its
+  visually most similar images (``loop_detection_num_images``). Note that image
+  file names must be ordered sequentially (e.g., ``image0001.jpg``,
+  ``image0002.jpg``, etc.). The order in the database is not relevant, since the
   images are explicitly ordered according to their file names. Note that loop
   detection requires a pre-trained vocabulary tree. A default tree will be
   automatically downloaded and cached. More trees are available and can be
@@ -329,7 +329,7 @@ matching modes, that are intended for different input scenarios:
     image1.jpg image3.jpg
     ...
 
-  where `image1.jpg` is the relative path in the image folder. You have two
+  where ``image1.jpg`` is the relative path in the image folder. You have two
   options to import individual feature matches. Either raw feature matches,
   which are not geometrically verified or already geometrically verified feature
   matches. In both cases, the expected format is::
@@ -347,7 +347,7 @@ matching modes, that are intended for different input scenarios:
     <empty-line>
     ...
 
-  where `image1.jpg` is the relative path in the image folder and the pairs of
+  where ``image1.jpg`` is the relative path in the image folder and the pairs of
   numbers are zero-based feature indices in the respective images. If you must
   import many matches for large image collections, it is more efficient to
   directly access the database with a scripting language of your choice.
@@ -372,7 +372,7 @@ reviewed/managed in the database management tool (see :ref:`Database Management
 Note that feature matching requires a GPU and that the display performance of
 your computer might degrade significantly during the matching process. If your
 system has multiple CUDA-enabled GPUs, you can select specific GPUs with the
-`gpu_index` option.
+``gpu_index`` option.
 
 
 Sparse Reconstruction
@@ -459,9 +459,9 @@ perform the dense reconstruction. To run PMVS2, execute the following commands:
 
     ./path/to/pmvs2 /path/to/undistortion/folder/pmvs/ option-all
 
-where `/path/to/undistortion/folder` is the folder selected in the undistortion
+where ``/path/to/undistortion/folder`` is the folder selected in the undistortion
 dialog. Make sure not to forget the trailing slash in
-`/path/to/undistortion/folder/pmvs/` in the above command-line arguments.
+``/path/to/undistortion/folder/pmvs/`` in the above command-line arguments.
 
 For large datasets, you probably want to first run CMVS to cluster the scene
 into more manageable parts and then run COLMAP or PMVS2. Please, refer to the
@@ -488,14 +488,14 @@ modified by double clicking specific cells. Note that any changes to the
 database are only effective after clicking ``Save``.
 
 To share intrinsic camera parameters between arbitrary groups of images, select
-a single or multiple images, choose ``Set camera`` and set the `camera_id`,
-which corresponds to the unique `camera_id` column in the cameras table. You can
+a single or multiple images, choose ``Set camera`` and set the ``camera_id``,
+which corresponds to the unique ``camera_id`` column in the cameras table. You can
 also add new cameras with specific parameters. By setting the
-`prior_focal_length` flag to 0 or 1, you can give a hint whether the
+``prior_focal_length`` flag to 0 or 1, you can give a hint whether the
 reconstruction algorithm should trust the focal length value. In case of a prior
 lab calibration, you want to set this value to 1. Without prior knowledge about
-the focal length, it is recommended to set this value to `1.25 *
-max(width_in_px, height_in_px)`.
+the focal length, it is recommended to set this value to ``1.25 *
+max(width_in_px, height_in_px)``.
 
 The database management tool has only limited functionality and, for full
 control over the data, you must directly modify the SQLite database (see
@@ -513,7 +513,7 @@ Graphical and Command-line Interface
 Most of COLMAP's features are accessible from both the graphical and the
 command-line interface, which are both embedded in the same executable. You can
 provide the options directly as command-line arguments or you can provide a
-`.ini` project configuration file containing the options using the
+``.ini`` project configuration file containing the options using the
 ``--project_path path/to/project.ini`` argument. To start the GUI application,
 please execute ``colmap gui`` or directly specify a project configuration as
 ``colmap gui --project_path path/to/project.ini`` to avoid tedious selection in

@@ -10,7 +10,7 @@ Binary File Format
 Note that all binary data is stored using little endian byte ordering. All x86
 processors are little endian and thus no special care has to be taken when
 reading COLMAP binary data on most platforms. The data can be most conveniently
-parsed using the C++ reconstruction API under `src/colmap/scene/reconstruction_io.h`
+parsed using the C++ reconstruction API under ``src/colmap/scene/reconstruction_io.h``
 or using the Python API provided by pycolmap.
 
 
@@ -22,10 +22,10 @@ Any variable name ending with ``*_idx`` should be considered as an ordered,
 contiguous zero-based index. In general, any variable name ending with ``*_id``
 should be considered as an unordered, non-contiguous identifier.
 
-For example, the unique identifiers of cameras (`CAMERA_ID`), images
-(`IMAGE_ID`), and 3D points (`POINT3D_ID`) are unordered and are most likely not
-contiguous. This also means that the maximum `POINT3D_ID` does not necessarily
-correspond to the number 3D points, since some `POINT3D_ID`'s are missing due to
+For example, the unique identifiers of cameras (``CAMERA_ID``), images
+(``IMAGE_ID``), and 3D points (``POINT3D_ID``) are unordered and are most likely not
+contiguous. This also means that the maximum ``POINT3D_ID`` does not necessarily
+correspond to the number 3D points, since some ``POINT3D_ID``'s are missing due to
 filtering during the reconstruction, etc.
 
 
@@ -36,18 +36,18 @@ Sparse Reconstruction
 By default, COLMAP uses a binary file format (machine-readable, fast) for
 storing sparse models. In addition, COLMAP provides the option to store the
 sparse models as text files (human-readable, slow). In both cases, the
-information is split into multiples files for the information about `rigs`,
-`cameras`, `frames`, `images`, and `points`. Any directory containing these
+information is split into multiples files for the information about ``rigs``,
+``cameras``, ``frames``, ``images``, and ``points``. Any directory containing these
 files constitutes a sparse model. The binary files have the file extension
-`.bin` and the text files the file extension `.txt`. Note that when loading a
+``.bin`` and the text files the file extension ``.txt``. Note that when loading a
 model from a directory which contains both binary and text files, COLMAP prefers
 the binary format.
 
-Note that older versions of COLMAP had no rig support and thus the `rigs` and
-`frames` files may be missing. The reconstruction I/O routines in COLMAP are
+Note that older versions of COLMAP had no rig support and thus the ``rigs`` and
+``frames`` files may be missing. The reconstruction I/O routines in COLMAP are
 fully backwards compatible in that models without these files can be read and
 trivial rigs and frames will be automatically initialized. Furthermore, newer
-output reconstructions' `cameras` and `images` files are fully compatible with
+output reconstructions' ``cameras`` and ``images`` files are fully compatible with
 old outputs.
 
 To export the currently selected model in the GUI, choose ``File > Export
@@ -56,7 +56,7 @@ model``. To export all reconstructed models in the current dataset, choose
 for convenience, the current project configuration for importing the model to
 COLMAP. To import the exported models, e.g., for visualization or to resume the
 reconstruction, choose ``File > Import model`` and select the folder containing
-the `cameras`, `images`, and `points3D` files.
+the ``cameras``, ``images``, and ``points3D`` files.
 
 To convert between the binary and text format in the GUI, you can load the model
 using ``File > Import model`` and then export the model in the desired output
@@ -76,7 +76,7 @@ Text Format
 -----------
 
 COLMAP exports the following three text files for every reconstructed model:
-`rigs.txt`, `cameras.txt`, `frames.txt`, `images.txt`, and `points3D.txt`.
+``rigs.txt``, ``cameras.txt``, ``frames.txt``, ``images.txt``, and ``points3D.txt``.
 Comments start with a leading "#" character and are ignored. The first comment
 lines briefly describe the format of the text files, as described in more
 detailed on this page.
@@ -114,9 +114,9 @@ Here, the dataset contains 3 cameras based using different distortion models
 with the same sensor dimensions (width: 3072, height: 2304). The length of
 parameters is variable and depends on the camera model. For the first camera,
 there are 3 parameters with a single focal length of 2559.81 pixels and a
-principal point at pixel location `(1536, 1152)`. The intrinsic parameters of a
+principal point at pixel location ``(1536, 1152)``. The intrinsic parameters of a
 camera can be shared by multiple images, which refer to cameras using the unique
-identifier `CAMERA_ID`.
+identifier ``CAMERA_ID``.
 
 
 frames.txt
@@ -152,8 +152,8 @@ dataset using two lines per image, e.g.::
 
 Here, the first two lines define the information of the first image, and so on.
 The reconstructed pose of an image is specified as the projection from world to
-the camera coordinate system of an image using a quaternion `(QW, QX, QY, QZ)`
-and a translation vector `(TX, TY, TZ)`. The quaternion is defined using the
+the camera coordinate system of an image using a quaternion ``(QW, QX, QY, QZ)``
+and a translation vector ``(TX, TY, TZ)``. The quaternion is defined using the
 Hamilton convention, which is, for example, also used by the Eigen library. The
 coordinates of the projection/camera center are given by ``-R^t * T``, where
 ``R^t`` is the inverse/transpose of the 3x3 rotation matrix composed from the
@@ -162,7 +162,7 @@ system of an image is defined in a way that the X axis points to the right, the
 Y axis to the bottom, and the Z axis to the front as seen from the image.
 
 Both images in the example above use the same camera model and share intrinsics
-(`CAMERA_ID = 1`). The image name is relative to the selected base image folder
+(``CAMERA_ID = 1``). The image name is relative to the selected base image folder
 of the project. The first image has 3 keypoints and the second image has 2
 keypoints, while the location of the keypoints is specified in pixel
 coordinates. Both images observe 2 3D points and note that the last keypoint of
@@ -183,8 +183,8 @@ dataset using one line per point, e.g.::
     63376 2.01848 0.108877 -0.0260841 102 209 250 1.73449 16 6519 15 7322 14 7212 8 3991
     63371 1.71102 0.28566 0.53475 245 251 249 0.612829 118 4140 117 4473
 
-Here, there are three reconstructed 3D points, where `POINT2D_IDX` defines the
-zero-based index of the keypoint in the `images.txt` file. The error is given in
+Here, there are three reconstructed 3D points, where ``POINT2D_IDX`` defines the
+zero-based index of the keypoint in the ``images.txt`` file. The error is given in
 pixels of reprojection error and is only updated after global bundle adjustment.
 
 
@@ -223,11 +223,11 @@ COLMAP uses the following workspace folder structure::
     +── run-colmap-geometric.sh
     +── run-colmap-photometric.sh
 
-Here, the `images` folder contains the undistorted images, the `sparse` folder
-contains the sparse reconstruction with undistorted cameras, the `stereo` folder
-contains the stereo reconstruction results, `point-cloud.ply` and `mesh.ply` are
-the results of the fusion and meshing procedure, and `run-colmap-geometric.sh`
-and `run-colmap-photometric.sh` contain example command-line usage to perform
+Here, the ``images`` folder contains the undistorted images, the ``sparse`` folder
+contains the sparse reconstruction with undistorted cameras, the ``stereo`` folder
+contains the stereo reconstruction results, ``point-cloud.ply`` and ``mesh.ply`` are
+the results of the fusion and meshing procedure, and ``run-colmap-geometric.sh``
+and ``run-colmap-photometric.sh`` contain example command-line usage to perform
 the dense reconstruction.
 
 
@@ -237,7 +237,7 @@ Depth and Normal Maps
 
 The depth maps are stored as mixed text and binary files. The text header
 defines the dimensions of the image in the format ``with&height&channels&``
-followed by row-major `float32` binary data. For depth maps ``channels=1`` and
+followed by row-major ``float32`` binary data. For depth maps ``channels=1`` and
 for normal maps ``channels=3``. The depth and normal maps can be conveniently
 read with Python using the functions in ``scripts/python/read_dense.py`` and
 with Matlab using the functions in ``scripts/matlab/read_depth_map.m`` and
@@ -251,7 +251,7 @@ Consistency Graphs
 The consistency graph defines, for all pixels in an image, the source images a
 pixel is consistent with. The graph is stored as a mixed text and binary file,
 while the text part is equivalent to the depth and normal maps and the binary
-part is a continuous list of `int32` values in the format
+part is a continuous list of ``int32`` values in the format
 ``<row><col><N><image_idx1>...<image_idxN>``. Here, ``(row, col)``  defines the
 location of the pixel in the image followed by a list of ``N`` image indices.
 The indices are specified w.r.t. the ordering in the ``images.txt`` file.
