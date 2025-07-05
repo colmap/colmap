@@ -36,28 +36,8 @@ void BindBitmap(pybind11::module& m) {
              py::buffer_info output_into = output.request();
              uint8_t* output_row_ptr =
                  reinterpret_cast<uint8_t*>(output.request().ptr);
-             const size_t output_pitch = output_into.shape[1] * channels;
-             for (ssize_t y = 0; y < output_into.shape[0]; ++y) {
-               if (is_rgb) {
-                 for (ssize_t x = 0; x < output_into.shape[1]; ++x) {
-                   // Notice that the underlying FreeImage buffer may order
-                   // the channels as BGR or in any other format and with
-                   // different striding, so we have to set each pixel
-                   // separately.
-                   // We always return the array in the order R, G, B.
-                   BitmapColor<uint8_t> color;
-                   THROW_CHECK(self.GetPixel(x, y, &color));
-                   output_row_ptr[3 * x] = color.r;
-                   output_row_ptr[3 * x + 1] = color.g;
-                   output_row_ptr[3 * x + 2] = color.b;
-                 }
-               } else {
-                 // Copy (guaranteed contiguous) row memory directly.
-                 std::memcpy(
-                     output_row_ptr, self.GetScanline(y), output_into.shape[1]);
-               }
-               output_row_ptr += output_pitch;
-             }
+             std::memcpy(
+                 output_row_ptr, self.RowMajorData().data(), self.NumBytes());
              return output;
            })
       .def_static(
@@ -75,16 +55,15 @@ void BindBitmap(pybind11::module& m) {
             const int height = array.shape(0);
             if (width == 0 || height == 0) {
               throw std::runtime_error(
-                  "Input array must have positive width and height");
+                  "Input array must have positive width and height!");
             }
 
-            if (channels != 1 && channels != 3 && channels != 4) {
+            if (channels != 1 && channels != 3) {
               throw std::runtime_error(
-                  "Input array must have 1, 3, or 4 channels!");
+                  "Input array must have 1 or 3 channels!");
             }
 
             const bool is_rgb = channels != 1;
-            const size_t pitch = width * channels;
 
             Bitmap output;
             output.Allocate(width, height, is_rgb);
@@ -92,30 +71,8 @@ void BindBitmap(pybind11::module& m) {
             const uint8_t* input_row_ptr =
                 static_cast<uint8_t*>(array.request().ptr);
 
-            for (int y = 0; y < height; ++y) {
-              if (is_rgb) {
-                for (int x = 0; x < width; ++x) {
-                  // We assume that provided array dimensions are R, G, B.
-                  // Notice that the underlying FreeImage buffer may order
-                  // the channels as BGR or in any other format and with
-                  // different striding, so we have to set each pixel
-                  // separately.
-                  output.SetPixel(
-                      x,
-                      y,
-                      BitmapColor<uint8_t>(input_row_ptr[channels * x],
-                                           input_row_ptr[channels * x + 1],
-                                           input_row_ptr[channels * x + 2]));
-                }
-              } else {
-                // Copy (guaranteed contiguous) row memory directly.
-                std::memcpy(const_cast<uint8_t*>(output.GetScanline(y)),
-                            input_row_ptr,
-                            width);
-              }
-
-              input_row_ptr += pitch;
-            }
+            std::memcpy(
+                output.RowMajorData().data(), input_row_ptr, output.NumBytes());
 
             return output;
           },
@@ -126,7 +83,6 @@ void BindBitmap(pybind11::module& m) {
       .def("write",
            &Bitmap::Write,
            "path"_a,
-           "flags"_a = 0,
            "Write bitmap to file.")
       .def("__repr__", &CreateRepresentation<Bitmap>)
       .def_static(

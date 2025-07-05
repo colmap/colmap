@@ -150,6 +150,8 @@ unsigned int Bitmap::BitsPerPixel() const { return channels_ * 8; }
 
 unsigned int Bitmap::Pitch() const { return width_ * channels_; }
 
+std::vector<uint8_t>& Bitmap::RowMajorData() { return data_; }
+
 const std::vector<uint8_t>& Bitmap::RowMajorData() const { return data_; }
 
 void Bitmap::Fill(const BitmapColor<uint8_t>& color) {

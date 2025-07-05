@@ -97,6 +97,7 @@ class Bitmap {
   size_t NumBytes() const;
 
   // Access raw image data array.
+  std::vector<uint8_t>& RowMajorData();
   const std::vector<uint8_t>& RowMajorData() const;
 
   // Manipulate individual pixels. For grayscale images, only the red element
