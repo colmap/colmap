@@ -31,7 +31,7 @@
 
 #include "colmap/controllers/feature_extraction.h"
 #include "colmap/controllers/feature_matching.h"
-#include "colmap/controllers/image_reader.h"
+#include "colmap/controllers/image_importer.h"
 #include "colmap/controllers/option_manager.h"
 #include "colmap/exe/gui.h"
 #include "colmap/retrieval/visual_index.h"
@@ -98,20 +98,17 @@ void UpdateImageReaderOptionsFromCameraMode(ImageReaderOptions& options,
   }
 }
 
-int RunFeatureExtractor(int argc, char** argv) {
+int RunImageImporter(int argc, char** argv) {
   std::string image_list_path;
   int camera_mode = -1;
-  std::string descriptor_normalization = "l1_root";
 
   OptionManager options;
   options.AddDatabaseOptions();
   options.AddImageOptions();
+  options.AddImageReaderOptions();
   options.AddDefaultOption("camera_mode", &camera_mode);
   options.AddDefaultOption("image_list_path", &image_list_path);
-  options.AddDefaultOption("descriptor_normalization",
-                           &descriptor_normalization,
-                           "{'l1_root', 'l2'}");
-  options.AddExtractionOptions();
+
   options.Parse(argc, argv);
 
   ImageReaderOptions reader_options = *options.image_reader;
@@ -120,18 +117,6 @@ int RunFeatureExtractor(int argc, char** argv) {
   if (camera_mode >= 0) {
     UpdateImageReaderOptionsFromCameraMode(reader_options,
                                            (CameraMode)camera_mode);
-  }
-
-  StringToLower(&descriptor_normalization);
-  if (descriptor_normalization == "l1_root") {
-    options.sift_extraction->normalization =
-        SiftExtractionOptions::Normalization::L1_ROOT;
-  } else if (descriptor_normalization == "l2") {
-    options.sift_extraction->normalization =
-        SiftExtractionOptions::Normalization::L2;
-  } else {
-    LOG(ERROR) << "Invalid `descriptor_normalization`";
-    return EXIT_FAILURE;
   }
 
   if (!image_list_path.empty()) {
@@ -150,6 +135,38 @@ int RunFeatureExtractor(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
+  auto image_importer =
+      CreateImageImporterController(*options.database_path, reader_options);
+  image_importer->Start();
+  image_importer->Wait();
+
+  return EXIT_SUCCESS;
+}
+
+int RunFeatureExtractor(int argc, char** argv) {
+  std::string descriptor_normalization = "l1_root";
+
+  OptionManager options;
+  options.AddDatabaseOptions();
+  options.AddImageOptions();
+  options.AddDefaultOption("descriptor_normalization",
+                           &descriptor_normalization,
+                           "{'l1_root', 'l2'}");
+  options.AddExtractionOptions();
+  options.Parse(argc, argv);
+
+  StringToLower(&descriptor_normalization);
+  if (descriptor_normalization == "l1_root") {
+    options.sift_extraction->normalization =
+        SiftExtractionOptions::Normalization::L1_ROOT;
+  } else if (descriptor_normalization == "l2") {
+    options.sift_extraction->normalization =
+        SiftExtractionOptions::Normalization::L2;
+  } else {
+    LOG(ERROR) << "Invalid `descriptor_normalization`";
+    return EXIT_FAILURE;
+  }
+
   if (!VerifySiftGPUParams(options.sift_extraction->use_gpu)) {
     return EXIT_FAILURE;
   }
@@ -159,8 +176,13 @@ int RunFeatureExtractor(int argc, char** argv) {
     app.reset(new QApplication(argc, argv));
   }
 
-  auto feature_extractor = CreateFeatureExtractorController(
-      *options.database_path, reader_options, *options.sift_extraction);
+  // TODO: add camera_mask_path
+  auto feature_extractor =
+      CreateFeatureExtractorController(*options.database_path,
+                                       *options.image_path,
+                                       *options.mask_path,
+                                       *options.camera_mask_path,
+                                       *options.sift_extraction);
 
   if (options.sift_extraction->use_gpu && kUseOpenGL) {
     RunThreadWithOpenGLContext(feature_extractor.get());
@@ -174,40 +196,14 @@ int RunFeatureExtractor(int argc, char** argv) {
 
 int RunFeatureImporter(int argc, char** argv) {
   std::string import_path;
-  std::string image_list_path;
-  int camera_mode = -1;
 
   OptionManager options;
   options.AddDatabaseOptions();
-  options.AddImageOptions();
-  options.AddDefaultOption("camera_mode", &camera_mode);
   options.AddRequiredOption("import_path", &import_path);
-  options.AddDefaultOption("image_list_path", &image_list_path);
-  options.AddExtractionOptions();
   options.Parse(argc, argv);
 
-  ImageReaderOptions reader_options = *options.image_reader;
-  reader_options.image_path = *options.image_path;
-
-  if (camera_mode >= 0) {
-    UpdateImageReaderOptionsFromCameraMode(reader_options,
-                                           (CameraMode)camera_mode);
-  }
-
-  if (!image_list_path.empty()) {
-    reader_options.image_names = ReadTextFileLines(image_list_path);
-    if (reader_options.image_names.empty()) {
-      return EXIT_SUCCESS;
-    }
-  }
-
-  if (!VerifyCameraParams(reader_options.camera_model,
-                          reader_options.camera_params)) {
-    return EXIT_FAILURE;
-  }
-
-  auto feature_importer = CreateFeatureImporterController(
-      *options.database_path, reader_options, import_path);
+  auto feature_importer =
+      CreateFeatureImporterController(*options.database_path, import_path);
   feature_importer->Start();
   feature_importer->Wait();
 

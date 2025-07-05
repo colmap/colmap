@@ -231,14 +231,12 @@ void OptionManager::AddImageOptions() {
   AddAndRegisterRequiredOption("image_path", image_path.get());
 }
 
-void OptionManager::AddExtractionOptions() {
-  if (added_extraction_options_) {
+void OptionManager::AddImageReaderOptions() {
+  if (added_image_reader_options_) {
     return;
   }
-  added_extraction_options_ = true;
+  added_image_reader_options_ = true;
 
-  AddAndRegisterDefaultOption("ImageReader.mask_path",
-                              &image_reader->mask_path);
   AddAndRegisterDefaultOption("ImageReader.camera_model",
                               &image_reader->camera_model);
   AddAndRegisterDefaultOption("ImageReader.single_camera",
@@ -253,8 +251,16 @@ void OptionManager::AddExtractionOptions() {
                               &image_reader->camera_params);
   AddAndRegisterDefaultOption("ImageReader.default_focal_length_factor",
                               &image_reader->default_focal_length_factor);
-  AddAndRegisterDefaultOption("ImageReader.camera_mask_path",
-                              &image_reader->camera_mask_path);
+}
+
+void OptionManager::AddExtractionOptions() {
+  if (added_extraction_options_) {
+    return;
+  }
+  added_extraction_options_ = true;
+
+  AddAndRegisterDefaultOption("mask_path", mask_path.get());
+  AddAndRegisterDefaultOption("camera_mask_path", camera_mask_path.get());
 
   AddAndRegisterDefaultOption("SiftExtraction.num_threads",
                               &sift_extraction->num_threads);
@@ -793,6 +799,7 @@ void OptionManager::Reset() {
   added_random_options_ = false;
   added_database_options_ = false;
   added_image_options_ = false;
+  added_image_reader_options_ = false;
   added_extraction_options_ = false;
   added_match_options_ = false;
   added_exhaustive_match_options_ = false;

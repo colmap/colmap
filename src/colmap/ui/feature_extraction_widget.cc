@@ -74,9 +74,8 @@ ExtractionWidget::ExtractionWidget(QWidget* parent, OptionManager* options)
 SIFTExtractionWidget::SIFTExtractionWidget(QWidget* parent,
                                            OptionManager* options)
     : ExtractionWidget(parent, options) {
-  AddOptionDirPath(&options->image_reader->mask_path, "mask_path");
-  AddOptionFilePath(&options->image_reader->camera_mask_path,
-                    "camera_mask_path");
+  AddOptionDirPath(options->mask_path.get(), "mask_path");
+  AddOptionFilePath(options->camera_mask_path.get(), "camera_mask_path");
 
   AddOptionInt(&options->sift_extraction->max_image_size, "max_image_size");
   AddOptionInt(&options->sift_extraction->max_num_features, "max_num_features");
@@ -120,11 +119,11 @@ SIFTExtractionWidget::SIFTExtractionWidget(QWidget* parent,
 void SIFTExtractionWidget::Run() {
   WriteOptions();
 
-  ImageReaderOptions reader_options = *options_->image_reader;
-  reader_options.image_path = *options_->image_path;
-
-  auto extractor = CreateFeatureExtractorController(
-      *options_->database_path, reader_options, *options_->sift_extraction);
+  auto extractor = CreateFeatureExtractorController(*options_->database_path,
+                                                    *options_->image_path,
+                                                    *options_->mask_path,
+                                                    *options_->camera_mask_path,
+                                                    *options_->sift_extraction);
   thread_control_widget_->StartThread(
       "Extracting...", true, std::move(extractor));
 }
@@ -143,25 +142,22 @@ void ImportFeaturesWidget::Run() {
     return;
   }
 
-  ImageReaderOptions reader_options = *options_->image_reader;
-  reader_options.image_path = *options_->image_path;
-
-  auto importer = CreateFeatureImporterController(
-      *options_->database_path, reader_options, import_path_);
+  auto importer =
+      CreateFeatureImporterController(*options_->database_path, import_path_);
   thread_control_widget_->StartThread(
       "Importing...", true, std::move(importer));
 }
 
 FeatureExtractionWidget::FeatureExtractionWidget(QWidget* parent,
                                                  OptionManager* options)
-    : parent_(parent), options_(options) {
+    : parent_(parent) {
   setWindowFlags(Qt::Dialog);
   setWindowModality(Qt::ApplicationModal);
   setWindowTitle("Feature extraction");
 
   QGridLayout* grid = new QGridLayout(this);
 
-  grid->addWidget(CreateCameraModelBox(), 0, 0);
+  // grid->addWidget(CreateCameraModelBox(), 0, 0);
 
   tab_widget_ = new QTabWidget(this);
 
@@ -185,70 +181,70 @@ FeatureExtractionWidget::FeatureExtractionWidget(QWidget* parent,
   grid->addWidget(extract_button, grid->rowCount(), 0);
 }
 
-QGroupBox* FeatureExtractionWidget::CreateCameraModelBox() {
-  camera_model_ids_.clear();
+// QGroupBox* FeatureExtractionWidget::CreateCameraModelBox() {
+//   camera_model_ids_.clear();
 
-  camera_model_cb_ = new QComboBox(this);
+//   camera_model_cb_ = new QComboBox(this);
 
-#define CAMERA_MODEL_CASE(CameraModel)                                     \
-  camera_model_cb_->addItem(                                               \
-      QString::fromStdString(CameraModelIdToName(CameraModel::model_id))); \
-  camera_model_ids_.push_back(static_cast<int>(CameraModel::model_id));
+// #define CAMERA_MODEL_CASE(CameraModel)                                     \
+//   camera_model_cb_->addItem(                                               \
+//       QString::fromStdString(CameraModelIdToName(CameraModel::model_id))); \
+//   camera_model_ids_.push_back(static_cast<int>(CameraModel::model_id));
 
-  CAMERA_MODEL_CASES
+//   CAMERA_MODEL_CASES
 
-#undef CAMERA_MODEL_CASE
+// #undef CAMERA_MODEL_CASE
 
-  camera_params_exif_rb_ = new QRadioButton(tr("Parameters from EXIF"), this);
-  camera_params_exif_rb_->setChecked(true);
+// camera_params_exif_rb_ = new QRadioButton(tr("Parameters from EXIF"), this);
+// camera_params_exif_rb_->setChecked(true);
 
-  camera_params_custom_rb_ = new QRadioButton(tr("Custom parameters"), this);
+// camera_params_custom_rb_ = new QRadioButton(tr("Custom parameters"), this);
 
-  camera_params_info_ = new QLabel(tr(""), this);
-  QPalette pal = QPalette(camera_params_info_->palette());
-  pal.setColor(QPalette::WindowText, QColor(130, 130, 130));
-  camera_params_info_->setPalette(pal);
+// camera_params_info_ = new QLabel(tr(""), this);
+// QPalette pal = QPalette(camera_params_info_->palette());
+// pal.setColor(QPalette::WindowText, QColor(130, 130, 130));
+// camera_params_info_->setPalette(pal);
 
-  camera_params_text_ = new QLineEdit(this);
-  camera_params_text_->setEnabled(false);
+// camera_params_text_ = new QLineEdit(this);
+// camera_params_text_->setEnabled(false);
 
-  single_camera_cb_ = new QCheckBox("Shared for all images", this);
-  single_camera_cb_->setChecked(false);
+// single_camera_cb_ = new QCheckBox("Shared for all images", this);
+// single_camera_cb_->setChecked(false);
 
-  single_camera_per_folder_cb_ = new QCheckBox("Shared per sub-folder", this);
-  single_camera_per_folder_cb_->setChecked(false);
+// single_camera_per_folder_cb_ = new QCheckBox("Shared per sub-folder", this);
+// single_camera_per_folder_cb_->setChecked(false);
 
-  QGroupBox* box = new QGroupBox(tr("Camera model"), this);
+// QGroupBox* box = new QGroupBox(tr("Camera model"), this);
 
-  QVBoxLayout* vbox = new QVBoxLayout(box);
-  vbox->addWidget(camera_model_cb_);
-  vbox->addWidget(camera_params_info_);
-  vbox->addWidget(single_camera_cb_);
-  vbox->addWidget(single_camera_per_folder_cb_);
-  vbox->addWidget(camera_params_exif_rb_);
-  vbox->addWidget(camera_params_custom_rb_);
-  vbox->addWidget(camera_params_text_);
-  vbox->addStretch(1);
+//   QVBoxLayout* vbox = new QVBoxLayout(box);
+//   vbox->addWidget(camera_model_cb_);
+//   vbox->addWidget(camera_params_info_);
+//   vbox->addWidget(single_camera_cb_);
+//   vbox->addWidget(single_camera_per_folder_cb_);
+//   vbox->addWidget(camera_params_exif_rb_);
+//   vbox->addWidget(camera_params_custom_rb_);
+//   vbox->addWidget(camera_params_text_);
+//   vbox->addStretch(1);
 
-  box->setLayout(vbox);
+//   box->setLayout(vbox);
 
-  SelectCameraModel(camera_model_cb_->currentIndex());
+//   SelectCameraModel(camera_model_cb_->currentIndex());
 
-  connect(camera_model_cb_,
-          (void(QComboBox::*)(int)) & QComboBox::currentIndexChanged,
-          this,
-          &FeatureExtractionWidget::SelectCameraModel);
-  connect(camera_params_exif_rb_,
-          &QRadioButton::clicked,
-          camera_params_text_,
-          &QLineEdit::setDisabled);
-  connect(camera_params_custom_rb_,
-          &QRadioButton::clicked,
-          camera_params_text_,
-          &QLineEdit::setEnabled);
+//   connect(camera_model_cb_,
+//           (void (QComboBox::*)(int))&QComboBox::currentIndexChanged,
+//           this,
+//           &FeatureExtractionWidget::SelectCameraModel);
+//   connect(camera_params_exif_rb_,
+//           &QRadioButton::clicked,
+//           camera_params_text_,
+//           &QLineEdit::setDisabled);
+//   connect(camera_params_custom_rb_,
+//           &QRadioButton::clicked,
+//           camera_params_text_,
+//           &QLineEdit::setEnabled);
 
-  return box;
-}
+//   return box;
+// }
 
 void FeatureExtractionWidget::showEvent(QShowEvent* event) {
   parent_->setDisabled(true);
@@ -261,72 +257,72 @@ void FeatureExtractionWidget::hideEvent(QHideEvent* event) {
 }
 
 void FeatureExtractionWidget::ReadOptions() {
-  const CameraModelId model_id =
-      CameraModelNameToId(options_->image_reader->camera_model);
-  for (size_t i = 0; i < camera_model_ids_.size(); ++i) {
-    if (camera_model_ids_[i] == static_cast<int>(model_id)) {
-      SelectCameraModel(i);
-      camera_model_cb_->setCurrentIndex(i);
-      break;
-    }
-  }
-  single_camera_cb_->setChecked(options_->image_reader->single_camera);
-  single_camera_per_folder_cb_->setChecked(
-      options_->image_reader->single_camera_per_folder);
-  camera_params_text_->setText(
-      QString::fromStdString(options_->image_reader->camera_params));
+  // const CameraModelId model_id =
+  //     CameraModelNameToId(options_->image_reader->camera_model);
+  // for (size_t i = 0; i < camera_model_ids_.size(); ++i) {
+  //   if (camera_model_ids_[i] == static_cast<int>(model_id)) {
+  //     SelectCameraModel(i);
+  //     camera_model_cb_->setCurrentIndex(i);
+  //     break;
+  //   }
+  // }
+  // single_camera_cb_->setChecked(options_->image_reader->single_camera);
+  // single_camera_per_folder_cb_->setChecked(
+  //     options_->image_reader->single_camera_per_folder);
+  // camera_params_text_->setText(
+  //     QString::fromStdString(options_->image_reader->camera_params));
 }
 
 void FeatureExtractionWidget::WriteOptions() {
-  options_->image_reader->camera_model =
-      CameraModelIdToName(static_cast<CameraModelId>(
-          camera_model_ids_[camera_model_cb_->currentIndex()]));
-  options_->image_reader->single_camera = single_camera_cb_->isChecked();
-  options_->image_reader->single_camera_per_folder =
-      single_camera_per_folder_cb_->isChecked();
-  options_->image_reader->camera_params =
-      camera_params_text_->text().toUtf8().constData();
+  // options_->image_reader->camera_model =
+  //     CameraModelIdToName(static_cast<CameraModelId>(
+  //         camera_model_ids_[camera_model_cb_->currentIndex()]));
+  // options_->image_reader->single_camera = single_camera_cb_->isChecked();
+  // options_->image_reader->single_camera_per_folder =
+  //     single_camera_per_folder_cb_->isChecked();
+  // options_->image_reader->camera_params =
+  //     camera_params_text_->text().toUtf8().constData();
 }
 
-void FeatureExtractionWidget::SelectCameraModel(const int idx) {
-  const CameraModelId model_id =
-      static_cast<CameraModelId>(camera_model_ids_[idx]);
-  camera_params_info_->setText(QString::fromStdString(
-      StringPrintf("<small>Parameters: %s</small>",
-                   CameraModelParamsInfo(model_id).c_str())));
-}
+// void FeatureExtractionWidget::SelectCameraModel(const int idx) {
+//   const CameraModelId model_id =
+//       static_cast<CameraModelId>(camera_model_ids_[idx]);
+//   camera_params_info_->setText(QString::fromStdString(
+//       StringPrintf("<small>Parameters: %s</small>",
+//                    CameraModelParamsInfo(model_id).c_str())));
+// }
 
 void FeatureExtractionWidget::Extract() {
   // If the custom parameter radiobuttion is not checked, but the
   // parameters textbox contains parameters.
-  const auto old_camera_params_text = camera_params_text_->text();
-  if (!camera_params_custom_rb_->isChecked()) {
-    camera_params_text_->setText("");
-  }
+  // const auto old_camera_params_text = camera_params_text_->text();
+  // if (!camera_params_custom_rb_->isChecked()) {
+  //   camera_params_text_->setText("");
+  // }
 
   WriteOptions();
 
-  if (!ExistsCameraModelWithName(options_->image_reader->camera_model)) {
-    QMessageBox::critical(this, "", tr("Camera model does not exist"));
-    return;
-  }
+  // if (!ExistsCameraModelWithName(options_->image_reader->camera_model)) {
+  //   QMessageBox::critical(this, "", tr("Camera model does not exist"));
+  //   return;
+  // }
 
-  const std::vector<double> camera_params =
-      CSVToVector<double>(options_->image_reader->camera_params);
-  const auto camera_code =
-      CameraModelNameToId(options_->image_reader->camera_model);
+  // const std::vector<double> camera_params =
+  //     CSVToVector<double>(options_->image_reader->camera_params);
+  // const auto camera_code =
+  //     CameraModelNameToId(options_->image_reader->camera_model);
 
-  if (camera_params_custom_rb_->isChecked() &&
-      !CameraModelVerifyParams(camera_code, camera_params)) {
-    QMessageBox::critical(this, "", tr("Invalid camera parameters"));
-    return;
-  }
+  // if (camera_params_custom_rb_->isChecked() &&
+  //     !CameraModelVerifyParams(camera_code, camera_params)) {
+  //   QMessageBox::critical(this, "", tr("Invalid camera parameters"));
+  //   return;
+  // }
 
   QWidget* widget =
       static_cast<QScrollArea*>(tab_widget_->currentWidget())->widget();
   static_cast<ExtractionWidget*>(widget)->Run();
 
-  camera_params_text_->setText(old_camera_params_text);
+  // camera_params_text_->setText(old_camera_params_text);
 }
 
 }  // namespace colmap

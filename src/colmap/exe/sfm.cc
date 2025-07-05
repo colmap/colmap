@@ -93,6 +93,8 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   options.AddRequiredOption("image_path", &reconstruction_options.image_path);
   options.AddDefaultOption("image_list_path", &image_list_path);
   options.AddDefaultOption("mask_path", &reconstruction_options.mask_path);
+  options.AddDefaultOption("camera_mask_path",
+                           &reconstruction_options.camera_mask_path);
   options.AddDefaultOption("vocab_tree_path",
                            &reconstruction_options.vocab_tree_path);
   options.AddDefaultOption(

@@ -82,6 +82,7 @@ class OptionManager {
   void AddRandomOptions();
   void AddDatabaseOptions();
   void AddImageOptions();
+  void AddImageReaderOptions();
   void AddExtractionOptions();
   void AddMatchingOptions();
   void AddExhaustiveMatchingOptions();
@@ -123,6 +124,8 @@ class OptionManager {
 
   std::shared_ptr<ImageReaderOptions> image_reader;
   std::shared_ptr<SiftExtractionOptions> sift_extraction;
+  std::shared_ptr<std::string> mask_path;
+  std::shared_ptr<std::string> camera_mask_path;
 
   std::shared_ptr<SiftMatchingOptions> sift_matching;
   std::shared_ptr<TwoViewGeometryOptions> two_view_geometry;
@@ -167,6 +170,7 @@ class OptionManager {
   bool added_random_options_;
   bool added_database_options_;
   bool added_image_options_;
+  bool added_image_reader_options_;
   bool added_extraction_options_;
   bool added_match_options_;
   bool added_exhaustive_match_options_;

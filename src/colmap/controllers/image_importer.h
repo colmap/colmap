@@ -29,34 +29,13 @@
 
 #pragma once
 
-#include "colmap/feature/sift.h"
+#include "colmap/controllers/image_reader.h"
+#include "colmap/scene/database.h"
 #include "colmap/util/threading.h"
 
 namespace colmap {
 
-// Reads images from a folder, extracts features, and writes them to database.
-//
-// mask_path is an optional root path to folder which contains image masks. For
-// a given image, the corresponding mask must have the same sub-path below this
-// root as the image has below image_path. The filename must be equal, aside
-// from the added extension .png. For example, for an image
-// image_path/abc/012.jpg, the mask would be mask_path/abc/012.jpg.png. No
-// features will be extracted in regions where the mask image is black (pixel
-// intensity value 0 in grayscale).
-
-// camera_mask_root_path is an optional path to an image file specifying a mask
-// for all images. No features will be extracted in regions where the mask is
-// black (pixel intensity value 0 in grayscale).
-std::unique_ptr<Thread> CreateFeatureExtractorController(
-    const std::string& database_path,
-    const std::string& image_root_path,
-    const std::string& mask_root_path,
-    const std::string& camera_mask_root_path,
-    const SiftExtractionOptions& sift_options);
-
-// Import features from text files. Each image must have a corresponding text
-// file with the same name and an additional ".txt" suffix.
-std::unique_ptr<Thread> CreateFeatureImporterController(
-    const std::string& database_path, const std::string& import_path);
+std::unique_ptr<Thread> CreateImageImporterController(
+    const std::string& database_path, const ImageReaderOptions& reader_options);
 
 }  // namespace colmap

@@ -84,13 +84,33 @@ void MaskKeypoints(const Bitmap& mask,
   descriptors->conservativeResize(out_index, descriptors->cols());
 }
 
-struct ImageData {
-  ImageReader::Status status = ImageReader::Status::FAILURE;
+enum class FeatureExtractionStatus {
+  FAILURE,
+  SUCCESS,
+  IMAGE_EXISTS,
+  BITMAP_ERROR,
+};
 
-  Rig rig;
+std::string FeatureExtractionStatusToString(FeatureExtractionStatus status) {
+  switch (status) {
+    case FeatureExtractionStatus::SUCCESS:
+      return "SUCCESS";
+    case FeatureExtractionStatus::FAILURE:
+      return "FAILURE: Failed to process the image.";
+    case FeatureExtractionStatus::IMAGE_EXISTS:
+      return "IMAGE_EXISTS: Features for image were already extracted.";
+    case FeatureExtractionStatus::BITMAP_ERROR:
+      return "BITMAP_ERROR: Failed to read the image file format.";
+    default:
+      return "Unknown";
+  }
+}
+
+struct ImageData {
+  FeatureExtractionStatus status = FeatureExtractionStatus::SUCCESS;
+
   Camera camera;
   Image image;
-  PosePrior pose_prior;
   Bitmap bitmap;
   Bitmap mask;
 
@@ -118,7 +138,7 @@ class ImageResizerThread : public Thread {
       if (input_job.IsValid()) {
         auto& image_data = input_job.Data();
 
-        if (image_data.status == ImageReader::Status::SUCCESS) {
+        if (image_data.status == FeatureExtractionStatus::SUCCESS) {
           if (static_cast<int>(image_data.bitmap.Width()) > max_image_size_ ||
               static_cast<int>(image_data.bitmap.Height()) > max_image_size_) {
             // Fit the down-sampled version exactly into the max dimensions.
@@ -194,7 +214,7 @@ class SiftFeatureExtractorThread : public Thread {
       if (input_job.IsValid()) {
         auto& image_data = input_job.Data();
 
-        if (image_data.status == ImageReader::Status::SUCCESS) {
+        if (image_data.status == FeatureExtractionStatus::SUCCESS) {
           if (extractor->Extract(image_data.bitmap,
                                  &image_data.keypoints,
                                  &image_data.descriptors)) {
@@ -211,7 +231,7 @@ class SiftFeatureExtractorThread : public Thread {
                             &image_data.descriptors);
             }
           } else {
-            image_data.status = ImageReader::Status::FAILURE;
+            image_data.status = FeatureExtractionStatus::FAILURE;
           }
         }
 
@@ -258,26 +278,13 @@ class FeatureWriterThread : public Thread {
 
         LOG(INFO) << StringPrintf(
             "Processed file [%d/%d]", image_index, num_images_);
-
         LOG(INFO) << StringPrintf("  Name:            %s",
                                   image_data.image.Name().c_str());
-
-        if (image_data.status != ImageReader::Status::SUCCESS) {
+        if (image_data.status != FeatureExtractionStatus::SUCCESS) {
           LOG(ERROR) << image_data.image.Name() << " "
-                     << ImageReader::StatusToString(image_data.status);
+                     << FeatureExtractionStatusToString(image_data.status);
           continue;
         }
-
-        LOG(INFO) << StringPrintf("  Dimensions:      %d x %d",
-                                  image_data.camera.width,
-                                  image_data.camera.height);
-        LOG(INFO) << StringPrintf("  Camera:          #%d - %s",
-                                  image_data.camera.camera_id,
-                                  image_data.camera.ModelName().c_str());
-        LOG(INFO) << StringPrintf(
-            "  Focal Length:    %.2fpx%s",
-            image_data.camera.MeanFocalLength(),
-            image_data.camera.has_prior_focal_length ? " (Prior)" : "");
         LOG(INFO) << StringPrintf("  Features:        %d",
                                   image_data.keypoints.size());
         if (image_data.mask.Data()) {
@@ -285,23 +292,6 @@ class FeatureWriterThread : public Thread {
         }
 
         DatabaseTransaction database_transaction(database_);
-
-        if (image_data.image.ImageId() == kInvalidImageId) {
-          image_data.image.SetImageId(database_->WriteImage(image_data.image));
-          if (image_data.pose_prior.IsValid()) {
-            LOG(INFO) << StringPrintf(
-                "  GPS:             LAT=%.3f, LON=%.3f, ALT=%.3f",
-                image_data.pose_prior.position.x(),
-                image_data.pose_prior.position.y(),
-                image_data.pose_prior.position.z());
-            database_->WritePosePrior(image_data.image.ImageId(),
-                                      image_data.pose_prior);
-          }
-          Frame frame;
-          frame.SetRigId(image_data.rig.RigId());
-          frame.AddDataId(image_data.image.DataId());
-          database_->WriteFrame(frame);
-        }
 
         if (!database_->ExistsKeypoints(image_data.image.ImageId())) {
           database_->WriteKeypoints(image_data.image.ImageId(),
@@ -327,28 +317,32 @@ class FeatureWriterThread : public Thread {
 class FeatureExtractorController : public Thread {
  public:
   FeatureExtractorController(const std::string& database_path,
-                             const ImageReaderOptions& reader_options,
+                             const std::string& image_root_path,
+                             const std::string& mask_root_path,
+                             const std::string& camera_mask_root_path,
                              const SiftExtractionOptions& sift_options)
-      : reader_options_(reader_options),
+      : image_root_path_(NormalizeDirPath(image_root_path)),
+        mask_root_path_(mask_root_path.empty()
+                            ? mask_root_path
+                            : NormalizeDirPath(mask_root_path)),
+        camera_mask_root_path_(camera_mask_root_path),
         sift_options_(sift_options),
-        database_(database_path),
-        image_reader_(reader_options_, &database_) {
-    THROW_CHECK(reader_options_.Check());
+        database_(database_path) {
     THROW_CHECK(sift_options_.Check());
 
     std::shared_ptr<Bitmap> camera_mask;
-    if (!reader_options_.camera_mask_path.empty()) {
-      if (ExistsFile(reader_options_.camera_mask_path)) {
+    if (!camera_mask_root_path_.empty()) {
+      if (ExistsFile(camera_mask_root_path_)) {
         camera_mask = std::make_shared<Bitmap>();
-        if (!camera_mask->Read(reader_options_.camera_mask_path,
-                               /*as_rgb*/ false)) {
+        if (!camera_mask->Read(camera_mask_root_path_,
+                               /*as_rgb=*/false)) {
           LOG(ERROR) << "Failed to read invalid mask file at: "
-                     << reader_options_.camera_mask_path
+                     << camera_mask_root_path_
                      << ". No mask is going to be used.";
           camera_mask.reset();
         }
       } else {
-        LOG(ERROR) << "Mask at " << reader_options_.camera_mask_path
+        LOG(ERROR) << "Mask at " << camera_mask_root_path_
                    << " does not exist.";
       }
     }
@@ -423,10 +417,59 @@ class FeatureExtractorController : public Thread {
     }
 
     writer_ = std::make_unique<FeatureWriterThread>(
-        image_reader_.NumImages(), &database_, writer_queue_.get());
+        database_.NumImages(), &database_, writer_queue_.get());
   }
 
  private:
+  ImageData ReadImageData(const Image& image) {
+    ImageData image_data;
+    image_data.image = image;
+    image_data.camera = database_.ReadCamera(image.CameraId());
+
+    const bool exists_keypoints = database_.ExistsKeypoints(image.ImageId());
+    const bool exists_descriptors =
+        database_.ExistsDescriptors(image.ImageId());
+    if (exists_keypoints && exists_descriptors) {
+      image_data.status = FeatureExtractionStatus::IMAGE_EXISTS;
+      return image_data;
+    }
+
+    // Construct full image path and load bitmap
+    const std::string image_path = JoinPaths(image_root_path_, image.Name());
+    if (!image_data.bitmap.Read(image_path, false)) {
+      LOG(ERROR) << image.Name() << " Failed to read the image file format.";
+      image_data.status = FeatureExtractionStatus::FAILURE;
+      return image_data;
+    }
+
+    // Load mask if path is provided
+    if (!mask_root_path_.empty()) {
+      std::string mask_path = JoinPaths(mask_root_path_, image.Name() + ".png");
+      bool exists_mask = true;
+      if (!ExistsFile(mask_path)) {
+        exists_mask = false;
+        // Try without .png extension if original image is .png
+        if (HasFileExtension(image.Name(), ".png")) {
+          std::string alt_mask_path = JoinPaths(mask_root_path_, image.Name());
+          if (ExistsFile(alt_mask_path)) {
+            mask_path = std::move(alt_mask_path);
+            exists_mask = true;
+          }
+        }
+      }
+      if (exists_mask) {
+        if (!image_data.mask.Read(mask_path, false)) {
+          LOG(ERROR) << image.Name() << " Failed to read the mask file";
+          image_data.mask.Deallocate();  // Skip the mask but not the image!
+        }
+      } else {
+        LOG(WARNING) << "Mask for " << image.Name() << " not found at "
+                     << mask_path;
+      }
+    }
+    return image_data;
+  }
+
   void Run() override {
     PrintHeading1("Feature extraction");
     Timer run_timer;
@@ -448,7 +491,7 @@ class FeatureExtractorController : public Thread {
       }
     }
 
-    while (image_reader_.NextIndex() < image_reader_.NumImages()) {
+    for (const auto& image : database_.ReadAllImages()) {
       if (IsStopped()) {
         resizer_queue_->Stop();
         extractor_queue_->Stop();
@@ -456,19 +499,7 @@ class FeatureExtractorController : public Thread {
         extractor_queue_->Clear();
         break;
       }
-
-      ImageData image_data;
-      image_data.status = image_reader_.Next(&image_data.rig,
-                                             &image_data.camera,
-                                             &image_data.image,
-                                             &image_data.pose_prior,
-                                             &image_data.bitmap,
-                                             &image_data.mask);
-
-      if (image_data.status != ImageReader::Status::SUCCESS) {
-        image_data.bitmap.Deallocate();
-      }
-
+      ImageData image_data = ReadImageData(image);
       if (sift_options_.max_image_size > 0) {
         THROW_CHECK(resizer_queue_->Push(std::move(image_data)));
       } else {
@@ -495,11 +526,13 @@ class FeatureExtractorController : public Thread {
     run_timer.PrintMinutes();
   }
 
-  const ImageReaderOptions reader_options_;
+  const std::string image_root_path_;
+  const std::string mask_root_path_;
+  const std::string camera_mask_root_path_;
+
   const SiftExtractionOptions sift_options_;
 
   Database database_;
-  ImageReader image_reader_;
 
   std::vector<std::unique_ptr<Thread>> resizers_;
   std::vector<std::unique_ptr<Thread>> extractors_;
@@ -515,11 +548,8 @@ class FeatureExtractorController : public Thread {
 class FeatureImporterController : public Thread {
  public:
   FeatureImporterController(const std::string& database_path,
-                            const ImageReaderOptions& reader_options,
                             const std::string& import_path)
-      : database_path_(database_path),
-        reader_options_(reader_options),
-        import_path_(import_path) {}
+      : database_path_(database_path), import_path_(import_path) {}
 
  private:
   void Run() override {
@@ -533,28 +563,18 @@ class FeatureImporterController : public Thread {
     }
 
     Database database(database_path_);
-    ImageReader image_reader(reader_options_, &database);
 
-    while (image_reader.NextIndex() < image_reader.NumImages()) {
+    const std::vector<Image> images = database.ReadAllImages();
+    size_t image_index = 0;
+    for (const auto& image : images) {
       if (IsStopped()) {
         break;
       }
 
-      LOG(INFO) << StringPrintf("Processing file [%d/%d]",
-                                image_reader.NextIndex() + 1,
-                                image_reader.NumImages());
+      image_index += 1;
 
-      // Load image data and possibly save camera to database.
-      Rig rig;
-      Camera camera;
-      Image image;
-      PosePrior pose_prior;
-      Bitmap bitmap;
-      if (image_reader.Next(
-              &rig, &camera, &image, &pose_prior, &bitmap, nullptr) !=
-          ImageReader::Status::SUCCESS) {
-        continue;
-      }
+      LOG(INFO) << StringPrintf(
+          "Processing file [%d/%d]", image_index, images.size());
 
       const std::string path = JoinPaths(import_path_, image.Name() + ".txt");
 
@@ -566,17 +586,6 @@ class FeatureImporterController : public Thread {
         LOG(INFO) << "Features:       " << keypoints.size();
 
         DatabaseTransaction database_transaction(&database);
-
-        if (image.ImageId() == kInvalidImageId) {
-          image.SetImageId(database.WriteImage(image));
-          if (pose_prior.IsValid()) {
-            database.WritePosePrior(image.ImageId(), pose_prior);
-          }
-          Frame frame;
-          frame.SetRigId(rig.RigId());
-          frame.AddDataId(image.DataId());
-          database.WriteFrame(frame);
-        }
 
         if (!database.ExistsKeypoints(image.ImageId())) {
           database.WriteKeypoints(image.ImageId(), keypoints);
@@ -594,7 +603,6 @@ class FeatureImporterController : public Thread {
   }
 
   const std::string database_path_;
-  const ImageReaderOptions reader_options_;
   const std::string import_path_;
 };
 
@@ -602,18 +610,21 @@ class FeatureImporterController : public Thread {
 
 std::unique_ptr<Thread> CreateFeatureExtractorController(
     const std::string& database_path,
-    const ImageReaderOptions& reader_options,
+    const std::string& image_root_path,
+    const std::string& mask_root_path,
+    const std::string& camera_mask_root_path,
     const SiftExtractionOptions& sift_options) {
-  return std::make_unique<FeatureExtractorController>(
-      database_path, reader_options, sift_options);
+  return std::make_unique<FeatureExtractorController>(database_path,
+                                                      image_root_path,
+                                                      mask_root_path,
+                                                      camera_mask_root_path,
+                                                      sift_options);
 }
 
 std::unique_ptr<Thread> CreateFeatureImporterController(
-    const std::string& database_path,
-    const ImageReaderOptions& reader_options,
-    const std::string& import_path) {
-  return std::make_unique<FeatureImporterController>(
-      database_path, reader_options, import_path);
+    const std::string& database_path, const std::string& import_path) {
+  return std::make_unique<FeatureImporterController>(database_path,
+                                                     import_path);
 }
 
 }  // namespace colmap
