@@ -205,7 +205,7 @@ class SiftFeatureExtractorThread : public Thread {
                             &image_data.keypoints,
                             &image_data.descriptors);
             }
-            if (image_data.mask.Data()) {
+            if (image_data.mask.NumBytes() > 0) {
               MaskKeypoints(image_data.mask,
                             &image_data.keypoints,
                             &image_data.descriptors);
@@ -215,7 +215,9 @@ class SiftFeatureExtractorThread : public Thread {
           }
         }
 
-        image_data.bitmap.Deallocate();
+        // Release the memory, since it is not used afterwards.
+        image_data.bitmap = Bitmap();
+        image_data.mask = Bitmap();
 
         output_queue_->Push(std::move(image_data));
       } else {
@@ -280,7 +282,7 @@ class FeatureWriterThread : public Thread {
             image_data.camera.has_prior_focal_length ? " (Prior)" : "");
         LOG(INFO) << StringPrintf("  Features:        %d",
                                   image_data.keypoints.size());
-        if (image_data.mask.Data()) {
+        if (image_data.mask.NumBytes() > 0) {
           LOG(INFO) << "  Mask:            Yes";
         }
 
@@ -466,7 +468,9 @@ class FeatureExtractorController : public Thread {
                                              &image_data.mask);
 
       if (image_data.status != ImageReader::Status::SUCCESS) {
-        image_data.bitmap.Deallocate();
+        // Release the memory, since it is not used afterwards.
+        image_data.bitmap = Bitmap();
+        image_data.mask = Bitmap();
       }
 
       if (sift_options_.max_image_size > 0) {

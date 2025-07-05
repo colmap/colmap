@@ -96,8 +96,8 @@ class Bitmap {
   // Number of bytes required to store image.
   size_t NumBytes() const;
 
-  // Copy raw image data to array.
-  std::vector<uint8_t> ConvertToRowMajorArray() const;
+  // Access raw image data array.
+  const std::vector<uint8_t>& RowMajorData() const;
 
   // Manipulate individual pixels. For grayscale images, only the red element
   // of the RGB color is used.

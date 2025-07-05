@@ -116,8 +116,7 @@ TEST_P(ParameterizedImageReaderTests, Nominal) {
     EXPECT_EQ(camera.width, test_bitmap.Width());
     EXPECT_EQ(camera.height, test_bitmap.Height());
     EXPECT_EQ(image.Name(), std::to_string(i) + ".png");
-    EXPECT_EQ(bitmap.ConvertToRowMajorArray(),
-              test_bitmap.ConvertToRowMajorArray());
+    EXPECT_EQ(bitmap.RowMajorData(), test_bitmap.RowMajorData());
     if (kWithExistingImages) {
       EXPECT_EQ(database.NumRigs(), kNumImages);
       EXPECT_EQ(database.NumCameras(), kNumImages);

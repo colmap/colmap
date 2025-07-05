@@ -66,7 +66,7 @@ void Image::Rescale(const float factor_x, const float factor_y) {
   const size_t new_width = std::round(width_ * factor_x);
   const size_t new_height = std::round(height_ * factor_y);
 
-  if (bitmap_.Data() != nullptr) {
+  if (bitmap_.NumBytes() > 0) {
     bitmap_.Rescale(new_width, new_height);
   }
 

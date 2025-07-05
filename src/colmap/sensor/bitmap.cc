@@ -150,7 +150,7 @@ unsigned int Bitmap::BitsPerPixel() const { return channels_ * 8; }
 
 unsigned int Bitmap::Pitch() const { return width_ * channels_; }
 
-std::vector<uint8_t> Bitmap::ConvertToRowMajorArray() const { return data_; }
+const std::vector<uint8_t>& Bitmap::RowMajorData() const { return data_; }
 
 void Bitmap::Fill(const BitmapColor<uint8_t>& color) {
   if (IsGrey()) {
@@ -584,10 +584,10 @@ bool Bitmap::GetMetaData(const std::string_view& name,
 
 void Bitmap::CloneMetadata(Bitmap* target) const {
   THROW_CHECK_NOTNULL(target);
-  THROW_CHECK_EQ(width_, target->width_);
-  THROW_CHECK_EQ(height_, target->height_);
-  THROW_CHECK_EQ(channels_, target->channels_);
   target->meta_data_ = OIIOMetaData::Clone(meta_data_);
+  auto* target_meta_data = OIIOMetaData::Upcast(target->meta_data_.get());
+  target_meta_data->image_spec.width = target->Width();
+  target_meta_data->image_spec.height = target->Height();
 }
 
 std::ostream& operator<<(std::ostream& stream, const Bitmap& bitmap) {

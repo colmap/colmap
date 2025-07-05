@@ -119,12 +119,7 @@ void ImageViewerWidget::ShowPixmap(const QPixmap& pixmap) {
 }
 
 void ImageViewerWidget::ReadAndShow(const std::string& path) {
-  Bitmap bitmap;
-  if (!bitmap.Read(path, true)) {
-    LOG(ERROR) << "Cannot read image at path " << path;
-  }
-
-  ShowBitmap(bitmap);
+  ShowPixmap(QPixmap(QString(path.c_str())));
 }
 
 void ImageViewerWidget::ZoomIn() {
@@ -172,12 +167,12 @@ void FeatureImageViewerWidget::ReadAndShowWithKeypoints(
     const std::string& path,
     const FeatureKeypoints& keypoints,
     const std::vector<char>& tri_mask) {
-  Bitmap bitmap;
-  if (!bitmap.Read(path, true)) {
+  if (!ExistsFile(path)) {
     LOG(ERROR) << "Cannot read image at path " << path;
+    return;
   }
 
-  image1_ = QPixmap::fromImage(BitmapToQImageRGB(bitmap));
+  image1_ = QPixmap(QString(path.c_str()));
   image2_ = image1_;
 
   const size_t num_tri_keypoints = std::count_if(
