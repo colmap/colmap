@@ -437,7 +437,7 @@ bool Bitmap::Read(const std::string& path, const bool as_rgb) {
   return true;
 }
 
-bool Bitmap::Write(const std::string& path, const int flags) const {
+bool Bitmap::Write(const std::string& path) const {
   const auto output = OIIO::ImageOutput::create(path);
   if (!output) {
     std::cerr << "Could not create an ImageOutput for " << path
@@ -446,8 +446,9 @@ bool Bitmap::Write(const std::string& path, const int flags) const {
   }
 
   auto* meta_data = OIIOMetaData::Upcast(meta_data_.get());
-  std::string colorspace = meta_data->image_spec["oiio:ColorSpace"];
-  if (colorspace.empty()) {
+
+  std::string_view colorspace;
+  if (!GetMetaData("oiio:ColorSpace", &colorspace)) {
     // Assume sRGB color space if not specified.
     colorspace = "sRGB";
     meta_data->image_spec.set_colorspace(colorspace);
@@ -455,6 +456,14 @@ bool Bitmap::Write(const std::string& path, const int flags) const {
 
   const std::vector<uint8_t> output_data = ConvertColorSpace(
       data_.data(), width_, height_, channels_, "linear", colorspace);
+
+  if (HasFileExtension(path, ".jpg") || HasFileExtension(path, ".jpeg")) {
+    std::string_view compression;
+    if (!GetMetaData("Compression", &compression)) {
+      // Save JPEG in superb quality by default to reduce compression artifacts.
+      meta_data->image_spec["Compression"] = "jpeg:100";
+    }
+  }
 
   if (!output->open(path, meta_data->image_spec)) {
     VLOG(3) << "Could not open " << path << ", error = " << output->geterror()

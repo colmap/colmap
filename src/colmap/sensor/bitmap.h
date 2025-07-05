@@ -126,7 +126,7 @@ class Bitmap {
   bool Read(const std::string& path, bool as_rgb = true);
 
   // Write image to file. Flags can be used to set e.g. the JPEG quality.
-  bool Write(const std::string& path, int flags = 0) const;
+  bool Write(const std::string& path) const;
 
   // Rescale image to the new dimensions.
   enum class RescaleFilter {
