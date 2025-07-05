@@ -139,6 +139,7 @@ bool Bitmap::Allocate(const int width, const int height, const bool as_rgb) {
   auto meta_data = std::make_unique<OIIOMetaData>();
   meta_data->image_spec =
       OIIO::ImageSpec(width_, height_, channels_, OIIO::TypeDesc::UINT8);
+  meta_data->image_spec.set_colorspace("sRGB");
   meta_data_ = std::move(meta_data);
   return true;
 }
@@ -420,11 +421,11 @@ bool Bitmap::Read(const std::string& path, const bool as_rgb) {
   meta_data->image_spec = image_spec;
   meta_data_ = std::move(meta_data);
 
-  const std::string color_space = image_spec["oiio:ColorSpace"];
-  if (color_space != "linear" && color_space != "lin_srgb" &&
-      color_space != "lin_rec709P") {
+  const std::string colorspace = image_spec["oiio:ColorSpace"];
+  if (colorspace != "linear" && colorspace != "lin_srgb" &&
+      colorspace != "lin_rec709P") {
     data_ = ConvertColorSpace(
-        data_.data(), width_, height_, channels_, color_space, "linear");
+        data_.data(), width_, height_, channels_, colorspace, "linear");
   }
 
   if (as_rgb && channels_ != 3) {
@@ -444,21 +445,24 @@ bool Bitmap::Write(const std::string& path, const int flags) const {
     return false;
   }
 
-  const OIIO::ImageSpec spec(width_, height_, channels_, OIIO::TypeDesc::UINT8);
-  output->open(path, spec);
-  output->write_image(OIIO::TypeDesc::UINT8, data_.data());
-  output->close();
+  auto* meta_data = OIIOMetaData::Upcast(meta_data_.get());
+  std::string colorspace = meta_data->image_spec["oiio:ColorSpace"];
+  if (colorspace.empty()) {
+    // Assume sRGB color space if not specified.
+    colorspace = "sRGB";
+    meta_data->image_spec.set_colorspace(colorspace);
+  }
 
-  if (!output->open(path, spec)) {
+  const std::vector<uint8_t> output_data = ConvertColorSpace(
+      data_.data(), width_, height_, channels_, "linear", colorspace);
+
+  if (!output->open(path, meta_data->image_spec)) {
     VLOG(3) << "Could not open " << path << ", error = " << output->geterror()
             << "\n";
     return false;
   }
 
-  const std::vector<uint8_t> srgb_data = ConvertColorSpace(
-      data_.data(), width_, height_, channels_, "linear", "sRGB");
-
-  if (!output->write_image(OIIO::TypeDesc::UINT8, srgb_data.data())) {
+  if (!output->write_image(OIIO::TypeDesc::UINT8, output_data.data())) {
     VLOG(3) << "Could not write pixels to " << path
             << ", error = " << output->geterror() << "\n";
     return false;
