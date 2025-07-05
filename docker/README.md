@@ -14,18 +14,12 @@
     docker --version
     ```
 
-2. Check that you have an NVIDIA driver installed on your host machine:
-
-    ```
-    nvidia-smi
-    ```
-
-3. Setup the nvidia-toolkit on your host machine:
+2. Setup the NVIDIA driver and nvidia-toolkit on your host machine:
 
     For Ubuntu host machines: `./setup-ubuntu.sh`
     For CentOS host machines: `./setup-centos.sh`
 
-4. Run the *run* script, using the *full local path* to your preferred local
+3. Run the *run* script, using the *full local path* to your preferred local
    working directory (a folder with your input files/images, etc.):
 
     ```
@@ -40,7 +34,7 @@
     colmap automatic_reconstructor --image_path ./images --workspace_path .
     ```
 
-5. Alternatively, you can run the *run-gui* script, which will start the graphical user interface of COLMAP:
+3-b. Alternatively, you can run the *run-gui* script, which will start the graphical user interface of COLMAP:
 
     ```
     ./run-gui.sh /path/where/your/working/folder/is
@@ -48,8 +42,8 @@
 
 ## Build from Scratch
 
-After completing steps 1-3, you can alternatively build the docker image from
-scratch based on the **Dockerfile** (e.g., with your own modifications) using:
+After completing steps 1-2, you can build the Docker image from scratch using the **Dockerfile**.
+First, update the CUDA and Ubuntu versions in Dockerfile lines 1-2 to match your system, then:
 
 ```
 ./build.sh

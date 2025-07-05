@@ -46,3 +46,7 @@ vcpkg_installed/
 *.exe
 *.out
 *.app
+
+# backup files
+*~
+*.orig
