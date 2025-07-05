@@ -219,6 +219,7 @@ sensor rig poses and camera parameters fixed::
         --Mapper.ba_refine_sensor_from_rig 0 \
         --Mapper.ba_refine_focal_length 0 \
         --Mapper.ba_refine_extra_params 0 \
+        --image_path terrains/images \
         --output_path terrains/sparse
 
 
