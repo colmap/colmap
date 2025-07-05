@@ -132,7 +132,7 @@ jobs:
             libboost-system-dev \
             libeigen3-dev \
             libceres-dev \
-            libfreeimage-dev \
+            libopenimageio-dev \
             libmetis-dev \
             libgoogle-glog-dev \
             libgtest-dev \

@@ -126,7 +126,6 @@ class Bitmap {
   bool Read(const std::string& path, bool as_rgb = true);
 
   // Write image to file. Flags can be used to set e.g. the JPEG quality.
-  // Consult the FreeImage documentation for all available flags.
   bool Write(const std::string& path, int flags = 0) const;
 
   // Rescale image to the new dimensions.

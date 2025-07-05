@@ -20,7 +20,6 @@
             ]
         },
         "eigen3",
-        "freeimage",
         "gflags",
         "glog",
         {
@@ -28,6 +27,7 @@
             "default-features": false
         },
         "metis",
+        "openimageio",
         "sqlite3",
         {
             "name": "vcpkg-cmake",
