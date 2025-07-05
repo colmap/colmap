@@ -26,7 +26,7 @@ find_package(Boost ${COLMAP_FIND_TYPE} COMPONENTS
 
 find_package(Eigen3 ${COLMAP_FIND_TYPE})
 
-find_package(FreeImage ${COLMAP_FIND_TYPE})
+find_package(OpenImageIO ${COLMAP_FIND_TYPE})
 
 find_package(Metis ${COLMAP_FIND_TYPE})
 

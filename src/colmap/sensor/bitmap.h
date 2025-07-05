@@ -39,8 +39,6 @@
 #include <string>
 #include <vector>
 
-struct FIBITMAP;
-
 namespace colmap {
 
 // Templated bitmap color class.
@@ -65,34 +63,19 @@ struct BitmapColor {
   T b;
 };
 
-// Wrapper class around FreeImage bitmaps.
+// Wrapper class around bitmaps. Holds image data in linear color space.
 class Bitmap {
  public:
   Bitmap();
 
-  // Copy constructor.
   Bitmap(const Bitmap& other);
-  // Move constructor.
   Bitmap(Bitmap&& other) noexcept;
 
-  // Create bitmap object from existing FreeImage bitmap object. Note that
-  // this class takes ownership of the object.
-  explicit Bitmap(FIBITMAP* data);
-
-  // Copy assignment.
   Bitmap& operator=(const Bitmap& other);
-  // Move assignment.
   Bitmap& operator=(Bitmap&& other) noexcept;
 
   // Allocate bitmap by overwriting the existing data.
   bool Allocate(int width, int height, bool as_rgb);
-
-  // Deallocate the bitmap by releasing the existing data.
-  void Deallocate();
-
-  // Get pointer to underlying FreeImage object.
-  inline const FIBITMAP* Data() const;
-  inline FIBITMAP* Data();
 
   // Dimensions of bitmap.
   inline int Width() const;
@@ -115,20 +98,11 @@ class Bitmap {
 
   // Copy raw image data to array.
   std::vector<uint8_t> ConvertToRowMajorArray() const;
-  std::vector<uint8_t> ConvertToColMajorArray() const;
-
-  // Convert to/from raw bits.
-  std::vector<uint8_t> ConvertToRawBits() const;
-  static Bitmap ConvertFromRawBits(
-      const uint8_t* data, int pitch, int width, int height, bool rgb = true);
 
   // Manipulate individual pixels. For grayscale images, only the red element
   // of the RGB color is used.
-  bool GetPixel(int x, int y, BitmapColor<uint8_t>* color) const;
-  bool SetPixel(int x, int y, const BitmapColor<uint8_t>& color);
-
-  // Get pointer to y-th scanline, where the 0-th scanline is at the top.
-  const uint8_t* GetScanline(int y) const;
+  inline bool GetPixel(int x, int y, BitmapColor<uint8_t>* color) const;
+  inline bool SetPixel(int x, int y, const BitmapColor<uint8_t>& color);
 
   // Fill entire bitmap with uniform color. For grayscale images, the first
   // element of the vector is used.
@@ -155,9 +129,6 @@ class Bitmap {
   // Consult the FreeImage documentation for all available flags.
   bool Write(const std::string& path, int flags = 0) const;
 
-  // Smooth the image using a Gaussian kernel.
-  void Smooth(float sigma_x, float sigma_y);
-
   // Rescale image to the new dimensions.
   enum class RescaleFilter {
     kBilinear,
@@ -172,27 +143,29 @@ class Bitmap {
   Bitmap CloneAsGrey() const;
   Bitmap CloneAsRGB() const;
 
+  // Access metadata information (EXIF).
+  void SetMetaData(const std::string_view& name,
+                   const std::string_view& type,
+                   const void* value);
+  void SetMetaData(const std::string_view& name, const std::string_view& value);
+  bool GetMetaData(const std::string_view& name,
+                   const std::string_view& type,
+                   void* value) const;
+  bool GetMetaData(const std::string_view& name, std::string_view* value) const;
+
   // Clone metadata from this bitmap object to another target bitmap object.
   void CloneMetadata(Bitmap* target) const;
 
- private:
-  struct FreeImageHandle {
-    FreeImageHandle();
-    explicit FreeImageHandle(FIBITMAP* ptr);
-    ~FreeImageHandle();
-    FreeImageHandle(FreeImageHandle&&) noexcept;
-    FreeImageHandle& operator=(FreeImageHandle&&) noexcept;
-    FreeImageHandle(const FreeImageHandle&) = delete;
-    FreeImageHandle& operator=(const FreeImageHandle&) = delete;
-    FIBITMAP* ptr;
+  struct MetaData {
+    virtual ~MetaData() = default;
   };
 
-  void SetPtr(FIBITMAP* ptr);
-
-  FreeImageHandle handle_;
+ private:
   int width_;
   int height_;
   int channels_;
+  std::vector<uint8_t> data_;
+  std::unique_ptr<MetaData> meta_data_;
 };
 
 std::ostream& operator<<(std::ostream& stream, const Bitmap& bitmap);
@@ -264,15 +237,53 @@ std::ostream& operator<<(std::ostream& output, const BitmapColor<T>& color) {
   return output;
 }
 
-FIBITMAP* Bitmap::Data() { return handle_.ptr; }
-const FIBITMAP* Bitmap::Data() const { return handle_.ptr; }
-
 int Bitmap::Width() const { return width_; }
 int Bitmap::Height() const { return height_; }
 int Bitmap::Channels() const { return channels_; }
 
 bool Bitmap::IsRGB() const { return channels_ == 3; }
-
 bool Bitmap::IsGrey() const { return channels_ == 1; }
+
+bool Bitmap::GetPixel(const int x,
+                      const int y,
+                      BitmapColor<uint8_t>* color) const {
+  if (x < 0 || x >= width_ || y < 0 || y >= height_) {
+    return false;
+  }
+
+  if (IsGrey()) {
+    color->r = data_[y * width_ + x];
+    return true;
+  } else if (IsRGB()) {
+    const uint8_t* pixel = &data_[(y * width_ + x) * channels_];
+    color->r = pixel[0];
+    color->g = pixel[1];
+    color->b = pixel[2];
+    return true;
+  }
+
+  return false;
+}
+
+bool Bitmap::SetPixel(const int x,
+                      const int y,
+                      const BitmapColor<uint8_t>& color) {
+  if (x < 0 || x >= width_ || y < 0 || y >= height_) {
+    return false;
+  }
+
+  if (IsGrey()) {
+    data_[y * width_ + x] = color.r;
+    return true;
+  } else if (IsRGB()) {
+    uint8_t* pixel = &data_[(y * width_ + x) * channels_];
+    pixel[0] = color.r;
+    pixel[1] = color.g;
+    pixel[2] = color.b;
+    return true;
+  }
+
+  return false;
+}
 
 }  // namespace colmap

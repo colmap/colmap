@@ -163,14 +163,13 @@ Data Structure
 
 COLMAP assumes that all input images are in one input directory with potentially
 nested sub-directories. It recursively considers all images stored in this
-directory, and it supports various different image formats (see `FreeImage
-<http://freeimage.sourceforge.net/documentation.html>`_). Other files are
-automatically ignored. If high performance is a requirement, then you should
-separate any files that are not images. Images are identified uniquely by their
-relative file path. For later processing, such as image undistortion or dense
-reconstruction, the relative folder structure should be preserved. COLMAP does
-not modify the input images or directory and all extracted data is stored in a
-single, self-contained SQLite database file (see :doc:`database`).
+directory, and it supports various different image formats by OpenImageIO. Other
+files are automatically ignored. If high performance is a requirement, then you
+should separate any files that are not images. Images are identified uniquely by
+their relative file path. For later processing, such as image undistortion or
+dense reconstruction, the relative folder structure should be preserved. COLMAP
+does not modify the input images or directory and all extracted data is stored
+in a single, self-contained SQLite database file (see :doc:`database`).
 
 The first step is to start the graphical user interface of COLMAP by running the
 pre-built binaries (Windows: `COLMAP.bat`, Mac: `COLMAP.app`) or by executing
