@@ -24,7 +24,7 @@ RUN apt-get update && \
         libboost-graph-dev \
         libboost-system-dev \
         libeigen3-dev \
-        libfreeimage-dev \
+        libopenimageio-dev \
         libmetis-dev \
         libgoogle-glog-dev \
         libgtest-dev \
@@ -68,7 +68,7 @@ RUN apt-get update && \
         libopengl0 \
         libmetis5 \
         libceres4t64 \
-        libfreeimage3 \
+        libopenimageio2.5 \
         libgcc-s1 \
         libgl1 \
         libglew2.2 \

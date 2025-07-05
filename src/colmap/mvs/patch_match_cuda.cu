@@ -1539,9 +1539,7 @@ void PatchMatchCuda::InitRefImage() {
 
   // Upload to device and filter.
   ref_image_.reset(new GpuMatRefImage(ref_width_, ref_height_));
-  const std::vector<uint8_t> ref_image_array =
-      ref_image.GetBitmap().ConvertToRowMajorArray();
-  ref_image_->Filter(ref_image_array.data(),
+  ref_image_->Filter(ref_image.GetBitmap().RowMajorData().data(),
                      options_.window_radius,
                      options_.window_step,
                      options_.sigma_spatial,
