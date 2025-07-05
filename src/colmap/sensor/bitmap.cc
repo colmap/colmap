@@ -131,17 +131,18 @@ Bitmap& Bitmap::operator=(Bitmap&& other) noexcept {
   return *this;
 }
 
-bool Bitmap::Allocate(const int width, const int height, const bool as_rgb) {
-  width_ = width;
-  height_ = height;
-  channels_ = as_rgb ? 3 : 1;
-  data_.resize(width_ * height_ * channels_);
+Bitmap Bitmap::Create(const int width, const int height, const bool as_rgb) {
+  Bitmap bitmap;
+  bitmap.width_ = width;
+  bitmap.height_ = height;
+  bitmap.channels_ = as_rgb ? 3 : 1;
+  bitmap.data_.resize(bitmap.width_ * bitmap.height_ * bitmap.channels_);
   auto meta_data = std::make_unique<OIIOMetaData>();
-  meta_data->image_spec =
-      OIIO::ImageSpec(width_, height_, channels_, OIIO::TypeDesc::UINT8);
+  meta_data->image_spec = OIIO::ImageSpec(
+      bitmap.width_, bitmap.height_, bitmap.channels_, OIIO::TypeDesc::UINT8);
   meta_data->image_spec.set_colorspace("sRGB");
-  meta_data_ = std::move(meta_data);
-  return true;
+  bitmap.meta_data_ = std::move(meta_data);
+  return bitmap;
 }
 
 size_t Bitmap::NumBytes() const { return data_.size(); }

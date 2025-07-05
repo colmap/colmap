@@ -74,8 +74,7 @@ class Bitmap {
   Bitmap& operator=(const Bitmap& other);
   Bitmap& operator=(Bitmap&& other) noexcept;
 
-  // Allocate bitmap by overwriting the existing data.
-  bool Allocate(int width, int height, bool as_rgb);
+  static Bitmap Create(int width, int height, bool as_rgb);
 
   // Dimensions of bitmap.
   inline int Width() const;

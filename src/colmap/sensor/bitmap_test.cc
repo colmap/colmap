@@ -70,16 +70,14 @@ TEST(Bitmap, Empty) {
 }
 
 TEST(Bitmap, Print) {
-  Bitmap bitmap;
-  bitmap.Allocate(100, 100, true);
+  Bitmap bitmap = Bitmap::Create(100, 100, true);
   std::ostringstream stream;
   stream << bitmap;
   EXPECT_EQ(stream.str(), "Bitmap(width=100, height=100, channels=3)");
 }
 
 TEST(Bitmap, AllocateRGB) {
-  Bitmap bitmap;
-  bitmap.Allocate(100, 100, true);
+  Bitmap bitmap = Bitmap::Create(100, 100, true);
   EXPECT_EQ(bitmap.Width(), 100);
   EXPECT_EQ(bitmap.Height(), 100);
   EXPECT_EQ(bitmap.Channels(), 3);
@@ -88,8 +86,7 @@ TEST(Bitmap, AllocateRGB) {
 }
 
 TEST(Bitmap, AllocateGrey) {
-  Bitmap bitmap;
-  bitmap.Allocate(100, 100, false);
+  Bitmap bitmap = Bitmap::Create(100, 100, false);
   EXPECT_EQ(bitmap.Width(), 100);
   EXPECT_EQ(bitmap.Height(), 100);
   EXPECT_EQ(bitmap.Channels(), 1);
@@ -98,8 +95,7 @@ TEST(Bitmap, AllocateGrey) {
 }
 
 TEST(Bitmap, MoveConstruct) {
-  Bitmap bitmap;
-  bitmap.Allocate(2, 1, true);
+  Bitmap bitmap = Bitmap::Create(2, 1, true);
   Bitmap moved_bitmap(std::move(bitmap));
   EXPECT_EQ(moved_bitmap.Width(), 2);
   EXPECT_EQ(moved_bitmap.Height(), 1);
@@ -113,8 +109,7 @@ TEST(Bitmap, MoveConstruct) {
 }
 
 TEST(Bitmap, MoveAssign) {
-  Bitmap bitmap;
-  bitmap.Allocate(2, 1, true);
+  Bitmap bitmap = Bitmap::Create(2, 1, true);
   Bitmap moved_bitmap = std::move(bitmap);
   EXPECT_EQ(moved_bitmap.Width(), 2);
   EXPECT_EQ(moved_bitmap.Height(), 1);
@@ -128,25 +123,23 @@ TEST(Bitmap, MoveAssign) {
 }
 
 TEST(Bitmap, BitsPerPixel) {
-  Bitmap bitmap;
-  bitmap.Allocate(100, 100, true);
+  Bitmap bitmap = Bitmap::Create(100, 100, true);
   EXPECT_EQ(bitmap.BitsPerPixel(), 24);
-  bitmap.Allocate(100, 100, false);
+  bitmap = Bitmap::Create(100, 100, false);
   EXPECT_EQ(bitmap.BitsPerPixel(), 8);
 }
 
 TEST(Bitmap, NumBytes) {
   Bitmap bitmap;
   EXPECT_EQ(bitmap.NumBytes(), 0);
-  bitmap.Allocate(100, 100, true);
+  bitmap = Bitmap::Create(100, 100, true);
   EXPECT_EQ(bitmap.NumBytes(), 3 * 100 * 100);
-  bitmap.Allocate(100, 100, false);
+  bitmap = Bitmap::Create(100, 100, false);
   EXPECT_EQ(bitmap.NumBytes(), 100 * 100);
 }
 
 TEST(Bitmap, RowMajorDataRGB) {
-  Bitmap bitmap;
-  bitmap.Allocate(2, 2, true);
+  Bitmap bitmap = Bitmap::Create(2, 2, true);
   bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(0, 0, 0));
   bitmap.SetPixel(0, 1, BitmapColor<uint8_t>(1, 0, 0));
   bitmap.SetPixel(1, 0, BitmapColor<uint8_t>(2, 0, 0));
@@ -168,8 +161,7 @@ TEST(Bitmap, RowMajorDataRGB) {
 }
 
 TEST(Bitmap, RowMajorDataGrey) {
-  Bitmap bitmap;
-  bitmap.Allocate(2, 2, false);
+  Bitmap bitmap = Bitmap::Create(2, 2, false);
   bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(0, 0, 0));
   bitmap.SetPixel(0, 1, BitmapColor<uint8_t>(1, 0, 0));
   bitmap.SetPixel(1, 0, BitmapColor<uint8_t>(2, 0, 0));
@@ -183,8 +175,7 @@ TEST(Bitmap, RowMajorDataGrey) {
 }
 
 TEST(Bitmap, GetAndSetPixelRGB) {
-  Bitmap bitmap;
-  bitmap.Allocate(1, 1, true);
+  Bitmap bitmap = Bitmap::Create(1, 1, true);
   bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(1, 2, 3));
   BitmapColor<uint8_t> color;
   EXPECT_TRUE(bitmap.GetPixel(0, 0, &color));
@@ -192,8 +183,7 @@ TEST(Bitmap, GetAndSetPixelRGB) {
 }
 
 TEST(Bitmap, GetAndSetPixelGrey) {
-  Bitmap bitmap;
-  bitmap.Allocate(1, 1, false);
+  Bitmap bitmap = Bitmap::Create(1, 1, false);
   bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(0, 2, 3));
   BitmapColor<uint8_t> color;
   EXPECT_TRUE(bitmap.GetPixel(0, 0, &color));
@@ -204,8 +194,7 @@ TEST(Bitmap, GetAndSetPixelGrey) {
 }
 
 TEST(Bitmap, Fill) {
-  Bitmap bitmap;
-  bitmap.Allocate(100, 100, true);
+  Bitmap bitmap = Bitmap::Create(100, 100, true);
   bitmap.Fill(BitmapColor<uint8_t>(1, 2, 3));
   for (int y = 0; y < bitmap.Height(); ++y) {
     for (int x = 0; x < bitmap.Width(); ++x) {
@@ -217,8 +206,7 @@ TEST(Bitmap, Fill) {
 }
 
 TEST(Bitmap, InterpolateNearestNeighbor) {
-  Bitmap bitmap;
-  bitmap.Allocate(11, 11, true);
+  Bitmap bitmap = Bitmap::Create(11, 11, true);
   bitmap.Fill(BitmapColor<uint8_t>(0, 0, 0));
   bitmap.SetPixel(5, 5, BitmapColor<uint8_t>(1, 2, 3));
   BitmapColor<uint8_t> color;
@@ -233,8 +221,7 @@ TEST(Bitmap, InterpolateNearestNeighbor) {
 }
 
 TEST(Bitmap, InterpolateBilinear) {
-  Bitmap bitmap;
-  bitmap.Allocate(11, 11, true);
+  Bitmap bitmap = Bitmap::Create(11, 11, true);
   bitmap.Fill(BitmapColor<uint8_t>(0, 0, 0));
   bitmap.SetPixel(5, 5, BitmapColor<uint8_t>(1, 2, 3));
   BitmapColor<float> color;
@@ -247,8 +234,7 @@ TEST(Bitmap, InterpolateBilinear) {
 }
 
 TEST(Bitmap, RescaleRGB) {
-  Bitmap bitmap;
-  bitmap.Allocate(100, 100, true);
+  Bitmap bitmap = Bitmap::Create(100, 100, true);
   Bitmap bitmap1 = bitmap.Clone();
   bitmap1.Rescale(50, 25);
   EXPECT_EQ(bitmap1.Width(), 50);
@@ -262,8 +248,7 @@ TEST(Bitmap, RescaleRGB) {
 }
 
 TEST(Bitmap, RescaleGrey) {
-  Bitmap bitmap;
-  bitmap.Allocate(100, 100, false);
+  Bitmap bitmap = Bitmap::Create(100, 100, false);
   Bitmap bitmap1 = bitmap.Clone();
   bitmap1.Rescale(50, 25);
   EXPECT_EQ(bitmap1.Width(), 50);
@@ -277,8 +262,7 @@ TEST(Bitmap, RescaleGrey) {
 }
 
 TEST(Bitmap, Clone) {
-  Bitmap bitmap;
-  bitmap.Allocate(100, 80, true);
+  Bitmap bitmap = Bitmap::Create(100, 80, true);
   bitmap.Fill(BitmapColor<uint8_t>(0, 0, 0));
   bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(10, 20, 30));
   const Bitmap cloned_bitmap = bitmap.Clone();
@@ -291,8 +275,7 @@ TEST(Bitmap, Clone) {
 }
 
 TEST(Bitmap, CloneAsRGB) {
-  Bitmap bitmap;
-  bitmap.Allocate(100, 80, false);
+  Bitmap bitmap = Bitmap::Create(100, 80, false);
   bitmap.Fill(BitmapColor<uint8_t>(0, 0, 0));
   bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(10, 0, 0));
   const Bitmap cloned_bitmap = bitmap.CloneAsRGB();
@@ -305,8 +288,7 @@ TEST(Bitmap, CloneAsRGB) {
 }
 
 TEST(Bitmap, CloneAsGrey) {
-  Bitmap bitmap;
-  bitmap.Allocate(100, 80, true);
+  Bitmap bitmap = Bitmap::Create(100, 80, true);
   bitmap.Fill(BitmapColor<uint8_t>(0, 0, 0));
   bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(10, 20, 30));
   const Bitmap cloned_bitmap = bitmap.CloneAsGrey();
@@ -319,8 +301,7 @@ TEST(Bitmap, CloneAsGrey) {
 }
 
 TEST(Bitmap, SetGetMetaData) {
-  Bitmap bitmap;
-  bitmap.Allocate(100, 80, true);
+  Bitmap bitmap = Bitmap::Create(100, 80, true);
   const float kValue = 1.f;
   bitmap.SetMetaData("foobar", "float", &kValue);
   float value = 0.f;
@@ -331,13 +312,11 @@ TEST(Bitmap, SetGetMetaData) {
 }
 
 TEST(Bitmap, CloneMetaData) {
-  Bitmap bitmap;
-  bitmap.Allocate(100, 80, true);
+  Bitmap bitmap = Bitmap::Create(100, 80, true);
   const float kValue = 1.f;
   bitmap.SetMetaData("foobar", "float", &kValue);
 
-  Bitmap bitmap2;
-  bitmap2.Allocate(100, 80, true);
+  Bitmap bitmap2 = Bitmap::Create(100, 80, true);
   float value = 0.f;
   EXPECT_FALSE(bitmap2.GetMetaData("foobar", "float", &value));
   bitmap.CloneMetadata(&bitmap2);
@@ -346,8 +325,7 @@ TEST(Bitmap, CloneMetaData) {
 }
 
 TEST(Bitmap, ExifCameraModel) {
-  Bitmap bitmap;
-  bitmap.Allocate(100, 80, true);
+  Bitmap bitmap = Bitmap::Create(100, 80, true);
 
   std::string camera_model;
   EXPECT_FALSE(bitmap.ExifCameraModel(&camera_model));
@@ -363,8 +341,7 @@ TEST(Bitmap, ExifCameraModel) {
 }
 
 TEST(Bitmap, ExifFocalLengthIn35mm) {
-  Bitmap bitmap;
-  bitmap.Allocate(100, 80, true);
+  Bitmap bitmap = Bitmap::Create(100, 80, true);
 
   double focal_length = 0.0;
   EXPECT_FALSE(bitmap.ExifFocalLength(&focal_length));
@@ -378,8 +355,7 @@ TEST(Bitmap, ExifFocalLengthIn35mm) {
 }
 
 TEST(Bitmap, ExifFocalLengthWithPlane) {
-  Bitmap bitmap;
-  bitmap.Allocate(100, 80, true);
+  Bitmap bitmap = Bitmap::Create(100, 80, true);
 
   double focal_length = 0.0;
   EXPECT_FALSE(bitmap.ExifFocalLength(&focal_length));
@@ -394,8 +370,7 @@ TEST(Bitmap, ExifFocalLengthWithPlane) {
 }
 
 TEST(Bitmap, ExifFocalLengthWithDatabaseLookup) {
-  Bitmap bitmap;
-  bitmap.Allocate(100, 80, true);
+  Bitmap bitmap = Bitmap::Create(100, 80, true);
 
   double focal_length = 0.0;
   EXPECT_FALSE(bitmap.ExifFocalLength(&focal_length));
@@ -414,8 +389,7 @@ TEST(Bitmap, ExifFocalLengthWithDatabaseLookup) {
 }
 
 TEST(Bitmap, ExifLatitude) {
-  Bitmap bitmap;
-  bitmap.Allocate(100, 80, true);
+  Bitmap bitmap = Bitmap::Create(100, 80, true);
 
   double latitude = 0.0;
   EXPECT_FALSE(bitmap.ExifLatitude(&latitude));
@@ -434,8 +408,7 @@ TEST(Bitmap, ExifLatitude) {
 }
 
 TEST(Bitmap, ExifLongitude) {
-  Bitmap bitmap;
-  bitmap.Allocate(100, 80, true);
+  Bitmap bitmap = Bitmap::Create(100, 80, true);
 
   double longitude = 0.0;
   EXPECT_FALSE(bitmap.ExifLongitude(&longitude));
@@ -454,8 +427,7 @@ TEST(Bitmap, ExifLongitude) {
 }
 
 TEST(Bitmap, ExifAltitude) {
-  Bitmap bitmap;
-  bitmap.Allocate(100, 80, true);
+  Bitmap bitmap = Bitmap::Create(100, 80, true);
 
   double altitude = 0.0;
   EXPECT_FALSE(bitmap.ExifAltitude(&altitude));
@@ -474,8 +446,7 @@ TEST(Bitmap, ExifAltitude) {
 }
 
 TEST(Bitmap, ReadWriteAsRGB) {
-  Bitmap bitmap;
-  bitmap.Allocate(2, 3, true);
+  Bitmap bitmap = Bitmap::Create(2, 3, true);
   bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(0, 0, 0));
   bitmap.SetPixel(0, 1, BitmapColor<uint8_t>(1, 0, 0));
   bitmap.SetPixel(1, 0, BitmapColor<uint8_t>(2, 0, 0));
@@ -505,8 +476,7 @@ TEST(Bitmap, ReadWriteAsRGB) {
 }
 
 TEST(Bitmap, ReadWriteAsGrey) {
-  Bitmap bitmap;
-  bitmap.Allocate(2, 3, false);
+  Bitmap bitmap = Bitmap::Create(2, 3, false);
   bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(0));
   bitmap.SetPixel(0, 1, BitmapColor<uint8_t>(1));
   bitmap.SetPixel(1, 0, BitmapColor<uint8_t>(2));
