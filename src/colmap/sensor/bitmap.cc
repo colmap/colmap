@@ -68,6 +68,12 @@ struct OIIOMetaData : public Bitmap::MetaData {
   }
 };
 
+// For backwards compatibility with older OIIO versions without implicit
+// conversion from std::string_view.
+OIIO::string_view OIIOFromStdStringView(std::string_view value) {
+  return {value.data(), value.size()};
+}
+
 std::vector<uint8_t> ConvertColorSpace(const uint8_t* src_data,
                                        int width,
                                        int height,
@@ -81,7 +87,7 @@ std::vector<uint8_t> ConvertColorSpace(const uint8_t* src_data,
   std::vector<uint8_t> tgt_data(height * pitch);
   OIIO::ImageBuf tgt(image_spec, tgt_data.data());
   THROW_CHECK(OIIO::ImageBufAlgo::colorconvert(
-      tgt, src, {from.data(), from.size()}, {to.data(), to.size()}));
+      tgt, src, OIIOFromStdStringView(from), OIIOFromStdStringView(to)));
   return tgt_data;
 }
 
@@ -480,7 +486,7 @@ bool Bitmap::Write(const std::string& path) const {
     // Assume sRGB color space if not specified.
     colorspace = "sRGB";
     SetImageSpecColorSpace(meta_data->image_spec,
-                           {colorspace.data(), colorspace.size()});
+                           OIIOFromStdStringView(colorspace));
   }
 
   const std::vector<uint8_t> output_data = ConvertColorSpace(
@@ -524,8 +530,7 @@ void Bitmap::Rescale(const int new_width,
   std::vector<uint8_t> new_data(new_width * new_height * channels_);
   OIIO::ImageBuf new_buf(
       OIIO::ImageSpec(new_width, new_height, channels_, OIIO::TypeDesc::UINT8),
-      new_data.data(),
-      channels_);
+      new_data.data());
   THROW_CHECK(OIIO::ImageBufAlgo::resize(new_buf, buf));
 
   width_ = new_width;
@@ -583,15 +588,17 @@ void Bitmap::SetMetaData(const std::string_view& name,
   THROW_CHECK_NE(type, "string");
   auto* meta_data = OIIOMetaData::Upcast(meta_data_.get());
   OIIO::TypeDesc type_desc;
-  type_desc.fromstring({type.data(), type.size()});
+  type_desc.fromstring(OIIOFromStdStringView(type));
   THROW_CHECK_NE(type_desc, OIIO::TypeDesc::UNKNOWN);
-  meta_data->image_spec.attribute({name.data(), name.size()}, type_desc, value);
+  meta_data->image_spec.attribute(
+      OIIOFromStdStringView(name), type_desc, value);
 }
 
 void Bitmap::SetMetaData(const std::string_view& name,
                          const std::string_view& value) {
   auto* meta_data = OIIOMetaData::Upcast(meta_data_.get());
-  meta_data->image_spec.attribute({name.data(), name.size()}, value);
+  meta_data->image_spec.attribute(OIIOFromStdStringView(name),
+                                  OIIOFromStdStringView(value));
 }
 
 bool Bitmap::GetMetaData(const std::string_view& name,
@@ -600,10 +607,10 @@ bool Bitmap::GetMetaData(const std::string_view& name,
   THROW_CHECK_NE(type, "string");
   auto* meta_data = OIIOMetaData::Upcast(meta_data_.get());
   OIIO::TypeDesc type_desc;
-  type_desc.fromstring({type.data(), type.size()});
+  type_desc.fromstring(OIIOFromStdStringView(type));
   THROW_CHECK_NE(type_desc, OIIO::TypeDesc::UNKNOWN);
   return meta_data->image_spec.getattribute(
-      {name.data(), name.size()}, type_desc, value);
+      OIIOFromStdStringView(name), type_desc, value);
 }
 
 bool Bitmap::GetMetaData(const std::string_view& name,
@@ -611,7 +618,7 @@ bool Bitmap::GetMetaData(const std::string_view& name,
   auto* meta_data = OIIOMetaData::Upcast(meta_data_.get());
   OIIO::ustring ustring_value;
   if (meta_data->image_spec.getattribute(
-          name, OIIO::TypeString, &ustring_value)) {
+          OIIOFromStdStringView(name), OIIO::TypeString, &ustring_value)) {
     *value = std::string_view(ustring_value.data(), ustring_value.size());
     return true;
   }
