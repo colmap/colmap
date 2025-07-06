@@ -54,7 +54,7 @@ class ImageImporterController : public Thread {
       }
 
       LOG(INFO) << StringPrintf("Processed file [%d/%d]",
-                                image_reader_.NextIndex(),
+                                image_reader_.NextIndex() + 1,
                                 image_reader_.NumImages());
 
       Rig rig;

@@ -255,16 +255,13 @@ class SiftFeatureExtractorThread : public Thread {
 
 class FeatureWriterThread : public Thread {
  public:
-  FeatureWriterThread(size_t num_images,
-                      Database* database,
-                      JobQueue<ImageData>* input_queue)
-      : num_images_(num_images),
-        database_(database),
-        input_queue_(input_queue) {}
+  FeatureWriterThread(Database* database, JobQueue<ImageData>* input_queue)
+      : database_(database), input_queue_(input_queue) {}
 
  private:
   void Run() override {
     size_t image_index = 0;
+    size_t num_images = database_->NumImages();
     while (true) {
       if (IsStopped()) {
         break;
@@ -277,7 +274,7 @@ class FeatureWriterThread : public Thread {
         image_index += 1;
 
         LOG(INFO) << StringPrintf(
-            "Processed file [%d/%d]", image_index, num_images_);
+            "Processed file [%d/%d]", image_index, num_images);
         LOG(INFO) << StringPrintf("  Name:            %s",
                                   image_data.image.Name().c_str());
         if (image_data.status != FeatureExtractionStatus::SUCCESS) {
@@ -308,7 +305,6 @@ class FeatureWriterThread : public Thread {
     }
   }
 
-  const size_t num_images_;
   Database* database_;
   JobQueue<ImageData>* input_queue_;
 };
@@ -416,8 +412,8 @@ class FeatureExtractorController : public Thread {
       }
     }
 
-    writer_ = std::make_unique<FeatureWriterThread>(
-        database_.NumImages(), &database_, writer_queue_.get());
+    writer_ =
+        std::make_unique<FeatureWriterThread>(&database_, writer_queue_.get());
   }
 
  private:
