@@ -8,7 +8,7 @@ process. The sensors in a rig are assumed to have fixed relative poses between
 each other with one reference sensor defining the origin of the rig. A frame
 defines a specific instance of the rig with all or a subset of sensors exposed
 at the same time. For example, in a stereo camera rig, one camera would be
-defined as the reference sensor and have an identity `sensor_from_rig` pose,
+defined as the reference sensor and have an identity ``sensor_from_rig`` pose,
 whereas the second camera would be posed relative to the reference camera. Each
 frame would then usually be composed of two images as the measurements of both
 of the cameras at the same time.
@@ -53,7 +53,7 @@ in the database with the desired rig configuration. This is done using::
         --database_path $DATASET_PATH/database.db \
         --rig_config_path $DATASET_PATH/rig_config.json
 
-where the `rig_config.json` could look as follows, if the relative sensor poses
+where the ``rig_config.json`` could look as follows, if the relative sensor poses
 in the rig are known a priori::
 
     [
@@ -96,20 +96,20 @@ contains the full specification of rigs that we later feed as an input to
 downstream processing steps.
 
 With known calibrated camera parameters, each camera can optionally also have
-specified `camera_model_name` and `camera_params` fields.
+specified ``camera_model_name`` and ``camera_params`` fields.
 
 For more fine-grain configuration of rigs and frames, the most convenient option
 is to manually configure the database using pycolmap by either using the
-`apply_rig_config` function or by individually adding the desired rig and frame
+``apply_rig_config`` function or by individually adding the desired rig and frame
 objects to the reconstruction for the most flexibility.
 
 Next, we run standard feature matching. Note that it is important to configure
 the rigs before sequential feature matching, as images in consecutive frames will
 be automatically matched against each other.
 
-Finally, we can reconstruct the scene using the standard `mapper` command with
+Finally, we can reconstruct the scene using the standard ``mapper`` command with
 the option of keeping the relative poses in the rig fixed using
-`--Mapper.ba_refine_sensor_from_rig 0`.
+``--Mapper.ba_refine_sensor_from_rig 0``.
 
 Unknown rig sensor poses
 ------------------------
@@ -118,7 +118,7 @@ If the relative poses of sensors in the rig are not known a priori and we only
 know that a specific set of sensors are rigidly mounted and exposed at the same
 time, one can attempt the following two-step reconstruction approach. Before
 starting, ensure to organize your images as detailed above and perform feature
-extraction with the `--ImageReader.single_camera_per_folder 1` option.
+extraction with the ``--ImageReader.single_camera_per_folder 1`` option.
 
 Next, reconstruct the scene without rig constraints by modeling each camera as
 its own rig (the default behavior of COLMAP without further configuration). Note
@@ -128,7 +128,7 @@ registered image in the same frame with a registered image of the reference
 camera. If the reconstruction was successful and the relative poses between
 registered images look roughly correct, we can proceed with the next step.
 
-The `rig_configurator` can also work without `cam_from_rig_*` transformations.
+The ``rig_configurator`` can also work without ``cam_from_rig_*`` transformations.
 By providing an existing (partial) reconstruction of the scene, it can compute
 the average relative rig sensor poses from all registered images::
 
@@ -138,8 +138,8 @@ the average relative rig sensor poses from all registered images::
         --rig_config_path $DATASET_PATH/rig_config.json \
         [ --output_path $DATASET_PATH/sparse-model-with-rigs-and-frames ]
 
-The provided `rig_config.json` must simply omit the respective
-`cam_from_rig_rotation` and `cam_from_rig_translation` fields.
+The provided ``rig_config.json`` must simply omit the respective
+``cam_from_rig_rotation`` and ``cam_from_rig_translation`` fields.
 
 Now, we can either run rig bundle adjustment on the (optional) output
 reconstruction with configured rigs and frames::
@@ -179,7 +179,7 @@ that we use to configure the sensor rig poses as well as camera models using::
         --rig_config_path terrains/rig_config.json \
         --input_path terrains/rig_calibration_undistorted
 
-with the `rig_config.json`::
+with the ``rig_config.json``::
 
     [
         {
@@ -219,6 +219,7 @@ sensor rig poses and camera parameters fixed::
         --Mapper.ba_refine_sensor_from_rig 0 \
         --Mapper.ba_refine_focal_length 0 \
         --Mapper.ba_refine_extra_params 0 \
+        --image_path terrains/images \
         --output_path terrains/sparse
 
 

@@ -44,7 +44,7 @@ virtual cameras arranged to capture overlapping views used to create seamless
 In COLMAP, each sensor must be uniquely associated with exactly one rig. Each rig
 has a single reference sensor that defines its origin. For example, in a stereo
 camera rig, one camera is designated as the reference sensor with an identity
-`sensor_from_rig` pose, while the second camera’s pose is defined relative to
+``sensor_from_rig`` pose, while the second camera’s pose is defined relative to
 this reference. In a single-camera setup, the camera itself serves as the sole
 reference sensor for its rig.
 

@@ -5,8 +5,8 @@ Graphical User Interface
 
 The graphical user interface of COLMAP provides access to most of the available
 functionality and visualizes the reconstruction process in "real-time". To start
-the GUI, you can run the pre-built packages (Windows: `COLMAP.bat`, Mac:
-`COLMAP.app`), execute ``colmap gui`` if you installed COLMAP or execute
+the GUI, you can run the pre-built packages (Windows: ``COLMAP.bat``, Mac:
+``COLMAP.app``), execute ``colmap gui`` if you installed COLMAP or execute
 ``./src/colmap/exe/colmap gui`` from the CMake build folder. The GUI application
 requires an attached display with at least OpenGL 3.2 support. Registered images
 are visualized in red and reconstructed points in their average point color
