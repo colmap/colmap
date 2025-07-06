@@ -77,12 +77,20 @@ std::vector<uint8_t> ConvertColorSpace(const uint8_t* src_data,
   const OIIO::ImageSpec image_spec(
       width, height, channels, OIIO::TypeDesc::UINT8);
   const int pitch = width * channels;
-  const OIIO::ImageBuf src(
-      image_spec, const_cast<uint8_t*>(src_data), channels, pitch);
+  const OIIO::ImageBuf src(image_spec, const_cast<uint8_t*>(src_data));
   std::vector<uint8_t> tgt_data(height * pitch);
-  OIIO::ImageBuf tgt(image_spec, tgt_data.data(), channels, pitch);
-  THROW_CHECK(OIIO::ImageBufAlgo::colorconvert(tgt, src, from, to));
+  OIIO::ImageBuf tgt(image_spec, tgt_data.data());
+  THROW_CHECK(OIIO::ImageBufAlgo::colorconvert(
+      tgt, src, {from.data(), from.size()}, {to.data(), to.size()}));
   return tgt_data;
+}
+
+// ImageSpec::set_colorspace not available in OIIO v2.2. This replaces:
+//   meta_data->image_spec.set_colorspace("sRGB");
+void SetImageSpecColorSpace(OIIO::ImageSpec& image_spec,
+                            std::string_view colorspace) {
+  OIIO::ColorConfig::default_colorconfig().set_colorspace(
+      image_spec, {colorspace.data(), colorspace.size()});
 }
 
 }  // namespace
@@ -140,7 +148,7 @@ Bitmap Bitmap::Create(const int width, const int height, const bool as_rgb) {
   auto meta_data = std::make_unique<OIIOMetaData>();
   meta_data->image_spec = OIIO::ImageSpec(
       bitmap.width_, bitmap.height_, bitmap.channels_, OIIO::TypeDesc::UINT8);
-  meta_data->image_spec.set_colorspace("sRGB");
+  SetImageSpecColorSpace(meta_data->image_spec, "sRGB");
   bitmap.meta_data_ = std::move(meta_data);
   return bitmap;
 }
@@ -454,7 +462,7 @@ bool Bitmap::Write(const std::string& path) const {
   if (!GetMetaData("oiio:ColorSpace", &colorspace)) {
     // Assume sRGB color space if not specified.
     colorspace = "sRGB";
-    meta_data->image_spec.set_colorspace(colorspace);
+    SetImageSpecColorSpace(meta_data->image_spec, colorspace);
   }
 
   const std::vector<uint8_t> output_data = ConvertColorSpace(
@@ -494,15 +502,12 @@ void Bitmap::Rescale(const int new_width,
                      RescaleFilter filter) {
   const OIIO::ImageBuf buf(
       OIIO::ImageSpec(width_, height_, channels_, OIIO::TypeDesc::UINT8),
-      data_.data(),
-      channels_,
-      width_ * channels_);
+      data_.data());
   std::vector<uint8_t> new_data(new_width * new_height * channels_);
   OIIO::ImageBuf new_buf(
       OIIO::ImageSpec(new_width, new_height, channels_, OIIO::TypeDesc::UINT8),
       new_data.data(),
-      channels_,
-      new_width * channels_);
+      channels_);
   THROW_CHECK(OIIO::ImageBufAlgo::resize(new_buf, buf));
 
   width_ = new_width;
@@ -560,15 +565,15 @@ void Bitmap::SetMetaData(const std::string_view& name,
   THROW_CHECK_NE(type, "string");
   auto* meta_data = OIIOMetaData::Upcast(meta_data_.get());
   OIIO::TypeDesc type_desc;
-  type_desc.fromstring(type);
+  type_desc.fromstring({type.data(), type.size()});
   THROW_CHECK_NE(type_desc, OIIO::TypeDesc::UNKNOWN);
-  meta_data->image_spec.attribute(name, type_desc, value);
+  meta_data->image_spec.attribute({name.data(), name.size()}, type_desc, value);
 }
 
 void Bitmap::SetMetaData(const std::string_view& name,
                          const std::string_view& value) {
   auto* meta_data = OIIOMetaData::Upcast(meta_data_.get());
-  meta_data->image_spec.attribute(name, value);
+  meta_data->image_spec.attribute({name.data(), name.size()}, value);
 }
 
 bool Bitmap::GetMetaData(const std::string_view& name,
@@ -577,9 +582,10 @@ bool Bitmap::GetMetaData(const std::string_view& name,
   THROW_CHECK_NE(type, "string");
   auto* meta_data = OIIOMetaData::Upcast(meta_data_.get());
   OIIO::TypeDesc type_desc;
-  type_desc.fromstring(type);
+  type_desc.fromstring({type.data(), type.size()});
   THROW_CHECK_NE(type_desc, OIIO::TypeDesc::UNKNOWN);
-  return meta_data->image_spec.getattribute(name, type_desc, value);
+  return meta_data->image_spec.getattribute(
+      {name.data(), name.size()}, type_desc, value);
 }
 
 bool Bitmap::GetMetaData(const std::string_view& name,
