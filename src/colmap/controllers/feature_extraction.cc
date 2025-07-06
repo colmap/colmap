@@ -422,12 +422,15 @@ class FeatureExtractorController : public Thread {
     image_data.image = image;
     image_data.camera = database_.ReadCamera(image.CameraId());
 
-    const bool exists_keypoints = database_.ExistsKeypoints(image.ImageId());
-    const bool exists_descriptors =
-        database_.ExistsDescriptors(image.ImageId());
-    if (exists_keypoints && exists_descriptors) {
-      image_data.status = FeatureExtractionStatus::IMAGE_EXISTS;
-      return image_data;
+    {
+      DatabaseTransaction database_transaction(&database_);
+      const bool exists_keypoints = database_.ExistsKeypoints(image.ImageId());
+      const bool exists_descriptors =
+          database_.ExistsDescriptors(image.ImageId());
+      if (exists_keypoints && exists_descriptors) {
+        image_data.status = FeatureExtractionStatus::IMAGE_EXISTS;
+        return image_data;
+      }
     }
 
     // Construct full image path and load bitmap
