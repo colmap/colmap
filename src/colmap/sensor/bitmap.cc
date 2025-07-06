@@ -94,7 +94,7 @@ std::vector<uint8_t> ConvertColorSpace(const uint8_t* src_data,
 // ImageSpec::set_colorspace not available in OIIO v2.2. This replaces:
 //   ImageSpec::set_colorspace(colorspace);
 void SetImageSpecColorSpace(OIIO::ImageSpec& image_spec,
-                            OIIO::string_view colorspace) {
+                            const OIIO::string_view& colorspace) {
   const OIIO::string_view oldspace =
       image_spec.get_string_attribute("oiio:ColorSpace");
   if (oldspace.size() && colorspace.size() && oldspace == colorspace) {
@@ -334,6 +334,8 @@ bool Bitmap::ExifFocalLength(double* focal_length) const {
           case 5:  // um
             pixel_size_mm = 0.1;
             break;
+          default:
+            LOG(FATAL) << "Unexpected FocalPlaneXResolution value";
         }
         *focal_length =
             focal_length_mm / (ccd_width * pixel_size_mm) * max_size;
