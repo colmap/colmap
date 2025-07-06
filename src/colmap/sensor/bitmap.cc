@@ -47,6 +47,8 @@ struct OIIOInitializer {
     OIIO::attribute("threads", 1);
     OIIO::attribute("exr_threads", 1);
   }
+
+  ~OIIOInitializer() { OIIO::shutdown(); }
 };
 
 const static auto initializer = OIIOInitializer();
