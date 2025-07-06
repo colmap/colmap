@@ -160,7 +160,7 @@ void Bitmap::Fill(const BitmapColor<uint8_t>& color) {
     std::fill(data_.begin(), data_.end(), color.r);
   } else {
     THROW_CHECK_EQ(data_.size() % 3, 0);
-    int i = 0;
+    size_t i = 0;
     while (i < data_.size()) {
       data_[i++] = color.r;
       data_[i++] = color.g;
@@ -524,7 +524,7 @@ Bitmap Bitmap::CloneAsGrey() const {
     cloned.height_ = height_;
     cloned.channels_ = 1;
     cloned.data_.resize(width_ * height_);
-    for (int i = 0; i < cloned.data_.size(); ++i) {
+    for (size_t i = 0; i < cloned.data_.size(); ++i) {
       cloned.data_[i] =
           std::round(.2126f * data_[3 * i + 0] + .7152f * data_[3 * i + 1] +
                      .0722f * data_[3 * i + 2]);
@@ -544,7 +544,7 @@ Bitmap Bitmap::CloneAsRGB() const {
     cloned.height_ = height_;
     cloned.channels_ = 3;
     cloned.data_.resize(width_ * height_ * 3);
-    for (int i = 0; i < data_.size(); ++i) {
+    for (size_t i = 0; i < data_.size(); ++i) {
       cloned.data_[3 * i + 0] = data_[i];
       cloned.data_[3 * i + 1] = data_[i];
       cloned.data_[3 * i + 2] = data_[i];

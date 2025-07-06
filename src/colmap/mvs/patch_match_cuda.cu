@@ -1574,10 +1574,7 @@ void PatchMatchCuda::InitSourceImages() {
       const Image& image = problem_.images->at(problem_.src_image_idxs[i]);
       const Bitmap& bitmap = image.GetBitmap();
       uint8_t* dest = src_images_host_data.data() + max_width * max_height * i;
-      for (size_t r = 0; r < image.GetHeight(); ++r) {
-        memcpy(dest, bitmap.GetScanline(r), image.GetWidth() * sizeof(uint8_t));
-        dest += max_width;
-      }
+      memcpy(dest, bitmap.RowMajorData().data(), bitmap.NumBytes());
     }
 
     // Create source images texture.

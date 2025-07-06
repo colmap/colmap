@@ -36,6 +36,7 @@
 #include <cstdint>
 #include <ios>
 #include <limits>
+#include <memory>
 #include <string>
 #include <vector>
 
