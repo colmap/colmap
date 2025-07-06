@@ -64,7 +64,7 @@ struct BitmapColor {
   T b;
 };
 
-// Wrapper class around bitmaps. Holds image data in linear color space.
+// Wrapper class around bitmaps.
 class Bitmap {
  public:
   Bitmap();
@@ -75,7 +75,10 @@ class Bitmap {
   Bitmap& operator=(const Bitmap& other);
   Bitmap& operator=(Bitmap&& other) noexcept;
 
-  static Bitmap Create(int width, int height, bool as_rgb);
+  static Bitmap Create(int width,
+                       int height,
+                       bool as_rgb,
+                       bool linear_colorspace = true);
 
   // Dimensions of bitmap.
   inline int Width() const;
@@ -123,11 +126,15 @@ class Bitmap {
   bool ExifLongitude(double* longitude) const;
   bool ExifAltitude(double* altitude) const;
 
-  // Read bitmap at given path and convert to grey- or colorscale.
-  bool Read(const std::string& path, bool as_rgb = true);
+  // Read bitmap at given path and convert to grey- or colorscale. Defaults to
+  // linearizing the colorspace for image processing.
+  bool Read(const std::string& path,
+            bool as_rgb = true,
+            bool linearize_colorspace = true);
 
-  // Write image to file. Flags can be used to set e.g. the JPEG quality.
-  bool Write(const std::string& path) const;
+  // Write bitmap to file at given path. If the bitmap is linearized, write it
+  // de-linearized to the file in sRGB.
+  bool Write(const std::string& path, bool delinearize_colorspace = true) const;
 
   // Rescale image to the new dimensions.
   enum class RescaleFilter {
@@ -164,6 +171,7 @@ class Bitmap {
   int width_;
   int height_;
   int channels_;
+  bool linear_colorspace_;
   std::vector<uint8_t> data_;
   std::unique_ptr<MetaData> meta_data_;
 };
@@ -238,10 +246,13 @@ std::ostream& operator<<(std::ostream& output, const BitmapColor<T>& color) {
 }
 
 int Bitmap::Width() const { return width_; }
+
 int Bitmap::Height() const { return height_; }
+
 int Bitmap::Channels() const { return channels_; }
 
 bool Bitmap::IsRGB() const { return channels_ == 3; }
+
 bool Bitmap::IsGrey() const { return channels_ == 1; }
 
 bool Bitmap::GetPixel(const int x,

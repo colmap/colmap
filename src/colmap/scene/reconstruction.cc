@@ -799,7 +799,9 @@ bool Reconstruction::ExtractColorsForImage(const image_t image_id,
   const class Image& image = Image(image_id);
 
   Bitmap bitmap;
-  if (!bitmap.Read(JoinPaths(path, image.Name()))) {
+  if (!bitmap.Read(JoinPaths(path, image.Name()),
+                   /*as_rgb=*/true,
+                   /*linearize=*/false)) {
     return false;
   }
 
@@ -831,7 +833,9 @@ void Reconstruction::ExtractColorsForAllImages(const std::string& path) {
     const std::string image_path = JoinPaths(path, image.Name());
 
     Bitmap bitmap;
-    if (!bitmap.Read(image_path)) {
+    if (!bitmap.Read(image_path,
+                     /*as_rgb=*/true,
+                     /*linearize=*/false)) {
       LOG(WARNING) << "Could not read image " << image.Name() << " at path "
                    << image_path;
       continue;

@@ -120,12 +120,14 @@ void SetImageSpecColorSpace(OIIO::ImageSpec& image_spec,
 
 }  // namespace
 
-Bitmap::Bitmap() : width_(0), height_(0), channels_(0) {}
+Bitmap::Bitmap()
+    : width_(0), height_(0), channels_(0), linear_colorspace_(true) {}
 
 Bitmap::Bitmap(const Bitmap& other) {
   width_ = other.width_;
   height_ = other.height_;
   channels_ = other.channels_;
+  linear_colorspace_ = other.linear_colorspace_;
   data_ = other.data_;
   meta_data_ = OIIOMetaData::Clone(other.meta_data_);
 }
@@ -134,6 +136,7 @@ Bitmap::Bitmap(Bitmap&& other) noexcept {
   width_ = other.width_;
   height_ = other.height_;
   channels_ = other.channels_;
+  linear_colorspace_ = other.linear_colorspace_;
   data_ = std::move(other.data_);
   meta_data_ = std::move(other.meta_data_);
   other.width_ = 0;
@@ -145,6 +148,7 @@ Bitmap& Bitmap::operator=(const Bitmap& other) {
   width_ = other.width_;
   height_ = other.height_;
   channels_ = other.channels_;
+  linear_colorspace_ = other.linear_colorspace_;
   data_ = other.data_;
   meta_data_ = OIIOMetaData::Clone(other.meta_data_);
   return *this;
@@ -155,6 +159,7 @@ Bitmap& Bitmap::operator=(Bitmap&& other) noexcept {
     width_ = other.width_;
     height_ = other.height_;
     channels_ = other.channels_;
+    linear_colorspace_ = other.linear_colorspace_;
     data_ = std::move(other.data_);
     meta_data_ = std::move(other.meta_data_);
     other.width_ = 0;
@@ -164,16 +169,21 @@ Bitmap& Bitmap::operator=(Bitmap&& other) noexcept {
   return *this;
 }
 
-Bitmap Bitmap::Create(const int width, const int height, const bool as_rgb) {
+Bitmap Bitmap::Create(const int width,
+                      const int height,
+                      const bool as_rgb,
+                      const bool linear_colorspace) {
   Bitmap bitmap;
   bitmap.width_ = width;
   bitmap.height_ = height;
   bitmap.channels_ = as_rgb ? 3 : 1;
+  bitmap.linear_colorspace_ = linear_colorspace;
   bitmap.data_.resize(bitmap.width_ * bitmap.height_ * bitmap.channels_);
   auto meta_data = std::make_unique<OIIOMetaData>();
   meta_data->image_spec = OIIO::ImageSpec(
       bitmap.width_, bitmap.height_, bitmap.channels_, OIIO::TypeDesc::UINT8);
-  SetImageSpecColorSpace(meta_data->image_spec, "sRGB");
+  SetImageSpecColorSpace(meta_data->image_spec,
+                         linear_colorspace ? "linear" : "sRGB");
   bitmap.meta_data_ = std::move(meta_data);
   return bitmap;
 }
@@ -427,7 +437,9 @@ bool Bitmap::ExifAltitude(double* altitude) const {
   return false;
 }
 
-bool Bitmap::Read(const std::string& path, const bool as_rgb) {
+bool Bitmap::Read(const std::string& path,
+                  const bool as_rgb,
+                  const bool linearize_colorspace) {
   if (!ExistsFile(path)) {
     VLOG(3) << "Failed to read bitmap, because file does not exist";
     return false;
@@ -459,11 +471,13 @@ bool Bitmap::Read(const std::string& path, const bool as_rgb) {
   meta_data->image_spec = image_spec;
   meta_data_ = std::move(meta_data);
 
-  const std::string colorspace = image_spec["oiio:ColorSpace"];
-  if (colorspace != "linear" && colorspace != "lin_srgb" &&
-      colorspace != "lin_rec709P") {
-    data_ = ConvertColorSpace(
-        data_.data(), width_, height_, channels_, colorspace, "linear");
+  if (linearize_colorspace) {
+    const std::string colorspace = image_spec["oiio:ColorSpace"];
+    if (colorspace != "linear" && colorspace != "lin_srgb" &&
+        colorspace != "lin_rec709P") {
+      data_ = ConvertColorSpace(
+          data_.data(), width_, height_, channels_, colorspace, "linear");
+    }
   }
 
   if (as_rgb && channels_ != 3) {
@@ -475,7 +489,8 @@ bool Bitmap::Read(const std::string& path, const bool as_rgb) {
   return true;
 }
 
-bool Bitmap::Write(const std::string& path) const {
+bool Bitmap::Write(const std::string& path,
+                   const bool delinearize_colorspace) const {
   const auto output = OIIO::ImageOutput::create(path);
   if (!output) {
     std::cerr << "Could not create an ImageOutput for " << path
@@ -485,16 +500,21 @@ bool Bitmap::Write(const std::string& path) const {
 
   auto* meta_data = OIIOMetaData::Upcast(meta_data_.get());
 
-  std::string_view colorspace;
-  if (!GetMetaData("oiio:ColorSpace", &colorspace)) {
-    // Assume sRGB color space if not specified.
-    colorspace = "sRGB";
-    SetImageSpecColorSpace(meta_data->image_spec,
-                           OIIOFromStdStringView(colorspace));
-  }
+  const uint8_t* output_data_ptr = data_.data();
+  std::vector<uint8_t> maybe_linearized_output_data;
+  if (delinearize_colorspace && linear_colorspace_) {
+    std::string_view colorspace;
+    if (!GetMetaData("oiio:ColorSpace", &colorspace)) {
+      // Assume sRGB color space if not specified.
+      colorspace = "sRGB";
+      SetImageSpecColorSpace(meta_data->image_spec,
+                             OIIOFromStdStringView(colorspace));
+    }
 
-  const std::vector<uint8_t> output_data = ConvertColorSpace(
-      data_.data(), width_, height_, channels_, "linear", colorspace);
+    maybe_linearized_output_data = ConvertColorSpace(
+        data_.data(), width_, height_, channels_, "linear", colorspace);
+    output_data_ptr = maybe_linearized_output_data.data();
+  }
 
   if (HasFileExtension(path, ".jpg") || HasFileExtension(path, ".jpeg")) {
     std::string_view compression;
@@ -510,7 +530,7 @@ bool Bitmap::Write(const std::string& path) const {
     return false;
   }
 
-  if (!output->write_image(OIIO::TypeDesc::UINT8, output_data.data())) {
+  if (!output->write_image(OIIO::TypeDesc::UINT8, output_data_ptr)) {
     VLOG(3) << "Could not write pixels to " << path
             << ", error = " << output->geterror() << "\n";
     return false;
@@ -555,6 +575,7 @@ Bitmap Bitmap::CloneAsGrey() const {
     cloned.width_ = width_;
     cloned.height_ = height_;
     cloned.channels_ = 1;
+    cloned.linear_colorspace_ = linear_colorspace_;
     cloned.data_.resize(width_ * height_);
     for (size_t i = 0; i < cloned.data_.size(); ++i) {
       cloned.data_[i] =
@@ -575,6 +596,7 @@ Bitmap Bitmap::CloneAsRGB() const {
     cloned.width_ = width_;
     cloned.height_ = height_;
     cloned.channels_ = 3;
+    cloned.linear_colorspace_ = linear_colorspace_;
     cloned.data_.resize(width_ * height_ * 3);
     for (size_t i = 0; i < data_.size(); ++i) {
       cloned.data_[3 * i + 0] = data_[i];

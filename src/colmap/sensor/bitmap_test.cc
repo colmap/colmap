@@ -505,6 +505,31 @@ TEST(Bitmap, ReadWriteAsGrey) {
   EXPECT_EQ(read_bitmap.RowMajorData(), bitmap.RowMajorData());
 }
 
+TEST(Bitmap, ReadWriteAsGreyNonLinear) {
+  Bitmap bitmap =
+      Bitmap::Create(2, 3, /*as_rgb=*/false, /*linear_colorspace=*/false);
+  bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(0));
+  bitmap.SetPixel(0, 1, BitmapColor<uint8_t>(1));
+  bitmap.SetPixel(1, 0, BitmapColor<uint8_t>(2));
+  bitmap.SetPixel(1, 1, BitmapColor<uint8_t>(3));
+  bitmap.SetPixel(0, 2, BitmapColor<uint8_t>(4));
+  bitmap.SetPixel(1, 2, BitmapColor<uint8_t>(5));
+
+  const std::string test_dir = CreateTestDir();
+  const std::string filename = test_dir + "/bitmap.png";
+
+  EXPECT_TRUE(bitmap.Write(filename, /*delinearize_colorspace=*/false));
+
+  Bitmap read_bitmap;
+  EXPECT_TRUE(read_bitmap.Read(
+      filename, /*as_rgb=*/false, /*linearize_colorspace=*/false));
+  EXPECT_EQ(read_bitmap.Width(), bitmap.Width());
+  EXPECT_EQ(read_bitmap.Height(), bitmap.Height());
+  EXPECT_EQ(read_bitmap.Channels(), 1);
+  EXPECT_EQ(read_bitmap.BitsPerPixel(), 8);
+  EXPECT_EQ(read_bitmap.RowMajorData(), bitmap.RowMajorData());
+}
+
 // TEST(Bitmap, ReadRGB16AsGrey) {
 //   Bitmap bitmap;
 //   bitmap.Allocate(2, 3, true);

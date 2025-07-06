@@ -119,7 +119,13 @@ void ImageViewerWidget::ShowPixmap(const QPixmap& pixmap) {
 }
 
 void ImageViewerWidget::ReadAndShow(const std::string& path) {
-  ShowPixmap(QPixmap(QString(path.c_str())));
+  Bitmap bitmap;
+  if (!bitmap.Read(path, /*as_rgb=*/true, /*linearize=*/false)) {
+    LOG(ERROR) << "Cannot read image at path " << path;
+    return;
+  }
+
+  ShowBitmap(bitmap);
 }
 
 void ImageViewerWidget::ZoomIn() {
@@ -162,17 +168,17 @@ FeatureImageViewerWidget::FeatureImageViewerWidget(
           this,
           &FeatureImageViewerWidget::ShowOrHide);
 }
-
 void FeatureImageViewerWidget::ReadAndShowWithKeypoints(
     const std::string& path,
     const FeatureKeypoints& keypoints,
     const std::vector<char>& tri_mask) {
-  if (!ExistsFile(path)) {
+  Bitmap bitmap;
+  if (!bitmap.Read(path, /*as_rgb=*/true, /*linearize=*/false)) {
     LOG(ERROR) << "Cannot read image at path " << path;
     return;
   }
 
-  image1_ = QPixmap(QString(path.c_str()));
+  image1_ = QPixmap::fromImage(BitmapToQImageRGB(bitmap));
   image2_ = image1_;
 
   const size_t num_tri_keypoints = std::count_if(
@@ -210,7 +216,8 @@ void FeatureImageViewerWidget::ReadAndShowWithMatches(
     const FeatureMatches& matches) {
   Bitmap bitmap1;
   Bitmap bitmap2;
-  if (!bitmap1.Read(path1, true) || !bitmap2.Read(path2, true)) {
+  if (!bitmap1.Read(path1, /*as_rgb=*/true, /*linearize=*/false) ||
+      !bitmap2.Read(path2, /*as_rgb=*/true, /*linearize=*/false)) {
     LOG(ERROR) << "Cannot read images at paths " << path1 << " and " << path2;
     return;
   }
