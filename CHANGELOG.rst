@@ -2,6 +2,16 @@ Changelog
 =========
 
 --------------------------
+COLMAP 3.12.1 (07/05/2025)
+--------------------------
+
+Bug Fixes
+---------
+* Fix Docker runtime libraries
+* Fix spatial matcher bug
+* Minor fixes for documentation
+
+--------------------------
 COLMAP 3.12.0 (06/30/2025)
 --------------------------
 
