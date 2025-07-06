@@ -1,5 +1,5 @@
 ARG UBUNTU_VERSION=24.04
-ARG NVIDIA_CUDA_VERSION=12.9.0
+ARG NVIDIA_CUDA_VERSION=12.9.1
 
 #
 # Docker builder stage.
@@ -83,9 +83,12 @@ RUN apt-get update && \
         libqt5gui5 \
         libqt5widgets5 \
         libcurl4 \
+        libmkl-locale \
         libmkl-intel-lp64 \
         libmkl-intel-thread \
-        libmkl-core
+        libmkl-core && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # Copy all files from /colmap-install/ in the builder stage to /usr/local/ in
 # the runtime stage. This simulates installing COLMAP in the default location

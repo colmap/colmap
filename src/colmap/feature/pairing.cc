@@ -688,9 +688,7 @@ Eigen::RowMajorMatrixXf SpatialPairGenerator::ReadPositionPriorData(
   // Subtract the mean coordinate before casting to float for better numerical
   // precision when dealing with large coordinates (e.g. GPS). For even better
   // precision, we could also rescale the coordinates.
-  position_matrix.rowwise() -=
-      Eigen::Vector3d(position_matrix.rowwise().mean()).transpose();
-
+  position_matrix.rowwise() -= position_matrix.colwise().mean();
   return position_matrix.topRows(position_idxs_.size()).cast<float>();
 }
 
