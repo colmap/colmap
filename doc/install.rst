@@ -82,6 +82,7 @@ Dependencies from the default Ubuntu repositories::
         libboost-system-dev \
         libeigen3-dev \
         libopenimageio-dev \
+        openimageio-tools \
         libmetis-dev \
         libgoogle-glog-dev \
         libgtest-dev \
@@ -94,6 +95,10 @@ Dependencies from the default Ubuntu repositories::
         libceres-dev \
         libcurl4-openssl-dev \
         libmkl-full-dev
+    # Fix issue in Ubuntu's openimageio CMake config.
+    # We don't depend on any of openimageio's OpenCV functionality,
+    # but it still requires the OpenCV include directory to exist.
+    sudo mkdir -p /usr/include/opencv4
 
 To compile with **CUDA support**, also install Ubuntu's default CUDA package::
 

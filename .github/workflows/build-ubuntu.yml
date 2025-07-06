@@ -133,6 +133,7 @@ jobs:
             libeigen3-dev \
             libceres-dev \
             libopenimageio-dev \
+            openimageio-tools \
             libmetis-dev \
             libgoogle-glog-dev \
             libgtest-dev \
@@ -149,14 +150,13 @@ jobs:
             libmkl-full-dev \
             xvfb
 
+          # Fix issue in Ubuntu's openimageio CMake config.
+          # We don't depend on any of openimageio's OpenCV functionality,
+          # but it still requires the OpenCV include directory to exist.
+          sudo mkdir -p /usr/include/opencv4
+
           if [ "${{ matrix.config.cudaEnabled }}" == "true" ]; then
-            if [ "${{ matrix.config.os }}" == "ubuntu-20.04" ]; then
-              sudo apt-get install -y \
-                nvidia-cuda-toolkit \
-                nvidia-cuda-toolkit-gcc
-              echo "CC=/usr/bin/cuda-gcc" >> $GITHUB_ENV
-              echo "CXX=/usr/bin/cuda-g++" >> $GITHUB_ENV
-            elif [ "${{ matrix.config.os }}" == "ubuntu-22.04" ]; then
+            if [ "${{ matrix.config.os }}" == "ubuntu-22.04" ]; then
               sudo apt-get install -y \
                 nvidia-cuda-toolkit \
                 nvidia-cuda-toolkit-gcc \
