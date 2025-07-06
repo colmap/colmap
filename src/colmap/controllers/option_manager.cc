@@ -57,6 +57,9 @@ OptionManager::OptionManager(bool add_project_options) {
 
   image_reader = std::make_shared<ImageReaderOptions>();
   sift_extraction = std::make_shared<SiftExtractionOptions>();
+  mask_path = std::make_shared<std::string>();
+  camera_mask_path = std::make_shared<std::string>();
+
   sift_matching = std::make_shared<SiftMatchingOptions>();
   two_view_geometry = std::make_shared<TwoViewGeometryOptions>();
   exhaustive_matching = std::make_shared<ExhaustiveMatchingOptions>();
