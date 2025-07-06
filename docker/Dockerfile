@@ -42,7 +42,7 @@ RUN apt-get update && \
 # Fix issue in Ubuntu's openimageio CMake config.
 # We don't depend on any of openimageio's OpenCV functionality,
 # but it still requires the OpenCV include directory to exist.
-RUN sudo mkdir -p /usr/include/opencv4
+RUN mkdir -p /usr/include/opencv4
 
 # Build and install COLMAP.
 RUN git clone https://github.com/colmap/colmap.git
