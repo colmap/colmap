@@ -86,11 +86,28 @@ std::vector<uint8_t> ConvertColorSpace(const uint8_t* src_data,
 }
 
 // ImageSpec::set_colorspace not available in OIIO v2.2. This replaces:
-//   meta_data->image_spec.set_colorspace("sRGB");
+//   ImageSpec::set_colorspace(colorspace);
 void SetImageSpecColorSpace(OIIO::ImageSpec& image_spec,
-                            std::string_view colorspace) {
-  OIIO::ColorConfig::default_colorconfig().set_colorspace(
-      image_spec, {colorspace.data(), colorspace.size()});
+                            OIIO::string_view colorspace) {
+  const OIIO::string_view oldspace =
+      image_spec.get_string_attribute("oiio:ColorSpace");
+  if (oldspace.size() && colorspace.size() && oldspace == colorspace) {
+    return;
+  }
+
+  if (colorspace.empty()) {
+    image_spec.erase_attribute("oiio:ColorSpace");
+  } else {
+    image_spec.attribute("oiio:ColorSpace", colorspace);
+  }
+
+  if (colorspace != "sRGB") {
+    image_spec.erase_attribute("Exif:ColorSpace");
+  }
+
+  image_spec.erase_attribute("tiff:ColorSpace");
+  image_spec.erase_attribute("tiff:PhotometricInterpretation");
+  image_spec.erase_attribute("oiio:Gamma");
 }
 
 }  // namespace
@@ -462,7 +479,8 @@ bool Bitmap::Write(const std::string& path) const {
   if (!GetMetaData("oiio:ColorSpace", &colorspace)) {
     // Assume sRGB color space if not specified.
     colorspace = "sRGB";
-    SetImageSpecColorSpace(meta_data->image_spec, colorspace);
+    SetImageSpecColorSpace(meta_data->image_spec,
+                           {colorspace.data(), colorspace.size()});
   }
 
   const std::vector<uint8_t> output_data = ConvertColorSpace(
