@@ -274,6 +274,8 @@ bool Bitmap::GetPixel(const int x,
 
   if (IsGrey()) {
     color->r = data_[y * width_ + x];
+    color->g = color->r;
+    color->b = color->r;
     return true;
   } else if (IsRGB()) {
     const uint8_t* pixel = &data_[(y * width_ + x) * channels_];
