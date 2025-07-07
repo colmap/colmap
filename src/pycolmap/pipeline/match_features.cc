@@ -89,6 +89,11 @@ void BindMatchFeatures(py::module& m) {
           .def_readwrite("max_num_neighbors",
                          &SpMOpts::max_num_neighbors,
                          "The maximum number of nearest neighbors to match.")
+          .def_readwrite(
+              "min_num_neighbors",
+              &SpMOpts::min_num_neighbors,
+              "Minimum number of nearest neighbors to match. The maximum "
+              "matching distance is adjusted to ensure this minimum.")
           .def_readwrite("max_distance",
                          &SpMOpts::max_distance,
                          "The maximum distance between the query and nearest "
