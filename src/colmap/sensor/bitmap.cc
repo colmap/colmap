@@ -100,6 +100,7 @@ void SetImageSpecColorSpace(OIIO::ImageSpec& image_spec,
 #if OIIO_VERSION >= OIIO_MAKE_VERSION(3, 0, 0)
   image_spec.set_colorspace(colorspace);
 #else
+  // Extract logic from 3.0.0 version for backwards compatibility.
   const OIIO::string_view oldspace =
       image_spec.get_string_attribute("oiio:ColorSpace");
   if (oldspace.size() && colorspace.size() && oldspace == colorspace) {
@@ -119,6 +120,24 @@ void SetImageSpecColorSpace(OIIO::ImageSpec& image_spec,
   image_spec.erase_attribute("tiff:ColorSpace");
   image_spec.erase_attribute("tiff:PhotometricInterpretation");
   image_spec.erase_attribute("oiio:Gamma");
+#endif
+}
+
+bool IsEquivalentColorSpace(const std::string_view& colorspace1,
+                            const std::string_view& colorspace2) {
+#if OIIO_VERSION >= OIIO_MAKE_VERSION(3, 0, 0)
+  return OIIO::equivalent_colorspace(colorspace1, colorspace2);
+#else
+  // Poor (wo)man's version of available functionality in recent OIIO versions.
+  auto is_linear_srgb = [](const std::string_view& colorspace) {
+    return colorspace == "linear" || colorspace == "lin_srgb" ||
+           colorspace == "lin_rec709P";
+  };
+  if (is_linear_srgb(colorspace1) && is_linear_srgb(colorspace2)) {
+    return true;
+  } else {
+    return colorspace1 == colorspace2;
+  }
 #endif
 }
 
@@ -465,8 +484,7 @@ bool Bitmap::Read(const std::string& path,
 
   if (linearize_colorspace) {
     const std::string colorspace = image_spec["oiio:ColorSpace"];
-    if (colorspace != "linear" && colorspace != "lin_srgb" &&
-        colorspace != "lin_rec709P") {
+    if (IsEquivalentColorSpace(colorspace, "linear")) {
       data_ = ConvertColorSpace(
           data_.data(), width_, height_, channels_, colorspace, "linear");
     }
