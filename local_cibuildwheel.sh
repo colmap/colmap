@@ -21,7 +21,7 @@ export CIBW_CONTAINER_ENGINE="docker; create_args: -v ${SCRIPT_DIR}/compiler-cac
 export CCACHE_DIR="${CONTAINER_COMPILER_CACHE_DIR}/ccache"
 export CCACHE_BASEDIR="/project"=
 
-export CIBW_BUILD="cp38-manylinux*"
+export CIBW_BUILD="cp3{8,9,10,11,12,13}-manylinux*"
 
 # Make sure environment variables are passed to the container by cibuildwheel
 export CIBW_ENVIRONMENT_PASS_LINUX="VCPKG_TARGET_TRIPLET VCPKG_INSTALLATION_ROOT VCPKG_DEFAULT_BINARY_CACHE CMAKE_TOOLCHAIN_FILE VCPKG_BINARY_SOURCES CONTAINER_COMPILER_CACHE_DIR CCACHE_DIR CCACHE_BASEDIR"

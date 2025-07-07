@@ -32,7 +32,7 @@ jobs:
       CCACHE_BASEDIR: ${{ github.workspace }}
       MACOSX_DEPLOYMENT_TARGET: ${{ matrix.config.deploymentTarget }}
       # For faster builds in PRs, skip all but the oldest Python versions.
-      WORKFLOW_CIBW_BUILD: cp38-manylinux*
+      WORKFLOW_CIBW_BUILD: cp3{8,9,10,11,12,13}-manylinux*
     steps:
       - uses: actions/checkout@v4
 
@@ -112,7 +112,8 @@ jobs:
     runs-on: ubuntu-latest
     # We publish the wheel to pypi when a new tag is pushed,
     # either by creating a new GitHub release or explictly with `git tag`
-    if: ${{ github.event_name == 'release' || startsWith(github.ref, 'refs/tags') }}
+    # Currently, we manually trigger the workflow, so we can ignore this and always publish the wheels
+    # if: ${{ github.event_name == 'release' || startsWith(github.ref, 'refs/tags') }}
     steps:
       - name: Download wheels
         uses: actions/download-artifact@v4
