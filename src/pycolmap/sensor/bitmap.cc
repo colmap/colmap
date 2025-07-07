@@ -65,7 +65,7 @@ void BindBitmap(pybind11::module& m) {
 
             const bool is_rgb = channels != 1;
 
-            Bitmap output = Bitmap::Create(width, height, is_rgb);
+            Bitmap output(width, height, is_rgb);
 
             const uint8_t* input_row_ptr =
                 static_cast<uint8_t*>(array.request().ptr);

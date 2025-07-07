@@ -61,9 +61,9 @@ void WarpImageBetweenCameras(const Camera& source_camera,
   THROW_CHECK_EQ(source_camera.height, source_image.Height());
   THROW_CHECK_NOTNULL(target_image);
 
-  *target_image = Bitmap::Create(static_cast<int>(source_camera.width),
-                                 static_cast<int>(source_camera.height),
-                                 source_image.IsRGB());
+  *target_image = Bitmap(static_cast<int>(source_camera.width),
+                         static_cast<int>(source_camera.height),
+                         source_image.IsRGB());
 
   // To avoid aliasing, perform the warping in the source resolution and
   // then rescale the image at the end.
@@ -143,9 +143,9 @@ void WarpImageWithHomographyBetweenCameras(const Eigen::Matrix3d& H,
   THROW_CHECK_EQ(source_camera.height, source_image.Height());
   THROW_CHECK_NOTNULL(target_image);
 
-  *target_image = Bitmap::Create(static_cast<int>(source_camera.width),
-                                 static_cast<int>(source_camera.height),
-                                 source_image.IsRGB());
+  *target_image = Bitmap(static_cast<int>(source_camera.width),
+                         static_cast<int>(source_camera.height),
+                         source_image.IsRGB());
 
   // To avoid aliasing, perform the warping in the source resolution and
   // then rescale the image at the end.

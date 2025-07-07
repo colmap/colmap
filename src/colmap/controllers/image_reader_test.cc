@@ -40,7 +40,7 @@ namespace colmap {
 namespace {
 
 Bitmap CreateTestBitmap() {
-  Bitmap bitmap = Bitmap::Create(1, 3, false);
+  Bitmap bitmap(1, 3, false);
   bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(1));
   bitmap.SetPixel(1, 0, BitmapColor<uint8_t>(2));
   bitmap.SetPixel(2, 0, BitmapColor<uint8_t>(3));

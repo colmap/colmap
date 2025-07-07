@@ -40,7 +40,7 @@ namespace {
 const Bitmap GenerateRandomBitmap(const int width,
                                   const int height,
                                   const bool as_rgb) {
-  Bitmap bitmap = Bitmap::Create(width, height, as_rgb);
+  Bitmap bitmap(width, height, as_rgb);
   for (int x = 0; x < width; ++x) {
     for (int y = 0; y < height; ++y) {
       BitmapColor<uint8_t> color;
@@ -130,13 +130,13 @@ TEST(Warp, ShiftedCameras) {
 
 TEST(Warp, WarpImageWithHomographyIdentity) {
   const Bitmap source_image_gray = GenerateRandomBitmap(100, 100, false);
-  Bitmap target_image_gray = Bitmap::Create(100, 100, false);
+  Bitmap target_image_gray(100, 100, false);
   WarpImageWithHomography(
       Eigen::Matrix3d::Identity(), source_image_gray, &target_image_gray);
   CheckBitmapsEqual(source_image_gray, target_image_gray);
 
   const Bitmap source_image_rgb = GenerateRandomBitmap(100, 100, true);
-  Bitmap target_image_rgb = Bitmap::Create(100, 100, true);
+  Bitmap target_image_rgb(100, 100, true);
   WarpImageWithHomography(
       Eigen::Matrix3d::Identity(), source_image_rgb, &target_image_rgb);
   CheckBitmapsEqual(source_image_rgb, target_image_rgb);
@@ -147,12 +147,12 @@ TEST(Warp, WarpImageWithHomographyTransposed) {
   H << 0, 1, 0, 1, 0, 0, 0, 0, 1;
 
   const Bitmap source_image_gray = GenerateRandomBitmap(100, 100, false);
-  Bitmap target_image_gray = Bitmap::Create(100, 100, false);
+  Bitmap target_image_gray(100, 100, false);
   WarpImageWithHomography(H, source_image_gray, &target_image_gray);
   CheckBitmapsTransposed(source_image_gray, target_image_gray);
 
   const Bitmap source_image_rgb = GenerateRandomBitmap(100, 100, true);
-  Bitmap target_image_rgb = Bitmap::Create(100, 100, true);
+  Bitmap target_image_rgb(100, 100, true);
   WarpImageWithHomography(H, source_image_rgb, &target_image_rgb);
   CheckBitmapsTransposed(source_image_rgb, target_image_rgb);
 }

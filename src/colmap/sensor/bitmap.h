@@ -68,6 +68,7 @@ struct BitmapColor {
 class Bitmap {
  public:
   Bitmap();
+  Bitmap(int width, int height, bool as_rgb, bool linear_colorspace = true);
 
   Bitmap(const Bitmap& other);
   Bitmap(Bitmap&& other) noexcept;
@@ -75,33 +76,30 @@ class Bitmap {
   Bitmap& operator=(const Bitmap& other);
   Bitmap& operator=(Bitmap&& other) noexcept;
 
-  static Bitmap Create(int width,
-                       int height,
-                       bool as_rgb,
-                       bool linear_colorspace = true);
-
   // Dimensions of bitmap.
   inline int Width() const;
   inline int Height() const;
   inline int Channels() const;
 
-  // Number of bits per pixel. This is 8 for grey and 24 for RGB image.
-  unsigned int BitsPerPixel() const;
+  // Number of bits per pixel. This is 8 for grey and 24 for RGB images.
+  inline int BitsPerPixel() const;
 
-  // Scan width of bitmap which differs from the actual image width to achieve
-  // 32 bit aligned memory. Also known as stride.
-  unsigned int Pitch() const;
+  // Number of bytes required to store image.
+  inline size_t NumBytes() const;
+
+  // Scan line size in bytes, also known as stride.
+  inline int Pitch() const;
+
+  // Check whether the image is empty (i.e., width/height=0).
+  inline bool IsEmpty() const;
 
   // Check whether image is grey- or colorscale.
   inline bool IsRGB() const;
   inline bool IsGrey() const;
 
-  // Number of bytes required to store image.
-  size_t NumBytes() const;
-
   // Access raw image data array.
-  std::vector<uint8_t>& RowMajorData();
-  const std::vector<uint8_t>& RowMajorData() const;
+  inline std::vector<uint8_t>& RowMajorData();
+  inline const std::vector<uint8_t>& RowMajorData() const;
 
   // Manipulate individual pixels. For grayscale images, only the red element
   // of the RGB color is used.
@@ -130,7 +128,7 @@ class Bitmap {
   // linearizing the colorspace for image processing.
   bool Read(const std::string& path,
             bool as_rgb = true,
-            bool linearize_colorspace = true);
+            bool linearize_colorspace = false);
 
   // Write bitmap to file at given path. If the bitmap is linearized, write it
   // de-linearized to the file in sRGB.
@@ -251,9 +249,21 @@ int Bitmap::Height() const { return height_; }
 
 int Bitmap::Channels() const { return channels_; }
 
+size_t Bitmap::NumBytes() const { return data_.size(); }
+
+int Bitmap::BitsPerPixel() const { return channels_ * 8; }
+
+int Bitmap::Pitch() const { return width_ * channels_; }
+
+bool Bitmap::IsEmpty() const { return NumBytes() == 0; }
+
 bool Bitmap::IsRGB() const { return channels_ == 3; }
 
 bool Bitmap::IsGrey() const { return channels_ == 1; }
+
+std::vector<uint8_t>& Bitmap::RowMajorData() { return data_; }
+
+const std::vector<uint8_t>& Bitmap::RowMajorData() const { return data_; }
 
 bool Bitmap::GetPixel(const int x,
                       const int y,

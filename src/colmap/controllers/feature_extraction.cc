@@ -205,7 +205,7 @@ class SiftFeatureExtractorThread : public Thread {
                             &image_data.keypoints,
                             &image_data.descriptors);
             }
-            if (image_data.mask.NumBytes() > 0) {
+            if (!image_data.mask.IsEmpty()) {
               MaskKeypoints(image_data.mask,
                             &image_data.keypoints,
                             &image_data.descriptors);
@@ -282,7 +282,7 @@ class FeatureWriterThread : public Thread {
             image_data.camera.has_prior_focal_length ? " (Prior)" : "");
         LOG(INFO) << StringPrintf("  Features:        %d",
                                   image_data.keypoints.size());
-        if (image_data.mask.NumBytes() > 0) {
+        if (!image_data.mask.IsEmpty()) {
           LOG(INFO) << "  Mask:            Yes";
         }
 

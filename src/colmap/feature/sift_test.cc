@@ -47,7 +47,7 @@ namespace colmap {
 namespace {
 
 Bitmap CreateImageWithSquare(const int size) {
-  Bitmap bitmap = Bitmap::Create(size, size, false);
+  Bitmap bitmap(size, size, false);
   bitmap.Fill(BitmapColor<uint8_t>(0, 0, 0));
   for (int r = size / 2 - size / 8; r < size / 2 + size / 8; ++r) {
     for (int c = size / 2 - size / 8; c < size / 2 + size / 8; ++c) {

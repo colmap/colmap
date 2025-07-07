@@ -110,7 +110,7 @@ TEST(UndistortCamera, BlankPixels) {
       Camera::CreateFromModelName(1, "SIMPLE_RADIAL", 100, 100, 100);
   distorted_camera.params[3] = 0.5;
 
-  Bitmap distorted_image = Bitmap::Create(100, 100, false);
+  Bitmap distorted_image(100, 100, false);
   distorted_image.Fill(BitmapColor<uint8_t>(255));
 
   Bitmap undistorted_image;
@@ -153,7 +153,7 @@ TEST(UndistortCamera, NoBlankPixels) {
       Camera::CreateFromModelName(1, "SIMPLE_RADIAL", 100, 100, 100);
   distorted_camera.params[3] = 0.5;
 
-  Bitmap distorted_image = Bitmap::Create(100, 100, false);
+  Bitmap distorted_image(100, 100, false);
   distorted_image.Fill(BitmapColor<uint8_t>(255));
 
   Bitmap undistorted_image;

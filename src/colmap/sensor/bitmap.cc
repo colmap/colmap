@@ -48,7 +48,9 @@ struct OIIOInitializer {
     OIIO::attribute("exr_threads", 1);
   }
 
+#if OIIO_VERSION >= OIIO_MAKE_VERSION(2, 5, 3)
   ~OIIOInitializer() { OIIO::shutdown(); }
+#endif
 };
 
 const static auto initializer = OIIOInitializer();
@@ -93,10 +95,11 @@ std::vector<uint8_t> ConvertColorSpace(const uint8_t* src_data,
   return tgt_data;
 }
 
-// ImageSpec::set_colorspace not available in OIIO v2.2. This replaces:
-//   ImageSpec::set_colorspace(colorspace);
 void SetImageSpecColorSpace(OIIO::ImageSpec& image_spec,
                             const OIIO::string_view& colorspace) {
+#if OIIO_VERSION >= OIIO_MAKE_VERSION(3, 0, 0)
+  image_spec.set_colorspace(colorspace);
+#else
   const OIIO::string_view oldspace =
       image_spec.get_string_attribute("oiio:ColorSpace");
   if (oldspace.size() && colorspace.size() && oldspace == colorspace) {
@@ -116,12 +119,30 @@ void SetImageSpecColorSpace(OIIO::ImageSpec& image_spec,
   image_spec.erase_attribute("tiff:ColorSpace");
   image_spec.erase_attribute("tiff:PhotometricInterpretation");
   image_spec.erase_attribute("oiio:Gamma");
+#endif
 }
 
 }  // namespace
 
 Bitmap::Bitmap()
     : width_(0), height_(0), channels_(0), linear_colorspace_(true) {}
+
+Bitmap::Bitmap(const int width,
+               const int height,
+               const bool as_rgb,
+               const bool linear_colorspace) {
+  width_ = width;
+  height_ = height;
+  channels_ = as_rgb ? 3 : 1;
+  linear_colorspace_ = linear_colorspace;
+  data_.resize(width_ * height_ * channels_);
+  auto meta_data = std::make_unique<OIIOMetaData>();
+  meta_data->image_spec =
+      OIIO::ImageSpec(width_, height_, channels_, OIIO::TypeDesc::UINT8);
+  SetImageSpecColorSpace(meta_data->image_spec,
+                         linear_colorspace ? "linear" : "sRGB");
+  meta_data_ = std::move(meta_data);
+}
 
 Bitmap::Bitmap(const Bitmap& other) {
   width_ = other.width_;
@@ -168,35 +189,6 @@ Bitmap& Bitmap::operator=(Bitmap&& other) noexcept {
   }
   return *this;
 }
-
-Bitmap Bitmap::Create(const int width,
-                      const int height,
-                      const bool as_rgb,
-                      const bool linear_colorspace) {
-  Bitmap bitmap;
-  bitmap.width_ = width;
-  bitmap.height_ = height;
-  bitmap.channels_ = as_rgb ? 3 : 1;
-  bitmap.linear_colorspace_ = linear_colorspace;
-  bitmap.data_.resize(bitmap.width_ * bitmap.height_ * bitmap.channels_);
-  auto meta_data = std::make_unique<OIIOMetaData>();
-  meta_data->image_spec = OIIO::ImageSpec(
-      bitmap.width_, bitmap.height_, bitmap.channels_, OIIO::TypeDesc::UINT8);
-  SetImageSpecColorSpace(meta_data->image_spec,
-                         linear_colorspace ? "linear" : "sRGB");
-  bitmap.meta_data_ = std::move(meta_data);
-  return bitmap;
-}
-
-size_t Bitmap::NumBytes() const { return data_.size(); }
-
-unsigned int Bitmap::BitsPerPixel() const { return channels_ * 8; }
-
-unsigned int Bitmap::Pitch() const { return width_ * channels_; }
-
-std::vector<uint8_t>& Bitmap::RowMajorData() { return data_; }
-
-const std::vector<uint8_t>& Bitmap::RowMajorData() const { return data_; }
 
 void Bitmap::Fill(const BitmapColor<uint8_t>& color) {
   if (IsGrey()) {

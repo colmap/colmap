@@ -52,7 +52,7 @@ void MatchMatrixWidget::Show() {
             });
 
   // Allocate the match matrix image.
-  Bitmap match_matrix = Bitmap::Create(images.size(), images.size(), true);
+  Bitmap match_matrix(images.size(), images.size(), true);
   match_matrix.Fill(BitmapColor<uint8_t>(255));
 
   // Map image identifiers to match matrix locations.
