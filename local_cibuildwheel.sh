@@ -4,8 +4,8 @@ SCRIPT_DIR="$( cd "$( dirname "$0" )" && pwd )"
 export VCPKG_TARGET_TRIPLET="x64-linux-release"
 
 export VCPKG_INSTALLATION_ROOT="${SCRIPT_DIR}/vcpkg"
-# mkdir -p "/host/${SCRIPT_DIR}/vcpkg/binarycache/"
-# export VCPKG_DEFAULT_BINARY_CACHE="${VCPKG_INSTALLATION_ROOT}/binarycache/"
+mkdir -p "/${SCRIPT_DIR}/vcpkg_binarycache/"
+export VCPKG_DEFAULT_BINARY_CACHE="/vcpkg_binarycache/"
 export CMAKE_TOOLCHAIN_FILE="${VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake"
 
 # Fix: cibuildhweel cannot interpolate env variables.
@@ -17,16 +17,19 @@ export CIBW_CONFIG_SETTINGS_LINUX="${CONFIG_SETTINGS}"
 # Remap caching paths to the container
 mkdir -p "${SCRIPT_DIR}/compiler-cache/"
 export CONTAINER_COMPILER_CACHE_DIR="/compiler-cache"
-export CIBW_CONTAINER_ENGINE="docker; create_args: -v ${SCRIPT_DIR}/compiler-cache:${CONTAINER_COMPILER_CACHE_DIR}"
+export CIBW_CONTAINER_ENGINE="docker; create_args: -v ${SCRIPT_DIR}/compiler-cache:${CONTAINER_COMPILER_CACHE_DIR} -v ${SCRIPT_DIR}/vcpkg_binarycache:${VCPKG_DEFAULT_BINARY_CACHE} "
 export CCACHE_DIR="${CONTAINER_COMPILER_CACHE_DIR}/ccache"
 export CCACHE_BASEDIR="/project"=
 
+export CIBW_BUILD="cp38-manylinux*"
+
 # Make sure environment variables are passed to the container by cibuildwheel
-export CIBW_ENVIRONMENT_PASS_LINUX="VCPKG_TARGET_TRIPLET VCPKG_INSTALLATION_ROOT CMAKE_TOOLCHAIN_FILE VCPKG_BINARY_SOURCES CONTAINER_COMPILER_CACHE_DIR CCACHE_DIR CCACHE_BASEDIR"
+export CIBW_ENVIRONMENT_PASS_LINUX="VCPKG_TARGET_TRIPLET VCPKG_INSTALLATION_ROOT VCPKG_DEFAULT_BINARY_CACHE CMAKE_TOOLCHAIN_FILE VCPKG_BINARY_SOURCES CONTAINER_COMPILER_CACHE_DIR CCACHE_DIR CCACHE_BASEDIR"
 
 # Use a CUDA-enabled manylinux container image
 export CIBW_MANYLINUX_X86_64_IMAGE="sameli/manylinux_2_34_x86_64_cuda_12.8"
 
+# Uncomment the following line to not delete the container after the build. Really helpful for debugging purposes!
 #export CIBW_DEBUG_KEEP_CONTAINER=True
 
 uvx cibuildwheel --platform=linux

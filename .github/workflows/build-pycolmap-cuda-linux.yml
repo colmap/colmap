@@ -32,7 +32,7 @@ jobs:
       CCACHE_BASEDIR: ${{ github.workspace }}
       MACOSX_DEPLOYMENT_TARGET: ${{ matrix.config.deploymentTarget }}
       # For faster builds in PRs, skip all but the oldest Python versions.
-      PULL_REQUEST_CIBW_BUILD: cp38-{manylinux}*
+      WORKFLOW_CIBW_BUILD: cp38-manylinux*
     steps:
       - uses: actions/checkout@v4
 
@@ -44,14 +44,12 @@ jobs:
           path: ${{ env.COMPILER_CACHE_DIR }}
 
       - name: Select Python
-        if: github.event_name == 'pull_request' && runner.os != 'Windows'
         run: |
-          echo "CIBW_BUILD=${PULL_REQUEST_CIBW_BUILD}" >> "$GITHUB_ENV"
+          echo "CIBW_BUILD=${WORKFLOW_CIBW_BUILD}" >> "$GITHUB_ENV"
       - name: Select Python
-        if: ${{ github.event_name == 'pull_request' && runner.os == 'Windows' }}
         shell: pwsh
         run: |
-          echo "CIBW_BUILD=${env:PULL_REQUEST_CIBW_BUILD}" >> "${env:GITHUB_ENV}"
+          echo "CIBW_BUILD=${env:WORKFLOW_CIBW_BUILD}" >> "${env:GITHUB_ENV}"
 
       - name: Set env (Linux)
         if: runner.os == 'Linux'
@@ -94,12 +92,6 @@ jobs:
           CIBW_MANYLINUX_X86_64_IMAGE="sameli/manylinux_2_34_x86_64_cuda_12.8"
           echo "CIBW_MANYLINUX_X86_64_IMAGE=${CIBW_MANYLINUX_X86_64_IMAGE}" >> "$GITHUB_ENV"
 
-      # See https://cibuildwheel.pypa.io/en/stable/faq/#macos-building-cpython-38-wheels-on-arm64
-      - name: Install ARM64 Python 3.8
-        uses: actions/setup-python@v5
-        with:
-          python-version: 3.8
-        if: runner.os == 'macOS' && runner.arch == 'ARM64' && ${{ matrix.config.arch }} == "arm64"
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.23.2
         with:
@@ -111,8 +103,8 @@ jobs:
       - name: Archive wheels
         uses: actions/upload-artifact@v4
         with:
-          name: pycolmap-${{ matrix.config.os }}-${{ matrix.config.arch }}
-          path: wheelhouse/pycolmap-*.whl
+          name: pycolmap_cuda-${{ matrix.config.os }}-${{ matrix.config.arch }}
+          path: wheelhouse/pycolmap_cuda-*.whl
 
   pypi-publish:
     name: Publish wheels to PyPI

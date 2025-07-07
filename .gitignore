@@ -3,6 +3,7 @@ LocalConfig.cmake
 src/colmap/util/version.cc
 wheelhouse/
 compiler-cache/
+vcpkg_binarycache/
 
 # Custom directories
 .idea/

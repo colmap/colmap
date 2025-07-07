@@ -10,7 +10,7 @@ requires = [
 build-backend = "scikit_build_core.build"
 
 [project]
-name = "pycolmap"
+name = "pycolmap_cuda"
 # WARNING: This version must follow the MAJOR.MINOR.PATCH format. If only
 # MAJOR.MINOR is used, cibuildwheel will add a .dev0 patch version, which
 # results in releasing a pre-release version on PyPI.
