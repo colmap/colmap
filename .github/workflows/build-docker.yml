@@ -1,14 +1,16 @@
 name: COLMAP (Docker)
 
 on:
-  push:
-    branches:
-      - main
-      - release/*
-  pull_request:
-    types: [ assigned, opened, synchronize, reopened ]
-  release:
-    types: [ published, edited ]
+  workflow_dispatch
+# on:
+#   push:
+#     branches:
+#       - main
+#       - release/*
+#   pull_request:
+#     types: [ assigned, opened, synchronize, reopened ]
+#   release:
+#     types: [ published, edited ]
 
 env:
   IS_RELEASE: ${{ github.event_name == 'release' || startsWith(github.ref, 'refs/tags') }}

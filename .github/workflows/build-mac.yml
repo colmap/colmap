@@ -5,14 +5,16 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 on:
-  push:
-    branches:
-      - main
-      - release/*
-  pull_request:
-    types: [ assigned, opened, synchronize, reopened ]
-  release:
-    types: [ published, edited ]
+  workflow_dispatch
+# on:
+#   push:
+#     branches:
+#       - main
+#       - release/*
+#   pull_request:
+#     types: [ assigned, opened, synchronize, reopened ]
+#   release:
+#     types: [ published, edited ]
 
 jobs:
   build:

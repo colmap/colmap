@@ -20,7 +20,8 @@ yum install -y \
     curl \
     zip \
     unzip \
-    tar
+    tar \
+    perl
 
 source scl_source enable gcc-toolset-12
 
@@ -36,7 +37,9 @@ fi
 export PATH="${COMPILER_TOOLS_DIR}:${PATH}"
 
 # Setup vcpkg
-git clone https://github.com/microsoft/vcpkg ${VCPKG_INSTALLATION_ROOT}
+if [ ! -d "${VCPKG_INSTALLATION_ROOT}" ]; then
+    git clone https://github.com/microsoft/vcpkg ${VCPKG_INSTALLATION_ROOT}
+fi
 cd ${VCPKG_INSTALLATION_ROOT}
 git checkout ${VCPKG_COMMIT_ID}
 ./bootstrap-vcpkg.sh
@@ -46,7 +49,8 @@ git checkout ${VCPKG_COMMIT_ID}
 cd ${CURRDIR}
 mkdir build && cd build
 cmake3 .. -GNinja \
-    -DCUDA_ENABLED=OFF \
+    -DCUDA_ENABLED=ON \
+    -DCMAKE_CUDA_ARCHITECTURES="all-major" \
     -DGUI_ENABLED=OFF \
     -DCGAL_ENABLED=OFF \
     -DLSD_ENABLED=OFF \

@@ -1,0 +1,137 @@
+name: PyCOLMAP
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+on:
+  workflow_dispatch
+# on:
+#   push:
+#     branches:
+#       - main
+#       - release/*
+#   pull_request:
+#     types: [ assigned, opened, synchronize, reopened ]
+#   release:
+#     types: [ published, edited ]
+
+jobs:
+  build:
+    name: ${{ matrix.config.os }} ${{ matrix.config.arch }}
+    runs-on: ${{ matrix.config.os }}
+    strategy:
+      matrix:
+        config: [
+              {os: ubuntu-latest},
+        ]
+    env:
+      COMPILER_CACHE_VERSION: 1
+      COMPILER_CACHE_DIR: ${{ github.workspace }}/compiler-cache
+      CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
+      CCACHE_BASEDIR: ${{ github.workspace }}
+      MACOSX_DEPLOYMENT_TARGET: ${{ matrix.config.deploymentTarget }}
+      # For faster builds in PRs, skip all but the oldest Python versions.
+      PULL_REQUEST_CIBW_BUILD: cp38-{manylinux}*
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/cache@v4
+        id: cache-builds
+        with:
+          key: pycolmap-v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ github.run_id }}-${{ github.run_number }}
+          restore-keys: pycolmap-v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}
+          path: ${{ env.COMPILER_CACHE_DIR }}
+
+      - name: Select Python
+        if: github.event_name == 'pull_request' && runner.os != 'Windows'
+        run: |
+          echo "CIBW_BUILD=${PULL_REQUEST_CIBW_BUILD}" >> "$GITHUB_ENV"
+      - name: Select Python
+        if: ${{ github.event_name == 'pull_request' && runner.os == 'Windows' }}
+        shell: pwsh
+        run: |
+          echo "CIBW_BUILD=${env:PULL_REQUEST_CIBW_BUILD}" >> "${env:GITHUB_ENV}"
+
+      - name: Set env (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          VCPKG_TARGET_TRIPLET="x64-linux-release"
+          echo "VCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET}" >> "$GITHUB_ENV"
+
+          VCPKG_INSTALLATION_ROOT="${{ github.workspace }}/vcpkg"
+          CMAKE_TOOLCHAIN_FILE="${VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake"
+          echo "VCPKG_INSTALLATION_ROOT=${VCPKG_INSTALLATION_ROOT}" >> "$GITHUB_ENV"
+          echo "CMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}" >> "$GITHUB_ENV"
+
+          # Fix: cibuildhweel cannot interpolate env variables.
+          CONFIG_SETTINGS="cmake.define.CMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}"
+          CONFIG_SETTINGS="${CONFIG_SETTINGS} cmake.define.VCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET}"
+          CONFIG_SETTINGS="${CONFIG_SETTINGS} cmake.define.VCPKG_INSTALLED_DIR=/project/build/vcpkg_installed"
+          echo "CIBW_CONFIG_SETTINGS_LINUX=${CONFIG_SETTINGS}" >> "$GITHUB_ENV"
+
+          # Remap caching paths to the container
+          CONTAINER_COMPILER_CACHE_DIR="/compiler-cache"
+          CIBW_CONTAINER_ENGINE="docker; create_args: -v ${COMPILER_CACHE_DIR}:${CONTAINER_COMPILER_CACHE_DIR}"
+          echo "CIBW_CONTAINER_ENGINE=${CIBW_CONTAINER_ENGINE}" >> "$GITHUB_ENV"
+          echo "CONTAINER_COMPILER_CACHE_DIR=${CONTAINER_COMPILER_CACHE_DIR}" >> "$GITHUB_ENV"
+          echo "CCACHE_DIR=${CONTAINER_COMPILER_CACHE_DIR}/ccache" >> "$GITHUB_ENV"
+          echo "CCACHE_BASEDIR=/project" >> "$GITHUB_ENV"
+
+          # Not sure whether it's ok to use the cache from a fork, commenting out for now.
+          # # vcpkg binary caching
+          # # !!!PLEASE!!! be nice and don't use this cache for your own purposes. This is only meant for CI purposes in this repository.
+          # VCPKG_BINARY_SOURCES="clear;x-azblob,https://colmap.blob.core.windows.net/github-actions-cache,sp=r&st=2024-12-10T17:29:32Z&se=2030-12-31T01:29:32Z&spr=https&sv=2022-11-02&sr=c&sig=bWydkilTMjRn3LHKTxLgdWrFpV4h%2Finzoe9QCOcPpYQ%3D,read"
+          # if [ -n "${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_URL }}" ]; then
+          #   # The secrets are only accessible in runs triggered from within the target repository and not forks.
+          #   VCPKG_BINARY_SOURCES="${VCPKG_BINARY_SOURCES};x-azblob,${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_URL }},${{ secrets.VCPKG_BINARY_CACHE_AZBLOB_SAS }},write"
+          # fi
+          # echo "VCPKG_BINARY_SOURCES=${VCPKG_BINARY_SOURCES}" >> "$GITHUB_ENV"
+
+          CIBW_ENVIRONMENT_PASS_LINUX="VCPKG_TARGET_TRIPLET VCPKG_INSTALLATION_ROOT CMAKE_TOOLCHAIN_FILE VCPKG_BINARY_SOURCES CONTAINER_COMPILER_CACHE_DIR CCACHE_DIR CCACHE_BASEDIR"
+          echo "CIBW_ENVIRONMENT_PASS_LINUX=${CIBW_ENVIRONMENT_PASS_LINUX}" >> "$GITHUB_ENV"
+
+          CIBW_MANYLINUX_X86_64_IMAGE="sameli/manylinux_2_34_x86_64_cuda_12.8"
+          echo "CIBW_MANYLINUX_X86_64_IMAGE=${CIBW_MANYLINUX_X86_64_IMAGE}" >> "$GITHUB_ENV"
+
+      # See https://cibuildwheel.pypa.io/en/stable/faq/#macos-building-cpython-38-wheels-on-arm64
+      - name: Install ARM64 Python 3.8
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.8
+        if: runner.os == 'macOS' && runner.arch == 'ARM64' && ${{ matrix.config.arch }} == "arm64"
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.23.2
+        with:
+          package-dir: ./
+        env:
+          CIBW_ARCHS_MACOS: ${{ matrix.config.arch }}
+          CIBW_TEST_REQUIRES: 'pytest enlighten==1.13.0'
+          CIBW_TEST_COMMAND: 'pytest {project}/python/examples/custom_incremental_pipeline_test.py'
+      - name: Archive wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: pycolmap-${{ matrix.config.os }}-${{ matrix.config.arch }}
+          path: wheelhouse/pycolmap-*.whl
+
+  pypi-publish:
+    name: Publish wheels to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    # We publish the wheel to pypi when a new tag is pushed,
+    # either by creating a new GitHub release or explictly with `git tag`
+    if: ${{ github.event_name == 'release' || startsWith(github.ref, 'refs/tags') }}
+    steps:
+      - name: Download wheels
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts/
+      - name: Move wheels
+        run: mkdir ./wheelhouse && mv ./artifacts/**/*.whl ./wheelhouse/
+      - name: Publish package
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          packages-dir: ./wheelhouse/

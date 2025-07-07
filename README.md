@@ -1,142 +1,23 @@
-COLMAP
+PYCOLMAP Wheels Built with CUDA (Linux only)
 ======
 
 About
 -----
+This is a fork of COLMAP for building CUDA-enabled Python pycolmap wheels(currently only for Linux).
 
-COLMAP is a general-purpose Structure-from-Motion (SfM) and Multi-View Stereo
-(MVS) pipeline with a graphical and command-line interface. It offers a wide
-range of features for reconstruction of ordered and unordered image collections.
-The software is licensed under the new BSD license. If you use this project for
-your research, please cite:
+**[See the original repository for more details about Colmap!](https://github.com/colmap/colmap)**
 
-    @inproceedings{schoenberger2016sfm,
-        author={Sch\"{o}nberger, Johannes Lutz and Frahm, Jan-Michael},
-        title={Structure-from-Motion Revisited},
-        booktitle={Conference on Computer Vision and Pattern Recognition (CVPR)},
-        year={2016},
-    }
-
-    @inproceedings{schoenberger2016mvs,
-        author={Sch\"{o}nberger, Johannes Lutz and Zheng, Enliang and Pollefeys, Marc and Frahm, Jan-Michael},
-        title={Pixelwise View Selection for Unstructured Multi-View Stereo},
-        booktitle={European Conference on Computer Vision (ECCV)},
-        year={2016},
-    }
-
-If you use the image retrieval / vocabulary tree engine, please also cite:
-
-    @inproceedings{schoenberger2016vote,
-        author={Sch\"{o}nberger, Johannes Lutz and Price, True and Sattler, Torsten and Frahm, Jan-Michael and Pollefeys, Marc},
-        title={A Vote-and-Verify Strategy for Fast Spatial Verification in Image Retrieval},
-        booktitle={Asian Conference on Computer Vision (ACCV)},
-        year={2016},
-    }
-
-The latest source code is available at https://github.com/colmap/colmap. COLMAP
-builds on top of existing works and when using specific algorithms within
-COLMAP, please also cite the original authors, as specified in the source code,
-and consider citing relevant third-party dependencies (most notably
-ceres-solver, poselib, sift-gpu, vlfeat).
+This fork is currently experimental and unrelated from the original repository.
+See this issue in the original COLMAP repository about plans for CUDA support in the official PYCOLMAP PyPi wheel.
 
 
-Download
---------
+## Building Python Wheels Locally
+### Prerequisites
+- a working docker installation since the build uses cibuildwheel which runs inside a container 
+- you need to have uv installed ([see uv installation guide](https://docs.astral.sh/uv/getting-started/installation/))
 
-* Binaries for **Windows** and other resources can be downloaded
-  from https://github.com/colmap/colmap/releases.
-* Binaries for **Linux/Unix/BSD** are available at
-  https://repology.org/metapackage/colmap/versions.
-* Pre-built **Docker** images are available at
-  https://hub.docker.com/r/colmap/colmap.
-* **Python bindings** are available at https://pypi.org/project/pycolmap.
-* To **build from source**, please see https://colmap.github.io/install.html.
-
-
-Getting Started
----------------
-
-1. Download pre-built binaries or build from source.
-2. Download one of the provided datasets at https://demuc.de/colmap/datasets/
-   or use your own images.
-3. Use the **automatic reconstruction** to easily build models
-   with a single click or command.
-
-
-Documentation
--------------
-
-The documentation is available at https://colmap.github.io/.
-
-
-Support
--------
-
-Please, use GitHub Discussions at https://github.com/colmap/colmap/discussions
-for questions and the GitHub issue tracker at https://github.com/colmap/colmap
-for bug reports, feature requests/additions, etc.
-
-
-Acknowledgments
----------------
-
-COLMAP was originally written by [Johannes Schönberger](https://demuc.de/) with
-funding provided by his PhD advisors Jan-Michael Frahm and Marc Pollefeys.
-The team of core project maintainers currently includes
-[Johannes Schönberger](https://github.com/ahojnnes),
-[Paul-Edouard Sarlin](https://github.com/sarlinpe), and
-[Shaohui Liu](https://github.com/B1ueber2y).
-
-The Python bindings in PyCOLMAP were originally added by
-[Mihai Dusmanu](https://github.com/mihaidusmanu),
-[Philipp Lindenberger](https://github.com/Phil26AT), and
-[Paul-Edouard Sarlin](https://github.com/sarlinpe).
-
-The project has also benefitted from countless community contributions, including
-bug fixes, improvements, new features, third-party tooling, and community
-support (special credits to [Torsten Sattler](https://tsattler.github.io)).
-
-
-Contribution
-------------
-
-Contributions (bug reports, bug fixes, improvements, etc.) are very welcome and
-should be submitted in the form of new issues and/or pull requests on GitHub.
-
-
-License
--------
-
-The COLMAP library is licensed under the new BSD license. Note that this text
-refers only to the license for COLMAP itself, independent of its thirdparty
-dependencies, which are separately licensed. Building COLMAP with these
-dependencies may affect the resulting COLMAP license.
-
-    Copyright (c), ETH Zurich and UNC Chapel Hill.
-    All rights reserved.
-
-    Redistribution and use in source and binary forms, with or without
-    modification, are permitted provided that the following conditions are met:
-
-        * Redistributions of source code must retain the above copyright
-          notice, this list of conditions and the following disclaimer.
-
-        * Redistributions in binary form must reproduce the above copyright
-          notice, this list of conditions and the following disclaimer in the
-          documentation and/or other materials provided with the distribution.
-
-        * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-          its contributors may be used to endorse or promote products derived
-          from this software without specific prior written permission.
-
-    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-    AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-    IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-    ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-    LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-    CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-    SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-    INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-    CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-    ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-    POSSIBILITY OF SUCH DAMAGE.
+### Building Wheels
+- just execute `./local_cibuildwheel.sh`
+- this sets up the environment and then calls cibuildwheel using which then builds the wheels inside a CUDA-enabled manylinux container (container image taken from [this repository](https://github.com/ameli/manylinux-cuda))
+- the build might take several minutes up to about an hour
+- **Once done, there should be a `wheelhouse` directory inside the repository's root folder which contains the built wheels**
