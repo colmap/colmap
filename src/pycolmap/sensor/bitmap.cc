@@ -79,7 +79,11 @@ void BindBitmap(pybind11::module& m) {
           "Create bitmap as a copy of array. Returns RGB bitmap, if array has "
           "shape (H, W, 3), or grayscale bitmap, if array has shape (H, W[, "
           "1]).")
-      .def("write", &Bitmap::Write, "path"_a, "Write bitmap to file.")
+      .def("write",
+           &Bitmap::Write,
+           "path"_a,
+           "delinearize_colorspace"_a,
+           "Write bitmap to file.")
       .def("__repr__", &CreateRepresentation<Bitmap>)
       .def_static(
           "read",
