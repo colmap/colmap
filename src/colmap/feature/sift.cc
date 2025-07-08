@@ -164,7 +164,7 @@ class SiftCPUFeatureExtractor : public FeatureExtractor {
     bool first_octave = true;
     while (true) {
       if (first_octave) {
-        const std::vector<uint8_t> data_uint8 = bitmap.ConvertToRowMajorArray();
+        const std::vector<uint8_t>& data_uint8 = bitmap.RowMajorData();
         std::vector<float> data_float(data_uint8.size());
         for (size_t i = 0; i < data_uint8.size(); ++i) {
           data_float[i] = static_cast<float>(data_uint8[i]) / 255.0f;
@@ -352,7 +352,7 @@ class CovariantSiftCPUFeatureExtractor : public FeatureExtractor {
     vl_covdet_set_edge_threshold(covdet.get(), options_.edge_threshold);
 
     {
-      const std::vector<uint8_t> data_uint8 = bitmap.ConvertToRowMajorArray();
+      const std::vector<uint8_t>& data_uint8 = bitmap.RowMajorData();
       std::vector<float> data_float(data_uint8.size());
       for (size_t i = 0; i < data_uint8.size(); ++i) {
         data_float[i] = static_cast<float>(data_uint8[i]) / 255.0f;
@@ -656,10 +656,9 @@ class SiftGPUFeatureExtractor : public FeatureExtractor {
 
     // Note, that this produces slightly different results than using SiftGPU
     // directly for RGB->GRAY conversion, since it uses different weights.
-    const std::vector<uint8_t> bitmap_raw_bits = bitmap.ConvertToRawBits();
     const int code = sift_gpu_.RunSIFT(bitmap.Pitch(),
                                        bitmap.Height(),
-                                       bitmap_raw_bits.data(),
+                                       bitmap.RowMajorData().data(),
                                        GL_LUMINANCE,
                                        GL_UNSIGNED_BYTE);
 

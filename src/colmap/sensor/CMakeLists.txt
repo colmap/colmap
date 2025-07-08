@@ -44,8 +44,7 @@ COLMAP_ADD_LIBRARY(
     PRIVATE_LINK_LIBS
         colmap_geometry
         colmap_util
-        colmap_vlfeat
-        freeimage::FreeImage
+        OpenImageIO::OpenImageIO
 )
 
 COLMAP_ADD_TEST(
@@ -53,7 +52,6 @@ COLMAP_ADD_TEST(
     SRCS bitmap_test.cc
     LINK_LIBS
         colmap_sensor
-        freeimage::FreeImage
 )
 COLMAP_ADD_TEST(
     NAME database_test
