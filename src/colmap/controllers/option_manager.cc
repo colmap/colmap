@@ -421,6 +421,8 @@ void OptionManager::AddSpatialMatchingOptions() {
                               &spatial_matching->ignore_z);
   AddAndRegisterDefaultOption("SpatialMatching.max_num_neighbors",
                               &spatial_matching->max_num_neighbors);
+  AddAndRegisterDefaultOption("SpatialMatching.min_num_neighbors",
+                              &spatial_matching->min_num_neighbors);
   AddAndRegisterDefaultOption("SpatialMatching.max_distance",
                               &spatial_matching->max_distance);
 }

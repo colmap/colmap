@@ -132,8 +132,11 @@ VocabTreeMatchingOptions SequentialMatchingOptions::VocabTreeOptions() const {
 }
 
 bool SpatialMatchingOptions::Check() const {
+  CHECK_OPTION_GE(max_distance, 0.0);
   CHECK_OPTION_GT(max_num_neighbors, 0);
-  CHECK_OPTION_GT(max_distance, 0.0);
+  CHECK_OPTION_LE(min_num_neighbors, max_num_neighbors);
+  CHECK_OPTION_GE(min_num_neighbors, 0);
+  CHECK_OPTION(max_distance > 0.0 || min_num_neighbors > 0);
   return true;
 }
 
@@ -562,6 +565,13 @@ SpatialPairGenerator::SpatialPairGenerator(
     LOG(INFO) << "=> No images with location data.";
     return;
   }
+  if (num_positions <= options_.min_num_neighbors) {
+    LOG(WARNING) << StringPrintf(
+        "min_num_neighbors (%d) exceeds number of images with location data "
+        "(%zu), this may limit the number of matched pairs.",
+        options_.min_num_neighbors,
+        num_positions);
+  }
 
   timer.Restart();
   LOG(INFO) << "Building search index...";
@@ -578,14 +588,14 @@ SpatialPairGenerator::SpatialPairGenerator(
   image_pairs_.reserve(knn_);
 
   index_matrix_.resize(num_positions, knn_);
-  distance_matrix_.resize(num_positions, knn_);
+  distance_squared_matrix_.resize(num_positions, knn_);
 
   omp_set_num_threads(GetEffectiveNumThreads(options_.num_threads));
 
   search_index.search(position_matrix.rows(),
                       position_matrix.data(),
                       knn_,
-                      distance_matrix_.data(),
+                      distance_squared_matrix_.data(),
                       index_matrix_.data());
 
   LOG(INFO) << StringPrintf(" in %.3fs", timer.ElapsedSeconds());
@@ -613,7 +623,7 @@ std::vector<std::pair<image_t, image_t>> SpatialPairGenerator::Next() {
 
   LOG(INFO) << StringPrintf(
       "Matching image [%d/%d]", current_idx_ + 1, position_idxs_.size());
-  const float max_distance =
+  const float max_distance_squared =
       static_cast<float>(options_.max_distance * options_.max_distance);
   for (int j = 0; j < knn_; ++j) {
     // Check if query equals result.
@@ -621,8 +631,10 @@ std::vector<std::pair<image_t, image_t>> SpatialPairGenerator::Next() {
       continue;
     }
 
-    // Since the nearest neighbors are sorted by distance, we can break.
-    if (distance_matrix_(current_idx_, j) > max_distance) {
+    // Since the nearest neighbors are sorted by distance, we can break
+    // once the distance is too large and enough neighbors are collected.
+    if (distance_squared_matrix_(current_idx_, j) > max_distance_squared &&
+        j > options_.min_num_neighbors) {
       break;
     }
 
