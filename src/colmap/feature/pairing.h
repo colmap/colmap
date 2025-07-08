@@ -167,8 +167,8 @@ struct SpatialMatchingOptions {
   // The maximum number of nearest neighbors to match.
   int max_num_neighbors = 50;
 
-  // Minimum number of nearest neighbors to match. The maximum matching distance
-  // is adjusted to ensure this minimum.
+  // Minimum number of nearest neighbors to match. Neighbors include those
+  // within max_distance or to satisfy min_num_neighbors.
   int min_num_neighbors = 0;
 
   // The maximum distance between the query and nearest neighbor. For GPS
@@ -354,7 +354,6 @@ class SpatialPairGenerator : public PairGenerator {
   std::vector<size_t> position_idxs_;
   size_t current_idx_ = 0;
   int knn_ = 0;
-  double max_distance_squared_ = 0.0;
 };
 
 class TransitivePairGenerator : public PairGenerator {

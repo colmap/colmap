@@ -375,25 +375,26 @@ TEST(SpatialPairGenerator, MinNumNeighborsControlsMatchingDistance) {
                      PosePrior(Eigen::Vector3d(2, 4, 12)));  // +\sqrt{65}
 
   SpatialMatchingOptions options;
-  {
-    options.ignore_z = false;
-    options.max_num_neighbors = kNumImages;
+  options.ignore_z = false;
+  options.max_num_neighbors = kNumImages;
+  options.max_distance = 0.0;
 
+  {
+    options.min_num_neighbors = 0;
+    EXPECT_FALSE(options.Check());
+  }
+  {
     options.min_num_neighbors = 1;
     SpatialPairGenerator generator(options, db);
     EXPECT_THAT(generator.Next(),
                 testing::ElementsAre(
-                    std::make_pair(images[0].ImageId(), images[1].ImageId()),
-                    std::make_pair(images[0].ImageId(), images[2].ImageId())));
+                    std::make_pair(images[0].ImageId(), images[1].ImageId())));
     EXPECT_THAT(generator.Next(),
                 testing::ElementsAre(
-                    std::make_pair(images[1].ImageId(), images[0].ImageId()),
-                    std::make_pair(images[1].ImageId(), images[2].ImageId())));
+                    std::make_pair(images[1].ImageId(), images[0].ImageId())));
     EXPECT_THAT(generator.Next(),
                 testing::ElementsAre(
-                    std::make_pair(images[2].ImageId(), images[1].ImageId()),
-                    std::make_pair(images[2].ImageId(), images[0].ImageId()),
-                    std::make_pair(images[2].ImageId(), images[3].ImageId())));
+                    std::make_pair(images[2].ImageId(), images[1].ImageId())));
     EXPECT_THAT(generator.Next(),
                 testing::ElementsAre(
                     std::make_pair(images[3].ImageId(), images[2].ImageId())));
@@ -409,13 +410,11 @@ TEST(SpatialPairGenerator, MinNumNeighborsControlsMatchingDistance) {
     EXPECT_THAT(generator.Next(),
                 testing::ElementsAre(
                     std::make_pair(images[1].ImageId(), images[0].ImageId()),
-                    std::make_pair(images[1].ImageId(), images[2].ImageId()),
-                    std::make_pair(images[1].ImageId(), images[3].ImageId())));
+                    std::make_pair(images[1].ImageId(), images[2].ImageId())));
     EXPECT_THAT(generator.Next(),
                 testing::ElementsAre(
                     std::make_pair(images[2].ImageId(), images[1].ImageId()),
-                    std::make_pair(images[2].ImageId(), images[0].ImageId()),
-                    std::make_pair(images[2].ImageId(), images[3].ImageId())));
+                    std::make_pair(images[2].ImageId(), images[0].ImageId())));
     EXPECT_THAT(generator.Next(),
                 testing::ElementsAre(
                     std::make_pair(images[3].ImageId(), images[2].ImageId()),
@@ -449,7 +448,7 @@ TEST(SpatialPairGenerator, MinNumNeighborsControlsMatchingDistance) {
   }
   {
     options.min_num_neighbors = 4;
-    EXPECT_THROW(SpatialPairGenerator(options, db), std::exception);
+    EXPECT_ANY_THROW(SpatialPairGenerator(options, db));
   }
 }
 
