@@ -167,7 +167,7 @@ struct SpatialMatchingOptions {
   // The maximum number of nearest neighbors to match.
   int max_num_neighbors = 50;
 
-  // Minimum number of nearest neighbors to match. Neighbors include those
+  // The minimum number of nearest neighbors to match. Neighbors include those
   // within max_distance or to satisfy min_num_neighbors.
   int min_num_neighbors = 0;
 
@@ -349,7 +349,7 @@ class SpatialPairGenerator : public PairGenerator {
   std::vector<std::pair<image_t, image_t>> image_pairs_;
   Eigen::Matrix<int64_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
       index_matrix_;
-  Eigen::RowMajorMatrixXf distance_matrix_;
+  Eigen::RowMajorMatrixXf distance_squared_matrix_;
   std::vector<image_t> image_ids_;
   std::vector<size_t> position_idxs_;
   size_t current_idx_ = 0;

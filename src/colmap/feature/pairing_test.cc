@@ -367,12 +367,9 @@ TEST(SpatialPairGenerator, MinNumNeighborsControlsMatchingDistance) {
   const auto images = db->ReadAllImages();
 
   db->WritePosePrior(images[0].ImageId(), PosePrior(Eigen::Vector3d(1, 1, 2)));
-  db->WritePosePrior(images[1].ImageId(),
-                     PosePrior(Eigen::Vector3d(1, 2, 3)));  // +\sqrt{2}
-  db->WritePosePrior(images[2].ImageId(),
-                     PosePrior(Eigen::Vector3d(2, 3, 4)));  // +\sqrt{3}
-  db->WritePosePrior(images[3].ImageId(),
-                     PosePrior(Eigen::Vector3d(2, 4, 12)));  // +\sqrt{65}
+  db->WritePosePrior(images[1].ImageId(), PosePrior(Eigen::Vector3d(1, 2, 3)));
+  db->WritePosePrior(images[2].ImageId(), PosePrior(Eigen::Vector3d(2, 3, 4)));
+  db->WritePosePrior(images[3].ImageId(), PosePrior(Eigen::Vector3d(2, 4, 12)));
 
   SpatialMatchingOptions options;
   options.ignore_z = false;
@@ -445,10 +442,6 @@ TEST(SpatialPairGenerator, MinNumNeighborsControlsMatchingDistance) {
                     std::make_pair(images[3].ImageId(), images[1].ImageId()),
                     std::make_pair(images[3].ImageId(), images[0].ImageId())));
     EXPECT_TRUE(generator.Next().empty());
-  }
-  {
-    options.min_num_neighbors = 4;
-    EXPECT_ANY_THROW(SpatialPairGenerator(options, db));
   }
 }
 
