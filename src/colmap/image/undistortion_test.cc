@@ -177,9 +177,9 @@ TEST(UndistortCamera, NoBlankPixels) {
     for (int x = 0; x < undistorted_image.Width(); ++x) {
       BitmapColor<uint8_t> color;
       EXPECT_TRUE(undistorted_image.GetPixel(x, y, &color));
-      EXPECT_NE(color.r, 0);
-      EXPECT_EQ(color.g, 0);
-      EXPECT_EQ(color.b, 0);
+      ASSERT_NE(color.r, 0);
+      ASSERT_NE(color.g, 0);
+      ASSERT_NE(color.b, 0);
     }
   }
 }
