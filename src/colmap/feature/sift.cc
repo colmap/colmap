@@ -63,9 +63,6 @@ namespace colmap {
 constexpr int kSqSiftDescriptorNorm = 512 * 512;
 
 bool SiftExtractionOptions::Check() const {
-  if (use_gpu) {
-    CHECK_OPTION_GT(CSVToVector<int>(gpu_index).size(), 0);
-  }
   CHECK_OPTION_GT(max_image_size, 0);
   CHECK_OPTION_GT(max_num_features, 0);
   CHECK_OPTION_GT(octave_resolution, 0);
@@ -81,12 +78,8 @@ bool SiftExtractionOptions::Check() const {
 }
 
 bool SiftMatchingOptions::Check() const {
-  if (use_gpu) {
-    CHECK_OPTION_GT(CSVToVector<int>(gpu_index).size(), 0);
-  }
   CHECK_OPTION_GT(max_ratio, 0.0);
   CHECK_OPTION_GT(max_distance, 0.0);
-  CHECK_OPTION_GT(max_num_matches, 0);
   return true;
 }
 
@@ -120,18 +113,18 @@ class SiftCPUFeatureExtractor : public FeatureExtractor {
  public:
   using VlSiftType = std::unique_ptr<VlSiftFilt, void (*)(VlSiftFilt*)>;
 
-  explicit SiftCPUFeatureExtractor(const SiftExtractionOptions& options)
+  explicit SiftCPUFeatureExtractor(const FeatureExtractionOptions& options)
       : options_(options), sift_(nullptr, &vl_sift_delete) {
     THROW_CHECK(options_.Check());
-    THROW_CHECK(!options_.estimate_affine_shape);
-    THROW_CHECK(!options_.domain_size_pooling);
-    if (options_.darkness_adaptivity) {
+    THROW_CHECK(!options_.sift->estimate_affine_shape);
+    THROW_CHECK(!options_.sift->domain_size_pooling);
+    if (options_.sift->darkness_adaptivity) {
       WarnDarknessAdaptivityNotAvailable();
     }
   }
 
   static std::unique_ptr<FeatureExtractor> Create(
-      const SiftExtractionOptions& options) {
+      const FeatureExtractionOptions& options) {
     return std::make_unique<SiftCPUFeatureExtractor>(options);
   }
 
@@ -145,17 +138,17 @@ class SiftCPUFeatureExtractor : public FeatureExtractor {
         sift_->height != bitmap.Height()) {
       sift_ = VlSiftType(vl_sift_new(bitmap.Width(),
                                      bitmap.Height(),
-                                     options_.num_octaves,
-                                     options_.octave_resolution,
-                                     options_.first_octave),
+                                     options_.sift->num_octaves,
+                                     options_.sift->octave_resolution,
+                                     options_.sift->first_octave),
                          &vl_sift_delete);
       if (!sift_) {
         return false;
       }
     }
 
-    vl_sift_set_peak_thresh(sift_.get(), options_.peak_threshold);
-    vl_sift_set_edge_thresh(sift_.get(), options_.edge_threshold);
+    vl_sift_set_peak_thresh(sift_.get(), options_.sift->peak_threshold);
+    vl_sift_set_edge_thresh(sift_.get(), options_.sift->edge_threshold);
 
     // Iterate through octaves.
     std::vector<size_t> level_num_features;
@@ -206,11 +199,11 @@ class SiftCPUFeatureExtractor : public FeatureExtractor {
           // Add containers for new DOG level.
           level_idx = 0;
           level_num_features.push_back(0);
-          level_keypoints.emplace_back(options_.max_num_orientations *
+          level_keypoints.emplace_back(options_.sift->max_num_orientations *
                                        num_keypoints);
           if (descriptors != nullptr) {
             level_descriptors.emplace_back(
-                options_.max_num_orientations * num_keypoints, 128);
+                options_.sift->max_num_orientations * num_keypoints, 128);
           }
         }
 
@@ -220,7 +213,7 @@ class SiftCPUFeatureExtractor : public FeatureExtractor {
         // Extract feature orientations.
         double angles[4];
         int num_orientations;
-        if (options_.upright) {
+        if (options_.sift->upright) {
           num_orientations = 1;
           angles[0] = 0.0;
         } else {
@@ -232,7 +225,7 @@ class SiftCPUFeatureExtractor : public FeatureExtractor {
         // global maxima as orientations while this selects the first two
         // local maxima. It is not clear which procedure is better.
         const int num_used_orientations =
-            std::min(num_orientations, options_.max_num_orientations);
+            std::min(num_orientations, options_.sift->max_num_orientations);
 
         for (int o = 0; o < num_used_orientations; ++o) {
           level_keypoints.back()[level_idx] =
@@ -243,10 +236,10 @@ class SiftCPUFeatureExtractor : public FeatureExtractor {
           if (descriptors != nullptr) {
             vl_sift_calc_keypoint_descriptor(
                 sift_.get(), desc.data(), &vl_keypoints[i], angles[o]);
-            if (options_.normalization ==
+            if (options_.sift->normalization ==
                 SiftExtractionOptions::Normalization::L2) {
               L2NormalizeFeatureDescriptors(&desc);
-            } else if (options_.normalization ==
+            } else if (options_.sift->normalization ==
                        SiftExtractionOptions::Normalization::L1_ROOT) {
               L1RootNormalizeFeatureDescriptors(&desc);
             } else {
@@ -275,7 +268,7 @@ class SiftCPUFeatureExtractor : public FeatureExtractor {
     for (int i = level_keypoints.size() - 1; i >= 0; --i) {
       num_features += level_num_features[i];
       num_features_with_orientations += level_keypoints[i].size();
-      if (num_features > options_.max_num_features) {
+      if (num_features > options_.sift->max_num_features) {
         first_level_to_keep = i;
         break;
       }
@@ -310,23 +303,23 @@ class SiftCPUFeatureExtractor : public FeatureExtractor {
   }
 
  private:
-  const SiftExtractionOptions options_;
+  const FeatureExtractionOptions options_;
   VlSiftType sift_;
 };
 
 class CovariantSiftCPUFeatureExtractor : public FeatureExtractor {
  public:
   explicit CovariantSiftCPUFeatureExtractor(
-      const SiftExtractionOptions& options)
+      const FeatureExtractionOptions& options)
       : options_(options) {
     THROW_CHECK(options_.Check());
-    if (options_.darkness_adaptivity) {
+    if (options_.sift->darkness_adaptivity) {
       WarnDarknessAdaptivityNotAvailable();
     }
   }
 
   static std::unique_ptr<FeatureExtractor> Create(
-      const SiftExtractionOptions& options) {
+      const FeatureExtractionOptions& options) {
     return std::make_unique<CovariantSiftCPUFeatureExtractor>(options);
   }
 
@@ -344,12 +337,13 @@ class CovariantSiftCPUFeatureExtractor : public FeatureExtractor {
     }
 
     const int kMaxOctaveResolution = 1000;
-    THROW_CHECK_LE(options_.octave_resolution, kMaxOctaveResolution);
+    THROW_CHECK_LE(options_.sift->octave_resolution, kMaxOctaveResolution);
 
-    vl_covdet_set_first_octave(covdet.get(), options_.first_octave);
-    vl_covdet_set_octave_resolution(covdet.get(), options_.octave_resolution);
-    vl_covdet_set_peak_threshold(covdet.get(), options_.peak_threshold);
-    vl_covdet_set_edge_threshold(covdet.get(), options_.edge_threshold);
+    vl_covdet_set_first_octave(covdet.get(), options_.sift->first_octave);
+    vl_covdet_set_octave_resolution(covdet.get(),
+                                    options_.sift->octave_resolution);
+    vl_covdet_set_peak_threshold(covdet.get(), options_.sift->peak_threshold);
+    vl_covdet_set_edge_threshold(covdet.get(), options_.sift->edge_threshold);
 
     {
       const std::vector<uint8_t> data_uint8 = bitmap.ConvertToRowMajorArray();
@@ -361,13 +355,13 @@ class CovariantSiftCPUFeatureExtractor : public FeatureExtractor {
           covdet.get(), data_float.data(), bitmap.Width(), bitmap.Height());
     }
 
-    vl_covdet_detect(covdet.get(), options_.max_num_features);
+    vl_covdet_detect(covdet.get(), options_.sift->max_num_features);
 
-    if (options_.estimate_affine_shape) {
+    if (options_.sift->estimate_affine_shape) {
       vl_covdet_extract_affine_shape(covdet.get());
     }
 
-    if (!options_.upright) {
+    if (!options_.sift->upright) {
       vl_covdet_extract_orientations(covdet.get());
     }
 
@@ -387,7 +381,7 @@ class CovariantSiftCPUFeatureExtractor : public FeatureExtractor {
         });
 
     const size_t max_num_features =
-        static_cast<size_t>(options_.max_num_features);
+        static_cast<size_t>(options_.sift->max_num_features);
 
     // Copy detected keypoints and clamp when maximum number of features
     // reached.
@@ -432,11 +426,12 @@ class CovariantSiftCPUFeatureExtractor : public FeatureExtractor {
       float dsp_min_scale = 1;
       float dsp_scale_step = 0;
       int dsp_num_scales = 1;
-      if (options_.domain_size_pooling) {
-        dsp_min_scale = options_.dsp_min_scale;
-        dsp_scale_step = (options_.dsp_max_scale - options_.dsp_min_scale) /
-                         options_.dsp_num_scales;
-        dsp_num_scales = options_.dsp_num_scales;
+      if (options_.sift->domain_size_pooling) {
+        dsp_min_scale = options_.sift->dsp_min_scale;
+        dsp_scale_step =
+            (options_.sift->dsp_max_scale - options_.sift->dsp_min_scale) /
+            options_.sift->dsp_num_scales;
+        dsp_num_scales = options_.sift->dsp_num_scales;
       }
 
       FeatureDescriptorsFloat descriptor(1, 128);
@@ -487,7 +482,7 @@ class CovariantSiftCPUFeatureExtractor : public FeatureExtractor {
                                       0);
         }
 
-        if (options_.domain_size_pooling) {
+        if (options_.sift->domain_size_pooling) {
           descriptor = scaled_descriptors.colwise().mean();
         } else {
           descriptor = scaled_descriptors;
@@ -495,10 +490,10 @@ class CovariantSiftCPUFeatureExtractor : public FeatureExtractor {
 
         THROW_CHECK_EQ(descriptor.cols(), 128);
 
-        if (options_.normalization ==
+        if (options_.sift->normalization ==
             SiftExtractionOptions::Normalization::L2) {
           L2NormalizeFeatureDescriptors(&descriptor);
-        } else if (options_.normalization ==
+        } else if (options_.sift->normalization ==
                    SiftExtractionOptions::Normalization::L1_ROOT) {
           L1RootNormalizeFeatureDescriptors(&descriptor);
         } else {
@@ -515,7 +510,7 @@ class CovariantSiftCPUFeatureExtractor : public FeatureExtractor {
   }
 
  private:
-  const SiftExtractionOptions options_;
+  const FeatureExtractionOptions options_;
 };
 
 #if defined(COLMAP_GPU_ENABLED)
@@ -525,15 +520,15 @@ static std::map<int, std::unique_ptr<std::mutex>> sift_gpu_mutexes_;
 
 class SiftGPUFeatureExtractor : public FeatureExtractor {
  public:
-  explicit SiftGPUFeatureExtractor(const SiftExtractionOptions& options)
+  explicit SiftGPUFeatureExtractor(const FeatureExtractionOptions& options)
       : options_(options) {
     THROW_CHECK(options_.Check());
-    THROW_CHECK(!options_.estimate_affine_shape);
-    THROW_CHECK(!options_.domain_size_pooling);
+    THROW_CHECK(!options_.sift->estimate_affine_shape);
+    THROW_CHECK(!options_.sift->domain_size_pooling);
   }
 
   static std::unique_ptr<FeatureExtractor> Create(
-      const SiftExtractionOptions& options) {
+      const FeatureExtractionOptions& options) {
     // SiftGPU uses many global static state variables and the initialization
     // must be thread-safe in order to work correctly. This is enforced here.
     static std::mutex mutex;
@@ -548,7 +543,7 @@ class SiftGPUFeatureExtractor : public FeatureExtractor {
 
 #if defined(COLMAP_CUDA_ENABLED)
     // Use CUDA version by default if darkness adaptivity is disabled.
-    if (!options.darkness_adaptivity && gpu_indices[0] < 0) {
+    if (!options.sift->darkness_adaptivity && gpu_indices[0] < 0) {
       gpu_indices[0] = 0;
     }
 
@@ -560,7 +555,7 @@ class SiftGPUFeatureExtractor : public FeatureExtractor {
 
     // Darkness adaptivity (hidden feature). Significantly improves
     // distribution of features. Only available in GLSL version.
-    if (options.darkness_adaptivity) {
+    if (options.sift->darkness_adaptivity) {
       if (gpu_indices[0] >= 0) {
         WarnDarknessAdaptivityNotAvailable();
       }
@@ -574,32 +569,33 @@ class SiftGPUFeatureExtractor : public FeatureExtractor {
     // Set maximum image dimension.
     // Note the max dimension of SiftGPU is the maximum dimension of the
     // first octave in the pyramid (which is the 'first_octave').
-    const int compensation_factor = 1 << -std::min(0, options.first_octave);
+    const int compensation_factor = 1
+                                    << -std::min(0, options.sift->first_octave);
     sift_gpu_args.push_back("-maxd");
     sift_gpu_args.push_back(
-        std::to_string(options.max_image_size * compensation_factor));
+        std::to_string(options.sift->max_image_size * compensation_factor));
 
     // Keep the highest level features.
     sift_gpu_args.push_back("-tc2");
-    sift_gpu_args.push_back(std::to_string(options.max_num_features));
+    sift_gpu_args.push_back(std::to_string(options.sift->max_num_features));
 
     // First octave level.
     sift_gpu_args.push_back("-fo");
-    sift_gpu_args.push_back(std::to_string(options.first_octave));
+    sift_gpu_args.push_back(std::to_string(options.sift->first_octave));
 
     // Number of octave levels.
     sift_gpu_args.push_back("-d");
-    sift_gpu_args.push_back(std::to_string(options.octave_resolution));
+    sift_gpu_args.push_back(std::to_string(options.sift->octave_resolution));
 
     // Peak threshold.
     sift_gpu_args.push_back("-t");
-    sift_gpu_args.push_back(std::to_string(options.peak_threshold));
+    sift_gpu_args.push_back(std::to_string(options.sift->peak_threshold));
 
     // Edge threshold.
     sift_gpu_args.push_back("-e");
-    sift_gpu_args.push_back(std::to_string(options.edge_threshold));
+    sift_gpu_args.push_back(std::to_string(options.sift->edge_threshold));
 
-    if (options.upright) {
+    if (options.sift->upright) {
       // Fix the orientation to 0 for upright features.
       sift_gpu_args.push_back("-ofix");
       // Maximum number of orientations.
@@ -608,7 +604,8 @@ class SiftGPUFeatureExtractor : public FeatureExtractor {
     } else {
       // Maximum number of orientations.
       sift_gpu_args.push_back("-mo");
-      sift_gpu_args.push_back(std::to_string(options.max_num_orientations));
+      sift_gpu_args.push_back(
+          std::to_string(options.sift->max_num_orientations));
     }
 
     std::vector<const char*> sift_gpu_args_cstr;
@@ -648,8 +645,9 @@ class SiftGPUFeatureExtractor : public FeatureExtractor {
 
     // Note the max dimension of SiftGPU is the maximum dimension of the
     // first octave in the pyramid (which is the 'first_octave').
-    const int compensation_factor = 1 << -std::min(0, options_.first_octave);
-    THROW_CHECK_EQ(options_.max_image_size * compensation_factor,
+    const int compensation_factor =
+        1 << -std::min(0, options_.sift->first_octave);
+    THROW_CHECK_EQ(options_.sift->max_image_size * compensation_factor,
                    sift_gpu_.GetMaxDimension());
 
     std::lock_guard<std::mutex> lock(*sift_gpu_mutexes_[sift_gpu_.gpu_index]);
@@ -687,9 +685,10 @@ class SiftGPUFeatureExtractor : public FeatureExtractor {
     }
 
     // Save and normalize the descriptors.
-    if (options_.normalization == SiftExtractionOptions::Normalization::L2) {
+    if (options_.sift->normalization ==
+        SiftExtractionOptions::Normalization::L2) {
       L2NormalizeFeatureDescriptors(&descriptors_float);
-    } else if (options_.normalization ==
+    } else if (options_.sift->normalization ==
                SiftExtractionOptions::Normalization::L1_ROOT) {
       L1RootNormalizeFeatureDescriptors(&descriptors_float);
     } else {
@@ -702,7 +701,7 @@ class SiftGPUFeatureExtractor : public FeatureExtractor {
   }
 
  private:
-  const SiftExtractionOptions options_;
+  const FeatureExtractionOptions options_;
   SiftGPU sift_gpu_;
   std::vector<SiftKeypoint> keypoints_buffer_;
 };
@@ -711,9 +710,10 @@ class SiftGPUFeatureExtractor : public FeatureExtractor {
 }  // namespace
 
 std::unique_ptr<FeatureExtractor> CreateSiftFeatureExtractor(
-    const SiftExtractionOptions& options) {
-  if (options.estimate_affine_shape || options.domain_size_pooling ||
-      options.force_covariant_extractor) {
+    const FeatureExtractionOptions& options) {
+  if (options.sift->estimate_affine_shape ||
+      options.sift->domain_size_pooling ||
+      options.sift->force_covariant_extractor) {
     LOG(INFO) << "Creating Covariant SIFT CPU feature extractor";
     return CovariantSiftCPUFeatureExtractor::Create(options);
   } else if (options.use_gpu) {
@@ -973,13 +973,13 @@ Eigen::RowMajorMatrixXf ComputeSiftDistanceMatrix(
 
 class SiftCPUFeatureMatcher : public FeatureMatcher {
  public:
-  explicit SiftCPUFeatureMatcher(const SiftMatchingOptions& options)
+  explicit SiftCPUFeatureMatcher(const FeatureMatchingOptions& options)
       : options_(options) {
     THROW_CHECK(options_.Check());
   }
 
   static std::unique_ptr<FeatureMatcher> Create(
-      const SiftMatchingOptions& options) {
+      const FeatureMatchingOptions& options) {
     return std::make_unique<SiftCPUFeatureMatcher>(options);
   }
 
@@ -996,17 +996,17 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
 
     matches->clear();
 
-    if (!options_.cpu_brute_force_matcher &&
+    if (!options_.sift->cpu_brute_force_matcher &&
         (prev_image_id1_ == kInvalidImageId ||
          prev_image_id1_ != image1.image_id)) {
-      index1_ = options_.cpu_descriptor_index_cache->Get(image1.image_id);
+      index1_ = options_.sift->cpu_descriptor_index_cache->Get(image1.image_id);
       prev_image_id1_ = image1.image_id;
     }
 
-    if (!options_.cpu_brute_force_matcher &&
+    if (!options_.sift->cpu_brute_force_matcher &&
         (prev_image_id2_ == kInvalidImageId ||
          prev_image_id2_ != image2.image_id)) {
-      index2_ = options_.cpu_descriptor_index_cache->Get(image2.image_id);
+      index2_ = options_.sift->cpu_descriptor_index_cache->Get(image2.image_id);
       prev_image_id2_ = image2.image_id;
     }
 
@@ -1014,7 +1014,7 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
       return;
     }
 
-    if (options_.cpu_brute_force_matcher) {
+    if (options_.sift->cpu_brute_force_matcher) {
       const Eigen::RowMajorMatrixXf dot_products =
           ComputeSiftDistanceMatrix(DistanceType::DOT_PRODUCT,
                                     nullptr,
@@ -1023,9 +1023,9 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
                                     *image2.descriptors,
                                     nullptr);
       FindBestMatchesBruteForce(dot_products,
-                                options_.max_ratio,
-                                options_.max_distance,
-                                options_.cross_check,
+                                options_.sift->max_ratio,
+                                options_.sift->max_distance,
+                                options_.sift->cross_check,
                                 matches);
       return;
     }
@@ -1039,7 +1039,7 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
         image1.descriptors->cast<float>(),
         indices_1to2,
         l2_dists_1to2);
-    if (options_.cross_check) {
+    if (options_.sift->cross_check) {
       index1_->Search(/*num_neighbors=*/2,
                       image2.descriptors->cast<float>(),
                       indices_2to1,
@@ -1050,9 +1050,9 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
                          l2_dists_1to2,
                          indices_2to1,
                          l2_dists_2to1,
-                         options_.max_ratio,
-                         options_.max_distance,
-                         options_.cross_check,
+                         options_.sift->max_ratio,
+                         options_.sift->max_distance,
+                         options_.sift->cross_check,
                          matches);
   }
 
@@ -1074,17 +1074,17 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
 
     two_view_geometry->inlier_matches.clear();
 
-    if (!options_.cpu_brute_force_matcher &&
+    if (!options_.sift->cpu_brute_force_matcher &&
         (prev_image_id1_ == kInvalidImageId ||
          prev_image_id1_ != image1.image_id)) {
-      index1_ = options_.cpu_descriptor_index_cache->Get(image1.image_id);
+      index1_ = options_.sift->cpu_descriptor_index_cache->Get(image1.image_id);
       prev_image_id1_ = image1.image_id;
     }
 
-    if (!options_.cpu_brute_force_matcher &&
+    if (!options_.sift->cpu_brute_force_matcher &&
         (prev_image_id2_ == kInvalidImageId ||
          prev_image_id2_ != image2.image_id)) {
-      index2_ = options_.cpu_descriptor_index_cache->Get(image2.image_id);
+      index2_ = options_.sift->cpu_descriptor_index_cache->Get(image2.image_id);
       prev_image_id2_ = image2.image_id;
     }
 
@@ -1150,14 +1150,14 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
                          l2_dists_1to2,
                          indices_2to1,
                          l2_dists_2to1,
-                         options_.max_ratio,
-                         options_.max_distance,
-                         options_.cross_check,
+                         options_.sift->max_ratio,
+                         options_.sift->max_distance,
+                         options_.sift->cross_check,
                          &two_view_geometry->inlier_matches);
   }
 
  private:
-  const SiftMatchingOptions options_;
+  const FeatureMatchingOptions options_;
   image_t prev_image_id1_ = kInvalidImageId;
   image_t prev_image_id2_ = kInvalidImageId;
   std::shared_ptr<FeatureDescriptorIndex> index1_;
@@ -1171,13 +1171,13 @@ static std::map<int, std::unique_ptr<std::mutex>> sift_match_gpu_mutexes_;
 
 class SiftGPUFeatureMatcher : public FeatureMatcher {
  public:
-  explicit SiftGPUFeatureMatcher(const SiftMatchingOptions& options)
+  explicit SiftGPUFeatureMatcher(const FeatureMatchingOptions& options)
       : options_(options) {
-    THROW_CHECK(options_.Check());
+    THROW_CHECK(options_.sift->Check());
   }
 
   static std::unique_ptr<FeatureMatcher> Create(
-      const SiftMatchingOptions& options) {
+      const FeatureMatchingOptions& options) {
     // SiftGPU uses many global static state variables and the initialization
     // must be thread-safe in order to work correctly. This is enforced here.
     static std::mutex mutex;
@@ -1213,7 +1213,7 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
     }
 
     if (!matcher->sift_match_gpu_.Allocate(options.max_num_matches,
-                                           options.cross_check)) {
+                                           options.sift->cross_check)) {
       LOG(ERROR) << StringPrintf(
           "Not enough GPU memory to match %d features. "
           "Reduce the maximum number of matches.",
@@ -1279,9 +1279,9 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
     const int num_matches = sift_match_gpu_.GetSiftMatch(
         options_.max_num_matches,
         reinterpret_cast<uint32_t(*)[2]>(matches->data()),
-        static_cast<float>(options_.max_distance),
-        static_cast<float>(options_.max_ratio),
-        options_.cross_check);
+        static_cast<float>(options_.sift->max_distance),
+        static_cast<float>(options_.sift->max_ratio),
+        options_.sift->cross_check);
 
     if (num_matches < 0) {
       LOG(ERROR) << "Feature matching failed. This is probably caused by "
@@ -1383,11 +1383,11 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
             two_view_geometry->inlier_matches.data()),
         H_ptr,
         F_ptr,
-        static_cast<float>(options_.max_distance),
-        static_cast<float>(options_.max_ratio),
+        static_cast<float>(options_.sift->max_distance),
+        static_cast<float>(options_.sift->max_ratio),
         max_residual,
         max_residual,
-        options_.cross_check);
+        options_.sift->cross_check);
 
     if (num_matches < 0) {
       LOG(ERROR) << "Feature matching failed. This is probably caused by "
@@ -1411,7 +1411,7 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
     }
   }
 
-  const SiftMatchingOptions options_;
+  const FeatureMatchingOptions options_;
   SiftMatchGPU sift_match_gpu_;
   bool prev_is_guided_ = false;
   image_t prev_image_id1_ = kInvalidImageId;
@@ -1422,9 +1422,10 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
 }  // namespace
 
 std::unique_ptr<FeatureMatcher> CreateSiftFeatureMatcher(
-    const SiftMatchingOptions& options) {
+    const FeatureMatchingOptions& options) {
+  THROW_CHECK_NOTNULL(options.sift);
   if (options.use_gpu) {
-#if defined(COLMAP_GPU_ENABLED)
+#ifdef COLMAP_GPU_ENABLED
     LOG(INFO) << "Creating SIFT GPU feature matcher";
     return SiftGPUFeatureMatcher::Create(options);
 #else

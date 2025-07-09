@@ -29,7 +29,44 @@
 
 #include "colmap/feature/matcher.h"
 
+#include "colmap/feature/sift.h"
+#include "colmap/util/misc.h"
+
 namespace colmap {
+
+FeatureMatchingOptions::FeatureMatchingOptions(FeatureMatcherType type)
+    : type(type), sift(std::make_shared<SiftMatchingOptions>()) {}
+
+bool FeatureMatchingOptions::Check() const {
+  if (use_gpu) {
+    CHECK_OPTION_GT(CSVToVector<int>(gpu_index).size(), 0);
+#ifndef COLMAP_GPU_ENABLED
+    LOG(ERROR) << "Cannot use GPU feature matching without CUDA or OpenGL "
+                  "support. Set use_gpu or use_gpu to false.";
+    return false;
+#endif
+  }
+  CHECK_OPTION_GE(max_num_matches, 0);
+  if (type == FeatureMatcherType::SIFT) {
+    return THROW_CHECK_NOTNULL(sift)->Check();
+  } else {
+    LOG(ERROR) << "Unknown feature matcher type: " << type;
+    return false;
+  }
+  return true;
+}
+
+std::unique_ptr<FeatureMatcher> FeatureMatcher::Create(
+    const FeatureMatchingOptions& options) {
+  switch (options.type) {
+    case FeatureMatcherType::SIFT:
+      return CreateSiftFeatureMatcher(options);
+    default:
+      std::ostringstream error;
+      error << "Unknown feature matcher type: " << options.type;
+      throw std::runtime_error(error.str());
+  }
+}
 
 FeatureMatcherCache::FeatureMatcherCache(
     const size_t cache_size, const std::shared_ptr<Database>& database)

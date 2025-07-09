@@ -40,7 +40,7 @@
 
 namespace colmap {
 
-struct ExhaustiveMatchingOptions {
+struct ExhaustivePairingOptions {
   // Block size, i.e. number of images to simultaneously load into memory.
   int block_size = 50;
 
@@ -49,7 +49,7 @@ struct ExhaustiveMatchingOptions {
   inline size_t CacheSize() const { return block_size; }
 };
 
-struct VocabTreeMatchingOptions {
+struct VocabTreePairingOptions {
   // Number of images to retrieve for each query image.
   int num_images = 100;
 
@@ -81,7 +81,7 @@ struct VocabTreeMatchingOptions {
   inline size_t CacheSize() const { return 5 * num_images; }
 };
 
-struct SequentialMatchingOptions {
+struct SequentialPairingOptions {
   // Number of overlapping image pairs.
   int overlap = 10;
 
@@ -153,14 +153,14 @@ struct SequentialMatchingOptions {
 
   bool Check() const;
 
-  VocabTreeMatchingOptions VocabTreeOptions() const;
+  VocabTreePairingOptions VocabTreeOptions() const;
 
   inline size_t CacheSize() const {
     return std::max(5 * loop_detection_num_images, 5 * overlap);
   }
 };
 
-struct SpatialMatchingOptions {
+struct SpatialPairingOptions {
   // Whether to ignore the Z-component of the location prior.
   bool ignore_z = true;
 
@@ -183,7 +183,7 @@ struct SpatialMatchingOptions {
   inline size_t CacheSize() const { return 5 * max_num_neighbors; }
 };
 
-struct TransitiveMatchingOptions {
+struct TransitivePairingOptions {
   // The maximum number of image pairs to process in one batch.
   int batch_size = 1000;
 
@@ -195,7 +195,7 @@ struct TransitiveMatchingOptions {
   inline size_t CacheSize() const { return 2 * batch_size; }
 };
 
-struct ImagePairsMatchingOptions {
+struct ImportedPairingOptions {
   // Number of image pairs to match in one batch.
   int block_size = 1225;
 
@@ -232,12 +232,12 @@ class PairGenerator {
 
 class ExhaustivePairGenerator : public PairGenerator {
  public:
-  using PairOptions = ExhaustiveMatchingOptions;
+  using PairingOptions = ExhaustivePairingOptions;
 
-  ExhaustivePairGenerator(const ExhaustiveMatchingOptions& options,
+  ExhaustivePairGenerator(const ExhaustivePairingOptions& options,
                           const std::shared_ptr<FeatureMatcherCache>& cache);
 
-  ExhaustivePairGenerator(const ExhaustiveMatchingOptions& options,
+  ExhaustivePairGenerator(const ExhaustivePairingOptions& options,
                           const std::shared_ptr<Database>& database);
 
   void Reset() override;
@@ -247,7 +247,7 @@ class ExhaustivePairGenerator : public PairGenerator {
   std::vector<std::pair<image_t, image_t>> Next() override;
 
  private:
-  const ExhaustiveMatchingOptions options_;
+  const ExhaustivePairingOptions options_;
   const std::vector<image_t> image_ids_;
   const size_t block_size_;
   const size_t num_blocks_;
@@ -258,13 +258,13 @@ class ExhaustivePairGenerator : public PairGenerator {
 
 class VocabTreePairGenerator : public PairGenerator {
  public:
-  using PairOptions = VocabTreeMatchingOptions;
+  using PairingOptions = VocabTreePairingOptions;
 
-  VocabTreePairGenerator(const VocabTreeMatchingOptions& options,
+  VocabTreePairGenerator(const VocabTreePairingOptions& options,
                          const std::shared_ptr<FeatureMatcherCache>& cache,
                          const std::vector<image_t>& query_image_ids = {});
 
-  VocabTreePairGenerator(const VocabTreeMatchingOptions& options,
+  VocabTreePairGenerator(const VocabTreePairingOptions& options,
                          const std::shared_ptr<Database>& database,
                          const std::vector<image_t>& query_image_ids = {});
 
@@ -284,7 +284,7 @@ class VocabTreePairGenerator : public PairGenerator {
 
   void Query(image_t image_id);
 
-  const VocabTreeMatchingOptions options_;
+  const VocabTreePairingOptions options_;
   const std::shared_ptr<FeatureMatcherCache> cache_;
   ThreadPool thread_pool_;
   JobQueue<Retrieval> queue_;
@@ -298,12 +298,12 @@ class VocabTreePairGenerator : public PairGenerator {
 
 class SequentialPairGenerator : public PairGenerator {
  public:
-  using PairOptions = SequentialMatchingOptions;
+  using PairingOptions = SequentialPairingOptions;
 
-  SequentialPairGenerator(const SequentialMatchingOptions& options,
+  SequentialPairGenerator(const SequentialPairingOptions& options,
                           const std::shared_ptr<FeatureMatcherCache>& cache);
 
-  SequentialPairGenerator(const SequentialMatchingOptions& options,
+  SequentialPairGenerator(const SequentialPairingOptions& options,
                           const std::shared_ptr<Database>& database);
 
   void Reset() override;
@@ -315,7 +315,7 @@ class SequentialPairGenerator : public PairGenerator {
  private:
   std::vector<image_t> GetOrderedImageIds() const;
 
-  const SequentialMatchingOptions options_;
+  const SequentialPairingOptions options_;
   const std::shared_ptr<FeatureMatcherCache> cache_;
   std::vector<image_t> image_ids_;
   // Optional mapping from frames to images and vice versa.
@@ -328,12 +328,12 @@ class SequentialPairGenerator : public PairGenerator {
 
 class SpatialPairGenerator : public PairGenerator {
  public:
-  using PairOptions = SpatialMatchingOptions;
+  using PairingOptions = SpatialPairingOptions;
 
-  SpatialPairGenerator(const SpatialMatchingOptions& options,
+  SpatialPairGenerator(const SpatialPairingOptions& options,
                        const std::shared_ptr<FeatureMatcherCache>& cache);
 
-  SpatialPairGenerator(const SpatialMatchingOptions& options,
+  SpatialPairGenerator(const SpatialPairingOptions& options,
                        const std::shared_ptr<Database>& database);
 
   void Reset() override;
@@ -345,7 +345,7 @@ class SpatialPairGenerator : public PairGenerator {
   Eigen::RowMajorMatrixXf ReadPositionPriorData(FeatureMatcherCache& cache);
 
  private:
-  const SpatialMatchingOptions options_;
+  const SpatialPairingOptions options_;
   std::vector<std::pair<image_t, image_t>> image_pairs_;
   Eigen::Matrix<int64_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
       index_matrix_;
@@ -358,12 +358,12 @@ class SpatialPairGenerator : public PairGenerator {
 
 class TransitivePairGenerator : public PairGenerator {
  public:
-  using PairOptions = TransitiveMatchingOptions;
+  using PairingOptions = TransitivePairingOptions;
 
-  TransitivePairGenerator(const TransitiveMatchingOptions& options,
+  TransitivePairGenerator(const TransitivePairingOptions& options,
                           const std::shared_ptr<FeatureMatcherCache>& cache);
 
-  TransitivePairGenerator(const TransitiveMatchingOptions& options,
+  TransitivePairGenerator(const TransitivePairingOptions& options,
                           const std::shared_ptr<Database>& database);
 
   void Reset() override;
@@ -373,7 +373,7 @@ class TransitivePairGenerator : public PairGenerator {
   std::vector<std::pair<image_t, image_t>> Next() override;
 
  private:
-  const TransitiveMatchingOptions options_;
+  const TransitivePairingOptions options_;
   const std::shared_ptr<FeatureMatcherCache> cache_;
   int current_iteration_ = 0;
   int current_batch_idx_ = 0;
@@ -384,12 +384,12 @@ class TransitivePairGenerator : public PairGenerator {
 
 class ImportedPairGenerator : public PairGenerator {
  public:
-  using PairOptions = ImagePairsMatchingOptions;
+  using PairingOptions = ImportedPairingOptions;
 
-  ImportedPairGenerator(const ImagePairsMatchingOptions& options,
+  ImportedPairGenerator(const ImportedPairingOptions& options,
                         const std::shared_ptr<FeatureMatcherCache>& cache);
 
-  ImportedPairGenerator(const ImagePairsMatchingOptions& options,
+  ImportedPairGenerator(const ImportedPairingOptions& options,
                         const std::shared_ptr<Database>& database);
 
   void Reset() override;
@@ -399,7 +399,7 @@ class ImportedPairGenerator : public PairGenerator {
   std::vector<std::pair<image_t, image_t>> Next() override;
 
  private:
-  const ImagePairsMatchingOptions options_;
+  const ImportedPairingOptions options_;
   std::vector<std::pair<image_t, image_t>> image_pairs_;
   std::vector<std::pair<image_t, image_t>> block_image_pairs_;
   size_t pair_idx_ = 0;
