@@ -201,7 +201,7 @@ int RunExhaustiveMatcher(int argc, char** argv) {
     app.reset(new QApplication(argc, argv));
   }
 
-  auto matcher = CreateExhaustiveFeatureMatcher(*options.exhaustive_matching,
+  auto matcher = CreateExhaustiveFeatureMatcher(*options.exhaustive_pairing,
                                                 *options.feature_matching,
                                                 *options.two_view_geometry,
                                                 *options.database_path);
@@ -235,17 +235,17 @@ int RunMatchesImporter(int argc, char** argv) {
 
   std::unique_ptr<Thread> matcher;
   if (match_type == "pairs") {
-    ImportedPairingOptions matcher_options;
-    matcher_options.match_list_path = match_list_path;
-    matcher = CreateImagePairsFeatureMatcher(matcher_options,
+    ImportedPairingOptions pairing_options;
+    pairing_options.match_list_path = match_list_path;
+    matcher = CreateImagePairsFeatureMatcher(pairing_options,
                                              *options.feature_matching,
                                              *options.two_view_geometry,
                                              *options.database_path);
   } else if (match_type == "raw" || match_type == "inliers") {
-    FeaturePairsMatchingOptions matcher_options;
-    matcher_options.match_list_path = match_list_path;
-    matcher_options.verify_matches = match_type == "raw";
-    matcher = CreateFeaturePairsFeatureMatcher(matcher_options,
+    FeaturePairsMatchingOptions pairing_options;
+    pairing_options.match_list_path = match_list_path;
+    pairing_options.verify_matches = match_type == "raw";
+    matcher = CreateFeaturePairsFeatureMatcher(pairing_options,
                                                *options.feature_matching,
                                                *options.two_view_geometry,
                                                *options.database_path);
@@ -275,7 +275,7 @@ int RunSequentialMatcher(int argc, char** argv) {
     app.reset(new QApplication(argc, argv));
   }
 
-  auto matcher = CreateSequentialFeatureMatcher(*options.sequential_matching,
+  auto matcher = CreateSequentialFeatureMatcher(*options.sequential_pairing,
                                                 *options.feature_matching,
                                                 *options.two_view_geometry,
                                                 *options.database_path);
@@ -301,7 +301,7 @@ int RunSpatialMatcher(int argc, char** argv) {
     app.reset(new QApplication(argc, argv));
   }
 
-  auto matcher = CreateSpatialFeatureMatcher(*options.spatial_matching,
+  auto matcher = CreateSpatialFeatureMatcher(*options.spatial_pairing,
                                              *options.feature_matching,
                                              *options.two_view_geometry,
                                              *options.database_path);
@@ -327,7 +327,7 @@ int RunTransitiveMatcher(int argc, char** argv) {
     app.reset(new QApplication(argc, argv));
   }
 
-  auto matcher = CreateTransitiveFeatureMatcher(*options.transitive_matching,
+  auto matcher = CreateTransitiveFeatureMatcher(*options.transitive_pairing,
                                                 *options.feature_matching,
                                                 *options.two_view_geometry,
                                                 *options.database_path);
@@ -353,7 +353,7 @@ int RunVocabTreeMatcher(int argc, char** argv) {
     app.reset(new QApplication(argc, argv));
   }
 
-  auto matcher = CreateVocabTreeFeatureMatcher(*options.vocab_tree_matching,
+  auto matcher = CreateVocabTreeFeatureMatcher(*options.vocab_tree_pairing,
                                                *options.feature_matching,
                                                *options.two_view_geometry,
                                                *options.database_path);

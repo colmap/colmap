@@ -83,47 +83,29 @@ SIFTExtractionWidget::SIFTExtractionWidget(QWidget* parent,
   AddOptionBool(&options->feature_extraction->use_gpu, "use_gpu");
   AddOptionText(&options->feature_extraction->gpu_index, "gpu_index");
 
-  AddOptionInt(&options->feature_extraction->sift->max_image_size,
-               "sift.max_image_size");
-  AddOptionInt(&options->feature_extraction->sift->max_num_features,
-               "sift.max_num_features");
-  AddOptionInt(&options->feature_extraction->sift->first_octave,
-               "sift.first_octave",
-               -5);
-  AddOptionInt(&options->feature_extraction->sift->num_octaves,
-               "sift.num_octaves");
-  AddOptionInt(&options->feature_extraction->sift->octave_resolution,
-               "sift.octave_resolution");
-  AddOptionDouble(&options->feature_extraction->sift->peak_threshold,
+  SiftExtractionOptions& sift_options = *options->feature_extraction->sift;
+  AddOptionInt(&sift_options.max_image_size, "sift.max_image_size");
+  AddOptionInt(&sift_options.max_num_features, "sift.max_num_features");
+  AddOptionInt(&sift_options.first_octave, "sift.first_octave", -5);
+  AddOptionInt(&sift_options.num_octaves, "sift.num_octaves");
+  AddOptionInt(&sift_options.octave_resolution, "sift.octave_resolution");
+  AddOptionDouble(&sift_options.peak_threshold,
                   "sift.peak_threshold",
                   0.0,
                   1e7,
                   0.00001,
                   5);
-  AddOptionDouble(&options->feature_extraction->sift->edge_threshold,
-                  "sift.edge_threshold");
-  AddOptionBool(&options->feature_extraction->sift->estimate_affine_shape,
+  AddOptionDouble(&sift_options.edge_threshold, "sift.edge_threshold");
+  AddOptionBool(&sift_options.estimate_affine_shape,
                 "sift.estimate_affine_shape");
-  AddOptionInt(&options->feature_extraction->sift->max_num_orientations,
-               "sift.max_num_orientations");
-  AddOptionBool(&options->feature_extraction->sift->upright, "sift.upright");
-  AddOptionBool(&options->feature_extraction->sift->domain_size_pooling,
-                "sift.domain_size_pooling");
-  AddOptionDouble(&options->feature_extraction->sift->dsp_min_scale,
-                  "sift.dsp_min_scale",
-                  0.0,
-                  1e7,
-                  0.00001,
-                  5);
-  AddOptionDouble(&options->feature_extraction->sift->dsp_max_scale,
-                  "sift.dsp_max_scale",
-                  0.0,
-                  1e7,
-                  0.00001,
-                  5);
-  AddOptionInt(&options->feature_extraction->sift->dsp_num_scales,
-               "sift.dsp_num_scales",
-               1);
+  AddOptionInt(&sift_options.max_num_orientations, "sift.max_num_orientations");
+  AddOptionBool(&sift_options.upright, "sift.upright");
+  AddOptionBool(&sift_options.domain_size_pooling, "sift.domain_size_pooling");
+  AddOptionDouble(
+      &sift_options.dsp_min_scale, "sift.dsp_min_scale", 0.0, 1e7, 0.00001, 5);
+  AddOptionDouble(
+      &sift_options.dsp_max_scale, "sift.dsp_max_scale", 0.0, 1e7, 0.00001, 5);
+  AddOptionInt(&sift_options.dsp_num_scales, "sift.dsp_num_scales", 1);
 }
 
 void SIFTExtractionWidget::Run() {
@@ -246,7 +228,7 @@ QGroupBox* FeatureExtractionWidget::CreateCameraModelBox() {
   SelectCameraModel(camera_model_cb_->currentIndex());
 
   connect(camera_model_cb_,
-          (void(QComboBox::*)(int)) & QComboBox::currentIndexChanged,
+          (void (QComboBox::*)(int))&QComboBox::currentIndexChanged,
           this,
           &FeatureExtractionWidget::SelectCameraModel);
   connect(camera_params_exif_rb_,

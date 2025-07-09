@@ -172,7 +172,9 @@ void BindFeatureExtraction(py::module& m) {
   MakeDataclass(PySiftExtractionOptions);
 
   auto PyFeatureExtractionOptions =
-      py::class_<FeatureExtractionOptions>(m, "FeatureExtractionOptions")
+      py::class_<FeatureExtractionOptions,
+                 std::shared_ptr<FeatureExtractionOptions>>(
+          m, "FeatureExtractionOptions")
           .def(py::init<>())
           .def_readwrite("num_threads",
                          &FeatureExtractionOptions::num_threads,

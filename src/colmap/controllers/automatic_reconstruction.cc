@@ -85,8 +85,8 @@ AutomaticReconstructionController::AutomaticReconstructionController(
 
   option_manager_.feature_extraction->num_threads = options_.num_threads;
   option_manager_.feature_matching->num_threads = options_.num_threads;
-  option_manager_.sequential_matching->num_threads = options_.num_threads;
-  option_manager_.vocab_tree_matching->num_threads = options_.num_threads;
+  option_manager_.sequential_pairing->num_threads = options_.num_threads;
+  option_manager_.vocab_tree_pairing->num_threads = options_.num_threads;
   option_manager_.mapper->num_threads = options_.num_threads;
   option_manager_.poisson_meshing->num_threads = options_.num_threads;
 
@@ -122,28 +122,28 @@ AutomaticReconstructionController::AutomaticReconstructionController(
 
   if (options_.matching) {
     exhaustive_matcher_ =
-        CreateExhaustiveFeatureMatcher(*option_manager_.exhaustive_matching,
+        CreateExhaustiveFeatureMatcher(*option_manager_.exhaustive_pairing,
                                        *option_manager_.feature_matching,
                                        *option_manager_.two_view_geometry,
                                        *option_manager_.database_path);
 
     if (!options_.vocab_tree_path.empty()) {
-      option_manager_.sequential_matching->loop_detection = true;
-      option_manager_.sequential_matching->vocab_tree_path =
+      option_manager_.sequential_pairing->loop_detection = true;
+      option_manager_.sequential_pairing->vocab_tree_path =
           options_.vocab_tree_path;
     }
 
     sequential_matcher_ =
-        CreateSequentialFeatureMatcher(*option_manager_.sequential_matching,
+        CreateSequentialFeatureMatcher(*option_manager_.sequential_pairing,
                                        *option_manager_.feature_matching,
                                        *option_manager_.two_view_geometry,
                                        *option_manager_.database_path);
 
     if (!options_.vocab_tree_path.empty()) {
-      option_manager_.vocab_tree_matching->vocab_tree_path =
+      option_manager_.vocab_tree_pairing->vocab_tree_path =
           options_.vocab_tree_path;
       vocab_tree_matcher_ =
-          CreateVocabTreeFeatureMatcher(*option_manager_.vocab_tree_matching,
+          CreateVocabTreeFeatureMatcher(*option_manager_.vocab_tree_pairing,
                                         *option_manager_.feature_matching,
                                         *option_manager_.two_view_geometry,
                                         *option_manager_.database_path);

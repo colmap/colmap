@@ -126,12 +126,12 @@ class OptionManager {
   std::shared_ptr<FeatureExtractionOptions> feature_extraction;
   std::shared_ptr<FeatureMatchingOptions> feature_matching;
   std::shared_ptr<TwoViewGeometryOptions> two_view_geometry;
-  std::shared_ptr<ExhaustivePairingOptions> exhaustive_matching;
-  std::shared_ptr<SequentialPairingOptions> sequential_matching;
-  std::shared_ptr<VocabTreePairingOptions> vocab_tree_matching;
-  std::shared_ptr<SpatialPairingOptions> spatial_matching;
-  std::shared_ptr<TransitivePairingOptions> transitive_matching;
-  std::shared_ptr<ImportedPairingOptions> image_pairs_matching;
+  std::shared_ptr<ExhaustivePairingOptions> exhaustive_pairing;
+  std::shared_ptr<SequentialPairingOptions> sequential_pairing;
+  std::shared_ptr<VocabTreePairingOptions> vocab_tree_pairing;
+  std::shared_ptr<SpatialPairingOptions> spatial_pairing;
+  std::shared_ptr<TransitivePairingOptions> transitive_pairing;
+  std::shared_ptr<ImportedPairingOptions> imported_pairing;
 
   std::shared_ptr<BundleAdjustmentOptions> bundle_adjustment;
   std::shared_ptr<IncrementalPipelineOptions> mapper;
