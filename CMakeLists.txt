@@ -256,8 +256,8 @@ include(GenerateVersionDefinitions)
 include_directories(src)
 link_directories(${COLMAP_LINK_DIRS})
 
-add_subdirectory(src/thirdparty)
 add_subdirectory(src/colmap)
+add_subdirectory(src/thirdparty)
 
 ################################################################################
 # Generate source groups for Visual Studio, XCode, etc.

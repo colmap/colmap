@@ -244,7 +244,7 @@ vcpkg, first run ``./vcpkg integrate install`` (under Windows use pwsh and
 Anaconda
 --------
 
-Install miniconda and 
+Install miniconda and run the following commands::
 
     conda create -n colmap python=3.12
     conda config --add channels conda-forge
