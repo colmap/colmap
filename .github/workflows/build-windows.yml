@@ -25,7 +25,6 @@ jobs:
             os: windows-2022,
             cmakeBuildType: Release,
             cudaEnabled: true,
-            torchEnabled: false,
             testsEnabled: true,
             exportPackage: true,
           },
@@ -33,7 +32,6 @@ jobs:
             os: windows-2022,
             cmakeBuildType: Release,
             cudaEnabled: false,
-            torchEnabled: false,
             testsEnabled: true,
             exportPackage: true,
           },
@@ -104,14 +102,6 @@ jobs:
           sub-packages: '["nvcc", "nvtx", "cudart", "curand", "curand_dev", "nvrtc_dev", "cublas", "cublas_dev", "cusparse", "cusparse_dev"]'
           method: 'network'
 
-      - name: Install cuDNN
-        if: ${{ matrix.config.torchEnabled && matrix.config.cudaEnabled }}
-        shell: pwsh
-        run: |
-          .github/workflows/install-cudnn.ps1 `
-              -CudaMajorVersion "${{ env.CUDA_MAJOR_VERSION }}" `
-              -CudaMinorVersion "${{ env.CUDA_MINOR_VERSION }}"
-
       - name: Setup vcpkg
         shell: pwsh
         run: |
@@ -142,7 +132,6 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release `
             -DTESTS_ENABLED=${{ matrix.config.testsEnabled }} `
             -DGUI_ENABLED=ON `
-            -DTORCH_ENABLED=${{ matrix.config.torchEnabled }} `
             -DCUDA_ENABLED=${{ matrix.config.cudaEnabled }} `
             -DCMAKE_CUDA_ARCHITECTURES=all-major `
             -DCUDAToolkit_ROOT="${{ steps.cuda-toolkit.outputs.CUDA_PATH }}" `
@@ -173,8 +162,7 @@ jobs:
               --x-feature=gui `
               --x-feature=cgal `
               $(if ($${{ matrix.config.testsEnabled }}) { echo "--x-feature=tests" }) `
-              $(if ($${{ matrix.config.cudaEnabled }}) { echo "--x-feature=cuda" }) `
-              $(if ($${{ matrix.config.torchEnabled }}) { echo "--x-feature=torch" })
+              $(if ($${{ matrix.config.cudaEnabled }}) { echo "--x-feature=cuda" })
           ../vcpkg/vcpkg.exe export --raw --output-dir vcpkg_export --output colmap
           cp vcpkg_export/colmap/installed/x64-windows/bin/*.dll install/bin
           cp vcpkg_export/colmap/installed/x64-windows-release/bin/*.dll install/bin

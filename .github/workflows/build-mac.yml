@@ -65,8 +65,7 @@ jobs:
             glew \
             cgal \
             sqlite3 \
-            ccache \
-            pytorch
+            ccache
           brew link --force libomp
 
       - name: Configure and build
@@ -79,7 +78,6 @@ jobs:
             -GNinja \
             -DCMAKE_BUILD_TYPE=${{ matrix.config.cmakeBuildType }} \
             -DTESTS_ENABLED=ON \
-            -DTORCH_ENABLED=ON \
             -DQt5_DIR="$(brew --prefix qt@5)/lib/cmake/Qt5"
           ninja
 

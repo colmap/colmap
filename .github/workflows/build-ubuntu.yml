@@ -30,7 +30,6 @@ jobs:
             e2eTests: false,
             checkCodeFormat: true,
             coverageEnabled: true,
-            torchEnabled: false,
           },
           {
             os: ubuntu-22.04,
@@ -41,7 +40,6 @@ jobs:
             e2eTests: true,
             checkCodeFormat: true,
             coverageEnabled: false,
-            torchEnabled: true,
           },
           {
             os: ubuntu-22.04,
@@ -52,7 +50,6 @@ jobs:
             e2eTests: false,
             checkCodeFormat: false,
             coverageEnabled: false,
-            torchEnabled: false,
           },
           {
             os: ubuntu-24.04,
@@ -63,7 +60,6 @@ jobs:
             e2eTests: false,
             checkCodeFormat: false,
             coverageEnabled: false,
-            torchEnabled: false,
           },
           {
             os: ubuntu-24.04,
@@ -74,7 +70,6 @@ jobs:
             e2eTests: false,
             checkCodeFormat: false,
             coverageEnabled: false,
-            torchEnabled: false,
           },
         ]
 
@@ -95,8 +90,8 @@ jobs:
       - uses: actions/cache@v4
         id: cache-builds
         with:
-          key: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}-${{ matrix.config.torchEnabled }}-${{ github.run_id }}-${{ github.run_number }}
-          restore-keys: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}-${{ matrix.config.torchEnabled }}
+          key: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}-${{ github.run_id }}-${{ github.run_number }}
+          restore-keys: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}
           path: ${{ env.COMPILER_CACHE_DIR }}
 
       - name: Install compiler cache
@@ -190,12 +185,6 @@ jobs:
 
           if [ "${{ matrix.config.coverageEnabled }}" == "true" ]; then
             sudo apt-get install -y gcovr
-          fi
-
-          if [ "${{ matrix.config.torchEnabled }}" == "true" ]; then
-            sudo apt-get install -y python3 python3-pip
-            pip3 install torch --index-url https://download.pytorch.org/whl/cpu
-            echo "Torch_DIR=`python3 -c 'import torch;print(torch.utils.cmake_prefix_path)'`" >> $GITHUB_ENV
           fi
 
       - name: Configure and build

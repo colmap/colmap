@@ -273,8 +273,7 @@ Install miniconda and
         libcurand-dev \
         libcusparse-dev \
         libcublas-dev \
-        libcusolver-dev \
-        libtorch==2.7.0
+        libcusolver-dev
 
     git clone https://github.com/colmap/colmap.git
     cd colmap

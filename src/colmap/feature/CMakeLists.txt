@@ -55,7 +55,6 @@ COLMAP_ADD_LIBRARY(
         sift.h sift.cc
         types.h types.cc
         utils.h utils.cc
-        ${OPTIONAL_TORCH_FEATURE_SRCS}
     PUBLIC_LINK_LIBS
         colmap_feature_types
         colmap_geometry
@@ -63,7 +62,6 @@ COLMAP_ADD_LIBRARY(
         colmap_scene
         colmap_util
     PRIVATE_LINK_LIBS
-        ${OPTIONAL_TORCH_FEATURE_LIBS}
         colmap_math
         colmap_sensor
         colmap_vlfeat
