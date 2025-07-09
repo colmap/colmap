@@ -250,7 +250,8 @@ jobs:
               --colmap_path ./build/src/colmap/exe/colmap \
               --dataset_names boulders,door \
               --max_rotation_error 1.0 \
-              --max_proj_center_error 0.05
+              --max_proj_center_error 0.05 \
+              --use_cpu
 
       - name: Generate coverage report
         if: matrix.config.coverageEnabled
