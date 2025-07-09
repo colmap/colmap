@@ -164,7 +164,7 @@ the available options, e.g.::
     $ colmap feature_extractor -h
 
         Options can either be specified via command-line or by defining
-        them in a .ini project file passed to `--project_path`.
+        them in a .ini project file passed to ``--project_path``.
 
             -h [ --help ] 
             --random_seed arg (=0)
@@ -207,7 +207,7 @@ the available options, e.g.::
 
 
 The available options can either be provided directly from the command-line or
-through a `.ini` file provided to ``--project_path``.
+through a ``.ini`` file provided to ``--project_path``.
 
 
 Commands

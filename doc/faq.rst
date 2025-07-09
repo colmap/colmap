@@ -38,7 +38,7 @@ Share intrinsics
 
 COLMAP supports shared intrinsics for arbitrary groups of images and camera
 models. Images share the same intrinsics, if they refer to the same camera, as
-specified by the `camera_id` property in the database. You can add new cameras
+specified by the ``camera_id`` property in the database. You can add new cameras
 and set shared intrinsics in the database management tool. Please, refer to
 :ref:`Database Management <database-management>` for more information.
 

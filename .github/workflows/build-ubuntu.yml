@@ -84,6 +84,8 @@ jobs:
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
       CTCACHE_DIR: ${{ github.workspace }}/compiler-cache/ctcache
+      GLOG_v: 2
+      GLOG_logtostderr: 1
 
     steps:
       - uses: actions/checkout@v4
@@ -153,8 +155,8 @@ jobs:
             libgl1-mesa-dri \
             libunwind-dev \
             libcurl4-openssl-dev \
-            xvfb \
-            libmkl-dev
+            libmkl-full-dev \
+            xvfb
 
           if [ "${{ matrix.config.cudaEnabled }}" == "true" ]; then
             if [ "${{ matrix.config.os }}" == "ubuntu-20.04" ]; then
@@ -211,8 +213,8 @@ jobs:
             -DCUDA_ENABLED=${{ matrix.config.cudaEnabled }} \
             -DGUI_ENABLED=${{ matrix.config.guiEnabled }} \
             -DASAN_ENABLED=${{ matrix.config.asanEnabled }} \
-            -DTORCH_ENABLED=${{ matrix.config.torchEnabled }} \
-            -DCOVERAGE_ENABLED=${{ matrix.config.coverageEnabled }}
+            -DCOVERAGE_ENABLED=${{ matrix.config.coverageEnabled }} \
+            -DBLA_VENDOR=Intel10_64lp
           ninja -k 10000
 
       - name: Install and build sample
@@ -243,8 +245,6 @@ jobs:
           Xvfb :99 &
           sleep 3
           cd build
-          export GLOG_v=1
-          export GLOG_logtostderr=1
           ctest -E "$ctestExclusions" --output-on-failure
 
       - name: Run E2E tests

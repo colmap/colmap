@@ -33,6 +33,8 @@ jobs:
       COMPILER_CACHE_DIR: ${{ github.workspace }}/compiler-cache
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
+      GLOG_v: 2
+      GLOG_logtostderr: 1
 
     steps:
       - uses: actions/checkout@v4

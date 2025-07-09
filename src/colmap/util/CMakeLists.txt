@@ -41,6 +41,7 @@ COLMAP_ADD_LIBRARY(
         enum_utils.h
         file.h file.cc
         logging.h logging.cc
+        glog_macros.h
         misc.h misc.cc
         opengl_utils.h opengl_utils.cc
         ply.h ply.cc

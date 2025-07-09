@@ -415,6 +415,8 @@ void OptionManager::AddVocabTreeMatchingOptions() {
                               &vocab_tree_matching->vocab_tree_path);
   AddAndRegisterDefaultOption("VocabTreeMatching.match_list_path",
                               &vocab_tree_matching->match_list_path);
+  AddAndRegisterDefaultOption("VocabTreeMatching.num_threads",
+                              &vocab_tree_matching->num_threads);
 }
 
 void OptionManager::AddSpatialMatchingOptions() {
@@ -429,6 +431,8 @@ void OptionManager::AddSpatialMatchingOptions() {
                               &spatial_matching->ignore_z);
   AddAndRegisterDefaultOption("SpatialMatching.max_num_neighbors",
                               &spatial_matching->max_num_neighbors);
+  AddAndRegisterDefaultOption("SpatialMatching.min_num_neighbors",
+                              &spatial_matching->min_num_neighbors);
   AddAndRegisterDefaultOption("SpatialMatching.max_distance",
                               &spatial_matching->max_distance);
 }

@@ -310,6 +310,8 @@ SpatialMatchingTab::SpatialMatchingTab(QWidget* parent, OptionManager* options)
                                  "ignore_z");
   options_widget_->AddOptionInt(&options_->spatial_matching->max_num_neighbors,
                                 "max_num_neighbors");
+  options_widget_->AddOptionInt(&options_->spatial_matching->min_num_neighbors,
+                                "min_num_neighbors");
   options_widget_->AddOptionDouble(&options_->spatial_matching->max_distance,
                                    "max_distance");
 

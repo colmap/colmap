@@ -557,10 +557,10 @@ size_t IncrementalTriangulator::Continue(
         reconstruction_.Point3D(corr_data.point2D->point3D_id);
 
     const double angle_error =
-        CalculateAngularError(ref_corr_data.point2D->xy,
-                              point3D.xyz,
-                              ref_corr_data.image->CamFromWorld(),
-                              *ref_corr_data.camera);
+        CalculateAngularReprojectionError(ref_corr_data.point2D->xy,
+                                          point3D.xyz,
+                                          ref_corr_data.image->CamFromWorld(),
+                                          *ref_corr_data.camera);
     if (angle_error < best_angle_error) {
       best_angle_error = angle_error;
       best_idx = idx;

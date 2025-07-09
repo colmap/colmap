@@ -458,8 +458,8 @@ class FaissVisualIndex : public VisualIndex {
 #endif
     THROW_CHECK_NOTNULL(fin);
     fseek(fin, offset, SEEK_SET);
-    index_ = std::unique_ptr<faiss::IndexIVF>(
-        dynamic_cast<faiss::IndexIVF*>(faiss::read_index(fin)));
+    index_ = std::unique_ptr<faiss::IndexIVF>(dynamic_cast<faiss::IndexIVF*>(
+        THROW_CHECK_NOTNULL(faiss::read_index(fin))));
     offset = ftell(fin);
     fclose(fin);
 
@@ -656,7 +656,19 @@ std::unique_ptr<VisualIndex> VisualIndex::Read(
 
   int file_version = 0;
   file.read(reinterpret_cast<char*>(&file_version), sizeof(int));
-  THROW_CHECK_EQ(file_version, 1);
+
+  // For a legacy flann-based index, the first int in the file defined the
+  // number of visual words. We now encode a file version in the first int.
+  // We detect legacy indices based on a file version mismatch, which works
+  // as long as we do not increment the file version beyond the count of
+  // visual words in a legacy file (which we do not expect to happen).
+  THROW_CHECK_EQ(file_version, 1)
+      << "Failed to read faiss index. This may be caused by reading a legacy "
+         "flann-based index, because COLMAP switched from flann to faiss in "
+         "May 2025. If you want to upgrade your existing flann-based index "
+         "to faiss, you can check out COLMAP commit "
+         "c7a58462b813e406c304a9dafb475b87036924cf and apply the "
+         "vocab_tree_upgrader command.";
 
   int desc_dim = 0;
   file.read(reinterpret_cast<char*>(&desc_dim), sizeof(int));

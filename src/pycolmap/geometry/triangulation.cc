@@ -18,22 +18,25 @@ void BindTriangulation(py::module& m) {
       "triangulate_point",
       [](const Eigen::Matrix3x4d& cam1_from_world,
          const Eigen::Matrix3x4d& cam2_from_world,
-         const Eigen::Vector2d& point1,
-         const Eigen::Vector2d& point2)
+         const Eigen::Vector2d& cam_point1,
+         const Eigen::Vector2d& cam_point2)
           -> py::typing::Optional<Eigen::Vector3d> {
-        Eigen::Vector3d xyz;
-        if (TriangulatePoint(
-                cam1_from_world, cam2_from_world, point1, point2, &xyz)) {
-          return py::cast(xyz);
+        Eigen::Vector3d point3D;
+        if (TriangulatePoint(cam1_from_world,
+                             cam2_from_world,
+                             cam_point1,
+                             cam_point2,
+                             &point3D)) {
+          return py::cast(point3D);
         } else {
           return py::none();
         }
       },
       "cam1_from_world"_a,
       "cam2_from_world"_a,
-      "point1"_a,
-      "point2"_a,
-      "Triangulate point from two-view observation.");
+      "cam_point1"_a,
+      "cam_point2"_a,
+      "Triangulate point in world from two-view observation.");
   m.def("calculate_triangulation_angle",
         &CalculateTriangulationAngle,
         "proj_center1"_a,
@@ -43,4 +46,23 @@ void BindTriangulation(py::module& m) {
   DefDeprecation(m, "TriangulatePoint", "triangulate_point");
   DefDeprecation(
       m, "CalculateTriangulationAngle", "calculate_triangulation_angle");
+
+  m.def(
+      "triangulate_mid_point",
+      [](const Rigid3d& cam2_from_cam1,
+         const Eigen::Vector3d& cam_ray1,
+         const Eigen::Vector3d& cam_ray2)
+          -> py::typing::Optional<Eigen::Vector3d> {
+        Eigen::Vector3d point3D_in_cam1;
+        if (TriangulateMidPoint(
+                cam2_from_cam1, cam_ray1, cam_ray2, &point3D_in_cam1)) {
+          return py::cast(point3D_in_cam1);
+        } else {
+          return py::none();
+        }
+      },
+      "cam2_from_cam1"_a,
+      "cam_ray1"_a,
+      "cam_ray2"_a,
+      "Triangulate mid-point in first camera from two-view observation.");
 }

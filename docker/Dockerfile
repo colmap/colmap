@@ -1,5 +1,5 @@
 ARG UBUNTU_VERSION=24.04
-ARG NVIDIA_CUDA_VERSION=12.9.0
+ARG NVIDIA_CUDA_VERSION=12.9.1
 
 #
 # Docker builder stage.
@@ -15,7 +15,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Prepare and empty machine for building.
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends --no-install-suggests \
+    apt-get install -y \
         git \
         cmake \
         ninja-build \
@@ -35,7 +35,8 @@ RUN apt-get update && \
         libqt5opengl5-dev \
         libcgal-dev \
         libceres-dev \
-        libcurl4-openssl-dev
+        libcurl4-openssl-dev \
+        libmkl-full-dev
 
 # Build and install COLMAP.
 RUN git clone https://github.com/colmap/colmap.git
@@ -44,8 +45,11 @@ RUN cd colmap && \
     git checkout FETCH_HEAD && \
     mkdir build && \
     cd build && \
-    cmake .. -GNinja -DCMAKE_CUDA_ARCHITECTURES=${CUDA_ARCHITECTURES} \
-        -DCMAKE_INSTALL_PREFIX=/colmap-install && \
+    cmake .. \
+        -GNinja \
+        -DCMAKE_CUDA_ARCHITECTURES=${CUDA_ARCHITECTURES} \
+        -DCMAKE_INSTALL_PREFIX=/colmap-install \
+        -DBLA_VENDOR=Intel10_64lp && \
     ninja install
 
 #
@@ -60,6 +64,9 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends --no-install-suggests \
         libboost-program-options1.83.0 \
         libc6 \
+        libomp5 \
+        libopengl0 \
+        libmetis5 \
         libceres4t64 \
         libfreeimage3 \
         libgcc-s1 \
@@ -69,7 +76,13 @@ RUN apt-get update && \
         libqt5core5a \
         libqt5gui5 \
         libqt5widgets5 \
-        libcurl4
+        libcurl4 \
+        libmkl-locale \
+        libmkl-intel-lp64 \
+        libmkl-intel-thread \
+        libmkl-core && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # Copy all files from /colmap-install/ in the builder stage to /usr/local/ in
 # the runtime stage. This simulates installing COLMAP in the default location

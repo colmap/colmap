@@ -1,6 +1,8 @@
 # Custom files
 LocalConfig.cmake
 src/colmap/util/version.cc
+CMakeUserPresets.json
+.clangd
 
 # Custom directories
 .idea/
@@ -46,3 +48,7 @@ vcpkg_installed/
 *.exe
 *.out
 *.app
+
+# backup files
+*~
+*.orig

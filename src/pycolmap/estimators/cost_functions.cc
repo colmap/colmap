@@ -130,10 +130,10 @@ void BindCostFunctions(py::module& m_parent) {
         "2D detection noise.");
 
   m.def("SampsonErrorCost",
-        &SampsonErrorCostFunctor::Create<const Eigen::Vector2d&,
-                                         const Eigen::Vector2d&>,
-        "point2D1"_a,
-        "point2D2"_a,
+        &SampsonErrorCostFunctor::Create<const Eigen::Vector3d&,
+                                         const Eigen::Vector3d&>,
+        "cam_ray1"_a,
+        "cam_ray2"_a,
         "Sampson error for two-view geometry.");
 
   m.def("AbsolutePosePriorCost",

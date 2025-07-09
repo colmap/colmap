@@ -132,11 +132,10 @@ void SIFTExtractionWidget::Run() {
   options_->feature_extraction->type = FeatureExtractorType::SIFT;
 
   ImageReaderOptions reader_options = *options_->image_reader;
-  reader_options.database_path = *options_->database_path;
   reader_options.image_path = *options_->image_path;
 
   auto extractor = CreateFeatureExtractorController(
-      reader_options, *options_->feature_extraction);
+      *options_->database_path, reader_options, *options_->feature_extraction);
   thread_control_widget_->StartThread(
       "Extracting...", true, std::move(extractor));
 }
@@ -156,10 +155,10 @@ void ImportFeaturesWidget::Run() {
   }
 
   ImageReaderOptions reader_options = *options_->image_reader;
-  reader_options.database_path = *options_->database_path;
   reader_options.image_path = *options_->image_path;
 
-  auto importer = CreateFeatureImporterController(reader_options, import_path_);
+  auto importer = CreateFeatureImporterController(
+      *options_->database_path, reader_options, import_path_);
   thread_control_widget_->StartThread(
       "Importing...", true, std::move(importer));
 }
@@ -247,7 +246,7 @@ QGroupBox* FeatureExtractionWidget::CreateCameraModelBox() {
   SelectCameraModel(camera_model_cb_->currentIndex());
 
   connect(camera_model_cb_,
-          (void(QComboBox::*)(int)) & QComboBox::currentIndexChanged,
+          (void (QComboBox::*)(int))&QComboBox::currentIndexChanged,
           this,
           &FeatureExtractionWidget::SelectCameraModel);
   connect(camera_params_exif_rb_,

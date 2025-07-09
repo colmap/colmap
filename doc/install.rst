@@ -14,7 +14,7 @@ which requires a manual build from source, as explained further below.
 
 For Mac users, `Homebrew <https://brew.sh>`__ provides a formula for COLMAP with
 pre-compiled binaries or the option to build from source. After installing
-homebrew, installing COLMAP is as easy as running `brew install colmap`.
+homebrew, installing COLMAP is as easy as running ``brew install colmap``.
 
 COLMAP can be used as an independent application through the command-line or
 graphical user interface. Alternatively, COLMAP is also built as a reusable
@@ -92,7 +92,8 @@ Dependencies from the default Ubuntu repositories::
         libqt5opengl5-dev \
         libcgal-dev \
         libceres-dev \
-        libcurl4-openssl-dev
+        libcurl4-openssl-dev \
+        libmkl-full-dev
 
 To compile with **CUDA support**, also install Ubuntu's default CUDA package::
 
@@ -101,7 +102,7 @@ To compile with **CUDA support**, also install Ubuntu's default CUDA package::
         nvidia-cuda-toolkit-gcc
 
 Or, manually install the latest CUDA from NVIDIA's homepage. During CMake
-configuration, specify `-DCMAKE_CUDA_ARCHITECTURES=native`, if you want to run
+configuration, specify ``-DCMAKE_CUDA_ARCHITECTURES=native``, if you want to run
 COLMAP only on your current machine (default), "all"/"all-major" to be able to
 distribute to other machines, or a specific CUDA architecture like "75", etc.
 
@@ -111,7 +112,7 @@ Configure and compile COLMAP::
     cd colmap
     mkdir build
     cd build
-    cmake .. -GNinja
+    cmake .. -GNinja -DBLA_VENDOR=Intel10_64lp
     ninja
     sudo ninja install
 
@@ -133,6 +134,11 @@ CUDA package and GCC, and you must compile against GCC 10::
     export CXX=/usr/bin/g++-10
     export CUDAHOSTCXX=/usr/bin/g++-10
     # ... and then run CMake against COLMAP's sources.
+
+Notice that the ``BLA_VENDOR=Intel10_64lp`` option tells CMake to find Intel's MKL
+implementation of BLAS. If you decide to compile against OpenBLAS instead of
+MKL, you must install and select the OpenMP version under Debian/Ubuntu because
+of `this issue <https://github.com/facebookresearch/faiss/wiki/Troubleshooting#surprising-faiss-openmp-and-openblas-interaction>`__.
 
 Mac
 ---
@@ -226,8 +232,8 @@ the latest commit in the dev branch, you can use the following options::
 
 To modify the source code, you can further add ``--editable --no-downloads``.
 Or, if you want to build from another folder and use the dependencies from
-vcpkg, first run `./vcpkg integrate install` (under Windows use pwsh and
-`./scripts/shell/enter_vs_dev_shell.ps1`) and then configure COLMAP as::
+vcpkg, first run ``./vcpkg integrate install`` (under Windows use pwsh and
+``./scripts/shell/enter_vs_dev_shell.ps1``) and then configure COLMAP as::
 
     cd path/to/colmap
     mkdir build
@@ -287,7 +293,7 @@ Library
 
 If you want to include and link COLMAP against your own library, the easiest way
 is to use CMake as a build configuration tool. After configuring the COLMAP
-build and running `ninja/make install`, COLMAP automatically installs all
+build and running ``ninja/make install``, COLMAP automatically installs all
 headers to ``${CMAKE_INSTALL_PREFIX}/include/colmap``, all libraries to
 ``${CMAKE_INSTALL_PREFIX}/lib/colmap``, and the CMake configuration to
 ``${CMAKE_INSTALL_PREFIX}/share/colmap``.

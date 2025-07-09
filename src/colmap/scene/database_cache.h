@@ -65,6 +65,11 @@ class DatabaseCache {
   //                              frame is included, all other images in the
   //                              same frame will also be included. All images
   //                              are used if empty.
+  void Load(const Database& database,
+            size_t min_num_matches,
+            bool ignore_watermarks,
+            const std::unordered_set<std::string>& image_names);
+
   static std::shared_ptr<DatabaseCache> Create(
       const Database& database,
       size_t min_num_matches,

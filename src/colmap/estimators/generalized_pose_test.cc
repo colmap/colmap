@@ -179,14 +179,20 @@ struct GeneralizedRelativePoseProblem {
 };
 
 GeneralizedRelativePoseProblem BuildGeneralizedRelativePoseProblem(
-    int num_cameras_per_rig) {
+    int num_cameras_per_rig1,
+    int num_cameras_per_rig2,
+    double sensor_from_rig_translation_stddev) {
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
-  synthetic_dataset_options.num_cameras_per_rig = num_cameras_per_rig;
+  synthetic_dataset_options.num_cameras_per_rig =
+      std::max(num_cameras_per_rig1, num_cameras_per_rig2);
   synthetic_dataset_options.num_frames_per_rig = 1;
-  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.num_points3D = 100;
   synthetic_dataset_options.point2D_stddev = 0;
+  synthetic_dataset_options.sensor_from_rig_translation_stddev =
+      sensor_from_rig_translation_stddev;
+  synthetic_dataset_options.sensor_from_rig_rotation_stddev = 10;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
 
   const Frame& frame1 = reconstruction.Frame(1);
@@ -197,7 +203,7 @@ GeneralizedRelativePoseProblem BuildGeneralizedRelativePoseProblem(
   problem.gt_rig2_from_rig1 =
       frame2.RigFromWorld() * Inverse(frame1.RigFromWorld());
 
-  std::unordered_map<point3D_t, std::pair<const Image*, point2D_t>>
+  std::unordered_map<point3D_t, std::vector<std::pair<const Image*, point2D_t>>>
       observations2;
   for (const data_t& data_id : frame2.ImageIds()) {
     const auto& image = reconstruction.Image(data_id.id);
@@ -205,8 +211,11 @@ GeneralizedRelativePoseProblem BuildGeneralizedRelativePoseProblem(
          ++point2D_idx) {
       const auto& point2D = image.Point2D(point2D_idx);
       if (point2D.HasPoint3D()) {
-        observations2[point2D.point3D_id] = std::make_pair(&image, point2D_idx);
+        observations2[point2D.point3D_id].emplace_back(&image, point2D_idx);
       }
+    }
+    if (--num_cameras_per_rig2 == 0) {
+      break;
     }
   }
 
@@ -220,8 +229,6 @@ GeneralizedRelativePoseProblem BuildGeneralizedRelativePoseProblem(
       if (observation_it == observations2.end()) {
         continue;
       }
-
-      const auto& [image2_ptr, point2D_idx2] = observation_it->second;
 
       auto maybe_add_and_get_camera = [&problem,
                                        &camera_id_to_idx](const Image& image) {
@@ -241,10 +248,16 @@ GeneralizedRelativePoseProblem BuildGeneralizedRelativePoseProblem(
         return it->second;
       };
 
-      problem.points2D1.push_back(point2D1.xy);
-      problem.points2D2.push_back(image2_ptr->Point2D(point2D_idx2).xy);
-      problem.camera_idxs1.push_back(maybe_add_and_get_camera(image1));
-      problem.camera_idxs2.push_back(maybe_add_and_get_camera(*image2_ptr));
+      for (const auto& [image2_ptr, point2D_idx2] : observation_it->second) {
+        problem.points2D1.push_back(point2D1.xy);
+        problem.points2D2.push_back(image2_ptr->Point2D(point2D_idx2).xy);
+        problem.camera_idxs1.push_back(maybe_add_and_get_camera(image1));
+        problem.camera_idxs2.push_back(maybe_add_and_get_camera(*image2_ptr));
+      }
+    }
+
+    if (--num_cameras_per_rig1 == 0) {
+      break;
     }
   }
 
@@ -254,70 +267,58 @@ GeneralizedRelativePoseProblem BuildGeneralizedRelativePoseProblem(
 TEST(EstimateGeneralizedRelativePose, Nominal) {
   SetPRNGSeed();
 
-  GeneralizedRelativePoseProblem problem =
-      BuildGeneralizedRelativePoseProblem(/*num_cameras_per_rig=*/3);
+  for (const int num_cameras_per_rig1 : {1, 2, 3}) {
+    for (const int num_cameras_per_rig2 : {1, 2, 3}) {
+      for (const double sensor_from_rig_translation_stddev : {0.0, 0.05}) {
+        GeneralizedRelativePoseProblem problem =
+            BuildGeneralizedRelativePoseProblem(
+                num_cameras_per_rig1,
+                num_cameras_per_rig2,
+                sensor_from_rig_translation_stddev);
 
-  RANSACOptions ransac_options;
-  ransac_options.max_error = 1e-2;
+        RANSACOptions ransac_options;
+        ransac_options.max_error = 1e-2;
 
-  std::optional<Rigid3d> rig2_from_rig1;
-  std::optional<Rigid3d> cam2_from_cam1;
-  size_t num_inliers;
-  std::vector<char> inlier_mask;
-  EXPECT_TRUE(EstimateGeneralizedRelativePose(ransac_options,
-                                              problem.points2D1,
-                                              problem.points2D2,
-                                              problem.camera_idxs1,
-                                              problem.camera_idxs2,
-                                              problem.cams_from_rig,
-                                              problem.cameras,
-                                              &rig2_from_rig1,
-                                              &cam2_from_cam1,
-                                              &num_inliers,
-                                              &inlier_mask));
-  EXPECT_EQ(num_inliers, problem.points2D1.size());
-  EXPECT_THAT(inlier_mask, testing::Each(testing::Eq(true)));
-  ASSERT_TRUE(rig2_from_rig1.has_value());
-  ASSERT_FALSE(cam2_from_cam1.has_value());
-  EXPECT_THAT(
-      *rig2_from_rig1,
-      Rigid3dNear(problem.gt_rig2_from_rig1, /*rtol=*/1e-6, /*ttol=*/1e-6));
-}
-
-TEST(EstimateGeneralizedRelativePose, Panoramic) {
-  SetPRNGSeed();
-
-  GeneralizedRelativePoseProblem problem =
-      BuildGeneralizedRelativePoseProblem(/*num_cameras_per_rig=*/1);
-
-  RANSACOptions ransac_options;
-  ransac_options.max_error = 1e-2;
-
-  std::optional<Rigid3d> rig2_from_rig1;
-  std::optional<Rigid3d> cam2_from_cam1;
-  size_t num_inliers;
-  std::vector<char> inlier_mask;
-  EXPECT_TRUE(EstimateGeneralizedRelativePose(ransac_options,
-                                              problem.points2D1,
-                                              problem.points2D2,
-                                              problem.camera_idxs1,
-                                              problem.camera_idxs2,
-                                              problem.cams_from_rig,
-                                              problem.cameras,
-                                              &rig2_from_rig1,
-                                              &cam2_from_cam1,
-                                              &num_inliers,
-                                              &inlier_mask));
-  EXPECT_EQ(num_inliers, problem.points2D1.size());
-  EXPECT_THAT(inlier_mask, testing::Each(testing::Eq(true)));
-  ASSERT_FALSE(rig2_from_rig1.has_value());
-  ASSERT_TRUE(cam2_from_cam1.has_value());
-  EXPECT_THAT(
-      *cam2_from_cam1,
-      Rigid3dNear(Rigid3d(problem.gt_rig2_from_rig1.rotation,
+        std::optional<Rigid3d> rig2_from_rig1;
+        std::optional<Rigid3d> pano2_from_pano1;
+        size_t num_inliers;
+        std::vector<char> inlier_mask;
+        EXPECT_TRUE(EstimateGeneralizedRelativePose(ransac_options,
+                                                    problem.points2D1,
+                                                    problem.points2D2,
+                                                    problem.camera_idxs1,
+                                                    problem.camera_idxs2,
+                                                    problem.cams_from_rig,
+                                                    problem.cameras,
+                                                    &rig2_from_rig1,
+                                                    &pano2_from_pano1,
+                                                    &num_inliers,
+                                                    &inlier_mask));
+        EXPECT_EQ(num_inliers, problem.points2D1.size());
+        EXPECT_THAT(inlier_mask, testing::Each(testing::Eq(true)));
+        if ((num_cameras_per_rig1 == 1 && num_cameras_per_rig2 == 1) ||
+            sensor_from_rig_translation_stddev == 0) {
+          // Panoramic pairs do not allow for recovery of translation scale.
+          ASSERT_FALSE(rig2_from_rig1.has_value());
+          ASSERT_TRUE(pano2_from_pano1.has_value());
+          EXPECT_THAT(
+              *pano2_from_pano1,
+              Rigid3dNear(
+                  Rigid3d(problem.gt_rig2_from_rig1.rotation,
                           problem.gt_rig2_from_rig1.translation.normalized()),
                   /*rtol=*/1e-6,
                   /*ttol=*/1e-6));
+        } else {
+          ASSERT_TRUE(rig2_from_rig1.has_value());
+          ASSERT_FALSE(pano2_from_pano1.has_value());
+          EXPECT_THAT(
+              *rig2_from_rig1,
+              Rigid3dNear(
+                  problem.gt_rig2_from_rig1, /*rtol=*/1e-6, /*ttol=*/1e-6));
+        }
+      }
+    }
+  }
 }
 
 }  // namespace
