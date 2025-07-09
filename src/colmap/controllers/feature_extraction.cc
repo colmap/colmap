@@ -335,7 +335,6 @@ class FeatureExtractorController : public Thread {
       : reader_options_(reader_options),
         extraction_options_(extraction_options),
         database_(database_path),
-        database_(reader_options_.database_path),
         image_reader_(reader_options_, &database_) {
     THROW_CHECK(reader_options_.Check());
     THROW_CHECK(extraction_options_.Check());
