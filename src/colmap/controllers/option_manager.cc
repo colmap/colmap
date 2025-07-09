@@ -62,12 +62,12 @@ OptionManager::OptionManager(bool add_project_options) {
   feature_matching = std::make_shared<FeatureMatchingOptions>();
   feature_matching_type_ = FeatureMatcherTypeToString(feature_matching->type);
   two_view_geometry = std::make_shared<TwoViewGeometryOptions>();
-  exhaustive_matching = std::make_shared<ExhaustiveMatchingOptions>();
-  sequential_matching = std::make_shared<SequentialMatchingOptions>();
-  vocab_tree_matching = std::make_shared<VocabTreeMatchingOptions>();
-  spatial_matching = std::make_shared<SpatialMatchingOptions>();
-  transitive_matching = std::make_shared<TransitiveMatchingOptions>();
-  image_pairs_matching = std::make_shared<ImagePairsMatchingOptions>();
+  exhaustive_matching = std::make_shared<ExhaustivePairingOptions>();
+  sequential_matching = std::make_shared<SequentialPairingOptions>();
+  vocab_tree_matching = std::make_shared<VocabTreePairingOptions>();
+  spatial_matching = std::make_shared<SpatialPairingOptions>();
+  transitive_matching = std::make_shared<TransitivePairingOptions>();
+  image_pairs_matching = std::make_shared<ImportedPairingOptions>();
   bundle_adjustment = std::make_shared<BundleAdjustmentOptions>();
   mapper = std::make_shared<IncrementalPipelineOptions>();
   patch_match_stereo = std::make_shared<mvs::PatchMatchOptions>();
@@ -182,12 +182,12 @@ void OptionManager::AddAllOptions() {
   AddImageOptions();
   AddExtractionOptions();
   AddMatchingOptions();
-  AddExhaustiveMatchingOptions();
-  AddSequentialMatchingOptions();
-  AddVocabTreeMatchingOptions();
-  AddSpatialMatchingOptions();
-  AddTransitiveMatchingOptions();
-  AddImagePairsMatchingOptions();
+  AddExhaustivePairingOptions();
+  AddSequentialPairingOptions();
+  AddVocabTreePairingOptions();
+  AddSpatialPairingOptions();
+  AddTransitivePairingOptions();
+  AddImportedPairingOptions();
   AddBundleAdjustmentOptions();
   AddMapperOptions();
   AddPatchMatchStereoOptions();
@@ -343,7 +343,7 @@ void OptionManager::AddMatchingOptions() {
       &two_view_geometry->ransac_options.min_inlier_ratio);
 }
 
-void OptionManager::AddExhaustiveMatchingOptions() {
+void OptionManager::AddExhaustivePairingOptions() {
   if (added_exhaustive_match_options_) {
     return;
   }
@@ -355,7 +355,7 @@ void OptionManager::AddExhaustiveMatchingOptions() {
                               &exhaustive_matching->block_size);
 }
 
-void OptionManager::AddSequentialMatchingOptions() {
+void OptionManager::AddSequentialPairingOptions() {
   if (added_sequential_match_options_) {
     return;
   }
@@ -392,7 +392,7 @@ void OptionManager::AddSequentialMatchingOptions() {
                               &sequential_matching->num_threads);
 }
 
-void OptionManager::AddVocabTreeMatchingOptions() {
+void OptionManager::AddVocabTreePairingOptions() {
   if (added_vocab_tree_match_options_) {
     return;
   }
@@ -419,7 +419,7 @@ void OptionManager::AddVocabTreeMatchingOptions() {
                               &vocab_tree_matching->num_threads);
 }
 
-void OptionManager::AddSpatialMatchingOptions() {
+void OptionManager::AddSpatialPairingOptions() {
   if (added_spatial_match_options_) {
     return;
   }
@@ -437,7 +437,7 @@ void OptionManager::AddSpatialMatchingOptions() {
                               &spatial_matching->max_distance);
 }
 
-void OptionManager::AddTransitiveMatchingOptions() {
+void OptionManager::AddTransitivePairingOptions() {
   if (added_transitive_match_options_) {
     return;
   }
@@ -451,7 +451,7 @@ void OptionManager::AddTransitiveMatchingOptions() {
                               &transitive_matching->num_iterations);
 }
 
-void OptionManager::AddImagePairsMatchingOptions() {
+void OptionManager::AddImportedPairingOptions() {
   if (added_image_pairs_match_options_) {
     return;
   }
@@ -831,12 +831,12 @@ void OptionManager::ResetOptions(const bool reset_paths) {
   *image_reader = ImageReaderOptions();
   *feature_extraction = FeatureExtractionOptions();
   *feature_matching = FeatureMatchingOptions();
-  *exhaustive_matching = ExhaustiveMatchingOptions();
-  *sequential_matching = SequentialMatchingOptions();
-  *vocab_tree_matching = VocabTreeMatchingOptions();
-  *spatial_matching = SpatialMatchingOptions();
-  *transitive_matching = TransitiveMatchingOptions();
-  *image_pairs_matching = ImagePairsMatchingOptions();
+  *exhaustive_matching = ExhaustivePairingOptions();
+  *sequential_matching = SequentialPairingOptions();
+  *vocab_tree_matching = VocabTreePairingOptions();
+  *spatial_matching = SpatialPairingOptions();
+  *transitive_matching = TransitivePairingOptions();
+  *image_pairs_matching = ImportedPairingOptions();
   *bundle_adjustment = BundleAdjustmentOptions();
   *mapper = IncrementalPipelineOptions();
   *patch_match_stereo = mvs::PatchMatchOptions();

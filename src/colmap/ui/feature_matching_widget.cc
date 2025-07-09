@@ -375,7 +375,7 @@ void CustomMatchingTab::Run() {
 
   std::unique_ptr<Thread> matcher;
   if (custom_match_type_cb_->currentIndex() == 0) {
-    ImagePairsMatchingOptions matcher_options;
+    ImportedPairingOptions matcher_options;
     matcher_options.match_list_path = custom_match_list_path_;
     matcher = CreateImagePairsFeatureMatcher(matcher_options,
                                              *options_->feature_matching,

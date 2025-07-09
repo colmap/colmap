@@ -193,7 +193,7 @@ int RunFeatureImporter(int argc, char** argv) {
 int RunExhaustiveMatcher(int argc, char** argv) {
   OptionManager options;
   options.AddDatabaseOptions();
-  options.AddExhaustiveMatchingOptions();
+  options.AddExhaustivePairingOptions();
   options.Parse(argc, argv);
 
   std::unique_ptr<QApplication> app;
@@ -235,7 +235,7 @@ int RunMatchesImporter(int argc, char** argv) {
 
   std::unique_ptr<Thread> matcher;
   if (match_type == "pairs") {
-    ImagePairsMatchingOptions matcher_options;
+    ImportedPairingOptions matcher_options;
     matcher_options.match_list_path = match_list_path;
     matcher = CreateImagePairsFeatureMatcher(matcher_options,
                                              *options.feature_matching,
@@ -267,7 +267,7 @@ int RunMatchesImporter(int argc, char** argv) {
 int RunSequentialMatcher(int argc, char** argv) {
   OptionManager options;
   options.AddDatabaseOptions();
-  options.AddSequentialMatchingOptions();
+  options.AddSequentialPairingOptions();
   options.Parse(argc, argv);
 
   std::unique_ptr<QApplication> app;
@@ -293,7 +293,7 @@ int RunSequentialMatcher(int argc, char** argv) {
 int RunSpatialMatcher(int argc, char** argv) {
   OptionManager options;
   options.AddDatabaseOptions();
-  options.AddSpatialMatchingOptions();
+  options.AddSpatialPairingOptions();
   options.Parse(argc, argv);
 
   std::unique_ptr<QApplication> app;
@@ -319,7 +319,7 @@ int RunSpatialMatcher(int argc, char** argv) {
 int RunTransitiveMatcher(int argc, char** argv) {
   OptionManager options;
   options.AddDatabaseOptions();
-  options.AddTransitiveMatchingOptions();
+  options.AddTransitivePairingOptions();
   options.Parse(argc, argv);
 
   std::unique_ptr<QApplication> app;
@@ -345,7 +345,7 @@ int RunTransitiveMatcher(int argc, char** argv) {
 int RunVocabTreeMatcher(int argc, char** argv) {
   OptionManager options;
   options.AddDatabaseOptions();
-  options.AddVocabTreeMatchingOptions();
+  options.AddVocabTreePairingOptions();
   options.Parse(argc, argv);
 
   std::unique_ptr<QApplication> app;
