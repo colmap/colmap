@@ -270,10 +270,7 @@ Install miniconda and
         cuda-compiler==12.6.2 \
         cuda-cudart-dev \
         cuda-nvrtc-dev \
-        libcurand-dev \
-        libcusparse-dev \
-        libcublas-dev \
-        libcusolver-dev
+        libcurand-dev
 
     git clone https://github.com/colmap/colmap.git
     cd colmap
