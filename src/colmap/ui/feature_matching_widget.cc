@@ -30,7 +30,6 @@
 #include "colmap/ui/feature_matching_widget.h"
 
 #include "colmap/controllers/feature_matching.h"
-#include "colmap/feature/aliked.h"
 #include "colmap/feature/sift.h"
 #include "colmap/ui/options_widget.h"
 #include "colmap/ui/thread_control_widget.h"
@@ -118,11 +117,6 @@ void FeatureMatchingTab::CreateGeneralOptions() {
     matcher_types_.push_back(type);
   };
   add_matcher_type(FeatureMatcherType::SIFT);
-#ifdef COLMAP_TORCH_ENABLED
-  add_matcher_type(FeatureMatcherType::ALIKED);
-  add_matcher_type(FeatureMatcherType::LIGHTGLUE_ALIKED);
-  add_matcher_type(FeatureMatcherType::LIGHTGLUE_SIFT);
-#endif
   options_widget_->AddWidgetRow("Type", matcher_type_cb_);
 
   options_widget_->AddOptionInt(
@@ -142,12 +136,6 @@ void FeatureMatchingTab::CreateGeneralOptions() {
       &options_->feature_matching->sift->max_distance, "sift.max_distance");
   options_widget_->AddOptionBool(&options_->feature_matching->sift->cross_check,
                                  "sift.cross_check");
-
-#ifdef COLMAP_TORCH_ENABLED
-  options_widget_->AddOptionDouble(
-      &options_->feature_matching->aliked->min_similarity,
-      "aliked.min_similarity");
-#endif
 
   options_widget_->AddSpacer();
   options_widget_->AddSection("Geometric verification");

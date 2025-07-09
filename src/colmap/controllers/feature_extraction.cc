@@ -29,7 +29,6 @@
 
 #include "colmap/controllers/feature_extraction.h"
 
-#include "colmap/feature/aliked.h"
 #include "colmap/feature/sift.h"
 #include "colmap/geometry/gps.h"
 #include "colmap/scene/database.h"

@@ -399,12 +399,6 @@ if(GPU_ENABLED)
          colmap_sift_gpu
     )
 endif()
-if(TORCH_ENABLED)
-    list(APPEND COLMAP_EXPORT_LIBS
-         colmap_aliked
-         colmap_lightglue
-    )
-endif()
 if(FETCH_POSELIB)
     list(APPEND COLMAP_EXPORT_LIBS PoseLib)
 endif()

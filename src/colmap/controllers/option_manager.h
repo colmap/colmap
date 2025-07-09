@@ -41,7 +41,6 @@ struct ImageReaderOptions;
 struct FeatureExtractionOptions;
 struct FeatureMatchingOptions;
 struct SiftMatchingOptions;
-struct ALIKEDMatchingOptions;
 struct TwoViewGeometryOptions;
 struct ExhaustiveMatchingOptions;
 struct SequentialMatchingOptions;

@@ -34,7 +34,6 @@
 #include "colmap/controllers/incremental_pipeline.h"
 #include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/estimators/two_view_geometry.h"
-#include "colmap/feature/aliked.h"
 #include "colmap/feature/pairing.h"
 #include "colmap/feature/sift.h"
 #include "colmap/math/random.h"
@@ -114,8 +113,6 @@ void OptionManager::ModifyForInternetData() {
 void OptionManager::ModifyForLowQuality() {
   feature_extraction->sift->max_image_size = 1000;
   feature_extraction->sift->max_num_features = 2048;
-  feature_extraction->aliked->max_image_size = 800;
-  feature_extraction->aliked->max_num_features = 1024;
   sequential_matching->loop_detection_num_images /= 2;
   vocab_tree_matching->max_num_features = 256;
   vocab_tree_matching->num_images /= 2;
@@ -137,8 +134,6 @@ void OptionManager::ModifyForLowQuality() {
 void OptionManager::ModifyForMediumQuality() {
   feature_extraction->sift->max_image_size = 1600;
   feature_extraction->sift->max_num_features = 4096;
-  feature_extraction->aliked->max_image_size = 1200;
-  feature_extraction->aliked->max_num_features = 2048;
   sequential_matching->loop_detection_num_images /= 1.5;
   vocab_tree_matching->max_num_features = 1024;
   vocab_tree_matching->num_images /= 1.5;
@@ -161,8 +156,6 @@ void OptionManager::ModifyForHighQuality() {
   feature_extraction->sift->estimate_affine_shape = true;
   feature_extraction->sift->max_image_size = 2400;
   feature_extraction->sift->max_num_features = 8192;
-  feature_extraction->aliked->max_image_size = 1600;
-  feature_extraction->aliked->max_num_features = 4096;
   feature_matching->guided_matching = true;
   vocab_tree_matching->max_num_features = 4096;
   mapper->ba_local_max_num_iterations = 30;
@@ -176,7 +169,6 @@ void OptionManager::ModifyForExtremeQuality() {
   // Most of the options are set to extreme quality by default.
   feature_extraction->sift->estimate_affine_shape = true;
   feature_extraction->sift->domain_size_pooling = true;
-  feature_extraction->aliked->max_image_size = 2400;
   feature_matching->guided_matching = true;
   mapper->ba_local_max_num_iterations = 40;
   mapper->ba_local_max_refinements = 3;
@@ -304,19 +296,6 @@ void OptionManager::AddExtractionOptions() {
                               &feature_extraction->sift->dsp_max_scale);
   AddAndRegisterDefaultOption("SiftExtraction.dsp_num_scales",
                               &feature_extraction->sift->dsp_num_scales);
-
-  AddAndRegisterDefaultOption("ALIKEDExtraction.max_image_size",
-                              &feature_extraction->aliked->max_image_size);
-  AddAndRegisterDefaultOption("ALIKEDExtraction.max_num_features",
-                              &feature_extraction->aliked->max_num_features);
-  AddAndRegisterDefaultOption("ALIKEDExtraction.score_threshold",
-                              &feature_extraction->aliked->score_threshold);
-  AddAndRegisterDefaultOption("ALIKEDExtraction.top_k",
-                              &feature_extraction->aliked->top_k);
-  AddAndRegisterDefaultOption("ALIKEDExtraction.model_name",
-                              &feature_extraction->aliked->model_name);
-  AddAndRegisterDefaultOption("ALIKEDExtraction.model_path",
-                              &feature_extraction->aliked->model_path);
 }
 
 void OptionManager::AddMatchingOptions() {
@@ -345,13 +324,6 @@ void OptionManager::AddMatchingOptions() {
                               &feature_matching->sift->cross_check);
   AddAndRegisterDefaultOption("SiftMatching.cpu_brute_force_matcher",
                               &feature_matching->sift->cpu_brute_force_matcher);
-  AddAndRegisterDefaultOption("SiftMatching.lightglue_model_path",
-                              &feature_matching->sift->lightglue_model_path);
-
-  AddAndRegisterDefaultOption("ALIKEDMatching.min_similarity",
-                              &feature_matching->aliked->min_similarity);
-  AddAndRegisterDefaultOption("ALIKEDMatching.lightglue_model_path",
-                              &feature_matching->aliked->lightglue_model_path);
 
   AddAndRegisterDefaultOption("TwoViewGeometry.min_num_inliers",
                               &two_view_geometry->min_num_inliers);

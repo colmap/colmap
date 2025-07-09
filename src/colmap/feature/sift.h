@@ -31,7 +31,6 @@
 
 #include "colmap/feature/extractor.h"
 #include "colmap/feature/matcher.h"
-#include "colmap/feature/resources.h"
 
 namespace colmap {
 
@@ -121,9 +120,6 @@ struct SiftMatchingOptions {
 
   // Whether to use brute-force instead of faiss based CPU matching.
   bool cpu_brute_force_matcher = false;
-
-  // Path to .pt LightGlue model file for SIFT features in torch model format.
-  std::string lightglue_model_path = kDefaultLightGlueSiftUri;
 
   // Cache for reusing descriptor index for feature matching.
   ThreadSafeLRUCache<image_t, FeatureDescriptorIndex>*

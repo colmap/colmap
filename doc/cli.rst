@@ -204,12 +204,6 @@ the available options, e.g.::
             --SiftExtraction.dsp_min_scale arg (=0.16666666666666666)
             --SiftExtraction.dsp_max_scale arg (=3)
             --SiftExtraction.dsp_num_scales arg (=10)
-            --ALIKEDExtraction.max_image_size arg (=2000)
-            --ALIKEDExtraction.max_num_features arg (=4096)
-            --ALIKEDExtraction.score_threshold arg (=0.20000000000000001)
-            --ALIKEDExtraction.top_k arg (=-1)
-            --ALIKEDExtraction.model_name arg (=aliked-n32)
-            --ALIKEDExtraction.model_path arg (=...)
 
 
 The available options can either be provided directly from the command-line or

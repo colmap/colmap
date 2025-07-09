@@ -45,24 +45,13 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_feature_types
 )
 
-if(TORCH_ENABLED)
-    set(OPTIONAL_TORCH_FEATURE_SRCS
-        torch_utils.h torch_utils.cc)
-    set(OPTIONAL_TORCH_FEATURE_LIBS
-        colmap_aliked
-        colmap_lightglue)
-endif()
-
 COLMAP_ADD_LIBRARY(
     NAME colmap_feature
     SRCS
-        aliked.h aliked.cc
         extractor.h extractor.cc
         index.h index.cc
-        lightglue.h lightglue.cc
         matcher.h matcher.cc
         pairing.h pairing.cc
-        resources.h
         sift.h sift.cc
         types.h types.cc
         utils.h utils.cc
@@ -81,21 +70,6 @@ COLMAP_ADD_LIBRARY(
         Eigen3::Eigen
         faiss
 )
-
-if(TORCH_ENABLED)
-    COLMAP_ADD_TEST(
-        NAME aliked_test
-        SRCS aliked_test.cc
-        LINK_LIBS
-            colmap_feature
-            colmap_util
-    )
-    COLMAP_ADD_TEST(
-        NAME torch_utils_test
-        SRCS torch_utils_test.cc
-        LINK_LIBS colmap_feature
-    )
-endif()
 
 if(GPU_ENABLED)
     target_link_libraries(colmap_feature PRIVATE colmap_sift_gpu)

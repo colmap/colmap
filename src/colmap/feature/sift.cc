@@ -29,7 +29,6 @@
 
 #include "colmap/feature/sift.h"
 
-#include "colmap/feature/lightglue.h"
 #include "colmap/feature/utils.h"
 #include "colmap/math/math.h"
 #include "colmap/util/cuda.h"
@@ -1279,7 +1278,7 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
 
     const int num_matches = sift_match_gpu_.GetSiftMatch(
         options_.max_num_matches,
-        reinterpret_cast<uint32_t (*)[2]>(matches->data()),
+        reinterpret_cast<uint32_t(*)[2]>(matches->data()),
         static_cast<float>(options_.sift->max_distance),
         static_cast<float>(options_.sift->max_ratio),
         options_.sift->cross_check);
@@ -1380,7 +1379,7 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
 
     const int num_matches = sift_match_gpu_.GetGuidedSiftMatch(
         options_.max_num_matches,
-        reinterpret_cast<uint32_t (*)[2]>(
+        reinterpret_cast<uint32_t(*)[2]>(
             two_view_geometry->inlier_matches.data()),
         H_ptr,
         F_ptr,
@@ -1425,17 +1424,6 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
 std::unique_ptr<FeatureMatcher> CreateSiftFeatureMatcher(
     const FeatureMatchingOptions& options) {
   THROW_CHECK_NOTNULL(options.sift);
-  if (options.type == FeatureMatcherType::LIGHTGLUE_SIFT) {
-#ifdef COLMAP_TORCH_ENABLED
-    LightGlueMatchingOptions lightglue_options;
-    lightglue_options.model_path = options.sift->lightglue_model_path;
-    return CreateLightGlueFeatureMatcher(options, lightglue_options);
-#else
-    throw std::runtime_error(
-        "LightGlue feature matching requires torch support.");
-#endif
-  }
-
   if (options.use_gpu) {
 #ifdef COLMAP_GPU_ENABLED
     LOG(INFO) << "Creating SIFT GPU feature matcher";
