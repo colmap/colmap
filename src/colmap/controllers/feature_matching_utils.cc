@@ -79,9 +79,8 @@ void FeatureMatcherWorker::Run() {
 
   // Minimize the amount of allocated GPU memory by computing the maximum number
   // of descriptors for any image over the whole database.
-  matching_options_.max_num_matches =
-      std::min<int>(matching_options_.max_num_matches,
-                    cache_->MaxNumKeypoints());
+  matching_options_.max_num_matches = std::min<int>(
+      matching_options_.max_num_matches, cache_->MaxNumKeypoints());
 
   std::unique_ptr<FeatureMatcher> matcher =
       FeatureMatcher::Create(matching_options_);
