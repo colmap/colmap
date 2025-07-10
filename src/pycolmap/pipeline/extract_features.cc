@@ -24,7 +24,7 @@ void ExtractFeatures(const std::string& database_path,
                      const std::string& image_path,
                      const std::string& mask_path,
                      const std::string& camera_mask_path,
-                     SiftExtractionOptions sift_options,
+                     FeatureExtractionOptions extraction_options,
                      const Device device) {
   THROW_CHECK_DIR_EXISTS(image_path);
   sift_options.use_gpu = IsGPU(device);
@@ -32,7 +32,7 @@ void ExtractFeatures(const std::string& database_path,
 
   py::gil_scoped_release release;
   std::unique_ptr<Thread> extractor = CreateFeatureExtractorController(
-      database_path, image_path, mask_path, camera_mask_path, sift_options);
+      database_path, image_path, mask_path, camera_mask_path, extraction_options);
   extractor->Start();
   PyWait(extractor.get());
 }
@@ -44,8 +44,9 @@ void BindExtractFeatures(py::module& m) {
         "image_path"_a,
         "mask_path"_a = "",
         "camera_mask_path"_a = "",
-        py::arg_v(
-            "sift_options", SiftExtractionOptions(), "SiftExtractionOptions()"),
+        py::arg_v("extraction_options",
+                  FeatureExtractionOptions(),
+                "FeatureExtractionOptions()"),
         "device"_a = Device::AUTO,
         "Extract SIFT Features and write them to database");
 }

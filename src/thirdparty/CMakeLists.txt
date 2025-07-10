@@ -71,8 +71,8 @@ endif()
 if(FETCH_FAISS)
     include(FetchContent)
     FetchContent_Declare(faiss
-        URL https://github.com/ahojnnes/faiss/archive/84a2fd7235be00add67d755e0300314cac669547.zip
-        URL_HASH SHA256=919ae53ff365fd85ab2a0a51b0dd58aff03718b025817b411a95f1afeb43649f
+        URL https://github.com/ahojnnes/faiss/archive/36b77353dc435383e0c23a709e7997a29d049041.zip
+        URL_HASH SHA256=aaf90b3dd3e353ff0bc3391581788cda7c510749023d1937707fc99c38ef2587
         ${_fetch_content_declare_args}
     )
     message(STATUS "Configuring faiss...")

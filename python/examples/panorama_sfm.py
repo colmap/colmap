@@ -216,7 +216,7 @@ def run(args):
     if args.matcher == "sequential":
         pycolmap.match_sequential(
             database_path,
-            matching_options=pycolmap.SequentialMatchingOptions(
+            pairing_options=pycolmap.SequentialPairingOptions(
                 loop_detection=True
             ),
         )

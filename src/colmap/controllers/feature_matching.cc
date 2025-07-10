@@ -51,7 +51,7 @@ class FeatureMatcherThread : public Thread {
  public:
   using PairGeneratorFactory = std::function<std::unique_ptr<PairGenerator>()>;
 
-  FeatureMatcherThread(const SiftMatchingOptions& matching_options,
+  FeatureMatcherThread(const FeatureMatchingOptions& matching_options,
                        const TwoViewGeometryOptions& geometry_options,
                        std::shared_ptr<Database> database,
                        std::shared_ptr<FeatureMatcherCache> cache,
@@ -101,86 +101,113 @@ class FeatureMatcherThread : public Thread {
 }  // namespace
 
 std::unique_ptr<Thread> CreateExhaustiveFeatureMatcher(
-    const ExhaustiveMatchingOptions& options,
-    const SiftMatchingOptions& matching_options,
+    const ExhaustivePairingOptions& pairing_options,
+    const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path) {
   auto database = std::make_shared<Database>(database_path);
-  auto cache =
-      std::make_shared<FeatureMatcherCache>(options.CacheSize(), database);
+  auto cache = std::make_shared<FeatureMatcherCache>(
+      pairing_options.CacheSize(), database);
   return std::make_unique<FeatureMatcherThread>(
-      matching_options, geometry_options, database, cache, [options, cache]() {
-        return std::make_unique<ExhaustivePairGenerator>(options, cache);
+      matching_options,
+      geometry_options,
+      database,
+      cache,
+      [pairing_options, cache]() {
+        return std::make_unique<ExhaustivePairGenerator>(pairing_options,
+                                                         cache);
       });
 }
 
 std::unique_ptr<Thread> CreateVocabTreeFeatureMatcher(
-    const VocabTreeMatchingOptions& options,
-    const SiftMatchingOptions& matching_options,
+    const VocabTreePairingOptions& pairing_options,
+    const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path) {
   auto database = std::make_shared<Database>(database_path);
-  auto cache =
-      std::make_shared<FeatureMatcherCache>(options.CacheSize(), database);
+  auto cache = std::make_shared<FeatureMatcherCache>(
+      pairing_options.CacheSize(), database);
   return std::make_unique<FeatureMatcherThread>(
-      matching_options, geometry_options, database, cache, [options, cache]() {
-        return std::make_unique<VocabTreePairGenerator>(options, cache);
+      matching_options,
+      geometry_options,
+      database,
+      cache,
+      [pairing_options, cache]() {
+        return std::make_unique<VocabTreePairGenerator>(pairing_options, cache);
       });
 }
 
 std::unique_ptr<Thread> CreateSequentialFeatureMatcher(
-    const SequentialMatchingOptions& options,
-    const SiftMatchingOptions& matching_options,
+    const SequentialPairingOptions& pairing_options,
+    const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path) {
   auto database = std::make_shared<Database>(database_path);
-  auto cache =
-      std::make_shared<FeatureMatcherCache>(options.CacheSize(), database);
+  auto cache = std::make_shared<FeatureMatcherCache>(
+      pairing_options.CacheSize(), database);
   return std::make_unique<FeatureMatcherThread>(
-      matching_options, geometry_options, database, cache, [options, cache]() {
-        return std::make_unique<SequentialPairGenerator>(options, cache);
+      matching_options,
+      geometry_options,
+      database,
+      cache,
+      [pairing_options, cache]() {
+        return std::make_unique<SequentialPairGenerator>(pairing_options,
+                                                         cache);
       });
 }
 
 std::unique_ptr<Thread> CreateSpatialFeatureMatcher(
-    const SpatialMatchingOptions& options,
-    const SiftMatchingOptions& matching_options,
+    const SpatialPairingOptions& pairing_options,
+    const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path) {
   auto database = std::make_shared<Database>(database_path);
-  auto cache =
-      std::make_shared<FeatureMatcherCache>(options.CacheSize(), database);
+  auto cache = std::make_shared<FeatureMatcherCache>(
+      pairing_options.CacheSize(), database);
   return std::make_unique<FeatureMatcherThread>(
-      matching_options, geometry_options, database, cache, [options, cache]() {
-        return std::make_unique<SpatialPairGenerator>(options, cache);
+      matching_options,
+      geometry_options,
+      database,
+      cache,
+      [pairing_options, cache]() {
+        return std::make_unique<SpatialPairGenerator>(pairing_options, cache);
       });
 }
 
 std::unique_ptr<Thread> CreateTransitiveFeatureMatcher(
-    const TransitiveMatchingOptions& options,
-    const SiftMatchingOptions& matching_options,
+    const TransitivePairingOptions& pairing_options,
+    const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path) {
   auto database = std::make_shared<Database>(database_path);
-  auto cache =
-      std::make_shared<FeatureMatcherCache>(options.CacheSize(), database);
+  auto cache = std::make_shared<FeatureMatcherCache>(
+      pairing_options.CacheSize(), database);
   return std::make_unique<FeatureMatcherThread>(
-      matching_options, geometry_options, database, cache, [options, cache]() {
-        return std::make_unique<TransitivePairGenerator>(options, cache);
+      matching_options,
+      geometry_options,
+      database,
+      cache,
+      [pairing_options, cache]() {
+        return std::make_unique<TransitivePairGenerator>(pairing_options,
+                                                         cache);
       });
 }
 
 std::unique_ptr<Thread> CreateImagePairsFeatureMatcher(
-    const ImagePairsMatchingOptions& options,
-    const SiftMatchingOptions& matching_options,
+    const ImportedPairingOptions& pairing_options,
+    const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path) {
   auto database = std::make_shared<Database>(database_path);
-  auto cache =
-      std::make_shared<FeatureMatcherCache>(options.CacheSize(), database);
+  auto cache = std::make_shared<FeatureMatcherCache>(
+      pairing_options.CacheSize(), database);
   return std::make_unique<FeatureMatcherThread>(
-      matching_options, geometry_options, database, cache, [options, cache]() {
-        return std::make_unique<ImportedPairGenerator>(options, cache);
+      matching_options,
+      geometry_options,
+      database,
+      cache,
+      [pairing_options, cache]() {
+        return std::make_unique<ImportedPairGenerator>(pairing_options, cache);
       });
 }
 
@@ -188,17 +215,17 @@ namespace {
 
 class FeaturePairsFeatureMatcher : public Thread {
  public:
-  FeaturePairsFeatureMatcher(const FeaturePairsMatchingOptions& options,
-                             const SiftMatchingOptions& matching_options,
+  FeaturePairsFeatureMatcher(const FeaturePairsMatchingOptions& pairing_options,
+                             const FeatureMatchingOptions& matching_options,
                              const TwoViewGeometryOptions& geometry_options,
                              const std::string& database_path)
-      : options_(options),
+      : options_(pairing_options),
         matching_options_(matching_options),
         geometry_options_(geometry_options),
         database_(std::make_shared<Database>(database_path)),
         cache_(std::make_shared<FeatureMatcherCache>(/*cache_size=*/100,
                                                      database_)) {
-    THROW_CHECK(options.Check());
+    THROW_CHECK(pairing_options.Check());
     THROW_CHECK(matching_options.Check());
     THROW_CHECK(geometry_options.Check());
   }
@@ -328,7 +355,7 @@ class FeaturePairsFeatureMatcher : public Thread {
   }
 
   const FeaturePairsMatchingOptions options_;
-  const SiftMatchingOptions matching_options_;
+  const FeatureMatchingOptions matching_options_;
   const TwoViewGeometryOptions geometry_options_;
   const std::shared_ptr<Database> database_;
   const std::shared_ptr<FeatureMatcherCache> cache_;
@@ -337,12 +364,12 @@ class FeaturePairsFeatureMatcher : public Thread {
 }  // namespace
 
 std::unique_ptr<Thread> CreateFeaturePairsFeatureMatcher(
-    const FeaturePairsMatchingOptions& options,
-    const SiftMatchingOptions& matching_options,
+    const FeaturePairsMatchingOptions& pairing_options,
+    const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path) {
   return std::make_unique<FeaturePairsFeatureMatcher>(
-      options, matching_options, geometry_options, database_path);
+      pairing_options, matching_options, geometry_options, database_path);
 }
 
 }  // namespace colmap
