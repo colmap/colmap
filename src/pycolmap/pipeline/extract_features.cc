@@ -27,8 +27,8 @@ void ExtractFeatures(const std::string& database_path,
                      FeatureExtractionOptions extraction_options,
                      const Device device) {
   THROW_CHECK_DIR_EXISTS(image_path);
-  sift_options.use_gpu = IsGPU(device);
-  VerifyGPUParams(sift_options.use_gpu);
+  extraction_options.use_gpu = IsGPU(device);
+  VerifyGPUParams(extraction_options.use_gpu);
 
   py::gil_scoped_release release;
   std::unique_ptr<Thread> extractor = CreateFeatureExtractorController(
