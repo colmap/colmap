@@ -155,8 +155,6 @@ int RunFeatureExtractor(int argc, char** argv) {
   auto feature_extractor =
       CreateFeatureExtractorController(*options.database_path,
                                        *options.image_path,
-                                       *options.mask_path,
-                                       *options.camera_mask_path,
                                        *options.feature_extraction);
 
   if (options.feature_extraction->use_gpu && kUseOpenGL) {

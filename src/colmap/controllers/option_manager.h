@@ -124,8 +124,6 @@ class OptionManager {
   std::shared_ptr<std::string> image_path;
 
   std::shared_ptr<ImageReaderOptions> image_reader;
-  std::shared_ptr<std::string> mask_path;
-  std::shared_ptr<std::string> camera_mask_path;
   std::shared_ptr<FeatureExtractionOptions> feature_extraction;
   std::shared_ptr<FeatureMatchingOptions> feature_matching;
   std::shared_ptr<TwoViewGeometryOptions> two_view_geometry;

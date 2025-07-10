@@ -186,6 +186,24 @@ void BindFeatureExtraction(py::module& m) {
                          "Index of the GPU used for feature matching. For "
                          "multi-GPU matching, you should separate multiple "
                          "GPU indices by comma, e.g., '0,1,2,3'.")
+          .def_readwrite("mask_path",
+                         &FeatureExtractionOptions::mask_path,
+                         "Optional root path to folder which contains image"
+                         "masks. For a given image, the corresponding mask"
+                         "must have the same sub-path below this root as the"
+                         "image has below image_path. The filename must be"
+                         "equal, aside from the added extension .png. "
+                         "For example, for an image image_path/abc/012.jpg,"
+                         "the mask would be mask_path/abc/012.jpg.png. No"
+                         "features will be extracted in regions where the"
+                         "mask image is black (pixel intensity value 0 in"
+                         "grayscale).")
+          .def_readwrite(
+              "camera_mask_path",
+              &FeatureExtractionOptions::camera_mask_path,
+              "Optional path to an image file specifying a mask for all "
+              "images. No features will be extracted in regions where the "
+              "mask is black (pixel intensity value 0 in grayscale)")
           .def_readwrite("sift", &FeatureExtractionOptions::sift)
           .def("check", &FeatureExtractionOptions::Check);
   MakeDataclass(PyFeatureExtractionOptions);

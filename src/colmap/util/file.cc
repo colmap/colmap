@@ -66,10 +66,6 @@ std::string EnsureTrailingSlash(const std::string& str) {
   return str;
 }
 
-std::string NormalizeDirPath(const std::string& path) {
-  return EnsureTrailingSlash(StringReplace(path, "\\", "/"));
-}
-
 bool HasFileExtension(const std::string& file_name, const std::string& ext) {
   THROW_CHECK(!ext.empty());
   THROW_CHECK_EQ(ext.at(0), '.');

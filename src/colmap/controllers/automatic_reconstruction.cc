@@ -92,7 +92,11 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   option_manager_.poisson_meshing->num_threads = options_.num_threads;
 
   if (!options_.mask_path.empty()) {
+    option_manager_.feature_extraction->mask_path = options_.mask_path;
     option_manager_.stereo_fusion->mask_path = options_.mask_path;
+  }
+  if (!options_.camera_mask_path.empty()) {
+    option_manager_.feature_extraction->camera_mask_path = options_.camera_mask_path;
   }
 
   ImageReaderOptions& reader_options = *option_manager_.image_reader;
@@ -119,8 +123,6 @@ AutomaticReconstructionController::AutomaticReconstructionController(
     feature_extractor_ =
         CreateFeatureExtractorController(*option_manager_.database_path,
                                          *option_manager_.image_path,
-                                         *option_manager_.mask_path,
-                                         *option_manager_.camera_mask_path,
                                          *option_manager_.feature_extraction);
   }
 

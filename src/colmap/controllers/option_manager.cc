@@ -56,8 +56,6 @@ OptionManager::OptionManager(bool add_project_options) {
   image_path = std::make_shared<std::string>();
 
   image_reader = std::make_shared<ImageReaderOptions>();
-  mask_path = std::make_shared<std::string>();
-  camera_mask_path = std::make_shared<std::string>();
   feature_extraction = std::make_shared<FeatureExtractionOptions>();
   feature_extraction_type_ =
       FeatureExtractorTypeToString(feature_extraction->type);
@@ -264,9 +262,6 @@ void OptionManager::AddExtractionOptions() {
   }
   added_extraction_options_ = true;
 
-  AddAndRegisterDefaultOption("mask_path", mask_path.get());
-  AddAndRegisterDefaultOption("camera_mask_path", camera_mask_path.get());
-
   AddAndRegisterDefaultOption("FeatureExtraction.type",
                               &feature_extraction_type_);
   AddAndRegisterDefaultOption("FeatureExtraction.num_threads",
@@ -275,6 +270,10 @@ void OptionManager::AddExtractionOptions() {
                               &feature_extraction->use_gpu);
   AddAndRegisterDefaultOption("FeatureExtraction.gpu_index",
                               &feature_extraction->gpu_index);
+  AddAndRegisterDefaultOption("FeatureExtraction.mask_path",
+                              &feature_extraction->mask_path);
+  AddAndRegisterDefaultOption("FeatureExtraction.camera_mask_path",
+                              &feature_extraction->camera_mask_path);
 
   AddAndRegisterDefaultOption("SiftExtraction.max_image_size",
                               &feature_extraction->sift->max_image_size);

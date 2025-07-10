@@ -68,9 +68,6 @@ enum class CopyType { COPY, HARD_LINK, SOFT_LINK };
 // Append trailing slash to string if it does not yet end with a slash.
 std::string EnsureTrailingSlash(const std::string& str);
 
-// Append trailing slash and ensure that all separators are forward slashes.
-std::string NormalizeDirPath(const std::string& path);
-
 // Check whether file name has the file extension (case insensitive).
 bool HasFileExtension(const std::string& file_name, const std::string& ext);
 

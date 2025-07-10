@@ -317,31 +317,26 @@ class FeatureExtractorController : public Thread {
  public:
   FeatureExtractorController(const std::string& database_path,
                              const std::string& image_root_path,
-                             const std::string& mask_root_path,
-                             const std::string& camera_mask_root_path,
                              const FeatureExtractionOptions& extraction_options)
-      : image_root_path_(NormalizeDirPath(image_root_path)),
-        mask_root_path_(mask_root_path.empty()
-                            ? mask_root_path
-                            : NormalizeDirPath(mask_root_path)),
-        camera_mask_root_path_(camera_mask_root_path),
+      : image_root_path_(image_root_path),
         extraction_options_(extraction_options),
         database_(database_path) {
     THROW_CHECK(extraction_options_.Check());
 
     std::shared_ptr<Bitmap> camera_mask;
-    if (!camera_mask_root_path_.empty()) {
-      if (ExistsFile(camera_mask_root_path_)) {
+    const std::string& camera_mask_path = extraction_options_.camera_mask_path;
+    if (!camera_mask_path.empty()) {
+      if (ExistsFile(camera_mask_path)) {
         camera_mask = std::make_shared<Bitmap>();
-        if (!camera_mask->Read(camera_mask_root_path_,
+        if (!camera_mask->Read(camera_mask_path,
                                /*as_rgb=*/false)) {
           LOG(ERROR) << "Failed to read invalid mask file at: "
-                     << camera_mask_root_path_
+                     << camera_mask_path
                      << ". No mask is going to be used.";
           camera_mask.reset();
         }
       } else {
-        LOG(ERROR) << "Mask at " << camera_mask_root_path_
+        LOG(ERROR) << "Mask at " << camera_mask_path
                    << " does not exist.";
       }
     }
@@ -449,14 +444,16 @@ class FeatureExtractorController : public Thread {
     }
 
     // Load mask if path is provided
-    if (!mask_root_path_.empty()) {
-      std::string mask_path = JoinPaths(mask_root_path_, image.Name() + ".png");
+    if (!extraction_options_.mask_path.empty()) {
+      std::string mask_path =
+          JoinPaths(extraction_options_.mask_path, image.Name() + ".png");
       bool exists_mask = true;
       if (!ExistsFile(mask_path)) {
         exists_mask = false;
         // Try without .png extension if original image is .png
         if (HasFileExtension(image.Name(), ".png")) {
-          std::string alt_mask_path = JoinPaths(mask_root_path_, image.Name());
+          std::string alt_mask_path =
+              JoinPaths(extraction_options_.mask_path, image.Name());
           if (ExistsFile(alt_mask_path)) {
             mask_path = std::move(alt_mask_path);
             exists_mask = true;
@@ -535,9 +532,6 @@ class FeatureExtractorController : public Thread {
   }
 
   const std::string image_root_path_;
-  const std::string mask_root_path_;
-  const std::string camera_mask_root_path_;
-
   const FeatureExtractionOptions extraction_options_;
 
   Database database_;
@@ -621,13 +615,9 @@ class FeatureImporterController : public Thread {
 std::unique_ptr<Thread> CreateFeatureExtractorController(
     const std::string& database_path,
     const std::string& image_root_path,
-    const std::string& mask_root_path,
-    const std::string& camera_mask_root_path,
     const FeatureExtractionOptions& extraction_options) {
   return std::make_unique<FeatureExtractorController>(database_path,
                                                       image_root_path,
-                                                      mask_root_path,
-                                                      camera_mask_root_path,
                                                       extraction_options);
 }
 

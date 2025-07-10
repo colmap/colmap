@@ -50,9 +50,6 @@ ImageReader::ImageReader(const ImageReaderOptions& options, Database* database)
     : options_(options), database_(database), image_index_(0) {
   THROW_CHECK(options_.Check());
 
-  // Ensure trailing slash, so that we can build the correct image name.
-  options_.image_path = NormalizeDirPath(options_.image_path);
-
   // Get a list of all files in the image path, sorted by image name.
   if (options_.image_names.empty()) {
     options_.image_names = GetRecursiveFileList(options_.image_path);

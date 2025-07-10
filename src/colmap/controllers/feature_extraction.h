@@ -50,8 +50,6 @@ namespace colmap {
 std::unique_ptr<Thread> CreateFeatureExtractorController(
     const std::string& database_path,
     const std::string& image_root_path,
-    const std::string& mask_root_path,
-    const std::string& camera_mask_root_path,
     const FeatureExtractionOptions& extraction_options);
 
 // Import features from text files. Each image must have a corresponding text
