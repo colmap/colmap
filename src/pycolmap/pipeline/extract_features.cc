@@ -42,7 +42,7 @@ void BindExtractFeatures(py::module& m) {
         "image_path"_a,
         py::arg_v("extraction_options",
                   FeatureExtractionOptions(),
-                "FeatureExtractionOptions()"),
+                  "FeatureExtractionOptions()"),
         "device"_a = Device::AUTO,
         "Extract SIFT Features and write them to database");
 }

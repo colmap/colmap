@@ -79,7 +79,8 @@ SIFTExtractionWidget::SIFTExtractionWidget(QWidget* parent,
   AddOptionBool(&options->feature_extraction->use_gpu, "use_gpu");
   AddOptionText(&options->feature_extraction->gpu_index, "gpu_index");
   AddOptionDirPath(&options->feature_extraction->mask_path, "mask_path");
-  AddOptionFilePath(&options->feature_extraction->camera_mask_path, "camera_mask_path");
+  AddOptionFilePath(&options->feature_extraction->camera_mask_path,
+                    "camera_mask_path");
 
   SiftExtractionOptions& sift_options = *options->feature_extraction->sift;
   AddOptionInt(&sift_options.max_image_size, "sift.max_image_size");
@@ -111,9 +112,10 @@ void SIFTExtractionWidget::Run() {
 
   options_->feature_extraction->type = FeatureExtractorType::SIFT;
 
-  auto extractor = CreateFeatureExtractorController(*options_->database_path,
-                                                    *options_->image_path,
-                                                    *options_->feature_extraction);
+  auto extractor =
+      CreateFeatureExtractorController(*options_->database_path,
+                                       *options_->image_path,
+                                       *options_->feature_extraction);
   thread_control_widget_->StartThread(
       "Extracting...", true, std::move(extractor));
 }

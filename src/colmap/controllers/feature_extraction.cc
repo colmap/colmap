@@ -256,9 +256,11 @@ class FeatureExtractorThread : public Thread {
 class FeatureWriterThread : public Thread {
  public:
   FeatureWriterThread(FeatureExtractorType extractor_type,
-                      Database* database, JobQueue<ImageData>* input_queue)
+                      Database* database,
+                      JobQueue<ImageData>* input_queue)
       : extractor_type_str_(FeatureExtractorTypeToString(extractor_type)),
-        database_(database), input_queue_(input_queue) {}
+        database_(database),
+        input_queue_(input_queue) {}
 
  private:
   void Run() override {
@@ -331,13 +333,11 @@ class FeatureExtractorController : public Thread {
         if (!camera_mask->Read(camera_mask_path,
                                /*as_rgb=*/false)) {
           LOG(ERROR) << "Failed to read invalid mask file at: "
-                     << camera_mask_path
-                     << ". No mask is going to be used.";
+                     << camera_mask_path << ". No mask is going to be used.";
           camera_mask.reset();
         }
       } else {
-        LOG(ERROR) << "Mask at " << camera_mask_path
-                   << " does not exist.";
+        LOG(ERROR) << "Mask at " << camera_mask_path << " does not exist.";
       }
     }
 
@@ -413,9 +413,8 @@ class FeatureExtractorController : public Thread {
       }
     }
 
-    writer_ = std::make_unique<FeatureWriterThread>(extraction_options_.type,
-                                                    &database_,
-                                                    writer_queue_.get());
+    writer_ = std::make_unique<FeatureWriterThread>(
+        extraction_options_.type, &database_, writer_queue_.get());
   }
 
  private:
@@ -616,9 +615,8 @@ std::unique_ptr<Thread> CreateFeatureExtractorController(
     const std::string& database_path,
     const std::string& image_root_path,
     const FeatureExtractionOptions& extraction_options) {
-  return std::make_unique<FeatureExtractorController>(database_path,
-                                                      image_root_path,
-                                                      extraction_options);
+  return std::make_unique<FeatureExtractorController>(
+      database_path, image_root_path, extraction_options);
 }
 
 std::unique_ptr<Thread> CreateFeatureImporterController(

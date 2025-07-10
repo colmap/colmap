@@ -152,10 +152,8 @@ int RunFeatureExtractor(int argc, char** argv) {
     app.reset(new QApplication(argc, argv));
   }
 
-  auto feature_extractor =
-      CreateFeatureExtractorController(*options.database_path,
-                                       *options.image_path,
-                                       *options.feature_extraction);
+  auto feature_extractor = CreateFeatureExtractorController(
+      *options.database_path, *options.image_path, *options.feature_extraction);
 
   if (options.feature_extraction->use_gpu && kUseOpenGL) {
     RunThreadWithOpenGLContext(feature_extractor.get());
