@@ -89,14 +89,14 @@ else()
         set(METIS_FOUND TRUE)
         message(STATUS "Found Metis")
         message(STATUS "  Includes : ${METIS_INCLUDE_DIRS}")
-        message(STATUS "  Libraries : ${METIS_LIBRARIES}")
+        message(STATUS "  Libraries : ${METIS_LIBRARIES} ${GK_LIBRARIES}")
     endif()
 
     add_library(metis INTERFACE IMPORTED)
     target_include_directories(
         metis INTERFACE ${METIS_INCLUDE_DIRS})
     target_link_libraries(
-        metis INTERFACE ${METIS_LIBRARIES})
+        metis INTERFACE ${METIS_LIBRARIES} ${GK_LIBRARIES})
 endif()
 
 if(NOT METIS_FOUND AND METIS_FIND_REQUIRED)
