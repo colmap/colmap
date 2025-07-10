@@ -85,18 +85,23 @@ else()
         PATHS
         ${METIS_CHECK_LIBRARY_DIRS})
 
+    if(GK_LIBRARIES)
+        set(METIS_LIBRARIES ${METIS_LIBRARIES} ${GK_LIBRARIES})
+        message(STATUS "Found GKlib")
+    endif()
+
     if(METIS_INCLUDE_DIRS AND METIS_LIBRARIES)
         set(METIS_FOUND TRUE)
         message(STATUS "Found Metis")
         message(STATUS "  Includes : ${METIS_INCLUDE_DIRS}")
-        message(STATUS "  Libraries : ${METIS_LIBRARIES} ${GK_LIBRARIES}")
+        message(STATUS "  Libraries : ${METIS_LIBRARIES}")
     endif()
 
     add_library(metis INTERFACE IMPORTED)
     target_include_directories(
         metis INTERFACE ${METIS_INCLUDE_DIRS})
     target_link_libraries(
-        metis INTERFACE ${METIS_LIBRARIES} ${GK_LIBRARIES})
+        metis INTERFACE ${METIS_LIBRARIES})
 endif()
 
 if(NOT METIS_FOUND AND METIS_FIND_REQUIRED)
