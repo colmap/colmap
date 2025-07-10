@@ -100,6 +100,10 @@ std::string GetPathBaseName(const std::string& path);
 // Get the path of the parent directory for the given path.
 std::string GetParentDir(const std::string& path);
 
+// Get the relative path of full_path w.r.t. base_path.
+std::string GetRelativePath(const std::string& full_path,
+                            const std::string& base_path);
+
 // Join multiple paths into one path.
 template <typename... T>
 std::string JoinPaths(T const&... paths);
