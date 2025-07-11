@@ -30,7 +30,7 @@ void ExtractFeatures(const std::string& database_path,
                      const Device device) {
   THROW_CHECK_DIR_EXISTS(image_path);
   extraction_options.use_gpu = IsGPU(device);
-  VerifyGPUParams(extraction_options.use_gpu);
+  THROW_CHECK(extraction_options.Check());
 
   UpdateImageReaderOptionsFromCameraMode(reader_options, camera_mode);
   reader_options.camera_model = camera_model;

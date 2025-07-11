@@ -33,7 +33,6 @@ class Sift {
  public:
   Sift(std::optional<FeatureExtractionOptions> options, Device device)
       : use_gpu_(IsGPU(device)) {
-    VerifyGPUParams(use_gpu_);
     if (options) {
       options_ = std::move(*options);
     } else {
@@ -50,6 +49,7 @@ class Sift {
       options_.sift->max_image_size = 7000;
     }
     options_.use_gpu = use_gpu_;
+    THROW_CHECK(options_.Check());
     extractor_ = THROW_CHECK_NOTNULL(CreateSiftFeatureExtractor(options_));
   }
 
