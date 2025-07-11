@@ -341,6 +341,8 @@ void OptionManager::AddMatchingOptions() {
   AddAndRegisterDefaultOption(
       "TwoViewGeometry.min_inlier_ratio",
       &two_view_geometry->ransac_options.min_inlier_ratio);
+  AddAndRegisterDefaultOption("TwoViewGeometry.detect_watermark",
+                              &two_view_geometry->detect_watermark);
 }
 
 void OptionManager::AddExhaustivePairingOptions() {
