@@ -8,9 +8,6 @@
 #include "pycolmap/pybind11_extension.h"
 #include "pycolmap/scene/types.h"
 
-#include <memory>
-#include <sstream>
-
 #include <pybind11/eigen.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -28,9 +25,11 @@ void BindPoint2D(py::module& m) {
            py::arg_v(
                "point3D_id", kInvalidPoint3DId, "pycolmap.INVALID_POINT3D_ID"))
       .def_readwrite("xy", &Point2D::xy)
+      .def("x", [](const Point2D& self) -> double { return self.xy[0]; })
+      .def("y", [](const Point2D& self) -> double { return self.xy[1]; })
       .def_readwrite("point3D_id", &Point2D::point3D_id)
       .def("has_point3D", &Point2D::HasPoint3D);
   MakeDataclass(PyPoint2D);
 
-  py::bind_vector<Point2DVector>(m, "ListPoint2D");
+  py::bind_vector<Point2DVector>(m, "Point2DList");
 }

@@ -1,4 +1,4 @@
-# Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+# Copyright (c), ETH Zurich and UNC Chapel Hill.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -38,9 +38,10 @@ COLMAP_ADD_LIBRARY(
         controller_thread.h
         eigen_alignment.h
         endian.h endian.cc
-        enum_to_string.h
+        enum_utils.h
         file.h file.cc
         logging.h logging.cc
+        glog_macros.h
         misc.h misc.cc
         opengl_utils.h opengl_utils.cc
         ply.h ply.cc
@@ -54,8 +55,8 @@ COLMAP_ADD_LIBRARY(
         Eigen3::Eigen
         glog::glog
         SQLite::SQLite3
-    PRIVATE_LINK_LIBS
         Boost::boost
+    PRIVATE_LINK_LIBS
         $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:-lstdc++fs>
 )
 if(TESTS_ENABLED)
@@ -76,7 +77,7 @@ if(DOWNLOAD_ENABLED)
         target_link_libraries(colmap_util PRIVATE OpenSSL::Crypto)
         target_compile_definitions(colmap_util PRIVATE COLMAP_USE_OPENSSL)
     endif()
- endif()
+endif()
 if(GUI_ENABLED)
     target_link_libraries(colmap_util PUBLIC Qt5::Core Qt5::OpenGL OpenGL::GL)
 endif()
@@ -120,8 +121,8 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_util
 )
 COLMAP_ADD_TEST(
-    NAME enum_to_string_test
-    SRCS enum_to_string_test.cc
+    NAME enum_utils_test
+    SRCS enum_utils_test.cc
     LINK_LIBS colmap_util
 )
 COLMAP_ADD_TEST(

@@ -26,15 +26,14 @@ void ExtractFeatures(const std::string& database_path,
                      const CameraMode camera_mode,
                      const std::string& camera_model,
                      ImageReaderOptions reader_options,
-                     SiftExtractionOptions sift_options,
+                     FeatureExtractionOptions extraction_options,
                      const Device device) {
   THROW_CHECK_DIR_EXISTS(image_path);
-  sift_options.use_gpu = IsGPU(device);
-  VerifyGPUParams(sift_options.use_gpu);
+  extraction_options.use_gpu = IsGPU(device);
+  THROW_CHECK(extraction_options.Check());
 
   UpdateImageReaderOptionsFromCameraMode(reader_options, camera_mode);
   reader_options.camera_model = camera_model;
-  reader_options.database_path = database_path;
   reader_options.image_path = image_path;
 
   if (!image_names.empty()) {
@@ -47,8 +46,8 @@ void ExtractFeatures(const std::string& database_path,
       << "Invalid camera parameters.";
 
   py::gil_scoped_release release;
-  std::unique_ptr<Thread> extractor =
-      CreateFeatureExtractorController(reader_options, sift_options);
+  std::unique_ptr<Thread> extractor = CreateFeatureExtractorController(
+      database_path, reader_options, extraction_options);
   extractor->Start();
   PyWait(extractor.get());
 }
@@ -63,8 +62,9 @@ void BindExtractFeatures(py::module& m) {
       "camera_mode"_a = CameraMode::AUTO,
       "camera_model"_a = "SIMPLE_RADIAL",
       py::arg_v("reader_options", ImageReaderOptions(), "ImageReaderOptions()"),
-      py::arg_v(
-          "sift_options", SiftExtractionOptions(), "SiftExtractionOptions()"),
+      py::arg_v("extraction_options",
+                FeatureExtractionOptions(),
+                "FeatureExtractionOptions()"),
       "device"_a = Device::AUTO,
       "Extract SIFT Features and write them to database");
 }

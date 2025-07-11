@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -69,16 +69,16 @@ class IncrementalMapperImpl {
       const std::unordered_map<image_t, size_t>& init_num_reg_trials,
       const std::unordered_map<image_t, size_t>& num_registrations,
       std::unordered_set<image_pair_t>& init_image_pairs,
-      TwoViewGeometry& two_view_geometry,
       image_t& image_id1,
-      image_t& image_id2);
+      image_t& image_id2,
+      Rigid3d& cam2_from_cam1);
 
   // Implement IncrementalMapper::FindNextImages
   static std::vector<image_t> FindNextImages(
       const IncrementalMapper::Options& options,
       const ObservationManager& obs_manager,
       const std::unordered_set<image_t>& filtered_images,
-      std::unordered_map<image_t, size_t>& m_num_reg_trials);
+      std::unordered_map<image_t, size_t>& num_reg_trials);
 
   // Implement IncrementalMapper::FindLocalBundle
   static std::vector<image_t> FindLocalBundle(
@@ -92,7 +92,7 @@ class IncrementalMapperImpl {
       const DatabaseCache& database_cache,
       image_t image_id1,
       image_t image_id2,
-      TwoViewGeometry& two_view_geometry);
+      Rigid3d& cam2_from_cam1);
 };
 
 }  // namespace colmap

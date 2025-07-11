@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -68,6 +68,14 @@ TEST(Bitmap, Empty) {
   EXPECT_EQ(bitmap.Channels(), 0);
   EXPECT_FALSE(bitmap.IsRGB());
   EXPECT_FALSE(bitmap.IsGrey());
+}
+
+TEST(Bitmap, Print) {
+  Bitmap bitmap;
+  bitmap.Allocate(100, 100, true);
+  std::ostringstream stream;
+  stream << bitmap;
+  EXPECT_EQ(stream.str(), "Bitmap(width=100, height=100, channels=3)");
 }
 
 TEST(Bitmap, AllocateRGB) {

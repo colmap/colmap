@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -194,6 +194,8 @@ class Bitmap {
   int height_;
   int channels_;
 };
+
+std::ostream& operator<<(std::ostream& stream, const Bitmap& bitmap);
 
 // Jet colormap inspired by Matlab. Grayvalues are expected in the range [0, 1]
 // and are converted to RGB values in the same range.

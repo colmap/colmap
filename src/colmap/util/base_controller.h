@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -50,10 +50,7 @@ class BaseController {
   // Call back to the function with the specified name, if it exists.
   void Callback(int id) const;
 
-  // This is the main run function to be implemented by the child class. If you
-  // are looping over data and want to support the pause operation, call
-  // `BlockIfPaused` at appropriate places in the loop. To support the stop
-  // operation, check the `IsStopped` state and early return from this method.
+  // This is the main run function to be implemented by the child class.
   virtual void Run() = 0;
 
   // check if the thread is stopped

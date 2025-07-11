@@ -1,9 +1,288 @@
 Changelog
 =========
 
-------------------------
-COLMAP 3.11 (11/28/2024)
-------------------------
+--------------------------
+COLMAP 3.12.1 (07/05/2025)
+--------------------------
+
+Bug Fixes
+---------
+* Fix Docker runtime libraries
+* Fix spatial matcher bug
+* Minor fixes for documentation
+
+--------------------------
+COLMAP 3.12.0 (06/30/2025)
+--------------------------
+
+New Features
+------------
+* Support for modeling sensor rigs (and thus multi-camera rigs and panoramas).
+  For more details and usage examples, see: https://colmap.github.io/rigs.html.
+* Automatic download and caching of vocabulary trees and other resources.
+* Support for converting between LLA and UTM coordinates.
+* Improved minimal solvers for affine transform and generalized absolute/relative pose.
+* Improved absolute pose estimation by minimizing pixel error in image space.
+* Replaced FLANN with faiss for fast approximate nearest neighbor search
+  for improved speed in CPU-based feature matching and vocabulary tree-based image retrieval.
+* Support for propagating relative pose covariance.
+* Support visualization of models with arbitrary origin and scale (e.g., in GPS space).
+* Reconstruction benchmark for ETH3D, IMC, BlendedMVS datasets.
+* Measure and report code test coverage in CI.
+
+Bug Fixes
+---------
+* Fixed RANSAC stopping criterion, see https://arxiv.org/pdf/2503.07829.
+* Fixed and improved two-view pose and triangulation angle estimation.
+* Fix rare deadlock during vocab tree feature matching.
+* For other bug fixes, see full list of changes below.
+
+Breaking Changes
+----------------
+* Serialization of reconstruction and database contains a new abstraction: rigs and frames.
+  The reconstruction output contains two new files `rigs.{bin,txt}` and `frames.{bin,txt}`.
+  The database contains new tables: `rigs`, `rig_sensors`, `frames`, `frames_data`.
+  Reading from existing reconstructions and databases (without rigs/frames) is fully backwards
+  compatible and vice versa reading new reconstructions (with rigs/frames) using old code is
+  fully forwards compatible.
+* Sensor poses (and thus image poses) are now composed as:
+  `sensor_from_world = sensor_from_rig * rig_from_world`. Previously, `image.cam_from_world`
+  returned a reference to the pose parameters. Now it returns a copy of the pose composition:
+  `image.cam_from_world() = image.frame.rig.sensor_from_rig(image.camera.sensor_id) * image.frame.rig_from_world`
+  with the underlying pose parameters stored in the rig and frame objects.
+* Default bundle adjuster supports sensor rigs and thus rig bundle adjuster is deprecated.
+* FLANN-based vocabulary trees are incompatible with faiss. New trees automatically
+  downloaded, if no vocab_tree_path is provided, otherwise manual download and update required.
+* Removed official support for Ubuntu 20.04, MacOS 13, and Visual Studio 2019.
+
+Full Change List (sorted temporally)
+------------------------------------
+* Cancel previous Github action runs upon push by @ahojnnes in https://github.com/colmap/colmap/pull/2998
+* Fix ccache installation in pycolmap windows CI by @ahojnnes in https://github.com/colmap/colmap/pull/2997
+* Use Azure blob storage as vcpkg binary cache by @ahojnnes in https://github.com/colmap/colmap/pull/2999
+* Add missing openmp flags in retrieval for flann parallelization by @ahojnnes in https://github.com/colmap/colmap/pull/3018
+* Separate read and write SAS tokens for vcpkg binary cache by @ahojnnes in https://github.com/colmap/colmap/pull/3027
+* Define vcpkg binary cache source inline by @ahojnnes in https://github.com/colmap/colmap/pull/3028
+* Fix conditional vcpkg binary cache config in bash by @ahojnnes in https://github.com/colmap/colmap/pull/3031
+* Avoid absolute path for the include directory installation by @jhacsonmeza in https://github.com/colmap/colmap/pull/3024
+* Add conversion between LLA and UTM coords. by @StonerLing in https://github.com/colmap/colmap/pull/3030
+* Improve interface for ReadWriteBinaryBlob and add tests by @ahojnnes in https://github.com/colmap/colmap/pull/3033
+* Add support for downloading files by @ahojnnes in https://github.com/colmap/colmap/pull/3022
+* Add function to compute sha256 digest by @ahojnnes in https://github.com/colmap/colmap/pull/3035
+* Automatically download and cache vocabulary tree by @ahojnnes in https://github.com/colmap/colmap/pull/3036
+* Set vcpkg default features and synchronize to latest vcpkg by @ahojnnes in https://github.com/colmap/colmap/pull/3038
+* Avoid unnecessary copy of input elements in Percentile/Median by @ahojnnes in https://github.com/colmap/colmap/pull/3039
+* Abstract algorithm class IncrementalMapperImpl by @B1ueber2y in https://github.com/colmap/colmap/pull/3040
+* Perform linear interpolation in percentile computation by @ahojnnes in https://github.com/colmap/colmap/pull/3041
+* Avoid dependent inputs in IncrementalMapperImpl by @B1ueber2y in https://github.com/colmap/colmap/pull/3043
+* Reorder destructors for better safety in EndReconstruction by @B1ueber2y in https://github.com/colmap/colmap/pull/3046
+* Improvements for reconstruction normalization / bbox / centroid by @ahojnnes in https://github.com/colmap/colmap/pull/3047
+* Speedup affine transform minimal solver, create python bindings by @ahojnnes in https://github.com/colmap/colmap/pull/3049
+* Fix compilation with DOWNLOAD_ENABLED=OFF by @ahojnnes in https://github.com/colmap/colmap/pull/3053
+* Consistent interface/tests for rigid3d/sim3d/affine2d, pycolmap bindings for rigid3d by @ahojnnes in https://github.com/colmap/colmap/pull/3051
+* Improve logging for errors in masking during feature extraction by @Ambrosiussen in https://github.com/colmap/colmap/pull/3034
+* Add copy constructor support for solver-related ceres bindings by @B1ueber2y in https://github.com/colmap/colmap/pull/3059
+* Minor fix on using pycolmap bundle adjuster with pyceres by @B1ueber2y in https://github.com/colmap/colmap/pull/3060
+* Re-enable interface support for covariance estimation from a Ceres::Problem instance by @B1ueber2y in https://github.com/colmap/colmap/pull/3061
+* Only cancel CI runs in PRs and not in main/release branches by @ahojnnes in https://github.com/colmap/colmap/pull/3063
+* Add binding support for invalid values in pycolmap id types by @B1ueber2y in https://github.com/colmap/colmap/pull/3072
+* Fix custom quality level in ETH3D benchmark by @ahojnnes in https://github.com/colmap/colmap/pull/3076
+* Set max_num_features automatically per quality level by @ahojnnes in https://github.com/colmap/colmap/pull/3077
+* Make it possible to build the MVS doc even when CUDA is not installed by @sarlinpe in https://github.com/colmap/colmap/pull/3078
+* Temporarily disable ccache in the pycolmap macOS CI by @sarlinpe in https://github.com/colmap/colmap/pull/3084
+* Add option to specify image list in automatic reconstruction by @ahojnnes in https://github.com/colmap/colmap/pull/3074
+* Only create OpenGL context in automatic reconstruction if necessary by @ahojnnes in https://github.com/colmap/colmap/pull/3075
+* Remove unnecessary braces around initializer in pycolmap/covariance by @ahojnnes in https://github.com/colmap/colmap/pull/3080
+* Remove temporary fixes for macOS CI by @sarlinpe in https://github.com/colmap/colmap/pull/2954
+* Reconstruction benchmark by @ahojnnes in https://github.com/colmap/colmap/pull/2714
+* Re-enable ccache in pycolmap Mac CI by @sarlinpe in https://github.com/colmap/colmap/pull/3085
+* Fix transitive completion in incremental triangulator by @ahojnnes in https://github.com/colmap/colmap/pull/3094
+* Fix image deletion, hide point viewer widget after deletion by @ahojnnes in https://github.com/colmap/colmap/pull/3098
+* Fix download functionality under Windows by @ahojnnes in https://github.com/colmap/colmap/pull/3099
+* Add back detailed logs for covariance estimation by @B1ueber2y in https://github.com/colmap/colmap/pull/3082
+* Fix reprojection error in camera rig cost function by @binbin-xu in https://github.com/colmap/colmap/pull/3106
+* Install missing libcurl4 runtime library in dockerfile by @ahojnnes in https://github.com/colmap/colmap/pull/3122
+* Expose incremental mapper pose prior options in pycolmap by @ahojnnes in https://github.com/colmap/colmap/pull/3123
+* Remove year from copyright by @ahojnnes in https://github.com/colmap/colmap/pull/3124
+* Use poselib for generalized absolute pose minimal solver by @ahojnnes in https://github.com/colmap/colmap/pull/3125
+* Add code coverage reporting by @ahojnnes in https://github.com/colmap/colmap/pull/3126
+* Fix synthetic prior generation when stddev=0 by @ahojnnes in https://github.com/colmap/colmap/pull/3128
+* Create temporary colmap test directy under system test directory by @ahojnnes in https://github.com/colmap/colmap/pull/3129
+* Minor: pyceres is no longer a must for running pycolmap bundle adjuster by @B1ueber2y in https://github.com/colmap/colmap/pull/3130
+* Fix cost functor convention for benchmarking by @B1ueber2y in https://github.com/colmap/colmap/pull/3131
+* Support enum from string conversion by @ahojnnes in https://github.com/colmap/colmap/pull/3132
+* More robustly handle degenerate triangulation angles by @ahojnnes in https://github.com/colmap/colmap/pull/3135
+* Minor: add missing empty namespace in alignment testing script by @B1ueber2y in https://github.com/colmap/colmap/pull/3137
+* Add frame impl for future rig support by @B1ueber2y in https://github.com/colmap/colmap/pull/2698
+* Rename RigCalibration to RigCalib by @ahojnnes in https://github.com/colmap/colmap/pull/3142
+* Fix and improve two-view pose and triangulation angle estimation by @ahojnnes in https://github.com/colmap/colmap/pull/3146
+* Fix covariance propagation of pose inverse by @B1ueber2y in https://github.com/colmap/colmap/pull/3155
+* [Spherical Camera Support] Change essential matrix estimation to use camera rays by @ahojnnes in https://github.com/colmap/colmap/pull/3159
+* Improve incremental mapper initialization logic by @ahojnnes in https://github.com/colmap/colmap/pull/3161
+* Improved RANSAC dependency injection by @ahojnnes in https://github.com/colmap/colmap/pull/3165
+* Add docs on the left convention in COLMAP for covariance propagation. by @B1ueber2y in https://github.com/colmap/colmap/pull/3167
+* Add docker instruction link to docs by @j3soon in https://github.com/colmap/colmap/pull/3169
+* Compute absolute pose estimation error in image space by @ahojnnes in https://github.com/colmap/colmap/pull/3166
+* Add support for propagating relative pose covariance. by @B1ueber2y in https://github.com/colmap/colmap/pull/3168
+* Avoid using namespace in pycolmap headers by @ahojnnes in https://github.com/colmap/colmap/pull/3173
+* Fix naming of cross covariance and add relative pose covariance interface by @B1ueber2y in https://github.com/colmap/colmap/pull/3170
+* Camera models perform valid projection test by @ahojnnes in https://github.com/colmap/colmap/pull/3172
+* Various improvements and extensions for pycolmap by @ahojnnes in https://github.com/colmap/colmap/pull/3176
+* Fix pycolmap ci build for pull requests by @B1ueber2y in https://github.com/colmap/colmap/pull/3178
+* Change CamFromImg to return optional ray by @ahojnnes in https://github.com/colmap/colmap/pull/3180
+* Triangulation operates on camera rays by @ahojnnes in https://github.com/colmap/colmap/pull/3184
+* Python bindings for visual index by @ahojnnes in https://github.com/colmap/colmap/pull/3185
+* Define bindings in the correct order by @sarlinpe in https://github.com/colmap/colmap/pull/3189
+* Restore CamFromImg to return normalized camera coordinates instead of… by @ahojnnes in https://github.com/colmap/colmap/pull/3193
+* Add Rig serialization support to reconstruction+database by @ahojnnes in https://github.com/colmap/colmap/pull/3143
+* Pull changes from main branch by @ahojnnes in https://github.com/colmap/colmap/pull/3194
+* Fix maybe-uninitialized warnings by @papjuli in https://github.com/colmap/colmap/pull/3199
+* Fix compilation errors with PoissonRecon by @theartful in https://github.com/colmap/colmap/pull/3200
+* Remove Ubuntu 20.04 from the CI by @sarlinpe in https://github.com/colmap/colmap/pull/3203
+* Add support for frame serialization by @ahojnnes in https://github.com/colmap/colmap/pull/3202
+* Handle non-trivial frames in bundle adjustment by @ahojnnes in https://github.com/colmap/colmap/pull/3214
+* Update email address by @sarlinpe in https://github.com/colmap/colmap/pull/3223
+* Change the root of the Python package by @sarlinpe in https://github.com/colmap/colmap/pull/3217
+* Fix bug when toggling rendering by @ahojnnes in https://github.com/colmap/colmap/pull/3230
+* Add convenience iterator for frame image ids by @ahojnnes in https://github.com/colmap/colmap/pull/3231
+* Update feature/rig with main by @ahojnnes in https://github.com/colmap/colmap/pull/3241
+* Update to latest vcpkg by @ahojnnes in https://github.com/colmap/colmap/pull/3243
+* Update feature/rig branch with latest changes in main by @ahojnnes in https://github.com/colmap/colmap/pull/3244
+* Fix incremental pycolmap build script by @ahojnnes in https://github.com/colmap/colmap/pull/3245
+* Logically group image reader options by @ahojnnes in https://github.com/colmap/colmap/pull/3246
+* Fix chained match synthesis by @ahojnnes in https://github.com/colmap/colmap/pull/3248
+* Retire Reconstruction::IsImageRegistered in favor of existing Image::HasPose by @ahojnnes in https://github.com/colmap/colmap/pull/3247
+* Fix two-view geometry pose estimation for homography by @ahojnnes in https://github.com/colmap/colmap/pull/3250
+* Fix uninitialized variable warnings by @ahojnnes in https://github.com/colmap/colmap/pull/3254
+* Include Boost headers on build by @jonahjnewton in https://github.com/colmap/colmap/pull/3257
+* Pull latest changes from main to feature/rig by @ahojnnes in https://github.com/colmap/colmap/pull/3262
+* Support rigs/frames in incremental mapper by @ahojnnes in https://github.com/colmap/colmap/pull/3238
+* Rename FrameFromWorld to RigFromWorld pose by @ahojnnes in https://github.com/colmap/colmap/pull/3263
+* Add pytest on the e2e python pipeline into CI. by @B1ueber2y in https://github.com/colmap/colmap/pull/3266
+* Fix broken python interfaces by @B1ueber2y in https://github.com/colmap/colmap/pull/3267
+* Use generalized absolute pose estimation for non-trivial frames by @ahojnnes in https://github.com/colmap/colmap/pull/3265
+* Fix color extraction for rig frames by @ahojnnes in https://github.com/colmap/colmap/pull/3268
+* Sequential matcher expands rig images by @ahojnnes in https://github.com/colmap/colmap/pull/3270
+* Fix usage of deprecated pycolmap interfaces in pycolmap README. by @B1ueber2y in https://github.com/colmap/colmap/pull/3272
+* Improved code/docs and tests for rig configuration by @ahojnnes in https://github.com/colmap/colmap/pull/3275
+* Update vcpkg to pull in fixes for ceres by @ahojnnes in https://github.com/colmap/colmap/pull/3276
+* Rig bundle adjuster uses default bundle adjustment routine by @ahojnnes in https://github.com/colmap/colmap/pull/3281
+* Cleanup legacy camera rig code by @ahojnnes in https://github.com/colmap/colmap/pull/3283
+* Store rig sensors and frame data in separate database tables by @ahojnnes in https://github.com/colmap/colmap/pull/3285
+* Configure trivial rigs and frames during feature extraction by @ahojnnes in https://github.com/colmap/colmap/pull/3287
+* [Bugfix] Center 2D points by principal point for absolute pose estimation with unknown focal length by @xjiangan in https://github.com/colmap/colmap/pull/3289
+* Add bindings for rig configuration by @ahojnnes in https://github.com/colmap/colmap/pull/3291
+* Documentation for rig support by @ahojnnes in https://github.com/colmap/colmap/pull/3290
+* Fix documentation of rigs.txt by @sarlinpe in https://github.com/colmap/colmap/pull/3292
+* Update feature/rig with latest changes in main by @ahojnnes in https://github.com/colmap/colmap/pull/3293
+* Merge feature/rig branch into main by @ahojnnes in https://github.com/colmap/colmap/pull/3295
+* improve clarity of the rig example by @B1ueber2y in https://github.com/colmap/colmap/pull/3297
+* Bind missing SequentialMatchingOptions.loop_detection_period by @sarlinpe in https://github.com/colmap/colmap/pull/3299
+* cleanup legacy comments for base controller. by @B1ueber2y in https://github.com/colmap/colmap/pull/3300
+* Fix bug in grayscale Bitmap.to_array by @sarlinpe in https://github.com/colmap/colmap/pull/3301
+* Handle errors in Bitmap.read by @sarlinpe in https://github.com/colmap/colmap/pull/3302
+* Add an example script for SfM with 360 spherical images by @sarlinpe in https://github.com/colmap/colmap/pull/3304
+* Recognize URIs for vocab_tree_path in GUI feature matching by @ahojnnes in https://github.com/colmap/colmap/pull/3305
+* Deterministic behavior for Python pipeline tests by @ahojnnes in https://github.com/colmap/colmap/pull/3306
+* Move colmap/ui/main_window.h include to implementation by @ahojnnes in https://github.com/colmap/colmap/pull/3307
+* Add Python 3.13 to pycolmap build matrix by @ahojnnes in https://github.com/colmap/colmap/pull/3308
+* Add missing SiftMatchingOptions::cpu_brute_force_matcher to pycolmap bindings by @ahojnnes in https://github.com/colmap/colmap/pull/3309
+* Augment pinhole renders with GPS EXIFs of the panos by @sarlinpe in https://github.com/colmap/colmap/pull/3310
+* Add missing cpu_brute_force_matcher to option manager by @ahojnnes in https://github.com/colmap/colmap/pull/3315
+* Bind GPSTransform and make GPSTransform::Ellipsoid an enum class by @sarlinpe in https://github.com/colmap/colmap/pull/3311
+* Update pose prior bundle adjuster to handle rigs by @ahojnnes in https://github.com/colmap/colmap/pull/3312
+* Add support for running pose prior mapper from GUI by @ahojnnes in https://github.com/colmap/colmap/pull/3313
+* Enable different matcher types and default to sequential in pano example by @ahojnnes in https://github.com/colmap/colmap/pull/3314
+* Modularize reconstruction I/O formats into different libraries by @ahojnnes in https://github.com/colmap/colmap/pull/3317
+* Fall back to P3P solver for panoramic generalized absolute pose by @ahojnnes in https://github.com/colmap/colmap/pull/3318
+* Fix FLANN-based CPU feature matcher crash in pycolmap by @ahojnnes in https://github.com/colmap/colmap/pull/3320
+* Update cibuildwheel to 2.23.2 by @ahojnnes in https://github.com/colmap/colmap/pull/3081
+* Assume prior focal length for explicitly defined rig camera models by @ahojnnes in https://github.com/colmap/colmap/pull/3321
+* Fix rig configuration with partial input reconstruction by @ahojnnes in https://github.com/colmap/colmap/pull/3322
+* Use reference for image.camera and image.frame in pycolmap. by @B1ueber2y in https://github.com/colmap/colmap/pull/3323
+* Use reference for frame.rig in pycolmap. by @B1ueber2y in https://github.com/colmap/colmap/pull/3324
+* Cosmetic improvement on some geometry python bindings by @B1ueber2y in https://github.com/colmap/colmap/pull/3325
+* Add unit test for EstimateAbsolutePose by @ahojnnes in https://github.com/colmap/colmap/pull/3327
+* Add gmock matchers for rigid3 and sim3 by @ahojnnes in https://github.com/colmap/colmap/pull/3328
+* Add unit tests for absolute pose refinement by @ahojnnes in https://github.com/colmap/colmap/pull/3330
+* Cosmetic cleanup for absolute pose tests by @ahojnnes in https://github.com/colmap/colmap/pull/3333
+* Add generalized relative pose estimation and pose binding cleanups by @ahojnnes in https://github.com/colmap/colmap/pull/3334
+* Turn camera parameter access debug checks into throwing checks by @ahojnnes in https://github.com/colmap/colmap/pull/3337
+* Handle panoramic rigs in generalized relative pose estimation by @ahojnnes in https://github.com/colmap/colmap/pull/3338
+* Cosmetic variable name improvements to match conventions by @ahojnnes in https://github.com/colmap/colmap/pull/3341
+* Add unit test for relative pose estimation by @ahojnnes in https://github.com/colmap/colmap/pull/3342
+* Avoid nested parallelization for vocab tree pairing by @ahojnnes in https://github.com/colmap/colmap/pull/3343
+* Fix rigid3/sim3 matchers for older eigen versions by @ahojnnes in https://github.com/colmap/colmap/pull/3344
+* Deterministic homography test by @ahojnnes in https://github.com/colmap/colmap/pull/3346
+* Add missing return statement in PyEstimateGeneralizedRelativePose by @ahojnnes in https://github.com/colmap/colmap/pull/3349
+* Fix runtime error in panorama_sfm.py with sequential matching by @samuelm2 in https://github.com/colmap/colmap/pull/3351
+* Fix race conditions in feature matcher cache by @ahojnnes in https://github.com/colmap/colmap/pull/3354
+* Use shared lock in thread safe LRU cache by @ahojnnes in https://github.com/colmap/colmap/pull/3355
+* Upgrade Jimver/cuda-toolkit GH actions task to 0.2.23 by @ahojnnes in https://github.com/colmap/colmap/pull/3358
+* Upgrade to Ubuntu 24.04 / clang-18 in CI for ASan and ClangTidy builds by @ahojnnes in https://github.com/colmap/colmap/pull/3357
+* Use add_compile_definitions instead of deprecated add_definitions by @ahojnnes in https://github.com/colmap/colmap/pull/3348
+* Update Mac Github runners and fix pycolmap deployment targets by @ahojnnes in https://github.com/colmap/colmap/pull/3361
+* Suppress CUDA warnings related constexpr host/device calls by @ahojnnes in https://github.com/colmap/colmap/pull/3362
+* Update docker image to ubuntu 24.04 by @ahojnnes in https://github.com/colmap/colmap/pull/3363
+* Fix benchmarking for rigs by @ahojnnes in https://github.com/colmap/colmap/pull/3364
+* Add option to overwrite matches in benchmarking by @ahojnnes in https://github.com/colmap/colmap/pull/3365
+* Replace flann with faiss by @ahojnnes in https://github.com/colmap/colmap/pull/3350
+* Update docker with all major CUDA archs and updated boost version by @ahojnnes in https://github.com/colmap/colmap/pull/3369
+* Retire remaining flann components and remove as dependency by @ahojnnes in https://github.com/colmap/colmap/pull/3370
+* Update feature index to use float descriptors and distances by @ahojnnes in https://github.com/colmap/colmap/pull/3371
+* Fix deadlock during feature matching by @ahojnnes in https://github.com/colmap/colmap/pull/3373
+* Warn user when reading legacy flann index by @ahojnnes in https://github.com/colmap/colmap/pull/3372
+* expose loading database into database cache from DatabaseCache::Create. by @B1ueber2y in https://github.com/colmap/colmap/pull/3375
+* minor: rename DatabaseCache::LoadDatabase to Load by @B1ueber2y in https://github.com/colmap/colmap/pull/3376
+* Fix typo by @B1ueber2y in https://github.com/colmap/colmap/pull/3377
+* Unit tests for image reader, remove redundant definition of database by @ahojnnes in https://github.com/colmap/colmap/pull/3383
+* Fix trailing comma-separation when printing list contents by @ahojnnes in https://github.com/colmap/colmap/pull/3388
+* Add missing VocabTreeMatching.num_threads in option manager by @ahojnnes in https://github.com/colmap/colmap/pull/3389
+* Use OpenBLAS OpenMP version under Ubuntu to fix slow faiss by @ahojnnes in https://github.com/colmap/colmap/pull/3390
+* Speedup database reads of rigs/frames with single SQL outer join query by @ahojnnes in https://github.com/colmap/colmap/pull/3387
+* Introduce context manager to reset sqlite3 statements by @ahojnnes in https://github.com/colmap/colmap/pull/3392
+* Add missing use_gpu options in pycolmap SIFT bindings by @ahojnnes in https://github.com/colmap/colmap/pull/3397
+* Add FeatureMatch python bindings by @ahojnnes in https://github.com/colmap/colmap/pull/3398
+* Add option to set log level in GUI by @ahojnnes in https://github.com/colmap/colmap/pull/3399
+* Add docs to explain the concepts of rigs and frames. by @B1ueber2y in https://github.com/colmap/colmap/pull/3395
+* Allow png mask without double extension by @MotivaCG in https://github.com/colmap/colmap/pull/3284
+* Propagate macros to top-level CMakeLists.txt files by @jhacsonmeza in https://github.com/colmap/colmap/pull/3396
+* Add a missing function implementation by @lpanaf in https://github.com/colmap/colmap/pull/3412
+* Improved tests for reconstruction merging by @ahojnnes in https://github.com/colmap/colmap/pull/3413
+* Use MKL as BLAS vendor for faiss by @ahojnnes in https://github.com/colmap/colmap/pull/3393
+* Fix wrong doc for point covariance by @B1ueber2y in https://github.com/colmap/colmap/pull/3416
+* Add legacy docs from 3.8 to 3.11. by @B1ueber2y in https://github.com/colmap/colmap/pull/3414
+* Do not filter existing, fixed frames by @ahojnnes in https://github.com/colmap/colmap/pull/3403
+* Tag commit id and date in the doc generation by @B1ueber2y in https://github.com/colmap/colmap/pull/3417
+* Return bad initial pair when number of triangulation is less than abs_pose_min_num_inliers by @B1ueber2y in https://github.com/colmap/colmap/pull/3418
+* Add option to build with thread sanitizer flags by @ahojnnes in https://github.com/colmap/colmap/pull/3420
+* Add option to build with undefined behavior sanitizer flags by @ahojnnes in https://github.com/colmap/colmap/pull/3421
+* Fix the RANSAC stopping criterion by @ahojnnes in https://github.com/colmap/colmap/pull/3425
+* Replace incorrect call to nonZeros by @sarlinpe in https://github.com/colmap/colmap/pull/3426
+* Add deprecation warning for rig_bundle_adjuster by @sarlinpe in https://github.com/colmap/colmap/pull/3427
+* Fix incorrect include in euclidean_transform.h by @sarlinpe in https://github.com/colmap/colmap/pull/3428
+* Add Frame::SetCamFromWorld in pycolmap and fix comment. by @B1ueber2y in https://github.com/colmap/colmap/pull/3429
+* Estimate essential matrix using camera rays instead of points by @ahojnnes in https://github.com/colmap/colmap/pull/3423
+* Fix FilterPoints3DWithSmallTriangulationAngle to return number of filtered observations by @whuaegeanse in https://github.com/colmap/colmap/pull/3424
+* Update to latest vcpkg commit by @ahojnnes in https://github.com/colmap/colmap/pull/3430
+* Initialize from non-trivial frame pairs using generalized relative pose by @ahojnnes in https://github.com/colmap/colmap/pull/3419
+* Fix setup_ubuntu.sh for docker by @MasahiroOgawa in https://github.com/colmap/colmap/pull/3432
+* Support visualization of models with arbitrary origin and scale by @ahojnnes in https://github.com/colmap/colmap/pull/3044
+* Fix ReadPositionPriorData to return valid and numerically more stable Position prior data by @whuaegeanse https://github.com/colmap/colmap/pull/3438
+
+--------------------------
+COLMAP 3.11.1 (12/06/2024)
+--------------------------
+
+Bug Fixes
+---------
+* Fix typo in pycolmap function align_reconstruction_to_locations interface by @B1ueber2y in https://github.com/colmap/colmap/pull/2961
+* Add back some ceres bindings to use pycolmap bundle adjustment without pyceres by @B1ueber2y in https://github.com/colmap/colmap/pull/2985
+* Fix setting of RANSAC max error in pose prior BA alignment by @ahojnnes in https://github.com/colmap/colmap/pull/2993
+
+--------------------------
+COLMAP 3.11.0 (11/28/2024)
+--------------------------
 
 New Features
 ------------

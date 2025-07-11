@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -36,10 +36,16 @@
 #define SELECTION_BUFFER_IMAGE_IDX 0
 #define SELECTION_BUFFER_POINT_IDX 1
 
+// Color of a selected 3D point.
 const Eigen::Vector4f kSelectedPointColor(0.0f, 1.0f, 0.0f, 1.0f);
 
+// Color of the viewing frustum if the image is selected.
 const Eigen::Vector4f kSelectedImagePlaneColor(1.0f, 0.0f, 1.0f, 0.6f);
 const Eigen::Vector4f kSelectedImageFrameColor(0.8f, 0.0f, 0.8f, 1.0f);
+
+// Color of the viewing frustum if another image in the same frame is selected.
+const Eigen::Vector4f kSelectedFramePlaneColor(0.8f, 0.0f, 0.8f, 0.3f);
+const Eigen::Vector4f kSelectedFrameFrameColor(0.6f, 0.0f, 0.6f, 0.7f);
 
 const Eigen::Vector4f kMovieGrabberImagePlaneColor(0.0f, 1.0f, 1.0f, 0.6f);
 const Eigen::Vector4f kMovieGrabberImageFrameColor(0.0f, 0.8f, 0.8f, 1.0f);
@@ -68,22 +74,22 @@ inline Eigen::Vector4f IndexToRGB(const size_t index) {
   return color;
 }
 
-void BuildImageModel(const Image& image,
-                     const Camera& camera,
-                     const float image_size,
-                     const Eigen::Vector4f& plane_color,
-                     const Eigen::Vector4f& frame_color,
-                     std::vector<TrianglePainter::Data>* triangle_data,
-                     std::vector<LinePainter::Data>* line_data) {
+void BuildCameraModel(const std::optional<Rigid3d>& cam_from_world,
+                      const Camera& camera,
+                      const float image_size,
+                      const Eigen::Vector4f& plane_color,
+                      const Eigen::Vector4f& frame_color,
+                      const Eigen::Vector3d& model_origin,
+                      const double model_scale,
+                      std::vector<TrianglePainter::Data>* triangle_data,
+                      std::vector<LinePainter::Data>* line_data) {
   // Updating the reconstruction in the viewer (e.g., deleting an image or a
   // point) is not thread-safe when the mapper is running, where some images may
   // be in a partial, incorrect state. In rare circumstances, an image may be
   // registered but not yet have a pose. Instead of crashing the viewer, we
   // simply skip the visualization of these images and warn the user.
-  const std::optional<Rigid3d>& cam_from_world = image.MaybeCamFromWorld();
   if (!cam_from_world) {
-    LOG(WARNING) << "Failed to render image " << image.Name()
-                 << " but it has no pose.";
+    LOG(WARNING) << "Failed to render camera because it has no pose.";
     return;
   }
 
@@ -98,23 +104,27 @@ void BuildImageModel(const Image& image,
       static_cast<float>(camera.CamFromImgThreshold(camera_extent));
   const float focal_length = 2.0f * image_extent / camera_extent_normalized;
 
-  const Eigen::Matrix<float, 3, 4> world_from_cam =
-      Inverse(*cam_from_world).ToMatrix().cast<float>();
+  Rigid3d world_from_cam = Inverse(*cam_from_world);
+  world_from_cam.translation += model_origin;
+  world_from_cam.translation *= model_scale;
+
+  const Eigen::Matrix<float, 3, 4> world_from_cam_mat =
+      world_from_cam.ToMatrix().cast<float>();
 
   // Projection center, top-left, top-right, bottom-right, bottom-left corners.
 
-  const Eigen::Vector3f pc = world_from_cam.rightCols<1>();
+  const Eigen::Vector3f pc = world_from_cam_mat.rightCols<1>();
   const Eigen::Vector3f tl =
-      world_from_cam *
+      world_from_cam_mat *
       Eigen::Vector4f(-image_width, image_height, focal_length, 1);
   const Eigen::Vector3f tr =
-      world_from_cam *
+      world_from_cam_mat *
       Eigen::Vector4f(image_width, image_height, focal_length, 1);
   const Eigen::Vector3f br =
-      world_from_cam *
+      world_from_cam_mat *
       Eigen::Vector4f(image_width, -image_height, focal_length, 1);
   const Eigen::Vector3f bl =
-      world_from_cam *
+      world_from_cam_mat *
       Eigen::Vector4f(-image_width, -image_height, focal_length, 1);
 
   // Image plane as two triangles.
@@ -386,16 +396,28 @@ void ModelViewerWidget::ReloadReconstruction() {
     return;
   }
 
+  rigs = reconstruction->Rigs();
   cameras = reconstruction->Cameras();
+  frames = reconstruction->Frames();
   points3D = reconstruction->Points3D();
-  const std::set<image_t>& reg_image_ids_set = reconstruction->RegImageIds();
-  reg_image_ids =
-      std::vector<image_t>(reg_image_ids_set.begin(), reg_image_ids_set.end());
 
+  frames.clear();
   images.clear();
-  for (const image_t image_id : reg_image_ids) {
-    images[image_id] = reconstruction->Image(image_id);
+  reg_image_ids.clear();
+  for (const frame_t frame_id : reconstruction->RegFrameIds()) {
+    Frame& frame = frames[frame_id];
+    frame = reconstruction->Frame(frame_id);
+    frame.SetRigPtr(&rigs[frame.RigId()]);
+    for (const data_t& data_id : frame.ImageIds()) {
+      Image& image = images[data_id.id];
+      image = reconstruction->Image(data_id.id);
+      image.SetCameraPtr(&cameras[image.CameraId()]);
+      image.SetFramePtr(&frame);
+      reg_image_ids.push_back(data_id.id);
+    }
   }
+
+  std::sort(reg_image_ids.begin(), reg_image_ids.end());
 
   if (selected_point3D_id_ != kInvalidPoint3DId &&
       points3D.count(selected_point3D_id_) == 0) {
@@ -403,12 +425,14 @@ void ModelViewerWidget::ReloadReconstruction() {
   }
 
   if (selected_image_id_ != kInvalidImageId &&
-      reg_image_ids_set.count(selected_image_id_) == 0) {
+      !std::binary_search(
+          reg_image_ids.begin(), reg_image_ids.end(), selected_image_id_)) {
     selected_image_id_ = kInvalidImageId;
   }
 
   statusbar_status_label->setText(
-      QString().asprintf("%d Images - %d Points",
+      QString().asprintf("%d Frames - %d Images - %d Points",
+                         static_cast<int>(reconstruction->NumRegFrames()),
                          static_cast<int>(reg_image_ids.size()),
                          static_cast<int>(points3D.size())));
 
@@ -826,11 +850,41 @@ void ModelViewerWidget::SetupView() {
   model_view_matrix_.rotate(-45, 0, 1, 0);
 }
 
+void ModelViewerWidget::ComputeModelOriginAndScale() {
+  if (reg_image_ids.empty()) {
+    model_origin_.setZero();
+    model_scale_ = 1;
+    return;
+  }
+
+  const size_t num_reg_images = reg_image_ids.size();
+  std::vector<double> x_coords(num_reg_images);
+  std::vector<double> y_coords(num_reg_images);
+  std::vector<double> z_coords(num_reg_images);
+  for (size_t i = 0; i < num_reg_images; ++i) {
+    const Image& image = images[reg_image_ids[i]];
+    const Eigen::Vector3d proj_center = image.ProjectionCenter();
+    x_coords[i] = proj_center.x();
+    y_coords[i] = proj_center.y();
+    z_coords[i] = proj_center.z();
+  }
+
+  model_origin_ =
+      -Eigen::Vector3d(Median(x_coords), Median(y_coords), Median(z_coords));
+  model_scale_ =
+      1. / std::max({Percentile(x_coords, 95) - Percentile(x_coords, 5),
+                     Percentile(y_coords, 95) - Percentile(y_coords, 5),
+                     Percentile(z_coords, 95) - Percentile(z_coords, 5),
+                     1e-6});
+}
+
 void ModelViewerWidget::Upload() {
   point_colormap_->Prepare(cameras, images, points3D, reg_image_ids);
   image_colormap_->Prepare(cameras, images, points3D, reg_image_ids);
 
   ComposeProjectionMatrix();
+
+  ComputeModelOriginAndScale();
 
   UploadPointData();
   UploadImageData();
@@ -844,92 +898,106 @@ void ModelViewerWidget::Upload() {
 void ModelViewerWidget::UploadCoordinateGridData() {
   makeCurrent();
 
-  const float scale = ZoomScale();
+  const float zoom_scale = ZoomScale();
+  const Eigen::Vector3d scaled_origin = model_scale_ * model_origin_;
 
   // View center grid.
-  std::vector<LinePainter::Data> grid_data(3);
-
-  grid_data[0].point1 = PointPainter::Data(-20 * scale,
-                                           0,
-                                           0,
-                                           kGridColor(0),
-                                           kGridColor(1),
-                                           kGridColor(2),
-                                           kGridColor(3));
-  grid_data[0].point2 = PointPainter::Data(20 * scale,
-                                           0,
-                                           0,
-                                           kGridColor(0),
-                                           kGridColor(1),
-                                           kGridColor(2),
-                                           kGridColor(3));
-
-  grid_data[1].point1 = PointPainter::Data(0,
-                                           -20 * scale,
-                                           0,
-                                           kGridColor(0),
-                                           kGridColor(1),
-                                           kGridColor(2),
-                                           kGridColor(3));
-  grid_data[1].point2 = PointPainter::Data(0,
-                                           20 * scale,
-                                           0,
-                                           kGridColor(0),
-                                           kGridColor(1),
-                                           kGridColor(2),
-                                           kGridColor(3));
-
-  grid_data[2].point1 = PointPainter::Data(0,
-                                           0,
-                                           -20 * scale,
-                                           kGridColor(0),
-                                           kGridColor(1),
-                                           kGridColor(2),
-                                           kGridColor(3));
-  grid_data[2].point2 = PointPainter::Data(0,
-                                           0,
-                                           20 * scale,
-                                           kGridColor(0),
-                                           kGridColor(1),
-                                           kGridColor(2),
-                                           kGridColor(3));
-
-  coordinate_grid_painter_.Upload(grid_data);
+  constexpr double kCenterGridSize = 20;
+  coordinate_grid_painter_.Upload(
+      {LinePainter::Data(
+           PointPainter::Data(scaled_origin(0) - kCenterGridSize * zoom_scale,
+                              scaled_origin(1),
+                              scaled_origin(2),
+                              kGridColor(0),
+                              kGridColor(1),
+                              kGridColor(2),
+                              kGridColor(3)),
+           PointPainter::Data(scaled_origin(0) + kCenterGridSize * zoom_scale,
+                              scaled_origin(1),
+                              scaled_origin(2),
+                              kGridColor(0),
+                              kGridColor(1),
+                              kGridColor(2),
+                              kGridColor(3))),
+       LinePainter::Data(
+           PointPainter::Data(scaled_origin(0),
+                              scaled_origin(1) - kCenterGridSize * zoom_scale,
+                              scaled_origin(2),
+                              kGridColor(0),
+                              kGridColor(1),
+                              kGridColor(2),
+                              kGridColor(3)),
+           PointPainter::Data(scaled_origin(0),
+                              scaled_origin(1) + kCenterGridSize * zoom_scale,
+                              scaled_origin(2),
+                              kGridColor(0),
+                              kGridColor(1),
+                              kGridColor(2),
+                              kGridColor(3))),
+       LinePainter::Data(
+           PointPainter::Data(scaled_origin(0),
+                              scaled_origin(1),
+                              scaled_origin(2) - kCenterGridSize * zoom_scale,
+                              kGridColor(0),
+                              kGridColor(1),
+                              kGridColor(2),
+                              kGridColor(3)),
+           PointPainter::Data(scaled_origin(0),
+                              scaled_origin(1),
+                              scaled_origin(2) + kCenterGridSize * zoom_scale,
+                              kGridColor(0),
+                              kGridColor(1),
+                              kGridColor(2),
+                              kGridColor(3)))});
 
   // Coordinate axes.
-  std::vector<LinePainter::Data> axes_data(3);
-
-  axes_data[0].point1 = PointPainter::Data(
-      0, 0, 0, kXAxisColor(0), kXAxisColor(1), kXAxisColor(2), kXAxisColor(3));
-  axes_data[0].point2 = PointPainter::Data(50 * scale,
-                                           0,
-                                           0,
-                                           kXAxisColor(0),
-                                           kXAxisColor(1),
-                                           kXAxisColor(2),
-                                           kXAxisColor(3));
-
-  axes_data[1].point1 = PointPainter::Data(
-      0, 0, 0, kYAxisColor(0), kYAxisColor(1), kYAxisColor(2), kYAxisColor(3));
-  axes_data[1].point2 = PointPainter::Data(0,
-                                           50 * scale,
-                                           0,
-                                           kYAxisColor(0),
-                                           kYAxisColor(1),
-                                           kYAxisColor(2),
-                                           kYAxisColor(3));
-
-  axes_data[2].point1 = PointPainter::Data(
-      0, 0, 0, kZAxisColor(0), kZAxisColor(1), kZAxisColor(2), kZAxisColor(3));
-  axes_data[2].point2 = PointPainter::Data(0,
-                                           0,
-                                           50 * scale,
-                                           kZAxisColor(0),
-                                           kZAxisColor(1),
-                                           kZAxisColor(2),
-                                           kZAxisColor(3));
-
-  coordinate_axes_painter_.Upload(axes_data);
+  constexpr double kCoordAxesSize = 50;
+  coordinate_axes_painter_.Upload(
+      {LinePainter::Data(
+           PointPainter::Data(scaled_origin(0),
+                              scaled_origin(1),
+                              scaled_origin(2),
+                              kXAxisColor(0),
+                              kXAxisColor(1),
+                              kXAxisColor(2),
+                              kXAxisColor(3)),
+           PointPainter::Data(scaled_origin(0) + kCoordAxesSize * zoom_scale,
+                              scaled_origin(1),
+                              scaled_origin(2),
+                              kXAxisColor(0),
+                              kXAxisColor(1),
+                              kXAxisColor(2),
+                              kXAxisColor(3))),
+       LinePainter::Data(
+           PointPainter::Data(scaled_origin(0),
+                              scaled_origin(1),
+                              scaled_origin(2),
+                              kYAxisColor(0),
+                              kYAxisColor(1),
+                              kYAxisColor(2),
+                              kYAxisColor(3)),
+           PointPainter::Data(scaled_origin(0),
+                              scaled_origin(1) + kCoordAxesSize * zoom_scale,
+                              scaled_origin(2),
+                              kYAxisColor(0),
+                              kYAxisColor(1),
+                              kYAxisColor(2),
+                              kYAxisColor(3))),
+       LinePainter::Data(
+           PointPainter::Data(scaled_origin(0),
+                              scaled_origin(1),
+                              scaled_origin(2),
+                              kZAxisColor(0),
+                              kZAxisColor(1),
+                              kZAxisColor(2),
+                              kZAxisColor(3)),
+           PointPainter::Data(scaled_origin(0),
+                              scaled_origin(1),
+                              scaled_origin(2) + kCoordAxesSize * zoom_scale,
+                              kZAxisColor(0),
+                              kZAxisColor(1),
+                              kZAxisColor(2),
+                              kZAxisColor(3)))});
 }
 
 void ModelViewerWidget::UploadPointData(const bool selection_mode) {
@@ -945,67 +1013,53 @@ void ModelViewerWidget::UploadPointData(const bool selection_mode) {
 
   if (selected_image_id_ == kInvalidImageId &&
       images.count(selected_image_id_) == 0) {
-    for (const auto& point3D : points3D) {
-      if (point3D.second.error <= options_->render->max_error &&
-          point3D.second.track.Length() >= min_track_len) {
-        PointPainter::Data painter_point;
-
-        painter_point.x = static_cast<float>(point3D.second.xyz(0));
-        painter_point.y = static_cast<float>(point3D.second.xyz(1));
-        painter_point.z = static_cast<float>(point3D.second.xyz(2));
+    for (const auto& [point3D_id, point3D] : points3D) {
+      if (point3D.error <= options_->render->max_error &&
+          point3D.track.Length() >= min_track_len) {
+        const Eigen::Vector3f xyz =
+            (model_scale_ * (point3D.xyz + model_origin_)).cast<float>();
 
         Eigen::Vector4f color;
         if (selection_mode) {
           const size_t index = selection_buffer_.size();
           selection_buffer_.push_back(
-              std::make_pair(point3D.first, SELECTION_BUFFER_POINT_IDX));
+              std::make_pair(point3D_id, SELECTION_BUFFER_POINT_IDX));
           color = IndexToRGB(index);
 
-        } else if (point3D.first == selected_point3D_id_) {
+        } else if (point3D_id == selected_point3D_id_) {
           color = kSelectedPointColor;
         } else {
-          color = point_colormap_->ComputeColor(point3D.first, point3D.second);
+          color = point_colormap_->ComputeColor(point3D_id, point3D);
         }
 
-        painter_point.r = color(0);
-        painter_point.g = color(1);
-        painter_point.b = color(2);
-        painter_point.a = color(3);
-
-        data.push_back(painter_point);
+        data.emplace_back(
+            xyz(0), xyz(1), xyz(2), color(0), color(1), color(2), color(3));
       }
     }
   } else {  // Image selected
     const auto& selected_image = images[selected_image_id_];
-    for (const auto& point3D : points3D) {
-      if (point3D.second.error <= options_->render->max_error &&
-          point3D.second.track.Length() >= min_track_len) {
-        PointPainter::Data painter_point;
-
-        painter_point.x = static_cast<float>(point3D.second.xyz(0));
-        painter_point.y = static_cast<float>(point3D.second.xyz(1));
-        painter_point.z = static_cast<float>(point3D.second.xyz(2));
+    for (const auto& [point3D_id, point3D] : points3D) {
+      if (point3D.error <= options_->render->max_error &&
+          point3D.track.Length() >= min_track_len) {
+        const Eigen::Vector3f xyz =
+            (model_scale_ * (point3D.xyz + model_origin_)).cast<float>();
 
         Eigen::Vector4f color;
         if (selection_mode) {
           const size_t index = selection_buffer_.size();
           selection_buffer_.push_back(
-              std::make_pair(point3D.first, SELECTION_BUFFER_POINT_IDX));
+              std::make_pair(point3D_id, SELECTION_BUFFER_POINT_IDX));
           color = IndexToRGB(index);
-        } else if (selected_image.HasPoint3D(point3D.first)) {
+        } else if (selected_image.HasPoint3D(point3D_id)) {
           color = kSelectedImagePlaneColor;
-        } else if (point3D.first == selected_point3D_id_) {
+        } else if (point3D_id == selected_point3D_id_) {
           color = kSelectedPointColor;
         } else {
-          color = point_colormap_->ComputeColor(point3D.first, point3D.second);
+          color = point_colormap_->ComputeColor(point3D_id, point3D);
         }
 
-        painter_point.r = color(0);
-        painter_point.g = color(1);
-        painter_point.b = color(2);
-        painter_point.a = color(3);
-
-        data.push_back(painter_point);
+        data.emplace_back(
+            xyz(0), xyz(1), xyz(2), color(0), color(1), color(2), color(3));
       }
     }
   }
@@ -1025,12 +1079,14 @@ void ModelViewerWidget::UploadPointConnectionData() {
   }
 
   const auto& point3D = points3D[selected_point3D_id_];
+  const Eigen::Vector3f xyz =
+      (model_scale_ * (point3D.xyz + model_origin_)).cast<float>();
 
   // 3D point position.
   LinePainter::Data line;
-  line.point1 = PointPainter::Data(static_cast<float>(point3D.xyz(0)),
-                                   static_cast<float>(point3D.xyz(1)),
-                                   static_cast<float>(point3D.xyz(2)),
+  line.point1 = PointPainter::Data(xyz(0),
+                                   xyz(1),
+                                   xyz(2),
                                    kSelectedPointColor(0),
                                    kSelectedPointColor(1),
                                    kSelectedPointColor(2),
@@ -1040,7 +1096,8 @@ void ModelViewerWidget::UploadPointConnectionData() {
   for (const auto& track_el : point3D.track.Elements()) {
     const Image& conn_image = images[track_el.image_id];
     const Eigen::Vector3f conn_proj_center =
-        conn_image.ProjectionCenter().cast<float>();
+        (model_scale_ * (conn_image.ProjectionCenter() + model_origin_))
+            .cast<float>();
     line.point2 = PointPainter::Data(conn_proj_center(0),
                                      conn_proj_center(1),
                                      conn_proj_center(2),
@@ -1063,6 +1120,10 @@ void ModelViewerWidget::UploadImageData(const bool selection_mode) {
   std::vector<TrianglePainter::Data> triangle_data;
   triangle_data.reserve(2 * reg_image_ids.size());
 
+  const frame_t selected_frame_id = selected_image_id_ == kInvalidImageId
+                                        ? kInvalidFrameId
+                                        : images[selected_image_id_].FrameId();
+
   for (const image_t image_id : reg_image_ids) {
     const Image& image = images[image_id];
     const Camera& camera = cameras[image.CameraId()];
@@ -1078,6 +1139,10 @@ void ModelViewerWidget::UploadImageData(const bool selection_mode) {
       if (image_id == selected_image_id_) {
         plane_color = kSelectedImagePlaneColor;
         frame_color = kSelectedImageFrameColor;
+      } else if (selected_frame_id != kInvalidFrameId &&
+                 image.FrameId() == selected_frame_id) {
+        plane_color = kSelectedFramePlaneColor;
+        frame_color = kSelectedFrameFrameColor;
       } else {
         image_colormap_->ComputeColor(image, &plane_color, &frame_color);
       }
@@ -1085,13 +1150,15 @@ void ModelViewerWidget::UploadImageData(const bool selection_mode) {
 
     // Lines are not colored with the indexed color in selection mode, so do not
     // show them, so they do not block the selection process
-    BuildImageModel(image,
-                    camera,
-                    image_size_,
-                    plane_color,
-                    frame_color,
-                    &triangle_data,
-                    selection_mode ? nullptr : &line_data);
+    BuildCameraModel(image.CamFromWorld(),
+                     camera,
+                     image_size_,
+                     plane_color,
+                     frame_color,
+                     model_origin_,
+                     model_scale_,
+                     &triangle_data,
+                     selection_mode ? nullptr : &line_data);
   }
 
   image_line_painter_.Upload(line_data);
@@ -1118,7 +1185,9 @@ void ModelViewerWidget::UploadImageConnectionData() {
   for (const image_t image_id : image_ids) {
     const Image& image = images.at(image_id);
 
-    const Eigen::Vector3f proj_center = image.ProjectionCenter().cast<float>();
+    const Eigen::Vector3f proj_center =
+        (model_scale_ * (image.ProjectionCenter() + model_origin_))
+            .cast<float>();
 
     // Collect all connected images
     std::unordered_set<image_t> conn_image_ids;
@@ -1146,7 +1215,8 @@ void ModelViewerWidget::UploadImageConnectionData() {
     for (const image_t conn_image_id : conn_image_ids) {
       const Image& conn_image = images[conn_image_id];
       const Eigen::Vector3f conn_proj_center =
-          conn_image.ProjectionCenter().cast<float>();
+          (model_scale_ * (conn_image.ProjectionCenter() + model_origin_))
+              .cast<float>();
       line.point2 = PointPainter::Data(conn_proj_center(0),
                                        conn_proj_center(1),
                                        conn_proj_center(2),
@@ -1164,23 +1234,30 @@ void ModelViewerWidget::UploadImageConnectionData() {
 void ModelViewerWidget::UploadMovieGrabberData() {
   makeCurrent();
 
+  const size_t num_frames = movie_grabber_widget_->frames.size();
+
   std::vector<LinePainter::Data> path_data;
-  path_data.reserve(movie_grabber_widget_->views.size());
+  path_data.reserve(num_frames);
 
   std::vector<LinePainter::Data> line_data;
-  line_data.reserve(4 * movie_grabber_widget_->views.size());
+  line_data.reserve(4 * num_frames);
 
   std::vector<TrianglePainter::Data> triangle_data;
-  triangle_data.reserve(2 * movie_grabber_widget_->views.size());
+  triangle_data.reserve(2 * num_frames);
 
-  if (movie_grabber_widget_->views.size() > 0) {
-    const Image& image0 = movie_grabber_widget_->views[0];
-    Eigen::Vector3f prev_proj_center = image0.ProjectionCenter().cast<float>();
+  if (num_frames > 0) {
+    const Frame& frame0 = movie_grabber_widget_->frames[0];
+    Eigen::Vector3f prev_proj_center =
+        (frame0.RigFromWorld().rotation.inverse() *
+         -frame0.RigFromWorld().translation)
+            .cast<float>();
 
-    for (size_t i = 1; i < movie_grabber_widget_->views.size(); ++i) {
-      const Image& image = movie_grabber_widget_->views[i];
+    for (size_t i = 1; i < num_frames; ++i) {
+      const Frame& frame = movie_grabber_widget_->frames[i];
       const Eigen::Vector3f curr_proj_center =
-          image.ProjectionCenter().cast<float>();
+          (frame.RigFromWorld().rotation.inverse() *
+           -frame.RigFromWorld().translation)
+              .cast<float>();
       LinePainter::Data path;
       path.point1 = PointPainter::Data(prev_proj_center(0),
                                        prev_proj_center(1),
@@ -1213,8 +1290,8 @@ void ModelViewerWidget::UploadMovieGrabberData() {
                                   kDefaultImageHeight);
 
     // Build all camera models
-    for (size_t i = 0; i < movie_grabber_widget_->views.size(); ++i) {
-      const Image& image = movie_grabber_widget_->views[i];
+    for (size_t i = 0; i < num_frames; ++i) {
+      const Frame& frame = movie_grabber_widget_->frames[i];
       Eigen::Vector4f plane_color;
       Eigen::Vector4f frame_color;
       if (i == selected_movie_grabber_view_) {
@@ -1225,13 +1302,15 @@ void ModelViewerWidget::UploadMovieGrabberData() {
         frame_color = kMovieGrabberImageFrameColor;
       }
 
-      BuildImageModel(image,
-                      camera,
-                      image_size_,
-                      plane_color,
-                      frame_color,
-                      &triangle_data,
-                      &line_data);
+      BuildCameraModel(frame.MaybeRigFromWorld(),
+                       camera,
+                       image_size_,
+                       plane_color,
+                       frame_color,
+                       /*model_origin=*/Eigen::Vector3d::Zero(),
+                       /*model_scale=*/1.,
+                       &triangle_data,
+                       &line_data);
     }
   }
 

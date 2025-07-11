@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -30,6 +30,7 @@
 #include "colmap/geometry/essential_matrix.h"
 
 #include "colmap/geometry/pose.h"
+#include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/eigen_matchers.h"
 
@@ -79,24 +80,21 @@ TEST(PoseFromEssentialMatrix, Nominal) {
   points3D[2] = Eigen::Vector3d(0.1, 0, 1);
   points3D[3] = Eigen::Vector3d(0.1, 0.1, 1);
 
-  std::vector<Eigen::Vector2d> points1(4);
-  std::vector<Eigen::Vector2d> points2(4);
+  std::vector<Eigen::Vector3d> rays1(4);
+  std::vector<Eigen::Vector3d> rays2(4);
   for (size_t i = 0; i < points3D.size(); ++i) {
-    points1[i] = (cam1_from_world * points3D[i]).hnormalized();
-    points2[i] = (cam2_from_world * points3D[i]).hnormalized();
+    rays1[i] = (cam1_from_world * points3D[i]).normalized();
+    rays2[i] = (cam2_from_world * points3D[i]).normalized();
   }
 
   points3D.clear();
 
   Rigid3d cam2_from_cam1_est;
-  PoseFromEssentialMatrix(E, points1, points2, &cam2_from_cam1_est, &points3D);
+  PoseFromEssentialMatrix(E, rays1, rays2, &cam2_from_cam1_est, &points3D);
 
   EXPECT_EQ(points3D.size(), 4);
 
-  EXPECT_THAT(cam2_from_cam1_est.rotation.toRotationMatrix(),
-              EigenMatrixNear(cam2_from_cam1.rotation.toRotationMatrix()));
-  EXPECT_THAT(cam2_from_cam1_est.translation,
-              EigenMatrixNear(cam2_from_cam1.translation));
+  EXPECT_THAT(cam2_from_cam1_est, Rigid3dNear(cam2_from_cam1));
 }
 
 TEST(FindOptimalImageObservations, Nominal) {
@@ -163,6 +161,18 @@ TEST(FundamentalFromEssentialMatrix, Nominal) {
               EigenMatrixNear(Eigen::Vector3d(F * K1 * x)));
   EXPECT_THAT(E * K1.inverse() * x,
               EigenMatrixNear(Eigen::Vector3d(K2.transpose() * F * x)));
+}
+
+TEST(EssentialFromFundamentalMatrix, Nominal) {
+  const Eigen::Matrix3d E = EssentialMatrixFromPose(
+      Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random()));
+  const Eigen::Matrix3d K1 =
+      (Eigen::Matrix3d() << 2, 0, 1, 0, 3, 2, 0, 0, 1).finished();
+  const Eigen::Matrix3d K2 =
+      (Eigen::Matrix3d() << 3, 0, 2, 0, 4, 1, 0, 0, 1).finished();
+  const Eigen::Matrix3d F = FundamentalFromEssentialMatrix(K2, E, K1);
+  EXPECT_THAT(EssentialFromFundamentalMatrix(K2, F, K1),
+              EigenMatrixNear(E, 1e-6));
 }
 
 }  // namespace

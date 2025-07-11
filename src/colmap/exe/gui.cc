@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -29,6 +29,9 @@
 
 #include "colmap/exe/gui.h"
 
+#if defined(COLMAP_GUI_ENABLED)
+#include "colmap/ui/main_window.h"
+#endif
 #include "colmap/controllers/option_manager.h"
 #include "colmap/util/opengl_utils.h"
 

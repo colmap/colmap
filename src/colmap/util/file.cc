@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -304,6 +304,11 @@ std::vector<std::string> ReadTextFileLines(const std::string& path) {
   return lines;
 }
 
+bool IsURI(const std::string& uri) {
+  return StringStartsWith(uri, "http://") ||
+         StringStartsWith(uri, "https://") || StringStartsWith(uri, "file://");
+}
+
 #ifdef COLMAP_DOWNLOAD_ENABLED
 
 namespace {
@@ -367,9 +372,9 @@ namespace {
 
 std::string SHA256DigestToHex(span<unsigned char> digest) {
   std::ostringstream hex;
-  for (int i = 0; i < digest.size(); ++i) {
+  for (const auto c : digest) {
     hex << std::hex << std::setw(2) << std::setfill('0')
-        << static_cast<unsigned int>(digest[i]);
+        << static_cast<unsigned int>(c);
   }
   return hex.str();
 }
@@ -458,8 +463,7 @@ void OverwriteDownloadCacheDir(std::filesystem::path path) {
 #endif  // COLMAP_DOWNLOAD_ENABLED
 
 std::string MaybeDownloadAndCacheFile(const std::string& uri) {
-  if (!StringStartsWith(uri, "http://") && !StringStartsWith(uri, "https://") &&
-      !StringStartsWith(uri, "file://")) {
+  if (!IsURI(uri)) {
     return uri;
   }
 #ifdef COLMAP_DOWNLOAD_ENABLED

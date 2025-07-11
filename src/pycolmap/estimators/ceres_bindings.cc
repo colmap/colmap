@@ -206,7 +206,7 @@ void BindCeresSolver(py::module& m) {
           "num_threads",
           [](const Options& self) { return self.num_threads; },
           [](Options& self, int n_threads) {
-            int effective_n_threads = GetEffectiveNumThreads(n_threads);
+            int effective_n_threads = colmap::GetEffectiveNumThreads(n_threads);
             self.num_threads = effective_n_threads;
 #if CERES_VERSION_MAJOR < 2
             self.num_linear_solver_threads = effective_n_threads;

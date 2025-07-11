@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -59,16 +59,16 @@ void DecomposeEssentialMatrix(const Eigen::Matrix3d& E,
 // The pose of the first image is assumed to be P = [I | 0].
 //
 // @param E               3x3 essential matrix.
-// @param points1         First set of corresponding points.
-// @param points2         Second set of corresponding points.
+// @param cam_rays1       First set of corresponding rays.
+// @param cam_rays2       Second set of corresponding rays.
 // @param inlier_mask     Only points with `true` in the inlier mask are
 //                        considered in the cheirality test. Size of the
 //                        inlier mask must match the number of points N.
 // @param cam2_from_cam1  Relative camera transformation.
 // @param points3D        Triangulated 3D points infront of camera.
 void PoseFromEssentialMatrix(const Eigen::Matrix3d& E,
-                             const std::vector<Eigen::Vector2d>& points1,
-                             const std::vector<Eigen::Vector2d>& points2,
+                             const std::vector<Eigen::Vector3d>& cam_rays1,
+                             const std::vector<Eigen::Vector3d>& cam_rays2,
                              Rigid3d* cam2_from_cam1,
                              std::vector<Eigen::Vector3d>* points3D);
 
@@ -127,6 +127,12 @@ Eigen::Matrix3d InvertEssentialMatrix(const Eigen::Matrix3d& matrix);
 // and two camera's calibrations.
 Eigen::Matrix3d FundamentalFromEssentialMatrix(const Eigen::Matrix3d& K2,
                                                const Eigen::Matrix3d& E,
+                                               const Eigen::Matrix3d& K1);
+
+// Composes the essential matrix from image 1 to 2 from the fundamental matrix
+// and two camera's calibrations.
+Eigen::Matrix3d EssentialFromFundamentalMatrix(const Eigen::Matrix3d& K2,
+                                               const Eigen::Matrix3d& F,
                                                const Eigen::Matrix3d& K1);
 
 }  // namespace colmap

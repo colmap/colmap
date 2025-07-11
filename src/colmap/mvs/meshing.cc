@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -149,12 +149,10 @@ bool PoissonMeshing(const PoissonMeshingOptions& options,
     args.push_back(std::to_string(options.color));
   }
 
-#if defined(COLMAP_OPENMP_ENABLED)
   if (options.num_threads > 0) {
     args.push_back("--threads");
     args.push_back(std::to_string(options.num_threads));
   }
-#endif  // OPENMP_ENABLED
 
   if (options.trim > 0) {
     args.push_back("--density");
@@ -395,14 +393,15 @@ class DelaunayMeshingInput {
           }
 
           // Check reprojection error between the two points.
-          const Eigen::Vector2f point_proj =
-              camera.ImgFromCam(point_local.hnormalized().cast<double>())
-                  .cast<float>();
-          const Eigen::Vector2f cell_point_proj =
-              camera.ImgFromCam(cell_point_local.hnormalized().cast<double>())
-                  .cast<float>();
+          const std::optional<Eigen::Vector2d> point_proj =
+              camera.ImgFromCam(point_local.cast<double>());
+          const std::optional<Eigen::Vector2d> cell_point_proj =
+              camera.ImgFromCam(cell_point_local.cast<double>());
+          if (!point_proj || !cell_point_proj) {
+            continue;
+          }
           const float squared_proj_dist =
-              (point_proj - cell_point_proj).squaredNorm();
+              (*point_proj - *cell_point_proj).squaredNorm();
           if (squared_proj_dist > max_squared_proj_dist) {
             insert_point = true;
             break;
@@ -641,20 +640,18 @@ void WriteDelaunayTriangulationPly(const std::string& path,
   std::fstream file(path, std::ios::out);
   THROW_CHECK_FILE_OPEN(file, path);
 
-  file << "ply" << std::endl;
-  file << "format ascii 1.0" << std::endl;
-  file << "element vertex " << triangulation.number_of_vertices() << std::endl;
-  file << "property float x" << std::endl;
-  file << "property float y" << std::endl;
-  file << "property float z" << std::endl;
-  file << "element edge " << triangulation.number_of_finite_edges()
-       << std::endl;
-  file << "property int vertex1" << std::endl;
-  file << "property int vertex2" << std::endl;
-  file << "element face " << triangulation.number_of_finite_facets()
-       << std::endl;
-  file << "property list uchar int vertex_index" << std::endl;
-  file << "end_header" << std::endl;
+  file << "ply\n";
+  file << "format ascii 1.0\n";
+  file << "element vertex " << triangulation.number_of_vertices() << '\n';
+  file << "property float x\n";
+  file << "property float y\n";
+  file << "property float z\n";
+  file << "element edge " << triangulation.number_of_finite_edges() << '\n';
+  file << "property int vertex1\n";
+  file << "property int vertex2\n";
+  file << "element face " << triangulation.number_of_finite_facets() << '\n';
+  file << "property list uchar int vertex_index\n";
+  file << "end_header\n";
 
   std::unordered_map<const Delaunay::Vertex_handle, size_t> vertex_indices;
   vertex_indices.reserve(triangulation.number_of_vertices());
@@ -663,14 +660,14 @@ void WriteDelaunayTriangulationPly(const std::string& path,
        ++it) {
     vertex_indices.emplace(it, vertex_indices.size());
     file << it->point().x() << " " << it->point().y() << " " << it->point().z()
-         << std::endl;
+         << '\n';
   }
 
   for (auto it = triangulation.finite_edges_begin();
        it != triangulation.finite_edges_end();
        ++it) {
     file << vertex_indices.at(it->first->vertex(it->second)) << " "
-         << vertex_indices.at(it->first->vertex(it->third)) << std::endl;
+         << vertex_indices.at(it->first->vertex(it->third)) << '\n';
   }
 
   for (auto it = triangulation.finite_facets_begin();
@@ -685,7 +682,7 @@ void WriteDelaunayTriangulationPly(const std::string& path,
          << " "
          << vertex_indices.at(it->first->vertex(
                 triangulation.vertex_triple_index(it->second, 2)))
-         << std::endl;
+         << '\n';
   }
 }
 

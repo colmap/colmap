@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -82,7 +82,7 @@ void FileCopy(const std::string& src_path,
               const std::string& dst_path,
               CopyType type = CopyType::COPY);
 
-// Check if the path points to an existing directory.
+// Check if the path points to an existing file.
 bool ExistsFile(const std::string& path);
 
 // Check if the path points to an existing directory.
@@ -132,6 +132,10 @@ void WriteBinaryBlob(const std::string& path, const span<const char>& data);
 // Read each line of a text file into a separate element. Empty lines are
 // ignored and leading/trailing whitespace is removed.
 std::vector<std::string> ReadTextFileLines(const std::string& path);
+
+// Detect if given string is a URI
+// (i.e., starts with http://, https://, file://).
+bool IsURI(const std::string& uri);
 
 #ifdef COLMAP_DOWNLOAD_ENABLED
 

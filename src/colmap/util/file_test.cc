@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -163,6 +163,19 @@ TEST(ReadWriteBinaryBlob, Nominal) {
   ReadBinaryBlob(file_path, &read_data);
 
   EXPECT_EQ(read_data, data);
+}
+
+TEST(IsURI, Nominal) {
+  EXPECT_FALSE(IsURI(""));
+  EXPECT_TRUE(IsURI("http://"));
+  EXPECT_TRUE(IsURI("https://"));
+  EXPECT_TRUE(IsURI("file://"));
+  EXPECT_TRUE(IsURI("http://foobar"));
+  EXPECT_TRUE(IsURI("https://foobar"));
+  EXPECT_TRUE(IsURI("file://foobar"));
+  EXPECT_FALSE(IsURI("http"));
+  EXPECT_FALSE(IsURI("https"));
+  EXPECT_FALSE(IsURI("file"));
 }
 
 #ifdef COLMAP_DOWNLOAD_ENABLED

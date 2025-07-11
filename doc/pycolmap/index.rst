@@ -22,11 +22,11 @@ from source, follow these steps:
 
    * On Linux and macOS::
 
-      python -m pip install ./pycolmap/
+      python -m pip install .
 
    * On Windows, after installing COLMAP via VCPKG, run in powershell::
 
-      python -m pip install ./pycolmap/ `
+      python -m pip install . `
           --cmake.define.CMAKE_TOOLCHAIN_FILE="$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
           --cmake.define.VCPKG_TARGET_TRIPLET="x64-windows"
 

@@ -1,4 +1,4 @@
-# Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+# Copyright (c), ETH Zurich and UNC Chapel Hill.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -37,11 +37,13 @@ COLMAP_ADD_LIBRARY(
         database.h database.cc
         imu.h imu.cc
         models.h models.cc
+        rig.h rig.cc
         specs.h specs.cc
     PUBLIC_LINK_LIBS
         Ceres::ceres
         Eigen3::Eigen
     PRIVATE_LINK_LIBS
+        colmap_geometry
         colmap_util
         colmap_vlfeat
         freeimage::FreeImage
@@ -62,5 +64,10 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME models_test
     SRCS models_test.cc
+    LINK_LIBS colmap_sensor
+)
+COLMAP_ADD_TEST(
+    NAME rig_test
+    SRCS rig_test.cc
     LINK_LIBS colmap_sensor
 )

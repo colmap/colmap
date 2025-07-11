@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -185,7 +185,7 @@ bool ComputeLInverse(Eigen::SparseMatrix<double>& S, Eigen::MatrixXd& L_inv) {
 
   const Eigen::VectorXd D_dense = ldlt_S.vectorD();
 
-  const int rank = D_dense.nonZeros();
+  const int rank = (D_dense.array().abs() > 1e-6).count();
   if (rank < S.rows()) {
     LOG(WARNING) << StringPrintf(
         "Unable to compute covariance. The Schur complement on pose/other "
@@ -240,7 +240,7 @@ std::optional<Eigen::MatrixXd> BACovariance::GetPointCov(
   return it->second;
 }
 
-std::optional<Eigen::MatrixXd> BACovariance::GetCamFromWorldCov(
+std::optional<Eigen::MatrixXd> BACovariance::GetCamCovFromWorld(
     image_t image_id) const {
   const auto it = pose_L_start_size_.find(image_id);
   if (it == pose_L_start_size_.end()) {
@@ -250,7 +250,7 @@ std::optional<Eigen::MatrixXd> BACovariance::GetCamFromWorldCov(
   return ExtractCovFromLInverse(L_inv_, start, start, size, size);
 }
 
-std::optional<Eigen::MatrixXd> BACovariance::GetCam1FromCam2Cov(
+std::optional<Eigen::MatrixXd> BACovariance::GetCamCrossCovFromWorld(
     image_t image_id1, image_t image_id2) const {
   const auto it1 = pose_L_start_size_.find(image_id1);
   const auto it2 = pose_L_start_size_.find(image_id2);
@@ -260,6 +260,35 @@ std::optional<Eigen::MatrixXd> BACovariance::GetCam1FromCam2Cov(
   const auto [start1, size1] = it1->second;
   const auto [start2, size2] = it2->second;
   return ExtractCovFromLInverse(L_inv_, start1, start2, size1, size2);
+}
+
+std::optional<Eigen::MatrixXd> BACovariance::GetCam2CovFromCam1(
+    image_t image_id1,
+    const Rigid3d& cam1_from_world,
+    image_t image_id2,
+    const Rigid3d& cam2_from_world) const {
+  auto cov_11 = GetCamCovFromWorld(image_id1);
+  if (!cov_11.has_value()) return std::nullopt;
+  if (cov_11->rows() != 6) {
+    LOG(WARNING) << "cam1_from_world is not fully in the problem. This is "
+                    "likely due to the pose being set (partially) constant. ";
+    return std::nullopt;
+  }
+  auto cov_22 = GetCamCovFromWorld(image_id2);
+  if (!cov_22.has_value()) return std::nullopt;
+  if (cov_22->rows() != 6) {
+    LOG(WARNING) << "cam2_from_world is not fully in the problem. This is "
+                    "likely due to the pose being set (partially) constant. ";
+    return std::nullopt;
+  }
+  auto cov_12 = GetCamCrossCovFromWorld(image_id1, image_id2);
+  THROW_CHECK(cov_12.has_value());
+  Eigen::Matrix<double, 12, 12> cov;
+  cov.block<6, 6>(0, 0) = *cov_11;
+  cov.block<6, 6>(6, 6) = *cov_22;
+  cov.block<6, 6>(0, 6) = *cov_12;
+  cov.block<6, 6>(6, 0) = cov_12->transpose();
+  return GetCovarianceForRelativeRigid3d(cam1_from_world, cam2_from_world, cov);
 }
 
 std::optional<Eigen::MatrixXd> BACovariance::GetOtherParamsCov(
@@ -387,13 +416,17 @@ std::vector<PoseParam> GetPoseParams(const Reconstruction& reconstruction,
   std::vector<PoseParam> params;
   params.reserve(reconstruction.NumImages());
   for (const auto& [image_id, image] : reconstruction.Images()) {
-    const double* qvec = image.CamFromWorld().rotation.coeffs().data();
+    // TODO(jsch): Add support for non-trivial frames.
+    THROW_CHECK(image.HasTrivialFrame());
+    const Rigid3d& cam_from_world = image.FramePtr()->RigFromWorld();
+
+    const double* qvec = cam_from_world.rotation.coeffs().data();
     if (!problem.HasParameterBlock(qvec) ||
         problem.IsParameterBlockConstant(const_cast<double*>(qvec))) {
       qvec = nullptr;
     }
 
-    const double* tvec = image.CamFromWorld().translation.data();
+    const double* tvec = cam_from_world.translation.data();
     if (!problem.HasParameterBlock(tvec) ||
         problem.IsParameterBlockConstant(const_cast<double*>(tvec))) {
       tvec = nullptr;
