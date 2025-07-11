@@ -76,6 +76,11 @@ void FeatureMatcherWorker::Run() {
       &cache_->GetFeatureDescriptorIndexCache();
   THROW_CHECK_NOTNULL(matching_options_.cpu_descriptor_index_cache);
 
+  // Minimize the amount of allocated GPU memory by computing the maximum number
+  // of descriptors for any image over the whole database.
+  matching_options_.max_num_matches = std::min<int>(
+      matching_options_.max_num_matches, cache_->MaxNumKeypoints());
+
   std::unique_ptr<FeatureMatcher> matcher =
       CreateSiftFeatureMatcher(matching_options_);
   if (matcher == nullptr) {
