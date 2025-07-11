@@ -154,6 +154,11 @@ std::string GetParentDir(const std::string& path) {
   return std::filesystem::path(path).parent_path().string();
 }
 
+std::string GetRelativePath(const std::string& full_path,
+                            const std::string& base_path) {
+  return std::filesystem::relative(full_path, base_path).string();
+}
+
 std::vector<std::string> GetFileList(const std::string& path) {
   std::vector<std::string> file_list;
   for (auto it = std::filesystem::directory_iterator(path);

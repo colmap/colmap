@@ -116,6 +116,14 @@ TEST(GetParentDir, Nominal) {
   EXPECT_EQ(GetParentDir("test/test"), "test");
 }
 
+TEST(GetRelativePath, Nominal) {
+  EXPECT_EQ(GetRelativePath("a/b/c", "a/b"), "c");
+  EXPECT_EQ(GetRelativePath("/a/b/c", "/a/b"), "c");
+  EXPECT_EQ(GetRelativePath("/a/b/c", "/a"), "b/c");
+  EXPECT_EQ(GetRelativePath("/a/b/c/", "/a/"), "b/c/");
+  EXPECT_EQ(GetRelativePath("\\a\\b\\c/", "\\a/"), "b\\c/");
+}
+
 TEST(JoinPaths, Nominal) {
   EXPECT_EQ(JoinPaths(""), "");
   EXPECT_EQ(JoinPaths("test"), "test");
