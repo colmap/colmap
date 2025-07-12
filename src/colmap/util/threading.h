@@ -409,7 +409,10 @@ void JobQueue<T>::Wait() {
 
 template <typename T>
 void JobQueue<T>::Stop() {
-  stop_ = true;
+  {
+    std::unique_lock<std::mutex> lock(mutex_);
+    stop_ = true;
+  }
   push_condition_.notify_all();
   pop_condition_.notify_all();
 }
