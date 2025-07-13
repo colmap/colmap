@@ -116,12 +116,27 @@ TEST(GetParentDir, Nominal) {
   EXPECT_EQ(GetParentDir("test/test"), "test");
 }
 
+TEST(NormalizePath, Nominal) {
+  EXPECT_EQ(NormalizePath("a/b//./c"), "a/b/c");
+  EXPECT_EQ(NormalizePath("a/b//./c/"), "a/b/c/");
+  EXPECT_EQ(NormalizePath("/a/b//./c"), "/a/b/c");
+  if constexpr (std::filesystem::path::preferred_separator == '\\') {
+    EXPECT_EQ(NormalizePath("/a\\b//./c"), "/a/b/c");
+  } else {
+    EXPECT_EQ(NormalizePath("/a\\b//./c"), "/a\\b/c");
+  }
+}
+
 TEST(GetRelativePath, Nominal) {
   EXPECT_EQ(GetRelativePath("a/b/c", "a/b"), "c");
   EXPECT_EQ(GetRelativePath("/a/b/c", "/a/b"), "c");
   EXPECT_EQ(GetRelativePath("/a/b/c", "/a"), "b/c");
-  EXPECT_EQ(GetRelativePath("/a/b/c/", "/a/"), "b/c/");
-  EXPECT_EQ(GetRelativePath("\\a\\b\\c/", "\\a/"), "b\\c/");
+  EXPECT_EQ(GetRelativePath("/a//b/c/", "/a/"), "b/c/");
+  if constexpr (std::filesystem::path::preferred_separator == '\\') {
+    EXPECT_EQ(GetRelativePath("a/b\\c/", "a/"), "b/c/");
+  } else {
+    EXPECT_EQ(GetRelativePath("a/b\\c/", "a/"), "b\\c/");
+  }
 }
 
 TEST(JoinPaths, Nominal) {
