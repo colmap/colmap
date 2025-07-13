@@ -145,8 +145,9 @@ std::string GetPathBaseName(const std::string& path) {
   std::string basename = fs_path.filename().string();
   if (basename.empty()) {  // It is a directory.
     return fs_path.parent_path().filename().string();
+  } else {
+    return basename;
   }
-  return basename;
 }
 
 std::string GetParentDir(const std::string& path) {
