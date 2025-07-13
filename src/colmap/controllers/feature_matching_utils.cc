@@ -77,6 +77,11 @@ void FeatureMatcherWorker::Run() {
     THROW_CHECK_NOTNULL(matching_options_.sift->cpu_descriptor_index_cache);
   }
 
+  // Minimize the amount of allocated GPU memory by computing the maximum number
+  // of descriptors for any image over the whole database.
+  matching_options_.max_num_matches = std::min<int>(
+      matching_options_.max_num_matches, cache_->MaxNumKeypoints());
+
   std::unique_ptr<FeatureMatcher> matcher =
       FeatureMatcher::Create(matching_options_);
   if (matcher == nullptr) {
@@ -237,12 +242,6 @@ FeatureMatcherController::FeatureMatcherController(
     std::iota(gpu_indices.begin(), gpu_indices.end(), 0);
   }
 #endif  // COLMAP_CUDA_ENABLED
-
-  // Minimize the amount of allocated GPU memory by computing the maximum number
-  // of descriptors for any image over the whole database.
-  matching_options_.max_num_matches =
-      std::min<int>(matching_options_.max_num_matches,
-                    THROW_CHECK_NOTNULL(cache_)->MaxNumKeypoints());
 
   if (matching_options_.use_gpu) {
     auto matching_options_copy = matching_options_;
