@@ -167,6 +167,10 @@ void DatabaseCache::Load(const Database& database,
       }
     } else {
       for (auto& image : images) {
+        image_to_frame_id.emplace(image.ImageId(), image.ImageId());
+        if (!image_names.empty() && image_names.count(image.Name()) == 0) {
+          continue;
+        }
         // For backwards compatibility with old databases from before having
         // support for rigs/frames, we create a frame for each image.
         class Frame frame;
@@ -174,7 +178,6 @@ void DatabaseCache::Load(const Database& database,
         frame.SetRigId(image.CameraId());
         frame.AddDataId(image.DataId());
         image.SetFrameId(frame.FrameId());
-        image_to_frame_id.emplace(image.ImageId(), frame.FrameId());
         frames_.emplace(frame.FrameId(), std::move(frame));
       }
     }
