@@ -105,8 +105,8 @@ std::string GetParentDir(const std::string& path);
 std::string NormalizePath(const std::filesystem::path& path);
 
 // Get the normalized relative path of full_path w.r.t. base_path.
-std::string GetRelativePath(const std::string& full_path,
-                            const std::string& base_path);
+std::string GetNormalizedRelativePath(const std::string& full_path,
+                                      const std::string& base_path);
 
 // Join multiple paths into one path.
 template <typename... T>

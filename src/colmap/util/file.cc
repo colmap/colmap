@@ -162,8 +162,8 @@ std::string NormalizePath(const std::filesystem::path& path) {
   return normalized_path;
 }
 
-std::string GetRelativePath(const std::string& full_path,
-                            const std::string& base_path) {
+std::string GetNormalizedRelativePath(const std::string& full_path,
+                                      const std::string& base_path) {
   return NormalizePath(std::filesystem::relative(full_path, base_path));
 }
 

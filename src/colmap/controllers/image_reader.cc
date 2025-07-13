@@ -110,7 +110,7 @@ ImageReader::Status ImageReader::Next(Rig* rig,
   // Set the image name.
   //////////////////////////////////////////////////////////////////////////////
 
-  image->SetName(GetRelativePath(image_path, options_.image_path));
+  image->SetName(GetNormalizedRelativePath(image_path, options_.image_path));
 
   const std::string image_folder = GetParentDir(image->Name());
 
