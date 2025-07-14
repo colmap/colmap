@@ -30,6 +30,7 @@
 #pragma once
 
 #include "colmap/controllers/option_manager.h"
+#include "colmap/ui/thread_control_widget.h"
 #include "colmap/util/misc.h"
 
 #include <QtCore>
@@ -48,26 +49,30 @@ class FeatureExtractionWidget : public QWidget {
   void ReadOptions();
   void WriteOptions();
 
-  // QGroupBox* CreateCameraModelBox();
+  QGroupBox* CreateCameraModelBox();
 
-  // void SelectCameraModel(int code);
+  void SelectCameraModel(int code);
   void Extract();
+
+ private slots:
+  void StartFeatureExtraction();
 
   QWidget* parent_;
 
-  // OptionManager* options_;
+  OptionManager* options_;
 
-  // QComboBox* camera_model_cb_;
-  // QCheckBox* single_camera_cb_;
-  // QCheckBox* single_camera_per_folder_cb_;
-  // QRadioButton* camera_params_exif_rb_;
-  // QRadioButton* camera_params_custom_rb_;
-  // QLabel* camera_params_info_;
-  // QLineEdit* camera_params_text_;
+  QComboBox* camera_model_cb_;
+  QCheckBox* single_camera_cb_;
+  QCheckBox* single_camera_per_folder_cb_;
+  QRadioButton* camera_params_exif_rb_;
+  QRadioButton* camera_params_custom_rb_;
+  QLabel* camera_params_info_;
+  QLineEdit* camera_params_text_;
 
-  // std::vector<int> camera_model_ids_;
+  std::vector<int> camera_model_ids_;
 
   QTabWidget* tab_widget_;
+  ThreadControlWidget* thread_control_widget_;
 };
 
 }  // namespace colmap
