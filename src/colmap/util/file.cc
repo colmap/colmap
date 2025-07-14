@@ -141,12 +141,11 @@ void CreateDirIfNotExists(const std::string& path, bool recursive) {
 }
 
 std::string GetPathBaseName(const std::string& path) {
-  const std::vector<std::string> names =
-      StringSplit(StringReplace(path, "\\", "/"), "/");
-  if (names.size() > 1 && names.back() == "") {
-    return names[names.size() - 2];
-  } else {
-    return names.back();
+  std::filesystem::path fs_path(NormalizePath(path));
+  if (fs_path.has_filename()) {
+    return fs_path.filename().string();
+  } else {  // It is a directory.
+    return fs_path.parent_path().filename().string();
   }
 }
 
