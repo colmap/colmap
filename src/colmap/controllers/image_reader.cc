@@ -289,14 +289,8 @@ std::string ImageReader::StatusToString(const ImageReader::Status status) {
   switch (status) {
     case ImageReader::Status::SUCCESS:
       return "SUCCESS";
-    case ImageReader::Status::FAILURE:
-      return "FAILURE: Failed to process the image.";
-    // case ImageReader::Status::IMAGE_EXISTS:
-    //   return "IMAGE_EXISTS: Features for image were already extracted.";
     case ImageReader::Status::BITMAP_ERROR:
       return "BITMAP_ERROR: Failed to read the image file format.";
-    // case ImageReader::Status::MASK_ERROR:
-    //   return "MASK_ERROR: Failed to read the mask file.";
     case ImageReader::Status::CAMERA_SINGLE_DIM_ERROR:
       return "CAMERA_SINGLE_DIM_ERROR: Single camera specified, but images "
              "have different dimensions.";
