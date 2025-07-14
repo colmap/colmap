@@ -79,11 +79,8 @@ struct ImageReaderOptions {
 class ImageReader {
  public:
   enum class Status {
-    FAILURE,
     SUCCESS,
-    IMAGE_EXISTS,
     BITMAP_ERROR,
-    // MASK_ERROR,
     CAMERA_SINGLE_DIM_ERROR,
     CAMERA_EXIST_DIM_ERROR,
     CAMERA_PARAM_ERROR
