@@ -16,7 +16,7 @@ fi
 # Get absolute path
 HOST_DIR=$(realpath "$1")
 
-# Check if local colmap:latest image exists
+# Check if local colmap:latest image exists (in case you ran build.sh), otherwise use official image
 if docker image inspect colmap:latest >/dev/null 2>&1; then
     echo "Using local COLMAP Docker image..."
     COLMAP_IMAGE="colmap:latest"
@@ -41,7 +41,7 @@ else
     echo "⚠️  Falling back to CPU mode. Fix NVIDIA Container Toolkit for GPU support."
 fi
 
-# --- FIX: Use host networking for robust display connection ---
+# --- Use host networking for robust display connection ---
 echo "Launching GUI..."
 docker run \
     -it --rm \
