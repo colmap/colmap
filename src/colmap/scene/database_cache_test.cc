@@ -207,8 +207,7 @@ TEST(DatabaseCache, ConstructFromDatabaseWithCustomImages) {
             1);
 }
 
-TEST(DatabaseCache, ConstructFromLegacyDatabaseWithoutRigsAndFrames) {
-  Database database(Database::kInMemoryDatabasePath);
+void CreateLegacyDatabase(Database& database) {
   const Camera camera = Camera::CreateFromModelId(
       kInvalidCameraId, SimplePinholeCameraModel::model_id, 1, 1, 1);
   const camera_t camera_id = database.WriteCamera(camera);
@@ -218,12 +217,18 @@ TEST(DatabaseCache, ConstructFromLegacyDatabaseWithoutRigsAndFrames) {
   Image image2;
   image2.SetName("image2");
   image2.SetCameraId(camera_id);
+  Image image3;
+  image3.SetName("image3");
+  image3.SetCameraId(camera_id);
   const image_t image_id1 = database.WriteImage(image1);
   const image_t image_id2 = database.WriteImage(image2);
+  const image_t image_id3 = database.WriteImage(image3);
   database.WritePosePrior(image_id1, PosePrior(Eigen::Vector3d::Random()));
   database.WritePosePrior(image_id2, PosePrior(Eigen::Vector3d::Random()));
+  database.WritePosePrior(image_id3, PosePrior(Eigen::Vector3d::Random()));
   database.WriteKeypoints(image_id1, FeatureKeypoints(10));
   database.WriteKeypoints(image_id2, FeatureKeypoints(5));
+  database.WriteKeypoints(image_id3, FeatureKeypoints(7));
   TwoViewGeometry two_view_geometry;
   two_view_geometry.inlier_matches = {{0, 1}};
   two_view_geometry.config =
@@ -234,32 +239,69 @@ TEST(DatabaseCache, ConstructFromLegacyDatabaseWithoutRigsAndFrames) {
   two_view_geometry.cam2_from_cam1 =
       Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
   database.WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
+  database.WriteTwoViewGeometry(image_id1, image_id3, two_view_geometry);
+}
+
+TEST(DatabaseCache, ConstructFromLegacyDatabaseWithoutRigsAndFrames) {
+  Database database(Database::kInMemoryDatabasePath);
+  CreateLegacyDatabase(database);
   auto cache = DatabaseCache::Create(database,
                                      /*min_num_matches=*/0,
                                      /*ignore_watermarks=*/false,
                                      /*image_names=*/{});
   EXPECT_EQ(cache->NumCameras(), 1);
+  EXPECT_EQ(cache->NumImages(), 3);
+  EXPECT_EQ(cache->NumPosePriors(), 3);
+  EXPECT_TRUE(cache->ExistsCamera(1));
+  EXPECT_EQ(cache->Camera(1).model_id, CameraModelId::kSimplePinhole);
+  EXPECT_TRUE(cache->ExistsImage(1));
+  EXPECT_TRUE(cache->ExistsImage(2));
+  EXPECT_TRUE(cache->ExistsImage(3));
+  EXPECT_EQ(cache->Image(1).NumPoints2D(), 10);
+  EXPECT_EQ(cache->Image(2).NumPoints2D(), 5);
+  EXPECT_EQ(cache->Image(3).NumPoints2D(), 7);
+  EXPECT_TRUE(cache->PosePrior(1).IsValid());
+  EXPECT_TRUE(cache->PosePrior(2).IsValid());
+  EXPECT_TRUE(cache->PosePrior(3).IsValid());
+  const auto correspondence_graph = cache->CorrespondenceGraph();
+  EXPECT_TRUE(cache->CorrespondenceGraph()->ExistsImage(1));
+  EXPECT_EQ(cache->CorrespondenceGraph()->NumCorrespondencesForImage(1), 2);
+  EXPECT_EQ(cache->CorrespondenceGraph()->NumObservationsForImage(1), 1);
+  EXPECT_TRUE(cache->CorrespondenceGraph()->ExistsImage(2));
+  EXPECT_EQ(cache->CorrespondenceGraph()->NumCorrespondencesForImage(2), 1);
+  EXPECT_EQ(cache->CorrespondenceGraph()->NumObservationsForImage(2), 1);
+  EXPECT_TRUE(cache->CorrespondenceGraph()->ExistsImage(3));
+  EXPECT_EQ(cache->CorrespondenceGraph()->NumCorrespondencesForImage(3), 1);
+  EXPECT_EQ(cache->CorrespondenceGraph()->NumObservationsForImage(3), 1);
+}
+
+TEST(DatabaseCache, ConstructFromLegacyDatabaseWithCustomImages) {
+  Database database(Database::kInMemoryDatabasePath);
+  CreateLegacyDatabase(database);
+  const std::vector<Image> images = database.ReadAllImages();
+  auto cache = DatabaseCache::Create(
+      database,
+      /*min_num_matches=*/0,
+      /*ignore_watermarks=*/false,
+      /*image_names=*/{images[0].Name(), images[2].Name()});
+  EXPECT_EQ(cache->NumCameras(), 1);
   EXPECT_EQ(cache->NumImages(), 2);
   EXPECT_EQ(cache->NumPosePriors(), 2);
-  EXPECT_TRUE(cache->ExistsCamera(camera_id));
-  EXPECT_EQ(cache->Camera(camera_id).model_id, camera.model_id);
-  EXPECT_TRUE(cache->ExistsImage(image_id1));
-  EXPECT_TRUE(cache->ExistsImage(image_id2));
-  EXPECT_EQ(cache->Image(image_id1).NumPoints2D(), 10);
-  EXPECT_EQ(cache->Image(image_id2).NumPoints2D(), 5);
-  EXPECT_TRUE(cache->PosePrior(image_id1).IsValid());
-  EXPECT_TRUE(cache->PosePrior(image_id2).IsValid());
+  EXPECT_TRUE(cache->ExistsCamera(1));
+  EXPECT_EQ(cache->Camera(1).model_id, CameraModelId::kSimplePinhole);
+  EXPECT_TRUE(cache->ExistsImage(1));
+  EXPECT_TRUE(cache->ExistsImage(3));
+  EXPECT_EQ(cache->Image(1).NumPoints2D(), 10);
+  EXPECT_EQ(cache->Image(3).NumPoints2D(), 7);
+  EXPECT_TRUE(cache->PosePrior(1).IsValid());
+  EXPECT_TRUE(cache->PosePrior(3).IsValid());
   const auto correspondence_graph = cache->CorrespondenceGraph();
-  EXPECT_TRUE(cache->CorrespondenceGraph()->ExistsImage(image_id1));
-  EXPECT_EQ(cache->CorrespondenceGraph()->NumCorrespondencesForImage(image_id1),
-            1);
-  EXPECT_EQ(cache->CorrespondenceGraph()->NumObservationsForImage(image_id1),
-            1);
-  EXPECT_TRUE(cache->CorrespondenceGraph()->ExistsImage(image_id2));
-  EXPECT_EQ(cache->CorrespondenceGraph()->NumCorrespondencesForImage(image_id2),
-            1);
-  EXPECT_EQ(cache->CorrespondenceGraph()->NumObservationsForImage(image_id2),
-            1);
+  EXPECT_TRUE(cache->CorrespondenceGraph()->ExistsImage(1));
+  EXPECT_EQ(cache->CorrespondenceGraph()->NumCorrespondencesForImage(1), 1);
+  EXPECT_EQ(cache->CorrespondenceGraph()->NumObservationsForImage(1), 1);
+  EXPECT_TRUE(cache->CorrespondenceGraph()->ExistsImage(3));
+  EXPECT_EQ(cache->CorrespondenceGraph()->NumCorrespondencesForImage(3), 1);
+  EXPECT_EQ(cache->CorrespondenceGraph()->NumObservationsForImage(3), 1);
 }
 
 TEST(DatabaseCache, ConstructFromCustom) {
@@ -277,7 +319,7 @@ TEST(DatabaseCache, ConstructFromCustom) {
 
   constexpr camera_t kCameraId = 42;
   cache.AddCamera(Camera::CreateFromModelId(
-      /*camera_id*/ kCameraId, SimplePinholeCameraModel::model_id, 1, 1, 1));
+      /*camera_id=*/kCameraId, SimplePinholeCameraModel::model_id, 1, 1, 1));
 
   constexpr frame_t kFrameId = 43;
   Frame frame;
