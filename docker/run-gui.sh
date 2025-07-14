@@ -83,6 +83,7 @@ xhost +local:root > /dev/null
 # --- Execute the Container ---
 # Pass all arguments after the directory path ("${@:2}") to the colmap gui command.
 echo "Launching GUI..."
+# "${@:2}" accepts extra arguments for the COLMAP GUI.
 docker run "${DOCKER_ARGS[@]}" "${COLMAP_IMAGE}" colmap gui "${@:2}"
 
 # The `trap` will automatically call the `cleanup` function here,

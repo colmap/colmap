@@ -25,14 +25,25 @@ if [ ! -d "$HOST_DIR" ]; then
 fi
 echo "Running COLMAP container with directory: $HOST_DIR"
 
-# Determine GPU arguments
-GPU_ARGS=""
-echo "Testing GPU access..."
-if docker run --rm --runtime=nvidia $COLMAP_IMAGE find /usr/local/cuda-*/targets/*/lib -name "libcudart.so*" 2>/dev/null | head -1 >/dev/null 2>&1; then
-    echo "✅ Using GPU acceleration with --runtime=nvidia"
-    GPU_ARGS="--runtime=nvidia"
+# --- Build Docker Arguments ---
+# Start with the base arguments.
+DOCKER_ARGS=(
+    -it --rm
+    -v "${HOST_DIR}:/working"
+    -w /working
+)
+
+# --- GPU Detection and Configuration ---
+echo "Testing for GPU acceleration..."
+# A successful `nvidia-smi` call is the most reliable test.
+if docker run --rm --runtime=nvidia "${COLMAP_IMAGE}" nvidia-smi >/dev/null 2>&1; then
+    echo "✅ GPU detected. Using --runtime=nvidia."
+    DOCKER_ARGS+=( --runtime=nvidia )
 else
-    echo "⚠️  Falling back to CPU mode. Fix NVIDIA Container Toolkit for GPU support."
+    echo "⚠️  GPU not detected. Using CPU mode."
 fi
 
-docker run -it --rm ${GPU_ARGS} -w /working -v "$HOST_DIR":/working $COLMAP_IMAGE bash
+# --- Execute the Container ---
+# Always start an interactive bash shell.
+echo "Starting interactive bash shell..."
+docker run "${DOCKER_ARGS[@]}" "${COLMAP_IMAGE}" bash
