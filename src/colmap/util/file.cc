@@ -142,7 +142,6 @@ void CreateDirIfNotExists(const std::string& path, bool recursive) {
 
 std::string GetPathBaseName(const std::string& path) {
   std::filesystem::path fs_path(NormalizePath(path));
-  std::string basename = fs_path.filename().string();
   if (fs_path.has_filename()) {
     return fs_path.filename().string();
   } else {  // It is a directory.
