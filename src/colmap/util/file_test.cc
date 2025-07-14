@@ -104,7 +104,11 @@ TEST(GetPathBaseName, Nominal) {
   EXPECT_EQ(GetPathBaseName("/test1/test2/"), "test2");
   EXPECT_EQ(GetPathBaseName("/test1/test2/"), "test2");
   EXPECT_EQ(GetPathBaseName("\\test1/test2/"), "test2");
-  EXPECT_EQ(GetPathBaseName("\\test1\\test2\\"), "test2");
+  if constexpr (std::filesystem::path::preferred_separator == '\\') {
+    EXPECT_EQ(GetPathBaseName("\\test1\\test2\\"), "test2");
+  } else {
+    EXPECT_EQ(GetPathBaseName("\\test1\\test2\\"), "\\test1\\test2\\");
+  }
   EXPECT_EQ(GetPathBaseName("/test1/test2/test3.ext"), "test3.ext");
 }
 
@@ -114,6 +118,29 @@ TEST(GetParentDir, Nominal) {
   EXPECT_EQ(GetParentDir("/test"), "/");
   EXPECT_EQ(GetParentDir("/"), "/");
   EXPECT_EQ(GetParentDir("test/test"), "test");
+}
+
+TEST(NormalizePath, Nominal) {
+  EXPECT_EQ(NormalizePath("a/b//./c"), "a/b/c");
+  EXPECT_EQ(NormalizePath("a/b//./c/"), "a/b/c/");
+  EXPECT_EQ(NormalizePath("/a/b//./c"), "/a/b/c");
+  if constexpr (std::filesystem::path::preferred_separator == '\\') {
+    EXPECT_EQ(NormalizePath("/a\\b//./c"), "/a/b/c");
+  } else {
+    EXPECT_EQ(NormalizePath("/a\\b//./c"), "/a\\b/c");
+  }
+}
+
+TEST(GetNormalizedRelativePath, Nominal) {
+  EXPECT_EQ(GetNormalizedRelativePath("a/b/c", "a/b"), "c");
+  EXPECT_EQ(GetNormalizedRelativePath("/a/b/c", "/a/b"), "c");
+  EXPECT_EQ(GetNormalizedRelativePath("/a/b/c", "/a"), "b/c");
+  EXPECT_EQ(GetNormalizedRelativePath("/a//b/c/", "/a/"), "b/c/");
+  if constexpr (std::filesystem::path::preferred_separator == '\\') {
+    EXPECT_EQ(GetNormalizedRelativePath("a/b\\c/", "a/"), "b/c/");
+  } else {
+    EXPECT_EQ(GetNormalizedRelativePath("a/b\\c/", "a/"), "b\\c/");
+  }
 }
 
 TEST(JoinPaths, Nominal) {
