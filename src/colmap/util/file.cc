@@ -154,6 +154,19 @@ std::string GetParentDir(const std::string& path) {
   return std::filesystem::path(path).parent_path().string();
 }
 
+std::string NormalizePath(const std::filesystem::path& path) {
+  std::string normalized_path = path.lexically_normal().string();
+  if constexpr (std::filesystem::path::preferred_separator == '\\') {
+    normalized_path = StringReplace(normalized_path, "\\", "/");
+  }
+  return normalized_path;
+}
+
+std::string GetNormalizedRelativePath(const std::string& full_path,
+                                      const std::string& base_path) {
+  return NormalizePath(std::filesystem::relative(full_path, base_path));
+}
+
 std::vector<std::string> GetFileList(const std::string& path) {
   std::vector<std::string> file_list;
   for (auto it = std::filesystem::directory_iterator(path);

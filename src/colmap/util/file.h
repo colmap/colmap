@@ -100,6 +100,14 @@ std::string GetPathBaseName(const std::string& path);
 // Get the path of the parent directory for the given path.
 std::string GetParentDir(const std::string& path);
 
+// Normalize the path by removing repeated separators and dots and, on Windows,
+// replacing \\ separators by /.
+std::string NormalizePath(const std::filesystem::path& path);
+
+// Get the normalized relative path of full_path w.r.t. base_path.
+std::string GetNormalizedRelativePath(const std::string& full_path,
+                                      const std::string& base_path);
+
 // Join multiple paths into one path.
 template <typename... T>
 std::string JoinPaths(T const&... paths);
