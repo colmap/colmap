@@ -31,7 +31,6 @@
 
 #include "colmap/util/timer.h"
 
-#include <atomic>
 #include <climits>
 #include <functional>
 #include <future>
@@ -306,7 +305,7 @@ class JobQueue {
 
  private:
   size_t max_num_jobs_;
-  std::atomic<bool> stop_;
+  bool stop_;
   std::queue<T> jobs_;
   std::mutex mutex_;
   std::condition_variable push_condition_;
