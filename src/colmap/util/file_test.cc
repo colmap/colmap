@@ -104,7 +104,11 @@ TEST(GetPathBaseName, Nominal) {
   EXPECT_EQ(GetPathBaseName("/test1/test2/"), "test2");
   EXPECT_EQ(GetPathBaseName("/test1/test2/"), "test2");
   EXPECT_EQ(GetPathBaseName("\\test1/test2/"), "test2");
-  EXPECT_EQ(GetPathBaseName("\\test1\\test2\\"), "test2");
+  if constexpr (std::filesystem::path::preferred_separator == '\\') {
+    EXPECT_EQ(GetPathBaseName("\\test1\\test2\\"), "test2");
+  } else {
+    EXPECT_EQ(GetPathBaseName("\\test1\\test2\\"), "\\test1\\test2\\");
+  }
   EXPECT_EQ(GetPathBaseName("/test1/test2/test3.ext"), "test3.ext");
 }
 
