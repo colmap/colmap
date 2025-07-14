@@ -182,11 +182,13 @@ TEST(DatabaseCache, ConstructFromDatabaseWithCustomImages) {
   Database database(Database::kInMemoryDatabasePath);
   CreateTestDatabase(database);
 
+  // Note that the first two images are part of the same frame.
   const std::vector<Image> images = database.ReadAllImages();
-  auto cache = DatabaseCache::Create(database,
-                                     /*min_num_matches=*/0,
-                                     /*ignore_watermarks=*/false,
-                                     /*image_names=*/{images[0].Name()});
+  auto cache = DatabaseCache::Create(
+      database,
+      /*min_num_matches=*/0,
+      /*ignore_watermarks=*/false,
+      /*image_names=*/{images[0].Name(), images[1].Name()});
 
   EXPECT_EQ(cache->NumRigs(), 1);
   EXPECT_EQ(cache->NumCameras(), 2);
@@ -207,7 +209,7 @@ TEST(DatabaseCache, ConstructFromDatabaseWithCustomImages) {
             1);
 }
 
-void CreateLegacyDatabase(Database& database) {
+void CreateLegacyTestDatabase(Database& database) {
   const Camera camera = Camera::CreateFromModelId(
       kInvalidCameraId, SimplePinholeCameraModel::model_id, 1, 1, 1);
   const camera_t camera_id = database.WriteCamera(camera);
@@ -244,7 +246,7 @@ void CreateLegacyDatabase(Database& database) {
 
 TEST(DatabaseCache, ConstructFromLegacyDatabaseWithoutRigsAndFrames) {
   Database database(Database::kInMemoryDatabasePath);
-  CreateLegacyDatabase(database);
+  CreateLegacyTestDatabase(database);
   auto cache = DatabaseCache::Create(database,
                                      /*min_num_matches=*/0,
                                      /*ignore_watermarks=*/false,
@@ -277,7 +279,7 @@ TEST(DatabaseCache, ConstructFromLegacyDatabaseWithoutRigsAndFrames) {
 
 TEST(DatabaseCache, ConstructFromLegacyDatabaseWithCustomImages) {
   Database database(Database::kInMemoryDatabasePath);
-  CreateLegacyDatabase(database);
+  CreateLegacyTestDatabase(database);
   const std::vector<Image> images = database.ReadAllImages();
   auto cache = DatabaseCache::Create(
       database,
