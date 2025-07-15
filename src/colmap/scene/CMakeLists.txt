@@ -83,6 +83,11 @@ COLMAP_ADD_TEST(
     SRCS database_test.cc
     LINK_LIBS colmap_scene
 )
+if(MSVC)
+    target_compile_options(colmap_scene_database_test PRIVATE /utf-8)
+else()
+    target_compile_options(colmap_scene_database_test PRIVATE -finput-charset=UTF-8 -fexec-charset=UTF-8)
+endif()
 COLMAP_ADD_TEST(
     NAME frame_test
     SRCS frame_test.cc

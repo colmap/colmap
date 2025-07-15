@@ -44,6 +44,32 @@ namespace {
     EXPECT_EQ(str_inplace, ref_str);            \
   }
 
+const std::unordered_map<unsigned int, std::string> kCodePageToUTF8Strings = {
+    {// English
+     {0, u8"Bundle Adjustment"},
+     // Simplified Chinese
+     {936, u8"光束法平差"},
+     // Japanese
+     {932, u8"バンドル調整"},
+     // Korean
+     {949, u8"번들조정"},
+     // French
+     {1252, u8"Ajustement de faisceau"},
+     // German
+     {1252, u8"Bündelanpassung"},
+     // Russian
+     {1251, u8"Байндл-адаптация"},
+     // Greek
+     {1253, u8"Προσαρμογή δεσμίδας"},
+     // Turkish
+     {1254, u8"Işın Demeti Ayarı"},
+     // Hebrew
+     {1255, u8"התאמת צרור"},
+     // Arabic
+     {1256, u8"ضبط الحزمة"},
+     // Thai
+     {874, u8"ปรับค่ากลุ่มภาพ"}}};
+
 TEST(StringPrintf, Nominal) {
   EXPECT_EQ(StringPrintf("%s", "test"), "test");
   EXPECT_EQ(StringPrintf("%d", 1), "1");
@@ -228,36 +254,9 @@ TEST(StringContains, Nominal) {
   EXPECT_FALSE(StringContains("ab", "c"));
 }
 
+TEST(ConversionBetweenPlatformAndUTF8, NonASCIIStringRoundtrip) {
+  for (const auto& [code_page, original] : kCodePageToUTF8Strings) {
 #ifdef _WIN32
-TEST(ConversionBetweenPlatformAndUTF8, NonASCIIStringRoundtripWin) {
-  const std::array<std::pair<std::string_view, unsigned int>, 12>
-      kUTF8StringsWithCodePage = {{// English
-                                   {u8"Bundle Adjustment", 0},
-                                   // Simplified Chinese
-                                   {u8"光束法平差", 936},
-                                   // Japanese
-                                   {u8"バンドル調整", 932},
-                                   // Korean
-                                   {u8"번들조정", 949},
-                                   // French
-                                   {u8"Ajustement de faisceau", 1252},
-                                   // German
-                                   {u8"Bündelanpassung", 1252},
-                                   // Russian
-                                   {u8"Байндл-адаптация", 1251},
-                                   // Greek
-                                   {u8"Προσαρμογή δεσμίδας", 1253},
-                                   // Turkish
-                                   {u8"Işın Demeti Ayarı", 1254},
-                                   // Hebrew
-                                   {u8"התאמת צרור", 1255},
-                                   // Arabic
-                                   {u8"ضبط الحزمة", 1256},
-                                   // Thai
-                                   {u8"ปรับค่ากลุ่มภาพ", 874}}};
-
-  for (const auto& [utf8_str, code_page] : kUTF8StringsWithCodePage) {
-    std::string original(utf8_str);
     // NOTE:
     // internal::UTF8ToCodePageWin and internal::CodePageToUTF8Win are internal
     // helpers used by the public API (UTF8ToPlatform / PlatformToUTF8) on
@@ -268,46 +267,14 @@ TEST(ConversionBetweenPlatformAndUTF8, NonASCIIStringRoundtripWin) {
         internal::UTF8ToCodePageWin(original, code_page);
     std::string roundtrip =
         internal::CodePageToUTF8Win(platform_encoded, code_page);
-    EXPECT_EQ(roundtrip, original);
-  }
-}
 #else
-TEST(ConversionBetweenPlatformAndUTF8, NonASCIIStringRoundtripPosix) {
-  const std::array<std::string_view, 12> kUTF8Strings = {{
-      // English
-      u8"Bundle Adjustment",
-      // Simplified Chinese
-      u8"光束法平差",
-      // Japanese
-      u8"バンドル調整",
-      // Korean
-      u8"번들조정",
-      // French
-      u8"Ajustement de faisceau",
-      // German
-      u8"Bündelanpassung",
-      // Russian
-      u8"Байндл-адаптация",
-      // Greek
-      u8"Προσαρμογή δεσμίδας",
-      // Turkish
-      u8"Işın Demeti Ayarı",
-      // Hebrew
-      u8"התאמת צרור",
-      // Arabic
-      u8"ضبط الحزمة",
-      // Thai
-      u8"ปรับค่ากลุ่มภาพ",
-  }};
-
-  for (const std::string_view utf8_str : kUTF8Strings) {
-    std::string original(utf8_str);
     std::string platform_encoded = UTF8ToPlatform(original);
     std::string roundtrip = PlatformToUTF8(platform_encoded);
+#endif
+
     EXPECT_EQ(roundtrip, original);
   }
 }
-#endif
 
 }  // namespace
 }  // namespace colmap
