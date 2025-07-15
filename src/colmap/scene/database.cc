@@ -432,7 +432,7 @@ void Database::Open(const std::string& path) {
   // Modifications to the database will still be serialized, but multiple
   // connections can read concurrently.
   SQLITE3_CALL(sqlite3_open_v2(
-      path.c_str(),
+      PlatformToUTF8(path).c_str(),
       &database_,
       SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_NOMUTEX,
       nullptr));
