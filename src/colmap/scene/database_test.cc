@@ -48,65 +48,32 @@
 namespace colmap {
 namespace {
 
-const std::unordered_map<unsigned int, std::string>
-    kCodePageToUTF8DatabaseNames = {
-        // English
-        {0, u8"temporary database"},
-        // Simplified Chinese
-        {936, u8"临时数据库"},
-        // Japanese
-        {932, u8"一時データベース"},
-        // Korean
-        {949, u8"임시 데이터베이스"},
-        // German / French
-        {1252, u8"Temporäre Datenbank_Base de données temporaire"},
-        // Russian
-        {1251, u8"Временная база данных"},
-        // Greek
-        {1253, u8"Προσωρινή βάση δεδομένων"},
-        // Turkish
-        {1254, u8"Geçici veritabanı"},
-        // Hebrew
-        {1255, u8"מסד נתונים זמני"},
-        // Arabic
-        {1256, u8"قاعدة بيانات مؤقتة"},
-        // Thai
-        {874, u8"ฐานข้อมูลชั่วคราว"}};
-
 TEST(Database, OpenCloseConstructorDestructor) {
   Database database(Database::kInMemoryDatabasePath);
 }
 
-TEST(Database, OpenClose) {
+TEST(Database, OpenCloseInMemory) {
   Database database(Database::kInMemoryDatabasePath);
   database.Close();
 }
 
-TEST(Database, OpenDatabaseWithNonASCIIPath) {
-  std::string test_dir = CreateTestDir();
-  std::string database_name_stem(kCodePageToUTF8DatabaseNames.at(0));
-
-#ifdef _WIN32
-  if (kCodePageToUTF8DatabaseNames.count(GetACP()) != 0) {
-    database_name_stem =
-        UTF8ToPlatform(kCodePageToUTF8DatabaseNames.at(GetACP()));
-  }
-  std::string non_ascii_db_path =
-      JoinPaths(test_dir, database_name_stem + ".db");
-#else
-  std::string database_name_stem = UTF8ToPlatform(
-      std::next(std::begin(kUTF8DatabaseNames),
-                RandomUniformInteger<int>(0, kUTF8DatabaseNames.size() - 1))
-          ->second);
-  std::string non_ascii_db_path =
-      JoinPaths(test_dir, database_name_stem + ".db");
-#endif
-
-  Database database(non_ascii_db_path);
-
-  EXPECT_TRUE(ExistsPath(non_ascii_db_path));
-
+TEST(Database, OpenCloseFile) {
+  Database database(CreateTestDir() + "/database.db");
   database.Close();
+}
+
+TEST(Database, OpenCloseWithNonASCIIPath) {
+  const std::string database_path = CreateTestDir() + u8"/äöü時临.db";
+
+  {
+    Database database(database_path);
+    EXPECT_TRUE(ExistsPath(database_path));
+  }
+
+  {
+    Database database;
+    database.Open(database_path);
+  }
 }
 
 TEST(Database, Transaction) {

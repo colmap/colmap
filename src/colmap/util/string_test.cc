@@ -44,32 +44,6 @@ namespace {
     EXPECT_EQ(str_inplace, ref_str);            \
   }
 
-const std::unordered_map<unsigned int, std::string> kCodePageToUTF8Strings = {
-    {// English
-     {0, u8"Bundle Adjustment"},
-     // Simplified Chinese
-     {936, u8"光束法平差"},
-     // Japanese
-     {932, u8"バンドル調整"},
-     // Korean
-     {949, u8"번들조정"},
-     // French
-     {1252, u8"Ajustement de faisceau"},
-     // German
-     {1252, u8"Bündelanpassung"},
-     // Russian
-     {1251, u8"Байндл-адаптация"},
-     // Greek
-     {1253, u8"Προσαρμογή δεσμίδας"},
-     // Turkish
-     {1254, u8"Işın Demeti Ayarı"},
-     // Hebrew
-     {1255, u8"התאמת צרור"},
-     // Arabic
-     {1256, u8"ضبط الحزمة"},
-     // Thai
-     {874, u8"ปรับค่ากลุ่มภาพ"}}};
-
 TEST(StringPrintf, Nominal) {
   EXPECT_EQ(StringPrintf("%s", "test"), "test");
   EXPECT_EQ(StringPrintf("%d", 1), "1");
@@ -255,6 +229,32 @@ TEST(StringContains, Nominal) {
 }
 
 TEST(ConversionBetweenPlatformAndUTF8, NonASCIIStringRoundtrip) {
+  const std::unordered_map<int, std::string> kCodePageToUTF8Strings = {
+      {// English
+       {0, u8"Bundle Adjustment"},
+       // Simplified Chinese
+       {936, u8"光束法平差"},
+       // Japanese
+       {932, u8"バンドル調整"},
+       // Korean
+       {949, u8"번들조정"},
+       // French
+       {1252, u8"Ajustement de faisceau"},
+       // German
+       {1252, u8"Bündelanpassung"},
+       // Russian
+       {1251, u8"Байндл-адаптация"},
+       // Greek
+       {1253, u8"Προσαρμογή δεσμίδας"},
+       // Turkish
+       {1254, u8"Işın Demeti Ayarı"},
+       // Hebrew
+       {1255, u8"התאמת צרור"},
+       // Arabic
+       {1256, u8"ضبط الحزمة"},
+       // Thai
+       {874, u8"ปรับค่ากลุ่มภาพ"}}};
+
   for (const auto& [code_page, original] : kCodePageToUTF8Strings) {
 #ifdef _WIN32
     // NOTE:
@@ -263,13 +263,13 @@ TEST(ConversionBetweenPlatformAndUTF8, NonASCIIStringRoundtrip) {
     // Windows. By explicitly specifying the code page, we can verify that the
     // internal logic correctly handles various legacy encodings independently
     // of the system ACP.
-    std::string platform_encoded =
+    const std::string platform_encoded =
         internal::UTF8ToCodePageWin(original, code_page);
-    std::string roundtrip =
+    const std::string roundtrip =
         internal::CodePageToUTF8Win(platform_encoded, code_page);
 #else
-    std::string platform_encoded = UTF8ToPlatform(original);
-    std::string roundtrip = PlatformToUTF8(platform_encoded);
+    const std::string platform_encoded = UTF8ToPlatform(original);
+    const std::string roundtrip = PlatformToUTF8(platform_encoded);
 #endif
 
     EXPECT_EQ(roundtrip, original);

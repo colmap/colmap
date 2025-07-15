@@ -131,7 +131,9 @@ bool IsNotWhiteSpace(const int character) {
 }  // namespace
 
 namespace internal {
+
 #ifdef _WIN32
+
 std::string CodePageToUTF8Win(const std::string& str, unsigned int code_page) {
   int wide_len = MultiByteToWideChar(code_page, 0, str.c_str(), -1, nullptr, 0);
   if (wide_len <= 0) return "";
@@ -189,6 +191,7 @@ std::string UTF8ToCodePageWin(const std::string& str, unsigned int code_page) {
 }
 
 #endif
+
 }  // namespace internal
 
 std::string StringPrintf(const char* format, ...) {
@@ -271,8 +274,8 @@ std::string PlatformToUTF8(const std::string& str) {
 #ifdef _WIN32
   return internal::CodePageToUTF8Win(str, GetACP());
 #else
-  // Assume UTF-8 on POSIX systems
-  return input;
+  // Assume UTF-8 on POSIX systems.
+  return str;
 #endif
 }
 
@@ -280,8 +283,8 @@ std::string UTF8ToPlatform(const std::string& str) {
 #ifdef _WIN32
   return internal::UTF8ToCodePageWin(str, GetACP());
 #else
-  // On POSIX, assume UTF-8 is the system encoding
-  return utf8_str;
+  // On POSIX, assume UTF-8 is the system encoding.
+  return str;
 #endif
 }
 
