@@ -2,6 +2,20 @@ Changelog
 =========
 
 --------------------------
+COLMAP 3.12.2 (07/16/2025)
+--------------------------
+
+Bug Fixes
+---------
+* Define VisualIndex::Read as static in python bindings
+* Only find C/CXX OpenMP components to support new CMake versions
+* Fix a bug affecting feature matching on GPU
+* Fix potential deadlock in job queue
+* Update FindMetis.cmake to also link GK_LIBRARIES
+* Fix backwards compatibility in mapper with custom image list
+* Fix docker run script for GUI
+
+--------------------------
 COLMAP 3.12.1 (07/05/2025)
 --------------------------
 
