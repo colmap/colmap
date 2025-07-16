@@ -158,7 +158,8 @@ void BindVisualIndex(py::module& m) {
       .def("build",
            &VisualIndex::Build,
            py::call_guard<py::gil_scoped_release>())
-      .def("read", &VisualIndex::Read, py::call_guard<py::gil_scoped_release>())
+      .def_static(
+          "read", &VisualIndex::Read, py::call_guard<py::gil_scoped_release>())
       .def("write",
            &VisualIndex::Write,
            py::call_guard<py::gil_scoped_release>())
