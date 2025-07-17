@@ -31,8 +31,8 @@ void BindSim3(py::module& m) {
             return py::array({}, {}, &self.log_scale, py::cast(self));
           },
           [](Sim3d& self, double log_scale) { self.log_scale = log_scale; })
-      .def_property("scale", &Sim3d::GetScale, &Sim3d::SetScale);
-  .def_readwrite("rotation", &Sim3d::rotation)
+      .def_property("scale", &Sim3d::GetScale, &Sim3d::SetScale)
+      .def_readwrite("rotation", &Sim3d::rotation)
       .def_readwrite("translation", &Sim3d::translation)
       .def("matrix", &Sim3d::ToMatrix)
       .def(py::self * Sim3d())
