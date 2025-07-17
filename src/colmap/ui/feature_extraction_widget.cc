@@ -30,6 +30,7 @@
 #include "colmap/ui/feature_extraction_widget.h"
 
 #include "colmap/controllers/feature_extraction.h"
+#include "colmap/controllers/image_importer.h"
 #include "colmap/feature/sift.h"
 #include "colmap/sensor/models.h"
 #include "colmap/ui/options_widget.h"
@@ -75,13 +76,12 @@ ExtractionWidget::ExtractionWidget(QWidget* parent, OptionManager* options)
 SIFTExtractionWidget::SIFTExtractionWidget(QWidget* parent,
                                            OptionManager* options)
     : ExtractionWidget(parent, options) {
-  AddOptionDirPath(&options->image_reader->mask_path, "mask_path");
-  AddOptionFilePath(&options->image_reader->camera_mask_path,
-                    "camera_mask_path");
-
   AddOptionInt(&options->feature_extraction->num_threads, "num_threads", -1);
   AddOptionBool(&options->feature_extraction->use_gpu, "use_gpu");
   AddOptionText(&options->feature_extraction->gpu_index, "gpu_index");
+  AddOptionDirPath(&options->feature_extraction->mask_path, "mask_path");
+  AddOptionFilePath(&options->feature_extraction->camera_mask_path,
+                    "camera_mask_path");
 
   SiftExtractionOptions& sift_options = *options->feature_extraction->sift;
   AddOptionInt(&sift_options.max_image_size, "sift.max_image_size");
@@ -113,11 +113,10 @@ void SIFTExtractionWidget::Run() {
 
   options_->feature_extraction->type = FeatureExtractorType::SIFT;
 
-  ImageReaderOptions reader_options = *options_->image_reader;
-  reader_options.image_path = *options_->image_path;
-
-  auto extractor = CreateFeatureExtractorController(
-      *options_->database_path, reader_options, *options_->feature_extraction);
+  auto extractor =
+      CreateFeatureExtractorController(*options_->database_path,
+                                       *options_->image_path,
+                                       *options_->feature_extraction);
   thread_control_widget_->StartThread(
       "Extracting...", true, std::move(extractor));
 }
@@ -136,18 +135,17 @@ void ImportFeaturesWidget::Run() {
     return;
   }
 
-  ImageReaderOptions reader_options = *options_->image_reader;
-  reader_options.image_path = *options_->image_path;
-
-  auto importer = CreateFeatureImporterController(
-      *options_->database_path, reader_options, import_path_);
+  auto importer =
+      CreateFeatureImporterController(*options_->database_path, import_path_);
   thread_control_widget_->StartThread(
       "Importing...", true, std::move(importer));
 }
 
 FeatureExtractionWidget::FeatureExtractionWidget(QWidget* parent,
                                                  OptionManager* options)
-    : parent_(parent), options_(options) {
+    : parent_(parent),
+      options_(options),
+      thread_control_widget_(new ThreadControlWidget(this)) {
   setWindowFlags(Qt::Dialog);
   setWindowModality(Qt::ApplicationModal);
   setWindowTitle("Feature extraction");
@@ -315,9 +313,27 @@ void FeatureExtractionWidget::Extract() {
     return;
   }
 
+  ImageReaderOptions reader_options = *options_->image_reader;
+  reader_options.image_path = *options_->image_path;
+  auto image_importer =
+      CreateImageImporterController(*options_->database_path, reader_options);
+
   QWidget* widget =
       static_cast<QScrollArea*>(tab_widget_->currentWidget())->widget();
-  static_cast<ExtractionWidget*>(widget)->Run();
+
+  image_importer->AddCallback(Thread::FINISHED_CALLBACK, [widget]() {
+    // This can't work since OpenGLContextManager needs to be created in the
+    // main thread...
+    static_cast<ExtractionWidget*>(widget)->Run();
+    // This doesn't work either, somehow the Run method isn't properly
+    // registered...
+    // CHECK(QMetaObject::invokeMethod(
+    //     static_cast<ExtractionWidget*>(widget), "Run",
+    //     Qt::QueuedConnection));
+  });
+
+  thread_control_widget_->StartThread(
+      "Importing images...", true, std::move(image_importer));
 
   camera_params_text_->setText(old_camera_params_text);
 }
