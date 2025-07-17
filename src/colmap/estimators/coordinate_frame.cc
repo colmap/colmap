@@ -365,7 +365,7 @@ void AlignToENUPlane(Reconstruction* reconstruction,
   rot_mat << -sin_lon, cos_lon, 0, -cos_lon * sin_lat, -sin_lon * sin_lat,
       cos_lat, cos_lon * cos_lat, sin_lon * cos_lat, sin_lat;
 
-  const double scale = unscaled ? 1.0 / aligned_from_original->scale : 1.0;
+  const double scale = unscaled ? 1.0 / aligned_from_original->GetScale() : 1.0;
   *aligned_from_original =
       Sim3d(scale, Eigen::Quaterniond(rot_mat), -scale * rot_mat * centroid);
   reconstruction->Transform(*aligned_from_original);

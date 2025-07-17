@@ -48,7 +48,7 @@ TEST(Sim3d, Eq) {
   const Sim3d x(2, Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
   Sim3d y = x;
   EXPECT_THAT(x, Sim3dEq(y));
-  y.scale += 1e-7;
+  y.SetScale(y.GetScale() + 1e-7);
   EXPECT_THAT(x, testing::Not(Sim3dEq(y)));
   y = x;
   y.rotation.w() += 1e-7;
