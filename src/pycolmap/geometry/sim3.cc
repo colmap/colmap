@@ -26,12 +26,13 @@ void BindSim3(py::module& m) {
            "matrix"_a,
            "3x4 transformation matrix.")
       .def_property(
-          "scale",
+          "log_scale",
           [](Sim3d& self) {
-            return py::array({}, {}, &self.scale, py::cast(self));
+            return py::array({}, {}, &self.log_scale, py::cast(self));
           },
-          [](Sim3d& self, double scale) { self.scale = scale; })
-      .def_readwrite("rotation", &Sim3d::rotation)
+          [](Sim3d& self, double log_scale) { self.log_scale = log_scale; })
+      .def_property("scale", &Sim3d::GetScale, &Sim3d::SetScale);
+  .def_readwrite("rotation", &Sim3d::rotation)
       .def_readwrite("translation", &Sim3d::translation)
       .def("matrix", &Sim3d::ToMatrix)
       .def(py::self * Sim3d())
@@ -40,7 +41,7 @@ void BindSim3(py::module& m) {
            [](const Sim3d& t,
               const py::EigenDRef<const Eigen::MatrixX3d>& points)
                -> Eigen::MatrixX3d {
-             return (t.scale *
+             return (t.GetScale() *
                      (points * t.rotation.toRotationMatrix().transpose()))
                         .rowwise() +
                     t.translation.transpose();
