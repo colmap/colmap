@@ -45,6 +45,51 @@
 namespace colmap {
 namespace {
 
+void ExtractPointsAndMatches(const Reconstruction& reconstruction,
+                             const Image& image1,
+                             const Image& image2,
+                             std::vector<Eigen::Vector2d>& points1,
+                             std::vector<Eigen::Vector2d>& points2,
+                             std::vector<Eigen::Vector3d>& points3D,
+                             FeatureMatches& matches) {
+  points1.clear();
+  points2.clear();
+  matches.clear();
+
+  for (const Point2D& point2D : image1.Points2D()) {
+    points1.emplace_back(point2D.xy);
+  }
+
+  for (const Point2D& point2D : image2.Points2D()) {
+    points2.emplace_back(point2D.xy);
+  }
+
+  for (const auto& [_, point3D] : reconstruction.Points3D()) {
+    const Track& track = point3D.track;
+    CHECK_EQ(track.Length(), 2);
+
+    points3D.emplace_back(point3D.xyz);
+
+    const auto& elem1 = track.Element(0);
+    const auto& elem2 = track.Element(1);
+
+    int idx1 = -1, idx2 = -1;
+    if (elem1.image_id == image1.ImageId() &&
+        elem2.image_id == image2.ImageId()) {
+      idx1 = elem1.point2D_idx;
+      idx2 = elem2.point2D_idx;
+    } else if (elem1.image_id == image2.ImageId() &&
+               elem2.image_id == image1.ImageId()) {
+      idx1 = elem2.point2D_idx;
+      idx2 = elem1.point2D_idx;
+    } else {
+      LOG(FATAL) << "Invalid track element.";
+    }
+
+    matches.emplace_back(idx1, idx2);
+  }
+}
+
 struct TwoViewGeometryTestData {
   Camera camera1;
   Camera camera2;
@@ -106,31 +151,14 @@ TwoViewGeometryTestData CreateTwoViewGeometryTestData(
     LOG(FATAL) << "Invalid configuration.";
   }
 
-  for (const Point2D& point2D : image1.Points2D()) {
-    data.points1.emplace_back(point2D.xy);
-  }
-  for (const Point2D& point2D : image2.Points2D()) {
-    data.points2.emplace_back(point2D.xy);
-  }
-
   std::vector<Eigen::Vector3d> points3D;
-  for (const auto& [_, point3D] : reconstruction.Points3D()) {
-    points3D.push_back(point3D.xyz);
-    CHECK_EQ(point3D.track.Length(), 2);
-    const TrackElement& elem1 = point3D.track.Element(0);
-    const TrackElement& elem2 = point3D.track.Element(1);
-    if (elem1.image_id == image1.ImageId() &&
-        elem2.image_id == image2.ImageId()) {
-      data.geometry.inlier_matches.emplace_back(elem1.point2D_idx,
-                                                elem2.point2D_idx);
-    } else if (elem1.image_id == image2.ImageId() &&
-               elem2.image_id == image1.ImageId()) {
-      data.geometry.inlier_matches.emplace_back(elem2.point2D_idx,
-                                                elem1.point2D_idx);
-    } else {
-      LOG(FATAL) << "Invalid track element.";
-    }
-  }
+  ExtractPointsAndMatches(reconstruction,
+                          image1,
+                          image2,
+                          data.points1,
+                          data.points2,
+                          points3D,
+                          data.geometry.inlier_matches);
 
   if (config == TwoViewGeometry::ConfigurationType::PANORAMIC) {
     data.geometry.tri_angle = 0;
@@ -309,6 +337,157 @@ TEST(EstimateTwoViewGeometryPose, PlanarOrPanoramic) {
     }
   }
   EXPECT_EQ(num_failures, 0);
+}
+
+TEST(EstimateTwoViewGeometry, Calibrated) {
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 500;
+  synthetic_dataset_options.point2D_stddev = 5;
+  synthetic_dataset_options.inlier_match_ratio = 0.6;
+  synthetic_dataset_options.camera_has_prior_focal_length = true;
+  synthetic_dataset_options.match_config =
+      SyntheticDatasetOptions::MatchConfig::EXHAUSTIVE;
+
+  Reconstruction reconstruction;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+
+  const Image& image1 = reconstruction.Image(1);
+  const Image& image2 = reconstruction.Image(2);
+  const Camera& camera1 = reconstruction.Camera(image1.CameraId());
+  const Camera& camera2 = reconstruction.Camera(image2.CameraId());
+
+  std::vector<Eigen::Vector2d> points1;
+  std::vector<Eigen::Vector2d> points2;
+  std::vector<Eigen::Vector3d> points3D;
+  FeatureMatches matches;
+
+  ExtractPointsAndMatches(
+      reconstruction, image1, image2, points1, points2, points3D, matches);
+
+  TwoViewGeometryOptions two_view_geometry_options;
+  two_view_geometry_options.ransac_options.random_seed = 42;
+  const TwoViewGeometry geometry1 = EstimateTwoViewGeometry(
+      camera1, points1, camera2, points2, matches, two_view_geometry_options);
+
+  two_view_geometry_options.ransac_options.random_seed = 42;
+  const TwoViewGeometry geometry2 = EstimateTwoViewGeometry(
+      camera1, points1, camera2, points2, matches, two_view_geometry_options);
+
+  // Using the same random seed should produce identical results.
+  EXPECT_THAT(
+      geometry1.E,
+      EigenMatrixNear(geometry2.E, std::numeric_limits<double>::epsilon()));
+
+  two_view_geometry_options.ransac_options.random_seed = 123;
+  const TwoViewGeometry geometry3 = EstimateTwoViewGeometry(
+      camera1, points1, camera2, points2, matches, two_view_geometry_options);
+
+  // Using a different random seed may produce different results.
+  EXPECT_THAT(geometry1.E, ::testing::Not(EigenMatrixNear(geometry3.E, 1e-4)));
+}
+
+TEST(EstimateTwoViewGeometry, Uncalibrated) {
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 500;
+  synthetic_dataset_options.point2D_stddev = 5;
+  synthetic_dataset_options.inlier_match_ratio = 0.6;
+  synthetic_dataset_options.camera_has_prior_focal_length = false;
+  synthetic_dataset_options.match_config =
+      SyntheticDatasetOptions::MatchConfig::EXHAUSTIVE;
+
+  Reconstruction reconstruction;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+
+  const Image& image1 = reconstruction.Image(1);
+  const Image& image2 = reconstruction.Image(2);
+  const Camera& camera1 = reconstruction.Camera(image1.CameraId());
+  const Camera& camera2 = reconstruction.Camera(image2.CameraId());
+
+  std::vector<Eigen::Vector2d> points1;
+  std::vector<Eigen::Vector2d> points2;
+  std::vector<Eigen::Vector3d> points3D;
+  FeatureMatches matches;
+
+  ExtractPointsAndMatches(
+      reconstruction, image1, image2, points1, points2, points3D, matches);
+
+  TwoViewGeometryOptions two_view_geometry_options;
+  two_view_geometry_options.ransac_options.random_seed = 42;
+  const TwoViewGeometry geometry1 = EstimateTwoViewGeometry(
+      camera1, points1, camera2, points2, matches, two_view_geometry_options);
+
+  two_view_geometry_options.ransac_options.random_seed = 42;
+  const TwoViewGeometry geometry2 = EstimateTwoViewGeometry(
+      camera1, points1, camera2, points2, matches, two_view_geometry_options);
+
+  // Using the same random seed should produce identical results.
+  EXPECT_THAT(
+      geometry1.F,
+      EigenMatrixNear(geometry2.F, std::numeric_limits<double>::epsilon()));
+
+  two_view_geometry_options.ransac_options.random_seed = 123;
+  const TwoViewGeometry geometry3 = EstimateTwoViewGeometry(
+      camera1, points1, camera2, points2, matches, two_view_geometry_options);
+
+  // Using a different random seed may produce different results.
+  EXPECT_THAT(geometry1.F, ::testing::Not(EigenMatrixNear(geometry3.F, 1e-4)));
+}
+
+TEST(EstimateTwoViewGeometry, PlanarOrPanoramic) {
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 500;
+  synthetic_dataset_options.point2D_stddev = 5;
+  synthetic_dataset_options.inlier_match_ratio = 0.6;
+  synthetic_dataset_options.camera_has_prior_focal_length = true;
+  synthetic_dataset_options.match_config =
+      SyntheticDatasetOptions::MatchConfig::EXHAUSTIVE;
+
+  Reconstruction reconstruction;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+
+  const Image& image1 = reconstruction.Image(1);
+  const Image& image2 = reconstruction.Image(2);
+  const Camera& camera1 = reconstruction.Camera(image1.CameraId());
+  const Camera& camera2 = reconstruction.Camera(image2.CameraId());
+
+  std::vector<Eigen::Vector2d> points1;
+  std::vector<Eigen::Vector2d> points2;
+  std::vector<Eigen::Vector3d> points3D;
+  FeatureMatches matches;
+
+  ExtractPointsAndMatches(
+      reconstruction, image1, image2, points1, points2, points3D, matches);
+
+  TwoViewGeometryOptions two_view_geometry_options;
+  two_view_geometry_options.force_H_use = true;
+  two_view_geometry_options.ransac_options.random_seed = 42;
+  const TwoViewGeometry geometry1 = EstimateTwoViewGeometry(
+      camera1, points1, camera2, points2, matches, two_view_geometry_options);
+
+  two_view_geometry_options.ransac_options.random_seed = 42;
+  const TwoViewGeometry geometry2 = EstimateTwoViewGeometry(
+      camera1, points1, camera2, points2, matches, two_view_geometry_options);
+
+  // Using the same random seed should produce identical results.
+  EXPECT_THAT(
+      geometry1.H,
+      EigenMatrixNear(geometry2.H, std::numeric_limits<double>::epsilon()));
+
+  two_view_geometry_options.ransac_options.random_seed = 123;
+  const TwoViewGeometry geometry3 = EstimateTwoViewGeometry(
+      camera1, points1, camera2, points2, matches, two_view_geometry_options);
+
+  // Using a different random seed may produce different results.
+  EXPECT_THAT(geometry1.H, ::testing::Not(EigenMatrixNear(geometry3.H, 1e-4)));
 }
 
 }  // namespace

@@ -51,4 +51,7 @@ class RandomSampler : public Sampler {
   std::vector<size_t> sample_idxs_;
 };
 
+template <>
+struct is_randomized_sampler<RandomSampler> : std::true_type {};
+
 }  // namespace colmap
