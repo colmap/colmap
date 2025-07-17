@@ -412,8 +412,8 @@ int RunModelAligner(int argc, char** argv) {
         reconstruction.Transform(origin_align);
 
         // Update the Sim3 transformation in case it is stored next.
-        tform =
-            Sim3d(tform.GetScale(), tform.rotation, tform.translation + trans_align);
+        tform = Sim3d(
+            tform.GetScale(), tform.rotation, tform.translation + trans_align);
 
         break;
       }

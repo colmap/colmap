@@ -51,16 +51,14 @@ struct Sim3d {
         const Eigen::Quaterniond& rotation,
         const Eigen::Vector3d& translation)
       : rotation(rotation), translation(translation) {
-          SetScale(scale);
-      }
-
-  inline double GetScale() const {
-      return std::exp(log_scale);
+    SetScale(scale);
   }
 
+  inline double GetScale() const { return std::exp(log_scale); }
+
   inline void SetScale(double const scale) {
-      THROW_CHECK_GT(scale, 0);
-      log_scale = std::log(scale);
+    THROW_CHECK_GT(scale, 0);
+    log_scale = std::log(scale);
   }
 
   inline Eigen::Matrix3x4d ToMatrix() const {
@@ -74,8 +72,7 @@ struct Sim3d {
     Sim3d t;
     double scale = matrix.col(0).norm();
     t.SetScale(scale);
-    t.rotation =
-        Eigen::Quaterniond(matrix.leftCols<3>() / scale).normalized();
+    t.rotation = Eigen::Quaterniond(matrix.leftCols<3>() / scale).normalized();
     t.translation = matrix.rightCols<1>();
     return t;
   }
@@ -88,7 +85,7 @@ struct Sim3d {
 // Return inverse transform.
 inline Sim3d Inverse(const Sim3d& b_from_a) {
   Sim3d a_from_b;
-  a_from_b.log_scale = - b_from_a.log_scale;
+  a_from_b.log_scale = -b_from_a.log_scale;
   a_from_b.rotation = b_from_a.rotation.inverse();
   a_from_b.translation =
       (a_from_b.rotation * b_from_a.translation) / -b_from_a.GetScale();

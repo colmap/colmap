@@ -168,8 +168,9 @@ Rigid3d TransformCameraWorld(const Sim3d& new_from_old_world,
   const Sim3d cam_from_new_world =
       Sim3d(1, cam_from_world.rotation, cam_from_world.translation) *
       Inverse(new_from_old_world);
-  return Rigid3d(cam_from_new_world.rotation,
-                 cam_from_new_world.translation * new_from_old_world.GetScale());
+  return Rigid3d(
+      cam_from_new_world.rotation,
+      cam_from_new_world.translation * new_from_old_world.GetScale());
 }
 
 }  // namespace colmap
