@@ -52,4 +52,7 @@ class CombinationSampler : public Sampler {
   std::vector<size_t> total_sample_idxs_;
 };
 
+template <>
+struct is_randomized_sampler<CombinationSampler> : std::false_type {};
+
 }  // namespace colmap
