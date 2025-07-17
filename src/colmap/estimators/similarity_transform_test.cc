@@ -148,7 +148,7 @@ void TestEstimateSim3dWithNumCoords(const size_t num_coords) {
 
   Sim3d tgt_from_src;
   EXPECT_TRUE(EstimateSim3d(src, tgt, tgt_from_src));
-  EXPECT_NEAR(gt_tgt_from_src.scale, tgt_from_src.scale, 1e-6);
+  EXPECT_NEAR(gt_tgt_from_src.GetScale(), tgt_from_src.GetScale(), 1e-6);
   EXPECT_LT(gt_tgt_from_src.rotation.angularDistance(tgt_from_src.rotation),
             1e-6);
   EXPECT_LT((gt_tgt_from_src.translation - tgt_from_src.translation).norm(),

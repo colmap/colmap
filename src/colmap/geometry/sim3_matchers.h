@@ -45,7 +45,7 @@ class Sim3dEqMatcher : public testing::MatcherInterface<T> {
   bool MatchAndExplain(T lhs,
                        testing::MatchResultListener* listener) const override {
     // Note that with use !(a == b) to handle NaNs.
-    if (!(lhs.scale == rhs_.scale)) {
+    if (!(lhs.log_scale == rhs_.log_scale)) {
       return false;
     }
     if (!(lhs.rotation.coeffs() == rhs_.rotation.coeffs())) {
@@ -78,7 +78,7 @@ class Sim3dNearMatcher : public testing::MatcherInterface<T> {
   bool MatchAndExplain(T lhs,
                        testing::MatchResultListener* listener) const override {
     // Note that with use !(a <= b) to handle NaNs.
-    if (!(std::abs(lhs.scale - rhs_.scale) <= stol_)) {
+    if (!(std::abs(lhs.GetScale() - rhs_.GetScale()) <= stol_)) {
       *listener << " exceed scale threshold " << stol_;
       return false;
     }

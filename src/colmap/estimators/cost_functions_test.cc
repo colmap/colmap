@@ -398,7 +398,7 @@ TEST(Point3DAlignmentCostFunctor, Nominal) {
   const double* parameters[4] = {point.data(),
                                  tform.rotation.coeffs().data(),
                                  tform.translation.data(),
-                                 &tform.scale};
+                                 &tform.log_scale};
   double residuals[3];
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
 

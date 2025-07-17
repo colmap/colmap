@@ -42,7 +42,7 @@ namespace colmap {
 // 3D similarity transform with 7 degrees of freedom.
 // Transforms point x from a to b as: x_in_b = scale * R * x_in_a + t.
 struct Sim3d {
-  double scale = 1;
+  double log_scale = 0.;
   Eigen::Quaterniond rotation = Eigen::Quaterniond::Identity();
   Eigen::Vector3d translation = Eigen::Vector3d::Zero();
 
@@ -50,20 +50,32 @@ struct Sim3d {
   Sim3d(double scale,
         const Eigen::Quaterniond& rotation,
         const Eigen::Vector3d& translation)
-      : scale(scale), rotation(rotation), translation(translation) {}
+      : rotation(rotation), translation(translation) {
+          SetScale(scale);
+      }
+
+  inline double GetScale() const {
+      return std::exp(log_scale);
+  }
+
+  inline void SetScale(double const scale) {
+      THROW_CHECK_GT(scale, 0);
+      log_scale = std::log(scale);
+  }
 
   inline Eigen::Matrix3x4d ToMatrix() const {
     Eigen::Matrix3x4d matrix;
-    matrix.leftCols<3>() = scale * rotation.toRotationMatrix();
+    matrix.leftCols<3>() = GetScale() * rotation.toRotationMatrix();
     matrix.col(3) = translation;
     return matrix;
   }
 
   static inline Sim3d FromMatrix(const Eigen::Matrix3x4d& matrix) {
     Sim3d t;
-    t.scale = matrix.col(0).norm();
+    double scale = matrix.col(0).norm();
+    t.SetScale(scale);
     t.rotation =
-        Eigen::Quaterniond(matrix.leftCols<3>() / t.scale).normalized();
+        Eigen::Quaterniond(matrix.leftCols<3>() / scale).normalized();
     t.translation = matrix.rightCols<1>();
     return t;
   }
@@ -76,10 +88,10 @@ struct Sim3d {
 // Return inverse transform.
 inline Sim3d Inverse(const Sim3d& b_from_a) {
   Sim3d a_from_b;
-  a_from_b.scale = 1 / b_from_a.scale;
+  a_from_b.log_scale = - b_from_a.log_scale;
   a_from_b.rotation = b_from_a.rotation.inverse();
   a_from_b.translation =
-      (a_from_b.rotation * b_from_a.translation) / -b_from_a.scale;
+      (a_from_b.rotation * b_from_a.translation) / -b_from_a.GetScale();
   return a_from_b;
 }
 
@@ -97,23 +109,23 @@ inline Sim3d Inverse(const Sim3d& b_from_a) {
 //      x_in_c = d_from_c * (c_from_b * (b_from_a * x_in_a))
 // which will apply the transformations as a chain on the point.
 inline Eigen::Vector3d operator*(const Sim3d& t, const Eigen::Vector3d& x) {
-  return t.scale * (t.rotation * x) + t.translation;
+  return t.GetScale() * (t.rotation * x) + t.translation;
 }
 
 // Concatenate transforms such one can write expressions like:
 //      d_from_a = d_from_c * c_from_b * b_from_a
 inline Sim3d operator*(const Sim3d& c_from_b, const Sim3d& b_from_a) {
   Sim3d c_from_a;
-  c_from_a.scale = c_from_b.scale * b_from_a.scale;
+  c_from_a.log_scale = c_from_b.log_scale + b_from_a.log_scale;
   c_from_a.rotation = (c_from_b.rotation * b_from_a.rotation).normalized();
   c_from_a.translation =
       c_from_b.translation +
-      (c_from_b.scale * (c_from_b.rotation * b_from_a.translation));
+      (c_from_b.GetScale() * (c_from_b.rotation * b_from_a.translation));
   return c_from_a;
 }
 
 inline bool operator==(const Sim3d& left, const Sim3d& right) {
-  return left.scale == right.scale &&
+  return left.log_scale == right.log_scale &&
          left.rotation.coeffs() == right.rotation.coeffs() &&
          left.translation == right.translation;
 }

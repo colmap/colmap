@@ -78,7 +78,7 @@ Eigen::Vector3d TransformLatLonAltToModelCoords(const Sim3d& tform,
   Eigen::Vector3d xyz =
       tform * GPSTransform(GPSTransform::Ellipsoid::WGS84)
                   .EllipsoidToECEF({Eigen::Vector3d(lat, lon, 0.0)})[0];
-  xyz(2) = tform.scale * alt;
+  xyz(2) = tform.GetScale() * alt;
   return xyz;
 }
 
@@ -413,7 +413,7 @@ int RunModelAligner(int argc, char** argv) {
 
         // Update the Sim3 transformation in case it is stored next.
         tform =
-            Sim3d(tform.scale, tform.rotation, tform.translation + trans_align);
+            Sim3d(tform.GetScale(), tform.rotation, tform.translation + trans_align);
 
         break;
       }
@@ -940,7 +940,7 @@ int RunModelSplitter(int argc, char** argv) {
                            std::numeric_limits<double>::max(),
                            std::numeric_limits<double>::max());
     for (size_t i = 0; i < parts.size(); ++i) {
-      extent(i) = parts[i] * tform.scale;
+      extent(i) = parts[i] * tform.GetScale();
     }
 
     const Eigen::AlignedBox3d bbox = reconstruction.ComputeBoundingBox();

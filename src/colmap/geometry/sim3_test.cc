@@ -49,7 +49,8 @@ Sim3d TestSim3d() {
 
 TEST(Sim3d, Default) {
   const Sim3d tform;
-  EXPECT_EQ(tform.scale, 1);
+  EXPECT_EQ(tform.log_scale, 0);
+  EXPECT_EQ(tform.GetScale(), 1);
   EXPECT_EQ(tform.rotation.coeffs(), Eigen::Quaterniond::Identity().coeffs());
   EXPECT_EQ(tform.translation, Eigen::Vector3d::Zero());
 }
@@ -166,7 +167,7 @@ TEST(Sim3d, ToFromFile) {
   const Sim3d written = TestSim3d();
   written.ToFile(path);
   const Sim3d read = Sim3d::FromFile(path);
-  EXPECT_EQ(written.scale, read.scale);
+  EXPECT_EQ(written.log_scale, read.log_scale);
   EXPECT_EQ(written.rotation.coeffs(), read.rotation.coeffs());
   EXPECT_EQ(written.translation, read.translation);
 }
