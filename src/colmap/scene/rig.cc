@@ -214,6 +214,7 @@ void ApplyRigConfig(const std::vector<RigConfig>& configs,
   database.ClearRigs();
 
   const std::vector<Image> images = database.ReadAllImages();
+  std::set<image_t> configured_image_ids;
 
   for (const RigConfig& config : configs) {
     Rig rig;
@@ -282,6 +283,7 @@ void ApplyRigConfig(const std::vector<RigConfig>& configs,
             << ", camera_id=" << image->CameraId() << ", name=" << image->Name()
             << ")";
         frame.AddDataId(data_id);
+        configured_image_ids.insert(image->ImageId());
       }
       frame.SetFrameId(database.WriteFrame(frame));
       LOG(INFO) << "Configured: " << frame;
@@ -290,33 +292,59 @@ void ApplyRigConfig(const std::vector<RigConfig>& configs,
     if (reconstruction != nullptr) {
       UpdateRigAndCameraCalibFromReconstruction(
           *reconstruction, frames_to_images, rig, database);
-      // Set the frame poses from the first image we find in each frame.
-      std::vector<Frame> frames = database.ReadAllFrames();
-      for (Frame& frame : frames) {
-        for (const data_t& data_id : frame.ImageIds()) {
-          // Note that the input reconstruction may have a different assignment
-          // of images and image_ids, so we associate them uniquely by name.
-          // In addition, not all images in the database may be present in the
-          // input reconstruction, e.g., when self-calibrating the rigs and
-          // cameras from a subset of images.
-          const Image* image = reconstruction->FindImageWithName(
-              database.ReadImage(data_id.id).Name());
-          if (image == nullptr || !image->HasPose()) {
-            continue;
-          }
-          const sensor_t sensor_id = image->CameraPtr()->SensorId();
-          if (rig.IsRefSensor(sensor_id)) {
-            frame.SetRigFromWorld(image->CamFromWorld());
-          } else {
-            frame.SetRigFromWorld(Inverse(rig.SensorFromRig(sensor_id)) *
-                                  image->CamFromWorld());
-          }
-          break;
-        }
-      }
-      reconstruction->SetRigsAndFrames(database.ReadAllRigs(),
-                                       std::move(frames));
     }
+  }
+
+  // Create trivial rigs/frames for images without configuration.
+  // This is necessary because we clear rigs/frames above.
+  std::unordered_map<camera_t, rig_t> camera_to_rig_id;
+  for (const Image& image : images) {
+    if (configured_image_ids.count(image.ImageId()) > 0) {
+      continue;
+    }
+    const sensor_t sensor_id(SensorType::CAMERA, image.CameraId());
+    auto rig_id_it = camera_to_rig_id.find(image.CameraId());
+    if (rig_id_it == camera_to_rig_id.end()) {
+      Rig rig;
+      rig.AddRefSensor(sensor_id);
+      rig_id_it =
+          camera_to_rig_id.emplace(image.CameraId(), database.WriteRig(rig))
+              .first;
+    }
+    Frame frame;
+    frame.SetRigId(rig_id_it->second);
+    frame.AddDataId(data_t(sensor_id, image.ImageId()));
+    frame.SetFrameId(database.WriteFrame(frame));
+  }
+
+  if (reconstruction != nullptr) {
+    // Set the frame poses from the first image we find in each frame.
+    std::vector<Frame> frames = database.ReadAllFrames();
+    for (Frame& frame : frames) {
+      for (const data_t& data_id : frame.ImageIds()) {
+        // Note that the input reconstruction may have a different assignment
+        // of images and image_ids, so we associate them uniquely by name.
+        // In addition, not all images in the database may be present in the
+        // input reconstruction, e.g., when self-calibrating the rigs and
+        // cameras from a subset of images.
+        const Image* image = reconstruction->FindImageWithName(
+            database.ReadImage(data_id.id).Name());
+        if (image == nullptr || !image->HasPose()) {
+          continue;
+        }
+        const sensor_t sensor_id = image->CameraPtr()->SensorId();
+        const Rig& rig = database.ReadRig(frame.RigId());
+        if (rig.IsRefSensor(sensor_id)) {
+          frame.SetRigFromWorld(image->CamFromWorld());
+        } else {
+          frame.SetRigFromWorld(Inverse(rig.SensorFromRig(sensor_id)) *
+                                image->CamFromWorld());
+        }
+        break;
+      }
+    }
+
+    reconstruction->SetRigsAndFrames(database.ReadAllRigs(), std::move(frames));
   }
 }
 
