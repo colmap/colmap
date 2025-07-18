@@ -527,7 +527,35 @@ int RunRigVerifier(int argc, char** argv) {
             Database::PairIdToImagePair(pair_id);
         TwoViewGeometry two_view_geometry =
             database.ReadTwoViewGeometry(image_id1, image_id2);
+        if (two_view_geometry.inlier_matches.size() >= pair_matches.size()) {
+          continue;
+        }
+
         two_view_geometry.inlier_matches = pair_matches;
+
+        const Rigid3d rig2_from_rig1 = maybe_rig2_from_rig1.has_value()
+                                           ? maybe_rig2_from_rig1.value()
+                                           : maybe_pano2_from_pano1.value();
+
+        const Image& image1 = database_cache->Image(image_id1);
+        const Image& image2 = database_cache->Image(image_id2);
+
+        const sensor_t camera_id1(SensorType::CAMERA, image1.CameraId());
+        Rigid3d cam1_from_rig1;
+        if (!rig1.IsRefSensor(camera_id1)) {
+          cam1_from_rig1 = rig1.SensorFromRig(camera_id1);
+        }
+
+        const sensor_t camera_id2(SensorType::CAMERA, image2.CameraId());
+        Rigid3d cam2_from_rig2;
+        if (!rig2.IsRefSensor(camera_id2)) {
+          cam2_from_rig2 = rig2.SensorFromRig(camera_id2);
+        }
+
+        two_view_geometry.cam2_from_cam1 =
+            cam2_from_rig2 * rig2_from_rig1 * Inverse(cam1_from_rig1);
+        two_view_geometry.config = TwoViewGeometry::CALIBRATED;
+
         database.DeleteInlierMatches(image_id1, image_id2);
         database.WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
       }
