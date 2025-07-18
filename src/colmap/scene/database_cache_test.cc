@@ -115,6 +115,7 @@ TEST(DatabaseCache, ConstructFromDatabase) {
   Database database(Database::kInMemoryDatabasePath);
   CreateTestDatabase(database);
   auto cache = DatabaseCache::Create(database,
+                                     /*inlier_matches=*/true,
                                      /*min_num_matches=*/0,
                                      /*ignore_watermarks=*/false,
                                      /*image_names=*/{});
@@ -186,6 +187,7 @@ TEST(DatabaseCache, ConstructFromDatabaseWithCustomImages) {
   const std::vector<Image> images = database.ReadAllImages();
   auto cache = DatabaseCache::Create(
       database,
+      /*inlier_matches=*/true,
       /*min_num_matches=*/0,
       /*ignore_watermarks=*/false,
       /*image_names=*/{images[0].Name(), images[1].Name()});
@@ -248,6 +250,7 @@ TEST(DatabaseCache, ConstructFromLegacyDatabaseWithoutRigsAndFrames) {
   Database database(Database::kInMemoryDatabasePath);
   CreateLegacyTestDatabase(database);
   auto cache = DatabaseCache::Create(database,
+                                     /*inlier_matches=*/true,
                                      /*min_num_matches=*/0,
                                      /*ignore_watermarks=*/false,
                                      /*image_names=*/{});
@@ -283,6 +286,7 @@ TEST(DatabaseCache, ConstructFromLegacyDatabaseWithCustomImages) {
   const std::vector<Image> images = database.ReadAllImages();
   auto cache = DatabaseCache::Create(
       database,
+      /*inlier_matches=*/true,
       /*min_num_matches=*/0,
       /*ignore_watermarks=*/false,
       /*image_names=*/{images[0].Name(), images[2].Name()});

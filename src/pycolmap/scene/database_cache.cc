@@ -16,6 +16,7 @@ void BindDatabaseCache(py::module& m) {
       .def_static("create",
                   &DatabaseCache::Create,
                   "database"_a,
+                  "inlier_matches"_a,
                   "min_num_matches"_a,
                   "ignore_watermarks"_a,
                   "image_names"_a)
