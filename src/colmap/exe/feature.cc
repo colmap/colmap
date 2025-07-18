@@ -521,8 +521,6 @@ int RunRigVerifier(int argc, char** argv) {
 
       std::lock_guard database_lock(database_mutex);
       for (const auto& [pair_id, pair_matches] : inlier_matches) {
-        // TODO(jsch): Only overwrite if there are more features than
-        // before?
         const auto& [image_id1, image_id2] =
             Database::PairIdToImagePair(pair_id);
         TwoViewGeometry two_view_geometry =
