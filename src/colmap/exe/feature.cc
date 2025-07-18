@@ -540,18 +540,12 @@ int RunRigVerifier(int argc, char** argv) {
 
         const sensor_t camera_id1(SensorType::CAMERA, image1.CameraId());
         Rigid3d cam1_from_rig1;
-        if (!rig1.HasSensor(camera_id1)) {
-          LOG(ERROR) << rig1;
-          LOG(ERROR) << image1;
-        }
-        THROW_CHECK(rig1.HasSensor(camera_id1));
         if (!rig1.IsRefSensor(camera_id1)) {
           cam1_from_rig1 = rig1.SensorFromRig(camera_id1);
         }
 
         const sensor_t camera_id2(SensorType::CAMERA, image2.CameraId());
         Rigid3d cam2_from_rig2;
-        THROW_CHECK(rig2.HasSensor(camera_id2));
         if (!rig2.IsRefSensor(camera_id2)) {
           cam2_from_rig2 = rig2.SensorFromRig(camera_id2);
         }
