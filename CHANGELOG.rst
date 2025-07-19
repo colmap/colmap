@@ -20,6 +20,7 @@ Bug Fixes
 * Fix focal length extraction from 35mm equivalent
 * Fix inconsistent pycolmap naming for RegisterFrame and DeRegisterFrame
 * Call Retriangulate irrespective of the logging level
+* Fix bundle adjustment with constant rig from world pose
 
 --------------------------
 COLMAP 3.12.5 (08/22/2025)

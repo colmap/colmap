@@ -160,7 +160,6 @@ bool BundleAdjustmentConfig::HasConstantSensorFromRigPose(
 
 void BundleAdjustmentConfig::SetConstantRigFromWorldPose(
     const frame_t frame_id) {
-  THROW_CHECK(HasImage(frame_id));
   constant_rig_from_world_poses_.insert(frame_id);
 }
 
