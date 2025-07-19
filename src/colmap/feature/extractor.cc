@@ -65,14 +65,6 @@ bool FeatureExtractionOptions::Check() const {
     return false;
 #endif
   }
-  if (use_gpu) {
-    CHECK_OPTION_GT(CSVToVector<int>(gpu_index).size(), 0);
-#ifndef COLMAP_GPU_ENABLED
-    LOG(ERROR) << "Cannot use GPU feature extraction without CUDA or OpenGL "
-                  "support. Set use_gpu or use_gpu to false.";
-    return false;
-#endif
-  }
   if (type == FeatureExtractorType::SIFT) {
     return THROW_CHECK_NOTNULL(sift)->Check();
   } else {

@@ -167,6 +167,7 @@ void DatabaseCache::Load(const Database& database,
       }
     } else {
       for (auto& image : images) {
+        image_to_frame_id.emplace(image.ImageId(), image.ImageId());
         if (!image_names.empty() && image_names.count(image.Name()) == 0) {
           continue;
         }
@@ -177,7 +178,6 @@ void DatabaseCache::Load(const Database& database,
         frame.SetRigId(image.CameraId());
         frame.AddDataId(image.DataId());
         image.SetFrameId(frame.FrameId());
-        image_to_frame_id.emplace(image.ImageId(), frame.FrameId());
         frames_.emplace(frame.FrameId(), std::move(frame));
       }
     }

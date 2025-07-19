@@ -40,9 +40,9 @@ void MatchFeatures(const std::string& database_path,
       throw ex;
     }
   }
-
   matching_options.use_gpu = IsGPU(device);
-  VerifyGPUParams(matching_options.use_gpu);
+  THROW_CHECK(matching_options.Check());
+
   py::gil_scoped_release release;
   std::unique_ptr<Thread> matcher = MatcherFactory(
       pairing_options, matching_options, verification_options, database_path);

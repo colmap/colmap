@@ -30,13 +30,20 @@
 #include "colmap/scene/database.h"
 
 #include "colmap/geometry/pose.h"
+#include "colmap/math/random.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/file.h"
+#include "colmap/util/testing.h"
 
 #include <thread>
 
 #include <Eigen/Geometry>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 namespace colmap {
 namespace {
@@ -45,9 +52,28 @@ TEST(Database, OpenCloseConstructorDestructor) {
   Database database(Database::kInMemoryDatabasePath);
 }
 
-TEST(Database, OpenClose) {
+TEST(Database, OpenCloseInMemory) {
   Database database(Database::kInMemoryDatabasePath);
   database.Close();
+}
+
+TEST(Database, OpenCloseFile) {
+  Database database(CreateTestDir() + "/database.db");
+  database.Close();
+}
+
+TEST(Database, OpenCloseWithNonASCIIPath) {
+  const std::string database_path = CreateTestDir() + u8"/äöü時临.db";
+
+  {
+    Database database(database_path);
+    EXPECT_TRUE(ExistsPath(database_path));
+  }
+
+  {
+    Database database;
+    database.Open(database_path);
+  }
 }
 
 TEST(Database, Transaction) {

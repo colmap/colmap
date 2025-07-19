@@ -145,6 +145,13 @@ COLMAP_ADD_TEST(
     SRCS string_test.cc
     LINK_LIBS colmap_util
 )
+if(TESTS_ENABLED)
+    if(MSVC)
+        target_compile_options(colmap_util_string_test PRIVATE /utf-8)
+    else()
+        target_compile_options(colmap_util_string_test PRIVATE -finput-charset=UTF-8 -fexec-charset=UTF-8)
+    endif()
+endif()
 COLMAP_ADD_TEST(
     NAME threading_test
     SRCS threading_test.cc
