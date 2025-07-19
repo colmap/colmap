@@ -190,6 +190,7 @@ class Database {
   std::vector<std::pair<image_pair_t, FeatureMatchesBlob>> ReadAllMatchesBlob()
       const;
   std::vector<std::pair<image_pair_t, FeatureMatches>> ReadAllMatches() const;
+  std::vector<std::pair<image_pair_t, int>> ReadNumMatches() const;
 
   TwoViewGeometry ReadTwoViewGeometry(image_t image_id1,
                                       image_t image_id2) const;
@@ -409,6 +410,7 @@ class Database {
   sqlite3_stmt* sql_stmt_read_descriptors_ = nullptr;
   sqlite3_stmt* sql_stmt_read_matches_ = nullptr;
   sqlite3_stmt* sql_stmt_read_matches_all_ = nullptr;
+  sqlite3_stmt* sql_stmt_read_num_matches_ = nullptr;
   sqlite3_stmt* sql_stmt_read_two_view_geometry_ = nullptr;
   sqlite3_stmt* sql_stmt_read_two_view_geometries_ = nullptr;
   sqlite3_stmt* sql_stmt_read_two_view_geometry_num_inliers_ = nullptr;
