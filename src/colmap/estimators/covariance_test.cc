@@ -91,7 +91,7 @@ TEST_P(ParameterizedBACovarianceTests, CompareWithCeres) {
   for (const auto& [image_id, image] : reconstruction.Images()) {
     config.AddImage(image_id);
     if (test_options.fixed_cam_poses) {
-      config.SetConstantRigFromWorldPose(image_id);
+      config.SetConstantRigFromWorldPose(image.FrameId());
     }
     if (test_options.fixed_cam_intrinsics) {
       config.SetConstantCamIntrinsics(image.CameraId());
