@@ -246,6 +246,15 @@ void HierarchicalPipeline::Run() {
       reconstruction_managers.begin()->second->Get(0)->NumRegImages(), 0);
   *reconstruction_manager_ = *reconstruction_managers.begin()->second;
 
+  for (size_t i = 0; i < reconstruction_manager_->Size(); ++i) {
+    auto reconstruction = reconstruction_manager_->Get(i);
+    if (reconstruction == nullptr) {
+      continue;
+    }
+
+    reconstruction->UpdatePoint3DErrors();
+  }
+
   run_timer.PrintMinutes();
 }
 
