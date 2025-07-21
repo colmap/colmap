@@ -2,23 +2,21 @@
 An example for running incremental SfM on 360 spherical panorama images.
 """
 
-import os
 import argparse
+import os
 from collections.abc import Sequence
-from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
 from typing import Any
 
 import cv2
 import numpy as np
 import PIL.ExifTags
 import PIL.Image
-from scipy.spatial.transform import Rotation
-from tqdm import tqdm
-
 import pycolmap
 from pycolmap import logging
-
+from scipy.spatial.transform import Rotation
+from tqdm import tqdm
 
 PANO_RENDER_TYPES: dict[str : dict[str, Any]] = {
     "overlapping": {
