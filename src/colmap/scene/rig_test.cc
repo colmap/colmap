@@ -255,5 +255,47 @@ TEST(ApplyRigConfig, WithoutReconstruction) {
   EXPECT_EQ(database.ReadCamera(sensor_id2.id), camera2.camera);
 }
 
+TEST(ApplyRigConfig, WithUnconfiguredSingleAndConfiguredMultiCameraRigs) {
+  Database database(Database::kInMemoryDatabasePath);
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions options;
+  options.num_rigs = 1;
+  options.num_cameras_per_rig = 3;
+  options.num_frames_per_rig = 5;
+  SynthesizeDataset(options, &reconstruction, &database);
+
+  options.num_rigs = 1;
+  options.num_cameras_per_rig = 1;
+  options.num_frames_per_rig = 3;
+  SynthesizeDataset(options, &reconstruction, &database);
+
+  std::vector<RigConfig> configs;
+  auto& config = configs.emplace_back();
+  auto& camera1 = config.cameras.emplace_back();
+  camera1.image_prefix = "camera000001_";
+  camera1.ref_sensor = true;
+  auto& camera2 = config.cameras.emplace_back();
+  camera2.image_prefix = "camera000002_";
+
+  ApplyRigConfig(configs, database, &reconstruction);
+  EXPECT_EQ(database.NumRigs(), 3);
+  EXPECT_EQ(database.NumFrames(), 13);
+  EXPECT_EQ(reconstruction.NumRigs(), 3);
+  EXPECT_EQ(reconstruction.NumFrames(), 13);
+  EXPECT_EQ(reconstruction.NumRegFrames(), 13);
+
+  int num_non_trivial_rigs = 0;
+  for (const auto& rig : database.ReadAllRigs()) {
+    num_non_trivial_rigs += rig.NumSensors() > 1;
+  }
+  EXPECT_EQ(num_non_trivial_rigs, 1);
+
+  int num_non_trivial_frames = 0;
+  for (const auto& rig : database.ReadAllFrames()) {
+    num_non_trivial_frames += rig.DataIds().size() > 1;
+  }
+  EXPECT_EQ(num_non_trivial_frames, 5);
+}
+
 }  // namespace
 }  // namespace colmap
