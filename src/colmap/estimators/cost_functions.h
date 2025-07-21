@@ -461,11 +461,12 @@ struct Point3DAlignmentCostFunctor
   bool operator()(const T* const point_in_a,
                   const T* const b_from_a_rotation,
                   const T* const b_from_a_translation,
-                  const T* const b_from_a_scale,
+                  const T* const b_from_a_log_scale,
                   T* residuals_ptr) const {
+    const T b_from_a_scale = ceres::exp(b_from_a_log_scale[0]);
     const Eigen::Matrix<T, 3, 1> point_in_b =
         EigenQuaternionMap<T>(b_from_a_rotation) *
-            EigenVector3Map<T>(point_in_a) * b_from_a_scale[0] +
+            EigenVector3Map<T>(point_in_a) * b_from_a_scale +
         EigenVector3Map<T>(b_from_a_translation);
     Eigen::Map<Eigen::Matrix<T, 3, 1>> residuals(residuals_ptr);
     residuals = point_in_b - point_in_b_prior_.cast<T>();

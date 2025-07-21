@@ -436,7 +436,7 @@ TEST(Reconstruction, Normalize) {
     reconstruction.DeRegisterFrame(frame_id);
   }
   Sim3d tform = reconstruction.Normalize(/*fixed_scale=*/false);
-  EXPECT_EQ(tform.scale, 1);
+  EXPECT_EQ(tform.log_scale, 0);
   EXPECT_EQ(tform.rotation.coeffs(), Eigen::Quaterniond::Identity().coeffs());
   EXPECT_EQ(tform.translation, Eigen::Vector3d::Zero());
   reconstruction.Frame(1).SetRigFromWorld(Rigid3d());
