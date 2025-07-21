@@ -159,6 +159,8 @@ void FeatureMatchingTab::CreateGeneralOptions() {
       1,
       0.001,
       3);
+  options_widget_->AddOptionInt(
+      &options_->two_view_geometry->ransac_options.random_seed, "random_seed");
   options_widget_->AddOptionInt(&options_->two_view_geometry->min_num_inliers,
                                 "min_num_inliers");
   options_widget_->AddOptionBool(&options_->two_view_geometry->multiple_models,

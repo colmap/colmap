@@ -343,6 +343,8 @@ void OptionManager::AddMatchingOptions() {
   AddAndRegisterDefaultOption(
       "TwoViewGeometry.min_inlier_ratio",
       &two_view_geometry->ransac_options.min_inlier_ratio);
+  AddAndRegisterDefaultOption("TwoViewGeometry.random_seed",
+                              &two_view_geometry->ransac_options.random_seed);
 }
 
 void OptionManager::AddExhaustivePairingOptions() {

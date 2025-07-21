@@ -65,4 +65,7 @@ class ProgressiveSampler : public Sampler {
   double T_n_p_;
 };
 
+template <>
+struct is_randomized_sampler<ProgressiveSampler> : std::true_type {};
+
 }  // namespace colmap
