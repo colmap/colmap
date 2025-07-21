@@ -83,6 +83,7 @@ class OptionManager {
   void AddRandomOptions();
   void AddDatabaseOptions();
   void AddImageOptions();
+  void AddImageReaderOptions();
   void AddExtractionOptions();
   void AddMatchingOptions();
   void AddExhaustivePairingOptions();
@@ -175,6 +176,7 @@ class OptionManager {
   bool added_random_options_;
   bool added_database_options_;
   bool added_image_options_;
+  bool added_image_reader_options_;
   bool added_extraction_options_;
   bool added_match_options_;
   bool added_exhaustive_match_options_;

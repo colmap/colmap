@@ -60,6 +60,9 @@ class AutomaticReconstructionController : public Thread {
     // The path to the mask folder which are used as input.
     std::string mask_path;
 
+    // Optional path to an image file specifying a mask for all images.
+    std::string camera_mask_path;
+
     // The path to the vocabulary tree for feature matching.
     std::string vocab_tree_path = kDefaultVocabTreeUri;
 
@@ -132,6 +135,7 @@ class AutomaticReconstructionController : public Thread {
   OptionManager option_manager_;
   std::shared_ptr<ReconstructionManager> reconstruction_manager_;
   Thread* active_thread_;
+  std::unique_ptr<Thread> image_importer_;
   std::unique_ptr<Thread> feature_extractor_;
   std::unique_ptr<Thread> exhaustive_matcher_;
   std::unique_ptr<Thread> sequential_matcher_;
