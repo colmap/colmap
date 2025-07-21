@@ -210,6 +210,9 @@ std::vector<RigConfig> ReadRigConfig(const std::string& rig_config_path) {
 void ApplyRigConfig(const std::vector<RigConfig>& configs,
                     Database& database,
                     Reconstruction* reconstruction) {
+  database.ClearFrames();
+  database.ClearRigs();
+
   const std::vector<Image> images = database.ReadAllImages();
   std::set<image_t> configured_image_ids;
 
@@ -292,7 +295,7 @@ void ApplyRigConfig(const std::vector<RigConfig>& configs,
     }
   }
 
-  // Consider any unconfigured images as trivial rigs/frames.
+  // Create trivial rigs/frames for images without configuration.
   // This is necessary because we clear rigs/frames above.
   std::unordered_map<camera_t, rig_t> camera_to_rig_id;
   for (const Image& image : images) {
