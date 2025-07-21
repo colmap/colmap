@@ -283,6 +283,18 @@ TEST(ApplyRigConfig, WithUnconfiguredSingleAndConfiguredMultiCameraRigs) {
   EXPECT_EQ(reconstruction.NumRigs(), 2);
   EXPECT_EQ(reconstruction.NumFrames(), 8);
   EXPECT_EQ(reconstruction.NumRegFrames(), 8);
+
+  int num_non_trivial_rigs = 0;
+  for (const auto& rig : database.ReadAllRigs()) {
+    num_non_trivial_rigs += rig.NumSensors() > 1;
+  }
+  EXPECT_EQ(num_non_trivial_rigs, 1);
+
+  int num_non_trivial_frames = 0;
+  for (const auto& rig : database.ReadAllFrames()) {
+    num_non_trivial_frames += rig.DataIds().size() > 1;
+  }
+  EXPECT_EQ(num_non_trivial_frames, 5);
 }
 
 }  // namespace
