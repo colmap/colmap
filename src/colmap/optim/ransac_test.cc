@@ -177,9 +177,7 @@ TEST(RANSAC, ReproducibilityWithRandomSeed) {
   // Results should be exactly the same.
   EXPECT_EQ(report1.support.num_inliers, report2.support.num_inliers);
   EXPECT_EQ(report1.inlier_mask, report2.inlier_mask);
-  EXPECT_THAT(
-      report1.model,
-      EigenMatrixNear(report2.model, std::numeric_limits<double>::epsilon()));
+  EXPECT_EQ(report1.model, report2.model);
 
   // Now change the seed.
   options2.random_seed = 123;
@@ -189,9 +187,7 @@ TEST(RANSAC, ReproducibilityWithRandomSeed) {
   ASSERT_TRUE(report3.success);
 
   // Results should now differ.
-  EXPECT_THAT(report1.model,
-              ::testing::Not(EigenMatrixNear(
-                  report3.model, std::numeric_limits<double>::epsilon())));
+  EXPECT_NE(report1.model, report3.model);
 }
 
 }  // namespace

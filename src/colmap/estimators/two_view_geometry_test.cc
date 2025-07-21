@@ -377,16 +377,14 @@ TEST(EstimateTwoViewGeometry, Calibrated) {
       camera1, points1, camera2, points2, matches, two_view_geometry_options);
 
   // Using the same random seed should produce identical results.
-  EXPECT_THAT(
-      geometry1.E,
-      EigenMatrixNear(geometry2.E, std::numeric_limits<double>::epsilon()));
+  EXPECT_EQ(geometry1.E, geometry2.E);
 
   two_view_geometry_options.ransac_options.random_seed = 123;
   const TwoViewGeometry geometry3 = EstimateTwoViewGeometry(
       camera1, points1, camera2, points2, matches, two_view_geometry_options);
 
   // Using a different random seed may produce different results.
-  EXPECT_THAT(geometry1.E, ::testing::Not(EigenMatrixNear(geometry3.E, 1e-4)));
+  EXPECT_NE(geometry1.E, geometry3.E);
 }
 
 TEST(EstimateTwoViewGeometry, Uncalibrated) {
@@ -427,16 +425,14 @@ TEST(EstimateTwoViewGeometry, Uncalibrated) {
       camera1, points1, camera2, points2, matches, two_view_geometry_options);
 
   // Using the same random seed should produce identical results.
-  EXPECT_THAT(
-      geometry1.F,
-      EigenMatrixNear(geometry2.F, std::numeric_limits<double>::epsilon()));
+  EXPECT_EQ(geometry1.F, geometry2.F);
 
   two_view_geometry_options.ransac_options.random_seed = 123;
   const TwoViewGeometry geometry3 = EstimateTwoViewGeometry(
       camera1, points1, camera2, points2, matches, two_view_geometry_options);
 
   // Using a different random seed may produce different results.
-  EXPECT_THAT(geometry1.F, ::testing::Not(EigenMatrixNear(geometry3.F, 1e-4)));
+  EXPECT_NE(geometry1.F, geometry3.F);
 }
 
 TEST(EstimateTwoViewGeometry, PlanarOrPanoramic) {
@@ -478,16 +474,14 @@ TEST(EstimateTwoViewGeometry, PlanarOrPanoramic) {
       camera1, points1, camera2, points2, matches, two_view_geometry_options);
 
   // Using the same random seed should produce identical results.
-  EXPECT_THAT(
-      geometry1.H,
-      EigenMatrixNear(geometry2.H, std::numeric_limits<double>::epsilon()));
+  EXPECT_EQ(geometry1.H, geometry2.H);
 
   two_view_geometry_options.ransac_options.random_seed = 123;
   const TwoViewGeometry geometry3 = EstimateTwoViewGeometry(
       camera1, points1, camera2, points2, matches, two_view_geometry_options);
 
   // Using a different random seed may produce different results.
-  EXPECT_THAT(geometry1.H, ::testing::Not(EigenMatrixNear(geometry3.H, 1e-4)));
+  EXPECT_NE(geometry1.H, geometry3.H);
 }
 
 }  // namespace

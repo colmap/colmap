@@ -206,8 +206,9 @@ RANSAC<Estimator, SupportMeasurer, Sampler>::Estimate(
   THROW_CHECK_EQ(X.size(), Y.size());
 
   if constexpr (is_randomized_sampler<Sampler>::value) {
-    options_.random_seed == -1 ? SetPRNGSeed(std::random_device{}())
-                               : SetPRNGSeed(options_.random_seed);
+    if (options_.random_seed != -1) {
+      SetPRNGSeed(options_.random_seed);
+    }
   }
 
   const size_t num_samples = X.size();
