@@ -260,7 +260,7 @@ TEST(ApplyRigConfig, WithUnconfiguredSingleAndConfiguredMultiCameraRigs) {
   Reconstruction reconstruction;
   SyntheticDatasetOptions options;
   options.num_rigs = 1;
-  options.num_cameras_per_rig = 2;
+  options.num_cameras_per_rig = 3;
   options.num_frames_per_rig = 5;
   SynthesizeDataset(options, &reconstruction, &database);
 
@@ -278,11 +278,11 @@ TEST(ApplyRigConfig, WithUnconfiguredSingleAndConfiguredMultiCameraRigs) {
   camera2.image_prefix = "camera000002_";
 
   ApplyRigConfig(configs, database, &reconstruction);
-  EXPECT_EQ(database.NumRigs(), 2);
-  EXPECT_EQ(database.NumFrames(), 8);
-  EXPECT_EQ(reconstruction.NumRigs(), 2);
-  EXPECT_EQ(reconstruction.NumFrames(), 8);
-  EXPECT_EQ(reconstruction.NumRegFrames(), 8);
+  EXPECT_EQ(database.NumRigs(), 3);
+  EXPECT_EQ(database.NumFrames(), 13);
+  EXPECT_EQ(reconstruction.NumRigs(), 3);
+  EXPECT_EQ(reconstruction.NumFrames(), 13);
+  EXPECT_EQ(reconstruction.NumRegFrames(), 13);
 
   int num_non_trivial_rigs = 0;
   for (const auto& rig : database.ReadAllRigs()) {
