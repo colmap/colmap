@@ -97,6 +97,7 @@ void BundleAdjustmentController::Run() {
   std::unique_ptr<BundleAdjuster> bundle_adjuster = CreateDefaultBundleAdjuster(
       std::move(ba_options), std::move(ba_config), *reconstruction_);
   bundle_adjuster->Solve();
+  reconstruction_->UpdatePoint3DErrors();
 
   run_timer.PrintMinutes();
 }
