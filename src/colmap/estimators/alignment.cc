@@ -116,35 +116,33 @@ struct ReconstructionAlignmentEstimator {
     if (thread_pool_ && src_images.size() > 10) {
       for (size_t i = 0; i < src_images.size(); ++i) {
         thread_pool_->AddTask([this,
-                               i,
-                               &src_images,
-                               &tgt_images,
+                               src_image = src_images[i],
+                               tgt_image = tgt_images[i],
                                &tgt_from_src,
                                &src_from_tgt,
-                               residuals]() {
+                               residual = &(*residuals)[i]]() {
           ComputeImageResidual(
-              i, src_images, tgt_images, tgt_from_src, src_from_tgt, residuals);
+              *src_image, *tgt_image, tgt_from_src, src_from_tgt, residual);
         });
       }
       thread_pool_->Wait();
     } else {
       for (size_t i = 0; i < src_images.size(); ++i) {
-        ComputeImageResidual(
-            i, src_images, tgt_images, tgt_from_src, src_from_tgt, residuals);
+        ComputeImageResidual(*src_images[i],
+                             *tgt_images[i],
+                             tgt_from_src,
+                             src_from_tgt,
+                             &(*residuals)[i]);
       }
     }
   }
 
  private:
-  void ComputeImageResidual(size_t i,
-                            const std::vector<X_t>& src_images,
-                            const std::vector<Y_t>& tgt_images,
+  void ComputeImageResidual(const Image& src_image,
+                            const Image& tgt_image,
                             const M_t& tgt_from_src,
                             const M_t& src_from_tgt,
-                            std::vector<double>* residuals) const {
-    const Image& src_image = *src_images[i];
-    const Image& tgt_image = *tgt_images[i];
-
+                            double* residual) const {
     const Camera& src_camera = *src_image.CameraPtr();
     const Camera& tgt_camera = *tgt_image.CameraPtr();
 
@@ -198,12 +196,12 @@ struct ReconstructionAlignmentEstimator {
     }
 
     if (num_common_points == 0) {
-      (*residuals)[i] = 1.0;
+      *residual = 1.0;
     } else {
       const double negative_inlier_ratio =
           1.0 - static_cast<double>(num_inliers) /
                     static_cast<double>(num_common_points);
-      (*residuals)[i] = negative_inlier_ratio * negative_inlier_ratio;
+      *residual = negative_inlier_ratio * negative_inlier_ratio;
     }
   }
 
