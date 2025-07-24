@@ -3,6 +3,7 @@
 
 #include "pycolmap/helpers.h"
 #include "pycolmap/utils.h"
+#include "pycolmap/feature/types.h"
 
 #include <Eigen/Core>
 #include <pybind11/eigen.h>
