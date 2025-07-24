@@ -31,12 +31,45 @@
 
 #include "colmap/feature/types.h"
 #include "colmap/sensor/bitmap.h"
+#include "colmap/util/enum_utils.h"
+
+#include <memory>
 
 namespace colmap {
+
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(FeatureExtractorType, 0, SIFT);
+
+struct SiftExtractionOptions;
+
+struct FeatureExtractionOptions {
+  explicit FeatureExtractionOptions(
+      FeatureExtractorType type = FeatureExtractorType::SIFT);
+
+  FeatureExtractorType type = FeatureExtractorType::SIFT;
+
+  // Number of threads for feature extraction.
+  int num_threads = -1;
+
+  // Whether to use the GPU for feature extraction.
+  bool use_gpu = true;
+
+  // Index of the GPU used for feature extraction. For multi-GPU extraction,
+  // you should separate multiple GPU indices by comma, e.g., "0,1,2,3".
+  std::string gpu_index = "-1";
+
+  std::shared_ptr<SiftExtractionOptions> sift;
+
+  int MaxImageSize() const;
+
+  bool Check() const;
+};
 
 class FeatureExtractor {
  public:
   virtual ~FeatureExtractor() = default;
+
+  static std::unique_ptr<FeatureExtractor> Create(
+      const FeatureExtractionOptions& options);
 
   virtual bool Extract(const Bitmap& bitmap,
                        FeatureKeypoints* keypoints,

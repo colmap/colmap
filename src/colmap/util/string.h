@@ -1,4 +1,4 @@
-// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -65,5 +65,31 @@ void StringToUpper(std::string* str);
 
 // Check whether the sub-string is contained in the given string.
 bool StringContains(const std::string& str, const std::string& sub_str);
+
+// Convert a string from the platform's default encoding to UTF-8.
+// On Windows: converts from ANSI code page (ACP) to UTF-8.
+// On POSIX: assumes the input is already UTF-8 and returns it unchanged.
+std::string PlatformToUTF8(const std::string& str);
+
+// Convert a UTF-8 encoded string to the platform's default encoding.
+// On Windows: converts to ANSI code page (ACP).
+// On POSIX: returns the input unchanged.
+std::string UTF8ToPlatform(const std::string& str);
+
+namespace internal {
+#ifdef _WIN32
+// Convert a string from the specified Windows code page to UTF-8.
+//
+// This function is used internally for unit testing to verify roundtrip
+// correctness of encoding conversions independent of the system code page.
+std::string CodePageToUTF8Win(const std::string& str, unsigned int code_page);
+
+// Convert a UTF-8 string to the specified Windows code page.
+//
+// This function is used internally for unit testing to verify roundtrip
+// correctness of encoding conversions independent of the system code page.
+std::string UTF8ToCodePageWin(const std::string& str, unsigned int code_page);
+#endif
+}  // namespace internal
 
 }  // namespace colmap

@@ -301,6 +301,7 @@ bool TwoViewGeometryOptions::Check() const {
   CHECK_OPTION_GE(ransac_options.confidence, 0);
   CHECK_OPTION_LE(ransac_options.confidence, 1);
   CHECK_OPTION_LE(ransac_options.min_num_trials, ransac_options.max_num_trials);
+  CHECK_OPTION_GE(ransac_options.random_seed, -1);
   return true;
 }
 

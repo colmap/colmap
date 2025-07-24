@@ -58,7 +58,7 @@ TEST(ExhaustivePairGenerator, Nominal) {
   const std::vector<Image> images = database->ReadAllImages();
   CHECK_EQ(images.size(), kNumImages);
 
-  ExhaustiveMatchingOptions options;
+  ExhaustivePairingOptions options;
   options.block_size = 10;
   ExhaustivePairGenerator generator(options, database);
   const int num_expected_blocks =
@@ -92,7 +92,7 @@ TEST(VocabTreePairGenerator, Nominal) {
   const std::vector<Image> images = database->ReadAllImages();
   CHECK_EQ(images.size(), kNumImages);
 
-  VocabTreeMatchingOptions options;
+  VocabTreePairingOptions options;
   options.vocab_tree_path = CreateTestDir() + "/vocab_tree.txt";
 
   // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
@@ -132,7 +132,7 @@ TEST(SequentialPairGenerator, Linear) {
   const std::vector<Image> images = database->ReadAllImages();
   CHECK_EQ(images.size(), kNumImages);
 
-  SequentialMatchingOptions options;
+  SequentialPairingOptions options;
   options.overlap = 3;
   options.quadratic_overlap = false;
   SequentialPairGenerator generator(options, database);
@@ -171,7 +171,7 @@ TEST(SequentialPairGenerator, LinearRig) {
            synthetic_dataset_options.num_cameras_per_rig *
                synthetic_dataset_options.num_frames_per_rig);
 
-  SequentialMatchingOptions options;
+  SequentialPairingOptions options;
   options.overlap = 1;
   options.quadratic_overlap = false;
   SequentialPairGenerator generator(options, database);
@@ -214,7 +214,7 @@ TEST(SequentialPairGenerator, Quadratic) {
   const std::vector<Image> images = database->ReadAllImages();
   CHECK_EQ(images.size(), kNumImages);
 
-  SequentialMatchingOptions options;
+  SequentialPairingOptions options;
   options.overlap = 3;
   options.quadratic_overlap = true;
   SequentialPairGenerator generator(options, database);
@@ -251,7 +251,7 @@ TEST(SpatialPairGenerator, Nominal) {
   database->WritePosePrior(images[2].ImageId(),
                            PosePrior(Eigen::Vector3d(2, 4, 12)));
 
-  SpatialMatchingOptions options;
+  SpatialPairingOptions options;
   options.max_num_neighbors = 1;
   options.max_distance = 1000;
   options.ignore_z = false;
@@ -340,7 +340,7 @@ TEST(SpatialPairGenerator, LargeCoordinates) {
       images[2].ImageId(),
       PosePrior(Eigen::Vector3d(2, 4, 12) + Eigen::Vector3d::Constant(1e16)));
 
-  SpatialMatchingOptions options;
+  SpatialPairingOptions options;
   options.max_num_neighbors = 1;
   options.max_distance = 1000;
   options.ignore_z = false;
@@ -360,6 +360,91 @@ TEST(SpatialPairGenerator, LargeCoordinates) {
   EXPECT_TRUE(generator.HasFinished());
 }
 
+TEST(SpatialPairGenerator, MinNumNeighborsControlsMatchingDistance) {
+  constexpr int kNumImages = 4;
+  auto db = std::make_shared<Database>(Database::kInMemoryDatabasePath);
+  CreateSyntheticDatabase(kNumImages, *db);
+  const auto images = db->ReadAllImages();
+
+  db->WritePosePrior(images[0].ImageId(), PosePrior(Eigen::Vector3d(1, 1, 2)));
+  db->WritePosePrior(images[1].ImageId(), PosePrior(Eigen::Vector3d(1, 2, 3)));
+  db->WritePosePrior(images[2].ImageId(), PosePrior(Eigen::Vector3d(2, 3, 4)));
+  db->WritePosePrior(images[3].ImageId(), PosePrior(Eigen::Vector3d(2, 4, 12)));
+
+  SpatialPairingOptions options;
+  options.ignore_z = false;
+  options.max_num_neighbors = kNumImages;
+  options.max_distance = 0.0;
+
+  {
+    options.min_num_neighbors = 0;
+    EXPECT_FALSE(options.Check());
+  }
+  {
+    options.min_num_neighbors = 1;
+    SpatialPairGenerator generator(options, db);
+    EXPECT_THAT(generator.Next(),
+                testing::ElementsAre(
+                    std::make_pair(images[0].ImageId(), images[1].ImageId())));
+    EXPECT_THAT(generator.Next(),
+                testing::ElementsAre(
+                    std::make_pair(images[1].ImageId(), images[0].ImageId())));
+    EXPECT_THAT(generator.Next(),
+                testing::ElementsAre(
+                    std::make_pair(images[2].ImageId(), images[1].ImageId())));
+    EXPECT_THAT(generator.Next(),
+                testing::ElementsAre(
+                    std::make_pair(images[3].ImageId(), images[2].ImageId())));
+    EXPECT_TRUE(generator.Next().empty());
+  }
+  {
+    options.min_num_neighbors = 2;
+    SpatialPairGenerator generator(options, db);
+    EXPECT_THAT(generator.Next(),
+                testing::ElementsAre(
+                    std::make_pair(images[0].ImageId(), images[1].ImageId()),
+                    std::make_pair(images[0].ImageId(), images[2].ImageId())));
+    EXPECT_THAT(generator.Next(),
+                testing::ElementsAre(
+                    std::make_pair(images[1].ImageId(), images[0].ImageId()),
+                    std::make_pair(images[1].ImageId(), images[2].ImageId())));
+    EXPECT_THAT(generator.Next(),
+                testing::ElementsAre(
+                    std::make_pair(images[2].ImageId(), images[1].ImageId()),
+                    std::make_pair(images[2].ImageId(), images[0].ImageId())));
+    EXPECT_THAT(generator.Next(),
+                testing::ElementsAre(
+                    std::make_pair(images[3].ImageId(), images[2].ImageId()),
+                    std::make_pair(images[3].ImageId(), images[1].ImageId())));
+    EXPECT_TRUE(generator.Next().empty());
+  }
+  {
+    options.min_num_neighbors = 3;
+    SpatialPairGenerator generator(options, db);
+    EXPECT_THAT(generator.Next(),
+                testing::ElementsAre(
+                    std::make_pair(images[0].ImageId(), images[1].ImageId()),
+                    std::make_pair(images[0].ImageId(), images[2].ImageId()),
+                    std::make_pair(images[0].ImageId(), images[3].ImageId())));
+    EXPECT_THAT(generator.Next(),
+                testing::ElementsAre(
+                    std::make_pair(images[1].ImageId(), images[0].ImageId()),
+                    std::make_pair(images[1].ImageId(), images[2].ImageId()),
+                    std::make_pair(images[1].ImageId(), images[3].ImageId())));
+    EXPECT_THAT(generator.Next(),
+                testing::ElementsAre(
+                    std::make_pair(images[2].ImageId(), images[1].ImageId()),
+                    std::make_pair(images[2].ImageId(), images[0].ImageId()),
+                    std::make_pair(images[2].ImageId(), images[3].ImageId())));
+    EXPECT_THAT(generator.Next(),
+                testing::ElementsAre(
+                    std::make_pair(images[3].ImageId(), images[2].ImageId()),
+                    std::make_pair(images[3].ImageId(), images[1].ImageId()),
+                    std::make_pair(images[3].ImageId(), images[0].ImageId())));
+    EXPECT_TRUE(generator.Next().empty());
+  }
+}
+
 TEST(SpatialPairGenerator, ReadPositionPriorData) {
   {
     constexpr int kNumImages = 3;
@@ -374,7 +459,7 @@ TEST(SpatialPairGenerator, ReadPositionPriorData) {
     database->WritePosePrior(images[2].ImageId(),
                              PosePrior(Eigen::Vector3d(2, 4, 12)));
 
-    SpatialMatchingOptions options;
+    SpatialPairingOptions options;
     options.max_num_neighbors = 1;
     options.max_distance = 1000;
     options.ignore_z = false;
@@ -401,7 +486,7 @@ TEST(SpatialPairGenerator, ReadPositionPriorData) {
     database->WritePosePrior(images[2].ImageId(),
                              PosePrior(Eigen::Vector3d(2, 4, 12)));
 
-    SpatialMatchingOptions options;
+    SpatialPairingOptions options;
     options.max_num_neighbors = 1;
     options.max_distance = 1000;
     options.ignore_z = false;
@@ -428,7 +513,7 @@ TEST(SpatialPairGenerator, ReadPositionPriorData) {
     database->WritePosePrior(images[2].ImageId(),
                              PosePrior(Eigen::Vector3d(2, 4, 12)));
 
-    SpatialMatchingOptions options;
+    SpatialPairingOptions options;
     options.max_num_neighbors = 1;
     options.max_distance = 1000;
     options.ignore_z = false;
@@ -455,7 +540,7 @@ TEST(SpatialPairGenerator, ReadPositionPriorData) {
     database->WritePosePrior(images[2].ImageId(),
                              PosePrior(Eigen::Vector3d(2, 4, 12)));
 
-    SpatialMatchingOptions options;
+    SpatialPairingOptions options;
     options.max_num_neighbors = 1;
     options.max_distance = 1000;
     options.ignore_z = true;
@@ -482,7 +567,7 @@ TEST(SpatialPairGenerator, ReadPositionPriorData) {
     database->WritePosePrior(images[2].ImageId(),
                              PosePrior(Eigen::Vector3d(2, 4, 12)));
 
-    SpatialMatchingOptions options;
+    SpatialPairingOptions options;
     options.max_num_neighbors = 1;
     options.max_distance = 1000;
     options.ignore_z = false;
@@ -509,7 +594,7 @@ TEST(SpatialPairGenerator, ReadPositionPriorData) {
     database->WritePosePrior(images[2].ImageId(),
                              PosePrior(Eigen::Vector3d(2, 4, 12)));
 
-    SpatialMatchingOptions options;
+    SpatialPairingOptions options;
     options.max_num_neighbors = 1;
     options.max_distance = 1000;
     options.ignore_z = true;
@@ -542,7 +627,7 @@ TEST(TransitivePairGenerator, Nominal) {
   database->WriteTwoViewGeometry(
       images[1].ImageId(), images[3].ImageId(), two_view_geometry);
 
-  TransitiveMatchingOptions options;
+  TransitivePairingOptions options;
   TransitivePairGenerator generator(options, database);
   const auto pairs1 = generator.Next();
   EXPECT_THAT(pairs1,
@@ -566,7 +651,7 @@ TEST(ImportedPairGenerator, Nominal) {
   const std::vector<Image> images = database->ReadAllImages();
   CHECK_EQ(images.size(), kNumImages);
 
-  ImagePairsMatchingOptions options;
+  ImportedPairingOptions options;
   options.match_list_path = CreateTestDir() + "/pairs.txt";
 
   {

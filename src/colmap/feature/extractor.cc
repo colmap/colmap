@@ -27,45 +27,62 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#pragma once
+#include "colmap/feature/extractor.h"
 
-#include "colmap/optim/sampler.h"
+#include "colmap/feature/sift.h"
+#include "colmap/util/misc.h"
 
 namespace colmap {
+namespace {
 
-// Random sampler for PROSAC (Progressive Sample Consensus), as described in:
-//
-//    "Matching with PROSAC - Progressive Sample Consensus".
-//        Ondrej Chum and Matas, CVPR 2005.
-//
-// Note that a separate sampler should be instantiated per thread and that the
-// data to be sampled from is assumed to be sorted according to the quality
-// function in descending order, i.e., higher quality data is closer to the
-// front of the list.
-class ProgressiveSampler : public Sampler {
- public:
-  explicit ProgressiveSampler(size_t num_samples);
+void ThrowUnknownFeatureExtractorType(FeatureExtractorType type) {
+  std::ostringstream error;
+  error << "Unknown feature extractor type: " << type;
+  throw std::runtime_error(error.str());
+}
 
-  void Initialize(size_t total_num_samples) override;
+}  // namespace
 
-  size_t MaxNumSamples() override;
+FeatureExtractionOptions::FeatureExtractionOptions(FeatureExtractorType type)
+    : type(type), sift(std::make_shared<SiftExtractionOptions>()) {}
 
-  void Sample(std::vector<size_t>* sampled_idxs) override;
+int FeatureExtractionOptions::MaxImageSize() const {
+  switch (type) {
+    case FeatureExtractorType::SIFT:
+      return sift->max_image_size;
+    default:
+      ThrowUnknownFeatureExtractorType(type);
+  }
+  return -1;
+}
 
- private:
-  const size_t num_samples_;
-  size_t total_num_samples_;
+bool FeatureExtractionOptions::Check() const {
+  if (use_gpu) {
+    CHECK_OPTION_GT(CSVToVector<int>(gpu_index).size(), 0);
+#ifndef COLMAP_GPU_ENABLED
+    LOG(ERROR) << "Cannot use GPU feature Extraction without CUDA or OpenGL "
+                  "support. Set use_gpu or use_gpu to false.";
+    return false;
+#endif
+  }
+  if (type == FeatureExtractorType::SIFT) {
+    return THROW_CHECK_NOTNULL(sift)->Check();
+  } else {
+    LOG(ERROR) << "Unknown feature extractor type: " << type;
+    return false;
+  }
+  return true;
+}
 
-  // The number of generated samples, i.e. the number of calls to `Sample`.
-  size_t t_;
-  size_t n_;
-
-  // Variables defined in equation 3.
-  double T_n_;
-  double T_n_p_;
-};
-
-template <>
-struct is_randomized_sampler<ProgressiveSampler> : std::true_type {};
+std::unique_ptr<FeatureExtractor> FeatureExtractor::Create(
+    const FeatureExtractionOptions& options) {
+  switch (options.type) {
+    case FeatureExtractorType::SIFT:
+      return CreateSiftFeatureExtractor(options);
+    default:
+      ThrowUnknownFeatureExtractorType(options.type);
+  }
+  return nullptr;
+}
 
 }  // namespace colmap

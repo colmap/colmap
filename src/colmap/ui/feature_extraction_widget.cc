@@ -30,6 +30,7 @@
 #include "colmap/ui/feature_extraction_widget.h"
 
 #include "colmap/controllers/feature_extraction.h"
+#include "colmap/feature/sift.h"
 #include "colmap/sensor/models.h"
 #include "colmap/ui/options_widget.h"
 #include "colmap/ui/qt_utils.h"
@@ -78,53 +79,45 @@ SIFTExtractionWidget::SIFTExtractionWidget(QWidget* parent,
   AddOptionFilePath(&options->image_reader->camera_mask_path,
                     "camera_mask_path");
 
-  AddOptionInt(&options->sift_extraction->max_image_size, "max_image_size");
-  AddOptionInt(&options->sift_extraction->max_num_features, "max_num_features");
-  AddOptionInt(&options->sift_extraction->first_octave, "first_octave", -5);
-  AddOptionInt(&options->sift_extraction->num_octaves, "num_octaves");
-  AddOptionInt(&options->sift_extraction->octave_resolution,
-               "octave_resolution");
-  AddOptionDouble(&options->sift_extraction->peak_threshold,
-                  "peak_threshold",
-                  0.0,
-                  1e7,
-                  0.00001,
-                  5);
-  AddOptionDouble(&options->sift_extraction->edge_threshold, "edge_threshold");
-  AddOptionBool(&options->sift_extraction->estimate_affine_shape,
-                "estimate_affine_shape");
-  AddOptionInt(&options->sift_extraction->max_num_orientations,
-               "max_num_orientations");
-  AddOptionBool(&options->sift_extraction->upright, "upright");
-  AddOptionBool(&options->sift_extraction->domain_size_pooling,
-                "domain_size_pooling");
-  AddOptionDouble(&options->sift_extraction->dsp_min_scale,
-                  "dsp_min_scale",
-                  0.0,
-                  1e7,
-                  0.00001,
-                  5);
-  AddOptionDouble(&options->sift_extraction->dsp_max_scale,
-                  "dsp_max_scale",
-                  0.0,
-                  1e7,
-                  0.00001,
-                  5);
-  AddOptionInt(&options->sift_extraction->dsp_num_scales, "dsp_num_scales", 1);
+  AddOptionInt(&options->feature_extraction->num_threads, "num_threads", -1);
+  AddOptionBool(&options->feature_extraction->use_gpu, "use_gpu");
+  AddOptionText(&options->feature_extraction->gpu_index, "gpu_index");
 
-  AddOptionInt(&options->sift_extraction->num_threads, "num_threads", -1);
-  AddOptionBool(&options->sift_extraction->use_gpu, "use_gpu");
-  AddOptionText(&options->sift_extraction->gpu_index, "gpu_index");
+  SiftExtractionOptions& sift_options = *options->feature_extraction->sift;
+  AddOptionInt(&sift_options.max_image_size, "sift.max_image_size");
+  AddOptionInt(&sift_options.max_num_features, "sift.max_num_features");
+  AddOptionInt(&sift_options.first_octave, "sift.first_octave", -5);
+  AddOptionInt(&sift_options.num_octaves, "sift.num_octaves");
+  AddOptionInt(&sift_options.octave_resolution, "sift.octave_resolution");
+  AddOptionDouble(&sift_options.peak_threshold,
+                  "sift.peak_threshold",
+                  0.0,
+                  1e7,
+                  0.00001,
+                  5);
+  AddOptionDouble(&sift_options.edge_threshold, "sift.edge_threshold");
+  AddOptionBool(&sift_options.estimate_affine_shape,
+                "sift.estimate_affine_shape");
+  AddOptionInt(&sift_options.max_num_orientations, "sift.max_num_orientations");
+  AddOptionBool(&sift_options.upright, "sift.upright");
+  AddOptionBool(&sift_options.domain_size_pooling, "sift.domain_size_pooling");
+  AddOptionDouble(
+      &sift_options.dsp_min_scale, "sift.dsp_min_scale", 0.0, 1e7, 0.00001, 5);
+  AddOptionDouble(
+      &sift_options.dsp_max_scale, "sift.dsp_max_scale", 0.0, 1e7, 0.00001, 5);
+  AddOptionInt(&sift_options.dsp_num_scales, "sift.dsp_num_scales", 1);
 }
 
 void SIFTExtractionWidget::Run() {
   WriteOptions();
 
+  options_->feature_extraction->type = FeatureExtractorType::SIFT;
+
   ImageReaderOptions reader_options = *options_->image_reader;
   reader_options.image_path = *options_->image_path;
 
   auto extractor = CreateFeatureExtractorController(
-      *options_->database_path, reader_options, *options_->sift_extraction);
+      *options_->database_path, reader_options, *options_->feature_extraction);
   thread_control_widget_->StartThread(
       "Extracting...", true, std::move(extractor));
 }
@@ -165,15 +158,15 @@ FeatureExtractionWidget::FeatureExtractionWidget(QWidget* parent,
 
   tab_widget_ = new QTabWidget(this);
 
-  QScrollArea* extraction_widget = new QScrollArea(this);
-  extraction_widget->setAlignment(Qt::AlignHCenter);
-  extraction_widget->setWidget(new SIFTExtractionWidget(this, options));
-  tab_widget_->addTab(extraction_widget, tr("Extract"));
+  QScrollArea* sift_widget = new QScrollArea(this);
+  sift_widget->setAlignment(Qt::AlignHCenter);
+  sift_widget->setWidget(new SIFTExtractionWidget(this, options));
+  tab_widget_->addTab(sift_widget, tr("SIFT"));
 
   QScrollArea* import_widget = new QScrollArea(this);
   import_widget->setAlignment(Qt::AlignHCenter);
   import_widget->setWidget(new ImportFeaturesWidget(this, options));
-  tab_widget_->addTab(import_widget, tr("Import"));
+  tab_widget_->addTab(import_widget, tr("Import (SIFT)"));
 
   grid->addWidget(tab_widget_);
 

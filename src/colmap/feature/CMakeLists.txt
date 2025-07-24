@@ -48,7 +48,7 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_LIBRARY(
     NAME colmap_feature
     SRCS
-        extractor.h
+        extractor.h extractor.cc
         index.h index.cc
         matcher.h matcher.cc
         pairing.h pairing.cc
@@ -68,6 +68,7 @@ COLMAP_ADD_LIBRARY(
         Eigen3::Eigen
         faiss
 )
+
 if(GPU_ENABLED)
     target_link_libraries(colmap_feature PRIVATE colmap_sift_gpu)
     if(NOT GUI_ENABLED)
@@ -97,6 +98,7 @@ COLMAP_ADD_TEST(
     SRCS sift_test.cc
     LINK_LIBS
         colmap_feature
+        colmap_util
 )
 if(TESTS_ENABLED AND GUI_ENABLED)
     target_link_libraries(colmap_feature_sift_test Qt5::Widgets)
