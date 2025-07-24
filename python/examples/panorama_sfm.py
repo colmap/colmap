@@ -14,10 +14,11 @@ import cv2
 import numpy as np
 import PIL.ExifTags
 import PIL.Image
-import pycolmap
-from pycolmap import logging
 from scipy.spatial.transform import Rotation
 from tqdm import tqdm
+
+import pycolmap
+from pycolmap import logging
 
 PANO_RENDER_TYPES: dict[str : dict[str, Any]] = {
     "overlapping": {
@@ -166,10 +167,8 @@ class PanoProcessor:
                 for rig_camera in rig_config.cameras:
                     rig_camera.camera = self.camera
                 self.pano_size = (pano_width, pano_height)
-                self.rays_in_cam = get_virtual_camera_rays(
-                    self.camera
-                )
-            else: # Later images, verify consistent panoramas.
+                self.rays_in_cam = get_virtual_camera_rays(self.camera)
+            else:  # Later images, verify consistent panoramas.
                 if (pano_width, pano_height) != self.pano_size:
                     raise ValueError(
                         "Panoramas of different sizes are not supported."
