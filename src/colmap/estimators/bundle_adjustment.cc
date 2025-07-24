@@ -886,6 +886,11 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
         pose_priors_(std::move(pose_priors)),
         reconstruction_(reconstruction) {
     const bool use_prior_position = AlignReconstruction();
+    const bool use_prior_rotation = std::any_of(
+        pose_priors.cbegin(), pose_priors.cend(), [](const auto& kv) {
+          const PosePrior& prior = kv.second;
+          return prior.HasValidPosition() && prior.HasValidPositionCovariance();
+        });
 
     // Fix 7-DOFs of BA problem if not enough valid pose priors.
     if (use_prior_position) {
@@ -900,7 +905,7 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
     default_bundle_adjuster_ = std::make_unique<DefaultBundleAdjuster>(
         options_, config_, reconstruction);
 
-    if (use_prior_position) {
+    if (use_prior_position || use_prior_rotation) {
       if (prior_options_.use_robust_loss_on_prior_position) {
         prior_loss_function_ = std::make_unique<ceres::CauchyLoss>(
             prior_options_.prior_position_loss_scale);
@@ -945,9 +950,12 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
   void AddPosePriorToProblem(image_t image_id,
                              const PosePrior& prior,
                              Reconstruction& reconstruction) {
-    if (!prior.IsValid() || !prior.IsCovarianceValid()) {
-      LOG(ERROR) << "Could not add prior for image #" << image_id;
-      return;
+    const bool use_prior_position =
+        prior.HasValidPosition() && prior.HasValidPositionCovariance();
+    const bool use_prior_rotation =
+        prior.HasValidRotation() && prior.HasValidRotationCovariance();
+    if (!use_prior_position && !use_prior_rotation) {
+      LOG(ERROR) << "Could not add prior to problem for image #" << image_id;
     }
 
     Image& image = reconstruction.Image(image_id);
@@ -973,13 +981,42 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
     // cam_from_world.rotation is normalized in AddImageToProblem()
     double* cam_from_world_rotation = cam_from_world.rotation.coeffs().data();
 
-    problem->AddResidualBlock(
-        CovarianceWeightedCostFunctor<AbsolutePosePositionPriorCostFunctor>::
-            Create(prior.position_covariance,
-                   normalized_from_metric_ * prior.position),
-        prior_loss_function_.get(),
-        cam_from_world_rotation,
-        cam_from_world_translation);
+    if (use_prior_position && !use_prior_rotation) {
+      problem->AddResidualBlock(
+          CovarianceWeightedCostFunctor<AbsolutePosePositionPriorCostFunctor>::
+              Create(prior.position_covariance,
+                     normalized_from_metric_ * prior.position),
+          prior_loss_function_.get(),
+          cam_from_world_rotation,
+          cam_from_world_translation);
+    } else if (use_prior_position && use_prior_rotation) {
+      Eigen::Matrix<double, 6, 6> piror_covariance =
+          Eigen::Matrix<double, 6, 6>::Zero();
+      piror_covariance.topLeftCorner<3, 3>() = prior.rotation_covariance;
+      piror_covariance.bottomRightCorner<3, 3>() = prior.position_covariance;
+
+      Eigen::Quaterniond transformed_rotation =
+          normalized_from_metric_.rotation * prior.rotation;
+      Eigen::Vector3d transformed_position =
+          normalized_from_metric_ * prior.position;
+      Rigid3d prior_rigid(transformed_rotation,
+                          -(transformed_rotation * transformed_position));
+      // TODO: Separate loss function options for prior position and prior rotation.
+      problem->AddResidualBlock(
+          CovarianceWeightedCostFunctor<AbsolutePosePriorCostFunctor>::Create(
+              piror_covariance, prior_rigid),
+          prior_loss_function_.get(),
+          cam_from_world_rotation,
+          cam_from_world_translation);
+    } else if (!use_prior_position && use_prior_rotation) {
+      problem->AddResidualBlock(
+          CovarianceWeightedCostFunctor<AbsolutePoseRotationPriorCostFunctor>::
+              Create(prior.rotation_covariance,
+                     normalized_from_metric_.rotation * prior.rotation),
+          prior_loss_function_.get(),
+          cam_from_world_rotation,
+          cam_from_world_translation);
+    }
   }
 
   bool AlignReconstruction() {
@@ -990,7 +1027,7 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
       double max_stddev_sum = 0;
       size_t num_valid_covs = 0;
       for (const auto& [_, pose_prior] : pose_priors_) {
-        if (pose_prior.IsCovarianceValid()) {
+        if (pose_prior.HasValidPositionCovariance()) {
           const double max_stddev =
               std::sqrt(Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d>(
                             pose_prior.position_covariance)
@@ -1027,7 +1064,7 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
       for (const image_t image_id : reconstruction_.RegImageIds()) {
         const auto pose_prior_it = pose_priors_.find(image_id);
         if (pose_prior_it != pose_priors_.end() &&
-            pose_prior_it->second.IsValid()) {
+            pose_prior_it->second.HasValidPosition()) {
           const auto& image = reconstruction_.Image(image_id);
           verr2_wrt_prior.push_back(
               (image.ProjectionCenter() - pose_prior_it->second.position)

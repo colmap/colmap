@@ -411,6 +411,31 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
             noisy_prior.coordinate_system = PosePrior::CoordinateSystem::WGS84;
           }
 
+          if (options.use_prior_rotation) {
+            noisy_prior.rotation = rig_from_world.rotation;
+
+            if (options.prior_rotation_stddev > 0.) {
+              Eigen::Vector3d noise_axis_angle(
+                  RandomGaussian<double>(0, options.prior_rotation_stddev),
+                  RandomGaussian<double>(0, options.prior_rotation_stddev),
+                  RandomGaussian<double>(0, options.prior_rotation_stddev));
+              double angle = noise_axis_angle.norm();
+              Eigen::Vector3d axis = angle > 1e-8
+                                         ? noise_axis_angle.normalized()
+                                         : Eigen::Vector3d::UnitX();
+              Eigen::Quaterniond noise_q(Eigen::AngleAxisd(angle, axis));
+              noisy_prior.rotation = noise_q * noisy_prior.rotation;
+
+              noisy_prior.rotation_covariance = options.prior_rotation_stddev *
+                                                options.prior_rotation_stddev *
+                                                Eigen::Matrix3d::Identity();
+            } else {
+              noisy_prior.rotation_covariance = Eigen::Matrix3d::Identity();
+            }
+
+            noisy_prior.rotation = noisy_prior.rotation.normalized();
+          }
+
           database->WritePosePrior(image.ImageId(), noisy_prior);
         }
 

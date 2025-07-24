@@ -364,11 +364,14 @@ TEST(IncrementalPipeline, PriorBasedSfMWithoutNoise) {
 
   synthetic_dataset_options.use_prior_position = true;
   synthetic_dataset_options.prior_position_stddev = 0.0;
+  synthetic_dataset_options.use_prior_rotation = true;
+  synthetic_dataset_options.prior_rotation_stddev = 0.0;
+
   SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction, &database);
 
   std::shared_ptr<IncrementalPipelineOptions> mapper_options =
       std::make_shared<IncrementalPipelineOptions>();
-  mapper_options->use_prior_position = true;
+  mapper_options->use_pose_prior = true;
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   IncrementalPipeline mapper(mapper_options,
@@ -404,12 +407,15 @@ TEST(IncrementalPipeline, PriorBasedSfMWithoutNoiseAndWithNonTrivialFrames) {
 
   synthetic_dataset_options.use_prior_position = true;
   synthetic_dataset_options.prior_position_stddev = 0.0;
+  synthetic_dataset_options.use_prior_rotation = true;
+  synthetic_dataset_options.prior_rotation_stddev = 0.0;
+
   SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction, &database);
 
   std::shared_ptr<IncrementalPipelineOptions> mapper_options =
       std::make_shared<IncrementalPipelineOptions>();
 
-  mapper_options->use_prior_position = true;
+  mapper_options->use_pose_prior = true;
   mapper_options->use_robust_loss_on_prior_position = true;
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
@@ -442,12 +448,14 @@ TEST(IncrementalPipeline, PriorBasedSfMWithNoise) {
 
   synthetic_dataset_options.use_prior_position = true;
   synthetic_dataset_options.prior_position_stddev = 1.5;
+  synthetic_dataset_options.use_prior_rotation = true;
+  synthetic_dataset_options.prior_rotation_stddev = 1.5;
   SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction, &database);
 
   std::shared_ptr<IncrementalPipelineOptions> mapper_options =
       std::make_shared<IncrementalPipelineOptions>();
 
-  mapper_options->use_prior_position = true;
+  mapper_options->use_pose_prior = true;
   mapper_options->use_robust_loss_on_prior_position = true;
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
@@ -486,7 +494,7 @@ TEST(IncrementalPipeline, GPSPriorBasedSfMWithNoise) {
   std::shared_ptr<IncrementalPipelineOptions> mapper_options =
       std::make_shared<IncrementalPipelineOptions>();
 
-  mapper_options->use_prior_position = true;
+  mapper_options->use_pose_prior = true;
   mapper_options->use_robust_loss_on_prior_position = true;
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();

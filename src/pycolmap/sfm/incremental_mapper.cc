@@ -153,9 +153,9 @@ void BindIncrementalPipeline(py::module& m) {
       .def_readwrite("ba_gpu_index",
                      &IncrementalPipelineOptions::ba_gpu_index,
                      "Index of CUDA GPU to use for BA, if available.")
-      .def_readwrite("use_prior_position",
-                     &Opts::use_prior_position,
-                     "Whether to use priors on the camera positions.")
+      .def_readwrite("use_pose_prior",
+                     &Opts::use_pose_prior,
+                     "Whether to use pose priors.")
       .def_readwrite("use_robust_loss_on_prior_position",
                      &Opts::use_robust_loss_on_prior_position,
                      "Whether to use a robust loss on prior camera positions.")

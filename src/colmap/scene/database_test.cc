@@ -296,27 +296,49 @@ TEST(Database, PosePrior) {
   image.SetCameraId(camera.camera_id);
   image.SetImageId(database.WriteImage(image));
   EXPECT_EQ(database.NumPosePriors(), 0);
+
   PosePrior pose_prior(Eigen::Vector3d(0.1, 0.2, 0.3),
                        PosePrior::CoordinateSystem::CARTESIAN);
-  EXPECT_TRUE(pose_prior.IsValid());
-  EXPECT_FALSE(pose_prior.IsCovarianceValid());
+  pose_prior.rotation =
+      Eigen::Quaterniond(Eigen::AngleAxisd(M_PI / 4, Eigen::Vector3d::UnitZ()));
+
+  EXPECT_TRUE(pose_prior.HasValidPosition());
+  EXPECT_FALSE(pose_prior.HasValidPositionCovariance());
+  EXPECT_TRUE(pose_prior.HasValidRotation());
+  EXPECT_FALSE(pose_prior.HasValidRotationCovariance());
+
   database.WritePosePrior(image.ImageId(), pose_prior);
   EXPECT_EQ(database.NumPosePriors(), 1);
+
   auto read_pose_prior = database.ReadPosePrior(image.ImageId());
   EXPECT_EQ(read_pose_prior.position, pose_prior.position);
   EXPECT_EQ(read_pose_prior.coordinate_system, pose_prior.coordinate_system);
-  EXPECT_TRUE(read_pose_prior.IsValid());
-  EXPECT_FALSE(read_pose_prior.IsCovarianceValid());
+  EXPECT_EQ(read_pose_prior.rotation.coeffs(), pose_prior.rotation.coeffs());
+  EXPECT_TRUE(read_pose_prior.HasValidPosition());
+  EXPECT_FALSE(read_pose_prior.HasValidPositionCovariance());
+  EXPECT_TRUE(read_pose_prior.HasValidRotation());
+  EXPECT_FALSE(read_pose_prior.HasValidRotationCovariance());
+
   pose_prior.position_covariance = Eigen::Matrix3d::Identity();
-  EXPECT_TRUE(pose_prior.IsCovarianceValid());
+  pose_prior.rotation_covariance = 0.1 * Eigen::Matrix3d::Identity();
+  EXPECT_TRUE(pose_prior.HasValidPositionCovariance());
+  EXPECT_TRUE(pose_prior.HasValidRotationCovariance());
+
   database.UpdatePosePrior(image.ImageId(), pose_prior);
+
   read_pose_prior = database.ReadPosePrior(image.ImageId());
   EXPECT_EQ(read_pose_prior.position, pose_prior.position);
   EXPECT_EQ(read_pose_prior.position_covariance,
             pose_prior.position_covariance);
+  EXPECT_EQ(read_pose_prior.rotation.coeffs(), pose_prior.rotation.coeffs());
+  EXPECT_EQ(read_pose_prior.rotation_covariance,
+            pose_prior.rotation_covariance);
   EXPECT_EQ(read_pose_prior.coordinate_system, pose_prior.coordinate_system);
-  EXPECT_TRUE(read_pose_prior.IsValid());
-  EXPECT_TRUE(read_pose_prior.IsCovarianceValid());
+  EXPECT_TRUE(read_pose_prior.HasValidPosition());
+  EXPECT_TRUE(read_pose_prior.HasValidPositionCovariance());
+  EXPECT_TRUE(read_pose_prior.HasValidRotation());
+  EXPECT_TRUE(read_pose_prior.HasValidRotationCovariance());
+
   database.ClearPosePriors();
   EXPECT_EQ(database.NumPosePriors(), 0);
 }

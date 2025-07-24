@@ -68,6 +68,9 @@ struct SyntheticDatasetOptions {
   bool use_prior_position = false;
   bool use_geographic_coords_prior = false;
   double prior_position_stddev = 1.5;
+
+  bool use_prior_rotation = false;
+  double prior_rotation_stddev = 1.5;
 };
 
 void SynthesizeDataset(const SyntheticDatasetOptions& options,

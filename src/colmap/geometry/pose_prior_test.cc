@@ -29,6 +29,8 @@
 
 #include "colmap/geometry/pose_prior.h"
 
+#include "colmap/math/math.h"
+
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -38,12 +40,27 @@ TEST(PosePrior, Equals) {
   PosePrior prior;
   prior.position = Eigen::Vector3d::Zero();
   prior.position_covariance = Eigen::Matrix3d::Identity();
+  prior.rotation = Eigen::Quaterniond(1, 0, 0, 0);
+  prior.rotation_covariance = Eigen::Matrix3d::Identity();
   prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
+
   PosePrior other = prior;
   EXPECT_EQ(prior, other);
+
   prior.position.x() = 1;
   EXPECT_NE(prior, other);
   other.position.x() = 1;
+  EXPECT_EQ(prior, other);
+
+  prior.rotation =
+      Eigen::Quaterniond(Eigen::AngleAxisd(M_PI / 4, Eigen::Vector3d::UnitZ()));
+  EXPECT_NE(prior, other);
+  other.rotation = prior.rotation;
+  EXPECT_EQ(prior, other);
+
+  prior.rotation_covariance(0, 0) = 10;
+  EXPECT_NE(prior, other);
+  other.rotation_covariance(0, 0) = 10;
   EXPECT_EQ(prior, other);
 }
 
@@ -51,12 +68,23 @@ TEST(PosePrior, Print) {
   PosePrior prior;
   prior.position = Eigen::Vector3d::Zero();
   prior.position_covariance = Eigen::Matrix3d::Identity();
+  prior.rotation = Eigen::Quaterniond(1, 0, 0, 0);  // identity
+  prior.rotation_covariance = Eigen::Matrix3d::Identity();
   prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
+
   std::ostringstream stream;
   stream << prior;
-  EXPECT_EQ(stream.str(),
-            "PosePrior(position=[0, 0, 0], position_covariance=[1, 0, 0, 0, 1, "
-            "0, 0, 0, 1], coordinate_system=CARTESIAN)");
+
+  const std::string expected =
+      "PosePrior(\n"
+      "  position=[0, 0, 0],\n"
+      "  position_covariance=[1, 0, 0, 0, 1, 0, 0, 0, 1],\n"
+      "  rotation=[0, 0, 0, 1],  // [x, y, z, w]\n"
+      "  rotation_covariance=[1, 0, 0, 0, 1, 0, 0, 0, 1],\n"
+      "  coordinate_system=CARTESIAN\n"
+      ")";
+
+  EXPECT_EQ(stream.str(), expected);
 }
 
 }  // namespace

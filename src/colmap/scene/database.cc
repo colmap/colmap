@@ -722,6 +722,10 @@ PosePrior Database::ReadPosePrior(const image_t image_id) const {
         sqlite3_column_int64(sql_stmt_read_pose_prior_, 2));
     prior.position_covariance =
         ReadStaticMatrixBlob<Eigen::Matrix3d>(sql_stmt_read_pose_prior_, rc, 3);
+    prior.rotation.coeffs() =
+        ReadStaticMatrixBlob<Eigen::Vector4d>(sql_stmt_read_pose_prior_, rc, 4);
+    prior.rotation_covariance =
+        ReadStaticMatrixBlob<Eigen::Matrix3d>(sql_stmt_read_pose_prior_, rc, 5);
   }
   return prior;
 }
@@ -1040,6 +1044,10 @@ void Database::WritePosePrior(const image_t image_id,
       static_cast<sqlite3_int64>(pose_prior.coordinate_system)));
   WriteStaticMatrixBlob(
       sql_stmt_write_pose_prior_, pose_prior.position_covariance, 4);
+  WriteStaticMatrixBlob(
+      sql_stmt_write_pose_prior_, pose_prior.rotation.coeffs(), 5);
+  WriteStaticMatrixBlob(
+      sql_stmt_write_pose_prior_, pose_prior.rotation_covariance, 6);
   SQLITE3_CALL(sqlite3_step(sql_stmt_write_pose_prior_));
 }
 
@@ -1260,7 +1268,11 @@ void Database::UpdatePosePrior(image_t image_id,
       static_cast<sqlite3_int64>(pose_prior.coordinate_system)));
   WriteStaticMatrixBlob(
       sql_stmt_update_pose_prior_, pose_prior.position_covariance, 3);
-  SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_update_pose_prior_, 4, image_id));
+  WriteStaticMatrixBlob(
+      sql_stmt_update_pose_prior_, pose_prior.rotation.coeffs(), 4);
+  WriteStaticMatrixBlob(
+      sql_stmt_update_pose_prior_, pose_prior.rotation_covariance, 5);
+  SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_update_pose_prior_, 6, image_id));
 
   SQLITE3_CALL(sqlite3_step(sql_stmt_update_pose_prior_));
 }
@@ -1618,8 +1630,9 @@ void Database::PrepareSQLStatements() {
   prepare_sql_stmt("UPDATE images SET name=?, camera_id=? WHERE image_id=?;",
                    &sql_stmt_update_image_);
   prepare_sql_stmt(
-      "UPDATE pose_priors SET position=?, coordinate_system=?, "
-      "position_covariance=? WHERE image_id=?;",
+      "UPDATE pose_priors SET position = ?, coordinate_system = ?, "
+      "position_covariance = ?, rotation = ?, rotation_covariance = ? "
+      "WHERE image_id = ?;",
       &sql_stmt_update_pose_prior_);
 
   //////////////////////////////////////////////////////////////////////////////
@@ -1695,7 +1708,8 @@ void Database::PrepareSQLStatements() {
   //////////////////////////////////////////////////////////////////////////////
   prepare_sql_stmt(
       "INSERT INTO pose_priors(image_id, position, coordinate_system, "
-      "position_covariance) VALUES(?, ?, ?, ?);",
+      "position_covariance, rotation, rotation_covariance) "
+      "VALUES(?, ?, ?, ?, ?, ?);",
       &sql_stmt_write_pose_prior_);
   prepare_sql_stmt(
       "INSERT INTO keypoints(image_id, rows, cols, data) VALUES(?, ?, ?, ?);",
@@ -1846,6 +1860,8 @@ void Database::CreatePosePriorTable() const {
       "    position                   BLOB,"
       "    coordinate_system          INTEGER               NOT NULL,"
       "    position_covariance        BLOB,"
+      "    rotation                   BLOB,"
+      "    rotation_covariance        BLOB,"
       "    FOREIGN KEY(image_id) REFERENCES images(image_id) ON DELETE "
       "CASCADE);";
 
