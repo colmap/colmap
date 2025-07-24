@@ -41,7 +41,7 @@ void BindFeatureTypes(py::module& m) {
             return ss.str();
           });
   MakeDataclass(PyFeatureKeypoint);
-  py::bind_vector<FeatureKeypoints>(m, "FeatureKeypointList");
+  py::bind_vector<FeatureKeypoints>(m, "FeatureKeypoints");
   py::implicitly_convertible<py::iterable, FeatureKeypoints>();
 
   auto PyFeatureMatch =
@@ -57,6 +57,6 @@ void BindFeatureTypes(py::module& m) {
             return ss.str();
           });
   MakeDataclass(PyFeatureMatch);
-  py::bind_vector<FeatureMatches>(m, "FeatureMatchList");
+  py::bind_vector<FeatureMatches>(m, "FeatureMatches");
   py::implicitly_convertible<py::iterable, FeatureMatches>();
 }
