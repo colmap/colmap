@@ -40,7 +40,7 @@ void BindFeatureTypes(py::module& m) {
             return ss.str();
           });
   MakeDataclass(PyFeatureKeypoint);
-  py::bind_vector<FeatureKeypoints>(m, "FeatureKeypointList");
+  py::bind_vector<FeatureKeypoints>(m, "FeatureKeypoints");
 
   auto PyFeatureMatch =
       py::class_<FeatureMatch>(m, "FeatureMatch")
@@ -55,5 +55,5 @@ void BindFeatureTypes(py::module& m) {
             return ss.str();
           });
   MakeDataclass(PyFeatureMatch);
-  py::bind_vector<FeatureMatches>(m, "FeatureMatchList");
+  py::bind_vector<FeatureMatches>(m, "FeatureMatches");
 }
