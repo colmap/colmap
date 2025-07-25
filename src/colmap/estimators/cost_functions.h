@@ -401,6 +401,33 @@ struct AbsolutePosePositionPriorCostFunctor
   const Eigen::Vector3d position_in_world_prior_;
 };
 
+// 3-DoF error on the camera orientation in the world coordinate frame.
+struct AbsolutePoseRotationPriorCostFunctor
+    : public AutoDiffCostFunctor<AbsolutePoseRotationPriorCostFunctor, 3, 4> {
+ public:
+  explicit AbsolutePoseRotationPriorCostFunctor(
+      const Eigen::Quaterniond& prior_rotation_cam_from_world)
+      : prior_rotation_world_from_cam_(
+            prior_rotation_cam_from_world.conjugate()) {}
+
+  template <typename T>
+  bool operator()(const T* const cam_from_world_rotation,
+                  T* residuals_ptr) const {
+    const Eigen::Quaternion<T> rotation_estimated =
+        EigenQuaternionMap<T>(cam_from_world_rotation);
+
+    const Eigen::Quaternion<T> rotation_error =
+        rotation_estimated * prior_rotation_world_from_cam_.cast<T>();
+
+    EigenQuaternionToAngleAxis(rotation_error.coeffs().data(), residuals_ptr);
+
+    return true;
+  }
+
+ private:
+  const Eigen::Quaterniond prior_rotation_world_from_cam_;
+};
+
 // 6-DoF error between two absolute camera poses based on a prior on their
 // relative pose, with identical scale for the translation. The residual is
 // computed in the frame of camera i. Its first and last three components
@@ -409,9 +436,9 @@ struct AbsolutePosePositionPriorCostFunctor
 // Derivation:
 //    i_T_w = ΔT_i·i_T_j·j_T_w
 //    where ΔT_i = exp(η_i) is the resjdual in SE(3) and η_i in tangent space.
-//    Thus η_i = log(i_T_w·j_T_w⁻¹·j_T_i)
-//    Rotation term: ΔR = log(i_R_w·j_R_w⁻¹·j_R_i)
-//    Translation term: Δt = i_t_w + i_R_w·j_R_w⁻¹·(j_t_i -j_t_w)
+//    Thus η_i = log(i_T_w·j_T_w^{-1}·j_T_i)
+//    Rotation term: ΔR = log(i_R_w·j_R_w^{-1}·j_R_i)
+//    Translation term: Δt = i_t_w + i_R_w·j_R_w^{-1}·(j_t_i -j_t_w)
 struct RelativePosePriorCostFunctor
     : public AutoDiffCostFunctor<RelativePosePriorCostFunctor, 6, 4, 3, 4, 3> {
  public:

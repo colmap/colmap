@@ -250,7 +250,7 @@ bool AlignReconstructionToPosePriors(
   for (const image_t image_id : src_reconstruction.RegImageIds()) {
     const auto pose_prior_it = tgt_pose_priors.find(image_id);
     if (pose_prior_it != tgt_pose_priors.end() &&
-        pose_prior_it->second.IsValid()) {
+        pose_prior_it->second.HasValidPosition()) {
       const auto& image = src_reconstruction.Image(image_id);
       src.push_back(image.ProjectionCenter());
       tgt.push_back(pose_prior_it->second.position);

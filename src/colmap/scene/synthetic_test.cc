@@ -220,16 +220,24 @@ TEST(SynthesizeDataset, WithPriors) {
   SyntheticDatasetOptions options;
   options.use_prior_position = true;
   options.prior_position_stddev = 0.;
+  options.use_prior_rotation = true;
+  options.prior_rotation_stddev = 0.;
   SynthesizeDataset(options, &reconstruction, &database);
 
   for (const auto& image : reconstruction.Images()) {
-    if (database.ExistsPosePrior(image.first)) {
-      EXPECT_NEAR((image.second.ProjectionCenter() -
-                   database.ReadPosePrior(image.first).position)
-                      .norm(),
-                  0.,
-                  1e-9);
-    }
+    ASSERT_TRUE(database.ExistsPosePrior(image.first));
+    const PosePrior prior = database.ReadPosePrior(image.first);
+    const Eigen::Vector3d expected_position = image.second.ProjectionCenter();
+    const Eigen::Quaterniond expected_rotation =
+        image.second.CamFromWorld().rotation;
+
+    EXPECT_TRUE(prior.HasValidPosition());
+    EXPECT_NEAR((expected_position - prior.position).norm(), 0., 1e-9);
+
+    EXPECT_TRUE(prior.HasValidRotation());
+    const double rotation_angle_error =
+        expected_rotation.angularDistance(prior.rotation);
+    EXPECT_NEAR(rotation_angle_error, 0., 1e-9);
   }
 }
 

@@ -118,8 +118,8 @@ class IncrementalMapper {
     // If reconstruction is provided as input, fix the existing image poses.
     bool fix_existing_frames = false;
 
-    // Whether to use prior camera positions
-    bool use_prior_position = false;
+    // Whether to use pose pirors.
+    bool use_pose_prior = false;
 
     // Whether to use a robust loss on prior locations
     bool use_robust_loss_on_prior_position = false;

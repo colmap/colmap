@@ -368,6 +368,7 @@ bool DatabaseCache::SetupPosePriors() {
   }
 
   // Convert geographic to cartesian
+  bool has_prior_rotation_in_wgs84 = false;
   if (prior_is_gps) {
     // GPS reference to be used for EllipsoidToENU conversion
     const double ref_lat = v_gps_prior[0][0];
@@ -383,12 +384,18 @@ bool DatabaseCache::SetupPosePriors() {
       pose_prior.position = *xyz_prior_it;
       pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
       ++xyz_prior_it;
+      
+      has_prior_rotation_in_wgs84 |= pose_prior.HasValidRotation();
     }
   } else if (!prior_is_gps && !v_gps_prior.empty()) {
     LOG(ERROR)
         << "Database is mixing GPS & non-GPS prior positions... Aborting";
     return false;
   }
+
+  LOG_IF(WARNING, has_prior_rotation_in_wgs84)
+      << "Pose prior position is in WGS84 (GPS) coordinates; "
+         "ignoring prior rotation.";
 
   timer.PrintMinutes();
 
