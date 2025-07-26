@@ -8,7 +8,6 @@ from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from threading import Lock
-from typing import Any
 
 import cv2
 import numpy as np
@@ -19,29 +18,39 @@ from tqdm import tqdm
 
 import pycolmap
 from pycolmap import logging
+from dataclasses import dataclass
 
-PANO_RENDER_TYPES: dict[str : dict[str, Any]] = {
-    "overlapping": {
-        "num_steps_yaw": 4,
-        "pitches_deg": (-35.0, 35.0),
-        "hfov_deg": 90.0,
-        "vfov_deg": 90.0,
-    },
+
+@dataclass
+class PanoRenderOptions:
+    num_steps_yaw: int
+    pitches_deg: Sequence[float]
+    hfov_deg: float
+    vfov_deg: float
+
+
+PANO_RENDER_OPTIONS: dict[str, PanoRenderOptions] = {
+    "overlapping": PanoRenderOptions(
+        num_steps_yaw=4,
+        pitches_deg=(-35.0, 0.0, 35.0),
+        hfov_deg=90.0,
+        vfov_deg=90.0,
+    ),
     # Cubemap without top and bottom images.
-    "non-overlapping": {
-        "num_steps_yaw": 4,
-        "pitches_deg": (0.0,),
-        "hfov_deg": 90.0,
-        "vfov_deg": 90.0,
-    },
+    "non-overlapping": PanoRenderOptions(
+        num_steps_yaw=4,
+        pitches_deg=(0.0,),
+        hfov_deg=90.0,
+        vfov_deg=90.0,
+    ),
 }
 
 
 def create_virtual_camera(
     pano_width: int,
     pano_height: int,
-    hfov_deg: float = 90.0,
-    vfov_deg: float = 90.0,
+    hfov_deg: float,
+    vfov_deg: float,
 ) -> pycolmap.Camera:
     """Create a virtual perspective camera."""
     image_width = int(pano_width * hfov_deg / 360)
@@ -79,7 +88,7 @@ def spherical_img_from_cam(image_size, rays_in_cam: np.ndarray) -> np.ndarray:
 
 
 def get_virtual_rotations(
-    num_steps_yaw: int = 4, pitches_deg: Sequence[float] = (-35.0, 35.0)
+    num_steps_yaw: int, pitches_deg: Sequence[float]
 ) -> Sequence[np.ndarray]:
     """Get the relative rotations of the virtual cameras w.r.t. the panorama."""
     # Assuming that the panos are approximately upright.
@@ -121,24 +130,40 @@ def create_pano_rig_config(
 
 
 class PanoProcessor:
-    def __init__(self):
-        self.camera = None
-        self.pano_size = None
-        self.rays_in_cam = None
-        self.lock = Lock()
-
-    def process(
+    def __init__(
         self,
-        pano_name: str,
         pano_image_dir: Path,
         output_image_dir: Path,
         mask_dir: Path,
-        render_type_args: dict[str, Any],
-        rig_config: pycolmap.RigConfig,
-        cams_from_pano_rotation: np.ndarray,
-        cam_centers_in_pano: np.ndarray,
+        render_options: PanoRenderOptions,
     ):
-        pano_path = pano_image_dir / pano_name
+        self.render_options = render_options
+        self.pano_image_dir = pano_image_dir
+        self.output_image_dir = output_image_dir
+        self.mask_dir = mask_dir
+
+        self.cams_from_pano_rotation = get_virtual_rotations(
+            num_steps_yaw=render_options.num_steps_yaw,
+            pitches_deg=render_options.pitches_deg,
+        )
+        self.rig_config = create_pano_rig_config(self.cams_from_pano_rotation)
+
+        # We assign each pano pixel to the virtual camera
+        # with the closest camera center.
+        self.cam_centers_in_pano = np.einsum(
+            "nij,i->nj", self.cams_from_pano_rotation, [0, 0, 1]
+        )
+
+        self._lock = Lock()
+
+        # These are initialized on the first pano image
+        # to avoid recomputing the rays for each pano image.
+        self._camera = None
+        self._pano_size = None
+        self._rays_in_cam = None
+
+    def process(self, pano_name: str):
+        pano_path = self.pano_image_dir / pano_name
         try:
             pano_image = PIL.Image.open(pano_path)
         except PIL.Image.UnidentifiedImageError:
@@ -156,29 +181,29 @@ class PanoProcessor:
         if pano_width != pano_height * 2:
             raise ValueError("Only 360° panoramas are supported.")
 
-        with self.lock:
-            if self.camera is None:  # First image, precompute rays once.
-                self.camera = create_virtual_camera(
+        with self._lock:
+            if self._camera is None:  # First image, precompute rays once.
+                self._camera = create_virtual_camera(
                     pano_width=pano_width,
                     pano_height=pano_height,
-                    hfov_deg=render_type_args["hfov_deg"],
-                    vfov_deg=render_type_args["vfov_deg"],
+                    hfov_deg=self.render_options.hfov_deg,
+                    vfov_deg=self.render_options.vfov_deg,
                 )
-                for rig_camera in rig_config.cameras:
-                    rig_camera.camera = self.camera
-                self.pano_size = (pano_width, pano_height)
-                self.rays_in_cam = get_virtual_camera_rays(self.camera)
+                for rig_camera in self.rig_config.cameras:
+                    rig_camera.camera = self._camera
+                self._pano_size = (pano_width, pano_height)
+                self._rays_in_cam = get_virtual_camera_rays(self._camera)
             else:  # Later images, verify consistent panoramas.
-                if (pano_width, pano_height) != self.pano_size:
+                if (pano_width, pano_height) != self._pano_size:
                     raise ValueError(
                         "Panoramas of different sizes are not supported."
                     )
 
-        for cam_idx, cam_from_pano_r in enumerate(cams_from_pano_rotation):
-            rays_in_pano = self.rays_in_cam @ cam_from_pano_r
-            xy_in_pano = spherical_img_from_cam(self.pano_size, rays_in_pano)
+        for cam_idx, cam_from_pano_r in enumerate(self.cams_from_pano_rotation):
+            rays_in_pano = self._rays_in_cam @ cam_from_pano_r
+            xy_in_pano = spherical_img_from_cam(self._pano_size, rays_in_pano)
             xy_in_pano = xy_in_pano.reshape(
-                self.camera.width, self.camera.height, 2
+                self._camera.width, self._camera.height, 2
             ).astype(np.float32)
             xy_in_pano -= 0.5  # COLMAP to OpenCV pixel origin.
             image = cv2.remap(
@@ -189,47 +214,41 @@ class PanoProcessor:
             )
             # We define a mask such that each pixel of the panorama has its
             # features extracted only in a single virtual camera.
-            closest_camera = np.argmax(rays_in_pano @ cam_centers_in_pano.T, -1)
+            closest_camera = np.argmax(
+                rays_in_pano @ self.cam_centers_in_pano.T, -1
+            )
             mask = (
                 ((closest_camera == cam_idx) * 255)
                 .astype(np.uint8)
-                .reshape(self.camera.width, self.camera.height)
+                .reshape(self._camera.width, self._camera.height)
                 .transpose()
             )
 
-            image_name = rig_config.cameras[cam_idx].image_prefix + pano_name
+            image_name = (
+                self.rig_config.cameras[cam_idx].image_prefix + pano_name
+            )
             mask_name = f"{image_name}.png"
 
-            image_path = output_image_dir / image_name
+            image_path = self.output_image_dir / image_name
             image_path.parent.mkdir(exist_ok=True, parents=True)
             PIL.Image.fromarray(image).save(image_path, exif=gpsonly_exif)
 
-            mask_path = mask_dir / mask_name
+            mask_path = self.mask_dir / mask_name
             mask_path.parent.mkdir(exist_ok=True, parents=True)
             if not pycolmap.Bitmap.from_array(mask).write(mask_path):
                 raise RuntimeError(f"Cannot write {mask_path}")
 
 
 def render_perspective_images(
-    pano_render_type: str,
     pano_image_names: Sequence[str],
     pano_image_dir: Path,
     output_image_dir: Path,
     mask_dir: Path,
+    render_options: PanoRenderOptions,
 ) -> pycolmap.RigConfig:
-    render_type_args = PANO_RENDER_TYPES[pano_render_type]
-    cams_from_pano_rotation = get_virtual_rotations(
-        num_steps_yaw=render_type_args["num_steps_yaw"],
-        pitches_deg=render_type_args["pitches_deg"],
+    processor = PanoProcessor(
+        pano_image_dir, output_image_dir, mask_dir, render_options
     )
-    rig_config = create_pano_rig_config(cams_from_pano_rotation)
-
-    # We assign each pano pixel to the virtual camera with the closest center.
-    cam_centers_in_pano = np.einsum(
-        "nij,i->nj", cams_from_pano_rotation, [0, 0, 1]
-    )
-
-    processor = PanoProcessor()
 
     num_panos = len(pano_image_names)
     max_workers = min(32, (os.cpu_count() or 2) - 1)
@@ -237,24 +256,14 @@ def render_perspective_images(
     with tqdm(total=num_panos) as pbar:
         with ThreadPoolExecutor(max_workers=max_workers) as thread_pool:
             futures = [
-                thread_pool.submit(
-                    processor.process,
-                    pano_name,
-                    pano_image_dir,
-                    output_image_dir,
-                    mask_dir,
-                    render_type_args,
-                    rig_config,
-                    cams_from_pano_rotation,
-                    cam_centers_in_pano,
-                )
+                thread_pool.submit(processor.process, pano_name)
                 for pano_name in pano_image_names
             ]
             for future in as_completed(futures):
                 future.result()
                 pbar.update(1)
 
-    return rig_config
+    return processor.rig_config
 
 
 def run(args):
@@ -283,11 +292,11 @@ def run(args):
     logging.info(f"Found {len(pano_image_names)} images in {pano_image_dir}.")
 
     rig_config = render_perspective_images(
-        args.pano_render_type,
         pano_image_names,
         pano_image_dir,
         image_dir,
         mask_dir,
+        PANO_RENDER_OPTIONS[args.pano_render_type],
     )
 
     pycolmap.extract_features(
@@ -341,6 +350,6 @@ if __name__ == "__main__":
     parser.add_argument(
         "--pano_render_type",
         default="overlapping",
-        choices=list(PANO_RENDER_TYPES.keys()),
+        choices=list(PANO_RENDER_OPTIONS.keys()),
     )
     run(parser.parse_args())
