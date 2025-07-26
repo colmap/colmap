@@ -92,6 +92,9 @@ jobs:
           CIBW_MANYLINUX_X86_64_IMAGE="sameli/manylinux_2_34_x86_64_cuda_12.8"
           echo "CIBW_MANYLINUX_X86_64_IMAGE=${CIBW_MANYLINUX_X86_64_IMAGE}" >> "$GITHUB_ENV"
 
+          CIBW_REPAIR_WHEEL_COMMAND="auditwheel repair --exclude libcudart* --exclude libcurand* -w {dest_dir} {wheel}"
+          echo "CIBW_REPAIR_WHEEL_COMMAND=${CIBW_REPAIR_WHEEL_COMMAND}" >> "$GITHUB_ENV"
+
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.23.2
         with:
@@ -111,7 +114,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     # We publish the wheel to pypi when a new tag is pushed,
-    # either by creating a new GitHub release or explictly with `git tag`
+    # either by creating a new GitHub release or explicitly with `git tag`
     # Currently, we manually trigger the workflow, so we can ignore this and always publish the wheels
     # if: ${{ github.event_name == 'release' || startsWith(github.ref, 'refs/tags') }}
     steps:

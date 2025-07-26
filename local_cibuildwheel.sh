@@ -19,7 +19,7 @@ mkdir -p "${SCRIPT_DIR}/compiler-cache/"
 export CONTAINER_COMPILER_CACHE_DIR="/compiler-cache"
 export CIBW_CONTAINER_ENGINE="docker; create_args: -v ${SCRIPT_DIR}/compiler-cache:${CONTAINER_COMPILER_CACHE_DIR} -v ${SCRIPT_DIR}/vcpkg_binarycache:${VCPKG_DEFAULT_BINARY_CACHE} "
 export CCACHE_DIR="${CONTAINER_COMPILER_CACHE_DIR}/ccache"
-export CCACHE_BASEDIR="/project"=
+export CCACHE_BASEDIR="/project"
 
 export CIBW_BUILD="cp3{8,9,10,11,12,13}-manylinux*"
 
@@ -28,6 +28,9 @@ export CIBW_ENVIRONMENT_PASS_LINUX="VCPKG_TARGET_TRIPLET VCPKG_INSTALLATION_ROOT
 
 # Use a CUDA-enabled manylinux container image
 export CIBW_MANYLINUX_X86_64_IMAGE="sameli/manylinux_2_34_x86_64_cuda_12.8"
+
+# Do not bundle CUDA libraries in the wheel
+export CIBW_REPAIR_WHEEL_COMMAND="auditwheel repair --exclude libcudart* --exclude libcurand* -w {dest_dir} {wheel}"
 
 # Uncomment the following line to not delete the container after the build. Really helpful for debugging purposes!
 #export CIBW_DEBUG_KEEP_CONTAINER=True
