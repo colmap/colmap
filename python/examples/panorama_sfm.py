@@ -6,6 +6,7 @@ import argparse
 import os
 from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
 from pathlib import Path
 from threading import Lock
 
@@ -13,12 +14,10 @@ import cv2
 import numpy as np
 import PIL.ExifTags
 import PIL.Image
-from scipy.spatial.transform import Rotation
-from tqdm import tqdm
-
 import pycolmap
 from pycolmap import logging
-from dataclasses import dataclass
+from scipy.spatial.transform import Rotation
+from tqdm import tqdm
 
 
 @dataclass
