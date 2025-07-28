@@ -301,7 +301,8 @@ ImageReader::Status ImageReader::Next(Rig* rig,
     if (bitmap->ExifLatitude(&position_prior.x()) &&
         bitmap->ExifLongitude(&position_prior.y()) &&
         bitmap->ExifAltitude(&position_prior.z())) {
-      pose_prior->position = position_prior;
+      pose_prior->SetRotation(PosePrior::kInvalidRotation);
+      pose_prior->SetPosition(position_prior);
       pose_prior->coordinate_system = PosePrior::CoordinateSystem::WGS84;
     }
   }

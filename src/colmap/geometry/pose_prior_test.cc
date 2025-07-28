@@ -30,6 +30,7 @@
 #include "colmap/geometry/pose_prior.h"
 
 #include "colmap/math/math.h"
+#include "colmap/util/eigen_matchers.h"
 
 #include <gtest/gtest.h>
 
@@ -38,53 +39,89 @@ namespace {
 
 TEST(PosePrior, Equals) {
   PosePrior prior;
-  prior.position = Eigen::Vector3d::Zero();
-  prior.position_covariance = Eigen::Matrix3d::Identity();
-  prior.rotation = Eigen::Quaterniond(1, 0, 0, 0);
-  prior.rotation_covariance = Eigen::Matrix3d::Identity();
   prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
+  prior.SetPosition(Eigen::Vector3d::Zero());
+  prior.SetPositionCovariance(Eigen::Matrix3d::Identity());
+  prior.SetRotation(Eigen::Quaterniond::Identity());
+  prior.SetRotationCovariance(Eigen::Matrix3d::Identity());
 
   PosePrior other = prior;
   EXPECT_EQ(prior, other);
 
-  prior.position.x() = 1;
+  prior.SetPosition(Eigen::Vector3d(1, 2, 3));
   EXPECT_NE(prior, other);
-  other.position.x() = 1;
+  other.SetPosition(Eigen::Vector3d(1, 2, 3));
   EXPECT_EQ(prior, other);
 
-  prior.rotation =
+  prior.SetRotation(Eigen::Quaterniond(
+      Eigen::AngleAxisd(M_PI / 4, Eigen::Vector3d::UnitZ())));
+  EXPECT_NE(prior, other);
+  other.SetRotation(Eigen::Quaterniond(
+      Eigen::AngleAxisd(M_PI / 4, Eigen::Vector3d::UnitZ())));
+  EXPECT_EQ(prior, other);
+
+  prior.SetRotationCovariance(Eigen::Vector3d(1, 2, 3).asDiagonal());
+  EXPECT_NE(prior, other);
+  other.SetRotationCovariance(Eigen::Vector3d(1, 2, 3).asDiagonal());
+  EXPECT_EQ(prior, other);
+}
+
+TEST(PosePrior, GetAndSetCovariance) {
+  const Eigen::Vector3d position = {1, 2, 3};
+  const Eigen::Quaterniond rotation =
       Eigen::Quaterniond(Eigen::AngleAxisd(M_PI / 4, Eigen::Vector3d::UnitZ()));
-  EXPECT_NE(prior, other);
-  other.rotation = prior.rotation;
-  EXPECT_EQ(prior, other);
 
-  prior.rotation_covariance(0, 0) = 10;
-  EXPECT_NE(prior, other);
-  other.rotation_covariance(0, 0) = 10;
-  EXPECT_EQ(prior, other);
+  PosePrior prior1;
+  prior1.SetPosition(position);
+  prior1.SetRotation(rotation);
+
+  Eigen::Matrix3d covariance = Eigen::Vector3d(0.1, 0.2, 0.3).asDiagonal();
+  prior1.SetPositionCovariance(covariance);
+  EXPECT_EQ(prior1.PositionCovariance(), covariance);
+
+  prior1.SetRotationCovariance(covariance);
+  EXPECT_EQ(prior1.RotationCovariance(), covariance);
+
+  prior1.SetTranslationCovariance(covariance);
+  EXPECT_THAT(
+      prior1.TranslationCovariance(),
+      EigenMatrixNear(
+          Eigen::Matrix3d(prior1.PoseCovariance().block<3, 3>(0, 0)), 1e-14));
+  EXPECT_THAT(
+      prior1.RotationCovariance(),
+      EigenMatrixNear(
+          Eigen::Matrix3d(prior1.PoseCovariance().block<3, 3>(3, 3)), 1e-14));
+
+  PosePrior prior2(position, rotation);
+  prior2.SetPoseCovariance(prior1.PoseCovariance());
+
+  // NOTE: Decomposing pose covariance may introduce slight differences vs.
+  // directly setting position/rotation covariance.
+  EXPECT_THAT(prior1.PositionCovariance(),
+              EigenMatrixNear(prior2.PositionCovariance(), 1e-16));
+  EXPECT_THAT(prior1.RotationCovariance(),
+              EigenMatrixNear(prior2.RotationCovariance(), 1e-16));
 }
 
 TEST(PosePrior, Print) {
   PosePrior prior;
-  prior.position = Eigen::Vector3d::Zero();
-  prior.position_covariance = Eigen::Matrix3d::Identity();
-  prior.rotation = Eigen::Quaterniond(1, 0, 0, 0);  // identity
-  prior.rotation_covariance = Eigen::Matrix3d::Identity();
   prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
+  prior.SetPosition(Eigen::Vector3d::Zero());
+  prior.SetPositionCovariance(Eigen::Matrix3d::Identity());
+  prior.SetRotation(Eigen::Quaterniond::Identity());
+  prior.SetRotationCovariance(Eigen::Matrix3d::Identity());
 
   std::ostringstream stream;
   stream << prior;
 
-  const std::string expected =
-      "PosePrior(\n"
-      "  position=[0, 0, 0],\n"
-      "  position_covariance=[1, 0, 0, 0, 1, 0, 0, 0, 1],\n"
-      "  rotation=[0, 0, 0, 1],  // [x, y, z, w]\n"
-      "  rotation_covariance=[1, 0, 0, 0, 1, 0, 0, 0, 1],\n"
-      "  coordinate_system=CARTESIAN\n"
-      ")";
-
-  EXPECT_EQ(stream.str(), expected);
+  EXPECT_EQ(stream.str(),
+            "PosePrior(\n"
+            "  position=[-0, -0, -0],\n"
+            "  position_covariance=[1, 0, 0, 0, 1, 0, 0, 0, 1],\n"
+            "  rotation=[0, 0, 0, 1],  // [x, y, z, w]\n"
+            "  rotation_covariance=[1, 0, 0, 0, 1, 0, 0, 0, 1],\n"
+            "  coordinate_system=CARTESIAN\n"
+            ")");
 }
 
 }  // namespace

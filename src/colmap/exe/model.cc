@@ -170,7 +170,7 @@ void ReadDatabaseCameraLocations(const std::string& database_path,
         THROW_CHECK_EQ(static_cast<int>(pose_prior.coordinate_system),
                        static_cast<int>(PosePrior::CoordinateSystem::WGS84));
       }
-      ref_locations->push_back(pose_prior.position);
+      ref_locations->push_back(pose_prior.Position());
     }
   }
 

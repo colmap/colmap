@@ -363,7 +363,7 @@ bool DatabaseCache::SetupPosePriors() {
     } else {
       // Image with the lowest id is to be used as the origin for prior
       // position conversion
-      v_gps_prior.push_back(pose_prior.position);
+      v_gps_prior.push_back(pose_prior.Position());
     }
   }
 
@@ -381,10 +381,10 @@ bool DatabaseCache::SetupPosePriors() {
     auto xyz_prior_it = v_xyz_prior.begin();
     for (const auto& image_id : image_ids_with_prior) {
       struct PosePrior& pose_prior = PosePrior(image_id);
-      pose_prior.position = *xyz_prior_it;
+      pose_prior.SetPosition(*xyz_prior_it);
       pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
       ++xyz_prior_it;
-      
+
       has_prior_rotation_in_wgs84 |= pose_prior.HasValidRotation();
     }
   } else if (!prior_is_gps && !v_gps_prior.empty()) {

@@ -33,6 +33,20 @@
 #include "colmap/util/file.h"
 
 namespace colmap {
+namespace {
+
+template <typename T>
+QString EigenMatrixToCSV(const T& mat) {
+  if (mat.array().isNaN().all()) {
+    return QString("");
+  }
+  const Eigen::IOFormat kCsvFormat(
+      Eigen::StreamPrecision, Eigen::DontAlignCols, ", ", ", ", "", "", "", "");
+  std::ostringstream oss;
+  oss << mat.transpose().format(kCsvFormat);
+  return QString::fromStdString(oss.str());
+}
+}  // namespace
 
 TwoViewInfoTab::TwoViewInfoTab(QWidget* parent,
                                OptionManager* options,
@@ -718,20 +732,14 @@ PosePriorsTab::PosePriorsTab(QWidget* parent, Database* database)
   grid->addWidget(info_label_, 0, 0);
 
   table_widget_ = new QTableWidget(this);
-  table_widget_->setColumnCount(11);
-
-  QStringList table_header;
-  table_header << "image_id"
-               << "name"
-               << "x"
-               << "y"
-               << "z"
-               << "cov_xx"
-               << "cov_yy"
-               << "cov_zz"
-               << "cov_xy"
-               << "cov_xz"
-               << "cov_yz";
+  QStringList table_header = {"image_id",
+                              "name",
+                              "coordinate_system",
+                              "position",
+                              "position_covariance",
+                              "rotaion",
+                              "rotation_covariance"};
+  table_widget_->setColumnCount(table_header.size());
   table_widget_->setHorizontalHeaderLabels(table_header);
 
   table_widget_->setShowGrid(true);
@@ -783,36 +791,31 @@ void PosePriorsTab::Reload() {
         row_idx, 1, new QTableWidgetItem(QString::fromStdString(image.Name())));
 
     table_widget_->setItem(
-        row_idx, 2, new QTableWidgetItem(QString::number(prior.position[0])));
-    table_widget_->setItem(
-        row_idx, 3, new QTableWidgetItem(QString::number(prior.position[1])));
-    table_widget_->setItem(
-        row_idx, 4, new QTableWidgetItem(QString::number(prior.position[2])));
+        row_idx,
+        2,
+        new QTableWidgetItem(QString::fromStdString(std::string(
+            PosePrior::CoordinateSystemToString(prior.coordinate_system)))));
 
+    const Eigen::Vector3d position = prior.Position();
+    table_widget_->setItem(
+        row_idx, 3, new QTableWidgetItem(EigenMatrixToCSV(position)));
+
+    const Eigen::Matrix3d position_covariance = prior.PositionCovariance();
     table_widget_->setItem(
         row_idx,
-        5,
-        new QTableWidgetItem(QString::number(prior.position_covariance(0, 0))));
+        4,
+        new QTableWidgetItem(EigenMatrixToCSV(position_covariance)));
+
+    const Eigen::Vector4d rotaion = prior.Rotation().coeffs();
+    table_widget_->setItem(
+        row_idx, 5, new QTableWidgetItem(EigenMatrixToCSV(rotaion)));
+
+    const Eigen::Matrix3d rotation_covariance = prior.RotationCovariance();
     table_widget_->setItem(
         row_idx,
         6,
-        new QTableWidgetItem(QString::number(prior.position_covariance(1, 1))));
-    table_widget_->setItem(
-        row_idx,
-        7,
-        new QTableWidgetItem(QString::number(prior.position_covariance(2, 2))));
-    table_widget_->setItem(
-        row_idx,
-        8,
-        new QTableWidgetItem(QString::number(prior.position_covariance(0, 1))));
-    table_widget_->setItem(
-        row_idx,
-        9,
-        new QTableWidgetItem(QString::number(prior.position_covariance(0, 2))));
-    table_widget_->setItem(
-        row_idx,
-        10,
-        new QTableWidgetItem(QString::number(prior.position_covariance(1, 2))));
+        new QTableWidgetItem(EigenMatrixToCSV(rotation_covariance)));
+
     ++row_idx;
   }
   table_widget_->resizeColumnsToContents();

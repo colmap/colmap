@@ -408,7 +408,7 @@ struct AbsolutePoseRotationPriorCostFunctor
   explicit AbsolutePoseRotationPriorCostFunctor(
       const Eigen::Quaterniond& prior_rotation_cam_from_world)
       : prior_rotation_world_from_cam_(
-            prior_rotation_cam_from_world.conjugate()) {}
+            prior_rotation_cam_from_world.inverse()) {}
 
   template <typename T>
   bool operator()(const T* const cam_from_world_rotation,

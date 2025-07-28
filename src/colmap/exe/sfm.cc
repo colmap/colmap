@@ -78,8 +78,8 @@ void UpdateDatabasePosePriorsCovariance(
   for (const auto& image : database.ReadAllImages()) {
     if (database.ExistsPosePrior(image.ImageId())) {
       PosePrior prior = database.ReadPosePrior(image.ImageId());
-      prior.position_covariance = position_covariance;
-      prior.rotation_covariance = rotation_covariance;
+      prior.SetPositionCovariance(position_covariance);
+      prior.SetRotationCovariance(rotation_covariance);
 
       database.UpdatePosePrior(image.ImageId(), prior);
     }

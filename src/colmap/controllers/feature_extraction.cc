@@ -291,11 +291,12 @@ class FeatureWriterThread : public Thread {
         if (image_data.image.ImageId() == kInvalidImageId) {
           image_data.image.SetImageId(database_->WriteImage(image_data.image));
           if (image_data.pose_prior.HasValidPosition()) {
+            const Eigen::Vector3d position = image_data.pose_prior.Position();
             LOG(INFO) << StringPrintf(
                 "  GPS:             LAT=%.3f, LON=%.3f, ALT=%.3f",
-                image_data.pose_prior.position.x(),
-                image_data.pose_prior.position.y(),
-                image_data.pose_prior.position.z());
+                position.x(),
+                position.y(),
+                position.z());
             database_->WritePosePrior(image_data.image.ImageId(),
                                       image_data.pose_prior);
           }

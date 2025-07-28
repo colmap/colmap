@@ -32,6 +32,7 @@
 #include "colmap/geometry/pose.h"
 #include "colmap/math/random.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/eigen_matchers.h"
 #include "colmap/util/file.h"
 #include "colmap/util/testing.h"
 
@@ -297,10 +298,11 @@ TEST(Database, PosePrior) {
   image.SetImageId(database.WriteImage(image));
   EXPECT_EQ(database.NumPosePriors(), 0);
 
-  PosePrior pose_prior(Eigen::Vector3d(0.1, 0.2, 0.3),
-                       PosePrior::CoordinateSystem::CARTESIAN);
-  pose_prior.rotation =
-      Eigen::Quaterniond(Eigen::AngleAxisd(M_PI / 4, Eigen::Vector3d::UnitZ()));
+  PosePrior pose_prior;
+  pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
+  pose_prior.SetRotation(Eigen::Quaterniond(
+      Eigen::AngleAxisd(M_PI / 4, Eigen::Vector3d::UnitZ())));
+  pose_prior.SetPosition(Eigen::Vector3d(0.1, 0.2, 0.3));
 
   EXPECT_TRUE(pose_prior.HasValidPosition());
   EXPECT_FALSE(pose_prior.HasValidPositionCovariance());
@@ -310,29 +312,40 @@ TEST(Database, PosePrior) {
   database.WritePosePrior(image.ImageId(), pose_prior);
   EXPECT_EQ(database.NumPosePriors(), 1);
 
-  auto read_pose_prior = database.ReadPosePrior(image.ImageId());
-  EXPECT_EQ(read_pose_prior.position, pose_prior.position);
+  PosePrior read_pose_prior = database.ReadPosePrior(image.ImageId());
+
+  // Note: Position() is computed from internal Rigid3d which stores
+  // translation.
+  // Due to round-trip conversions between position and translation, small
+  // numerical differences may occur.
+  EXPECT_THAT(read_pose_prior.Position(),
+              EigenMatrixNear(pose_prior.Position(),
+                              std::numeric_limits<double>::epsilon()));
   EXPECT_EQ(read_pose_prior.coordinate_system, pose_prior.coordinate_system);
-  EXPECT_EQ(read_pose_prior.rotation.coeffs(), pose_prior.rotation.coeffs());
+  EXPECT_EQ(read_pose_prior.Rotation().coeffs(),
+            pose_prior.Rotation().coeffs());
   EXPECT_TRUE(read_pose_prior.HasValidPosition());
   EXPECT_FALSE(read_pose_prior.HasValidPositionCovariance());
   EXPECT_TRUE(read_pose_prior.HasValidRotation());
   EXPECT_FALSE(read_pose_prior.HasValidRotationCovariance());
 
-  pose_prior.position_covariance = Eigen::Matrix3d::Identity();
-  pose_prior.rotation_covariance = 0.1 * Eigen::Matrix3d::Identity();
+  pose_prior.SetPositionCovariance(Eigen::Matrix3d::Identity());
+  pose_prior.SetRotationCovariance(0.1 * Eigen::Matrix3d::Identity());
   EXPECT_TRUE(pose_prior.HasValidPositionCovariance());
   EXPECT_TRUE(pose_prior.HasValidRotationCovariance());
 
   database.UpdatePosePrior(image.ImageId(), pose_prior);
 
   read_pose_prior = database.ReadPosePrior(image.ImageId());
-  EXPECT_EQ(read_pose_prior.position, pose_prior.position);
-  EXPECT_EQ(read_pose_prior.position_covariance,
-            pose_prior.position_covariance);
-  EXPECT_EQ(read_pose_prior.rotation.coeffs(), pose_prior.rotation.coeffs());
-  EXPECT_EQ(read_pose_prior.rotation_covariance,
-            pose_prior.rotation_covariance);
+  EXPECT_THAT(read_pose_prior.Position(),
+              EigenMatrixNear(pose_prior.Position(),
+                              std::numeric_limits<double>::epsilon()));
+  EXPECT_EQ(read_pose_prior.PositionCovariance(),
+            pose_prior.PositionCovariance());
+  EXPECT_EQ(read_pose_prior.Rotation().coeffs(),
+            pose_prior.Rotation().coeffs());
+  EXPECT_EQ(read_pose_prior.RotationCovariance(),
+            pose_prior.RotationCovariance());
   EXPECT_EQ(read_pose_prior.coordinate_system, pose_prior.coordinate_system);
   EXPECT_TRUE(read_pose_prior.HasValidPosition());
   EXPECT_TRUE(read_pose_prior.HasValidPositionCovariance());
@@ -603,8 +616,12 @@ TEST(Database, Merge) {
   frame2.AddDataId(data_t(camera2.SensorId(), image_id4));
   frame2.SetFrameId(database2.WriteFrame(frame2));
 
-  database1.WritePosePrior(image_id1,
-                           PosePrior(Eigen::Vector3d::Constant(0.1)));
+  PosePrior pose_prior;
+  pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
+  pose_prior.SetRotation(Eigen::Quaterniond(
+      Eigen::AngleAxisd(M_PI / 4, Eigen::Vector3d::UnitZ())));
+  pose_prior.SetPosition(Eigen::Vector3d(0.1, 0.2, 0.3));
+  database1.WritePosePrior(image_id1, pose_prior);
   database2.WritePosePrior(image_id3,
                            PosePrior(Eigen::Vector3d::Constant(0.2)));
 
@@ -654,9 +671,9 @@ TEST(Database, Merge) {
   EXPECT_EQ(merged_database.ReadAllImages()[1].CameraId(), 1);
   EXPECT_EQ(merged_database.ReadAllImages()[2].CameraId(), 2);
   EXPECT_EQ(merged_database.ReadAllImages()[3].CameraId(), 2);
-  EXPECT_EQ(merged_database.ReadPosePrior(1).position.x(), 0.1);
+  EXPECT_EQ(merged_database.ReadPosePrior(1).Position().x(), 0.1);
   EXPECT_FALSE(merged_database.ExistsPosePrior(2));
-  EXPECT_EQ(merged_database.ReadPosePrior(3).position.x(), 0.2);
+  EXPECT_EQ(merged_database.ReadPosePrior(3).Position().x(), 0.2);
   EXPECT_FALSE(merged_database.ExistsPosePrior(4));
   EXPECT_EQ(merged_database.ReadKeypoints(1).size(), 10);
   EXPECT_EQ(merged_database.ReadKeypoints(2).size(), 20);
