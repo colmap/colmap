@@ -14,10 +14,11 @@ import cv2
 import numpy as np
 import PIL.ExifTags
 import PIL.Image
-import pycolmap
-from pycolmap import logging
 from scipy.spatial.transform import Rotation
 from tqdm import tqdm
+
+import pycolmap
+from pycolmap import logging
 
 
 @dataclass
