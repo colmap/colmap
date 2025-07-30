@@ -126,7 +126,7 @@ void BindVisualIndex(py::module& m) {
   MakeDataclass(PyBuildOptions);
 
   PyVisualIndex.def(py::init<>())
-      .def("create", &VisualIndex::Create)
+      .def_static("create", &VisualIndex::Create)
       .def("add",
            static_cast<void (VisualIndex::*)(
                const typename VisualIndex::IndexOptions&,
