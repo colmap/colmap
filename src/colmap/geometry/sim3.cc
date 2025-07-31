@@ -69,37 +69,4 @@ std::ostream& operator<<(std::ostream& stream, const Sim3d& tform) {
   return stream;
 }
 
-Eigen::Matrix6d PropagateCovarianceForRigid3dUnderSim3(
-    const Sim3d& new_from_old_world, const Eigen::Matrix6d& covariance) {
-  const Sim3d old_from_new_world = Inverse(new_from_old_world);
-
-  const Eigen::Matrix3d& R = old_from_new_world.rotation.toRotationMatrix();
-  const Eigen::Vector3d& t = old_from_new_world.translation;
-  const double s = old_from_new_world.scale;
-
-  Eigen::Matrix3d t_hat;
-  t_hat << 0, -t.z(), t.y(), t.z(), 0, -t.x(), -t.y(), t.x(), 0;
-
-  Eigen::Matrix6d J = Eigen::Matrix6d::Zero();
-  J.topLeftCorner<3, 3>() = R;
-  J.topRightCorner<3, 3>() = Eigen::Matrix3d::Zero();
-  J.bottomLeftCorner<3, 3>() = t_hat * R;
-  J.bottomRightCorner<3, 3>() = s * R;
-
-  return J * covariance * J.transpose();
-}
-
-Eigen::Matrix3d PropagateCovarianceForPositionUnderSim3(
-    const Sim3d& new_from_old_world, const Eigen::Matrix3d& covariance) {
-  const Eigen::Matrix3d R = new_from_old_world.rotation.toRotationMatrix();
-  const double s = new_from_old_world.scale;
-  return s * s * R * covariance * R.transpose();
-}
-
-Eigen::Matrix3d PropagateCovarianceForRotationUnderSim3(
-    const Sim3d& new_from_old_world, const Eigen::Matrix3d& covariance) {
-  const Eigen::Matrix3d R = new_from_old_world.rotation.toRotationMatrix();
-  return R * covariance * R.transpose();
-}
-
 }  // namespace colmap

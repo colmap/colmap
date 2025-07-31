@@ -155,19 +155,4 @@ inline bool operator!=(const Sim3d& left, const Sim3d& right) {
 
 std::ostream& operator<<(std::ostream& stream, const Sim3d& tform);
 
-// Update covariance for transformed Rigid3d under Sim3d frame change.
-//
-// This corresponds to the covariance propagation in the function:
-// Rigid3d TransformCameraWorld(const Sim3d& new_from_old_world,
-//                              const Rigid3d& cam_from_world)s
-Eigen::Matrix6d PropagateCovarianceForRigid3dUnderSim3(
-    const Sim3d& new_from_old_world, const Eigen::Matrix6d& covariance);
-
-// Update covariance for position under Sim3d frame change.
-Eigen::Matrix3d PropagateCovarianceForPositionUnderSim3(
-    const Sim3d& new_from_old_world, const Eigen::Matrix3d& covariance);
-
-// Update covariance for rotation under Sim3d frame change.
-Eigen::Matrix3d PropagateCovarianceForRotationUnderSim3(
-    const Sim3d& new_from_old_world, const Eigen::Matrix3d& covariance);
 }  // namespace colmap
