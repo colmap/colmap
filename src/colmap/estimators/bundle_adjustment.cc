@@ -991,10 +991,12 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
     if (use_prior_position && !use_prior_rotation) {
       // Transfrom prior position and its covariance to normalized frame
       Eigen::Vector3d prior_position =
-          normalized_from_metric_ * prior.Position();
+          normalized_from_metric_ * prior.world_from_cam.translation;
       Eigen::Matrix3d prior_position_covariance =
-          PropagateCovarianceForPositionUnderSim3(normalized_from_metric_,
-                                                  prior.PositionCovariance());
+          normalized_from_metric_.scale * normalized_from_metric_.scale *
+          normalized_from_metric_.rotation.toRotationMatrix() *
+          prior.position_covariance *
+          normalized_from_metric_.rotation.toRotationMatrix().transpose();
 
       problem->AddResidualBlock(
           CovarianceWeightedCostFunctor<AbsolutePosePositionPriorCostFunctor>::
@@ -1005,10 +1007,11 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
     } else if (use_prior_position && use_prior_rotation) {
       // Transfrom prior pose and its covariance to normalized frame
       Rigid3d prior_pose =
-          TransformCameraWorld(normalized_from_metric_, prior.cam_from_world);
+          TransformCameraWorld(normalized_from_metric_, prior.CamFromWorld());
       Eigen::Matrix<double, 6, 6> prior_pose_covariance =
-          PropagateCovarianceForRigid3dUnderSim3(normalized_from_metric_,
-                                                 prior.PoseCovariance());
+          normalized_from_metric_.TransformSE3Adjoint() *
+          prior.CamFromWorldCovariance() *
+          normalized_from_metric_.TransformSE3Adjoint().transpose();
 
       // TODO: Separate loss function options for prior position and prior
       // rotation.
@@ -1021,10 +1024,11 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
     } else if (!use_prior_position && use_prior_rotation) {
       // Transfrom prior rotation and its covariance to normalized frame
       Eigen::Quaterniond prior_rotation =
-          normalized_from_metric_.rotation * prior.Rotation();
+          normalized_from_metric_.rotation * prior.CamFromWorld().rotation;
       Eigen::Matrix3d prior_rotation_covariance =
-          PropagateCovarianceForRotationUnderSim3(normalized_from_metric_,
-                                                  prior.RotationCovariance());
+          normalized_from_metric_.rotation.toRotationMatrix() *
+          prior.CamFromWorldCovariance().block<3, 3>(0, 0) *
+          normalized_from_metric_.rotation.toRotationMatrix().transpose();
 
       problem->AddResidualBlock(
           CovarianceWeightedCostFunctor<AbsolutePoseRotationPriorCostFunctor>::
@@ -1046,7 +1050,7 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
         if (pose_prior.HasValidPositionCovariance()) {
           const double max_stddev =
               std::sqrt(Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d>(
-                            pose_prior.PositionCovariance())
+                            pose_prior.position_covariance)
                             .eigenvalues()
                             .maxCoeff());
           max_stddev_sum += max_stddev;
@@ -1104,12 +1108,13 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
 
       if (with_position && prior.HasValidPosition()) {
         const double position_error =
-            (image.ProjectionCenter() - prior.Position()).squaredNorm();
+            (image.ProjectionCenter() - prior.world_from_cam.translation)
+                .squaredNorm();
         verr2_wrt_prior_position.push_back(position_error);
       }
       if (with_rotation && prior.HasValidRotation()) {
         const double rotation_error =
-            (image.CamFromWorld().rotation * prior.Rotation().inverse())
+            (image.CamFromWorld().rotation * prior.world_from_cam.rotation)
                 .squaredNorm();
         verr2_wrt_prior_rotation.push_back(rotation_error);
       }

@@ -43,6 +43,9 @@ namespace colmap {
 template <typename MatrixType>
 void DecomposeMatrixRQ(const MatrixType& A, MatrixType* R, MatrixType* Q);
 
+// Compose the skew symmetric cross product matrix from a vector.
+inline Eigen::Matrix3d CrossProductMatrix(const Eigen::Vector3d& vector);
+
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////
@@ -71,6 +74,13 @@ void DecomposeMatrixRQ(const MatrixType& A, MatrixType* R, MatrixType* Q) {
     Q->row(1) *= -1.0;
     R->col(1) *= -1.0;
   }
+}
+
+Eigen::Matrix3d CrossProductMatrix(const Eigen::Vector3d& vector) {
+  Eigen::Matrix3d matrix;
+  matrix << 0, -vector(2), vector(1), vector(2), 0, -vector(0), -vector(1),
+      vector(0), 0;
+  return matrix;
 }
 
 }  // namespace colmap

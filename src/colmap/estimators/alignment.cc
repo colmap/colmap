@@ -253,7 +253,7 @@ bool AlignReconstructionToPosePriors(
         pose_prior_it->second.HasValidPosition()) {
       const auto& image = src_reconstruction.Image(image_id);
       src.push_back(image.ProjectionCenter());
-      tgt.push_back(pose_prior_it->second.Position());
+      tgt.push_back(pose_prior_it->second.world_from_cam.translation);
     }
   }
 

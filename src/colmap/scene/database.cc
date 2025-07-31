@@ -719,15 +719,15 @@ PosePrior Database::ReadPosePrior(const image_t image_id) const {
     prior.coordinate_system = static_cast<PosePrior::CoordinateSystem>(
         sqlite3_column_int64(sql_stmt_read_pose_prior_, 1));
 
-    prior.SetPosition(ReadStaticMatrixBlob<Eigen::Vector3d>(
-        sql_stmt_read_pose_prior_, rc, 2));
-    prior.SetPositionCovariance(ReadStaticMatrixBlob<Eigen::Matrix3d>(
-        sql_stmt_read_pose_prior_, rc, 3));
-
-    prior.SetRotationFromCoeffs(ReadStaticMatrixBlob<Eigen::Vector4d>(
-        sql_stmt_read_pose_prior_, rc, 4));
-    prior.SetRotationCovariance(ReadStaticMatrixBlob<Eigen::Matrix3d>(
-        sql_stmt_read_pose_prior_, rc, 5));
+    prior.world_from_cam.translation =
+        ReadStaticMatrixBlob<Eigen::Vector3d>(sql_stmt_read_pose_prior_, rc, 2);
+    prior.position_covariance =
+        ReadStaticMatrixBlob<Eigen::Matrix3d>(sql_stmt_read_pose_prior_, rc, 3);
+    prior.world_from_cam.rotation.coeffs() =
+        ReadStaticMatrixBlob<Eigen::Vector4d>(sql_stmt_read_pose_prior_, rc, 4);
+    prior.world_from_cam.rotation.normalize();
+    prior.rotation_covariance =
+        ReadStaticMatrixBlob<Eigen::Matrix3d>(sql_stmt_read_pose_prior_, rc, 5);
   }
   return prior;
 }
@@ -1045,20 +1045,15 @@ void Database::WritePosePrior(const image_t image_id,
       2,
       static_cast<sqlite3_int64>(pose_prior.coordinate_system)));
 
-  // Note: Intermediate expressions (e.g., pose_prior.Position()) must be stored
-  // in local variables before binding as SQLITE_STATIC to avoid using
-  // invalid temporaries.
-  const Eigen::Vector3d position = pose_prior.Position();
-  WriteStaticMatrixBlob(sql_stmt_write_pose_prior_, position, 3);
-
-  const Eigen::Matrix3d position_covariance = pose_prior.PositionCovariance();
-  WriteStaticMatrixBlob(sql_stmt_write_pose_prior_, position_covariance, 4);
-
-  const Eigen::Quaternion rotation = pose_prior.Rotation();
-  WriteStaticMatrixBlob(sql_stmt_write_pose_prior_, rotation.coeffs(), 5);
-
-  const Eigen::Matrix3d rotation_covariance = pose_prior.RotationCovariance();
-  WriteStaticMatrixBlob(sql_stmt_write_pose_prior_, rotation_covariance, 6);
+  WriteStaticMatrixBlob(
+      sql_stmt_write_pose_prior_, pose_prior.world_from_cam.translation, 3);
+  WriteStaticMatrixBlob(
+      sql_stmt_write_pose_prior_, pose_prior.position_covariance, 4);
+  WriteStaticMatrixBlob(sql_stmt_write_pose_prior_,
+                        pose_prior.world_from_cam.rotation.coeffs(),
+                        5);
+  WriteStaticMatrixBlob(
+      sql_stmt_write_pose_prior_, pose_prior.rotation_covariance, 6);
 
   SQLITE3_CALL(sqlite3_step(sql_stmt_write_pose_prior_));
 }
@@ -1278,20 +1273,15 @@ void Database::UpdatePosePrior(image_t image_id,
       1,
       static_cast<sqlite3_int64>(pose_prior.coordinate_system)));
 
-  // Note: Intermediate expressions (e.g., pose_prior.Position()) must be stored
-  // in local variables before binding as SQLITE_STATIC to avoid using
-  // invalid temporaries.
-  const Eigen::Vector3d position = pose_prior.Position();
-  WriteStaticMatrixBlob(sql_stmt_update_pose_prior_, position, 2);
-
-  const Eigen::Matrix3d position_covariance = pose_prior.PositionCovariance();
-  WriteStaticMatrixBlob(sql_stmt_update_pose_prior_, position_covariance, 3);
-
-  const Eigen::Quaternion rotation = pose_prior.Rotation();
-  WriteStaticMatrixBlob(sql_stmt_update_pose_prior_, rotation.coeffs(), 4);
-
-  const Eigen::Matrix3d rotation_covariance = pose_prior.RotationCovariance();
-  WriteStaticMatrixBlob(sql_stmt_update_pose_prior_, rotation_covariance, 5);
+  WriteStaticMatrixBlob(
+      sql_stmt_update_pose_prior_, pose_prior.world_from_cam.translation, 2);
+  WriteStaticMatrixBlob(
+      sql_stmt_update_pose_prior_, pose_prior.position_covariance, 3);
+  WriteStaticMatrixBlob(sql_stmt_update_pose_prior_,
+                        pose_prior.world_from_cam.rotation.coeffs(),
+                        4);
+  WriteStaticMatrixBlob(
+      sql_stmt_update_pose_prior_, pose_prior.rotation_covariance, 5);
 
   SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_update_pose_prior_, 6, image_id));
 

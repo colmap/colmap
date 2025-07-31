@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/math/matrix.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/types.h"
 
@@ -37,9 +38,6 @@
 #include <Eigen/Geometry>
 
 namespace colmap {
-
-// Compose the skew symmetric cross product matrix from a vector.
-Eigen::Matrix3d CrossProductMatrix(const Eigen::Vector3d& vector);
 
 // 3D rigid transform with 6 degrees of freedom.
 // Transforms point x from a to b as: x_in_b = R * x_in_a + t.

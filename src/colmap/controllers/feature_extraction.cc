@@ -291,7 +291,8 @@ class FeatureWriterThread : public Thread {
         if (image_data.image.ImageId() == kInvalidImageId) {
           image_data.image.SetImageId(database_->WriteImage(image_data.image));
           if (image_data.pose_prior.HasValidPosition()) {
-            const Eigen::Vector3d position = image_data.pose_prior.Position();
+            const Eigen::Vector3d& position =
+                image_data.pose_prior.world_from_cam.translation;
             LOG(INFO) << StringPrintf(
                 "  GPS:             LAT=%.3f, LON=%.3f, ALT=%.3f",
                 position.x(),

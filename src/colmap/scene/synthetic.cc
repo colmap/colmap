@@ -388,17 +388,17 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
                                 proj_center);
 
           if (options.prior_position_stddev > 0.) {
-            noisy_prior.SetPosition(
+            noisy_prior.world_from_cam.translation =
                 proj_center +
                 Eigen::Vector3d(
                     RandomGaussian<double>(0, options.prior_position_stddev),
                     RandomGaussian<double>(0, options.prior_position_stddev),
-                    RandomGaussian<double>(0, options.prior_position_stddev)));
-            noisy_prior.SetPositionCovariance(options.prior_position_stddev *
+                    RandomGaussian<double>(0, options.prior_position_stddev));
+            noisy_prior.position_covariance = options.prior_position_stddev *
                                               options.prior_position_stddev *
-                                              Eigen::Matrix3d::Identity());
+                                              Eigen::Matrix3d::Identity();
           } else {
-            noisy_prior.SetPositionCovariance(Eigen::Matrix3d::Identity());
+            noisy_prior.position_covariance = Eigen::Matrix3d::Identity();
           }
 
           if (options.prior_position_geographic) {
@@ -408,13 +408,14 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
             static const double lon0 = 8.549099927632087;
             static const double alt0 = 451.5;
 
-            noisy_prior.SetPosition(gps_trans.ENUToEllipsoid(
-                {noisy_prior.Position()}, lat0, lon0, alt0)[0]);
+            noisy_prior.world_from_cam.translation = gps_trans.ENUToEllipsoid(
+                {noisy_prior.world_from_cam.translation}, lat0, lon0, alt0)[0];
             noisy_prior.coordinate_system = PosePrior::CoordinateSystem::WGS84;
           }
 
           if (options.prior_rotation) {
-            noisy_prior.SetRotation(rig_from_world.rotation);
+            noisy_prior.world_from_cam.rotation =
+                rig_from_world.rotation.inverse();
 
             if (options.prior_rotation_stddev > 0.) {
               const Eigen::Vector3d noise_axis_angle(
@@ -425,14 +426,15 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
               const Eigen::Vector3d axis = angle > 1e-8
                                                ? noise_axis_angle.normalized()
                                                : Eigen::Vector3d::UnitX();
-              noisy_prior.SetRotation(
+              noisy_prior.world_from_cam.rotation =
                   Eigen::Quaterniond(Eigen::AngleAxisd(angle, axis)) *
-                  noisy_prior.Rotation());
+                  noisy_prior.world_from_cam.rotation;
             } else {
-              noisy_prior.SetRotationCovariance(Eigen::Matrix3d::Identity());
+              noisy_prior.rotation_covariance = Eigen::Matrix3d::Identity();
             }
 
-            noisy_prior.SetRotation(noisy_prior.Rotation().normalized());
+            noisy_prior.world_from_cam.rotation =
+                (noisy_prior.world_from_cam.rotation.normalized());
           }
 
           database->WritePosePrior(image.ImageId(), noisy_prior);

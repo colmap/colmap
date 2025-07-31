@@ -662,7 +662,8 @@ Eigen::RowMajorMatrixXf SpatialPairGenerator::ReadPositionPriorData(
       continue;
     }
 
-    const Eigen::Vector3d& position_prior = pose_prior->Position();
+    const Eigen::Vector3d& position_prior =
+        pose_prior->world_from_cam.translation;
     if ((position_prior(0) == 0 && position_prior(1) == 0 &&
          position_prior(2) == 0) ||
         (options_.ignore_z && position_prior(0) == 0 &&

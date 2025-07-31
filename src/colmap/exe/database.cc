@@ -172,27 +172,23 @@ int RunRigConfigurator(int argc, char** argv) {
 
 // Pose prior input file format:
 // Each line specifies the pose prior for one image. Fields may include
-// position, translation, rotation, and their corresponding uncertainties.
-// Missing or unknown values can be omitted or marked as NaN.
+// world-from-camera translation(position in world), rotation, and their
+// corresponding uncertainties. Missing or unknown values can be omitted or
+// marked as NaN.
 //
 // Columns:
 //   name                  - Image name, must match the image name in the
 //                           database.
 //   cs                    - World coordinate system: WGS84 or CARTESIAN.
 //
-//   px py pz              - Camera position in the world coordinate system.
+//   x y z                 - Camera position in the world coordinate system.
 //                           If cs = WGS84, the order is longitude, latitude and
 //                           altitude
-//   stddev_px stddev_py stddev_pz
+//   stddev_x stddev_y stddev_z
 //                         - Standard deviations of the position prior (in world
 //                           frame).
 //
-//   tx ty tz              - Camera-from-world translation vector.
-//                           Cannot be used together with px, py, pz.
-//   stddev_tx stddev_ty stddev_tz
-//                         - Standard deviations of the translation prior.
-//
-//   qw qx qy qz           - Quaternion representing camera-from-world rotation.
+//   qw qx qy qz           - Quaternion representing world-from-camera rotation.
 //                           Only valid if cs = CARTESIAN.
 //   stddev_rx stddev_ry stddev_rz
 //                         - Standard deviations of rotation in radians.
@@ -203,24 +199,11 @@ int RunRigConfigurator(int argc, char** argv) {
 //   # name cs px py pz stddev_px stddev_py stddev_pz
 //   image1.jpg WGS84 48.1476954472 11.5695882694 561.1509 0.1 0.1 0.5
 //
-// Example 2: CARTESIAN with position and rotation priors:
+// Example 2: CARTESIAN with world-from-camera position and rotation priors:
 //   # name cs px py pz stddev_px stddev_py stddev_pz qw qx qy qz stddev_rx
 //   stddev_ry stddev_rz
 //   image2.jpg CARTESIAN -1.0 2.0 0.5 0.2 0.2 0.2 0.7071 0.7071 0.0 0.0 0.02
 //   0.02 0.02
-//
-// Example 3: CARTESIAN with translation and rotation priors:
-//   # name cs tx ty tz stddev_tx stddev_ty stddev_tz qw qx qy qz stddev_rx
-//   stddev_ry stddev_rz
-//   image3.jpg CARTESIAN -1.0 2.0 0.5 0.2 0.2 0.2 0.7071 0.7071 0.0 0.0 0.02
-//   0.02 0.02
-//
-// Example 4: CARTESIAN with rotation priors and invalid translation:
-//   # name cs tx ty tz stddev_tx stddev_ty stddev_tz qw qx qy qz stddev_rx
-//   stddev_ry stddev_rz
-//   image4.jpg CARTESIAN NaN NaN NaN NaN NaN NaN 0.7071 0.7071 0.0 0.0 0.02
-//   0.02 0.02
-//
 int RunPosePriorImporter(int argc, char** argv) {
   std::string input_path;
   bool clear_existing = false;
@@ -230,8 +213,7 @@ int RunPosePriorImporter(int argc, char** argv) {
   options.AddRequiredOption("input_path",
                             &input_path,
                             "Pose prior input file supported columns:\n"
-                            "# name cs px py pz stddev_px stddev_py stddev_pz\n"
-                            "tx ty tz stddev_tx stddev_ty stddev_tz\n"
+                            "# name cs x y z stddev_x stddev_y stddev_z\n"
                             "qw qx qy qz stddev_rx stddev_ry stddev_rz");
   options.AddDefaultOption("clear_existing",
                            &clear_existing,
@@ -277,17 +259,9 @@ int RunPosePriorImporter(int argc, char** argv) {
   const bool has_position = HasFields(col_idx, {"px", "py", "pz"});
   const bool has_position_stddev =
       HasFields(col_idx, {"stddev_px", "stddev_py", "stddev_pz"});
-  const bool has_translation = HasFields(col_idx, {"tx", "ty", "tz"});
-  const bool has_translation_stddev =
-      HasFields(col_idx, {"stddev_tx", "stddev_ty", "stddev_tz"});
   const bool has_rotation = HasFields(col_idx, {"qw", "qx", "qy", "qz"});
   const bool has_rotation_stddev =
       HasFields(col_idx, {"stddev_rx", "stddev_ry", "stddev_rz"});
-
-  if (has_position && has_translation) {
-    LOG(ERROR) << "Both position and translation provided";
-    return EXIT_FAILURE;
-  }
 
   std::unordered_map<std::string, image_t> name_to_id;
   for (const auto& image : database.ReadAllImages()) {
@@ -332,34 +306,27 @@ int RunPosePriorImporter(int argc, char** argv) {
     }
 
     if (has_position) {
-      prior.SetPosition({std::stod(tokens[col_idx["px"]]),
-                         std::stod(tokens[col_idx["py"]]),
-                         std::stod(tokens[col_idx["pz"]])});
-    } else if (has_translation) {
-      prior.SetTranslation({std::stod(tokens[col_idx["tx"]]),
-                            std::stod(tokens[col_idx["ty"]]),
-                            std::stod(tokens[col_idx["tz"]])});
+      prior.world_from_cam.translation = {std::stod(tokens[col_idx["px"]]),
+                                          std::stod(tokens[col_idx["py"]]),
+                                          std::stod(tokens[col_idx["pz"]])};
     }
     if (has_position_stddev) {
       const Eigen::Vector3d stddev{std::stod(tokens[col_idx["stddev_px"]]),
                                    std::stod(tokens[col_idx["stddev_py"]]),
                                    std::stod(tokens[col_idx["stddev_pz"]])};
-      prior.SetPositionCovariance(stddev.cwiseProduct(stddev).asDiagonal());
-    } else if (has_translation_stddev) {
-      const Eigen::Vector3d stddev{std::stod(tokens[col_idx["stddev_tx"]]),
-                                   std::stod(tokens[col_idx["stddev_ty"]]),
-                                   std::stod(tokens[col_idx["stddev_tz"]])};
-      prior.SetTranslationCovariance(stddev.cwiseProduct(stddev).asDiagonal());
+      prior.position_covariance = stddev.cwiseProduct(stddev).asDiagonal();
     }
 
     if (has_rotation) {
       if (prior.coordinate_system == PosePrior::CoordinateSystem::WGS84) {
         LOG(WARNING) << "Ignoring rotation for WGS84 image: " << name;
       } else {
-        prior.SetRotationFromCoeffs({std::stod(tokens[col_idx["qx"]]),
-                                     std::stod(tokens[col_idx["qy"]]),
-                                     std::stod(tokens[col_idx["qz"]]),
-                                     std::stod(tokens[col_idx["qw"]])});
+        prior.world_from_cam.rotation.coeffs() = {
+            std::stod(tokens[col_idx["qx"]]),
+            std::stod(tokens[col_idx["qy"]]),
+            std::stod(tokens[col_idx["qz"]]),
+            std::stod(tokens[col_idx["qw"]])};
+        prior.world_from_cam.rotation.normalize();
       }
     }
 
@@ -371,7 +338,7 @@ int RunPosePriorImporter(int argc, char** argv) {
         const Eigen::Vector3d stddev{std::stod(tokens[col_idx["stddev_rx"]]),
                                      std::stod(tokens[col_idx["stddev_ry"]]),
                                      std::stod(tokens[col_idx["stddev_rz"]])};
-        prior.SetRotationCovariance(stddev.cwiseProduct(stddev).asDiagonal());
+        prior.rotation_covariance = stddev.cwiseProduct(stddev).asDiagonal();
       }
     }
 

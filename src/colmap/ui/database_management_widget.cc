@@ -796,21 +796,21 @@ void PosePriorsTab::Reload() {
         new QTableWidgetItem(QString::fromStdString(std::string(
             PosePrior::CoordinateSystemToString(prior.coordinate_system)))));
 
-    const Eigen::Vector3d position = prior.Position();
+    const Eigen::Vector3d position = prior.world_from_cam.translation;
     table_widget_->setItem(
         row_idx, 3, new QTableWidgetItem(EigenMatrixToCSV(position)));
 
-    const Eigen::Matrix3d position_covariance = prior.PositionCovariance();
+    const Eigen::Matrix3d position_covariance = prior.position_covariance;
     table_widget_->setItem(
         row_idx,
         4,
         new QTableWidgetItem(EigenMatrixToCSV(position_covariance)));
 
-    const Eigen::Vector4d rotaion = prior.Rotation().coeffs();
+    const Eigen::Vector4d rotaion = prior.world_from_cam.rotation.coeffs();
     table_widget_->setItem(
         row_idx, 5, new QTableWidgetItem(EigenMatrixToCSV(rotaion)));
 
-    const Eigen::Matrix3d rotation_covariance = prior.RotationCovariance();
+    const Eigen::Matrix3d rotation_covariance = prior.rotation_covariance;
     table_widget_->setItem(
         row_idx,
         6,
