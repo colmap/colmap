@@ -637,7 +637,7 @@ int RunRigBundleAdjuster(int argc, char** argv) {
     LOG(ERROR) << "Failed to solve rig bundle adjustment";
     return EXIT_FAILURE;
   }
-
+  reconstruction.UpdatePoint3DErrors();
   reconstruction.Write(output_path);
 
   return EXIT_SUCCESS;
