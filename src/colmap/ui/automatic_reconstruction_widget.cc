@@ -48,6 +48,8 @@ AutomaticReconstructionWidget::AutomaticReconstructionWidget(
   AddSpacer();
   AddOptionDirPath(&options_.mask_path, "Mask folder");
   AddSpacer();
+  AddOptionFilePath(&options_.camera_mask_path, "Mask file");
+  AddSpacer();
   AddOptionFilePath(&options_.vocab_tree_path, "Vocabulary tree<br>(optional)");
 
   AddSpacer();

@@ -1,3 +1,4 @@
+#include "colmap/controllers/image_importer.h"
 #include "colmap/controllers/image_reader.h"
 #include "colmap/exe/feature.h"
 #include "colmap/feature/sift.h"
@@ -39,35 +40,9 @@ void ImportImages(const std::string& database_path,
   Database database(database_path);
   ImageReader image_reader(options, &database);
 
-  PyInterrupt py_interrupt(2.0);
-
-  while (image_reader.NextIndex() < image_reader.NumImages()) {
-    if (py_interrupt.Raised()) {
-      throw py::error_already_set();
-    }
-    Rig rig;
-    Camera camera;
-    Image image;
-    PosePrior pose_prior;
-    Bitmap bitmap;
-    const ImageReader::Status status =
-        image_reader.Next(&rig, &camera, &image, &pose_prior, &bitmap, nullptr);
-    if (status != ImageReader::Status::SUCCESS) {
-      LOG(ERROR) << image.Name() << " " << ImageReader::StatusToString(status);
-      continue;
-    }
-    DatabaseTransaction database_transaction(&database);
-    if (image.ImageId() == kInvalidImageId) {
-      image.SetImageId(database.WriteImage(image));
-      if (pose_prior.IsValid()) {
-        database.WritePosePrior(image.ImageId(), pose_prior);
-      }
-      Frame frame;
-      frame.SetRigId(rig.RigId());
-      frame.AddDataId(image.DataId());
-      database.WriteFrame(frame);
-    }
-  }
+  auto image_importer = CreateImageImporterController(database_path, options);
+  image_importer->Start();
+  image_importer->Wait();
 }
 
 Camera InferCameraFromImage(const std::string& image_path,
@@ -160,18 +135,6 @@ void BindImages(py::module& m) {
           .def_readwrite("camera_model",
                          &IROpts::camera_model,
                          "Name of the camera model.")
-          .def_readwrite("mask_path",
-                         &IROpts::mask_path,
-                         "Optional root path to folder which contains image"
-                         "masks. For a given image, the corresponding mask"
-                         "must have the same sub-path below this root as the"
-                         "image has below image_path. The filename must be"
-                         "equal, aside from the added extension .png. "
-                         "For example, for an image image_path/abc/012.jpg,"
-                         "the mask would be mask_path/abc/012.jpg.png. No"
-                         "features will be extracted in regions where the"
-                         "mask image is black (pixel intensity value 0 in"
-                         "grayscale).")
           .def_readwrite("existing_camera_id",
                          &IROpts::existing_camera_id,
                          "Whether to explicitly use an existing camera for "
@@ -189,12 +152,6 @@ void BindImages(py::module& m) {
               "does not have focal length EXIF information, the focal length "
               "is set to the value `default_focal_length_factor * max(width, "
               "height)`.")
-          .def_readwrite(
-              "camera_mask_path",
-              &IROpts::camera_mask_path,
-              "Optional path to an image file specifying a mask for all "
-              "images. No features will be extracted in regions where the "
-              "mask is black (pixel intensity value 0 in grayscale)")
           .def("check", &IROpts::Check);
   MakeDataclass(PyImageReaderOptions);
 
