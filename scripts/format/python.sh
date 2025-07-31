@@ -23,4 +23,4 @@ echo "Formatting ${num_files} files"
 
 # shellcheck disable=SC2086
 ruff format --config ${root_folder}/ruff.toml ${all_files}
-ruff check --config ${root_folder}/ruff.toml ${all_files} --fix --unsafe-fixes
+ruff check --config ${root_folder}/ruff.toml ${all_files} --fix
