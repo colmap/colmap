@@ -535,9 +535,7 @@ void IncrementalPipeline::Reconstruct(
         ReconstructSubModel(mapper, mapper_options, reconstruction);
     switch (status) {
       case Status::INTERRUPTED: {
-        if (reconstruction != nullptr) {
-          reconstruction->UpdatePoint3DErrors();
-        }
+        reconstruction->UpdatePoint3DErrors();
         LOG(INFO) << "Keeping reconstruction due to interrupt";
         mapper.EndReconstruction(/*discard=*/false);
         return;
@@ -581,9 +579,7 @@ void IncrementalPipeline::Reconstruct(
           mapper.EndReconstruction(/*discard=*/true);
           reconstruction_manager_->Delete(reconstruction_idx);
         } else {
-          if (reconstruction != nullptr) {
-            reconstruction->UpdatePoint3DErrors();
-          }
+          reconstruction->UpdatePoint3DErrors();
           LOG(INFO) << "Keeping successful reconstruction";
           mapper.EndReconstruction(/*discard=*/false);
         }

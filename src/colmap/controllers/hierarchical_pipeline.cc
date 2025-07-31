@@ -248,10 +248,6 @@ void HierarchicalPipeline::Run() {
 
   for (size_t i = 0; i < reconstruction_manager_->Size(); ++i) {
     auto reconstruction = reconstruction_manager_->Get(i);
-    if (reconstruction == nullptr) {
-      continue;
-    }
-
     reconstruction->UpdatePoint3DErrors();
   }
 
