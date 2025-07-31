@@ -184,7 +184,7 @@ class MapperPriorsOptionsWidget : public OptionsWidget {
  public:
   MapperPriorsOptionsWidget(QWidget* parent, OptionManager* options)
       : OptionsWidget(parent) {
-    AddOptionBool(&options->mapper->use_prior_position, "use_prior_position");
+    AddOptionBool(&options->mapper->use_pose_prior, "use_pose_prior");
     AddOptionBool(&options->mapper->use_robust_loss_on_prior_position,
                   "use_robust_loss_on_prior_position");
     AddOptionDouble(&options->mapper->prior_position_loss_scale,

@@ -29,6 +29,9 @@
 
 #include "colmap/geometry/pose_prior.h"
 
+#include "colmap/math/math.h"
+#include "colmap/util/eigen_matchers.h"
+
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -36,27 +39,81 @@ namespace {
 
 TEST(PosePrior, Equals) {
   PosePrior prior;
-  prior.position = Eigen::Vector3d::Zero();
-  prior.position_covariance = Eigen::Matrix3d::Identity();
   prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
+  prior.world_from_cam.translation = Eigen::Vector3d::Zero();
+  prior.position_covariance = Eigen::Matrix3d::Identity();
+  prior.world_from_cam.rotation = Eigen::Quaterniond::Identity();
+  prior.rotation_covariance = Eigen::Matrix3d::Identity();
+
   PosePrior other = prior;
   EXPECT_EQ(prior, other);
-  prior.position.x() = 1;
+
+  prior.world_from_cam.translation = Eigen::Vector3d(1, 2, 3);
   EXPECT_NE(prior, other);
-  other.position.x() = 1;
+  other.world_from_cam.translation = Eigen::Vector3d(1, 2, 3);
   EXPECT_EQ(prior, other);
+
+  prior.world_from_cam.rotation =
+      Eigen::Quaterniond(Eigen::AngleAxisd(M_PI / 4, Eigen::Vector3d::UnitZ()));
+  EXPECT_NE(prior, other);
+  other.world_from_cam.rotation =
+      Eigen::Quaterniond(Eigen::AngleAxisd(M_PI / 4, Eigen::Vector3d::UnitZ()));
+  EXPECT_EQ(prior, other);
+
+  prior.rotation_covariance = Eigen::Vector3d(1, 2, 3).asDiagonal();
+  EXPECT_NE(prior, other);
+  other.rotation_covariance = Eigen::Vector3d(1, 2, 3).asDiagonal();
+  EXPECT_EQ(prior, other);
+}
+
+TEST(PosePrior, GetAndSetCovariance) {
+  const Eigen::Vector3d position = {1, 2, 3};
+  const Eigen::Quaterniond rotation =
+      Eigen::Quaterniond(Eigen::AngleAxisd(M_PI / 4, Eigen::Vector3d::UnitZ()));
+
+  PosePrior prior1;
+  prior1.world_from_cam.translation = position;
+  prior1.world_from_cam.rotation = rotation;
+
+  Eigen::Matrix3d covariance = Eigen::Vector3d(0.1, 0.2, 0.3).asDiagonal();
+  prior1.position_covariance = covariance;
+  EXPECT_EQ(prior1.position_covariance, covariance);
+
+  prior1.rotation_covariance = covariance;
+  EXPECT_EQ(prior1.rotation_covariance, covariance);
+
+  PosePrior prior2(position, rotation);
+  prior2.SetWorldFromCamCovariance(prior1.WorldFromCamCovariance());
+  EXPECT_EQ(prior1.position_covariance, prior2.position_covariance);
+  EXPECT_EQ(prior1.rotation_covariance, prior2.rotation_covariance);
+
+  prior2.SetCamFromWorldCovariance(prior1.CamFromWorldCovariance());
+
+  EXPECT_THAT(prior1.position_covariance,
+              EigenMatrixNear(prior2.position_covariance,
+                              std::numeric_limits<double>::epsilon()));
+  EXPECT_THAT(prior1.rotation_covariance,
+              EigenMatrixNear(prior2.rotation_covariance, 1e-15));
 }
 
 TEST(PosePrior, Print) {
   PosePrior prior;
-  prior.position = Eigen::Vector3d::Zero();
-  prior.position_covariance = Eigen::Matrix3d::Identity();
   prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
+  prior.world_from_cam.translation = Eigen::Vector3d::Zero();
+  prior.position_covariance = Eigen::Matrix3d::Identity();
+  prior.world_from_cam.rotation = Eigen::Quaterniond::Identity();
+  prior.rotation_covariance = Eigen::Matrix3d::Identity();
+
   std::ostringstream stream;
   stream << prior;
+
   EXPECT_EQ(stream.str(),
-            "PosePrior(position=[0, 0, 0], position_covariance=[1, 0, 0, 0, 1, "
-            "0, 0, 0, 1], coordinate_system=CARTESIAN)");
+            "PosePrior(\n"
+            "  world_from_cam=[Rigid3d(rotation_xyzw=[0, 0, 0, 1], "
+            "translation=[0, 0, 0])],\n"
+            "  position_covariance=[1 0 0\n0 1 0\n0 0 1],\n"
+            "  rotation_covariance=[1 0 0\n0 1 0\n0 0 1],\n"
+            "  coordinate_system=CARTESIAN)");
 }
 
 }  // namespace

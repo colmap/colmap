@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/math/matrix.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/types.h"
 
@@ -57,6 +58,37 @@ struct Sim3d {
     matrix.leftCols<3>() = scale * rotation.toRotationMatrix();
     matrix.col(3) = translation;
     return matrix;
+  }
+
+  // Computes the Jacobian for transforming an SE(3) pose's covariance
+  // by this Sim3d transformation.
+  inline Eigen::Matrix<double, 6, 6> TransformSE3Adjoint() const {
+    const Eigen::Matrix3d R = rotation.toRotationMatrix();
+    const Eigen::Vector3d t = translation;
+
+    Eigen::Matrix<double, 6, 6> J;
+    J.setZero();
+    J.block<3, 3>(0, 0) = R;
+    J.block<3, 3>(3, 0) = CrossProductMatrix(t) * R;
+    J.block<3, 3>(3, 3) = scale * R;
+
+    return J;
+  }
+
+  // Computes the inverse Jacobian for transforming an SE(3) pose's covariance
+  // by this Sim3d transformation.
+  inline Eigen::Matrix<double, 6, 6> TransformSE3AdjointInverse() const {
+    const Eigen::Matrix3d R_inv = rotation.toRotationMatrix().transpose();
+    const Eigen::Vector3d t = translation;
+    const double inv_s = 1.0 / scale;
+
+    Eigen::Matrix<double, 6, 6> J_inv;
+    J_inv.setZero();
+    J_inv.block<3, 3>(0, 0) = R_inv;
+    J_inv.block<3, 3>(3, 0) = -inv_s * R_inv * CrossProductMatrix(t);
+    J_inv.block<3, 3>(3, 3) = inv_s * R_inv;
+
+    return J_inv;
   }
 
   static inline Sim3d FromMatrix(const Eigen::Matrix3x4d& matrix) {

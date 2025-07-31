@@ -50,5 +50,13 @@ TEST(DecomposeMatrixRQ, Nominal) {
   }
 }
 
+TEST(CrossProductMatrix, Nominal) {
+  EXPECT_EQ(CrossProductMatrix(Eigen::Vector3d(0, 0, 0)),
+            Eigen::Matrix3d::Zero());
+  Eigen::Matrix3d ref_matrix;
+  ref_matrix << 0, -3, 2, 3, 0, -1, -2, 1, 0;
+  EXPECT_EQ(CrossProductMatrix(Eigen::Vector3d(1, 2, 3)), ref_matrix);
+}
+
 }  // namespace
 }  // namespace colmap

@@ -34,6 +34,8 @@ void BindSim3(py::module& m) {
       .def_readwrite("rotation", &Sim3d::rotation)
       .def_readwrite("translation", &Sim3d::translation)
       .def("matrix", &Sim3d::ToMatrix)
+      .def("transform_se3_adjoint", &Sim3d::TransformSE3Adjoint)
+      .def("transform_se3_adjoint_inverse", &Sim3d::TransformSE3AdjointInverse)
       .def(py::self * Sim3d())
       .def(py::self * Eigen::Vector3d())
       .def("__mul__",

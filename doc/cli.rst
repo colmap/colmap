@@ -145,6 +145,7 @@ The available commands can be listed using the command::
           patch_match_stereo
           point_filtering
           point_triangulator
+          pose_prior_importer
           pose_prior_mapper
           poisson_mesher
           project_generator
@@ -233,6 +234,8 @@ available as ``colmap [command]``:
 
 - ``mapper``: Sparse 3D reconstruction / mapping of the dataset using SfM after
   performing feature extraction and matching.
+
+- ``pose_prior_importer``: Imports pose priors into the database from a file.
 
 - ``pose_prior_mapper`` Sparse 3D reconstruction / mapping using pose priors.
 

@@ -31,6 +31,7 @@
 
 #include "colmap/math/random.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/eigen_matchers.h"
 #include "colmap/util/testing.h"
 
 #include <fstream>
@@ -169,6 +170,15 @@ TEST(Sim3d, ToFromFile) {
   EXPECT_EQ(written.scale, read.scale);
   EXPECT_EQ(written.rotation.coeffs(), read.rotation.coeffs());
   EXPECT_EQ(written.translation, read.translation);
+}
+
+TEST(Sim3d, TransformSE3Adjoint) {
+  const Sim3d sim3 = TestSim3d();
+
+  const Eigen::Matrix<double, 6, 6> J = sim3.TransformSE3Adjoint();
+  const Eigen::Matrix<double, 6, 6> J_inv = sim3.TransformSE3AdjointInverse();
+
+  EXPECT_LT((J * J_inv - Eigen::Matrix<double, 6, 6>::Identity()).norm(), 1e-9);
 }
 
 }  // namespace
