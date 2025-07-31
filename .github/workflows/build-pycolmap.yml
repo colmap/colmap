@@ -33,7 +33,7 @@ jobs:
       CCACHE_BASEDIR: ${{ github.workspace }}
       MACOSX_DEPLOYMENT_TARGET: ${{ matrix.config.deploymentTarget }}
       # For faster builds in PRs, skip all but the oldest Python versions.
-      PULL_REQUEST_CIBW_BUILD: cp38-{macosx,manylinux,win}*
+      PULL_REQUEST_CIBW_BUILD: cp39-{macosx,manylinux,win}*
     steps:
       - uses: actions/checkout@v4
 
