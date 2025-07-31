@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/math/random.h"
 #include "colmap/optim/random_sampler.h"
 #include "colmap/optim/support_measurement.h"
 #include "colmap/util/logging.h"
@@ -62,6 +63,10 @@ struct RANSACOptions {
   int min_num_trials = 0;
   int max_num_trials = std::numeric_limits<int>::max();
 
+  // PRNG seed for randomized samplers. Set to -1 for nondeterministic behavior,
+  // or a fixed value to make results reproducible.
+  int random_seed = -1;
+
   void Check() const {
     THROW_CHECK_GT(max_error, 0);
     THROW_CHECK_GE(min_inlier_ratio, 0);
@@ -69,6 +74,7 @@ struct RANSACOptions {
     THROW_CHECK_GE(confidence, 0);
     THROW_CHECK_LE(confidence, 1);
     THROW_CHECK_LE(min_num_trials, max_num_trials);
+    THROW_CHECK_GE(random_seed, -1);
   }
 };
 
@@ -198,6 +204,12 @@ RANSAC<Estimator, SupportMeasurer, Sampler>::Estimate(
     const std::vector<typename Estimator::X_t>& X,
     const std::vector<typename Estimator::Y_t>& Y) {
   THROW_CHECK_EQ(X.size(), Y.size());
+
+  if constexpr (is_randomized_sampler<Sampler>::value) {
+    if (options_.random_seed != -1) {
+      SetPRNGSeed(options_.random_seed);
+    }
+  }
 
   const size_t num_samples = X.size();
 

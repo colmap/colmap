@@ -34,6 +34,7 @@
 #include "colmap/geometry/sim3.h"
 #include "colmap/math/random.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/eigen_matchers.h"
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
@@ -91,13 +92,11 @@ TEST(RANSAC, NumTrials) {
 }
 
 TEST(RANSAC, SimilarityTransform) {
-  SetPRNGSeed(0);
-
   const size_t num_samples = 1000;
   const size_t num_outliers = 400;
 
   // Create some arbitrary transformation.
-  const Sim3d expectedTgtFromSrc(
+  const Sim3d expected_tgt_from_src(
       2, Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d(100, 10, 10));
 
   // Generate exact data
@@ -105,7 +104,7 @@ TEST(RANSAC, SimilarityTransform) {
   std::vector<Eigen::Vector3d> tgt;
   for (size_t i = 0; i < num_samples; ++i) {
     src.emplace_back(i, std::sqrt(i) + 2, std::sqrt(2 * i + 2));
-    tgt.push_back(expectedTgtFromSrc * src.back());
+    tgt.push_back(expected_tgt_from_src * src.back());
   }
 
   // Add some faulty data.
@@ -118,6 +117,7 @@ TEST(RANSAC, SimilarityTransform) {
   // Robustly estimate transformation using RANSAC.
   RANSACOptions options;
   options.max_error = 10;
+  options.random_seed = kDefaultPRNGSeed;
   RANSAC<SimilarityTransformEstimator<3>> ransac(options);
   const auto report = ransac.Estimate(src, tgt);
 
@@ -136,8 +136,58 @@ TEST(RANSAC, SimilarityTransform) {
 
   // Make sure original transformation is estimated correctly.
   const double matrix_diff =
-      (expectedTgtFromSrc.ToMatrix() - report.model).norm();
+      (expected_tgt_from_src.ToMatrix() - report.model).norm();
   EXPECT_LT(matrix_diff, 1e-6);
+}
+
+TEST(RANSAC, ReproducibilityWithRandomSeed) {
+  const size_t num_samples = 1000;
+  const size_t num_outliers = 400;
+
+  const Sim3d expected_tgt_from_src(
+      2, Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d(100, 10, 10));
+
+  std::vector<Eigen::Vector3d> src;
+  std::vector<Eigen::Vector3d> tgt;
+  for (size_t i = 0; i < num_samples; ++i) {
+    src.emplace_back(i, std::sqrt(i) + 2, std::sqrt(2 * i + 2));
+    tgt.push_back(expected_tgt_from_src * src.back());
+  }
+
+  for (size_t i = 0; i < num_outliers; ++i) {
+    tgt[i] = Eigen::Vector3d(RandomUniformReal(-3000.0, -2000.0),
+                             RandomUniformReal(-4000.0, -3000.0),
+                             RandomUniformReal(-5000.0, -4000.0));
+  }
+
+  // Run with the same seed twice.
+  RANSACOptions options1;
+  options1.max_error = 10;
+  options1.random_seed = 42;
+  RANSAC<SimilarityTransformEstimator<3>> ransac1(options1);
+  const auto report1 = ransac1.Estimate(src, tgt);
+
+  RANSACOptions options2 = options1;
+  RANSAC<SimilarityTransformEstimator<3>> ransac2(options2);
+  const auto report2 = ransac2.Estimate(src, tgt);
+
+  ASSERT_TRUE(report1.success);
+  ASSERT_TRUE(report2.success);
+
+  // Results should be exactly the same.
+  EXPECT_EQ(report1.support.num_inliers, report2.support.num_inliers);
+  EXPECT_EQ(report1.inlier_mask, report2.inlier_mask);
+  EXPECT_EQ(report1.model, report2.model);
+
+  // Now change the seed.
+  options2.random_seed = 123;
+  RANSAC<SimilarityTransformEstimator<3>> ransac3(options2);
+  const auto report3 = ransac3.Estimate(src, tgt);
+
+  ASSERT_TRUE(report3.success);
+
+  // Results should now differ.
+  EXPECT_NE(report1.model, report3.model);
 }
 
 }  // namespace

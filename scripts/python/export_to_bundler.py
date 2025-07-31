@@ -137,7 +137,7 @@ def main():
 
     with open(os.path.join(args.output_path, "matches.init.txt"), "w") as fid:
         cursor.execute(
-            "SELECT pair_id, data FROM two_view_geometries " "WHERE rows>=?;",
+            "SELECT pair_id, data FROM two_view_geometries WHERE rows>=?;",
             (args.min_num_matches,),
         )
         for row in cursor:

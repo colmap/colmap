@@ -1,6 +1,7 @@
 #include "colmap/feature/sift.h"
 #include "colmap/feature/utils.h"
 
+#include "pycolmap/feature/types.h"
 #include "pycolmap/helpers.h"
 #include "pycolmap/utils.h"
 
