@@ -161,18 +161,13 @@ jobs:
           CIBW_MANYLINUX_X86_64_IMAGE="quay.io/pypa/manylinux_2_28_x86_64"
           echo "CIBW_MANYLINUX_X86_64_IMAGE=${CIBW_MANYLINUX_X86_64_IMAGE}" >> "$GITHUB_ENV"
 
-      # See https://cibuildwheel.pypa.io/en/stable/faq/#macos-building-cpython-38-wheels-on-arm64
-      - name: Install ARM64 Python 3.8
-        uses: actions/setup-python@v5
-        with:
-          python-version: 3.8
-        if: runner.os == 'macOS' && runner.arch == 'ARM64' && ${{ matrix.config.arch }} == "arm64"
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.23.2
+        uses: pypa/cibuildwheel@v3.1.2
         with:
           package-dir: ./
         env:
           CIBW_ARCHS_MACOS: ${{ matrix.config.arch }}
+
       - name: Archive wheels
         uses: actions/upload-artifact@v4
         with:
