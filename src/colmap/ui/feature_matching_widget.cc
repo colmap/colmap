@@ -163,8 +163,15 @@ void FeatureMatchingTab::CreateGeneralOptions() {
       &options_->two_view_geometry->ransac_options.random_seed, "random_seed");
   options_widget_->AddOptionInt(&options_->two_view_geometry->min_num_inliers,
                                 "min_num_inliers");
+  options_widget_->AddOptionInt(&options_->two_view_geometry->homography_usage,
+                                "homography_usage");
   options_widget_->AddOptionBool(&options_->two_view_geometry->multiple_models,
                                  "multiple_models");
+  options_widget_->AddOptionBool(
+      &options_->two_view_geometry->compute_relative_pose,
+      "compute_relative_pose");
+  options_widget_->AddOptionBool(&options_->two_view_geometry->detect_watermark,
+                                 "detect_watermark");
   options_widget_->AddSpacer();
 
   QScrollArea* options_scroll_area = new QScrollArea(this);

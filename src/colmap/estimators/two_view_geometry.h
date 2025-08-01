@@ -76,9 +76,19 @@ struct TwoViewGeometryOptions {
   // Whether to ignore watermark models in multiple model estimation.
   bool multiple_ignore_watermark = true;
 
-  // In case the user asks for it, only going to estimate a Homography
-  // between both cameras.
-  bool force_H_use = false;
+  enum HomographyUsage : uint8_t {
+    // Estimate H along with E and F, and select the best model based on inlier
+    // ratios.
+    AUTO = 0,
+    // Only estimate and use H.
+    FORCE = 1,
+    // Do not estimate or use H.
+    DISABLE = 2
+  };
+
+  // Specifies how to handle the homography model during two view geometry
+  // estimation.
+  int homography_usage = HomographyUsage::AUTO;
 
   // Whether to compute the relative pose between the two views.
   bool compute_relative_pose = false;
