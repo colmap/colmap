@@ -157,6 +157,10 @@ TwoViewGeometry EstimateUncalibratedTwoViewGeometry(
     const std::vector<Eigen::Vector2d>& points2,
     const FeatureMatches& matches,
     const TwoViewGeometryOptions& options) {
+  THROW_CHECK(options.Check());
+  THROW_CHECK_NE(options.homography_usage,
+                 TwoViewGeometryOptions::HomographyUsage::FORCE);
+
   TwoViewGeometry geometry;
 
   const size_t min_num_inliers = static_cast<size_t>(options.min_num_inliers);
@@ -184,11 +188,19 @@ TwoViewGeometry EstimateUncalibratedTwoViewGeometry(
 
   // Estimate planar or panoramic model.
 
-  LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator> H_ransac(
-      options.ransac_options);
-  const auto H_report =
-      H_ransac.Estimate(matched_img_points1, matched_img_points2);
-  geometry.H = H_report.model;
+  using H_RANSAC =
+      LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator>;
+  H_RANSAC::Report H_report;
+  if (options.homography_usage ==
+      TwoViewGeometryOptions::HomographyUsage::AUTO) {
+    H_RANSAC H_ransac(options.ransac_options);
+    H_report = H_ransac.Estimate(matched_img_points1, matched_img_points2);
+    geometry.H = H_report.model;
+  } else if (options.homography_usage ==
+             TwoViewGeometryOptions::HomographyUsage::DISABLE) {
+    H_report.success = false;
+    H_report.support.num_inliers = 0;
+  }
 
   if ((!F_report.success && !H_report.success) ||
       (F_report.support.num_inliers < min_num_inliers &&
@@ -291,6 +303,8 @@ bool TwoViewGeometryOptions::Check() const {
   CHECK_OPTION_LE(min_E_F_inlier_ratio, 1);
   CHECK_OPTION_GE(max_H_inlier_ratio, 0);
   CHECK_OPTION_LE(max_H_inlier_ratio, 1);
+  CHECK_OPTION_GE(homography_usage, HomographyUsage::AUTO);
+  CHECK_OPTION_LE(homography_usage, HomographyUsage::DISABLE);
   CHECK_OPTION_GE(watermark_min_inlier_ratio, 0);
   CHECK_OPTION_LE(watermark_min_inlier_ratio, 1);
   CHECK_OPTION_GE(watermark_border_size, 0);
@@ -315,7 +329,8 @@ TwoViewGeometry EstimateTwoViewGeometry(
   if (options.multiple_models) {
     return EstimateMultipleTwoViewGeometries(
         camera1, points1, camera2, points2, matches, options);
-  } else if (options.force_H_use) {
+  } else if (options.homography_usage ==
+             TwoViewGeometryOptions::HomographyUsage::FORCE) {
     return EstimateCalibratedHomography(
         camera1, points1, camera2, points2, matches, options);
   } else if (camera1.has_prior_focal_length && camera2.has_prior_focal_length) {
@@ -446,6 +461,8 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
     const FeatureMatches& matches,
     const TwoViewGeometryOptions& options) {
   THROW_CHECK(options.Check());
+  THROW_CHECK_NE(options.homography_usage,
+                 TwoViewGeometryOptions::HomographyUsage::FORCE);
 
   TwoViewGeometry geometry;
 
@@ -503,11 +520,19 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
 
   // Estimate planar or panoramic model.
 
-  LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator> H_ransac(
-      options.ransac_options);
-  const auto H_report =
-      H_ransac.Estimate(matched_img_points1, matched_img_points2);
-  geometry.H = H_report.model;
+  using H_RANSAC =
+      LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator>;
+  H_RANSAC::Report H_report;
+  if (options.homography_usage ==
+      TwoViewGeometryOptions::HomographyUsage::AUTO) {
+    H_RANSAC H_ransac(options.ransac_options);
+    H_report = H_ransac.Estimate(matched_img_points1, matched_img_points2);
+    geometry.H = H_report.model;
+  } else if (options.homography_usage ==
+             TwoViewGeometryOptions::HomographyUsage::DISABLE) {
+    H_report.success = false;
+    H_report.support.num_inliers = 0;
+  }
 
   if ((!E_report.success && !F_report.success && !H_report.success) ||
       (E_report.support.num_inliers < min_num_inliers &&

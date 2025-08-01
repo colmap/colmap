@@ -20,6 +20,15 @@ namespace py = pybind11;
 void BindTwoViewGeometryEstimator(py::module& m) {
   py::class_<TwoViewGeometryOptions> PyTwoViewGeometryOptions(
       m, "TwoViewGeometryOptions");
+
+  using HomographyUsage = TwoViewGeometryOptions::HomographyUsage;
+  py::enum_<HomographyUsage> PyHomographyUsage(
+      m, "TwoViewGeometryHomographyUsage");
+  PyHomographyUsage.value("AUTO", HomographyUsage::AUTO)
+      .value("FORCE", HomographyUsage::FORCE)
+      .value("DISABLE", HomographyUsage::DISABLE);
+  AddStringToEnumConstructor(PyHomographyUsage);
+
   PyTwoViewGeometryOptions.def(py::init<>())
       .def_readwrite("min_num_inliers",
                      &TwoViewGeometryOptions::min_num_inliers)
@@ -35,7 +44,8 @@ void BindTwoViewGeometryEstimator(py::module& m) {
                      &TwoViewGeometryOptions::detect_watermark)
       .def_readwrite("multiple_ignore_watermark",
                      &TwoViewGeometryOptions::multiple_ignore_watermark)
-      .def_readwrite("force_H_use", &TwoViewGeometryOptions::force_H_use)
+      .def_readwrite("homography_usage",
+                     &TwoViewGeometryOptions::homography_usage)
       .def_readwrite("compute_relative_pose",
                      &TwoViewGeometryOptions::compute_relative_pose)
       .def_readwrite("multiple_models",
