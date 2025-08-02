@@ -79,7 +79,9 @@ struct TwoViewGeometryOptions {
   // Whether to filter stationary matches. This is useful when a camera is
   // rigidly mounted on a moving vehicle and the vehicle itself is visible.
   bool ignore_stationary_matches = false;
-  double stationary_matches_max_error = 2.0;
+
+  // Maximum displacement for points to be considered stationary matches.
+  double stationary_matches_max_error = 1.0;
 
   // In case the user asks for it, only going to estimate a Homography
   // between both cameras.
