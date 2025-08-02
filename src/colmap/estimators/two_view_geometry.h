@@ -76,6 +76,11 @@ struct TwoViewGeometryOptions {
   // Whether to ignore watermark models in multiple model estimation.
   bool multiple_ignore_watermark = true;
 
+  // Whether to filter stationary matches. This is useful when a camera is
+  // rigidly mounted on a moving vehicle and the vehicle itself is visible.
+  bool ignore_stationary_matches = false;
+  double stationary_matches_max_error = 2.0;
+
   // In case the user asks for it, only going to estimate a Homography
   // between both cameras.
   bool force_H_use = false;
@@ -122,7 +127,7 @@ TwoViewGeometry EstimateTwoViewGeometry(
     const std::vector<Eigen::Vector2d>& points1,
     const Camera& camera2,
     const std::vector<Eigen::Vector2d>& points2,
-    const FeatureMatches& matches,
+    FeatureMatches matches,
     const TwoViewGeometryOptions& options);
 
 // Estimate relative pose for two-view geometry.
@@ -156,13 +161,19 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
     const TwoViewGeometryOptions& options);
 
 // Detect if inlier matches are caused by a watermark.
-// A watermark causes a pure translation in the border are of the image.
-bool DetectWatermark(const Camera& camera1,
-                     const std::vector<Eigen::Vector2d>& points1,
-                     const Camera& camera2,
-                     const std::vector<Eigen::Vector2d>& points2,
-                     size_t num_inliers,
-                     const std::vector<char>& inlier_mask,
-                     const TwoViewGeometryOptions& options);
+// A watermark causes a pure translation in the boundaries of the images.
+bool DetectWatermarkMatches(const Camera& camera1,
+                            const std::vector<Eigen::Vector2d>& points1,
+                            const Camera& camera2,
+                            const std::vector<Eigen::Vector2d>& points2,
+                            size_t num_inliers,
+                            const std::vector<char>& inlier_mask,
+                            const TwoViewGeometryOptions& options);
+
+// Filter stationary points from the matches.
+void FilterStationaryMatches(double max_error,
+                             const std::vector<Eigen::Vector2d>& points1,
+                             const std::vector<Eigen::Vector2d>& points2,
+                             FeatureMatches* matches);
 
 }  // namespace colmap

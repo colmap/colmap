@@ -199,8 +199,13 @@ class VerifierWorker : public Thread {
         const std::vector<Eigen::Vector2d> points2 =
             FeatureKeypointsToPointsVector(*keypoints2);
 
-        data.two_view_geometry = EstimateTwoViewGeometry(
-            camera1, points1, camera2, points2, data.matches, options_);
+        data.two_view_geometry =
+            EstimateTwoViewGeometry(camera1,
+                                    points1,
+                                    camera2,
+                                    points2,
+                                    std::move(data.matches),
+                                    options_);
 
         THROW_CHECK(output_queue_->Push(std::move(data)));
       }
