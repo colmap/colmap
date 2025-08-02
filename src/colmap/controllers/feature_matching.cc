@@ -330,7 +330,7 @@ class FeaturePairsFeatureMatcher : public Thread {
                                     FeatureKeypointsToPointsVector(*keypoints1),
                                     camera2,
                                     FeatureKeypointsToPointsVector(*keypoints2),
-                                    matches,
+                                    std::move(matches),
                                     geometry_options_);
 
         database_->WriteTwoViewGeometry(
@@ -344,7 +344,7 @@ class FeaturePairsFeatureMatcher : public Thread {
           two_view_geometry.config = TwoViewGeometry::UNCALIBRATED;
         }
 
-        two_view_geometry.inlier_matches = matches;
+        two_view_geometry.inlier_matches = std::move(matches);
 
         database_->WriteTwoViewGeometry(
             image1.ImageId(), image2.ImageId(), two_view_geometry);
