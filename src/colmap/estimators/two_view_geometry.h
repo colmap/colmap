@@ -81,7 +81,7 @@ struct TwoViewGeometryOptions {
   bool ignore_stationary_matches = false;
 
   // Maximum displacement for points to be considered stationary matches.
-  double stationary_matches_max_error = 1.0;
+  double stationary_matches_max_error = 1.5;
 
   // In case the user asks for it, only going to estimate a Homography
   // between both cameras.
