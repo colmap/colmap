@@ -412,7 +412,7 @@ TEST(EstimateTwoViewGeometry, IgnoreStationaryMatches) {
   EXPECT_EQ(geometry1.inlier_matches.size(),
             synthetic_dataset_options.num_points3D);
 
-  two_view_geometry_options.ignore_stationary_matches = true;
+  two_view_geometry_options.filter_stationary_matches = true;
   TwoViewGeometry geometry2 =
       EstimateTwoViewGeometry(test_data.camera1,
                               test_data.points1,

@@ -335,8 +335,11 @@ void OptionManager::AddMatchingOptions() {
                               &two_view_geometry->detect_watermark);
   AddAndRegisterDefaultOption("TwoViewGeometry.multiple_ignore_watermark",
                               &two_view_geometry->multiple_ignore_watermark);
-  AddAndRegisterDefaultOption("TwoViewGeometry.ignore_stationary_matches",
-                              &two_view_geometry->ignore_stationary_matches);
+  AddAndRegisterDefaultOption(
+      "TwoViewGeometry.watermark_detection_max_error",
+      &two_view_geometry->watermark_detection_max_error);
+  AddAndRegisterDefaultOption("TwoViewGeometry.filter_stationary_matches",
+                              &two_view_geometry->filter_stationary_matches);
   AddAndRegisterDefaultOption("TwoViewGeometry.stationary_matches_max_error",
                               &two_view_geometry->stationary_matches_max_error);
   AddAndRegisterDefaultOption("TwoViewGeometry.max_error",

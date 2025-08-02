@@ -76,9 +76,13 @@ struct TwoViewGeometryOptions {
   // Whether to ignore watermark models in multiple model estimation.
   bool multiple_ignore_watermark = true;
 
+  // Maximum translational error of matched points to be considered
+  // inliers of a watermark.
+  double watermark_detection_max_error = 1.5;
+
   // Whether to filter stationary matches. This is useful when a camera is
   // rigidly mounted on a moving vehicle and the vehicle itself is visible.
-  bool ignore_stationary_matches = false;
+  bool filter_stationary_matches = false;
 
   // Maximum displacement for points to be considered stationary matches.
   double stationary_matches_max_error = 1.5;

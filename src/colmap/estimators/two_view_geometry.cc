@@ -149,6 +149,7 @@ bool DetectWatermarkMatches(const Camera& camera1,
   // Check if matches follow a translational model.
 
   RANSACOptions ransac_options = options.ransac_options;
+  ransac_options.max_error = options.watermark_detection_max_error;
   ransac_options.min_inlier_ratio = options.watermark_min_inlier_ratio;
 
   LORANSAC<TranslationTransformEstimator<2>, TranslationTransformEstimator<2>>
@@ -396,7 +397,7 @@ TwoViewGeometry EstimateTwoViewGeometry(
     const std::vector<Eigen::Vector2d>& points2,
     FeatureMatches matches,
     const TwoViewGeometryOptions& options) {
-  if (options.ignore_stationary_matches) {
+  if (options.filter_stationary_matches) {
     FilterStationaryMatches(
         options.stationary_matches_max_error, points1, points2, &matches);
   }
@@ -405,7 +406,7 @@ TwoViewGeometry EstimateTwoViewGeometry(
     // Set to false to prevent recursive calls to this function.
     multiple_model_options.multiple_models = false;
     // Set to false to prevent redundant filtering of stationary matches.
-    multiple_model_options.ignore_stationary_matches = false;
+    multiple_model_options.filter_stationary_matches = false;
     return EstimateMultipleTwoViewGeometries(
         camera1, points1, camera2, points2, matches, multiple_model_options);
   } else if (options.force_H_use) {

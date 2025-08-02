@@ -35,8 +35,10 @@ void BindTwoViewGeometryEstimator(py::module& m) {
                      &TwoViewGeometryOptions::detect_watermark)
       .def_readwrite("multiple_ignore_watermark",
                      &TwoViewGeometryOptions::multiple_ignore_watermark)
-      .def_readwrite("ignore_stationary_matches",
-                     &TwoViewGeometryOptions::ignore_stationary_matches)
+      .def_readwrite("watermark_detection_max_error",
+                     &TwoViewGeometryOptions::watermark_detection_max_error)
+      .def_readwrite("filter_stationary_matches",
+                     &TwoViewGeometryOptions::filter_stationary_matches)
       .def_readwrite("stationary_matches_max_error",
                      &TwoViewGeometryOptions::stationary_matches_max_error)
       .def_readwrite("force_H_use", &TwoViewGeometryOptions::force_H_use)
