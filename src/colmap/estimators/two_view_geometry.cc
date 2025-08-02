@@ -332,12 +332,9 @@ TwoViewGeometry EstimateMultipleTwoViewGeometries(
   FeatureMatches remaining_matches = matches;
   TwoViewGeometry multi_geometry;
   std::vector<TwoViewGeometry> geometries;
-  TwoViewGeometryOptions options_copy = options;
-  // Set to false to prevent recursive calls to this function.
-  options_copy.multiple_models = false;
   while (true) {
     TwoViewGeometry geometry = EstimateTwoViewGeometry(
-        camera1, points1, camera2, points2, remaining_matches, options_copy);
+        camera1, points1, camera2, points2, remaining_matches, options);
     if (geometry.config == TwoViewGeometry::ConfigurationType::DEGENERATE) {
       break;
     }
@@ -404,8 +401,13 @@ TwoViewGeometry EstimateTwoViewGeometry(
         options.stationary_matches_max_error, points1, points2, &matches);
   }
   if (options.multiple_models) {
+    TwoViewGeometryOptions multiple_model_options = options;
+    // Set to false to prevent recursive calls to this function.
+    multiple_model_options.multiple_models = false;
+    // Set to false to prevent redundant filtering of stationary matches.
+    multiple_model_options.ignore_stationary_matches = false;
     return EstimateMultipleTwoViewGeometries(
-        camera1, points1, camera2, points2, matches, options);
+        camera1, points1, camera2, points2, matches, multiple_model_options);
   } else if (options.force_H_use) {
     return EstimateCalibratedHomography(
         camera1, points1, camera2, points2, matches, options);
