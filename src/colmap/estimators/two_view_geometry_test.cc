@@ -95,15 +95,11 @@ struct TwoViewGeometryPoseTestData {
   Camera camera2;
   std::vector<Eigen::Vector2d> points1;
   std::vector<Eigen::Vector2d> points2;
-  FeatureMatches matches;
   TwoViewGeometry geometry;
 };
 
 TwoViewGeometryPoseTestData CreateTwoViewGeometryPoseTestData(
-    TwoViewGeometry::ConfigurationType config, double inlier_ratio = 1.0) {
-  CHECK_GT(inlier_ratio, 0);
-  CHECK_LE(inlier_ratio, 1.0);
-
+    TwoViewGeometry::ConfigurationType config) {
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
@@ -164,15 +160,6 @@ TwoViewGeometryPoseTestData CreateTwoViewGeometryPoseTestData(
                           data.points2,
                           points3D,
                           data.geometry.inlier_matches);
-
-  data.matches = data.geometry.inlier_matches;
-  const int num_outliers = data.geometry.inlier_matches.size() / inlier_ratio -
-                           data.geometry.inlier_matches.size();
-  for (int i = 0; i < num_outliers; ++i) {
-    data.matches.emplace_back(
-        RandomUniformInteger<point2D_t>(0, data.points1.size() - 1),
-        RandomUniformInteger<point2D_t>(0, data.points2.size() - 1));
-  }
 
   if (config == TwoViewGeometry::ConfigurationType::PANORAMIC) {
     data.geometry.tri_angle = 0;
