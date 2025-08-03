@@ -493,13 +493,15 @@ TEST(EstimateTwoViewGeometry, IgnoreStationaryMatches) {
 }
 
 TEST(EstimateTwoViewGeometry, CalibratedDeterministic) {
+  SetPRNGSeed(1);
+
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 1;
   synthetic_dataset_options.num_points3D = 500;
   synthetic_dataset_options.point2D_stddev = 5;
-  synthetic_dataset_options.inlier_match_ratio = 0.7;
+  synthetic_dataset_options.inlier_match_ratio = 0.6;
   synthetic_dataset_options.camera_has_prior_focal_length = true;
   const TwoViewGeometryTestData test_data =
       CreateTwoViewGeometryTestData(synthetic_dataset_options);
@@ -543,6 +545,8 @@ TEST(EstimateTwoViewGeometry, CalibratedDeterministic) {
 }
 
 TEST(EstimateTwoViewGeometry, UncalibratedDeterministic) {
+  SetPRNGSeed(1);
+
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
   synthetic_dataset_options.num_cameras_per_rig = 1;
@@ -593,6 +597,8 @@ TEST(EstimateTwoViewGeometry, UncalibratedDeterministic) {
 }
 
 TEST(EstimateTwoViewGeometry, PlanarOrPanoramicDeterministic) {
+  SetPRNGSeed(1);
+
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
   synthetic_dataset_options.num_cameras_per_rig = 2;
