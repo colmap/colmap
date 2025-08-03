@@ -172,7 +172,7 @@ bool DetectWatermarkMatches(const Camera& camera1,
                             const std::vector<Eigen::Vector2d>& points1,
                             const Camera& camera2,
                             const std::vector<Eigen::Vector2d>& points2,
-                            const size_t num_inliers,
+                            size_t num_inliers,
                             const std::vector<char>& inlier_mask,
                             const TwoViewGeometryOptions& options);
 
