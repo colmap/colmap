@@ -71,21 +71,21 @@ struct TwoViewGeometryOptions {
 
   // Whether to enable watermark detection. A watermark causes a pure
   // translation in the image space with inliers in the border region.
-  bool detect_watermark = true;
+  bool detect_watermark = false;
 
   // Whether to ignore watermark models in multiple model estimation.
   bool multiple_ignore_watermark = true;
 
   // Maximum translational error of matched points to be considered
   // inliers of a watermark.
-  double watermark_detection_max_error = 1.5;
+  double watermark_detection_max_error = 4.0;
 
   // Whether to filter stationary matches. This is useful when a camera is
   // rigidly mounted on a moving vehicle and the vehicle itself is visible.
   bool filter_stationary_matches = false;
 
   // Maximum displacement for points to be considered stationary matches.
-  double stationary_matches_max_error = 1.5;
+  double stationary_matches_max_error = 4.0;
 
   // In case the user asks for it, only going to estimate a Homography
   // between both cameras.
@@ -165,5 +165,22 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
     const std::vector<Eigen::Vector2d>& points2,
     const FeatureMatches& matches,
     const TwoViewGeometryOptions& options);
+
+// Detect if inlier matches are caused by a watermark, where a
+// watermark causes a pure translation in the border of the image.
+bool DetectWatermarkMatches(const Camera& camera1,
+                            const std::vector<Eigen::Vector2d>& points1,
+                            const Camera& camera2,
+                            const std::vector<Eigen::Vector2d>& points2,
+                            const size_t num_inliers,
+                            const std::vector<char>& inlier_mask,
+                            const TwoViewGeometryOptions& options);
+
+// Detect if inlier matches are caused by a watermark.
+// A watermark causes a pure translation in the boundaries of the images.
+void FilterStationaryMatches(double max_error,
+                             const std::vector<Eigen::Vector2d>& points1,
+                             const std::vector<Eigen::Vector2d>& points2,
+                             FeatureMatches* matches);
 
 }  // namespace colmap
