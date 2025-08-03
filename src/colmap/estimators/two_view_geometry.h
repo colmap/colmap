@@ -71,7 +71,7 @@ struct TwoViewGeometryOptions {
 
   // Whether to enable watermark detection. A watermark causes a pure
   // translation in the image space with inliers in the border region.
-  bool detect_watermark = false;
+  bool detect_watermark = true;
 
   // Whether to ignore watermark models in multiple model estimation.
   bool multiple_ignore_watermark = true;
