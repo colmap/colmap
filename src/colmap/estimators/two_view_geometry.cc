@@ -44,6 +44,8 @@
 
 #include <unordered_set>
 
+#include <Eigen/Geometry>
+
 namespace colmap {
 namespace {
 
@@ -82,15 +84,6 @@ FeatureMatches ExtractOutlierMatches(const FeatureMatches& matches,
   }
 
   return outlier_matches;
-}
-
-inline bool IsImagePointInBoundingBox(const Eigen::Vector2d& point,
-                                      const double minx,
-                                      const double maxx,
-                                      const double miny,
-                                      const double maxy) {
-  return point.x() >= minx && point.x() <= maxx && point.y() >= miny &&
-         point.y() <= maxy;
 }
 
 TwoViewGeometry EstimateCalibratedHomography(
@@ -133,13 +126,14 @@ TwoViewGeometry EstimateCalibratedHomography(
 
   geometry.inlier_matches = ExtractInlierMatches(
       matches, H_report.support.num_inliers, H_report.inlier_mask);
-  if (options.detect_watermark && DetectWatermark(camera1,
-                                                  matched_img_points1,
-                                                  camera2,
-                                                  matched_img_points2,
-                                                  H_report.support.num_inliers,
-                                                  H_report.inlier_mask,
-                                                  options)) {
+  if (options.detect_watermark &&
+      DetectWatermarkMatches(camera1,
+                             matched_img_points1,
+                             camera2,
+                             matched_img_points2,
+                             H_report.support.num_inliers,
+                             H_report.inlier_mask,
+                             options)) {
     geometry.config = TwoViewGeometry::ConfigurationType::WATERMARK;
   }
 
@@ -218,13 +212,13 @@ TwoViewGeometry EstimateUncalibratedTwoViewGeometry(
   geometry.inlier_matches =
       ExtractInlierMatches(matches, num_inliers, *best_inlier_mask);
 
-  if (options.detect_watermark && DetectWatermark(camera1,
-                                                  matched_img_points1,
-                                                  camera2,
-                                                  matched_img_points2,
-                                                  num_inliers,
-                                                  *best_inlier_mask,
-                                                  options)) {
+  if (options.detect_watermark && DetectWatermarkMatches(camera1,
+                                                         matched_img_points1,
+                                                         camera2,
+                                                         matched_img_points2,
+                                                         num_inliers,
+                                                         *best_inlier_mask,
+                                                         options)) {
     geometry.config = TwoViewGeometry::ConfigurationType::WATERMARK;
   }
 
@@ -245,12 +239,9 @@ TwoViewGeometry EstimateMultipleTwoViewGeometries(
   FeatureMatches remaining_matches = matches;
   TwoViewGeometry multi_geometry;
   std::vector<TwoViewGeometry> geometries;
-  TwoViewGeometryOptions options_copy = options;
-  // Set to false to prevent recursive calls to this function.
-  options_copy.multiple_models = false;
   while (true) {
     TwoViewGeometry geometry = EstimateTwoViewGeometry(
-        camera1, points1, camera2, points2, remaining_matches, options_copy);
+        camera1, points1, camera2, points2, remaining_matches, options);
     if (geometry.config == TwoViewGeometry::ConfigurationType::DEGENERATE) {
       break;
     }
@@ -310,11 +301,20 @@ TwoViewGeometry EstimateTwoViewGeometry(
     const std::vector<Eigen::Vector2d>& points1,
     const Camera& camera2,
     const std::vector<Eigen::Vector2d>& points2,
-    const FeatureMatches& matches,
+    FeatureMatches matches,
     const TwoViewGeometryOptions& options) {
+  if (options.filter_stationary_matches) {
+    FilterStationaryMatches(
+        options.stationary_matches_max_error, points1, points2, &matches);
+  }
   if (options.multiple_models) {
+    TwoViewGeometryOptions multiple_model_options = options;
+    // Set to false to prevent recursive calls to this function.
+    multiple_model_options.multiple_models = false;
+    // Set to false to prevent redundant filtering of stationary matches.
+    multiple_model_options.filter_stationary_matches = false;
     return EstimateMultipleTwoViewGeometries(
-        camera1, points1, camera2, points2, matches, options);
+        camera1, points1, camera2, points2, matches, multiple_model_options);
   } else if (options.force_H_use) {
     return EstimateCalibratedHomography(
         camera1, points1, camera2, points2, matches, options);
@@ -584,13 +584,13 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
     geometry.inlier_matches =
         ExtractInlierMatches(matches, num_inliers, *best_inlier_mask);
 
-    if (options.detect_watermark && DetectWatermark(camera1,
-                                                    matched_img_points1,
-                                                    camera2,
-                                                    matched_img_points2,
-                                                    num_inliers,
-                                                    *best_inlier_mask,
-                                                    options)) {
+    if (options.detect_watermark && DetectWatermarkMatches(camera1,
+                                                           matched_img_points1,
+                                                           camera2,
+                                                           matched_img_points2,
+                                                           num_inliers,
+                                                           *best_inlier_mask,
+                                                           options)) {
       geometry.config = TwoViewGeometry::ConfigurationType::WATERMARK;
     }
 
@@ -603,13 +603,13 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
   return geometry;
 }
 
-bool DetectWatermark(const Camera& camera1,
-                     const std::vector<Eigen::Vector2d>& points1,
-                     const Camera& camera2,
-                     const std::vector<Eigen::Vector2d>& points2,
-                     const size_t num_inliers,
-                     const std::vector<char>& inlier_mask,
-                     const TwoViewGeometryOptions& options) {
+bool DetectWatermarkMatches(const Camera& camera1,
+                            const std::vector<Eigen::Vector2d>& points1,
+                            const Camera& camera2,
+                            const std::vector<Eigen::Vector2d>& points2,
+                            const size_t num_inliers,
+                            const std::vector<char>& inlier_mask,
+                            const TwoViewGeometryOptions& options) {
   THROW_CHECK(options.Check());
 
   // Check if inlier points in border region and extract inlier matches.
@@ -618,14 +618,16 @@ bool DetectWatermark(const Camera& camera1,
                                      camera1.height * camera1.height);
   const double diagonal2 = std::sqrt(camera2.width * camera2.width +
                                      camera2.height * camera2.height);
-  const double minx1 = options.watermark_border_size * diagonal1;
-  const double miny1 = minx1;
-  const double maxx1 = camera1.width - minx1;
-  const double maxy1 = camera1.height - miny1;
-  const double minx2 = options.watermark_border_size * diagonal2;
-  const double miny2 = minx2;
-  const double maxx2 = camera2.width - minx2;
-  const double maxy2 = camera2.height - miny2;
+  const double border_size1 = options.watermark_border_size * diagonal1;
+  const Eigen::AlignedBox2d box1(
+      Eigen::Vector2d(border_size1, border_size1),
+      Eigen::Vector2d(camera1.width - border_size1,
+                      camera1.height - border_size1));
+  const double border_size2 = options.watermark_border_size * diagonal2;
+  const Eigen::AlignedBox2d box2(
+      Eigen::Vector2d(border_size2, border_size2),
+      Eigen::Vector2d(camera2.width - border_size2,
+                      camera2.height - border_size2));
 
   std::vector<Eigen::Vector2d> inlier_points1(num_inliers);
   std::vector<Eigen::Vector2d> inlier_points2(num_inliers);
@@ -635,16 +637,12 @@ bool DetectWatermark(const Camera& camera1,
   size_t j = 0;
   for (size_t i = 0; i < inlier_mask.size(); ++i) {
     if (inlier_mask[i]) {
-      const auto& point1 = points1[i];
-      const auto& point2 = points2[i];
+      inlier_points1[j] = points1[i];
+      inlier_points2[j] = points2[i];
+      ++j;
 
-      inlier_points1[j] = point1;
-      inlier_points2[j] = point2;
-      j += 1;
-
-      if (!IsImagePointInBoundingBox(point1, minx1, maxx1, miny1, maxy1) &&
-          !IsImagePointInBoundingBox(point2, minx2, maxx2, miny2, maxy2)) {
-        num_matches_in_border += 1;
+      if (!box1.contains(points1[i]) && !box2.contains(points2[i])) {
+        ++num_matches_in_border;
       }
     }
   }
@@ -659,6 +657,7 @@ bool DetectWatermark(const Camera& camera1,
   // Check if matches follow a translational model.
 
   RANSACOptions ransac_options = options.ransac_options;
+  ransac_options.max_error = options.watermark_detection_max_error;
   ransac_options.min_inlier_ratio = options.watermark_min_inlier_ratio;
 
   LORANSAC<TranslationTransformEstimator<2>, TranslationTransformEstimator<2>>
@@ -669,6 +668,24 @@ bool DetectWatermark(const Camera& camera1,
       static_cast<double>(report.support.num_inliers) / num_inliers;
 
   return inlier_ratio >= options.watermark_min_inlier_ratio;
+}
+
+// Detect if inlier matches are caused by a watermark.
+// A watermark causes a pure translation in the boundaries of the images.
+void FilterStationaryMatches(double max_error,
+                             const std::vector<Eigen::Vector2d>& points1,
+                             const std::vector<Eigen::Vector2d>& points2,
+                             FeatureMatches* matches) {
+  const double max_error_squared = max_error * max_error;
+  matches->erase(std::remove_if(matches->begin(),
+                                matches->end(),
+                                [&](const FeatureMatch& match) {
+                                  return (points1[match.point2D_idx1] -
+                                          points2[match.point2D_idx2])
+                                             .squaredNorm() <=
+                                         max_error_squared;
+                                }),
+                 matches->end());
 }
 
 }  // namespace colmap

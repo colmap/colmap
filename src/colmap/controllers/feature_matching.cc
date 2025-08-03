@@ -319,36 +319,34 @@ class FeaturePairsFeatureMatcher : public Thread {
       const Camera& camera1 = cache_->GetCamera(image1.CameraId());
       const Camera& camera2 = cache_->GetCamera(image2.CameraId());
 
+      TwoViewGeometry two_view_geometry;
       if (options_.verify_matches) {
         database_->WriteMatches(image1.ImageId(), image2.ImageId(), matches);
 
-        const auto keypoints1 = cache_->GetKeypoints(image1.ImageId());
-        const auto keypoints2 = cache_->GetKeypoints(image2.ImageId());
+        const std::shared_ptr<FeatureKeypoints> keypoints1 =
+            cache_->GetKeypoints(image1.ImageId());
+        const std::shared_ptr<FeatureKeypoints> keypoints2 =
+            cache_->GetKeypoints(image2.ImageId());
 
-        TwoViewGeometry two_view_geometry =
+        two_view_geometry =
             EstimateTwoViewGeometry(camera1,
                                     FeatureKeypointsToPointsVector(*keypoints1),
                                     camera2,
                                     FeatureKeypointsToPointsVector(*keypoints2),
-                                    matches,
+                                    std::move(matches),
                                     geometry_options_);
 
-        database_->WriteTwoViewGeometry(
-            image1.ImageId(), image2.ImageId(), two_view_geometry);
       } else {
-        TwoViewGeometry two_view_geometry;
-
         if (camera1.has_prior_focal_length && camera2.has_prior_focal_length) {
           two_view_geometry.config = TwoViewGeometry::CALIBRATED;
         } else {
           two_view_geometry.config = TwoViewGeometry::UNCALIBRATED;
         }
-
-        two_view_geometry.inlier_matches = matches;
-
-        database_->WriteTwoViewGeometry(
-            image1.ImageId(), image2.ImageId(), two_view_geometry);
+        two_view_geometry.inlier_matches = std::move(matches);
       }
+
+      database_->WriteTwoViewGeometry(
+          image1.ImageId(), image2.ImageId(), two_view_geometry);
     }
 
     run_timer.PrintMinutes();
