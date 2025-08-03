@@ -171,7 +171,10 @@ void FeatureMatchingTab::CreateGeneralOptions() {
       &options_->two_view_geometry->compute_relative_pose,
       "compute_relative_pose");
   options_widget_->AddOptionBool(&options_->two_view_geometry->detect_watermark,
-                                 "detect_watermark");
+                                 "detect_watermarks");
+  options_widget_->AddOptionBool(
+      &options_->two_view_geometry->filter_stationary_matches,
+      "filter_stationary_matches");
   options_widget_->AddSpacer();
 
   QScrollArea* options_scroll_area = new QScrollArea(this);

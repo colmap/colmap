@@ -44,6 +44,12 @@ void BindTwoViewGeometryEstimator(py::module& m) {
                      &TwoViewGeometryOptions::detect_watermark)
       .def_readwrite("multiple_ignore_watermark",
                      &TwoViewGeometryOptions::multiple_ignore_watermark)
+      .def_readwrite("watermark_detection_max_error",
+                     &TwoViewGeometryOptions::watermark_detection_max_error)
+      .def_readwrite("filter_stationary_matches",
+                     &TwoViewGeometryOptions::filter_stationary_matches)
+      .def_readwrite("stationary_matches_max_error",
+                     &TwoViewGeometryOptions::stationary_matches_max_error)
       .def_readwrite("homography_usage",
                      &TwoViewGeometryOptions::homography_usage)
       .def_readwrite("compute_relative_pose",
@@ -103,7 +109,7 @@ void BindTwoViewGeometryEstimator(py::module& m) {
           }
         }
         return EstimateTwoViewGeometry(
-            camera1, points1, camera2, points2, matches, options);
+            camera1, points1, camera2, points2, std::move(matches), options);
       },
       "camera1"_a,
       "points1"_a,
