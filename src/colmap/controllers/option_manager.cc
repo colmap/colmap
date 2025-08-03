@@ -327,9 +327,10 @@ void OptionManager::AddMatchingOptions() {
 
   AddAndRegisterDefaultOption("TwoViewGeometry.min_num_inliers",
                               &two_view_geometry->min_num_inliers);
-  AddAndRegisterDefaultOption("TwoViewGeometry.homography_usage",
-                              &two_view_geometry->homography_usage,
-                              "{0 = AUTO, 1 = FORCE, 2 = DISABLE}");
+  AddAndRegisterDefaultOption(
+      "TwoViewGeometry.homography_usage",
+      reinterpret_cast<int*>(&two_view_geometry->homography_usage),
+      "{0 = AUTO, 1 = FORCE, 2 = DISABLE}");
   AddAndRegisterDefaultOption("TwoViewGeometry.multiple_models",
                               &two_view_geometry->multiple_models);
   AddAndRegisterDefaultOption("TwoViewGeometry.compute_relative_pose",

@@ -152,8 +152,8 @@ TwoViewGeometry EstimateUncalibratedTwoViewGeometry(
     const FeatureMatches& matches,
     const TwoViewGeometryOptions& options) {
   THROW_CHECK(options.Check());
-  THROW_CHECK_NE(options.homography_usage,
-                 TwoViewGeometryOptions::HomographyUsage::FORCE);
+  THROW_CHECK(options.homography_usage !=
+              TwoViewGeometryOptions::HomographyUsage::FORCE);
 
   TwoViewGeometry geometry;
 
@@ -294,8 +294,6 @@ bool TwoViewGeometryOptions::Check() const {
   CHECK_OPTION_LE(min_E_F_inlier_ratio, 1);
   CHECK_OPTION_GE(max_H_inlier_ratio, 0);
   CHECK_OPTION_LE(max_H_inlier_ratio, 1);
-  CHECK_OPTION_GE(homography_usage, HomographyUsage::AUTO);
-  CHECK_OPTION_LE(homography_usage, HomographyUsage::DISABLE);
   CHECK_OPTION_GE(watermark_min_inlier_ratio, 0);
   CHECK_OPTION_LE(watermark_min_inlier_ratio, 1);
   CHECK_OPTION_GE(watermark_border_size, 0);
@@ -461,8 +459,8 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
     const FeatureMatches& matches,
     const TwoViewGeometryOptions& options) {
   THROW_CHECK(options.Check());
-  THROW_CHECK_NE(options.homography_usage,
-                 TwoViewGeometryOptions::HomographyUsage::FORCE);
+  THROW_CHECK(options.homography_usage !=
+              TwoViewGeometryOptions::HomographyUsage::FORCE);
 
   TwoViewGeometry geometry;
 
