@@ -176,8 +176,8 @@ bool DetectWatermarkMatches(const Camera& camera1,
                             const std::vector<char>& inlier_mask,
                             const TwoViewGeometryOptions& options);
 
-// Detect if inlier matches are caused by a watermark.
-// A watermark causes a pure translation in the boundaries of the images.
+// Remove matches that are caused by static content that has the same
+// position in both images.
 void FilterStationaryMatches(double max_error,
                              const std::vector<Eigen::Vector2d>& points1,
                              const std::vector<Eigen::Vector2d>& points2,
