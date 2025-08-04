@@ -421,19 +421,69 @@ void ParameterizeCameras(const BundleAdjustmentOptions& options,
   }
 }
 
-void FixGaugeWithTwoCamsFromWorld(const BundleAdjustmentOptions& options,
-                                  const BundleAdjustmentConfig& config,
-                                  const std::set<image_t>& image_ids,
-                                  Reconstruction& reconstruction,
-                                  ceres::Problem& problem) {
-  const size_t num_constant_images = std::count_if(
+struct FixedGaugeWithThreePoints {
+  // The number of fixed points for the Gauge.
+  Eigen::Index num_fixed_points = 0;
+  // The coordinates of the fixed points as columns.
+  Eigen::Matrix3d fixed_points = Eigen::Matrix3d::Zero();
+  bool MaybeAddFixedPoint(const Eigen::Vector3d& point) {
+    if (num_fixed_points >= 3) {
+      return false;
+    }
+    fixed_points.col(num_fixed_points) = point;
+    if (fixed_points.colPivHouseholderQr().rank() > num_fixed_points) {
+      ++num_fixed_points;
+      return true;
+    } else {
+      fixed_points.col(num_fixed_points).setZero();
+      return false;
+    }
+  }
+};
+
+void FixGaugeWithThreePoints(
+    const std::unordered_map<point3D_t, size_t>& point3D_num_observations,
+    Reconstruction& reconstruction,
+    ceres::Problem& problem) {
+  FixedGaugeWithThreePoints fixed_gauge;
+  for (const auto& [point3D_id, num_observations] : point3D_num_observations) {
+    if (fixed_gauge.num_fixed_points >= 3) {
+      break;
+    }
+
+    Point3D& point3D = reconstruction.Point3D(point3D_id);
+    if (!problem.IsParameterBlockConstant(point3D.xyz.data())) {
+      problem.SetParameterBlockConstant(point3D.xyz.data());
+    }
+
+    fixed_gauge.MaybeAddFixedPoint(point3D.xyz);
+  }
+
+  LOG_IF(WARNING, fixed_gauge.num_fixed_points < 3)
+      << "Failed to fix Gauge due to insufficient number of fixed points";
+}
+
+void FixGaugeWithTwoCamsFromWorld(
+    const BundleAdjustmentOptions& options,
+    const BundleAdjustmentConfig& config,
+    const std::set<image_t>& image_ids,
+    const std::unordered_map<point3D_t, size_t>& point3D_num_observations,
+    Reconstruction& reconstruction,
+    ceres::Problem& problem) {
+  // No need to fix the Gauge if all frames are constant.
+  if (!options.refine_rig_from_world) {
+    return;
+  }
+
+  // No need to fix the Gauge if two frames are already constant.
+  const size_t num_constant_frames = std::count_if(
       image_ids.begin(),
       image_ids.end(),
       [&config, &reconstruction](image_t image_id) {
         Image& image = reconstruction.Image(image_id);
         return config.HasConstantRigFromWorldPose(image.FrameId());
       });
-  if (num_constant_images >= 2) {
+  if (num_constant_frames >= 2) {
     return;
   }
 
@@ -462,10 +512,17 @@ void FixGaugeWithTwoCamsFromWorld(const BundleAdjustmentOptions& options,
     }
   }
 
-  // TODO(jsch): Once we support IMUs or other sensors, we have to
-  // fix the Gauge differently, as we are not guaranteed to find two
-  // images/cameras that are reference sensors in different frames.
-  THROW_CHECK(image1 != nullptr && image2 != nullptr);
+  // TODO(jsch): Notice that we could alternatively fall back to fixing the
+  // Gauge between two cameras in the same frame or in different frames. Since
+  // there are many different combinations to iterate through, we instead fall
+  // back to fixing the Gauge with three points for simplicity. Furthermore,
+  // once we support IMUs or other sensors, we should fix the Gauge differently.
+  if (image1 == nullptr || image2 == nullptr) {
+    LOG(WARNING) << "Failed to fix Gauge with two cameras. "
+                    "Falling back to fixing Gauge with three points.";
+    FixGaugeWithThreePoints(point3D_num_observations, reconstruction, problem);
+    return;
+  }
 
   Rigid3d& frame1_from_world = image1->FramePtr()->RigFromWorld();
   if (!config.HasConstantRigFromWorldPose(image1->FrameId())) {
@@ -553,52 +610,6 @@ void ParameterizeImages(const BundleAdjustmentOptions& options,
       }
     }
   }
-
-  if (config.FixedGauge() == BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD &&
-      options.refine_rig_from_world) {
-    FixGaugeWithTwoCamsFromWorld(
-        options, config, image_ids, reconstruction, problem);
-  }
-}
-
-struct FixedGaugeWithThreePoints {
-  // The number of fixed points for the Gauge.
-  Eigen::Index num_fixed_points = 0;
-  // The coordinates of the fixed points as columns.
-  Eigen::Matrix3d fixed_points = Eigen::Matrix3d::Zero();
-  bool MaybeAddPoint(const Eigen::Vector3d& point) {
-    if (num_fixed_points >= 3) {
-      return false;
-    }
-    fixed_points.col(num_fixed_points) = point;
-    if (fixed_points.colPivHouseholderQr().rank() > num_fixed_points) {
-      ++num_fixed_points;
-      return true;
-    } else {
-      fixed_points.col(num_fixed_points).setZero();
-      return false;
-    }
-  }
-};
-
-void FixGaugeWithThreePoints(
-    const std::unordered_map<point3D_t, size_t>& point3D_num_observations,
-    FixedGaugeWithThreePoints& fixed_gauge,
-    Reconstruction& reconstruction,
-    ceres::Problem& problem) {
-  for (const auto& [point3D_id, num_observations] : point3D_num_observations) {
-    Point3D& point3D = reconstruction.Point3D(point3D_id);
-    if (point3D.track.Length() == num_observations &&
-        fixed_gauge.MaybeAddPoint(point3D.xyz)) {
-      problem.SetParameterBlockConstant(point3D.xyz.data());
-      if (fixed_gauge.num_fixed_points >= 3) {
-        break;
-      }
-    }
-  }
-
-  LOG_IF(WARNING, fixed_gauge.num_fixed_points < 3)
-      << "Failed to fix Gauge due to insufficient number of fixed points";
 }
 
 void ParameterizePoints(
@@ -606,26 +617,16 @@ void ParameterizePoints(
     const std::unordered_map<point3D_t, size_t>& point3D_num_observations,
     Reconstruction& reconstruction,
     ceres::Problem& problem) {
-  FixedGaugeWithThreePoints fixed_gauge;
-
   for (const auto& [point3D_id, num_observations] : point3D_num_observations) {
     Point3D& point3D = reconstruction.Point3D(point3D_id);
     if (point3D.track.Length() > num_observations) {
       problem.SetParameterBlockConstant(point3D.xyz.data());
-      fixed_gauge.MaybeAddPoint(point3D.xyz);
     }
   }
 
   for (const point3D_t point3D_id : config.ConstantPoints()) {
     Point3D& point3D = reconstruction.Point3D(point3D_id);
     problem.SetParameterBlockConstant(point3D.xyz.data());
-    fixed_gauge.MaybeAddPoint(point3D.xyz);
-  }
-
-  if (config.FixedGauge() == BundleAdjustmentGauge::THREE_POINTS &&
-      fixed_gauge.num_fixed_points < 3) {
-    FixGaugeWithThreePoints(
-        point3D_num_observations, fixed_gauge, reconstruction, problem);
   }
 }
 
@@ -663,6 +664,25 @@ class DefaultBundleAdjuster : public BundleAdjuster {
         options_, config_, parameterized_image_ids_, reconstruction, *problem_);
     ParameterizePoints(
         config_, point3D_num_observations_, reconstruction, *problem_);
+
+    switch (config_.FixedGauge()) {
+      case BundleAdjustmentGauge::UNSPECIFIED:
+        break;
+      case BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD:
+        FixGaugeWithTwoCamsFromWorld(options,
+                                     config,
+                                     parameterized_image_ids_,
+                                     point3D_num_observations_,
+                                     reconstruction,
+                                     *problem_);
+        break;
+      case BundleAdjustmentGauge::THREE_POINTS:
+        FixGaugeWithThreePoints(
+            point3D_num_observations_, reconstruction, *problem_);
+        break;
+      default:
+        LOG(FATAL) << "Unknown BundleAdjustmentGauge";
+    }
   }
 
   ceres::Solver::Summary Solve() override {
@@ -816,8 +836,8 @@ class DefaultBundleAdjuster : public BundleAdjuster {
                          Reconstruction& reconstruction) {
     Point3D& point3D = reconstruction.Point3D(point3D_id);
 
-    // Is 3D point already fully contained in the problem? I.e. its entire track
-    // is contained in `variable_image_ids`, `constant_image_ids`,
+    // Is 3D point already fully contained in the problem? I.e. its entire
+    // track is contained in `variable_image_ids`, `constant_image_ids`,
     // `constant_x_image_ids`.
     if (point3D_num_observations_[point3D_id] == point3D.track.Length()) {
       return;
@@ -889,8 +909,8 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
 
     // Fix 7-DOFs of BA problem if not enough valid pose priors.
     if (use_prior_position) {
-      // Normalize the reconstruction to avoid any numerical instability but do
-      // not transform priors as they will be transformed when added to
+      // Normalize the reconstruction to avoid any numerical instability but
+      // do not transform priors as they will be transformed when added to
       // ceres::Problem.
       normalized_from_metric_ = reconstruction_.Normalize(/*fixed_scale=*/true);
     } else {

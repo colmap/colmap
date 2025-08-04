@@ -808,7 +808,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
 
   std::unique_ptr<BundleAdjuster> bundle_adjuster;
   if (!use_prior_position) {
-    ba_config.FixGauge(BundleAdjustmentGauge::THREE_POINTS);
+    ba_config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
     bundle_adjuster = CreateDefaultBundleAdjuster(
         std::move(custom_ba_options), ba_config, *reconstruction_);
   } else {
