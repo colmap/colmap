@@ -179,6 +179,12 @@ void BindReconstruction(py::module& m) {
            &Reconstruction::Transform,
            "new_from_old_world"_a,
            "Apply the 3D similarity transformation to all images and points.")
+      .def("revert_scale_changes",
+           &Reconstruction::RevertScaleChanges,
+           "database_cache"_a,
+           "Revert the scale changes from normalization to match the initial "
+           "reconstruction. Necessary to keep the reconstruction metric at "
+           "incremental mapping with fixed prior rig extrinsics.")
       .def("compute_centroid",
            &Reconstruction::ComputeCentroid,
            "min_percentile"_a = 0.0,
