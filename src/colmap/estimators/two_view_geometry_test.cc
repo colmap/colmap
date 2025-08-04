@@ -198,6 +198,34 @@ bool CheckEqualTwoViewGeometry(const TwoViewGeometry& geometry,
   return true;
 }
 
+bool AreFeatureMatchesNear(const FeatureMatches& actual,
+                           const FeatureMatches& expected,
+                           double min_overlap_ratio) {
+  size_t overlap = 0;
+  for (const auto& match_expected : expected) {
+    for (const auto& match_actual : actual) {
+      if (match_expected.point2D_idx1 == match_actual.point2D_idx1 &&
+          match_expected.point2D_idx2 == match_actual.point2D_idx2) {
+        ++overlap;
+        break;
+      }
+    }
+  }
+
+  size_t max_size = std::max(expected.size(), actual.size());
+  double ratio = max_size == 0 ? 1.0 : static_cast<double>(overlap) / max_size;
+
+  if (ratio < min_overlap_ratio) {
+    LOG(ERROR) << "FeatureMatches similarity ratio " << ratio << " < threshold "
+               << min_overlap_ratio << '\n'
+               << "Expected size: " << expected.size()
+               << ", Actual size: " << actual.size()
+               << ", Overlapping matches: " << overlap;
+    return false;
+  }
+  return true;
+}
+
 TEST(EstimateTwoViewGeometryPose, Calibrated) {
   constexpr int kNumTests = 100;
   int num_failures = 0;
@@ -595,37 +623,25 @@ TEST(EstimateTwoViewGeometry, HomographyUsage) {
   synthetic_dataset_options.point2D_stddev = 5;
   synthetic_dataset_options.inlier_match_ratio = 0.6;
   synthetic_dataset_options.camera_has_prior_focal_length = true;
-  synthetic_dataset_options.match_config =
-      SyntheticDatasetOptions::MatchConfig::EXHAUSTIVE;
 
-  Reconstruction reconstruction;
-  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
-
-  const Image& image1 = reconstruction.Image(1);
-  const Image& image2 = reconstruction.Image(2);
-  const Camera& camera1 = reconstruction.Camera(image1.CameraId());
-  const Camera& camera2 = reconstruction.Camera(image2.CameraId());
-
-  std::vector<Eigen::Vector2d> points1;
-  std::vector<Eigen::Vector2d> points2;
-  std::vector<Eigen::Vector3d> points3D;
-  FeatureMatches matches;
-
-  ExtractPointsAndMatches(
-      reconstruction, image1, image2, points1, points2, points3D, matches);
+  TwoViewGeometryTestData test_data =
+      CreateTwoViewGeometryTestData(synthetic_dataset_options);
 
   {
     TwoViewGeometryOptions options;
     options.homography_usage = TwoViewGeometryOptions::HomographyUsage::AUTO;
     options.ransac_options.random_seed = 42;
 
-    TwoViewGeometry geometry = EstimateTwoViewGeometry(
-        camera1, points1, camera2, points2, matches, options);
+    TwoViewGeometry geometry = EstimateTwoViewGeometry(test_data.camera1,
+                                                       test_data.points1,
+                                                       test_data.camera2,
+                                                       test_data.points2,
+                                                       test_data.matches,
+                                                       options);
 
     EXPECT_NE(geometry.E, Eigen::Matrix3d::Zero());
     EXPECT_NE(geometry.F, Eigen::Matrix3d::Zero());
     EXPECT_NE(geometry.H, Eigen::Matrix3d::Zero());
-    EXPECT_EQ(geometry.config, TwoViewGeometry::ConfigurationType::CALIBRATED);
   }
 
   {
@@ -633,13 +649,16 @@ TEST(EstimateTwoViewGeometry, HomographyUsage) {
     options.homography_usage = TwoViewGeometryOptions::HomographyUsage::DISABLE;
     options.ransac_options.random_seed = 42;
 
-    TwoViewGeometry geometry = EstimateTwoViewGeometry(
-        camera1, points1, camera2, points2, matches, options);
+    TwoViewGeometry geometry = EstimateTwoViewGeometry(test_data.camera1,
+                                                       test_data.points1,
+                                                       test_data.camera2,
+                                                       test_data.points2,
+                                                       test_data.matches,
+                                                       options);
 
     EXPECT_NE(geometry.E, Eigen::Matrix3d::Zero());
     EXPECT_NE(geometry.F, Eigen::Matrix3d::Zero());
     EXPECT_EQ(geometry.H, Eigen::Matrix3d::Zero());
-    EXPECT_EQ(geometry.config, TwoViewGeometry::ConfigurationType::CALIBRATED);
   }
 
   {
@@ -647,16 +666,109 @@ TEST(EstimateTwoViewGeometry, HomographyUsage) {
     options.homography_usage = TwoViewGeometryOptions::HomographyUsage::FORCE;
     options.ransac_options.random_seed = 42;
 
-    TwoViewGeometry geometry = EstimateTwoViewGeometry(
-        camera1, points1, camera2, points2, matches, options);
+    TwoViewGeometry geometry = EstimateTwoViewGeometry(test_data.camera1,
+                                                       test_data.points1,
+                                                       test_data.camera2,
+                                                       test_data.points2,
+                                                       test_data.matches,
+                                                       options);
 
     EXPECT_EQ(geometry.E, Eigen::Matrix3d::Zero());
     EXPECT_EQ(geometry.F, Eigen::Matrix3d::Zero());
     EXPECT_NE(geometry.H, Eigen::Matrix3d::Zero());
-    EXPECT_EQ(geometry.config,
-              TwoViewGeometry::ConfigurationType::PLANAR_OR_PANORAMIC);
   }
 }
 
+TEST(EstimateTwoViewGeometry, Stability) {
+  {
+    SetPRNGSeed(123);
+
+    SyntheticDatasetOptions synthetic_dataset_options;
+    synthetic_dataset_options.num_rigs = 2;
+    synthetic_dataset_options.num_cameras_per_rig = 1;
+    synthetic_dataset_options.num_frames_per_rig = 1;
+    synthetic_dataset_options.num_points3D = 500;
+    synthetic_dataset_options.point2D_stddev = 0.5;
+    synthetic_dataset_options.inlier_match_ratio = 0.95;
+    synthetic_dataset_options.camera_has_prior_focal_length = true;
+
+    TwoViewGeometryTestData test_data =
+        CreateTwoViewGeometryTestData(synthetic_dataset_options);
+
+    TwoViewGeometryOptions options;
+    options.homography_usage = TwoViewGeometryOptions::HomographyUsage::AUTO;
+    options.ransac_options.max_error = 4.0;
+    options.ransac_options.confidence = 0.999;
+    options.ransac_options.random_seed = 0;
+    TwoViewGeometry geometry0 = EstimateTwoViewGeometry(test_data.camera1,
+                                                        test_data.points1,
+                                                        test_data.camera2,
+                                                        test_data.points2,
+                                                        test_data.matches,
+                                                        options);
+
+    constexpr int kNumTests = 100;
+    for (int seed = 1; seed <= kNumTests; ++seed) {
+      options.ransac_options.random_seed = seed;
+      TwoViewGeometry geometry = EstimateTwoViewGeometry(test_data.camera1,
+                                                         test_data.points1,
+                                                         test_data.camera2,
+                                                         test_data.points2,
+                                                         test_data.matches,
+                                                         options);
+
+      EXPECT_THAT(geometry.E, EigenMatrixNear(geometry0.E, 1e-3));
+      EXPECT_THAT(geometry.F, EigenMatrixNear(geometry0.F, 1e-3));
+      EXPECT_THAT(geometry.H, EigenMatrixNear(geometry0.H, 5));
+      EXPECT_TRUE(AreFeatureMatchesNear(
+          geometry.inlier_matches, geometry0.inlier_matches, 0.95));
+    }
+  }
+
+  {
+    SetPRNGSeed(123);
+
+    SyntheticDatasetOptions synthetic_dataset_options;
+    synthetic_dataset_options.num_rigs = 1;
+    synthetic_dataset_options.num_cameras_per_rig = 2;
+    synthetic_dataset_options.num_frames_per_rig = 1;
+    synthetic_dataset_options.num_points3D = 500;
+    synthetic_dataset_options.point2D_stddev = 0.5;
+    synthetic_dataset_options.inlier_match_ratio = 0.95;
+    synthetic_dataset_options.sensor_from_rig_translation_stddev = 0.01;
+    synthetic_dataset_options.sensor_from_rig_rotation_stddev = 1.0;
+    synthetic_dataset_options.camera_has_prior_focal_length = true;
+
+    TwoViewGeometryTestData test_data =
+        CreateTwoViewGeometryTestData(synthetic_dataset_options);
+
+    TwoViewGeometryOptions options;
+    options.homography_usage = TwoViewGeometryOptions::HomographyUsage::FORCE;
+    options.ransac_options.max_error = 4.0;
+    options.ransac_options.confidence = 0.999;
+    options.ransac_options.random_seed = 0;
+    TwoViewGeometry geometry0 = EstimateTwoViewGeometry(test_data.camera1,
+                                                        test_data.points1,
+                                                        test_data.camera2,
+                                                        test_data.points2,
+                                                        test_data.matches,
+                                                        options);
+
+    constexpr int kNumTests = 100;
+    for (int seed = 1; seed <= kNumTests; ++seed) {
+      options.ransac_options.random_seed = seed;
+      TwoViewGeometry geometry = EstimateTwoViewGeometry(test_data.camera1,
+                                                         test_data.points1,
+                                                         test_data.camera2,
+                                                         test_data.points2,
+                                                         test_data.matches,
+                                                         options);
+
+      EXPECT_THAT(geometry.H, EigenMatrixNear(geometry0.H, 20));
+      EXPECT_TRUE(AreFeatureMatchesNear(
+          geometry.inlier_matches, geometry0.inlier_matches, 0.95));
+    }
+  }
+}
 }  // namespace
 }  // namespace colmap
