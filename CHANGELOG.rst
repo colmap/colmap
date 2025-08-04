@@ -2,6 +2,15 @@ Changelog
 =========
 
 --------------------------
+COLMAP 3.12.4 (08/04/2025)
+--------------------------
+
+Bug Fixes
+---------
+* Fix global bundle adjustment performance regression due
+  to changing gauge fixing mechanism by fixing points vs. cameras.
+
+--------------------------
 COLMAP 3.12.3 (07/16/2025)
 --------------------------
 
