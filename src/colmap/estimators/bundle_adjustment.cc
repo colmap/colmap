@@ -674,8 +674,8 @@ class DefaultBundleAdjuster : public BundleAdjuster {
       case BundleAdjustmentGauge::UNSPECIFIED:
         break;
       case BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD:
-        FixGaugeWithTwoCamsFromWorld(options,
-                                     config,
+        FixGaugeWithTwoCamsFromWorld(options_,
+                                     config_,
                                      parameterized_image_ids_,
                                      point3D_num_observations_,
                                      reconstruction,
