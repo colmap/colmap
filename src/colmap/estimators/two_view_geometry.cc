@@ -693,8 +693,6 @@ bool DetectWatermarkMatches(const Camera& camera1,
   return inlier_ratio >= options.watermark_min_inlier_ratio;
 }
 
-// Detect if inlier matches are caused by a watermark.
-// A watermark causes a pure translation in the boundaries of the images.
 void FilterStationaryMatches(double max_error,
                              const std::vector<Eigen::Vector2d>& points1,
                              const std::vector<Eigen::Vector2d>& points2,
