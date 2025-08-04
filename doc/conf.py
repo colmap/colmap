@@ -75,7 +75,7 @@ copyright = "2025, Johannes L. Schoenberger"
 # built documents.
 #
 # The short MAJOR.MINOR.PATCH version.
-version = "3.12.3" + " | " + get_git_revision()
+version = "3.12.4" + " | " + get_git_revision()
 # The full version, including alpha/beta/rc tags.
 release = version
 
@@ -342,9 +342,7 @@ def process_doc(app, what, name, obj, options, lines):
 def process_sig(app, what, name, obj, options, signature, return_annotation):
     signature = signature.replace("pycolmap._core", "pycolmap")
     if isinstance(return_annotation, str):
-        return_annotation = return_annotation.replace(
-            "pycolmap._core", "pycolmap"
-        )
+        return_annotation = return_annotation.replace("pycolmap._core", "pycolmap")
     return signature, return_annotation
 
 
