@@ -487,17 +487,22 @@ void FixGaugeWithTwoCamsFromWorld(
     return;
   }
 
+  auto IsParameterizedRefSensor = [&problem](const Image& image) {
+    return image.FramePtr()->RigPtr()->IsRefSensor(
+               image.CameraPtr()->SensorId()) &&
+           problem.HasParameterBlock(
+               image.FramePtr()->RigFromWorld().translation.data());
+  };
+
   Image* image1 = nullptr;
   Image* image2 = nullptr;
   Eigen::Index frame2_from_world_fixed_dim = 0;
   for (const image_t image_id : image_ids) {
     Image& image = reconstruction.Image(image_id);
-    if (image1 == nullptr && image.FramePtr()->RigPtr()->IsRefSensor(
-                                 image.CameraPtr()->SensorId())) {
+    if (image1 == nullptr && IsParameterizedRefSensor(image)) {
       image1 = &image;
     } else if (image1 != nullptr && image1->FrameId() != image.FrameId() &&
-               image.FramePtr()->RigPtr()->IsRefSensor(
-                   image.CameraPtr()->SensorId())) {
+               IsParameterizedRefSensor(image)) {
       // Check if one of the baseline dimensions is large enough and
       // choose it as the fixed coordinate. If there is no such pair of
       // frames, then the scale is not constrained well.
@@ -1024,7 +1029,8 @@ class PosePriorBundleAdjuster : public BundleAdjuster {
         LOG(WARNING) << "No pose priors with valid covariance found.";
         return false;
       }
-      // Set max error at the 3 sigma confidence interval. Assumes no outliers.
+      // Set max error at the 3 sigma confidence interval. Assumes no
+      // outliers.
       ransac_options.max_error = 3 * max_stddev_sum / num_valid_covs;
     }
 
