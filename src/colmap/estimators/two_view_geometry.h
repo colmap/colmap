@@ -176,7 +176,7 @@ bool DetectWatermarkMatches(const Camera& camera1,
                             const std::vector<char>& inlier_mask,
                             const TwoViewGeometryOptions& options);
 
-// Remove matches that are caused by a static watermark, which has the same
+// Remove matches that are caused by static content that has the same
 // position in both images.
 void FilterStationaryMatches(double max_error,
                              const std::vector<Eigen::Vector2d>& points1,
