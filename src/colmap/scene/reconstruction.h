@@ -200,6 +200,10 @@ class Reconstruction {
   // Apply the 3D similarity transformation to all images and points.
   void Transform(const Sim3d& new_from_old_world);
 
+  // Reapply the scale changes for all the transformations applied to the
+  // initial reconstruction.
+  void RevertScaleChanges();
+
   // Creates a cropped reconstruction using the input bounds as corner points
   // of the bounding box containing the included 3D points of the new
   // reconstruction. Only the cameras and images of the included points are
@@ -286,6 +290,11 @@ class Reconstruction {
 
   // Total number of added 3D points, used to generate unique identifiers.
   point3D_t max_point3D_id_;
+
+  // Changed scale with respect to the initial reconstruction. Necessary for
+  // RevertScaleChanges() to keep the reconstruction metric for incremental
+  // mapper with prior rig extrinsics.
+  double relative_scale_ = 1;
 };
 
 std::ostream& operator<<(std::ostream& stream,

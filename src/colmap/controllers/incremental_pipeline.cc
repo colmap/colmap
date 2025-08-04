@@ -538,6 +538,9 @@ void IncrementalPipeline::Reconstruct(
         reconstruction->UpdatePoint3DErrors();
         LOG(INFO) << "Keeping reconstruction due to interrupt";
         mapper.EndReconstruction(/*discard=*/false);
+        if (!options_->ba_refine_sensor_from_rig) {
+          reconstruction->RevertScaleChanges();
+        }
         return;
       }
 
@@ -582,6 +585,9 @@ void IncrementalPipeline::Reconstruct(
           reconstruction->UpdatePoint3DErrors();
           LOG(INFO) << "Keeping successful reconstruction";
           mapper.EndReconstruction(/*discard=*/false);
+          if (!options_->ba_refine_sensor_from_rig) {
+            reconstruction->RevertScaleChanges();
+          }
         }
 
         Callback(LAST_IMAGE_REG_CALLBACK);

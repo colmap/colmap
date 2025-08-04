@@ -522,6 +522,13 @@ void Reconstruction::Transform(const Sim3d& new_from_old_world) {
   for (auto& point3D : points3D_) {
     point3D.second.xyz = new_from_old_world * point3D.second.xyz;
   }
+  relative_scale_ *= new_from_old_world.scale;
+}
+
+void Reconstruction::RevertScaleChanges() {
+  Sim3d new_from_old_world;
+  new_from_old_world.scale = 1.0 / relative_scale_;
+  Transform(new_from_old_world);
 }
 
 Reconstruction Reconstruction::Crop(const Eigen::AlignedBox3d& bbox) const {
