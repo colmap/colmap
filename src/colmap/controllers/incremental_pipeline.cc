@@ -539,7 +539,7 @@ void IncrementalPipeline::Reconstruct(
         LOG(INFO) << "Keeping reconstruction due to interrupt";
         mapper.EndReconstruction(/*discard=*/false);
         if (!options_->ba_refine_sensor_from_rig) {
-          reconstruction->RevertScaleChanges();
+          reconstruction->RevertScaleChanges(*database_cache_);
         }
         return;
       }
@@ -586,7 +586,7 @@ void IncrementalPipeline::Reconstruct(
           LOG(INFO) << "Keeping successful reconstruction";
           mapper.EndReconstruction(/*discard=*/false);
           if (!options_->ba_refine_sensor_from_rig) {
-            reconstruction->RevertScaleChanges();
+            reconstruction->RevertScaleChanges(*database_cache_);
           }
         }
 
