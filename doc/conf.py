@@ -342,7 +342,9 @@ def process_doc(app, what, name, obj, options, lines):
 def process_sig(app, what, name, obj, options, signature, return_annotation):
     signature = signature.replace("pycolmap._core", "pycolmap")
     if isinstance(return_annotation, str):
-        return_annotation = return_annotation.replace("pycolmap._core", "pycolmap")
+        return_annotation = return_annotation.replace(
+            "pycolmap._core", "pycolmap"
+        )
     return signature, return_annotation
 
 
