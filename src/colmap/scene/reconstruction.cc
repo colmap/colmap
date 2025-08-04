@@ -546,7 +546,7 @@ void Reconstruction::RevertScaleChanges(const DatabaseCache& database_cache) {
       ++scale_count;
     }
   }
-  if (scale_sum > 0) {
+  if (scale_count > 0) {
     double scale = scale_sum / scale_count;
     Sim3d new_from_old_world;
     new_from_old_world.scale = 1.0 / scale;
