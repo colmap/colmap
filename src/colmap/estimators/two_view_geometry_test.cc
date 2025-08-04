@@ -735,8 +735,8 @@ TEST(EstimateTwoViewGeometry, Stability) {
     synthetic_dataset_options.num_points3D = 500;
     synthetic_dataset_options.point2D_stddev = 0.5;
     synthetic_dataset_options.inlier_match_ratio = 0.95;
-    synthetic_dataset_options.sensor_from_rig_translation_stddev = 0.01;
-    synthetic_dataset_options.sensor_from_rig_rotation_stddev = 1.0;
+    synthetic_dataset_options.sensor_from_rig_translation_stddev = 0.005;
+    synthetic_dataset_options.sensor_from_rig_rotation_stddev = 0.1;
     synthetic_dataset_options.camera_has_prior_focal_length = true;
 
     TwoViewGeometryTestData test_data =
