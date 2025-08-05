@@ -974,6 +974,9 @@ TEST(DefaultBundleAdjuster, FixGaugeWithTwoCamsFromWorldFallback) {
   config.AddImage(1);
   config.AddImage(2);
 
+  // The current implementation needs two reference cameras in different frames
+  // to fix the gauge. If there are none, it falls back to fixing the gauge with
+  // three points.
   config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
   const auto summary =
       CreateDefaultBundleAdjuster(options, config, reconstruction)->Solve();
