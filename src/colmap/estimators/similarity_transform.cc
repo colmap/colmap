@@ -106,7 +106,9 @@ EstimateSim3dRobust(const std::vector<Eigen::Vector3d>& src,
   Eigen::Matrix3x4d tgt_from_src_mat = Eigen::Matrix3x4d::Zero();
   auto report =
       EstimateRigidOrSim3dRobust<true>(src, tgt, options, tgt_from_src_mat);
-  tgt_from_src = Sim3d::FromMatrix(tgt_from_src_mat);
+  if (report.sucess) {
+    tgt_from_src = Sim3d::FromMatrix(tgt_from_src_mat);
+  }
   return report;
 }
 

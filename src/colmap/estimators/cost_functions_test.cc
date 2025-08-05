@@ -395,10 +395,11 @@ TEST(Point3DAlignmentCostFunctor, Nominal) {
   std::unique_ptr<ceres::CostFunction> cost_function(
       Point3DAlignmentCostFunctor::Create(point_in_b_prior));
   Eigen::Vector3d point(0., 0., 0.);
+  double log_scale = std::log(tform.scale);
   const double* parameters[4] = {point.data(),
                                  tform.rotation.coeffs().data(),
                                  tform.translation.data(),
-                                 &tform.scale};
+                                 &log_scale};
   double residuals[3];
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
 
