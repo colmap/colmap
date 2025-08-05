@@ -298,7 +298,6 @@ TEST(ObservationManager, NumVisiblePoints3D) {
   image.SetPoints2D(std::vector<Eigen::Vector2d>(10));
   reconstruction.AddImage(image);
   image.SetImageId(kImageId2);
-  frame.AddDataId(image.DataId());
   reconstruction.AddImage(image);
   auto correspondence_graph = std::make_shared<CorrespondenceGraph>();
   correspondence_graph->AddImage(kImageId1, 10);
