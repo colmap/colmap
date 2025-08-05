@@ -254,7 +254,7 @@ void Reconstruction::AddImage(class Image image) {
     image.SetFramePtr(&frame);
   }
   if (!frame.HasDataId(image.DataId())) {
-    LOG(FATAL_THROW) << "image " << image.ImageId()
+    LOG(FATAL_THROW) << "Image " << image.ImageId()
                      << " does not exist in frame " << frame.FrameId();
   }
   const image_t image_id = image.ImageId();
