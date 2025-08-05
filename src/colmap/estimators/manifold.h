@@ -73,18 +73,6 @@ inline void SetSphereManifold(ceres::Problem* problem, double* params) {
 #endif
 }
 
-template <int size>
-inline void SetPositiveExponentialManifold(ceres::Problem* problem,
-                                           double* params) {
-#if CERES_VERSION_MAJOR >= 3 || \
-    (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 1)
-  problem->SetManifold(params, new PositiveExponentialManifold<size>);
-#else
-  problem->SetParameterization(params,
-                               new PositiveExponentialParameterization(size));
-#endif
-}
-
 inline int ParameterBlockTangentSize(const ceres::Problem& problem,
                                      const double* param) {
 #if CERES_VERSION_MAJOR >= 3 || \
