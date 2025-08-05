@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from ._core import *  # noqa F403
 
 __all__ = import_module_symbols(
-    globals(), _core, exclude={"cost_functions", "manifold"}
+    globals(), _core, exclude={"cost_functions"}
 )
 __all__.extend(["__version__", "__ceres_version__"])
 
