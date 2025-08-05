@@ -68,7 +68,7 @@ void WriteSnapshot(const Reconstruction& reconstruction,
           .count();
   // Write reconstruction to unique path with current timestamp.
   const std::string path =
-      JoinPaths(snapshot_path, StringPrintf("%010d", timestamp));
+      JoinPaths(snapshot_path, StringPrintf("%010zu", timestamp));
   CreateDirIfNotExists(path);
   VLOG(1) << "=> Writing to " << path;
   reconstruction.Write(path);
