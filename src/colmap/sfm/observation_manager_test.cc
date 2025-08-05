@@ -288,6 +288,8 @@ TEST(ObservationManager, NumVisiblePoints3D) {
   Frame frame;
   frame.SetFrameId(1);
   frame.SetRigId(rig.RigId());
+  frame.AddDataId(data_t(camera.SensorId(), kImageId1));
+  frame.AddDataId(data_t(camera.SensorId(), kImageId2));
   reconstruction.AddFrame(frame);
   Image image;
   image.SetImageId(kImageId1);
@@ -296,6 +298,7 @@ TEST(ObservationManager, NumVisiblePoints3D) {
   image.SetPoints2D(std::vector<Eigen::Vector2d>(10));
   reconstruction.AddImage(image);
   image.SetImageId(kImageId2);
+  frame.AddDataId(image.DataId());
   reconstruction.AddImage(image);
   auto correspondence_graph = std::make_shared<CorrespondenceGraph>();
   correspondence_graph->AddImage(kImageId1, 10);
@@ -343,6 +346,8 @@ TEST(ObservationManager, Point3DVisibilityScore) {
   Frame frame;
   frame.SetFrameId(1);
   frame.SetRigId(rig.RigId());
+  frame.AddDataId(data_t(camera.SensorId(), kImageId1));
+  frame.AddDataId(data_t(camera.SensorId(), kImageId2));
   reconstruction.AddFrame(frame);
   Image image;
   image.SetImageId(kImageId1);
