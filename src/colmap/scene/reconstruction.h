@@ -200,11 +200,6 @@ class Reconstruction {
   // Apply the 3D similarity transformation to all images and points.
   void Transform(const Sim3d& new_from_old_world);
 
-  // Revert the scale changes from normalization to match the initial
-  // reconstruction. Necessary to keep the reconstruction metric at incremental
-  // mapping with fixed prior rig extrinsics.
-  void RevertScaleChanges(const DatabaseCache& database_cache);
-
   // Creates a cropped reconstruction using the input bounds as corner points
   // of the bounding box containing the included 3D points of the new
   // reconstruction. Only the cameras and images of the included points are

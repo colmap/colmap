@@ -29,6 +29,7 @@
 
 #include "colmap/controllers/incremental_pipeline.h"
 
+#include "colmap/estimators/alignment.h"
 #include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
@@ -539,7 +540,8 @@ void IncrementalPipeline::Reconstruct(
         LOG(INFO) << "Keeping reconstruction due to interrupt";
         mapper.EndReconstruction(/*discard=*/false);
         if (!options_->ba_refine_sensor_from_rig) {
-          reconstruction->RevertScaleChanges(*database_cache_);
+          AlignReconstructionToOrigRigScales(database_cache_->Rigs(),
+                                             reconstruction.get());
         }
         return;
       }
@@ -586,7 +588,8 @@ void IncrementalPipeline::Reconstruct(
           LOG(INFO) << "Keeping successful reconstruction";
           mapper.EndReconstruction(/*discard=*/false);
           if (!options_->ba_refine_sensor_from_rig) {
-            reconstruction->RevertScaleChanges(*database_cache_);
+            AlignReconstructionToOrigRigScales(database_cache_->Rigs(),
+                                               reconstruction.get());
           }
         }
 
