@@ -446,23 +446,39 @@ void FixGaugeWithThreePoints(
     Reconstruction& reconstruction,
     ceres::Problem& problem) {
   FixedGaugeWithThreePoints fixed_gauge;
-  for (const auto& [point3D_id, num_observations] : point3D_num_observations) {
-    if (fixed_gauge.num_fixed_points >= 3) {
-      break;
-    }
 
+  // First check if we already fixed enough points in the problem.
+  for (const auto& [point3D_id, num_observations] : point3D_num_observations) {
+    const Point3D& point3D = reconstruction.Point3D(point3D_id);
+    if (problem.IsParameterBlockConstant(point3D.xyz.data()) &&
+        fixed_gauge.MaybeAddFixedPoint(point3D.xyz) &&
+        fixed_gauge.num_fixed_points >= 3) {
+      return;
+    }
+  }
+
+  // Otherwise, fix sufficient points in the problem.
+  for (const auto& [point3D_id, num_observations] : point3D_num_observations) {
     Point3D& point3D = reconstruction.Point3D(point3D_id);
     if (!problem.IsParameterBlockConstant(point3D.xyz.data())) {
       problem.SetParameterBlockConstant(point3D.xyz.data());
+      if (fixed_gauge.MaybeAddFixedPoint(point3D.xyz) &&
+          fixed_gauge.num_fixed_points >= 3) {
+        return;
+      }
     }
-
-    fixed_gauge.MaybeAddFixedPoint(point3D.xyz);
   }
 
-  LOG_IF(WARNING, fixed_gauge.num_fixed_points < 3)
-      << "Failed to fix Gauge due to insufficient number of fixed points";
+  LOG(WARNING)
+      << "Failed to fix Gauge due to insufficient number of fixed points: "
+      << fixed_gauge.num_fixed_points;
 }
 
+// Note that the following implementation does not handle all degenerate edge
+// cases well, e.g., where the selected two cameras are not well constrained
+// with respect to each other with shared observations. Furthermore, the
+// implementation could be more sophisticated for multi-camera rigs by selecting
+// camera pairs within a rig, etc.
 void FixGaugeWithTwoCamsFromWorld(
     const BundleAdjustmentOptions& options,
     const BundleAdjustmentConfig& config,
@@ -475,16 +491,22 @@ void FixGaugeWithTwoCamsFromWorld(
     return;
   }
 
-  // No need to fix the Gauge if two frames are already constant.
-  const size_t num_constant_frames = std::count_if(
-      image_ids.begin(),
-      image_ids.end(),
-      [&config, &reconstruction](image_t image_id) {
-        Image& image = reconstruction.Image(image_id);
-        return config.HasConstantRigFromWorldPose(image.FrameId());
-      });
-  if (num_constant_frames >= 2) {
-    return;
+  Image* image1 = nullptr;
+  Image* image2 = nullptr;
+
+  // First, search through the already fixed cameras in the problem.
+  for (const image_t image_id : image_ids) {
+    Image& image = reconstruction.Image(image_id);
+    if (image.FramePtr()->RigPtr()->IsRefSensor(
+            image.CameraPtr()->SensorId()) &&
+        config.HasConstantRigFromWorldPose(image.FrameId())) {
+      if (image1 == nullptr) {
+        image1 = &image;
+      } else if (image1 != nullptr && image1->FrameId() != image.FrameId()) {
+        // No need to fix the Gauge if two frames are already fixed.
+        return;
+      }
+    }
   }
 
   auto IsParameterizedRefSensor = [&problem](const Image& image) {
@@ -494,8 +516,7 @@ void FixGaugeWithTwoCamsFromWorld(
                image.FramePtr()->RigFromWorld().translation.data());
   };
 
-  Image* image1 = nullptr;
-  Image* image2 = nullptr;
+  // Otherwise, search through the variable cameras in the problem.
   Eigen::Index frame2_from_world_fixed_dim = 0;
   for (const image_t image_id : image_ids) {
     Image& image = reconstruction.Image(image_id);
@@ -841,10 +862,12 @@ class DefaultBundleAdjuster : public BundleAdjuster {
                          Reconstruction& reconstruction) {
     Point3D& point3D = reconstruction.Point3D(point3D_id);
 
+    size_t& num_observations = point3D_num_observations_[point3D_id];
+
     // Is 3D point already fully contained in the problem? I.e. its entire
     // track is contained in `variable_image_ids`, `constant_image_ids`,
     // `constant_x_image_ids`.
-    if (point3D_num_observations_[point3D_id] == point3D.track.Length()) {
+    if (num_observations == point3D.track.Length()) {
       return;
     }
 
@@ -854,7 +877,7 @@ class DefaultBundleAdjuster : public BundleAdjuster {
         continue;
       }
 
-      point3D_num_observations_[point3D_id] += 1;
+      num_observations += 1;
 
       Image& image = reconstruction.Image(track_el.image_id);
       Camera& camera = *image.CameraPtr();
